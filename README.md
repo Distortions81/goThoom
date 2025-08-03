@@ -1,6 +1,6 @@
 # ClanLord Client
 
-A minimal open source client for the Clan Lord MMORPG.
+A pre-alpha open source (MIT) client for the Clan Lord MMORPG.
 The repository contains:
 
 - `go_client/` – a cross-platform Go implementation.
