@@ -105,8 +105,8 @@ func loadAdditionalErrorNames() {
 
 func init() { loadAdditionalErrorNames() }
 
-var debug bool = true
-var logFile *os.File
+var debug bool
+var silent bool
 var ackFrame int32
 var resendFrame int32
 var commandNum uint32 = 1

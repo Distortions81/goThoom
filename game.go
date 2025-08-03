@@ -601,7 +601,7 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 	defer ticker.Stop()
 	for {
 		if err := sendPlayerInput(conn); err != nil {
-			fmt.Printf("send player input: %v\n", err)
+			logError("send player input: %v", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -614,7 +614,7 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 func udpReadLoop(ctx context.Context, conn net.Conn) {
 	for {
 		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-			fmt.Printf("udp deadline: %v\n", err)
+			logError("udp deadline: %v", err)
 			return
 		}
 		m, err := readUDPMessage(conn)
@@ -627,7 +627,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 					continue
 				}
 			}
-			fmt.Printf("udp read error: %v\n", err)
+			logError("udp read error: %v", err)
 			return
 		}
 		tag := binary.BigEndian.Uint16(m[:2])
@@ -638,7 +638,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 		if txt := decodeMessage(m); txt != "" {
 			addMessage("udpReadLoop: decodeMessage: " + txt)
 		} else {
-			fmt.Printf("udp msg tag %d len %d\n", tag, len(m))
+			logDebug("udp msg tag %d len %d", tag, len(m))
 		}
 	}
 }
@@ -647,7 +647,7 @@ func tcpReadLoop(ctx context.Context, conn net.Conn) {
 loop:
 	for {
 		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-			fmt.Printf("set read deadline: %v\n", err)
+			logError("set read deadline: %v", err)
 			break
 		}
 		m, err := readTCPMessage(conn)
@@ -660,7 +660,7 @@ loop:
 					continue
 				}
 			}
-			fmt.Printf("read error: %v\n", err)
+			logError("read error: %v", err)
 			break
 		}
 		tag := binary.BigEndian.Uint16(m[:2])
@@ -672,7 +672,7 @@ loop:
 			//fmt.Println(txt)
 			addMessage("tcpReadLoop: decodeMessage: " + txt)
 		} else {
-			fmt.Printf("msg tag %d len %d\n", tag, len(m))
+			logDebug("msg tag %d len %d", tag, len(m))
 		}
 		select {
 		case <-ctx.Done():

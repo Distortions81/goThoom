@@ -113,7 +113,7 @@ func autoUpdate(resp []byte, dataDir string) error {
 	}
 	base = strings.TrimRight(base, "/")
 	clientVer := binary.BigEndian.Uint32(resp[4:8])
-	fmt.Printf("Client version: %v\n", clientVer)
+	logDebug("Client version: %v", clientVer)
 	imgVer := binary.BigEndian.Uint32(resp[8:12])
 	sndVer := binary.BigEndian.Uint32(resp[12:16])
 	imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", base, imgVer>>8)
@@ -121,7 +121,7 @@ func autoUpdate(resp []byte, dataDir string) error {
 	imgPath := filepath.Join(dataDir, "CL_Images")
 	if err := downloadGZ(imgURL, imgPath); err != nil {
 		alt := fmt.Sprintf("%v/data/CL_Images.tgz", base)
-		fmt.Printf("download %v failed: %v; trying %v\n", imgURL, err, alt)
+		logError("download %v failed: %v; trying %v", imgURL, err, alt)
 		if err := downloadTGZ(alt, dataDir); err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func autoUpdate(resp []byte, dataDir string) error {
 	sndPath := filepath.Join(dataDir, "CL_Sounds")
 	if err := downloadGZ(sndURL, sndPath); err != nil {
 		alt := fmt.Sprintf("%v/data/CL_Sounds.tgz", base)
-		fmt.Printf("download %v failed: %v; trying %v\n", sndURL, err, alt)
+		logError("download %v failed: %v; trying %v", sndURL, err, alt)
 		if err := downloadTGZ(alt, dataDir); err != nil {
 			return err
 		}
