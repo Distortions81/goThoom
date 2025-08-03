@@ -587,7 +587,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func runGame(ctx context.Context) {
 	gameCtx = ctx
-	initUI()
+	//initUI()
 	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
 	ebiten.SetWindowTitle("Draw State")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)

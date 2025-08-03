@@ -131,13 +131,15 @@ func main() {
 		clImages.Denoise = true
 	}
 
-	if !noSplash {
-		addMessage("Waiting for login...")
-		<-loginRequest
-		if name != "" {
-			nameProvided = true
+	/*
+		if !noSplash {
+			addMessage("Waiting for login...")
+			<-loginRequest
+			if name != "" {
+				nameProvided = true
+			}
 		}
-	}
+	*/
 
 	if clmovPath != "" {
 		frames, err := parseMovie(clmovPath, *clientVer)
