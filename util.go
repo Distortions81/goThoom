@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/aes"
 	"crypto/md5"
 	"encoding/binary"
 	"encoding/hex"
@@ -14,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"golang.org/x/crypto/twofish"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -257,21 +257,21 @@ func readKeyFileVersion(path string) (uint32, error) {
 
 func answerChallenge(password string, challenge []byte) ([]byte, error) {
 	key := md5.Sum([]byte(password))
-	block, err := aes.NewCipher(key[:])
+	block, err := twofish.NewCipher(key[:])
 	if err != nil {
 		return nil, err
 	}
-	if len(challenge)%aes.BlockSize != 0 {
+	if len(challenge)%block.BlockSize() != 0 {
 		return nil, fmt.Errorf("invalid challenge length")
 	}
 	plain := make([]byte, len(challenge))
-	for i := 0; i < len(challenge); i += aes.BlockSize {
-		block.Decrypt(plain[i:i+aes.BlockSize], challenge[i:i+aes.BlockSize])
+	for i := 0; i < len(challenge); i += block.BlockSize() {
+		block.Decrypt(plain[i:i+block.BlockSize()], challenge[i:i+block.BlockSize()])
 	}
 	h := md5.Sum(plain)
 	encoded := make([]byte, len(h))
-	for i := 0; i < len(h); i += aes.BlockSize {
-		block.Encrypt(encoded[i:i+aes.BlockSize], h[i:i+aes.BlockSize])
+	for i := 0; i < len(h); i += block.BlockSize() {
+		block.Encrypt(encoded[i:i+block.BlockSize()], h[i:i+block.BlockSize()])
 	}
 	return encoded, nil
 }
