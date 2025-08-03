@@ -1,0 +1,78 @@
+/*
+**	ClanLord.pch++		ClanLord
+**
+**	Copyright 2023 Delta Tao Software, Inc.
+** 
+**	Licensed under the Apache License, Version 2.0 (the "License");
+**	you may not use this file except in compliance with the License.
+**	You may obtain a copy of the License at
+** 
+**     https://www.apache.org/licenses/LICENSE-2.0
+** 
+**	Unless required by applicable law or agreed to in writing, software
+**	distributed under the License is distributed on an "AS IS" BASIS,
+**	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**	See the License for the specific language governing permissions and
+**	imitations under the License.
+*/
+
+#define DTS_OSX					1
+#define TARGET_API_MAC_CARBON	1
+#define TARGET_API_MAC_OSX		1
+#define USE_OPENGL
+	
+// We don't look at HGetState() and friends
+#define __MAC_OS_X_MEMORY_MANAGER_CLEAN__	1
+
+/*
+#ifdef CL_MULTILINGUAL_BUILD
+# define MULTILINGUAL			1
+# define ARINDAL				1
+#endif
+*/
+
+// include the dtslib2 prefix header
+#include "Prefix_mac.h"
+
+// <Debugging.h> wants these
+#if DEBUG_VERSION
+# define DEBUG	1
+#else
+# undef DEBUG
+# define NDEBUG		// disable <assert.h>
+#endif
+#define kComponentSignatureString	"ClanLord"
+#define COMPONENT_SIGNATURE 		'CLc\xC6'
+
+// We use (very deprecated) __Check(), e.g., but not the even-more-deprecated Check()
+#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES		0
+
+// roll in the Macintosh toolbox headers (except OpenTransport)
+#define __OPENTRANSPORT__
+#define __OPENTRANSPORTPROTOCOL__
+#define __OPENTRANSPORTPROVIDERS__
+#include <Carbon/Carbon.h>
+//#include <QuickTime/QuickTime.h>
+
+// c/c++ standard library
+#include <cctype>
+#include <climits>
+#include <cmath>
+#include <cstdarg>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <stdint.h>
+
+// dtslib2
+#include "DTS.h"
+
+// dtslib2 mac
+#include "AppleEvent_mac.h"
+#include "CarbonEvent_mac.h"
+#include "File_mac.h"
+#include "Shell_mac.h"
+#include "TextField_mac.h"
+#include "View_mac.h"
+#include "Window_mac.h"

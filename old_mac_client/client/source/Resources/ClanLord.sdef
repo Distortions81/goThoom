@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<dictionary>
+  <suite name="Clan Lord Suite" code="CLc∆" description="Events understood by the Clan Lord game">
+	<command name="do script" code="miscdosc" description="Send a text command to the Clan Lord game.">
+		<direct-parameter type="text" description="The command to send"/>
+	</command>
+	<command name="start recording" code="CLc∆Rec " description="Start or stop recording a Clan Lord Movie.">
+		<direct-parameter type="boolean" description="true to turn recording on"/>
+	</command>
+	<command name="connection status" code="CLc∆IsCn" description="query client’s connection state">
+		<result type="boolean" description="whether the client is logged in"/>
+	</command>
+	<command name="join game" code="CLc∆AuDL" description="Join the game, as after an auto-update, using saved character and account names."/>
+</suite>
+</dictionary>

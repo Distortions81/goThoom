@@ -1,0 +1,1089 @@
+// !$*UTF8*$!
+/*
+**	Copyright 2023 Delta Tao Software, Inc.
+** 
+**	Licensed under the Apache License, Version 2.0 (the "License");
+**	you may not use this file except in compliance with the License.
+**	You may obtain a copy of the License at
+** 
+**     https://www.apache.org/licenses/LICENSE-2.0
+** 
+**	Unless required by applicable law or agreed to in writing, software
+**	distributed under the License is distributed on an "AS IS" BASIS,
+**	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**	See the License for the specific language governing permissions and
+**	imitations under the License.
+*/
+
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8D0C4E920486CD37000505A6 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20286C33FDCF999611CA2CEA /* Carbon.framework */; };
+		D5094EDB1DEF3ED40062AE0A /* About.xib in Resources */ = {isa = PBXBuildFile; fileRef = D5094EDA1DEF3ED40062AE0A /* About.xib */; };
+		D5094EDE1DEF3F170062AE0A /* Advanced Prefs.xib in Resources */ = {isa = PBXBuildFile; fileRef = D5094EDD1DEF3F170062AE0A /* Advanced Prefs.xib */; };
+		D5094EE11DEF3F3D0062AE0A /* Change Password.xib in Resources */ = {isa = PBXBuildFile; fileRef = D5094EE01DEF3F3D0062AE0A /* Change Password.xib */; };
+		D5094EE41DEF3F700062AE0A /* Character Manager.xib in Resources */ = {isa = PBXBuildFile; fileRef = D5094EE31DEF3F700062AE0A /* Character Manager.xib */; };
+		D525092E158B56CD00C2B725 /* ClanLord.sdef in Resources */ = {isa = PBXBuildFile; fileRef = D525092D158B56CD00C2B725 /* ClanLord.sdef */; };
+		D525CF3E0FBC1B8700A014FE /* MsgWinStubs_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755FD0F9CA3C600D64DFF /* MsgWinStubs_cl.cp */; };
+		D5288EF41DDEC8850054312C /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5288EF31DDEC8850054312C /* AudioToolbox.framework */; };
+		D57382D61DEF3FA2003E8692 /* Character Transfer.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382D51DEF3FA2003E8692 /* Character Transfer.xib */; };
+		D57382DF1DEF400D003E8692 /* Choose Styles.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382DE1DEF400D003E8692 /* Choose Styles.xib */; };
+		D57382E11DEF4013003E8692 /* Create Character.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382E01DEF4013003E8692 /* Create Character.xib */; };
+		D57382E31DEF4019003E8692 /* DebugMenus.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382E21DEF4019003E8692 /* DebugMenus.xib */; };
+		D57382E51DEF4020003E8692 /* Delete Character.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382E41DEF4020003E8692 /* Delete Character.xib */; };
+		D57382E71DEF4026003E8692 /* DrawRate.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382E61DEF4026003E8692 /* DrawRate.xib */; };
+		D57382E91DEF402B003E8692 /* Enter Password.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382E81DEF402B003E8692 /* Enter Password.xib */; };
+		D57382F91DEF40C5003E8692 /* Find Text.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382F81DEF40C5003E8692 /* Find Text.xib */; };
+		D57382FB1DEF40CA003E8692 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382FA1DEF40CA003E8692 /* MainMenu.xib */; };
+		D57382FD1DEF40CD003E8692 /* Message.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57382FC1DEF40CD003E8692 /* Message.xib */; };
+		D57383011DEF40D6003E8692 /* Preferences.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57383001DEF40D6003E8692 /* Preferences.xib */; };
+		D57383031DEF40D6003E8692 /* Select Account.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57383021DEF40D6003E8692 /* Select Account.xib */; };
+		D57383051DEF40D6003E8692 /* Network Stats.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57383041DEF40D6003E8692 /* Network Stats.xib */; };
+		D57383071DEF40D6003E8692 /* Set Versions.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57383061DEF40D6003E8692 /* Set Versions.xib */; };
+		D57383091DEF40D6003E8692 /* Name Advice.xib in Resources */ = {isa = PBXBuildFile; fileRef = D57383081DEF40D6003E8692 /* Name Advice.xib */; };
+		D573830B1DEF40D6003E8692 /* Select Character.xib in Resources */ = {isa = PBXBuildFile; fileRef = D573830A1DEF40D6003E8692 /* Select Character.xib */; };
+		D57383101DEF4121003E8692 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = D573830F1DEF4121003E8692 /* Localizable.strings */; };
+		D573832D1DEF4309003E8692 /* About.png in Resources */ = {isa = PBXBuildFile; fileRef = D573832C1DEF4309003E8692 /* About.png */; };
+		D573A53E1F9C66C60016B740 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D573A53D1F9C66C60016B740 /* Security.framework */; };
+		D57AEE85205CA75E0056DD18 /* KeychainUtils.cp in Sources */ = {isa = PBXBuildFile; fileRef = D57AEE84205CA75E0056DD18 /* KeychainUtils.cp */; };
+		D5824C8E1DAD5FBA00676F02 /* TextStyles.plist in Resources */ = {isa = PBXBuildFile; fileRef = D5824C001DAD387000676F02 /* TextStyles.plist */; };
+		D59911AF1DDF9FC9006DCE13 /* MacroInstructions.txt in Resources */ = {isa = PBXBuildFile; fileRef = D5B755F60F9CA3C600D64DFF /* MacroInstructions.txt */; };
+		D5B755C00F9CA39600D64DFF /* ImageComp_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755BB0F9CA39600D64DFF /* ImageComp_cl.cp */; };
+		D5B755C10F9CA39600D64DFF /* MessageWin_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755BC0F9CA39600D64DFF /* MessageWin_cl.cp */; };
+		D5B755C20F9CA39600D64DFF /* Utilities_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755BE0F9CA39600D64DFF /* Utilities_cl.cp */; };
+		D5B756210F9CA3C600D64DFF /* Blitters_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755CB0F9CA3C600D64DFF /* Blitters_cl.cp */; };
+		D5B756220F9CA3C600D64DFF /* Cache_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755CC0F9CA3C600D64DFF /* Cache_cl.cp */; };
+		D5B756230F9CA3C600D64DFF /* ClanLord.icns in Resources */ = {isa = PBXBuildFile; fileRef = D5B755CF0F9CA3C600D64DFF /* ClanLord.icns */; };
+		D5B7562C0F9CA3C600D64DFF /* Comm_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755DB0F9CA3C600D64DFF /* Comm_cl.cp */; };
+		D5B7562D0F9CA3C600D64DFF /* Commands_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755DC0F9CA3C600D64DFF /* Commands_cl.cp */; };
+		D5B756300F9CA3C600D64DFF /* DownloadURL_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755E00F9CA3C600D64DFF /* DownloadURL_cl.cp */; };
+		D5B756330F9CA3C600D64DFF /* Frame_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755E60F9CA3C600D64DFF /* Frame_cl.cp */; };
+		D5B756340F9CA3C600D64DFF /* FriendsList_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755E80F9CA3C600D64DFF /* FriendsList_cl.cp */; };
+		D5B756350F9CA3C600D64DFF /* GameWin_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755E90F9CA3C600D64DFF /* GameWin_cl.cp */; };
+		D5B756360F9CA3C600D64DFF /* ImgSndData.icns in Resources */ = {isa = PBXBuildFile; fileRef = D5B755EA0F9CA3C600D64DFF /* ImgSndData.icns */; };
+		D5B756380F9CA3C600D64DFF /* Info_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755EC0F9CA3C600D64DFF /* Info_cl.cp */; };
+		D5B756390F9CA3C600D64DFF /* InvenWin_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755ED0F9CA3C600D64DFF /* InvenWin_cl.cp */; };
+		D5B7563A0F9CA3C600D64DFF /* LaunchURL_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755EE0F9CA3C600D64DFF /* LaunchURL_cl.cp */; };
+		D5B7563B0F9CA3C600D64DFF /* ListView_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755F00F9CA3C600D64DFF /* ListView_cl.cp */; };
+		D5B7563E0F9CA3C600D64DFF /* Macros_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755F70F9CA3C600D64DFF /* Macros_cl.cp */; };
+		D5B7563F0F9CA3C600D64DFF /* Main_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755F90F9CA3C600D64DFF /* Main_cl.cp */; };
+		D5B756400F9CA3C600D64DFF /* Movie.icns in Resources */ = {isa = PBXBuildFile; fileRef = D5B755FA0F9CA3C600D64DFF /* Movie.icns */; };
+		D5B756410F9CA3C600D64DFF /* Movie_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755FB0F9CA3C600D64DFF /* Movie_cl.cp */; };
+		D5B756440F9CA3C600D64DFF /* Night_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B755FF0F9CA3C600D64DFF /* Night_cl.cp */; };
+		D5B756470F9CA3C600D64DFF /* OpenGL_cl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D5B756030F9CA3C600D64DFF /* OpenGL_cl.cpp */; };
+		D5B756480F9CA3C600D64DFF /* Players.icns in Resources */ = {isa = PBXBuildFile; fileRef = D5B756060F9CA3C600D64DFF /* Players.icns */; };
+		D5B756490F9CA3C600D64DFF /* PlayersWin_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B756070F9CA3C600D64DFF /* PlayersWin_cl.cp */; };
+		D5B7564A0F9CA3C600D64DFF /* SendText_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7560A0F9CA3C600D64DFF /* SendText_cl.cp */; };
+		D5B7564B0F9CA3C600D64DFF /* Shadows_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7560C0F9CA3C600D64DFF /* Shadows_cl.cp */; };
+		D5B7564C0F9CA3C600D64DFF /* Sound_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7560E0F9CA3C600D64DFF /* Sound_cl.cp */; };
+		D5B7564D0F9CA3C600D64DFF /* Speech_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7560F0F9CA3C600D64DFF /* Speech_cl.cp */; };
+		D5B7564E0F9CA3C600D64DFF /* StyledTextField_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B756110F9CA3C600D64DFF /* StyledTextField_cl.cp */; };
+		D5B7564F0F9CA3C600D64DFF /* TextCmdList_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B756140F9CA3C600D64DFF /* TextCmdList_cl.cp */; };
+		D5B756500F9CA3C600D64DFF /* TextPrefs_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B756190F9CA3C600D64DFF /* TextPrefs_cl.cp */; };
+		D5B756510F9CA3C600D64DFF /* TextWin_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7561A0F9CA3C600D64DFF /* TextWin_cl.cp */; };
+		D5B756520F9CA3C600D64DFF /* TuneHelper_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7561C0F9CA3C600D64DFF /* TuneHelper_cl.cp */; };
+		D5B756540F9CA3C600D64DFF /* Update_cl.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5B7561F0F9CA3C600D64DFF /* Update_cl.cp */; };
+		D5B7565D0F9CA50900D64DFF /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B756590F9CA50900D64DFF /* AGL.framework */; };
+		D5B7565F0F9CA50900D64DFF /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B7565B0F9CA50900D64DFF /* OpenGL.framework */; };
+		D5B756600F9CA50900D64DFF /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B7565C0F9CA50900D64DFF /* QuickTime.framework */; };
+		D5B7566C0F9CA52E00D64DFF /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B7566A0F9CA52E00D64DFF /* libz.dylib */; };
+		D5B756810F9CA88F00D64DFF /* ClanLord.r in Rez */ = {isa = PBXBuildFile; fileRef = D5B755D10F9CA3C600D64DFF /* ClanLord.r */; };
+		D5B756830F9CA8B200D64DFF /* FileRefs.r in Rez */ = {isa = PBXBuildFile; fileRef = D5B755BA0F9CA39600D64DFF /* FileRefs.r */; };
+		D5B756850F9CA8DD00D64DFF /* OpenGL_cl.r in Rez */ = {isa = PBXBuildFile; fileRef = D5B756050F9CA3C600D64DFF /* OpenGL_cl.r */; };
+		D5B7695F0FA0169200A41B7F /* libdtslibX.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D5B756950F9CA91800D64DFF /* libdtslibX.a */; };
+		D5C79C4D1086A56800E9F856 /* CLLaunchHelper.c in Sources */ = {isa = PBXBuildFile; fileRef = D5C79C4C1086A56800E9F856 /* CLLaunchHelper.c */; };
+		D5C79C541086A70100E9F856 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D5C79C531086A70100E9F856 /* ApplicationServices.framework */; };
+		D5C79C681086A80200E9F856 /* CLLaunchHelper in CopyFiles */ = {isa = PBXBuildFile; fileRef = D5C79C451086A52500E9F856 /* CLLaunchHelper */; };
+		D5FCBA811FDEFE6A00192DF3 /* Set IP Address.xib in Resources */ = {isa = PBXBuildFile; fileRef = D5FCBA7F1FDEFE6A00192DF3 /* Set IP Address.xib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D5B756940F9CA91800D64DFF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D5B7566D0F9CA55500D64DFF /* dtslibX.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = D2AAC06F0554671400DB518D;
+			remoteInfo = dtslibX;
+		};
+		D5B758520F9F2CFD00D64DFF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D5B7566D0F9CA55500D64DFF /* dtslibX.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = D2AAC06E0554671400DB518D;
+			remoteInfo = dtslibX;
+		};
+		D5C79C501086A6B400E9F856 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 20286C28FDCF999611CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D5C79C441086A52500E9F856;
+			remoteInfo = CLLaunchHelper;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D5E2B20412D703AE00089ABA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				D5C79C681086A80200E9F856 /* CLLaunchHelper in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0867D6ABFE840B52C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		20286C33FDCF999611CA2CEA /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		5048396D09E3307300765E4B /* ClanLordXProj.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = ClanLordXProj.xcconfig; sourceTree = "<group>"; };
+		5048396E09E3307300765E4B /* ClanLordXTarget.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = ClanLordXTarget.xcconfig; sourceTree = "<group>"; };
+		508344B209E5C41E0093A071 /* ClanLord+.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ClanLord+.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D0C4E960486CD37000505A6 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = ../Info.plist; sourceTree = "<group>"; };
+		D500EB0824DDBAFB0020DCF1 /* DefaultBGPict.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = DefaultBGPict.png; sourceTree = "<group>"; };
+		D525092D158B56CD00C2B725 /* ClanLord.sdef */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.sdef; path = ClanLord.sdef; sourceTree = "<group>"; wrapsLines = 1; xcLanguageSpecificationIdentifier = xcode.lang.xml; };
+		D5288EC11DDEC3AD0054312C /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		D5288EC31DDEC3C00054312C /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/DebugMenus.xib; sourceTree = "<group>"; };
+		D5288EF31DDEC8850054312C /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+		D55E5F3D1DAEA1C300B99648 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/About.xib; sourceTree = "<group>"; };
+		D55E60AF1DB05D3D00B99648 /* GameTickler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GameTickler.h; sourceTree = "<group>"; };
+		D5617A4F1DE0D42A00F11EAD /* BrowserList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BrowserList.h; path = ../dtslib2/source/mac/BrowserList.h; sourceTree = SOURCE_ROOT; };
+		D573832C1DEF4309003E8692 /* About.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = About.png; sourceTree = "<group>"; };
+		D573A53D1F9C66C60016B740 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		D57AEE75205CA30C0056DD18 /* KeychainUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KeychainUtils.h; sourceTree = "<group>"; };
+		D57AEE84205CA75E0056DD18 /* KeychainUtils.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeychainUtils.cp; sourceTree = "<group>"; };
+		D5824C001DAD387000676F02 /* TextStyles.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = TextStyles.plist; path = English.lproj/TextStyles.plist; sourceTree = "<group>"; };
+		D5824CD51DAD6C9A00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Create Character.xib"; sourceTree = "<group>"; };
+		D5824CDA1DAD6F1F00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Select Character.xib"; sourceTree = "<group>"; };
+		D5824CDD1DAD6F7000676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Enter Password.xib"; sourceTree = "<group>"; };
+		D5824CE11DAD719300676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Change Password.xib"; sourceTree = "<group>"; };
+		D5824CE41DAD71C900676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Select Account.xib"; sourceTree = "<group>"; };
+		D5824CE81DAD728C00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Character Transfer.xib"; sourceTree = "<group>"; };
+		D5824CEC1DAD744F00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Find Text.xib"; sourceTree = "<group>"; };
+		D5824CEF1DAD774D00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Character Manager.xib"; sourceTree = "<group>"; };
+		D5824CF21DADABFB00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Advanced Prefs.xib"; sourceTree = "<group>"; };
+		D5824DEB1DADD2CF00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Choose Styles.xib"; sourceTree = "<group>"; };
+		D5824DEE1DADD2DF00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Delete Character.xib"; sourceTree = "<group>"; };
+		D5824DF11DADD2EE00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/DrawRate.xib; sourceTree = "<group>"; };
+		D5824DF41DADD2FA00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/Message.xib; sourceTree = "<group>"; };
+		D5824DF71DADD31100676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Name Advice.xib"; sourceTree = "<group>"; };
+		D5824DFB1DADD32300676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Network Stats.xib"; sourceTree = "<group>"; };
+		D5824DFE1DADD32D00676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/Preferences.xib; sourceTree = "<group>"; };
+		D5824E071DADD34900676F02 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Set Versions.xib"; sourceTree = "<group>"; };
+		D58F733218A0EE9600E45900 /* CommandIDs_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommandIDs_cl.h; sourceTree = "<group>"; };
+		D5B755B90F9CA39600D64DFF /* DatabaseTypes_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DatabaseTypes_cl.h; sourceTree = "<group>"; };
+		D5B755BA0F9CA39600D64DFF /* FileRefs.r */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.rez; path = FileRefs.r; sourceTree = "<group>"; };
+		D5B755BB0F9CA39600D64DFF /* ImageComp_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ImageComp_cl.cp; sourceTree = "<group>"; };
+		D5B755BC0F9CA39600D64DFF /* MessageWin_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MessageWin_cl.cp; sourceTree = "<group>"; };
+		D5B755BD0F9CA39600D64DFF /* Public_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Public_cl.h; sourceTree = "<group>"; };
+		D5B755BE0F9CA39600D64DFF /* Utilities_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Utilities_cl.cp; sourceTree = "<group>"; };
+		D5B755BF0F9CA39600D64DFF /* VersionNumber_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VersionNumber_cl.h; sourceTree = "<group>"; };
+		D5B755CB0F9CA3C600D64DFF /* Blitters_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Blitters_cl.cp; sourceTree = "<group>"; };
+		D5B755CC0F9CA3C600D64DFF /* Cache_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Cache_cl.cp; sourceTree = "<group>"; };
+		D5B755CE0F9CA3C600D64DFF /* ClanLord.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ClanLord.h; sourceTree = "<group>"; };
+		D5B755CF0F9CA3C600D64DFF /* ClanLord.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = ClanLord.icns; sourceTree = "<group>"; };
+		D5B755D00F9CA3C600D64DFF /* ClanLord.pch++ */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "ClanLord.pch++"; sourceTree = "<group>"; };
+		D5B755D10F9CA3C600D64DFF /* ClanLord.r */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.rez; path = ClanLord.r; sourceTree = "<group>"; };
+		D5B755D20F9CA3C600D64DFF /* ClanLord.rsrc */ = {isa = PBXFileReference; lastKnownFileType = archive.rsrc; path = ClanLord.rsrc; sourceTree = "<group>"; };
+		D5B755D60F9CA3C600D64DFF /* ClanLordGod.rsrc */ = {isa = PBXFileReference; lastKnownFileType = archive.rsrc; path = ClanLordGod.rsrc; sourceTree = "<group>"; };
+		D5B755DB0F9CA3C600D64DFF /* Comm_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Comm_cl.cp; sourceTree = "<group>"; };
+		D5B755DC0F9CA3C600D64DFF /* Commands_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Commands_cl.cp; sourceTree = "<group>"; };
+		D5B755DD0F9CA3C600D64DFF /* Commands_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Commands_cl.h; sourceTree = "<group>"; };
+		D5B755E00F9CA3C600D64DFF /* DownloadURL_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DownloadURL_cl.cp; sourceTree = "<group>"; };
+		D5B755E60F9CA3C600D64DFF /* Frame_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Frame_cl.cp; sourceTree = "<group>"; };
+		D5B755E70F9CA3C600D64DFF /* Frame_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Frame_cl.h; sourceTree = "<group>"; };
+		D5B755E80F9CA3C600D64DFF /* FriendsList_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FriendsList_cl.cp; sourceTree = "<group>"; };
+		D5B755E90F9CA3C600D64DFF /* GameWin_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GameWin_cl.cp; sourceTree = "<group>"; };
+		D5B755EA0F9CA3C600D64DFF /* ImgSndData.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = ImgSndData.icns; sourceTree = "<group>"; };
+		D5B755EC0F9CA3C600D64DFF /* Info_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Info_cl.cp; sourceTree = "<group>"; };
+		D5B755ED0F9CA3C600D64DFF /* InvenWin_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = InvenWin_cl.cp; sourceTree = "<group>"; };
+		D5B755EE0F9CA3C600D64DFF /* LaunchURL_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LaunchURL_cl.cp; sourceTree = "<group>"; };
+		D5B755EF0F9CA3C600D64DFF /* LaunchURL_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LaunchURL_cl.h; sourceTree = "<group>"; };
+		D5B755F00F9CA3C600D64DFF /* ListView_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ListView_cl.cp; sourceTree = "<group>"; };
+		D5B755F10F9CA3C600D64DFF /* ListView_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ListView_cl.h; sourceTree = "<group>"; };
+		D5B755F50F9CA3C600D64DFF /* MacroDefs_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MacroDefs_cl.h; sourceTree = "<group>"; };
+		D5B755F60F9CA3C600D64DFF /* MacroInstructions.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = MacroInstructions.txt; sourceTree = "<group>"; };
+		D5B755F70F9CA3C600D64DFF /* Macros_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Macros_cl.cp; sourceTree = "<group>"; };
+		D5B755F80F9CA3C600D64DFF /* Macros_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Macros_cl.h; sourceTree = "<group>"; };
+		D5B755F90F9CA3C600D64DFF /* Main_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Main_cl.cp; sourceTree = "<group>"; };
+		D5B755FA0F9CA3C600D64DFF /* Movie.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Movie.icns; sourceTree = "<group>"; };
+		D5B755FB0F9CA3C600D64DFF /* Movie_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Movie_cl.cp; sourceTree = "<group>"; };
+		D5B755FC0F9CA3C600D64DFF /* Movie_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Movie_cl.h; sourceTree = "<group>"; };
+		D5B755FD0F9CA3C600D64DFF /* MsgWinStubs_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MsgWinStubs_cl.cp; sourceTree = "<group>"; };
+		D5B755FF0F9CA3C600D64DFF /* Night_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Night_cl.cp; sourceTree = "<group>"; };
+		D5B756000F9CA3C600D64DFF /* Night_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Night_cl.h; sourceTree = "<group>"; };
+		D5B756030F9CA3C600D64DFF /* OpenGL_cl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = OpenGL_cl.cpp; sourceTree = "<group>"; };
+		D5B756040F9CA3C600D64DFF /* OpenGL_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenGL_cl.h; sourceTree = "<group>"; };
+		D5B756050F9CA3C600D64DFF /* OpenGL_cl.r */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.rez; path = OpenGL_cl.r; sourceTree = "<group>"; };
+		D5B756060F9CA3C600D64DFF /* Players.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Players.icns; sourceTree = "<group>"; };
+		D5B756070F9CA3C600D64DFF /* PlayersWin_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PlayersWin_cl.cp; sourceTree = "<group>"; };
+		D5B756080F9CA3C600D64DFF /* ProgressWin_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProgressWin_cl.h; sourceTree = "<group>"; };
+		D5B756090F9CA3C600D64DFF /* ResourceIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ResourceIDs.h; path = Resources/ResourceIDs.h; sourceTree = "<group>"; };
+		D5B7560A0F9CA3C600D64DFF /* SendText_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SendText_cl.cp; sourceTree = "<group>"; };
+		D5B7560B0F9CA3C600D64DFF /* SendText_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SendText_cl.h; sourceTree = "<group>"; };
+		D5B7560C0F9CA3C600D64DFF /* Shadows_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Shadows_cl.cp; sourceTree = "<group>"; };
+		D5B7560D0F9CA3C600D64DFF /* Shadows_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Shadows_cl.h; sourceTree = "<group>"; };
+		D5B7560E0F9CA3C600D64DFF /* Sound_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sound_cl.cp; sourceTree = "<group>"; };
+		D5B7560F0F9CA3C600D64DFF /* Speech_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Speech_cl.cp; sourceTree = "<group>"; };
+		D5B756100F9CA3C600D64DFF /* Speech_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Speech_cl.h; sourceTree = "<group>"; };
+		D5B756110F9CA3C600D64DFF /* StyledTextField_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StyledTextField_cl.cp; sourceTree = "<group>"; };
+		D5B756120F9CA3C600D64DFF /* StyledTextField_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StyledTextField_cl.h; sourceTree = "<group>"; };
+		D5B756140F9CA3C600D64DFF /* TextCmdList_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TextCmdList_cl.cp; sourceTree = "<group>"; };
+		D5B756150F9CA3C600D64DFF /* TextCmdList_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextCmdList_cl.h; sourceTree = "<group>"; };
+		D5B756170F9CA3C600D64DFF /* Arindal_en.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Arindal_en.h; sourceTree = "<group>"; };
+		D5B756180F9CA3C600D64DFF /* Clanlord_en.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Clanlord_en.h; sourceTree = "<group>"; };
+		D5B756190F9CA3C600D64DFF /* TextPrefs_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TextPrefs_cl.cp; sourceTree = "<group>"; };
+		D5B7561A0F9CA3C600D64DFF /* TextWin_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TextWin_cl.cp; sourceTree = "<group>"; };
+		D5B7561B0F9CA3C600D64DFF /* TranslatableTextDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TranslatableTextDefs.h; sourceTree = "<group>"; };
+		D5B7561C0F9CA3C600D64DFF /* TuneHelper_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TuneHelper_cl.cp; sourceTree = "<group>"; };
+		D5B7561D0F9CA3C600D64DFF /* TuneHelper_cl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TuneHelper_cl.h; sourceTree = "<group>"; };
+		D5B7561F0F9CA3C600D64DFF /* Update_cl.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Update_cl.cp; sourceTree = "<group>"; };
+		D5B756590F9CA50900D64DFF /* AGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AGL.framework; path = System/Library/Frameworks/AGL.framework; sourceTree = SDKROOT; };
+		D5B7565B0F9CA50900D64DFF /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		D5B7565C0F9CA50900D64DFF /* QuickTime.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickTime.framework; path = System/Library/Frameworks/QuickTime.framework; sourceTree = SDKROOT; };
+		D5B7566A0F9CA52E00D64DFF /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
+		D5B7566D0F9CA55500D64DFF /* dtslibX.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = dtslibX.xcodeproj; sourceTree = "<group>"; };
+		D5B756970F9CA93800D64DFF /* About_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = About_dts.h; sourceTree = "<group>"; };
+		D5B756980F9CA93800D64DFF /* Control_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Control_dts.h; sourceTree = "<group>"; };
+		D5B756990F9CA93800D64DFF /* Cursor_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Cursor_dts.h; sourceTree = "<group>"; };
+		D5B7569A0F9CA93800D64DFF /* Dialog_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Dialog_dts.h; sourceTree = "<group>"; };
+		D5B7569B0F9CA93800D64DFF /* DTS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DTS.h; sourceTree = "<group>"; };
+		D5B7569C0F9CA93800D64DFF /* Encryption_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Encryption_dts.h; sourceTree = "<group>"; };
+		D5B7569D0F9CA93800D64DFF /* Endian_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Endian_dts.h; sourceTree = "<group>"; };
+		D5B7569E0F9CA93800D64DFF /* File_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = File_dts.h; sourceTree = "<group>"; };
+		D5B7569F0F9CA93800D64DFF /* KeyFile_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KeyFile_dts.h; sourceTree = "<group>"; };
+		D5B756A00F9CA93800D64DFF /* LinkedList_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LinkedList_dts.h; sourceTree = "<group>"; };
+		D5B756A10F9CA93800D64DFF /* Local_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Local_dts.h; sourceTree = "<group>"; };
+		D5B756A20F9CA93800D64DFF /* Memory_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Memory_dts.h; sourceTree = "<group>"; };
+		D5B756A30F9CA93800D64DFF /* Menu_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Menu_dts.h; sourceTree = "<group>"; };
+		D5B756A40F9CA93800D64DFF /* Music_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Music_dts.h; sourceTree = "<group>"; };
+		D5B756A50F9CA93800D64DFF /* Network_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Network_dts.h; sourceTree = "<group>"; };
+		D5B756A60F9CA93800D64DFF /* New_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = New_dts.h; sourceTree = "<group>"; };
+		D5B756A70F9CA93800D64DFF /* Platform_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Platform_dts.h; sourceTree = "<group>"; };
+		D5B756A80F9CA93800D64DFF /* Prefix_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Prefix_dts.h; sourceTree = "<group>"; };
+		D5B756A90F9CA93800D64DFF /* RegExp_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RegExp_dts.h; sourceTree = "<group>"; };
+		D5B756AA0F9CA93800D64DFF /* SBBTree_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SBBTree_dts.h; sourceTree = "<group>"; };
+		D5B756AB0F9CA93800D64DFF /* Scrap_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Scrap_dts.h; sourceTree = "<group>"; };
+		D5B756AC0F9CA93800D64DFF /* Shell_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Shell_dts.h; sourceTree = "<group>"; };
+		D5B756AD0F9CA93800D64DFF /* Sound_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sound_dts.h; sourceTree = "<group>"; };
+		D5B756AE0F9CA93800D64DFF /* TextField_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextField_dts.h; sourceTree = "<group>"; };
+		D5B756AF0F9CA93800D64DFF /* Utilities_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Utilities_dts.h; sourceTree = "<group>"; };
+		D5B756B00F9CA93800D64DFF /* View_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = View_dts.h; sourceTree = "<group>"; };
+		D5B756B10F9CA93800D64DFF /* Window_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Window_dts.h; sourceTree = "<group>"; };
+		D5C79C451086A52500E9F856 /* CLLaunchHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CLLaunchHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5C79C4C1086A56800E9F856 /* CLLaunchHelper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CLLaunchHelper.c; sourceTree = "<group>"; };
+		D5C79C531086A70100E9F856 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
+		D5CC0E27138E4C92003D73DC /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		D5E2B17C12D6890B00089ABA /* Info-LaunchHelper.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-LaunchHelper.plist"; path = "../Info-LaunchHelper.plist"; sourceTree = "<group>"; };
+		D5FCBA801FDEFE6A00192DF3 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = "English.lproj/Set IP Address.xib"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8D0C4E910486CD37000505A6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5B7565D0F9CA50900D64DFF /* AGL.framework in Frameworks */,
+				D5288EF41DDEC8850054312C /* AudioToolbox.framework in Frameworks */,
+				8D0C4E920486CD37000505A6 /* Carbon.framework in Frameworks */,
+				D5B7566C0F9CA52E00D64DFF /* libz.dylib in Frameworks */,
+				D5B7565F0F9CA50900D64DFF /* OpenGL.framework in Frameworks */,
+				D5B756600F9CA50900D64DFF /* QuickTime.framework in Frameworks */,
+				D5B7695F0FA0169200A41B7F /* libdtslibX.a in Frameworks */,
+				D573A53E1F9C66C60016B740 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5C79C431086A52500E9F856 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5C79C541086A70100E9F856 /* ApplicationServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		195DF8CFFE9D517E11CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				508344B209E5C41E0093A071 /* ClanLord+.app */,
+				D5C79C451086A52500E9F856 /* CLLaunchHelper */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		20286C29FDCF999611CA2CEA /* ClanLordX */ = {
+			isa = PBXGroup;
+			children = (
+				D5B756860F9CA8FA00D64DFF /* dtslib2 */,
+				5048396909E3304600765E4B /* Configuration Files */,
+				20286C2CFDCF999611CA2CEA /* Resources */,
+				D5B755B70F9CA39600D64DFF /* public */,
+				D5B755C70F9CA3C600D64DFF /* source */,
+				20286C32FDCF999611CA2CEA /* Frameworks */,
+				195DF8CFFE9D517E11CA2CBB /* Products */,
+			);
+			name = ClanLordX;
+			sourceTree = "<group>";
+		};
+		20286C2CFDCF999611CA2CEA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D573832C1DEF4309003E8692 /* About.png */,
+				D500EB0824DDBAFB0020DCF1 /* DefaultBGPict.png */,
+				D5B755F60F9CA3C600D64DFF /* MacroInstructions.txt */,
+				D5B755CF0F9CA3C600D64DFF /* ClanLord.icns */,
+				D5B755EA0F9CA3C600D64DFF /* ImgSndData.icns */,
+				D5B755FA0F9CA3C600D64DFF /* Movie.icns */,
+				D5B756060F9CA3C600D64DFF /* Players.icns */,
+				D5E2B17C12D6890B00089ABA /* Info-LaunchHelper.plist */,
+				8D0C4E960486CD37000505A6 /* Info.plist */,
+				D5B755D10F9CA3C600D64DFF /* ClanLord.r */,
+				D5B756050F9CA3C600D64DFF /* OpenGL_cl.r */,
+				D5094EDA1DEF3ED40062AE0A /* About.xib */,
+				D5094EDD1DEF3F170062AE0A /* Advanced Prefs.xib */,
+				D5094EE01DEF3F3D0062AE0A /* Change Password.xib */,
+				D5094EE31DEF3F700062AE0A /* Character Manager.xib */,
+				D57382D51DEF3FA2003E8692 /* Character Transfer.xib */,
+				D57382DE1DEF400D003E8692 /* Choose Styles.xib */,
+				D57382E01DEF4013003E8692 /* Create Character.xib */,
+				D57382E21DEF4019003E8692 /* DebugMenus.xib */,
+				D57382E41DEF4020003E8692 /* Delete Character.xib */,
+				D57382E61DEF4026003E8692 /* DrawRate.xib */,
+				D57382E81DEF402B003E8692 /* Enter Password.xib */,
+				D57382F81DEF40C5003E8692 /* Find Text.xib */,
+				D57382FA1DEF40CA003E8692 /* MainMenu.xib */,
+				D57382FC1DEF40CD003E8692 /* Message.xib */,
+				D57383081DEF40D6003E8692 /* Name Advice.xib */,
+				D57383041DEF40D6003E8692 /* Network Stats.xib */,
+				D57383001DEF40D6003E8692 /* Preferences.xib */,
+				D57383021DEF40D6003E8692 /* Select Account.xib */,
+				D573830A1DEF40D6003E8692 /* Select Character.xib */,
+				D5FCBA7F1FDEFE6A00192DF3 /* Set IP Address.xib */,
+				D57383061DEF40D6003E8692 /* Set Versions.xib */,
+				D5B755D20F9CA3C600D64DFF /* ClanLord.rsrc */,
+				D5B755D60F9CA3C600D64DFF /* ClanLordGod.rsrc */,
+				D525092D158B56CD00C2B725 /* ClanLord.sdef */,
+				D5824C001DAD387000676F02 /* TextStyles.plist */,
+				D57383111DEF4124003E8692 /* InfoPlist.strings */,
+				D573830F1DEF4121003E8692 /* Localizable.strings */,
+			);
+			name = Resources;
+			path = source/Resources;
+			sourceTree = "<group>";
+		};
+		20286C32FDCF999611CA2CEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D5B756590F9CA50900D64DFF /* AGL.framework */,
+				D5C79C531086A70100E9F856 /* ApplicationServices.framework */,
+				D5288EF31DDEC8850054312C /* AudioToolbox.framework */,
+				20286C33FDCF999611CA2CEA /* Carbon.framework */,
+				D5B7566A0F9CA52E00D64DFF /* libz.dylib */,
+				D5B7565B0F9CA50900D64DFF /* OpenGL.framework */,
+				D5B7565C0F9CA50900D64DFF /* QuickTime.framework */,
+				D573A53D1F9C66C60016B740 /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5048396909E3304600765E4B /* Configuration Files */ = {
+			isa = PBXGroup;
+			children = (
+				5048396D09E3307300765E4B /* ClanLordXProj.xcconfig */,
+				5048396E09E3307300765E4B /* ClanLordXTarget.xcconfig */,
+				D5B755D00F9CA3C600D64DFF /* ClanLord.pch++ */,
+			);
+			name = "Configuration Files";
+			path = source;
+			sourceTree = "<group>";
+		};
+		D5B755B70F9CA39600D64DFF /* public */ = {
+			isa = PBXGroup;
+			children = (
+				D5B755B90F9CA39600D64DFF /* DatabaseTypes_cl.h */,
+				D5B755BA0F9CA39600D64DFF /* FileRefs.r */,
+				D5B755BB0F9CA39600D64DFF /* ImageComp_cl.cp */,
+				D5B755BC0F9CA39600D64DFF /* MessageWin_cl.cp */,
+				D5B755BD0F9CA39600D64DFF /* Public_cl.h */,
+				D5B755BE0F9CA39600D64DFF /* Utilities_cl.cp */,
+				D5B755BF0F9CA39600D64DFF /* VersionNumber_cl.h */,
+			);
+			path = public;
+			sourceTree = "<group>";
+		};
+		D5B755C70F9CA3C600D64DFF /* source */ = {
+			isa = PBXGroup;
+			children = (
+				D5C79C4C1086A56800E9F856 /* CLLaunchHelper.c */,
+				D5B755CB0F9CA3C600D64DFF /* Blitters_cl.cp */,
+				D5B755CC0F9CA3C600D64DFF /* Cache_cl.cp */,
+				D5B755CE0F9CA3C600D64DFF /* ClanLord.h */,
+				D5B755DB0F9CA3C600D64DFF /* Comm_cl.cp */,
+				D58F733218A0EE9600E45900 /* CommandIDs_cl.h */,
+				D5B755DC0F9CA3C600D64DFF /* Commands_cl.cp */,
+				D5B755DD0F9CA3C600D64DFF /* Commands_cl.h */,
+				D5B755E00F9CA3C600D64DFF /* DownloadURL_cl.cp */,
+				D5B755E60F9CA3C600D64DFF /* Frame_cl.cp */,
+				D5B755E70F9CA3C600D64DFF /* Frame_cl.h */,
+				D5B755E80F9CA3C600D64DFF /* FriendsList_cl.cp */,
+				D55E60AF1DB05D3D00B99648 /* GameTickler.h */,
+				D5B755E90F9CA3C600D64DFF /* GameWin_cl.cp */,
+				D5B755EC0F9CA3C600D64DFF /* Info_cl.cp */,
+				D5B755ED0F9CA3C600D64DFF /* InvenWin_cl.cp */,
+				D57AEE84205CA75E0056DD18 /* KeychainUtils.cp */,
+				D57AEE75205CA30C0056DD18 /* KeychainUtils.h */,
+				D5B755EE0F9CA3C600D64DFF /* LaunchURL_cl.cp */,
+				D5B755EF0F9CA3C600D64DFF /* LaunchURL_cl.h */,
+				D5B755F00F9CA3C600D64DFF /* ListView_cl.cp */,
+				D5B755F10F9CA3C600D64DFF /* ListView_cl.h */,
+				D5B755F50F9CA3C600D64DFF /* MacroDefs_cl.h */,
+				D5B755F70F9CA3C600D64DFF /* Macros_cl.cp */,
+				D5B755F80F9CA3C600D64DFF /* Macros_cl.h */,
+				D5B755F90F9CA3C600D64DFF /* Main_cl.cp */,
+				D5B755FB0F9CA3C600D64DFF /* Movie_cl.cp */,
+				D5B755FC0F9CA3C600D64DFF /* Movie_cl.h */,
+				D5B755FD0F9CA3C600D64DFF /* MsgWinStubs_cl.cp */,
+				D5B755FF0F9CA3C600D64DFF /* Night_cl.cp */,
+				D5B756000F9CA3C600D64DFF /* Night_cl.h */,
+				D5B756030F9CA3C600D64DFF /* OpenGL_cl.cpp */,
+				D5B756040F9CA3C600D64DFF /* OpenGL_cl.h */,
+				D5B756070F9CA3C600D64DFF /* PlayersWin_cl.cp */,
+				D5B756080F9CA3C600D64DFF /* ProgressWin_cl.h */,
+				D5B756090F9CA3C600D64DFF /* ResourceIDs.h */,
+				D5B7560A0F9CA3C600D64DFF /* SendText_cl.cp */,
+				D5B7560B0F9CA3C600D64DFF /* SendText_cl.h */,
+				D5B7560C0F9CA3C600D64DFF /* Shadows_cl.cp */,
+				D5B7560D0F9CA3C600D64DFF /* Shadows_cl.h */,
+				D5B7560E0F9CA3C600D64DFF /* Sound_cl.cp */,
+				D5B7560F0F9CA3C600D64DFF /* Speech_cl.cp */,
+				D5B756100F9CA3C600D64DFF /* Speech_cl.h */,
+				D5B756110F9CA3C600D64DFF /* StyledTextField_cl.cp */,
+				D5B756120F9CA3C600D64DFF /* StyledTextField_cl.h */,
+				D5B756140F9CA3C600D64DFF /* TextCmdList_cl.cp */,
+				D5B756150F9CA3C600D64DFF /* TextCmdList_cl.h */,
+				D5B756160F9CA3C600D64DFF /* TextDefs */,
+				D5B756190F9CA3C600D64DFF /* TextPrefs_cl.cp */,
+				D5B7561A0F9CA3C600D64DFF /* TextWin_cl.cp */,
+				D5B7561B0F9CA3C600D64DFF /* TranslatableTextDefs.h */,
+				D5B7561C0F9CA3C600D64DFF /* TuneHelper_cl.cp */,
+				D5B7561D0F9CA3C600D64DFF /* TuneHelper_cl.h */,
+				D5B7561F0F9CA3C600D64DFF /* Update_cl.cp */,
+			);
+			path = source;
+			sourceTree = "<group>";
+		};
+		D5B756160F9CA3C600D64DFF /* TextDefs */ = {
+			isa = PBXGroup;
+			children = (
+				D5B756170F9CA3C600D64DFF /* Arindal_en.h */,
+				D5B756180F9CA3C600D64DFF /* Clanlord_en.h */,
+			);
+			path = TextDefs;
+			sourceTree = "<group>";
+		};
+		D5B756860F9CA8FA00D64DFF /* dtslib2 */ = {
+			isa = PBXGroup;
+			children = (
+				D5B756960F9CA93800D64DFF /* includes */,
+				D5B7566D0F9CA55500D64DFF /* dtslibX.xcodeproj */,
+			);
+			name = dtslib2;
+			path = ../dtslib2;
+			sourceTree = "<group>";
+		};
+		D5B756910F9CA91800D64DFF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D5B756950F9CA91800D64DFF /* libdtslibX.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D5B756960F9CA93800D64DFF /* includes */ = {
+			isa = PBXGroup;
+			children = (
+				D5B756970F9CA93800D64DFF /* About_dts.h */,
+				D5617A4F1DE0D42A00F11EAD /* BrowserList.h */,
+				D5B756980F9CA93800D64DFF /* Control_dts.h */,
+				D5B756990F9CA93800D64DFF /* Cursor_dts.h */,
+				D5B7569A0F9CA93800D64DFF /* Dialog_dts.h */,
+				D5B7569B0F9CA93800D64DFF /* DTS.h */,
+				D5B7569C0F9CA93800D64DFF /* Encryption_dts.h */,
+				D5B7569D0F9CA93800D64DFF /* Endian_dts.h */,
+				D5B7569E0F9CA93800D64DFF /* File_dts.h */,
+				D5B7569F0F9CA93800D64DFF /* KeyFile_dts.h */,
+				D5B756A00F9CA93800D64DFF /* LinkedList_dts.h */,
+				D5B756A10F9CA93800D64DFF /* Local_dts.h */,
+				D5B756A20F9CA93800D64DFF /* Memory_dts.h */,
+				D5B756A30F9CA93800D64DFF /* Menu_dts.h */,
+				D5B756A40F9CA93800D64DFF /* Music_dts.h */,
+				D5B756A50F9CA93800D64DFF /* Network_dts.h */,
+				D5B756A60F9CA93800D64DFF /* New_dts.h */,
+				D5B756A70F9CA93800D64DFF /* Platform_dts.h */,
+				D5B756A80F9CA93800D64DFF /* Prefix_dts.h */,
+				D5B756A90F9CA93800D64DFF /* RegExp_dts.h */,
+				D5B756AA0F9CA93800D64DFF /* SBBTree_dts.h */,
+				D5B756AB0F9CA93800D64DFF /* Scrap_dts.h */,
+				D5B756AC0F9CA93800D64DFF /* Shell_dts.h */,
+				D5B756AD0F9CA93800D64DFF /* Sound_dts.h */,
+				D5B756AE0F9CA93800D64DFF /* TextField_dts.h */,
+				D5B756AF0F9CA93800D64DFF /* Utilities_dts.h */,
+				D5B756B00F9CA93800D64DFF /* View_dts.h */,
+				D5B756B10F9CA93800D64DFF /* Window_dts.h */,
+			);
+			path = includes;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8D0C4E890486CD37000505A6 /* ClanLordX */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0E91AC508A95435008D54AB /* Build configuration list for PBXNativeTarget "ClanLordX" */;
+			buildPhases = (
+				D5E1938416759EA8006F156D /* Run Script (Set Versions) */,
+				8D0C4E8C0486CD37000505A6 /* Resources */,
+				D5E2B20412D703AE00089ABA /* CopyFiles */,
+				8D0C4E8F0486CD37000505A6 /* Sources */,
+				8D0C4E910486CD37000505A6 /* Frameworks */,
+				D5B756870F9CA8FA00D64DFF /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D5B758530F9F2CFD00D64DFF /* PBXTargetDependency */,
+				D5C79C511086A6B400E9F856 /* PBXTargetDependency */,
+			);
+			name = ClanLordX;
+			productInstallPath = "$(HOME)/Applications";
+			productName = ClanLordX;
+			productReference = 508344B209E5C41E0093A071 /* ClanLord+.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D5C79C441086A52500E9F856 /* CLLaunchHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D5C79C491086A54400E9F856 /* Build configuration list for PBXNativeTarget "CLLaunchHelper" */;
+			buildPhases = (
+				D5C79C421086A52500E9F856 /* Sources */,
+				D5C79C431086A52500E9F856 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CLLaunchHelper;
+			productName = CLLaunchHelper;
+			productReference = D5C79C451086A52500E9F856 /* CLLaunchHelper */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		20286C28FDCF999611CA2CEA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				ORGANIZATIONNAME = "Delta Tao";
+			};
+			buildConfigurationList = C0E91AC908A95435008D54AB /* Build configuration list for PBXProject "ClanLordX" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 20286C29FDCF999611CA2CEA /* ClanLordX */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = D5B756910F9CA91800D64DFF /* Products */;
+					ProjectRef = D5B7566D0F9CA55500D64DFF /* dtslibX.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				8D0C4E890486CD37000505A6 /* ClanLordX */,
+				D5C79C441086A52500E9F856 /* CLLaunchHelper */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		D5B756950F9CA91800D64DFF /* libdtslibX.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libdtslibX.a;
+			remoteRef = D5B756940F9CA91800D64DFF /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8D0C4E8C0486CD37000505A6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5B756230F9CA3C600D64DFF /* ClanLord.icns in Resources */,
+				D5B756360F9CA3C600D64DFF /* ImgSndData.icns in Resources */,
+				D5B756400F9CA3C600D64DFF /* Movie.icns in Resources */,
+				D5B756480F9CA3C600D64DFF /* Players.icns in Resources */,
+				D5824C8E1DAD5FBA00676F02 /* TextStyles.plist in Resources */,
+				D573832D1DEF4309003E8692 /* About.png in Resources */,
+				D525092E158B56CD00C2B725 /* ClanLord.sdef in Resources */,
+				D57383101DEF4121003E8692 /* Localizable.strings in Resources */,
+				D59911AF1DDF9FC9006DCE13 /* MacroInstructions.txt in Resources */,
+				D5094EDB1DEF3ED40062AE0A /* About.xib in Resources */,
+				D5094EDE1DEF3F170062AE0A /* Advanced Prefs.xib in Resources */,
+				D5094EE11DEF3F3D0062AE0A /* Change Password.xib in Resources */,
+				D5094EE41DEF3F700062AE0A /* Character Manager.xib in Resources */,
+				D57382D61DEF3FA2003E8692 /* Character Transfer.xib in Resources */,
+				D57382DF1DEF400D003E8692 /* Choose Styles.xib in Resources */,
+				D57382E11DEF4013003E8692 /* Create Character.xib in Resources */,
+				D57382E31DEF4019003E8692 /* DebugMenus.xib in Resources */,
+				D57382E51DEF4020003E8692 /* Delete Character.xib in Resources */,
+				D57382E71DEF4026003E8692 /* DrawRate.xib in Resources */,
+				D57382E91DEF402B003E8692 /* Enter Password.xib in Resources */,
+				D57382F91DEF40C5003E8692 /* Find Text.xib in Resources */,
+				D57382FB1DEF40CA003E8692 /* MainMenu.xib in Resources */,
+				D57382FD1DEF40CD003E8692 /* Message.xib in Resources */,
+				D57383091DEF40D6003E8692 /* Name Advice.xib in Resources */,
+				D57383051DEF40D6003E8692 /* Network Stats.xib in Resources */,
+				D57383011DEF40D6003E8692 /* Preferences.xib in Resources */,
+				D57383031DEF40D6003E8692 /* Select Account.xib in Resources */,
+				D573830B1DEF40D6003E8692 /* Select Character.xib in Resources */,
+				D5FCBA811FDEFE6A00192DF3 /* Set IP Address.xib in Resources */,
+				D57383071DEF40D6003E8692 /* Set Versions.xib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		D5B756870F9CA8FA00D64DFF /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5B756850F9CA8DD00D64DFF /* OpenGL_cl.r in Rez */,
+				D5B756810F9CA88F00D64DFF /* ClanLord.r in Rez */,
+				D5B756830F9CA8B200D64DFF /* FileRefs.r in Rez */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D5E1938416759EA8006F156D /* Run Script (Set Versions) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			comments = "The purpose of this script is to fix up a couple of version numbers in the client app's generated Info.plist file.";
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/public/VersionNumber_cl.h",
+			);
+			name = "Run Script (Set Versions)";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "function Fail () { echo \"$@\"; exit 1; }\n\n# find PlistBuddy(8); ensure it's runnable\nPLB=/usr/libexec/PlistBuddy\n[ -x $PLB ] || Fail \"Can't find PlistBuddy(8)\"\n\n# the file we'll be modifying; ensure it's writable\nIPFILE=\"${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}\"\n[ -w \"$IPFILE\" ] || Fail \"Can't modify built Info.plist\"\n\n# get hold of client/public/VersionNumber_cl.h, which\n# is set as an input to this script build phase\n(( SCRIPT_INPUT_FILE_COUNT == 1 )) || Fail \"script build phase corrupt: count != 1\"\nVERS_SRC=\"$SCRIPT_INPUT_FILE_0\"\n[ -r \"$VERS_SRC\" ] || Fail \"Can't read VersionNumber header\"\n\n# deduce current versions, composite them as \"XX.Y\"\nBASEVERS=$(awk '/^#define kBaseVersionNumber/ { print $3 }' \"$VERS_SRC\")\nSUB_VERS=$(awk '/^#define kSubVersionNumber/  { print $3 }' \"$VERS_SRC\")\n[[ -n \"$BASEVERS\" && -n \"$SUB_VERS\" ]] || Fail \"Cannot determine version numbers\"\nVERSION=\"${BASEVERS}.${SUB_VERS:-0}\"\n\n# read, increment, and write out the build counter\nBuildCounterFile=\"$SRCROOT/bldcounter.txt\"\n[ -e $BuildCounterFile ] || echo \"1\" > $BuildCounterFile\nread BuildCounter < $BuildCounterFile\necho $(( ++BuildCounter )) > $BuildCounterFile\n\n# cons up the Get-Info and copyright strings\nYEAR=$(date +%Y)    # \"2012\"\nCOPYRIGHT=\"© 1993-$YEAR Delta Tao Software. All rights reserved.\"\nINFOSTR=\"v${VERSION}, built $(date +%v). © 1993-$YEAR Delta Tao Software\"\n\n# Modify the plist file\n$PLB \"$IPFILE\" \\\n  -c \"set :CFBundleGetInfoString $INFOSTR\" \\\n  -c \"set :CFBundleShortVersionString $VERSION\" \\\n  -c \"set :CFBundleVersion $BuildCounter\" \\\n  -c \"set :NSHumanReadableCopyright $COPYRIGHT\"";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8D0C4E8F0486CD37000505A6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5B755C00F9CA39600D64DFF /* ImageComp_cl.cp in Sources */,
+				D5B755C10F9CA39600D64DFF /* MessageWin_cl.cp in Sources */,
+				D5B755C20F9CA39600D64DFF /* Utilities_cl.cp in Sources */,
+				D5B756210F9CA3C600D64DFF /* Blitters_cl.cp in Sources */,
+				D5B756220F9CA3C600D64DFF /* Cache_cl.cp in Sources */,
+				D5B7562C0F9CA3C600D64DFF /* Comm_cl.cp in Sources */,
+				D5B7562D0F9CA3C600D64DFF /* Commands_cl.cp in Sources */,
+				D5B756300F9CA3C600D64DFF /* DownloadURL_cl.cp in Sources */,
+				D5B756330F9CA3C600D64DFF /* Frame_cl.cp in Sources */,
+				D5B756340F9CA3C600D64DFF /* FriendsList_cl.cp in Sources */,
+				D5B756350F9CA3C600D64DFF /* GameWin_cl.cp in Sources */,
+				D5B756380F9CA3C600D64DFF /* Info_cl.cp in Sources */,
+				D5B756390F9CA3C600D64DFF /* InvenWin_cl.cp in Sources */,
+				D57AEE85205CA75E0056DD18 /* KeychainUtils.cp in Sources */,
+				D5B7563A0F9CA3C600D64DFF /* LaunchURL_cl.cp in Sources */,
+				D5B7563B0F9CA3C600D64DFF /* ListView_cl.cp in Sources */,
+				D5B7563E0F9CA3C600D64DFF /* Macros_cl.cp in Sources */,
+				D5B7563F0F9CA3C600D64DFF /* Main_cl.cp in Sources */,
+				D5B756410F9CA3C600D64DFF /* Movie_cl.cp in Sources */,
+				D5B756440F9CA3C600D64DFF /* Night_cl.cp in Sources */,
+				D5B756470F9CA3C600D64DFF /* OpenGL_cl.cpp in Sources */,
+				D5B756490F9CA3C600D64DFF /* PlayersWin_cl.cp in Sources */,
+				D5B7564A0F9CA3C600D64DFF /* SendText_cl.cp in Sources */,
+				D5B7564B0F9CA3C600D64DFF /* Shadows_cl.cp in Sources */,
+				D5B7564C0F9CA3C600D64DFF /* Sound_cl.cp in Sources */,
+				D5B7564D0F9CA3C600D64DFF /* Speech_cl.cp in Sources */,
+				D5B7564E0F9CA3C600D64DFF /* StyledTextField_cl.cp in Sources */,
+				D5B7564F0F9CA3C600D64DFF /* TextCmdList_cl.cp in Sources */,
+				D5B756500F9CA3C600D64DFF /* TextPrefs_cl.cp in Sources */,
+				D5B756510F9CA3C600D64DFF /* TextWin_cl.cp in Sources */,
+				D5B756520F9CA3C600D64DFF /* TuneHelper_cl.cp in Sources */,
+				D5B756540F9CA3C600D64DFF /* Update_cl.cp in Sources */,
+				D525CF3E0FBC1B8700A014FE /* MsgWinStubs_cl.cp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5C79C421086A52500E9F856 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5C79C4D1086A56800E9F856 /* CLLaunchHelper.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D5B758530F9F2CFD00D64DFF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = dtslibX;
+			targetProxy = D5B758520F9F2CFD00D64DFF /* PBXContainerItemProxy */;
+		};
+		D5C79C511086A6B400E9F856 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D5C79C441086A52500E9F856 /* CLLaunchHelper */;
+			targetProxy = D5C79C501086A6B400E9F856 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		D5094EDA1DEF3ED40062AE0A /* About.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D55E5F3D1DAEA1C300B99648 /* English */,
+			);
+			name = About.xib;
+			sourceTree = "<group>";
+		};
+		D5094EDD1DEF3F170062AE0A /* Advanced Prefs.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CF21DADABFB00676F02 /* English */,
+			);
+			name = "Advanced Prefs.xib";
+			sourceTree = "<group>";
+		};
+		D5094EE01DEF3F3D0062AE0A /* Change Password.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CE11DAD719300676F02 /* English */,
+			);
+			name = "Change Password.xib";
+			sourceTree = "<group>";
+		};
+		D5094EE31DEF3F700062AE0A /* Character Manager.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CEF1DAD774D00676F02 /* English */,
+			);
+			name = "Character Manager.xib";
+			sourceTree = "<group>";
+		};
+		D57382D51DEF3FA2003E8692 /* Character Transfer.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CE81DAD728C00676F02 /* English */,
+			);
+			name = "Character Transfer.xib";
+			sourceTree = "<group>";
+		};
+		D57382DE1DEF400D003E8692 /* Choose Styles.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DEB1DADD2CF00676F02 /* English */,
+			);
+			name = "Choose Styles.xib";
+			sourceTree = "<group>";
+		};
+		D57382E01DEF4013003E8692 /* Create Character.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CD51DAD6C9A00676F02 /* English */,
+			);
+			name = "Create Character.xib";
+			sourceTree = "<group>";
+		};
+		D57382E21DEF4019003E8692 /* DebugMenus.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5288EC31DDEC3C00054312C /* English */,
+			);
+			name = DebugMenus.xib;
+			sourceTree = "<group>";
+		};
+		D57382E41DEF4020003E8692 /* Delete Character.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DEE1DADD2DF00676F02 /* English */,
+			);
+			name = "Delete Character.xib";
+			sourceTree = "<group>";
+		};
+		D57382E61DEF4026003E8692 /* DrawRate.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DF11DADD2EE00676F02 /* English */,
+			);
+			name = DrawRate.xib;
+			sourceTree = "<group>";
+		};
+		D57382E81DEF402B003E8692 /* Enter Password.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CDD1DAD6F7000676F02 /* English */,
+			);
+			name = "Enter Password.xib";
+			sourceTree = "<group>";
+		};
+		D57382F81DEF40C5003E8692 /* Find Text.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CEC1DAD744F00676F02 /* English */,
+			);
+			name = "Find Text.xib";
+			sourceTree = "<group>";
+		};
+		D57382FA1DEF40CA003E8692 /* MainMenu.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5288EC11DDEC3AD0054312C /* English */,
+			);
+			name = MainMenu.xib;
+			sourceTree = "<group>";
+		};
+		D57382FC1DEF40CD003E8692 /* Message.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DF41DADD2FA00676F02 /* English */,
+			);
+			name = Message.xib;
+			sourceTree = "<group>";
+		};
+		D57383001DEF40D6003E8692 /* Preferences.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DFE1DADD32D00676F02 /* English */,
+			);
+			name = Preferences.xib;
+			sourceTree = "<group>";
+		};
+		D57383021DEF40D6003E8692 /* Select Account.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CE41DAD71C900676F02 /* English */,
+			);
+			name = "Select Account.xib";
+			sourceTree = "<group>";
+		};
+		D57383041DEF40D6003E8692 /* Network Stats.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DFB1DADD32300676F02 /* English */,
+			);
+			name = "Network Stats.xib";
+			sourceTree = "<group>";
+		};
+		D57383061DEF40D6003E8692 /* Set Versions.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824E071DADD34900676F02 /* English */,
+			);
+			name = "Set Versions.xib";
+			sourceTree = "<group>";
+		};
+		D57383081DEF40D6003E8692 /* Name Advice.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824DF71DADD31100676F02 /* English */,
+			);
+			name = "Name Advice.xib";
+			sourceTree = "<group>";
+		};
+		D573830A1DEF40D6003E8692 /* Select Character.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5824CDA1DAD6F1F00676F02 /* English */,
+			);
+			name = "Select Character.xib";
+			sourceTree = "<group>";
+		};
+		D573830F1DEF4121003E8692 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5CC0E27138E4C92003D73DC /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		D57383111DEF4124003E8692 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				0867D6ABFE840B52C02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		D5FCBA7F1FDEFE6A00192DF3 /* Set IP Address.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D5FCBA801FDEFE6A00192DF3 /* English */,
+			);
+			name = "Set IP Address.xib";
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		C0E91AC608A95435008D54AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5048396E09E3307300765E4B /* ClanLordXTarget.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DTSLIB_DEBUG_BUILD=1",
+					"$(inherited)",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.deltatao.clanlord.client;
+				PRODUCT_NAME = "ClanLord+";
+				REZ_PREPROCESSOR_DEFINITIONS = "$(inherited) DEBUG_VERSION=1";
+			};
+			name = Debug;
+		};
+		C0E91AC708A95435008D54AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5048396E09E3307300765E4B /* ClanLordXTarget.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEPLOYMENT_POSTPROCESSING = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.deltatao.clanlord.client;
+				PRODUCT_NAME = ClanLord;
+			};
+			name = Release;
+		};
+		C0E91ACA08A95435008D54AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5048396D09E3307300765E4B /* ClanLordXProj.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				PREBINDING = NO;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		C0E91ACB08A95435008D54AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5048396D09E3307300765E4B /* ClanLordXProj.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				GCC_NO_COMMON_BLOCKS = YES;
+				PREBINDING = NO;
+				SDKROOT = macosx;
+				SEPARATE_STRIP = YES;
+			};
+			name = Release;
+		};
+		D5C79C4A1086A54400E9F856 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_EXPAND_BUILD_SETTINGS = NO;
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"source/Info-LaunchHelper.plist",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.deltatao.clanlord.client.launch-helper";
+				PRODUCT_NAME = CLLaunchHelper;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		D5C79C4B1086A54400E9F856 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				INFOPLIST_EXPAND_BUILD_SETTINGS = NO;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"source/Info-LaunchHelper.plist",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.deltatao.clanlord.client.launch-helper";
+				PRODUCT_NAME = CLLaunchHelper;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C0E91AC508A95435008D54AB /* Build configuration list for PBXNativeTarget "ClanLordX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0E91AC608A95435008D54AB /* Debug */,
+				C0E91AC708A95435008D54AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0E91AC908A95435008D54AB /* Build configuration list for PBXProject "ClanLordX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C0E91ACA08A95435008D54AB /* Debug */,
+				C0E91ACB08A95435008D54AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D5C79C491086A54400E9F856 /* Build configuration list for PBXNativeTarget "CLLaunchHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D5C79C4A1086A54400E9F856 /* Debug */,
+				D5C79C4B1086A54400E9F856 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 20286C28FDCF999611CA2CEA /* Project object */;
+}

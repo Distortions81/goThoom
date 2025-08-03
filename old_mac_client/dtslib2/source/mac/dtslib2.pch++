@@ -1,0 +1,101 @@
+/*
+**	dtslib2.pch++		dtslib2
+**
+**	Copyright 2023 Delta Tao Software, Inc.
+** 
+**	Licensed under the Apache License, Version 2.0 (the "License");
+**	you may not use this file except in compliance with the License.
+**	You may obtain a copy of the License at
+** 
+**		https://www.apache.org/licenses/LICENSE-2.0
+** 
+**	Unless required by applicable law or agreed to in writing, software
+**	distributed under the License is distributed on an "AS IS" BASIS,
+**	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**	See the License for the specific language governing permissions and
+**	imitations under the License.
+*/
+
+#define DTS_OSX					1
+#define TARGET_API_MAC_CARBON	1
+#define TARGET_API_MAC_OSX		1
+
+// include the prefix header
+#include "Prefix_mac.h"
+
+// We don't look at HGetState() and friends
+#define __MAC_OS_X_MEMORY_MANAGER_CLEAN__	1
+
+// Ensure that <Debugging.h> is set up right
+#ifdef DEBUG_VERSION
+# define DEBUG					1
+#else
+# define NDEBUG		// disable <assert.h>
+#endif
+#define	kComponentSignatureString	"DTSLib2"
+#define	COMPONENT_SIGNATURE			'\xC6TL2'	// \xC6 is MacRoman delta (opt-j), U+2206
+
+// prefer __Check() to check(), and ditto for all their cousins
+#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES		0
+
+// roll in the Macintosh toolbox headers
+// ... but skip all of OpenTransport
+#define __OPENTRANSPORT__
+#define __OPENTRANSPORTPROTOCOL__
+#define __OPENTRANSPORTPROVIDERS__
+#include <Carbon/Carbon.h>
+//#include <QuickTime/QuickTime.h>
+
+// pick up the C/C++ headers
+#include <cstddef>
+#include <cstdarg>
+#include <stdint.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <cctype>
+#include <climits>
+#include <cmath>
+
+// roll in the DTSLib platform-neutral headers
+#include "Local_dts.h"
+
+#include "About_dts.h"
+#include "Control_dts.h"
+#include "Cursor_dts.h"
+#include "Dialog_dts.h"
+#include "Encryption_dts.h"
+#include "Endian_dts.h"
+#include "File_dts.h"
+#include "KeyFile_dts.h"
+#include "LinkedList_dts.h"
+//#include "Memory_cmn.h"
+//#include "Memory_dts.h"
+#include "Menu_dts.h"
+//#include "Music_dts.h"
+#include "New_dts.h"
+#include "Network_dts.h"
+#include "Platform_dts.h"
+#include "RegExp_dts.h"
+#include "SBBTree_dts.h"
+#include "Scrap_dts.h"
+#include "Shell_dts.h"
+#include "Sound_dts.h"
+#include "TextField_dts.h"
+#include "Utilities_dts.h"
+#include "View_dts.h"
+#include "Window_dts.h"
+
+// and finally the Mac-only ones
+#include "AppleEvent_mac.h"
+#include "CarbonEvent_mac.h"
+#include "Control_mac.h"
+#include "Dialog_mac.h"
+#include "File_mac.h"
+//#include "MacBinary_mac.h"
+//#include "Music_mac.h"
+#include "Resource_mac.h"
+#include "Shell_mac.h"
+#include "TextField_mac.h"
+#include "View_mac.h"
+#include "Window_mac.h"

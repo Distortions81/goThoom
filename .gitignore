@@ -1,6 +1,5 @@
 CL_Images
 CL_Sounds
-go_client/go_client
-go_client/*.log
-go_client/*.exe
-old_mac_client/
+go_client
+*.log
+*.exe

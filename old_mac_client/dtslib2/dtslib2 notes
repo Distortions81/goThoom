@@ -1,0 +1,150 @@
+dtslib2
+
+
+**	Copyright 2023 Delta Tao Software, Inc.
+** 
+**	Licensed under the Apache License, Version 2.0 (the "License");
+**	you may not use this file except in compliance with the License.
+**	You may obtain a copy of the License at
+** 
+**     https://www.apache.org/licenses/LICENSE-2.0
+** 
+**	Unless required by applicable law or agreed to in writing, software
+**	distributed under the License is distributed on an "AS IS" BASIS,
+**	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**	See the License for the specific language governing permissions and
+**	imitations under the License.
+
+
+the goal is to rewrite the current dtslib in such a way that any application built on top of it 
+is 100% portable across all platforms for which dtslib is implemented.
+
+other objectives:
+	backwards compatibility with the current dtslib.
+	change the .h files so that no platform specific .h file is ever necessary.
+
+how to get there:
+
+first, dtslib needs to be factored. this structure is my current thinking:
+
+includes/
+	DTS.h
+	...
+	Encryption-dts.h
+	KeyFile-dts.h
+	LinkedList-dts.h
+	Network-dts.h
+	NewAlloc-dts.h
+	OneWayHash-dts.h
+	SBBTree-dts.h
+	RegExp-dts.h
+	zlib-dts.h
+	...
+	About-dts.h
+	Control-dts.h
+	Cursor-dts.h
+	Dialog-dts.h
+	Draw-dts.h
+	File-dts.h
+	Music-dts.h
+	Network-dts.h
+	New-dts.h
+	Scrap-dts.h
+	Shell-dts.h
+	Sound-dts.h
+	TextField-dts.h
+	View-dts.h
+	Window-dts.h
+source/
+	common/
+		Encryption-dts.cp
+		KeyFile-dts.cp
+		LinkedList-dts.cp
+		Network-dts.cp
+		NewAlloc-dts.cp
+		OneWayHash-dts.cp
+		SBBTree-dts.cp
+		RegExp-dts.cp
+		zlib/*
+	mac/
+		About-mac.cp
+		AppleEvents-mac.cp
+		CarbonGlue-mac.cp
+		Control-mac.cp
+		Cursor-mac.cp
+		Dialog-mac.cp
+		Draw-mac.cp
+		File-mac.cp
+		MacBinary-mac.cp
+		Music-mac.cp
+		Network-mac.cp
+		New-mac.cp
+		Scrap-mac.cp
+		Shell-mac.cp
+		Sound-mac.cp
+		TextField-mac.cp
+		View-mac.cp
+		Window-mac.cp
+		resources/*
+		dtslib-mac.mcp
+	unix/
+		makefile
+		whatever
+	windows/
+		whatever
+libraries/
+	mac/
+		dtslib-debug-mac-68k
+		dtslib-debug-mac-osx
+		dtslib-debug-mac-ppc
+		dtslib-final-mac-68k
+		dtslib-final-mac-osx
+		dtslib-final-mac-ppc
+	unix/
+		dtslib-debug-unix
+		dtslib-final-unix
+	windows/
+		dtslib-debug-win
+		dtslib-final-win
+
+redefine all classes to completely hide the platform implementation details.
+let's work through a few examples:
+
+/* Draw-dts.h */
+class DTSPolygon
+	{
+private:
+	???		dtsPolygon;
+	
+public:
+	// constructor/destructor
+	DTSPolygon( void );
+	~DTSPolygon( void );
+	
+	// add a point to the polygon
+	void Add( DTSPoint pt ) { Add( pt.ptH, pt.ptV ); };
+	void Add( DTSCoord h, DTSCoord v );
+	
+	// reset to empty
+	void Reset( void );
+	
+	// get the bounding rectangle
+	void GetBounds( DTSRect & box );
+	};
+
+/* Draw-mac.h */
+class DTSPolygon-plat
+	{
+	// constructor/destructor
+	DTSPolygon( void ) { dtsPolygon = NEW_TAG("DTSPolygon-plat") DTSPolygon-plat; };
+	~DTSPolygon( void ) { delete dtsPolygon; };
+	
+	// add a point to the polygon
+	void Add( DTSPoint pt ) { Add( pt.ptH, pt.ptV ); };
+	void Add( DTSCoord h, DTSCoord v );
+	
+	// reset to empty
+	void Reset( void );
+	};
+
+

@@ -1,0 +1,481 @@
+// !$*UTF8*$!
+/*
+**	Copyright 2023 Delta Tao Software, Inc.
+** 
+**	Licensed under the Apache License, Version 2.0 (the "License");
+**	you may not use this file except in compliance with the License.
+**	You may obtain a copy of the License at
+** 
+**     https://www.apache.org/licenses/LICENSE-2.0
+** 
+**	Unless required by applicable law or agreed to in writing, software
+**	distributed under the License is distributed on an "AS IS" BASIS,
+**	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+**	See the License for the specific language governing permissions and
+**	imitations under the License.
+*/
+
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D56179811DE0385E00F11EAD /* BrowserList.cp in Sources */ = {isa = PBXBuildFile; fileRef = D561797F1DE0385E00F11EAD /* BrowserList.cp */; };
+		D59288791DA9A5F600D6672A /* Dialog_mach.cp in Sources */ = {isa = PBXBuildFile; fileRef = D59288781DA9A5F600D6672A /* Dialog_mach.cp */; };
+		D5DF1877174749B200812841 /* CarbonEvent_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5DF1875174749AB00812841 /* CarbonEvent_mac.cp */; };
+		D5F681DF0F9C48D60056E1B8 /* Encryption_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681710F9C48D50056E1B8 /* Encryption_dts.cp */; };
+		D5F681E00F9C48D60056E1B8 /* Endian_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681720F9C48D50056E1B8 /* Endian_dts.cp */; };
+		D5F681E10F9C48D60056E1B8 /* KeyFile_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681730F9C48D50056E1B8 /* KeyFile_dts.cp */; };
+		D5F681E20F9C48D60056E1B8 /* LinkedList_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681740F9C48D50056E1B8 /* LinkedList_dts.cp */; };
+		D5F681E40F9C48D60056E1B8 /* Memory_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681760F9C48D50056E1B8 /* Memory_dts.cp */; };
+		D5F681E60F9C48D60056E1B8 /* Network_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681780F9C48D50056E1B8 /* Network_dts.cp */; };
+		D5F681E80F9C48D60056E1B8 /* OneWayHash_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6817A0F9C48D50056E1B8 /* OneWayHash_dts.cp */; };
+		D5F681E90F9C48D60056E1B8 /* RegExp_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6817B0F9C48D60056E1B8 /* RegExp_dts.cp */; };
+		D5F681EA0F9C48D60056E1B8 /* SBBTree_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6817C0F9C48D60056E1B8 /* SBBTree_dts.cp */; };
+		D5F681EB0F9C48D60056E1B8 /* Utilities_dts.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6817D0F9C48D60056E1B8 /* Utilities_dts.cp */; };
+		D5F682070F9C48D60056E1B8 /* About_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6819D0F9C48D60056E1B8 /* About_mac.cp */; };
+		D5F682080F9C48D60056E1B8 /* AppleEvent_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6819E0F9C48D60056E1B8 /* AppleEvent_mac.cp */; };
+		D5F6820A0F9C48D60056E1B8 /* Control_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681A30F9C48D60056E1B8 /* Control_mac.cp */; };
+		D5F6820C0F9C48D60056E1B8 /* Cursor_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681A50F9C48D60056E1B8 /* Cursor_mac.cp */; };
+		D5F6820D0F9C48D60056E1B8 /* Dialog_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681A60F9C48D60056E1B8 /* Dialog_mac.cp */; };
+		D5F6820F0F9C48D60056E1B8 /* Draw_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681A80F9C48D60056E1B8 /* Draw_mac.cp */; };
+		D5F682150F9C48D60056E1B8 /* File_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681BE0F9C48D60056E1B8 /* File_mac.cp */; };
+		D5F6821A0F9C48D60056E1B8 /* Menu_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681C30F9C48D60056E1B8 /* Menu_mac.cp */; };
+		D5F682220F9C48D60056E1B8 /* Scrap_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681D50F9C48D60056E1B8 /* Scrap_mac.cp */; };
+		D5F682230F9C48D60056E1B8 /* Shell_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681D60F9C48D60056E1B8 /* Shell_mac.cp */; };
+		D5F682250F9C48D60056E1B8 /* Sound_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681D80F9C48D60056E1B8 /* Sound_mac.cp */; };
+		D5F682260F9C48D60056E1B8 /* TextField_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681D90F9C48D60056E1B8 /* TextField_mac.cp */; };
+		D5F682280F9C48D60056E1B8 /* View_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681DB0F9C48D60056E1B8 /* View_mac.cp */; };
+		D5F6822A0F9C48D60056E1B8 /* Window_mac.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F681DD0F9C48D60056E1B8 /* Window_mac.cp */; };
+		D5F6824C0F9C4CD20056E1B8 /* Network_mach.cp in Sources */ = {isa = PBXBuildFile; fileRef = D5F6824A0F9C4CD20056E1B8 /* Network_mach.cp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D2AAC06F0554671400DB518D /* libdtslibX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libdtslibX.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		D561797F1DE0385E00F11EAD /* BrowserList.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BrowserList.cp; sourceTree = "<group>"; };
+		D56179801DE0385E00F11EAD /* BrowserList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BrowserList.h; sourceTree = "<group>"; };
+		D59288781DA9A5F600D6672A /* Dialog_mach.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Dialog_mach.cp; sourceTree = "<group>"; };
+		D592887C1DA9A60500D6672A /* Dialog_mach.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Dialog_mach.h; sourceTree = "<group>"; };
+		D5979F6E1E1DCFF80055E8F5 /* Sound_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sound_mac.h; sourceTree = "<group>"; };
+		D5A9987515AB4F790065EC21 /* DTSLib2.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = DTSLib2.xcconfig; path = source/mac/DTSLib2.xcconfig; sourceTree = "<group>"; };
+		D5DF1875174749AB00812841 /* CarbonEvent_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CarbonEvent_mac.cp; sourceTree = "<group>"; };
+		D5DF1876174749AB00812841 /* CarbonEvent_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CarbonEvent_mac.h; sourceTree = "<group>"; };
+		D5F680D90F9C48460056E1B8 /* About_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = About_dts.h; sourceTree = "<group>"; };
+		D5F680DA0F9C48460056E1B8 /* Control_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Control_dts.h; sourceTree = "<group>"; };
+		D5F680DB0F9C48460056E1B8 /* Cursor_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Cursor_dts.h; sourceTree = "<group>"; };
+		D5F680DC0F9C48460056E1B8 /* Dialog_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Dialog_dts.h; sourceTree = "<group>"; };
+		D5F680DD0F9C48460056E1B8 /* DTS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DTS.h; sourceTree = "<group>"; };
+		D5F680DE0F9C48460056E1B8 /* Encryption_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Encryption_dts.h; sourceTree = "<group>"; };
+		D5F680DF0F9C48460056E1B8 /* Endian_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Endian_dts.h; sourceTree = "<group>"; };
+		D5F680E00F9C48460056E1B8 /* File_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = File_dts.h; sourceTree = "<group>"; };
+		D5F680E10F9C48460056E1B8 /* KeyFile_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KeyFile_dts.h; sourceTree = "<group>"; };
+		D5F680E20F9C48460056E1B8 /* LinkedList_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LinkedList_dts.h; sourceTree = "<group>"; };
+		D5F680E30F9C48460056E1B8 /* Local_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Local_dts.h; sourceTree = "<group>"; };
+		D5F680E40F9C48460056E1B8 /* Memory_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Memory_dts.h; sourceTree = "<group>"; };
+		D5F680E50F9C48460056E1B8 /* Menu_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Menu_dts.h; sourceTree = "<group>"; };
+		D5F680E70F9C48460056E1B8 /* Network_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Network_dts.h; sourceTree = "<group>"; };
+		D5F680E80F9C48460056E1B8 /* New_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = New_dts.h; sourceTree = "<group>"; };
+		D5F680E90F9C48460056E1B8 /* Platform_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Platform_dts.h; sourceTree = "<group>"; };
+		D5F680EA0F9C48460056E1B8 /* Prefix_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Prefix_dts.h; sourceTree = "<group>"; };
+		D5F680EB0F9C48460056E1B8 /* RegExp_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RegExp_dts.h; sourceTree = "<group>"; };
+		D5F680EC0F9C48460056E1B8 /* SBBTree_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SBBTree_dts.h; sourceTree = "<group>"; };
+		D5F680ED0F9C48460056E1B8 /* Scrap_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Scrap_dts.h; sourceTree = "<group>"; };
+		D5F680EE0F9C48460056E1B8 /* Shell_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Shell_dts.h; sourceTree = "<group>"; };
+		D5F680EF0F9C48460056E1B8 /* Sound_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sound_dts.h; sourceTree = "<group>"; };
+		D5F680F00F9C48460056E1B8 /* TextField_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextField_dts.h; sourceTree = "<group>"; };
+		D5F680F10F9C48460056E1B8 /* Utilities_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Utilities_dts.h; sourceTree = "<group>"; };
+		D5F680F20F9C48460056E1B8 /* View_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = View_dts.h; sourceTree = "<group>"; };
+		D5F680F30F9C48460056E1B8 /* Window_dts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Window_dts.h; sourceTree = "<group>"; };
+		D5F681710F9C48D50056E1B8 /* Encryption_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Encryption_dts.cp; sourceTree = "<group>"; };
+		D5F681720F9C48D50056E1B8 /* Endian_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Endian_dts.cp; sourceTree = "<group>"; };
+		D5F681730F9C48D50056E1B8 /* KeyFile_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeyFile_dts.cp; sourceTree = "<group>"; };
+		D5F681740F9C48D50056E1B8 /* LinkedList_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LinkedList_dts.cp; sourceTree = "<group>"; };
+		D5F681750F9C48D50056E1B8 /* Memory_cmn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Memory_cmn.h; sourceTree = "<group>"; };
+		D5F681760F9C48D50056E1B8 /* Memory_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Memory_dts.cp; sourceTree = "<group>"; };
+		D5F681770F9C48D50056E1B8 /* Network_cmn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Network_cmn.h; sourceTree = "<group>"; };
+		D5F681780F9C48D50056E1B8 /* Network_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Network_dts.cp; sourceTree = "<group>"; };
+		D5F6817A0F9C48D50056E1B8 /* OneWayHash_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = OneWayHash_dts.cp; sourceTree = "<group>"; };
+		D5F6817B0F9C48D60056E1B8 /* RegExp_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RegExp_dts.cp; sourceTree = "<group>"; };
+		D5F6817C0F9C48D60056E1B8 /* SBBTree_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SBBTree_dts.cp; sourceTree = "<group>"; };
+		D5F6817D0F9C48D60056E1B8 /* Utilities_dts.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Utilities_dts.cp; sourceTree = "<group>"; };
+		D5F6819D0F9C48D60056E1B8 /* About_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = About_mac.cp; sourceTree = "<group>"; };
+		D5F6819E0F9C48D60056E1B8 /* AppleEvent_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleEvent_mac.cp; sourceTree = "<group>"; };
+		D5F6819F0F9C48D60056E1B8 /* AppleEvent_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleEvent_mac.h; sourceTree = "<group>"; };
+		D5F681A30F9C48D60056E1B8 /* Control_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Control_mac.cp; sourceTree = "<group>"; };
+		D5F681A40F9C48D60056E1B8 /* Control_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Control_mac.h; sourceTree = "<group>"; };
+		D5F681A50F9C48D60056E1B8 /* Cursor_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Cursor_mac.cp; sourceTree = "<group>"; };
+		D5F681A60F9C48D60056E1B8 /* Dialog_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Dialog_mac.cp; sourceTree = "<group>"; };
+		D5F681A70F9C48D60056E1B8 /* Dialog_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Dialog_mac.h; sourceTree = "<group>"; };
+		D5F681A80F9C48D60056E1B8 /* Draw_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Draw_mac.cp; sourceTree = "<group>"; };
+		D5F681A90F9C48D60056E1B8 /* DropArea_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DropArea_mac.cp; sourceTree = "<group>"; };
+		D5F681AA0F9C48D60056E1B8 /* DropArea_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DropArea_mac.h; sourceTree = "<group>"; };
+		D5F681AC0F9C48D60056E1B8 /* dtslib2.pch++ */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "dtslib2.pch++"; sourceTree = "<group>"; };
+		D5F681BE0F9C48D60056E1B8 /* File_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = File_mac.cp; sourceTree = "<group>"; };
+		D5F681BF0F9C48D60056E1B8 /* File_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = File_mac.h; sourceTree = "<group>"; };
+		D5F681C00F9C48D60056E1B8 /* MacBinary_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MacBinary_mac.cp; sourceTree = "<group>"; };
+		D5F681C10F9C48D60056E1B8 /* MacBinary_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MacBinary_mac.h; sourceTree = "<group>"; };
+		D5F681C20F9C48D60056E1B8 /* Memory_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Memory_mac.cp; sourceTree = "<group>"; };
+		D5F681C30F9C48D60056E1B8 /* Menu_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Menu_mac.cp; sourceTree = "<group>"; };
+		D5F681C90F9C48D60056E1B8 /* Prefix_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Prefix_mac.h; sourceTree = "<group>"; };
+		D5F681CA0F9C48D60056E1B8 /* Resource_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Resource_mac.h; sourceTree = "<group>"; };
+		D5F681D50F9C48D60056E1B8 /* Scrap_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Scrap_mac.cp; sourceTree = "<group>"; };
+		D5F681D60F9C48D60056E1B8 /* Shell_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Shell_mac.cp; sourceTree = "<group>"; };
+		D5F681D70F9C48D60056E1B8 /* Shell_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Shell_mac.h; sourceTree = "<group>"; };
+		D5F681D80F9C48D60056E1B8 /* Sound_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sound_mac.cp; sourceTree = "<group>"; };
+		D5F681D90F9C48D60056E1B8 /* TextField_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TextField_mac.cp; sourceTree = "<group>"; };
+		D5F681DA0F9C48D60056E1B8 /* TextField_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextField_mac.h; sourceTree = "<group>"; };
+		D5F681DB0F9C48D60056E1B8 /* View_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = View_mac.cp; sourceTree = "<group>"; };
+		D5F681DC0F9C48D60056E1B8 /* View_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = View_mac.h; sourceTree = "<group>"; };
+		D5F681DD0F9C48D60056E1B8 /* Window_mac.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Window_mac.cp; sourceTree = "<group>"; };
+		D5F681DE0F9C48D60056E1B8 /* Window_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Window_mac.h; sourceTree = "<group>"; };
+		D5F6824A0F9C4CD20056E1B8 /* Network_mach.cp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Network_mach.cp; sourceTree = "<group>"; };
+		D5F6824B0F9C4CD20056E1B8 /* Network_mach.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Network_mach.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D2AAC06D0554671400DB518D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		034768DDFF38A45A11DB9C8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2AAC06F0554671400DB518D /* libdtslibX.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0867D691FE84028FC02AAC07 /* dtslibX */ = {
+			isa = PBXGroup;
+			children = (
+				D5A9987515AB4F790065EC21 /* DTSLib2.xcconfig */,
+				D5F680D80F9C47F90056E1B8 /* includes */,
+				08FB77ACFE841707C02AAC07 /* source */,
+				034768DDFF38A45A11DB9C8B /* Products */,
+			);
+			name = dtslibX;
+			sourceTree = "<group>";
+		};
+		08FB77ACFE841707C02AAC07 /* source */ = {
+			isa = PBXGroup;
+			children = (
+				D5F681700F9C48D50056E1B8 /* common */,
+				D5F6819B0F9C48D60056E1B8 /* mac */,
+			);
+			path = source;
+			sourceTree = "<group>";
+		};
+		D5F680D80F9C47F90056E1B8 /* includes */ = {
+			isa = PBXGroup;
+			children = (
+				D5F680D90F9C48460056E1B8 /* About_dts.h */,
+				D5F680DA0F9C48460056E1B8 /* Control_dts.h */,
+				D5F680DB0F9C48460056E1B8 /* Cursor_dts.h */,
+				D5F680DC0F9C48460056E1B8 /* Dialog_dts.h */,
+				D5F680DD0F9C48460056E1B8 /* DTS.h */,
+				D5F680DE0F9C48460056E1B8 /* Encryption_dts.h */,
+				D5F680DF0F9C48460056E1B8 /* Endian_dts.h */,
+				D5F680E00F9C48460056E1B8 /* File_dts.h */,
+				D5F680E10F9C48460056E1B8 /* KeyFile_dts.h */,
+				D5F680E20F9C48460056E1B8 /* LinkedList_dts.h */,
+				D5F680E30F9C48460056E1B8 /* Local_dts.h */,
+				D5F680E40F9C48460056E1B8 /* Memory_dts.h */,
+				D5F680E50F9C48460056E1B8 /* Menu_dts.h */,
+				D5F680E70F9C48460056E1B8 /* Network_dts.h */,
+				D5F680E80F9C48460056E1B8 /* New_dts.h */,
+				D5F680E90F9C48460056E1B8 /* Platform_dts.h */,
+				D5F680EA0F9C48460056E1B8 /* Prefix_dts.h */,
+				D5F680EB0F9C48460056E1B8 /* RegExp_dts.h */,
+				D5F680EC0F9C48460056E1B8 /* SBBTree_dts.h */,
+				D5F680ED0F9C48460056E1B8 /* Scrap_dts.h */,
+				D5F680EE0F9C48460056E1B8 /* Shell_dts.h */,
+				D5F680EF0F9C48460056E1B8 /* Sound_dts.h */,
+				D5F680F00F9C48460056E1B8 /* TextField_dts.h */,
+				D5F680F10F9C48460056E1B8 /* Utilities_dts.h */,
+				D5F680F20F9C48460056E1B8 /* View_dts.h */,
+				D5F680F30F9C48460056E1B8 /* Window_dts.h */,
+			);
+			path = includes;
+			sourceTree = "<group>";
+		};
+		D5F681700F9C48D50056E1B8 /* common */ = {
+			isa = PBXGroup;
+			children = (
+				D5F681710F9C48D50056E1B8 /* Encryption_dts.cp */,
+				D5F681720F9C48D50056E1B8 /* Endian_dts.cp */,
+				D5F681730F9C48D50056E1B8 /* KeyFile_dts.cp */,
+				D5F681740F9C48D50056E1B8 /* LinkedList_dts.cp */,
+				D5F681750F9C48D50056E1B8 /* Memory_cmn.h */,
+				D5F681760F9C48D50056E1B8 /* Memory_dts.cp */,
+				D5F681770F9C48D50056E1B8 /* Network_cmn.h */,
+				D5F681780F9C48D50056E1B8 /* Network_dts.cp */,
+				D5F6817A0F9C48D50056E1B8 /* OneWayHash_dts.cp */,
+				D5F6817B0F9C48D60056E1B8 /* RegExp_dts.cp */,
+				D5F6817C0F9C48D60056E1B8 /* SBBTree_dts.cp */,
+				D5F6817D0F9C48D60056E1B8 /* Utilities_dts.cp */,
+			);
+			path = common;
+			sourceTree = "<group>";
+		};
+		D5F6819B0F9C48D60056E1B8 /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				D561797F1DE0385E00F11EAD /* BrowserList.cp */,
+				D56179801DE0385E00F11EAD /* BrowserList.h */,
+				D5F6819D0F9C48D60056E1B8 /* About_mac.cp */,
+				D5F6819E0F9C48D60056E1B8 /* AppleEvent_mac.cp */,
+				D5F6819F0F9C48D60056E1B8 /* AppleEvent_mac.h */,
+				D5DF1875174749AB00812841 /* CarbonEvent_mac.cp */,
+				D5DF1876174749AB00812841 /* CarbonEvent_mac.h */,
+				D5F681A30F9C48D60056E1B8 /* Control_mac.cp */,
+				D5F681A40F9C48D60056E1B8 /* Control_mac.h */,
+				D5F681A50F9C48D60056E1B8 /* Cursor_mac.cp */,
+				D5F681A60F9C48D60056E1B8 /* Dialog_mac.cp */,
+				D59288781DA9A5F600D6672A /* Dialog_mach.cp */,
+				D5F681A70F9C48D60056E1B8 /* Dialog_mac.h */,
+				D592887C1DA9A60500D6672A /* Dialog_mach.h */,
+				D5F681A80F9C48D60056E1B8 /* Draw_mac.cp */,
+				D5F681A90F9C48D60056E1B8 /* DropArea_mac.cp */,
+				D5F681AA0F9C48D60056E1B8 /* DropArea_mac.h */,
+				D5F681AC0F9C48D60056E1B8 /* dtslib2.pch++ */,
+				D5F681BE0F9C48D60056E1B8 /* File_mac.cp */,
+				D5F681BF0F9C48D60056E1B8 /* File_mac.h */,
+				D5F681C00F9C48D60056E1B8 /* MacBinary_mac.cp */,
+				D5F681C10F9C48D60056E1B8 /* MacBinary_mac.h */,
+				D5F681C20F9C48D60056E1B8 /* Memory_mac.cp */,
+				D5F681C30F9C48D60056E1B8 /* Menu_mac.cp */,
+				D5F6824A0F9C4CD20056E1B8 /* Network_mach.cp */,
+				D5F6824B0F9C4CD20056E1B8 /* Network_mach.h */,
+				D5F681C90F9C48D60056E1B8 /* Prefix_mac.h */,
+				D5F681CA0F9C48D60056E1B8 /* Resource_mac.h */,
+				D5F681D50F9C48D60056E1B8 /* Scrap_mac.cp */,
+				D5F681D60F9C48D60056E1B8 /* Shell_mac.cp */,
+				D5F681D70F9C48D60056E1B8 /* Shell_mac.h */,
+				D5F681D80F9C48D60056E1B8 /* Sound_mac.cp */,
+				D5979F6E1E1DCFF80055E8F5 /* Sound_mac.h */,
+				D5F681D90F9C48D60056E1B8 /* TextField_mac.cp */,
+				D5F681DA0F9C48D60056E1B8 /* TextField_mac.h */,
+				D5F681DB0F9C48D60056E1B8 /* View_mac.cp */,
+				D5F681DC0F9C48D60056E1B8 /* View_mac.h */,
+				D5F681DD0F9C48D60056E1B8 /* Window_mac.cp */,
+				D5F681DE0F9C48D60056E1B8 /* Window_mac.h */,
+			);
+			path = mac;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D2AAC06E0554671400DB518D /* dtslibX */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB920108733DBB0010E9CD /* Build configuration list for PBXNativeTarget "dtslibX" */;
+			buildPhases = (
+				D2AAC06C0554671400DB518D /* Sources */,
+				D2AAC06D0554671400DB518D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = dtslibX;
+			productName = dtslibX;
+			productReference = D2AAC06F0554671400DB518D /* libdtslibX.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0867D690FE84028FC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				ORGANIZATIONNAME = "Delta Tao";
+			};
+			buildConfigurationList = 1DEB920508733DBB0010E9CD /* Build configuration list for PBXProject "dtslibX" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 0867D691FE84028FC02AAC07 /* dtslibX */;
+			productRefGroup = 034768DDFF38A45A11DB9C8B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2AAC06E0554671400DB518D /* dtslibX */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2AAC06C0554671400DB518D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5F681DF0F9C48D60056E1B8 /* Encryption_dts.cp in Sources */,
+				D5F681E00F9C48D60056E1B8 /* Endian_dts.cp in Sources */,
+				D5F681E10F9C48D60056E1B8 /* KeyFile_dts.cp in Sources */,
+				D5F681E20F9C48D60056E1B8 /* LinkedList_dts.cp in Sources */,
+				D5F681E40F9C48D60056E1B8 /* Memory_dts.cp in Sources */,
+				D5F681E60F9C48D60056E1B8 /* Network_dts.cp in Sources */,
+				D5F681E80F9C48D60056E1B8 /* OneWayHash_dts.cp in Sources */,
+				D5F681E90F9C48D60056E1B8 /* RegExp_dts.cp in Sources */,
+				D5F681EA0F9C48D60056E1B8 /* SBBTree_dts.cp in Sources */,
+				D5F681EB0F9C48D60056E1B8 /* Utilities_dts.cp in Sources */,
+				D5F682070F9C48D60056E1B8 /* About_mac.cp in Sources */,
+				D5F682080F9C48D60056E1B8 /* AppleEvent_mac.cp in Sources */,
+				D56179811DE0385E00F11EAD /* BrowserList.cp in Sources */,
+				D5DF1877174749B200812841 /* CarbonEvent_mac.cp in Sources */,
+				D5F6820A0F9C48D60056E1B8 /* Control_mac.cp in Sources */,
+				D5F6820C0F9C48D60056E1B8 /* Cursor_mac.cp in Sources */,
+				D5F6820D0F9C48D60056E1B8 /* Dialog_mac.cp in Sources */,
+				D59288791DA9A5F600D6672A /* Dialog_mach.cp in Sources */,
+				D5F6820F0F9C48D60056E1B8 /* Draw_mac.cp in Sources */,
+				D5F682150F9C48D60056E1B8 /* File_mac.cp in Sources */,
+				D5F6821A0F9C48D60056E1B8 /* Menu_mac.cp in Sources */,
+				D5F6824C0F9C4CD20056E1B8 /* Network_mach.cp in Sources */,
+				D5F682220F9C48D60056E1B8 /* Scrap_mac.cp in Sources */,
+				D5F682230F9C48D60056E1B8 /* Shell_mac.cp in Sources */,
+				D5F682250F9C48D60056E1B8 /* Sound_mac.cp in Sources */,
+				D5F682260F9C48D60056E1B8 /* TextField_mac.cp in Sources */,
+				D5F682280F9C48D60056E1B8 /* View_mac.cp in Sources */,
+				D5F6822A0F9C48D60056E1B8 /* Window_mac.cp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB920208733DBB0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D5A9987515AB4F790065EC21 /* DTSLib2.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "source/mac/dtslib2.pch++";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG_VERSION=1",
+					"DTSLIB_DEBUG_BUILD=1",
+				);
+				PREBINDING = NO;
+				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
+				PRODUCT_NAME = dtslibX;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		1DEB920308733DBB0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D5A9987515AB4F790065EC21 /* DTSLib2.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "source/mac/dtslib2.pch++";
+				PREBINDING = NO;
+				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
+				PRODUCT_NAME = dtslibX;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		1DEB920608733DBB0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		1DEB920708733DBB0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB920108733DBB0010E9CD /* Build configuration list for PBXNativeTarget "dtslibX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB920208733DBB0010E9CD /* Debug */,
+				1DEB920308733DBB0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB920508733DBB0010E9CD /* Build configuration list for PBXProject "dtslibX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB920608733DBB0010E9CD /* Debug */,
+				1DEB920708733DBB0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0867D690FE84028FC02AAC07 /* Project object */;
+}
