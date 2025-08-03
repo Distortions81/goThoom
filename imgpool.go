@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,6 +54,6 @@ func recycleTempImage(img *ebiten.Image) {
 	if len(imgPool[s]) < maxUnusedSprites {
 		imgPool[s] = append(imgPool[s], img)
 	} else {
-		fmt.Println("recycleTempImage: full")
+		logDebug("recycleTempImage: full")
 	}
 }

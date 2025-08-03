@@ -56,9 +56,12 @@ func main() {
 	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
+	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
+
+	setupLogging(debug)
 
 	initFont()
 
@@ -171,20 +174,6 @@ func main() {
 
 		<-ctx.Done()
 		return
-	}
-
-	if debug {
-		logName := fmt.Sprintf("debug-%v.log", time.Now().Format("20060102-150405"))
-		f, err := os.Create(logName)
-		if err == nil {
-			logFile = f
-			log.SetOutput(f)
-			defer f.Close()
-		} else {
-			fmt.Printf("warning: could not create log file: %v\n", err)
-		}
-	} else {
-		log.SetOutput(io.Discard)
 	}
 
 	clientVersion := *clientVer
@@ -301,7 +290,7 @@ func main() {
 						}
 					}
 					if !selected {
-						fmt.Printf("character %v not found in account %v\n", name, account)
+						logError("character %v not found in account %v", name, account)
 					}
 				}
 				if !selected {
@@ -363,9 +352,9 @@ func main() {
 		}
 		result := int16(binary.BigEndian.Uint16(resp[2:4]))
 		if name, ok := errorNames[result]; ok && result != 0 {
-			fmt.Printf("login result: %d (%v)\n", result, name)
+			logDebug("login result: %d (%v)", result, name)
 		} else {
-			fmt.Printf("login result: %d\n", result)
+			logDebug("login result: %d", result)
 		}
 
 		if result == -30972 || result == -30973 {
@@ -383,7 +372,7 @@ func main() {
 			fmt.Println("login succeeded, reading messages (Ctrl-C to quit)...")
 
 			if err := sendPlayerInput(udpConn); err != nil {
-				fmt.Printf("send player input: %v\n", err)
+				logError("send player input: %v", err)
 			}
 
 			go sendInputLoop(ctx, udpConn)
