@@ -7,7 +7,6 @@ require github.com/hajimehoshi/ebiten/v2 v2.8.8
 require (
 	github.com/Distortions81/EUI v0.0.3
 	golang.org/x/crypto v0.40.0
-	golang.org/x/text v0.27.0
 )
 
 require github.com/ebitengine/oto/v3 v3.3.3 // indirect
@@ -21,5 +20,6 @@ require (
 	golang.org/x/image v0.29.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 )
