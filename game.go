@@ -671,8 +671,14 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 func drawMessages(screen *ebiten.Image, msgs []string) {
 	startY := gameAreaSizeY*scale - 200
 	for i, msg := range msgs {
+		y := startY + (12*i)*scale
+		w, _ := text.Measure(msg, nameFace, 0)
+		iw := int(math.Ceil(w)) + 8*scale
+		ih := 12 * scale
+		ebitenutil.DrawRect(screen, 0, float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
+
 		op := &text.DrawOptions{}
-		op.GeoM.Translate(float64(4*scale), float64(startY+(12*i)*scale))
+		op.GeoM.Translate(float64(4*scale), float64(y))
 		op.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, msg, nameFace, op)
 	}
