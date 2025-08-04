@@ -187,6 +187,77 @@ func handleDrawState(m []byte) {
 	}
 }
 
+// parseInventory walks the inventory command stream and returns the remaining
+// slice and success flag. The layout mirrors the old Mac client's
+// HandleInventory function.
+func parseInventory(data []byte) ([]byte, bool) {
+	if len(data) == 0 {
+		return nil, false
+	}
+	cmd := int(data[0])
+	data = data[1:]
+	if cmd == kInvCmdNone {
+		return data, true
+	}
+
+	cmdCount := 1
+	if cmd == kInvCmdMultiple {
+		if len(data) < 2 {
+			return nil, false
+		}
+		cmdCount = int(data[0])
+		cmd = int(data[1])
+		data = data[2:]
+	}
+
+	for i := 0; i < cmdCount; i++ {
+		base := cmd &^ kInvCmdIndex
+		switch base {
+		case kInvCmdFull:
+			if cmd&kInvCmdIndex != 0 || len(data) < 1 {
+				return nil, false
+			}
+			itemCount := int(data[0])
+			data = data[1:]
+			bytesNeeded := (itemCount+7)>>3 + itemCount*2
+			if len(data) < bytesNeeded {
+				return nil, false
+			}
+			data = data[bytesNeeded:]
+		case kInvCmdAdd, kInvCmdAddEquip, kInvCmdDelete, kInvCmdEquip,
+			kInvCmdUnequip, kInvCmdName:
+			if len(data) < 2 {
+				return nil, false
+			}
+			data = data[2:]
+			if cmd&kInvCmdIndex != 0 {
+				if len(data) < 1 {
+					return nil, false
+				}
+				data = data[1:]
+			}
+			if base == kInvCmdAdd || base == kInvCmdAddEquip || base == kInvCmdName {
+				idx := bytes.IndexByte(data, 0)
+				if idx < 0 {
+					return nil, false
+				}
+				data = data[idx+1:]
+			}
+		default:
+			return nil, false
+		}
+		if len(data) == 0 {
+			return nil, false
+		}
+		cmd = int(data[0])
+		data = data[1:]
+	}
+	if cmd != kInvCmdNone {
+		return nil, false
+	}
+	return data, true
+}
+
 // parseDrawState decodes the draw state data. It returns false when the packet
 // appears malformed.
 func parseDrawState(data []byte) bool {
@@ -585,7 +656,9 @@ func parseDrawState(data []byte) bool {
 		stateData = stateData[2:]
 		playSound(id)
 	}
-	if len(stateData) != 0 {
+	var ok bool
+	stateData, ok = parseInventory(stateData)
+	if !ok {
 		return false
 	}
 	return true
