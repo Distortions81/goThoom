@@ -63,6 +63,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	initFont()
+	//initUI()
 
 	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
@@ -135,13 +136,15 @@ func main() {
 		clImages.Denoise = true
 	}
 
-	if !noSplash {
-		addMessage("Waiting for login...")
-		<-loginRequest
-		if name != "" {
-			nameProvided = true
+	/*
+		if !noSplash {
+			addMessage("Waiting for login...")
+			<-loginRequest
+			if name != "" {
+				nameProvided = true
+			}
 		}
-	}
+	*/
 
 	if clmovPath != "" {
 		frames, err := parseMovie(clmovPath, *clientVer)

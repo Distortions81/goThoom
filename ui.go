@@ -25,7 +25,7 @@ func initUI() {
 			FlowType: eui.FLOW_VERTICAL,
 		}
 
-		hostInput, _ := eui.NewInput(&eui.ItemData{Label: "Host", TextPtr: &host, Size: eui.Point{X: 200, Y: 24}})
+		hostInput, _ := eui.NewInput(&eui.ItemData{Label: "Host", TextPtr: &host, Size: eui.Point{X: 200, Y: 24}, Text: host})
 		loginFlow.AddItem(hostInput)
 
 		acctInput, _ := eui.NewInput(&eui.ItemData{Label: "Account", TextPtr: &account, Size: eui.Point{X: 200, Y: 24}})
