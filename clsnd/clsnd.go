@@ -151,7 +151,7 @@ func decodeHeader(data []byte, hdr int) (*Sound, error) {
 			Bits:       8,
 		}
 		return s, nil
-	case 3: // extSH: allow 16-bit or multi-channel
+	case 0xff: // ExtSoundHeader: allow 16-bit or multi-channel
 		if hdr+44 > len(data) {
 			return nil, fmt.Errorf("short ext header")
 		}
