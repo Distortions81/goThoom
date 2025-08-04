@@ -793,8 +793,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
 			noteFrame()
-			simpleEncrypt(m[2:])
-			handleDrawState(m[2:])
+			handleDrawState(m)
 			continue
 		}
 		if txt := decodeMessage(m); txt != "" {
@@ -828,8 +827,7 @@ loop:
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
 			noteFrame()
-			simpleEncrypt(m[2:])
-			handleDrawState(m[2:])
+			handleDrawState(m)
 			continue
 		}
 		if txt := decodeMessage(m); txt != "" {
