@@ -66,7 +66,6 @@ func main() {
 
 	flag.Parse()
 	initSoundContext()
-	rand.Seed(time.Now().UnixNano())
 
 	initFont()
 	initUI()
