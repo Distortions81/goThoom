@@ -404,7 +404,16 @@ func parseDrawState(data []byte) error {
 		return errors.New(stage)
 	}
 
-	stateData := data[p:]
+	stage = "state size"
+	if len(data) < p+2 {
+		return errors.New(stage)
+	}
+	stateLen := int(binary.BigEndian.Uint16(data[p:]))
+	p += 2
+	if len(data) < p+stateLen {
+		return errors.New(stage)
+	}
+	stateData := data[p : p+stateLen]
 
 	stateMu.Lock()
 	state.prevHP = state.hp
@@ -544,53 +553,34 @@ func parseDrawState(data []byte) error {
 	}
 	stage = "bubble"
 	for i := 0; i < bubbleCount && len(stateData) > 0; i++ {
+		off := len(data) - len(stateData)
 		if len(stateData) < 2 {
-			logDebug("parseDrawState: truncated bubble header (%d/%d)", i+1, bubbleCount)
-			stateData = nil
-			break
+			return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 		}
 		idx := stateData[0]
 		typ := int(stateData[1])
 		p := 2
 		if typ&kBubbleNotCommon != 0 {
 			if len(stateData) < p+1 {
-				logDebug("parseDrawState: truncated bubble language (%d/%d)", i+1, bubbleCount)
-				stateData = stateData[1:]
-				continue
+				return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 			}
 			p++
 		}
 		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
-				logDebug("parseDrawState: truncated bubble coords (%d/%d)", i+1, bubbleCount)
-				stateData = stateData[1:]
-				continue
+				return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 			}
 			h = int16(binary.BigEndian.Uint16(stateData[p:]))
 			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
-		if len(stateData) < p {
-			logDebug("parseDrawState: truncated bubble body (%d/%d)", i+1, bubbleCount)
-			stateData = nil
-			break
+		if len(stateData) <= p {
+			return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 		}
 		end := bytes.IndexByte(stateData[p:], 0)
 		if end < 0 {
-			logDebug("parseDrawState: missing bubble terminator (%d/%d)", i+1, bubbleCount)
-			skip := len(stateData)
-			for j := p; j+1 < len(stateData); j++ {
-				if int(stateData[j+1])&kBubbleTypeMask <= kBubbleNarrate {
-					skip = j
-					break
-				}
-			}
-			if skip <= 0 {
-				skip = len(stateData)
-			}
-			stateData = stateData[skip:]
-			continue
+			return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 		}
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
@@ -698,15 +688,13 @@ func parseDrawState(data []byte) error {
 
 	stage = "sound count"
 	if len(stateData) < 1 {
-		logDebug("parseDrawState: truncated sound count")
-		return nil
+		return errors.New(stage)
 	}
 	soundCount := int(stateData[0])
 	stateData = stateData[1:]
 	stage = "sounds"
 	if len(stateData) < soundCount*2 {
-		logDebug("parseDrawState: truncated sounds")
-		return nil
+		return errors.New(stage)
 	}
 	for i := 0; i < soundCount; i++ {
 		id := binary.BigEndian.Uint16(stateData[:2])
@@ -717,8 +705,7 @@ func parseDrawState(data []byte) error {
 	var ok bool
 	stateData, ok = parseInventory(stateData)
 	if !ok {
-		logDebug("parseDrawState: truncated inventory")
-		return nil
+		return errors.New(stage)
 	}
 	return nil
 }

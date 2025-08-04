@@ -14,7 +14,6 @@ import (
 	"strconv"
 
 	"golang.org/x/crypto/twofish"
-	"golang.org/x/text/encoding/charmap"
 )
 
 func simpleEncrypt(data []byte) {
@@ -29,17 +28,7 @@ func simpleEncrypt(data []byte) {
 	}
 }
 
-func encodeMacRoman(s string) []byte {
-	out := make([]byte, 0, len(s))
-	for _, r := range s {
-		if b, ok := charmap.Macintosh.EncodeRune(r); ok {
-			out = append(out, b)
-		} else {
-			out = append(out, '?')
-		}
-	}
-	return out
-}
+func encodeMacRoman(s string) []byte { return []byte(s) }
 
 func encodeFullVersion(v int) uint32 { return uint32(v) << 8 }
 

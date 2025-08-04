@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
 	"testing"
@@ -22,13 +23,16 @@ func TestHandleDrawStateInfoStrings(t *testing.T) {
 	stateData = append(stateData, 0) // sound count 0
 	stateData = append(stateData, 0) // inventory none
 
-	data := make([]byte, 0, 19+len(stateData))
+	data := make([]byte, 0, 21+len(stateData))
 	data = append(data, 0)                  // ackCmd
 	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
 	data = append(data, 0)                  // descriptor count
 	data = append(data, make([]byte, 7)...) // hp, hpMax, sp, spMax, bal, balMax, lighting
 	data = append(data, 0)                  // picture count
 	data = append(data, 0)                  // mobile count
+	var sl [2]byte
+	binary.BigEndian.PutUint16(sl[:], uint16(len(stateData)))
+	data = append(data, sl[:]...)
 	data = append(data, stateData...)
 
 	m := append([]byte{0, 0}, data...)
@@ -55,13 +59,16 @@ func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 	stateData = append(stateData, 0) // sound count 0
 	stateData = append(stateData, 0) // inventory none
 
-	data := make([]byte, 0, 19+len(stateData))
+	data := make([]byte, 0, 21+len(stateData))
 	data = append(data, 0)
 	data = append(data, make([]byte, 8)...)
 	data = append(data, 0)
 	data = append(data, make([]byte, 7)...)
 	data = append(data, 0)
 	data = append(data, 0)
+	var sl2 [2]byte
+	binary.BigEndian.PutUint16(sl2[:], uint16(len(stateData)))
+	data = append(data, sl2[:]...)
 	data = append(data, stateData...)
 
 	m := append([]byte{0, 0}, data...)
@@ -98,7 +105,7 @@ func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	stateData = append(stateData, 0) // sound count 0
 	stateData = append(stateData, 0) // inventory none
 
-	data := make([]byte, 0, 19+len(stateData)+len(desc))
+	data := make([]byte, 0, 21+len(stateData)+len(desc))
 	data = append(data, 0)                  // ackCmd
 	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
 	data = append(data, 1)                  // descriptor count
@@ -106,6 +113,9 @@ func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	data = append(data, make([]byte, 7)...) // hp, sp, etc.
 	data = append(data, 0)                  // picture count
 	data = append(data, 0)                  // mobile count
+	var sl3 [2]byte
+	binary.BigEndian.PutUint16(sl3[:], uint16(len(stateData)))
+	data = append(data, sl3[:]...)
 	data = append(data, stateData...)
 
 	m := append([]byte{0, 0}, data...)
@@ -135,13 +145,16 @@ func TestHandleDrawStateSounds(t *testing.T) {
 	stateData = append(stateData, 0x02, 0x03)
 	stateData = append(stateData, 0) // inventory none
 
-	data := make([]byte, 0, 19+len(stateData))
+	data := make([]byte, 0, 21+len(stateData))
 	data = append(data, 0)                  // ackCmd
 	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
 	data = append(data, 0)                  // descriptor count
 	data = append(data, make([]byte, 7)...) // hp, sp, etc.
 	data = append(data, 0)                  // picture count
 	data = append(data, 0)                  // mobile count
+	var sl [2]byte
+	binary.BigEndian.PutUint16(sl[:], uint16(len(stateData)))
+	data = append(data, sl[:]...)
 	data = append(data, stateData...)
 
 	m := append([]byte{0, 0}, data...)
@@ -161,6 +174,8 @@ func buildTruncatedDrawState(pictBits []byte) []byte {
 	data = append(data, make([]byte, 7)...) // hp, sp, etc.
 	data = append(data, 1)                  // picture count
 	data = append(data, pictBits...)
+	data = append(data, 0)    // mobile count
+	data = append(data, 0, 0) // state length 0
 	return data
 }
 
@@ -169,13 +184,16 @@ func buildTruncatedDrawState(pictBits []byte) []byte {
 func buildBubbleDrawState(bubble []byte) ([]byte, int) {
 	stateData := []byte{0, 1}
 	stateData = append(stateData, bubble...)
-	data := make([]byte, 0, 21+len(bubble))
+	data := make([]byte, 0, 23+len(bubble))
 	data = append(data, 0)                  // ackCmd
 	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
 	data = append(data, 0)                  // descriptor count
 	data = append(data, make([]byte, 7)...) // hp, sp, etc.
 	data = append(data, 0)                  // picture count
 	data = append(data, 0)                  // mobile count
+	var sl [2]byte
+	binary.BigEndian.PutUint16(sl[:], uint16(len(stateData)))
+	data = append(data, sl[:]...)
 	data = append(data, stateData...)
 	off := len(data) - len(bubble)
 	return data, off
@@ -276,13 +294,16 @@ func TestParseDrawStateTruncatedBubble(t *testing.T) {
 	stateData = append(stateData, 1)
 	stateData = append(stateData, bubble...)
 
-	data := make([]byte, 0, 19+len(stateData))
+	data := make([]byte, 0, 21+len(stateData))
 	data = append(data, 0)
 	data = append(data, make([]byte, 8)...)
 	data = append(data, 0)
 	data = append(data, make([]byte, 7)...) // stats
 	data = append(data, 0)
 	data = append(data, 0)
+	var sl [2]byte
+	binary.BigEndian.PutUint16(sl[:], uint16(len(stateData)))
+	data = append(data, sl[:]...)
 	data = append(data, stateData...)
 
 	if err := parseDrawState(data); err != nil {
