@@ -173,7 +173,7 @@ func main() {
 			defer ticker.Stop()
 			for _, m := range frames {
 				if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
-					handleDrawState(m)
+					handleDrawState(m[2:])
 				}
 				if txt := decodeMessage(m); txt != "" {
 					//addMessage("clMov: decodeMessage: " + txt)
