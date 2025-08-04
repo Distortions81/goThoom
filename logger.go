@@ -30,26 +30,7 @@ func setupLogging(debug bool) {
 	errorLogger = log.New(errWriter, "", log.LstdFlags)
 	log.SetOutput(errWriter)
 
-	if debug {
-		dbgPath := filepath.Join(logDir, fmt.Sprintf("debug-%s.log", ts))
-		dbgFile, err := os.Create(dbgPath)
-		var dbgWriter io.Writer
-		if err == nil {
-			if debug {
-				dbgWriter = io.MultiWriter(os.Stdout, dbgFile)
-			} else {
-				dbgWriter = dbgFile
-			}
-		} else {
-			if debug {
-				dbgWriter = os.Stdout
-			} else {
-				dbgWriter = io.Discard
-			}
-		}
-
-		debugLogger = log.New(dbgWriter, "", log.LstdFlags)
-	}
+	setDebugLogging(debug)
 }
 
 func logError(format string, v ...interface{}) {
@@ -64,5 +45,26 @@ func logError(format string, v ...interface{}) {
 func logDebug(format string, v ...interface{}) {
 	if debugLogger != nil {
 		debugLogger.Printf(format, v...)
+	}
+}
+
+func setDebugLogging(enabled bool) {
+	if enabled {
+		logDir := filepath.Join(baseDir, "logs", "errors")
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			fmt.Printf("could not create log directory: %v\n", err)
+		}
+		ts := time.Now().Format("20060102-150405")
+		dbgPath := filepath.Join(logDir, fmt.Sprintf("debug-%s.log", ts))
+		dbgFile, err := os.Create(dbgPath)
+		var dbgWriter io.Writer
+		if err == nil {
+			dbgWriter = io.MultiWriter(os.Stdout, dbgFile)
+		} else {
+			dbgWriter = os.Stdout
+		}
+		debugLogger = log.New(dbgWriter, "", log.LstdFlags)
+	} else {
+		debugLogger = nil
 	}
 }
