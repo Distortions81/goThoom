@@ -61,6 +61,7 @@ func main() {
 	flag.BoolVar(&smoothDebug, "smoothDebug", false, "highlight moving pictures during smoothing")
 	flag.BoolVar(&blendPicts, "blendPicts", false, "frame blending for picture animations")
 	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
+	flag.BoolVar(&nightMode, "nightMode", false, "enable night-time visual effects")
 	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
 	flag.BoolVar(&showBubbles, "bubble", false, "draw bubble debug boxes")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
