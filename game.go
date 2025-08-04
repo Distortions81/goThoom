@@ -72,7 +72,7 @@ type drawState struct {
 	prevTime    time.Time
 	curTime     time.Time
 
-	bubbles []debugBubble
+	bubbles []bubble
 
 	hp, hpMax                   int
 	sp, spMax                   int
@@ -92,9 +92,11 @@ var (
 	stateMu sync.Mutex
 )
 
-// debugBubble stores temporary bubble debug information.
-type debugBubble struct {
+// bubble stores temporary bubble debug information.
+type bubble struct {
+	Index  uint8
 	H, V   int16
+	Far    bool
 	Text   string
 	Expire time.Time
 }
@@ -110,7 +112,7 @@ type drawSnapshot struct {
 	prevDescs                   map[uint8]frameDescriptor
 	prevTime                    time.Time
 	curTime                     time.Time
-	bubbles                     []debugBubble
+	bubbles                     []bubble
 	hp, hpMax                   int
 	sp, spMax                   int
 	balance, balanceMax         int
@@ -157,11 +159,16 @@ func captureDrawSnapshot() drawSnapshot {
 		kept := state.bubbles[:0]
 		for _, b := range state.bubbles {
 			if b.Expire.After(now) {
+				if !b.Far {
+					if m, ok := state.mobiles[b.Index]; ok {
+						b.H, b.V = m.H, m.V
+					}
+				}
 				kept = append(kept, b)
 			}
 		}
 		state.bubbles = kept
-		snap.bubbles = append([]debugBubble(nil), state.bubbles...)
+		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
 	if interp || onion {
 		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
