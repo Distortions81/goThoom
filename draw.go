@@ -676,9 +676,7 @@ func parseDrawState(data []byte) error {
 					}
 				}
 			}
-			if idx != playerIndex {
-				addMessage(msg)
-			}
+			addMessage(msg)
 		}
 		stateData = stateData[p+end+1:]
 	}
