@@ -9,7 +9,7 @@ var loginWin *eui.WindowData
 
 func initUI() {
 
-	if !noSplash {
+	if !noSplash && 1 == 2 {
 		loginWin = eui.NewWindow(&eui.WindowData{
 			Title:     "Login",
 			Open:      true,

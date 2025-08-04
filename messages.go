@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -24,7 +23,7 @@ func addMessage(msg string) {
 		messages = messages[len(messages)-maxMessages:]
 	}
 
-	fmt.Println(msg)
+	//fmt.Println(msg)
 }
 
 func getMessages() []string {

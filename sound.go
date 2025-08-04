@@ -18,6 +18,7 @@ var (
 	audioContext = audio.NewContext(22050)
 	soundPlayers = make(map[*audio.Player]struct{})
 	playSound    = func(id uint16) {
+		logError("sound: %v", id)
 		s := loadSound(id)
 		if s == nil || audioContext == nil {
 			return

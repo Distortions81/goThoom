@@ -64,7 +64,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	initFont()
-	//initUI()
+	initUI()
 
 	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
