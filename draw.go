@@ -159,12 +159,13 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 	return best[0], best[1], true
 }
 
-// handleDrawState decodes the packed draw state message.
-//
-// Frames coming from the live server are XOR-obfuscated using SimpleEncrypt,
-// while movie files store the data unencrypted. We therefore try to parse the
-// raw payload first and only fall back to applying SimpleEncrypt when the
-// unencrypted attempt fails validation.
+// drawStateEncrypted controls whether incoming draw state packets need to be
+// decrypted using SimpleEncrypt before parsing. Live server frames are
+// encrypted, while movie playback uses plain data.
+var drawStateEncrypted = true
+
+// handleDrawState decodes the packed draw state message. It decrypts the
+// payload when drawStateEncrypted is true.
 func handleDrawState(m []byte) {
 	frameCounter++
 
@@ -173,14 +174,9 @@ func handleDrawState(m []byte) {
 	}
 
 	data := append([]byte(nil), m[2:]...)
-
-	// First try parsing the payload as-is.
-	if parseDrawState(data) {
-		return
+	if drawStateEncrypted {
+		simpleEncrypt(data)
 	}
-
-	// If parsing failed, assume the packet was XOR-obfuscated and retry.
-	simpleEncrypt(data)
 	if !parseDrawState(data) {
 		n := len(data)
 		if n > 16 {
