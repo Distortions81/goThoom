@@ -36,12 +36,15 @@ const (
 func Load(path string) (*CLSounds, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
+		fmt.Println("CL_Sounds file missing.")
 		return nil, err
 	}
 	if len(data) < 12 {
+		fmt.Println("CL_Sounds may be corrupt.")
 		return nil, fmt.Errorf("short file")
 	}
 	if binary.BigEndian.Uint16(data[:2]) != 0xffff {
+		fmt.Println("CL_Sounds invalid.")
 		return nil, fmt.Errorf("bad header")
 	}
 	r := data[2:]
@@ -51,6 +54,7 @@ func Load(path string) (*CLSounds, error) {
 	idx := make(map[uint32]entry, entryCount)
 	for i := uint32(0); i < entryCount; i++ {
 		if len(r) < 16 {
+			fmt.Println("CL_Sounds may be corrupt.")
 			return nil, fmt.Errorf("truncated table")
 		}
 		off := binary.BigEndian.Uint32(r[0:4])
@@ -89,6 +93,7 @@ func (c *CLSounds) Get(id uint32) *Sound {
 	}
 	s, err := decodeHeader(sndData, hdrOff)
 	if err != nil {
+		fmt.Printf("sound get error: %v\n", err)
 		return nil
 	}
 	c.mu.Lock()
