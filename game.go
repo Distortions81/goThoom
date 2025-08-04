@@ -53,6 +53,7 @@ var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var showPlanes bool
 var showBubbles bool
+var nightMode bool
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -324,7 +325,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, snap, alpha, fade)
-	//drawNightOverlay(screen)
+	if nightMode {
+		drawNightOverlay(screen)
+	}
 	drawMessages(screen, getMessages())
 
 	eui.Draw(screen)

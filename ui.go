@@ -96,7 +96,6 @@ func initUI() {
 	}
 	mainFlow.AddItem(anim)
 
-
 	fastAnim, fastAnimEvents := eui.NewCheckbox(&eui.ItemData{Text: "Fast Animation", Size: eui.Point{X: 150, Y: 24}, Checked: fastAnimation})
 	fastAnimEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -112,6 +111,14 @@ func initUI() {
 		}
 	}
 	mainFlow.AddItem(pictBlend)
+
+	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Mode", Size: eui.Point{X: 150, Y: 24}, Checked: nightMode})
+	nightEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			nightMode = ev.Checked
+		}
+	}
+	mainFlow.AddItem(nightCB)
 
 	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: 150, Y: 24}, Checked: clickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
