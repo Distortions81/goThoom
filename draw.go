@@ -184,7 +184,7 @@ func handleDrawState(m []byte) {
 		simpleEncrypt(data)
 	}
 	if err := parseDrawState(data); err != nil {
-		logDebugPacket(fmt.Sprintf("failed to parse draw state stage=%v", err), data)
+		logDebugPacket(fmt.Sprintf("parseDrawState error: %v", err), data)
 	}
 }
 
@@ -544,33 +544,34 @@ func parseDrawState(data []byte) error {
 	}
 	stage = "bubble"
 	for i := 0; i < bubbleCount; i++ {
+		off := len(data) - len(stateData)
 		if len(stateData) < 2 {
-			return errors.New(stage)
+			return fmt.Errorf("%s bubble=%d off=%d len=%d", stage, i, off, len(stateData))
 		}
 		idx := stateData[0]
 		typ := int(stateData[1])
 		p := 2
 		if typ&kBubbleNotCommon != 0 {
 			if len(stateData) < p+1 {
-				return errors.New(stage)
+				return fmt.Errorf("%s bubble=%d off=%d len=%d need=%d", stage, i, off, len(stateData), p+1)
 			}
 			p++
 		}
 		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
-				return errors.New(stage)
+				return fmt.Errorf("%s bubble=%d off=%d len=%d need=%d", stage, i, off, len(stateData), p+4)
 			}
 			h = int16(binary.BigEndian.Uint16(stateData[p:]))
 			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
 		if len(stateData) < p {
-			return errors.New(stage)
+			return fmt.Errorf("%s bubble=%d off=%d len=%d need=%d", stage, i, off, len(stateData), p)
 		}
 		end := bytes.IndexByte(stateData[p:], 0)
 		if end < 0 {
-			return errors.New(stage)
+			return fmt.Errorf("%s bubble=%d off=%d len=%d", stage, i, off, len(stateData))
 		}
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
