@@ -13,6 +13,8 @@ var fontData []byte
 
 var nameFace text.Face
 
+const bFontSize = 10
+
 func initFont() {
 	src, err := text.NewGoTextFaceSource(bytes.NewReader(fontData))
 	if err != nil {
@@ -20,6 +22,6 @@ func initFont() {
 	}
 	nameFace = &text.GoTextFace{
 		Source: src,
-		Size:   10 * float64(scale),
+		Size:   bFontSize * float64(scale),
 	}
 }
