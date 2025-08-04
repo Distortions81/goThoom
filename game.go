@@ -670,11 +670,17 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 // drawMessages prints chat messages on the HUD.
 func drawMessages(screen *ebiten.Image, msgs []string) {
 	startY := gameAreaSizeY*scale - 200
-	for i, msg := range msgs {
-		op := &text.DrawOptions{}
-		op.GeoM.Translate(float64(4*scale), float64(startY+(12*i)*scale))
-		op.ColorScale.ScaleWithColor(color.White)
-		text.Draw(screen, msg, nameFace, op)
+	y := startY
+	maxWidth := float64(gameAreaSizeX*scale - 8*scale)
+	for _, msg := range msgs {
+		lines := wrapText(msg, nameFace, maxWidth)
+		for _, line := range lines {
+			op := &text.DrawOptions{}
+			op.GeoM.Translate(float64(4*scale), float64(y))
+			op.ColorScale.ScaleWithColor(color.White)
+			text.Draw(screen, line, nameFace, op)
+			y += 12 * scale
+		}
 	}
 }
 
