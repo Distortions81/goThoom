@@ -23,19 +23,19 @@ const (
 	bubbleLargeHeight  = 53
 )
 
-// gBubbleMap replicates the Clan Lord mapping from bubble type to column index
-// in the bubble sprite sheet.
-var gBubbleMap = []int{
-	0, // kBubbleNormal
-	1, // kBubbleWhisper
-	2, // kBubbleYell
-	3, // kBubbleThought
-	4, // kBubbleRealAction
-	5, // kBubbleMonster
-	4, // kBubblePlayerAction - same graphic as real action
-	3, // kBubblePonder - same graphic as thought
-	4, // kBubbleNarrate - same graphic as real action
-}
+// gBubbleMap previously mapped bubble types to columns in the bubble sprite
+// sheet. It's retained here for reference while bubble images are disabled.
+// var gBubbleMap = []int{
+//      0, // kBubbleNormal
+//      1, // kBubbleWhisper
+//      2, // kBubbleYell
+//      3, // kBubbleThought
+//      4, // kBubbleRealAction
+//      5, // kBubbleMonster
+//      4, // kBubblePlayerAction - same graphic as real action
+//      3, // kBubblePonder - same graphic as thought
+//      4, // kBubbleNarrate - same graphic as real action
+// }
 
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
 // bottom-center of the balloon tail. The typ parameter is the bubble type value
@@ -47,35 +47,40 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 
 	// Determine bubble size by wrapping the text with a small width.
 	lines := wrapText(txt, nameFace, bubbleTextSmallWidth*float64(scale))
-	id := uint16(1)
 	bw, bh := bubbleSmallWidth, bubbleSmallHeight
 	tw := bubbleTextSmallWidth
 	if len(lines) > 2 {
 		lines = wrapText(txt, nameFace, bubbleTextMediumWidth*float64(scale))
-		id = 2
 		bw, bh = bubbleMediumWidth, bubbleMediumHeight
 		tw = bubbleTextMediumWidth
 		if len(lines) > 3 {
 			lines = wrapText(txt, nameFace, bubbleTextLargeWidth*float64(scale))
-			id = 3
 			bw, bh = bubbleLargeWidth, bubbleLargeHeight
 			tw = bubbleTextLargeWidth
 		}
 	}
 
-	col := 0
-	if t := typ & kBubbleTypeMask; t >= 0 && t < len(gBubbleMap) {
-		col = gBubbleMap[t]
-	}
+	// Original bubble image rendering is temporarily disabled.
+	// col := 0
+	// if t := typ & kBubbleTypeMask; t >= 0 && t < len(gBubbleMap) {
+	//      col = gBubbleMap[t]
+	// }
+	// img := loadBubbleImage(id, col)
+	// if img != nil {
+	//      op := &ebiten.DrawImageOptions{}
+	//      op.Filter = drawFilter
+	//      op.GeoM.Scale(float64(scale), float64(scale))
+	//      op.GeoM.Translate(float64(x-bw*scale/2), float64(y-bh*scale))
+	//      screen.DrawImage(img, op)
+	// }
 
-	img := loadBubbleImage(id, col)
-	if img != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = drawFilter
-		op.GeoM.Scale(float64(scale), float64(scale))
-		op.GeoM.Translate(float64(x-bw*scale/2), float64(y-bh*scale))
-		screen.DrawImage(img, op)
-	}
+	// Draw a semi-transparent white box instead of the bubble image.
+	w, h := bw*scale, bh*scale
+	box := ebiten.NewImage(w, h)
+	box.Fill(color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xb3}) // 30% transparent
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x-w/2), float64(y-h))
+	screen.DrawImage(box, op)
 
 	metrics := nameFace.Metrics()
 	lineHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent + metrics.HLineGap))
