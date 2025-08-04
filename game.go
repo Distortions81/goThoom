@@ -418,8 +418,33 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 
 	if showBubbles {
 		for _, b := range snap.bubbles {
-			x := (int(b.H) + fieldCenterX) * scale
-			y := (int(b.V) + fieldCenterY) * scale
+			hpos := float64(b.H)
+			vpos := float64(b.V)
+			if !b.Far {
+				var m *frameMobile
+				for i := range snap.mobiles {
+					if snap.mobiles[i].Index == b.Index {
+						m = &snap.mobiles[i]
+						break
+					}
+				}
+				if m != nil {
+					hpos = float64(m.H)
+					vpos = float64(m.V)
+					if interp {
+						if pm, ok := snap.prevMobiles[b.Index]; ok {
+							dh := int(m.H) - int(pm.H)
+							dv := int(m.V) - int(pm.V)
+							if dh*dh+dv*dv <= maxInterpPixels*maxInterpPixels {
+								hpos = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
+								vpos = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+							}
+						}
+					}
+				}
+			}
+			x := (int(math.Round(hpos)) + fieldCenterX) * scale
+			y := (int(math.Round(vpos)) + fieldCenterY) * scale
 			w, h := text.Measure(b.Text, nameFace, 0)
 			iw := int(math.Ceil(w))
 			ih := int(math.Ceil(h))
