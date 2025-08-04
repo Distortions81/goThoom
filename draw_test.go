@@ -194,3 +194,14 @@ func TestParseInventory(t *testing.T) {
 		t.Fatalf("ok=%v rest=%v", ok, rest)
 	}
 }
+
+func TestParseInventoryTrailingPadding(t *testing.T) {
+	data := []byte{byte(kInvCmdAdd), 0x00, 0x01}
+	data = append(data, []byte("foo")...)
+	data = append(data, 0)       // name terminator
+	data = append(data, 0, 0, 0) // padding after commands
+	rest, ok := parseInventory(data)
+	if !ok || len(rest) != 0 {
+		t.Fatalf("ok=%v rest=%v", ok, rest)
+	}
+}

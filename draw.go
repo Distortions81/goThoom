@@ -256,6 +256,9 @@ func parseInventory(data []byte) ([]byte, bool) {
 	if cmd != kInvCmdNone {
 		return nil, false
 	}
+	for len(data) > 0 && data[0] == 0 {
+		data = data[1:]
+	}
 	return data, true
 }
 
