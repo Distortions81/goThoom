@@ -481,6 +481,8 @@ func parseDrawState(data []byte) bool {
 						d.Name = bubbleName
 						name = bubbleName
 					}
+				} else {
+					name = d.Name
 				}
 			}
 			stateMu.Unlock()

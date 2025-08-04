@@ -62,10 +62,10 @@ func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 	}
 }
 
-func TestHandleDrawStateSystemMessageNoName(t *testing.T) {
+func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	messages = nil
 	state = drawState{}
-	playerName = "Tsune"
+	playerName = "SomeoneElse"
 	playerIndex = 0xff
 
 	desc := []byte{0, 0, 0, 0}
@@ -95,8 +95,9 @@ func TestHandleDrawStateSystemMessageNoName(t *testing.T) {
 	m := append([]byte{0, 0}, data...)
 	handleDrawState(m)
 
+	expected := "Tsune yells, " + msg
 	got := getMessages()
-	if len(got) != 1 || got[0] != msg {
+	if len(got) != 1 || got[0] != expected {
 		t.Fatalf("messages = %#v", got)
 	}
 }
