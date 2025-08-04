@@ -160,9 +160,10 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be
-// decrypted using SimpleEncrypt before parsing. Live server frames are
-// encrypted, while movie playback uses plain data.
-var drawStateEncrypted = true
+// decrypted using SimpleEncrypt before parsing. By default frames from the
+// live server arrive unencrypted; set this flag to true only when handling
+// SimpleEncrypt-obfuscated data.
+var drawStateEncrypted = false
 
 // handleDrawState decodes the packed draw state message. It decrypts the
 // payload when drawStateEncrypted is true.
