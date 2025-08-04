@@ -669,21 +669,21 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 
 // drawMessages prints chat messages on the HUD.
 func drawMessages(screen *ebiten.Image, msgs []string) {
-	startY := gameAreaSizeY*scale - 200
+	startY := gameAreaSizeY*scale - 210
 	y := startY
 	maxWidth := float64(gameAreaSizeX*scale - 8*scale)
 	for _, msg := range msgs {
 		lines := wrapText(msg, nameFace, maxWidth)
 		for _, line := range lines {
-      		w, _ := text.Measure(msg, nameFace, 0)
-		iw := int(math.Ceil(w)) + 8*scale
-		ih := 12 * scale
-		ebitenutil.DrawRect(screen, 0, float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
+			w, _ := text.Measure(msg, nameFace, 0)
+			iw := int(math.Ceil(w)) + 8*scale + 4
+			ih := 12*scale + 4
+			ebitenutil.DrawRect(screen, 0, float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
 			op := &text.DrawOptions{}
 			op.GeoM.Translate(float64(4*scale), float64(y))
 			op.ColorScale.ScaleWithColor(color.White)
 			text.Draw(screen, line, nameFace, op)
-			y += 12 * scale
+			y += 14 * scale
 		}
 	}
 }
@@ -692,7 +692,7 @@ func drawServerFPS(screen *ebiten.Image, fps int) {
 	if fps <= 0 {
 		return
 	}
-	msg := fmt.Sprintf("FPS: %d", fps)
+	msg := fmt.Sprintf("UPS: %d", fps)
 	w, _ := text.Measure(msg, nameFace, 0)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(gameAreaSizeX*scale)-w-float64(4*scale), float64(4*scale))
