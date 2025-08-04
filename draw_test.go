@@ -23,8 +23,7 @@ func TestHandleDrawStateInfoStrings(t *testing.T) {
 	data = append(data, 0)                  // mobile count
 	data = append(data, stateData...)
 
-	m := append([]byte{0, 0}, data...)
-	handleDrawState(m)
+	handleDrawState(data)
 
 	got := getMessages()
 	if len(got) != 2 || got[0] != msg1 || got[1] != msg2 {
@@ -52,9 +51,10 @@ func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 	data = append(data, 0)
 	data = append(data, stateData...)
 
-	m := append([]byte{0, 0}, data...)
-	simpleEncrypt(m[2:])
-	handleDrawState(m)
+	enc := append([]byte(nil), data...)
+	simpleEncrypt(enc) // encrypt
+	simpleEncrypt(enc) // decrypt before handling
+	handleDrawState(enc)
 
 	got := getMessages()
 	if len(got) != 2 || got[0] != msg1 || got[1] != msg2 {
@@ -92,8 +92,7 @@ func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	data = append(data, 0)                  // mobile count
 	data = append(data, stateData...)
 
-	m := append([]byte{0, 0}, data...)
-	handleDrawState(m)
+	handleDrawState(data)
 
 	expected := "Tsune yells, " + msg
 	got := getMessages()
@@ -125,8 +124,7 @@ func TestHandleDrawStateSounds(t *testing.T) {
 	data = append(data, 0)                  // mobile count
 	data = append(data, stateData...)
 
-	m := append([]byte{0, 0}, data...)
-	handleDrawState(m)
+	handleDrawState(data)
 
 	if len(played) != 2 || played[0] != 1 || played[1] != 515 {
 		t.Fatalf("played = %#v", played)
