@@ -521,6 +521,8 @@ func parseDrawState(data []byte) bool {
 							switch code {
 							case kBubbleUnknownShort:
 								msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+							case kBubbleUnknownMedium:
+								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
 							case kBubbleUnknownLong:
 								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
 							default:
@@ -531,6 +533,8 @@ func parseDrawState(data []byte) bool {
 							switch code {
 							case kBubbleUnknownShort:
 								unknown = "something short"
+							case kBubbleUnknownMedium:
+								unknown = "something medium"
 							case kBubbleUnknownLong:
 								unknown = "something long"
 							default:
