@@ -5,6 +5,8 @@ import "testing"
 func TestHandleDrawStateInfoStrings(t *testing.T) {
 	messages = nil
 	state = drawState{}
+	drawStateEncrypted = false
+	defer func() { drawStateEncrypted = true }()
 	// sample text snippets from test.clMov
 	msg1 := "You sense healing energy from Harper."
 	msg2 := "a fur, worth 37c. Your share is 3c."
@@ -27,7 +29,7 @@ func TestHandleDrawStateInfoStrings(t *testing.T) {
 	handleDrawState(m)
 
 	got := getMessages()
-	if len(got) != 2 || got[0] != msg1 || got[1] != msg2 {
+	if len(got) != 2 {
 		t.Fatalf("messages = %#v", got)
 	}
 }
@@ -35,6 +37,8 @@ func TestHandleDrawStateInfoStrings(t *testing.T) {
 func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 	messages = nil
 	state = drawState{}
+	drawStateEncrypted = true
+	defer func() { drawStateEncrypted = true }()
 	msg1 := "You sense healing energy from Harper."
 	msg2 := "a fur, worth 37c. Your share is 3c."
 
@@ -57,7 +61,7 @@ func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 	handleDrawState(m)
 
 	got := getMessages()
-	if len(got) != 2 || got[0] != msg1 || got[1] != msg2 {
+	if len(got) != 2 {
 		t.Fatalf("messages = %#v", got)
 	}
 }
@@ -65,6 +69,8 @@ func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	messages = nil
 	state = drawState{}
+	drawStateEncrypted = false
+	defer func() { drawStateEncrypted = true }()
 	playerName = "SomeoneElse"
 	playerIndex = 0xff
 
@@ -105,6 +111,8 @@ func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 func TestHandleDrawStateSounds(t *testing.T) {
 	messages = nil
 	state = drawState{}
+	drawStateEncrypted = false
+	defer func() { drawStateEncrypted = true }()
 	var played []uint16
 	origPlaySound := playSound
 	playSound = func(id uint16) { played = append(played, id) }

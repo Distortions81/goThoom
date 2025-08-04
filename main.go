@@ -164,6 +164,7 @@ func main() {
 	*/
 
 	if clmovPath != "" {
+		drawStateEncrypted = false
 		frames, err := parseMovie(clmovPath, *clientVer)
 		if err != nil {
 			log.Fatalf("parse movie: %v", err)
