@@ -37,6 +37,7 @@ var (
 	baseDir     string
 	soundTest   bool
 	fastSound   bool
+	maxSounds   int
 
 	loginRequest = make(chan struct{})
 )
@@ -66,6 +67,7 @@ func main() {
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
 	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
+	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
 
 	flag.Parse()
 	initSoundContext()
