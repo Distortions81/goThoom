@@ -250,8 +250,15 @@ func readKeyFileVersion(path string) (uint32, error) {
 }
 
 func answerChallenge(password string, challenge []byte) ([]byte, error) {
-	key := md5.Sum([]byte(password))
-	block, err := twofish.NewCipher(key[:])
+	digest := md5.Sum([]byte(password))
+	key := make([]byte, len(digest))
+	copy(key, digest[:])
+	swapped := make([]byte, len(key))
+	for i := 0; i < len(key); i += 4 {
+		v := binary.BigEndian.Uint32(key[i : i+4])
+		binary.LittleEndian.PutUint32(swapped[i:i+4], v)
+	}
+	block, err := twofish.NewCipher(swapped)
 	if err != nil {
 		return nil, err
 	}
