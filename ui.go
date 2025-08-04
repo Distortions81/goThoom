@@ -96,6 +96,14 @@ func initUI() {
 	}
 	mainFlow.AddItem(anim)
 
+	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Picture Blending", Size: eui.Point{X: 150, Y: 24}, Checked: blendPicts})
+	pictBlendEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			blendPicts = ev.Checked
+		}
+	}
+	mainFlow.AddItem(pictBlend)
+
 	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: 150, Y: 24}, Checked: clickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
