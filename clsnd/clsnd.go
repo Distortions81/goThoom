@@ -163,7 +163,7 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 		if hdr+44 > len(data) {
 			return nil, fmt.Errorf("short ext header")
 		}
-		frames := int(binary.BigEndian.Uint32(data[hdr+4 : hdr+8]))
+		frames := int(binary.BigEndian.Uint32(data[hdr+32 : hdr+36]))
 		rate := binary.BigEndian.Uint32(data[hdr+8:hdr+12]) >> 16
 		chans := binary.BigEndian.Uint32(data[hdr+24 : hdr+28])
 		bits := binary.BigEndian.Uint16(data[hdr+28 : hdr+30])
@@ -173,7 +173,7 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 		if start > len(data) {
 			return nil, fmt.Errorf("data out of range")
 		}
-		if end := start + length; end > len(data) {
+		if length > len(data)-start {
 			fmt.Printf("truncated sound data")
 			if id != 0 {
 				fmt.Printf(" for id %d", id)
