@@ -15,6 +15,8 @@ func TestHandleDrawStateInfoStrings(t *testing.T) {
 	stateData = append(stateData, []byte(msg2)...)
 	stateData = append(stateData, 0) // terminator before bubble count
 	stateData = append(stateData, 0) // bubble count 0
+	stateData = append(stateData, 0) // sound count 0
+	stateData = append(stateData, 0) // inventory none
 
 	data := make([]byte, 0, 19+len(stateData))
 	data = append(data, 0)                  // ackCmd
@@ -44,8 +46,10 @@ func TestHandleDrawStateEncryptedInfoStrings(t *testing.T) {
 
 	stateData := append([]byte(msg1), 0)
 	stateData = append(stateData, []byte(msg2)...)
-	stateData = append(stateData, 0)
-	stateData = append(stateData, 0)
+	stateData = append(stateData, 0) // terminator before bubble count
+	stateData = append(stateData, 0) // bubble count 0
+	stateData = append(stateData, 0) // sound count 0
+	stateData = append(stateData, 0) // inventory none
 
 	data := make([]byte, 0, 19+len(stateData))
 	data = append(data, 0)
@@ -87,6 +91,8 @@ func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	stateData := []byte{0}           // end of info strings
 	stateData = append(stateData, 1) // bubble count
 	stateData = append(stateData, bubble...)
+	stateData = append(stateData, 0) // sound count 0
+	stateData = append(stateData, 0) // inventory none
 
 	data := make([]byte, 0, 19+len(stateData)+len(desc))
 	data = append(data, 0)                  // ackCmd
@@ -123,6 +129,7 @@ func TestHandleDrawStateSounds(t *testing.T) {
 	stateData = append(stateData, 2) // sound count
 	stateData = append(stateData, 0x00, 0x01)
 	stateData = append(stateData, 0x02, 0x03)
+	stateData = append(stateData, 0) // inventory none
 
 	data := make([]byte, 0, 19+len(stateData))
 	data = append(data, 0)                  // ackCmd
@@ -138,5 +145,16 @@ func TestHandleDrawStateSounds(t *testing.T) {
 
 	if len(played) != 2 || played[0] != 1 || played[1] != 515 {
 		t.Fatalf("played = %#v", played)
+	}
+}
+
+func TestParseInventory(t *testing.T) {
+	data := []byte{byte(kInvCmdAdd), 0x00, 0x01}
+	data = append(data, []byte("foo")...)
+	data = append(data, 0) // name terminator
+	data = append(data, 0) // end
+	rest, ok := parseInventory(data)
+	if !ok || len(rest) != 0 {
+		t.Fatalf("ok=%v rest=%v", ok, rest)
 	}
 }
