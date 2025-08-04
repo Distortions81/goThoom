@@ -501,9 +501,15 @@ func playerFromDrawState(data []byte) string {
 	}
 	br := bitReader{data: data[p:]}
 	for i := 0; i < pictCount; i++ {
-		br.readBits(14)
-		br.readBits(11)
-		br.readBits(11)
+		if _, ok := br.readBits(14); !ok {
+			return ""
+		}
+		if _, ok := br.readBits(11); !ok {
+			return ""
+		}
+		if _, ok := br.readBits(11); !ok {
+			return ""
+		}
 	}
 	p += br.bitPos / 8
 	if br.bitPos%8 != 0 {
