@@ -131,7 +131,7 @@ func parseGameState(gs []byte, version, revision uint16) {
 		return
 	}
 	if i := bytes.IndexByte(gs, 0); i >= 0 {
-		handleInfoText(gs[:i])
+		dispatchMessage(gs[:i], false)
 		gs = gs[i+1:]
 	}
 
