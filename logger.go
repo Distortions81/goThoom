@@ -30,23 +30,26 @@ func setupLogging(debug bool) {
 	errorLogger = log.New(errWriter, "", log.LstdFlags)
 	log.SetOutput(errWriter)
 
-	dbgPath := filepath.Join(logDir, fmt.Sprintf("debug-%s.log", ts))
-	dbgFile, err := os.Create(dbgPath)
-	var dbgWriter io.Writer
-	if err == nil {
-		if debug {
-			dbgWriter = io.MultiWriter(os.Stdout, dbgFile)
+	if debug {
+		dbgPath := filepath.Join(logDir, fmt.Sprintf("debug-%s.log", ts))
+		dbgFile, err := os.Create(dbgPath)
+		var dbgWriter io.Writer
+		if err == nil {
+			if debug {
+				dbgWriter = io.MultiWriter(os.Stdout, dbgFile)
+			} else {
+				dbgWriter = dbgFile
+			}
 		} else {
-			dbgWriter = dbgFile
+			if debug {
+				dbgWriter = os.Stdout
+			} else {
+				dbgWriter = io.Discard
+			}
 		}
-	} else {
-		if debug {
-			dbgWriter = os.Stdout
-		} else {
-			dbgWriter = io.Discard
-		}
+
+		debugLogger = log.New(dbgWriter, "", log.LstdFlags)
 	}
-	debugLogger = log.New(dbgWriter, "", log.LstdFlags)
 }
 
 func logError(format string, v ...interface{}) {

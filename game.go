@@ -216,7 +216,7 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	snap := captureDrawSnapshot()
 	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime)
-	dlog("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
+	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, snap, alpha, fade)
 	//drawNightOverlay(screen)
 	drawStatusBars(screen, snap, alpha)

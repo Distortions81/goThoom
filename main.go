@@ -56,7 +56,7 @@ func main() {
 	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
 	flag.BoolVar(&showPlanes, "planes", true, "draw plane and type for each sprite")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
-	flag.BoolVar(&debug, "debug", true, "verbose/debug logging")
+	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 
 	flag.Parse()

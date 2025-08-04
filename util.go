@@ -55,12 +55,6 @@ func hexDump(prefix string, data []byte) {
 	log.Printf("%v %d bytes\n%v", prefix, len(data), hex.Dump(data))
 }
 
-func dlog(format string, args ...interface{}) {
-	if debug {
-		log.Printf(format, args...)
-	}
-}
-
 const (
 	kTypeVersion = 0x56657273 // 'Vers'
 )
