@@ -38,58 +38,95 @@ const (
 // }
 
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
-// bottom-center of the balloon tail. The typ parameter is the bubble type value
-// from the server draw state.
+// bottom-center of the balloon tail. The typ parameter is currently unused but
+// retained for future compatibility with the original bubble images.
 func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 	if txt == "" {
 		return
 	}
 
-	// Determine bubble size by wrapping the text with a small width.
-	lines := wrapText(txt, nameFace, bubbleTextSmallWidth*float64(scale))
-	bw, bh := bubbleSmallWidth, bubbleSmallHeight
-	tw := bubbleTextSmallWidth
-	if len(lines) > 2 {
-		lines = wrapText(txt, nameFace, bubbleTextMediumWidth*float64(scale))
-		bw, bh = bubbleMediumWidth, bubbleMediumHeight
-		tw = bubbleTextMediumWidth
-		if len(lines) > 3 {
-			lines = wrapText(txt, nameFace, bubbleTextLargeWidth*float64(scale))
-			bw, bh = bubbleLargeWidth, bubbleLargeHeight
-			tw = bubbleTextLargeWidth
+	sw, sh := screen.Size()
+	pad := 4 * scale
+
+	// Maximum bubble size is 1/8 of the screen and must maintain a 16:9
+	// aspect ratio.
+	maxW := sw / 8
+	maxH := sh / 8
+	if alt := int(float64(maxH) * 16.0 / 9.0); alt < maxW {
+		maxW = alt
+	}
+	maxH = int(float64(maxW) * 9.0 / 16.0)
+
+	// First wrap using the largest allowable width to measure the text.
+	lines := wrapText(txt, nameFace, float64(maxW-2*pad))
+	metrics := nameFace.Metrics()
+	lineHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent + metrics.HLineGap))
+	textHeight := lineHeight * len(lines)
+	textWidth := 0
+	for _, line := range lines {
+		w, _ := text.Measure(line, nameFace, 0)
+		if int(math.Ceil(w)) > textWidth {
+			textWidth = int(math.Ceil(w))
 		}
 	}
 
-	// Original bubble image rendering is temporarily disabled.
-	// col := 0
-	// if t := typ & kBubbleTypeMask; t >= 0 && t < len(gBubbleMap) {
-	//      col = gBubbleMap[t]
-	// }
-	// img := loadBubbleImage(id, col)
-	// if img != nil {
-	//      op := &ebiten.DrawImageOptions{}
-	//      op.Filter = drawFilter
-	//      op.GeoM.Scale(float64(scale), float64(scale))
-	//      op.GeoM.Translate(float64(x-bw*scale/2), float64(y-bh*scale))
-	//      screen.DrawImage(img, op)
-	// }
+	// Size the bubble to fit the text with padding, preserving 16:9.
+	width := textWidth + 2*pad
+	height := textHeight + 2*pad
+	if alt := int(math.Ceil(float64(height) * 16.0 / 9.0)); alt > width {
+		width = alt
+	}
+	height = int(math.Ceil(float64(width) * 9.0 / 16.0))
 
-	// Draw a semi-transparent white box instead of the bubble image.
-	w, h := bw*scale, bh*scale
-	box := ebiten.NewImage(w, h)
-	box.Fill(color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xb3}) // 30% transparent
+	if width > maxW {
+		width = maxW
+		height = int(math.Ceil(float64(width) * 9.0 / 16.0))
+	}
+	if height > maxH {
+		height = maxH
+		width = int(math.Ceil(float64(height) * 16.0 / 9.0))
+	}
+
+	// Re-wrap with the final width to ensure text fits.
+	lines = wrapText(txt, nameFace, float64(width-2*pad))
+	textHeight = lineHeight * len(lines)
+	if textHeight+2*pad > height {
+		maxLines := (height - 2*pad) / lineHeight
+		if maxLines < len(lines) {
+			lines = lines[:maxLines]
+		}
+		textHeight = lineHeight * len(lines)
+	}
+
+	bottom := y - 10*scale
+	left := x - width/2
+	top := bottom - height
+
+	// Ensure the bubble remains fully on screen.
+	if left < 0 {
+		left = 0
+	}
+	if left+width > sw {
+		left = sw - width
+	}
+	if top < 0 {
+		top = 0
+	}
+	if top+height > sh {
+		top = sh - height
+	}
+
+	box := ebiten.NewImage(width, height)
+	box.Fill(color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xb3})
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(x-w/2), float64(y-h))
+	op.GeoM.Translate(float64(left), float64(top))
 	screen.DrawImage(box, op)
 
-	metrics := nameFace.Metrics()
-	lineHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent + metrics.HLineGap))
-	baseline := y - bh*scale + 4*scale + int(math.Ceil(metrics.HAscent))
-	left := x - tw*scale/2
-
+	baseline := top + pad + int(math.Ceil(metrics.HAscent))
+	textLeft := left + pad
 	for i, line := range lines {
 		op := &text.DrawOptions{}
-		op.GeoM.Translate(float64(left), float64(baseline+i*lineHeight))
+		op.GeoM.Translate(float64(textLeft), float64(baseline+i*lineHeight))
 		op.ColorScale.ScaleWithColor(color.Black)
 		text.Draw(screen, line, nameFace, op)
 	}
