@@ -647,14 +647,11 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 				op.GeoM.Scale(float64(scale), float64(scale))
 			}
 			op.GeoM.Translate(float64(x-w*scale/2), float64(y-h*scale/2))
+			if smoothDebug && p.Moving {
+				op.ColorM.Scale(1, 0, 0, 1)
+			}
 			screen.DrawImage(img, op)
 		}
-
-		op.GeoM.Translate(float64(x-w*scale/2), float64(y-h*scale/2))
-		if smoothDebug && p.Moving {
-			op.ColorM.Scale(1, 0, 0, 1)
-		}
-		screen.DrawImage(img, op)
 
 		if showPlanes {
 			metrics := nameFace.Metrics()
