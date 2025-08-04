@@ -695,21 +695,6 @@ func runGame(ctx context.Context) {
 	}
 }
 
-func sendInputLoop(ctx context.Context, conn net.Conn) {
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		if err := sendPlayerInput(conn); err != nil {
-			logError("send player input: %v", err)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
 func udpReadLoop(ctx context.Context, conn net.Conn) {
 	for {
 		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
@@ -731,7 +716,11 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 		}
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
-			handleDrawState(m)
+			if handleDrawState(m) {
+				if err := sendPlayerInput(udpConn); err != nil {
+					logError("send player input: %v", err)
+				}
+			}
 			continue
 		}
 		if txt := decodeMessage(m); txt != "" {
@@ -764,7 +753,11 @@ loop:
 		}
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
-			handleDrawState(m)
+			if handleDrawState(m) {
+				if err := sendPlayerInput(udpConn); err != nil {
+					logError("send player input: %v", err)
+				}
+			}
 			continue
 		}
 		if txt := decodeMessage(m); txt != "" {
