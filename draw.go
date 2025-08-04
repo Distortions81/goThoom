@@ -165,6 +165,10 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 // SimpleEncrypt-obfuscated data.
 var drawStateEncrypted = false
 
+// recoverInfoStringErrors controls whether parseDrawState attempts to recover
+// from missing info-string terminators by skipping the malformed segment.
+var recoverInfoStringErrors = true
+
 // handleDrawState decodes the packed draw state message. It decrypts the
 // payload when drawStateEncrypted is true.
 func handleDrawState(m []byte) {
@@ -178,12 +182,12 @@ func handleDrawState(m []byte) {
 	if drawStateEncrypted {
 		simpleEncrypt(data)
 	}
-	if !parseDrawState(data) {
+	if err := parseDrawState(data); err != nil {
 		n := len(data)
 		if n > 16 {
 			n = 16
 		}
-		logDebug("failed to parse draw state: % x", data[:n])
+		logDebug("failed to parse draw state: %v data: % x", err, data[:n])
 	}
 }
 
@@ -258,11 +262,31 @@ func parseInventory(data []byte) ([]byte, bool) {
 	return data, true
 }
 
-// parseDrawState decodes the draw state data. It returns false when the packet
-// appears malformed.
-func parseDrawState(data []byte) bool {
+// parseInfoStrings walks the info string segment of a draw state packet. It
+// returns the remaining data after the terminating NUL byte. When a terminating
+// NUL is missing a descriptive error is returned.
+func parseInfoStrings(data []byte) ([]byte, error) {
+	for {
+		if len(data) == 0 {
+			return nil, fmt.Errorf("missing info-string terminator")
+		}
+		idx := bytes.IndexByte(data, 0)
+		if idx < 0 {
+			return nil, fmt.Errorf("missing info-string terminator")
+		}
+		if idx == 0 {
+			return data[1:], nil
+		}
+		handleInfoText(data[:idx])
+		data = data[idx+1:]
+	}
+}
+
+// parseDrawState decodes the draw state data. It returns an error when the
+// packet appears malformed.
+func parseDrawState(data []byte) error {
 	if len(data) < 9 {
-		return false
+		return fmt.Errorf("malformed draw state: short header")
 	}
 
 	ackCmd := data[0]
@@ -271,17 +295,17 @@ func parseDrawState(data []byte) bool {
 	p := 9
 
 	if len(data) <= p {
-		return false
+		return fmt.Errorf("malformed draw state: missing descriptor count")
 	}
 	descCount := int(data[p])
 	p++
 	if descCount > maxDescriptors {
-		return false
+		return fmt.Errorf("malformed draw state: too many descriptors")
 	}
 	descs := make([]frameDescriptor, 0, descCount)
 	for i := 0; i < descCount && p < len(data); i++ {
 		if p+4 > len(data) {
-			return false
+			return fmt.Errorf("malformed draw state: descriptor truncated")
 		}
 		d := frameDescriptor{}
 		d.Index = data[p]
@@ -295,15 +319,15 @@ func parseDrawState(data []byte) bool {
 				playerIndex = d.Index
 			}
 		} else {
-			return false
+			return fmt.Errorf("malformed draw state: missing descriptor name terminator")
 		}
 		if p >= len(data) {
-			return false
+			return fmt.Errorf("malformed draw state: missing descriptor color count")
 		}
 		cnt := int(data[p])
 		p++
 		if p+cnt > len(data) {
-			return false
+			return fmt.Errorf("malformed draw state: descriptor colors truncated")
 		}
 		d.Colors = append([]byte(nil), data[p:p+cnt]...)
 		p += cnt
@@ -312,7 +336,7 @@ func parseDrawState(data []byte) bool {
 	}
 
 	if len(data) < p+7 {
-		return false
+		return fmt.Errorf("malformed draw state: missing stats")
 	}
 	hp := int(data[p])
 	hpMax := int(data[p+1])
@@ -325,21 +349,21 @@ func parseDrawState(data []byte) bool {
 	p += 7
 
 	if len(data) <= p {
-		return false
+		return fmt.Errorf("malformed draw state: missing picture count")
 	}
 	pictCount := int(data[p])
 	p++
 	pictAgain := 0
 	if pictCount == 255 {
 		if len(data) < p+2 {
-			return false
+			return fmt.Errorf("malformed draw state: missing pictAgain count")
 		}
 		pictAgain = int(data[p])
 		pictCount = int(data[p+1])
 		p += 2
 	}
 	if pictAgain+pictCount > maxPictures {
-		return false
+		return fmt.Errorf("malformed draw state: too many pictures")
 	}
 
 	pics := make([]framePicture, 0, pictAgain+pictCount)
@@ -356,12 +380,12 @@ func parseDrawState(data []byte) bool {
 	}
 
 	if len(data) <= p {
-		return false
+		return fmt.Errorf("malformed draw state: missing mobile count")
 	}
 	mobileCount := int(data[p])
 	p++
 	if mobileCount > maxMobiles {
-		return false
+		return fmt.Errorf("malformed draw state: too many mobiles")
 	}
 	mobiles := make([]frameMobile, 0, mobileCount)
 	for i := 0; i < mobileCount && p+7 <= len(data); i++ {
@@ -487,58 +511,52 @@ func parseDrawState(data []byte) bool {
 	logDebug("draw state cmd=%d ack=%d resend=%d desc=%d pict=%d again=%d mobile=%d state=%d",
 		ackCmd, ackFrame, resendFrame, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
-	for {
-		if len(stateData) == 0 {
-			return false
+	stateData, infoErr := parseInfoStrings(stateData)
+	if infoErr != nil {
+		logDebug("warning: %v", infoErr)
+		if !recoverInfoStringErrors {
+			return infoErr
 		}
-		idx := bytes.IndexByte(stateData, 0)
-		if idx < 0 {
-			return false
-		}
-		if idx == 0 {
-			stateData = stateData[1:]
-			break
-		}
-		handleInfoText(stateData[:idx])
-		stateData = stateData[idx+1:]
+		// unable to parse further segments; return success after logging
+		return nil
 	}
 
 	if len(stateData) == 0 {
-		return false
+		return fmt.Errorf("malformed draw state: missing bubble count")
 	}
 	bubbleCount := int(stateData[0])
 	stateData = stateData[1:]
 	if bubbleCount > maxBubbles {
-		return false
+		return fmt.Errorf("malformed draw state: too many bubbles")
 	}
 	for i := 0; i < bubbleCount; i++ {
 		if len(stateData) < 2 {
-			return false
+			return fmt.Errorf("malformed draw state: bubble header truncated")
 		}
 		idx := stateData[0]
 		typ := int(stateData[1])
 		p := 2
 		if typ&kBubbleNotCommon != 0 {
 			if len(stateData) < p+1 {
-				return false
+				return fmt.Errorf("malformed draw state: bubble language truncated")
 			}
 			p++
 		}
 		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
-				return false
+				return fmt.Errorf("malformed draw state: bubble coordinates truncated")
 			}
 			h = int16(binary.BigEndian.Uint16(stateData[p:]))
 			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
 		if len(stateData) < p {
-			return false
+			return fmt.Errorf("malformed draw state: bubble text missing")
 		}
 		end := bytes.IndexByte(stateData[p:], 0)
 		if end < 0 {
-			return false
+			return fmt.Errorf("malformed draw state: missing bubble text terminator")
 		}
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
@@ -644,12 +662,12 @@ func parseDrawState(data []byte) bool {
 		stateData = stateData[p+end+1:]
 	}
 	if len(stateData) < 1 {
-		return false
+		return fmt.Errorf("malformed draw state: missing sound count")
 	}
 	soundCount := int(stateData[0])
 	stateData = stateData[1:]
 	if len(stateData) < soundCount*2 {
-		return false
+		return fmt.Errorf("malformed draw state: sound data truncated")
 	}
 	for i := 0; i < soundCount; i++ {
 		id := binary.BigEndian.Uint16(stateData[:2])
@@ -659,7 +677,7 @@ func parseDrawState(data []byte) bool {
 	var ok bool
 	stateData, ok = parseInventory(stateData)
 	if !ok {
-		return false
+		return fmt.Errorf("malformed draw state: inventory")
 	}
-	return true
+	return nil
 }
