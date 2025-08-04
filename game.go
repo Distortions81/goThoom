@@ -237,15 +237,27 @@ func (g *Game) Update() error {
 		} else {
 			keyWalk = false
 		}
+
+		mx, my := ebiten.CursorPosition()
+		overUI := pointInUI(mx, my)
+
 		if clickToToggle {
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			if !overUI && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				if walkToggled {
 					walkToggled = false
 				} else {
-					x, y := ebiten.CursorPosition()
-					walkTargetX = int16(x/scale - fieldCenterX)
-					walkTargetY = int16(y/scale - fieldCenterY)
+					walkTargetX = int16(mx/scale - fieldCenterX)
+					walkTargetY = int16(my/scale - fieldCenterY)
 					walkToggled = true
+				}
+			}
+			if walkToggled {
+				w, h := eui.ScreenSize()
+				if overUI || mx < 0 || my < 0 || mx >= w || my >= h {
+					walkToggled = false
+				} else {
+					walkTargetX = int16(mx/scale - fieldCenterX)
+					walkTargetY = int16(my/scale - fieldCenterY)
 				}
 			}
 		} else {

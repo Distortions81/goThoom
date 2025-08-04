@@ -111,6 +111,9 @@ func sendPlayerInput(connection net.Conn) error {
 	baseX := int16(x/scale - fieldCenterX)
 	baseY := int16(y/scale - fieldCenterY)
 	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	if pointInUI(x, y) {
+		baseDown = false
+	}
 
 	mouseX, mouseY, mouseDown = baseX, baseY, baseDown
 	if keyWalk {
