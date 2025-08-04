@@ -456,10 +456,13 @@ func parseDrawState(data []byte) bool {
 			}
 			p++
 		}
+		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
 				return false
 			}
+			h = int16(binary.BigEndian.Uint16(stateData[p:]))
+			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
 		if len(stateData) < p {
@@ -486,6 +489,19 @@ func parseDrawState(data []byte) bool {
 				}
 			}
 			stateMu.Unlock()
+			if showBubbles && txt != "" {
+				bx, by := h, v
+				if typ&kBubbleFar == 0 {
+					stateMu.Lock()
+					if m, ok := state.mobiles[idx]; ok {
+						bx, by = m.H, m.V
+					}
+					stateMu.Unlock()
+				}
+				stateMu.Lock()
+				state.bubbles = append(state.bubbles, debugBubble{H: bx, V: by, Text: txt, Expire: time.Now().Add(4 * time.Second)})
+				stateMu.Unlock()
+			}
 			var msg string
 			switch {
 			case typ&kBubbleTypeMask == kBubbleNarrate:
