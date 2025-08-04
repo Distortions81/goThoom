@@ -96,6 +96,17 @@ func initUI() {
 	}
 	mainFlow.AddItem(anim)
 
+	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: 150, Y: 24}, Checked: clickToToggle})
+	toggleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			clickToToggle = ev.Checked
+			if !clickToToggle {
+				walkToggled = false
+			}
+		}
+	}
+	mainFlow.AddItem(toggle)
+
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
 
