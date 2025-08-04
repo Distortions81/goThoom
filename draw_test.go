@@ -167,7 +167,7 @@ func TestParseDrawStateTruncatedPictureID(t *testing.T) {
 	silent = true
 	defer func() { silent = oldSilent }()
 	data := buildTruncatedDrawState([]byte{0x00})
-	if parseDrawState(data) {
+	if err := parseDrawState(data); err == nil {
 		t.Fatalf("parseDrawState succeeded on truncated picture ID")
 	}
 }
@@ -179,7 +179,7 @@ func TestParseDrawStateTruncatedPictureData(t *testing.T) {
 	silent = true
 	defer func() { silent = oldSilent }()
 	data := buildTruncatedDrawState([]byte{0xff, 0xff, 0xff, 0xff})
-	if parseDrawState(data) {
+	if err := parseDrawState(data); err == nil {
 		t.Fatalf("parseDrawState succeeded on truncated picture data")
 	}
 }
@@ -203,5 +203,37 @@ func TestParseInventoryTrailingPadding(t *testing.T) {
 	rest, ok := parseInventory(data)
 	if !ok || len(rest) != 0 {
 		t.Fatalf("ok=%v rest=%v", ok, rest)
+	}
+}
+
+func TestParseDrawStateTruncatedBubble(t *testing.T) {
+	messages = nil
+	state = drawState{}
+	oldSilent := silent
+	silent = true
+	defer func() { silent = oldSilent }()
+	playerIndex = 0xff
+
+	bubble := []byte{0, byte(kBubbleYell)}
+	bubble = append(bubble, []byte("hi")...)
+
+	stateData := []byte{0}
+	stateData = append(stateData, 1)
+	stateData = append(stateData, bubble...)
+
+	data := make([]byte, 0, 19+len(stateData))
+	data = append(data, 0)
+	data = append(data, make([]byte, 8)...)
+	data = append(data, 0)
+	data = append(data, make([]byte, 7)...) // stats
+	data = append(data, 0)
+	data = append(data, 0)
+	data = append(data, stateData...)
+
+	if err := parseDrawState(data); err != nil {
+		t.Fatalf("parseDrawState returned error: %v", err)
+	}
+	if got := getMessages(); len(got) != 0 {
+		t.Fatalf("messages = %#v", got)
 	}
 }

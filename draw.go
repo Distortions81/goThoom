@@ -543,34 +543,54 @@ func parseDrawState(data []byte) error {
 		return errors.New(stage)
 	}
 	stage = "bubble"
-	for i := 0; i < bubbleCount; i++ {
+	for i := 0; i < bubbleCount && len(stateData) > 0; i++ {
 		if len(stateData) < 2 {
-			return errors.New(stage)
+			logDebug("parseDrawState: truncated bubble header (%d/%d)", i+1, bubbleCount)
+			stateData = nil
+			break
 		}
 		idx := stateData[0]
 		typ := int(stateData[1])
 		p := 2
 		if typ&kBubbleNotCommon != 0 {
 			if len(stateData) < p+1 {
-				return errors.New(stage)
+				logDebug("parseDrawState: truncated bubble language (%d/%d)", i+1, bubbleCount)
+				stateData = stateData[1:]
+				continue
 			}
 			p++
 		}
 		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
-				return errors.New(stage)
+				logDebug("parseDrawState: truncated bubble coords (%d/%d)", i+1, bubbleCount)
+				stateData = stateData[1:]
+				continue
 			}
 			h = int16(binary.BigEndian.Uint16(stateData[p:]))
 			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
 		if len(stateData) < p {
-			return errors.New(stage)
+			logDebug("parseDrawState: truncated bubble body (%d/%d)", i+1, bubbleCount)
+			stateData = nil
+			break
 		}
 		end := bytes.IndexByte(stateData[p:], 0)
 		if end < 0 {
-			return errors.New(stage)
+			logDebug("parseDrawState: missing bubble terminator (%d/%d)", i+1, bubbleCount)
+			skip := len(stateData)
+			for j := p; j+1 < len(stateData); j++ {
+				if int(stateData[j+1])&kBubbleTypeMask <= kBubbleNarrate {
+					skip = j
+					break
+				}
+			}
+			if skip <= 0 {
+				skip = len(stateData)
+			}
+			stateData = stateData[skip:]
+			continue
 		}
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
@@ -678,13 +698,15 @@ func parseDrawState(data []byte) error {
 
 	stage = "sound count"
 	if len(stateData) < 1 {
-		return errors.New(stage)
+		logDebug("parseDrawState: truncated sound count")
+		return nil
 	}
 	soundCount := int(stateData[0])
 	stateData = stateData[1:]
 	stage = "sounds"
 	if len(stateData) < soundCount*2 {
-		return errors.New(stage)
+		logDebug("parseDrawState: truncated sounds")
+		return nil
 	}
 	for i := 0; i < soundCount; i++ {
 		id := binary.BigEndian.Uint16(stateData[:2])
@@ -695,7 +717,8 @@ func parseDrawState(data []byte) error {
 	var ok bool
 	stateData, ok = parseInventory(stateData)
 	if !ok {
-		return errors.New(stage)
+		logDebug("parseDrawState: truncated inventory")
+		return nil
 	}
 	return nil
 }
