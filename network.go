@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -192,7 +193,7 @@ func sendCharListRequest(connection net.Conn, account, accountPass string, chall
 // returning the available character names.
 func parseCharListResponse(resp []byte) ([]string, error) {
 	const kMsgCharList = 14
-	if len(resp) < 28 {
+	if len(resp) < 16 {
 		return nil, fmt.Errorf("short char list resp")
 	}
 	resTag := binary.BigEndian.Uint16(resp[:2])
@@ -202,7 +203,14 @@ func parseCharListResponse(resp []byte) ([]string, error) {
 	result := int16(binary.BigEndian.Uint16(resp[2:4]))
 	simpleEncrypt(resp[16:])
 	if result != 0 {
-		return nil, fmt.Errorf("server result %d", result)
+		msg := resp[16:]
+		if i := bytes.IndexByte(msg, 0); i >= 0 {
+			msg = msg[:i]
+		}
+		return nil, fmt.Errorf("%s", decodeMacRoman(msg))
+	}
+	if len(resp) < 28 {
+		return nil, fmt.Errorf("short char list resp")
 	}
 
 	data := resp[16:]
@@ -217,7 +225,8 @@ func parseCharListResponse(resp []byte) ([]string, error) {
 		if i <= 0 {
 			break
 		}
-		names = append(names, string(namesData[:i]))
+		name := strings.TrimSpace(decodeMacRoman(namesData[:i]))
+		names = append(names, name)
 		namesData = namesData[i+1:]
 	}
 	logDebug("server returned %d characters", len(names))
