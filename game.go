@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"image/color"
 	"log"
@@ -728,7 +729,16 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			logError("udp read error: %v", err)
 			return
 		}
-		dispatchMessage(m, true)
+		tag := binary.BigEndian.Uint16(m[:2])
+		if tag == 2 { // kMsgDrawState
+			handleDrawState(m)
+			continue
+		}
+		if txt := decodeMessage(m); txt != "" {
+			addMessage("udpReadLoop: decodeMessage: " + txt)
+		} else {
+			logDebug("udp msg tag %d len %d", tag, len(m))
+		}
 	}
 }
 
@@ -752,7 +762,17 @@ loop:
 			logError("read error: %v", err)
 			break
 		}
-		dispatchMessage(m, true)
+		tag := binary.BigEndian.Uint16(m[:2])
+		if tag == 2 { // kMsgDrawState
+			handleDrawState(m)
+			continue
+		}
+		if txt := decodeMessage(m); txt != "" {
+			//fmt.Println(txt)
+			addMessage("tcpReadLoop: decodeMessage: " + txt)
+		} else {
+			logDebug("msg tag %d len %d", tag, len(m))
+		}
 		select {
 		case <-ctx.Done():
 			break loop

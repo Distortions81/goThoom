@@ -431,7 +431,7 @@ func parseDrawState(data []byte) bool {
 			stateData = stateData[1:]
 			break
 		}
-		dispatchMessage(stateData[:idx], false)
+		handleInfoText(stateData[:idx])
 		stateData = stateData[idx+1:]
 	}
 
