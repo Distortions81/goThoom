@@ -51,6 +51,14 @@ var frameCounter int
 var showPlanes bool
 var showBubbles bool
 
+var (
+	frameCh       = make(chan struct{}, 1)
+	lastFrameTime time.Time
+	frameInterval = 200 * time.Millisecond
+	intervalHist  = map[int]int{}
+	frameMu       sync.Mutex
+)
+
 // drawState tracks information needed by the Ebiten renderer.
 type drawState struct {
 	descriptors map[uint8]frameDescriptor
@@ -695,17 +703,70 @@ func runGame(ctx context.Context) {
 	}
 }
 
-func sendInputLoop(ctx context.Context, conn net.Conn) {
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		if err := sendPlayerInput(conn); err != nil {
-			logError("send player input: %v", err)
+func noteFrame() {
+	now := time.Now()
+	frameMu.Lock()
+	if !lastFrameTime.IsZero() {
+		dt := now.Sub(lastFrameTime)
+		ms := int(dt.Round(10*time.Millisecond) / time.Millisecond)
+		if ms > 0 {
+			intervalHist[ms]++
+			var modeMS, modeCount int
+			for v, c := range intervalHist {
+				if c > modeCount {
+					modeMS, modeCount = v, c
+				}
+			}
+			if modeMS > 0 {
+				fps := int(math.Round(1000.0 / float64(modeMS)))
+				if fps < 1 {
+					fps = 1
+				}
+				frameInterval = time.Second / time.Duration(fps)
+			}
 		}
+	}
+	lastFrameTime = now
+	frameMu.Unlock()
+	select {
+	case frameCh <- struct{}{}:
+	default:
+	}
+}
+
+func sendInputLoop(ctx context.Context, conn net.Conn) {
+	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-frameCh:
+		}
+		frameMu.Lock()
+		interval := frameInterval
+		last := lastFrameTime
+		frameMu.Unlock()
+		if time.Since(last) > 2*time.Second || conn == nil {
+			continue
+		}
+		delay := interval / 2
+		if delay <= 0 {
+			delay = 200 * time.Millisecond
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		frameMu.Lock()
+		last = lastFrameTime
+		frameMu.Unlock()
+		if time.Since(last) > 2*time.Second || conn == nil {
+			continue
+		}
+		if err := sendPlayerInput(conn); err != nil {
+			logError("send player input: %v", err)
 		}
 	}
 }
@@ -731,6 +792,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 		}
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
+			noteFrame()
 			handleDrawState(m)
 			continue
 		}
@@ -764,6 +826,7 @@ loop:
 		}
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
+			noteFrame()
 			handleDrawState(m)
 			continue
 		}
