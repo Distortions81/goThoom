@@ -698,6 +698,15 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 	return 0, 0, false
 }
 
+// lerpBar interpolates status bar values, skipping interpolation when
+// fastBars is enabled and the value decreases.
+func lerpBar(prev, cur int, alpha float64) int {
+	if fastBars && cur < prev {
+		return cur
+	}
+	return int(math.Round(float64(prev) + alpha*float64(cur-prev)))
+}
+
 // drawStatusBars renders health, balance and spirit bars.
 func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 	if hudPixel == nil {
@@ -718,9 +727,6 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 	barY := gameAreaSizeY*scale - 20*scale - barHeight
 	x := slot
 	step := barWidth + 2*slot
-	lerp := func(prev, cur int) int {
-		return int(math.Round(float64(prev) + alpha*float64(cur-prev)))
-	}
 	drawBar := func(x int, cur, max int, clr color.RGBA) {
 		frameClr := color.RGBA{0xff, 0xff, 0xff, 0xff}
 		vector.StrokeRect(screen, float32(x-scale), float32(barY-scale), float32(barWidth+2*scale), float32(barHeight+2*scale), 1, frameClr, false)
@@ -730,16 +736,16 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 			drawRect(x, barY, w, barHeight, fillClr)
 		}
 	}
-	hp := lerp(snap.prevHP, snap.hp)
-	hpMax := lerp(snap.prevHPMax, snap.hpMax)
+	hp := lerpBar(snap.prevHP, snap.hp, alpha)
+	hpMax := lerpBar(snap.prevHPMax, snap.hpMax, alpha)
 	drawBar(x, hp, hpMax, color.RGBA{0xff, 0, 0, 0xff})
 	x += step
-	bal := lerp(snap.prevBalance, snap.balance)
-	balMax := lerp(snap.prevBalanceMax, snap.balanceMax)
+	bal := lerpBar(snap.prevBalance, snap.balance, alpha)
+	balMax := lerpBar(snap.prevBalanceMax, snap.balanceMax, alpha)
 	drawBar(x, bal, balMax, color.RGBA{0x00, 0xff, 0x00, 0xff})
 	x += step
-	sp := lerp(snap.prevSP, snap.sp)
-	spMax := lerp(snap.prevSPMax, snap.spMax)
+	sp := lerpBar(snap.prevSP, snap.sp, alpha)
+	spMax := lerpBar(snap.prevSPMax, snap.spMax, alpha)
 	drawBar(x, sp, spMax, color.RGBA{0x00, 0x00, 0xff, 0xff})
 }
 
