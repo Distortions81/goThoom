@@ -42,6 +42,14 @@ func TestDecodeBubbleUnknownYellKeepsText(t *testing.T) {
 	}
 }
 
+func TestDecodeBubbleUnknownMedium(t *testing.T) {
+	data := []byte{0x00, byte(kBubbleNormal | kBubbleNotCommon), byte(kBubbleSylvan | kBubbleUnknownMedium), 'O', 'k', 0}
+	verb, text, _, lang, code, _ := decodeBubble(data)
+	if lang != "Sylvan" || verb != "says" || text != "" || code != kBubbleUnknownMedium {
+		t.Fatalf("got lang %v verb %v text %v code %x", lang, verb, text, code)
+	}
+}
+
 func TestDecodeBubbleEmptyAfterStripping(t *testing.T) {
 	data := []byte{0x00, byte(kBubbleNormal), 0x8A, 0xC2, 'p', 'n', 0}
 	if verb, txt, name, _, _, target := decodeBubble(data); verb != "" || txt != "" || name != "" || target != thinkNone {

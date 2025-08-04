@@ -34,6 +34,7 @@ var (
 	demo        bool
 	clmov       string
 	noSplash    bool
+	baseDir     string
 
 	loginRequest = make(chan struct{})
 )
@@ -44,7 +45,7 @@ func main() {
 	flag.StringVar(&account, "account", "", "account name")
 	flag.StringVar(&accountPass, "account-pass", "", "account password (for character list)")
 	flag.StringVar(&pass, "pass", "", "character password")
-	flag.BoolVar(&demo, "demo", true, "login as random demo character")
+	flag.BoolVar(&demo, "demo", false, "login as random demo character")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.BoolVar(&noSplash, "nosplash", false, "skip login window and auto connect")
 	flag.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
@@ -56,19 +57,22 @@ func main() {
 	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
+	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
 	initFont()
 
-	baseDir := os.Getenv("PWD")
+	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
 		var err error
 		if baseDir, err = os.Getwd(); err != nil {
 			log.Fatalf("get working directory: %v", err)
 		}
 	}
+
+	setupLogging(debug)
 
 	clmovPath := ""
 	if clmov != "" {
@@ -173,20 +177,6 @@ func main() {
 		return
 	}
 
-	if debug {
-		logName := fmt.Sprintf("debug-%v.log", time.Now().Format("20060102-150405"))
-		f, err := os.Create(logName)
-		if err == nil {
-			logFile = f
-			log.SetOutput(f)
-			defer f.Close()
-		} else {
-			fmt.Printf("warning: could not create log file: %v\n", err)
-		}
-	} else {
-		log.SetOutput(io.Discard)
-	}
-
 	clientVersion := *clientVer
 	for {
 		imagesVersion, err := readKeyFileVersion(filepath.Join(dataDir, "CL_Images"))
@@ -270,7 +260,7 @@ func main() {
 		if tag != kMsgChallenge {
 			log.Fatalf("unexpected msg tag %d", tag)
 		}
-		challenge := msg[8 : 8+16]
+		challenge := msg[16 : 16+16]
 
 		if account != "" || demo {
 			acct := account
@@ -301,7 +291,7 @@ func main() {
 						}
 					}
 					if !selected {
-						fmt.Printf("character %v not found in account %v\n", name, account)
+						logError("character %v not found in account %v", name, account)
 					}
 				}
 				if !selected {
@@ -327,6 +317,10 @@ func main() {
 					}
 				}
 			}
+		}
+		if pass == "" && !demo {
+			fmt.Print("enter character password: ")
+			fmt.Scanln(&pass)
 		}
 		playerName = name
 
@@ -363,9 +357,9 @@ func main() {
 		}
 		result := int16(binary.BigEndian.Uint16(resp[2:4]))
 		if name, ok := errorNames[result]; ok && result != 0 {
-			fmt.Printf("login result: %d (%v)\n", result, name)
+			logDebug("login result: %d (%v)", result, name)
 		} else {
-			fmt.Printf("login result: %d\n", result)
+			logDebug("login result: %d", result)
 		}
 
 		if result == -30972 || result == -30973 {
@@ -383,7 +377,7 @@ func main() {
 			fmt.Println("login succeeded, reading messages (Ctrl-C to quit)...")
 
 			if err := sendPlayerInput(udpConn); err != nil {
-				fmt.Printf("send player input: %v\n", err)
+				logError("send player input: %v", err)
 			}
 
 			go sendInputLoop(ctx, udpConn)

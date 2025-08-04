@@ -43,7 +43,7 @@ func parseMovie(path string, clientVersion int) ([][]byte, error) {
 	if headerLen <= 0 || headerLen > len(data) {
 		headerLen = 24
 	}
-	dlog("movie version %d.%d headerLen %d", version, revision, headerLen)
+	logDebug("movie version %d.%d headerLen %d", version, revision, headerLen)
 
 	pos := headerLen
 	sign := []byte{0xde, 0xad, 0xbe, 0xef}
@@ -61,10 +61,10 @@ func parseMovie(path string, clientVersion int) ([][]byte, error) {
 		frame := binary.BigEndian.Uint32(data[pos+4 : pos+8])
 		size := int(binary.BigEndian.Uint16(data[pos+8 : pos+10]))
 		flags := binary.BigEndian.Uint16(data[pos+10 : pos+12])
-		dlog("frame %d index=%d size=%d flags=0x%x", frameNum, frame, size, flags)
+		logDebug("frame %d index=%d size=%d flags=0x%x", frameNum, frame, size, flags)
 		pos += 12
 		if flags&flagGameState != 0 {
-			dlog("GameState block at %d", pos)
+			logDebug("GameState block at %d", pos)
 			if pos+24 > len(data) {
 				break
 			}
@@ -78,11 +78,11 @@ func parseMovie(path string, clientVersion int) ([][]byte, error) {
 			pos = end
 		}
 		if flags&flagMobileData != 0 {
-			dlog("MobileData table at %d", pos)
+			logDebug("MobileData table at %d", pos)
 			pos = parseMobileTable(data, pos, version, revision)
 		}
 		if flags&flagPictureTable != 0 {
-			dlog("PictureTable at %d", pos)
+			logDebug("PictureTable at %d", pos)
 			if pos+2 > len(data) {
 				break
 			}
@@ -195,7 +195,7 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		l = layout{descSize: 130, colorsOffset: 40, nameOffset: 70, numColorsOffset: 32, bubbleCounterOffset: 24}
 	default: // v80-97
 		if version < 80 {
-			dlog("unsupported mobile table version %d", version)
+			logDebug("unsupported mobile table version %d", version)
 			return pos
 		}
 		l = layout{descSize: 126, colorsOffset: 36, nameOffset: 66, numColorsOffset: 28, bubbleCounterOffset: 20}

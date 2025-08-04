@@ -101,7 +101,7 @@ func onScreen(p framePicture) bool {
 // included). The boolean result is false when no majority offset is found.
 func pictureShift(prev, cur []framePicture) (int, int, bool) {
 	if len(prev) == 0 || len(cur) == 0 {
-		dlog("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
+		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
 		return 0, 0, false
 	}
 
@@ -135,7 +135,7 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 		}
 	}
 	if total == 0 {
-		dlog("pictureShift: no matching pairs")
+		logDebug("pictureShift: no matching pairs")
 		return 0, 0, false
 	}
 
@@ -147,13 +147,13 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 			bestCount = c
 		}
 	}
-	dlog("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
+	logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
 	if bestCount*2 <= total {
-		dlog("pictureShift: no majority best=%d total=%d", bestCount, total)
+		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
 		return 0, 0, false
 	}
 	if best[0]*best[0]+best[1]*best[1] > maxInterpPixels*maxInterpPixels {
-		dlog("pictureShift: motion too large (%d,%d)", best[0], best[1])
+		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
 		return 0, 0, false
 	}
 	return best[0], best[1], true
@@ -186,7 +186,7 @@ func handleDrawState(m []byte) {
 		if n > 16 {
 			n = 16
 		}
-		dlog("failed to parse draw state: % x", data[:n])
+		logDebug("failed to parse draw state: % x", data[:n])
 	}
 }
 
@@ -365,10 +365,10 @@ func parseDrawState(data []byte) bool {
 	copy(newPics[again:], pics)
 	if interp {
 		dx, dy, ok := pictureShift(prevPics, newPics)
-		dlog("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
+		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 		if !ok {
-			dlog("prev pics: %v", picturesSummary(prevPics))
-			dlog("new  pics: %v", picturesSummary(newPics))
+			logDebug("prev pics: %v", picturesSummary(prevPics))
+			logDebug("new  pics: %v", picturesSummary(newPics))
 		}
 		if ok {
 			state.picShiftX = dx
@@ -398,7 +398,7 @@ func parseDrawState(data []byte) bool {
 				interval = d
 			}
 		}
-		dlog("interp mobiles interval=%v", interval)
+		logDebug("interp mobiles interval=%v", interval)
 		state.prevTime = time.Now()
 		state.curTime = state.prevTime.Add(interval)
 	}
@@ -416,7 +416,7 @@ func parseDrawState(data []byte) bool {
 	}
 	stateMu.Unlock()
 
-	dlog("draw state cmd=%d ack=%d resend=%d desc=%d pict=%d again=%d mobile=%d state=%d",
+	logDebug("draw state cmd=%d ack=%d resend=%d desc=%d pict=%d again=%d mobile=%d state=%d",
 		ackCmd, ackFrame, resendFrame, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
 	for {
@@ -521,6 +521,8 @@ func parseDrawState(data []byte) bool {
 							switch code {
 							case kBubbleUnknownShort:
 								msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+							case kBubbleUnknownMedium:
+								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
 							case kBubbleUnknownLong:
 								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
 							default:
@@ -531,6 +533,8 @@ func parseDrawState(data []byte) bool {
 							switch code {
 							case kBubbleUnknownShort:
 								unknown = "something short"
+							case kBubbleUnknownMedium:
+								unknown = "something medium"
 							case kBubbleUnknownLong:
 								unknown = "something long"
 							default:

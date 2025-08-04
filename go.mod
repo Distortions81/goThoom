@@ -6,6 +6,7 @@ require github.com/hajimehoshi/ebiten/v2 v2.8.8
 
 require (
 	github.com/Distortions81/EUI v0.0.3
+	golang.org/x/crypto v0.40.0
 	golang.org/x/text v0.27.0
 )
 

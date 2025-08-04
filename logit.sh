@@ -1,1 +1,0 @@
-go run . -clmov=test.clMov 2>&1 | tee -a combined.log

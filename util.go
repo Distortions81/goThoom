@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/aes"
 	"crypto/md5"
 	"encoding/binary"
 	"encoding/hex"
@@ -14,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"golang.org/x/crypto/twofish"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -53,12 +53,6 @@ func hexDump(prefix string, data []byte) {
 		return
 	}
 	log.Printf("%v %d bytes\n%v", prefix, len(data), hex.Dump(data))
-}
-
-func dlog(format string, args ...interface{}) {
-	if debug {
-		log.Printf(format, args...)
-	}
 }
 
 const (
@@ -105,8 +99,8 @@ func loadAdditionalErrorNames() {
 
 func init() { loadAdditionalErrorNames() }
 
-var debug bool = true
-var logFile *os.File
+var debug bool
+var silent bool
 var ackFrame int32
 var resendFrame int32
 var commandNum uint32 = 1
@@ -256,22 +250,29 @@ func readKeyFileVersion(path string) (uint32, error) {
 }
 
 func answerChallenge(password string, challenge []byte) ([]byte, error) {
-	key := md5.Sum([]byte(password))
-	block, err := aes.NewCipher(key[:])
+	digest := md5.Sum([]byte(password))
+	key := make([]byte, len(digest))
+	copy(key, digest[:])
+	swapped := make([]byte, len(key))
+	for i := 0; i < len(key); i += 4 {
+		v := binary.BigEndian.Uint32(key[i : i+4])
+		binary.LittleEndian.PutUint32(swapped[i:i+4], v)
+	}
+	block, err := twofish.NewCipher(swapped)
 	if err != nil {
 		return nil, err
 	}
-	if len(challenge)%aes.BlockSize != 0 {
+	if len(challenge)%block.BlockSize() != 0 {
 		return nil, fmt.Errorf("invalid challenge length")
 	}
 	plain := make([]byte, len(challenge))
-	for i := 0; i < len(challenge); i += aes.BlockSize {
-		block.Decrypt(plain[i:i+aes.BlockSize], challenge[i:i+aes.BlockSize])
+	for i := 0; i < len(challenge); i += block.BlockSize() {
+		block.Decrypt(plain[i:i+block.BlockSize()], challenge[i:i+block.BlockSize()])
 	}
 	h := md5.Sum(plain)
 	encoded := make([]byte, len(h))
-	for i := 0; i < len(h); i += aes.BlockSize {
-		block.Encrypt(encoded[i:i+aes.BlockSize], h[i:i+aes.BlockSize])
+	for i := 0; i < len(h); i += block.BlockSize() {
+		block.Encrypt(encoded[i:i+block.BlockSize()], h[i:i+block.BlockSize()])
 	}
 	return encoded, nil
 }

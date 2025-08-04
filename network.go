@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -50,7 +51,7 @@ func sendClientIdentifiers(connection net.Conn, clientVersion, imagesVersion, so
 	binary.BigEndian.PutUint32(buf[12:16], soundsVersion)
 	copy(buf[16:], data)
 	simpleEncrypt(buf[16:])
-	dlog("identifiers client=%d images=%d sounds=%d", clientVersion, imagesVersion, soundsVersion)
+	logDebug("identifiers client=%d images=%d sounds=%d", clientVersion, imagesVersion, soundsVersion)
 	return sendTCPMessage(connection, buf)
 }
 
@@ -63,7 +64,7 @@ func sendTCPMessage(connection net.Conn, payload []byte) error {
 	}
 	_, err := connection.Write(payload)
 	tag := binary.BigEndian.Uint16(payload[:2])
-	dlog("send tcp tag %d len %d", tag, len(payload))
+	logDebug("send tcp tag %d len %d", tag, len(payload))
 	hexDump("send", payload)
 	return err
 }
@@ -75,7 +76,7 @@ func sendUDPMessage(connection net.Conn, payload []byte) error {
 	buf := append(size[:], payload...)
 	_, err := connection.Write(buf)
 	tag := binary.BigEndian.Uint16(payload[:2])
-	dlog("send udp tag %d len %d", tag, len(payload))
+	logDebug("send udp tag %d len %d", tag, len(payload))
 	hexDump("send", payload)
 	return err
 }
@@ -96,7 +97,7 @@ func readUDPMessage(connection net.Conn) ([]byte, error) {
 	}
 	msg := append([]byte(nil), buf[2:2+sz]...)
 	tag := binary.BigEndian.Uint16(msg[:2])
-	dlog("recv udp tag %d len %d", tag, len(msg))
+	logDebug("recv udp tag %d len %d", tag, len(msg))
 	hexDump("recv", msg)
 	return msg, nil
 }
@@ -130,7 +131,7 @@ func sendPlayerInput(connection net.Conn) error {
 		pendingCommand = ""
 	}
 	commandNum++
-	dlog("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", ackFrame, resendFrame, commandNum-1, mouseX, mouseY, flags)
+	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", ackFrame, resendFrame, commandNum-1, mouseX, mouseY, flags)
 	return sendUDPMessage(connection, packet)
 }
 
@@ -146,7 +147,7 @@ func readTCPMessage(connection net.Conn) ([]byte, error) {
 		return nil, err
 	}
 	tag := binary.BigEndian.Uint16(buf[:2])
-	dlog("recv tcp tag %d len %d", tag, len(buf))
+	logDebug("recv tcp tag %d len %d", tag, len(buf))
 	hexDump("recv", buf)
 	return buf, nil
 }
@@ -184,7 +185,7 @@ func sendCharListRequest(connection net.Conn, account, accountPass string, chall
 	packet[16+len(accountBytes)] = 0
 	copy(packet[17+len(accountBytes):], answer)
 	simpleEncrypt(packet[16:])
-	dlog("request character list for %v", account)
+	logDebug("request character list for %v", account)
 	return sendTCPMessage(connection, packet)
 }
 
@@ -192,7 +193,7 @@ func sendCharListRequest(connection net.Conn, account, accountPass string, chall
 // returning the available character names.
 func parseCharListResponse(resp []byte) ([]string, error) {
 	const kMsgCharList = 14
-	if len(resp) < 28 {
+	if len(resp) < 16 {
 		return nil, fmt.Errorf("short char list resp")
 	}
 	resTag := binary.BigEndian.Uint16(resp[:2])
@@ -202,7 +203,14 @@ func parseCharListResponse(resp []byte) ([]string, error) {
 	result := int16(binary.BigEndian.Uint16(resp[2:4]))
 	simpleEncrypt(resp[16:])
 	if result != 0 {
-		return nil, fmt.Errorf("server result %d", result)
+		msg := resp[16:]
+		if i := bytes.IndexByte(msg, 0); i >= 0 {
+			msg = msg[:i]
+		}
+		return nil, fmt.Errorf("%s", decodeMacRoman(msg))
+	}
+	if len(resp) < 28 {
+		return nil, fmt.Errorf("short char list resp")
 	}
 
 	data := resp[16:]
@@ -217,9 +225,10 @@ func parseCharListResponse(resp []byte) ([]string, error) {
 		if i <= 0 {
 			break
 		}
-		names = append(names, string(namesData[:i]))
+		name := strings.TrimSpace(decodeMacRoman(namesData[:i]))
+		names = append(names, name)
 		namesData = namesData[i+1:]
 	}
-	dlog("server returned %d characters", len(names))
+	logDebug("server returned %d characters", len(names))
 	return names, nil
 }
