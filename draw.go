@@ -600,16 +600,13 @@ func parseDrawState(data []byte) error {
 			}
 			stateMu.Unlock()
 			if showBubbles && txt != "" {
-				bx, by := h, v
-				if typ&kBubbleFar == 0 {
-					stateMu.Lock()
-					if m, ok := state.mobiles[idx]; ok {
-						bx, by = m.H, m.V
-					}
-					stateMu.Unlock()
+				b := bubble{Index: idx, Text: txt, Expire: time.Now().Add(4 * time.Second)}
+				if typ&kBubbleFar != 0 {
+					b.H, b.V = h, v
+					b.Far = true
 				}
 				stateMu.Lock()
-				state.bubbles = append(state.bubbles, debugBubble{H: bx, V: by, Text: txt, Expire: time.Now().Add(4 * time.Second)})
+				state.bubbles = append(state.bubbles, b)
 				stateMu.Unlock()
 			}
 			var msg string
