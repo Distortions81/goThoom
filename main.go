@@ -54,7 +54,7 @@ func main() {
 	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
 	flag.BoolVar(&onion, "blend", false, "frame blending (smoother animations)")
 	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
-	flag.BoolVar(&showPlanes, "planes", true, "draw plane and type for each sprite")
+	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
