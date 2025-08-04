@@ -49,6 +49,7 @@ var linear bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var showPlanes bool
+var showBubbles bool
 
 // drawState tracks information needed by the Ebiten renderer.
 type drawState struct {
@@ -61,6 +62,8 @@ type drawState struct {
 	prevDescs   map[uint8]frameDescriptor
 	prevTime    time.Time
 	curTime     time.Time
+
+	bubbles []debugBubble
 
 	hp, hpMax                   int
 	sp, spMax                   int
@@ -80,6 +83,13 @@ var (
 	stateMu sync.Mutex
 )
 
+// debugBubble stores temporary bubble debug information.
+type debugBubble struct {
+	H, V   int16
+	Text   string
+	Expire time.Time
+}
+
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
 	descriptors                 map[uint8]frameDescriptor
@@ -91,6 +101,7 @@ type drawSnapshot struct {
 	prevDescs                   map[uint8]frameDescriptor
 	prevTime                    time.Time
 	curTime                     time.Time
+	bubbles                     []debugBubble
 	hp, hpMax                   int
 	sp, spMax                   int
 	balance, balanceMax         int
@@ -131,6 +142,17 @@ func captureDrawSnapshot() drawSnapshot {
 	}
 	for _, m := range state.mobiles {
 		snap.mobiles = append(snap.mobiles, m)
+	}
+	if len(state.bubbles) > 0 {
+		now := time.Now()
+		kept := state.bubbles[:0]
+		for _, b := range state.bubbles {
+			if b.Expire.After(now) {
+				kept = append(kept, b)
+			}
+		}
+		state.bubbles = kept
+		snap.bubbles = append([]debugBubble(nil), state.bubbles...)
 	}
 	if interp || onion {
 		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
@@ -358,6 +380,23 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 
 	for _, p := range posPics {
 		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, snap.mobiles, snap.prevMobiles)
+	}
+
+	if showBubbles {
+		for _, b := range snap.bubbles {
+			x := (int(b.H) + fieldCenterX) * scale
+			y := (int(b.V) + fieldCenterY) * scale
+			w, h := text.Measure(b.Text, nameFace, 0)
+			iw := int(math.Ceil(w))
+			ih := int(math.Ceil(h))
+			left := x - iw/2 - 2
+			top := y - ih - 4*scale
+			vector.StrokeRect(screen, float32(left), float32(top), float32(iw+4), float32(ih+4), 1, color.RGBA{255, 0, 0, 255}, false)
+			op := &text.DrawOptions{}
+			op.GeoM.Translate(float64(left+2), float64(top+2))
+			op.ColorScale.ScaleWithColor(color.Black)
+			text.Draw(screen, b.Text, nameFace, op)
+		}
 	}
 }
 
