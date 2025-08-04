@@ -159,7 +159,7 @@ func main() {
 			defer ticker.Stop()
 			for _, m := range frames {
 				if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
-					handleDrawState(m)
+					_ = handleDrawState(m)
 				}
 				if txt := decodeMessage(m); txt != "" {
 					//addMessage("clMov: decodeMessage: " + txt)
@@ -224,7 +224,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("tcp connect: %v", err)
 		}
-		udpConn, err := net.Dial("udp", host)
+		udpConn, err = net.Dial("udp", host)
 		if err != nil {
 			log.Fatalf("udp connect: %v", err)
 		}
@@ -376,11 +376,6 @@ func main() {
 		if result == 0 {
 			fmt.Println("login succeeded, reading messages (Ctrl-C to quit)...")
 
-			if err := sendPlayerInput(udpConn); err != nil {
-				logError("send player input: %v", err)
-			}
-
-			go sendInputLoop(ctx, udpConn)
 			go udpReadLoop(ctx, udpConn)
 			go tcpReadLoop(ctx, tcpConn)
 

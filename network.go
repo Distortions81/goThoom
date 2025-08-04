@@ -15,6 +15,9 @@ import (
 // tcpConn is the active TCP connection to the game server.
 var tcpConn net.Conn
 
+// udpConn is the active UDP connection to the game server.
+var udpConn net.Conn
+
 // sendClientIdentifiers transmits the client, image and sound versions to the server.
 func sendClientIdentifiers(connection net.Conn, clientVersion, imagesVersion, soundsVersion uint32) error {
 	const kMsgIdentifiers = 19
