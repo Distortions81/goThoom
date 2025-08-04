@@ -317,6 +317,10 @@ func main() {
 				}
 			}
 		}
+		if pass == "" && !demo {
+			fmt.Print("enter character password: ")
+			fmt.Scanln(&pass)
+		}
 		playerName = name
 
 		answer, err := answerChallenge(pass, challenge)
