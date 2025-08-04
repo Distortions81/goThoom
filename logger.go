@@ -15,7 +15,7 @@ var (
 )
 
 func setupLogging(debug bool) {
-	logDir := filepath.Join("logs", "errors")
+	logDir := filepath.Join(baseDir, "logs", "errors")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		fmt.Printf("could not create log directory: %v\n", err)
 	}

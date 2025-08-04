@@ -34,6 +34,7 @@ var (
 	demo        bool
 	clmov       string
 	noSplash    bool
+	baseDir     string
 
 	loginRequest = make(chan struct{})
 )
@@ -44,7 +45,7 @@ func main() {
 	flag.StringVar(&account, "account", "", "account name")
 	flag.StringVar(&accountPass, "account-pass", "", "account password (for character list)")
 	flag.StringVar(&pass, "pass", "", "character password")
-	flag.BoolVar(&demo, "demo", true, "login as random demo character")
+	flag.BoolVar(&demo, "demo", false, "login as random demo character")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.BoolVar(&noSplash, "nosplash", false, "skip login window and auto connect")
 	flag.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
@@ -53,25 +54,25 @@ func main() {
 	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
 	flag.BoolVar(&onion, "blend", false, "frame blending (smoother animations)")
 	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
-	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
+	flag.BoolVar(&showPlanes, "planes", true, "draw plane and type for each sprite")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
-	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
+	flag.BoolVar(&debug, "debug", true, "verbose/debug logging")
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
-	setupLogging(debug)
-
 	initFont()
 
-	baseDir := os.Getenv("PWD")
+	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
 		var err error
 		if baseDir, err = os.Getwd(); err != nil {
 			log.Fatalf("get working directory: %v", err)
 		}
 	}
+
+	setupLogging(debug)
 
 	clmovPath := ""
 	if clmov != "" {
