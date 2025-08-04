@@ -57,6 +57,7 @@ var (
 	frameInterval = 200 * time.Millisecond
 	intervalHist  = map[int]int{}
 	frameMu       sync.Mutex
+	serverFPS     int
 )
 
 // drawState tracks information needed by the Ebiten renderer.
@@ -310,6 +311,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	drawScene(screen, snap, alpha, fade)
 	//drawNightOverlay(screen)
 	drawStatusBars(screen, snap, alpha)
+	drawServerFPS(screen, serverFPS)
 	drawMessages(screen, getMessages())
 	if inputActive {
 		drawInputOverlay(screen, string(inputText))
@@ -671,6 +673,18 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 	}
 }
 
+func drawServerFPS(screen *ebiten.Image, fps int) {
+	if fps <= 0 {
+		return
+	}
+	msg := fmt.Sprintf("FPS: %d", fps)
+	w, _ := text.Measure(msg, nameFace, 0)
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(float64(gameAreaSizeX*scale)-w-float64(4*scale), float64(4*scale))
+	op.ColorScale.ScaleWithColor(color.White)
+	text.Draw(screen, msg, nameFace, op)
+}
+
 // drawInputOverlay renders the text entry box when chatting.
 func drawInputOverlay(screen *ebiten.Image, txt string) {
 	if inputBg == nil {
@@ -722,6 +736,7 @@ func noteFrame() {
 				if fps < 1 {
 					fps = 1
 				}
+				serverFPS = fps
 				frameInterval = time.Second / time.Duration(fps)
 			}
 		}
