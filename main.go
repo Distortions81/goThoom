@@ -259,7 +259,7 @@ func main() {
 		if tag != kMsgChallenge {
 			log.Fatalf("unexpected msg tag %d", tag)
 		}
-		challenge := msg[8 : 8+16]
+		challenge := msg[16 : 16+16]
 
 		if account != "" || demo {
 			acct := account
