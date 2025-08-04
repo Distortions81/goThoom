@@ -60,6 +60,7 @@ func main() {
 	flag.BoolVar(&showBubbles, "bubble", false, "draw bubble debug boxes")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
+	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
 	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
