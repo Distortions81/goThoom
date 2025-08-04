@@ -45,6 +45,7 @@ var gameCtx context.Context
 var scale int = 3
 var interp bool
 var onion bool
+var fastAnimation = true
 var linear bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
@@ -171,7 +172,7 @@ func captureDrawSnapshot() drawSnapshot {
 		state.bubbles = kept
 		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
-	if interp || onion {
+	if interp || onion || !fastAnimation {
 		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
 		for idx, m := range state.prevMobiles {
 			snap.prevMobiles[idx] = m
@@ -476,7 +477,13 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 			colors = append([]byte(nil), p.Colors...)
 		}
 		playersMu.RUnlock()
-		img = loadMobileFrame(d.PictID, m.State, colors)
+		state := m.State
+		if !fastAnimation {
+			if pm, ok := prevMobiles[m.Index]; ok {
+				state = pm.State
+			}
+		}
+		img = loadMobileFrame(d.PictID, state, colors)
 		if clImages != nil {
 			plane = clImages.Plane(uint32(d.PictID))
 		}

@@ -96,6 +96,14 @@ func initUI() {
 	}
 	mainFlow.AddItem(anim)
 
+	fastAnim, fastAnimEvents := eui.NewCheckbox(&eui.ItemData{Text: "Fast Animation", Size: eui.Point{X: 150, Y: 24}, Checked: fastAnimation})
+	fastAnimEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			fastAnimation = ev.Checked
+		}
+	}
+	mainFlow.AddItem(fastAnim)
+
 	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: 150, Y: 24}, Checked: clickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
