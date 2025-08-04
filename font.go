@@ -20,6 +20,6 @@ func initFont() {
 	}
 	nameFace = &text.GoTextFace{
 		Source: src,
-		Size:   11 * float64(scale),
+		Size:   10 * float64(scale),
 	}
 }
