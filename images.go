@@ -26,6 +26,9 @@ var (
 	// state, and color overrides.
 	mobileCache = make(map[string]*ebiten.Image)
 
+	// bubbleCache caches bubble sprites keyed by picture ID and type.
+	bubbleCache = make(map[string]*ebiten.Image)
+
 	imageMu  sync.Mutex
 	clImages *climg.CLImages
 )
@@ -77,6 +80,56 @@ func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 // cached after the first load to avoid reopening files each frame.
 func loadImage(id uint16) *ebiten.Image {
 	return loadImageFrame(id, 0)
+}
+
+// loadBubbleImage retrieves a specific bubble sprite for the given picture ID
+// and bubble type. Bubble sprites are stored in picture IDs 1–3 as sprite
+// sheets with one column per bubble type. Each cropped sprite is cached after
+// the first load.
+func loadBubbleImage(id uint16, typ int) *ebiten.Image {
+	key := fmt.Sprintf("bubble-%d-%d", id, typ)
+	imageMu.Lock()
+	if img, ok := bubbleCache[key]; ok {
+		imageMu.Unlock()
+		return img
+	}
+	imageMu.Unlock()
+
+	sheet := loadImage(id)
+	if sheet == nil {
+		imageMu.Lock()
+		bubbleCache[key] = nil
+		imageMu.Unlock()
+		return nil
+	}
+
+	var w, h int
+	switch id {
+	case 1:
+		w, h = bubbleSmallWidth, bubbleSmallHeight
+	case 2:
+		w, h = bubbleMediumWidth, bubbleMediumHeight
+	case 3:
+		w, h = bubbleLargeWidth, bubbleLargeHeight
+	default:
+		return nil
+	}
+
+	x := 1 + typ*w
+	y := 1
+	if x+w+1 > sheet.Bounds().Dx() || y+h+1 > sheet.Bounds().Dy() {
+		imageMu.Lock()
+		bubbleCache[key] = nil
+		imageMu.Unlock()
+		return nil
+	}
+	sub := sheet.SubImage(image.Rect(x, y, x+w, y+h)).(*ebiten.Image)
+	sub = addBorder(sub)
+
+	imageMu.Lock()
+	bubbleCache[key] = sub
+	imageMu.Unlock()
+	return sub
 }
 
 // loadImageFrame retrieves a specific animation frame for the specified picture
