@@ -36,6 +36,7 @@ var (
 	noSplash    bool
 	baseDir     string
 	soundTest   bool
+	fastSound   bool
 
 	loginRequest = make(chan struct{})
 )
@@ -61,8 +62,10 @@ func main() {
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
+	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
 
 	flag.Parse()
+	initSoundContext()
 	rand.Seed(time.Now().UnixNano())
 
 	initFont()
