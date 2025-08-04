@@ -16,7 +16,7 @@ var (
 	soundMu      sync.Mutex
 	clSounds     *clsnd.CLSounds
 	soundCache   = make(map[uint16]*clsnd.Sound)
-	audioContext = audio.NewContext(22050)
+	audioContext = audio.NewContext(44100)
 	soundPlayers = make(map[*audio.Player]struct{})
 	playSound    = func(id uint16) {
 		logError("sound: %v", id)
@@ -25,7 +25,7 @@ var (
 			return
 		}
 
-		srcRate := int(s.SampleRate)
+		srcRate := int(s.SampleRate / 2)
 		dstRate := audioContext.SampleRate()
 
 		// Decode the sound data into 16-bit samples.
