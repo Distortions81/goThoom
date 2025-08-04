@@ -65,6 +65,7 @@ var (
 		}
 
 		p := audioContext.NewPlayerFromBytes(pcm)
+		p.SetVolume(0.5)
 		p.Play()
 
 		soundMu.Lock()
