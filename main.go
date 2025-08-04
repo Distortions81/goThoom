@@ -35,6 +35,7 @@ var (
 	clmov       string
 	noSplash    bool
 	baseDir     string
+	soundTest   bool
 
 	loginRequest = make(chan struct{})
 )
@@ -59,6 +60,7 @@ func main() {
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
+	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
 
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
@@ -101,6 +103,17 @@ func main() {
 	}
 
 	dataDir = filepath.Join(baseDir, "data")
+
+	if soundTest {
+		if err := ensureDataFiles(dataDir, *clientVer); err != nil {
+			log.Printf("ensure data files: %v", err)
+		}
+		for i := 1; i <= 100; i++ {
+			playSound(uint16(i))
+			time.Sleep(250 * time.Millisecond)
+		}
+		return
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	go func() {
