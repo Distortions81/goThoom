@@ -98,6 +98,7 @@ type bubble struct {
 	H, V   int16
 	Far    bool
 	Text   string
+	Type   int
 	Expire time.Time
 }
 
@@ -445,16 +446,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			}
 			x := (int(math.Round(hpos)) + fieldCenterX) * scale
 			y := (int(math.Round(vpos)) + fieldCenterY) * scale
-			w, h := text.Measure(b.Text, nameFace, 0)
-			iw := int(math.Ceil(w))
-			ih := int(math.Ceil(h))
-			left := x - iw/2 - 2
-			top := y - ih - 4*scale
-			vector.StrokeRect(screen, float32(left), float32(top), float32(iw+4), float32(ih+4), 1, color.RGBA{255, 0, 0, 255}, false)
-			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(left+2), float64(top+2))
-			op.ColorScale.ScaleWithColor(color.Black)
-			text.Draw(screen, b.Text, nameFace, op)
+			drawBubble(screen, b.Text, x, y, b.Type)
 		}
 	}
 }
