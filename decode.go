@@ -328,13 +328,13 @@ func handleInfoText(data []byte) {
 		}
 		if line[0] == 0xC2 {
 			if txt := decodeBEPP(line); txt != "" {
-				addMessage("handleInfoText: decodeBEPP: " + txt)
+				addMessage(txt)
 			}
 			continue
 		}
 		if _, txt, _, _, _, _ := decodeBubble(line); txt != "" {
 			//fmt.Println(txt)
-			addMessage("handleInfoText: decodeBubble: " + txt)
+			addMessage(txt)
 			continue
 		}
 		s := strings.TrimSpace(decodeMacRoman(stripBEPPTags(line)))
@@ -347,6 +347,6 @@ func handleInfoText(data []byte) {
 		if strings.HasPrefix(s, "/") {
 			continue
 		}
-		addMessage("handleInfoText: bepstrip: " + s)
+		addMessage(s)
 	}
 }

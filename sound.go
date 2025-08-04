@@ -24,7 +24,7 @@ var (
 	resample = resampleSinc
 
 	playSound = func(id uint16) {
-		logError("sound: %v", id)
+		//logError("sound: %v", id)
 		s := loadSound(id)
 		if s == nil || audioContext == nil {
 			return
@@ -65,7 +65,7 @@ var (
 		}
 
 		p := audioContext.NewPlayerFromBytes(pcm)
-		p.SetVolume(0.5)
+		p.SetVolume(0.2)
 		p.Play()
 
 		soundMu.Lock()
