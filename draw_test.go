@@ -128,6 +128,53 @@ func TestHandleDrawStateUsesDescriptorName(t *testing.T) {
 	}
 }
 
+func TestHandleDrawStatePlayerBubble(t *testing.T) {
+	messages = nil
+	state = drawState{}
+	drawStateEncrypted = false
+	defer func() { drawStateEncrypted = true }()
+	playerName = "Tsune"
+	playerIndex = 0
+
+	desc := []byte{0, 0, 0, 0}
+	desc = append(desc, []byte("Tsune")...)
+	desc = append(desc, 0) // name terminator
+	desc = append(desc, 0) // color count
+
+	msg := "hello there"
+	bubble := []byte{0, byte(kBubbleYell)}
+	bubble = append(bubble, []byte(msg)...)
+	bubble = append(bubble, 0)
+
+	stateData := []byte{0}           // end of info strings
+	stateData = append(stateData, 1) // bubble count
+	stateData = append(stateData, bubble...)
+	stateData = append(stateData, 0) // sound count 0
+	stateData = append(stateData, 0) // inventory none
+
+	data := make([]byte, 0, 21+len(stateData)+len(desc))
+	data = append(data, 0)                  // ackCmd
+	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
+	data = append(data, 1)                  // descriptor count
+	data = append(data, desc...)
+	data = append(data, make([]byte, 7)...) // hp, sp, etc.
+	data = append(data, 0)                  // picture count
+	data = append(data, 0)                  // mobile count
+	var sl [2]byte
+	binary.BigEndian.PutUint16(sl[:], uint16(len(stateData)))
+	data = append(data, sl[:]...)
+	data = append(data, stateData...)
+
+	m := append([]byte{0, 0}, data...)
+	handleDrawState(m)
+
+	expected := "Tsune yells, " + msg
+	got := getMessages()
+	if len(got) != 1 || got[0] != expected {
+		t.Fatalf("messages = %#v", got)
+	}
+}
+
 func TestHandleDrawStateSounds(t *testing.T) {
 	messages = nil
 	state = drawState{}
