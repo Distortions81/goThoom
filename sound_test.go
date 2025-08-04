@@ -59,3 +59,43 @@ func TestFastSoundContext(t *testing.T) {
 	fastSound = false
 	initSoundContext()
 }
+
+// TestMaxSoundsLimit verifies that playSound respects the maxSounds limit and
+// does not create more than the specified number of concurrent players.
+func TestMaxSoundsLimit(t *testing.T) {
+	maxSounds = 2
+	initSoundContext()
+
+	// Reset caches and players.
+	soundMu.Lock()
+	soundCache = make(map[uint16]*clsnd.Sound)
+	soundMu.Unlock()
+	soundPlayers = make(map[*audio.Player]struct{})
+
+	// Create a 1-second sound so players remain active during the test.
+	data := make([]byte, audioContext.SampleRate()*2)
+	snd := &clsnd.Sound{
+		Data:       data,
+		SampleRate: uint32(audioContext.SampleRate() * 2),
+		Channels:   1,
+		Bits:       16,
+	}
+
+	soundMu.Lock()
+	soundCache[1] = snd
+	soundCache[2] = snd
+	soundCache[3] = snd
+	soundMu.Unlock()
+
+	playSound(1)
+	playSound(2)
+	playSound(3)
+
+	if len(soundPlayers) != 2 {
+		t.Fatalf("expected 2 sound players, got %d", len(soundPlayers))
+	}
+	for p := range soundPlayers {
+		p.Close()
+	}
+	maxSounds = 32
+}
