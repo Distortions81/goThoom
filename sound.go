@@ -79,10 +79,6 @@ var (
 	}
 )
 
-func init() {
-	initSoundContext()
-}
-
 // initSoundContext initializes the global audio context and resampler based on
 // the fastSound flag.
 func initSoundContext() {
