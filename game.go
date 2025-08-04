@@ -29,6 +29,12 @@ const epsilon = 0.003
 var mouseX, mouseY int16
 var mouseDown bool
 
+var keyWalk bool
+var keyX, keyY int16
+var clickToToggle bool
+var walkToggled bool
+var walkTargetX, walkTargetY int16
+
 var inputActive bool
 var inputText []rune
 var inputBg *ebiten.Image
@@ -207,6 +213,48 @@ func (g *Game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			inputActive = true
 			inputText = inputText[:0]
+		}
+	}
+
+	if !inputActive {
+		dx, dy := 0, 0
+		if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
+			dx--
+		}
+		if ebiten.IsKeyPressed(ebiten.KeyArrowRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
+			dx++
+		}
+		if ebiten.IsKeyPressed(ebiten.KeyArrowUp) || ebiten.IsKeyPressed(ebiten.KeyW) {
+			dy--
+		}
+		if ebiten.IsKeyPressed(ebiten.KeyArrowDown) || ebiten.IsKeyPressed(ebiten.KeyS) {
+			dy++
+		}
+		if dx != 0 || dy != 0 {
+			keyWalk = true
+			keyX = int16(dx * fieldCenterX)
+			keyY = int16(dy * fieldCenterY)
+		} else {
+			keyWalk = false
+		}
+		if clickToToggle {
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				if walkToggled {
+					walkToggled = false
+				} else {
+					x, y := ebiten.CursorPosition()
+					walkTargetX = int16(x/scale - fieldCenterX)
+					walkTargetY = int16(y/scale - fieldCenterY)
+					walkToggled = true
+				}
+			}
+		} else {
+			walkToggled = false
+		}
+	} else {
+		keyWalk = false
+		if walkToggled {
+			walkToggled = false
 		}
 	}
 

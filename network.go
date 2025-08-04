@@ -108,9 +108,17 @@ func sendPlayerInput(connection net.Conn) error {
 	flags := uint16(0)
 
 	x, y := ebiten.CursorPosition()
-	mouseX = int16(x/scale - fieldCenterX)
-	mouseY = int16(y/scale - fieldCenterY)
-	mouseDown = ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	baseX := int16(x/scale - fieldCenterX)
+	baseY := int16(y/scale - fieldCenterY)
+	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+
+	mouseX, mouseY, mouseDown = baseX, baseY, baseDown
+	if keyWalk {
+		mouseX, mouseY, mouseDown = keyX, keyY, true
+	} else if clickToToggle {
+		mouseX, mouseY = walkTargetX, walkTargetY
+		mouseDown = walkToggled
+	}
 
 	if mouseDown {
 		flags = kPIMDownField
