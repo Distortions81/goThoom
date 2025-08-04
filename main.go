@@ -43,6 +43,7 @@ var (
 )
 
 func main() {
+	var noFastAnimation bool
 	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&name, "name", "", "character name")
 	flag.StringVar(&account, "account", "", "account name")
@@ -68,8 +69,10 @@ func main() {
 	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
 	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
+	flag.BoolVar(&noFastAnimation, "noFastAnimation", false, "draw previous mobile animation frame when available")
 
 	flag.Parse()
+	fastAnimation = !noFastAnimation
 	initSoundContext()
 
 	initFont()

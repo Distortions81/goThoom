@@ -528,17 +528,18 @@ func parseDrawState(data []byte) error {
 
 	state.pictures = newPics
 
-	needAnimUpdate := interp || (onion && changed)
-	if needAnimUpdate {
-		// save previous mobile positions for interpolation and fading
+	needPrev := interp || onion || !fastAnimation
+	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
 		}
-		// copy current mobiles to prevMobiles before replacing
 		state.prevMobiles = make(map[uint8]frameMobile, len(state.mobiles))
 		for idx, m := range state.mobiles {
 			state.prevMobiles[idx] = m
 		}
+	}
+	needAnimUpdate := interp || (onion && changed)
+	if needAnimUpdate {
 		const defaultInterval = time.Second / 5
 		interval := defaultInterval
 		if !state.prevTime.IsZero() && !state.curTime.IsZero() {

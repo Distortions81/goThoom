@@ -57,6 +57,7 @@ The Go client accepts the following flags:
 - `-scale` – screen scale factor (default `2`)
 - `-interp` – enable movement interpolation
 - `-onion` – cross-fade sprite animations
+- `-noFastAnimation` – draw a mobile's previous animation frame when available
 - `-linear` – use linear filtering instead of nearest-neighbor rendering
 
 ## Data and Logging
