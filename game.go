@@ -45,6 +45,7 @@ var gameCtx context.Context
 var scale int = 3
 var interp bool
 var onion bool
+var blendPicts bool
 var linear bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
@@ -190,7 +191,7 @@ func captureDrawSnapshot() drawSnapshot {
 func computeInterpolation(prevTime, curTime time.Time) (alpha float64, fade float32) {
 	alpha = 1.0
 	fade = 1.0
-	if (interp || onion) && !curTime.IsZero() && curTime.After(prevTime) {
+	if (interp || onion || blendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
 		elapsed := time.Since(prevTime)
 		interval := curTime.Sub(prevTime)
 		if interp {
@@ -202,7 +203,7 @@ func computeInterpolation(prevTime, curTime time.Time) (alpha float64, fade floa
 				alpha = 1
 			}
 		}
-		if onion {
+		if onion || blendPicts {
 			half := interval / 2
 			if half > 0 {
 				fade = float32(float64(elapsed) / float64(half))
@@ -380,7 +381,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 	}
 
 	for _, p := range negPics {
-		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, snap.mobiles, snap.prevMobiles)
+		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles)
 	}
 
 	sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
@@ -408,13 +409,13 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			}
 			i++
 		} else {
-			drawPicture(screen, zeroPics[j], snap.picShiftX, snap.picShiftY, alpha, snap.mobiles, snap.prevMobiles)
+			drawPicture(screen, zeroPics[j], snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles)
 			j++
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, snap.mobiles, snap.prevMobiles)
+		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles)
 	}
 
 	if showBubbles {
@@ -563,7 +564,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile) {
+func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile) {
 	offX := -float64(shiftX) * (1 - alpha)
 	offY := -float64(shiftY) * (1 - alpha)
 
@@ -575,6 +576,14 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 	}
 
 	img := loadImageFrame(p.PictID, frame)
+	var prevImg *ebiten.Image
+	if blendPicts && clImages != nil {
+		prevFrame := clImages.FrameIndex(uint32(p.PictID), frameCounter-1)
+		if prevFrame != frame {
+			prevImg = loadImageFrame(p.PictID, prevFrame)
+		}
+	}
+
 	var mobileX, mobileY float64
 	w, h := 0, 0
 	if img != nil {
@@ -592,15 +601,46 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 	y := (int(math.Round(float64(p.V)+offY+mobileY)) + fieldCenterY) * scale
 
 	if img != nil {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = drawFilter
-		if linear {
-			op.GeoM.Scale(float64(scale)+epsilon, float64(scale)+epsilon)
+		if blendPicts && prevImg != nil {
+			size := w
+			if h > size {
+				size = h
+			}
+			tmp := getTempImage(size)
+			off := tmp.Bounds()
+			offXPix := (off.Dx() - w) / 2
+			offYPix := (off.Dy() - h) / 2
+			op1 := &ebiten.DrawImageOptions{}
+			op1.ColorScale.ScaleAlpha(1 - fade)
+			op1.Blend = ebiten.BlendCopy
+			op1.GeoM.Translate(float64(offXPix), float64(offYPix))
+			tmp.DrawImage(prevImg, op1)
+			op2 := &ebiten.DrawImageOptions{}
+			op2.ColorScale.ScaleAlpha(fade)
+			op2.Blend = ebiten.BlendLighter
+			op2.GeoM.Translate(float64(offXPix), float64(offYPix))
+			tmp.DrawImage(img, op2)
+			op := &ebiten.DrawImageOptions{}
+			op.Filter = drawFilter
+			if linear {
+				op.GeoM.Scale(float64(scale)+epsilon, float64(scale)+epsilon)
+			} else {
+				op.GeoM.Scale(float64(scale), float64(scale))
+			}
+			op.GeoM.Translate(float64(x-tmp.Bounds().Dx()*scale/2), float64(y-tmp.Bounds().Dy()*scale/2))
+			screen.DrawImage(tmp, op)
+			recycleTempImage(tmp)
 		} else {
-			op.GeoM.Scale(float64(scale), float64(scale))
+			op := &ebiten.DrawImageOptions{}
+			op.Filter = drawFilter
+			if linear {
+				op.GeoM.Scale(float64(scale)+epsilon, float64(scale)+epsilon)
+			} else {
+				op.GeoM.Scale(float64(scale), float64(scale))
+			}
+			op.GeoM.Translate(float64(x-w*scale/2), float64(y-h*scale/2))
+			screen.DrawImage(img, op)
 		}
-		op.GeoM.Translate(float64(x-w*scale/2), float64(y-h*scale/2))
-		screen.DrawImage(img, op)
 		if showPlanes {
 			metrics := nameFace.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
