@@ -38,11 +38,13 @@ var (
 	soundTest   bool
 	fastSound   bool
 	fastBars    bool
+	maxSounds   int
 
 	loginRequest = make(chan struct{})
 )
 
 func main() {
+	var noFastAnimation bool
 	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&name, "name", "", "character name")
 	flag.StringVar(&account, "account", "", "account name")
@@ -67,9 +69,11 @@ func main() {
 	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
 	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
 	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
-	flag.BoolVar(&fastBars, "fastBars", false, "do not interpolate bar decreases")
+	flag.BoolVar(&fastBars, "fastBars", true, "do not interpolate bar decreases")
+	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
 
 	flag.Parse()
+	fastAnimation = !noFastAnimation
 	initSoundContext()
 
 	initFont()

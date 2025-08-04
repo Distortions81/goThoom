@@ -66,17 +66,23 @@ var (
 
 		p := audioContext.NewPlayerFromBytes(pcm)
 		p.SetVolume(0.2)
-		p.Play()
 
 		soundMu.Lock()
-		soundPlayers[p] = struct{}{}
 		for sp := range soundPlayers {
 			if !sp.IsPlaying() {
 				sp.Close()
 				delete(soundPlayers, sp)
 			}
 		}
+		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
+			soundMu.Unlock()
+			p.Close()
+			return
+		}
+		soundPlayers[p] = struct{}{}
 		soundMu.Unlock()
+
+		p.Play()
 	}
 )
 
