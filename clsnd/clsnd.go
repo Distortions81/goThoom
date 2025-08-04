@@ -91,7 +91,7 @@ func (c *CLSounds) Get(id uint32) *Sound {
 	if !ok || hdrOff+22 > len(sndData) {
 		return nil
 	}
-	s, err := decodeHeader(sndData, hdrOff)
+	s, err := decodeHeader(sndData, hdrOff, id)
 	if err != nil {
 		fmt.Printf("sound get error: %v\n", err)
 		return nil
@@ -131,7 +131,7 @@ func soundHeaderOffset(data []byte) (int, bool) {
 	return 0, false
 }
 
-func decodeHeader(data []byte, hdr int) (*Sound, error) {
+func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 	if hdr+22 > len(data) {
 		return nil, fmt.Errorf("header out of range")
 	}
@@ -141,8 +141,16 @@ func decodeHeader(data []byte, hdr int) (*Sound, error) {
 		length := int(binary.BigEndian.Uint32(data[hdr+4 : hdr+8]))
 		rate := binary.BigEndian.Uint32(data[hdr+8:hdr+12]) >> 16
 		start := hdr + 22
-		if start+length > len(data) {
+		if start > len(data) {
 			return nil, fmt.Errorf("data out of range")
+		}
+		if end := start + length; end > len(data) {
+			fmt.Printf("truncated sound data")
+			if id != 0 {
+				fmt.Printf(" for id %d", id)
+			}
+			fmt.Printf(": have %d bytes, expected %d\n", len(data)-start, length)
+			length = len(data) - start
 		}
 		s := &Sound{
 			Data:       append([]byte(nil), data[start:start+length]...),
@@ -162,8 +170,16 @@ func decodeHeader(data []byte, hdr int) (*Sound, error) {
 		start := hdr + 44
 		bytesPerSample := int(bits) / 8
 		length := frames * int(chans) * bytesPerSample
-		if start+length > len(data) {
+		if start > len(data) {
 			return nil, fmt.Errorf("data out of range")
+		}
+		if end := start + length; end > len(data) {
+			fmt.Printf("truncated sound data")
+			if id != 0 {
+				fmt.Printf(" for id %d", id)
+			}
+			fmt.Printf(": have %d bytes, expected %d\n", len(data)-start, length)
+			length = len(data) - start
 		}
 		s := &Sound{
 			Data:       append([]byte(nil), data[start:start+length]...),
