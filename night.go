@@ -110,37 +110,48 @@ func parseNightCommand(s string) bool {
 }
 
 var (
-	nightImg         *ebiten.Image
-	nightImgLevel    int
-	nightImgRedshift float64
-	nightImgShadows  int
+	nightImgs            = map[int]*ebiten.Image{}
+	nightImgW, nightImgH int
 )
 
 func drawNightOverlay(screen *ebiten.Image) {
 	gNight.mu.Lock()
 	lvl := gNight.Level
-	shd := gNight.Shadows
 	gNight.mu.Unlock()
-	if lvl <= 0 && shd <= 0 {
+	if lvl <= 0 {
 		return
 	}
-	redshift := 1.0
+
+	var overlayLevel int
+	switch {
+	case lvl < 38:
+		overlayLevel = 25
+	case lvl < 63:
+		overlayLevel = 50
+	case lvl < 88:
+		overlayLevel = 75
+	default:
+		overlayLevel = 100
+	}
+
 	w := gameAreaSizeX * scale
 	h := gameAreaSizeY * scale
-	if nightImg == nil || nightImg.Bounds().Dx() != w || nightImg.Bounds().Dy() != h || nightImgLevel != lvl || nightImgShadows != shd || nightImgRedshift != redshift {
-		rebuildNightOverlay(w, h, lvl, redshift, shd)
+	if nightImgW != w || nightImgH != h {
+		nightImgs = map[int]*ebiten.Image{}
+		nightImgW, nightImgH = w, h
 	}
-	op := &ebiten.DrawImageOptions{}
-	op.CompositeMode = ebiten.CompositeModeMultiply
+	nightImg := nightImgs[overlayLevel]
+	if nightImg == nil {
+		nightImg = rebuildNightOverlay(w, h, overlayLevel)
+		nightImgs[overlayLevel] = nightImg
+	}
+
+	op := &ebiten.DrawImageOptions{CompositeMode: ebiten.CompositeModeMultiply}
 	screen.DrawImage(nightImg, op)
 }
 
-func rebuildNightOverlay(w, h, level int, redshift float64, shadows int) {
-	if nightImg == nil || nightImg.Bounds().Dx() != w || nightImg.Bounds().Dy() != h {
-		nightImg = ebiten.NewImage(w, h)
-	} else {
-		nightImg.Clear()
-	}
+func rebuildNightOverlay(w, h, level int) *ebiten.Image {
+	img := ebiten.NewImage(w, h)
 	lf := float64(level) / 100.0
 	rim := 1.0 - lf
 	center := rim
@@ -150,7 +161,6 @@ func rebuildNightOverlay(w, h, level int, redshift float64, shadows int) {
 	cx := float64(w) / 2
 	cy := float64(h) / 2
 	radius := 325.0 * float64(scale)
-	sf := float64(shadows) / 50.0
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			dx := float64(x) - cx
@@ -160,24 +170,19 @@ func rebuildNightOverlay(w, h, level int, redshift float64, shadows int) {
 				t = 1
 			}
 			c := center*(1-t) + rim*t
-			c *= 1 - sf
-			r := c * redshift
-			if r > 1 {
-				r = 1
-			}
 			if c < 0 {
 				c = 0
+			} else if c > 1 {
+				c = 1
 			}
 			clr := color.RGBA{
-				R: uint8(r * 255),
+				R: uint8(c * 255),
 				G: uint8(c * 255),
 				B: uint8(c * 255),
-				A: uint8(c * 255),
+				A: 0xff,
 			}
-			nightImg.Set(x, y, clr)
+			img.Set(x, y, clr)
 		}
 	}
-	nightImgLevel = level
-	nightImgRedshift = redshift
-	nightImgShadows = shadows
+	return img
 }
