@@ -13,12 +13,17 @@ import (
 )
 
 var (
-	soundMu      sync.Mutex
-	clSounds     *clsnd.CLSounds
-	soundCache   = make(map[uint16]*clsnd.Sound)
-	audioContext = audio.NewContext(44100)
+	soundMu    sync.Mutex
+	clSounds   *clsnd.CLSounds
+	soundCache = make(map[uint16]*clsnd.Sound)
+
+	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
-	playSound    = func(id uint16) {
+
+	// resample points to the resampling implementation to use.
+	resample = resampleSinc
+
+	playSound = func(id uint16) {
 		logError("sound: %v", id)
 		s := loadSound(id)
 		if s == nil || audioContext == nil {
@@ -50,7 +55,7 @@ var (
 		}
 
 		if srcRate != dstRate {
-			samples = resampleLinear(samples, srcRate, dstRate)
+			samples = resample(samples, srcRate, dstRate)
 		}
 
 		pcm := make([]byte, len(samples)*2)
@@ -74,6 +79,22 @@ var (
 	}
 )
 
+func init() {
+	initSoundContext()
+}
+
+// initSoundContext initializes the global audio context and resampler based on
+// the fastSound flag.
+func initSoundContext() {
+	rate := 44100
+	resample = resampleSinc
+	if fastSound {
+		rate = 22050
+		resample = resampleLinear
+	}
+	audioContext = audio.NewContext(rate)
+}
+
 // resampleLinear resamples the given 16-bit samples from srcRate to dstRate
 // using simple linear interpolation.
 func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
@@ -94,6 +115,51 @@ func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
 		}
 	}
 	return dst
+}
+
+// resampleSinc resamples the given 16-bit samples from srcRate to dstRate using
+// a windowed-sinc (Lanczos) filter for high quality.
+func resampleSinc(src []int16, srcRate, dstRate int) []int16 {
+	if srcRate == dstRate || len(src) == 0 {
+		return append([]int16(nil), src...)
+	}
+	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
+	dst := make([]int16, n)
+	ratio := float64(srcRate) / float64(dstRate)
+	const a = 3 // filter width
+	for i := 0; i < n; i++ {
+		pos := float64(i) * ratio
+		idx := int(math.Floor(pos))
+		var sum float64
+		var wsum float64
+		for j := idx - a + 1; j <= idx+a; j++ {
+			if j < 0 || j >= len(src) {
+				continue
+			}
+			x := float64(j) - pos
+			w := sinc(x) * sinc(x/float64(a))
+			sum += float64(src[j]) * w
+			wsum += w
+		}
+		if wsum != 0 {
+			sum /= wsum
+		}
+		if sum > math.MaxInt16 {
+			sum = math.MaxInt16
+		} else if sum < math.MinInt16 {
+			sum = math.MinInt16
+		}
+		dst[i] = int16(math.Round(sum))
+	}
+	return dst
+}
+
+func sinc(x float64) float64 {
+	if x == 0 {
+		return 1
+	}
+	x *= math.Pi
+	return math.Sin(x) / x
 }
 
 // loadSound retrieves and caches a sound by ID. The CL_Sounds archive is

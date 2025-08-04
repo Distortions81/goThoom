@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
@@ -40,4 +41,21 @@ func TestPlaySoundResample(t *testing.T) {
 		}
 		p.Close()
 	}
+}
+
+// TestFastSoundContext verifies that enabling fastSound switches to a lower
+// sample rate and linear resampling.
+func TestFastSoundContext(t *testing.T) {
+	fastSound = true
+	initSoundContext()
+	if audioContext.SampleRate() != 22050 {
+		t.Fatalf("expected audio context sample rate 22050, got %d", audioContext.SampleRate())
+	}
+	src := []int16{0, 1000}
+	if got, want := resample(src, 44100, 22050), resampleLinear(src, 44100, 22050); !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected linear resampler when fastSound is enabled")
+	}
+
+	fastSound = false
+	initSoundContext()
 }
