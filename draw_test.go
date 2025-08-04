@@ -148,6 +148,42 @@ func TestHandleDrawStateSounds(t *testing.T) {
 	}
 }
 
+// buildTruncatedDrawState constructs a minimal draw state packet with one
+// picture and the provided picture bitstream.
+func buildTruncatedDrawState(pictBits []byte) []byte {
+	data := []byte{0}                       // ackCmd
+	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
+	data = append(data, 0)                  // descriptor count
+	data = append(data, make([]byte, 7)...) // hp, sp, etc.
+	data = append(data, 1)                  // picture count
+	data = append(data, pictBits...)
+	return data
+}
+
+func TestParseDrawStateTruncatedPictureID(t *testing.T) {
+	messages = nil
+	state = drawState{}
+	oldSilent := silent
+	silent = true
+	defer func() { silent = oldSilent }()
+	data := buildTruncatedDrawState([]byte{0x00})
+	if parseDrawState(data) {
+		t.Fatalf("parseDrawState succeeded on truncated picture ID")
+	}
+}
+
+func TestParseDrawStateTruncatedPictureData(t *testing.T) {
+	messages = nil
+	state = drawState{}
+	oldSilent := silent
+	silent = true
+	defer func() { silent = oldSilent }()
+	data := buildTruncatedDrawState([]byte{0xff, 0xff, 0xff, 0xff})
+	if parseDrawState(data) {
+		t.Fatalf("parseDrawState succeeded on truncated picture data")
+	}
+}
+
 func TestParseInventory(t *testing.T) {
 	data := []byte{byte(kInvCmdAdd), 0x00, 0x01}
 	data = append(data, []byte("foo")...)

@@ -47,11 +47,11 @@ type bitReader struct {
 	bitPos int
 }
 
-func (br *bitReader) readBits(n int) uint32 {
+func (br *bitReader) readBits(n int) (uint32, bool) {
 	var v uint32
 	for n > 0 {
 		if br.bitPos/8 >= len(br.data) {
-			return v
+			return v, false
 		}
 		b := br.data[br.bitPos/8]
 		remain := 8 - br.bitPos%8
@@ -64,7 +64,7 @@ func (br *bitReader) readBits(n int) uint32 {
 		br.bitPos += take
 		n -= take
 	}
-	return v
+	return v, true
 }
 
 func signExtend(v uint32, bits int) int16 {
@@ -369,9 +369,24 @@ func parseDrawState(data []byte) error {
 	pics := make([]framePicture, 0, pictAgain+pictCount)
 	br := bitReader{data: data[p:]}
 	for i := 0; i < pictCount; i++ {
-		id := uint16(br.readBits(14))
-		h := signExtend(br.readBits(11), 11)
-		v := signExtend(br.readBits(11), 11)
+		idBits, ok := br.readBits(14)
+		if !ok {
+			logError("truncated picture bit stream")
+			return false
+		}
+		hBits, ok := br.readBits(11)
+		if !ok {
+			logError("truncated picture bit stream")
+			return false
+		}
+		vBits, ok := br.readBits(11)
+		if !ok {
+			logError("truncated picture bit stream")
+			return false
+		}
+		id := uint16(idBits)
+		h := signExtend(hBits, 11)
+		v := signExtend(vBits, 11)
 		pics = append(pics, framePicture{PictID: id, H: h, V: v})
 	}
 	p += br.bitPos / 8
