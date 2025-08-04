@@ -356,18 +356,15 @@ func parseDrawState(data []byte) error {
 	for i := 0; i < pictCount; i++ {
 		idBits, ok := br.readBits(14)
 		if !ok {
-			logError("truncated picture bit stream")
-			return false
+			return errors.New("truncated picture bit stream")
 		}
 		hBits, ok := br.readBits(11)
 		if !ok {
-			logError("truncated picture bit stream")
-			return false
+			return errors.New("truncated picture bit stream")
 		}
 		vBits, ok := br.readBits(11)
 		if !ok {
-			logError("truncated picture bit stream")
-			return false
+			return errors.New("truncated picture bit stream")
 		}
 		id := uint16(idBits)
 		h := signExtend(hBits, 11)
