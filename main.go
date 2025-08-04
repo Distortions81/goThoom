@@ -56,6 +56,7 @@ func main() {
 	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
 	flag.BoolVar(&onion, "blend", false, "frame blending (smoother animations)")
 	flag.BoolVar(&smoothDebug, "smoothDebug", false, "highlight moving pictures during smoothing")
+	flag.BoolVar(&blendPicts, "blendPicts", false, "frame blending for picture animations")
 	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
 	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
 	flag.BoolVar(&showBubbles, "bubble", false, "draw bubble debug boxes")
