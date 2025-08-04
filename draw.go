@@ -184,7 +184,7 @@ func handleDrawState(m []byte) {
 		simpleEncrypt(data)
 	}
 	if err := parseDrawState(data); err != nil {
-		logDebugPacket(fmt.Sprintf("failed to parse draw state stage=%v", err), data)
+		logDebugPacket(fmt.Sprintf("parseDrawState error: %v", err), data)
 	}
 }
 

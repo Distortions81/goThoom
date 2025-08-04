@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 func TestHandleDrawStateInfoStrings(t *testing.T) {
 	messages = nil
@@ -160,6 +164,23 @@ func buildTruncatedDrawState(pictBits []byte) []byte {
 	return data
 }
 
+// buildBubbleDrawState constructs a minimal draw state packet with one bubble.
+// It returns the packet and the byte offset where the bubble begins.
+func buildBubbleDrawState(bubble []byte) ([]byte, int) {
+	stateData := []byte{0, 1}
+	stateData = append(stateData, bubble...)
+	data := make([]byte, 0, 21+len(bubble))
+	data = append(data, 0)                  // ackCmd
+	data = append(data, make([]byte, 8)...) // ackFrame + resendFrame
+	data = append(data, 0)                  // descriptor count
+	data = append(data, make([]byte, 7)...) // hp, sp, etc.
+	data = append(data, 0)                  // picture count
+	data = append(data, 0)                  // mobile count
+	data = append(data, stateData...)
+	off := len(data) - len(bubble)
+	return data, off
+}
+
 func TestParseDrawStateTruncatedPictureID(t *testing.T) {
 	messages = nil
 	state = drawState{}
@@ -181,6 +202,40 @@ func TestParseDrawStateTruncatedPictureData(t *testing.T) {
 	data := buildTruncatedDrawState([]byte{0xff, 0xff, 0xff, 0xff})
 	if err := parseDrawState(data); err == nil {
 		t.Fatalf("parseDrawState succeeded on truncated picture data")
+	}
+}
+
+func TestParseDrawStateBubbleErrors(t *testing.T) {
+	messages = nil
+	state = drawState{}
+	oldSilent := silent
+	silent = true
+	defer func() { silent = oldSilent }()
+
+	// Missing terminator.
+	bubble := []byte{0, byte(kBubbleYell), 'h', 'i'}
+	data, off := buildBubbleDrawState(bubble)
+	if err := parseDrawState(data); err == nil {
+		t.Fatalf("parseDrawState succeeded on unterminated bubble")
+	} else {
+		wantLen := len(bubble)
+		msg := err.Error()
+		if !strings.Contains(msg, "bubble=0") || !strings.Contains(msg, fmt.Sprintf("off=%d", off)) || !strings.Contains(msg, fmt.Sprintf("len=%d", wantLen)) {
+			t.Fatalf("error %q missing details", msg)
+		}
+	}
+
+	// Truncated far bubble coordinates.
+	bubble = []byte{0, kBubbleFar}
+	data, off = buildBubbleDrawState(bubble)
+	if err := parseDrawState(data); err == nil {
+		t.Fatalf("parseDrawState succeeded on truncated far bubble")
+	} else {
+		wantLen := len(bubble)
+		msg := err.Error()
+		if !strings.Contains(msg, "bubble=0") || !strings.Contains(msg, fmt.Sprintf("off=%d", off)) || !strings.Contains(msg, fmt.Sprintf("len=%d", wantLen)) {
+			t.Fatalf("error %q missing details", msg)
+		}
 	}
 }
 
