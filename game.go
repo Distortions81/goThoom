@@ -231,7 +231,7 @@ func (g *Game) Update() error {
 			txt := strings.TrimSpace(string(inputText))
 			if txt != "" {
 				pendingCommand = txt
-				addMessage("> " + txt)
+				//addMessage("> " + txt)
 			}
 			inputActive = false
 			inputText = inputText[:0]
@@ -310,13 +310,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, snap, alpha, fade)
 	//drawNightOverlay(screen)
-	drawStatusBars(screen, snap, alpha)
-	drawServerFPS(screen, serverFPS)
 	drawMessages(screen, getMessages())
+
+	eui.Draw(screen)
 	if inputActive {
 		drawInputOverlay(screen, string(inputText))
 	}
-	eui.Draw(screen)
+	drawStatusBars(screen, snap, alpha)
+	drawServerFPS(screen, serverFPS)
 }
 
 // drawScene renders all world objects for the current frame.
