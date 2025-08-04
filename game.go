@@ -46,6 +46,7 @@ var scale int = 3
 var interp bool
 var onion bool
 var linear bool
+var smoothDebug bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var showPlanes bool
@@ -600,6 +601,9 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 			op.GeoM.Scale(float64(scale), float64(scale))
 		}
 		op.GeoM.Translate(float64(x-w*scale/2), float64(y-h*scale/2))
+		if smoothDebug && p.Moving {
+			op.ColorM.Scale(1, 0, 0, 1)
+		}
 		screen.DrawImage(img, op)
 		if showPlanes {
 			metrics := nameFace.Metrics()
@@ -611,7 +615,11 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 			text.Draw(screen, lbl, nameFace, opTxt)
 		}
 	} else {
-		vector.DrawFilledRect(screen, float32(x-2*scale), float32(y-2*scale), float32(4*scale), float32(4*scale), color.RGBA{0, 0, 0xff, 0xff}, false)
+		clr := color.RGBA{0, 0, 0xff, 0xff}
+		if smoothDebug && p.Moving {
+			clr = color.RGBA{0xff, 0, 0, 0xff}
+		}
+		vector.DrawFilledRect(screen, float32(x-2*scale), float32(y-2*scale), float32(4*scale), float32(4*scale), clr, false)
 		if showPlanes {
 			metrics := nameFace.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)

@@ -21,6 +21,7 @@ type frameDescriptor struct {
 type framePicture struct {
 	PictID uint16
 	H, V   int16
+	Moving bool
 }
 
 type frameMobile struct {
@@ -484,6 +485,47 @@ func parseDrawState(data []byte) error {
 			state.picShiftY = 0
 		}
 	}
+
+	// classify picture movement
+	movGroups := make(map[[2]int][]int)
+	maxInt := int(^uint(0) >> 1)
+	for i, c := range newPics {
+		newPics[i].Moving = true
+		bestDist := maxInt
+		var bestDx, bestDy int
+		matched := false
+		for _, p := range prevPics {
+			if c.PictID != p.PictID {
+				continue
+			}
+			dx := int(c.H) - int(p.H)
+			dy := int(c.V) - int(p.V)
+			dist := dx*dx + dy*dy
+			if dist < bestDist {
+				bestDist = dist
+				bestDx = dx
+				bestDy = dy
+				matched = true
+			}
+		}
+		if matched {
+			movGroups[[2]int{bestDx, bestDy}] = append(movGroups[[2]int{bestDx, bestDy}], i)
+		}
+	}
+	ground := [2]int{}
+	groundCount := 0
+	for k, idxs := range movGroups {
+		if len(idxs) > groundCount {
+			ground = k
+			groundCount = len(idxs)
+		}
+	}
+	if groundCount > 0 {
+		for _, idx := range movGroups[ground] {
+			newPics[idx].Moving = false
+		}
+	}
+
 	state.pictures = newPics
 
 	needAnimUpdate := interp || (onion && changed)
