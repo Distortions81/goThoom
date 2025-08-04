@@ -12,6 +12,9 @@ import (
 var (
 	errorLogger *log.Logger
 	debugLogger *log.Logger
+	// debugPacketDumpLen limits how many bytes of a packet payload are logged.
+	// A value of 0 dumps the entire payload.
+	debugPacketDumpLen = 256
 )
 
 func setupLogging(debug bool) {
@@ -46,6 +49,18 @@ func logDebug(format string, v ...interface{}) {
 	if debugLogger != nil {
 		debugLogger.Printf(format, v...)
 	}
+}
+
+func logDebugPacket(prefix string, data []byte) {
+	if debugLogger == nil {
+		return
+	}
+	n := len(data)
+	dump := data
+	if debugPacketDumpLen > 0 && n > debugPacketDumpLen {
+		dump = data[:debugPacketDumpLen]
+	}
+	debugLogger.Printf("%s len=%d payload=% x", prefix, n, dump)
 }
 
 func setDebugLogging(enabled bool) {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -178,12 +179,8 @@ func handleDrawState(m []byte) {
 	if drawStateEncrypted {
 		simpleEncrypt(data)
 	}
-	if !parseDrawState(data) {
-		n := len(data)
-		if n > 16 {
-			n = 16
-		}
-		logDebug("failed to parse draw state: % x", data[:n])
+	if err := parseDrawState(data); err != nil {
+		logDebugPacket(fmt.Sprintf("failed to parse draw state stage=%v", err), data)
 	}
 }
 
@@ -258,11 +255,12 @@ func parseInventory(data []byte) ([]byte, bool) {
 	return data, true
 }
 
-// parseDrawState decodes the draw state data. It returns false when the packet
-// appears malformed.
-func parseDrawState(data []byte) bool {
+// parseDrawState decodes the draw state data. It returns an error when the
+// packet appears malformed, indicating the parsing stage that failed.
+func parseDrawState(data []byte) error {
+	stage := "header"
 	if len(data) < 9 {
-		return false
+		return errors.New(stage)
 	}
 
 	ackCmd := data[0]
@@ -270,18 +268,20 @@ func parseDrawState(data []byte) bool {
 	resendFrame = int32(binary.BigEndian.Uint32(data[5:9]))
 	p := 9
 
+	stage = "descriptor count"
 	if len(data) <= p {
-		return false
+		return errors.New(stage)
 	}
 	descCount := int(data[p])
 	p++
 	if descCount > maxDescriptors {
-		return false
+		return errors.New(stage)
 	}
+	stage = "descriptor"
 	descs := make([]frameDescriptor, 0, descCount)
 	for i := 0; i < descCount && p < len(data); i++ {
 		if p+4 > len(data) {
-			return false
+			return errors.New(stage)
 		}
 		d := frameDescriptor{}
 		d.Index = data[p]
@@ -295,15 +295,15 @@ func parseDrawState(data []byte) bool {
 				playerIndex = d.Index
 			}
 		} else {
-			return false
+			return errors.New(stage)
 		}
 		if p >= len(data) {
-			return false
+			return errors.New(stage)
 		}
 		cnt := int(data[p])
 		p++
 		if p+cnt > len(data) {
-			return false
+			return errors.New(stage)
 		}
 		d.Colors = append([]byte(nil), data[p:p+cnt]...)
 		p += cnt
@@ -311,8 +311,9 @@ func parseDrawState(data []byte) bool {
 		descs = append(descs, d)
 	}
 
+	stage = "stats"
 	if len(data) < p+7 {
-		return false
+		return errors.New(stage)
 	}
 	hp := int(data[p])
 	hpMax := int(data[p+1])
@@ -324,24 +325,28 @@ func parseDrawState(data []byte) bool {
 	gNight.SetFlags(uint(lighting))
 	p += 7
 
+	stage = "picture count"
 	if len(data) <= p {
-		return false
+		return errors.New(stage)
 	}
 	pictCount := int(data[p])
 	p++
 	pictAgain := 0
+	stage = "picture header"
 	if pictCount == 255 {
 		if len(data) < p+2 {
-			return false
+			return errors.New(stage)
 		}
 		pictAgain = int(data[p])
 		pictCount = int(data[p+1])
 		p += 2
 	}
+	stage = "picture count"
 	if pictAgain+pictCount > maxPictures {
-		return false
+		return errors.New(stage)
 	}
 
+	stage = "pictures"
 	pics := make([]framePicture, 0, pictAgain+pictCount)
 	br := bitReader{data: data[p:]}
 	for i := 0; i < pictCount; i++ {
@@ -355,14 +360,16 @@ func parseDrawState(data []byte) bool {
 		p++
 	}
 
+	stage = "mobile count"
 	if len(data) <= p {
-		return false
+		return errors.New(stage)
 	}
 	mobileCount := int(data[p])
 	p++
 	if mobileCount > maxMobiles {
-		return false
+		return errors.New(stage)
 	}
+	stage = "mobiles"
 	mobiles := make([]frameMobile, 0, mobileCount)
 	for i := 0; i < mobileCount && p+7 <= len(data); i++ {
 		m := frameMobile{}
@@ -373,6 +380,9 @@ func parseDrawState(data []byte) bool {
 		m.Colors = data[p+6]
 		p += 7
 		mobiles = append(mobiles, m)
+	}
+	if len(mobiles) != mobileCount {
+		return errors.New(stage)
 	}
 
 	stateData := data[p:]
@@ -487,13 +497,14 @@ func parseDrawState(data []byte) bool {
 	logDebug("draw state cmd=%d ack=%d resend=%d desc=%d pict=%d again=%d mobile=%d state=%d",
 		ackCmd, ackFrame, resendFrame, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
+	stage = "info strings"
 	for {
 		if len(stateData) == 0 {
-			return false
+			return errors.New(stage)
 		}
 		idx := bytes.IndexByte(stateData, 0)
 		if idx < 0 {
-			return false
+			return errors.New(stage)
 		}
 		if idx == 0 {
 			stateData = stateData[1:]
@@ -503,42 +514,44 @@ func parseDrawState(data []byte) bool {
 		stateData = stateData[idx+1:]
 	}
 
+	stage = "bubble count"
 	if len(stateData) == 0 {
-		return false
+		return errors.New(stage)
 	}
 	bubbleCount := int(stateData[0])
 	stateData = stateData[1:]
 	if bubbleCount > maxBubbles {
-		return false
+		return errors.New(stage)
 	}
+	stage = "bubble"
 	for i := 0; i < bubbleCount; i++ {
 		if len(stateData) < 2 {
-			return false
+			return errors.New(stage)
 		}
 		idx := stateData[0]
 		typ := int(stateData[1])
 		p := 2
 		if typ&kBubbleNotCommon != 0 {
 			if len(stateData) < p+1 {
-				return false
+				return errors.New(stage)
 			}
 			p++
 		}
 		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
-				return false
+				return errors.New(stage)
 			}
 			h = int16(binary.BigEndian.Uint16(stateData[p:]))
 			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
 		if len(stateData) < p {
-			return false
+			return errors.New(stage)
 		}
 		end := bytes.IndexByte(stateData[p:], 0)
 		if end < 0 {
-			return false
+			return errors.New(stage)
 		}
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
@@ -643,23 +656,27 @@ func parseDrawState(data []byte) bool {
 		}
 		stateData = stateData[p+end+1:]
 	}
+
+	stage = "sound count"
 	if len(stateData) < 1 {
-		return false
+		return errors.New(stage)
 	}
 	soundCount := int(stateData[0])
 	stateData = stateData[1:]
+	stage = "sounds"
 	if len(stateData) < soundCount*2 {
-		return false
+		return errors.New(stage)
 	}
 	for i := 0; i < soundCount; i++ {
 		id := binary.BigEndian.Uint16(stateData[:2])
 		stateData = stateData[2:]
 		playSound(id)
 	}
+	stage = "inventory"
 	var ok bool
 	stateData, ok = parseInventory(stateData)
 	if !ok {
-		return false
+		return errors.New(stage)
 	}
-	return true
+	return nil
 }
