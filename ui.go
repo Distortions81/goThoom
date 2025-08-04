@@ -107,6 +107,50 @@ func initUI() {
 	}
 	mainFlow.AddItem(toggle)
 
+	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Bubble Test Mode", Size: eui.Point{X: 150, Y: 24}, Checked: showBubbles})
+	bubbleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			showBubbles = ev.Checked
+		}
+	}
+	mainFlow.AddItem(bubbleCB)
+
+	debugCB, debugEvents := eui.NewCheckbox(&eui.ItemData{Text: "Debug Mode", Size: eui.Point{X: 150, Y: 24}, Checked: debug})
+	debugEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			debug = ev.Checked
+			setDebugLogging(debug)
+		}
+	}
+	mainFlow.AddItem(debugCB)
+
+	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Planes Debug", Size: eui.Point{X: 150, Y: 24}, Checked: showPlanes})
+	planesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			showPlanes = ev.Checked
+		}
+	}
+	mainFlow.AddItem(planesCB)
+
+	silentCB, silentEvents := eui.NewCheckbox(&eui.ItemData{Text: "Silence Errors", Size: eui.Point{X: 150, Y: 24}, Checked: silent})
+	silentEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			silent = ev.Checked
+		}
+	}
+	mainFlow.AddItem(silentCB)
+
+	denoiseCB, denoiseEvents := eui.NewCheckbox(&eui.ItemData{Text: "Denoiser", Size: eui.Point{X: 150, Y: 24}, Checked: denoise})
+	denoiseEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			denoise = ev.Checked
+			if clImages != nil {
+				clImages.Denoise = denoise
+			}
+		}
+	}
+	mainFlow.AddItem(denoiseCB)
+
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
 
@@ -117,7 +161,7 @@ func initUI() {
 		FlowType: eui.FLOW_HORIZONTAL,
 		PinTo:    eui.PIN_BOTTOM_RIGHT,
 	}
-	btn, btnEvents := eui.NewButton(&eui.ItemData{Text: "...", Size: eui.Point{X: 12, Y: 12}, FontSize: 9})
+	btn, btnEvents := eui.NewButton(&eui.ItemData{Text: "...", Size: eui.Point{X: 36, Y: 36}, FontSize: 27})
 	btnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			settingsWin.Open = !settingsWin.Open
