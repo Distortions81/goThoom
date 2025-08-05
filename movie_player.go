@@ -179,43 +179,22 @@ func (p *moviePlayer) seek(idx int) {
 	if idx > len(p.frames) {
 		idx = len(p.frames)
 	}
-        wasPlaying := p.playing
-        p.playing = false
+	wasPlaying := p.playing
+	p.playing = false
 
-        resetDrawState()
-        for i := 0; i < idx; i++ {
-                m := p.frames[i]
-                if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
-                        handleDrawState(m)
-                }
-                if txt := decodeMessage(m); txt != "" {
-                        _ = txt
-                }
-        }
-        p.cur = idx
-        resetInterpolation()
-        stateMu.Lock()
-        state.bubbles = nil
-        stateMu.Unlock()
-        p.updateUI()
-        p.playing = wasPlaying
-}
-
-func resetDrawState() {
-	stateMu.Lock()
-	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
+	for i := 0; i < idx; i++ {
+		m := p.frames[i]
+		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
+			handleDrawState(m)
+		}
+		if txt := decodeMessage(m); txt != "" {
+			_ = txt
+		}
 	}
-	stateMu.Unlock()
-}
-
-func resetInterpolation() {
+	p.cur = idx
 	stateMu.Lock()
-	state.prevMobiles = make(map[uint8]frameMobile)
-	state.prevDescs = make(map[uint8]frameDescriptor)
-	state.prevTime = state.curTime
+	state.bubbles = nil
 	stateMu.Unlock()
+	p.updateUI()
+	p.playing = wasPlaying
 }
