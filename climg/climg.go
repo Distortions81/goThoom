@@ -378,6 +378,9 @@ func (c *CLImages) NumFrames(id uint32) int {
 // FrameIndex returns the picture frame for the given global animation counter.
 // If no animation is defined for the image, it returns 0.
 func (c *CLImages) FrameIndex(id uint32, counter int) int {
+	if counter < 0 {
+		return 0
+	}
 	ref := c.idrefs[id]
 	if ref == nil || ref.numFrames <= 1 {
 		return 0
