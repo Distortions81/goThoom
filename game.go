@@ -391,13 +391,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	if blockRender {
-		//drawSplash(screen)
-		screen.Fill(color.NRGBA{128, 128, 128, 255})
-		drawMessages(screen, getMessages())
-		return
-	}
-
 	snap := captureDrawSnapshot()
 	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
@@ -501,7 +494,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
-	if showBubbles {
+	if showBubbles && !blockRender {
 		for _, b := range snap.bubbles {
 			hpos := float64(b.H)
 			vpos := float64(b.V)

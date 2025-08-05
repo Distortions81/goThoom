@@ -196,6 +196,7 @@ func (p *moviePlayer) cacheFrames() {
 	p.cur = 0
 
 	blockRender = false
+	resetInterpolation()
 	addMessage("Complete, starting playback!")
 }
 
