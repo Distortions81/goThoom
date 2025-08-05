@@ -196,24 +196,9 @@ func main() {
 
 		playerName = extractMoviePlayerName(frames)
 
-		go func() {
-			ticker := time.NewTicker(time.Second / time.Duration(clMovFPS))
-			defer ticker.Stop()
-			for _, m := range frames {
-				if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
-					handleDrawState(m)
-				}
-				if txt := decodeMessage(m); txt != "" {
-					//addMessage("clMov: decodeMessage: " + txt)
-				}
-				select {
-				case <-ticker.C:
-				case <-ctx.Done():
-					return
-				}
-			}
-			cancel()
-		}()
+		mp := newMoviePlayer(frames, clMovFPS, cancel)
+		mp.initUI()
+		go mp.run(ctx)
 
 		<-ctx.Done()
 		return
