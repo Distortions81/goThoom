@@ -20,10 +20,11 @@ type frameDescriptor struct {
 }
 
 type framePicture struct {
-	PictID     uint16
-	H, V       int16
-	Moving     bool
-	Background bool
+	PictID       uint16
+	H, V         int16
+	PrevH, PrevV int16
+	Moving       bool
+	Background   bool
 }
 
 type frameMobile struct {
@@ -571,6 +572,8 @@ func parseDrawState(data []byte) error {
 		state.descriptors[d.Index] = d
 	}
 	for i := range newPics {
+		newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
+		newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
 		moving := true
 		if i < again {
 			moving = false
@@ -582,6 +585,27 @@ func parseDrawState(data []byte) error {
 					moving = false
 					break
 				}
+			}
+		}
+		if moving {
+			bestDist := maxInterpPixels*maxInterpPixels + 1
+			var best *framePicture
+			for j := range prevPics {
+				pp := &prevPics[j]
+				if pp.PictID != newPics[i].PictID {
+					continue
+				}
+				dh := int(newPics[i].H) - int(pp.H) - state.picShiftX
+				dv := int(newPics[i].V) - int(pp.V) - state.picShiftY
+				dist := dh*dh + dv*dv
+				if dist < bestDist {
+					bestDist = dist
+					best = pp
+				}
+			}
+			if best != nil && bestDist <= maxInterpPixels*maxInterpPixels {
+				newPics[i].PrevH = best.H
+				newPics[i].PrevV = best.V
 			}
 		}
 		newPics[i].Moving = moving
