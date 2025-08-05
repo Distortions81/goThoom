@@ -101,6 +101,7 @@ func onScreen(p framePicture) bool {
 
 var pixelCountMu sync.Mutex
 var pixelCountCache = make(map[uint16]int)
+var totalPixelCountCache = make(map[uint16]int)
 
 // nonTransparentPixels returns the number of non-transparent pixels for the
 // given picture ID. The result is cached after the first computation.
@@ -132,10 +133,33 @@ func nonTransparentPixels(id uint16) int {
 	return count
 }
 
+// totalPixels returns the number of pixels for the given picture ID without
+// checking transparency. The result is cached after the first computation.
+func totalPixels(id uint16) int {
+	pixelCountMu.Lock()
+	if c, ok := totalPixelCountCache[id]; ok {
+		pixelCountMu.Unlock()
+		return c
+	}
+	pixelCountMu.Unlock()
+
+	img := loadImage(id)
+	if img == nil {
+		return 0
+	}
+	bounds := img.Bounds()
+	count := bounds.Dx() * bounds.Dy()
+	pixelCountMu.Lock()
+	totalPixelCountCache[id] = count
+	pixelCountMu.Unlock()
+	return count
+}
+
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
 // between two consecutive frames. Pictures are matched by PictID (duplicates
-// included) and weighted by their non-transparent pixel counts. The boolean
-// result is false when no majority offset is found.
+// included) and weighted by their pixel counts: non-transparent pixels by default,
+// or total pixel counts when lowMotionSmooth is enabled. The boolean result is
+// false when no majority offset is found.
 func pictureShift(prev, cur []framePicture) (int, int, bool) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
@@ -168,6 +192,9 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 		}
 		if matched {
 			pixels := nonTransparentPixels(p.PictID)
+			if lowMotionSmooth {
+				pixels = totalPixels(p.PictID)
+			}
 			counts[[2]int{bestDx, bestDy}] += pixels
 			total += pixels
 		}

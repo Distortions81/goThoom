@@ -44,6 +44,7 @@ var settingsWin *eui.WindowData
 var gameCtx context.Context
 var scale int = 3
 var interp bool
+var lowMotionSmooth bool
 var onion bool
 var fastAnimation = true
 var blendPicts bool

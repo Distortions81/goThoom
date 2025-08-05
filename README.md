@@ -56,6 +56,7 @@ The Go client accepts the following flags:
 - `-debug` – enable debug logging (default `true`)
 - `-scale` – screen scale factor (default `2`)
 - `-interp` – enable movement interpolation
+- `-LowMotionSmooth` – low quality motion smoothing (weight by image size, skip transparency checks)
 - `-onion` – cross-fade sprite animations
 - `-noFastAnimation` – draw a mobile's previous animation frame when available
 - `-linear` – use linear filtering instead of nearest-neighbor rendering

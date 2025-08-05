@@ -57,6 +57,7 @@ func main() {
 	flag.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
 	flag.IntVar(&scale, "scale", 2, "image upscaling")
 	flag.BoolVar(&interp, "smooth", true, "motion smoothing (linear interpolation)")
+	flag.BoolVar(&lowMotionSmooth, "LowMotionSmooth", false, "low quality motion smoothing (skip transparency checks)")
 	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
 	flag.BoolVar(&onion, "blend", false, "mobile frame blending (smoother animations)")
 	flag.BoolVar(&smoothDebug, "smoothDebug", false, "highlight moving pictures during smoothing")

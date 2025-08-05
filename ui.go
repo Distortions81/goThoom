@@ -88,6 +88,14 @@ func initUI() {
 	}
 	mainFlow.AddItem(motion)
 
+	lowMotion, lowMotionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Motion Smooth", Size: eui.Point{X: 150, Y: 24}, Checked: lowMotionSmooth})
+	lowMotionEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			lowMotionSmooth = ev.Checked
+		}
+	}
+	mainFlow.AddItem(lowMotion)
+
 	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Animation Smoothing", Size: eui.Point{X: 150, Y: 24}, Checked: onion})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
