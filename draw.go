@@ -543,10 +543,6 @@ func parseDrawState(data []byte) error {
 	newPics := make([]framePicture, again+pictCount)
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
-	for i := range newPics {
-		newPics[i].Moving = true
-		newPics[i].Background = false
-	}
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
 	if interp {
 		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
@@ -564,6 +560,21 @@ func parseDrawState(data []byte) error {
 	} else {
 		state.picShiftX = 0
 		state.picShiftY = 0
+	}
+	for i := range newPics {
+		moving := true
+		if i >= again {
+			for _, pp := range prevPics {
+				if pp.PictID == newPics[i].PictID &&
+					int(pp.H)+state.picShiftX == int(newPics[i].H) &&
+					int(pp.V)+state.picShiftY == int(newPics[i].V) {
+					moving = false
+					break
+				}
+			}
+		}
+		newPics[i].Moving = moving
+		newPics[i].Background = false
 	}
 	for _, idx := range bgIdxs {
 		if idx >= 0 && idx < len(newPics) {
