@@ -47,7 +47,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 		return
 	}
 
-	sw, sh := screen.Size()
+	sw, sh := gameAreaSizeX, gameAreaSizeY
 	pad := 4 * scale
 
 	// Maximum bubble size fills the screen while keeping the 2:1 aspect ratio.
