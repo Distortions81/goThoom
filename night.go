@@ -13,13 +13,16 @@ import (
 )
 
 type NightInfo struct {
-	mu        sync.Mutex
-	BaseLevel int
-	Azimuth   int
-	Cloudy    bool
-	Flags     uint
-	Level     int
-	Shadows   int
+	mu              sync.Mutex
+	BaseLevel       int
+	Azimuth         int
+	Cloudy          bool
+	Flags           uint
+	Level           int
+	Shadows         int
+	oldAzimuth      int
+	redshift        float64
+	startOfTwilight int
 }
 
 var gNight NightInfo
@@ -61,10 +64,46 @@ func (n *NightInfo) calcCurLevel() {
 	}
 }
 
+func (n *NightInfo) calcRedshift() {
+	const ticksPerGameSecond = 60.0 / 4.09
+	const twilightLength = 30 * 60 * ticksPerGameSecond
+	const maxRedshift = 1.25
+
+	if n.oldAzimuth != n.Azimuth {
+		if (n.oldAzimuth == -2 && n.Azimuth == -1) || (n.oldAzimuth == 179 && n.Azimuth == 180) {
+			n.startOfTwilight = frameCounter
+		} else {
+			n.startOfTwilight = 0
+		}
+		n.oldAzimuth = n.Azimuth
+	}
+
+	if n.Azimuth != -1 && n.Azimuth != 180 {
+		n.startOfTwilight = 0
+	}
+
+	if n.startOfTwilight != 0 {
+		shift := float64(frameCounter-n.startOfTwilight) / twilightLength
+		if shift < 0 {
+			shift = 0
+		} else if shift > 1 {
+			shift = 1
+		}
+		if shift < 0.5 {
+			n.redshift = 1 + shift*2*(maxRedshift-1)
+		} else {
+			n.redshift = 1 + (1-shift)*2*(maxRedshift-1)
+		}
+	} else {
+		n.redshift = 1
+	}
+}
+
 func (n *NightInfo) SetFlags(f uint) {
 	n.mu.Lock()
 	n.Flags = f
 	n.calcCurLevel()
+	n.calcRedshift()
 	n.mu.Unlock()
 }
 
@@ -79,6 +118,7 @@ func parseNightCommand(s string) bool {
 		gNight.Azimuth = sa
 		gNight.Cloudy = cloudy
 		gNight.calcCurLevel()
+		gNight.calcRedshift()
 		gNight.mu.Unlock()
 		return true
 	}
@@ -94,6 +134,7 @@ func parseNightCommand(s string) bool {
 		gNight.Level = nightLevel
 		gNight.Azimuth = sunAngle
 		gNight.calcCurLevel()
+		gNight.calcRedshift()
 		gNight.mu.Unlock()
 		return true
 	}
@@ -102,6 +143,7 @@ func parseNightCommand(s string) bool {
 		gNight.BaseLevel = nightLevel
 		gNight.Level = nightLevel
 		gNight.calcCurLevel()
+		gNight.calcRedshift()
 		gNight.mu.Unlock()
 		return true
 	}
@@ -115,7 +157,8 @@ var (
 
 func drawNightOverlay(screen *ebiten.Image) {
 	gNight.mu.Lock()
-	lvl := float64(gNight.Level)
+	lvl := gNight.Level
+	redshift := gNight.redshift
 	gNight.mu.Unlock()
 	if lvl <= 0 {
 		return
@@ -136,6 +179,11 @@ func drawNightOverlay(screen *ebiten.Image) {
 	}
 
 	op := &ebiten.DrawImageOptions{}
+	if redshift > 1 {
+		var cm ebiten.ColorM
+		cm.SetElement(0, 3, redshift-1)
+		op.ColorM = cm
+	}
 	screen.DrawImage(nightImg, op)
 }
 
