@@ -392,7 +392,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 
 	sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
 	for _, m := range dead {
-		drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, alpha, fade)
+		drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
 	}
 
 	sort.Slice(live, func(i, j int) bool { return live[i].V < live[j].V })
@@ -411,7 +411,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		}
 		if mV < pV {
 			if live[i].State != poseDead {
-				drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, alpha, fade)
+				drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
 			}
 			i++
 		} else {
@@ -441,9 +441,9 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 					vpos = float64(m.V)
 					if interp {
 						if pm, ok := snap.prevMobiles[b.Index]; ok {
-							dh := int(m.H) - int(pm.H)
-							dv := int(m.V) - int(pm.V)
-							if dh*dh+dv*dv <= maxInterpPixels*maxInterpPixels {
+							dh := int(m.H) - int(pm.H) - snap.picShiftX
+							dv := int(m.V) - int(pm.V) - snap.picShiftY
+							if dh*dh+dv*dv <= maxMobileInterpPixels*maxMobileInterpPixels {
 								hpos = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
 								vpos = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
 							}
@@ -459,14 +459,14 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 }
 
 // drawMobile renders a single mobile object with optional interpolation and onion skinning.
-func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, alpha float64, fade float32) {
+func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
 	h := float64(m.H)
 	v := float64(m.V)
 	if interp {
 		if pm, ok := prevMobiles[m.Index]; ok {
-			dh := int(m.H) - int(pm.H)
-			dv := int(m.V) - int(pm.V)
-			if dh*dh+dv*dv <= maxInterpPixels*maxInterpPixels {
+			dh := int(m.H) - int(pm.H) - shiftX
+			dv := int(m.V) - int(pm.V) - shiftY
+			if dh*dh+dv*dv <= maxMobileInterpPixels*maxMobileInterpPixels {
 				h = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
 				v = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
 			}
@@ -601,7 +601,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 	if img != nil {
 		w, h = img.Bounds().Dx(), img.Bounds().Dy()
 		if w <= 64 && h <= 64 && interp {
-			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha); ok {
+			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
 				mobileX, mobileY = dx, dy
 				offX = 0
 				offY = 0
@@ -686,14 +686,14 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 
 // pictureMobileOffset returns the interpolated offset for a picture that
 // aligns with a mobile which moved between frames.
-func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, alpha float64) (float64, float64, bool) {
+func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, alpha float64, shiftX, shiftY int) (float64, float64, bool) {
 	for _, m := range mobiles {
 		if m.H == p.H && m.V == p.V {
 			if pm, ok := prevMobiles[m.Index]; ok {
-				dh := int(m.H) - int(pm.H)
-				dv := int(m.V) - int(pm.V)
+				dh := int(m.H) - int(pm.H) - shiftX
+				dv := int(m.V) - int(pm.V) - shiftY
 				if dh != 0 || dv != 0 {
-					if dh*dh+dv*dv <= maxInterpPixels*maxInterpPixels {
+					if dh*dh+dv*dv <= maxMobileInterpPixels*maxMobileInterpPixels {
 						h := float64(pm.H)*(1-alpha) + float64(m.H)*alpha
 						v := float64(pm.V)*(1-alpha) + float64(m.V)*alpha
 						return h - float64(m.H), v - float64(m.V), true
