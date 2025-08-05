@@ -191,12 +191,12 @@ func rebuildNightOverlay(w, h, lvl int, redshift float64) *ebiten.Image {
 	rimColor := 1 - nightLevel
 	centerColor := rimColor
 	if nightLevel >= 0.5 {
-		centerColor = 0.5
+		centerColor = 1 - nightLevel/2
 	}
 
 	cx := float64(w) / 2
 	cy := float64(h) / 2
-	radius := math.Min(float64(w), float64(h)) / 2
+	radius := 0.65 * math.Min(float64(w), float64(h))
 
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
