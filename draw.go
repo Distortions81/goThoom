@@ -562,16 +562,6 @@ func parseDrawState(data []byte) error {
 		state.prevMobiles = nil
 		state.prevTime = time.Time{}
 		state.curTime = time.Time{}
-		if state.descriptors != nil {
-			for k := range state.descriptors {
-				delete(state.descriptors, k)
-			}
-		}
-		if state.mobiles != nil {
-			for k := range state.mobiles {
-				delete(state.mobiles, k)
-			}
-		}
 	}
 	if state.descriptors == nil {
 		state.descriptors = make(map[uint8]frameDescriptor)
