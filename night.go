@@ -109,34 +109,24 @@ func parseNightCommand(s string) bool {
 }
 
 var (
-	nightImgs            = map[int]*ebiten.Image{}
+	nightImgs            = map[float64]*ebiten.Image{}
 	nightImgW, nightImgH int
 )
 
 func drawNightOverlay(screen *ebiten.Image) {
 	gNight.mu.Lock()
-	lvl := gNight.Level
+	lvl := float64(gNight.Level)
 	gNight.mu.Unlock()
 	if lvl <= 0 {
 		return
 	}
 
-	var overlayLevel int
-	switch {
-	case lvl < 38:
-		overlayLevel = 25
-	case lvl < 63:
-		overlayLevel = 50
-	case lvl < 88:
-		overlayLevel = 75
-	default:
-		overlayLevel = 100
-	}
+	overlayLevel := lvl
 
 	w := gameAreaSizeX * scale
 	h := gameAreaSizeY * scale
 	if nightImgW != w || nightImgH != h {
-		nightImgs = map[int]*ebiten.Image{}
+		nightImgs = map[float64]*ebiten.Image{}
 		nightImgW, nightImgH = w, h
 	}
 	nightImg := nightImgs[overlayLevel]
@@ -152,14 +142,14 @@ func drawNightOverlay(screen *ebiten.Image) {
 // rebuildNightOverlay creates a radial gradient that becomes fully opaque at
 // the given radius percentage of the maximum possible radius from the center
 // of the screen.
-func rebuildNightOverlay(w, h, radiusPercent int) *ebiten.Image {
+func rebuildNightOverlay(w, h int, radiusPercent float64) *ebiten.Image {
 	img := ebiten.NewImage(w, h)
 
 	cx := float64(w) / 2
 	cy := float64(h) / 2
 
 	maxRadius := math.Sqrt(cx*cx + cy*cy)
-	radius := maxRadius * float64(radiusPercent) / 100
+	radius := maxRadius * radiusPercent / 100
 
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
