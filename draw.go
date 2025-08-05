@@ -734,84 +734,86 @@ func parseDrawState(data []byte) error {
 				}
 			}
 			stateMu.Unlock()
-			if showBubbles && txt != "" {
-				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
-				if typ&kBubbleFar != 0 {
-					b.H, b.V = h, v
-					b.Far = true
+			if !blockBubbles {
+				if showBubbles && txt != "" {
+					b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
+					if typ&kBubbleFar != 0 {
+						b.H, b.V = h, v
+						b.Far = true
+					}
+					stateMu.Lock()
+					state.bubbles = append(state.bubbles, b)
+					stateMu.Unlock()
 				}
-				stateMu.Lock()
-				state.bubbles = append(state.bubbles, b)
-				stateMu.Unlock()
-			}
-			var msg string
-			switch {
-			case typ&kBubbleTypeMask == kBubbleNarrate:
-				if name != "" {
-					msg = fmt.Sprintf("(%v): %v", name, txt)
-				} else {
+				var msg string
+				switch {
+				case typ&kBubbleTypeMask == kBubbleNarrate:
+					if name != "" {
+						msg = fmt.Sprintf("(%v): %v", name, txt)
+					} else {
+						msg = txt
+					}
+				case verb == bubbleVerbVerbatim:
 					msg = txt
-				}
-			case verb == bubbleVerbVerbatim:
-				msg = txt
-			case verb == bubbleVerbParentheses:
-				msg = fmt.Sprintf("(%v)", txt)
-			default:
-				if name != "" {
-					if verb == "thinks" {
-						switch target {
-						case thinkToYou:
-							msg = fmt.Sprintf("%v thinks to you, %v", name, txt)
-						case thinkToClan:
-							msg = fmt.Sprintf("%v thinks to your clan, %v", name, txt)
-						case thinkToGroup:
-							msg = fmt.Sprintf("%v thinks to a group, %v", name, txt)
-						default:
-							msg = fmt.Sprintf("%v thinks, %v", name, txt)
-						}
-					} else if typ&kBubbleNotCommon != 0 {
-						langWord := lang
-						lw := strings.ToLower(langWord)
-						if langWord == "" || strings.HasPrefix(lw, "unknown") {
-							langWord = "an unknown language"
-						}
-						if code == kBubbleCodeKnown {
-							msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
-						} else if typ&kBubbleTypeMask == kBubbleYell {
-							switch code {
-							case kBubbleUnknownShort:
-								msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
-							case kBubbleUnknownMedium:
-								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
-							case kBubbleUnknownLong:
-								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+				case verb == bubbleVerbParentheses:
+					msg = fmt.Sprintf("(%v)", txt)
+				default:
+					if name != "" {
+						if verb == "thinks" {
+							switch target {
+							case thinkToYou:
+								msg = fmt.Sprintf("%v thinks to you, %v", name, txt)
+							case thinkToClan:
+								msg = fmt.Sprintf("%v thinks to your clan, %v", name, txt)
+							case thinkToGroup:
+								msg = fmt.Sprintf("%v thinks to a group, %v", name, txt)
 							default:
+								msg = fmt.Sprintf("%v thinks, %v", name, txt)
+							}
+						} else if typ&kBubbleNotCommon != 0 {
+							langWord := lang
+							lw := strings.ToLower(langWord)
+							if langWord == "" || strings.HasPrefix(lw, "unknown") {
+								langWord = "an unknown language"
+							}
+							if code == kBubbleCodeKnown {
 								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+							} else if typ&kBubbleTypeMask == kBubbleYell {
+								switch code {
+								case kBubbleUnknownShort:
+									msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+								case kBubbleUnknownMedium:
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								case kBubbleUnknownLong:
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								default:
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								}
+							} else {
+								var unknown string
+								switch code {
+								case kBubbleUnknownShort:
+									unknown = "something short"
+								case kBubbleUnknownMedium:
+									unknown = "something medium"
+								case kBubbleUnknownLong:
+									unknown = "something long"
+								default:
+									unknown = "something"
+								}
+								msg = fmt.Sprintf("%v %v %v in %v", name, verb, unknown, langWord)
 							}
 						} else {
-							var unknown string
-							switch code {
-							case kBubbleUnknownShort:
-								unknown = "something short"
-							case kBubbleUnknownMedium:
-								unknown = "something medium"
-							case kBubbleUnknownLong:
-								unknown = "something long"
-							default:
-								unknown = "something"
-							}
-							msg = fmt.Sprintf("%v %v %v in %v", name, verb, unknown, langWord)
+							msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
 						}
 					} else {
-						msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
-					}
-				} else {
-					if txt != "" {
-						msg = "* " + txt
+						if txt != "" {
+							msg = "* " + txt
+						}
 					}
 				}
+				addMessage(msg)
 			}
-			addMessage(msg)
 		}
 		stateData = stateData[p+end+1:]
 	}
