@@ -171,6 +171,16 @@ func (p *moviePlayer) initUI() {
 // cacheFrames simulates all frames and stores draw state snapshots.
 func (p *moviePlayer) cacheFrames() {
 	addMessage("caching clMov frames...")
+
+	prevSound := blockSound
+	prevRender := blockRender
+	blockSound = true
+	blockRender = true
+	defer func() {
+		blockSound = prevSound
+		blockRender = prevRender
+	}()
+
 	p.states = make([]drawSnapshot, 0, len(p.frames)+1)
 	p.states = append(p.states, captureDrawSnapshot())
 	for _, m := range p.frames {
