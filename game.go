@@ -24,7 +24,7 @@ import (
 
 const gameAreaSizeX, gameAreaSizeY = 547, 540
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const epsilon = 0.004
+const epsilon = 0.006
 
 var mouseX, mouseY int16
 var mouseDown bool
