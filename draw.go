@@ -257,10 +257,24 @@ func parseInventory(data []byte) ([]byte, bool) {
 	}
 
 	for i := 0; i < cmdCount; i++ {
+		if cmd == kInvCmdFull|kInvCmdIndex || cmd == kInvCmdNone|kInvCmdIndex {
+			if cmd == kInvCmdFull|kInvCmdIndex {
+				logError("inventory: got kInvCmdFull + index")
+			} else {
+				logError("inventory: got kInvCmdNone + index")
+			}
+			if len(data) == 0 {
+				return nil, false
+			}
+			cmd = int(data[0])
+			data = data[1:]
+			continue
+		}
+
 		base := cmd &^ kInvCmdIndex
 		switch base {
 		case kInvCmdFull:
-			if cmd&kInvCmdIndex != 0 || len(data) < 1 {
+			if len(data) < 1 {
 				return nil, false
 			}
 			itemCount := int(data[0])
@@ -330,7 +344,9 @@ func parseInventory(data []byte) ([]byte, bool) {
 		cmd = int(data[0])
 		data = data[1:]
 	}
-	if cmd != kInvCmdNone {
+	if cmd == kInvCmdNone|kInvCmdIndex {
+		logError("inventory: got kInvCmdNone + index")
+	} else if cmd != kInvCmdNone {
 		return nil, false
 	}
 	for len(data) > 0 && data[0] == 0 {
