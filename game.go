@@ -172,7 +172,17 @@ func captureDrawSnapshot() drawSnapshot {
 				kept = append(kept, b)
 			}
 		}
-		state.bubbles = kept
+		last := make(map[uint8]int)
+		for i, b := range kept {
+			last[b.Index] = i
+		}
+		dedup := kept[:0]
+		for i, b := range kept {
+			if last[b.Index] == i {
+				dedup = append(dedup, b)
+			}
+		}
+		state.bubbles = dedup
 		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
 	if interp || onion || !fastAnimation {
@@ -453,7 +463,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			}
 			x := (int(math.Round(hpos)) + fieldCenterX) * scale
 			y := (int(math.Round(vpos)) + fieldCenterY) * scale
-			drawBubble(screen, b.Text, x, y, b.Type)
+			drawBubble(screen, b.Text, x, y, b.Type, b.Far)
 		}
 	}
 }
