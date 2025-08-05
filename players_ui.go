@@ -21,7 +21,7 @@ func updatePlayersWindow() {
 	playersList.Contents = playersList.Contents[:0]
 
 	buf := fmt.Sprintf("Players Online: %v", len(ps))
-	t, _ := eui.NewText(&eui.ItemData{Text: buf, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
+	t, _ := eui.NewText(&eui.ItemData{ItemType: eui.ITEM_TEXT, Text: buf, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
 	playersList.AddItem(t)
 	for _, p := range ps {
 		if p.Name == "" {
