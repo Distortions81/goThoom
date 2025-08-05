@@ -763,9 +763,8 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 	maxWidth := float64(gameAreaSizeX*scale - 8*scale)
 	for i := len(msgs) - 1; i >= 0; i-- {
 		msg := msgs[i]
-		_, lines := wrapText(msg, mainFont, maxWidth)
-		w, _ := text.Measure(msg, mainFont, 0)
-		iw := int(math.Ceil(w)) + 8*scale + 4
+		width, lines := wrapText(msg, mainFont, maxWidth)
+		iw := width + 8*scale + 4
 		ih := 14 * scale
 		for j := len(lines) - 1; j >= 0; j-- {
 			y -= 15 * scale
