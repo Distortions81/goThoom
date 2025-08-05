@@ -21,6 +21,8 @@ const (
 	bubbleMediumHeight = 43
 	bubbleLargeWidth   = 164
 	bubbleLargeHeight  = 53
+
+	bubbleAspect = 16.0 / 9.0
 )
 
 // gBubbleMap previously mapped bubble types to columns in the bubble sprite
@@ -48,14 +50,14 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 	sw, sh := screen.Size()
 	pad := 4 * scale
 
-	// Maximum bubble size is 1/8 of the screen and must maintain a 16:9
-	// aspect ratio.
+	// Maximum bubble size is 1/8 of the screen while keeping the
+	// 16:9 aspect ratio.
 	maxW := sw / 8
 	maxH := sh / 8
-	if alt := int(float64(maxH) * 16.0 / 9.0); alt < maxW {
+	if alt := int(float64(maxH) * bubbleAspect); alt < maxW {
 		maxW = alt
 	}
-	maxH = int(float64(maxW) * 9.0 / 16.0)
+	maxH = int(float64(maxW) / bubbleAspect)
 
 	// First wrap using the largest allowable width to measure the text.
 	lines := wrapText(txt, nameFace, float64(maxW-2*pad))
@@ -72,19 +74,19 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 
 	// Size the bubble to fit the text with padding, preserving 16:9.
 	width := textWidth + 2*pad
-	height := textHeight + 2*pad
-	if alt := int(math.Ceil(float64(height) * 16.0 / 9.0)); alt > width {
-		width = alt
+	height := int(math.Ceil(float64(width) / bubbleAspect))
+	if height < textHeight+2*pad {
+		height = textHeight + 2*pad
+		width = int(math.Ceil(float64(height) * bubbleAspect))
 	}
-	height = int(math.Ceil(float64(width) * 9.0 / 16.0))
 
 	if width > maxW {
 		width = maxW
-		height = int(math.Ceil(float64(width) * 9.0 / 16.0))
+		height = int(math.Ceil(float64(width) / bubbleAspect))
 	}
 	if height > maxH {
 		height = maxH
-		width = int(math.Ceil(float64(height) * 16.0 / 9.0))
+		width = int(math.Ceil(float64(height) * bubbleAspect))
 	}
 
 	// Re-wrap with the final width to ensure text fits.
