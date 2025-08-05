@@ -75,34 +75,46 @@ func (p *moviePlayer) initUI() {
 	// Button flow
 	bFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
+	backb, backbEv := eui.NewButton(&eui.ItemData{Text: "<<<", Size: eui.Point{X: 40, Y: 24}})
+	backbEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.skipBackMilli(30 * 1000)
+		}
+	}
+	bFlow.AddItem(backb)
+
 	back, backEv := eui.NewButton(&eui.ItemData{Text: "<<", Size: eui.Point{X: 40, Y: 24}})
 	backEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			p.skipBack()
+			p.skipBackMilli(5 * 1000)
 		}
 	}
 	bFlow.AddItem(back)
 
-	pause, pauseEv := eui.NewButton(&eui.ItemData{Text: "Pause", Size: eui.Point{X: 50, Y: 24}})
-	pauseEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			p.pause()
-		}
-	}
-	bFlow.AddItem(pause)
-
-	play, playEv := eui.NewButton(&eui.ItemData{Text: "Play", Size: eui.Point{X: 50, Y: 24}})
+	play, playEv := eui.NewButton(&eui.ItemData{Text: ">  ||", Size: eui.Point{X: 50, Y: 24}})
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			p.play()
+			if p.playing {
+				p.pause()
+			} else {
+				p.play()
+			}
 		}
 	}
 	bFlow.AddItem(play)
 
-	forward, fwdEv := eui.NewButton(&eui.ItemData{Text: ">>", Size: eui.Point{X: 40, Y: 24}})
+	forwardb, fwdbEv := eui.NewButton(&eui.ItemData{Text: ">>", Size: eui.Point{X: 40, Y: 24}})
+	fwdbEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.skipForwardMilli(5 * 1000)
+		}
+	}
+	bFlow.AddItem(forwardb)
+
+	forward, fwdEv := eui.NewButton(&eui.ItemData{Text: ">>>", Size: eui.Point{X: 40, Y: 24}})
 	fwdEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			p.skipForward()
+			p.skipForwardMilli(30 * 1000)
 		}
 	}
 	bFlow.AddItem(forward)
@@ -168,9 +180,13 @@ func (p *moviePlayer) pause() {
 	p.playing = false
 }
 
-func (p *moviePlayer) skipBack() { p.seek(p.cur - 5*p.fps) }
+func (p *moviePlayer) skipBackMilli(milli int) {
+	p.seek(p.cur - int(float64(milli)*(float64(p.fps)/1000.0)))
+}
 
-func (p *moviePlayer) skipForward() { p.seek(p.cur + 5*p.fps) }
+func (p *moviePlayer) skipForwardMilli(milli int) {
+	p.seek(p.cur + int(float64(milli)*(float64(p.fps)/1000.0)))
+}
 
 func (p *moviePlayer) seek(idx int) {
 	blockSound = true
