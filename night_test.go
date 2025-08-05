@@ -21,8 +21,8 @@ func TestParseNightCommandV100(t *testing.T) {
 	}
 	gNight.mu.Lock()
 	defer gNight.mu.Unlock()
-	if gNight.Level != 30 || gNight.Shadows != 15 || gNight.Azimuth != 250 {
-		t.Fatalf("unexpected night info: level=%d shadows=%d az=%d", gNight.Level, gNight.Shadows, gNight.Azimuth)
+	if gNight.BaseLevel != 30 || gNight.Level != 30 || gNight.Shadows != 20 || gNight.Azimuth != 250 {
+		t.Fatalf("unexpected night info: base=%d level=%d shadows=%d az=%d", gNight.BaseLevel, gNight.Level, gNight.Shadows, gNight.Azimuth)
 	}
 }
 
@@ -33,8 +33,8 @@ func TestParseNightCommandLegacy(t *testing.T) {
 	}
 	gNight.mu.Lock()
 	defer gNight.mu.Unlock()
-	if gNight.Level != 20 || gNight.Shadows != 30 {
-		t.Fatalf("unexpected night info: level=%d shadows=%d", gNight.Level, gNight.Shadows)
+	if gNight.BaseLevel != 20 || gNight.Level != 20 || gNight.Shadows != 30 {
+		t.Fatalf("unexpected night info: base=%d level=%d shadows=%d", gNight.BaseLevel, gNight.Level, gNight.Shadows)
 	}
 }
 

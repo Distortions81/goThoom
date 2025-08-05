@@ -75,6 +75,7 @@ func parseNightCommand(s string) bool {
 		cloudy := m[3] != "0"
 		gNight.mu.Lock()
 		gNight.BaseLevel = lvl
+		gNight.Level = lvl
 		gNight.Azimuth = sa
 		gNight.Cloudy = cloudy
 		gNight.calcCurLevel()
@@ -89,20 +90,18 @@ func parseNightCommand(s string) bool {
 	var nightLevel, shadowLevel, sunAngle, declination int
 	if n, err := fmt.Sscanf(rest, "%d %d %d %d", &nightLevel, &shadowLevel, &sunAngle, &declination); err == nil && n >= 3 {
 		gNight.mu.Lock()
+		gNight.BaseLevel = nightLevel
 		gNight.Level = nightLevel
-		gNight.Shadows = shadowLevel
 		gNight.Azimuth = sunAngle
+		gNight.calcCurLevel()
 		gNight.mu.Unlock()
 		return true
 	}
 	if n, err := fmt.Sscanf(rest, "%d", &nightLevel); err == nil && n == 1 {
-		shadowLevel = 50 - nightLevel
-		if shadowLevel < 0 {
-			shadowLevel = 0
-		}
 		gNight.mu.Lock()
+		gNight.BaseLevel = nightLevel
 		gNight.Level = nightLevel
-		gNight.Shadows = shadowLevel
+		gNight.calcCurLevel()
 		gNight.mu.Unlock()
 		return true
 	}
