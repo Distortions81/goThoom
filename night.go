@@ -145,7 +145,7 @@ func drawNightOverlay(screen *ebiten.Image) {
 		nightImgs[overlayLevel] = nightImg
 	}
 
-	op := &ebiten.DrawImageOptions{CompositeMode: ebiten.CompositeModeMultiply}
+	op := &ebiten.DrawImageOptions{}
 	screen.DrawImage(nightImg, op)
 }
 
@@ -175,10 +175,10 @@ func rebuildNightOverlay(w, h, level int) *ebiten.Image {
 				c = 1
 			}
 			clr := color.RGBA{
-				R: uint8(c * 255),
-				G: uint8(c * 255),
-				B: uint8(c * 255),
-				A: 0xff,
+				R: 0,
+				G: 0,
+				B: 0,
+				A: uint8(c * 255),
 			}
 			img.Set(x, y, clr)
 		}
