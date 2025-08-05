@@ -91,6 +91,12 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	right = left + width
 	bottom = top + height
 
+	if !far {
+		// Reposition the tail tip so it remains a fixed distance below the bubble
+		// after clamping the bubble to the screen bounds.
+		y = bottom + tailHeight
+	}
+
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
 	radius := float32(4 * scale)
