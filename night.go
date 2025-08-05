@@ -26,6 +26,38 @@ var gNight NightInfo
 
 var nightRE = regexp.MustCompile(`^/nt ([0-9]+) /sa ([-0-9]+) /cl ([01])`)
 
+type nightData struct {
+	level       int
+	shadow      int
+	azimuth     int
+	cloudy      bool
+	haveShadow  bool
+	haveAzimuth bool
+	haveCloudy  bool
+}
+
+func parseNightData(s string) (nightData, bool) {
+	if m := nightRE.FindStringSubmatch(s); m != nil {
+		lvl, _ := strconv.Atoi(m[1])
+		sa, _ := strconv.Atoi(m[2])
+		cloudy := m[3] != "0"
+		return nightData{level: lvl, azimuth: sa, cloudy: cloudy, haveAzimuth: true, haveCloudy: true}, true
+	}
+	const prefix = "/nt "
+	if !strings.HasPrefix(s, prefix) {
+		return nightData{}, false
+	}
+	rest := s[len(prefix):]
+	var nightLevel, shadowLevel, sunAngle, declination int
+	if n, err := fmt.Sscanf(rest, "%d %d %d %d", &nightLevel, &shadowLevel, &sunAngle, &declination); err == nil && n >= 3 {
+		return nightData{level: nightLevel, shadow: shadowLevel, azimuth: sunAngle, haveShadow: true, haveAzimuth: true}, true
+	}
+	if n, err := fmt.Sscanf(rest, "%d", &nightLevel); err == nil && n == 1 {
+		return nightData{level: nightLevel}, true
+	}
+	return nightData{}, false
+}
+
 func (n *NightInfo) calcCurLevel() {
 	delta := 0
 	if n.Flags&kLightNoNightMods != 0 {
@@ -69,43 +101,25 @@ func (n *NightInfo) SetFlags(f uint) {
 }
 
 func parseNightCommand(s string) bool {
-	if m := nightRE.FindStringSubmatch(s); m != nil {
-		lvl, _ := strconv.Atoi(m[1])
-		sa, _ := strconv.Atoi(m[2])
-		cloudy := m[3] != "0"
-		gNight.mu.Lock()
-		gNight.BaseLevel = lvl
-		gNight.Level = lvl
-		gNight.Azimuth = sa
-		gNight.Cloudy = cloudy
-		gNight.calcCurLevel()
-		gNight.mu.Unlock()
-		return true
-	}
-	const prefix = "/nt "
-	if !strings.HasPrefix(s, prefix) {
+	nd, ok := parseNightData(s)
+	if !ok {
 		return false
 	}
-	rest := s[len(prefix):]
-	var nightLevel, shadowLevel, sunAngle, declination int
-	if n, err := fmt.Sscanf(rest, "%d %d %d %d", &nightLevel, &shadowLevel, &sunAngle, &declination); err == nil && n >= 3 {
-		gNight.mu.Lock()
-		gNight.BaseLevel = nightLevel
-		gNight.Level = nightLevel
-		gNight.Azimuth = sunAngle
-		gNight.calcCurLevel()
-		gNight.mu.Unlock()
-		return true
+	gNight.mu.Lock()
+	gNight.BaseLevel = nd.level
+	gNight.Level = nd.level
+	if nd.haveAzimuth {
+		gNight.Azimuth = nd.azimuth
 	}
-	if n, err := fmt.Sscanf(rest, "%d", &nightLevel); err == nil && n == 1 {
-		gNight.mu.Lock()
-		gNight.BaseLevel = nightLevel
-		gNight.Level = nightLevel
-		gNight.calcCurLevel()
-		gNight.mu.Unlock()
-		return true
+	if nd.haveCloudy {
+		gNight.Cloudy = nd.cloudy
 	}
-	return false
+	gNight.calcCurLevel()
+	if nd.haveShadow {
+		gNight.Shadows = nd.shadow
+	}
+	gNight.mu.Unlock()
+	return true
 }
 
 var (
