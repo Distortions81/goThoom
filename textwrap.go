@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -11,7 +12,10 @@ import (
 // word exceeds maxWidth it will be broken across lines.
 func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
 
-	var lines []string
+	var (
+		lines   []string
+		maxUsed float64
+	)
 	for _, para := range strings.Split(s, "\n") {
 		words := strings.Fields(para)
 		if len(words) == 0 {
@@ -27,6 +31,9 @@ func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
 				continue
 			}
 
+			if wcur, _ := text.Measure(cur, face, 0); wcur > maxUsed {
+				maxUsed = wcur
+			}
 			lines = append(lines, cur)
 			// if the single word is too wide, break it into pieces
 			if ww, _ := text.Measure(w, face, 0); ww > maxWidth {
@@ -34,7 +41,11 @@ func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
 				for _, r := range w {
 					runes = append(runes, r)
 					if wpart, _ := text.Measure(string(runes), face, 0); wpart > maxWidth && len(runes) > 1 {
-						lines = append(lines, string(runes[:len(runes)-1]))
+						part := string(runes[:len(runes)-1])
+						if pw, _ := text.Measure(part, face, 0); pw > maxUsed {
+							maxUsed = pw
+						}
+						lines = append(lines, part)
 						runes = runes[len(runes)-1:]
 					}
 				}
@@ -43,7 +54,10 @@ func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
 				cur = w
 			}
 		}
+		if wcur, _ := text.Measure(cur, face, 0); wcur > maxUsed {
+			maxUsed = wcur
+		}
 		lines = append(lines, cur)
 	}
-	return int(maxWidth), lines
+	return int(math.Ceil(maxUsed)), lines
 }
