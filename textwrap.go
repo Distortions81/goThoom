@@ -1,14 +1,18 @@
 package main
 
 import (
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"strings"
+
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 // wrapText splits s into lines that do not exceed maxWidth when rendered
 // with the provided face. Words are kept intact when possible; if a single
 // word exceeds maxWidth it will be broken across lines.
-func wrapText(s string, face text.Face, maxWidth float64) []string {
+func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
+
+	var actualWidth = 0
+
 	var lines []string
 	for _, para := range strings.Split(s, "\n") {
 		words := strings.Fields(para)
@@ -24,6 +28,7 @@ func wrapText(s string, face text.Face, maxWidth float64) []string {
 				cur = cand
 				continue
 			}
+
 			lines = append(lines, cur)
 			// if the single word is too wide, break it into pieces
 			if ww, _ := text.Measure(w, face, 0); ww > maxWidth {
@@ -42,5 +47,5 @@ func wrapText(s string, face text.Face, maxWidth float64) []string {
 		}
 		lines = append(lines, cur)
 	}
-	return lines
+	return int(actualWidth), lines
 }

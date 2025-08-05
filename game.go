@@ -540,7 +540,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 		}
 		if d, ok := descMap[m.Index]; ok && d.Name != "" {
 			textClr, bgClr, frameClr := mobileNameColors(m.Colors)
-			w, h := text.Measure(d.Name, nameFace, 0)
+			w, h := text.Measure(d.Name, mainFont, 0)
 			iw := int(math.Ceil(w))
 			ih := int(math.Ceil(h))
 			top := y + ih + (4 * scale)
@@ -550,27 +550,27 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 			op := &text.DrawOptions{}
 			op.GeoM.Translate(float64(left+2), float64(top+2))
 			op.ColorScale.ScaleWithColor(textClr)
-			text.Draw(screen, d.Name, nameFace, op)
+			text.Draw(screen, d.Name, mainFont, op)
 		}
 		if showPlanes {
-			metrics := nameFace.Metrics()
+			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
 			xPos := x - size*scale/2
 			op := &text.DrawOptions{}
 			op.GeoM.Translate(float64(xPos), float64(y-size*scale/2)-metrics.HAscent)
 			op.ColorScale.ScaleWithColor(color.RGBA{0, 255, 255, 255})
-			text.Draw(screen, lbl, nameFace, op)
+			text.Draw(screen, lbl, mainFont, op)
 		}
 	} else {
 		vector.DrawFilledRect(screen, float32(x-3*scale), float32(y-3*scale), float32(6*scale), float32(6*scale), color.RGBA{0xff, 0, 0, 0xff}, false)
 		if showPlanes {
-			metrics := nameFace.Metrics()
+			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
 			xPos := x - 3*scale
 			op := &text.DrawOptions{}
 			op.GeoM.Translate(float64(xPos), float64(y-3*scale)-metrics.HAscent)
 			op.ColorScale.ScaleWithColor(color.White)
-			text.Draw(screen, lbl, nameFace, op)
+			text.Draw(screen, lbl, mainFont, op)
 		}
 	}
 }
@@ -658,13 +658,13 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 		}
 
 		if showPlanes {
-			metrics := nameFace.Metrics()
+			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
 			xPos := x - w*scale/2
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y-h*scale/2)-metrics.HAscent)
 			opTxt.ColorScale.ScaleWithColor(color.RGBA{255, 255, 0, 0})
-			text.Draw(screen, lbl, nameFace, opTxt)
+			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 	} else {
 		clr := color.RGBA{0, 0, 0xff, 0xff}
@@ -673,13 +673,13 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 		}
 		vector.DrawFilledRect(screen, float32(x-2*scale), float32(y-2*scale), float32(4*scale), float32(4*scale), clr, false)
 		if showPlanes {
-			metrics := nameFace.Metrics()
+			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
 			xPos := x - 2*scale
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y-2*scale)-metrics.HAscent)
 			opTxt.ColorScale.ScaleWithColor(color.RGBA{255, 255, 0, 0})
-			text.Draw(screen, lbl, nameFace, opTxt)
+			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 	}
 }
@@ -763,8 +763,8 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 	maxWidth := float64(gameAreaSizeX*scale - 8*scale)
 	for i := len(msgs) - 1; i >= 0; i-- {
 		msg := msgs[i]
-		lines := wrapText(msg, nameFace, maxWidth)
-		w, _ := text.Measure(msg, nameFace, 0)
+		_, lines := wrapText(msg, mainFont, maxWidth)
+		w, _ := text.Measure(msg, mainFont, 0)
 		iw := int(math.Ceil(w)) + 8*scale + 4
 		ih := 14 * scale
 		for j := len(lines) - 1; j >= 0; j-- {
@@ -773,7 +773,7 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 			op := &text.DrawOptions{}
 			op.GeoM.Translate(float64(4*scale), float64(y))
 			op.ColorScale.ScaleWithColor(color.White)
-			text.Draw(screen, lines[j], nameFace, op)
+			text.Draw(screen, lines[j], mainFont, op)
 		}
 	}
 }
@@ -783,11 +783,11 @@ func drawServerFPS(screen *ebiten.Image, fps int) {
 		return
 	}
 	msg := fmt.Sprintf("UPS: %d", fps)
-	w, _ := text.Measure(msg, nameFace, 0)
+	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(gameAreaSizeX*scale)-w-float64(4*scale), float64(4*scale))
 	op.ColorScale.ScaleWithColor(color.White)
-	text.Draw(screen, msg, nameFace, op)
+	text.Draw(screen, msg, mainFont, op)
 }
 
 // drawInputOverlay renders the text entry box when chatting.
@@ -803,7 +803,7 @@ func drawInputOverlay(screen *ebiten.Image, txt string) {
 	opTxt := &text.DrawOptions{}
 	opTxt.GeoM.Translate(float64(4*scale), float64(top))
 	opTxt.ColorScale.ScaleWithColor(color.White)
-	text.Draw(screen, txt, nameFace, opTxt)
+	text.Draw(screen, txt, mainFont, opTxt)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {

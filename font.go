@@ -11,17 +11,29 @@ import (
 //go:embed font.ttf
 var fontData []byte
 
-var nameFace text.Face
+var mainFont, bubbleFont text.Face
 
-const bFontSize = 10
+var (
+	mainFontSize   float64 = 10
+	bubbleFontSize float64 = 7
+)
 
 func initFont() {
 	src, err := text.NewGoTextFaceSource(bytes.NewReader(fontData))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)
 	}
-	nameFace = &text.GoTextFace{
+	mainFont = &text.GoTextFace{
 		Source: src,
-		Size:   bFontSize * float64(scale),
+		Size:   mainFontSize * float64(scale),
+	}
+
+	src, err = text.NewGoTextFaceSource(bytes.NewReader(fontData))
+	if err != nil {
+		log.Fatalf("failed to parse font: %v", err)
+	}
+	bubbleFont = &text.GoTextFace{
+		Source: src,
+		Size:   bubbleFontSize * float64(scale),
 	}
 }
