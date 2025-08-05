@@ -93,13 +93,6 @@ func picturesSummary(pics []framePicture) string {
 	return buf.String()
 }
 
-// onScreen reports whether the picture lies within the visible playfield.
-func onScreen(p framePicture) bool {
-	x := int(p.H) + fieldCenterX
-	y := int(p.V) + fieldCenterY
-	return x >= 0 && x < gameAreaSizeX && y >= 0 && y < gameAreaSizeY
-}
-
 var pixelCountMu sync.Mutex
 var pixelCountCache = make(map[uint16]int)
 
@@ -150,15 +143,12 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	total := 0
 	maxInt := int(^uint(0) >> 1)
 	for _, p := range prev {
-		if !onScreen(p) {
-			continue
-		}
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
 		matched := false
 		for j, c := range cur {
-			if p.PictID != c.PictID || !onScreen(c) {
+			if p.PictID != c.PictID {
 				continue
 			}
 			dx := int(c.H) - int(p.H)
