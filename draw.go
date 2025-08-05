@@ -225,12 +225,26 @@ func parseInventory(data []byte) ([]byte, bool) {
 			if len(data) < bytesNeeded {
 				return nil, false
 			}
+			equipBytes := (itemCount + 7) >> 3
+			equips := data[:equipBytes]
+			ids := make([]uint16, itemCount)
+			for j := 0; j < itemCount; j++ {
+				ids[j] = binary.BigEndian.Uint16(data[equipBytes+j*2:])
+			}
+			eq := make([]bool, itemCount)
+			for j := 0; j < itemCount; j++ {
+				if equips[j/8]&(1<<uint(j%8)) != 0 {
+					eq[j] = true
+				}
+			}
+			setFullInventory(ids, eq)
 			data = data[bytesNeeded:]
 		case kInvCmdAdd, kInvCmdAddEquip, kInvCmdDelete, kInvCmdEquip,
 			kInvCmdUnequip, kInvCmdName:
 			if len(data) < 2 {
 				return nil, false
 			}
+			id := binary.BigEndian.Uint16(data[:2])
 			data = data[2:]
 			if cmd&kInvCmdIndex != 0 {
 				if len(data) < 1 {
@@ -238,12 +252,28 @@ func parseInventory(data []byte) ([]byte, bool) {
 				}
 				data = data[1:]
 			}
+			var name string
 			if base == kInvCmdAdd || base == kInvCmdAddEquip || base == kInvCmdName {
 				idx := bytes.IndexByte(data, 0)
 				if idx < 0 {
 					return nil, false
 				}
+				name = string(data[:idx])
 				data = data[idx+1:]
+			}
+			switch base {
+			case kInvCmdAdd:
+				addInventoryItem(id, name, false)
+			case kInvCmdAddEquip:
+				addInventoryItem(id, name, true)
+			case kInvCmdDelete:
+				removeInventoryItem(id)
+			case kInvCmdEquip:
+				equipInventoryItem(id, true)
+			case kInvCmdUnequip:
+				equipInventoryItem(id, false)
+			case kInvCmdName:
+				renameInventoryItem(id, name)
 			}
 		default:
 			return nil, false
@@ -260,6 +290,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 	for len(data) > 0 && data[0] == 0 {
 		data = data[1:]
 	}
+	updateInventoryWindow()
 	return data, true
 }
 
