@@ -162,7 +162,7 @@ func (p *moviePlayer) play() { p.playing = true }
 
 func (p *moviePlayer) stop() {
 	p.playing = false
-	p.seek(0)
+	//p.seek(0)
 }
 
 func (p *moviePlayer) skipBack() { p.seek(p.cur - 5*p.fps) }
