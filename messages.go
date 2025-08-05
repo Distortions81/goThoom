@@ -21,10 +21,6 @@ var (
 )
 
 func addMessage(msg string) {
-	if blockRender {
-		return
-	}
-
 	if msg == "" {
 		return
 	}
