@@ -30,4 +30,5 @@ func updatePlayersWindow() {
 		t, _ := eui.NewText(&eui.ItemData{Text: p.Name, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
 		playersList.AddItem(t)
 	}
+	playersWin.Refresh()
 }

@@ -2,6 +2,8 @@ github.com/Distortions81/EUI v0.0.3 h1:zHPQ0A257Cw7H8qDrvkBy1F3QQtklQtfPaeoBU+8Q
 github.com/Distortions81/EUI v0.0.3/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/Distortions81/EUI v0.0.4 h1:mphMp8YMPZFz9Gp3ZAbLpt98Xypq1a+kKF+GcfERpQw=
 github.com/Distortions81/EUI v0.0.4/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
+github.com/Distortions81/EUI v0.0.6 h1:qMvZfGchCuWiiO7BscXYXp1ik48zjPIDq25pPw3ro0M=
+github.com/Distortions81/EUI v0.0.6/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/ebitengine/gomobile v0.0.0-20250329061421-6d0a8e981e4c h1:Ccgks2VROTr6bIm1FFxG2jT6P1DaCBMj8g/O9xbOQ08=
 github.com/ebitengine/gomobile v0.0.0-20250329061421-6d0a8e981e4c/go.mod h1:M6DDA2RbegvWBVv4Dq482lwyFTtMczT1A7UNm1qOYzY=
 github.com/ebitengine/hideconsole v1.0.0 h1:5J4U0kXF+pv/DhiXt5/lTz0eO5ogJ1iXb8Yj1yReDqE=
