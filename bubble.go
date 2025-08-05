@@ -48,21 +48,23 @@ const (
 // bottom-center of the balloon tail. If far is true the tail is omitted and
 // (x, y) represents the bottom-center of the bubble itself. The typ parameter
 // is currently unused but retained for future compatibility with the original
-// bubble images.
-func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool) {
+// bubble images. The colors of the border, background, and text can be
+// customized via borderCol, bgCol, and textCol respectively.
+func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, borderCol, bgCol, textCol color.Color) {
 	if txt == "" {
 		return
 	}
 
 	sw, sh := gameAreaSizeX, gameAreaSizeY
-	pad := 4 * scale
+	pad := (4 + 2) * scale
 	tailHeight := 10 * scale
 	tailHalf := 6 * scale
 
-	maxLineWidth := sw / 4 * scale
+	maxLineWidth := sw/4*scale - 2*pad
 	width, lines := wrapText(txt, bubbleFont, float64(maxLineWidth))
 	metrics := bubbleFont.Metrics()
 	lineHeight := int(math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap))
+	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
 
 	bottom := y
@@ -71,6 +73,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool) {
 	}
 	left := x - width/2
 	top := bottom - height
+	right := left + width
 
 	// Ensure the bubble remains fully on screen.
 	if left < 0 {
@@ -86,49 +89,56 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool) {
 		top = sh - height
 	}
 
-	col := color.NRGBA{R: 255, G: 255, B: 255, A: 128}
-	r, g, b, a := col.RGBA()
-	if !far {
-		vs := []ebiten.Vertex{
-			{DstX: float32(x), DstY: float32(y), SrcX: 0, SrcY: 0, ColorR: float32(r) / 0xffff, ColorG: float32(g) / 0xffff, ColorB: float32(b) / 0xffff, ColorA: float32(a) / 0xffff},
-			{DstX: float32(x - tailHalf), DstY: float32(bottom), SrcX: 0, SrcY: 0, ColorR: float32(r) / 0xffff, ColorG: float32(g) / 0xffff, ColorB: float32(b) / 0xffff, ColorA: float32(a) / 0xffff},
-			{DstX: float32(x + tailHalf), DstY: float32(bottom), SrcX: 0, SrcY: 0, ColorR: float32(r) / 0xffff, ColorG: float32(g) / 0xffff, ColorB: float32(b) / 0xffff, ColorA: float32(a) / 0xffff},
-		}
-		is := []uint16{0, 1, 2}
-		op := &ebiten.DrawTrianglesOptions{ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
-		screen.DrawTriangles(vs, is, whiteImage, op)
-	}
+	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
 	radius := float32(4 * scale)
-	var rectPath vector.Path
-	rectPath.MoveTo(float32(left)+radius, float32(top))
-	rectPath.LineTo(float32(left+width)-radius, float32(top))
-	rectPath.Arc(float32(left+width)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
-	rectPath.LineTo(float32(left+width), float32(top+height)-radius)
-	rectPath.Arc(float32(left+width)-radius, float32(top+height)-radius, radius, 0, math.Pi/2, vector.Clockwise)
-	rectPath.LineTo(float32(left)+radius, float32(top+height))
-	rectPath.Arc(float32(left)+radius, float32(top+height)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
-	rectPath.LineTo(float32(left), float32(top)+radius)
-	rectPath.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
-	rectPath.Close()
-	vs, is := rectPath.AppendVerticesAndIndicesForFilling(nil, nil)
+	var path vector.Path
+	path.MoveTo(float32(left)+radius, float32(top))
+	path.LineTo(float32(right)-radius, float32(top))
+	path.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
+	path.LineTo(float32(right), float32(bottom)-radius)
+	path.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
+	if !far {
+		path.LineTo(float32(x+tailHalf), float32(bottom))
+		path.LineTo(float32(x), float32(y))
+		path.LineTo(float32(x-tailHalf), float32(bottom))
+	}
+	path.LineTo(float32(left)+radius, float32(bottom))
+	path.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
+	path.LineTo(float32(left), float32(top)+radius)
+	path.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
+	path.Close()
+
+	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
 	for i := range vs {
 		vs[i].SrcX = 0
 		vs[i].SrcY = 0
-		vs[i].ColorR = float32(r) / 0xffff
-		vs[i].ColorG = float32(g) / 0xffff
-		vs[i].ColorB = float32(b) / 0xffff
-		vs[i].ColorA = float32(a) / 0xffff
+		vs[i].ColorR = float32(bgR) / 0xffff
+		vs[i].ColorG = float32(bgG) / 0xffff
+		vs[i].ColorB = float32(bgB) / 0xffff
+		vs[i].ColorA = float32(bgA) / 0xffff
 	}
 	op := &ebiten.DrawTrianglesOptions{ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
 	screen.DrawTriangles(vs, is, whiteImage, op)
 
-	baseline := top + pad + int(math.Ceil(metrics.HAscent))
+	bdR, bdG, bdB, bdA := borderCol.RGBA()
+	vs, is = path.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(scale)})
+	for i := range vs {
+		vs[i].SrcX = 0
+		vs[i].SrcY = 0
+		vs[i].ColorR = float32(bdR) / 0xffff
+		vs[i].ColorG = float32(bdG) / 0xffff
+		vs[i].ColorB = float32(bdB) / 0xffff
+		vs[i].ColorA = float32(bdA) / 0xffff
+	}
+	screen.DrawTriangles(vs, is, whiteImage, op)
+
+	textTop := top + pad
 	textLeft := left + pad
 	for i, line := range lines {
 		op := &text.DrawOptions{}
-		op.GeoM.Translate(float64(textLeft), float64(baseline+i*lineHeight))
-		op.ColorScale.ScaleWithColor(color.Black)
+		op.GeoM.Translate(float64(textLeft), float64(textTop+i*lineHeight))
+		op.ColorScale.ScaleWithColor(textCol)
 		text.Draw(screen, line, bubbleFont, op)
 	}
 }
