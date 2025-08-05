@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -98,9 +99,43 @@ func onScreen(p framePicture) bool {
 	return x >= 0 && x < gameAreaSizeX && y >= 0 && y < gameAreaSizeY
 }
 
+var pixelCountMu sync.Mutex
+var pixelCountCache = make(map[uint16]int)
+
+// nonTransparentPixels returns the number of non-transparent pixels for the
+// given picture ID. The result is cached after the first computation.
+func nonTransparentPixels(id uint16) int {
+	pixelCountMu.Lock()
+	if c, ok := pixelCountCache[id]; ok {
+		pixelCountMu.Unlock()
+		return c
+	}
+	pixelCountMu.Unlock()
+
+	img := loadImage(id)
+	if img == nil {
+		return 0
+	}
+	bounds := img.Bounds()
+	count := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			_, _, _, a := img.At(x, y).RGBA()
+			if a != 0 {
+				count++
+			}
+		}
+	}
+	pixelCountMu.Lock()
+	pixelCountCache[id] = count
+	pixelCountMu.Unlock()
+	return count
+}
+
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
 // between two consecutive frames. Pictures are matched by PictID (duplicates
-// included). The boolean result is false when no majority offset is found.
+// included) and weighted by their non-transparent pixel counts. The boolean
+// result is false when no majority offset is found.
 func pictureShift(prev, cur []framePicture) (int, int, bool) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
@@ -132,8 +167,9 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 			}
 		}
 		if matched {
-			counts[[2]int{bestDx, bestDy}]++
-			total++
+			pixels := nonTransparentPixels(p.PictID)
+			counts[[2]int{bestDx, bestDy}] += pixels
+			total += pixels
 		}
 	}
 	if total == 0 {
