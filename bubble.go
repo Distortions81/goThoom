@@ -22,7 +22,7 @@ const (
 	bubbleLargeWidth   = 164
 	bubbleLargeHeight  = 53
 
-	bubbleAspect = 16.0 / 9.0
+	bubbleAspect = 2.0
 )
 
 // gBubbleMap previously mapped bubble types to columns in the bubble sprite
@@ -50,10 +50,9 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 	sw, sh := screen.Size()
 	pad := 4 * scale
 
-	// Maximum bubble size is 1/8 of the screen while keeping the
-	// 16:9 aspect ratio.
-	maxW := sw / 8
-	maxH := sh / 8
+	// Maximum bubble size fills the screen while keeping the 2:1 aspect ratio.
+	maxW := sw - 2*pad
+	maxH := sh - 2*pad
 	if alt := int(float64(maxH) * bubbleAspect); alt < maxW {
 		maxW = alt
 	}
@@ -72,7 +71,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 		}
 	}
 
-	// Size the bubble to fit the text with padding, preserving 16:9.
+	// Size the bubble to fit the text with padding, preserving 2:1.
 	width := textWidth + 2*pad
 	height := int(math.Ceil(float64(width) / bubbleAspect))
 	if height < textHeight+2*pad {
