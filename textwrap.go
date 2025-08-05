@@ -11,8 +11,6 @@ import (
 // word exceeds maxWidth it will be broken across lines.
 func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
 
-	var actualWidth = 0
-
 	var lines []string
 	for _, para := range strings.Split(s, "\n") {
 		words := strings.Fields(para)
@@ -47,5 +45,5 @@ func wrapText(s string, face text.Face, maxWidth float64) (int, []string) {
 		}
 		lines = append(lines, cur)
 	}
-	return int(actualWidth), lines
+	return int(maxWidth), lines
 }

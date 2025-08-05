@@ -14,7 +14,7 @@ var fontData []byte
 var mainFont, bubbleFont text.Face
 
 var (
-	mainFontSize   float64 = 10
+	mainFontSize   float64 = 9
 	bubbleFontSize float64 = 7
 )
 
