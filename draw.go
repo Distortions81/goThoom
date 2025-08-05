@@ -35,7 +35,7 @@ type frameMobile struct {
 }
 
 const poseDead = 32
-const maxInterpPixels = 128
+const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 
 // sanity limits for parsed counts to avoid excessive allocations or
