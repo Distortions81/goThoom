@@ -41,16 +41,16 @@ func (p *moviePlayer) initUI() {
 		Closable:  false,
 		Resizable: false,
 		AutoSize:  true,
-		Movable:   true,
-		PinTo:     eui.PIN_BOTTOM_CENTER,
+		PinTo:     eui.PIN_TOP_CENTER,
 	})
+	win.Closable = false
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	// Time slider flow
 	tFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-	p.curLabel, _ = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}})
+	p.curLabel, _ = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
 	tFlow.AddItem(p.curLabel)
 
 	max := float32(len(p.frames))
@@ -64,7 +64,7 @@ func (p *moviePlayer) initUI() {
 	tFlow.AddItem(p.slider)
 
 	totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
-	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.ParseShort(totalDur).String(), Size: eui.Point{X: 60, Y: 24}})
+	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.ParseShort(totalDur).String(), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
 	tFlow.AddItem(p.totalLabel)
 
 	flow.AddItem(tFlow)
@@ -179,7 +179,7 @@ func (p *moviePlayer) seek(idx int) {
 	wasPlaying := p.playing
 	p.playing = false
 
-	resetDrawState()
+	//resetDrawState()
 	for i := 0; i < idx; i++ {
 		m := p.frames[i]
 		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
