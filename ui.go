@@ -180,11 +180,34 @@ func initUI() {
 
 	settingsWin.Open = false
 
+	inventoryWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Inventory",
+		Open:      false,
+		Closable:  false,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   true,
+	})
+	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	inventoryWin.AddItem(inventoryList)
+	inventoryWin.AddWindow(false)
+
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
 		PinTo:    eui.PIN_BOTTOM_RIGHT,
 	}
+	invBtn, invEvents := eui.NewButton(&eui.ItemData{Text: "I", Size: eui.Point{X: 36, Y: 36}, FontSize: 27})
+	invEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			inventoryWin.Open = !inventoryWin.Open
+			if inventoryWin.Open {
+				updateInventoryWindow()
+			}
+		}
+	}
+	overlay.AddItem(invBtn)
+
 	btn, btnEvents := eui.NewButton(&eui.ItemData{Text: "...", Size: eui.Point{X: 36, Y: 36}, FontSize: 27})
 	btnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
