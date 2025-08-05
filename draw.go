@@ -652,7 +652,9 @@ func parseDrawState(data []byte) error {
 	if needAnimUpdate {
 		const defaultInterval = time.Second / 5
 		interval := defaultInterval
-		if !state.prevTime.IsZero() && !state.curTime.IsZero() {
+		if clMovPlaying && clMovFPS > 0 {
+			interval = time.Second / time.Duration(clMovFPS)
+		} else if !state.prevTime.IsZero() && !state.curTime.IsZero() {
 			if d := state.curTime.Sub(state.prevTime); d > 0 {
 				interval = d
 			}
