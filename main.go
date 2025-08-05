@@ -26,21 +26,22 @@ var (
 	denoise  bool
 	dataDir  string
 
-	host        string
-	name        string
-	account     string
-	accountPass string
-	pass        string
-	demo        bool
-	clmov       string
-	noSplash    bool
-	baseDir     string
-	soundTest   bool
-	fastSound   bool
-	fastBars    bool
-	maxSounds   int
-	nightLevel  int
-	blockSound  bool
+	host         string
+	name         string
+	account      string
+	accountPass  string
+	pass         string
+	demo         bool
+	clmov        string
+	noSplash     bool
+	baseDir      string
+	soundTest    bool
+	fastSound    bool
+	fastBars     bool
+	maxSounds    int
+	nightLevel   int
+	blockSound   bool
+	blockBubbles bool
 
 	loginRequest = make(chan struct{})
 )
