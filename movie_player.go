@@ -231,7 +231,9 @@ func (p *moviePlayer) setFPS(fps int) {
 		fps = 1
 	}
 	p.fps = fps
+	clMovFPS = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
+	resetInterpolation()
 	p.updateUI()
 }
 

@@ -22,9 +22,10 @@ import (
 )
 
 var (
-	clMovFPS int
-	denoise  bool
-	dataDir  string
+	clMovFPS     int
+	clMovPlaying bool
+	denoise      bool
+	dataDir      string
 
 	host         string
 	name         string
@@ -190,6 +191,7 @@ func main() {
 	*/
 
 	if clmovPath != "" {
+		clMovPlaying = true
 		drawStateEncrypted = false
 		frames, err := parseMovie(clmovPath, *clientVer)
 		if err != nil {
