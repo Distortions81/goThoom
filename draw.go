@@ -20,9 +20,10 @@ type frameDescriptor struct {
 }
 
 type framePicture struct {
-	PictID uint16
-	H, V   int16
-	Moving bool
+	PictID     uint16
+	H, V       int16
+	Moving     bool
+	Background bool
 }
 
 type frameMobile struct {
@@ -134,15 +135,18 @@ func nonTransparentPixels(id uint16) int {
 
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
 // between two consecutive frames. Pictures are matched by PictID (duplicates
-// included) and weighted by their non-transparent pixel counts. The boolean
-// result is false when no majority offset is found.
-func pictureShift(prev, cur []framePicture) (int, int, bool) {
+// included) and weighted by their non-transparent pixel counts. The returned
+// slice contains the indexes within the current frame that contributed to the
+// winning movement. The boolean result is false when no majority offset is
+// found.
+func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
-		return 0, 0, false
+		return 0, 0, nil, false
 	}
 
 	counts := make(map[[2]int]int)
+	idxMap := make(map[[2]int]map[int]struct{})
 	total := 0
 	maxInt := int(^uint(0) >> 1)
 	for _, p := range prev {
@@ -151,8 +155,9 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 		}
 		bestDist := maxInt
 		var bestDx, bestDy int
+		bestIdx := -1
 		matched := false
-		for _, c := range cur {
+		for j, c := range cur {
 			if p.PictID != c.PictID || !onScreen(c) {
 				continue
 			}
@@ -163,18 +168,24 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 				bestDist = dist
 				bestDx = dx
 				bestDy = dy
+				bestIdx = j
 				matched = true
 			}
 		}
 		if matched {
 			pixels := nonTransparentPixels(p.PictID)
-			counts[[2]int{bestDx, bestDy}] += pixels
+			key := [2]int{bestDx, bestDy}
+			counts[key] += pixels
+			if idxMap[key] == nil {
+				idxMap[key] = make(map[int]struct{})
+			}
+			idxMap[key][bestIdx] = struct{}{}
 			total += pixels
 		}
 	}
 	if total == 0 {
 		logDebug("pictureShift: no matching pairs")
-		return 0, 0, false
+		return 0, 0, nil, false
 	}
 
 	best := [2]int{}
@@ -188,13 +199,18 @@ func pictureShift(prev, cur []framePicture) (int, int, bool) {
 	logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
 	if bestCount*2 <= total {
 		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
-		return 0, 0, false
+		return 0, 0, nil, false
 	}
 	if best[0]*best[0]+best[1]*best[1] > maxInterpPixels*maxInterpPixels {
 		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
-		return 0, 0, false
+		return 0, 0, nil, false
 	}
-	return best[0], best[1], true
+
+	idxs := make([]int, 0, len(idxMap[best]))
+	for idx := range idxMap[best] {
+		idxs = append(idxs, idx)
+	}
+	return best[0], best[1], idxs, true
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be
@@ -537,8 +553,12 @@ func parseDrawState(data []byte) error {
 	newPics := make([]framePicture, again+pictCount)
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
+	for i := range newPics {
+		newPics[i].Moving = true
+		newPics[i].Background = false
+	}
+	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
 	if interp {
-		dx, dy, ok := pictureShift(prevPics, newPics)
 		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 		if !ok {
 			logDebug("prev pics: %v", picturesSummary(prevPics))
@@ -551,45 +571,14 @@ func parseDrawState(data []byte) error {
 			state.picShiftX = 0
 			state.picShiftY = 0
 		}
+	} else {
+		state.picShiftX = 0
+		state.picShiftY = 0
 	}
-
-	// classify picture movement
-	movGroups := make(map[[2]int][]int)
-	maxInt := int(^uint(0) >> 1)
-	for i, c := range newPics {
-		newPics[i].Moving = true
-		bestDist := maxInt
-		var bestDx, bestDy int
-		matched := false
-		for _, p := range prevPics {
-			if c.PictID != p.PictID {
-				continue
-			}
-			dx := int(c.H) - int(p.H)
-			dy := int(c.V) - int(p.V)
-			dist := dx*dx + dy*dy
-			if dist < bestDist {
-				bestDist = dist
-				bestDx = dx
-				bestDy = dy
-				matched = true
-			}
-		}
-		if matched {
-			movGroups[[2]int{bestDx, bestDy}] = append(movGroups[[2]int{bestDx, bestDy}], i)
-		}
-	}
-	ground := [2]int{}
-	groundCount := 0
-	for k, idxs := range movGroups {
-		if len(idxs) > groundCount {
-			ground = k
-			groundCount = len(idxs)
-		}
-	}
-	if groundCount > 0 {
-		for _, idx := range movGroups[ground] {
+	for _, idx := range bgIdxs {
+		if idx >= 0 && idx < len(newPics) {
 			newPics[idx].Moving = false
+			newPics[idx].Background = true
 		}
 	}
 
@@ -807,9 +796,9 @@ func parseDrawState(data []byte) error {
 		playSound(id)
 	}
 	stage = "inventory"
-	var ok bool
-	stateData, ok = parseInventory(stateData)
-	if !ok {
+	var invOK bool
+	stateData, invOK = parseInventory(stateData)
+	if !invOK {
 		return errors.New(stage)
 	}
 	return nil
