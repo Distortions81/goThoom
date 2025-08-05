@@ -134,17 +134,16 @@ func nonTransparentPixels(id uint16) int {
 }
 
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
-// between two consecutive frames. Pictures are matched primarily by PictID
-// (duplicates included) and weighted by their non-transparent pixel counts. After
-// determining the dominant shift, pictures in the current frame that match any
-// previous picture's position after applying that shift are also treated as
-// background, even if their PictID changed. The returned slice contains the
-// indexes within the current frame that contributed to the winning movement. The
-// boolean result is false when no majority offset is found.
-func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
+// between two consecutive frames. Pictures are matched by PictID (duplicates
+// included) and weighted by their non-transparent pixel counts. The returned
+// slice contains the indexes within the current frame that contributed to the
+// winning movement. The second boolean result indicates whether any matching
+// pairs were found, while the final boolean reports if a clear majority offset
+// exists.
+func pictureShift(prev, cur []framePicture) (int, int, []int, bool, bool) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
-		return 0, 0, nil, false
+		return 0, 0, nil, false, false
 	}
 
 	counts := make(map[[2]int]int)
@@ -187,7 +186,7 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	}
 	if total == 0 {
 		logDebug("pictureShift: no matching pairs")
-		return 0, 0, nil, false
+		return 0, 0, nil, false, false
 	}
 
 	best := [2]int{}
@@ -201,11 +200,11 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
 	if bestCount*2 <= total {
 		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
-		return 0, 0, nil, false
+		return 0, 0, nil, true, false
 	}
 	if best[0]*best[0]+best[1]*best[1] > maxInterpPixels*maxInterpPixels {
 		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
-		return 0, 0, nil, false
+		return 0, 0, nil, true, false
 	}
 
 	// Start with matches that shared the winning movement by PictID.
@@ -239,7 +238,7 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	for idx := range bgIdxs {
 		idxs = append(idxs, idx)
 	}
-	return best[0], best[1], idxs, true
+	return best[0], best[1], idxs, true, true
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be
@@ -586,9 +585,9 @@ func parseDrawState(data []byte) error {
 		newPics[i].Moving = true
 		newPics[i].Background = false
 	}
-	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
+	dx, dy, bgIdxs, matched, ok := pictureShift(prevPics, newPics)
 	if interp {
-		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
+		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) matched=%t ok=%t", again, len(prevPics), len(newPics), dx, dy, matched, ok)
 		if !ok {
 			logDebug("prev pics: %v", picturesSummary(prevPics))
 			logDebug("new  pics: %v", picturesSummary(newPics))
@@ -614,6 +613,10 @@ func parseDrawState(data []byte) error {
 	state.pictures = newPics
 
 	needPrev := interp || onion || !fastAnimation
+	if !matched {
+		state.prevMobiles = nil
+		needPrev = false
+	}
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
