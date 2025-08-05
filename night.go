@@ -164,7 +164,7 @@ func drawNightOverlay(screen *ebiten.Image) {
 		return
 	}
 
-	overlayLevel := lvl
+	overlayLevel := float64(lvl)
 
 	w := gameAreaSizeX * scale
 	h := gameAreaSizeY * scale

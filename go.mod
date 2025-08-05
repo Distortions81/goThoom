@@ -5,7 +5,7 @@ go 1.24.3
 require github.com/hajimehoshi/ebiten/v2 v2.8.8
 
 require (
-	github.com/Distortions81/EUI v0.0.6
+	github.com/Distortions81/EUI v0.0.7
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	golang.org/x/crypto v0.40.0
 )
