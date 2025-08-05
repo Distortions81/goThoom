@@ -384,17 +384,24 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if blockRender {
-		return
-	}
+
 	//screen.Fill(color.White)
 	if clmov == "" && tcpConn == nil && !noSplash {
 		drawSplash(screen)
 		return
 	}
+
+	if blockRender {
+		//drawSplash(screen)
+		screen.Fill(color.NRGBA{128, 128, 128, 255})
+		drawMessages(screen, getMessages())
+		return
+	}
+
 	snap := captureDrawSnapshot()
 	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
+
 	drawScene(screen, snap, alpha, fade)
 	if nightMode {
 		drawNightOverlay(screen)
