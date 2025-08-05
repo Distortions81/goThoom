@@ -149,22 +149,31 @@ func drawNightOverlay(screen *ebiten.Image) {
 	screen.DrawImage(nightImg, op)
 }
 
-func rebuildNightOverlay(w, h, level int) *ebiten.Image {
+// rebuildNightOverlay creates a radial gradient that becomes fully opaque at
+// the given radius percentage of the maximum possible radius from the center
+// of the screen.
+func rebuildNightOverlay(w, h, radiusPercent int) *ebiten.Image {
 	img := ebiten.NewImage(w, h)
-	lf := float64(level) / 100.0
 
 	cx := float64(w) / 2
 	cy := float64(h) / 2
-	radius := math.Sqrt(cx*cx + cy*cy)
+
+	maxRadius := math.Sqrt(cx*cx + cy*cy)
+	radius := maxRadius * float64(radiusPercent) / 100
+
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			dx := float64(x) - cx
 			dy := float64(y) - cy
-			t := math.Sqrt(dx*dx+dy*dy) / radius
-			if t > 1 {
-				t = 1
+			dist := math.Sqrt(dx*dx + dy*dy)
+
+			var a float64
+			if dist >= radius {
+				a = 1
+			} else {
+				a = dist / radius
 			}
-			a := lf * t
+
 			clr := color.RGBA{
 				R: 0,
 				G: 0,
