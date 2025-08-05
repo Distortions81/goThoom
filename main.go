@@ -40,6 +40,7 @@ var (
 	fastBars    bool
 	maxSounds   int
 	nightLevel  int
+	blockSound  bool
 
 	loginRequest = make(chan struct{})
 )

@@ -170,6 +170,10 @@ func (p *moviePlayer) skipBack() { p.seek(p.cur - 5*p.fps) }
 func (p *moviePlayer) skipForward() { p.seek(p.cur + 5*p.fps) }
 
 func (p *moviePlayer) seek(idx int) {
+
+	blockSound = true
+	defer func() { blockSound = false }()
+
 	if idx < 0 {
 		idx = 0
 	}

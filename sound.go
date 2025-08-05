@@ -24,6 +24,9 @@ var (
 	resample = resampleSinc
 
 	playSound = func(id uint16) {
+		if blockSound {
+			return
+		}
 		//logError("sound: %v", id)
 		pcm := loadSound(id)
 		if pcm == nil || audioContext == nil {
@@ -59,31 +62,8 @@ func initSoundContext() {
 	resample = resampleSinc
 	if fastSound {
 		rate = 22050
-		resample = resampleLinear
 	}
 	audioContext = audio.NewContext(rate)
-}
-
-// resampleLinear resamples the given 16-bit samples from srcRate to dstRate
-// using simple linear interpolation.
-func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
-	if srcRate == dstRate || len(src) == 0 {
-		return append([]int16(nil), src...)
-	}
-	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
-	dst := make([]int16, n)
-	ratio := float64(srcRate) / float64(dstRate)
-	for i := 0; i < n; i++ {
-		pos := float64(i) * ratio
-		idx := int(pos)
-		frac := pos - float64(idx)
-		if idx+1 < len(src) {
-			dst[i] = int16(float64(src[idx])*(1-frac) + float64(src[idx+1])*frac)
-		} else {
-			dst[i] = src[idx]
-		}
-	}
-	return dst
 }
 
 // resampleSinc resamples the given 16-bit samples from srcRate to dstRate using
