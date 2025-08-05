@@ -9,6 +9,8 @@ import (
 	"github.com/hako/durafmt"
 )
 
+var shortUnits, _ = durafmt.DefaultUnitsCoder.Decode("y:yrs,wk:wks,d:d,h:h,m:m,s:s,ms:ms,us:us")
+
 // moviePlayer manages clMov playback with basic controls.
 type moviePlayer struct {
 	frames  [][]byte
@@ -55,7 +57,7 @@ func (p *moviePlayer) initUI() {
 
 	max := float32(len(p.frames))
 	var events *eui.EventHandler
-	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 450, Y: 24}})
+	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 450, Y: 24}, IntOnly: true})
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))
@@ -64,7 +66,8 @@ func (p *moviePlayer) initUI() {
 	tFlow.AddItem(p.slider)
 
 	totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
-	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.ParseShort(totalDur).String(), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
+	totalDur = totalDur.Round(time.Second)
+	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
 	tFlow.AddItem(p.totalLabel)
 
 	flow.AddItem(tFlow)
@@ -153,7 +156,8 @@ func (p *moviePlayer) updateUI() {
 	}
 	if p.curLabel != nil {
 		d := time.Duration(p.cur) * time.Second / time.Duration(p.fps)
-		p.curLabel.Text = durafmt.ParseShort(d).String()
+		d = d.Round(time.Second)
+		p.curLabel.Text = durafmt.Parse(d).LimitFirstN(2).Format(shortUnits)
 		p.curLabel.Dirty = true
 	}
 }
