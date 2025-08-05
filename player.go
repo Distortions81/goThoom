@@ -50,3 +50,13 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte) {
 	}
 	playersMu.Unlock()
 }
+
+func getPlayers() []Player {
+	playersMu.RLock()
+	defer playersMu.RUnlock()
+	out := make([]Player, 0, len(players))
+	for _, p := range players {
+		out = append(out, *p)
+	}
+	return out
+}
