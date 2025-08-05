@@ -200,6 +200,63 @@ func captureDrawSnapshot() drawSnapshot {
 	return snap
 }
 
+// applyDrawSnapshot restores the shared draw state from a snapshot.
+func applyDrawSnapshot(snap drawSnapshot, fps int) {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+
+	state.descriptors = make(map[uint8]frameDescriptor, len(snap.descriptors))
+	for idx, d := range snap.descriptors {
+		state.descriptors[idx] = d
+	}
+
+	state.pictures = append([]framePicture(nil), snap.pictures...)
+	state.picShiftX = snap.picShiftX
+	state.picShiftY = snap.picShiftY
+
+	state.mobiles = make(map[uint8]frameMobile, len(snap.mobiles))
+	for _, m := range snap.mobiles {
+		state.mobiles[m.Index] = m
+	}
+
+	if snap.prevMobiles != nil {
+		state.prevMobiles = make(map[uint8]frameMobile, len(snap.prevMobiles))
+		for idx, m := range snap.prevMobiles {
+			state.prevMobiles[idx] = m
+		}
+	} else {
+		state.prevMobiles = nil
+	}
+
+	if snap.prevDescs != nil {
+		state.prevDescs = make(map[uint8]frameDescriptor, len(snap.prevDescs))
+		for idx, d := range snap.prevDescs {
+			state.prevDescs[idx] = d
+		}
+	} else {
+		state.prevDescs = nil
+	}
+
+	state.bubbles = append([]bubble(nil), snap.bubbles...)
+
+	state.hp = snap.hp
+	state.hpMax = snap.hpMax
+	state.sp = snap.sp
+	state.spMax = snap.spMax
+	state.balance = snap.balance
+	state.balanceMax = snap.balanceMax
+	state.prevHP = snap.prevHP
+	state.prevHPMax = snap.prevHPMax
+	state.prevSP = snap.prevSP
+	state.prevSPMax = snap.prevSPMax
+	state.prevBalance = snap.prevBalance
+	state.prevBalanceMax = snap.prevBalanceMax
+
+	interval := time.Second / time.Duration(fps)
+	state.prevTime = time.Now()
+	state.curTime = state.prevTime.Add(interval)
+}
+
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
 func computeInterpolation(prevTime, curTime time.Time) (alpha float64, fade float32) {
 	alpha = 1.0

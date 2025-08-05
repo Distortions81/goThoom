@@ -20,6 +20,7 @@ type moviePlayer struct {
 	playing bool
 	ticker  *time.Ticker
 	cancel  context.CancelFunc
+	states  []drawSnapshot
 
 	slider     *eui.ItemData
 	curLabel   *eui.ItemData
@@ -31,7 +32,7 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 	return &moviePlayer{
 		frames:  frames,
 		fps:     fps,
-		playing: true,
+		playing: false,
 		ticker:  time.NewTicker(time.Second / time.Duration(fps)),
 		cancel:  cancel,
 	}
@@ -167,6 +168,25 @@ func (p *moviePlayer) initUI() {
 	p.updateUI()
 }
 
+// cacheFrames simulates all frames and stores draw state snapshots.
+func (p *moviePlayer) cacheFrames() {
+	addMessage("caching clMov frames...")
+	p.states = make([]drawSnapshot, 0, len(p.frames)+1)
+	p.states = append(p.states, captureDrawSnapshot())
+	for _, m := range p.frames {
+		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
+			handleDrawState(m)
+		}
+		if txt := decodeMessage(m); txt != "" {
+			_ = txt
+		}
+		p.states = append(p.states, captureDrawSnapshot())
+	}
+	applyDrawSnapshot(p.states[0], p.fps)
+	p.cur = 0
+	addMessage("Complete!")
+}
+
 func (p *moviePlayer) run(ctx context.Context) {
 	for {
 		select {
@@ -182,23 +202,15 @@ func (p *moviePlayer) run(ctx context.Context) {
 }
 
 func (p *moviePlayer) step() {
-	if p.cur >= len(p.frames) {
+	if p.cur >= len(p.states)-1 {
 		p.playing = false
-		//p.cancel()
 		return
 	}
-	m := p.frames[p.cur]
-	if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
-		handleDrawState(m)
-	}
-	if txt := decodeMessage(m); txt != "" {
-		_ = txt
-	}
 	p.cur++
+	applyDrawSnapshot(p.states[p.cur], p.fps)
 	p.updateUI()
-	if p.cur >= len(p.frames) {
+	if p.cur >= len(p.states)-1 {
 		p.playing = false
-		//p.cancel()
 	}
 }
 
@@ -252,47 +264,18 @@ func (p *moviePlayer) skipForwardMilli(milli int) {
 }
 
 func (p *moviePlayer) seek(idx int) {
-	blockSound = true
-	blockBubbles = true
-	defer func() {
-		blockSound = false
-		blockBubbles = false
-	}()
-
 	if idx < 0 {
 		idx = 0
 	}
-	if idx > len(p.frames) {
-		idx = len(p.frames)
+	if idx > len(p.states)-1 {
+		idx = len(p.states) - 1
 	}
 	wasPlaying := p.playing
 	p.playing = false
-
-	//resetDrawState()
-	for i := 0; i < idx; i++ {
-		m := p.frames[i]
-		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
-			handleDrawState(m)
-		}
-		if txt := decodeMessage(m); txt != "" {
-			_ = txt
-		}
-	}
+	applyDrawSnapshot(p.states[idx], p.fps)
 	p.cur = idx
-	resetInterpolation()
 	p.updateUI()
 	p.playing = wasPlaying
-}
-
-func resetDrawState() {
-	stateMu.Lock()
-	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
-	}
-	stateMu.Unlock()
 }
 
 func resetInterpolation() {

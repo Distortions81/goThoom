@@ -203,6 +203,10 @@ func main() {
 		mp := newMoviePlayer(frames, clMovFPS, cancel)
 		mp.initUI()
 		go mp.run(ctx)
+		go func() {
+			mp.cacheFrames()
+			mp.play()
+		}()
 
 		<-ctx.Done()
 		return
