@@ -9,6 +9,7 @@ type inventoryItem struct {
 	ID       uint16
 	Name     string
 	Equipped bool
+	Index    int
 }
 
 var (
@@ -22,40 +23,64 @@ func resetInventory() {
 	inventoryMu.Unlock()
 }
 
-func addInventoryItem(id uint16, name string, equip bool) {
+func addInventoryItem(id uint16, idx int, name string, equip bool) {
 	inventoryMu.Lock()
-	inventoryItems = append(inventoryItems, inventoryItem{ID: id, Name: name, Equipped: equip})
-	inventoryMu.Unlock()
+	defer inventoryMu.Unlock()
+	if idx < 0 || idx > len(inventoryItems) {
+		idx = len(inventoryItems)
+	}
+	item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: idx}
+	inventoryItems = append(inventoryItems, inventoryItem{})
+	copy(inventoryItems[idx+1:], inventoryItems[idx:])
+	inventoryItems[idx] = item
+	for i := range inventoryItems {
+		inventoryItems[i].Index = i
+	}
 }
 
-func removeInventoryItem(id uint16) {
+func removeInventoryItem(id uint16, idx int) {
 	inventoryMu.Lock()
-	for i, it := range inventoryItems {
-		if it.ID == id {
-			inventoryItems = append(inventoryItems[:i], inventoryItems[i+1:]...)
-			break
+	defer inventoryMu.Unlock()
+	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
+		inventoryItems = append(inventoryItems[:idx], inventoryItems[idx+1:]...)
+	} else {
+		for i, it := range inventoryItems {
+			if it.ID == id {
+				inventoryItems = append(inventoryItems[:i], inventoryItems[i+1:]...)
+				break
+			}
+		}
+	}
+	for i := range inventoryItems {
+		inventoryItems[i].Index = i
+	}
+}
+
+func equipInventoryItem(id uint16, idx int, equip bool) {
+	inventoryMu.Lock()
+	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
+		inventoryItems[idx].Equipped = equip
+	} else {
+		for i := range inventoryItems {
+			if inventoryItems[i].ID == id {
+				inventoryItems[i].Equipped = equip
+				break
+			}
 		}
 	}
 	inventoryMu.Unlock()
 }
 
-func equipInventoryItem(id uint16, equip bool) {
+func renameInventoryItem(id uint16, idx int, name string) {
 	inventoryMu.Lock()
-	for i := range inventoryItems {
-		if inventoryItems[i].ID == id {
-			inventoryItems[i].Equipped = equip
-			break
-		}
-	}
-	inventoryMu.Unlock()
-}
-
-func renameInventoryItem(id uint16, name string) {
-	inventoryMu.Lock()
-	for i := range inventoryItems {
-		if inventoryItems[i].ID == id {
-			inventoryItems[i].Name = name
-			break
+	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
+		inventoryItems[idx].Name = name
+	} else {
+		for i := range inventoryItems {
+			if inventoryItems[i].ID == id {
+				inventoryItems[i].Name = name
+				break
+			}
 		}
 	}
 	inventoryMu.Unlock()
@@ -77,7 +102,7 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		if i < len(equipped) && equipped[i] {
 			equip = true
 		}
-		items = append(items, inventoryItem{ID: id, Name: name, Equipped: equip})
+		items = append(items, inventoryItem{ID: id, Name: name, Equipped: equip, Index: i})
 	}
 	inventoryMu.Lock()
 	inventoryItems = items
