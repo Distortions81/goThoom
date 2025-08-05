@@ -152,14 +152,10 @@ func drawNightOverlay(screen *ebiten.Image) {
 func rebuildNightOverlay(w, h, level int) *ebiten.Image {
 	img := ebiten.NewImage(w, h)
 	lf := float64(level) / 100.0
-	rim := 1.0 - lf
-	center := rim
-	if lf >= 0.5 {
-		center = 0.5
-	}
+
 	cx := float64(w) / 2
 	cy := float64(h) / 2
-	radius := 325.0 * float64(scale)
+	radius := math.Sqrt(cx*cx + cy*cy)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			dx := float64(x) - cx
@@ -168,17 +164,12 @@ func rebuildNightOverlay(w, h, level int) *ebiten.Image {
 			if t > 1 {
 				t = 1
 			}
-			c := center*(1-t) + rim*t
-			if c < 0 {
-				c = 0
-			} else if c > 1 {
-				c = 1
-			}
+			a := lf * t
 			clr := color.RGBA{
 				R: 0,
 				G: 0,
 				B: 0,
-				A: uint8(c * 255),
+				A: uint8(a * 255),
 			}
 			img.Set(x, y, clr)
 		}
