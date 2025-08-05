@@ -39,6 +39,7 @@ var (
 	fastSound   bool
 	fastBars    bool
 	maxSounds   int
+	nightLevel  int
 
 	loginRequest = make(chan struct{})
 )
@@ -72,8 +73,22 @@ func main() {
 	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
 	flag.BoolVar(&fastBars, "fastBars", true, "do not interpolate bar decreases")
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
+	flag.IntVar(&nightLevel, "night", 0, "force night level (0-100)")
 
 	flag.Parse()
+	if nightLevel != 0 {
+		if nightLevel < 0 {
+			nightLevel = 0
+		} else if nightLevel > 100 {
+			nightLevel = 100
+		}
+		nightMode = true
+		gNight.mu.Lock()
+		gNight.BaseLevel = nightLevel
+		gNight.Level = nightLevel
+		gNight.calcCurLevel()
+		gNight.mu.Unlock()
+	}
 	fastAnimation = !noFastAnimation
 	initSoundContext()
 
