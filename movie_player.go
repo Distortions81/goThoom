@@ -55,7 +55,7 @@ func (p *moviePlayer) initUI() {
 
 	max := float32(len(p.frames))
 	var events *eui.EventHandler
-	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 200, Y: 24}})
+	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 450, Y: 24}})
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))
@@ -80,13 +80,13 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(back)
 
-	stop, stopEv := eui.NewButton(&eui.ItemData{Text: "Stop", Size: eui.Point{X: 50, Y: 24}})
-	stopEv.Handle = func(ev eui.UIEvent) {
+	pause, pauseEv := eui.NewButton(&eui.ItemData{Text: "Pause", Size: eui.Point{X: 50, Y: 24}})
+	pauseEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			p.stop()
+			p.pause()
 		}
 	}
-	bFlow.AddItem(stop)
+	bFlow.AddItem(pause)
 
 	play, playEv := eui.NewButton(&eui.ItemData{Text: "Play", Size: eui.Point{X: 50, Y: 24}})
 	playEv.Handle = func(ev eui.UIEvent) {
@@ -160,9 +160,8 @@ func (p *moviePlayer) updateUI() {
 
 func (p *moviePlayer) play() { p.playing = true }
 
-func (p *moviePlayer) stop() {
+func (p *moviePlayer) pause() {
 	p.playing = false
-	//p.seek(0)
 }
 
 func (p *moviePlayer) skipBack() { p.seek(p.cur - 5*p.fps) }
