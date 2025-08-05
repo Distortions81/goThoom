@@ -829,6 +829,10 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 
 // drawMessages prints chat messages on the HUD.
 func drawMessages(screen *ebiten.Image, msgs []string) {
+	if blockRender {
+		return
+	}
+
 	y := (gameAreaSizeY - 50) * scale
 	maxWidth := float64(gameAreaSizeX*scale - 8*scale)
 	for i := len(msgs) - 1; i >= 0; i-- {
