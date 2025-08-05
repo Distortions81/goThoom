@@ -189,7 +189,10 @@ func initUI() {
 		Movable:   true,
 	})
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	title, _ := eui.NewText(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 256, Y: 128}})
+	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
+	inventoryWin.Open = false
 	inventoryWin.AddWindow(false)
 
 	overlay := &eui.ItemData{
