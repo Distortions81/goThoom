@@ -7,6 +7,46 @@ import (
 	"testing"
 )
 
+func TestPictureShiftMatchesDifferentIDsByPosition(t *testing.T) {
+	pixelCountMu.Lock()
+	pixelCountCache[1] = 1
+	pixelCountCache[2] = 1
+	pixelCountCache[3] = 1
+	pixelCountMu.Unlock()
+
+	prev := []framePicture{
+		{PictID: 1, H: 10, V: 10},
+		{PictID: 2, H: 20, V: 20},
+	}
+	cur := []framePicture{
+		{PictID: 3, H: 11, V: 10},
+		{PictID: 2, H: 21, V: 20},
+	}
+
+	dx, dy, idxs, ok := pictureShift(prev, cur)
+	if !ok {
+		t.Fatalf("pictureShift returned ok=false")
+	}
+	if dx != 1 || dy != 0 {
+		t.Fatalf("dx,dy=(%d,%d) want (1,0)", dx, dy)
+	}
+	if len(idxs) != 2 {
+		t.Fatalf("idxs=%v want [0 1]", idxs)
+	}
+	found0, found1 := false, false
+	for _, idx := range idxs {
+		if idx == 0 {
+			found0 = true
+		}
+		if idx == 1 {
+			found1 = true
+		}
+	}
+	if !found0 || !found1 {
+		t.Fatalf("idxs=%v want [0 1]", idxs)
+	}
+}
+
 func TestHandleDrawStateInfoStrings(t *testing.T) {
 	messages = nil
 	state = drawState{}

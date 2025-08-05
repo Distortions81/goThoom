@@ -134,11 +134,13 @@ func nonTransparentPixels(id uint16) int {
 }
 
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
-// between two consecutive frames. Pictures are matched by PictID (duplicates
-// included) and weighted by their non-transparent pixel counts. The returned
-// slice contains the indexes within the current frame that contributed to the
-// winning movement. The boolean result is false when no majority offset is
-// found.
+// between two consecutive frames. Pictures are matched primarily by PictID
+// (duplicates included) and weighted by their non-transparent pixel counts. After
+// determining the dominant shift, pictures in the current frame that match any
+// previous picture's position after applying that shift are also treated as
+// background, even if their PictID changed. The returned slice contains the
+// indexes within the current frame that contributed to the winning movement. The
+// boolean result is false when no majority offset is found.
 func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
@@ -206,8 +208,35 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 		return 0, 0, nil, false
 	}
 
-	idxs := make([]int, 0, len(idxMap[best]))
+	// Start with matches that shared the winning movement by PictID.
+	bgIdxs := make(map[int]struct{}, len(idxMap[best]))
 	for idx := range idxMap[best] {
+		bgIdxs[idx] = struct{}{}
+	}
+
+	// Add pictures whose positions match a previous picture after applying
+	// the winning shift, regardless of PictID.
+	posCounts := make(map[[2]int]int)
+	for _, p := range prev {
+		if !onScreen(p) {
+			continue
+		}
+		pos := [2]int{int(p.H) + best[0], int(p.V) + best[1]}
+		posCounts[pos]++
+	}
+	for i, c := range cur {
+		if !onScreen(c) {
+			continue
+		}
+		pos := [2]int{int(c.H), int(c.V)}
+		if posCounts[pos] > 0 {
+			bgIdxs[i] = struct{}{}
+			posCounts[pos]--
+		}
+	}
+
+	idxs := make([]int, 0, len(bgIdxs))
+	for idx := range bgIdxs {
 		idxs = append(idxs, idx)
 	}
 	return best[0], best[1], idxs, true
