@@ -48,7 +48,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 	sw, sh := gameAreaSizeX, gameAreaSizeY
 	pad := 4 * scale
 
-	maxLineWidth := sw / 8
+	maxLineWidth := sw / 3
 	lines := wrapText(txt, nameFace, float64(maxLineWidth))
 	metrics := nameFace.Metrics()
 	lineHeight := int(math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap))
@@ -79,7 +79,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 	op.GeoM.Translate(float64(left), float64(top))
 	screen.DrawImage(box, op)
 
-	baseline := top + pad + int(math.Ceil(metrics.HAscent))
+	baseline := top + pad
 	textLeft := left + pad
 	for i, line := range lines {
 		op := &text.DrawOptions{}
