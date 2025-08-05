@@ -151,8 +151,11 @@ func parseNightCommand(s string) bool {
 }
 
 var (
-	nightImgs            = map[float64]*ebiten.Image{}
-	nightImgW, nightImgH int
+	nightImg         *ebiten.Image
+	nightImgW        int
+	nightImgH        int
+	nightImgLevel    int
+	nightImgRedshift float64
 )
 
 func drawNightOverlay(screen *ebiten.Image) {
@@ -164,40 +167,36 @@ func drawNightOverlay(screen *ebiten.Image) {
 		return
 	}
 
-	overlayLevel := float64(lvl)
-
 	w := gameAreaSizeX * scale
 	h := gameAreaSizeY * scale
-	if nightImgW != w || nightImgH != h {
-		nightImgs = map[float64]*ebiten.Image{}
+	if nightImg == nil || nightImgW != w || nightImgH != h || nightImgLevel != lvl || nightImgRedshift != redshift {
+		nightImg = rebuildNightOverlay(w, h, lvl, redshift)
 		nightImgW, nightImgH = w, h
-	}
-	nightImg := nightImgs[overlayLevel]
-	if nightImg == nil {
-		nightImg = rebuildNightOverlay(w, h, overlayLevel)
-		nightImgs[overlayLevel] = nightImg
+		nightImgLevel = lvl
+		nightImgRedshift = redshift
 	}
 
-	op := &ebiten.DrawImageOptions{}
-	if redshift > 1 {
-		var cm ebiten.ColorM
-		cm.SetElement(0, 3, redshift-1)
-		op.ColorM = cm
-	}
+	op := &ebiten.DrawImageOptions{CompositeMode: ebiten.CompositeModeMultiply}
 	screen.DrawImage(nightImg, op)
 }
 
-// rebuildNightOverlay creates a radial gradient that becomes fully opaque at
-// the given radius percentage of the maximum possible radius from the center
-// of the screen.
-func rebuildNightOverlay(w, h int, radiusPercent float64) *ebiten.Image {
+// rebuildNightOverlay recreates the night shading so it behaves like the
+// OpenGL version from the Macintosh client. Levels <= 50 uniformly darken the
+// scene. Above that a circular gradient fades from a fixed center brightness
+// to the rim color. Redshift tints the rim toward red during twilight.
+func rebuildNightOverlay(w, h, lvl int, redshift float64) *ebiten.Image {
 	img := ebiten.NewImage(w, h)
+
+	nightLevel := float64(lvl) / 100
+	rimColor := 1 - nightLevel
+	centerColor := rimColor
+	if nightLevel >= 0.5 {
+		centerColor = 0.5
+	}
 
 	cx := float64(w) / 2
 	cy := float64(h) / 2
-
-	maxRadius := math.Sqrt(cx*cx + cy*cy)
-	radius := maxRadius * radiusPercent / 100
+	radius := math.Min(float64(w), float64(h)) / 2
 
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
@@ -205,18 +204,42 @@ func rebuildNightOverlay(w, h int, radiusPercent float64) *ebiten.Image {
 			dy := float64(y) - cy
 			dist := math.Sqrt(dx*dx + dy*dy)
 
-			var a float64
-			if dist >= radius {
-				a = 1
+			var r, g, b float64
+			if nightLevel <= 0.5 {
+				f := rimColor
+				r = f * redshift
+				if r > 1 {
+					r = 1
+				}
+				g = f
+				b = f
 			} else {
-				a = dist / radius
+				t := dist / radius
+				if t > 1 {
+					f := rimColor
+					r = f * redshift
+					if r > 1 {
+						r = 1
+					}
+					g = f
+					b = f
+				} else {
+					f := centerColor + (rimColor-centerColor)*t
+					rf := centerColor + (rimColor*redshift-centerColor)*t
+					if rf > 1 {
+						rf = 1
+					}
+					r = rf
+					g = f
+					b = f
+				}
 			}
 
 			clr := color.RGBA{
-				R: 0,
-				G: 0,
-				B: 0,
-				A: uint8(a * 255),
+				R: uint8(r * 255),
+				G: uint8(g * 255),
+				B: uint8(b * 255),
+				A: 0xff,
 			}
 			img.Set(x, y, clr)
 		}
