@@ -305,6 +305,7 @@ func TestParseDrawStateBubbleErrors(t *testing.T) {
 }
 
 func TestParseInventory(t *testing.T) {
+	resetInventory()
 	data := []byte{byte(kInvCmdAdd), 0x00, 0x01}
 	data = append(data, []byte("foo")...)
 	data = append(data, 0) // name terminator
@@ -312,6 +313,10 @@ func TestParseInventory(t *testing.T) {
 	rest, ok := parseInventory(data)
 	if !ok || len(rest) != 0 {
 		t.Fatalf("ok=%v rest=%v", ok, rest)
+	}
+	inv := getInventory()
+	if len(inv) != 1 || inv[0].ID != 1 || inv[0].Name != "foo" {
+		t.Fatalf("inventory=%v", inv)
 	}
 }
 

@@ -317,6 +317,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	screen.Fill(color.White)
 	if clmov == "" && tcpConn == nil && !noSplash {
 		drawSplash(screen)
 		return
