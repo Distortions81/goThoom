@@ -21,8 +21,6 @@ const (
 	bubbleMediumHeight = 43
 	bubbleLargeWidth   = 164
 	bubbleLargeHeight  = 53
-
-	bubbleAspect = 2.0
 )
 
 // gBubbleMap previously mapped bubble types to columns in the bubble sprite
@@ -50,54 +48,12 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int) {
 	sw, sh := gameAreaSizeX, gameAreaSizeY
 	pad := 4 * scale
 
-	// Maximum bubble size fills the screen while keeping the 2:1 aspect ratio.
-	maxW := sw - 2*pad
-	maxH := sh - 2*pad
-	if alt := int(float64(maxH) * bubbleAspect); alt < maxW {
-		maxW = alt
-	}
-	maxH = int(float64(maxW) / bubbleAspect)
-
-	// First wrap using the largest allowable width to measure the text.
-	lines := wrapText(txt, nameFace, float64(maxW-2*pad))
+	maxLineWidth := sw / 8
+	lines := wrapText(txt, nameFace, float64(maxLineWidth))
 	metrics := nameFace.Metrics()
-	lineHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent + metrics.HLineGap))
-	textHeight := lineHeight * len(lines)
-	textWidth := 0
-	for _, line := range lines {
-		w, _ := text.Measure(line, nameFace, 0)
-		if int(math.Ceil(w)) > textWidth {
-			textWidth = int(math.Ceil(w))
-		}
-	}
-
-	// Size the bubble to fit the text with padding, preserving 2:1.
-	width := textWidth + 2*pad
-	height := int(math.Ceil(float64(width) / bubbleAspect))
-	if height < textHeight+2*pad {
-		height = textHeight + 2*pad
-		width = int(math.Ceil(float64(height) * bubbleAspect))
-	}
-
-	if width > maxW {
-		width = maxW
-		height = int(math.Ceil(float64(width) / bubbleAspect))
-	}
-	if height > maxH {
-		height = maxH
-		width = int(math.Ceil(float64(height) * bubbleAspect))
-	}
-
-	// Re-wrap with the final width to ensure text fits.
-	lines = wrapText(txt, nameFace, float64(width-2*pad))
-	textHeight = lineHeight * len(lines)
-	if textHeight+2*pad > height {
-		maxLines := (height - 2*pad) / lineHeight
-		if maxLines < len(lines) {
-			lines = lines[:maxLines]
-		}
-		textHeight = lineHeight * len(lines)
-	}
+	lineHeight := int(math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap))
+	width := maxLineWidth + 2*pad
+	height := lineHeight*len(lines) + 2*pad
 
 	bottom := y - 10*scale
 	left := x - width/2
