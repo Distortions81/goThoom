@@ -200,15 +200,16 @@ func initUI() {
 		Open:      false,
 		Closable:  false,
 		Resizable: false,
-		AutoSize:  true,
+		AutoSize:  false,
 		Movable:   true,
+		Size:      eui.Point{X: 128, Y: 384},
 	})
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	pTitle, _ := eui.NewText(&eui.ItemData{Text: "Players", Size: eui.Point{X: 256, Y: 128}})
-	playersWin.AddItem(pTitle)
 	playersWin.AddItem(playersList)
 	playersWin.Open = false
 	playersWin.AddWindow(false)
+	playersWin.Resizable = true
+	playersWin.AutoSize = true
 
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
