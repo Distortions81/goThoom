@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	soundMu    sync.Mutex
-	clSounds   *clsnd.CLSounds
-	soundCache = make(map[uint16]*clsnd.Sound)
+	soundMu  sync.Mutex
+	clSounds *clsnd.CLSounds
+	pcmCache = make(map[uint16][]byte)
 
 	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
@@ -25,43 +25,9 @@ var (
 
 	playSound = func(id uint16) {
 		//logError("sound: %v", id)
-		s := loadSound(id)
-		if s == nil || audioContext == nil {
+		pcm := loadSound(id)
+		if pcm == nil || audioContext == nil {
 			return
-		}
-
-		srcRate := int(s.SampleRate / 2)
-		dstRate := audioContext.SampleRate()
-
-		// Decode the sound data into 16-bit samples.
-		var samples []int16
-		switch s.Bits {
-		case 8:
-			samples = make([]int16, len(s.Data))
-			for i, b := range s.Data {
-				v := int16(b) - 0x80
-				samples[i] = v << 8
-			}
-		case 16:
-			if len(s.Data)%2 != 0 {
-				return
-			}
-			samples = make([]int16, len(s.Data)/2)
-			for i := 0; i < len(samples); i++ {
-				samples[i] = int16(binary.BigEndian.Uint16(s.Data[2*i : 2*i+2]))
-			}
-		default:
-			return
-		}
-
-		if srcRate != dstRate {
-			samples = resample(samples, srcRate, dstRate)
-		}
-
-		pcm := make([]byte, len(samples)*2)
-		for i, v := range samples {
-			pcm[2*i] = byte(v)
-			pcm[2*i+1] = byte(v >> 8)
 		}
 
 		p := audioContext.NewPlayerFromBytes(pcm)
@@ -165,27 +131,79 @@ func sinc(x float64) float64 {
 	return math.Sin(x) / x
 }
 
-// loadSound retrieves and caches a sound by ID. The CL_Sounds archive is
+// loadSound retrieves a sound by ID, resamples it to match the audio context's
+// sample rate, and caches the resulting PCM bytes. The CL_Sounds archive is
 // opened on first use and individual sounds are parsed lazily.
-func loadSound(id uint16) *clsnd.Sound {
-	soundMu.Lock()
-	defer soundMu.Unlock()
-	if s, ok := soundCache[id]; ok {
-		return s
+func loadSound(id uint16) []byte {
+	if audioContext == nil {
+		return nil
 	}
+
+	soundMu.Lock()
+	if pcm, ok := pcmCache[id]; ok {
+		soundMu.Unlock()
+		return pcm
+	}
+	soundMu.Unlock()
+
+	soundMu.Lock()
 	if clSounds == nil {
 		var err error
 		clSounds, err = clsnd.Load(filepath.Join(dataDir, "CL_Sounds"))
 		if err != nil {
 			log.Printf("load CL_Sounds: %v", err)
-			soundCache[id] = nil
+			pcmCache[id] = nil
+			soundMu.Unlock()
 			return nil
 		}
 	}
+	soundMu.Unlock()
+
 	s := clSounds.Get(uint32(id))
 	if s == nil {
 		log.Printf("missing sound %d", id)
+		soundMu.Lock()
+		pcmCache[id] = nil
+		soundMu.Unlock()
+		return nil
 	}
-	soundCache[id] = s
-	return s
+
+	srcRate := int(s.SampleRate / 2)
+	dstRate := audioContext.SampleRate()
+
+	// Decode the sound data into 16-bit samples.
+	var samples []int16
+	switch s.Bits {
+	case 8:
+		samples = make([]int16, len(s.Data))
+		for i, b := range s.Data {
+			v := int16(b) - 0x80
+			samples[i] = v << 8
+		}
+	case 16:
+		if len(s.Data)%2 != 0 {
+			return nil
+		}
+		samples = make([]int16, len(s.Data)/2)
+		for i := 0; i < len(samples); i++ {
+			samples[i] = int16(binary.BigEndian.Uint16(s.Data[2*i : 2*i+2]))
+		}
+	default:
+		return nil
+	}
+
+	if srcRate != dstRate {
+		samples = resample(samples, srcRate, dstRate)
+	}
+
+	pcm := make([]byte, len(samples)*2)
+	for i, v := range samples {
+		pcm[2*i] = byte(v)
+		pcm[2*i+1] = byte(v >> 8)
+	}
+
+	soundMu.Lock()
+	pcmCache[id] = pcm
+	soundMu.Unlock()
+	return pcm
 }

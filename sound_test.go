@@ -3,18 +3,30 @@ package main
 import (
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 
 	"go_client/clsnd"
 )
 
+func setTestSounds(m map[uint16]*clsnd.Sound) {
+	clSounds = &clsnd.CLSounds{}
+	cache := make(map[uint32]*clsnd.Sound, len(m))
+	for id, snd := range m {
+		cache[uint32(id)] = snd
+	}
+	v := reflect.ValueOf(clSounds).Elem().FieldByName("cache")
+	reflect.NewAt(v.Type(), unsafe.Pointer(v.UnsafeAddr())).Elem().Set(reflect.ValueOf(cache))
+}
+
 // TestPlaySoundResample ensures sounds with a sample rate different from the
 // audio context are resampled and produce audio bytes.
 func TestPlaySoundResample(t *testing.T) {
+	initSoundContext()
 	// Reset caches and players.
 	soundMu.Lock()
-	soundCache = make(map[uint16]*clsnd.Sound)
+	pcmCache = make(map[uint16][]byte)
 	soundMu.Unlock()
 	soundPlayers = make(map[*audio.Player]struct{})
 
@@ -26,9 +38,7 @@ func TestPlaySoundResample(t *testing.T) {
 		Bits:       16,
 	}
 
-	soundMu.Lock()
-	soundCache[id] = snd
-	soundMu.Unlock()
+	setTestSounds(map[uint16]*clsnd.Sound{id: snd})
 
 	playSound(id)
 
@@ -68,7 +78,7 @@ func TestMaxSoundsLimit(t *testing.T) {
 
 	// Reset caches and players.
 	soundMu.Lock()
-	soundCache = make(map[uint16]*clsnd.Sound)
+	pcmCache = make(map[uint16][]byte)
 	soundMu.Unlock()
 	soundPlayers = make(map[*audio.Player]struct{})
 
@@ -81,11 +91,7 @@ func TestMaxSoundsLimit(t *testing.T) {
 		Bits:       16,
 	}
 
-	soundMu.Lock()
-	soundCache[1] = snd
-	soundCache[2] = snd
-	soundCache[3] = snd
-	soundMu.Unlock()
+	setTestSounds(map[uint16]*clsnd.Sound{1: snd, 2: snd, 3: snd})
 
 	playSound(1)
 	playSound(2)
