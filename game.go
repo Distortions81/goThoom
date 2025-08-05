@@ -24,7 +24,7 @@ import (
 
 const gameAreaSizeX, gameAreaSizeY = 500, 500
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const epsilon = 0.003
+const epsilon = 0.005
 
 var mouseX, mouseY int16
 var mouseDown bool
@@ -317,7 +317,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.White)
+	//screen.Fill(color.White)
 	if clmov == "" && tcpConn == nil && !noSplash {
 		drawSplash(screen)
 		return
