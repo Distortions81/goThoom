@@ -527,13 +527,6 @@ func parseDrawState(data []byte) error {
 			}
 		}
 	}
-	if state.descriptors == nil {
-		state.descriptors = make(map[uint8]frameDescriptor)
-	}
-	for _, d := range descs {
-		state.descriptors[d.Index] = d
-	}
-
 	// retain previously drawn pictures when the packet specifies pictAgain
 	prevPics := state.pictures
 	again := pictAgain
@@ -561,6 +554,31 @@ func parseDrawState(data []byte) error {
 		state.picShiftX = 0
 		state.picShiftY = 0
 	}
+	if !ok {
+		prevPics = nil
+		again = 0
+		newPics = append([]framePicture(nil), pics...)
+		state.prevDescs = nil
+		state.prevMobiles = nil
+		state.prevTime = time.Time{}
+		state.curTime = time.Time{}
+		if state.descriptors != nil {
+			for k := range state.descriptors {
+				delete(state.descriptors, k)
+			}
+		}
+		if state.mobiles != nil {
+			for k := range state.mobiles {
+				delete(state.mobiles, k)
+			}
+		}
+	}
+	if state.descriptors == nil {
+		state.descriptors = make(map[uint8]frameDescriptor)
+	}
+	for _, d := range descs {
+		state.descriptors[d.Index] = d
+	}
 	for i := range newPics {
 		moving := true
 		if i >= again {
@@ -585,7 +603,7 @@ func parseDrawState(data []byte) error {
 
 	state.pictures = newPics
 
-	needPrev := interp || onion || !fastAnimation
+	needPrev := (interp || onion || !fastAnimation) && ok
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
@@ -595,7 +613,7 @@ func parseDrawState(data []byte) error {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := interp || (onion && changed)
+	needAnimUpdate := (interp || (onion && changed)) && ok
 	if needAnimUpdate {
 		const defaultInterval = time.Second / 5
 		interval := defaultInterval
