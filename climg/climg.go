@@ -35,20 +35,31 @@ type dataLocation struct {
 	animFrameTable [16]int16
 }
 
+type ClientItem struct {
+	Flags   uint32
+	Slot    int32
+	RightID int32
+	LeftID  int32
+	WornID  int32
+	Name    string
+}
+
 type CLImages struct {
 	data    []byte
 	idrefs  map[uint32]*dataLocation
 	colors  map[uint32]*dataLocation
 	images  map[uint32]*dataLocation
+	items   map[uint32]*ClientItem
 	cache   map[string]*ebiten.Image
 	mu      sync.Mutex
 	Denoise bool
 }
 
 const (
-	TYPE_IDREF = 0x50446635
-	TYPE_IMAGE = 0x42697432
-	TYPE_COLOR = 0x436c7273
+	TYPE_IDREF      = 0x50446635
+	TYPE_IMAGE      = 0x42697432
+	TYPE_COLOR      = 0x436c7273
+	TYPE_CLIENTITEM = 0x43496d34
 
 	pictDefFlagTransparent = 0x8000
 	pictDefBlendMask       = 0x0003
@@ -86,8 +97,11 @@ func Load(path string) (*CLImages, error) {
 		idrefs: make(map[uint32]*dataLocation, entryCount),
 		colors: make(map[uint32]*dataLocation, entryCount),
 		images: make(map[uint32]*dataLocation, entryCount),
+		items:  make(map[uint32]*ClientItem, entryCount),
 		cache:  make(map[string]*ebiten.Image),
 	}
+
+	itemLocs := make(map[uint32]*dataLocation)
 
 	for i := uint32(0); i < entryCount; i++ {
 		dl := &dataLocation{}
@@ -110,6 +124,8 @@ func Load(path string) (*CLImages, error) {
 			imgs.colors[dl.id] = dl
 		case TYPE_IMAGE:
 			imgs.images[dl.id] = dl
+		case TYPE_CLIENTITEM:
+			itemLocs[dl.id] = dl
 		}
 	}
 
@@ -164,6 +180,34 @@ func Load(path string) (*CLImages, error) {
 		}
 	}
 
+	for id, loc := range itemLocs {
+		if _, err := r.Seek(int64(loc.offset), io.SeekStart); err != nil {
+			return nil, err
+		}
+		var itm ClientItem
+		if err := binary.Read(r, binary.BigEndian, &itm.Flags); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(r, binary.BigEndian, &itm.Slot); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(r, binary.BigEndian, &itm.RightID); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(r, binary.BigEndian, &itm.LeftID); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(r, binary.BigEndian, &itm.WornID); err != nil {
+			return nil, err
+		}
+		nameBytes := make([]byte, 256)
+		if _, err := io.ReadFull(r, nameBytes); err != nil {
+			return nil, err
+		}
+		itm.Name = string(bytes.TrimRight(nameBytes, "\x00"))
+		imgs.items[id] = &itm
+	}
+
 	// preload colors
 	for _, c := range imgs.colors {
 		if _, err := r.Seek(int64(c.offset), io.SeekStart); err != nil {
@@ -179,6 +223,16 @@ func Load(path string) (*CLImages, error) {
 		}
 	}
 	return imgs, nil
+}
+
+func (c *CLImages) ItemName(id uint32) string {
+	if c == nil {
+		return ""
+	}
+	if itm, ok := c.items[id]; ok {
+		return itm.Name
+	}
+	return ""
 }
 
 // alphaTransparentForFlags returns the base alpha value and whether

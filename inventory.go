@@ -72,7 +72,13 @@ func getInventory() []inventoryItem {
 func setFullInventory(ids []uint16, equipped []bool) {
 	items := make([]inventoryItem, 0, len(ids))
 	for i, id := range ids {
-		name := fmt.Sprintf("Item %d", id)
+		name := ""
+		if clImages != nil {
+			name = clImages.ItemName(uint32(id))
+		}
+		if name == "" {
+			name = fmt.Sprintf("Item %d", id)
+		}
 		equip := false
 		if i < len(equipped) && equipped[i] {
 			equip = true
