@@ -172,13 +172,11 @@ func (p *moviePlayer) initUI() {
 func (p *moviePlayer) cacheFrames() {
 	addMessage("Processing clMov frames...")
 
-	prevSound := blockSound
-	prevRender := blockRender
 	blockSound = true
 	blockRender = true
 	defer func() {
-		blockSound = prevSound
-		blockRender = prevRender
+		blockSound = false
+		blockRender = false
 	}()
 
 	p.states = make([]drawSnapshot, 0, len(p.frames)+1)
