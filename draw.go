@@ -150,15 +150,12 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	total := 0
 	maxInt := int(^uint(0) >> 1)
 	for _, p := range prev {
-		if !onScreen(p) {
-			continue
-		}
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
 		matched := false
 		for j, c := range cur {
-			if p.PictID != c.PictID || !onScreen(c) {
+			if p.PictID != c.PictID {
 				continue
 			}
 			dx := int(c.H) - int(p.H)
