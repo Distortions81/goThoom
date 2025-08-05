@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Distortions81/EUI/eui"
@@ -26,6 +27,8 @@ type moviePlayer struct {
 	curLabel   *eui.ItemData
 	totalLabel *eui.ItemData
 	fpsLabel   *eui.ItemData
+
+	mu sync.Mutex
 }
 
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
@@ -58,9 +61,8 @@ func (p *moviePlayer) initUI() {
 	p.curLabel, _ = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
 	tFlow.AddItem(p.curLabel)
 
-	max := float32(len(p.frames))
 	var events *eui.EventHandler
-	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 450, Y: 24}, IntOnly: true})
+	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: 0, Size: eui.Point{X: 450, Y: 24}, IntOnly: true})
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))
@@ -68,9 +70,7 @@ func (p *moviePlayer) initUI() {
 	}
 	tFlow.AddItem(p.slider)
 
-	totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
-	totalDur = totalDur.Round(time.Second)
-	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
+	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
 	tFlow.AddItem(p.totalLabel)
 
 	flow.AddItem(tFlow)
@@ -173,29 +173,44 @@ func (p *moviePlayer) cacheFrames() {
 	addMessage("Processing clMov frames...")
 
 	prevSound := blockSound
-	prevRender := blockRender
 	blockSound = true
-	blockRender = true
-	defer func() {
-		blockSound = prevSound
-		blockRender = prevRender
-	}()
+	defer func() { blockSound = prevSound }()
 
-	p.states = make([]drawSnapshot, 0, len(p.frames)+1)
-	p.states = append(p.states, captureDrawSnapshot())
-	for _, m := range p.frames {
+	p.mu.Lock()
+	if len(p.states) == 0 {
+		p.states = make([]drawSnapshot, 0, len(p.frames)+1)
+		p.states = append(p.states, captureDrawSnapshot())
+	}
+	p.mu.Unlock()
+	p.updateUI()
+
+	prevRender := blockRender
+	for i := len(p.states) - 1; i < len(p.frames); i++ {
+		p.mu.Lock()
+		curSnap := p.states[p.cur]
+		lastSnap := p.states[len(p.states)-1]
+		blockRender = true
+		applyDrawSnapshot(lastSnap, p.fps)
+		m := p.frames[i]
 		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
 			handleDrawState(m)
 		}
 		if txt := decodeMessage(m); txt != "" {
 			_ = txt
 		}
-		p.states = append(p.states, captureDrawSnapshot())
-	}
-	applyDrawSnapshot(p.states[0], p.fps)
-	p.cur = 0
+		snap := captureDrawSnapshot()
+		p.states = append(p.states, snap)
+		applyDrawSnapshot(curSnap, p.fps)
+		blockRender = prevRender
+		p.mu.Unlock()
 
-	blockRender = false
+		p.updateUI()
+
+		if i == 0 {
+			p.play()
+		}
+	}
+
 	addMessage("Complete, starting playback!")
 }
 
@@ -214,38 +229,55 @@ func (p *moviePlayer) run(ctx context.Context) {
 }
 
 func (p *moviePlayer) step() {
+	p.mu.Lock()
 	if p.cur >= len(p.states)-1 {
 		p.playing = false
+		p.mu.Unlock()
 		return
 	}
 	p.cur++
 	applyDrawSnapshot(p.states[p.cur], p.fps)
-	p.updateUI()
 	if p.cur >= len(p.states)-1 {
 		p.playing = false
 	}
+	p.mu.Unlock()
+	p.updateUI()
 }
 
 func (p *moviePlayer) updateUI() {
+	p.mu.Lock()
+	cur := p.cur
+	total := len(p.states) - 1
+	fps := p.fps
+	p.mu.Unlock()
+
+	if total < 0 {
+		total = 0
+	}
+	if cur > total {
+		cur = total
+	}
+
 	if p.slider != nil {
-		p.slider.Value = float32(p.cur)
+		p.slider.MaxValue = float32(total)
+		p.slider.Value = float32(cur)
 		p.slider.Dirty = true
 	}
 	if p.curLabel != nil {
-		d := time.Duration(p.cur) * time.Second / time.Duration(p.fps)
+		d := time.Duration(cur) * time.Second / time.Duration(fps)
 		d = d.Round(time.Second)
 		p.curLabel.Text = durafmt.Parse(d).LimitFirstN(2).Format(shortUnits)
 		p.curLabel.Dirty = true
 	}
 	if p.totalLabel != nil {
-		totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
+		totalDur := time.Duration(total) * time.Second / time.Duration(fps)
 		totalDur = totalDur.Round(time.Second)
 		p.totalLabel.Text = durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits)
 		p.totalLabel.Dirty = true
 	}
 
 	if p.fpsLabel != nil {
-		p.fpsLabel.Text = fmt.Sprintf("UPS: %v", p.fps)
+		p.fpsLabel.Text = fmt.Sprintf("UPS: %v", fps)
 		p.fpsLabel.Dirty = true
 	}
 }
@@ -254,28 +286,45 @@ func (p *moviePlayer) setFPS(fps int) {
 	if fps < 1 {
 		fps = 1
 	}
+	p.mu.Lock()
 	p.fps = fps
-	clMovFPS = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
+	p.mu.Unlock()
+	clMovFPS = fps
 	resetInterpolation()
 	p.updateUI()
 }
 
-func (p *moviePlayer) play() { p.playing = true }
+func (p *moviePlayer) play() {
+	p.mu.Lock()
+	p.playing = true
+	p.mu.Unlock()
+}
 
 func (p *moviePlayer) pause() {
+	p.mu.Lock()
 	p.playing = false
+	p.mu.Unlock()
 }
 
 func (p *moviePlayer) skipBackMilli(milli int) {
-	p.seek(p.cur - int(float64(milli)*(float64(p.fps)/1000.0)))
+	p.mu.Lock()
+	cur := p.cur
+	fps := p.fps
+	p.mu.Unlock()
+	p.seek(cur - int(float64(milli)*(float64(fps)/1000.0)))
 }
 
 func (p *moviePlayer) skipForwardMilli(milli int) {
-	p.seek(p.cur + int(float64(milli)*(float64(p.fps)/1000.0)))
+	p.mu.Lock()
+	cur := p.cur
+	fps := p.fps
+	p.mu.Unlock()
+	p.seek(cur + int(float64(milli)*(float64(fps)/1000.0)))
 }
 
 func (p *moviePlayer) seek(idx int) {
+	p.mu.Lock()
 	if idx < 0 {
 		idx = 0
 	}
@@ -286,8 +335,11 @@ func (p *moviePlayer) seek(idx int) {
 	p.playing = false
 	applyDrawSnapshot(p.states[idx], p.fps)
 	p.cur = idx
+	p.mu.Unlock()
 	p.updateUI()
-	p.playing = wasPlaying
+	if wasPlaying {
+		p.play()
+	}
 }
 
 func resetInterpolation() {
