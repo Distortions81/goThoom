@@ -581,7 +581,9 @@ func parseDrawState(data []byte) error {
 	}
 	for i := range newPics {
 		moving := true
-		if i >= again {
+		if i < again {
+			moving = false
+		} else {
 			for _, pp := range prevPics {
 				if pp.PictID == newPics[i].PictID &&
 					int(pp.H)+state.picShiftX == int(newPics[i].H) &&
