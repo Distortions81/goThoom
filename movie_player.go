@@ -121,6 +121,43 @@ func (p *moviePlayer) initUI() {
 
 	flow.AddItem(bFlow)
 
+	// Speed control flow
+	sFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+
+	dbl, dblEv := eui.NewButton(&eui.ItemData{Text: "++", Size: eui.Point{X: 40, Y: 24}})
+	dblEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps * 2)
+		}
+	}
+	sFlow.AddItem(dbl)
+
+	inc, incEv := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 40, Y: 24}})
+	incEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps + 1)
+		}
+	}
+	sFlow.AddItem(inc)
+
+	dec, decEv := eui.NewButton(&eui.ItemData{Text: "-", Size: eui.Point{X: 40, Y: 24}})
+	decEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps - 1)
+		}
+	}
+	sFlow.AddItem(dec)
+
+	half, halfEv := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 40, Y: 24}})
+	halfEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps / 2)
+		}
+	}
+	sFlow.AddItem(half)
+
+	flow.AddItem(sFlow)
+
 	win.AddItem(flow)
 	win.AddWindow(false)
 	p.updateUI()
@@ -172,6 +209,21 @@ func (p *moviePlayer) updateUI() {
 		p.curLabel.Text = durafmt.Parse(d).LimitFirstN(2).Format(shortUnits)
 		p.curLabel.Dirty = true
 	}
+	if p.totalLabel != nil {
+		totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
+		totalDur = totalDur.Round(time.Second)
+		p.totalLabel.Text = durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits)
+		p.totalLabel.Dirty = true
+	}
+}
+
+func (p *moviePlayer) setFPS(fps int) {
+	if fps < 1 {
+		fps = 1
+	}
+	p.fps = fps
+	p.ticker.Reset(time.Second / time.Duration(p.fps))
+	p.updateUI()
 }
 
 func (p *moviePlayer) play() { p.playing = true }
