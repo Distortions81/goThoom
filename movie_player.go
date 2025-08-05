@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/Distortions81/EUI/eui"
@@ -23,6 +24,7 @@ type moviePlayer struct {
 	slider     *eui.ItemData
 	curLabel   *eui.ItemData
 	totalLabel *eui.ItemData
+	fpsLabel   *eui.ItemData
 }
 
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
@@ -119,34 +121,8 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(forward)
 
-	flow.AddItem(bFlow)
-
-	// Speed control flow
-	sFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-
-	dbl, dblEv := eui.NewButton(&eui.ItemData{Text: "++", Size: eui.Point{X: 40, Y: 24}})
-	dblEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			p.setFPS(p.fps * 2)
-		}
-	}
-	sFlow.AddItem(dbl)
-
-	inc, incEv := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 40, Y: 24}})
-	incEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			p.setFPS(p.fps + 1)
-		}
-	}
-	sFlow.AddItem(inc)
-
-	dec, decEv := eui.NewButton(&eui.ItemData{Text: "-", Size: eui.Point{X: 40, Y: 24}})
-	decEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			p.setFPS(p.fps - 1)
-		}
-	}
-	sFlow.AddItem(dec)
+	spacer, _ := eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 40, Y: 24}})
+	bFlow.AddItem(spacer)
 
 	half, halfEv := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 40, Y: 24}})
 	halfEv.Handle = func(ev eui.UIEvent) {
@@ -154,10 +130,38 @@ func (p *moviePlayer) initUI() {
 			p.setFPS(p.fps / 2)
 		}
 	}
-	sFlow.AddItem(half)
+	bFlow.AddItem(half)
 
-	flow.AddItem(sFlow)
+	dec, decEv := eui.NewButton(&eui.ItemData{Text: "-", Size: eui.Point{X: 40, Y: 24}})
+	decEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps - 1)
+		}
+	}
+	bFlow.AddItem(dec)
 
+	buf := fmt.Sprintf("%v fps", p.fps)
+	fpsInfo, _ := eui.NewText(&eui.ItemData{Text: buf, Size: eui.Point{X: 100, Y: 24}, FontSize: 15, Alignment: eui.ALIGN_CENTER})
+	p.fpsLabel = fpsInfo
+	bFlow.AddItem(fpsInfo)
+
+	inc, incEv := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 40, Y: 24}})
+	incEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps + 1)
+		}
+	}
+	bFlow.AddItem(inc)
+
+	dbl, dblEv := eui.NewButton(&eui.ItemData{Text: "++", Size: eui.Point{X: 40, Y: 24}})
+	dblEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(p.fps * 2)
+		}
+	}
+	bFlow.AddItem(dbl)
+
+	flow.AddItem(bFlow)
 	win.AddItem(flow)
 	win.AddWindow(false)
 	p.updateUI()
@@ -180,7 +184,7 @@ func (p *moviePlayer) run(ctx context.Context) {
 func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		p.playing = false
-		p.cancel()
+		//p.cancel()
 		return
 	}
 	m := p.frames[p.cur]
@@ -194,7 +198,7 @@ func (p *moviePlayer) step() {
 	p.updateUI()
 	if p.cur >= len(p.frames) {
 		p.playing = false
-		p.cancel()
+		//p.cancel()
 	}
 }
 
@@ -214,6 +218,11 @@ func (p *moviePlayer) updateUI() {
 		totalDur = totalDur.Round(time.Second)
 		p.totalLabel.Text = durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits)
 		p.totalLabel.Dirty = true
+	}
+
+	if p.fpsLabel != nil {
+		p.fpsLabel.Text = fmt.Sprintf("UPS: %v", p.fps)
+		p.fpsLabel.Dirty = true
 	}
 }
 
