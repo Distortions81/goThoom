@@ -387,7 +387,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 	}
 
 	for _, p := range negPics {
-		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles)
+		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
@@ -415,13 +415,13 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			}
 			i++
 		} else {
-			drawPicture(screen, zeroPics[j], alpha, fade, snap.mobiles, snap.prevMobiles)
+			drawPicture(screen, zeroPics[j], alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 			j++
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles)
+		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if showBubbles {
@@ -576,7 +576,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile) {
+func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
 
