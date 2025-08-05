@@ -43,6 +43,7 @@ var (
 	nightLevel   int
 	blockSound   bool
 	blockBubbles bool
+	blockRender  bool
 
 	loginRequest = make(chan struct{})
 )
