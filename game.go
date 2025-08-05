@@ -66,15 +66,16 @@ var (
 
 // drawState tracks information needed by the Ebiten renderer.
 type drawState struct {
-	descriptors map[uint8]frameDescriptor
-	pictures    []framePicture
-	picShiftX   int
-	picShiftY   int
-	mobiles     map[uint8]frameMobile
-	prevMobiles map[uint8]frameMobile
-	prevDescs   map[uint8]frameDescriptor
-	prevTime    time.Time
-	curTime     time.Time
+	descriptors  map[uint8]frameDescriptor
+	pictures     []framePicture
+	prevPictures []framePicture
+	picShiftX    int
+	picShiftY    int
+	mobiles      map[uint8]frameMobile
+	prevMobiles  map[uint8]frameMobile
+	prevDescs    map[uint8]frameDescriptor
+	prevTime     time.Time
+	curTime      time.Time
 
 	bubbles []bubble
 
@@ -110,6 +111,7 @@ type bubble struct {
 type drawSnapshot struct {
 	descriptors                 map[uint8]frameDescriptor
 	pictures                    []framePicture
+	prevPictures                []framePicture
 	picShiftX                   int
 	picShiftY                   int
 	mobiles                     []frameMobile
@@ -134,6 +136,7 @@ func captureDrawSnapshot() drawSnapshot {
 	snap := drawSnapshot{
 		descriptors:    make(map[uint8]frameDescriptor, len(state.descriptors)),
 		pictures:       append([]framePicture(nil), state.pictures...),
+		prevPictures:   append([]framePicture(nil), state.prevPictures...),
 		picShiftX:      state.picShiftX,
 		picShiftY:      state.picShiftY,
 		mobiles:        make([]frameMobile, 0, len(state.mobiles)),
@@ -387,7 +390,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 	}
 
 	for _, p := range negPics {
-		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles)
+		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles, snap.prevPictures)
 	}
 
 	sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
@@ -415,13 +418,13 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			}
 			i++
 		} else {
-			drawPicture(screen, zeroPics[j], snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles)
+			drawPicture(screen, zeroPics[j], snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles, snap.prevPictures)
 			j++
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles)
+		drawPicture(screen, p, snap.picShiftX, snap.picShiftY, alpha, fade, snap.mobiles, snap.prevMobiles, snap.prevPictures)
 	}
 
 	if showBubbles {
@@ -576,7 +579,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile) {
+func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPics []framePicture) {
 	offX := -float64(shiftX) * (1 - alpha)
 	offY := -float64(shiftY) * (1 - alpha)
 
@@ -597,20 +600,25 @@ func drawPicture(screen *ebiten.Image, p framePicture, shiftX, shiftY int, alpha
 	}
 
 	var mobileX, mobileY float64
+	var picX, picY float64
 	w, h := 0, 0
 	if img != nil {
 		w, h = img.Bounds().Dx(), img.Bounds().Dy()
-		if w <= 64 && h <= 64 && interp {
+		if interp {
 			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha); ok {
 				mobileX, mobileY = dx, dy
 				offX = 0
 				offY = 0
+			} else if !p.Background {
+				if dx, dy, ok := pictureInterpOffset(p, prevPics, shiftX, shiftY, alpha); ok {
+					picX, picY = dx, dy
+				}
 			}
 		}
 	}
 
-	x := (int(math.Round(float64(p.H)+offX+mobileX)) + fieldCenterX) * scale
-	y := (int(math.Round(float64(p.V)+offY+mobileY)) + fieldCenterY) * scale
+	x := (int(math.Round(float64(p.H)+offX+mobileX+picX)) + fieldCenterX) * scale
+	y := (int(math.Round(float64(p.V)+offY+mobileY+picY)) + fieldCenterY) * scale
 
 	if img != nil {
 		if blendPicts && prevImg != nil {
@@ -704,6 +712,38 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 		}
 	}
 	return 0, 0, false
+}
+
+// pictureInterpOffset returns the interpolation offset for a non-background
+// picture based on its movement between frames. The global background shift is
+// removed so only the relative motion is interpolated.
+func pictureInterpOffset(p framePicture, prev []framePicture, shiftX, shiftY int, alpha float64) (float64, float64, bool) {
+	if len(prev) == 0 {
+		return 0, 0, false
+	}
+	bestDist := int(^uint(0) >> 1)
+	var match *framePicture
+	for i := range prev {
+		if prev[i].PictID != p.PictID {
+			continue
+		}
+		dh := int(p.H) - int(prev[i].H)
+		dv := int(p.V) - int(prev[i].V)
+		dist := dh*dh + dv*dv
+		if dist < bestDist {
+			bestDist = dist
+			match = &prev[i]
+		}
+	}
+	if match == nil {
+		return 0, 0, false
+	}
+	relDh := int(p.H) - (int(match.H) + shiftX)
+	relDv := int(p.V) - (int(match.V) + shiftY)
+	if relDh*relDh+relDv*relDv > maxInterpPixels*maxInterpPixels {
+		return 0, 0, false
+	}
+	return float64(-relDh) * (1 - alpha), float64(-relDv) * (1 - alpha), true
 }
 
 // lerpBar interpolates status bar values, skipping interpolation when

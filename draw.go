@@ -546,6 +546,11 @@ func parseDrawState(data []byte) error {
 
 	// retain previously drawn pictures when the packet specifies pictAgain
 	prevPics := state.pictures
+	if interp {
+		state.prevPictures = append([]framePicture(nil), prevPics...)
+	} else {
+		state.prevPictures = nil
+	}
 	again := pictAgain
 	if again > len(prevPics) {
 		again = len(prevPics)
