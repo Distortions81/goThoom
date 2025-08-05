@@ -88,6 +88,8 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	if top+height > sh {
 		top = sh - height
 	}
+	right = left + width
+	bottom = top + height
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
