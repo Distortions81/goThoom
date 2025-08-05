@@ -22,9 +22,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-const gameAreaSizeX, gameAreaSizeY = 500, 500
+const gameAreaSizeX, gameAreaSizeY = 547, 540
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const epsilon = 0.005
+const epsilon = 0.004
 
 var mouseX, mouseY int16
 var mouseDown bool
