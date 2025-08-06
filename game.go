@@ -367,10 +367,13 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			pi = clImages.Plane(uint32(snap.pictures[i].PictID))
 			pj = clImages.Plane(uint32(snap.pictures[j].PictID))
 		}
-		if pi == pj {
-			return snap.pictures[i].V < snap.pictures[j].V
+		if pi != pj {
+			return pi < pj
 		}
-		return pi < pj
+		if snap.pictures[i].V == snap.pictures[j].V {
+			return snap.pictures[i].H < snap.pictures[j].H
+		}
+		return snap.pictures[i].V < snap.pictures[j].V
 	})
 
 	dead := make([]frameMobile, 0, len(snap.mobiles))
