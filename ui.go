@@ -68,8 +68,18 @@ func initUI() {
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_VERTICAL,
 	}
-
 	var width float32 = 250
+
+	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scale", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
+	scaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			scale = int(ev.Value)
+			initFont()
+			inputBg = nil
+			ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+		}
+	}
+	mainFlow.AddItem(scaleSlider)
 
 	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: width, Y: 24}, Checked: clickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
