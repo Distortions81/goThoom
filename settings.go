@@ -95,7 +95,7 @@ func saveSettings() {
 		log.Printf("save settings: %v", err)
 		return
 	}
-	path := filepath.Join(baseDir, "settings.json")
+	path := filepath.Join(baseDir, "/settings.json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}

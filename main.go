@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -23,7 +22,7 @@ import (
 )
 
 var (
-	clMovFPS int
+	clMovFPS int = 5
 	denoise  bool
 	dataDir  string
 
@@ -50,7 +49,6 @@ var (
 
 func main() {
 	var noFastAnimation bool
-	var forceFlag bool
 	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&name, "name", "", "character name")
 	flag.StringVar(&account, "account", "", "account name")
@@ -59,29 +57,12 @@ func main() {
 	flag.BoolVar(&demo, "demo", false, "login as random demo character")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.BoolVar(&noSplash, "nosplash", false, "skip login window and auto connect")
-	flag.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
-	flag.IntVar(&scale, "scale", 2, "image upscaling")
-	flag.BoolVar(&interp, "smooth", true, "motion smoothing (linear interpolation)")
 	flag.BoolVar(&smoothMoving, "smoothMoving", true, "interpolate moving pictures")
-	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
-	flag.BoolVar(&onion, "blend", false, "mobile frame blending (smoother animations for players/creatures)")
-	flag.BoolVar(&smoothDebug, "smoothDebug", false, "highlight moving pictures during smoothing")
-	flag.BoolVar(&blendPicts, "blendPicts", true, "frame blending for environment animations")
-	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
-	flag.BoolVar(&nightMode, "nightMode", true, "enable night-time visual effects")
-	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
-	flag.BoolVar(&showBubbles, "bubble", true, "draw bubble debug boxes")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
-	flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
-	flag.BoolVar(&soundTest, "soundtest", false, "play sounds 1-100 and exit")
-	flag.BoolVar(&fastSound, "fast-sound", false, "use 22050Hz audio with linear resampling")
-	flag.BoolVar(&fastBars, "fastBars", true, "do not interpolate bar decreases")
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
-	flag.IntVar(&nightLevel, "night", 0, "force night level (0-100)")
-	flag.Float64Var(&blendRate, "blendRate", 1, "amount of the a UPS interval to blend across. 0.1 low blend, 1.0 max")
-	flag.BoolVar(&forceFlag, "force", false, "ignore settings file and parse command line flags")
+	flag.Parse()
 
 	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
@@ -91,20 +72,8 @@ func main() {
 		}
 	}
 
-	forceArg := false
-	for _, a := range os.Args[1:] {
-		if strings.HasPrefix(a, "-force") {
-			forceArg = true
-			break
-		}
-	}
-	loaded := false
-	if !forceArg {
-		loaded = loadSettings()
-	}
-	if forceArg || !loaded {
-		flag.Parse()
-	}
+	loadSettings()
+
 	if nightLevel != 0 {
 		if nightLevel < 0 {
 			nightLevel = 0

@@ -42,12 +42,12 @@ var hudPixel *ebiten.Image
 
 var settingsWin *eui.WindowData
 var gameCtx context.Context
-var scale int = 3
-var interp bool
-var smoothMoving bool
+var scale int = 2
+var interp bool = true
+var smoothMoving bool = true
 var onion bool
 var fastAnimation = true
-var blendPicts bool
+var blendPicts bool = true
 var linear bool
 var smoothDebug bool
 var hideMoving bool
