@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -208,12 +209,15 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 // interpolatePictures updates newPics with the best matching previous picture
 // positions for movement smoothing. Each previous picture is matched at most
 // once to avoid assigning the same starting point to multiple new pictures when
-// duplicates are nearby.
+// duplicates are nearby. Matching is based on nearest-neighbor distance rather
+// than input ordering so that duplicate IDs do not swap positions.
 func interpolatePictures(prevPics, newPics []framePicture, again, shiftX, shiftY int) {
 	used := make([]bool, len(prevPics))
 	for i := 0; i < again && i < len(prevPics); i++ {
 		used[i] = true
 	}
+
+	movingByID := make(map[uint16][]int)
 	for i := range newPics {
 		newPics[i].PrevH = int16(int(newPics[i].H) - shiftX)
 		newPics[i].PrevV = int16(int(newPics[i].V) - shiftY)
@@ -236,28 +240,52 @@ func interpolatePictures(prevPics, newPics []framePicture, again, shiftX, shiftY
 			}
 		}
 		if moving {
-			bestDist := maxInterpPixels*maxInterpPixels + 1
-			bestIdx := -1
-			for j := range prevPics {
-				if used[j] || prevPics[j].PictID != newPics[i].PictID {
-					continue
-				}
-				dh := int(newPics[i].H) - int(prevPics[j].H) - shiftX
-				dv := int(newPics[i].V) - int(prevPics[j].V) - shiftY
-				dist := dh*dh + dv*dv
-				if dist < bestDist {
-					bestDist = dist
-					bestIdx = j
-				}
-			}
-			if bestIdx >= 0 && bestDist <= maxInterpPixels*maxInterpPixels {
-				newPics[i].PrevH = prevPics[bestIdx].H
-				newPics[i].PrevV = prevPics[bestIdx].V
-				used[bestIdx] = true
-			}
+			movingByID[newPics[i].PictID] = append(movingByID[newPics[i].PictID], i)
 		}
 		newPics[i].Moving = moving
 		newPics[i].Background = false
+	}
+
+	type match struct {
+		i, j int
+		dist int
+	}
+
+	for id, idxs := range movingByID {
+		var prevIdxs []int
+		for j, p := range prevPics {
+			if used[j] || p.PictID != id {
+				continue
+			}
+			prevIdxs = append(prevIdxs, j)
+		}
+		if len(prevIdxs) == 0 {
+			continue
+		}
+		var pairs []match
+		for _, i := range idxs {
+			for _, j := range prevIdxs {
+				dh := int(newPics[i].H) - int(prevPics[j].H) - shiftX
+				dv := int(newPics[i].V) - int(prevPics[j].V) - shiftY
+				dist := dh*dh + dv*dv
+				if dist <= maxInterpPixels*maxInterpPixels {
+					pairs = append(pairs, match{i: i, j: j, dist: dist})
+				}
+			}
+		}
+		sort.Slice(pairs, func(a, b int) bool { return pairs[a].dist < pairs[b].dist })
+		assignedNew := make(map[int]bool)
+		assignedPrev := make(map[int]bool)
+		for _, p := range pairs {
+			if assignedNew[p.i] || assignedPrev[p.j] {
+				continue
+			}
+			newPics[p.i].PrevH = prevPics[p.j].H
+			newPics[p.i].PrevV = prevPics[p.j].V
+			assignedNew[p.i] = true
+			assignedPrev[p.j] = true
+			used[p.j] = true
+		}
 	}
 }
 

@@ -40,14 +40,13 @@ func TestParseInventoryIgnoresNoneWithIndex(t *testing.T) {
 	}
 }
 
-// Test that interpolatePictures chooses the closest unique previous picture
-// when multiple pictures share the same ID.
+// Test that interpolatePictures matches moving pictures to the nearest
+// previously seen positions even when input ordering differs.
 func TestInterpolatePicturesFindsClosest(t *testing.T) {
-	prev := []framePicture{{PictID: 1, H: 0, V: 0}, {PictID: 1, H: 2, V: 0}}
-	newPics := []framePicture{{PictID: 1, H: 1, V: 0}, {PictID: 1, H: 1, V: 0}}
+	prev := []framePicture{{PictID: 1, H: 0, V: 0}, {PictID: 1, H: 10, V: 0}}
+	newPics := []framePicture{{PictID: 1, H: 9, V: 0}, {PictID: 1, H: 1, V: 0}}
 	interpolatePictures(prev, newPics, 0, 0, 0)
-	seen := map[int16]bool{newPics[0].PrevH: true, newPics[1].PrevH: true}
-	if !seen[0] || !seen[2] {
-		t.Fatalf("expected matches to both previous pictures, got %#v", newPics)
+	if newPics[0].PrevH != 10 || newPics[1].PrevH != 0 {
+		t.Fatalf("expected matches to nearest previous pictures, got %#v", newPics)
 	}
 }
