@@ -2,7 +2,4 @@ CL_Images
 CL_Sounds
 go_client
 *.log
-*.exe
 data/night.png
-binaries/*
-!binaries/.gitkeep

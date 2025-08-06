@@ -6,9 +6,12 @@ mkdir -p "$OUTPUT_DIR"
 
 platforms=(
   "linux:amd64"
-  "darwin:amd64"
   "windows:amd64"
+  #"darwin:amd64"
 )
+
+# Install this before building Linux targets:
+# sudo apt install libglfw3-dev libgl1-mesa-dev libasound2-dev
 
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
@@ -16,8 +19,16 @@ for platform in "${platforms[@]}"; do
   if [ "$GOOS" = "windows" ]; then
     BIN_NAME+=".exe"
   fi
+
   echo "Building ${GOOS}/${GOARCH}..."
-  env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=1 \
+
+  if [ "$GOOS" = "linux" ]; then
+    CGO_ENABLED=1
+  else
+    CGO_ENABLED=0  # Disable cgo for unsupported cross-compilation targets
+  fi
+
+  env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED="$CGO_ENABLED" \
     go build -o "${OUTPUT_DIR}/${BIN_NAME}" .
 done
 
