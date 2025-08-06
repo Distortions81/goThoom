@@ -80,6 +80,39 @@ const (
 //      4, // kBubbleNarrate - same graphic as real action
 // }
 
+// bubbleColors selects the border, background, and text colors for a bubble
+// based on its type. Alpha values are premultiplied to match Ebiten's color
+// expectations.
+func bubbleColors(typ int) (border, bg, text color.Color) {
+	switch typ & kBubbleTypeMask {
+	case kBubbleWhisper:
+		border = color.NRGBA{0xcc, 0xcc, 0xcc, 0xff}
+		bg = color.NRGBA{0xf0, 0xf0, 0xf0, 0x80}
+		text = color.NRGBA{0x33, 0x33, 0x33, 0xff}
+	case kBubbleYell:
+		border = color.NRGBA{0xff, 0x00, 0x00, 0xff}
+		bg = color.NRGBA{0xff, 0xff, 0x00, 0x80}
+		text = color.Black
+	case kBubbleThought, kBubblePonder:
+		border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
+		bg = color.NRGBA{0xee, 0xee, 0xff, 0x80}
+		text = color.Black
+	case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
+		border = color.NRGBA{0x00, 0x80, 0x00, 0xff}
+		bg = color.NRGBA{0xe0, 0xff, 0xe0, 0x80}
+		text = color.Black
+	case kBubbleMonster:
+		border = color.NRGBA{0x80, 0x00, 0x80, 0xff}
+		bg = color.NRGBA{0xff, 0xe0, 0xff, 0x80}
+		text = color.Black
+	default:
+		border = color.White
+		bg = color.NRGBA{0xff, 0xff, 0xff, 0x80}
+		text = color.Black
+	}
+	return
+}
+
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
 // bottom-center of the balloon tail. If far is true the tail is omitted and
 // (x, y) represents the bottom-center of the bubble itself. The typ parameter
