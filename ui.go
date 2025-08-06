@@ -294,22 +294,6 @@ func initUI() {
 	inventoryWin.Open = false
 	inventoryWin.AddWindow(false)
 
-	playersWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Players",
-		Open:      false,
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  false,
-		Movable:   true,
-		Size:      eui.Point{X: 128, Y: 384},
-	})
-	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	playersWin.AddItem(playersList)
-	playersWin.Open = false
-	playersWin.AddWindow(false)
-	playersWin.Resizable = true
-	playersWin.AutoSize = true
-
 	helpWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Help",
 		Open:      false,
@@ -340,16 +324,14 @@ func initUI() {
 		FlowType: eui.FLOW_HORIZONTAL,
 		PinTo:    eui.PIN_BOTTOM_RIGHT,
 	}
-	playersBtn, playersEvents := eui.NewButton(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	playersDropdown, playersEvents := eui.NewDropdown(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
 	playersEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			playersWin.Open = !playersWin.Open
-			if playersWin.Open {
-				updatePlayersWindow()
-			}
+		if ev.Type == eui.EventDropdownSelected {
+			// placeholder for future actions on selection
 		}
 	}
-	overlay.AddItem(playersBtn)
+	overlay.AddItem(playersDropdown)
+	updatePlayersDropdown()
 
 	invBtn, invEvents := eui.NewButton(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
 	invEvents.Handle = func(ev eui.UIEvent) {

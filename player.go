@@ -49,6 +49,7 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte) {
 		p.Colors = append(p.Colors[:0], colors...)
 	}
 	playersMu.Unlock()
+	updatePlayersDropdown()
 }
 
 func getPlayers() []Player {
