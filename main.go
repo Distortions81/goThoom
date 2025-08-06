@@ -57,7 +57,6 @@ func main() {
 	flag.BoolVar(&demo, "demo", false, "login as random demo character")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.BoolVar(&noSplash, "nosplash", false, "skip login window and auto connect")
-	flag.BoolVar(&smoothMoving, "smoothMoving", true, "interpolate moving pictures")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
