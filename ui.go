@@ -70,7 +70,7 @@ func initUI() {
 	}
 	var width float32 = 250
 
-	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scale", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
+	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
 	scaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			scale = int(ev.Value)
