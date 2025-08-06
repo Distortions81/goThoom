@@ -62,7 +62,7 @@ func main() {
 	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
 	flag.BoolVar(&onion, "blend", false, "mobile frame blending (smoother animations for players/creatures)")
 	flag.BoolVar(&smoothDebug, "smoothDebug", false, "highlight moving pictures during smoothing")
-	flag.BoolVar(&blendPicts, "blendPicts", false, "frame blending for environment animations")
+	flag.BoolVar(&blendPicts, "blendPicts", true, "frame blending for environment animations")
 	flag.BoolVar(&denoise, "denoise", false, "apply image denoising filter")
 	flag.BoolVar(&nightMode, "nightMode", true, "enable night-time visual effects")
 	flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
