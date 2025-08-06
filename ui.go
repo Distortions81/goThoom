@@ -263,6 +263,31 @@ func initUI() {
 	playersWin.Resizable = true
 	playersWin.AutoSize = true
 
+	helpWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Help",
+		Open:      false,
+		Closable:  false,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   true,
+	})
+	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	helpTexts := []string{
+		"WASD or Arrow Keys - Walk",
+		"Shift + Movement - Run",
+		"Left Click - Walk toward cursor",
+		"Click-to-Toggle Walk - Left click toggles walking",
+		"Enter - Start typing / send command",
+		"Escape - Cancel typing",
+	}
+	for _, line := range helpTexts {
+		t, _ := eui.NewText(&eui.ItemData{Text: line, Size: eui.Point{X: 300, Y: 24}})
+		helpFlow.AddItem(t)
+	}
+	helpWin.AddItem(helpFlow)
+	helpWin.Open = false
+	helpWin.AddWindow(false)
+
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
@@ -297,5 +322,14 @@ func initUI() {
 		}
 	}
 	overlay.AddItem(btn)
+
+	helpBtn, helpEvents := eui.NewButton(&eui.ItemData{Text: "Help", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	helpEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			helpWin.Open = !helpWin.Open
+		}
+	}
+	overlay.AddItem(helpBtn)
+
 	eui.AddOverlayFlow(overlay)
 }
