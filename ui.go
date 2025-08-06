@@ -161,6 +161,14 @@ func initUI() {
 	}
 	mainFlow.AddItem(planesCB)
 
+	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: hideMoving})
+	hideMoveEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			hideMoving = ev.Checked
+		}
+	}
+	mainFlow.AddItem(hideMoveCB)
+
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
 	settingsWin.Open = false
