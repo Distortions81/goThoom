@@ -67,7 +67,7 @@ func main() {
 	//flag.BoolVar(&nightMode, "nightMode", true, "enable night-time visual effects")
 	//flag.BoolVar(&showPlanes, "planes", false, "draw plane and type for each sprite")
 	//flag.BoolVar(&showBubbles, "bubble", true, "draw bubble debug boxes")
-	//clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
+	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	//flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
 	//flag.BoolVar(&silent, "silent", false, "suppress on-screen error messages")
