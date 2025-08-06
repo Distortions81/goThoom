@@ -55,6 +55,7 @@ var frameCounter int
 var showPlanes bool
 var showBubbles bool
 var nightMode bool
+var hideMobiles bool
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -368,10 +369,13 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			pi = clImages.Plane(uint32(snap.pictures[i].PictID))
 			pj = clImages.Plane(uint32(snap.pictures[j].PictID))
 		}
-		if pi == pj {
-			return snap.pictures[i].V < snap.pictures[j].V
+		if pi != pj {
+			return pi < pj
 		}
-		return pi < pj
+		if snap.pictures[i].V == snap.pictures[j].V {
+			return snap.pictures[i].H < snap.pictures[j].H
+		}
+		return snap.pictures[i].V < snap.pictures[j].V
 	})
 
 	dead := make([]frameMobile, 0, len(snap.mobiles))
@@ -405,33 +409,39 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
-	sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
-	for _, m := range dead {
-		drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
-	}
+	if hideMobiles {
+		for _, p := range zeroPics {
+			drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		}
+	} else {
+		sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
+		for _, m := range dead {
+			drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
+		}
 
-	sort.Slice(live, func(i, j int) bool { return live[i].V < live[j].V })
-	i, j := 0, 0
-	for i < len(live) || j < len(zeroPics) {
-		var mV, pV int
-		if i < len(live) {
-			mV = int(live[i].V)
-		} else {
-			mV = int(^uint(0) >> 1)
-		}
-		if j < len(zeroPics) {
-			pV = int(zeroPics[j].V)
-		} else {
-			pV = int(^uint(0) >> 1)
-		}
-		if mV < pV {
-			if live[i].State != poseDead {
-				drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
+		sort.Slice(live, func(i, j int) bool { return live[i].V < live[j].V })
+		i, j := 0, 0
+		for i < len(live) || j < len(zeroPics) {
+			var mV, pV int
+			if i < len(live) {
+				mV = int(live[i].V)
+			} else {
+				mV = int(^uint(0) >> 1)
 			}
-			i++
-		} else {
-			drawPicture(screen, zeroPics[j], alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
-			j++
+			if j < len(zeroPics) {
+				pV = int(zeroPics[j].V)
+			} else {
+				pV = int(^uint(0) >> 1)
+			}
+			if mV < pV {
+				if live[i].State != poseDead {
+					drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
+				}
+				i++
+			} else {
+				drawPicture(screen, zeroPics[j], alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+				j++
+			}
 		}
 	}
 
