@@ -126,6 +126,12 @@ func sendPlayerInput(connection net.Conn) error {
 	if mouseDown {
 		flags = kPIMDownField
 	}
+
+	if mouseDown && !keyWalk {
+		ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
+	} else {
+		ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+	}
 	cmd := pendingCommand
 	cmdBytes := encodeMacRoman(cmd)
 	packet := make([]byte, 20+len(cmdBytes)+1)

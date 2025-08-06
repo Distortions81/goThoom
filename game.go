@@ -832,6 +832,8 @@ func runGame(ctx context.Context) {
 	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
 	ebiten.SetWindowTitle("Draw State")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.SetVsyncEnabled(true)
+	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Printf("ebiten: %v", err)
 	}
