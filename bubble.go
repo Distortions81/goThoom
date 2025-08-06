@@ -123,6 +123,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	if txt == "" {
 		return
 	}
+	y -= 20
 
 	sw, sh := gameAreaSizeX*scale, gameAreaSizeY*scale
 	pad := (4 + 2) * scale
