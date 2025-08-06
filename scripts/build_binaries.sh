@@ -16,6 +16,7 @@ platforms=(
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
   BIN_NAME="thoomspeak-${GOOS}-${GOARCH}"
+  ZIP_NAME="${BIN_NAME}.zip"
   if [ "$GOOS" = "windows" ]; then
     BIN_NAME+=".exe"
   fi
@@ -28,8 +29,16 @@ for platform in "${platforms[@]}"; do
     CGO_ENABLED=0  # Disable cgo for unsupported cross-compilation targets
   fi
 
+  # Build binary
   env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED="$CGO_ENABLED" \
     go build -o "${OUTPUT_DIR}/${BIN_NAME}" .
+
+  # Zip it
+  echo "Zipping ${BIN_NAME}..."
+  (
+    cd "$OUTPUT_DIR"
+    zip -q -m "$ZIP_NAME" "$BIN_NAME"
+  )
 done
 
-echo "Binaries are located in ${OUTPUT_DIR}/"
+echo "Binaries and zip files are located in ${OUTPUT_DIR}/"
