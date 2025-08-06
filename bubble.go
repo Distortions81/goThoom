@@ -125,11 +125,12 @@ func bubbleColors(typ int) (border, bg, text color.Color) {
 
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
 // bottom-center of the balloon tail. If far is true the tail is omitted and
-// (x, y) represents the bottom-center of the bubble itself. The typ parameter
+// (x, y) represents the bottom-center of the bubble itself. The tail can also
+// be skipped explicitly via noArrow. The typ parameter
 // is currently unused but retained for future compatibility with the original
 // bubble images. The colors of the border, background, and text can be
 // customized via borderCol, bgCol, and textCol respectively.
-func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, borderCol, bgCol, textCol color.Color) {
+func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, noArrow bool, borderCol, bgCol, textCol color.Color) {
 	if txt == "" {
 		return
 	}
@@ -166,7 +167,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	body.Close()
 
 	var tail vector.Path
-	if !far {
+	if !far && !noArrow {
 		tail.MoveTo(float32(x-tailHalf), float32(bottom))
 		tail.LineTo(float32(x), float32(y))
 		tail.LineTo(float32(x+tailHalf), float32(bottom))
@@ -185,7 +186,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	op := &ebiten.DrawTrianglesOptions{ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
 	screen.DrawTriangles(vs, is, whiteImage, op)
 
-	if !far {
+	if !far && !noArrow {
 		vs, is = tail.AppendVerticesAndIndicesForFilling(vs[:0], is[:0])
 		for i := range vs {
 			vs[i].SrcX = 0
@@ -205,7 +206,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	outline.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
 	outline.LineTo(float32(right), float32(bottom)-radius)
 	outline.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
-	if !far {
+	if !far && !noArrow {
 		outline.LineTo(float32(x+tailHalf), float32(bottom))
 		outline.LineTo(float32(x), float32(y))
 		outline.LineTo(float32(x-tailHalf), float32(bottom))

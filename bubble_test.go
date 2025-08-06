@@ -65,7 +65,7 @@ func TestDrawBubbleWideNoArtifacts(t *testing.T) {
 
 	screen := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
 	borderCol, bgCol, textCol := bubbleColors(kBubbleNormal)
-	drawBubble(screen, txt, gameAreaSizeX/2, gameAreaSizeY/2, kBubbleNormal, false, borderCol, bgCol, textCol)
+	drawBubble(screen, txt, gameAreaSizeX/2, gameAreaSizeY/2, kBubbleNormal, false, false, borderCol, bgCol, textCol)
 
 	width, lines := wrapText(txt, bubbleFont, float64(maxLineWidth))
 	if len(lines) != 1 {

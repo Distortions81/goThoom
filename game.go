@@ -98,12 +98,13 @@ var (
 
 // bubble stores temporary bubble debug information.
 type bubble struct {
-	Index  uint8
-	H, V   int16
-	Far    bool
-	Text   string
-	Type   int
-	Expire time.Time
+	Index   uint8
+	H, V    int16
+	Far     bool
+	NoArrow bool
+	Text    string
+	Type    int
+	Expire  time.Time
 }
 
 // drawSnapshot is a read-only copy of the current draw state.
@@ -464,7 +465,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			x := (int(math.Round(hpos)) + fieldCenterX) * scale
 			y := (int(math.Round(vpos)) + fieldCenterY) * scale
 			borderCol, bgCol, textCol := bubbleColors(b.Type)
-			drawBubble(screen, b.Text, x, y, b.Type, b.Far, borderCol, bgCol, textCol)
+			drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, borderCol, bgCol, textCol)
 		}
 	}
 }
