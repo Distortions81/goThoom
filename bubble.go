@@ -15,6 +15,42 @@ func init() {
 	whiteImage.Fill(color.White)
 }
 
+// adjustBubbleRect calculates the on-screen rectangle for a bubble and shifts
+// the tail tip (x, y) if clamping is required. It returns the clamped
+// rectangle along with the adjusted tail coordinates.
+func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (left, top, right, bottom, ax, ay int) {
+	bottom = y
+	if !far {
+		bottom = y - tailHeight
+	}
+	left = x - width/2
+	top = bottom - height
+
+	origLeft, origTop := left, top
+
+	if left < 0 {
+		left = 0
+	}
+	if left+width > sw {
+		left = sw - width
+	}
+	if top < 0 {
+		top = 0
+	}
+	if top+height > sh {
+		top = sh - height
+	}
+
+	dx := left - origLeft
+	dy := top - origTop
+	ax = x + dx
+	ay = y + dy
+
+	right = left + width
+	bottom = top + height
+	return
+}
+
 // Bubble dimensions and text widths derived from the original Macintosh client.
 // Sizes are in pixels at scale 1.
 const (
@@ -67,27 +103,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
 
-	bottom := y
-	if !far {
-		bottom = y - tailHeight
-	}
-	left := x - width/2
-	top := bottom - height
-	right := left + width
-
-	// Ensure the bubble remains fully on screen.
-	if left < 0 {
-		left = 0
-	}
-	if left+width > sw {
-		left = sw - width
-	}
-	if top < 0 {
-		top = 0
-	}
-	if top+height > sh {
-		top = sh - height
-	}
+	left, top, right, bottom, x, y := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
