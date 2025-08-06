@@ -3,3 +3,4 @@ CL_Sounds
 go_client
 *.log
 data/night.png
+settings.json

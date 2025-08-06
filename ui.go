@@ -77,6 +77,7 @@ func initUI() {
 			initFont()
 			inputBg = nil
 			ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(scaleSlider)
@@ -88,6 +89,7 @@ func initUI() {
 			if !clickToToggle {
 				walkToggled = false
 			}
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(toggle)
@@ -101,6 +103,7 @@ func initUI() {
 			} else {
 				drawFilter = ebiten.FilterNearest
 			}
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(filt)
@@ -110,6 +113,7 @@ func initUI() {
 		if ev.Type == eui.EventCheckboxChanged {
 			vsync = ev.Checked
 			ebiten.SetVsyncEnabled(vsync)
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(vsyncCB)
@@ -118,14 +122,25 @@ func initUI() {
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			interp = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(motion)
+
+	moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: smoothMoving})
+	moveSmoothEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			smoothMoving = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(moveSmoothCB)
 
 	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: onion})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			onion = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(anim)
@@ -134,6 +149,7 @@ func initUI() {
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			blendPicts = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(pictBlend)
@@ -142,6 +158,7 @@ func initUI() {
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			blendRate = float64(ev.Value)
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(blendSlider)
@@ -150,6 +167,7 @@ func initUI() {
 	nightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			nightMode = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(nightCB)
@@ -158,6 +176,7 @@ func initUI() {
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			showBubbles = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(bubbleCB)
@@ -168,6 +187,7 @@ func initUI() {
 			mainFontSize = float64(ev.Value)
 			initFont()
 			inputBg = nil
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(textSlider)
@@ -177,6 +197,7 @@ func initUI() {
 		if ev.Type == eui.EventSliderChanged {
 			bubbleFontSize = float64(ev.Value)
 			initFont()
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(bubbleTextSlider)
@@ -185,6 +206,7 @@ func initUI() {
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			showPlanes = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(planesCB)
@@ -193,6 +215,7 @@ func initUI() {
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			hideMoving = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(hideMoveCB)
@@ -200,6 +223,7 @@ func initUI() {
 	hideMobEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			hideMobiles = ev.Checked
+			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(hideMobCB)

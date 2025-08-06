@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -49,6 +50,7 @@ var (
 
 func main() {
 	var noFastAnimation bool
+	var forceFlag bool
 	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&name, "name", "", "character name")
 	flag.StringVar(&account, "account", "", "account name")
@@ -60,6 +62,7 @@ func main() {
 	flag.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
 	flag.IntVar(&scale, "scale", 2, "image upscaling")
 	flag.BoolVar(&interp, "smooth", true, "motion smoothing (linear interpolation)")
+	flag.BoolVar(&smoothMoving, "smoothMoving", true, "interpolate moving pictures")
 	flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
 	flag.BoolVar(&onion, "blend", false, "mobile frame blending (smoother animations for players/creatures)")
 	flag.BoolVar(&smoothDebug, "smoothDebug", false, "highlight moving pictures during smoothing")
@@ -78,8 +81,30 @@ func main() {
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
 	flag.IntVar(&nightLevel, "night", 0, "force night level (0-100)")
 	flag.Float64Var(&blendRate, "blendRate", 1, "amount of the a UPS interval to blend across. 0.1 low blend, 1.0 max")
+	flag.BoolVar(&forceFlag, "force", false, "ignore settings file and parse command line flags")
 
-	flag.Parse()
+	baseDir = os.Getenv("PWD")
+	if baseDir == "" {
+		var err error
+		if baseDir, err = os.Getwd(); err != nil {
+			log.Fatalf("get working directory: %v", err)
+		}
+	}
+
+	forceArg := false
+	for _, a := range os.Args[1:] {
+		if strings.HasPrefix(a, "-force") {
+			forceArg = true
+			break
+		}
+	}
+	loaded := false
+	if !forceArg {
+		loaded = loadSettings()
+	}
+	if forceArg || !loaded {
+		flag.Parse()
+	}
 	if nightLevel != 0 {
 		if nightLevel < 0 {
 			nightLevel = 0
@@ -96,15 +121,7 @@ func main() {
 	fastAnimation = !noFastAnimation
 	initSoundContext()
 
-	initFont()
-
-	baseDir = os.Getenv("PWD")
-	if baseDir == "" {
-		var err error
-		if baseDir, err = os.Getwd(); err != nil {
-			log.Fatalf("get working directory: %v", err)
-		}
-	}
+	applySettings()
 
 	setupLogging(debug)
 
