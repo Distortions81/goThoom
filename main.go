@@ -40,6 +40,7 @@ var (
 	fastBars     bool
 	maxSounds    int
 	nightLevel   int
+	blendRate    float64
 	blockSound   bool
 	blockBubbles bool
 
@@ -76,6 +77,7 @@ func main() {
 	flag.BoolVar(&fastBars, "fastBars", true, "do not interpolate bar decreases")
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
 	flag.IntVar(&nightLevel, "night", 0, "force night level (0-100)")
+	flag.Float64Var(&blendRate, "blendRate", 1, "amount of the a UPS interval to blend across. 0.1 low blend, 1.0 max")
 
 	flag.Parse()
 	if nightLevel != 0 {

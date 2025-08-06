@@ -202,7 +202,7 @@ func captureDrawSnapshot() drawSnapshot {
 }
 
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
-func computeInterpolation(prevTime, curTime time.Time) (alpha float64, fade float32) {
+func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha float64, fade float32) {
 	alpha = 1.0
 	fade = 1.0
 	if (interp || onion || blendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
@@ -218,7 +218,7 @@ func computeInterpolation(prevTime, curTime time.Time) (alpha float64, fade floa
 			}
 		}
 		if onion || blendPicts {
-			half := interval / 2
+			half := float64(interval) * rate
 			if half > 0 {
 				fade = float32(float64(elapsed) / float64(half))
 			}
@@ -339,7 +339,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	snap := captureDrawSnapshot()
-	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime)
+	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime, blendRate)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, snap, alpha, fade)
 	if nightMode {
