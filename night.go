@@ -31,8 +31,7 @@ type NightInfo struct {
 var gNight NightInfo
 
 var (
-	nightImg  *ebiten.Image
-	nightOnce sync.Once
+	nightImg *ebiten.Image
 )
 
 var nightRE = regexp.MustCompile(`^/nt ([0-9]+) /sa ([-0-9]+) /cl ([01])`)
@@ -158,28 +157,20 @@ func parseNightCommand(s string) bool {
 	return false
 }
 
-func getNightImage() *ebiten.Image {
+func init() {
 	if nightImg == nil {
 		f, err := nightImage.Open("data/night.png")
 		if err != nil {
-			return nil
+			return
 		}
 		defer f.Close()
 		img, _, err := image.Decode(f)
 		if err != nil {
-			return nil
+			return
 		}
 		nightImg = ebiten.NewImageFromImage(img)
 	}
-	return nightImg
 }
-
-const (
-	kNight100Pct = 1395
-	kNight75Pct  = 1396
-	kNight50Pct  = 1397
-	kNight25Pct  = 1398
-)
 
 func drawNightOverlay(screen *ebiten.Image) {
 	gNight.mu.Lock()
@@ -189,7 +180,7 @@ func drawNightOverlay(screen *ebiten.Image) {
 		return
 	}
 
-	img := getNightImage()
+	img := nightImg
 	if img == nil {
 		return
 	}
