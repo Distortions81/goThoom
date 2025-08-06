@@ -49,6 +49,7 @@ var fastAnimation = true
 var blendPicts bool
 var linear bool
 var smoothDebug bool
+var hideMoving bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var showPlanes bool
@@ -615,6 +616,9 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 
 // drawPicture renders a single picture sprite.
 func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
+	if hideMoving && p.Moving {
+		return
+	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
 
