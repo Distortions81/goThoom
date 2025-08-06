@@ -205,6 +205,62 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	return best[0], best[1], idxs, true
 }
 
+// interpolatePictures updates newPics with the best matching previous picture
+// positions for movement smoothing. Each previous picture is matched at most
+// once to avoid assigning the same starting point to multiple new pictures when
+// duplicates are nearby.
+func interpolatePictures(prevPics, newPics []framePicture, again, shiftX, shiftY int) {
+	used := make([]bool, len(prevPics))
+	for i := 0; i < again && i < len(prevPics); i++ {
+		used[i] = true
+	}
+	for i := range newPics {
+		newPics[i].PrevH = int16(int(newPics[i].H) - shiftX)
+		newPics[i].PrevV = int16(int(newPics[i].V) - shiftY)
+		moving := true
+		if i < again {
+			moving = false
+		} else {
+			for j := range prevPics {
+				if used[j] {
+					continue
+				}
+				pp := &prevPics[j]
+				if pp.PictID == newPics[i].PictID &&
+					int(pp.H)+shiftX == int(newPics[i].H) &&
+					int(pp.V)+shiftY == int(newPics[i].V) {
+					moving = false
+					used[j] = true
+					break
+				}
+			}
+		}
+		if moving {
+			bestDist := maxInterpPixels*maxInterpPixels + 1
+			bestIdx := -1
+			for j := range prevPics {
+				if used[j] || prevPics[j].PictID != newPics[i].PictID {
+					continue
+				}
+				dh := int(newPics[i].H) - int(prevPics[j].H) - shiftX
+				dv := int(newPics[i].V) - int(prevPics[j].V) - shiftY
+				dist := dh*dh + dv*dv
+				if dist < bestDist {
+					bestDist = dist
+					bestIdx = j
+				}
+			}
+			if bestIdx >= 0 && bestDist <= maxInterpPixels*maxInterpPixels {
+				newPics[i].PrevH = prevPics[bestIdx].H
+				newPics[i].PrevV = prevPics[bestIdx].V
+				used[bestIdx] = true
+			}
+		}
+		newPics[i].Moving = moving
+		newPics[i].Background = false
+	}
+}
+
 // drawStateEncrypted controls whether incoming draw state packets need to be
 // decrypted using SimpleEncrypt before parsing. By default frames from the
 // live server arrive unencrypted; set this flag to true only when handling
@@ -589,46 +645,7 @@ func parseDrawState(data []byte) error {
 	for _, d := range descs {
 		state.descriptors[d.Index] = d
 	}
-	for i := range newPics {
-		newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-		newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
-		moving := true
-		if i < again {
-			moving = false
-		} else {
-			for _, pp := range prevPics {
-				if pp.PictID == newPics[i].PictID &&
-					int(pp.H)+state.picShiftX == int(newPics[i].H) &&
-					int(pp.V)+state.picShiftY == int(newPics[i].V) {
-					moving = false
-					break
-				}
-			}
-		}
-		if moving {
-			bestDist := maxInterpPixels*maxInterpPixels + 1
-			var best *framePicture
-			for j := range prevPics {
-				pp := &prevPics[j]
-				if pp.PictID != newPics[i].PictID {
-					continue
-				}
-				dh := int(newPics[i].H) - int(pp.H) - state.picShiftX
-				dv := int(newPics[i].V) - int(pp.V) - state.picShiftY
-				dist := dh*dh + dv*dv
-				if dist < bestDist {
-					bestDist = dist
-					best = pp
-				}
-			}
-			if best != nil && bestDist <= maxInterpPixels*maxInterpPixels {
-				newPics[i].PrevH = best.H
-				newPics[i].PrevV = best.V
-			}
-		}
-		newPics[i].Moving = moving
-		newPics[i].Background = false
-	}
+	interpolatePictures(prevPics, newPics, again, state.picShiftX, state.picShiftY)
 	for _, idx := range bgIdxs {
 		if idx >= 0 && idx < len(newPics) {
 			newPics[idx].Moving = false
