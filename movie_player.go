@@ -21,6 +21,7 @@ type moviePlayer struct {
 	ticker  *time.Ticker
 	cancel  context.CancelFunc
 	states  []drawSnapshot
+	msgs    [][]string
 
 	slider     *eui.ItemData
 	curLabel   *eui.ItemData
@@ -174,19 +175,25 @@ func (p *moviePlayer) cacheFrames() {
 
 	blockSound = true
 	blockRender = true
+	clmovCaching = true
+	clmovCacheMsgs = make([][]string, len(p.frames)+1)
 	defer func() {
 		blockSound = false
 		blockRender = false
+		clmovCaching = false
+		p.msgs = clmovCacheMsgs
+		clmovCacheMsgs = nil
 	}()
 
 	p.states = make([]drawSnapshot, 0, len(p.frames)+1)
 	p.states = append(p.states, captureDrawSnapshot())
-	for _, m := range p.frames {
+	for i, m := range p.frames {
+		clmovCacheFrame = i + 1
 		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
 			handleDrawState(m)
 		}
 		if txt := decodeMessage(m); txt != "" {
-			_ = txt
+			addMessage(txt)
 		}
 		p.states = append(p.states, captureDrawSnapshot())
 	}
@@ -219,6 +226,11 @@ func (p *moviePlayer) step() {
 	}
 	p.cur++
 	applyDrawSnapshot(p.states[p.cur], p.fps)
+	if p.cur < len(p.msgs) {
+		for _, msg := range p.msgs[p.cur] {
+			addMessage(msg)
+		}
+	}
 	p.updateUI()
 	if p.cur >= len(p.states)-1 {
 		p.playing = false

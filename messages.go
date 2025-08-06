@@ -18,10 +18,19 @@ type message struct {
 var (
 	messageMu sync.Mutex
 	messages  []message
+
+	clmovCaching    bool
+	clmovCacheFrame int
+	clmovCacheMsgs  [][]string
 )
 
 func addMessage(msg string) {
 	if msg == "" {
+		return
+	}
+
+	if clmovCaching && clmovCacheFrame < len(clmovCacheMsgs) {
+		clmovCacheMsgs[clmovCacheFrame] = append(clmovCacheMsgs[clmovCacheFrame], msg)
 		return
 	}
 

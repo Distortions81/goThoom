@@ -238,6 +238,13 @@ func applyDrawSnapshot(snap drawSnapshot, fps int) {
 	}
 
 	state.bubbles = append([]bubble(nil), snap.bubbles...)
+	if clMovPlaying {
+		now := time.Now()
+		for i := range state.bubbles {
+			rem := snap.bubbles[i].Expire.Sub(snap.curTime)
+			state.bubbles[i].Expire = now.Add(rem)
+		}
+	}
 
 	state.hp = snap.hp
 	state.hpMax = snap.hpMax
