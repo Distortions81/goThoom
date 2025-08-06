@@ -105,6 +105,15 @@ func initUI() {
 	}
 	mainFlow.AddItem(filt)
 
+	vsyncCB, vsyncEvents := eui.NewCheckbox(&eui.ItemData{Text: "Vsync", Size: eui.Point{X: width, Y: 24}, Checked: vsync})
+	vsyncEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			vsync = ev.Checked
+			ebiten.SetVsyncEnabled(vsync)
+		}
+	}
+	mainFlow.AddItem(vsyncCB)
+
 	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: interp})
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
