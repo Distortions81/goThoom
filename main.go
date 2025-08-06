@@ -56,7 +56,7 @@ func main() {
 	flag.BoolVar(&demo, "demo", false, "login as random demo character")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	//flag.BoolVar(&noSplash, "nosplash", false, "skip login window and auto connect")
-	//.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
+	flag.IntVar(&clMovFPS, "clmov-speed", 5, "playback speed in frame-per-second")
 	flag.IntVar(&scale, "scale", 2, "image upscaling")
 	//flag.BoolVar(&interp, "smooth", true, "motion smoothing (linear interpolation)")
 	//flag.BoolVar(&linear, "filter", false, "image filtering (bilinear)")
