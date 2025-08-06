@@ -745,8 +745,8 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 		op.ColorM.Scale(float64(clr.R)/255, float64(clr.G)/255, float64(clr.B)/255, float64(clr.A)/255)
 		screen.DrawImage(hudPixel, op)
 	}
-	barWidth := 125 * scale
-	barHeight := 10 * scale
+	barWidth := 110 * scale
+	barHeight := 8 * scale
 	fieldWidth := gameAreaSizeX * scale
 	slot := (fieldWidth - 3*barWidth) / 6
 	barY := gameAreaSizeY*scale - 20*scale - barHeight
@@ -763,15 +763,15 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 	}
 	hp := lerpBar(snap.prevHP, snap.hp, alpha)
 	hpMax := lerpBar(snap.prevHPMax, snap.hpMax, alpha)
-	drawBar(x, hp, hpMax, color.RGBA{0xff, 0, 0, 0xff})
+	drawBar(x, hp, hpMax, color.RGBA{0x00, 0xff, 0, 0xff})
 	x += step
 	bal := lerpBar(snap.prevBalance, snap.balance, alpha)
 	balMax := lerpBar(snap.prevBalanceMax, snap.balanceMax, alpha)
-	drawBar(x, bal, balMax, color.RGBA{0x00, 0xff, 0x00, 0xff})
+	drawBar(x, bal, balMax, color.RGBA{0x00, 0x00, 0xff, 0xff})
 	x += step
 	sp := lerpBar(snap.prevSP, snap.sp, alpha)
 	spMax := lerpBar(snap.prevSPMax, snap.spMax, alpha)
-	drawBar(x, sp, spMax, color.RGBA{0x00, 0x00, 0xff, 0xff})
+	drawBar(x, sp, spMax, color.RGBA{0xff, 0x00, 0x00, 0xff})
 }
 
 // drawMessages prints chat messages on the HUD.

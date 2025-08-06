@@ -159,18 +159,18 @@ func parseNightCommand(s string) bool {
 }
 
 func getNightImage() *ebiten.Image {
-	nightOnce.Do(func() {
+	if nightImg == nil {
 		f, err := nightImage.Open("data/night.png")
 		if err != nil {
-			return
+			return nil
 		}
 		defer f.Close()
 		img, _, err := image.Decode(f)
 		if err != nil {
-			return
+			return nil
 		}
 		nightImg = ebiten.NewImageFromImage(img)
-	})
+	}
 	return nightImg
 }
 
