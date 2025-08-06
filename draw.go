@@ -25,6 +25,7 @@ type framePicture struct {
 	PrevH, PrevV int16
 	Moving       bool
 	Background   bool
+	owned        bool
 }
 
 type frameMobile struct {
@@ -144,13 +145,14 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	idxMap := make(map[[2]int]map[int]struct{})
 	total := 0
 	maxInt := int(^uint(0) >> 1)
+	owned := make([]bool, len(cur))
 	for _, p := range prev {
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
 		matched := false
 		for j, c := range cur {
-			if p.PictID != c.PictID {
+			if owned[j] || p.PictID != c.PictID {
 				continue
 			}
 			dx := int(c.H) - int(p.H)
@@ -172,6 +174,7 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 				idxMap[key] = make(map[int]struct{})
 			}
 			idxMap[key][bestIdx] = struct{}{}
+			owned[bestIdx] = true
 			total += pixels
 		}
 	}
@@ -549,6 +552,9 @@ func parseDrawState(data []byte) error {
 	}
 	// retain previously drawn pictures when the packet specifies pictAgain
 	prevPics := state.pictures
+	for i := range prevPics {
+		prevPics[i].owned = false
+	}
 	again := pictAgain
 	if again > len(prevPics) {
 		again = len(prevPics)
@@ -610,7 +616,7 @@ func parseDrawState(data []byte) error {
 			var best *framePicture
 			for j := range prevPics {
 				pp := &prevPics[j]
-				if pp.PictID != newPics[i].PictID {
+				if pp.owned || pp.PictID != newPics[i].PictID {
 					continue
 				}
 				dh := int(newPics[i].H) - int(pp.H) - state.picShiftX
@@ -624,6 +630,7 @@ func parseDrawState(data []byte) error {
 			if best != nil && bestDist <= maxInterpPixels*maxInterpPixels {
 				newPics[i].PrevH = best.H
 				newPics[i].PrevV = best.V
+				best.owned = true
 			}
 		}
 		newPics[i].Moving = moving
