@@ -28,6 +28,7 @@ type moviePlayer struct {
 }
 
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
+	setInterpFPS(fps)
 	return &moviePlayer{
 		frames:  frames,
 		fps:     fps,
@@ -240,6 +241,7 @@ func (p *moviePlayer) setFPS(fps int) {
 	}
 	p.fps = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
+	setInterpFPS(p.fps)
 	p.updateUI()
 }
 
@@ -286,6 +288,7 @@ func (p *moviePlayer) seek(idx int) {
 	}
 	p.cur = idx
 	resetInterpolation()
+	setInterpFPS(p.fps)
 	p.updateUI()
 	p.playing = wasPlaying
 }
@@ -306,5 +309,18 @@ func resetInterpolation() {
 	state.prevMobiles = make(map[uint8]frameMobile)
 	state.prevDescs = make(map[uint8]frameDescriptor)
 	state.prevTime = state.curTime
+	stateMu.Unlock()
+}
+
+func setInterpFPS(fps int) {
+	if fps < 1 {
+		fps = 1
+	}
+	d := time.Second / time.Duration(fps)
+	stateMu.Lock()
+	if state.prevTime.IsZero() {
+		state.prevTime = time.Now()
+	}
+	state.curTime = state.prevTime.Add(d)
 	stateMu.Unlock()
 }
