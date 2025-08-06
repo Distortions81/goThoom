@@ -571,7 +571,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 				w, h := text.Measure(d.Name, mainFont, 0)
 				iw := int(math.Ceil(w))
 				ih := int(math.Ceil(h))
-				top := y + ih + (4 * scale)
+				top := y + (20 * scale)
 				left := x - iw/2
 				ebitenutil.DrawRect(screen, float64(left), float64(top), float64(iw+5), float64(ih), bgClr)
 				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
