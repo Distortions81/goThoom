@@ -1,9 +1,9 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"image"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -11,6 +11,9 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+//go:embed data/night.png
+var nightImage embed.FS
 
 type NightInfo struct {
 	mu              sync.Mutex
@@ -157,7 +160,7 @@ func parseNightCommand(s string) bool {
 
 func getNightImage() *ebiten.Image {
 	nightOnce.Do(func() {
-		f, err := os.Open("data/night.png")
+		f, err := nightImage.Open("data/night.png")
 		if err != nil {
 			return
 		}
@@ -191,14 +194,9 @@ func drawNightOverlay(screen *ebiten.Image) {
 		return
 	}
 
-	w := float64(gameAreaSizeX * scale)
-	h := float64(gameAreaSizeY * scale)
-	bw := float64(img.Bounds().Dx())
-	bh := float64(img.Bounds().Dy())
-
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(w/bw, h/bh)
-	alpha := float64(lvl) / 100.0
-	op.ColorM.Scale(1, 1, 1, alpha)
+	op.GeoM.Scale(float64(scale), float64(scale))
+	alpha := float32(lvl) / 100.0
+	op.ColorScale.ScaleAlpha(alpha)
 	screen.DrawImage(img, op)
 }
