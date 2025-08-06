@@ -162,6 +162,25 @@ func initUI() {
 	}
 	mainFlow.AddItem(bubbleCB)
 
+	textSlider, textEvents := eui.NewSlider(&eui.ItemData{Label: "Text Size", MinValue: 6, MaxValue: 18, Value: float32(mainFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
+	textEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			mainFontSize = float64(ev.Value)
+			initFont()
+			inputBg = nil
+		}
+	}
+	mainFlow.AddItem(textSlider)
+
+	bubbleTextSlider, bubbleTextEvents := eui.NewSlider(&eui.ItemData{Label: "Bubble Text Size", MinValue: 6, MaxValue: 18, Value: float32(bubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
+	bubbleTextEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			bubbleFontSize = float64(ev.Value)
+			initFont()
+		}
+	}
+	mainFlow.AddItem(bubbleTextSlider)
+
 	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image plane numbers", Size: eui.Point{X: width, Y: 24}, Checked: showPlanes})
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -169,6 +188,21 @@ func initUI() {
 		}
 	}
 	mainFlow.AddItem(planesCB)
+
+	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: hideMoving})
+	hideMoveEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			hideMoving = ev.Checked
+		}
+	}
+	mainFlow.AddItem(hideMoveCB)
+	hideMobCB, hideMobEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Mobiles", Size: eui.Point{X: width, Y: 24}, Checked: hideMobiles})
+	hideMobEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			hideMobiles = ev.Checked
+		}
+	}
+	mainFlow.AddItem(hideMobCB)
 
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
