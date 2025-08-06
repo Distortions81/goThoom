@@ -55,6 +55,7 @@ var frameCounter int
 var showPlanes bool
 var showBubbles bool
 var nightMode bool
+var vsync = true
 var hideMobiles bool
 
 var (
@@ -860,7 +861,7 @@ func runGame(ctx context.Context) {
 	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
 	ebiten.SetWindowTitle("ThoomSpeak")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetVsyncEnabled(true)
+	ebiten.SetVsyncEnabled(vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
