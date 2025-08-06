@@ -754,6 +754,10 @@ func parseDrawState(data []byte) error {
 			stateMu.Unlock()
 			if showBubbles && txt != "" && !blockBubbles {
 				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
+				switch typ & kBubbleTypeMask {
+				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
+					b.NoArrow = true
+				}
 				if typ&kBubbleFar != 0 {
 					b.H, b.V = h, v
 					b.Far = true
