@@ -26,6 +26,7 @@ type Settings struct {
 	ShowPlanes     bool    `json:"showPlanes"`
 	HideMoving     bool    `json:"hideMoving"`
 	HideMobiles    bool    `json:"hideMobiles"`
+	KeyWalkSpeed   float64 `json:"keyWalkSpeed"`
 }
 
 var settingsDirty bool
@@ -56,6 +57,10 @@ func loadSettings() bool {
 	showPlanes = s.ShowPlanes
 	hideMoving = s.HideMoving
 	hideMobiles = s.HideMobiles
+	keyWalkSpeed = s.KeyWalkSpeed
+	if keyWalkSpeed == 0 {
+		keyWalkSpeed = 0.5
+	}
 	return true
 }
 
@@ -89,6 +94,7 @@ func saveSettings() {
 		ShowPlanes:     showPlanes,
 		HideMoving:     hideMoving,
 		HideMobiles:    hideMobiles,
+		KeyWalkSpeed:   keyWalkSpeed,
 	}
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
