@@ -4,9 +4,14 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"image"
+	"image/draw"
+	"os"
 	"time"
 
 	"github.com/Distortions81/EUI/eui"
+	"github.com/gen2brain/x264-go"
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hako/durafmt"
 )
 
@@ -162,6 +167,21 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(dbl)
 
+	renderBtn, renderEv := eui.NewButton(&eui.ItemData{Text: "Render", Size: eui.Point{X: 60, Y: 24}})
+	renderEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			go func() {
+				addMessage("Rendering video to movie.h264...")
+				if err := p.renderVideo("movie.h264"); err != nil {
+					addMessage(fmt.Sprintf("render failed: %v", err))
+				} else {
+					addMessage("saved movie.h264")
+				}
+			}()
+		}
+	}
+	bFlow.AddItem(renderBtn)
+
 	flow.AddItem(bFlow)
 	win.AddItem(flow)
 	win.AddWindow(false)
@@ -287,6 +307,60 @@ func (p *moviePlayer) seek(idx int) {
 	p.cur = idx
 	p.updateUI()
 	p.playing = wasPlaying
+}
+
+// renderVideo encodes all cached frames into an H264 video file.
+func (p *moviePlayer) renderVideo(path string) error {
+	width := gameAreaSizeX * scale
+	height := gameAreaSizeY * scale
+	if width%2 != 0 {
+		width++
+	}
+	if height%2 != 0 {
+		height++
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	opts := &x264.Options{
+		Width:     width,
+		Height:    height,
+		FrameRate: p.fps,
+		Preset:    "veryfast",
+		Profile:   "baseline",
+	}
+
+	enc, err := x264.NewEncoder(f, opts)
+	if err != nil {
+		return err
+	}
+	defer enc.Close()
+
+	screen := ebiten.NewImage(gameAreaSizeX*scale, gameAreaSizeY*scale)
+	for _, snap := range p.states {
+		screen.Clear()
+		drawScene(screen, snap, 0, 0)
+		drawStatusBars(screen, snap, 0)
+
+		rgba := image.NewRGBA(image.Rect(0, 0, gameAreaSizeX*scale, gameAreaSizeY*scale))
+		screen.ReadPixels(rgba.Pix)
+
+		yimg := x264.NewYCbCr(image.Rect(0, 0, width, height))
+		draw.Draw(yimg, rgba.Bounds(), rgba, image.Point{}, draw.Src)
+
+		if err := enc.Encode(yimg); err != nil {
+			return err
+		}
+	}
+
+	if err := enc.Flush(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func resetInterpolation() {
