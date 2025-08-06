@@ -83,31 +83,41 @@ const (
 // bubbleColors selects the border, background, and text colors for a bubble
 // based on its type. Alpha values are premultiplied to match Ebiten's color
 // expectations.
+const ba = 0xc4
+
 func bubbleColors(typ int) (border, bg, text color.Color) {
 	switch typ & kBubbleTypeMask {
 	case kBubbleWhisper:
-		border = color.NRGBA{0xcc, 0xcc, 0xcc, 0xff}
-		bg = color.NRGBA{0xf0, 0xf0, 0xf0, 0x80}
-		text = color.NRGBA{0x33, 0x33, 0x33, 0xff}
+		border = color.NRGBA{0x80, 0x80, 0x80, 0xff}
+		bg = color.NRGBA{0x33, 0x33, 0x33, ba}
+		text = color.White
 	case kBubbleYell:
-		border = color.NRGBA{0xff, 0x00, 0x00, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0x00, 0x80}
+		border = color.NRGBA{0xff, 0xff, 0x00, 0xff}
+		bg = color.White
 		text = color.Black
 	case kBubbleThought, kBubblePonder:
-		border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
-		bg = color.NRGBA{0xee, 0xee, 0xff, 0x80}
+		border = color.NRGBA{0x00, 0x00, 0x00, 0x00}
+		bg = color.NRGBA{0x80, 0x80, 0x80, ba}
 		text = color.Black
-	case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
+	case kBubbleRealAction:
+		border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
+		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
+		text = color.Black
+	case kBubblePlayerAction:
+		border = color.NRGBA{0x80, 0x00, 0x00, 0xff}
+		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
+		text = color.Black
+	case kBubbleNarrate:
 		border = color.NRGBA{0x00, 0x80, 0x00, 0xff}
-		bg = color.NRGBA{0xe0, 0xff, 0xe0, 0x80}
+		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
 		text = color.Black
 	case kBubbleMonster:
-		border = color.NRGBA{0x80, 0x00, 0x80, 0xff}
-		bg = color.NRGBA{0xff, 0xe0, 0xff, 0x80}
-		text = color.Black
+		border = color.NRGBA{0xd6, 0xd6, 0xd6, 0xff}
+		bg = color.NRGBA{0x47, 0x47, 0x47, ba}
+		text = color.White
 	default:
 		border = color.White
-		bg = color.NRGBA{0xff, 0xff, 0xff, 0x80}
+		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
 		text = color.Black
 	}
 	return
@@ -123,7 +133,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, b
 	if txt == "" {
 		return
 	}
-	y -= 20
+	y -= 35
 
 	sw, sh := gameAreaSizeX*scale, gameAreaSizeY*scale
 	pad := (4 + 2) * scale
