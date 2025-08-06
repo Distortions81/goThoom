@@ -328,7 +328,7 @@ func initUI() {
 		"Escape - Cancel typing",
 	}
 	for _, line := range helpTexts {
-		t, _ := eui.NewText(&eui.ItemData{Text: line, Size: eui.Point{X: 300, Y: 24}})
+		t, _ := eui.NewText(&eui.ItemData{Text: line, Size: eui.Point{X: 300, Y: 24}, FontSize: 15})
 		helpFlow.AddItem(t)
 	}
 	helpWin.AddItem(helpFlow)
