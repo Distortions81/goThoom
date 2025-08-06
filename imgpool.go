@@ -13,7 +13,7 @@ var (
 
 const (
 	// maxUnusedSprites limits the number of cached images retained per size.
-	maxUnusedSprites = 10
+	maxUnusedSprites = 100
 )
 
 // nextPow2 returns the next power-of-two value >= n.
