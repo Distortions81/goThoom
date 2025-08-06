@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -203,6 +204,101 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 		idxs = append(idxs, idx)
 	}
 	return best[0], best[1], idxs, true
+}
+
+// interpolatePictures sets previous positions and movement flags for newPics
+// based on their relation to prevPics. Pictures with matching IDs and zero
+// distance are marked as non-moving. Remaining sprites are interpolated from
+// their nearest neighbors while being flagged as moving.
+func interpolatePictures(prevPics, newPics []framePicture, again, shiftX, shiftY int) {
+	type pair struct {
+		newIdx  int
+		prevIdx int
+		dist    int
+	}
+
+	// track usage of previous pictures and matches for new pictures
+	prevUsed := make([]bool, len(prevPics))
+	newMatched := make([]bool, len(newPics))
+
+	if again > len(newPics) {
+		again = len(newPics)
+	}
+	if again > len(prevPics) {
+		again = len(prevPics)
+	}
+
+	for i := range newPics {
+		newPics[i].PrevH = int16(int(newPics[i].H) - shiftX)
+		newPics[i].PrevV = int16(int(newPics[i].V) - shiftY)
+		newPics[i].Moving = true
+		newPics[i].Background = false
+	}
+	for i := 0; i < again; i++ {
+		newPics[i].Moving = false
+		newMatched[i] = true
+		prevUsed[i] = true
+	}
+
+	// collect all candidate pairs for identical IDs
+	pairs := make([]pair, 0)
+	for ni := again; ni < len(newPics); ni++ {
+		for pj := 0; pj < len(prevPics); pj++ {
+			if newPics[ni].PictID != prevPics[pj].PictID {
+				continue
+			}
+			dh := int(newPics[ni].H) - int(prevPics[pj].H) - shiftX
+			dv := int(newPics[ni].V) - int(prevPics[pj].V) - shiftY
+			dist := dh*dh + dv*dv
+			pairs = append(pairs, pair{newIdx: ni, prevIdx: pj, dist: dist})
+		}
+	}
+
+	sort.Slice(pairs, func(i, j int) bool { return pairs[i].dist < pairs[j].dist })
+
+	// greedily match zero-distance pairs first
+	for _, pr := range pairs {
+		if pr.dist != 0 {
+			break
+		}
+		if newMatched[pr.newIdx] || prevUsed[pr.prevIdx] {
+			continue
+		}
+		newPics[pr.newIdx].PrevH = prevPics[pr.prevIdx].H
+		newPics[pr.newIdx].PrevV = prevPics[pr.prevIdx].V
+		newPics[pr.newIdx].Moving = false
+		newMatched[pr.newIdx] = true
+		prevUsed[pr.prevIdx] = true
+	}
+
+	// interpolate remaining unmatched sprites
+	for ni := again; ni < len(newPics); ni++ {
+		if newMatched[ni] {
+			continue
+		}
+		bestDist := maxInterpPixels*maxInterpPixels + 1
+		bestIdx := -1
+		for pj := 0; pj < len(prevPics); pj++ {
+			if prevUsed[pj] {
+				continue
+			}
+			if newPics[ni].PictID != prevPics[pj].PictID {
+				continue
+			}
+			dh := int(newPics[ni].H) - int(prevPics[pj].H) - shiftX
+			dv := int(newPics[ni].V) - int(prevPics[pj].V) - shiftY
+			dist := dh*dh + dv*dv
+			if dist < bestDist {
+				bestDist = dist
+				bestIdx = pj
+			}
+		}
+		if bestIdx >= 0 && bestDist <= maxInterpPixels*maxInterpPixels {
+			newPics[ni].PrevH = prevPics[bestIdx].H
+			newPics[ni].PrevV = prevPics[bestIdx].V
+			prevUsed[bestIdx] = true
+		}
+	}
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be
@@ -589,46 +685,7 @@ func parseDrawState(data []byte) error {
 	for _, d := range descs {
 		state.descriptors[d.Index] = d
 	}
-	for i := range newPics {
-		newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-		newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
-		moving := true
-		if i < again {
-			moving = false
-		} else {
-			for _, pp := range prevPics {
-				if pp.PictID == newPics[i].PictID &&
-					int(pp.H)+state.picShiftX == int(newPics[i].H) &&
-					int(pp.V)+state.picShiftY == int(newPics[i].V) {
-					moving = false
-					break
-				}
-			}
-		}
-		if moving {
-			bestDist := maxInterpPixels*maxInterpPixels + 1
-			var best *framePicture
-			for j := range prevPics {
-				pp := &prevPics[j]
-				if pp.PictID != newPics[i].PictID {
-					continue
-				}
-				dh := int(newPics[i].H) - int(pp.H) - state.picShiftX
-				dv := int(newPics[i].V) - int(pp.V) - state.picShiftY
-				dist := dh*dh + dv*dv
-				if dist < bestDist {
-					bestDist = dist
-					best = pp
-				}
-			}
-			if best != nil && bestDist <= maxInterpPixels*maxInterpPixels {
-				newPics[i].PrevH = best.H
-				newPics[i].PrevV = best.V
-			}
-		}
-		newPics[i].Moving = moving
-		newPics[i].Background = false
-	}
+	interpolatePictures(prevPics, newPics, again, state.picShiftX, state.picShiftY)
 	for _, idx := range bgIdxs {
 		if idx >= 0 && idx < len(newPics) {
 			newPics[idx].Moving = false
