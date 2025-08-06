@@ -4,3 +4,5 @@ go_client
 *.log
 *.exe
 data/night.png
+binaries/*
+!binaries/.gitkeep
