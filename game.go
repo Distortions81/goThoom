@@ -44,6 +44,7 @@ var settingsWin *eui.WindowData
 var gameCtx context.Context
 var scale int = 3
 var interp bool
+var smoothMoving bool
 var onion bool
 var fastAnimation = true
 var blendPicts bool
@@ -240,6 +241,11 @@ type Game struct{}
 
 func (g *Game) Update() error {
 	eui.Update()
+
+	if settingsDirty {
+		saveSettings()
+		settingsDirty = false
+	}
 
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
@@ -622,6 +628,10 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
+	if p.Moving && !smoothMoving {
+		offX = 0
+		offY = 0
+	}
 
 	frame := 0
 	plane := 0
@@ -643,7 +653,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 	w, h := 0, 0
 	if img != nil {
 		w, h = img.Bounds().Dx(), img.Bounds().Dy()
-		if w <= 64 && h <= 64 && interp {
+		if w <= 64 && h <= 64 && interp && smoothMoving {
 			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
 				mobileX, mobileY = dx, dy
 				offX = 0

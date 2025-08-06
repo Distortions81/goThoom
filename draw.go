@@ -558,7 +558,7 @@ func parseDrawState(data []byte) error {
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-	if interp {
+	if interp && smoothMoving {
 		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 		if !ok {
 			logDebug("prev pics: %v", picturesSummary(prevPics))
@@ -616,7 +616,7 @@ func parseDrawState(data []byte) error {
 				}
 			}
 		}
-		if moving {
+		if moving && smoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
 			var best *framePicture
 			for j := range prevPics {
