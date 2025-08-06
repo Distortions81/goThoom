@@ -60,7 +60,7 @@ func (p *moviePlayer) initUI() {
 
 	max := float32(len(p.frames))
 	var events *eui.EventHandler
-	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 450, Y: 24}, IntOnly: true})
+	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 500, Y: 24}, IntOnly: true})
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))

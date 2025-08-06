@@ -55,9 +55,11 @@ func initUI() {
 
 	settingsWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Settings",
+		Size:      eui.Point{X: 256, Y: 256},
+		Position:  eui.Point{X: 8, Y: 8},
 		Open:      false,
 		Closable:  false,
-		Resizable: false,
+		Resizable: true,
 		AutoSize:  true,
 		Movable:   true,
 	})
@@ -67,7 +69,9 @@ func initUI() {
 		FlowType: eui.FLOW_VERTICAL,
 	}
 
-	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: 150, Y: 24}, Checked: clickToToggle})
+	var width float32 = 250
+
+	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: width, Y: 24}, Checked: clickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			clickToToggle = ev.Checked
@@ -78,7 +82,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(toggle)
 
-	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: 150, Y: 24}, Checked: linear})
+	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: linear})
 	filtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			linear = ev.Checked
@@ -91,7 +95,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(filt)
 
-	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: 150, Y: 24}, Checked: interp})
+	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: interp})
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			interp = ev.Checked
@@ -99,7 +103,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(motion)
 
-	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: 150, Y: 24}, Checked: onion})
+	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: onion})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			onion = ev.Checked
@@ -107,7 +111,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(anim)
 
-	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Object Frame Blending", Size: eui.Point{X: 150, Y: 24}, Checked: blendPicts})
+	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Object Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: blendPicts})
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			blendPicts = ev.Checked
@@ -115,7 +119,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(pictBlend)
 
-	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: 150, Y: 24}, Checked: nightMode})
+	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: width, Y: 24}, Checked: nightMode})
 	nightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			nightMode = ev.Checked
@@ -123,7 +127,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(nightCB)
 
-	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show Message Bubbles", Size: eui.Point{X: 150, Y: 24}, Checked: showBubbles})
+	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: showBubbles})
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			showBubbles = ev.Checked
@@ -131,7 +135,7 @@ func initUI() {
 	}
 	mainFlow.AddItem(bubbleCB)
 
-	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image plane numbers", Size: eui.Point{X: 150, Y: 24}, Checked: showPlanes})
+	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image plane numbers", Size: eui.Point{X: width, Y: 24}, Checked: showPlanes})
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			showPlanes = ev.Checked
@@ -141,7 +145,6 @@ func initUI() {
 
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
-
 	settingsWin.Open = false
 
 	inventoryWin = eui.NewWindow(&eui.WindowData{

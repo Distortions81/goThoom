@@ -236,9 +236,8 @@ func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha floa
 type Game struct{}
 
 func (g *Game) Update() error {
-	if err := eui.Update(); err != nil {
-		return err
-	}
+	eui.Update()
+
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
 		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
@@ -333,7 +332,6 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	//screen.Fill(color.White)
 	if clmov == "" && tcpConn == nil && !noSplash {
 		drawSplash(screen)
 		return
@@ -829,12 +827,16 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func runGame(ctx context.Context) {
 	gameCtx = ctx
+	eui.SetUIScale(1)
 	initUI()
+
 	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
-	ebiten.SetWindowTitle("Draw State")
+	ebiten.SetWindowTitle("ThoomSpeak")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetVsyncEnabled(true)
+	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Printf("ebiten: %v", err)
 	}
