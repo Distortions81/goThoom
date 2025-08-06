@@ -25,6 +25,7 @@ type framePicture struct {
 	PrevH, PrevV int16
 	Moving       bool
 	Background   bool
+	Owned        bool
 }
 
 type frameMobile struct {
@@ -589,18 +590,28 @@ func parseDrawState(data []byte) error {
 	for _, d := range descs {
 		state.descriptors[d.Index] = d
 	}
+	for i := range prevPics {
+		prevPics[i].Owned = false
+	}
 	for i := range newPics {
 		newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
 		newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
 		moving := true
+		var owner *framePicture
 		if i < again {
 			moving = false
+			owner = &prevPics[i]
 		} else {
-			for _, pp := range prevPics {
+			for j := range prevPics {
+				pp := &prevPics[j]
+				if pp.Owned {
+					continue
+				}
 				if pp.PictID == newPics[i].PictID &&
 					int(pp.H)+state.picShiftX == int(newPics[i].H) &&
 					int(pp.V)+state.picShiftY == int(newPics[i].V) {
 					moving = false
+					owner = pp
 					break
 				}
 			}
@@ -610,7 +621,7 @@ func parseDrawState(data []byte) error {
 			var best *framePicture
 			for j := range prevPics {
 				pp := &prevPics[j]
-				if pp.PictID != newPics[i].PictID {
+				if pp.Owned || pp.PictID != newPics[i].PictID {
 					continue
 				}
 				dh := int(newPics[i].H) - int(pp.H) - state.picShiftX
@@ -624,7 +635,10 @@ func parseDrawState(data []byte) error {
 			if best != nil && bestDist <= maxInterpPixels*maxInterpPixels {
 				newPics[i].PrevH = best.H
 				newPics[i].PrevV = best.V
+				best.Owned = true
 			}
+		} else if owner != nil {
+			owner.Owned = true
 		}
 		newPics[i].Moving = moving
 		newPics[i].Background = false
