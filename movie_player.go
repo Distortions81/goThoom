@@ -93,7 +93,7 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(back)
 
-	play, playEv := eui.NewButton(&eui.ItemData{Text: ">  ||", Size: eui.Point{X: 50, Y: 24}})
+	play, playEv := eui.NewButton(&eui.ItemData{Text: ">  ||", Size: eui.Point{X: 70, Y: 24}})
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if p.playing {
@@ -140,10 +140,13 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(dec)
 
-	buf := fmt.Sprintf("%v fps", p.fps)
-	fpsInfo, _ := eui.NewText(&eui.ItemData{Text: buf, Size: eui.Point{X: 100, Y: 24}, FontSize: 15, Alignment: eui.ALIGN_CENTER})
-	p.fpsLabel = fpsInfo
-	bFlow.AddItem(fpsInfo)
+	reset, resetEv := eui.NewButton(&eui.ItemData{Text: "Reset", Size: eui.Point{X: 70, Y: 24}})
+	resetEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.setFPS(clMovFPS)
+		}
+	}
+	bFlow.AddItem(reset)
 
 	inc, incEv := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 40, Y: 24}})
 	incEv.Handle = func(ev eui.UIEvent) {
@@ -160,6 +163,11 @@ func (p *moviePlayer) initUI() {
 		}
 	}
 	bFlow.AddItem(dbl)
+
+	buf := fmt.Sprintf("%v fps", p.fps)
+	fpsInfo, _ := eui.NewText(&eui.ItemData{Text: buf, Size: eui.Point{X: 100, Y: 24}, FontSize: 15, Alignment: eui.ALIGN_CENTER})
+	p.fpsLabel = fpsInfo
+	bFlow.AddItem(fpsInfo)
 
 	flow.AddItem(bFlow)
 	win.AddItem(flow)

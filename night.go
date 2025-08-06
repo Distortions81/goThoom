@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image"
-	_ "image/png"
 	"os"
 	"regexp"
 	"strconv"
@@ -171,6 +170,12 @@ func getNightImage() *ebiten.Image {
 	})
 	return nightImg
 }
+const (
+	kNight100Pct = 1395
+	kNight75Pct  = 1396
+	kNight50Pct  = 1397
+	kNight25Pct  = 1398
+)
 
 func drawNightOverlay(screen *ebiten.Image) {
 	gNight.mu.Lock()
@@ -181,6 +186,23 @@ func drawNightOverlay(screen *ebiten.Image) {
 	}
 
 	img := getNightImage()
+	if img == nil {
+		return
+	}
+
+	var id uint16
+	switch {
+	case lvl < 38:
+		id = kNight25Pct
+	case lvl < 63:
+		id = kNight50Pct
+	case lvl < 88:
+		id = kNight75Pct
+	default:
+		id = kNight100Pct
+	}
+
+	img := loadImage(id)
 	if img == nil {
 		return
 	}
