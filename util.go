@@ -33,8 +33,22 @@ func encodeMacRoman(s string) []byte { return []byte(s) }
 func encodeFullVersion(v int) uint32 { return uint32(v) << 8 }
 
 const (
-	baseVersion = 1353
-	kDescPlayer = 1
+	baseVersion  = 1353
+	kDescPlayer  = 1
+	kDescMonster = 2
+	kDescNPC     = 3
+)
+
+const (
+	kColorCodeBackWhite = iota
+	kColorCodeBackGreen
+	kColorCodeBackYellow
+	kColorCodeBackRed
+	kColorCodeBackBlack
+	kColorCodeBackBlue
+	kColorCodeBackGrey
+	kColorCodeBackCyan
+	kColorCodeBackOrange
 )
 
 func hexDump(prefix string, data []byte) {

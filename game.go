@@ -553,19 +553,32 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 			op.GeoM.Translate(float64(x-size*scale/2), float64(y-size*scale/2))
 			screen.DrawImage(img, op)
 		}
-		if d, ok := descMap[m.Index]; ok && d.Name != "" {
-			textClr, bgClr, frameClr := mobileNameColors(m.Colors)
-			w, h := text.Measure(d.Name, mainFont, 0)
-			iw := int(math.Ceil(w))
-			ih := int(math.Ceil(h))
-			top := y + ih + (4 * scale)
-			left := x - iw/2
-			ebitenutil.DrawRect(screen, float64(left), float64(top), float64(iw+5), float64(ih), bgClr)
-			vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
-			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(left+2), float64(top+2))
-			op.ColorScale.ScaleWithColor(textClr)
-			text.Draw(screen, d.Name, mainFont, op)
+		if d, ok := descMap[m.Index]; ok {
+			if d.Name != "" {
+				textClr, bgClr, frameClr := mobileNameColors(m.Colors)
+				w, h := text.Measure(d.Name, mainFont, 0)
+				iw := int(math.Ceil(w))
+				ih := int(math.Ceil(h))
+				top := y + ih + (4 * scale)
+				left := x - iw/2
+				ebitenutil.DrawRect(screen, float64(left), float64(top), float64(iw+5), float64(ih), bgClr)
+				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
+				op := &text.DrawOptions{}
+				op.GeoM.Translate(float64(left+2), float64(top+2))
+				op.ColorScale.ScaleWithColor(textClr)
+				text.Draw(screen, d.Name, mainFont, op)
+			} else {
+				back := int((m.Colors >> 4) & 0x0f)
+				if back != kColorCodeBackWhite && back != kColorCodeBackBlue && !(back == kColorCodeBackBlack && d.Type == kDescMonster) {
+					if back >= len(nameBackColors) {
+						back = 0
+					}
+					barClr := nameBackColors[back]
+					top := y + size*scale/2 + 2*scale
+					left := x - 6*scale
+					ebitenutil.DrawRect(screen, float64(left), float64(top), float64(12*scale), float64(2*scale), barClr)
+				}
+			}
 		}
 		if showPlanes {
 			metrics := mainFont.Metrics()
