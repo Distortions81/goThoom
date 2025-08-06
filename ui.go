@@ -70,17 +70,8 @@ func initUI() {
 	}
 	var width float32 = 250
 
-	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
-	scaleEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			scale = int(ev.Value)
-			initFont()
-			inputBg = nil
-			ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(scaleSlider)
+	label, _ := eui.NewText(&eui.ItemData{Text: "\nControls:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
+	mainFlow.AddItem(label)
 
 	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: width, Y: 24}, Checked: clickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
@@ -93,6 +84,54 @@ func initUI() {
 		}
 	}
 	mainFlow.AddItem(toggle)
+
+	keySpeedSlider, keySpeedEvents := eui.NewSlider(&eui.ItemData{Label: "Keyboard Walk Speed", MinValue: 0.1, MaxValue: 1.0, Value: float32(keyWalkSpeed), Size: eui.Point{X: width - 10, Y: 24}})
+	keySpeedEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			keyWalkSpeed = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(keySpeedSlider)
+
+	label, _ = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
+	mainFlow.AddItem(label)
+
+	textSlider, textEvents := eui.NewSlider(&eui.ItemData{Label: "Text Size", MinValue: 3, MaxValue: 24, Value: float32(mainFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
+	textEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			mainFontSize = float64(ev.Value)
+			initFont()
+			inputBg = nil
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(textSlider)
+
+	bubbleTextSlider, bubbleTextEvents := eui.NewSlider(&eui.ItemData{Label: "Bubble Text Size", MinValue: 3, MaxValue: 24, Value: float32(bubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
+	bubbleTextEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			bubbleFontSize = float64(ev.Value)
+			initFont()
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(bubbleTextSlider)
+
+	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	mainFlow.AddItem(label)
+
+	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
+	scaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			scale = int(ev.Value)
+			initFont()
+			inputBg = nil
+			ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(scaleSlider)
 
 	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: linear})
 	filtEvents.Handle = func(ev eui.UIEvent) {
@@ -152,36 +191,6 @@ func initUI() {
 		}
 	}
 	mainFlow.AddItem(blendSlider)
-
-	keySpeedSlider, keySpeedEvents := eui.NewSlider(&eui.ItemData{Label: "Keyboard Walk Speed", MinValue: 0.1, MaxValue: 1.0, Value: float32(keyWalkSpeed), Size: eui.Point{X: width - 10, Y: 24}})
-	keySpeedEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			keyWalkSpeed = float64(ev.Value)
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(keySpeedSlider)
-
-	textSlider, textEvents := eui.NewSlider(&eui.ItemData{Label: "Text Size", MinValue: 3, MaxValue: 24, Value: float32(mainFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
-	textEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			mainFontSize = float64(ev.Value)
-			initFont()
-			inputBg = nil
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(textSlider)
-
-	bubbleTextSlider, bubbleTextEvents := eui.NewSlider(&eui.ItemData{Label: "Bubble Text Size", MinValue: 3, MaxValue: 24, Value: float32(bubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
-	bubbleTextEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			bubbleFontSize = float64(ev.Value)
-			initFont()
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(bubbleTextSlider)
 
 	debugBtn, debugEvents := eui.NewButton(&eui.ItemData{Text: "Debug Settings", Size: eui.Point{X: width, Y: 24}})
 	debugEvents.Handle = func(ev eui.UIEvent) {
