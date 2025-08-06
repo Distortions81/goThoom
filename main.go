@@ -97,7 +97,6 @@ func main() {
 	initSoundContext()
 
 	initFont()
-	initUI()
 
 	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
@@ -152,7 +151,6 @@ func main() {
 		cancel()
 	}()
 	addMessage("Starting...")
-	time.Sleep(time.Second * 1)
 
 	if err := ensureDataFiles(dataDir, *clientVer); err != nil {
 		log.Printf("ensure data files: %v", err)

@@ -798,7 +798,7 @@ func drawServerFPS(screen *ebiten.Image, fps int) {
 	if fps <= 0 {
 		return
 	}
-	msg := fmt.Sprintf("UPS: %d", fps)
+	msg := fmt.Sprintf("FPS: %v UPS: %d", ebiten.ActualFPS(), fps)
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(gameAreaSizeX*scale)-w-float64(4*scale), float64(4*scale))
@@ -829,7 +829,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func runGame(ctx context.Context) {
 	gameCtx = ctx
-	//initUI()
+	initUI()
 	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
 	ebiten.SetWindowTitle("Draw State")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
