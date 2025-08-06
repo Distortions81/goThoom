@@ -285,8 +285,13 @@ func (g *Game) Update() error {
 		}
 		if dx != 0 || dy != 0 {
 			keyWalk = true
-			keyX = int16(dx * fieldCenterX)
-			keyY = int16(dy * fieldCenterY)
+			if ebiten.IsKeyPressed(ebiten.KeyShift) {
+				keyX = int16(dx * fieldCenterX)
+				keyY = int16(dy * fieldCenterY)
+			} else {
+				keyX = int16(dx * (fieldCenterX / 2))
+				keyY = int16(dy * (fieldCenterX / 2))
+			}
 		} else {
 			keyWalk = false
 		}

@@ -170,6 +170,7 @@ func getNightImage() *ebiten.Image {
 	})
 	return nightImg
 }
+
 const (
 	kNight100Pct = 1395
 	kNight75Pct  = 1396
@@ -186,23 +187,6 @@ func drawNightOverlay(screen *ebiten.Image) {
 	}
 
 	img := getNightImage()
-	if img == nil {
-		return
-	}
-
-	var id uint16
-	switch {
-	case lvl < 38:
-		id = kNight25Pct
-	case lvl < 63:
-		id = kNight50Pct
-	case lvl < 88:
-		id = kNight75Pct
-	default:
-		id = kNight100Pct
-	}
-
-	img := loadImage(id)
 	if img == nil {
 		return
 	}
