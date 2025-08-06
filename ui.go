@@ -108,16 +108,6 @@ func initUI() {
 	}
 	mainFlow.AddItem(filt)
 
-	vsyncCB, vsyncEvents := eui.NewCheckbox(&eui.ItemData{Text: "Vsync", Size: eui.Point{X: width, Y: 24}, Checked: vsync})
-	vsyncEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			vsync = ev.Checked
-			ebiten.SetVsyncEnabled(vsync)
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(vsyncCB)
-
 	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: interp})
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -163,23 +153,14 @@ func initUI() {
 	}
 	mainFlow.AddItem(blendSlider)
 
-	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: width, Y: 24}, Checked: nightMode})
-	nightEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			nightMode = ev.Checked
+	keySpeedSlider, keySpeedEvents := eui.NewSlider(&eui.ItemData{Label: "Keyboard Walk Speed", MinValue: 0.1, MaxValue: 1.0, Value: float32(keyWalkSpeed), Size: eui.Point{X: width - 10, Y: 24}})
+	keySpeedEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			keyWalkSpeed = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(nightCB)
-
-	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: showBubbles})
-	bubbleEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			showBubbles = ev.Checked
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(bubbleCB)
+	mainFlow.AddItem(keySpeedSlider)
 
 	textSlider, textEvents := eui.NewSlider(&eui.ItemData{Label: "Text Size", MinValue: 3, MaxValue: 24, Value: float32(mainFontSize), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
 	textEvents.Handle = func(ev eui.UIEvent) {
@@ -202,6 +183,62 @@ func initUI() {
 	}
 	mainFlow.AddItem(bubbleTextSlider)
 
+	debugBtn, debugEvents := eui.NewButton(&eui.ItemData{Text: "Debug Settings", Size: eui.Point{X: width, Y: 24}})
+	debugEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			debugWin.Open = !debugWin.Open
+		}
+	}
+	mainFlow.AddItem(debugBtn)
+
+	settingsWin.AddItem(mainFlow)
+	settingsWin.AddWindow(false)
+	settingsWin.Open = false
+
+	debugWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Debug Settings",
+		Size:      eui.Point{X: 256, Y: 256},
+		Position:  eui.Point{X: 272, Y: 8},
+		Open:      false,
+		Closable:  false,
+		Resizable: true,
+		AutoSize:  true,
+		Movable:   true,
+	})
+
+	debugFlow := &eui.ItemData{
+		ItemType: eui.ITEM_FLOW,
+		FlowType: eui.FLOW_VERTICAL,
+	}
+
+	vsyncCB, vsyncEvents := eui.NewCheckbox(&eui.ItemData{Text: "Vsync", Size: eui.Point{X: width, Y: 24}, Checked: vsync})
+	vsyncEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			vsync = ev.Checked
+			ebiten.SetVsyncEnabled(vsync)
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(vsyncCB)
+
+	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: width, Y: 24}, Checked: nightMode})
+	nightEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			nightMode = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(nightCB)
+
+	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: showBubbles})
+	bubbleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			showBubbles = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(bubbleCB)
+
 	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image plane numbers", Size: eui.Point{X: width, Y: 24}, Checked: showPlanes})
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -209,7 +246,7 @@ func initUI() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(planesCB)
+	debugFlow.AddItem(planesCB)
 
 	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: hideMoving})
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
@@ -218,7 +255,8 @@ func initUI() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(hideMoveCB)
+	debugFlow.AddItem(hideMoveCB)
+
 	hideMobCB, hideMobEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Mobiles", Size: eui.Point{X: width, Y: 24}, Checked: hideMobiles})
 	hideMobEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -226,11 +264,11 @@ func initUI() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(hideMobCB)
+	debugFlow.AddItem(hideMobCB)
 
-	settingsWin.AddItem(mainFlow)
-	settingsWin.AddWindow(false)
-	settingsWin.Open = false
+	debugWin.AddItem(debugFlow)
+	debugWin.AddWindow(false)
+	debugWin.Open = false
 
 	inventoryWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Inventory",

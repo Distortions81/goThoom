@@ -41,6 +41,7 @@ var inputBg *ebiten.Image
 var hudPixel *ebiten.Image
 
 var settingsWin *eui.WindowData
+var debugWin *eui.WindowData
 var gameCtx context.Context
 var scale int = 2
 var interp bool = true
@@ -58,6 +59,7 @@ var showBubbles bool
 var nightMode bool
 var vsync = true
 var hideMobiles bool
+var keyWalkSpeed float64 = 0.5
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -294,13 +296,12 @@ func (g *Game) Update() error {
 		}
 		if dx != 0 || dy != 0 {
 			keyWalk = true
+			speed := keyWalkSpeed
 			if ebiten.IsKeyPressed(ebiten.KeyShift) {
-				keyX = int16(dx * fieldCenterX)
-				keyY = int16(dy * fieldCenterY)
-			} else {
-				keyX = int16(dx * (fieldCenterX / 2))
-				keyY = int16(dy * (fieldCenterX / 2))
+				speed = 1.0
 			}
+			keyX = int16(float64(dx) * float64(fieldCenterX) * speed)
+			keyY = int16(float64(dy) * float64(fieldCenterY) * speed)
 		} else {
 			keyWalk = false
 		}
