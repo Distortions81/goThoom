@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image/color"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -150,99 +148,44 @@ func parseNightCommand(s string) bool {
 	return false
 }
 
-var (
-	nightImg         *ebiten.Image
-	nightImgW        int
-	nightImgH        int
-	nightImgLevel    int
-	nightImgRedshift float64
+const (
+	kNight100Pct = 1395
+	kNight75Pct  = 1396
+	kNight50Pct  = 1397
+	kNight25Pct  = 1398
 )
 
 func drawNightOverlay(screen *ebiten.Image) {
 	gNight.mu.Lock()
 	lvl := gNight.Level
-	redshift := gNight.redshift
 	gNight.mu.Unlock()
 	if lvl <= 0 {
 		return
 	}
 
-	w := gameAreaSizeX * scale
-	h := gameAreaSizeY * scale
-	if nightImg == nil || nightImgW != w || nightImgH != h || nightImgLevel != lvl || nightImgRedshift != redshift {
-		nightImg = rebuildNightOverlay(w, h, lvl, redshift)
-		nightImgW, nightImgH = w, h
-		nightImgLevel = lvl
-		nightImgRedshift = redshift
+	var id uint16
+	switch {
+	case lvl < 38:
+		id = kNight25Pct
+	case lvl < 63:
+		id = kNight50Pct
+	case lvl < 88:
+		id = kNight75Pct
+	default:
+		id = kNight100Pct
 	}
 
-	op := &ebiten.DrawImageOptions{CompositeMode: ebiten.CompositeModeMultiply}
-	screen.DrawImage(nightImg, op)
-}
-
-// rebuildNightOverlay recreates the night shading so it behaves like the
-// OpenGL version from the Macintosh client. Levels <= 50 uniformly darken the
-// scene. Above that a circular gradient fades from a fixed center brightness
-// to the rim color. Redshift tints the rim toward red during twilight.
-func rebuildNightOverlay(w, h, lvl int, redshift float64) *ebiten.Image {
-	img := ebiten.NewImage(w, h)
-
-	nightLevel := float64(lvl) / 100
-	rimColor := 1 - nightLevel
-	centerColor := rimColor
-	if nightLevel >= 0.5 {
-		centerColor = 1 - nightLevel/2
+	img := loadImage(id)
+	if img == nil {
+		return
 	}
 
-	cx := float64(w) / 2
-	cy := float64(h) / 2
-	radius := 0.65 * math.Min(float64(w), float64(h))
+	w := float64(gameAreaSizeX * scale)
+	h := float64(gameAreaSizeY * scale)
+	bw := float64(img.Bounds().Dx())
+	bh := float64(img.Bounds().Dy())
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			dx := float64(x) - cx
-			dy := float64(y) - cy
-			dist := math.Sqrt(dx*dx + dy*dy)
-
-			var r, g, b float64
-			if nightLevel <= 0.5 {
-				f := rimColor
-				r = f * redshift
-				if r > 1 {
-					r = 1
-				}
-				g = f
-				b = f
-			} else {
-				t := dist / radius
-				if t > 1 {
-					f := rimColor
-					r = f * redshift
-					if r > 1 {
-						r = 1
-					}
-					g = f
-					b = f
-				} else {
-					f := centerColor + (rimColor-centerColor)*t
-					rf := centerColor + (rimColor*redshift-centerColor)*t
-					if rf > 1 {
-						rf = 1
-					}
-					r = rf
-					g = f
-					b = f
-				}
-			}
-
-			clr := color.RGBA{
-				R: uint8(r * 255),
-				G: uint8(g * 255),
-				B: uint8(b * 255),
-				A: 0xff,
-			}
-			img.Set(x, y, clr)
-		}
-	}
-	return img
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(w/bw, h/bh)
+	screen.DrawImage(img, op)
 }
