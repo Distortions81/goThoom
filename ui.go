@@ -103,18 +103,6 @@ func initUI() {
 	}
 	mainFlow.AddItem(motion)
 
-	blendFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	blendLabel, _ := eui.NewText(&eui.ItemData{Text: "Blend Rate", Size: eui.Point{X: 100, Y: 24}})
-	blendFlow.AddItem(blendLabel)
-	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{MinValue: 0.1, MaxValue: 1.0, Value: float32(blendRate), Size: eui.Point{X: width - 100, Y: 24}})
-	blendEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			blendRate = float64(ev.Value)
-		}
-	}
-	blendFlow.AddItem(blendSlider)
-	mainFlow.AddItem(blendFlow)
-
 	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: onion})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -130,6 +118,14 @@ func initUI() {
 		}
 	}
 	mainFlow.AddItem(pictBlend)
+
+	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Rate", MinValue: 0.3, MaxValue: 1.0, Value: float32(blendRate), Size: eui.Point{X: width - 10, Y: 24}})
+	blendEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			blendRate = float64(ev.Value)
+		}
+	}
+	mainFlow.AddItem(blendSlider)
 
 	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: width, Y: 24}, Checked: nightMode})
 	nightEvents.Handle = func(ev eui.UIEvent) {
