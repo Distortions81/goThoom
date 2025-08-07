@@ -108,9 +108,15 @@ func openDownloadsWindow(status dataFilesStatus) {
 		Open:      true,
 	})
 
+	startedDownload := false
+
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
+	t, _ := eui.NewText(&eui.ItemData{Text: "Files we must download:", FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
+	flow.AddItem(t)
+
 	for _, f := range status.Files {
-		t, _ := eui.NewText(&eui.ItemData{Text: f, FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+		t, _ := eui.NewText(&eui.ItemData{Text: f, FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
 		flow.AddItem(t)
 	}
 
@@ -118,17 +124,21 @@ func openDownloadsWindow(status dataFilesStatus) {
 	dlBtn, dlEvents := eui.NewButton(&eui.ItemData{Text: "Download", Size: eui.Point{X: 100, Y: 24}})
 	dlEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
+			if startedDownload {
+				return
+			}
+			startedDownload = true
 			go func() {
 				if err := downloadDataFiles(dataDir, clientVersion, status); err != nil {
 					logError("download data files: %v", err)
-					openErrorWindow(err.Error())
+					openErrorWindow("Error: Download Data Files: " + err.Error())
 					return
 				}
 				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
 					clImages = imgs
 				} else {
 					logError("load CL_Images: %v", err)
-					openErrorWindow(err.Error())
+					openErrorWindow("Error: Load CL_Images: " + err.Error())
 				}
 				downloadWin.RemoveWindow()
 				downloadWin = nil
@@ -231,7 +241,7 @@ func openAddCharacterWindow() {
 		Closable:  false,
 		Resizable: false,
 		AutoSize:  true,
-		Movable:   true,
+		Movable:   false,
 		PinTo:     eui.PIN_MID_CENTER,
 		Open:      true,
 	})
@@ -293,6 +303,7 @@ func openAddCharacterWindow() {
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
+	addCharWin.BringForward()
 }
 
 func openLoginWindow() {
@@ -353,7 +364,7 @@ func openLoginWindow() {
 			go func() {
 				if err := login(gameCtx, clientVersion); err != nil {
 					logError("login: %v", err)
-					openErrorWindow(err.Error())
+					openErrorWindow("Error: Login: " + err.Error())
 					openLoginWindow()
 				}
 			}()
@@ -367,18 +378,19 @@ func openLoginWindow() {
 
 func openErrorWindow(msg string) {
 	win := eui.NewWindow(&eui.WindowData{
-		Title:     "Error",
+		Title: "Error",
+
 		Closable:  false,
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		PinTo:     eui.PIN_MID_CENTER,
+		PinTo:     eui.PIN_TOP_CENTER,
 		Open:      true,
 	})
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
 	flow.AddItem(text)
-	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}})
+	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}, PinTo: eui.PIN_BOTTOM_CENTER})
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			win.RemoveWindow()
