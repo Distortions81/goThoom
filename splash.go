@@ -10,7 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-//go:embed splash.png
+//go:embed data/splash.png
 var splashPNG []byte
 
 var splashImg *ebiten.Image
