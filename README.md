@@ -48,6 +48,7 @@ The Go client accepts the following flags:
 
 - `-host` – server address (default `server.deltatao.com:5010`)
 - `-clmov` – play back a `.clMov` movie file instead of connecting to a server
+- `-pgo` – create `default.pgo` by playing `test.clMov` at 60 fps for 30 seconds
 - `-client-version` – client version number (`kVersionNumber`, default `1440`)
 - `-debug` – enable debug logging (default `true`)
 - `-scale` – screen scale factor (default `2`)
