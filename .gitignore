@@ -5,3 +5,4 @@ go_client
 data/night.png
 settings.json
 characters.json
+binaries/*.zip
