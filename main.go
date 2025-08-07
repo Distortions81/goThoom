@@ -128,7 +128,6 @@ func main() {
 		mp.initUI()
 
 		if gs.PrecacheAssets && !assetsPrecached {
-			addMessage("WAITING FOR ASSET PRELOAD...")
 			for !assetsPrecached {
 				time.Sleep(time.Millisecond * 100)
 			}

@@ -38,6 +38,7 @@ func clearCaches() {
 var assetsPrecached = false
 
 func precacheAssets() {
+
 	for {
 		if clImages == nil || clSounds == nil {
 			time.Sleep(time.Millisecond * 100)
@@ -46,6 +47,7 @@ func precacheAssets() {
 		}
 	}
 
+	addMessage("Pre-loading game sounds and images...")
 	wg := sizedwaitgroup.New(runtime.NumCPU())
 	if clImages != nil {
 		for _, id := range clImages.IDs() {
