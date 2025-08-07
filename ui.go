@@ -14,65 +14,63 @@ var accountWin *eui.WindowData
 
 func initUI() {
 
-	if !noSplash {
-		loginWin = eui.NewWindow(&eui.WindowData{
-			Title:     "Login",
-			Open:      true,
-			Closable:  false,
-			Resizable: false,
-			AutoSize:  true,
-			Movable:   true,
-			PinTo:     eui.PIN_MID_CENTER,
-		})
+	loginWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Login",
+		Open:      true,
+		Closable:  false,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   false,
+		PinTo:     eui.PIN_MID_CENTER,
+	})
 
-		loginFlow := &eui.ItemData{
-			ItemType: eui.ITEM_FLOW,
-			FlowType: eui.FLOW_VERTICAL,
-		}
-
-		nameInput, _ := eui.NewInput(&eui.ItemData{Label: "Character", TextPtr: &name, Size: eui.Point{X: 200, Y: 24}})
-		loginFlow.AddItem(nameInput)
-
-		passInput, _ := eui.NewInput(&eui.ItemData{Label: "Password", TextPtr: &pass, Size: eui.Point{X: 200, Y: 24}})
-		loginFlow.AddItem(passInput)
-
-		rememberCB, rememberEvents := eui.NewCheckbox(&eui.ItemData{Text: "Remember", Size: eui.Point{X: 200, Y: 24}, Checked: remember})
-		rememberEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				remember = ev.Checked
-			}
-		}
-		loginFlow.AddItem(rememberCB)
-
-		connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
-		connEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				if remember {
-					rememberCharacter(name, pass)
-					updateCharacterButtons()
-				}
-			}
-		}
-		loginFlow.AddItem(connBtn)
-
-		manageBtn, manageEvents := eui.NewButton(&eui.ItemData{Text: "Manage Account", Size: eui.Point{X: 200, Y: 24}})
-		manageEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				if accountWin != nil {
-					accountWin.Open = true
-				}
-			}
-		}
-		loginFlow.AddItem(manageBtn)
-
-		charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-		loginFlow.AddItem(charactersList)
-		updateCharacterButtons()
-
-		loginWin.AddItem(loginFlow)
-		loginWin.AddWindow(false)
-		initAccountWindow()
+	loginFlow := &eui.ItemData{
+		ItemType: eui.ITEM_FLOW,
+		FlowType: eui.FLOW_VERTICAL,
 	}
+
+	nameInput, _ := eui.NewInput(&eui.ItemData{Label: "Character", TextPtr: &name, Size: eui.Point{X: 200, Y: 24}})
+	loginFlow.AddItem(nameInput)
+
+	passInput, _ := eui.NewInput(&eui.ItemData{Label: "Password", TextPtr: &pass, Size: eui.Point{X: 200, Y: 24}})
+	loginFlow.AddItem(passInput)
+
+	rememberCB, rememberEvents := eui.NewCheckbox(&eui.ItemData{Text: "Remember", Size: eui.Point{X: 200, Y: 24}, Checked: remember})
+	rememberEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			remember = ev.Checked
+		}
+	}
+	loginFlow.AddItem(rememberCB)
+
+	connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
+	connEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if remember {
+				rememberCharacter(name, pass)
+				updateCharacterButtons()
+			}
+		}
+	}
+	loginFlow.AddItem(connBtn)
+
+	manageBtn, manageEvents := eui.NewButton(&eui.ItemData{Text: "Manage Account", Size: eui.Point{X: 200, Y: 24}})
+	manageEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if accountWin != nil {
+				accountWin.Open = true
+			}
+		}
+	}
+	loginFlow.AddItem(manageBtn)
+
+	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	loginFlow.AddItem(charactersList)
+	updateCharacterButtons()
+
+	loginWin.AddItem(loginFlow)
+	loginWin.AddWindow(false)
+	initAccountWindow()
 
 	settingsWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Settings",

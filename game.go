@@ -346,8 +346,9 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if clmov == "" && tcpConn == nil && !noSplash {
+	if clmov == "" && tcpConn == nil {
 		drawSplash(screen)
+		eui.Draw(screen)
 		return
 	}
 	snap := captureDrawSnapshot()

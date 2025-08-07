@@ -11,9 +11,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
-
-	"github.com/hajimehoshi/ebiten/v2"
 
 	"go_client/climg"
 )
@@ -30,7 +27,6 @@ var (
 	pass         string
 	demo         bool
 	clmov        string
-	noSplash     bool
 	baseDir      string
 	soundTest    bool
 	fastSound    bool
@@ -46,7 +42,6 @@ func main() {
 	var noFastAnimation bool
 	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
-	flag.BoolVar(&noSplash, "nosplash", false, "skip login window and auto connect")
 	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
@@ -95,17 +90,6 @@ func main() {
 
 	dataDir = filepath.Join(baseDir, "data")
 
-	if soundTest {
-		if err := ensureDataFiles(dataDir, *clientVer); err != nil {
-			log.Printf("ensure data files: %v", err)
-		}
-		for i := 1; i <= 100; i++ {
-			playSound(uint16(i))
-			time.Sleep(250 * time.Millisecond)
-		}
-		return
-	}
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	go func() {
 		runGame(ctx)
@@ -115,10 +99,6 @@ func main() {
 
 	if err := ensureDataFiles(dataDir, *clientVer); err != nil {
 		log.Printf("ensure data files: %v", err)
-	}
-
-	if linear {
-		drawFilter = ebiten.FilterLinear
 	}
 
 	var imgErr error
@@ -134,10 +114,6 @@ func main() {
 		} else {
 			addMessage(fmt.Sprintf("load CL_Images from %v: %v", alt, err))
 		}
-	}
-
-	if denoise && clImages != nil {
-		clImages.Denoise = true
 	}
 
 	if clmovPath != "" {
