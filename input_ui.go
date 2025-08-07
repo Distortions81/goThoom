@@ -6,6 +6,9 @@ import "github.com/Distortions81/EUI/eui"
 func pointInUI(x, y int) bool {
 	fx, fy := float32(x), float32(y)
 	for _, win := range eui.Windows() {
+		if !win.Open {
+			continue
+		}
 		pos := win.GetPos()
 		size := win.GetSize()
 		if fx >= pos.X && fx < pos.X+size.X && fy >= pos.Y && fy < pos.Y+size.Y {
@@ -13,6 +16,9 @@ func pointInUI(x, y int) bool {
 		}
 	}
 	for _, ov := range eui.Overlays() {
+		if !ov.Open {
+			continue
+		}
 		pos := ov.GetPos()
 		size := ov.GetSize()
 		if fx >= pos.X && fx < pos.X+size.X && fy >= pos.Y && fy < pos.Y+size.Y {
