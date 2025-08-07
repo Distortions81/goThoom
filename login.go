@@ -162,47 +162,56 @@ func login(ctx context.Context, clientVersion int) {
 		}
 		playerName = name
 
-		var answer []byte
-		if pass != "" {
-			answer, err = answerChallenge(pass, challenge)
-		} else {
-			answer, err = answerChallengeHash(passHash, challenge)
-		}
-		if err != nil {
-			log.Fatalf("hash: %v", err)
-		}
+		var resp []byte
+		var result int16
+		for {
+			var answer []byte
+			if pass != "" {
+				answer, err = answerChallenge(pass, challenge)
+			} else {
+				answer, err = answerChallengeHash(passHash, challenge)
+			}
+			if err != nil {
+				log.Fatalf("hash: %v", err)
+			}
 
-		const kMsgLogOn = 13
-		nameBytes := encodeMacRoman(name)
-		buf := make([]byte, 16+len(nameBytes)+1+len(answer))
-		binary.BigEndian.PutUint16(buf[0:2], kMsgLogOn)
-		binary.BigEndian.PutUint16(buf[2:4], 0)
-		binary.BigEndian.PutUint32(buf[4:8], encodeFullVersion(sendVersion))
-		binary.BigEndian.PutUint32(buf[8:12], imagesVersion)
-		binary.BigEndian.PutUint32(buf[12:16], soundsVersion)
-		copy(buf[16:], nameBytes)
-		buf[16+len(nameBytes)] = 0
-		copy(buf[17+len(nameBytes):], answer)
-		simpleEncrypt(buf[16:])
+			const kMsgLogOn = 13
+			nameBytes := encodeMacRoman(name)
+			buf := make([]byte, 16+len(nameBytes)+1+len(answer))
+			binary.BigEndian.PutUint16(buf[0:2], kMsgLogOn)
+			binary.BigEndian.PutUint16(buf[2:4], 0)
+			binary.BigEndian.PutUint32(buf[4:8], encodeFullVersion(sendVersion))
+			binary.BigEndian.PutUint32(buf[8:12], imagesVersion)
+			binary.BigEndian.PutUint32(buf[12:16], soundsVersion)
+			copy(buf[16:], nameBytes)
+			buf[16+len(nameBytes)] = 0
+			copy(buf[17+len(nameBytes):], answer)
+			simpleEncrypt(buf[16:])
 
-		if err := sendTCPMessage(tcpConn, buf); err != nil {
-			log.Fatalf("send login: %v", err)
-		}
+			if err := sendTCPMessage(tcpConn, buf); err != nil {
+				log.Fatalf("send login: %v", err)
+			}
 
-		resp, err := readTCPMessage(tcpConn)
-		if err != nil {
-			log.Fatalf("read login response: %v", err)
-		}
-		resTag := binary.BigEndian.Uint16(resp[:2])
-		const kMsgLogOnResp = 13
-		if resTag != kMsgLogOnResp {
+			resp, err = readTCPMessage(tcpConn)
+			if err != nil {
+				log.Fatalf("read login response: %v", err)
+			}
+			resTag := binary.BigEndian.Uint16(resp[:2])
+			const kMsgLogOnResp = 13
+			if resTag == kMsgLogOnResp {
+				result = int16(binary.BigEndian.Uint16(resp[2:4]))
+				if name, ok := errorNames[result]; ok && result != 0 {
+					logDebug("login result: %d (%v)", result, name)
+				} else {
+					logDebug("login result: %d", result)
+				}
+				break
+			}
+			if resTag == kMsgChallenge {
+				challenge = resp[16 : 16+16]
+				continue
+			}
 			log.Fatalf("unexpected response tag %d", resTag)
-		}
-		result := int16(binary.BigEndian.Uint16(resp[2:4]))
-		if name, ok := errorNames[result]; ok && result != 0 {
-			logDebug("login result: %d (%v)", result, name)
-		} else {
-			logDebug("login result: %d", result)
 		}
 
 		if result == -30972 || result == -30973 {
