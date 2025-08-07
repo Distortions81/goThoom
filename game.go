@@ -937,7 +937,7 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 		if time.Since(last) > 2*time.Second || conn == nil {
 			continue
 		}
-		delay := interval / 2
+		delay := interval
 		if delay <= 0 {
 			delay = 200 * time.Millisecond
 		}
