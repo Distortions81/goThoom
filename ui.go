@@ -518,10 +518,10 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(moveSmoothCB)
 
-	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: onion})
+	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: mobileBlending})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			onion = ev.Checked
+			mobileBlending = ev.Checked
 			settingsDirty = true
 		}
 	}

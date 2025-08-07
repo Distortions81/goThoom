@@ -12,6 +12,8 @@ import (
 	"go_client/clsnd"
 )
 
+const maxSounds = 64
+
 var (
 	soundMu  sync.Mutex
 	clSounds *clsnd.CLSounds

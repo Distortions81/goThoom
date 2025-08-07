@@ -46,7 +46,7 @@ var gameCtx context.Context
 var scale int = 2
 var interp bool = true
 var smoothMoving bool = true
-var onion bool
+var mobileBlending bool
 var fastAnimation = true
 var blendPicts bool = true
 var linear bool
@@ -192,13 +192,13 @@ func captureDrawSnapshot() drawSnapshot {
 		state.bubbles = dedup
 		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
-	if interp || onion || !fastAnimation {
+	if interp || mobileBlending || !fastAnimation {
 		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
 		for idx, m := range state.prevMobiles {
 			snap.prevMobiles[idx] = m
 		}
 	}
-	if onion {
+	if mobileBlending {
 		snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
 		for idx, d := range state.prevDescs {
 			snap.prevDescs[idx] = d
@@ -211,7 +211,7 @@ func captureDrawSnapshot() drawSnapshot {
 func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha float64, fade float32) {
 	alpha = 1.0
 	fade = 1.0
-	if (interp || onion || blendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
+	if (interp || mobileBlending || blendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
 		elapsed := time.Since(prevTime)
 		interval := curTime.Sub(prevTime)
 		if interp {
@@ -223,7 +223,7 @@ func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha floa
 				alpha = 1
 			}
 		}
-		if onion || blendPicts {
+		if mobileBlending || blendPicts {
 			half := float64(interval) * rate
 			if half > 0 {
 				fade = float32(float64(elapsed) / float64(half))
@@ -535,7 +535,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 		}
 	}
 	var prevImg *ebiten.Image
-	if onion {
+	if mobileBlending {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			pd := descMap[m.Index]
 			if d, ok := prevDescs[m.Index]; ok {
@@ -552,7 +552,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 	}
 	if img != nil {
 		size := img.Bounds().Dx()
-		if onion && prevImg != nil {
+		if mobileBlending && prevImg != nil {
 			tmp := getTempImage(size)
 			off := (tmp.Bounds().Dx() - size) / 2
 			op1 := &ebiten.DrawImageOptions{}

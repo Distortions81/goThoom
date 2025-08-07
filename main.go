@@ -17,25 +17,22 @@ import (
 
 var (
 	clMovFPS int = 5
-	denoise  bool
 	dataDir  string
 
 	host          string
-	name          string
 	account       string
 	accountPass   string
+	name          string
 	pass          string
 	passHash      string
 	lastCharacter string
 	demo          bool
 	clmov         string
 	baseDir       string
-	soundTest     bool
 	fastSound     bool
-	fastBars      bool
-	maxSounds     int
+	fastBars      bool = true
 	nightLevel    int
-	blendRate     float64
+	blendRate     float64 = 1.0
 	blockSound    bool
 	blockBubbles  bool
 	clientVersion int
@@ -47,8 +44,6 @@ func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
-	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
-	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
 	flag.Parse()
 	clientVersion = *clientVer
 

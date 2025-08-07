@@ -524,7 +524,7 @@ func parseDrawState(data []byte) error {
 	state.balance = bal
 	state.balanceMax = balMax
 	changed := false
-	if onion {
+	if mobileBlending {
 		if len(descs) > 0 {
 			changed = true
 		}
@@ -652,7 +652,7 @@ func parseDrawState(data []byte) error {
 
 	state.pictures = newPics
 
-	needPrev := (interp || onion || !fastAnimation) && ok
+	needPrev := (interp || mobileBlending || !fastAnimation) && ok
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
@@ -662,7 +662,7 @@ func parseDrawState(data []byte) error {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := (interp || (onion && changed)) && ok
+	needAnimUpdate := (interp || (mobileBlending && changed)) && ok
 	if needAnimUpdate {
 		const defaultInterval = time.Second / 5
 		interval := defaultInterval

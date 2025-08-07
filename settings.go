@@ -48,7 +48,7 @@ func loadSettings() bool {
 	vsync = s.Vsync
 	interp = s.Interp
 	smoothMoving = s.SmoothMoving
-	onion = s.Onion
+	mobileBlending = s.Onion
 	blendPicts = s.BlendPicts
 	blendRate = s.BlendRate
 	nightMode = s.NightMode
@@ -86,7 +86,7 @@ func saveSettings() {
 		Vsync:          vsync,
 		Interp:         interp,
 		SmoothMoving:   smoothMoving,
-		Onion:          onion,
+		Onion:          mobileBlending,
 		BlendPicts:     blendPicts,
 		BlendRate:      blendRate,
 		NightMode:      nightMode,

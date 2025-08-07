@@ -18,7 +18,7 @@ var (
 )
 
 func setupLogging(debug bool) {
-	logDir := filepath.Join(baseDir, "logs", "errors")
+	logDir := filepath.Join(baseDir, "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		fmt.Printf("could not create log directory: %v\n", err)
 	}
@@ -57,15 +57,15 @@ func logDebugPacket(prefix string, data []byte) {
 	}
 	n := len(data)
 	dump := data
-	if debugPacketDumpLen > 0 && n > debugPacketDumpLen {
-		dump = data[:debugPacketDumpLen]
+	if debugPacketDumpLen > 0 && n > 0 {
+		dump = data[:0]
 	}
 	debugLogger.Printf("%s len=%d payload=% x", prefix, n, dump)
 }
 
 func setDebugLogging(enabled bool) {
 	if enabled {
-		logDir := filepath.Join(baseDir, "logs", "errors")
+		logDir := filepath.Join(baseDir, "logs")
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			fmt.Printf("could not create log directory: %v\n", err)
 		}
