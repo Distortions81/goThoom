@@ -279,3 +279,39 @@ func answerChallenge(password string, challenge []byte) ([]byte, error) {
 	}
 	return encoded, nil
 }
+
+// answerChallengeHash is like answerChallenge but takes a precomputed
+// MD5 hash of the password encoded as a hex string.
+func answerChallengeHash(passHash string, challenge []byte) ([]byte, error) {
+	digest, err := hex.DecodeString(passHash)
+	if err != nil {
+		return nil, err
+	}
+	if len(digest) != md5.Size {
+		return nil, fmt.Errorf("invalid password hash length")
+	}
+	key := make([]byte, len(digest))
+	copy(key, digest)
+	swapped := make([]byte, len(key))
+	for i := 0; i < len(key); i += 4 {
+		v := binary.BigEndian.Uint32(key[i : i+4])
+		binary.LittleEndian.PutUint32(swapped[i:i+4], v)
+	}
+	block, err := twofish.NewCipher(swapped)
+	if err != nil {
+		return nil, err
+	}
+	if len(challenge)%block.BlockSize() != 0 {
+		return nil, fmt.Errorf("invalid challenge length")
+	}
+	plain := make([]byte, len(challenge))
+	for i := 0; i < len(challenge); i += block.BlockSize() {
+		block.Decrypt(plain[i:i+block.BlockSize()], challenge[i:i+block.BlockSize()])
+	}
+	h := md5.Sum(plain)
+	encoded := make([]byte, len(h))
+	for i := 0; i < len(h); i += block.BlockSize() {
+		block.Encrypt(encoded[i:i+block.BlockSize()], h[i:i+block.BlockSize()])
+	}
+	return encoded, nil
+}

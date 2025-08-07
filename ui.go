@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"log"
 
 	"github.com/Distortions81/EUI/eui"
@@ -8,12 +11,16 @@ import (
 )
 
 var loginWin *eui.WindowData
-var remember bool
 var charactersList *eui.ItemData
 var accountWin *eui.WindowData
+var addCharWin *eui.WindowData
+var connectingWin *eui.WindowData
+var addCharName string
+var addCharPass string
+var addCharRemember bool
+var loginCancel context.CancelFunc
 
 func initUI() {
-
 	loginWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Login",
 		Open:      true,
@@ -29,48 +36,46 @@ func initUI() {
 		FlowType: eui.FLOW_VERTICAL,
 	}
 
-	nameInput, _ := eui.NewInput(&eui.ItemData{Label: "Character", TextPtr: &name, Size: eui.Point{X: 200, Y: 24}})
-	loginFlow.AddItem(nameInput)
-
-	passInput, _ := eui.NewInput(&eui.ItemData{Label: "Password", TextPtr: &pass, Size: eui.Point{X: 200, Y: 24}})
-	loginFlow.AddItem(passInput)
-
-	rememberCB, rememberEvents := eui.NewCheckbox(&eui.ItemData{Text: "Remember", Size: eui.Point{X: 200, Y: 24}, Checked: remember})
-	rememberEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			remember = ev.Checked
-		}
-	}
-	loginFlow.AddItem(rememberCB)
-
-	connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
-	connEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			if remember {
-				rememberCharacter(name, pass)
-				updateCharacterButtons()
-			}
-		}
-	}
-	loginFlow.AddItem(connBtn)
-
-	manageBtn, manageEvents := eui.NewButton(&eui.ItemData{Text: "Manage Account", Size: eui.Point{X: 200, Y: 24}})
-	manageEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			if accountWin != nil {
-				accountWin.Open = true
-			}
-		}
-	}
-	loginFlow.AddItem(manageBtn)
-
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	loginFlow.AddItem(charactersList)
 	updateCharacterButtons()
 
+	connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
+	connEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if name == "" {
+				return
+			}
+			loginWin.Open = false
+			connectingWin.Open = true
+			var ctx context.Context
+			ctx, loginCancel = context.WithCancel(gameCtx)
+			go func() {
+				login(ctx, clientVersion)
+				connectingWin.Open = false
+			}()
+		}
+	}
+	loginFlow.AddItem(connBtn)
+
+	addBtn, addEvents := eui.NewButton(&eui.ItemData{Text: "Add Character", Size: eui.Point{X: 200, Y: 24}})
+	addEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			addCharName = ""
+			addCharPass = ""
+			addCharRemember = false
+			if addCharWin != nil {
+				addCharWin.Open = true
+			}
+		}
+	}
+	loginFlow.AddItem(addBtn)
+
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+	initAddCharacterWindow()
 	initAccountWindow()
+	initConnectingWindow()
 
 	settingsWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Settings",
@@ -405,35 +410,133 @@ func updateCharacterButtons() {
 		return
 	}
 	charactersList.Contents = charactersList.Contents[:0]
-	for _, c := range characters {
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-		radio, radioEvents := eui.NewRadio(&eui.ItemData{
-			Text:       c.Name,
-			RadioGroup: "characters",
-			Size:       eui.Point{X: 160, Y: 24},
-			Checked:    name == c.Name,
-		})
-		nameCopy := c.Name
-		radioEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventRadioSelected {
-				name = nameCopy
+	if len(characters) == 0 {
+		empty, _ := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 24}})
+		charactersList.AddItem(empty)
+		name = ""
+		passHash = ""
+	} else {
+		for _, c := range characters {
+			row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+			radio, radioEvents := eui.NewRadio(&eui.ItemData{
+				Text:       c.Name,
+				RadioGroup: "characters",
+				Size:       eui.Point{X: 160, Y: 24},
+				Checked:    name == c.Name,
+			})
+			nameCopy := c.Name
+			hashCopy := c.PassHash
+			if name == c.Name {
+				passHash = c.PassHash
 			}
-		}
-		row.AddItem(radio)
+			radioEvents.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventRadioSelected {
+					name = nameCopy
+					passHash = hashCopy
+				}
+			}
+			row.AddItem(radio)
 
-		trash, trashEvents := eui.NewButton(&eui.ItemData{Text: "X", Size: eui.Point{X: 24, Y: 24}, Color: eui.ColorDarkRed, HoverColor: eui.ColorRed})
-		delName := c.Name
-		trashEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				removeCharacter(delName)
-				updateCharacterButtons()
-				loginWin.Refresh()
+			trash, trashEvents := eui.NewButton(&eui.ItemData{Text: "X", Size: eui.Point{X: 24, Y: 24}, Color: eui.ColorDarkRed, HoverColor: eui.ColorRed})
+			delName := c.Name
+			trashEvents.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventClick {
+					removeCharacter(delName)
+					if name == delName {
+						name = ""
+						passHash = ""
+					}
+					updateCharacterButtons()
+					loginWin.Refresh()
+				}
 			}
+			row.AddItem(trash)
+			charactersList.AddItem(row)
 		}
-		row.AddItem(trash)
-		charactersList.AddItem(row)
 	}
 	loginWin.Refresh()
+}
+
+func initAddCharacterWindow() {
+	addCharWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Add Character",
+		Open:      false,
+		Closable:  true,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   true,
+		PinTo:     eui.PIN_MID_CENTER,
+	})
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
+	nameInput, _ := eui.NewInput(&eui.ItemData{Label: "Character", TextPtr: &addCharName, Size: eui.Point{X: 200, Y: 24}})
+	flow.AddItem(nameInput)
+	passInput, _ := eui.NewInput(&eui.ItemData{Label: "Password", TextPtr: &addCharPass, Size: eui.Point{X: 200, Y: 24}})
+	flow.AddItem(passInput)
+	rememberCB, rememberEvents := eui.NewCheckbox(&eui.ItemData{Text: "Remember", Size: eui.Point{X: 200, Y: 24}, Checked: addCharRemember})
+	rememberEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			addCharRemember = ev.Checked
+		}
+	}
+	flow.AddItem(rememberCB)
+	addBtn, addEvents := eui.NewButton(&eui.ItemData{Text: "Add", Size: eui.Point{X: 200, Y: 24}})
+	addEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			h := md5.Sum([]byte(addCharPass))
+			hash := hex.EncodeToString(h[:])
+			exists := false
+			for i := range characters {
+				if characters[i].Name == addCharName {
+					characters[i].PassHash = hash
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				characters = append(characters, Character{Name: addCharName, PassHash: hash})
+			}
+			if addCharRemember {
+				saveCharacters()
+			}
+			name = addCharName
+			passHash = hash
+			updateCharacterButtons()
+			loginWin.Refresh()
+			addCharWin.Open = false
+		}
+	}
+	flow.AddItem(addBtn)
+
+	addCharWin.AddItem(flow)
+	addCharWin.AddWindow(false)
+}
+
+func initConnectingWindow() {
+	connectingWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Connecting...",
+		Open:      false,
+		Closable:  false,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   false,
+		PinTo:     eui.PIN_MID_CENTER,
+	})
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	cancelBtn, cancelEvents := eui.NewButton(&eui.ItemData{Text: "Cancel", Size: eui.Point{X: 200, Y: 24}})
+	cancelEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if loginCancel != nil {
+				loginCancel()
+			}
+			connectingWin.Open = false
+			loginWin.Open = true
+		}
+	}
+	flow.AddItem(cancelBtn)
+	connectingWin.AddItem(flow)
+	connectingWin.AddWindow(false)
 }
 
 func initAccountWindow() {
