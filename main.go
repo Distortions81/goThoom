@@ -46,7 +46,7 @@ func main() {
 
 	if *genPGO {
 		clmov = filepath.Join("clmovFiles", "test.clMov")
-		clMovFPS = 60
+		clMovFPS = 30
 	}
 
 	baseDir = os.Getenv("PWD")
@@ -76,7 +76,7 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	if *genPGO {
-		f, err := os.Create("default.pgo")
+		f, err := os.Create(baseDir + "/default.pgo")
 		if err != nil {
 			log.Fatalf("create default.pgo: %v", err)
 		}

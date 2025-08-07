@@ -26,9 +26,9 @@ var gs settings = settings{
 	BlendMobiles:    false,
 	BlendPicts:      true,
 	BlendAmount:     1.0,
-	DenoiseImages:   true,
+	DenoiseImages:   false,
 	PrecacheAssets:  true,
-	CacheWholeSheet: false,
+	CacheWholeSheet: true,
 	ShowFPS:         true,
 	Scale:           2,
 
