@@ -33,7 +33,7 @@ type Settings struct {
 var settingsDirty bool
 
 func loadSettings() bool {
-	path := filepath.Join(baseDir, "settings.json")
+	path := filepath.Join(baseDir, "data/settings.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -104,7 +104,7 @@ func saveSettings() {
 		log.Printf("save settings: %v", err)
 		return
 	}
-	path := filepath.Join(baseDir, "/settings.json")
+	path := filepath.Join(baseDir, "data/settings.json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}

@@ -18,7 +18,7 @@ type Character struct {
 var characters []Character
 
 func charactersPath() string {
-	return filepath.Join(baseDir, "characters.json")
+	return filepath.Join(baseDir, "data/characters.json")
 }
 
 // loadCharacters reads the characters.json file if it exists.
