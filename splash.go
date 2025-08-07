@@ -4,13 +4,13 @@ import (
 	"bytes"
 	_ "embed"
 	"image"
-	_ "image/png"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-//go:embed data/splash.png
+//go:embed data/images/splash.png
+
 var splashPNG []byte
 
 var splashImg *ebiten.Image

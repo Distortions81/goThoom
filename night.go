@@ -1,7 +1,8 @@
 package main
 
 import (
-	"embed"
+	"bytes"
+	_ "embed"
 	"fmt"
 	"image"
 	"regexp"
@@ -12,8 +13,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-//go:embed data/night.png
-var nightImage embed.FS
+//go:embed data/images/night.png
+
+var nightImage []byte
 
 type NightInfo struct {
 	mu              sync.Mutex
@@ -159,12 +161,7 @@ func parseNightCommand(s string) bool {
 
 func init() {
 	if nightImg == nil {
-		f, err := nightImage.Open("data/night.png")
-		if err != nil {
-			return
-		}
-		defer f.Close()
-		img, _, err := image.Decode(f)
+		img, _, err := image.Decode(bytes.NewReader(nightImage))
 		if err != nil {
 			return
 		}
