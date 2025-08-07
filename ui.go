@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/Distortions81/EUI/eui"
+	"github.com/dustin/go-humanize"
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"go_client/climg"
@@ -711,19 +712,19 @@ func updateDebugStats() {
 	soundCount, soundBytes := soundCacheStats()
 
 	if sheetCacheLabel != nil {
-		sheetCacheLabel.Text = fmt.Sprintf("Sheets: %d (%d bytes)", sheetCount, sheetBytes)
+		sheetCacheLabel.Text = fmt.Sprintf("Sheets: %d (%s)", sheetCount, humanize.Bytes(uint64(sheetBytes)))
 		sheetCacheLabel.Dirty = true
 	}
 	if frameCacheLabel != nil {
-		frameCacheLabel.Text = fmt.Sprintf("Frames: %d (%d bytes)", frameCount, frameBytes)
+		frameCacheLabel.Text = fmt.Sprintf("Frames: %d (%s)", frameCount, humanize.Bytes(uint64(frameBytes)))
 		frameCacheLabel.Dirty = true
 	}
 	if mobileCacheLabel != nil {
-		mobileCacheLabel.Text = fmt.Sprintf("Mobiles: %d (%d bytes)", mobileCount, mobileBytes)
+		mobileCacheLabel.Text = fmt.Sprintf("Mobiles: %d (%s)", mobileCount, humanize.Bytes(uint64(mobileBytes)))
 		mobileCacheLabel.Dirty = true
 	}
 	if soundCacheLabel != nil {
-		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%d bytes)", soundCount, soundBytes)
+		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%s)", soundCount, humanize.Bytes(uint64(soundBytes)))
 		soundCacheLabel.Dirty = true
 	}
 }
