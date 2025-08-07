@@ -276,12 +276,13 @@ func loadSound(id uint16) []byte {
 		}
 	case 16:
 		if len(s.Data)%2 != 0 {
-			return nil
+			s.Data = append(s.Data, 0x00)
 		}
 		samples = make([]int16, len(s.Data)/2)
 		for i := 0; i < len(samples); i++ {
 			samples[i] = int16(binary.BigEndian.Uint16(s.Data[2*i : 2*i+2]))
 		}
+		highpassIIR16(samples, 0.995)
 	default:
 		return nil
 	}
