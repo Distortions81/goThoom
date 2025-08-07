@@ -202,6 +202,26 @@ func lowpassIIR16(x []int16, alpha float64) {
 	}
 }
 
+// applyFadeInOut applies a tiny fade to the start and end of the samples
+// to avoid clicks when sounds begin or end abruptly. The fade length is
+// approximately 5ms of audio.
+func applyFadeInOut(samples []int16, rate int) {
+	fade := rate / 200 // ~5ms
+	if fade <= 1 {
+		return
+	}
+	if len(samples) < 2*fade {
+		fade = len(samples) / 2
+		if fade <= 1 {
+			return
+		}
+	}
+	for i := 0; i < fade; i++ {
+		inScale := float64(i) / float64(fade)
+		samples[i] = int16(float64(samples[i]) * inScale)
+		outScale := float64(fade-1-i) / float64(fade)
+		idx := len(samples) - fade + i
+		samples[idx] = int16(float64(samples[idx]) * outScale)
 // highpassIIR16 removes DC offset using a simple one-pole high-pass filter.
 // alpha should be close to 1.0 (e.g. 0.995) to only filter very low
 // frequencies while leaving the audible band intact.
@@ -290,6 +310,8 @@ func loadSound(id uint16) []byte {
 	if srcRate != dstRate {
 		samples = resample(samples, srcRate, dstRate)
 	}
+
+	applyFadeInOut(samples, dstRate)
 
 	pcm := make([]byte, len(samples)*2)
 	for i, v := range samples {
