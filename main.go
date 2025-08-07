@@ -116,6 +116,10 @@ func main() {
 		}
 	}
 
+	if gs.PrecacheAssets {
+		go precacheAssets()
+	}
+
 	if clmovPath != "" {
 		drawStateEncrypted = false
 		frames, err := parseMovie(clmovPath, *clientVer)
@@ -131,10 +135,6 @@ func main() {
 
 		<-ctx.Done()
 		return
-	}
-
-	if gs.PrecacheAssets {
-		go precacheAssets()
 	}
 
 	<-ctx.Done()
