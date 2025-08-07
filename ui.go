@@ -587,6 +587,15 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(precacheCB)
 
+	showFPSCB, showFPSEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show FPS", Size: eui.Point{X: width, Y: 24}, Checked: gs.ShowFPS})
+	showFPSEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ShowFPS = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(showFPSCB)
+
 	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.BlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
