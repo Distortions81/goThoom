@@ -222,6 +222,10 @@ func applyFadeInOut(samples []int16, rate int) {
 		outScale := float64(fade-1-i) / float64(fade)
 		idx := len(samples) - fade + i
 		samples[idx] = int16(float64(samples[idx]) * outScale)
+
+	}
+}
+
 // highpassIIR16 removes DC offset using a simple one-pole high-pass filter.
 // alpha should be close to 1.0 (e.g. 0.995) to only filter very low
 // frequencies while leaving the audible band intact.
@@ -285,7 +289,7 @@ func loadSound(id uint16) []byte {
 	case 8:
 		if !gs.FastSound {
 			samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
-			lowpassIIR16(samples, 0.5)
+			//lowpassIIR16(samples, 0.5)
 			highpassIIR16(samples, 0.995)
 		} else {
 			samples = make([]int16, len(s.Data))
