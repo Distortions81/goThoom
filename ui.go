@@ -21,14 +21,13 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
-var chatFontSize = 12
-var labelFontSize = 12
 
 var (
 	sheetCacheLabel  *eui.ItemData
 	frameCacheLabel  *eui.ItemData
 	mobileCacheLabel *eui.ItemData
 	soundCacheLabel  *eui.ItemData
+	totalCacheLabel  *eui.ItemData
 )
 
 func initUI() {
@@ -464,19 +463,21 @@ func openSettingsWindow() {
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
 	mainFlow.AddItem(label)
 
-	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(chatFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(gs.BubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleFontSize = float64(ev.Value)
+			initFont()
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(chatFontSlider)
 
-	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, Value: float32(labelFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, Value: float32(gs.MainFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MainFontSize = float64(ev.Value)
+			initFont()
 			settingsDirty = true
 		}
 	}
@@ -685,6 +686,9 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(smoothinCB)
 
+	cacheLabel, _ := eui.NewText(&eui.ItemData{Text: "Caches:", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(cacheLabel)
+
 	sheetCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(sheetCacheLabel)
 
@@ -705,6 +709,8 @@ func openDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(clearCacheBtn)
+	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(totalCacheLabel)
 
 	debugWin.AddItem(debugFlow)
 	debugWin.AddWindow(false)
@@ -735,6 +741,10 @@ func updateDebugStats() {
 	if soundCacheLabel != nil {
 		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%s)", soundCount, humanize.Bytes(uint64(soundBytes)))
 		soundCacheLabel.Dirty = true
+	}
+	if totalCacheLabel != nil {
+		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(sheetBytes+frameBytes+mobileBytes+soundBytes)))
+		totalCacheLabel.Dirty = true
 	}
 }
 
