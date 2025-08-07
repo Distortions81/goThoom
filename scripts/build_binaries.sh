@@ -29,9 +29,14 @@ for platform in "${platforms[@]}"; do
     CGO_ENABLED=0  # Disable cgo for unsupported cross-compilation targets
   fi
 
-  # Build binary
+  # Build binary with optimization flags to reduce size and speed up execution
   env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED="$CGO_ENABLED" \
-    go build -o "${OUTPUT_DIR}/${BIN_NAME}" .
+    go build \
+      -trimpath \
+      -buildvcs=false \
+      -gcflags="all=-d=checkptr=0" \
+      -ldflags="-s -w -buildid=" \
+      -o "${OUTPUT_DIR}/${BIN_NAME}" .
 
   # Zip it
   echo "Zipping ${BIN_NAME}..."
