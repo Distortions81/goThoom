@@ -104,9 +104,10 @@ func openDownloadsWindow(status dataFilesStatus) {
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		PinTo:     eui.PIN_MID_CENTER,
+		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: float32((gameAreaSizeY * scale) / 2)},
 		Open:      true,
 	})
+	downloadWin.Closable = false
 
 	startedDownload := false
 
@@ -182,7 +183,7 @@ func updateCharacterButtons() {
 	}
 	charactersList.Contents = charactersList.Contents[:0]
 	if len(characters) == 0 {
-		empty, _ := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 24}})
+		empty, _ := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 64}})
 		charactersList.AddItem(empty)
 		name = ""
 		passHash = ""
@@ -242,9 +243,10 @@ func openAddCharacterWindow() {
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		PinTo:     eui.PIN_MID_CENTER,
+		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: float32((gameAreaSizeY * scale) / 2)},
 		Open:      true,
 	})
+	addCharWin.Closable = false
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -323,6 +325,7 @@ func openLoginWindow() {
 		PinTo:     eui.PIN_MID_CENTER,
 		Open:      true,
 	})
+	loginWin.Closable = false
 
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -387,9 +390,10 @@ func openErrorWindow(msg string) {
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		PinTo:     eui.PIN_TOP_CENTER,
+		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: 5},
 		Open:      true,
 	})
+
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
 	flow.AddItem(text)
