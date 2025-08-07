@@ -3,12 +3,17 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"os"
+	"path/filepath"
 
 	"github.com/Distortions81/EUI/eui"
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"go_client/climg"
 )
 
 var loginWin *eui.WindowData
+var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
 var addCharWin *eui.WindowData
 var addCharName string
@@ -18,7 +23,15 @@ var chatFontSize = 12
 var labelFontSize = 12
 
 func initUI() {
-	openLoginWindow()
+	status, err := checkDataFiles(dataDir, clientVersion)
+	if err != nil {
+		logError("check data files: %v", err)
+	}
+	if status.NeedImages || status.NeedSounds {
+		openDownloadsWindow(status)
+	} else {
+		openLoginWindow()
+	}
 
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -78,6 +91,64 @@ func initUI() {
 	overlay.AddItem(helpBtn)
 
 	eui.AddOverlayFlow(overlay)
+}
+
+func openDownloadsWindow(status dataFilesStatus) {
+	if downloadWin != nil {
+		return
+	}
+
+	downloadWin = eui.NewWindow(&eui.WindowData{
+		Title:     "Downloads",
+		Closable:  false,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   false,
+		PinTo:     eui.PIN_MID_CENTER,
+		Open:      true,
+	})
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	for _, f := range status.Files {
+		t, _ := eui.NewText(&eui.ItemData{Text: f, FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+		flow.AddItem(t)
+	}
+
+	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	dlBtn, dlEvents := eui.NewButton(&eui.ItemData{Text: "Download", Size: eui.Point{X: 100, Y: 24}})
+	dlEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			go func() {
+				if err := downloadDataFiles(dataDir, clientVersion, status); err != nil {
+					logError("download data files: %v", err)
+					openErrorWindow(err.Error())
+					return
+				}
+				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
+					clImages = imgs
+				} else {
+					logError("load CL_Images: %v", err)
+					openErrorWindow(err.Error())
+				}
+				downloadWin.RemoveWindow()
+				downloadWin = nil
+				openLoginWindow()
+			}()
+		}
+	}
+	btnFlow.AddItem(dlBtn)
+
+	closeBtn, closeEvents := eui.NewButton(&eui.ItemData{Text: "Close", Size: eui.Point{X: 100, Y: 24}})
+	closeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			os.Exit(0)
+		}
+	}
+	btnFlow.AddItem(closeBtn)
+	flow.AddItem(btnFlow)
+
+	downloadWin.AddItem(flow)
+	downloadWin.AddWindow(false)
 }
 
 func updateCharacterButtons() {
