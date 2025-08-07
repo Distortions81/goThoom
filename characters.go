@@ -50,11 +50,15 @@ func rememberCharacter(name, pass string) {
 		if characters[i].Name == name {
 			characters[i].PassHash = hash
 			saveCharacters()
+			lastCharacter = name
+			saveSettings()
 			return
 		}
 	}
 	characters = append(characters, Character{Name: name, PassHash: hash})
 	saveCharacters()
+	lastCharacter = name
+	saveSettings()
 }
 
 // removeCharacter deletes a stored character by name.
@@ -63,6 +67,10 @@ func removeCharacter(name string) {
 		if c.Name == name {
 			characters = append(characters[:i], characters[i+1:]...)
 			saveCharacters()
+			if lastCharacter == name {
+				lastCharacter = ""
+				saveSettings()
+			}
 			return
 		}
 	}
