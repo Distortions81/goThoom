@@ -21,8 +21,6 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
-var chatFontSize = 12
-var labelFontSize = 12
 
 var (
 	sheetCacheLabel  *eui.ItemData
@@ -464,19 +462,21 @@ func openSettingsWindow() {
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
 	mainFlow.AddItem(label)
 
-	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(chatFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(gs.BubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleFontSize = float64(ev.Value)
+			initFont()
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(chatFontSlider)
 
-	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, Value: float32(labelFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, Value: float32(gs.MainFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MainFontSize = float64(ev.Value)
+			initFont()
 			settingsDirty = true
 		}
 	}
