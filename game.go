@@ -174,13 +174,7 @@ func captureDrawSnapshot() drawSnapshot {
 				if !b.Far {
 					if m, ok := state.mobiles[b.Index]; ok {
 						b.H, b.V = m.H, m.V
-					} else {
-						b.H -= int16(state.picShiftX)
-						b.V -= int16(state.picShiftY)
 					}
-				} else {
-					b.H -= int16(state.picShiftX)
-					b.V -= int16(state.picShiftY)
 				}
 				kept = append(kept, b)
 			}
