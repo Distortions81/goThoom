@@ -72,6 +72,7 @@ func main() {
 	}
 
 	loadSettings()
+	loadCharacters()
 
 	if nightLevel != 0 {
 		if nightLevel < 0 {
