@@ -310,6 +310,9 @@ func openLoginWindow() {
 	if loginWin != nil {
 		return
 	}
+	if clmov != "" {
+		return
+	}
 
 	loginWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Login",
