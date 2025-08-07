@@ -175,6 +175,43 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			Bits:       8,
 		}
 		return s, nil
+	case 0xfe: // CmpSoundHeader: allow uncompressed PCM with extra fields
+		if hdr+64 > len(data) {
+			return nil, fmt.Errorf("short cmp header")
+		}
+		compID := int16(binary.BigEndian.Uint16(data[hdr+56 : hdr+58]))
+		if compID != 0 && compID != -1 {
+			return nil, fmt.Errorf("unsupported compression %d", compID)
+		}
+		format := binary.BigEndian.Uint32(data[hdr+40 : hdr+44])
+		if format != 0x72617720 && format != 0x74776f73 { // 'raw ' or 'twos'
+			return nil, fmt.Errorf("unsupported format %08x", format)
+		}
+		chans := binary.BigEndian.Uint32(data[hdr+4 : hdr+8])
+		bits := binary.BigEndian.Uint16(data[hdr+62 : hdr+64])
+		frames := int(binary.BigEndian.Uint32(data[hdr+22 : hdr+26]))
+		start := hdr + 64
+		bytesPerSample := int(bits) / 8
+		length := frames * int(chans) * bytesPerSample
+		if start > len(data) {
+			return nil, fmt.Errorf("data out of range")
+		}
+		if length > len(data)-start {
+			fmt.Printf("truncated sound data")
+			if id != 0 {
+				fmt.Printf(" for id %d", id)
+			}
+			fmt.Printf(": have %d bytes, expected %d\n", len(data)-start, length)
+			length = len(data) - start
+		}
+		s := &Sound{
+			Data:       append([]byte(nil), data[start:start+length]...),
+			SampleRate: binary.BigEndian.Uint32(data[hdr+8:hdr+12]) >> 16,
+			Channels:   chans,
+			Bits:       bits,
+		}
+		return s, nil
+
 	case 0xff: // ExtSoundHeader: allow 16-bit or multi-channel
 		if hdr+44 > len(data) {
 			return nil, fmt.Errorf("short ext header")
