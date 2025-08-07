@@ -28,6 +28,7 @@ var gs settings = settings{
 	BlendAmount:     1.0,
 	DenoiseImages:   true,
 	PrecacheAssets:  true,
+	CacheWholeSheet: false,
 	ShowFPS:         true,
 	Scale:           2,
 
@@ -53,6 +54,7 @@ type settings struct {
 	BlendAmount      float64
 	DenoiseImages    bool
 	PrecacheAssets   bool
+	CacheWholeSheet  bool
 	ShowFPS          bool
 	TextureFiltering bool
 	FastSound        bool

@@ -69,9 +69,8 @@ func loadImage(id uint16) *ebiten.Image {
 // loadImageFrame retrieves a specific animation frame for the specified picture
 // ID. Frames are cached individually after the first load.
 func loadImageFrame(id uint16, frame int) *ebiten.Image {
-	key := fmt.Sprintf("%d-%d", id, frame)
 	imageMu.Lock()
-	if img, ok := imageCache[key]; ok {
+	if img, ok := imageCache[fmt.Sprintf("%d-%d", id, frame)]; ok {
 		imageMu.Unlock()
 		return img
 	}
@@ -80,7 +79,7 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	sheet := loadSheet(id, nil, false)
 	if sheet == nil {
 		imageMu.Lock()
-		imageCache[key] = nil
+		imageCache[fmt.Sprintf("%d-%d", id, frame)] = nil
 		imageMu.Unlock()
 		return nil
 	}
@@ -94,11 +93,26 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	}
 	frame = frame % frames
 	h := sheet.Bounds().Dy() / frames
+
+	if gs.CacheWholeSheet {
+		imageMu.Lock()
+		for f := 0; f < frames; f++ {
+			k := fmt.Sprintf("%d-%d", id, f)
+			if _, ok := imageCache[k]; !ok {
+				y := f * h
+				imageCache[k] = sheet.SubImage(image.Rect(0, y, sheet.Bounds().Dx(), y+h)).(*ebiten.Image)
+			}
+		}
+		img := imageCache[fmt.Sprintf("%d-%d", id, frame)]
+		imageMu.Unlock()
+		return img
+	}
+
 	y0 := frame * h
 	sub := sheet.SubImage(image.Rect(0, y0, sheet.Bounds().Dx(), y0+h)).(*ebiten.Image)
 
 	imageMu.Lock()
-	imageCache[key] = sub
+	imageCache[fmt.Sprintf("%d-%d", id, frame)] = sub
 	imageMu.Unlock()
 	return sub
 }
@@ -107,9 +121,8 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 // the state value provided by the server. The optional colors slice allows
 // caller-supplied palette overrides to be cached separately.
 func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
-	key := fmt.Sprintf("%d-%d-%x", id, state, colors)
 	imageMu.Lock()
-	if img, ok := mobileCache[key]; ok {
+	if img, ok := mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)]; ok {
 		imageMu.Unlock()
 		return img
 	}
@@ -118,7 +131,7 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	sheet := loadSheet(id, colors, true)
 	if sheet == nil {
 		imageMu.Lock()
-		mobileCache[key] = nil
+		mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)] = nil
 		imageMu.Unlock()
 		return nil
 	}
@@ -128,13 +141,35 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	y := int(state>>4) * size
 	if x+size > sheet.Bounds().Dx() || y+size > sheet.Bounds().Dy() {
 		imageMu.Lock()
-		mobileCache[key] = nil
+		mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)] = nil
 		imageMu.Unlock()
 		return nil
 	}
+
+	if gs.CacheWholeSheet {
+		imageMu.Lock()
+		for yy := 0; yy < 16; yy++ {
+			for xx := 0; xx < 16; xx++ {
+				k := fmt.Sprintf("%d-%d-%x", id, uint8(yy<<4|xx), colors)
+				if _, ok := mobileCache[k]; !ok {
+					sx := xx * size
+					sy := yy * size
+					if sx+size <= sheet.Bounds().Dx() && sy+size <= sheet.Bounds().Dy() {
+						mobileCache[k] = sheet.SubImage(image.Rect(sx, sy, sx+size, sy+size)).(*ebiten.Image)
+					} else {
+						mobileCache[k] = nil
+					}
+				}
+			}
+		}
+		img := mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)]
+		imageMu.Unlock()
+		return img
+	}
+
 	frame := sheet.SubImage(image.Rect(x, y, x+size, y+size)).(*ebiten.Image)
 	imageMu.Lock()
-	mobileCache[key] = frame
+	mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)] = frame
 	imageMu.Unlock()
 	return frame
 }

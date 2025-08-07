@@ -587,6 +587,14 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(precacheCB)
 
+	cacheSheetCB, cacheSheetEvents := eui.NewCheckbox(&eui.ItemData{Text: "Cache Whole Sheet", Size: eui.Point{X: width, Y: 24}, Checked: gs.CacheWholeSheet})
+	cacheSheetEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.CacheWholeSheet = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(cacheSheetCB)
 	showFPSCB, showFPSEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show FPS", Size: eui.Point{X: width, Y: 24}, Checked: gs.ShowFPS})
 	showFPSEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
