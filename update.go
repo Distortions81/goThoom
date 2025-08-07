@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/tar"
 	"compress/gzip"
 	"encoding/binary"
 	"fmt"
@@ -47,59 +46,6 @@ func downloadGZ(url, dest string) error {
 	return os.Rename(tmp, dest)
 }
 
-func downloadTGZ(url, destDir string) error {
-	defer fmt.Println()
-	addMessage(fmt.Sprintf("Downloading: %v...", url))
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %v: %v", url, resp.Status)
-	}
-	gz, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return err
-	}
-	defer gz.Close()
-	tr := tar.NewReader(gz)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		path := filepath.Join(destDir, hdr.Name)
-		switch hdr.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(path, 0755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-				return err
-			}
-			f, err := os.Create(path)
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
-				return err
-			}
-			if err := f.Close(); err != nil {
-				return err
-			}
-		}
-	}
-	addMessage("Download complete.")
-	return nil
-}
-
 func autoUpdate(resp []byte, dataDir string) error {
 	if len(resp) < 16 {
 		return fmt.Errorf("short response for update")
@@ -120,21 +66,13 @@ func autoUpdate(resp []byte, dataDir string) error {
 	fmt.Println("downloading", imgURL)
 	imgPath := filepath.Join(dataDir, "CL_Images")
 	if err := downloadGZ(imgURL, imgPath); err != nil {
-		alt := fmt.Sprintf("%v/data/CL_Images.tgz", base)
-		logError("download %v failed: %v; trying %v", imgURL, err, alt)
-		if err := downloadTGZ(alt, dataDir); err != nil {
-			return err
-		}
+		return err
 	}
 	sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", base, sndVer>>8)
 	fmt.Println("downloading", sndURL)
 	sndPath := filepath.Join(dataDir, "CL_Sounds")
 	if err := downloadGZ(sndURL, sndPath); err != nil {
-		alt := fmt.Sprintf("%v/data/CL_Sounds.tgz", base)
-		logError("download %v failed: %v; trying %v", sndURL, err, alt)
-		if err := downloadTGZ(alt, dataDir); err != nil {
-			return err
-		}
+		return err
 	}
 	return nil
 }
@@ -151,10 +89,7 @@ func ensureDataFiles(baseDir string, clientVer int) error {
 	if _, err := os.Stat(imgPath); os.IsNotExist(err) {
 		imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", defaultUpdateBase, clientVer)
 		if err := downloadGZ(imgURL, imgPath); err != nil {
-			alt := fmt.Sprintf("%v/data/CL_Images.tgz", defaultUpdateBase)
-			if err := downloadTGZ(alt, baseDir); err != nil {
-				return fmt.Errorf("download CL_Images: %w", err)
-			}
+			return fmt.Errorf("download CL_Images: %w", err)
 		}
 	}
 
@@ -162,10 +97,7 @@ func ensureDataFiles(baseDir string, clientVer int) error {
 	if _, err := os.Stat(sndPath); os.IsNotExist(err) {
 		sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", defaultUpdateBase, clientVer)
 		if err := downloadGZ(sndURL, sndPath); err != nil {
-			alt := fmt.Sprintf("%v/data/CL_Sounds.tgz", defaultUpdateBase)
-			if err := downloadTGZ(alt, baseDir); err != nil {
-				return fmt.Errorf("download CL_Sounds: %w", err)
-			}
+			return fmt.Errorf("download CL_Sounds: %w", err)
 		}
 	}
 	return nil
