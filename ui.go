@@ -65,14 +65,6 @@ func initUI() {
 		}
 		loginFlow.AddItem(manageBtn)
 
-		updateBtn, updateEvents := eui.NewButton(&eui.ItemData{Text: "Update Characters", Size: eui.Point{X: 200, Y: 24}})
-		updateEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				updateCharacterButtons()
-			}
-		}
-		loginFlow.AddItem(updateBtn)
-
 		charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 		loginFlow.AddItem(charactersList)
 		updateCharacterButtons()
@@ -487,6 +479,15 @@ func initAccountWindow() {
 	}
 	flow.AddItem(changeBtn)
 
+	updateBtn, updateEvents := eui.NewButton(&eui.ItemData{Text: "Update Character List", Size: eui.Point{X: 200, Y: 24}})
+	updateEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			updateCharacterButtons()
+		}
+	}
+	flow.AddItem(updateBtn)
+
 	accountWin.AddItem(flow)
+	accountWin.Open = false
 	accountWin.AddWindow(false)
 }
