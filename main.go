@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/pprof"
 	"syscall"
+	"time"
 
 	"go_client/climg"
 )
@@ -38,8 +40,14 @@ func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
+	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 60 fps for 30s")
 	flag.Parse()
 	clientVersion = *clientVer
+
+	if *genPGO {
+		clmov = filepath.Join("clmovFiles", "test.clMov")
+		clMovFPS = 60
+	}
 
 	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
@@ -67,6 +75,23 @@ func main() {
 	dataDir = filepath.Join(baseDir, "data")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	if *genPGO {
+		f, err := os.Create("default.pgo")
+		if err != nil {
+			log.Fatalf("create default.pgo: %v", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatalf("start CPU profile: %v", err)
+		}
+		defer func() {
+			pprof.StopCPUProfile()
+			f.Close()
+		}()
+		go func() {
+			time.Sleep(30 * time.Second)
+			cancel()
+		}()
+	}
 	go func() {
 		runGame(ctx)
 		cancel()
