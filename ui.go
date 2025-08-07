@@ -242,6 +242,7 @@ func openLoginWindow() {
 	if loginWin != nil {
 		return
 	}
+
 	loginWin = eui.NewWindow(&eui.WindowData{
 		Title:     "Login",
 		Closable:  false,
@@ -254,8 +255,33 @@ func openLoginWindow() {
 
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
+	/*
+		manBtn, manBtnEvents := eui.NewButton(&eui.ItemData{Text: "Manage account", Size: eui.Point{X: 200, Y: 24}})
+		manBtnEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventClick {
+				//Add manage account window here
+			}
+		}
+		loginFlow.AddItem(manBtn)
+	*/
+
+	addBtn, addEvents := eui.NewButton(&eui.ItemData{Text: "Add Character", RadioGroup: "Characters", Size: eui.Point{X: 200, Y: 24}})
+	addEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			addCharName = ""
+			addCharPass = ""
+			addCharRemember = false
+			openAddCharacterWindow()
+		}
+	}
+	loginFlow.AddItem(addBtn)
+
 	loginFlow.AddItem(charactersList)
 	updateCharacterButtons()
+
+	label, _ := eui.NewText(&eui.ItemData{Text: "", FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+	loginFlow.AddItem(label)
 
 	connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
 	connEvents.Handle = func(ev eui.UIEvent) {
@@ -278,17 +304,6 @@ func openLoginWindow() {
 		}
 	}
 	loginFlow.AddItem(connBtn)
-
-	addBtn, addEvents := eui.NewButton(&eui.ItemData{Text: "Add Character", Size: eui.Point{X: 200, Y: 24}})
-	addEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			addCharName = ""
-			addCharPass = ""
-			addCharRemember = false
-			openAddCharacterWindow()
-		}
-	}
-	loginFlow.AddItem(addBtn)
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
