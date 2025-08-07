@@ -156,13 +156,18 @@ func login(ctx context.Context, clientVersion int) {
 				}
 			}
 		}
-		if pass == "" && !demo {
+		if pass == "" && passHash == "" && !demo {
 			fmt.Print("enter character password: ")
 			fmt.Scanln(&pass)
 		}
 		playerName = name
 
-		answer, err := answerChallenge(pass, challenge)
+		var answer []byte
+		if pass != "" {
+			answer, err = answerChallenge(pass, challenge)
+		} else {
+			answer, err = answerChallengeHash(passHash, challenge)
+		}
 		if err != nil {
 			log.Fatalf("hash: %v", err)
 		}

@@ -20,22 +20,24 @@ var (
 	denoise  bool
 	dataDir  string
 
-	host         string
-	name         string
-	account      string
-	accountPass  string
-	pass         string
-	demo         bool
-	clmov        string
-	baseDir      string
-	soundTest    bool
-	fastSound    bool
-	fastBars     bool
-	maxSounds    int
-	nightLevel   int
-	blendRate    float64
-	blockSound   bool
-	blockBubbles bool
+	host          string
+	name          string
+	account       string
+	accountPass   string
+	pass          string
+	passHash      string
+	demo          bool
+	clmov         string
+	baseDir       string
+	soundTest     bool
+	fastSound     bool
+	fastBars      bool
+	maxSounds     int
+	nightLevel    int
+	blendRate     float64
+	blockSound    bool
+	blockBubbles  bool
+	clientVersion int
 )
 
 func main() {
@@ -47,6 +49,7 @@ func main() {
 	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
 	flag.Parse()
+	clientVersion = *clientVer
 
 	baseDir = os.Getenv("PWD")
 	if baseDir == "" {
