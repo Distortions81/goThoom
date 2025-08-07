@@ -177,6 +177,7 @@ func (p *moviePlayer) initUI() {
 }
 
 func (p *moviePlayer) run(ctx context.Context) {
+	<-gameStarted
 	for {
 		select {
 		case <-ctx.Done():
