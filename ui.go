@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -21,6 +22,13 @@ var addCharPass string
 var addCharRemember bool
 var chatFontSize = 12
 var labelFontSize = 12
+
+var (
+	sheetCacheLabel  *eui.ItemData
+	frameCacheLabel  *eui.ItemData
+	mobileCacheLabel *eui.ItemData
+	soundCacheLabel  *eui.ItemData
+)
 
 func initUI() {
 	status, err := checkDataFiles(dataDir, clientVersion)
@@ -661,8 +669,48 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(smoothinCB)
 
+	sheetCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(sheetCacheLabel)
+
+	frameCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(frameCacheLabel)
+
+	mobileCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(mobileCacheLabel)
+
+	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(soundCacheLabel)
+
 	debugWin.AddItem(debugFlow)
 	debugWin.AddWindow(false)
+	updateDebugStats()
+}
+
+// updateDebugStats refreshes the cache statistics displayed in the debug window.
+func updateDebugStats() {
+	if debugWin == nil {
+		return
+	}
+
+	sheetCount, sheetBytes, frameCount, frameBytes, mobileCount, mobileBytes := imageCacheStats()
+	soundCount, soundBytes := soundCacheStats()
+
+	if sheetCacheLabel != nil {
+		sheetCacheLabel.Text = fmt.Sprintf("Sheets: %d (%d bytes)", sheetCount, sheetBytes)
+		sheetCacheLabel.Dirty = true
+	}
+	if frameCacheLabel != nil {
+		frameCacheLabel.Text = fmt.Sprintf("Frames: %d (%d bytes)", frameCount, frameBytes)
+		frameCacheLabel.Dirty = true
+	}
+	if mobileCacheLabel != nil {
+		mobileCacheLabel.Text = fmt.Sprintf("Mobiles: %d (%d bytes)", mobileCount, mobileBytes)
+		mobileCacheLabel.Dirty = true
+	}
+	if soundCacheLabel != nil {
+		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%d bytes)", soundCount, soundBytes)
+		soundCacheLabel.Dirty = true
+	}
 }
 
 func openInventoryWindow() {

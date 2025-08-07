@@ -227,6 +227,7 @@ type Game struct{}
 
 func (g *Game) Update() error {
 	eui.Update()
+	updateDebugStats()
 
 	if settingsDirty {
 		saveSettings()

@@ -138,3 +138,33 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	imageMu.Unlock()
 	return frame
 }
+
+// imageCacheStats returns the counts and approximate memory usage in bytes for
+// each of the image caches: sheetCache, imageCache, and mobileCache.
+func imageCacheStats() (sheetCount, sheetBytes, frameCount, frameBytes, mobileCount, mobileBytes int) {
+	imageMu.Lock()
+	defer imageMu.Unlock()
+
+	for _, img := range sheetCache {
+		if img != nil {
+			sheetCount++
+			b := img.Bounds()
+			sheetBytes += b.Dx() * b.Dy() * 4
+		}
+	}
+	for _, img := range imageCache {
+		if img != nil {
+			frameCount++
+			b := img.Bounds()
+			frameBytes += b.Dx() * b.Dy() * 4
+		}
+	}
+	for _, img := range mobileCache {
+		if img != nil {
+			mobileCount++
+			b := img.Bounds()
+			mobileBytes += b.Dx() * b.Dy() * 4
+		}
+	}
+	return
+}
