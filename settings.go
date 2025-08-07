@@ -29,6 +29,7 @@ var gs settings = settings{
 	DenoiseImages:   true,
 	PrecacheAssets:  true,
 	CacheWholeSheet: false,
+	ShowFPS:         true,
 	Scale:           2,
 
 	vsync: true,
@@ -54,6 +55,7 @@ type settings struct {
 	DenoiseImages    bool
 	PrecacheAssets   bool
 	CacheWholeSheet  bool
+	ShowFPS          bool
 	TextureFiltering bool
 	FastSound        bool
 	Scale            int

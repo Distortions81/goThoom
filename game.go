@@ -351,7 +351,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawInputOverlay(screen, string(inputText))
 	}
 	drawStatusBars(screen, snap, alpha)
-	drawServerFPS(screen, serverFPS)
+	if gs.ShowFPS {
+		drawServerFPS(screen, serverFPS)
+	}
 }
 
 // drawScene renders all world objects for the current frame.

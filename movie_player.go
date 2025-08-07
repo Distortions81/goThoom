@@ -29,6 +29,7 @@ type moviePlayer struct {
 
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
 	setInterpFPS(fps)
+	serverFPS = float64(fps)
 	return &moviePlayer{
 		frames:  frames,
 		fps:     fps,
@@ -242,6 +243,7 @@ func (p *moviePlayer) setFPS(fps int) {
 	p.fps = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
 	setInterpFPS(p.fps)
+	serverFPS = float64(p.fps)
 	p.updateUI()
 }
 

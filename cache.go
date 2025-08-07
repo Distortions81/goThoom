@@ -1,12 +1,10 @@
 package main
 
 import (
-	"log"
-	"path/filepath"
+	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
-
-	"go_client/clsnd"
+	"github.com/remeh/sizedwaitgroup"
 )
 
 func clearCaches() {
@@ -37,26 +35,28 @@ func clearCaches() {
 }
 
 func precacheAssets() {
+
+	wg := sizedwaitgroup.New(runtime.NumCPU())
 	if clImages != nil {
 		for _, id := range clImages.IDs() {
-			loadSheet(uint16(id), nil, false)
+			wg.Add()
+			go func(id uint32) {
+				loadSheet(uint16(id), nil, false)
+				wg.Done()
+			}(id)
 		}
 	}
-
-	soundMu.Lock()
-	if clSounds == nil {
-		snds, err := clsnd.Load(filepath.Join(dataDir, "CL_Sounds"))
-		if err != nil {
-			log.Printf("load CL_Sounds: %v", err)
-		} else {
-			clSounds = snds
-		}
-	}
-	soundMu.Unlock()
+	wg.Wait()
 
 	if clSounds != nil {
 		for _, id := range clSounds.IDs() {
-			loadSound(uint16(id))
+			wg.Add()
+			go func(id uint32) {
+				loadSound(uint16(id))
+				wg.Done()
+			}(id)
 		}
 	}
+	wg.Wait()
+	addMessage("All assets are now preloaded.")
 }

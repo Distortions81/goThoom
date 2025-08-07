@@ -92,6 +92,7 @@ func main() {
 			cancel()
 		}()
 	}
+
 	go func() {
 		runGame(ctx)
 		cancel()
@@ -117,6 +118,7 @@ func main() {
 	}
 
 	if gs.PrecacheAssets {
+		time.Sleep(time.Millisecond * 100)
 		go precacheAssets()
 	}
 
