@@ -251,12 +251,14 @@ func loadSound(id uint16) []byte {
 		return nil
 	}
 
-	soundMu.Lock()
-	if pcm, ok := pcmCache[id]; ok {
+	if !gs.LowMemory {
+		soundMu.Lock()
+		if pcm, ok := pcmCache[id]; ok {
+			soundMu.Unlock()
+			return pcm
+		}
 		soundMu.Unlock()
-		return pcm
 	}
-	soundMu.Unlock()
 
 	soundMu.Lock()
 	if clSounds == nil {
@@ -264,19 +266,24 @@ func loadSound(id uint16) []byte {
 		clSounds, err = clsnd.Load(filepath.Join(dataDir, "CL_Sounds"))
 		if err != nil {
 			log.Printf("load CL_Sounds: %v", err)
-			pcmCache[id] = nil
+			if !gs.LowMemory {
+				pcmCache[id] = nil
+			}
 			soundMu.Unlock()
 			return nil
 		}
+		clSounds.NoCache = gs.LowMemory
 	}
 	soundMu.Unlock()
 
 	s := clSounds.Get(uint32(id))
 	if s == nil {
 		log.Printf("missing sound %d", id)
-		soundMu.Lock()
-		pcmCache[id] = nil
-		soundMu.Unlock()
+		if !gs.LowMemory {
+			soundMu.Lock()
+			pcmCache[id] = nil
+			soundMu.Unlock()
+		}
 		return nil
 	}
 
@@ -323,9 +330,11 @@ func loadSound(id uint16) []byte {
 		pcm[2*i+1] = byte(v >> 8)
 	}
 
-	soundMu.Lock()
-	pcmCache[id] = pcm
-	soundMu.Unlock()
+	if !gs.LowMemory {
+		soundMu.Lock()
+		pcmCache[id] = pcm
+		soundMu.Unlock()
+	}
 	return pcm
 }
 

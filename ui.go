@@ -578,14 +578,49 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(fastSound)
 
-	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.PrecacheAssets})
+	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.PrecacheAssets && !gs.LowMemory})
 	precacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
+			if gs.LowMemory && ev.Checked {
+				precacheCB.Checked = false
+				precacheCB.Dirty = true
+				return
+			}
 			gs.PrecacheAssets = ev.Checked
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(precacheCB)
+
+	lowMemCB, lowMemEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Memory", Size: eui.Point{X: width, Y: 24}, Checked: gs.LowMemory})
+	lowMemEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.LowMemory = ev.Checked
+			if gs.LowMemory {
+				gs.PrecacheAssets = false
+				precacheCB.Checked = false
+				precacheCB.Dirty = true
+				clearCaches()
+				if clImages != nil {
+					clImages.NoCache = true
+					clImages.ClearCache()
+				}
+				if clSounds != nil {
+					clSounds.NoCache = true
+					clSounds.ClearCache()
+				}
+			} else {
+				if clImages != nil {
+					clImages.NoCache = false
+				}
+				if clSounds != nil {
+					clSounds.NoCache = false
+				}
+			}
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(lowMemCB)
 
 	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.BlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
 	blendEvents.Handle = func(ev eui.UIEvent) {

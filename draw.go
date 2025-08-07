@@ -102,12 +102,14 @@ var pixelCountCache = make(map[uint16]int)
 // nonTransparentPixels returns the number of non-transparent pixels for the
 // given picture ID. The result is cached after the first computation.
 func nonTransparentPixels(id uint16) int {
-	pixelCountMu.Lock()
-	if c, ok := pixelCountCache[id]; ok {
+	if !gs.LowMemory {
+		pixelCountMu.Lock()
+		if c, ok := pixelCountCache[id]; ok {
+			pixelCountMu.Unlock()
+			return c
+		}
 		pixelCountMu.Unlock()
-		return c
 	}
-	pixelCountMu.Unlock()
 
 	img := loadImage(id)
 	if img == nil {
@@ -123,9 +125,11 @@ func nonTransparentPixels(id uint16) int {
 			}
 		}
 	}
-	pixelCountMu.Lock()
-	pixelCountCache[id] = count
-	pixelCountMu.Unlock()
+	if !gs.LowMemory {
+		pixelCountMu.Lock()
+		pixelCountCache[id] = count
+		pixelCountMu.Unlock()
+	}
 	return count
 }
 

@@ -43,6 +43,7 @@ type CLImages struct {
 	cache   map[string]*ebiten.Image
 	mu      sync.Mutex
 	Denoise bool
+	NoCache bool
 }
 
 const (
@@ -328,12 +329,14 @@ func alphaTransparentForFlags(flags uint32) (uint8, bool) {
 // way, even when the transparency flag wasn't set.
 func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.Image {
 	key := fmt.Sprintf("%d-%x-%t", id, custom, forceTransparent)
-	c.mu.Lock()
-	if img, ok := c.cache[key]; ok {
+	if !c.NoCache {
+		c.mu.Lock()
+		if img, ok := c.cache[key]; ok {
+			c.mu.Unlock()
+			return img
+		}
 		c.mu.Unlock()
-		return img
 	}
-	c.mu.Unlock()
 
 	ref := c.idrefs[id]
 	if ref == nil {
@@ -474,9 +477,11 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	}
 
 	eimg := ebiten.NewImageFromImage(img)
-	c.mu.Lock()
-	c.cache[key] = eimg
-	c.mu.Unlock()
+	if !c.NoCache {
+		c.mu.Lock()
+		c.cache[key] = eimg
+		c.mu.Unlock()
+	}
 	return eimg
 }
 

@@ -22,10 +22,11 @@ type Sound struct {
 
 // CLSounds provides access to sounds stored in the CL_Sounds keyfile.
 type CLSounds struct {
-	data  []byte
-	index map[uint32]entry
-	cache map[uint32]*Sound
-	mu    sync.Mutex
+	data    []byte
+	index   map[uint32]entry
+	cache   map[uint32]*Sound
+	mu      sync.Mutex
+	NoCache bool
 }
 
 const (
@@ -72,12 +73,14 @@ func Load(path string) (*CLSounds, error) {
 // Get returns the decoded sound for the given id. The sound data is loaded
 // on demand and cached for subsequent calls.
 func (c *CLSounds) Get(id uint32) *Sound {
-	c.mu.Lock()
-	if s, ok := c.cache[id]; ok {
+	if !c.NoCache {
+		c.mu.Lock()
+		if s, ok := c.cache[id]; ok {
+			c.mu.Unlock()
+			return s
+		}
 		c.mu.Unlock()
-		return s
 	}
-	c.mu.Unlock()
 
 	e, ok := c.index[id]
 	if !ok {
@@ -96,9 +99,11 @@ func (c *CLSounds) Get(id uint32) *Sound {
 		fmt.Printf("sound get error: %v\n", err)
 		return nil
 	}
-	c.mu.Lock()
-	c.cache[id] = s
-	c.mu.Unlock()
+	if !c.NoCache {
+		c.mu.Lock()
+		c.cache[id] = s
+		c.mu.Unlock()
+	}
 	return s
 }
 

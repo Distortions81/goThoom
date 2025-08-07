@@ -28,6 +28,7 @@ var gs settings = settings{
 	BlendAmount:     1.0,
 	DenoiseImages:   true,
 	PrecacheAssets:  true,
+	LowMemory:       false,
 	Scale:           2,
 
 	vsync: true,
@@ -54,6 +55,7 @@ type settings struct {
 	PrecacheAssets   bool
 	TextureFiltering bool
 	FastSound        bool
+	LowMemory        bool
 	Scale            int
 
 	imgPlanesDebug bool
@@ -84,6 +86,13 @@ func loadSettings() bool {
 func applySettings() {
 	if clImages != nil {
 		clImages.Denoise = gs.DenoiseImages
+		clImages.NoCache = gs.LowMemory
+	}
+	if clSounds != nil {
+		clSounds.NoCache = gs.LowMemory
+	}
+	if gs.LowMemory {
+		gs.PrecacheAssets = false
 	}
 	if gs.TextureFiltering {
 		drawFilter = ebiten.FilterLinear

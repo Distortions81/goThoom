@@ -37,6 +37,9 @@ func clearCaches() {
 }
 
 func precacheAssets() {
+	if gs.LowMemory {
+		return
+	}
 	if clImages != nil {
 		for _, id := range clImages.IDs() {
 			loadSheet(uint16(id), nil, false)
@@ -49,6 +52,7 @@ func precacheAssets() {
 		if err != nil {
 			log.Printf("load CL_Sounds: %v", err)
 		} else {
+			snds.NoCache = gs.LowMemory
 			clSounds = snds
 		}
 	}

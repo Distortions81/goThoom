@@ -29,6 +29,9 @@ func nextPow2(n int) int {
 // The image is cleared before being returned.
 func getTempImage(size int) *ebiten.Image {
 	s := nextPow2(size)
+	if gs.LowMemory {
+		return ebiten.NewImage(s, s)
+	}
 	poolMu.Lock()
 	defer poolMu.Unlock()
 	pool := imgPool[s]
@@ -46,6 +49,9 @@ func getTempImage(size int) *ebiten.Image {
 // recycleTempImage returns an image to the pool for reuse.
 func recycleTempImage(img *ebiten.Image) {
 	if img == nil {
+		return
+	}
+	if gs.LowMemory {
 		return
 	}
 	s := img.Bounds().Dx()
