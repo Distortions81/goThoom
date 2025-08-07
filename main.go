@@ -15,13 +15,14 @@ import (
 	"time"
 
 	"go_client/climg"
+	"go_client/clsnd"
 )
 
 var (
 	clMovFPS int = 5
 	dataDir  string
 
-	host        string
+	host        string = "server.deltatao.com:5010"
 	account     string
 	accountPass string
 	name        string
@@ -99,22 +100,15 @@ func main() {
 	}()
 	addMessage("Starting...")
 
-	var imgErr error
-	clImages, imgErr = climg.Load(filepath.Join(dataDir, "CL_Images"))
-	if imgErr != nil {
-		addMessage(fmt.Sprintf("load CL_Images: %v", imgErr))
-	} else if clImages != nil {
-		clImages.Denoise = gs.DenoiseImages
+	var err error
+	clImages, err = climg.Load(filepath.Join(baseDir + "/data/CL_Images"))
+	if err != nil {
+		addMessage(fmt.Sprintf("failed to load CL_Images: %v", err))
 	}
-	if imgErr != nil && clmovPath != "" {
-		alt := filepath.Join(filepath.Dir(clmovPath), "CL_Images")
-		if imgs, err := climg.Load(alt); err == nil {
-			clImages = imgs
-			clImages.Denoise = gs.DenoiseImages
-			imgErr = nil
-		} else {
-			addMessage(fmt.Sprintf("load CL_Images from %v: %v", alt, err))
-		}
+
+	clSounds, err = clsnd.Load(filepath.Join(baseDir + "/data/CL_Sounds"))
+	if err != nil {
+		addMessage(fmt.Sprintf("failed to load CL_Sounds: %v", err))
 	}
 
 	if gs.PrecacheAssets {

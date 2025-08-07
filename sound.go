@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"log"
 	"math"
-	"path/filepath"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
@@ -260,14 +259,7 @@ func loadSound(id uint16) []byte {
 
 	soundMu.Lock()
 	if clSounds == nil {
-		var err error
-		clSounds, err = clsnd.Load(filepath.Join(dataDir, "CL_Sounds"))
-		if err != nil {
-			log.Printf("load CL_Sounds: %v", err)
-			pcmCache[id] = nil
-			soundMu.Unlock()
-			return nil
-		}
+		return nil
 	}
 	soundMu.Unlock()
 
