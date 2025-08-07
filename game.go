@@ -872,6 +872,10 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func runGame(ctx context.Context) {
 	gameCtx = ctx
 	eui.SetUIScale(1)
+
+	eui.LoadTheme("AccentDark")
+	eui.LoadStyle("RoundHybrid")
+
 	initUI()
 
 	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
