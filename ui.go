@@ -587,6 +587,15 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(precacheCB)
 
+	cacheSheetCB, cacheSheetEvents := eui.NewCheckbox(&eui.ItemData{Text: "Cache Whole Sheet", Size: eui.Point{X: width, Y: 24}, Checked: gs.CacheWholeSheet})
+	cacheSheetEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.CacheWholeSheet = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(cacheSheetCB)
+
 	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.BlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
