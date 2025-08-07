@@ -469,9 +469,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		img.SetRGBA(i%width, i/width, color.RGBA{r, g, b, a})
 	}
 
-	if c.Denoise {
-		denoiseImage(img)
-	}
+	denoiseImage(img)
 
 	eimg := ebiten.NewImageFromImage(img)
 	c.mu.Lock()
