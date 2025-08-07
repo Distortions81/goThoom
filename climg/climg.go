@@ -114,53 +114,167 @@ func Load(path string) (*CLImages, error) {
 	}
 
 	// populate IDREF data
+	var loadErr error
 	for _, ref := range imgs.idrefs {
-		if _, err := r.Seek(int64(ref.offset), io.SeekStart); err != nil {
+		start := int64(ref.offset)
+		end := start + int64(ref.size)
+		if end > int64(len(imgs.data)) {
+			end = int64(len(imgs.data))
+		}
+		sr := io.NewSectionReader(bytes.NewReader(imgs.data), start, end-start)
+		remaining := end - start
+
+		// mandatory fields
+		if remaining < 4 {
+			loadErr = io.ErrUnexpectedEOF
+			log.Printf("climg: truncated idref %d", ref.id)
+			continue
+		}
+		if err := binary.Read(sr, binary.BigEndian, &ref.version); err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				loadErr = err
+				log.Printf("climg: truncated idref %d: %v", ref.id, err)
+				continue
+			}
 			return nil, err
 		}
-		if err := binary.Read(r, binary.BigEndian, &ref.version); err != nil {
+		remaining -= 4
+
+		if remaining < 4 {
+			loadErr = io.ErrUnexpectedEOF
+			log.Printf("climg: truncated idref %d", ref.id)
+			continue
+		}
+		if err := binary.Read(sr, binary.BigEndian, &ref.imageID); err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				loadErr = err
+				log.Printf("climg: truncated idref %d: %v", ref.id, err)
+				continue
+			}
 			return nil, err
 		}
-		if err := binary.Read(r, binary.BigEndian, &ref.imageID); err != nil {
+		remaining -= 4
+
+		if remaining < 4 {
+			loadErr = io.ErrUnexpectedEOF
+			log.Printf("climg: truncated idref %d", ref.id)
+			continue
+		}
+		if err := binary.Read(sr, binary.BigEndian, &ref.colorID); err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				loadErr = err
+				log.Printf("climg: truncated idref %d: %v", ref.id, err)
+				continue
+			}
 			return nil, err
 		}
-		if err := binary.Read(r, binary.BigEndian, &ref.colorID); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.checksum); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.flags); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.unusedFlags); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.unusedFlags2); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.lightingID); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.plane); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.numFrames); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &ref.numAnims); err != nil {
-			return nil, err
-		}
-		for i := int16(0); i < ref.numAnims && i < 16; i++ {
-			if err := binary.Read(r, binary.BigEndian, &ref.animFrameTable[i]); err != nil {
+		remaining -= 4
+
+		// optional fields
+		if remaining >= 4 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.checksum); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
 				return nil, err
 			}
+			remaining -= 4
 		}
-		for i := ref.numAnims; i < 16; i++ {
-			var tmp int16
-			if err := binary.Read(r, binary.BigEndian, &tmp); err != nil {
+		if remaining >= 4 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.flags); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
 				return nil, err
 			}
+			remaining -= 4
+		}
+		if remaining >= 4 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.unusedFlags); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
+				return nil, err
+			}
+			remaining -= 4
+		}
+		if remaining >= 4 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.unusedFlags2); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
+				return nil, err
+			}
+			remaining -= 4
+		}
+		if remaining >= 4 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.lightingID); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
+				return nil, err
+			}
+			remaining -= 4
+		}
+		if remaining >= 2 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.plane); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
+				return nil, err
+			}
+			remaining -= 2
+		}
+		if remaining >= 2 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.numFrames); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
+				return nil, err
+			}
+			remaining -= 2
+		}
+		if remaining >= 2 {
+			if err := binary.Read(sr, binary.BigEndian, &ref.numAnims); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+					continue
+				}
+				return nil, err
+			}
+			remaining -= 2
+		}
+
+		for i := 0; i < 16 && remaining >= 2; i++ {
+			var v int16
+			if err := binary.Read(sr, binary.BigEndian, &v); err != nil {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					loadErr = err
+					log.Printf("climg: truncated idref %d: %v", ref.id, err)
+				} else {
+					return nil, err
+				}
+				break
+			}
+			if int16(i) < ref.numAnims {
+				ref.animFrameTable[i] = v
+			}
+			remaining -= 2
 		}
 	}
 
@@ -178,7 +292,7 @@ func Load(path string) (*CLImages, error) {
 			c.colorBytes[i] = uint16(b)
 		}
 	}
-	return imgs, nil
+	return imgs, loadErr
 }
 
 // alphaTransparentForFlags returns the base alpha value and whether
