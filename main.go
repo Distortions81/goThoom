@@ -108,6 +108,10 @@ func main() {
 		return
 	}
 
+	if gs.PrecacheAssets {
+		go precacheAssets()
+	}
+
 	<-ctx.Done()
 }
 
