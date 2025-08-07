@@ -77,32 +77,6 @@ func autoUpdate(resp []byte, dataDir string) error {
 	return nil
 }
 
-// ensureDataFiles downloads the CL_Images and CL_Sounds archives if they are
-// missing from baseDir. The files are fetched for the provided client version
-// using the default update server.
-func ensureDataFiles(baseDir string, clientVer int) error {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		return err
-	}
-
-	imgPath := filepath.Join(baseDir, "CL_Images")
-	if _, err := os.Stat(imgPath); os.IsNotExist(err) {
-		imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", defaultUpdateBase, clientVer)
-		if err := downloadGZ(imgURL, imgPath); err != nil {
-			return fmt.Errorf("download CL_Images: %w", err)
-		}
-	}
-
-	sndPath := filepath.Join(baseDir, "CL_Sounds")
-	if _, err := os.Stat(sndPath); os.IsNotExist(err) {
-		sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", defaultUpdateBase, clientVer)
-		if err := downloadGZ(sndURL, sndPath); err != nil {
-			return fmt.Errorf("download CL_Sounds: %w", err)
-		}
-	}
-	return nil
-}
-
 type dataFilesStatus struct {
 	NeedImages bool
 	NeedSounds bool

@@ -1,8 +1,7 @@
 CL_Images
 CL_Sounds
 go_client
-*.log
-data/night.png
+logs/*.log
 settings.json
 characters.json
 binaries/*.zip

@@ -46,7 +46,7 @@ func (p *moviePlayer) initUI() {
 		Closable:  false,
 		Resizable: false,
 		AutoSize:  true,
-		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: 5},
+		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5},
 	})
 	win.Closable = false
 

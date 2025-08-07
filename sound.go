@@ -62,7 +62,7 @@ var (
 func initSoundContext() {
 	rate := 44100
 	resample = resampleSinc
-	if fastSound {
+	if gs.FastSound {
 		rate = 22050
 	}
 	audioContext = audio.NewContext(rate)

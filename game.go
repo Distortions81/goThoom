@@ -24,14 +24,13 @@ import (
 
 const gameAreaSizeX, gameAreaSizeY = 500, 500
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const epsilon = 0.005
+const epsilon = 0.001
 
 var mouseX, mouseY int16
 var mouseDown bool
 
 var keyWalk bool
 var keyX, keyY int16
-var clickToToggle bool
 var walkToggled bool
 var walkTargetX, walkTargetY int16
 
@@ -43,23 +42,8 @@ var hudPixel *ebiten.Image
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var gameCtx context.Context
-var scale int = 2
-var interp bool = true
-var smoothMoving bool = true
-var mobileBlending bool
-var fastAnimation = true
-var blendPicts bool = true
-var linear bool
-var smoothDebug bool
-var hideMoving bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
-var showPlanes bool
-var showBubbles bool = true
-var nightMode bool = true
-var vsync = true
-var hideMobiles bool
-var keyWalkSpeed float64 = 0.5
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -192,13 +176,13 @@ func captureDrawSnapshot() drawSnapshot {
 		state.bubbles = dedup
 		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
-	if interp || mobileBlending || !fastAnimation {
+	if gs.MotionSmoothing || gs.BlendMobiles {
 		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
 		for idx, m := range state.prevMobiles {
 			snap.prevMobiles[idx] = m
 		}
 	}
-	if mobileBlending {
+	if gs.BlendMobiles {
 		snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
 		for idx, d := range state.prevDescs {
 			snap.prevDescs[idx] = d
@@ -211,10 +195,10 @@ func captureDrawSnapshot() drawSnapshot {
 func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha float64, fade float32) {
 	alpha = 1.0
 	fade = 1.0
-	if (interp || mobileBlending || blendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
+	if (gs.MotionSmoothing || gs.BlendMobiles || gs.BlendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
 		elapsed := time.Since(prevTime)
 		interval := curTime.Sub(prevTime)
-		if interp {
+		if gs.MotionSmoothing {
 			alpha = float64(elapsed) / float64(interval)
 			if alpha < 0 {
 				alpha = 0
@@ -223,7 +207,7 @@ func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha floa
 				alpha = 1
 			}
 		}
-		if mobileBlending || blendPicts {
+		if gs.BlendMobiles || gs.BlendPicts {
 			half := float64(interval) * rate
 			if half > 0 {
 				fade = float32(float64(elapsed) / float64(half))
@@ -300,7 +284,7 @@ func (g *Game) Update() error {
 		}
 		if dx != 0 || dy != 0 {
 			keyWalk = true
-			speed := keyWalkSpeed
+			speed := gs.KBWalkSpeed
 			if ebiten.IsKeyPressed(ebiten.KeyShift) {
 				speed = 1.0
 			}
@@ -313,13 +297,13 @@ func (g *Game) Update() error {
 		mx, my := ebiten.CursorPosition()
 		overUI := pointInUI(mx, my)
 
-		if clickToToggle {
+		if gs.ClickToToggle {
 			if !overUI && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				if walkToggled {
 					walkToggled = false
 				} else {
-					walkTargetX = int16(mx/scale - fieldCenterX)
-					walkTargetY = int16(my/scale - fieldCenterY)
+					walkTargetX = int16(mx/gs.Scale - fieldCenterX)
+					walkTargetY = int16(my/gs.Scale - fieldCenterY)
 					walkToggled = true
 				}
 			}
@@ -328,8 +312,8 @@ func (g *Game) Update() error {
 				if overUI || mx < 0 || my < 0 || mx >= w || my >= h {
 					walkToggled = false
 				} else {
-					walkTargetX = int16(mx/scale - fieldCenterX)
-					walkTargetY = int16(my/scale - fieldCenterY)
+					walkTargetX = int16(mx/gs.Scale - fieldCenterX)
+					walkTargetY = int16(my/gs.Scale - fieldCenterY)
 				}
 			}
 		} else {
@@ -353,10 +337,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	snap := captureDrawSnapshot()
-	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime, blendRate)
+	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime, gs.BlendAmount)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, snap, alpha, fade)
-	if nightMode {
+	if gs.NightEffect {
 		drawNightOverlay(screen)
 	}
 	drawMessages(screen, getMessages())
@@ -423,7 +407,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
-	if hideMobiles {
+	if gs.hideMobiles {
 		for _, p := range zeroPics {
 			drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 		}
@@ -463,7 +447,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
-	if showBubbles {
+	if gs.SpeechBubbles {
 		for _, b := range snap.bubbles {
 			hpos := float64(b.H)
 			vpos := float64(b.V)
@@ -478,7 +462,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 				if m != nil {
 					hpos = float64(m.H)
 					vpos = float64(m.V)
-					if interp {
+					if gs.MotionSmoothing {
 						if pm, ok := snap.prevMobiles[b.Index]; ok {
 							dh := int(m.H) - int(pm.H) - snap.picShiftX
 							dv := int(m.V) - int(pm.V) - snap.picShiftY
@@ -490,8 +474,8 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 					}
 				}
 			}
-			x := (int(math.Round(hpos)) + fieldCenterX) * scale
-			y := (int(math.Round(vpos)) + fieldCenterY) * scale
+			x := (int(math.Round(hpos)) + fieldCenterX) * gs.Scale
+			y := (int(math.Round(vpos)) + fieldCenterY) * gs.Scale
 			borderCol, bgCol, textCol := bubbleColors(b.Type)
 			drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, borderCol, bgCol, textCol)
 		}
@@ -502,7 +486,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
 	h := float64(m.H)
 	v := float64(m.V)
-	if interp {
+	if gs.MotionSmoothing {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			dh := int(m.H) - int(pm.H) - shiftX
 			dv := int(m.V) - int(pm.V) - shiftY
@@ -512,8 +496,8 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 			}
 		}
 	}
-	x := (int(math.Round(h)) + fieldCenterX) * scale
-	y := (int(math.Round(v)) + fieldCenterY) * scale
+	x := (int(math.Round(h)) + fieldCenterX) * gs.Scale
+	y := (int(math.Round(v)) + fieldCenterY) * gs.Scale
 	var img *ebiten.Image
 	plane := 0
 	if d, ok := descMap[m.Index]; ok {
@@ -524,18 +508,13 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 		}
 		playersMu.RUnlock()
 		state := m.State
-		if !fastAnimation {
-			if pm, ok := prevMobiles[m.Index]; ok {
-				state = pm.State
-			}
-		}
 		img = loadMobileFrame(d.PictID, state, colors)
 		if clImages != nil {
 			plane = clImages.Plane(uint32(d.PictID))
 		}
 	}
 	var prevImg *ebiten.Image
-	if mobileBlending {
+	if gs.BlendMobiles {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			pd := descMap[m.Index]
 			if d, ok := prevDescs[m.Index]; ok {
@@ -552,7 +531,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 	}
 	if img != nil {
 		size := img.Bounds().Dx()
-		if mobileBlending && prevImg != nil {
+		if gs.BlendMobiles && prevImg != nil {
 			tmp := getTempImage(size)
 			off := (tmp.Bounds().Dx() - size) / 2
 			op1 := &ebiten.DrawImageOptions{}
@@ -567,15 +546,15 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 			tmp.DrawImage(img, op2)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			op.GeoM.Scale(float64(scale), float64(scale))
-			op.GeoM.Translate(float64(x-tmp.Bounds().Dx()*scale/2), float64(y-tmp.Bounds().Dy()*scale/2))
+			op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
+			op.GeoM.Translate(float64(x-tmp.Bounds().Dx()*gs.Scale/2), float64(y-tmp.Bounds().Dy()*gs.Scale/2))
 			screen.DrawImage(tmp, op)
 			recycleTempImage(tmp)
 		} else {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			op.GeoM.Scale(float64(scale), float64(scale))
-			op.GeoM.Translate(float64(x-size*scale/2), float64(y-size*scale/2))
+			op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
+			op.GeoM.Translate(float64(x-size*gs.Scale/2), float64(y-size*gs.Scale/2))
 			screen.DrawImage(img, op)
 		}
 		if d, ok := descMap[m.Index]; ok {
@@ -584,7 +563,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 				w, h := text.Measure(d.Name, mainFont, 0)
 				iw := int(math.Ceil(w))
 				ih := int(math.Ceil(h))
-				top := y + (20 * scale)
+				top := y + (20 * gs.Scale)
 				left := x - iw/2
 				ebitenutil.DrawRect(screen, float64(left), float64(top), float64(iw+5), float64(ih), bgClr)
 				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
@@ -599,29 +578,29 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 						back = 0
 					}
 					barClr := nameBackColors[back]
-					top := y + size*scale/2 + 2*scale
-					left := x - 6*scale
-					ebitenutil.DrawRect(screen, float64(left), float64(top), float64(12*scale), float64(2*scale), barClr)
+					top := y + size*gs.Scale/2 + 2*gs.Scale
+					left := x - 6*gs.Scale
+					ebitenutil.DrawRect(screen, float64(left), float64(top), float64(12*gs.Scale), float64(2*gs.Scale), barClr)
 				}
 			}
 		}
-		if showPlanes {
+		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
-			xPos := x - size*scale/2
+			xPos := x - size*gs.Scale/2
 			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(xPos), float64(y-size*scale/2)-metrics.HAscent)
+			op.GeoM.Translate(float64(xPos), float64(y-size*gs.Scale/2)-metrics.HAscent)
 			op.ColorScale.ScaleWithColor(color.RGBA{0, 255, 255, 255})
 			text.Draw(screen, lbl, mainFont, op)
 		}
 	} else {
-		vector.DrawFilledRect(screen, float32(x-3*scale), float32(y-3*scale), float32(6*scale), float32(6*scale), color.RGBA{0xff, 0, 0, 0xff}, false)
-		if showPlanes {
+		vector.DrawFilledRect(screen, float32(x-3*gs.Scale), float32(y-3*gs.Scale), float32(6*gs.Scale), float32(6*gs.Scale), color.RGBA{0xff, 0, 0, 0xff}, false)
+		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
-			xPos := x - 3*scale
+			xPos := x - 3*gs.Scale
 			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(xPos), float64(y-3*scale)-metrics.HAscent)
+			op.GeoM.Translate(float64(xPos), float64(y-3*gs.Scale)-metrics.HAscent)
 			op.ColorScale.ScaleWithColor(color.White)
 			text.Draw(screen, lbl, mainFont, op)
 		}
@@ -630,12 +609,12 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 
 // drawPicture renders a single picture sprite.
 func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
-	if hideMoving && p.Moving {
+	if gs.hideMoving && p.Moving {
 		return
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !smoothMoving {
+	if p.Moving && !gs.SmoothMoving {
 		offX = 0
 		offY = 0
 	}
@@ -649,7 +628,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
-	if blendPicts && clImages != nil {
+	if gs.BlendPicts && clImages != nil {
 		prevFrame := clImages.FrameIndex(uint32(p.PictID), frameCounter-1)
 		if prevFrame != frame {
 			prevImg = loadImageFrame(p.PictID, prevFrame)
@@ -660,7 +639,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 	w, h := 0, 0
 	if img != nil {
 		w, h = img.Bounds().Dx(), img.Bounds().Dy()
-		if w <= 64 && h <= 64 && interp && smoothMoving {
+		if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.SmoothMoving {
 			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
 				mobileX, mobileY = dx, dy
 				offX = 0
@@ -669,11 +648,11 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 		}
 	}
 
-	x := (int(math.Round(float64(p.H)+offX+mobileX)) + fieldCenterX) * scale
-	y := (int(math.Round(float64(p.V)+offY+mobileY)) + fieldCenterY) * scale
+	x := (int(math.Round(float64(p.H)+offX+mobileX)) + fieldCenterX) * gs.Scale
+	y := (int(math.Round(float64(p.V)+offY+mobileY)) + fieldCenterY) * gs.Scale
 
 	if img != nil {
-		if blendPicts && prevImg != nil {
+		if gs.BlendPicts && prevImg != nil {
 			size := w
 			if h > size {
 				size = h
@@ -694,50 +673,50 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 			tmp.DrawImage(img, op2)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			if linear {
-				op.GeoM.Scale(float64(scale)+epsilon, float64(scale)+epsilon)
+			if gs.TextureFiltering {
+				op.GeoM.Scale(float64(gs.Scale)+epsilon, float64(gs.Scale)+epsilon)
 			} else {
-				op.GeoM.Scale(float64(scale), float64(scale))
+				op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
 			}
-			op.GeoM.Translate(float64(x-tmp.Bounds().Dx()*scale/2), float64(y-tmp.Bounds().Dy()*scale/2))
+			op.GeoM.Translate(float64(x-tmp.Bounds().Dx()*gs.Scale/2), float64(y-tmp.Bounds().Dy()*gs.Scale/2))
 			screen.DrawImage(tmp, op)
 			recycleTempImage(tmp)
 		} else {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			if linear {
-				op.GeoM.Scale(float64(scale)+epsilon, float64(scale)+epsilon)
+			if gs.TextureFiltering {
+				op.GeoM.Scale(float64(gs.Scale)+epsilon, float64(gs.Scale)+epsilon)
 			} else {
-				op.GeoM.Scale(float64(scale), float64(scale))
+				op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
 			}
-			op.GeoM.Translate(float64(x-w*scale/2), float64(y-h*scale/2))
-			if smoothDebug && p.Moving {
+			op.GeoM.Translate(float64(x-w*gs.Scale/2), float64(y-h*gs.Scale/2))
+			if gs.smoothingDebug && p.Moving {
 				op.ColorM.Scale(1, 0, 0, 1)
 			}
 			screen.DrawImage(img, op)
 		}
 
-		if showPlanes {
+		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
-			xPos := x - w*scale/2
+			xPos := x - w*gs.Scale/2
 			opTxt := &text.DrawOptions{}
-			opTxt.GeoM.Translate(float64(xPos), float64(y-h*scale/2)-metrics.HAscent)
+			opTxt.GeoM.Translate(float64(xPos), float64(y-h*gs.Scale/2)-metrics.HAscent)
 			opTxt.ColorScale.ScaleWithColor(color.RGBA{255, 255, 0, 0})
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 	} else {
 		clr := color.RGBA{0, 0, 0xff, 0xff}
-		if smoothDebug && p.Moving {
+		if gs.smoothingDebug && p.Moving {
 			clr = color.RGBA{0xff, 0, 0, 0xff}
 		}
-		vector.DrawFilledRect(screen, float32(x-2*scale), float32(y-2*scale), float32(4*scale), float32(4*scale), clr, false)
-		if showPlanes {
+		vector.DrawFilledRect(screen, float32(x-2*gs.Scale), float32(y-2*gs.Scale), float32(4*gs.Scale), float32(4*gs.Scale), clr, false)
+		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
-			xPos := x - 2*scale
+			xPos := x - 2*gs.Scale
 			opTxt := &text.DrawOptions{}
-			opTxt.GeoM.Translate(float64(xPos), float64(y-2*scale)-metrics.HAscent)
+			opTxt.GeoM.Translate(float64(xPos), float64(y-2*gs.Scale)-metrics.HAscent)
 			opTxt.ColorScale.ScaleWithColor(color.RGBA{255, 255, 0, 0})
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
@@ -769,7 +748,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 // lerpBar interpolates status bar values, skipping interpolation when
 // fastBars is enabled and the value decreases.
 func lerpBar(prev, cur int, alpha float64) int {
-	if fastBars && cur < prev {
+	if gs.FastBars && cur < prev {
 		return cur
 	}
 	return int(math.Round(float64(prev) + alpha*float64(cur-prev)))
@@ -788,16 +767,16 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 		op.ColorM.Scale(float64(clr.R)/255, float64(clr.G)/255, float64(clr.B)/255, float64(clr.A)/255)
 		screen.DrawImage(hudPixel, op)
 	}
-	barWidth := 110 * scale
-	barHeight := 8 * scale
-	fieldWidth := gameAreaSizeX * scale
+	barWidth := 110 * gs.Scale
+	barHeight := 8 * gs.Scale
+	fieldWidth := gameAreaSizeX * gs.Scale
 	slot := (fieldWidth - 3*barWidth) / 6
-	barY := gameAreaSizeY*scale - 20*scale - barHeight
+	barY := gameAreaSizeY*gs.Scale - 20*gs.Scale - barHeight
 	x := slot
 	step := barWidth + 2*slot
 	drawBar := func(x int, cur, max int, clr color.RGBA) {
 		frameClr := color.RGBA{0xff, 0xff, 0xff, 0xff}
-		vector.StrokeRect(screen, float32(x-scale), float32(barY-scale), float32(barWidth+2*scale), float32(barHeight+2*scale), 1, frameClr, false)
+		vector.StrokeRect(screen, float32(x-gs.Scale), float32(barY-gs.Scale), float32(barWidth+2*gs.Scale), float32(barHeight+2*gs.Scale), 1, frameClr, false)
 		if max > 0 && cur > 0 {
 			w := barWidth * cur / max
 			fillClr := color.RGBA{clr.R, clr.G, clr.B, 128}
@@ -819,18 +798,18 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 
 // drawMessages prints chat messages on the HUD.
 func drawMessages(screen *ebiten.Image, msgs []string) {
-	y := (gameAreaSizeY - 50) * scale
-	maxWidth := float64(gameAreaSizeX*scale - 8*scale)
+	y := (gameAreaSizeY - 50) * gs.Scale
+	maxWidth := float64(gameAreaSizeX*gs.Scale - 8*gs.Scale)
 	for i := len(msgs) - 1; i >= 0; i-- {
 		msg := msgs[i]
 		width, lines := wrapText(msg, mainFont, maxWidth)
-		iw := width + 8*scale + 4
-		ih := 14 * scale
+		iw := width + 8*gs.Scale + 4
+		ih := 14 * gs.Scale
 		for j := len(lines) - 1; j >= 0; j-- {
-			y -= 15 * scale
+			y -= 15 * gs.Scale
 			ebitenutil.DrawRect(screen, 0, float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
 			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(4*scale), float64(y))
+			op.GeoM.Translate(float64(4*gs.Scale), float64(y))
 			op.ColorScale.ScaleWithColor(color.White)
 			text.Draw(screen, lines[j], mainFont, op)
 		}
@@ -844,7 +823,7 @@ func drawServerFPS(screen *ebiten.Image, fps float64) {
 	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f", ebiten.ActualFPS(), fps)
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(gameAreaSizeX*scale)-w-float64(4*scale), float64(4*scale))
+	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(4*gs.Scale))
 	op.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, msg, mainFont, op)
 }
@@ -852,22 +831,22 @@ func drawServerFPS(screen *ebiten.Image, fps float64) {
 // drawInputOverlay renders the text entry box when chatting.
 func drawInputOverlay(screen *ebiten.Image, txt string) {
 	if inputBg == nil {
-		inputBg = ebiten.NewImage(gameAreaSizeX*scale, 12*scale)
+		inputBg = ebiten.NewImage(gameAreaSizeX*gs.Scale, 12*gs.Scale)
 		inputBg.Fill(color.RGBA{0, 0, 0, 128})
 	}
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(0, float64(gameAreaSizeY*scale-(12+1)*scale))
+	op.GeoM.Translate(0, float64(gameAreaSizeY*gs.Scale-(12+1)*gs.Scale))
 	screen.DrawImage(inputBg, op)
-	top := gameAreaSizeY*scale - (12+2)*scale
+	top := gameAreaSizeY*gs.Scale - (12+2)*gs.Scale
 	opTxt := &text.DrawOptions{}
-	opTxt.GeoM.Translate(float64(4*scale), float64(top))
+	opTxt.GeoM.Translate(float64(4*gs.Scale), float64(top))
 	opTxt.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, txt, mainFont, opTxt)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	eui.Layout(gameAreaSizeX*scale, gameAreaSizeY*scale)
-	return gameAreaSizeX * scale, gameAreaSizeY * scale
+	eui.Layout(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
+	return gameAreaSizeX * gs.Scale, gameAreaSizeY * gs.Scale
 }
 
 func runGame(ctx context.Context) {
@@ -879,10 +858,10 @@ func runGame(ctx context.Context) {
 
 	initUI()
 
-	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+	ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 	ebiten.SetWindowTitle("ThoomSpeak")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetVsyncEnabled(vsync)
+	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 

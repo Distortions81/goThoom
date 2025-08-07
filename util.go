@@ -210,8 +210,6 @@ const (
 	kItemSlotLastReal  = kItemSlotHead
 )
 
-const beppChar = "\302"
-
 func readKeyFileVersion(path string) (uint32, error) {
 	f, err := os.Open(path)
 	if err != nil {

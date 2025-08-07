@@ -51,35 +51,6 @@ func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (le
 	return
 }
 
-// Bubble dimensions and text widths derived from the original Macintosh client.
-// Sizes are in pixels at scale 1.
-const (
-	bubbleTextSmallWidth  = 56
-	bubbleTextMediumWidth = 90
-	bubbleTextLargeWidth  = 136
-
-	bubbleSmallWidth   = 84
-	bubbleSmallHeight  = 33
-	bubbleMediumWidth  = 116
-	bubbleMediumHeight = 43
-	bubbleLargeWidth   = 164
-	bubbleLargeHeight  = 53
-)
-
-// gBubbleMap previously mapped bubble types to columns in the bubble sprite
-// sheet. It's retained here for reference while bubble images are disabled.
-// var gBubbleMap = []int{
-//      0, // kBubbleNormal
-//      1, // kBubbleWhisper
-//      2, // kBubbleYell
-//      3, // kBubbleThought
-//      4, // kBubbleRealAction
-//      5, // kBubbleMonster
-//      4, // kBubblePlayerAction - same graphic as real action
-//      3, // kBubblePonder - same graphic as thought
-//      4, // kBubbleNarrate - same graphic as real action
-// }
-
 // bubbleColors selects the border, background, and text colors for a bubble
 // based on its type. Alpha values are premultiplied to match Ebiten's color
 // expectations.
@@ -136,10 +107,10 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	}
 	y -= 35
 
-	sw, sh := gameAreaSizeX*scale, gameAreaSizeY*scale
-	pad := (4 + 2) * scale
-	tailHeight := 10 * scale
-	tailHalf := 6 * scale
+	sw, sh := gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale
+	pad := (4 + 2) * gs.Scale
+	tailHeight := 10 * gs.Scale
+	tailHalf := 6 * gs.Scale
 
 	maxLineWidth := sw/4 - 2*pad
 	width, lines := wrapText(txt, bubbleFont, float64(maxLineWidth))
@@ -152,7 +123,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
-	radius := float32(4 * scale)
+	radius := float32(4 * gs.Scale)
 
 	var body vector.Path
 	body.MoveTo(float32(left)+radius, float32(top))
@@ -217,7 +188,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	outline.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
 	outline.Close()
 
-	vs, is = outline.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(scale)})
+	vs, is = outline.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(gs.Scale)})
 	for i := range vs {
 		vs[i].SrcX = 0
 		vs[i].SrcY = 0

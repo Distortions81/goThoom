@@ -19,28 +19,22 @@ var (
 	clMovFPS int = 5
 	dataDir  string
 
-	host          string
-	account       string
-	accountPass   string
-	name          string
-	pass          string
-	passHash      string
-	lastCharacter string
+	host        string
+	account     string
+	accountPass string
+	name        string
+	pass        string
+	passHash    string
+
 	demo          bool
 	clmov         string
 	baseDir       string
-	fastSound     bool
-	fastBars      bool = true
-	nightLevel    int
-	blendRate     float64 = 1.0
 	blockSound    bool
 	blockBubbles  bool
 	clientVersion int
 )
 
 func main() {
-	var noFastAnimation bool
-	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
@@ -57,25 +51,8 @@ func main() {
 
 	loadSettings()
 	loadCharacters()
-
-	if nightLevel != 0 {
-		if nightLevel < 0 {
-			nightLevel = 0
-		} else if nightLevel > 100 {
-			nightLevel = 100
-		}
-		nightMode = true
-		gNight.mu.Lock()
-		gNight.BaseLevel = nightLevel
-		gNight.Level = nightLevel
-		gNight.calcCurLevel()
-		gNight.mu.Unlock()
-	}
-	fastAnimation = !noFastAnimation
 	initSoundContext()
-
 	applySettings()
-
 	setupLogging(debug)
 
 	clmovPath := ""

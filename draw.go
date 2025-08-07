@@ -212,10 +212,6 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 // SimpleEncrypt-obfuscated data.
 var drawStateEncrypted = false
 
-// recoverInfoStringErrors controls whether parseDrawState attempts to recover
-// from missing info-string terminators by skipping the malformed segment.
-var recoverInfoStringErrors = true
-
 // handleDrawState decodes the packed draw state message. It decrypts the
 // payload when drawStateEncrypted is true.
 func handleDrawState(m []byte) {
@@ -524,7 +520,7 @@ func parseDrawState(data []byte) error {
 	state.balance = bal
 	state.balanceMax = balMax
 	changed := false
-	if mobileBlending {
+	if gs.BlendMobiles {
 		if len(descs) > 0 {
 			changed = true
 		}
@@ -558,7 +554,7 @@ func parseDrawState(data []byte) error {
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-	if interp && smoothMoving {
+	if gs.MotionSmoothing && gs.SmoothMoving {
 		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 		if !ok {
 			logDebug("prev pics: %v", picturesSummary(prevPics))
@@ -616,7 +612,7 @@ func parseDrawState(data []byte) error {
 				}
 			}
 		}
-		if moving && smoothMoving {
+		if moving && gs.SmoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
 			var best *framePicture
 			for j := range prevPics {
@@ -652,7 +648,7 @@ func parseDrawState(data []byte) error {
 
 	state.pictures = newPics
 
-	needPrev := (interp || mobileBlending || !fastAnimation) && ok
+	needPrev := (gs.MotionSmoothing || gs.BlendMobiles) && ok
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
@@ -662,7 +658,7 @@ func parseDrawState(data []byte) error {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := (interp || (mobileBlending && changed)) && ok
+	needAnimUpdate := (gs.MotionSmoothing || (gs.BlendMobiles && changed)) && ok
 	if needAnimUpdate {
 		const defaultInterval = time.Second / 5
 		interval := defaultInterval
@@ -766,7 +762,7 @@ func parseDrawState(data []byte) error {
 				}
 			}
 			stateMu.Unlock()
-			if showBubbles && txt != "" && !blockBubbles {
+			if gs.SpeechBubbles && txt != "" && !blockBubbles {
 				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:

@@ -22,11 +22,6 @@ var notoSansBoldItalic []byte
 
 var mainFont, mainFontBold, mainFontItalic, mainFontBoldItalic, bubbleFont text.Face
 
-var (
-	mainFontSize   float64 = 9
-	bubbleFontSize float64 = 7
-)
-
 func initFont() {
 	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
@@ -34,7 +29,7 @@ func initFont() {
 	}
 	mainFont = &text.GoTextFace{
 		Source: regular,
-		Size:   mainFontSize * float64(scale),
+		Size:   gs.MainFontSize * float64(gs.Scale),
 	}
 
 	bold, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBold))
@@ -43,7 +38,7 @@ func initFont() {
 	}
 	mainFontBold = &text.GoTextFace{
 		Source: bold,
-		Size:   mainFontSize * float64(scale),
+		Size:   gs.MainFontSize * float64(gs.Scale),
 	}
 
 	italic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansItalic))
@@ -52,7 +47,7 @@ func initFont() {
 	}
 	mainFontItalic = &text.GoTextFace{
 		Source: italic,
-		Size:   mainFontSize * float64(scale),
+		Size:   gs.MainFontSize * float64(gs.Scale),
 	}
 
 	boldItalic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBoldItalic))
@@ -61,12 +56,12 @@ func initFont() {
 	}
 	mainFontBoldItalic = &text.GoTextFace{
 		Source: boldItalic,
-		Size:   mainFontSize * float64(scale),
+		Size:   gs.MainFontSize * float64(gs.Scale),
 	}
 
 	//Bubble
 	bubbleFont = &text.GoTextFace{
 		Source: bold,
-		Size:   bubbleFontSize * float64(scale),
+		Size:   gs.BubbleFontSize * float64(gs.Scale),
 	}
 }

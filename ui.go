@@ -104,7 +104,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: float32((gameAreaSizeY * scale) / 2)},
+		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)},
 		Open:      true,
 	})
 	downloadWin.Closable = false
@@ -167,9 +167,9 @@ func updateCharacterButtons() {
 		return
 	}
 	if name == "" {
-		if lastCharacter != "" {
+		if gs.LastCharacter != "" {
 			for _, c := range characters {
-				if c.Name == lastCharacter {
+				if c.Name == gs.LastCharacter {
 					name = c.Name
 					passHash = c.PassHash
 					break
@@ -205,7 +205,7 @@ func updateCharacterButtons() {
 				if ev.Type == eui.EventRadioSelected {
 					name = nameCopy
 					passHash = hashCopy
-					lastCharacter = nameCopy
+					gs.LastCharacter = nameCopy
 					saveSettings()
 				}
 			}
@@ -243,7 +243,7 @@ func openAddCharacterWindow() {
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: float32((gameAreaSizeY * scale) / 2)},
+		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)},
 		Open:      true,
 	})
 	addCharWin.Closable = false
@@ -282,7 +282,7 @@ func openAddCharacterWindow() {
 			}
 			name = addCharName
 			passHash = hash
-			lastCharacter = addCharName
+			gs.LastCharacter = addCharName
 			saveSettings()
 			updateCharacterButtons()
 			if loginWin != nil {
@@ -363,7 +363,7 @@ func openLoginWindow() {
 			if name == "" {
 				return
 			}
-			lastCharacter = name
+			gs.LastCharacter = name
 			saveSettings()
 			loginWin.RemoveWindow()
 			loginWin = nil
@@ -390,7 +390,7 @@ func openErrorWindow(msg string) {
 		Resizable: false,
 		AutoSize:  true,
 		Movable:   false,
-		Position:  eui.Point{X: float32((gameAreaSizeX * scale) / 2), Y: 5},
+		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5},
 		Open:      true,
 	})
 
@@ -429,11 +429,11 @@ func openSettingsWindow() {
 	label, _ := eui.NewText(&eui.ItemData{Text: "\nControls:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
 	mainFlow.AddItem(label)
 
-	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: width, Y: 24}, Checked: clickToToggle})
+	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-Toggle Walk", Size: eui.Point{X: width, Y: 24}, Checked: gs.ClickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			clickToToggle = ev.Checked
-			if !clickToToggle {
+			gs.ClickToToggle = ev.Checked
+			if !gs.ClickToToggle {
 				walkToggled = false
 			}
 			settingsDirty = true
@@ -441,10 +441,10 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(toggle)
 
-	keySpeedSlider, keySpeedEvents := eui.NewSlider(&eui.ItemData{Label: "Keyboard Walk Speed", MinValue: 0.1, MaxValue: 1.0, Value: float32(keyWalkSpeed), Size: eui.Point{X: width - 10, Y: 24}})
+	keySpeedSlider, keySpeedEvents := eui.NewSlider(&eui.ItemData{Label: "Keyboard Walk Speed", MinValue: 0.1, MaxValue: 1.0, Value: float32(gs.KBWalkSpeed), Size: eui.Point{X: width - 10, Y: 24}})
 	keySpeedEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			keyWalkSpeed = float64(ev.Value)
+			gs.KBWalkSpeed = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
@@ -453,19 +453,19 @@ func openSettingsWindow() {
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
 	mainFlow.AddItem(label)
 
-	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, IntOnly: true, Value: float32(chatFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(chatFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			chatFontSize = int(ev.Value)
+			gs.BubbleFontSize = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(chatFontSlider)
 
-	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, IntOnly: true, Value: float32(labelFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, Value: float32(labelFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			labelFontSize = int(ev.Value)
+			gs.MainFontSize = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
@@ -474,23 +474,23 @@ func openSettingsWindow() {
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
 	mainFlow.AddItem(label)
 
-	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
+	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(gs.Scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
 	scaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			scale = int(ev.Value)
+			gs.Scale = int(ev.Value)
 			initFont()
 			inputBg = nil
-			ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+			ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(scaleSlider)
 
-	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: linear})
+	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.TextureFiltering})
 	filtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			linear = ev.Checked
-			if linear {
+			gs.TextureFiltering = ev.Checked
+			if gs.TextureFiltering {
 				drawFilter = ebiten.FilterLinear
 			} else {
 				drawFilter = ebiten.FilterNearest
@@ -500,46 +500,46 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(filt)
 
-	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: interp})
+	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: gs.MotionSmoothing})
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			interp = ev.Checked
+			gs.MotionSmoothing = ev.Checked
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(motion)
 
-	moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: smoothMoving})
+	moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: gs.SmoothMoving})
 	moveSmoothEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			smoothMoving = ev.Checked
+			gs.SmoothMoving = ev.Checked
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(moveSmoothCB)
 
-	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: mobileBlending})
+	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendMobiles})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			mobileBlending = ev.Checked
+			gs.BlendMobiles = ev.Checked
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(anim)
 
-	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Object Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: blendPicts})
+	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Object Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendPicts})
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			blendPicts = ev.Checked
+			gs.BlendPicts = ev.Checked
 			settingsDirty = true
 		}
 	}
 	mainFlow.AddItem(pictBlend)
 
-	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Rate", MinValue: 0.3, MaxValue: 1.0, Value: float32(blendRate), Size: eui.Point{X: width - 10, Y: 24}})
+	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Rate", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.BlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			blendRate = float64(ev.Value)
+			gs.BlendAmount = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
@@ -580,56 +580,56 @@ func openDebugWindow() {
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	vsyncCB, vsyncEvents := eui.NewCheckbox(&eui.ItemData{Text: "Vsync", Size: eui.Point{X: width, Y: 24}, Checked: vsync})
+	vsyncCB, vsyncEvents := eui.NewCheckbox(&eui.ItemData{Text: "Vsync", Size: eui.Point{X: width, Y: 24}, Checked: gs.vsync})
 	vsyncEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			vsync = ev.Checked
-			ebiten.SetVsyncEnabled(vsync)
+			gs.vsync = ev.Checked
+			ebiten.SetVsyncEnabled(gs.vsync)
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(vsyncCB)
 
-	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: width, Y: 24}, Checked: nightMode})
+	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effects", Size: eui.Point{X: width, Y: 24}, Checked: gs.NightEffect})
 	nightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			nightMode = ev.Checked
+			gs.NightEffect = ev.Checked
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(nightCB)
 
-	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: showBubbles})
+	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.SpeechBubbles})
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			showBubbles = ev.Checked
+			gs.SpeechBubbles = ev.Checked
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(bubbleCB)
 
-	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image plane numbers", Size: eui.Point{X: width, Y: 24}, Checked: showPlanes})
+	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image plane numbers", Size: eui.Point{X: width, Y: 24}, Checked: gs.imgPlanesDebug})
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			showPlanes = ev.Checked
+			gs.imgPlanesDebug = ev.Checked
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(planesCB)
 
-	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: hideMoving})
+	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: gs.hideMoving})
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			hideMoving = ev.Checked
+			gs.hideMoving = ev.Checked
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(hideMoveCB)
 
-	hideMobCB, hideMobEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Mobiles", Size: eui.Point{X: width, Y: 24}, Checked: hideMobiles})
+	hideMobCB, hideMobEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Mobiles", Size: eui.Point{X: width, Y: 24}, Checked: gs.hideMobiles})
 	hideMobEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			hideMobiles = ev.Checked
+			gs.hideMobiles = ev.Checked
 			settingsDirty = true
 		}
 	}

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 )
 
+const charactersFilePath = "data/characters.json"
+
 // Character holds a saved character name and password hash.
 type Character struct {
 	Name     string `json:"name"`
@@ -23,6 +25,10 @@ func charactersPath() string {
 
 // loadCharacters reads the characters.json file if it exists.
 func loadCharacters() {
+
+	//handle older client location
+	os.Rename("characters.json", charactersFilePath)
+
 	data, err := os.ReadFile(charactersPath())
 	if err != nil {
 		return
@@ -50,14 +56,14 @@ func rememberCharacter(name, pass string) {
 		if characters[i].Name == name {
 			characters[i].PassHash = hash
 			saveCharacters()
-			lastCharacter = name
+			gs.LastCharacter = name
 			saveSettings()
 			return
 		}
 	}
 	characters = append(characters, Character{Name: name, PassHash: hash})
 	saveCharacters()
-	lastCharacter = name
+	gs.LastCharacter = name
 	saveSettings()
 }
 
@@ -67,8 +73,8 @@ func removeCharacter(name string) {
 		if c.Name == name {
 			characters = append(characters[:i], characters[i+1:]...)
 			saveCharacters()
-			if lastCharacter == name {
-				lastCharacter = ""
+			if gs.LastCharacter == name {
+				gs.LastCharacter = ""
 				saveSettings()
 			}
 			return

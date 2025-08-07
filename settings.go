@@ -9,97 +9,86 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-type Settings struct {
-	Scale          int     `json:"scale"`
-	ClickToToggle  bool    `json:"clickToToggle"`
-	Linear         bool    `json:"linear"`
-	Vsync          bool    `json:"vsync"`
-	Interp         bool    `json:"interp"`
-	SmoothMoving   bool    `json:"smoothMoving"`
-	Onion          bool    `json:"onion"`
-	BlendPicts     bool    `json:"blendPicts"`
-	BlendRate      float64 `json:"blendRate"`
-	NightMode      bool    `json:"nightMode"`
-	ShowBubbles    bool    `json:"showBubbles"`
-	MainFontSize   float64 `json:"mainFontSize"`
-	BubbleFontSize float64 `json:"bubbleFontSize"`
-	ShowPlanes     bool    `json:"showPlanes"`
-	HideMoving     bool    `json:"hideMoving"`
-	HideMobiles    bool    `json:"hideMobiles"`
-	KeyWalkSpeed   float64 `json:"keyWalkSpeed"`
-	LastCharacter  string  `json:"lastCharacter"`
+const settingFilePath = "data/settings.json"
+
+var gs settings = settings{
+	Version: 1,
+
+	KBWalkSpeed:    0.25,
+	MainFontSize:   9,
+	BubbleFontSize: 9,
+
+	NightEffect:     true,
+	SpeechBubbles:   true,
+	FastBars:        true,
+	MotionSmoothing: true,
+	SmoothMoving:    true,
+	BlendMobiles:    false,
+	BlendPicts:      true,
+	BlendAmount:     1.0,
+	Scale:           2,
+
+	vsync: true,
+}
+
+type settings struct {
+	Version int
+
+	LastCharacter  string
+	ClickToToggle  bool
+	KBWalkSpeed    float64
+	MainFontSize   float64
+	BubbleFontSize float64
+
+	NightEffect      bool
+	SpeechBubbles    bool
+	FastBars         bool
+	MotionSmoothing  bool
+	SmoothMoving     bool
+	BlendMobiles     bool
+	BlendPicts       bool
+	BlendAmount      float64
+	TextureFiltering bool
+	FastSound        bool
+	Scale            int
+
+	imgPlanesDebug bool
+	smoothingDebug bool
+	hideMoving     bool
+	hideMobiles    bool
+	vsync          bool
 }
 
 var settingsDirty bool
 
 func loadSettings() bool {
-	path := filepath.Join(baseDir, "data/settings.json")
+	//Remove older settings
+	os.Remove("settings.json")
+
+	path := filepath.Join(baseDir, settingFilePath)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
-	var s Settings
+	var s settings
 	if err := json.Unmarshal(data, &s); err != nil {
 		return false
 	}
-	scale = s.Scale
-	clickToToggle = s.ClickToToggle
-	linear = s.Linear
-	vsync = s.Vsync
-	interp = s.Interp
-	smoothMoving = s.SmoothMoving
-	mobileBlending = s.Onion
-	blendPicts = s.BlendPicts
-	blendRate = s.BlendRate
-	nightMode = s.NightMode
-	showBubbles = s.ShowBubbles
-	mainFontSize = s.MainFontSize
-	bubbleFontSize = s.BubbleFontSize
-	showPlanes = s.ShowPlanes
-	hideMoving = s.HideMoving
-	hideMobiles = s.HideMobiles
-	keyWalkSpeed = s.KeyWalkSpeed
-	if keyWalkSpeed == 0 {
-		keyWalkSpeed = 0.5
-	}
-	lastCharacter = s.LastCharacter
 	return true
 }
 
 func applySettings() {
-	if linear {
+	if gs.TextureFiltering {
 		drawFilter = ebiten.FilterLinear
 	} else {
 		drawFilter = ebiten.FilterNearest
 	}
-	ebiten.SetVsyncEnabled(vsync)
-	ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+	ebiten.SetVsyncEnabled(gs.vsync)
 	initFont()
-	inputBg = nil
 }
 
 func saveSettings() {
-	s := Settings{
-		Scale:          scale,
-		ClickToToggle:  clickToToggle,
-		Linear:         linear,
-		Vsync:          vsync,
-		Interp:         interp,
-		SmoothMoving:   smoothMoving,
-		Onion:          mobileBlending,
-		BlendPicts:     blendPicts,
-		BlendRate:      blendRate,
-		NightMode:      nightMode,
-		ShowBubbles:    showBubbles,
-		MainFontSize:   mainFontSize,
-		BubbleFontSize: bubbleFontSize,
-		ShowPlanes:     showPlanes,
-		HideMoving:     hideMoving,
-		HideMobiles:    hideMobiles,
-		KeyWalkSpeed:   keyWalkSpeed,
-		LastCharacter:  lastCharacter,
-	}
-	data, err := json.MarshalIndent(s, "", "  ")
+	data, err := json.MarshalIndent(gs, "", "  ")
 	if err != nil {
 		log.Printf("save settings: %v", err)
 		return
