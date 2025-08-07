@@ -97,7 +97,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 	}
 
 	// Number of taps (filter half-width)
-	const taps = 16 // 8–16 for very high quality
+	const taps = 32 // 8–16 for very high quality
 	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
 	dst := make([]int16, n)
 	ratio := float64(srcRate) / float64(dstRate)
