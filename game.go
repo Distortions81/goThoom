@@ -62,6 +62,7 @@ var hideMobiles bool
 var keyWalkSpeed float64 = 0.5
 
 var (
+	frameCh       = make(chan struct{}, 1)
 	lastFrameTime time.Time
 	frameInterval = 200 * time.Millisecond
 	intervalHist  = map[int]int{}
@@ -916,20 +917,45 @@ func noteFrame() {
 	}
 	lastFrameTime = now
 	frameMu.Unlock()
+	select {
+	case frameCh <- struct{}{}:
+	default:
+	}
 }
 
 func sendInputLoop(ctx context.Context, conn net.Conn) {
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			if err := sendPlayerInput(conn); err != nil {
-				logError("send player input: %v", err)
-				return
-			}
+		case <-frameCh:
+		}
+		frameMu.Lock()
+		interval := frameInterval
+		last := lastFrameTime
+		frameMu.Unlock()
+		if time.Since(last) > 2*time.Second || conn == nil {
+			continue
+		}
+		delay := interval / 2
+		if delay <= 0 {
+			delay = 200 * time.Millisecond
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		frameMu.Lock()
+		last = lastFrameTime
+		frameMu.Unlock()
+		if time.Since(last) > 2*time.Second || conn == nil {
+			continue
+		}
+		if err := sendPlayerInput(conn); err != nil {
+			logError("send player input: %v", err)
 		}
 	}
 }
