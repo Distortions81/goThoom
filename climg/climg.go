@@ -489,6 +489,13 @@ func (c *CLImages) NumFrames(id uint32) int {
 	return 1
 }
 
+// ClearCache removes all cached images so they will be reloaded on demand.
+func (c *CLImages) ClearCache() {
+	c.mu.Lock()
+	c.cache = make(map[string]*ebiten.Image)
+	c.mu.Unlock()
+}
+
 // FrameIndex returns the picture frame for the given global animation counter.
 // If no animation is defined for the image, it returns 0.
 func (c *CLImages) FrameIndex(id uint32, counter int) int {

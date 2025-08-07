@@ -26,6 +26,7 @@ var gs settings = settings{
 	BlendMobiles:    false,
 	BlendPicts:      true,
 	BlendAmount:     1.0,
+	DenoiseImages:   true,
 	Scale:           2,
 
 	vsync: true,
@@ -48,6 +49,7 @@ type settings struct {
 	BlendMobiles     bool
 	BlendPicts       bool
 	BlendAmount      float64
+	DenoiseImages    bool
 	TextureFiltering bool
 	FastSound        bool
 	Scale            int
@@ -78,6 +80,9 @@ func loadSettings() bool {
 }
 
 func applySettings() {
+	if clImages != nil {
+		clImages.Denoise = gs.DenoiseImages
+	}
 	if gs.TextureFiltering {
 		drawFilter = ebiten.FilterLinear
 	} else {

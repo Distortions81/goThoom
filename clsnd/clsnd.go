@@ -102,6 +102,13 @@ func (c *CLSounds) Get(id uint32) *Sound {
 	return s
 }
 
+// ClearCache discards all decoded sound data.
+func (c *CLSounds) ClearCache() {
+	c.mu.Lock()
+	c.cache = make(map[uint32]*Sound)
+	c.mu.Unlock()
+}
+
 // soundHeaderOffset locates the SoundHeader inside a 'snd ' resource.
 func soundHeaderOffset(data []byte) (int, bool) {
 	if len(data) < 6 {

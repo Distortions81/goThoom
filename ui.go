@@ -137,6 +137,8 @@ func openDownloadsWindow(status dataFilesStatus) {
 				}
 				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
 					clImages = imgs
+					clImages.Denoise = gs.DenoiseImages
+					clearCaches()
 				} else {
 					logError("load CL_Images: %v", err)
 					openErrorWindow("Error: Load CL_Images: " + err.Error())
@@ -499,6 +501,19 @@ func openSettingsWindow() {
 		}
 	}
 	mainFlow.AddItem(filt)
+
+	denoiseCB, denoiseEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Denoise", Size: eui.Point{X: width, Y: 24}, Checked: gs.DenoiseImages})
+	denoiseEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.DenoiseImages = ev.Checked
+			if clImages != nil {
+				clImages.Denoise = ev.Checked
+			}
+			clearCaches()
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(denoiseCB)
 
 	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: gs.MotionSmoothing})
 	motionEvents.Handle = func(ev eui.UIEvent) {

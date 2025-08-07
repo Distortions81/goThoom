@@ -77,11 +77,14 @@ func main() {
 	clImages, imgErr = climg.Load(filepath.Join(dataDir, "CL_Images"))
 	if imgErr != nil {
 		addMessage(fmt.Sprintf("load CL_Images: %v", imgErr))
+	} else if clImages != nil {
+		clImages.Denoise = gs.DenoiseImages
 	}
 	if imgErr != nil && clmovPath != "" {
 		alt := filepath.Join(filepath.Dir(clmovPath), "CL_Images")
 		if imgs, err := climg.Load(alt); err == nil {
 			clImages = imgs
+			clImages.Denoise = gs.DenoiseImages
 			imgErr = nil
 		} else {
 			addMessage(fmt.Sprintf("load CL_Images from %v: %v", alt, err))
