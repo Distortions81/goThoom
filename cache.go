@@ -3,11 +3,14 @@ package main
 import (
 	"log"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"go_client/clsnd"
 )
+
+var precacheInProgress atomic.Bool
 
 func clearCaches() {
 	imageMu.Lock()
@@ -37,6 +40,9 @@ func clearCaches() {
 }
 
 func precacheAssets() {
+	precacheInProgress.Store(true)
+	defer precacheInProgress.Store(false)
+
 	if clImages != nil {
 		for _, id := range clImages.IDs() {
 			loadSheet(uint16(id), nil, false)

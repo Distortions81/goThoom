@@ -351,6 +351,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawInputOverlay(screen, string(inputText))
 	}
 	drawStatusBars(screen, snap, alpha)
+	drawPrecacheStatus(screen)
 	drawServerFPS(screen, serverFPS)
 }
 
@@ -817,14 +818,30 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 	}
 }
 
+func drawPrecacheStatus(screen *ebiten.Image) {
+	if !precacheInProgress.Load() {
+		return
+	}
+	msg := "Precaching Assets."
+	w, _ := text.Measure(msg, mainFont, 0)
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(4*gs.Scale))
+	op.ColorScale.ScaleWithColor(color.RGBA{0xff, 0x00, 0x00, 0xff})
+	text.Draw(screen, msg, mainFont, op)
+}
+
 func drawServerFPS(screen *ebiten.Image, fps float64) {
 	if fps <= 0 {
 		return
 	}
 	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f", ebiten.ActualFPS(), fps)
 	w, _ := text.Measure(msg, mainFont, 0)
+	y := float64(4 * gs.Scale)
+	if precacheInProgress.Load() {
+		y += float64(18 * gs.Scale)
+	}
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(4*gs.Scale))
+	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), y)
 	op.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, msg, mainFont, op)
 }
