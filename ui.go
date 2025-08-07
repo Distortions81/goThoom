@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/hex"
 
@@ -12,11 +11,9 @@ import (
 var loginWin *eui.WindowData
 var charactersList *eui.ItemData
 var addCharWin *eui.WindowData
-var connectingWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
-var loginCancel context.CancelFunc
 var chatFontSize = 12
 var labelFontSize = 12
 
@@ -227,36 +224,6 @@ func openAddCharacterWindow() {
 	addCharWin.AddWindow(false)
 }
 
-func openConnectingWindow() {
-	if connectingWin != nil {
-		return
-	}
-	connectingWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Connecting...",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   false,
-		PinTo:     eui.PIN_MID_CENTER,
-		Open:      true,
-	})
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	cancelBtn, cancelEvents := eui.NewButton(&eui.ItemData{Text: "Cancel", Size: eui.Point{X: 200, Y: 24}})
-	cancelEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			if loginCancel != nil {
-				loginCancel()
-			}
-			connectingWin.RemoveWindow()
-			connectingWin = nil
-			openLoginWindow()
-		}
-	}
-	flow.AddItem(cancelBtn)
-	connectingWin.AddItem(flow)
-	connectingWin.AddWindow(false)
-}
-
 func openLoginWindow() {
 	if loginWin != nil {
 		return
@@ -312,14 +279,11 @@ func openLoginWindow() {
 			saveSettings()
 			loginWin.RemoveWindow()
 			loginWin = nil
-			openConnectingWindow()
-			var ctx context.Context
-			ctx, loginCancel = context.WithCancel(gameCtx)
 			go func() {
-				login(ctx, clientVersion)
-				if connectingWin != nil {
-					connectingWin.RemoveWindow()
-					connectingWin = nil
+				if err := login(gameCtx, clientVersion); err != nil {
+					logError("login: %v", err)
+					openErrorWindow(err.Error())
+					openLoginWindow()
 				}
 			}()
 		}
@@ -328,6 +292,30 @@ func openLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+}
+
+func openErrorWindow(msg string) {
+	win := eui.NewWindow(&eui.WindowData{
+		Title:     "Error",
+		Closable:  false,
+		Resizable: false,
+		AutoSize:  true,
+		Movable:   false,
+		PinTo:     eui.PIN_MID_CENTER,
+		Open:      true,
+	})
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+	flow.AddItem(text)
+	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}})
+	okEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			win.RemoveWindow()
+		}
+	}
+	flow.AddItem(okBtn)
+	win.AddItem(flow)
+	win.AddWindow(false)
 }
 
 func openSettingsWindow() {

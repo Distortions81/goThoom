@@ -14,7 +14,7 @@ import (
 
 // login connects to the server and performs the login handshake.
 // It runs the network loops and blocks until the context is canceled.
-func login(ctx context.Context, clientVersion int) {
+func login(ctx context.Context, clientVersion int) error {
 	for {
 		imagesVersion, err := readKeyFileVersion(filepath.Join(dataDir, "CL_Images"))
 		imagesMissing := false
@@ -42,61 +42,72 @@ func login(ctx context.Context, clientVersion int) {
 			}
 		}
 
-		clientFull := encodeFullVersion(clientVersion)
-		imagesOutdated := imagesVersion != clientFull
+		sendVersion := int(imagesVersion >> 8)
+		clientFull := encodeFullVersion(sendVersion)
 		soundsOutdated := soundsVersion != clientFull
-		if imagesOutdated && !imagesMissing {
-			log.Printf("warning: CL_Images version %d does not match client version %d", imagesVersion>>8, clientVersion)
-		}
 		if soundsOutdated && !soundsMissing {
-			log.Printf("warning: CL_Sounds version %d does not match client version %d", soundsVersion>>8, clientVersion)
+			log.Printf("warning: CL_Sounds version %d does not match client version %d", soundsVersion>>8, sendVersion)
 		}
 
-		sendVersion := clientVersion
-		if imagesMissing || soundsMissing || imagesOutdated || soundsOutdated {
+		if imagesMissing || soundsMissing || soundsOutdated || sendVersion == 0 {
 			sendVersion = baseVersion - 1
 		}
 
 		var errDial error
 		tcpConn, errDial = net.Dial("tcp", host)
 		if errDial != nil {
-			log.Fatalf("tcp connect: %v", errDial)
+			return fmt.Errorf("tcp connect: %w", errDial)
 		}
 		udpConn, err := net.Dial("udp", host)
 		if err != nil {
-			log.Fatalf("udp connect: %v", err)
+			tcpConn.Close()
+			return fmt.Errorf("udp connect: %w", err)
 		}
 
 		var idBuf [4]byte
 		if _, err := io.ReadFull(tcpConn, idBuf[:]); err != nil {
-			log.Fatalf("read id: %v", err)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("read id: %w", err)
 		}
 
 		handshake := append([]byte{0xff, 0xff}, idBuf[:]...)
 		if _, err := udpConn.Write(handshake); err != nil {
-			log.Fatalf("send handshake: %v", err)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("send handshake: %w", err)
 		}
 
 		var confirm [2]byte
 		if _, err := io.ReadFull(tcpConn, confirm[:]); err != nil {
-			log.Fatalf("confirm handshake: %v", err)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("confirm handshake: %w", err)
 		}
 		if err := sendClientIdentifiers(tcpConn, encodeFullVersion(sendVersion), imagesVersion, soundsVersion); err != nil {
-			log.Fatalf("send identifiers: %v", err)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("send identifiers: %w", err)
 		}
 		fmt.Println("connected to", host)
 
 		msg, err := readTCPMessage(tcpConn)
 		if err != nil {
-			log.Fatalf("read challenge: %v", err)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("read challenge: %w", err)
 		}
 		if len(msg) < 16 {
-			log.Fatalf("short challenge message")
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("short challenge message")
 		}
 		tag := binary.BigEndian.Uint16(msg[:2])
 		const kMsgChallenge = 18
 		if tag != kMsgChallenge {
-			log.Fatalf("unexpected msg tag %d", tag)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("unexpected msg tag %d", tag)
 		}
 		challenge := msg[16 : 16+16]
 
@@ -109,10 +120,14 @@ func login(ctx context.Context, clientVersion int) {
 			}
 			names, err := requestCharList(tcpConn, acct, acctPass, challenge, encodeFullVersion(sendVersion), imagesVersion, soundsVersion)
 			if err != nil {
-				log.Fatalf("list characters: %v", err)
+				tcpConn.Close()
+				udpConn.Close()
+				return fmt.Errorf("list characters: %w", err)
 			}
 			if len(names) == 0 {
-				log.Fatalf("no characters available for account %v", acct)
+				tcpConn.Close()
+				udpConn.Close()
+				return fmt.Errorf("no characters available for account %v", acct)
 			}
 			if demo {
 				name = names[rand.Intn(len(names))]
@@ -172,7 +187,9 @@ func login(ctx context.Context, clientVersion int) {
 				answer, err = answerChallengeHash(passHash, challenge)
 			}
 			if err != nil {
-				log.Fatalf("hash: %v", err)
+				tcpConn.Close()
+				udpConn.Close()
+				return fmt.Errorf("hash: %w", err)
 			}
 
 			const kMsgLogOn = 13
@@ -189,12 +206,16 @@ func login(ctx context.Context, clientVersion int) {
 			simpleEncrypt(buf[16:])
 
 			if err := sendTCPMessage(tcpConn, buf); err != nil {
-				log.Fatalf("send login: %v", err)
+				tcpConn.Close()
+				udpConn.Close()
+				return fmt.Errorf("send login: %w", err)
 			}
 
 			resp, err = readTCPMessage(tcpConn)
 			if err != nil {
-				log.Fatalf("read login response: %v", err)
+				tcpConn.Close()
+				udpConn.Close()
+				return fmt.Errorf("read login response: %w", err)
 			}
 			resTag := binary.BigEndian.Uint16(resp[:2])
 			const kMsgLogOnResp = 13
@@ -211,13 +232,17 @@ func login(ctx context.Context, clientVersion int) {
 				challenge = resp[16 : 16+16]
 				continue
 			}
-			log.Fatalf("unexpected response tag %d", resTag)
+			tcpConn.Close()
+			udpConn.Close()
+			return fmt.Errorf("unexpected response tag %d", resTag)
 		}
 
 		if result == -30972 || result == -30973 {
 			fmt.Println("server requested update, downloading...")
 			if err := autoUpdate(resp, dataDir); err != nil {
-				log.Fatalf("auto update: %v", err)
+				tcpConn.Close()
+				udpConn.Close()
+				return fmt.Errorf("auto update: %w", err)
 			}
 			fmt.Println("update complete, reconnecting...")
 			tcpConn.Close()
@@ -225,21 +250,28 @@ func login(ctx context.Context, clientVersion int) {
 			continue
 		}
 
-		if result == 0 {
-			fmt.Println("login succeeded, reading messages (Ctrl-C to quit)...")
-
-			if err := sendPlayerInput(udpConn); err != nil {
-				logError("send player input: %v", err)
-			}
-
-			go sendInputLoop(ctx, udpConn)
-			go udpReadLoop(ctx, udpConn)
-			go tcpReadLoop(ctx, tcpConn)
-
-			<-ctx.Done()
+		if result != 0 {
 			tcpConn.Close()
 			udpConn.Close()
+			if name, ok := errorNames[result]; ok {
+				return fmt.Errorf("login failed: %s (%d)", name, result)
+			}
+			return fmt.Errorf("login failed: %d", result)
 		}
-		break
+
+		fmt.Println("login succeeded, reading messages (Ctrl-C to quit)...")
+
+		if err := sendPlayerInput(udpConn); err != nil {
+			logError("send player input: %v", err)
+		}
+
+		go sendInputLoop(ctx, udpConn)
+		go udpReadLoop(ctx, udpConn)
+		go tcpReadLoop(ctx, tcpConn)
+
+		<-ctx.Done()
+		tcpConn.Close()
+		udpConn.Close()
+		return nil
 	}
 }
