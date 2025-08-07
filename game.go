@@ -55,8 +55,8 @@ var hideMoving bool
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var showPlanes bool
-var showBubbles bool
-var nightMode bool
+var showBubbles bool = true
+var nightMode bool = true
 var vsync = true
 var hideMobiles bool
 var keyWalkSpeed float64 = 0.5

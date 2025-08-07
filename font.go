@@ -8,10 +8,19 @@ import (
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-//go:embed font.ttf
-var fontData []byte
+//go:embed data/font/NotoSans-Regular.ttf
+var notoSansRegular []byte
 
-var mainFont, bubbleFont text.Face
+//go:embed data/font/NotoSans-Bold.ttf
+var notoSansBold []byte
+
+//go:embed data/font/NotoSans-Italic.ttf
+var notoSansItalic []byte
+
+//go:embed data/font/NotoSans-BoldItalic.ttf
+var notoSansBoldItalic []byte
+
+var mainFont, mainFontBold, mainFontItalic, mainFontBoldItalic, bubbleFont text.Face
 
 var (
 	mainFontSize   float64 = 9
@@ -19,21 +28,45 @@ var (
 )
 
 func initFont() {
-	src, err := text.NewGoTextFaceSource(bytes.NewReader(fontData))
+	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)
 	}
 	mainFont = &text.GoTextFace{
-		Source: src,
+		Source: regular,
 		Size:   mainFontSize * float64(scale),
 	}
 
-	src, err = text.NewGoTextFaceSource(bytes.NewReader(fontData))
+	bold, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBold))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)
 	}
+	mainFontBold = &text.GoTextFace{
+		Source: bold,
+		Size:   mainFontSize * float64(scale),
+	}
+
+	italic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansItalic))
+	if err != nil {
+		log.Fatalf("failed to parse font: %v", err)
+	}
+	mainFontItalic = &text.GoTextFace{
+		Source: italic,
+		Size:   mainFontSize * float64(scale),
+	}
+
+	boldItalic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBoldItalic))
+	if err != nil {
+		log.Fatalf("failed to parse font: %v", err)
+	}
+	mainFontBoldItalic = &text.GoTextFace{
+		Source: boldItalic,
+		Size:   mainFontSize * float64(scale),
+	}
+
+	//Bubble
 	bubbleFont = &text.GoTextFace{
-		Source: src,
+		Source: bold,
 		Size:   bubbleFontSize * float64(scale),
 	}
 }
