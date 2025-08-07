@@ -263,8 +263,12 @@ func (g *Game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			txt := strings.TrimSpace(string(inputText))
 			if txt != "" {
-				pendingCommand = txt
-				//addMessage("> " + txt)
+				if strings.HasPrefix(txt, "/play ") {
+					playTuneSimple(strings.TrimSpace(txt[len("/play "):]))
+				} else {
+					pendingCommand = txt
+					//addMessage("> " + txt)
+				}
 			}
 			inputActive = false
 			inputText = inputText[:0]
