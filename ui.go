@@ -464,6 +464,80 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(labelFontSlider)
 
+	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	mainFlow.AddItem(label)
+
+	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
+	scaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			scale = int(ev.Value)
+			initFont()
+			inputBg = nil
+			ebiten.SetWindowSize(gameAreaSizeX*scale, gameAreaSizeY*scale)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(scaleSlider)
+
+	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: linear})
+	filtEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			linear = ev.Checked
+			if linear {
+				drawFilter = ebiten.FilterLinear
+			} else {
+				drawFilter = ebiten.FilterNearest
+			}
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(filt)
+
+	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: interp})
+	motionEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			interp = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(motion)
+
+	moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: smoothMoving})
+	moveSmoothEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			smoothMoving = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(moveSmoothCB)
+
+	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: onion})
+	animEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			onion = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(anim)
+
+	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Object Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: blendPicts})
+	pictBlendEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			blendPicts = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(pictBlend)
+
+	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Rate", MinValue: 0.3, MaxValue: 1.0, Value: float32(blendRate), Size: eui.Point{X: width - 10, Y: 24}})
+	blendEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			blendRate = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(blendSlider)
+
 	debugBtn, debugEvents := eui.NewButton(&eui.ItemData{Text: "Debug Settings", Size: eui.Point{X: width, Y: 24}})
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
