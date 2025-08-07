@@ -102,3 +102,63 @@ func ensureDataFiles(baseDir string, clientVer int) error {
 	}
 	return nil
 }
+
+type dataFilesStatus struct {
+	NeedImages bool
+	NeedSounds bool
+	Files      []string
+}
+
+func checkDataFiles(baseDir string, clientVer int) (dataFilesStatus, error) {
+	var status dataFilesStatus
+	imgPath := filepath.Join(baseDir, "CL_Images")
+	if v, err := readKeyFileVersion(imgPath); err != nil {
+		if os.IsNotExist(err) {
+			status.NeedImages = true
+		} else {
+			status.NeedImages = true
+		}
+	} else if int(v>>8) != clientVer {
+		status.NeedImages = true
+	}
+
+	sndPath := filepath.Join(baseDir, "CL_Sounds")
+	if v, err := readKeyFileVersion(sndPath); err != nil {
+		if os.IsNotExist(err) {
+			status.NeedSounds = true
+		} else {
+			status.NeedSounds = true
+		}
+	} else if int(v>>8) != clientVer {
+		status.NeedSounds = true
+	}
+
+	if status.NeedImages {
+		status.Files = append(status.Files, fmt.Sprintf("CL_Images.%d.gz", clientVer))
+	}
+	if status.NeedSounds {
+		status.Files = append(status.Files, fmt.Sprintf("CL_Sounds.%d.gz", clientVer))
+	}
+	return status, nil
+}
+
+func downloadDataFiles(baseDir string, clientVer int, status dataFilesStatus) error {
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return err
+	}
+	if status.NeedImages {
+		imgPath := filepath.Join(baseDir, "CL_Images")
+		imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", defaultUpdateBase, clientVer)
+		if err := downloadGZ(imgURL, imgPath); err != nil {
+			return fmt.Errorf("download CL_Images: %w", err)
+		}
+	}
+	if status.NeedSounds {
+		sndPath := filepath.Join(baseDir, "CL_Sounds")
+		sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", defaultUpdateBase, clientVer)
+		if err := downloadGZ(sndURL, sndPath); err != nil {
+			return fmt.Errorf("download CL_Sounds: %w", err)
+		}
+	}
+	return nil
+}

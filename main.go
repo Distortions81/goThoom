@@ -101,10 +101,6 @@ func main() {
 	}()
 	addMessage("Starting...")
 
-	if err := ensureDataFiles(dataDir, *clientVer); err != nil {
-		log.Printf("ensure data files: %v", err)
-	}
-
 	var imgErr error
 	clImages, imgErr = climg.Load(filepath.Join(dataDir, "CL_Images"))
 	if imgErr != nil {
