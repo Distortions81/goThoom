@@ -541,6 +541,14 @@ func openSettingsWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.FastSound = ev.Checked
 			settingsDirty = true
+
+			pcmCache = make(map[uint16][]byte)
+
+			if gs.FastSound {
+				resample = resampleFast
+			} else {
+				resample = resampleSincHQ
+			}
 		}
 	}
 	mainFlow.AddItem(fastSound)
