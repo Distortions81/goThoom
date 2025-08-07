@@ -328,3 +328,16 @@ func loadSound(id uint16) []byte {
 	soundMu.Unlock()
 	return pcm
 }
+
+// soundCacheStats returns the number of cached sounds and total bytes used.
+func soundCacheStats() (count, bytes int) {
+	soundMu.Lock()
+	defer soundMu.Unlock()
+	for _, pcm := range pcmCache {
+		if pcm != nil {
+			count++
+			bytes += len(pcm)
+		}
+	}
+	return
+}
