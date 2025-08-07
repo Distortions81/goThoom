@@ -1,7 +1,7 @@
 CL_Images
 CL_Sounds
 go_client
-logs/*.log
+*.log
 settings.json
 characters.json
 binaries/*.zip
