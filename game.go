@@ -67,7 +67,7 @@ var (
 	frameInterval = 200 * time.Millisecond
 	intervalHist  = map[int]int{}
 	frameMu       sync.Mutex
-	serverFPS     int
+	serverFPS     float64
 )
 
 // drawState tracks information needed by the Ebiten renderer.
@@ -348,6 +348,7 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen)
+		drawMessages(screen, getMessages())
 		eui.Draw(screen)
 		return
 	}
@@ -836,11 +837,11 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 	}
 }
 
-func drawServerFPS(screen *ebiten.Image, fps int) {
+func drawServerFPS(screen *ebiten.Image, fps float64) {
 	if fps <= 0 {
 		return
 	}
-	msg := fmt.Sprintf("FPS: %v UPS: %d", ebiten.ActualFPS(), fps)
+	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f", ebiten.ActualFPS(), fps)
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(gameAreaSizeX*scale)-w-float64(4*scale), float64(4*scale))
@@ -901,7 +902,7 @@ func noteFrame() {
 				}
 			}
 			if modeMS > 0 {
-				fps := int(math.Round(1000.0 / float64(modeMS)))
+				fps := (1000.0 / float64(modeMS))
 				if fps < 1 {
 					fps = 1
 				}
