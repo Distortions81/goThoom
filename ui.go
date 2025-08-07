@@ -701,6 +701,14 @@ func openDebugWindow() {
 	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(soundCacheLabel)
 
+	clearCacheBtn, clearCacheEvents := eui.NewButton(&eui.ItemData{Text: "Clear All Caches", Size: eui.Point{X: width, Y: 24}})
+	clearCacheEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			clearCaches()
+			updateDebugStats()
+		}
+	}
+	debugFlow.AddItem(clearCacheBtn)
 	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(totalCacheLabel)
 
