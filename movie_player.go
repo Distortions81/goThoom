@@ -95,13 +95,16 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(back)
 
-	play, playEv := eui.NewButton(&eui.ItemData{Text: ">  ||", Size: eui.Point{X: 70, Y: 24}})
+	play, playEv := eui.NewButton(&eui.ItemData{Text: ">  ||", Size: eui.Point{X: 140, Y: 24}})
+	changePlayButton(p, play)
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if p.playing {
 				p.pause()
+				changePlayButton(p, play)
 			} else {
 				p.play()
+				changePlayButton(p, play)
 			}
 		}
 	}
@@ -142,7 +145,7 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(dec)
 
-	reset, resetEv := eui.NewButton(&eui.ItemData{Text: "Reset", Size: eui.Point{X: 70, Y: 24}})
+	reset, resetEv := eui.NewButton(&eui.ItemData{Text: "RESET", Size: eui.Point{X: 140, Y: 24}})
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(clMovFPS)
@@ -175,6 +178,14 @@ func (p *moviePlayer) initUI() {
 	win.AddItem(flow)
 	win.AddWindow(false)
 	p.updateUI()
+}
+
+func changePlayButton(p *moviePlayer, play *eui.ItemData) {
+	if p.playing {
+		play.Text = "PAUSE  ||"
+	} else {
+		play.Text = "PLAY  >"
+	}
 }
 
 func (p *moviePlayer) run(ctx context.Context) {

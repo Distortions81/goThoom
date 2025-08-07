@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/remeh/sizedwaitgroup"
@@ -34,10 +35,15 @@ func clearCaches() {
 	poolMu.Unlock()
 }
 
-func precacheAssets() {
+var assetsPrecached = false
 
-	if clImages == nil || clSounds == nil {
-		return
+func precacheAssets() {
+	for {
+		if clImages == nil || clSounds == nil {
+			time.Sleep(time.Millisecond * 100)
+		} else {
+			break
+		}
 	}
 
 	wg := sizedwaitgroup.New(runtime.NumCPU())
@@ -50,7 +56,6 @@ func precacheAssets() {
 			}(id)
 		}
 	}
-	wg.Wait()
 
 	if clSounds != nil {
 		for _, id := range clSounds.IDs() {
@@ -62,5 +67,6 @@ func precacheAssets() {
 		}
 	}
 	wg.Wait()
+	assetsPrecached = true
 	addMessage("All images and sounds have been loaded.")
 }

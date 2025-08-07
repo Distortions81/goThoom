@@ -112,7 +112,6 @@ func main() {
 	}
 
 	if gs.PrecacheAssets {
-		time.Sleep(time.Millisecond * 100)
 		go precacheAssets()
 	}
 
@@ -127,6 +126,13 @@ func main() {
 
 		mp := newMoviePlayer(frames, clMovFPS, cancel)
 		mp.initUI()
+
+		if gs.PrecacheAssets && !assetsPrecached {
+			addMessage("WAITING FOR ASSET PRELOAD...")
+			for !assetsPrecached {
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
 		go mp.run(ctx)
 
 		<-ctx.Done()

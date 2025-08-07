@@ -54,13 +54,13 @@ func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (le
 // bubbleColors selects the border, background, and text colors for a bubble
 // based on its type. Alpha values are premultiplied to match Ebiten's color
 // expectations.
-const ba = 0xc4
+const bubbleAlpha = 160
 
 func bubbleColors(typ int) (border, bg, text color.Color) {
 	switch typ & kBubbleTypeMask {
 	case kBubbleWhisper:
 		border = color.NRGBA{0x80, 0x80, 0x80, 0xff}
-		bg = color.NRGBA{0x33, 0x33, 0x33, ba}
+		bg = color.NRGBA{0x33, 0x33, 0x33, bubbleAlpha}
 		text = color.White
 	case kBubbleYell:
 		border = color.NRGBA{0xff, 0xff, 0x00, 0xff}
@@ -68,27 +68,27 @@ func bubbleColors(typ int) (border, bg, text color.Color) {
 		text = color.Black
 	case kBubbleThought, kBubblePonder:
 		border = color.NRGBA{0x00, 0x00, 0x00, 0x00}
-		bg = color.NRGBA{0x80, 0x80, 0x80, ba}
+		bg = color.NRGBA{0x80, 0x80, 0x80, bubbleAlpha}
 		text = color.Black
 	case kBubbleRealAction:
 		border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
+		bg = color.NRGBA{0xff, 0xff, 0xff, bubbleAlpha}
 		text = color.Black
 	case kBubblePlayerAction:
 		border = color.NRGBA{0x80, 0x00, 0x00, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
+		bg = color.NRGBA{0xff, 0xff, 0xff, bubbleAlpha}
 		text = color.Black
 	case kBubbleNarrate:
 		border = color.NRGBA{0x00, 0x80, 0x00, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
+		bg = color.NRGBA{0xff, 0xff, 0xff, bubbleAlpha}
 		text = color.Black
 	case kBubbleMonster:
 		border = color.NRGBA{0xd6, 0xd6, 0xd6, 0xff}
-		bg = color.NRGBA{0x47, 0x47, 0x47, ba}
+		bg = color.NRGBA{0x47, 0x47, 0x47, bubbleAlpha}
 		text = color.White
 	default:
 		border = color.White
-		bg = color.NRGBA{0xff, 0xff, 0xff, ba}
+		bg = color.NRGBA{0xff, 0xff, 0xff, bubbleAlpha}
 		text = color.Black
 	}
 	return

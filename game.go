@@ -336,6 +336,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawSplash(screen)
 		drawMessages(screen, getMessages())
 		eui.Draw(screen)
+		if gs.ShowFPS {
+			drawServerFPS(screen, serverFPS)
+		}
 		return
 	}
 	snap := captureDrawSnapshot()

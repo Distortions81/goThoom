@@ -15,8 +15,8 @@ var gs settings = settings{
 	Version: 1,
 
 	KBWalkSpeed:    0.25,
-	MainFontSize:   9,
-	BubbleFontSize: 9,
+	MainFontSize:   8,
+	BubbleFontSize: 6,
 
 	NightEffect:     true,
 	SpeechBubbles:   true,
