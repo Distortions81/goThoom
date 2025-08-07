@@ -15,18 +15,16 @@ func init() {
 	whiteImage.Fill(color.White)
 }
 
-// adjustBubbleRect calculates the on-screen rectangle for a bubble and shifts
-// the tail tip (x, y) if clamping is required. It returns the clamped
-// rectangle along with the adjusted tail coordinates.
-func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (left, top, right, bottom, ax, ay int) {
+// adjustBubbleRect calculates the on-screen rectangle for a bubble and clamps
+// it to the screen dimensions. The tail tip coordinates are left untouched so
+// the caller can draw an arrow pointing at the original target.
+func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (left, top, right, bottom int) {
 	bottom = y
 	if !far {
 		bottom = y - tailHeight
 	}
 	left = x - width/2
 	top = bottom - height
-
-	origLeft, origTop := left, top
 
 	if left < 0 {
 		left = 0
@@ -41,13 +39,84 @@ func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (le
 		top = sh - height
 	}
 
-	dx := left - origLeft
-	dy := top - origTop
-	ax = x + dx
-	ay = y + dy
-
 	right = left + width
 	bottom = top + height
+	return
+}
+
+// bubbleArrowBase returns the point on the rectangle [left, top, right, bottom]
+// where a line from (tx, ty) through the rectangle's centre intersects the
+// rectangle. The returned side indicates which edge was hit: 0=top, 1=right,
+// 2=bottom, 3=left.
+func bubbleArrowBase(tx, ty, left, top, right, bottom int, radius float64) (bx, by int, side int) {
+	cx := float64(left+right) / 2
+	cy := float64(top+bottom) / 2
+	dx := float64(tx) - cx
+	dy := float64(ty) - cy
+
+	tMin := math.Inf(1)
+	var ix, iy float64
+
+	if dx != 0 {
+		k := (float64(left) - cx) / dx
+		y := cy + k*dy
+		if k > 0 && y >= float64(top) && y <= float64(bottom) && k < tMin {
+			tMin = k
+			ix = float64(left)
+			iy = y
+			side = 3 // left
+		}
+		k = (float64(right) - cx) / dx
+		y = cy + k*dy
+		if k > 0 && y >= float64(top) && y <= float64(bottom) && k < tMin {
+			tMin = k
+			ix = float64(right)
+			iy = y
+			side = 1 // right
+		}
+	}
+	if dy != 0 {
+		k := (float64(top) - cy) / dy
+		x := cx + k*dx
+		if k > 0 && x >= float64(left) && x <= float64(right) && k < tMin {
+			tMin = k
+			ix = x
+			iy = float64(top)
+			side = 0 // top
+		}
+		k = (float64(bottom) - cy) / dy
+		x = cx + k*dx
+		if k > 0 && x >= float64(left) && x <= float64(right) && k < tMin {
+			tMin = k
+			ix = x
+			iy = float64(bottom)
+			side = 2 // bottom
+		}
+	}
+
+	switch side {
+	case 0, 2:
+		minX := float64(left) + radius
+		maxX := float64(right) - radius
+		if ix < minX {
+			ix = minX
+		}
+		if ix > maxX {
+			ix = maxX
+		}
+	case 1, 3:
+		minY := float64(top) + radius
+		maxY := float64(bottom) - radius
+		if iy < minY {
+			iy = minY
+		}
+		if iy > maxY {
+			iy = maxY
+		}
+	}
+
+	bx = int(math.Round(ix))
+	by = int(math.Round(iy))
 	return
 }
 
@@ -136,6 +205,8 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	}
 	y -= 35
 
+	tipX, tipY := x, y
+
 	sw, sh := gameAreaSizeX*scale, gameAreaSizeY*scale
 	pad := (4 + 2) * scale
 	tailHeight := 10 * scale
@@ -148,31 +219,74 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
 
-	left, top, right, bottom, x, y := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
+	left, top, right, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
 	radius := float32(4 * scale)
+	drawTail := !far && !noArrow && !(tipX >= left && tipX <= right && tipY >= top && tipY <= bottom)
+
+	var bx, by int
+	var side int
+	var nx, ny float64
+	if drawTail {
+		bx, by, side = bubbleArrowBase(tipX, tipY, left, top, right, bottom, float64(radius))
+		dx := float64(tipX - bx)
+		dy := float64(tipY - by)
+		l := math.Hypot(dx, dy)
+		if l != 0 {
+			nx = dy / l * float64(tailHalf)
+			ny = -dx / l * float64(tailHalf)
+		}
+	}
 
 	var body vector.Path
 	body.MoveTo(float32(left)+radius, float32(top))
+	if drawTail && side == 0 {
+		body.LineTo(float32(float64(bx)-nx), float32(top))
+		body.LineTo(float32(tipX), float32(tipY))
+		body.LineTo(float32(float64(bx)+nx), float32(top))
+	}
 	body.LineTo(float32(right)-radius, float32(top))
 	body.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
+	if drawTail && side == 1 {
+		y1 := float32(float64(by) + ny)
+		y2 := float32(float64(by) - ny)
+		if y1 > y2 {
+			body.LineTo(float32(right), y2)
+			body.LineTo(float32(tipX), float32(tipY))
+			body.LineTo(float32(right), y1)
+		} else {
+			body.LineTo(float32(right), y1)
+			body.LineTo(float32(tipX), float32(tipY))
+			body.LineTo(float32(right), y2)
+		}
+	}
 	body.LineTo(float32(right), float32(bottom)-radius)
 	body.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
+	if drawTail && side == 2 {
+		body.LineTo(float32(float64(bx)+nx), float32(bottom))
+		body.LineTo(float32(tipX), float32(tipY))
+		body.LineTo(float32(float64(bx)-nx), float32(bottom))
+	}
 	body.LineTo(float32(left)+radius, float32(bottom))
 	body.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
+	if drawTail && side == 3 {
+		y1 := float32(float64(by) - ny)
+		y2 := float32(float64(by) + ny)
+		if y1 > y2 {
+			body.LineTo(float32(left), y1)
+			body.LineTo(float32(tipX), float32(tipY))
+			body.LineTo(float32(left), y2)
+		} else {
+			body.LineTo(float32(left), y2)
+			body.LineTo(float32(tipX), float32(tipY))
+			body.LineTo(float32(left), y1)
+		}
+	}
 	body.LineTo(float32(left), float32(top)+radius)
 	body.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
 	body.Close()
-
-	var tail vector.Path
-	if !far && !noArrow {
-		tail.MoveTo(float32(x-tailHalf), float32(bottom))
-		tail.LineTo(float32(x), float32(y))
-		tail.LineTo(float32(x+tailHalf), float32(bottom))
-		tail.Close()
-	}
 
 	vs, is := body.AppendVerticesAndIndicesForFilling(nil, nil)
 	for i := range vs {
@@ -186,7 +300,13 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	op := &ebiten.DrawTrianglesOptions{ColorScaleMode: ebiten.ColorScaleModePremultipliedAlpha}
 	screen.DrawTriangles(vs, is, whiteImage, op)
 
-	if !far && !noArrow {
+	if drawTail {
+		var tail vector.Path
+		tail.MoveTo(float32(float64(bx)-nx), float32(float64(by)-ny))
+		tail.LineTo(float32(tipX), float32(tipY))
+		tail.LineTo(float32(float64(bx)+nx), float32(float64(by)+ny))
+		tail.Close()
+
 		vs, is = tail.AppendVerticesAndIndicesForFilling(vs[:0], is[:0])
 		for i := range vs {
 			vs[i].SrcX = 0
@@ -200,23 +320,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	}
 
 	bdR, bdG, bdB, bdA := borderCol.RGBA()
-	var outline vector.Path
-	outline.MoveTo(float32(left)+radius, float32(top))
-	outline.LineTo(float32(right)-radius, float32(top))
-	outline.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
-	outline.LineTo(float32(right), float32(bottom)-radius)
-	outline.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
-	if !far && !noArrow {
-		outline.LineTo(float32(x+tailHalf), float32(bottom))
-		outline.LineTo(float32(x), float32(y))
-		outline.LineTo(float32(x-tailHalf), float32(bottom))
-	}
-	outline.LineTo(float32(left)+radius, float32(bottom))
-	outline.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
-	outline.LineTo(float32(left), float32(top)+radius)
-	outline.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
-	outline.Close()
-
+	outline := body
 	vs, is = outline.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(scale)})
 	for i := range vs {
 		vs[i].SrcX = 0

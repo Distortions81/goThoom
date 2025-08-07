@@ -14,7 +14,7 @@ func TestAdjustBubbleRectClampLeft(t *testing.T) {
 	width, height := 100, 50
 	tailHeight := 10
 	x, y := 10, 100
-	left, _, right, bottom, ax, ay := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, false)
+	left, _, right, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, false)
 
 	if left != 0 {
 		t.Fatalf("expected left to be clamped to 0, got %d", left)
@@ -22,11 +22,8 @@ func TestAdjustBubbleRectClampLeft(t *testing.T) {
 	if right-left != width {
 		t.Fatalf("expected width %d, got %d", width, right-left)
 	}
-	if ax != left+width/2 {
-		t.Fatalf("tail x not shifted correctly: %d != %d", ax, left+width/2)
-	}
-	if ay != bottom+tailHeight {
-		t.Fatalf("tail y not shifted correctly: %d != %d", ay, bottom+tailHeight)
+	if bottom != y-tailHeight+height {
+		t.Fatalf("unexpected bottom: %d", bottom)
 	}
 }
 
@@ -35,7 +32,7 @@ func TestAdjustBubbleRectClampTop(t *testing.T) {
 	width, height := 100, 50
 	tailHeight := 10
 	x, y := 100, 20
-	left, top, _, bottom, ax, ay := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, false)
+	left, top, _, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, false)
 
 	if top != 0 {
 		t.Fatalf("expected top to be clamped to 0, got %d", top)
@@ -43,11 +40,8 @@ func TestAdjustBubbleRectClampTop(t *testing.T) {
 	if bottom-top != height {
 		t.Fatalf("expected height %d, got %d", height, bottom-top)
 	}
-	if ax != left+width/2 {
-		t.Fatalf("tail x not shifted correctly: %d != %d", ax, left+width/2)
-	}
-	if ay != bottom+tailHeight {
-		t.Fatalf("tail y not shifted correctly: %d != %d", ay, bottom+tailHeight)
+	if left != x-width/2 {
+		t.Fatalf("unexpected left: %d", left)
 	}
 }
 
@@ -75,7 +69,7 @@ func TestDrawBubbleWideNoArtifacts(t *testing.T) {
 	lineHeight := int(math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap))
 	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
-	left, top, right, bottom, _, _ := adjustBubbleRect(gameAreaSizeX/2, gameAreaSizeY/2, width, height, 10*scale, gameAreaSizeX, gameAreaSizeY, false)
+	left, top, right, bottom := adjustBubbleRect(gameAreaSizeX/2, gameAreaSizeY/2, width, height, 10*scale, gameAreaSizeX, gameAreaSizeY, false)
 
 	rowY := bottom - pad/2
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
@@ -89,5 +83,20 @@ func TestDrawBubbleWideNoArtifacts(t *testing.T) {
 
 	if rowY <= top || rowY >= bottom {
 		t.Fatalf("row not inside bubble: %d", rowY)
+	}
+}
+
+func TestBubbleArrowBaseTop(t *testing.T) {
+	left, top, right, bottom := 0, 0, 100, 50
+	tx, ty := 50, -20
+	bx, by, side := bubbleArrowBase(tx, ty, left, top, right, bottom, 0)
+	if side != 0 {
+		t.Fatalf("expected top side, got %d", side)
+	}
+	if bx != tx {
+		t.Fatalf("expected base x %d, got %d", tx, bx)
+	}
+	if by != top {
+		t.Fatalf("expected base y %d, got %d", top, by)
 	}
 }
