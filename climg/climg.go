@@ -537,3 +537,12 @@ func (c *CLImages) Plane(id uint32) int {
 	}
 	return 0
 }
+
+// IDs returns all image identifiers present in the archive.
+func (c *CLImages) IDs() []uint32 {
+	ids := make([]uint32, 0, len(c.idrefs))
+	for id := range c.idrefs {
+		ids = append(ids, id)
+	}
+	return ids
+}

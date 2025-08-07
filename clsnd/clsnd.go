@@ -109,6 +109,15 @@ func (c *CLSounds) ClearCache() {
 	c.mu.Unlock()
 }
 
+// IDs returns all sound identifiers present in the archive.
+func (c *CLSounds) IDs() []uint32 {
+	ids := make([]uint32, 0, len(c.index))
+	for id := range c.index {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 // soundHeaderOffset locates the SoundHeader inside a 'snd ' resource.
 func soundHeaderOffset(data []byte) (int, bool) {
 	if len(data) < 6 {
