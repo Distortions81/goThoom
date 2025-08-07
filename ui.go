@@ -87,6 +87,21 @@ func updateCharacterButtons() {
 	if charactersList == nil {
 		return
 	}
+	if name == "" {
+		if lastCharacter != "" {
+			for _, c := range characters {
+				if c.Name == lastCharacter {
+					name = c.Name
+					passHash = c.PassHash
+					break
+				}
+			}
+		}
+		if name == "" && len(characters) == 1 {
+			name = characters[0].Name
+			passHash = characters[0].PassHash
+		}
+	}
 	charactersList.Contents = charactersList.Contents[:0]
 	if len(characters) == 0 {
 		empty, _ := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 24}})
@@ -111,6 +126,8 @@ func updateCharacterButtons() {
 				if ev.Type == eui.EventRadioSelected {
 					name = nameCopy
 					passHash = hashCopy
+					lastCharacter = nameCopy
+					saveSettings()
 				}
 			}
 			row.AddItem(radio)
@@ -185,6 +202,8 @@ func openAddCharacterWindow() {
 			}
 			name = addCharName
 			passHash = hash
+			lastCharacter = addCharName
+			saveSettings()
 			updateCharacterButtons()
 			if loginWin != nil {
 				loginWin.Refresh()
@@ -289,6 +308,8 @@ func openLoginWindow() {
 			if name == "" {
 				return
 			}
+			lastCharacter = name
+			saveSettings()
 			loginWin.RemoveWindow()
 			loginWin = nil
 			openConnectingWindow()

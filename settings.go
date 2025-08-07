@@ -27,6 +27,7 @@ type Settings struct {
 	HideMoving     bool    `json:"hideMoving"`
 	HideMobiles    bool    `json:"hideMobiles"`
 	KeyWalkSpeed   float64 `json:"keyWalkSpeed"`
+	LastCharacter  string  `json:"lastCharacter"`
 }
 
 var settingsDirty bool
@@ -61,6 +62,7 @@ func loadSettings() bool {
 	if keyWalkSpeed == 0 {
 		keyWalkSpeed = 0.5
 	}
+	lastCharacter = s.LastCharacter
 	return true
 }
 
@@ -95,6 +97,7 @@ func saveSettings() {
 		HideMoving:     hideMoving,
 		HideMobiles:    hideMobiles,
 		KeyWalkSpeed:   keyWalkSpeed,
+		LastCharacter:  lastCharacter,
 	}
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {

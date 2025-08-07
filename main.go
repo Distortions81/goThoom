@@ -26,6 +26,7 @@ var (
 	accountPass   string
 	pass          string
 	passHash      string
+	lastCharacter string
 	demo          bool
 	clmov         string
 	baseDir       string
