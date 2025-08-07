@@ -36,6 +36,10 @@ func clearCaches() {
 
 func precacheAssets() {
 
+	if clImages == nil || clSounds == nil {
+		return
+	}
+
 	wg := sizedwaitgroup.New(runtime.NumCPU())
 	if clImages != nil {
 		for _, id := range clImages.IDs() {
