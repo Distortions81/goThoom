@@ -44,6 +44,7 @@ var debugWin *eui.WindowData
 var gameCtx context.Context
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
+var gameStarted = make(chan struct{})
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -867,6 +868,8 @@ func runGame(ctx context.Context) {
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+
+	close(gameStarted)
 
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Printf("ebiten: %v", err)
