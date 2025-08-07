@@ -206,7 +206,7 @@ func lowpassIIR16(x []int16, alpha float64) {
 // to avoid clicks when sounds begin or end abruptly. The fade length is
 // approximately 5ms of audio.
 func applyFadeInOut(samples []int16, rate int) {
-	fade := rate / 200 // ~5ms
+	fade := 441
 	if fade <= 1 {
 		return
 	}
@@ -287,16 +287,16 @@ func loadSound(id uint16) []byte {
 	var samples []int16
 	switch s.Bits {
 	case 8:
-		if !gs.FastSound {
-			samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
-			//lowpassIIR16(samples, 0.5)
-			highpassIIR16(samples, 0.995)
-		} else {
+		if gs.FastSound {
 			samples = make([]int16, len(s.Data))
 			for i, b := range s.Data {
 				v := int16(b) - 0x80
 				samples[i] = v << 8
 			}
+		} else {
+			samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
+			lowpassIIR16(samples, 0.8)
+			highpassIIR16(samples, 0.995)
 		}
 	case 16:
 		if len(s.Data)%2 != 0 {
