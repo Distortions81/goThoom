@@ -45,7 +45,7 @@ func main() {
 	var noFastAnimation bool
 	flag.StringVar(&host, "host", "server.deltatao.com:5010", "server address")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
-	clientVer := flag.Int("client-version", 1440, "client version number (for testing)")
+	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
 	flag.IntVar(&debugPacketDumpLen, "debug-packet-bytes", 256, "max bytes of packet payload to log (0=all)")
 	flag.IntVar(&maxSounds, "maxSounds", 32, "maximum number of simultaneous sounds")
