@@ -48,10 +48,6 @@ The Go client accepts the following flags:
 
 - `-host` – server address (default `server.deltatao.com:5010`)
 - `-clmov` – play back a `.clMov` movie file instead of connecting to a server
-- `-account` – account name for character selection
-- `-account-pass` – account password used to retrieve the character list
-- `-name` – character name (default `demo`)
-- `-pass` – character password (default `demo`)
 - `-client-version` – client version number (`kVersionNumber`, default `1440`)
 - `-debug` – enable debug logging (default `true`)
 - `-scale` – screen scale factor (default `2`)
