@@ -29,6 +29,7 @@ var (
 	frameCacheLabel  *eui.ItemData
 	mobileCacheLabel *eui.ItemData
 	soundCacheLabel  *eui.ItemData
+	totalCacheLabel  *eui.ItemData
 )
 
 func initUI() {
@@ -685,6 +686,9 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(smoothinCB)
 
+	cacheLabel, _ := eui.NewText(&eui.ItemData{Text: "Caches:", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(cacheLabel)
+
 	sheetCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(sheetCacheLabel)
 
@@ -696,6 +700,9 @@ func openDebugWindow() {
 
 	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(soundCacheLabel)
+
+	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(totalCacheLabel)
 
 	debugWin.AddItem(debugFlow)
 	debugWin.AddWindow(false)
@@ -726,6 +733,10 @@ func updateDebugStats() {
 	if soundCacheLabel != nil {
 		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%s)", soundCount, humanize.Bytes(uint64(soundBytes)))
 		soundCacheLabel.Dirty = true
+	}
+	if totalCacheLabel != nil {
+		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(sheetBytes+frameBytes+mobileBytes+soundBytes)))
+		totalCacheLabel.Dirty = true
 	}
 }
 
