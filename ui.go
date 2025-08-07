@@ -712,15 +712,15 @@ func updateDebugStats() {
 	soundCount, soundBytes := soundCacheStats()
 
 	if sheetCacheLabel != nil {
-		sheetCacheLabel.Text = fmt.Sprintf("Sheets: %d (%s)", sheetCount, humanize.Bytes(uint64(sheetBytes)))
+		sheetCacheLabel.Text = fmt.Sprintf("Sprite Sheets: %d (%s)", sheetCount, humanize.Bytes(uint64(sheetBytes)))
 		sheetCacheLabel.Dirty = true
 	}
 	if frameCacheLabel != nil {
-		frameCacheLabel.Text = fmt.Sprintf("Frames: %d (%s)", frameCount, humanize.Bytes(uint64(frameBytes)))
+		frameCacheLabel.Text = fmt.Sprintf("Animation Frames: %d (%s)", frameCount, humanize.Bytes(uint64(frameBytes)))
 		frameCacheLabel.Dirty = true
 	}
 	if mobileCacheLabel != nil {
-		mobileCacheLabel.Text = fmt.Sprintf("Mobiles: %d (%s)", mobileCount, humanize.Bytes(uint64(mobileBytes)))
+		mobileCacheLabel.Text = fmt.Sprintf("Mobile Animation Frames: %d (%s)", mobileCount, humanize.Bytes(uint64(mobileBytes)))
 		mobileCacheLabel.Dirty = true
 	}
 	if soundCacheLabel != nil {
