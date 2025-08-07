@@ -58,5 +58,5 @@ func precacheAssets() {
 		}
 	}
 	wg.Wait()
-	addMessage("All assets are now preloaded.")
+	addMessage("All images and sounds have been loaded.")
 }
