@@ -5,12 +5,10 @@ import (
 	"image/color"
 )
 
-const denoiseThreshold = 3000
-
-// denoiseImage smooths pixels that have uniformly coloured neighbours.
-// Pixels surrounded by similar colours are averaged with a 3x3 box filter,
-// while edge pixels remain unchanged.
-func denoiseImage(img *image.RGBA) {
+// denoiseImage softens pixels by blending with neighbours within a given
+// colour distance threshold. Only the immediate horizontal and vertical
+// neighbours are considered.
+func denoiseImage(img *image.RGBA, threshold int, percent float64) {
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
 
@@ -18,44 +16,20 @@ func denoiseImage(img *image.RGBA) {
 	src := image.NewRGBA(bounds)
 	copy(src.Pix, img.Pix)
 
-	// Collect points that require filtering and apply the blur after the scan.
-	var toFilter []image.Point
 	for y := 1; y < h-1; y++ {
 		for x := 1; x < w-1; x++ {
-			center := src.RGBAAt(x, y)
+			c := src.RGBAAt(x, y)
 
-			// Ensure all neighbouring pixels are similar to the centre pixel.
-			similar := true
-			for dy := -1; dy <= 1 && similar; dy++ {
-				for dx := -1; dx <= 1; dx++ {
-					if dx == 0 && dy == 0 {
-						continue
-					}
-					if colourDist(src.RGBAAt(x+dx, y+dy), center) > denoiseThreshold {
-						similar = false
-						break
-					}
+			// Check only direct neighbours.
+			neighbours := []image.Point{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+			for _, n := range neighbours {
+				ncol := src.RGBAAt(x+n.X, y+n.Y)
+				if colourDist(c, ncol) <= threshold {
+					c = mixColour(c, ncol, percent)
 				}
 			}
-			if similar {
-				toFilter = append(toFilter, image.Point{X: x, Y: y})
-			}
+			img.SetRGBA(x, y, c)
 		}
-	}
-
-	for _, p := range toFilter {
-		var r, g, b, a, count int
-		for dy := -1; dy <= 1; dy++ {
-			for dx := -1; dx <= 1; dx++ {
-				c := src.RGBAAt(p.X+dx, p.Y+dy)
-				r += int(c.R)
-				g += int(c.G)
-				b += int(c.B)
-				a += int(c.A)
-				count++
-			}
-		}
-		img.SetRGBA(p.X, p.Y, color.RGBA{uint8(r / count), uint8(g / count), uint8(b / count), uint8(a / count)})
 	}
 }
 
@@ -68,4 +42,15 @@ func colourDist(a, b color.RGBA) int {
 		return 65536
 	}
 	return dr*dr + dg*dg + db*db
+}
+
+// mixColour blends two colours together by the provided percentage.
+func mixColour(a, b color.RGBA, p float64) color.RGBA {
+	inv := 1 - p
+	return color.RGBA{
+		R: uint8(float64(a.R)*inv + float64(b.R)*p),
+		G: uint8(float64(a.G)*inv + float64(b.G)*p),
+		B: uint8(float64(a.B)*inv + float64(b.B)*p),
+		A: uint8(float64(a.A)*inv + float64(b.A)*p),
+	}
 }

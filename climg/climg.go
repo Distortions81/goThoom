@@ -36,13 +36,15 @@ type dataLocation struct {
 }
 
 type CLImages struct {
-	data    []byte
-	idrefs  map[uint32]*dataLocation
-	colors  map[uint32]*dataLocation
-	images  map[uint32]*dataLocation
-	cache   map[string]*ebiten.Image
-	mu      sync.Mutex
-	Denoise bool
+	data             []byte
+	idrefs           map[uint32]*dataLocation
+	colors           map[uint32]*dataLocation
+	images           map[uint32]*dataLocation
+	cache            map[string]*ebiten.Image
+	mu               sync.Mutex
+	Denoise          bool
+	DenoiseThreshold int
+	DenoisePercent   float64
 }
 
 const (
@@ -470,7 +472,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	}
 
 	if c.Denoise {
-		denoiseImage(img)
+		denoiseImage(img, c.DenoiseThreshold, c.DenoisePercent)
 	}
 
 	eimg := ebiten.NewImageFromImage(img)
