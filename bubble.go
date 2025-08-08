@@ -149,6 +149,8 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	for i := range vs {
 		vs[i].SrcX = 0
 		vs[i].SrcY = 0
+		vs[i].DstX *= float32(viewScale)
+		vs[i].DstY *= float32(viewScale)
 		vs[i].ColorR = float32(bgR) / 0xffff
 		vs[i].ColorG = float32(bgG) / 0xffff
 		vs[i].ColorB = float32(bgB) / 0xffff
@@ -162,6 +164,8 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		for i := range vs {
 			vs[i].SrcX = 0
 			vs[i].SrcY = 0
+			vs[i].DstX *= float32(viewScale)
+			vs[i].DstY *= float32(viewScale)
 			vs[i].ColorR = float32(bgR) / 0xffff
 			vs[i].ColorG = float32(bgG) / 0xffff
 			vs[i].ColorB = float32(bgB) / 0xffff
@@ -192,6 +196,8 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	for i := range vs {
 		vs[i].SrcX = 0
 		vs[i].SrcY = 0
+		vs[i].DstX *= float32(viewScale)
+		vs[i].DstY *= float32(viewScale)
 		vs[i].ColorR = float32(bdR) / 0xffff
 		vs[i].ColorG = float32(bdG) / 0xffff
 		vs[i].ColorB = float32(bdB) / 0xffff
@@ -205,6 +211,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		op := &text.DrawOptions{}
 		op.GeoM.Translate(float64(textLeft), float64(textTop+i*lineHeight))
 		op.ColorScale.ScaleWithColor(textCol)
+		applyTextView(op)
 		text.Draw(screen, line, bubbleFont, op)
 	}
 }

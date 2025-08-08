@@ -190,5 +190,6 @@ func drawNightOverlay(screen *ebiten.Image) {
 	op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
 	alpha := float32(lvl) / 100.0
 	op.ColorScale.ScaleAlpha(alpha)
+	applyView(op)
 	screen.DrawImage(img, op)
 }

@@ -116,11 +116,14 @@ func sendPlayerInput(connection net.Conn) error {
 	const kMsgPlayerInput = 3
 	flags := uint16(0)
 
-	x, y := ebiten.CursorPosition()
+	xw, yw := ebiten.CursorPosition()
+	x := int((float64(xw) - float64(viewOffsetX)) / viewScale)
+	y := int((float64(yw) - float64(viewOffsetY)) / viewScale)
+	inBounds := x >= 0 && y >= 0 && x < gameAreaSizeX*gs.Scale && y < gameAreaSizeY*gs.Scale
 	baseX := int16(x/gs.Scale - fieldCenterX)
 	baseY := int16(y/gs.Scale - fieldCenterY)
 	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-	if pointInUI(x, y) {
+	if !inBounds || pointInUI(x, y) {
 		baseDown = false
 	}
 
