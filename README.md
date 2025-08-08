@@ -1,10 +1,10 @@
 # ClanLord Client
 
 A pre-alpha open source (MIT) client for the Clan Lord MMORPG.
-The repository contains:
 
-- `go_client/` – a cross-platform Go implementation.
-- `old_mac_client/` – historical C client provided for reference only (do not modify).
+This repository hosts the Go implementation of the client. The
+`old_mac_client/` directory contains a historical C implementation provided
+for reference only (do not modify).
 
 ## Quick Start
 
@@ -22,8 +22,9 @@ sudo apt-get install -y golang-go build-essential libgl1-mesa-dev libglu1-mesa-d
 
 ### Build
 
+From the repository root run:
+
 ```bash
-cd go_client
 go build
 ```
 
@@ -32,14 +33,13 @@ go build
 Launch the client with:
 
 ```bash
-cd go_client
 go run .
 ```
 
-or use the helper script:
+To build release binaries for Linux and Windows, use:
 
 ```bash
-scripts/run_go_client.sh
+scripts/build_binaries.sh
 ```
 
 ## Command-line Flags
@@ -61,6 +61,6 @@ The Go client accepts the following flags:
 ## Data and Logging
 
 - The default server is `server.deltatao.com:5010`; override it with `-host`.
-- Missing `CL_Images` or `CL_Sounds` archives in `go_client/data` are fetched automatically from `https://www.deltatao.com/downloads/clanlord`.
+- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from `https://www.deltatao.com/downloads/clanlord`.
   They are saved as `CL_Images` and `CL_Sounds`.
 
