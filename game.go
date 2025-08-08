@@ -602,12 +602,20 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 				ih := int(math.Ceil(h))
 				top := y + (20 * gs.Scale)
 				left := x - iw/2
-				ebitenutil.DrawRect(screen, float64(left), float64(top), float64(iw+5), float64(ih), bgClr)
+				if hudPixel == nil {
+					hudPixel = ebiten.NewImage(1, 1)
+					hudPixel.Fill(color.White)
+				}
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(float64(iw+5), float64(ih))
+				op.GeoM.Translate(float64(left), float64(top))
+				op.ColorM.Scale(float64(bgClr.R)/255, float64(bgClr.G)/255, float64(bgClr.B)/255, float64(bgClr.A)/255)
+				screen.DrawImage(hudPixel, op)
 				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
-				op := &text.DrawOptions{}
-				op.GeoM.Translate(float64(left+2), float64(top+2))
-				op.ColorScale.ScaleWithColor(textClr)
-				text.Draw(screen, d.Name, mainFont, op)
+				opTxt := &text.DrawOptions{}
+				opTxt.GeoM.Translate(float64(left+2), float64(top+2))
+				opTxt.ColorScale.ScaleWithColor(textClr)
+				text.Draw(screen, d.Name, mainFont, opTxt)
 			} else {
 				back := int((m.Colors >> 4) & 0x0f)
 				if back != kColorCodeBackWhite && back != kColorCodeBackBlue && !(back == kColorCodeBackBlack && d.Type == kDescMonster) {
@@ -618,7 +626,15 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 					barClr.A = alpha
 					top := y + size*gs.Scale/2 + 2*gs.Scale
 					left := x - 6*gs.Scale
-					ebitenutil.DrawRect(screen, float64(left), float64(top), float64(12*gs.Scale), float64(2*gs.Scale), barClr)
+					if hudPixel == nil {
+						hudPixel = ebiten.NewImage(1, 1)
+						hudPixel.Fill(color.White)
+					}
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Scale(float64(12*gs.Scale), float64(2*gs.Scale))
+					op.GeoM.Translate(float64(left), float64(top))
+					op.ColorM.Scale(float64(barClr.R)/255, float64(barClr.G)/255, float64(barClr.B)/255, float64(barClr.A)/255)
+					screen.DrawImage(hudPixel, op)
 				}
 			}
 		}
