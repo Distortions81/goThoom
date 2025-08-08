@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -157,6 +158,9 @@ func sendPlayerInput(connection net.Conn) error {
 	}
 	commandNum++
 	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", ackFrame, resendFrame, commandNum-1, mouseX, mouseY, flags)
+	latencyMu.Lock()
+	lastInputSent = time.Now()
+	latencyMu.Unlock()
 	return sendUDPMessage(connection, packet)
 }
 

@@ -18,19 +18,20 @@ var gs settings = settings{
 	MainFontSize:   8,
 	BubbleFontSize: 6,
 
-	NightEffect:     true,
-	SpeechBubbles:   true,
-	FastBars:        true,
-	MotionSmoothing: true,
-	SmoothMoving:    true,
-	BlendMobiles:    false,
-	BlendPicts:      true,
-	BlendAmount:     1.0,
-	DenoiseImages:   false,
-	PrecacheAssets:  false,
-	CacheWholeSheet: true,
-	ShowFPS:         true,
-	Scale:           2,
+	NightEffect:      true,
+	SpeechBubbles:    true,
+	FastBars:         true,
+	MotionSmoothing:  true,
+	SmoothMoving:     true,
+	BlendMobiles:     false,
+	BlendPicts:       true,
+	BlendAmount:      1.0,
+	DenoiseImages:    false,
+	PrecacheAssets:   false,
+	CacheWholeSheet:  true,
+	ShowFPS:          true,
+	LateInputUpdates: true,
+	Scale:            2,
 
 	vsync: true,
 }
@@ -56,6 +57,7 @@ type settings struct {
 	PrecacheAssets   bool
 	CacheWholeSheet  bool
 	ShowFPS          bool
+	LateInputUpdates bool
 	TextureFiltering bool
 	FastSound        bool
 	Scale            int

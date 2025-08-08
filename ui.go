@@ -607,6 +607,15 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(showFPSCB)
 
+	lateInputCB, lateInputEvents := eui.NewCheckbox(&eui.ItemData{Text: "Late Input Updates", Size: eui.Point{X: width, Y: 24}, Checked: gs.LateInputUpdates})
+	lateInputEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.LateInputUpdates = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(lateInputCB)
+
 	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.BlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
