@@ -44,6 +44,8 @@ var inputActive bool
 var inputText []rune
 var inputBg *ebiten.Image
 var hudPixel *ebiten.Image
+var inputHistory []string
+var historyPos int
 
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
@@ -246,6 +248,27 @@ func (g *Game) Update() error {
 
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+			if len(inputHistory) > 0 {
+				if historyPos > 0 {
+					historyPos--
+				} else {
+					historyPos = 0
+				}
+				inputText = []rune(inputHistory[historyPos])
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+			if len(inputHistory) > 0 {
+				if historyPos < len(inputHistory)-1 {
+					historyPos++
+					inputText = []rune(inputHistory[historyPos])
+				} else {
+					historyPos = len(inputHistory)
+					inputText = inputText[:0]
+				}
+			}
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 			if len(inputText) > 0 {
 				inputText = inputText[:len(inputText)-1]
@@ -264,18 +287,22 @@ func (g *Game) Update() error {
 					pendingCommand = txt
 					//addMessage("> " + txt)
 				}
+				inputHistory = append(inputHistory, txt)
 			}
 			inputActive = false
 			inputText = inputText[:0]
+			historyPos = len(inputHistory)
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			inputActive = false
 			inputText = inputText[:0]
+			historyPos = len(inputHistory)
 		}
 	} else {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			inputActive = true
 			inputText = inputText[:0]
+			historyPos = len(inputHistory)
 		}
 	}
 
@@ -883,16 +910,23 @@ func drawEquippedItems(screen *ebiten.Image) {
 
 // drawInputOverlay renders the text entry box when chatting.
 func drawInputOverlay(screen *ebiten.Image, txt string) {
-	if inputBg == nil {
-		inputBg = ebiten.NewImage(gameAreaSizeX*gs.Scale, 12*gs.Scale)
+	metrics := mainFont.Metrics()
+	textHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent))
+	pad := 2 * gs.Scale
+	barHeight := textHeight + pad*2
+
+	if inputBg == nil || inputBg.Bounds().Dy() != barHeight {
+		inputBg = ebiten.NewImage(gameAreaSizeX*gs.Scale, barHeight)
 		inputBg.Fill(color.RGBA{0, 0, 0, 128})
 	}
+
+	barTop := gameAreaSizeY*gs.Scale - barHeight
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(0, float64(gameAreaSizeY*gs.Scale-(12+1)*gs.Scale))
+	op.GeoM.Translate(0, float64(barTop))
 	screen.DrawImage(inputBg, op)
-	top := gameAreaSizeY*gs.Scale - (12+2)*gs.Scale
+
 	opTxt := &text.DrawOptions{}
-	opTxt.GeoM.Translate(float64(4*gs.Scale), float64(top))
+	opTxt.GeoM.Translate(float64(4*gs.Scale), float64(barTop+pad))
 	opTxt.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, txt, mainFont, opTxt)
 }
