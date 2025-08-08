@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Distortions81/EUI/eui"
 	"github.com/dustin/go-humanize"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/sqweek/dialog"
 
 	"go_client/climg"
 )
@@ -361,6 +363,48 @@ func openLoginWindow() {
 		}
 	}
 	loginFlow.AddItem(addBtn)
+
+	openBtn, openEvents := eui.NewButton(&eui.ItemData{Text: "Open clMov", Size: eui.Point{X: 200, Y: 24}})
+	openEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			filename, err := dialog.File().Filter("clMov files", "clMov", "clmov").Load()
+			if err != nil {
+				if err != dialog.Cancelled {
+					logError("open clMov: %v", err)
+					openErrorWindow("Error: Open clMov: " + err.Error())
+				}
+				return
+			}
+			if filename == "" {
+				return
+			}
+			clmov = filename
+			loginWin.RemoveWindow()
+			loginWin = nil
+			go func() {
+				drawStateEncrypted = false
+				frames, err := parseMovie(filename, clientVersion)
+				if err != nil {
+					logError("parse movie: %v", err)
+					clmov = ""
+					openErrorWindow("Error: Open clMov: " + err.Error())
+					openLoginWindow()
+					return
+				}
+				playerName = extractMoviePlayerName(frames)
+				ctx, cancel := context.WithCancel(gameCtx)
+				mp := newMoviePlayer(frames, clMovFPS, cancel)
+				mp.initUI()
+				if gs.precacheAssets && !assetsPrecached {
+					for !assetsPrecached {
+						time.Sleep(100 * time.Millisecond)
+					}
+				}
+				go mp.run(ctx)
+			}()
+		}
+	}
+	loginFlow.AddItem(openBtn)
 
 	loginFlow.AddItem(charactersList)
 	updateCharacterButtons()
