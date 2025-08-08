@@ -42,11 +42,15 @@ func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
 }
 
 // colourDist returns the squared Euclidean distance between two colours.
+const dt = 15
+
 func colourDist(a, b color.RGBA) int {
 	dr := int(a.R) - int(b.R)
 	dg := int(a.G) - int(b.G)
 	db := int(a.B) - int(b.B)
-	if a.A < 0xFF || b.A < 0xFF {
+	if a.A < 0xFF || b.A < 0xFF ||
+		(a.R < dt && a.G < dt && a.B < dt) ||
+		(b.R < dt && b.G < dt && b.B < dt) {
 		return 195076
 	}
 	return dr*dr + dg*dg + db*db
