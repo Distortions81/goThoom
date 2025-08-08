@@ -410,6 +410,7 @@ func parseDrawState(data []byte) error {
 	}
 	stage = "descriptor"
 	descs := make([]frameDescriptor, 0, descCount)
+	seenNPCs := make(map[string]struct{})
 	for i := 0; i < descCount && p < len(data); i++ {
 		if p+4 > len(data) {
 			return errors.New(stage)
@@ -438,9 +439,13 @@ func parseDrawState(data []byte) error {
 		}
 		d.Colors = append([]byte(nil), data[p:p+cnt]...)
 		p += cnt
-		updatePlayerAppearance(d.Name, d.PictID, d.Colors)
+		updatePlayerAppearance(d.Name, d.PictID, d.Colors, d.Type == kDescNPC)
+		if d.Type == kDescNPC {
+			seenNPCs[d.Name] = struct{}{}
+		}
 		descs = append(descs, d)
 	}
+	pruneNPCs(seenNPCs)
 
 	stage = "stats"
 	if len(data) < p+7 {
