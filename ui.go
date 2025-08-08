@@ -507,17 +507,15 @@ func openSettingsWindow() {
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
 	mainFlow.AddItem(label)
 
-	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 1, MaxValue: 5, Value: float32(gs.Scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
-	scaleEvents.Handle = func(ev eui.UIEvent) {
+	uiScaleSlider, uiScaleEvents := eui.NewSlider(&eui.ItemData{Label: "UI Scaling", MinValue: 0.5, MaxValue: 2.5, Value: float32(gs.UIScale), Size: eui.Point{X: width - 10, Y: 24}})
+	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			gs.Scale = int(ev.Value)
-			initFont()
+			gs.UIScale = float64(ev.Value)
 			resizeUI()
-			ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(scaleSlider)
+	mainFlow.AddItem(uiScaleSlider)
 
 	denoiseCB, denoiseEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Denoise", Size: eui.Point{X: width, Y: 24}, Checked: gs.DenoiseImages})
 	denoiseEvents.Handle = func(ev eui.UIEvent) {

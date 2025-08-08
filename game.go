@@ -274,6 +274,8 @@ func (g *Game) Update() error {
 			}
 			if newScale != gs.Scale {
 				gs.Scale = newScale
+				initFont()
+				settingsDirty = true
 			}
 		}
 	}
@@ -1026,6 +1028,8 @@ func runGame(ctx context.Context) {
 	gameWin.AspectB = 1
 
 	gameWin.AddWindow(false)
+
+	resizeUI()
 
 	initUI()
 
