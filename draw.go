@@ -781,7 +781,7 @@ func parseDrawState(data []byte) error {
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
 			name := bubbleName
-			if bubbleName == thinkUnknownName {
+			if bubbleName == ThinkUnknownName {
 				name = "Someone"
 			} else {
 				stateMu.Lock()
