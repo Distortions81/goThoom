@@ -71,36 +71,36 @@ func Load(path string) (*CLSounds, error) {
 }
 
 // Get returns the decoded sound for the given id. The sound data is loaded
-// on demand and cached for subsequent calls.
-func (c *CLSounds) Get(id uint32) *Sound {
+// on demand and cached for subsequent calls. If the id exists but the sound
+// data cannot be decoded an error is returned.
+func (c *CLSounds) Get(id uint32) (*Sound, error) {
 	c.mu.Lock()
 	if s, ok := c.cache[id]; ok {
 		c.mu.Unlock()
-		return s
+		return s, nil
 	}
 	c.mu.Unlock()
 
 	e, ok := c.index[id]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	if int(e.offset+e.size) > len(c.data) {
-		return nil
+		return nil, fmt.Errorf("sound data out of range")
 	}
 	sndData := c.data[e.offset : e.offset+e.size]
 	hdrOff, ok := soundHeaderOffset(sndData)
 	if !ok || hdrOff+22 > len(sndData) {
-		return nil
+		return nil, fmt.Errorf("missing sound header")
 	}
 	s, err := decodeHeader(sndData, hdrOff, id)
 	if err != nil {
-		log.Printf("sound get error: %v", err)
-		return nil
+		return nil, err
 	}
 	c.mu.Lock()
 	c.cache[id] = s
 	c.mu.Unlock()
-	return s
+	return s, nil
 }
 
 // ClearCache discards all decoded sound data.
