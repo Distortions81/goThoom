@@ -44,6 +44,7 @@ var inputActive bool
 var inputText []rune
 var inputBg *ebiten.Image
 var hudPixel *ebiten.Image
+var staticBuf *ebiten.Image
 var inputHistory []string
 var historyPos int
 
@@ -397,6 +398,40 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
+// drawStaticPictures renders all non-moving pictures into an off-screen buffer
+// and scales that buffer to the screen to avoid seams between textures. The
+// buffer is reused each frame and resized only when necessary.
+func drawStaticPictures(screen *ebiten.Image, pics []framePicture) {
+	if len(pics) == 0 {
+		return
+	}
+	if staticBuf == nil || staticBuf.Bounds().Dx() != gameAreaSizeX || staticBuf.Bounds().Dy() != gameAreaSizeY {
+		staticBuf = ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+	}
+	staticBuf.Clear()
+	for _, p := range pics {
+		frame := 0
+		if clImages != nil {
+			frame = clImages.FrameIndex(uint32(p.PictID), frameCounter)
+		}
+		img := loadImageFrame(p.PictID, frame)
+		if img == nil {
+			continue
+		}
+		w, h := img.Bounds().Dx(), img.Bounds().Dy()
+		x := int(math.Round(float64(p.H))) + fieldCenterX
+		y := int(math.Round(float64(p.V))) + fieldCenterY
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(x-w/2), float64(y-h/2))
+		staticBuf.DrawImage(img, op)
+	}
+	sx, sy := scaleForFiltering(gs.Scale, gameAreaSizeX, gameAreaSizeY)
+	op := &ebiten.DrawImageOptions{}
+	op.Filter = drawFilter
+	op.GeoM.Scale(sx, sy)
+	screen.DrawImage(staticBuf, op)
+}
+
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade float32) {
 	descSlice := make([]frameDescriptor, 0, len(snap.descriptors))
@@ -409,7 +444,23 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		descMap[d.Index] = d
 	}
 
-	sortPictures(snap.pictures)
+	pics := snap.pictures
+	if gs.TextureFiltering {
+		staticPics := make([]framePicture, 0, len(pics))
+		movingPics := make([]framePicture, 0, len(pics))
+		for _, p := range pics {
+			if p.Moving {
+				movingPics = append(movingPics, p)
+			} else {
+				staticPics = append(staticPics, p)
+			}
+		}
+		sortPictures(staticPics)
+		drawStaticPictures(screen, staticPics)
+		pics = movingPics
+	}
+
+	sortPictures(pics)
 
 	dead := make([]frameMobile, 0, len(snap.mobiles))
 	live := make([]frameMobile, 0, len(snap.mobiles))
@@ -425,7 +476,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 	negPics := make([]framePicture, 0)
 	zeroPics := make([]framePicture, 0)
 	posPics := make([]framePicture, 0)
-	for _, p := range snap.pictures {
+	for _, p := range pics {
 		plane := 0
 		if clImages != nil {
 			plane = clImages.Plane(uint32(p.PictID))
