@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"runtime/pprof"
 	"syscall"
 	"time"
@@ -63,6 +64,11 @@ func main() {
 	initSoundContext()
 	applySettings()
 	setupLogging(debug)
+	defer func() {
+		if r := recover(); r != nil {
+			logError("panic: %v\n%s", r, debug.Stack())
+		}
+	}()
 
 	clmovPath := ""
 	if clmov != "" {
@@ -103,12 +109,12 @@ func main() {
 	var err error
 	clImages, err = climg.Load(filepath.Join(baseDir + "/data/CL_Images"))
 	if err != nil {
-		addMessage(fmt.Sprintf("failed to load CL_Images: %v", err))
+		logError("failed to load CL_Images: %v", err)
 	}
 
 	clSounds, err = clsnd.Load(filepath.Join(baseDir + "/data/CL_Sounds"))
 	if err != nil {
-		addMessage(fmt.Sprintf("failed to load CL_Sounds: %v", err))
+		logError("failed to load CL_Sounds: %v", err)
 	}
 
 	if gs.PrecacheAssets {

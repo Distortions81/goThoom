@@ -3,8 +3,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/Distortions81/EUI/eui"
 )
 
@@ -24,6 +22,6 @@ func updateInventoryWindow() {
 		}
 		t, _ := eui.NewText(&eui.ItemData{Text: text})
 		inventoryList.AddItem(t)
-		fmt.Printf("Ivn Name: %v, ID: %v\n", it.Name, it.ID)
+		logDebug("Ivn Name: %v, ID: %v", it.Name, it.ID)
 	}
 }

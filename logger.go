@@ -26,7 +26,7 @@ var (
 func setupLogging(debug bool) {
 	logDir := filepath.Join(baseDir, "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
-		fmt.Printf("could not create log directory: %v\n", err)
+		log.Printf("could not create log directory: %v", err)
 	}
 	ts := time.Now().Format("20060102-150405")
 
@@ -85,7 +85,7 @@ func setDebugLogging(enabled bool) {
 	if enabled {
 		logDir := filepath.Join(baseDir, "logs")
 		if err := os.MkdirAll(logDir, 0755); err != nil {
-			fmt.Printf("could not create log directory: %v\n", err)
+			log.Printf("could not create log directory: %v", err)
 		}
 		ts := time.Now().Format("20060102-150405")
 		debugLogPath = filepath.Join(logDir, fmt.Sprintf("debug-%s.log", ts))
