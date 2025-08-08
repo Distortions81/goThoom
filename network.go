@@ -94,7 +94,7 @@ func readUDPMessage(connection net.Conn) ([]byte, error) {
 	buf := make([]byte, 65535)
 	n, err := connection.Read(buf)
 	if err != nil {
-		logError("read udp: %v", err)
+		//logError("read udp: %v", err)
 		return nil, err
 	}
 	if n < 2 {
