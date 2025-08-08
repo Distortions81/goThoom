@@ -528,20 +528,6 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(scaleSlider)
 
-	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.TextureFiltering})
-	filtEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.TextureFiltering = ev.Checked
-			if gs.TextureFiltering {
-				drawFilter = ebiten.FilterLinear
-			} else {
-				drawFilter = ebiten.FilterNearest
-			}
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(filt)
-
 	denoiseCB, denoiseEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Denoise", Size: eui.Point{X: width, Y: 24}, Checked: gs.DenoiseImages})
 	denoiseEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -568,7 +554,7 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(denoiseSharpSlider)
 
-	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Softening", MinValue: 0, MaxValue: 1, Value: float32(gs.DenoisePercent), Size: eui.Point{X: width - 10, Y: 24}})
+	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Amount", MinValue: 0.1, MaxValue: 0.5, Value: float32(gs.DenoisePercent), Size: eui.Point{X: width - 10, Y: 24}})
 	denoiseAmtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoisePercent = float64(ev.Value)
@@ -590,16 +576,16 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(motion)
 
-	moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: gs.SmoothMoving})
-	moveSmoothEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.SmoothMoving = ev.Checked
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(moveSmoothCB)
+	//moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: gs.SmoothMoving})
+	//moveSmoothEvents.Handle = func(ev eui.UIEvent) {
+	//	if ev.Type == eui.EventCheckboxChanged {
+	//		gs.SmoothMoving = ev.Checked
+	//		settingsDirty = true
+	//	}
+	//}
+	//mainFlow.AddItem(moveSmoothCB)
 
-	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Character Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendMobiles})
+	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Mobile Animation Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendMobiles})
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
@@ -608,7 +594,7 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(anim)
 
-	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "Object Frame Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendPicts})
+	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "World Animation Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendPicts})
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
@@ -616,61 +602,6 @@ func openSettingsWindow() {
 		}
 	}
 	mainFlow.AddItem(pictBlend)
-
-	fastSound, fastSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Quality Sound", Size: eui.Point{X: width, Y: 24}, Checked: gs.FastSound})
-	fastSoundEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.FastSound = ev.Checked
-			settingsDirty = true
-
-			pcmCache = make(map[uint16][]byte)
-
-			if gs.FastSound {
-				resample = resampleFast
-			} else {
-				resample = resampleSincHQ
-			}
-		}
-	}
-	mainFlow.AddItem(fastSound)
-
-	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.PrecacheAssets})
-	precacheEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.PrecacheAssets = ev.Checked
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(precacheCB)
-
-	/*
-		cacheSheetCB, cacheSheetEvents := eui.NewCheckbox(&eui.ItemData{Text: "Cache Whole Sheet", Size: eui.Point{X: width, Y: 24}, Checked: gs.CacheWholeSheet})
-		cacheSheetEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				gs.CacheWholeSheet = ev.Checked
-				settingsDirty = true
-			}
-		}
-		mainFlow.AddItem(cacheSheetCB)
-	*/
-
-	showFPSCB, showFPSEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show FPS", Size: eui.Point{X: width, Y: 24}, Checked: gs.ShowFPS})
-	showFPSEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ShowFPS = ev.Checked
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(showFPSCB)
-
-	lateInputCB, lateInputEvents := eui.NewCheckbox(&eui.ItemData{Text: "Late Input Updates", Size: eui.Point{X: width, Y: 24}, Checked: gs.LateInputUpdates})
-	lateInputEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.LateInputUpdates = ev.Checked
-			settingsDirty = true
-		}
-	}
-	mainFlow.AddItem(lateInputCB)
 
 	mobileBlendSlider, mobileBlendEvents := eui.NewSlider(&eui.ItemData{Label: "Mobile Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.MobileBlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
 	mobileBlendEvents.Handle = func(ev eui.UIEvent) {
@@ -733,6 +664,64 @@ func openDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(nightCB)
+
+	lateInputCB, lateInputEvents := eui.NewCheckbox(&eui.ItemData{Text: "Late Input Updates", Size: eui.Point{X: width, Y: 24}, Checked: gs.LateInputUpdates})
+	lateInputEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.LateInputUpdates = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(lateInputCB)
+
+	showFPSCB, showFPSEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show FPS", Size: eui.Point{X: width, Y: 24}, Checked: gs.ShowFPS})
+	showFPSEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ShowFPS = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(showFPSCB)
+
+	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.PrecacheAssets})
+	precacheEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.PrecacheAssets = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(precacheCB)
+
+	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.TextureFiltering})
+	filtEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.TextureFiltering = ev.Checked
+			if gs.TextureFiltering {
+				drawFilter = ebiten.FilterLinear
+			} else {
+				drawFilter = ebiten.FilterNearest
+			}
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(filt)
+
+	fastSound, fastSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Quality Sound", Size: eui.Point{X: width, Y: 24}, Checked: gs.FastSound})
+	fastSoundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.FastSound = ev.Checked
+			settingsDirty = true
+
+			pcmCache = make(map[uint16][]byte)
+
+			if gs.FastSound {
+				resample = resampleFast
+			} else {
+				resample = resampleSincHQ
+			}
+		}
+	}
+	debugFlow.AddItem(fastSound)
 
 	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.SpeechBubbles})
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
@@ -804,6 +793,19 @@ func openDebugWindow() {
 	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(soundCacheLabel)
 
+	clearCacheBtn, clearCacheEvents := eui.NewButton(&eui.ItemData{Text: "Clear All Caches", Size: eui.Point{X: width, Y: 24}})
+	clearCacheEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			clearCaches()
+			updateDebugStats()
+		}
+	}
+	debugFlow.AddItem(clearCacheBtn)
+	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	debugFlow.AddItem(totalCacheLabel)
+
+	debugWin.AddItem(debugFlow)
+
 	soundTestFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
 	minusTenBtn, minusTenEvents := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 24, Y: 24}})
@@ -865,18 +867,6 @@ func openDebugWindow() {
 
 	debugFlow.AddItem(soundTestFlow)
 
-	clearCacheBtn, clearCacheEvents := eui.NewButton(&eui.ItemData{Text: "Clear All Caches", Size: eui.Point{X: width, Y: 24}})
-	clearCacheEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			clearCaches()
-			updateDebugStats()
-		}
-	}
-	debugFlow.AddItem(clearCacheBtn)
-	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(totalCacheLabel)
-
-	debugWin.AddItem(debugFlow)
 	debugWin.AddWindow(false)
 	updateSoundTestLabel()
 	updateDebugStats()
