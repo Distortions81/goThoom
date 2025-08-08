@@ -40,7 +40,7 @@ func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
-	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 60 fps for 30s")
+	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 30 fps for 30s")
 	flag.Parse()
 	clientVersion = *clientVer
 
