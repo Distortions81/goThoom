@@ -14,7 +14,8 @@ const (
 	thinkToGroup
 )
 
-const thinkUnknownName = "Someone"
+// ThinkUnknownName is used when the sender's name can't be parsed.
+const ThinkUnknownName = "someone"
 
 const (
 	bubbleVerbVerbatim    = "\x01"
@@ -155,6 +156,7 @@ func parseThinkText(raw []byte, text string) (name string, target thinkTarget, m
 		name = strings.TrimSpace(text[:idx])
 		msg = strings.TrimSpace(text[idx+1:])
 	} else {
+		name = ThinkUnknownName
 		msg = strings.TrimSpace(text)
 	}
 
@@ -169,7 +171,7 @@ func parseThinkText(raw []byte, text string) (name string, target thinkTarget, m
 		}
 	}
 
-	if target == thinkNone && name != "" {
+	if target == thinkNone && name != "" && name != ThinkUnknownName {
 		switch {
 		case strings.HasSuffix(name, " to you"):
 			target = thinkToYou
