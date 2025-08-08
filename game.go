@@ -57,6 +57,7 @@ var gameCtx context.Context
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var gameStarted = make(chan struct{})
+var lastWinW, lastWinH int
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -257,6 +258,26 @@ type Game struct{}
 
 func (g *Game) Update() error {
 	eui.Update()
+
+	if gameWin != nil {
+		size := gameWin.GetSize()
+		w, h := int(size.X), int(size.Y)
+		if w != lastWinW || h != lastWinH {
+			lastWinW, lastWinH = w, h
+			ebiten.SetWindowSize(w, h)
+			newScale := w / gameAreaSizeX
+			if s := h / gameAreaSizeY; s < newScale {
+				newScale = s
+			}
+			if newScale < 1 {
+				newScale = 1
+			}
+			if newScale != gs.Scale {
+				gs.Scale = newScale
+			}
+		}
+	}
+
 	updateDebugStats()
 
 	if settingsDirty {
@@ -982,7 +1003,7 @@ func drawInputOverlay(screen *ebiten.Image, ox, oy int, txt string) {
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	eui.Layout(outsideWidth, outsideHeight)
-	return gameAreaSizeX * gs.Scale, gameAreaSizeY * gs.Scale
+	return outsideWidth, outsideHeight
 }
 
 func runGame(ctx context.Context) {
@@ -1009,6 +1030,7 @@ func runGame(ctx context.Context) {
 	initUI()
 
 	ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
+	lastWinW, lastWinH = gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale
 	ebiten.SetWindowTitle("ThoomSpeak")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetVsyncEnabled(gs.vsync)
