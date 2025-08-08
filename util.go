@@ -52,7 +52,7 @@ const (
 )
 
 func hexDump(prefix string, data []byte) {
-	if !debug {
+	if !doDebug {
 		return
 	}
 	log.Printf("%v %d bytes\n%v", prefix, len(data), hex.Dump(data))
@@ -102,7 +102,7 @@ func loadAdditionalErrorNames() {
 
 func init() { loadAdditionalErrorNames() }
 
-var debug bool
+var doDebug bool
 var silent bool
 var ackFrame int32
 var resendFrame int32

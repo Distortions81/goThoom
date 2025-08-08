@@ -168,7 +168,7 @@ func sendPlayerInput(connection net.Conn) error {
 func readTCPMessage(connection net.Conn) ([]byte, error) {
 	var sizeBuf [2]byte
 	if _, err := io.ReadFull(connection, sizeBuf[:]); err != nil {
-		logError("read tcp size: %v", err)
+		//logError("read tcp size: %v", err)
 		return nil, err
 	}
 	sz := binary.BigEndian.Uint16(sizeBuf[:])

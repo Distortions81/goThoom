@@ -33,9 +33,7 @@ for platform in "${platforms[@]}"; do
   env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED="$CGO_ENABLED" \
     go build \
       -trimpath \
-      -buildvcs=false \
-      -gcflags="all=-d=checkptr=0" \
-      -ldflags="-s -w -buildid=" \
+      -ldflags="-s -w" \
       -o "${OUTPUT_DIR}/${BIN_NAME}" .
 
   # Zip it

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -40,7 +39,7 @@ var (
 func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
-	flag.BoolVar(&debug, "debug", false, "verbose/debug logging")
+	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
 	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 60 fps for 30s")
 	flag.Parse()
 	clientVersion = *clientVer
@@ -62,7 +61,7 @@ func main() {
 	loadCharacters()
 	initSoundContext()
 	applySettings()
-	setupLogging(debug)
+	setupLogging(doDebug)
 	defer func() {
 		if r := recover(); r != nil {
 			logPanic(r)
