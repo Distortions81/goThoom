@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"log"
 	"math"
 	"sync"
 
@@ -24,12 +23,18 @@ var (
 	resample     = resampleSincHQ
 
 	playSound = func(id uint16) {
+		logDebug("playSound(%d) called", id)
 		if blockSound {
+			logDebug("playSound(%d) blocked by blockSound", id)
 			return
 		}
-		//logError("sound: %v", id)
 		pcm := loadSound(id)
-		if pcm == nil || audioContext == nil {
+		if pcm == nil {
+			logDebug("playSound(%d) no pcm returned", id)
+			return
+		}
+		if audioContext == nil {
+			logDebug("playSound(%d) no audio context", id)
 			return
 		}
 
@@ -45,12 +50,14 @@ var (
 		}
 		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 			soundMu.Unlock()
+			logDebug("playSound(%d) too many sound players (%d)", id, len(soundPlayers))
 			p.Close()
 			return
 		}
 		soundPlayers[p] = struct{}{}
 		soundMu.Unlock()
 
+		logDebug("playSound(%d) playing", id)
 		p.Play()
 	}
 )
@@ -246,34 +253,44 @@ func highpassIIR16(x []int16, alpha float64) {
 // sample rate, and caches the resulting PCM bytes. The CL_Sounds archive is
 // opened on first use and individual sounds are parsed lazily.
 func loadSound(id uint16) []byte {
+	logDebug("loadSound(%d) called", id)
 	if audioContext == nil {
+		logDebug("loadSound(%d) no audio context", id)
 		return nil
 	}
 
 	soundMu.Lock()
 	if pcm, ok := pcmCache[id]; ok {
 		soundMu.Unlock()
+		if pcm == nil {
+			logDebug("loadSound(%d) cached as missing", id)
+		} else {
+			logDebug("loadSound(%d) cache hit (%d bytes)", id, len(pcm))
+		}
 		return pcm
 	}
 	c := clSounds
 	soundMu.Unlock()
 
 	if c == nil {
+		logDebug("loadSound(%d) CL sounds not loaded", id)
 		return nil
 	}
 
+	logDebug("loadSound(%d) fetching from archive", id)
 	s, err := c.Get(uint32(id))
 	if s == nil {
 		if err != nil {
-			log.Printf("unable to decode sound %d: %v", id, err)
+			logError("unable to decode sound %d: %v", id, err)
 		} else {
-			log.Printf("missing sound %d", id)
+			logError("missing sound %d", id)
 		}
 		soundMu.Lock()
 		pcmCache[id] = nil
 		soundMu.Unlock()
 		return nil
 	}
+	logDebug("loadSound(%d) loaded %d Hz %d-bit %d bytes", id, s.SampleRate, s.Bits, len(s.Data))
 
 	srcRate := int(s.SampleRate / 2)
 	dstRate := audioContext.SampleRate()
@@ -307,6 +324,7 @@ func loadSound(id uint16) []byte {
 	}
 
 	if srcRate != dstRate {
+		logDebug("loadSound(%d) resampling from %d to %d", id, srcRate, dstRate)
 		samples = resample(samples, srcRate, dstRate)
 	}
 
@@ -321,6 +339,7 @@ func loadSound(id uint16) []byte {
 	soundMu.Lock()
 	pcmCache[id] = pcm
 	soundMu.Unlock()
+	logDebug("loadSound(%d) cached %d bytes", id, len(pcm))
 	return pcm
 }
 
