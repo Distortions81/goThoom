@@ -20,7 +20,7 @@ func updateInventoryWindow() {
 		if it.Equipped {
 			text = "* " + text
 		}
-		t, _ := eui.NewText(&eui.ItemData{Text: text})
+		t, _ := eui.NewText(&eui.ItemData{Text: text, Size: eui.Point{X: 256, Y: 24}, FontSize: 10})
 		inventoryList.AddItem(t)
 		logDebug("Ivn Name: %v, ID: %v", it.Name, it.ID)
 	}
