@@ -131,6 +131,7 @@ func picturesSummary(pics []framePicture) string {
 
 var pixelCountMu sync.Mutex
 var pixelCountCache = make(map[uint16]int)
+var nextBubbleID uint8
 
 // nonTransparentPixels returns the number of non-transparent pixels for the
 // given picture ID. The result is cached after the first computation.
@@ -781,29 +782,50 @@ func parseDrawState(data []byte) error {
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
 			name := bubbleName
-			stateMu.Lock()
-			if d, ok := state.descriptors[idx]; ok {
-				if bubbleName != "" {
-					if d.Name != "" {
+			if typ&kBubbleTypeMask == kBubbleThought {
+				name = bubbleName
+				if name == "" {
+					stateMu.Lock()
+					if d, ok := state.descriptors[idx]; ok {
 						name = d.Name
-					} else {
-						d.Name = bubbleName
-						name = bubbleName
 					}
-				} else {
-					name = d.Name
+					stateMu.Unlock()
 				}
+			} else {
+				stateMu.Lock()
+				if d, ok := state.descriptors[idx]; ok {
+					if bubbleName != "" {
+						if d.Name != "" {
+							name = d.Name
+						} else {
+							d.Name = bubbleName
+							name = bubbleName
+						}
+					} else {
+						name = d.Name
+					}
+				}
+				stateMu.Unlock()
 			}
-			stateMu.Unlock()
 			if gs.SpeechBubbles && txt != "" && !blockBubbles {
-				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
+				b := bubble{Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 					b.NoArrow = true
 				}
-				if typ&kBubbleFar != 0 {
-					b.H, b.V = h, v
+				if typ&kBubbleTypeMask == kBubbleThought {
+					b.Index = nextBubbleID
+					nextBubbleID++
+					if typ&kBubbleFar != 0 {
+						b.H, b.V = h, v
+					}
 					b.Far = true
+				} else {
+					b.Index = idx
+					if typ&kBubbleFar != 0 {
+						b.H, b.V = h, v
+						b.Far = true
+					}
 				}
 				stateMu.Lock()
 				state.bubbles = append(state.bubbles, b)

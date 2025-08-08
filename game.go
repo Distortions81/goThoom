@@ -158,7 +158,7 @@ func captureDrawSnapshot() drawSnapshot {
 		kept := state.bubbles[:0]
 		for _, b := range state.bubbles {
 			if b.Expire.After(now) {
-				if !b.Far {
+				if !b.Far && b.Type&kBubbleTypeMask != kBubbleThought {
 					if m, ok := state.mobiles[b.Index]; ok {
 						b.H, b.V = m.H, m.V
 					}
