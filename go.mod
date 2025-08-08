@@ -9,12 +9,14 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/remeh/sizedwaitgroup v1.0.0
+	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
 	golang.org/x/crypto v0.41.0
 )
 
 require github.com/ebitengine/oto/v3 v3.3.3 // indirect
 
 require (
+	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/ebitengine/gomobile v0.0.0-20250329061421-6d0a8e981e4c // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
