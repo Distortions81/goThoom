@@ -444,7 +444,8 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		}
 	}
 	pixelCount = len(data)
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	// Add a 1 pixel transparent border around the decoded image.
+	img := image.NewRGBA(image.Rect(0, 0, width+2, height+2))
 
 	// Determine alpha level and transparency handling based on
 	// sprite definition flags. Some assets (like mobiles) rely on
@@ -468,7 +469,9 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		r = uint8(int(r) * int(a) / 255)
 		g = uint8(int(g) * int(a) / 255)
 		b = uint8(int(b) * int(a) / 255)
-		img.SetRGBA(i%width, i/width, color.RGBA{r, g, b, a})
+		x := i%width + 1
+		y := i/width + 1
+		img.SetRGBA(x, y, color.RGBA{r, g, b, a})
 	}
 
 	if c.Denoise {

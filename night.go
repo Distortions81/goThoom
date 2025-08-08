@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
+	"image/draw"
 	"regexp"
 	"strconv"
 	"strings"
@@ -165,7 +166,10 @@ func init() {
 		if err != nil {
 			return
 		}
-		nightImg = ebiten.NewImageFromImage(img)
+		b := img.Bounds()
+		withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
+		draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
+		nightImg = ebiten.NewImageFromImage(withBorder)
 	}
 }
 
