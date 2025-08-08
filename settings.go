@@ -28,7 +28,7 @@ var gs settings = settings{
 	BlendPicts:       true,
 	BlendAmount:      1.0,
 	DenoiseImages:    false,
-	DenoiseThreshold: 10000,
+	DenoiseSharpness: 4.0,
 	DenoisePercent:   0.2,
 	PrecacheAssets:   false,
 	CacheWholeSheet:  true,
@@ -59,7 +59,7 @@ type settings struct {
 	BlendPicts       bool
 	BlendAmount      float64
 	DenoiseImages    bool
-	DenoiseThreshold int
+	DenoiseSharpness float64
 	DenoisePercent   float64
 	PrecacheAssets   bool
 	CacheWholeSheet  bool
@@ -97,7 +97,7 @@ func loadSettings() bool {
 func applySettings() {
 	if clImages != nil {
 		clImages.Denoise = gs.DenoiseImages
-		clImages.DenoiseThreshold = gs.DenoiseThreshold
+		clImages.DenoiseSharpness = gs.DenoiseSharpness
 		clImages.DenoisePercent = gs.DenoisePercent
 	}
 	if gs.TextureFiltering {

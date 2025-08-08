@@ -3,12 +3,15 @@ package climg
 import (
 	"image"
 	"image/color"
+	"math"
 )
 
-// denoiseImage softens pixels by blending with neighbours within a given
-// colour distance threshold. Only the immediate horizontal and vertical
-// neighbours are considered.
-func denoiseImage(img *image.RGBA, threshold int, percent float64) {
+// denoiseImage softens pixels by blending with neighbours. Pixels that are
+// more similar to their neighbours are blended more strongly while
+// dissimilar pixels are blended less. The sharpness parameter controls how
+// quickly the blend amount falls off as colours become more different. Only
+// the immediate horizontal and vertical neighbours are considered.
+func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
 
@@ -24,8 +27,13 @@ func denoiseImage(img *image.RGBA, threshold int, percent float64) {
 			neighbours := []image.Point{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
 			for _, n := range neighbours {
 				ncol := src.RGBAAt(x+n.X, y+n.Y)
-				if colourDist(c, ncol) <= threshold {
-					c = mixColour(c, ncol, percent)
+				dist := colourDist(c, ncol)
+				nd := float64(dist) / 195075.0
+				if nd < 1 {
+					blend := maxPercent * math.Pow(1-nd, sharpness)
+					if blend > 0 {
+						c = mixColour(c, ncol, blend)
+					}
 				}
 			}
 			img.SetRGBA(x, y, c)
@@ -39,7 +47,7 @@ func colourDist(a, b color.RGBA) int {
 	dg := int(a.G) - int(b.G)
 	db := int(a.B) - int(b.B)
 	if a.A < 0xFF || b.A < 0xFF {
-		return 65536
+		return 195076
 	}
 	return dr*dr + dg*dg + db*db
 }
