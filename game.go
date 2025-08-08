@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -45,6 +46,11 @@ var inputBg *ebiten.Image
 var hudPixel *ebiten.Image
 var inputHistory []string
 var historyPos int
+
+var (
+	recorder            *movieRecorder
+	gPlayersListIsStale bool
+)
 
 // gameWin represents the main playfield window. Its size corresponds to the
 // classic client field box dimensions defined in old_mac_client/client/source/
@@ -1128,6 +1134,12 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			handleDisconnect()
 			return
 		}
+		flags := frameFlags(m)
+		if recorder != nil {
+			if err := recorder.WriteFrame(m, flags); err != nil {
+				logError("record frame: %v", err)
+			}
+		}
 		latencyMu.Lock()
 		if !lastInputSent.IsZero() {
 			rtt := time.Since(lastInputSent)
@@ -1174,6 +1186,12 @@ loop:
 			handleDisconnect()
 			break
 		}
+		flags := frameFlags(m)
+		if recorder != nil {
+			if err := recorder.WriteFrame(m, flags); err != nil {
+				logError("record frame: %v", err)
+			}
+		}
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
 			noteFrame()
@@ -1192,4 +1210,41 @@ loop:
 		default:
 		}
 	}
+}
+
+func frameFlags(m []byte) uint16 {
+	flags := uint16(0)
+	if gPlayersListIsStale {
+		flags |= flagStale
+	}
+	switch {
+	case looksLikeGameState(m):
+		flags |= flagGameState
+	case looksLikeMobileData(m):
+		flags |= flagMobileData
+	case looksLikePictureTable(m):
+		flags |= flagPictureTable
+	}
+	return flags
+}
+
+func looksLikeGameState(m []byte) bool {
+	if i := bytes.IndexByte(m, 0); i >= 0 {
+		rest := m[i+1:]
+		return looksLikePictureTable(rest) || looksLikeMobileData(rest)
+	}
+	return false
+}
+
+func looksLikeMobileData(m []byte) bool {
+	return bytes.Contains(m, []byte{0xff, 0xff, 0xff, 0xff})
+}
+
+func looksLikePictureTable(m []byte) bool {
+	if len(m) < 2 {
+		return false
+	}
+	count := int(binary.BigEndian.Uint16(m[:2]))
+	size := 2 + 6*count + 4
+	return count > 0 && size == len(m)
 }
