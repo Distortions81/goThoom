@@ -228,6 +228,14 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 				}
 				return nil, fmt.Errorf("unsupported format %08x", format)
 			}
+			if bits != 16 {
+				if id != 0 {
+					log.Printf("sound %d: ima4 unsupported bits %d", id, bits)
+				} else {
+					log.Printf("ima4 unsupported bits %d", bits)
+				}
+				return nil, fmt.Errorf("ima4 unsupported bits %d", bits)
+			}
 			if start > len(data) {
 				return nil, fmt.Errorf("data out of range")
 			}
@@ -240,11 +248,20 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 				}
 				return nil, err
 			}
+			expected := frames * int(chans) * (int(bits) / 8)
+			if len(pcm) != expected {
+				if id != 0 {
+					log.Printf("sound %d: ima4 decoded %d bytes, expected %d", id, len(pcm), expected)
+				} else {
+					log.Printf("ima4 decoded %d bytes, expected %d", len(pcm), expected)
+				}
+				return nil, fmt.Errorf("ima4 length mismatch: have %d bytes, expected %d", len(pcm), expected)
+			}
 			s := &Sound{
 				Data:       pcm,
 				SampleRate: rate,
 				Channels:   chans,
-				Bits:       16,
+				Bits:       bits,
 			}
 			return s, nil
 		case -2, -3: // MACE 3:1 or 6:1
