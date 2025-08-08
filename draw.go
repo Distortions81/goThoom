@@ -880,7 +880,9 @@ func parseDrawState(data []byte) error {
 					}
 				}
 			}
-			addMessage(msg)
+			if gs.bubbleMessages {
+				addMessage(msg)
+			}
 		}
 		stateData = stateData[p+end+1:]
 	}

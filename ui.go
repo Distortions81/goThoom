@@ -732,6 +732,15 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(bubbleCB)
 
+	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox(&eui.ItemData{Text: "Bubble Text in Messages", Size: eui.Point{X: width, Y: 24}, Checked: gs.bubbleMessages})
+	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.bubbleMessages = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(bubbleMsgCB)
+
 	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: gs.hideMoving})
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {

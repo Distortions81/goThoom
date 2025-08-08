@@ -338,7 +338,9 @@ func handleInfoText(data []byte) {
 		}
 		if _, txt, _, _, _, _ := decodeBubble(line); txt != "" {
 			//fmt.Println(txt)
-			addMessage(txt)
+			if gs.bubbleMessages {
+				addMessage(txt)
+			}
 			continue
 		}
 		s := strings.TrimSpace(decodeMacRoman(stripBEPPTags(line)))

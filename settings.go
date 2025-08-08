@@ -37,6 +37,7 @@ var gs settings = settings{
 	smoothMoving:     true,
 	fastBars:         true,
 	speechBubbles:    true,
+	bubbleMessages:   false,
 }
 
 type settings struct {
@@ -76,6 +77,7 @@ type settings struct {
 	smoothMoving     bool
 	fastBars         bool
 	speechBubbles    bool
+	bubbleMessages   bool
 }
 
 var settingsDirty bool
