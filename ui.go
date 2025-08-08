@@ -490,6 +490,27 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(labelFontSlider)
 
+	label, _ = eui.NewText(&eui.ItemData{Text: "\nOpacity Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	mainFlow.AddItem(label)
+
+	bubbleOpSlider, bubbleOpEvents := eui.NewSlider(&eui.ItemData{Label: "Message Bubble", MinValue: 0, MaxValue: 1, Value: float32(gs.BubbleOpacity), Size: eui.Point{X: width - 10, Y: 24}})
+	bubbleOpEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.BubbleOpacity = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(bubbleOpSlider)
+
+	nameBgSlider, nameBgEvents := eui.NewSlider(&eui.ItemData{Label: "Name Background", MinValue: 0, MaxValue: 1, Value: float32(gs.NameBgOpacity), Size: eui.Point{X: width - 10, Y: 24}})
+	nameBgEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.NameBgOpacity = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(nameBgSlider)
+
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
 	mainFlow.AddItem(label)
 

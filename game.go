@@ -567,6 +567,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 		if d, ok := descMap[m.Index]; ok {
 			if d.Name != "" {
 				textClr, bgClr, frameClr := mobileNameColors(m.Colors)
+				bgClr.A = uint8(gs.NameBgOpacity * 255)
 				w, h := text.Measure(d.Name, mainFont, 0)
 				iw := int(math.Ceil(w))
 				ih := int(math.Ceil(h))
@@ -585,6 +586,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 						back = 0
 					}
 					barClr := nameBackColors[back]
+					barClr.A = uint8(gs.NameBgOpacity * 255)
 					top := y + size*gs.Scale/2 + 2*gs.Scale
 					left := x - 6*gs.Scale
 					ebitenutil.DrawRect(screen, float64(left), float64(top), float64(12*gs.Scale), float64(2*gs.Scale), barClr)
