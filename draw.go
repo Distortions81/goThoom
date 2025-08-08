@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +48,38 @@ const (
 	maxMobiles     = 512
 	maxBubbles     = 128
 )
+
+func sortPictures(pics []framePicture) {
+	sort.Slice(pics, func(i, j int) bool {
+		pi, pj := 0, 0
+		if clImages != nil {
+			pi = clImages.Plane(uint32(pics[i].PictID))
+			pj = clImages.Plane(uint32(pics[j].PictID))
+		}
+		if pi != pj {
+			return pi < pj
+		}
+		if pics[i].V == pics[j].V {
+			return pics[i].H < pics[j].H
+		}
+		return pics[i].V < pics[j].V
+	})
+}
+
+func sortMobiles(mobs []frameMobile) {
+	sort.Slice(mobs, func(i, j int) bool {
+		if mobs[i].V == mobs[j].V {
+			return mobs[i].H < mobs[j].H
+		}
+		return mobs[i].V < mobs[j].V
+	})
+}
+
+func sortDescriptors(descs []frameDescriptor) {
+	sort.Slice(descs, func(i, j int) bool {
+		return descs[i].Index < descs[j].Index
+	})
+}
 
 // bitReader helps decode the packed picture fields.
 type bitReader struct {

@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"net"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -365,26 +364,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade float32) {
-	descMap := make(map[uint8]frameDescriptor, len(snap.descriptors))
-	for idx, d := range snap.descriptors {
-		descMap[idx] = d
+	descSlice := make([]frameDescriptor, 0, len(snap.descriptors))
+	for _, d := range snap.descriptors {
+		descSlice = append(descSlice, d)
+	}
+	sortDescriptors(descSlice)
+	descMap := make(map[uint8]frameDescriptor, len(descSlice))
+	for _, d := range descSlice {
+		descMap[d.Index] = d
 	}
 
-	sort.Slice(snap.pictures, func(i, j int) bool {
-		pi := 0
-		pj := 0
-		if clImages != nil {
-			pi = clImages.Plane(uint32(snap.pictures[i].PictID))
-			pj = clImages.Plane(uint32(snap.pictures[j].PictID))
-		}
-		if pi != pj {
-			return pi < pj
-		}
-		if snap.pictures[i].V == snap.pictures[j].V {
-			return snap.pictures[i].H < snap.pictures[j].H
-		}
-		return snap.pictures[i].V < snap.pictures[j].V
-	})
+	sortPictures(snap.pictures)
 
 	dead := make([]frameMobile, 0, len(snap.mobiles))
 	live := make([]frameMobile, 0, len(snap.mobiles))
@@ -394,6 +384,8 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 		}
 		live = append(live, m)
 	}
+	sortMobiles(dead)
+	sortMobiles(live)
 
 	negPics := make([]framePicture, 0)
 	zeroPics := make([]framePicture, 0)
@@ -422,26 +414,23 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 		}
 	} else {
-		sort.Slice(dead, func(i, j int) bool { return dead[i].V < dead[j].V })
 		for _, m := range dead {
 			drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
 		}
-
-		sort.Slice(live, func(i, j int) bool { return live[i].V < live[j].V })
 		i, j := 0, 0
+		maxInt := int(^uint(0) >> 1)
 		for i < len(live) || j < len(zeroPics) {
-			var mV, pV int
+			mV, mH := maxInt, maxInt
 			if i < len(live) {
 				mV = int(live[i].V)
-			} else {
-				mV = int(^uint(0) >> 1)
+				mH = int(live[i].H)
 			}
+			pV, pH := maxInt, maxInt
 			if j < len(zeroPics) {
 				pV = int(zeroPics[j].V)
-			} else {
-				pV = int(^uint(0) >> 1)
+				pH = int(zeroPics[j].H)
 			}
-			if mV < pV {
+			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
 					drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
 				}
