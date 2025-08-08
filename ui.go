@@ -102,6 +102,8 @@ func initUI() {
 	overlay.AddItem(helpBtn)
 
 	eui.AddOverlayFlow(overlay)
+
+	openMessagesWindow()
 }
 
 func openDownloadsWindow(status dataFilesStatus) {
