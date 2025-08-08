@@ -995,6 +995,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 				}
 			}
 			logError("udp read error: %v", err)
+			handleDisconnect()
 			return
 		}
 		latencyMu.Lock()
@@ -1040,6 +1041,7 @@ loop:
 				}
 			}
 			logError("read error: %v", err)
+			handleDisconnect()
 			break
 		}
 		tag := binary.BigEndian.Uint16(m[:2])

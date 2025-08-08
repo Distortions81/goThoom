@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -380,7 +381,11 @@ func openLoginWindow() {
 			loginWin.RemoveWindow()
 			loginWin = nil
 			go func() {
-				if err := login(gameCtx, clientVersion); err != nil {
+				ctx, cancel := context.WithCancel(gameCtx)
+				loginMu.Lock()
+				loginCancel = cancel
+				loginMu.Unlock()
+				if err := login(ctx, clientVersion); err != nil {
 					logError("login: %v", err)
 					openErrorWindow("Error: Login: " + err.Error())
 					openLoginWindow()
