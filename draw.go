@@ -268,7 +268,7 @@ func handleDrawState(m []byte) {
 // HandleInventory function.
 func parseInventory(data []byte) ([]byte, bool) {
 	if len(data) == 0 {
-		return nil, false
+		return data, true
 	}
 	cmd := int(data[0])
 	data = data[1:]
@@ -287,6 +287,24 @@ func parseInventory(data []byte) ([]byte, bool) {
 	}
 
 	for i := 0; i < cmdCount; i++ {
+		if cmd&kInvCmdIndex != 0 && (cmd&^kInvCmdIndex == kInvCmdFull || cmd&^kInvCmdIndex == kInvCmdNone) {
+			if len(data) < 1 {
+				logError("inventory: missing index for cmd %x", cmd)
+				return nil, false
+			}
+			// consume the index and drop the flag
+			data = data[1:]
+			cmd &^= kInvCmdIndex
+			if cmd == kInvCmdNone {
+				// nothing else to do
+				if len(data) > 0 {
+					cmd = int(data[0])
+					data = data[1:]
+				}
+				continue
+			}
+		}
+
 		base := cmd &^ kInvCmdIndex
 		switch base {
 		case kInvCmdFull:
@@ -298,12 +316,14 @@ func parseInventory(data []byte) ([]byte, bool) {
 				data = data[1:]
 			}
 			if len(data) < 1 {
+				logError("inventory: full cmd missing count")
 				return nil, false
 			}
 			itemCount := int(data[0])
 			data = data[1:]
 			bytesNeeded := (itemCount+7)>>3 + itemCount*2
 			if len(data) < bytesNeeded {
+				logError("inventory: full cmd truncated")
 				return nil, false
 			}
 			equipBytes := (itemCount + 7) >> 3
@@ -332,6 +352,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 		case kInvCmdAdd, kInvCmdAddEquip, kInvCmdDelete, kInvCmdEquip,
 			kInvCmdUnequip, kInvCmdName:
 			if len(data) < 2 {
+				logError("inventory: cmd %x missing id", cmd)
 				return nil, false
 			}
 			id := binary.BigEndian.Uint16(data[:2])
@@ -339,6 +360,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 			idx := 0
 			if cmd&kInvCmdIndex != 0 {
 				if len(data) < 1 {
+					logError("inventory: cmd %x missing index", cmd)
 					return nil, false
 				}
 				idx = int(data[0])
@@ -348,6 +370,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 			if base == kInvCmdAdd || base == kInvCmdAddEquip || base == kInvCmdName {
 				nidx := bytes.IndexByte(data, 0)
 				if nidx < 0 {
+					logError("inventory: cmd %x missing name", cmd)
 					return nil, false
 				}
 				name = string(data[:nidx])
@@ -368,7 +391,8 @@ func parseInventory(data []byte) ([]byte, bool) {
 				renameInventoryItem(id, idx, name)
 			}
 		default:
-			return nil, false
+			logError("inventory: unknown command %x (%d bytes left)", cmd, len(data))
+			return data, true
 		}
 		if len(data) > 0 {
 			cmd = int(data[0])

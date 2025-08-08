@@ -385,38 +385,51 @@ func (g *Game) Update() error {
 	return nil
 }
 
+func gameContentOrigin() (int, int) {
+	if gameWin == nil {
+		return 0, 0
+	}
+	s := eui.UIScale()
+	pos := gameWin.GetPos()
+	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
+	x := pos.X + frame
+	y := pos.Y + frame + gameWin.GetTitleSize()
+	return int(x), int(y)
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
+	ox, oy := gameContentOrigin()
 	if clmov == "" && tcpConn == nil {
-		drawSplash(screen)
-		drawMessages(screen, getMessages())
+		drawSplash(screen, ox, oy)
+		drawMessages(screen, ox, oy, getMessages())
 		eui.Draw(screen)
 		if gs.ShowFPS {
-			drawServerFPS(screen, serverFPS)
+			drawServerFPS(screen, ox, oy, serverFPS)
 		}
 		return
 	}
 	snap := captureDrawSnapshot()
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
-	drawScene(screen, snap, alpha, mobileFade, pictFade)
+	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
 	if gs.nightEffect {
-		drawNightOverlay(screen)
+		drawNightOverlay(screen, ox, oy)
 	}
-	drawEquippedItems(screen)
-	drawMessages(screen, getMessages())
+	drawEquippedItems(screen, ox, oy)
+	drawMessages(screen, ox, oy, getMessages())
 
 	eui.Draw(screen)
 	if inputActive {
-		drawInputOverlay(screen, string(inputText))
+		drawInputOverlay(screen, ox, oy, string(inputText))
 	}
-	drawStatusBars(screen, snap, alpha)
+	drawStatusBars(screen, ox, oy, snap, alpha)
 	if gs.ShowFPS {
-		drawServerFPS(screen, serverFPS)
+		drawServerFPS(screen, ox, oy, serverFPS)
 	}
 }
 
 // drawScene renders all world objects for the current frame.
-func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
+func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
 	descSlice := make([]frameDescriptor, 0, len(snap.descriptors))
 	for _, d := range snap.descriptors {
 		descSlice = append(descSlice, d)
@@ -459,16 +472,16 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, mobileFad
 	}
 
 	for _, p := range negPics {
-		drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 		}
 	} else {
 		for _, m := range dead {
-			drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
 		}
 		i, j := 0, 0
 		maxInt := int(^uint(0) >> 1)
@@ -485,18 +498,18 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, mobileFad
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
-					drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
 				}
 				i++
 			} else {
-				drawPicture(screen, zeroPics[j], alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 				j++
 			}
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.speechBubbles {
@@ -535,7 +548,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, mobileFad
 }
 
 // drawMobile renders a single mobile object with optional interpolation and onion skinning.
-func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
 	h := float64(m.H)
 	v := float64(m.V)
 	if gs.MotionSmoothing {
@@ -548,8 +561,8 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 			}
 		}
 	}
-	x := (int(math.Round(h)) + fieldCenterX) * gs.Scale
-	y := (int(math.Round(v)) + fieldCenterY) * gs.Scale
+	x := (int(math.Round(h))+fieldCenterX)*gs.Scale + ox
+	y := (int(math.Round(v))+fieldCenterY)*gs.Scale + oy
 	var img *ebiten.Image
 	plane := 0
 	if d, ok := descMap[m.Index]; ok {
@@ -680,7 +693,7 @@ func drawMobile(screen *ebiten.Image, m frameMobile, descMap map[uint8]frameDesc
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
+func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
 	if gs.hideMoving && p.Moving {
 		return
 	}
@@ -720,8 +733,8 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 		}
 	}
 
-	x := (int(math.Round(float64(p.H)+offX+mobileX)) + fieldCenterX) * gs.Scale
-	y := (int(math.Round(float64(p.V)+offY+mobileY)) + fieldCenterY) * gs.Scale
+	x := (int(math.Round(float64(p.H)+offX+mobileX))+fieldCenterX)*gs.Scale + ox
+	y := (int(math.Round(float64(p.V)+offY+mobileY))+fieldCenterY)*gs.Scale + oy
 
 	if img != nil {
 		if gs.BlendPicts && prevImg != nil {
@@ -828,7 +841,7 @@ func lerpBar(prev, cur int, alpha float64) int {
 }
 
 // drawStatusBars renders health, balance and spirit bars.
-func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
+func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64) {
 	if hudPixel == nil {
 		hudPixel = ebiten.NewImage(1, 1)
 		hudPixel.Fill(color.White)
@@ -836,7 +849,7 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 	drawRect := func(x, y, w, h int, clr color.RGBA) {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(w), float64(h))
-		op.GeoM.Translate(float64(x), float64(y))
+		op.GeoM.Translate(float64(ox+x), float64(oy+y))
 		op.ColorM.Scale(float64(clr.R)/255, float64(clr.G)/255, float64(clr.B)/255, float64(clr.A)/255)
 		screen.DrawImage(hudPixel, op)
 	}
@@ -849,7 +862,7 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 	step := barWidth + 2*slot
 	drawBar := func(x int, cur, max int, clr color.RGBA) {
 		frameClr := color.RGBA{0xff, 0xff, 0xff, 0xff}
-		vector.StrokeRect(screen, float32(x-gs.Scale), float32(barY-gs.Scale), float32(barWidth+2*gs.Scale), float32(barHeight+2*gs.Scale), 1, frameClr, false)
+		vector.StrokeRect(screen, float32(ox+x-gs.Scale), float32(oy+barY-gs.Scale), float32(barWidth+2*gs.Scale), float32(barHeight+2*gs.Scale), 1, frameClr, false)
 		if max > 0 && cur > 0 {
 			w := barWidth * cur / max
 			fillClr := color.RGBA{clr.R, clr.G, clr.B, 128}
@@ -870,8 +883,8 @@ func drawStatusBars(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 }
 
 // drawMessages prints chat messages on the HUD.
-func drawMessages(screen *ebiten.Image, msgs []string) {
-	y := (gameAreaSizeY - 50) * gs.Scale
+func drawMessages(screen *ebiten.Image, ox, oy int, msgs []string) {
+	y := oy + (gameAreaSizeY-50)*gs.Scale
 	maxWidth := float64(gameAreaSizeX*gs.Scale - 8*gs.Scale)
 	for i := len(msgs) - 1; i >= 0; i-- {
 		msg := msgs[i]
@@ -880,16 +893,16 @@ func drawMessages(screen *ebiten.Image, msgs []string) {
 		ih := 14 * gs.Scale
 		for j := len(lines) - 1; j >= 0; j-- {
 			y -= 15 * gs.Scale
-			ebitenutil.DrawRect(screen, 0, float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
+			ebitenutil.DrawRect(screen, float64(ox), float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
 			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(4*gs.Scale), float64(y))
+			op.GeoM.Translate(float64(ox+4*gs.Scale), float64(y))
 			op.ColorScale.ScaleWithColor(color.White)
 			text.Draw(screen, lines[j], mainFont, op)
 		}
 	}
 }
 
-func drawServerFPS(screen *ebiten.Image, fps float64) {
+func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
 	if fps <= 0 {
 		return
 	}
@@ -899,16 +912,16 @@ func drawServerFPS(screen *ebiten.Image, fps float64) {
 	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f LAT: %dms", ebiten.ActualFPS(), fps, lat.Milliseconds())
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(4*gs.Scale))
+	op.GeoM.Translate(float64(ox+gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(oy+4*gs.Scale))
 	op.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, msg, mainFont, op)
 }
 
 // drawEquippedItems renders icons for all currently equipped items in the top left.
-func drawEquippedItems(screen *ebiten.Image) {
+func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 	items := getInventory()
-	x := 4 * gs.Scale
-	y := 4 * gs.Scale
+	x := ox + 4*gs.Scale
+	y := oy + 4*gs.Scale
 	drawn := 0
 	for _, it := range items {
 		if !it.Equipped {
@@ -945,7 +958,7 @@ func drawEquippedItems(screen *ebiten.Image) {
 }
 
 // drawInputOverlay renders the text entry box when chatting.
-func drawInputOverlay(screen *ebiten.Image, txt string) {
+func drawInputOverlay(screen *ebiten.Image, ox, oy int, txt string) {
 	metrics := mainFont.Metrics()
 	textHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent))
 	pad := 2 * gs.Scale
@@ -956,13 +969,13 @@ func drawInputOverlay(screen *ebiten.Image, txt string) {
 		inputBg.Fill(color.RGBA{0, 0, 0, 128})
 	}
 
-	barTop := gameAreaSizeY*gs.Scale - barHeight
+	barTop := oy + gameAreaSizeY*gs.Scale - barHeight
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(0, float64(barTop))
+	op.GeoM.Translate(float64(ox), float64(barTop))
 	screen.DrawImage(inputBg, op)
 
 	opTxt := &text.DrawOptions{}
-	opTxt.GeoM.Translate(float64(4*gs.Scale), float64(barTop+pad))
+	opTxt.GeoM.Translate(float64(ox+4*gs.Scale), float64(barTop+pad))
 	opTxt.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, txt, mainFont, opTxt)
 }
