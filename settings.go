@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Distortions81/EUI/eui"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -84,6 +85,8 @@ func loadSettings() bool {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return false
 	}
+
+	eui.SetUIScale(float32(gs.Scale - 1))
 	return true
 }
 

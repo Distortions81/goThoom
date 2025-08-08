@@ -493,11 +493,12 @@ func openSettingsWindow() {
 	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
 	mainFlow.AddItem(label)
 
-	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 2, MaxValue: 5, Value: float32(gs.Scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
+	scaleSlider, scaleEvents := eui.NewSlider(&eui.ItemData{Label: "Scaling", MinValue: 1, MaxValue: 5, Value: float32(gs.Scale), Size: eui.Point{X: width, Y: 24}, IntOnly: true})
 	scaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Scale = int(ev.Value)
 			initFont()
+			eui.SetUIScale(float32(gs.Scale - 1))
 			inputBg = nil
 			ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 			settingsDirty = true
