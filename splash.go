@@ -28,11 +28,11 @@ func init() {
 	splashImg = ebiten.NewImageFromImage(withBorder)
 }
 
-func drawSplash(screen *ebiten.Image) {
+func drawSplash(screen *ebiten.Image, ox, oy int) {
 	if splashImg == nil {
 		return
 	}
-	sw, sh := screen.Size()
+	sw, sh := gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale
 	iw, ih := splashImg.Bounds().Dx(), splashImg.Bounds().Dy()
 	scaleX := float64(sw) / float64(iw)
 	scaleY := float64(sh) / float64(ih)
@@ -42,6 +42,6 @@ func drawSplash(screen *ebiten.Image) {
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(s, s)
-	op.GeoM.Translate((float64(sw)-float64(iw)*s)/2, (float64(sh)-float64(ih)*s)/2)
+	op.GeoM.Translate(float64(ox)+(float64(sw)-float64(iw)*s)/2, float64(oy)+(float64(sh)-float64(ih)*s)/2)
 	screen.DrawImage(splashImg, op)
 }

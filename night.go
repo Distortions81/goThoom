@@ -173,7 +173,7 @@ func init() {
 	}
 }
 
-func drawNightOverlay(screen *ebiten.Image) {
+func drawNightOverlay(screen *ebiten.Image, ox, oy int) {
 	gNight.mu.Lock()
 	lvl := gNight.Level
 	gNight.mu.Unlock()
@@ -190,5 +190,6 @@ func drawNightOverlay(screen *ebiten.Image) {
 	op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
 	alpha := float32(lvl) / 100.0
 	op.ColorScale.ScaleAlpha(alpha)
+	op.GeoM.Translate(float64(ox), float64(oy))
 	screen.DrawImage(img, op)
 }
