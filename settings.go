@@ -29,7 +29,7 @@ var gs settings = settings{
 	BlendAmount:      1.0,
 	DenoiseImages:    true,
 	DenoiseSharpness: 4.0,
-	DenoisePercent:   0.15,
+	DenoisePercent:   0.2,
 	PrecacheAssets:   false,
 	CacheWholeSheet:  true,
 	ShowFPS:          true,
