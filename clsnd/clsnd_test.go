@@ -5,14 +5,16 @@ import "testing"
 // Test that soundHeaderOffset ignores commands other than bufferCmd when the
 // dataOffsetFlag is set.
 func TestSoundHeaderOffsetSkipsNonBufferCommands(t *testing.T) {
+	cmd1 := dataOffsetFlag | 0x10 // not bufferCmd, high bit set
+	cmd2 := dataOffsetFlag | bufferCmd
 	data := []byte{
 		0x00, 0x01, // format 1
 		0x00, 0x00, // nMods
 		0x00, 0x02, // nCmds
-		0x80, 0x10, // cmd1: not bufferCmd, high bit set
+		byte(cmd1 >> 8), byte(cmd1), // cmd1
 		0x00, 0x00, // param1
 		0x00, 0x00, 0x00, 0x00, // param2 (ignored)
-		0x80, 0x00, // cmd2: bufferCmd | dataOffsetFlag
+		byte(cmd2 >> 8), byte(cmd2), // cmd2: bufferCmd | dataOffsetFlag
 		0x00, 0x00, // param1
 		0x00, 0x00, 0x00, 0x20, // param2 -> header offset 32
 	}
