@@ -555,7 +555,7 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(denoiseCB)
 
-	denoiseThSlider, denoiseThEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Threshold", MinValue: 0, MaxValue: 10000, Value: float32(gs.DenoiseThreshold), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
+	denoiseThSlider, denoiseThEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Threshold", MinValue: 0, MaxValue: 65000, Value: float32(gs.DenoiseThreshold), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
 	denoiseThEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoiseThreshold = int(ev.Value)
