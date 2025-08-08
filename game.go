@@ -204,9 +204,11 @@ func captureDrawSnapshot() drawSnapshot {
 }
 
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
-func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha float64, fade float32) {
+// It returns separate fade values for mobiles and pictures based on their respective rates.
+func computeInterpolation(prevTime, curTime time.Time, mobileRate, pictRate float64) (alpha float64, mobileFade, pictFade float32) {
 	alpha = 1.0
-	fade = 1.0
+	mobileFade = 1.0
+	pictFade = 1.0
 	if (gs.MotionSmoothing || gs.BlendMobiles || gs.BlendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
 		elapsed := time.Since(prevTime)
 		interval := curTime.Sub(prevTime)
@@ -219,20 +221,32 @@ func computeInterpolation(prevTime, curTime time.Time, rate float64) (alpha floa
 				alpha = 1
 			}
 		}
-		if gs.BlendMobiles || gs.BlendPicts {
-			half := float64(interval) * rate
+		if gs.BlendMobiles {
+			half := float64(interval) * mobileRate
 			if half > 0 {
-				fade = float32(float64(elapsed) / float64(half))
+				mobileFade = float32(float64(elapsed) / float64(half))
 			}
-			if fade < 0 {
-				fade = 0
+			if mobileFade < 0 {
+				mobileFade = 0
 			}
-			if fade > 1 {
-				fade = 1
+			if mobileFade > 1 {
+				mobileFade = 1
+			}
+		}
+		if gs.BlendPicts {
+			half := float64(interval) * pictRate
+			if half > 0 {
+				pictFade = float32(float64(elapsed) / float64(half))
+			}
+			if pictFade < 0 {
+				pictFade = 0
+			}
+			if pictFade > 1 {
+				pictFade = 1
 			}
 		}
 	}
-	return alpha, fade
+	return alpha, mobileFade, pictFade
 }
 
 type Game struct{}
@@ -378,9 +392,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 	snap := captureDrawSnapshot()
-	alpha, fade := computeInterpolation(snap.prevTime, snap.curTime, gs.BlendAmount)
+	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
-	drawScene(screen, snap, alpha, fade)
+	drawScene(screen, snap, alpha, mobileFade, pictFade)
 	if gs.NightEffect {
 		drawNightOverlay(screen)
 	}
@@ -398,7 +412,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 // drawScene renders all world objects for the current frame.
-func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade float32) {
+func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
 	descSlice := make([]frameDescriptor, 0, len(snap.descriptors))
 	for _, d := range snap.descriptors {
 		descSlice = append(descSlice, d)
@@ -441,16 +455,16 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 	}
 
 	for _, p := range negPics {
-		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+			drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 		}
 	} else {
 		for _, m := range dead {
-			drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
+			drawMobile(screen, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
 		}
 		i, j := 0, 0
 		maxInt := int(^uint(0) >> 1)
@@ -467,18 +481,18 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, fade floa
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
-					drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, fade)
+					drawMobile(screen, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
 				}
 				i++
 			} else {
-				drawPicture(screen, zeroPics[j], alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+				drawPicture(screen, zeroPics[j], alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 				j++
 			}
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, p, alpha, fade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.SpeechBubbles {

@@ -19,22 +19,23 @@ var gs settings = settings{
 	BubbleOpacity:  160.0 / 255.0,
 	NameBgOpacity:  0.7,
 
-	NightEffect:      true,
-	SpeechBubbles:    true,
-	FastBars:         true,
-	MotionSmoothing:  true,
-	SmoothMoving:     true,
-	BlendMobiles:     false,
-	BlendPicts:       true,
-	BlendAmount:      1.0,
-	DenoiseImages:    true,
-	DenoiseSharpness: 4.0,
-	DenoisePercent:   0.2,
-	PrecacheAssets:   false,
-	CacheWholeSheet:  true,
-	ShowFPS:          true,
-	LateInputUpdates: true,
-	Scale:            2,
+	NightEffect:       true,
+	SpeechBubbles:     true,
+	FastBars:          true,
+	MotionSmoothing:   true,
+	SmoothMoving:      true,
+	BlendMobiles:      false,
+	BlendPicts:        true,
+	BlendAmount:       1.0,
+	MobileBlendAmount: 1.0,
+	DenoiseImages:     true,
+	DenoiseSharpness:  4.0,
+	DenoisePercent:    0.2,
+	PrecacheAssets:    false,
+	CacheWholeSheet:   true,
+	ShowFPS:           true,
+	LateInputUpdates:  true,
+	Scale:             2,
 
 	vsync: true,
 }
@@ -50,24 +51,25 @@ type settings struct {
 	BubbleOpacity  float64
 	NameBgOpacity  float64
 
-	NightEffect      bool
-	SpeechBubbles    bool
-	FastBars         bool
-	MotionSmoothing  bool
-	SmoothMoving     bool
-	BlendMobiles     bool
-	BlendPicts       bool
-	BlendAmount      float64
-	DenoiseImages    bool
-	DenoiseSharpness float64
-	DenoisePercent   float64
-	PrecacheAssets   bool
-	CacheWholeSheet  bool
-	ShowFPS          bool
-	LateInputUpdates bool
-	TextureFiltering bool
-	FastSound        bool
-	Scale            int
+	NightEffect       bool
+	SpeechBubbles     bool
+	FastBars          bool
+	MotionSmoothing   bool
+	SmoothMoving      bool
+	BlendMobiles      bool
+	BlendPicts        bool
+	BlendAmount       float64
+	MobileBlendAmount float64
+	DenoiseImages     bool
+	DenoiseSharpness  float64
+	DenoisePercent    float64
+	PrecacheAssets    bool
+	CacheWholeSheet   bool
+	ShowFPS           bool
+	LateInputUpdates  bool
+	TextureFiltering  bool
+	FastSound         bool
+	Scale             int
 
 	imgPlanesDebug bool
 	smoothingDebug bool
