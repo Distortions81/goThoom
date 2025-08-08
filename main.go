@@ -110,6 +110,8 @@ func main() {
 		logError("failed to load CL_Images: %v", err)
 	} else {
 		clImages.Denoise = gs.DenoiseImages
+		clImages.DenoiseThreshold = gs.DenoiseThreshold
+		clImages.DenoisePercent = gs.DenoisePercent
 	}
 
 	clSounds, err = clsnd.Load(filepath.Join(baseDir + "/data/CL_Sounds"))

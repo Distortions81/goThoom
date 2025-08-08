@@ -149,6 +149,8 @@ func openDownloadsWindow(status dataFilesStatus) {
 				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
 					clImages = imgs
 					clImages.Denoise = gs.DenoiseImages
+					clImages.DenoiseThreshold = gs.DenoiseThreshold
+					clImages.DenoisePercent = gs.DenoisePercent
 					clearCaches()
 				} else {
 					logError("load CL_Images: %v", err)
@@ -552,6 +554,32 @@ func openSettingsWindow() {
 		}
 	}
 	mainFlow.AddItem(denoiseCB)
+
+	denoiseThSlider, denoiseThEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Threshold", MinValue: 0, MaxValue: 10000, Value: float32(gs.DenoiseThreshold), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
+	denoiseThEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.DenoiseThreshold = int(ev.Value)
+			if clImages != nil {
+				clImages.DenoiseThreshold = gs.DenoiseThreshold
+			}
+			clearCaches()
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(denoiseThSlider)
+
+	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Softening", MinValue: 0, MaxValue: 1, Value: float32(gs.DenoisePercent), Size: eui.Point{X: width - 10, Y: 24}})
+	denoiseAmtEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.DenoisePercent = float64(ev.Value)
+			if clImages != nil {
+				clImages.DenoisePercent = gs.DenoisePercent
+			}
+			clearCaches()
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(denoiseAmtSlider)
 
 	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: gs.MotionSmoothing})
 	motionEvents.Handle = func(ev eui.UIEvent) {

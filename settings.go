@@ -28,6 +28,8 @@ var gs settings = settings{
 	BlendPicts:       true,
 	BlendAmount:      1.0,
 	DenoiseImages:    false,
+	DenoiseThreshold: 3000,
+	DenoisePercent:   0.5,
 	PrecacheAssets:   false,
 	CacheWholeSheet:  true,
 	ShowFPS:          true,
@@ -57,6 +59,8 @@ type settings struct {
 	BlendPicts       bool
 	BlendAmount      float64
 	DenoiseImages    bool
+	DenoiseThreshold int
+	DenoisePercent   float64
 	PrecacheAssets   bool
 	CacheWholeSheet  bool
 	ShowFPS          bool
@@ -93,6 +97,8 @@ func loadSettings() bool {
 func applySettings() {
 	if clImages != nil {
 		clImages.Denoise = gs.DenoiseImages
+		clImages.DenoiseThreshold = gs.DenoiseThreshold
+		clImages.DenoisePercent = gs.DenoisePercent
 	}
 	if gs.TextureFiltering {
 		drawFilter = ebiten.FilterLinear
