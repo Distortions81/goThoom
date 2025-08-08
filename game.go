@@ -47,6 +47,10 @@ var hudPixel *ebiten.Image
 var inputHistory []string
 var historyPos int
 
+// gameWin represents the main playfield window. Its size corresponds to the
+// classic client field box dimensions defined in old_mac_client/client/source/
+// GameWin_cl.cp and Public_cl.h (Layout.layoFieldBox).
+var gameWin *eui.WindowData
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var gameCtx context.Context
@@ -964,7 +968,7 @@ func drawInputOverlay(screen *ebiten.Image, txt string) {
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	eui.Layout(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
+	eui.Layout(outsideWidth, outsideHeight)
 	return gameAreaSizeX * gs.Scale, gameAreaSizeY * gs.Scale
 }
 
@@ -974,6 +978,16 @@ func runGame(ctx context.Context) {
 
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
+
+	gameWin = eui.NewWindow(&eui.WindowData{
+		Size:      eui.Point{X: float32(gameAreaSizeX * gs.Scale), Y: float32(gameAreaSizeY * gs.Scale)},
+		Closable:  false,
+		Resizable: false,
+		Movable:   false,
+		PinTo:     eui.PIN_TOP_LEFT,
+		Open:      true,
+	})
+	gameWin.AddWindow(false)
 
 	initUI()
 
