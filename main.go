@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime/debug"
 	"runtime/pprof"
 	"syscall"
 	"time"
@@ -66,7 +65,7 @@ func main() {
 	setupLogging(debug)
 	defer func() {
 		if r := recover(); r != nil {
-			logError("panic: %v\n%s", r, debug.Stack())
+			logPanic(r)
 		}
 	}()
 
