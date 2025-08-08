@@ -831,12 +831,13 @@ func drawServerFPS(screen *ebiten.Image, fps float64) {
 	text.Draw(screen, msg, mainFont, op)
 }
 
-// drawEquippedItems renders icons for all currently equipped items in the top left.
+// drawEquippedItems renders icons for all currently equipped items in the top right.
 func drawEquippedItems(screen *ebiten.Image) {
 	items := getInventory()
-	x := 4 * gs.Scale
+	x := gameAreaSizeX*gs.Scale - 4*gs.Scale
 	y := 4 * gs.Scale
-	for _, it := range items {
+	for i := len(items) - 1; i >= 0; i-- {
+		it := items[i]
 		if !it.Equipped {
 			continue
 		}
@@ -844,11 +845,12 @@ func drawEquippedItems(screen *ebiten.Image) {
 		if img == nil {
 			continue
 		}
+		x -= img.Bounds().Dx() * gs.Scale
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
 		op.GeoM.Translate(float64(x), float64(y))
 		screen.DrawImage(img, op)
-		x += img.Bounds().Dx()*gs.Scale + 4*gs.Scale
+		x -= 4 * gs.Scale
 	}
 }
 
