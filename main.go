@@ -110,7 +110,7 @@ func main() {
 		logError("failed to load CL_Images: %v", err)
 	} else {
 		clImages.Denoise = gs.DenoiseImages
-		clImages.DenoiseThreshold = gs.DenoiseThreshold
+		clImages.DenoiseSharpness = gs.DenoiseSharpness
 		clImages.DenoisePercent = gs.DenoisePercent
 	}
 

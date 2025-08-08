@@ -43,7 +43,7 @@ type CLImages struct {
 	cache            map[string]*ebiten.Image
 	mu               sync.Mutex
 	Denoise          bool
-	DenoiseThreshold int
+	DenoiseSharpness float64
 	DenoisePercent   float64
 }
 
@@ -475,7 +475,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	}
 
 	if c.Denoise {
-		denoiseImage(img, c.DenoiseThreshold, c.DenoisePercent)
+		denoiseImage(img, c.DenoiseSharpness, c.DenoisePercent)
 	}
 
 	eimg := ebiten.NewImageFromImage(img)

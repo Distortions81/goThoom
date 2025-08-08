@@ -149,7 +149,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
 					clImages = imgs
 					clImages.Denoise = gs.DenoiseImages
-					clImages.DenoiseThreshold = gs.DenoiseThreshold
+					clImages.DenoiseSharpness = gs.DenoiseSharpness
 					clImages.DenoisePercent = gs.DenoisePercent
 					clearCaches()
 				} else {
@@ -555,18 +555,18 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(denoiseCB)
 
-	denoiseThSlider, denoiseThEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Threshold", MinValue: 0, MaxValue: 65000, Value: float32(gs.DenoiseThreshold), Size: eui.Point{X: width - 10, Y: 24}, IntOnly: true})
-	denoiseThEvents.Handle = func(ev eui.UIEvent) {
+	denoiseSharpSlider, denoiseSharpEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Sharpness", MinValue: 0.1, MaxValue: 8, Value: float32(gs.DenoiseSharpness), Size: eui.Point{X: width - 10, Y: 24}})
+	denoiseSharpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			gs.DenoiseThreshold = int(ev.Value)
+			gs.DenoiseSharpness = float64(ev.Value)
 			if clImages != nil {
-				clImages.DenoiseThreshold = gs.DenoiseThreshold
+				clImages.DenoiseSharpness = gs.DenoiseSharpness
 			}
 			clearCaches()
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(denoiseThSlider)
+	mainFlow.AddItem(denoiseSharpSlider)
 
 	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Softening", MinValue: 0, MaxValue: 1, Value: float32(gs.DenoisePercent), Size: eui.Point{X: width - 10, Y: 24}})
 	denoiseAmtEvents.Handle = func(ev eui.UIEvent) {
