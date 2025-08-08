@@ -27,9 +27,14 @@ var (
 		if blockSound {
 			return
 		}
-		//logError("sound: %v", id)
+		// logError("sound: %v", id)
 		pcm := loadSound(id)
-		if pcm == nil || audioContext == nil {
+		if pcm == nil {
+			log.Printf("pcm is nil for sound %d", id)
+			return
+		}
+		if audioContext == nil {
+			log.Printf("audioContext is nil; cannot play sound %d", id)
 			return
 		}
 
@@ -46,6 +51,7 @@ var (
 		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 			soundMu.Unlock()
 			p.Close()
+			log.Printf("max sound limit %d reached; skipping sound %d", maxSounds, id)
 			return
 		}
 		soundPlayers[p] = struct{}{}
@@ -247,6 +253,7 @@ func highpassIIR16(x []int16, alpha float64) {
 // opened on first use and individual sounds are parsed lazily.
 func loadSound(id uint16) []byte {
 	if audioContext == nil {
+		log.Printf("audioContext is nil; cannot load sound %d", id)
 		return nil
 	}
 
@@ -259,6 +266,8 @@ func loadSound(id uint16) []byte {
 
 	soundMu.Lock()
 	if clSounds == nil {
+		soundMu.Unlock()
+		log.Printf("clSounds is nil; cannot load sound %d", id)
 		return nil
 	}
 	soundMu.Unlock()
@@ -304,6 +313,7 @@ func loadSound(id uint16) []byte {
 		}
 		//highpassIIR16(samples, 0.995)
 	default:
+		log.Printf("unsupported bits depth %d for sound %d", s.Bits, id)
 		return nil
 	}
 
