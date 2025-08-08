@@ -781,20 +781,24 @@ func parseDrawState(data []byte) error {
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
 			name := bubbleName
-			stateMu.Lock()
-			if d, ok := state.descriptors[idx]; ok {
-				if bubbleName != "" {
-					if d.Name != "" {
-						name = d.Name
+			if bubbleName == thinkUnknownName {
+				name = "Someone"
+			} else {
+				stateMu.Lock()
+				if d, ok := state.descriptors[idx]; ok {
+					if bubbleName != "" {
+						if d.Name != "" {
+							name = d.Name
+						} else {
+							d.Name = bubbleName
+							name = bubbleName
+						}
 					} else {
-						d.Name = bubbleName
-						name = bubbleName
+						name = d.Name
 					}
-				} else {
-					name = d.Name
 				}
+				stateMu.Unlock()
 			}
-			stateMu.Unlock()
 			if gs.SpeechBubbles && txt != "" && !blockBubbles {
 				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
 				switch typ & kBubbleTypeMask {

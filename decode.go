@@ -14,6 +14,8 @@ const (
 	thinkToGroup
 )
 
+const thinkUnknownName = "Someone"
+
 const (
 	bubbleVerbVerbatim    = "\x01"
 	bubbleVerbParentheses = "\x02"
