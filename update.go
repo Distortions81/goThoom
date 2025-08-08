@@ -14,36 +14,46 @@ import (
 const defaultUpdateBase = "https://www.deltatao.com/downloads/clanlord"
 
 func downloadGZ(url, dest string) error {
-	defer fmt.Println()
 	addMessage(fmt.Sprintf("Downloading: %v...", url))
 
 	resp, err := http.Get(url)
 	if err != nil {
+		logError("GET %v: %v", url, err)
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %v: %v", url, resp.Status)
+		err := fmt.Errorf("GET %v: %v", url, resp.Status)
+		logError("download %v: %v", url, err)
+		return err
 	}
 	gz, err := gzip.NewReader(resp.Body)
 	if err != nil {
+		logError("gzip reader %v: %v", url, err)
 		return err
 	}
 	defer gz.Close()
 	tmp := dest + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
+		logError("create %v: %v", tmp, err)
 		return err
 	}
 	if _, err := io.Copy(f, gz); err != nil {
 		f.Close()
+		logError("copy %v: %v", tmp, err)
 		return err
 	}
 	if err := f.Close(); err != nil {
+		logError("close %v: %v", tmp, err)
 		return err
 	}
 	addMessage("Download complete.")
-	return os.Rename(tmp, dest)
+	if err := os.Rename(tmp, dest); err != nil {
+		logError("rename %v to %v: %v", tmp, dest, err)
+		return err
+	}
+	return nil
 }
 
 func autoUpdate(resp []byte, dataDir string) error {
@@ -51,6 +61,7 @@ func autoUpdate(resp []byte, dataDir string) error {
 		return fmt.Errorf("short response for update")
 	}
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		logError("create %v: %v", dataDir, err)
 		return err
 	}
 	base := string(resp[16:])
@@ -63,15 +74,17 @@ func autoUpdate(resp []byte, dataDir string) error {
 	imgVer := binary.BigEndian.Uint32(resp[8:12])
 	sndVer := binary.BigEndian.Uint32(resp[12:16])
 	imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", base, imgVer>>8)
-	fmt.Println("downloading", imgURL)
+	logDebug("downloading %v", imgURL)
 	imgPath := filepath.Join(dataDir, "CL_Images")
 	if err := downloadGZ(imgURL, imgPath); err != nil {
+		logError("download %v: %v", imgURL, err)
 		return err
 	}
 	sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", base, sndVer>>8)
-	fmt.Println("downloading", sndURL)
+	logDebug("downloading %v", sndURL)
 	sndPath := filepath.Join(dataDir, "CL_Sounds")
 	if err := downloadGZ(sndURL, sndPath); err != nil {
+		logError("download %v: %v", sndURL, err)
 		return err
 	}
 	return nil
@@ -87,22 +100,20 @@ func checkDataFiles(baseDir string, clientVer int) (dataFilesStatus, error) {
 	var status dataFilesStatus
 	imgPath := filepath.Join(baseDir, "CL_Images")
 	if v, err := readKeyFileVersion(imgPath); err != nil {
-		if os.IsNotExist(err) {
-			status.NeedImages = true
-		} else {
-			status.NeedImages = true
+		if !os.IsNotExist(err) {
+			logError("read %v: %v", imgPath, err)
 		}
+		status.NeedImages = true
 	} else if int(v>>8) != clientVer {
 		status.NeedImages = true
 	}
 
 	sndPath := filepath.Join(baseDir, "CL_Sounds")
 	if v, err := readKeyFileVersion(sndPath); err != nil {
-		if os.IsNotExist(err) {
-			status.NeedSounds = true
-		} else {
-			status.NeedSounds = true
+		if !os.IsNotExist(err) {
+			logError("read %v: %v", sndPath, err)
 		}
+		status.NeedSounds = true
 	} else if int(v>>8) != clientVer {
 		status.NeedSounds = true
 	}
@@ -118,12 +129,14 @@ func checkDataFiles(baseDir string, clientVer int) (dataFilesStatus, error) {
 
 func downloadDataFiles(baseDir string, clientVer int, status dataFilesStatus) error {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		logError("create %v: %v", baseDir, err)
 		return err
 	}
 	if status.NeedImages {
 		imgPath := filepath.Join(baseDir, "CL_Images")
 		imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", defaultUpdateBase, clientVer)
 		if err := downloadGZ(imgURL, imgPath); err != nil {
+			logError("download %v: %v", imgURL, err)
 			return fmt.Errorf("download CL_Images: %w", err)
 		}
 	}
@@ -131,6 +144,7 @@ func downloadDataFiles(baseDir string, clientVer int, status dataFilesStatus) er
 		sndPath := filepath.Join(baseDir, "CL_Sounds")
 		sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", defaultUpdateBase, clientVer)
 		if err := downloadGZ(sndURL, sndPath); err != nil {
+			logError("download %v: %v", sndURL, err)
 			return fmt.Errorf("download CL_Sounds: %w", err)
 		}
 	}

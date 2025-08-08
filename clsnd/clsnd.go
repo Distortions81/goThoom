@@ -3,6 +3,7 @@ package clsnd
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 )
@@ -36,15 +37,15 @@ const (
 func Load(path string) (*CLSounds, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Println("CL_Sounds file missing.")
+		log.Printf("CL_Sounds file missing.")
 		return nil, err
 	}
 	if len(data) < 12 {
-		fmt.Println("CL_Sounds may be corrupt.")
+		log.Printf("CL_Sounds may be corrupt.")
 		return nil, fmt.Errorf("short file")
 	}
 	if binary.BigEndian.Uint16(data[:2]) != 0xffff {
-		fmt.Println("CL_Sounds invalid.")
+		log.Printf("CL_Sounds invalid.")
 		return nil, fmt.Errorf("bad header")
 	}
 	r := data[2:]
@@ -54,7 +55,7 @@ func Load(path string) (*CLSounds, error) {
 	idx := make(map[uint32]entry, entryCount)
 	for i := uint32(0); i < entryCount; i++ {
 		if len(r) < 16 {
-			fmt.Println("CL_Sounds may be corrupt.")
+			log.Printf("CL_Sounds may be corrupt.")
 			return nil, fmt.Errorf("truncated table")
 		}
 		off := binary.BigEndian.Uint32(r[0:4])
@@ -93,7 +94,7 @@ func (c *CLSounds) Get(id uint32) *Sound {
 	}
 	s, err := decodeHeader(sndData, hdrOff, id)
 	if err != nil {
-		fmt.Printf("sound get error: %v\n", err)
+		log.Printf("sound get error: %v", err)
 		return nil
 	}
 	c.mu.Lock()
@@ -161,11 +162,11 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			return nil, fmt.Errorf("data out of range")
 		}
 		if end := start + length; end > len(data) {
-			fmt.Printf("truncated sound data")
 			if id != 0 {
-				fmt.Printf(" for id %d", id)
+				log.Printf("truncated sound data for id %d: have %d bytes, expected %d", id, len(data)-start, length)
+			} else {
+				log.Printf("truncated sound data: have %d bytes, expected %d", len(data)-start, length)
 			}
-			fmt.Printf(": have %d bytes, expected %d\n", len(data)-start, length)
 			length = len(data) - start
 		}
 		s := &Sound{
@@ -197,11 +198,11 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			return nil, fmt.Errorf("data out of range")
 		}
 		if length > len(data)-start {
-			fmt.Printf("truncated sound data")
 			if id != 0 {
-				fmt.Printf(" for id %d", id)
+				log.Printf("truncated sound data for id %d: have %d bytes, expected %d", id, len(data)-start, length)
+			} else {
+				log.Printf("truncated sound data: have %d bytes, expected %d", len(data)-start, length)
 			}
-			fmt.Printf(": have %d bytes, expected %d\n", len(data)-start, length)
 			length = len(data) - start
 		}
 		s := &Sound{
@@ -227,11 +228,11 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			return nil, fmt.Errorf("data out of range")
 		}
 		if length > len(data)-start {
-			fmt.Printf("truncated sound data")
 			if id != 0 {
-				fmt.Printf(" for id %d", id)
+				log.Printf("truncated sound data for id %d: have %d bytes, expected %d", id, len(data)-start, length)
+			} else {
+				log.Printf("truncated sound data: have %d bytes, expected %d", len(data)-start, length)
 			}
-			fmt.Printf(": have %d bytes, expected %d\n", len(data)-start, length)
 			length = len(data) - start
 		}
 		s := &Sound{

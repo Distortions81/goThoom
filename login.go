@@ -89,7 +89,7 @@ func login(ctx context.Context, clientVersion int) error {
 			udpConn.Close()
 			return fmt.Errorf("send identifiers: %w", err)
 		}
-		fmt.Println("connected to", host)
+		logDebug("connected to %v", host)
 
 		msg, err := readTCPMessage(tcpConn)
 		if err != nil {
@@ -131,14 +131,14 @@ func login(ctx context.Context, clientVersion int) error {
 			}
 			if demo {
 				name = names[rand.Intn(len(names))]
-				fmt.Println("selected demo character:", name)
+				logDebug("selected demo character: %v", name)
 				pass = "demo"
 			} else {
 				selected := false
 				if name != "" {
 					for _, n := range names {
 						if n == name {
-							fmt.Println("selected character:", name)
+							logDebug("selected character: %v", name)
 							selected = true
 							break
 						}
@@ -150,29 +150,29 @@ func login(ctx context.Context, clientVersion int) error {
 				if !selected {
 					if len(names) == 1 {
 						name = names[0]
-						fmt.Println("selected character:", name)
+						logDebug("selected character: %v", name)
 					} else {
-						fmt.Println("available characters:")
+						logDebug("available characters:")
 						for i, n := range names {
-							fmt.Printf("%d) %v\n", i+1, n)
+							logDebug("%d) %v", i+1, n)
 						}
-						fmt.Print("select character: ")
+						logDebug("select character: ")
 						var choice int
 						for {
 							if _, err := fmt.Scanln(&choice); err != nil || choice < 1 || choice > len(names) {
-								fmt.Printf("enter a number between 1 and %d: ", len(names))
+								logDebug("enter a number between 1 and %d: ", len(names))
 								continue
 							}
 							break
 						}
 						name = names[choice-1]
-						fmt.Println("selected character:", name)
+						logDebug("selected character: %v", name)
 					}
 				}
 			}
 		}
 		if pass == "" && passHash == "" && !demo {
-			fmt.Print("enter character password: ")
+			logDebug("enter character password: ")
 			fmt.Scanln(&pass)
 		}
 		playerName = name
@@ -238,13 +238,13 @@ func login(ctx context.Context, clientVersion int) error {
 		}
 
 		if result == -30972 || result == -30973 {
-			fmt.Println("server requested update, downloading...")
+			logDebug("server requested update, downloading...")
 			if err := autoUpdate(resp, dataDir); err != nil {
 				tcpConn.Close()
 				udpConn.Close()
 				return fmt.Errorf("auto update: %w", err)
 			}
-			fmt.Println("update complete, reconnecting...")
+			logDebug("update complete, reconnecting...")
 			tcpConn.Close()
 			udpConn.Close()
 			continue
@@ -259,7 +259,7 @@ func login(ctx context.Context, clientVersion int) error {
 			return fmt.Errorf("login failed: %d", result)
 		}
 
-		fmt.Println("login succeeded, reading messages (Ctrl-C to quit)...")
+		logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
 
 		if err := sendPlayerInput(udpConn); err != nil {
 			logError("send player input: %v", err)
