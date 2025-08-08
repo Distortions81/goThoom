@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"image"
+	"image/draw"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -21,7 +22,10 @@ func init() {
 		log.Printf("decode splash: %v", err)
 		return
 	}
-	splashImg = ebiten.NewImageFromImage(img)
+	b := img.Bounds()
+	withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
+	draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
+	splashImg = ebiten.NewImageFromImage(withBorder)
 }
 
 func drawSplash(screen *ebiten.Image) {
