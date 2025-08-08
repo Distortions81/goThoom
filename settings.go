@@ -90,7 +90,7 @@ func loadSettings() bool {
 		return false
 	}
 
-	eui.SetUIScale(float32(gs.Scale - 1))
+	resizeUI()
 	return true
 }
 
@@ -117,4 +117,13 @@ func saveSettings() {
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}
+}
+
+func resizeUI() {
+	var val float32 = 1.0
+	if gs.Scale == 1 {
+		val = 0.5
+	}
+
+	eui.SetUIScale(val)
 }

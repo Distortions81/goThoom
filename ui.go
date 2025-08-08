@@ -519,7 +519,7 @@ func openSettingsWindow() {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Scale = int(ev.Value)
 			initFont()
-			eui.SetUIScale(float32(gs.Scale - 1))
+			resizeUI()
 			inputBg = nil
 			ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 			settingsDirty = true
