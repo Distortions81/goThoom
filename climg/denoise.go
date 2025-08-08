@@ -10,7 +10,9 @@ import (
 // more similar to their neighbours are blended more strongly while
 // dissimilar pixels are blended less. The sharpness parameter controls how
 // quickly the blend amount falls off as colours become more different. Only
-// the immediate horizontal and vertical neighbours are considered.
+// the immediate horizontal and vertical neighbours are considered. If all of
+// those neighbours are transparent they are still blended to soften isolated
+// pixels.
 func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
@@ -25,9 +27,21 @@ func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
 
 			// Check only direct neighbours.
 			neighbours := []image.Point{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+
+			allTransparent := true
+			for _, n := range neighbours {
+				if src.RGBAAt(x+n.X, y+n.Y).A != 0 {
+					allTransparent = false
+					break
+				}
+			}
+
 			for _, n := range neighbours {
 				ncol := src.RGBAAt(x+n.X, y+n.Y)
 				dist := colourDist(c, ncol)
+				if allTransparent {
+					dist = 0
+				}
 				nd := float64(dist) / 195075.0
 				if nd < 1 {
 					blend := maxPercent * math.Pow(1-nd, sharpness)
