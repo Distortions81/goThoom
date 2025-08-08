@@ -33,6 +33,8 @@ var (
 	totalCacheLabel  *eui.ItemData
 	soundTestLabel   *eui.ItemData
 	soundTestID      int
+	recordBtn        *eui.ItemData
+	recordStatus     *eui.ItemData
 )
 
 func initUI() {
@@ -102,6 +104,67 @@ func initUI() {
 		}
 	}
 	overlay.AddItem(helpBtn)
+
+	recordBtn, recordEvents := eui.NewButton(&eui.ItemData{Text: "Record Movie", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	recordEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		if recorder != nil {
+			if err := recorder.Close(); err != nil {
+				logError("close recorder: %v", err)
+			}
+			recorder = nil
+			recordBtn.Text = "Record Movie"
+			recordBtn.Dirty = true
+			if recordStatus != nil {
+				recordStatus.Text = ""
+				recordStatus.Dirty = true
+			}
+			return
+		}
+		recDir := filepath.Join(baseDir, "recordings")
+		if err := os.MkdirAll(recDir, 0755); err != nil {
+			logError("create recordings dir: %v", err)
+			openErrorWindow("Error: Record Movie: " + err.Error())
+			return
+		}
+		name := gs.LastCharacter
+		if playerName != "" {
+			name = playerName
+		}
+		if name == "" {
+			name = "recording"
+		}
+		defName := fmt.Sprintf("%s_%s.clMov", name, time.Now().Format("20060102_150405"))
+		filename, err := dialog.File().Filter("clMov files", "clMov", "clmov").SetStartDir(recDir).SetStartFile(defName).Title("Record Movie").Save()
+		if err != nil {
+			if err != dialog.ErrCancelled {
+				logError("record movie save: %v", err)
+				openErrorWindow("Error: Record Movie: " + err.Error())
+			}
+			return
+		}
+		if filename == "" {
+			return
+		}
+		rec, err := newMovieRecorder(filename, clientVersion, int(movieRevision))
+		if err != nil {
+			logError("start recorder: %v", err)
+			openErrorWindow("Error: Record Movie: " + err.Error())
+			return
+		}
+		recorder = rec
+		recordBtn.Text = "Stop Recording"
+		recordBtn.Dirty = true
+		if recordStatus != nil {
+			recordStatus.Text = "REC"
+			recordStatus.Dirty = true
+		}
+	}
+	overlay.AddItem(recordBtn)
+	recordStatus, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 80, Y: 24}, FontSize: 18, Color: eui.ColorRed})
+	overlay.AddItem(recordStatus)
 
 	eui.AddOverlayFlow(overlay)
 
