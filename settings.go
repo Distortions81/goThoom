@@ -17,6 +17,8 @@ var gs settings = settings{
 	KBWalkSpeed:    0.25,
 	MainFontSize:   8,
 	BubbleFontSize: 6,
+	BubbleOpacity:  160.0 / 255.0,
+	NameBgOpacity:  1.0,
 
 	NightEffect:      true,
 	SpeechBubbles:    true,
@@ -44,6 +46,8 @@ type settings struct {
 	KBWalkSpeed    float64
 	MainFontSize   float64
 	BubbleFontSize float64
+	BubbleOpacity  float64
+	NameBgOpacity  float64
 
 	NightEffect      bool
 	SpeechBubbles    bool
