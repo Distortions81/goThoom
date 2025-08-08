@@ -999,7 +999,10 @@ func runGame(ctx context.Context) {
 	gameWin.Resizable = true
 	gameWin.Movable = true
 	gameWin.Open = true
-	gameWin.BGColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
+	gameWin.MainPortal = true
+	gameWin.FixedRatio = true
+	gameWin.AspectA = 1
+	gameWin.AspectB = 1
 
 	gameWin.AddWindow(false)
 
