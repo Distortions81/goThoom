@@ -53,6 +53,9 @@ var (
 	intervalHist  = map[int]int{}
 	frameMu       sync.Mutex
 	serverFPS     float64
+	netLatency    time.Duration
+	lastInputSent time.Time
+	latencyMu     sync.Mutex
 )
 
 // drawState tracks information needed by the Ebiten renderer.
@@ -827,7 +830,10 @@ func drawServerFPS(screen *ebiten.Image, fps float64) {
 	if fps <= 0 {
 		return
 	}
-	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f", ebiten.ActualFPS(), fps)
+	latencyMu.Lock()
+	lat := netLatency
+	latencyMu.Unlock()
+	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f LAT: %dms", ebiten.ActualFPS(), fps, lat.Milliseconds())
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(4*gs.Scale))
@@ -929,6 +935,15 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 		if delay <= 0 {
 			delay = 200 * time.Millisecond
 		}
+		if gs.LateInputUpdates {
+			latencyMu.Lock()
+			lat := netLatency
+			latencyMu.Unlock()
+			delay = (interval*3)/4 - lat
+			if delay < 0 {
+				delay = 0
+			}
+		}
 		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
@@ -967,6 +982,17 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			logError("udp read error: %v", err)
 			return
 		}
+		latencyMu.Lock()
+		if !lastInputSent.IsZero() {
+			rtt := time.Since(lastInputSent)
+			if netLatency == 0 {
+				netLatency = rtt
+			} else {
+				netLatency = (netLatency*7 + rtt) / 8
+			}
+			lastInputSent = time.Time{}
+		}
+		latencyMu.Unlock()
 		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
 			noteFrame()
