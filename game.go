@@ -357,6 +357,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if inputActive {
 		drawInputOverlay(screen, string(inputText))
 	}
+	drawEquippedItems(screen)
 	drawStatusBars(screen, snap, alpha)
 	if gs.ShowFPS {
 		drawServerFPS(screen, serverFPS)
@@ -839,6 +840,27 @@ func drawServerFPS(screen *ebiten.Image, fps float64) {
 	op.GeoM.Translate(float64(gameAreaSizeX*gs.Scale)-w-float64(4*gs.Scale), float64(4*gs.Scale))
 	op.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, msg, mainFont, op)
+}
+
+// drawEquippedItems renders icons for all currently equipped items in the top left.
+func drawEquippedItems(screen *ebiten.Image) {
+	items := getInventory()
+	x := 4 * gs.Scale
+	y := 4 * gs.Scale
+	for _, it := range items {
+		if !it.Equipped {
+			continue
+		}
+		img := loadImage(it.ID)
+		if img == nil {
+			continue
+		}
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
+		op.GeoM.Translate(float64(x), float64(y))
+		screen.DrawImage(img, op)
+		x += img.Bounds().Dx()*gs.Scale + 4*gs.Scale
+	}
 }
 
 // drawInputOverlay renders the text entry box when chatting.
