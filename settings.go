@@ -14,7 +14,7 @@ var gs settings = settings{
 	Version: 1,
 
 	KBWalkSpeed:    0.25,
-	MainFontSize:   8,
+	MainFontSize:   6,
 	BubbleFontSize: 6,
 	BubbleOpacity:  160.0 / 255.0,
 	NameBgOpacity:  0.7,
