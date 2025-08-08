@@ -68,7 +68,7 @@ func initSoundContext() {
 
 	rate := 44100
 
-	if gs.FastSound {
+	if gs.fastSound {
 		resample = resampleFast
 	} else {
 		resample = resampleSincHQ
@@ -299,7 +299,7 @@ func loadSound(id uint16) []byte {
 	var samples []int16
 	switch s.Bits {
 	case 8:
-		if gs.FastSound {
+		if gs.fastSound {
 			samples = make([]int16, len(s.Data))
 			for i, b := range s.Data {
 				v := int16(b) - 0x80

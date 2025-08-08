@@ -119,7 +119,7 @@ func main() {
 		logError("failed to load CL_Sounds: %v", err)
 	}
 
-	if gs.PrecacheAssets {
+	if gs.precacheAssets {
 		go precacheAssets()
 	}
 
@@ -135,7 +135,7 @@ func main() {
 		mp := newMoviePlayer(frames, clMovFPS, cancel)
 		mp.initUI()
 
-		if gs.PrecacheAssets && !assetsPrecached {
+		if gs.precacheAssets && !assetsPrecached {
 			for !assetsPrecached {
 				time.Sleep(time.Millisecond * 100)
 			}

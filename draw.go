@@ -587,7 +587,7 @@ func parseDrawState(data []byte) error {
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-	if gs.MotionSmoothing && gs.SmoothMoving {
+	if gs.MotionSmoothing && gs.smoothMoving {
 		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 		if !ok {
 			logDebug("prev pics: %v", picturesSummary(prevPics))
@@ -645,7 +645,7 @@ func parseDrawState(data []byte) error {
 				}
 			}
 		}
-		if moving && gs.SmoothMoving {
+		if moving && gs.smoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
 			var best *framePicture
 			for j := range prevPics {
@@ -799,7 +799,7 @@ func parseDrawState(data []byte) error {
 				}
 				stateMu.Unlock()
 			}
-			if gs.SpeechBubbles && txt != "" && !blockBubbles {
+			if gs.speechBubbles && txt != "" && !blockBubbles {
 				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:

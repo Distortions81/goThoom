@@ -395,7 +395,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, snap, alpha, mobileFade, pictFade)
-	if gs.NightEffect {
+	if gs.nightEffect {
 		drawNightOverlay(screen)
 	}
 	drawEquippedItems(screen)
@@ -495,7 +495,7 @@ func drawScene(screen *ebiten.Image, snap drawSnapshot, alpha float64, mobileFad
 		drawPicture(screen, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
 	}
 
-	if gs.SpeechBubbles {
+	if gs.speechBubbles {
 		for _, b := range snap.bubbles {
 			hpos := float64(b.H)
 			vpos := float64(b.V)
@@ -682,7 +682,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !gs.SmoothMoving {
+	if p.Moving && !gs.smoothMoving {
 		offX = 0
 		offY = 0
 	}
@@ -707,7 +707,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 	w, h := 0, 0
 	if img != nil {
 		w, h = img.Bounds().Dx(), img.Bounds().Dy()
-		if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.SmoothMoving {
+		if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.smoothMoving {
 			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
 				mobileX, mobileY = dx, dy
 				offX = 0
@@ -741,7 +741,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 			tmp.DrawImage(img, op2)
 			tw, th := tmp.Bounds().Dx(), tmp.Bounds().Dy()
 			sx, sy := float64(gs.Scale), float64(gs.Scale)
-			if gs.TextureFiltering {
+			if gs.textureFiltering {
 				sx, sy = scaleForFiltering(gs.Scale, tw, th)
 			}
 			op := &ebiten.DrawImageOptions{}
@@ -752,7 +752,7 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 			recycleTempImage(tmp)
 		} else {
 			sx, sy := float64(gs.Scale), float64(gs.Scale)
-			if gs.TextureFiltering {
+			if gs.textureFiltering {
 				sx, sy = scaleForFiltering(gs.Scale, w, h)
 			}
 			op := &ebiten.DrawImageOptions{}
@@ -817,7 +817,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 // lerpBar interpolates status bar values, skipping interpolation when
 // fastBars is enabled and the value decreases.
 func lerpBar(prev, cur int, alpha float64) int {
-	if gs.FastBars && cur < prev {
+	if gs.fastBars && cur < prev {
 		return cur
 	}
 	return int(math.Round(float64(prev) + alpha*float64(cur-prev)))
@@ -1041,7 +1041,7 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 		if delay <= 0 {
 			delay = 200 * time.Millisecond
 		}
-		if gs.LateInputUpdates {
+		if gs.lateInputUpdates {
 			latencyMu.Lock()
 			lat := netLatency
 			latencyMu.Unlock()

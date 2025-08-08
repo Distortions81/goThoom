@@ -656,19 +656,19 @@ func openDebugWindow() {
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effect", Size: eui.Point{X: width, Y: 24}, Checked: gs.NightEffect})
+	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effect", Size: eui.Point{X: width, Y: 24}, Checked: gs.nightEffect})
 	nightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.NightEffect = ev.Checked
+			gs.nightEffect = ev.Checked
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(nightCB)
 
-	lateInputCB, lateInputEvents := eui.NewCheckbox(&eui.ItemData{Text: "Late Input Updates", Size: eui.Point{X: width, Y: 24}, Checked: gs.LateInputUpdates})
+	lateInputCB, lateInputEvents := eui.NewCheckbox(&eui.ItemData{Text: "Late Input Updates", Size: eui.Point{X: width, Y: 24}, Checked: gs.lateInputUpdates})
 	lateInputEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.LateInputUpdates = ev.Checked
+			gs.lateInputUpdates = ev.Checked
 			settingsDirty = true
 		}
 	}
@@ -683,20 +683,20 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(showFPSCB)
 
-	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.PrecacheAssets})
+	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.precacheAssets})
 	precacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.PrecacheAssets = ev.Checked
+			gs.precacheAssets = ev.Checked
 			settingsDirty = true
 		}
 	}
 	debugFlow.AddItem(precacheCB)
 
-	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.TextureFiltering})
+	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.textureFiltering})
 	filtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.TextureFiltering = ev.Checked
-			if gs.TextureFiltering {
+			gs.textureFiltering = ev.Checked
+			if gs.textureFiltering {
 				drawFilter = ebiten.FilterLinear
 			} else {
 				drawFilter = ebiten.FilterNearest
@@ -706,15 +706,15 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(filt)
 
-	fastSound, fastSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Quality Sound", Size: eui.Point{X: width, Y: 24}, Checked: gs.FastSound})
+	fastSound, fastSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Quality Sound", Size: eui.Point{X: width, Y: 24}, Checked: gs.fastSound})
 	fastSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.FastSound = ev.Checked
+			gs.fastSound = ev.Checked
 			settingsDirty = true
 
 			pcmCache = make(map[uint16][]byte)
 
-			if gs.FastSound {
+			if gs.fastSound {
 				resample = resampleFast
 			} else {
 				resample = resampleSincHQ
@@ -723,10 +723,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(fastSound)
 
-	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.SpeechBubbles})
+	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.speechBubbles})
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.SpeechBubbles = ev.Checked
+			gs.speechBubbles = ev.Checked
 			settingsDirty = true
 		}
 	}

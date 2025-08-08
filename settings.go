@@ -14,16 +14,12 @@ var gs settings = settings{
 	Version: 1,
 
 	KBWalkSpeed:    0.25,
-	MainFontSize:   6,
+	MainFontSize:   8,
 	BubbleFontSize: 6,
-	BubbleOpacity:  160.0 / 255.0,
+	BubbleOpacity:  0.7,
 	NameBgOpacity:  0.7,
 
-	NightEffect:       true,
-	SpeechBubbles:     true,
-	FastBars:          true,
 	MotionSmoothing:   true,
-	SmoothMoving:      true,
 	BlendMobiles:      true,
 	BlendPicts:        true,
 	BlendAmount:       1.0,
@@ -31,13 +27,16 @@ var gs settings = settings{
 	DenoiseImages:     true,
 	DenoiseSharpness:  4.0,
 	DenoisePercent:    0.2,
-	PrecacheAssets:    false,
-	CacheWholeSheet:   true,
 	ShowFPS:           true,
-	LateInputUpdates:  true,
 	Scale:             2,
 
-	vsync: true,
+	vsync:            true,
+	nightEffect:      true,
+	lateInputUpdates: true,
+	cacheWholeSheet:  true,
+	smoothMoving:     true,
+	fastBars:         true,
+	speechBubbles:    true,
 }
 
 type settings struct {
@@ -51,11 +50,7 @@ type settings struct {
 	BubbleOpacity  float64
 	NameBgOpacity  float64
 
-	NightEffect       bool
-	SpeechBubbles     bool
-	FastBars          bool
 	MotionSmoothing   bool
-	SmoothMoving      bool
 	BlendMobiles      bool
 	BlendPicts        bool
 	BlendAmount       float64
@@ -63,19 +58,24 @@ type settings struct {
 	DenoiseImages     bool
 	DenoiseSharpness  float64
 	DenoisePercent    float64
-	PrecacheAssets    bool
-	CacheWholeSheet   bool
 	ShowFPS           bool
-	LateInputUpdates  bool
-	TextureFiltering  bool
-	FastSound         bool
-	Scale             int
 
-	imgPlanesDebug bool
-	smoothingDebug bool
-	hideMoving     bool
-	hideMobiles    bool
-	vsync          bool
+	Scale int
+
+	imgPlanesDebug   bool
+	smoothingDebug   bool
+	hideMoving       bool
+	hideMobiles      bool
+	vsync            bool
+	fastSound        bool
+	nightEffect      bool
+	precacheAssets   bool
+	textureFiltering bool
+	lateInputUpdates bool
+	cacheWholeSheet  bool
+	smoothMoving     bool
+	fastBars         bool
+	speechBubbles    bool
 }
 
 var settingsDirty bool
@@ -102,7 +102,7 @@ func applySettings() {
 		clImages.DenoiseSharpness = gs.DenoiseSharpness
 		clImages.DenoisePercent = gs.DenoisePercent
 	}
-	if gs.TextureFiltering {
+	if gs.textureFiltering {
 		drawFilter = ebiten.FilterLinear
 	} else {
 		drawFilter = ebiten.FilterNearest
