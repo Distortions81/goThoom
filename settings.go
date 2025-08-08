@@ -17,7 +17,7 @@ var gs settings = settings{
 	MainFontSize:   8,
 	BubbleFontSize: 6,
 	BubbleOpacity:  160.0 / 255.0,
-	NameBgOpacity:  1.0,
+	NameBgOpacity:  0.66,
 
 	NightEffect:      true,
 	SpeechBubbles:    true,
