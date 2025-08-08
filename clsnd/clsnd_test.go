@@ -69,3 +69,41 @@ func TestDecodeHeaderIMA4(t *testing.T) {
 		}
 	}
 }
+
+// Test that decodeHeader returns an error when bits per sample is not 16.
+func TestDecodeHeaderIMA4BitsMismatch(t *testing.T) {
+	hdr := make([]byte, 64)
+	hdr[20] = 0xfe                                             // encode = CmpSoundHeader
+	binary.BigEndian.PutUint32(hdr[4:8], 1)                    // channels
+	binary.BigEndian.PutUint32(hdr[8:12], 22050<<16)           // sample rate 22050
+	binary.BigEndian.PutUint32(hdr[22:26], 64)                 // frames
+	binary.BigEndian.PutUint32(hdr[40:44], 0x696d6134)         // 'ima4'
+	binary.BigEndian.PutUint16(hdr[56:58], uint16(^uint16(3))) // -4 as uint16
+	binary.BigEndian.PutUint16(hdr[62:64], 8)                  // bits = 8, invalid
+
+	block := make([]byte, 36)
+	data := append(hdr, block...)
+
+	if _, err := decodeHeader(data, 0, 1); err == nil {
+		t.Fatalf("expected error for bits mismatch")
+	}
+}
+
+// Test that decodeHeader errors when decoded PCM length does not match header frames.
+func TestDecodeHeaderIMA4LengthMismatch(t *testing.T) {
+	hdr := make([]byte, 64)
+	hdr[20] = 0xfe                                             // encode = CmpSoundHeader
+	binary.BigEndian.PutUint32(hdr[4:8], 1)                    // channels
+	binary.BigEndian.PutUint32(hdr[8:12], 22050<<16)           // sample rate 22050
+	binary.BigEndian.PutUint32(hdr[22:26], 32)                 // frames (incorrect)
+	binary.BigEndian.PutUint32(hdr[40:44], 0x696d6134)         // 'ima4'
+	binary.BigEndian.PutUint16(hdr[56:58], uint16(^uint16(3))) // -4 as uint16
+	binary.BigEndian.PutUint16(hdr[62:64], 16)                 // bits
+
+	block := make([]byte, 36) // data for 64 frames
+	data := append(hdr, block...)
+
+	if _, err := decodeHeader(data, 0, 1); err == nil {
+		t.Fatalf("expected error for pcm length mismatch")
+	}
+}
