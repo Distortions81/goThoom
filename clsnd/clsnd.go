@@ -30,9 +30,9 @@ type CLSounds struct {
 }
 
 const (
-	typeSound      = 0x736e6420 // 'snd '
-	bufferCmd      = 0x51
-	dataOffsetFlag = 0x8000
+        typeSound     = 0x736e6420 // 'snd '
+        bufferCmd     = 0x51
+        dataOffsetFlag = 0x8000
 )
 
 // Load parses the CL_Sounds keyfile located at path.
@@ -141,10 +141,10 @@ func soundHeaderOffset(data []byte) (int, bool) {
 			return 0, false
 		}
 		cmd := binary.BigEndian.Uint16(data[p : p+2])
-		off := int(binary.BigEndian.Uint32(data[p+4 : p+8]))
-		if (cmd&dataOffsetFlag) != 0 && (cmd&0x7FFF) == bufferCmd {
-			return off, true
-		}
+                off := int(binary.BigEndian.Uint32(data[p+4 : p+8]))
+                if cmd == dataOffsetFlag|bufferCmd {
+                        return off, true
+                }
 		p += 8
 	}
 	return 0, false
