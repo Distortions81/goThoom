@@ -357,13 +357,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if gs.NightEffect {
 		drawNightOverlay(screen)
 	}
+	drawEquippedItems(screen)
 	drawMessages(screen, getMessages())
 
 	eui.Draw(screen)
 	if inputActive {
 		drawInputOverlay(screen, string(inputText))
 	}
-	drawEquippedItems(screen)
 	drawStatusBars(screen, snap, alpha)
 	if gs.ShowFPS {
 		drawServerFPS(screen, serverFPS)
@@ -902,7 +902,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func runGame(ctx context.Context) {
 	gameCtx = ctx
-	eui.SetUIScale(1)
+	eui.SetUIScale(float32(gs.Scale - 1))
 
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
