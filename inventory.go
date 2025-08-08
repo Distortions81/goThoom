@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -91,6 +92,12 @@ func getInventory() []inventoryItem {
 	defer inventoryMu.RUnlock()
 	out := make([]inventoryItem, len(inventoryItems))
 	copy(out, inventoryItems)
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Equipped != out[j].Equipped {
+			return out[i].Equipped && !out[j].Equipped
+		}
+		return out[i].Index < out[j].Index
+	})
 	return out
 }
 
