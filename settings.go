@@ -29,6 +29,7 @@ var gs settings = settings{
 	DenoisePercent:    0.2,
 	ShowFPS:           true,
 	Scale:             2,
+	UIScale:           1.0,
 
 	vsync:            true,
 	nightEffect:      true,
@@ -61,7 +62,8 @@ type settings struct {
 	DenoisePercent    float64
 	ShowFPS           bool
 
-	Scale int
+	Scale   int
+	UIScale float64
 
 	imgPlanesDebug   bool
 	smoothingDebug   bool
@@ -128,10 +130,9 @@ func saveSettings() {
 }
 
 func resizeUI() {
-	var val float32 = 1.0
-	if gs.Scale == 1 {
-		val = 0.5
+	eui.SetUIScale(float32(gs.UIScale))
+	if gameWin != nil {
+		scale := eui.UIScale()
+		gameWin.Size = eui.Point{X: float32(gameAreaSizeX*gs.Scale) / scale, Y: float32(gameAreaSizeY*gs.Scale) / scale}
 	}
-
-	eui.SetUIScale(val)
 }
