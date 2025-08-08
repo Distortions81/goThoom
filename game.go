@@ -939,7 +939,11 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 			latencyMu.Lock()
 			lat := netLatency
 			latencyMu.Unlock()
-			delay = (interval*3)/4 - lat
+			// Send the input early enough for the server to receive it
+			// before the next update, adding a 15% safety margin to the
+			// measured latency.
+			adjusted := (lat * 115) / 100
+			delay = interval - adjusted
 			if delay < 0 {
 				delay = 0
 			}
