@@ -10,7 +10,28 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 )
+
+var (
+	loginCancel context.CancelFunc
+	loginMu     sync.Mutex
+)
+
+func handleDisconnect() {
+	loginMu.Lock()
+	if loginCancel == nil {
+		loginMu.Unlock()
+		return
+	}
+	cancel := loginCancel
+	loginCancel = nil
+	loginMu.Unlock()
+
+	cancel()
+	addMessage("Disconnected from server.")
+	openLoginWindow()
+}
 
 // login connects to the server and performs the login handshake.
 // It runs the network loops and blocks until the context is canceled.
@@ -270,8 +291,13 @@ func login(ctx context.Context, clientVersion int) error {
 		go tcpReadLoop(ctx, tcpConn)
 
 		<-ctx.Done()
-		tcpConn.Close()
-		udpConn.Close()
+		if tcpConn != nil {
+			tcpConn.Close()
+			tcpConn = nil
+		}
+		if udpConn != nil {
+			udpConn.Close()
+		}
 		return nil
 	}
 }
