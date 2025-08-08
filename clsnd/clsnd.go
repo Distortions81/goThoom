@@ -140,7 +140,7 @@ func soundHeaderOffset(data []byte) (int, bool) {
 		}
 		cmd := binary.BigEndian.Uint16(data[p : p+2])
 		off := int(binary.BigEndian.Uint32(data[p+4 : p+8]))
-		if cmd&0x8000 != 0 { // high bit indicates offset form
+		if cmd == 0x8000 { // bufferCmd | dataOffsetFlag
 			return off, true
 		}
 		p += 8
