@@ -263,9 +263,13 @@ func loadSound(id uint16) []byte {
 	}
 	soundMu.Unlock()
 
-	s := clSounds.Get(uint32(id))
+	s, err := clSounds.Get(uint32(id))
 	if s == nil {
-		log.Printf("missing sound %d", id)
+		if err != nil {
+			log.Printf("unable to decode sound %d: %v", id, err)
+		} else {
+			log.Printf("missing sound %d", id)
+		}
 		soundMu.Lock()
 		pcmCache[id] = nil
 		soundMu.Unlock()

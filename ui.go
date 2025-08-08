@@ -28,6 +28,8 @@ var (
 	mobileCacheLabel *eui.ItemData
 	soundCacheLabel  *eui.ItemData
 	totalCacheLabel  *eui.ItemData
+	soundTestLabel   *eui.ItemData
+	soundTestID      int
 )
 
 func initUI() {
@@ -739,6 +741,67 @@ func openDebugWindow() {
 	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(soundCacheLabel)
 
+	soundTestFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+
+	minusTenBtn, minusTenEvents := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 24, Y: 24}})
+	minusTenEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			soundTestID -= 10
+			if soundTestID < 0 {
+				soundTestID = 0
+			}
+			updateSoundTestLabel()
+			playSound(uint16(soundTestID))
+		}
+	}
+	soundTestFlow.AddItem(minusTenBtn)
+
+	minusBtn, minusEvents := eui.NewButton(&eui.ItemData{Text: "-", Size: eui.Point{X: 24, Y: 24}})
+	minusEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			soundTestID--
+			if soundTestID < 0 {
+				soundTestID = 0
+			}
+			updateSoundTestLabel()
+			playSound(uint16(soundTestID))
+		}
+	}
+	soundTestFlow.AddItem(minusBtn)
+
+	soundTestLabel, _ = eui.NewText(&eui.ItemData{Text: "0", Size: eui.Point{X: 40, Y: 24}, FontSize: 10})
+	soundTestFlow.AddItem(soundTestLabel)
+
+	plusBtn, plusEvents := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 24, Y: 24}})
+	plusEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			soundTestID++
+			updateSoundTestLabel()
+			playSound(uint16(soundTestID))
+		}
+	}
+	soundTestFlow.AddItem(plusBtn)
+
+	plusTenBtn, plusTenEvents := eui.NewButton(&eui.ItemData{Text: "++", Size: eui.Point{X: 24, Y: 24}})
+	plusTenEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			soundTestID += 10
+			updateSoundTestLabel()
+			playSound(uint16(soundTestID))
+		}
+	}
+	soundTestFlow.AddItem(plusTenBtn)
+
+	playBtn, playEvents := eui.NewButton(&eui.ItemData{Text: "Play", Size: eui.Point{X: 40, Y: 24}})
+	playEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			playSound(uint16(soundTestID))
+		}
+	}
+	soundTestFlow.AddItem(playBtn)
+
+	debugFlow.AddItem(soundTestFlow)
+
 	clearCacheBtn, clearCacheEvents := eui.NewButton(&eui.ItemData{Text: "Clear All Caches", Size: eui.Point{X: width, Y: 24}})
 	clearCacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -752,6 +815,7 @@ func openDebugWindow() {
 
 	debugWin.AddItem(debugFlow)
 	debugWin.AddWindow(false)
+	updateSoundTestLabel()
 	updateDebugStats()
 }
 
@@ -783,6 +847,13 @@ func updateDebugStats() {
 	if totalCacheLabel != nil {
 		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(sheetBytes+frameBytes+mobileBytes+soundBytes)))
 		totalCacheLabel.Dirty = true
+	}
+}
+
+func updateSoundTestLabel() {
+	if soundTestLabel != nil {
+		soundTestLabel.Text = fmt.Sprintf("%d", soundTestID)
+		soundTestLabel.Dirty = true
 	}
 }
 
