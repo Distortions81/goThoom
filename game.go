@@ -23,8 +23,14 @@ import (
 
 const gameAreaSizeX, gameAreaSizeY = 500, 500
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const epsilon = 0.001
 const defaultHandPictID = 6
+
+// scaleForFiltering returns scaling factors that extend the image by one
+// pixel in each dimension. This prevents visible gaps between textures when
+// drawing with linear filtering.
+func scaleForFiltering(scale, w, h int) (float64, float64) {
+	return float64(scale) + 1.0/float64(w), float64(scale) + 1.0/float64(h)
+}
 
 var mouseX, mouseY int16
 var mouseDown bool
@@ -672,25 +678,26 @@ func drawPicture(screen *ebiten.Image, p framePicture, alpha float64, fade float
 			op2.Blend = ebiten.BlendLighter
 			op2.GeoM.Translate(float64(offXPix), float64(offYPix))
 			tmp.DrawImage(img, op2)
+			tw, th := tmp.Bounds().Dx(), tmp.Bounds().Dy()
+			sx, sy := float64(gs.Scale), float64(gs.Scale)
+			if gs.TextureFiltering {
+				sx, sy = scaleForFiltering(gs.Scale, tw, th)
+			}
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			if gs.TextureFiltering {
-				op.GeoM.Scale(float64(gs.Scale)+epsilon, float64(gs.Scale)+epsilon)
-			} else {
-				op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
-			}
-			op.GeoM.Translate(float64(x-tmp.Bounds().Dx()*gs.Scale/2), float64(y-tmp.Bounds().Dy()*gs.Scale/2))
+			op.GeoM.Scale(sx, sy)
+			op.GeoM.Translate(float64(x)-float64(tw)*sx/2, float64(y)-float64(th)*sy/2)
 			screen.DrawImage(tmp, op)
 			recycleTempImage(tmp)
 		} else {
+			sx, sy := float64(gs.Scale), float64(gs.Scale)
+			if gs.TextureFiltering {
+				sx, sy = scaleForFiltering(gs.Scale, w, h)
+			}
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			if gs.TextureFiltering {
-				op.GeoM.Scale(float64(gs.Scale)+epsilon, float64(gs.Scale)+epsilon)
-			} else {
-				op.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
-			}
-			op.GeoM.Translate(float64(x-w*gs.Scale/2), float64(y-h*gs.Scale/2))
+			op.GeoM.Scale(sx, sy)
+			op.GeoM.Translate(float64(x)-float64(w)*sx/2, float64(y)-float64(h)*sy/2)
 			if gs.smoothingDebug && p.Moving {
 				op.ColorM.Scale(1, 0, 0, 1)
 			}
