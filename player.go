@@ -34,6 +34,7 @@ func getPlayer(name string) *Player {
 	}
 	p = &Player{Name: name}
 	players[name] = p
+	updatePlayersWindow()
 	return p
 }
 
@@ -49,6 +50,7 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte) {
 		p.Colors = append(p.Colors[:0], colors...)
 	}
 	playersMu.Unlock()
+	updatePlayersWindow()
 }
 
 func getPlayers() []Player {
