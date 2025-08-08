@@ -108,6 +108,8 @@ func main() {
 	clImages, err = climg.Load(filepath.Join(baseDir + "/data/CL_Images"))
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)
+	} else {
+		clImages.Denoise = gs.DenoiseImages
 	}
 
 	clSounds, err = clsnd.Load(filepath.Join(baseDir + "/data/CL_Sounds"))
