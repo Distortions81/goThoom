@@ -64,21 +64,3 @@ func getPlayers() []Player {
 	}
 	return out
 }
-
-// pruneNPCs clears the IsNPC flag for any player not seen in the current frame.
-func pruneNPCs(seen map[string]struct{}) {
-	playersMu.Lock()
-	changed := false
-	for name, p := range players {
-		if p.IsNPC {
-			if _, ok := seen[name]; !ok {
-				p.IsNPC = false
-				changed = true
-			}
-		}
-	}
-	playersMu.Unlock()
-	if changed {
-		updatePlayersWindow()
-	}
-}
