@@ -24,6 +24,7 @@ import (
 const gameAreaSizeX, gameAreaSizeY = 500, 500
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const epsilon = 0.001
+const defaultHandPictID = 6
 
 var mouseX, mouseY int16
 var mouseDown bool
@@ -836,6 +837,7 @@ func drawEquippedItems(screen *ebiten.Image) {
 	items := getInventory()
 	x := 4 * gs.Scale
 	y := 4 * gs.Scale
+	drawn := 0
 	for _, it := range items {
 		if !it.Equipped {
 			continue
@@ -849,6 +851,24 @@ func drawEquippedItems(screen *ebiten.Image) {
 		op.GeoM.Translate(float64(x), float64(y))
 		screen.DrawImage(img, op)
 		x += img.Bounds().Dx()*gs.Scale + 4*gs.Scale
+		drawn++
+	}
+	if drawn == 0 {
+		img := loadImage(defaultHandPictID)
+		if img == nil {
+			return
+		}
+		w := img.Bounds().Dx() * gs.Scale
+		opRight := &ebiten.DrawImageOptions{}
+		opRight.GeoM.Scale(float64(gs.Scale), float64(gs.Scale))
+		opRight.GeoM.Translate(float64(x), float64(y))
+		screen.DrawImage(img, opRight)
+
+		opLeft := &ebiten.DrawImageOptions{}
+		opLeft.GeoM.Scale(-float64(gs.Scale), float64(gs.Scale))
+		opLeft.GeoM.Translate(float64(w), 0)
+		opLeft.GeoM.Translate(float64(x+w+4*gs.Scale), float64(y))
+		screen.DrawImage(img, opLeft)
 	}
 }
 
