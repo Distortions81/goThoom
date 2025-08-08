@@ -15,7 +15,6 @@ import (
 	"github.com/Distortions81/EUI/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -419,10 +418,10 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	updateMessagesWindow()
 	ox, oy := gameContentOrigin()
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen, ox, oy)
-		drawMessages(screen, ox, oy, getMessages())
 		eui.Draw(screen)
 		if gs.ShowFPS {
 			drawServerFPS(screen, ox, oy, serverFPS)
@@ -437,7 +436,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawNightOverlay(screen, ox, oy)
 	}
 	drawEquippedItems(screen, ox, oy)
-	drawMessages(screen, ox, oy, getMessages())
 
 	eui.Draw(screen)
 	if inputActive {
@@ -901,26 +899,6 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	sp := lerpBar(snap.prevSP, snap.sp, alpha)
 	spMax := lerpBar(snap.prevSPMax, snap.spMax, alpha)
 	drawBar(x, sp, spMax, color.RGBA{0xff, 0x00, 0x00, 0xff})
-}
-
-// drawMessages prints chat messages on the HUD.
-func drawMessages(screen *ebiten.Image, ox, oy int, msgs []string) {
-	y := oy + (gameAreaSizeY-50)*gs.Scale
-	maxWidth := float64(gameAreaSizeX*gs.Scale - 8*gs.Scale)
-	for i := len(msgs) - 1; i >= 0; i-- {
-		msg := msgs[i]
-		width, lines := wrapText(msg, mainFont, maxWidth)
-		iw := width + 8*gs.Scale + 4
-		ih := 14 * gs.Scale
-		for j := len(lines) - 1; j >= 0; j-- {
-			y -= 15 * gs.Scale
-			ebitenutil.DrawRect(screen, float64(ox), float64(y), float64(iw), float64(ih), color.RGBA{0, 0, 0, 128})
-			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(ox+4*gs.Scale), float64(y))
-			op.ColorScale.ScaleWithColor(color.White)
-			text.Draw(screen, lines[j], mainFont, op)
-		}
-	}
 }
 
 func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
