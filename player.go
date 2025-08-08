@@ -11,6 +11,7 @@ type Player struct {
 	Clan    string
 	PictID  uint16
 	Colors  []byte
+	IsNPC   bool // entry represents an NPC
 	Sharee  bool // player is sharing to us
 	Sharing bool // we are sharing to player
 }
@@ -38,7 +39,7 @@ func getPlayer(name string) *Player {
 	return p
 }
 
-func updatePlayerAppearance(name string, pictID uint16, colors []byte) {
+func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC bool) {
 	playersMu.Lock()
 	p, ok := players[name]
 	if !ok {
@@ -49,6 +50,7 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte) {
 	if len(colors) > 0 {
 		p.Colors = append(p.Colors[:0], colors...)
 	}
+	p.IsNPC = isNPC
 	playersMu.Unlock()
 	updatePlayersWindow()
 }
