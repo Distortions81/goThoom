@@ -287,23 +287,16 @@ func parseInventory(data []byte) ([]byte, bool) {
 	}
 
 	for i := 0; i < cmdCount; i++ {
-		if cmd == kInvCmdFull|kInvCmdIndex || cmd == kInvCmdNone|kInvCmdIndex {
-			if cmd == kInvCmdFull|kInvCmdIndex {
-				logError("inventory: got kInvCmdFull + index")
-			} else {
-				logError("inventory: got kInvCmdNone + index")
-			}
-			if len(data) == 0 {
-				return nil, false
-			}
-			cmd = int(data[0])
-			data = data[1:]
-			continue
-		}
-
 		base := cmd &^ kInvCmdIndex
 		switch base {
 		case kInvCmdFull:
+			if cmd&kInvCmdIndex != 0 {
+				if len(data) < 1 {
+					return nil, false
+				}
+				// consume index byte but ignore value
+				data = data[1:]
+			}
 			if len(data) < 1 {
 				return nil, false
 			}
@@ -327,6 +320,15 @@ func parseInventory(data []byte) ([]byte, bool) {
 			}
 			setFullInventory(ids, eq)
 			data = data[bytesNeeded:]
+		case kInvCmdNone:
+			if cmd&kInvCmdIndex != 0 {
+				if len(data) < 1 {
+					return nil, false
+				}
+				// consume index byte but ignore value
+				data = data[1:]
+			}
+			// nothing else to do for kInvCmdNone
 		case kInvCmdAdd, kInvCmdAddEquip, kInvCmdDelete, kInvCmdEquip,
 			kInvCmdUnequip, kInvCmdName:
 			if len(data) < 2 {
@@ -376,7 +378,11 @@ func parseInventory(data []byte) ([]byte, bool) {
 		}
 	}
 	if cmd == kInvCmdNone|kInvCmdIndex {
-		logError("inventory: got kInvCmdNone + index")
+		if len(data) < 1 {
+			return nil, false
+		}
+		// consume trailing index byte
+		data = data[1:]
 	} else if cmd != kInvCmdNone {
 		logError("inventory: unexpected trailing cmd %d", cmd)
 	}
