@@ -117,8 +117,8 @@ func sendPlayerInput(connection net.Conn) error {
 	flags := uint16(0)
 
 	x, y := ebiten.CursorPosition()
-	baseX := int16(x/gs.Scale - fieldCenterX)
-	baseY := int16(y/gs.Scale - fieldCenterY)
+	baseX := int16(float64(x)/gs.Scale - float64(fieldCenterX))
+	baseY := int16(float64(y)/gs.Scale - float64(fieldCenterY))
 	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	if pointInUI(x, y) {
 		baseDown = false

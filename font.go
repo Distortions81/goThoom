@@ -29,7 +29,7 @@ func initFont() {
 	}
 	mainFont = &text.GoTextFace{
 		Source: regular,
-		Size:   gs.MainFontSize * float64(gs.Scale),
+		Size:   gs.MainFontSize * gs.Scale,
 	}
 
 	bold, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBold))
@@ -38,7 +38,7 @@ func initFont() {
 	}
 	mainFontBold = &text.GoTextFace{
 		Source: bold,
-		Size:   gs.MainFontSize * float64(gs.Scale),
+		Size:   gs.MainFontSize * gs.Scale,
 	}
 
 	italic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansItalic))
@@ -47,7 +47,7 @@ func initFont() {
 	}
 	mainFontItalic = &text.GoTextFace{
 		Source: italic,
-		Size:   gs.MainFontSize * float64(gs.Scale),
+		Size:   gs.MainFontSize * gs.Scale,
 	}
 
 	boldItalic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBoldItalic))
@@ -56,12 +56,12 @@ func initFont() {
 	}
 	mainFontBoldItalic = &text.GoTextFace{
 		Source: boldItalic,
-		Size:   gs.MainFontSize * float64(gs.Scale),
+		Size:   gs.MainFontSize * gs.Scale,
 	}
 
 	//Bubble
 	bubbleFont = &text.GoTextFace{
 		Source: bold,
-		Size:   gs.BubbleFontSize * float64(gs.Scale),
+		Size:   gs.BubbleFontSize * gs.Scale,
 	}
 }

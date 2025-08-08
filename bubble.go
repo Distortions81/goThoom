@@ -107,10 +107,11 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	}
 	y -= 35
 
-	sw, sh := gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale
-	pad := (4 + 2) * gs.Scale
-	tailHeight := 10 * gs.Scale
-	tailHalf := 6 * gs.Scale
+	sw := int(float64(gameAreaSizeX) * gs.Scale)
+	sh := int(float64(gameAreaSizeY) * gs.Scale)
+	pad := int((4 + 2) * gs.Scale)
+	tailHeight := int(10 * gs.Scale)
+	tailHalf := int(6 * gs.Scale)
 
 	maxLineWidth := sw/4 - 2*pad
 	width, lines := wrapText(txt, bubbleFont, float64(maxLineWidth))

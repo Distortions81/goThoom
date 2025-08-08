@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -28,7 +29,7 @@ var gs settings = settings{
 	DenoiseSharpness:  4.0,
 	DenoisePercent:    0.2,
 	ShowFPS:           true,
-	Scale:             2,
+	Scale:             2.0,
 	UIScale:           1.0,
 
 	vsync:            true,
@@ -62,7 +63,7 @@ type settings struct {
 	DenoisePercent    float64
 	ShowFPS           bool
 
-	Scale   int
+	Scale   float64
 	UIScale float64
 
 	imgPlanesDebug   bool
@@ -96,7 +97,9 @@ func loadSettings() bool {
 
 	initFont()
 	resizeUI()
-	ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
+	w := int(math.Round(float64(gameAreaSizeX) * gs.Scale))
+	h := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
+	ebiten.SetWindowSize(w, h)
 	return true
 }
 
@@ -114,7 +117,9 @@ func applySettings() {
 	ebiten.SetVsyncEnabled(gs.vsync)
 	initFont()
 	resizeUI()
-	ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
+	w := int(math.Round(float64(gameAreaSizeX) * gs.Scale))
+	h := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
+	ebiten.SetWindowSize(w, h)
 }
 
 func saveSettings() {
@@ -132,7 +137,10 @@ func saveSettings() {
 func resizeUI() {
 	eui.SetUIScale(float32(gs.UIScale))
 	if gameWin != nil {
-		scale := eui.UIScale()
-		gameWin.Size = eui.Point{X: float32(gameAreaSizeX*gs.Scale) / scale, Y: float32(gameAreaSizeY*gs.Scale) / scale}
+		scale := float64(eui.UIScale())
+		gameWin.Size = eui.Point{
+			X: float32(float64(gameAreaSizeX) * gs.Scale / scale),
+			Y: float32(float64(gameAreaSizeY) * gs.Scale / scale),
+		}
 	}
 }

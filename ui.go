@@ -119,7 +119,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 	downloadWin.Resizable = false
 	downloadWin.AutoSize = true
 	downloadWin.Movable = false
-	downloadWin.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)}
+	downloadWin.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: float32(float64(gameAreaSizeY) * gs.Scale / 2)}
 	downloadWin.Open = true
 
 	startedDownload := false
@@ -260,7 +260,7 @@ func openAddCharacterWindow() {
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
 	addCharWin.Movable = false
-	addCharWin.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)}
+	addCharWin.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: float32(float64(gameAreaSizeY) * gs.Scale / 2)}
 	addCharWin.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -448,7 +448,7 @@ func openErrorWindow(msg string) {
 	win.Resizable = false
 	win.AutoSize = true
 	win.Movable = false
-	win.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5}
+	win.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: 5}
 	win.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
