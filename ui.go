@@ -520,7 +520,6 @@ func openSettingsWindow() {
 			gs.Scale = int(ev.Value)
 			initFont()
 			resizeUI()
-			inputBg = nil
 			ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 			settingsDirty = true
 		}

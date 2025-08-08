@@ -10,8 +10,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const settingFilePath = "data/settings.json"
-
 var gs settings = settings{
 	Version: 1,
 
@@ -77,20 +75,18 @@ type settings struct {
 var settingsDirty bool
 
 func loadSettings() bool {
-	//Remove older settings
-	os.Remove("settings.json")
-
-	path := filepath.Join(baseDir, settingFilePath)
+	path := filepath.Join(baseDir, "data", "settings.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
-	var s settings
-	if err := json.Unmarshal(data, &s); err != nil {
+	if err := json.Unmarshal(data, &gs); err != nil {
 		return false
 	}
 
+	initFont()
 	resizeUI()
+	ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 	return true
 }
 
@@ -105,6 +101,8 @@ func applySettings() {
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	initFont()
+	resizeUI()
+	ebiten.SetWindowSize(gameAreaSizeX*gs.Scale, gameAreaSizeY*gs.Scale)
 }
 
 func saveSettings() {
@@ -113,7 +111,7 @@ func saveSettings() {
 		log.Printf("save settings: %v", err)
 		return
 	}
-	path := filepath.Join(baseDir, "data/settings.json")
+	path := filepath.Join(baseDir, "data", "settings.json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}

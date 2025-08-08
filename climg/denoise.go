@@ -5,6 +5,8 @@ import (
 	"image/color"
 )
 
+const denoiseThreshold = 3000
+
 // denoiseImage smooths pixels that have uniformly coloured neighbours.
 // Pixels surrounded by similar colours are averaged with a 3x3 box filter,
 // while edge pixels remain unchanged.
@@ -29,7 +31,7 @@ func denoiseImage(img *image.RGBA) {
 					if dx == 0 && dy == 0 {
 						continue
 					}
-					if colourDist(src.RGBAAt(x+dx, y+dy), center) > 64 {
+					if colourDist(src.RGBAAt(x+dx, y+dy), center) > denoiseThreshold {
 						similar = false
 						break
 					}
@@ -62,5 +64,8 @@ func colourDist(a, b color.RGBA) int {
 	dr := int(a.R) - int(b.R)
 	dg := int(a.G) - int(b.G)
 	db := int(a.B) - int(b.B)
+	if a.A < 0xFF || b.A < 0xFF {
+		return 65536
+	}
 	return dr*dr + dg*dg + db*db
 }
