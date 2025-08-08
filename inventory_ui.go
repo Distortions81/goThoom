@@ -24,4 +24,7 @@ func updateInventoryWindow() {
 		inventoryList.AddItem(t)
 		logDebug("Ivn Name: %v, ID: %v", it.Name, it.ID)
 	}
+	if inventoryWin != nil {
+		inventoryWin.Refresh()
+	}
 }
