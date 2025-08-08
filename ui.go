@@ -109,16 +109,14 @@ func openDownloadsWindow(status dataFilesStatus) {
 		return
 	}
 
-	downloadWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Downloads",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   false,
-		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)},
-		Open:      true,
-	})
+	downloadWin = eui.NewWindow(&eui.WindowData{})
+	downloadWin.Title = "Downloads"
 	downloadWin.Closable = false
+	downloadWin.Resizable = false
+	downloadWin.AutoSize = true
+	downloadWin.Movable = false
+	downloadWin.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)}
+	downloadWin.Open = true
 
 	startedDownload := false
 
@@ -252,16 +250,14 @@ func openAddCharacterWindow() {
 	if addCharWin != nil {
 		return
 	}
-	addCharWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Add Character",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   false,
-		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)},
-		Open:      true,
-	})
+	addCharWin = eui.NewWindow(&eui.WindowData{})
+	addCharWin.Title = "Add Character"
 	addCharWin.Closable = false
+	addCharWin.Resizable = false
+	addCharWin.AutoSize = true
+	addCharWin.Movable = false
+	addCharWin.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: float32((gameAreaSizeY * gs.Scale) / 2)}
+	addCharWin.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -331,16 +327,14 @@ func openLoginWindow() {
 		return
 	}
 
-	loginWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Login",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   false,
-		PinTo:     eui.PIN_MID_CENTER,
-		Open:      true,
-	})
+	loginWin = eui.NewWindow(&eui.WindowData{})
+	loginWin.Title = "Login"
 	loginWin.Closable = false
+	loginWin.Resizable = false
+	loginWin.AutoSize = true
+	loginWin.Movable = false
+	loginWin.PinTo = eui.PIN_MID_CENTER
+	loginWin.Open = true
 
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -402,16 +396,14 @@ func openLoginWindow() {
 }
 
 func openErrorWindow(msg string) {
-	win := eui.NewWindow(&eui.WindowData{
-		Title: "Error",
-
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   false,
-		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5},
-		Open:      true,
-	})
+	win := eui.NewWindow(&eui.WindowData{})
+	win.Title = "Error"
+	win.Closable = false
+	win.Resizable = false
+	win.AutoSize = true
+	win.Movable = false
+	win.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5}
+	win.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
@@ -431,16 +423,15 @@ func openSettingsWindow() {
 	if settingsWin != nil {
 		return
 	}
-	settingsWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Settings",
-		Size:      eui.Point{X: 256, Y: 256},
-		Position:  eui.Point{X: 8, Y: 8},
-		Closable:  false,
-		Resizable: true,
-		AutoSize:  true,
-		Movable:   true,
-		Open:      true,
-	})
+	settingsWin = eui.NewWindow(&eui.WindowData{})
+	settingsWin.Title = "Settings"
+	settingsWin.Size = eui.Point{X: 256, Y: 256}
+	settingsWin.Position = eui.Point{X: 8, Y: 8}
+	settingsWin.Closable = false
+	settingsWin.Resizable = true
+	settingsWin.AutoSize = true
+	settingsWin.Movable = true
+	settingsWin.Open = true
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
@@ -643,16 +634,15 @@ func openDebugWindow() {
 		return
 	}
 	var width float32 = 250
-	debugWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Debug Settings",
-		Size:      eui.Point{X: 256, Y: 256},
-		Position:  eui.Point{X: 272, Y: 8},
-		Closable:  false,
-		Resizable: true,
-		AutoSize:  true,
-		Movable:   true,
-		Open:      true,
-	})
+	debugWin = eui.NewWindow(&eui.WindowData{})
+	debugWin.Title = "Debug Settings"
+	debugWin.Size = eui.Point{X: 256, Y: 256}
+	debugWin.Position = eui.Point{X: 272, Y: 8}
+	debugWin.Closable = false
+	debugWin.Resizable = true
+	debugWin.AutoSize = true
+	debugWin.Movable = true
+	debugWin.Open = true
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -923,14 +913,14 @@ func openInventoryWindow() {
 	if inventoryWin != nil {
 		return
 	}
-	inventoryWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Inventory",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   true,
-		Open:      true,
-	})
+	inventoryWin = eui.NewWindow(&eui.WindowData{})
+	inventoryWin.Title = "Inventory"
+	inventoryWin.Closable = false
+	inventoryWin.Resizable = false
+	inventoryWin.AutoSize = true
+	inventoryWin.Movable = true
+	inventoryWin.Open = true
+
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	title, _ := eui.NewText(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 256, Y: 128}})
 	inventoryWin.AddItem(title)
@@ -943,15 +933,15 @@ func openPlayersWindow() {
 	if playersWin != nil {
 		return
 	}
-	playersWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Players",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  false,
-		Movable:   true,
-		Size:      eui.Point{X: 128, Y: 384},
-		Open:      true,
-	})
+	playersWin = eui.NewWindow(&eui.WindowData{})
+	playersWin.Title = "Players"
+	playersWin.Closable = false
+	playersWin.Resizable = false
+	playersWin.AutoSize = false
+	playersWin.Movable = true
+	playersWin.Size = eui.Point{X: 128, Y: 384}
+	playersWin.Open = true
+
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
 	playersWin.Resizable = true
@@ -964,14 +954,14 @@ func openHelpWindow() {
 	if helpWin != nil {
 		return
 	}
-	helpWin = eui.NewWindow(&eui.WindowData{
-		Title:     "Help",
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Movable:   true,
-		Open:      true,
-	})
+	helpWin = eui.NewWindow(&eui.WindowData{})
+	helpWin.Title = "Help"
+	helpWin.Closable = false
+	helpWin.Resizable = false
+	helpWin.AutoSize = true
+	helpWin.Movable = true
+	helpWin.Open = true
+
 	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	helpTexts := []string{
 		"WASD or Arrow Keys - Walk",

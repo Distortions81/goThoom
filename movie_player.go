@@ -41,14 +41,13 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 
 // initUI creates the playback control window.
 func (p *moviePlayer) initUI() {
-	win := eui.NewWindow(&eui.WindowData{
-		Title:     "Controls",
-		Open:      true,
-		Closable:  false,
-		Resizable: false,
-		AutoSize:  true,
-		Position:  eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5},
-	})
+	win := eui.NewWindow(&eui.WindowData{})
+	win.Title = "Controls"
+	win.Open = true
+	win.Closable = false
+	win.Resizable = false
+	win.AutoSize = true
+	win.Position = eui.Point{X: float32((gameAreaSizeX * gs.Scale) / 2), Y: 5}
 	win.Closable = false
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}

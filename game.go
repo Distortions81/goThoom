@@ -992,14 +992,15 @@ func runGame(ctx context.Context) {
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
 
-	gameWin = eui.NewWindow(&eui.WindowData{
-		Size:      eui.Point{X: float32(gameAreaSizeX * gs.Scale), Y: float32(gameAreaSizeY * gs.Scale)},
-		Closable:  false,
-		Resizable: false,
-		Movable:   false,
-		PinTo:     eui.PIN_TOP_LEFT,
-		Open:      true,
-	})
+	gameWin = eui.NewWindow(&eui.WindowData{})
+	gameWin.Title = "Clan Lord"
+	gameWin.Size = eui.Point{X: float32(gameAreaSizeX * gs.Scale), Y: float32(gameAreaSizeY * gs.Scale)}
+	gameWin.Closable = false
+	gameWin.Resizable = true
+	gameWin.Movable = true
+	gameWin.Open = true
+	gameWin.BGColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
+
 	gameWin.AddWindow(false)
 
 	initUI()
