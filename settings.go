@@ -26,7 +26,7 @@ var gs settings = settings{
 	SmoothMoving:     true,
 	BlendMobiles:     false,
 	BlendPicts:       true,
-	BlendAmount:      1.0,
+	BlendAmount:      0.5,
 	DenoiseImages:    true,
 	DenoiseSharpness: 4.0,
 	DenoisePercent:   0.2,
