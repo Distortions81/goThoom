@@ -334,7 +334,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 			}
 			id := binary.BigEndian.Uint16(data[:2])
 			data = data[2:]
-			idx := -1
+			idx := 0
 			if cmd&kInvCmdIndex != 0 {
 				if len(data) < 1 {
 					return nil, false
@@ -368,16 +368,17 @@ func parseInventory(data []byte) ([]byte, bool) {
 		default:
 			return nil, false
 		}
-		if len(data) == 0 {
-			return nil, false
+		if len(data) > 0 {
+			cmd = int(data[0])
+			data = data[1:]
+		} else {
+			cmd = kInvCmdNone
 		}
-		cmd = int(data[0])
-		data = data[1:]
 	}
 	if cmd == kInvCmdNone|kInvCmdIndex {
 		logError("inventory: got kInvCmdNone + index")
 	} else if cmd != kInvCmdNone {
-		return nil, false
+		logError("inventory: unexpected trailing cmd %d", cmd)
 	}
 	for len(data) > 0 && data[0] == 0 {
 		data = data[1:]
