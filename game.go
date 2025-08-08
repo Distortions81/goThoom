@@ -50,6 +50,10 @@ var historyPos int
 var (
 	recorder            *movieRecorder
 	gPlayersListIsStale bool
+	loginGameState      []byte
+	loginMobileData     []byte
+	loginPictureTable   []byte
+	wroteLoginBlocks    bool
 )
 
 // gameWin represents the main playfield window. Its size corresponds to the
@@ -1141,10 +1145,44 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			handleDisconnect()
 			return
 		}
+		tag := binary.BigEndian.Uint16(m[:2])
 		flags := frameFlags(m)
 		if recorder != nil {
-			if err := recorder.WriteFrame(m, flags); err != nil {
-				logError("record frame: %v", err)
+			if !wroteLoginBlocks {
+				if tag == 2 { // first draw state
+					if len(loginGameState) > 0 {
+						recorder.AddBlock(gameStateBlock(loginGameState), flagGameState)
+					}
+					if len(loginMobileData) > 0 {
+						recorder.AddBlock(loginMobileData, flagMobileData)
+					}
+					if len(loginPictureTable) > 0 {
+						recorder.AddBlock(loginPictureTable, flagPictureTable)
+					}
+					wroteLoginBlocks = true
+					if err := recorder.WriteFrame(m, flags); err != nil {
+						logError("record frame: %v", err)
+					}
+				} else {
+					if flags&flagGameState != 0 {
+						payload := append([]byte(nil), m[2:]...)
+						parseGameState(payload, uint16(clientVersion), uint16(movieRevision))
+						loginGameState = payload
+					}
+					if flags&flagMobileData != 0 {
+						payload := append([]byte(nil), m[2:]...)
+						parseMobileTable(payload, 0, uint16(clientVersion), uint16(movieRevision))
+						loginMobileData = payload
+					}
+					if flags&flagPictureTable != 0 {
+						payload := append([]byte(nil), m[2:]...)
+						loginPictureTable = payload
+					}
+				}
+			} else {
+				if err := recorder.WriteFrame(m, flags); err != nil {
+					logError("record frame: %v", err)
+				}
 			}
 		}
 		latencyMu.Lock()
@@ -1158,7 +1196,6 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			lastInputSent = time.Time{}
 		}
 		latencyMu.Unlock()
-		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
 			noteFrame()
 			handleDrawState(m)
@@ -1193,13 +1230,46 @@ loop:
 			handleDisconnect()
 			break
 		}
+		tag := binary.BigEndian.Uint16(m[:2])
 		flags := frameFlags(m)
 		if recorder != nil {
-			if err := recorder.WriteFrame(m, flags); err != nil {
-				logError("record frame: %v", err)
+			if !wroteLoginBlocks {
+				if tag == 2 { // first draw state
+					if len(loginGameState) > 0 {
+						recorder.AddBlock(gameStateBlock(loginGameState), flagGameState)
+					}
+					if len(loginMobileData) > 0 {
+						recorder.AddBlock(loginMobileData, flagMobileData)
+					}
+					if len(loginPictureTable) > 0 {
+						recorder.AddBlock(loginPictureTable, flagPictureTable)
+					}
+					wroteLoginBlocks = true
+					if err := recorder.WriteFrame(m, flags); err != nil {
+						logError("record frame: %v", err)
+					}
+				} else {
+					if flags&flagGameState != 0 {
+						payload := append([]byte(nil), m[2:]...)
+						parseGameState(payload, uint16(clientVersion), uint16(movieRevision))
+						loginGameState = payload
+					}
+					if flags&flagMobileData != 0 {
+						payload := append([]byte(nil), m[2:]...)
+						parseMobileTable(payload, 0, uint16(clientVersion), uint16(movieRevision))
+						loginMobileData = payload
+					}
+					if flags&flagPictureTable != 0 {
+						payload := append([]byte(nil), m[2:]...)
+						loginPictureTable = payload
+					}
+				}
+			} else {
+				if err := recorder.WriteFrame(m, flags); err != nil {
+					logError("record frame: %v", err)
+				}
 			}
 		}
-		tag := binary.BigEndian.Uint16(m[:2])
 		if tag == 2 { // kMsgDrawState
 			noteFrame()
 			handleDrawState(m)

@@ -24,8 +24,10 @@ type frameHead struct {
 }
 
 type movieRecorder struct {
-	f    *os.File
-	head fileHead
+	f        *os.File
+	head     fileHead
+	preFlags uint16
+	preData  []byte
 }
 
 const macEpochDelta = 2082844800
@@ -68,6 +70,21 @@ func (m *movieRecorder) writeHeader() error {
 	return err
 }
 
+func (m *movieRecorder) AddBlock(data []byte, flag uint16) {
+	if len(data) == 0 {
+		return
+	}
+	m.preData = append(m.preData, data...)
+	m.preFlags |= flag
+}
+
+func gameStateBlock(payload []byte) []byte {
+	buf := make([]byte, 24+len(payload))
+	binary.BigEndian.PutUint32(buf[12:], uint32(len(payload)))
+	copy(buf[24:], payload)
+	return buf
+}
+
 func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 	if m.f == nil {
 		return os.ErrClosed
@@ -76,7 +93,7 @@ func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 		Signature: movieSignature,
 		Frame:     m.head.Frames,
 		Size:      uint16(len(data)),
-		Flags:     flags,
+		Flags:     flags | m.preFlags,
 	}
 	m.head.Frames++
 	buf := make([]byte, 12)
@@ -86,6 +103,13 @@ func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 	binary.BigEndian.PutUint16(buf[10:], fh.Flags)
 	if _, err := m.f.Write(buf); err != nil {
 		return err
+	}
+	if len(m.preData) > 0 {
+		if _, err := m.f.Write(m.preData); err != nil {
+			return err
+		}
+		m.preData = nil
+		m.preFlags = 0
 	}
 	_, err := m.f.Write(data)
 	return err
