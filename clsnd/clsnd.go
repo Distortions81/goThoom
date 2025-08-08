@@ -30,9 +30,9 @@ type CLSounds struct {
 }
 
 const (
-        typeSound     = 0x736e6420 // 'snd '
-        bufferCmd     = 0x51
-        dataOffsetFlag = 0x8000
+	typeSound      = 0x736e6420 // 'snd '
+	bufferCmd      = 0x51
+	dataOffsetFlag = 0x8000
 )
 
 // Load parses the CL_Sounds keyfile located at path.
@@ -141,10 +141,10 @@ func soundHeaderOffset(data []byte) (int, bool) {
 			return 0, false
 		}
 		cmd := binary.BigEndian.Uint16(data[p : p+2])
-                off := int(binary.BigEndian.Uint32(data[p+4 : p+8]))
-                if cmd == dataOffsetFlag|bufferCmd {
-                        return off, true
-                }
+		off := int(binary.BigEndian.Uint32(data[p+4 : p+8]))
+		if cmd == dataOffsetFlag|bufferCmd {
+			return off, true
+		}
 		p += 8
 	}
 	return 0, false
@@ -178,42 +178,90 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			Bits:       8,
 		}
 		return s, nil
-	case 0xfe: // CmpSoundHeader: allow uncompressed PCM with extra fields
+	case 0xfe: // CmpSoundHeader: may contain compression
 		if hdr+64 > len(data) {
 			return nil, fmt.Errorf("short cmp header")
 		}
 		compID := int16(binary.BigEndian.Uint16(data[hdr+56 : hdr+58]))
-		if compID != 0 && compID != -1 {
+		format := binary.BigEndian.Uint32(data[hdr+40 : hdr+44])
+		chans := binary.BigEndian.Uint32(data[hdr+4 : hdr+8])
+		rate := binary.BigEndian.Uint32(data[hdr+8:hdr+12]) >> 16
+		frames := int(binary.BigEndian.Uint32(data[hdr+22 : hdr+26]))
+		bits := binary.BigEndian.Uint16(data[hdr+62 : hdr+64])
+		start := hdr + 64
+		switch compID {
+		case 0, -1: // uncompressed PCM
+			if format != 0x72617720 && format != 0x74776f73 { // 'raw ' or 'twos'
+				if id != 0 {
+					log.Printf("sound %d: unsupported format %08x for compression %d", id, format, compID)
+				} else {
+					log.Printf("unsupported format %08x for compression %d", format, compID)
+				}
+				return nil, fmt.Errorf("unsupported format %08x", format)
+			}
+			bytesPerSample := int(bits) / 8
+			length := frames * int(chans) * bytesPerSample
+			if start > len(data) {
+				return nil, fmt.Errorf("data out of range")
+			}
+			if length > len(data)-start {
+				if id != 0 {
+					log.Printf("truncated sound data for id %d: have %d bytes, expected %d", id, len(data)-start, length)
+				} else {
+					log.Printf("truncated sound data: have %d bytes, expected %d", len(data)-start, length)
+				}
+				length = len(data) - start
+			}
+			s := &Sound{
+				Data:       append([]byte(nil), data[start:start+length]...),
+				SampleRate: rate,
+				Channels:   chans,
+				Bits:       bits,
+			}
+			return s, nil
+		case -4: // IMA4 ADPCM
+			if format != 0x696d6134 { // 'ima4'
+				if id != 0 {
+					log.Printf("sound %d: unsupported format %08x for compression %d", id, format, compID)
+				} else {
+					log.Printf("unsupported format %08x for compression %d", format, compID)
+				}
+				return nil, fmt.Errorf("unsupported format %08x", format)
+			}
+			if start > len(data) {
+				return nil, fmt.Errorf("data out of range")
+			}
+			pcm, err := decodeIMA4(data[start:], int(chans))
+			if err != nil {
+				if id != 0 {
+					log.Printf("sound %d: ima4 decode error: %v", id, err)
+				} else {
+					log.Printf("ima4 decode error: %v", err)
+				}
+				return nil, err
+			}
+			s := &Sound{
+				Data:       pcm,
+				SampleRate: rate,
+				Channels:   chans,
+				Bits:       16,
+			}
+			return s, nil
+		case -2, -3: // MACE 3:1 or 6:1
+			if id != 0 {
+				log.Printf("sound %d: unsupported compression %d format %08x", id, compID, format)
+			} else {
+				log.Printf("unsupported compression %d format %08x", compID, format)
+			}
+			return nil, fmt.Errorf("unsupported compression %d", compID)
+		default:
+			if id != 0 {
+				log.Printf("sound %d: unsupported compression %d format %08x", id, compID, format)
+			} else {
+				log.Printf("unsupported compression %d format %08x", compID, format)
+			}
 			return nil, fmt.Errorf("unsupported compression %d", compID)
 		}
-		format := binary.BigEndian.Uint32(data[hdr+40 : hdr+44])
-		if format != 0x72617720 && format != 0x74776f73 { // 'raw ' or 'twos'
-			return nil, fmt.Errorf("unsupported format %08x", format)
-		}
-		chans := binary.BigEndian.Uint32(data[hdr+4 : hdr+8])
-		bits := binary.BigEndian.Uint16(data[hdr+62 : hdr+64])
-		frames := int(binary.BigEndian.Uint32(data[hdr+22 : hdr+26]))
-		start := hdr + 64
-		bytesPerSample := int(bits) / 8
-		length := frames * int(chans) * bytesPerSample
-		if start > len(data) {
-			return nil, fmt.Errorf("data out of range")
-		}
-		if length > len(data)-start {
-			if id != 0 {
-				log.Printf("truncated sound data for id %d: have %d bytes, expected %d", id, len(data)-start, length)
-			} else {
-				log.Printf("truncated sound data: have %d bytes, expected %d", len(data)-start, length)
-			}
-			length = len(data) - start
-		}
-		s := &Sound{
-			Data:       append([]byte(nil), data[start:start+length]...),
-			SampleRate: binary.BigEndian.Uint32(data[hdr+8:hdr+12]) >> 16,
-			Channels:   chans,
-			Bits:       bits,
-		}
-		return s, nil
 
 	case 0xff: // ExtSoundHeader: allow 16-bit or multi-channel
 		if hdr+44 > len(data) {
@@ -245,6 +293,11 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 		}
 		return s, nil
 	default:
+		if id != 0 {
+			log.Printf("sound %d: unsupported encode %d", id, encode)
+		} else {
+			log.Printf("unsupported encode %d", encode)
+		}
 		return nil, fmt.Errorf("unsupported encode %d", encode)
 	}
 }
