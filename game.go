@@ -29,7 +29,7 @@ const defaultHandPictID = 6
 // pixel in each dimension. This prevents visible gaps between textures when
 // drawing with linear filtering.
 func scaleForFiltering(scale, w, h int) (float64, float64) {
-	return float64(scale) + 1.0/float64(w), float64(scale) + 1.0/float64(h)
+	return float64(scale) + 2.5/float64(w), float64(scale) + 2.5/float64(h)
 }
 
 var mouseX, mouseY int16
