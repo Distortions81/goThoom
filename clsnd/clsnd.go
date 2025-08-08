@@ -264,14 +264,14 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 		}
 
 	case 0xff: // ExtSoundHeader: allow 16-bit or multi-channel
-		if hdr+44 > len(data) {
+		if hdr+64 > len(data) {
 			return nil, fmt.Errorf("short ext header")
 		}
-		frames := int(binary.BigEndian.Uint32(data[hdr+32 : hdr+36]))
+		chans := binary.BigEndian.Uint32(data[hdr+4 : hdr+8])
 		rate := binary.BigEndian.Uint32(data[hdr+8:hdr+12]) >> 16
-		chans := binary.BigEndian.Uint32(data[hdr+24 : hdr+28])
-		bits := binary.BigEndian.Uint16(data[hdr+28 : hdr+30])
-		start := hdr + 44
+		frames := int(binary.BigEndian.Uint32(data[hdr+22 : hdr+26]))
+		bits := binary.BigEndian.Uint16(data[hdr+48 : hdr+50])
+		start := hdr + 64
 		bytesPerSample := int(bits) / 8
 		length := frames * int(chans) * bytesPerSample
 		if start > len(data) {
