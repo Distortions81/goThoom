@@ -279,9 +279,6 @@ func (g *Game) Update() error {
 			if s := h / float64(gameAreaSizeY); s < newScale {
 				newScale = s
 			}
-			if newScale < 1 {
-				newScale = 1
-			}
 			if newScale != gs.Scale {
 				gs.Scale = newScale
 				initFont()
@@ -1003,6 +1000,11 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func runGame(ctx context.Context) {
 	gameCtx = ctx
+
+	// Allow resizing and maximize the window before creating any UI elements.
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.MaximizeWindow()
+
 	resizeUI()
 
 	eui.LoadTheme("AccentDark")
@@ -1013,12 +1015,12 @@ func runGame(ctx context.Context) {
 	gameWin.Size = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale), Y: float32(float64(gameAreaSizeY) * gs.Scale)}
 	gameWin.Closable = false
 	gameWin.Resizable = true
-	gameWin.Movable = true
 	gameWin.Open = true
 	gameWin.MainPortal = true
 	gameWin.FixedRatio = true
 	gameWin.AspectA = 1
 	gameWin.AspectB = 1
+	gameWin.PinTo = eui.PIN_MID_CENTER
 
 	gameWin.AddWindow(false)
 
@@ -1031,7 +1033,6 @@ func runGame(ctx context.Context) {
 	ebiten.SetWindowSize(w, h)
 	lastWinW, lastWinH = w, h
 	ebiten.SetWindowTitle("ThoomSpeak")
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
