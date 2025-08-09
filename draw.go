@@ -178,15 +178,25 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	idxMap := make(map[[2]int]map[int]struct{})
 	total := 0
 	maxInt := int(^uint(0) >> 1)
+
+	// Build a map from PictID to indexes in the current frame to avoid
+	// repeatedly scanning the entire list for matches.
+	curIdx := make(map[uint16][]int, len(cur))
+	for i, c := range cur {
+		curIdx[c.PictID] = append(curIdx[c.PictID], i)
+	}
+
+	// Cache pixel counts locally so that each PictID is computed at most once
+	// per pictureShift invocation.
+	pixelCache := make(map[uint16]int)
+
 	for _, p := range prev {
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
 		matched := false
-		for j, c := range cur {
-			if p.PictID != c.PictID {
-				continue
-			}
+		for _, j := range curIdx[p.PictID] {
+			c := cur[j]
 			dx := int(c.H) - int(p.H)
 			dy := int(c.V) - int(p.V)
 			dist := dx*dx + dy*dy
@@ -199,7 +209,11 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 			}
 		}
 		if matched {
-			pixels := nonTransparentPixels(p.PictID)
+			pixels, ok := pixelCache[p.PictID]
+			if !ok {
+				pixels = nonTransparentPixels(p.PictID)
+				pixelCache[p.PictID] = pixels
+			}
 			key := [2]int{bestDx, bestDy}
 			counts[key] += pixels
 			if idxMap[key] == nil {
