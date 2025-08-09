@@ -1029,6 +1029,8 @@ func openInventoryWindow() {
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
+	inventoryWin.Position = eui.Point{X: 0, Y: 0}
+	inventoryWin.Refresh()
 	updateInventoryWindow()
 }
 
@@ -1050,6 +1052,10 @@ func openPlayersWindow() {
 	playersWin.Resizable = true
 	playersWin.AutoSize = true
 	playersWin.AddWindow(false)
+	w, _ := ebiten.WindowSize()
+	scale := float64(eui.UIScale())
+	playersWin.Position = eui.Point{X: float32(float64(w)/scale) - playersWin.Size.X, Y: 0}
+	playersWin.Refresh()
 	updatePlayersWindow()
 }
 
