@@ -60,18 +60,18 @@ func sendClientIdentifiers(connection net.Conn, clientVersion, imagesVersion, so
 func sendTCPMessage(connection net.Conn, payload []byte) error {
 	var size [2]byte
 	binary.BigEndian.PutUint16(size[:], uint16(len(payload)))
-	if _, err := connection.Write(size[:]); err != nil {
+	if err := writeAll(connection, size[:]); err != nil {
 		logError("send tcp size: %v", err)
 		return err
 	}
-	_, err := connection.Write(payload)
-	if err != nil {
+	if err := writeAll(connection, payload); err != nil {
 		logError("send tcp payload: %v", err)
+		return err
 	}
 	tag := binary.BigEndian.Uint16(payload[:2])
 	logDebug("send tcp tag %d len %d", tag, len(payload))
 	hexDump("send", payload)
-	return err
+	return nil
 }
 
 // sendUDPMessage writes a length-prefixed message to the UDP connection.
@@ -79,14 +79,30 @@ func sendUDPMessage(connection net.Conn, payload []byte) error {
 	var size [2]byte
 	binary.BigEndian.PutUint16(size[:], uint16(len(payload)))
 	buf := append(size[:], payload...)
-	_, err := connection.Write(buf)
-	if err != nil {
+	if err := writeAll(connection, buf); err != nil {
 		logError("send udp payload: %v", err)
+		return err
 	}
 	tag := binary.BigEndian.Uint16(payload[:2])
 	logDebug("send udp tag %d len %d", tag, len(payload))
 	hexDump("send", payload)
-	return err
+	return nil
+}
+
+// writeAll writes the entirety of data to conn, returning an error if the
+// write fails or is short.
+func writeAll(conn net.Conn, data []byte) error {
+	for len(data) > 0 {
+		n, err := conn.Write(data)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return io.ErrShortWrite
+		}
+		data = data[n:]
+	}
+	return nil
 }
 
 // readUDPMessage reads a single length-prefixed message from the UDP connection.
