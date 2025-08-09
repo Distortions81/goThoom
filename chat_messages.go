@@ -1,23 +1,14 @@
 package main
 
-import (
-	"sync"
-	"time"
-)
+import "sync"
 
 const (
-	maxChatMessages     = 5
-	chatMessageLifetime = 15 * time.Second
+	maxChatMessages = 5
 )
-
-type chatMessage struct {
-	text   string
-	expire time.Time
-}
 
 var (
 	chatMsgMu sync.Mutex
-	chatMsgs  []chatMessage
+	chatMsgs  []string
 )
 
 func addChatMessage(msg string) {
@@ -25,27 +16,20 @@ func addChatMessage(msg string) {
 		return
 	}
 	chatMsgMu.Lock()
-	defer chatMsgMu.Unlock()
-	chatMsgs = append(chatMsgs, chatMessage{text: msg, expire: time.Now().Add(chatMessageLifetime)})
+	chatMsgs = append(chatMsgs, msg)
 	if len(chatMsgs) > maxChatMessages {
 		chatMsgs = chatMsgs[len(chatMsgs)-maxChatMessages:]
 	}
-	chatDirty.Store(true)
+	chatMsgMu.Unlock()
+
+	updateChatWindow()
 }
 
 func getChatMessages() []string {
 	chatMsgMu.Lock()
 	defer chatMsgMu.Unlock()
-	now := time.Now()
-	var out []string
-	var keep []chatMessage
-	for _, m := range chatMsgs {
-		if now.After(m.expire) {
-			continue
-		}
-		out = append(out, m.text)
-		keep = append(keep, m)
-	}
-	chatMsgs = keep
+
+	out := make([]string, len(chatMsgs))
+	copy(out, chatMsgs)
 	return out
 }

@@ -197,9 +197,8 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 	// pad source with zeros on both sides so inner loop can skip bounds checks
 	padded := make([]int16, len(src)+2*sincTaps)
 	copy(padded[sincTaps:], src)
-
+	pos := float32(0)
 	for i := 0; i < n; i++ {
-		pos := float32(i) * ratio
 		idx := int(pos)
 		frac := pos - float32(idx)
 
@@ -228,6 +227,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 			sum = float32(math.MinInt16)
 		}
 		dst[i] = int16(math.Round(float64(sum)))
+		pos += ratio
 	}
 	return dst
 }

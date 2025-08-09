@@ -2,15 +2,10 @@
 
 package main
 
-import (
-	"sync/atomic"
-
-	"github.com/Distortions81/EUI/eui"
-)
+import "github.com/Distortions81/EUI/eui"
 
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
-var chatDirty atomic.Bool
 
 func updateChatWindow() {
 	if chatList == nil {
@@ -54,5 +49,5 @@ func openChatWindow() {
 	chatWin.AddItem(chatList)
 	chatWin.AddWindow(false)
 
-	chatDirty.Store(true)
+	updateChatWindow()
 }
