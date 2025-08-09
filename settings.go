@@ -122,6 +122,10 @@ func loadSettings() bool {
 		return false
 	}
 
+	if !gs.fastSound {
+		initSinc()
+	}
+
 	return true
 }
 

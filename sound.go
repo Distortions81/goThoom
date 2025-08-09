@@ -80,13 +80,14 @@ func initSoundContext() {
 	if gs.fastSound {
 		resample = resampleLinear
 	} else {
+		initSinc()
 		resample = resampleSincHQ
 	}
 
 	audioContext = audio.NewContext(rate)
 }
 
-func init() {
+func initSinc() {
 	for k := -sincTaps + 1; k <= sincTaps; k++ {
 		idx := k + sincTaps - 1
 		t := float64(k)/float64(sincTaps) + 0.5

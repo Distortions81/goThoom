@@ -822,6 +822,7 @@ func openDebugWindow() {
 			if gs.fastSound {
 				resample = resampleLinear
 			} else {
+				initSinc()
 				resample = resampleSincHQ
 			}
 		}
