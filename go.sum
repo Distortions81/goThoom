@@ -1,8 +1,12 @@
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/Distortions81/EUI v0.0.10 h1:KRT9QOdMi3yyWmY7ZEvGPXqSeUydm02JoflTIefvh9o=
+github.com/Distortions81/EUI v0.0.10/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/Distortions81/EUI v0.0.11 h1:9O1CJVY0/mic9WfL6YpnZdmJQUpL3RpnhI9xn3Bestk=
 github.com/Distortions81/EUI v0.0.11/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/Distortions81/EUI v0.0.13 h1:oPXa9oCGYJxJo+6Ye9ewuJOcfSyigP5egWiYd2C5iwM=
 github.com/Distortions81/EUI v0.0.13/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
+github.com/Distortions81/EUI v0.0.14 h1:WoXChWYCzMmjHv9BbXTE5UB6Dpze0kzPaz0no/n7LXA=
+github.com/Distortions81/EUI v0.0.14/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf h1:FPsprx82rdrX2jiKyS17BH6IrTmUBYqZa/CXT4uvb+I=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d h1:2xp1BQbqcDDaikHnASWpVZRjibOxu7y9LhAv04whugI=
