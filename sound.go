@@ -26,8 +26,13 @@ var (
 	soundPlayers = make(map[*audio.Player]struct{})
 	resample     = resampleSincHQ
 
-	sincTable [][]float64
-	sincSums  []float64
+	blackmanCosA  [2 * sincTaps]float32
+	blackmanSinA  [2 * sincTaps]float32
+	blackmanCosA2 [2 * sincTaps]float32
+	blackmanSinA2 [2 * sincTaps]float32
+
+	sincTable [][]float32
+	sincSums  []float32
 
 	playSound = func(id uint16) {
 		logDebug("playSound(%d) called", id)
@@ -87,27 +92,36 @@ func initSoundContext() {
 }
 
 func initSinc() {
-	sincTable = make([][]float64, sincPhases)
-	sincSums = make([]float64, sincPhases)
-	for p := 0; p < sincPhases; p++ {
-		frac := float64(p) / float64(sincPhases)
-		sinFrac := math.Sin(math.Pi * frac)
-		b := (2 * math.Pi / float64(sincTaps)) * frac
-		cosB, sinB := math.Cos(b), math.Sin(b)
-		cosB2, sinB2 := math.Cos(2*b), math.Sin(2*b)
+	for k := -sincTaps + 1; k <= sincTaps; k++ {
+		idx := k + sincTaps - 1
+		t := float64(k)/float64(sincTaps) + 0.5
+		a := 2 * math.Pi * t
+		blackmanCosA[idx] = float32(math.Cos(a))
+		blackmanSinA[idx] = float32(math.Sin(a))
+		a2 := 2 * a
+		blackmanCosA2[idx] = float32(math.Cos(a2))
+		blackmanSinA2[idx] = float32(math.Sin(a2))
+	}
 
-		coeffs := make([]float64, 2*sincTaps)
-		var wsum float64
+	sincTable = make([][]float32, sincPhases)
+	sincSums = make([]float32, sincPhases)
+	for p := 0; p < sincPhases; p++ {
+		frac := float32(p) / float32(sincPhases)
+		sinFrac := float32(math.Sin(math.Pi * float64(frac)))
+		b := (2 * math.Pi / float64(sincTaps)) * float64(frac)
+		cosB, sinB := float32(math.Cos(b)), float32(math.Sin(b))
+		cosB2, sinB2 := float32(math.Cos(2*b)), float32(math.Sin(2*b))
+
+		coeffs := make([]float32, 2*sincTaps)
+		var wsum float32
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
 			idx := k + sincTaps - 1
 
-			t := float64(k)/float64(sincTaps) + 0.5
-			a := 2 * math.Pi * t
-			w := math.Cos(a)*cosB + math.Sin(a)*sinB
-			w = 0.42 - 0.5*w + 0.08*(math.Cos(2*a)*cosB2+math.Sin(2*a)*sinB2)
+			w := blackmanCosA[idx]*cosB + blackmanSinA[idx]*sinB
+			w = 0.42 - 0.5*w + 0.08*(blackmanCosA2[idx]*cosB2+blackmanSinA2[idx]*sinB2)
 
-			denom := math.Pi * (float64(k) - frac)
-			var sinc float64
+			denom := float32(math.Pi) * (float32(k) - frac)
+			var sinc float32
 			if denom == 0 {
 				sinc = 1
 			} else {
@@ -178,20 +192,20 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 
 	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
 	dst := make([]int16, n)
-	ratio := float64(srcRate) / float64(dstRate)
+	ratio := float32(srcRate) / float32(dstRate)
 
 	for i := 0; i < n; i++ {
-		pos := float64(i) * ratio
-		idx := int(math.Floor(pos))
-		frac := pos - float64(idx)
+		pos := float32(i) * ratio
+		idx := int(pos)
+		frac := pos - float32(idx)
 
-		phase := int(frac*float64(sincPhases) + 0.5)
+		phase := int(frac*float32(sincPhases) + 0.5)
 		if phase >= sincPhases {
 			phase = sincPhases - 1
 		}
 		coeffs := sincTable[phase]
 		wsum := sincSums[phase]
-		var sum float64
+		var sum float32
 
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
 			j := idx + k
@@ -201,18 +215,18 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 				wsum -= coeff
 				continue
 			}
-			sum += float64(src[j]) * coeff
+			sum += float32(src[j]) * coeff
 		}
 
 		if wsum != 0 {
 			sum /= wsum
 		}
-		if sum > math.MaxInt16 {
-			sum = math.MaxInt16
-		} else if sum < math.MinInt16 {
-			sum = math.MinInt16
+		if sum > float32(math.MaxInt16) {
+			sum = float32(math.MaxInt16)
+		} else if sum < float32(math.MinInt16) {
+			sum = float32(math.MinInt16)
 		}
-		dst[i] = int16(math.Round(sum))
+		dst[i] = int16(math.Round(float64(sum)))
 	}
 	return dst
 }
