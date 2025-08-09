@@ -131,6 +131,13 @@ func picturesSummary(pics []framePicture) string {
 var pixelCountMu sync.RWMutex
 var pixelCountCache = make(map[uint16]int)
 
+// pixelDataCache caches raw pixel data for images so that subsequent
+// nonTransparentPixels calls do not need to read back from the GPU.
+// Reading pixels triggers a GPU stall, so we do it once per image and reuse
+// the cached slice thereafter.
+var pixelDataMu sync.Mutex
+var pixelDataCache = make(map[uint16][]byte)
+
 // nonTransparentPixels returns the number of non-transparent pixels for the
 // given picture ID. The result is cached after the first computation. When
 // possible, it uses raw pixel slices for faster counting and falls back to the
@@ -152,10 +159,16 @@ func nonTransparentPixels(id uint16) int {
 
 	switch src := img.(type) {
 	case *ebiten.Image:
-		// Fast path: read raw pixels and count alpha values.
+		// Fast path: read raw pixels once and cache them.
 		w, h := bounds.Dx(), bounds.Dy()
-		buf := make([]byte, 4*w*h)
-		src.ReadPixels(buf)
+		pixelDataMu.Lock()
+		buf, ok := pixelDataCache[id]
+		if !ok || len(buf) < 4*w*h {
+			buf = make([]byte, 4*w*h)
+			src.ReadPixels(buf)
+			pixelDataCache[id] = buf
+		}
+		pixelDataMu.Unlock()
 		for i := 3; i < len(buf); i += 4 {
 			if buf[i] != 0 {
 				count++
