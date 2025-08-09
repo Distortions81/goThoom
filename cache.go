@@ -10,9 +10,9 @@ import (
 
 func clearCaches() {
 	imageMu.Lock()
-	imageCache = make(map[string]*ebiten.Image)
-	sheetCache = make(map[string]*ebiten.Image)
-	mobileCache = make(map[string]*ebiten.Image)
+	imageCache = make(map[imageKey]*ebiten.Image)
+	sheetCache = make(map[sheetKey]*ebiten.Image)
+	mobileCache = make(map[mobileKey]*ebiten.Image)
 	imageMu.Unlock()
 
 	pixelCountMu.Lock()
