@@ -696,15 +696,25 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			tmp.DrawImage(img, op2)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			op.GeoM.Scale(gs.Scale, gs.Scale)
-			op.GeoM.Translate(float64(x)-float64(tmp.Bounds().Dx())*gs.Scale/2, float64(y)-float64(tmp.Bounds().Dy())*gs.Scale/2)
+			scale := gs.Scale
+			scaled := math.Round(float64(tmp.Bounds().Dx()) * scale)
+			scale = scaled / float64(tmp.Bounds().Dx())
+			op.GeoM.Scale(scale, scale)
+			tx := math.Round(float64(x) - scaled/2)
+			ty := math.Round(float64(y) - scaled/2)
+			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(tmp, op)
 			recycleTempImage(tmp)
 		} else {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			op.GeoM.Scale(gs.Scale, gs.Scale)
-			op.GeoM.Translate(float64(x)-float64(size)*gs.Scale/2, float64(y)-float64(size)*gs.Scale/2)
+			scale := gs.Scale
+			scaled := math.Round(float64(size) * scale)
+			scale = scaled / float64(size)
+			op.GeoM.Scale(scale, scale)
+			tx := math.Round(float64(x) - scaled/2)
+			ty := math.Round(float64(y) - scaled/2)
+			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(img, op)
 		}
 		if d, ok := descMap[m.Index]; ok {
@@ -848,10 +858,16 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			if gs.textureFiltering {
 				sx, sy = scaleForFiltering(gs.Scale, tw, th)
 			}
+			scaledW := math.Round(float64(tw) * sx)
+			scaledH := math.Round(float64(th) * sy)
+			sx = scaledW / float64(tw)
+			sy = scaledH / float64(th)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
 			op.GeoM.Scale(sx, sy)
-			op.GeoM.Translate(float64(x)-float64(tw)*sx/2, float64(y)-float64(th)*sy/2)
+			tx := math.Round(float64(x) - float64(tw)*sx/2)
+			ty := math.Round(float64(y) - float64(th)*sy/2)
+			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(tmp, op)
 			recycleTempImage(tmp)
 		} else {
@@ -859,10 +875,16 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			if gs.textureFiltering {
 				sx, sy = scaleForFiltering(gs.Scale, w, h)
 			}
+			scaledW := math.Round(float64(w) * sx)
+			scaledH := math.Round(float64(h) * sy)
+			sx = scaledW / float64(w)
+			sy = scaledH / float64(h)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
 			op.GeoM.Scale(sx, sy)
-			op.GeoM.Translate(float64(x)-float64(w)*sx/2, float64(y)-float64(h)*sy/2)
+			tx := math.Round(float64(x) - float64(w)*sx/2)
+			ty := math.Round(float64(y) - float64(h)*sy/2)
+			op.GeoM.Translate(tx, ty)
 			if gs.smoothingDebug && p.Moving {
 				op.ColorM.Scale(1, 0, 0, 1)
 			}

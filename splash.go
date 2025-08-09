@@ -42,8 +42,14 @@ func drawSplash(screen *ebiten.Image, ox, oy int) {
 	if scaleY < s {
 		s = scaleY
 	}
+	scaledW := math.Round(float64(iw) * s)
+	scaledH := math.Round(float64(ih) * s)
+	sx := scaledW / float64(iw)
+	sy := scaledH / float64(ih)
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(s, s)
-	op.GeoM.Translate(float64(ox)+(float64(sw)-float64(iw)*s)/2, float64(oy)+(float64(sh)-float64(ih)*s)/2)
+	op.GeoM.Scale(sx, sy)
+	tx := math.Round(float64(ox) + (float64(sw)-scaledW)/2)
+	ty := math.Round(float64(oy) + (float64(sh)-scaledH)/2)
+	op.GeoM.Translate(tx, ty)
 	screen.DrawImage(splashImg, op)
 }
