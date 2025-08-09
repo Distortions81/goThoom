@@ -141,6 +141,16 @@ var (
 	stateMu sync.Mutex
 )
 
+var (
+	descBuf     []frameDescriptor
+	descMapBuf  map[uint8]frameDescriptor
+	deadBuf     []frameMobile
+	liveBuf     []frameMobile
+	negPicsBuf  []framePicture
+	zeroPicsBuf []framePicture
+	posPicsBuf  []framePicture
+)
+
 // bubble stores temporary bubble debug information.
 type bubble struct {
 	Index   uint8
@@ -535,20 +545,29 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
-	descSlice := make([]frameDescriptor, 0, len(snap.descriptors))
+	descSlice := descBuf[:0]
 	for _, d := range snap.descriptors {
 		descSlice = append(descSlice, d)
 	}
 	sortDescriptors(descSlice)
-	descMap := make(map[uint8]frameDescriptor, len(descSlice))
+	descMap := descMapBuf
+	if descMap == nil {
+		descMap = make(map[uint8]frameDescriptor, len(descSlice))
+	} else {
+		for k := range descMap {
+			delete(descMap, k)
+		}
+	}
 	for _, d := range descSlice {
 		descMap[d.Index] = d
 	}
+	descBuf = descSlice
+	descMapBuf = descMap
 
 	sortPictures(snap.pictures)
 
-	dead := make([]frameMobile, 0, len(snap.mobiles))
-	live := make([]frameMobile, 0, len(snap.mobiles))
+	dead := deadBuf[:0]
+	live := liveBuf[:0]
 	for _, m := range snap.mobiles {
 		if m.State == poseDead {
 			dead = append(dead, m)
@@ -557,24 +576,25 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	}
 	sortMobiles(dead)
 	sortMobiles(live)
+	deadBuf = dead
+	liveBuf = live
 
-	negPics := make([]framePicture, 0)
-	zeroPics := make([]framePicture, 0)
-	posPics := make([]framePicture, 0)
+	negPics := negPicsBuf[:0]
+	zeroPics := zeroPicsBuf[:0]
+	posPics := posPicsBuf[:0]
 	for _, p := range snap.pictures {
-		plane := 0
-		if clImages != nil {
-			plane = clImages.Plane(uint32(p.PictID))
-		}
 		switch {
-		case plane < 0:
+		case p.Plane < 0:
 			negPics = append(negPics, p)
-		case plane == 0:
+		case p.Plane == 0:
 			zeroPics = append(zeroPics, p)
 		default:
 			posPics = append(posPics, p)
 		}
 	}
+	negPicsBuf = negPics
+	zeroPicsBuf = zeroPics
+	posPicsBuf = posPics
 
 	for _, p := range negPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
@@ -822,11 +842,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 
 	frame := 0
-	plane := 0
 	if clImages != nil {
 		frame = clImages.FrameIndex(uint32(p.PictID), frameCounter)
-		plane = clImages.Plane(uint32(p.PictID))
 	}
+	plane := p.Plane
 
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image

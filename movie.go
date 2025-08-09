@@ -94,7 +94,11 @@ func parseMovie(path string, clientVersion int) ([][]byte, error) {
 				h := int16(binary.BigEndian.Uint16(data[pos+2 : pos+4]))
 				v := int16(binary.BigEndian.Uint16(data[pos+4 : pos+6]))
 				pos += 6
-				pics = append(pics, framePicture{PictID: id, H: h, V: v})
+				plane := 0
+				if clImages != nil {
+					plane = clImages.Plane(uint32(id))
+				}
+				pics = append(pics, framePicture{PictID: id, H: h, V: v, Plane: plane})
 			}
 			if pos+4 <= len(data) {
 				pos += 4
@@ -149,7 +153,11 @@ func parseGameState(gs []byte, version, revision uint16) {
 				h := int16(binary.BigEndian.Uint16(gs[pos+2 : pos+4]))
 				v := int16(binary.BigEndian.Uint16(gs[pos+4 : pos+6]))
 				pos += 6
-				pics = append(pics, framePicture{PictID: id, H: h, V: v})
+				plane := 0
+				if clImages != nil {
+					plane = clImages.Plane(uint32(id))
+				}
+				pics = append(pics, framePicture{PictID: id, H: h, V: v, Plane: plane})
 			}
 			if pos+4 <= len(gs) {
 				pos += 4
