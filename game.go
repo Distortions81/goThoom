@@ -410,17 +410,20 @@ func updateGameScale() {
 	}
 	scaleW := float64(size.X) / float64(gameAreaSizeX)
 	scaleH := float64(size.Y) / float64(gameAreaSizeY)
-	newScale := math.Floor(math.Min(scaleW, scaleH))
+	newScale := math.Round(math.Min(scaleW, scaleH))
 	if newScale < 1 {
 		newScale = 1
 	}
+	desired := eui.Point{
+		X: float32(gameAreaSizeX) * float32(newScale),
+		Y: float32(gameAreaSizeY) * float32(newScale),
+	}
 	if gs.Scale != newScale {
 		gs.Scale = newScale
-		gameWin.Size = eui.Point{
-			X: float32(gameAreaSizeX) * float32(gs.Scale),
-			Y: float32(gameAreaSizeY) * float32(gs.Scale),
-		}
+		gameWin.Size = desired
 		initFont()
+	} else if size.X != desired.X || size.Y != desired.Y {
+		gameWin.Size = desired
 	}
 }
 
@@ -440,6 +443,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	updateMessagesWindow()
 	updateChatWindow()
 	ox, oy := gameContentOrigin()
+	if gameWin != nil {
+		size := gameWin.GetSize()
+		bg := color.RGBA(gameWin.Theme.Window.BGColor)
+		vector.DrawFilledRect(screen, float32(ox), float32(oy), float32(size.X), float32(size.Y), bg, false)
+	}
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen, ox, oy)
 		eui.Draw(screen)
