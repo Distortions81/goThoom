@@ -76,8 +76,8 @@ func logDebugPacket(prefix string, data []byte) {
 	})
 	n := len(data)
 	dump := data
-	if debugPacketDumpLen > 0 && n > 0 {
-		dump = data[:0]
+	if debugPacketDumpLen > 0 && n > debugPacketDumpLen {
+		dump = data[:debugPacketDumpLen]
 	}
 	debugLogger.Printf("%s len=%d payload=% x", prefix, n, dump)
 }
