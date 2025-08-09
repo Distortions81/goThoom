@@ -1008,6 +1008,10 @@ func runGame(ctx context.Context) {
 	h := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
 	ebiten.SetWindowSize(w, h)
 	lastWinW, lastWinH = w, h
+
+	openInventoryWindow()
+	openPlayersWindow()
+
 	ebiten.SetWindowTitle("ThoomSpeak")
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
