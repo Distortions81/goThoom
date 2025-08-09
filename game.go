@@ -562,14 +562,10 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	zeroPics := make([]framePicture, 0)
 	posPics := make([]framePicture, 0)
 	for _, p := range snap.pictures {
-		plane := 0
-		if clImages != nil {
-			plane = clImages.Plane(uint32(p.PictID))
-		}
 		switch {
-		case plane < 0:
+		case p.Plane < 0:
 			negPics = append(negPics, p)
-		case plane == 0:
+		case p.Plane == 0:
 			zeroPics = append(zeroPics, p)
 		default:
 			posPics = append(posPics, p)
@@ -822,11 +818,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 
 	frame := 0
-	plane := 0
 	if clImages != nil {
 		frame = clImages.FrameIndex(uint32(p.PictID), frameCounter)
-		plane = clImages.Plane(uint32(p.PictID))
 	}
+	plane := p.Plane
 
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
