@@ -1019,7 +1019,7 @@ func runGame(ctx context.Context) {
 	lastWinW, lastWinH = w, h
 	ebiten.MaximizeWindow()
 
-	op := &ebiten.RunGameOptions{ScreenTransparent: true}
+	op := &ebiten.RunGameOptions{ScreenTransparent: false}
 	if err := ebiten.RunGameWithOptions(&Game{}, op); err != nil {
 		log.Printf("ebiten: %v", err)
 	}
