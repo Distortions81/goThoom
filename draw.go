@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"container/list"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -134,9 +135,23 @@ var pixelCountCache = make(map[uint16]int)
 // pixelDataCache caches raw pixel data for images so that subsequent
 // nonTransparentPixels calls do not need to read back from the GPU.
 // Reading pixels triggers a GPU stall, so we do it once per image and reuse
-// the cached slice thereafter.
-var pixelDataMu sync.Mutex
-var pixelDataCache = make(map[uint16][]byte)
+// the cached slice thereafter. To prevent unbounded memory growth the cache
+// is capped at a fixed number of entries and evicts least-recently-used
+// items when full. 128 entries correspond to roughly 2MB of RGBA pixel data
+// for 64x64 images, which comfortably covers the working set while keeping
+// memory usage modest.
+const pixelDataCacheLimit = 128
+
+type pixelDataEntry struct {
+	id   uint16
+	data []byte
+}
+
+var (
+	pixelDataMu    sync.Mutex
+	pixelDataCache = make(map[uint16]*list.Element)
+	pixelDataList  = list.New()
+)
 
 // nonTransparentPixels returns the number of non-transparent pixels for the
 // given picture ID. The result is cached after the first computation. When
@@ -162,11 +177,27 @@ func nonTransparentPixels(id uint16) int {
 		// Fast path: read raw pixels once and cache them.
 		w, h := bounds.Dx(), bounds.Dy()
 		pixelDataMu.Lock()
-		buf, ok := pixelDataCache[id]
-		if !ok || len(buf) < 4*w*h {
+		var buf []byte
+		if elem, ok := pixelDataCache[id]; ok {
+			entry := elem.Value.(*pixelDataEntry)
+			if len(entry.data) < 4*w*h {
+				entry.data = make([]byte, 4*w*h)
+				src.ReadPixels(entry.data)
+			}
+			buf = entry.data
+			pixelDataList.MoveToFront(elem)
+		} else {
 			buf = make([]byte, 4*w*h)
 			src.ReadPixels(buf)
-			pixelDataCache[id] = buf
+			elem := pixelDataList.PushFront(&pixelDataEntry{id: id, data: buf})
+			pixelDataCache[id] = elem
+			if pixelDataList.Len() > pixelDataCacheLimit {
+				if back := pixelDataList.Back(); back != nil {
+					pixelDataList.Remove(back)
+					e := back.Value.(*pixelDataEntry)
+					delete(pixelDataCache, e.id)
+				}
+			}
 		}
 		pixelDataMu.Unlock()
 		for i := 3; i < len(buf); i += 4 {
