@@ -27,11 +27,37 @@ const defaultHandPictID = 6
 
 const initialWindowW, initialWindowH = 100, 100
 
-// scaleForFiltering returns scaling factors that extend the image by one
-// pixel in each dimension. This prevents visible gaps between textures when
-// drawing with linear filtering.
 func scaleForFiltering(scale float64, w, h int) (float64, float64) {
-	return scale + 2.5/float64(w), scale + 2.5/float64(h)
+	ps, exact := exactScale(scale, 8, 1e-6) // denom ≤ 8, ε = 1e-6
+
+	if exact {
+		// Exact integer or exact small rational: no offset needed.
+		return ps, ps
+	}
+
+	// Not exact → keep requested scale but nudge by half-texel to reduce seams.
+	return scale + 0.5/float64(w), scale + 0.5/float64(h)
+}
+
+func exactScale(scale float64, maxDenom int, eps float64) (float64, bool) {
+	// Exact integer?
+	r := math.Round(scale)
+	if math.Abs(scale-r) <= eps {
+		return r, true
+	}
+
+	// Exact small rational num/den?
+	// We look for a den <= maxDenom where num/den ≈ scale within eps.
+	best := scale
+	for den := 2; den <= maxDenom; den++ {
+		num := math.Round(scale * float64(den))
+		ideal := num / float64(den)
+		if math.Abs(scale-ideal) <= eps {
+			best = ideal
+			return best, true
+		}
+	}
+	return best, false
 }
 
 var mouseX, mouseY int16
@@ -419,18 +445,13 @@ func updateGameScale() {
 		return
 	}
 
-	// Use an even-numbered drawing area to avoid gaps between tiles.
-	w := float64(int(size.X) &^ 1)
-	h := float64(int(size.Y) &^ 1)
-
+	w := float64(int(size.X))
+	h := float64(int(size.Y))
 	scaleW := w / float64(gameAreaSizeX)
 	scaleH := h / float64(gameAreaSizeY)
-	newScale := math.Floor(math.Min(scaleW, scaleH))
-	if newScale < 1 {
-		newScale = 1
-	}
-	if !gs.MoreWorldSizes && newScale > 2 {
-		newScale = 2
+	newScale := math.Min(scaleW, scaleH)
+	if newScale < 0.25 {
+		newScale = 0.25
 	}
 
 	if gs.Scale != newScale {
@@ -855,7 +876,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			tmp.DrawImage(img, op2)
 			tw, th := tmp.Bounds().Dx(), tmp.Bounds().Dy()
 			sx, sy := gs.Scale, gs.Scale
-			if gs.textureFiltering {
+			if !gs.textureFiltering {
 				sx, sy = scaleForFiltering(gs.Scale, tw, th)
 			}
 			scaledW := math.Round(float64(tw) * sx)
@@ -872,7 +893,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			recycleTempImage(tmp)
 		} else {
 			sx, sy := gs.Scale, gs.Scale
-			if gs.textureFiltering {
+			if !gs.textureFiltering {
 				sx, sy = scaleForFiltering(gs.Scale, w, h)
 			}
 			scaledW := math.Round(float64(w) * sx)

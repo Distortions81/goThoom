@@ -20,7 +20,7 @@ var gs settings = settings{
 	NameBgOpacity:  0.7,
 
 	MotionSmoothing:   true,
-	BlendMobiles:      true,
+	BlendMobiles:      false,
 	BlendPicts:        true,
 	BlendAmount:       1.0,
 	MobileBlendAmount: 0.33,
@@ -28,21 +28,20 @@ var gs settings = settings{
 	DenoiseSharpness:  4.0,
 	DenoisePercent:    0.2,
 	ShowFPS:           true,
-	Scale:             2.0,
 	UIScale:           1.0,
-	MoreWorldSizes:    true,
 
 	vsync:            true,
 	nightEffect:      true,
 	lateInputUpdates: true,
-	precacheSounds:   true,
-	precacheImages:   false,
-	cacheWholeSheet:  true,
-	smoothMoving:     true,
-	fastBars:         true,
-	speechBubbles:    true,
-	bubbleMessages:   false,
-	recordAssetStats: true,
+
+	fastSound:       true,
+	precacheSounds:  true,
+	precacheImages:  false,
+	cacheWholeSheet: true,
+	smoothMoving:    true,
+	fastBars:        true,
+	speechBubbles:   true,
+	bubbleMessages:  false,
 
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
@@ -72,9 +71,8 @@ type settings struct {
 	DenoisePercent    float64
 	ShowFPS           bool
 
-	Scale          float64
-	UIScale        float64
-	MoreWorldSizes bool
+	Scale   float64
+	UIScale float64
 
 	imgPlanesDebug   bool
 	smoothingDebug   bool

@@ -50,11 +50,11 @@ func precacheAssets() {
 	var preloadMsg string
 	switch {
 	case gs.precacheImages && gs.precacheSounds:
-		preloadMsg = "Pre-loading game sounds and images..."
+		preloadMsg = "Precaching game sounds and images..."
 	case gs.precacheImages:
-		preloadMsg = "Pre-loading game images..."
+		preloadMsg = "Precaching game images..."
 	case gs.precacheSounds:
-		preloadMsg = "Pre-loading game sounds..."
+		preloadMsg = "Precaching game sounds..."
 	}
 	if preloadMsg != "" {
 		addMessage(preloadMsg)
