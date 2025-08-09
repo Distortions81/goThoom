@@ -911,6 +911,7 @@ func parseDrawState(data []byte) error {
 					}
 				}
 			}
+			addChatMessage(msg)
 			if gs.bubbleMessages {
 				addMessage(msg)
 			}
