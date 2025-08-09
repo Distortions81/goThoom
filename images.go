@@ -44,6 +44,7 @@ func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 
 	if clImages != nil {
 		if img := clImages.Get(uint32(id), colors, forceTransparent); img != nil {
+			statImageLoaded(id)
 			imageMu.Lock()
 			sheetCache[key] = img
 			imageMu.Unlock()

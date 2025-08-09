@@ -79,6 +79,9 @@ func main() {
 
 	dataDir = filepath.Join(baseDir, "data")
 
+	loadStats()
+	defer saveStats()
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	if *genPGO {
 		f, err := os.Create(baseDir + "/default.pgo")

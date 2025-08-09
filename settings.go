@@ -42,6 +42,7 @@ var gs settings = settings{
 	fastBars:         true,
 	speechBubbles:    true,
 	bubbleMessages:   false,
+	recordAssetStats: true,
 
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
@@ -91,6 +92,7 @@ type settings struct {
 	fastBars         bool
 	speechBubbles    bool
 	bubbleMessages   bool
+	recordAssetStats bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
