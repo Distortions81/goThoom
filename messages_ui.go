@@ -30,11 +30,14 @@ func updateMessagesWindow() {
 
 func openMessagesWindow() {
 	if messagesWin != nil {
-		return
+		if messagesWin.Open {
+			return
+		}
+		messagesWin = nil
 	}
 	messagesWin = eui.NewWindow(&eui.WindowData{})
 	messagesWin.Title = "Messages"
-	messagesWin.Closable = true
+	messagesWin.Closable = false
 	messagesWin.Resizable = true
 	messagesWin.AutoSize = false
 	messagesWin.Movable = true
@@ -44,4 +47,8 @@ func openMessagesWindow() {
 	messagesWin.AddItem(messagesList)
 	messagesWin.AddWindow(false)
 	updateMessagesWindow()
+	if messagesBox != nil {
+		messagesBox.Checked = true
+		messagesBox.Dirty = true
+	}
 }
