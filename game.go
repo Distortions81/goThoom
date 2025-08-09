@@ -890,7 +890,7 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	barHeight := int(8 * gs.Scale)
 	fieldWidth := int(float64(gameAreaSizeX) * gs.Scale)
 	slot := (fieldWidth - 3*barWidth) / 6
-	barY := int(float64(gameAreaSizeY)*gs.Scale-20*gs.Scale) - barHeight
+	barY := int(float64(gameAreaSizeY)*gs.Scale-50*gs.Scale) - barHeight
 	x := slot
 	step := barWidth + 2*slot
 	drawBar := func(x int, cur, max int, clr color.RGBA) {
@@ -1009,6 +1009,8 @@ func runGame(ctx context.Context) {
 
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
+
+	resizeUI()
 
 	gameWin = eui.NewWindow(&eui.WindowData{})
 	gameWin.Title = "Clan Lord"

@@ -534,10 +534,8 @@ func openSettingsWindow() {
 	}
 	settingsWin = eui.NewWindow(&eui.WindowData{})
 	settingsWin.Title = "Settings"
-	settingsWin.Size = eui.Point{X: 256, Y: 256}
-	settingsWin.Position = eui.Point{X: 8, Y: 8}
-	settingsWin.Closable = false
-	settingsWin.Resizable = true
+	settingsWin.Closable = true
+	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
 	settingsWin.Open = true
@@ -743,10 +741,8 @@ func openDebugWindow() {
 	var width float32 = 250
 	debugWin = eui.NewWindow(&eui.WindowData{})
 	debugWin.Title = "Debug Settings"
-	debugWin.Size = eui.Point{X: 256, Y: 256}
-	debugWin.Position = eui.Point{X: 272, Y: 8}
-	debugWin.Closable = false
-	debugWin.Resizable = true
+	debugWin.Closable = true
+	debugWin.Resizable = false
 	debugWin.AutoSize = true
 	debugWin.Movable = true
 	debugWin.Open = true
