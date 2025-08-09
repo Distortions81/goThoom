@@ -21,6 +21,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
+const lateRatio = 85
 const gameAreaSizeX, gameAreaSizeY = 500, 500
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const defaultHandPictID = 6
@@ -1192,7 +1193,7 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 			// Send the input early enough for the server to receive it
 			// before the next update, adding a safety margin to the
 			// measured latency.
-			adjusted := (lat * 95) / 100
+			adjusted := (lat * lateRatio) / 100
 			delay = interval - adjusted
 			if delay < 0 {
 				delay = 0

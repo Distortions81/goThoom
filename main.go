@@ -57,7 +57,7 @@ func main() {
 		}
 	}
 
-	loadSettings()
+	//loadSettings()
 	loadCharacters()
 	initSoundContext()
 	applySettings()

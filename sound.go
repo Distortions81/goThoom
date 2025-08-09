@@ -13,7 +13,7 @@ import (
 const (
 	maxSounds  = 64
 	mainVolume = 0.5
-	sincTaps   = 32 // filter half-width for high quality sinc resampling
+	sincTaps   = 16 // filter half-width for high quality sinc resampling
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 
 	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
-	resample     = resampleLinear
+	resample     = resampleSincHQ
 
 	blackmanCosA  [2 * sincTaps]float64
 	blackmanSinA  [2 * sincTaps]float64
@@ -80,7 +80,7 @@ func initSoundContext() {
 	if gs.fastSound {
 		resample = resampleFast
 	} else {
-		resample = resampleLinear
+		resample = resampleSincHQ
 	}
 
 	audioContext = audio.NewContext(rate)

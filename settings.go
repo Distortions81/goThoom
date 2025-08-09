@@ -34,10 +34,10 @@ var gs settings = settings{
 	nightEffect:      true,
 	lateInputUpdates: true,
 
-	fastSound:       true,
+	fastSound:       false,
 	precacheSounds:  true,
 	precacheImages:  false,
-	cacheWholeSheet: true,
+	cacheWholeSheet: false,
 	smoothMoving:    true,
 	fastBars:        true,
 	speechBubbles:   true,
