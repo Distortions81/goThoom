@@ -24,6 +24,10 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
+var windowsWin *eui.WindowData
+var playersBox *eui.ItemData
+var inventoryBox *eui.ItemData
+var messagesBox *eui.ItemData
 
 var (
 	sheetCacheLabel  *eui.ItemData
@@ -53,31 +57,18 @@ func initUI() {
 		FlowType: eui.FLOW_HORIZONTAL,
 		PinTo:    eui.PIN_TOP_CENTER,
 	}
-	playersBtn, playersEvents := eui.NewButton(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
-	playersEvents.Handle = func(ev eui.UIEvent) {
+	winBtn, winEvents := eui.NewButton(&eui.ItemData{Text: "Windows", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if playersWin != nil {
-				playersWin.RemoveWindow()
-				playersWin = nil
+			if windowsWin != nil {
+				windowsWin.RemoveWindow()
+				windowsWin = nil
 			} else {
-				openPlayersWindow()
+				openWindowsWindow()
 			}
 		}
 	}
-	overlay.AddItem(playersBtn)
-
-	invBtn, invEvents := eui.NewButton(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
-	invEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			if inventoryWin != nil {
-				inventoryWin.RemoveWindow()
-				inventoryWin = nil
-			} else {
-				openInventoryWindow()
-			}
-		}
-	}
-	overlay.AddItem(invBtn)
+	overlay.AddItem(winBtn)
 
 	btn, btnEvents := eui.NewButton(&eui.ItemData{Text: "Settings", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
 	btnEvents.Handle = func(ev eui.UIEvent) {
@@ -1012,6 +1003,75 @@ func updateSoundTestLabel() {
 	}
 }
 
+func openWindowsWindow() {
+	if windowsWin != nil {
+		if windowsWin.Open {
+			return
+		}
+		windowsWin = nil
+	}
+	windowsWin = eui.NewWindow(&eui.WindowData{})
+	windowsWin.Title = "Windows"
+	windowsWin.Closable = false
+	windowsWin.Resizable = false
+	windowsWin.AutoSize = true
+	windowsWin.Movable = true
+	windowsWin.Open = true
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
+	playersBox, playersBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, Checked: playersWin != nil})
+	playersBoxEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			if ev.Checked {
+				openPlayersWindow()
+			} else if playersWin != nil {
+				playersWin.RemoveWindow()
+				playersWin = nil
+			}
+			if playersBox != nil {
+				playersBox.Dirty = true
+			}
+		}
+	}
+	flow.AddItem(playersBox)
+
+	inventoryBox, inventoryBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 128, Y: 24}, Checked: inventoryWin != nil})
+	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			if ev.Checked {
+				openInventoryWindow()
+			} else if inventoryWin != nil {
+				inventoryWin.RemoveWindow()
+				inventoryWin = nil
+			}
+			if inventoryBox != nil {
+				inventoryBox.Dirty = true
+			}
+		}
+	}
+	flow.AddItem(inventoryBox)
+
+	messagesBox, messagesBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Messages", Size: eui.Point{X: 128, Y: 24}, Checked: messagesWin != nil})
+	messagesBoxEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			if ev.Checked {
+				openMessagesWindow()
+			} else if messagesWin != nil {
+				messagesWin.RemoveWindow()
+				messagesWin = nil
+			}
+			if messagesBox != nil {
+				messagesBox.Dirty = true
+			}
+		}
+	}
+	flow.AddItem(messagesBox)
+
+	windowsWin.AddItem(flow)
+	windowsWin.AddWindow(false)
+}
+
 func openInventoryWindow() {
 	if inventoryWin != nil {
 		return
@@ -1032,6 +1092,10 @@ func openInventoryWindow() {
 	inventoryWin.Position = eui.Point{X: 0, Y: 0}
 	inventoryWin.Refresh()
 	updateInventoryWindow()
+	if inventoryBox != nil {
+		inventoryBox.Checked = true
+		inventoryBox.Dirty = true
+	}
 }
 
 func openPlayersWindow() {
@@ -1057,6 +1121,10 @@ func openPlayersWindow() {
 	playersWin.Position = eui.Point{X: float32(float64(w)/scale) - playersWin.Size.X, Y: 0}
 	playersWin.Refresh()
 	updatePlayersWindow()
+	if playersBox != nil {
+		playersBox.Checked = true
+		playersBox.Dirty = true
+	}
 }
 
 func openHelpWindow() {
