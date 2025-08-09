@@ -17,6 +17,11 @@ import (
 	"go_client/climg"
 )
 
+var pTopLeft = eui.Point{X: 0, Y: 0}
+var pTopRight = eui.Point{X: 8000, Y: 0}
+var pBottomLeft = eui.Point{X: 0, Y: 8000}
+var pBottomRight = eui.Point{X: 8000, Y: 8000}
+
 var loginWin *eui.WindowData
 var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
@@ -174,7 +179,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 	downloadWin.Resizable = false
 	downloadWin.AutoSize = true
 	downloadWin.Movable = false
-	downloadWin.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: float32(float64(gameAreaSizeY) * gs.Scale / 2)}
+	downloadWin.PinTo = eui.PIN_BOTTOM_CENTER
 	downloadWin.Open = true
 
 	startedDownload := false
@@ -315,8 +320,8 @@ func openAddCharacterWindow() {
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
 	addCharWin.Movable = false
-	addCharWin.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: float32(float64(gameAreaSizeY) * gs.Scale / 2)}
 	addCharWin.Open = true
+	addCharWin.PinTo = eui.PIN_BOTTOM_CENTER
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -391,7 +396,8 @@ func openLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
-	loginWin.Movable = true
+	loginWin.Movable = false
+	loginWin.PinTo = eui.PIN_MID_CENTER
 	loginWin.Open = true
 
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -502,7 +508,7 @@ func openErrorWindow(msg string) {
 	win.Resizable = false
 	win.AutoSize = true
 	win.Movable = false
-	win.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: 5}
+	win.PinTo = eui.PIN_MID_CENTER
 	win.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -528,8 +534,9 @@ func openSettingsWindow() {
 	settingsWin.Closable = true
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
-	settingsWin.Movable = true
+	settingsWin.Movable = false
 	settingsWin.Open = true
+	settingsWin.PinTo = eui.PART_TOP_LEFT
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
@@ -609,7 +616,7 @@ func openSettingsWindow() {
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.UIScale = float64(ev.Value)
-			resizeUI()
+			eui.SetUIScale(float32(gs.UIScale))
 			settingsDirty = true
 		}
 	}
@@ -735,8 +742,9 @@ func openDebugWindow() {
 	debugWin.Closable = true
 	debugWin.Resizable = false
 	debugWin.AutoSize = true
-	debugWin.Movable = true
+	debugWin.Movable = false
 	debugWin.Open = true
+	debugWin.PinTo = eui.PIN_MID_CENTER
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1015,12 +1023,13 @@ func openWindowsWindow() {
 	windowsWin.Closable = false
 	windowsWin.Resizable = false
 	windowsWin.AutoSize = true
-	windowsWin.Movable = true
+	windowsWin.Movable = false
 	windowsWin.Open = true
+	windowsWin.PinTo = eui.PIN_TOP_CENTER
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	playersBox, playersBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, Checked: playersWin != nil})
+	playersBox, playersBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}})
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -1081,7 +1090,8 @@ func openInventoryWindow() {
 	inventoryWin.Closable = false
 	inventoryWin.Resizable = false
 	inventoryWin.AutoSize = true
-	inventoryWin.Movable = true
+	inventoryWin.Movable = false
+	inventoryWin.PinTo = eui.PIN_TOP_LEFT
 	inventoryWin.Open = true
 
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -1100,31 +1110,24 @@ func openInventoryWindow() {
 
 func openPlayersWindow() {
 	if playersWin != nil {
-		return
+		if playersWin.Open {
+			return
+		}
 	}
 	playersWin = eui.NewWindow(&eui.WindowData{})
 	playersWin.Title = "Players"
+	playersWin.Size = eui.Point{X: 300, Y: 600}
 	playersWin.Closable = false
 	playersWin.Resizable = false
-	playersWin.AutoSize = false
-	playersWin.Movable = true
-	playersWin.Size = eui.Point{X: 128, Y: 384}
+	playersWin.Movable = false
+	playersWin.PinTo = eui.PIN_TOP_RIGHT
 	playersWin.Open = true
 
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
-	playersWin.Resizable = true
-	playersWin.AutoSize = true
 	playersWin.AddWindow(false)
-	w, _ := ebiten.WindowSize()
-	scale := float64(eui.UIScale())
-	playersWin.Position = eui.Point{X: float32(float64(w)/scale) - playersWin.Size.X, Y: 0}
 	playersWin.Refresh()
 	updatePlayersWindow()
-	if playersBox != nil {
-		playersBox.Checked = true
-		playersBox.Dirty = true
-	}
 }
 
 func openHelpWindow() {
@@ -1133,10 +1136,11 @@ func openHelpWindow() {
 	}
 	helpWin = eui.NewWindow(&eui.WindowData{})
 	helpWin.Title = "Help"
-	helpWin.Closable = false
+	helpWin.Closable = true
 	helpWin.Resizable = false
 	helpWin.AutoSize = true
-	helpWin.Movable = true
+	helpWin.Movable = false
+	helpWin.PinTo = eui.PIN_MID_CENTER
 	helpWin.Open = true
 
 	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}

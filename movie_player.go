@@ -47,7 +47,7 @@ func (p *moviePlayer) initUI() {
 	win.Closable = false
 	win.Resizable = false
 	win.AutoSize = true
-	win.Position = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / 2), Y: 5}
+	win.PinTo = eui.PIN_TOP_CENTER
 	win.Closable = false
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}

@@ -270,25 +270,6 @@ type Game struct{}
 func (g *Game) Update() error {
 	eui.Update()
 
-	if gameWin != nil {
-		size := gameWin.GetSize()
-		w, h := float64(size.X), float64(size.Y)
-		wi, hi := int(math.Round(w)), int(math.Round(h))
-		if wi != lastWinW || hi != lastWinH {
-			lastWinW, lastWinH = wi, hi
-			ebiten.SetWindowSize(wi, hi)
-			newScale := w / float64(gameAreaSizeX)
-			if s := h / float64(gameAreaSizeY); s < newScale {
-				newScale = s
-			}
-			if newScale != gs.Scale {
-				gs.Scale = newScale
-				initFont()
-				settingsDirty = true
-			}
-		}
-	}
-
 	updateDebugStats()
 
 	if settingsDirty {
@@ -972,10 +953,6 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 
 // drawInputOverlay renders the text entry box when chatting.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	if !gameInit && (outsideWidth != lastWinW || outsideHeight != lastWinH) {
-		initGame(outsideWidth, outsideHeight)
-		gameInit = true
-	}
 	eui.Layout(outsideWidth, outsideHeight)
 	return outsideWidth, outsideHeight
 }
@@ -997,23 +974,19 @@ func runGame(ctx context.Context) {
 	}
 }
 
-func initGame(w, h int) {
-	gs.Scale = float64(w) / float64(gameAreaSizeX)
-	if s := float64(h) / float64(gameAreaSizeY); s < gs.Scale {
-		gs.Scale = s
-	}
-	initFont()
-
-	resizeUI()
+func initGame() {
+	ebiten.SetWindowTitle("ThoomSpeak")
+	ebiten.SetVsyncEnabled(gs.vsync)
+	ebiten.SetTPS(ebiten.SyncWithFPS)
+	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
 
-	resizeUI()
-
 	gameWin = eui.NewWindow(&eui.WindowData{})
 	gameWin.Title = "Clan Lord"
-	gameWin.Size = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / float64(eui.UIScale())), Y: float32(float64(gameAreaSizeY) * gs.Scale / float64(eui.UIScale()))}
+	gameWin.Size = eui.Point{X: float32(gameAreaSizeX), Y: float32(gameAreaSizeY)}
+	gameWin.Position = eui.Point{X: 350, Y: 100}
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.Movable = true
@@ -1025,20 +998,10 @@ func initGame(w, h int) {
 
 	gameWin.AddWindow(false)
 
-	resizeUI()
-
-	initUI()
-
-	ebiten.SetWindowSize(w, h)
-	lastWinW, lastWinH = w, h
-
 	openInventoryWindow()
 	openPlayersWindow()
 
-	ebiten.SetWindowTitle("ThoomSpeak")
-	ebiten.SetVsyncEnabled(gs.vsync)
-	ebiten.SetTPS(ebiten.SyncWithFPS)
-	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+	initUI()
 
 	close(gameStarted)
 }

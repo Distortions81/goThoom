@@ -3,11 +3,9 @@ package main
 import (
 	"encoding/json"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 
-	"github.com/Distortions81/EUI/eui"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -95,11 +93,6 @@ func loadSettings() bool {
 		return false
 	}
 
-	initFont()
-	resizeUI()
-	w := int(math.Round(float64(gameAreaSizeX) * gs.Scale))
-	h := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
-	ebiten.SetWindowSize(w, h)
 	return true
 }
 
@@ -116,10 +109,6 @@ func applySettings() {
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	initFont()
-	resizeUI()
-	w := int(math.Round(float64(gameAreaSizeX) * gs.Scale))
-	h := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
-	ebiten.SetWindowSize(w, h)
 }
 
 func saveSettings() {
@@ -131,16 +120,5 @@ func saveSettings() {
 	path := filepath.Join(baseDir, "data", "settings.json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
-	}
-}
-
-func resizeUI() {
-	eui.SetUIScale(float32(gs.UIScale))
-	if gameWin != nil {
-		scale := float64(eui.UIScale())
-		gameWin.Size = eui.Point{
-			X: float32(float64(gameAreaSizeX) * gs.Scale / scale),
-			Y: float32(float64(gameAreaSizeY) * gs.Scale / scale),
-		}
 	}
 }

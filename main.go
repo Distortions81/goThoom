@@ -103,6 +103,7 @@ func main() {
 		cancel()
 	}()
 	addMessage("Starting...")
+	initGame()
 
 	var err error
 	clImages, err = climg.Load(filepath.Join(baseDir + "/data/CL_Images"))

@@ -24,22 +24,23 @@ func updateChatWindow() {
 
 func openChatWindow() {
 	if chatWin != nil {
-		return
+		if chatWin.Open {
+			return
+		}
 	}
 	chatWin = eui.NewWindow(&eui.WindowData{})
 	chatWin.Title = "Chat"
-	chatWin.Closable = false
-	chatWin.Resizable = false
-	chatWin.AutoSize = true
-	chatWin.Movable = true
+	chatWin.Size = eui.Point{X: 700, Y: 300}
+	chatWin.Closable = true
+	chatWin.Resizable = true
+	chatWin.AutoSize = false
+	chatWin.Movable = false
 	chatWin.Open = true
+	chatWin.PinTo = eui.PIN_BOTTOM_RIGHT
 
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	chatWin.AddItem(chatList)
 	chatWin.AddWindow(false)
 
-	w := float32(256)
-	h := float32(150)
-	chatWin.Position = eui.Point{X: float32(float64(gameAreaSizeX)*gs.Scale) - w, Y: float32(float64(gameAreaSizeY)*gs.Scale) - h}
 	updateChatWindow()
 }
