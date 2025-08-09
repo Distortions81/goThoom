@@ -40,7 +40,11 @@ func openMessagesWindow() {
 		}
 	}
 	messagesWin = eui.NewWindow(&eui.WindowData{})
-	messagesWin.Size = eui.Point{X: 700, Y: 300}
+	if gs.MessagesWindow.Size.X > 0 && gs.MessagesWindow.Size.Y > 0 {
+		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X), Y: float32(gs.MessagesWindow.Size.Y)}
+	} else {
+		messagesWin.Size = eui.Point{X: 700, Y: 300}
+	}
 	messagesWin.Title = "Console"
 	messagesWin.Closable = true
 	messagesWin.Resizable = true
@@ -48,6 +52,9 @@ func openMessagesWindow() {
 	messagesWin.Movable = false
 	messagesWin.Open = true
 	messagesWin.PinTo = eui.PIN_BOTTOM_LEFT
+	if gs.MessagesWindow.Position.X != 0 || gs.MessagesWindow.Position.Y != 0 {
+		messagesWin.Position = eui.Point{X: float32(gs.MessagesWindow.Position.X), Y: float32(gs.MessagesWindow.Position.Y)}
+	}
 
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	messagesWin.AddItem(messagesList)

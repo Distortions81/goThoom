@@ -270,6 +270,10 @@ type Game struct{}
 func (g *Game) Update() error {
 	eui.Update()
 
+	if syncWindowSettings() {
+		settingsDirty = true
+	}
+
 	updateGameScale()
 
 	updateDebugStats()
@@ -439,9 +443,9 @@ func gameContentOrigin() (int, int) {
 	s := eui.UIScale()
 	pos := gameWin.GetPos()
 	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
-        x := pos.X + frame
-        y := pos.Y + frame + gameWin.GetTitleSize()
-        return int(math.Round(float64(x))), int(math.Round(float64(y)))
+	x := pos.X + frame
+	y := pos.Y + frame + gameWin.GetTitleSize()
+	return int(math.Round(float64(x))), int(math.Round(float64(y)))
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -1052,8 +1056,16 @@ func initGame() {
 
 	gameWin = eui.NewWindow(&eui.WindowData{})
 	gameWin.Title = "Clan Lord"
-	gameWin.Size = eui.Point{X: float32(gameAreaSizeX), Y: float32(gameAreaSizeY)}
-	gameWin.Position = eui.Point{X: 350, Y: 100}
+	if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
+		gameWin.Size = eui.Point{X: float32(gs.GameWindow.Size.X), Y: float32(gs.GameWindow.Size.Y)}
+	} else {
+		gameWin.Size = eui.Point{X: float32(gameAreaSizeX), Y: float32(gameAreaSizeY)}
+	}
+	if gs.GameWindow.Position.X != 0 || gs.GameWindow.Position.Y != 0 {
+		gameWin.Position = eui.Point{X: float32(gs.GameWindow.Position.X), Y: float32(gs.GameWindow.Position.Y)}
+	} else {
+		gameWin.Position = eui.Point{X: 350, Y: 100}
+	}
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.Movable = true
@@ -1065,8 +1077,12 @@ func initGame() {
 
 	gameWin.AddWindow(false)
 
-	openInventoryWindow()
-	openPlayersWindow()
+	if gs.InventoryWindow.Open {
+		openInventoryWindow()
+	}
+	if gs.PlayersWindow.Open {
+		openPlayersWindow()
+	}
 
 	initUI()
 

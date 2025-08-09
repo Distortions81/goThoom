@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Distortions81/EUI/eui"
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -38,6 +39,12 @@ var gs settings = settings{
 	fastBars:         true,
 	speechBubbles:    true,
 	bubbleMessages:   false,
+
+	GameWindow:      WindowState{Open: true},
+	InventoryWindow: WindowState{Open: true},
+	PlayersWindow:   WindowState{Open: true},
+	MessagesWindow:  WindowState{Open: true},
+	ChatWindow:      WindowState{Open: true},
 }
 
 type settings struct {
@@ -79,9 +86,26 @@ type settings struct {
 	fastBars         bool
 	speechBubbles    bool
 	bubbleMessages   bool
+
+	GameWindow      WindowState
+	InventoryWindow WindowState
+	PlayersWindow   WindowState
+	MessagesWindow  WindowState
+	ChatWindow      WindowState
 }
 
 var settingsDirty bool
+
+type WindowPoint struct {
+	X float64
+	Y float64
+}
+
+type WindowState struct {
+	Open     bool
+	Position WindowPoint
+	Size     WindowPoint
+}
 
 func loadSettings() bool {
 	path := filepath.Join(baseDir, "data", "settings.json")
@@ -112,6 +136,7 @@ func applySettings() {
 }
 
 func saveSettings() {
+	syncWindowSettings()
 	data, err := json.MarshalIndent(gs, "", "  ")
 	if err != nil {
 		log.Printf("save settings: %v", err)
@@ -121,4 +146,50 @@ func saveSettings() {
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}
+}
+
+func syncWindowSettings() bool {
+	changed := false
+	if syncWindow(gameWin, &gs.GameWindow) {
+		changed = true
+	}
+	if syncWindow(inventoryWin, &gs.InventoryWindow) {
+		changed = true
+	}
+	if syncWindow(playersWin, &gs.PlayersWindow) {
+		changed = true
+	}
+	if syncWindow(messagesWin, &gs.MessagesWindow) {
+		changed = true
+	}
+	if syncWindow(chatWin, &gs.ChatWindow) {
+		changed = true
+	}
+	return changed
+}
+
+func syncWindow(win *eui.WindowData, state *WindowState) bool {
+	if win == nil {
+		if state.Open {
+			state.Open = false
+			return true
+		}
+		return false
+	}
+	changed := false
+	if state.Open != win.Open {
+		state.Open = win.Open
+		changed = true
+	}
+	pos := WindowPoint{X: float64(win.Position.X), Y: float64(win.Position.Y)}
+	if state.Position != pos {
+		state.Position = pos
+		changed = true
+	}
+	size := WindowPoint{X: float64(win.Size.X), Y: float64(win.Size.Y)}
+	if state.Size != size {
+		state.Size = size
+		changed = true
+	}
+	return changed
 }
