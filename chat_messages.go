@@ -30,6 +30,7 @@ func addChatMessage(msg string) {
 	if len(chatMsgs) > maxChatMessages {
 		chatMsgs = chatMsgs[len(chatMsgs)-maxChatMessages:]
 	}
+	chatDirty.Store(true)
 }
 
 func getChatMessages() []string {

@@ -1101,7 +1101,7 @@ func openInventoryWindow() {
 	inventoryWin.AddWindow(false)
 	inventoryWin.Position = eui.Point{X: 0, Y: 0}
 	inventoryWin.Refresh()
-	updateInventoryWindow()
+	inventoryDirty.Store(true)
 	if inventoryBox != nil {
 		inventoryBox.Checked = true
 		inventoryBox.Dirty = true
@@ -1127,7 +1127,7 @@ func openPlayersWindow() {
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
 	playersWin.Refresh()
-	updatePlayersWindow()
+	playersDirty.Store(true)
 }
 
 func openHelpWindow() {
