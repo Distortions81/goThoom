@@ -10,8 +10,11 @@ import (
 	"go_client/clsnd"
 )
 
-const maxSounds = 64
-const mainVolume = 0.5
+const (
+	maxSounds  = 64
+	mainVolume = 0.5
+	sincTaps   = 32 // filter half-width for high quality sinc resampling
+)
 
 var (
 	soundMu  sync.Mutex
@@ -21,6 +24,11 @@ var (
 	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
 	resample     = resampleLinear
+
+	blackmanCosA  [2 * sincTaps]float64
+	blackmanSinA  [2 * sincTaps]float64
+	blackmanCosA2 [2 * sincTaps]float64
+	blackmanSinA2 [2 * sincTaps]float64
 
 	playSound = func(id uint16) {
 		logDebug("playSound(%d) called", id)
@@ -78,6 +86,19 @@ func initSoundContext() {
 	audioContext = audio.NewContext(rate)
 }
 
+func init() {
+	for k := -sincTaps + 1; k <= sincTaps; k++ {
+		idx := k + sincTaps - 1
+		t := float64(k)/float64(sincTaps) + 0.5
+		a := 2 * math.Pi * t
+		blackmanCosA[idx] = math.Cos(a)
+		blackmanSinA[idx] = math.Sin(a)
+		a2 := 2 * a
+		blackmanCosA2[idx] = math.Cos(a2)
+		blackmanSinA2[idx] = math.Sin(a2)
+	}
+}
+
 func resampleFast(src []int16, srcRate, dstRate int) []int16 {
 	if srcRate == dstRate || len(src) == 0 {
 		return append([]int16(nil), src...)
@@ -128,8 +149,6 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		return append([]int16(nil), src...)
 	}
 
-	// Number of taps (filter half-width)
-	const taps = 32 // 8–16 for very high quality
 	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
 	dst := make([]int16, n)
 	ratio := float64(srcRate) / float64(dstRate)
@@ -137,15 +156,38 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 	for i := 0; i < n; i++ {
 		pos := float64(i) * ratio
 		idx := int(math.Floor(pos))
+		frac := pos - float64(idx)
 		var sum float64
 		var wsum float64
 
-		for j := idx - taps + 1; j <= idx+taps; j++ {
+		sinFrac := math.Sin(math.Pi * frac)
+		b := (2 * math.Pi / float64(sincTaps)) * frac
+		cosB, sinB := math.Cos(b), math.Sin(b)
+		cosB2, sinB2 := math.Cos(2*b), math.Sin(2*b)
+
+		for k := -sincTaps + 1; k <= sincTaps; k++ {
+			j := idx + k
 			if j < 0 || j >= len(src) {
 				continue
 			}
-			x := float64(j) - pos
-			w := math.Sinc(math.Pi*x) * blackmanWindow(x, float64(taps))
+			idxk := k + sincTaps - 1
+
+			denom := math.Pi * (float64(k) - frac)
+			var sinc float64
+			if denom == 0 {
+				sinc = 1
+			} else {
+				sinc = sinFrac / denom
+				if k%2 == 0 {
+					sinc = -sinc
+				}
+			}
+
+			w := blackmanCosA[idxk]*cosB + blackmanSinA[idxk]*sinB
+			w = 0.42 - 0.5*w + 0.08*(blackmanCosA2[idxk]*cosB2+blackmanSinA2[idxk]*sinB2)
+
+			w *= sinc
+
 			sum += float64(src[j]) * w
 			wsum += w
 		}
@@ -161,19 +203,6 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		dst[i] = int16(math.Round(sum))
 	}
 	return dst
-}
-
-// Blackman window for smoothing the sinc
-func blackmanWindow(x, a float64) float64 {
-	t := (x / a) + 0.5
-	if t < 0 || t > 1 {
-		return 0
-	}
-	// Standard Blackman coefficients
-	alpha0 := 0.42
-	alpha1 := 0.5
-	alpha2 := 0.08
-	return alpha0 - alpha1*math.Cos(2*math.Pi*t) + alpha2*math.Cos(4*math.Pi*t)
 }
 
 // fast xorshift32 PRNG
