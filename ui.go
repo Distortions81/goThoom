@@ -164,8 +164,12 @@ func initUI() {
 
 	eui.AddOverlayFlow(overlay)
 
-	openMessagesWindow()
-	openChatWindow()
+	if gs.MessagesWindow.Open {
+		openMessagesWindow()
+	}
+	if gs.ChatWindow.Open {
+		openChatWindow()
+	}
 }
 
 func openDownloadsWindow(status dataFilesStatus) {
@@ -1038,7 +1042,7 @@ func openWindowsWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	playersBox, playersBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}})
+	playersBox, playersBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, Checked: playersWin != nil})
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -1103,12 +1107,20 @@ func openInventoryWindow() {
 	inventoryWin.PinTo = eui.PIN_TOP_LEFT
 	inventoryWin.Open = true
 
+	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
+		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
+	}
+	if gs.InventoryWindow.Position.X != 0 || gs.InventoryWindow.Position.Y != 0 {
+		inventoryWin.Position = eui.Point{X: float32(gs.InventoryWindow.Position.X), Y: float32(gs.InventoryWindow.Position.Y)}
+	} else {
+		inventoryWin.Position = eui.Point{X: 0, Y: 0}
+	}
+
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	title, _ := eui.NewText(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 256, Y: 128}})
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
-	inventoryWin.Position = eui.Point{X: 0, Y: 0}
 	inventoryWin.Refresh()
 	inventoryDirty.Store(true)
 	if inventoryBox != nil {
@@ -1125,12 +1137,19 @@ func openPlayersWindow() {
 	}
 	playersWin = eui.NewWindow(&eui.WindowData{})
 	playersWin.Title = "Players"
-	playersWin.Size = eui.Point{X: 300, Y: 600}
+	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
+		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
+	} else {
+		playersWin.Size = eui.Point{X: 300, Y: 600}
+	}
 	playersWin.Closable = false
 	playersWin.Resizable = false
 	playersWin.Movable = false
 	playersWin.PinTo = eui.PIN_TOP_RIGHT
 	playersWin.Open = true
+	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
+		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}
+	}
 
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
