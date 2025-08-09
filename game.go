@@ -28,7 +28,15 @@ const defaultHandPictID = 6
 
 const initialWindowW, initialWindowH = 100, 100
 
+// scaleForFiltering returns adjusted scale values for width and height to reduce
+// filtering seams. If either dimension is zero, the original scale is returned
+// unchanged to avoid division by zero on the half-texel offset.
 func scaleForFiltering(scale float64, w, h int) (float64, float64) {
+	if w == 0 || h == 0 {
+		// Zero-sized image: keep the original scale.
+		return scale, scale
+	}
+
 	ps, exact := exactScale(scale, 8, 1e-6) // denom ≤ 8, ε = 1e-6
 
 	if exact {
