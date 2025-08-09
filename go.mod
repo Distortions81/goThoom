@@ -7,7 +7,6 @@ require github.com/hajimehoshi/ebiten/v2 v2.8.8
 require (
 	github.com/Distortions81/EUI v0.0.14
 	github.com/dustin/go-humanize v1.0.1
-	github.com/hajimehoshi/ebiten v1.12.12
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
@@ -21,12 +20,9 @@ require (
 	github.com/ebitengine/gomobile v0.0.0-20250329061421-6d0a8e981e4c // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
-	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200707082815-5321531c36a2 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
-	golang.org/x/exp v0.0.0-20190731235908-ec7cb31e5a56 // indirect
 	golang.org/x/image v0.30.0 // indirect
-	golang.org/x/mobile v0.0.0-20210208171126-f462b3930c8f // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
