@@ -61,8 +61,15 @@ func exactScale(scale float64, maxDenom int, eps float64) (float64, bool) {
 	return best, false
 }
 
-var mouseX, mouseY int16
-var mouseDown bool
+type inputState struct {
+	mouseX, mouseY int16
+	mouseDown      bool
+}
+
+var (
+	latestInput inputState
+	inputMu     sync.Mutex
+)
 
 var keyWalk bool
 var keyX, keyY int16
@@ -426,6 +433,30 @@ func (g *Game) Update() error {
 			walkToggled = false
 		}
 	}
+
+	mx, my := ebiten.CursorPosition()
+	baseX := int16(float64(mx)/gs.Scale - float64(fieldCenterX))
+	baseY := int16(float64(my)/gs.Scale - float64(fieldCenterY))
+	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	if pointInUI(mx, my) {
+		baseDown = false
+	}
+	x, y := baseX, baseY
+	down := baseDown
+	if keyWalk {
+		x, y, down = keyX, keyY, true
+	} else if gs.ClickToToggle {
+		x, y = walkTargetX, walkTargetY
+		down = walkToggled
+	}
+	if down && !keyWalk {
+		ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
+	} else {
+		ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+	}
+	inputMu.Lock()
+	latestInput = inputState{mouseX: x, mouseY: y, mouseDown: down}
+	inputMu.Unlock()
 
 	return nil
 }
@@ -1194,7 +1225,10 @@ func sendInputLoop(ctx context.Context, conn net.Conn) {
 		if time.Since(last) > 2*time.Second || conn == nil {
 			continue
 		}
-		if err := sendPlayerInput(conn); err != nil {
+		inputMu.Lock()
+		s := latestInput
+		inputMu.Unlock()
+		if err := sendPlayerInput(conn, s.mouseX, s.mouseY, s.mouseDown); err != nil {
 			logError("send player input: %v", err)
 		}
 	}

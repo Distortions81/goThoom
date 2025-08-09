@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // tcpConn is the active TCP connection to the game server.
@@ -111,36 +109,15 @@ func readUDPMessage(connection net.Conn) ([]byte, error) {
 	return msg, nil
 }
 
-// sendPlayerInput sends the current mouse state to the server via UDP.
-func sendPlayerInput(connection net.Conn) error {
+// sendPlayerInput sends the provided mouse state to the server via UDP.
+func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool) error {
 	const kMsgPlayerInput = 3
 	flags := uint16(0)
-
-	x, y := ebiten.CursorPosition()
-	baseX := int16(float64(x)/gs.Scale - float64(fieldCenterX))
-	baseY := int16(float64(y)/gs.Scale - float64(fieldCenterY))
-	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-	if pointInUI(x, y) {
-		baseDown = false
-	}
-
-	mouseX, mouseY, mouseDown = baseX, baseY, baseDown
-	if keyWalk {
-		mouseX, mouseY, mouseDown = keyX, keyY, true
-	} else if gs.ClickToToggle {
-		mouseX, mouseY = walkTargetX, walkTargetY
-		mouseDown = walkToggled
-	}
 
 	if mouseDown {
 		flags = kPIMDownField
 	}
 
-	if mouseDown && !keyWalk {
-		ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
-	} else {
-		ebiten.SetCursorShape(ebiten.CursorShapeDefault)
-	}
 	cmd := pendingCommand
 	cmdBytes := encodeMacRoman(cmd)
 	packet := make([]byte, 20+len(cmdBytes)+1)
