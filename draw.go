@@ -5,10 +5,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"image"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // frameDescriptor describes an on-screen descriptor.
@@ -129,33 +132,62 @@ func picturesSummary(pics []framePicture) string {
 	return buf.String()
 }
 
-var pixelCountMu sync.Mutex
+var pixelCountMu sync.RWMutex
 var pixelCountCache = make(map[uint16]int)
 
 // nonTransparentPixels returns the number of non-transparent pixels for the
-// given picture ID. The result is cached after the first computation.
+// given picture ID. The result is cached after the first computation. When
+// possible, it uses raw pixel slices for faster counting and falls back to the
+// generic img.At path otherwise.
 func nonTransparentPixels(id uint16) int {
-	pixelCountMu.Lock()
+	pixelCountMu.RLock()
 	if c, ok := pixelCountCache[id]; ok {
-		pixelCountMu.Unlock()
+		pixelCountMu.RUnlock()
 		return c
 	}
-	pixelCountMu.Unlock()
+	pixelCountMu.RUnlock()
 
-	img := loadImage(id)
+	var img image.Image = loadImage(id)
 	if img == nil {
 		return 0
 	}
 	bounds := img.Bounds()
 	count := 0
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			_, _, _, a := img.At(x, y).RGBA()
-			if a != 0 {
+
+	switch src := img.(type) {
+	case *ebiten.Image:
+		// Fast path: read raw pixels and count alpha values.
+		w, h := bounds.Dx(), bounds.Dy()
+		buf := make([]byte, 4*w*h)
+		src.ReadPixels(buf)
+		for i := 3; i < len(buf); i += 4 {
+			if buf[i] != 0 {
 				count++
 			}
 		}
+	case *image.RGBA:
+		// Fast path for RGBA images: directly access the Pix slice.
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			i := (y-bounds.Min.Y)*src.Stride + (bounds.Min.X * 4)
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				if src.Pix[i+3] != 0 {
+					count++
+				}
+				i += 4
+			}
+		}
+	default:
+		// Fallback: use the image's At method.
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				_, _, _, a := img.At(x, y).RGBA()
+				if a != 0 {
+					count++
+				}
+			}
+		}
 	}
+
 	pixelCountMu.Lock()
 	pixelCountCache[id] = count
 	pixelCountMu.Unlock()
