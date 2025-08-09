@@ -337,7 +337,7 @@ func handleInfoText(data []byte) {
 			continue
 		}
 		if _, txt, _, _, _, _ := decodeBubble(line); txt != "" {
-			//fmt.Println(txt)
+			addChatMessage(txt)
 			if gs.bubbleMessages {
 				addMessage(txt)
 			}

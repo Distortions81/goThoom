@@ -169,6 +169,7 @@ func initUI() {
 	eui.AddOverlayFlow(overlay)
 
 	openMessagesWindow()
+	openChatWindow()
 }
 
 func openDownloadsWindow(status dataFilesStatus) {

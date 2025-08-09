@@ -428,6 +428,7 @@ func gameContentOrigin() (int, int) {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	updateMessagesWindow()
+	updateChatWindow()
 	ox, oy := gameContentOrigin()
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen, ox, oy)
