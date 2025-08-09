@@ -719,6 +719,18 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	}
 	if img != nil {
 		size := img.Bounds().Dx()
+		drawSize := size
+		if gs.BlendMobiles && prevImg != nil {
+			drawSize = nextPow2(size)
+		}
+		scale := gs.Scale
+		scaled := math.Round(float64(drawSize) * scale)
+		scale = scaled / float64(drawSize)
+		half := int(scaled / 2)
+		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
+		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
+			return
+		}
 		if gs.BlendMobiles && prevImg != nil {
 			tmp := getTempImage(size)
 			off := (tmp.Bounds().Dx() - size) / 2
@@ -734,9 +746,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			tmp.DrawImage(img, op2)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			scale := gs.Scale
-			scaled := math.Round(float64(tmp.Bounds().Dx()) * scale)
-			scale = scaled / float64(tmp.Bounds().Dx())
 			op.GeoM.Scale(scale, scale)
 			tx := math.Round(float64(x) - scaled/2)
 			ty := math.Round(float64(y) - scaled/2)
@@ -746,9 +755,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		} else {
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
-			scale := gs.Scale
-			scaled := math.Round(float64(size) * scale)
-			scale = scaled / float64(size)
 			op.GeoM.Scale(scale, scale)
 			tx := math.Round(float64(x) - scaled/2)
 			ty := math.Round(float64(y) - scaled/2)
@@ -812,6 +818,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			text.Draw(screen, lbl, mainFont, op)
 		}
 	} else {
+		half := int(3 * gs.Scale)
+		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
+		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
+			return
+		}
 		vector.DrawFilledRect(screen, float32(float64(x)-3*gs.Scale), float32(float64(y)-3*gs.Scale), float32(6*gs.Scale), float32(6*gs.Scale), color.RGBA{0xff, 0, 0, 0xff}, false)
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
@@ -870,7 +881,31 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	x += ox
 	y += oy
 
+	sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
+
 	if img != nil {
+		drawW, drawH := w, h
+		if gs.BlendPicts && prevImg != nil {
+			size := w
+			if h > size {
+				size = h
+			}
+			drawW = nextPow2(size)
+			drawH = drawW
+		}
+		sx, sy := gs.Scale, gs.Scale
+		if !gs.textureFiltering {
+			sx, sy = scaleForFiltering(gs.Scale, drawW, drawH)
+		}
+		scaledW := math.Round(float64(drawW) * sx)
+		scaledH := math.Round(float64(drawH) * sy)
+		sx = scaledW / float64(drawW)
+		sy = scaledH / float64(drawH)
+		halfW := int(scaledW / 2)
+		halfH := int(scaledH / 2)
+		if x+halfW <= 0 || y+halfH <= 0 || x-halfW >= sw || y-halfH >= sh {
+			return
+		}
 		if gs.BlendPicts && prevImg != nil {
 			size := w
 			if h > size {
@@ -890,37 +925,20 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			op2.Blend = ebiten.BlendLighter
 			op2.GeoM.Translate(float64(offXPix), float64(offYPix))
 			tmp.DrawImage(img, op2)
-			tw, th := tmp.Bounds().Dx(), tmp.Bounds().Dy()
-			sx, sy := gs.Scale, gs.Scale
-			if !gs.textureFiltering {
-				sx, sy = scaleForFiltering(gs.Scale, tw, th)
-			}
-			scaledW := math.Round(float64(tw) * sx)
-			scaledH := math.Round(float64(th) * sy)
-			sx = scaledW / float64(tw)
-			sy = scaledH / float64(th)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
 			op.GeoM.Scale(sx, sy)
-			tx := math.Round(float64(x) - float64(tw)*sx/2)
-			ty := math.Round(float64(y) - float64(th)*sy/2)
+			tx := math.Round(float64(x) - float64(drawW)*sx/2)
+			ty := math.Round(float64(y) - float64(drawH)*sy/2)
 			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(tmp, op)
 			recycleTempImage(tmp)
 		} else {
-			sx, sy := gs.Scale, gs.Scale
-			if !gs.textureFiltering {
-				sx, sy = scaleForFiltering(gs.Scale, w, h)
-			}
-			scaledW := math.Round(float64(w) * sx)
-			scaledH := math.Round(float64(h) * sy)
-			sx = scaledW / float64(w)
-			sy = scaledH / float64(h)
 			op := &ebiten.DrawImageOptions{}
 			op.Filter = drawFilter
 			op.GeoM.Scale(sx, sy)
-			tx := math.Round(float64(x) - float64(w)*sx/2)
-			ty := math.Round(float64(y) - float64(h)*sy/2)
+			tx := math.Round(float64(x) - float64(drawW)*sx/2)
+			ty := math.Round(float64(y) - float64(drawH)*sy/2)
 			op.GeoM.Translate(tx, ty)
 			if gs.smoothingDebug && p.Moving {
 				op.ColorM.Scale(1, 0, 0, 1)
@@ -938,6 +956,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 	} else {
+		half := int(2 * gs.Scale)
+		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
+			return
+		}
 		clr := color.RGBA{0, 0, 0xff, 0xff}
 		if gs.smoothingDebug && p.Moving {
 			clr = color.RGBA{0xff, 0, 0, 0xff}
