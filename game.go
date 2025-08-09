@@ -961,7 +961,7 @@ func runGame(ctx context.Context) {
 	gameCtx = ctx
 
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	w, h := ebiten.ScreenSizeInFullscreen()
+	w, h := ebiten.Monitor().Size()
 	if w == 0 || h == 0 {
 		w, h = initialWindowW, initialWindowH
 	}
@@ -969,7 +969,8 @@ func runGame(ctx context.Context) {
 	lastWinW, lastWinH = w, h
 	ebiten.MaximizeWindow()
 
-	if err := ebiten.RunGame(&Game{}); err != nil {
+	op := &ebiten.RunGameOptions{ScreenTransparent: true}
+	if err := ebiten.RunGameWithOptions(&Game{}, op); err != nil {
 		log.Printf("ebiten: %v", err)
 	}
 }
