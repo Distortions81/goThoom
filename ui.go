@@ -820,7 +820,7 @@ func openDebugWindow() {
 			pcmCache = make(map[uint16][]byte)
 
 			if gs.fastSound {
-				resample = resampleFast
+				resample = resampleLinear
 			} else {
 				resample = resampleSincHQ
 			}

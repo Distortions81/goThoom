@@ -78,7 +78,7 @@ func initSoundContext() {
 	rate := 44100
 
 	if gs.fastSound {
-		resample = resampleFast
+		resample = resampleLinear
 	} else {
 		resample = resampleSincHQ
 	}
