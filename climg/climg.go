@@ -500,6 +500,9 @@ func (c *CLImages) NumFrames(id uint32) int {
 // ClearCache removes all cached images so they will be reloaded on demand.
 func (c *CLImages) ClearCache() {
 	c.mu.Lock()
+	for _, img := range c.cache {
+		img.Dispose()
+	}
 	c.cache = make(map[string]*ebiten.Image)
 	c.mu.Unlock()
 }
