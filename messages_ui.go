@@ -17,7 +17,7 @@ func updateMessagesWindow() {
 		t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
 		messagesList.AddItem(t)
 	}
-	inputMsg := "press enter to open for input"
+	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
 	if inputActive {
 		inputMsg = string(inputText)
 	}
@@ -35,8 +35,8 @@ func openMessagesWindow() {
 	messagesWin = eui.NewWindow(&eui.WindowData{})
 	messagesWin.Title = "Messages"
 	messagesWin.Closable = false
-	messagesWin.Resizable = false
-	messagesWin.AutoSize = true
+	messagesWin.Resizable = true
+	messagesWin.AutoSize = false
 	messagesWin.Movable = true
 	messagesWin.PinTo = eui.PIN_BOTTOM_LEFT
 	messagesWin.Open = true
