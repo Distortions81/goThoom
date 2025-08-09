@@ -1017,12 +1017,12 @@ func runGame(ctx context.Context) {
 	gameWin.Size = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale), Y: float32(float64(gameAreaSizeY) * gs.Scale)}
 	gameWin.Closable = false
 	gameWin.Resizable = true
+	gameWin.Movable = true
 	gameWin.Open = true
 	gameWin.MainPortal = true
 	gameWin.FixedRatio = true
 	gameWin.AspectA = 1
 	gameWin.AspectB = 1
-	gameWin.PinTo = eui.PIN_MID_CENTER
 
 	gameWin.AddWindow(false)
 
