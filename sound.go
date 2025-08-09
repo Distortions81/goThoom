@@ -194,6 +194,10 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 	dst := make([]int16, n)
 	ratio := float32(srcRate) / float32(dstRate)
 
+	// pad source with zeros on both sides so inner loop can skip bounds checks
+	padded := make([]int16, len(src)+2*sincTaps)
+	copy(padded[sincTaps:], src)
+
 	for i := 0; i < n; i++ {
 		pos := float32(i) * ratio
 		idx := int(pos)
@@ -207,15 +211,12 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		wsum := sincSums[phase]
 		var sum float32
 
+		base := idx + sincTaps
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
-			j := idx + k
+			j := base + k
 			idxk := k + sincTaps - 1
 			coeff := coeffs[idxk]
-			if j < 0 || j >= len(src) {
-				wsum -= coeff
-				continue
-			}
-			sum += float32(src[j]) * coeff
+			sum += float32(padded[j]) * coeff
 		}
 
 		if wsum != 0 {
