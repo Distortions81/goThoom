@@ -27,6 +27,7 @@ type framePicture struct {
 	PictID       uint16
 	H, V         int16
 	PrevH, PrevV int16
+	Plane        int
 	Moving       bool
 	Background   bool
 	Owned        bool
@@ -54,13 +55,8 @@ const (
 
 func sortPictures(pics []framePicture) {
 	sort.Slice(pics, func(i, j int) bool {
-		pi, pj := 0, 0
-		if clImages != nil {
-			pi = clImages.Plane(uint32(pics[i].PictID))
-			pj = clImages.Plane(uint32(pics[j].PictID))
-		}
-		if pi != pj {
-			return pi < pj
+		if pics[i].Plane != pics[j].Plane {
+			return pics[i].Plane < pics[j].Plane
 		}
 		if pics[i].V == pics[j].V {
 			return pics[i].H < pics[j].H
@@ -573,7 +569,11 @@ func parseDrawState(data []byte) error {
 		id := uint16(idBits)
 		h := signExtend(hBits, 11)
 		v := signExtend(vBits, 11)
-		pics = append(pics, framePicture{PictID: id, H: h, V: v})
+		plane := 0
+		if clImages != nil {
+			plane = clImages.Plane(uint32(id))
+		}
+		pics = append(pics, framePicture{PictID: id, H: h, V: v, Plane: plane})
 	}
 	p += br.bitPos / 8
 	if br.bitPos%8 != 0 {
