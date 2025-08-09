@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"log"
 	"sync"
@@ -13,28 +12,83 @@ import (
 
 // imageCache lazily loads images from the CL_Images archive. If an image is not
 // present, nil is cached to avoid repeated lookups.
+const maxColors = 30
+
+type imageKey struct {
+	id    uint16
+	frame uint16
+}
+
+type sheetKey struct {
+	id               uint16
+	forceTransparent bool
+	colorsLen        uint8
+	colors           [maxColors]byte
+}
+
+type mobileKey struct {
+	id        uint16
+	state     uint8
+	colorsLen uint8
+	colors    [maxColors]byte
+}
+
 var (
 	// imageCache holds cropped animation frames keyed by picture ID and
 	// frame index.
-	imageCache = make(map[string]*ebiten.Image)
+	imageCache = make(map[imageKey]*ebiten.Image)
 	// sheetCache holds the full sprite sheet for a picture ID and optional
 	// custom color palette. The key combines the picture ID with the custom
 	// color bytes so tinted versions are cached separately.
-	sheetCache = make(map[string]*ebiten.Image)
+	sheetCache = make(map[sheetKey]*ebiten.Image)
 	// mobileCache caches individual mobile frames keyed by picture ID,
 	// state, and color overrides.
-	mobileCache = make(map[string]*ebiten.Image)
+	mobileCache = make(map[mobileKey]*ebiten.Image)
 
 	imageMu  sync.Mutex
 	clImages *climg.CLImages
 )
+
+func makeSheetKey(id uint16, colors []byte, forceTransparent bool) sheetKey {
+	var k sheetKey
+	k.id = id
+	k.forceTransparent = forceTransparent
+	if len(colors) > 0 {
+		l := len(colors)
+		if l > maxColors {
+			l = maxColors
+		}
+		k.colorsLen = uint8(l)
+		copy(k.colors[:], colors[:l])
+	}
+	return k
+}
+
+func makeImageKey(id uint16, frame int) imageKey {
+	return imageKey{id: id, frame: uint16(frame)}
+}
+
+func makeMobileKey(id uint16, state uint8, colors []byte) mobileKey {
+	var k mobileKey
+	k.id = id
+	k.state = state
+	if len(colors) > 0 {
+		l := len(colors)
+		if l > maxColors {
+			l = maxColors
+		}
+		k.colorsLen = uint8(l)
+		copy(k.colors[:], colors[:l])
+	}
+	return k
+}
 
 // loadSheet retrieves the full sprite sheet for the specified picture ID.
 // The forceTransparent flag forces palette index 0 to be fully transparent
 // regardless of the pictDef flags. Mobile sprites require this behavior
 // since the original client always treats index 0 as transparent for them.
 func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
-	key := fmt.Sprintf("%d-%x-%t", id, colors, forceTransparent)
+	key := makeSheetKey(id, colors, forceTransparent)
 	imageMu.Lock()
 	if img, ok := sheetCache[key]; ok {
 		imageMu.Unlock()
@@ -70,8 +124,9 @@ func loadImage(id uint16) *ebiten.Image {
 // loadImageFrame retrieves a specific animation frame for the specified picture
 // ID. Frames are cached individually after the first load.
 func loadImageFrame(id uint16, frame int) *ebiten.Image {
+	origKey := makeImageKey(id, frame)
 	imageMu.Lock()
-	if img, ok := imageCache[fmt.Sprintf("%d-%d", id, frame)]; ok {
+	if img, ok := imageCache[origKey]; ok {
 		imageMu.Unlock()
 		return img
 	}
@@ -80,7 +135,7 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	sheet := loadSheet(id, nil, false)
 	if sheet == nil {
 		imageMu.Lock()
-		imageCache[fmt.Sprintf("%d-%d", id, frame)] = nil
+		imageCache[origKey] = nil
 		imageMu.Unlock()
 		return nil
 	}
@@ -100,13 +155,13 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	if gs.cacheWholeSheet {
 		imageMu.Lock()
 		for f := 0; f < frames; f++ {
-			k := fmt.Sprintf("%d-%d", id, f)
+			k := makeImageKey(id, f)
 			if _, ok := imageCache[k]; !ok {
 				y := 1 + f*h
 				imageCache[k] = sheet.SubImage(image.Rect(1, y, 1+innerWidth, y+h)).(*ebiten.Image)
 			}
 		}
-		img := imageCache[fmt.Sprintf("%d-%d", id, frame)]
+		img := imageCache[makeImageKey(id, frame)]
 		imageMu.Unlock()
 		return img
 	}
@@ -115,7 +170,7 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	sub := sheet.SubImage(image.Rect(1, 1+y0, 1+innerWidth, 1+y0+h)).(*ebiten.Image)
 
 	imageMu.Lock()
-	imageCache[fmt.Sprintf("%d-%d", id, frame)] = sub
+	imageCache[makeImageKey(id, frame)] = sub
 	imageMu.Unlock()
 	return sub
 }
@@ -124,8 +179,11 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 // the state value provided by the server. The optional colors slice allows
 // caller-supplied palette overrides to be cached separately.
 func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
+	baseKey := makeMobileKey(id, 0, colors)
+	key := baseKey
+	key.state = state
 	imageMu.Lock()
-	if img, ok := mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)]; ok {
+	if img, ok := mobileCache[key]; ok {
 		imageMu.Unlock()
 		return img
 	}
@@ -134,7 +192,7 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	sheet := loadSheet(id, colors, true)
 	if sheet == nil {
 		imageMu.Lock()
-		mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)] = nil
+		mobileCache[key] = nil
 		imageMu.Unlock()
 		return nil
 	}
@@ -144,7 +202,7 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	y := 1 + int(state>>4)*innerSize
 	if x+innerSize > sheet.Bounds().Dx()-1 || y+innerSize > sheet.Bounds().Dy()-1 {
 		imageMu.Lock()
-		mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)] = nil
+		mobileCache[key] = nil
 		imageMu.Unlock()
 		return nil
 	}
@@ -153,7 +211,8 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 		imageMu.Lock()
 		for yy := 0; yy < 16; yy++ {
 			for xx := 0; xx < 16; xx++ {
-				k := fmt.Sprintf("%d-%d-%x", id, uint8(yy<<4|xx), colors)
+				k := baseKey
+				k.state = uint8(yy<<4 | xx)
 				if _, ok := mobileCache[k]; !ok {
 					sx := 1 + xx*innerSize
 					sy := 1 + yy*innerSize
@@ -165,14 +224,14 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 				}
 			}
 		}
-		img := mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)]
+		img := mobileCache[key]
 		imageMu.Unlock()
 		return img
 	}
 
 	frame := sheet.SubImage(image.Rect(x, y, x+innerSize, y+innerSize)).(*ebiten.Image)
 	imageMu.Lock()
-	mobileCache[fmt.Sprintf("%d-%d-%x", id, state, colors)] = frame
+	mobileCache[key] = frame
 	imageMu.Unlock()
 	return frame
 }
