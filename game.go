@@ -270,6 +270,8 @@ type Game struct{}
 func (g *Game) Update() error {
 	eui.Update()
 
+	updateGameScale()
+
 	updateDebugStats()
 
 	if settingsDirty {
@@ -396,6 +398,30 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+func updateGameScale() {
+	if gameWin == nil {
+		return
+	}
+	size := gameWin.GetSize()
+	if size.X <= 0 || size.Y <= 0 {
+		return
+	}
+	scaleW := float64(size.X) / float64(gameAreaSizeX)
+	scaleH := float64(size.Y) / float64(gameAreaSizeY)
+	newScale := math.Floor(math.Min(scaleW, scaleH))
+	if newScale < 1 {
+		newScale = 1
+	}
+	if gs.Scale != newScale {
+		gs.Scale = newScale
+		gameWin.Size = eui.Point{
+			X: float32(gameAreaSizeX) * float32(gs.Scale),
+			Y: float32(gameAreaSizeY) * float32(gs.Scale),
+		}
+		initFont()
+	}
 }
 
 func gameContentOrigin() (int, int) {
