@@ -34,8 +34,8 @@ var gs settings = settings{
 	nightEffect:      true,
 	lateInputUpdates: true,
 
-	fastSound:       false,
-	precacheSounds:  true,
+	fastSound:       true,
+	precacheSounds:  false,
 	precacheImages:  false,
 	cacheWholeSheet: false,
 	smoothMoving:    true,
@@ -120,6 +120,10 @@ func loadSettings() bool {
 	}
 	if err := json.Unmarshal(data, &gs); err != nil {
 		return false
+	}
+
+	if !gs.fastSound {
+		initSinc()
 	}
 
 	return true
