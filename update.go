@@ -39,6 +39,12 @@ func downloadGZ(url, dest string) error {
 		logError("create %v: %v", tmp, err)
 		return err
 	}
+	removeTmp := true
+	defer func() {
+		if removeTmp {
+			os.Remove(tmp)
+		}
+	}()
 	if _, err := io.Copy(f, gz); err != nil {
 		f.Close()
 		logError("copy %v: %v", tmp, err)
@@ -53,6 +59,7 @@ func downloadGZ(url, dest string) error {
 		logError("rename %v to %v: %v", tmp, dest, err)
 		return err
 	}
+	removeTmp = false
 	return nil
 }
 
