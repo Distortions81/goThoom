@@ -25,6 +25,8 @@ const gameAreaSizeX, gameAreaSizeY = 500, 500
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const defaultHandPictID = 6
 
+const initialWindowW, initialWindowH = 100, 100
+
 // scaleForFiltering returns scaling factors that extend the image by one
 // pixel in each dimension. This prevents visible gaps between textures when
 // drawing with linear filtering.
@@ -66,6 +68,7 @@ var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var gameStarted = make(chan struct{})
 var lastWinW, lastWinH int
+var gameInit bool
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -969,6 +972,10 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 
 // drawInputOverlay renders the text entry box when chatting.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	if !gameInit && (outsideWidth != lastWinW || outsideHeight != lastWinH) {
+		initGame(outsideWidth, outsideHeight)
+		gameInit = true
+	}
 	eui.Layout(outsideWidth, outsideHeight)
 	return outsideWidth, outsideHeight
 }
@@ -976,9 +983,22 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func runGame(ctx context.Context) {
 	gameCtx = ctx
 
-	// Allow resizing and maximize the window before creating any UI elements.
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	ebiten.SetWindowSize(initialWindowW, initialWindowH)
+	lastWinW, lastWinH = initialWindowW, initialWindowH
 	ebiten.MaximizeWindow()
+
+	if err := ebiten.RunGame(&Game{}); err != nil {
+		log.Printf("ebiten: %v", err)
+	}
+}
+
+func initGame(w, h int) {
+	gs.Scale = float64(w) / float64(gameAreaSizeX)
+	if s := float64(h) / float64(gameAreaSizeY); s < gs.Scale {
+		gs.Scale = s
+	}
+	initFont()
 
 	resizeUI()
 
@@ -989,7 +1009,7 @@ func runGame(ctx context.Context) {
 
 	gameWin = eui.NewWindow(&eui.WindowData{})
 	gameWin.Title = "Clan Lord"
-	gameWin.Size = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale), Y: float32(float64(gameAreaSizeY) * gs.Scale)}
+	gameWin.Size = eui.Point{X: float32(float64(gameAreaSizeX) * gs.Scale / float64(eui.UIScale())), Y: float32(float64(gameAreaSizeY) * gs.Scale / float64(eui.UIScale()))}
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.Movable = true
@@ -1005,8 +1025,6 @@ func runGame(ctx context.Context) {
 
 	initUI()
 
-	w := int(math.Round(float64(gameAreaSizeX) * gs.Scale))
-	h := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
 	ebiten.SetWindowSize(w, h)
 	lastWinW, lastWinH = w, h
 
@@ -1019,10 +1037,6 @@ func runGame(ctx context.Context) {
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
 	close(gameStarted)
-
-	if err := ebiten.RunGame(&Game{}); err != nil {
-		log.Printf("ebiten: %v", err)
-	}
 }
 
 func noteFrame() {
