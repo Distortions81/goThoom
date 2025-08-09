@@ -2,15 +2,10 @@
 
 package main
 
-import (
-	"sync/atomic"
-
-	"github.com/Distortions81/EUI/eui"
-)
+import "github.com/Distortions81/EUI/eui"
 
 var messagesWin *eui.WindowData
 var messagesList *eui.ItemData
-var messagesDirty atomic.Bool
 
 func updateMessagesWindow() {
 	if messagesList == nil {
@@ -60,5 +55,5 @@ func openMessagesWindow() {
 	messagesWin.AddItem(messagesList)
 	messagesWin.AddWindow(false)
 
-	messagesDirty.Store(true)
+	updateMessagesWindow()
 }

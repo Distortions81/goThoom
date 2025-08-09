@@ -1,23 +1,14 @@
 package main
 
-import (
-	"sync"
-	"time"
-)
+import "sync"
 
 const (
-	maxMessages     = 5
-	messageLifetime = 15 * time.Second
+	maxMessages = 5
 )
-
-type message struct {
-	text   string
-	expire time.Time
-}
 
 var (
 	messageMu sync.Mutex
-	messages  []message
+	messages  []string
 )
 
 func addMessage(msg string) {
@@ -26,28 +17,20 @@ func addMessage(msg string) {
 	}
 
 	messageMu.Lock()
-	defer messageMu.Unlock()
-	messages = append(messages, message{text: msg, expire: time.Now().Add(messageLifetime)})
+	messages = append(messages, msg)
 	if len(messages) > maxMessages {
 		messages = messages[len(messages)-maxMessages:]
 	}
-	messagesDirty.Store(true)
+	messageMu.Unlock()
+
+	updateMessagesWindow()
 }
 
 func getMessages() []string {
 	messageMu.Lock()
 	defer messageMu.Unlock()
 
-	now := time.Now()
-	var out []string
-	var keep []message
-	for _, m := range messages {
-		if now.After(m.expire) {
-			continue
-		}
-		out = append(out, m.text)
-		keep = append(keep, m)
-	}
-	messages = keep
+	out := make([]string, len(messages))
+	copy(out, messages)
 	return out
 }
