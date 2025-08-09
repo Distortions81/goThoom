@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"image/color"
 	"testing"
 
@@ -25,7 +26,8 @@ func BenchmarkNonTransparentPixels(b *testing.B) {
 	pixelCountCache = make(map[uint16]int)
 	pixelCountMu.Unlock()
 	pixelDataMu.Lock()
-	pixelDataCache = make(map[uint16][]byte)
+	pixelDataCache = make(map[uint16]*list.Element)
+	pixelDataList = list.New()
 	pixelDataMu.Unlock()
 
 	// Warm up once so the benchmark measures cached calls.
