@@ -5,3 +5,4 @@ go_client
 settings.json
 characters.json
 binaries/*.zip
+cpu.svg
