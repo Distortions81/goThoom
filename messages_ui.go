@@ -34,11 +34,10 @@ func openMessagesWindow() {
 	}
 	messagesWin = eui.NewWindow(&eui.WindowData{})
 	messagesWin.Title = "Messages"
-	messagesWin.Closable = false
+	messagesWin.Closable = true
 	messagesWin.Resizable = true
 	messagesWin.AutoSize = false
 	messagesWin.Movable = true
-	messagesWin.PinTo = eui.PIN_BOTTOM_LEFT
 	messagesWin.Open = true
 
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}

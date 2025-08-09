@@ -51,7 +51,7 @@ func initUI() {
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
-		PinTo:    eui.PIN_BOTTOM_RIGHT,
+		PinTo:    eui.PIN_TOP_CENTER,
 	}
 	playersBtn, playersEvents := eui.NewButton(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
 	playersEvents.Handle = func(ev eui.UIEvent) {
@@ -400,8 +400,7 @@ func openLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
-	loginWin.Movable = false
-	loginWin.PinTo = eui.PIN_MID_CENTER
+	loginWin.Movable = true
 	loginWin.Open = true
 
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -518,7 +517,7 @@ func openErrorWindow(msg string) {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
 	flow.AddItem(text)
-	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}, PinTo: eui.PIN_BOTTOM_CENTER})
+	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}})
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			win.RemoveWindow()
