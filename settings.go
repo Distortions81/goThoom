@@ -35,6 +35,8 @@ var gs settings = settings{
 	vsync:            true,
 	nightEffect:      true,
 	lateInputUpdates: true,
+	precacheSounds:   true,
+	precacheImages:   false,
 	cacheWholeSheet:  true,
 	smoothMoving:     true,
 	fastBars:         true,
@@ -80,7 +82,8 @@ type settings struct {
 	vsync            bool
 	fastSound        bool
 	nightEffect      bool
-	precacheAssets   bool
+	precacheSounds   bool
+	precacheImages   bool
 	textureFiltering bool
 	lateInputUpdates bool
 	cacheWholeSheet  bool

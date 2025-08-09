@@ -459,7 +459,7 @@ func openLoginWindow() {
 				ctx, cancel := context.WithCancel(gameCtx)
 				mp := newMoviePlayer(frames, clMovFPS, cancel)
 				mp.initUI()
-				if gs.precacheAssets && !assetsPrecached {
+				if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
 					for !assetsPrecached {
 						time.Sleep(100 * time.Millisecond)
 					}
@@ -788,14 +788,23 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(showFPSCB)
 
-	precacheCB, precacheEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds and Sprites", Size: eui.Point{X: width, Y: 24}, Checked: gs.precacheAssets})
-	precacheEvents.Handle = func(ev eui.UIEvent) {
+	precacheSoundCB, precacheSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds", Size: eui.Point{X: width, Y: 24}, Checked: gs.precacheSounds})
+	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.precacheAssets = ev.Checked
+			gs.precacheSounds = ev.Checked
 			settingsDirty = true
 		}
 	}
-	debugFlow.AddItem(precacheCB)
+	debugFlow.AddItem(precacheSoundCB)
+
+	precacheImageCB, precacheImageEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Images", Size: eui.Point{X: width, Y: 24}, Checked: gs.precacheImages})
+	precacheImageEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.precacheImages = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(precacheImageCB)
 
 	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.textureFiltering})
 	filtEvents.Handle = func(ev eui.UIEvent) {
