@@ -278,6 +278,8 @@ func (g *Game) Update() error {
 		saveSettings()
 		settingsDirty = false
 	}
+	prevInputActive := inputActive
+	prevInputText := string(inputText)
 
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
@@ -337,6 +339,10 @@ func (g *Game) Update() error {
 			inputText = inputText[:0]
 			historyPos = len(inputHistory)
 		}
+	}
+
+	if prevInputActive != inputActive || prevInputText != string(inputText) {
+		messagesDirty.Store(true)
 	}
 
 	if !inputActive {
@@ -439,8 +445,18 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	updateMessagesWindow()
-	updateChatWindow()
+	if playersDirty.Swap(false) {
+		updatePlayersWindow()
+	}
+	if inventoryDirty.Swap(false) {
+		updateInventoryWindow()
+	}
+	if messagesDirty.Swap(false) {
+		updateMessagesWindow()
+	}
+	if chatDirty.Swap(false) {
+		updateChatWindow()
+	}
 	ox, oy := gameContentOrigin()
 	if gameWin != nil {
 		size := gameWin.GetSize()

@@ -31,6 +31,7 @@ func addMessage(msg string) {
 	if len(messages) > maxMessages {
 		messages = messages[len(messages)-maxMessages:]
 	}
+	messagesDirty.Store(true)
 }
 
 func getMessages() []string {

@@ -56,7 +56,7 @@ func parseBackendInfo(data []byte) {
 	p.Class = class
 	p.Clan = clan
 	playersMu.Unlock()
-	updatePlayersWindow()
+	playersDirty.Store(true)
 }
 
 // parseBackendShare parses "be-sh" messages describing sharing relationships.
@@ -93,7 +93,7 @@ func parseBackendShare(data []byte) {
 		p.Sharing = true
 		playersMu.Unlock()
 	}
-	updatePlayersWindow()
+	playersDirty.Store(true)
 }
 
 // parseBackendWho parses "be-wh" messages listing players.
@@ -116,7 +116,7 @@ func parseBackendWho(data []byte) {
 		}
 		data = data[idx+1:]
 	}
-	updatePlayersWindow()
+	playersDirty.Store(true)
 }
 
 // parseNames extracts a slice of names from a sequence of "-pn name -pn" entries.

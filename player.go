@@ -35,7 +35,7 @@ func getPlayer(name string) *Player {
 	}
 	p = &Player{Name: name}
 	players[name] = p
-	updatePlayersWindow()
+	playersDirty.Store(true)
 	return p
 }
 
@@ -52,7 +52,7 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	}
 	p.IsNPC = isNPC
 	playersMu.Unlock()
-	updatePlayersWindow()
+	playersDirty.Store(true)
 }
 
 func getPlayers() []Player {
