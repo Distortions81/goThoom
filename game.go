@@ -86,7 +86,6 @@ var walkTargetX, walkTargetY int16
 
 var inputActive bool
 var inputText []rune
-var hudPixel *ebiten.Image
 var inputHistory []string
 var historyPos int
 
@@ -772,15 +771,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				ih := int(math.Ceil(h))
 				top := y + int(20*gs.Scale)
 				left := x - iw/2
-				if hudPixel == nil {
-					hudPixel = ebiten.NewImage(1, 1)
-					hudPixel.Fill(color.White)
-				}
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(float64(iw+5), float64(ih))
 				op.GeoM.Translate(float64(left), float64(top))
 				op.ColorM.Scale(float64(bgClr.R)/255, float64(bgClr.G)/255, float64(bgClr.B)/255, float64(bgClr.A)/255)
-				screen.DrawImage(hudPixel, op)
+				screen.DrawImage(whiteImage, op)
 				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
 				opTxt := &text.DrawOptions{}
 				opTxt.GeoM.Translate(float64(left+2), float64(top+2))
@@ -796,15 +791,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 					barClr.A = alpha
 					top := y + int(float64(size)*gs.Scale/2+2*gs.Scale)
 					left := x - int(6*gs.Scale)
-					if hudPixel == nil {
-						hudPixel = ebiten.NewImage(1, 1)
-						hudPixel.Fill(color.White)
-					}
 					op := &ebiten.DrawImageOptions{}
 					op.GeoM.Scale(12*gs.Scale, 2*gs.Scale)
 					op.GeoM.Translate(float64(left), float64(top))
 					op.ColorM.Scale(float64(barClr.R)/255, float64(barClr.G)/255, float64(barClr.B)/255, float64(barClr.A)/255)
-					screen.DrawImage(hudPixel, op)
+					screen.DrawImage(whiteImage, op)
 				}
 			}
 		}
@@ -1010,16 +1001,12 @@ func lerpBar(prev, cur int, alpha float64) int {
 
 // drawStatusBars renders health, balance and spirit bars.
 func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64) {
-	if hudPixel == nil {
-		hudPixel = ebiten.NewImage(1, 1)
-		hudPixel.Fill(color.White)
-	}
 	drawRect := func(x, y, w, h int, clr color.RGBA) {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(w), float64(h))
 		op.GeoM.Translate(float64(ox+x), float64(oy+y))
 		op.ColorM.Scale(float64(clr.R)/255, float64(clr.G)/255, float64(clr.B)/255, float64(clr.A)/255)
-		screen.DrawImage(hudPixel, op)
+		screen.DrawImage(whiteImage, op)
 	}
 	barWidth := int(110 * gs.Scale)
 	barHeight := int(8 * gs.Scale)

@@ -9,9 +9,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-var whiteImage = ebiten.NewImage(1, 1)
+// whiteImage is a reusable 1x1 white pixel used across the UI for drawing
+// solid rectangles and lines without creating multiple images.
+var whiteImage *ebiten.Image
 
 func init() {
+	whiteImage = ebiten.NewImage(1, 1)
 	whiteImage.Fill(color.White)
 }
 
