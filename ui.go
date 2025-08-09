@@ -622,6 +622,15 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(uiScaleSlider)
 
+	worldSizeCB, worldSizeEvents := eui.NewCheckbox(&eui.ItemData{Text: "Allow More World Sizes", Size: eui.Point{X: width, Y: 24}, Checked: gs.MoreWorldSizes})
+	worldSizeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MoreWorldSizes = ev.Checked
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(worldSizeCB)
+
 	denoiseCB, denoiseEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Denoise", Size: eui.Point{X: width, Y: 24}, Checked: gs.DenoiseImages})
 	denoiseEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {

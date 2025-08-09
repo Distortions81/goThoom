@@ -29,6 +29,7 @@ var gs settings = settings{
 	ShowFPS:           true,
 	Scale:             2.0,
 	UIScale:           1.0,
+	MoreWorldSizes:    true,
 
 	vsync:            true,
 	nightEffect:      true,
@@ -61,8 +62,9 @@ type settings struct {
 	DenoisePercent    float64
 	ShowFPS           bool
 
-	Scale   float64
-	UIScale float64
+	Scale          float64
+	UIScale        float64
+	MoreWorldSizes bool
 
 	imgPlanesDebug   bool
 	smoothingDebug   bool

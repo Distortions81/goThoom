@@ -425,6 +425,9 @@ func updateGameScale() {
 	if newScale < 1 {
 		newScale = 1
 	}
+	if !gs.MoreWorldSizes && newScale > 2 {
+		newScale = 2
+	}
 
 	if gs.Scale != newScale {
 		gs.Scale = newScale
@@ -439,9 +442,9 @@ func gameContentOrigin() (int, int) {
 	s := eui.UIScale()
 	pos := gameWin.GetPos()
 	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
-        x := pos.X + frame
-        y := pos.Y + frame + gameWin.GetTitleSize()
-        return int(math.Round(float64(x))), int(math.Round(float64(y)))
+	x := pos.X + frame
+	y := pos.Y + frame + gameWin.GetTitleSize()
+	return int(math.Round(float64(x))), int(math.Round(float64(y)))
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
