@@ -17,6 +17,12 @@ func updateMessagesWindow() {
 		t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
 		messagesList.AddItem(t)
 	}
+	inputMsg := "press enter to open for input"
+	if inputActive {
+		inputMsg = string(inputText)
+	}
+	t, _ := eui.NewText(&eui.ItemData{Text: inputMsg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
+	messagesList.AddItem(t)
 	if messagesWin != nil {
 		messagesWin.Refresh()
 	}

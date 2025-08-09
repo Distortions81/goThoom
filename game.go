@@ -42,7 +42,6 @@ var walkTargetX, walkTargetY int16
 
 var inputActive bool
 var inputText []rune
-var inputBg *ebiten.Image
 var hudPixel *ebiten.Image
 var inputHistory []string
 var historyPos int
@@ -448,9 +447,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	drawEquippedItems(screen, ox, oy)
 
 	eui.Draw(screen)
-	if inputActive {
-		drawInputOverlay(screen, ox, oy, string(inputText))
-	}
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	if gs.ShowFPS {
 		drawServerFPS(screen, ox, oy, serverFPS)
@@ -971,28 +967,6 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 }
 
 // drawInputOverlay renders the text entry box when chatting.
-func drawInputOverlay(screen *ebiten.Image, ox, oy int, txt string) {
-	metrics := mainFont.Metrics()
-	textHeight := int(math.Ceil(metrics.HAscent + metrics.HDescent))
-	pad := int(2 * gs.Scale)
-	barHeight := textHeight + pad*2
-
-	if inputBg == nil || inputBg.Bounds().Dy() != barHeight {
-		inputBg = ebiten.NewImage(int(float64(gameAreaSizeX)*gs.Scale), barHeight)
-		inputBg.Fill(color.RGBA{0, 0, 0, 128})
-	}
-
-	barTop := oy + int(float64(gameAreaSizeY)*gs.Scale) - barHeight
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(ox), float64(barTop))
-	screen.DrawImage(inputBg, op)
-
-	opTxt := &text.DrawOptions{}
-	opTxt.GeoM.Translate(float64(ox)+4*gs.Scale, float64(barTop+pad))
-	opTxt.ColorScale.ScaleWithColor(color.White)
-	text.Draw(screen, txt, mainFont, opTxt)
-}
-
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	eui.Layout(outsideWidth, outsideHeight)
 	return outsideWidth, outsideHeight
