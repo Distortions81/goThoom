@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"image/color"
 	"io"
 	"log"
 	"os"
@@ -471,7 +470,11 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		b = uint8(int(b) * int(a) / 255)
 		x := i%width + 1
 		y := i/width + 1
-		img.SetRGBA(x, y, color.RGBA{r, g, b, a})
+		off := y*img.Stride + x*4
+		img.Pix[off] = r
+		img.Pix[off+1] = g
+		img.Pix[off+2] = b
+		img.Pix[off+3] = a
 	}
 
 	if c.Denoise {
