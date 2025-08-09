@@ -40,16 +40,28 @@ var assetsPrecached = false
 func precacheAssets() {
 
 	for {
-		if clImages == nil || clSounds == nil {
+		if (gs.precacheImages && clImages == nil) || (gs.precacheSounds && clSounds == nil) {
 			time.Sleep(time.Millisecond * 100)
 		} else {
 			break
 		}
 	}
 
-	addMessage("Pre-loading game sounds and images...")
+	var preloadMsg string
+	switch {
+	case gs.precacheImages && gs.precacheSounds:
+		preloadMsg = "Pre-loading game sounds and images..."
+	case gs.precacheImages:
+		preloadMsg = "Pre-loading game images..."
+	case gs.precacheSounds:
+		preloadMsg = "Pre-loading game sounds..."
+	}
+	if preloadMsg != "" {
+		addMessage(preloadMsg)
+	}
+
 	wg := sizedwaitgroup.New(runtime.NumCPU())
-	if clImages != nil {
+	if gs.precacheImages && clImages != nil {
 		for _, id := range clImages.IDs() {
 			wg.Add()
 			go func(id uint32) {
@@ -59,7 +71,7 @@ func precacheAssets() {
 		}
 	}
 
-	if clSounds != nil {
+	if gs.precacheSounds && clSounds != nil {
 		for _, id := range clSounds.IDs() {
 			wg.Add()
 			go func(id uint32) {
@@ -70,5 +82,17 @@ func precacheAssets() {
 	}
 	wg.Wait()
 	assetsPrecached = true
-	addMessage("All images and sounds have been loaded.")
+
+	var doneMsg string
+	switch {
+	case gs.precacheImages && gs.precacheSounds:
+		doneMsg = "All images and sounds have been loaded."
+	case gs.precacheImages:
+		doneMsg = "All images have been loaded."
+	case gs.precacheSounds:
+		doneMsg = "All sounds have been loaded."
+	}
+	if doneMsg != "" {
+		addMessage(doneMsg)
+	}
 }
