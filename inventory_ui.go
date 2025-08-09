@@ -3,14 +3,12 @@
 package main
 
 import (
-	"sync/atomic"
-
 	"github.com/Distortions81/EUI/eui"
 )
 
 var inventoryWin *eui.WindowData
 var inventoryList *eui.ItemData
-var inventoryDirty atomic.Bool
+var inventoryDirty bool
 
 func updateInventoryWindow() {
 	if inventoryList == nil {

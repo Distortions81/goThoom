@@ -5,14 +5,13 @@ package main
 import (
 	"fmt"
 	"sort"
-	"sync/atomic"
 
 	"github.com/Distortions81/EUI/eui"
 )
 
 var playersWin *eui.WindowData
 var playersList *eui.ItemData
-var playersDirty atomic.Bool
+var playersDirty bool
 
 func updatePlayersWindow() {
 	if playersList == nil {

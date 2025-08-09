@@ -467,12 +467,6 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if playersDirty.Swap(false) {
-		updatePlayersWindow()
-	}
-	if inventoryDirty.Swap(false) {
-		updateInventoryWindow()
-	}
 	ox, oy := gameContentOrigin()
 	if gameWin != nil {
 		size := gameWin.GetSize()
@@ -516,7 +510,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	eui.Draw(screen)
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	if gs.ShowFPS {
-		drawServerFPS(screen, ox, oy, serverFPS)
+		drawServerFPS(screen, 0, 0, serverFPS)
 	}
 }
 
@@ -999,14 +993,11 @@ func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
 	if fps <= 0 {
 		return
 	}
-	latencyMu.Lock()
 	lat := netLatency
-	latencyMu.Unlock()
 	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f LAT: %dms", ebiten.ActualFPS(), fps, lat.Milliseconds())
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(float64(ox)+float64(gameAreaSizeX)*gs.Scale-w-4*gs.Scale, float64(oy)+4*gs.Scale)
-	op.ColorScale.ScaleWithColor(color.White)
 	text.Draw(screen, msg, mainFont, op)
 }
 
