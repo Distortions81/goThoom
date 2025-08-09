@@ -119,7 +119,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 				continue
 			}
 			x := float64(j) - pos
-			w := sinc(x) * blackmanWindow(x, float64(taps))
+			w := math.Sinc(math.Pi*x) * blackmanWindow(x, float64(taps))
 			sum += float64(src[j]) * w
 			wsum += w
 		}
@@ -135,15 +135,6 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		dst[i] = int16(math.Round(sum))
 	}
 	return dst
-}
-
-// sinc(x) = sin(pi*x)/(pi*x)
-func sinc(x float64) float64 {
-	if x == 0 {
-		return 1
-	}
-	xpi := math.Pi * x
-	return math.Sin(xpi) / xpi
 }
 
 // Blackman window for smoothing the sinc
