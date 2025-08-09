@@ -336,6 +336,7 @@ func loadSound(id uint16) []byte {
 		soundMu.Unlock()
 		return nil
 	}
+	statSoundLoaded(id)
 	logDebug("loadSound(%d) loaded %d Hz %d-bit %d bytes", id, s.SampleRate, s.Bits, len(s.Data))
 
 	srcRate := int(s.SampleRate / 2)

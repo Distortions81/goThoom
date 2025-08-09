@@ -837,6 +837,15 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(fastSound)
 
+	recordStatsCB, recordStatsEvents := eui.NewCheckbox(&eui.ItemData{Text: "Record Asset Stats", Size: eui.Point{X: width, Y: 24}, Checked: gs.recordAssetStats})
+	recordStatsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.recordAssetStats = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(recordStatsCB)
+
 	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.speechBubbles})
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
