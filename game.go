@@ -433,9 +433,9 @@ func gameContentOrigin() (int, int) {
 	s := eui.UIScale()
 	pos := gameWin.GetPos()
 	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
-	x := pos.X + frame
-	y := pos.Y + frame + gameWin.GetTitleSize()
-	return int(x), int(y)
+        x := pos.X + frame
+        y := pos.Y + frame + gameWin.GetTitleSize()
+        return int(math.Round(float64(x))), int(math.Round(float64(y)))
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
