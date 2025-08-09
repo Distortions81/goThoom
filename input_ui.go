@@ -12,8 +12,11 @@ var overlayLogOnce sync.Once
 // pointInUI reports whether the given screen coordinate lies within any EUI window or overlay.
 func pointInUI(x, y int) bool {
 	fx, fy := float32(x), float32(y)
-	for _, win := range eui.Windows() {
-		if !win.Open {
+
+	wins := eui.Windows()
+	for i := len(wins) - 1; i >= 0; i-- {
+		win := wins[i]
+		if !win.Open || win.MainPortal {
 			continue
 		}
 		pos := win.GetPos()
@@ -26,7 +29,9 @@ func pointInUI(x, y int) bool {
 	// Log overlay bounds once to aid debugging of hit detection.
 	overlayLogOnce.Do(logOverlayBounds)
 
-	for _, ov := range eui.Overlays() {
+	ovs := eui.Overlays()
+	for i := len(ovs) - 1; i >= 0; i-- {
+		ov := ovs[i]
 		if !ov.Open {
 			continue
 		}
