@@ -20,7 +20,7 @@ var (
 
 	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
-	resample     = resampleSincHQ
+	resample     = resampleLinear
 
 	playSound = func(id uint16) {
 		logDebug("playSound(%d) called", id)
@@ -63,7 +63,8 @@ var (
 )
 
 // initSoundContext initializes the global audio context and resampler based on
-// the fastSound flag.
+// the fastSound flag. The default uses linear interpolation for a balance of
+// speed and quality.
 func initSoundContext() {
 
 	rate := 44100
@@ -71,7 +72,7 @@ func initSoundContext() {
 	if gs.fastSound {
 		resample = resampleFast
 	} else {
-		resample = resampleSincHQ
+		resample = resampleLinear
 	}
 
 	audioContext = audio.NewContext(rate)
@@ -92,6 +93,31 @@ func resampleFast(src []int16, srcRate, dstRate int) []int16 {
 			srcIdx = len(src) - 1
 		}
 		dst[i] = src[srcIdx]
+	}
+
+	return dst
+}
+
+func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
+	if srcRate == dstRate || len(src) == 0 {
+		return append([]int16(nil), src...)
+	}
+
+	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
+	dst := make([]int16, n)
+
+	ratio := float64(srcRate) / float64(dstRate)
+	for i := 0; i < n; i++ {
+		pos := float64(i) * ratio
+		idx := int(pos)
+		frac := pos - float64(idx)
+		s0 := src[idx]
+		s1 := s0
+		if idx+1 < len(src) {
+			s1 = src[idx+1]
+		}
+		v := (1-frac)*float64(s0) + frac*float64(s1)
+		dst[i] = int16(math.Round(v))
 	}
 
 	return dst
