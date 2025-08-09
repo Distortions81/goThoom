@@ -466,6 +466,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	drawEquippedItems(screen, ox, oy)
 
+	if gameWin != nil {
+		size := gameWin.GetSize()
+		w := float32(int(size.X) &^ 1)
+		h := float32(int(size.Y) &^ 1)
+		fw := float32(float64(gameAreaSizeX) * gs.Scale)
+		fh := float32(float64(gameAreaSizeY) * gs.Scale)
+		dark := color.RGBA{0x40, 0x40, 0x40, 0xff}
+		if fw < w {
+			vector.DrawFilledRect(screen, float32(ox)+fw, float32(oy), w-fw, fh, dark, false)
+		}
+		if fh < h {
+			vector.DrawFilledRect(screen, float32(ox), float32(oy)+fh, w, h-fh, dark, false)
+		}
+	}
+
 	eui.Draw(screen)
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	if gs.ShowFPS {
