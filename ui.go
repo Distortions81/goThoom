@@ -27,6 +27,7 @@ var addCharName string
 var addCharPass string
 var addCharRemember bool
 var windowsWin *eui.WindowData
+var toolbarWin *eui.WindowData
 var playersBox *eui.ItemData
 var inventoryBox *eui.ItemData
 var messagesBox *eui.ItemData
@@ -65,6 +66,15 @@ func initUI() {
 	} else {
 		loginWin.Open()
 	}
+
+	toolbarWin = eui.NewWindow()
+	toolbarWin.PinTo = eui.PIN_TOP_RIGHT
+	toolbarWin.Closable = false
+	toolbarWin.Resizable = false
+	toolbarWin.AutoSize = true
+	toolbarWin.ShowDragbar = false
+	toolbarWin.Title = ""
+	toolbarWin.TitleHeight = 0
 
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -183,7 +193,8 @@ func initUI() {
 	recordStatus.Color = eui.ColorRed
 	overlay.AddItem(recordStatus)
 
-	eui.AddOverlayFlow(overlay)
+	toolbarWin.AddItem(overlay)
+	toolbarWin.Open()
 }
 
 var dlMutex sync.Mutex
