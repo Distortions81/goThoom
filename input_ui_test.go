@@ -40,3 +40,29 @@ func TestPointInUISkipsMainPortal(t *testing.T) {
 	frontWin.Close()
 	mainWin.Close()
 }
+
+// TestPointInUICoversTitleBar ensures that the window's title area counts as UI.
+func TestPointInUICoversTitleBar(t *testing.T) {
+	// Clean up any existing windows to avoid interference between tests.
+	for _, w := range eui.Windows() {
+		w.Close()
+	}
+
+	win := eui.NewWindow()
+	win.Size = eui.Point{X: 50, Y: 50}
+	win.AddWindow(false)
+	win.Open()
+
+	pos := win.GetPos()
+	size := win.GetSize()
+	s := eui.UIScale()
+	frame := (win.Margin + win.Border + win.BorderPad + win.Padding) * s
+	title := win.GetTitleSize()
+	x := int(pos.X + frame + 1)
+	y := int(pos.Y + size.Y + frame*2 + title/2)
+	if !pointInUI(x, y) {
+		t.Fatalf("pointInUI should include title bar region")
+	}
+
+	win.Close()
+}
