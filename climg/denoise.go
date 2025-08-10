@@ -3,8 +3,9 @@ package climg
 import (
 	"image"
 	"image/color"
-	"math"
 	"sync"
+
+	"maze.io/x/math32"
 )
 
 // denoiseImage softens pixels by blending with neighbours. Pixels that are
@@ -12,7 +13,7 @@ import (
 // dissimilar pixels are blended less. The sharpness parameter controls how
 // quickly the blend amount falls off as colours become more different. Only
 // the immediate horizontal and vertical neighbours are considered.
-func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
+func denoiseImage(img *image.RGBA, sharpness, maxPercent float32) {
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
 
@@ -32,9 +33,9 @@ func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
 				nOff := (y+n.Y)*src.Stride + (x+n.X)*4
 				ncol := color.RGBA{src.Pix[nOff], src.Pix[nOff+1], src.Pix[nOff+2], src.Pix[nOff+3]}
 				dist := colourDist(c, ncol)
-				nd := float64(dist) / 195075.0
+				nd := float32(dist) / 195075.0
 				if nd < 1 {
-					blend := maxPercent * math.Pow(1-nd, sharpness)
+					blend := maxPercent * math32.Pow(1-nd, sharpness)
 					if blend > 0 {
 						c = mixColour(c, ncol, blend)
 					}
@@ -83,12 +84,12 @@ func colourDist(a, b color.RGBA) int {
 }
 
 // mixColour blends two colours together by the provided percentage.
-func mixColour(a, b color.RGBA, p float64) color.RGBA {
+func mixColour(a, b color.RGBA, p float32) color.RGBA {
 	inv := 1 - p
 	return color.RGBA{
-		R: uint8(float64(a.R)*inv + float64(b.R)*p),
-		G: uint8(float64(a.G)*inv + float64(b.G)*p),
-		B: uint8(float64(a.B)*inv + float64(b.B)*p),
-		A: uint8(float64(a.A)*inv + float64(b.A)*p),
+		R: uint8(float32(a.R)*inv + float32(b.R)*p),
+		G: uint8(float32(a.G)*inv + float32(b.G)*p),
+		B: uint8(float32(a.B)*inv + float32(b.B)*p),
+		A: uint8(float32(a.A)*inv + float32(b.A)*p),
 	}
 }
