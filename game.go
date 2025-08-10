@@ -714,14 +714,18 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	y += oy
 	var img *ebiten.Image
 	plane := 0
-	if d, ok := descMap[m.Index]; ok {
-		colors := d.Colors
+	var d frameDescriptor
+	var colors []byte
+	var state uint8
+	if desc, ok := descMap[m.Index]; ok {
+		d = desc
+		colors = d.Colors
 		playersMu.RLock()
 		if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
 			colors = append([]byte(nil), p.Colors...)
 		}
 		playersMu.RUnlock()
-		state := m.State
+		state = m.State
 		img = loadMobileFrame(d.PictID, state, colors)
 		if clImages != nil {
 			plane = clImages.Plane(uint32(d.PictID))
