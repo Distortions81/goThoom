@@ -11,7 +11,7 @@ import (
 func TestPointInUISkipsMainPortal(t *testing.T) {
 	// Clean up any existing windows to avoid interference between tests.
 	for _, w := range eui.Windows() {
-		w.RemoveWindow()
+		w.Open = false
 	}
 
 	// Main portal window covering 100x100 at origin.
@@ -37,6 +37,6 @@ func TestPointInUISkipsMainPortal(t *testing.T) {
 	}
 
 	// Cleanup
-	frontWin.RemoveWindow()
-	mainWin.RemoveWindow()
+	frontWin.Open = false
+	mainWin.Open = false
 }

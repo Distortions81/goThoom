@@ -68,12 +68,7 @@ func initUI() {
 	winBtn.FontSize = 18
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if windowsWin != nil {
-				windowsWin.RemoveWindow()
-				windowsWin = nil
-			} else {
-				openWindowsWindow()
-			}
+			openWindowsWindow()
 		}
 	}
 	overlay.AddItem(winBtn)
@@ -84,12 +79,7 @@ func initUI() {
 	btn.FontSize = 18
 	btnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if settingsWin != nil {
-				settingsWin.RemoveWindow()
-				settingsWin = nil
-			} else {
-				openSettingsWindow()
-			}
+			openSettingsWindow()
 		}
 	}
 	overlay.AddItem(btn)
@@ -100,12 +90,7 @@ func initUI() {
 	helpBtn.FontSize = 18
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if helpWin != nil {
-				helpWin.RemoveWindow()
-				helpWin = nil
-			} else {
-				openHelpWindow()
-			}
+			openHelpWindow()
 		}
 	}
 	overlay.AddItem(helpBtn)
@@ -189,7 +174,7 @@ func initUI() {
 }
 
 func openDownloadsWindow(status dataFilesStatus) {
-	if downloadWin != nil {
+	if downloadWin != nil && downloadWin.Open {
 		return
 	}
 
@@ -246,8 +231,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 					logError("load CL_Images: %v", err)
 					openErrorWindow("Error: Load CL_Images: " + err.Error())
 				}
-				downloadWin.RemoveWindow()
-				downloadWin = nil
+				downloadWin.Open = false
 				openLoginWindow()
 			}()
 		}
@@ -350,13 +334,6 @@ func updateCharacterButtons() {
 }
 
 func openAddCharacterWindow() {
-	if addCharWin != nil {
-		if addCharWin.Open {
-			return
-		}
-		addCharWin.AddWindow(false)
-		return
-	}
 	addCharWin = eui.NewWindow()
 	addCharWin.Title = "Add Character"
 	addCharWin.Closable = false
@@ -417,8 +394,7 @@ func openAddCharacterWindow() {
 			if loginWin != nil && loginWin.Open {
 				//loginWin.Refresh()
 			}
-			addCharWin.RemoveWindow()
-			addCharWin = nil
+			addCharWin.Open = false
 		}
 	}
 	flow.AddItem(addBtn)
@@ -428,8 +404,7 @@ func openAddCharacterWindow() {
 	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			addCharWin.RemoveWindow()
-			addCharWin = nil
+			addCharWin.Open = false
 		}
 	}
 	flow.AddItem(cancelBtn)
@@ -440,9 +415,6 @@ func openAddCharacterWindow() {
 }
 
 func openLoginWindow() {
-	if loginWin != nil {
-		return
-	}
 	if clmov != "" {
 		return
 	}
@@ -500,8 +472,7 @@ func openLoginWindow() {
 				return
 			}
 			clmov = filename
-			loginWin.RemoveWindow()
-			loginWin = nil
+			loginWin.Open = false
 			go func() {
 				drawStateEncrypted = false
 				frames, err := parseMovie(filename, clientVersion)
@@ -547,8 +518,7 @@ func openLoginWindow() {
 			}
 			gs.LastCharacter = name
 			saveSettings()
-			loginWin.RemoveWindow()
-			loginWin = nil
+			loginWin.Open = false
 			go func() {
 				ctx, cancel := context.WithCancel(gameCtx)
 				loginMu.Lock()
@@ -589,7 +559,7 @@ func openErrorWindow(msg string) {
 	okBtn.Size = eui.Point{X: 200, Y: 24}
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			win.RemoveWindow()
+			win.Open = false
 		}
 	}
 	flow.AddItem(okBtn)
@@ -598,9 +568,6 @@ func openErrorWindow(msg string) {
 }
 
 func openSettingsWindow() {
-	if settingsWin != nil {
-		return
-	}
 	settingsWin = eui.NewWindow()
 	settingsWin.Title = "Settings"
 	settingsWin.Closable = true
@@ -869,12 +836,7 @@ func openSettingsWindow() {
 	debugBtn.Size = eui.Point{X: width, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if debugWin != nil {
-				debugWin.RemoveWindow()
-				debugWin = nil
-			} else {
-				openDebugWindow()
-			}
+			openDebugWindow()
 		}
 	}
 	mainFlow.AddItem(debugBtn)
@@ -884,9 +846,6 @@ func openSettingsWindow() {
 }
 
 func openDebugWindow() {
-	if debugWin != nil {
-		return
-	}
 	var width float32 = 250
 	debugWin = eui.NewWindow()
 	debugWin.Title = "Debug Settings"
@@ -1288,12 +1247,6 @@ func updateSoundTestLabel() {
 }
 
 func openWindowsWindow() {
-	if windowsWin != nil {
-		if windowsWin.Open {
-			return
-		}
-		windowsWin = nil
-	}
 	windowsWin = eui.NewWindow()
 	windowsWin.Title = "Windows"
 	windowsWin.Closable = false
@@ -1311,15 +1264,7 @@ func openWindowsWindow() {
 	playersBox.Checked = playersWin != nil
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				openPlayersWindow()
-			} else if playersWin != nil {
-				playersWin.RemoveWindow()
-				playersWin = nil
-			}
-			if playersBox != nil {
-				playersBox.Dirty = true
-			}
+			openInventoryWindow()
 		}
 	}
 	flow.AddItem(playersBox)
@@ -1330,15 +1275,7 @@ func openWindowsWindow() {
 	inventoryBox.Checked = inventoryWin != nil
 	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				openInventoryWindow()
-			} else if inventoryWin != nil {
-				inventoryWin.RemoveWindow()
-				inventoryWin = nil
-			}
-			if inventoryBox != nil {
-				inventoryBox.Dirty = true
-			}
+			openInventoryWindow()
 		}
 	}
 	flow.AddItem(inventoryBox)
@@ -1349,15 +1286,7 @@ func openWindowsWindow() {
 	messagesBox.Checked = messagesWin != nil
 	messagesBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				openMessagesWindow()
-			} else if messagesWin != nil {
-				messagesWin.RemoveWindow()
-				messagesWin = nil
-			}
-			if messagesBox != nil {
-				messagesBox.Dirty = true
-			}
+			openMessagesWindow()
 		}
 	}
 	flow.AddItem(messagesBox)
@@ -1367,13 +1296,6 @@ func openWindowsWindow() {
 }
 
 func openInventoryWindow() {
-	if inventoryWin != nil {
-		if inventoryWin.Open {
-			return
-		} else {
-			inventoryWin.Open = true
-		}
-	}
 	inventoryWin = eui.NewWindow()
 	inventoryWin.Title = "Inventory"
 	inventoryWin.Closable = false
@@ -1408,11 +1330,6 @@ func openInventoryWindow() {
 }
 
 func openPlayersWindow() {
-	if playersWin != nil {
-		if playersWin.Open {
-			return
-		}
-	}
 	playersWin = eui.NewWindow()
 	playersWin.Title = "Players"
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
@@ -1437,9 +1354,6 @@ func openPlayersWindow() {
 }
 
 func openHelpWindow() {
-	if helpWin != nil {
-		return
-	}
 	helpWin = eui.NewWindow()
 	helpWin.Title = "Help"
 	helpWin.Closable = true

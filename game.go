@@ -321,26 +321,26 @@ func (g *Game) Update() error {
 
 	if playersDirty {
 		updatePlayersWindow()
-		if playersWin != nil {
+		if playersWin != nil && playersWin.Open {
 			playersWin.Refresh()
 		}
 		playersDirty = false
 	}
 	if inventoryDirty {
 		updateInventoryWindow()
-		if inventoryWin != nil {
+		if inventoryWin != nil && inventoryWin.Open {
 			inventoryWin.Refresh()
 		}
 		inventoryDirty = false
 	}
 	if messagesDirty {
-		if messagesWin != nil {
+		if messagesWin != nil && messagesWin.Open {
 			messagesWin.Refresh()
 		}
 		messagesDirty = false
 	}
 	if chatDirty {
-		if chatWin != nil {
+		if chatWin != nil && chatWin.Open {
 			chatWin.Refresh()
 		}
 		chatDirty = false

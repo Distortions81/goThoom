@@ -60,11 +60,7 @@ func updateMessagesWindow() {
 }
 
 func openMessagesWindow() {
-	if messagesWin != nil {
-		if messagesWin.Open {
-			return
-		}
-	}
+
 	messagesWin = eui.NewWindow()
 	if gs.MessagesWindow.Size.X > 0 && gs.MessagesWindow.Size.Y > 0 {
 		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X), Y: float32(gs.MessagesWindow.Size.Y)}
