@@ -25,7 +25,7 @@ var (
 )
 
 func setupLogging(debug bool) {
-	logDir := filepath.Join(baseDir, "logs")
+	logDir := "logs"
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		log.Printf("could not create log directory: %v", err)
 	}
@@ -84,7 +84,7 @@ func logDebugPacket(prefix string, data []byte) {
 
 func setDebugLogging(enabled bool) {
 	if enabled {
-		logDir := filepath.Join(baseDir, "logs")
+		logDir := "logs"
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			log.Printf("could not create log directory: %v", err)
 		}
@@ -98,7 +98,7 @@ func setDebugLogging(enabled bool) {
 }
 
 func logPanic(r interface{}) {
-	logDir := filepath.Join(baseDir, "logs")
+	logDir := "logs"
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		fmt.Printf("could not create log directory: %v\n", err)
 		return

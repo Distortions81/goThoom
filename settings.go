@@ -37,7 +37,7 @@ var gs settings = settings{
 	fastSound:       true,
 	precacheSounds:  false,
 	precacheImages:  false,
-	cacheWholeSheet: false,
+	cacheWholeSheet: true,
 	smoothMoving:    true,
 	fastBars:        true,
 	speechBubbles:   true,
@@ -113,7 +113,7 @@ type WindowState struct {
 }
 
 func loadSettings() bool {
-	path := filepath.Join(baseDir, "data", "settings.json")
+	path := filepath.Join("data", "settings.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -140,6 +140,9 @@ func applySettings() {
 	} else {
 		drawFilter = ebiten.FilterNearest
 	}
+	if !gs.fastSound {
+		initSinc()
+	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	initFont()
 }
@@ -151,7 +154,7 @@ func saveSettings() {
 		log.Printf("save settings: %v", err)
 		return
 	}
-	path := filepath.Join(baseDir, "data", "settings.json")
+	path := filepath.Join("data", "settings.json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}

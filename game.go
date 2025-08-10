@@ -515,7 +515,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen, ox, oy)
-		eui.Draw(screen)
+		//eui.Draw(screen)
 		if gs.ShowFPS {
 			drawServerFPS(screen, ox, oy, serverFPS)
 		}
@@ -545,7 +545,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	eui.Draw(screen)
+	//eui.Draw(screen)
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	if gs.ShowFPS {
 		drawServerFPS(screen, 0, 0, serverFPS)

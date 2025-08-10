@@ -24,7 +24,7 @@ func loadStats() {
 	stats.Images = make(map[uint16]int)
 	stats.Sounds = make(map[uint16]int)
 
-	path := filepath.Join(baseDir, "data", "stats.json")
+	path := filepath.Join("data", "stats.json")
 	if data, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(data, &stats); err != nil {
 			log.Printf("load stats: %v", err)
@@ -58,7 +58,7 @@ func saveStats() {
 		log.Printf("save stats: %v", err)
 		return
 	}
-	path := filepath.Join(baseDir, "data", "stats.json")
+	path := filepath.Join("data", "stats.json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save stats: %v", err)
 	}

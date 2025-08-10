@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"log"
 	"os"
-	"path/filepath"
 )
 
 const charactersFilePath = "data/characters.json"
@@ -20,7 +19,7 @@ type Character struct {
 var characters []Character
 
 func charactersPath() string {
-	return filepath.Join(baseDir, "data/characters.json")
+	return "data/characters.json"
 }
 
 // loadCharacters reads the characters.json file if it exists.

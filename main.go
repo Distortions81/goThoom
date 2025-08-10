@@ -30,7 +30,6 @@ var (
 
 	demo          bool
 	clmov         string
-	baseDir       string
 	blockSound    bool
 	blockBubbles  bool
 	clientVersion int
@@ -49,17 +48,13 @@ func main() {
 		clMovFPS = 30
 	}
 
-	baseDir = os.Getenv("PWD")
-	if baseDir == "" {
-		var err error
-		if baseDir, err = os.Getwd(); err != nil {
-			log.Fatalf("get working directory: %v", err)
-		}
-	}
+	var err error
+	dataDir = "data"
 
-	//loadSettings()
+	loadSettings()
 	loadCharacters()
 	initSoundContext()
+
 	applySettings()
 	setupLogging(doDebug)
 	defer func() {
@@ -70,21 +65,15 @@ func main() {
 
 	clmovPath := ""
 	if clmov != "" {
-		if filepath.IsAbs(clmov) {
-			clmovPath = clmov
-		} else {
-			clmovPath = filepath.Join(baseDir, clmov)
-		}
+		clmovPath = clmov
 	}
-
-	dataDir = filepath.Join(baseDir, "data")
 
 	loadStats()
 	defer saveStats()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	if *genPGO {
-		f, err := os.Create(baseDir + "/default.pgo")
+		f, err := os.Create("default.pgo")
 		if err != nil {
 			log.Fatalf("create default.pgo: %v", err)
 		}
@@ -108,8 +97,7 @@ func main() {
 	addMessage("Starting...")
 	initGame()
 
-	var err error
-	clImages, err = climg.Load(filepath.Join(baseDir + "/data/CL_Images"))
+	clImages, err = climg.Load(filepath.Join("data/CL_Images"))
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)
 	} else {
@@ -118,7 +106,7 @@ func main() {
 		clImages.DenoisePercent = gs.DenoisePercent
 	}
 
-	clSounds, err = clsnd.Load(filepath.Join(baseDir + "/data/CL_Sounds"))
+	clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
 	if err != nil {
 		logError("failed to load CL_Sounds: %v", err)
 	}

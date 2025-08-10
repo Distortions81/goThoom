@@ -119,7 +119,7 @@ func initUI() {
 			}
 			return
 		}
-		recDir := filepath.Join(baseDir, "recordings")
+		recDir := filepath.Join("recordings")
 		if err := os.MkdirAll(recDir, 0755); err != nil {
 			logError("create recordings dir: %v", err)
 			openErrorWindow("Error: Record Movie: " + err.Error())
@@ -244,6 +244,9 @@ func openDownloadsWindow(status dataFilesStatus) {
 }
 
 func updateCharacterButtons() {
+	if loginWin == nil || !loginWin.Open {
+		return
+	}
 	if charactersList == nil {
 		return
 	}
@@ -302,21 +305,24 @@ func updateCharacterButtons() {
 						passHash = ""
 					}
 					updateCharacterButtons()
-					loginWin.Refresh()
+					//loginWin.Refresh()
 				}
 			}
 			row.AddItem(trash)
 			charactersList.AddItem(row)
 		}
 	}
-	if loginWin != nil {
-		loginWin.Refresh()
-	}
+	//loginWin.Refresh()
 }
 
 func openAddCharacterWindow() {
 	if addCharWin != nil {
-		return
+		if addCharWin.Open {
+			return
+		} else {
+			addCharWin.Open = true
+			return
+		}
 	}
 	addCharWin = eui.NewWindow(&eui.WindowData{})
 	addCharWin.Title = "Add Character"
@@ -364,8 +370,8 @@ func openAddCharacterWindow() {
 			gs.LastCharacter = addCharName
 			saveSettings()
 			updateCharacterButtons()
-			if loginWin != nil {
-				loginWin.Refresh()
+			if loginWin != nil && loginWin.Open {
+				//loginWin.Refresh()
 			}
 			addCharWin.RemoveWindow()
 			addCharWin = nil
@@ -998,7 +1004,7 @@ func openDebugWindow() {
 
 // updateDebugStats refreshes the cache statistics displayed in the debug window.
 func updateDebugStats() {
-	if debugWin == nil {
+	if debugWin == nil || !debugWin.Open {
 		return
 	}
 
@@ -1106,7 +1112,11 @@ func openWindowsWindow() {
 
 func openInventoryWindow() {
 	if inventoryWin != nil {
-		return
+		if inventoryWin.Open {
+			return
+		} else {
+			inventoryWin.Open = true
+		}
 	}
 	inventoryWin = eui.NewWindow(&eui.WindowData{})
 	inventoryWin.Title = "Inventory"
@@ -1131,7 +1141,7 @@ func openInventoryWindow() {
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
-	inventoryWin.Refresh()
+	//inventoryWin.Refresh()
 	inventoryDirty = (true)
 	if inventoryBox != nil {
 		inventoryBox.Checked = true
@@ -1164,7 +1174,7 @@ func openPlayersWindow() {
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
-	playersWin.Refresh()
+	//playersWin.Refresh()
 	playersDirty = (true)
 }
 
