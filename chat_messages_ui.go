@@ -21,7 +21,10 @@ func updateChatWindow() {
 				changed = true
 			}
 		} else {
-			t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
+			t, _ := eui.NewText()
+			t.Text = msg
+			t.FontSize = 10
+			t.Size = eui.Point{X: 256, Y: 24}
 			chatList.AddItem(t)
 			changed = true
 		}
@@ -44,7 +47,7 @@ func openChatWindow() {
 			return
 		}
 	}
-	chatWin = eui.NewWindow(&eui.WindowData{})
+	chatWin = eui.NewWindow()
 	chatWin.Title = "Chat"
 	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
 		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X), Y: float32(gs.ChatWindow.Size.Y)}

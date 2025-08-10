@@ -27,7 +27,10 @@ func updateInventoryWindow() {
 				changed = true
 			}
 		} else {
-			t, _ := eui.NewText(&eui.ItemData{Text: text, Size: eui.Point{X: 256, Y: 24}, FontSize: 10})
+			t, _ := eui.NewText()
+			t.Text = text
+			t.Size = eui.Point{X: 256, Y: 24}
+			t.FontSize = 10
 			inventoryList.AddItem(t)
 			changed = true
 		}

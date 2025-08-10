@@ -1153,7 +1153,7 @@ func initGame() {
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
 
-	gameWin = eui.NewWindow(&eui.WindowData{})
+	gameWin = eui.NewWindow()
 	gameWin.Title = "Clan Lord"
 	if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
 		gameWin.Size = eui.Point{X: float32(gs.GameWindow.Size.X), Y: float32(gs.GameWindow.Size.Y)}

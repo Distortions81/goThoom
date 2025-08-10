@@ -15,7 +15,7 @@ func TestPointInUISkipsMainPortal(t *testing.T) {
 	}
 
 	// Main portal window covering 100x100 at origin.
-	mainWin := eui.NewWindow(&eui.WindowData{})
+	mainWin := eui.NewWindow()
 	mainWin.Size = eui.Point{X: 100, Y: 100}
 	mainWin.Open = true
 	mainWin.MainPortal = true
@@ -27,7 +27,7 @@ func TestPointInUISkipsMainPortal(t *testing.T) {
 	}
 
 	// Add a regular window at the same position.
-	frontWin := eui.NewWindow(&eui.WindowData{})
+	frontWin := eui.NewWindow()
 	frontWin.Size = eui.Point{X: 20, Y: 20}
 	frontWin.Open = true
 	frontWin.AddWindow(false)

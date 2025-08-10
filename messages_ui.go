@@ -25,7 +25,10 @@ func updateMessagesWindow() {
 				changed = true
 			}
 		} else {
-			t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+			t, _ := eui.NewText()
+			t.Text = msg
+			t.FontSize = 10
+			t.Size = eui.Point{X: 500, Y: 24}
 			messagesList.AddItem(t)
 			changed = true
 		}
@@ -37,7 +40,10 @@ func updateMessagesWindow() {
 			changed = true
 		}
 	} else {
-		t, _ := eui.NewText(&eui.ItemData{Text: inputMsg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+		t, _ := eui.NewText()
+		t.Text = inputMsg
+		t.FontSize = 10
+		t.Size = eui.Point{X: 500, Y: 24}
 		messagesList.AddItem(t)
 		changed = true
 	}
@@ -59,7 +65,7 @@ func openMessagesWindow() {
 			return
 		}
 	}
-	messagesWin = eui.NewWindow(&eui.WindowData{})
+	messagesWin = eui.NewWindow()
 	if gs.MessagesWindow.Size.X > 0 && gs.MessagesWindow.Size.Y > 0 {
 		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X), Y: float32(gs.MessagesWindow.Size.Y)}
 	} else {
