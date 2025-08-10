@@ -39,6 +39,7 @@ type CLImages struct {
 	idrefs           map[uint32]*dataLocation
 	colors           map[uint32]*dataLocation
 	images           map[uint32]*dataLocation
+	lights           map[uint32]*dataLocation
 	cache            map[string]*ebiten.Image
 	mu               sync.Mutex
 	Denoise          bool
@@ -50,10 +51,12 @@ const (
 	TYPE_IDREF = 0x50446635
 	TYPE_IMAGE = 0x42697432
 	TYPE_COLOR = 0x436c7273
+	TYPE_LIGHT = 0x4C697431
 
 	pictDefFlagTransparent = 0x8000
 	pictDefBlendMask       = 0x0003
 	pictDefCustomColors    = 0x2000
+	pictDefFlagNoChecksum  = 0x0400
 )
 
 func Load(path string) (*CLImages, error) {
@@ -87,6 +90,7 @@ func Load(path string) (*CLImages, error) {
 		idrefs: make(map[uint32]*dataLocation, entryCount),
 		colors: make(map[uint32]*dataLocation, entryCount),
 		images: make(map[uint32]*dataLocation, entryCount),
+		lights: make(map[uint32]*dataLocation, entryCount),
 		cache:  make(map[string]*ebiten.Image),
 	}
 
@@ -111,6 +115,8 @@ func Load(path string) (*CLImages, error) {
 			imgs.colors[dl.id] = dl
 		case TYPE_IMAGE:
 			imgs.images[dl.id] = dl
+		case TYPE_LIGHT:
+			imgs.lights[dl.id] = dl
 		}
 	}
 
@@ -276,6 +282,32 @@ func Load(path string) (*CLImages, error) {
 				ref.animFrameTable[i] = v
 			}
 			remaining -= 2
+		}
+
+		// verify checksum unless disabled
+		bitsLoc := imgs.images[ref.imageID]
+		colLoc := imgs.colors[ref.colorID]
+		if bitsLoc != nil && colLoc != nil {
+			endBits := int(bitsLoc.offset + bitsLoc.size)
+			endCols := int(colLoc.offset + colLoc.size)
+			if endBits <= len(imgs.data) && endCols <= len(imgs.data) {
+				bits := imgs.data[bitsLoc.offset:endBits]
+				colors := imgs.data[colLoc.offset:endCols]
+				var light []byte
+				if ref.lightingID != 0 {
+					if l := imgs.lights[uint32(ref.lightingID)]; l != nil {
+						endLight := int(l.offset + l.size)
+						if endLight <= len(imgs.data) {
+							light = imgs.data[l.offset:endLight]
+						}
+					}
+				}
+				sum := calculateChecksum(bits, colors, light, ref)
+				if ref.checksum != 0 && (ref.flags&pictDefFlagNoChecksum) == 0 && sum != ref.checksum {
+					log.Printf("climg: checksum mismatch for idref %d: have %08x want %08x", ref.id, sum, ref.checksum)
+					loadErr = fmt.Errorf("climg: checksum mismatch for idref %d", ref.id)
+				}
+			}
 		}
 	}
 
