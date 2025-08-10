@@ -125,7 +125,7 @@ func main() {
 		playerName = extractMoviePlayerName(frames)
 
 		mp := newMoviePlayer(frames, clMovFPS, cancel)
-		mp.initUI()
+		mp.makePlaybackWindow()
 
 		if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
 			for !assetsPrecached {

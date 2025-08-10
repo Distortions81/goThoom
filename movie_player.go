@@ -39,8 +39,8 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 	}
 }
 
-// initUI creates the playback control window.
-func (p *moviePlayer) initUI() {
+// makePlaybackWindow creates the playback control window.
+func (p *moviePlayer) makePlaybackWindow() {
 	win := eui.NewWindow()
 	win.Title = "Controls"
 	win.Closable = false

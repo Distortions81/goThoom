@@ -60,6 +60,7 @@ func initUI() {
 	makeInventoryWindow()
 	makePlayersWindow()
 	makeHelpWindow()
+	makeToolbarWindow()
 
 	loginWin.Open()
 	chatWin.Open()
@@ -72,12 +73,14 @@ func initUI() {
 	} else {
 		loginWin.Open()
 	}
+}
 
+func makeToolbarWindow() {
 	toolbarWin = eui.NewWindow()
 	toolbarWin.Closable = false
 	toolbarWin.Resizable = false
 	toolbarWin.AutoSize = true
-	toolbarWin.NoScroll = true
+	toolbarWin.NoScroll = false
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Title = ""
 	toolbarWin.SetTitleSize(0)
@@ -560,7 +563,7 @@ func makeLoginWindow() {
 				playerName = extractMoviePlayerName(frames)
 				ctx, cancel := context.WithCancel(gameCtx)
 				mp := newMoviePlayer(frames, clMovFPS, cancel)
-				mp.initUI()
+				mp.makePlaybackWindow()
 				if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
 					for !assetsPrecached {
 						time.Sleep(100 * time.Millisecond)
