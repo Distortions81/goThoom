@@ -17,7 +17,7 @@ func decodeIMA4(data []byte, chans int) ([]byte, error) {
 		return nil, fmt.Errorf("truncated ima4 data")
 	}
 	blocks := len(data) / blockSize
-	out := make([]int16, blocks*64*chans)
+	pcm := make([]byte, blocks*64*chans*2)
 	for b := 0; b < blocks; b++ {
 		for ch := 0; ch < chans; ch++ {
 			block := data[b*blockSize+ch*36 : b*blockSize+(ch+1)*36]
@@ -29,13 +29,9 @@ func decodeIMA4(data []byte, chans int) ([]byte, error) {
 				index = 88
 			}
 			p := b*64*chans + ch
-			for i := 0; i < 64; i++ {
-				var nibble int
-				if i%2 == 0 {
-					nibble = int(block[4+i/2] >> 4)
-				} else {
-					nibble = int(block[4+i/2] & 0x0F)
-				}
+			for i := 0; i < 32; i++ {
+				by := block[4+i]
+				nibble := int(by >> 4)
 				step := imaStepTable[index]
 				diff := step >> 3
 				if nibble&1 != 0 {
@@ -58,14 +54,36 @@ func decodeIMA4(data []byte, chans int) ([]byte, error) {
 				} else if index > 88 {
 					index = 88
 				}
-				out[p] = pred
+				binary.BigEndian.PutUint16(pcm[2*p:], uint16(pred))
+				p += chans
+
+				nibble = int(by & 0x0F)
+				step = imaStepTable[index]
+				diff = step >> 3
+				if nibble&1 != 0 {
+					diff += step >> 2
+				}
+				if nibble&2 != 0 {
+					diff += step >> 1
+				}
+				if nibble&4 != 0 {
+					diff += step
+				}
+				if nibble&8 != 0 {
+					pred -= int16(diff)
+				} else {
+					pred += int16(diff)
+				}
+				index += imaIndexTable[nibble]
+				if index < 0 {
+					index = 0
+				} else if index > 88 {
+					index = 88
+				}
+				binary.BigEndian.PutUint16(pcm[2*p:], uint16(pred))
 				p += chans
 			}
 		}
-	}
-	pcm := make([]byte, len(out)*2)
-	for i, s := range out {
-		binary.BigEndian.PutUint16(pcm[2*i:], uint16(s))
 	}
 	return pcm, nil
 }
