@@ -103,7 +103,12 @@ func updateSoundVolume() {
 	}
 	players := make([]*audio.Player, 0, len(soundPlayers))
 	for sp := range soundPlayers {
-		players = append(players, sp)
+		if sp.IsPlaying() {
+			players = append(players, sp)
+		} else {
+			sp.Close()
+			delete(soundPlayers, sp)
+		}
 	}
 	soundMu.Unlock()
 
