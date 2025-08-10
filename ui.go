@@ -780,6 +780,19 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(uiScaleSlider)
 
+	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
+	fullscreenCB.Text = "Fullscreen"
+	fullscreenCB.Size = eui.Point{X: width, Y: 24}
+	fullscreenCB.Checked = gs.Fullscreen
+	fullscreenEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.Fullscreen = ev.Checked
+			ebiten.SetFullscreen(gs.Fullscreen)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(fullscreenCB)
+
 	denoiseCB, denoiseEvents := eui.NewCheckbox()
 	denoiseCB.Text = "Image Denoise"
 	denoiseCB.Size = eui.Point{X: width, Y: 24}
