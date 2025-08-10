@@ -647,6 +647,8 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			x := int((math.Round(hpos) + float64(fieldCenterX)) * gs.scale)
 			y := int((math.Round(vpos) + float64(fieldCenterY)) * gs.scale)
+			x += ox
+			y += oy
 			borderCol, bgCol, textCol := bubbleColors(b.Type)
 			drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, borderCol, bgCol, textCol)
 		}
