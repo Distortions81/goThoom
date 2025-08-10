@@ -1111,7 +1111,7 @@ func runGame(ctx context.Context) {
 }
 
 func initGame() {
-	ebiten.SetWindowTitle("ThoomSpeak")
+	ebiten.SetWindowTitle("goThoom Client")
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
@@ -1120,7 +1120,7 @@ func initGame() {
 	eui.LoadStyle("RoundHybrid")
 
 	gameWin = eui.NewWindow()
-	gameWin.Title = "Clan Lord"
+	gameWin.Title = ""
 	if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
 		gameWin.Size = eui.Point{X: float32(gs.GameWindow.Size.X), Y: float32(gs.GameWindow.Size.Y)}
 	} else {
@@ -1138,6 +1138,7 @@ func initGame() {
 	gameWin.FixedRatio = true
 	gameWin.AspectA = 1
 	gameWin.AspectB = 1
+	gameWin.SetTitleSize(4)
 	gameWin.AddWindow(false)
 	gameWin.Open()
 	initUI()

@@ -50,12 +50,6 @@ func initUI() {
 		logError("check data files: %v", err)
 	}
 
-	overlayFlow := &eui.ItemData{
-		ItemType: eui.ITEM_FLOW,
-		FlowType: eui.FLOW_HORIZONTAL,
-		PinTo:    eui.PIN_TOP_CENTER,
-	}
-
 	makeDownloadsWindow()
 	makeLoginWindow()
 	makeChatWindow()
@@ -80,13 +74,13 @@ func initUI() {
 	}
 
 	toolbarWin = eui.NewWindow()
-	toolbarWin.PinTo = eui.PIN_TOP_RIGHT
 	toolbarWin.Closable = false
 	toolbarWin.Resizable = false
 	toolbarWin.AutoSize = true
+	toolbarWin.NoScroll = true
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Title = ""
-	toolbarWin.TitleHeight = 0
+	toolbarWin.SetTitleSize(0)
 
 	gameMenu := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -138,12 +132,12 @@ func initUI() {
 	gameMenu.AddItem(helpBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = "Volume"
+	volumeSlider.Label = ""
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
-	volumeSlider.Size = eui.Point{X: 100, Y: 24}
-	volumeSlider.FontSize = 18
+	volumeSlider.Size = eui.Point{X: 300, Y: 24}
+	volumeSlider.FontSize = 9
 	volumeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Volume = float64(ev.Value)
@@ -244,8 +238,8 @@ func initUI() {
 	gameMenu.AddItem(recordStatus)
 
 	toolbarWin.AddItem(gameMenu)
+	toolbarWin.AddWindow(false)
 	toolbarWin.Open()
-	eui.AddOverlayFlow(overlayFlow)
 }
 
 var dlMutex sync.Mutex
