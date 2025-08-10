@@ -322,10 +322,9 @@ func openAddCharacterWindow() {
 	if addCharWin != nil {
 		if addCharWin.Open {
 			return
-		} else {
-			addCharWin.Open = true
-			return
 		}
+		addCharWin.AddWindow(false)
+		return
 	}
 	addCharWin = eui.NewWindow(&eui.WindowData{})
 	addCharWin.Title = "Add Character"
