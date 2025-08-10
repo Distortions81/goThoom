@@ -319,6 +319,15 @@ func (g *Game) Update() error {
 
 	updateDebugStats()
 
+	if inventoryDirty {
+		updateInventoryWindow()
+		inventoryDirty = false
+	}
+	if playersDirty {
+		updatePlayersWindow()
+		playersDirty = false
+	}
+
 	if settingsDirty {
 		saveSettings()
 		settingsDirty = false
