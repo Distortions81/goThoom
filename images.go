@@ -33,6 +33,21 @@ type mobileKey struct {
 	colors    [maxColors]byte
 }
 
+type mobileBlendKey struct {
+	from  mobileKey
+	to    mobileKey
+	step  uint8
+	total uint8
+}
+
+type pictBlendKey struct {
+	id    uint16
+	from  uint16
+	to    uint16
+	step  uint8
+	total uint8
+}
+
 var (
 	// imageCache holds cropped animation frames keyed by picture ID and
 	// frame index.
@@ -44,6 +59,10 @@ var (
 	// mobileCache caches individual mobile frames keyed by picture ID,
 	// state, and color overrides.
 	mobileCache = make(map[mobileKey]*ebiten.Image)
+	// mobileBlendCache stores pre-rendered blended mobile frames.
+	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
+	// pictBlendCache stores pre-rendered blended picture frames.
+	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
 
 	imageMu  sync.Mutex
 	clImages *climg.CLImages
@@ -234,6 +253,90 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	mobileCache[key] = frame
 	imageMu.Unlock()
 	return frame
+}
+
+func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
+	if prevImg == nil || img == nil {
+		return nil
+	}
+	k := mobileBlendKey{from: from, to: to, step: uint8(step), total: uint8(total)}
+	imageMu.Lock()
+	if b, ok := mobileBlendCache[k]; ok {
+		imageMu.Unlock()
+		return b
+	}
+	imageMu.Unlock()
+
+	size := img.Bounds().Dx()
+	if s := prevImg.Bounds().Dx(); s > size {
+		size = s
+	}
+	drawSize := nextPow2(size)
+	blended := ebiten.NewImage(drawSize, drawSize)
+	alpha := float32(step) / float32(total)
+	offPrev := (drawSize - prevImg.Bounds().Dx()) / 2
+	op1 := &ebiten.DrawImageOptions{}
+	op1.ColorScale.ScaleAlpha(1 - alpha)
+	op1.Blend = ebiten.BlendCopy
+	op1.GeoM.Translate(float64(offPrev), float64(offPrev))
+	blended.DrawImage(prevImg, op1)
+	offCur := (drawSize - img.Bounds().Dx()) / 2
+	op2 := &ebiten.DrawImageOptions{}
+	op2.ColorScale.ScaleAlpha(alpha)
+	op2.Blend = ebiten.BlendLighter
+	op2.GeoM.Translate(float64(offCur), float64(offCur))
+	blended.DrawImage(img, op2)
+	imageMu.Lock()
+	mobileBlendCache[k] = blended
+	imageMu.Unlock()
+	return blended
+}
+
+func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
+	if prevImg == nil || img == nil {
+		return nil
+	}
+	k := pictBlendKey{id: id, from: uint16(fromFrame), to: uint16(toFrame), step: uint8(step), total: uint8(total)}
+	imageMu.Lock()
+	if b, ok := pictBlendCache[k]; ok {
+		imageMu.Unlock()
+		return b
+	}
+	imageMu.Unlock()
+
+	w1, h1 := prevImg.Bounds().Dx(), prevImg.Bounds().Dy()
+	w2, h2 := img.Bounds().Dx(), img.Bounds().Dy()
+	size := w1
+	if h1 > size {
+		size = h1
+	}
+	if w2 > size {
+		size = w2
+	}
+	if h2 > size {
+		size = h2
+	}
+	drawSize := nextPow2(size)
+	blended := ebiten.NewImage(drawSize, drawSize)
+	alpha := float32(step) / float32(total)
+	offPrevX := (drawSize - w1) / 2
+	offPrevY := (drawSize - h1) / 2
+	op1 := &ebiten.DrawImageOptions{}
+	op1.ColorScale.ScaleAlpha(1 - alpha)
+	op1.Blend = ebiten.BlendCopy
+	op1.GeoM.Translate(float64(offPrevX), float64(offPrevY))
+	blended.DrawImage(prevImg, op1)
+	offCurX := (drawSize - w2) / 2
+	offCurY := (drawSize - h2) / 2
+	op2 := &ebiten.DrawImageOptions{}
+	op2.ColorScale.ScaleAlpha(alpha)
+	op2.Blend = ebiten.BlendLighter
+	op2.GeoM.Translate(float64(offCurX), float64(offCurY))
+	blended.DrawImage(img, op2)
+	imageMu.Lock()
+	pictBlendCache[k] = blended
+	imageMu.Unlock()
+	return blended
 }
 
 // imageCacheStats returns the counts and approximate memory usage in bytes for
