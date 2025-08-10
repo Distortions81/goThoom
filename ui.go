@@ -549,7 +549,7 @@ func openSettingsWindow() {
 	settingsWin.AutoSize = true
 	settingsWin.Movable = false
 	settingsWin.Open = true
-	settingsWin.PinTo = eui.PART_TOP_LEFT
+	settingsWin.PinTo = eui.PIN_TOP_LEFT
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
