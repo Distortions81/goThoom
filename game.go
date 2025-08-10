@@ -312,8 +312,14 @@ func computeInterpolation(prevTime, curTime time.Time, mobileRate, pictRate floa
 
 type Game struct{}
 
+var once sync.Once
+
 func (g *Game) Update() error {
 	eui.Update()
+
+	once.Do(func() {
+		initGame()
+	})
 
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)

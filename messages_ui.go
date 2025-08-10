@@ -73,6 +73,7 @@ func makeMessagesWindow() {
 	messagesWin.Closable = true
 	messagesWin.Resizable = true
 	messagesWin.Movable = true
+	messagesWin.Position = BOTTOM_LEFT
 	if gs.MessagesWindow.Position.X != 0 || gs.MessagesWindow.Position.Y != 0 {
 		messagesWin.Position = eui.Point{X: float32(gs.MessagesWindow.Position.X), Y: float32(gs.MessagesWindow.Position.Y)}
 	}

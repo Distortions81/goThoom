@@ -19,6 +19,16 @@ import (
 	"go_client/clsnd"
 )
 
+const cval = 8000
+
+var (
+	TOP_RIGHT = eui.Point{X: cval, Y: 0}
+	TOP_LEFT  = eui.Point{X: 0, Y: 0}
+
+	BOTTOM_LEFT  = eui.Point{X: 0, Y: cval}
+	BOTTOM_RIGHT = eui.Point{X: cval, Y: 0}
+)
+
 var loginWin *eui.WindowData
 var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
@@ -28,9 +38,6 @@ var addCharPass string
 var addCharRemember bool
 var windowsWin *eui.WindowData
 var toolbarWin *eui.WindowData
-var playersBox *eui.ItemData
-var inventoryBox *eui.ItemData
-var messagesBox *eui.ItemData
 
 var (
 	sheetCacheLabel  *eui.ItemData
@@ -1442,6 +1449,7 @@ func makePlayersWindow() {
 	playersWin.Closable = true
 	playersWin.Resizable = true
 	playersWin.Movable = true
+	playersWin.Position = TOP_RIGHT
 	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
 		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}
 	}
