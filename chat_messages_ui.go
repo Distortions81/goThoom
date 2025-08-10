@@ -27,6 +27,9 @@ func updateChatWindow() {
 		}
 	}
 	if len(chatList.Contents) > len(msgs) {
+		for i := len(msgs); i < len(chatList.Contents); i++ {
+			chatList.Contents[i] = nil
+		}
 		chatList.Contents = chatList.Contents[:len(msgs)]
 		changed = true
 	}
