@@ -30,10 +30,18 @@ func updatePlayersWindow() {
 	}
 
 	buf := fmt.Sprintf("Players Online: %v", len(exiles))
-	t, _ := eui.NewText(&eui.ItemData{ItemType: eui.ITEM_TEXT, Text: buf, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
+	t, err := eui.NewText(&eui.ItemData{ItemType: eui.ITEM_TEXT, Text: buf, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
+	if err != nil {
+		logError("failed to create players online text: %v", err)
+		return
+	}
 	playersList.AddItem(t)
 	for _, p := range exiles {
-		t, _ = eui.NewText(&eui.ItemData{Text: p.Name, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
+		t, err = eui.NewText(&eui.ItemData{Text: p.Name, FontSize: 10, Size: eui.Point{X: 100, Y: 24}})
+		if err != nil {
+			logError("failed to create player name text: %v", err)
+			continue
+		}
 		playersList.AddItem(t)
 	}
 	playersDirty = true

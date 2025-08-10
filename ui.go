@@ -159,8 +159,13 @@ func initUI() {
 		}
 	}
 	overlay.AddItem(recordBtn)
-	recordStatus, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 80, Y: 24}, FontSize: 18, Color: eui.ColorRed})
-	overlay.AddItem(recordStatus)
+	var err error
+	recordStatus, err = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 80, Y: 24}, FontSize: 18, Color: eui.ColorRed})
+	if err != nil {
+		logError("failed to create record status text: %v", err)
+	} else {
+		overlay.AddItem(recordStatus)
+	}
 
 	eui.AddOverlayFlow(overlay)
 
@@ -190,11 +195,19 @@ func openDownloadsWindow(status dataFilesStatus) {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	t, _ := eui.NewText(&eui.ItemData{Text: "Files we must download:", FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
-	flow.AddItem(t)
+	t, err := eui.NewText(&eui.ItemData{Text: "Files we must download:", FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
+	if err != nil {
+		logError("failed to create download header text: %v", err)
+	} else {
+		flow.AddItem(t)
+	}
 
 	for _, f := range status.Files {
-		t, _ := eui.NewText(&eui.ItemData{Text: f, FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
+		t, err := eui.NewText(&eui.ItemData{Text: f, FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
+		if err != nil {
+			logError("failed to create filename text: %v", err)
+			continue
+		}
 		flow.AddItem(t)
 	}
 
@@ -267,8 +280,12 @@ func updateCharacterButtons() {
 	}
 	charactersList.Contents = charactersList.Contents[:0]
 	if len(characters) == 0 {
-		empty, _ := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 64}})
-		charactersList.AddItem(empty)
+		empty, err := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 64}})
+		if err != nil {
+			logError("failed to create empty character text: %v", err)
+		} else {
+			charactersList.AddItem(empty)
+		}
 		name = ""
 		passHash = ""
 	} else {
@@ -479,8 +496,12 @@ func openLoginWindow() {
 	loginFlow.AddItem(charactersList)
 	updateCharacterButtons()
 
-	label, _ := eui.NewText(&eui.ItemData{Text: "", FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
-	loginFlow.AddItem(label)
+	label, err := eui.NewText(&eui.ItemData{Text: "", FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+	if err != nil {
+		logError("failed to create spacer text: %v", err)
+	} else {
+		loginFlow.AddItem(label)
+	}
 
 	connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
 	connEvents.Handle = func(ev eui.UIEvent) {
@@ -522,8 +543,12 @@ func openErrorWindow(msg string) {
 	win.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
-	flow.AddItem(text)
+	text, err := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
+	if err != nil {
+		logError("failed to create error text: %v", err)
+	} else {
+		flow.AddItem(text)
+	}
 	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}})
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -551,8 +576,12 @@ func openSettingsWindow() {
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
 
-	label, _ := eui.NewText(&eui.ItemData{Text: "\nControls:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
-	mainFlow.AddItem(label)
+	label, err := eui.NewText(&eui.ItemData{Text: "\nControls:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
+	if err != nil {
+		logError("failed to create controls label: %v", err)
+	} else {
+		mainFlow.AddItem(label)
+	}
 
 	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-toggle movement", Size: eui.Point{X: width, Y: 24}, Checked: gs.ClickToToggle})
 	toggleEvents.Handle = func(ev eui.UIEvent) {
@@ -575,8 +604,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(keySpeedSlider)
 
-	label, _ = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
-	mainFlow.AddItem(label)
+	label, err = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
+	if err != nil {
+		logError("failed to create text sizes label: %v", err)
+	} else {
+		mainFlow.AddItem(label)
+	}
 
 	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(gs.BubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}})
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
@@ -598,8 +631,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(labelFontSlider)
 
-	label, _ = eui.NewText(&eui.ItemData{Text: "\nOpacity Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
-	mainFlow.AddItem(label)
+	label, err = eui.NewText(&eui.ItemData{Text: "\nOpacity Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	if err != nil {
+		logError("failed to create opacity settings label: %v", err)
+	} else {
+		mainFlow.AddItem(label)
+	}
 
 	bubbleOpSlider, bubbleOpEvents := eui.NewSlider(&eui.ItemData{Label: "Message Bubble", MinValue: 0, MaxValue: 1, Value: float32(gs.BubbleOpacity), Size: eui.Point{X: width - 10, Y: 24}})
 	bubbleOpEvents.Handle = func(ev eui.UIEvent) {
@@ -619,8 +656,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(nameBgSlider)
 
-	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
-	mainFlow.AddItem(label)
+	label, err = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	if err != nil {
+		logError("failed to create graphics settings label: %v", err)
+	} else {
+		mainFlow.AddItem(label)
+	}
 
 	uiScaleSlider, uiScaleEvents := eui.NewSlider(&eui.ItemData{Label: "UI Scaling", MinValue: 0.5, MaxValue: 2.5, Value: float32(gs.UIScale), Size: eui.Point{X: width - 10, Y: 24}})
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
@@ -908,20 +949,40 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(smoothinCB)
 
-	cacheLabel, _ := eui.NewText(&eui.ItemData{Text: "Caches:", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(cacheLabel)
+	cacheLabel, err := eui.NewText(&eui.ItemData{Text: "Caches:", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create cache label: %v", err)
+	} else {
+		debugFlow.AddItem(cacheLabel)
+	}
 
-	sheetCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(sheetCacheLabel)
+	sheetCacheLabel, err = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create sheet cache label: %v", err)
+	} else {
+		debugFlow.AddItem(sheetCacheLabel)
+	}
 
-	frameCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(frameCacheLabel)
+	frameCacheLabel, err = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create frame cache label: %v", err)
+	} else {
+		debugFlow.AddItem(frameCacheLabel)
+	}
 
-	mobileCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(mobileCacheLabel)
+	mobileCacheLabel, err = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create mobile cache label: %v", err)
+	} else {
+		debugFlow.AddItem(mobileCacheLabel)
+	}
 
-	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(soundCacheLabel)
+	soundCacheLabel, err = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create sound cache label: %v", err)
+	} else {
+		debugFlow.AddItem(soundCacheLabel)
+	}
 
 	clearCacheBtn, clearCacheEvents := eui.NewButton(&eui.ItemData{Text: "Clear All Caches", Size: eui.Point{X: width, Y: 24}})
 	clearCacheEvents.Handle = func(ev eui.UIEvent) {
@@ -931,8 +992,12 @@ func openDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(clearCacheBtn)
-	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
-	debugFlow.AddItem(totalCacheLabel)
+	totalCacheLabel, err = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create total cache label: %v", err)
+	} else {
+		debugFlow.AddItem(totalCacheLabel)
+	}
 
 	debugWin.AddItem(debugFlow)
 
@@ -964,8 +1029,12 @@ func openDebugWindow() {
 	}
 	soundTestFlow.AddItem(minusBtn)
 
-	soundTestLabel, _ = eui.NewText(&eui.ItemData{Text: "0", Size: eui.Point{X: 40, Y: 24}, FontSize: 10})
-	soundTestFlow.AddItem(soundTestLabel)
+	soundTestLabel, err = eui.NewText(&eui.ItemData{Text: "0", Size: eui.Point{X: 40, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create sound test label: %v", err)
+	} else {
+		soundTestFlow.AddItem(soundTestLabel)
+	}
 
 	plusBtn, plusEvents := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 24, Y: 24}})
 	plusEvents.Handle = func(ev eui.UIEvent) {
@@ -1137,8 +1206,12 @@ func openInventoryWindow() {
 	}
 
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	title, _ := eui.NewText(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 256, Y: 128}})
-	inventoryWin.AddItem(title)
+	title, err := eui.NewText(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 256, Y: 128}})
+	if err != nil {
+		logError("failed to create inventory title: %v", err)
+	} else {
+		inventoryWin.AddItem(title)
+	}
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
 	//inventoryWin.Refresh()
@@ -1201,7 +1274,11 @@ func openHelpWindow() {
 		"Escape - Cancel typing",
 	}
 	for _, line := range helpTexts {
-		t, _ := eui.NewText(&eui.ItemData{Text: line, Size: eui.Point{X: 300, Y: 24}, FontSize: 15})
+		t, err := eui.NewText(&eui.ItemData{Text: line, Size: eui.Point{X: 300, Y: 24}, FontSize: 15})
+		if err != nil {
+			logError("failed to create help text: %v", err)
+			continue
+		}
 		helpFlow.AddItem(t)
 	}
 	helpWin.AddItem(helpFlow)

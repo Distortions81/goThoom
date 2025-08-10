@@ -55,8 +55,13 @@ func (p *moviePlayer) initUI() {
 	// Time slider flow
 	tFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-	p.curLabel, _ = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
-	tFlow.AddItem(p.curLabel)
+	var err error
+	p.curLabel, err = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create current time label: %v", err)
+	} else {
+		tFlow.AddItem(p.curLabel)
+	}
 
 	max := float32(len(p.frames))
 	var events *eui.EventHandler
@@ -70,8 +75,12 @@ func (p *moviePlayer) initUI() {
 
 	totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
 	totalDur = totalDur.Round(time.Second)
-	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
-	tFlow.AddItem(p.totalLabel)
+	p.totalLabel, err = eui.NewText(&eui.ItemData{Text: durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
+	if err != nil {
+		logError("failed to create total time label: %v", err)
+	} else {
+		tFlow.AddItem(p.totalLabel)
+	}
 
 	flow.AddItem(tFlow)
 
@@ -125,8 +134,12 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(forward)
 
-	spacer, _ := eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 40, Y: 24}})
-	bFlow.AddItem(spacer)
+	spacer, err := eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 40, Y: 24}})
+	if err != nil {
+		logError("failed to create spacer text: %v", err)
+	} else {
+		bFlow.AddItem(spacer)
+	}
 
 	half, halfEv := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 40, Y: 24}})
 	halfEv.Handle = func(ev eui.UIEvent) {
@@ -169,9 +182,13 @@ func (p *moviePlayer) initUI() {
 	bFlow.AddItem(dbl)
 
 	buf := fmt.Sprintf("%v fps", p.fps)
-	fpsInfo, _ := eui.NewText(&eui.ItemData{Text: buf, Size: eui.Point{X: 100, Y: 24}, FontSize: 15, Alignment: eui.ALIGN_CENTER})
-	p.fpsLabel = fpsInfo
-	bFlow.AddItem(fpsInfo)
+	fpsInfo, err := eui.NewText(&eui.ItemData{Text: buf, Size: eui.Point{X: 100, Y: 24}, FontSize: 15, Alignment: eui.ALIGN_CENTER})
+	if err != nil {
+		logError("failed to create fps info text: %v", err)
+	} else {
+		p.fpsLabel = fpsInfo
+		bFlow.AddItem(fpsInfo)
+	}
 
 	flow.AddItem(bFlow)
 	win.AddItem(flow)
