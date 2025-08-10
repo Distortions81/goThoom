@@ -19,6 +19,7 @@ replace github.com/Distortions81/EUI => /home/dist/github/EUI/
 require github.com/ebitengine/oto/v3 v3.3.3 // indirect
 
 require (
+	git.maze.io/go/math32 v0.0.0-20181106113604-c78ed91899f1 // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d // indirect
 	github.com/ebitengine/gomobile v0.0.0-20250329061421-6d0a8e981e4c // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
