@@ -101,10 +101,20 @@ func updateSoundVolume() {
 	if gs.Mute {
 		vol = 0
 	}
+	players := make([]*audio.Player, 0, len(soundPlayers))
 	for sp := range soundPlayers {
-		sp.SetVolume(vol)
+		if sp.IsPlaying() {
+			players = append(players, sp)
+		} else {
+			sp.Close()
+			delete(soundPlayers, sp)
+		}
 	}
 	soundMu.Unlock()
+
+	for _, sp := range players {
+		sp.SetVolume(vol)
+	}
 }
 
 func initSinc() {
