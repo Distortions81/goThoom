@@ -21,7 +21,13 @@ func pointInUI(x, y int) bool {
 		}
 		pos := win.GetPos()
 		size := win.GetSize()
-		if fx >= pos.X && fx < pos.X+size.X && fy >= pos.Y && fy < pos.Y+size.Y {
+		s := eui.UIScale()
+		frame := (win.Margin + win.Border + win.BorderPad + win.Padding) * s
+		title := win.GetTitleSize()
+		x0, y0 := pos.X, pos.Y
+		x1 := x0 + size.X + frame*2
+		y1 := y0 + size.Y + frame*2 + title
+		if fx >= x0 && fx < x1 && fy >= y0 && fy < y1 {
 			return true
 		}
 	}
