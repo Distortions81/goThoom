@@ -478,7 +478,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	}
 
 	if c.Denoise {
-		denoiseImage(img, c.DenoiseSharpness, c.DenoisePercent)
+		denoiseImage(img, float32(c.DenoiseSharpness), float32(c.DenoisePercent))
 	}
 
 	eimg := ebiten.NewImageFromImage(img)
