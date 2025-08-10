@@ -64,14 +64,18 @@ var (
 		soundMu.Lock()
 		for sp := range soundPlayers {
 			if !sp.IsPlaying() {
-				sp.Close()
+				if err := sp.Close(); err != nil {
+					logError("close sound player: %v", err)
+				}
 				delete(soundPlayers, sp)
 			}
 		}
 		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 			soundMu.Unlock()
 			logDebug("playSound(%d) too many sound players (%d)", id, len(soundPlayers))
-			p.Close()
+			if err := p.Close(); err != nil {
+				logError("close sound player: %v", err)
+			}
 			return
 		}
 		soundPlayers[p] = struct{}{}
