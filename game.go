@@ -108,8 +108,6 @@ var gameCtx context.Context
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var gameStarted = make(chan struct{})
-var lastWinW, lastWinH int
-var gameInit bool
 
 var (
 	frameCh       = make(chan struct{}, 1)
@@ -321,26 +319,26 @@ func (g *Game) Update() error {
 
 	if playersDirty {
 		updatePlayersWindow()
-		if playersWin != nil && playersWin.Open {
+		if playersWin != nil && playersWin.IsOpen() {
 			playersWin.Refresh()
 		}
 		playersDirty = false
 	}
 	if inventoryDirty {
 		updateInventoryWindow()
-		if inventoryWin != nil && inventoryWin.Open {
+		if inventoryWin != nil && inventoryWin.IsOpen() {
 			inventoryWin.Refresh()
 		}
 		inventoryDirty = false
 	}
 	if messagesDirty {
-		if messagesWin != nil && messagesWin.Open {
+		if messagesWin != nil && messagesWin.IsOpen() {
 			messagesWin.Refresh()
 		}
 		messagesDirty = false
 	}
 	if chatDirty {
-		if chatWin != nil && chatWin.Open {
+		if chatWin != nil && chatWin.IsOpen() {
 			chatWin.Refresh()
 		}
 		chatDirty = false
@@ -1135,7 +1133,6 @@ func runGame(ctx context.Context) {
 		w, h = initialWindowW, initialWindowH
 	}
 	ebiten.SetWindowSize(w, h)
-	lastWinW, lastWinH = w, h
 	ebiten.MaximizeWindow()
 
 	op := &ebiten.RunGameOptions{ScreenTransparent: false}
@@ -1168,13 +1165,12 @@ func initGame() {
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.Movable = true
-	gameWin.Open = true
 	gameWin.MainPortal = true
 	gameWin.FixedRatio = true
 	gameWin.AspectA = 1
 	gameWin.AspectB = 1
-
 	gameWin.AddWindow(false)
+	gameWin.Open()
 
 	if gs.InventoryWindow.Open {
 		openInventoryWindow()

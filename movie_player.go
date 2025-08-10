@@ -43,12 +43,9 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 func (p *moviePlayer) initUI() {
 	win := eui.NewWindow()
 	win.Title = "Controls"
-	win.Open = true
 	win.Closable = false
 	win.Resizable = false
 	win.AutoSize = true
-	win.PinTo = eui.PIN_TOP_CENTER
-	win.Closable = false
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -212,6 +209,8 @@ func (p *moviePlayer) initUI() {
 	flow.AddItem(bFlow)
 	win.AddItem(flow)
 	win.AddWindow(false)
+	win.Open()
+
 	p.updateUI()
 }
 

@@ -60,7 +60,6 @@ func initUI() {
 	overlay := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
-		PinTo:    eui.PIN_TOP_CENTER,
 	}
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
@@ -174,18 +173,12 @@ func initUI() {
 }
 
 func openDownloadsWindow(status dataFilesStatus) {
-	if downloadWin != nil && downloadWin.Open {
-		return
-	}
-
 	downloadWin = eui.NewWindow()
 	downloadWin.Title = "Downloads"
 	downloadWin.Closable = false
 	downloadWin.Resizable = false
 	downloadWin.AutoSize = true
-	downloadWin.Movable = false
-	downloadWin.PinTo = eui.PIN_BOTTOM_CENTER
-	downloadWin.Open = true
+	downloadWin.Movable = true
 
 	startedDownload := false
 
@@ -231,7 +224,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 					logError("load CL_Images: %v", err)
 					openErrorWindow("Error: Load CL_Images: " + err.Error())
 				}
-				downloadWin.Open = false
+				downloadWin.Open()
 				openLoginWindow()
 			}()
 		}
@@ -251,10 +244,12 @@ func openDownloadsWindow(status dataFilesStatus) {
 
 	downloadWin.AddItem(flow)
 	downloadWin.AddWindow(false)
+	downloadWin.Open()
+
 }
 
 func updateCharacterButtons() {
-	if loginWin == nil || !loginWin.Open {
+	if loginWin == nil || !loginWin.IsOpen() {
 		return
 	}
 	if charactersList == nil {
@@ -339,9 +334,7 @@ func openAddCharacterWindow() {
 	addCharWin.Closable = false
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
-	addCharWin.Movable = false
-	addCharWin.Open = true
-	addCharWin.PinTo = eui.PIN_BOTTOM_CENTER
+	addCharWin.Movable = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -391,10 +384,10 @@ func openAddCharacterWindow() {
 			gs.LastCharacter = addCharName
 			saveSettings()
 			updateCharacterButtons()
-			if loginWin != nil && loginWin.Open {
-				//loginWin.Refresh()
+			if loginWin != nil && loginWin.IsOpen() {
+				loginWin.Refresh()
 			}
-			addCharWin.Open = false
+			addCharWin.Open()
 		}
 	}
 	flow.AddItem(addBtn)
@@ -404,13 +397,14 @@ func openAddCharacterWindow() {
 	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			addCharWin.Open = false
+			addCharWin.Open()
 		}
 	}
 	flow.AddItem(cancelBtn)
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
+	addCharWin.Open()
 	addCharWin.BringForward()
 }
 
@@ -424,10 +418,7 @@ func openLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
-	loginWin.Movable = false
-	loginWin.PinTo = eui.PIN_MID_CENTER
-	loginWin.Open = true
-
+	loginWin.Movable = true
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -472,7 +463,7 @@ func openLoginWindow() {
 				return
 			}
 			clmov = filename
-			loginWin.Open = false
+			loginWin.Close()
 			go func() {
 				drawStateEncrypted = false
 				frames, err := parseMovie(filename, clientVersion)
@@ -518,7 +509,7 @@ func openLoginWindow() {
 			}
 			gs.LastCharacter = name
 			saveSettings()
-			loginWin.Open = false
+			loginWin.Close()
 			go func() {
 				ctx, cancel := context.WithCancel(gameCtx)
 				loginMu.Lock()
@@ -536,6 +527,8 @@ func openLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+	loginWin.Open()
+
 }
 
 func openErrorWindow(msg string) {
@@ -544,9 +537,7 @@ func openErrorWindow(msg string) {
 	win.Closable = false
 	win.Resizable = false
 	win.AutoSize = true
-	win.Movable = false
-	win.PinTo = eui.PIN_MID_CENTER
-	win.Open = true
+	win.Movable = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	text, _ := eui.NewText()
@@ -559,12 +550,14 @@ func openErrorWindow(msg string) {
 	okBtn.Size = eui.Point{X: 200, Y: 24}
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			win.Open = false
+			win.Close()
 		}
 	}
 	flow.AddItem(okBtn)
 	win.AddItem(flow)
 	win.AddWindow(false)
+	win.Open()
+
 }
 
 func openSettingsWindow() {
@@ -573,9 +566,7 @@ func openSettingsWindow() {
 	settingsWin.Closable = true
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
-	settingsWin.Movable = false
-	settingsWin.Open = true
-	settingsWin.PinTo = eui.PIN_TOP_LEFT
+	settingsWin.Movable = true
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
@@ -843,6 +834,8 @@ func openSettingsWindow() {
 
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
+	settingsWin.Open()
+
 }
 
 func openDebugWindow() {
@@ -852,9 +845,7 @@ func openDebugWindow() {
 	debugWin.Closable = true
 	debugWin.Resizable = false
 	debugWin.AutoSize = true
-	debugWin.Movable = false
-	debugWin.Open = true
-	debugWin.PinTo = eui.PIN_MID_CENTER
+	debugWin.Movable = true
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1204,13 +1195,14 @@ func openDebugWindow() {
 	debugFlow.AddItem(soundTestFlow)
 
 	debugWin.AddWindow(false)
+	debugWin.Open()
 	updateSoundTestLabel()
 	updateDebugStats()
 }
 
 // updateDebugStats refreshes the cache statistics displayed in the debug window.
 func updateDebugStats() {
-	if debugWin == nil || !debugWin.Open {
+	if debugWin == nil || !debugWin.IsOpen() {
 		return
 	}
 
@@ -1252,9 +1244,7 @@ func openWindowsWindow() {
 	windowsWin.Closable = false
 	windowsWin.Resizable = false
 	windowsWin.AutoSize = true
-	windowsWin.Movable = false
-	windowsWin.Open = true
-	windowsWin.PinTo = eui.PIN_TOP_CENTER
+	windowsWin.Movable = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1293,6 +1283,8 @@ func openWindowsWindow() {
 
 	windowsWin.AddItem(flow)
 	windowsWin.AddWindow(false)
+	windowsWin.Open()
+
 }
 
 func openInventoryWindow() {
@@ -1301,9 +1293,7 @@ func openInventoryWindow() {
 	inventoryWin.Closable = false
 	inventoryWin.Resizable = false
 	inventoryWin.AutoSize = true
-	inventoryWin.Movable = false
-	inventoryWin.PinTo = eui.PIN_TOP_LEFT
-	inventoryWin.Open = true
+	inventoryWin.Movable = true
 
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
 		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
@@ -1321,12 +1311,7 @@ func openInventoryWindow() {
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
-	//inventoryWin.Refresh()
-	inventoryDirty = (true)
-	if inventoryBox != nil {
-		inventoryBox.Checked = true
-		inventoryBox.Dirty = true
-	}
+	inventoryWin.Open()
 }
 
 func openPlayersWindow() {
@@ -1339,9 +1324,7 @@ func openPlayersWindow() {
 	}
 	playersWin.Closable = false
 	playersWin.Resizable = false
-	playersWin.Movable = false
-	playersWin.PinTo = eui.PIN_TOP_RIGHT
-	playersWin.Open = true
+	playersWin.Movable = true
 	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
 		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}
 	}
@@ -1349,8 +1332,7 @@ func openPlayersWindow() {
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
-	//playersWin.Refresh()
-	playersDirty = (true)
+	playersWin.Open()
 }
 
 func openHelpWindow() {
@@ -1359,10 +1341,7 @@ func openHelpWindow() {
 	helpWin.Closable = true
 	helpWin.Resizable = false
 	helpWin.AutoSize = true
-	helpWin.Movable = false
-	helpWin.PinTo = eui.PIN_MID_CENTER
-	helpWin.Open = true
-
+	helpWin.Movable = true
 	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	helpTexts := []string{
 		"WASD or Arrow Keys - Walk",
@@ -1381,4 +1360,6 @@ func openHelpWindow() {
 	}
 	helpWin.AddItem(helpFlow)
 	helpWin.AddWindow(false)
+	helpWin.Open()
+
 }

@@ -199,8 +199,8 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		return false
 	}
 	changed := false
-	if state.Open != win.Open {
-		state.Open = win.Open
+	if state.Open != win.IsOpen() {
+		state.Open = win.IsOpen()
 		changed = true
 	}
 	pos := WindowPoint{X: float64(win.Position.X), Y: float64(win.Position.Y)}
