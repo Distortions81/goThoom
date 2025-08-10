@@ -62,7 +62,10 @@ func initUI() {
 		FlowType: eui.FLOW_HORIZONTAL,
 		PinTo:    eui.PIN_TOP_CENTER,
 	}
-	winBtn, winEvents := eui.NewButton(&eui.ItemData{Text: "Windows", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	winBtn, winEvents := eui.NewButton()
+	winBtn.Text = "Windows"
+	winBtn.Size = eui.Point{X: 128, Y: 24}
+	winBtn.FontSize = 18
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if windowsWin != nil {
@@ -75,7 +78,10 @@ func initUI() {
 	}
 	overlay.AddItem(winBtn)
 
-	btn, btnEvents := eui.NewButton(&eui.ItemData{Text: "Settings", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	btn, btnEvents := eui.NewButton()
+	btn.Text = "Settings"
+	btn.Size = eui.Point{X: 128, Y: 24}
+	btn.FontSize = 18
 	btnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if settingsWin != nil {
@@ -88,7 +94,10 @@ func initUI() {
 	}
 	overlay.AddItem(btn)
 
-	helpBtn, helpEvents := eui.NewButton(&eui.ItemData{Text: "Help", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	helpBtn, helpEvents := eui.NewButton()
+	helpBtn.Text = "Help"
+	helpBtn.Size = eui.Point{X: 128, Y: 24}
+	helpBtn.FontSize = 18
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if helpWin != nil {
@@ -101,7 +110,10 @@ func initUI() {
 	}
 	overlay.AddItem(helpBtn)
 
-	recordBtn, recordEvents := eui.NewButton(&eui.ItemData{Text: "Record Movie", Size: eui.Point{X: 128, Y: 24}, FontSize: 18})
+	recordBtn, recordEvents := eui.NewButton()
+	recordBtn.Text = "Record Movie"
+	recordBtn.Size = eui.Point{X: 128, Y: 24}
+	recordBtn.FontSize = 18
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
@@ -159,7 +171,11 @@ func initUI() {
 		}
 	}
 	overlay.AddItem(recordBtn)
-	recordStatus, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 80, Y: 24}, FontSize: 18, Color: eui.ColorRed})
+	recordStatus, _ = eui.NewText()
+	recordStatus.Text = ""
+	recordStatus.Size = eui.Point{X: 80, Y: 24}
+	recordStatus.FontSize = 18
+	recordStatus.Color = eui.ColorRed
 	overlay.AddItem(recordStatus)
 
 	eui.AddOverlayFlow(overlay)
@@ -177,7 +193,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 		return
 	}
 
-	downloadWin = eui.NewWindow(&eui.WindowData{})
+	downloadWin = eui.NewWindow()
 	downloadWin.Title = "Downloads"
 	downloadWin.Closable = false
 	downloadWin.Resizable = false
@@ -190,16 +206,24 @@ func openDownloadsWindow(status dataFilesStatus) {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	t, _ := eui.NewText(&eui.ItemData{Text: "Files we must download:", FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
+	t, _ := eui.NewText()
+	t.Text = "Files we must download:"
+	t.FontSize = 15
+	t.Size = eui.Point{X: 200, Y: 25}
 	flow.AddItem(t)
 
 	for _, f := range status.Files {
-		t, _ := eui.NewText(&eui.ItemData{Text: f, FontSize: 15, Size: eui.Point{X: 200, Y: 25}})
+		t, _ := eui.NewText()
+		t.Text = f
+		t.FontSize = 15
+		t.Size = eui.Point{X: 200, Y: 25}
 		flow.AddItem(t)
 	}
 
 	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	dlBtn, dlEvents := eui.NewButton(&eui.ItemData{Text: "Download", Size: eui.Point{X: 100, Y: 24}})
+	dlBtn, dlEvents := eui.NewButton()
+	dlBtn.Text = "Download"
+	dlBtn.Size = eui.Point{X: 100, Y: 24}
 	dlEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if startedDownload {
@@ -230,7 +254,9 @@ func openDownloadsWindow(status dataFilesStatus) {
 	}
 	btnFlow.AddItem(dlBtn)
 
-	closeBtn, closeEvents := eui.NewButton(&eui.ItemData{Text: "Close", Size: eui.Point{X: 100, Y: 24}})
+	closeBtn, closeEvents := eui.NewButton()
+	closeBtn.Text = "Close"
+	closeBtn.Size = eui.Point{X: 100, Y: 24}
 	closeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			os.Exit(0)
@@ -270,19 +296,20 @@ func updateCharacterButtons() {
 	}
 	charactersList.Contents = charactersList.Contents[:0]
 	if len(characters) == 0 {
-		empty, _ := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 64}})
+		empty, _ := eui.NewText()
+		empty.Text = "empty"
+		empty.Size = eui.Point{X: 160, Y: 64}
 		charactersList.AddItem(empty)
 		name = ""
 		passHash = ""
 	} else {
 		for _, c := range characters {
 			row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-			radio, radioEvents := eui.NewRadio(&eui.ItemData{
-				Text:       c.Name,
-				RadioGroup: "characters",
-				Size:       eui.Point{X: 160, Y: 24},
-				Checked:    name == c.Name,
-			})
+			radio, radioEvents := eui.NewRadio()
+			radio.Text = c.Name
+			radio.RadioGroup = "characters"
+			radio.Size = eui.Point{X: 160, Y: 24}
+			radio.Checked = name == c.Name
 			nameCopy := c.Name
 			hashCopy := c.PassHash
 			if name == c.Name {
@@ -298,7 +325,11 @@ func updateCharacterButtons() {
 			}
 			row.AddItem(radio)
 
-			trash, trashEvents := eui.NewButton(&eui.ItemData{Text: "X", Size: eui.Point{X: 24, Y: 24}, Color: eui.ColorDarkRed, HoverColor: eui.ColorRed})
+			trash, trashEvents := eui.NewButton()
+			trash.Text = "X"
+			trash.Size = eui.Point{X: 24, Y: 24}
+			trash.Color = eui.ColorDarkRed
+			trash.HoverColor = eui.ColorRed
 			delName := c.Name
 			trashEvents.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventClick {
@@ -326,7 +357,7 @@ func openAddCharacterWindow() {
 		addCharWin.AddWindow(false)
 		return
 	}
-	addCharWin = eui.NewWindow(&eui.WindowData{})
+	addCharWin = eui.NewWindow()
 	addCharWin.Title = "Add Character"
 	addCharWin.Closable = false
 	addCharWin.Resizable = false
@@ -337,18 +368,29 @@ func openAddCharacterWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	nameInput, _ := eui.NewInput(&eui.ItemData{Label: "Character", TextPtr: &addCharName, Size: eui.Point{X: 200, Y: 24}})
+	nameInput, _ := eui.NewInput()
+	nameInput.Label = "Character"
+	nameInput.TextPtr = &addCharName
+	nameInput.Size = eui.Point{X: 200, Y: 24}
 	flow.AddItem(nameInput)
-	passInput, _ := eui.NewInput(&eui.ItemData{Label: "Password", TextPtr: &addCharPass, Size: eui.Point{X: 200, Y: 24}})
+	passInput, _ := eui.NewInput()
+	passInput.Label = "Password"
+	passInput.TextPtr = &addCharPass
+	passInput.Size = eui.Point{X: 200, Y: 24}
 	flow.AddItem(passInput)
-	rememberCB, rememberEvents := eui.NewCheckbox(&eui.ItemData{Text: "Remember", Size: eui.Point{X: 200, Y: 24}, Checked: addCharRemember})
+	rememberCB, rememberEvents := eui.NewCheckbox()
+	rememberCB.Text = "Remember"
+	rememberCB.Size = eui.Point{X: 200, Y: 24}
+	rememberCB.Checked = addCharRemember
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			addCharRemember = ev.Checked
 		}
 	}
 	flow.AddItem(rememberCB)
-	addBtn, addEvents := eui.NewButton(&eui.ItemData{Text: "Add", Size: eui.Point{X: 200, Y: 24}})
+	addBtn, addEvents := eui.NewButton()
+	addBtn.Text = "Add"
+	addBtn.Size = eui.Point{X: 200, Y: 24}
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			h := md5.Sum([]byte(addCharPass))
@@ -381,7 +423,9 @@ func openAddCharacterWindow() {
 	}
 	flow.AddItem(addBtn)
 
-	cancelBtn, cancelEvents := eui.NewButton(&eui.ItemData{Text: "Cancel", Size: eui.Point{X: 200, Y: 24}})
+	cancelBtn, cancelEvents := eui.NewButton()
+	cancelBtn.Text = "Cancel"
+	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharWin.RemoveWindow()
@@ -403,7 +447,7 @@ func openLoginWindow() {
 		return
 	}
 
-	loginWin = eui.NewWindow(&eui.WindowData{})
+	loginWin = eui.NewWindow()
 	loginWin.Title = "Login"
 	loginWin.Closable = false
 	loginWin.Resizable = false
@@ -425,7 +469,10 @@ func openLoginWindow() {
 		loginFlow.AddItem(manBtn)
 	*/
 
-	addBtn, addEvents := eui.NewButton(&eui.ItemData{Text: "Add Character", RadioGroup: "Characters", Size: eui.Point{X: 200, Y: 24}})
+	addBtn, addEvents := eui.NewButton()
+	addBtn.Text = "Add Character"
+	addBtn.RadioGroup = "Characters"
+	addBtn.Size = eui.Point{X: 200, Y: 24}
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharName = ""
@@ -436,7 +483,9 @@ func openLoginWindow() {
 	}
 	loginFlow.AddItem(addBtn)
 
-	openBtn, openEvents := eui.NewButton(&eui.ItemData{Text: "Open clMov", Size: eui.Point{X: 200, Y: 24}})
+	openBtn, openEvents := eui.NewButton()
+	openBtn.Text = "Open clMov"
+	openBtn.Size = eui.Point{X: 200, Y: 24}
 	openEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			filename, err := dialog.File().Filter("clMov files", "clMov", "clmov").Load()
@@ -481,10 +530,16 @@ func openLoginWindow() {
 	loginFlow.AddItem(charactersList)
 	updateCharacterButtons()
 
-	label, _ := eui.NewText(&eui.ItemData{Text: "", FontSize: 15, Size: eui.Point{X: 1, Y: 25}})
+	label, _ := eui.NewText()
+	label.Text = ""
+	label.FontSize = 15
+	label.Size = eui.Point{X: 1, Y: 25}
 	loginFlow.AddItem(label)
 
-	connBtn, connEvents := eui.NewButton(&eui.ItemData{Text: "Connect", Size: eui.Point{X: 200, Y: 48}, Padding: 10})
+	connBtn, connEvents := eui.NewButton()
+	connBtn.Text = "Connect"
+	connBtn.Size = eui.Point{X: 200, Y: 48}
+	connBtn.Padding = 10
 	connEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if name == "" {
@@ -514,7 +569,7 @@ func openLoginWindow() {
 }
 
 func openErrorWindow(msg string) {
-	win := eui.NewWindow(&eui.WindowData{})
+	win := eui.NewWindow()
 	win.Title = "Error"
 	win.Closable = false
 	win.Resizable = false
@@ -524,9 +579,14 @@ func openErrorWindow(msg string) {
 	win.Open = true
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	text, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 8, Size: eui.Point{X: 500, Y: 25}})
+	text, _ := eui.NewText()
+	text.Text = msg
+	text.FontSize = 8
+	text.Size = eui.Point{X: 500, Y: 25}
 	flow.AddItem(text)
-	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}})
+	okBtn, okEvents := eui.NewButton()
+	okBtn.Text = "OK"
+	okBtn.Size = eui.Point{X: 200, Y: 24}
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			win.RemoveWindow()
@@ -541,7 +601,7 @@ func openSettingsWindow() {
 	if settingsWin != nil {
 		return
 	}
-	settingsWin = eui.NewWindow(&eui.WindowData{})
+	settingsWin = eui.NewWindow()
 	settingsWin.Title = "Settings"
 	settingsWin.Closable = true
 	settingsWin.Resizable = false
@@ -553,10 +613,16 @@ func openSettingsWindow() {
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
 
-	label, _ := eui.NewText(&eui.ItemData{Text: "\nControls:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
+	label, _ := eui.NewText()
+	label.Text = "\nControls:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 100, Y: 50}
 	mainFlow.AddItem(label)
 
-	toggle, toggleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Click-to-toggle movement", Size: eui.Point{X: width, Y: 24}, Checked: gs.ClickToToggle})
+	toggle, toggleEvents := eui.NewCheckbox()
+	toggle.Text = "Click-to-toggle movement"
+	toggle.Size = eui.Point{X: width, Y: 24}
+	toggle.Checked = gs.ClickToToggle
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ClickToToggle = ev.Checked
@@ -568,7 +634,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(toggle)
 
-	keySpeedSlider, keySpeedEvents := eui.NewSlider(&eui.ItemData{Label: "Keyboard Walk Speed", MinValue: 0.1, MaxValue: 1.0, Value: float32(gs.KBWalkSpeed), Size: eui.Point{X: width - 10, Y: 24}})
+	keySpeedSlider, keySpeedEvents := eui.NewSlider()
+	keySpeedSlider.Label = "Keyboard Walk Speed"
+	keySpeedSlider.MinValue = 0.1
+	keySpeedSlider.MaxValue = 1.0
+	keySpeedSlider.Value = float32(gs.KBWalkSpeed)
+	keySpeedSlider.Size = eui.Point{X: width - 10, Y: 24}
 	keySpeedEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.KBWalkSpeed = float64(ev.Value)
@@ -577,10 +648,18 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(keySpeedSlider)
 
-	label, _ = eui.NewText(&eui.ItemData{Text: "\nText Sizes:", FontSize: 15, Size: eui.Point{X: 100, Y: 50}})
+	label, _ = eui.NewText()
+	label.Text = "\nText Sizes:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 100, Y: 50}
 	mainFlow.AddItem(label)
 
-	chatFontSlider, chatFontEvents := eui.NewSlider(&eui.ItemData{Label: "Chat", MinValue: 6, MaxValue: 24, Value: float32(gs.BubbleFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	chatFontSlider, chatFontEvents := eui.NewSlider()
+	chatFontSlider.Label = "Chat"
+	chatFontSlider.MinValue = 6
+	chatFontSlider.MaxValue = 24
+	chatFontSlider.Value = float32(gs.BubbleFontSize)
+	chatFontSlider.Size = eui.Point{X: width - 10, Y: 24}
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleFontSize = float64(ev.Value)
@@ -590,7 +669,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(chatFontSlider)
 
-	labelFontSlider, labelFontEvents := eui.NewSlider(&eui.ItemData{Label: "Labels", MinValue: 6, MaxValue: 24, Value: float32(gs.MainFontSize), Size: eui.Point{X: width - 10, Y: 24}})
+	labelFontSlider, labelFontEvents := eui.NewSlider()
+	labelFontSlider.Label = "Labels"
+	labelFontSlider.MinValue = 6
+	labelFontSlider.MaxValue = 24
+	labelFontSlider.Value = float32(gs.MainFontSize)
+	labelFontSlider.Size = eui.Point{X: width - 10, Y: 24}
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MainFontSize = float64(ev.Value)
@@ -600,10 +684,18 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(labelFontSlider)
 
-	label, _ = eui.NewText(&eui.ItemData{Text: "\nOpacity Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	label, _ = eui.NewText()
+	label.Text = "\nOpacity Settings:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 150, Y: 50}
 	mainFlow.AddItem(label)
 
-	bubbleOpSlider, bubbleOpEvents := eui.NewSlider(&eui.ItemData{Label: "Message Bubble", MinValue: 0, MaxValue: 1, Value: float32(gs.BubbleOpacity), Size: eui.Point{X: width - 10, Y: 24}})
+	bubbleOpSlider, bubbleOpEvents := eui.NewSlider()
+	bubbleOpSlider.Label = "Message Bubble"
+	bubbleOpSlider.MinValue = 0
+	bubbleOpSlider.MaxValue = 1
+	bubbleOpSlider.Value = float32(gs.BubbleOpacity)
+	bubbleOpSlider.Size = eui.Point{X: width - 10, Y: 24}
 	bubbleOpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleOpacity = float64(ev.Value)
@@ -612,7 +704,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(bubbleOpSlider)
 
-	nameBgSlider, nameBgEvents := eui.NewSlider(&eui.ItemData{Label: "Name Background", MinValue: 0, MaxValue: 1, Value: float32(gs.NameBgOpacity), Size: eui.Point{X: width - 10, Y: 24}})
+	nameBgSlider, nameBgEvents := eui.NewSlider()
+	nameBgSlider.Label = "Name Background"
+	nameBgSlider.MinValue = 0
+	nameBgSlider.MaxValue = 1
+	nameBgSlider.Value = float32(gs.NameBgOpacity)
+	nameBgSlider.Size = eui.Point{X: width - 10, Y: 24}
 	nameBgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.NameBgOpacity = float64(ev.Value)
@@ -621,10 +718,18 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(nameBgSlider)
 
-	label, _ = eui.NewText(&eui.ItemData{Text: "\nGraphics Settings:", FontSize: 15, Size: eui.Point{X: 150, Y: 50}})
+	label, _ = eui.NewText()
+	label.Text = "\nGraphics Settings:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 150, Y: 50}
 	mainFlow.AddItem(label)
 
-	uiScaleSlider, uiScaleEvents := eui.NewSlider(&eui.ItemData{Label: "UI Scaling", MinValue: 0.5, MaxValue: 2.5, Value: float32(gs.UIScale), Size: eui.Point{X: width - 10, Y: 24}})
+	uiScaleSlider, uiScaleEvents := eui.NewSlider()
+	uiScaleSlider.Label = "UI Scaling"
+	uiScaleSlider.MinValue = 0.5
+	uiScaleSlider.MaxValue = 2.5
+	uiScaleSlider.Value = float32(gs.UIScale)
+	uiScaleSlider.Size = eui.Point{X: width - 10, Y: 24}
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.UIScale = float64(ev.Value)
@@ -634,7 +739,10 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(uiScaleSlider)
 
-	denoiseCB, denoiseEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Denoise", Size: eui.Point{X: width, Y: 24}, Checked: gs.DenoiseImages})
+	denoiseCB, denoiseEvents := eui.NewCheckbox()
+	denoiseCB.Text = "Image Denoise"
+	denoiseCB.Size = eui.Point{X: width, Y: 24}
+	denoiseCB.Checked = gs.DenoiseImages
 	denoiseEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.DenoiseImages = ev.Checked
@@ -647,7 +755,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(denoiseCB)
 
-	denoiseSharpSlider, denoiseSharpEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Sharpness", MinValue: 0.1, MaxValue: 8, Value: float32(gs.DenoiseSharpness), Size: eui.Point{X: width - 10, Y: 24}})
+	denoiseSharpSlider, denoiseSharpEvents := eui.NewSlider()
+	denoiseSharpSlider.Label = "Denoise Sharpness"
+	denoiseSharpSlider.MinValue = 0.1
+	denoiseSharpSlider.MaxValue = 8
+	denoiseSharpSlider.Value = float32(gs.DenoiseSharpness)
+	denoiseSharpSlider.Size = eui.Point{X: width - 10, Y: 24}
 	denoiseSharpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoiseSharpness = float64(ev.Value)
@@ -660,7 +773,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(denoiseSharpSlider)
 
-	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider(&eui.ItemData{Label: "Denoise Amount", MinValue: 0.1, MaxValue: 0.5, Value: float32(gs.DenoisePercent), Size: eui.Point{X: width - 10, Y: 24}})
+	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider()
+	denoiseAmtSlider.Label = "Denoise Amount"
+	denoiseAmtSlider.MinValue = 0.1
+	denoiseAmtSlider.MaxValue = 0.5
+	denoiseAmtSlider.Value = float32(gs.DenoisePercent)
+	denoiseAmtSlider.Size = eui.Point{X: width - 10, Y: 24}
 	denoiseAmtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoisePercent = float64(ev.Value)
@@ -673,7 +791,10 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(denoiseAmtSlider)
 
-	motion, motionEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Motion", Size: eui.Point{X: width, Y: 24}, Checked: gs.MotionSmoothing})
+	motion, motionEvents := eui.NewCheckbox()
+	motion.Text = "Smooth Motion"
+	motion.Size = eui.Point{X: width, Y: 24}
+	motion.Checked = gs.MotionSmoothing
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MotionSmoothing = ev.Checked
@@ -691,7 +812,10 @@ func openSettingsWindow() {
 	//}
 	//mainFlow.AddItem(moveSmoothCB)
 
-	anim, animEvents := eui.NewCheckbox(&eui.ItemData{Text: "Mobile Animation Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendMobiles})
+	anim, animEvents := eui.NewCheckbox()
+	anim.Text = "Mobile Animation Blending"
+	anim.Size = eui.Point{X: width, Y: 24}
+	anim.Checked = gs.BlendMobiles
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
@@ -700,7 +824,10 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(anim)
 
-	pictBlend, pictBlendEvents := eui.NewCheckbox(&eui.ItemData{Text: "World Animation Blending", Size: eui.Point{X: width, Y: 24}, Checked: gs.BlendPicts})
+	pictBlend, pictBlendEvents := eui.NewCheckbox()
+	pictBlend.Text = "World Animation Blending"
+	pictBlend.Size = eui.Point{X: width, Y: 24}
+	pictBlend.Checked = gs.BlendPicts
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
@@ -709,7 +836,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(pictBlend)
 
-	mobileBlendSlider, mobileBlendEvents := eui.NewSlider(&eui.ItemData{Label: "Mobile Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.MobileBlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
+	mobileBlendSlider, mobileBlendEvents := eui.NewSlider()
+	mobileBlendSlider.Label = "Mobile Blend Amount"
+	mobileBlendSlider.MinValue = 0.3
+	mobileBlendSlider.MaxValue = 1.0
+	mobileBlendSlider.Value = float32(gs.MobileBlendAmount)
+	mobileBlendSlider.Size = eui.Point{X: width - 10, Y: 24}
 	mobileBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MobileBlendAmount = float64(ev.Value)
@@ -718,7 +850,12 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(mobileBlendSlider)
 
-	blendSlider, blendEvents := eui.NewSlider(&eui.ItemData{Label: "Picture Blend Amount", MinValue: 0.3, MaxValue: 1.0, Value: float32(gs.BlendAmount), Size: eui.Point{X: width - 10, Y: 24}})
+	blendSlider, blendEvents := eui.NewSlider()
+	blendSlider.Label = "Picture Blend Amount"
+	blendSlider.MinValue = 0.3
+	blendSlider.MaxValue = 1.0
+	blendSlider.Value = float32(gs.BlendAmount)
+	blendSlider.Size = eui.Point{X: width - 10, Y: 24}
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BlendAmount = float64(ev.Value)
@@ -727,7 +864,9 @@ func openSettingsWindow() {
 	}
 	mainFlow.AddItem(blendSlider)
 
-	debugBtn, debugEvents := eui.NewButton(&eui.ItemData{Text: "Debug Settings", Size: eui.Point{X: width, Y: 24}})
+	debugBtn, debugEvents := eui.NewButton()
+	debugBtn.Text = "Debug Settings"
+	debugBtn.Size = eui.Point{X: width, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if debugWin != nil {
@@ -749,7 +888,7 @@ func openDebugWindow() {
 		return
 	}
 	var width float32 = 250
-	debugWin = eui.NewWindow(&eui.WindowData{})
+	debugWin = eui.NewWindow()
 	debugWin.Title = "Debug Settings"
 	debugWin.Closable = true
 	debugWin.Resizable = false
@@ -760,7 +899,10 @@ func openDebugWindow() {
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	nightCB, nightEvents := eui.NewCheckbox(&eui.ItemData{Text: "Night Effect", Size: eui.Point{X: width, Y: 24}, Checked: gs.nightEffect})
+	nightCB, nightEvents := eui.NewCheckbox()
+	nightCB.Text = "Night Effect"
+	nightCB.Size = eui.Point{X: width, Y: 24}
+	nightCB.Checked = gs.nightEffect
 	nightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.nightEffect = ev.Checked
@@ -769,7 +911,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(nightCB)
 
-	lateInputCB, lateInputEvents := eui.NewCheckbox(&eui.ItemData{Text: "Late Input Updates", Size: eui.Point{X: width, Y: 24}, Checked: gs.lateInputUpdates})
+	lateInputCB, lateInputEvents := eui.NewCheckbox()
+	lateInputCB.Text = "Late Input Updates"
+	lateInputCB.Size = eui.Point{X: width, Y: 24}
+	lateInputCB.Checked = gs.lateInputUpdates
 	lateInputEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.lateInputUpdates = ev.Checked
@@ -778,7 +923,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(lateInputCB)
 
-	showFPSCB, showFPSEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show FPS", Size: eui.Point{X: width, Y: 24}, Checked: gs.ShowFPS})
+	showFPSCB, showFPSEvents := eui.NewCheckbox()
+	showFPSCB.Text = "Show FPS"
+	showFPSCB.Size = eui.Point{X: width, Y: 24}
+	showFPSCB.Checked = gs.ShowFPS
 	showFPSEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ShowFPS = ev.Checked
@@ -787,7 +935,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(showFPSCB)
 
-	precacheSoundCB, precacheSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Sounds", Size: eui.Point{X: width, Y: 24}, Checked: gs.precacheSounds})
+	precacheSoundCB, precacheSoundEvents := eui.NewCheckbox()
+	precacheSoundCB.Text = "Precache Sounds"
+	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
+	precacheSoundCB.Checked = gs.precacheSounds
 	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheSounds = ev.Checked
@@ -796,7 +947,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(precacheSoundCB)
 
-	precacheImageCB, precacheImageEvents := eui.NewCheckbox(&eui.ItemData{Text: "Precache Images", Size: eui.Point{X: width, Y: 24}, Checked: gs.precacheImages})
+	precacheImageCB, precacheImageEvents := eui.NewCheckbox()
+	precacheImageCB.Text = "Precache Images"
+	precacheImageCB.Size = eui.Point{X: width, Y: 24}
+	precacheImageCB.Checked = gs.precacheImages
 	precacheImageEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheImages = ev.Checked
@@ -805,7 +959,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(precacheImageCB)
 
-	filt, filtEvents := eui.NewCheckbox(&eui.ItemData{Text: "Image Filtering", Size: eui.Point{X: width, Y: 24}, Checked: gs.textureFiltering})
+	filt, filtEvents := eui.NewCheckbox()
+	filt.Text = "Image Filtering"
+	filt.Size = eui.Point{X: width, Y: 24}
+	filt.Checked = gs.textureFiltering
 	filtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.textureFiltering = ev.Checked
@@ -819,7 +976,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(filt)
 
-	fastSound, fastSoundEvents := eui.NewCheckbox(&eui.ItemData{Text: "Low Quality Sound", Size: eui.Point{X: width, Y: 24}, Checked: gs.fastSound})
+	fastSound, fastSoundEvents := eui.NewCheckbox()
+	fastSound.Text = "Low Quality Sound"
+	fastSound.Size = eui.Point{X: width, Y: 24}
+	fastSound.Checked = gs.fastSound
 	fastSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.fastSound = ev.Checked
@@ -837,7 +997,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(fastSound)
 
-	recordStatsCB, recordStatsEvents := eui.NewCheckbox(&eui.ItemData{Text: "Record Asset Stats", Size: eui.Point{X: width, Y: 24}, Checked: gs.recordAssetStats})
+	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
+	recordStatsCB.Text = "Record Asset Stats"
+	recordStatsCB.Size = eui.Point{X: width, Y: 24}
+	recordStatsCB.Checked = gs.recordAssetStats
 	recordStatsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.recordAssetStats = ev.Checked
@@ -846,7 +1009,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(recordStatsCB)
 
-	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.SpeechBubbles})
+	bubbleCB, bubbleEvents := eui.NewCheckbox()
+	bubbleCB.Text = "Message Bubbles"
+	bubbleCB.Size = eui.Point{X: width, Y: 24}
+	bubbleCB.Checked = gs.SpeechBubbles
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.SpeechBubbles = ev.Checked
@@ -855,7 +1021,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(bubbleCB)
 
-	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox(&eui.ItemData{Text: "Bubble Text in Messages", Size: eui.Point{X: width, Y: 24}, Checked: gs.bubbleMessages})
+	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox()
+	bubbleMsgCB.Text = "Bubble Text in Messages"
+	bubbleMsgCB.Size = eui.Point{X: width, Y: 24}
+	bubbleMsgCB.Checked = gs.bubbleMessages
 	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.bubbleMessages = ev.Checked
@@ -864,7 +1033,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(bubbleMsgCB)
 
-	hideMoveCB, hideMoveEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Moving", Size: eui.Point{X: width, Y: 24}, Checked: gs.hideMoving})
+	hideMoveCB, hideMoveEvents := eui.NewCheckbox()
+	hideMoveCB.Text = "Hide Moving"
+	hideMoveCB.Size = eui.Point{X: width, Y: 24}
+	hideMoveCB.Checked = gs.hideMoving
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.hideMoving = ev.Checked
@@ -873,7 +1045,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(hideMoveCB)
 
-	hideMobCB, hideMobEvents := eui.NewCheckbox(&eui.ItemData{Text: "Hide Mobiles", Size: eui.Point{X: width, Y: 24}, Checked: gs.hideMobiles})
+	hideMobCB, hideMobEvents := eui.NewCheckbox()
+	hideMobCB.Text = "Hide Mobiles"
+	hideMobCB.Size = eui.Point{X: width, Y: 24}
+	hideMobCB.Checked = gs.hideMobiles
 	hideMobEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.hideMobiles = ev.Checked
@@ -882,7 +1057,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(hideMobCB)
 
-	planesCB, planesEvents := eui.NewCheckbox(&eui.ItemData{Text: "Show image planes", Size: eui.Point{X: width, Y: 24}, Checked: gs.imgPlanesDebug})
+	planesCB, planesEvents := eui.NewCheckbox()
+	planesCB.Text = "Show image planes"
+	planesCB.Size = eui.Point{X: width, Y: 24}
+	planesCB.Checked = gs.imgPlanesDebug
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.imgPlanesDebug = ev.Checked
@@ -891,7 +1069,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(planesCB)
 
-	vsyncCB, vsyncEvents := eui.NewCheckbox(&eui.ItemData{Text: "Vsync", Size: eui.Point{X: width, Y: 24}, Checked: gs.vsync})
+	vsyncCB, vsyncEvents := eui.NewCheckbox()
+	vsyncCB.Text = "Vsync"
+	vsyncCB.Size = eui.Point{X: width, Y: 24}
+	vsyncCB.Checked = gs.vsync
 	vsyncEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.vsync = ev.Checked
@@ -901,7 +1082,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(vsyncCB)
 
-	smoothinCB, smoothinEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smoothing Debug", Size: eui.Point{X: width, Y: 24}, Checked: gs.smoothingDebug})
+	smoothinCB, smoothinEvents := eui.NewCheckbox()
+	smoothinCB.Text = "Smoothing Debug"
+	smoothinCB.Size = eui.Point{X: width, Y: 24}
+	smoothinCB.Checked = gs.smoothingDebug
 	smoothinEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.smoothingDebug = ev.Checked
@@ -910,7 +1094,12 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(smoothinCB)
 
-	mobileFramesSlider, mobileFramesEvents := eui.NewSlider(&eui.ItemData{Label: "Mobile Blend Frames", MinValue: 3, MaxValue: 30, Value: float32(gs.MobileBlendFrames), Size: eui.Point{X: width - 10, Y: 24}})
+	mobileFramesSlider, mobileFramesEvents := eui.NewSlider()
+	mobileFramesSlider.Label = "Mobile Blend Frames"
+	mobileFramesSlider.MinValue = 3
+	mobileFramesSlider.MaxValue = 30
+	mobileFramesSlider.Value = float32(gs.MobileBlendFrames)
+	mobileFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
 	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MobileBlendFrames = int(ev.Value)
@@ -919,7 +1108,12 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(mobileFramesSlider)
 
-	pictFramesSlider, pictFramesEvents := eui.NewSlider(&eui.ItemData{Label: "Picture Blend Frames", MinValue: 3, MaxValue: 30, Value: float32(gs.PictBlendFrames), Size: eui.Point{X: width - 10, Y: 24}})
+	pictFramesSlider, pictFramesEvents := eui.NewSlider()
+	pictFramesSlider.Label = "Picture Blend Frames"
+	pictFramesSlider.MinValue = 3
+	pictFramesSlider.MaxValue = 30
+	pictFramesSlider.Value = float32(gs.PictBlendFrames)
+	pictFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
 	pictFramesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.PictBlendFrames = int(ev.Value)
@@ -928,22 +1122,39 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(pictFramesSlider)
 
-	cacheLabel, _ := eui.NewText(&eui.ItemData{Text: "Caches:", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	cacheLabel, _ := eui.NewText()
+	cacheLabel.Text = "Caches:"
+	cacheLabel.Size = eui.Point{X: width, Y: 24}
+	cacheLabel.FontSize = 10
 	debugFlow.AddItem(cacheLabel)
 
-	sheetCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	sheetCacheLabel, _ = eui.NewText()
+	sheetCacheLabel.Text = ""
+	sheetCacheLabel.Size = eui.Point{X: width, Y: 24}
+	sheetCacheLabel.FontSize = 10
 	debugFlow.AddItem(sheetCacheLabel)
 
-	frameCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	frameCacheLabel, _ = eui.NewText()
+	frameCacheLabel.Text = ""
+	frameCacheLabel.Size = eui.Point{X: width, Y: 24}
+	frameCacheLabel.FontSize = 10
 	debugFlow.AddItem(frameCacheLabel)
 
-	mobileCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	mobileCacheLabel, _ = eui.NewText()
+	mobileCacheLabel.Text = ""
+	mobileCacheLabel.Size = eui.Point{X: width, Y: 24}
+	mobileCacheLabel.FontSize = 10
 	debugFlow.AddItem(mobileCacheLabel)
 
-	soundCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	soundCacheLabel, _ = eui.NewText()
+	soundCacheLabel.Text = ""
+	soundCacheLabel.Size = eui.Point{X: width, Y: 24}
+	soundCacheLabel.FontSize = 10
 	debugFlow.AddItem(soundCacheLabel)
 
-	clearCacheBtn, clearCacheEvents := eui.NewButton(&eui.ItemData{Text: "Clear All Caches", Size: eui.Point{X: width, Y: 24}})
+	clearCacheBtn, clearCacheEvents := eui.NewButton()
+	clearCacheBtn.Text = "Clear All Caches"
+	clearCacheBtn.Size = eui.Point{X: width, Y: 24}
 	clearCacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			clearCaches()
@@ -951,14 +1162,19 @@ func openDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(clearCacheBtn)
-	totalCacheLabel, _ = eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
+	totalCacheLabel, _ = eui.NewText()
+	totalCacheLabel.Text = ""
+	totalCacheLabel.Size = eui.Point{X: width, Y: 24}
+	totalCacheLabel.FontSize = 10
 	debugFlow.AddItem(totalCacheLabel)
 
 	debugWin.AddItem(debugFlow)
 
 	soundTestFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-	minusTenBtn, minusTenEvents := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 24, Y: 24}})
+	minusTenBtn, minusTenEvents := eui.NewButton()
+	minusTenBtn.Text = "--"
+	minusTenBtn.Size = eui.Point{X: 24, Y: 24}
 	minusTenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID -= 10
@@ -971,7 +1187,9 @@ func openDebugWindow() {
 	}
 	soundTestFlow.AddItem(minusTenBtn)
 
-	minusBtn, minusEvents := eui.NewButton(&eui.ItemData{Text: "-", Size: eui.Point{X: 24, Y: 24}})
+	minusBtn, minusEvents := eui.NewButton()
+	minusBtn.Text = "-"
+	minusBtn.Size = eui.Point{X: 24, Y: 24}
 	minusEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID--
@@ -984,10 +1202,15 @@ func openDebugWindow() {
 	}
 	soundTestFlow.AddItem(minusBtn)
 
-	soundTestLabel, _ = eui.NewText(&eui.ItemData{Text: "0", Size: eui.Point{X: 40, Y: 24}, FontSize: 10})
+	soundTestLabel, _ = eui.NewText()
+	soundTestLabel.Text = "0"
+	soundTestLabel.Size = eui.Point{X: 40, Y: 24}
+	soundTestLabel.FontSize = 10
 	soundTestFlow.AddItem(soundTestLabel)
 
-	plusBtn, plusEvents := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 24, Y: 24}})
+	plusBtn, plusEvents := eui.NewButton()
+	plusBtn.Text = "+"
+	plusBtn.Size = eui.Point{X: 24, Y: 24}
 	plusEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID++
@@ -997,7 +1220,9 @@ func openDebugWindow() {
 	}
 	soundTestFlow.AddItem(plusBtn)
 
-	plusTenBtn, plusTenEvents := eui.NewButton(&eui.ItemData{Text: "++", Size: eui.Point{X: 24, Y: 24}})
+	plusTenBtn, plusTenEvents := eui.NewButton()
+	plusTenBtn.Text = "++"
+	plusTenBtn.Size = eui.Point{X: 24, Y: 24}
 	plusTenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID += 10
@@ -1007,7 +1232,9 @@ func openDebugWindow() {
 	}
 	soundTestFlow.AddItem(plusTenBtn)
 
-	playBtn, playEvents := eui.NewButton(&eui.ItemData{Text: "Play", Size: eui.Point{X: 40, Y: 24}})
+	playBtn, playEvents := eui.NewButton()
+	playBtn.Text = "Play"
+	playBtn.Size = eui.Point{X: 40, Y: 24}
 	playEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			playSound(uint16(soundTestID))
@@ -1067,7 +1294,7 @@ func openWindowsWindow() {
 		}
 		windowsWin = nil
 	}
-	windowsWin = eui.NewWindow(&eui.WindowData{})
+	windowsWin = eui.NewWindow()
 	windowsWin.Title = "Windows"
 	windowsWin.Closable = false
 	windowsWin.Resizable = false
@@ -1078,7 +1305,10 @@ func openWindowsWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	playersBox, playersBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Players", Size: eui.Point{X: 128, Y: 24}, Checked: playersWin != nil})
+	playersBox, playersBoxEvents := eui.NewCheckbox()
+	playersBox.Text = "Players"
+	playersBox.Size = eui.Point{X: 128, Y: 24}
+	playersBox.Checked = playersWin != nil
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -1094,7 +1324,10 @@ func openWindowsWindow() {
 	}
 	flow.AddItem(playersBox)
 
-	inventoryBox, inventoryBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 128, Y: 24}, Checked: inventoryWin != nil})
+	inventoryBox, inventoryBoxEvents := eui.NewCheckbox()
+	inventoryBox.Text = "Inventory"
+	inventoryBox.Size = eui.Point{X: 128, Y: 24}
+	inventoryBox.Checked = inventoryWin != nil
 	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -1110,7 +1343,10 @@ func openWindowsWindow() {
 	}
 	flow.AddItem(inventoryBox)
 
-	messagesBox, messagesBoxEvents := eui.NewCheckbox(&eui.ItemData{Text: "Messages", Size: eui.Point{X: 128, Y: 24}, Checked: messagesWin != nil})
+	messagesBox, messagesBoxEvents := eui.NewCheckbox()
+	messagesBox.Text = "Messages"
+	messagesBox.Size = eui.Point{X: 128, Y: 24}
+	messagesBox.Checked = messagesWin != nil
 	messagesBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -1138,7 +1374,7 @@ func openInventoryWindow() {
 			inventoryWin.Open = true
 		}
 	}
-	inventoryWin = eui.NewWindow(&eui.WindowData{})
+	inventoryWin = eui.NewWindow()
 	inventoryWin.Title = "Inventory"
 	inventoryWin.Closable = false
 	inventoryWin.Resizable = false
@@ -1157,7 +1393,9 @@ func openInventoryWindow() {
 	}
 
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	title, _ := eui.NewText(&eui.ItemData{Text: "Inventory", Size: eui.Point{X: 256, Y: 128}})
+	title, _ := eui.NewText()
+	title.Text = "Inventory"
+	title.Size = eui.Point{X: 256, Y: 128}
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
@@ -1175,7 +1413,7 @@ func openPlayersWindow() {
 			return
 		}
 	}
-	playersWin = eui.NewWindow(&eui.WindowData{})
+	playersWin = eui.NewWindow()
 	playersWin.Title = "Players"
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
 		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
@@ -1202,7 +1440,7 @@ func openHelpWindow() {
 	if helpWin != nil {
 		return
 	}
-	helpWin = eui.NewWindow(&eui.WindowData{})
+	helpWin = eui.NewWindow()
 	helpWin.Title = "Help"
 	helpWin.Closable = true
 	helpWin.Resizable = false
@@ -1221,7 +1459,10 @@ func openHelpWindow() {
 		"Escape - Cancel typing",
 	}
 	for _, line := range helpTexts {
-		t, _ := eui.NewText(&eui.ItemData{Text: line, Size: eui.Point{X: 300, Y: 24}, FontSize: 15})
+		t, _ := eui.NewText()
+		t.Text = line
+		t.Size = eui.Point{X: 300, Y: 24}
+		t.FontSize = 15
 		helpFlow.AddItem(t)
 	}
 	helpWin.AddItem(helpFlow)

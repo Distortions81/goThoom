@@ -41,7 +41,7 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 
 // initUI creates the playback control window.
 func (p *moviePlayer) initUI() {
-	win := eui.NewWindow(&eui.WindowData{})
+	win := eui.NewWindow()
 	win.Title = "Controls"
 	win.Open = true
 	win.Closable = false
@@ -55,12 +55,19 @@ func (p *moviePlayer) initUI() {
 	// Time slider flow
 	tFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-	p.curLabel, _ = eui.NewText(&eui.ItemData{Text: "0s", Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
+	p.curLabel, _ = eui.NewText()
+	p.curLabel.Text = "0s"
+	p.curLabel.Size = eui.Point{X: 60, Y: 24}
+	p.curLabel.FontSize = 10
 	tFlow.AddItem(p.curLabel)
 
 	max := float32(len(p.frames))
 	var events *eui.EventHandler
-	p.slider, events = eui.NewSlider(&eui.ItemData{MinValue: 0, MaxValue: max, Size: eui.Point{X: 500, Y: 24}, IntOnly: true})
+	p.slider, events = eui.NewSlider()
+	p.slider.MinValue = 0
+	p.slider.MaxValue = max
+	p.slider.Size = eui.Point{X: 500, Y: 24}
+	p.slider.IntOnly = true
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))
@@ -70,7 +77,10 @@ func (p *moviePlayer) initUI() {
 
 	totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
 	totalDur = totalDur.Round(time.Second)
-	p.totalLabel, _ = eui.NewText(&eui.ItemData{Text: durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits), Size: eui.Point{X: 60, Y: 24}, FontSize: 10})
+	p.totalLabel, _ = eui.NewText()
+	p.totalLabel.Text = durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits)
+	p.totalLabel.Size = eui.Point{X: 60, Y: 24}
+	p.totalLabel.FontSize = 10
 	tFlow.AddItem(p.totalLabel)
 
 	flow.AddItem(tFlow)
@@ -78,7 +88,9 @@ func (p *moviePlayer) initUI() {
 	// Button flow
 	bFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-	backb, backbEv := eui.NewButton(&eui.ItemData{Text: "<<<", Size: eui.Point{X: 40, Y: 24}})
+	backb, backbEv := eui.NewButton()
+	backb.Text = "<<<"
+	backb.Size = eui.Point{X: 40, Y: 24}
 	backbEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.skipBackMilli(30 * 1000)
@@ -86,7 +98,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(backb)
 
-	back, backEv := eui.NewButton(&eui.ItemData{Text: "<<", Size: eui.Point{X: 40, Y: 24}})
+	back, backEv := eui.NewButton()
+	back.Text = "<<"
+	back.Size = eui.Point{X: 40, Y: 24}
 	backEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.skipBackMilli(5 * 1000)
@@ -94,7 +108,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(back)
 
-	play, playEv := eui.NewButton(&eui.ItemData{Text: ">  ||", Size: eui.Point{X: 140, Y: 24}})
+	play, playEv := eui.NewButton()
+	play.Text = ">  ||"
+	play.Size = eui.Point{X: 140, Y: 24}
 	changePlayButton(p, play)
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -109,7 +125,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(play)
 
-	forwardb, fwdbEv := eui.NewButton(&eui.ItemData{Text: ">>", Size: eui.Point{X: 40, Y: 24}})
+	forwardb, fwdbEv := eui.NewButton()
+	forwardb.Text = ">>"
+	forwardb.Size = eui.Point{X: 40, Y: 24}
 	fwdbEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.skipForwardMilli(5 * 1000)
@@ -117,7 +135,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(forwardb)
 
-	forward, fwdEv := eui.NewButton(&eui.ItemData{Text: ">>>", Size: eui.Point{X: 40, Y: 24}})
+	forward, fwdEv := eui.NewButton()
+	forward.Text = ">>>"
+	forward.Size = eui.Point{X: 40, Y: 24}
 	fwdEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.skipForwardMilli(30 * 1000)
@@ -125,10 +145,14 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(forward)
 
-	spacer, _ := eui.NewText(&eui.ItemData{Text: "", Size: eui.Point{X: 40, Y: 24}})
+	spacer, _ := eui.NewText()
+	spacer.Text = ""
+	spacer.Size = eui.Point{X: 40, Y: 24}
 	bFlow.AddItem(spacer)
 
-	half, halfEv := eui.NewButton(&eui.ItemData{Text: "--", Size: eui.Point{X: 40, Y: 24}})
+	half, halfEv := eui.NewButton()
+	half.Text = "--"
+	half.Size = eui.Point{X: 40, Y: 24}
 	halfEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(p.fps / 2)
@@ -136,7 +160,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(half)
 
-	dec, decEv := eui.NewButton(&eui.ItemData{Text: "-", Size: eui.Point{X: 40, Y: 24}})
+	dec, decEv := eui.NewButton()
+	dec.Text = "-"
+	dec.Size = eui.Point{X: 40, Y: 24}
 	decEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(p.fps - 1)
@@ -144,7 +170,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(dec)
 
-	reset, resetEv := eui.NewButton(&eui.ItemData{Text: "RESET", Size: eui.Point{X: 140, Y: 24}})
+	reset, resetEv := eui.NewButton()
+	reset.Text = "RESET"
+	reset.Size = eui.Point{X: 140, Y: 24}
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(clMovFPS)
@@ -152,7 +180,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(reset)
 
-	inc, incEv := eui.NewButton(&eui.ItemData{Text: "+", Size: eui.Point{X: 40, Y: 24}})
+	inc, incEv := eui.NewButton()
+	inc.Text = "+"
+	inc.Size = eui.Point{X: 40, Y: 24}
 	incEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(p.fps + 1)
@@ -160,7 +190,9 @@ func (p *moviePlayer) initUI() {
 	}
 	bFlow.AddItem(inc)
 
-	dbl, dblEv := eui.NewButton(&eui.ItemData{Text: "++", Size: eui.Point{X: 40, Y: 24}})
+	dbl, dblEv := eui.NewButton()
+	dbl.Text = "++"
+	dbl.Size = eui.Point{X: 40, Y: 24}
 	dblEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(p.fps * 2)
@@ -169,7 +201,11 @@ func (p *moviePlayer) initUI() {
 	bFlow.AddItem(dbl)
 
 	buf := fmt.Sprintf("%v fps", p.fps)
-	fpsInfo, _ := eui.NewText(&eui.ItemData{Text: buf, Size: eui.Point{X: 100, Y: 24}, FontSize: 15, Alignment: eui.ALIGN_CENTER})
+	fpsInfo, _ := eui.NewText()
+	fpsInfo.Text = buf
+	fpsInfo.Size = eui.Point{X: 100, Y: 24}
+	fpsInfo.FontSize = 15
+	fpsInfo.Alignment = eui.ALIGN_CENTER
 	p.fpsLabel = fpsInfo
 	bFlow.AddItem(fpsInfo)
 
