@@ -52,11 +52,6 @@ func decodeIMA4(data []byte, chans int) ([]byte, error) {
 				} else {
 					pred += int16(diff)
 				}
-				if pred < -32768 {
-					pred = -32768
-				} else if pred > 32767 {
-					pred = 32767
-				}
 				index += imaIndexTable[nibble]
 				if index < 0 {
 					index = 0

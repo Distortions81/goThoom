@@ -13,11 +13,14 @@ import (
 var gs settings = settings{
 	Version: 2,
 
+	LastCharacter:  "",
+	ClickToToggle:  false,
 	KBWalkSpeed:    0.25,
 	MainFontSize:   8,
 	BubbleFontSize: 6,
 	BubbleOpacity:  0.7,
 	NameBgOpacity:  0.7,
+	SpeechBubbles:  true,
 
 	MotionSmoothing:   true,
 	BlendMobiles:      false,
@@ -30,18 +33,22 @@ var gs settings = settings{
 	ShowFPS:           true,
 	UIScale:           1.0,
 
+	imgPlanesDebug:   false,
+	smoothingDebug:   false,
+	hideMoving:       false,
+	hideMobiles:      false,
 	vsync:            false,
+	fastSound:        true,
 	nightEffect:      true,
+	precacheSounds:   false,
+	precacheImages:   false,
+	textureFiltering: false,
 	lateInputUpdates: true,
-
-	fastSound:       true,
-	precacheSounds:  false,
-	precacheImages:  false,
-	cacheWholeSheet: true,
-	smoothMoving:    true,
-	fastBars:        true,
-	SpeechBubbles:   true,
-	bubbleMessages:  false,
+	cacheWholeSheet:  true,
+	smoothMoving:     true,
+	fastBars:         true,
+	bubbleMessages:   false,
+	scale:            2,
 
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
@@ -71,8 +78,7 @@ type settings struct {
 	DenoiseSharpness  float64
 	DenoisePercent    float64
 	ShowFPS           bool
-
-	UIScale float64
+	UIScale           float64
 
 	imgPlanesDebug   bool
 	smoothingDebug   bool
