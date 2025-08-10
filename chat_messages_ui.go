@@ -12,12 +12,24 @@ func updateChatWindow() {
 		return
 	}
 	msgs := getChatMessages()
-	chatList.Contents = chatList.Contents[:0]
-	for _, msg := range msgs {
-		t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
-		chatList.AddItem(t)
+	changed := false
+	for i, msg := range msgs {
+		if i < len(chatList.Contents) {
+			if chatList.Contents[i].Text != msg {
+				chatList.Contents[i].Text = msg
+				changed = true
+			}
+		} else {
+			t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
+			chatList.AddItem(t)
+			changed = true
+		}
 	}
-	if chatWin != nil {
+	if len(chatList.Contents) > len(msgs) {
+		chatList.Contents = chatList.Contents[:len(msgs)]
+		changed = true
+	}
+	if changed && chatWin != nil {
 		chatWin.Refresh()
 	}
 }

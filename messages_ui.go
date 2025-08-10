@@ -12,18 +12,39 @@ func updateMessagesWindow() {
 		return
 	}
 	msgs := getMessages()
-	messagesList.Contents = messagesList.Contents[:0]
-	for _, msg := range msgs {
-		t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
-		messagesList.AddItem(t)
-	}
 	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
 	if inputActive {
 		inputMsg = string(inputText)
 	}
-	t, _ := eui.NewText(&eui.ItemData{Text: inputMsg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
-	messagesList.AddItem(t)
-	if messagesWin != nil {
+	changed := false
+	for i, msg := range msgs {
+		if i < len(messagesList.Contents) {
+			if messagesList.Contents[i].Text != msg {
+				messagesList.Contents[i].Text = msg
+				changed = true
+			}
+		} else {
+			t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+			messagesList.AddItem(t)
+			changed = true
+		}
+	}
+	inputIdx := len(msgs)
+	if inputIdx < len(messagesList.Contents) {
+		if messagesList.Contents[inputIdx].Text != inputMsg {
+			messagesList.Contents[inputIdx].Text = inputMsg
+			changed = true
+		}
+	} else {
+		t, _ := eui.NewText(&eui.ItemData{Text: inputMsg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+		messagesList.AddItem(t)
+		changed = true
+	}
+	if len(messagesList.Contents) > inputIdx+1 {
+		messagesList.Contents = messagesList.Contents[:inputIdx+1]
+		changed = true
+	}
+	if changed && messagesWin != nil {
 		messagesWin.Refresh()
 	}
 }
