@@ -42,7 +42,9 @@ func downloadGZ(url, dest string) error {
 	removeTmp := true
 	defer func() {
 		if removeTmp {
-			os.Remove(tmp)
+			if err := os.Remove(tmp); err != nil {
+				logError("remove %v: %v", tmp, err)
+			}
 		}
 	}()
 	if _, err := io.Copy(f, gz); err != nil {
