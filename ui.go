@@ -50,6 +50,12 @@ func initUI() {
 		logError("check data files: %v", err)
 	}
 
+	overlayFlow := &eui.ItemData{
+		ItemType: eui.ITEM_FLOW,
+		FlowType: eui.FLOW_HORIZONTAL,
+		PinTo:    eui.PIN_TOP_CENTER,
+	}
+
 	makeDownloadsWindow()
 	makeLoginWindow()
 	makeChatWindow()
@@ -60,6 +66,12 @@ func initUI() {
 	makeInventoryWindow()
 	makePlayersWindow()
 	makeHelpWindow()
+
+	loginWin.Open()
+	chatWin.Open()
+	messagesWin.Open()
+	inventoryWin.Open()
+	playersWin.Open()
 
 	if status.NeedImages || status.NeedSounds {
 		downloadWin.Open()
@@ -76,7 +88,7 @@ func initUI() {
 	toolbarWin.Title = ""
 	toolbarWin.TitleHeight = 0
 
-	overlay := &eui.ItemData{
+	gameMenu := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
 	}
@@ -93,7 +105,7 @@ func initUI() {
 			}
 		}
 	}
-	overlay.AddItem(winBtn)
+	gameMenu.AddItem(winBtn)
 
 	btn, btnEvents := eui.NewButton()
 	btn.Text = "Settings"
@@ -108,7 +120,7 @@ func initUI() {
 			}
 		}
 	}
-	overlay.AddItem(btn)
+	gameMenu.AddItem(btn)
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
@@ -123,7 +135,7 @@ func initUI() {
 			}
 		}
 	}
-	overlay.AddItem(helpBtn)
+	gameMenu.AddItem(helpBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
 	volumeSlider.Label = "Volume"
@@ -139,7 +151,7 @@ func initUI() {
 			updateSoundVolume()
 		}
 	}
-	overlay.AddItem(volumeSlider)
+	gameMenu.AddItem(volumeSlider)
 
 	muteBtn, muteEvents := eui.NewButton()
 	muteBtn.Text = "Mute"
@@ -161,7 +173,7 @@ func initUI() {
 			updateSoundVolume()
 		}
 	}
-	overlay.AddItem(muteBtn)
+	gameMenu.AddItem(muteBtn)
 
 	recordBtn, recordEvents := eui.NewButton()
 	recordBtn.Text = "Record Movie"
@@ -223,16 +235,17 @@ func initUI() {
 			recordStatus.Dirty = true
 		}
 	}
-	overlay.AddItem(recordBtn)
+	gameMenu.AddItem(recordBtn)
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
 	recordStatus.Size = eui.Point{X: 80, Y: 24}
 	recordStatus.FontSize = 18
 	recordStatus.Color = eui.ColorRed
-	overlay.AddItem(recordStatus)
+	gameMenu.AddItem(recordStatus)
 
-	toolbarWin.AddItem(overlay)
+	toolbarWin.AddItem(gameMenu)
 	toolbarWin.Open()
+	eui.AddOverlayFlow(overlayFlow)
 }
 
 var dlMutex sync.Mutex
@@ -1385,6 +1398,7 @@ func makeInventoryWindow() {
 	inventoryWin.Closable = true
 	inventoryWin.Resizable = true
 	inventoryWin.Movable = true
+	inventoryWin.Size = eui.Point{X: 300, Y: 300}
 
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
 		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
