@@ -30,7 +30,7 @@ var gs settings = settings{
 	ShowFPS:           true,
 	UIScale:           1.0,
 
-	vsync:            true,
+	vsync:            false,
 	nightEffect:      true,
 	lateInputUpdates: true,
 
