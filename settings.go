@@ -34,6 +34,7 @@ var gs settings = settings{
 	DenoisePercent:    0.2,
 	ShowFPS:           true,
 	UIScale:           1.0,
+	Fullscreen:        false,
 
 	imgPlanesDebug:   false,
 	smoothingDebug:   false,
@@ -85,6 +86,7 @@ type settings struct {
 	DenoisePercent    float64
 	ShowFPS           bool
 	UIScale           float64
+	Fullscreen        bool
 
 	imgPlanesDebug   bool
 	smoothingDebug   bool
@@ -158,6 +160,7 @@ func applySettings() {
 		initSinc()
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
+	ebiten.SetFullscreen(gs.Fullscreen)
 	initFont()
 	updateSoundVolume()
 }
