@@ -658,9 +658,10 @@ func parseDrawState(data []byte) error {
 	if len(data) < p+stateLen {
 		return errors.New(stage)
 	}
-	stateData := data[p : p+stateLen]
+	rawStateData := data[p : p+stateLen]
 
 	stateMu.Lock()
+	state.stateData = append(state.stateData[:0], rawStateData...)
 	state.prevHP = state.hp
 	state.prevHPMax = state.hpMax
 	state.prevSP = state.sp
@@ -839,10 +840,12 @@ func parseDrawState(data []byte) error {
 	}
 	stateMu.Unlock()
 
+	logDebug("state data stored (%d bytes)", len(rawStateData))
 	logDebug("draw state cmd=%d ack=%d resend=%d desc=%d pict=%d again=%d mobile=%d state=%d",
-		ackCmd, ackFrame, resendFrame, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
+		ackCmd, ackFrame, resendFrame, len(descs), len(pics), pictAgain, len(mobiles), len(rawStateData))
 
 	stage = "info strings"
+	stateData := rawStateData
 	for {
 		if len(stateData) == 0 {
 			return errors.New(stage)

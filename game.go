@@ -132,6 +132,7 @@ type drawState struct {
 	prevDescs   map[uint8]frameDescriptor
 	prevTime    time.Time
 	curTime     time.Time
+	stateData   []byte
 
 	bubbles []bubble
 
@@ -175,6 +176,7 @@ type drawSnapshot struct {
 	prevDescs                   map[uint8]frameDescriptor
 	prevTime                    time.Time
 	curTime                     time.Time
+	stateData                   []byte
 	bubbles                     []bubble
 	hp, hpMax                   int
 	sp, spMax                   int
@@ -197,6 +199,7 @@ func captureDrawSnapshot() drawSnapshot {
 		mobiles:        make([]frameMobile, 0, len(state.mobiles)),
 		prevTime:       state.prevTime,
 		curTime:        state.curTime,
+		stateData:      append([]byte(nil), state.stateData...),
 		hp:             state.hp,
 		hpMax:          state.hpMax,
 		sp:             state.sp,
