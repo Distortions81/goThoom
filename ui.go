@@ -1209,7 +1209,7 @@ func openInventoryWindow() {
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
 	//inventoryWin.Refresh()
-	inventoryDirty = (true)
+	inventoryDirty = true
 	if inventoryBox != nil {
 		inventoryBox.Checked = true
 		inventoryBox.Dirty = true
@@ -1235,7 +1235,7 @@ func openPlayersWindow() {
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
 	//playersWin.Refresh()
-	playersDirty = (true)
+	playersDirty = true
 }
 
 func openHelpWindow() {
