@@ -2,11 +2,11 @@ package main
 
 import (
 	"image/color"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	math32 "maze.io/x/math32"
 )
 
 // whiteImage is a reusable 1x1 white pixel used across the UI for drawing
@@ -119,7 +119,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	maxLineWidth := sw/4 - 2*pad
 	width, lines := wrapText(txt, bubbleFont, float64(maxLineWidth))
 	metrics := bubbleFont.Metrics()
-	lineHeight := int(math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap))
+	lineHeight := int(math32.Ceil(float32(metrics.HAscent)) + math32.Ceil(float32(metrics.HDescent)) + math32.Ceil(float32(metrics.HLineGap)))
 	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
 
@@ -132,13 +132,13 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	var body vector.Path
 	body.MoveTo(float32(left)+radius, float32(top))
 	body.LineTo(float32(right)-radius, float32(top))
-	body.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
+	body.Arc(float32(right)-radius, float32(top)+radius, radius, -math32.Pi/2, 0, vector.Clockwise)
 	body.LineTo(float32(right), float32(bottom)-radius)
-	body.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
+	body.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math32.Pi/2, vector.Clockwise)
 	body.LineTo(float32(left)+radius, float32(bottom))
-	body.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
+	body.Arc(float32(left)+radius, float32(bottom)-radius, radius, math32.Pi/2, math32.Pi, vector.Clockwise)
 	body.LineTo(float32(left), float32(top)+radius)
-	body.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
+	body.Arc(float32(left)+radius, float32(top)+radius, radius, math32.Pi, 3*math32.Pi/2, vector.Clockwise)
 	body.Close()
 
 	var tail vector.Path
@@ -178,18 +178,18 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	var outline vector.Path
 	outline.MoveTo(float32(left)+radius, float32(top))
 	outline.LineTo(float32(right)-radius, float32(top))
-	outline.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
+	outline.Arc(float32(right)-radius, float32(top)+radius, radius, -math32.Pi/2, 0, vector.Clockwise)
 	outline.LineTo(float32(right), float32(bottom)-radius)
-	outline.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
+	outline.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math32.Pi/2, vector.Clockwise)
 	if !far && !noArrow {
 		outline.LineTo(float32(x+tailHalf), float32(bottom))
 		outline.LineTo(float32(x), float32(y))
 		outline.LineTo(float32(x-tailHalf), float32(bottom))
 	}
 	outline.LineTo(float32(left)+radius, float32(bottom))
-	outline.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
+	outline.Arc(float32(left)+radius, float32(bottom)-radius, radius, math32.Pi/2, math32.Pi, vector.Clockwise)
 	outline.LineTo(float32(left), float32(top)+radius)
-	outline.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
+	outline.Arc(float32(left)+radius, float32(top)+radius, radius, math32.Pi, 3*math32.Pi/2, vector.Clockwise)
 	outline.Close()
 
 	vs, is = outline.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(gs.scale)})
