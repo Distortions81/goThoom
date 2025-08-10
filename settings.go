@@ -50,6 +50,8 @@ var gs settings = settings{
 	smoothMoving:     true,
 	fastBars:         true,
 	bubbleMessages:   false,
+	Volume:           0.5,
+	Mute:             false,
 	scale:            2,
 
 	GameWindow:      WindowState{Open: true},
@@ -99,6 +101,8 @@ type settings struct {
 	smoothMoving     bool
 	fastBars         bool
 	bubbleMessages   bool
+	Volume           float64
+	Mute             bool
 	recordAssetStats bool
 	scale            float64
 
@@ -155,6 +159,7 @@ func applySettings() {
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	initFont()
+	updateSoundVolume()
 }
 
 func saveSettings() {
