@@ -13,7 +13,6 @@ import (
 
 const (
 	maxSounds  = 64
-	mainVolume = 0.5
 	sincTaps   = 16   // filter half-width for high quality sinc resampling
 	sincPhases = 1024 // number of fractional phases for precomputed table
 )
@@ -52,7 +51,11 @@ var (
 		}
 
 		p := audioContext.NewPlayerFromBytes(pcm)
-		p.SetVolume(mainVolume)
+		vol := gs.Volume
+		if gs.Mute {
+			vol = 0
+		}
+		p.SetVolume(vol)
 
 		soundMu.Lock()
 		for sp := range soundPlayers {
@@ -90,6 +93,18 @@ func initSoundContext() {
 	}
 
 	audioContext = audio.NewContext(rate)
+}
+
+func updateSoundVolume() {
+	soundMu.Lock()
+	vol := gs.Volume
+	if gs.Mute {
+		vol = 0
+	}
+	for sp := range soundPlayers {
+		sp.SetVolume(vol)
+	}
+	soundMu.Unlock()
 }
 
 func initSinc() {

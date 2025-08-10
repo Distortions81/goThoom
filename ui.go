@@ -125,6 +125,44 @@ func initUI() {
 	}
 	overlay.AddItem(helpBtn)
 
+	volumeSlider, volumeEvents := eui.NewSlider()
+	volumeSlider.Label = "Volume"
+	volumeSlider.MinValue = 0
+	volumeSlider.MaxValue = 1
+	volumeSlider.Value = float32(gs.Volume)
+	volumeSlider.Size = eui.Point{X: 100, Y: 24}
+	volumeSlider.FontSize = 18
+	volumeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.Volume = float64(ev.Value)
+			settingsDirty = true
+			updateSoundVolume()
+		}
+	}
+	overlay.AddItem(volumeSlider)
+
+	muteBtn, muteEvents := eui.NewButton()
+	muteBtn.Text = "Mute"
+	if gs.Mute {
+		muteBtn.Text = "Unmute"
+	}
+	muteBtn.Size = eui.Point{X: 64, Y: 24}
+	muteBtn.FontSize = 18
+	muteEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			gs.Mute = !gs.Mute
+			if gs.Mute {
+				muteBtn.Text = "Unmute"
+			} else {
+				muteBtn.Text = "Mute"
+			}
+			muteBtn.Dirty = true
+			settingsDirty = true
+			updateSoundVolume()
+		}
+	}
+	overlay.AddItem(muteBtn)
+
 	recordBtn, recordEvents := eui.NewButton()
 	recordBtn.Text = "Record Movie"
 	recordBtn.Size = eui.Point{X: 128, Y: 24}
