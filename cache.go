@@ -13,6 +13,8 @@ func clearCaches() {
 	imageCache = make(map[imageKey]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
 	mobileCache = make(map[mobileKey]*ebiten.Image)
+	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
+	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
 	imageMu.Unlock()
 
 	pixelCountMu.Lock()

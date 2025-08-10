@@ -910,6 +910,24 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(smoothinCB)
 
+	mobileFramesSlider, mobileFramesEvents := eui.NewSlider(&eui.ItemData{Label: "Mobile Blend Frames", MinValue: 3, MaxValue: 30, Value: float32(gs.MobileBlendFrames), Size: eui.Point{X: width - 10, Y: 24}})
+	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.MobileBlendFrames = int(ev.Value)
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(mobileFramesSlider)
+
+	pictFramesSlider, pictFramesEvents := eui.NewSlider(&eui.ItemData{Label: "Picture Blend Frames", MinValue: 3, MaxValue: 30, Value: float32(gs.PictBlendFrames), Size: eui.Point{X: width - 10, Y: 24}})
+	pictFramesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.PictBlendFrames = int(ev.Value)
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(pictFramesSlider)
+
 	cacheLabel, _ := eui.NewText(&eui.ItemData{Text: "Caches:", Size: eui.Point{X: width, Y: 24}, FontSize: 10})
 	debugFlow.AddItem(cacheLabel)
 

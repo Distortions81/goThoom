@@ -728,27 +728,57 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		}
 	}
 	var prevImg *ebiten.Image
+	var prevColors []byte
+	var prevPict uint16
+	var prevState uint8
 	if gs.BlendMobiles {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			pd := descMap[m.Index]
 			if d, ok := prevDescs[m.Index]; ok {
 				pd = d
 			}
-			prevColors := pd.Colors
+			prevColors = pd.Colors
 			playersMu.RLock()
 			if p, ok := players[pd.Name]; ok && len(p.Colors) > 0 {
 				prevColors = append([]byte(nil), p.Colors...)
 			}
 			playersMu.RUnlock()
 			prevImg = loadMobileFrame(pd.PictID, pm.State, prevColors)
+			prevPict = pd.PictID
+			prevState = pm.State
 		}
 	}
 	if img != nil {
 		size := img.Bounds().Dx()
 		blend := gs.BlendMobiles && prevImg != nil && fade > 0 && fade < 1
+		var src *ebiten.Image
 		drawSize := size
 		if blend {
-			drawSize = nextPow2(size)
+			steps := gs.MobileBlendFrames
+			idx := int(fade * float32(steps))
+			if idx <= 0 {
+				idx = 1
+			}
+			if idx >= steps {
+				idx = steps - 1
+			}
+			prevKey := makeMobileKey(prevPict, prevState, prevColors)
+			curKey := makeMobileKey(d.PictID, state, colors)
+			if b := mobileBlendFrame(prevKey, curKey, prevImg, img, idx, steps); b != nil {
+				src = b
+				drawSize = b.Bounds().Dx()
+			} else {
+				src = img
+			}
+		} else if gs.BlendMobiles && prevImg != nil {
+			if fade <= 0 {
+				src = prevImg
+				drawSize = prevImg.Bounds().Dx()
+			} else {
+				src = img
+			}
+		} else {
+			src = img
 		}
 		scale := gs.scale
 		scaled := math.Round(float64(drawSize) * scale)
@@ -758,32 +788,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
 			return
 		}
-		var src, tmp *ebiten.Image
-		if blend {
-			tmp = getTempImage(size)
-			off := (tmp.Bounds().Dx() - size) / 2
-			op1 := &ebiten.DrawImageOptions{}
-			op1.ColorScale.ScaleAlpha(1 - fade)
-			op1.Blend = ebiten.BlendCopy
-			op1.GeoM.Translate(float64(off), float64(off))
-			tmp.DrawImage(prevImg, op1)
-			op2 := &ebiten.DrawImageOptions{}
-			op2.ColorScale.ScaleAlpha(fade)
-			op2.Blend = ebiten.BlendLighter
-			op2.GeoM.Translate(float64(off), float64(off))
-			tmp.DrawImage(img, op2)
-			src = tmp
-		} else if gs.BlendMobiles && prevImg != nil {
-			// Fast path when fade is 0 or 1: draw the existing image directly
-			// to avoid allocating a temporary blending buffer.
-			if fade <= 0 {
-				src = prevImg
-			} else {
-				src = img
-			}
-		} else {
-			src = img
-		}
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = drawFilter
 		op.GeoM.Scale(scale, scale)
@@ -791,9 +795,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		ty := math.Round(float64(y) - scaled/2)
 		op.GeoM.Translate(tx, ty)
 		screen.DrawImage(src, op)
-		if tmp != nil {
-			recycleTempImage(tmp)
-		}
 		if d, ok := descMap[m.Index]; ok {
 			alpha := uint8(gs.NameBgOpacity * 255)
 			if d.Name != "" {
@@ -881,8 +882,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
+	var prevFrame int
 	if gs.BlendPicts && clImages != nil {
-		prevFrame := clImages.FrameIndex(uint32(p.PictID), frameCounter-1)
+		prevFrame = clImages.FrameIndex(uint32(p.PictID), frameCounter-1)
 		if prevFrame != frame {
 			prevImg = loadImageFrame(p.PictID, prevFrame)
 		}
@@ -911,13 +913,32 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	if img != nil {
 		drawW, drawH := w, h
 		blend := gs.BlendPicts && prevImg != nil && fade > 0 && fade < 1
+		var src *ebiten.Image
 		if blend {
-			size := w
-			if h > size {
-				size = h
+			steps := gs.PictBlendFrames
+			idx := int(fade * float32(steps))
+			if idx <= 0 {
+				idx = 1
 			}
-			drawW = nextPow2(size)
-			drawH = drawW
+			if idx >= steps {
+				idx = steps - 1
+			}
+			if b := pictBlendFrame(p.PictID, prevFrame, frame, prevImg, img, idx, steps); b != nil {
+				src = b
+				drawW = b.Bounds().Dx()
+				drawH = b.Bounds().Dy()
+			} else {
+				src = img
+			}
+		} else if gs.BlendPicts && prevImg != nil {
+			if fade <= 0 {
+				src = prevImg
+				drawW, drawH = prevImg.Bounds().Dx(), prevImg.Bounds().Dy()
+			} else {
+				src = img
+			}
+		} else {
+			src = img
 		}
 		sx, sy := gs.scale, gs.scale
 		if !gs.textureFiltering {
@@ -932,38 +953,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if x+halfW <= 0 || y+halfH <= 0 || x-halfW >= sw || y-halfH >= sh {
 			return
 		}
-		var src, tmp *ebiten.Image
-		if blend {
-			size := w
-			if h > size {
-				size = h
-			}
-			tmp = getTempImage(size)
-			off := tmp.Bounds()
-			offXPix := (off.Dx() - w) / 2
-			offYPix := (off.Dy() - h) / 2
-			op1 := &ebiten.DrawImageOptions{}
-			op1.ColorScale.ScaleAlpha(1 - fade)
-			op1.Blend = ebiten.BlendCopy
-			op1.GeoM.Translate(float64(offXPix), float64(offYPix))
-			tmp.DrawImage(prevImg, op1)
-			op2 := &ebiten.DrawImageOptions{}
-			op2.ColorScale.ScaleAlpha(fade)
-			op2.Blend = ebiten.BlendLighter
-			op2.GeoM.Translate(float64(offXPix), float64(offYPix))
-			tmp.DrawImage(img, op2)
-			src = tmp
-		} else if gs.BlendPicts && prevImg != nil {
-			// Fast path when fade is 0 or 1: draw the existing image directly
-			// to avoid allocating a temporary blending buffer.
-			if fade <= 0 {
-				src = prevImg
-			} else {
-				src = img
-			}
-		} else {
-			src = img
-		}
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = drawFilter
 		op.GeoM.Scale(sx, sy)
@@ -974,9 +963,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			op.ColorM.Scale(1, 0, 0, 1)
 		}
 		screen.DrawImage(src, op)
-		if tmp != nil {
-			recycleTempImage(tmp)
-		}
 
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()

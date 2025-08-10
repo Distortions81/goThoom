@@ -27,6 +27,8 @@ var gs settings = settings{
 	BlendPicts:        true,
 	BlendAmount:       1.0,
 	MobileBlendAmount: 0.33,
+	MobileBlendFrames: 10,
+	PictBlendFrames:   10,
 	DenoiseImages:     true,
 	DenoiseSharpness:  4.0,
 	DenoisePercent:    0.2,
@@ -74,6 +76,8 @@ type settings struct {
 	BlendPicts        bool
 	BlendAmount       float64
 	MobileBlendAmount float64
+	MobileBlendFrames int
+	PictBlendFrames   int
 	DenoiseImages     bool
 	DenoiseSharpness  float64
 	DenoisePercent    float64
