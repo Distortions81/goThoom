@@ -30,7 +30,7 @@ func handleDisconnect() {
 
 	cancel()
 	addMessage("Disconnected from server.")
-	openLoginWindow()
+	makeLoginWindow()
 }
 
 // login connects to the server and performs the login handshake.

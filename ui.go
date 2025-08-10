@@ -19,11 +19,6 @@ import (
 	"go_client/clsnd"
 )
 
-var pTopLeft = eui.Point{X: 0, Y: 0}
-var pTopRight = eui.Point{X: 8000, Y: 0}
-var pBottomLeft = eui.Point{X: 0, Y: 8000}
-var pBottomRight = eui.Point{X: 8000, Y: 8000}
-
 var loginWin *eui.WindowData
 var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
@@ -53,10 +48,22 @@ func initUI() {
 	if err != nil {
 		logError("check data files: %v", err)
 	}
+
+	makeDownloadsWindow()
+	makeLoginWindow()
+	makeChatWindow()
+	makeMessagesWindow()
+	makeSettingsWindow()
+	makeDebugWindow()
+	makeWindowsWindow()
+	makeInventoryWindow()
+	makePlayersWindow()
+	makeHelpWindow()
+
 	if status.NeedImages || status.NeedSounds {
-		openDownloadsWindow(status)
+		downloadWin.Open()
 	} else {
-		openLoginWindow()
+		loginWin.Open()
 	}
 
 	overlay := &eui.ItemData{
@@ -69,7 +76,11 @@ func initUI() {
 	winBtn.FontSize = 18
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			openWindowsWindow()
+			if ev.Checked {
+				windowsWin.Open()
+			} else {
+				windowsWin.Close()
+			}
 		}
 	}
 	overlay.AddItem(winBtn)
@@ -80,7 +91,11 @@ func initUI() {
 	btn.FontSize = 18
 	btnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			openSettingsWindow()
+			if ev.Checked {
+				settingsWin.Open()
+			} else {
+				settingsWin.Close()
+			}
 		}
 	}
 	overlay.AddItem(btn)
@@ -91,7 +106,11 @@ func initUI() {
 	helpBtn.FontSize = 18
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			openHelpWindow()
+			if ev.Checked {
+				helpWin.Open()
+			} else {
+				helpWin.Close()
+			}
 		}
 	}
 	overlay.AddItem(helpBtn)
@@ -120,7 +139,7 @@ func initUI() {
 		recDir := filepath.Join("recordings")
 		if err := os.MkdirAll(recDir, 0755); err != nil {
 			logError("create recordings dir: %v", err)
-			openErrorWindow("Error: Record Movie: " + err.Error())
+			makeErrorWindow("Error: Record Movie: " + err.Error())
 			return
 		}
 		name := gs.LastCharacter
@@ -135,7 +154,7 @@ func initUI() {
 		if err != nil {
 			if err != dialog.ErrCancelled {
 				logError("record movie save: %v", err)
-				openErrorWindow("Error: Record Movie: " + err.Error())
+				makeErrorWindow("Error: Record Movie: " + err.Error())
 			}
 			return
 		}
@@ -145,7 +164,7 @@ func initUI() {
 		rec, err := newMovieRecorder(filename, clientVersion, int(movieRevision))
 		if err != nil {
 			logError("start recorder: %v", err)
-			openErrorWindow("Error: Record Movie: " + err.Error())
+			makeErrorWindow("Error: Record Movie: " + err.Error())
 			return
 		}
 		recorder = rec
@@ -165,22 +184,13 @@ func initUI() {
 	overlay.AddItem(recordStatus)
 
 	eui.AddOverlayFlow(overlay)
-
-	if gs.MessagesWindow.Open {
-		openMessagesWindow()
-	}
-	if gs.ChatWindow.Open {
-		openChatWindow()
-	}
 }
 
 var dlMutex sync.Mutex
 
-func openDownloadsWindow(status dataFilesStatus) {
+func makeDownloadsWindow() {
+	var status dataFilesStatus
 	if downloadWin != nil {
-		if !downloadWin.IsOpen() {
-			downloadWin.Open()
-		}
 		return
 	}
 	downloadWin = eui.NewWindow()
@@ -224,7 +234,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 
 				if err := downloadDataFiles(dataDir, clientVersion, status); err != nil {
 					logError("download data files: %v", err)
-					openErrorWindow("Error: Download Data Files: " + err.Error())
+					makeErrorWindow("Error: Download Data Files: " + err.Error())
 					return
 				}
 				clImages, err := climg.Load(filepath.Join("data/CL_Images"))
@@ -243,7 +253,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 					return
 				}
 				downloadWin.Close()
-				openLoginWindow()
+				makeLoginWindow()
 			}()
 		}
 	}
@@ -262,8 +272,6 @@ func openDownloadsWindow(status dataFilesStatus) {
 
 	downloadWin.AddItem(flow)
 	downloadWin.AddWindow(false)
-	downloadWin.Open()
-
 }
 
 func updateCharacterButtons() {
@@ -346,7 +354,10 @@ func updateCharacterButtons() {
 	//loginWin.Refresh()
 }
 
-func openAddCharacterWindow() {
+func makeAddCharacterWindow() {
+	if addCharWin != nil {
+		return
+	}
 	addCharWin = eui.NewWindow()
 	addCharWin.Title = "Add Character"
 	addCharWin.Closable = false
@@ -422,12 +433,10 @@ func openAddCharacterWindow() {
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
-	addCharWin.Open()
-	addCharWin.BringForward()
 }
 
-func openLoginWindow() {
-	if clmov != "" {
+func makeLoginWindow() {
+	if loginWin != nil {
 		return
 	}
 
@@ -459,7 +468,7 @@ func openLoginWindow() {
 			addCharName = ""
 			addCharPass = ""
 			addCharRemember = false
-			openAddCharacterWindow()
+			makeAddCharacterWindow()
 		}
 	}
 	loginFlow.AddItem(addBtn)
@@ -473,7 +482,7 @@ func openLoginWindow() {
 			if err != nil {
 				if err != dialog.Cancelled {
 					logError("open clMov: %v", err)
-					openErrorWindow("Error: Open clMov: " + err.Error())
+					makeErrorWindow("Error: Open clMov: " + err.Error())
 				}
 				return
 			}
@@ -488,8 +497,8 @@ func openLoginWindow() {
 				if err != nil {
 					logError("parse movie: %v", err)
 					clmov = ""
-					openErrorWindow("Error: Open clMov: " + err.Error())
-					openLoginWindow()
+					makeErrorWindow("Error: Open clMov: " + err.Error())
+					makeLoginWindow()
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
@@ -535,8 +544,8 @@ func openLoginWindow() {
 				loginMu.Unlock()
 				if err := login(ctx, clientVersion); err != nil {
 					logError("login: %v", err)
-					openErrorWindow("Error: Login: " + err.Error())
-					openLoginWindow()
+					makeErrorWindow("Error: Login: " + err.Error())
+					makeLoginWindow()
 				}
 			}()
 		}
@@ -545,11 +554,9 @@ func openLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
-	loginWin.Open()
-
 }
 
-func openErrorWindow(msg string) {
+func makeErrorWindow(msg string) {
 	win := eui.NewWindow()
 	win.Title = "Error"
 	win.Closable = false
@@ -575,10 +582,12 @@ func openErrorWindow(msg string) {
 	win.AddItem(flow)
 	win.AddWindow(false)
 	win.Open()
-
 }
 
-func openSettingsWindow() {
+func makeSettingsWindow() {
+	if settingsWin != nil {
+		return
+	}
 	settingsWin = eui.NewWindow()
 	settingsWin.Title = "Settings"
 	settingsWin.Closable = true
@@ -845,18 +854,20 @@ func openSettingsWindow() {
 	debugBtn.Size = eui.Point{X: width, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			openDebugWindow()
+			makeDebugWindow()
 		}
 	}
 	mainFlow.AddItem(debugBtn)
 
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
-	settingsWin.Open()
-
 }
 
-func openDebugWindow() {
+func makeDebugWindow() {
+	if debugWin != nil {
+		return
+	}
+
 	var width float32 = 250
 	debugWin = eui.NewWindow()
 	debugWin.Title = "Debug Settings"
@@ -1213,9 +1224,6 @@ func openDebugWindow() {
 	debugFlow.AddItem(soundTestFlow)
 
 	debugWin.AddWindow(false)
-	debugWin.Open()
-	updateSoundTestLabel()
-	updateDebugStats()
 }
 
 // updateDebugStats refreshes the cache statistics displayed in the debug window.
@@ -1256,7 +1264,10 @@ func updateSoundTestLabel() {
 	}
 }
 
-func openWindowsWindow() {
+func makeWindowsWindow() {
+	if windowsWin != nil {
+		return
+	}
 	windowsWin = eui.NewWindow()
 	windowsWin.Title = "Windows"
 	windowsWin.Closable = true
@@ -1272,7 +1283,11 @@ func openWindowsWindow() {
 	playersBox.Checked = playersWin != nil
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			openInventoryWindow()
+			if ev.Checked {
+				playersWin.Open()
+			} else {
+				playersWin.Close()
+			}
 		}
 	}
 	flow.AddItem(playersBox)
@@ -1283,7 +1298,11 @@ func openWindowsWindow() {
 	inventoryBox.Checked = inventoryWin != nil
 	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			openInventoryWindow()
+			if ev.Checked {
+				inventoryWin.Open()
+			} else {
+				inventoryWin.Close()
+			}
 		}
 	}
 	flow.AddItem(inventoryBox)
@@ -1294,18 +1313,24 @@ func openWindowsWindow() {
 	messagesBox.Checked = messagesWin != nil
 	messagesBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			openMessagesWindow()
+			if ev.Checked {
+				messagesWin.Open()
+			} else {
+				messagesWin.Close()
+			}
 		}
 	}
 	flow.AddItem(messagesBox)
 
 	windowsWin.AddItem(flow)
 	windowsWin.AddWindow(false)
-	windowsWin.Open()
 
 }
 
-func openInventoryWindow() {
+func makeInventoryWindow() {
+	if inventoryWin != nil {
+		return
+	}
 	inventoryWin = eui.NewWindow()
 	inventoryWin.Title = "Inventory"
 	inventoryWin.Closable = true
@@ -1328,10 +1353,12 @@ func openInventoryWindow() {
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
-	inventoryWin.Open()
 }
 
-func openPlayersWindow() {
+func makePlayersWindow() {
+	if playersWin != nil {
+		return
+	}
 	playersWin = eui.NewWindow()
 	playersWin.Title = "Players"
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
@@ -1349,10 +1376,12 @@ func openPlayersWindow() {
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
-	playersWin.Open()
 }
 
-func openHelpWindow() {
+func makeHelpWindow() {
+	if helpWin != nil {
+		return
+	}
 	helpWin = eui.NewWindow()
 	helpWin.Title = "Help"
 	helpWin.Closable = true
@@ -1377,6 +1406,4 @@ func openHelpWindow() {
 	}
 	helpWin.AddItem(helpFlow)
 	helpWin.AddWindow(false)
-	helpWin.Open()
-
 }

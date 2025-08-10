@@ -309,45 +309,6 @@ type Game struct{}
 func (g *Game) Update() error {
 	eui.Update()
 
-	if syncWindowSettings() {
-		settingsDirty = true
-	}
-
-	updateGameScale()
-
-	updateDebugStats()
-
-	if playersDirty {
-		updatePlayersWindow()
-		if playersWin != nil && playersWin.IsOpen() {
-			playersWin.Refresh()
-		}
-		playersDirty = false
-	}
-	if inventoryDirty {
-		updateInventoryWindow()
-		if inventoryWin != nil && inventoryWin.IsOpen() {
-			inventoryWin.Refresh()
-		}
-		inventoryDirty = false
-	}
-	if messagesDirty {
-		if messagesWin != nil && messagesWin.IsOpen() {
-			messagesWin.Refresh()
-		}
-		messagesDirty = false
-	}
-	if chatDirty {
-		if chatWin != nil && chatWin.IsOpen() {
-			chatWin.Refresh()
-		}
-		chatDirty = false
-	}
-
-	if settingsDirty {
-		saveSettings()
-		settingsDirty = false
-	}
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
@@ -1171,14 +1132,6 @@ func initGame() {
 	gameWin.AspectB = 1
 	gameWin.AddWindow(false)
 	gameWin.Open()
-
-	if gs.InventoryWindow.Open {
-		openInventoryWindow()
-	}
-	if gs.PlayersWindow.Open {
-		openPlayersWindow()
-	}
-
 	initUI()
 
 	close(gameStarted)

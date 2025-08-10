@@ -41,11 +41,8 @@ func updateChatWindow() {
 	}
 }
 
-func openChatWindow() {
+func makeChatWindow() {
 	if chatWin != nil {
-		if !chatWin.IsOpen() {
-			chatWin.Open()
-		}
 		return
 	}
 	chatWin = eui.NewWindow()
@@ -65,7 +62,4 @@ func openChatWindow() {
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	chatWin.AddItem(chatList)
 	chatWin.AddWindow(false)
-	chatWin.Open()
-
-	updateChatWindow()
 }

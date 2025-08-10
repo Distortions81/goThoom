@@ -59,11 +59,8 @@ func updateMessagesWindow() {
 	}
 }
 
-func openMessagesWindow() {
+func makeMessagesWindow() {
 	if messagesWin != nil {
-		if !messagesWin.IsOpen() {
-			messagesWin.Open()
-		}
 		return
 	}
 	messagesWin = eui.NewWindow()
@@ -83,7 +80,5 @@ func openMessagesWindow() {
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	messagesWin.AddItem(messagesList)
 	messagesWin.AddWindow(false)
-	messagesWin.Open()
-
 	updateMessagesWindow()
 }
