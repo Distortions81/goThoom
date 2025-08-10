@@ -37,7 +37,7 @@ func updateInventoryWindow() {
 		inventoryList.Contents = inventoryList.Contents[:len(items)]
 		changed = true
 	}
-	if changed && inventoryWin != nil {
-		inventoryWin.Refresh()
+	if changed {
+		inventoryDirty = true
 	}
 }
