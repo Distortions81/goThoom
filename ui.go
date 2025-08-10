@@ -66,7 +66,7 @@ func initUI() {
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if windowsWin != nil {
-				windowsWin.RemoveWindow()
+				windowsWin.Open = false
 				windowsWin = nil
 			} else {
 				openWindowsWindow()
@@ -79,7 +79,7 @@ func initUI() {
 	btnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if settingsWin != nil {
-				settingsWin.RemoveWindow()
+				settingsWin.Open = false
 				settingsWin = nil
 			} else {
 				openSettingsWindow()
@@ -92,7 +92,7 @@ func initUI() {
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if helpWin != nil {
-				helpWin.RemoveWindow()
+				helpWin.Open = false
 				helpWin = nil
 			} else {
 				openHelpWindow()
@@ -209,7 +209,9 @@ func openDownloadsWindow(status dataFilesStatus) {
 			go func() {
 				if err := downloadDataFiles(dataDir, clientVersion, status); err != nil {
 					logError("download data files: %v", err)
-					openErrorWindow("Error: Download Data Files: " + err.Error())
+					ebiten.RunOnMainThread(func() {
+						openErrorWindow("Error: Download Data Files: " + err.Error())
+					})
 					return
 				}
 				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
@@ -220,11 +222,17 @@ func openDownloadsWindow(status dataFilesStatus) {
 					clearCaches()
 				} else {
 					logError("load CL_Images: %v", err)
-					openErrorWindow("Error: Load CL_Images: " + err.Error())
+					ebiten.RunOnMainThread(func() {
+						openErrorWindow("Error: Load CL_Images: " + err.Error())
+					})
 				}
-				downloadWin.RemoveWindow()
-				downloadWin = nil
-				openLoginWindow()
+				ebiten.RunOnMainThread(func() {
+					if downloadWin != nil {
+						downloadWin.Open = false
+						downloadWin = nil
+					}
+					openLoginWindow()
+				})
 			}()
 		}
 	}
@@ -373,7 +381,7 @@ func openAddCharacterWindow() {
 			if loginWin != nil && loginWin.Open {
 				//loginWin.Refresh()
 			}
-			addCharWin.RemoveWindow()
+			addCharWin.Open = false
 			addCharWin = nil
 		}
 	}
@@ -382,7 +390,7 @@ func openAddCharacterWindow() {
 	cancelBtn, cancelEvents := eui.NewButton(&eui.ItemData{Text: "Cancel", Size: eui.Point{X: 200, Y: 24}})
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			addCharWin.RemoveWindow()
+			addCharWin.Open = false
 			addCharWin = nil
 		}
 	}
@@ -449,22 +457,28 @@ func openLoginWindow() {
 				return
 			}
 			clmov = filename
-			loginWin.RemoveWindow()
-			loginWin = nil
+			if loginWin != nil {
+				loginWin.Open = false
+				loginWin = nil
+			}
 			go func() {
 				drawStateEncrypted = false
 				frames, err := parseMovie(filename, clientVersion)
 				if err != nil {
 					logError("parse movie: %v", err)
 					clmov = ""
-					openErrorWindow("Error: Open clMov: " + err.Error())
-					openLoginWindow()
+					ebiten.RunOnMainThread(func() {
+						openErrorWindow("Error: Open clMov: " + err.Error())
+						openLoginWindow()
+					})
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
 				ctx, cancel := context.WithCancel(gameCtx)
 				mp := newMoviePlayer(frames, clMovFPS, cancel)
-				mp.initUI()
+				ebiten.RunOnMainThread(func() {
+					mp.initUI()
+				})
 				if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
 					for !assetsPrecached {
 						time.Sleep(100 * time.Millisecond)
@@ -490,8 +504,10 @@ func openLoginWindow() {
 			}
 			gs.LastCharacter = name
 			saveSettings()
-			loginWin.RemoveWindow()
-			loginWin = nil
+			if loginWin != nil {
+				loginWin.Open = false
+				loginWin = nil
+			}
 			go func() {
 				ctx, cancel := context.WithCancel(gameCtx)
 				loginMu.Lock()
@@ -499,8 +515,10 @@ func openLoginWindow() {
 				loginMu.Unlock()
 				if err := login(ctx, clientVersion); err != nil {
 					logError("login: %v", err)
-					openErrorWindow("Error: Login: " + err.Error())
-					openLoginWindow()
+					ebiten.RunOnMainThread(func() {
+						openErrorWindow("Error: Login: " + err.Error())
+						openLoginWindow()
+					})
 				}
 			}()
 		}
@@ -527,7 +545,7 @@ func openErrorWindow(msg string) {
 	okBtn, okEvents := eui.NewButton(&eui.ItemData{Text: "OK", Size: eui.Point{X: 200, Y: 24}})
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			win.RemoveWindow()
+			win.Open = false
 		}
 	}
 	flow.AddItem(okBtn)
@@ -729,7 +747,7 @@ func openSettingsWindow() {
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if debugWin != nil {
-				debugWin.RemoveWindow()
+				debugWin.Open = false
 				debugWin = nil
 			} else {
 				openDebugWindow()
@@ -1064,7 +1082,7 @@ func openWindowsWindow() {
 			if ev.Checked {
 				openPlayersWindow()
 			} else if playersWin != nil {
-				playersWin.RemoveWindow()
+				playersWin.Open = false
 				playersWin = nil
 			}
 			if playersBox != nil {
@@ -1080,7 +1098,7 @@ func openWindowsWindow() {
 			if ev.Checked {
 				openInventoryWindow()
 			} else if inventoryWin != nil {
-				inventoryWin.RemoveWindow()
+				inventoryWin.Open = false
 				inventoryWin = nil
 			}
 			if inventoryBox != nil {
@@ -1096,7 +1114,7 @@ func openWindowsWindow() {
 			if ev.Checked {
 				openMessagesWindow()
 			} else if messagesWin != nil {
-				messagesWin.RemoveWindow()
+				messagesWin.Open = false
 				messagesWin = nil
 			}
 			if messagesBox != nil {
