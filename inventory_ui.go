@@ -15,17 +15,29 @@ func updateInventoryWindow() {
 		return
 	}
 	items := getInventory()
-	inventoryList.Contents = inventoryList.Contents[:0]
-	for _, it := range items {
+	changed := false
+	for i, it := range items {
 		text := it.Name
 		if it.Equipped {
 			text = "* " + text
 		}
-		t, _ := eui.NewText(&eui.ItemData{Text: text, Size: eui.Point{X: 256, Y: 24}, FontSize: 10})
-		inventoryList.AddItem(t)
+		if i < len(inventoryList.Contents) {
+			if inventoryList.Contents[i].Text != text {
+				inventoryList.Contents[i].Text = text
+				changed = true
+			}
+		} else {
+			t, _ := eui.NewText(&eui.ItemData{Text: text, Size: eui.Point{X: 256, Y: 24}, FontSize: 10})
+			inventoryList.AddItem(t)
+			changed = true
+		}
 		logDebug("Ivn Name: %v, ID: %v", it.Name, it.ID)
 	}
-	if inventoryWin != nil {
+	if len(inventoryList.Contents) > len(items) {
+		inventoryList.Contents = inventoryList.Contents[:len(items)]
+		changed = true
+	}
+	if changed && inventoryWin != nil {
 		inventoryWin.Refresh()
 	}
 }
