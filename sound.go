@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
+	"maze.io/x/math32"
 
 	"go_client/clsnd"
 )
@@ -119,7 +120,7 @@ func initSinc() {
 			w := blackmanCosA[idx]*cosB + blackmanSinA[idx]*sinB
 			w = 0.42 - 0.5*w + 0.08*(blackmanCosA2[idx]*cosB2+blackmanSinA2[idx]*sinB2)
 
-			coeff := w * float32(math.Sinc(math.Pi*float64(float32(k)-frac)))
+			coeff := w * float32(math32.Sinc(math.Pi*float32(float32(k)-frac)))
 			coeffs[idx] = coeff
 			wsum += coeff
 		}

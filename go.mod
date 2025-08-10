@@ -11,6 +11,7 @@ require (
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
 	golang.org/x/crypto v0.41.0
+	maze.io/x/math32 v0.0.0-20181106113604-c78ed91899f1
 )
 
 require github.com/ebitengine/oto/v3 v3.3.3 // indirect
