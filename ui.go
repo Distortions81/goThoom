@@ -844,10 +844,10 @@ func openDebugWindow() {
 	}
 	debugFlow.AddItem(recordStatsCB)
 
-	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.speechBubbles})
+	bubbleCB, bubbleEvents := eui.NewCheckbox(&eui.ItemData{Text: "Message Bubbles", Size: eui.Point{X: width, Y: 24}, Checked: gs.SpeechBubbles})
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.speechBubbles = ev.Checked
+			gs.SpeechBubbles = ev.Checked
 			settingsDirty = true
 		}
 	}

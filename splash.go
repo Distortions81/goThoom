@@ -33,8 +33,8 @@ func drawSplash(screen *ebiten.Image, ox, oy int) {
 	if splashImg == nil {
 		return
 	}
-	sw := int(math.Round(float64(gameAreaSizeX) * gs.Scale))
-	sh := int(math.Round(float64(gameAreaSizeY) * gs.Scale))
+	sw := int(math.Round(float64(gameAreaSizeX) * gs.scale))
+	sh := int(math.Round(float64(gameAreaSizeY) * gs.scale))
 	iw, ih := splashImg.Bounds().Dx(), splashImg.Bounds().Dy()
 	scaleX := float64(sw) / float64(iw)
 	scaleY := float64(sh) / float64(ih)

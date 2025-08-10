@@ -11,7 +11,7 @@ import (
 )
 
 var gs settings = settings{
-	Version: 1,
+	Version: 2,
 
 	KBWalkSpeed:    0.25,
 	MainFontSize:   8,
@@ -40,7 +40,7 @@ var gs settings = settings{
 	cacheWholeSheet: true,
 	smoothMoving:    true,
 	fastBars:        true,
-	speechBubbles:   true,
+	SpeechBubbles:   true,
 	bubbleMessages:  false,
 
 	GameWindow:      WindowState{Open: true},
@@ -60,6 +60,7 @@ type settings struct {
 	BubbleFontSize float64
 	BubbleOpacity  float64
 	NameBgOpacity  float64
+	SpeechBubbles  bool
 
 	MotionSmoothing   bool
 	BlendMobiles      bool
@@ -71,7 +72,6 @@ type settings struct {
 	DenoisePercent    float64
 	ShowFPS           bool
 
-	Scale   float64
 	UIScale float64
 
 	imgPlanesDebug   bool
@@ -88,9 +88,9 @@ type settings struct {
 	cacheWholeSheet  bool
 	smoothMoving     bool
 	fastBars         bool
-	speechBubbles    bool
 	bubbleMessages   bool
 	recordAssetStats bool
+	scale            float64
 
 	GameWindow      WindowState
 	InventoryWindow WindowState

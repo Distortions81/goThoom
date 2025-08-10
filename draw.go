@@ -920,7 +920,7 @@ func parseDrawState(data []byte) error {
 				}
 				stateMu.Unlock()
 			}
-			if gs.speechBubbles && txt != "" && !blockBubbles {
+			if gs.SpeechBubbles && txt != "" && !blockBubbles {
 				b := bubble{Index: idx, Text: txt, Type: typ, Expire: time.Now().Add(4 * time.Second)}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
