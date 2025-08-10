@@ -11,6 +11,13 @@ import (
 	"go_client/clsnd"
 )
 
+func round32(x float32) float32 {
+	if x < 0 {
+		return math32.Ceil(x - 0.5)
+	}
+	return math32.Floor(x + 0.5)
+}
+
 const (
 	maxSounds  = 64
 	mainVolume = 0.5
@@ -95,22 +102,22 @@ func initSoundContext() {
 func initSinc() {
 	for k := -sincTaps + 1; k <= sincTaps; k++ {
 		idx := k + sincTaps - 1
-		t := float64(k)/float64(sincTaps) + 0.5
-		a := 2 * math.Pi * t
-		blackmanCosA[idx] = float32(math.Cos(a))
-		blackmanSinA[idx] = float32(math.Sin(a))
+		t := float32(k)/float32(sincTaps) + 0.5
+		a := 2 * math32.Pi * t
+		blackmanCosA[idx] = math32.Cos(a)
+		blackmanSinA[idx] = math32.Sin(a)
 		a2 := 2 * a
-		blackmanCosA2[idx] = float32(math.Cos(a2))
-		blackmanSinA2[idx] = float32(math.Sin(a2))
+		blackmanCosA2[idx] = math32.Cos(a2)
+		blackmanSinA2[idx] = math32.Sin(a2)
 	}
 
 	sincTable = make([][]float32, sincPhases)
 	sincSums = make([]float32, sincPhases)
 	for p := 0; p < sincPhases; p++ {
 		frac := float32(p) / float32(sincPhases)
-		b := (2 * math.Pi / float64(sincTaps)) * float64(frac)
-		cosB, sinB := float32(math.Cos(b)), float32(math.Sin(b))
-		cosB2, sinB2 := float32(math.Cos(2*b)), float32(math.Sin(2*b))
+		b := (2 * math32.Pi / float32(sincTaps)) * frac
+		cosB, sinB := math32.Cos(b), math32.Sin(b)
+		cosB2, sinB2 := math32.Cos(2*b), math32.Sin(2*b)
 
 		coeffs := make([]float32, 2*sincTaps)
 		var wsum float32
@@ -120,7 +127,7 @@ func initSinc() {
 			w := blackmanCosA[idx]*cosB + blackmanSinA[idx]*sinB
 			w = 0.42 - 0.5*w + 0.08*(blackmanCosA2[idx]*cosB2+blackmanSinA2[idx]*sinB2)
 
-			coeff := w * float32(math32.Sinc(math.Pi*float32(float32(k)-frac)))
+			coeff := w * math32.Sinc(math32.Pi*(float32(k)-frac))
 			coeffs[idx] = coeff
 			wsum += coeff
 		}
@@ -134,12 +141,12 @@ func resampleFast(src []int16, srcRate, dstRate int) []int16 {
 		return append([]int16(nil), src...)
 	}
 
-	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
+	n := int(round32(float32(len(src)) * float32(dstRate) / float32(srcRate)))
 	dst := make([]int16, n)
 
-	ratio := float64(srcRate) / float64(dstRate)
+	ratio := float32(srcRate) / float32(dstRate)
 	for i := 0; i < n; i++ {
-		srcIdx := int(float64(i) * ratio)
+		srcIdx := int(float32(i) * ratio)
 		if srcIdx >= len(src) {
 			srcIdx = len(src) - 1
 		}
@@ -154,21 +161,21 @@ func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
 		return append([]int16(nil), src...)
 	}
 
-	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
+	n := int(round32(float32(len(src)) * float32(dstRate) / float32(srcRate)))
 	dst := make([]int16, n)
 
-	ratio := float64(srcRate) / float64(dstRate)
+	ratio := float32(srcRate) / float32(dstRate)
 	for i := 0; i < n; i++ {
-		pos := float64(i) * ratio
+		pos := float32(i) * ratio
 		idx := int(pos)
-		frac := pos - float64(idx)
+		frac := pos - float32(idx)
 		s0 := src[idx]
 		s1 := s0
 		if idx+1 < len(src) {
 			s1 = src[idx+1]
 		}
-		v := (1-frac)*float64(s0) + frac*float64(s1)
-		dst[i] = int16(math.Round(v))
+		v := (1-frac)*float32(s0) + frac*float32(s1)
+		dst[i] = int16(round32(v))
 	}
 
 	return dst
@@ -179,7 +186,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		return append([]int16(nil), src...)
 	}
 
-	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
+	n := int(round32(float32(len(src)) * float32(dstRate) / float32(srcRate)))
 	dst := make([]int16, n)
 	ratio := float32(srcRate) / float32(dstRate)
 
@@ -188,7 +195,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		idx := int(pos)
 		frac := pos - float32(idx)
 
-		phase := int(frac*float32(sincPhases) + 0.5)
+		phase := int(round32(frac * float32(sincPhases)))
 		if phase >= sincPhases {
 			phase = sincPhases - 1
 		}
@@ -215,7 +222,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		} else if sum < float32(math.MinInt16) {
 			sum = float32(math.MinInt16)
 		}
-		dst[i] = int16(math.Round(float64(sum)))
+		dst[i] = int16(round32(sum))
 		pos += ratio
 	}
 	return dst
@@ -224,14 +231,14 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 // fast xorshift32 PRNG
 type rnd32 uint32
 
-func (r *rnd32) next() float64 {
+func (r *rnd32) next() float32 {
 	x := uint32(*r)
 	x ^= x << 13
 	x ^= x >> 17
 	x ^= x << 5
 	*r = rnd32(x)
 	// scale to [0,1)
-	return float64(x) * (1.0 / 4294967296.0)
+	return float32(x) * (1.0 / 4294967296.0)
 }
 
 // u8 PCM (0..255) -> s16 PCM (-32768..32767) with TPDF dither and 257 scaling
@@ -242,11 +249,11 @@ func u8ToS16TPDF(data []byte, seed uint32) []int16 {
 	for i, b := range data {
 		// TPDF dither in [-0.5, +0.5): (rand - rand)
 		noise := (r1.next() - r2.next()) * 0.5
-		v := float64(b) + noise
+		v := float32(b) + noise
 
 		// Map 0..255 -> -32768..32767 using *257 then offset
 		// (257 uses full 16-bit span slightly better than <<8)
-		s := int32(math.Round(v*257.0)) - 32768
+		s := int32(round32(v*257.0)) - 32768
 		if s > math.MaxInt16 {
 			s = math.MaxInt16
 		} else if s < math.MinInt16 {
@@ -257,16 +264,16 @@ func u8ToS16TPDF(data []byte, seed uint32) []int16 {
 	return out
 }
 
-func lowpassIIR16(x []int16, alpha float64) {
+func lowpassIIR16(x []int16, alpha float32) {
 	if len(x) == 0 {
 		return
 	}
 	// alpha ~ 0.1..0.3 for subtle smoothing
-	y := float64(x[0])
+	y := float32(x[0])
 	for i := range x {
-		xn := float64(x[i])
+		xn := float32(x[i])
 		y += alpha * (xn - y)
-		x[i] = int16(math.Round(y))
+		x[i] = int16(round32(y))
 	}
 }
 
@@ -297,15 +304,15 @@ func applyFadeInOut(samples []int16, rate int) {
 // highpassIIR16 removes DC offset using a simple one-pole high-pass filter.
 // alpha should be close to 1.0 (e.g. 0.995) to only filter very low
 // frequencies while leaving the audible band intact.
-func highpassIIR16(x []int16, alpha float64) {
+func highpassIIR16(x []int16, alpha float32) {
 	if len(x) == 0 {
 		return
 	}
-	var prevIn, prevOut float64
+	var prevIn, prevOut float32
 	for i := range x {
-		in := float64(x[i])
+		in := float32(x[i])
 		out := alpha * (prevOut + in - prevIn)
-		x[i] = int16(math.Round(out))
+		x[i] = int16(round32(out))
 		prevIn = in
 		prevOut = out
 	}
