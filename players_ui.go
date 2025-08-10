@@ -19,6 +19,9 @@ func updatePlayersWindow() {
 	}
 	ps := getPlayers()
 	sort.Slice(ps, func(i, j int) bool { return ps[i].Name < ps[j].Name })
+	for i := range playersList.Contents {
+		playersList.Contents[i] = nil
+	}
 	playersList.Contents = playersList.Contents[:0]
 
 	var exiles []Player

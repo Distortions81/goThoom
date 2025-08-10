@@ -38,6 +38,9 @@ func updateInventoryWindow() {
 		logDebug("Ivn Name: %v, ID: %v", it.Name, it.ID)
 	}
 	if len(inventoryList.Contents) > len(items) {
+		for i := len(items); i < len(inventoryList.Contents); i++ {
+			inventoryList.Contents[i] = nil
+		}
 		inventoryList.Contents = inventoryList.Contents[:len(items)]
 		changed = true
 	}

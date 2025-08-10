@@ -50,6 +50,9 @@ func updateMessagesWindow() {
 		}
 	}
 	if len(messagesList.Contents) > inputIdx+1 {
+		for i := inputIdx + 1; i < len(messagesList.Contents); i++ {
+			messagesList.Contents[i] = nil
+		}
 		messagesList.Contents = messagesList.Contents[:inputIdx+1]
 		changed = true
 	}

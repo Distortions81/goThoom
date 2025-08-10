@@ -284,6 +284,9 @@ func updateCharacterButtons() {
 			passHash = characters[0].PassHash
 		}
 	}
+	for i := range charactersList.Contents {
+		charactersList.Contents[i] = nil
+	}
 	charactersList.Contents = charactersList.Contents[:0]
 	if len(characters) == 0 {
 		empty, err := eui.NewText(&eui.ItemData{Text: "empty", Size: eui.Point{X: 160, Y: 64}})
