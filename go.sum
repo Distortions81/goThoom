@@ -6,6 +6,8 @@ github.com/Distortions81/EUI v0.0.17 h1:qgk5ZPEM/09+/1L9yKanAinzqLO7KrYG1y/vW/dU
 github.com/Distortions81/EUI v0.0.17/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/Distortions81/EUI v0.0.18 h1:jcMCt2XLWpCW38NpI5O4MzqFu0eKf72k6D5glQaRkyk=
 github.com/Distortions81/EUI v0.0.18/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
+github.com/Distortions81/EUI v0.0.19 h1:TAhUMiq+zdRewH6v0mrkXV6F0eA6LSxLVpKoVn12+bk=
+github.com/Distortions81/EUI v0.0.19/go.mod h1:F0FHVUCQx+BIHYATuNO/ToGZfBtL+Kp7uHnFhc/2HEE=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d h1:2xp1BQbqcDDaikHnASWpVZRjibOxu7y9LhAv04whugI=
 github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
