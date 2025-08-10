@@ -107,7 +107,6 @@ func initSinc() {
 	sincSums = make([]float32, sincPhases)
 	for p := 0; p < sincPhases; p++ {
 		frac := float32(p) / float32(sincPhases)
-		sinFrac := float32(math.Sin(math.Pi * float64(frac)))
 		b := (2 * math.Pi / float64(sincTaps)) * float64(frac)
 		cosB, sinB := float32(math.Cos(b)), float32(math.Sin(b))
 		cosB2, sinB2 := float32(math.Cos(2*b)), float32(math.Sin(2*b))
@@ -120,18 +119,7 @@ func initSinc() {
 			w := blackmanCosA[idx]*cosB + blackmanSinA[idx]*sinB
 			w = 0.42 - 0.5*w + 0.08*(blackmanCosA2[idx]*cosB2+blackmanSinA2[idx]*sinB2)
 
-			denom := float32(math.Pi) * (float32(k) - frac)
-			var sinc float32
-			if denom == 0 {
-				sinc = 1
-			} else {
-				sinc = sinFrac / denom
-				if k%2 == 0 {
-					sinc = -sinc
-				}
-			}
-
-			coeff := w * sinc
+			coeff := w * float32(math.Sinc(math.Pi*float64(float32(k)-frac)))
 			coeffs[idx] = coeff
 			wsum += coeff
 		}
