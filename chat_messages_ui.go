@@ -21,7 +21,11 @@ func updateChatWindow() {
 				changed = true
 			}
 		} else {
-			t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
+			t, err := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 256, Y: 24}})
+			if err != nil {
+				logError("failed to create chat text: %v", err)
+				continue
+			}
 			chatList.AddItem(t)
 			changed = true
 		}

@@ -27,7 +27,11 @@ func updateInventoryWindow() {
 				changed = true
 			}
 		} else {
-			t, _ := eui.NewText(&eui.ItemData{Text: text, Size: eui.Point{X: 256, Y: 24}, FontSize: 10})
+			t, err := eui.NewText(&eui.ItemData{Text: text, Size: eui.Point{X: 256, Y: 24}, FontSize: 10})
+			if err != nil {
+				logError("failed to create inventory text: %v", err)
+				continue
+			}
 			inventoryList.AddItem(t)
 			changed = true
 		}

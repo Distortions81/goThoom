@@ -25,7 +25,11 @@ func updateMessagesWindow() {
 				changed = true
 			}
 		} else {
-			t, _ := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+			t, err := eui.NewText(&eui.ItemData{Text: msg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+			if err != nil {
+				logError("failed to create message text: %v", err)
+				continue
+			}
 			messagesList.AddItem(t)
 			changed = true
 		}
@@ -37,9 +41,13 @@ func updateMessagesWindow() {
 			changed = true
 		}
 	} else {
-		t, _ := eui.NewText(&eui.ItemData{Text: inputMsg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
-		messagesList.AddItem(t)
-		changed = true
+		t, err := eui.NewText(&eui.ItemData{Text: inputMsg, FontSize: 10, Size: eui.Point{X: 500, Y: 24}})
+		if err != nil {
+			logError("failed to create input text: %v", err)
+		} else {
+			messagesList.AddItem(t)
+			changed = true
+		}
 	}
 	if len(messagesList.Contents) > inputIdx+1 {
 		messagesList.Contents = messagesList.Contents[:inputIdx+1]
