@@ -57,7 +57,6 @@ func openChatWindow() {
 	}
 	chatWin.Closable = true
 	chatWin.Resizable = true
-	chatWin.AutoSize = false
 	chatWin.Movable = true
 	if gs.ChatWindow.Position.X != 0 || gs.ChatWindow.Position.Y != 0 {
 		chatWin.Position = eui.Point{X: float32(gs.ChatWindow.Position.X), Y: float32(gs.ChatWindow.Position.Y)}

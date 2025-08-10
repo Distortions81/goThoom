@@ -75,7 +75,6 @@ func openMessagesWindow() {
 	messagesWin.Title = "Console"
 	messagesWin.Closable = true
 	messagesWin.Resizable = true
-	messagesWin.AutoSize = false
 	messagesWin.Movable = true
 	if gs.MessagesWindow.Position.X != 0 || gs.MessagesWindow.Position.Y != 0 {
 		messagesWin.Position = eui.Point{X: float32(gs.MessagesWindow.Position.X), Y: float32(gs.MessagesWindow.Position.Y)}

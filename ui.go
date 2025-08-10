@@ -1259,7 +1259,7 @@ func updateSoundTestLabel() {
 func openWindowsWindow() {
 	windowsWin = eui.NewWindow()
 	windowsWin.Title = "Windows"
-	windowsWin.Closable = false
+	windowsWin.Closable = true
 	windowsWin.Resizable = false
 	windowsWin.AutoSize = true
 	windowsWin.Movable = true
@@ -1308,9 +1308,8 @@ func openWindowsWindow() {
 func openInventoryWindow() {
 	inventoryWin = eui.NewWindow()
 	inventoryWin.Title = "Inventory"
-	inventoryWin.Closable = false
+	inventoryWin.Closable = true
 	inventoryWin.Resizable = true
-	inventoryWin.AutoSize = true
 	inventoryWin.Movable = true
 
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
@@ -1340,7 +1339,7 @@ func openPlayersWindow() {
 	} else {
 		playersWin.Size = eui.Point{X: 300, Y: 600}
 	}
-	playersWin.Closable = false
+	playersWin.Closable = true
 	playersWin.Resizable = true
 	playersWin.Movable = true
 	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
