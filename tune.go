@@ -4,6 +4,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"maze.io/x/math32"
 )
 
 // playTuneSimple parses a space-separated list of note names and plays them as a
@@ -38,7 +40,7 @@ func playTuneSimple(tune string) {
 // parseNote converts a note string like "C4" into a frequency in Hz.
 // If the octave is omitted, octave 4 is assumed. Only natural notes A-G
 // are recognised.
-func parseNote(s string) float64 {
+func parseNote(s string) float32 {
 	if s == "" {
 		return 0
 	}
@@ -55,15 +57,15 @@ func parseNote(s string) float64 {
 		}
 	}
 	midi := base + (octave+1)*12
-	return 440 * math.Pow(2, float64(midi-69)/12)
+	return 440 * math32.Pow(2, float32(midi-69)/12)
 }
 
 // synthSine generates a sine wave for the given frequency and duration.
-func synthSine(freq float64, rate, durMS int) []int16 {
+func synthSine(freq float32, rate, durMS int) []int16 {
 	n := rate * durMS / 1000
 	samples := make([]int16, n)
 	for i := 0; i < n; i++ {
-		v := math.Sin(2 * math.Pi * freq * float64(i) / float64(rate))
+		v := math32.Sin(2 * math32.Pi * freq * float32(i) / float32(rate))
 		samples[i] = int16(v * math.MaxInt16)
 	}
 	return samples
