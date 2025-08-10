@@ -141,6 +141,8 @@ type drawState struct {
 	prevHP, prevHPMax           int
 	prevSP, prevSPMax           int
 	prevBalance, prevBalanceMax int
+	ackCmd                      uint8
+	lightingFlags               uint8
 }
 
 var (
@@ -182,6 +184,8 @@ type drawSnapshot struct {
 	prevHP, prevHPMax           int
 	prevSP, prevSPMax           int
 	prevBalance, prevBalanceMax int
+	ackCmd                      uint8
+	lightingFlags               uint8
 }
 
 // captureDrawSnapshot copies the shared draw state under a mutex.
@@ -209,6 +213,8 @@ func captureDrawSnapshot() drawSnapshot {
 		prevSPMax:      state.prevSPMax,
 		prevBalance:    state.prevBalance,
 		prevBalanceMax: state.prevBalanceMax,
+		ackCmd:         state.ackCmd,
+		lightingFlags:  state.lightingFlags,
 	}
 
 	for idx, d := range state.descriptors {

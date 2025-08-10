@@ -661,6 +661,8 @@ func parseDrawState(data []byte) error {
 	stateData := data[p : p+stateLen]
 
 	stateMu.Lock()
+	state.ackCmd = ackCmd
+	state.lightingFlags = lighting
 	state.prevHP = state.hp
 	state.prevHPMax = state.hpMax
 	state.prevSP = state.sp
@@ -837,10 +839,12 @@ func parseDrawState(data []byte) error {
 	for _, m := range mobiles {
 		state.mobiles[m.Index] = m
 	}
+	ack := state.ackCmd
+	light := state.lightingFlags
 	stateMu.Unlock()
 
-	logDebug("draw state cmd=%d ack=%d resend=%d desc=%d pict=%d again=%d mobile=%d state=%d",
-		ackCmd, ackFrame, resendFrame, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
+	logDebug("draw state cmd=%d ack=%d resend=%d light=%#x desc=%d pict=%d again=%d mobile=%d state=%d",
+		ack, ackFrame, resendFrame, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
 	stage = "info strings"
 	for {
