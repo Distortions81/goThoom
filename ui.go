@@ -26,7 +26,7 @@ var (
 	TOP_LEFT  = eui.Point{X: 0, Y: 0}
 
 	BOTTOM_LEFT  = eui.Point{X: 0, Y: cval}
-	BOTTOM_RIGHT = eui.Point{X: cval, Y: 0}
+	BOTTOM_RIGHT = eui.Point{X: cval, Y: cval}
 )
 
 var loginWin *eui.WindowData
@@ -57,10 +57,11 @@ func initUI() {
 		logError("check data files: %v", err)
 	}
 
+	makeGameWindow()
 	makeDownloadsWindow()
 	makeLoginWindow()
 	makeChatWindow()
-	makeMessagesWindow()
+	makeConsoleWindow()
 	makeSettingsWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -89,8 +90,9 @@ func makeToolbarWindow() {
 	toolbarWin.AutoSize = true
 	toolbarWin.NoScroll = false
 	toolbarWin.ShowDragbar = false
+	toolbarWin.Movable = true
 	toolbarWin.Title = ""
-	toolbarWin.SetTitleSize(0)
+	toolbarWin.SetTitleSize(4)
 
 	gameMenu := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -1415,7 +1417,7 @@ func makeInventoryWindow() {
 	inventoryWin.Closable = true
 	inventoryWin.Resizable = true
 	inventoryWin.Movable = true
-	inventoryWin.Size = eui.Point{X: 300, Y: 300}
+	inventoryWin.Size = eui.Point{X: 480, Y: 600}
 
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
 		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
@@ -1444,7 +1446,7 @@ func makePlayersWindow() {
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
 		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
 	} else {
-		playersWin.Size = eui.Point{X: 300, Y: 600}
+		playersWin.Size = eui.Point{X: 480, Y: 600}
 	}
 	playersWin.Closable = true
 	playersWin.Resizable = true

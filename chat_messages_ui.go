@@ -50,13 +50,12 @@ func makeChatWindow() {
 	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
 		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X), Y: float32(gs.ChatWindow.Size.Y)}
 	} else {
-		chatWin.Size = eui.Point{X: 700, Y: 300}
+		chatWin.Size = eui.Point{X: 480, Y: 350}
 	}
 	chatWin.Closable = true
 	chatWin.Resizable = true
 	chatWin.Movable = true
 	chatWin.Position = BOTTOM_RIGHT
-	chatWin.PinTo = eui.PIN_BOTTOM_RIGHT
 	if gs.ChatWindow.Position.X != 0 || gs.ChatWindow.Position.Y != 0 {
 		chatWin.Position = eui.Point{X: float32(gs.ChatWindow.Position.X), Y: float32(gs.ChatWindow.Position.Y)}
 	}

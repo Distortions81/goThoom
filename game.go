@@ -1042,6 +1042,7 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 }
 
 func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
+	return
 	if fps <= 0 {
 		return
 	}
@@ -1129,6 +1130,12 @@ func initGame() {
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
 
+	initUI()
+
+	close(gameStarted)
+}
+
+func makeGameWindow() {
 	gameWin = eui.NewWindow()
 	gameWin.Title = ""
 	if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
@@ -1148,12 +1155,9 @@ func initGame() {
 	gameWin.FixedRatio = true
 	gameWin.AspectA = 1
 	gameWin.AspectB = 1
-	gameWin.SetTitleSize(4)
+	gameWin.SetTitleSize(8)
 	gameWin.AddWindow(false)
 	gameWin.Open()
-	initUI()
-
-	close(gameStarted)
 }
 
 func noteFrame() {

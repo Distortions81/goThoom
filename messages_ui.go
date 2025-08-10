@@ -59,7 +59,7 @@ func updateMessagesWindow() {
 	}
 }
 
-func makeMessagesWindow() {
+func makeConsoleWindow() {
 	if messagesWin != nil {
 		return
 	}
@@ -67,7 +67,7 @@ func makeMessagesWindow() {
 	if gs.MessagesWindow.Size.X > 0 && gs.MessagesWindow.Size.Y > 0 {
 		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X), Y: float32(gs.MessagesWindow.Size.Y)}
 	} else {
-		messagesWin.Size = eui.Point{X: 700, Y: 300}
+		messagesWin.Size = eui.Point{X: 480, Y: 350}
 	}
 	messagesWin.Title = "Console"
 	messagesWin.Closable = true
