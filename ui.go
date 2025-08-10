@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/Distortions81/EUI/eui"
@@ -15,6 +16,7 @@ import (
 	"github.com/sqweek/dialog"
 
 	"go_client/climg"
+	"go_client/clsnd"
 )
 
 var pTopLeft = eui.Point{X: 0, Y: 0}
@@ -172,7 +174,15 @@ func initUI() {
 	}
 }
 
+var dlMutex sync.Mutex
+
 func openDownloadsWindow(status dataFilesStatus) {
+	if downloadWin != nil {
+		if !downloadWin.IsOpen() {
+			downloadWin.Open()
+		}
+		return
+	}
 	downloadWin = eui.NewWindow()
 	downloadWin.Title = "Downloads"
 	downloadWin.Closable = false
@@ -209,22 +219,30 @@ func openDownloadsWindow(status dataFilesStatus) {
 			}
 			startedDownload = true
 			go func() {
+				dlMutex.Lock()
+				defer dlMutex.Unlock()
+
 				if err := downloadDataFiles(dataDir, clientVersion, status); err != nil {
 					logError("download data files: %v", err)
 					openErrorWindow("Error: Download Data Files: " + err.Error())
 					return
 				}
-				if imgs, err := climg.Load(filepath.Join(dataDir, "CL_Images")); err == nil {
-					clImages = imgs
+				clImages, err := climg.Load(filepath.Join("data/CL_Images"))
+				if err != nil {
+					logError("failed to load CL_Images: %v", err)
+					return
+				} else {
 					clImages.Denoise = gs.DenoiseImages
 					clImages.DenoiseSharpness = gs.DenoiseSharpness
 					clImages.DenoisePercent = gs.DenoisePercent
-					clearCaches()
-				} else {
-					logError("load CL_Images: %v", err)
-					openErrorWindow("Error: Load CL_Images: " + err.Error())
 				}
-				downloadWin.Open()
+
+				clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
+				if err != nil {
+					logError("failed to load CL_Sounds: %v", err)
+					return
+				}
+				downloadWin.Close()
 				openLoginWindow()
 			}()
 		}
@@ -232,7 +250,7 @@ func openDownloadsWindow(status dataFilesStatus) {
 	btnFlow.AddItem(dlBtn)
 
 	closeBtn, closeEvents := eui.NewButton()
-	closeBtn.Text = "Close"
+	closeBtn.Text = "Quit"
 	closeBtn.Size = eui.Point{X: 100, Y: 24}
 	closeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -1291,7 +1309,7 @@ func openInventoryWindow() {
 	inventoryWin = eui.NewWindow()
 	inventoryWin.Title = "Inventory"
 	inventoryWin.Closable = false
-	inventoryWin.Resizable = false
+	inventoryWin.Resizable = true
 	inventoryWin.AutoSize = true
 	inventoryWin.Movable = true
 
@@ -1323,7 +1341,7 @@ func openPlayersWindow() {
 		playersWin.Size = eui.Point{X: 300, Y: 600}
 	}
 	playersWin.Closable = false
-	playersWin.Resizable = false
+	playersWin.Resizable = true
 	playersWin.Movable = true
 	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
 		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}

@@ -42,6 +42,12 @@ func updateChatWindow() {
 }
 
 func openChatWindow() {
+	if chatWin != nil {
+		if !chatWin.IsOpen() {
+			chatWin.Open()
+		}
+		return
+	}
 	chatWin = eui.NewWindow()
 	chatWin.Title = "Chat"
 	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
