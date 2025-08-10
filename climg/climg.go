@@ -306,6 +306,7 @@ func Load(path string) (*CLImages, error) {
 				if ref.checksum != 0 && (ref.flags&pictDefFlagNoChecksum) == 0 && sum != ref.checksum {
 					log.Printf("climg: checksum mismatch for idref %d: have %08x want %08x", ref.id, sum, ref.checksum)
 					loadErr = fmt.Errorf("climg: checksum mismatch for idref %d", ref.id)
+					panic(loadErr)
 				}
 			}
 		}
