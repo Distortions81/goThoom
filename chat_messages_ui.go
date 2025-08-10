@@ -6,6 +6,7 @@ import "github.com/Distortions81/EUI/eui"
 
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
+var chatDirty bool
 
 func updateChatWindow() {
 	if chatList == nil {
@@ -29,8 +30,8 @@ func updateChatWindow() {
 		chatList.Contents = chatList.Contents[:len(msgs)]
 		changed = true
 	}
-	if changed && chatWin != nil {
-		chatWin.Refresh()
+	if changed {
+		chatDirty = true
 	}
 }
 

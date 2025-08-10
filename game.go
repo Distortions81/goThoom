@@ -319,13 +319,31 @@ func (g *Game) Update() error {
 
 	updateDebugStats()
 
-	if inventoryDirty {
-		updateInventoryWindow()
-		inventoryDirty = false
-	}
 	if playersDirty {
 		updatePlayersWindow()
+		if playersWin != nil {
+			playersWin.Refresh()
+		}
 		playersDirty = false
+	}
+	if inventoryDirty {
+		updateInventoryWindow()
+		if inventoryWin != nil {
+			inventoryWin.Refresh()
+		}
+		inventoryDirty = false
+	}
+	if messagesDirty {
+		if messagesWin != nil {
+			messagesWin.Refresh()
+		}
+		messagesDirty = false
+	}
+	if chatDirty {
+		if chatWin != nil {
+			chatWin.Refresh()
+		}
+		chatDirty = false
 	}
 
 	if settingsDirty {

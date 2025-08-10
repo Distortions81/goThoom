@@ -6,6 +6,7 @@ import "github.com/Distortions81/EUI/eui"
 
 var messagesWin *eui.WindowData
 var messagesList *eui.ItemData
+var messagesDirty bool
 
 func updateMessagesWindow() {
 	if messagesList == nil {
@@ -44,8 +45,8 @@ func updateMessagesWindow() {
 		messagesList.Contents = messagesList.Contents[:inputIdx+1]
 		changed = true
 	}
-	if changed && messagesWin != nil {
-		messagesWin.Refresh()
+	if changed {
+		messagesDirty = true
 	}
 }
 
