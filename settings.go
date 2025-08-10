@@ -40,7 +40,7 @@ var gs settings = settings{
 	smoothingDebug:   false,
 	hideMoving:       false,
 	hideMobiles:      false,
-	vsync:            false,
+	vsync:            true,
 	fastSound:        true,
 	nightEffect:      true,
 	precacheSounds:   false,
