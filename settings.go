@@ -145,6 +145,8 @@ func loadSettings() bool {
 		return false
 	}
 
+	clampWindowSettings()
+
 	if !gs.fastSound {
 		initSinc()
 	}
@@ -229,4 +231,38 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		changed = true
 	}
 	return changed
+}
+
+func clampWindowSettings() {
+	sx, sy := eui.ScreenSize()
+	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow}
+	for _, st := range states {
+		clampWindowState(st, float64(sx), float64(sy))
+	}
+}
+
+func clampWindowState(st *WindowState, sx, sy float64) {
+	if st.Size.X < 100 || st.Size.Y < 100 {
+		st.Position = WindowPoint{}
+		st.Size = WindowPoint{}
+		return
+	}
+	if st.Size.X > sx {
+		st.Size.X = sx
+	}
+	if st.Size.Y > sy {
+		st.Size.Y = sy
+	}
+	maxX := sx - st.Size.X
+	maxY := sy - st.Size.Y
+	if st.Position.X < 0 {
+		st.Position.X = 0
+	} else if st.Position.X > maxX {
+		st.Position.X = maxX
+	}
+	if st.Position.Y < 0 {
+		st.Position.Y = 0
+	} else if st.Position.Y > maxY {
+		st.Position.Y = maxY
+	}
 }
