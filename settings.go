@@ -278,56 +278,46 @@ func clampWindowState(st *WindowState, sx, sy float64) {
 }
 
 type qualityPreset struct {
-	DenoiseImages    bool
-	MotionSmoothing  bool
-	BlendMobiles     bool
-	BlendPicts       bool
-	textureFiltering bool
-	fastSound        bool
-	precacheSounds   bool
-	precacheImages   bool
+	DenoiseImages   bool
+	MotionSmoothing bool
+	BlendMobiles    bool
+	BlendPicts      bool
+	precacheSounds  bool
+	precacheImages  bool
 }
 
 var (
 	lowPreset = qualityPreset{
-		DenoiseImages:    false,
-		MotionSmoothing:  false,
-		BlendMobiles:     false,
-		BlendPicts:       false,
-		textureFiltering: false,
-		fastSound:        true,
-		precacheSounds:   false,
-		precacheImages:   false,
+		DenoiseImages:   false,
+		MotionSmoothing: false,
+		BlendMobiles:    false,
+		BlendPicts:      false,
+		precacheSounds:  false,
+		precacheImages:  false,
 	}
 	standardPreset = qualityPreset{
-		DenoiseImages:    true,
-		MotionSmoothing:  true,
-		BlendMobiles:     false,
-		BlendPicts:       true,
-		textureFiltering: false,
-		fastSound:        true,
-		precacheSounds:   false,
-		precacheImages:   false,
+		DenoiseImages:   true,
+		MotionSmoothing: true,
+		BlendMobiles:    false,
+		BlendPicts:      true,
+		precacheSounds:  false,
+		precacheImages:  false,
 	}
 	highPreset = qualityPreset{
-		DenoiseImages:    true,
-		MotionSmoothing:  true,
-		BlendMobiles:     true,
-		BlendPicts:       true,
-		textureFiltering: true,
-		fastSound:        false,
-		precacheSounds:   false,
-		precacheImages:   false,
+		DenoiseImages:   true,
+		MotionSmoothing: true,
+		BlendMobiles:    true,
+		BlendPicts:      true,
+		precacheSounds:  false,
+		precacheImages:  false,
 	}
 	ultimatePreset = qualityPreset{
-		DenoiseImages:    true,
-		MotionSmoothing:  true,
-		BlendMobiles:     true,
-		BlendPicts:       true,
-		textureFiltering: true,
-		fastSound:        false,
-		precacheSounds:   true,
-		precacheImages:   true,
+		DenoiseImages:   true,
+		MotionSmoothing: true,
+		BlendMobiles:    true,
+		BlendPicts:      true,
+		precacheSounds:  true,
+		precacheImages:  true,
 	}
 )
 
@@ -350,8 +340,6 @@ func applyQualityPreset(name string) {
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
-	gs.textureFiltering = p.textureFiltering
-	gs.fastSound = p.fastSound
 	gs.precacheSounds = p.precacheSounds
 	gs.precacheImages = p.precacheImages
 
@@ -371,8 +359,6 @@ func matchesPreset(p qualityPreset) bool {
 		gs.MotionSmoothing == p.MotionSmoothing &&
 		gs.BlendMobiles == p.BlendMobiles &&
 		gs.BlendPicts == p.BlendPicts &&
-		gs.textureFiltering == p.textureFiltering &&
-		gs.fastSound == p.fastSound &&
 		gs.precacheSounds == p.precacheSounds &&
 		gs.precacheImages == p.precacheImages
 }
