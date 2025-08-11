@@ -237,7 +237,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 			phase = sincPhases - 1
 		}
 		coeffs := sincTable[phase]
-		wsum := float64(sincSums[phase]) // float64 to reduce rounding error
+		wsum := 1.0 // coefficients pre-normalized to sum to 1
 		var sum float64
 
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
