@@ -1150,25 +1150,33 @@ func initGame() {
 
 func makeGameWindow() {
 	ssx, _ := eui.ScreenSize()
-	size := eui.Point{X: gameAreaSizeX, Y: gameAreaSizeY}
 
 	gameWin = eui.NewWindow()
 	gameWin.Title = ""
 
-	if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
-		gameWin.Size = eui.Point{X: float32(gs.GameWindow.Size.X) * eui.UIScale(), Y: float32(gs.GameWindow.Size.Y) * eui.UIScale()}
+	if gs.AnyGameWindowSize {
+		if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
+			gameWin.Size = eui.Point{X: float32(gs.GameWindow.Size.X) * eui.UIScale(), Y: float32(gs.GameWindow.Size.Y) * eui.UIScale()}
+		} else {
+			gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.scale), Y: float32(gameAreaSizeY) * float32(gs.scale)}
+		}
 	} else {
+		if gs.scale < 1 {
+			gs.scale = 1
+		} else if gs.scale > 5 {
+			gs.scale = 5
+		}
 		gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.scale), Y: float32(gameAreaSizeY) * float32(gs.scale)}
 	}
 
 	if gs.GameWindow.Position.X != 0 || gs.GameWindow.Position.Y != 0 {
 		gameWin.Position = eui.Point{X: float32(gs.GameWindow.Position.X), Y: float32(gs.GameWindow.Position.Y)}
 	} else {
-		gameWin.Position = eui.Point{X: float32(ssx/2) - (size.X/2)*float32(gs.scale), Y: 0}
+		gameWin.Position = eui.Point{X: float32(ssx/2) - gameWin.Size.X/2, Y: 0}
 	}
 
 	gameWin.Closable = false
-	gameWin.Resizable = true
+	gameWin.Resizable = gs.AnyGameWindowSize
 	gameWin.Movable = true
 	gameWin.MainPortal = true
 	gameWin.FixedRatio = true

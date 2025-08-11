@@ -37,25 +37,26 @@ var gs settings = settings{
 	UIScale:           1.0,
 	Fullscreen:        false,
 
-	imgPlanesDebug:   false,
-	smoothingDebug:   false,
-	hideMoving:       false,
-	hideMobiles:      false,
-	vsync:            true,
-	fastSound:        true,
-	nightEffect:      true,
-	precacheSounds:   false,
-	precacheImages:   false,
-	textureFiltering: false,
-	lateInputUpdates: true,
-	cacheWholeSheet:  true,
-	smoothMoving:     true,
-	fastBars:         true,
-	bubbleMessages:   false,
-	Volume:           0.5,
-	Mute:             false,
-	recordAssetStats: true,
-	scale:            2,
+	imgPlanesDebug:    false,
+	smoothingDebug:    false,
+	hideMoving:        false,
+	hideMobiles:       false,
+	vsync:             true,
+	fastSound:         true,
+	nightEffect:       true,
+	precacheSounds:    false,
+	precacheImages:    false,
+	textureFiltering:  false,
+	lateInputUpdates:  true,
+	cacheWholeSheet:   true,
+	smoothMoving:      true,
+	fastBars:          true,
+	bubbleMessages:    false,
+	Volume:            0.5,
+	Mute:              false,
+	recordAssetStats:  true,
+	scale:             2,
+	AnyGameWindowSize: false,
 
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
@@ -90,25 +91,26 @@ type settings struct {
 	UIScale           float64
 	Fullscreen        bool
 
-	imgPlanesDebug   bool
-	smoothingDebug   bool
-	hideMoving       bool
-	hideMobiles      bool
-	vsync            bool
-	fastSound        bool
-	nightEffect      bool
-	precacheSounds   bool
-	precacheImages   bool
-	textureFiltering bool
-	lateInputUpdates bool
-	cacheWholeSheet  bool
-	smoothMoving     bool
-	fastBars         bool
-	bubbleMessages   bool
-	Volume           float64
-	Mute             bool
-	recordAssetStats bool
-	scale            float64
+	imgPlanesDebug    bool
+	smoothingDebug    bool
+	hideMoving        bool
+	hideMobiles       bool
+	vsync             bool
+	fastSound         bool
+	nightEffect       bool
+	precacheSounds    bool
+	precacheImages    bool
+	textureFiltering  bool
+	lateInputUpdates  bool
+	cacheWholeSheet   bool
+	smoothMoving      bool
+	fastBars          bool
+	bubbleMessages    bool
+	Volume            float64
+	Mute              bool
+	recordAssetStats  bool
+	scale             float64
+	AnyGameWindowSize bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
