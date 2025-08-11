@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -789,6 +790,61 @@ func makeSettingsWindow() {
 		}
 	}
 	mainFlow.AddItem(uiScaleSlider)
+
+	gameSizeSlider, gameSizeEvents := eui.NewSlider()
+	gameSizeSlider.Label = "Game Window Size"
+	gameSizeSlider.MinValue = 1
+	gameSizeSlider.MaxValue = 5
+	gameSizeSlider.IntOnly = true
+	gsVal := gs.scale
+	if gsVal < 1 {
+		gsVal = 1
+	} else if gsVal > 5 {
+		gsVal = 5
+	}
+	gameSizeSlider.Value = float32(gsVal)
+	gameSizeSlider.Size = eui.Point{X: width - 10, Y: 24}
+	gameSizeSlider.Disabled = gs.AnyGameWindowSize
+	gameSizeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.scale = float64(ev.Value)
+			if gameWin != nil {
+				gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.scale), Y: float32(gameAreaSizeY) * float32(gs.scale)}
+			}
+			initFont()
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(gameSizeSlider)
+
+	maxW, maxH := eui.ScreenSize()
+	maxScale := int(math.Floor(math.Min(float64(maxW)/float64(gameAreaSizeX), float64(maxH)/float64(gameAreaSizeY))))
+	hint, _ := eui.NewText()
+	hint.Text = fmt.Sprintf("Max size for desktop: %dx", maxScale)
+	hint.FontSize = 10
+	hint.Size = eui.Point{X: width, Y: 16}
+	mainFlow.AddItem(hint)
+
+	anySizeCB, anySizeEvents := eui.NewCheckbox()
+	anySizeCB.Text = "Any game window size"
+	anySizeCB.Size = eui.Point{X: width, Y: 24}
+	anySizeCB.Checked = gs.AnyGameWindowSize
+	anySizeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AnyGameWindowSize = ev.Checked
+			if gameWin != nil {
+				gameWin.Resizable = gs.AnyGameWindowSize
+				if gs.AnyGameWindowSize {
+					gameSizeSlider.Disabled = true
+				} else {
+					gameSizeSlider.Disabled = false
+					gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.scale), Y: float32(gameAreaSizeY) * float32(gs.scale)}
+				}
+			}
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(anySizeCB)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
