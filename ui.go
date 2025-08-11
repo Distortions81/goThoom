@@ -63,6 +63,7 @@ func initUI() {
 	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
+	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
 	makeInventoryWindow()
@@ -799,6 +800,44 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(fullscreenCB)
 
+	qualityBtn, qualityEvents := eui.NewButton()
+	qualityBtn.Text = "Quality Options"
+	qualityBtn.Size = eui.Point{X: width, Y: 24}
+	qualityEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			qualityWin.Toggle()
+		}
+	}
+	mainFlow.AddItem(qualityBtn)
+
+	debugBtn, debugEvents := eui.NewButton()
+	debugBtn.Text = "Debug Settings"
+	debugBtn.Size = eui.Point{X: width, Y: 24}
+	debugEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			debugWin.Toggle()
+		}
+	}
+	mainFlow.AddItem(debugBtn)
+
+	settingsWin.AddItem(mainFlow)
+	settingsWin.AddWindow(false)
+}
+
+func makeQualityWindow() {
+	if qualityWin != nil {
+		return
+	}
+	var width float32 = 250
+	qualityWin = eui.NewWindow()
+	qualityWin.Title = "Quality Options"
+	qualityWin.Closable = true
+	qualityWin.Resizable = false
+	qualityWin.AutoSize = true
+	qualityWin.Movable = true
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
 	denoiseCB, denoiseEvents := eui.NewCheckbox()
 	denoiseCB.Text = "Image Denoise"
 	denoiseCB.Size = eui.Point{X: width, Y: 24}
@@ -813,7 +852,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(denoiseCB)
+	flow.AddItem(denoiseCB)
 
 	denoiseSharpSlider, denoiseSharpEvents := eui.NewSlider()
 	denoiseSharpSlider.Label = "Denoise Sharpness"
@@ -831,7 +870,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(denoiseSharpSlider)
+	flow.AddItem(denoiseSharpSlider)
 
 	denoiseAmtSlider, denoiseAmtEvents := eui.NewSlider()
 	denoiseAmtSlider.Label = "Denoise Amount"
@@ -849,7 +888,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(denoiseAmtSlider)
+	flow.AddItem(denoiseAmtSlider)
 
 	motion, motionEvents := eui.NewCheckbox()
 	motion.Text = "Smooth Motion"
@@ -861,16 +900,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(motion)
-
-	//moveSmoothCB, moveSmoothEvents := eui.NewCheckbox(&eui.ItemData{Text: "Smooth Moving Objects", Size: eui.Point{X: width, Y: 24}, Checked: gs.SmoothMoving})
-	//moveSmoothEvents.Handle = func(ev eui.UIEvent) {
-	//	if ev.Type == eui.EventCheckboxChanged {
-	//		gs.SmoothMoving = ev.Checked
-	//		settingsDirty = true
-	//	}
-	//}
-	//mainFlow.AddItem(moveSmoothCB)
+	flow.AddItem(motion)
 
 	anim, animEvents := eui.NewCheckbox()
 	anim.Text = "Mobile Animation Blending"
@@ -882,7 +912,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(anim)
+	flow.AddItem(anim)
 
 	pictBlend, pictBlendEvents := eui.NewCheckbox()
 	pictBlend.Text = "World Animation Blending"
@@ -894,7 +924,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(pictBlend)
+	flow.AddItem(pictBlend)
 
 	mobileBlendSlider, mobileBlendEvents := eui.NewSlider()
 	mobileBlendSlider.Label = "Mobile Blend Amount"
@@ -908,7 +938,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(mobileBlendSlider)
+	flow.AddItem(mobileBlendSlider)
 
 	blendSlider, blendEvents := eui.NewSlider()
 	blendSlider.Label = "Picture Blend Amount"
@@ -922,20 +952,130 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(blendSlider)
+	flow.AddItem(blendSlider)
 
-	debugBtn, debugEvents := eui.NewButton()
-	debugBtn.Text = "Debug Settings"
-	debugBtn.Size = eui.Point{X: width, Y: 24}
-	debugEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			debugWin.Toggle()
+	mobileFramesSlider, mobileFramesEvents := eui.NewSlider()
+	mobileFramesSlider.Label = "Mobile Blend Frames"
+	mobileFramesSlider.MinValue = 3
+	mobileFramesSlider.MaxValue = 30
+	mobileFramesSlider.Value = float32(gs.MobileBlendFrames)
+	mobileFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
+	mobileFramesSlider.IntOnly = true
+	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.MobileBlendFrames = int(ev.Value)
+			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(debugBtn)
+	flow.AddItem(mobileFramesSlider)
 
-	settingsWin.AddItem(mainFlow)
-	settingsWin.AddWindow(false)
+	pictFramesSlider, pictFramesEvents := eui.NewSlider()
+	pictFramesSlider.Label = "Picture Blend Frames"
+	pictFramesSlider.MinValue = 3
+	pictFramesSlider.MaxValue = 30
+	pictFramesSlider.Value = float32(gs.PictBlendFrames)
+	pictFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
+	pictFramesSlider.IntOnly = true
+	pictFramesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.PictBlendFrames = int(ev.Value)
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(pictFramesSlider)
+
+	showFPSCB, showFPSEvents := eui.NewCheckbox()
+	showFPSCB.Text = "Show FPS"
+	showFPSCB.Size = eui.Point{X: width, Y: 24}
+	showFPSCB.Checked = gs.ShowFPS
+	showFPSEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ShowFPS = ev.Checked
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(showFPSCB)
+
+	precacheSoundCB, precacheSoundEvents := eui.NewCheckbox()
+	precacheSoundCB.Text = "Precache Sounds"
+	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
+	precacheSoundCB.Checked = gs.precacheSounds
+	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.precacheSounds = ev.Checked
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(precacheSoundCB)
+
+	precacheImageCB, precacheImageEvents := eui.NewCheckbox()
+	precacheImageCB.Text = "Precache Images"
+	precacheImageCB.Size = eui.Point{X: width, Y: 24}
+	precacheImageCB.Checked = gs.precacheImages
+	precacheImageEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.precacheImages = ev.Checked
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(precacheImageCB)
+
+	filt, filtEvents := eui.NewCheckbox()
+	filt.Text = "Image Filtering"
+	filt.Size = eui.Point{X: width, Y: 24}
+	filt.Checked = gs.textureFiltering
+	filtEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.textureFiltering = ev.Checked
+			if gs.textureFiltering {
+				drawFilter = ebiten.FilterLinear
+			} else {
+				drawFilter = ebiten.FilterNearest
+			}
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(filt)
+
+	fastSound, fastSoundEvents := eui.NewCheckbox()
+	fastSound.Text = "Low Quality Sound"
+	fastSound.Size = eui.Point{X: width, Y: 24}
+	fastSound.Checked = gs.fastSound
+	fastSoundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.fastSound = ev.Checked
+			settingsDirty = true
+
+			pcmCache = make(map[uint16][]byte)
+
+			if gs.fastSound {
+				resample = resampleLinear
+			} else {
+				initSinc()
+				resample = resampleSincHQ
+			}
+			soundMu.Lock()
+			pcmCache = make(map[uint16][]byte)
+			soundMu.Unlock()
+		}
+	}
+	flow.AddItem(fastSound)
+
+	vsyncCB, vsyncEvents := eui.NewCheckbox()
+	vsyncCB.Text = "Vsync"
+	vsyncCB.Size = eui.Point{X: width, Y: 24}
+	vsyncCB.Checked = gs.vsync
+	vsyncEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.vsync = ev.Checked
+			ebiten.SetVsyncEnabled(gs.vsync)
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(vsyncCB)
+
+	qualityWin.AddItem(flow)
+	qualityWin.AddWindow(false)
 }
 
 func makeDebugWindow() {
@@ -976,83 +1116,6 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(lateInputCB)
-
-	showFPSCB, showFPSEvents := eui.NewCheckbox()
-	showFPSCB.Text = "Show FPS"
-	showFPSCB.Size = eui.Point{X: width, Y: 24}
-	showFPSCB.Checked = gs.ShowFPS
-	showFPSEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ShowFPS = ev.Checked
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(showFPSCB)
-
-	precacheSoundCB, precacheSoundEvents := eui.NewCheckbox()
-	precacheSoundCB.Text = "Precache Sounds"
-	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
-	precacheSoundCB.Checked = gs.precacheSounds
-	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.precacheSounds = ev.Checked
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(precacheSoundCB)
-
-	precacheImageCB, precacheImageEvents := eui.NewCheckbox()
-	precacheImageCB.Text = "Precache Images"
-	precacheImageCB.Size = eui.Point{X: width, Y: 24}
-	precacheImageCB.Checked = gs.precacheImages
-	precacheImageEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.precacheImages = ev.Checked
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(precacheImageCB)
-
-	filt, filtEvents := eui.NewCheckbox()
-	filt.Text = "Image Filtering"
-	filt.Size = eui.Point{X: width, Y: 24}
-	filt.Checked = gs.textureFiltering
-	filtEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.textureFiltering = ev.Checked
-			if gs.textureFiltering {
-				drawFilter = ebiten.FilterLinear
-			} else {
-				drawFilter = ebiten.FilterNearest
-			}
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(filt)
-
-	fastSound, fastSoundEvents := eui.NewCheckbox()
-	fastSound.Text = "Low Quality Sound"
-	fastSound.Size = eui.Point{X: width, Y: 24}
-	fastSound.Checked = gs.fastSound
-	fastSoundEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.fastSound = ev.Checked
-			settingsDirty = true
-
-			pcmCache = make(map[uint16][]byte)
-
-			if gs.fastSound {
-				resample = resampleLinear
-			} else {
-				initSinc()
-				resample = resampleSincHQ
-			}
-			soundMu.Lock()
-			pcmCache = make(map[uint16][]byte)
-			soundMu.Unlock()
-		}
-	}
-	debugFlow.AddItem(fastSound)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
 	recordStatsCB.Text = "Record Asset Stats"
@@ -1125,20 +1188,6 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(planesCB)
-
-	vsyncCB, vsyncEvents := eui.NewCheckbox()
-	vsyncCB.Text = "Vsync"
-	vsyncCB.Size = eui.Point{X: width, Y: 24}
-	vsyncCB.Checked = gs.vsync
-	vsyncEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.vsync = ev.Checked
-			ebiten.SetVsyncEnabled(gs.vsync)
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(vsyncCB)
-
 	smoothinCB, smoothinEvents := eui.NewCheckbox()
 	smoothinCB.Text = "Smoothing Debug"
 	smoothinCB.Size = eui.Point{X: width, Y: 24}
@@ -1150,37 +1199,6 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(smoothinCB)
-
-	mobileFramesSlider, mobileFramesEvents := eui.NewSlider()
-	mobileFramesSlider.Label = "Mobile Blend Frames"
-	mobileFramesSlider.MinValue = 3
-	mobileFramesSlider.MaxValue = 30
-	mobileFramesSlider.Value = float32(gs.MobileBlendFrames)
-	mobileFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
-	mobileFramesSlider.IntOnly = true
-	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.MobileBlendFrames = int(ev.Value)
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(mobileFramesSlider)
-
-	pictFramesSlider, pictFramesEvents := eui.NewSlider()
-	pictFramesSlider.Label = "Picture Blend Frames"
-	pictFramesSlider.MinValue = 3
-	pictFramesSlider.MaxValue = 30
-	pictFramesSlider.Value = float32(gs.PictBlendFrames)
-	pictFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
-	pictFramesSlider.IntOnly = true
-	pictFramesEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.PictBlendFrames = int(ev.Value)
-			settingsDirty = true
-		}
-	}
-	debugFlow.AddItem(pictFramesSlider)
-
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}
