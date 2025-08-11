@@ -105,9 +105,10 @@ func makeToolbarWindow() {
 	toolbarWin.Title = ""
 	toolbarWin.SetTitleSize(4)
 	xs, _ := eui.ScreenSize()
-	tbs := eui.Point{X: 930, Y: 48}
-	toolbarWin.Size = tbs
-	toolbarWin.Position = eui.Point{X: float32(xs/2) - (tbs.X / 2), Y: 0}
+	size := eui.Point{X: 930, Y: 48}
+	toolbarWin.Size = eui.ScreenToNormal(size)
+	pos := eui.Point{X: float32(xs)/2 - size.X/2, Y: 0}
+	toolbarWin.Position = eui.ScreenToNormal(pos)
 
 	gameMenu := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -827,7 +828,7 @@ func makeSettingsWindow() {
 		if ev.Type == eui.EventSliderChanged {
 			gs.GameScale = float64(ev.Value)
 			if gameWin != nil {
-				gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
+				gameWin.Size = eui.ScreenToNormal(eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)})
 			}
 			initFont()
 			settingsDirty = true
@@ -856,7 +857,7 @@ func makeSettingsWindow() {
 					gameSizeSlider.Disabled = true
 				} else {
 					gameSizeSlider.Disabled = false
-					gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
+					gameWin.Size = eui.ScreenToNormal(eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)})
 				}
 			}
 			settingsDirty = true
@@ -1563,7 +1564,7 @@ func makeInventoryWindow() {
 	inventoryWin.Closable = true
 	inventoryWin.Resizable = true
 	inventoryWin.Movable = true
-	inventoryWin.Size = eui.Point{X: 425, Y: 600}
+	inventoryWin.Size = eui.ScreenToNormal(eui.Point{X: 425, Y: 600})
 
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
 		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
@@ -1571,7 +1572,7 @@ func makeInventoryWindow() {
 	if gs.InventoryWindow.Position.X != 0 || gs.InventoryWindow.Position.Y != 0 {
 		inventoryWin.Position = eui.Point{X: float32(gs.InventoryWindow.Position.X), Y: float32(gs.InventoryWindow.Position.Y)}
 	} else {
-		inventoryWin.Position = eui.Point{X: 0, Y: 0}
+		inventoryWin.Position = eui.ScreenToNormal(eui.Point{X: 0, Y: 0})
 	}
 
 	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -1592,7 +1593,7 @@ func makePlayersWindow() {
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
 		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
 	} else {
-		playersWin.Size = eui.Point{X: 425, Y: 600}
+		playersWin.Size = eui.ScreenToNormal(eui.Point{X: 425, Y: 600})
 	}
 	playersWin.Closable = true
 	playersWin.Resizable = true
