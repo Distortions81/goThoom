@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Distortions81/EUI/eui"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -115,7 +116,10 @@ type settings struct {
 	ChatWindow      WindowState
 }
 
-var settingsDirty bool
+var (
+	settingsDirty    bool
+	lastSettingsSave = time.Now()
+)
 
 type WindowPoint struct {
 	X float64

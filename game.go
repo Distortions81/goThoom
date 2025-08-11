@@ -321,6 +321,17 @@ func (g *Game) Update() error {
 		initGame()
 	})
 
+	if syncWindowSettings() {
+		settingsDirty = true
+	}
+	if time.Since(lastSettingsSave) >= 5*time.Second {
+		if settingsDirty {
+			saveSettings()
+			settingsDirty = false
+		}
+		lastSettingsSave = time.Now()
+	}
+
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
