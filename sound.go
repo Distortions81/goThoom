@@ -225,14 +225,14 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 
 	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
 	dst := make([]int16, n)
-	ratio := float32(srcRate) / float32(dstRate)
+	ratio := float64(srcRate) / float64(dstRate)
 
-	pos := float32(0)
+	pos := 0.0
 	for i := 0; i < n; i++ {
 		idx := int(pos)
-		frac := pos - float32(idx)
+		frac := pos - float64(idx)
 
-		phase := int(frac*float32(sincPhases) + 0.5)
+		phase := int(frac * float64(sincPhases))
 		if phase >= sincPhases {
 			phase = sincPhases - 1
 		}
