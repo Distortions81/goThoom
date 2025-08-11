@@ -784,14 +784,25 @@ func makeSettingsWindow() {
 	uiScaleSlider.MaxValue = 2.5
 	uiScaleSlider.Value = float32(gs.UIScale)
 	uiScaleSlider.Size = eui.Point{X: width - 10, Y: 24}
+	pendingUIScale := gs.UIScale
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			gs.UIScale = float64(ev.Value)
+			pendingUIScale = float64(ev.Value)
+		}
+	}
+	mainFlow.AddItem(uiScaleSlider)
+
+	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
+	uiScaleApplyBtn.Text = "Apply"
+	uiScaleApplyBtn.Size = eui.Point{X: 60, Y: 24}
+	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			gs.UIScale = pendingUIScale
 			eui.SetUIScale(float32(gs.UIScale))
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(uiScaleSlider)
+	mainFlow.AddItem(uiScaleApplyBtn)
 
 	gameSizeSlider, gameSizeEvents := eui.NewSlider()
 	gameSizeSlider.Label = "Game Window Size"
