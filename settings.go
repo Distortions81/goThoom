@@ -353,6 +353,12 @@ func applyQualityPreset(name string) {
 	}
 	clearCaches()
 	settingsDirty = true
+	if qualityWin != nil {
+		qualityWin.Refresh()
+	}
+	if debugWin != nil {
+		debugWin.Refresh()
+	}
 }
 
 func matchesPreset(p qualityPreset) bool {
