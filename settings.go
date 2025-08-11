@@ -244,27 +244,26 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 }
 
 func clampWindowSettings() {
-	sx, sy := eui.ScreenSize()
 	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow}
 	for _, st := range states {
-		clampWindowState(st, float64(sx), float64(sy))
+		clampWindowState(st)
 	}
 }
 
-func clampWindowState(st *WindowState, sx, sy float64) {
-	if st.Size.X < 100 || st.Size.Y < 100 {
+func clampWindowState(st *WindowState) {
+	if st.Size.X <= 0 || st.Size.Y <= 0 {
 		st.Position = WindowPoint{}
 		st.Size = WindowPoint{}
 		return
 	}
-	if st.Size.X > sx {
-		st.Size.X = sx
+	if st.Size.X > 1 {
+		st.Size.X = 1
 	}
-	if st.Size.Y > sy {
-		st.Size.Y = sy
+	if st.Size.Y > 1 {
+		st.Size.Y = 1
 	}
-	maxX := sx - st.Size.X
-	maxY := sy - st.Size.Y
+	maxX := 1 - st.Size.X
+	maxY := 1 - st.Size.Y
 	if st.Position.X < 0 {
 		st.Position.X = 0
 	} else if st.Position.X > maxX {
