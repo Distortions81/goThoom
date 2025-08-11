@@ -434,6 +434,8 @@ func loadSound(id uint16) []byte {
 		samples = resample(samples, srcRate, dstRate)
 	}
 
+	highpassIIR16(samples, 0.995)
+
 	applyFadeInOut(samples, dstRate)
 
 	pcm := make([]byte, len(samples)*2)
