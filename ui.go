@@ -512,6 +512,7 @@ func makeLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
+	loginWin.PinTo = eui.PIN_MID_CENTER
 	loginWin.Movable = true
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -621,6 +622,7 @@ func makeLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+	loginWin.Open()
 }
 
 func makeErrorWindow(msg string) {
@@ -1098,29 +1100,31 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(filt)
 
-	fastSound, fastSoundEvents := eui.NewCheckbox()
-	fastSound.Text = "Low Quality Sound"
-	fastSound.Size = eui.Point{X: width, Y: 24}
-	fastSound.Checked = gs.fastSound
-	fastSoundEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.fastSound = ev.Checked
-			settingsDirty = true
+	/*
+		fastSound, fastSoundEvents := eui.NewCheckbox()
+		fastSound.Text = "Low Quality Sound"
+		fastSound.Size = eui.Point{X: width, Y: 24}
+		fastSound.Checked = gs.fastSound
+		fastSoundEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventCheckboxChanged {
+				gs.fastSound = ev.Checked
+				settingsDirty = true
 
-			pcmCache = make(map[uint16][]byte)
+				pcmCache = make(map[uint16][]byte)
 
-			if gs.fastSound {
-				resample = resampleLinear
-			} else {
-				initSinc()
-				resample = resampleSincHQ
+				if gs.fastSound {
+					resample = resampleLinear
+				} else {
+					initSinc()
+					resample = resampleSincHQ
+				}
+				soundMu.Lock()
+				pcmCache = make(map[uint16][]byte)
+				soundMu.Unlock()
 			}
-			soundMu.Lock()
-			pcmCache = make(map[uint16][]byte)
-			soundMu.Unlock()
 		}
-	}
-	flow.AddItem(fastSound)
+		flow.AddItem(fastSound)
+	*/
 
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
 	vsyncCB.Text = "Vsync"
@@ -1392,7 +1396,7 @@ func makeDebugWindow() {
 	}
 	soundTestFlow.AddItem(playBtn)
 
-	debugFlow.AddItem(soundTestFlow)
+	//debugFlow.AddItem(soundTestFlow)
 
 	debugWin.AddWindow(false)
 }

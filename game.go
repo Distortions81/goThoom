@@ -1144,6 +1144,7 @@ func initGame() {
 	eui.LoadStyle("RoundHybrid")
 
 	initUI()
+	loadSettings()
 
 	close(gameStarted)
 }
@@ -1172,7 +1173,7 @@ func makeGameWindow() {
 	if gs.GameWindow.Position.X != 0 || gs.GameWindow.Position.Y != 0 {
 		gameWin.Position = eui.Point{X: float32(gs.GameWindow.Position.X), Y: float32(gs.GameWindow.Position.Y)}
 	} else {
-		gameWin.Position = eui.Point{X: float32(ssx/2) - gameWin.Size.X/2, Y: 0}
+		gameWin.Position = eui.Point{X: float32(ssx/2) - gameWin.Size.X/2, Y: 50}
 	}
 
 	gameWin.Closable = false
