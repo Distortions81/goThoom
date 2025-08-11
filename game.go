@@ -515,6 +515,13 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+
+	if debugWin != nil && debugWin.IsOpen() {
+		if frameCounter%5 == 0 {
+			updateDebugStats()
+		}
+	}
+
 	ox, oy := gameContentOrigin()
 	if gameWin != nil {
 		size := gameWin.GetSize()

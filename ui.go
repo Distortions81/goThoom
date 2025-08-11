@@ -985,7 +985,7 @@ func makeQualityWindow() {
 	flow.AddItem(pictFramesSlider)
 
 	showFPSCB, showFPSEvents := eui.NewCheckbox()
-	showFPSCB.Text = "Show FPS"
+	showFPSCB.Text = "Show FPS / UPS"
 	showFPSCB.Size = eui.Point{X: width, Y: 24}
 	showFPSCB.Checked = gs.ShowFPS
 	showFPSEvents.Handle = func(ev eui.UIEvent) {
