@@ -165,9 +165,6 @@ func initSinc() {
 		if wsum != 0 {
 			inv = 1 / wsum
 		}
-		for i := range coeffs {
-			coeffs[i] *= inv
-		}
 		sincTable[p] = coeffs
 		sincInvSums[p] = inv
 	}
@@ -238,24 +235,18 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		}
 		coeffs := sincTable[phase]
 		var sum float64
-		var wsum float64
 
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
 			j := idx + k
 			idxk := k + sincTaps - 1
 			coeff := float64(coeffs[idxk])
-			if j < 0 || j >= len(src) {
-				continue
+			var s float64
+			if j >= 0 && j < len(src) {
+				s = float64(src[j])
 			}
-			sum += float64(src[j]) * coeff
-			wsum += coeff
+			sum += s * coeff
 		}
-		if wsum < 1e-6 {
-			dst[i] = 0
-			pos += ratio
-			continue
-		}
-		sum /= wsum
+		sum *= float64(sincInvSums[phase])
 		if sum > float64(math.MaxInt16) {
 			sum = float64(math.MaxInt16)
 		} else if sum < float64(math.MinInt16) {

@@ -13,8 +13,9 @@ func TestSincNormalization(t *testing.T) {
 		for _, c := range coeffs {
 			sum += c
 		}
-		if math.Abs(float64(sum-1)) > 1e-6 {
-			t.Fatalf("phase %d sum %f out of range", phase, sum)
+		norm := sum * sincInvSums[phase]
+		if math.Abs(float64(norm-1)) > 1e-6 {
+			t.Fatalf("phase %d normalized sum %f out of range", phase, norm)
 		}
 		if sincInvSums[phase] <= 0 {
 			t.Fatalf("phase %d inverse sum %f invalid", phase, sincInvSums[phase])
