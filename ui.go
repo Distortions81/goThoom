@@ -72,6 +72,7 @@ func initUI() {
 	makeGameWindow()
 	makeDownloadsWindow()
 	makeLoginWindow()
+	makeAddCharacterWindow()
 	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
@@ -83,7 +84,6 @@ func initUI() {
 	makeHelpWindow()
 	makeToolbarWindow()
 
-	loginWin.Open()
 	chatWin.Open()
 	messagesWin.Open()
 	inventoryWin.Open()
@@ -328,7 +328,7 @@ func makeDownloadsWindow() {
 					return
 				}
 				downloadWin.Close()
-				makeLoginWindow()
+				loginWin.Open()
 			}()
 		}
 	}
@@ -501,7 +501,7 @@ func makeAddCharacterWindow() {
 	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			addCharWin.Open()
+			loginWin.Open()
 		}
 	}
 	flow.AddItem(cancelBtn)
@@ -520,7 +520,6 @@ func makeLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
-	loginWin.PinTo = eui.PIN_MID_CENTER
 	loginWin.Movable = true
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -544,7 +543,7 @@ func makeLoginWindow() {
 			addCharName = ""
 			addCharPass = ""
 			addCharRemember = false
-			makeAddCharacterWindow()
+
 		}
 	}
 	loginFlow.AddItem(addBtn)
@@ -574,7 +573,7 @@ func makeLoginWindow() {
 					logError("parse movie: %v", err)
 					clmov = ""
 					makeErrorWindow("Error: Open clMov: " + err.Error())
-					makeLoginWindow()
+					loginWin.Open()
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
@@ -621,7 +620,7 @@ func makeLoginWindow() {
 				if err := login(ctx, clientVersion); err != nil {
 					logError("login: %v", err)
 					makeErrorWindow("Error: Login: " + err.Error())
-					makeLoginWindow()
+					loginWin.Open()
 				}
 			}()
 		}
@@ -630,7 +629,6 @@ func makeLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
-	loginWin.Open()
 }
 
 func makeErrorWindow(msg string) {
