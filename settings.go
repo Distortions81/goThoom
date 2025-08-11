@@ -11,7 +11,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-var gs settings = settings{
+var gs settings = gsdef
+
+var gsdef settings = settings{
 	Version: 2,
 
 	LastCharacter:  "",
@@ -24,7 +26,7 @@ var gs settings = settings{
 	SpeechBubbles:  true,
 
 	MotionSmoothing:   true,
-	BlendMobiles:      true,
+	BlendMobiles:      false,
 	BlendPicts:        true,
 	BlendAmount:       1.0,
 	MobileBlendAmount: 0.33,
@@ -143,8 +145,14 @@ func loadSettings() bool {
 	if err != nil {
 		return false
 	}
-	if err := json.Unmarshal(data, &gs); err != nil {
+
+	newGS := gsdef
+	if err := json.Unmarshal(data, &newGS); err != nil {
 		return false
+	}
+
+	if gs.Version == 2 {
+		gs = newGS
 	}
 
 	clampWindowSettings()
