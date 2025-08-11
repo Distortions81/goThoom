@@ -44,11 +44,14 @@ var (
 	frameCacheLabel  *eui.ItemData
 	mobileCacheLabel *eui.ItemData
 	soundCacheLabel  *eui.ItemData
+	mobileBlendLabel *eui.ItemData
+	pictBlendLabel   *eui.ItemData
 	totalCacheLabel  *eui.ItemData
-	soundTestLabel   *eui.ItemData
-	soundTestID      int
-	recordBtn        *eui.ItemData
-	recordStatus     *eui.ItemData
+
+	soundTestLabel *eui.ItemData
+	soundTestID    int
+	recordBtn      *eui.ItemData
+	recordStatus   *eui.ItemData
 )
 
 func initUI() {
@@ -1229,6 +1232,18 @@ func makeDebugWindow() {
 	soundCacheLabel.FontSize = 10
 	debugFlow.AddItem(soundCacheLabel)
 
+	mobileBlendLabel, _ = eui.NewText()
+	mobileBlendLabel.Text = ""
+	mobileBlendLabel.Size = eui.Point{X: width, Y: 24}
+	mobileBlendLabel.FontSize = 10
+	debugFlow.AddItem(mobileBlendLabel)
+
+	pictBlendLabel, _ = eui.NewText()
+	pictBlendLabel.Text = ""
+	pictBlendLabel.Size = eui.Point{X: width, Y: 24}
+	pictBlendLabel.FontSize = 10
+	debugFlow.AddItem(pictBlendLabel)
+
 	clearCacheBtn, clearCacheEvents := eui.NewButton()
 	clearCacheBtn.Text = "Clear All Caches"
 	clearCacheBtn.Size = eui.Point{X: width, Y: 24}
@@ -1330,7 +1345,7 @@ func updateDebugStats() {
 		return
 	}
 
-	sheetCount, sheetBytes, frameCount, frameBytes, mobileCount, mobileBytes := imageCacheStats()
+	sheetCount, sheetBytes, frameCount, frameBytes, mobileCount, mobileBytes, mobileBlendCount, mobileBlendBytes, pictBlendCount, pictBlendBytes := imageCacheStats()
 	soundCount, soundBytes := soundCacheStats()
 
 	if sheetCacheLabel != nil {
@@ -1345,12 +1360,20 @@ func updateDebugStats() {
 		mobileCacheLabel.Text = fmt.Sprintf("Mobile Animation Frames: %d (%s)", mobileCount, humanize.Bytes(uint64(mobileBytes)))
 		mobileCacheLabel.Dirty = true
 	}
+	if mobileBlendLabel != nil {
+		mobileBlendLabel.Text = fmt.Sprintf("Mobile Blend Frames: %d (%s)", mobileBlendCount, humanize.Bytes(uint64(mobileBlendBytes)))
+		mobileBlendLabel.Dirty = true
+	}
+	if pictBlendLabel != nil {
+		pictBlendLabel.Text = fmt.Sprintf("World Blend Frames: %d (%s)", pictBlendCount, humanize.Bytes(uint64(pictBlendBytes)))
+		pictBlendLabel.Dirty = true
+	}
 	if soundCacheLabel != nil {
 		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%s)", soundCount, humanize.Bytes(uint64(soundBytes)))
 		soundCacheLabel.Dirty = true
 	}
 	if totalCacheLabel != nil {
-		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(sheetBytes+frameBytes+mobileBytes+soundBytes)))
+		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(sheetBytes+frameBytes+mobileBytes+soundBytes+mobileBlendBytes+pictBlendBytes)))
 		totalCacheLabel.Dirty = true
 	}
 }

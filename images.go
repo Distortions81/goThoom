@@ -341,7 +341,7 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 
 // imageCacheStats returns the counts and approximate memory usage in bytes for
 // each of the image caches: sheetCache, imageCache, and mobileCache.
-func imageCacheStats() (sheetCount, sheetBytes, frameCount, frameBytes, mobileCount, mobileBytes int) {
+func imageCacheStats() (sheetCount, sheetBytes, frameCount, frameBytes, mobileCount, mobileBytes, mobileBlendCount, mobileBlendBytes, pictBlendCount, pictBlendBytes int) {
 	imageMu.Lock()
 	defer imageMu.Unlock()
 
@@ -364,6 +364,20 @@ func imageCacheStats() (sheetCount, sheetBytes, frameCount, frameBytes, mobileCo
 			mobileCount++
 			b := img.Bounds()
 			mobileBytes += b.Dx() * b.Dy() * 4
+		}
+	}
+	for _, img := range mobileBlendCache {
+		if img != nil {
+			mobileBlendCount++
+			b := img.Bounds()
+			mobileBlendBytes += b.Dx() * b.Dy() * 4
+		}
+	}
+	for _, img := range pictBlendCache {
+		if img != nil {
+			pictBlendCount++
+			b := img.Bounds()
+			pictBlendBytes += b.Dx() * b.Dy() * 4
 		}
 	}
 	return
