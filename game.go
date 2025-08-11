@@ -515,7 +515,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawSplash(screen, ox, oy)
 		eui.Draw(screen)
 		if gs.ShowFPS {
-			drawServerFPS(screen, ox, oy, serverFPS)
+			drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
 		}
 		return
 	}
@@ -546,7 +546,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	eui.Draw(screen)
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	if gs.ShowFPS {
-		drawServerFPS(screen, 0, 0, serverFPS)
+		drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
 	}
 }
 
@@ -1042,7 +1042,6 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 }
 
 func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
-	return
 	if fps <= 0 {
 		return
 	}
@@ -1050,7 +1049,7 @@ func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
 	msg := fmt.Sprintf("FPS: %0.2f UPS: %0.2f LAT: %dms", ebiten.ActualFPS(), fps, lat.Milliseconds())
 	w, _ := text.Measure(msg, mainFont, 0)
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(ox)+float64(gameAreaSizeX)*gs.scale-w-4*gs.scale, float64(oy)+4*gs.scale)
+	op.GeoM.Translate(float64(ox)-w, float64(oy))
 	text.Draw(screen, msg, mainFont, op)
 }
 
@@ -1137,7 +1136,7 @@ func initGame() {
 
 func makeGameWindow() {
 	ssx, _ := eui.ScreenSize()
-	size := eui.Point{X: 500, Y: 500}
+	size := eui.Point{X: gameAreaSizeX, Y: gameAreaSizeY}
 
 	gameWin = eui.NewWindow()
 	gameWin.Title = ""
@@ -1155,7 +1154,6 @@ func makeGameWindow() {
 	gameWin.Resizable = true
 	gameWin.Movable = true
 	gameWin.MainPortal = true
-	gameWin.Size = size
 	gameWin.FixedRatio = true
 	gameWin.AspectA = 1
 	gameWin.AspectB = 1
