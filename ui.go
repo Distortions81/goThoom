@@ -21,11 +21,17 @@ import (
 )
 
 var (
-	TOP_RIGHT = eui.Point{X: 1, Y: 0}
-	TOP_LEFT  = eui.Point{X: 0, Y: 0}
+	TOP_RIGHT  = eui.Point{X: 1, Y: 0}
+	TOP_CENTER = eui.Point{X: 0.5, Y: 0}
+	TOP_LEFT   = eui.Point{X: 0, Y: 0}
 
-	BOTTOM_LEFT  = eui.Point{X: 0, Y: 1}
-	BOTTOM_RIGHT = eui.Point{X: 1, Y: 1}
+	MID_RIGHT  = eui.Point{X: 1, Y: 0.5}
+	MID_CENTER = eui.Point{X: 0.5, Y: 0.5}
+	MID_LEFT   = eui.Point{X: 0, Y: 0.5}
+
+	BOTTOM_LEFT   = eui.Point{X: 0, Y: 1}
+	BOTTOM_CENTER = eui.Point{X: 0.5, Y: 1}
+	BOTTOM_RIGHT  = eui.Point{X: 1, Y: 1}
 )
 
 var loginWin *eui.WindowData
@@ -437,7 +443,6 @@ func makeAddCharacterWindow() {
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
 	addCharWin.Movable = true
-	//addCharWin.PinTo = eui.PIN_MID_CENTER
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -519,7 +524,7 @@ func makeLoginWindow() {
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
 	loginWin.Movable = true
-	//loginWin.PinTo = eui.PIN_MID_CENTER
+	loginWin.Position = MID_CENTER
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
