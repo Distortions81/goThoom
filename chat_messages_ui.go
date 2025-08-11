@@ -51,7 +51,7 @@ func makeChatWindow() {
 	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
 		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X) * float32(sx), Y: float32(gs.ChatWindow.Size.Y) * float32(sy)}
 	} else {
-		chatWin.Size = eui.ScreenToNormal(eui.Point{X: 425, Y: 350})
+		chatWin.Size = eui.ScreenToNorm(eui.Point{X: 425, Y: 350})
 	}
 	chatWin.Closable = true
 	chatWin.Resizable = true

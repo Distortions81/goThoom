@@ -51,9 +51,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.AutoSize = false
 	win.NoScroll = true
 	win.BGColor = eui.Color{R: 64, G: 64, B: 64, A: 64}
-	win.Size = eui.ScreenToNormal(size)
+	win.Size = eui.ScreenToNorm(size)
 	pos := eui.Point{X: float32(ssx)/2 - size.X/2, Y: 50}
-	win.Position = eui.ScreenToNormal(pos)
+	win.Position = eui.ScreenToNorm(pos)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 

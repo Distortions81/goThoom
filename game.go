@@ -1174,7 +1174,7 @@ func makeGameWindow() {
 		}
 		size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
 	}
-	gameWin.Size = eui.ScreenToNormal(size)
+	gameWin.Size = eui.ScreenToNorm(size)
 
 	if gs.GameWindow.Position.X != 0 || gs.GameWindow.Position.Y != 0 {
 		gameWin.Position = eui.Point{X: float32(gs.GameWindow.Position.X) * float32(ssx), Y: float32(gs.GameWindow.Position.Y) * float32(ssy)}
