@@ -255,14 +255,6 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	return frame
 }
 
-func nextPow2(n int) int {
-	p := 1
-	for p < n {
-		p <<= 1
-	}
-	return p
-}
-
 func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
 	if prevImg == nil || img == nil {
 		return nil
@@ -279,16 +271,15 @@ func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, tota
 	if s := prevImg.Bounds().Dx(); s > size {
 		size = s
 	}
-	drawSize := nextPow2(size)
-	blended := ebiten.NewImage(drawSize, drawSize)
+	blended := ebiten.NewImage(size, size)
 	alpha := float32(step) / float32(total)
-	offPrev := (drawSize - prevImg.Bounds().Dx()) / 2
+	offPrev := (size - prevImg.Bounds().Dx()) / 2
 	op1 := &ebiten.DrawImageOptions{}
 	op1.ColorScale.ScaleAlpha(1 - alpha)
 	op1.Blend = ebiten.BlendCopy
 	op1.GeoM.Translate(float64(offPrev), float64(offPrev))
 	blended.DrawImage(prevImg, op1)
-	offCur := (drawSize - img.Bounds().Dx()) / 2
+	offCur := (size - img.Bounds().Dx()) / 2
 	op2 := &ebiten.DrawImageOptions{}
 	op2.ColorScale.ScaleAlpha(alpha)
 	op2.Blend = ebiten.BlendLighter
@@ -314,28 +305,25 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 
 	w1, h1 := prevImg.Bounds().Dx(), prevImg.Bounds().Dy()
 	w2, h2 := img.Bounds().Dx(), img.Bounds().Dy()
-	size := w1
-	if h1 > size {
-		size = h1
+	w := w1
+	if w2 > w {
+		w = w2
 	}
-	if w2 > size {
-		size = w2
+	h := h1
+	if h2 > h {
+		h = h2
 	}
-	if h2 > size {
-		size = h2
-	}
-	drawSize := nextPow2(size)
-	blended := ebiten.NewImage(drawSize, drawSize)
+	blended := ebiten.NewImage(w, h)
 	alpha := float32(step) / float32(total)
-	offPrevX := (drawSize - w1) / 2
-	offPrevY := (drawSize - h1) / 2
+	offPrevX := (w - w1) / 2
+	offPrevY := (h - h1) / 2
 	op1 := &ebiten.DrawImageOptions{}
 	op1.ColorScale.ScaleAlpha(1 - alpha)
 	op1.Blend = ebiten.BlendCopy
 	op1.GeoM.Translate(float64(offPrevX), float64(offPrevY))
 	blended.DrawImage(prevImg, op1)
-	offCurX := (drawSize - w2) / 2
-	offCurY := (drawSize - h2) / 2
+	offCurX := (w - w2) / 2
+	offCurY := (h - h2) / 2
 	op2 := &ebiten.DrawImageOptions{}
 	op2.ColorScale.ScaleAlpha(alpha)
 	op2.Blend = ebiten.BlendLighter
