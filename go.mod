@@ -14,7 +14,7 @@ require (
 	maze.io/x/math32 v0.0.0-20181106113604-c78ed91899f1
 )
 
-replace github.com/Distortions81/EUI => /home/dist/github/EUI/
+//replace github.com/Distortions81/EUI => /home/dist/github/EUI/
 
 require github.com/ebitengine/oto/v3 v3.3.3 // indirect
 
