@@ -1047,6 +1047,9 @@ func makeDebugWindow() {
 				initSinc()
 				resample = resampleSincHQ
 			}
+			soundMu.Lock()
+			pcmCache = make(map[uint16][]byte)
+			soundMu.Unlock()
 		}
 	}
 	debugFlow.AddItem(fastSound)

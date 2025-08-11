@@ -25,7 +25,7 @@ var (
 
 	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
-	resample     = resampleSincHQ
+	resample     = resampleLinear
 
 	blackmanCosA  [2 * sincTaps]float32
 	blackmanSinA  [2 * sincTaps]float32
@@ -305,24 +305,11 @@ func u8ToS16TPDF(data []byte, seed uint32) []int16 {
 	return out
 }
 
-func lowpassIIR16(x []int16, alpha float64) {
-	if len(x) == 0 {
-		return
-	}
-	// alpha ~ 0.1..0.3 for subtle smoothing
-	y := float64(x[0])
-	for i := range x {
-		xn := float64(x[i])
-		y += alpha * (xn - y)
-		x[i] = int16(math.Round(y))
-	}
-}
-
 // applyFadeInOut applies a tiny fade to the start and end of the samples
 // to avoid clicks when sounds begin or end abruptly. The fade length is
 // approximately 5ms of audio.
 func applyFadeInOut(samples []int16, rate int) {
-	fade := 441
+	fade := 220
 	if fade <= 1 {
 		return
 	}
@@ -410,15 +397,7 @@ func loadSound(id uint16) []byte {
 	var samples []int16
 	switch s.Bits {
 	case 8:
-		if gs.fastSound {
-			samples = make([]int16, len(s.Data))
-			for i, b := range s.Data {
-				v := int16(b) - 0x80
-				samples[i] = v << 8
-			}
-		} else {
-			samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
-		}
+		samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
 	case 16:
 		if len(s.Data)%2 != 0 {
 			s.Data = append(s.Data, 0x00)
@@ -435,8 +414,6 @@ func loadSound(id uint16) []byte {
 		logDebug("loadSound(%d) resampling from %d to %d", id, srcRate, dstRate)
 		samples = resample(samples, srcRate, dstRate)
 	}
-
-	highpassIIR16(samples, 0.995)
 
 	applyFadeInOut(samples, dstRate)
 
