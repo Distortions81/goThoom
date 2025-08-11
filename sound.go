@@ -96,24 +96,34 @@ func initSoundContext() {
 }
 
 func updateSoundVolume() {
-	soundMu.Lock()
 	vol := gs.Volume
 	if gs.Mute {
 		vol = 0
 	}
+
+	soundMu.Lock()
 	players := make([]*audio.Player, 0, len(soundPlayers))
 	for sp := range soundPlayers {
-		if sp.IsPlaying() {
-			players = append(players, sp)
-		} else {
-			sp.Close()
-			delete(soundPlayers, sp)
-		}
+		players = append(players, sp)
 	}
 	soundMu.Unlock()
 
+	stopped := make([]*audio.Player, 0)
 	for _, sp := range players {
-		sp.SetVolume(vol)
+		if sp.IsPlaying() {
+			sp.SetVolume(vol)
+		} else {
+			stopped = append(stopped, sp)
+		}
+	}
+
+	if len(stopped) > 0 {
+		soundMu.Lock()
+		defer soundMu.Unlock()
+		for _, sp := range stopped {
+			delete(soundPlayers, sp)
+			sp.Close()
+		}
 	}
 }
 
