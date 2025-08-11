@@ -108,26 +108,18 @@ func makeToolbarWindow() {
 	winBtn.FontSize = 18
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if ev.Checked {
-				windowsWin.Open()
-			} else {
-				windowsWin.Close()
-			}
+			windowsWin.Toggle()
 		}
 	}
 	gameMenu.AddItem(winBtn)
 
-	btn, btnEvents := eui.NewButton()
+	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
 	btn.Size = eui.Point{X: 128, Y: 24}
 	btn.FontSize = 18
-	btnEvents.Handle = func(ev eui.UIEvent) {
+	setEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if ev.Checked {
-				settingsWin.Open()
-			} else {
-				settingsWin.Close()
-			}
+			settingsWin.Toggle()
 		}
 	}
 	gameMenu.AddItem(btn)
@@ -138,11 +130,7 @@ func makeToolbarWindow() {
 	helpBtn.FontSize = 18
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if ev.Checked {
-				helpWin.Open()
-			} else {
-				helpWin.Close()
-			}
+			helpWin.Toggle()
 		}
 	}
 	gameMenu.AddItem(helpBtn)
@@ -186,7 +174,7 @@ func makeToolbarWindow() {
 	gameMenu.AddItem(muteBtn)
 
 	recordBtn, recordEvents := eui.NewButton()
-	recordBtn.Text = "Record Movie"
+	recordBtn.Text = "Record"
 	recordBtn.Size = eui.Point{X: 128, Y: 24}
 	recordBtn.FontSize = 18
 	recordEvents.Handle = func(ev eui.UIEvent) {
@@ -939,7 +927,7 @@ func makeSettingsWindow() {
 	debugBtn.Size = eui.Point{X: width, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			makeDebugWindow()
+			debugWin.Toggle()
 		}
 	}
 	mainFlow.AddItem(debugBtn)
