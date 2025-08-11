@@ -1,10 +1,10 @@
-# ClanLord Client
+# ThoomSpeak
 
-A pre-alpha open source (MIT) client for the Clan Lord MMORPG.
+ThoomSpeak is a pre-alpha, MIT-licensed Go client for the Clan Lord MMORPG.
 
-This repository hosts the Go implementation of the client. The
-`old_mac_client/` directory contains a historical C implementation provided
-for reference only (do not modify).
+This repository hosts the Go implementation of the client. The `old_mac_client/`
+directory contains a historical C implementation provided for reference only
+and should not be modified.
 
 ## Quick Start
 
@@ -61,6 +61,7 @@ The Go client accepts the following flags:
 ## Data and Logging
 
 - The default server is `server.deltatao.com:5010`; override it with `-host`.
-- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from `https://www.deltatao.com/downloads/clanlord`.
-  They are saved as `CL_Images` and `CL_Sounds`.
+- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from
+  `https://www.deltatao.com/downloads/clanlord`. They are saved as `CL_Images` and
+  `CL_Sounds`.
 
