@@ -38,26 +38,10 @@ var gsdef settings = settings{
 	ShowFPS:           true,
 	UIScale:           1.0,
 	Fullscreen:        false,
-
-	imgPlanesDebug:    false,
-	smoothingDebug:    false,
-	hideMoving:        false,
-	hideMobiles:       false,
-	vsync:             true,
-	fastSound:         true,
-	nightEffect:       true,
-	precacheSounds:    false,
-	precacheImages:    false,
-	textureFiltering:  false,
-	lateInputUpdates:  false,
-	cacheWholeSheet:   true,
-	smoothMoving:      true,
-	fastBars:          true,
-	bubbleMessages:    false,
 	Volume:            0.5,
 	Mute:              false,
-	recordAssetStats:  false,
-	scale:             2,
+	GameScale:         2,
+	MessagesToConsole: false,
 	AnyGameWindowSize: false,
 
 	GameWindow:      WindowState{Open: true},
@@ -65,6 +49,22 @@ var gsdef settings = settings{
 	PlayersWindow:   WindowState{Open: true},
 	MessagesWindow:  WindowState{Open: true},
 	ChatWindow:      WindowState{Open: true},
+
+	imgPlanesDebug:   false,
+	smoothingDebug:   false,
+	hideMoving:       false,
+	hideMobiles:      false,
+	vsync:            true,
+	fastSound:        true,
+	nightEffect:      true,
+	precacheSounds:   false,
+	precacheImages:   false,
+	textureFiltering: false,
+	lateInputUpdates: false,
+	cacheWholeSheet:  true,
+	smoothMoving:     true,
+	fastBars:         true,
+	recordAssetStats: false,
 }
 
 type settings struct {
@@ -92,6 +92,16 @@ type settings struct {
 	ShowFPS           bool
 	UIScale           float64
 	Fullscreen        bool
+	Volume            float64
+	Mute              bool
+	AnyGameWindowSize bool
+	GameScale         float64
+
+	GameWindow      WindowState
+	InventoryWindow WindowState
+	PlayersWindow   WindowState
+	MessagesWindow  WindowState
+	ChatWindow      WindowState
 
 	imgPlanesDebug    bool
 	smoothingDebug    bool
@@ -107,18 +117,8 @@ type settings struct {
 	cacheWholeSheet   bool
 	smoothMoving      bool
 	fastBars          bool
-	bubbleMessages    bool
-	Volume            float64
-	Mute              bool
+	MessagesToConsole bool
 	recordAssetStats  bool
-	scale             float64
-	AnyGameWindowSize bool
-
-	GameWindow      WindowState
-	InventoryWindow WindowState
-	PlayersWindow   WindowState
-	MessagesWindow  WindowState
-	ChatWindow      WindowState
 }
 
 var (

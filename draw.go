@@ -1010,7 +1010,7 @@ func parseDrawState(data []byte) error {
 				}
 			}
 			chatMessage(msg)
-			if gs.bubbleMessages {
+			if gs.MessagesToConsole {
 				consoleMessage(msg)
 			}
 		}

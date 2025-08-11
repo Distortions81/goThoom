@@ -810,7 +810,7 @@ func makeSettingsWindow() {
 	gameSizeSlider.MinValue = 1
 	gameSizeSlider.MaxValue = 5
 	gameSizeSlider.IntOnly = true
-	gsVal := gs.scale
+	gsVal := gs.GameScale
 	if gsVal < 1 {
 		gsVal = 1
 	} else if gsVal > 5 {
@@ -821,9 +821,9 @@ func makeSettingsWindow() {
 	gameSizeSlider.Disabled = gs.AnyGameWindowSize
 	gameSizeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			gs.scale = float64(ev.Value)
+			gs.GameScale = float64(ev.Value)
 			if gameWin != nil {
-				gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.scale), Y: float32(gameAreaSizeY) * float32(gs.scale)}
+				gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
 			}
 			initFont()
 			settingsDirty = true
@@ -852,7 +852,7 @@ func makeSettingsWindow() {
 					gameSizeSlider.Disabled = true
 				} else {
 					gameSizeSlider.Disabled = false
-					gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.scale), Y: float32(gameAreaSizeY) * float32(gs.scale)}
+					gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
 				}
 			}
 			settingsDirty = true
@@ -1242,10 +1242,10 @@ func makeDebugWindow() {
 	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox()
 	bubbleMsgCB.Text = "Chat to console"
 	bubbleMsgCB.Size = eui.Point{X: width, Y: 24}
-	bubbleMsgCB.Checked = gs.bubbleMessages
+	bubbleMsgCB.Checked = gs.MessagesToConsole
 	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.bubbleMessages = ev.Checked
+			gs.MessagesToConsole = ev.Checked
 			settingsDirty = true
 		}
 	}
