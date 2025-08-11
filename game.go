@@ -104,6 +104,7 @@ var (
 var gameWin *eui.WindowData
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
+var qualityWin *eui.WindowData
 var gameCtx context.Context
 var drawFilter = ebiten.FilterNearest
 var frameCounter int
