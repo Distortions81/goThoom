@@ -31,8 +31,8 @@ var (
 	blackmanCosA2 [2 * sincTaps]float32
 	blackmanSinA2 [2 * sincTaps]float32
 
-	sincTable [][]float32
-	sincSums  []float32
+	sincTable   [][]float32
+	sincInvSums []float32
 
 	playSound = func(id uint16) {
 		logDebug("playSound(%d) called", id)
@@ -140,7 +140,7 @@ func initSinc() {
 	}
 
 	sincTable = make([][]float32, sincPhases)
-	sincSums = make([]float32, sincPhases)
+	sincInvSums = make([]float32, sincPhases)
 	for p := 0; p < sincPhases; p++ {
 		frac := float32(p) / float32(sincPhases)
 		b := (2 * math.Pi / float64(sincTaps)) * float64(frac)
@@ -159,8 +159,16 @@ func initSinc() {
 			coeffs[idx] = coeff
 			wsum += coeff
 		}
+
+		inv := float32(0)
+		if wsum != 0 {
+			inv = 1 / wsum
+		}
+		for i := range coeffs {
+			coeffs[i] *= inv
+		}
 		sincTable[p] = coeffs
-		sincSums[p] = wsum
+		sincInvSums[p] = inv
 	}
 }
 
@@ -228,7 +236,7 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 			phase = sincPhases - 1
 		}
 		coeffs := sincTable[phase]
-		wsum := sincSums[phase]
+		wsum := float32(1)
 		var sum float32
 
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
@@ -241,8 +249,12 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 			}
 			sum += float32(src[j]) * coeff
 		}
-
-		if wsum != 0 {
+		if wsum < 1e-6 {
+			dst[i] = 0
+			pos += ratio
+			continue
+		}
+		if wsum != 1 {
 			sum /= wsum
 		}
 		if sum > float32(math.MaxInt16) {
