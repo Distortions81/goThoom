@@ -229,24 +229,35 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 		idx := int(pos)
 		frac := pos - float64(idx)
 
-		phase := int(frac * float64(sincPhases))
-		if phase >= sincPhases {
+		phaseF := frac * float64(sincPhases)
+		phase := int(phaseF)
+		fracPhase := phaseF - float64(phase)
+		if phase >= sincPhases-1 {
 			phase = sincPhases - 1
+			fracPhase = 0
 		}
-		coeffs := sincTable[phase]
+		coeffs0 := sincTable[phase]
+		coeffs1 := coeffs0
+		inv0 := sincInvSums[phase]
+		inv1 := inv0
+		if next := phase + 1; next < sincPhases {
+			coeffs1 = sincTable[next]
+			inv1 = sincInvSums[next]
+		}
 		var sum float64
 
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
 			j := idx + k
 			idxk := k + sincTaps - 1
-			coeff := float64(coeffs[idxk])
+			coeff := float64(coeffs0[idxk])*(1-fracPhase) + float64(coeffs1[idxk])*fracPhase
 			var s float64
 			if j >= 0 && j < len(src) {
 				s = float64(src[j])
 			}
 			sum += s * coeff
 		}
-		sum *= float64(sincInvSums[phase])
+		inv := float64(inv0)*(1-fracPhase) + float64(inv1)*fracPhase
+		sum *= inv
 		if sum > float64(math.MaxInt16) {
 			sum = float64(math.MaxInt16)
 		} else if sum < float64(math.MinInt16) {
