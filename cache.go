@@ -31,10 +31,6 @@ func clearCaches() {
 	if clSounds != nil {
 		clSounds.ClearCache()
 	}
-
-	poolMu.Lock()
-	imgPool = make(map[int][]*ebiten.Image)
-	poolMu.Unlock()
 }
 
 var assetsPrecached = false

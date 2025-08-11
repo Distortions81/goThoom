@@ -913,6 +913,7 @@ func makeQualityWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
 			settingsDirty = true
+			mobileBlendCache = map[mobileBlendKey]*ebiten.Image{}
 		}
 	}
 	flow.AddItem(anim)
@@ -925,6 +926,7 @@ func makeQualityWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
 			settingsDirty = true
+			pictBlendCache = map[pictBlendKey]*ebiten.Image{}
 		}
 	}
 	flow.AddItem(pictBlend)

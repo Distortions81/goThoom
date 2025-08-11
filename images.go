@@ -255,6 +255,14 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	return frame
 }
 
+func nextPow2(n int) int {
+	p := 1
+	for p < n {
+		p <<= 1
+	}
+	return p
+}
+
 func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
 	if prevImg == nil || img == nil {
 		return nil
