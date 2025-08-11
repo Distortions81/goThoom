@@ -126,15 +126,21 @@ var (
 	lastSettingsSave = time.Now()
 )
 
+// WindowPoint represents a normalized point on the screen where 0 and 1
+// correspond to the minimum and maximum screen extents respectively.
 type WindowPoint struct {
 	X float64
 	Y float64
 }
 
+// WindowState stores window visibility and geometry using normalized values in
+// the range [0,1].
 type WindowState struct {
-	Open     bool
+	Open bool
+	// Position holds the normalized top-left corner of the window.
 	Position WindowPoint
-	Size     WindowPoint
+	// Size represents the normalized width and height of the window.
+	Size WindowPoint
 }
 
 const settingsFile = "settings.json"
@@ -230,12 +236,13 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		state.Open = win.IsOpen()
 		changed = true
 	}
-	pos := WindowPoint{X: float64(win.Position.X), Y: float64(win.Position.Y)}
+	sx, sy := eui.ScreenSize()
+	pos := WindowPoint{X: float64(win.Position.X) / float64(sx), Y: float64(win.Position.Y) / float64(sy)}
 	if state.Position != pos {
 		state.Position = pos
 		changed = true
 	}
-	size := WindowPoint{X: float64(win.Size.X), Y: float64(win.Size.Y)}
+	size := WindowPoint{X: float64(win.Size.X) / float64(sx), Y: float64(win.Size.Y) / float64(sy)}
 	if state.Size != size {
 		state.Size = size
 		changed = true
@@ -251,28 +258,20 @@ func clampWindowSettings() {
 }
 
 func clampWindowState(st *WindowState) {
-	if st.Size.X <= 0 || st.Size.Y <= 0 {
+	if st.Size.X <= 0 || st.Size.X > 1 || st.Size.Y <= 0 || st.Size.Y > 1 {
 		st.Position = WindowPoint{}
 		st.Size = WindowPoint{}
 		return
 	}
-	if st.Size.X > 1 {
-		st.Size.X = 1
-	}
-	if st.Size.Y > 1 {
-		st.Size.Y = 1
-	}
-	maxX := 1 - st.Size.X
-	maxY := 1 - st.Size.Y
 	if st.Position.X < 0 {
 		st.Position.X = 0
-	} else if st.Position.X > maxX {
-		st.Position.X = maxX
+	} else if st.Position.X > 1 {
+		st.Position.X = 1
 	}
 	if st.Position.Y < 0 {
 		st.Position.Y = 0
-	} else if st.Position.Y > maxY {
-		st.Position.Y = maxY
+	} else if st.Position.Y > 1 {
+		st.Position.Y = 1
 	}
 }
 

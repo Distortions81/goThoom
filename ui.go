@@ -1566,11 +1566,12 @@ func makeInventoryWindow() {
 	inventoryWin.Movable = true
 	inventoryWin.Size = eui.ScreenToNormal(eui.Point{X: 425, Y: 600})
 
+	sx, sy := eui.ScreenSize()
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
-		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
+		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X) * float32(sx), Y: float32(gs.InventoryWindow.Size.Y) * float32(sy)}
 	}
 	if gs.InventoryWindow.Position.X != 0 || gs.InventoryWindow.Position.Y != 0 {
-		inventoryWin.Position = eui.Point{X: float32(gs.InventoryWindow.Position.X), Y: float32(gs.InventoryWindow.Position.Y)}
+		inventoryWin.Position = eui.Point{X: float32(gs.InventoryWindow.Position.X) * float32(sx), Y: float32(gs.InventoryWindow.Position.Y) * float32(sy)}
 	} else {
 		inventoryWin.Position = eui.ScreenToNormal(eui.Point{X: 0, Y: 0})
 	}
@@ -1590,8 +1591,9 @@ func makePlayersWindow() {
 	}
 	playersWin = eui.NewWindow()
 	playersWin.Title = "Players"
+	sx, sy := eui.ScreenSize()
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
-		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
+		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X) * float32(sx), Y: float32(gs.PlayersWindow.Size.Y) * float32(sy)}
 	} else {
 		playersWin.Size = eui.ScreenToNormal(eui.Point{X: 425, Y: 600})
 	}
@@ -1600,7 +1602,7 @@ func makePlayersWindow() {
 	playersWin.Movable = true
 	playersWin.Position = TOP_RIGHT
 	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
-		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}
+		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X) * float32(sx), Y: float32(gs.PlayersWindow.Position.Y) * float32(sy)}
 	}
 
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
