@@ -33,11 +33,14 @@ func handleDisconnect() {
 	makeLoginWindow()
 }
 
+const CL_ImagesFile = "CL_Images"
+const CL_SoundsFile = "CL_Sounds"
+
 // login connects to the server and performs the login handshake.
 // It runs the network loops and blocks until the context is canceled.
 func login(ctx context.Context, clientVersion int) error {
 	for {
-		imagesVersion, err := readKeyFileVersion(filepath.Join(dataDir, "CL_Images"))
+		imagesVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_ImagesFile))
 		imagesMissing := false
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -50,7 +53,7 @@ func login(ctx context.Context, clientVersion int) error {
 			}
 		}
 
-		soundsVersion, err := readKeyFileVersion(filepath.Join(dataDir, "CL_Sounds"))
+		soundsVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_SoundsFile))
 		soundsMissing := false
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -260,7 +263,7 @@ func login(ctx context.Context, clientVersion int) error {
 
 		if result == -30972 || result == -30973 {
 			logDebug("server requested update, downloading...")
-			if err := autoUpdate(resp, dataDir); err != nil {
+			if err := autoUpdate(resp, dataDirPath); err != nil {
 				tcpConn.Close()
 				udpConn.Close()
 				return fmt.Errorf("auto update: %w", err)

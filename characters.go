@@ -6,9 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
 )
-
-const charactersFilePath = "data/characters.json"
 
 // Character holds a saved character name and password hash.
 type Character struct {
@@ -18,17 +17,12 @@ type Character struct {
 
 var characters []Character
 
-func charactersPath() string {
-	return "data/characters.json"
-}
+const charsFilePath = "characters.json"
 
 // loadCharacters reads the characters.json file if it exists.
 func loadCharacters() {
 
-	//handle older client location
-	os.Rename("characters.json", charactersFilePath)
-
-	data, err := os.ReadFile(charactersPath())
+	data, err := os.ReadFile(filepath.Join(dataDirPath, charsFilePath))
 	if err != nil {
 		return
 	}
@@ -42,7 +36,7 @@ func saveCharacters() {
 		log.Printf("save characters: %v", err)
 		return
 	}
-	if err := os.WriteFile(charactersPath(), data, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dataDirPath, charsFilePath), data, 0644); err != nil {
 		log.Printf("save characters: %v", err)
 	}
 }

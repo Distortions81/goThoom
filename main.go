@@ -19,7 +19,6 @@ import (
 
 var (
 	clMovFPS int = 5
-	dataDir  string
 
 	host        string = "server.deltatao.com:5010"
 	account     string
@@ -49,7 +48,6 @@ func main() {
 	}
 
 	var err error
-	dataDir = "data"
 
 	loadSettings()
 	loadCharacters()
@@ -96,7 +94,7 @@ func main() {
 	}()
 	addMessage("Starting...")
 
-	clImages, err = climg.Load(filepath.Join("data/CL_Images"))
+	clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)
 	} else {

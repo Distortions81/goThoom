@@ -14,6 +14,9 @@ type assetStats struct {
 	Sounds map[uint16]int `json:"sounds"`
 }
 
+const statsFile = "stats.json"
+const dataDirPath = "data"
+
 var (
 	stats      assetStats
 	statsMu    sync.Mutex
@@ -24,7 +27,7 @@ func loadStats() {
 	stats.Images = make(map[uint16]int)
 	stats.Sounds = make(map[uint16]int)
 
-	path := filepath.Join("data", "stats.json")
+	path := filepath.Join(dataDirPath, statsFile)
 	if data, err := os.ReadFile(path); err == nil {
 		if err := json.Unmarshal(data, &stats); err != nil {
 			log.Printf("load stats: %v", err)
@@ -58,7 +61,7 @@ func saveStats() {
 		log.Printf("save stats: %v", err)
 		return
 	}
-	path := filepath.Join("data", "stats.json")
+	path := filepath.Join(dataDirPath, statsFile)
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save stats: %v", err)
 	}

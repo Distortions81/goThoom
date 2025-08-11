@@ -52,7 +52,7 @@ var (
 )
 
 func initUI() {
-	status, err := checkDataFiles(dataDir, clientVersion)
+	status, err := checkDataFiles(clientVersion)
 	if err != nil {
 		logError("check data files: %v", err)
 	}
@@ -292,12 +292,12 @@ func makeDownloadsWindow() {
 				dlMutex.Lock()
 				defer dlMutex.Unlock()
 
-				if err := downloadDataFiles(dataDir, clientVersion, status); err != nil {
+				if err := downloadDataFiles(clientVersion, status); err != nil {
 					logError("download data files: %v", err)
 					makeErrorWindow("Error: Download Data Files: " + err.Error())
 					return
 				}
-				clImages, err := climg.Load(filepath.Join("data/CL_Images"))
+				clImages, err := climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 				if err != nil {
 					logError("failed to load CL_Images: %v", err)
 					return

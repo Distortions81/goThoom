@@ -82,14 +82,14 @@ func autoUpdate(resp []byte, dataDir string) error {
 	sndVer := binary.BigEndian.Uint32(resp[12:16])
 	imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", base, imgVer>>8)
 	logDebug("downloading %v", imgURL)
-	imgPath := filepath.Join(dataDir, "CL_Images")
+	imgPath := filepath.Join(dataDir, CL_ImagesFile)
 	if err := downloadGZ(imgURL, imgPath); err != nil {
 		logError("download %v: %v", imgURL, err)
 		return err
 	}
 	sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", base, sndVer>>8)
 	logDebug("downloading %v", sndURL)
-	sndPath := filepath.Join(dataDir, "CL_Sounds")
+	sndPath := filepath.Join(dataDir, CL_SoundsFile)
 	if err := downloadGZ(sndURL, sndPath); err != nil {
 		logError("download %v: %v", sndURL, err)
 		return err
@@ -103,9 +103,9 @@ type dataFilesStatus struct {
 	Files      []string
 }
 
-func checkDataFiles(baseDir string, clientVer int) (dataFilesStatus, error) {
+func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 	var status dataFilesStatus
-	imgPath := filepath.Join(baseDir, "CL_Images")
+	imgPath := filepath.Join(dataDirPath, CL_ImagesFile)
 	if v, err := readKeyFileVersion(imgPath); err != nil {
 		if !os.IsNotExist(err) {
 			logError("read %v: %v", imgPath, err)
@@ -115,7 +115,7 @@ func checkDataFiles(baseDir string, clientVer int) (dataFilesStatus, error) {
 		status.NeedImages = true
 	}
 
-	sndPath := filepath.Join(baseDir, "CL_Sounds")
+	sndPath := filepath.Join(dataDirPath, CL_SoundsFile)
 	if v, err := readKeyFileVersion(sndPath); err != nil {
 		if !os.IsNotExist(err) {
 			logError("read %v: %v", sndPath, err)
@@ -134,13 +134,13 @@ func checkDataFiles(baseDir string, clientVer int) (dataFilesStatus, error) {
 	return status, nil
 }
 
-func downloadDataFiles(baseDir string, clientVer int, status dataFilesStatus) error {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
-		logError("create %v: %v", baseDir, err)
+func downloadDataFiles(clientVer int, status dataFilesStatus) error {
+	if err := os.MkdirAll(dataDirPath, 0755); err != nil {
+		logError("create %v: %v", dataDirPath, err)
 		return err
 	}
 	if status.NeedImages {
-		imgPath := filepath.Join(baseDir, "CL_Images")
+		imgPath := filepath.Join(dataDirPath, CL_ImagesFile)
 		imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", defaultUpdateBase, clientVer)
 		if err := downloadGZ(imgURL, imgPath); err != nil {
 			logError("download %v: %v", imgURL, err)
@@ -148,7 +148,7 @@ func downloadDataFiles(baseDir string, clientVer int, status dataFilesStatus) er
 		}
 	}
 	if status.NeedSounds {
-		sndPath := filepath.Join(baseDir, "CL_Sounds")
+		sndPath := filepath.Join(dataDirPath, CL_SoundsFile)
 		sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", defaultUpdateBase, clientVer)
 		if err := downloadGZ(sndURL, sndPath); err != nil {
 			logError("download %v: %v", sndURL, err)

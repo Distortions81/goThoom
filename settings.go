@@ -133,8 +133,10 @@ type WindowState struct {
 	Size     WindowPoint
 }
 
+const settingsFile = "settings.json"
+
 func loadSettings() bool {
-	path := filepath.Join("data", "settings.json")
+	path := filepath.Join(dataDirPath, settingsFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -177,7 +179,7 @@ func saveSettings() {
 		log.Printf("save settings: %v", err)
 		return
 	}
-	path := filepath.Join("data", "settings.json")
+	path := filepath.Join(dataDirPath, settingsFile)
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		log.Printf("save settings: %v", err)
 	}
