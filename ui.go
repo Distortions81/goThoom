@@ -20,14 +20,12 @@ import (
 	"go_client/clsnd"
 )
 
-const cval = 8000
-
 var (
-	TOP_RIGHT = eui.Point{X: cval, Y: 0}
+	TOP_RIGHT = eui.Point{X: 1, Y: 0}
 	TOP_LEFT  = eui.Point{X: 0, Y: 0}
 
-	BOTTOM_LEFT  = eui.Point{X: 0, Y: cval}
-	BOTTOM_RIGHT = eui.Point{X: cval, Y: cval}
+	BOTTOM_LEFT  = eui.Point{X: 0, Y: 1}
+	BOTTOM_RIGHT = eui.Point{X: 1, Y: 1}
 )
 
 var loginWin *eui.WindowData
