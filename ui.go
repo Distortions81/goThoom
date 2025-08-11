@@ -49,10 +49,11 @@ var (
 	pictBlendLabel   *eui.ItemData
 	totalCacheLabel  *eui.ItemData
 
-	soundTestLabel *eui.ItemData
-	soundTestID    int
-	recordBtn      *eui.ItemData
-	recordStatus   *eui.ItemData
+	soundTestLabel  *eui.ItemData
+	soundTestID     int
+	recordBtn       *eui.ItemData
+	recordStatus    *eui.ItemData
+	qualityPresetDD *eui.ItemData
 )
 
 func initUI() {
@@ -871,6 +872,27 @@ func makeSettingsWindow() {
 		}
 	}
 	mainFlow.AddItem(fullscreenCB)
+
+	qualityPresetDD, qpEvents := eui.NewDropdown()
+	qualityPresetDD.Options = []string{"Low", "Standard", "High", "Ultimate", "Custom"}
+	qualityPresetDD.Size = eui.Point{X: width, Y: 24}
+	qualityPresetDD.Selected = detectQualityPreset()
+	qpEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			switch ev.Index {
+			case 0:
+				applyQualityPreset("Low")
+			case 1:
+				applyQualityPreset("Standard")
+			case 2:
+				applyQualityPreset("High")
+			case 3:
+				applyQualityPreset("Ultimate")
+			}
+			qualityPresetDD.Selected = detectQualityPreset()
+		}
+	}
+	mainFlow.AddItem(qualityPresetDD)
 
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Options"

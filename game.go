@@ -325,6 +325,9 @@ func (g *Game) Update() error {
 	if syncWindowSettings() {
 		settingsDirty = true
 	}
+	if settingsDirty && qualityPresetDD != nil {
+		qualityPresetDD.Selected = detectQualityPreset()
+	}
 	if time.Since(lastSettingsSave) >= 5*time.Second {
 		if settingsDirty {
 			saveSettings()

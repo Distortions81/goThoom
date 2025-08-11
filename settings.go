@@ -276,3 +276,118 @@ func clampWindowState(st *WindowState, sx, sy float64) {
 		st.Position.Y = maxY
 	}
 }
+
+type qualityPreset struct {
+	DenoiseImages    bool
+	MotionSmoothing  bool
+	BlendMobiles     bool
+	BlendPicts       bool
+	textureFiltering bool
+	fastSound        bool
+	precacheSounds   bool
+	precacheImages   bool
+}
+
+var (
+	lowPreset = qualityPreset{
+		DenoiseImages:    false,
+		MotionSmoothing:  false,
+		BlendMobiles:     false,
+		BlendPicts:       false,
+		textureFiltering: false,
+		fastSound:        true,
+		precacheSounds:   false,
+		precacheImages:   false,
+	}
+	standardPreset = qualityPreset{
+		DenoiseImages:    true,
+		MotionSmoothing:  true,
+		BlendMobiles:     false,
+		BlendPicts:       true,
+		textureFiltering: false,
+		fastSound:        true,
+		precacheSounds:   false,
+		precacheImages:   false,
+	}
+	highPreset = qualityPreset{
+		DenoiseImages:    true,
+		MotionSmoothing:  true,
+		BlendMobiles:     true,
+		BlendPicts:       true,
+		textureFiltering: true,
+		fastSound:        false,
+		precacheSounds:   false,
+		precacheImages:   false,
+	}
+	ultimatePreset = qualityPreset{
+		DenoiseImages:    true,
+		MotionSmoothing:  true,
+		BlendMobiles:     true,
+		BlendPicts:       true,
+		textureFiltering: true,
+		fastSound:        false,
+		precacheSounds:   true,
+		precacheImages:   true,
+	}
+)
+
+func applyQualityPreset(name string) {
+	var p qualityPreset
+	switch name {
+	case "Low":
+		p = lowPreset
+	case "Standard":
+		p = standardPreset
+	case "High":
+		p = highPreset
+	case "Ultimate":
+		p = ultimatePreset
+	default:
+		return
+	}
+
+	gs.DenoiseImages = p.DenoiseImages
+	gs.MotionSmoothing = p.MotionSmoothing
+	gs.BlendMobiles = p.BlendMobiles
+	gs.BlendPicts = p.BlendPicts
+	gs.textureFiltering = p.textureFiltering
+	gs.fastSound = p.fastSound
+	gs.precacheSounds = p.precacheSounds
+	gs.precacheImages = p.precacheImages
+
+	applySettings()
+	if gs.fastSound {
+		resample = resampleLinear
+	} else {
+		initSinc()
+		resample = resampleSincHQ
+	}
+	clearCaches()
+	settingsDirty = true
+}
+
+func matchesPreset(p qualityPreset) bool {
+	return gs.DenoiseImages == p.DenoiseImages &&
+		gs.MotionSmoothing == p.MotionSmoothing &&
+		gs.BlendMobiles == p.BlendMobiles &&
+		gs.BlendPicts == p.BlendPicts &&
+		gs.textureFiltering == p.textureFiltering &&
+		gs.fastSound == p.fastSound &&
+		gs.precacheSounds == p.precacheSounds &&
+		gs.precacheImages == p.precacheImages
+}
+
+func detectQualityPreset() int {
+	switch {
+	case matchesPreset(lowPreset):
+		return 0
+	case matchesPreset(standardPreset):
+		return 1
+	case matchesPreset(highPreset):
+		return 2
+	case matchesPreset(ultimatePreset):
+		return 3
+	default:
+		return 4
+	}
+}
