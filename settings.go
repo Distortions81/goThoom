@@ -54,6 +54,7 @@ var gs settings = settings{
 	bubbleMessages:   false,
 	Volume:           0.5,
 	Mute:             false,
+	recordAssetStats: true,
 	scale:            2,
 
 	GameWindow:      WindowState{Open: true},
