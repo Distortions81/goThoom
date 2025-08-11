@@ -813,7 +813,7 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(uiScaleApplyBtn)
 
 	gameSizeSlider, gameSizeEvents := eui.NewSlider()
-	gameSizeSlider.Label = "Game Window Size"
+	gameSizeSlider.Label = "Game Window Magnify"
 	gameSizeSlider.MinValue = 1
 	gameSizeSlider.MaxValue = 5
 	gameSizeSlider.IntOnly = true
