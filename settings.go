@@ -355,6 +355,28 @@ func applyQualityPreset(name string) {
 	gs.precacheSounds = p.precacheSounds
 	gs.precacheImages = p.precacheImages
 
+	if denoiseCB != nil {
+		denoiseCB.Checked = gs.DenoiseImages
+	}
+	if motionCB != nil {
+		motionCB.Checked = gs.MotionSmoothing
+	}
+	if animCB != nil {
+		animCB.Checked = gs.BlendMobiles
+	}
+	if pictBlendCB != nil {
+		pictBlendCB.Checked = gs.BlendPicts
+	}
+	if filtCB != nil {
+		filtCB.Checked = gs.textureFiltering
+	}
+	if precacheSoundCB != nil {
+		precacheSoundCB.Checked = gs.precacheSounds
+	}
+	if precacheImageCB != nil {
+		precacheImageCB.Checked = gs.precacheImages
+	}
+
 	applySettings()
 	if gs.fastSound {
 		resample = resampleLinear

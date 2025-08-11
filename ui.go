@@ -54,6 +54,13 @@ var (
 	recordBtn       *eui.ItemData
 	recordStatus    *eui.ItemData
 	qualityPresetDD *eui.ItemData
+	denoiseCB       *eui.ItemData
+	motionCB        *eui.ItemData
+	animCB          *eui.ItemData
+	pictBlendCB     *eui.ItemData
+	precacheSoundCB *eui.ItemData
+	precacheImageCB *eui.ItemData
+	filtCB          *eui.ItemData
 )
 
 func initUI() {
@@ -932,7 +939,8 @@ func makeQualityWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	denoiseCB, denoiseEvents := eui.NewCheckbox()
+	dCB, denoiseEvents := eui.NewCheckbox()
+	denoiseCB = dCB
 	denoiseCB.Text = "Image Denoise"
 	denoiseCB.Size = eui.Point{X: width, Y: 24}
 	denoiseCB.Checked = gs.DenoiseImages
@@ -984,22 +992,24 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(denoiseAmtSlider)
 
-	motion, motionEvents := eui.NewCheckbox()
-	motion.Text = "Smooth Motion"
-	motion.Size = eui.Point{X: width, Y: 24}
-	motion.Checked = gs.MotionSmoothing
+	mCB, motionEvents := eui.NewCheckbox()
+	motionCB = mCB
+	motionCB.Text = "Smooth Motion"
+	motionCB.Size = eui.Point{X: width, Y: 24}
+	motionCB.Checked = gs.MotionSmoothing
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MotionSmoothing = ev.Checked
 			settingsDirty = true
 		}
 	}
-	flow.AddItem(motion)
+	flow.AddItem(motionCB)
 
-	anim, animEvents := eui.NewCheckbox()
-	anim.Text = "Mobile Animation Blending"
-	anim.Size = eui.Point{X: width, Y: 24}
-	anim.Checked = gs.BlendMobiles
+	aCB, animEvents := eui.NewCheckbox()
+	animCB = aCB
+	animCB.Text = "Mobile Animation Blending"
+	animCB.Size = eui.Point{X: width, Y: 24}
+	animCB.Checked = gs.BlendMobiles
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
@@ -1007,12 +1017,13 @@ func makeQualityWindow() {
 			mobileBlendCache = map[mobileBlendKey]*ebiten.Image{}
 		}
 	}
-	flow.AddItem(anim)
+	flow.AddItem(animCB)
 
-	pictBlend, pictBlendEvents := eui.NewCheckbox()
-	pictBlend.Text = "World Animation Blending"
-	pictBlend.Size = eui.Point{X: width, Y: 24}
-	pictBlend.Checked = gs.BlendPicts
+	pCB, pictBlendEvents := eui.NewCheckbox()
+	pictBlendCB = pCB
+	pictBlendCB.Text = "World Animation Blending"
+	pictBlendCB.Size = eui.Point{X: width, Y: 24}
+	pictBlendCB.Checked = gs.BlendPicts
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
@@ -1020,7 +1031,7 @@ func makeQualityWindow() {
 			pictBlendCache = map[pictBlendKey]*ebiten.Image{}
 		}
 	}
-	flow.AddItem(pictBlend)
+	flow.AddItem(pictBlendCB)
 
 	mobileBlendSlider, mobileBlendEvents := eui.NewSlider()
 	mobileBlendSlider.Label = "Mobile Blend Amount"
@@ -1092,7 +1103,8 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(showFPSCB)
 
-	precacheSoundCB, precacheSoundEvents := eui.NewCheckbox()
+	psCB, precacheSoundEvents := eui.NewCheckbox()
+	precacheSoundCB = psCB
 	precacheSoundCB.Text = "Precache Sounds"
 	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
 	precacheSoundCB.Checked = gs.precacheSounds
@@ -1104,7 +1116,8 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(precacheSoundCB)
 
-	precacheImageCB, precacheImageEvents := eui.NewCheckbox()
+	piCB, precacheImageEvents := eui.NewCheckbox()
+	precacheImageCB = piCB
 	precacheImageCB.Text = "Precache Images"
 	precacheImageCB.Size = eui.Point{X: width, Y: 24}
 	precacheImageCB.Checked = gs.precacheImages
@@ -1116,10 +1129,11 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(precacheImageCB)
 
-	filt, filtEvents := eui.NewCheckbox()
-	filt.Text = "Image Filtering"
-	filt.Size = eui.Point{X: width, Y: 24}
-	filt.Checked = gs.textureFiltering
+	fCB, filtEvents := eui.NewCheckbox()
+	filtCB = fCB
+	filtCB.Text = "Image Filtering"
+	filtCB.Size = eui.Point{X: width, Y: 24}
+	filtCB.Checked = gs.textureFiltering
 	filtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.textureFiltering = ev.Checked
@@ -1131,7 +1145,7 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	flow.AddItem(filt)
+	flow.AddItem(filtCB)
 
 	/*
 		fastSound, fastSoundEvents := eui.NewCheckbox()
