@@ -282,8 +282,6 @@ type qualityPreset struct {
 	MotionSmoothing bool
 	BlendMobiles    bool
 	BlendPicts      bool
-	precacheSounds  bool
-	precacheImages  bool
 }
 
 var (
@@ -292,32 +290,24 @@ var (
 		MotionSmoothing: false,
 		BlendMobiles:    false,
 		BlendPicts:      false,
-		precacheSounds:  false,
-		precacheImages:  false,
 	}
 	standardPreset = qualityPreset{
 		DenoiseImages:   true,
 		MotionSmoothing: true,
 		BlendMobiles:    false,
-		BlendPicts:      true,
-		precacheSounds:  false,
-		precacheImages:  false,
+		BlendPicts:      false,
 	}
 	highPreset = qualityPreset{
 		DenoiseImages:   true,
 		MotionSmoothing: true,
-		BlendMobiles:    true,
+		BlendMobiles:    false,
 		BlendPicts:      true,
-		precacheSounds:  false,
-		precacheImages:  false,
 	}
 	ultimatePreset = qualityPreset{
 		DenoiseImages:   true,
 		MotionSmoothing: true,
 		BlendMobiles:    true,
 		BlendPicts:      true,
-		precacheSounds:  true,
-		precacheImages:  true,
 	}
 )
 
@@ -340,8 +330,6 @@ func applyQualityPreset(name string) {
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
-	gs.precacheSounds = p.precacheSounds
-	gs.precacheImages = p.precacheImages
 
 	applySettings()
 	if gs.fastSound {
@@ -358,9 +346,7 @@ func matchesPreset(p qualityPreset) bool {
 	return gs.DenoiseImages == p.DenoiseImages &&
 		gs.MotionSmoothing == p.MotionSmoothing &&
 		gs.BlendMobiles == p.BlendMobiles &&
-		gs.BlendPicts == p.BlendPicts &&
-		gs.precacheSounds == p.precacheSounds &&
-		gs.precacheImages == p.precacheImages
+		gs.BlendPicts == p.BlendPicts
 }
 
 func detectQualityPreset() int {

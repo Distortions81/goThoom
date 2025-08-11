@@ -781,7 +781,7 @@ func makeSettingsWindow() {
 
 	uiScaleSlider, uiScaleEvents := eui.NewSlider()
 	uiScaleSlider.Label = "UI Scaling"
-	uiScaleSlider.MinValue = 0.5
+	uiScaleSlider.MinValue = 1.0
 	uiScaleSlider.MaxValue = 2.5
 	uiScaleSlider.Value = float32(gs.UIScale)
 	uiScaleSlider.Size = eui.Point{X: width - 10, Y: 24}
