@@ -139,6 +139,8 @@ func makeToolbarWindow() {
 	volumeSlider.Label = ""
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
+	volumeSlider.Log = true
+	volumeSlider.LogValue = 10
 	volumeSlider.Value = float32(gs.Volume)
 	volumeSlider.Size = eui.Point{X: 300, Y: 24}
 	volumeSlider.FontSize = 9
