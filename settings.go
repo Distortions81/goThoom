@@ -343,15 +343,6 @@ func applyQualityPreset(name string) {
 	if pictBlendCB != nil {
 		pictBlendCB.Checked = gs.BlendPicts
 	}
-	if filtCB != nil {
-		filtCB.Checked = gs.textureFiltering
-	}
-	if precacheSoundCB != nil {
-		precacheSoundCB.Checked = gs.precacheSounds
-	}
-	if precacheImageCB != nil {
-		precacheImageCB.Checked = gs.precacheImages
-	}
 
 	applySettings()
 	if gs.fastSound {
