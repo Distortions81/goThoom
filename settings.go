@@ -38,6 +38,7 @@ var gsdef settings = settings{
 	ShowFPS:           true,
 	UIScale:           1.0,
 	Fullscreen:        false,
+	PotatoMode:        false,
 
 	imgPlanesDebug:    false,
 	smoothingDebug:    false,
@@ -92,6 +93,7 @@ type settings struct {
 	ShowFPS           bool
 	UIScale           float64
 	Fullscreen        bool
+	PotatoMode        bool
 
 	imgPlanesDebug    bool
 	smoothingDebug    bool
@@ -178,10 +180,41 @@ func applySettings() {
 	if !gs.fastSound {
 		initSinc()
 	}
-	ebiten.SetVsyncEnabled(gs.vsync)
+	if gs.PotatoMode {
+		ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMinimum)
+		ebiten.SetVsyncEnabled(false)
+	} else {
+		ebiten.SetVsyncEnabled(gs.vsync)
+		if gs.vsync {
+			ebiten.SetFPSMode(ebiten.FPSModeVsyncOn)
+		} else {
+			ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMaximum)
+		}
+	}
 	ebiten.SetFullscreen(gs.Fullscreen)
 	initFont()
 	updateSoundVolume()
+}
+
+func enablePotatoMode() {
+	gs.PotatoMode = true
+	gs.MotionSmoothing = false
+	gs.BlendMobiles = false
+	gs.BlendPicts = false
+	gs.DenoiseImages = false
+	gs.ShowFPS = false
+	gs.vsync = false
+	gs.precacheSounds = false
+	gs.precacheImages = false
+	gs.textureFiltering = false
+	gs.lateInputUpdates = false
+	gs.cacheWholeSheet = false
+	gs.smoothMoving = false
+	gs.fastBars = false
+	gs.bubbleMessages = false
+	gs.SpeechBubbles = true
+	gs.nightEffect = true
+	applySettings()
 }
 
 func saveSettings() {

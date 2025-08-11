@@ -1136,7 +1136,17 @@ func runGame(ctx context.Context) {
 
 func initGame() {
 	ebiten.SetWindowTitle("goThoom Client")
-	ebiten.SetVsyncEnabled(gs.vsync)
+	if gs.PotatoMode {
+		ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMinimum)
+		ebiten.SetVsyncEnabled(false)
+	} else {
+		ebiten.SetVsyncEnabled(gs.vsync)
+		if gs.vsync {
+			ebiten.SetFPSMode(ebiten.FPSModeVsyncOn)
+		} else {
+			ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMaximum)
+		}
+	}
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 

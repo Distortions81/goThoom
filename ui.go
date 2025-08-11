@@ -859,6 +859,23 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(fullscreenCB)
 
+	potatoCB, potatoEvents := eui.NewCheckbox()
+	potatoCB.Text = "Potato Computer (requires relaunch)"
+	potatoCB.Size = eui.Point{X: width, Y: 24}
+	potatoCB.Checked = gs.PotatoMode
+	potatoEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			if ev.Checked {
+				enablePotatoMode()
+			} else {
+				gs.PotatoMode = false
+				applySettings()
+			}
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(potatoCB)
+
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Options"
 	qualityBtn.Size = eui.Point{X: width, Y: 24}
@@ -1129,7 +1146,7 @@ func makeQualityWindow() {
 	vsyncEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.vsync = ev.Checked
-			ebiten.SetVsyncEnabled(gs.vsync)
+			applySettings()
 			settingsDirty = true
 		}
 	}
