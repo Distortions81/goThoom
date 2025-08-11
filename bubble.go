@@ -18,18 +18,16 @@ func init() {
 	whiteImage.Fill(color.White)
 }
 
-// adjustBubbleRect calculates the on-screen rectangle for a bubble and shifts
-// the tail tip (x, y) if clamping is required. It returns the clamped
-// rectangle along with the adjusted tail coordinates.
-func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (left, top, right, bottom, ax, ay int) {
+// adjustBubbleRect calculates the on-screen rectangle for a bubble and clamps
+// it to the visible area. The tail tip coordinates remain unchanged and must
+// be handled by the caller if needed.
+func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (left, top, right, bottom int) {
 	bottom = y
 	if !far {
 		bottom = y - tailHeight
 	}
 	left = x - width/2
 	top = bottom - height
-
-	origLeft, origTop := left, top
 
 	if left < 0 {
 		left = 0
@@ -43,11 +41,6 @@ func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, far bool) (le
 	if top+height > sh {
 		top = sh - height
 	}
-
-	dx := left - origLeft
-	dy := top - origTop
-	ax = x + dx
-	ay = y + dy
 
 	right = left + width
 	bottom = top + height
@@ -98,16 +91,18 @@ func bubbleColors(typ int) (border, bg, text color.Color) {
 }
 
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
-// bottom-center of the balloon tail. If far is true the tail is omitted and
-// (x, y) represents the bottom-center of the bubble itself. The tail can also
-// be skipped explicitly via noArrow. The typ parameter
-// is currently unused but retained for future compatibility with the original
-// bubble images. The colors of the border, background, and text can be
+// bottom-center point of the balloon tail. If the bubble would extend past the
+// screen edges it is clamped while leaving the tail anchored at (x, y). If far
+// is true the tail is omitted and (x, y) represents the bottom-center of the
+// bubble itself. The tail can also be skipped explicitly via noArrow. The typ
+// parameter is currently unused but retained for future compatibility with the
+// original bubble images. The colors of the border, background, and text can be
 // customized via borderCol, bgCol, and textCol respectively.
 func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, noArrow bool, borderCol, bgCol, textCol color.Color) {
 	if txt == "" {
 		return
 	}
+	tailX, tailY := x, y
 	y -= int(35 * gs.scale)
 
 	sw := int(float64(gameAreaSizeX) * gs.scale)
@@ -123,7 +118,8 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
 
-	left, top, right, bottom, x, y := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
+	left, top, right, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
+	baseX := left + width/2
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
@@ -143,9 +139,9 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 
 	var tail vector.Path
 	if !far && !noArrow {
-		tail.MoveTo(float32(x-tailHalf), float32(bottom))
-		tail.LineTo(float32(x), float32(y))
-		tail.LineTo(float32(x+tailHalf), float32(bottom))
+		tail.MoveTo(float32(baseX-tailHalf), float32(bottom))
+		tail.LineTo(float32(tailX), float32(tailY))
+		tail.LineTo(float32(baseX+tailHalf), float32(bottom))
 		tail.Close()
 	}
 
@@ -182,9 +178,9 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	outline.LineTo(float32(right), float32(bottom)-radius)
 	outline.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
 	if !far && !noArrow {
-		outline.LineTo(float32(x+tailHalf), float32(bottom))
-		outline.LineTo(float32(x), float32(y))
-		outline.LineTo(float32(x-tailHalf), float32(bottom))
+		outline.LineTo(float32(baseX+tailHalf), float32(bottom))
+		outline.LineTo(float32(tailX), float32(tailY))
+		outline.LineTo(float32(baseX-tailHalf), float32(bottom))
 	}
 	outline.LineTo(float32(left)+radius, float32(bottom))
 	outline.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
