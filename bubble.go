@@ -108,7 +108,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	if txt == "" {
 		return
 	}
-	y -= 35
+	y -= int(35 * gs.scale)
 
 	sw := int(float64(gameAreaSizeX) * gs.scale)
 	sh := int(float64(gameAreaSizeY) * gs.scale)
