@@ -1142,7 +1142,7 @@ func makeDebugWindow() {
 	debugFlow.AddItem(bubbleCB)
 
 	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox()
-	bubbleMsgCB.Text = "Bubble Text in Messages"
+	bubbleMsgCB.Text = "Chat to console"
 	bubbleMsgCB.Size = eui.Point{X: width, Y: 24}
 	bubbleMsgCB.Checked = gs.bubbleMessages
 	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {

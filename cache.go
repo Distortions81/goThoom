@@ -59,7 +59,7 @@ func precacheAssets() {
 		preloadMsg = "Precaching game sounds..."
 	}
 	if preloadMsg != "" {
-		addMessage(preloadMsg)
+		consoleMessage(preloadMsg)
 	}
 
 	wg := sizedwaitgroup.New(runtime.NumCPU())
@@ -95,6 +95,6 @@ func precacheAssets() {
 		doneMsg = "All sounds have been loaded."
 	}
 	if doneMsg != "" {
-		addMessage(doneMsg)
+		consoleMessage(doneMsg)
 	}
 }

@@ -1009,9 +1009,9 @@ func parseDrawState(data []byte) error {
 					}
 				}
 			}
-			addChatMessage(msg)
+			chatMessage(msg)
 			if gs.bubbleMessages {
-				addMessage(msg)
+				consoleMessage(msg)
 			}
 		}
 		stateData = stateData[p+end+1:]

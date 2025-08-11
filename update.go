@@ -14,7 +14,7 @@ import (
 const defaultUpdateBase = "https://www.deltatao.com/downloads/clanlord"
 
 func downloadGZ(url, dest string) error {
-	addMessage(fmt.Sprintf("Downloading: %v...", url))
+	consoleMessage(fmt.Sprintf("Downloading: %v...", url))
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -54,7 +54,7 @@ func downloadGZ(url, dest string) error {
 		logError("close %v: %v", tmp, err)
 		return err
 	}
-	addMessage("Download complete.")
+	consoleMessage("Download complete.")
 	if err := os.Rename(tmp, dest); err != nil {
 		logError("rename %v to %v: %v", tmp, dest, err)
 		return err

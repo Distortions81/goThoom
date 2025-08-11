@@ -29,7 +29,7 @@ func handleDisconnect() {
 	loginMu.Unlock()
 
 	cancel()
-	addMessage("Disconnected from server.")
+	consoleMessage("Disconnected from server.")
 	makeLoginWindow()
 }
 

@@ -50,7 +50,7 @@ func logError(format string, v ...interface{}) {
 		errorLogger.Printf(format, v...)
 	}
 	if !silent {
-		addMessage(fmt.Sprintf(format, v...))
+		consoleMessage(fmt.Sprintf(format, v...))
 	}
 }
 

@@ -372,7 +372,7 @@ func (g *Game) Update() error {
 					playTuneSimple(strings.TrimSpace(txt[len("/play "):]))
 				} else {
 					pendingCommand = txt
-					//addMessage("> " + txt)
+					//consoleMessage("> " + txt)
 				}
 				inputHistory = append(inputHistory, txt)
 			}
@@ -1340,7 +1340,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			continue
 		}
 		if txt := decodeMessage(m); txt != "" {
-			addMessage("udpReadLoop: decodeMessage: " + txt)
+			consoleMessage("udpReadLoop: decodeMessage: " + txt)
 		} else {
 			logDebug("udp msg tag %d len %d", tag, len(m))
 		}
@@ -1415,7 +1415,7 @@ loop:
 		}
 		if txt := decodeMessage(m); txt != "" {
 			//fmt.Println(txt)
-			addMessage("tcpReadLoop: decodeMessage: " + txt)
+			consoleMessage("tcpReadLoop: decodeMessage: " + txt)
 		} else {
 			logDebug("msg tag %d len %d", tag, len(m))
 		}

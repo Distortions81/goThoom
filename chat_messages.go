@@ -11,7 +11,7 @@ var (
 	chatMsgs  []string
 )
 
-func addChatMessage(msg string) {
+func chatMessage(msg string) {
 	if msg == "" {
 		return
 	}

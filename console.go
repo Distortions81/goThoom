@@ -11,7 +11,7 @@ var (
 	messages  []string
 )
 
-func addMessage(msg string) {
+func consoleMessage(msg string) {
 	if msg == "" {
 		return
 	}
@@ -26,7 +26,7 @@ func addMessage(msg string) {
 	updateMessagesWindow()
 }
 
-func getMessages() []string {
+func getConsoleMessages() []string {
 	messageMu.Lock()
 	defer messageMu.Unlock()
 

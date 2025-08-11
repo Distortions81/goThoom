@@ -12,7 +12,7 @@ func updateMessagesWindow() {
 	if messagesList == nil {
 		return
 	}
-	msgs := getMessages()
+	msgs := getConsoleMessages()
 	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
 	if inputActive {
 		inputMsg = string(inputText)

@@ -92,7 +92,7 @@ func main() {
 		runGame(ctx)
 		cancel()
 	}()
-	addMessage("Starting...")
+	consoleMessage("Starting...")
 
 	clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 	if err != nil {

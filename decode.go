@@ -332,14 +332,14 @@ func handleInfoText(data []byte) {
 		}
 		if line[0] == 0xC2 {
 			if txt := decodeBEPP(line); txt != "" {
-				addMessage(txt)
+				consoleMessage(txt)
 			}
 			continue
 		}
 		if _, txt, _, _, _, _ := decodeBubble(line); txt != "" {
-			addChatMessage(txt)
+			chatMessage(txt)
 			if gs.bubbleMessages {
-				addMessage(txt)
+				consoleMessage(txt)
 			}
 			continue
 		}
@@ -353,6 +353,6 @@ func handleInfoText(data []byte) {
 		if strings.HasPrefix(s, "/") {
 			continue
 		}
-		addMessage(s)
+		consoleMessage(s)
 	}
 }
