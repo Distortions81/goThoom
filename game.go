@@ -157,13 +157,13 @@ var (
 
 // bubble stores temporary bubble debug information.
 type bubble struct {
-	Index   uint8
-	H, V    int16
-	Far     bool
-	NoArrow bool
-	Text    string
-	Type    int
-	Expire  time.Time
+	Index       uint8
+	H, V        int16
+	Far         bool
+	NoArrow     bool
+	Text        string
+	Type        int
+	ExpireFrame int
 }
 
 // drawSnapshot is a read-only copy of the current draw state.
@@ -224,10 +224,10 @@ func captureDrawSnapshot() drawSnapshot {
 		snap.mobiles = append(snap.mobiles, m)
 	}
 	if len(state.bubbles) > 0 {
-		now := time.Now()
+		curFrame := frameCounter
 		kept := state.bubbles[:0]
 		for _, b := range state.bubbles {
-			if b.Expire.After(now) {
+			if b.ExpireFrame > curFrame {
 				if !b.Far {
 					if m, ok := state.mobiles[b.Index]; ok {
 						b.H, b.V = m.H, m.V
