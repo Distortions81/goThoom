@@ -64,8 +64,9 @@ func makeConsoleWindow() {
 		return
 	}
 	messagesWin = eui.NewWindow()
+	sx, sy := eui.ScreenSize()
 	if gs.MessagesWindow.Size.X > 0 && gs.MessagesWindow.Size.Y > 0 {
-		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X), Y: float32(gs.MessagesWindow.Size.Y)}
+		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X) * float32(sx), Y: float32(gs.MessagesWindow.Size.Y) * float32(sy)}
 	} else {
 		messagesWin.Size = eui.Point{X: 425, Y: 350}
 	}
@@ -75,7 +76,7 @@ func makeConsoleWindow() {
 	messagesWin.Movable = true
 	messagesWin.Position = BOTTOM_LEFT
 	if gs.MessagesWindow.Position.X != 0 || gs.MessagesWindow.Position.Y != 0 {
-		messagesWin.Position = eui.Point{X: float32(gs.MessagesWindow.Position.X), Y: float32(gs.MessagesWindow.Position.Y)}
+		messagesWin.Position = eui.Point{X: float32(gs.MessagesWindow.Position.X) * float32(sx), Y: float32(gs.MessagesWindow.Position.Y) * float32(sy)}
 	}
 
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
