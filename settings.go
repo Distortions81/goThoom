@@ -24,7 +24,7 @@ var gs settings = settings{
 	SpeechBubbles:  true,
 
 	MotionSmoothing:   true,
-	BlendMobiles:      false,
+	BlendMobiles:      true,
 	BlendPicts:        true,
 	BlendAmount:       1.0,
 	MobileBlendAmount: 0.33,

@@ -50,6 +50,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Resizable = false
 	win.AutoSize = false
 	win.NoScroll = true
+	win.BGColor = eui.Color{R: 64, G: 64, B: 64, A: 64}
 	win.Size = ps
 	win.Position = eui.Point{X: float32(ssx/2) - (ps.X / 2), Y: 50}
 

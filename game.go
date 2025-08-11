@@ -488,8 +488,8 @@ func updateGameScale() {
 
 	w := float64(int(size.X))
 	h := float64(int(size.Y))
-	scaleW := w / float64(gameAreaSizeX)
-	scaleH := h / float64(gameAreaSizeY)
+	scaleW := w / float64(gameAreaSizeX) * float64(eui.UIScale())
+	scaleH := h / float64(gameAreaSizeY) * float64(eui.UIScale())
 	newScale := math.Min(scaleW, scaleH)
 	if newScale < 0.25 {
 		newScale = 0.25
@@ -534,6 +534,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
 	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
+	updateGameScale()
 	if gs.nightEffect {
 		drawNightOverlay(screen, ox, oy)
 	}
@@ -554,8 +555,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	eui.Draw(screen)
 	drawStatusBars(screen, ox, oy, snap, alpha)
+	eui.Draw(screen)
 	if gs.ShowFPS {
 		drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"log"
 	"math"
 	"sync"
 
@@ -417,8 +418,6 @@ func loadSound(id uint16) []byte {
 			}
 		} else {
 			samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
-			//		lowpassIIR16(samples, 0.)
-			//		highpassIIR16(samples, 0.995)
 		}
 	case 16:
 		if len(s.Data)%2 != 0 {
@@ -428,9 +427,8 @@ func loadSound(id uint16) []byte {
 		for i := 0; i < len(samples); i++ {
 			samples[i] = int16(binary.BigEndian.Uint16(s.Data[2*i : 2*i+2]))
 		}
-		//highpassIIR16(samples, 0.995)
 	default:
-		return nil
+		log.Fatalf("Invalid number of bits: %v: ID: %v", s.Bits, id)
 	}
 
 	if srcRate != dstRate {

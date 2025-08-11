@@ -1152,6 +1152,7 @@ func makeDebugWindow() {
 	mobileFramesSlider.MaxValue = 30
 	mobileFramesSlider.Value = float32(gs.MobileBlendFrames)
 	mobileFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
+	mobileFramesSlider.IntOnly = true
 	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MobileBlendFrames = int(ev.Value)
@@ -1166,6 +1167,7 @@ func makeDebugWindow() {
 	pictFramesSlider.MaxValue = 30
 	pictFramesSlider.Value = float32(gs.PictBlendFrames)
 	pictFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
+	pictFramesSlider.IntOnly = true
 	pictFramesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.PictBlendFrames = int(ev.Value)
