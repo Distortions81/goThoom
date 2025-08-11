@@ -237,27 +237,25 @@ func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
 			phase = sincPhases - 1
 		}
 		coeffs := sincTable[phase]
-		wsum := 1.0 // coefficients pre-normalized to sum to 1
 		var sum float64
+		var wsum float64
 
 		for k := -sincTaps + 1; k <= sincTaps; k++ {
 			j := idx + k
 			idxk := k + sincTaps - 1
 			coeff := float64(coeffs[idxk])
 			if j < 0 || j >= len(src) {
-				wsum -= coeff
 				continue
 			}
 			sum += float64(src[j]) * coeff
+			wsum += coeff
 		}
 		if wsum < 1e-6 {
 			dst[i] = 0
 			pos += ratio
 			continue
 		}
-		if wsum != 1 {
-			sum /= wsum
-		}
+		sum /= wsum
 		if sum > float64(math.MaxInt16) {
 			sum = float64(math.MaxInt16)
 		} else if sum < float64(math.MinInt16) {
