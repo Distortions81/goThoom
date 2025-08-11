@@ -416,15 +416,14 @@ func updateCharacterButtons() {
 						name = ""
 						passHash = ""
 					}
-					updateCharacterButtons()
-					//loginWin.Refresh()
 				}
 			}
 			row.AddItem(trash)
 			charactersList.AddItem(row)
 		}
 	}
-	//loginWin.Refresh()
+	loginWin.Refresh()
+
 }
 
 func makeAddCharacterWindow() {
@@ -437,6 +436,7 @@ func makeAddCharacterWindow() {
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
 	addCharWin.Movable = true
+	//addCharWin.PinTo = eui.PIN_MID_CENTER
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -448,11 +448,13 @@ func makeAddCharacterWindow() {
 	passInput, _ := eui.NewInput()
 	passInput.Label = "Password"
 	passInput.TextPtr = &addCharPass
+	passInput.Hide = true
 	passInput.Size = eui.Point{X: 200, Y: 24}
 	flow.AddItem(passInput)
 	rememberCB, rememberEvents := eui.NewCheckbox()
 	rememberCB.Text = "Remember"
 	rememberCB.Size = eui.Point{X: 200, Y: 24}
+	addCharRemember = true
 	rememberCB.Checked = addCharRemember
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -486,9 +488,6 @@ func makeAddCharacterWindow() {
 			gs.LastCharacter = addCharName
 			saveSettings()
 			updateCharacterButtons()
-			if loginWin != nil && loginWin.IsOpen() {
-				loginWin.Refresh()
-			}
 			addCharWin.Open()
 		}
 	}
@@ -519,6 +518,7 @@ func makeLoginWindow() {
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
 	loginWin.Movable = true
+	//loginWin.PinTo = eui.PIN_MID_CENTER
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -534,14 +534,13 @@ func makeLoginWindow() {
 
 	addBtn, addEvents := eui.NewButton()
 	addBtn.Text = "Add Character"
-	addBtn.RadioGroup = "Characters"
 	addBtn.Size = eui.Point{X: 200, Y: 24}
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharName = ""
 			addCharPass = ""
-			addCharRemember = false
-
+			addCharRemember = true
+			addCharWin.Open()
 		}
 	}
 	loginFlow.AddItem(addBtn)
@@ -588,15 +587,15 @@ func makeLoginWindow() {
 		}
 	}
 	loginFlow.AddItem(openBtn)
-
 	loginFlow.AddItem(charactersList)
-	updateCharacterButtons()
 
-	label, _ := eui.NewText()
-	label.Text = ""
-	label.FontSize = 15
-	label.Size = eui.Point{X: 1, Y: 25}
-	loginFlow.AddItem(label)
+	/*
+		label, _ := eui.NewText()
+		label.Text = ""
+		label.FontSize = 15
+		label.Size = eui.Point{X: 1, Y: 25}
+		loginFlow.AddItem(label)
+	*/
 
 	connBtn, connEvents := eui.NewButton()
 	connBtn.Text = "Connect"
@@ -627,6 +626,8 @@ func makeLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+
+	updateCharacterButtons()
 }
 
 func makeErrorWindow(msg string) {

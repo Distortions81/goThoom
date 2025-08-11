@@ -1148,6 +1148,7 @@ func initGame() {
 
 	initUI()
 	loadSettings()
+	updateCharacterButtons()
 
 	close(gameStarted)
 }
