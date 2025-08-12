@@ -18,6 +18,30 @@ const (
 const ThinkUnknownName = "someone"
 
 const (
+	kMsgLogon        = 1
+	kMsgFriendLogon  = 2
+	kMsgLogoff       = 3
+	kMsgFriendLogoff = 4
+	kMsgShare        = 5
+	kMsgFriendShare  = 6
+	kMsgHost         = 7
+	kMsgObit         = 8
+	kMsgFriendObit   = 9
+	kMsgSpeech       = 10
+	kMsgFriendSpeech = 11
+	kMsgMySpeech     = 12
+	kMsgBubble       = 13
+	kMsgFriendBubble = 14
+	kMsgThoughtMsg   = 15
+	kMsgTimeStamp    = 16
+	kMsgWho          = 18
+	kMsgInfo         = 19
+	kMsgBardLevel    = 20
+	kMsgDownload     = 21
+	kMsgMonoStyle    = 22
+)
+
+const (
 	bubbleVerbVerbatim    = "\x01"
 	bubbleVerbParentheses = "\x02"
 )
@@ -125,8 +149,7 @@ func decodeBEPP(data []byte) string {
 func stripBEPPTags(b []byte) []byte {
 	out := b[:0]
 	for i := 0; i < len(b); {
-		c := b[i]
-		if c == 0xC2 {
+		if b[i] == 0xC2 {
 			if i+4 < len(b) && b[i+1] == 't' && b[i+2] == '_' && b[i+3] == 't' {
 				switch b[i+4] {
 				case 'h', 't', 'c', 'g':
@@ -134,17 +157,12 @@ func stripBEPPTags(b []byte) []byte {
 					continue
 				}
 			}
-			if i+2 < len(b) {
-				i += 3
+			if i+3 < len(b) && b[i+3] == ' ' && b[i+1] >= 'a' && b[i+1] <= 'z' && b[i+2] >= 'a' && b[i+2] <= 'z' {
+				i += 4
 				continue
 			}
-			break
 		}
-		if c >= 0x80 || c < 0x20 {
-			i++
-			continue
-		}
-		out = append(out, c)
+		out = append(out, b[i])
 		i++
 	}
 	return out
@@ -293,45 +311,37 @@ func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, targe
 }
 
 func decodeMessage(m []byte) string {
-	if len(m) <= 16 {
+	if len(m) <= 17 {
 		return ""
 	}
-	data := append([]byte(nil), m[16:]...)
-	if len(data) > 0 && data[0] == 0xC2 {
-		if s := decodeBEPP(data); s != "" {
+	tag := m[16]
+	enc := tag&0x80 != 0
+	tag &^= 0x80
+	data := append([]byte(nil), m[17:]...)
+	if enc {
+		simpleEncrypt(data)
+	}
+	switch tag {
+	case kMsgBubble, kMsgFriendBubble, kMsgThoughtMsg:
+		bubbleData := append([]byte{tag}, data...)
+		if _, s, _, _, _, _ := decodeBubble(bubbleData); s != "" {
 			return s
 		}
-		return ""
-	}
-	if _, s, _, _, _, _ := decodeBubble(data); s != "" {
-		return s
-	}
-	if i := bytes.IndexByte(data, 0); i >= 0 {
-		data = data[:i]
-	}
-	if len(data) > 0 {
-		txt := decodeMacRoman(data)
-		if len([]rune(strings.TrimSpace(txt))) >= 4 {
-			return txt
+	case kMsgLogon, kMsgFriendLogon, kMsgLogoff, kMsgFriendLogoff,
+		kMsgShare, kMsgFriendShare, kMsgHost, kMsgObit, kMsgFriendObit,
+		kMsgSpeech, kMsgFriendSpeech, kMsgMySpeech, kMsgWho, kMsgInfo,
+		kMsgBardLevel, kMsgDownload, kMsgMonoStyle, kMsgTimeStamp:
+		if len(data) > 0 && data[0] == 0xC2 {
+			if s := decodeBEPP(data); s != "" {
+				return s
+			}
+			return ""
 		}
-	}
-
-	simpleEncrypt(data)
-	if len(data) > 0 && data[0] == 0xC2 {
-		if s := decodeBEPP(data); s != "" {
-			return s
+		if i := bytes.IndexByte(data, 0); i >= 0 {
+			data = data[:i]
 		}
-		return ""
-	}
-	if _, s, _, _, _, _ := decodeBubble(data); s != "" {
-		return s
-	}
-	if i := bytes.IndexByte(data, 0); i >= 0 {
-		data = data[:i]
-	}
-	if len(data) > 0 {
-		txt := decodeMacRoman(data)
-		if len([]rune(strings.TrimSpace(txt))) >= 4 {
+		txt := strings.TrimSpace(decodeMacRoman(stripBEPPTags(data)))
+		if txt != "" {
 			return txt
 		}
 	}

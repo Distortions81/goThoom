@@ -23,13 +23,20 @@ var notoSansBoldItalic []byte
 var mainFont, mainFontBold, mainFontItalic, mainFontBoldItalic, bubbleFont text.Face
 
 func initFont() {
+	size := gs.MainFontSize
+	bubbleSize := gs.BubbleFontSize
+	if !gs.AnyGameWindowSize {
+		size *= gs.GameScale
+		bubbleSize *= gs.GameScale
+	}
+
 	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)
 	}
 	mainFont = &text.GoTextFace{
 		Source: regular,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   size,
 	}
 
 	bold, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBold))
@@ -38,7 +45,7 @@ func initFont() {
 	}
 	mainFontBold = &text.GoTextFace{
 		Source: bold,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   size,
 	}
 
 	italic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansItalic))
@@ -47,7 +54,7 @@ func initFont() {
 	}
 	mainFontItalic = &text.GoTextFace{
 		Source: italic,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   size,
 	}
 
 	boldItalic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBoldItalic))
@@ -56,12 +63,12 @@ func initFont() {
 	}
 	mainFontBoldItalic = &text.GoTextFace{
 		Source: boldItalic,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   size,
 	}
 
 	//Bubble
 	bubbleFont = &text.GoTextFace{
 		Source: bold,
-		Size:   gs.BubbleFontSize * gs.GameScale,
+		Size:   bubbleSize,
 	}
 }
