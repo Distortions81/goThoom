@@ -120,6 +120,19 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	width += 2 * pad
 	height := lineHeight*len(lines) + 2*pad
 
+	// Compute the original bubble bounds before clamping. If the entire
+	// bubble would lie outside the visible game area, skip drawing it.
+	origBottom := y
+	if !far {
+		origBottom = y - tailHeight
+	}
+	origLeft := x - width/2
+	origTop := origBottom - height
+	origRight := origLeft + width
+	if origRight <= 0 || origLeft >= sw || origBottom <= 0 || origTop >= sh {
+		return
+	}
+
 	left, top, right, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
 	left += ox
 	right += ox
