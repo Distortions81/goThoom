@@ -36,6 +36,9 @@ var (
 	// before exiting when enabled.
 	TreeMode bool
 
+	// CacheCheck shows render counts for windows and items when enabled.
+	CacheCheck bool
+
 	whiteImage    = ebiten.NewImage(3, 3)
 	whiteSubImage = whiteImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image)
 

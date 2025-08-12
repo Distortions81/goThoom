@@ -15,6 +15,7 @@ import (
 
 	"go_client/climg"
 	"go_client/clsnd"
+	"go_client/eui"
 )
 
 var (
@@ -38,6 +39,7 @@ func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
+	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
 	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 30 fps for 30s")
 	flag.Parse()
 	clientVersion = *clientVer
