@@ -2,7 +2,10 @@
 
 package main
 
-import "go_client/eui"
+import (
+	"fmt"
+	"go_client/eui"
+)
 
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
@@ -22,6 +25,10 @@ func updateChatWindow() {
 			}
 		} else {
 			t, _ := eui.NewText()
+			if t == nil {
+				logError("create chat text: eui.NewText returned nil")
+				continue
+			}
 			t.Text = msg
 			t.FontSize = 10
 			t.Size = eui.Point{X: 256, Y: 24}
@@ -41,11 +48,14 @@ func updateChatWindow() {
 	}
 }
 
-func makeChatWindow() {
+func makeChatWindow() error {
 	if chatWin != nil {
-		return
+		return nil
 	}
 	chatWin = eui.NewWindow()
+	if chatWin == nil {
+		return fmt.Errorf("eui.NewWindow returned nil")
+	}
 	chatWin.Title = "Chat"
 	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
 		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X), Y: float32(gs.ChatWindow.Size.Y)}
@@ -61,6 +71,10 @@ func makeChatWindow() {
 	}
 
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	if chatList == nil {
+		return fmt.Errorf("failed to create chat list")
+	}
 	chatWin.AddItem(chatList)
 	chatWin.AddWindow(false)
+	return nil
 }

@@ -212,7 +212,12 @@ func syncWindowSettings() bool {
 	if syncWindow(messagesWin, &gs.MessagesWindow) {
 		changed = true
 	}
-	if syncWindow(chatWin, &gs.ChatWindow) {
+	if chatWin != nil {
+		if syncWindow(chatWin, &gs.ChatWindow) {
+			changed = true
+		}
+	} else if gs.ChatWindow.Open {
+		gs.ChatWindow.Open = false
 		changed = true
 	}
 	return changed
