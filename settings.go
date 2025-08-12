@@ -176,6 +176,8 @@ func applySettings() {
 }
 
 func saveSettings() {
+	// Saving settings is currently disabled.
+	return
 }
 
 func syncWindowSettings() bool {
