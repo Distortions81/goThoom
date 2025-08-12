@@ -39,6 +39,7 @@ type windowData struct {
 	Scroll          point
 	NoScroll        bool
 	NoScale         bool
+	NoBGColor       bool
 	AlwaysDrawFirst bool
 
 	TitleHeight float32
