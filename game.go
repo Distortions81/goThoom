@@ -882,6 +882,38 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 	plane := p.Plane
 
+	w, h := 0, 0
+	if clImages != nil {
+		w, h = clImages.Size(uint32(p.PictID))
+	}
+
+	var mobileX, mobileY float64
+	if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.smoothMoving {
+		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
+			mobileX, mobileY = dx, dy
+			offX = 0
+			offY = 0
+		}
+	}
+
+	x := int((math.Round(float64(p.H)+offX+mobileX) + float64(fieldCenterX)) * gs.GameScale)
+	y := int((math.Round(float64(p.V)+offY+mobileY) + float64(fieldCenterY)) * gs.GameScale)
+	x += ox
+	y += oy
+
+	pfW := int(math.Round(float64(gameAreaSizeX) * gs.GameScale))
+	pfH := int(math.Round(float64(gameAreaSizeY) * gs.GameScale))
+	left, top := ox, oy
+	right, bottom := ox+pfW, oy+pfH
+
+	scaledW := int(math.Round(float64(w) * gs.GameScale))
+	scaledH := int(math.Round(float64(h) * gs.GameScale))
+	halfW := scaledW / 2
+	halfH := scaledH / 2
+	if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
+		return
+	}
+
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
 	var prevFrame int
@@ -891,26 +923,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			prevImg = loadImageFrame(p.PictID, prevFrame)
 		}
 	}
-
-	var mobileX, mobileY float64
-	w, h := 0, 0
-	if img != nil {
-		w, h = img.Bounds().Dx(), img.Bounds().Dy()
-		if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.smoothMoving {
-			if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
-				mobileX, mobileY = dx, dy
-				offX = 0
-				offY = 0
-			}
-		}
-	}
-
-	x := int((math.Round(float64(p.H)+offX+mobileX) + float64(fieldCenterX)) * gs.GameScale)
-	y := int((math.Round(float64(p.V)+offY+mobileY) + float64(fieldCenterY)) * gs.GameScale)
-	x += ox
-	y += oy
-
-	sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
 
 	if img != nil {
 		drawW, drawH := w, h
@@ -952,7 +964,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		sy = scaledH / float64(drawH)
 		halfW := int(scaledW / 2)
 		halfH := int(scaledH / 2)
-		if x+halfW <= 0 || y+halfH <= 0 || x-halfW >= sw || y-halfH >= sh {
+		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
 			return
 		}
 		op := &ebiten.DrawImageOptions{}
@@ -977,7 +989,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	} else {
 		half := int(2 * gs.GameScale)
-		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
+		if x+half <= left || y+half <= top || x-half >= right || y-half >= bottom {
 			return
 		}
 		clr := color.RGBA{0, 0, 0xff, 0xff}

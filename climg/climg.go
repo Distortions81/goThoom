@@ -561,6 +561,31 @@ func (c *CLImages) FrameIndex(id uint32, counter int) int {
 	return counter % int(ref.numFrames)
 }
 
+// Size returns the width and height of the image with the given ID.
+// If the image is missing, zeros are returned.
+func (c *CLImages) Size(id uint32) (int, int) {
+	ref := c.idrefs[id]
+	if ref == nil {
+		return 0, 0
+	}
+	imgLoc := c.images[ref.imageID]
+	if imgLoc == nil {
+		return 0, 0
+	}
+	r := bytes.NewReader(c.data)
+	if _, err := r.Seek(int64(imgLoc.offset), io.SeekStart); err != nil {
+		return 0, 0
+	}
+	var h, w uint16
+	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
+		return 0, 0
+	}
+	if err := binary.Read(r, binary.BigEndian, &w); err != nil {
+		return 0, 0
+	}
+	return int(w), int(h)
+}
+
 // applyCustomPalette replaces entries in col according to mapping and custom.
 // mapping holds color table indices for each customizable slot while custom
 // provides the new palette indices supplied by the server for those slots.
