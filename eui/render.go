@@ -23,7 +23,7 @@ var hoverPinWin *windowData
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
-
+	hoverPinWin = nil
 	for _, win := range windows {
 		if !win.Open {
 			continue
@@ -32,6 +32,10 @@ func Draw(screen *ebiten.Image) {
 			hoverPinWin = win
 		}
 		win.Draw(screen)
+	}
+
+	if hoverPinWin != nil {
+		drawZoneOverlay(screen, hoverPinWin)
 	}
 
 	if DumpMode && !dumpDone {
