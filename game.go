@@ -1120,7 +1120,7 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 
 // drawInputOverlay renders the text entry box when chatting.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	eui.SetScreenSize(outsideWidth, outsideHeight)
+	eui.RenderSize(outsideWidth, outsideHeight)
 	return outsideWidth, outsideHeight
 }
 
