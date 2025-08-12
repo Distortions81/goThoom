@@ -1155,6 +1155,7 @@ func initGame() {
 	eui.LoadStyle("RoundHybrid")
 
 	loadSettings()
+	initUI()
 	updateCharacterButtons()
 
 	close(gameStarted)

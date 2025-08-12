@@ -103,31 +103,6 @@ func initUI() {
 	}
 }
 
-func layoutWindows() {
-	initUI()
-	sx, sy := eui.ScreenSize()
-	scale := eui.UIScale()
-	if chatWin != nil {
-		size := chatWin.GetSize()
-		chatWin.Position = eui.Point{
-			X: (float32(sx)/2 - size.X/2) / scale,
-			Y: (float32(sy)/2 - size.Y/2) / scale,
-		}
-	}
-	if messagesWin != nil {
-		size := messagesWin.GetSize()
-		messagesWin.Position = eui.Point{X: 0, Y: (float32(sy) - size.Y) / scale}
-	}
-	if inventoryWin != nil {
-		inventoryWin.Position = eui.Point{X: 0, Y: 0}
-	}
-	if playersWin != nil {
-		size := playersWin.GetSize()
-		playersWin.Position = eui.Point{X: (float32(sx) - size.X) / scale, Y: 0}
-	}
-
-}
-
 func makeToolbarWindow() {
 	toolbarWin = eui.NewWindow()
 	toolbarWin.Closable = false
