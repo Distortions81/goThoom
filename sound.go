@@ -74,8 +74,10 @@ func playSound(ids ...uint16) {
 			}
 		}
 
+		scale := 1.0 / math.Sqrt(float64(len(sounds)))
 		out := make([]byte, len(mixed)*2)
 		for i, v := range mixed {
+			v = int32(float64(v) * scale)
 			if v > 32767 {
 				v = 32767
 			} else if v < -32768 {
