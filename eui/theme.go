@@ -115,7 +115,6 @@ func LoadTheme(name string) error {
 	if ac, ok := namedColors["accent"]; ok {
 		accentHue, accentSaturation, accentValue, accentAlpha = rgbaToHSVA(color.RGBA(ac))
 	}
-	applyAccentColor()
 	if tf.RecommendedStyle != "" {
 		_ = LoadStyle(tf.RecommendedStyle)
 	}
@@ -167,67 +166,10 @@ func SaveTheme(name string) error {
 // to all windows and widgets.
 func SetAccentColor(c Color) {
 	accentHue, _, accentValue, accentAlpha = rgbaToHSVA(color.RGBA(c))
-	applyAccentColor()
 }
 
 // SetAccentSaturation updates the saturation component of the accent color and
 // reapplies it to the current theme.
 func SetAccentSaturation(s float64) {
 	accentSaturation = clamp(s, 0, 1)
-	applyAccentColor()
-}
-
-// applyAccentColor composes the accent color from the stored HSV values and
-// updates all widgets.
-func applyAccentColor() {
-	col := Color(hsvaToRGBA(accentHue, accentSaturation, accentValue, accentAlpha))
-	namedColors["accent"] = col
-	if currentTheme == nil {
-		return
-	}
-	currentTheme.Window.ActiveColor = col
-	currentTheme.Button.ClickColor = col
-	currentTheme.Checkbox.ClickColor = col
-	currentTheme.Radio.ClickColor = col
-	currentTheme.Input.ClickColor = col
-	currentTheme.Slider.ClickColor = col
-	currentTheme.Slider.SelectedColor = col
-	currentTheme.Dropdown.ClickColor = col
-	currentTheme.Dropdown.SelectedColor = col
-	currentTheme.Tab.ClickColor = col
-	namedColors["sliderfilled"] = col
-	markAllDirty()
-}
-
-// applyThemeToWindow merges the current theme's window settings into the given
-// window and recursively updates contained items.
-func copyWindowStyle(dst, src *windowData) {
-	dst.Padding = src.Padding
-	dst.Margin = src.Margin
-	dst.Border = src.Border
-	dst.BorderPad = src.BorderPad
-	dst.Fillet = src.Fillet
-	dst.Outlined = src.Outlined
-	dst.TitleHeight = src.TitleHeight
-	dst.DragbarSpacing = src.DragbarSpacing
-	dst.ShowDragbar = src.ShowDragbar
-}
-
-// applyThemeToItem merges style data from the current theme based on item type
-// and recursively processes child items.
-func copyItemStyle(dst, src *itemData) {
-	dst.Padding = src.Padding
-	dst.Margin = src.Margin
-	dst.Fillet = src.Fillet
-	dst.Border = src.Border
-	dst.BorderPad = src.BorderPad
-	dst.Filled = src.Filled
-	dst.Outlined = src.Outlined
-	dst.ActiveOutline = src.ActiveOutline
-	dst.AuxSize = src.AuxSize
-	dst.AuxSpace = src.AuxSpace
-	if src.MaxVisible != 0 {
-		dst.MaxVisible = src.MaxVisible
-	}
-
 }

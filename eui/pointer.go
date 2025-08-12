@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	lastWheelTime  time.Time
 	isWasm         = runtime.GOOS == "js" && runtime.GOARCH == "wasm"
 	touchScrolling bool
 	prevTouchAvg   = point{}
@@ -58,8 +57,6 @@ func pointerWheel() (float64, float64) {
 
 	wx, wy := ebiten.Wheel()
 	if isWasm {
-		now := time.Now()
-		lastWheelTime = now
 
 		if !wheelLimiter.Allow() {
 			return 0, 0
