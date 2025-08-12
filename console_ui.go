@@ -10,17 +10,10 @@ var inputBar *eui.ItemData
 var messagesDirty bool
 
 func updateMessagesWindow() {
-	if messagesList == nil {
+	if messagesList == nil || inputBar == nil {
 		return
 	}
 	msgs := getConsoleMessages()
-	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
-	if inputActive {
-		if inputMsg != string(inputText) {
-			inputMsg = string(inputText)
-			messagesWin.Refresh()
-		}
-	}
 	changed := false
 	for i, msg := range msgs {
 		if i < len(messagesList.Contents) {
@@ -37,26 +30,20 @@ func updateMessagesWindow() {
 			changed = true
 		}
 	}
-	inputIdx := len(msgs)
-	if inputIdx < len(messagesList.Contents) {
-		if messagesList.Contents[inputIdx].Text != inputMsg {
-			messagesList.Contents[inputIdx].Text = inputMsg
-			changed = true
-		}
-	} else {
-		t, _ := eui.NewText()
-		t.Text = inputMsg
-		t.FontSize = 10
-		t.Size = eui.Point{X: 500, Y: 24}
-		messagesList.AddItem(t)
-		changed = true
-	}
-	if len(messagesList.Contents) > inputIdx+1 {
-		for i := inputIdx + 1; i < len(messagesList.Contents); i++ {
+	if len(messagesList.Contents) > len(msgs) {
+		for i := len(msgs); i < len(messagesList.Contents); i++ {
 			messagesList.Contents[i] = nil
 		}
-		messagesList.Contents = messagesList.Contents[:inputIdx+1]
+		messagesList.Contents = messagesList.Contents[:len(msgs)]
 		changed = true
+	}
+	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
+	if inputActive {
+		inputMsg = string(inputText)
+	}
+	if inputBar.Text != inputMsg {
+		inputBar.Text = inputMsg
+		messagesWin.Refresh()
 	}
 	if changed {
 		messagesDirty = true
@@ -85,6 +72,11 @@ func makeConsoleWindow() {
 
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	messagesWin.AddItem(messagesList)
+	inputBar, _ = eui.NewText()
+	inputBar.Text = "[Command Input Bar] (Press enter to switch to command mode)"
+	inputBar.FontSize = 10
+	inputBar.Size = eui.Point{X: 500, Y: 24}
+	messagesWin.AddItem(inputBar)
 	messagesWin.AddWindow(false)
 	updateMessagesWindow()
 }
