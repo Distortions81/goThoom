@@ -7,15 +7,12 @@ import (
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
-	"maze.io/x/math32"
 
 	"go_client/clsnd"
 )
 
 const (
-	maxSounds  = 64
-	sincTaps   = 16   // filter half-width for high quality sinc resampling
-	sincPhases = 1024 // number of fractional phases for precomputed table
+	maxSounds = 64
 )
 
 var (
@@ -25,9 +22,6 @@ var (
 
 	audioContext *audio.Context
 	soundPlayers = make(map[*audio.Player]struct{})
-	resample     = resampleLinear
-
-	sincTable [][]float32
 )
 
 // playSound mixes the provided sound IDs and plays the result asynchronously.
@@ -129,20 +123,9 @@ func playSound(ids ...uint16) {
 	}(append([]uint16(nil), ids...))
 }
 
-// initSoundContext initializes the global audio context and resampler based on
-// the fastSound flag. The default uses linear interpolation for a balance of
-// speed and quality.
+// initSoundContext initializes the global audio context.
 func initSoundContext() {
-
 	rate := 44100
-
-	if gs.fastSound {
-		resample = resampleLinear
-	} else {
-		initSinc()
-		resample = resampleSincHQ
-	}
-
 	audioContext = audio.NewContext(rate)
 }
 
@@ -178,51 +161,6 @@ func updateSoundVolume() {
 	}
 }
 
-func initSinc() {
-	sincTable = make([][]float32, sincPhases)
-	for p := 0; p < sincPhases; p++ {
-		frac := float32(p) / float32(sincPhases)
-		coeffs := make([]float32, 2*sincTaps)
-		var sum float64
-		for k := -sincTaps + 1; k <= sincTaps; k++ {
-			idx := k + sincTaps - 1
-			t := float32(k) - frac
-			n := float64(idx) / float64(2*sincTaps-1)
-			w := 0.42 - 0.5*math.Cos(2*math.Pi*n) + 0.08*math.Cos(4*math.Pi*n)
-			coeff := float32(w) * math32.Sinc(float32(math.Pi)*t)
-			coeffs[idx] = coeff
-			sum += float64(coeff)
-		}
-		if sum != 0 {
-			inv := float32(1 / sum)
-			for i := range coeffs {
-				coeffs[i] *= inv
-			}
-		}
-		sincTable[p] = coeffs
-	}
-}
-
-func resampleFast(src []int16, srcRate, dstRate int) []int16 {
-	if srcRate == dstRate || len(src) == 0 {
-		return append([]int16(nil), src...)
-	}
-
-	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
-	dst := make([]int16, n)
-
-	ratio := float64(srcRate) / float64(dstRate)
-	for i := 0; i < n; i++ {
-		srcIdx := int(float64(i) * ratio)
-		if srcIdx >= len(src) {
-			srcIdx = len(src) - 1
-		}
-		dst[i] = src[srcIdx]
-	}
-
-	return dst
-}
-
 func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
 	if srcRate == dstRate || len(src) == 0 {
 		return append([]int16(nil), src...)
@@ -245,44 +183,6 @@ func resampleLinear(src []int16, srcRate, dstRate int) []int16 {
 		dst[i] = int16(math.Round(v))
 	}
 
-	return dst
-}
-
-func resampleSincHQ(src []int16, srcRate, dstRate int) []int16 {
-	if srcRate == dstRate || len(src) == 0 {
-		return append([]int16(nil), src...)
-	}
-
-	n := int(math.Round(float64(len(src)) * float64(dstRate) / float64(srcRate)))
-	dst := make([]int16, n)
-	ratio := float64(srcRate) / float64(dstRate)
-
-	pos := 0.0
-	for i := 0; i < n; i++ {
-		idx := int(pos)
-		frac := pos - float64(idx)
-		phase := int(frac*float64(sincPhases) + 0.5)
-		if phase >= sincPhases {
-			phase = sincPhases - 1
-		}
-		coeffs := sincTable[phase]
-		var sum float64
-		for k := -sincTaps + 1; k <= sincTaps; k++ {
-			j := idx + k
-			if j < 0 || j >= len(src) {
-				continue
-			}
-			coeff := coeffs[k+sincTaps-1]
-			sum += float64(src[j]) * float64(coeff)
-		}
-		if sum > float64(math.MaxInt16) {
-			sum = float64(math.MaxInt16)
-		} else if sum < float64(math.MinInt16) {
-			sum = float64(math.MinInt16)
-		}
-		dst[i] = int16(math.Round(sum))
-		pos += ratio
-	}
 	return dst
 }
 
@@ -429,7 +329,7 @@ func loadSound(id uint16) []byte {
 
 	if srcRate != dstRate {
 		logDebug("loadSound(%d) resampling from %d to %d", id, srcRate, dstRate)
-		samples = resample(samples, srcRate, dstRate)
+		samples = resampleLinear(samples, srcRate, dstRate)
 	}
 
 	applyFadeInOut(samples, dstRate)
