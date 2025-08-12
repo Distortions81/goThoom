@@ -816,12 +816,16 @@ func parseDrawState(data []byte) error {
 	}
 	needAnimUpdate := (gs.MotionSmoothing || (gs.BlendMobiles && changed)) && ok
 	if needAnimUpdate {
-		const defaultInterval = time.Second / 5
-		interval := defaultInterval
+		frameMu.Lock()
+		interval := frameInterval
+		frameMu.Unlock()
 		if !state.prevTime.IsZero() && !state.curTime.IsZero() {
 			if d := state.curTime.Sub(state.prevTime); d > 0 {
 				interval = d
 			}
+		}
+		if interval <= 0 {
+			interval = time.Second / 5
 		}
 		logDebug("interp mobiles interval=%v", interval)
 		state.prevTime = time.Now()
