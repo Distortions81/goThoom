@@ -63,16 +63,34 @@ func Draw(screen *ebiten.Image) {
 }
 
 func (win *windowData) Draw(screen *ebiten.Image) {
-	if CacheCheck {
-		win.RenderCount++
+	if win.Dirty || win.Render == nil {
+		if CacheCheck {
+			win.RenderCount++
+		}
+		size := win.GetSize()
+		if win.Render == nil || win.Render.Bounds().Dx() != int(size.X) || win.Render.Bounds().Dy() != int(size.Y) {
+			if size.X < 1 || size.Y < 1 {
+				return
+			}
+			win.Render = ebiten.NewImage(int(size.X), int(size.Y))
+		} else {
+			win.Render.Clear()
+		}
+		origPos := win.Position
+		win.Position = point{}
+		win.drawBG(win.Render)
+		win.drawItems(win.Render)
+		win.drawScrollbars(win.Render)
+		titleArea := win.Render.SubImage(win.getTitleRect().getRectangle()).(*ebiten.Image)
+		win.drawWinTitle(titleArea)
+		windowArea := win.Render.SubImage(win.getWinRect().getRectangle()).(*ebiten.Image)
+		win.drawBorder(windowArea)
+		win.Position = origPos
+		win.Dirty = false
 	}
-	win.drawBG(screen)
-	win.drawItems(screen)
-	win.drawScrollbars(screen)
-	titleArea := screen.SubImage(win.getTitleRect().getRectangle()).(*ebiten.Image)
-	win.drawWinTitle(titleArea)
-	windowArea := screen.SubImage(win.getWinRect().getRectangle()).(*ebiten.Image)
-	win.drawBorder(windowArea)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(win.getPosition().X), float64(win.getPosition().Y))
+	screen.DrawImage(win.Render, op)
 	win.drawDebug(screen)
 	if CacheCheck {
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", win.RenderCount), int(win.getPosition().X), int(win.getPosition().Y))

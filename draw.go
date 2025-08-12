@@ -499,7 +499,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 	for len(data) > 0 && data[0] == 0 {
 		data = data[1:]
 	}
-	inventoryDirty = (true)
+	inventoryDirty = true
 	return data, true
 }
 
