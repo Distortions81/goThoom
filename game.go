@@ -710,6 +710,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	y := int((math.Round(v) + float64(fieldCenterY)) * gs.GameScale)
 	x += ox
 	y += oy
+	viewW := int(float64(gameAreaSizeX) * gs.GameScale)
+	viewH := int(float64(gameAreaSizeY) * gs.GameScale)
 	var img *ebiten.Image
 	plane := 0
 	var d frameDescriptor
@@ -786,8 +788,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scaled := math.Round(float64(drawSize) * scale)
 		scale = scaled / float64(drawSize)
 		half := int(scaled / 2)
-		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
-		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
+		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
 			return
 		}
 		op := &ebiten.DrawImageOptions{}
@@ -847,8 +848,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		}
 	} else {
 		half := int(3 * gs.GameScale)
-		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
-		if x+half <= 0 || y+half <= 0 || x-half >= sw || y-half >= sh {
+		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
 			return
 		}
 		vector.DrawFilledRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
