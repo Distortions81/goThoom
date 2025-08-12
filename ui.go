@@ -510,6 +510,7 @@ func makeAddCharacterWindow() {
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
+	loginWin.Open()
 }
 
 func makeLoginWindow() {
