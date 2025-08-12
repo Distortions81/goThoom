@@ -547,7 +547,6 @@ func gameContentOrigin() (int, int) {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	ox, oy := gameContentOrigin()
-	wx, wy := gameWindowOrigin()
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen, ox, oy)
 		eui.Draw(screen)
@@ -566,32 +565,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	drawEquippedItems(screen, ox, oy)
 
-	if gameWin != nil {
-		size := gameWin.GetSize()
-		w := float32(int(size.X) &^ 1)
-		h := float32(int(size.Y) &^ 1)
-		fw := float32(float64(gameAreaSizeX) * gs.GameScale)
-		fh := float32(float64(gameAreaSizeY) * gs.GameScale)
-		dark := color.RGBA{0x40, 0x40, 0x40, 0xff}
-		left := float32(ox - wx)
-		top := float32(oy - wy)
-		right := w - left - fw
-		bottom := h - top - fh
-		if left > 0 {
-			vector.DrawFilledRect(screen, float32(wx), float32(oy), left, fh, dark, false)
-		}
-		if right > 0 {
-			vector.DrawFilledRect(screen, float32(ox)+fw, float32(oy), right, fh, dark, false)
-		}
-		if top > 0 {
-			vector.DrawFilledRect(screen, float32(wx), float32(wy), w, top, dark, false)
-		}
-		if bottom > 0 {
-			vector.DrawFilledRect(screen, float32(wx), float32(oy)+fh, w, bottom, dark, false)
-		}
-	}
-
-	drawCropCorners(screen, ox, oy)
+	drawGameCurtain(screen, ox, oy)
 
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	eui.Draw(screen)
@@ -1065,30 +1039,41 @@ func lerpBar(prev, cur int, alpha float64) int {
 	return int(math.Round(float64(prev) + alpha*float64(cur-prev)))
 }
 
-func drawCropCorners(screen *ebiten.Image, ox, oy int) {
+func drawGameCurtain(screen *ebiten.Image, ox, oy int) {
 	w := int(math.Round(float64(gameAreaSizeX) * gs.GameScale))
 	h := int(math.Round(float64(gameAreaSizeY) * gs.GameScale))
-	op := &ebiten.DrawImageOptions{}
+	sw := screen.Bounds().Dx()
+	sh := screen.Bounds().Dy()
 
 	if blackPixel == nil {
 		blackPixel = ebiten.NewImage(1, 1)
 		blackPixel.Fill(color.Black)
 	}
 
-	op.GeoM.Translate(float64(ox), float64(oy))
-	screen.DrawImage(blackPixel, op)
+	op := &ebiten.DrawImageOptions{}
 
-	op.GeoM.Reset()
-	op.GeoM.Translate(float64(ox+w-1), float64(oy))
-	screen.DrawImage(blackPixel, op)
-
-	op.GeoM.Reset()
-	op.GeoM.Translate(float64(ox), float64(oy+h-1))
-	screen.DrawImage(blackPixel, op)
-
-	op.GeoM.Reset()
-	op.GeoM.Translate(float64(ox+w-1), float64(oy+h-1))
-	screen.DrawImage(blackPixel, op)
+	if oy > 0 {
+		op.GeoM.Scale(float64(sw), float64(oy))
+		screen.DrawImage(blackPixel, op)
+	}
+	if bottom := sh - (oy + h); bottom > 0 {
+		op.GeoM.Reset()
+		op.GeoM.Scale(float64(sw), float64(bottom))
+		op.GeoM.Translate(0, float64(oy+h))
+		screen.DrawImage(blackPixel, op)
+	}
+	if ox > 0 {
+		op.GeoM.Reset()
+		op.GeoM.Scale(float64(ox), float64(h))
+		op.GeoM.Translate(0, float64(oy))
+		screen.DrawImage(blackPixel, op)
+	}
+	if right := sw - (ox + w); right > 0 {
+		op.GeoM.Reset()
+		op.GeoM.Scale(float64(right), float64(h))
+		op.GeoM.Translate(float64(ox+w), float64(oy))
+		screen.DrawImage(blackPixel, op)
+	}
 }
 
 // drawStatusBars renders health, balance and spirit bars.
