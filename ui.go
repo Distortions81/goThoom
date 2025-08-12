@@ -75,7 +75,10 @@ func initUI() {
 	makeDownloadsWindow()
 	makeLoginWindow()
 	makeAddCharacterWindow()
-	makeChatWindow()
+	if err := makeChatWindow(); err != nil {
+		logError("make chat window: %v", err)
+		chatMessage("Unable to create chat window")
+	}
 	makeConsoleWindow()
 	makeSettingsWindow()
 	makeQualityWindow()
@@ -86,7 +89,9 @@ func initUI() {
 	makeHelpWindow()
 	makeToolbarWindow()
 
-	chatWin.Open()
+	if chatWin != nil {
+		chatWin.Open()
+	}
 	messagesWin.Open()
 	inventoryWin.Open()
 	playersWin.Open()
