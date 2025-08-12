@@ -22,11 +22,17 @@ import (
 )
 
 const lateRatio = 85
-const gameAreaSizeX, gameAreaSizeY = 500, 500
+const gameAreaSizeX, gameAreaSizeY = 640, 480
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const defaultHandPictID = 6
 
 const initialWindowW, initialWindowH = 100, 100
+
+var blackPixel = func() *ebiten.Image {
+	img := ebiten.NewImage(1, 1)
+	img.Fill(color.Black)
+	return img
+}()
 
 // scaleForFiltering returns adjusted scale values for width and height to reduce
 // filtering seams. If either dimension is zero, the original scale is returned
@@ -568,6 +574,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	drawCropCorners(screen, ox, oy)
+
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	eui.Draw(screen)
 	if gs.ShowFPS {
@@ -1026,6 +1034,27 @@ func lerpBar(prev, cur int, alpha float64) int {
 		return cur
 	}
 	return int(math.Round(float64(prev) + alpha*float64(cur-prev)))
+}
+
+func drawCropCorners(screen *ebiten.Image, ox, oy int) {
+	w := int(math.Round(float64(gameAreaSizeX) * gs.GameScale))
+	h := int(math.Round(float64(gameAreaSizeY) * gs.GameScale))
+	op := &ebiten.DrawImageOptions{}
+
+	op.GeoM.Translate(float64(ox), float64(oy))
+	screen.DrawImage(blackPixel, op)
+
+	op.GeoM.Reset()
+	op.GeoM.Translate(float64(ox+w-1), float64(oy))
+	screen.DrawImage(blackPixel, op)
+
+	op.GeoM.Reset()
+	op.GeoM.Translate(float64(ox), float64(oy+h-1))
+	screen.DrawImage(blackPixel, op)
+
+	op.GeoM.Reset()
+	op.GeoM.Translate(float64(ox+w-1), float64(oy+h-1))
+	screen.DrawImage(blackPixel, op)
 }
 
 // drawStatusBars renders health, balance and spirit bars.
