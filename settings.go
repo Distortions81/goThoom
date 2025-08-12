@@ -233,14 +233,14 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		state.Open = win.IsOpen()
 		changed = true
 	}
-	pos := WindowPoint{X: float64(win.Position.X), Y: float64(win.Position.Y)}
-	if state.Position != pos {
-		state.Position = pos
+	pos := eui.ScreenToNorm(win.GetPos())
+	if state.Position != (WindowPoint{X: float64(pos.X), Y: float64(pos.Y)}) {
+		state.Position = WindowPoint{X: float64(pos.X), Y: float64(pos.Y)}
 		changed = true
 	}
-	size := WindowPoint{X: float64(win.Size.X), Y: float64(win.Size.Y)}
-	if state.Size != size {
-		state.Size = size
+	size := eui.ScreenToNorm(win.GetSize())
+	if state.Size != (WindowPoint{X: float64(size.X), Y: float64(size.Y)}) {
+		state.Size = WindowPoint{X: float64(size.X), Y: float64(size.Y)}
 		changed = true
 	}
 	return changed
