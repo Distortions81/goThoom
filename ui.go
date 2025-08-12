@@ -441,14 +441,14 @@ func updateCharacterButtons() {
 						passHash = ""
 					}
 					updateCharacterButtons()
-					//loginWin.Refresh()
+					loginWin.Refresh()
 				}
 			}
 			row.AddItem(trash)
 			charactersList.AddItem(row)
 		}
 	}
-	//loginWin.Refresh()
+	loginWin.Refresh()
 }
 
 func makeAddCharacterWindow() {
@@ -651,7 +651,6 @@ func makeLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
-	updateCharacterButtons()
 }
 
 func makeErrorWindow(msg string) {
