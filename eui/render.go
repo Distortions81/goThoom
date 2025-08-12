@@ -222,7 +222,6 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 			FrameColor = win.Theme.Window.ActiveColor
 		} else if win.Hovered {
 			FrameColor = win.Theme.Window.HoverColor
-			win.Hovered = false
 		}
 		drawRoundRect(screen, &roundRect{
 			Size:     win.GetSize(),
@@ -347,7 +346,6 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			} else if tab.Hovered {
 				col = style.HoverColor
 			}
-			tab.Hovered = false
 			if item.Filled {
 				drawTabShape(subImg,
 					point{X: x, Y: offset.Y},
@@ -562,7 +560,6 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			itemColor = style.ClickColor
 			bColor = style.Color
 		} else if item.Hovered {
-			item.Hovered = false
 			itemColor = style.HoverColor
 		}
 		auxSize := pointScaleMul(item.AuxSize)
@@ -620,7 +617,6 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			itemColor = style.ClickColor
 			bColor = style.OutlineColor
 		} else if item.Hovered {
-			item.Hovered = false
 			itemColor = style.HoverColor
 		}
 		auxSize := pointScaleMul(item.AuxSize)
@@ -681,7 +677,6 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			if time.Since(item.Clicked) < clickFlash {
 				itemColor = style.ClickColor
 			} else if item.Hovered {
-				item.Hovered = false
 				itemColor = style.HoverColor
 			}
 			if item.Filled {
@@ -717,7 +712,6 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		if item.Focused {
 			itemColor = style.ClickColor
 		} else if item.Hovered {
-			item.Hovered = false
 			itemColor = style.HoverColor
 		}
 
@@ -760,7 +754,6 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 
 		itemColor := style.Color
 		if item.Hovered {
-			item.Hovered = false
 			itemColor = style.HoverColor
 		}
 
@@ -840,7 +833,6 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		if item.Open {
 			itemColor = style.SelectedColor
 		} else if item.Hovered {
-			item.Hovered = false
 			itemColor = style.HoverColor
 		}
 

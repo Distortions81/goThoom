@@ -166,8 +166,13 @@ func Update() error {
 			}
 		}
 
-		//Window items
+		// Window items
+		prevWinHovered := win.Hovered
+		win.Hovered = false
 		win.clickWindowItems(mpos, click)
+		if win.Hovered != prevWinHovered {
+			win.markDirty()
+		}
 
 		// Bring window forward on click if the cursor is over it or an
 		// expanded dropdown. Break so windows behind don't receive the
