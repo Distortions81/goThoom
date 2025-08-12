@@ -39,6 +39,7 @@ var addCharPass string
 var addCharRemember bool
 var windowsWin *eui.WindowData
 var toolbarWin *eui.WindowData
+var layoutOnce sync.Once
 
 var (
 	sheetCacheLabel  *eui.ItemData
@@ -93,6 +94,22 @@ func initUI() {
 		downloadWin.Open()
 	} else {
 		loginWin.Open()
+	}
+}
+
+func layoutWindows() {
+	sx, sy := eui.ScreenSize()
+	if chatWin != nil {
+		chatWin.Position = eui.Point{X: float32(sx) - chatWin.Size.X, Y: float32(sy) - chatWin.Size.Y}
+	}
+	if messagesWin != nil {
+		messagesWin.Position = eui.Point{X: 0, Y: float32(sy) - messagesWin.Size.Y}
+	}
+	if inventoryWin != nil {
+		inventoryWin.Position = eui.Point{X: 0, Y: 0}
+	}
+	if playersWin != nil {
+		playersWin.Position = eui.Point{X: float32(sx) - playersWin.Size.X, Y: 0}
 	}
 }
 
