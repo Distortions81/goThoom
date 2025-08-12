@@ -137,7 +137,6 @@ func makeToolbarWindow() {
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
 	toolbarWin.Title = ""
-	toolbarWin.SetTitleSize(4)
 	xs, _ := eui.ScreenSize()
 	tbs := eui.Point{X: 930, Y: 48}
 	toolbarWin.Size = tbs

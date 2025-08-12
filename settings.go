@@ -186,6 +186,7 @@ func applySettings() {
 }
 
 func saveSettings() {
+	return
 	syncWindowSettings()
 	data, err := json.MarshalIndent(gs, "", "  ")
 	if err != nil {
