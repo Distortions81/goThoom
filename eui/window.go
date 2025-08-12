@@ -117,7 +117,7 @@ func (target *windowData) AddWindow(toBack bool) {
 		}
 	}
 
-	if target.PinTo != PIN_TOP_LEFT {
+	if target.PinTo != PIN_NONE {
 		target.Movable = false
 	}
 
