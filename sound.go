@@ -73,6 +73,88 @@ var (
 	}
 )
 
+// playSoundMix mixes the provided sound IDs and plays the result asynchronously.
+// Each ID is loaded, mixed with simple clipping and then played at the current
+// global volume. The function returns immediately after scheduling playback.
+func playSoundMix(ids ...uint16) {
+	if len(ids) == 0 {
+		return
+	}
+	go func(ids []uint16) {
+		logDebug("playSoundMix %v called", ids)
+		if blockSound {
+			logDebug("playSoundMix blocked by blockSound")
+			return
+		}
+		if audioContext == nil {
+			logDebug("playSoundMix no audio context")
+			return
+		}
+
+		sounds := make([][]byte, 0, len(ids))
+		maxSamples := 0
+		for _, id := range ids {
+			pcm := loadSound(id)
+			if pcm == nil {
+				continue
+			}
+			sounds = append(sounds, pcm)
+			if n := len(pcm) / 2; n > maxSamples {
+				maxSamples = n
+			}
+		}
+		if len(sounds) == 0 {
+			logDebug("playSoundMix no pcm returned")
+			return
+		}
+
+		mixed := make([]int32, maxSamples)
+		for _, pcm := range sounds {
+			n := len(pcm) / 2
+			for i := 0; i < n; i++ {
+				sample := int16(binary.LittleEndian.Uint16(pcm[2*i:]))
+				mixed[i] += int32(sample)
+			}
+		}
+
+		out := make([]byte, len(mixed)*2)
+		for i, v := range mixed {
+			if v > 32767 {
+				v = 32767
+			} else if v < -32768 {
+				v = -32768
+			}
+			binary.LittleEndian.PutUint16(out[2*i:], uint16(int16(v)))
+		}
+
+		p := audioContext.NewPlayerFromBytes(out)
+		vol := gs.Volume
+		if gs.Mute {
+			vol = 0
+		}
+		p.SetVolume(vol)
+
+		soundMu.Lock()
+		for sp := range soundPlayers {
+			if !sp.IsPlaying() {
+				sp.Close()
+				delete(soundPlayers, sp)
+			}
+		}
+		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
+			soundMu.Unlock()
+			logDebug("playSoundMix too many sound players (%d)", len(soundPlayers))
+			p.Close()
+			return
+		}
+		soundPlayers[p] = struct{}{}
+		soundMu.Unlock()
+
+		logDebug("playSoundMix playing")
+		p.Play()
+	}(append([]uint16(nil), ids...))
+}
+
 // initSoundContext initializes the global audio context and resampler based on
 // the fastSound flag. The default uses linear interpolation for a balance of
 // speed and quality.
