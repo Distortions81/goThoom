@@ -36,9 +36,10 @@ type windowData struct {
 	AutoSize bool
 
 	// Scroll position and behavior
-	Scroll   point
-	NoScroll bool
-	NoScale  bool
+	Scroll          point
+	NoScroll        bool
+	NoScale         bool
+	AlwaysDrawFirst bool
 
 	TitleHeight float32
 

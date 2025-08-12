@@ -24,10 +24,19 @@ func (target *windowData) AddWindow(toBack bool) {
 		toBack = true
 	}
 
+	if target.AlwaysDrawFirst {
+		windows = append([]*windowData{target}, windows...)
+		return
+	}
+
 	if !toBack {
 		windows = append(windows, target)
 	} else {
-		windows = append([]*windowData{target}, windows...)
+		idx := 0
+		for idx < len(windows) && windows[idx].AlwaysDrawFirst {
+			idx++
+		}
+		windows = append(windows[:idx], append([]*windowData{target}, windows[idx:]...)...)
 	}
 }
 
@@ -158,6 +167,9 @@ func NewText() (*itemData, *EventHandler) {
 
 // Bring a window to the front
 func (target *windowData) BringForward() {
+	if target.AlwaysDrawFirst {
+		return
+	}
 	for w, win := range windows {
 		if win == target {
 			windows = append(windows[:w], windows[w+1:]...)
@@ -202,7 +214,14 @@ func (target *windowData) ToBack() {
 	for w, win := range windows {
 		if win == target {
 			windows = append(windows[:w], windows[w+1:]...)
-			windows = append([]*windowData{target}, windows...)
+			idx := 0
+			for idx < len(windows) && windows[idx].AlwaysDrawFirst {
+				idx++
+			}
+			if target.AlwaysDrawFirst {
+				idx = 0
+			}
+			windows = append(windows[:idx], append([]*windowData{target}, windows[idx:]...)...)
 		}
 	}
 	if activeWindow == target {
