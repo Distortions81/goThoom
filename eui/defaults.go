@@ -5,30 +5,27 @@ var defaultTheme = &windowData{
 	Border:          0,
 	Outlined:        false,
 	Fillet:          4,
-	Padding:         8,
+	Padding:         4,
 	Margin:          4,
 	BorderPad:       0,
 	TitleColor:      NewColor(255, 255, 255, 255),
 	TitleTextColor:  NewColor(255, 255, 255, 255),
-	TitleBGColor:    NewColor(41, 44, 48, 255),
+	TitleBGColor:    NewColor(64, 64, 64, 255),
 	CloseBGColor:    NewColor(0, 0, 0, 0),
 	DragbarSpacing:  5,
 	ShowDragbar:     false,
-	BorderColor:     NewColor(41, 44, 48, 255),
-	SizeTabColor:    NewColor(102, 102, 102, 255),
-	DragbarColor:    NewColor(41, 44, 48, 255),
-	HoverTitleColor: NewColor(255, 255, 255, 255),
-	HoverColor:      NewColor(127, 127, 127, 255),
-	BGColor:         NewColor(32, 35, 38, 255),
-	ActiveColor:     NewColor(60, 173, 232, 255),
-	Transparent:     false,
-	Alpha:           1,
+	BorderColor:     NewColor(64, 64, 64, 255),
+	SizeTabColor:    NewColor(48, 48, 48, 255),
+	DragbarColor:    NewColor(64, 64, 64, 255),
+	HoverTitleColor: NewColor(0, 160, 160, 255),
+	HoverColor:      NewColor(80, 80, 80, 255),
+	BGColor:         NewColor(32, 32, 32, 255),
+	ActiveColor:     NewColor(0, 160, 160, 255),
 
 	ShadowSize:  16,
 	ShadowColor: NewColor(0, 0, 0, 160),
 
-	Movable: true, Closable: true, Resizable: true, open: false, AutoSize: false,
-	FixedRatio: false, AspectA: 0, AspectB: 0,
+	Movable: true, Closable: true, Resizable: true, Open: true, AutoSize: false,
 }
 
 var defaultButton = &itemData{
@@ -47,32 +44,23 @@ var defaultButton = &itemData{
 	Border:    0,
 	BorderPad: 4,
 
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(51, 51, 51, 255),
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(48, 48, 48, 255),
 }
 
 var defaultText = &itemData{
-	Text:          "",
-	ItemType:      ITEM_TEXT,
-	Size:          point{X: 128, Y: 128},
-	Position:      point{X: 4, Y: 4},
-	FontSize:      24,
-	LineSpace:     1.2,
-	Padding:       0,
-	Margin:        2,
-	Hide:          false,
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(51, 51, 51, 255),
-	HoverColor:    NewColor(51, 51, 51, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(51, 51, 51, 255),
+	Text:      "",
+	ItemType:  ITEM_TEXT,
+	Size:      point{X: 128, Y: 128},
+	Position:  point{X: 4, Y: 4},
+	FontSize:  24,
+	LineSpace: 1.2,
+	Padding:   0,
+	Margin:    2,
+	TextColor: NewColor(255, 255, 255, 255),
 }
 
 var defaultCheckbox = &itemData{
@@ -92,13 +80,11 @@ var defaultCheckbox = &itemData{
 	Border:    0,
 	BorderPad: 4,
 
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(51, 51, 51, 255),
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(0, 160, 160, 255),
 }
 
 var defaultInput = &itemData{
@@ -115,13 +101,11 @@ var defaultInput = &itemData{
 	Border:    0,
 	BorderPad: 2,
 
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(51, 51, 51, 255),
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(0, 160, 160, 255),
 }
 
 var defaultRadio = &itemData{
@@ -141,13 +125,11 @@ var defaultRadio = &itemData{
 	Border:    0,
 	BorderPad: 4,
 
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(51, 51, 51, 255),
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(0, 160, 160, 255),
 }
 
 var defaultSlider = &itemData{
@@ -164,22 +146,17 @@ var defaultSlider = &itemData{
 	MaxValue: 100,
 	Value:    0,
 	IntOnly:  false,
-	Log:      false,
-	LogValue: 10,
-	Vertical: false,
 
 	Fillet: 4,
 	Filled: true, Outlined: false,
 	Border:    0,
 	BorderPad: 2,
 
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(60, 173, 232, 255),
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(0, 160, 160, 255),
 }
 
 var defaultDropdown = &itemData{
@@ -195,14 +172,12 @@ var defaultDropdown = &itemData{
 	Border:    0,
 	BorderPad: 2,
 
-	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	DisabledColor: NewColor(51, 51, 51, 255),
-	SelectedColor: NewColor(60, 173, 232, 255),
-	MaxVisible:    5,
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(0, 160, 160, 255),
+	MaxVisible:   5,
 
 	ShadowSize:  16,
 	ShadowColor: NewColor(0, 0, 0, 160),
@@ -226,11 +201,10 @@ var defaultTab = &itemData{
 	Fillet:        4,
 	ActiveOutline: true,
 	TextColor:     NewColor(255, 255, 255, 255),
-	Color:         NewColor(63, 63, 63, 255),
-	HoverColor:    NewColor(127, 127, 127, 255),
-	ClickColor:    NewColor(60, 173, 232, 255),
-	OutlineColor:  NewColor(102, 102, 102, 255),
-	SelectedColor: NewColor(127, 127, 127, 255),
+	Color:         NewColor(64, 64, 64, 255),
+	HoverColor:    NewColor(96, 96, 96, 255),
+	ClickColor:    NewColor(0, 160, 160, 255),
+	OutlineColor:  NewColor(0, 160, 160, 255),
 }
 
 // base copies preserve the initial defaults so that LoadTheme can reset

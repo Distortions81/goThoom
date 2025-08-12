@@ -85,6 +85,18 @@ func clamp(v, min, max float64) float64 {
 	return v
 }
 
+// dimColor reduces the brightness of c by the given factor (0-1). A factor of
+// 0 returns the color unchanged while 1 results in black with the original
+// alpha.
+func dimColor(c Color, factor float64) Color {
+	if factor <= 0 {
+		return c
+	}
+	h, s, v, a := rgbaToHSVA(color.RGBA(c))
+	v = clamp(v*(1-factor), 0, 1)
+	return Color(hsvaToRGBA(h, s, v, a))
+}
+
 // MarshalJSON implements json.Marshaler using HSV representation.
 func (c Color) MarshalJSON() ([]byte, error) {
 	h, s, v, a := rgbaToHSVA(color.RGBA(c))

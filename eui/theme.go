@@ -66,11 +66,10 @@ func resolveColor(s string, colors map[string]string, seen map[string]bool) (Col
 // LoadTheme reads a theme JSON file from the themes directory and
 // sets it as the current theme without modifying existing windows.
 func LoadTheme(name string) error {
-	file := filepath.Join("themes", "palettes", name+".json")
+	file := filepath.Join(os.Getenv("PWD")+"/themes", "palettes", name+".json")
 	data, err := os.ReadFile(file)
 	if err != nil {
-		embeddedPath := filepath.ToSlash(file)
-		data, err = embeddedThemes.ReadFile(embeddedPath)
+		data, err = embeddedThemes.ReadFile(filepath.Join("themes", "palettes", name+".json"))
 		if err != nil {
 			return err
 		}
@@ -225,12 +224,7 @@ func copyWindowStyle(dst, src *windowData) {
 	dst.BorderPad = src.BorderPad
 	dst.Fillet = src.Fillet
 	dst.Outlined = src.Outlined
-	if !dst.NoTitleSet {
-		dst.NoTitle = src.NoTitle
-	}
-	if !dst.TitleHeightSet {
-		dst.TitleHeight = src.TitleHeight
-	}
+	dst.TitleHeight = src.TitleHeight
 	dst.DragbarSpacing = src.DragbarSpacing
 	dst.ShowDragbar = src.ShowDragbar
 }

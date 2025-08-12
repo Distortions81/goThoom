@@ -5,6 +5,7 @@ package eui
 import (
 	"image"
 	"image/color"
+	"os"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -15,6 +16,7 @@ var (
 	screenWidth  = 1024
 	screenHeight = 1024
 
+	signalHandle     chan os.Signal
 	mplusFaceSource  *text.GoTextFaceSource
 	windows          []*windowData
 	overlays         []*itemData
@@ -39,6 +41,12 @@ var (
 
 	whiteImage    = ebiten.NewImage(3, 3)
 	whiteSubImage = whiteImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image)
+
+	// AutoHiDPI enables automatic scaling when the device scale factor
+	// changes, keeping the UI size consistent on HiDPI displays. It is
+	// enabled by default and can be disabled if needed.
+	AutoHiDPI       bool    = true
+	lastDeviceScale float64 = 1.0
 )
 
 func init() {
@@ -47,10 +55,25 @@ func init() {
 
 // constants moved to const.go
 
-// RenderSize sets the current screen size from Ebiten's layout values.
+// Layout reports the dimensions for the game's screen.
 // Pass Ebiten's outside size values to this from your Layout function.
-func RenderSize(outsideWidth, outsideHeight int) {
-	if outsideWidth != screenWidth || outsideHeight != screenHeight {
-		SetScreenSize(outsideWidth, outsideHeight)
+func Layout(outsideWidth, outsideHeight int) (int, int) {
+	scale := 1.0
+	if AutoHiDPI {
+		scale = ebiten.Monitor().DeviceScaleFactor()
+		if scale <= 0 {
+			scale = 1
+		}
+		if scale != lastDeviceScale {
+			SetUIScale(uiScale * float32(scale/lastDeviceScale))
+			lastDeviceScale = scale
+		}
 	}
+
+	scaledW := int(float64(outsideWidth) * scale)
+	scaledH := int(float64(outsideHeight) * scale)
+	if scaledW != screenWidth || scaledH != screenHeight {
+		SetScreenSize(scaledW, scaledH)
+	}
+	return scaledW, scaledH
 }

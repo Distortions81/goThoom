@@ -23,7 +23,7 @@ func init() {
 }
 
 func refreshThemeMod() {
-	path := filepath.Join("themes", "palettes", currentThemeName+".json")
+	path := filepath.Join(os.Getenv("PWD"), "themes", "palettes", currentThemeName+".json")
 	if info, err := os.Stat(path); err == nil {
 		themeModTime = info.ModTime()
 	} else {
@@ -32,7 +32,7 @@ func refreshThemeMod() {
 }
 
 func refreshStyleMod() {
-	path := filepath.Join("themes", "styles", currentStyleName+".json")
+	path := filepath.Join(os.Getenv("PWD"), "themes", "styles", currentStyleName+".json")
 	if info, err := os.Stat(path); err == nil {
 		styleModTime = info.ModTime()
 	} else {
@@ -48,7 +48,7 @@ func checkThemeStyleMods() {
 		return
 	}
 	modCheckTime = time.Now()
-	path := filepath.Join("themes", "palettes", currentThemeName+".json")
+	path := filepath.Join(os.Getenv("PWD"), "themes", "palettes", currentThemeName+".json")
 	if info, err := os.Stat(path); err == nil {
 		if info.ModTime().After(themeModTime) {
 			log.Println("Palette reload")
@@ -61,7 +61,7 @@ func checkThemeStyleMods() {
 		log.Println("Unable to stat " + currentThemeName + ": " + err.Error())
 	}
 
-	path = filepath.Join("themes", "styles", currentStyleName+".json")
+	path = filepath.Join(os.Getenv("PWD"), "themes", "styles", currentStyleName+".json")
 	if info, err := os.Stat(path); err == nil {
 		if info.ModTime().After(styleModTime) {
 			log.Println("Style theme reload")

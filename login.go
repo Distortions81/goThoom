@@ -30,7 +30,7 @@ func handleDisconnect() {
 
 	cancel()
 	consoleMessage("Disconnected from server.")
-	loginWin.Open()
+	loginWin.MarkOpen()
 }
 
 const CL_ImagesFile = "CL_Images"

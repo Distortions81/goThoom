@@ -20,9 +20,7 @@ type windowData struct {
 	Title    string
 	Position point
 	Size     point
-	AspectA  float32
-	AspectB  float32
-	PinTo    pinType // Pinning fixes a window in place and disables movement/resizing.
+	PinTo    pinType
 
 	Padding   float32
 	Margin    float32
@@ -31,35 +29,16 @@ type windowData struct {
 	Fillet    float32
 	Outlined  bool
 
-	open bool
-	Hovered, Flow,
-	Closable, Movable, Resizable, // Movable/Resizable only when PinTo == PIN_NONE
+	Open, Hovered, Flow,
+	Closable, Movable, Resizable,
 	HoverClose, HoverDragbar,
-	AutoSize, AutoSizeOnScale, FixedRatio bool
-
-	// MainPortal renders the window before others, draws a scaled black
-	// pixel over the area outside it and skips drawing the background so
-	// underlying content can show through.
-	MainPortal bool
-
-	Transparent bool
-	Alpha       float32
+	AutoSize bool
 
 	// Scroll position and behavior
-	Scroll     point
-	NoScroll   bool
-	NoTitle    bool
-	NoTitleSet bool
+	Scroll   point
+	NoScroll bool
 
-	TitleHeight    float32
-	TitleHeightSet bool
-
-	// cached title text metrics
-	titleRaw      string
-	titleText     string
-	titleTextW    float64
-	titleTextH    float64
-	titleTextSize float32
+	TitleHeight float32
 
 	// Visual customization
 	BGColor, TitleBGColor, TitleColor, TitleTextColor, BorderColor,
@@ -78,51 +57,27 @@ type windowData struct {
 	// Drop shadow styling
 	ShadowSize  float32
 	ShadowColor Color
-
-	// Dirty marks the window for re-rendering when its contents change.
-	Dirty bool
-	// Render caches the pre-rendered image for this window when Dirty is false.
-	Render *ebiten.Image
 }
 
 type itemData struct {
 	Parent *itemData
-	win    *windowData
 	// Name is used when the item is part of a tabbed flow
-	Name           string
-	Text           string
-	Label          string
-	Tooltip        string
-	LabelImageName string
-	LabelImage     *ebiten.Image
-	LabelImageSize point
-	Position       point
-	Size           point
-	Alignment      alignType
-	PinTo          pinType
-	FontSize       float32
-	LineSpace      float32 //Multiplier, 1.0 = no gap between lines
-	ItemType       itemTypeData
+	Name      string
+	Text      string
+	Label     string
+	Position  point
+	Size      point
+	Alignment alignType
+	PinTo     pinType
+	FontSize  float32
+	LineSpace float32 //Multiplier, 1.0 = no gap between lines
+	ItemType  itemTypeData
 
 	Value      float32
 	MinValue   float32
 	MaxValue   float32
 	IntOnly    bool
-	Log        bool
-	LogValue   float32
-	Vertical   bool
 	RadioGroup string
-	Hide       bool
-	Reveal     bool
-	prevHide   bool
-	prevReveal bool
-	prevText   string
-
-	// Cached metrics and image for tab labels (Name)
-	nameWidth, nameHeight float32
-	nameImage             *ebiten.Image
-	nameFontSize          float32
-	prevName              string
 
 	Hovered, Checked, Focused,
 	Disabled, Invisible bool
@@ -139,7 +94,6 @@ type itemData struct {
 
 	OnSelect func(int)
 	OnHover  func(int)
-	OnEnter  func(string)
 
 	Fixed, Scrollable bool
 
@@ -225,8 +179,7 @@ const (
 type pinType int
 
 const (
-	PIN_NONE = iota
-	PIN_TOP_LEFT
+	PIN_TOP_LEFT = iota
 	PIN_TOP_CENTER
 	PIN_TOP_RIGHT
 
@@ -238,8 +191,6 @@ const (
 	PIN_BOTTOM_CENTER
 	PIN_BOTTOM_RIGHT
 )
-
-// Any value other than PIN_NONE anchors the window, disabling movement and resizing.
 
 type dragType int
 

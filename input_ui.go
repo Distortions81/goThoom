@@ -16,7 +16,7 @@ func pointInUI(x, y int) bool {
 	wins := eui.Windows()
 	for i := len(wins) - 1; i >= 0; i-- {
 		win := wins[i]
-		if !win.IsOpen() || win.MainPortal {
+		if !win.IsOpen() {
 			continue
 		}
 		pos := win.GetPos()

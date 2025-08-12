@@ -18,26 +18,18 @@ func (r rect) getRectangle() image.Rectangle {
 	}
 }
 
+// withinRange returns true if a and b are within the provided tolerance.
+func withinRange(a, b float32, tol float32) bool {
+	return math.Abs(float64(a-b)) <= float64(tol)
+}
+
 func pointAdd(a, b point) point { return point{X: a.X + b.X, Y: a.Y + b.Y} }
 func pointSub(a, b point) point { return point{X: a.X - b.X, Y: a.Y - b.Y} }
 func pointMul(a, b point) point { return point{X: a.X * b.X, Y: a.Y * b.Y} }
 func pointDiv(a, b point) point { return point{X: a.X / b.X, Y: a.Y / b.Y} }
-func pointFloor(a point) point {
-	return point{X: float32(math.Floor(float64(a.X))), Y: float32(math.Floor(float64(a.Y)))}
-}
-
-func withinRange(a, b, tol float64) bool { return math.Abs(a-b) <= tol }
 
 func pointScaleMul(a point) point { return point{X: a.X * uiScale, Y: a.Y * uiScale} }
 func pointScaleDiv(a point) point { return point{X: a.X / uiScale, Y: a.Y / uiScale} }
-func rectFloor(r rect) rect {
-	return rect{
-		X0: float32(math.Floor(float64(r.X0))),
-		Y0: float32(math.Floor(float64(r.Y0))),
-		X1: float32(math.Floor(float64(r.X1))),
-		Y1: float32(math.Floor(float64(r.Y1))),
-	}
-}
 
 // unionRect expands a to encompass b and returns the result.
 func unionRect(a, b rect) rect {

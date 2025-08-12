@@ -54,28 +54,28 @@ type StyleTheme struct {
 var defaultStyle = &StyleTheme{
 	SliderValueGap:   16,
 	DropdownArrowPad: 8,
-	TextPadding:      8,
+	TextPadding:      4,
 	Fillet: StyleNumbers{
-		Window:   0,
+		Window:   4,
 		Button:   8,
 		Text:     0,
-		Checkbox: 4,
-		Radio:    0,
+		Checkbox: 8,
+		Radio:    8,
 		Input:    4,
-		Slider:   8,
-		Dropdown: 8,
-		Tab:      8,
+		Slider:   4,
+		Dropdown: 4,
+		Tab:      4,
 	},
 	Border: StyleNumbers{
-		Window:   1,
-		Button:   1,
-		Text:     1,
-		Checkbox: 1,
-		Radio:    1,
-		Input:    1,
-		Slider:   1,
-		Dropdown: 1,
-		Tab:      1,
+		Window:   0,
+		Button:   0,
+		Text:     0,
+		Checkbox: 0,
+		Radio:    0,
+		Input:    0,
+		Slider:   0,
+		Dropdown: 0,
+		Tab:      0,
 	},
 	BorderPad: StyleNumbers{
 		Window:   0,
@@ -83,10 +83,10 @@ var defaultStyle = &StyleTheme{
 		Text:     4,
 		Checkbox: 4,
 		Radio:    4,
-		Input:    4,
-		Slider:   4,
-		Dropdown: 4,
-		Tab:      4,
+		Input:    2,
+		Slider:   2,
+		Dropdown: 2,
+		Tab:      2,
 	},
 	Filled: StyleBools{
 		Window:   true,
@@ -95,20 +95,20 @@ var defaultStyle = &StyleTheme{
 		Checkbox: true,
 		Radio:    true,
 		Input:    true,
-		Slider:   false,
+		Slider:   true,
 		Dropdown: true,
 		Tab:      true,
 	},
 	Outlined: StyleBools{
-		Window:   true,
-		Button:   true,
+		Window:   false,
+		Button:   false,
 		Text:     false,
-		Checkbox: true,
-		Radio:    true,
-		Input:    true,
+		Checkbox: false,
+		Radio:    false,
+		Input:    false,
 		Slider:   false,
-		Dropdown: true,
-		Tab:      true,
+		Dropdown: false,
+		Tab:      false,
 	},
 	ActiveOutline: StyleBools{
 		Tab: true,
@@ -121,18 +121,14 @@ var (
 )
 
 func LoadStyle(name string) error {
-	file := filepath.Join("themes", "styles", name+".json")
+	file := filepath.Join(os.Getenv("PWD")+"/themes/styles", name+".json")
 	data, err := os.ReadFile(file)
 	if err != nil {
-		embeddedPath := filepath.ToSlash(file)
-		data, err = embeddedStyles.ReadFile(embeddedPath)
+		data, err = embeddedStyles.ReadFile(filepath.Join("themes/styles", name+".json"))
 		if err != nil {
 			return err
 		}
 	}
-
-	style := *defaultStyle
-	currentStyle = &style
 	if err := json.Unmarshal(data, currentStyle); err != nil {
 		return err
 	}

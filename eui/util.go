@@ -3,7 +3,6 @@ package eui
 import (
 	"image/color"
 	"math"
-	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -63,21 +62,21 @@ func (item *itemData) getItemRect(win *windowData) rect {
 
 func (parent *itemData) addItemTo(item *itemData) {
 	item.Parent = parent
-	item.win = parent.win
+	if currentTheme != nil {
+		applyThemeToItem(item)
+	}
 	parent.Contents = append(parent.Contents, item)
 	if parent.ItemType == ITEM_FLOW {
 		parent.resizeFlow(parent.GetSize())
 	}
-	if parent.win != nil {
-		parent.win.Dirty = true
-	}
 }
 
 func (parent *windowData) addItemTo(item *itemData) {
+	if currentTheme != nil {
+		applyThemeToItem(item)
+	}
 	parent.Contents = append(parent.Contents, item)
-	item.win = parent
 	item.resizeFlow(parent.GetSize())
-	parent.Dirty = true
 }
 
 func (win *windowData) getMainRect() rect {
@@ -132,14 +131,17 @@ func (win *windowData) dragbarRect() rect {
 	}
 }
 
-func (win *windowData) setSize(size point) bool {
-	orig := win.Size
+func (win *windowData) Refresh() {
+	win.resizeFlows()
+	win.updateAutoSize()
+}
 
-	size = win.applyAspect(size, true)
+func (win *windowData) IsOpen() bool {
+	return win.Open
+}
+
+func (win *windowData) setSize(size point) bool {
 	size, tooSmall := win.clampSize(size)
-	size = win.applyAspect(size, false)
-	size, tooSmall2 := win.clampSize(size)
-	tooSmall = tooSmall || tooSmall2
 
 	xc, yc := win.itemOverlap(size)
 	if !xc {
@@ -156,10 +158,6 @@ func (win *windowData) setSize(size point) bool {
 	win.resizeFlows()
 	win.adjustScrollForResize()
 	win.clampToScreen()
-
-	if win.Size != orig {
-		win.Dirty = true
-	}
 
 	return tooSmall
 }
@@ -178,33 +176,6 @@ func (win *windowData) clampSize(size point) (point, bool) {
 	}
 
 	return size, tooSmall
-}
-
-func (win *windowData) applyAspect(size point, useDelta bool) point {
-	if !win.FixedRatio || win.AspectA <= 0 || win.AspectB <= 0 {
-		return size
-	}
-	aspect := win.AspectA / win.AspectB
-	title := win.TitleHeight
-	if useDelta {
-		dx := math.Abs(float64(size.X - win.Size.X))
-		dy := math.Abs(float64(size.Y - win.Size.Y))
-		if dx >= dy {
-			contentH := size.X / aspect
-			size.Y = contentH + title
-		} else {
-			contentH := size.Y - title
-			if contentH < 0 {
-				contentH = 0
-			}
-			size.X = contentH * aspect
-			size.Y = contentH + title
-		}
-	} else {
-		contentH := size.X / aspect
-		size.Y = contentH + title
-	}
-	return size
 }
 
 func (win *windowData) adjustScrollForResize() {
@@ -236,82 +207,33 @@ func (win *windowData) adjustScrollForResize() {
 	}
 }
 
-// clampToScreen ensures the window remains within the visible screen area.
-// When skipReposition is true the window's position is left unchanged. This is
-// useful for auto-size operations where callers want to preserve the current
-// location even if the new size would normally force the window to move.
-func (win *windowData) clampToScreen(skipReposition ...bool) {
-	if len(skipReposition) > 0 && skipReposition[0] {
-		return
-	}
+func (win *windowData) clampToScreen() {
+	pos := win.getPosition()
 	size := win.GetSize()
-	m := win.Margin * uiScale
 
-	switch win.PinTo {
-	case PIN_TOP_LEFT, PIN_MID_LEFT, PIN_BOTTOM_LEFT:
-		off := win.GetPos().X
-		min := float32(0)
-		max := float32(screenWidth) - size.X - m
-		if off < min {
-			win.Position.X = min / uiScale
-		} else if off > max {
-			win.Position.X = max / uiScale
-		}
-	case PIN_TOP_RIGHT, PIN_MID_RIGHT, PIN_BOTTOM_RIGHT:
-		off := win.GetPos().X
-		min := float32(0)
-		max := float32(screenWidth) - size.X - m
-		if off < min {
-			win.Position.X = min / uiScale
-		} else if off > max {
-			win.Position.X = max / uiScale
-		}
-	case PIN_TOP_CENTER, PIN_MID_CENTER, PIN_BOTTOM_CENTER:
-		off := win.GetPos().X
-		max := float32(screenWidth)/2 - size.X/2 - m
-		if off < -max {
-			win.Position.X = -max / uiScale
-		} else if off > max {
-			win.Position.X = max / uiScale
-		}
+	if pos.X < 0 {
+		win.Position.X -= pos.X / uiScale
+		pos.X = 0
+	}
+	if pos.Y < 0 {
+		win.Position.Y -= pos.Y / uiScale
+		pos.Y = 0
 	}
 
-	switch win.PinTo {
-	case PIN_TOP_LEFT, PIN_TOP_CENTER, PIN_TOP_RIGHT:
-		off := win.GetPos().Y
-		min := float32(0)
-		max := float32(screenHeight) - size.Y - m
-		if off < min {
-			win.Position.Y = min / uiScale
-		} else if off > max {
-			win.Position.Y = max / uiScale
-		}
-	case PIN_BOTTOM_LEFT, PIN_BOTTOM_CENTER, PIN_BOTTOM_RIGHT:
-		off := win.GetPos().Y
-		min := float32(0)
-		max := float32(screenHeight) - size.Y - m
-		if off < min {
-			win.Position.Y = min / uiScale
-		} else if off > max {
-			win.Position.Y = max / uiScale
-		}
-	case PIN_MID_LEFT, PIN_MID_CENTER, PIN_MID_RIGHT:
-		off := win.GetPos().Y
-		max := float32(screenHeight)/2 - size.Y/2 - m
-		if off < -max {
-			win.Position.Y = -max / uiScale
-		} else if off > max {
-			win.Position.Y = max / uiScale
-
-		}
+	overX := pos.X + size.X - float32(screenWidth)
+	if overX > 0 {
+		win.Position.X -= overX / uiScale
+	}
+	overY := pos.Y + size.Y - float32(screenHeight)
+	if overY > 0 {
+		win.Position.Y -= overY / uiScale
 	}
 }
 
 // dropdownOpenRect returns the rectangle used for drawing and input handling of
 // an open dropdown menu. The rectangle is adjusted so it never extends off the
 // screen while leaving room for overlay controls at the top and bottom equal to
-// one option height. If there isn't enough room below the dropdown, the menu
-// will open upward so it doesn't cover the button.
+// one option height.
 func dropdownOpenRect(item *itemData, offset point) (rect, int) {
 	maxSize := item.GetSize()
 	optionH := maxSize.Y
@@ -331,47 +253,23 @@ func dropdownOpenRect(item *itemData, offset point) (rect, int) {
 		visible = maxVisible
 	}
 
-	bottomLimit := float32(screenHeight) - optionH*dropdownOverlayReserve
-	topLimit := optionH * dropdownOverlayReserve
-	startDown := offset.Y + maxSize.Y
-	spaceBelow := bottomLimit - startDown
-	spaceAbove := offset.Y - topLimit
-
+	startY := offset.Y + maxSize.Y
 	openH := optionH * float32(visible)
+	r := rect{X0: offset.X, Y0: startY, X1: offset.X + maxSize.X, Y1: startY + openH}
 
-	if openH <= spaceBelow {
-		r := rect{X0: offset.X, Y0: startDown, X1: offset.X + maxSize.X, Y1: startDown + openH}
-		return r, visible
+	bottomLimit := float32(screenHeight) - optionH*dropdownOverlayReserve
+	if r.Y1 > bottomLimit {
+		diff := r.Y1 - bottomLimit
+		r.Y0 -= diff
+		r.Y1 -= diff
 	}
-	if openH <= spaceAbove {
-		startUp := offset.Y - openH
-		r := rect{X0: offset.X, Y0: startUp, X1: offset.X + maxSize.X, Y1: offset.Y}
-		return r, visible
-	}
-
-	if spaceBelow >= spaceAbove {
-		maxVis := int(spaceBelow / optionH)
-		if maxVis < 1 {
-			maxVis = 1
-		}
-		if visible > maxVis {
-			visible = maxVis
-			openH = optionH * float32(visible)
-		}
-		r := rect{X0: offset.X, Y0: startDown, X1: offset.X + maxSize.X, Y1: startDown + openH}
-		return r, visible
+	topLimit := optionH * dropdownOverlayReserve
+	if r.Y0 < topLimit {
+		diff := topLimit - r.Y0
+		r.Y0 += diff
+		r.Y1 += diff
 	}
 
-	maxVis := int(spaceAbove / optionH)
-	if maxVis < 1 {
-		maxVis = 1
-	}
-	if visible > maxVis {
-		visible = maxVis
-		openH = optionH * float32(visible)
-	}
-	startUp := offset.Y - openH
-	r := rect{X0: offset.X, Y0: startUp, X1: offset.X + maxSize.X, Y1: offset.Y}
 	return r, visible
 }
 
@@ -517,76 +415,49 @@ func (win *windowData) titleTextWidth() point {
 	if win.TitleHeight <= 0 {
 		return point{}
 	}
-	size := (win.GetTitleSize()) / 2
-	face := textFace(size)
-	win.updateTitleCache(face, size)
-	return point{X: float32(win.titleTextW), Y: float32(win.titleTextH)}
+	textSize := ((win.GetTitleSize()) / 1.5)
+	face := textFace(textSize)
+	textWidth, textHeight := text.Measure(win.Title, face, 0)
+	return point{X: float32(textWidth), Y: float32(textHeight)}
 }
 
 func (win *windowData) SetTitleSize(size float32) {
 	win.TitleHeight = size / uiScale
-	win.TitleHeightSet = true
-	win.invalidateTitleCache()
-	win.Dirty = true
-	win.resizeFlows()
-}
-
-func (win *windowData) SetTitle(title string) {
-	if win.Title != title {
-		win.Title = title
-		win.invalidateTitleCache()
-		win.Dirty = true
-		win.resizeFlows()
-	}
-}
-
-func (win *windowData) NoTitlebar() {
-	win.NoTitle = true
-	win.NoTitleSet = true
-	win.TitleHeight = 0
-	win.TitleHeightSet = true
-	win.ShowDragbar = false
-	win.invalidateTitleCache()
-	win.Dirty = true
-	win.resizeFlows()
-}
-
-func (win *windowData) invalidateTitleCache() {
-	win.titleRaw = ""
-}
-
-func (win *windowData) updateTitleCache(face text.Face, size float32) {
-	if win.titleRaw != win.Title || win.titleTextSize != size {
-		buf := strings.ReplaceAll(win.Title, "\n", "")
-		buf = strings.ReplaceAll(buf, "\r", "")
-		win.titleRaw = win.Title
-		win.titleText = buf
-		win.titleTextSize = size
-		win.titleTextW, win.titleTextH = text.Measure(buf, face, 0)
-	}
 }
 
 func SetUIScale(scale float32) {
-	if scale < 1.0 {
-		scale = 1.0
+	if scale < 0.5 {
+		scale = 0.5
 	}
 	if scale > 2.5 {
 		scale = 2.5
 	}
 	uiScale = scale
 	for _, win := range windows {
-		if win.AutoSize || win.AutoSizeOnScale {
+		if win.AutoSize {
 			win.updateAutoSize()
 		} else {
 			win.resizeFlows()
 		}
-		win.adjustScrollForResize()
-		win.clampToScreen()
 	}
 	for _, ov := range overlays {
 		ov.resizeFlow(ov.GetSize())
 	}
 	markAllDirty()
+}
+
+// SyncHiDPIScale adjusts the UI scale when the device scale factor changes.
+// It preserves the current UI scale relative to the previous factor so the
+// interface keeps the same on-screen size.
+func SyncHiDPIScale() {
+	ds := ebiten.Monitor().DeviceScaleFactor()
+	if ds <= 0 {
+		ds = 1
+	}
+	if ds != lastDeviceScale {
+		SetUIScale(uiScale * float32(ds/lastDeviceScale))
+		lastDeviceScale = ds
+	}
 }
 
 func UIScale() float32 { return uiScale }
@@ -603,29 +474,11 @@ func (win *windowData) GetPos() point {
 	return point{X: win.Position.X * uiScale, Y: win.Position.Y * uiScale}
 }
 
-func (item *itemData) labelHeight() float32 {
-	var imgH, textH float32
-	if item.LabelImage != nil {
-		h := float32(item.LabelImage.Bounds().Dy())
-		if item.LabelImageSize.Y > 0 {
-			h = item.LabelImageSize.Y
-		}
-		imgH = h * uiScale
-	}
-	if item.Label != "" {
-		textH = (item.FontSize * uiScale) + 2
-	}
-	if imgH < textH {
-		imgH = textH
-	}
-	return imgH
-}
-
 func (item *itemData) GetSize() point {
 	sz := point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
-	lh := item.labelHeight()
-	if lh > 0 {
-		sz.Y += lh + currentStyle.TextPadding*uiScale
+	if item.Label != "" {
+		textSize := (item.FontSize * uiScale) + 2
+		sz.Y += textSize + currentStyle.TextPadding*uiScale
 	}
 	return sz
 }
@@ -641,9 +494,6 @@ func (item *itemData) GetTextPtr() *string {
 func (item *itemData) markDirty() {
 	if item != nil && item.ItemType != ITEM_FLOW {
 		item.Dirty = true
-		if item.win != nil {
-			item.win.Dirty = true
-		}
 	}
 }
 
@@ -671,47 +521,17 @@ func markAllDirty() {
 	}
 }
 
-func itemTreeDirty(it *itemData) bool {
-	if it == nil {
-		return false
-	}
-	if it.Dirty {
-		return true
-	}
-	for _, child := range it.Contents {
-		if itemTreeDirty(child) {
-			return true
-		}
-	}
-	for _, tab := range it.Tabs {
-		if itemTreeDirty(tab) {
-			return true
-		}
-	}
-	return false
-}
-
-func (win *windowData) itemsDirty() bool {
-	for _, it := range win.Contents {
-		if itemTreeDirty(it) {
-			return true
-		}
-	}
-	return false
-}
-
 func (item *itemData) bounds(offset point) rect {
-	m := item.Margin * uiScale
 	var r rect
 	if item.ItemType == ITEM_FLOW && !item.Fixed {
 		// Unfixed flows should report bounds based solely on their content
-		r = rect{X0: offset.X, Y0: offset.Y, X1: offset.X + m, Y1: offset.Y + m}
+		r = rect{X0: offset.X, Y0: offset.Y, X1: offset.X, Y1: offset.Y}
 	} else {
 		r = rect{
 			X0: offset.X,
 			Y0: offset.Y,
-			X1: offset.X + item.GetSize().X + m,
-			Y1: offset.Y + item.GetSize().Y + m,
+			X1: offset.X + item.GetSize().X,
+			Y1: offset.Y + item.GetSize().Y,
 		}
 	}
 	if item.ItemType == ITEM_FLOW {
@@ -726,27 +546,25 @@ func (item *itemData) bounds(offset point) rect {
 			subItems = item.Contents
 		}
 		for _, sub := range subItems {
-			sm := sub.Margin * uiScale
 			var off point
 			if item.FlowType == FLOW_HORIZONTAL {
-				off = pointAdd(offset, point{X: flowOffset.X + sub.GetPos().X + sm, Y: sub.GetPos().Y + sm})
+				off = pointAdd(offset, point{X: flowOffset.X + sub.GetPos().X, Y: sub.GetPos().Y})
 			} else if item.FlowType == FLOW_VERTICAL {
-				off = pointAdd(offset, point{X: sub.GetPos().X + sm, Y: flowOffset.Y + sub.GetPos().Y + sm})
+				off = pointAdd(offset, point{X: sub.GetPos().X, Y: flowOffset.Y + sub.GetPos().Y})
 			} else {
-				off = pointAdd(offset, pointAdd(flowOffset, point{X: sub.GetPos().X + sm, Y: sub.GetPos().Y + sm}))
+				off = pointAdd(offset, pointAdd(flowOffset, sub.GetPos()))
 			}
 			sr := sub.bounds(off)
 			r = unionRect(r, sr)
 			if item.FlowType == FLOW_HORIZONTAL {
-				flowOffset.X += sub.GetSize().X + sub.GetPos().X + sm
+				flowOffset.X += sub.GetSize().X + sub.GetPos().X
 			} else if item.FlowType == FLOW_VERTICAL {
-				flowOffset.Y += sub.GetSize().Y + sub.GetPos().Y + sm
+				flowOffset.Y += sub.GetSize().Y + sub.GetPos().Y
 			}
 		}
 	} else {
 		for _, sub := range item.Contents {
-			sm := sub.Margin * uiScale
-			off := pointAdd(offset, point{X: sub.GetPos().X + sm, Y: sub.GetPos().Y + sm})
+			off := pointAdd(offset, sub.GetPos())
 			r = unionRect(r, sub.bounds(off))
 		}
 	}
@@ -764,18 +582,16 @@ func (win *windowData) contentBounds() point {
 
 	for _, item := range win.Contents {
 		var r rect
-		m := item.Margin * uiScale
 		if item.ItemType == ITEM_FLOW {
 			cb := item.contentBounds()
 			r = rect{
-				X0: base.X + item.GetPos().X + m,
-				Y0: base.Y + item.GetPos().Y + m,
-				X1: base.X + item.GetPos().X + cb.X + m,
-				Y1: base.Y + item.GetPos().Y + cb.Y + m,
+				X0: base.X + item.GetPos().X,
+				Y0: base.Y + item.GetPos().Y,
+				X1: base.X + item.GetPos().X + cb.X,
+				Y1: base.Y + item.GetPos().Y + cb.Y,
 			}
 		} else {
-			off := pointAdd(base, point{X: item.GetPos().X + m, Y: item.GetPos().Y + m})
-			r = item.bounds(off)
+			r = item.bounds(pointAdd(base, item.GetPos()))
 		}
 		if first {
 			b = r
@@ -791,11 +607,7 @@ func (win *windowData) contentBounds() point {
 	return point{X: b.X1 - base.X, Y: b.Y1 - base.Y}
 }
 
-// updateAutoSize adjusts the window size to fit its contents. If
-// skipReposition is true the window size is updated without clamping its
-// position to the screen, allowing callers to preserve the current location
-// during auto-size operations.
-func (win *windowData) updateAutoSize(skipReposition ...bool) {
+func (win *windowData) updateAutoSize() {
 	req := win.contentBounds()
 	pad := (win.Padding + win.BorderPad) * uiScale
 
@@ -807,7 +619,6 @@ func (win *windowData) updateAutoSize(skipReposition ...bool) {
 
 	// Always include the titlebar height in the calculated size
 	size.Y = req.Y + win.GetTitleSize() + 2*pad
-	size = win.applyAspect(size, false)
 	if size.X > float32(screenWidth) {
 		size.X = float32(screenWidth)
 	}
@@ -816,7 +627,7 @@ func (win *windowData) updateAutoSize(skipReposition ...bool) {
 	}
 	win.Size = point{X: size.X / uiScale, Y: size.Y / uiScale}
 	win.resizeFlows()
-	win.clampToScreen(skipReposition...)
+	win.clampToScreen()
 }
 
 func (item *itemData) contentBounds() point {
@@ -837,15 +648,14 @@ func (item *itemData) contentBounds() point {
 	var flowOffset point
 
 	for _, sub := range list {
-		sm := sub.Margin * uiScale
-		off := pointAdd(base, point{X: sub.GetPos().X + sm, Y: sub.GetPos().Y + sm})
+		off := pointAdd(base, sub.GetPos())
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
-				off = pointAdd(base, point{X: flowOffset.X + sub.GetPos().X + sm, Y: sub.GetPos().Y + sm})
+				off = pointAdd(base, point{X: flowOffset.X + sub.GetPos().X, Y: sub.GetPos().Y})
 			} else if item.FlowType == FLOW_VERTICAL {
-				off = pointAdd(base, point{X: sub.GetPos().X + sm, Y: flowOffset.Y + sub.GetPos().Y + sm})
+				off = pointAdd(base, point{X: sub.GetPos().X, Y: flowOffset.Y + sub.GetPos().Y})
 			} else {
-				off = pointAdd(base, pointAdd(flowOffset, point{X: sub.GetPos().X + sm, Y: sub.GetPos().Y + sm}))
+				off = pointAdd(base, pointAdd(flowOffset, sub.GetPos()))
 			}
 		}
 
@@ -859,9 +669,9 @@ func (item *itemData) contentBounds() point {
 
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
-				flowOffset.X += sub.GetSize().X + sub.GetPos().X + sm
+				flowOffset.X += sub.GetSize().X + sub.GetPos().X
 			} else if item.FlowType == FLOW_VERTICAL {
-				flowOffset.Y += sub.GetSize().Y + sub.GetPos().Y + sm
+				flowOffset.Y += sub.GetSize().Y + sub.GetPos().Y
 			}
 		}
 	}

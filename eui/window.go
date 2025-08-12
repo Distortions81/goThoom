@@ -25,38 +25,21 @@ func mergeData(original interface{}, updates interface{}) interface{} {
 		panic("Both original and updates must be structs")
 	}
 
-	// Iterate through the fields of the updates struct by name so that
-	// structs with mismatched layouts can be merged safely.
+	// Iterate through the fields of the updates struct
 	for i := 0; i < updVal.NumField(); i++ {
-		field := updVal.Type().Field(i)
-		origField := origVal.FieldByName(field.Name)
-		if !origField.IsValid() || !origField.CanSet() {
-			// Skip fields that don't exist in the original struct
-			// or can't be set instead of panicking.
-			continue
-		}
+		origField := origVal.Field(i)
 		updField := updVal.Field(i)
 
-		// Boolean handling: detect whether the field was explicitly
-		// provided so callers can set values to false. Two mechanisms
-		// are supported:
-		//   1. Pointer-to-bool fields. A nil pointer means the field
-		//      was omitted. A non-nil pointer is dereferenced and the
-		//      value applied regardless of true/false.
-		//   2. A companion "FieldNameSet" bool field. When present and
-		//      true, the associated bool field is applied even if the
-		//      value is false.
-		if updField.Kind() == reflect.Ptr && updField.Type().Elem().Kind() == reflect.Bool {
-			if !updField.IsNil() && origField.Kind() == reflect.Bool {
-				origField.SetBool(updField.Elem().Bool())
-			}
+		if !origField.CanSet() {
 			continue
 		}
+
+		// Booleans default to the theme value when false so callers
+		// can omit them without overwriting defaults. Explicit true
+		// values are still applied.
 		if updField.Kind() == reflect.Bool {
-			setField := updVal.FieldByName(field.Name + "Set")
-			set := setField.IsValid() && setField.Kind() == reflect.Bool && setField.Bool()
-			if set || updField.Bool() {
-				origField.SetBool(updField.Bool())
+			if updField.Bool() {
+				origField.Set(updField)
 			}
 			continue
 		}
@@ -72,7 +55,7 @@ func mergeData(original interface{}, updates interface{}) interface{} {
 }
 
 func isZeroValue(value reflect.Value) bool {
-	return value.IsZero()
+	return reflect.DeepEqual(value.Interface(), reflect.Zero(value.Type()).Interface())
 }
 
 func stripWindowColors(w *windowData) {
@@ -101,64 +84,37 @@ func stripItemColors(it *itemData) {
 
 // Add window to window list
 func (target *windowData) AddWindow(toBack bool) {
-	if target == nil {
-		log.Println("AddWindow: target is nil")
-		return
-	}
-
 	for _, win := range windows {
 		if win == target {
-			if toBack {
-				target.ToBack()
-			} else {
-				target.BringForward()
-			}
+			log.Println("Window already exists")
 			return
 		}
 	}
 
-	if target.PinTo != PIN_NONE {
-		// Pinned windows can't be moved or resized.
+	if target.PinTo != PIN_TOP_LEFT {
 		target.Movable = false
-		target.Resizable = false
-	}
-
-	if target.NoTitle {
-		target.NoTitleSet = true
-		target.TitleHeightSet = true
-		target.TitleHeight = 0
-	} else if target.TitleHeight > 0 {
-		target.TitleHeightSet = true
-	}
-	if currentTheme != nil {
-		applyThemeToWindow(target)
-	}
-	if target.NoTitle {
-		target.TitleHeight = 0
 	}
 
 	if target.AutoSize {
 		target.updateAutoSize()
-		target.AutoSizeOnScale = true
 		target.AutoSize = false
-	}
-
-	if target.Size.X <= 0 || target.Size.Y <= 0 {
-		log.Printf("AddWindow: rejecting window with non-positive size: %+v", target.Size)
-		return
 	}
 
 	target.clampToScreen()
 
+	if currentTheme != nil {
+		applyThemeToWindow(target)
+	}
+
 	// Closed windows shouldn't steal focus, so add them to the back by
 	// default and don't update the active window.
-	if !target.open {
+	if !target.Open {
 		toBack = true
 	}
 
 	if !toBack {
 		windows = append(windows, target)
-		if target.PinTo == PIN_NONE {
+		if target.PinTo == PIN_TOP_LEFT {
 			activeWindow = target
 		}
 	} else {
@@ -169,25 +125,11 @@ func (target *windowData) AddWindow(toBack bool) {
 // RemoveWindow removes a window from the active list. Any cached images
 // belonging to the window are disposed and pointers cleared.
 func (target *windowData) RemoveWindow() {
-	if target == nil {
-		log.Println("RemoveWindow: target is nil")
-		return
-	}
-
 	for i, win := range windows {
 		if win == target { // Compare pointers
-			win.deallocImages()
+			win.disposeImages()
 			windows = append(windows[:i], windows[i+1:]...)
-			win.open = false
-			if activeWindow == target {
-				activeWindow = nil
-				for j := len(windows) - 1; j >= 0; j-- {
-					if windows[j].open {
-						activeWindow = windows[j]
-						break
-					}
-				}
-			}
+			win.Open = false
 			return
 		}
 	}
@@ -201,10 +143,6 @@ func NewWindow() *windowData {
 		currentTheme = baseTheme
 	}
 	newWindow := currentTheme.Window
-	stripWindowColors(&newWindow)
-	if newWindow.Theme == nil {
-		newWindow.Theme = currentTheme
-	}
 	return &newWindow
 }
 
@@ -214,27 +152,17 @@ func NewButton() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Button
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_BUTTON
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
 }
 
-// Create a new checkbox from the default theme
+// Create a new button from the default theme
 func NewCheckbox() (*itemData, *EventHandler) {
 	if currentTheme == nil {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Checkbox
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_CHECKBOX
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
@@ -246,11 +174,6 @@ func NewRadio() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Radio
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_RADIO
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
@@ -262,11 +185,6 @@ func NewInput() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Input
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_INPUT
 	if newItem.TextPtr == nil {
 		newItem.TextPtr = &newItem.Text
 	} else {
@@ -283,11 +201,6 @@ func NewSlider() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Slider
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_SLIDER
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
@@ -299,11 +212,6 @@ func NewDropdown() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Dropdown
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_DROPDOWN
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
@@ -315,14 +223,6 @@ func NewColorWheel() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := baseColorWheel
-	stripItemColors(&newItem)
-	if ac, ok := namedColors["accent"]; ok && newItem.WheelColor == (Color{}) {
-		newItem.WheelColor = ac
-	}
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_COLORWHEEL
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
@@ -334,11 +234,6 @@ func NewText() (*itemData, *EventHandler) {
 		currentTheme = baseTheme
 	}
 	newItem := currentTheme.Text
-	stripItemColors(&newItem)
-	if newItem.Theme == nil {
-		newItem.Theme = currentTheme
-	}
-	newItem.ItemType = ITEM_TEXT
 	h := newHandler()
 	newItem.Handler = h
 	return &newItem, h
@@ -351,14 +246,13 @@ func (target *windowData) BringForward() {
 			windows = append(windows[:w], windows[w+1:]...)
 			windows = append(windows, target)
 			activeWindow = target
-			return
 		}
 	}
 }
 
 // MarkOpen sets the window to open and brings it forward if necessary.
 func (target *windowData) MarkOpen() {
-	target.open = true
+	target.Open = true
 	found := false
 	for _, win := range windows {
 		if win == target {
@@ -371,24 +265,19 @@ func (target *windowData) MarkOpen() {
 	} else {
 		target.BringForward()
 	}
-	if target.Dirty {
-		target.Refresh()
-	}
-	target.clampToScreen()
 }
 
-// MarkClosed marks the window as closed and updates the active window.
-func (target *windowData) MarkClosed() {
-	target.open = false
-	if activeWindow == target {
-		activeWindow = nil
-		for j := len(windows) - 1; j >= 0; j-- {
-			if windows[j].open {
-				activeWindow = windows[j]
-				break
-			}
-		}
+// MarkOpen sets the window to open and brings it forward if necessary.
+func (target *windowData) Toggle() {
+	if target.Open {
+		target.Close()
+	} else {
+		target.MarkOpen()
 	}
+}
+
+func (target *windowData) Close() {
+	target.Open = false
 }
 
 // Send a window to the back
@@ -397,13 +286,12 @@ func (target *windowData) ToBack() {
 		if win == target {
 			windows = append(windows[:w], windows[w+1:]...)
 			windows = append([]*windowData{target}, windows...)
-			if activeWindow == target {
-				numWindows := len(windows)
-				if numWindows > 0 {
-					activeWindow = windows[numWindows-1]
-				}
-			}
-			return
+		}
+	}
+	if activeWindow == target {
+		numWindows := len(windows)
+		if numWindows > 0 {
+			activeWindow = windows[numWindows-1]
 		}
 	}
 }
@@ -416,17 +304,17 @@ func (pin pinType) getWinPosition(win *windowData) point {
 	case PIN_TOP_RIGHT:
 		return point{X: float32(screenWidth) - win.GetSize().X - win.GetPos().X, Y: win.GetPos().Y}
 	case PIN_TOP_CENTER:
-		return point{X: float32(screenWidth)/2 - win.GetSize().X/2 + win.GetPos().X, Y: win.GetPos().Y}
+		return point{X: float32(screenWidth/2) - win.GetSize().X/2 + win.GetPos().X, Y: win.GetPos().Y}
 	case PIN_MID_LEFT:
-		return point{X: win.GetPos().X, Y: float32(screenHeight)/2 - win.GetSize().Y/2 + win.GetPos().Y}
+		return point{X: win.GetPos().X, Y: float32(screenHeight/2) - win.GetSize().Y/2 + win.GetPos().Y}
 	case PIN_MID_CENTER:
-		return point{X: float32(screenWidth)/2 - win.GetSize().X/2 + win.GetPos().X, Y: float32(screenHeight)/2 - win.GetSize().Y/2 + win.GetPos().Y}
+		return point{X: float32(screenWidth/2) - win.GetSize().X/2 + win.GetPos().X, Y: float32(screenHeight/2) - win.GetSize().Y/2 + win.GetPos().Y}
 	case PIN_MID_RIGHT:
-		return point{X: float32(screenWidth) - win.GetSize().X - win.GetPos().X, Y: float32(screenHeight)/2 - win.GetSize().Y/2 + win.GetPos().Y}
+		return point{X: float32(screenWidth) - win.GetSize().X - win.GetPos().X, Y: float32(screenHeight/2) - win.GetSize().Y/2 + win.GetPos().Y}
 	case PIN_BOTTOM_LEFT:
 		return point{X: win.GetPos().X, Y: float32(screenHeight) - win.GetSize().Y - win.GetPos().Y}
 	case PIN_BOTTOM_CENTER:
-		return point{X: float32(screenWidth)/2 - (win.GetSize().X / 2) + win.GetPos().X, Y: float32(screenHeight) - win.GetSize().Y - win.GetPos().Y}
+		return point{X: float32(screenWidth/2) - (win.GetSize().X / 2) + win.GetPos().X, Y: float32(screenHeight) - win.GetSize().Y - win.GetPos().Y}
 	case PIN_BOTTOM_RIGHT:
 		return point{X: float32(screenWidth) - win.GetSize().X - win.GetPos().X, Y: float32(screenHeight) - win.GetSize().Y - win.GetPos().Y}
 	default:
@@ -601,28 +489,4 @@ func (win windowData) itemOverlap(size point) (bool, bool) {
 	}
 
 	return xc, yc
-}
-
-// Refresh forces the window to recalculate layout, resize to its contents and
-// adjust scrolling after modifying contents. When skipReposition is true the
-// window's location on screen is preserved during auto-size operations.
-func (win *windowData) Refresh(skipReposition ...bool) {
-	if !win.open {
-		for _, it := range win.Contents {
-			markItemTreeDirty(it)
-		}
-		win.Dirty = true
-		return
-	}
-	win.resizeFlows()
-	if win.AutoSize {
-		win.updateAutoSize(skipReposition...)
-	} else {
-		win.clampToScreen(skipReposition...)
-	}
-	win.adjustScrollForResize()
-	for _, it := range win.Contents {
-		markItemTreeDirty(it)
-	}
-	win.Dirty = true
 }

@@ -90,16 +90,16 @@ func initUI() {
 	makeToolbarWindow()
 
 	if chatWin != nil {
-		chatWin.Open()
+		chatWin.IsOpen()
 	}
-	messagesWin.Open()
-	inventoryWin.Open()
-	playersWin.Open()
+	messagesWin.MarkOpen()
+	inventoryWin.MarkOpen()
+	playersWin.MarkOpen()
 
 	if status.NeedImages || status.NeedSounds {
-		downloadWin.Open()
+		downloadWin.MarkOpen()
 	} else {
-		loginWin.Open()
+		loginWin.MarkOpen()
 	}
 }
 
@@ -183,8 +183,6 @@ func makeToolbarWindow() {
 	volumeSlider.Label = ""
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
-	volumeSlider.Log = true
-	volumeSlider.LogValue = 10
 	volumeSlider.Value = float32(gs.Volume)
 	volumeSlider.Size = eui.Point{X: 300, Y: 24}
 	volumeSlider.FontSize = 9
@@ -289,7 +287,7 @@ func makeToolbarWindow() {
 
 	toolbarWin.AddItem(gameMenu)
 	toolbarWin.AddWindow(false)
-	toolbarWin.Open()
+	toolbarWin.MarkOpen()
 
 	//eui.TreeMode = true
 }
@@ -361,7 +359,7 @@ func makeDownloadsWindow() {
 					return
 				}
 				downloadWin.Close()
-				loginWin.Open()
+				loginWin.MarkOpen()
 			}()
 		}
 	}
@@ -453,7 +451,7 @@ func updateCharacterButtons() {
 					}
 					updateCharacterButtons()
 					// Preserve window position while contents change size
-					loginWin.Refresh(true)
+					loginWin.Refresh()
 				}
 			}
 			row.AddItem(trash)
@@ -461,7 +459,7 @@ func updateCharacterButtons() {
 		}
 	}
 	// Preserve window position while contents change size
-	loginWin.Refresh(true)
+	loginWin.Refresh()
 }
 
 func makeAddCharacterWindow() {
@@ -525,9 +523,9 @@ func makeAddCharacterWindow() {
 			updateCharacterButtons()
 			if loginWin != nil && loginWin.IsOpen() {
 				// Preserve window position while contents change size
-				loginWin.Refresh(true)
+				loginWin.Refresh()
 			}
-			addCharWin.Open()
+			addCharWin.MarkOpen()
 		}
 	}
 	flow.AddItem(addBtn)
@@ -537,14 +535,14 @@ func makeAddCharacterWindow() {
 	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			loginWin.Open()
+			loginWin.MarkOpen()
 		}
 	}
 	flow.AddItem(cancelBtn)
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
-	loginWin.Open()
+	loginWin.MarkOpen()
 }
 
 func makeLoginWindow() {
@@ -580,7 +578,7 @@ func makeLoginWindow() {
 			addCharPass = ""
 			addCharRemember = true
 			loginWin.Close()
-			addCharWin.Open()
+			addCharWin.MarkOpen()
 		}
 	}
 	loginFlow.AddItem(addBtn)
@@ -610,7 +608,7 @@ func makeLoginWindow() {
 					logError("parse movie: %v", err)
 					clmov = ""
 					makeErrorWindow("Error: Open clMov: " + err.Error())
-					loginWin.Open()
+					loginWin.MarkOpen()
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
@@ -656,7 +654,7 @@ func makeLoginWindow() {
 				if err := login(ctx, clientVersion); err != nil {
 					logError("login: %v", err)
 					makeErrorWindow("Error: Login: " + err.Error())
-					loginWin.Open()
+					loginWin.MarkOpen()
 				}
 			}()
 		}
@@ -692,7 +690,7 @@ func makeErrorWindow(msg string) {
 	flow.AddItem(okBtn)
 	win.AddItem(flow)
 	win.AddWindow(false)
-	win.Open()
+	win.MarkOpen()
 }
 
 func makeSettingsWindow() {
@@ -1549,7 +1547,7 @@ func makeWindowsWindow() {
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				playersWin.Open()
+				playersWin.MarkOpen()
 			} else {
 				playersWin.Close()
 			}
@@ -1564,7 +1562,7 @@ func makeWindowsWindow() {
 	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				inventoryWin.Open()
+				inventoryWin.MarkOpen()
 			} else {
 				inventoryWin.Close()
 			}
@@ -1579,7 +1577,7 @@ func makeWindowsWindow() {
 	messagesBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				messagesWin.Open()
+				messagesWin.MarkOpen()
 			} else {
 				messagesWin.Close()
 			}

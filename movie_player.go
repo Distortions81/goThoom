@@ -217,7 +217,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	flow.AddItem(bFlow)
 	win.AddItem(flow)
 	win.AddWindow(false)
-	win.Open()
+	win.MarkOpen()
 
 	p.updateUI()
 }

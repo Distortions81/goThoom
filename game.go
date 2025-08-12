@@ -1120,8 +1120,7 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 
 // drawInputOverlay renders the text entry box when chatting.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	eui.RenderSize(outsideWidth, outsideHeight)
-	layoutOnce.Do(layoutWindows)
+	eui.Layout(outsideWidth, outsideHeight)
 	return outsideWidth, outsideHeight
 }
 
@@ -1191,13 +1190,13 @@ func makeGameWindow() {
 	gameWin.Closable = false
 	gameWin.Resizable = gs.AnyGameWindowSize
 	gameWin.Movable = true
-	gameWin.MainPortal = true
-	gameWin.FixedRatio = true
-	gameWin.AspectA = 1
-	gameWin.AspectB = 1
+	//gameWin.MainPortal = true
+	//gameWin.FixedRatio = true
+	//gameWin.AspectA = 1
+	//gameWin.AspectB = 1
 	gameWin.SetTitleSize(8)
 	gameWin.AddWindow(false)
-	gameWin.Open()
+	gameWin.MarkOpen()
 }
 
 func noteFrame() {

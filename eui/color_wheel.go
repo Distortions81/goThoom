@@ -1,6 +1,7 @@
 package eui
 
 import (
+	"image/color"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -14,7 +15,6 @@ func colorWheelImage(size int) *ebiten.Image {
 		return ebiten.NewImage(1, 1)
 	}
 	img := ebiten.NewImage(size, size)
-	pix := make([]byte, size*size*4)
 	r := float64(size) / 2
 	// Use a 4x4 grid of subpixel samples for smoother edges
 	offsets := []float64{0.125, 0.375, 0.625, 0.875}
@@ -49,20 +49,17 @@ func colorWheelImage(size int) *ebiten.Image {
 					coverage++
 				}
 			}
-			idx := 4 * (y*size + x)
 			if coverage == 0 {
-				pix[idx+0] = 0
-				pix[idx+1] = 0
-				pix[idx+2] = 0
-				pix[idx+3] = 0
+				img.Set(x, y, color.Transparent)
 				continue
 			}
-			pix[idx+0] = uint8(rr / float64(maxSamples))
-			pix[idx+1] = uint8(gg / float64(maxSamples))
-			pix[idx+2] = uint8(bb / float64(maxSamples))
-			pix[idx+3] = uint8(aa / float64(maxSamples))
+			img.Set(x, y, color.RGBA{
+				R: uint8(rr / float64(maxSamples)),
+				G: uint8(gg / float64(maxSamples)),
+				B: uint8(bb / float64(maxSamples)),
+				A: uint8(aa / float64(maxSamples)),
+			})
 		}
 	}
-	img.ReplacePixels(pix)
 	return img
 }

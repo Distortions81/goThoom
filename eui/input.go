@@ -16,17 +16,7 @@ var (
 	dragPart   dragType
 	dragWin    *windowData
 	activeItem *itemData
-
-	activeClicks []*itemData
 )
-
-func registerClick(it *itemData) {
-	if it.Clicked.IsZero() {
-		activeClicks = append(activeClicks, it)
-	}
-	it.Clicked = time.Now()
-	it.markDirty()
-}
 
 // Update processes input and updates window state.
 // Programs embedding the UI can call this from their Ebiten Update handler.
@@ -78,12 +68,11 @@ func Update() error {
 		}
 	}
 
-	// Process windows with MainPortal flag last so other windows on top
-	// receive input first.
-	handled := false
-	handleWindow := func(win *windowData) bool {
-		if !win.open {
-			return false
+	//Check all windows
+	for i := len(windows) - 1; i >= 0; i-- {
+		win := windows[i]
+		if !win.Open {
+			continue
 		}
 
 		var part dragType
@@ -114,22 +103,22 @@ func Update() error {
 
 			if click && dragPart == PART_NONE {
 				if part == PART_CLOSE {
-					win.Close()
-					return false
+					win.Open = false
+					//win.RemoveWindow()
+					continue
 				}
 				dragPart = part
 				dragWin = win
 			} else if clickDrag && dragPart != PART_NONE && dragWin == win {
-				origPos := win.Position
 				switch dragPart {
 				case PART_BAR:
-					if win.PinTo == PIN_NONE {
+					if win.PinTo == PIN_TOP_LEFT {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_NONE {
+					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_BOTTOM:
@@ -138,20 +127,20 @@ func Update() error {
 				case PART_LEFT:
 					posCh.Y = 0
 					sizeCh.Y = 0
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_NONE {
+					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_RIGHT:
 					sizeCh.Y = 0
 					win.setSize(pointAdd(win.Size, sizeCh))
 				case PART_TOP_LEFT:
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_NONE {
+					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_TOP_RIGHT:
 					tx := win.Size.X + sizeCh.X
 					ty := win.Size.Y - sizeCh.Y
-					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_NONE {
+					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_TOP_LEFT {
 						win.Position.Y += posCh.Y
 					}
 				case PART_BOTTOM_RIGHT:
@@ -161,7 +150,7 @@ func Update() error {
 				case PART_BOTTOM_LEFT:
 					tx := win.Size.X - sizeCh.X
 					ty := win.Size.Y + sizeCh.Y
-					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_NONE {
+					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_TOP_LEFT {
 						win.Position.X += posCh.X
 					}
 				case PART_SCROLL_V:
@@ -170,13 +159,12 @@ func Update() error {
 					dragWindowScroll(win, mpos, false)
 				}
 				win.clampToScreen()
-				delta := pointSub(win.Position, origPos)
-				if delta.X != 0 || delta.Y != 0 {
-					shiftDrawRects(win, pointScaleMul(delta))
-				}
-				return true
+				break
 			}
 		}
+
+		//Window items
+		win.clickWindowItems(mpos, click)
 
 		// Bring window forward on click if the cursor is over it or an
 		// expanded dropdown. Break so windows behind don't receive the
@@ -187,34 +175,7 @@ func Update() error {
 					win.BringForward()
 				}
 			}
-			win.clickWindowItems(mpos, click)
-			return true
-		}
-
-		// Window items
-		win.clickWindowItems(mpos, click)
-		return false
-	}
-
-	for i := len(windows) - 1; i >= 0; i-- {
-		win := windows[i]
-		if !win.open || win.MainPortal {
-			continue
-		}
-		if handleWindow(win) {
-			handled = true
 			break
-		}
-	}
-	if !handled {
-		for i := len(windows) - 1; i >= 0; i-- {
-			win := windows[i]
-			if !win.open || !win.MainPortal {
-				continue
-			}
-			if handleWindow(win) {
-				break
-			}
 		}
 	}
 
@@ -234,14 +195,6 @@ func Update() error {
 				if focusedItem.Handler != nil {
 					focusedItem.Handler.Emit(UIEvent{Item: focusedItem, Type: EventInputChanged, Text: focusedItem.Text})
 				}
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
-			if focusedItem.OnEnter != nil {
-				focusedItem.OnEnter(focusedItem.Text)
-			}
-			if focusedItem.Handler != nil {
-				focusedItem.Handler.Emit(UIEvent{Item: focusedItem, Type: EventInputSubmit, Text: focusedItem.Text})
 			}
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
@@ -264,16 +217,12 @@ func Update() error {
 		}
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		focusNextInput()
-	}
-
 	mposOld = mpos
 
 	if wheelDelta.X != 0 || wheelDelta.Y != 0 {
 		for i := len(windows) - 1; i >= 0; i-- {
 			win := windows[i]
-			if !win.open {
+			if !win.Open {
 				continue
 			}
 			if win.getMainRect().containsPoint(mpos) || dropdownOpenContains(win.Contents, mpos) {
@@ -314,7 +263,14 @@ func Update() error {
 	// own layout updates whenever sizes change, so avoid doing it every
 	// frame here.
 
-	clearExpiredClicks()
+	for _, win := range windows {
+		if win.Open {
+			clearExpiredClicks(win.Contents)
+		}
+	}
+	for _, ov := range overlays {
+		clearExpiredClicks([]*itemData{ov})
+	}
 
 	return nil
 }
@@ -370,7 +326,7 @@ func (item *itemData) clickFlows(mpos point, click bool) bool {
 				hoveredItem = tab
 				if click {
 					activeItem = tab
-					registerClick(tab)
+					tab.Clicked = time.Now()
 					item.ActiveTab = i
 				}
 				return true
@@ -419,10 +375,11 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 
 	if click {
 		activeItem = item
-		registerClick(item)
+		item.Clicked = time.Now()
 		if item.ItemType == ITEM_BUTTON && item.Handler != nil {
 			item.Handler.Emit(UIEvent{Item: item, Type: EventClick})
 		}
+		item.markDirty()
 		if item.ItemType == ITEM_COLORWHEEL {
 			if col, ok := item.colorAt(mpos); ok {
 				item.WheelColor = col
@@ -454,27 +411,6 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 				item.Handler.Emit(UIEvent{Item: item, Type: EventRadioSelected, Checked: true})
 			}
 		} else if item.ItemType == ITEM_INPUT {
-			if item.Hide {
-				lh := item.labelHeight()
-				if lh > 0 {
-					lh += currentStyle.TextPadding * uiScale
-				}
-				contentH := item.Size.Y * uiScale
-				eyeSize := contentH - (item.BorderPad+item.Padding)*2
-				if eyeSize < 0 {
-					eyeSize = 0
-				}
-				eyeRect := rect{
-					X0: item.DrawRect.X0 + item.Size.X*uiScale - eyeSize - item.BorderPad - item.Padding,
-					Y0: item.DrawRect.Y0 + lh + (contentH-eyeSize)/2,
-					X1: item.DrawRect.X0 + item.Size.X*uiScale - item.BorderPad - item.Padding,
-					Y1: item.DrawRect.Y0 + lh + (contentH-eyeSize)/2 + eyeSize,
-				}
-				if eyeRect.containsPoint(mpos) {
-					item.toggleReveal()
-					return true
-				}
-			}
 			focusedItem = item
 			item.Focused = true
 			item.markDirty()
@@ -591,82 +527,48 @@ func subUncheckRadio(list []*itemData, group string, except *itemData) {
 	}
 }
 
-func clearExpiredClicks() {
-	now := time.Now()
-	n := 0
-	for _, it := range activeClicks {
-		if it.Clicked.IsZero() {
-			continue
-		}
-		if now.Sub(it.Clicked) >= clickFlash {
+func clearExpiredClicks(list []*itemData) {
+	for _, it := range list {
+		if !it.Clicked.IsZero() && time.Since(it.Clicked) >= clickFlash {
 			it.Clicked = time.Time{}
 			it.markDirty()
-			continue
 		}
-		activeClicks[n] = it
-		n++
+		for _, tab := range it.Tabs {
+			if !tab.Clicked.IsZero() && time.Since(tab.Clicked) >= clickFlash {
+				tab.Clicked = time.Time{}
+				tab.markDirty()
+			}
+			clearExpiredClicks(tab.Contents)
+		}
+		clearExpiredClicks(it.Contents)
 	}
-	activeClicks = activeClicks[:n]
 }
 
 func (item *itemData) setSliderValue(mpos point) {
-	// Determine the length of the slider track accounting for the
-	// displayed value text adjacent to the knob. Measure against a
-	// consistent label so sliders with different ranges have
-	// identical track lengths.
+	// Determine the width of the slider track accounting for the
+	// displayed value text to the right of the knob.
+	// Measure against a consistent label width so sliders with
+	// different ranges have identical track lengths.
 	maxLabel := sliderMaxLabel
 	textSize := (item.FontSize * uiScale) + 2
 	face := textFace(textSize)
-	maxW, maxH := text.Measure(maxLabel, face, 0)
+	maxW, _ := text.Measure(maxLabel, face, 0)
 
 	knobW := item.AuxSize.X * uiScale
-	knobH := item.AuxSize.Y * uiScale
-
-	if item.Vertical {
-		height := item.DrawRect.Y1 - item.DrawRect.Y0 - knobH - currentStyle.SliderValueGap - float32(maxH)
-		if height <= 0 {
-			return
-		}
-		start := item.DrawRect.Y0 + knobH/2
-		val := mpos.Y - start
-		if val < 0 {
-			val = 0
-		}
-		if val > height {
-			val = height
-		}
-		ratio := val / height
-		if item.Log && item.MinValue > 0 && item.MaxValue > 0 {
-			minLog := math.Log(float64(item.MinValue)) / math.Log(float64(item.LogValue))
-			maxLog := math.Log(float64(item.MaxValue)) / math.Log(float64(item.LogValue))
-			valueLog := maxLog - float64(ratio)*(maxLog-minLog)
-			item.Value = float32(math.Pow(float64(item.LogValue), valueLog))
-		} else {
-			item.Value = item.MaxValue - ratio*(item.MaxValue-item.MinValue)
-		}
-	} else {
-		width := item.DrawRect.X1 - item.DrawRect.X0 - knobW - currentStyle.SliderValueGap - float32(maxW)
-		if width <= 0 {
-			return
-		}
-		start := item.DrawRect.X0 + knobW/2
-		val := mpos.X - start
-		if val < 0 {
-			val = 0
-		}
-		if val > width {
-			val = width
-		}
-		ratio := val / width
-		if item.Log && item.MinValue > 0 && item.MaxValue > 0 {
-			minLog := math.Log(float64(item.MinValue)) / math.Log(float64(item.LogValue))
-			maxLog := math.Log(float64(item.MaxValue)) / math.Log(float64(item.LogValue))
-			valueLog := minLog + float64(ratio)*(maxLog-minLog)
-			item.Value = float32(math.Pow(float64(item.LogValue), valueLog))
-		} else {
-			item.Value = item.MinValue + ratio*(item.MaxValue-item.MinValue)
-		}
+	width := item.DrawRect.X1 - item.DrawRect.X0 - knobW - currentStyle.SliderValueGap - float32(maxW)
+	if width <= 0 {
+		return
 	}
+	start := item.DrawRect.X0 + knobW/2
+	val := (mpos.X - start)
+	if val < 0 {
+		val = 0
+	}
+	if val > width {
+		val = width
+	}
+	ratio := val / width
+	item.Value = item.MinValue + ratio*(item.MaxValue-item.MinValue)
 	if item.IntOnly {
 		item.Value = float32(int(item.Value + 0.5))
 	}
@@ -676,16 +578,11 @@ func (item *itemData) setSliderValue(mpos point) {
 	}
 }
 
-func (item *itemData) toggleReveal() {
-	item.Reveal = !item.Reveal
-	item.markDirty()
-}
-
 func (item *itemData) colorAt(mpos point) (Color, bool) {
 	size := point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
-	offsetY := item.labelHeight()
-	if offsetY > 0 {
-		offsetY += currentStyle.TextPadding * uiScale
+	offsetY := float32(0)
+	if item.Label != "" {
+		offsetY = (item.FontSize*uiScale + 2) + currentStyle.TextPadding*uiScale
 	}
 	wheelSize := size.Y
 	if wheelSize > size.X {
@@ -950,7 +847,7 @@ func clickOpenDropdown(items []*itemData, mpos point, click bool) bool {
 
 func dropdownOpenContainsAnywhere(mpos point) bool {
 	for _, win := range windows {
-		if win.open && dropdownOpenContains(win.Contents, mpos) {
+		if win.Open && dropdownOpenContains(win.Contents, mpos) {
 			return true
 		}
 	}
@@ -979,67 +876,11 @@ func closeDropdowns(items []*itemData) {
 
 func closeAllDropdowns() {
 	for _, win := range windows {
-		if win.open {
+		if win.Open {
 			closeDropdowns(win.Contents)
 		}
 	}
 	for _, ov := range overlays {
 		closeDropdowns([]*itemData{ov})
 	}
-}
-
-func collectInputItems(items []*itemData, list []*itemData) []*itemData {
-	for _, it := range items {
-		if it.ItemType == ITEM_INPUT && !it.Disabled && !it.Invisible {
-			list = append(list, it)
-		}
-		if len(it.Tabs) > 0 {
-			if it.ActiveTab >= len(it.Tabs) {
-				it.ActiveTab = 0
-			}
-			list = collectInputItems(it.Tabs[it.ActiveTab].Contents, list)
-		}
-		list = collectInputItems(it.Contents, list)
-	}
-	return list
-}
-
-func gatherAllInputItems() []*itemData {
-	var list []*itemData
-	for _, win := range windows {
-		if win.open {
-			list = collectInputItems(win.Contents, list)
-		}
-	}
-	for _, ov := range overlays {
-		list = collectInputItems([]*itemData{ov}, list)
-	}
-	return list
-}
-
-func focusNextInput() {
-	inputs := gatherAllInputItems()
-	if len(inputs) == 0 {
-		return
-	}
-	if focusedItem == nil {
-		focusedItem = inputs[0]
-		focusedItem.Focused = true
-		focusedItem.markDirty()
-		return
-	}
-	for i, it := range inputs {
-		if it == focusedItem {
-			focusedItem.Focused = false
-			focusedItem.markDirty()
-			next := inputs[(i+1)%len(inputs)]
-			focusedItem = next
-			focusedItem.Focused = true
-			focusedItem.markDirty()
-			return
-		}
-	}
-	focusedItem = inputs[0]
-	focusedItem.Focused = true
-	focusedItem.markDirty()
 }
