@@ -69,7 +69,8 @@ type windowData struct {
 }
 
 type itemData struct {
-	Parent *itemData
+	Parent       *itemData
+	ParentWindow *windowData
 	// Name is used when the item is part of a tabbed flow
 	Name      string
 	Text      string

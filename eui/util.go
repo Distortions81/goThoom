@@ -65,6 +65,7 @@ func (parent *itemData) addItemTo(item *itemData) {
 	if item.Theme == nil {
 		item.Theme = parent.Theme
 	}
+	item.setParentWindow(parent.ParentWindow)
 	parent.Contents = append(parent.Contents, item)
 	if parent.ItemType == ITEM_FLOW {
 		parent.resizeFlow(parent.GetSize())
@@ -76,6 +77,7 @@ func (parent *windowData) addItemTo(item *itemData) {
 		item.Theme = parent.Theme
 	}
 	parent.Contents = append(parent.Contents, item)
+	item.setParentWindow(parent)
 	item.resizeFlow(parent.GetSize())
 	parent.markDirty()
 }
@@ -504,9 +506,19 @@ func (win *windowData) markDirty() {
 func (item *itemData) markDirty() {
 	if item != nil && item.ItemType != ITEM_FLOW {
 		item.Dirty = true
-		for _, win := range windows {
-			win.markDirty()
+		if item.ParentWindow != nil {
+			item.ParentWindow.markDirty()
 		}
+	}
+}
+
+func (item *itemData) setParentWindow(win *windowData) {
+	item.ParentWindow = win
+	for _, child := range item.Contents {
+		child.setParentWindow(win)
+	}
+	for _, tab := range item.Tabs {
+		tab.setParentWindow(win)
 	}
 }
 
