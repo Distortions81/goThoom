@@ -55,7 +55,6 @@ var gsdef settings = settings{
 	hideMoving:       false,
 	hideMobiles:      false,
 	vsync:            true,
-	fastSound:        true,
 	nightEffect:      true,
 	precacheSounds:   false,
 	precacheImages:   false,
@@ -108,7 +107,6 @@ type settings struct {
 	hideMoving        bool
 	hideMobiles       bool
 	vsync             bool
-	fastSound         bool
 	nightEffect       bool
 	precacheSounds    bool
 	precacheImages    bool
@@ -157,10 +155,6 @@ func loadSettings() bool {
 
 	clampWindowSettings()
 
-	if !gs.fastSound {
-		initSinc()
-	}
-
 	return true
 }
 
@@ -174,9 +168,6 @@ func applySettings() {
 		drawFilter = ebiten.FilterLinear
 	} else {
 		drawFilter = ebiten.FilterNearest
-	}
-	if !gs.fastSound {
-		initSinc()
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetFullscreen(gs.Fullscreen)
@@ -342,12 +333,6 @@ func applyQualityPreset(name string) {
 	}
 
 	applySettings()
-	if gs.fastSound {
-		resample = resampleLinear
-	} else {
-		initSinc()
-		resample = resampleSincHQ
-	}
 	clearCaches()
 	settingsDirty = true
 	if qualityWin != nil {

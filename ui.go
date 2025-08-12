@@ -1130,32 +1130,6 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(filtCB)
 
-	/*
-		fastSound, fastSoundEvents := eui.NewCheckbox()
-		fastSound.Text = "Low Quality Sound"
-		fastSound.Size = eui.Point{X: width, Y: 24}
-		fastSound.Checked = gs.fastSound
-		fastSoundEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				gs.fastSound = ev.Checked
-				settingsDirty = true
-
-				pcmCache = make(map[uint16][]byte)
-
-				if gs.fastSound {
-					resample = resampleLinear
-				} else {
-					initSinc()
-					resample = resampleSincHQ
-				}
-				soundMu.Lock()
-				pcmCache = make(map[uint16][]byte)
-				soundMu.Unlock()
-			}
-		}
-		flow.AddItem(fastSound)
-	*/
-
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
 	vsyncCB.Text = "Vsync"
 	vsyncCB.Size = eui.Point{X: width, Y: 24}
