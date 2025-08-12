@@ -149,8 +149,7 @@ func decodeBEPP(data []byte) string {
 func stripBEPPTags(b []byte) []byte {
 	out := b[:0]
 	for i := 0; i < len(b); {
-		c := b[i]
-		if c == 0xC2 {
+		if b[i] == 0xC2 {
 			if i+4 < len(b) && b[i+1] == 't' && b[i+2] == '_' && b[i+3] == 't' {
 				switch b[i+4] {
 				case 'h', 't', 'c', 'g':
@@ -158,17 +157,12 @@ func stripBEPPTags(b []byte) []byte {
 					continue
 				}
 			}
-			if i+2 < len(b) {
-				i += 3
+			if i+3 < len(b) && b[i+3] == ' ' && b[i+1] >= 'a' && b[i+1] <= 'z' && b[i+2] >= 'a' && b[i+2] <= 'z' {
+				i += 4
 				continue
 			}
-			break
 		}
-		if c >= 0x80 || c < 0x20 {
-			i++
-			continue
-		}
-		out = append(out, c)
+		out = append(out, b[i])
 		i++
 	}
 	return out
