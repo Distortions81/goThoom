@@ -5,7 +5,7 @@ go 1.24.3
 require github.com/hajimehoshi/ebiten/v2 v2.8.8
 
 require (
-	github.com/Distortions81/EUI v0.0.31
+	github.com/Distortions81/EUI v0.0.34
 	github.com/dustin/go-humanize v1.0.1
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/remeh/sizedwaitgroup v1.0.0
@@ -14,7 +14,7 @@ require (
 	maze.io/x/math32 v0.0.0-20181106113604-c78ed91899f1
 )
 
-//replace github.com/Distortions81/EUI => /home/dist/github/EUI/
+replace github.com/Distortions81/EUI => ../EUI/
 
 require github.com/ebitengine/oto/v3 v3.3.3 // indirect
 
