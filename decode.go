@@ -136,9 +136,103 @@ func decodeBEPP(data []byte) string {
 		if text != "" {
 			return "share: " + text
 		}
+	case "hp":
+		if text != "" {
+			return "help: " + text
+		}
+	case "er":
+		if text != "" {
+			return "error: " + text
+		}
+	case "gm":
+		if text != "" {
+			return "gm: " + text
+		}
+	case "lg":
+		if text != "" {
+			return "logon: " + text
+		}
+	case "lf":
+		if text != "" {
+			return "logoff: " + text
+		}
+	case "dp":
+		if text != "" {
+			return "depart: " + text
+		}
+	case "ka":
+		if text != "" {
+			return "karma: " + text
+		}
+	case "kr":
+		if text != "" {
+			return "karma received: " + text
+		}
+	case "wh":
+		if text != "" {
+			return "who: " + text
+		}
+	case "hf":
+		if text != "" {
+			return "fallen: " + text
+		}
+	case "nf":
+		if text != "" {
+			return "no longer fallen: " + text
+		}
+	case "lo":
+		if text != "" {
+			return "location: " + text
+		}
+	case "de":
+		if text != "" {
+			return "demo: " + text
+		}
+	case "iv":
+		if text != "" {
+			return "inventory: " + text
+		}
+	case "nw":
+		if text != "" {
+			return "news: " + text
+		}
+	case "ba":
+		if text != "" {
+			return "bard: " + text
+		}
+	case "su":
+		if text != "" {
+			return "unshare: " + text
+		}
+	case "cn", "pn", "mn", "tt", "ml":
+		if text != "" {
+			return text
+		}
+	case "yk":
+		if text != "" {
+			return text
+		}
+	case "mu":
+		if text != "" {
+			consoleMessage("music: " + text)
+		}
+	case "dl":
+		if text != "" {
+			consoleMessage("download: " + text)
+		}
+	case "cf":
+		if text != "" {
+			consoleMessage("config: " + text)
+		}
+	case "tl":
+		if text != "" {
+			consoleMessage(text)
+		}
 	case "be":
 		parseBackend(textBytes)
-	case "yk":
+	case "dd":
+		// suppress
+	default:
 		if text != "" {
 			return text
 		}
