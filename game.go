@@ -1212,7 +1212,6 @@ func makeGameWindow() {
 	gameWin.Movable = true
 	gameWin.NoScale = true
 	gameWin.AlwaysDrawFirst = true
-	//gameWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
 	gameWin.MarkOpen()
 }
 
