@@ -28,66 +28,23 @@ var (
 	resample     = resampleLinear
 
 	sincTable [][]float32
-
-	playSound = func(id uint16) {
-		logDebug("playSound(%d) called", id)
-		if blockSound {
-			logDebug("playSound(%d) blocked by blockSound", id)
-			return
-		}
-		pcm := loadSound(id)
-		if pcm == nil {
-			logDebug("playSound(%d) no pcm returned", id)
-			return
-		}
-		if audioContext == nil {
-			logDebug("playSound(%d) no audio context", id)
-			return
-		}
-
-		p := audioContext.NewPlayerFromBytes(pcm)
-		vol := gs.Volume
-		if gs.Mute {
-			vol = 0
-		}
-		p.SetVolume(vol)
-
-		soundMu.Lock()
-		for sp := range soundPlayers {
-			if !sp.IsPlaying() {
-				sp.Close()
-				delete(soundPlayers, sp)
-			}
-		}
-		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
-			soundMu.Unlock()
-			logDebug("playSound(%d) too many sound players (%d)", id, len(soundPlayers))
-			p.Close()
-			return
-		}
-		soundPlayers[p] = struct{}{}
-		soundMu.Unlock()
-
-		logDebug("playSound(%d) playing", id)
-		p.Play()
-	}
 )
 
-// playSoundMix mixes the provided sound IDs and plays the result asynchronously.
+// playSound mixes the provided sound IDs and plays the result asynchronously.
 // Each ID is loaded, mixed with simple clipping and then played at the current
 // global volume. The function returns immediately after scheduling playback.
-func playSoundMix(ids ...uint16) {
+func playSound(ids ...uint16) {
 	if len(ids) == 0 {
 		return
 	}
 	go func(ids []uint16) {
-		logDebug("playSoundMix %v called", ids)
+		logDebug("playSound %v called", ids)
 		if blockSound {
-			logDebug("playSoundMix blocked by blockSound")
+			logDebug("playSound blocked by blockSound")
 			return
 		}
 		if audioContext == nil {
-			logDebug("playSoundMix no audio context")
+			logDebug("playSound no audio context")
 			return
 		}
 
@@ -104,7 +61,7 @@ func playSoundMix(ids ...uint16) {
 			}
 		}
 		if len(sounds) == 0 {
-			logDebug("playSoundMix no pcm returned")
+			logDebug("playSound no pcm returned")
 			return
 		}
 
@@ -143,14 +100,14 @@ func playSoundMix(ids ...uint16) {
 		}
 		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 			soundMu.Unlock()
-			logDebug("playSoundMix too many sound players (%d)", len(soundPlayers))
+			logDebug("playSound too many sound players (%d)", len(soundPlayers))
 			p.Close()
 			return
 		}
 		soundPlayers[p] = struct{}{}
 		soundMu.Unlock()
 
-		logDebug("playSoundMix playing")
+		logDebug("playSound playing")
 		p.Play()
 	}(append([]uint16(nil), ids...))
 }
