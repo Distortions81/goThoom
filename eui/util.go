@@ -226,9 +226,6 @@ func (win *windowData) adjustScrollForResize() {
 }
 
 func (win *windowData) clampToScreen() {
-	if win.zone != nil {
-		return
-	}
 	pos := win.getPosition()
 	size := win.GetSize()
 	old := win.Position
