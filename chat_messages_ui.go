@@ -66,9 +66,6 @@ func makeChatWindow() error {
 	chatWin.Resizable = true
 	chatWin.Movable = false
 	chatWin.PinTo = eui.PIN_MID_CENTER
-	if gs.ChatWindow.Position.X != 0 || gs.ChatWindow.Position.Y != 0 {
-		chatWin.Position = eui.Point{X: float32(gs.ChatWindow.Position.X), Y: float32(gs.ChatWindow.Position.Y)}
-	}
 
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	if chatList == nil {
