@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -56,7 +55,6 @@ var gsdef settings = settings{
 	hideMoving:       false,
 	hideMobiles:      false,
 	vsync:            true,
-	fastSound:        true,
 	nightEffect:      true,
 	precacheSounds:   false,
 	precacheImages:   false,
@@ -109,7 +107,6 @@ type settings struct {
 	hideMoving        bool
 	hideMobiles       bool
 	vsync             bool
-	fastSound         bool
 	nightEffect       bool
 	precacheSounds    bool
 	precacheImages    bool
@@ -158,10 +155,6 @@ func loadSettings() bool {
 
 	clampWindowSettings()
 
-	if !gs.fastSound {
-		initSinc()
-	}
-
 	return true
 }
 
@@ -176,9 +169,6 @@ func applySettings() {
 	} else {
 		drawFilter = ebiten.FilterNearest
 	}
-	if !gs.fastSound {
-		initSinc()
-	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetFullscreen(gs.Fullscreen)
 	initFont()
@@ -186,17 +176,6 @@ func applySettings() {
 }
 
 func saveSettings() {
-	return
-	syncWindowSettings()
-	data, err := json.MarshalIndent(gs, "", "  ")
-	if err != nil {
-		log.Printf("save settings: %v", err)
-		return
-	}
-	path := filepath.Join(dataDirPath, settingsFile)
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		log.Printf("save settings: %v", err)
-	}
 }
 
 func syncWindowSettings() bool {
@@ -352,12 +331,6 @@ func applyQualityPreset(name string) {
 	}
 
 	applySettings()
-	if gs.fastSound {
-		resample = resampleLinear
-	} else {
-		initSinc()
-		resample = resampleSincHQ
-	}
 	clearCaches()
 	settingsDirty = true
 	if qualityWin != nil {
