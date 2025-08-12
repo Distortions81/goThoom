@@ -123,13 +123,13 @@ func Update() error {
 				origPos := win.Position
 				switch dragPart {
 				case PART_BAR:
-					if win.PinTo == PIN_TOP_LEFT {
+					if win.PinTo == PIN_NONE {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_NONE {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_BOTTOM:
@@ -138,20 +138,20 @@ func Update() error {
 				case PART_LEFT:
 					posCh.Y = 0
 					sizeCh.Y = 0
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_NONE {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_RIGHT:
 					sizeCh.Y = 0
 					win.setSize(pointAdd(win.Size, sizeCh))
 				case PART_TOP_LEFT:
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_NONE {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_TOP_RIGHT:
 					tx := win.Size.X + sizeCh.X
 					ty := win.Size.Y - sizeCh.Y
-					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_NONE {
 						win.Position.Y += posCh.Y
 					}
 				case PART_BOTTOM_RIGHT:
@@ -161,7 +161,7 @@ func Update() error {
 				case PART_BOTTOM_LEFT:
 					tx := win.Size.X - sizeCh.X
 					ty := win.Size.Y + sizeCh.Y
-					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_NONE {
 						win.Position.X += posCh.X
 					}
 				case PART_SCROLL_V:
