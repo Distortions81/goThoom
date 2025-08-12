@@ -6,6 +6,7 @@ import "github.com/Distortions81/EUI/eui"
 
 var messagesWin *eui.WindowData
 var messagesList *eui.ItemData
+var inputBar *eui.ItemData
 var messagesDirty bool
 
 func updateMessagesWindow() {
@@ -15,7 +16,10 @@ func updateMessagesWindow() {
 	msgs := getConsoleMessages()
 	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
 	if inputActive {
-		inputMsg = string(inputText)
+		if inputMsg != string(inputText) {
+			inputMsg = string(inputText)
+			messagesWin.Refresh()
+		}
 	}
 	changed := false
 	for i, msg := range msgs {
