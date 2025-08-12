@@ -519,7 +519,7 @@ func updateGameWindowSize() {
 	gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * scale, Y: float32(gameAreaSizeY) * scale}
 }
 
-func gameContentOrigin() (int, int) {
+func gameWindowOrigin() (int, int) {
 	if gameWin == nil {
 		return 0, 0
 	}
@@ -528,6 +528,25 @@ func gameContentOrigin() (int, int) {
 	x := pos.X + frame
 	y := pos.Y + frame + gameWin.GetRawTitleSize()
 	return int(math.Round(float64(x))), int(math.Round(float64(y)))
+}
+
+func gameContentOrigin() (int, int) {
+	x, y := gameWindowOrigin()
+	if gameWin == nil {
+		return x, y
+	}
+	size := gameWin.GetSize()
+	w := float64(int(size.X) &^ 1)
+	h := float64(int(size.Y) &^ 1)
+	fw := float64(gameAreaSizeX) * gs.GameScale
+	fh := float64(gameAreaSizeY) * gs.GameScale
+	if w > fw {
+		x += int(math.Round((w - fw) / 2))
+	}
+	if h > fh {
+		y += int(math.Round((h - fh) / 2))
+	}
+	return x, y
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -557,11 +576,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		fw := float32(float64(gameAreaSizeX) * gs.GameScale)
 		fh := float32(float64(gameAreaSizeY) * gs.GameScale)
 		dark := color.RGBA{0x40, 0x40, 0x40, 0xff}
-		if fw < w {
-			vector.DrawFilledRect(screen, float32(ox)+fw, float32(oy), w-fw, fh, dark, false)
+		left := float32(ox - wx)
+		top := float32(oy - wy)
+		right := w - left - fw
+		bottom := h - top - fh
+		if left > 0 {
+			vector.DrawFilledRect(screen, float32(wx), float32(oy), left, fh, dark, false)
 		}
-		if fh < h {
-			vector.DrawFilledRect(screen, float32(ox), float32(oy)+fh, w, h-fh, dark, false)
+		if right > 0 {
+			vector.DrawFilledRect(screen, float32(ox)+fw, float32(oy), right, fh, dark, false)
+		}
+		if top > 0 {
+			vector.DrawFilledRect(screen, float32(wx), float32(wy), w, top, dark, false)
+		}
+		if bottom > 0 {
+			vector.DrawFilledRect(screen, float32(wx), float32(oy)+fh, w, bottom, dark, false)
 		}
 	}
 
