@@ -56,6 +56,9 @@ type windowData struct {
 	// Drop shadow styling
 	ShadowSize  float32
 	ShadowColor Color
+
+	// RenderCount tracks how often the window has been drawn.
+	RenderCount int
 }
 
 type itemData struct {
@@ -138,6 +141,9 @@ type itemData struct {
 	// Drop shadow styling
 	ShadowSize  float32
 	ShadowColor Color
+
+	// RenderCount tracks how often the item has been drawn.
+	RenderCount int
 }
 
 type roundRect struct {

@@ -63,6 +63,9 @@ func Draw(screen *ebiten.Image) {
 }
 
 func (win *windowData) Draw(screen *ebiten.Image) {
+	if CacheCheck {
+		win.RenderCount++
+	}
 	win.drawBG(screen)
 	win.drawItems(screen)
 	win.drawScrollbars(screen)
@@ -71,6 +74,9 @@ func (win *windowData) Draw(screen *ebiten.Image) {
 	windowArea := screen.SubImage(win.getWinRect().getRectangle()).(*ebiten.Image)
 	win.drawBorder(windowArea)
 	win.drawDebug(screen)
+	if CacheCheck {
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", win.RenderCount), int(win.getPosition().X), int(win.getPosition().Y))
+	}
 }
 
 func (win *windowData) drawBG(screen *ebiten.Image) {
@@ -275,6 +281,9 @@ func (win *windowData) drawItems(screen *ebiten.Image) {
 }
 
 func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, clip rect, screen *ebiten.Image) {
+	if CacheCheck {
+		item.RenderCount++
+	}
 	// Store the drawn rectangle for input handling
 	itemRect := rect{
 		X0: offset.X,
@@ -475,6 +484,9 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		case FLOW_VERTICAL_REV:
 			drawArrow(subImg, midX, item.DrawRect.Y1-margin, midX, item.DrawRect.Y0+margin, 1, col)
 		}
+	}
+	if CacheCheck {
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(item.DrawRect.X0), int(item.DrawRect.Y0))
 	}
 }
 
@@ -917,6 +929,9 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, clip rect
 }
 
 func (item *itemData) drawItem(parent *itemData, offset point, clip rect, screen *ebiten.Image) {
+	if CacheCheck {
+		item.RenderCount++
+	}
 	if item.ItemType != ITEM_FLOW {
 
 		if parent == nil {
@@ -964,10 +979,16 @@ func (item *itemData) drawItem(parent *itemData, offset point, clip rect, screen
 		if DebugMode {
 			strokeRect(screen, item.DrawRect.X0, item.DrawRect.Y0, item.DrawRect.X1-item.DrawRect.X0, item.DrawRect.Y1-item.DrawRect.Y0, 1, color.RGBA{R: 128}, false)
 		}
+		if CacheCheck {
+			ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(item.DrawRect.X0), int(item.DrawRect.Y0))
+		}
 		return
 	}
 
 	item.drawItemInternal(parent, offset, clip, screen)
+	if CacheCheck {
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(item.DrawRect.X0), int(item.DrawRect.Y0))
+	}
 }
 
 func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten.Image) {
