@@ -88,6 +88,8 @@ func itemTypeName(t itemTypeData) string {
 		return "dropdown"
 	case ITEM_COLORWHEEL:
 		return "colorwheel"
+	case ITEM_IMAGE:
+		return "image"
 	default:
 		return "unknown"
 	}

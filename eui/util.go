@@ -562,6 +562,21 @@ func (item *itemData) markDirty() {
 	}
 }
 
+// UpdateImage replaces the item's image and adjusts size if needed.
+func (item *itemData) UpdateImage(img *ebiten.Image) {
+	if item == nil {
+		return
+	}
+	item.Image = img
+	if img != nil {
+		w, h := img.Size()
+		if item.Size.X != float32(w) || item.Size.Y != float32(h) {
+			item.Size = point{X: float32(w), Y: float32(h)}
+		}
+	}
+	item.markDirty()
+}
+
 func (item *itemData) setParentWindow(win *windowData) {
 	item.ParentWindow = win
 	for _, child := range item.Contents {

@@ -2,6 +2,8 @@ package eui
 
 import (
 	"log"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Add window to window list
@@ -151,6 +153,20 @@ func NewColorWheel() (*itemData, *EventHandler) {
 	newItem.Handler = h
 	newItem.Theme = currentTheme
 	return &newItem, h
+}
+
+// Create a new image item with a new image buffer
+func NewImageItem(w, h int) (*itemData, *ebiten.Image) {
+	if currentTheme == nil {
+		currentTheme = baseTheme
+	}
+	newItem := itemData{
+		ItemType: ITEM_IMAGE,
+		Size:     point{X: float32(w), Y: float32(h)},
+		Theme:    currentTheme,
+	}
+	newItem.Image = ebiten.NewImage(w, h)
+	return &newItem, newItem.Image
 }
 
 // Create a new textbox from the default theme

@@ -242,6 +242,7 @@ const (
 	ITEM_SLIDER
 	ITEM_DROPDOWN
 	ITEM_COLORWHEEL
+	ITEM_IMAGE
 )
 
 // Exported type aliases for library consumers
