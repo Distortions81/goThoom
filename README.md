@@ -64,3 +64,26 @@ The Go client accepts the following flags:
 - Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from `https://www.deltatao.com/downloads/clanlord`.
   They are saved as `CL_Images` and `CL_Sounds`.
 
+## Window Position and Pinning
+
+Windows and UI items can be anchored to the screen by setting their `PinTo` field.
+When `PinTo` is `PIN_NONE` (the default), `Position` specifies the absolute
+top-left coordinates. When pinned, `Position` is treated as an offset from the
+chosen corner, edge, or screen center and the element can no longer be moved or
+resized.
+
+### Examples
+
+```go
+// Center-pinned window. Position {0,0} places it exactly in the middle.
+win := eui.NewWindow()
+win.PinTo = eui.PIN_MID_CENTER
+win.Position = eui.Point{X: 0, Y: 0}
+// Offset 100 pixels right and 50 down from center.
+win.Position = eui.Point{X: 100, Y: 50}
+
+// Unpinned window. Position is absolute screen coordinates.
+free := eui.NewWindow()
+free.Position = eui.Point{X: 100, Y: 50}
+```
+

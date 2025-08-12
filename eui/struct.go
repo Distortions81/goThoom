@@ -18,11 +18,11 @@ func (c Color) ToRGBA() color.RGBA { return color.RGBA(c) }
 
 type windowData struct {
 	Title    string
-	Position point
-	Size     point
+	Position point // Absolute screen position unless PinTo anchors the window, in which case
+	Size     point // Position becomes an offset from the pinned corner, edge, or center.
 	AspectA  float32
 	AspectB  float32
-	PinTo    pinType // Pinning fixes a window in place and disables movement/resizing.
+	PinTo    pinType // Anchors the window and disables movement/resizing; when set, Position is relative to the anchor.
 
 	Padding   float32
 	Margin    float32
@@ -96,10 +96,10 @@ type itemData struct {
 	LabelImageName string
 	LabelImage     *ebiten.Image
 	LabelImageSize point
-	Position       point
-	Size           point
+	Position       point // Absolute coordinates unless PinTo anchors the item, in which case
+	Size           point // Position is treated as an offset from the anchor.
 	Alignment      alignType
-	PinTo          pinType
+	PinTo          pinType // Anchors the item; when set, Position is relative to the pin.
 	FontSize       float32
 	LineSpace      float32 //Multiplier, 1.0 = no gap between lines
 	ItemType       itemTypeData

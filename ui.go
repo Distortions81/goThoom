@@ -117,7 +117,7 @@ func layoutWindows() {
 }
 
 func makeToolbarWindow() {
-	toolbarWin = eui.NewWindow()
+	toolbarWin = eui.NewWindow() // PinTo defaults to PIN_NONE; Position uses absolute screen coordinates.
 	toolbarWin.Closable = false
 	toolbarWin.Resizable = false
 	toolbarWin.AutoSize = false
@@ -290,7 +290,7 @@ func makeDownloadsWindow() {
 	if downloadWin != nil {
 		return
 	}
-	downloadWin = eui.NewWindow()
+	downloadWin = eui.NewWindow() // Unpinned: Position is absolute unless PinTo is set elsewhere.
 	downloadWin.Title = "Downloads"
 	downloadWin.Closable = false
 	downloadWin.Resizable = false
@@ -455,7 +455,7 @@ func makeAddCharacterWindow() {
 	if addCharWin != nil {
 		return
 	}
-	addCharWin = eui.NewWindow()
+	addCharWin = eui.NewWindow() // Position uses screen coordinates unless PinTo anchors the window.
 	addCharWin.Title = "Add Character"
 	addCharWin.Closable = false
 	addCharWin.Resizable = false
@@ -538,7 +538,7 @@ func makeLoginWindow() {
 		return
 	}
 
-	loginWin = eui.NewWindow()
+	loginWin = eui.NewWindow() // Leaves PinTo as PIN_NONE so Position is absolute.
 	loginWin.Title = "Login"
 	loginWin.Closable = false
 	loginWin.Resizable = false
@@ -654,7 +654,7 @@ func makeLoginWindow() {
 }
 
 func makeErrorWindow(msg string) {
-	win := eui.NewWindow()
+	win := eui.NewWindow() // Unpinned temporary window; Position is absolute.
 	win.Title = "Error"
 	win.Closable = false
 	win.Resizable = false
@@ -685,7 +685,7 @@ func makeSettingsWindow() {
 	if settingsWin != nil {
 		return
 	}
-	settingsWin = eui.NewWindow()
+	settingsWin = eui.NewWindow() // PinTo remains PIN_NONE; Position is an absolute coordinate.
 	settingsWin.Title = "Settings"
 	settingsWin.Closable = true
 	settingsWin.Resizable = false
@@ -951,7 +951,7 @@ func makeQualityWindow() {
 		return
 	}
 	var width float32 = 250
-	qualityWin = eui.NewWindow()
+	qualityWin = eui.NewWindow() // Without PinTo, Position is an absolute screen coordinate.
 	qualityWin.Title = "Quality Options"
 	qualityWin.Closable = true
 	qualityWin.Resizable = false
@@ -1217,7 +1217,7 @@ func makeDebugWindow() {
 	}
 
 	var width float32 = 250
-	debugWin = eui.NewWindow()
+	debugWin = eui.NewWindow() // PinTo left unset; Position is absolute.
 	debugWin.Title = "Debug Settings"
 	debugWin.Closable = true
 	debugWin.Resizable = false
@@ -1519,7 +1519,7 @@ func makeWindowsWindow() {
 	if windowsWin != nil {
 		return
 	}
-	windowsWin = eui.NewWindow()
+	windowsWin = eui.NewWindow() // No PinTo means Position is absolute; set PinTo to pin to edges or center.
 	windowsWin.Title = "Windows"
 	windowsWin.Closable = true
 	windowsWin.Resizable = false
@@ -1582,7 +1582,7 @@ func makeInventoryWindow() {
 	if inventoryWin != nil {
 		return
 	}
-	inventoryWin = eui.NewWindow()
+	inventoryWin = eui.NewWindow() // Unpinned by default; Position is absolute.
 	inventoryWin.Title = "Inventory"
 	inventoryWin.Closable = true
 	inventoryWin.Resizable = true
@@ -1611,7 +1611,7 @@ func makePlayersWindow() {
 	if playersWin != nil {
 		return
 	}
-	playersWin = eui.NewWindow()
+	playersWin = eui.NewWindow() // Unpinned; Position below uses absolute coordinates.
 	playersWin.Title = "Players"
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
 		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
@@ -1635,7 +1635,7 @@ func makeHelpWindow() {
 	if helpWin != nil {
 		return
 	}
-	helpWin = eui.NewWindow()
+	helpWin = eui.NewWindow() // PinTo defaults to none; Position uses absolute coordinates.
 	helpWin.Title = "Help"
 	helpWin.Closable = true
 	helpWin.Resizable = false
