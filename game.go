@@ -28,11 +28,7 @@ const defaultHandPictID = 6
 
 const initialWindowW, initialWindowH = 100, 100
 
-var blackPixel = func() *ebiten.Image {
-	img := ebiten.NewImage(1, 1)
-	img.Fill(color.Black)
-	return img
-}()
+var blackPixel *ebiten.Image
 
 // scaleForFiltering returns adjusted scale values for width and height to reduce
 // filtering seams. If either dimension is zero, the original scale is returned
@@ -1073,6 +1069,11 @@ func drawCropCorners(screen *ebiten.Image, ox, oy int) {
 	w := int(math.Round(float64(gameAreaSizeX) * gs.GameScale))
 	h := int(math.Round(float64(gameAreaSizeY) * gs.GameScale))
 	op := &ebiten.DrawImageOptions{}
+
+	if blackPixel == nil {
+		blackPixel = ebiten.NewImage(1, 1)
+		blackPixel.Fill(color.Black)
+	}
 
 	op.GeoM.Translate(float64(ox), float64(oy))
 	screen.DrawImage(blackPixel, op)
