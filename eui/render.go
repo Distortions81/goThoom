@@ -17,20 +17,11 @@ import (
 
 const shadowAlphaDivisor = 16
 
-type dropdownRender struct {
-	item   *itemData
-	offset point
-	clip   rect
-}
-
-var pendingDropdowns []dropdownRender
 var dumpDone bool
 
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
-
-	pendingDropdowns = pendingDropdowns[:0]
 
 	for _, win := range windows {
 		if !win.Open {
@@ -38,10 +29,6 @@ func Draw(screen *ebiten.Image) {
 		}
 
 		win.Draw(screen)
-	}
-
-	for _, dr := range pendingDropdowns {
-		drawDropdownOptions(dr.item, dr.offset, dr.clip, screen)
 	}
 
 	if DumpMode && !dumpDone {
@@ -1004,7 +991,7 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 			dropOff.Y += textSize + currentStyle.TextPadding*uiScale
 		}
 		screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
-		pendingDropdowns = append(pendingDropdowns, dropdownRender{item: item, offset: dropOff, clip: screenClip})
+		drawDropdownOptions(item, dropOff, screenClip, screen)
 	}
 
 	if DebugMode {
