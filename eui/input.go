@@ -36,6 +36,7 @@ func Update() error {
 	mpos := point{X: float32(mx), Y: float32(my)}
 
 	click := pointerJustPressed()
+	midClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
 	if click {
 		if !dropdownOpenContainsAnywhere(mpos) {
 			closeAllDropdowns()
@@ -47,8 +48,11 @@ func Update() error {
 	}
 	clickTime := pointerPressDuration()
 	clickDrag := clickTime > 1
+	midClickTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonMiddle)
+	midClickDrag := midClickTime > 1
+	midPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
 
-	if !pointerPressed() {
+	if !pointerPressed() && !midPressed {
 		dragPart = PART_NONE
 		dragWin = nil
 		activeItem = nil
@@ -76,6 +80,9 @@ func Update() error {
 			part = dragPart
 		} else {
 			part = win.getWindowPart(mpos, click)
+			if part == PART_NONE && midClick && win.Movable && win.getWinRect().containsPoint(mpos) {
+				part = PART_BAR
+			}
 		}
 
 		if part != PART_NONE {
@@ -115,7 +122,10 @@ func Update() error {
 				}
 				dragPart = part
 				dragWin = win
-			} else if clickDrag && dragPart != PART_NONE && dragWin == win {
+			} else if midClick && dragPart == PART_NONE && part == PART_BAR {
+				dragPart = part
+				dragWin = win
+			} else if (clickDrag || midClickDrag) && dragPart != PART_NONE && dragWin == win {
 				switch dragPart {
 				case PART_BAR:
 					if win.zone == nil {
@@ -191,7 +201,7 @@ func Update() error {
 		// expanded dropdown. Break so windows behind don't receive the
 		// event.
 		if win.getWinRect().containsPoint(mpos) || dropdownOpenContains(win.Contents, mpos) {
-			if click {
+			if click || midClick {
 				if activeWindow != win || windows[len(windows)-1] != win {
 					win.BringForward()
 				}
