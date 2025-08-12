@@ -485,15 +485,15 @@ func updateGameScale() {
 	if gameWin == nil {
 		return
 	}
-	size := gameWin.GetSize()
+	size := gameWin.GetRawSize()
 	if size.X <= 0 || size.Y <= 0 {
 		return
 	}
 
 	w := float64(int(size.X))
 	h := float64(int(size.Y))
-	scaleW := w / float64(gameAreaSizeX) * float64(eui.UIScale())
-	scaleH := h / float64(gameAreaSizeY) * float64(eui.UIScale())
+	scaleW := w / float64(gameAreaSizeX)
+	scaleH := h / float64(gameAreaSizeY)
 	newScale := math.Min(scaleW, scaleH)
 	if newScale < 0.25 {
 		newScale = 0.25
@@ -509,7 +509,7 @@ func updateGameWindowSize() {
 	if gameWin == nil {
 		return
 	}
-	scale := float32(gs.GameScale) / eui.UIScale()
+	scale := float32(gs.GameScale)
 	gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * scale, Y: float32(gameAreaSizeY) * scale}
 }
 
@@ -517,11 +517,10 @@ func gameContentOrigin() (int, int) {
 	if gameWin == nil {
 		return 0, 0
 	}
-	s := eui.UIScale()
-	pos := gameWin.GetPos()
-	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
+	pos := gameWin.GetRawPos()
+	frame := gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding
 	x := pos.X + frame
-	y := pos.Y + frame + gameWin.GetTitleSize()
+	y := pos.Y + frame + gameWin.GetRawTitleSize()
 	return int(math.Round(float64(x))), int(math.Round(float64(y)))
 }
 
@@ -1182,6 +1181,7 @@ func makeGameWindow() {
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.Movable = true
+	gameWin.NoScale = true
 	gameWin.MarkOpen()
 }
 

@@ -172,7 +172,7 @@ func (win *windowData) adjustScrollForResize() {
 	}
 
 	old := win.Scroll
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
 	avail := point{
 		X: win.GetSize().X - 2*pad,
@@ -206,23 +206,24 @@ func (win *windowData) clampToScreen() {
 	pos := win.getPosition()
 	size := win.GetSize()
 	old := win.Position
+	s := win.scale()
 
 	if pos.X < 0 {
-		win.Position.X -= pos.X / uiScale
+		win.Position.X -= pos.X / s
 		pos.X = 0
 	}
 	if pos.Y < 0 {
-		win.Position.Y -= pos.Y / uiScale
+		win.Position.Y -= pos.Y / s
 		pos.Y = 0
 	}
 
 	overX := pos.X + size.X - float32(screenWidth)
 	if overX > 0 {
-		win.Position.X -= overX / uiScale
+		win.Position.X -= overX / s
 	}
 	overY := pos.Y + size.Y - float32(screenHeight)
 	if overY > 0 {
-		win.Position.Y -= overY / uiScale
+		win.Position.Y -= overY / s
 	}
 	if win.Position != old {
 		//win.markDirty()
@@ -304,8 +305,9 @@ func (win *windowData) getResizePart(mpos point) dragType {
 		return PART_NONE
 	}
 
-	t := scrollTolerance * uiScale
-	ct := cornerTolerance * uiScale
+	s := win.scale()
+	t := scrollTolerance * s
+	ct := cornerTolerance * s
 	winRect := win.getWinRect()
 	// Check enlarged corner areas first
 	if mpos.X >= winRect.X0-ct && mpos.X <= winRect.X0+ct && mpos.Y >= winRect.Y0-ct && mpos.Y <= winRect.Y0+ct {
@@ -365,7 +367,7 @@ func (win *windowData) getScrollbarPart(mpos point) dragType {
 		return PART_NONE
 	}
 
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
 	avail := point{
 		X: win.GetSize().X - 2*pad,
@@ -421,7 +423,7 @@ func (win *windowData) titleTextWidth() point {
 }
 
 func (win *windowData) SetTitleSize(size float32) {
-	win.TitleHeight = size / uiScale
+	win.TitleHeight = size / win.scale()
 }
 
 func SetUIScale(scale float32) {
@@ -452,23 +454,35 @@ func SyncHiDPIScale() {
 
 func UIScale() float32 { return uiScale }
 
+func (win *windowData) scale() float32 {
+	if win.NoScale {
+		return 1
+	}
+	return uiScale
+}
+
+func (win *windowData) GetRawTitleSize() float32 { return win.TitleHeight }
+
 func (win *windowData) GetTitleSize() float32 {
-	return win.TitleHeight * uiScale
+	return win.TitleHeight * win.scale()
 }
 
 func (win *windowData) GetSize() Point {
-	return Point{X: win.Size.X * uiScale, Y: win.Size.Y * uiScale}
+	s := win.scale()
+	return Point{X: win.Size.X * s, Y: win.Size.Y * s}
 }
 
 func (win *windowData) GetPos() Point {
-	return Point{X: win.Position.X * uiScale, Y: win.Position.Y * uiScale}
+	s := win.scale()
+	return Point{X: win.Position.X * s, Y: win.Position.Y * s}
 }
 
 func (win *windowData) SetPos(pos Point) bool {
 	if win.zone != nil {
 		return false
 	}
-	win.Position = point{X: pos.X / uiScale, Y: pos.Y / uiScale}
+	s := win.scale()
+	win.Position = point{X: pos.X / s, Y: pos.Y / s}
 	win.clampToScreen()
 	return true
 }
@@ -477,8 +491,13 @@ func (win *windowData) SetSize(size Point) bool {
 	if !win.Resizable {
 		return false
 	}
-	return win.setSize(point{X: size.X / uiScale, Y: size.Y / uiScale})
+	s := win.scale()
+	return win.setSize(point{X: size.X / s, Y: size.Y / s})
 }
+
+func (win *windowData) GetRawSize() Point { return win.Size }
+
+func (win *windowData) GetRawPos() Point { return win.Position }
 
 func (item *itemData) GetSize() Point {
 	sz := Point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
@@ -632,7 +651,7 @@ func (win *windowData) contentBounds() point {
 
 func (win *windowData) updateAutoSize() {
 	req := win.contentBounds()
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 
 	size := win.GetSize()
 	needX := req.X + 2*pad
@@ -648,7 +667,8 @@ func (win *windowData) updateAutoSize() {
 	if size.Y > float32(screenHeight) {
 		size.Y = float32(screenHeight)
 	}
-	win.Size = point{X: size.X / uiScale, Y: size.Y / uiScale}
+	s := win.scale()
+	win.Size = point{X: size.X / s, Y: size.Y / s}
 	win.resizeFlows()
 	win.clampToScreen()
 }
