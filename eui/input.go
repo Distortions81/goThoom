@@ -275,22 +275,6 @@ func (win *windowData) clickWindowItems(mpos point, click bool) {
 	}
 }
 
-func clickOverlay(root *itemData, mpos point, click bool) bool {
-	if root == nil {
-		return false
-	}
-	if !root.DrawRect.containsPoint(mpos) && !dropdownOpenContains([]*itemData{root}, mpos) {
-		return false
-	}
-	if clickOpenDropdown([]*itemData{root}, mpos, click) {
-		return true
-	}
-	if root.ItemType == ITEM_FLOW {
-		return root.clickFlows(mpos, click)
-	}
-	return root.clickItem(mpos, click)
-}
-
 func (item *itemData) clickFlows(mpos point, click bool) bool {
 	if len(item.Tabs) > 0 {
 		if item.ActiveTab >= len(item.Tabs) {

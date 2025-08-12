@@ -18,11 +18,6 @@ func (r rect) getRectangle() image.Rectangle {
 	}
 }
 
-// withinRange returns true if a and b are within the provided tolerance.
-func withinRange(a, b float32, tol float32) bool {
-	return math.Abs(float64(a-b)) <= float64(tol)
-}
-
 func pointAdd(a, b point) point { return point{X: a.X + b.X, Y: a.Y + b.Y} }
 func pointSub(a, b point) point { return point{X: a.X - b.X, Y: a.Y - b.Y} }
 func pointMul(a, b point) point { return point{X: a.X * b.X, Y: a.Y * b.Y} }

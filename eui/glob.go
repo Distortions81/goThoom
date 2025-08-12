@@ -5,7 +5,6 @@ package eui
 import (
 	"image"
 	"image/color"
-	"os"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -16,7 +15,6 @@ var (
 	screenWidth  = 1024
 	screenHeight = 1024
 
-	signalHandle     chan os.Signal
 	mplusFaceSource  *text.GoTextFaceSource
 	windows          []*windowData
 	activeWindow     *windowData
