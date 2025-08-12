@@ -17,31 +17,20 @@ import (
 
 const shadowAlphaDivisor = 16
 
-type dropdownRender struct {
-	item   *itemData
-	offset point
-	clip   rect
-}
-
-var pendingDropdowns []dropdownRender
 var dumpDone bool
 
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
 
-	pendingDropdowns = pendingDropdowns[:0]
-
 	for _, win := range windows {
 		if !win.Open {
 			continue
 		}
-
+		if win.HoverPin {
+			hoverPinWin = win
+		}
 		win.Draw(screen)
-	}
-
-	for _, dr := range pendingDropdowns {
-		drawDropdownOptions(dr.item, dr.offset, dr.clip, screen)
 	}
 
 	if DumpMode && !dumpDone {
@@ -57,6 +46,37 @@ func Draw(screen *ebiten.Image) {
 		}
 		dumpDone = true
 		os.Exit(0)
+	}
+}
+
+func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
+	size := float32(20) * uiScale
+	fillet := size / 4
+	dark := color.NRGBA{R: 0x40, G: 0x40, B: 0x40, A: 0xC0}
+	red := color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}
+
+	cx := win.getPosition().X + win.GetSize().X/2
+	cy := win.getPosition().Y + win.GetSize().Y/2
+	hSel := nearestHZone(cx, screenWidth)
+	vSel := nearestVZone(cy, screenHeight)
+
+	for h := HZoneLeft; h <= HZoneRight; h++ {
+		for v := VZoneTop; v <= VZoneBottom; v++ {
+			x := hZoneCoord(h, screenWidth)
+			y := vZoneCoord(v, screenHeight)
+			col := dark
+			if h == hSel && v == vSel {
+				col = red
+			}
+			rr := roundRect{
+				Size:     point{X: size, Y: size},
+				Position: point{X: x - size/2, Y: y - size/2},
+				Fillet:   fillet,
+				Filled:   true,
+				Color:    col,
+			}
+			drawRoundRect(screen, &rr)
+		}
 	}
 }
 
@@ -196,7 +216,6 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			color := win.Theme.Window.TitleColor
 			if win.HoverPin {
 				color = win.Theme.Window.HoverTitleColor
-				win.HoverPin = false
 			}
 			radius := win.GetTitleSize() / 6
 			cx := pr.X0 + (pr.X1-pr.X0)/2
@@ -1004,7 +1023,7 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 			dropOff.Y += textSize + currentStyle.TextPadding*uiScale
 		}
 		screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
-		pendingDropdowns = append(pendingDropdowns, dropdownRender{item: item, offset: dropOff, clip: screenClip})
+		drawDropdownOptions(item, dropOff, screenClip, screen)
 	}
 
 	if DebugMode {
