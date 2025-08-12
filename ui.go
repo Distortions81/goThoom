@@ -11,7 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
+
 	"github.com/dustin/go-humanize"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sqweek/dialog"
@@ -20,7 +21,7 @@ import (
 	"go_client/clsnd"
 )
 
-const cval = 8000
+const cval = 1000
 
 var (
 	TOP_RIGHT = eui.Point{X: cval, Y: 0}
@@ -98,6 +99,7 @@ func initUI() {
 }
 
 func layoutWindows() {
+	initUI()
 	sx, sy := eui.ScreenSize()
 	if chatWin != nil {
 		chatWin.Position = eui.Point{X: float32(sx) - chatWin.Size.X, Y: float32(sy) - chatWin.Size.Y}
@@ -111,6 +113,7 @@ func layoutWindows() {
 	if playersWin != nil {
 		playersWin.Position = eui.Point{X: float32(sx) - playersWin.Size.X, Y: 0}
 	}
+
 }
 
 func makeToolbarWindow() {
@@ -541,7 +544,6 @@ func makeLoginWindow() {
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
 	loginWin.Movable = false
-	loginWin.PinTo = eui.PIN_MID_CENTER
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 

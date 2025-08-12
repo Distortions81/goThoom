@@ -2,7 +2,7 @@
 
 package main
 
-import "github.com/Distortions81/EUI/eui"
+import "go_client/eui"
 
 var messagesWin *eui.WindowData
 var messagesList *eui.ItemData

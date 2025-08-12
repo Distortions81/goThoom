@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
 )
 
 var playersWin *eui.WindowData

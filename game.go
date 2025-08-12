@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -1156,7 +1156,6 @@ func initGame() {
 	eui.LoadStyle("RoundHybrid")
 
 	loadSettings()
-	initUI()
 	updateCharacterButtons()
 
 	close(gameStarted)

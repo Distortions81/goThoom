@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
 )
 
 // TestPointInUISkipsMainPortal ensures that the base game window does not block

@@ -3,7 +3,7 @@ package main
 import (
 	"sync"
 
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
 )
 
 // overlayLogOnce ensures we only dump overlay bounds a single time for debugging.

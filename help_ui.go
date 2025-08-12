@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
 )
 
 var helpWin *eui.WindowData

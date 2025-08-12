@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Distortions81/EUI/eui"
+	"go_client/eui"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
