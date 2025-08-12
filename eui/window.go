@@ -603,9 +603,10 @@ func (win windowData) itemOverlap(size point) (bool, bool) {
 	return xc, yc
 }
 
-// Refresh forces the window to recalculate layout, resize to its contents,
-// and adjust scrolling after modifying contents.
-func (win *windowData) Refresh() {
+// Refresh forces the window to recalculate layout, resize to its contents and
+// adjust scrolling after modifying contents. When skipReposition is true the
+// window's location on screen is preserved during auto-size operations.
+func (win *windowData) Refresh(skipReposition ...bool) {
 	if !win.open {
 		for _, it := range win.Contents {
 			markItemTreeDirty(it)
@@ -615,9 +616,9 @@ func (win *windowData) Refresh() {
 	}
 	win.resizeFlows()
 	if win.AutoSize {
-		win.updateAutoSize()
+		win.updateAutoSize(skipReposition...)
 	} else {
-		win.clampToScreen()
+		win.clampToScreen(skipReposition...)
 	}
 	win.adjustScrollForResize()
 	for _, it := range win.Contents {

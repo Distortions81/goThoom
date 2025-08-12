@@ -236,7 +236,14 @@ func (win *windowData) adjustScrollForResize() {
 	}
 }
 
-func (win *windowData) clampToScreen() {
+// clampToScreen ensures the window remains within the visible screen area.
+// When skipReposition is true the window's position is left unchanged. This is
+// useful for auto-size operations where callers want to preserve the current
+// location even if the new size would normally force the window to move.
+func (win *windowData) clampToScreen(skipReposition ...bool) {
+	if len(skipReposition) > 0 && skipReposition[0] {
+		return
+	}
 	size := win.GetSize()
 	m := win.Margin * uiScale
 
@@ -784,7 +791,11 @@ func (win *windowData) contentBounds() point {
 	return point{X: b.X1 - base.X, Y: b.Y1 - base.Y}
 }
 
-func (win *windowData) updateAutoSize() {
+// updateAutoSize adjusts the window size to fit its contents. If
+// skipReposition is true the window size is updated without clamping its
+// position to the screen, allowing callers to preserve the current location
+// during auto-size operations.
+func (win *windowData) updateAutoSize(skipReposition ...bool) {
 	req := win.contentBounds()
 	pad := (win.Padding + win.BorderPad) * uiScale
 
@@ -805,7 +816,7 @@ func (win *windowData) updateAutoSize() {
 	}
 	win.Size = point{X: size.X / uiScale, Y: size.Y / uiScale}
 	win.resizeFlows()
-	win.clampToScreen()
+	win.clampToScreen(skipReposition...)
 }
 
 func (item *itemData) contentBounds() point {
