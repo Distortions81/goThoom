@@ -57,6 +57,7 @@ func makeChatWindow() error {
 	chatWin.Closable = true
 	chatWin.Resizable = true
 	chatWin.Movable = true
+	chatWin.SetZone(eui.HZoneRight, eui.VZoneBottom)
 
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	chatWin.AddItem(chatList)

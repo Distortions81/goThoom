@@ -69,6 +69,8 @@ func makeConsoleWindow() {
 	consoleWin.Closable = true
 	consoleWin.Resizable = true
 	consoleWin.Movable = true
+	consoleWin.SetZone(eui.HZoneLeft, eui.VZoneBottom)
+
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	consoleWin.AddItem(messagesList)
 	consoleWin.AddWindow(false)
