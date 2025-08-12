@@ -106,11 +106,13 @@ func Update() error {
 				switch dragPart {
 				case PART_BAR:
 					win.Position = pointAdd(win.Position, posCh)
+					win.markDirty()
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
+						win.markDirty()
 					}
 				case PART_BOTTOM:
 					sizeCh.X = 0
@@ -120,6 +122,7 @@ func Update() error {
 					sizeCh.Y = 0
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
+						win.markDirty()
 					}
 				case PART_RIGHT:
 					sizeCh.Y = 0
@@ -127,12 +130,14 @@ func Update() error {
 				case PART_TOP_LEFT:
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
+						win.markDirty()
 					}
 				case PART_TOP_RIGHT:
 					tx := win.Size.X + sizeCh.X
 					ty := win.Size.Y - sizeCh.Y
 					if !win.setSize(point{X: tx, Y: ty}) {
 						win.Position.Y += posCh.Y
+						win.markDirty()
 					}
 				case PART_BOTTOM_RIGHT:
 					tx := win.Size.X + sizeCh.X
@@ -143,6 +148,7 @@ func Update() error {
 					ty := win.Size.Y + sizeCh.Y
 					if !win.setSize(point{X: tx, Y: ty}) {
 						win.Position.X += posCh.X
+						win.markDirty()
 					}
 				case PART_SCROLL_V:
 					dragWindowScroll(win, mpos, true)
@@ -680,6 +686,7 @@ func scrollWindow(win *windowData, delta point) bool {
 		X: win.GetSize().X - 2*pad,
 		Y: win.GetSize().Y - win.GetTitleSize() - 2*pad,
 	}
+	old := win.Scroll
 	handled := false
 	if req.Y > avail.Y {
 		win.Scroll.Y -= delta.Y * 16
@@ -707,6 +714,9 @@ func scrollWindow(win *windowData, delta point) bool {
 	} else {
 		win.Scroll.X = 0
 	}
+	if handled || win.Scroll != old {
+		win.markDirty()
+	}
 	return handled
 }
 
@@ -714,6 +724,7 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	if win.NoScroll {
 		return
 	}
+	old := win.Scroll
 	pad := (win.Padding + win.BorderPad) * uiScale
 	req := win.contentBounds()
 	avail := point{
@@ -757,6 +768,9 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 		}
 	} else if !vert {
 		win.Scroll.X = 0
+	}
+	if win.Scroll != old {
+		win.markDirty()
 	}
 }
 func dropdownOpenContains(items []*itemData, mpos point) bool {

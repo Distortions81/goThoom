@@ -77,6 +77,7 @@ func (parent *windowData) addItemTo(item *itemData) {
 	}
 	parent.Contents = append(parent.Contents, item)
 	item.resizeFlow(parent.GetSize())
+	parent.markDirty()
 }
 
 func (win *windowData) getMainRect() rect {
@@ -134,6 +135,7 @@ func (win *windowData) dragbarRect() rect {
 func (win *windowData) Refresh() {
 	win.resizeFlows()
 	win.updateAutoSize()
+	win.markDirty()
 }
 
 func (win *windowData) IsOpen() bool {
@@ -145,7 +147,11 @@ func (win *windowData) setSize(size point) bool {
 		return false
 	}
 
+	old := win.Size
 	win.Size = size
+	if old != size {
+		win.markDirty()
+	}
 
 	win.BringForward()
 	win.resizeFlows()
@@ -160,6 +166,7 @@ func (win *windowData) adjustScrollForResize() {
 		return
 	}
 
+	old := win.Scroll
 	pad := (win.Padding + win.BorderPad) * uiScale
 	req := win.contentBounds()
 	avail := point{
@@ -182,11 +189,15 @@ func (win *windowData) adjustScrollForResize() {
 			win.Scroll.X = max
 		}
 	}
+	if win.Scroll != old {
+		win.markDirty()
+	}
 }
 
 func (win *windowData) clampToScreen() {
 	pos := win.getPosition()
 	size := win.GetSize()
+	old := win.Position
 
 	if pos.X < 0 {
 		win.Position.X -= pos.X / uiScale
@@ -204,6 +215,9 @@ func (win *windowData) clampToScreen() {
 	overY := pos.Y + size.Y - float32(screenHeight)
 	if overY > 0 {
 		win.Position.Y -= overY / uiScale
+	}
+	if win.Position != old {
+		win.markDirty()
 	}
 }
 
@@ -459,9 +473,18 @@ func (item *itemData) GetTextPtr() *string {
 	return &item.Text
 }
 
+func (win *windowData) markDirty() {
+	if win != nil {
+		win.Dirty = true
+	}
+}
+
 func (item *itemData) markDirty() {
 	if item != nil && item.ItemType != ITEM_FLOW {
 		item.Dirty = true
+		for _, win := range windows {
+			win.markDirty()
+		}
 	}
 }
 
@@ -480,6 +503,7 @@ func markItemTreeDirty(it *itemData) {
 
 func markAllDirty() {
 	for _, win := range windows {
+		win.markDirty()
 		for _, it := range win.Contents {
 			markItemTreeDirty(it)
 		}
