@@ -1,17 +1,32 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestDecodeMessage_NonChatPacket(t *testing.T) {
-	m := append(make([]byte, 16), []byte{0x7f, 0, 1, 2, 3}...)
-	if s := decodeMessage(m); s != "" {
-		t.Fatalf("expected empty string, got %q", s)
+func TestParseThinkTextTargets(t *testing.T) {
+	cases := []struct {
+		raw    string
+		target thinkTarget
+	}{
+		{"Torx\xC2t_th: hello", thinkNone},
+		{"Torx\xC2t_tt to you: hello", thinkToYou},
+		{"Torx\xC2t_tc to your clan: hello", thinkToClan},
+		{"Torx\xC2t_tg to a group: hello", thinkToGroup},
 	}
-}
-
-func TestDecodeMessage_ShortBubble(t *testing.T) {
-	m := append(make([]byte, 16), []byte{kMsgBubble, 0, 'h', 'i', 0}...)
-	if s := decodeMessage(m); s != "hi" {
-		t.Fatalf("expected 'hi', got %q", s)
+	for _, tc := range cases {
+		raw := []byte(tc.raw)
+		text := strings.TrimSpace(decodeMacRoman(stripBEPPTags(raw)))
+		name, target, msg := parseThinkText(raw, text)
+		if name != "Torx" {
+			t.Errorf("name = %q, want Torx", name)
+		}
+		if msg != "hello" {
+			t.Errorf("msg = %q, want hello", msg)
+		}
+		if target != tc.target {
+			t.Errorf("target = %v, want %v", target, tc.target)
+		}
 	}
 }

@@ -169,6 +169,21 @@ func stripBEPPTags(b []byte) []byte {
 }
 
 func parseThinkText(raw []byte, text string) (name string, target thinkTarget, msg string) {
+	colon := bytes.IndexByte(raw, ':')
+	for i := 0; i < len(raw) && (colon < 0 || i < colon); i++ {
+		if raw[i] == 0xC2 && i+4 < len(raw) && raw[i+1] == 't' && raw[i+2] == '_' && raw[i+3] == 't' {
+			switch raw[i+4] {
+			case 't':
+				target = thinkToYou
+			case 'c':
+				target = thinkToClan
+			case 'g':
+				target = thinkToGroup
+			}
+			break
+		}
+	}
+
 	idx := strings.IndexByte(text, ':')
 	if idx >= 0 {
 		name = strings.TrimSpace(text[:idx])
@@ -178,31 +193,29 @@ func parseThinkText(raw []byte, text string) (name string, target thinkTarget, m
 		msg = strings.TrimSpace(text)
 	}
 
-	if i := bytes.Index(raw, []byte{0xC2, 't', '_', 't'}); i >= 0 && i+4 < len(raw) {
-		switch raw[i+4] {
-		case 't':
-			target = thinkToYou
-		case 'c':
-			target = thinkToClan
-		case 'g':
-			target = thinkToGroup
+	switch target {
+	case thinkToYou:
+		name = strings.TrimSuffix(name, " to you")
+	case thinkToClan:
+		name = strings.TrimSuffix(name, " to your clan")
+	case thinkToGroup:
+		name = strings.TrimSuffix(name, " to a group")
+	default:
+		if name != "" && name != ThinkUnknownName {
+			switch {
+			case strings.HasSuffix(name, " to you"):
+				target = thinkToYou
+				name = strings.TrimSuffix(name, " to you")
+			case strings.HasSuffix(name, " to your clan"):
+				target = thinkToClan
+				name = strings.TrimSuffix(name, " to your clan")
+			case strings.HasSuffix(name, " to a group"):
+				target = thinkToGroup
+				name = strings.TrimSuffix(name, " to a group")
+			}
 		}
 	}
-
-	if target == thinkNone && name != "" && name != ThinkUnknownName {
-		switch {
-		case strings.HasSuffix(name, " to you"):
-			target = thinkToYou
-			name = strings.TrimSuffix(name, " to you")
-		case strings.HasSuffix(name, " to your clan"):
-			target = thinkToClan
-			name = strings.TrimSuffix(name, " to your clan")
-		case strings.HasSuffix(name, " to a group"):
-			target = thinkToGroup
-			name = strings.TrimSuffix(name, " to a group")
-		}
-		name = strings.TrimSpace(name)
-	}
+	name = strings.TrimSpace(name)
 	return
 }
 
