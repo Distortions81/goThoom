@@ -844,26 +844,28 @@ func makeSettingsWindow() {
 	hint.Size = eui.Point{X: width, Y: 16}
 	mainFlow.AddItem(hint)
 
-	anySizeCB, anySizeEvents := eui.NewCheckbox()
-	anySizeCB.Text = "Any game window size"
-	anySizeCB.Size = eui.Point{X: width, Y: 24}
-	anySizeCB.Checked = gs.AnyGameWindowSize
-	anySizeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.AnyGameWindowSize = ev.Checked
-			if gameWin != nil {
-				gameWin.Resizable = gs.AnyGameWindowSize
-				if gs.AnyGameWindowSize {
-					gameSizeSlider.Disabled = true
-				} else {
-					gameSizeSlider.Disabled = false
-					gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
+	/*
+		anySizeCB, anySizeEvents := eui.NewCheckbox()
+		anySizeCB.Text = "Any game window size"
+		anySizeCB.Size = eui.Point{X: width, Y: 24}
+		anySizeCB.Checked = gs.AnyGameWindowSize
+		anySizeEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventCheckboxChanged {
+				gs.AnyGameWindowSize = ev.Checked
+				if gameWin != nil {
+					gameWin.Resizable = gs.AnyGameWindowSize
+					if gs.AnyGameWindowSize {
+						gameSizeSlider.Disabled = true
+					} else {
+						gameSizeSlider.Disabled = false
+						gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
+					}
 				}
+				settingsDirty = true
 			}
-			settingsDirty = true
 		}
-	}
-	mainFlow.AddItem(anySizeCB)
+		mainFlow.AddItem(anySizeCB)
+	*/
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
