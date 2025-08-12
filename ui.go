@@ -441,14 +441,16 @@ func updateCharacterButtons() {
 						passHash = ""
 					}
 					updateCharacterButtons()
-					loginWin.Refresh()
+					// Preserve window position while contents change size
+					loginWin.Refresh(true)
 				}
 			}
 			row.AddItem(trash)
 			charactersList.AddItem(row)
 		}
 	}
-	loginWin.Refresh()
+	// Preserve window position while contents change size
+	loginWin.Refresh(true)
 }
 
 func makeAddCharacterWindow() {
@@ -511,7 +513,8 @@ func makeAddCharacterWindow() {
 			saveSettings()
 			updateCharacterButtons()
 			if loginWin != nil && loginWin.IsOpen() {
-				loginWin.Refresh()
+				// Preserve window position while contents change size
+				loginWin.Refresh(true)
 			}
 			addCharWin.Open()
 		}
