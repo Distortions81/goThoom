@@ -69,6 +69,9 @@ func (win *windowData) Draw(screen *ebiten.Image) {
 		}
 		size := win.GetSize()
 		if win.Render == nil || win.Render.Bounds().Dx() != int(size.X) || win.Render.Bounds().Dy() != int(size.Y) {
+			if size.X < 1 || size.Y < 1 {
+				return
+			}
 			win.Render = ebiten.NewImage(int(size.X), int(size.Y))
 		} else {
 			win.Render.Clear()

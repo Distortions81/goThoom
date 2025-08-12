@@ -217,7 +217,7 @@ func (win *windowData) clampToScreen() {
 		win.Position.Y -= overY / uiScale
 	}
 	if win.Position != old {
-		win.markDirty()
+		//win.markDirty()
 	}
 }
 

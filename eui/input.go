@@ -106,13 +106,13 @@ func Update() error {
 				switch dragPart {
 				case PART_BAR:
 					win.Position = pointAdd(win.Position, posCh)
-					win.markDirty()
+					//win.markDirty()
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
-						win.markDirty()
+						//win.markDirty()
 					}
 				case PART_BOTTOM:
 					sizeCh.X = 0
@@ -122,7 +122,7 @@ func Update() error {
 					sizeCh.Y = 0
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
-						win.markDirty()
+						//win.markDirty()
 					}
 				case PART_RIGHT:
 					sizeCh.Y = 0
@@ -130,14 +130,14 @@ func Update() error {
 				case PART_TOP_LEFT:
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
-						win.markDirty()
+						//win.markDirty()
 					}
 				case PART_TOP_RIGHT:
 					tx := win.Size.X + sizeCh.X
 					ty := win.Size.Y - sizeCh.Y
 					if !win.setSize(point{X: tx, Y: ty}) {
 						win.Position.Y += posCh.Y
-						win.markDirty()
+						//win.markDirty()
 					}
 				case PART_BOTTOM_RIGHT:
 					tx := win.Size.X + sizeCh.X
@@ -148,7 +148,7 @@ func Update() error {
 					ty := win.Size.Y + sizeCh.Y
 					if !win.setSize(point{X: tx, Y: ty}) {
 						win.Position.X += posCh.X
-						win.markDirty()
+						//win.markDirty()
 					}
 				case PART_SCROLL_V:
 					dragWindowScroll(win, mpos, true)
