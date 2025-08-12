@@ -126,19 +126,20 @@ var (
 	lastSettingsSave = time.Now()
 )
 
-// WindowPoint represents a point on the screen using pixel coordinates.
+// WindowPoint represents a point on the screen using normalized coordinates
+// in the range 0-1.
 type WindowPoint struct {
 	X float64
 	Y float64
 }
 
-// WindowState stores window visibility and geometry using absolute pixel
-// values.
+// WindowState stores window visibility and geometry using normalized
+// coordinates so layouts remain consistent across resolutions.
 type WindowState struct {
 	Open bool
-	// Position holds the top-left corner of the window in pixels.
+	// Position holds the top-left corner of the window as normalized values.
 	Position WindowPoint
-	// Size represents the width and height of the window in pixels.
+	// Size represents the width and height of the window as normalized values.
 	Size WindowPoint
 }
 
@@ -233,12 +234,16 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		state.Open = win.IsOpen()
 		changed = true
 	}
-	pos := WindowPoint{X: float64(win.Position.X), Y: float64(win.Position.Y)}
+
+	posN := eui.ScreenToNorm(win.GetPos())
+	pos := WindowPoint{X: float64(posN.X), Y: float64(posN.Y)}
 	if state.Position != pos {
 		state.Position = pos
 		changed = true
 	}
-	size := WindowPoint{X: float64(win.Size.X), Y: float64(win.Size.Y)}
+
+	sizeN := eui.ScreenToNorm(win.GetSize())
+	size := WindowPoint{X: float64(sizeN.X), Y: float64(sizeN.Y)}
 	if state.Size != size {
 		state.Size = size
 		changed = true
