@@ -79,7 +79,7 @@ func (win *windowData) Draw(screen *ebiten.Image) {
 		origPos := win.Position
 		win.Position = point{}
 		win.drawBG(win.Render)
-		win.drawItems(win.Render)
+		win.drawItems(win.Render, origPos)
 		win.drawScrollbars(win.Render)
 		titleArea := win.Render.SubImage(win.getTitleRect().getRectangle()).(*ebiten.Image)
 		win.drawWinTitle(titleArea)
@@ -281,9 +281,9 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 	}
 }
 
-func (win *windowData) drawItems(screen *ebiten.Image) {
+func (win *windowData) drawItems(screen *ebiten.Image, base point) {
 	pad := (win.Padding + win.BorderPad) * uiScale
-	winPos := pointAdd(win.getPosition(), point{X: pad, Y: win.GetTitleSize() + pad})
+	winPos := point{X: pad, Y: win.GetTitleSize() + pad}
 	winPos = pointSub(winPos, win.Scroll)
 	clip := win.getMainRect()
 
@@ -291,30 +291,30 @@ func (win *windowData) drawItems(screen *ebiten.Image) {
 		itemPos := pointAdd(winPos, item.getPosition(win))
 
 		if item.ItemType == ITEM_FLOW {
-			item.drawFlows(win, nil, itemPos, clip, screen)
+			item.drawFlows(win, nil, itemPos, base, clip, screen)
 		} else {
-			item.drawItem(nil, itemPos, clip, screen)
+			item.drawItem(nil, itemPos, base, clip, screen)
 		}
 	}
 }
 
-func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, clip rect, screen *ebiten.Image) {
+func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, base point, clip rect, screen *ebiten.Image) {
 	if CacheCheck {
 		item.RenderCount++
 	}
-	// Store the drawn rectangle for input handling
 	itemRect := rect{
 		X0: offset.X,
 		Y0: offset.Y,
 		X1: offset.X + item.GetSize().X,
 		Y1: offset.Y + item.GetSize().Y,
 	}
-	item.DrawRect = intersectRect(itemRect, clip)
+	drawRect := intersectRect(itemRect, clip)
 
-	if item.DrawRect.X1 <= item.DrawRect.X0 || item.DrawRect.Y1 <= item.DrawRect.Y0 {
+	if drawRect.X1 <= drawRect.X0 || drawRect.Y1 <= drawRect.Y0 {
+		item.DrawRect = rectAdd(drawRect, base)
 		return
 	}
-	subImg := screen.SubImage(item.DrawRect.getRectangle()).(*ebiten.Image)
+	subImg := screen.SubImage(drawRect.getRectangle()).(*ebiten.Image)
 	style := item.themeStyle()
 
 	var activeContents []*itemData
@@ -421,7 +421,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			flowPos := pointAdd(drawOffset, item.GetPos())
 			flowOff := pointAdd(flowPos, flowOffset)
 			itemPos := pointAdd(flowOff, subItem.GetPos())
-			subItem.drawFlows(win, item, itemPos, item.DrawRect, screen)
+			subItem.drawFlows(win, item, itemPos, base, drawRect, screen)
 		} else {
 			flowOff := pointAdd(drawOffset, flowOffset)
 
@@ -430,13 +430,14 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				objOff := pointAdd(win.getPosition(), point{X: pad, Y: win.GetTitleSize() + pad})
 				objOff = pointSub(objOff, win.Scroll)
 				objOff = pointAdd(objOff, subItem.getPosition(win))
-				subItem.drawItem(item, objOff, win.getMainRect(), screen)
+				clipWin := win.getMainRect()
+				subItem.drawItem(item, objOff, base, clipWin, screen)
 			} else {
 				objOff := flowOff
 				if parent != nil && parent.ItemType == ITEM_FLOW {
 					objOff = pointAdd(objOff, subItem.GetPos())
 				}
-				subItem.drawItem(item, objOff, item.DrawRect, screen)
+				subItem.drawItem(item, objOff, base, drawRect, screen)
 			}
 		}
 
@@ -463,7 +464,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			}
 			col := NewColor(96, 96, 96, 192)
 			sbW := currentStyle.BorderPad.Slider * 2
-			drawFilledRect(subImg, item.DrawRect.X1-sbW, item.DrawRect.Y0+pos, sbW, barH, col.ToRGBA(), false)
+			drawFilledRect(subImg, drawRect.X1-sbW, drawRect.Y0+pos, sbW, barH, col.ToRGBA(), false)
 		} else if item.FlowType == FLOW_HORIZONTAL && req.X > size.X {
 			barW := size.X * size.X / req.X
 			maxScroll := req.X - size.X
@@ -473,42 +474,43 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			}
 			col := NewColor(96, 96, 96, 192)
 			sbW := currentStyle.BorderPad.Slider * 2
-			drawFilledRect(subImg, item.DrawRect.X0+pos, item.DrawRect.Y1-sbW, barW, sbW, col.ToRGBA(), false)
+			drawFilledRect(subImg, drawRect.X0+pos, drawRect.Y1-sbW, barW, sbW, col.ToRGBA(), false)
 		}
 	}
 
 	if DebugMode {
 		strokeRect(subImg,
-			item.DrawRect.X0,
-			item.DrawRect.Y0,
-			item.DrawRect.X1-item.DrawRect.X0,
-			item.DrawRect.Y1-item.DrawRect.Y0,
+			drawRect.X0,
+			drawRect.Y0,
+			drawRect.X1-drawRect.X0,
+			drawRect.Y1-drawRect.Y0,
 			1,
 			Color{G: 255},
 			false)
 
-		midX := (item.DrawRect.X0 + item.DrawRect.X1) / 2
-		midY := (item.DrawRect.Y0 + item.DrawRect.Y1) / 2
+		midX := (drawRect.X0 + drawRect.X1) / 2
+		midY := (drawRect.Y0 + drawRect.Y1) / 2
 		margin := float32(4) * uiScale
 		col := Color{B: 255, A: 255}
 
 		switch item.FlowType {
 		case FLOW_HORIZONTAL:
-			drawArrow(subImg, item.DrawRect.X0+margin, midY, item.DrawRect.X1-margin, midY, 1, col)
+			drawArrow(subImg, drawRect.X0+margin, midY, drawRect.X1-margin, midY, 1, col)
 		case FLOW_VERTICAL:
-			drawArrow(subImg, midX, item.DrawRect.Y0+margin, midX, item.DrawRect.Y1-margin, 1, col)
+			drawArrow(subImg, midX, drawRect.Y0+margin, midX, drawRect.Y1-margin, 1, col)
 		case FLOW_HORIZONTAL_REV:
-			drawArrow(subImg, item.DrawRect.X1-margin, midY, item.DrawRect.X0+margin, midY, 1, col)
+			drawArrow(subImg, drawRect.X1-margin, midY, drawRect.X0+margin, midY, 1, col)
 		case FLOW_VERTICAL_REV:
-			drawArrow(subImg, midX, item.DrawRect.Y1-margin, midX, item.DrawRect.Y0+margin, 1, col)
+			drawArrow(subImg, midX, drawRect.Y1-margin, midX, drawRect.Y0+margin, 1, col)
 		}
 	}
 	if CacheCheck {
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(item.DrawRect.X0), int(item.DrawRect.Y0))
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(drawRect.X0), int(drawRect.Y0))
 	}
+	item.DrawRect = rectAdd(drawRect, base)
 }
 
-func (item *itemData) drawItemInternal(parent *itemData, offset point, clip rect, screen *ebiten.Image) {
+func (item *itemData) drawItemInternal(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image) {
 
 	if parent == nil {
 		parent = item
@@ -529,6 +531,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, clip rect
 	}
 	item.DrawRect = intersectRect(itemRect, clip)
 	if item.DrawRect.X1 <= item.DrawRect.X0 || item.DrawRect.Y1 <= item.DrawRect.Y0 {
+		item.DrawRect = rectAdd(item.DrawRect, base)
 		return
 	}
 	subImg := screen.SubImage(item.DrawRect.getRectangle()).(*ebiten.Image)
@@ -944,69 +947,65 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, clip rect
 			1, color.RGBA{R: 128}, false)
 	}
 
+	item.DrawRect = rectAdd(item.DrawRect, base)
 }
 
-func (item *itemData) drawItem(parent *itemData, offset point, clip rect, screen *ebiten.Image) {
+func (item *itemData) drawItem(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image) {
 	if CacheCheck {
 		item.RenderCount++
 	}
-	if item.ItemType != ITEM_FLOW {
 
-		if parent == nil {
-			parent = item
-		}
-		maxSize := item.GetSize()
-		if item.Size.X > parent.Size.X {
-			maxSize.X = parent.GetSize().X
-		}
-		if item.Size.Y > parent.Size.Y {
-			maxSize.Y = parent.GetSize().Y
-		}
+	if parent == nil {
+		parent = item
+	}
+	maxSize := item.GetSize()
+	if item.Size.X > parent.Size.X {
+		maxSize.X = parent.GetSize().X
+	}
+	if item.Size.Y > parent.Size.Y {
+		maxSize.Y = parent.GetSize().Y
+	}
 
-		itemRect := rect{X0: offset.X, Y0: offset.Y, X1: offset.X + maxSize.X, Y1: offset.Y + maxSize.Y}
-		item.DrawRect = intersectRect(itemRect, clip)
-		if item.DrawRect.X1 <= item.DrawRect.X0 || item.DrawRect.Y1 <= item.DrawRect.Y0 {
-			return
-		}
-
-		if item.Render != nil {
-			src := image.Rect(
-				int(item.DrawRect.X0-offset.X),
-				int(item.DrawRect.Y0-offset.Y),
-				int(item.DrawRect.X1-offset.X),
-				int(item.DrawRect.Y1-offset.Y),
-			)
-			sub := item.Render.SubImage(src).(*ebiten.Image)
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Translate(float64(item.DrawRect.X0), float64(item.DrawRect.Y0))
-			screen.DrawImage(sub, op)
-		} else {
-			item.drawItemInternal(parent, offset, clip, screen)
-		}
-
-		if item.ItemType == ITEM_DROPDOWN && item.Open {
-			dropOff := offset
-			if item.Label != "" {
-				textSize := (item.FontSize * uiScale) + 2
-				dropOff.Y += textSize + currentStyle.TextPadding*uiScale
-			}
-			screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
-			pendingDropdowns = append(pendingDropdowns, dropdownRender{item: item, offset: dropOff, clip: screenClip})
-		}
-
-		if DebugMode {
-			strokeRect(screen, item.DrawRect.X0, item.DrawRect.Y0, item.DrawRect.X1-item.DrawRect.X0, item.DrawRect.Y1-item.DrawRect.Y0, 1, color.RGBA{R: 128}, false)
-		}
-		if CacheCheck {
-			ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(item.DrawRect.X0), int(item.DrawRect.Y0))
-		}
+	itemRect := rect{X0: offset.X, Y0: offset.Y, X1: offset.X + maxSize.X, Y1: offset.Y + maxSize.Y}
+	drawRect := intersectRect(itemRect, clip)
+	if drawRect.X1 <= drawRect.X0 || drawRect.Y1 <= drawRect.Y0 {
+		item.DrawRect = rectAdd(drawRect, base)
 		return
 	}
 
-	item.drawItemInternal(parent, offset, clip, screen)
-	if CacheCheck {
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(item.DrawRect.X0), int(item.DrawRect.Y0))
+	if item.Render != nil {
+		src := image.Rect(
+			int(drawRect.X0-offset.X),
+			int(drawRect.Y0-offset.Y),
+			int(drawRect.X1-offset.X),
+			int(drawRect.Y1-offset.Y),
+		)
+		sub := item.Render.SubImage(src).(*ebiten.Image)
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(drawRect.X0), float64(drawRect.Y0))
+		screen.DrawImage(sub, op)
+	} else {
+		item.drawItemInternal(parent, offset, base, drawRect, screen)
 	}
+
+	if item.ItemType == ITEM_DROPDOWN && item.Open {
+		dropOff := pointAdd(offset, base)
+		if item.Label != "" {
+			textSize := (item.FontSize * uiScale) + 2
+			dropOff.Y += textSize + currentStyle.TextPadding*uiScale
+		}
+		screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
+		pendingDropdowns = append(pendingDropdowns, dropdownRender{item: item, offset: dropOff, clip: screenClip})
+	}
+
+	if DebugMode {
+		strokeRect(screen, drawRect.X0, drawRect.Y0, drawRect.X1-drawRect.X0, drawRect.Y1-drawRect.Y0, 1, color.RGBA{R: 128}, false)
+	}
+	if CacheCheck {
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", item.RenderCount), int(drawRect.X0), int(drawRect.Y0))
+	}
+
+	item.DrawRect = rectAdd(drawRect, base)
 }
 
 func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten.Image) {
