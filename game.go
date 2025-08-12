@@ -107,6 +107,7 @@ var debugWin *eui.WindowData
 var qualityWin *eui.WindowData
 var gameCtx context.Context
 var drawFilter = ebiten.FilterNearest
+var offscreen *ebiten.Image
 var frameCounter int
 var gameStarted = make(chan struct{})
 
@@ -518,6 +519,7 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	updateGameScale()
 
 	ox, oy := gameContentOrigin()
 	if gameWin != nil {
@@ -538,8 +540,52 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	snap := captureDrawSnapshot()
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
+
+	if gs.AnyGameWindowSize {
+		savedScale := gs.GameScale
+		if offscreen == nil || offscreen.Bounds().Dx() != gameAreaSizeX || offscreen.Bounds().Dy() != gameAreaSizeY {
+			offscreen = ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+		} else {
+			offscreen.Clear()
+		}
+		gs.GameScale = 1
+		drawScene(offscreen, 0, 0, snap, alpha, mobileFade, pictFade)
+		if gs.nightEffect {
+			drawNightOverlay(offscreen, 0, 0)
+		}
+		drawEquippedItems(offscreen, 0, 0)
+		drawStatusBars(offscreen, 0, 0, snap, alpha)
+		gs.GameScale = savedScale
+
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(savedScale, savedScale)
+		op.GeoM.Translate(float64(ox), float64(oy))
+		op.Filter = ebiten.FilterLinear
+		screen.DrawImage(offscreen, op)
+
+		if gameWin != nil {
+			size := gameWin.GetSize()
+			w := float32(int(size.X) &^ 1)
+			h := float32(int(size.Y) &^ 1)
+			fw := float32(float64(gameAreaSizeX) * savedScale)
+			fh := float32(float64(gameAreaSizeY) * savedScale)
+			dark := color.RGBA{0x40, 0x40, 0x40, 0xff}
+			if fw < w {
+				vector.DrawFilledRect(screen, float32(ox)+fw, float32(oy), w-fw, fh, dark, false)
+			}
+			if fh < h {
+				vector.DrawFilledRect(screen, float32(ox), float32(oy)+fh, w, h-fh, dark, false)
+			}
+		}
+
+		eui.Draw(screen)
+		if gs.ShowFPS {
+			drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
+		}
+		return
+	}
+
 	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
-	updateGameScale()
 	if gs.nightEffect {
 		drawNightOverlay(screen, ox, oy)
 	}
