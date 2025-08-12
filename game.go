@@ -423,6 +423,7 @@ func (g *Game) Update() error {
 		}
 
 		mx, my := ebiten.CursorPosition()
+		ox, oy := gameContentOrigin()
 		overUI := pointInUI(mx, my)
 
 		if gs.ClickToToggle {
@@ -430,8 +431,8 @@ func (g *Game) Update() error {
 				if walkToggled {
 					walkToggled = false
 				} else {
-					walkTargetX = int16(float64(mx)/gs.GameScale - float64(fieldCenterX))
-					walkTargetY = int16(float64(my)/gs.GameScale - float64(fieldCenterY))
+					walkTargetX = int16(float64(mx-ox)/gs.GameScale - float64(fieldCenterX))
+					walkTargetY = int16(float64(my-oy)/gs.GameScale - float64(fieldCenterY))
 					walkToggled = true
 				}
 			}
@@ -440,8 +441,8 @@ func (g *Game) Update() error {
 				if overUI || mx < 0 || my < 0 || mx >= w || my >= h {
 					walkToggled = false
 				} else {
-					walkTargetX = int16(float64(mx)/gs.GameScale - float64(fieldCenterX))
-					walkTargetY = int16(float64(my)/gs.GameScale - float64(fieldCenterY))
+					walkTargetX = int16(float64(mx-ox)/gs.GameScale - float64(fieldCenterX))
+					walkTargetY = int16(float64(my-oy)/gs.GameScale - float64(fieldCenterY))
 				}
 			}
 		} else {
@@ -455,8 +456,9 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := ebiten.CursorPosition()
-	baseX := int16(float64(mx)/gs.GameScale - float64(fieldCenterX))
-	baseY := int16(float64(my)/gs.GameScale - float64(fieldCenterY))
+	ox, oy := gameContentOrigin()
+	baseX := int16(float64(mx-ox)/gs.GameScale - float64(fieldCenterX))
+	baseY := int16(float64(my-oy)/gs.GameScale - float64(fieldCenterY))
 	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	if pointInUI(mx, my) {
 		baseDown = false
