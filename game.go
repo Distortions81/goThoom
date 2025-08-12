@@ -505,6 +505,14 @@ func updateGameScale() {
 	}
 }
 
+func updateGameWindowSize() {
+	if gameWin == nil {
+		return
+	}
+	scale := float32(gs.GameScale) / eui.UIScale()
+	gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * scale, Y: float32(gameAreaSizeY) * scale}
+}
+
 func gameContentOrigin() (int, int) {
 	if gameWin == nil {
 		return 0, 0
