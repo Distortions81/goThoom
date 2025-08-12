@@ -74,7 +74,22 @@ func playSound(ids ...uint16) {
 			}
 		}
 
-		scale := 1.0 / math.Sqrt(float64(len(sounds)))
+		// Find the peak amplitude to normalize the mix
+		maxVal := int32(0)
+		for _, v := range mixed {
+			if v < 0 {
+				v = -v
+			}
+			if v > maxVal {
+				maxVal = v
+			}
+		}
+		// Apply peak normalization and reduce volume for overlapping sounds
+		scale := 1 / float64(len(sounds))
+		if maxVal > 0 {
+			scale *= math.Min(1.0, 32767.0/float64(maxVal))
+		}
+
 		out := make([]byte, len(mixed)*2)
 		for i, v := range mixed {
 			v = int32(float64(v) * scale)
