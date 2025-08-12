@@ -260,7 +260,7 @@ func makeToolbarWindow() {
 	toolbarWin.AddWindow(false)
 	toolbarWin.Open()
 
-	eui.TreeMode = true
+	//eui.TreeMode = true
 }
 
 var dlMutex sync.Mutex
@@ -522,7 +522,7 @@ func makeLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
-	loginWin.Movable = true
+	loginWin.Movable = false
 	loginWin.PinTo = eui.PIN_MID_CENTER
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
