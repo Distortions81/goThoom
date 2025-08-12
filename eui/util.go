@@ -150,6 +150,9 @@ func (win *windowData) setSize(size point) bool {
 	win.BringForward()
 	win.resizeFlows()
 	win.adjustScrollForResize()
+	if win.zone != nil {
+		win.updateZonePosition()
+	}
 	win.clampToScreen()
 
 	return true
@@ -185,6 +188,9 @@ func (win *windowData) adjustScrollForResize() {
 }
 
 func (win *windowData) clampToScreen() {
+	if win.zone != nil {
+		return
+	}
 	pos := win.getPosition()
 	size := win.GetSize()
 
@@ -434,16 +440,32 @@ func (win *windowData) GetTitleSize() float32 {
 	return win.TitleHeight * uiScale
 }
 
-func (win *windowData) GetSize() point {
-	return point{X: win.Size.X * uiScale, Y: win.Size.Y * uiScale}
+func (win *windowData) GetSize() Point {
+	return Point{X: win.Size.X * uiScale, Y: win.Size.Y * uiScale}
 }
 
-func (win *windowData) GetPos() point {
-	return point{X: win.Position.X * uiScale, Y: win.Position.Y * uiScale}
+func (win *windowData) GetPos() Point {
+	return Point{X: win.Position.X * uiScale, Y: win.Position.Y * uiScale}
 }
 
-func (item *itemData) GetSize() point {
-	sz := point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
+func (win *windowData) SetPos(pos Point) bool {
+	if win.zone != nil {
+		return false
+	}
+	win.Position = point{X: pos.X / uiScale, Y: pos.Y / uiScale}
+	win.clampToScreen()
+	return true
+}
+
+func (win *windowData) SetSize(size Point) bool {
+	if !win.Resizable {
+		return false
+	}
+	return win.setSize(point{X: size.X / uiScale, Y: size.Y / uiScale})
+}
+
+func (item *itemData) GetSize() Point {
+	sz := Point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
 	if item.Label != "" {
 		textSize := (item.FontSize * uiScale) + 2
 		sz.Y += textSize + currentStyle.TextPadding*uiScale
@@ -451,8 +473,8 @@ func (item *itemData) GetSize() point {
 	return sz
 }
 
-func (item *itemData) GetPos() point {
-	return point{X: item.Position.X * uiScale, Y: item.Position.Y * uiScale}
+func (item *itemData) GetPos() Point {
+	return Point{X: item.Position.X * uiScale, Y: item.Position.Y * uiScale}
 }
 
 func (item *itemData) GetTextPtr() *string {
