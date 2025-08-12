@@ -259,6 +259,8 @@ func makeToolbarWindow() {
 	toolbarWin.AddItem(gameMenu)
 	toolbarWin.AddWindow(false)
 	toolbarWin.Open()
+
+	eui.TreeMode = true
 }
 
 var dlMutex sync.Mutex
