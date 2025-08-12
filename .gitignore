@@ -8,3 +8,4 @@ binaries/*.zip
 cpu.svg
 data/stats.json
 internalimages*
+debug/tree.json
