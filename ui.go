@@ -865,6 +865,7 @@ func makeSettingsWindow() {
 					gameWin.Size = eui.ScreenToNorm(eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)})
 				}
 			}
+			initFont()
 			settingsDirty = true
 		}
 	}
