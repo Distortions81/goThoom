@@ -13,10 +13,11 @@ func TestPinToClosestZone(t *testing.T) {
 		v   VZone
 	}{
 		{point{0, 0}, HZoneLeft, VZoneTop},
-		{point{20, 20}, HZoneLeftCenter, VZoneTopMiddle},
-		{point{40, 40}, HZoneCenterLeft, VZoneMiddleTop},
-		{point{60, 60}, HZoneCenterRight, VZoneMiddleBottom},
-		{point{80, 80}, HZoneRightCenter, VZoneBottomMiddle},
+		{point{16, 16}, HZoneLeftCenter, VZoneTopMiddle},
+		{point{33, 33}, HZoneCenterLeft, VZoneMiddleTop},
+		{point{50, 50}, HZoneCenter, VZoneCenter},
+		{point{66, 66}, HZoneCenterRight, VZoneMiddleBottom},
+		{point{83, 83}, HZoneRightCenter, VZoneBottomMiddle},
 		{point{100, 100}, HZoneRight, VZoneBottom},
 	}
 
