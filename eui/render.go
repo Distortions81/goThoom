@@ -937,6 +937,9 @@ func (item *itemData) drawItem(parent *itemData, offset point, clip rect, screen
 		}
 
 		src := image.Rect(int(item.DrawRect.X0-offset.X), int(item.DrawRect.Y0-offset.Y), int(item.DrawRect.X1-offset.X), int(item.DrawRect.Y1-offset.Y))
+		if item.Render == nil {
+			return // optionally log missing render
+		}
 		sub := item.Render.SubImage(src).(*ebiten.Image)
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(item.DrawRect.X0), float64(item.DrawRect.Y0))
