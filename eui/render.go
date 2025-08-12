@@ -40,10 +40,6 @@ func Draw(screen *ebiten.Image) {
 		win.Draw(screen)
 	}
 
-	for _, ov := range overlays {
-		drawOverlay(ov, screen)
-	}
-
 	for _, dr := range pendingDropdowns {
 		drawDropdownOptions(dr.item, dr.offset, dr.clip, screen)
 	}
@@ -63,19 +59,6 @@ func Draw(screen *ebiten.Image) {
 		}
 		dumpDone = true
 		os.Exit(0)
-	}
-}
-
-func drawOverlay(item *itemData, screen *ebiten.Image) {
-	if item == nil {
-		return
-	}
-	offset := item.getOverlayPosition()
-	clip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
-	if item.ItemType == ITEM_FLOW {
-		item.drawFlows(nil, nil, offset, clip, screen)
-	} else {
-		item.drawItem(nil, offset, clip, screen)
 	}
 }
 
@@ -933,35 +916,8 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, clip rect
 
 }
 
-func (item *itemData) ensureRender() {
-	if item.ItemType == ITEM_FLOW {
-		return
-	}
-	size := item.GetSize()
-	w, h := int(size.X), int(size.Y)
-	if item.Render == nil || item.Render.Bounds().Dx() != w || item.Render.Bounds().Dy() != h {
-		item.Render = ebiten.NewImage(w, h)
-		item.Dirty = true
-	}
-	if !item.Dirty {
-		return
-	}
-	prevRect := item.DrawRect
-	prevHover := item.Hovered
-	item.Render.Clear()
-	item.drawItemInternal(nil, point{}, rect{X0: 0, Y0: 0, X1: size.X, Y1: size.Y}, item.Render)
-	if DebugMode {
-		item.RenderCount++
-		ebitenutil.DebugPrintAt(item.Render, fmt.Sprintf("%d", item.RenderCount), 0, 0)
-	}
-	item.DrawRect = prevRect
-	item.Hovered = prevHover
-	item.Dirty = false
-}
-
 func (item *itemData) drawItem(parent *itemData, offset point, clip rect, screen *ebiten.Image) {
 	if item.ItemType != ITEM_FLOW {
-		item.ensureRender()
 
 		if parent == nil {
 			parent = item

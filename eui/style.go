@@ -135,7 +135,6 @@ func LoadStyle(name string) error {
 	currentStyleName = name
 	if currentTheme != nil {
 		applyStyleToTheme(currentTheme)
-		applyThemeToAll()
 		markAllDirty()
 	}
 	refreshStyleMod()

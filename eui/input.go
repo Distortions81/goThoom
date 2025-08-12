@@ -61,13 +61,6 @@ func Update() error {
 	sizeCh := pointScaleMul(point{X: posCh.X / uiScale, Y: posCh.Y / uiScale})
 	c := ebiten.CursorShapeDefault
 
-	//Check overlays before windows so clicks aren't stolen by windows below
-	for i := len(overlays) - 1; i >= 0; i-- {
-		if clickOverlay(overlays[i], mpos, click) {
-			break
-		}
-	}
-
 	//Check all windows
 	for i := len(windows) - 1; i >= 0; i-- {
 		win := windows[i]
@@ -112,13 +105,11 @@ func Update() error {
 			} else if clickDrag && dragPart != PART_NONE && dragWin == win {
 				switch dragPart {
 				case PART_BAR:
-					if win.PinTo == PIN_TOP_LEFT {
-						win.Position = pointAdd(win.Position, posCh)
-					}
+					win.Position = pointAdd(win.Position, posCh)
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_BOTTOM:
@@ -127,20 +118,20 @@ func Update() error {
 				case PART_LEFT:
 					posCh.Y = 0
 					sizeCh.Y = 0
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_RIGHT:
 					sizeCh.Y = 0
 					win.setSize(pointAdd(win.Size, sizeCh))
 				case PART_TOP_LEFT:
-					if !win.setSize(pointSub(win.Size, sizeCh)) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(pointSub(win.Size, sizeCh)) {
 						win.Position = pointAdd(win.Position, posCh)
 					}
 				case PART_TOP_RIGHT:
 					tx := win.Size.X + sizeCh.X
 					ty := win.Size.Y - sizeCh.Y
-					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(point{X: tx, Y: ty}) {
 						win.Position.Y += posCh.Y
 					}
 				case PART_BOTTOM_RIGHT:
@@ -150,7 +141,7 @@ func Update() error {
 				case PART_BOTTOM_LEFT:
 					tx := win.Size.X - sizeCh.X
 					ty := win.Size.Y + sizeCh.Y
-					if !win.setSize(point{X: tx, Y: ty}) && win.PinTo == PIN_TOP_LEFT {
+					if !win.setSize(point{X: tx, Y: ty}) {
 						win.Position.X += posCh.X
 					}
 				case PART_SCROLL_V:
@@ -237,17 +228,6 @@ func Update() error {
 				}
 			}
 		}
-		for i := len(overlays) - 1; i >= 0; i-- {
-			ov := overlays[i]
-			if ov.DrawRect.containsPoint(mpos) || dropdownOpenContains([]*itemData{ov}, mpos) {
-				if scrollDropdown([]*itemData{ov}, mpos, wheelDelta) {
-					break
-				}
-				if scrollFlow([]*itemData{ov}, mpos, wheelDelta) {
-					break
-				}
-			}
-		}
 	}
 
 	if hoveredItem != prevHovered {
@@ -267,9 +247,6 @@ func Update() error {
 		if win.Open {
 			clearExpiredClicks(win.Contents)
 		}
-	}
-	for _, ov := range overlays {
-		clearExpiredClicks([]*itemData{ov})
 	}
 
 	return nil
@@ -851,11 +828,6 @@ func dropdownOpenContainsAnywhere(mpos point) bool {
 			return true
 		}
 	}
-	for _, ov := range overlays {
-		if dropdownOpenContains([]*itemData{ov}, mpos) {
-			return true
-		}
-	}
 	return false
 }
 
@@ -879,8 +851,5 @@ func closeAllDropdowns() {
 		if win.Open {
 			closeDropdowns(win.Contents)
 		}
-	}
-	for _, ov := range overlays {
-		closeDropdowns([]*itemData{ov})
 	}
 }

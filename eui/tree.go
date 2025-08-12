@@ -20,15 +20,11 @@ func DumpTree() error {
 			Title:    w.Title,
 			Position: w.Position,
 			Size:     w.Size,
-			PinTo:    w.PinTo,
 		}
 		for _, it := range w.Contents {
 			tw.Items = append(tw.Items, makeTreeItem(it))
 		}
 		tree.Windows = append(tree.Windows, tw)
-	}
-	for _, ov := range overlays {
-		tree.Overlays = append(tree.Overlays, makeTreeItem(ov))
 	}
 	data, err := json.MarshalIndent(tree, "", "  ")
 	if err != nil {

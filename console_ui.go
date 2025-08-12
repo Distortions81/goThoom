@@ -4,11 +4,11 @@ package main
 
 import "go_client/eui"
 
-var messagesWin *eui.WindowData
+var consoleWin *eui.WindowData
 var messagesList *eui.ItemData
 var messagesDirty bool
 
-func updateMessagesWindow() {
+func updateConsoleWindow() {
 	if messagesList == nil {
 		return
 	}
@@ -60,26 +60,17 @@ func updateMessagesWindow() {
 }
 
 func makeConsoleWindow() {
-	if messagesWin != nil {
+	if consoleWin != nil {
 		return
 	}
-	messagesWin = eui.NewWindow()
-	if gs.MessagesWindow.Size.X > 0 && gs.MessagesWindow.Size.Y > 0 {
-		messagesWin.Size = eui.Point{X: float32(gs.MessagesWindow.Size.X), Y: float32(gs.MessagesWindow.Size.Y)}
-	} else {
-		messagesWin.Size = eui.Point{X: 425, Y: 350}
-	}
-	messagesWin.Title = "Console"
-	messagesWin.Closable = true
-	messagesWin.Resizable = true
-	messagesWin.Movable = true
-	messagesWin.Position = BOTTOM_LEFT
-	if gs.MessagesWindow.Position.X != 0 || gs.MessagesWindow.Position.Y != 0 {
-		messagesWin.Position = eui.Point{X: float32(gs.MessagesWindow.Position.X), Y: float32(gs.MessagesWindow.Position.Y)}
-	}
-
+	consoleWin = eui.NewWindow()
+	consoleWin.Title = "Console"
+	consoleWin.Size = eui.Point{X: 450, Y: 450}
+	consoleWin.Closable = true
+	consoleWin.Resizable = true
+	consoleWin.Movable = true
 	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	messagesWin.AddItem(messagesList)
-	messagesWin.AddWindow(false)
-	updateMessagesWindow()
+	consoleWin.AddItem(messagesList)
+	consoleWin.AddWindow(false)
+	updateConsoleWindow()
 }

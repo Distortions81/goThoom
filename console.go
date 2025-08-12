@@ -23,7 +23,7 @@ func consoleMessage(msg string) {
 	}
 	messageMu.Unlock()
 
-	updateMessagesWindow()
+	updateConsoleWindow()
 }
 
 func getConsoleMessages() []string {

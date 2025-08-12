@@ -111,7 +111,6 @@ func LoadTheme(name string) error {
 	}
 	currentThemeName = name
 	applyStyleToTheme(currentTheme)
-	applyThemeToAll()
 	markAllDirty()
 	if ac, ok := namedColors["accent"]; ok {
 		accentHue, accentSaturation, accentValue, accentAlpha = rgbaToHSVA(color.RGBA(ac))
@@ -197,22 +196,7 @@ func applyAccentColor() {
 	currentTheme.Dropdown.SelectedColor = col
 	currentTheme.Tab.ClickColor = col
 	namedColors["sliderfilled"] = col
-	applyThemeToAll()
-	updateColorWheels(col)
 	markAllDirty()
-}
-
-// applyThemeToAll updates all existing windows to use the current theme.
-func applyThemeToAll() {
-	if currentTheme == nil {
-		return
-	}
-	for _, win := range windows {
-		applyThemeToWindow(win)
-	}
-	for _, ov := range overlays {
-		applyThemeToItem(ov)
-	}
 }
 
 // applyThemeToWindow merges the current theme's window settings into the given
@@ -227,18 +211,6 @@ func copyWindowStyle(dst, src *windowData) {
 	dst.TitleHeight = src.TitleHeight
 	dst.DragbarSpacing = src.DragbarSpacing
 	dst.ShowDragbar = src.ShowDragbar
-}
-
-func applyThemeToWindow(win *windowData) {
-	if win == nil || currentTheme == nil {
-		return
-	}
-	copyWindowStyle(win, &currentTheme.Window)
-	stripWindowColors(win)
-	win.Theme = currentTheme
-	for _, item := range win.Contents {
-		applyThemeToItem(item)
-	}
 }
 
 // applyThemeToItem merges style data from the current theme based on item type
@@ -257,65 +229,5 @@ func copyItemStyle(dst, src *itemData) {
 	if src.MaxVisible != 0 {
 		dst.MaxVisible = src.MaxVisible
 	}
-}
 
-func applyThemeToItem(it *itemData) {
-	if it == nil || currentTheme == nil {
-		return
-	}
-	var src *itemData
-	switch it.ItemType {
-	case ITEM_FLOW:
-		if len(it.Tabs) > 0 {
-			src = &currentTheme.Tab
-		}
-	case ITEM_BUTTON:
-		src = &currentTheme.Button
-	case ITEM_TEXT:
-		src = &currentTheme.Text
-	case ITEM_CHECKBOX:
-		src = &currentTheme.Checkbox
-	case ITEM_RADIO:
-		src = &currentTheme.Radio
-	case ITEM_INPUT:
-		src = &currentTheme.Input
-	case ITEM_SLIDER:
-		src = &currentTheme.Slider
-	case ITEM_DROPDOWN:
-		src = &currentTheme.Dropdown
-	}
-	if src != nil {
-		copyItemStyle(it, src)
-	}
-	stripItemColors(it)
-	it.Theme = currentTheme
-	for _, child := range it.Contents {
-		applyThemeToItem(child)
-	}
-	for _, tab := range it.Tabs {
-		applyThemeToItem(tab)
-	}
-}
-
-// updateColorWheels sets the WheelColor field of all color wheel widgets to
-// the provided color.
-func updateColorWheels(col Color) {
-	for _, win := range windows {
-		updateColorWheelList(win.Contents, col)
-	}
-	for _, ov := range overlays {
-		updateColorWheelList(ov.Contents, col)
-	}
-}
-
-func updateColorWheelList(items []*itemData, col Color) {
-	for _, it := range items {
-		if it.ItemType == ITEM_COLORWHEEL {
-			it.WheelColor = col
-		}
-		updateColorWheelList(it.Contents, col)
-		for _, tab := range it.Tabs {
-			updateColorWheelList(tab.Contents, col)
-		}
-	}
 }

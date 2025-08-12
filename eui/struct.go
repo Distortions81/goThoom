@@ -20,7 +20,6 @@ type windowData struct {
 	Title    string
 	Position point
 	Size     point
-	PinTo    pinType
 
 	Padding   float32
 	Margin    float32

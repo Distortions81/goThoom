@@ -17,9 +17,6 @@ func DumpCachedImages() error {
 	for i, win := range windows {
 		dumpItemImages(win.Contents, fmt.Sprintf("window_%d", i))
 	}
-	for i, ov := range overlays {
-		dumpItemImages([]*itemData{ov}, fmt.Sprintf("overlay_%d", i))
-	}
 	return nil
 }
 
@@ -30,7 +27,6 @@ func dumpItemImages(items []*itemData, prefix string) {
 		}
 		name := fmt.Sprintf("%s_%d", prefix, idx)
 		if it.ItemType != ITEM_FLOW {
-			it.ensureRender()
 			if it.Render != nil {
 				fn := filepath.Join("debug", name+".png")
 				if f, err := os.Create(fn); err == nil {

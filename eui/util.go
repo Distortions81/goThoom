@@ -62,9 +62,6 @@ func (item *itemData) getItemRect(win *windowData) rect {
 
 func (parent *itemData) addItemTo(item *itemData) {
 	item.Parent = parent
-	if currentTheme != nil {
-		applyThemeToItem(item)
-	}
 	parent.Contents = append(parent.Contents, item)
 	if parent.ItemType == ITEM_FLOW {
 		parent.resizeFlow(parent.GetSize())
@@ -72,9 +69,6 @@ func (parent *itemData) addItemTo(item *itemData) {
 }
 
 func (parent *windowData) addItemTo(item *itemData) {
-	if currentTheme != nil {
-		applyThemeToItem(item)
-	}
 	parent.Contents = append(parent.Contents, item)
 	item.resizeFlow(parent.GetSize())
 }
@@ -141,41 +135,18 @@ func (win *windowData) IsOpen() bool {
 }
 
 func (win *windowData) setSize(size point) bool {
-	size, tooSmall := win.clampSize(size)
+	if size.X < 1 || size.Y < 1 {
+		return false
+	}
 
-	xc, yc := win.itemOverlap(size)
-	if !xc {
-		win.Size.X = size.X
-	}
-	if !yc {
-		win.Size.Y = size.Y
-	}
-	if yc && xc {
-		tooSmall = true
-	}
+	win.Size = size
 
 	win.BringForward()
 	win.resizeFlows()
 	win.adjustScrollForResize()
 	win.clampToScreen()
 
-	return tooSmall
-}
-
-func (win *windowData) clampSize(size point) (point, bool) {
-	tooSmall := false
-
-	// Enforce minimum dimensions and prevent negatives.
-	if size.X < minWinSizeX || size.X < 0 {
-		size.X = minWinSizeX
-		tooSmall = true
-	}
-	if size.Y < minWinSizeY || size.Y < 0 {
-		size.Y = minWinSizeY
-		tooSmall = true
-	}
-
-	return size, tooSmall
+	return true
 }
 
 func (win *windowData) adjustScrollForResize() {
@@ -426,12 +397,6 @@ func (win *windowData) SetTitleSize(size float32) {
 }
 
 func SetUIScale(scale float32) {
-	if scale < 0.5 {
-		scale = 0.5
-	}
-	if scale > 2.5 {
-		scale = 2.5
-	}
 	uiScale = scale
 	for _, win := range windows {
 		if win.AutoSize {
@@ -439,9 +404,6 @@ func SetUIScale(scale float32) {
 		} else {
 			win.resizeFlows()
 		}
-	}
-	for _, ov := range overlays {
-		ov.resizeFlow(ov.GetSize())
 	}
 	markAllDirty()
 }
@@ -515,9 +477,6 @@ func markAllDirty() {
 		for _, it := range win.Contents {
 			markItemTreeDirty(it)
 		}
-	}
-	for _, ov := range overlays {
-		markItemTreeDirty(ov)
 	}
 }
 

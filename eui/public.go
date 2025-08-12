@@ -9,9 +9,6 @@ import (
 // Windows returns the list of active windows.
 func Windows() []*WindowData { return windows }
 
-// Overlays returns the list of active overlays.
-func Overlays() []*ItemData { return overlays }
-
 // SetScreenSize sets the current screen size used for layout calculations.
 func SetScreenSize(w, h int) {
 	screenWidth = w

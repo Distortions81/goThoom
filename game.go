@@ -1162,41 +1162,14 @@ func initGame() {
 }
 
 func makeGameWindow() {
-	ssx, _ := eui.ScreenSize()
-
+	if gameWin != nil {
+		return
+	}
 	gameWin = eui.NewWindow()
-	gameWin.Title = ""
-
-	if gs.AnyGameWindowSize {
-		if gs.GameWindow.Size.X > 0 && gs.GameWindow.Size.Y > 0 {
-			gameWin.Size = eui.Point{X: float32(gs.GameWindow.Size.X) * eui.UIScale(), Y: float32(gs.GameWindow.Size.Y) * eui.UIScale()}
-		} else {
-			gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
-		}
-	} else {
-		if gs.GameScale < 1 {
-			gs.GameScale = 1
-		} else if gs.GameScale > 5 {
-			gs.GameScale = 5
-		}
-		gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
-	}
-
-	if gs.GameWindow.Position.X != 0 || gs.GameWindow.Position.Y != 0 {
-		gameWin.Position = eui.Point{X: float32(gs.GameWindow.Position.X), Y: float32(gs.GameWindow.Position.Y)}
-	} else {
-		gameWin.Position = eui.Point{X: float32(ssx/2) - gameWin.Size.X/2, Y: 50}
-	}
-
+	gameWin.Title = "Clan Lord"
 	gameWin.Closable = false
-	gameWin.Resizable = gs.AnyGameWindowSize
+	gameWin.Resizable = true
 	gameWin.Movable = true
-	//gameWin.MainPortal = true
-	//gameWin.FixedRatio = true
-	//gameWin.AspectA = 1
-	//gameWin.AspectB = 1
-	gameWin.SetTitleSize(8)
-	gameWin.AddWindow(false)
 	gameWin.MarkOpen()
 }
 

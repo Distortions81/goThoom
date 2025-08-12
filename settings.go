@@ -210,7 +210,7 @@ func syncWindowSettings() bool {
 	if syncWindow(playersWin, &gs.PlayersWindow) {
 		changed = true
 	}
-	if syncWindow(messagesWin, &gs.MessagesWindow) {
+	if syncWindow(consoleWin, &gs.MessagesWindow) {
 		changed = true
 	}
 	if chatWin != nil {

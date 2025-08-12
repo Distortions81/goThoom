@@ -75,10 +75,7 @@ func initUI() {
 	makeDownloadsWindow()
 	makeLoginWindow()
 	makeAddCharacterWindow()
-	if err := makeChatWindow(); err != nil {
-		logError("make chat window: %v", err)
-		chatMessage("Unable to create chat window")
-	}
+	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
 	makeQualityWindow()
@@ -92,7 +89,7 @@ func initUI() {
 	if chatWin != nil {
 		chatWin.IsOpen()
 	}
-	messagesWin.MarkOpen()
+	consoleWin.MarkOpen()
 	inventoryWin.MarkOpen()
 	playersWin.MarkOpen()
 
@@ -105,15 +102,15 @@ func initUI() {
 
 func makeToolbarWindow() {
 	toolbarWin = eui.NewWindow()
+	toolbarWin.Title = "Toolbar"
 	toolbarWin.Closable = false
 	toolbarWin.Resizable = false
 	toolbarWin.AutoSize = false
 	toolbarWin.NoScroll = true
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
-	toolbarWin.Title = ""
 	xs, _ := eui.ScreenSize()
-	tbs := eui.Point{X: 930, Y: 48}
+	tbs := eui.Point{X: 930, Y: 60}
 	toolbarWin.Size = tbs
 	toolbarWin.Position = eui.Point{X: float32(xs/2) - (tbs.X / 2), Y: 0}
 
@@ -268,9 +265,10 @@ func makeToolbarWindow() {
 }
 
 var dlMutex sync.Mutex
+var status dataFilesStatus
 
 func makeDownloadsWindow() {
-	var status dataFilesStatus
+
 	if downloadWin != nil {
 		return
 	}
@@ -851,29 +849,6 @@ func makeSettingsWindow() {
 	hint.FontSize = 10
 	hint.Size = eui.Point{X: width, Y: 16}
 	mainFlow.AddItem(hint)
-
-	/*
-		anySizeCB, anySizeEvents := eui.NewCheckbox()
-		anySizeCB.Text = "Any game window size"
-		anySizeCB.Size = eui.Point{X: width, Y: 24}
-		anySizeCB.Checked = gs.AnyGameWindowSize
-		anySizeEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				gs.AnyGameWindowSize = ev.Checked
-				if gameWin != nil {
-					gameWin.Resizable = gs.AnyGameWindowSize
-					if gs.AnyGameWindowSize {
-						gameSizeSlider.Disabled = true
-					} else {
-						gameSizeSlider.Disabled = false
-						gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
-					}
-				}
-				settingsDirty = true
-			}
-		}
-		mainFlow.AddItem(anySizeCB)
-	*/
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
@@ -1545,20 +1520,35 @@ func makeWindowsWindow() {
 	}
 	flow.AddItem(inventoryBox)
 
-	messagesBox, messagesBoxEvents := eui.NewCheckbox()
-	messagesBox.Text = "Messages"
-	messagesBox.Size = eui.Point{X: 128, Y: 24}
-	messagesBox.Checked = messagesWin != nil
-	messagesBoxEvents.Handle = func(ev eui.UIEvent) {
+	chatBox, chatBoxEvents := eui.NewCheckbox()
+	chatBox.Text = "Chat"
+	chatBox.Size = eui.Point{X: 128, Y: 24}
+	chatBox.Checked = consoleWin != nil
+	chatBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				messagesWin.MarkOpen()
+				consoleWin.MarkOpen()
 			} else {
-				messagesWin.Close()
+				consoleWin.Close()
 			}
 		}
 	}
-	flow.AddItem(messagesBox)
+	flow.AddItem(chatBox)
+
+	consoleBox, consoleBoxEvents := eui.NewCheckbox()
+	consoleBox.Text = "Console"
+	consoleBox.Size = eui.Point{X: 128, Y: 24}
+	consoleBox.Checked = consoleWin.Open
+	consoleBoxEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			if ev.Checked {
+				consoleWin.MarkOpen()
+			} else {
+				consoleWin.Close()
+			}
+		}
+	}
+	flow.AddItem(consoleBox)
 
 	windowsWin.AddItem(flow)
 	windowsWin.AddWindow(false)

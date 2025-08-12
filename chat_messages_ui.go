@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"go_client/eui"
 )
 
@@ -53,24 +52,13 @@ func makeChatWindow() error {
 		return nil
 	}
 	chatWin = eui.NewWindow()
-	if chatWin == nil {
-		return fmt.Errorf("eui.NewWindow returned nil")
-	}
+	chatWin.Size = eui.Point{X: 450, Y: 450}
 	chatWin.Title = "Chat"
-	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
-		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X), Y: float32(gs.ChatWindow.Size.Y)}
-	} else {
-		chatWin.Size = eui.Point{X: 425, Y: 350}
-	}
 	chatWin.Closable = true
 	chatWin.Resizable = true
-	chatWin.Movable = false
-	chatWin.PinTo = eui.PIN_MID_CENTER
+	chatWin.Movable = true
 
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	if chatList == nil {
-		return fmt.Errorf("failed to create chat list")
-	}
 	chatWin.AddItem(chatList)
 	chatWin.AddWindow(false)
 	return nil
