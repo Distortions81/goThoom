@@ -22,7 +22,7 @@ type windowData struct {
 	Size     point
 	AspectA  float32
 	AspectB  float32
-	PinTo    pinType
+	PinTo    pinType // Pinning fixes a window in place and disables movement/resizing.
 
 	Padding   float32
 	Margin    float32
@@ -33,7 +33,7 @@ type windowData struct {
 
 	open bool
 	Hovered, Flow,
-	Closable, Movable, Resizable,
+	Closable, Movable, Resizable, // Movable/Resizable only when PinTo == PIN_NONE
 	HoverClose, HoverDragbar,
 	AutoSize, AutoSizeOnScale, FixedRatio bool
 
@@ -238,6 +238,8 @@ const (
 	PIN_BOTTOM_CENTER
 	PIN_BOTTOM_RIGHT
 )
+
+// Any value other than PIN_NONE anchors the window, disabling movement and resizing.
 
 type dragType int
 
