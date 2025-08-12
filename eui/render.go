@@ -937,6 +937,16 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		drawFilledRect(subImg, sx, sy, sw, sw, color.RGBA(item.WheelColor), true)
 		strokeRect(subImg, sx, sy, sw, sw, 1, color.Black, true)
 
+	} else if item.ItemType == ITEM_IMAGE {
+		if item.Image != nil {
+			iw, ih := item.Image.Bounds().Dx(), item.Image.Bounds().Dy()
+			op := &ebiten.DrawImageOptions{}
+			if int(maxSize.X) != iw || int(maxSize.Y) != ih {
+				op.GeoM.Scale(float64(maxSize.X)/float64(iw), float64(maxSize.Y)/float64(ih))
+			}
+			op.GeoM.Translate(float64(offset.X), float64(offset.Y))
+			subImg.DrawImage(item.Image, op)
+		}
 	} else if item.ItemType == ITEM_TEXT {
 
 		textSize := (item.FontSize * uiScale) + 2
