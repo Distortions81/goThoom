@@ -109,7 +109,7 @@ func makeToolbarWindow() {
 	toolbarWin.NoScroll = true
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
-	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTopMiddle)
+	toolbarWin.SetZone(eui.HZoneCenterLeft, eui.VZoneTopMiddle)
 	toolbarWin.Size = eui.Point{X: 930, Y: 60}
 
 	gameMenu := &eui.ItemData{
@@ -276,7 +276,7 @@ func makeDownloadsWindow() {
 	downloadWin.Resizable = false
 	downloadWin.AutoSize = true
 	downloadWin.Movable = true
-	downloadWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	downloadWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	startedDownload := false
 
@@ -444,7 +444,7 @@ func makeAddCharacterWindow() {
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
 	addCharWin.Movable = true
-	addCharWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	addCharWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -529,7 +529,7 @@ func makeLoginWindow() {
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
 	loginWin.Movable = true
-	loginWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	loginWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -677,7 +677,7 @@ func makeSettingsWindow() {
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
-	settingsWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
@@ -921,7 +921,7 @@ func makeQualityWindow() {
 	qualityWin.Resizable = false
 	qualityWin.AutoSize = true
 	qualityWin.Movable = true
-	qualityWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	qualityWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1162,7 +1162,7 @@ func makeDebugWindow() {
 	debugWin.Resizable = false
 	debugWin.AutoSize = true
 	debugWin.Movable = true
-	debugWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	debugWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1465,7 +1465,7 @@ func makeWindowsWindow() {
 	windowsWin.Resizable = false
 	windowsWin.AutoSize = true
 	windowsWin.Movable = true
-	windowsWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	windowsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1598,7 +1598,7 @@ func makeHelpWindow() {
 	helpWin.Resizable = false
 	helpWin.AutoSize = true
 	helpWin.Movable = true
-	helpWin.SetZone(eui.HZoneCenter, eui.VZoneMiddle)
+	helpWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	helpTexts := []string{
 		"WASD or Arrow Keys - Walk",

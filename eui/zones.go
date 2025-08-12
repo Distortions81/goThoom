@@ -8,7 +8,8 @@ type HZone int
 const (
 	HZoneLeft HZone = iota
 	HZoneLeftCenter
-	HZoneCenter
+	HZoneCenterLeft
+	HZoneCenterRight
 	HZoneRightCenter
 	HZoneRight
 )
@@ -19,7 +20,8 @@ type VZone int
 const (
 	VZoneTop VZone = iota
 	VZoneTopMiddle
-	VZoneMiddle
+	VZoneMiddleTop
+	VZoneMiddleBottom
 	VZoneBottomMiddle
 	VZoneBottom
 )
@@ -77,11 +79,13 @@ func hZoneCoord(z HZone, width int) float32 {
 	case HZoneLeft:
 		return 0
 	case HZoneLeftCenter:
-		return float32(width) * 0.25
-	case HZoneCenter:
-		return float32(width) * 0.5
+		return float32(width) * 0.20
+	case HZoneCenterLeft:
+		return float32(width) * 0.40
+	case HZoneCenterRight:
+		return float32(width) * 0.60
 	case HZoneRightCenter:
-		return float32(width) * 0.75
+		return float32(width) * 0.80
 	case HZoneRight:
 		return float32(width)
 	default:
@@ -94,11 +98,13 @@ func vZoneCoord(z VZone, height int) float32 {
 	case VZoneTop:
 		return 0
 	case VZoneTopMiddle:
-		return float32(height) * 0.25
-	case VZoneMiddle:
-		return float32(height) * 0.5
+		return float32(height) * 0.20
+	case VZoneMiddleTop:
+		return float32(height) * 0.40
+	case VZoneMiddleBottom:
+		return float32(height) * 0.60
 	case VZoneBottomMiddle:
-		return float32(height) * 0.75
+		return float32(height) * 0.80
 	case VZoneBottom:
 		return float32(height)
 	default:
@@ -107,7 +113,7 @@ func vZoneCoord(z VZone, height int) float32 {
 }
 
 func nearestHZone(x float32, width int) HZone {
-	zones := []HZone{HZoneLeft, HZoneLeftCenter, HZoneCenter, HZoneRightCenter, HZoneRight}
+	zones := []HZone{HZoneLeft, HZoneLeftCenter, HZoneCenterLeft, HZoneCenterRight, HZoneRightCenter, HZoneRight}
 	closest := zones[0]
 	min := float32(math.MaxFloat32)
 	for _, z := range zones {
@@ -121,7 +127,7 @@ func nearestHZone(x float32, width int) HZone {
 }
 
 func nearestVZone(y float32, height int) VZone {
-	zones := []VZone{VZoneTop, VZoneTopMiddle, VZoneMiddle, VZoneBottomMiddle, VZoneBottom}
+	zones := []VZone{VZoneTop, VZoneTopMiddle, VZoneMiddleTop, VZoneMiddleBottom, VZoneBottomMiddle, VZoneBottom}
 	closest := zones[0]
 	min := float32(math.MaxFloat32)
 	for _, z := range zones {
