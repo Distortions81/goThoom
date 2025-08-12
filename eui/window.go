@@ -63,6 +63,7 @@ func NewButton() (*itemData, *EventHandler) {
 	newItem := currentTheme.Button
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -74,6 +75,7 @@ func NewCheckbox() (*itemData, *EventHandler) {
 	newItem := currentTheme.Checkbox
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -85,6 +87,7 @@ func NewRadio() (*itemData, *EventHandler) {
 	newItem := currentTheme.Radio
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -101,6 +104,7 @@ func NewInput() (*itemData, *EventHandler) {
 	}
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -112,6 +116,7 @@ func NewSlider() (*itemData, *EventHandler) {
 	newItem := currentTheme.Slider
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -123,6 +128,7 @@ func NewDropdown() (*itemData, *EventHandler) {
 	newItem := currentTheme.Dropdown
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -134,6 +140,7 @@ func NewColorWheel() (*itemData, *EventHandler) {
 	newItem := baseColorWheel
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
@@ -145,6 +152,7 @@ func NewText() (*itemData, *EventHandler) {
 	newItem := currentTheme.Text
 	h := newHandler()
 	newItem.Handler = h
+	newItem.Theme = currentTheme
 	return &newItem, h
 }
 
