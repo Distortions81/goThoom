@@ -432,6 +432,10 @@ func SetUIScale(scale float32) {
 		} else {
 			win.resizeFlows()
 		}
+		if win.zone != nil {
+			win.updateZonePosition()
+		}
+		win.clampToScreen()
 	}
 	markAllDirty()
 }
