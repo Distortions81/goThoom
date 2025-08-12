@@ -28,8 +28,6 @@ func simpleEncrypt(data []byte) {
 	}
 }
 
-func encodeMacRoman(s string) []byte { return []byte(s) }
-
 func encodeFullVersion(v int) uint32 { return uint32(v) << 8 }
 
 const (

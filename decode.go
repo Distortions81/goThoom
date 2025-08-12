@@ -106,8 +106,6 @@ var languageYellVerb = []string{
 	"yelps",           // Lepori
 }
 
-func decodeMacRoman(b []byte) string { return string(b) }
-
 func decodeBEPP(data []byte) string {
 	if len(data) < 3 || data[0] != 0xC2 {
 		return ""

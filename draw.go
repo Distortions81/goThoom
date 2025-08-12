@@ -459,7 +459,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 					logError("inventory: cmd %x missing name", cmd)
 					return nil, false
 				}
-				name = string(data[:nidx])
+				name = decodeMacRoman(data[:nidx])
 				data = data[nidx+1:]
 			}
 			switch base {
@@ -537,7 +537,7 @@ func parseDrawState(data []byte) error {
 		d.PictID = binary.BigEndian.Uint16(data[p+2:])
 		p += 4
 		if idx := bytes.IndexByte(data[p:], 0); idx >= 0 {
-			d.Name = string(data[p : p+idx])
+			d.Name = decodeMacRoman(data[p : p+idx])
 			p += idx + 1
 			if d.Name == playerName {
 				playerIndex = d.Index
