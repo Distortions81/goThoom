@@ -1,5 +1,7 @@
 package eui
 
+import "math"
+
 // HZone defines the horizontal zone positions.
 type HZone int
 
@@ -82,4 +84,40 @@ func vZoneCoord(z VZone, height int) float32 {
 	default:
 		return float32(height) * 0.5
 	}
+}
+
+func nearestHZone(x float32, width int) HZone {
+	zones := []HZone{HZoneLeft, HZoneLeftCenter, HZoneCenter, HZoneRightCenter, HZoneRight}
+	closest := zones[0]
+	min := float32(math.MaxFloat32)
+	for _, z := range zones {
+		diff := float32(math.Abs(float64(x - hZoneCoord(z, width))))
+		if diff < min {
+			min = diff
+			closest = z
+		}
+	}
+	return closest
+}
+
+func nearestVZone(y float32, height int) VZone {
+	zones := []VZone{VZoneTop, VZoneTopMiddle, VZoneMiddle, VZoneBottomMiddle, VZoneBottom}
+	closest := zones[0]
+	min := float32(math.MaxFloat32)
+	for _, z := range zones {
+		diff := float32(math.Abs(float64(y - vZoneCoord(z, height))))
+		if diff < min {
+			min = diff
+			closest = z
+		}
+	}
+	return closest
+}
+
+func (win *windowData) PinToClosestZone() {
+	cx := win.getPosition().X + win.GetSize().X/2
+	cy := win.getPosition().Y + win.GetSize().Y/2
+	h := nearestHZone(cx, screenWidth)
+	v := nearestVZone(cy, screenHeight)
+	win.SetZone(h, v)
 }

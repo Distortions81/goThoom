@@ -157,12 +157,11 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			textWidth = 0
 		}
 
-		//Close X
+		//Close X and Pin icon
 		var buttonsWidth float32 = 0
 		if win.Closable {
 			var xpad float32 = (win.GetTitleSize()) / 3.0
 			color := win.Theme.Window.TitleColor
-			// fill background for close area if configured
 			if win.Theme.Window.CloseBGColor.A > 0 {
 				r := win.xRect()
 				closeArea := screen.SubImage(r.getRectangle()).(*ebiten.Image)
@@ -188,6 +187,26 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 				win.getPosition().Y+(win.GetTitleSize())-xpad,
 				xThick, color, true)
 
+			buttonsWidth += (win.GetTitleSize())
+		}
+
+		// Pin icon
+		{
+			pr := win.pinRect()
+			color := win.Theme.Window.TitleColor
+			if win.HoverPin {
+				color = win.Theme.Window.HoverTitleColor
+				win.HoverPin = false
+			}
+			radius := win.GetTitleSize() / 6
+			cx := pr.X0 + (pr.X1-pr.X0)/2
+			cy := pr.Y0 + (pr.Y1-pr.Y0)/2
+			vector.DrawFilledCircle(screen, cx, cy-radius/2, radius, color, true)
+			if win.zone != nil {
+				strokeLine(screen, cx, cy-radius/2, cx, pr.Y1-radius/3, uiScale, color, true)
+			} else {
+				strokeLine(screen, cx, cy-radius/2, cx+radius, pr.Y1-radius/3, uiScale, color, true)
+			}
 			buttonsWidth += (win.GetTitleSize())
 		}
 

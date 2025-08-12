@@ -117,13 +117,39 @@ func (win *windowData) xRect() rect {
 	}
 }
 
+func (win *windowData) pinRect() rect {
+	if win.TitleHeight <= 0 {
+		return rect{}
+	}
+
+	var xpad float32 = win.Border
+	size := win.GetTitleSize()
+	x1 := win.getPosition().X + win.GetSize().X - xpad
+	x0 := x1 - size
+	if win.Closable {
+		x1 -= size
+		x0 -= size
+	}
+	return rect{
+		X0: x0,
+		Y0: win.getPosition().Y + xpad,
+		X1: x1,
+		Y1: win.getPosition().Y + size - xpad,
+	}
+}
+
 func (win *windowData) dragbarRect() rect {
 	if win.TitleHeight <= 0 && !win.Resizable {
 		return rect{}
 	}
 	textSize := win.titleTextWidth()
-	xRect := win.xRect()
-	buttonsWidth := xRect.X1 - xRect.X0 + 3
+	buttonsWidth := float32(3)
+	if win.Closable {
+		xr := win.xRect()
+		buttonsWidth += xr.X1 - xr.X0
+	}
+	pr := win.pinRect()
+	buttonsWidth += pr.X1 - pr.X0
 
 	dpad := (win.GetTitleSize()) / 5
 	xStart := textSize.X + float32((win.GetTitleSize())/1.5)
@@ -291,6 +317,10 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 		if win.Closable && win.xRect().containsPoint(mpos) {
 			win.HoverClose = true
 			return PART_CLOSE
+		}
+		if win.pinRect().containsPoint(mpos) {
+			win.HoverPin = true
+			return PART_PIN
 		}
 		if win.Movable && win.dragbarRect().containsPoint(mpos) {
 			win.HoverDragbar = true
