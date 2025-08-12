@@ -109,7 +109,7 @@ func makeToolbarWindow() {
 	toolbarWin.NoScroll = true
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
-	toolbarWin.SetZone(eui.HZoneCenterLeft, eui.VZoneTopMiddle)
+	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTopMiddle)
 	toolbarWin.Size = eui.Point{X: 930, Y: 60}
 
 	gameMenu := &eui.ItemData{
@@ -1506,9 +1506,9 @@ func makeWindowsWindow() {
 	chatBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				consoleWin.MarkOpen()
+				chatWin.MarkOpen()
 			} else {
-				consoleWin.Close()
+				chatWin.Close()
 			}
 		}
 	}
