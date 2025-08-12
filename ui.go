@@ -805,6 +805,7 @@ func makeSettingsWindow() {
 		if ev.Type == eui.EventClick {
 			gs.UIScale = pendingUIScale
 			eui.SetUIScale(float32(gs.UIScale))
+			updateGameWindowSize()
 			settingsDirty = true
 		}
 	}
@@ -827,9 +828,7 @@ func makeSettingsWindow() {
 	gameSizeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.GameScale = float64(ev.Value)
-			if gameWin != nil {
-				gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * float32(gs.GameScale), Y: float32(gameAreaSizeY) * float32(gs.GameScale)}
-			}
+			updateGameWindowSize()
 			initFont()
 			settingsDirty = true
 		}
