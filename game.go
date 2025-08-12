@@ -1229,6 +1229,7 @@ func makeGameWindow() {
 	gameWin.AlwaysDrawFirst = true
 	gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	gameWin.MarkOpen()
+	updateGameWindowSize()
 }
 
 func noteFrame() {
