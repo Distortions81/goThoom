@@ -107,10 +107,10 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 		drawDropShadow(screen, &rr, win.ShadowSize, win.ShadowColor)
 	}
 	r := rect{
-		X0: win.getPosition().X + win.BorderPad,
-		Y0: win.getPosition().Y + win.BorderPad,
-		X1: win.getPosition().X + win.GetSize().X - win.BorderPad,
-		Y1: win.getPosition().Y + win.GetSize().Y - win.BorderPad,
+		X0: win.getPosition().X + win.BorderPad*win.scale(),
+		Y0: win.getPosition().Y + win.BorderPad*win.scale(),
+		X1: win.getPosition().X + win.GetSize().X - win.BorderPad*win.scale(),
+		Y1: win.getPosition().Y + win.GetSize().Y - win.BorderPad*win.scale(),
 	}
 	drawRoundRect(screen, &roundRect{
 		Size:     point{X: r.X1 - r.X0, Y: r.Y1 - r.Y0},
@@ -168,7 +168,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 				closeArea := screen.SubImage(r.getRectangle()).(*ebiten.Image)
 				closeArea.Fill(win.Theme.Window.CloseBGColor)
 			}
-			xThick := 1 * uiScale
+			xThick := 1 * win.scale()
 			if win.HoverClose {
 				color = win.Theme.Window.HoverTitleColor
 				win.HoverClose = false
@@ -204,7 +204,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			if spacing <= 0 {
 				spacing = 5
 			}
-			for x := textWidth + float64((win.GetTitleSize())/1.5); x < float64(win.GetSize().X-buttonsWidth); x = x + float64(uiScale*spacing) {
+			for x := textWidth + float64((win.GetTitleSize())/1.5); x < float64(win.GetSize().X-buttonsWidth); x = x + float64(win.scale()*spacing) {
 				strokeLine(screen,
 					win.getPosition().X+float32(x), win.getPosition().Y+dpad,
 					win.getPosition().X+float32(x), win.getPosition().Y+(win.GetTitleSize())-dpad,
@@ -238,7 +238,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 	if win.NoScroll {
 		return
 	}
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
 	avail := point{
 		X: win.GetSize().X - 2*pad,
@@ -254,7 +254,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 		sbW := currentStyle.BorderPad.Slider * 2
 		drawRoundRect(screen, &roundRect{
 			Size:     point{X: sbW, Y: barH},
-			Position: point{X: win.getPosition().X + win.GetSize().X - win.BorderPad - sbW, Y: win.getPosition().Y + win.GetTitleSize() + win.BorderPad + pos},
+			Position: point{X: win.getPosition().X + win.GetSize().X - win.BorderPad*win.scale() - sbW, Y: win.getPosition().Y + win.GetTitleSize() + win.BorderPad*win.scale() + pos},
 			Fillet:   currentStyle.Fillet.Slider,
 			Filled:   true,
 			Color:    win.Theme.Window.ActiveColor,
@@ -270,7 +270,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 		sbW := currentStyle.BorderPad.Slider * 2
 		drawRoundRect(screen, &roundRect{
 			Size:     point{X: barW, Y: sbW},
-			Position: point{X: win.getPosition().X + win.BorderPad + pos, Y: win.getPosition().Y + win.GetSize().Y - win.BorderPad - sbW},
+			Position: point{X: win.getPosition().X + win.BorderPad*win.scale() + pos, Y: win.getPosition().Y + win.GetSize().Y - win.BorderPad*win.scale() - sbW},
 			Fillet:   currentStyle.Fillet.Slider,
 			Filled:   true,
 			Color:    win.Theme.Window.ActiveColor,
@@ -279,7 +279,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 }
 
 func (win *windowData) drawItems(screen *ebiten.Image, base point) {
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	winPos := point{X: pad, Y: win.GetTitleSize() + pad}
 	winPos = pointSub(winPos, win.Scroll)
 	clip := win.getMainRect()
@@ -422,7 +422,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			flowOff := pointAdd(drawOffset, flowOffset)
 
 			if subItem.PinTo != PIN_TOP_LEFT {
-				pad := (win.Padding + win.BorderPad) * uiScale
+				pad := (win.Padding + win.BorderPad) * win.scale()
 				objOff := pointAdd(win.getPosition(), point{X: pad, Y: win.GetTitleSize() + pad})
 				objOff = pointSub(objOff, win.Scroll)
 				objOff = pointAdd(objOff, subItem.getPosition(win))

@@ -57,8 +57,7 @@ func Update() error {
 	wx, wy := pointerWheel()
 	wheelDelta := point{X: float32(wx), Y: float32(wy)}
 
-	posCh := pointScaleDiv(pointSub(mpos, mposOld))
-	sizeCh := pointScaleMul(point{X: posCh.X / uiScale, Y: posCh.Y / uiScale})
+	delta := pointSub(mpos, mposOld)
 	c := ebiten.CursorShapeDefault
 
 	//Check all windows
@@ -67,6 +66,10 @@ func Update() error {
 		if !win.Open {
 			continue
 		}
+
+		s := win.scale()
+		posCh := point{X: delta.X / s, Y: delta.Y / s}
+		sizeCh := posCh
 
 		var part dragType
 		if dragPart != PART_NONE && dragWin == win {
@@ -691,7 +694,7 @@ func scrollWindow(win *windowData, delta point) bool {
 	if win.NoScroll {
 		return false
 	}
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
 	avail := point{
 		X: win.GetSize().X - 2*pad,
@@ -736,7 +739,7 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 		return
 	}
 	old := win.Scroll
-	pad := (win.Padding + win.BorderPad) * uiScale
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
 	avail := point{
 		X: win.GetSize().X - 2*pad,
@@ -745,7 +748,7 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	if vert && req.Y > avail.Y {
 		barH := avail.Y * avail.Y / req.Y
 		maxScroll := req.Y - avail.Y
-		track := win.getPosition().Y + win.GetTitleSize() + win.BorderPad
+		track := win.getPosition().Y + win.GetTitleSize() + win.BorderPad*win.scale()
 		pos := mpos.Y - (track + barH/2)
 		if pos < 0 {
 			pos = 0
@@ -764,7 +767,7 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	if !vert && req.X > avail.X {
 		barW := avail.X * avail.X / req.X
 		maxScroll := req.X - avail.X
-		track := win.getPosition().X + win.BorderPad
+		track := win.getPosition().X + win.BorderPad*win.scale()
 		pos := mpos.X - (track + barW/2)
 		if pos < 0 {
 			pos = 0
