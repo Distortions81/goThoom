@@ -21,6 +21,8 @@ type windowData struct {
 	Position point
 	Size     point
 
+	zone *windowZone
+
 	Padding   float32
 	Margin    float32
 	Border    float32

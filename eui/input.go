@@ -105,14 +105,16 @@ func Update() error {
 			} else if clickDrag && dragPart != PART_NONE && dragWin == win {
 				switch dragPart {
 				case PART_BAR:
-					win.Position = pointAdd(win.Position, posCh)
-					//win.markDirty()
+					if win.zone == nil {
+						win.Position = pointAdd(win.Position, posCh)
+					}
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
-						win.Position = pointAdd(win.Position, posCh)
-						//win.markDirty()
+						if win.zone == nil {
+							win.Position = pointAdd(win.Position, posCh)
+						}
 					}
 				case PART_BOTTOM:
 					sizeCh.X = 0
@@ -121,23 +123,26 @@ func Update() error {
 					posCh.Y = 0
 					sizeCh.Y = 0
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
-						win.Position = pointAdd(win.Position, posCh)
-						//win.markDirty()
+						if win.zone == nil {
+							win.Position = pointAdd(win.Position, posCh)
+						}
 					}
 				case PART_RIGHT:
 					sizeCh.Y = 0
 					win.setSize(pointAdd(win.Size, sizeCh))
 				case PART_TOP_LEFT:
 					if !win.setSize(pointSub(win.Size, sizeCh)) {
-						win.Position = pointAdd(win.Position, posCh)
-						//win.markDirty()
+						if win.zone == nil {
+							win.Position = pointAdd(win.Position, posCh)
+						}
 					}
 				case PART_TOP_RIGHT:
 					tx := win.Size.X + sizeCh.X
 					ty := win.Size.Y - sizeCh.Y
 					if !win.setSize(point{X: tx, Y: ty}) {
-						win.Position.Y += posCh.Y
-						//win.markDirty()
+						if win.zone == nil {
+							win.Position.Y += posCh.Y
+						}
 					}
 				case PART_BOTTOM_RIGHT:
 					tx := win.Size.X + sizeCh.X
@@ -147,8 +152,9 @@ func Update() error {
 					tx := win.Size.X - sizeCh.X
 					ty := win.Size.Y + sizeCh.Y
 					if !win.setSize(point{X: tx, Y: ty}) {
-						win.Position.X += posCh.X
-						//win.markDirty()
+						if win.zone == nil {
+							win.Position.X += posCh.X
+						}
 					}
 				case PART_SCROLL_V:
 					dragWindowScroll(win, mpos, true)

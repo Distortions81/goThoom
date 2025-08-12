@@ -28,6 +28,9 @@ func SetScreenSize(w, h int) {
 			win.resizeFlows()
 			win.adjustScrollForResize()
 		}
+		if win.zone != nil {
+			win.updateZonePosition()
+		}
 		win.clampToScreen()
 	}
 }
