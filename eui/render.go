@@ -127,6 +127,9 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 		}
 		drawDropShadow(screen, &rr, win.ShadowSize, win.ShadowColor)
 	}
+	if win.NoBGColor {
+		return
+	}
 	r := rect{
 		X0: win.getPosition().X + win.BorderPad*win.scale(),
 		Y0: win.getPosition().Y + win.BorderPad*win.scale(),

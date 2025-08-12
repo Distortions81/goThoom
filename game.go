@@ -550,16 +550,7 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-
-	wx, wy := gameWindowOrigin()
 	ox, oy := gameContentOrigin()
-	if gameWin != nil {
-		size := gameWin.GetSize()
-		w := float32(int(size.X) &^ 1)
-		h := float32(int(size.Y) &^ 1)
-		bg := color.RGBA(gameWin.Theme.Window.BGColor)
-		vector.DrawFilledRect(screen, float32(wx), float32(wy), w, h, bg, false)
-	}
 	if clmov == "" && tcpConn == nil {
 		drawSplash(screen, ox, oy)
 		eui.Draw(screen)
@@ -1236,6 +1227,13 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = eui.NewWindow()
+	th := *gameWin.Theme
+	th.Window.Theme = &th
+	th.Window.BGColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
+	th.Window.ShadowColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
+	gameWin.Theme = &th
+	gameWin.ShadowColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
+	gameWin.NoBGColor = true
 	gameWin.Title = "Clan Lord"
 	gameWin.Closable = false
 	gameWin.Resizable = true
