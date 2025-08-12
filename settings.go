@@ -161,8 +161,6 @@ func loadSettings() bool {
 		gs = newGS
 	}
 
-	clampWindowSettings()
-
 	if !gs.fastSound {
 		initSinc()
 	}
@@ -248,31 +246,6 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		changed = true
 	}
 	return changed
-}
-
-func clampWindowSettings() {
-	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow}
-	for _, st := range states {
-		clampWindowState(st)
-	}
-}
-
-func clampWindowState(st *WindowState) {
-	if st.Size.X <= 0 || st.Size.X > 1 || st.Size.Y <= 0 || st.Size.Y > 1 {
-		st.Position = WindowPoint{}
-		st.Size = WindowPoint{}
-		return
-	}
-	if st.Position.X < 0 {
-		st.Position.X = 0
-	} else if st.Position.X > 1 {
-		st.Position.X = 1
-	}
-	if st.Position.Y < 0 {
-		st.Position.Y = 0
-	} else if st.Position.Y > 1 {
-		st.Position.Y = 1
-	}
 }
 
 type qualityPreset struct {

@@ -522,9 +522,10 @@ func makeLoginWindow() {
 	loginWin.Title = "Login"
 	loginWin.Closable = false
 	loginWin.Resizable = false
-	loginWin.AutoSize = true
+	loginWin.AutoSize = false
 	loginWin.Movable = true
-	loginWin.Position = MID_CENTER
+	loginWin.Size = eui.ScreenToNorm(eui.Point{X: 400, Y: 400})
+	loginWin.Position = loginWin.CenterOffset(MID_CENTER)
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -632,7 +633,6 @@ func makeLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
-
 	updateCharacterButtons()
 }
 

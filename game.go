@@ -1146,8 +1146,8 @@ func initGame() {
 	eui.LoadTheme("AccentDark")
 	eui.LoadStyle("RoundHybrid")
 
-	initUI()
 	loadSettings()
+	initUI()
 	updateCharacterButtons()
 
 	close(gameStarted)
