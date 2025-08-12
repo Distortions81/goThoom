@@ -87,29 +87,31 @@ func main() {
 		}()
 	}
 
-	go func() {
-		runGame(ctx)
-		cancel()
-	}()
-	consoleMessage("Starting...")
-
 	clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)
-	} else {
-		clImages.Denoise = gs.DenoiseImages
-		clImages.DenoiseSharpness = gs.DenoiseSharpness
-		clImages.DenoisePercent = gs.DenoisePercent
+		return
 	}
+	clImages.Denoise = gs.DenoiseImages
+	clImages.DenoiseSharpness = gs.DenoiseSharpness
+	clImages.DenoisePercent = gs.DenoisePercent
 
 	clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
 	if err != nil {
 		logError("failed to load CL_Sounds: %v", err)
+		return
 	}
 
 	if gs.precacheSounds || gs.precacheImages {
 		go precacheAssets()
 	}
+
+	consoleMessage("Starting...")
+
+	go func() {
+		runGame(ctx)
+		cancel()
+	}()
 
 	if clmovPath != "" {
 		drawStateEncrypted = false

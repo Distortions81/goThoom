@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -186,17 +185,8 @@ func applySettings() {
 }
 
 func saveSettings() {
+	// Saving settings is currently disabled.
 	return
-	syncWindowSettings()
-	data, err := json.MarshalIndent(gs, "", "  ")
-	if err != nil {
-		log.Printf("save settings: %v", err)
-		return
-	}
-	path := filepath.Join(dataDirPath, settingsFile)
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		log.Printf("save settings: %v", err)
-	}
 }
 
 func syncWindowSettings() bool {
