@@ -47,9 +47,8 @@ func makeChatWindow() {
 	}
 	chatWin = eui.NewWindow()
 	chatWin.Title = "Chat"
-	sx, sy := eui.ScreenSize()
 	if gs.ChatWindow.Size.X > 0 && gs.ChatWindow.Size.Y > 0 {
-		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X) * float32(sx), Y: float32(gs.ChatWindow.Size.Y) * float32(sy)}
+		chatWin.Size = eui.Point{X: float32(gs.ChatWindow.Size.X), Y: float32(gs.ChatWindow.Size.Y)}
 	} else {
 		chatWin.Size = eui.ScreenToNorm(eui.Point{X: 425, Y: 350})
 	}
@@ -58,7 +57,7 @@ func makeChatWindow() {
 	chatWin.Movable = true
 	chatWin.Position = BOTTOM_RIGHT
 	if gs.ChatWindow.Position.X != 0 || gs.ChatWindow.Position.Y != 0 {
-		chatWin.Position = eui.Point{X: float32(gs.ChatWindow.Position.X) * float32(sx), Y: float32(gs.ChatWindow.Position.Y) * float32(sy)}
+		chatWin.Position = eui.Point{X: float32(gs.ChatWindow.Position.X), Y: float32(gs.ChatWindow.Position.Y)}
 	}
 
 	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
