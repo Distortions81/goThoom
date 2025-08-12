@@ -18,6 +18,7 @@ import (
 const shadowAlphaDivisor = 16
 
 var dumpDone bool
+var hoverPinWin *windowData
 
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
@@ -73,7 +74,7 @@ func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 				Position: point{X: x - size/2, Y: y - size/2},
 				Fillet:   fillet,
 				Filled:   true,
-				Color:    col,
+				Color:    Color{R: col.R, G: col.G, B: col.B},
 			}
 			drawRoundRect(screen, &rr)
 		}
