@@ -53,6 +53,11 @@ type windowData struct {
 
 	Theme *Theme
 
+	// Render caches the pre-rendered image for this window when Dirty is
+	// false.
+	Render *ebiten.Image
+	Dirty  bool
+
 	// Drop shadow styling
 	ShadowSize  float32
 	ShadowColor Color
