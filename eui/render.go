@@ -44,8 +44,6 @@ func Draw(screen *ebiten.Image) {
 		drawDropdownOptions(dr.item, dr.offset, dr.clip, screen)
 	}
 
-	drawFPS(screen)
-
 	if DumpMode && !dumpDone {
 		if err := DumpCachedImages(); err != nil {
 			panic(err)
@@ -1436,10 +1434,4 @@ func drawArrow(screen *ebiten.Image, x0, y0, x1, y1, width float32, col Color) {
 	rightX := x1 - head*float32(math.Cos(angle+math.Pi/6))
 	rightY := y1 - head*float32(math.Sin(angle+math.Pi/6))
 	strokeLine(screen, x1, y1, rightX, rightY, width, col, true)
-}
-
-func drawFPS(screen *ebiten.Image) {
-	drawFilledRect(screen, 0, 0, 58, 16, color.RGBA{R: 0, G: 0, B: 0, A: 192}, false)
-	buf := fmt.Sprintf("%4v FPS", int(math.Round(ebiten.ActualFPS())))
-	ebitenutil.DebugPrintAt(screen, buf, 0, 0)
 }
