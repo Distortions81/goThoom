@@ -536,14 +536,14 @@ func makeLoginWindow() {
 
 	addBtn, addEvents := eui.NewButton()
 	addBtn.Text = "Add Character"
-	addBtn.RadioGroup = "Characters"
 	addBtn.Size = eui.Point{X: 200, Y: 24}
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharName = ""
 			addCharPass = ""
-			addCharRemember = false
-
+			addCharRemember = true
+			loginWin.Close()
+			addCharWin.Open()
 		}
 	}
 	loginFlow.AddItem(addBtn)
@@ -592,7 +592,6 @@ func makeLoginWindow() {
 	loginFlow.AddItem(openBtn)
 
 	loginFlow.AddItem(charactersList)
-	updateCharacterButtons()
 
 	label, _ := eui.NewText()
 	label.Text = ""
@@ -629,6 +628,7 @@ func makeLoginWindow() {
 
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+	updateCharacterButtons()
 }
 
 func makeErrorWindow(msg string) {
