@@ -118,7 +118,9 @@ func (target *windowData) AddWindow(toBack bool) {
 	}
 
 	if target.PinTo != PIN_NONE {
+		// Pinned windows can't be moved or resized.
 		target.Movable = false
+		target.Resizable = false
 	}
 
 	if target.NoTitle {
@@ -156,7 +158,7 @@ func (target *windowData) AddWindow(toBack bool) {
 
 	if !toBack {
 		windows = append(windows, target)
-		if target.PinTo == PIN_TOP_LEFT {
+		if target.PinTo == PIN_NONE {
 			activeWindow = target
 		}
 	} else {

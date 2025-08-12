@@ -20,6 +20,7 @@ func TestWindowDragClickScaled(t *testing.T) {
 	win := &windowData{
 		Position:    point{X: 0, Y: 0},
 		Size:        point{X: 50, Y: 50},
+		PinTo:       PIN_NONE,
 		open:        true,
 		Movable:     true,
 		Margin:      0,
