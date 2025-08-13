@@ -8,10 +8,17 @@ import (
 
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
+var inputBar *eui.ItemData
 
 func updateChatWindow() {
 	if chatList == nil {
 		return
+	}
+	if chatWin != nil {
+		chatList.Size.Y = chatWin.GetSize().Y
+		if inputBar != nil {
+			chatList.Size.Y -= inputBar.Size.Y
+		}
 	}
 	msgs := getChatMessages()
 	changed := false
@@ -59,7 +66,7 @@ func makeChatWindow() error {
 	chatWin.Movable = true
 	chatWin.SetZone(eui.HZoneRight, eui.VZoneBottom)
 
-	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	chatList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
 	chatWin.AddItem(chatList)
 	chatWin.AddWindow(false)
 	return nil
