@@ -25,6 +25,7 @@ func SetWindowSnapping(enabled bool) { windowSnapping = enabled }
 func SetScreenSize(w, h int) {
 	screenWidth = w
 	screenHeight = h
+	needDirty := false
 	for _, win := range windows {
 		size := win.GetSize()
 		resized := false
@@ -44,14 +45,22 @@ func SetScreenSize(w, h int) {
 			}
 			resized = true
 		}
-		if resized {
+		if win.AutoSize {
+			win.updateAutoSize()
+			win.adjustScrollForResize()
+			needDirty = true
+		} else if resized {
 			win.resizeFlows()
 			win.adjustScrollForResize()
+			needDirty = true
 		}
 		if win.zone != nil {
 			win.updateZonePosition()
 		}
 		win.clampToScreen()
+	}
+	if needDirty {
+		markAllDirty()
 	}
 }
 
