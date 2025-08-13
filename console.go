@@ -3,7 +3,7 @@ package main
 import "sync"
 
 const (
-	maxMessages = 5
+	maxMessages = 1000
 )
 
 var (
