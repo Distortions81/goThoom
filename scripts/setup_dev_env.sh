@@ -11,7 +11,7 @@ fi
 
 sudo apt-get update
 sudo apt-get install -y golang-go build-essential libgl1-mesa-dev \
-  libglu1-mesa-dev xorg-dev xvfb
+  libglu1-mesa-dev xorg-dev xvfb pkg-config libasound2-dev libgtk-3-dev
 
 # Start Xvfb for headless environments if not already running
 if ! pgrep -x Xvfb >/dev/null 2>&1; then
@@ -24,5 +24,7 @@ export DISPLAY=${DISPLAY:-:99}
 go mod download
 go fmt ./...
 go vet ./...
+go build ./...
+go test ./...
 
 echo "Development environment setup complete."
