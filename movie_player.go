@@ -50,7 +50,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Resizable = false
 	win.AutoSize = false
 	win.NoScroll = true
-	win.SetZone(eui.HZoneCenter, eui.VZoneTopMiddle)
+	win.SetZone(eui.HZoneCenter, eui.VZoneBottomMiddle)
 	win.Size = ps
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -69,7 +69,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider, events = eui.NewSlider()
 	p.slider.MinValue = 0
 	p.slider.MaxValue = max
-	p.slider.Size = eui.Point{X: 500, Y: 24}
+	p.slider.Size = eui.Point{X: 650, Y: 24}
 	p.slider.IntOnly = true
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {

@@ -69,8 +69,8 @@ func Draw(screen *ebiten.Image) {
 func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 	size := float32(20) * uiScale
 	fillet := size / 4
-	dark := color.NRGBA{R: 0x40, G: 0x40, B: 0x40, A: 0xC0}
-	red := color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}
+	dark := color.NRGBA{R: 0x40, G: 0x40, B: 0x40, A: 64}
+	red := color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 64}
 
 	pos := win.getPosition()
 	winSize := win.GetSize()

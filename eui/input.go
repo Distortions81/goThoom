@@ -203,6 +203,9 @@ func Update() error {
 				case PART_SCROLL_H:
 					dragWindowScroll(win, mpos, false)
 				}
+				if dragPart != PART_BAR && dragPart != PART_SCROLL_V && dragPart != PART_SCROLL_H {
+					snapResize(win, dragPart)
+				}
 				win.clampToScreen()
 				if win.zone == nil {
 					if !snapToCorner(win) {
