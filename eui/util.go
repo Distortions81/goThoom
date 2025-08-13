@@ -394,6 +394,16 @@ func (win *windowData) getWindowPart(mpos point, click bool) dragType {
 	if part := win.getResizePart(mpos); part != PART_NONE {
 		return part
 	}
+	if !win.Resizable {
+		ct := cornerTolerance * s
+		winRect := win.getWinRect()
+		inCorner := func(x0, y0 float32) bool {
+			return mpos.X >= x0-ct && mpos.X <= x0+ct && mpos.Y >= y0-ct && mpos.Y <= y0+ct
+		}
+		if inCorner(winRect.X0, winRect.Y0) || inCorner(winRect.X1, winRect.Y0) || inCorner(winRect.X0, winRect.Y1) || inCorner(winRect.X1, winRect.Y1) {
+			return PART_BAR
+		}
+	}
 	return win.getScrollbarPart(mpos)
 }
 
