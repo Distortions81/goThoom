@@ -682,6 +682,31 @@ func makeSettingsWindow() {
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
 
+	themeDD, themeEvents := eui.NewDropdown()
+	themeDD.Label = "Theme"
+	if opts, err := eui.ListThemes(); err == nil {
+		themeDD.Options = opts
+		cur := eui.CurrentThemeName()
+		for i, n := range opts {
+			if n == cur {
+				themeDD.Selected = i
+				break
+			}
+		}
+	}
+	themeDD.Size = eui.Point{X: width, Y: 24}
+	themeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			name := themeDD.Options[ev.Index]
+			if err := eui.LoadTheme(name); err == nil {
+				gs.Theme = name
+				settingsDirty = true
+				settingsWin.Refresh()
+			}
+		}
+	}
+	mainFlow.AddItem(themeDD)
+
 	label, _ := eui.NewText()
 	label.Text = "\nControls:"
 	label.FontSize = 15
