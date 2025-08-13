@@ -723,6 +723,21 @@ func parseDrawState(data []byte) error {
 		newPics[i].Again = false
 	}
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
+	if ok && gs.scrollWheelZoom {
+		for i := again; i < len(prevPics); i++ {
+			p := prevPics[i]
+			if !p.Background {
+				continue
+			}
+			p.H = int16(int(p.H) + dx)
+			p.V = int16(int(p.V) + dy)
+			p.Again = true
+			p.Moving = false
+			idx := len(newPics)
+			newPics = append(newPics, p)
+			bgIdxs = append(bgIdxs, idx)
+		}
+	}
 	if gs.MotionSmoothing {
 		if gs.smoothMoving {
 			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)

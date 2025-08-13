@@ -518,6 +518,20 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := ebiten.CursorPosition()
+	if gs.scrollWheelZoom && !pointInUI(mx, my) {
+		_, wy := ebiten.Wheel()
+		if wy != 0 {
+			gs.GameScale += wy * 0.25
+			if gs.GameScale < 1 {
+				gs.GameScale = 1
+			} else if gs.GameScale > 5 {
+				gs.GameScale = 5
+			}
+			updateGameWindowSize()
+			initFont()
+			settingsDirty = true
+		}
+	}
 	gx, gy := gameWindowOrigin()
 	baseX := int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
 	baseY := int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
