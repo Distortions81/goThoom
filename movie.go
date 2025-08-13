@@ -51,6 +51,7 @@ func parseMovie(path string, clientVersion int) ([][]byte, error) {
 		mobiles:     make(map[uint8]frameMobile),
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
+		mapTiles:    make(map[mapTileKey]mapTile),
 	}
 	initialState = cloneDrawState(state)
 	stateMu.Unlock()
