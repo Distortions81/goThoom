@@ -139,7 +139,7 @@ func Update() error {
 						win.PinToClosestZone()
 					}
 					win.markDirty()
-					continue
+					break
 				}
 				dragPart = part
 				dragWin = win
