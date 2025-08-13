@@ -375,6 +375,9 @@ func (g *Game) Update() error {
 		updateInventoryWindow()
 		inventoryDirty = false
 	}
+	if mapWin != nil && mapWin.IsOpen() {
+		updateMapWindow()
+	}
 
 	if syncWindowSettings() {
 		settingsDirty = true

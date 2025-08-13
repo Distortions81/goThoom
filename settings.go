@@ -55,6 +55,7 @@ var gsdef settings = settings{
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
 	PlayersWindow:   WindowState{Open: true},
+	MapWindow:       WindowState{Open: false},
 	MessagesWindow:  WindowState{Open: true},
 	ChatWindow:      WindowState{Open: true},
 
@@ -113,6 +114,7 @@ type settings struct {
 	GameWindow      WindowState
 	InventoryWindow WindowState
 	PlayersWindow   WindowState
+	MapWindow       WindowState
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
 
@@ -214,6 +216,9 @@ func syncWindowSettings() bool {
 	if syncWindow(playersWin, &gs.PlayersWindow) {
 		changed = true
 	}
+	if syncWindow(mapWin, &gs.MapWindow) {
+		changed = true
+	}
 	if syncWindow(consoleWin, &gs.MessagesWindow) {
 		changed = true
 	}
@@ -256,7 +261,7 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 
 func clampWindowSettings() {
 	sx, sy := eui.ScreenSize()
-	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow}
+	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MapWindow, &gs.MessagesWindow, &gs.ChatWindow}
 	for _, st := range states {
 		clampWindowState(st, float64(sx), float64(sy))
 	}

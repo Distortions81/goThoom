@@ -92,6 +92,7 @@ func initUI() {
 	makeWindowsWindow()
 	makeInventoryWindow()
 	makePlayersWindow()
+	makeMapWindow()
 	makeHelpWindow()
 	makeToolbarWindow()
 
@@ -99,6 +100,9 @@ func initUI() {
 	consoleWin.MarkOpen()
 	inventoryWin.MarkOpen()
 	playersWin.MarkOpen()
+	if gs.MapWindow.Open {
+		mapWin.MarkOpen()
+	}
 
 	if status.NeedImages || status.NeedSounds {
 		downloadWin.MarkOpen()
@@ -1695,6 +1699,21 @@ func makeWindowsWindow() {
 	}
 	flow.AddItem(playersBox)
 
+	mapBox, mapBoxEvents := eui.NewCheckbox()
+	mapBox.Text = "Map"
+	mapBox.Size = eui.Point{X: 128, Y: 24}
+	mapBox.Checked = mapWin != nil && mapWin.IsOpen()
+	mapBoxEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			if ev.Checked {
+				mapWin.MarkOpen()
+			} else {
+				mapWin.Close()
+			}
+		}
+	}
+	flow.AddItem(mapBox)
+
 	inventoryBox, inventoryBoxEvents := eui.NewCheckbox()
 	inventoryBox.Text = "Inventory"
 	inventoryBox.Size = eui.Point{X: 128, Y: 24}
@@ -1797,6 +1816,27 @@ func makePlayersWindow() {
 	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
+}
+
+func makeMapWindow() {
+	if mapWin != nil {
+		return
+	}
+	mapWin = eui.NewWindow()
+	mapWin.Title = "Map"
+	if gs.MapWindow.Size.X > 0 && gs.MapWindow.Size.Y > 0 {
+		mapWin.Size = eui.Point{X: float32(gs.MapWindow.Size.X), Y: float32(gs.MapWindow.Size.Y)}
+	} else {
+		mapWin.Size = eui.Point{X: 256, Y: 256}
+	}
+	mapWin.Closable = true
+	mapWin.Resizable = true
+	mapWin.Movable = true
+	mapWin.SetZone(eui.HZoneLeft, eui.VZoneTop)
+	if gs.MapWindow.Position.X != 0 || gs.MapWindow.Position.Y != 0 {
+		mapWin.Position = eui.Point{X: float32(gs.MapWindow.Position.X), Y: float32(gs.MapWindow.Position.Y)}
+	}
+	mapWin.AddWindow(false)
 }
 
 func makeHelpWindow() {
