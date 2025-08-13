@@ -1015,8 +1015,15 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
 	if p.Moving && !gs.smoothMoving {
-		offX = 0
-		offY = 0
+		if int(p.PrevH) == int(p.H)-shiftX && int(p.PrevV) == int(p.V)-shiftY {
+			if gs.dontShiftNewSprites {
+				offX = 0
+				offY = 0
+			}
+		} else {
+			offX = 0
+			offY = 0
+		}
 	}
 
 	frame := 0

@@ -1556,6 +1556,17 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(pictAgainCB)
+	shiftSpriteCB, shiftSpriteEvents := eui.NewCheckbox()
+	shiftSpriteCB.Text = "Don't shift new sprites"
+	shiftSpriteCB.Size = eui.Point{X: width, Y: 24}
+	shiftSpriteCB.Checked = gs.dontShiftNewSprites
+	shiftSpriteEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.dontShiftNewSprites = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(shiftSpriteCB)
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}
