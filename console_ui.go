@@ -65,7 +65,7 @@ func makeConsoleWindow() {
 	}
 	consoleWin = eui.NewWindow()
 	consoleWin.Title = "Console"
-	consoleWin.Size = eui.Point{X: 450, Y: 450}
+	consoleWin.Size = eui.Point{X: 410, Y: 450}
 	consoleWin.Closable = true
 	consoleWin.Resizable = true
 	consoleWin.Movable = true

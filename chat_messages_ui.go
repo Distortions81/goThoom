@@ -52,7 +52,7 @@ func makeChatWindow() error {
 		return nil
 	}
 	chatWin = eui.NewWindow()
-	chatWin.Size = eui.Point{X: 450, Y: 450}
+	chatWin.Size = eui.Point{X: 410, Y: 450}
 	chatWin.Title = "Chat"
 	chatWin.Closable = true
 	chatWin.Resizable = true

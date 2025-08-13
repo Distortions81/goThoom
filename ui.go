@@ -1566,7 +1566,7 @@ func makeInventoryWindow() {
 	inventoryWin.Resizable = true
 	inventoryWin.Movable = true
 	inventoryWin.SetZone(eui.HZoneLeft, eui.VZoneTop)
-	inventoryWin.Size = eui.Point{X: 425, Y: 600}
+	inventoryWin.Size = eui.Point{X: 410, Y: 600}
 
 	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
 		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
@@ -1595,7 +1595,7 @@ func makePlayersWindow() {
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
 		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
 	} else {
-		playersWin.Size = eui.Point{X: 425, Y: 600}
+		playersWin.Size = eui.Point{X: 410, Y: 600}
 	}
 	playersWin.Closable = true
 	playersWin.Resizable = true
