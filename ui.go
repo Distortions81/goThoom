@@ -57,6 +57,7 @@ var (
 	qualityPresetDD *eui.ItemData
 	denoiseCB       *eui.ItemData
 	motionCB        *eui.ItemData
+	noSmoothCB      *eui.ItemData
 	animCB          *eui.ItemData
 	pictBlendCB     *eui.ItemData
 	precacheSoundCB *eui.ItemData
@@ -1147,6 +1148,20 @@ func makeQualityWindow() {
 		}
 	}
 	flow.AddItem(motionCB)
+
+	nsCB, noSmoothEvents := eui.NewCheckbox()
+	noSmoothCB = nsCB
+	noSmoothCB.Text = "Don't smooth moving objects"
+	noSmoothCB.Size = eui.Point{X: width, Y: 24}
+	noSmoothCB.Checked = !gs.smoothMoving
+	noSmoothCB.Tooltip = "Skip interpolation for moving objects"
+	noSmoothEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.smoothMoving = !ev.Checked
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(noSmoothCB)
 
 	aCB, animEvents := eui.NewCheckbox()
 	animCB = aCB
