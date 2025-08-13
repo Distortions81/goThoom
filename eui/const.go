@@ -20,4 +20,7 @@ const (
 	// at the top and bottom of the screen when positioning dropdown menus
 	// to leave room for overlay controls.
 	dropdownOverlayReserve = 1
+
+	// MinWindowSize defines the minimum width and height for any window.
+	MinWindowSize = 64
 )
