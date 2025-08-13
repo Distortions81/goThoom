@@ -89,7 +89,7 @@ func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 				Position: point{X: x - size/2, Y: y - size/2},
 				Fillet:   fillet,
 				Filled:   true,
-				Color:    Color{R: col.R, G: col.G, B: col.B},
+				Color:    Color{R: col.R, G: col.G, B: col.B, A: col.A},
 			}
 			drawRoundRect(screen, &rr)
 		}
