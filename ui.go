@@ -80,7 +80,6 @@ func initUI() {
 	makeConsoleWindow()
 	makeSettingsWindow()
 	makeGraphicsWindow()
-	makeSoundWindow()
 	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -914,16 +913,16 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(graphicsBtn)
 
-	soundBtn, soundEvents := eui.NewButton()
-	soundBtn.Text = "Sound Settings"
-	soundBtn.Size = eui.Point{X: width, Y: 24}
-	soundBtn.Tooltip = "Open sound settings"
-	soundEvents.Handle = func(ev eui.UIEvent) {
+	qualityBtn, qualityEvents := eui.NewButton()
+	qualityBtn.Text = "Quality Options"
+	qualityBtn.Size = eui.Point{X: width, Y: 24}
+	qualityBtn.Tooltip = "Show detailed quality settings"
+	qualityEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			soundWin.Toggle()
+			qualityWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(soundBtn)
+	mainFlow.AddItem(qualityBtn)
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
@@ -1072,17 +1071,6 @@ func makeGraphicsWindow() {
 		}
 	}
 	flow.AddItem(qualityPresetDD)
-
-	qualityBtn, qualityEvents := eui.NewButton()
-	qualityBtn.Text = "Quality Options"
-	qualityBtn.Size = eui.Point{X: width, Y: 24}
-	qualityBtn.Tooltip = "Show detailed quality settings"
-	qualityEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			qualityWin.Toggle()
-		}
-	}
-	flow.AddItem(qualityBtn)
 
 	graphicsWin.AddItem(flow)
 	graphicsWin.AddWindow(false)
