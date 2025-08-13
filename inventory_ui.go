@@ -44,6 +44,6 @@ func updateInventoryWindow() {
 		changed = true
 	}
 	if changed {
-		inventoryDirty = true
+		inventoryList.Dirty = true
 	}
 }
