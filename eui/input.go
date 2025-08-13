@@ -219,6 +219,7 @@ func Update() error {
 
 		// Window items
 		prevWinHovered := win.Hovered
+		prevActiveWindow := activeWindow
 		win.Hovered = false
 		win.clickWindowItems(mpos, click)
 		if win.Hovered != prevWinHovered {
@@ -230,8 +231,10 @@ func Update() error {
 		// event.
 		if win.getWinRect().containsPoint(mpos) || dropdownOpenContains(win.Contents, mpos) {
 			if click || midClick {
-				if activeWindow != win || windows[len(windows)-1] != win {
-					win.BringForward()
+				if activeWindow == prevActiveWindow {
+					if activeWindow != win || windows[len(windows)-1] != win {
+						win.BringForward()
+					}
 				}
 			}
 			break
