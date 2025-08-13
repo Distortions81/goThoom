@@ -1519,6 +1519,18 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(smoothinCB)
+	pictAgainCB, pictAgainEvents := eui.NewCheckbox()
+	pictAgainCB.Text = "Mark pictAgain images"
+	pictAgainCB.Size = eui.Point{X: width, Y: 24}
+	pictAgainCB.Checked = gs.pictAgainDebug
+	pictAgainCB.Tooltip = "Tint retained images blue"
+	pictAgainEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.pictAgainDebug = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(pictAgainCB)
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}

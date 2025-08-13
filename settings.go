@@ -58,6 +58,7 @@ var gsdef settings = settings{
 
 	imgPlanesDebug:   false,
 	smoothingDebug:   false,
+	pictAgainDebug:   false,
 	hideMoving:       false,
 	hideMobiles:      false,
 	vsync:            true,
@@ -117,6 +118,7 @@ type settings struct {
 
 	imgPlanesDebug   bool
 	smoothingDebug   bool
+	pictAgainDebug   bool
 	hideMoving       bool
 	hideMobiles      bool
 	vsync            bool
