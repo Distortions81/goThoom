@@ -24,9 +24,6 @@ var (
 // Update processes input and updates window state.
 // Programs embedding the UI can call this from their Ebiten Update handler.
 func Update() error {
-	w, h := ebiten.WindowSize()
-	Layout(w, h)
-
 	checkThemeStyleMods()
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyGraveAccent) &&

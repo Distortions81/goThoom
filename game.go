@@ -431,24 +431,31 @@ func (g *Game) Update() error {
 
 		mx, my := ebiten.CursorPosition()
 		overUI := pointInUI(mx, my)
+		gx, gy := gameWindowOrigin()
 
 		if gs.ClickToToggle {
 			if !overUI && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 				if walkToggled {
 					walkToggled = false
 				} else {
-					walkTargetX = int16(float64(mx)/gs.GameScale - float64(fieldCenterX))
-					walkTargetY = int16(float64(my)/gs.GameScale - float64(fieldCenterY))
+					walkTargetX = int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
+					walkTargetY = int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
 					walkToggled = true
 				}
 			}
 			if walkToggled {
-				w, h := ebiten.WindowSize()
-				if overUI || mx < 0 || my < 0 || mx >= w || my >= h {
+				if gameWin == nil {
 					walkToggled = false
 				} else {
-					walkTargetX = int16(float64(mx)/gs.GameScale - float64(fieldCenterX))
-					walkTargetY = int16(float64(my)/gs.GameScale - float64(fieldCenterY))
+					size := gameWin.GetSize()
+					x1 := gx + int(size.X)
+					y1 := gy + int(size.Y)
+					if overUI || mx < gx || my < gy || mx >= x1 || my >= y1 {
+						walkToggled = false
+					} else {
+						walkTargetX = int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
+						walkTargetY = int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
+					}
 				}
 			}
 		} else {
@@ -535,26 +542,15 @@ func updateGameWindowSize() {
 		size := gameWin.GetRawSize()
 		desiredW := int(math.Round(float64(size.X)))
 		desiredH := int(math.Round(float64(size.Y)))
-		curW, curH := ebiten.WindowSize()
-		if curW != desiredW || curH != desiredH {
-			ebiten.SetWindowSize(desiredW, desiredH)
-		}
+		gameWin.SetSize(eui.Point{X: float32(desiredW), Y: float32(desiredH)})
 		return
 	}
 	scale := float32(gs.GameScale)
-	gameWin.Size = eui.Point{
+	desiredSize := eui.Point{
 		X: float32(gameAreaSizeX)*scale + 2*gameWin.Padding,
 		Y: float32(gameAreaSizeY)*scale + 2*gameWin.Padding,
 	}
-
-	// Ensure the Ebiten window matches the game window size.
-	size := gameWin.GetSize()
-	desiredW := int(math.Round(float64(size.X)))
-	desiredH := int(math.Round(float64(size.Y)))
-	curW, curH := ebiten.WindowSize()
-	if curW != desiredW || curH != desiredH {
-		ebiten.SetWindowSize(desiredW, desiredH)
-	}
+	gameWin.SetSize(desiredSize)
 }
 
 func gameWindowOrigin() (int, int) {
@@ -1283,7 +1279,9 @@ func runGame(ctx context.Context) {
 	if w == 0 || h == 0 {
 		w, h = initialWindowW, initialWindowH
 	}
-	ebiten.SetWindowSize(w, h)
+	if gameWin != nil {
+		gameWin.SetSize(eui.Point{X: float32(w), Y: float32(h)})
+	}
 	if gs.Fullscreen {
 		ebiten.SetFullscreen(true)
 	} else {
