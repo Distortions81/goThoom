@@ -259,6 +259,28 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			buttonsWidth += (win.GetTitleSize())
 		}
 
+		// Shade arrow
+		{
+			sr := win.shadeRect()
+			color := win.Theme.Window.TitleColor
+			if win.HoverShade {
+				color = win.Theme.Window.HoverTitleColor
+				win.HoverShade = false
+			}
+			pad := win.GetTitleSize() / 3
+			cx := sr.X0 + (sr.X1-sr.X0)/2
+			if win.Shaded {
+				strokeLine(screen, sr.X0+pad, sr.Y0+pad, sr.X1-pad, sr.Y0+pad, uiScale, color, true)
+				strokeLine(screen, sr.X0+pad, sr.Y0+pad, cx, sr.Y1-pad, uiScale, color, true)
+				strokeLine(screen, sr.X1-pad, sr.Y0+pad, cx, sr.Y1-pad, uiScale, color, true)
+			} else {
+				strokeLine(screen, sr.X0+pad, sr.Y1-pad, sr.X1-pad, sr.Y1-pad, uiScale, color, true)
+				strokeLine(screen, sr.X0+pad, sr.Y1-pad, cx, sr.Y0+pad, uiScale, color, true)
+				strokeLine(screen, sr.X1-pad, sr.Y1-pad, cx, sr.Y0+pad, uiScale, color, true)
+			}
+			buttonsWidth += (win.GetTitleSize())
+		}
+
 		//Dragbar
 		if win.Movable && win.ShowDragbar {
 			var xThick float32 = 1

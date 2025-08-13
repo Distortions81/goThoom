@@ -120,7 +120,7 @@ func Update() error {
 					c = ebiten.CursorShapeNWSEResize
 				case PART_TOP_RIGHT, PART_BOTTOM_LEFT:
 					c = ebiten.CursorShapeNESWResize
-				case PART_SCROLL_V, PART_SCROLL_H, PART_PIN:
+				case PART_SCROLL_V, PART_SCROLL_H, PART_PIN, PART_SHADE:
 					c = ebiten.CursorShapePointer
 				}
 			}
@@ -139,6 +139,10 @@ func Update() error {
 						win.PinToClosestZone()
 					}
 					win.markDirty()
+					break
+				}
+				if part == PART_SHADE {
+					win.ToggleShade()
 					break
 				}
 				dragPart = part
