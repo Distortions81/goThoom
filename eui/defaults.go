@@ -62,6 +62,8 @@ var defaultText = &itemData{
 	Padding:   0,
 	Margin:    2,
 	TextColor: NewColor(255, 255, 255, 255),
+	Fixed:     false,
+	AutoSize:  true,
 }
 
 var defaultCheckbox = &itemData{
