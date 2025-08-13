@@ -16,6 +16,9 @@ var (
 	dragPart   dragType
 	dragWin    *windowData
 	activeItem *itemData
+
+	downPos point
+	downWin *windowData
 )
 
 // Update processes input and updates window state.
@@ -39,6 +42,20 @@ func Update() error {
 
 	click := pointerJustPressed()
 	midClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
+	if click || midClick {
+		downPos = mpos
+		downWin = nil
+		for i := len(windows) - 1; i >= 0; i-- {
+			win := windows[i]
+			if !win.Open {
+				continue
+			}
+			if win.getWinRect().containsPoint(mpos) {
+				downWin = win
+				break
+			}
+		}
+	}
 	if click {
 		if !dropdownOpenContainsAnywhere(mpos) {
 			closeAllDropdowns()
@@ -58,6 +75,7 @@ func Update() error {
 		dragPart = PART_NONE
 		dragWin = nil
 		activeItem = nil
+		downWin = nil
 	}
 
 	wx, wy := pointerWheel()
@@ -106,7 +124,7 @@ func Update() error {
 				}
 			}
 
-			if click && dragPart == PART_NONE {
+			if click && dragPart == PART_NONE && downWin == win {
 				if part == PART_CLOSE {
 					win.Open = false
 					//win.RemoveWindow()
@@ -124,7 +142,7 @@ func Update() error {
 				}
 				dragPart = part
 				dragWin = win
-			} else if midClick && dragPart == PART_NONE && part == PART_BAR {
+			} else if midClick && dragPart == PART_NONE && part == PART_BAR && downWin == win {
 				dragPart = part
 				dragWin = win
 			} else if (clickDrag || midClickDrag) && dragPart != PART_NONE && dragWin == win {
@@ -461,7 +479,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 			item.markDirty()
 		}
 		hoveredItem = item
-		if item.ItemType == ITEM_COLORWHEEL && pointerPressed() {
+		if item.ItemType == ITEM_COLORWHEEL && pointerPressed() && downWin == item.ParentWindow {
 			if col, ok := item.colorAt(mpos); ok {
 				item.WheelColor = col
 				item.markDirty()
@@ -499,7 +517,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 				}
 			}
 		}
-		if item.ItemType == ITEM_SLIDER && pointerPressed() {
+		if item.ItemType == ITEM_SLIDER && pointerPressed() && downWin == item.ParentWindow {
 			item.setSliderValue(mpos)
 			item.markDirty()
 			if item.Action != nil {
