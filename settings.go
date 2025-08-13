@@ -48,7 +48,9 @@ var gsdef settings = settings{
 	MessagesToConsole: false,
 	WindowTiling:      false,
 	WindowSnapping:    false,
-	AnyGameWindowSize: false, // allow arbitrary game window sizes
+	AnyGameWindowSize: false,
+	NoCaching:         false,
+	PotatoComputer:    false,
 
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
@@ -70,8 +72,6 @@ var gsdef settings = settings{
 	smoothMoving:     false,
 	fastBars:         true,
 	recordAssetStats: false,
-	NoCaching:        false,
-	PotatoComputer:   false,
 }
 
 type settings struct {
