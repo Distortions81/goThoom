@@ -100,8 +100,14 @@ func initUI() {
 }
 
 func makeToolbarWindow() {
+
+	var toolFontSize float32 = 10
+	var buttonHeight float32 = 15
+	var buttonWidth float32 = 64
+
 	toolbarWin = eui.NewWindow()
-	toolbarWin.Title = "Toolbar"
+	toolbarWin.Title = ""
+	toolbarWin.SetTitleSize(8)
 	toolbarWin.Closable = false
 	toolbarWin.Resizable = false
 	toolbarWin.AutoSize = false
@@ -109,7 +115,7 @@ func makeToolbarWindow() {
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
 	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
-	toolbarWin.Size = eui.Point{X: 930, Y: 60}
+	toolbarWin.Size = eui.Point{X: 500, Y: 35}
 
 	gameMenu := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -117,8 +123,8 @@ func makeToolbarWindow() {
 	}
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
-	winBtn.Size = eui.Point{X: 128, Y: 24}
-	winBtn.FontSize = 18
+	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	winBtn.FontSize = toolFontSize
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			windowsWin.Toggle()
@@ -128,8 +134,8 @@ func makeToolbarWindow() {
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
-	btn.Size = eui.Point{X: 128, Y: 24}
-	btn.FontSize = 18
+	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	btn.FontSize = toolFontSize
 	setEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			settingsWin.Toggle()
@@ -139,8 +145,8 @@ func makeToolbarWindow() {
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
-	helpBtn.Size = eui.Point{X: 128, Y: 24}
-	helpBtn.FontSize = 18
+	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	helpBtn.FontSize = toolFontSize
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			helpWin.Toggle()
@@ -153,7 +159,7 @@ func makeToolbarWindow() {
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
-	volumeSlider.Size = eui.Point{X: 300, Y: 24}
+	volumeSlider.Size = eui.Point{X: 150, Y: buttonHeight}
 	volumeSlider.FontSize = 9
 	volumeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
@@ -169,7 +175,7 @@ func makeToolbarWindow() {
 	if gs.Mute {
 		muteBtn.Text = "Unmute"
 	}
-	muteBtn.Size = eui.Point{X: 64, Y: 24}
+	muteBtn.Size = eui.Point{X: 64, Y: buttonHeight}
 	muteBtn.FontSize = 12
 	muteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -188,8 +194,8 @@ func makeToolbarWindow() {
 
 	recordBtn, recordEvents := eui.NewButton()
 	recordBtn.Text = "Record"
-	recordBtn.Size = eui.Point{X: 128, Y: 24}
-	recordBtn.FontSize = 18
+	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	recordBtn.FontSize = toolFontSize
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
@@ -249,8 +255,8 @@ func makeToolbarWindow() {
 	gameMenu.AddItem(recordBtn)
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
-	recordStatus.Size = eui.Point{X: 80, Y: 24}
-	recordStatus.FontSize = 18
+	recordStatus.Size = eui.Point{X: 80, Y: buttonHeight}
+	recordStatus.FontSize = toolFontSize
 	recordStatus.Color = eui.ColorRed
 	gameMenu.AddItem(recordStatus)
 
