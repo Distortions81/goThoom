@@ -1,7 +1,8 @@
 # AGENTS
 
 This repo includes a minimal Go client under `go_client/`. To build or run the Go program you need Go version 1.24 or later.
-Do not compile/test unless explicitly instructed to do so. go vet, go fmt is sufficient. 
+Do not compile/test unless explicitly instructed to do so. go vet, go fmt is sufficient.
+Do not increment the version of JSON file formats when adding or removing fields.
 
 
 ## Installing dependencies

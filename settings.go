@@ -14,7 +14,7 @@ import (
 var gs settings = gsdef
 
 var gsdef settings = settings{
-	Version: 3,
+	Version: 2,
 
 	LastCharacter:   "",
 	ClickToToggle:   false,
