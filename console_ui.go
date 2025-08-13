@@ -20,14 +20,15 @@ func updateConsoleWindow() {
 	changed := false
 	for i, msg := range msgs {
 		if i < len(messagesList.Contents) {
-			if messagesList.Contents[i].Text != msg {
+			if messagesList.Contents[i].Text != msg || messagesList.Contents[i].FontSize != float32(gs.ConsoleFontSize) {
 				messagesList.Contents[i].Text = msg
+				messagesList.Contents[i].FontSize = float32(gs.ConsoleFontSize)
 				changed = true
 			}
 		} else {
 			t, _ := eui.NewText()
 			t.Text = msg
-			t.FontSize = 10
+			t.FontSize = float32(gs.ConsoleFontSize)
 			t.Size = eui.Point{X: 500, Y: 24}
 			messagesList.AddItem(t)
 			changed = true
@@ -35,14 +36,15 @@ func updateConsoleWindow() {
 	}
 	inputIdx := len(msgs)
 	if inputIdx < len(messagesList.Contents) {
-		if messagesList.Contents[inputIdx].Text != inputMsg {
+		if messagesList.Contents[inputIdx].Text != inputMsg || messagesList.Contents[inputIdx].FontSize != float32(gs.ConsoleFontSize) {
 			messagesList.Contents[inputIdx].Text = inputMsg
+			messagesList.Contents[inputIdx].FontSize = float32(gs.ConsoleFontSize)
 			changed = true
 		}
 	} else {
 		t, _ := eui.NewText()
 		t.Text = inputMsg
-		t.FontSize = 10
+		t.FontSize = float32(gs.ConsoleFontSize)
 		t.Size = eui.Point{X: 500, Y: 24}
 		messagesList.AddItem(t)
 		changed = true
