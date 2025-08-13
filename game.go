@@ -590,7 +590,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if gs.AnyGameWindowSize {
 		updateGameScale()
 		if offscreen == nil {
-			offscreen = ebiten.NewImage(gameAreaSizeX*2, gameAreaSizeY*2)
+			offscreen = newImage(gameAreaSizeX*2, gameAreaSizeY*2)
 		}
 		offscreen.Clear()
 		saved := gs.GameScale
@@ -1130,7 +1130,7 @@ func drawGameCurtain(screen *ebiten.Image, ox, oy int) {
 	sh := screen.Bounds().Dy()
 
 	if blackPixel == nil {
-		blackPixel = ebiten.NewImage(1, 1)
+		blackPixel = newImage(1, 1)
 		blackPixel.Fill(color.Black)
 	}
 

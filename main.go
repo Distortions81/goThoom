@@ -105,7 +105,7 @@ func main() {
 		return
 	}
 
-	if gs.precacheSounds || gs.precacheImages {
+	if (gs.precacheSounds || gs.precacheImages) && !gs.NoCaching {
 		go precacheAssets()
 	}
 

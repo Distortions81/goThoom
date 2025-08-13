@@ -274,14 +274,16 @@ func loadSound(id uint16) []byte {
 	}
 
 	soundMu.Lock()
-	if pcm, ok := pcmCache[id]; ok {
-		soundMu.Unlock()
-		if pcm == nil {
-			logDebug("loadSound(%d) cached as missing", id)
-		} else {
-			logDebug("loadSound(%d) cache hit (%d bytes)", id, len(pcm))
+	if !gs.NoCaching {
+		if pcm, ok := pcmCache[id]; ok {
+			soundMu.Unlock()
+			if pcm == nil {
+				logDebug("loadSound(%d) cached as missing", id)
+			} else {
+				logDebug("loadSound(%d) cache hit (%d bytes)", id, len(pcm))
+			}
+			return pcm
 		}
-		return pcm
 	}
 	c := clSounds
 	soundMu.Unlock()
@@ -299,9 +301,13 @@ func loadSound(id uint16) []byte {
 		} else {
 			logError("missing sound %d", id)
 		}
-		soundMu.Lock()
-		pcmCache[id] = nil
-		soundMu.Unlock()
+		if !gs.NoCaching {
+			soundMu.Lock()
+			pcmCache[id] = nil
+			soundMu.Unlock()
+		} else {
+			clSounds.ClearCache()
+		}
 		return nil
 	}
 	statSoundLoaded(id)
@@ -340,10 +346,14 @@ func loadSound(id uint16) []byte {
 		pcm[2*i+1] = byte(v >> 8)
 	}
 
-	soundMu.Lock()
-	pcmCache[id] = pcm
-	soundMu.Unlock()
-	logDebug("loadSound(%d) cached %d bytes", id, len(pcm))
+	if gs.NoCaching {
+		clSounds.ClearCache()
+	} else {
+		soundMu.Lock()
+		pcmCache[id] = pcm
+		soundMu.Unlock()
+		logDebug("loadSound(%d) cached %d bytes", id, len(pcm))
+	}
 	return pcm
 }
 
