@@ -816,6 +816,38 @@ func parseDrawState(data []byte) error {
 			newPics[idx].Background = true
 		}
 	}
+	var newPersist []framePicture
+	for _, pp := range prevPics {
+		if !pp.Background {
+			continue
+		}
+		targetH := int(pp.H) + state.picShiftX
+		targetV := int(pp.V) + state.picShiftY
+		found := false
+		for _, np := range newPics {
+			if !np.Background {
+				continue
+			}
+			if np.PictID == pp.PictID && int(np.H) == targetH && int(np.V) == targetV {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		clone := pp
+		clone.PrevH = pp.H
+		clone.PrevV = pp.V
+		clone.H = int16(targetH)
+		clone.V = int16(targetV)
+		clone.Moving = false
+		clone.Owned = false
+		clone.Again = false
+		newPersist = append(newPersist, clone)
+	}
+	state.persistBg = newPersist
+	newPics = append(newPics, state.persistBg...)
 
 	state.pictures = newPics
 
