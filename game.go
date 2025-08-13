@@ -501,8 +501,13 @@ func updateGameScale() {
 		newScale = 0.25
 	}
 
-	if gs.GameScale != newScale {
-		gs.GameScale = newScale
+	snapped, exact := exactScale(newScale, 8, 1e-6)
+	if !exact {
+		snapped = math.Max(1, math.Round(newScale))
+	}
+
+	if gs.GameScale != snapped {
+		gs.GameScale = snapped
 		initFont()
 	}
 }
