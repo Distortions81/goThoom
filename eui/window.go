@@ -238,6 +238,9 @@ func (target *windowData) MarkOpen() {
 		target.BringForward()
 	}
 	target.Refresh()
+	if WindowStateChanged != nil {
+		WindowStateChanged()
+	}
 }
 
 // MarkOpen sets the window to open and brings it forward if necessary.
@@ -253,6 +256,9 @@ func (target *windowData) Close() {
 	target.deallocate()
 	target.Open = false
 	target.RemoveWindow()
+	if WindowStateChanged != nil {
+		WindowStateChanged()
+	}
 }
 
 // Send a window to the back

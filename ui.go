@@ -65,6 +65,14 @@ var (
 	potatoCB        *eui.ItemData
 )
 
+func init() {
+	eui.WindowStateChanged = func() {
+		if windowsWin != nil {
+			windowsWin.Refresh()
+		}
+	}
+}
+
 func initUI() {
 	status, err := checkDataFiles(clientVersion)
 	if err != nil {
@@ -904,7 +912,7 @@ func makeSettingsWindow() {
 			qualityWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(qualityBtn)
+	mainFlow.AddItem(soundBtn)
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
@@ -1251,9 +1259,22 @@ func makeQualityWindow() {
 	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheSounds = ev.Checked
-			settingsDirty = true
-			if ev.Checked && !gs.NoCaching {
+			if ev.Checked {
+				gs.NoCaching = false
+				if noCacheCB != nil {
+					noCacheCB.Checked = false
+				}
 				go precacheAssets()
+			}
+			settingsDirty = true
+			if qualityWin != nil {
+				qualityWin.Refresh()
+			}
+			if graphicsWin != nil {
+				graphicsWin.Refresh()
+			}
+			if debugWin != nil {
+				debugWin.Refresh()
 			}
 		}
 	}
@@ -1269,9 +1290,22 @@ func makeQualityWindow() {
 	precacheImageEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheImages = ev.Checked
-			settingsDirty = true
-			if ev.Checked && !gs.NoCaching {
+			if ev.Checked {
+				gs.NoCaching = false
+				if noCacheCB != nil {
+					noCacheCB.Checked = false
+				}
 				go precacheAssets()
+			}
+			settingsDirty = true
+			if qualityWin != nil {
+				qualityWin.Refresh()
+			}
+			if graphicsWin != nil {
+				graphicsWin.Refresh()
+			}
+			if debugWin != nil {
+				debugWin.Refresh()
 			}
 		}
 	}
@@ -1297,6 +1331,15 @@ func makeQualityWindow() {
 			settingsDirty = true
 			if qualityPresetDD != nil {
 				qualityPresetDD.Selected = detectQualityPreset()
+			}
+			if qualityWin != nil {
+				qualityWin.Refresh()
+			}
+			if graphicsWin != nil {
+				graphicsWin.Refresh()
+			}
+			if debugWin != nil {
+				debugWin.Refresh()
 			}
 		}
 	}
