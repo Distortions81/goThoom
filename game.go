@@ -493,12 +493,13 @@ func updateGameScale() {
 		return
 	}
 	size := gameWin.GetRawSize()
-	if size.X <= 0 || size.Y <= 0 {
+	pad := float64(2 * gameWin.Padding)
+	w := float64(size.X) - pad
+	h := float64(size.Y) - pad
+	if w <= 0 || h <= 0 {
 		return
 	}
 
-	w := float64(size.X)
-	h := float64(size.Y)
 	scaleW := w / float64(gameAreaSizeX)
 	scaleH := h / float64(gameAreaSizeY)
 	newScale := math.Min(scaleW, scaleH)
@@ -541,7 +542,10 @@ func updateGameWindowSize() {
 		return
 	}
 	scale := float32(gs.GameScale)
-	gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * scale, Y: float32(gameAreaSizeY) * scale}
+	gameWin.Size = eui.Point{
+		X: float32(gameAreaSizeX)*scale + 2*gameWin.Padding,
+		Y: float32(gameAreaSizeY)*scale + 2*gameWin.Padding,
+	}
 
 	// Ensure the Ebiten window matches the game window size.
 	size := gameWin.GetSize()
@@ -570,8 +574,9 @@ func gameContentOrigin() (int, int) {
 		return x, y
 	}
 	size := gameWin.GetSize()
-	w := float64(int(size.X) &^ 1)
-	h := float64(int(size.Y) &^ 1)
+	pad := float64(2 * gameWin.Padding)
+	w := float64(int(size.X)&^1) - pad
+	h := float64(int(size.Y)&^1) - pad
 	fw := float64(gameAreaSizeX) * gs.GameScale
 	fh := float64(gameAreaSizeY) * gs.GameScale
 	if w > fw {
@@ -616,7 +621,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		initFont()
 		ox, oy := gameContentOrigin()
 		size := gameWin.GetSize()
-		scale := math.Min(float64(size.X)/(gameAreaSizeX*2), float64(size.Y)/(gameAreaSizeY*2))
+		pad := float64(2 * gameWin.Padding)
+		scaleW := (float64(size.X) - pad) / (gameAreaSizeX * 2)
+		scaleH := (float64(size.Y) - pad) / (gameAreaSizeY * 2)
+		scale := math.Min(scaleW, scaleH)
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Scale(scale, scale)
 		op.GeoM.Translate(float64(ox), float64(oy))
@@ -1323,7 +1331,7 @@ func makeGameWindow() {
 	}
 	gameWin = eui.NewWindow()
 	gameWin.Margin = 0
-	gameWin.Padding = 0
+	gameWin.Padding = 1 // one-pixel border for easier resizing
 	gameWin.Border = 0
 	gameWin.BorderPad = 0
 	th := *gameWin.Theme
