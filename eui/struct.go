@@ -98,6 +98,8 @@ type itemData struct {
 	FlowType flowType
 	Scroll   point
 
+	lastSliderEmit time.Time
+
 	// Dropdown specific
 	Options    []string
 	Selected   int

@@ -19,7 +19,11 @@ var (
 
 	downPos point
 	downWin *windowData
+
+	prevPrimaryPressed bool
 )
+
+const sliderEventInterval = time.Second / 5
 
 // Update processes input and updates window state.
 // Programs embedding the UI can call this from their Ebiten Update handler.
@@ -70,8 +74,18 @@ func Update() error {
 	midClickTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonMiddle)
 	midClickDrag := midClickTime > 1
 	midPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
+	pressed := pointerPressed()
 
-	if !pointerPressed() && !midPressed {
+	if prevPrimaryPressed && !pressed {
+		if activeItem != nil && activeItem.ItemType == ITEM_SLIDER {
+			activeItem.setSliderValue(mpos, true)
+			if activeItem.Action != nil {
+				activeItem.Action()
+			}
+		}
+	}
+
+	if !pressed && !midPressed {
 		dragPart = PART_NONE
 		dragWin = nil
 		activeItem = nil
@@ -282,6 +296,7 @@ func Update() error {
 	}
 
 	mposOld = mpos
+	prevPrimaryPressed = pressed
 
 	if wheelDelta.X != 0 || wheelDelta.Y != 0 {
 		for i := len(windows) - 1; i >= 0; i-- {
@@ -524,7 +539,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 			}
 		}
 		if item.ItemType == ITEM_SLIDER && pointerPressed() && downWin == item.ParentWindow {
-			item.setSliderValue(mpos)
+			item.setSliderValue(mpos, false)
 			item.markDirty()
 			if item.Action != nil {
 				item.Action()
@@ -578,7 +593,7 @@ func clearExpiredClicks(list []*itemData) {
 	}
 }
 
-func (item *itemData) setSliderValue(mpos point) {
+func (item *itemData) setSliderValue(mpos point, force bool) {
 	// Determine the width of the slider track accounting for the
 	// displayed value text to the right of the knob.
 	// Measure against a consistent label width so sliders with
@@ -607,8 +622,12 @@ func (item *itemData) setSliderValue(mpos point) {
 		item.Value = float32(int(item.Value + 0.5))
 	}
 	item.markDirty()
-	if item.Handler != nil {
-		item.Handler.Emit(UIEvent{Item: item, Type: EventSliderChanged, Value: item.Value})
+	now := time.Now()
+	if force || now.Sub(item.lastSliderEmit) >= sliderEventInterval {
+		item.lastSliderEmit = now
+		if item.Handler != nil {
+			item.Handler.Emit(UIEvent{Item: item, Type: EventSliderChanged, Value: item.Value})
+		}
 	}
 }
 
