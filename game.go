@@ -442,7 +442,7 @@ func (g *Game) Update() error {
 				}
 			}
 			if walkToggled {
-				w, h := eui.ScreenSize()
+				w, h := ebiten.WindowSize()
 				if overUI || mx < 0 || my < 0 || mx >= w || my >= h {
 					walkToggled = false
 				} else {
@@ -533,6 +533,15 @@ func updateGameWindowSize() {
 	}
 	scale := float32(gs.GameScale)
 	gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * scale, Y: float32(gameAreaSizeY) * scale}
+
+	// Ensure the Ebiten window matches the game window size.
+	size := gameWin.GetSize()
+	desiredW := int(math.Round(float64(size.X)))
+	desiredH := int(math.Round(float64(size.Y)))
+	curW, curH := ebiten.WindowSize()
+	if curW != desiredW || curH != desiredH {
+		ebiten.SetWindowSize(desiredW, desiredH)
+	}
 }
 
 func gameWindowOrigin() (int, int) {
