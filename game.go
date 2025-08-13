@@ -141,6 +141,8 @@ type drawState struct {
 
 	bubbles []bubble
 
+	mapTiles map[mapTileKey]mapTile
+
 	hp, hpMax                   int
 	sp, spMax                   int
 	balance, balanceMax         int
@@ -157,6 +159,7 @@ var (
 		mobiles:     make(map[uint8]frameMobile),
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
+		mapTiles:    make(map[mapTileKey]mapTile),
 	}
 	initialState drawState
 	stateMu      sync.Mutex
@@ -173,6 +176,18 @@ type bubble struct {
 	ExpireFrame int
 }
 
+type mapTileKey struct {
+	id uint16
+	h  int16
+	v  int16
+}
+
+type mapTile struct {
+	PictID        uint16
+	H, V          int16
+	Width, Height int
+}
+
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
 	descriptors                 map[uint8]frameDescriptor
@@ -185,6 +200,7 @@ type drawSnapshot struct {
 	prevTime                    time.Time
 	curTime                     time.Time
 	bubbles                     []bubble
+	mapTiles                    []mapTile
 	hp, hpMax                   int
 	sp, spMax                   int
 	balance, balanceMax         int
@@ -208,6 +224,7 @@ func captureDrawSnapshot() drawSnapshot {
 		mobiles:        make([]frameMobile, 0, len(state.mobiles)),
 		prevTime:       state.prevTime,
 		curTime:        state.curTime,
+		mapTiles:       make([]mapTile, 0, len(state.mapTiles)),
 		hp:             state.hp,
 		hpMax:          state.hpMax,
 		sp:             state.sp,
@@ -229,6 +246,22 @@ func captureDrawSnapshot() drawSnapshot {
 	}
 	for _, m := range state.mobiles {
 		snap.mobiles = append(snap.mobiles, m)
+	}
+
+	for _, p := range state.pictures {
+		if p.Background && !p.Moving {
+			key := mapTileKey{id: p.PictID, h: p.H, v: p.V}
+			if _, ok := state.mapTiles[key]; !ok {
+				w, h := 0, 0
+				if clImages != nil {
+					w, h = clImages.Size(uint32(p.PictID))
+				}
+				state.mapTiles[key] = mapTile{PictID: p.PictID, H: p.H, V: p.V, Width: w, Height: h}
+			}
+		}
+	}
+	for _, t := range state.mapTiles {
+		snap.mapTiles = append(snap.mapTiles, t)
 	}
 	if len(state.bubbles) > 0 {
 		curFrame := frameCounter
@@ -284,6 +317,7 @@ func cloneDrawState(src drawState) drawState {
 		prevTime:       src.prevTime,
 		curTime:        src.curTime,
 		bubbles:        append([]bubble(nil), src.bubbles...),
+		mapTiles:       make(map[mapTileKey]mapTile, len(src.mapTiles)),
 		hp:             src.hp,
 		hpMax:          src.hpMax,
 		sp:             src.sp,
@@ -310,6 +344,9 @@ func cloneDrawState(src drawState) drawState {
 	}
 	for idx, d := range src.prevDescs {
 		dst.prevDescs[idx] = d
+	}
+	for k, t := range src.mapTiles {
+		dst.mapTiles[k] = t
 	}
 	return dst
 }
