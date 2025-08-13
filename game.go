@@ -1196,6 +1196,8 @@ func runGame(ctx context.Context) {
 	if err := ebiten.RunGameWithOptions(&Game{}, op); err != nil {
 		log.Printf("ebiten: %v", err)
 	}
+	syncWindowSettings()
+	saveSettings()
 }
 
 func initGame() {
