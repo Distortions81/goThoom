@@ -47,7 +47,7 @@ var gsdef settings = settings{
 	Theme:             "",
 	MessagesToConsole: false,
 	WindowTiling:      false,
-	WindowSnapping:    true,
+	WindowSnapping:    false,
 	AnyGameWindowSize: false, // allow arbitrary game window sizes
 
 	GameWindow:      WindowState{Open: true},
