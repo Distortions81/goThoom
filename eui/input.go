@@ -99,7 +99,8 @@ func Update() error {
 		if dragPart != PART_NONE && dragWin == win {
 			part = dragPart
 		} else {
-			part = win.getWindowPart(mpos, click)
+			localPos := point{X: mpos.X / s, Y: mpos.Y / s}
+			part = win.getWindowPart(localPos, click)
 			if part == PART_NONE && midClick && win.Movable && win.getWinRect().containsPoint(mpos) {
 				part = PART_BAR
 			}

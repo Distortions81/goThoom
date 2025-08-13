@@ -42,7 +42,7 @@ func (item *itemData) themeStyle() *itemData {
 }
 
 func (win *windowData) getWinRect() rect {
-	winPos := win.getPosition()
+	winPos := win.GetPos()
 	return rect{
 		X0: winPos.X,
 		Y0: winPos.Y,
@@ -95,10 +95,11 @@ func (win *windowData) getTitleRect() rect {
 	if win.TitleHeight <= 0 {
 		return rect{}
 	}
+	pos := win.GetPos()
 	return rect{
-		X0: win.getPosition().X, Y0: win.getPosition().Y,
-		X1: win.getPosition().X + win.GetSize().X,
-		Y1: win.getPosition().Y + (win.GetTitleSize()),
+		X0: pos.X, Y0: pos.Y,
+		X1: pos.X + win.GetSize().X,
+		Y1: pos.Y + (win.GetTitleSize()),
 	}
 }
 
@@ -108,12 +109,13 @@ func (win *windowData) xRect() rect {
 	}
 
 	var xpad float32 = win.Border
+	pos := win.GetPos()
 	return rect{
-		X0: win.getPosition().X + win.GetSize().X - (win.GetTitleSize()) + xpad,
-		Y0: win.getPosition().Y + xpad,
+		X0: pos.X + win.GetSize().X - (win.GetTitleSize()) + xpad,
+		Y0: pos.Y + xpad,
 
-		X1: win.getPosition().X + win.GetSize().X - xpad,
-		Y1: win.getPosition().Y + (win.GetTitleSize()) - xpad,
+		X1: pos.X + win.GetSize().X - xpad,
+		Y1: pos.Y + (win.GetTitleSize()) - xpad,
 	}
 }
 
@@ -124,7 +126,8 @@ func (win *windowData) pinRect() rect {
 
 	var xpad float32 = win.Border
 	size := win.GetTitleSize()
-	x1 := win.getPosition().X + win.GetSize().X - xpad
+	pos := win.GetPos()
+	x1 := pos.X + win.GetSize().X - xpad
 	x0 := x1 - size
 	if win.Closable {
 		x1 -= size
@@ -132,9 +135,9 @@ func (win *windowData) pinRect() rect {
 	}
 	return rect{
 		X0: x0,
-		Y0: win.getPosition().Y + xpad,
+		Y0: pos.Y + xpad,
 		X1: x1,
-		Y1: win.getPosition().Y + size - xpad,
+		Y1: pos.Y + size - xpad,
 	}
 }
 
@@ -154,9 +157,10 @@ func (win *windowData) dragbarRect() rect {
 	dpad := (win.GetTitleSize()) / 5
 	xStart := textSize.X + float32((win.GetTitleSize())/1.5)
 	xEnd := (win.GetSize().X - buttonsWidth)
+	pos := win.GetPos()
 	return rect{
-		X0: win.getPosition().X + xStart, Y0: win.getPosition().Y + dpad,
-		X1: win.getPosition().X + xEnd, Y1: win.getPosition().Y + (win.GetTitleSize()) - dpad,
+		X0: pos.X + xStart, Y0: pos.Y + dpad,
+		X1: pos.X + xEnd, Y1: pos.Y + (win.GetTitleSize()) - dpad,
 	}
 }
 
@@ -297,6 +301,8 @@ func dropdownOpenRect(item *itemData, offset point) (rect, int) {
 }
 
 func (win *windowData) getWindowPart(mpos point, click bool) dragType {
+	s := win.scale()
+	mpos = point{X: mpos.X * s, Y: mpos.Y * s}
 	if part := win.getTitlebarPart(mpos); part != PART_NONE {
 		return part
 	}
