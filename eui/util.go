@@ -72,11 +72,33 @@ func (parent *itemData) addItemTo(item *itemData) {
 	}
 }
 
+func (parent *itemData) prependItemTo(item *itemData) {
+	item.Parent = parent
+	if item.Theme == nil {
+		item.Theme = parent.Theme
+	}
+	item.setParentWindow(parent.ParentWindow)
+	parent.Contents = append([]*itemData{item}, parent.Contents...)
+	if parent.ItemType == ITEM_FLOW {
+		parent.resizeFlow(parent.GetSize())
+	}
+}
+
 func (parent *windowData) addItemTo(item *itemData) {
 	if item.Theme == nil {
 		item.Theme = parent.Theme
 	}
 	parent.Contents = append(parent.Contents, item)
+	item.setParentWindow(parent)
+	item.resizeFlow(parent.GetSize())
+	parent.markDirty()
+}
+
+func (parent *windowData) prependItemTo(item *itemData) {
+	if item.Theme == nil {
+		item.Theme = parent.Theme
+	}
+	parent.Contents = append([]*itemData{item}, parent.Contents...)
 	item.setParentWindow(parent)
 	item.resizeFlow(parent.GetSize())
 	parent.markDirty()

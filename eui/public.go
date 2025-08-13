@@ -96,6 +96,12 @@ func (parent *ItemData) AddItem(child *ItemData) { parent.addItemTo(child) }
 // AddItem appends a child item to the window.
 func (win *WindowData) AddItem(child *ItemData) { win.addItemTo(child) }
 
+// PrependItem prepends a child item to the parent item.
+func (parent *ItemData) PrependItem(child *ItemData) { parent.prependItemTo(child) }
+
+// PrependItem prepends a child item to the window.
+func (win *WindowData) PrependItem(child *ItemData) { win.prependItemTo(child) }
+
 // ListThemes returns the available palette names.
 func ListThemes() ([]string, error) { return listThemes() }
 
