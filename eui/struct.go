@@ -111,7 +111,7 @@ type itemData struct {
 	OnSelect func(int)
 	OnHover  func(int)
 
-	Fixed, Scrollable bool
+	Fixed, Scrollable, AutoSize bool
 
 	ImageName string
 	Image     *ebiten.Image

@@ -1010,11 +1010,17 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			subImg.DrawImage(item.Image, op)
 		}
 	} else if item.ItemType == ITEM_TEXT {
-
 		textSize := (item.FontSize * uiScale) + 2
 		face := textFace(textSize)
+		maxW := float64(item.Size.X * uiScale)
+		_, lines := wrapText(item.Text, face, maxW)
+		wrapped := strings.Join(lines, "\n")
+		lineSpace := item.LineSpace
+		if lineSpace == 0 {
+			lineSpace = 1.2
+		}
 		loo := text.LayoutOptions{
-			LineSpacing:    float64(textSize) * 1.2,
+			LineSpacing:    float64(textSize) * float64(lineSpace),
 			PrimaryAlign:   text.AlignStart,
 			SecondaryAlign: text.AlignStart,
 		}
@@ -1025,7 +1031,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 		top.ColorScale.ScaleWithColor(style.TextColor)
-		text.Draw(subImg, item.Text, face, top)
+		text.Draw(subImg, wrapped, face, top)
 	}
 
 	if item.Outlined && item.Border > 0 && item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO {
