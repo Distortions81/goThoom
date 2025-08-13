@@ -247,6 +247,120 @@ func snapToWindow(win *windowData) bool {
 	return snapped
 }
 
+// snapResize adjusts a window's size and position when resizing so edges
+// snap to nearby screen edges or other windows within the threshold.
+// It returns true if the window size or position was adjusted.
+func snapResize(win *windowData, part dragType) bool {
+	pos := win.getPosition()
+	size := win.Size
+	snapped := false
+
+	includesLeft := part == PART_LEFT || part == PART_TOP_LEFT || part == PART_BOTTOM_LEFT
+	includesRight := part == PART_RIGHT || part == PART_TOP_RIGHT || part == PART_BOTTOM_RIGHT
+	includesTop := part == PART_TOP || part == PART_TOP_LEFT || part == PART_TOP_RIGHT
+	includesBottom := part == PART_BOTTOM || part == PART_BOTTOM_LEFT || part == PART_BOTTOM_RIGHT
+
+	// Snap to screen edges
+	if includesLeft {
+		if math.Abs(float64(pos.X)) <= float64(CornerSnapThreshold) {
+			delta := pos.X
+			win.Position.X = 0
+			win.setSize(point{X: size.X - delta, Y: size.Y})
+			pos = win.getPosition()
+			size = win.Size
+			snapped = true
+		}
+	}
+	if includesRight {
+		right := pos.X + size.X
+		sw := float32(screenWidth)
+		if math.Abs(float64(sw-right)) <= float64(CornerSnapThreshold) {
+			win.setSize(point{X: sw - pos.X, Y: size.Y})
+			size = win.Size
+			snapped = true
+		}
+	}
+	if includesTop {
+		if math.Abs(float64(pos.Y)) <= float64(CornerSnapThreshold) {
+			delta := pos.Y
+			win.Position.Y = 0
+			win.setSize(point{X: size.X, Y: size.Y - delta})
+			pos = win.getPosition()
+			size = win.Size
+			snapped = true
+		}
+	}
+	if includesBottom {
+		bottom := pos.Y + size.Y
+		sh := float32(screenHeight)
+		if math.Abs(float64(sh-bottom)) <= float64(CornerSnapThreshold) {
+			win.setSize(point{X: size.X, Y: sh - pos.Y})
+			size = win.Size
+			snapped = true
+		}
+	}
+
+	// Snap to other windows
+	for _, other := range windows {
+		if other == win || !other.Open {
+			continue
+		}
+		opos := other.getPosition()
+		osize := other.Size
+
+		if includesLeft {
+			if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
+				target := opos.X + osize.X
+				if math.Abs(float64(pos.X-target)) <= float64(CornerSnapThreshold) {
+					delta := pos.X - target
+					win.Position.X = target
+					win.setSize(point{X: size.X - delta, Y: size.Y})
+					pos = win.getPosition()
+					size = win.Size
+					snapped = true
+				}
+			}
+		}
+		if includesRight {
+			if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
+				target := opos.X
+				right := pos.X + size.X
+				if math.Abs(float64(right-target)) <= float64(CornerSnapThreshold) {
+					win.setSize(point{X: target - pos.X, Y: size.Y})
+					size = win.Size
+					snapped = true
+				}
+			}
+		}
+		if includesTop {
+			if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
+				target := opos.Y + osize.Y
+				if math.Abs(float64(pos.Y-target)) <= float64(CornerSnapThreshold) {
+					delta := pos.Y - target
+					win.Position.Y = target
+					win.setSize(point{X: size.X, Y: size.Y - delta})
+					pos = win.getPosition()
+					size = win.Size
+					snapped = true
+				}
+			}
+		}
+		if includesBottom {
+			if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
+				target := opos.Y
+				bottom := pos.Y + size.Y
+				if math.Abs(float64(bottom-target)) <= float64(CornerSnapThreshold) {
+					win.setSize(point{X: size.X, Y: target - pos.Y})
+					size = win.Size
+					snapped = true
+				}
+			}
+		}
+	}
+
+	return snapped
+}
+
 // preventOverlap adjusts the window position to avoid overlapping other windows
 // when window tiling is enabled.
 func preventOverlap(win *windowData) {
