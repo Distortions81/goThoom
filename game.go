@@ -112,7 +112,6 @@ var qualityWin *eui.WindowData
 var graphicsWin *eui.WindowData
 var soundWin *eui.WindowData
 var gameCtx context.Context
-var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var gameStarted = make(chan struct{})
 
@@ -882,8 +881,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
 			return
 		}
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = drawFilter
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(scale, scale)
 		tx := math.Round(float64(x) - scaled/2)
 		ty := math.Round(float64(y) - scaled/2)
@@ -1046,10 +1044,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if src != nil {
 			drawW, drawH = src.Bounds().Dx(), src.Bounds().Dy()
 		}
-		sx, sy := gs.GameScale, gs.GameScale
-		if !gs.textureFiltering {
-			sx, sy = scaleForFiltering(gs.GameScale, drawW, drawH)
-		}
+		sx, sy := scaleForFiltering(gs.GameScale, drawW, drawH)
 		scaledW := math.Round(float64(drawW) * sx)
 		scaledH := math.Round(float64(drawH) * sy)
 		sx = scaledW / float64(drawW)
@@ -1059,8 +1054,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
 			return
 		}
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = drawFilter
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(sx, sy)
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
