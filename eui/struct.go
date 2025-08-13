@@ -81,6 +81,7 @@ type itemData struct {
 	Name      string
 	Text      string
 	Label     string
+	Tooltip   string
 	Position  point
 	Size      point
 	Alignment alignType

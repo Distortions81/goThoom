@@ -50,6 +50,10 @@ func Draw(screen *ebiten.Image) {
 		drawDropdownOptions(dd.item, dd.offset, screenClip, screen)
 	}
 
+	if hoveredItem != nil && hoveredItem.Tooltip != "" {
+		drawTooltip(screen, hoveredItem)
+	}
+
 	if DumpMode && !dumpDone {
 		if err := DumpCachedImages(); err != nil {
 			panic(err)
@@ -95,6 +99,46 @@ func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 			drawRoundRect(screen, &rr)
 		}
 	}
+}
+
+func drawTooltip(screen *ebiten.Image, item *itemData) {
+	faceSize := float32(12) * uiScale
+	face := textFace(faceSize)
+	w, h := text.Measure(item.Tooltip, face, 0)
+	pad := float32(4) * uiScale
+	width := float32(w) + pad*2
+	height := float32(h) + pad*2
+
+	x := item.DrawRect.X0
+	y := item.DrawRect.Y1 + pad
+	if y+height > float32(screenHeight) {
+		y = item.DrawRect.Y0 - height - pad
+		if y < 0 {
+			y = 0
+		}
+	}
+	if x+width > float32(screenWidth) {
+		x = float32(screenWidth) - width
+	}
+
+	style := item.themeStyle()
+	bg := color.RGBA{0, 0, 0, 200}
+	fg := color.RGBA{255, 255, 255, 255}
+	border := color.RGBA{255, 255, 255, 255}
+	if style != nil {
+		bg = style.HoverColor.ToRGBA()
+		fg = style.TextColor.ToRGBA()
+		border = style.OutlineColor.ToRGBA()
+	}
+
+	drawFilledRect(screen, x, y, width, height, bg, true)
+	strokeRect(screen, x, y, width, height, 1, border, true)
+
+	dop := ebiten.DrawImageOptions{}
+	dop.GeoM.Translate(float64(x+pad), float64(y+pad))
+	top := &text.DrawOptions{DrawImageOptions: dop}
+	top.ColorScale.ScaleWithColor(fg)
+	text.Draw(screen, item.Tooltip, face, top)
 }
 
 func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
