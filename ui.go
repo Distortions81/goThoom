@@ -1154,10 +1154,9 @@ func makeQualityWindow() {
 
 	dCB, denoiseEvents := eui.NewCheckbox()
 	denoiseCB = dCB
-	denoiseCB.Text = "Image Denoise"
+	denoiseCB.Text = "Denoise Images"
 	denoiseCB.Size = eui.Point{X: width, Y: 24}
 	denoiseCB.Checked = gs.DenoiseImages
-	denoiseCB.Tooltip = "Reduce noise in images"
 	denoiseEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.DenoiseImages = ev.Checked
@@ -1176,7 +1175,6 @@ func makeQualityWindow() {
 	denoiseSharpSlider.MaxValue = 8
 	denoiseSharpSlider.Value = float32(gs.DenoiseSharpness)
 	denoiseSharpSlider.Size = eui.Point{X: width - 10, Y: 24}
-	denoiseSharpSlider.Tooltip = "Sharpness of denoising"
 	denoiseSharpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoiseSharpness = float64(ev.Value)
@@ -1195,7 +1193,6 @@ func makeQualityWindow() {
 	denoiseAmtSlider.MaxValue = 0.5
 	denoiseAmtSlider.Value = float32(gs.DenoisePercent)
 	denoiseAmtSlider.Size = eui.Point{X: width - 10, Y: 24}
-	denoiseAmtSlider.Tooltip = "Amount of denoising"
 	denoiseAmtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoisePercent = float64(ev.Value)
@@ -1210,10 +1207,9 @@ func makeQualityWindow() {
 
 	mCB, motionEvents := eui.NewCheckbox()
 	motionCB = mCB
-	motionCB.Text = "Smooth Motion"
+	motionCB.Text = "Interpolate Frames for Smooth Motion"
 	motionCB.Size = eui.Point{X: width, Y: 24}
 	motionCB.Checked = gs.MotionSmoothing
-	motionCB.Tooltip = "Interpolate frames for smooth motion"
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MotionSmoothing = ev.Checked
@@ -1224,10 +1220,9 @@ func makeQualityWindow() {
 
 	aCB, animEvents := eui.NewCheckbox()
 	animCB = aCB
-	animCB.Text = "Mobile Animation Blending"
+	animCB.Text = "Blend Mobile Animations"
 	animCB.Size = eui.Point{X: width, Y: 24}
 	animCB.Checked = gs.BlendMobiles
-	animCB.Tooltip = "Blend animations for mobiles"
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
@@ -1242,7 +1237,6 @@ func makeQualityWindow() {
 	pictBlendCB.Text = "World Animation Blending"
 	pictBlendCB.Size = eui.Point{X: width, Y: 24}
 	pictBlendCB.Checked = gs.BlendPicts
-	pictBlendCB.Tooltip = "Blend animations for world graphics"
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
@@ -1258,7 +1252,6 @@ func makeQualityWindow() {
 	mobileBlendSlider.MaxValue = 1.0
 	mobileBlendSlider.Value = float32(gs.MobileBlendAmount)
 	mobileBlendSlider.Size = eui.Point{X: width - 10, Y: 24}
-	mobileBlendSlider.Tooltip = "Strength of mobile blending"
 	mobileBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MobileBlendAmount = float64(ev.Value)
@@ -1273,7 +1266,6 @@ func makeQualityWindow() {
 	blendSlider.MaxValue = 1.0
 	blendSlider.Value = float32(gs.BlendAmount)
 	blendSlider.Size = eui.Point{X: width - 10, Y: 24}
-	blendSlider.Tooltip = "Strength of world blending"
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BlendAmount = float64(ev.Value)
@@ -1289,7 +1281,6 @@ func makeQualityWindow() {
 	mobileFramesSlider.Value = float32(gs.MobileBlendFrames)
 	mobileFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
 	mobileFramesSlider.IntOnly = true
-	mobileFramesSlider.Tooltip = "Frames used for mobile blending"
 	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MobileBlendFrames = int(ev.Value)
@@ -1305,7 +1296,6 @@ func makeQualityWindow() {
 	pictFramesSlider.Value = float32(gs.PictBlendFrames)
 	pictFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
 	pictFramesSlider.IntOnly = true
-	pictFramesSlider.Tooltip = "Frames used for world blending"
 	pictFramesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.PictBlendFrames = int(ev.Value)
@@ -1315,10 +1305,9 @@ func makeQualityWindow() {
 	flow.AddItem(pictFramesSlider)
 
 	showFPSCB, showFPSEvents := eui.NewCheckbox()
-	showFPSCB.Text = "Show FPS / UPS"
+	showFPSCB.Text = "Show FPS and UPS"
 	showFPSCB.Size = eui.Point{X: width, Y: 24}
 	showFPSCB.Checked = gs.ShowFPS
-	showFPSCB.Tooltip = "Display FPS and UPS"
 	showFPSEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ShowFPS = ev.Checked
@@ -1329,10 +1318,9 @@ func makeQualityWindow() {
 
 	psCB, precacheSoundEvents := eui.NewCheckbox()
 	precacheSoundCB = psCB
-	precacheSoundCB.Text = "Precache Sounds"
+	precacheSoundCB.Text = "Preload Sounds into Memory"
 	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
 	precacheSoundCB.Checked = gs.precacheSounds
-	precacheSoundCB.Tooltip = "Load sounds into memory"
 	precacheSoundCB.Disabled = gs.NoCaching
 	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -1347,10 +1335,9 @@ func makeQualityWindow() {
 
 	piCB, precacheImageEvents := eui.NewCheckbox()
 	precacheImageCB = piCB
-	precacheImageCB.Text = "Precache Images"
+	precacheImageCB.Text = "Preload Images into Memory"
 	precacheImageCB.Size = eui.Point{X: width, Y: 24}
 	precacheImageCB.Checked = gs.precacheImages
-	precacheImageCB.Tooltip = "Load images into memory"
 	precacheImageCB.Disabled = gs.NoCaching
 	precacheImageEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -1410,10 +1397,9 @@ func makeQualityWindow() {
 
 	fCB, filtEvents := eui.NewCheckbox()
 	filtCB = fCB
-	filtCB.Text = "Image Filtering"
+	filtCB.Text = "Use Linear Texture Filtering"
 	filtCB.Size = eui.Point{X: width, Y: 24}
 	filtCB.Checked = gs.textureFiltering
-	filtCB.Tooltip = "Use linear texture filtering"
 	filtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.textureFiltering = ev.Checked
@@ -1428,10 +1414,9 @@ func makeQualityWindow() {
 	flow.AddItem(filtCB)
 
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
-	vsyncCB.Text = "Vsync"
+	vsyncCB.Text = "Enable Vsync"
 	vsyncCB.Size = eui.Point{X: width, Y: 24}
 	vsyncCB.Checked = gs.vsync
-	vsyncCB.Tooltip = "Synchronize with monitor refresh"
 	vsyncEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.vsync = ev.Checked
@@ -1462,10 +1447,9 @@ func makeDebugWindow() {
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	nightCB, nightEvents := eui.NewCheckbox()
-	nightCB.Text = "Night Effect"
+	nightCB.Text = "Enable Night Lighting Effect"
 	nightCB.Size = eui.Point{X: width, Y: 24}
 	nightCB.Checked = gs.nightEffect
-	nightCB.Tooltip = "Enable night lighting effect"
 	nightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.nightEffect = ev.Checked
@@ -1475,10 +1459,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(nightCB)
 
 	lateInputCB, lateInputEvents := eui.NewCheckbox()
-	lateInputCB.Text = "Late Input Updates"
+	lateInputCB.Text = "Process Input After Rendering"
 	lateInputCB.Size = eui.Point{X: width, Y: 24}
 	lateInputCB.Checked = gs.lateInputUpdates
-	lateInputCB.Tooltip = "Process input after rendering"
 	lateInputEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.lateInputUpdates = ev.Checked
@@ -1488,10 +1471,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(lateInputCB)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
-	recordStatsCB.Text = "Record Asset Stats"
+	recordStatsCB.Text = "Track Asset Usage Statistics"
 	recordStatsCB.Size = eui.Point{X: width, Y: 24}
 	recordStatsCB.Checked = gs.recordAssetStats
-	recordStatsCB.Tooltip = "Track asset usage statistics"
 	recordStatsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.recordAssetStats = ev.Checked
@@ -1501,10 +1483,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(recordStatsCB)
 
 	bubbleCB, bubbleEvents := eui.NewCheckbox()
-	bubbleCB.Text = "Message Bubbles"
+	bubbleCB.Text = "Show Speech Bubbles"
 	bubbleCB.Size = eui.Point{X: width, Y: 24}
 	bubbleCB.Checked = gs.SpeechBubbles
-	bubbleCB.Tooltip = "Show speech bubbles in game"
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.SpeechBubbles = ev.Checked
@@ -1514,10 +1495,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(bubbleCB)
 
 	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox()
-	bubbleMsgCB.Text = "Chat to console"
+	bubbleMsgCB.Text = "Send Chat Messages to Console"
 	bubbleMsgCB.Size = eui.Point{X: width, Y: 24}
 	bubbleMsgCB.Checked = gs.MessagesToConsole
-	bubbleMsgCB.Tooltip = "Send chat messages to console"
 	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MessagesToConsole = ev.Checked
@@ -1527,10 +1507,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(bubbleMsgCB)
 
 	hideMoveCB, hideMoveEvents := eui.NewCheckbox()
-	hideMoveCB.Text = "Hide Moving"
+	hideMoveCB.Text = "Hide Moving Mobiles"
 	hideMoveCB.Size = eui.Point{X: width, Y: 24}
 	hideMoveCB.Checked = gs.hideMoving
-	hideMoveCB.Tooltip = "Hide moving mobiles"
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.hideMoving = ev.Checked
@@ -1540,10 +1519,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(hideMoveCB)
 
 	hideMobCB, hideMobEvents := eui.NewCheckbox()
-	hideMobCB.Text = "Hide Mobiles"
+	hideMobCB.Text = "Hide All Mobiles"
 	hideMobCB.Size = eui.Point{X: width, Y: 24}
 	hideMobCB.Checked = gs.hideMobiles
-	hideMobCB.Tooltip = "Hide all mobiles"
 	hideMobEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.hideMobiles = ev.Checked
@@ -1553,10 +1531,9 @@ func makeDebugWindow() {
 	debugFlow.AddItem(hideMobCB)
 
 	planesCB, planesEvents := eui.NewCheckbox()
-	planesCB.Text = "Show image planes"
+	planesCB.Text = "Visualize Image Layers"
 	planesCB.Size = eui.Point{X: width, Y: 24}
 	planesCB.Checked = gs.imgPlanesDebug
-	planesCB.Tooltip = "Visualize image layers"
 	planesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.imgPlanesDebug = ev.Checked
@@ -1565,10 +1542,9 @@ func makeDebugWindow() {
 	}
 	debugFlow.AddItem(planesCB)
 	smoothinCB, smoothinEvents := eui.NewCheckbox()
-	smoothinCB.Text = "Smoothing Debug"
+	smoothinCB.Text = "Show Smoothing Diagnostics"
 	smoothinCB.Size = eui.Point{X: width, Y: 24}
 	smoothinCB.Checked = gs.smoothingDebug
-	smoothinCB.Tooltip = "Show smoothing diagnostics"
 	smoothinEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.smoothingDebug = ev.Checked
@@ -1621,7 +1597,6 @@ func makeDebugWindow() {
 	clearCacheBtn, clearCacheEvents := eui.NewButton()
 	clearCacheBtn.Text = "Clear All Caches"
 	clearCacheBtn.Size = eui.Point{X: width, Y: 24}
-	clearCacheBtn.Tooltip = "Clear cached assets"
 	clearCacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			clearCaches()
@@ -1640,9 +1615,8 @@ func makeDebugWindow() {
 	soundTestFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
 	minusTenBtn, minusTenEvents := eui.NewButton()
-	minusTenBtn.Text = "--"
+	minusTenBtn.Text = "-10"
 	minusTenBtn.Size = eui.Point{X: 24, Y: 24}
-	minusTenBtn.Tooltip = "Subtract 10"
 	minusTenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID -= 10
@@ -1656,9 +1630,8 @@ func makeDebugWindow() {
 	soundTestFlow.AddItem(minusTenBtn)
 
 	minusBtn, minusEvents := eui.NewButton()
-	minusBtn.Text = "-"
+	minusBtn.Text = "-1"
 	minusBtn.Size = eui.Point{X: 24, Y: 24}
-	minusBtn.Tooltip = "Subtract 1"
 	minusEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID--
@@ -1678,9 +1651,8 @@ func makeDebugWindow() {
 	soundTestFlow.AddItem(soundTestLabel)
 
 	plusBtn, plusEvents := eui.NewButton()
-	plusBtn.Text = "+"
+	plusBtn.Text = "+1"
 	plusBtn.Size = eui.Point{X: 24, Y: 24}
-	plusBtn.Tooltip = "Add 1"
 	plusEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID++
@@ -1691,9 +1663,8 @@ func makeDebugWindow() {
 	soundTestFlow.AddItem(plusBtn)
 
 	plusTenBtn, plusTenEvents := eui.NewButton()
-	plusTenBtn.Text = "++"
+	plusTenBtn.Text = "+10"
 	plusTenBtn.Size = eui.Point{X: 24, Y: 24}
-	plusTenBtn.Tooltip = "Add 10"
 	plusTenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			soundTestID += 10
@@ -1704,9 +1675,8 @@ func makeDebugWindow() {
 	soundTestFlow.AddItem(plusTenBtn)
 
 	playBtn, playEvents := eui.NewButton()
-	playBtn.Text = "Play"
-	playBtn.Size = eui.Point{X: 40, Y: 24}
-	playBtn.Tooltip = "Play sound"
+	playBtn.Text = "Play Sound"
+	playBtn.Size = eui.Point{X: 60, Y: 24}
 	playEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			playSound(uint16(soundTestID))
