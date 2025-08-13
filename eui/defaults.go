@@ -25,7 +25,7 @@ var defaultTheme = &windowData{
 	ShadowSize:  16,
 	ShadowColor: NewColor(0, 0, 0, 160),
 
-	Movable: true, Closable: true, Resizable: true, Open: true, AutoSize: false,
+	Movable: true, Closable: true, Resizable: true, Open: false, AutoSize: false,
 	NoBGColor: false,
 }
 
