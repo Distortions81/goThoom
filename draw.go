@@ -761,8 +761,8 @@ func parseDrawState(data []byte) error {
 		prevPics[i].Owned = false
 	}
 	for i := range newPics {
-		newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-		newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+		newPics[i].PrevH = newPics[i].H
+		newPics[i].PrevV = newPics[i].V
 		moving := true
 		var owner *framePicture
 		if i < again {
@@ -783,7 +783,11 @@ func parseDrawState(data []byte) error {
 				}
 			}
 		}
-		if moving && gs.smoothMoving {
+		if owner != nil {
+			newPics[i].PrevH = owner.H
+			newPics[i].PrevV = owner.V
+			owner.Owned = true
+		} else if gs.smoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
 			var best *framePicture
 			for j := range prevPics {
@@ -803,9 +807,11 @@ func parseDrawState(data []byte) error {
 				newPics[i].PrevH = best.H
 				newPics[i].PrevV = best.V
 				best.Owned = true
+			} else {
+				moving = false
 			}
-		} else if owner != nil {
-			owner.Owned = true
+		} else {
+			moving = false
 		}
 		newPics[i].Moving = moving
 		newPics[i].Background = false
@@ -815,6 +821,42 @@ func parseDrawState(data []byte) error {
 			newPics[idx].Moving = false
 			newPics[idx].Background = true
 		}
+	}
+	if gs.InterpLostBg {
+		var newPersist []framePicture
+		for _, pp := range prevPics {
+			if !pp.Background {
+				continue
+			}
+			targetH := int(pp.H) + state.picShiftX
+			targetV := int(pp.V) + state.picShiftY
+			found := false
+			for _, np := range newPics {
+				if !np.Background {
+					continue
+				}
+				if np.PictID == pp.PictID && int(np.H) == targetH && int(np.V) == targetV {
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+			clone := pp
+			clone.PrevH = pp.H
+			clone.PrevV = pp.V
+			clone.H = int16(targetH)
+			clone.V = int16(targetV)
+			clone.Moving = false
+			clone.Owned = false
+			clone.Again = false
+			newPersist = append(newPersist, clone)
+		}
+		state.persistBg = newPersist
+		newPics = append(newPics, state.persistBg...)
+	} else {
+		state.persistBg = nil
 	}
 
 	state.pictures = newPics

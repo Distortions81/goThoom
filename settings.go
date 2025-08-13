@@ -31,6 +31,7 @@ var gsdef settings = settings{
 	MotionSmoothing:   true,
 	BlendMobiles:      false,
 	BlendPicts:        false,
+	InterpLostBg:      true,
 	BlendAmount:       1.0,
 	MobileBlendAmount: 0.33,
 	MobileBlendFrames: 10,
@@ -91,6 +92,7 @@ type settings struct {
 	MotionSmoothing   bool
 	BlendMobiles      bool
 	BlendPicts        bool
+	InterpLostBg      bool
 	BlendAmount       float64
 	MobileBlendAmount float64
 	MobileBlendFrames int

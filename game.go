@@ -131,6 +131,7 @@ var (
 type drawState struct {
 	descriptors map[uint8]frameDescriptor
 	pictures    []framePicture
+	persistBg   []framePicture
 	picShiftX   int
 	picShiftY   int
 	mobiles     map[uint8]frameMobile
@@ -177,6 +178,7 @@ type bubble struct {
 type drawSnapshot struct {
 	descriptors                 map[uint8]frameDescriptor
 	pictures                    []framePicture
+	persistBg                   []framePicture
 	picShiftX                   int
 	picShiftY                   int
 	mobiles                     []frameMobile
@@ -203,6 +205,7 @@ func captureDrawSnapshot() drawSnapshot {
 	snap := drawSnapshot{
 		descriptors:    make(map[uint8]frameDescriptor, len(state.descriptors)),
 		pictures:       append([]framePicture(nil), state.pictures...),
+		persistBg:      append([]framePicture(nil), state.persistBg...),
 		picShiftX:      state.picShiftX,
 		picShiftY:      state.picShiftY,
 		mobiles:        make([]frameMobile, 0, len(state.mobiles)),
@@ -276,6 +279,7 @@ func cloneDrawState(src drawState) drawState {
 	dst := drawState{
 		descriptors:    make(map[uint8]frameDescriptor, len(src.descriptors)),
 		pictures:       append([]framePicture(nil), src.pictures...),
+		persistBg:      append([]framePicture(nil), src.persistBg...),
 		picShiftX:      src.picShiftX,
 		picShiftY:      src.picShiftY,
 		mobiles:        make(map[uint8]frameMobile, len(src.mobiles)),

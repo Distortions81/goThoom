@@ -57,6 +57,7 @@ var (
 	denoiseCB       *eui.ItemData
 	motionCB        *eui.ItemData
 	noSmoothCB      *eui.ItemData
+	interpBgCB      *eui.ItemData
 	animCB          *eui.ItemData
 	pictBlendCB     *eui.ItemData
 	precacheSoundCB *eui.ItemData
@@ -1173,6 +1174,20 @@ func makeQualityWindow() {
 		}
 	}
 	flow.AddItem(noSmoothCB)
+
+	bgCB, bgEvents := eui.NewCheckbox()
+	interpBgCB = bgCB
+	interpBgCB.Text = "Interpolate lost background images"
+	interpBgCB.Size = eui.Point{X: width, Y: 24}
+	interpBgCB.Checked = gs.InterpLostBg
+	interpBgCB.Tooltip = "Attempts to interpolate background images that were dropped due to going off camera, leaving black areas."
+	bgEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.InterpLostBg = ev.Checked
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(interpBgCB)
 
 	aCB, animEvents := eui.NewCheckbox()
 	animCB = aCB
