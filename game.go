@@ -22,7 +22,7 @@ import (
 )
 
 const lateRatio = 85
-const gameAreaSizeX, gameAreaSizeY = 640, 480
+const gameAreaSizeX, gameAreaSizeY = 547, 540
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const defaultHandPictID = 6
 
@@ -101,7 +101,7 @@ var (
 )
 
 // gameWin represents the main playfield window. Its size corresponds to the
-// classic client field box dimensions defined in old_mac_client/client/source/
+// classic client field box (547×540) defined in old_mac_client/client/source/
 // GameWin_cl.cp and Public_cl.h (Layout.layoFieldBox).
 var gameWin *eui.WindowData
 var settingsWin *eui.WindowData
