@@ -18,7 +18,7 @@ import (
 const shadowAlphaDivisor = 16
 
 var dumpDone bool
-var hoverPinWin *windowData
+var zoneIndicatorWin *windowData
 
 type openDropdown struct {
 	item   *itemData
@@ -28,20 +28,24 @@ type openDropdown struct {
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
-	hoverPinWin = nil
+	zoneIndicatorWin = nil
 	dropdowns := []openDropdown{}
 	for _, win := range windows {
 		if !win.Open {
 			continue
 		}
 		if win.HoverPin {
-			hoverPinWin = win
+			zoneIndicatorWin = win
 		}
 		win.Draw(screen, &dropdowns)
 	}
 
-	if hoverPinWin != nil {
-		drawZoneOverlay(screen, hoverPinWin)
+	if dragPart == PART_BAR && dragWin != nil {
+		zoneIndicatorWin = dragWin
+	}
+
+	if zoneIndicatorWin != nil {
+		drawZoneOverlay(screen, zoneIndicatorWin)
 	}
 
 	screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
@@ -71,10 +75,10 @@ func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 	dark := color.NRGBA{R: 0x40, G: 0x40, B: 0x40, A: 0xC0}
 	red := color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}
 
-	cx := win.getPosition().X + win.GetSize().X/2
-	cy := win.getPosition().Y + win.GetSize().Y/2
-	hSel := nearestHZone(cx, screenWidth)
-	vSel := nearestVZone(cy, screenHeight)
+	pos := win.getPosition()
+	winSize := win.GetSize()
+	hSel := nearestHZone(pos.X, winSize.X, screenWidth)
+	vSel := nearestVZone(pos.Y, winSize.Y, screenHeight)
 
 	for h := HZoneLeft; h <= HZoneRight; h++ {
 		for v := VZoneTop; v <= VZoneBottom; v++ {
@@ -244,6 +248,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			}
 			if win.HoverPin {
 				color = win.Theme.Window.HoverTitleColor
+				win.HoverPin = false
 			}
 			radius := win.GetTitleSize() / 6
 			cx := pr.X0 + (pr.X1-pr.X0)/2

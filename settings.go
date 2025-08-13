@@ -41,6 +41,7 @@ var gsdef settings = settings{
 	Volume:            0.5,
 	Mute:              false,
 	GameScale:         2,
+	Theme:             "AccentDark",
 	MessagesToConsole: false,
 	AnyGameWindowSize: false,
 
@@ -95,6 +96,7 @@ type settings struct {
 	Mute              bool
 	AnyGameWindowSize bool
 	GameScale         float64
+	Theme             string
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -147,6 +149,9 @@ func loadSettings() bool {
 	newGS := gsdef
 	if err := json.Unmarshal(data, &newGS); err != nil {
 		return false
+	}
+	if newGS.Theme == "" {
+		newGS.Theme = gsdef.Theme
 	}
 
 	if gs.Version == 2 {
