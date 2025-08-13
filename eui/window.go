@@ -49,7 +49,7 @@ func (target *windowData) AddWindow(toBack bool) {
 // deallocate releases cached render images for the window and its items.
 func (target *windowData) deallocate() {
 	if target.Render != nil {
-		target.Render.Dispose()
+		target.Render.Deallocate()
 		target.Render = nil
 	}
 	for _, item := range target.Contents {
@@ -60,7 +60,7 @@ func (target *windowData) deallocate() {
 // deallocate releases cached render images for the item and its children.
 func (item *itemData) deallocate() {
 	if item.Render != nil {
-		item.Render.Dispose()
+		item.Render.Deallocate()
 		item.Render = nil
 	}
 	for _, child := range item.Contents {

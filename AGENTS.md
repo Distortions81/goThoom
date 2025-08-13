@@ -65,3 +65,36 @@ go run .
 
 Running the client without a display (i.e. no `$DISPLAY` variable) will exit
 with an X11 initialization error.
+
+## Deprecated Ebiten calls to avoid
+
+- `op.ColorM.Scale`
+- `op.ColorM.Translate`
+- `op.ColorM.Rotate`
+- `op.ColorM.ChangeHSV`
+- `ebiten.UncappedTPS`
+- `ebiten.CurrentFPS`
+- `ebiten.CurrentTPS`
+- `ebiten.DeviceScaleFactor`
+- `ebiten.GamepadAxis`
+- `ebiten.GamepadAxisNum`
+- `ebiten.GamepadButtonNum`
+- `ebiten.InputChars`
+- `ebiten.IsScreenFilterEnabled`
+- `ebiten.IsScreenTransparent`
+- `ebiten.IsWindowResizable`
+- `ebiten.MaxTPS`
+- `ebiten.ScheduleFrame`
+- `ebiten.ScreenSizeInFullscreen`
+- `ebiten.SetFPSMode`
+- `ebiten.SetInitFocused`
+- `ebiten.SetMaxTPS`
+- `ebiten.SetScreenFilterEnabled`
+- `ebiten.SetScreenTransparent`
+- `ebiten.SetWindowResizable`
+- `ebiten.GamepadIDs`
+- `(*ebiten.Image).Dispose`
+- `(*ebiten.Image).ReplacePixels`
+- `(*ebiten.Image).Size`
+- `(*ebiten.Shader).Dispose`
+- `ebiten.TouchIDs`

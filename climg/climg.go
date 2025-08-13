@@ -534,7 +534,7 @@ func (c *CLImages) NumFrames(id uint32) int {
 func (c *CLImages) ClearCache() {
 	c.mu.Lock()
 	for _, img := range c.cache {
-		img.Dispose()
+		img.Deallocate()
 	}
 	c.cache = make(map[string]*ebiten.Image)
 	c.mu.Unlock()
