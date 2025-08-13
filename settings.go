@@ -97,6 +97,7 @@ type settings struct {
 	AnyGameWindowSize bool
 	GameScale         float64
 	Theme             string
+	MessagesToConsole bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -104,21 +105,20 @@ type settings struct {
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
 
-	imgPlanesDebug    bool
-	smoothingDebug    bool
-	hideMoving        bool
-	hideMobiles       bool
-	vsync             bool
-	nightEffect       bool
-	precacheSounds    bool
-	precacheImages    bool
-	textureFiltering  bool
-	lateInputUpdates  bool
-	cacheWholeSheet   bool
-	smoothMoving      bool
-	fastBars          bool
-	MessagesToConsole bool
-	recordAssetStats  bool
+	imgPlanesDebug   bool
+	smoothingDebug   bool
+	hideMoving       bool
+	hideMobiles      bool
+	vsync            bool
+	nightEffect      bool
+	precacheSounds   bool
+	precacheImages   bool
+	textureFiltering bool
+	lateInputUpdates bool
+	cacheWholeSheet  bool
+	smoothMoving     bool
+	fastBars         bool
+	recordAssetStats bool
 }
 
 var (
@@ -159,7 +159,6 @@ func loadSettings() bool {
 	}
 
 	clampWindowSettings()
-
 	return true
 }
 

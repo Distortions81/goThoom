@@ -169,7 +169,7 @@ func makeToolbarWindow() {
 		muteBtn.Text = "Unmute"
 	}
 	muteBtn.Size = eui.Point{X: 64, Y: 24}
-	muteBtn.FontSize = 18
+	muteBtn.FontSize = 12
 	muteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.Mute = !gs.Mute

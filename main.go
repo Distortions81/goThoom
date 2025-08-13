@@ -51,6 +51,7 @@ func main() {
 
 	var err error
 
+	loadSettings()
 	loadCharacters()
 	initSoundContext()
 
