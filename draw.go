@@ -750,6 +750,8 @@ func parseDrawState(data []byte) error {
 	if !ok {
 		prevPics = nil
 		again = 0
+		prevRealLen = 0
+		persistLen = 0
 		newPics = append([]framePicture(nil), pics...)
 		state.prevDescs = nil
 		state.prevMobiles = nil
