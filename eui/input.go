@@ -598,7 +598,14 @@ func (item *itemData) setSliderValue(mpos point) {
 	maxW, _ := text.Measure(maxLabel, face, 0)
 
 	knobW := item.AuxSize.X * uiScale
-	width := item.DrawRect.X1 - item.DrawRect.X0 - knobW - currentStyle.SliderValueGap - float32(maxW)
+	gap := currentStyle.SliderValueGap
+	width := item.DrawRect.X1 - item.DrawRect.X0 - knobW - gap - float32(maxW)
+	if width < knobW {
+		width = item.DrawRect.X1 - item.DrawRect.X0 - knobW
+		if width < 0 {
+			width = 0
+		}
+	}
 	if width <= 0 {
 		return
 	}

@@ -953,8 +953,13 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		knobW := item.AuxSize.X * uiScale
 		knobH := item.AuxSize.Y * uiScale
 		trackWidth := maxSize.X - knobW - gap - float32(maxW)
-		if trackWidth < 0 {
-			trackWidth = 0
+		showValue := true
+		if trackWidth < knobW {
+			trackWidth = maxSize.X - knobW
+			showValue = false
+			if trackWidth < 0 {
+				trackWidth = 0
+			}
 		}
 
 		trackStart := offset.X + knobW/2
@@ -990,16 +995,18 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			Color:    style.OutlineColor,
 		})
 
-		// value text drawn to the right of the slider track
-		loo := text.LayoutOptions{LineSpacing: 1.2, PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
-		tdop := ebiten.DrawImageOptions{}
-		tdop.GeoM.Translate(
-			float64(trackStart+trackWidth+gap),
-			float64(offset.Y+(maxSize.Y/2)),
-		)
-		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
-		top.ColorScale.ScaleWithColor(style.TextColor)
-		text.Draw(subImg, valueText, face, top)
+		if showValue {
+			// value text drawn to the right of the slider track
+			loo := text.LayoutOptions{LineSpacing: 1.2, PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
+			tdop := ebiten.DrawImageOptions{}
+			tdop.GeoM.Translate(
+				float64(trackStart+trackWidth+gap),
+				float64(offset.Y+(maxSize.Y/2)),
+			)
+			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
+			top.ColorScale.ScaleWithColor(style.TextColor)
+			text.Draw(subImg, valueText, face, top)
+		}
 
 	} else if item.ItemType == ITEM_DROPDOWN {
 
