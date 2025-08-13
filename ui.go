@@ -109,7 +109,7 @@ func makeToolbarWindow() {
 	toolbarWin.NoScroll = true
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
-	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTopMiddle)
+	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	toolbarWin.Size = eui.Point{X: 930, Y: 60}
 
 	gameMenu := &eui.ItemData{
