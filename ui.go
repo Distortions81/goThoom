@@ -1534,6 +1534,20 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(planesCB)
+
+	pictIDCB, pictIDEvents := eui.NewCheckbox()
+	pictIDCB.Text = "Show picture IDs"
+	pictIDCB.Tooltip = "Shows picture ID on each sprite"
+	pictIDCB.Size = eui.Point{X: width, Y: 24}
+	pictIDCB.Checked = gs.pictIDDebug
+	pictIDEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.pictIDDebug = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(pictIDCB)
+
 	smoothinCB, smoothinEvents := eui.NewCheckbox()
 	smoothinCB.Text = "Tint moving objects red"
 	smoothinCB.Size = eui.Point{X: width, Y: 24}
