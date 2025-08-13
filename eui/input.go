@@ -149,9 +149,7 @@ func Update() error {
 			} else if (clickDrag || midClickDrag) && dragPart != PART_NONE && dragWin == win {
 				switch dragPart {
 				case PART_BAR:
-					if win.zone == nil {
-						win.Position = pointAdd(win.Position, posCh)
-					}
+					dragWindowMove(win, posCh)
 				case PART_TOP:
 					posCh.X = 0
 					sizeCh.X = 0
@@ -783,6 +781,15 @@ func scrollWindow(win *windowData, delta point) bool {
 		win.markDirty()
 	}
 	return handled
+}
+
+func dragWindowMove(win *windowData, delta point) {
+	if win.zone != nil && win.Movable {
+		win.ClearZone()
+	}
+	if win.zone == nil {
+		win.Position = pointAdd(win.Position, delta)
+	}
 }
 
 func dragWindowScroll(win *windowData, mpos point, vert bool) {
