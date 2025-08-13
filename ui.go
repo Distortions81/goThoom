@@ -86,16 +86,14 @@ func initUI() {
 	makeHelpWindow()
 	makeToolbarWindow()
 
-	if chatWin != nil {
-		chatWin.IsOpen()
-	}
+	chatWin.MarkOpen()
 	consoleWin.MarkOpen()
 	inventoryWin.MarkOpen()
 	playersWin.MarkOpen()
 
 	if status.NeedImages || status.NeedSounds {
 		downloadWin.MarkOpen()
-	} else {
+	} else if clmov == "" {
 		loginWin.MarkOpen()
 	}
 }
