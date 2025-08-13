@@ -726,11 +726,13 @@ func parseDrawState(data []byte) error {
 		newPics[i].Again = false
 	}
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-	if gs.MotionSmoothing && gs.smoothMoving {
-		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
-		if !ok {
-			logDebug("prev pics: %v", picturesSummary(prevPics))
-			logDebug("new  pics: %v", picturesSummary(newPics))
+	if gs.MotionSmoothing {
+		if gs.smoothMoving {
+			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
+			if !ok {
+				logDebug("prev pics: %v", picturesSummary(prevPics))
+				logDebug("new  pics: %v", picturesSummary(newPics))
+			}
 		}
 		if ok {
 			state.picShiftX = dx
