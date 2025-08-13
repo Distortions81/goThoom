@@ -890,6 +890,9 @@ func (item *itemData) resizeFlow(parentSize point) {
 		item.Size.Y = float32(len(lines)) * lineHeight / uiScale
 		available = item.GetSize()
 	} else {
+		if item.AutoSize {
+			item.Size = point{X: available.X / uiScale, Y: item.Size.Y}
+		}
 		available = item.GetSize()
 	}
 
