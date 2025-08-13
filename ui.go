@@ -119,9 +119,9 @@ func makeToolbarWindow() {
 	toolbarWin.Closable = false
 	toolbarWin.Resizable = false
 	toolbarWin.AutoSize = false
-	toolbarWin.NoScroll = true
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
+	toolbarWin.NoScroll = true
 	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	toolbarWin.Size = eui.Point{X: 500, Y: 35}
 
@@ -689,7 +689,6 @@ func makeSettingsWindow() {
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
-	settingsWin.NoScroll = true
 	settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -970,7 +969,6 @@ func makeGraphicsWindow() {
 	graphicsWin.Resizable = false
 	graphicsWin.AutoSize = true
 	graphicsWin.Movable = true
-	graphicsWin.NoScroll = true
 	graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -1402,7 +1400,6 @@ func makeDebugWindow() {
 	debugWin.Resizable = false
 	debugWin.AutoSize = true
 	debugWin.Movable = true
-	debugWin.NoScroll = true
 	debugWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}

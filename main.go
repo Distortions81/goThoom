@@ -16,6 +16,8 @@ import (
 	"go_client/climg"
 	"go_client/clsnd"
 	"go_client/eui"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 var (
@@ -48,6 +50,8 @@ func main() {
 		clmov = filepath.Join("clmovFiles", "test.clMov")
 		clMovFPS = 30
 	}
+
+	ebiten.SetWindowSize(1280, 720)
 
 	var err error
 
