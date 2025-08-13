@@ -1072,33 +1072,71 @@ func makeSoundWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = "Volume"
-	volumeSlider.MinValue = 0
-	volumeSlider.MaxValue = 1
-	volumeSlider.Value = float32(gs.Volume)
-	volumeSlider.Size = eui.Point{X: width - 10, Y: 24}
-	volumeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.Volume = float64(ev.Value)
-			settingsDirty = true
-			updateSoundVolume()
-		}
-	}
-	flow.AddItem(volumeSlider)
-
-	muteCB, muteEvents := eui.NewCheckbox()
-	muteCB.Text = "Mute"
-	muteCB.Size = eui.Point{X: width, Y: 24}
-	muteCB.Checked = gs.Mute
-	muteEvents.Handle = func(ev eui.UIEvent) {
+	volLevelCB, volLevelEvents := eui.NewCheckbox()
+	volLevelCB.Text = "Volume leveling"
+	volLevelCB.Size = eui.Point{X: width, Y: 24}
+	volLevelCB.Checked = gs.VolumeLeveling
+	volLevelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.Mute = ev.Checked
+			gs.VolumeLeveling = ev.Checked
 			settingsDirty = true
-			updateSoundVolume()
 		}
 	}
-	flow.AddItem(muteCB)
+	flow.AddItem(volLevelCB)
+
+	maxSoundSlider, maxSoundEvents := eui.NewSlider()
+	maxSoundSlider.Label = "Max simultaneous sounds"
+	maxSoundSlider.MinValue = 16
+	maxSoundSlider.MaxValue = 128
+	maxSoundSlider.Value = float32(gs.MaxSounds)
+	maxSoundSlider.IntOnly = true
+	maxSoundSlider.Size = eui.Point{X: width - 10, Y: 24}
+	maxSoundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.MaxSounds = int(ev.Value)
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(maxSoundSlider)
+
+	var repeatSlider *eui.ItemData
+	repeatCB, repeatEvents := eui.NewCheckbox()
+	repeatCB.Text = "Mute repeated sounds"
+	repeatCB.Size = eui.Point{X: width, Y: 24}
+	repeatCB.Checked = gs.MuteRepeat
+	repeatEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MuteRepeat = ev.Checked
+			if repeatSlider != nil {
+				repeatSlider.Disabled = !ev.Checked
+			}
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(repeatCB)
+
+	repeatSlider, repeatSliderEvents := eui.NewSlider()
+	repeatSlider.Label = "Repeat delay (ms)"
+	repeatSlider.MinValue = 10
+	repeatSlider.MaxValue = 10000
+	repeatSlider.Value = float32(gs.RepeatDelay)
+	repeatSlider.IntOnly = true
+	repeatSlider.Size = eui.Point{X: width - 10, Y: 24}
+	repeatSlider.Disabled = !gs.MuteRepeat
+	repeatSliderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.RepeatDelay = int(ev.Value)
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(repeatSlider)
+
+	repeatText, _ := eui.NewText()
+	repeatText.Text = "Amount of time that must pass before\n" +
+		"the exact same sound can play again"
+	repeatText.FontSize = 12
+	repeatText.Size = eui.Point{X: width, Y: 36}
+	flow.AddItem(repeatText)
 
 	soundWin.AddItem(flow)
 	soundWin.AddWindow(false)

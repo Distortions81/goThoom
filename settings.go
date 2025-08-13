@@ -14,7 +14,7 @@ import (
 var gs settings = gsdef
 
 var gsdef settings = settings{
-	Version: 2,
+	Version: 3,
 
 	LastCharacter:   "",
 	ClickToToggle:   false,
@@ -42,6 +42,10 @@ var gsdef settings = settings{
 	Fullscreen:        false,
 	Volume:            0.25,
 	Mute:              false,
+	VolumeLeveling:    true,
+	MaxSounds:         64,
+	MuteRepeat:        false,
+	RepeatDelay:       100,
 	GameScale:         2,
 	Theme:             "",
 	MessagesToConsole: false,
@@ -100,6 +104,10 @@ type settings struct {
 	Fullscreen        bool
 	Volume            float64
 	Mute              bool
+	VolumeLeveling    bool
+	MaxSounds         int
+	MuteRepeat        bool
+	RepeatDelay       int
 	AnyGameWindowSize bool // allow arbitrary game window sizes
 	GameScale         float64
 	Theme             string
@@ -161,10 +169,8 @@ func loadSettings() bool {
 	if newGS.Theme == "" {
 		newGS.Theme = gsdef.Theme
 	}
-
-	if gs.Version == 2 {
-		gs = newGS
-	}
+	newGS.Version = gsdef.Version
+	gs = newGS
 
 	clampWindowSettings()
 	return true

@@ -5,14 +5,11 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 
 	"go_client/clsnd"
-)
-
-const (
-	maxSounds = 64
 )
 
 var (
@@ -20,8 +17,9 @@ var (
 	clSounds *clsnd.CLSounds
 	pcmCache = make(map[uint16][]byte)
 
-	audioContext *audio.Context
-	soundPlayers = make(map[*audio.Player]struct{})
+	audioContext    *audio.Context
+	soundPlayers    = make(map[*audio.Player]struct{})
+	soundLastPlayed = make(map[uint16]time.Time)
 )
 
 // playSound mixes the provided sound IDs and plays the result asynchronously.
@@ -40,6 +38,25 @@ func playSound(ids ...uint16) {
 		if audioContext == nil {
 			logDebug("playSound no audio context")
 			return
+		}
+
+		if gs.MuteRepeat {
+			now := time.Now()
+			soundMu.Lock()
+			filtered := ids[:0]
+			for _, id := range ids {
+				if t, ok := soundLastPlayed[id]; ok && now.Sub(t) < time.Duration(gs.RepeatDelay)*time.Millisecond {
+					continue
+				}
+				soundLastPlayed[id] = now
+				filtered = append(filtered, id)
+			}
+			soundMu.Unlock()
+			ids = filtered
+			if len(ids) == 0 {
+				logDebug("playSound all sounds muted due to repeat delay")
+				return
+			}
 		}
 
 		sounds := make([][]byte, 0, len(ids))
@@ -79,7 +96,10 @@ func playSound(ids ...uint16) {
 			}
 		}
 		// Apply peak normalization and reduce volume for overlapping sounds
-		scale := 1 / float64(len(sounds))
+		scale := 1.0
+		if gs.VolumeLeveling {
+			scale /= float64(len(sounds))
+		}
 		if maxVal > 0 {
 			scale *= math.Min(1.0, 32767.0/float64(maxVal))
 		}
@@ -109,7 +129,7 @@ func playSound(ids ...uint16) {
 				delete(soundPlayers, sp)
 			}
 		}
-		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
+		if gs.MaxSounds > 0 && len(soundPlayers) >= gs.MaxSounds {
 			soundMu.Unlock()
 			logDebug("playSound too many sound players (%d)", len(soundPlayers))
 			p.Close()
