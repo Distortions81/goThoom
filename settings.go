@@ -40,7 +40,7 @@ var gsdef settings = settings{
 	ShowFPS:           true,
 	UIScale:           1.0,
 	Fullscreen:        false,
-	Volume:            0.5,
+	Volume:            0.25,
 	Mute:              false,
 	GameScale:         2,
 	Theme:             "",
