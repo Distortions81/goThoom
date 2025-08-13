@@ -46,12 +46,35 @@ func (target *windowData) AddWindow(toBack bool) {
 	}
 }
 
+// deallocate releases cached render images for the window and its items.
+func (target *windowData) deallocate() {
+	if target.Render != nil {
+		target.Render.Dispose()
+		target.Render = nil
+	}
+	for _, item := range target.Contents {
+		item.deallocate()
+	}
+}
+
+// deallocate releases cached render images for the item and its children.
+func (item *itemData) deallocate() {
+	if item.Render != nil {
+		item.Render.Dispose()
+		item.Render = nil
+	}
+	for _, child := range item.Contents {
+		child.deallocate()
+	}
+}
+
 // RemoveWindow removes a window from the active list. Any cached images
 // belonging to the window are disposed and pointers cleared.
 func (target *windowData) RemoveWindow() {
 	for i, win := range windows {
 		if win == target { // Compare pointers
 			windows = append(windows[:i], windows[i+1:]...)
+			win.deallocate()
 			win.Open = false
 			return
 		}
@@ -226,7 +249,9 @@ func (target *windowData) Toggle() {
 }
 
 func (target *windowData) Close() {
+	target.deallocate()
 	target.Open = false
+	target.RemoveWindow()
 }
 
 // Send a window to the back
