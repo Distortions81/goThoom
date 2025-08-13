@@ -136,12 +136,48 @@ for platform in "${platforms[@]}"; do
       ${TAGS:+-tags="$TAGS"} \
       -ldflags="$LDFLAGS" \
       -o "${OUTPUT_DIR}/${BIN_NAME}" .
+  if [ "$GOOS" = "darwin" ]; then
+    APP_NAME="ThoomSpeak"
+    APP_DIR="${OUTPUT_DIR}/${APP_NAME}.app"
 
-  echo "Zipping ${BIN_NAME}..."
-  (
-    cd "$OUTPUT_DIR"
-    zip -q -m "$ZIP_NAME" "$BIN_NAME"
-  )
+    echo "Creating ${APP_NAME}.app bundle..."
+    rm -rf "$APP_DIR"
+    mkdir -p "$APP_DIR/Contents/MacOS"
+    cp "${OUTPUT_DIR}/${BIN_NAME}" "$APP_DIR/Contents/MacOS/${APP_NAME}"
+    cat <<'EOF' >"$APP_DIR/Contents/Info.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>ThoomSpeak</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.goThoom.client</string>
+  <key>CFBundleName</key>
+  <string>ThoomSpeak</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleVersion</key>
+  <string>1.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+</dict>
+</plist>
+EOF
+
+    echo "Zipping ${APP_NAME}.app..."
+    (
+      cd "$OUTPUT_DIR"
+      zip -q -r "$ZIP_NAME" "${APP_NAME}.app"
+      rm -rf "${APP_NAME}.app" "${BIN_NAME}"
+    )
+  else
+    echo "Zipping ${BIN_NAME}..."
+    (
+      cd "$OUTPUT_DIR"
+      zip -q -m "$ZIP_NAME" "$BIN_NAME"
+    )
+  fi
 done
 
 echo "Binaries and zip files are located in ${OUTPUT_DIR}/"
