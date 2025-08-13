@@ -1407,6 +1407,9 @@ func makeGameWindow() {
 }
 
 func noteFrame() {
+	if playingMovie {
+		return
+	}
 	now := time.Now()
 	frameMu.Lock()
 	if !lastFrameTime.IsZero() {

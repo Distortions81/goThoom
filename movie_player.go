@@ -11,7 +11,10 @@ import (
 	"github.com/hako/durafmt"
 )
 
-var shortUnits, _ = durafmt.DefaultUnitsCoder.Decode("y:yrs,wk:wks,d:d,h:h,m:m,s:s,ms:ms,us:us")
+var (
+	shortUnits, _ = durafmt.DefaultUnitsCoder.Decode("y:yrs,wk:wks,d:d,h:h,m:m,s:s,ms:ms,us:us")
+	playingMovie  bool
+)
 
 // moviePlayer manages clMov playback with basic controls.
 type moviePlayer struct {
@@ -31,6 +34,8 @@ type moviePlayer struct {
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
 	setInterpFPS(fps)
 	serverFPS = float64(fps)
+	frameInterval = time.Second / time.Duration(fps)
+	playingMovie = true
 	return &moviePlayer{
 		frames:  frames,
 		fps:     fps,
@@ -243,6 +248,7 @@ func (p *moviePlayer) run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			p.ticker.Stop()
+			playingMovie = false
 			return
 		case <-p.ticker.C:
 			if p.playing {
@@ -255,6 +261,7 @@ func (p *moviePlayer) run(ctx context.Context) {
 func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		p.playing = false
+		playingMovie = false
 		//p.cancel()
 		return
 	}
@@ -269,6 +276,7 @@ func (p *moviePlayer) step() {
 	p.updateUI()
 	if p.cur >= len(p.frames) {
 		p.playing = false
+		playingMovie = false
 		//p.cancel()
 	}
 }
@@ -303,6 +311,7 @@ func (p *moviePlayer) setFPS(fps int) {
 	}
 	p.fps = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
+	frameInterval = time.Second / time.Duration(p.fps)
 	setInterpFPS(p.fps)
 	serverFPS = float64(p.fps)
 	p.updateUI()
