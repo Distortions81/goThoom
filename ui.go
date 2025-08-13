@@ -63,7 +63,6 @@ var (
 	precacheImageCB *eui.ItemData
 	noCacheCB       *eui.ItemData
 	potatoCB        *eui.ItemData
-	filtCB          *eui.ItemData
 )
 
 func initUI() {
@@ -1398,25 +1397,6 @@ func makeQualityWindow() {
 		}
 	}
 	flow.AddItem(potatoCB)
-
-	fCB, filtEvents := eui.NewCheckbox()
-	filtCB = fCB
-	filtCB.Text = "Image Filtering"
-	filtCB.Size = eui.Point{X: width, Y: 24}
-	filtCB.Checked = gs.textureFiltering
-	filtCB.Tooltip = "Use linear texture filtering"
-	filtEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.textureFiltering = ev.Checked
-			if gs.textureFiltering {
-				drawFilter = ebiten.FilterLinear
-			} else {
-				drawFilter = ebiten.FilterNearest
-			}
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(filtCB)
 
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
 	vsyncCB.Text = "Vsync"
