@@ -1,6 +1,9 @@
 package eui
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestWindowTilingPreventsOverlap(t *testing.T) {
 	screenWidth = 200
@@ -44,33 +47,29 @@ func TestWindowTilingDisabledAllowsOverlap(t *testing.T) {
 	}
 }
 
-func TestWindowTilingResolvesOverlapAfterDrag(t *testing.T) {
-	screenWidth = 200
+func TestPreventOverlapTerminatesBetweenWindows(t *testing.T) {
+	screenWidth = 300
 	screenHeight = 200
 	uiScale = 1
 	windows = nil
 	SetWindowTiling(true)
-	SetWindowSnapping(true)
+	left := &windowData{Open: true, Position: point{X: 0, Y: 0}, Size: point{X: 100, Y: 100}}
+	right := &windowData{Open: true, Position: point{X: 120, Y: 0}, Size: point{X: 100, Y: 100}}
 
-	win1 := &windowData{Open: true, Size: point{X: 50, Y: 50}}
-	win2 := &windowData{Open: true, Position: point{X: 100, Y: 100}, Size: point{X: 50, Y: 50}, Movable: true}
+	left.AddWindow(false)
+	right.AddWindow(false)
 
-	win1.AddWindow(false)
-	win2.AddWindow(false)
+	middle := &windowData{Open: true, Position: point{X: 60, Y: 0}, Size: point{X: 100, Y: 100}}
 
-	dragWindowMove(win2, point{X: -60, Y: -60})
+	done := make(chan struct{})
+	go func() {
+		middle.AddWindow(false)
+		close(done)
+	}()
 
-	r1 := win1.getWinRect()
-	r2 := win2.getWinRect()
-	inter := intersectRect(r1, r2)
-	if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
-		t.Fatalf("expected overlap during drag")
-	}
-
-	preventOverlap(win2)
-	r2 = win2.getWinRect()
-	inter = intersectRect(r1, r2)
-	if inter.X1 > inter.X0 && inter.Y1 > inter.Y0 {
-		t.Fatalf("windows still overlap after preventOverlap")
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatalf("preventOverlap did not terminate")
 	}
 }

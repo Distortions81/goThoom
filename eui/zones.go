@@ -394,7 +394,13 @@ func preventOverlap(win *windowData) {
 	if !windowTiling {
 		return
 	}
-	for {
+	const maxIterations = 100
+	visited := map[point]bool{}
+	for i := 0; i < maxIterations; i++ {
+		if visited[win.Position] {
+			break
+		}
+		visited[win.Position] = true
 		winRect := win.getWinRect()
 		moved := false
 		for _, other := range windows {
