@@ -63,7 +63,6 @@ var (
 	precacheImageCB *eui.ItemData
 	noCacheCB       *eui.ItemData
 	potatoCB        *eui.ItemData
-	filtCB          *eui.ItemData
 )
 
 func initUI() {
@@ -80,7 +79,6 @@ func initUI() {
 	makeConsoleWindow()
 	makeSettingsWindow()
 	makeGraphicsWindow()
-	makeSoundWindow()
 	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -127,7 +125,6 @@ func makeToolbarWindow() {
 	winBtn.Text = "Windows"
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	winBtn.FontSize = toolFontSize
-	winBtn.Tooltip = "Show or hide window list"
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			windowsWin.Toggle()
@@ -139,7 +136,6 @@ func makeToolbarWindow() {
 	btn.Text = "Settings"
 	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	btn.FontSize = toolFontSize
-	btn.Tooltip = "Open settings window"
 	setEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			settingsWin.Toggle()
@@ -151,7 +147,6 @@ func makeToolbarWindow() {
 	helpBtn.Text = "Help"
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
-	helpBtn.Tooltip = "Open help window"
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			helpWin.Toggle()
@@ -160,13 +155,12 @@ func makeToolbarWindow() {
 	gameMenu.AddItem(helpBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = ""
+	volumeSlider.Label = "Volume"
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
 	volumeSlider.Size = eui.Point{X: 150, Y: buttonHeight}
 	volumeSlider.FontSize = 9
-	volumeSlider.Tooltip = "Adjust master volume"
 	volumeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Volume = float64(ev.Value)
@@ -183,7 +177,6 @@ func makeToolbarWindow() {
 	}
 	muteBtn.Size = eui.Point{X: 64, Y: buttonHeight}
 	muteBtn.FontSize = 12
-	muteBtn.Tooltip = "Mute or unmute sound"
 	muteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.Mute = !gs.Mute
@@ -203,7 +196,6 @@ func makeToolbarWindow() {
 	recordBtn.Text = "Record"
 	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	recordBtn.FontSize = toolFontSize
-	recordBtn.Tooltip = "Record or stop recording gameplay"
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
@@ -909,10 +901,10 @@ func makeSettingsWindow() {
 	soundBtn.Size = eui.Point{X: width, Y: 24}
 	soundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			soundWin.Toggle()
+			qualityWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(soundBtn)
+	mainFlow.AddItem(qualityBtn)
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
@@ -1060,17 +1052,6 @@ func makeGraphicsWindow() {
 		}
 	}
 	flow.AddItem(qualityPresetDD)
-
-	qualityBtn, qualityEvents := eui.NewButton()
-	qualityBtn.Text = "Quality Options"
-	qualityBtn.Size = eui.Point{X: width, Y: 24}
-	qualityBtn.Tooltip = "Show detailed quality settings"
-	qualityEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			qualityWin.Toggle()
-		}
-	}
-	flow.AddItem(qualityBtn)
 
 	graphicsWin.AddItem(flow)
 	graphicsWin.AddWindow(false)
@@ -1395,25 +1376,6 @@ func makeQualityWindow() {
 		}
 	}
 	flow.AddItem(potatoCB)
-
-	fCB, filtEvents := eui.NewCheckbox()
-	filtCB = fCB
-	filtCB.Text = "Image Filtering"
-	filtCB.Size = eui.Point{X: width, Y: 24}
-	filtCB.Checked = gs.textureFiltering
-	filtCB.Tooltip = "Use linear texture filtering"
-	filtEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.textureFiltering = ev.Checked
-			if gs.textureFiltering {
-				drawFilter = ebiten.FilterLinear
-			} else {
-				drawFilter = ebiten.FilterNearest
-			}
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(filtCB)
 
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
 	vsyncCB.Text = "Vsync"
