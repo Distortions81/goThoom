@@ -40,6 +40,9 @@ var (
 	// windowTiling prevents windows from overlapping when enabled.
 	windowTiling bool = true
 
+	// windowSnapping snaps windows to screen edges or other windows when enabled.
+	windowSnapping bool = true
+
 	whiteImage    = ebiten.NewImage(3, 3)
 	whiteSubImage = whiteImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image)
 
