@@ -51,7 +51,7 @@ func main() {
 		clMovFPS = 30
 	}
 
-	ebiten.SetWindowSize(1280, 720)
+	ebiten.SetWindowSize(1920, 1080)
 
 	var err error
 

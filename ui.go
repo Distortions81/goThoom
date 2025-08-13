@@ -200,67 +200,71 @@ func makeToolbarWindow() {
 	}
 	gameMenu.AddItem(muteBtn)
 
-	recordBtn, recordEvents := eui.NewButton()
-	recordBtn.Text = "Record"
-	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	recordBtn.FontSize = toolFontSize
-	recordEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventClick {
-			return
-		}
-		if recorder != nil {
-			if err := recorder.Close(); err != nil {
-				logError("close recorder: %v", err)
+	/*
+		recordBtn, recordEvents := eui.NewButton()
+		recordBtn.Text = "Record"
+		recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+		recordBtn.FontSize = toolFontSize
+		recordBtn.Disabled = true
+		recordEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type != eui.EventClick {
+				return
 			}
-			recorder = nil
-			recordBtn.Text = "Record Movie"
+			if recorder != nil {
+				if err := recorder.Close(); err != nil {
+					logError("close recorder: %v", err)
+				}
+				recorder = nil
+				recordBtn.Text = "Record Movie"
+				recordBtn.Dirty = true
+				if recordStatus != nil {
+					recordStatus.Text = ""
+					recordStatus.Dirty = true
+				}
+				return
+			}
+			recDir := filepath.Join("recordings")
+			if err := os.MkdirAll(recDir, 0755); err != nil {
+				logError("create recordings dir: %v", err)
+				makeErrorWindow("Error: Record Movie: " + err.Error())
+				return
+			}
+			name := gs.LastCharacter
+			if playerName != "" {
+				name = playerName
+			}
+			if name == "" {
+				name = "recording"
+			}
+			defName := fmt.Sprintf("%s_%s.clMov", name, time.Now().Format("20060102_150405"))
+			filename, err := dialog.File().Filter("clMov files", "clMov", "clmov").SetStartDir(recDir).SetStartFile(defName).Title("Record Movie").Save()
+			if err != nil {
+				if err != dialog.ErrCancelled {
+					logError("record movie save: %v", err)
+					makeErrorWindow("Error: Record Movie: " + err.Error())
+				}
+				return
+			}
+			if filename == "" {
+				return
+			}
+			rec, err := newMovieRecorder(filename, clientVersion, int(movieRevision))
+			if err != nil {
+				logError("start recorder: %v", err)
+				makeErrorWindow("Error: Record Movie: " + err.Error())
+				return
+			}
+			recorder = rec
+			recordBtn.Text = "Stop Recording"
 			recordBtn.Dirty = true
 			if recordStatus != nil {
-				recordStatus.Text = ""
+				recordStatus.Text = "REC"
 				recordStatus.Dirty = true
 			}
-			return
 		}
-		recDir := filepath.Join("recordings")
-		if err := os.MkdirAll(recDir, 0755); err != nil {
-			logError("create recordings dir: %v", err)
-			makeErrorWindow("Error: Record Movie: " + err.Error())
-			return
-		}
-		name := gs.LastCharacter
-		if playerName != "" {
-			name = playerName
-		}
-		if name == "" {
-			name = "recording"
-		}
-		defName := fmt.Sprintf("%s_%s.clMov", name, time.Now().Format("20060102_150405"))
-		filename, err := dialog.File().Filter("clMov files", "clMov", "clmov").SetStartDir(recDir).SetStartFile(defName).Title("Record Movie").Save()
-		if err != nil {
-			if err != dialog.ErrCancelled {
-				logError("record movie save: %v", err)
-				makeErrorWindow("Error: Record Movie: " + err.Error())
-			}
-			return
-		}
-		if filename == "" {
-			return
-		}
-		rec, err := newMovieRecorder(filename, clientVersion, int(movieRevision))
-		if err != nil {
-			logError("start recorder: %v", err)
-			makeErrorWindow("Error: Record Movie: " + err.Error())
-			return
-		}
-		recorder = rec
-		recordBtn.Text = "Stop Recording"
-		recordBtn.Dirty = true
-		if recordStatus != nil {
-			recordStatus.Text = "REC"
-			recordStatus.Dirty = true
-		}
-	}
-	gameMenu.AddItem(recordBtn)
+		gameMenu.AddItem(recordBtn)
+	*/
+
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
 	recordStatus.Size = eui.Point{X: 80, Y: buttonHeight}
@@ -508,10 +512,10 @@ func makeAddCharacterWindow() {
 			saveSettings()
 			updateCharacterButtons()
 			if loginWin != nil && loginWin.IsOpen() {
-				// Preserve window position while contents change size
 				loginWin.Refresh()
 			}
-			addCharWin.MarkOpen()
+			loginWin.MarkOpen()
+			addCharWin.Close()
 		}
 	}
 	flow.AddItem(addBtn)
