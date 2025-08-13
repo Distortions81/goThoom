@@ -208,9 +208,11 @@ func Update() error {
 				}
 				win.clampToScreen()
 				if win.zone == nil {
-					if !snapToCorner(win) {
-						if snapToWindow(win) {
-							win.clampToScreen()
+					if !win.snapAnchorActive {
+						if !snapToCorner(win) {
+							if snapToWindow(win) {
+								win.clampToScreen()
+							}
 						}
 					}
 				}
@@ -793,6 +795,13 @@ func dragWindowMove(win *windowData, delta point) {
 	}
 	if win.zone == nil {
 		win.Position = pointAdd(win.Position, delta)
+		if win.snapAnchorActive {
+			dx := float32(math.Abs(float64(win.Position.X - win.snapAnchor.X)))
+			dy := float32(math.Abs(float64(win.Position.Y - win.snapAnchor.Y)))
+			if dx > UnsnapThreshold || dy > UnsnapThreshold {
+				win.snapAnchorActive = false
+			}
+		}
 	}
 }
 
