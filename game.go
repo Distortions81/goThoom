@@ -158,7 +158,8 @@ var (
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
 	}
-	stateMu sync.Mutex
+	initialState drawState
+	stateMu      sync.Mutex
 )
 
 // bubble stores temporary bubble debug information.
@@ -268,6 +269,49 @@ func captureDrawSnapshot() drawSnapshot {
 		}
 	}
 	return snap
+}
+
+// cloneDrawState makes a deep copy of a drawState.
+func cloneDrawState(src drawState) drawState {
+	dst := drawState{
+		descriptors:    make(map[uint8]frameDescriptor, len(src.descriptors)),
+		pictures:       append([]framePicture(nil), src.pictures...),
+		picShiftX:      src.picShiftX,
+		picShiftY:      src.picShiftY,
+		mobiles:        make(map[uint8]frameMobile, len(src.mobiles)),
+		prevMobiles:    make(map[uint8]frameMobile, len(src.prevMobiles)),
+		prevDescs:      make(map[uint8]frameDescriptor, len(src.prevDescs)),
+		prevTime:       src.prevTime,
+		curTime:        src.curTime,
+		bubbles:        append([]bubble(nil), src.bubbles...),
+		hp:             src.hp,
+		hpMax:          src.hpMax,
+		sp:             src.sp,
+		spMax:          src.spMax,
+		balance:        src.balance,
+		balanceMax:     src.balanceMax,
+		prevHP:         src.prevHP,
+		prevHPMax:      src.prevHPMax,
+		prevSP:         src.prevSP,
+		prevSPMax:      src.prevSPMax,
+		prevBalance:    src.prevBalance,
+		prevBalanceMax: src.prevBalanceMax,
+		ackCmd:         src.ackCmd,
+		lightingFlags:  src.lightingFlags,
+	}
+	for idx, d := range src.descriptors {
+		dst.descriptors[idx] = d
+	}
+	for idx, m := range src.mobiles {
+		dst.mobiles[idx] = m
+	}
+	for idx, m := range src.prevMobiles {
+		dst.prevMobiles[idx] = m
+	}
+	for idx, d := range src.prevDescs {
+		dst.prevDescs[idx] = d
+	}
+	return dst
 }
 
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
