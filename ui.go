@@ -163,7 +163,6 @@ func makeToolbarWindow() {
 	gameMenu.AddItem(helpBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = "Volume"
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
