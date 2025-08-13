@@ -187,6 +187,13 @@ func Update() error {
 					dragWindowScroll(win, mpos, false)
 				}
 				win.clampToScreen()
+				if win.zone == nil {
+					if !snapToCorner(win) {
+						if snapToWindow(win) {
+							win.clampToScreen()
+						}
+					}
+				}
 				break
 			}
 		}
