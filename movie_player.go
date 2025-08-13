@@ -42,16 +42,13 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 
 // makePlaybackWindow creates the playback control window.
 func (p *moviePlayer) makePlaybackWindow() {
-	ps := eui.Point{X: 800, Y: 95}
-
 	win := eui.NewWindow()
 	win.Title = "Movie Controls"
 	win.Closable = false
 	win.Resizable = false
-	win.AutoSize = false
+	win.AutoSize = true
 	win.NoScroll = true
 	win.SetZone(eui.HZoneCenter, eui.VZoneBottomMiddle)
-	win.Size = ps
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
