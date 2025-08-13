@@ -255,6 +255,16 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	return frame
 }
 
+// mobileSize returns the dimension of a single mobile frame for the given
+// image ID. If the image cannot be loaded, 0 is returned.
+func mobileSize(id uint16) int {
+	sheet := loadSheet(id, nil, true)
+	if sheet == nil {
+		return 0
+	}
+	return (sheet.Bounds().Dx() - 2) / 16
+}
+
 func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
 	if prevImg == nil || img == nil {
 		return nil

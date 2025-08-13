@@ -690,6 +690,15 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			x := int((math.Round(hpos) + float64(fieldCenterX)) * gs.GameScale)
 			y := int((math.Round(vpos) + float64(fieldCenterY)) * gs.GameScale)
+			if !b.Far {
+				if d, ok := descMap[b.Index]; ok {
+					if size := mobileSize(d.PictID); size > 0 {
+						scaled := math.Round(float64(size) * gs.GameScale)
+						tailHeight := int(10 * gs.GameScale)
+						y += tailHeight - int(scaled/2)
+					}
+				}
+			}
 			x += ox
 			y += oy
 			borderCol, bgCol, textCol := bubbleColors(b.Type)
