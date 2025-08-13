@@ -244,6 +244,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			}
 			if win.HoverPin {
 				color = win.Theme.Window.HoverTitleColor
+				win.HoverPin = false
 			}
 			radius := win.GetTitleSize() / 6
 			cx := pr.X0 + (pr.X1-pr.X0)/2
