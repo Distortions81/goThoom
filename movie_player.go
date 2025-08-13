@@ -360,12 +360,7 @@ func (p *moviePlayer) seek(idx int) {
 
 func resetDrawState() {
 	stateMu.Lock()
-	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
-	}
+	state = cloneDrawState(initialState)
 	stateMu.Unlock()
 }
 

@@ -32,6 +32,7 @@ type framePicture struct {
 	Moving       bool
 	Background   bool
 	Owned        bool
+	Again        bool
 }
 
 type frameMobile struct {
@@ -718,6 +719,12 @@ func parseDrawState(data []byte) error {
 	newPics := make([]framePicture, again+pictCount)
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
+	for i := 0; i < again && i < len(newPics); i++ {
+		newPics[i].Again = true
+	}
+	for i := again; i < len(newPics); i++ {
+		newPics[i].Again = false
+	}
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
 	if gs.MotionSmoothing && gs.smoothMoving {
 		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)

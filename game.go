@@ -158,7 +158,8 @@ var (
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
 	}
-	stateMu sync.Mutex
+	initialState drawState
+	stateMu      sync.Mutex
 )
 
 // bubble stores temporary bubble debug information.
@@ -268,6 +269,49 @@ func captureDrawSnapshot() drawSnapshot {
 		}
 	}
 	return snap
+}
+
+// cloneDrawState makes a deep copy of a drawState.
+func cloneDrawState(src drawState) drawState {
+	dst := drawState{
+		descriptors:    make(map[uint8]frameDescriptor, len(src.descriptors)),
+		pictures:       append([]framePicture(nil), src.pictures...),
+		picShiftX:      src.picShiftX,
+		picShiftY:      src.picShiftY,
+		mobiles:        make(map[uint8]frameMobile, len(src.mobiles)),
+		prevMobiles:    make(map[uint8]frameMobile, len(src.prevMobiles)),
+		prevDescs:      make(map[uint8]frameDescriptor, len(src.prevDescs)),
+		prevTime:       src.prevTime,
+		curTime:        src.curTime,
+		bubbles:        append([]bubble(nil), src.bubbles...),
+		hp:             src.hp,
+		hpMax:          src.hpMax,
+		sp:             src.sp,
+		spMax:          src.spMax,
+		balance:        src.balance,
+		balanceMax:     src.balanceMax,
+		prevHP:         src.prevHP,
+		prevHPMax:      src.prevHPMax,
+		prevSP:         src.prevSP,
+		prevSPMax:      src.prevSPMax,
+		prevBalance:    src.prevBalance,
+		prevBalanceMax: src.prevBalanceMax,
+		ackCmd:         src.ackCmd,
+		lightingFlags:  src.lightingFlags,
+	}
+	for idx, d := range src.descriptors {
+		dst.descriptors[idx] = d
+	}
+	for idx, m := range src.mobiles {
+		dst.mobiles[idx] = m
+	}
+	for idx, m := range src.prevMobiles {
+		dst.prevMobiles[idx] = m
+	}
+	for idx, d := range src.prevDescs {
+		dst.prevDescs[idx] = d
+	}
+	return dst
 }
 
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
@@ -1063,7 +1107,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
 		op.GeoM.Translate(tx, ty)
-		if src == img && gs.smoothingDebug && p.Moving {
+		if gs.pictAgainDebug && p.Again {
+			op.ColorM.Scale(0, 0, 1, 1)
+		} else if src == img && gs.smoothingDebug && p.Moving {
 			op.ColorM.Scale(1, 0, 0, 1)
 		}
 		screen.DrawImage(src, op)
@@ -1085,6 +1131,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		clr := color.RGBA{0, 0, 0xff, 0xff}
 		if gs.smoothingDebug && p.Moving {
 			clr = color.RGBA{0xff, 0, 0, 0xff}
+		}
+		if gs.pictAgainDebug && p.Again {
+			clr = color.RGBA{0, 0, 0xff, 0xff}
 		}
 		vector.DrawFilledRect(screen, float32(float64(x)-2*gs.GameScale), float32(float64(y)-2*gs.GameScale), float32(4*gs.GameScale), float32(4*gs.GameScale), clr, false)
 		if gs.imgPlanesDebug {
@@ -1285,7 +1334,7 @@ func runGame(ctx context.Context) {
 	if gs.Fullscreen {
 		ebiten.SetFullscreen(true)
 	} else {
-		ebiten.MaximizeWindow()
+		//ebiten.MaximizeWindow()
 	}
 
 	op := &ebiten.RunGameOptions{ScreenTransparent: false}
