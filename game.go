@@ -402,6 +402,8 @@ func (g *Game) Update() error {
 		}
 	}
 
+	updateConsoleWindow()
+
 	if !inputActive {
 		dx, dy := 0, 0
 		if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
