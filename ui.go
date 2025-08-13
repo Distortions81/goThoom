@@ -1378,8 +1378,8 @@ func makeQualityWindow() {
 				gs.precacheImages = false
 				precacheSoundCB.Checked = false
 				precacheImageCB.Checked = false
+				clearCaches()
 			}
-			clearCaches()
 			settingsDirty = true
 			if qualityPresetDD != nil {
 				qualityPresetDD.Selected = detectQualityPreset()
@@ -1397,6 +1397,9 @@ func makeQualityWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.PotatoComputer = ev.Checked
 			applySettings()
+			if ev.Checked {
+				clearCaches()
+			}
 			settingsDirty = true
 			if qualityPresetDD != nil {
 				qualityPresetDD.Selected = detectQualityPreset()
