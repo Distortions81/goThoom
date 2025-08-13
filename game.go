@@ -1028,20 +1028,21 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			}
 			if b := pictBlendFrame(p.PictID, prevFrame, frame, prevImg, img, idx, steps); b != nil {
 				src = b
-				drawW = b.Bounds().Dx()
-				drawH = b.Bounds().Dy()
 			} else {
 				src = img
+				blend = false
 			}
 		} else if gs.BlendPicts && prevImg != nil {
 			if fade <= 0 {
 				src = prevImg
-				drawW, drawH = prevImg.Bounds().Dx(), prevImg.Bounds().Dy()
 			} else {
 				src = img
 			}
 		} else {
 			src = img
+		}
+		if src != nil {
+			drawW, drawH = src.Bounds().Dx(), src.Bounds().Dy()
 		}
 		sx, sy := gs.GameScale, gs.GameScale
 		if !gs.textureFiltering {
