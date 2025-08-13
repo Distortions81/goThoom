@@ -214,6 +214,7 @@ func (target *windowData) MarkOpen() {
 	} else {
 		target.BringForward()
 	}
+	target.Refresh()
 }
 
 // MarkOpen sets the window to open and brings it forward if necessary.
