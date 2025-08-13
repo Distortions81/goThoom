@@ -1347,6 +1347,7 @@ func makeGameWindow() {
 	gameWin.Movable = true
 	gameWin.NoScale = true
 	gameWin.AlwaysDrawFirst = true
+	gameWin.Size = eui.Point{X: gameAreaSizeX, Y: gameAreaSizeY}
 	gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	gameWin.MarkOpen()
 	updateGameWindowSize()
