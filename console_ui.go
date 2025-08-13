@@ -5,6 +5,7 @@ package main
 import "go_client/eui"
 
 var consoleWin *eui.WindowData
+var consoleFlow *eui.ItemData
 var messagesFlow *eui.ItemData
 var inputFlow *eui.ItemData
 var messagesDirty bool
@@ -39,6 +40,7 @@ func updateConsoleWindow() {
 		changed = true
 	}
 
+	inputFlow.Size.Y = float32(gs.ConsoleFontSize) + 8
 	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
 	if inputActive {
 		inputMsg = string(inputText)
@@ -59,6 +61,9 @@ func updateConsoleWindow() {
 	}
 	if changed {
 		messagesDirty = true
+		if consoleWin != nil {
+			consoleWin.Refresh()
+		}
 	}
 }
 
@@ -74,10 +79,16 @@ func makeConsoleWindow() {
 	consoleWin.Movable = true
 	consoleWin.SetZone(eui.HZoneLeft, eui.VZoneBottom)
 
+	consoleFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
+	consoleWin.AddItem(consoleFlow)
+
 	messagesFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
-	consoleWin.AddItem(messagesFlow)
-	inputFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true, PinTo: eui.PIN_BOTTOM_LEFT}
-	consoleWin.AddItem(inputFlow)
+	consoleFlow.AddItem(messagesFlow)
+
+	inputFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	inputFlow.Color = eui.ColorVeryDarkGray
+	consoleFlow.AddItem(inputFlow)
+
 	consoleWin.AddWindow(false)
 	updateConsoleWindow()
 }
