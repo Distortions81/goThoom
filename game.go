@@ -513,8 +513,9 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := ebiten.CursorPosition()
-	baseX := int16(float64(mx)/gs.GameScale - float64(fieldCenterX))
-	baseY := int16(float64(my)/gs.GameScale - float64(fieldCenterY))
+	gx, gy := gameWindowOrigin()
+	baseX := int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
+	baseY := int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
 	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	if pointInUI(mx, my) {
 		baseDown = false
