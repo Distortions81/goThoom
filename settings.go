@@ -43,7 +43,7 @@ var gsdef settings = settings{
 	Volume:            0.5,
 	Mute:              false,
 	GameScale:         2,
-	Theme:             "AccentDark",
+	Theme:             "",
 	MessagesToConsole: false,
 	AnyGameWindowSize: false,
 
