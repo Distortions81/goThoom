@@ -78,6 +78,8 @@ func LoadTheme(name string) error {
 	// Reset named colors
 	namedColors = map[string]Color{}
 
+	oldTheme := currentTheme
+
 	var tf themeFile
 	if err := json.Unmarshal(data, &tf); err != nil {
 		return err
@@ -111,6 +113,7 @@ func LoadTheme(name string) error {
 	}
 	currentThemeName = name
 	applyStyleToTheme(currentTheme)
+	updateThemeReferences(oldTheme, currentTheme)
 	markAllDirty()
 	if ac, ok := namedColors["accent"]; ok {
 		accentHue, accentSaturation, accentValue, accentAlpha = rgbaToHSVA(color.RGBA(ac))
@@ -120,6 +123,32 @@ func LoadTheme(name string) error {
 	}
 	refreshThemeMod()
 	return nil
+}
+
+// updateThemeReferences replaces references to old theme with the new theme across
+// all active windows and their item trees.
+func updateThemeReferences(old, new *Theme) {
+	for _, win := range windows {
+		if win.Theme == old {
+			win.Theme = new
+		}
+		updateItemThemeTree(win.Contents, old, new)
+	}
+}
+
+// updateItemThemeTree walks an item tree and updates theme pointers.
+func updateItemThemeTree(items []*itemData, old, new *Theme) {
+	for _, it := range items {
+		if it.Theme == old {
+			it.Theme = new
+		}
+		if len(it.Contents) > 0 {
+			updateItemThemeTree(it.Contents, old, new)
+		}
+		if len(it.Tabs) > 0 {
+			updateItemThemeTree(it.Tabs, old, new)
+		}
+	}
 }
 
 // listThemes returns the available theme names from the themes directory
