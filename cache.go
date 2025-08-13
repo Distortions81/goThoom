@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"runtime"
 	"time"
 
@@ -21,6 +22,11 @@ func clearCaches() {
 	pixelCountCache = make(map[uint16]int)
 	pixelCountMu.Unlock()
 
+	pixelDataMu.Lock()
+	pixelDataCache = make(map[uint16]*list.Element)
+	pixelDataList.Init()
+	pixelDataMu.Unlock()
+
 	soundMu.Lock()
 	pcmCache = make(map[uint16][]byte)
 	soundMu.Unlock()
@@ -36,6 +42,9 @@ func clearCaches() {
 var assetsPrecached = false
 
 func precacheAssets() {
+	if gs.NoCaching {
+		return
+	}
 
 	for {
 		if (gs.precacheImages && clImages == nil) || (gs.precacheSounds && clSounds == nil) {

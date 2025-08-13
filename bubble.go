@@ -14,7 +14,7 @@ import (
 var whiteImage *ebiten.Image
 
 func init() {
-	whiteImage = ebiten.NewImage(1, 1)
+	whiteImage = newImage(1, 1)
 	whiteImage.Fill(color.White)
 }
 

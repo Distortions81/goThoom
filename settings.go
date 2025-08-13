@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"go_client/climg"
 	"go_client/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -14,7 +15,7 @@ import (
 var gs settings = gsdef
 
 var gsdef settings = settings{
-	Version: 2,
+	Version: 3,
 
 	LastCharacter:   "",
 	ClickToToggle:   false,
@@ -69,6 +70,8 @@ var gsdef settings = settings{
 	smoothMoving:     true,
 	fastBars:         true,
 	recordAssetStats: false,
+	NoCaching:        false,
+	PotatoComputer:   false,
 }
 
 type settings struct {
@@ -127,6 +130,8 @@ type settings struct {
 	smoothMoving     bool
 	fastBars         bool
 	recordAssetStats bool
+	NoCaching        bool
+	PotatoComputer   bool
 }
 
 var (
@@ -162,7 +167,7 @@ func loadSettings() bool {
 		newGS.Theme = gsdef.Theme
 	}
 
-	if gs.Version == 2 {
+	if newGS.Version == 2 || newGS.Version == 3 {
 		gs = newGS
 	}
 
@@ -173,6 +178,8 @@ func loadSettings() bool {
 func applySettings() {
 	eui.SetWindowTiling(gs.WindowTiling)
 	eui.SetWindowSnapping(gs.WindowSnapping)
+	eui.SetPotatoMode(gs.PotatoComputer)
+	climg.SetPotatoMode(gs.PotatoComputer)
 	if clImages != nil {
 		clImages.Denoise = gs.DenoiseImages
 		clImages.DenoiseSharpness = gs.DenoiseSharpness
@@ -291,38 +298,52 @@ type qualityPreset struct {
 	MotionSmoothing bool
 	BlendMobiles    bool
 	BlendPicts      bool
+	NoCaching       bool
 }
 
 var (
+	ultraLowPreset = qualityPreset{
+		DenoiseImages:   false,
+		MotionSmoothing: false,
+		BlendMobiles:    false,
+		BlendPicts:      false,
+		NoCaching:       true,
+	}
 	lowPreset = qualityPreset{
 		DenoiseImages:   false,
 		MotionSmoothing: false,
 		BlendMobiles:    false,
 		BlendPicts:      false,
+		NoCaching:       false,
 	}
 	standardPreset = qualityPreset{
 		DenoiseImages:   true,
 		MotionSmoothing: true,
 		BlendMobiles:    false,
 		BlendPicts:      false,
+		NoCaching:       false,
 	}
 	highPreset = qualityPreset{
 		DenoiseImages:   true,
 		MotionSmoothing: true,
 		BlendMobiles:    false,
 		BlendPicts:      true,
+		NoCaching:       false,
 	}
 	ultimatePreset = qualityPreset{
 		DenoiseImages:   true,
 		MotionSmoothing: true,
 		BlendMobiles:    true,
 		BlendPicts:      true,
+		NoCaching:       false,
 	}
 )
 
 func applyQualityPreset(name string) {
 	var p qualityPreset
 	switch name {
+	case "Ultra Low":
+		p = ultraLowPreset
 	case "Low":
 		p = lowPreset
 	case "Standard":
@@ -339,6 +360,11 @@ func applyQualityPreset(name string) {
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
+	gs.NoCaching = p.NoCaching
+	if gs.NoCaching {
+		gs.precacheSounds = false
+		gs.precacheImages = false
+	}
 
 	if denoiseCB != nil {
 		denoiseCB.Checked = gs.DenoiseImages
@@ -351,6 +377,21 @@ func applyQualityPreset(name string) {
 	}
 	if pictBlendCB != nil {
 		pictBlendCB.Checked = gs.BlendPicts
+	}
+	if precacheSoundCB != nil {
+		precacheSoundCB.Disabled = gs.NoCaching
+		if gs.NoCaching {
+			precacheSoundCB.Checked = false
+		}
+	}
+	if precacheImageCB != nil {
+		precacheImageCB.Disabled = gs.NoCaching
+		if gs.NoCaching {
+			precacheImageCB.Checked = false
+		}
+	}
+	if noCacheCB != nil {
+		noCacheCB.Checked = gs.NoCaching
 	}
 
 	applySettings()
@@ -371,20 +412,23 @@ func matchesPreset(p qualityPreset) bool {
 	return gs.DenoiseImages == p.DenoiseImages &&
 		gs.MotionSmoothing == p.MotionSmoothing &&
 		gs.BlendMobiles == p.BlendMobiles &&
-		gs.BlendPicts == p.BlendPicts
+		gs.BlendPicts == p.BlendPicts &&
+		gs.NoCaching == p.NoCaching
 }
 
 func detectQualityPreset() int {
 	switch {
-	case matchesPreset(lowPreset):
+	case matchesPreset(ultraLowPreset):
 		return 0
-	case matchesPreset(standardPreset):
+	case matchesPreset(lowPreset):
 		return 1
-	case matchesPreset(highPreset):
+	case matchesPreset(standardPreset):
 		return 2
-	case matchesPreset(ultimatePreset):
+	case matchesPreset(highPreset):
 		return 3
-	default:
+	case matchesPreset(ultimatePreset):
 		return 4
+	default:
+		return 5
 	}
 }

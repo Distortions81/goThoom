@@ -108,29 +108,40 @@ func makeMobileKey(id uint16, state uint8, colors []byte) mobileKey {
 // since the original client always treats index 0 as transparent for them.
 func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 	key := makeSheetKey(id, colors, forceTransparent)
-	imageMu.Lock()
-	if img, ok := sheetCache[key]; ok {
+	if !gs.NoCaching {
+		imageMu.Lock()
+		if img, ok := sheetCache[key]; ok {
+			imageMu.Unlock()
+			return img
+		}
 		imageMu.Unlock()
-		return img
 	}
-	imageMu.Unlock()
 
 	if clImages != nil {
 		if img := clImages.Get(uint32(id), colors, forceTransparent); img != nil {
 			statImageLoaded(id)
-			imageMu.Lock()
-			sheetCache[key] = img
-			imageMu.Unlock()
+			if gs.NoCaching {
+				clImages.ClearCache()
+			} else {
+				imageMu.Lock()
+				sheetCache[key] = img
+				imageMu.Unlock()
+			}
 			return img
+		}
+		if gs.NoCaching {
+			clImages.ClearCache()
 		}
 		log.Printf("missing image %d", id)
 	} else {
 		log.Printf("CL_Images not loaded when requesting image %d", id)
 	}
 
-	imageMu.Lock()
-	sheetCache[key] = nil
-	imageMu.Unlock()
+	if !gs.NoCaching {
+		imageMu.Lock()
+		sheetCache[key] = nil
+		imageMu.Unlock()
+	}
 	return nil
 }
 
@@ -144,18 +155,22 @@ func loadImage(id uint16) *ebiten.Image {
 // ID. Frames are cached individually after the first load.
 func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	origKey := makeImageKey(id, frame)
-	imageMu.Lock()
-	if img, ok := imageCache[origKey]; ok {
+	if !gs.NoCaching {
+		imageMu.Lock()
+		if img, ok := imageCache[origKey]; ok {
+			imageMu.Unlock()
+			return img
+		}
 		imageMu.Unlock()
-		return img
 	}
-	imageMu.Unlock()
 
 	sheet := loadSheet(id, nil, false)
 	if sheet == nil {
-		imageMu.Lock()
-		imageCache[origKey] = nil
-		imageMu.Unlock()
+		if !gs.NoCaching {
+			imageMu.Lock()
+			imageCache[origKey] = nil
+			imageMu.Unlock()
+		}
 		return nil
 	}
 
@@ -171,7 +186,7 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	innerWidth := sheet.Bounds().Dx() - 2
 	h := innerHeight / frames
 
-	if gs.cacheWholeSheet {
+	if gs.cacheWholeSheet && !gs.NoCaching {
 		imageMu.Lock()
 		for f := 0; f < frames; f++ {
 			k := makeImageKey(id, f)
@@ -188,9 +203,11 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	y0 := frame * h
 	sub := sheet.SubImage(image.Rect(1, 1+y0, 1+innerWidth, 1+y0+h)).(*ebiten.Image)
 
-	imageMu.Lock()
-	imageCache[makeImageKey(id, frame)] = sub
-	imageMu.Unlock()
+	if !gs.NoCaching {
+		imageMu.Lock()
+		imageCache[makeImageKey(id, frame)] = sub
+		imageMu.Unlock()
+	}
 	return sub
 }
 
@@ -201,18 +218,22 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	baseKey := makeMobileKey(id, 0, colors)
 	key := baseKey
 	key.state = state
-	imageMu.Lock()
-	if img, ok := mobileCache[key]; ok {
+	if !gs.NoCaching {
+		imageMu.Lock()
+		if img, ok := mobileCache[key]; ok {
+			imageMu.Unlock()
+			return img
+		}
 		imageMu.Unlock()
-		return img
 	}
-	imageMu.Unlock()
 
 	sheet := loadSheet(id, colors, true)
 	if sheet == nil {
-		imageMu.Lock()
-		mobileCache[key] = nil
-		imageMu.Unlock()
+		if !gs.NoCaching {
+			imageMu.Lock()
+			mobileCache[key] = nil
+			imageMu.Unlock()
+		}
 		return nil
 	}
 
@@ -226,7 +247,7 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 		return nil
 	}
 
-	if gs.cacheWholeSheet {
+	if gs.cacheWholeSheet && !gs.NoCaching {
 		imageMu.Lock()
 		for yy := 0; yy < 16; yy++ {
 			for xx := 0; xx < 16; xx++ {
@@ -249,9 +270,11 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	}
 
 	frame := sheet.SubImage(image.Rect(x, y, x+innerSize, y+innerSize)).(*ebiten.Image)
-	imageMu.Lock()
-	mobileCache[key] = frame
-	imageMu.Unlock()
+	if !gs.NoCaching {
+		imageMu.Lock()
+		mobileCache[key] = frame
+		imageMu.Unlock()
+	}
 	return frame
 }
 
@@ -270,18 +293,20 @@ func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, tota
 		return nil
 	}
 	k := mobileBlendKey{from: from, to: to, step: uint8(step), total: uint8(total)}
-	imageMu.Lock()
-	if b, ok := mobileBlendCache[k]; ok {
+	if !gs.NoCaching {
+		imageMu.Lock()
+		if b, ok := mobileBlendCache[k]; ok {
+			imageMu.Unlock()
+			return b
+		}
 		imageMu.Unlock()
-		return b
 	}
-	imageMu.Unlock()
 
 	size := img.Bounds().Dx()
 	if s := prevImg.Bounds().Dx(); s > size {
 		size = s
 	}
-	blended := ebiten.NewImage(size, size)
+	blended := newImage(size, size)
 	alpha := float32(step) / float32(total)
 	offPrev := (size - prevImg.Bounds().Dx()) / 2
 	op1 := &ebiten.DrawImageOptions{}
@@ -295,9 +320,11 @@ func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, tota
 	op2.Blend = ebiten.BlendLighter
 	op2.GeoM.Translate(float64(offCur), float64(offCur))
 	blended.DrawImage(img, op2)
-	imageMu.Lock()
-	mobileBlendCache[k] = blended
-	imageMu.Unlock()
+	if !gs.NoCaching {
+		imageMu.Lock()
+		mobileBlendCache[k] = blended
+		imageMu.Unlock()
+	}
 	return blended
 }
 
@@ -306,12 +333,14 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 		return nil
 	}
 	k := pictBlendKey{id: id, from: uint16(fromFrame), to: uint16(toFrame), step: uint8(step), total: uint8(total)}
-	imageMu.Lock()
-	if b, ok := pictBlendCache[k]; ok {
+	if !gs.NoCaching {
+		imageMu.Lock()
+		if b, ok := pictBlendCache[k]; ok {
+			imageMu.Unlock()
+			return b
+		}
 		imageMu.Unlock()
-		return b
 	}
-	imageMu.Unlock()
 
 	w1, h1 := prevImg.Bounds().Dx(), prevImg.Bounds().Dy()
 	w2, h2 := img.Bounds().Dx(), img.Bounds().Dy()
@@ -323,7 +352,7 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 	if h2 > h {
 		h = h2
 	}
-	blended := ebiten.NewImage(w, h)
+	blended := newImage(w, h)
 	alpha := float32(step) / float32(total)
 	offPrevX := (w - w1) / 2
 	offPrevY := (h - h1) / 2
@@ -339,9 +368,11 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 	op2.Blend = ebiten.BlendLighter
 	op2.GeoM.Translate(float64(offCurX), float64(offCurY))
 	blended.DrawImage(img, op2)
-	imageMu.Lock()
-	pictBlendCache[k] = blended
-	imageMu.Unlock()
+	if !gs.NoCaching {
+		imageMu.Lock()
+		pictBlendCache[k] = blended
+		imageMu.Unlock()
+	}
 	return blended
 }
 

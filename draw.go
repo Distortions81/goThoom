@@ -159,9 +159,11 @@ var (
 // generic img.At path otherwise.
 func nonTransparentPixels(id uint16) int {
 	pixelCountMu.RLock()
-	if c, ok := pixelCountCache[id]; ok {
-		pixelCountMu.RUnlock()
-		return c
+	if !gs.NoCaching {
+		if c, ok := pixelCountCache[id]; ok {
+			pixelCountMu.RUnlock()
+			return c
+		}
 	}
 	pixelCountMu.RUnlock()
 
@@ -174,32 +176,37 @@ func nonTransparentPixels(id uint16) int {
 
 	switch src := img.(type) {
 	case *ebiten.Image:
-		// Fast path: read raw pixels once and cache them.
+		// Fast path: read raw pixels once and optionally cache them.
 		w, h := bounds.Dx(), bounds.Dy()
-		pixelDataMu.Lock()
 		var buf []byte
-		if elem, ok := pixelDataCache[id]; ok {
-			entry := elem.Value.(*pixelDataEntry)
-			if len(entry.data) < 4*w*h {
-				entry.data = make([]byte, 4*w*h)
-				src.ReadPixels(entry.data)
-			}
-			buf = entry.data
-			pixelDataList.MoveToFront(elem)
-		} else {
+		if gs.NoCaching {
 			buf = make([]byte, 4*w*h)
 			src.ReadPixels(buf)
-			elem := pixelDataList.PushFront(&pixelDataEntry{id: id, data: buf})
-			pixelDataCache[id] = elem
-			if pixelDataList.Len() > pixelDataCacheLimit {
-				if back := pixelDataList.Back(); back != nil {
-					pixelDataList.Remove(back)
-					e := back.Value.(*pixelDataEntry)
-					delete(pixelDataCache, e.id)
+		} else {
+			pixelDataMu.Lock()
+			if elem, ok := pixelDataCache[id]; ok {
+				entry := elem.Value.(*pixelDataEntry)
+				if len(entry.data) < 4*w*h {
+					entry.data = make([]byte, 4*w*h)
+					src.ReadPixels(entry.data)
+				}
+				buf = entry.data
+				pixelDataList.MoveToFront(elem)
+			} else {
+				buf = make([]byte, 4*w*h)
+				src.ReadPixels(buf)
+				elem := pixelDataList.PushFront(&pixelDataEntry{id: id, data: buf})
+				pixelDataCache[id] = elem
+				if pixelDataList.Len() > pixelDataCacheLimit {
+					if back := pixelDataList.Back(); back != nil {
+						pixelDataList.Remove(back)
+						e := back.Value.(*pixelDataEntry)
+						delete(pixelDataCache, e.id)
+					}
 				}
 			}
+			pixelDataMu.Unlock()
 		}
-		pixelDataMu.Unlock()
 		for i := 3; i < len(buf); i += 4 {
 			if buf[i] != 0 {
 				count++
@@ -228,9 +235,11 @@ func nonTransparentPixels(id uint16) int {
 		}
 	}
 
-	pixelCountMu.Lock()
-	pixelCountCache[id] = count
-	pixelCountMu.Unlock()
+	if !gs.NoCaching {
+		pixelCountMu.Lock()
+		pixelCountCache[id] = count
+		pixelCountMu.Unlock()
+	}
 	return count
 }
 
