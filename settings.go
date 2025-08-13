@@ -58,20 +58,21 @@ var gsdef settings = settings{
 	MessagesWindow:  WindowState{Open: true},
 	ChatWindow:      WindowState{Open: true},
 
-	imgPlanesDebug:   false,
-	smoothingDebug:   false,
-	pictAgainDebug:   false,
-	hideMoving:       false,
-	hideMobiles:      false,
-	vsync:            true,
-	nightEffect:      true,
-	precacheSounds:   false,
-	precacheImages:   false,
-	lateInputUpdates: false,
-	cacheWholeSheet:  true,
-	smoothMoving:     false,
-	fastBars:         true,
-	recordAssetStats: false,
+	imgPlanesDebug:      false,
+	smoothingDebug:      false,
+	pictAgainDebug:      false,
+	hideMoving:          false,
+	hideMobiles:         false,
+	vsync:               true,
+	nightEffect:         true,
+	precacheSounds:      false,
+	precacheImages:      false,
+	lateInputUpdates:    false,
+	cacheWholeSheet:     true,
+	smoothMoving:        false,
+	dontShiftNewSprites: false,
+	fastBars:            true,
+	recordAssetStats:    false,
 }
 
 type settings struct {
@@ -116,22 +117,23 @@ type settings struct {
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
 
-	imgPlanesDebug   bool
-	smoothingDebug   bool
-	pictAgainDebug   bool
-	hideMoving       bool
-	hideMobiles      bool
-	vsync            bool
-	nightEffect      bool
-	precacheSounds   bool
-	precacheImages   bool
-	lateInputUpdates bool
-	cacheWholeSheet  bool
-	smoothMoving     bool
-	fastBars         bool
-	recordAssetStats bool
-	NoCaching        bool
-	PotatoComputer   bool
+	imgPlanesDebug      bool
+	smoothingDebug      bool
+	pictAgainDebug      bool
+	hideMoving          bool
+	hideMobiles         bool
+	vsync               bool
+	nightEffect         bool
+	precacheSounds      bool
+	precacheImages      bool
+	lateInputUpdates    bool
+	cacheWholeSheet     bool
+	smoothMoving        bool
+	dontShiftNewSprites bool
+	fastBars            bool
+	recordAssetStats    bool
+	NoCaching           bool
+	PotatoComputer      bool
 }
 
 var (
