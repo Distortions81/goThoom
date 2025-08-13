@@ -961,6 +961,29 @@ func makeGraphicsWindow() {
 	hint.Size = eui.Point{X: width, Y: 16}
 	flow.AddItem(hint)
 
+	anySizeWarn, _ := eui.NewText()
+	anySizeWarn.Text = "Warning: arbitrary sizes may produce blurrier graphics"
+	anySizeWarn.FontSize = 10
+	anySizeWarn.Color = eui.ColorRed
+	anySizeWarn.Size = eui.Point{X: width, Y: 16}
+	anySizeWarn.Invisible = !gs.AnyGameWindowSize
+
+	anySizeCB, anySizeEvents := eui.NewCheckbox()
+	anySizeCB.Text = "Any size game window"
+	anySizeCB.Size = eui.Point{X: width, Y: 24}
+	anySizeCB.Checked = gs.AnyGameWindowSize
+	anySizeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AnyGameWindowSize = ev.Checked
+			gameSizeSlider.Disabled = ev.Checked
+			anySizeWarn.Invisible = !ev.Checked
+			updateGameWindowSize()
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(anySizeCB)
+	flow.AddItem(anySizeWarn)
+
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
 	fullscreenCB.Size = eui.Point{X: width, Y: 24}
