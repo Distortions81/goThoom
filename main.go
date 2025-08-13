@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"go_client/climg"
-	"go_client/clsnd"
-	"go_client/eui"
+	"gothoom/climg"
+	"gothoom/clsnd"
+	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

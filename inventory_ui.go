@@ -3,7 +3,7 @@
 package main
 
 import (
-	"go_client/eui"
+	"gothoom/eui"
 )
 
 var inventoryWin *eui.WindowData

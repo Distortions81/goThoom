@@ -1,6 +1,6 @@
 package main
 
-import "go_client/eui"
+import "gothoom/eui"
 
 // makeTextWindow creates a standardized text window with optional input bar.
 func makeTextWindow(title string, hz eui.HZone, vz eui.VZone, withInput bool) (*eui.WindowData, *eui.ItemData, *eui.ItemData) {

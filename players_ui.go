@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"go_client/eui"
+	"gothoom/eui"
 )
 
 var playersWin *eui.WindowData

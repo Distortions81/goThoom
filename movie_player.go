@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"go_client/eui"
+	"gothoom/eui"
 
 	"github.com/hako/durafmt"
 )

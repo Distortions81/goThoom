@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
-	"go_client/eui"
+	"gothoom/eui"
 
 	"github.com/dustin/go-humanize"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sqweek/dialog"
 
-	"go_client/climg"
-	"go_client/clsnd"
+	"gothoom/climg"
+	"gothoom/clsnd"
 )
 
 const cval = 1000

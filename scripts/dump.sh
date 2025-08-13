@@ -51,4 +51,4 @@ echo
 
 # Run with the debug build tag enabled
 go build -tags ebitenginedebug "${MODULE_PATH}"
-./go_client -clmov=clmovFiles/chain.clMov
+./gothoom -clmov=clmovFiles/chain.clMov

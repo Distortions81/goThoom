@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"go_client/climg"
-	"go_client/eui"
+	"gothoom/climg"
+	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

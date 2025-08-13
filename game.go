@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"go_client/eui"
+	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"

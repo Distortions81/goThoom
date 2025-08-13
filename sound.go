@@ -8,7 +8,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 
-	"go_client/clsnd"
+	"gothoom/clsnd"
 )
 
 const (

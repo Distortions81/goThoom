@@ -7,7 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"go_client/climg"
+	"gothoom/climg"
 )
 
 // imageCache lazily loads images from the CL_Images archive. If an image is not

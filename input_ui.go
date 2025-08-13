@@ -1,13 +1,8 @@
 package main
 
 import (
-	"sync"
-
-	"go_client/eui"
+	"gothoom/eui"
 )
-
-// overlayLogOnce ensures we only dump overlay bounds a single time for debugging.
-var overlayLogOnce sync.Once
 
 // pointInUI reports whether the given screen coordinate lies within any EUI window or overlay.
 func pointInUI(x, y int) bool {

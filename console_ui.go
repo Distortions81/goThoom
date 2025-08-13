@@ -2,7 +2,7 @@
 
 package main
 
-import "go_client/eui"
+import "gothoom/eui"
 
 var consoleWin *eui.WindowData
 var messagesFlow *eui.ItemData
