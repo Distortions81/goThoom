@@ -1758,34 +1758,3 @@ func makePlayersWindow() {
 	playersWin.AddItem(playersList)
 	playersWin.AddWindow(false)
 }
-
-func makeHelpWindow() {
-	if helpWin != nil {
-		return
-	}
-	helpWin = eui.NewWindow()
-	helpWin.Title = "Help"
-	helpWin.Closable = true
-	helpWin.Resizable = false
-	helpWin.AutoSize = true
-	helpWin.Movable = true
-	helpWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	helpTexts := []string{
-		"WASD or Arrow Keys - Walk",
-		"Shift + Movement - Run",
-		"Left Click - Walk toward cursor",
-		"Click-to-Toggle Walk - Left click toggles walking",
-		"Enter - Start typing / send command",
-		"Escape - Cancel typing",
-	}
-	for _, line := range helpTexts {
-		t, _ := eui.NewText()
-		t.Text = line
-		t.Size = eui.Point{X: 300, Y: 24}
-		t.FontSize = 15
-		helpFlow.AddItem(t)
-	}
-	helpWin.AddItem(helpFlow)
-	helpWin.AddWindow(false)
-}

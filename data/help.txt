@@ -1,0 +1,35 @@
+Welcome to GoThoom!
+
+MOVEMENT
+  - Use the WASD or arrow keys to walk.
+  - Hold Shift while moving to run.
+  - Left click anywhere on the ground to walk toward that spot.
+  - Right click on objects or NPCs to interact with them.
+  - Press Space to stop moving immediately.
+
+COMMUNICATION
+  - Press Enter to begin chatting or enter commands.
+  - Prefix a line with / to issue commands like /who or /tell.
+  - /tell <name> <message> whispers privately to another player.
+  - /emote <action> describes your actions in third person.
+
+INTERFACE
+  - Use the players window to see who is online.
+  - The inventory window lets you manage gear and items.
+  - Drag items between slots or to the world to drop them.
+  - Hold Ctrl while dragging to split stacks.
+  - Scroll the mouse wheel to zoom the game view.
+
+GAMEPLAY
+  - Talk to NPCs for quests and information.
+  - Combat initiates automatically when you target a hostile creature.
+  - Keep an eye on your health and stamina bars.
+  - Rest near a campfire to recover more quickly.
+
+MISCELLANEOUS
+  - Adjust volume and graphics options in the settings window.
+  - Press F1 or click the Help button to toggle this help.
+  - Use the Logout button in the toolbar to exit safely.
+  - Be respectful of other players and have fun exploring!
+
+For more tips and community guides, ask around in game or visit the forums.
