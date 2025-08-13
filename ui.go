@@ -78,6 +78,7 @@ func initUI() {
 	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
+	makeGraphicsWindow()
 	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -845,11 +846,34 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(nameBgSlider)
 
-	label, _ = eui.NewText()
-	label.Text = "\nGraphics Settings:"
-	label.FontSize = 15
-	label.Size = eui.Point{X: 150, Y: 50}
-	mainFlow.AddItem(label)
+	graphicsBtn, graphicsEvents := eui.NewButton()
+	graphicsBtn.Text = "Graphics Settings"
+	graphicsBtn.Size = eui.Point{X: width, Y: 24}
+	graphicsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			graphicsWin.Toggle()
+		}
+	}
+	mainFlow.AddItem(graphicsBtn)
+
+	settingsWin.AddItem(mainFlow)
+	settingsWin.AddWindow(false)
+}
+
+func makeGraphicsWindow() {
+	if graphicsWin != nil {
+		return
+	}
+	var width float32 = 250
+	graphicsWin = eui.NewWindow()
+	graphicsWin.Title = "Graphics Settings"
+	graphicsWin.Closable = true
+	graphicsWin.Resizable = false
+	graphicsWin.AutoSize = true
+	graphicsWin.Movable = true
+	graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	uiScaleSlider, uiScaleEvents := eui.NewSlider()
 	uiScaleSlider.Label = "UI Scaling"
@@ -863,7 +887,7 @@ func makeSettingsWindow() {
 			pendingUIScale = float64(ev.Value)
 		}
 	}
-	mainFlow.AddItem(uiScaleSlider)
+	flow.AddItem(uiScaleSlider)
 
 	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
 	uiScaleApplyBtn.Text = "Apply"
@@ -876,7 +900,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(uiScaleApplyBtn)
+	flow.AddItem(uiScaleApplyBtn)
 
 	gameSizeSlider, gameSizeEvents := eui.NewSlider()
 	gameSizeSlider.Label = "Game Window Magnify"
@@ -900,7 +924,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(gameSizeSlider)
+	flow.AddItem(gameSizeSlider)
 
 	maxW, maxH := eui.ScreenSize()
 	maxScale := int(math.Floor(math.Min(float64(maxW)/float64(gameAreaSizeX), float64(maxH)/float64(gameAreaSizeY))))
@@ -908,7 +932,7 @@ func makeSettingsWindow() {
 	hint.Text = fmt.Sprintf("Max size for desktop: %dx", maxScale)
 	hint.FontSize = 10
 	hint.Size = eui.Point{X: width, Y: 16}
-	mainFlow.AddItem(hint)
+	flow.AddItem(hint)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
@@ -921,7 +945,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(fullscreenCB)
+	flow.AddItem(fullscreenCB)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
 	qualityPresetDD.Options = []string{"Low", "Standard", "High", "Ultimate", "Custom"}
@@ -944,7 +968,7 @@ func makeSettingsWindow() {
 			qualityPresetDD.Selected = detectQualityPreset()
 		}
 	}
-	mainFlow.AddItem(qualityPresetDD)
+	flow.AddItem(qualityPresetDD)
 
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Options"
@@ -954,7 +978,7 @@ func makeSettingsWindow() {
 			qualityWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(qualityBtn)
+	flow.AddItem(qualityBtn)
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
@@ -964,10 +988,10 @@ func makeSettingsWindow() {
 			debugWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(debugBtn)
+	flow.AddItem(debugBtn)
 
-	settingsWin.AddItem(mainFlow)
-	settingsWin.AddWindow(false)
+	graphicsWin.AddItem(flow)
+	graphicsWin.AddWindow(false)
 }
 
 func makeQualityWindow() {
