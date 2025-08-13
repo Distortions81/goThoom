@@ -934,7 +934,6 @@ func makeSettingsWindow() {
 			qualityWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(soundBtn)
 
 	graphicsBtn, graphicsEvents := eui.NewButton()
 	graphicsBtn.Text = "Screen Size Settings"
