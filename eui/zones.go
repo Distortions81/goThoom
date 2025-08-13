@@ -2,6 +2,10 @@ package eui
 
 import "math"
 
+// CornerSnapThreshold defines how close a window edge or corner must be to
+// snap to a screen corner or another window.
+const CornerSnapThreshold float32 = 10
+
 // HZone defines the horizontal zone positions.
 type HZone int
 
@@ -152,4 +156,85 @@ func (win *windowData) PinToClosestZone() {
 	h := nearestHZone(cx, screenWidth)
 	v := nearestVZone(cy, screenHeight)
 	win.SetZone(h, v)
+}
+
+// snapToCorner assigns a zone when a window is dragged close to a screen
+// corner. It returns true if a zone was applied.
+func snapToCorner(win *windowData) bool {
+	pos := win.getPosition()
+	size := win.GetSize()
+
+	sw := float32(screenWidth)
+	sh := float32(screenHeight)
+
+	// Top-left
+	if pos.X <= CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
+		win.SetZone(HZoneLeft, VZoneTop)
+		return true
+	}
+	// Top-right
+	if pos.X+size.X >= sw-CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
+		win.SetZone(HZoneRight, VZoneTop)
+		return true
+	}
+	// Bottom-left
+	if pos.X <= CornerSnapThreshold && pos.Y+size.Y >= sh-CornerSnapThreshold {
+		win.SetZone(HZoneLeft, VZoneBottom)
+		return true
+	}
+	// Bottom-right
+	if pos.X+size.X >= sw-CornerSnapThreshold && pos.Y+size.Y >= sh-CornerSnapThreshold {
+		win.SetZone(HZoneRight, VZoneBottom)
+		return true
+	}
+	return false
+}
+
+// snapToWindow snaps a window's edges to nearby windows within the threshold.
+// It returns true if the window position was adjusted.
+func snapToWindow(win *windowData) bool {
+	pos := win.getPosition()
+	size := win.Size
+	snapped := false
+
+	for _, other := range windows {
+		if other == win || !other.Open {
+			continue
+		}
+		opos := other.getPosition()
+		osize := other.Size
+
+		// Horizontal snapping
+		if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
+			// Snap left edge to other's right edge
+			if math.Abs(float64(pos.X-(opos.X+osize.X))) <= float64(CornerSnapThreshold) {
+				win.Position.X = opos.X + osize.X
+				snapped = true
+				pos.X = win.Position.X
+			}
+			// Snap right edge to other's left edge
+			if math.Abs(float64((pos.X+size.X)-opos.X)) <= float64(CornerSnapThreshold) {
+				win.Position.X = opos.X - size.X
+				snapped = true
+				pos.X = win.Position.X
+			}
+		}
+
+		// Vertical snapping
+		if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
+			// Snap top edge to other's bottom edge
+			if math.Abs(float64(pos.Y-(opos.Y+osize.Y))) <= float64(CornerSnapThreshold) {
+				win.Position.Y = opos.Y + osize.Y
+				snapped = true
+				pos.Y = win.Position.Y
+			}
+			// Snap bottom edge to other's top edge
+			if math.Abs(float64((pos.Y+size.Y)-opos.Y)) <= float64(CornerSnapThreshold) {
+				win.Position.Y = opos.Y - size.Y
+				snapped = true
+				pos.Y = win.Position.Y
+			}
+		}
+	}
+	return snapped
 }

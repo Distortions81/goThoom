@@ -32,3 +32,65 @@ func TestPinToClosestZone(t *testing.T) {
 		}
 	}
 }
+
+func TestSnapToCorner(t *testing.T) {
+	screenWidth = 100
+	screenHeight = 100
+	uiScale = 1
+
+	winSize := point{X: 10, Y: 10}
+	offset := CornerSnapThreshold - 1
+
+	tests := []struct {
+		pos point
+		h   HZone
+		v   VZone
+	}{
+		{point{offset, offset}, HZoneLeft, VZoneTop},
+		{point{float32(screenWidth) - winSize.X - offset, offset}, HZoneRight, VZoneTop},
+		{point{offset, float32(screenHeight) - winSize.Y - offset}, HZoneLeft, VZoneBottom},
+		{point{float32(screenWidth) - winSize.X - offset, float32(screenHeight) - winSize.Y - offset}, HZoneRight, VZoneBottom},
+	}
+
+	for _, tt := range tests {
+		win := &windowData{Position: tt.pos, Size: winSize}
+		snapToCorner(win)
+		if win.zone == nil {
+			t.Fatalf("zone not set for pos %+v", tt.pos)
+		}
+		if win.zone.h != tt.h || win.zone.v != tt.v {
+			t.Fatalf("pos %+v snapped to (%v,%v); want (%v,%v)", tt.pos, win.zone.h, win.zone.v, tt.h, tt.v)
+		}
+	}
+}
+
+func TestSnapToWindow(t *testing.T) {
+	screenWidth = 200
+	screenHeight = 200
+	uiScale = 1
+
+	base := &windowData{Position: point{50, 50}, Size: point{30, 30}, Open: true}
+	winSize := point{10, 10}
+	offset := CornerSnapThreshold - 1
+
+	tests := []struct {
+		name   string
+		pos    point
+		expect point
+	}{
+		{"left", point{base.Position.X - winSize.X - offset, base.Position.Y}, point{base.Position.X - winSize.X, base.Position.Y}},
+		{"right", point{base.Position.X + base.Size.X + offset, base.Position.Y}, point{base.Position.X + base.Size.X, base.Position.Y}},
+		{"top", point{base.Position.X, base.Position.Y - winSize.Y - offset}, point{base.Position.X, base.Position.Y - winSize.Y}},
+		{"bottom", point{base.Position.X, base.Position.Y + base.Size.Y + offset}, point{base.Position.X, base.Position.Y + base.Size.Y}},
+	}
+
+	for _, tt := range tests {
+		win := &windowData{Position: tt.pos, Size: winSize, Open: true}
+		windows = []*windowData{base, win}
+		snapToWindow(win)
+		if win.Position != tt.expect {
+			t.Fatalf("%s: pos %+v snapped to %+v; want %+v", tt.name, tt.pos, win.Position, tt.expect)
+		}
+	}
+	windows = nil
+}
