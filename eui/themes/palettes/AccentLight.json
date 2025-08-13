@@ -1,7 +1,7 @@
 {
   "Comment": "Colors use #RRGGBBAA or h,s,v",
   "Colors": {
-    "background": "0,0,1",
+    "background": "0,0,0.9",
     "panel": "0,0,0.9",
     "text": "0,0,0",
     "outline": "210.0,0.15,0.8",
@@ -76,6 +76,7 @@
     "ClickColor": "hover",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
+    "SliderFilled": "0,0,0.95",
     "SelectedColor": "disabled"
   },
   "Dropdown": {
