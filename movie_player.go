@@ -67,7 +67,6 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider.MaxValue = max
 	p.slider.Size = eui.Point{X: 650, Y: 24}
 	p.slider.IntOnly = true
-	p.slider.Label = "Position"
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))

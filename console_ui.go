@@ -9,7 +9,7 @@ var messagesFlow *eui.ItemData
 var inputFlow *eui.ItemData
 
 func updateConsoleWindow() {
-	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
+	inputMsg := "[Press Enter To Type]"
 	if inputActive {
 		inputMsg = string(inputText)
 	}

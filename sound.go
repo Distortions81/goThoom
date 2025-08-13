@@ -246,23 +246,6 @@ func applyFadeInOut(samples []int16, rate int) {
 	}
 }
 
-// highpassIIR16 removes DC offset using a simple one-pole high-pass filter.
-// alpha should be close to 1.0 (e.g. 0.995) to only filter very low
-// frequencies while leaving the audible band intact.
-func highpassIIR16(x []int16, alpha float64) {
-	if len(x) == 0 {
-		return
-	}
-	var prevIn, prevOut float64
-	for i := range x {
-		in := float64(x[i])
-		out := alpha * (prevOut + in - prevIn)
-		x[i] = int16(math.Round(out))
-		prevIn = in
-		prevOut = out
-	}
-}
-
 // loadSound retrieves a sound by ID, resamples it to match the audio context's
 // sample rate, and caches the resulting PCM bytes. The CL_Sounds archive is
 // opened on first use and individual sounds are parsed lazily.
