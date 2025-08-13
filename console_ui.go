@@ -41,6 +41,9 @@ func updateConsoleWindow() {
 	}
 
 	inputFlow.Size.Y = float32(gs.ConsoleFontSize) + 8
+	if consoleWin != nil {
+		messagesFlow.Size.Y = consoleWin.GetSize().Y - inputFlow.Size.Y
+	}
 	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
 	if inputActive {
 		inputMsg = string(inputText)
@@ -79,10 +82,11 @@ func makeConsoleWindow() {
 	consoleWin.Movable = true
 	consoleWin.SetZone(eui.HZoneLeft, eui.VZoneBottom)
 
-	consoleFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
+	consoleFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	consoleFlow.Size = consoleWin.GetSize()
 	consoleWin.AddItem(consoleFlow)
 
-	messagesFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
+	messagesFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
 	consoleFlow.AddItem(messagesFlow)
 
 	inputFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
