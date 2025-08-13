@@ -942,7 +942,6 @@ func makeGraphicsWindow() {
 	uiScaleSlider.Value = float32(gs.UIScale)
 	uiScaleSlider.Size = eui.Point{X: width - 10, Y: 24}
 	pendingUIScale := gs.UIScale
-	uiScaleSlider.Tooltip = "Scale entire interface"
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			pendingUIScale = float64(ev.Value)
@@ -951,9 +950,8 @@ func makeGraphicsWindow() {
 	flow.AddItem(uiScaleSlider)
 
 	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
-	uiScaleApplyBtn.Text = "Apply"
-	uiScaleApplyBtn.Size = eui.Point{X: 60, Y: 24}
-	uiScaleApplyBtn.Tooltip = "Apply UI scale"
+	uiScaleApplyBtn.Text = "Apply UI Scale"
+	uiScaleApplyBtn.Size = eui.Point{X: 100, Y: 24}
 	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.UIScale = pendingUIScale
@@ -978,7 +976,6 @@ func makeGraphicsWindow() {
 	gameSizeSlider.Value = float32(gsVal)
 	gameSizeSlider.Size = eui.Point{X: width - 10, Y: 24}
 	gameSizeSlider.Disabled = gs.AnyGameWindowSize
-	gameSizeSlider.Tooltip = "Magnify game window without blur"
 	gameSizeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.GameScale = float64(ev.Value)
@@ -1000,7 +997,6 @@ func makeGraphicsWindow() {
 	anySizeCB.Text = "Any size game window"
 	anySizeCB.Size = eui.Point{X: width, Y: 24}
 	anySizeCB.Checked = gs.AnyGameWindowSize
-	anySizeCB.Tooltip = "Allow any game window size (may blur)"
 	anySizeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.AnyGameWindowSize = ev.Checked
@@ -1017,7 +1013,6 @@ func makeGraphicsWindow() {
 	fullscreenCB.Text = "Fullscreen"
 	fullscreenCB.Size = eui.Point{X: width, Y: 24}
 	fullscreenCB.Checked = gs.Fullscreen
-	fullscreenCB.Tooltip = "Toggle fullscreen mode"
 	fullscreenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.Fullscreen = ev.Checked
@@ -1033,7 +1028,6 @@ func makeGraphicsWindow() {
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.Label = "Presets"
 	qualityPresetDD.FontSize = 12
-	qualityPresetDD.Tooltip = "Select quality preset"
 	qpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
@@ -1052,6 +1046,16 @@ func makeGraphicsWindow() {
 		}
 	}
 	flow.AddItem(qualityPresetDD)
+
+	qualityBtn, qualityEvents := eui.NewButton()
+	qualityBtn.Text = "Quality Options"
+	qualityBtn.Size = eui.Point{X: width, Y: 24}
+	qualityEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			qualityWin.Toggle()
+		}
+	}
+	flow.AddItem(qualityBtn)
 
 	graphicsWin.AddItem(flow)
 	graphicsWin.AddWindow(false)
@@ -1078,7 +1082,6 @@ func makeSoundWindow() {
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
 	volumeSlider.Size = eui.Point{X: width - 10, Y: 24}
-	volumeSlider.Tooltip = "Adjust sound volume"
 	volumeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Volume = float64(ev.Value)
@@ -1092,7 +1095,6 @@ func makeSoundWindow() {
 	muteCB.Text = "Mute"
 	muteCB.Size = eui.Point{X: width, Y: 24}
 	muteCB.Checked = gs.Mute
-	muteCB.Tooltip = "Mute all sounds"
 	muteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.Mute = ev.Checked
