@@ -15,6 +15,12 @@ func WindowTiling() bool { return windowTiling }
 // SetWindowTiling enables or disables window tiling.
 func SetWindowTiling(enabled bool) { windowTiling = enabled }
 
+// WindowSnapping reports whether window snapping is enabled.
+func WindowSnapping() bool { return windowSnapping }
+
+// SetWindowSnapping enables or disables window snapping.
+func SetWindowSnapping(enabled bool) { windowSnapping = enabled }
+
 // SetScreenSize sets the current screen size used for layout calculations.
 func SetScreenSize(w, h int) {
 	screenWidth = w

@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -748,6 +747,38 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(keySpeedSlider)
 
 	label, _ = eui.NewText()
+	label.Text = "\nWindow Behavior:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 150, Y: 50}
+	mainFlow.AddItem(label)
+
+	tilingCB, tilingEvents := eui.NewCheckbox()
+	tilingCB.Text = "Tiling window mode"
+	tilingCB.Size = eui.Point{X: width, Y: 24}
+	tilingCB.Checked = gs.WindowTiling
+	tilingEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.WindowTiling = ev.Checked
+			eui.SetWindowTiling(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(tilingCB)
+
+	snapCB, snapEvents := eui.NewCheckbox()
+	snapCB.Text = "Window snapping"
+	snapCB.Size = eui.Point{X: width, Y: 24}
+	snapCB.Checked = gs.WindowSnapping
+	snapEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.WindowSnapping = ev.Checked
+			eui.SetWindowSnapping(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(snapCB)
+
+	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
 	label.FontSize = 15
 	label.Size = eui.Point{X: 100, Y: 50}
@@ -930,7 +961,7 @@ func makeGraphicsWindow() {
 	flow.AddItem(uiScaleApplyBtn)
 
 	gameSizeSlider, gameSizeEvents := eui.NewSlider()
-	gameSizeSlider.Label = "Game Window Magnify"
+	gameSizeSlider.Label = "Game Window Magnify (Sharp)"
 	gameSizeSlider.MinValue = 1
 	gameSizeSlider.MaxValue = 5
 	gameSizeSlider.IntOnly = true
@@ -953,19 +984,11 @@ func makeGraphicsWindow() {
 	}
 	flow.AddItem(gameSizeSlider)
 
-	maxW, maxH := eui.ScreenSize()
-	maxScale := int(math.Floor(math.Min(float64(maxW)/float64(gameAreaSizeX), float64(maxH)/float64(gameAreaSizeY))))
-	hint, _ := eui.NewText()
-	hint.Text = fmt.Sprintf("Max size for desktop: %dx", maxScale)
-	hint.FontSize = 10
-	hint.Size = eui.Point{X: width, Y: 16}
-	flow.AddItem(hint)
-
 	anySizeWarn, _ := eui.NewText()
-	anySizeWarn.Text = "Warning: arbitrary sizes may produce blurrier graphics"
+	anySizeWarn.Text = "Warning: this option will\nproduce blurrier graphics"
 	anySizeWarn.FontSize = 10
 	anySizeWarn.Color = eui.ColorRed
-	anySizeWarn.Size = eui.Point{X: width, Y: 16}
+	anySizeWarn.Size = eui.Point{X: width, Y: 32}
 	anySizeWarn.Invisible = !gs.AnyGameWindowSize
 
 	anySizeCB, anySizeEvents := eui.NewCheckbox()

@@ -175,6 +175,9 @@ func (win *windowData) PinToClosestZone() {
 // snapToCorner assigns a zone when a window is dragged close to a screen
 // corner. It returns true if a zone was applied.
 func snapToCorner(win *windowData) bool {
+	if !windowSnapping {
+		return false
+	}
 	pos := win.getPosition()
 	size := win.Size
 
@@ -215,6 +218,9 @@ func snapToCorner(win *windowData) bool {
 // snapToWindow snaps a window's edges to nearby windows within the threshold.
 // It returns true if the window position was adjusted.
 func snapToWindow(win *windowData) bool {
+	if !windowSnapping {
+		return false
+	}
 	pos := win.getPosition()
 	size := win.Size
 	snapped := false
@@ -265,6 +271,9 @@ func snapToWindow(win *windowData) bool {
 // snap to nearby screen edges or other windows within the threshold.
 // It returns true if the window size or position was adjusted.
 func snapResize(win *windowData, part dragType) bool {
+	if !windowSnapping {
+		return false
+	}
 	pos := win.getPosition()
 	size := win.Size
 	snapped := false
