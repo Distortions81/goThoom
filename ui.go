@@ -934,6 +934,7 @@ func makeSettingsWindow() {
 			qualityWin.Toggle()
 		}
 	}
+	mainFlow.AddItem(qualityBtn)
 
 	graphicsBtn, graphicsEvents := eui.NewButton()
 	graphicsBtn.Text = "Screen Size Settings"
@@ -1401,6 +1402,7 @@ func makeDebugWindow() {
 	debugWin.Resizable = false
 	debugWin.AutoSize = true
 	debugWin.Movable = true
+	debugWin.NoScroll = true
 	debugWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
