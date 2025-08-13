@@ -18,7 +18,7 @@ import (
 const shadowAlphaDivisor = 16
 
 var dumpDone bool
-var hoverPinWin *windowData
+var zoneIndicatorWin *windowData
 
 type openDropdown struct {
 	item   *itemData
@@ -28,20 +28,24 @@ type openDropdown struct {
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
-	hoverPinWin = nil
+	zoneIndicatorWin = nil
 	dropdowns := []openDropdown{}
 	for _, win := range windows {
 		if !win.Open {
 			continue
 		}
 		if win.HoverPin {
-			hoverPinWin = win
+			zoneIndicatorWin = win
 		}
 		win.Draw(screen, &dropdowns)
 	}
 
-	if hoverPinWin != nil {
-		drawZoneOverlay(screen, hoverPinWin)
+	if dragPart == PART_BAR && dragWin != nil {
+		zoneIndicatorWin = dragWin
+	}
+
+	if zoneIndicatorWin != nil {
+		drawZoneOverlay(screen, zoneIndicatorWin)
 	}
 
 	screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
