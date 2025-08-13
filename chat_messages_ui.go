@@ -16,5 +16,6 @@ func makeChatWindow() error {
 		return nil
 	}
 	chatWin, chatList, _ = makeTextWindow("Chat", eui.HZoneRight, eui.VZoneBottom, false)
+	updateChatWindow()
 	return nil
 }
