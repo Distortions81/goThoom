@@ -353,6 +353,9 @@ func applyQualityPreset(name string) {
 	if qualityWin != nil {
 		qualityWin.Refresh()
 	}
+	if graphicsWin != nil {
+		graphicsWin.Refresh()
+	}
 	if debugWin != nil {
 		debugWin.Refresh()
 	}
