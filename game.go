@@ -1199,10 +1199,13 @@ func initGame() {
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
-	eui.LoadTheme("AccentDark")
-	eui.LoadStyle("RoundHybrid")
-
 	loadSettings()
+	theme := gs.Theme
+	if theme == "" {
+		theme = "AccentDark"
+	}
+	eui.LoadTheme(theme)
+	eui.LoadStyle("RoundHybrid")
 	initUI()
 	updateCharacterButtons()
 
