@@ -9,6 +9,12 @@ import (
 // Windows returns the list of active windows.
 func Windows() []*WindowData { return windows }
 
+// WindowTiling reports whether window tiling is enabled.
+func WindowTiling() bool { return windowTiling }
+
+// SetWindowTiling enables or disables window tiling.
+func SetWindowTiling(enabled bool) { windowTiling = enabled }
+
 // SetScreenSize sets the current screen size used for layout calculations.
 func SetScreenSize(w, h int) {
 	screenWidth = w

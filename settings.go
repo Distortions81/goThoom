@@ -45,6 +45,7 @@ var gsdef settings = settings{
 	GameScale:         2,
 	Theme:             "",
 	MessagesToConsole: false,
+	WindowTiling:      true,
 	AnyGameWindowSize: false,
 
 	GameWindow:      WindowState{Open: true},
@@ -102,6 +103,7 @@ type settings struct {
 	GameScale         float64
 	Theme             string
 	MessagesToConsole bool
+	WindowTiling      bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -167,6 +169,7 @@ func loadSettings() bool {
 }
 
 func applySettings() {
+	eui.SetWindowTiling(gs.WindowTiling)
 	if clImages != nil {
 		clImages.Denoise = gs.DenoiseImages
 		clImages.DenoiseSharpness = gs.DenoiseSharpness

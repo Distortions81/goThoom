@@ -246,3 +246,49 @@ func snapToWindow(win *windowData) bool {
 	}
 	return snapped
 }
+
+// preventOverlap adjusts the window position to avoid overlapping other windows
+// when window tiling is enabled.
+func preventOverlap(win *windowData) {
+	if !windowTiling {
+		return
+	}
+	for {
+		winRect := win.getWinRect()
+		moved := false
+		for _, other := range windows {
+			if other == win || !other.Open {
+				continue
+			}
+			otherRect := other.getWinRect()
+			inter := intersectRect(winRect, otherRect)
+			if inter.X1 > inter.X0 && inter.Y1 > inter.Y0 {
+				dx := inter.X1 - inter.X0
+				dy := inter.Y1 - inter.Y0
+				oldPos := win.Position
+				if dx < dy {
+					if winRect.X0 < otherRect.X0 {
+						win.Position.X -= dx
+					} else {
+						win.Position.X += dx
+					}
+				} else {
+					if winRect.Y0 < otherRect.Y0 {
+						win.Position.Y -= dy
+					} else {
+						win.Position.Y += dy
+					}
+				}
+				win.clampToScreen()
+				if win.Position == oldPos {
+					return
+				}
+				moved = true
+				break
+			}
+		}
+		if !moved {
+			break
+		}
+	}
+}

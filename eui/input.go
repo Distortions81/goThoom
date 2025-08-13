@@ -211,6 +211,7 @@ func Update() error {
 						}
 					}
 				}
+				preventOverlap(win)
 				break
 			}
 		}

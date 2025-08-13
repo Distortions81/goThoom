@@ -39,6 +39,9 @@ var (
 	// CacheCheck shows render counts for windows and items when enabled.
 	CacheCheck bool
 
+	// windowTiling prevents windows from overlapping when enabled.
+	windowTiling bool = true
+
 	whiteImage    = ebiten.NewImage(3, 3)
 	whiteSubImage = whiteImage.SubImage(image.Rect(1, 1, 2, 2)).(*ebiten.Image)
 
