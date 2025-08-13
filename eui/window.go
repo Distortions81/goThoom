@@ -40,6 +40,10 @@ func (target *windowData) AddWindow(toBack bool) {
 		}
 		windows = append(windows[:idx], append([]*windowData{target}, windows[idx:]...)...)
 	}
+	if windowTiling && target.Open {
+		target.clampToScreen()
+		preventOverlap(target)
+	}
 }
 
 // RemoveWindow removes a window from the active list. Any cached images
