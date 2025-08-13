@@ -896,10 +896,10 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(graphicsBtn)
 
-	soundBtn, soundEvents := eui.NewButton()
-	soundBtn.Text = "Sound Settings"
-	soundBtn.Size = eui.Point{X: width, Y: 24}
-	soundEvents.Handle = func(ev eui.UIEvent) {
+	qualityBtn, qualityEvents := eui.NewButton()
+	qualityBtn.Text = "Quality Options"
+	qualityBtn.Size = eui.Point{X: width, Y: 24}
+	qualityEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			qualityWin.Toggle()
 		}
@@ -1047,65 +1047,8 @@ func makeGraphicsWindow() {
 	}
 	flow.AddItem(qualityPresetDD)
 
-	qualityBtn, qualityEvents := eui.NewButton()
-	qualityBtn.Text = "Quality Options"
-	qualityBtn.Size = eui.Point{X: width, Y: 24}
-	qualityEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			qualityWin.Toggle()
-		}
-	}
-	flow.AddItem(qualityBtn)
-
 	graphicsWin.AddItem(flow)
 	graphicsWin.AddWindow(false)
-}
-
-func makeSoundWindow() {
-	if soundWin != nil {
-		return
-	}
-	var width float32 = 250
-	soundWin = eui.NewWindow()
-	soundWin.Title = "Sound Settings"
-	soundWin.Closable = true
-	soundWin.Resizable = false
-	soundWin.AutoSize = true
-	soundWin.Movable = true
-	soundWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-
-	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = "Volume"
-	volumeSlider.MinValue = 0
-	volumeSlider.MaxValue = 1
-	volumeSlider.Value = float32(gs.Volume)
-	volumeSlider.Size = eui.Point{X: width - 10, Y: 24}
-	volumeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.Volume = float64(ev.Value)
-			settingsDirty = true
-			updateSoundVolume()
-		}
-	}
-	flow.AddItem(volumeSlider)
-
-	muteCB, muteEvents := eui.NewCheckbox()
-	muteCB.Text = "Mute"
-	muteCB.Size = eui.Point{X: width, Y: 24}
-	muteCB.Checked = gs.Mute
-	muteEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.Mute = ev.Checked
-			settingsDirty = true
-			updateSoundVolume()
-		}
-	}
-	flow.AddItem(muteCB)
-
-	soundWin.AddItem(flow)
-	soundWin.AddWindow(false)
 }
 
 func makeQualityWindow() {
@@ -1361,7 +1304,7 @@ func makeQualityWindow() {
 
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
-	potatoCB.Text = "Potato Computer"
+	potatoCB.Text = "Potato GPU"
 	potatoCB.Size = eui.Point{X: width, Y: 24}
 	potatoCB.Checked = gs.PotatoComputer
 	potatoEvents.Handle = func(ev eui.UIEvent) {
