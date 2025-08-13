@@ -950,7 +950,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(float64(iw+5), float64(ih))
 				op.GeoM.Translate(float64(left), float64(top))
-				op.ColorM.Scale(float64(bgClr.R)/255, float64(bgClr.G)/255, float64(bgClr.B)/255, float64(bgClr.A)/255)
+				op.ColorScale.ScaleWithColor(bgClr)
 				screen.DrawImage(whiteImage, op)
 				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
 				opTxt := &text.DrawOptions{}
@@ -970,7 +970,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 					op := &ebiten.DrawImageOptions{}
 					op.GeoM.Scale(12*gs.GameScale, 2*gs.GameScale)
 					op.GeoM.Translate(float64(left), float64(top))
-					op.ColorM.Scale(float64(barClr.R)/255, float64(barClr.G)/255, float64(barClr.B)/255, float64(barClr.A)/255)
+					op.ColorScale.ScaleWithColor(barClr)
 					screen.DrawImage(whiteImage, op)
 				}
 			}
@@ -1109,9 +1109,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
 		op.GeoM.Translate(tx, ty)
 		if gs.pictAgainDebug && p.Again {
-			op.ColorM.Scale(0, 0, 1, 1)
+			op.ColorScale.Scale(0, 0, 1, 1)
 		} else if src == img && gs.smoothingDebug && p.Moving {
-			op.ColorM.Scale(1, 0, 0, 1)
+			op.ColorScale.Scale(1, 0, 0, 1)
 		}
 		screen.DrawImage(src, op)
 
@@ -1223,7 +1223,7 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(w), float64(h))
 		op.GeoM.Translate(float64(ox+x), float64(oy+y))
-		op.ColorM.Scale(float64(clr.R)/255, float64(clr.G)/255, float64(clr.B)/255, float64(clr.A)/255)
+		op.ColorScale.ScaleWithColor(clr)
 		screen.DrawImage(whiteImage, op)
 	}
 	barWidth := int(110 * gs.GameScale)
