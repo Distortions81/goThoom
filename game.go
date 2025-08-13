@@ -658,6 +658,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		for _, b := range snap.bubbles {
 			hpos := float64(b.H)
 			vpos := float64(b.V)
+			var img *ebiten.Image
 			if !b.Far {
 				var m *frameMobile
 				for i := range snap.mobiles {
@@ -667,6 +668,15 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 					}
 				}
 				if m != nil {
+					if d, ok := descMap[m.Index]; ok {
+						colors := d.Colors
+						playersMu.RLock()
+						if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
+							colors = append([]byte(nil), p.Colors...)
+						}
+						playersMu.RUnlock()
+						img = loadMobileFrame(d.PictID, m.State, colors)
+					}
 					hpos = float64(m.H)
 					vpos = float64(m.V)
 					if gs.MotionSmoothing {
@@ -685,6 +695,9 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			y := int((math.Round(vpos) + float64(fieldCenterY)) * gs.GameScale)
 			x += ox
 			y += oy
+			if img != nil && !b.Far {
+				y -= int(float64(img.Bounds().Dy()) * gs.GameScale / 2)
+			}
 			borderCol, bgCol, textCol := bubbleColors(b.Type)
 			drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, borderCol, bgCol, textCol)
 		}
