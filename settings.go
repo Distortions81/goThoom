@@ -46,7 +46,7 @@ var gsdef settings = settings{
 	Theme:             "",
 	MessagesToConsole: false,
 	WindowTiling:      true,
-	AnyGameWindowSize: false,
+	AnyGameWindowSize: false, // allow arbitrary game window sizes
 
 	GameWindow:      WindowState{Open: true},
 	InventoryWindow: WindowState{Open: true},
@@ -99,7 +99,7 @@ type settings struct {
 	Fullscreen        bool
 	Volume            float64
 	Mute              bool
-	AnyGameWindowSize bool
+	AnyGameWindowSize bool // allow arbitrary game window sizes
 	GameScale         float64
 	Theme             string
 	MessagesToConsole bool
