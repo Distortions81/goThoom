@@ -103,9 +103,12 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		return
 	}
 	tailX, tailY := x, y
-	ox, oy := gameContentOrigin()
-	x -= ox
-	y -= oy
+	ox, oy := 0, 0
+	if !gs.AnyGameWindowSize {
+		ox, oy = gameContentOrigin()
+		x -= ox
+		y -= oy
+	}
 
 	sw := int(float64(gameAreaSizeX) * gs.GameScale)
 	sh := int(float64(gameAreaSizeY) * gs.GameScale)
@@ -121,10 +124,12 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	height := lineHeight*len(lines) + 2*pad
 
 	left, top, right, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far)
-	left += ox
-	right += ox
-	top += oy
-	bottom += oy
+	if !gs.AnyGameWindowSize {
+		left += ox
+		right += ox
+		top += oy
+		bottom += oy
+	}
 	baseX := left + width/2
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
