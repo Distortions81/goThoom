@@ -1,6 +1,9 @@
 package eui
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestWindowTilingPreventsOverlap(t *testing.T) {
 	screenWidth = 200
@@ -41,5 +44,33 @@ func TestWindowTilingDisabledAllowsOverlap(t *testing.T) {
 	inter := intersectRect(r1, r2)
 	if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
 		t.Fatalf("expected overlap with tiling disabled")
+	}
+}
+
+func TestPreventOverlapTerminatesBetweenWindows(t *testing.T) {
+	screenWidth = 300
+	screenHeight = 200
+	uiScale = 1
+	windows = nil
+	SetWindowTiling(true)
+
+	left := &windowData{Open: true, Position: point{X: 0, Y: 0}, Size: point{X: 100, Y: 100}}
+	right := &windowData{Open: true, Position: point{X: 120, Y: 0}, Size: point{X: 100, Y: 100}}
+
+	left.AddWindow(false)
+	right.AddWindow(false)
+
+	middle := &windowData{Open: true, Position: point{X: 60, Y: 0}, Size: point{X: 100, Y: 100}}
+
+	done := make(chan struct{})
+	go func() {
+		middle.AddWindow(false)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatalf("preventOverlap did not terminate")
 	}
 }
