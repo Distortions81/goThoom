@@ -523,7 +523,7 @@ func gameWindowOrigin() (int, int) {
 	frame := gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding
 	x := pos.X + frame
 	y := pos.Y + frame + gameWin.GetRawTitleSize()
-	return int(math.Round(float64(x))), int(math.Round(float64(y)))
+	return int(x), int(y)
 }
 
 func gameContentOrigin() (int, int) {
@@ -1214,6 +1214,10 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = eui.NewWindow()
+	gameWin.Margin = 0
+	gameWin.Padding = 0
+	gameWin.Border = 0
+	gameWin.BorderPad = 0
 	th := *gameWin.Theme
 	th.Window.Theme = &th
 	th.Window.BGColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
