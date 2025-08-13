@@ -55,7 +55,6 @@ The Go client accepts the following flags:
 - `-interp` – enable movement interpolation
 - `-onion` – cross-fade sprite animations
 - `-noFastAnimation` – draw a mobile's previous animation frame when available
-- `-linear` – use linear filtering instead of nearest-neighbor rendering
 - `-night` – force night level (0-100)
 
 ## Data and Logging

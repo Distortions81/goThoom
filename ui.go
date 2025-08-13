@@ -63,7 +63,6 @@ var (
 	precacheImageCB *eui.ItemData
 	noCacheCB       *eui.ItemData
 	potatoCB        *eui.ItemData
-	filtCB          *eui.ItemData
 )
 
 func initUI() {
@@ -80,7 +79,6 @@ func initUI() {
 	makeConsoleWindow()
 	makeSettingsWindow()
 	makeGraphicsWindow()
-	makeSoundWindow()
 	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -127,7 +125,6 @@ func makeToolbarWindow() {
 	winBtn.Text = "Windows"
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	winBtn.FontSize = toolFontSize
-	winBtn.Tooltip = "Show or hide window list"
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			windowsWin.Toggle()
@@ -139,7 +136,6 @@ func makeToolbarWindow() {
 	btn.Text = "Settings"
 	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	btn.FontSize = toolFontSize
-	btn.Tooltip = "Open settings window"
 	setEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			settingsWin.Toggle()
@@ -151,7 +147,6 @@ func makeToolbarWindow() {
 	helpBtn.Text = "Help"
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
-	helpBtn.Tooltip = "Open help window"
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			helpWin.Toggle()
@@ -160,13 +155,12 @@ func makeToolbarWindow() {
 	gameMenu.AddItem(helpBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = ""
+	volumeSlider.Label = "Volume"
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
 	volumeSlider.Size = eui.Point{X: 150, Y: buttonHeight}
 	volumeSlider.FontSize = 9
-	volumeSlider.Tooltip = "Adjust master volume"
 	volumeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Volume = float64(ev.Value)
@@ -183,7 +177,6 @@ func makeToolbarWindow() {
 	}
 	muteBtn.Size = eui.Point{X: 64, Y: buttonHeight}
 	muteBtn.FontSize = 12
-	muteBtn.Tooltip = "Mute or unmute sound"
 	muteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.Mute = !gs.Mute
@@ -203,7 +196,6 @@ func makeToolbarWindow() {
 	recordBtn.Text = "Record"
 	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	recordBtn.FontSize = toolFontSize
-	recordBtn.Tooltip = "Record or stop recording gameplay"
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
@@ -707,7 +699,6 @@ func makeSettingsWindow() {
 		}
 	}
 	themeDD.Size = eui.Point{X: width, Y: 24}
-	themeDD.Tooltip = "Select interface theme"
 	themeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			name := themeDD.Options[ev.Index]
@@ -730,7 +721,6 @@ func makeSettingsWindow() {
 	toggle.Text = "Click-to-toggle movement"
 	toggle.Size = eui.Point{X: width, Y: 24}
 	toggle.Checked = gs.ClickToToggle
-	toggle.Tooltip = "Click once to keep walking"
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ClickToToggle = ev.Checked
@@ -748,7 +738,6 @@ func makeSettingsWindow() {
 	keySpeedSlider.MaxValue = 1.0
 	keySpeedSlider.Value = float32(gs.KBWalkSpeed)
 	keySpeedSlider.Size = eui.Point{X: width - 10, Y: 24}
-	keySpeedSlider.Tooltip = "Adjust keyboard walking speed"
 	keySpeedEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.KBWalkSpeed = float64(ev.Value)
@@ -798,12 +787,11 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(label)
 
 	chatFontSlider, chatFontEvents := eui.NewSlider()
-	chatFontSlider.Label = "Chat"
+	chatFontSlider.Label = "Chat Font"
 	chatFontSlider.MinValue = 6
 	chatFontSlider.MaxValue = 24
 	chatFontSlider.Value = float32(gs.BubbleFontSize)
 	chatFontSlider.Size = eui.Point{X: width - 10, Y: 24}
-	chatFontSlider.Tooltip = "Chat bubble text size"
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleFontSize = float64(ev.Value)
@@ -814,12 +802,11 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(chatFontSlider)
 
 	labelFontSlider, labelFontEvents := eui.NewSlider()
-	labelFontSlider.Label = "Labels"
+	labelFontSlider.Label = "Label Font"
 	labelFontSlider.MinValue = 6
 	labelFontSlider.MaxValue = 24
 	labelFontSlider.Value = float32(gs.MainFontSize)
 	labelFontSlider.Size = eui.Point{X: width - 10, Y: 24}
-	labelFontSlider.Tooltip = "UI label text size"
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MainFontSize = float64(ev.Value)
@@ -830,12 +817,11 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(labelFontSlider)
 
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
-	consoleFontSlider.Label = "Console"
+	consoleFontSlider.Label = "Console Font"
 	consoleFontSlider.MinValue = 6
 	consoleFontSlider.MaxValue = 24
 	consoleFontSlider.Value = float32(gs.ConsoleFontSize)
 	consoleFontSlider.Size = eui.Point{X: width - 10, Y: 24}
-	consoleFontSlider.Tooltip = "Console text size"
 	consoleFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ConsoleFontSize = float64(ev.Value)
@@ -849,12 +835,11 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(consoleFontSlider)
 
 	chatWindowFontSlider, chatWindowFontEvents := eui.NewSlider()
-	chatWindowFontSlider.Label = "Chat Window"
+	chatWindowFontSlider.Label = "Chat Window Font"
 	chatWindowFontSlider.MinValue = 6
 	chatWindowFontSlider.MaxValue = 24
 	chatWindowFontSlider.Value = float32(gs.ChatFontSize)
 	chatWindowFontSlider.Size = eui.Point{X: width - 10, Y: 24}
-	chatWindowFontSlider.Tooltip = "Chat window text size"
 	chatWindowFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ChatFontSize = float64(ev.Value)
@@ -874,12 +859,11 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(label)
 
 	bubbleOpSlider, bubbleOpEvents := eui.NewSlider()
-	bubbleOpSlider.Label = "Message Bubble"
+	bubbleOpSlider.Label = "Bubble Opacity"
 	bubbleOpSlider.MinValue = 0
 	bubbleOpSlider.MaxValue = 1
 	bubbleOpSlider.Value = float32(gs.BubbleOpacity)
 	bubbleOpSlider.Size = eui.Point{X: width - 10, Y: 24}
-	bubbleOpSlider.Tooltip = "Opacity of chat bubbles"
 	bubbleOpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleOpacity = float64(ev.Value)
@@ -889,12 +873,11 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(bubbleOpSlider)
 
 	nameBgSlider, nameBgEvents := eui.NewSlider()
-	nameBgSlider.Label = "Name Background"
+	nameBgSlider.Label = "Name Background Opacity"
 	nameBgSlider.MinValue = 0
 	nameBgSlider.MaxValue = 1
 	nameBgSlider.Value = float32(gs.NameBgOpacity)
 	nameBgSlider.Size = eui.Point{X: width - 10, Y: 24}
-	nameBgSlider.Tooltip = "Opacity of name backgrounds"
 	nameBgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.NameBgOpacity = float64(ev.Value)
@@ -906,7 +889,6 @@ func makeSettingsWindow() {
 	graphicsBtn, graphicsEvents := eui.NewButton()
 	graphicsBtn.Text = "Graphics Settings"
 	graphicsBtn.Size = eui.Point{X: width, Y: 24}
-	graphicsBtn.Tooltip = "Open graphics settings"
 	graphicsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			graphicsWin.Toggle()
@@ -917,18 +899,16 @@ func makeSettingsWindow() {
 	soundBtn, soundEvents := eui.NewButton()
 	soundBtn.Text = "Sound Settings"
 	soundBtn.Size = eui.Point{X: width, Y: 24}
-	soundBtn.Tooltip = "Open sound settings"
 	soundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			soundWin.Toggle()
+			qualityWin.Toggle()
 		}
 	}
-	mainFlow.AddItem(soundBtn)
+	mainFlow.AddItem(qualityBtn)
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
 	debugBtn.Size = eui.Point{X: width, Y: 24}
-	debugBtn.Tooltip = "Open debug settings"
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			debugWin.Toggle()
@@ -1398,25 +1378,6 @@ func makeQualityWindow() {
 		}
 	}
 	flow.AddItem(potatoCB)
-
-	fCB, filtEvents := eui.NewCheckbox()
-	filtCB = fCB
-	filtCB.Text = "Image Filtering"
-	filtCB.Size = eui.Point{X: width, Y: 24}
-	filtCB.Checked = gs.textureFiltering
-	filtCB.Tooltip = "Use linear texture filtering"
-	filtEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.textureFiltering = ev.Checked
-			if gs.textureFiltering {
-				drawFilter = ebiten.FilterLinear
-			} else {
-				drawFilter = ebiten.FilterNearest
-			}
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(filtCB)
 
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
 	vsyncCB.Text = "Vsync"

@@ -112,7 +112,6 @@ var qualityWin *eui.WindowData
 var graphicsWin *eui.WindowData
 var soundWin *eui.WindowData
 var gameCtx context.Context
-var drawFilter = ebiten.FilterNearest
 var frameCounter int
 var gameStarted = make(chan struct{})
 
@@ -494,12 +493,13 @@ func updateGameScale() {
 		return
 	}
 	size := gameWin.GetRawSize()
-	if size.X <= 0 || size.Y <= 0 {
+	pad := float64(2 * gameWin.Padding)
+	w := float64(size.X) - pad
+	h := float64(size.Y) - pad
+	if w <= 0 || h <= 0 {
 		return
 	}
 
-	w := float64(size.X)
-	h := float64(size.Y)
 	scaleW := w / float64(gameAreaSizeX)
 	scaleH := h / float64(gameAreaSizeY)
 	newScale := math.Min(scaleW, scaleH)
@@ -542,7 +542,10 @@ func updateGameWindowSize() {
 		return
 	}
 	scale := float32(gs.GameScale)
-	gameWin.Size = eui.Point{X: float32(gameAreaSizeX) * scale, Y: float32(gameAreaSizeY) * scale}
+	gameWin.Size = eui.Point{
+		X: float32(gameAreaSizeX)*scale + 2*gameWin.Padding,
+		Y: float32(gameAreaSizeY)*scale + 2*gameWin.Padding,
+	}
 
 	// Ensure the Ebiten window matches the game window size.
 	size := gameWin.GetSize()
@@ -571,8 +574,9 @@ func gameContentOrigin() (int, int) {
 		return x, y
 	}
 	size := gameWin.GetSize()
-	w := float64(int(size.X) &^ 1)
-	h := float64(int(size.Y) &^ 1)
+	pad := float64(2 * gameWin.Padding)
+	w := float64(int(size.X)&^1) - pad
+	h := float64(int(size.Y)&^1) - pad
 	fw := float64(gameAreaSizeX) * gs.GameScale
 	fh := float64(gameAreaSizeY) * gs.GameScale
 	if w > fw {
@@ -617,7 +621,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		initFont()
 		ox, oy := gameContentOrigin()
 		size := gameWin.GetSize()
-		scale := math.Min(float64(size.X)/(gameAreaSizeX*2), float64(size.Y)/(gameAreaSizeY*2))
+		pad := float64(2 * gameWin.Padding)
+		scaleW := (float64(size.X) - pad) / (gameAreaSizeX * 2)
+		scaleH := (float64(size.Y) - pad) / (gameAreaSizeY * 2)
+		scale := math.Min(scaleW, scaleH)
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Scale(scale, scale)
 		op.GeoM.Translate(float64(ox), float64(oy))
@@ -882,8 +889,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
 			return
 		}
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = drawFilter
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(scale, scale)
 		tx := math.Round(float64(x) - scaled/2)
 		ty := math.Round(float64(y) - scaled/2)
@@ -1046,10 +1052,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if src != nil {
 			drawW, drawH = src.Bounds().Dx(), src.Bounds().Dy()
 		}
-		sx, sy := gs.GameScale, gs.GameScale
-		if !gs.textureFiltering {
-			sx, sy = scaleForFiltering(gs.GameScale, drawW, drawH)
-		}
+		sx, sy := scaleForFiltering(gs.GameScale, drawW, drawH)
 		scaledW := math.Round(float64(drawW) * sx)
 		scaledH := math.Round(float64(drawH) * sy)
 		sx = scaledW / float64(drawW)
@@ -1059,8 +1062,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
 			return
 		}
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = drawFilter
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(sx, sy)
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
@@ -1329,7 +1331,7 @@ func makeGameWindow() {
 	}
 	gameWin = eui.NewWindow()
 	gameWin.Margin = 0
-	gameWin.Padding = 0
+	gameWin.Padding = 1 // one-pixel border for easier resizing
 	gameWin.Border = 0
 	gameWin.BorderPad = 0
 	th := *gameWin.Theme

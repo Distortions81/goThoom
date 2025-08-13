@@ -64,7 +64,6 @@ var gsdef settings = settings{
 	nightEffect:      true,
 	precacheSounds:   false,
 	precacheImages:   false,
-	textureFiltering: false,
 	lateInputUpdates: false,
 	cacheWholeSheet:  true,
 	smoothMoving:     true,
@@ -124,7 +123,6 @@ type settings struct {
 	nightEffect      bool
 	precacheSounds   bool
 	precacheImages   bool
-	textureFiltering bool
 	lateInputUpdates bool
 	cacheWholeSheet  bool
 	smoothMoving     bool
@@ -184,11 +182,6 @@ func applySettings() {
 		clImages.Denoise = gs.DenoiseImages
 		clImages.DenoiseSharpness = gs.DenoiseSharpness
 		clImages.DenoisePercent = gs.DenoisePercent
-	}
-	if gs.textureFiltering {
-		drawFilter = ebiten.FilterLinear
-	} else {
-		drawFilter = ebiten.FilterNearest
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetFullscreen(gs.Fullscreen)
