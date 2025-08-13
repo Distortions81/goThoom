@@ -485,7 +485,18 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			flowPos := pointAdd(drawOffset, item.GetPos())
 			flowOff := pointAdd(flowPos, flowOffset)
 			itemPos := pointAdd(flowOff, subItem.GetPos())
-			subItem.drawFlows(win, item, itemPos, base, drawRect, screen, dropdowns)
+			subRect := rect{
+				X0: itemPos.X,
+				Y0: itemPos.Y,
+				X1: itemPos.X + subItem.GetSize().X,
+				Y1: itemPos.Y + subItem.GetSize().Y,
+			}
+			inter := intersectRect(subRect, drawRect)
+			if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
+				subItem.DrawRect = rectAdd(inter, base)
+			} else {
+				subItem.drawFlows(win, item, itemPos, base, drawRect, screen, dropdowns)
+			}
 		} else {
 			flowOff := pointAdd(drawOffset, flowOffset)
 
@@ -494,14 +505,36 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				objOff := pointAdd(win.getPosition(), point{X: pad, Y: win.GetTitleSize() + pad})
 				objOff = pointSub(objOff, win.Scroll)
 				objOff = pointAdd(objOff, subItem.getPosition(win))
-				clipWin := win.getMainRect()
-				subItem.drawItem(item, objOff, base, clipWin, screen, dropdowns)
+				subRect := rect{
+					X0: objOff.X,
+					Y0: objOff.Y,
+					X1: objOff.X + subItem.GetSize().X,
+					Y1: objOff.Y + subItem.GetSize().Y,
+				}
+				inter := intersectRect(subRect, drawRect)
+				if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
+					subItem.DrawRect = rectAdd(inter, base)
+				} else {
+					clipWin := win.getMainRect()
+					subItem.drawItem(item, objOff, base, clipWin, screen, dropdowns)
+				}
 			} else {
 				objOff := flowOff
 				if parent != nil && parent.ItemType == ITEM_FLOW {
 					objOff = pointAdd(objOff, subItem.GetPos())
 				}
-				subItem.drawItem(item, objOff, base, drawRect, screen, dropdowns)
+				subRect := rect{
+					X0: objOff.X,
+					Y0: objOff.Y,
+					X1: objOff.X + subItem.GetSize().X,
+					Y1: objOff.Y + subItem.GetSize().Y,
+				}
+				inter := intersectRect(subRect, drawRect)
+				if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
+					subItem.DrawRect = rectAdd(inter, base)
+				} else {
+					subItem.drawItem(item, objOff, base, drawRect, screen, dropdowns)
+				}
 			}
 		}
 
