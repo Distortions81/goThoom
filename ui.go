@@ -79,6 +79,7 @@ func initUI() {
 	makeConsoleWindow()
 	makeSettingsWindow()
 	makeGraphicsWindow()
+	makeSoundWindow()
 	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -862,6 +863,26 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(graphicsBtn)
 
+	soundBtn, soundEvents := eui.NewButton()
+	soundBtn.Text = "Sound Settings"
+	soundBtn.Size = eui.Point{X: width, Y: 24}
+	soundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			soundWin.Toggle()
+		}
+	}
+	mainFlow.AddItem(soundBtn)
+
+	debugBtn, debugEvents := eui.NewButton()
+	debugBtn.Text = "Debug Settings"
+	debugBtn.Size = eui.Point{X: width, Y: 24}
+	debugEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			debugWin.Toggle()
+		}
+	}
+	mainFlow.AddItem(debugBtn)
+
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
 }
@@ -986,18 +1007,55 @@ func makeGraphicsWindow() {
 	}
 	flow.AddItem(qualityBtn)
 
-	debugBtn, debugEvents := eui.NewButton()
-	debugBtn.Text = "Debug Settings"
-	debugBtn.Size = eui.Point{X: width, Y: 24}
-	debugEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			debugWin.Toggle()
-		}
-	}
-	flow.AddItem(debugBtn)
-
 	graphicsWin.AddItem(flow)
 	graphicsWin.AddWindow(false)
+}
+
+func makeSoundWindow() {
+	if soundWin != nil {
+		return
+	}
+	var width float32 = 250
+	soundWin = eui.NewWindow()
+	soundWin.Title = "Sound Settings"
+	soundWin.Closable = true
+	soundWin.Resizable = false
+	soundWin.AutoSize = true
+	soundWin.Movable = true
+	soundWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
+	volumeSlider, volumeEvents := eui.NewSlider()
+	volumeSlider.Label = "Volume"
+	volumeSlider.MinValue = 0
+	volumeSlider.MaxValue = 1
+	volumeSlider.Value = float32(gs.Volume)
+	volumeSlider.Size = eui.Point{X: width - 10, Y: 24}
+	volumeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.Volume = float64(ev.Value)
+			settingsDirty = true
+			updateSoundVolume()
+		}
+	}
+	flow.AddItem(volumeSlider)
+
+	muteCB, muteEvents := eui.NewCheckbox()
+	muteCB.Text = "Mute"
+	muteCB.Size = eui.Point{X: width, Y: 24}
+	muteCB.Checked = gs.Mute
+	muteEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.Mute = ev.Checked
+			settingsDirty = true
+			updateSoundVolume()
+		}
+	}
+	flow.AddItem(muteCB)
+
+	soundWin.AddItem(flow)
+	soundWin.AddWindow(false)
 }
 
 func makeQualityWindow() {
