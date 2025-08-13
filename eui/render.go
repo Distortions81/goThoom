@@ -235,6 +235,13 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 		{
 			pr := win.pinRect()
 			color := win.Theme.Window.TitleColor
+			if win.zone == nil {
+				if c, ok := namedColors["disabled"]; ok {
+					color = c
+				} else {
+					color = ColorGray
+				}
+			}
 			if win.HoverPin {
 				color = win.Theme.Window.HoverTitleColor
 			}
