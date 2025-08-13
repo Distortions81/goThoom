@@ -8,7 +8,6 @@ import (
 
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
-var chatDirty bool
 
 func updateChatWindow() {
 	if chatList == nil {
@@ -31,7 +30,7 @@ func updateChatWindow() {
 			}
 			t.Text = msg
 			t.FontSize = float32(gs.ChatFontSize)
-			t.Size = eui.Point{X: 256, Y: 24}
+			t.AutoSize = true
 			chatList.AddItem(t)
 			changed = true
 		}
@@ -43,8 +42,8 @@ func updateChatWindow() {
 		chatList.Contents = chatList.Contents[:len(msgs)]
 		changed = true
 	}
-	if changed {
-		chatDirty = true
+	if changed && chatWin != nil {
+		chatWin.Refresh()
 	}
 }
 

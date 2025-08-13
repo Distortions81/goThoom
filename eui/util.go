@@ -805,6 +805,9 @@ func (item *itemData) resizeFlow(parentSize point) {
 		item.Size = point{X: size.X / uiScale, Y: size.Y / uiScale}
 		available = item.GetSize()
 	} else {
+		if item.AutoSize {
+			item.Size = point{X: available.X / uiScale, Y: item.Size.Y}
+		}
 		available = item.GetSize()
 	}
 
