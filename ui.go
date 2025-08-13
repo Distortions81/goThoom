@@ -747,6 +747,38 @@ func makeSettingsWindow() {
 	mainFlow.AddItem(keySpeedSlider)
 
 	label, _ = eui.NewText()
+	label.Text = "\nWindow Behavior:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 150, Y: 50}
+	mainFlow.AddItem(label)
+
+	tilingCB, tilingEvents := eui.NewCheckbox()
+	tilingCB.Text = "Tiling window mode"
+	tilingCB.Size = eui.Point{X: width, Y: 24}
+	tilingCB.Checked = gs.WindowTiling
+	tilingEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.WindowTiling = ev.Checked
+			eui.SetWindowTiling(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(tilingCB)
+
+	snapCB, snapEvents := eui.NewCheckbox()
+	snapCB.Text = "Window snapping"
+	snapCB.Size = eui.Point{X: width, Y: 24}
+	snapCB.Checked = gs.WindowSnapping
+	snapEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.WindowSnapping = ev.Checked
+			eui.SetWindowSnapping(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(snapCB)
+
+	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
 	label.FontSize = 15
 	label.Size = eui.Point{X: 100, Y: 50}
