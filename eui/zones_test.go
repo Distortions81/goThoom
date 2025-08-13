@@ -162,3 +162,18 @@ func TestSnapResizeToScreen(t *testing.T) {
 		t.Fatalf("height snapped to %v; want %v", win.Size.Y, expectedHeight)
 	}
 }
+
+func TestSnapResizeToScreenScaled(t *testing.T) {
+	screenWidth = 200
+	screenHeight = 200
+	uiScale = 2
+
+	win := &windowData{Position: point{50, 50}, Size: point{20, 45}, Open: true}
+
+	snapResize(win, PART_BOTTOM)
+
+	expectedHeight := float32(screenHeight)/uiScale - win.Position.Y
+	if win.Size.Y != expectedHeight {
+		t.Fatalf("height snapped to %v; want %v", win.Size.Y, expectedHeight)
+	}
+}
