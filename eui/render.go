@@ -121,6 +121,8 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		win.drawBorder(windowArea)
 		win.Position = origPos
 		win.Dirty = false
+	} else {
+		win.collectDropdowns(dropdowns)
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(win.getPosition().X), float64(win.getPosition().Y))
@@ -1125,6 +1127,30 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 		col := NewColor(96, 96, 96, 192)
 		sbW := currentStyle.BorderPad.Slider * 2
 		drawFilledRect(subImg, drawRect.X1-sbW, startY+pos, sbW, barH, col.ToRGBA(), false)
+	}
+}
+
+func (win *windowData) collectDropdowns(dropdowns *[]openDropdown) {
+	collectItemDropdowns(win.Contents, dropdowns)
+}
+
+func collectItemDropdowns(items []*itemData, dropdowns *[]openDropdown) {
+	for _, it := range items {
+		if it.ItemType == ITEM_DROPDOWN && it.Open {
+			off := point{X: it.DrawRect.X0, Y: it.DrawRect.Y0}
+			if it.Label != "" {
+				textSize := (it.FontSize * uiScale) + 2
+				off.Y += textSize + currentStyle.TextPadding*uiScale
+			}
+			*dropdowns = append(*dropdowns, openDropdown{item: it, offset: off})
+		}
+		if len(it.Tabs) > 0 {
+			if it.ActiveTab >= len(it.Tabs) {
+				it.ActiveTab = 0
+			}
+			collectItemDropdowns(it.Tabs[it.ActiveTab].Contents, dropdowns)
+		}
+		collectItemDropdowns(it.Contents, dropdowns)
 	}
 }
 
