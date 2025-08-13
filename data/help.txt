@@ -1,0 +1,16 @@
+Movement
+--------
+* Move using WASD or arrow keys; hold Shift for normal-speed movement.
+* Left-click to walk; if "Click To Toggle" is enabled, a single click sets a
+  walk target.
+
+Communication
+-------------
+* Enter starts chat; Enter sends; Esc cancels; Up/Down browse history;
+  use `/play` for tunes.
+
+General Tips
+------------
+* `/who` shows who is online.
+* Explore with friends and share your adventures.
+
