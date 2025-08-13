@@ -125,7 +125,6 @@ func makeToolbarWindow() {
 	winBtn.Text = "Windows"
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	winBtn.FontSize = toolFontSize
-	winBtn.Tooltip = "Show or hide window list"
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			windowsWin.Toggle()
@@ -137,7 +136,6 @@ func makeToolbarWindow() {
 	btn.Text = "Settings"
 	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	btn.FontSize = toolFontSize
-	btn.Tooltip = "Open settings window"
 	setEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			settingsWin.Toggle()
@@ -149,7 +147,6 @@ func makeToolbarWindow() {
 	helpBtn.Text = "Help"
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
-	helpBtn.Tooltip = "Open help window"
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			helpWin.Toggle()
@@ -158,13 +155,12 @@ func makeToolbarWindow() {
 	gameMenu.AddItem(helpBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
-	volumeSlider.Label = ""
+	volumeSlider.Label = "Volume"
 	volumeSlider.MinValue = 0
 	volumeSlider.MaxValue = 1
 	volumeSlider.Value = float32(gs.Volume)
 	volumeSlider.Size = eui.Point{X: 150, Y: buttonHeight}
 	volumeSlider.FontSize = 9
-	volumeSlider.Tooltip = "Adjust master volume"
 	volumeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.Volume = float64(ev.Value)
@@ -181,7 +177,6 @@ func makeToolbarWindow() {
 	}
 	muteBtn.Size = eui.Point{X: 64, Y: buttonHeight}
 	muteBtn.FontSize = 12
-	muteBtn.Tooltip = "Mute or unmute sound"
 	muteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.Mute = !gs.Mute
@@ -201,7 +196,6 @@ func makeToolbarWindow() {
 	recordBtn.Text = "Record"
 	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	recordBtn.FontSize = toolFontSize
-	recordBtn.Tooltip = "Record or stop recording gameplay"
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
