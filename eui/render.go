@@ -34,9 +34,6 @@ func Draw(screen *ebiten.Image) {
 		if !win.Open {
 			continue
 		}
-		if win.HoverPin {
-			zoneIndicatorWin = win
-		}
 		win.Draw(screen, &dropdowns)
 	}
 
