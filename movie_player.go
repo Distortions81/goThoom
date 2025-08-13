@@ -220,6 +220,11 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	flow.AddItem(bFlow)
 	win.AddItem(flow)
+
+	// Recompute window dimensions now that all controls are present
+	win.Refresh()
+
+	// Add and open the fully populated window
 	win.AddWindow(false)
 	win.MarkOpen()
 
