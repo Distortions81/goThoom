@@ -58,9 +58,6 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 
 	if input != nil {
 		input.Size.Y = float32(fontSize) + 8
-		if win != nil {
-			list.Size.Y = win.GetSize().Y - input.Size.Y
-		}
 		if len(input.Contents) == 0 {
 			t, _ := eui.NewText()
 			t.Text = inputMsg
@@ -73,6 +70,12 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	}
 
 	if win != nil {
+		list.Size.X = win.GetSize().X
+		if input != nil {
+			list.Size.Y = win.GetSize().Y - input.Size.Y
+		} else {
+			list.Size.Y = win.GetSize().Y
+		}
 		win.Refresh()
 	}
 }
