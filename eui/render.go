@@ -20,10 +20,16 @@ const shadowAlphaDivisor = 16
 var dumpDone bool
 var hoverPinWin *windowData
 
+type openDropdown struct {
+	item   *itemData
+	offset point
+}
+
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
 	hoverPinWin = nil
+	dropdowns := []openDropdown{}
 	for _, win := range windows {
 		if !win.Open {
 			continue
@@ -31,11 +37,16 @@ func Draw(screen *ebiten.Image) {
 		if win.HoverPin {
 			hoverPinWin = win
 		}
-		win.Draw(screen)
+		win.Draw(screen, &dropdowns)
 	}
 
 	if hoverPinWin != nil {
 		drawZoneOverlay(screen, hoverPinWin)
+	}
+
+	screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
+	for _, dd := range dropdowns {
+		drawDropdownOptions(dd.item, dd.offset, screenClip, screen)
 	}
 
 	if DumpMode && !dumpDone {
@@ -85,7 +96,7 @@ func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 	}
 }
 
-func (win *windowData) Draw(screen *ebiten.Image) {
+func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if win.Dirty || win.Render == nil {
 		if CacheCheck {
 			win.RenderCount++
@@ -102,7 +113,7 @@ func (win *windowData) Draw(screen *ebiten.Image) {
 		origPos := win.Position
 		win.Position = point{}
 		win.drawBG(win.Render)
-		win.drawItems(win.Render, origPos)
+		win.drawItems(win.Render, origPos, dropdowns)
 		win.drawScrollbars(win.Render)
 		titleArea := win.Render.SubImage(win.getTitleRect().getRectangle()).(*ebiten.Image)
 		win.drawWinTitle(titleArea)
@@ -324,7 +335,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 	}
 }
 
-func (win *windowData) drawItems(screen *ebiten.Image, base point) {
+func (win *windowData) drawItems(screen *ebiten.Image, base point, dropdowns *[]openDropdown) {
 	pad := (win.Padding + win.BorderPad) * win.scale()
 	winPos := point{X: pad, Y: win.GetTitleSize() + pad}
 	winPos = pointSub(winPos, win.Scroll)
@@ -334,14 +345,14 @@ func (win *windowData) drawItems(screen *ebiten.Image, base point) {
 		itemPos := pointAdd(winPos, item.getPosition(win))
 
 		if item.ItemType == ITEM_FLOW {
-			item.drawFlows(win, nil, itemPos, base, clip, screen)
+			item.drawFlows(win, nil, itemPos, base, clip, screen, dropdowns)
 		} else {
-			item.drawItem(nil, itemPos, base, clip, screen)
+			item.drawItem(nil, itemPos, base, clip, screen, dropdowns)
 		}
 	}
 }
 
-func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, base point, clip rect, screen *ebiten.Image) {
+func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, base point, clip rect, screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if CacheCheck {
 		item.RenderCount++
 	}
@@ -463,7 +474,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			flowPos := pointAdd(drawOffset, item.GetPos())
 			flowOff := pointAdd(flowPos, flowOffset)
 			itemPos := pointAdd(flowOff, subItem.GetPos())
-			subItem.drawFlows(win, item, itemPos, base, drawRect, screen)
+			subItem.drawFlows(win, item, itemPos, base, drawRect, screen, dropdowns)
 		} else {
 			flowOff := pointAdd(drawOffset, flowOffset)
 
@@ -473,13 +484,13 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				objOff = pointSub(objOff, win.Scroll)
 				objOff = pointAdd(objOff, subItem.getPosition(win))
 				clipWin := win.getMainRect()
-				subItem.drawItem(item, objOff, base, clipWin, screen)
+				subItem.drawItem(item, objOff, base, clipWin, screen, dropdowns)
 			} else {
 				objOff := flowOff
 				if parent != nil && parent.ItemType == ITEM_FLOW {
 					objOff = pointAdd(objOff, subItem.GetPos())
 				}
-				subItem.drawItem(item, objOff, base, drawRect, screen)
+				subItem.drawItem(item, objOff, base, drawRect, screen, dropdowns)
 			}
 		}
 
@@ -996,7 +1007,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 	item.DrawRect = rectAdd(item.DrawRect, base)
 }
 
-func (item *itemData) drawItem(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image) {
+func (item *itemData) drawItem(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if CacheCheck {
 		item.RenderCount++
 	}
@@ -1040,8 +1051,7 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 			textSize := (item.FontSize * uiScale) + 2
 			dropOff.Y += textSize + currentStyle.TextPadding*uiScale
 		}
-		screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
-		drawDropdownOptions(item, dropOff, screenClip, screen)
+		*dropdowns = append(*dropdowns, openDropdown{item: item, offset: dropOff})
 	}
 
 	if DebugMode {
