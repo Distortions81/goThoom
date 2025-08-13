@@ -30,6 +30,7 @@ const defaultHandPictID = 6
 const initialWindowW, initialWindowH = 100, 100
 
 var blackPixel *ebiten.Image
+var offscreen *ebiten.Image
 
 // scaleForFiltering returns adjusted scale values for width and height to reduce
 // filtering seams. If either dimension is zero, the original scale is returned
@@ -495,13 +496,21 @@ func updateGameScale() {
 		return
 	}
 
-	w := float64(int(size.X))
-	h := float64(int(size.Y))
+	w := float64(size.X)
+	h := float64(size.Y)
 	scaleW := w / float64(gameAreaSizeX)
 	scaleH := h / float64(gameAreaSizeY)
 	newScale := math.Min(scaleW, scaleH)
 	if newScale < 0.25 {
 		newScale = 0.25
+	}
+
+	if gs.AnyGameWindowSize {
+		if gs.GameScale != newScale {
+			gs.GameScale = newScale
+			initFont()
+		}
+		return
 	}
 
 	snapped, exact := exactScale(newScale, 8, 1e-6)
@@ -517,6 +526,9 @@ func updateGameScale() {
 
 func updateGameWindowSize() {
 	if gameWin == nil {
+		return
+	}
+	if gs.AnyGameWindowSize {
 		return
 	}
 	scale := float32(gs.GameScale)
@@ -554,8 +566,8 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	ox, oy := gameContentOrigin()
 	if clmov == "" && tcpConn == nil {
+		ox, oy := gameContentOrigin()
 		drawSplash(screen, ox, oy)
 		eui.Draw(screen)
 		if gs.ShowFPS {
@@ -565,16 +577,49 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	snap := captureDrawSnapshot()
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
-	//logDebug("Draw alpha=%.2f shift=(%d,%d) pics=%d", alpha, snap.picShiftX, snap.picShiftY, len(snap.pictures))
+
+	if gs.AnyGameWindowSize {
+		updateGameScale()
+		if offscreen == nil {
+			offscreen = ebiten.NewImage(gameAreaSizeX*2, gameAreaSizeY*2)
+		}
+		offscreen.Clear()
+		saved := gs.GameScale
+		gs.GameScale = 2
+		initFont()
+		drawScene(offscreen, 0, 0, snap, alpha, mobileFade, pictFade)
+		if gs.nightEffect {
+			drawNightOverlay(offscreen, 0, 0)
+		}
+		drawEquippedItems(offscreen, 0, 0)
+		drawGameCurtain(offscreen, 0, 0)
+		drawStatusBars(offscreen, 0, 0, snap, alpha)
+		gs.GameScale = saved
+		initFont()
+		sw := screen.Bounds().Dx()
+		sh := screen.Bounds().Dy()
+		scale := math.Min(float64(sw)/float64(gameAreaSizeX*2), float64(sh)/float64(gameAreaSizeY*2))
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(scale, scale)
+		tx := (float64(sw) - float64(gameAreaSizeX*2)*scale) / 2
+		ty := (float64(sh) - float64(gameAreaSizeY*2)*scale) / 2
+		op.GeoM.Translate(tx, ty)
+		screen.DrawImage(offscreen, op)
+		eui.Draw(screen)
+		if gs.ShowFPS {
+			drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
+		}
+		return
+	}
+
+	ox, oy := gameContentOrigin()
 	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
 	updateGameScale()
 	if gs.nightEffect {
 		drawNightOverlay(screen, ox, oy)
 	}
 	drawEquippedItems(screen, ox, oy)
-
 	drawGameCurtain(screen, ox, oy)
-
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	eui.Draw(screen)
 	if gs.ShowFPS {
