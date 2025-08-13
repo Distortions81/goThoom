@@ -344,6 +344,35 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 			Color:    FrameColor,
 		})
 	}
+	if win.Resizable {
+		win.drawResizeThumb(screen)
+	}
+}
+
+func (win *windowData) drawResizeThumb(screen *ebiten.Image) {
+	size := float32(12) * uiScale
+	step := float32(4) * uiScale
+	pad := win.BorderPad * win.scale()
+	x1 := win.GetSize().X - pad
+	y1 := win.GetSize().Y - pad
+
+	col := win.Theme.Window.BorderColor
+	if activeWindow == win {
+		col = win.Theme.Window.ActiveColor
+	} else if win.Hovered {
+		col = win.Theme.Window.HoverColor
+	}
+
+	x0 := x1 - size
+	y0 := y1 - size
+
+	strokeLine(screen, x0, y1, x1, y1, uiScale, col, true)
+	strokeLine(screen, x1, y0, x1, y1, uiScale, col, true)
+	strokeLine(screen, x0, y1, x1, y0, uiScale, col, true)
+
+	for off := step; off < size; off += step {
+		strokeLine(screen, x1-off, y1, x1, y1-off, uiScale, col, true)
+	}
 }
 
 func (win *windowData) drawScrollbars(screen *ebiten.Image) {
