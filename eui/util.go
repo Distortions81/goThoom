@@ -141,6 +141,23 @@ func (win *windowData) pinRect() rect {
 	}
 }
 
+func (win *windowData) shadeRect() rect {
+	if win.TitleHeight <= 0 {
+		return rect{}
+	}
+	pr := win.pinRect()
+	if pr.X0 == 0 && pr.X1 == 0 && pr.Y0 == 0 && pr.Y1 == 0 {
+		return rect{}
+	}
+	size := win.GetTitleSize()
+	return rect{
+		X0: pr.X0 - size,
+		Y0: pr.Y0,
+		X1: pr.X0,
+		Y1: pr.Y1,
+	}
+}
+
 func (win *windowData) dragbarRect() rect {
 	if win.TitleHeight <= 0 && !win.Resizable {
 		return rect{}
@@ -153,6 +170,8 @@ func (win *windowData) dragbarRect() rect {
 	}
 	pr := win.pinRect()
 	buttonsWidth += pr.X1 - pr.X0
+	sr := win.shadeRect()
+	buttonsWidth += sr.X1 - sr.X0
 
 	dpad := (win.GetTitleSize()) / 5
 	xStart := textSize.X + float32((win.GetTitleSize())/1.5)
@@ -162,6 +181,18 @@ func (win *windowData) dragbarRect() rect {
 		X0: pos.X + xStart, Y0: pos.Y + dpad,
 		X1: pos.X + xEnd, Y1: pos.Y + (win.GetTitleSize()) - dpad,
 	}
+}
+
+func (win *windowData) ToggleShade() {
+	if win.Shaded {
+		win.setSize(win.unshadeSize)
+		win.Shaded = false
+	} else {
+		win.unshadeSize = win.Size
+		win.setSize(point{X: win.Size.X, Y: win.GetRawTitleSize()})
+		win.Shaded = true
+	}
+	win.markDirty()
 }
 
 func (win *windowData) Refresh() {
@@ -324,6 +355,10 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 		if win.pinRect().containsPoint(mpos) {
 			win.HoverPin = true
 			return PART_PIN
+		}
+		if win.shadeRect().containsPoint(mpos) {
+			win.HoverShade = true
+			return PART_SHADE
 		}
 		if win.Movable && win.dragbarRect().containsPoint(mpos) {
 			win.HoverDragbar = true
