@@ -257,6 +257,12 @@ func (win *windowData) setSize(size point) bool {
 	if size.X < 1 || size.Y < 1 {
 		return false
 	}
+	if size.X < MinWindowSize {
+		size.X = MinWindowSize
+	}
+	if size.Y < MinWindowSize {
+		size.Y = MinWindowSize
+	}
 
 	old := win.Size
 	win.Size = size

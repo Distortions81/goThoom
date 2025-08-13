@@ -268,7 +268,7 @@ func clampWindowSettings() {
 }
 
 func clampWindowState(st *WindowState, sx, sy float64) {
-	if st.Size.X < 100 || st.Size.Y < 100 {
+	if st.Size.X < eui.MinWindowSize || st.Size.Y < eui.MinWindowSize {
 		st.Position = WindowPoint{}
 		st.Size = WindowPoint{}
 		return
