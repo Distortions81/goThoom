@@ -689,6 +689,7 @@ func makeSettingsWindow() {
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
+	settingsWin.NoScroll = true
 	settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -894,15 +895,36 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(nameBgSlider)
 
-	graphicsBtn, graphicsEvents := eui.NewButton()
-	graphicsBtn.Text = "Graphics Settings"
-	graphicsBtn.Size = eui.Point{X: width, Y: 24}
-	graphicsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			graphicsWin.Toggle()
+	label, _ = eui.NewText()
+	label.Text = "Quality Settings:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: 150, Y: 50}
+	mainFlow.AddItem(label)
+
+	qualityPresetDD, qpEvents := eui.NewDropdown()
+	qualityPresetDD.Options = []string{"Ultra Low", "Low", "Standard", "High", "Ultimate", "Custom"}
+	qualityPresetDD.Size = eui.Point{X: width, Y: 24}
+	qualityPresetDD.Selected = detectQualityPreset()
+	qualityPresetDD.Label = "Presets"
+	qualityPresetDD.FontSize = 12
+	qpEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			switch ev.Index {
+			case 0:
+				applyQualityPreset("Ultra Low")
+			case 1:
+				applyQualityPreset("Low")
+			case 2:
+				applyQualityPreset("Standard")
+			case 3:
+				applyQualityPreset("High")
+			case 4:
+				applyQualityPreset("Ultimate")
+			}
+			qualityPresetDD.Selected = detectQualityPreset()
 		}
 	}
-	mainFlow.AddItem(graphicsBtn)
+	mainFlow.AddItem(qualityPresetDD)
 
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Options"
@@ -914,6 +936,15 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(soundBtn)
 
+	graphicsBtn, graphicsEvents := eui.NewButton()
+	graphicsBtn.Text = "Screen Size Settings"
+	graphicsBtn.Size = eui.Point{X: width, Y: 24}
+	graphicsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			graphicsWin.Toggle()
+		}
+	}
+	mainFlow.AddItem(graphicsBtn)
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
 	debugBtn.Size = eui.Point{X: width, Y: 24}
@@ -934,11 +965,12 @@ func makeGraphicsWindow() {
 	}
 	var width float32 = 250
 	graphicsWin = eui.NewWindow()
-	graphicsWin.Title = "Graphics Settings"
+	graphicsWin.Title = "Screen Size Settings"
 	graphicsWin.Closable = true
 	graphicsWin.Resizable = false
 	graphicsWin.AutoSize = true
 	graphicsWin.Movable = true
+	graphicsWin.NoScroll = true
 	graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -1029,31 +1061,6 @@ func makeGraphicsWindow() {
 		}
 	}
 	flow.AddItem(fullscreenCB)
-
-	qualityPresetDD, qpEvents := eui.NewDropdown()
-	qualityPresetDD.Options = []string{"Ultra Low", "Low", "Standard", "High", "Ultimate", "Custom"}
-	qualityPresetDD.Size = eui.Point{X: width, Y: 24}
-	qualityPresetDD.Selected = detectQualityPreset()
-	qualityPresetDD.Label = "Presets"
-	qualityPresetDD.FontSize = 12
-	qpEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			switch ev.Index {
-			case 0:
-				applyQualityPreset("Ultra Low")
-			case 1:
-				applyQualityPreset("Low")
-			case 2:
-				applyQualityPreset("Standard")
-			case 3:
-				applyQualityPreset("High")
-			case 4:
-				applyQualityPreset("Ultimate")
-			}
-			qualityPresetDD.Selected = detectQualityPreset()
-		}
-	}
-	flow.AddItem(qualityPresetDD)
 
 	graphicsWin.AddItem(flow)
 	graphicsWin.AddWindow(false)
