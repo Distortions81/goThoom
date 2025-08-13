@@ -1127,6 +1127,17 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 		screen.DrawImage(src, op)
 
+		if gs.pictIDDebug {
+			metrics := mainFont.Metrics()
+			lbl := fmt.Sprintf("%d", p.PictID)
+			txtW, _ := text.Measure(lbl, mainFont, 0)
+			xPos := x + int(float64(w)*gs.GameScale/2) - int(math.Round(txtW))
+			opTxt := &text.DrawOptions{}
+			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(h)*gs.GameScale/2-metrics.HAscent)
+			opTxt.ColorScale.ScaleWithColor(color.White)
+			text.Draw(screen, lbl, mainFont, opTxt)
+		}
+
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
@@ -1149,6 +1160,16 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			clr = color.RGBA{0, 0, 0xff, 0xff}
 		}
 		vector.DrawFilledRect(screen, float32(float64(x)-2*gs.GameScale), float32(float64(y)-2*gs.GameScale), float32(4*gs.GameScale), float32(4*gs.GameScale), clr, false)
+		if gs.pictIDDebug {
+			metrics := mainFont.Metrics()
+			lbl := fmt.Sprintf("%d", p.PictID)
+			txtW, _ := text.Measure(lbl, mainFont, 0)
+			xPos := x + half - int(math.Round(txtW))
+			opTxt := &text.DrawOptions{}
+			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(half)-metrics.HAscent)
+			opTxt.ColorScale.ScaleWithColor(color.White)
+			text.Draw(screen, lbl, mainFont, opTxt)
+		}
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dp", plane)
