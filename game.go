@@ -613,14 +613,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawStatusBars(offscreen, 0, 0, snap, alpha)
 		gs.GameScale = saved
 		initFont()
-		sw := screen.Bounds().Dx()
-		sh := screen.Bounds().Dy()
-		scale := math.Min(float64(sw)/float64(gameAreaSizeX*2), float64(sh)/float64(gameAreaSizeY*2))
+		ox, oy := gameContentOrigin()
+		size := gameWin.GetSize()
+		scale := math.Min(float64(size.X)/(gameAreaSizeX*2), float64(size.Y)/(gameAreaSizeY*2))
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Scale(scale, scale)
-		tx := (float64(sw) - float64(gameAreaSizeX*2)*scale) / 2
-		ty := (float64(sh) - float64(gameAreaSizeY*2)*scale) / 2
-		op.GeoM.Translate(tx, ty)
+		op.GeoM.Translate(float64(ox), float64(oy))
 		screen.DrawImage(offscreen, op)
 		eui.Draw(screen)
 		if gs.ShowFPS {
