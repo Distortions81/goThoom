@@ -71,10 +71,10 @@ func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
 	dark := color.NRGBA{R: 0x40, G: 0x40, B: 0x40, A: 0xC0}
 	red := color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}
 
-	cx := win.getPosition().X + win.GetSize().X/2
-	cy := win.getPosition().Y + win.GetSize().Y/2
-	hSel := nearestHZone(cx, screenWidth)
-	vSel := nearestVZone(cy, screenHeight)
+	pos := win.getPosition()
+	winSize := win.GetSize()
+	hSel := nearestHZone(pos.X, winSize.X, screenWidth)
+	vSel := nearestVZone(pos.Y, winSize.Y, screenHeight)
 
 	for h := HZoneLeft; h <= HZoneRight; h++ {
 		for v := VZoneTop; v <= VZoneBottom; v++ {

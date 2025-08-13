@@ -118,38 +118,46 @@ func vZoneCoord(z VZone, height int) float32 {
 	}
 }
 
-func nearestHZone(x float32, width int) HZone {
+func nearestHZone(x, w float32, width int) HZone {
 	zones := []HZone{HZoneLeft, HZoneLeftCenter, HZoneCenterLeft, HZoneCenter, HZoneCenterRight, HZoneRightCenter, HZoneRight}
 	closest := zones[0]
 	min := float32(math.MaxFloat32)
+	positions := []float32{x, x + w/2, x + w}
 	for _, z := range zones {
-		diff := float32(math.Abs(float64(x - hZoneCoord(z, width))))
-		if diff < min {
-			min = diff
-			closest = z
+		zx := hZoneCoord(z, width)
+		for _, px := range positions {
+			diff := float32(math.Abs(float64(px - zx)))
+			if diff < min {
+				min = diff
+				closest = z
+			}
 		}
 	}
 	return closest
 }
 
-func nearestVZone(y float32, height int) VZone {
+func nearestVZone(y, h float32, height int) VZone {
 	zones := []VZone{VZoneTop, VZoneTopMiddle, VZoneMiddleTop, VZoneCenter, VZoneMiddleBottom, VZoneBottomMiddle, VZoneBottom}
 	closest := zones[0]
 	min := float32(math.MaxFloat32)
+	positions := []float32{y, y + h/2, y + h}
 	for _, z := range zones {
-		diff := float32(math.Abs(float64(y - vZoneCoord(z, height))))
-		if diff < min {
-			min = diff
-			closest = z
+		zy := vZoneCoord(z, height)
+		for _, py := range positions {
+			diff := float32(math.Abs(float64(py - zy)))
+			if diff < min {
+				min = diff
+				closest = z
+			}
 		}
 	}
 	return closest
 }
 
 func (win *windowData) PinToClosestZone() {
-	cx := win.getPosition().X + win.GetSize().X/2
-	cy := win.getPosition().Y + win.GetSize().Y/2
-	h := nearestHZone(cx, screenWidth)
-	v := nearestVZone(cy, screenHeight)
+	pos := win.getPosition()
+	size := win.GetSize()
+	h := nearestHZone(pos.X, size.X, screenWidth)
+	v := nearestVZone(pos.Y, size.Y, screenHeight)
 	win.SetZone(h, v)
 }

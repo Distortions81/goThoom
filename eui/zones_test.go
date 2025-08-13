@@ -32,3 +32,33 @@ func TestPinToClosestZone(t *testing.T) {
 		}
 	}
 }
+
+func TestPinToClosestZoneLargeWindow(t *testing.T) {
+	screenWidth = 100
+	screenHeight = 100
+	uiScale = 1
+
+	size := point{80, 80}
+
+	tests := []struct {
+		pos point
+		h   HZone
+		v   VZone
+	}{
+		{point{0, 0}, HZoneLeft, VZoneTop},
+		{point{20, 0}, HZoneRight, VZoneTop},
+		{point{0, 20}, HZoneLeft, VZoneBottom},
+		{point{20, 20}, HZoneRight, VZoneBottom},
+	}
+
+	for _, tt := range tests {
+		win := &windowData{Position: tt.pos, Size: size}
+		win.PinToClosestZone()
+		if win.zone == nil {
+			t.Fatalf("zone not set")
+		}
+		if win.zone.h != tt.h || win.zone.v != tt.v {
+			t.Fatalf("pos %+v size %+v pinned to (%v,%v); want (%v,%v)", tt.pos, size, win.zone.h, win.zone.v, tt.h, tt.v)
+		}
+	}
+}
