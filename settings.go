@@ -181,8 +181,15 @@ func applySettings() {
 }
 
 func saveSettings() {
-	// Saving settings is currently disabled.
-	return
+	data, err := json.MarshalIndent(gs, "", "  ")
+	if err != nil {
+		logError("save settings: %v", err)
+		return
+	}
+	path := filepath.Join(dataDirPath, settingsFile)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		logError("save settings: %v", err)
+	}
 }
 
 func syncWindowSettings() bool {
