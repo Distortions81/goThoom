@@ -6,6 +6,10 @@ import "math"
 // snap to a screen corner or another window.
 const CornerSnapThreshold float32 = 10
 
+// UnsnapThreshold defines how far a window must move from its snapped
+// position before corner snapping is re-enabled.
+const UnsnapThreshold float32 = 12
+
 // HZone defines the horizontal zone positions.
 type HZone int
 
@@ -178,21 +182,29 @@ func snapToCorner(win *windowData) bool {
 	// Top-left
 	if pos.X <= CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
 		win.SetZone(HZoneLeft, VZoneTop)
+		win.snapAnchor = win.Position
+		win.snapAnchorActive = true
 		return true
 	}
 	// Top-right
 	if pos.X+size.X >= sw-CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
 		win.SetZone(HZoneRight, VZoneTop)
+		win.snapAnchor = win.Position
+		win.snapAnchorActive = true
 		return true
 	}
 	// Bottom-left
 	if pos.X <= CornerSnapThreshold && pos.Y+size.Y >= sh-CornerSnapThreshold {
 		win.SetZone(HZoneLeft, VZoneBottom)
+		win.snapAnchor = win.Position
+		win.snapAnchorActive = true
 		return true
 	}
 	// Bottom-right
 	if pos.X+size.X >= sw-CornerSnapThreshold && pos.Y+size.Y >= sh-CornerSnapThreshold {
 		win.SetZone(HZoneRight, VZoneBottom)
+		win.snapAnchor = win.Position
+		win.snapAnchorActive = true
 		return true
 	}
 	return false

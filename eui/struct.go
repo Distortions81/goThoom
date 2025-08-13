@@ -23,6 +23,9 @@ type windowData struct {
 
 	zone *windowZone
 
+	snapAnchor       point
+	snapAnchorActive bool
+
 	Padding   float32
 	Margin    float32
 	Border    float32
