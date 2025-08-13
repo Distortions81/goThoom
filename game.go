@@ -1106,6 +1106,14 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	fieldWidth := int(float64(gameAreaSizeX) * gs.GameScale)
 	slot := (fieldWidth - 3*barWidth) / 6
 	barY := int(float64(gameAreaSizeY)*gs.GameScale-20*gs.GameScale) - barHeight
+	screenH := screen.Bounds().Dy()
+	minY := -oy
+	maxY := screenH - oy - barHeight
+	if barY < minY {
+		barY = minY
+	} else if barY > maxY {
+		barY = maxY
+	}
 	x := slot
 	step := barWidth + 2*slot
 	drawBar := func(x int, cur, max int, clr color.RGBA) {
