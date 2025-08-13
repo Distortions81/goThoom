@@ -151,6 +151,10 @@ type drawState struct {
 	lightingFlags               uint8
 }
 
+type coord struct {
+	H, V int16
+}
+
 var (
 	state = drawState{
 		descriptors: make(map[uint8]frameDescriptor),
@@ -160,6 +164,11 @@ var (
 	}
 	initialState drawState
 	stateMu      sync.Mutex
+
+	heroPrev      coord
+	heroCur       coord
+	lastAreaID    AreaID
+	lastStateTime time.Time
 )
 
 // bubble stores temporary bubble debug information.
@@ -360,6 +369,37 @@ func computeInterpolation(prevTime, curTime time.Time, mobileRate, pictRate floa
 	return alpha, mobileFade, pictFade
 }
 
+func trackHeroPosition() {
+	snap := captureDrawSnapshot()
+	if snap.curTime == lastStateTime {
+		return
+	}
+	lastStateTime = snap.curTime
+	var hero *frameMobile
+	for i := range snap.mobiles {
+		if snap.mobiles[i].Index == playerIndex {
+			hero = &snap.mobiles[i]
+			break
+		}
+	}
+	if hero == nil {
+		return
+	}
+	heroPrev = heroCur
+	heroCur = coord{H: hero.H, V: hero.V}
+	areaID := backgroundKey(snap.pictures)
+	if lastAreaID == "" {
+		lastAreaID = areaID
+		return
+	}
+	if areaID != lastAreaID {
+		dx := int(heroCur.H) - int(heroPrev.H)
+		dy := int(heroCur.V) - int(heroPrev.V)
+		addAdjacency(lastAreaID, areaID, dx, dy)
+		lastAreaID = areaID
+	}
+}
+
 type Game struct{}
 
 var once sync.Once
@@ -370,6 +410,8 @@ func (g *Game) Update() error {
 	once.Do(func() {
 		initGame()
 	})
+
+	trackHeroPosition()
 
 	if inventoryDirty {
 		updateInventoryWindow()
