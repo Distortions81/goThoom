@@ -72,6 +72,9 @@ func Update() error {
 	midPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
 
 	if !pointerPressed() && !midPressed {
+		if dragPart == PART_BAR && dragWin != nil {
+			preventOverlap(dragWin)
+		}
 		dragPart = PART_NONE
 		dragWin = nil
 		activeItem = nil
@@ -204,10 +207,12 @@ func Update() error {
 					dragWindowScroll(win, mpos, false)
 				}
 				if dragPart != PART_BAR && dragPart != PART_SCROLL_V && dragPart != PART_SCROLL_H {
-					snapResize(win, dragPart)
+					if windowSnapping {
+						snapResize(win, dragPart)
+					}
 				}
 				win.clampToScreen()
-				if win.zone == nil {
+				if windowSnapping && win.zone == nil {
 					if !win.snapAnchorActive {
 						if !snapToCorner(win) {
 							if snapToWindow(win) {
@@ -216,7 +221,9 @@ func Update() error {
 						}
 					}
 				}
-				preventOverlap(win)
+				if dragPart != PART_BAR {
+					preventOverlap(win)
+				}
 				break
 			}
 		}
@@ -795,7 +802,7 @@ func dragWindowMove(win *windowData, delta point) {
 	}
 	if win.zone == nil {
 		win.Position = pointAdd(win.Position, delta)
-		if win.snapAnchorActive {
+		if windowSnapping && win.snapAnchorActive {
 			dx := float32(math.Abs(float64(win.Position.X - win.snapAnchor.X)))
 			dy := float32(math.Abs(float64(win.Position.Y - win.snapAnchor.Y)))
 			if dx > UnsnapThreshold || dy > UnsnapThreshold {

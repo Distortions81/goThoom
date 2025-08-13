@@ -40,12 +40,13 @@ var gsdef settings = settings{
 	ShowFPS:           true,
 	UIScale:           1.0,
 	Fullscreen:        false,
-	Volume:            0.5,
+	Volume:            0.25,
 	Mute:              false,
 	GameScale:         2,
 	Theme:             "",
 	MessagesToConsole: false,
 	WindowTiling:      true,
+	WindowSnapping:    true,
 	AnyGameWindowSize: false, // allow arbitrary game window sizes
 
 	GameWindow:      WindowState{Open: true},
@@ -104,6 +105,7 @@ type settings struct {
 	Theme             string
 	MessagesToConsole bool
 	WindowTiling      bool
+	WindowSnapping    bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -170,6 +172,7 @@ func loadSettings() bool {
 
 func applySettings() {
 	eui.SetWindowTiling(gs.WindowTiling)
+	eui.SetWindowSnapping(gs.WindowSnapping)
 	if clImages != nil {
 		clImages.Denoise = gs.DenoiseImages
 		clImages.DenoiseSharpness = gs.DenoiseSharpness

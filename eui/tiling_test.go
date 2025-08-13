@@ -53,7 +53,6 @@ func TestPreventOverlapTerminatesBetweenWindows(t *testing.T) {
 	uiScale = 1
 	windows = nil
 	SetWindowTiling(true)
-
 	left := &windowData{Open: true, Position: point{X: 0, Y: 0}, Size: point{X: 100, Y: 100}}
 	right := &windowData{Open: true, Position: point{X: 120, Y: 0}, Size: point{X: 100, Y: 100}}
 

@@ -64,6 +64,41 @@ func TestSnapToCorner(t *testing.T) {
 	}
 }
 
+// TestSnapToCornerScaled verifies corner snapping when a uiScale other than 1 is in use.
+func TestSnapToCornerScaled(t *testing.T) {
+	screenWidth = 200
+	screenHeight = 200
+	uiScale = 2
+
+	winSize := point{X: 10, Y: 10}
+	offset := CornerSnapThreshold - 1
+
+	sw := float32(screenWidth) / uiScale
+	sh := float32(screenHeight) / uiScale
+
+	tests := []struct {
+		pos point
+		h   HZone
+		v   VZone
+	}{
+		{point{offset, offset}, HZoneLeft, VZoneTop},
+		{point{sw - winSize.X - offset, offset}, HZoneRight, VZoneTop},
+		{point{offset, sh - winSize.Y - offset}, HZoneLeft, VZoneBottom},
+		{point{sw - winSize.X - offset, sh - winSize.Y - offset}, HZoneRight, VZoneBottom},
+	}
+
+	for _, tt := range tests {
+		win := &windowData{Position: tt.pos, Size: winSize}
+		snapToCorner(win)
+		if win.zone == nil {
+			t.Fatalf("zone not set for pos %+v", tt.pos)
+		}
+		if win.zone.h != tt.h || win.zone.v != tt.v {
+			t.Fatalf("pos %+v snapped to (%v,%v); want (%v,%v)", tt.pos, win.zone.h, win.zone.v, tt.h, tt.v)
+		}
+	}
+}
+
 func TestSnapToWindow(t *testing.T) {
 	screenWidth = 200
 	screenHeight = 200
@@ -123,6 +158,21 @@ func TestSnapResizeToScreen(t *testing.T) {
 	snapResize(win, PART_BOTTOM)
 
 	expectedHeight := float32(screenHeight) - win.Position.Y
+	if win.Size.Y != expectedHeight {
+		t.Fatalf("height snapped to %v; want %v", win.Size.Y, expectedHeight)
+	}
+}
+
+func TestSnapResizeToScreenScaled(t *testing.T) {
+	screenWidth = 200
+	screenHeight = 200
+	uiScale = 2
+
+	win := &windowData{Position: point{50, 50}, Size: point{20, 45}, Open: true}
+
+	snapResize(win, PART_BOTTOM)
+
+	expectedHeight := float32(screenHeight)/uiScale - win.Position.Y
 	if win.Size.Y != expectedHeight {
 		t.Fatalf("height snapped to %v; want %v", win.Size.Y, expectedHeight)
 	}

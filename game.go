@@ -599,7 +599,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		sw := screen.Bounds().Dx()
 		sh := screen.Bounds().Dy()
 		scale := math.Min(float64(sw)/float64(gameAreaSizeX*2), float64(sh)/float64(gameAreaSizeY*2))
-		op := &ebiten.DrawImageOptions{}
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Scale(scale, scale)
 		tx := (float64(sw) - float64(gameAreaSizeX*2)*scale) / 2
 		ty := (float64(sh) - float64(gameAreaSizeY*2)*scale) / 2

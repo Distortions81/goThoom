@@ -164,20 +164,25 @@ func nearestVZone(y, h float32, height int) VZone {
 
 func (win *windowData) PinToClosestZone() {
 	pos := win.getPosition()
-	size := win.GetSize()
-	h := nearestHZone(pos.X, size.X, screenWidth)
-	v := nearestVZone(pos.Y, size.Y, screenHeight)
+	size := win.Size
+	sw := int(float32(screenWidth) / uiScale)
+	sh := int(float32(screenHeight) / uiScale)
+	h := nearestHZone(pos.X, size.X, sw)
+	v := nearestVZone(pos.Y, size.Y, sh)
 	win.SetZone(h, v)
 }
 
 // snapToCorner assigns a zone when a window is dragged close to a screen
 // corner. It returns true if a zone was applied.
 func snapToCorner(win *windowData) bool {
+	if !windowSnapping {
+		return false
+	}
 	pos := win.getPosition()
-	size := win.GetSize()
+	size := win.Size
 
-	sw := float32(screenWidth)
-	sh := float32(screenHeight)
+	sw := float32(screenWidth) / uiScale
+	sh := float32(screenHeight) / uiScale
 
 	// Top-left
 	if pos.X <= CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
@@ -213,6 +218,9 @@ func snapToCorner(win *windowData) bool {
 // snapToWindow snaps a window's edges to nearby windows within the threshold.
 // It returns true if the window position was adjusted.
 func snapToWindow(win *windowData) bool {
+	if !windowSnapping {
+		return false
+	}
 	pos := win.getPosition()
 	size := win.Size
 	snapped := false
@@ -263,9 +271,15 @@ func snapToWindow(win *windowData) bool {
 // snap to nearby screen edges or other windows within the threshold.
 // It returns true if the window size or position was adjusted.
 func snapResize(win *windowData, part dragType) bool {
+	if !windowSnapping {
+		return false
+	}
 	pos := win.getPosition()
 	size := win.Size
 	snapped := false
+
+	sw := float32(screenWidth) / uiScale
+	sh := float32(screenHeight) / uiScale
 
 	includesLeft := part == PART_LEFT || part == PART_TOP_LEFT || part == PART_BOTTOM_LEFT
 	includesRight := part == PART_RIGHT || part == PART_TOP_RIGHT || part == PART_BOTTOM_RIGHT
@@ -285,7 +299,6 @@ func snapResize(win *windowData, part dragType) bool {
 	}
 	if includesRight {
 		right := pos.X + size.X
-		sw := float32(screenWidth)
 		if math.Abs(float64(sw-right)) <= float64(CornerSnapThreshold) {
 			win.setSize(point{X: sw - pos.X, Y: size.Y})
 			size = win.Size
@@ -304,7 +317,6 @@ func snapResize(win *windowData, part dragType) bool {
 	}
 	if includesBottom {
 		bottom := pos.Y + size.Y
-		sh := float32(screenHeight)
 		if math.Abs(float64(sh-bottom)) <= float64(CornerSnapThreshold) {
 			win.setSize(point{X: size.X, Y: sh - pos.Y})
 			size = win.Size
@@ -370,6 +382,9 @@ func snapResize(win *windowData, part dragType) bool {
 		}
 	}
 
+	if snapped {
+		win.clampToScreen()
+	}
 	return snapped
 }
 
