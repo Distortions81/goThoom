@@ -1168,7 +1168,7 @@ func makeQualityWindow() {
 	noSmoothCB.Tooltip = "Smooth moving objects that are not 'mobiles' such as chains, clouds, etc"
 	noSmoothEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.smoothMoving = !ev.Checked
+			gs.smoothMoving = ev.Checked
 			settingsDirty = true
 		}
 	}
