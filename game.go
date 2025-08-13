@@ -510,6 +510,7 @@ func updateGameScale() {
 			gs.GameScale = newScale
 			initFont()
 		}
+		updateGameWindowSize()
 		return
 	}
 
@@ -529,6 +530,13 @@ func updateGameWindowSize() {
 		return
 	}
 	if gs.AnyGameWindowSize {
+		size := gameWin.GetRawSize()
+		desiredW := int(math.Round(float64(size.X)))
+		desiredH := int(math.Round(float64(size.Y)))
+		curW, curH := ebiten.WindowSize()
+		if curW != desiredW || curH != desiredH {
+			ebiten.SetWindowSize(desiredW, desiredH)
+		}
 		return
 	}
 	scale := float32(gs.GameScale)
