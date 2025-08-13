@@ -108,7 +108,7 @@ func (win *windowData) xRect() rect {
 		return rect{}
 	}
 
-	var xpad float32 = win.Border
+	var xpad float32 = win.Border * win.scale()
 	pos := win.GetPos()
 	return rect{
 		X0: pos.X + win.GetSize().X - (win.GetTitleSize()) + xpad,
@@ -124,7 +124,7 @@ func (win *windowData) pinRect() rect {
 		return rect{}
 	}
 
-	var xpad float32 = win.Border
+	var xpad float32 = win.Border * win.scale()
 	size := win.GetTitleSize()
 	pos := win.GetPos()
 	x1 := pos.X + win.GetSize().X - xpad
