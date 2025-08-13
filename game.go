@@ -371,6 +371,11 @@ func (g *Game) Update() error {
 		initGame()
 	})
 
+	if inventoryDirty {
+		updateInventoryWindow()
+		inventoryDirty = false
+	}
+
 	if syncWindowSettings() {
 		settingsDirty = true
 	}
