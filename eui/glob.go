@@ -51,6 +51,10 @@ var (
 	// enabled by default and can be disabled if needed.
 	AutoHiDPI       bool    = true
 	lastDeviceScale float64 = 1.0
+
+	// WindowStateChanged is an optional callback fired when any window
+	// is opened or closed.
+	WindowStateChanged func()
 )
 
 func init() {
