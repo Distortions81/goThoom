@@ -94,3 +94,36 @@ func TestSnapToWindow(t *testing.T) {
 	}
 	windows = nil
 }
+
+func TestSnapResizeToWindow(t *testing.T) {
+	screenWidth = 200
+	screenHeight = 200
+	uiScale = 1
+
+	base := &windowData{Position: point{100, 50}, Size: point{20, 20}, Open: true}
+	win := &windowData{Position: point{50, 50}, Size: point{48, 20}, Open: true}
+	windows = []*windowData{base, win}
+
+	snapResize(win, PART_RIGHT)
+
+	expectedWidth := base.Position.X - win.Position.X
+	if win.Size.X != expectedWidth {
+		t.Fatalf("width snapped to %v; want %v", win.Size.X, expectedWidth)
+	}
+	windows = nil
+}
+
+func TestSnapResizeToScreen(t *testing.T) {
+	screenWidth = 200
+	screenHeight = 200
+	uiScale = 1
+
+	win := &windowData{Position: point{50, 50}, Size: point{20, 141}, Open: true}
+
+	snapResize(win, PART_BOTTOM)
+
+	expectedHeight := float32(screenHeight) - win.Position.Y
+	if win.Size.Y != expectedHeight {
+		t.Fatalf("height snapped to %v; want %v", win.Size.Y, expectedHeight)
+	}
+}
