@@ -5,24 +5,21 @@ package main
 import "go_client/eui"
 
 var consoleWin *eui.WindowData
-var messagesList *eui.ItemData
+var messagesFlow *eui.ItemData
+var inputFlow *eui.ItemData
 var messagesDirty bool
 
 func updateConsoleWindow() {
-	if messagesList == nil {
+	if messagesFlow == nil || inputFlow == nil {
 		return
 	}
 	msgs := getConsoleMessages()
-	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
-	if inputActive {
-		inputMsg = string(inputText)
-	}
 	changed := false
 	for i, msg := range msgs {
-		if i < len(messagesList.Contents) {
-			if messagesList.Contents[i].Text != msg || messagesList.Contents[i].FontSize != float32(gs.ConsoleFontSize) {
-				messagesList.Contents[i].Text = msg
-				messagesList.Contents[i].FontSize = float32(gs.ConsoleFontSize)
+		if i < len(messagesFlow.Contents) {
+			if messagesFlow.Contents[i].Text != msg || messagesFlow.Contents[i].FontSize != float32(gs.ConsoleFontSize) {
+				messagesFlow.Contents[i].Text = msg
+				messagesFlow.Contents[i].FontSize = float32(gs.ConsoleFontSize)
 				changed = true
 			}
 		} else {
@@ -30,31 +27,35 @@ func updateConsoleWindow() {
 			t.Text = msg
 			t.FontSize = float32(gs.ConsoleFontSize)
 			t.Size = eui.Point{X: 500, Y: 24}
-			messagesList.AddItem(t)
+			messagesFlow.AddItem(t)
 			changed = true
 		}
 	}
-	inputIdx := len(msgs)
-	if inputIdx < len(messagesList.Contents) {
-		if messagesList.Contents[inputIdx].Text != inputMsg || messagesList.Contents[inputIdx].FontSize != float32(gs.ConsoleFontSize) {
-			messagesList.Contents[inputIdx].Text = inputMsg
-			messagesList.Contents[inputIdx].FontSize = float32(gs.ConsoleFontSize)
-			changed = true
+	if len(messagesFlow.Contents) > len(msgs) {
+		for i := len(msgs); i < len(messagesFlow.Contents); i++ {
+			messagesFlow.Contents[i] = nil
 		}
-	} else {
+		messagesFlow.Contents = messagesFlow.Contents[:len(msgs)]
+		changed = true
+	}
+
+	inputMsg := "[Command Input Bar] (Press enter to switch to command mode)"
+	if inputActive {
+		inputMsg = string(inputText)
+	}
+	if len(inputFlow.Contents) == 0 {
 		t, _ := eui.NewText()
 		t.Text = inputMsg
 		t.FontSize = float32(gs.ConsoleFontSize)
 		t.Size = eui.Point{X: 500, Y: 24}
-		messagesList.AddItem(t)
+		inputFlow.AddItem(t)
 		changed = true
-	}
-	if len(messagesList.Contents) > inputIdx+1 {
-		for i := inputIdx + 1; i < len(messagesList.Contents); i++ {
-			messagesList.Contents[i] = nil
+	} else {
+		if inputFlow.Contents[0].Text != inputMsg || inputFlow.Contents[0].FontSize != float32(gs.ConsoleFontSize) {
+			inputFlow.Contents[0].Text = inputMsg
+			inputFlow.Contents[0].FontSize = float32(gs.ConsoleFontSize)
+			changed = true
 		}
-		messagesList.Contents = messagesList.Contents[:inputIdx+1]
-		changed = true
 	}
 	if changed {
 		messagesDirty = true
@@ -73,8 +74,10 @@ func makeConsoleWindow() {
 	consoleWin.Movable = true
 	consoleWin.SetZone(eui.HZoneLeft, eui.VZoneBottom)
 
-	messagesList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	consoleWin.AddItem(messagesList)
+	messagesFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
+	consoleWin.AddItem(messagesFlow)
+	inputFlow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true, PinTo: eui.PIN_BOTTOM_LEFT}
+	consoleWin.AddItem(inputFlow)
 	consoleWin.AddWindow(false)
 	updateConsoleWindow()
 }
