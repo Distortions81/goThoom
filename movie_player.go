@@ -339,8 +339,9 @@ func (p *moviePlayer) seek(idx int) {
 	}
 	wasPlaying := p.playing
 	p.playing = false
+	resetDrawState()
+	frameCounter = 0
 
-	//resetDrawState()
 	for i := 0; i < idx; i++ {
 		m := p.frames[i]
 		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
