@@ -61,6 +61,8 @@ var (
 	pictBlendCB     *eui.ItemData
 	precacheSoundCB *eui.ItemData
 	precacheImageCB *eui.ItemData
+	noCacheCB       *eui.ItemData
+	potatoCB        *eui.ItemData
 	filtCB          *eui.ItemData
 )
 
@@ -1046,7 +1048,7 @@ func makeGraphicsWindow() {
 	flow.AddItem(fullscreenCB)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
-	qualityPresetDD.Options = []string{"Low", "Standard", "High", "Ultimate", "Custom"}
+	qualityPresetDD.Options = []string{"Ultra Low", "Low", "Standard", "High", "Ultimate", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: width, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.Label = "Presets"
@@ -1056,12 +1058,14 @@ func makeGraphicsWindow() {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
 			case 0:
-				applyQualityPreset("Low")
+				applyQualityPreset("Ultra Low")
 			case 1:
-				applyQualityPreset("Standard")
+				applyQualityPreset("Low")
 			case 2:
-				applyQualityPreset("High")
+				applyQualityPreset("Standard")
 			case 3:
+				applyQualityPreset("High")
+			case 4:
 				applyQualityPreset("Ultimate")
 			}
 			qualityPresetDD.Selected = detectQualityPreset()
@@ -1329,6 +1333,7 @@ func makeQualityWindow() {
 	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
 	precacheSoundCB.Checked = gs.precacheSounds
 	precacheSoundCB.Tooltip = "Load sounds into memory"
+	precacheSoundCB.Disabled = gs.NoCaching
 	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheSounds = ev.Checked
@@ -1343,6 +1348,7 @@ func makeQualityWindow() {
 	precacheImageCB.Size = eui.Point{X: width, Y: 24}
 	precacheImageCB.Checked = gs.precacheImages
 	precacheImageCB.Tooltip = "Load images into memory"
+	precacheImageCB.Disabled = gs.NoCaching
 	precacheImageEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheImages = ev.Checked
@@ -1350,6 +1356,48 @@ func makeQualityWindow() {
 		}
 	}
 	flow.AddItem(precacheImageCB)
+
+	ncCB, noCacheEvents := eui.NewCheckbox()
+	noCacheCB = ncCB
+	noCacheCB.Text = "No caching (low ram)"
+	noCacheCB.Size = eui.Point{X: width, Y: 24}
+	noCacheCB.Checked = gs.NoCaching
+	noCacheEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.NoCaching = ev.Checked
+			precacheSoundCB.Disabled = ev.Checked
+			precacheImageCB.Disabled = ev.Checked
+			if ev.Checked {
+				gs.precacheSounds = false
+				gs.precacheImages = false
+				precacheSoundCB.Checked = false
+				precacheImageCB.Checked = false
+			}
+			clearCaches()
+			settingsDirty = true
+			if qualityPresetDD != nil {
+				qualityPresetDD.Selected = detectQualityPreset()
+			}
+		}
+	}
+	flow.AddItem(noCacheCB)
+
+	pcCB, potatoEvents := eui.NewCheckbox()
+	potatoCB = pcCB
+	potatoCB.Text = "Potato Computer"
+	potatoCB.Size = eui.Point{X: width, Y: 24}
+	potatoCB.Checked = gs.PotatoComputer
+	potatoEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.PotatoComputer = ev.Checked
+			applySettings()
+			settingsDirty = true
+			if qualityPresetDD != nil {
+				qualityPresetDD.Selected = detectQualityPreset()
+			}
+		}
+	}
+	flow.AddItem(potatoCB)
 
 	fCB, filtEvents := eui.NewCheckbox()
 	filtCB = fCB

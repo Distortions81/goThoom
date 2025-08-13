@@ -76,6 +76,7 @@
     "ClickColor": "hover",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
+    "SliderFilled": "0,0,0.90",
     "SelectedColor": "disabled"
   },
   "Dropdown": {

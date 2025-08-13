@@ -151,7 +151,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 			if size.X < 1 || size.Y < 1 {
 				return
 			}
-			win.Render = ebiten.NewImage(int(size.X), int(size.Y))
+			win.Render = newImage(int(size.X), int(size.Y))
 		} else {
 			win.Render.Clear()
 		}

@@ -192,7 +192,7 @@ func NewImageItem(w, h int) (*itemData, *ebiten.Image) {
 		Size:     point{X: float32(w), Y: float32(h)},
 		Theme:    currentTheme,
 	}
-	newItem.Image = ebiten.NewImage(w, h)
+	newItem.Image = newImage(w, h)
 	return &newItem, newItem.Image
 }
 

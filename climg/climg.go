@@ -514,7 +514,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		denoiseImage(img, c.DenoiseSharpness, c.DenoisePercent)
 	}
 
-	eimg := ebiten.NewImageFromImage(img)
+	eimg := newImageFromImage(img)
 	c.mu.Lock()
 	c.cache[key] = eimg
 	c.mu.Unlock()
