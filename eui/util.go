@@ -166,7 +166,9 @@ func (win *windowData) dragbarRect() rect {
 
 func (win *windowData) Refresh() {
 	win.resizeFlows()
-	win.updateAutoSize()
+	if win.AutoSize {
+		win.updateAutoSize()
+	}
 	win.markDirty()
 }
 
