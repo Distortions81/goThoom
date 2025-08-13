@@ -709,9 +709,14 @@ func parseDrawState(data []byte) error {
 	}
 	// retain previously drawn pictures when the packet specifies pictAgain
 	prevPics := state.pictures
+	persistLen := len(state.persistBg)
+	prevRealLen := len(prevPics) - persistLen
+	if prevRealLen < 0 {
+		prevRealLen = 0
+	}
 	again := pictAgain
-	if again > len(prevPics) {
-		again = len(prevPics)
+	if again > prevRealLen {
+		again = prevRealLen
 	}
 	newPics := make([]framePicture, again+pictCount)
 	copy(newPics, prevPics[:again])
@@ -824,7 +829,7 @@ func parseDrawState(data []byte) error {
 	}
 	if gs.InterpLostBg {
 		var newPersist []framePicture
-		for _, pp := range prevPics {
+		for _, pp := range prevPics[:prevRealLen] {
 			if !pp.Background {
 				continue
 			}
