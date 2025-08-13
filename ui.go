@@ -962,7 +962,7 @@ func makeGraphicsWindow() {
 	flow.AddItem(hint)
 
 	anySizeWarn, _ := eui.NewText()
-	anySizeWarn.Text = "Warning: arbitrary sizes may produce blurrier graphics"
+	anySizeWarn.Text = "Warning: this option will produce blurrier graphics"
 	anySizeWarn.FontSize = 10
 	anySizeWarn.Color = eui.ColorRed
 	anySizeWarn.Size = eui.Point{X: width, Y: 16}
