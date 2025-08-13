@@ -19,6 +19,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	dark "github.com/thiagokokada/dark-mode-go"
 )
 
 const lateRatio = 85
@@ -1209,7 +1210,15 @@ func initGame() {
 	loadSettings()
 	theme := gs.Theme
 	if theme == "" {
-		theme = "AccentDark"
+		if darkMode, err := dark.IsDarkMode(); err == nil {
+			if darkMode {
+				theme = "AccentDark"
+			} else {
+				theme = "AccentLight"
+			}
+		} else {
+			theme = "AccentDark"
+		}
 	}
 	eui.LoadTheme(theme)
 	eui.LoadStyle("RoundHybrid")
