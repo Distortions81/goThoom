@@ -3,7 +3,7 @@ package main
 import "sync"
 
 const (
-	maxChatMessages = 5
+	maxChatMessages = 1000
 )
 
 var (

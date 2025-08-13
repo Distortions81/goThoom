@@ -46,7 +46,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			t, _ := eui.NewText()
 			t.Text = msg
 			t.Size = eui.Point{X: 1000, Y: 24}
-			list.AddItem(t)
+			list.PrependItem(t)
 		}
 	}
 	if len(list.Contents) > len(msgs) {
