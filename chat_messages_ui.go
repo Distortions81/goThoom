@@ -18,8 +18,9 @@ func updateChatWindow() {
 	changed := false
 	for i, msg := range msgs {
 		if i < len(chatList.Contents) {
-			if chatList.Contents[i].Text != msg {
+			if chatList.Contents[i].Text != msg || chatList.Contents[i].FontSize != float32(gs.ChatFontSize) {
 				chatList.Contents[i].Text = msg
+				chatList.Contents[i].FontSize = float32(gs.ChatFontSize)
 				changed = true
 			}
 		} else {
@@ -29,7 +30,7 @@ func updateChatWindow() {
 				continue
 			}
 			t.Text = msg
-			t.FontSize = 10
+			t.FontSize = float32(gs.ChatFontSize)
 			t.Size = eui.Point{X: 256, Y: 24}
 			chatList.AddItem(t)
 			changed = true

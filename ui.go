@@ -775,6 +775,42 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(labelFontSlider)
 
+	consoleFontSlider, consoleFontEvents := eui.NewSlider()
+	consoleFontSlider.Label = "Console"
+	consoleFontSlider.MinValue = 6
+	consoleFontSlider.MaxValue = 24
+	consoleFontSlider.Value = float32(gs.ConsoleFontSize)
+	consoleFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	consoleFontEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.ConsoleFontSize = float64(ev.Value)
+			updateConsoleWindow()
+			if consoleWin != nil {
+				consoleWin.Refresh()
+			}
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(consoleFontSlider)
+
+	chatWindowFontSlider, chatWindowFontEvents := eui.NewSlider()
+	chatWindowFontSlider.Label = "Chat Window"
+	chatWindowFontSlider.MinValue = 6
+	chatWindowFontSlider.MaxValue = 24
+	chatWindowFontSlider.Value = float32(gs.ChatFontSize)
+	chatWindowFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	chatWindowFontEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.ChatFontSize = float64(ev.Value)
+			updateChatWindow()
+			if chatWin != nil {
+				chatWin.Refresh()
+			}
+			settingsDirty = true
+		}
+	}
+	mainFlow.AddItem(chatWindowFontSlider)
+
 	label, _ = eui.NewText()
 	label.Text = "\nOpacity Settings:"
 	label.FontSize = 15
