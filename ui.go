@@ -1338,6 +1338,9 @@ func makeQualityWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheSounds = ev.Checked
 			settingsDirty = true
+			if ev.Checked && !gs.NoCaching {
+				go precacheAssets()
+			}
 		}
 	}
 	flow.AddItem(precacheSoundCB)
@@ -1353,6 +1356,9 @@ func makeQualityWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.precacheImages = ev.Checked
 			settingsDirty = true
+			if ev.Checked && !gs.NoCaching {
+				go precacheAssets()
+			}
 		}
 	}
 	flow.AddItem(precacheImageCB)
