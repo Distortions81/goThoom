@@ -37,7 +37,6 @@ func updateChatWindow() {
 			}
 			t.Text = msg
 			t.FontSize = float32(gs.ChatFontSize)
-			t.AutoSize = true
 			chatList.AddItem(t)
 			changed = true
 		}
