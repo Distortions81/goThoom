@@ -927,6 +927,8 @@ func makeSettingsWindow() {
 	qualityPresetDD.Options = []string{"Low", "Standard", "High", "Ultimate", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: width, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
+	qualityPresetDD.Label = "Presets"
+	qualityPresetDD.FontSize = 12
 	qpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
