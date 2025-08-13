@@ -67,7 +67,7 @@ var gsdef settings = settings{
 	precacheImages:   false,
 	lateInputUpdates: false,
 	cacheWholeSheet:  true,
-	smoothMoving:     true,
+	smoothMoving:     false,
 	fastBars:         true,
 	recordAssetStats: false,
 	NoCaching:        false,
