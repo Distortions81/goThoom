@@ -26,7 +26,7 @@ func updateConsoleWindow() {
 			t, _ := eui.NewText()
 			t.Text = msg
 			t.FontSize = float32(gs.ConsoleFontSize)
-			t.Size = eui.Point{X: 500, Y: 24}
+			t.AutoSize = true
 			messagesFlow.AddItem(t)
 			changed = true
 		}
@@ -47,7 +47,7 @@ func updateConsoleWindow() {
 		t, _ := eui.NewText()
 		t.Text = inputMsg
 		t.FontSize = float32(gs.ConsoleFontSize)
-		t.Size = eui.Point{X: 500, Y: 24}
+		t.AutoSize = true
 		inputFlow.AddItem(t)
 		changed = true
 	} else {
