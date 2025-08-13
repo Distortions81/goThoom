@@ -121,27 +121,18 @@ func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 		if img := clImages.Get(uint32(id), colors, forceTransparent); img != nil {
 			statImageLoaded(id)
 			if gs.NoCaching {
-				clImages.ClearCache()
-			} else {
-				imageMu.Lock()
-				sheetCache[key] = img
-				imageMu.Unlock()
+				return img
 			}
+			imageMu.Lock()
+			sheetCache[key] = img
+			imageMu.Unlock()
 			return img
-		}
-		if gs.NoCaching {
-			clImages.ClearCache()
 		}
 		log.Printf("missing image %d", id)
 	} else {
 		log.Printf("CL_Images not loaded when requesting image %d", id)
 	}
 
-	if !gs.NoCaching {
-		imageMu.Lock()
-		sheetCache[key] = nil
-		imageMu.Unlock()
-	}
 	return nil
 }
 
@@ -241,9 +232,11 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	x := 1 + int(state&0x0F)*innerSize
 	y := 1 + int(state>>4)*innerSize
 	if x+innerSize > sheet.Bounds().Dx()-1 || y+innerSize > sheet.Bounds().Dy()-1 {
-		imageMu.Lock()
-		mobileCache[key] = nil
-		imageMu.Unlock()
+		if !gs.NoCaching {
+			imageMu.Lock()
+			mobileCache[key] = nil
+			imageMu.Unlock()
+		}
 		return nil
 	}
 
