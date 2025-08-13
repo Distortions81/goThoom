@@ -16,6 +16,9 @@ func pointInUI(x, y int) bool {
 	wins := eui.Windows()
 	for i := len(wins) - 1; i >= 0; i-- {
 		win := wins[i]
+		if win == gameWin {
+			continue
+		}
 		if !win.IsOpen() {
 			continue
 		}
