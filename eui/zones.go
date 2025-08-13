@@ -177,10 +177,12 @@ func snapToCorner(win *windowData) bool {
 		return false
 	}
 	pos := win.getPosition()
-	size := win.GetSize()
+	size := win.Size
 
-	sw := float32(screenWidth)
-	sh := float32(screenHeight)
+	// Convert screen dimensions to the same (unscaled) unit system as
+	// window positions and sizes.
+	sw := float32(screenWidth) / uiScale
+	sh := float32(screenHeight) / uiScale
 
 	// Top-left
 	if pos.X <= CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
