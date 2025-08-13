@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -930,7 +929,7 @@ func makeGraphicsWindow() {
 	flow.AddItem(uiScaleApplyBtn)
 
 	gameSizeSlider, gameSizeEvents := eui.NewSlider()
-	gameSizeSlider.Label = "Game Window Magnify"
+	gameSizeSlider.Label = "Game Window Magnify (Sharp)"
 	gameSizeSlider.MinValue = 1
 	gameSizeSlider.MaxValue = 5
 	gameSizeSlider.IntOnly = true
@@ -953,19 +952,11 @@ func makeGraphicsWindow() {
 	}
 	flow.AddItem(gameSizeSlider)
 
-	maxW, maxH := eui.ScreenSize()
-	maxScale := int(math.Floor(math.Min(float64(maxW)/float64(gameAreaSizeX), float64(maxH)/float64(gameAreaSizeY))))
-	hint, _ := eui.NewText()
-	hint.Text = fmt.Sprintf("Max size for desktop: %dx", maxScale)
-	hint.FontSize = 10
-	hint.Size = eui.Point{X: width, Y: 16}
-	flow.AddItem(hint)
-
 	anySizeWarn, _ := eui.NewText()
-	anySizeWarn.Text = "Warning: this option will produce blurrier graphics"
+	anySizeWarn.Text = "Warning: this option will\nproduce blurrier graphics"
 	anySizeWarn.FontSize = 10
 	anySizeWarn.Color = eui.ColorRed
-	anySizeWarn.Size = eui.Point{X: width, Y: 16}
+	anySizeWarn.Size = eui.Point{X: width, Y: 32}
 	anySizeWarn.Invisible = !gs.AnyGameWindowSize
 
 	anySizeCB, anySizeEvents := eui.NewCheckbox()
