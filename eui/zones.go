@@ -164,9 +164,11 @@ func nearestVZone(y, h float32, height int) VZone {
 
 func (win *windowData) PinToClosestZone() {
 	pos := win.getPosition()
-	size := win.GetSize()
-	h := nearestHZone(pos.X, size.X, screenWidth)
-	v := nearestVZone(pos.Y, size.Y, screenHeight)
+	size := win.Size
+	sw := int(float32(screenWidth) / uiScale)
+	sh := int(float32(screenHeight) / uiScale)
+	h := nearestHZone(pos.X, size.X, sw)
+	v := nearestVZone(pos.Y, size.Y, sh)
 	win.SetZone(h, v)
 }
 
@@ -174,10 +176,10 @@ func (win *windowData) PinToClosestZone() {
 // corner. It returns true if a zone was applied.
 func snapToCorner(win *windowData) bool {
 	pos := win.getPosition()
-	size := win.GetSize()
+	size := win.Size
 
-	sw := float32(screenWidth)
-	sh := float32(screenHeight)
+	sw := float32(screenWidth) / uiScale
+	sh := float32(screenHeight) / uiScale
 
 	// Top-left
 	if pos.X <= CornerSnapThreshold && pos.Y <= CornerSnapThreshold {
@@ -267,6 +269,9 @@ func snapResize(win *windowData, part dragType) bool {
 	size := win.Size
 	snapped := false
 
+	sw := float32(screenWidth) / uiScale
+	sh := float32(screenHeight) / uiScale
+
 	includesLeft := part == PART_LEFT || part == PART_TOP_LEFT || part == PART_BOTTOM_LEFT
 	includesRight := part == PART_RIGHT || part == PART_TOP_RIGHT || part == PART_BOTTOM_RIGHT
 	includesTop := part == PART_TOP || part == PART_TOP_LEFT || part == PART_TOP_RIGHT
@@ -285,7 +290,6 @@ func snapResize(win *windowData, part dragType) bool {
 	}
 	if includesRight {
 		right := pos.X + size.X
-		sw := float32(screenWidth)
 		if math.Abs(float64(sw-right)) <= float64(CornerSnapThreshold) {
 			win.setSize(point{X: sw - pos.X, Y: size.Y})
 			size = win.Size
@@ -304,7 +308,6 @@ func snapResize(win *windowData, part dragType) bool {
 	}
 	if includesBottom {
 		bottom := pos.Y + size.Y
-		sh := float32(screenHeight)
 		if math.Abs(float64(sh-bottom)) <= float64(CornerSnapThreshold) {
 			win.setSize(point{X: size.X, Y: sh - pos.Y})
 			size = win.Size
@@ -370,6 +373,9 @@ func snapResize(win *windowData, part dragType) bool {
 		}
 	}
 
+	if snapped {
+		win.clampToScreen()
+	}
 	return snapped
 }
 
