@@ -71,7 +71,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider.MaxValue = max
 	p.slider.Size = eui.Point{X: 650, Y: 24}
 	p.slider.IntOnly = true
-	p.slider.Tooltip = "Seek position"
+	p.slider.Label = "Position"
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.seek(int(ev.Value))
@@ -115,9 +115,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(back)
 
 	play, playEv := eui.NewButton()
-	play.Text = ">  ||"
+	play.Text = "Play/Pause"
 	play.Size = eui.Point{X: 140, Y: 24}
-	play.Tooltip = "Play or pause"
 	changePlayButton(p, play)
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -184,7 +183,6 @@ func (p *moviePlayer) makePlaybackWindow() {
 	reset, resetEv := eui.NewButton()
 	reset.Text = "RESET"
 	reset.Size = eui.Point{X: 140, Y: 24}
-	reset.Tooltip = "Reset speed"
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(clMovFPS)
@@ -233,9 +231,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 func changePlayButton(p *moviePlayer, play *eui.ItemData) {
 	if p.playing {
-		play.Text = "PAUSE  ||"
+		play.Text = "Pause"
 	} else {
-		play.Text = "PLAY  >"
+		play.Text = "Play"
 	}
 }
 
