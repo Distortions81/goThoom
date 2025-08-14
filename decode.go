@@ -114,10 +114,15 @@ func decodeBEPP(data []byte) string {
 		}
 	case "be":
 		parseBackend(textBytes)
+		return ""
 	case "yk":
 		if text != "" {
 			return text
 		}
+	}
+	if text != "" {
+		logDebug("unknown BEPP prefix %q: %q", prefix, text)
+		return text
 	}
 	return ""
 }
