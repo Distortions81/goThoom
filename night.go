@@ -5,7 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
-	"image/draw"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -166,10 +166,9 @@ func init() {
 		if err != nil {
 			return
 		}
-		b := img.Bounds()
-		withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
-		draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
-		nightImg = newImageFromImage(withBorder)
+		// Use the decoded image directly without adding a border to avoid
+		// off-by-one sizing issues.
+		nightImg = newImageFromImage(img)
 	}
 }
 
@@ -186,8 +185,20 @@ func drawNightOverlay(screen *ebiten.Image, ox, oy int) {
 		return
 	}
 
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(gs.GameScale, gs.GameScale)
+	// Scale overlay exactly to the current game view size so it fully covers it.
+	iw, ih := img.Size()
+	vw := float64(int(math.Round(float64(gameAreaSizeX) * gs.GameScale)))
+	vh := float64(int(math.Round(float64(gameAreaSizeY) * gs.GameScale)))
+	sx := 0.0
+	sy := 0.0
+	if iw > 0 {
+		sx = vw / float64(iw)
+	}
+	if ih > 0 {
+		sy = vh / float64(ih)
+	}
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op.GeoM.Scale(sx, sy)
 	alpha := float32(lvl) / 100.0
 	op.ColorScale.ScaleAlpha(alpha)
 	op.GeoM.Translate(float64(ox), float64(oy))

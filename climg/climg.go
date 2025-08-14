@@ -348,8 +348,16 @@ func Load(path string) (*CLImages, error) {
 		if err := binary.Read(r, binary.BigEndian, &worn); err != nil {
 			continue
 		}
+		// Read up to kMaxItemNameLen (256) bytes for name, but tolerate
+		// shorter records by reading whatever remains.
 		nameBytes := make([]byte, 256)
 		n, _ := r.Read(nameBytes)
+		if n < 0 {
+			n = 0
+		}
+		if n > 256 {
+			n = 256
+		}
 		nameBytes = nameBytes[:n]
 		if i := bytes.IndexByte(nameBytes, 0); i >= 0 {
 			nameBytes = nameBytes[:i]
@@ -413,6 +421,22 @@ func (c *CLImages) ItemName(id uint32) string {
 func (c *CLImages) ItemWornPict(id uint32) uint32 {
 	if it, ok := c.items[id]; ok && it != nil {
 		return it.WornPictID
+	}
+	return 0
+}
+
+// ItemRightHandPict returns the right-hand picture ID for an item id, or 0.
+func (c *CLImages) ItemRightHandPict(id uint32) uint32 {
+	if it, ok := c.items[id]; ok && it != nil {
+		return it.RightHandPictID
+	}
+	return 0
+}
+
+// ItemLeftHandPict returns the left-hand picture ID for an item id, or 0.
+func (c *CLImages) ItemLeftHandPict(id uint32) uint32 {
+	if it, ok := c.items[id]; ok && it != nil {
+		return it.LeftHandPictID
 	}
 	return 0
 }

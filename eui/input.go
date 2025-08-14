@@ -127,8 +127,7 @@ func Update() error {
 
 			if click && dragPart == PART_NONE && downWin == win {
 				if part == PART_CLOSE {
-					win.Open = false
-					//win.RemoveWindow()
+					win.Close()
 					continue
 				}
 				if part == PART_PIN {
@@ -670,15 +669,20 @@ func scrollFlow(items []*itemData, mpos point, delta point) bool {
 			if it.DrawRect.containsPoint(mpos) {
 				req := it.contentBounds()
 				size := it.GetSize()
+				old := it.Scroll
 				if it.Scrollable {
 					if it.FlowType == FLOW_VERTICAL && req.Y > size.Y {
 						it.Scroll.Y -= delta.Y * 16
 						if it.Scroll.Y < 0 {
 							it.Scroll.Y = 0
 						}
-						max := req.Y - size.Y
+						slack := 4 * UIScale()
+						max := req.Y - size.Y + slack
 						if it.Scroll.Y > max {
 							it.Scroll.Y = max
+						}
+						if it.Scroll != old && it.ParentWindow != nil {
+							it.ParentWindow.markDirty()
 						}
 						return true
 					} else if it.FlowType == FLOW_HORIZONTAL && req.X > size.X {
@@ -686,9 +690,13 @@ func scrollFlow(items []*itemData, mpos point, delta point) bool {
 						if it.Scroll.X < 0 {
 							it.Scroll.X = 0
 						}
-						max := req.X - size.X
+						slack := 4 * UIScale()
+						max := req.X - size.X + slack
 						if it.Scroll.X > max {
 							it.Scroll.X = max
+						}
+						if it.Scroll != old && it.ParentWindow != nil {
+							it.ParentWindow.markDirty()
 						}
 						return true
 					}
@@ -731,12 +739,16 @@ func scrollDropdown(items []*itemData, mpos point, delta point) bool {
 				}
 				// Use the same scaling as window scrolling for a
 				// consistent feel across widgets.
+				old := it.Scroll
 				it.Scroll.Y -= delta.Y * 16
 				if it.Scroll.Y < 0 {
 					it.Scroll.Y = 0
 				}
 				if it.Scroll.Y > maxScroll {
 					it.Scroll.Y = maxScroll
+				}
+				if it.Scroll != old && it.ParentWindow != nil {
+					it.ParentWindow.markDirty()
 				}
 				return true
 			}
@@ -773,7 +785,8 @@ func scrollWindow(win *windowData, delta point) bool {
 		if win.Scroll.Y < 0 {
 			win.Scroll.Y = 0
 		}
-		max := req.Y - avail.Y
+		slack := 4 * UIScale()
+		max := req.Y - avail.Y + slack
 		if win.Scroll.Y > max {
 			win.Scroll.Y = max
 		}
@@ -786,7 +799,8 @@ func scrollWindow(win *windowData, delta point) bool {
 		if win.Scroll.X < 0 {
 			win.Scroll.X = 0
 		}
-		max := req.X - avail.X
+		slack := 4 * UIScale()
+		max := req.X - avail.X + slack
 		if win.Scroll.X > max {
 			win.Scroll.X = max
 		}
@@ -829,7 +843,8 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	}
 	if vert && req.Y > avail.Y {
 		barH := avail.Y * avail.Y / req.Y
-		maxScroll := req.Y - avail.Y
+		slack := 4 * UIScale()
+		maxScroll := req.Y - avail.Y + slack
 		track := win.getPosition().Y + win.GetTitleSize() + win.BorderPad*win.scale()
 		pos := mpos.Y - (track + barH/2)
 		if pos < 0 {
@@ -848,7 +863,8 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	}
 	if !vert && req.X > avail.X {
 		barW := avail.X * avail.X / req.X
-		maxScroll := req.X - avail.X
+		slack := 4 * UIScale()
+		maxScroll := req.X - avail.X + slack
 		track := win.getPosition().X + win.BorderPad*win.scale()
 		pos := mpos.X - (track + barW/2)
 		if pos < 0 {

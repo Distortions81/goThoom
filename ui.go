@@ -102,7 +102,7 @@ func initUI() {
 
 	if status.NeedImages || status.NeedSounds {
 		downloadWin.MarkOpen()
-	} else if clmov == "" {
+	} else if clmov == "" && pcapPath == "" {
 		loginWin.MarkOpen()
 	}
 }
@@ -122,8 +122,8 @@ func makeToolbarWindow() {
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
 	toolbarWin.NoScroll = true
-	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	toolbarWin.Size = eui.Point{X: 500, Y: 35}
+	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 
 	gameMenu := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
@@ -135,7 +135,7 @@ func makeToolbarWindow() {
 	winBtn.FontSize = toolFontSize
 	winEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			windowsWin.Toggle()
+			windowsWin.ToggleNear(ev.Item)
 		}
 	}
 	gameMenu.AddItem(winBtn)
@@ -146,7 +146,7 @@ func makeToolbarWindow() {
 	btn.FontSize = toolFontSize
 	setEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			settingsWin.Toggle()
+			settingsWin.ToggleNear(ev.Item)
 		}
 	}
 	gameMenu.AddItem(btn)
@@ -157,7 +157,7 @@ func makeToolbarWindow() {
 	helpBtn.FontSize = toolFontSize
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			helpWin.Toggle()
+			helpWin.ToggleNear(ev.Item)
 		}
 	}
 	gameMenu.AddItem(helpBtn)
@@ -292,7 +292,7 @@ func makeDownloadsWindow() {
 	downloadWin.Resizable = false
 	downloadWin.AutoSize = true
 	downloadWin.Movable = true
-	downloadWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	//downloadWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	startedDownload := false
 
@@ -460,7 +460,7 @@ func makeAddCharacterWindow() {
 	addCharWin.Resizable = false
 	addCharWin.AutoSize = true
 	addCharWin.Movable = true
-	addCharWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	//addCharWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -524,6 +524,7 @@ func makeAddCharacterWindow() {
 	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
+			addCharWin.Close()
 			loginWin.MarkOpen()
 		}
 	}
@@ -544,7 +545,7 @@ func makeLoginWindow() {
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
 	loginWin.Movable = true
-	loginWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	loginWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -567,7 +568,7 @@ func makeLoginWindow() {
 			addCharPass = ""
 			addCharRemember = true
 			loginWin.Close()
-			addCharWin.MarkOpen()
+			addCharWin.MarkOpenNear(ev.Item)
 		}
 	}
 	loginFlow.AddItem(addBtn)
@@ -692,7 +693,7 @@ func makeSettingsWindow() {
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
-	settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	//settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
@@ -797,7 +798,7 @@ func makeSettingsWindow() {
 	graphicsBtn.Size = eui.Point{X: width, Y: 24}
 	graphicsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			graphicsWin.Toggle()
+			graphicsWin.ToggleNear(ev.Item)
 		}
 	}
 	mainFlow.AddItem(graphicsBtn)
@@ -837,6 +838,27 @@ func makeSettingsWindow() {
 		}
 	}
 	mainFlow.AddItem(labelFontSlider)
+
+	// Inventory font size slider
+	invFontSlider, invFontEvents := eui.NewSlider()
+	invFontSlider.Label = "Inventory Font Size"
+	invFontSlider.MinValue = 6
+	invFontSlider.MaxValue = 24
+	invFontSlider.Value = func() float32 {
+		if gs.InventoryFontSize > 0 {
+			return float32(gs.InventoryFontSize)
+		}
+		return float32(gs.ConsoleFontSize)
+	}()
+	invFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	invFontEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.InventoryFontSize = float64(ev.Value)
+			settingsDirty = true
+			updateInventoryWindow()
+		}
+	}
+	mainFlow.AddItem(invFontSlider)
 
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
 	consoleFontSlider.Label = "Console Font Size"
@@ -943,7 +965,7 @@ func makeSettingsWindow() {
 	qualityBtn.Size = eui.Point{X: width, Y: 24}
 	qualityEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			qualityWin.Toggle()
+			qualityWin.ToggleNear(ev.Item)
 		}
 	}
 	mainFlow.AddItem(qualityBtn)
@@ -958,7 +980,7 @@ func makeSettingsWindow() {
 	debugBtn.Size = eui.Point{X: width, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			debugWin.Toggle()
+			debugWin.ToggleNear(ev.Item)
 		}
 	}
 	mainFlow.AddItem(debugBtn)
@@ -1701,7 +1723,7 @@ func makeWindowsWindow() {
 	windowsWin.Resizable = false
 	windowsWin.AutoSize = true
 	windowsWin.Movable = true
-	windowsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	//windowsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1712,7 +1734,7 @@ func makeWindowsWindow() {
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				playersWin.MarkOpen()
+				playersWin.MarkOpenNear(ev.Item)
 			} else {
 				playersWin.Close()
 			}
@@ -1727,7 +1749,7 @@ func makeWindowsWindow() {
 	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				inventoryWin.MarkOpen()
+				inventoryWin.MarkOpenNear(ev.Item)
 			} else {
 				inventoryWin.Close()
 			}
@@ -1742,7 +1764,7 @@ func makeWindowsWindow() {
 	chatBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				chatWin.MarkOpen()
+				chatWin.MarkOpenNear(ev.Item)
 			} else {
 				chatWin.Close()
 			}
@@ -1757,7 +1779,7 @@ func makeWindowsWindow() {
 	consoleBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
-				consoleWin.MarkOpen()
+				consoleWin.MarkOpenNear(ev.Item)
 			} else {
 				consoleWin.Close()
 			}
@@ -1804,7 +1826,7 @@ func makeHelpWindow() {
 	helpWin.Resizable = false
 	helpWin.AutoSize = true
 	helpWin.Movable = true
-	helpWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	//helpWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 	helpFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	helpTexts := []string{
 		"WASD or Arrow Keys - Walk",

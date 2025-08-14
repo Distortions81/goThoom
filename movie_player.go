@@ -50,7 +50,7 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 func (p *moviePlayer) makePlaybackWindow() {
 	win := eui.NewWindow()
 	win.Title = "Movie Controls"
-	win.Closable = false
+	win.Closable = true
 	win.Resizable = false
 	win.AutoSize = true
 	win.SetZone(eui.HZoneCenter, eui.VZoneBottomMiddle)
@@ -232,6 +232,28 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.AddWindow(false)
 	win.MarkOpen()
 
+	// When the movie controls window is closed, stop playback and return to
+	// the login window so a new movie can be selected.
+	win.OnClose = func() {
+		// Pause and stop ticker
+		p.pause()
+		if p.ticker != nil {
+			p.ticker.Stop()
+		}
+		// Stop any active sounds
+		stopAllSounds()
+		// Cancel playback loop
+		if p.cancel != nil {
+			p.cancel()
+		}
+		playingMovie = false
+		// Clear the selected movie path and reopen the login window.
+		clmov = ""
+		if loginWin != nil {
+			loginWin.MarkOpen()
+		}
+	}
+
 	p.updateUI()
 }
 
@@ -337,6 +359,8 @@ func (p *moviePlayer) skipForwardMilli(milli int) {
 }
 
 func (p *moviePlayer) seek(idx int) {
+	// Stop any currently playing sounds so scrubbing is silent.
+	stopAllSounds()
 	blockSound = true
 	blockBubbles = true
 	defer func() {

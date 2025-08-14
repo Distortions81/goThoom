@@ -353,9 +353,24 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 		return 0, 0, nil, false
 	}
 
+	// Collect candidate background indices for the winning motion.
+	// Filter out tiny sprites (e.g., UI-like icons) so we don't pin
+	// small pictures to the screen background when the camera pans.
+	const minBackgroundPixels = 1000
 	idxs := make([]int, 0, len(idxMap[best]))
 	for idx := range idxMap[best] {
-		idxs = append(idxs, idx)
+		if idx >= 0 && idx < len(cur) {
+			// Use cached counts when possible; fall back to a fresh query.
+			pixels := 0
+			if p, ok := pixelCache[cur[idx].PictID]; ok {
+				pixels = p
+			} else {
+				pixels = nonTransparentPixels(cur[idx].PictID)
+			}
+			if pixels >= minBackgroundPixels {
+				idxs = append(idxs, idx)
+			}
+		}
 	}
 	return best[0], best[1], idxs, true
 }
@@ -429,13 +444,14 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 	}
 	id := binary.BigEndian.Uint16(data[:2])
 	data = data[2:]
-	idx := 0
+	idx := -1
 	if cmd&kInvCmdIndex != 0 {
 		if len(data) < 1 {
 			logError("inventory: cmd %x missing index", cmd)
 			return nil, false
 		}
-		idx = int(data[0])
+		// Server sends 1-based index; convert to 0-based for local arrays.
+		idx = int(data[0]) - 1
 		data = data[1:]
 	}
 	var name string
@@ -915,9 +931,10 @@ func parseDrawState(data []byte) error {
 		ack, ackFrame, resendFrame, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
 	stage = "info strings"
-	// Server sends a single zero-terminated info-text blob which may
-	// contain multiple CR-separated lines. Do not expect a double-NULL
-	// terminator; consume exactly one C string here.
+	// Server sends a zero-terminated info-text blob which may contain
+	// multiple CR-separated lines. Consume the first C string, then
+	// defensively skip any additional stray C strings until what looks
+	// like a valid bubble count (<= maxBubbles) is encountered.
 	if len(stateData) == 0 {
 		return errors.New(stage)
 	}
@@ -927,6 +944,21 @@ func parseDrawState(data []byte) error {
 		}
 		stateData = stateData[idx+1:]
 	} else {
+		return errors.New(stage)
+	}
+	for len(stateData) > 0 {
+		if int(stateData[0]) <= maxBubbles {
+			break
+		}
+		// Treat preceding bytes as another info text C string.
+		if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
+			if idx > 0 {
+				handleInfoText(stateData[:idx])
+			}
+			stateData = stateData[idx+1:]
+			continue
+		}
+		// No terminating zero found; give up.
 		return errors.New(stage)
 	}
 

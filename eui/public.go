@@ -53,6 +53,9 @@ func SetScreenSize(w, h int) {
 			win.resizeFlows()
 			win.adjustScrollForResize()
 			needDirty = true
+			if win.OnResize != nil {
+				win.OnResize()
+			}
 		}
 		if win.zone != nil {
 			win.updateZonePosition()

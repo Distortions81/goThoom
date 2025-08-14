@@ -181,6 +181,13 @@ func (win *windowData) Refresh() {
 	win.resizeFlows()
 	if win.AutoSize {
 		win.updateAutoSize()
+		if win.zone != nil {
+			// After autosizing, re-apply zone centering so initial
+			// creation and subsequent Refresh keep the window centered
+			// on its selected zone rather than appearing pinned by
+			// the top-left corner.
+			win.updateZonePosition()
+		}
 	}
 	win.markDirty()
 }
@@ -213,6 +220,10 @@ func (win *windowData) setSize(size point) bool {
 		win.updateZonePosition()
 	}
 	win.clampToScreen()
+
+	if old != size && win.OnResize != nil {
+		win.OnResize()
+	}
 
 	return true
 }

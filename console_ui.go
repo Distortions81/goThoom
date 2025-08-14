@@ -7,13 +7,23 @@ import "gothoom/eui"
 var consoleWin *eui.WindowData
 var messagesFlow *eui.ItemData
 var inputFlow *eui.ItemData
+var consolePrevCount int
 
 func updateConsoleWindow() {
 	inputMsg := "[Press Enter To Type]"
 	if inputActive {
 		inputMsg = string(inputText)
 	}
-	updateTextWindow(consoleWin, messagesFlow, inputFlow, getConsoleMessages(), gs.ConsoleFontSize, inputMsg)
+	msgs := getConsoleMessages()
+	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg)
+	if messagesFlow != nil && len(msgs) > consolePrevCount {
+		// Scroll to bottom on new text; clamp occurs on Refresh.
+		messagesFlow.Scroll.Y = 1e9
+		if consoleWin != nil {
+			consoleWin.Refresh()
+		}
+	}
+	consolePrevCount = len(msgs)
 }
 
 func makeConsoleWindow() {
