@@ -56,10 +56,6 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 			inventoryItems[idx] = item
 		}
 	}
-	item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: idx}
-	inventoryItems = append(inventoryItems, inventoryItem{})
-	copy(inventoryItems[idx+1:], inventoryItems[idx:])
-	inventoryItems[idx] = item
 	inventoryNames = make(map[inventoryKey]string)
 	for i := range inventoryItems {
 		inventoryItems[i].Index = i
