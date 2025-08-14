@@ -665,49 +665,49 @@ func (item *itemData) colorAt(mpos point) (Color, bool) {
 }
 
 func scrollFlow(items []*itemData, mpos point, delta point) bool {
-    for _, it := range items {
-        if it.ItemType == ITEM_FLOW {
-            if it.DrawRect.containsPoint(mpos) {
-                req := it.contentBounds()
-                size := it.GetSize()
-                old := it.Scroll
-                if it.Scrollable {
-                    if it.FlowType == FLOW_VERTICAL && req.Y > size.Y {
-                        it.Scroll.Y -= delta.Y * 16
-                        if it.Scroll.Y < 0 {
-                            it.Scroll.Y = 0
-                        }
-                        max := req.Y - size.Y
-                        if it.Scroll.Y > max {
-                            it.Scroll.Y = max
-                        }
-                        if it.Scroll != old && it.ParentWindow != nil {
-                            it.ParentWindow.markDirty()
-                        }
-                        return true
-                    } else if it.FlowType == FLOW_HORIZONTAL && req.X > size.X {
-                        it.Scroll.X -= delta.X * 16
-                        if it.Scroll.X < 0 {
-                            it.Scroll.X = 0
-                        }
-                        max := req.X - size.X
-                        if it.Scroll.X > max {
-                            it.Scroll.X = max
-                        }
-                        if it.Scroll != old && it.ParentWindow != nil {
-                            it.ParentWindow.markDirty()
-                        }
-                        return true
-                    }
-                } else {
-                    if req.Y <= size.Y {
-                        it.Scroll.Y = 0
-                    }
-                    if req.X <= size.X {
-                        it.Scroll.X = 0
-                    }
-                }
-            }
+	for _, it := range items {
+		if it.ItemType == ITEM_FLOW {
+			if it.DrawRect.containsPoint(mpos) {
+				req := it.contentBounds()
+				size := it.GetSize()
+				old := it.Scroll
+				if it.Scrollable {
+					if it.FlowType == FLOW_VERTICAL && req.Y > size.Y {
+						it.Scroll.Y -= delta.Y * 16
+						if it.Scroll.Y < 0 {
+							it.Scroll.Y = 0
+						}
+						max := req.Y - size.Y
+						if it.Scroll.Y > max {
+							it.Scroll.Y = max
+						}
+						if it.Scroll != old && it.ParentWindow != nil {
+							it.ParentWindow.markDirty()
+						}
+						return true
+					} else if it.FlowType == FLOW_HORIZONTAL && req.X > size.X {
+						it.Scroll.X -= delta.X * 16
+						if it.Scroll.X < 0 {
+							it.Scroll.X = 0
+						}
+						max := req.X - size.X
+						if it.Scroll.X > max {
+							it.Scroll.X = max
+						}
+						if it.Scroll != old && it.ParentWindow != nil {
+							it.ParentWindow.markDirty()
+						}
+						return true
+					}
+				} else {
+					if req.Y <= size.Y {
+						it.Scroll.Y = 0
+					}
+					if req.X <= size.X {
+						it.Scroll.X = 0
+					}
+				}
+			}
 			var sub []*itemData
 			if len(it.Tabs) > 0 {
 				if it.ActiveTab >= len(it.Tabs) {
@@ -738,20 +738,20 @@ func scrollDropdown(items []*itemData, mpos point, delta point) bool {
 				}
 				// Use the same scaling as window scrolling for a
 				// consistent feel across widgets.
-                old := it.Scroll
-                it.Scroll.Y -= delta.Y * 16
-                if it.Scroll.Y < 0 {
-                    it.Scroll.Y = 0
-                }
-                if it.Scroll.Y > maxScroll {
-                    it.Scroll.Y = maxScroll
-                }
-                if it.Scroll != old && it.ParentWindow != nil {
-                    it.ParentWindow.markDirty()
-                }
-                return true
-            }
-        }
+				old := it.Scroll
+				it.Scroll.Y -= delta.Y * 16
+				if it.Scroll.Y < 0 {
+					it.Scroll.Y = 0
+				}
+				if it.Scroll.Y > maxScroll {
+					it.Scroll.Y = maxScroll
+				}
+				if it.Scroll != old && it.ParentWindow != nil {
+					it.ParentWindow.markDirty()
+				}
+				return true
+			}
+		}
 		if len(it.Tabs) > 0 {
 			if it.ActiveTab >= len(it.Tabs) {
 				it.ActiveTab = 0
