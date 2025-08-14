@@ -19,6 +19,9 @@ func updateInventoryWindow() {
 	changed := false
 	for i, it := range items {
 		text := it.Name
+		if text == "" {
+			text = fmt.Sprintf("Item %d", it.ID)
+		}
 		if it.Equipped {
 			text = "* " + text
 		}
