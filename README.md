@@ -68,6 +68,6 @@ The Go client accepts the following flags:
 ## Data and Logging
 
 - The default server is `server.deltatao.com:5010`; override it with `-host`.
-- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from `https://www.deltatao.com/downloads/clanlord`.
+- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from `https://m45sci.xyz/downloads/clanlord`.
   They are saved as `CL_Images` and `CL_Sounds`.
 

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const defaultUpdateBase = "https://www.deltatao.com/downloads/clanlord"
+const defaultUpdateBase = "https://m45sci.xyz/downloads/clanlord"
 
 func downloadGZ(url, dest string) error {
 	consoleMessage(fmt.Sprintf("Downloading: %v...", url))
