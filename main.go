@@ -155,8 +155,9 @@ func main() {
 		go func() {
 			if err := replayPCAP(ctx, pcapPath); err != nil {
 				log.Printf("replay PCAP: %v", err)
+			} else {
+				log.Print("PCAP replay complete")
 			}
-			cancel()
 		}()
 		<-ctx.Done()
 		return
