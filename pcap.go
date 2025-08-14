@@ -14,6 +14,15 @@ import (
 )
 
 func replayPCAP(ctx context.Context, path string) error {
+	// Ebiten must be running before ReadPixels is invoked, so wait for the game
+	// to start before opening the PCAP. Propagate context cancellation so that
+	// shutdown does not deadlock while waiting.
+	select {
+	case <-gameStarted:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return err
