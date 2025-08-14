@@ -22,6 +22,7 @@ var (
 func resetInventory() {
 	inventoryMu.Lock()
 	inventoryItems = inventoryItems[:0]
+	inventoryNames = make(map[uint16]string)
 	inventoryMu.Unlock()
 	inventoryDirty = true
 }

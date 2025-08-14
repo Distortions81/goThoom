@@ -1387,6 +1387,8 @@ func initGame() {
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
+	resetInventory()
+
 	loadSettings()
 	theme := gs.Theme
 	if theme == "" {
