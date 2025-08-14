@@ -518,10 +518,12 @@ func parseInventory(data []byte) ([]byte, bool) {
 			return nil, false
 		}
 		data = data[1:]
+	case kInvCmdLegacyPadding:
+		// ignore legacy padding byte
 	default:
 		logError("inventory: unexpected trailing cmd %d", cmd)
 	}
-	for len(data) > 0 && data[0] == 0 {
+	for len(data) > 0 && (data[0] == 0 || data[0] == kInvCmdLegacyPadding) {
 		data = data[1:]
 	}
 	inventoryDirty = true

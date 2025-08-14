@@ -182,7 +182,8 @@ const (
 	kInvCmdMultiple
 	kInvCmdName
 
-	kInvCmdIndex = 0x80
+	kInvCmdIndex         = 0x80
+	kInvCmdLegacyPadding = 0xB1 // trailing byte in legacy inventory streams
 )
 
 // item slots from Public_cl.h

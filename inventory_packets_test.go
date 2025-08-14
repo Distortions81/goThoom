@@ -56,3 +56,22 @@ func TestParseInventoryOther(t *testing.T) {
 		t.Fatalf("inventoryDirty not set")
 	}
 }
+
+func TestParseInventoryTrailingB1(t *testing.T) {
+	resetInventory()
+	inventoryDirty = false
+	data := []byte{
+		byte(kInvCmdFull), 1, 0x00, 0x00, 0x64,
+		kInvCmdLegacyPadding, byte(kInvCmdNone), 0x55,
+	}
+	rest, ok := parseInventory(data)
+	if !ok {
+		t.Fatalf("parse failed")
+	}
+	if len(rest) != 1 || rest[0] != 0x55 {
+		t.Fatalf("unexpected rest %v", rest)
+	}
+	if !inventoryDirty {
+		t.Fatalf("inventoryDirty not set")
+	}
+}
