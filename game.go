@@ -1597,16 +1597,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			lastInputSent = time.Time{}
 		}
 		latencyMu.Unlock()
-		if tag == 2 { // kMsgDrawState
-			noteFrame()
-			handleDrawState(m)
-			continue
-		}
-		if txt := decodeMessage(m); txt != "" {
-			consoleMessage("udpReadLoop: decodeMessage: " + txt)
-		} else {
-			logDebug("udp msg tag %d len %d", tag, len(m))
-		}
+		processServerMessage(m)
 	}
 }
 
@@ -1671,17 +1662,7 @@ loop:
 				}
 			}
 		}
-		if tag == 2 { // kMsgDrawState
-			noteFrame()
-			handleDrawState(m)
-			continue
-		}
-		if txt := decodeMessage(m); txt != "" {
-			//fmt.Println(txt)
-			consoleMessage("tcpReadLoop: decodeMessage: " + txt)
-		} else {
-			logDebug("msg tag %d len %d", tag, len(m))
-		}
+		processServerMessage(m)
 		select {
 		case <-ctx.Done():
 			break loop
