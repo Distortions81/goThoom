@@ -6,6 +6,7 @@ require github.com/hajimehoshi/ebiten/v2 v2.8.8
 
 require (
 	github.com/dustin/go-humanize v1.0.1
+	github.com/google/gopacket v1.1.19
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
@@ -25,6 +26,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	golang.org/x/image v0.30.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
