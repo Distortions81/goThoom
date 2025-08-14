@@ -16,6 +16,7 @@ type inventoryItem struct {
 var (
 	inventoryMu    sync.RWMutex
 	inventoryItems []inventoryItem
+	inventoryNames = make(map[uint16]string)
 )
 
 func resetInventory() {
@@ -36,6 +37,9 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 	inventoryItems[idx] = item
 	for i := range inventoryItems {
 		inventoryItems[i].Index = i
+	}
+	if name != "" {
+		inventoryNames[id] = name
 	}
 	inventoryMu.Unlock()
 	inventoryDirty = true
@@ -88,6 +92,9 @@ func renameInventoryItem(id uint16, idx int, name string) {
 			}
 		}
 	}
+	if name != "" {
+		inventoryNames[id] = name
+	}
 	inventoryMu.Unlock()
 	inventoryDirty = true
 }
@@ -108,15 +115,23 @@ func getInventory() []inventoryItem {
 
 func setFullInventory(ids []uint16, equipped []bool) {
 	items := make([]inventoryItem, 0, len(ids))
+	inventoryMu.Lock()
 	for i, id := range ids {
-		name := fmt.Sprintf("Item %d", id)
+		name := inventoryNames[id]
+		if name == "" {
+			if n, ok := defaultInventoryNames[id]; ok {
+				name = n
+			} else {
+				name = fmt.Sprintf("Item %d", id)
+			}
+			inventoryNames[id] = name
+		}
 		equip := false
 		if i < len(equipped) && equipped[i] {
 			equip = true
 		}
 		items = append(items, inventoryItem{ID: id, Name: name, Equipped: equip, Index: i})
 	}
-	inventoryMu.Lock()
 	inventoryItems = items
 	inventoryMu.Unlock()
 	inventoryDirty = true
