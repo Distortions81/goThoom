@@ -5,11 +5,16 @@ package main
 import (
 	"fmt"
 	"gothoom/eui"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var inventoryWin *eui.WindowData
 var inventoryList *eui.ItemData
 var inventoryDirty bool
+
+var TitleCaser = cases.Title(language.AmericanEnglish)
 
 func makeInventoryWindow() {
 	if inventoryWin != nil {
@@ -112,7 +117,8 @@ func updateInventoryWindow() {
 		}
 
 		t, _ := eui.NewText()
-		t.Text = label
+
+		t.Text = TitleCaser.String(label)
 		t.FontSize = float32(fontSize)
 		// Constrain the text item height to match the computed row height (UI units).
 		t.Size.Y = rowUnits
