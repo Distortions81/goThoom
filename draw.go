@@ -751,6 +751,8 @@ func parseDrawState(data []byte) error {
 		state.prevMobiles = nil
 		state.prevTime = time.Time{}
 		state.curTime = time.Time{}
+		state.tracks = make(map[int]*pictureTrack)
+		state.nextTrackID = 0
 	}
 	if state.descriptors == nil {
 		state.descriptors = make(map[uint8]frameDescriptor)
