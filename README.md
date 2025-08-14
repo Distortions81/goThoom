@@ -57,6 +57,8 @@ The Go client accepts the following flags:
 - `-noFastAnimation` – draw a mobile's previous animation frame when available
 - `-night` – force night level (0-100)
 
+Movement interpolation uses Catmull-Rom splines when sufficient history is available. Set `SplineSmoothing` to `false` in `settings.json` to use linear interpolation.
+
 ## Data and Logging
 
 - The default server is `server.deltatao.com:5010`; override it with `-host`.

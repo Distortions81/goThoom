@@ -47,10 +47,11 @@ func parseMovie(path string, clientVersion int) ([][]byte, error) {
 
 	stateMu.Lock()
 	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
+		descriptors:  make(map[uint8]frameDescriptor),
+		mobiles:      make(map[uint8]frameMobile),
+		prevMobiles:  make(map[uint8]frameMobile),
+		prev2Mobiles: make(map[uint8]frameMobile),
+		prevDescs:    make(map[uint8]frameDescriptor),
 	}
 	initialState = cloneDrawState(state)
 	stateMu.Unlock()

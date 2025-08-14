@@ -29,6 +29,7 @@ var gsdef settings = settings{
 	SpeechBubbles:   true,
 
 	MotionSmoothing:   true,
+	SplineSmoothing:   true,
 	BlendMobiles:      false,
 	BlendPicts:        false,
 	BlendAmount:       1.0,
@@ -91,6 +92,7 @@ type settings struct {
 	SpeechBubbles   bool
 
 	MotionSmoothing   bool
+	SplineSmoothing   bool
 	BlendMobiles      bool
 	BlendPicts        bool
 	BlendAmount       float64

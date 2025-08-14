@@ -129,15 +129,16 @@ var (
 
 // drawState tracks information needed by the Ebiten renderer.
 type drawState struct {
-	descriptors map[uint8]frameDescriptor
-	pictures    []framePicture
-	picShiftX   int
-	picShiftY   int
-	mobiles     map[uint8]frameMobile
-	prevMobiles map[uint8]frameMobile
-	prevDescs   map[uint8]frameDescriptor
-	prevTime    time.Time
-	curTime     time.Time
+	descriptors  map[uint8]frameDescriptor
+	pictures     []framePicture
+	picShiftX    int
+	picShiftY    int
+	mobiles      map[uint8]frameMobile
+	prevMobiles  map[uint8]frameMobile
+	prev2Mobiles map[uint8]frameMobile
+	prevDescs    map[uint8]frameDescriptor
+	prevTime     time.Time
+	curTime      time.Time
 
 	bubbles []bubble
 
@@ -153,10 +154,11 @@ type drawState struct {
 
 var (
 	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
+		descriptors:  make(map[uint8]frameDescriptor),
+		mobiles:      make(map[uint8]frameMobile),
+		prevMobiles:  make(map[uint8]frameMobile),
+		prev2Mobiles: make(map[uint8]frameMobile),
+		prevDescs:    make(map[uint8]frameDescriptor),
 	}
 	initialState drawState
 	stateMu      sync.Mutex
@@ -181,6 +183,7 @@ type drawSnapshot struct {
 	picShiftY                   int
 	mobiles                     []frameMobile
 	prevMobiles                 map[uint8]frameMobile
+	prev2Mobiles                map[uint8]frameMobile
 	prevDescs                   map[uint8]frameDescriptor
 	prevTime                    time.Time
 	curTime                     time.Time
@@ -261,6 +264,10 @@ func captureDrawSnapshot() drawSnapshot {
 		for idx, m := range state.prevMobiles {
 			snap.prevMobiles[idx] = m
 		}
+		snap.prev2Mobiles = make(map[uint8]frameMobile, len(state.prev2Mobiles))
+		for idx, m := range state.prev2Mobiles {
+			snap.prev2Mobiles[idx] = m
+		}
 	}
 	if gs.BlendMobiles {
 		snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
@@ -280,6 +287,7 @@ func cloneDrawState(src drawState) drawState {
 		picShiftY:      src.picShiftY,
 		mobiles:        make(map[uint8]frameMobile, len(src.mobiles)),
 		prevMobiles:    make(map[uint8]frameMobile, len(src.prevMobiles)),
+		prev2Mobiles:   make(map[uint8]frameMobile, len(src.prev2Mobiles)),
 		prevDescs:      make(map[uint8]frameDescriptor, len(src.prevDescs)),
 		prevTime:       src.prevTime,
 		curTime:        src.curTime,
@@ -307,6 +315,9 @@ func cloneDrawState(src drawState) drawState {
 	}
 	for idx, m := range src.prevMobiles {
 		dst.prevMobiles[idx] = m
+	}
+	for idx, m := range src.prev2Mobiles {
+		dst.prev2Mobiles[idx] = m
 	}
 	for idx, d := range src.prevDescs {
 		dst.prevDescs[idx] = d
@@ -739,16 +750,16 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	}
 
 	for _, p := range negPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.prev2Mobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.prev2Mobiles, snap.picShiftX, snap.picShiftY)
 		}
 	} else {
 		for _, m := range dead {
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prev2Mobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
 		}
 		i, j := 0, 0
 		maxInt := int(^uint(0) >> 1)
@@ -765,18 +776,18 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prev2Mobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade)
 				}
 				i++
 			} else {
-				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.prev2Mobiles, snap.picShiftX, snap.picShiftY)
 				j++
 			}
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.prev2Mobiles, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.SpeechBubbles {
@@ -839,7 +850,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 }
 
 // drawMobile renders a single mobile object with optional interpolation and onion skinning.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prev2Mobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
 	h := float64(m.H)
 	v := float64(m.V)
 	if gs.MotionSmoothing {
@@ -847,8 +858,26 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			dh := int(m.H) - int(pm.H) - shiftX
 			dv := int(m.V) - int(pm.V) - shiftY
 			if dh*dh+dv*dv <= maxMobileInterpPixels*maxMobileInterpPixels {
-				h = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
-				v = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+				if gs.SplineSmoothing {
+					if pm2, ok2 := prev2Mobiles[m.Index]; ok2 {
+						p0h := float64(pm2.H)
+						p1h := float64(pm.H)
+						p2h := float64(m.H)
+						p3h := p2h + (p2h - p1h)
+						h = catmullRom(p0h, p1h, p2h, p3h, alpha)
+						p0v := float64(pm2.V)
+						p1v := float64(pm.V)
+						p2v := float64(m.V)
+						p3v := p2v + (p2v - p1v)
+						v = catmullRom(p0v, p1v, p2v, p3v, alpha)
+					} else {
+						h = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
+						v = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+					}
+				} else {
+					h = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
+					v = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+				}
 			}
 		}
 	}
@@ -1010,7 +1039,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
+func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prev2Mobiles map[uint8]frameMobile, shiftX, shiftY int) {
 	if gs.hideMoving && p.Moving {
 		return
 	}
@@ -1041,7 +1070,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	var mobileX, mobileY float64
 	if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.smoothMoving {
-		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
+		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prev2Mobiles, alpha, shiftX, shiftY); ok {
 			mobileX, mobileY = dx, dy
 			offX = 0
 			offY = 0
@@ -1186,7 +1215,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 // pictureMobileOffset returns the interpolated offset for a picture that
 // aligns with a mobile which moved between frames.
-func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, alpha float64, shiftX, shiftY int) (float64, float64, bool) {
+func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prev2Mobiles map[uint8]frameMobile, alpha float64, shiftX, shiftY int) (float64, float64, bool) {
 	for _, m := range mobiles {
 		if m.H == p.H && m.V == p.V {
 			if pm, ok := prevMobiles[m.Index]; ok {
@@ -1194,8 +1223,27 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 				dv := int(m.V) - int(pm.V) - shiftY
 				if dh != 0 || dv != 0 {
 					if dh*dh+dv*dv <= maxMobileInterpPixels*maxMobileInterpPixels {
-						h := float64(pm.H)*(1-alpha) + float64(m.H)*alpha
-						v := float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+						var h, v float64
+						if gs.SplineSmoothing {
+							if pm2, ok2 := prev2Mobiles[m.Index]; ok2 {
+								p0h := float64(pm2.H)
+								p1h := float64(pm.H)
+								p2h := float64(m.H)
+								p3h := p2h + (p2h - p1h)
+								h = catmullRom(p0h, p1h, p2h, p3h, alpha)
+								p0v := float64(pm2.V)
+								p1v := float64(pm.V)
+								p2v := float64(m.V)
+								p3v := p2v + (p2v - p1v)
+								v = catmullRom(p0v, p1v, p2v, p3v, alpha)
+							} else {
+								h = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
+								v = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+							}
+						} else {
+							h = float64(pm.H)*(1-alpha) + float64(m.H)*alpha
+							v = float64(pm.V)*(1-alpha) + float64(m.V)*alpha
+						}
 						return h - float64(m.H), v - float64(m.V), true
 					}
 				}

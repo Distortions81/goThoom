@@ -380,6 +380,7 @@ func resetDrawState() {
 func resetInterpolation() {
 	stateMu.Lock()
 	state.prevMobiles = make(map[uint8]frameMobile)
+	state.prev2Mobiles = make(map[uint8]frameMobile)
 	state.prevDescs = make(map[uint8]frameDescriptor)
 	state.prevTime = state.curTime
 	stateMu.Unlock()

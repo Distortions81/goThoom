@@ -758,6 +758,7 @@ func parseDrawState(data []byte) error {
 		newPics = append([]framePicture(nil), pics...)
 		state.prevDescs = nil
 		state.prevMobiles = nil
+		state.prev2Mobiles = nil
 		state.prevTime = time.Time{}
 		state.curTime = time.Time{}
 	}
@@ -836,8 +837,13 @@ func parseDrawState(data []byte) error {
 
 	needPrev := (gs.MotionSmoothing || gs.BlendMobiles) && ok
 	if needPrev {
-		if state.prevMobiles == nil {
-			state.prevMobiles = make(map[uint8]frameMobile)
+		if state.prevMobiles != nil {
+			state.prev2Mobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
+			for idx, m := range state.prevMobiles {
+				state.prev2Mobiles[idx] = m
+			}
+		} else {
+			state.prev2Mobiles = nil
 		}
 		state.prevMobiles = make(map[uint8]frameMobile, len(state.mobiles))
 		for idx, m := range state.mobiles {
