@@ -645,8 +645,9 @@ func gameContentOrigin() (int, int) {
 	pad := float64(2 * gameWin.Padding)
 	w := float64(int(size.X)&^1) - pad
 	h := float64(int(size.Y)&^1) - pad
-	fw := float64(gameAreaSizeX) * gs.GameScale
-	fh := float64(gameAreaSizeY) * gs.GameScale
+	scale := viewScale()
+	fw := float64(gameAreaSizeX) * scale
+	fh := float64(gameAreaSizeY) * scale
 	if w > fw {
 		x += int(math.Round((w - fw) / 2))
 	}
@@ -1239,6 +1240,9 @@ func lerpBar(prev, cur int, alpha float64) int {
 }
 
 func drawGameCurtain(screen *ebiten.Image, ox, oy int) {
+	if gs.ZoomEnabled {
+		return
+	}
 	scale := viewScale()
 	w := int(math.Round(float64(gameAreaSizeX) * scale))
 	h := int(math.Round(float64(gameAreaSizeY) * scale))
