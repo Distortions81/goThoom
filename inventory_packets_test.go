@@ -57,6 +57,31 @@ func TestParseInventoryOther(t *testing.T) {
 	}
 }
 
+func TestParseInventoryMacRomanName(t *testing.T) {
+	resetInventory()
+	inventoryDirty = false
+	nameBytes := []byte{'M', 0x8e, 'm', 'e'}
+	data := []byte{
+		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 0,
+	}
+	data = append(data, nameBytes...)
+	data = append(data, 0, byte(kInvCmdNone), 0x55)
+	rest, ok := parseInventory(data)
+	if !ok {
+		t.Fatalf("parse failed")
+	}
+	if len(rest) != 1 || rest[0] != 0x55 {
+		t.Fatalf("unexpected rest %v", rest)
+	}
+	inv := getInventory()
+	if len(inv) != 1 || inv[0].Name != decodeMacRoman(nameBytes) {
+		t.Fatalf("unexpected inventory %v", inv)
+	}
+	if !inventoryDirty {
+		t.Fatalf("inventoryDirty not set")
+	}
+}
+
 func TestParseInventoryTrailingB1(t *testing.T) {
 	resetInventory()
 	inventoryDirty = false
