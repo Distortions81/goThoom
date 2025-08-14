@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"log"
+	"sync"
+	"testing"
+)
 
 func TestParseInventoryFull(t *testing.T) {
 	resetInventory()
@@ -114,6 +119,35 @@ func TestParseInventoryTrailingD(t *testing.T) {
 	}
 	if len(rest) != 1 || rest[0] != 0x55 {
 		t.Fatalf("unexpected rest %v", rest)
+	}
+	if !inventoryDirty {
+		t.Fatalf("inventoryDirty not set")
+	}
+}
+
+func TestParseInventoryMidstreamD(t *testing.T) {
+	resetInventory()
+	inventoryDirty = false
+	var buf bytes.Buffer
+	errorLogger = log.New(&buf, "", 0)
+	errorLogOnce = sync.Once{}
+	silent = true
+	data := []byte{
+		byte(kInvCmdMultiple), 3, byte(kInvCmdAdd | kInvCmdIndex),
+		0x00, 0x64, 0, 'S', 't', 'a', 'f', 'f', 0,
+		'd',
+		byte(kInvCmdDelete | kInvCmdIndex), 0x00, 0x64, 0,
+		byte(kInvCmdNone), 0x55,
+	}
+	rest, ok := parseInventory(data)
+	if !ok {
+		t.Fatalf("parse failed")
+	}
+	if len(rest) != 1 || rest[0] != 0x55 {
+		t.Fatalf("unexpected rest %v", rest)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("unexpected error log %q", buf.String())
 	}
 	if !inventoryDirty {
 		t.Fatalf("inventoryDirty not set")
