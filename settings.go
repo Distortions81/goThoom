@@ -62,7 +62,7 @@ var gsdef settings = settings{
 	smoothingDebug:        false,
 	pictAgainDebug:        false,
 	pictIDDebug:           false,
-	pictHistoryDebug:      false,
+	pictHistoryDebug:      true,
 	hideMoving:            false,
 	hideMobiles:           false,
 	vsync:                 true,
@@ -73,7 +73,7 @@ var gsdef settings = settings{
 	cacheWholeSheet:       true,
 	smoothMoving:          false,
 	dontShiftNewSprites:   false,
-	simplePredictiveMatch: false,
+	simplePredictiveMatch: true,
 	fastBars:              true,
 	recordAssetStats:      false,
 }
