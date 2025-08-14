@@ -251,11 +251,11 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			expected := frames * int(chans) * (int(bits) / 8)
 			if len(pcm) != expected {
 				if id != 0 {
-					log.Printf("sound %d: ima4 decoded %d bytes, expected %d", id, len(pcm), expected)
+					log.Printf("sound %d: ima4 decoded %d bytes, expected %d; continuing", id, len(pcm), expected)
 				} else {
-					log.Printf("ima4 decoded %d bytes, expected %d", len(pcm), expected)
+					log.Printf("ima4 decoded %d bytes, expected %d; continuing", len(pcm), expected)
 				}
-				return nil, fmt.Errorf("ima4 length mismatch: have %d bytes, expected %d", len(pcm), expected)
+				// Intentionally lenient: historical assets sometimes report incorrect lengths.
 			}
 			s := &Sound{
 				Data:       pcm,
