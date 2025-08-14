@@ -324,6 +324,10 @@ func Load(path string) (*CLImages, error) {
 		if it == nil || it._loc == nil {
 			continue
 		}
+		// Expect at least: 5 uint32/ints (20 bytes) + 256 name bytes
+		if it._loc.size < 276 {
+			continue
+		}
 		start := int64(it._loc.offset)
 		end := start + int64(it._loc.size)
 		if end > int64(len(imgs.data)) {
@@ -350,7 +354,11 @@ func Load(path string) (*CLImages, error) {
 		}
 		nameBytes := make([]byte, 256)
 		n, _ := r.Read(nameBytes)
-		nameBytes = nameBytes[:n]
+		if n > 0 {
+			nameBytes = nameBytes[:n]
+		} else {
+			nameBytes = nameBytes[:0]
+		}
 		if i := bytes.IndexByte(nameBytes, 0); i >= 0 {
 			nameBytes = nameBytes[:i]
 		}

@@ -915,9 +915,10 @@ func parseDrawState(data []byte) error {
 		ack, ackFrame, resendFrame, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
 	stage = "info strings"
-	// Server sends a single zero-terminated info-text blob which may
-	// contain multiple CR-separated lines. Do not expect a double-NULL
-	// terminator; consume exactly one C string here.
+	// Server sends a zero-terminated info-text blob which may contain
+	// multiple CR-separated lines. Consume the first C string, then
+	// defensively skip any additional stray C strings until what looks
+	// like a valid bubble count (<= maxBubbles) is encountered.
 	if len(stateData) == 0 {
 		return errors.New(stage)
 	}
@@ -927,6 +928,21 @@ func parseDrawState(data []byte) error {
 		}
 		stateData = stateData[idx+1:]
 	} else {
+		return errors.New(stage)
+	}
+	for len(stateData) > 0 {
+		if int(stateData[0]) <= maxBubbles {
+			break
+		}
+		// Treat preceding bytes as another info text C string.
+		if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
+			if idx > 0 {
+				handleInfoText(stateData[:idx])
+			}
+			stateData = stateData[idx+1:]
+			continue
+		}
+		// No terminating zero found; give up.
 		return errors.New(stage)
 	}
 

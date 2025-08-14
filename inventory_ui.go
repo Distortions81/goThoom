@@ -25,5 +25,5 @@ func updateInventoryWindow() {
 	for _, item := range items {
 		invstr = append(invstr, "* "+item.Name)
 	}
-	updateTextWindow(inventoryWin, inventoryList, nil, invstr, gs.ChatFontSize, "")
+	updateTextWindow(inventoryWin, inventoryList, nil, invstr, gs.ConsoleFontSize, "")
 }
