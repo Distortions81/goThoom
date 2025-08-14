@@ -16,6 +16,8 @@ func makeInventoryWindow() {
 		return
 	}
 	inventoryWin, inventoryList, _ = makeTextWindow("Inventory", eui.HZoneLeft, eui.VZoneTop, true)
+	// Ensure layout updates immediately on resize to avoid gaps.
+	inventoryWin.OnResize = func() { updateInventoryWindow() }
 	updateInventoryWindow()
 }
 

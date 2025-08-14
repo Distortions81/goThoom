@@ -676,7 +676,8 @@ func scrollFlow(items []*itemData, mpos point, delta point) bool {
 						if it.Scroll.Y < 0 {
 							it.Scroll.Y = 0
 						}
-						max := req.Y - size.Y
+						slack := 4 * UIScale()
+						max := req.Y - size.Y + slack
 						if it.Scroll.Y > max {
 							it.Scroll.Y = max
 						}
@@ -689,7 +690,8 @@ func scrollFlow(items []*itemData, mpos point, delta point) bool {
 						if it.Scroll.X < 0 {
 							it.Scroll.X = 0
 						}
-						max := req.X - size.X
+						slack := 4 * UIScale()
+						max := req.X - size.X + slack
 						if it.Scroll.X > max {
 							it.Scroll.X = max
 						}
@@ -783,7 +785,8 @@ func scrollWindow(win *windowData, delta point) bool {
 		if win.Scroll.Y < 0 {
 			win.Scroll.Y = 0
 		}
-		max := req.Y - avail.Y
+		slack := 4 * UIScale()
+		max := req.Y - avail.Y + slack
 		if win.Scroll.Y > max {
 			win.Scroll.Y = max
 		}
@@ -796,7 +799,8 @@ func scrollWindow(win *windowData, delta point) bool {
 		if win.Scroll.X < 0 {
 			win.Scroll.X = 0
 		}
-		max := req.X - avail.X
+		slack := 4 * UIScale()
+		max := req.X - avail.X + slack
 		if win.Scroll.X > max {
 			win.Scroll.X = max
 		}
@@ -839,7 +843,8 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	}
 	if vert && req.Y > avail.Y {
 		barH := avail.Y * avail.Y / req.Y
-		maxScroll := req.Y - avail.Y
+		slack := 4 * UIScale()
+		maxScroll := req.Y - avail.Y + slack
 		track := win.getPosition().Y + win.GetTitleSize() + win.BorderPad*win.scale()
 		pos := mpos.Y - (track + barH/2)
 		if pos < 0 {
@@ -858,7 +863,8 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 	}
 	if !vert && req.X > avail.X {
 		barW := avail.X * avail.X / req.X
-		maxScroll := req.X - avail.X
+		slack := 4 * UIScale()
+		maxScroll := req.X - avail.X + slack
 		track := win.getPosition().X + win.BorderPad*win.scale()
 		pos := mpos.X - (track + barW/2)
 		if pos < 0 {

@@ -221,6 +221,10 @@ func (win *windowData) setSize(size point) bool {
 	}
 	win.clampToScreen()
 
+	if old != size && win.OnResize != nil {
+		win.OnResize()
+	}
+
 	return true
 }
 

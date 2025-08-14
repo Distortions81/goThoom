@@ -77,6 +77,10 @@ type windowData struct {
 	// either by user action or programmatically. The callback runs before the
 	// window is removed from the active list.
 	OnClose func()
+
+	// OnResize is an optional callback invoked when the window's size changes
+	// due to user interaction or programmatic updates.
+	OnResize func()
 }
 
 type itemData struct {
