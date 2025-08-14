@@ -119,6 +119,14 @@ func updateInventoryWindow() {
 		inventoryList.AddItem(row)
 	}
 
+	// Add a trailing spacer equal to one row height so the last item is never
+	// clipped at the bottom when fully scrolled.
+	spacer, _ := eui.NewText()
+	spacer.Text = ""
+	spacer.Size = eui.Point{X: 1, Y: rowUnits}
+	spacer.FontSize = float32(fontSize)
+	inventoryList.AddItem(spacer)
+
 	// Size the list and refresh window similar to updateTextWindow behavior.
 	if inventoryWin != nil {
 		clientW := inventoryWin.GetSize().X

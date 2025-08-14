@@ -41,17 +41,23 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	clientW := win.GetSize().X
 	clientH := win.GetSize().Y - win.GetTitleSize()
 
+	// Compute a row height that matches the rendered text height at the
+	// current UI scale to avoid clipping.
+	ui := eui.UIScale()
+	rowUnits := (float32(fontSize)*ui + 4) / ui
+
 	for i, msg := range msgs {
 		if i < len(list.Contents) {
 			if list.Contents[i].Text != msg || list.Contents[i].FontSize != float32(fontSize) {
 				list.Contents[i].Text = msg
 				list.Contents[i].FontSize = float32(fontSize)
 			}
+			list.Contents[i].Size.Y = rowUnits
 		} else {
 			t, _ := eui.NewText()
 			t.Text = msg
 			t.FontSize = float32(fontSize)
-			t.Size = eui.Point{X: 1000, Y: 24}
+			t.Size = eui.Point{X: 1000, Y: rowUnits}
 			// Append to maintain ordering with the msgs index
 			list.AddItem(t)
 		}
@@ -64,16 +70,19 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	}
 
 	if input != nil {
-		input.Size.Y = float32(fontSize) + 8
+		input.Size.Y = rowUnits
 		if len(input.Contents) == 0 {
 			t, _ := eui.NewText()
 			t.Text = inputMsg
 			t.FontSize = float32(fontSize)
-			t.Size = eui.Point{X: 1000, Y: 24}
+			t.Size = eui.Point{X: 1000, Y: rowUnits}
 			input.AddItem(t)
-		} else if input.Contents[0].Text != inputMsg || input.Contents[0].FontSize != float32(fontSize) {
-			input.Contents[0].Text = inputMsg
-			input.Contents[0].FontSize = float32(fontSize)
+		} else {
+			if input.Contents[0].Text != inputMsg || input.Contents[0].FontSize != float32(fontSize) {
+				input.Contents[0].Text = inputMsg
+				input.Contents[0].FontSize = float32(fontSize)
+			}
+			input.Contents[0].Size.Y = rowUnits
 		}
 	}
 

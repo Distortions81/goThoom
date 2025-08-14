@@ -102,7 +102,7 @@ func initUI() {
 
 	if status.NeedImages || status.NeedSounds {
 		downloadWin.MarkOpen()
-	} else if clmov == "" {
+	} else if clmov == "" && pcapPath == "" {
 		loginWin.MarkOpen()
 	}
 }
