@@ -110,11 +110,12 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		y -= oy
 	}
 
-	sw := int(float64(gameAreaSizeX) * gs.GameScale)
-	sh := int(float64(gameAreaSizeY) * gs.GameScale)
-	pad := int((4 + 2) * gs.GameScale)
-	tailHeight := int(10 * gs.GameScale)
-	tailHalf := int(6 * gs.GameScale)
+	scale := viewScale()
+	sw := int(float64(gameAreaSizeX) * scale)
+	sh := int(float64(gameAreaSizeY) * scale)
+	pad := int((4 + 2) * scale)
+	tailHeight := int(10 * scale)
+	tailHalf := int(6 * scale)
 
 	maxLineWidth := sw/4 - 2*pad
 	width, lines := wrapText(txt, bubbleFont, float64(maxLineWidth))
@@ -134,7 +135,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 
-	radius := float32(4 * gs.GameScale)
+	radius := float32(4 * scale)
 
 	var body vector.Path
 	body.MoveTo(float32(left)+radius, float32(top))
@@ -199,7 +200,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	outline.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
 	outline.Close()
 
-	vs, is = outline.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(gs.GameScale)})
+	vs, is = outline.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: float32(scale)})
 	for i := range vs {
 		vs[i].SrcX = 0
 		vs[i].SrcY = 0
