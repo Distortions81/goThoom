@@ -1134,7 +1134,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			xPos := x + int(float64(w)*gs.GameScale/2) - int(math.Round(txtW))
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(h)*gs.GameScale/2-metrics.HAscent)
-			opTxt.ColorScale.ScaleWithColor(color.White)
+			opTxt.ColorScale.ScaleWithColor(color.Black)
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 
@@ -1167,7 +1167,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			xPos := x + half - int(math.Round(txtW))
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(half)-metrics.HAscent)
-			opTxt.ColorScale.ScaleWithColor(color.White)
+			opTxt.ColorScale.ScaleWithColor(color.RGBA{R: 1, A: 1})
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 		if gs.imgPlanesDebug {
