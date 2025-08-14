@@ -40,6 +40,7 @@ type CLImages struct {
 	colors           map[uint32]*dataLocation
 	images           map[uint32]*dataLocation
 	lights           map[uint32]*dataLocation
+	items            map[uint32]*ClientItem
 	cache            map[string]*ebiten.Image
 	mu               sync.Mutex
 	Denoise          bool
@@ -52,6 +53,8 @@ const (
 	TYPE_IMAGE = 0x42697432
 	TYPE_COLOR = 0x436c7273
 	TYPE_LIGHT = 0x4C697431
+	// kTypeClientItemOld4 'CIm4' from DatabaseTypes_cl.h
+	TYPE_CLIENT_ITEM = 0x43496d34
 
 	pictDefFlagTransparent = 0x8000
 	pictDefBlendMask       = 0x0003
@@ -91,6 +94,7 @@ func Load(path string) (*CLImages, error) {
 		colors: make(map[uint32]*dataLocation, entryCount),
 		images: make(map[uint32]*dataLocation, entryCount),
 		lights: make(map[uint32]*dataLocation, entryCount),
+		items:  make(map[uint32]*ClientItem),
 		cache:  make(map[string]*ebiten.Image),
 	}
 
@@ -117,6 +121,9 @@ func Load(path string) (*CLImages, error) {
 			imgs.images[dl.id] = dl
 		case TYPE_LIGHT:
 			imgs.lights[dl.id] = dl
+		case TYPE_CLIENT_ITEM:
+			// store location to parse later
+			imgs.items[dl.id] = &ClientItem{_loc: dl}
 		}
 	}
 
@@ -312,6 +319,52 @@ func Load(path string) (*CLImages, error) {
 		}
 	}
 
+	// parse client items (names, slots, pictIDs)
+	for id, it := range imgs.items {
+		if it == nil || it._loc == nil {
+			continue
+		}
+		start := int64(it._loc.offset)
+		end := start + int64(it._loc.size)
+		if end > int64(len(imgs.data)) {
+			end = int64(len(imgs.data))
+		}
+		r := io.NewSectionReader(bytes.NewReader(imgs.data), start, end-start)
+		var flags uint32
+		var slot int32
+		var right, left, worn int32
+		if err := binary.Read(r, binary.BigEndian, &flags); err != nil {
+			continue
+		}
+		if err := binary.Read(r, binary.BigEndian, &slot); err != nil {
+			continue
+		}
+		if err := binary.Read(r, binary.BigEndian, &right); err != nil {
+			continue
+		}
+		if err := binary.Read(r, binary.BigEndian, &left); err != nil {
+			continue
+		}
+		if err := binary.Read(r, binary.BigEndian, &worn); err != nil {
+			continue
+		}
+		nameBytes := make([]byte, 256)
+		n, _ := r.Read(nameBytes)
+		nameBytes = nameBytes[:n]
+		if i := bytes.IndexByte(nameBytes, 0); i >= 0 {
+			nameBytes = nameBytes[:i]
+		}
+		name := string(nameBytes)
+		imgs.items[id] = &ClientItem{
+			Flags:           flags,
+			Slot:            int(slot),
+			RightHandPictID: uint32(right),
+			LeftHandPictID:  uint32(left),
+			WornPictID:      uint32(worn),
+			Name:            name,
+		}
+	}
+
 	// preload colors
 	for _, c := range imgs.colors {
 		if _, err := r.Seek(int64(c.offset), io.SeekStart); err != nil {
@@ -327,6 +380,49 @@ func Load(path string) (*CLImages, error) {
 		}
 	}
 	return imgs, loadErr
+}
+
+// ClientItem describes per-item metadata stored in CL_Images (kTypeClientItem).
+type ClientItem struct {
+	Flags           uint32
+	Slot            int
+	RightHandPictID uint32
+	LeftHandPictID  uint32
+	WornPictID      uint32
+	Name            string
+	_loc            *dataLocation // internal: original location
+}
+
+// Item returns the CL_Images metadata for an item id, if present.
+func (c *CLImages) Item(id uint32) (ClientItem, bool) {
+	if it, ok := c.items[id]; ok && it != nil {
+		return *it, true
+	}
+	return ClientItem{}, false
+}
+
+// ItemName returns the public name for an item id, or empty if unknown.
+func (c *CLImages) ItemName(id uint32) string {
+	if it, ok := c.items[id]; ok && it != nil {
+		return it.Name
+	}
+	return ""
+}
+
+// ItemWornPict returns the worn picture ID for an item id, or 0.
+func (c *CLImages) ItemWornPict(id uint32) uint32 {
+	if it, ok := c.items[id]; ok && it != nil {
+		return it.WornPictID
+	}
+	return 0
+}
+
+// ItemSlot returns the slot enum for an item id, or 0.
+func (c *CLImages) ItemSlot(id uint32) int {
+	if it, ok := c.items[id]; ok && it != nil {
+		return it.Slot
+	}
+	return 0
 }
 
 // alphaTransparentForFlags returns the base alpha value and whether

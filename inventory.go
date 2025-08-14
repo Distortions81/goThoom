@@ -160,10 +160,18 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		key := inventoryKey{ID: id, Index: uint16(i)}
 		name := inventoryNames[key]
 		if name == "" {
-			if n, ok := defaultInventoryNames[id]; ok {
-				name = n
-			} else {
-				name = fmt.Sprintf("Item %d", id)
+			// Prefer name from CL_Images ClientItem metadata when available.
+			if clImages != nil {
+				if n := clImages.ItemName(uint32(id)); n != "" {
+					name = n
+				}
+			}
+			if name == "" {
+				if n, ok := defaultInventoryNames[id]; ok {
+					name = n
+				} else {
+					name = fmt.Sprintf("Item %d", id)
+				}
 			}
 		}
 		newNames[key] = name
