@@ -44,6 +44,8 @@ var gsdef settings = settings{
 	Volume:            0.125,
 	Mute:              false,
 	GameScale:         2,
+	GameZoom:          1.0,
+	ZoomEnabled:       false,
 	Theme:             "",
 	MessagesToConsole: false,
 	WindowTiling:      false,
@@ -58,22 +60,24 @@ var gsdef settings = settings{
 	MessagesWindow:  WindowState{Open: true},
 	ChatWindow:      WindowState{Open: true},
 
-	imgPlanesDebug:      false,
-	smoothingDebug:      false,
-	pictAgainDebug:      false,
-	pictIDDebug:         false,
-	hideMoving:          false,
-	hideMobiles:         false,
-	vsync:               true,
-	nightEffect:         true,
-	precacheSounds:      false,
-	precacheImages:      false,
-	lateInputUpdates:    false,
-	cacheWholeSheet:     true,
-	smoothMoving:        false,
-	dontShiftNewSprites: false,
-	fastBars:            true,
-	recordAssetStats:    false,
+	imgPlanesDebug:         false,
+	smoothingDebug:         false,
+	pictAgainDebug:         false,
+	pictIDDebug:            false,
+	hideMoving:             false,
+	hideMobiles:            false,
+	vsync:                  true,
+	nightEffect:            true,
+	precacheSounds:         false,
+	precacheImages:         false,
+	lateInputUpdates:       false,
+	cacheWholeSheet:        true,
+	smoothMoving:           false,
+	noMobileSmoothing:      false,
+	dontShiftNewSprites:    false,
+	fastBars:               true,
+	recordAssetStats:       false,
+	shiftBorderSpritesOnly: true,
 }
 
 type settings struct {
@@ -107,10 +111,14 @@ type settings struct {
 	Mute              bool
 	AnyGameWindowSize bool // allow arbitrary game window sizes
 	GameScale         float64
+	GameZoom          float64
+	ZoomEnabled       bool
 	Theme             string
 	MessagesToConsole bool
 	WindowTiling      bool
 	WindowSnapping    bool
+	NoCaching         bool
+	PotatoComputer    bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -118,24 +126,28 @@ type settings struct {
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
 
-	imgPlanesDebug      bool
-	smoothingDebug      bool
-	pictAgainDebug      bool
-	pictIDDebug         bool
-	hideMoving          bool
-	hideMobiles         bool
-	vsync               bool
-	nightEffect         bool
-	precacheSounds      bool
-	precacheImages      bool
-	lateInputUpdates    bool
-	cacheWholeSheet     bool
-	smoothMoving        bool
-	dontShiftNewSprites bool
-	fastBars            bool
-	recordAssetStats    bool
-	NoCaching           bool
-	PotatoComputer      bool
+	imgPlanesDebug         bool
+	smoothingDebug         bool
+	pictAgainDebug         bool
+	pictIDDebug            bool
+	hideMoving             bool
+	hideMobiles            bool
+	vsync                  bool
+	nightEffect            bool
+	precacheSounds         bool
+	precacheImages         bool
+	lateInputUpdates       bool
+	cacheWholeSheet        bool
+	smoothMoving           bool
+	noMobileSmoothing      bool
+	dontShiftNewSprites    bool
+	fastBars               bool
+	recordAssetStats       bool
+	shiftBorderSpritesOnly bool
+}
+
+func viewScale() float64 {
+	return gs.GameScale * gs.GameZoom
 }
 
 var (

@@ -788,13 +788,6 @@ func parseDrawState(data []byte) error {
 		prevPics[i].Owned = false
 	}
 	for i := range newPics {
-		if _, skip := skipPictShift[newPics[i].PictID]; skip {
-			newPics[i].PrevH = newPics[i].H
-			newPics[i].PrevV = newPics[i].V
-		} else {
-			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
-		}
 		moving := true
 		var owner *framePicture
 		if i < again {
@@ -814,6 +807,29 @@ func parseDrawState(data []byte) error {
 					break
 				}
 			}
+		}
+		needsShift := true
+		if _, skip := skipPictShift[newPics[i].PictID]; skip {
+			needsShift = false
+		} else if gs.shiftBorderSpritesOnly && moving {
+			if clImages != nil {
+				w, h := clImages.Size(uint32(newPics[i].PictID))
+				halfW := w / 2
+				halfH := h / 2
+				if int(newPics[i].H)-halfW >= -fieldCenterX &&
+					int(newPics[i].H)+halfW <= fieldCenterX &&
+					int(newPics[i].V)-halfH >= -fieldCenterY &&
+					int(newPics[i].V)+halfH <= fieldCenterY {
+					needsShift = false
+				}
+			}
+		}
+		if needsShift {
+			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
+			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+		} else {
+			newPics[i].PrevH = newPics[i].H
+			newPics[i].PrevV = newPics[i].V
 		}
 		if moving && gs.smoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
@@ -851,7 +867,7 @@ func parseDrawState(data []byte) error {
 
 	state.pictures = newPics
 
-	needPrev := (gs.MotionSmoothing || gs.BlendMobiles) && ok
+	needPrev := ((gs.MotionSmoothing && !gs.noMobileSmoothing) || gs.BlendMobiles) && ok
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
@@ -861,7 +877,7 @@ func parseDrawState(data []byte) error {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := (gs.MotionSmoothing || (gs.BlendMobiles && changed)) && ok
+	needAnimUpdate := ((gs.MotionSmoothing) || (gs.BlendMobiles && changed)) && ok
 	if needAnimUpdate {
 		frameMu.Lock()
 		interval := frameInterval

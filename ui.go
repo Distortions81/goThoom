@@ -1160,19 +1160,18 @@ func makeQualityWindow() {
 	}
 	flow.AddItem(motionCB)
 
-	nsCB, noSmoothEvents := eui.NewCheckbox()
-	noSmoothCB = nsCB
-	noSmoothCB.Text = "Smooth moving objects,glitchy WIP"
-	noSmoothCB.Size = eui.Point{X: width, Y: 24}
-	noSmoothCB.Checked = !gs.smoothMoving
-	noSmoothCB.Tooltip = "Smooth moving objects that are not 'mobiles' such as chains, clouds, etc"
+	smo, noSmoothEvents := eui.NewCheckbox()
+	smo.Text = "Smooth moving objects,glitchy WIP"
+	smo.Size = eui.Point{X: width, Y: 24}
+	smo.Checked = gs.smoothMoving
+	smo.Tooltip = "Smooth moving objects that are not 'mobiles' such as chains, clouds, etc"
 	noSmoothEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.smoothMoving = ev.Checked
 			settingsDirty = true
 		}
 	}
-	flow.AddItem(noSmoothCB)
+	flow.AddItem(smo)
 
 	aCB, animEvents := eui.NewCheckbox()
 	animCB = aCB
@@ -1570,6 +1569,18 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(pictAgainCB)
+	noMobSmoothCB, noMobSmoothEvents := eui.NewCheckbox()
+	noMobSmoothCB.Text = "Don't smooth mobile motion"
+	noMobSmoothCB.Size = eui.Point{X: width, Y: 24}
+	noMobSmoothCB.Checked = gs.noMobileSmoothing
+	noMobSmoothCB.Tooltip = "Disable motion interpolation for mobiles"
+	noMobSmoothEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.noMobileSmoothing = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(noMobSmoothCB)
 	shiftSpriteCB, shiftSpriteEvents := eui.NewCheckbox()
 	shiftSpriteCB.Text = "Don't shift new sprites"
 	shiftSpriteCB.Size = eui.Point{X: width, Y: 24}
@@ -1581,6 +1592,19 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(shiftSpriteCB)
+
+	zoomCB, zoomEvents := eui.NewCheckbox()
+	zoomCB.Text = "Enable Scroll Wheel Zoom"
+	zoomCB.Size = eui.Point{X: width, Y: 24}
+	zoomCB.Checked = gs.ZoomEnabled
+	zoomCB.Tooltip = "Use mouse wheel over game to zoom"
+	zoomEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ZoomEnabled = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(zoomCB)
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}
