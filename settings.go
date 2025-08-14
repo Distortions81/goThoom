@@ -116,6 +116,8 @@ type settings struct {
 	MessagesToConsole bool
 	WindowTiling      bool
 	WindowSnapping    bool
+	NoCaching         bool
+	PotatoComputer    bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -123,25 +125,24 @@ type settings struct {
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
 
-	imgPlanesDebug      bool
-	smoothingDebug      bool
-	pictAgainDebug      bool
-	pictIDDebug         bool
-	hideMoving          bool
-	hideMobiles         bool
-	vsync               bool
-	nightEffect         bool
-	precacheSounds      bool
-	precacheImages      bool
-	lateInputUpdates    bool
-	cacheWholeSheet     bool
-	smoothMoving        bool
-	noMobileSmoothing   bool
-	dontShiftNewSprites bool
-	fastBars            bool
-	recordAssetStats    bool
-	NoCaching           bool
-	PotatoComputer      bool
+	imgPlanesDebug         bool
+	smoothingDebug         bool
+	pictAgainDebug         bool
+	pictIDDebug            bool
+	hideMoving             bool
+	hideMobiles            bool
+	vsync                  bool
+	nightEffect            bool
+	precacheSounds         bool
+	precacheImages         bool
+	lateInputUpdates       bool
+	cacheWholeSheet        bool
+	smoothMoving           bool
+	noMobileSmoothing      bool
+	dontShiftNewSprites    bool
+	fastBars               bool
+	recordAssetStats       bool
+	shiftBorderSpritesOnly bool
 }
 
 func viewScale() float64 {
