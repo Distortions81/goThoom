@@ -416,7 +416,6 @@ func handleInvCmdFull(data []byte) ([]byte, bool) {
 // handleInvCmdOther interprets add/delete/equip/name inventory commands.
 func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 	fmt.Printf("cmd: %v, data: %v\n", cmd, data)
-	defer updateInventoryWindow()
 
 	base := cmd &^ kInvCmdIndex
 	switch base {
@@ -463,7 +462,7 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 	case kInvCmdName:
 		renameInventoryItem(id, idx, name)
 	default:
-		logError("inventory: unknown command %x", cmd)
+		logError("inventory: unknown command %v", cmd)
 	}
 	return data, true
 }

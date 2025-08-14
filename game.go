@@ -373,9 +373,7 @@ func (g *Game) Update() error {
 
 	if inventoryDirty {
 		updateInventoryWindow()
-		if inventoryList != nil {
-			inventoryDirty = false
-		}
+		inventoryDirty = false
 	}
 
 	if syncWindowSettings() {
