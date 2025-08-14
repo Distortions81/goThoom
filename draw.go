@@ -25,14 +25,15 @@ type frameDescriptor struct {
 }
 
 type framePicture struct {
-	PictID       uint16
-	H, V         int16
-	PrevH, PrevV int16
-	Plane        int
-	Moving       bool
-	Background   bool
-	Owned        bool
-	Again        bool
+	PictID         uint16
+	H, V           int16
+	PrevH, PrevV   int16
+	Prev2H, Prev2V int16
+	Plane          int
+	Moving         bool
+	Background     bool
+	Owned          bool
+	Again          bool
 }
 
 type frameMobile struct {
@@ -779,6 +780,8 @@ func parseDrawState(data []byte) error {
 			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
 			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
 		}
+		newPics[i].Prev2H = newPics[i].PrevH
+		newPics[i].Prev2V = newPics[i].PrevV
 		moving := true
 		var owner *framePicture
 		if i < again {
@@ -818,9 +821,13 @@ func parseDrawState(data []byte) error {
 			if best != nil && bestDist <= maxInterpPixels*maxInterpPixels {
 				newPics[i].PrevH = best.H
 				newPics[i].PrevV = best.V
+				newPics[i].Prev2H = best.PrevH
+				newPics[i].Prev2V = best.PrevV
 				best.Owned = true
 			}
 		} else if owner != nil {
+			newPics[i].Prev2H = owner.PrevH
+			newPics[i].Prev2V = owner.PrevV
 			owner.Owned = true
 		}
 		newPics[i].Moving = moving

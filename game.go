@@ -1045,15 +1045,33 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !gs.smoothMoving {
-		if int(p.PrevH) == int(p.H)-shiftX && int(p.PrevV) == int(p.V)-shiftY {
-			if gs.dontShiftNewSprites {
+	if p.Moving {
+		if gs.smoothMoving {
+			if gs.SplineSmoothing {
+				p0h := float64(p.Prev2H)
+				p1h := float64(p.PrevH)
+				p2h := float64(p.H)
+				p3h := p2h + (p2h - p1h)
+				offX = catmullRom(p0h, p1h, p2h, p3h, alpha) - float64(p.H)
+				p0v := float64(p.Prev2V)
+				p1v := float64(p.PrevV)
+				p2v := float64(p.V)
+				p3v := p2v + (p2v - p1v)
+				offY = catmullRom(p0v, p1v, p2v, p3v, alpha) - float64(p.V)
+			} else {
+				offX = float64(p.PrevH)*(1-alpha) + float64(p.H)*alpha - float64(p.H)
+				offY = float64(p.PrevV)*(1-alpha) + float64(p.V)*alpha - float64(p.V)
+			}
+		} else {
+			if int(p.PrevH) == int(p.H)-shiftX && int(p.PrevV) == int(p.V)-shiftY {
+				if gs.dontShiftNewSprites {
+					offX = 0
+					offY = 0
+				}
+			} else {
 				offX = 0
 				offY = 0
 			}
-		} else {
-			offX = 0
-			offY = 0
 		}
 	}
 
