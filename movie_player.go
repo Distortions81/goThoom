@@ -29,6 +29,7 @@ type moviePlayer struct {
 	curLabel   *eui.ItemData
 	totalLabel *eui.ItemData
 	fpsLabel   *eui.ItemData
+	playButton *eui.ItemData
 }
 
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
@@ -117,16 +118,16 @@ func (p *moviePlayer) makePlaybackWindow() {
 	play, playEv := eui.NewButton()
 	play.Text = "Play/Pause"
 	play.Size = eui.Point{X: 140, Y: 24}
-	changePlayButton(p, play)
+	p.playButton = play
+	changePlayButton(p, p.playButton)
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if p.playing {
 				p.pause()
-				changePlayButton(p, play)
 			} else {
 				p.play()
-				changePlayButton(p, play)
 			}
+			changePlayButton(p, p.playButton)
 		}
 	}
 	bFlow.AddItem(play)
@@ -262,6 +263,7 @@ func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		p.playing = false
 		playingMovie = false
+		p.updateUI()
 		//p.cancel()
 		return
 	}
@@ -273,12 +275,11 @@ func (p *moviePlayer) step() {
 		_ = txt
 	}
 	p.cur++
-	p.updateUI()
 	if p.cur >= len(p.frames) {
 		p.playing = false
 		playingMovie = false
-		//p.cancel()
 	}
+	p.updateUI()
 }
 
 func (p *moviePlayer) updateUI() {
@@ -302,6 +303,10 @@ func (p *moviePlayer) updateUI() {
 	if p.fpsLabel != nil {
 		p.fpsLabel.Text = fmt.Sprintf("UPS: %v", p.fps)
 		p.fpsLabel.Dirty = true
+	}
+
+	if p.playButton != nil {
+		changePlayButton(p, p.playButton)
 	}
 }
 
