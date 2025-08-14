@@ -1770,37 +1770,6 @@ func makeWindowsWindow() {
 
 }
 
-func makeInventoryWindow() {
-	if inventoryWin != nil {
-		return
-	}
-	inventoryWin = eui.NewWindow()
-	inventoryWin.Title = "Inventory"
-	inventoryWin.Closable = true
-	inventoryWin.Resizable = true
-	inventoryWin.Movable = true
-	inventoryWin.SetZone(eui.HZoneLeft, eui.VZoneTop)
-	inventoryWin.Size = eui.Point{X: 410, Y: 600}
-
-	if gs.InventoryWindow.Size.X > 0 && gs.InventoryWindow.Size.Y > 0 {
-		inventoryWin.Size = eui.Point{X: float32(gs.InventoryWindow.Size.X), Y: float32(gs.InventoryWindow.Size.Y)}
-	}
-	if gs.InventoryWindow.Position.X != 0 || gs.InventoryWindow.Position.Y != 0 {
-		inventoryWin.Position = eui.Point{X: float32(gs.InventoryWindow.Position.X), Y: float32(gs.InventoryWindow.Position.Y)}
-	} else {
-		inventoryWin.Position = eui.Point{X: 0, Y: 0}
-	}
-
-	inventoryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	title, _ := eui.NewText()
-	title.Text = "Inventory"
-	title.Size = eui.Point{X: 256, Y: 128}
-	inventoryWin.AddItem(title)
-	inventoryWin.AddItem(inventoryList)
-	inventoryWin.AddWindow(false)
-	updateInventoryWindow()
-}
-
 func makePlayersWindow() {
 	if playersWin != nil {
 		return

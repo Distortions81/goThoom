@@ -415,6 +415,9 @@ func handleInvCmdFull(data []byte) ([]byte, bool) {
 
 // handleInvCmdOther interprets add/delete/equip/name inventory commands.
 func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
+	fmt.Printf("cmd: %v, data: %v\n", cmd, data)
+	defer updateInventoryWindow()
+
 	base := cmd &^ kInvCmdIndex
 	if len(data) < 2 {
 		logError("inventory: cmd %x missing id", cmd)
