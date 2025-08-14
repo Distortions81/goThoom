@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -723,21 +724,16 @@ func parseDrawState(data []byte) error {
 		newPics[i].Again = false
 	}
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-	if gs.MotionSmoothing {
-		if gs.smoothMoving {
-			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
-			if !ok {
-				logDebug("prev pics: %v", picturesSummary(prevPics))
-				logDebug("new  pics: %v", picturesSummary(newPics))
-			}
+	if gs.MotionSmoothing && gs.smoothMoving {
+		logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
+		if !ok {
+			logDebug("prev pics: %v", picturesSummary(prevPics))
+			logDebug("new  pics: %v", picturesSummary(newPics))
 		}
-		if ok {
-			state.picShiftX = dx
-			state.picShiftY = dy
-		} else {
-			state.picShiftX = 0
-			state.picShiftY = 0
-		}
+	}
+	if ok {
+		state.picShiftX = dx
+		state.picShiftY = dy
 	} else {
 		state.picShiftX = 0
 		state.picShiftY = 0
@@ -750,6 +746,8 @@ func parseDrawState(data []byte) error {
 		state.prevMobiles = nil
 		state.prevTime = time.Time{}
 		state.curTime = time.Time{}
+		state.tracks = make(map[int]*pictureTrack)
+		state.nextTrackID = 0
 	}
 	if state.descriptors == nil {
 		state.descriptors = make(map[uint8]frameDescriptor)
@@ -814,6 +812,67 @@ func parseDrawState(data []byte) error {
 		if idx >= 0 && idx < len(newPics) {
 			newPics[idx].Moving = false
 			newPics[idx].Background = true
+		}
+	}
+
+	if gs.simplePredictiveMatch {
+		for _, t := range state.tracks {
+			t.used = false
+		}
+		for i := range newPics {
+			h := int(newPics[i].H)
+			v := int(newPics[i].V)
+			var best *pictureTrack
+			bestDist := math.MaxInt32
+			for _, t := range state.tracks {
+				if t.pictID != newPics[i].PictID || t.used {
+					continue
+				}
+				last := t.history[len(t.history)-1]
+				predH := last.H + state.picShiftX + t.pred.H
+				predV := last.V + state.picShiftY + t.pred.V
+				dh := h - predH
+				dv := v - predV
+				dist := dh*dh + dv*dv
+				if dist < bestDist {
+					bestDist = dist
+					best = t
+				}
+			}
+			if best != nil {
+				last := best.history[len(best.history)-1]
+				newPics[i].PrevH = int16(last.H)
+				newPics[i].PrevV = int16(last.V)
+				moveH := h - (last.H + state.picShiftX)
+				moveV := v - (last.V + state.picShiftY)
+				best.pred = point{H: moveH, V: moveV}
+				best.used = true
+				best.unused = 0
+				best.history = append(best.history, point{H: h, V: v})
+				if len(best.history) > 4 {
+					best.history = best.history[len(best.history)-4:]
+				}
+			} else {
+				t := &pictureTrack{
+					id:      state.nextTrackID,
+					pictID:  newPics[i].PictID,
+					history: []point{{H: h, V: v}},
+					used:    true,
+				}
+				state.tracks[t.id] = t
+				state.nextTrackID++
+			}
+		}
+		for id, t := range state.tracks {
+			if t.used {
+				t.used = false
+				t.unused = 0
+			} else {
+				t.unused++
+				if t.unused > 5 {
+					delete(state.tracks, id)
+				}
+			}
 		}
 	}
 

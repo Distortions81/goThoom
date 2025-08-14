@@ -1581,6 +1581,31 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(shiftSpriteCB)
+
+	simplePredCB, simplePredEvents := eui.NewCheckbox()
+	simplePredCB.Text = "Simple predictive matching"
+	simplePredCB.Size = eui.Point{X: width, Y: 24}
+	simplePredCB.Checked = gs.simplePredictiveMatch
+	simplePredEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.simplePredictiveMatch = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(simplePredCB)
+
+	pictHistCB, pictHistEvents := eui.NewCheckbox()
+	pictHistCB.Text = "Show picture history"
+	pictHistCB.Size = eui.Point{X: width, Y: 24}
+	pictHistCB.Checked = gs.pictHistoryDebug
+	pictHistEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.pictHistoryDebug = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(pictHistCB)
+
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}
