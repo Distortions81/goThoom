@@ -113,8 +113,11 @@ func decodeBEPP(data []byte) string {
 			return "share: " + text
 		}
 	case "be":
+		// Back-end command: handle internally, do not echo or warn.
 		parseBackend(textBytes)
-	case "yk", "iv", "hp", "cf", "pn":
+		return ""
+	case "yk", "iv", "hp", "cf", "pn", "lg":
+		// Known simple pass-through prefixes (e.g., iv: item/verb, lg: login/clan notices)
 		if text != "" {
 			return text
 		}

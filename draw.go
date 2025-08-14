@@ -415,7 +415,7 @@ func handleInvCmdFull(data []byte) ([]byte, bool) {
 
 // handleInvCmdOther interprets add/delete/equip/name inventory commands.
 func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
-	fmt.Printf("cmd: %v, data: %v\n", cmd, data)
+	logDebug("inventory cmd=%v data=%v", cmd, data)
 
 	base := cmd &^ kInvCmdIndex
 	switch base {
@@ -915,20 +915,19 @@ func parseDrawState(data []byte) error {
 		ack, ackFrame, resendFrame, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 
 	stage = "info strings"
-	for {
-		if len(stateData) == 0 {
-			return errors.New(stage)
+	// Server sends a single zero-terminated info-text blob which may
+	// contain multiple CR-separated lines. Do not expect a double-NULL
+	// terminator; consume exactly one C string here.
+	if len(stateData) == 0 {
+		return errors.New(stage)
+	}
+	if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
+		if idx > 0 {
+			handleInfoText(stateData[:idx])
 		}
-		idx := bytes.IndexByte(stateData, 0)
-		if idx < 0 {
-			return errors.New(stage)
-		}
-		if idx == 0 {
-			stateData = stateData[1:]
-			break
-		}
-		handleInfoText(stateData[:idx])
 		stateData = stateData[idx+1:]
+	} else {
+		return errors.New(stage)
 	}
 
 	stage = "bubble count"
