@@ -1062,7 +1062,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 
 	var mobileX, mobileY float64
-	if w <= 64 && h <= 64 && gs.MotionSmoothing && gs.smoothMoving {
+	if w <= 64 && h <= 64 && gs.smoothMoving {
 		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, alpha, shiftX, shiftY); ok {
 			mobileX, mobileY = dx, dy
 			offX = 0

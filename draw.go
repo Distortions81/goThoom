@@ -860,7 +860,7 @@ func parseDrawState(data []byte) error {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := ((gs.MotionSmoothing && !gs.noMobileSmoothing) || (gs.BlendMobiles && changed)) && ok
+	needAnimUpdate := ((gs.MotionSmoothing) || (gs.BlendMobiles && changed)) && ok
 	if needAnimUpdate {
 		frameMu.Lock()
 		interval := frameInterval
