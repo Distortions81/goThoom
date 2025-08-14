@@ -141,15 +141,5 @@ func (s *pcapStream) Reassembled(rs []tcpassembly.Reassembly) {
 func (s *pcapStream) ReassemblyComplete() {}
 
 func dispatchMessage(msg []byte) {
-	if len(msg) < 2 {
-		return
-	}
-	tag := binary.BigEndian.Uint16(msg[:2])
-	if tag == 2 {
-		handleDrawState(msg)
-		return
-	}
-	if txt := decodeMessage(msg); txt != "" {
-		consoleMessage("pcap: " + txt)
-	}
+	processServerMessage(msg)
 }

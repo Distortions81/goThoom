@@ -176,6 +176,27 @@ func readTCPMessage(connection net.Conn) ([]byte, error) {
 	return buf, nil
 }
 
+// processServerMessage handles a raw server message by inspecting its tag and
+// routing it appropriately. Draw state messages (tag 2) are forwarded to
+// handleDrawState after noting a frame. All other messages are decoded and any
+// resulting text is logged to the in-game console.
+func processServerMessage(msg []byte) {
+	if len(msg) < 2 {
+		return
+	}
+	tag := binary.BigEndian.Uint16(msg[:2])
+	if tag == 2 {
+		noteFrame()
+		handleDrawState(msg)
+		return
+	}
+	if txt := decodeMessage(msg); txt != "" {
+		consoleMessage(txt)
+	} else {
+		logDebug("msg tag %d len %d", tag, len(msg))
+	}
+}
+
 // requestCharList fetches the list of characters for an account from the server.
 // When the user supplies an account on the command line, the client uses this
 // to prompt for which character to log in with.
