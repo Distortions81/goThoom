@@ -29,7 +29,16 @@ func updateInventoryWindow() {
 			text = fmt.Sprintf("%s (%d)", text, it.Quantity)
 		}
 		if i < len(inventoryList.Contents) {
-			if inventoryList.Contents[i].Text != text {
+			if inventoryList.Contents[i] == nil {
+				t, _ := eui.NewText()
+				t.Text = text
+				t.Size = eui.Point{X: 256, Y: 24}
+				t.FontSize = 10
+				inventoryList.AddItem(t)
+				inventoryList.Contents[i] = t
+				inventoryList.Dirty = true
+				changed = true
+			} else if inventoryList.Contents[i].Text != text {
 				inventoryList.Contents[i].Text = text
 				changed = true
 			}
