@@ -1429,7 +1429,7 @@ func makeDebugWindow() {
 	debugWin.Movable = true
 	debugWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+    debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	bubbleCB, bubbleEvents := eui.NewCheckbox()
 	bubbleCB.Text = "Message Bubbles"
@@ -1469,6 +1469,36 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(lateInputCB)
+
+	// Debug wheel-zoom toggle
+	zoomCB, zoomEvents := eui.NewCheckbox()
+	zoomCB.Text = "Wheel Zoom (Debug)"
+	zoomCB.Size = eui.Point{X: width, Y: 24}
+	zoomCB.Checked = gs.DebugZoomEnabled
+	zoomCB.Tooltip = "Enable centered scroll-wheel zoom (0.25x–4x) and disable curtain"
+	zoomEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.DebugZoomEnabled = ev.Checked
+			if !gs.DebugZoomEnabled {
+				gs.DebugZoom = 1.0
+			}
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(zoomCB)
+
+	bgStabCB, bgStabEvents := eui.NewCheckbox()
+	bgStabCB.Text = "Show BG stability counts"
+	bgStabCB.Size = eui.Point{X: width, Y: 24}
+	bgStabCB.Checked = gs.BGStabilityDebug
+	bgStabCB.Tooltip = "Overlay count of consecutive frames a background sprite was seen (relative to shift)"
+	bgStabEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.BGStabilityDebug = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(bgStabCB)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
 	recordStatsCB.Text = "Record Asset Stats"
@@ -1851,6 +1881,6 @@ func makeHelpWindow() {
 		t.FontSize = 15
 		helpFlow.AddItem(t)
 	}
-	helpWin.AddItem(helpFlow)
-	helpWin.AddWindow(false)
+helpWin.AddItem(helpFlow)
+helpWin.AddWindow(false)
 }

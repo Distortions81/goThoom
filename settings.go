@@ -73,7 +73,10 @@ var gsdef settings = settings{
 	smoothMoving:        false,
 	dontShiftNewSprites: false,
 	fastBars:            true,
-	recordAssetStats:    false,
+    recordAssetStats:    false,
+    DebugZoomEnabled:    false,
+    DebugZoom:           1.0,
+    BGStabilityDebug:    false,
 }
 
 type settings struct {
@@ -133,9 +136,13 @@ type settings struct {
 	smoothMoving        bool
 	dontShiftNewSprites bool
 	fastBars            bool
-	recordAssetStats    bool
-	NoCaching           bool
-	PotatoComputer      bool
+    recordAssetStats    bool
+    NoCaching           bool
+    PotatoComputer      bool
+    // Debug wheel-zoom (centered) and factor
+    DebugZoomEnabled bool
+    DebugZoom        float64
+    BGStabilityDebug bool
 }
 
 var (

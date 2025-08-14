@@ -25,14 +25,15 @@ type frameDescriptor struct {
 }
 
 type framePicture struct {
-	PictID       uint16
-	H, V         int16
-	PrevH, PrevV int16
-	Plane        int
-	Moving       bool
-	Background   bool
-	Owned        bool
-	Again        bool
+    PictID       uint16
+    H, V         int16
+    PrevH, PrevV int16
+    Plane        int
+    Moving       bool
+    Background   bool
+    Owned        bool
+    Again        bool
+    Ghost        bool
 }
 
 type frameMobile struct {
@@ -56,7 +57,20 @@ const (
 )
 
 var skipPictShift = map[uint16]struct{}{
-	3037: {},
+    3037: {},
+}
+
+// bgKey identifies a background sprite at a stable relative location
+// (anchored by cumulative world shift).
+type bgKey struct {
+    id uint16
+    h  int16
+    v  int16
+}
+
+type bgStableInfo struct {
+    count     int
+    lastFrame int
 }
 
 func sortPictures(pics []framePicture) {
@@ -733,7 +747,7 @@ func parseDrawState(data []byte) error {
 		newPics[i].Again = false
 	}
 	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-	if gs.MotionSmoothing {
+    if gs.MotionSmoothing {
 		if gs.smoothMoving {
 			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 			if !ok {
@@ -744,14 +758,68 @@ func parseDrawState(data []byte) error {
 		if ok {
 			state.picShiftX = dx
 			state.picShiftY = dy
-		} else {
-			state.picShiftX = 0
-			state.picShiftY = 0
-		}
+    } else {
+        state.picShiftX = 0
+        state.picShiftY = 0
+    }
+    // Maintain cumulative world shift when motion is reliable.
+    if ok {
+        state.worldShiftX += state.picShiftX
+        state.worldShiftY += state.picShiftY
+    } else {
+        state.worldShiftX = 0
+        state.worldShiftY = 0
+        if state.bgStable != nil {
+            for k := range state.bgStable {
+                delete(state.bgStable, k)
+            }
+        }
+    }
 	} else {
 		state.picShiftX = 0
 		state.picShiftY = 0
 	}
+    // Retain background pictures that disappeared, but only if we've seen the
+    // same sprite at the same relative location for more than 1 consecutive
+    // frame. This keeps true backgrounds when the server stops sending them.
+    if ok {
+        type picKey struct {
+            id   uint16
+            h, v int16
+        }
+        lookup := make(map[picKey]struct{}, len(newPics))
+        for _, p := range newPics {
+            lookup[picKey{p.PictID, p.H, p.V}] = struct{}{}
+        }
+        if state.bgStable == nil {
+            state.bgStable = make(map[bgKey]bgStableInfo)
+        }
+        for _, p := range prevPics {
+            if !p.Background {
+                continue
+            }
+            shiftedH := int16(int(p.H) + state.picShiftX)
+            shiftedV := int16(int(p.V) + state.picShiftY)
+            key := picKey{p.PictID, shiftedH, shiftedV}
+            if _, found := lookup[key]; found {
+                continue // still present after shift
+            }
+            // Anchored position for stability check uses previous-frame coords
+            // normalized by world shift prior to this frame's delta.
+            anchorH := int16(int(p.H) - (state.worldShiftX - state.picShiftX))
+            anchorV := int16(int(p.V) - (state.worldShiftY - state.picShiftY))
+            bk := bgKey{id: p.PictID, h: anchorH, v: anchorV}
+            if info, ok := state.bgStable[bk]; ok && info.lastFrame == frameCounter-1 && info.count >= 5 {
+                p.H = shiftedH
+                p.V = shiftedV
+                p.Again = true
+                p.Ghost = true
+                newPics = append(newPics, p)
+                bgIdxs = append(bgIdxs, len(newPics)-1)
+                lookup[key] = struct{}{}
+            }
+        }
+    }
 	if !ok {
 		prevPics = nil
 		again = 0
@@ -825,12 +893,52 @@ func parseDrawState(data []byte) error {
 		newPics[i].Moving = moving
 		newPics[i].Background = false
 	}
-	for _, idx := range bgIdxs {
-		if idx >= 0 && idx < len(newPics) {
-			newPics[idx].Moving = false
-			newPics[idx].Background = true
-		}
-	}
+    for _, idx := range bgIdxs {
+        if idx >= 0 && idx < len(newPics) {
+            newPics[idx].Moving = false
+            newPics[idx].Background = true
+        }
+    }
+
+    // Update background stability counters using anchored positions.
+    if ok {
+        if state.bgStable == nil {
+            state.bgStable = make(map[bgKey]bgStableInfo)
+        }
+        seen := make(map[bgKey]struct{})
+        for _, idx := range bgIdxs {
+            if idx < 0 || idx >= len(newPics) {
+                continue
+            }
+            p := newPics[idx]
+            // Count only sprites actually sent by the server this frame.
+            // Skip retained ghosts so stability reflects continuous sightings.
+            if p.Ghost {
+                continue
+            }
+            anchorH := int16(int(p.H) - state.worldShiftX)
+            anchorV := int16(int(p.V) - state.worldShiftY)
+            bk := bgKey{id: p.PictID, h: anchorH, v: anchorV}
+            if _, dup := seen[bk]; dup {
+                continue
+            }
+            seen[bk] = struct{}{}
+            info := state.bgStable[bk]
+            if info.lastFrame == frameCounter-1 {
+                info.count++
+            } else {
+                info.count = 1
+            }
+            info.lastFrame = frameCounter
+            state.bgStable[bk] = info
+        }
+        // prune stale entries
+        for k, info := range state.bgStable {
+            if info.lastFrame < frameCounter-180 {
+                delete(state.bgStable, k)
+            }
+        }
+    }
 
 	state.pictures = newPics
 
