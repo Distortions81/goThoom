@@ -419,6 +419,11 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 	defer updateInventoryWindow()
 
 	base := cmd &^ kInvCmdIndex
+	switch base {
+	case 'd':
+		logDebug("inventory: ignoring opcode 'd'")
+		return data, true
+	}
 	if len(data) < 2 {
 		logError("inventory: cmd %x missing id", cmd)
 		return nil, false
