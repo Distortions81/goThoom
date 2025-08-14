@@ -14,16 +14,21 @@ type inventoryItem struct {
 	Quantity int
 }
 
+type inventoryKey struct {
+	ID    uint16
+	Index uint16
+}
+
 var (
 	inventoryMu    sync.RWMutex
 	inventoryItems []inventoryItem
-	inventoryNames = make(map[uint16]string)
+	inventoryNames = make(map[inventoryKey]string)
 )
 
 func resetInventory() {
 	inventoryMu.Lock()
 	inventoryItems = inventoryItems[:0]
-	inventoryNames = make(map[uint16]string)
+	inventoryNames = make(map[inventoryKey]string)
 	inventoryMu.Unlock()
 	inventoryDirty = true
 }
@@ -53,13 +58,16 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 			inserted = true
 		}
 	}
-	if inserted {
-		for i := range inventoryItems {
-			inventoryItems[i].Index = i
+	item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: idx}
+	inventoryItems = append(inventoryItems, inventoryItem{})
+	copy(inventoryItems[idx+1:], inventoryItems[idx:])
+	inventoryItems[idx] = item
+	inventoryNames = make(map[inventoryKey]string)
+	for i := range inventoryItems {
+		inventoryItems[i].Index = i
+		if inventoryItems[i].Name != "" {
+			inventoryNames[inventoryKey{ID: inventoryItems[i].ID, Index: uint16(i)}] = inventoryItems[i].Name
 		}
-	}
-	if name != "" {
-		inventoryNames[id] = name
 	}
 	inventoryMu.Unlock()
 	inventoryDirty = true
@@ -115,18 +123,21 @@ func equipInventoryItem(id uint16, idx int, equip bool) {
 
 func renameInventoryItem(id uint16, idx int, name string) {
 	inventoryMu.Lock()
+	index := -1
 	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
 		inventoryItems[idx].Name = name
+		index = idx
 	} else {
 		for i := range inventoryItems {
 			if inventoryItems[i].ID == id {
 				inventoryItems[i].Name = name
+				index = i
 				break
 			}
 		}
 	}
-	if name != "" {
-		inventoryNames[id] = name
+	if name != "" && index >= 0 {
+		inventoryNames[inventoryKey{ID: id, Index: uint16(index)}] = name
 	}
 	inventoryMu.Unlock()
 	inventoryDirty = true
@@ -150,23 +161,18 @@ func setFullInventory(ids []uint16, equipped []bool) {
 	items := make([]inventoryItem, 0, len(ids))
 	seen := make(map[uint16]int)
 	inventoryMu.Lock()
+	newNames := make(map[inventoryKey]string)
 	for i, id := range ids {
-		if idx, ok := seen[id]; ok {
-			items[idx].Quantity++
-			if i < len(equipped) && equipped[i] {
-				items[idx].Equipped = true
-			}
-			continue
-		}
-		name := inventoryNames[id]
+		key := inventoryKey{ID: id, Index: uint16(i)}
+		name := inventoryNames[key]
 		if name == "" {
 			if n, ok := defaultInventoryNames[id]; ok {
 				name = n
 			} else {
 				name = fmt.Sprintf("Item %d", id)
 			}
-			inventoryNames[id] = name
 		}
+		newNames[key] = name
 		equip := false
 		if i < len(equipped) && equipped[i] {
 			equip = true
@@ -175,6 +181,7 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		seen[id] = len(items) - 1
 	}
 	inventoryItems = items
+	inventoryNames = newNames
 	inventoryMu.Unlock()
 	inventoryDirty = true
 }
