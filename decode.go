@@ -118,6 +118,14 @@ func decodeBEPP(data []byte) string {
 		if text != "" {
 			return text
 		}
+	case "iv":
+		if text != "" {
+			return text
+		}
+	case "hp":
+		if text != "" {
+			return text
+		}
 	}
 	return ""
 }
