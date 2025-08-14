@@ -637,7 +637,7 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if clmov == "" && tcpConn == nil {
+	if clmov == "" && tcpConn == nil && pcapPath == "" {
 		ox, oy := gameContentOrigin()
 		drawSplash(screen, ox, oy)
 		eui.Draw(screen)
