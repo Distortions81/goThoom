@@ -139,6 +139,9 @@ type drawState struct {
 	prevTime    time.Time
 	curTime     time.Time
 
+	nextTrackID int
+	tracks      map[int]*pictureTrack
+
 	bubbles []bubble
 
 	hp, hpMax                   int
@@ -157,6 +160,7 @@ var (
 		mobiles:     make(map[uint8]frameMobile),
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
+		tracks:      make(map[int]*pictureTrack),
 	}
 	initialState drawState
 	stateMu      sync.Mutex
@@ -173,6 +177,19 @@ type bubble struct {
 	ExpireFrame int
 }
 
+type point struct {
+	H, V int
+}
+
+type pictureTrack struct {
+	id      int
+	pictID  uint16
+	history []point
+	pred    point
+	used    bool
+	unused  int
+}
+
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
 	descriptors                 map[uint8]frameDescriptor
@@ -182,6 +199,7 @@ type drawSnapshot struct {
 	mobiles                     []frameMobile
 	prevMobiles                 map[uint8]frameMobile
 	prevDescs                   map[uint8]frameDescriptor
+	tracks                      map[int]*pictureTrack
 	prevTime                    time.Time
 	curTime                     time.Time
 	bubbles                     []bubble
@@ -206,6 +224,7 @@ func captureDrawSnapshot() drawSnapshot {
 		picShiftX:      state.picShiftX,
 		picShiftY:      state.picShiftY,
 		mobiles:        make([]frameMobile, 0, len(state.mobiles)),
+		tracks:         make(map[int]*pictureTrack, len(state.tracks)),
 		prevTime:       state.prevTime,
 		curTime:        state.curTime,
 		hp:             state.hp,
@@ -229,6 +248,12 @@ func captureDrawSnapshot() drawSnapshot {
 	}
 	for _, m := range state.mobiles {
 		snap.mobiles = append(snap.mobiles, m)
+	}
+	for id, t := range state.tracks {
+		hist := append([]point(nil), t.history...)
+		cp := *t
+		cp.history = hist
+		snap.tracks[id] = &cp
 	}
 	if len(state.bubbles) > 0 {
 		curFrame := frameCounter
@@ -281,6 +306,8 @@ func cloneDrawState(src drawState) drawState {
 		mobiles:        make(map[uint8]frameMobile, len(src.mobiles)),
 		prevMobiles:    make(map[uint8]frameMobile, len(src.prevMobiles)),
 		prevDescs:      make(map[uint8]frameDescriptor, len(src.prevDescs)),
+		tracks:         make(map[int]*pictureTrack, len(src.tracks)),
+		nextTrackID:    src.nextTrackID,
 		prevTime:       src.prevTime,
 		curTime:        src.curTime,
 		bubbles:        append([]bubble(nil), src.bubbles...),
@@ -310,6 +337,12 @@ func cloneDrawState(src drawState) drawState {
 	}
 	for idx, d := range src.prevDescs {
 		dst.prevDescs[idx] = d
+	}
+	for id, t := range src.tracks {
+		hist := append([]point(nil), t.history...)
+		cp := *t
+		cp.history = hist
+		dst.tracks[id] = &cp
 	}
 	return dst
 }
@@ -775,6 +808,23 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 
 	for _, p := range posPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
+	}
+
+	if gs.pictHistoryDebug {
+		for _, t := range snap.tracks {
+			if len(t.history) < 2 {
+				continue
+			}
+			for i := 1; i < len(t.history); i++ {
+				p0 := t.history[i-1]
+				p1 := t.history[i]
+				x0 := int((float64(p0.H + snap.picShiftX + fieldCenterX)) * gs.GameScale)
+				y0 := int((float64(p0.V + snap.picShiftY + fieldCenterY)) * gs.GameScale)
+				x1 := int((float64(p1.H + snap.picShiftX + fieldCenterX)) * gs.GameScale)
+				y1 := int((float64(p1.V + snap.picShiftY + fieldCenterY)) * gs.GameScale)
+				vector.StrokeLine(screen, float32(x0+ox), float32(y0+oy), float32(x1+ox), float32(y1+oy), 1, color.RGBA{0, 255, 0, 255}, false)
+			}
+		}
 	}
 
 	if gs.SpeechBubbles {

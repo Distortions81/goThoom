@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -814,6 +815,70 @@ func parseDrawState(data []byte) error {
 		if idx >= 0 && idx < len(newPics) {
 			newPics[idx].Moving = false
 			newPics[idx].Background = true
+		}
+	}
+
+	if gs.simplePredictiveMatch {
+		for _, t := range state.tracks {
+			t.used = false
+		}
+		for i := range newPics {
+			h := int(newPics[i].H) - state.picShiftX
+			v := int(newPics[i].V) - state.picShiftY
+			var best *pictureTrack
+			bestDist := math.MaxInt32
+			for _, t := range state.tracks {
+				if t.pictID != newPics[i].PictID || t.used {
+					continue
+				}
+				dh := h - t.pred.H
+				dv := v - t.pred.V
+				dist := dh*dh + dv*dv
+				if dist < bestDist {
+					bestDist = dist
+					best = t
+				}
+			}
+			if best != nil {
+				newPics[i].PrevH = int16(best.history[len(best.history)-1].H)
+				newPics[i].PrevV = int16(best.history[len(best.history)-1].V)
+				best.used = true
+				best.unused = 0
+				best.history = append(best.history, point{H: h, V: v})
+				if len(best.history) > 4 {
+					best.history = best.history[len(best.history)-4:]
+				}
+				if len(best.history) >= 2 {
+					last := best.history[len(best.history)-1]
+					prev := best.history[len(best.history)-2]
+					best.pred = point{H: last.H + (last.H - prev.H), V: last.V + (last.V - prev.V)}
+				} else {
+					best.pred = best.history[len(best.history)-1]
+				}
+			} else {
+				newPics[i].PrevH = int16(h)
+				newPics[i].PrevV = int16(v)
+				t := &pictureTrack{
+					id:      state.nextTrackID,
+					pictID:  newPics[i].PictID,
+					history: []point{{H: h, V: v}},
+					pred:    point{H: h, V: v},
+					used:    true,
+				}
+				state.tracks[t.id] = t
+				state.nextTrackID++
+			}
+		}
+		for id, t := range state.tracks {
+			if t.used {
+				t.used = false
+				t.unused = 0
+			} else {
+				t.unused++
+				if t.unused > 5 {
+					delete(state.tracks, id)
+				}
+			}
 		}
 	}
 
