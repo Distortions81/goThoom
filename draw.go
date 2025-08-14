@@ -771,29 +771,6 @@ func parseDrawState(data []byte) error {
 		prevPics[i].Owned = false
 	}
 	for i := range newPics {
-		needsShift := true
-		if _, skip := skipPictShift[newPics[i].PictID]; skip {
-			needsShift = false
-		} else if gs.shiftBorderSpritesOnly {
-			if clImages != nil {
-				w, h := clImages.Size(uint32(newPics[i].PictID))
-				halfW := w / 2
-				halfH := h / 2
-				if int(newPics[i].H)-halfW >= -fieldCenterX &&
-					int(newPics[i].H)+halfW <= fieldCenterX &&
-					int(newPics[i].V)-halfH >= -fieldCenterY &&
-					int(newPics[i].V)+halfH <= fieldCenterY {
-					needsShift = false
-				}
-			}
-		}
-		if needsShift {
-			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
-		} else {
-			newPics[i].PrevH = newPics[i].H
-			newPics[i].PrevV = newPics[i].V
-		}
 		moving := true
 		var owner *framePicture
 		if i < again {
@@ -813,6 +790,29 @@ func parseDrawState(data []byte) error {
 					break
 				}
 			}
+		}
+		needsShift := true
+		if _, skip := skipPictShift[newPics[i].PictID]; skip {
+			needsShift = false
+		} else if gs.shiftBorderSpritesOnly && moving {
+			if clImages != nil {
+				w, h := clImages.Size(uint32(newPics[i].PictID))
+				halfW := w / 2
+				halfH := h / 2
+				if int(newPics[i].H)-halfW >= -fieldCenterX &&
+					int(newPics[i].H)+halfW <= fieldCenterX &&
+					int(newPics[i].V)-halfH >= -fieldCenterY &&
+					int(newPics[i].V)+halfH <= fieldCenterY {
+					needsShift = false
+				}
+			}
+		}
+		if needsShift {
+			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
+			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+		} else {
+			newPics[i].PrevH = newPics[i].H
+			newPics[i].PrevV = newPics[i].V
 		}
 		if moving && gs.smoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
