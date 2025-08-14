@@ -353,9 +353,24 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 		return 0, 0, nil, false
 	}
 
+	// Collect candidate background indices for the winning motion.
+	// Filter out tiny sprites (e.g., UI-like icons) so we don't pin
+	// small pictures to the screen background when the camera pans.
+	const minBackgroundPixels = 1000
 	idxs := make([]int, 0, len(idxMap[best]))
 	for idx := range idxMap[best] {
-		idxs = append(idxs, idx)
+		if idx >= 0 && idx < len(cur) {
+			// Use cached counts when possible; fall back to a fresh query.
+			pixels := 0
+			if p, ok := pixelCache[cur[idx].PictID]; ok {
+				pixels = p
+			} else {
+				pixels = nonTransparentPixels(cur[idx].PictID)
+			}
+			if pixels >= minBackgroundPixels {
+				idxs = append(idxs, idx)
+			}
+		}
 	}
 	return best[0], best[1], idxs, true
 }

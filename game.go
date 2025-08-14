@@ -1313,23 +1313,63 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 	items := getInventory()
 	x := ox + int(4*gs.GameScale)
 	y := oy + int(4*gs.GameScale)
-	drawn := 0
-	for _, it := range items {
-		if !it.Equipped {
-			continue
+	// Prefer explicit right/left hand items; otherwise show default hands.
+	var rightID, leftID uint16
+	var bothIDRight, bothIDLeft uint16
+	if clImages != nil {
+		for _, it := range items {
+			if !it.Equipped {
+				continue
+			}
+			slot := clImages.ItemSlot(uint32(it.ID))
+			switch slot {
+			case kItemSlotRightHand:
+				if id := clImages.ItemRightHandPict(uint32(it.ID)); id != 0 {
+					rightID = uint16(id)
+				} else if id := clImages.ItemWornPict(uint32(it.ID)); id != 0 {
+					rightID = uint16(id)
+				}
+			case kItemSlotLeftHand:
+				if id := clImages.ItemLeftHandPict(uint32(it.ID)); id != 0 {
+					leftID = uint16(id)
+				} else if id := clImages.ItemWornPict(uint32(it.ID)); id != 0 {
+					leftID = uint16(id)
+				}
+			case kItemSlotBothHands:
+				// Remember a two-handed item for fallback if explicit left/right are absent
+				if id := clImages.ItemRightHandPict(uint32(it.ID)); id != 0 {
+					bothIDRight = uint16(id)
+				} else if id := clImages.ItemWornPict(uint32(it.ID)); id != 0 {
+					bothIDRight = uint16(id)
+				}
+				if id := clImages.ItemLeftHandPict(uint32(it.ID)); id != 0 {
+					bothIDLeft = uint16(id)
+				} else if id := clImages.ItemWornPict(uint32(it.ID)); id != 0 {
+					bothIDLeft = uint16(id)
+				}
+			}
 		}
-		img := loadImage(it.ID)
-		if img == nil {
-			continue
-		}
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(gs.GameScale, gs.GameScale)
-		op.GeoM.Translate(float64(x), float64(y))
-		screen.DrawImage(img, op)
-		x += int(float64(img.Bounds().Dx())*gs.GameScale) + int(4*gs.GameScale)
-		drawn++
 	}
-	if drawn == 0 {
+
+	if rightID == 0 && leftID == 0 {
+		// If a two-handed item is equipped, show both icons from it.
+		if bothIDRight != 0 || bothIDLeft != 0 {
+			if rightID == 0 {
+				rightID = bothIDRight
+				if rightID == 0 {
+					rightID = bothIDLeft
+				}
+			}
+			if leftID == 0 {
+				leftID = bothIDLeft
+				if leftID == 0 {
+					leftID = bothIDRight
+				}
+			}
+		}
+	}
+
+	if rightID == 0 && leftID == 0 {
 		img := loadImage(defaultHandPictID)
 		if img == nil {
 			return
@@ -1345,6 +1385,28 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 		opLeft.GeoM.Translate(float64(w), 0)
 		opLeft.GeoM.Translate(float64(x+w)+4*gs.GameScale, float64(y))
 		screen.DrawImage(img, opLeft)
+		return
+	}
+
+	if rightID != 0 {
+		if img := loadImage(rightID); img != nil {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(gs.GameScale, gs.GameScale)
+			op.GeoM.Translate(float64(x), float64(y))
+			screen.DrawImage(img, op)
+			x += int(float64(img.Bounds().Dx())*gs.GameScale) + int(4*gs.GameScale)
+		}
+	}
+	if leftID != 0 {
+		if img := loadImage(leftID); img != nil {
+			w := int(float64(img.Bounds().Dx()) * gs.GameScale)
+			op := &ebiten.DrawImageOptions{}
+			// Mirror the left-hand icon for a subtle visual cue.
+			op.GeoM.Scale(-gs.GameScale, gs.GameScale)
+			op.GeoM.Translate(float64(w), 0)
+			op.GeoM.Translate(float64(x), float64(y))
+			screen.DrawImage(img, op)
+		}
 	}
 }
 
