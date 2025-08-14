@@ -96,7 +96,7 @@ func updateInventoryWindow() {
 		}
 
 		t, _ := eui.NewText()
-		t.Text = "* " + label
+		t.Text = label
 		t.FontSize = float32(gs.ConsoleFontSize)
 		// Constrain the text item height to match icon/text height.
 		t.Size.Y = float32(iconSize)
