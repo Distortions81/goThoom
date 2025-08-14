@@ -438,7 +438,7 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 			logError("inventory: cmd %x missing name", cmd)
 			return nil, false
 		}
-		name = string(data[:nidx])
+		name = decodeMacRoman(data[:nidx])
 		data = data[nidx+1:]
 	}
 	switch base {
