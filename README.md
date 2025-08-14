@@ -36,6 +36,13 @@ Launch the client with:
 go run .
 ```
 
+To exercise parsing and the GUI without a server, replay a captured
+network trace:
+
+```bash
+go run . -pcap reference-client.pcapng
+```
+
 To build release binaries for Linux and Windows, use:
 
 ```bash
@@ -48,6 +55,7 @@ The Go client accepts the following flags:
 
 - `-host` – server address (default `server.deltatao.com:5010`)
 - `-clmov` – play back a `.clMov` movie file instead of connecting to a server
+- `-pcap` – replay network frames from a `.pcap/.pcapng` file
 - `-pgo` – create `default.pgo` by playing `test.clMov` at 60 fps for 30 seconds
 - `-client-version` – client version number (`kVersionNumber`, default `1440`)
 - `-debug` – enable debug logging (default `true`)

@@ -32,6 +32,7 @@ var (
 
 	demo          bool
 	clmov         string
+	pcapPath      string
 	blockSound    bool
 	blockBubbles  bool
 	clientVersion int
@@ -39,6 +40,7 @@ var (
 
 func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
+	flag.StringVar(&pcapPath, "pcap", "", "replay network frames from a .pcap/.pcapng file")
 	clientVer := flag.Int("client-version", 1445, "client version number (for testing)")
 	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
@@ -139,6 +141,23 @@ func main() {
 		}
 		go mp.run(ctx)
 
+		<-ctx.Done()
+		return
+	}
+
+	if pcapPath != "" {
+		drawStateEncrypted = false
+		if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+			for !assetsPrecached {
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+		go func() {
+			if err := replayPCAP(ctx, pcapPath); err != nil {
+				log.Printf("replay PCAP: %v", err)
+			}
+			cancel()
+		}()
 		<-ctx.Done()
 		return
 	}
