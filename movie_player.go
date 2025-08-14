@@ -29,6 +29,7 @@ type moviePlayer struct {
 	curLabel   *eui.ItemData
 	totalLabel *eui.ItemData
 	fpsLabel   *eui.ItemData
+	playButton *eui.ItemData
 }
 
 func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *moviePlayer {
@@ -117,6 +118,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	play, playEv := eui.NewButton()
 	play.Text = "Play/Pause"
 	play.Size = eui.Point{X: 140, Y: 24}
+	p.playButton = play
 	changePlayButton(p, play)
 	playEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -262,6 +264,8 @@ func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		p.playing = false
 		playingMovie = false
+		// Ensure controls reflect the stopped state
+		p.updateUI()
 		//p.cancel()
 		return
 	}
@@ -277,6 +281,8 @@ func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		p.playing = false
 		playingMovie = false
+		// Update controls once we've actually reached the end
+		p.updateUI()
 		//p.cancel()
 	}
 }
@@ -302,6 +308,17 @@ func (p *moviePlayer) updateUI() {
 	if p.fpsLabel != nil {
 		p.fpsLabel.Text = fmt.Sprintf("UPS: %v", p.fps)
 		p.fpsLabel.Dirty = true
+	}
+
+	// Keep the play/pause button text in sync with state, including end-of-movie.
+	if p.playButton != nil {
+		playing := p.playing && p.cur < len(p.frames)
+		if playing {
+			p.playButton.Text = "Pause"
+		} else {
+			p.playButton.Text = "Play"
+		}
+		p.playButton.Dirty = true
 	}
 }
 

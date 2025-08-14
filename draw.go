@@ -340,7 +340,6 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool, string) {
 	// Cache pixel counts locally so that each PictID is computed at most once
 	// per pictureShift invocation.
 	pixelCache := make(map[uint16]int)
-
 	for _, p := range prev {
 		if _, skip := skipPictShift[p.PictID]; skip {
 			continue
@@ -806,15 +805,32 @@ func parseDrawState(data []byte) error {
 				logDebug("new  pics: %v", picturesSummary(newPics))
 			}
 		}
+		// Note: 'reused' is only used for debugging/logging and to
+		// conceptually distinguish paths; behavior is driven by 'ok'.
+		//reused := false
 		if ok {
 			state.picShiftX = dx
 			state.picShiftY = dy
+			state.lastGoodShiftX = dx
+			state.lastGoodShiftY = dy
+			state.missStreak = 0
 		} else {
-			state.picShiftX = 0
-			state.picShiftY = 0
-			// Surface failure reasons only when tint-moving-objects-red is enabled.
-			if gs.smoothingDebug {
-				consoleMessage("pictShift miss: " + missReason)
+			// Reuse the last good shift for up to 2 consecutive misses.
+			if state.missStreak < 2 {
+				state.picShiftX = state.lastGoodShiftX
+				state.picShiftY = state.lastGoodShiftY
+				state.missStreak++
+				ok = true
+				if gs.smoothingDebug {
+					consoleMessage(fmt.Sprintf("pictShift reuse %d/2: last=(%d,%d); reason: %s", state.missStreak, state.picShiftX, state.picShiftY, missReason))
+				}
+			} else {
+				state.picShiftX = 0
+				state.picShiftY = 0
+				// Surface failure reasons only when tint-moving-objects-red is enabled.
+				if gs.smoothingDebug {
+					consoleMessage("pictShift miss: " + missReason)
+				}
 			}
 		}
 		// Maintain cumulative world shift only when reliable here;
@@ -1070,6 +1086,9 @@ func parseDrawState(data []byte) error {
 				state.picShiftY = hdy
 				state.worldShiftX += state.picShiftX
 				state.worldShiftY += state.picShiftY
+				state.lastGoodShiftX = state.picShiftX
+				state.lastGoodShiftY = state.picShiftY
+				state.missStreak = 0
 				// Recompute PrevH/PrevV for the current newPics slice under this shift.
 				for i := range newPics {
 					if _, skip := skipPictShift[newPics[i].PictID]; skip {

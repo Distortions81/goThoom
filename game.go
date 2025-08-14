@@ -154,6 +154,11 @@ type drawState struct {
 	prevBalance, prevBalanceMax int
 	ackCmd                      uint8
 	lightingFlags               uint8
+
+	// Fallback handling for transient pictureShift misses
+	lastGoodShiftX int
+	lastGoodShiftY int
+	missStreak     int
 }
 
 var (
