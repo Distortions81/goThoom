@@ -35,7 +35,6 @@ func resetInventory() {
 
 func addInventoryItem(id uint16, idx int, name string, equip bool) {
 	inventoryMu.Lock()
-	inserted := false
 	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
 		inventoryItems[idx].Quantity++
 	} else {
@@ -55,7 +54,6 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 			inventoryItems = append(inventoryItems, inventoryItem{})
 			copy(inventoryItems[idx+1:], inventoryItems[idx:])
 			inventoryItems[idx] = item
-			inserted = true
 		}
 	}
 	item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: idx}
