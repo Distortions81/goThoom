@@ -114,15 +114,7 @@ func decodeBEPP(data []byte) string {
 		}
 	case "be":
 		parseBackend(textBytes)
-	case "yk":
-		if text != "" {
-			return text
-		}
-	case "iv":
-		if text != "" {
-			return text
-		}
-	case "hp":
+	case "yk", "iv", "hp", "cf", "pn":
 		if text != "" {
 			return text
 		}
