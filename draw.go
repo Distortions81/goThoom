@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -25,15 +26,16 @@ type frameDescriptor struct {
 }
 
 type framePicture struct {
-    PictID       uint16
-    H, V         int16
-    PrevH, PrevV int16
-    Plane        int
-    Moving       bool
-    Background   bool
-    Owned        bool
-    Again        bool
-    Ghost        bool
+	PictID       uint16
+	H, V         int16
+	PrevH, PrevV int16
+	Plane        int
+	Moving       bool
+	Background   bool
+	Owned        bool
+	Again        bool
+	Ghost        bool
+	Hidden       bool
 }
 
 type frameMobile struct {
@@ -57,20 +59,20 @@ const (
 )
 
 var skipPictShift = map[uint16]struct{}{
-    3037: {},
+	3037: {},
 }
 
 // bgKey identifies a background sprite at a stable relative location
 // (anchored by cumulative world shift).
 type bgKey struct {
-    id uint16
-    h  int16
-    v  int16
+	id uint16
+	h  int16
+	v  int16
 }
 
 type bgStableInfo struct {
-    count     int
-    lastFrame int
+	count     int
+	lastFrame int
 }
 
 func sortPictures(pics []framePicture) {
@@ -148,6 +150,43 @@ func picturesSummary(pics []framePicture) string {
 	return buf.String()
 }
 
+// requiredFramesForPict returns the consecutive-frame stability threshold
+// based on the sprite size. Larger sprites stabilize faster.
+// Example mapping: 512x512 -> 1 frame, 24x24 -> 5 frames.
+func requiredFramesForPict(id uint16) int {
+	minDim := 24
+	maxDim := 512
+	minThresh := 1
+	maxThresh := 5
+	w, h := 0, 0
+	if clImages != nil {
+		w, h = clImages.Size(uint32(id))
+	}
+	dim := w
+	if h > dim {
+		dim = h
+	}
+	if dim <= 0 {
+		return maxThresh
+	}
+	if dim <= minDim {
+		return maxThresh
+	}
+	if dim >= maxDim {
+		return minThresh
+	}
+	// Linear interpolation from [minDim..maxDim] to [maxThresh..minThresh]
+	num := (dim - minDim) * (maxThresh - minThresh)
+	den := (maxDim - minDim)
+	t := maxThresh - (num+den/2)/den // rounded
+	if t < minThresh {
+		t = minThresh
+	} else if t > maxThresh {
+		t = maxThresh
+	}
+	return t
+}
+
 var pixelCountMu sync.RWMutex
 var pixelCountCache = make(map[uint16]int)
 
@@ -186,7 +225,17 @@ func nonTransparentPixels(id uint16) int {
 	}
 	pixelCountMu.RUnlock()
 
-	var img image.Image = loadImage(id)
+	// Handle filtered/excluded sprites returning nil images.
+	eimg := loadImage(id)
+	if eimg == nil {
+		if !gs.NoCaching {
+			pixelCountMu.Lock()
+			pixelCountCache[id] = 0
+			pixelCountMu.Unlock()
+		}
+		return 0
+	}
+	var img image.Image = eimg
 	bounds := img.Bounds()
 	count := 0
 
@@ -265,10 +314,12 @@ func nonTransparentPixels(id uint16) int {
 // slice contains the indexes within the current frame that contributed to the
 // winning movement. The boolean result is false when no majority offset is
 // found.
-func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
+// pictureShift computes a consensus movement between frames.
+// On failure it returns a short reason string for diagnostics.
+func pictureShift(prev, cur []framePicture) (int, int, []int, bool, string) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
-		return 0, 0, nil, false
+		return 0, 0, nil, false, fmt.Sprintf("no data prev=%d cur=%d", len(prev), len(cur))
 	}
 
 	counts := make(map[[2]int]int)
@@ -328,7 +379,7 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	}
 	if total == 0 {
 		logDebug("pictureShift: no matching pairs")
-		return 0, 0, nil, false
+		return 0, 0, nil, false, "no matching pairs"
 	}
 
 	best := [2]int{}
@@ -342,18 +393,18 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
 	if bestCount*2 <= total {
 		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
-		return 0, 0, nil, false
+		return 0, 0, nil, false, fmt.Sprintf("no majority best=%d total=%d best=(%d,%d)", bestCount, total, best[0], best[1])
 	}
 	if best[0]*best[0]+best[1]*best[1] > maxInterpPixels*maxInterpPixels {
 		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
-		return 0, 0, nil, false
+		return 0, 0, nil, false, fmt.Sprintf("motion too large (%d,%d)", best[0], best[1])
 	}
 
 	idxs := make([]int, 0, len(idxMap[best]))
 	for idx := range idxMap[best] {
 		idxs = append(idxs, idx)
 	}
-	return best[0], best[1], idxs, true
+	return best[0], best[1], idxs, true, ""
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be
@@ -746,8 +797,8 @@ func parseDrawState(data []byte) error {
 	for i := again; i < len(newPics); i++ {
 		newPics[i].Again = false
 	}
-	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics)
-    if gs.MotionSmoothing {
+	dx, dy, bgIdxs, ok, missReason := pictureShift(prevPics, newPics)
+	if gs.MotionSmoothing {
 		if gs.smoothMoving {
 			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 			if !ok {
@@ -758,77 +809,82 @@ func parseDrawState(data []byte) error {
 		if ok {
 			state.picShiftX = dx
 			state.picShiftY = dy
-    } else {
-        state.picShiftX = 0
-        state.picShiftY = 0
-    }
-    // Maintain cumulative world shift when motion is reliable.
-    if ok {
-        state.worldShiftX += state.picShiftX
-        state.worldShiftY += state.picShiftY
-    } else {
-        state.worldShiftX = 0
-        state.worldShiftY = 0
-        if state.bgStable != nil {
-            for k := range state.bgStable {
-                delete(state.bgStable, k)
-            }
-        }
-    }
+		} else {
+			state.picShiftX = 0
+			state.picShiftY = 0
+			// Surface failure reasons only when tint-moving-objects-red is enabled.
+			if gs.smoothingDebug {
+				consoleMessage("pictShift miss: " + missReason)
+			}
+		}
+		// Maintain cumulative world shift only when reliable here;
+		// for unreliable frames, attempt a hero-based stitch later
+		// after mobiles are parsed.
+		if ok {
+			state.worldShiftX += state.picShiftX
+			state.worldShiftY += state.picShiftY
+		}
 	} else {
 		state.picShiftX = 0
 		state.picShiftY = 0
 	}
-    // Retain background pictures that disappeared, but only if we've seen the
-    // same sprite at the same relative location for more than 1 consecutive
-    // frame. This keeps true backgrounds when the server stops sending them.
-    if ok {
-        type picKey struct {
-            id   uint16
-            h, v int16
-        }
-        lookup := make(map[picKey]struct{}, len(newPics))
-        for _, p := range newPics {
-            lookup[picKey{p.PictID, p.H, p.V}] = struct{}{}
-        }
-        if state.bgStable == nil {
-            state.bgStable = make(map[bgKey]bgStableInfo)
-        }
-        for _, p := range prevPics {
-            if !p.Background {
-                continue
-            }
-            shiftedH := int16(int(p.H) + state.picShiftX)
-            shiftedV := int16(int(p.V) + state.picShiftY)
-            key := picKey{p.PictID, shiftedH, shiftedV}
-            if _, found := lookup[key]; found {
-                continue // still present after shift
-            }
-            // Anchored position for stability check uses previous-frame coords
-            // normalized by world shift prior to this frame's delta.
-            anchorH := int16(int(p.H) - (state.worldShiftX - state.picShiftX))
-            anchorV := int16(int(p.V) - (state.worldShiftY - state.picShiftY))
-            bk := bgKey{id: p.PictID, h: anchorH, v: anchorV}
-            if info, ok := state.bgStable[bk]; ok && info.lastFrame == frameCounter-1 && info.count >= 5 {
-                p.H = shiftedH
-                p.V = shiftedV
-                p.Again = true
-                p.Ghost = true
-                newPics = append(newPics, p)
-                bgIdxs = append(bgIdxs, len(newPics)-1)
-                lookup[key] = struct{}{}
-            }
-        }
-    }
-	if !ok {
-		prevPics = nil
-		again = 0
-		newPics = append([]framePicture(nil), pics...)
-		state.prevDescs = nil
-		state.prevMobiles = nil
-		state.prevTime = time.Time{}
-		state.curTime = time.Time{}
+	// Retain background pictures that disappeared. Keep all, but mark them
+	// hidden until their stability meets a size-based threshold.
+	if ok {
+		type picKey struct {
+			id   uint16
+			h, v int16
+		}
+		lookup := make(map[picKey]struct{}, len(newPics))
+		for _, p := range newPics {
+			lookup[picKey{p.PictID, p.H, p.V}] = struct{}{}
+		}
+		if state.bgStable == nil {
+			state.bgStable = make(map[bgKey]bgStableInfo)
+		}
+		for _, p := range prevPics {
+			if !p.Background {
+				continue
+			}
+			shiftedH := int16(int(p.H) + state.picShiftX)
+			shiftedV := int16(int(p.V) + state.picShiftY)
+			key := picKey{p.PictID, shiftedH, shiftedV}
+			if _, found := lookup[key]; found {
+				continue // still present after shift
+			}
+			// If already a ghost, preserve its visibility state.
+			if p.Ghost {
+				p.H = shiftedH
+				p.V = shiftedV
+				p.Again = true
+				// p.Hidden remains whatever it was
+				newPics = append(newPics, p)
+				bgIdxs = append(bgIdxs, len(newPics)-1)
+				lookup[key] = struct{}{}
+				continue
+			}
+			// Anchored position for stability check uses previous-frame coords
+			// normalized by world shift prior to this frame's delta.
+			anchorH := int16(int(p.H) - (state.worldShiftX - state.picShiftX))
+			anchorV := int16(int(p.V) - (state.worldShiftY - state.picShiftY))
+			bk := bgKey{id: p.PictID, h: anchorH, v: anchorV}
+			cnt := 0
+			if info, ok := state.bgStable[bk]; ok && info.lastFrame == frameCounter-1 {
+				cnt = info.count
+			}
+			need := requiredFramesForPict(p.PictID)
+			p.H = shiftedH
+			p.V = shiftedV
+			p.Again = true
+			p.Ghost = true
+			p.Hidden = cnt < need
+			newPics = append(newPics, p)
+			bgIdxs = append(bgIdxs, len(newPics)-1)
+			lookup[key] = struct{}{}
+		}
 	}
+	// Do not clear retained data yet on !ok. We'll attempt a hero-based stitch
+	// after mobiles are parsed. If stitching fails, we'll clear then.
 	if state.descriptors == nil {
 		state.descriptors = make(map[uint8]frameDescriptor)
 	}
@@ -893,52 +949,52 @@ func parseDrawState(data []byte) error {
 		newPics[i].Moving = moving
 		newPics[i].Background = false
 	}
-    for _, idx := range bgIdxs {
-        if idx >= 0 && idx < len(newPics) {
-            newPics[idx].Moving = false
-            newPics[idx].Background = true
-        }
-    }
+	for _, idx := range bgIdxs {
+		if idx >= 0 && idx < len(newPics) {
+			newPics[idx].Moving = false
+			newPics[idx].Background = true
+		}
+	}
 
-    // Update background stability counters using anchored positions.
-    if ok {
-        if state.bgStable == nil {
-            state.bgStable = make(map[bgKey]bgStableInfo)
-        }
-        seen := make(map[bgKey]struct{})
-        for _, idx := range bgIdxs {
-            if idx < 0 || idx >= len(newPics) {
-                continue
-            }
-            p := newPics[idx]
-            // Count only sprites actually sent by the server this frame.
-            // Skip retained ghosts so stability reflects continuous sightings.
-            if p.Ghost {
-                continue
-            }
-            anchorH := int16(int(p.H) - state.worldShiftX)
-            anchorV := int16(int(p.V) - state.worldShiftY)
-            bk := bgKey{id: p.PictID, h: anchorH, v: anchorV}
-            if _, dup := seen[bk]; dup {
-                continue
-            }
-            seen[bk] = struct{}{}
-            info := state.bgStable[bk]
-            if info.lastFrame == frameCounter-1 {
-                info.count++
-            } else {
-                info.count = 1
-            }
-            info.lastFrame = frameCounter
-            state.bgStable[bk] = info
-        }
-        // prune stale entries
-        for k, info := range state.bgStable {
-            if info.lastFrame < frameCounter-180 {
-                delete(state.bgStable, k)
-            }
-        }
-    }
+	// Update background stability counters using anchored positions.
+	if ok {
+		if state.bgStable == nil {
+			state.bgStable = make(map[bgKey]bgStableInfo)
+		}
+		seen := make(map[bgKey]struct{})
+		for _, idx := range bgIdxs {
+			if idx < 0 || idx >= len(newPics) {
+				continue
+			}
+			p := newPics[idx]
+			// Count only sprites actually sent by the server this frame.
+			// Skip retained ghosts so stability reflects continuous sightings.
+			if p.Ghost {
+				continue
+			}
+			anchorH := int16(int(p.H) - state.worldShiftX)
+			anchorV := int16(int(p.V) - state.worldShiftY)
+			bk := bgKey{id: p.PictID, h: anchorH, v: anchorV}
+			if _, dup := seen[bk]; dup {
+				continue
+			}
+			seen[bk] = struct{}{}
+			info := state.bgStable[bk]
+			if info.lastFrame == frameCounter-1 {
+				info.count++
+			} else {
+				info.count = 1
+			}
+			info.lastFrame = frameCounter
+			state.bgStable[bk] = info
+		}
+		// prune stale entries
+		for k, info := range state.bgStable {
+			if info.lastFrame < frameCounter-180 {
+				delete(state.bgStable, k)
+			}
+		}
+	}
 
 	state.pictures = newPics
 
@@ -970,6 +1026,12 @@ func parseDrawState(data []byte) error {
 		state.curTime = state.prevTime.Add(interval)
 	}
 
+	// Keep a snapshot of previous mobiles for hero-based stitching before clearing.
+	prevMobMap := make(map[uint8]frameMobile, len(state.mobiles))
+	for idx, m := range state.mobiles {
+		prevMobMap[idx] = m
+	}
+
 	if state.mobiles == nil {
 		state.mobiles = make(map[uint8]frameMobile)
 	} else {
@@ -980,6 +1042,83 @@ func parseDrawState(data []byte) error {
 	}
 	for _, m := range mobiles {
 		state.mobiles[m.Index] = m
+	}
+	// If pictureShift failed, attempt to stitch areas using hero motion.
+	stitched := false
+	if gs.MotionSmoothing && !ok {
+		var (
+			prevHero frameMobile
+			curHero  frameMobile
+			havePrev bool
+			haveCur  bool
+		)
+		if pm, okm := prevMobMap[playerIndex]; okm {
+			prevHero = pm
+			havePrev = true
+		}
+		if cm, okm := state.mobiles[playerIndex]; okm {
+			curHero = cm
+			haveCur = true
+		}
+		if havePrev && haveCur {
+			hdx := int(curHero.H) - int(prevHero.H)
+			hdy := int(curHero.V) - int(prevHero.V)
+			// Ignore excessively large jumps; only small steps indicate walk-through stitching
+			if hdx*hdx+hdy*hdy > 0 && hdx*hdx+hdy*hdy <= maxMobileInterpPixels*maxMobileInterpPixels {
+				// Apply hero-based stitch as the frame shift.
+				state.picShiftX = hdx
+				state.picShiftY = hdy
+				state.worldShiftX += state.picShiftX
+				state.worldShiftY += state.picShiftY
+				// Recompute PrevH/PrevV for the current newPics slice under this shift.
+				for i := range newPics {
+					if _, skip := skipPictShift[newPics[i].PictID]; skip {
+						newPics[i].PrevH = newPics[i].H
+						newPics[i].PrevV = newPics[i].V
+					} else {
+						newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
+						newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+					}
+				}
+				// Debug: where is the hero on screen during stitch?
+				// Convert to screen-space to aid tuning in logs.
+				hx := int((math.Round(float64(curHero.H)) + float64(fieldCenterX)) * gs.GameScale)
+				hy := int((math.Round(float64(curHero.V)) + float64(fieldCenterY)) * gs.GameScale)
+				logDebug("snell-stitch: hero (%d,%d)->(%d,%d), shift=(%d,%d), screen=(%d,%d)", prevHero.H, prevHero.V, curHero.H, curHero.V, hdx, hdy, hx, hy)
+				stitched = true
+			} else {
+				// Could not stitch; reset accumulated world shift and stability now.
+				state.worldShiftX = 0
+				state.worldShiftY = 0
+				if state.bgStable != nil {
+					for k := range state.bgStable {
+						delete(state.bgStable, k)
+					}
+				}
+			}
+		} else {
+			// No hero info to stitch; reset accumulated state.
+			state.worldShiftX = 0
+			state.worldShiftY = 0
+			if state.bgStable != nil {
+				for k := range state.bgStable {
+					delete(state.bgStable, k)
+				}
+			}
+		}
+	}
+
+	// If neither pictureShift nor hero-based stitching provided a shift,
+	// clear retained data to avoid dragging ghosts across snells.
+	if !ok && !stitched {
+		prevPics = nil
+		again = 0
+		newPics = append([]framePicture(nil), pics...)
+		state.prevDescs = nil
+		state.prevMobiles = nil
+		state.prevTime = time.Time{}
+		state.curTime = time.Time{}
+		// worldShift and bgStable were reset above in that case.
 	}
 	ack := state.ackCmd
 	light := state.lightingFlags

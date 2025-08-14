@@ -25,7 +25,6 @@ import (
 const lateRatio = 85
 const gameAreaSizeX, gameAreaSizeY = 547, 540
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const defaultHandPictID = 6
 
 const initialWindowW, initialWindowH = 100, 100
 
@@ -129,23 +128,23 @@ var (
 
 // drawState tracks information needed by the Ebiten renderer.
 type drawState struct {
-    descriptors map[uint8]frameDescriptor
-    pictures    []framePicture
-    picShiftX   int
-    picShiftY   int
-    // worldShiftX/Y accumulate pictureShift over frames when stable.
-    // Used to compute relative (anchored) positions for background stability.
-    worldShiftX int
-    worldShiftY int
-    // Stability tracker for background sprites across frames
-    bgStable map[bgKey]bgStableInfo
-    mobiles     map[uint8]frameMobile
-    prevMobiles map[uint8]frameMobile
-    prevDescs   map[uint8]frameDescriptor
-    prevTime    time.Time
-    curTime     time.Time
+	descriptors map[uint8]frameDescriptor
+	pictures    []framePicture
+	picShiftX   int
+	picShiftY   int
+	// worldShiftX/Y accumulate pictureShift over frames when stable.
+	// Used to compute relative (anchored) positions for background stability.
+	worldShiftX int
+	worldShiftY int
+	// Stability tracker for background sprites across frames
+	bgStable    map[bgKey]bgStableInfo
+	mobiles     map[uint8]frameMobile
+	prevMobiles map[uint8]frameMobile
+	prevDescs   map[uint8]frameDescriptor
+	prevTime    time.Time
+	curTime     time.Time
 
-    bubbles []bubble
+	bubbles []bubble
 
 	hp, hpMax                   int
 	sp, spMax                   int
@@ -183,11 +182,11 @@ type bubble struct {
 type drawSnapshot struct {
 	descriptors                 map[uint8]frameDescriptor
 	pictures                    []framePicture
-    picShiftX                   int
-    picShiftY                   int
-    worldShiftX                 int
-    worldShiftY                 int
-    bgStable                    map[bgKey]bgStableInfo
+	picShiftX                   int
+	picShiftY                   int
+	worldShiftX                 int
+	worldShiftY                 int
+	bgStable                    map[bgKey]bgStableInfo
 	mobiles                     []frameMobile
 	prevMobiles                 map[uint8]frameMobile
 	prevDescs                   map[uint8]frameDescriptor
@@ -209,16 +208,16 @@ func captureDrawSnapshot() drawSnapshot {
 	stateMu.Lock()
 	defer stateMu.Unlock()
 
-    snap := drawSnapshot{
-        descriptors:    make(map[uint8]frameDescriptor, len(state.descriptors)),
-        pictures:       append([]framePicture(nil), state.pictures...),
-        picShiftX:      state.picShiftX,
-        picShiftY:      state.picShiftY,
-        worldShiftX:    state.worldShiftX,
-        worldShiftY:    state.worldShiftY,
-        mobiles:        make([]frameMobile, 0, len(state.mobiles)),
-        prevTime:       state.prevTime,
-        curTime:        state.curTime,
+	snap := drawSnapshot{
+		descriptors:    make(map[uint8]frameDescriptor, len(state.descriptors)),
+		pictures:       append([]framePicture(nil), state.pictures...),
+		picShiftX:      state.picShiftX,
+		picShiftY:      state.picShiftY,
+		worldShiftX:    state.worldShiftX,
+		worldShiftY:    state.worldShiftY,
+		mobiles:        make([]frameMobile, 0, len(state.mobiles)),
+		prevTime:       state.prevTime,
+		curTime:        state.curTime,
 		hp:             state.hp,
 		hpMax:          state.hpMax,
 		sp:             state.sp,
@@ -238,15 +237,15 @@ func captureDrawSnapshot() drawSnapshot {
 	for idx, d := range state.descriptors {
 		snap.descriptors[idx] = d
 	}
-    for _, m := range state.mobiles {
-        snap.mobiles = append(snap.mobiles, m)
-    }
-    if state.bgStable != nil {
-        snap.bgStable = make(map[bgKey]bgStableInfo, len(state.bgStable))
-        for k, v := range state.bgStable {
-            snap.bgStable[k] = v
-        }
-    }
+	for _, m := range state.mobiles {
+		snap.mobiles = append(snap.mobiles, m)
+	}
+	if state.bgStable != nil {
+		snap.bgStable = make(map[bgKey]bgStableInfo, len(state.bgStable))
+		for k, v := range state.bgStable {
+			snap.bgStable[k] = v
+		}
+	}
 	if len(state.bubbles) > 0 {
 		curFrame := frameCounter
 		kept := state.bubbles[:0]
@@ -469,8 +468,8 @@ func (g *Game) Update() error {
 
 	updateConsoleWindow()
 
-    if !inputActive {
-        dx, dy := 0, 0
+	if !inputActive {
+		dx, dy := 0, 0
 		if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
 			dx--
 		}
@@ -495,65 +494,65 @@ func (g *Game) Update() error {
 			keyWalk = false
 		}
 
-        mx, my := ebiten.CursorPosition()
-        overUI := pointInUI(mx, my)
-        gx, gy := gameWindowOrigin()
+		mx, my := ebiten.CursorPosition()
+		overUI := pointInUI(mx, my)
+		gx, gy := gameWindowOrigin()
 
-        // Debug wheel zoom: centered zoom that disables curtain
-        if gs.DebugZoomEnabled {
-            _, wy := ebiten.Wheel()
-            if wy != 0 {
-                // Exponential step for smooth scaling
-                factor := math.Pow(1.1, float64(wy))
-                nz := gs.DebugZoom * factor
-                if nz < 0.25 {
-                    nz = 0.25
-                } else if nz > 4.0 {
-                    nz = 4.0
-                }
-                if nz != gs.DebugZoom {
-                    gs.DebugZoom = nz
-                    settingsDirty = true
-                }
-            }
-        }
+		// Debug wheel zoom: centered zoom that disables curtain
+		if gs.DebugZoomEnabled {
+			_, wy := ebiten.Wheel()
+			if wy != 0 {
+				// Exponential step for smooth scaling
+				factor := math.Pow(1.1, float64(wy))
+				nz := gs.DebugZoom * factor
+				if nz < 0.25 {
+					nz = 0.25
+				} else if nz > 4.0 {
+					nz = 4.0
+				}
+				if nz != gs.DebugZoom {
+					gs.DebugZoom = nz
+					settingsDirty = true
+				}
+			}
+		}
 
-        if gs.ClickToToggle {
-            if !overUI && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-                if walkToggled {
-                    walkToggled = false
-                } else {
-                    effScale := gs.GameScale
-                    if gs.DebugZoomEnabled {
-                        effScale = gs.GameScale * gs.DebugZoom
-                    }
-                    walkTargetX = int16(float64(mx-gx)/effScale - float64(fieldCenterX))
-                    walkTargetY = int16(float64(my-gy)/effScale - float64(fieldCenterY))
-                    walkToggled = true
-                }
-            }
-            if walkToggled {
-                if gameWin == nil {
-                    walkToggled = false
-                } else {
-                    size := gameWin.GetSize()
-                    x1 := gx + int(size.X)
-                    y1 := gy + int(size.Y)
-                    if overUI || mx < gx || my < gy || mx >= x1 || my >= y1 {
-                        walkToggled = false
-                    } else {
-                        effScale := gs.GameScale
-                        if gs.DebugZoomEnabled {
-                            effScale = gs.GameScale * gs.DebugZoom
-                        }
-                        walkTargetX = int16(float64(mx-gx)/effScale - float64(fieldCenterX))
-                        walkTargetY = int16(float64(my-gy)/effScale - float64(fieldCenterY))
-                    }
-                }
-            }
-        } else {
-            walkToggled = false
-        }
+		if gs.ClickToToggle {
+			if !overUI && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				if walkToggled {
+					walkToggled = false
+				} else {
+					effScale := gs.GameScale
+					if gs.DebugZoomEnabled {
+						effScale = gs.GameScale * gs.DebugZoom
+					}
+					walkTargetX = int16(float64(mx-gx)/effScale - float64(fieldCenterX))
+					walkTargetY = int16(float64(my-gy)/effScale - float64(fieldCenterY))
+					walkToggled = true
+				}
+			}
+			if walkToggled {
+				if gameWin == nil {
+					walkToggled = false
+				} else {
+					size := gameWin.GetSize()
+					x1 := gx + int(size.X)
+					y1 := gy + int(size.Y)
+					if overUI || mx < gx || my < gy || mx >= x1 || my >= y1 {
+						walkToggled = false
+					} else {
+						effScale := gs.GameScale
+						if gs.DebugZoomEnabled {
+							effScale = gs.GameScale * gs.DebugZoom
+						}
+						walkTargetX = int16(float64(mx-gx)/effScale - float64(fieldCenterX))
+						walkTargetY = int16(float64(my-gy)/effScale - float64(fieldCenterY))
+					}
+				}
+			}
+		} else {
+			walkToggled = false
+		}
 	} else {
 		keyWalk = false
 		if walkToggled {
@@ -563,12 +562,12 @@ func (g *Game) Update() error {
 
 	mx, my := ebiten.CursorPosition()
 	gx, gy := gameWindowOrigin()
-    effScale := gs.GameScale
-    if gs.DebugZoomEnabled {
-        effScale = gs.GameScale * gs.DebugZoom
-    }
-    baseX := int16(float64(mx-gx)/effScale - float64(fieldCenterX))
-    baseY := int16(float64(my-gy)/effScale - float64(fieldCenterY))
+	effScale := gs.GameScale
+	if gs.DebugZoomEnabled {
+		effScale = gs.GameScale * gs.DebugZoom
+	}
+	baseX := int16(float64(mx-gx)/effScale - float64(fieldCenterX))
+	baseY := int16(float64(my-gy)/effScale - float64(fieldCenterY))
 	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
 	if pointInUI(mx, my) {
 		baseDown = false
@@ -695,65 +694,65 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	snap := captureDrawSnapshot()
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 
-    if gs.AnyGameWindowSize {
-        updateGameScale()
-        if offscreen == nil {
-            offscreen = newImage(gameAreaSizeX*2, gameAreaSizeY*2)
-        }
-        offscreen.Clear()
-        saved := gs.GameScale
-        gs.GameScale = 2
-        initFont()
-        drawScene(offscreen, 0, 0, snap, alpha, mobileFade, pictFade)
-        if gs.nightEffect {
-            drawNightOverlay(offscreen, 0, 0)
-        }
-        drawEquippedItems(offscreen, 0, 0)
-        drawGameCurtain(offscreen, 0, 0)
-        drawStatusBars(offscreen, 0, 0, snap, alpha)
-        gs.GameScale = saved
-        initFont()
-        ox, oy := gameContentOrigin()
-        size := gameWin.GetSize()
-        pad := float64(2 * gameWin.Padding)
-        scaleW := (float64(size.X) - pad) / (gameAreaSizeX * 2)
-        scaleH := (float64(size.Y) - pad) / (gameAreaSizeY * 2)
-        scale := math.Min(scaleW, scaleH)
-        op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-        op.GeoM.Scale(scale, scale)
-        op.GeoM.Translate(float64(ox), float64(oy))
-        screen.DrawImage(offscreen, op)
-        eui.Draw(screen)
-        if gs.ShowFPS {
-            drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
-        }
-        return
-    }
+	if gs.AnyGameWindowSize {
+		updateGameScale()
+		if offscreen == nil {
+			offscreen = newImage(gameAreaSizeX*2, gameAreaSizeY*2)
+		}
+		offscreen.Clear()
+		saved := gs.GameScale
+		gs.GameScale = 2
+		initFont()
+		drawScene(offscreen, 0, 0, snap, alpha, mobileFade, pictFade)
+		if gs.nightEffect {
+			drawNightOverlay(offscreen, 0, 0)
+		}
+		// drawEquippedItems(offscreen, 0, 0) // disabled for now
+		drawGameCurtain(offscreen, 0, 0)
+		drawStatusBars(offscreen, 0, 0, snap, alpha)
+		gs.GameScale = saved
+		initFont()
+		ox, oy := gameContentOrigin()
+		size := gameWin.GetSize()
+		pad := float64(2 * gameWin.Padding)
+		scaleW := (float64(size.X) - pad) / (gameAreaSizeX * 2)
+		scaleH := (float64(size.Y) - pad) / (gameAreaSizeY * 2)
+		scale := math.Min(scaleW, scaleH)
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+		op.GeoM.Scale(scale, scale)
+		op.GeoM.Translate(float64(ox), float64(oy))
+		screen.DrawImage(offscreen, op)
+		eui.Draw(screen)
+		if gs.ShowFPS {
+			drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
+		}
+		return
+	}
 
-    // Apply debug zoom by temporarily scaling GameScale for the draw pass.
-    savedScale := gs.GameScale
-    if gs.DebugZoomEnabled {
-        gs.GameScale = savedScale * gs.DebugZoom
-    }
-    ox, oy := gameContentOrigin()
-    drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
-    if gs.nightEffect {
-        drawNightOverlay(screen, ox, oy)
-    }
-    drawEquippedItems(screen, ox, oy)
-    if !gs.DebugZoomEnabled { // disable blackout curtain during debug zoom
-        drawGameCurtain(screen, ox, oy)
-    }
-    drawStatusBars(screen, ox, oy, snap, alpha)
-    // Restore base scale and update for any window changes
-    if gs.DebugZoomEnabled {
-        gs.GameScale = savedScale
-    }
-    updateGameScale()
-    eui.Draw(screen)
-    if gs.ShowFPS {
-        drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
-    }
+	// Apply debug zoom by temporarily scaling GameScale for the draw pass.
+	savedScale := gs.GameScale
+	if gs.DebugZoomEnabled {
+		gs.GameScale = savedScale * gs.DebugZoom
+	}
+	ox, oy := gameContentOrigin()
+	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
+	if gs.nightEffect {
+		drawNightOverlay(screen, ox, oy)
+	}
+	// drawEquippedItems(screen, ox, oy) // disabled for now
+	if !gs.DebugZoomEnabled { // disable blackout curtain during debug zoom
+		drawGameCurtain(screen, ox, oy)
+	}
+	drawStatusBars(screen, ox, oy, snap, alpha)
+	// Restore base scale and update for any window changes
+	if gs.DebugZoomEnabled {
+		gs.GameScale = savedScale
+	}
+	updateGameScale()
+	eui.Draw(screen)
+	if gs.ShowFPS {
+		drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
+	}
 }
 
 // drawScene renders all world objects for the current frame.
@@ -955,11 +954,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			prevState = pm.State
 		}
 	}
-    if img != nil {
-        size := img.Bounds().Dx()
-        blend := gs.BlendMobiles && prevImg != nil && fade > 0 && fade < 1
-        var src *ebiten.Image
-        drawSize := size
+	if img != nil {
+		size := img.Bounds().Dx()
+		blend := gs.BlendMobiles && prevImg != nil && fade > 0 && fade < 1
+		var src *ebiten.Image
+		drawSize := size
 		if blend {
 			steps := gs.MobileBlendFrames
 			idx := int(fade * float32(steps))
@@ -990,12 +989,12 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scale := gs.GameScale
 		scaled := math.Round(float64(drawSize) * scale)
 		scale = scaled / float64(drawSize)
-        half := int(scaled / 2)
-        if !gs.DebugZoomEnabled {
-            if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
-                return
-            }
-        }
+		half := int(scaled / 2)
+		if !gs.DebugZoomEnabled {
+			if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
+				return
+			}
+		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(scale, scale)
 		tx := math.Round(float64(x) - scaled/2)
@@ -1050,13 +1049,13 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			op.ColorScale.ScaleWithColor(color.RGBA{0, 255, 255, 255})
 			text.Draw(screen, lbl, mainFont, op)
 		}
-    } else {
-        half := int(3 * gs.GameScale)
-        if !gs.DebugZoomEnabled {
-            if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
-                return
-            }
-        }
+	} else {
+		half := int(3 * gs.GameScale)
+		if !gs.DebugZoomEnabled {
+			if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
+				return
+			}
+		}
 		vector.DrawFilledRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
@@ -1073,6 +1072,9 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 // drawPicture renders a single picture sprite.
 func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int) {
 	if gs.hideMoving && p.Moving {
+		return
+	}
+	if p.Hidden {
 		return
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
@@ -1121,13 +1123,13 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	scaledW := int(math.Round(float64(w) * gs.GameScale))
 	scaledH := int(math.Round(float64(h) * gs.GameScale))
-    halfW := scaledW / 2
-    halfH := scaledH / 2
-    if !gs.DebugZoomEnabled {
-        if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
-            return
-        }
-    }
+	halfW := scaledW / 2
+	halfH := scaledH / 2
+	if !gs.DebugZoomEnabled {
+		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
+			return
+		}
+	}
 
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
@@ -1139,8 +1141,8 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 
-    if img != nil {
-        drawW, drawH := w, h
+	if img != nil {
+		drawW, drawH := w, h
 		blend := gs.BlendPicts && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		if blend {
@@ -1175,56 +1177,56 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		scaledH := math.Round(float64(drawH) * sy)
 		sx = scaledW / float64(drawW)
 		sy = scaledH / float64(drawH)
-        halfW := int(scaledW / 2)
-        halfH := int(scaledH / 2)
-        if !gs.DebugZoomEnabled {
-            if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
-                return
-            }
-        }
+		halfW := int(scaledW / 2)
+		halfH := int(scaledH / 2)
+		if !gs.DebugZoomEnabled {
+			if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
+				return
+			}
+		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(sx, sy)
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
 		op.GeoM.Translate(tx, ty)
-        if p.Ghost && gs.BGStabilityDebug {
-            // Tint cyan to indicate a retained ghost sprite
-            op.ColorScale.Scale(0, 1, 1, 1)
-        } else if gs.pictAgainDebug && p.Again {
-            op.ColorScale.Scale(0, 0, 1, 1)
-        } else if src == img && gs.smoothingDebug && p.Moving {
-            op.ColorScale.Scale(1, 0, 0, 1)
-        }
-        screen.DrawImage(src, op)
+		if p.Ghost && gs.BGStabilityDebug {
+			// Tint cyan to indicate a retained ghost sprite
+			op.ColorScale.Scale(0, 1, 1, 1)
+		} else if gs.pictAgainDebug && p.Again {
+			op.ColorScale.Scale(0, 0, 1, 1)
+		} else if src == img && gs.smoothingDebug && p.Moving {
+			op.ColorScale.Scale(1, 0, 0, 1)
+		}
+		screen.DrawImage(src, op)
 
-        // Debug overlay: background stability count
-        if p.Background && gs.BGStabilityDebug {
-            // Need access to world shift and bgStable: use current global state snapshot
-            // We passed shift in drawScene; grab world shift via state snapshot
-            // drawScene has a local 'snap', but not available here; recompute anchor via globals
-            // Safer approach: compute via current state (minor race acceptable for debug).
-            stateMu.Lock()
-            wsx, wsy := state.worldShiftX, state.worldShiftY
-            var cnt int
-            if state.bgStable != nil {
-                anchorH := int16(int(p.H) - wsx)
-                anchorV := int16(int(p.V) - wsy)
-                if info, ok := state.bgStable[bgKey{id: p.PictID, h: anchorH, v: anchorV}]; ok {
-                    cnt = info.count
-                }
-            }
-            stateMu.Unlock()
-            if cnt > 0 {
-                lbl := fmt.Sprintf("%d", cnt)
-                metrics := mainFont.Metrics()
-                // position label above sprite
-                xPos := x - int(float64(w)*gs.GameScale/2)
-                opTxt := &text.DrawOptions{}
-                opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(h)*gs.GameScale/2-metrics.HAscent)
-                opTxt.ColorScale.ScaleWithColor(color.RGBA{0, 255, 0, 255})
-                text.Draw(screen, lbl, mainFont, opTxt)
-            }
-        }
+		// Debug overlay: background stability count
+		if p.Background && gs.BGStabilityDebug {
+			// Need access to world shift and bgStable: use current global state snapshot
+			// We passed shift in drawScene; grab world shift via state snapshot
+			// drawScene has a local 'snap', but not available here; recompute anchor via globals
+			// Safer approach: compute via current state (minor race acceptable for debug).
+			stateMu.Lock()
+			wsx, wsy := state.worldShiftX, state.worldShiftY
+			var cnt int
+			if state.bgStable != nil {
+				anchorH := int16(int(p.H) - wsx)
+				anchorV := int16(int(p.V) - wsy)
+				if info, ok := state.bgStable[bgKey{id: p.PictID, h: anchorH, v: anchorV}]; ok {
+					cnt = info.count
+				}
+			}
+			stateMu.Unlock()
+			if cnt > 0 {
+				lbl := fmt.Sprintf("%d", cnt)
+				metrics := mainFont.Metrics()
+				// position label above sprite
+				xPos := x - int(float64(w)*gs.GameScale/2)
+				opTxt := &text.DrawOptions{}
+				opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(h)*gs.GameScale/2-metrics.HAscent)
+				opTxt.ColorScale.ScaleWithColor(color.RGBA{0, 255, 0, 255})
+				text.Draw(screen, lbl, mainFont, opTxt)
+			}
+		}
 
 		if gs.pictIDDebug {
 			metrics := mainFont.Metrics()
@@ -1246,46 +1248,46 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			opTxt.ColorScale.ScaleWithColor(color.RGBA{255, 255, 0, 0})
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
-    } else {
-        half := int(2 * gs.GameScale)
-        if !gs.DebugZoomEnabled {
-            if x+half <= left || y+half <= top || x-half >= right || y-half >= bottom {
-                return
-            }
-        }
-        clr := color.RGBA{0, 0, 0xff, 0xff}
-        if p.Ghost && gs.BGStabilityDebug {
-            clr = color.RGBA{0, 255, 255, 255}
-        }
-        if gs.smoothingDebug && p.Moving {
-            clr = color.RGBA{0xff, 0, 0, 0xff}
-        }
-        if gs.pictAgainDebug && p.Again {
-            clr = color.RGBA{0, 0, 0xff, 0xff}
-        }
-        vector.DrawFilledRect(screen, float32(float64(x)-2*gs.GameScale), float32(float64(y)-2*gs.GameScale), float32(4*gs.GameScale), float32(4*gs.GameScale), clr, false)
-        if p.Background && gs.BGStabilityDebug {
-            stateMu.Lock()
-            wsx, wsy := state.worldShiftX, state.worldShiftY
-            var cnt int
-            if state.bgStable != nil {
-                anchorH := int16(int(p.H) - wsx)
-                anchorV := int16(int(p.V) - wsy)
-                if info, ok := state.bgStable[bgKey{id: p.PictID, h: anchorH, v: anchorV}]; ok {
-                    cnt = info.count
-                }
-            }
-            stateMu.Unlock()
-            if cnt > 0 {
-                lbl := fmt.Sprintf("%d", cnt)
-                metrics := mainFont.Metrics()
-                xPos := x - int(2*gs.GameScale)
-                opTxt := &text.DrawOptions{}
-                opTxt.GeoM.Translate(float64(xPos), float64(y)-2*gs.GameScale-metrics.HAscent)
-                opTxt.ColorScale.ScaleWithColor(color.RGBA{0, 255, 0, 255})
-                text.Draw(screen, lbl, mainFont, opTxt)
-            }
-        }
+	} else {
+		half := int(2 * gs.GameScale)
+		if !gs.DebugZoomEnabled {
+			if x+half <= left || y+half <= top || x-half >= right || y-half >= bottom {
+				return
+			}
+		}
+		clr := color.RGBA{0, 0, 0xff, 0xff}
+		if p.Ghost && gs.BGStabilityDebug {
+			clr = color.RGBA{0, 255, 255, 255}
+		}
+		if gs.smoothingDebug && p.Moving {
+			clr = color.RGBA{0xff, 0, 0, 0xff}
+		}
+		if gs.pictAgainDebug && p.Again {
+			clr = color.RGBA{0, 0, 0xff, 0xff}
+		}
+		vector.DrawFilledRect(screen, float32(float64(x)-2*gs.GameScale), float32(float64(y)-2*gs.GameScale), float32(4*gs.GameScale), float32(4*gs.GameScale), clr, false)
+		if p.Background && gs.BGStabilityDebug {
+			stateMu.Lock()
+			wsx, wsy := state.worldShiftX, state.worldShiftY
+			var cnt int
+			if state.bgStable != nil {
+				anchorH := int16(int(p.H) - wsx)
+				anchorV := int16(int(p.V) - wsy)
+				if info, ok := state.bgStable[bgKey{id: p.PictID, h: anchorH, v: anchorV}]; ok {
+					cnt = info.count
+				}
+			}
+			stateMu.Unlock()
+			if cnt > 0 {
+				lbl := fmt.Sprintf("%d", cnt)
+				metrics := mainFont.Metrics()
+				xPos := x - int(2*gs.GameScale)
+				opTxt := &text.DrawOptions{}
+				opTxt.GeoM.Translate(float64(xPos), float64(y)-2*gs.GameScale-metrics.HAscent)
+				opTxt.ColorScale.ScaleWithColor(color.RGBA{0, 255, 0, 255})
+				text.Draw(screen, lbl, mainFont, opTxt)
+			}
+		}
 		if gs.pictIDDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%d", p.PictID)
@@ -1456,21 +1458,7 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 		drawn++
 	}
 	if drawn == 0 {
-		img := loadImage(defaultHandPictID)
-		if img == nil {
-			return
-		}
-		w := int(float64(img.Bounds().Dx()) * gs.GameScale)
-		opRight := &ebiten.DrawImageOptions{}
-		opRight.GeoM.Scale(gs.GameScale, gs.GameScale)
-		opRight.GeoM.Translate(float64(x), float64(y))
-		screen.DrawImage(img, opRight)
-
-		opLeft := &ebiten.DrawImageOptions{}
-		opLeft.GeoM.Scale(-gs.GameScale, gs.GameScale)
-		opLeft.GeoM.Translate(float64(w), 0)
-		opLeft.GeoM.Translate(float64(x+w)+4*gs.GameScale, float64(y))
-		screen.DrawImage(img, opLeft)
+		// No equipped items; previously drew default hands (pictid 6). Now draw nothing.
 	}
 }
 

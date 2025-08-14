@@ -1429,7 +1429,7 @@ func makeDebugWindow() {
 	debugWin.Movable = true
 	debugWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-    debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	bubbleCB, bubbleEvents := eui.NewCheckbox()
 	bubbleCB.Text = "Message Bubbles"
@@ -1881,6 +1881,6 @@ func makeHelpWindow() {
 		t.FontSize = 15
 		helpFlow.AddItem(t)
 	}
-helpWin.AddItem(helpFlow)
-helpWin.AddWindow(false)
+	helpWin.AddItem(helpFlow)
+	helpWin.AddWindow(false)
 }

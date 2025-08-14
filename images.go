@@ -68,6 +68,15 @@ var (
 	clImages *climg.CLImages
 )
 
+// excludedSpriteIDs holds sprite/picture IDs that should never be drawn.
+// Populate this map with IDs to exclude at runtime as needed.
+var excludedSpriteIDs = map[uint16]struct{}{}
+
+func isSpriteExcluded(id uint16) bool {
+	_, ok := excludedSpriteIDs[id]
+	return ok
+}
+
 func makeSheetKey(id uint16, colors []byte, forceTransparent bool) sheetKey {
 	var k sheetKey
 	k.id = id
@@ -107,6 +116,10 @@ func makeMobileKey(id uint16, state uint8, colors []byte) mobileKey {
 // regardless of the pictDef flags. Mobile sprites require this behavior
 // since the original client always treats index 0 as transparent for them.
 func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
+	// Respect explicit exclusion list
+	if isSpriteExcluded(id) {
+		return nil
+	}
 	key := makeSheetKey(id, colors, forceTransparent)
 	if !gs.NoCaching {
 		imageMu.Lock()
@@ -145,6 +158,10 @@ func loadImage(id uint16) *ebiten.Image {
 // loadImageFrame retrieves a specific animation frame for the specified picture
 // ID. Frames are cached individually after the first load.
 func loadImageFrame(id uint16, frame int) *ebiten.Image {
+	// Respect explicit exclusion list
+	if isSpriteExcluded(id) {
+		return nil
+	}
 	origKey := makeImageKey(id, frame)
 	if !gs.NoCaching {
 		imageMu.Lock()
@@ -176,6 +193,18 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 	innerHeight := sheet.Bounds().Dy() - 2
 	innerWidth := sheet.Bounds().Dx() - 2
 	h := innerHeight / frames
+
+	// Filter out animated sprites smaller than 32x32
+	if frames > 1 {
+		if innerWidth < 32 || h < 32 {
+			if !gs.NoCaching {
+				imageMu.Lock()
+				imageCache[origKey] = nil
+				imageMu.Unlock()
+			}
+			return nil
+		}
+	}
 
 	if gs.cacheWholeSheet && !gs.NoCaching {
 		imageMu.Lock()

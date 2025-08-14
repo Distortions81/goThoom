@@ -357,6 +357,7 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 		return PART_NONE
 	}
 	if win.getTitleRect().containsPoint(mpos) {
+		// Prioritize interactive controls first.
 		if win.Closable && win.xRect().containsPoint(mpos) {
 			win.HoverClose = true
 			return PART_CLOSE
@@ -365,8 +366,13 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 			win.HoverPin = true
 			return PART_PIN
 		}
-		if win.Movable && win.dragbarRect().containsPoint(mpos) {
-			win.HoverDragbar = true
+		// Allow dragging from anywhere on the titlebar (not just the dragbar glyphs),
+		// except over the interactive controls above.
+		if win.Movable {
+			if win.dragbarRect().containsPoint(mpos) {
+				// Preserve existing hover feedback for the dragbar glyphs.
+				win.HoverDragbar = true
+			}
 			return PART_BAR
 		}
 	}
