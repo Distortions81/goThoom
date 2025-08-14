@@ -1,4 +1,4 @@
-# ClanLord Client
+# goThoom Client
 
 A pre-alpha open source (MIT) client for the Clan Lord MMORPG.
 
