@@ -490,10 +490,10 @@ func (g *Game) Update() error {
 				y1 := gy + int(size.Y)
 				if mx >= gx && mx < x1 && my >= gy && my < y1 {
 					nz := gs.GameZoom + float64(wy)*0.1
-					if nz < 0.5 {
-						nz = 0.5
-					} else if nz > 2.0 {
-						nz = 2.0
+					if nz < 0.1 {
+						nz = 0.1
+					} else if nz > 4.0 {
+						nz = 4.0
 					}
 					if nz != gs.GameZoom {
 						gs.GameZoom = nz
