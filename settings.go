@@ -77,6 +77,7 @@ var gsdef settings = settings{
 	DebugZoomEnabled:    false,
 	DebugZoom:           1.0,
 	BGStabilityDebug:    false,
+	MotionDebug:         false,
 }
 
 type settings struct {
@@ -143,6 +144,7 @@ type settings struct {
 	DebugZoomEnabled bool
 	DebugZoom        float64
 	BGStabilityDebug bool
+	MotionDebug      bool
 }
 
 var (

@@ -46,7 +46,7 @@ type frameMobile struct {
 }
 
 const poseDead = 32
-const maxInterpPixels = 64
+const maxInterpPixels = 128
 const maxMobileInterpPixels = 64
 
 // sanity limits for parsed counts to avoid excessive allocations or
@@ -316,10 +316,14 @@ func nonTransparentPixels(id uint16) int {
 // found.
 // pictureShift computes a consensus movement between frames.
 // On failure it returns a short reason string for diagnostics.
-func pictureShift(prev, cur []framePicture) (int, int, []int, bool, string) {
+// pictureShift computes a consensus movement between frames with a distance cap.
+// limitPx controls the maximum allowed motion magnitude in pixels; values <= 0
+// disable the cap. On failure it returns a short reason and the best/total
+// weights to allow higher-level retries with relaxed limits.
+func pictureShift(prev, cur []framePicture, limitPx int) (int, int, []int, bool, string, int, int) {
 	if len(prev) == 0 || len(cur) == 0 {
 		logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
-		return 0, 0, nil, false, fmt.Sprintf("no data prev=%d cur=%d", len(prev), len(cur))
+		return 0, 0, nil, false, fmt.Sprintf("no data prev=%d cur=%d", len(prev), len(cur)), 0, 0
 	}
 
 	counts := make(map[[2]int]int)
@@ -378,7 +382,7 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool, string) {
 	}
 	if total == 0 {
 		logDebug("pictureShift: no matching pairs")
-		return 0, 0, nil, false, "no matching pairs"
+		return 0, 0, nil, false, "no matching pairs", 0, 0
 	}
 
 	best := [2]int{}
@@ -390,20 +394,25 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool, string) {
 		}
 	}
 	logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
-	if bestCount*2 <= total {
-		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
-		return 0, 0, nil, false, fmt.Sprintf("no majority best=%d total=%d best=(%d,%d)", bestCount, total, best[0], best[1])
+	// Require at least 40% of the total weighted pixels to agree on the shift.
+	// Previously this was a strict >50% majority; lowering to 40% improves
+	// robustness when a subset of sprites drop or diverge transiently.
+	if total > 0 && (bestCount*100 < 40*total) {
+		logDebug("pictureShift: insufficient consensus best=%d total=%d (pct=%d%%)", bestCount, total, (bestCount*100)/total)
+		return 0, 0, nil, false, fmt.Sprintf("no majority best=%d total=%d best=(%d,%d) pct=%d%%", bestCount, total, best[0], best[1], (bestCount*100)/total), bestCount, total
 	}
-	if best[0]*best[0]+best[1]*best[1] > maxInterpPixels*maxInterpPixels {
-		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
-		return 0, 0, nil, false, fmt.Sprintf("motion too large (%d,%d)", best[0], best[1])
+	if limitPx > 0 {
+		if best[0]*best[0]+best[1]*best[1] > limitPx*limitPx {
+			logDebug("pictureShift: motion too large (%d,%d) limit=%d", best[0], best[1], limitPx)
+			return 0, 0, nil, false, fmt.Sprintf("motion too large (%d,%d) limit=%d", best[0], best[1], limitPx), bestCount, total
+		}
 	}
 
 	idxs := make([]int, 0, len(idxMap[best]))
 	for idx := range idxMap[best] {
 		idxs = append(idxs, idx)
 	}
-	return best[0], best[1], idxs, true, ""
+	return best[0], best[1], idxs, true, "", bestCount, total
 }
 
 // drawStateEncrypted controls whether incoming draw state packets need to be
@@ -796,7 +805,7 @@ func parseDrawState(data []byte) error {
 	for i := again; i < len(newPics); i++ {
 		newPics[i].Again = false
 	}
-	dx, dy, bgIdxs, ok, missReason := pictureShift(prevPics, newPics)
+	dx, dy, bgIdxs, ok, missReason, bestW, totalW := pictureShift(prevPics, newPics, maxInterpPixels)
 	if gs.MotionSmoothing {
 		if gs.smoothMoving {
 			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
@@ -808,6 +817,20 @@ func parseDrawState(data []byte) error {
 		// Note: 'reused' is only used for debugging/logging and to
 		// conceptually distinguish paths; behavior is driven by 'ok'.
 		//reused := false
+		if !ok {
+			// If the failure was due to motion too large but confidence is high,
+			// retry with a relaxed limit (up to 3x) before resorting to reuse.
+			if strings.HasPrefix(missReason, "motion too large") && totalW > 0 {
+				// Confidence ratio in percent
+				if bestW*100/totalW >= 70 { // strong agreement
+					if dx2, dy2, bg2, ok2, miss2, _, _ := pictureShift(prevPics, newPics, maxInterpPixels*3); ok2 {
+						dx, dy, bgIdxs, ok, missReason = dx2, dy2, bg2, ok2, ""
+					} else {
+						missReason = miss2
+					}
+				}
+			}
+		}
 		if ok {
 			state.picShiftX = dx
 			state.picShiftY = dy
