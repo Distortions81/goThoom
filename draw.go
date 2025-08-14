@@ -245,6 +245,24 @@ func nonTransparentPixels(id uint16) int {
 	return count
 }
 
+// pictureOnEdge reports whether the given picture's bounding box touches the
+// edge of the visible game field.
+func pictureOnEdge(p framePicture) bool {
+	if clImages == nil {
+		return false
+	}
+	w, h := clImages.Size(uint32(p.PictID))
+	halfW := w / 2
+	halfH := h / 2
+	if int(p.H)-halfW <= -fieldCenterX ||
+		int(p.H)+halfW >= fieldCenterX ||
+		int(p.V)-halfH <= -fieldCenterY ||
+		int(p.V)+halfH >= fieldCenterY {
+		return true
+	}
+	return false
+}
+
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
 // between two consecutive frames. Pictures are matched by PictID (duplicates
 // included) and weighted by their non-transparent pixel counts. The returned
@@ -797,6 +815,9 @@ func parseDrawState(data []byte) error {
 					break
 				}
 			}
+		}
+		if moving && pictureOnEdge(newPics[i]) {
+			moving = false
 		}
 		if moving && gs.smoothMoving {
 			bestDist := maxInterpPixels*maxInterpPixels + 1
