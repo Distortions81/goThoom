@@ -879,8 +879,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	y := int((math.Round(v) + float64(fieldCenterY)) * gsScale)
 	x += ox
 	y += oy
-	viewW := int(float64(gameAreaSizeX) * gsScale)
-	viewH := int(float64(gameAreaSizeY) * gsScale)
 	var img *ebiten.Image
 	plane := 0
 	var d frameDescriptor
