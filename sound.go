@@ -42,9 +42,27 @@ func playSound(ids ...uint16) {
 			return
 		}
 
+		var valid map[uint16]struct{}
+		soundMu.Lock()
+		c := clSounds
+		soundMu.Unlock()
+		if c != nil {
+			vid := c.IDs()
+			valid = make(map[uint16]struct{}, len(vid))
+			for _, v := range vid {
+				valid[uint16(v)] = struct{}{}
+			}
+		}
+
 		sounds := make([][]byte, 0, len(ids))
 		maxSamples := 0
 		for _, id := range ids {
+			if valid != nil {
+				if _, ok := valid[id]; !ok {
+					logDebug("playSound unknown id %d", id)
+					continue
+				}
+			}
 			pcm := loadSound(id)
 			if pcm == nil {
 				continue
