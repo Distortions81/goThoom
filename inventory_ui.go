@@ -65,19 +65,25 @@ func updateInventoryWindow() {
 		icon.Filled = false
 		icon.Border = 0
 
-		// Choose a pict ID for the item sprite.
+		// Choose a pict ID for the item sprite and determine equipped location.
 		var pict uint32
 		loc := ""
 		if clImages != nil {
+			// Inventory list usually uses the worn pict for display.
 			if p := clImages.ItemWornPict(uint32(id)); p != 0 {
 				pict = p
-				loc = "worn"
-			} else if p := clImages.ItemRightHandPict(uint32(id)); p != 0 {
-				pict = p
-				loc = "right"
-			} else if p := clImages.ItemLeftHandPict(uint32(id)); p != 0 {
-				pict = p
-				loc = "left"
+			}
+			// Location label should be derived from the item's slot, and
+			// only shown when an instance is actually equipped.
+			if it.Equipped {
+				switch clImages.ItemSlot(uint32(id)) {
+				case 14: // kItemSlotRightHand
+					loc = "right"
+				case 15: // kItemSlotLeftHand
+					loc = "left"
+				default:
+					loc = "worn"
+				}
 			}
 		}
 		if pict != 0 {
