@@ -119,6 +119,10 @@ func decodeBEPP(data []byte) string {
 			return text
 		}
 	}
+	if text != "" {
+		logDebug("unknown BEPP prefix %q: %q", prefix, text)
+		return text
+	}
 	return ""
 }
 
