@@ -839,6 +839,27 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(labelFontSlider)
 
+	// Inventory font size slider
+	invFontSlider, invFontEvents := eui.NewSlider()
+	invFontSlider.Label = "Inventory Font Size"
+	invFontSlider.MinValue = 6
+	invFontSlider.MaxValue = 24
+	invFontSlider.Value = func() float32 {
+		if gs.InventoryFontSize > 0 {
+			return float32(gs.InventoryFontSize)
+		}
+		return float32(gs.ConsoleFontSize)
+	}()
+	invFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	invFontEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.InventoryFontSize = float64(ev.Value)
+			settingsDirty = true
+			updateInventoryWindow()
+		}
+	}
+	mainFlow.AddItem(invFontSlider)
+
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
 	consoleFontSlider.Label = "Console Font Size"
 	consoleFontSlider.MinValue = 6

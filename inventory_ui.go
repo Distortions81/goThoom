@@ -40,9 +40,17 @@ func updateInventoryWindow() {
 	// Clear prior contents and rebuild rows as [icon][name (xN)].
 	inventoryList.Contents = nil
 
-	// Auto-scale row height to approximately the text height.
-	// Use console font size + a small buffer for clarity.
-	iconSize := int(gs.ConsoleFontSize + 2)
+	// Auto-scale row height to approximately the text height in screen pixels,
+	// then convert back to UI units so flows/layout remain correct under
+	// different UI scales.
+	fontSize := gs.InventoryFontSize
+	if fontSize <= 0 {
+		fontSize = gs.ConsoleFontSize
+	}
+	uiScale := eui.UIScale()
+	rowPx := float32(fontSize)*uiScale + 4 // 2px ascent/descent cushion
+	rowUnits := rowPx / uiScale
+	iconSize := int(rowUnits + 0.5)
 	for _, id := range order {
 		it := first[id]
 		qty := counts[id]
@@ -97,14 +105,14 @@ func updateInventoryWindow() {
 
 		t, _ := eui.NewText()
 		t.Text = label
-		t.FontSize = float32(gs.ConsoleFontSize)
-		// Constrain the text item height to match icon/text height.
-		t.Size.Y = float32(iconSize)
+		t.FontSize = float32(fontSize)
+		// Constrain the text item height to match the computed row height (UI units).
+		t.Size.Y = rowUnits
 		t.Size.X = 1000
 		row.AddItem(t)
 
 		// Row height matches the icon/text height with minimal padding.
-		row.Size.Y = float32(iconSize)
+		row.Size.Y = rowUnits
 
 		inventoryList.AddItem(row)
 	}

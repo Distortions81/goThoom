@@ -17,16 +17,17 @@ var gs settings = gsdef
 var gsdef settings = settings{
 	Version: 3,
 
-	LastCharacter:   "",
-	ClickToToggle:   false,
-	KBWalkSpeed:     0.25,
-	MainFontSize:    8,
-	BubbleFontSize:  6,
-	ConsoleFontSize: 12,
-	ChatFontSize:    12,
-	BubbleOpacity:   0.7,
-	NameBgOpacity:   0.7,
-	SpeechBubbles:   true,
+	LastCharacter:     "",
+	ClickToToggle:     false,
+	KBWalkSpeed:       0.25,
+	MainFontSize:      8,
+	BubbleFontSize:    6,
+	ConsoleFontSize:   12,
+	ChatFontSize:      12,
+	InventoryFontSize: 12,
+	BubbleOpacity:     0.7,
+	NameBgOpacity:     0.7,
+	SpeechBubbles:     true,
 
 	MotionSmoothing:   true,
 	BlendMobiles:      false,
@@ -79,16 +80,17 @@ var gsdef settings = settings{
 type settings struct {
 	Version int
 
-	LastCharacter   string
-	ClickToToggle   bool
-	KBWalkSpeed     float64
-	MainFontSize    float64
-	BubbleFontSize  float64
-	ConsoleFontSize float64
-	ChatFontSize    float64
-	BubbleOpacity   float64
-	NameBgOpacity   float64
-	SpeechBubbles   bool
+	LastCharacter     string
+	ClickToToggle     bool
+	KBWalkSpeed       float64
+	MainFontSize      float64
+	BubbleFontSize    float64
+	ConsoleFontSize   float64
+	ChatFontSize      float64
+	InventoryFontSize float64
+	BubbleOpacity     float64
+	NameBgOpacity     float64
+	SpeechBubbles     bool
 
 	MotionSmoothing   bool
 	BlendMobiles      bool
