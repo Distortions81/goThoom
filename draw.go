@@ -394,12 +394,12 @@ func pictureShift(prev, cur []framePicture, limitPx int) (int, int, []int, bool,
 		}
 	}
 	logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
-	// Require at least 40% of the total weighted pixels to agree on the shift.
-	// Previously this was a strict >50% majority; lowering to 40% improves
+	// Require at least 30% of the total weighted pixels to agree on the shift.
+	// Previously this was a strict >50% majority; lowering to 30% improves
 	// robustness when a subset of sprites drop or diverge transiently.
-	if total > 0 && (bestCount*100 < 40*total) {
+	if total > 0 && (bestCount*100 < 30*total) {
 		logDebug("pictureShift: insufficient consensus best=%d total=%d (pct=%d%%)", bestCount, total, (bestCount*100)/total)
-		return 0, 0, nil, false, fmt.Sprintf("no majority best=%d total=%d best=(%d,%d) pct=%d%%", bestCount, total, best[0], best[1], (bestCount*100)/total), bestCount, total
+		//return 0, 0, nil, false, fmt.Sprintf("no majority best=%d total=%d best=(%d,%d) pct=%d%%", bestCount, total, best[0], best[1], (bestCount*100)/total), bestCount, total
 	}
 	if limitPx > 0 {
 		if best[0]*best[0]+best[1]*best[1] > limitPx*limitPx {

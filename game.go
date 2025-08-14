@@ -510,10 +510,10 @@ func (g *Game) Update() error {
 				// Exponential step for smooth scaling
 				factor := math.Pow(1.1, float64(wy))
 				nz := gs.DebugZoom * factor
-				if nz < 0.25 {
-					nz = 0.25
-				} else if nz > 4.0 {
-					nz = 4.0
+				if nz < 0.01 {
+					nz = 0.01
+				} else if nz > 10.0 {
+					nz = 10.0
 				}
 				if nz != gs.DebugZoom {
 					gs.DebugZoom = nz
