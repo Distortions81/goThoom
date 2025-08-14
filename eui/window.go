@@ -17,7 +17,10 @@ func (target *windowData) AddWindow(toBack bool) {
 
 	if target.AutoSize {
 		target.updateAutoSize()
-		target.AutoSize = false
+		if target.zone != nil {
+			// Re-center to the chosen zone after size changes
+			target.updateZonePosition()
+		}
 	}
 
 	// Closed windows shouldn't steal focus, so add them to the back by
@@ -266,6 +269,12 @@ func (target *windowData) Close() {
 // positioned adjacent to the anchor while trying to avoid overlapping the
 // anchor's parent window when possible and clamping to screen bounds.
 func (target *windowData) MarkOpenNear(anchor *itemData) {
+	// Respect explicit zone pinning: if a window has a zone, open it at
+	// the zone rather than near the anchor.
+	if target.zone != nil {
+		target.MarkOpen()
+		return
+	}
 	if anchor != nil {
 		placeWindowNear(target, anchor)
 	}
@@ -279,7 +288,12 @@ func (target *windowData) ToggleNear(anchor *itemData) {
 		target.Close()
 		return
 	}
-	target.MarkOpenNear(anchor)
+	// Respect zone pinning if set.
+	if target.zone != nil {
+		target.MarkOpen()
+	} else {
+		target.MarkOpenNear(anchor)
+	}
 }
 
 // placeWindowNear computes a good position for win next to anchor and moves it
