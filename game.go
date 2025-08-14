@@ -371,10 +371,10 @@ func (g *Game) Update() error {
 		initGame()
 	})
 
-	if inventoryDirty {
+	if inventoryDirty.Load() {
 		updateInventoryWindow()
 		if inventoryList != nil {
-			inventoryDirty = false
+			inventoryDirty.CompareAndSwap(true, false)
 		}
 	}
 

@@ -23,7 +23,7 @@ func resetInventory() {
 	inventoryMu.Lock()
 	inventoryItems = inventoryItems[:0]
 	inventoryMu.Unlock()
-	inventoryDirty = true
+	inventoryDirty.Store(true)
 }
 
 func addInventoryItem(id uint16, idx int, name string, equip bool) {
@@ -42,7 +42,7 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 		inventoryNames[id] = name
 	}
 	inventoryMu.Unlock()
-	inventoryDirty = true
+	inventoryDirty.Store(true)
 }
 
 func removeInventoryItem(id uint16, idx int) {
@@ -61,7 +61,7 @@ func removeInventoryItem(id uint16, idx int) {
 		inventoryItems[i].Index = i
 	}
 	inventoryMu.Unlock()
-	inventoryDirty = true
+	inventoryDirty.Store(true)
 }
 
 func equipInventoryItem(id uint16, idx int, equip bool) {
@@ -77,7 +77,7 @@ func equipInventoryItem(id uint16, idx int, equip bool) {
 		}
 	}
 	inventoryMu.Unlock()
-	inventoryDirty = true
+	inventoryDirty.Store(true)
 }
 
 func renameInventoryItem(id uint16, idx int, name string) {
@@ -96,7 +96,7 @@ func renameInventoryItem(id uint16, idx int, name string) {
 		inventoryNames[id] = name
 	}
 	inventoryMu.Unlock()
-	inventoryDirty = true
+	inventoryDirty.Store(true)
 }
 
 func getInventory() []inventoryItem {
@@ -134,5 +134,5 @@ func setFullInventory(ids []uint16, equipped []bool) {
 	}
 	inventoryItems = items
 	inventoryMu.Unlock()
-	inventoryDirty = true
+	inventoryDirty.Store(true)
 }

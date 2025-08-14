@@ -4,11 +4,12 @@ package main
 
 import (
 	"gothoom/eui"
+	"sync/atomic"
 )
 
 var inventoryWin *eui.WindowData
 var inventoryList *eui.ItemData
-var inventoryDirty bool
+var inventoryDirty atomic.Bool
 
 func updateInventoryWindow() {
 	if inventoryList == nil {
