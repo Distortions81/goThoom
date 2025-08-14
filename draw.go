@@ -511,6 +511,10 @@ func parseInventory(data []byte) ([]byte, bool) {
 			cmd = kInvCmdNone
 		}
 	}
+	// After processing known commands a single trailing opcode may remain.
+	// Some captures include an undocumented 0x64 ('d') value.  Treat it as
+	// padding and ignore any other unknown values while logging at debug
+	// level to aid future reverse-engineering efforts.
 	switch cmd {
 	case kInvCmdNone:
 	case kInvCmdNone | kInvCmdIndex:
@@ -520,8 +524,11 @@ func parseInventory(data []byte) ([]byte, bool) {
 		data = data[1:]
 	case kInvCmdLegacyPadding:
 		// ignore legacy padding byte
+	case 'd':
+		// observed but undocumented opcode
+		logDebug("inventory: ignoring opcode 'd'")
 	default:
-		logError("inventory: unexpected trailing cmd %d", cmd)
+		logDebug("inventory: ignoring trailing cmd %d", cmd)
 	}
 	for len(data) > 0 && (data[0] == 0 || data[0] == kInvCmdLegacyPadding) {
 		data = data[1:]
