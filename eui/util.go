@@ -167,22 +167,13 @@ func (win *windowData) dragbarRect() rect {
 	if win.TitleHeight <= 0 && !win.Resizable {
 		return rect{}
 	}
-	textSize := win.titleTextWidth()
-	buttonsWidth := float32(3)
-	if win.Closable {
-		xr := win.xRect()
-		buttonsWidth += xr.X1 - xr.X0
-	}
-	pr := win.pinRect()
-	buttonsWidth += pr.X1 - pr.X0
-
-	dpad := (win.GetTitleSize()) / 5
-	xStart := textSize.X + float32((win.GetTitleSize())/1.5)
-	xEnd := (win.GetSize().X - buttonsWidth)
 	pos := win.GetPos()
+	pr := win.pinRect()
 	return rect{
-		X0: pos.X + xStart, Y0: pos.Y + dpad,
-		X1: pos.X + xEnd, Y1: pos.Y + (win.GetTitleSize()) - dpad,
+		X0: pos.X,
+		Y0: pos.Y,
+		X1: pr.X0,
+		Y1: pos.Y + win.GetTitleSize(),
 	}
 }
 
