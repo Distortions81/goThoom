@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"gothoom/eui"
 )
 
@@ -20,6 +21,9 @@ func updateInventoryWindow() {
 		text := it.Name
 		if it.Equipped {
 			text = "* " + text
+		}
+		if it.Quantity > 1 {
+			text = fmt.Sprintf("%s (%d)", text, it.Quantity)
 		}
 		if i < len(inventoryList.Contents) {
 			if inventoryList.Contents[i].Text != text {
