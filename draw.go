@@ -55,6 +55,10 @@ const (
 	maxBubbles     = 128
 )
 
+var skipPictShift = map[uint16]struct{}{
+	3037: {},
+}
+
 func sortPictures(pics []framePicture) {
 	sort.Slice(pics, func(i, j int) bool {
 		if pics[i].Plane != pics[j].Plane {
@@ -262,6 +266,9 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	// repeatedly scanning the entire list for matches.
 	curIdx := make(map[uint16][]int, len(cur))
 	for i, c := range cur {
+		if _, skip := skipPictShift[c.PictID]; skip {
+			continue
+		}
 		curIdx[c.PictID] = append(curIdx[c.PictID], i)
 	}
 
@@ -270,6 +277,9 @@ func pictureShift(prev, cur []framePicture) (int, int, []int, bool) {
 	pixelCache := make(map[uint16]int)
 
 	for _, p := range prev {
+		if _, skip := skipPictShift[p.PictID]; skip {
+			continue
+		}
 		bestDist := maxInt
 		var bestDx, bestDy int
 		bestIdx := -1
@@ -761,8 +771,13 @@ func parseDrawState(data []byte) error {
 		prevPics[i].Owned = false
 	}
 	for i := range newPics {
-		newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-		newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+		if _, skip := skipPictShift[newPics[i].PictID]; skip {
+			newPics[i].PrevH = newPics[i].H
+			newPics[i].PrevV = newPics[i].V
+		} else {
+			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
+			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+		}
 		moving := true
 		var owner *framePicture
 		if i < again {
