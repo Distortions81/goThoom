@@ -1581,6 +1581,19 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(shiftSpriteCB)
+
+	zoomCB, zoomEvents := eui.NewCheckbox()
+	zoomCB.Text = "Enable Scroll Wheel Zoom"
+	zoomCB.Size = eui.Point{X: width, Y: 24}
+	zoomCB.Checked = gs.ZoomEnabled
+	zoomCB.Tooltip = "Use mouse wheel over game to zoom"
+	zoomEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ZoomEnabled = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(zoomCB)
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}

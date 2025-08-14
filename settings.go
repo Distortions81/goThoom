@@ -44,6 +44,8 @@ var gsdef settings = settings{
 	Volume:            0.125,
 	Mute:              false,
 	GameScale:         2,
+	GameZoom:          1.0,
+	ZoomEnabled:       false,
 	Theme:             "",
 	MessagesToConsole: false,
 	WindowTiling:      false,
@@ -107,6 +109,8 @@ type settings struct {
 	Mute              bool
 	AnyGameWindowSize bool // allow arbitrary game window sizes
 	GameScale         float64
+	GameZoom          float64
+	ZoomEnabled       bool
 	Theme             string
 	MessagesToConsole bool
 	WindowTiling      bool
@@ -136,6 +140,10 @@ type settings struct {
 	recordAssetStats    bool
 	NoCaching           bool
 	PotatoComputer      bool
+}
+
+func viewScale() float64 {
+	return gs.GameScale * gs.GameZoom
 }
 
 var (
