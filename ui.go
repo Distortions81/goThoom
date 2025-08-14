@@ -1581,6 +1581,18 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(shiftSpriteCB)
+
+	borderShiftCB, borderShiftEvents := eui.NewCheckbox()
+	borderShiftCB.Text = "Only shift border sprites"
+	borderShiftCB.Size = eui.Point{X: width, Y: 24}
+	borderShiftCB.Checked = gs.shiftBorderSpritesOnly
+	borderShiftEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.shiftBorderSpritesOnly = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(borderShiftCB)
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}
