@@ -256,9 +256,12 @@ func (target *windowData) Toggle() {
 }
 
 func (target *windowData) Close() {
-	target.deallocate()
 	target.Open = false
-	target.RemoveWindow()
+	if target.OnClose != nil {
+		target.OnClose()
+	}
+	target.deallocate()
+	//target.RemoveWindow()
 	if WindowStateChanged != nil {
 		WindowStateChanged()
 	}

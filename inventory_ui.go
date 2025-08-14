@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"gothoom/eui"
 )
 
@@ -19,11 +20,100 @@ func makeInventoryWindow() {
 }
 
 func updateInventoryWindow() {
-	invstr := []string{}
-
-	items := getInventory()
-	for _, item := range items {
-		invstr = append(invstr, "* "+item.Name)
+	if inventoryWin == nil || inventoryList == nil {
+		return
 	}
-	updateTextWindow(inventoryWin, inventoryList, nil, invstr, gs.ConsoleFontSize, "")
+
+	// Build a unique list of items by ID while counting duplicates.
+	items := getInventory()
+	counts := make(map[uint16]int)
+	first := make(map[uint16]inventoryItem)
+	order := make([]uint16, 0, len(items))
+	for _, it := range items {
+		if _, seen := counts[it.ID]; !seen {
+			order = append(order, it.ID)
+			first[it.ID] = it
+		}
+		counts[it.ID]++
+	}
+
+	// Clear prior contents and rebuild rows as [icon][name (xN)].
+	inventoryList.Contents = nil
+
+	iconSize := 24
+	for _, id := range order {
+		it := first[id]
+		qty := counts[id]
+
+		// Row container for icon + text
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+
+		// Icon
+		icon, _ := eui.NewImageItem(iconSize, iconSize)
+		icon.Filled = false
+		icon.Border = 0
+
+		// Choose a pict ID for the item sprite.
+		var pict uint32
+		loc := ""
+		if clImages != nil {
+			if p := clImages.ItemWornPict(uint32(id)); p != 0 {
+				pict = p
+				loc = "worn"
+			} else if p := clImages.ItemRightHandPict(uint32(id)); p != 0 {
+				pict = p
+				loc = "right"
+			} else if p := clImages.ItemLeftHandPict(uint32(id)); p != 0 {
+				pict = p
+				loc = "left"
+			}
+		}
+		if pict != 0 {
+			if img := loadImage(uint16(pict)); img != nil {
+				icon.Image = img
+				icon.ImageName = fmt.Sprintf("item:%d", id)
+			}
+		}
+		// Add a small right margin after the icon
+		icon.Margin = 4
+		row.AddItem(icon)
+
+		// Text label with quantity suffix when >1
+		label := it.Name
+		if label == "" && clImages != nil {
+			label = clImages.ItemName(uint32(id))
+		}
+		if label == "" {
+			label = fmt.Sprintf("Item %d", id)
+		}
+		if qty > 1 {
+			label = fmt.Sprintf("%s (x%d)", label, qty)
+		}
+		if loc != "" {
+			label = fmt.Sprintf("%s [%s]", label, loc)
+		}
+
+		t, _ := eui.NewText()
+		t.Text = "* " + label
+		t.FontSize = float32(gs.ConsoleFontSize)
+		row.AddItem(t)
+
+		// Give the row a reasonable height based on icon/text
+		row.Size.Y = float32(iconSize) + 4
+
+		inventoryList.AddItem(row)
+	}
+
+	// Size the list and refresh window similar to updateTextWindow behavior.
+	if inventoryWin != nil {
+		clientW := inventoryWin.GetSize().X
+		clientH := inventoryWin.GetSize().Y - inventoryWin.GetTitleSize()
+		if inventoryList.Parent != nil {
+			inventoryList.Parent.Size.X = clientW
+			inventoryList.Parent.Size.Y = clientH
+		}
+		inventoryList.Size.X = clientW
+		inventoryList.Size.Y = clientH
+		inventoryWin.Refresh()
+	}
 }

@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
-	"image/draw"
 	"math"
 	"regexp"
 	"strconv"
@@ -167,10 +166,9 @@ func init() {
 		if err != nil {
 			return
 		}
-		b := img.Bounds()
-		withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
-		draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
-		nightImg = newImageFromImage(withBorder)
+		// Use the decoded image directly without adding a border to avoid
+		// off-by-one sizing issues.
+		nightImg = newImageFromImage(img)
 	}
 }
 

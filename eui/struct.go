@@ -72,6 +72,11 @@ type windowData struct {
 
 	// RenderCount tracks how often the window has been drawn.
 	RenderCount int
+
+	// OnClose is an optional callback invoked when the window is closed,
+	// either by user action or programmatically. The callback runs before the
+	// window is removed from the active list.
+	OnClose func()
 }
 
 type itemData struct {

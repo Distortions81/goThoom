@@ -127,8 +127,7 @@ func Update() error {
 
 			if click && dragPart == PART_NONE && downWin == win {
 				if part == PART_CLOSE {
-					win.Open = false
-					//win.RemoveWindow()
+					win.Close()
 					continue
 				}
 				if part == PART_PIN {

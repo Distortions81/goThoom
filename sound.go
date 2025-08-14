@@ -24,6 +24,16 @@ var (
 	soundPlayers = make(map[*audio.Player]struct{})
 )
 
+// stopAllSounds halts and disposes all currently playing audio players.
+func stopAllSounds() {
+	soundMu.Lock()
+	defer soundMu.Unlock()
+	for sp := range soundPlayers {
+		_ = sp.Close()
+		delete(soundPlayers, sp)
+	}
+}
+
 // playSound mixes the provided sound IDs and plays the result asynchronously.
 // Each ID is loaded, mixed with simple clipping and then played at the current
 // global volume. The function returns immediately after scheduling playback.
