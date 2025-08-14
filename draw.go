@@ -850,7 +850,7 @@ func parseDrawState(data []byte) error {
 
 	state.pictures = newPics
 
-	needPrev := (gs.MotionSmoothing || gs.BlendMobiles) && ok
+	needPrev := ((gs.MotionSmoothing && !gs.noMobileSmoothing) || gs.BlendMobiles) && ok
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile)
@@ -860,7 +860,7 @@ func parseDrawState(data []byte) error {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := (gs.MotionSmoothing || (gs.BlendMobiles && changed)) && ok
+	needAnimUpdate := ((gs.MotionSmoothing && !gs.noMobileSmoothing) || (gs.BlendMobiles && changed)) && ok
 	if needAnimUpdate {
 		frameMu.Lock()
 		interval := frameInterval

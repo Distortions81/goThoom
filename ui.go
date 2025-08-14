@@ -1570,6 +1570,18 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(pictAgainCB)
+	noMobSmoothCB, noMobSmoothEvents := eui.NewCheckbox()
+	noMobSmoothCB.Text = "Don't smooth mobile motion"
+	noMobSmoothCB.Size = eui.Point{X: width, Y: 24}
+	noMobSmoothCB.Checked = gs.noMobileSmoothing
+	noMobSmoothCB.Tooltip = "Disable motion interpolation for mobiles"
+	noMobSmoothEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.noMobileSmoothing = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(noMobSmoothCB)
 	shiftSpriteCB, shiftSpriteEvents := eui.NewCheckbox()
 	shiftSpriteCB.Text = "Don't shift new sprites"
 	shiftSpriteCB.Size = eui.Point{X: width, Y: 24}
