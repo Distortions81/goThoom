@@ -55,9 +55,11 @@ const (
 	maxBubbles     = 128
 )
 
-var skipPictShift = map[uint16]struct{}{
-	3037: {},
-}
+// skipPictShift lists picture IDs that should be ignored when
+// calculating the common motion between frames. Historically this
+// excluded some background images, but older backgrounds still require
+// pictShift so the list is currently empty.
+var skipPictShift = map[uint16]struct{}{}
 
 func sortPictures(pics []framePicture) {
 	sort.Slice(pics, func(i, j int) bool {
