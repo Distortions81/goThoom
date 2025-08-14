@@ -384,9 +384,84 @@ func handleDrawState(m []byte) {
 	}
 }
 
+// handleInvCmdFull resets and rebuilds the inventory from a full list command.
+func handleInvCmdFull(data []byte) ([]byte, bool) {
+	if len(data) < 1 {
+		logError("inventory: full cmd missing count")
+		return nil, false
+	}
+	itemCount := int(data[0])
+	data = data[1:]
+	bytesNeeded := (itemCount+7)>>3 + itemCount*2
+	if len(data) < bytesNeeded {
+		logError("inventory: full cmd truncated")
+		return nil, false
+	}
+	equipBytes := (itemCount + 7) >> 3
+	equips := data[:equipBytes]
+	ids := make([]uint16, itemCount)
+	for i := 0; i < itemCount; i++ {
+		ids[i] = binary.BigEndian.Uint16(data[equipBytes+i*2:])
+	}
+	eq := make([]bool, itemCount)
+	for i := 0; i < itemCount; i++ {
+		if equips[i/8]&(1<<uint(i%8)) != 0 {
+			eq[i] = true
+		}
+	}
+	setFullInventory(ids, eq)
+	return data[bytesNeeded:], true
+}
+
+// handleInvCmdOther interprets add/delete/equip/name inventory commands.
+func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
+	base := cmd &^ kInvCmdIndex
+	if len(data) < 2 {
+		logError("inventory: cmd %x missing id", cmd)
+		return nil, false
+	}
+	id := binary.BigEndian.Uint16(data[:2])
+	data = data[2:]
+	idx := 0
+	if cmd&kInvCmdIndex != 0 {
+		if len(data) < 1 {
+			logError("inventory: cmd %x missing index", cmd)
+			return nil, false
+		}
+		idx = int(data[0])
+		data = data[1:]
+	}
+	var name string
+	if base == kInvCmdAdd || base == kInvCmdAddEquip || base == kInvCmdName {
+		nidx := bytes.IndexByte(data, 0)
+		if nidx < 0 {
+			logError("inventory: cmd %x missing name", cmd)
+			return nil, false
+		}
+		name = string(data[:nidx])
+		data = data[nidx+1:]
+	}
+	switch base {
+	case kInvCmdAdd:
+		addInventoryItem(id, idx, name, false)
+	case kInvCmdAddEquip:
+		addInventoryItem(id, idx, name, true)
+	case kInvCmdDelete:
+		removeInventoryItem(id, idx)
+	case kInvCmdEquip:
+		equipInventoryItem(id, idx, true)
+	case kInvCmdUnequip:
+		equipInventoryItem(id, idx, false)
+	case kInvCmdName:
+		renameInventoryItem(id, idx, name)
+	default:
+		logError("inventory: unknown command %x", cmd)
+	}
+	return data, true
+}
+
 // parseInventory walks the inventory command stream and returns the remaining
-// slice and success flag. The layout mirrors the old Mac client's
-// HandleInventory function.
+// slice and success flag.
 func parseInventory(data []byte) ([]byte, bool) {
 	if len(data) == 0 {
 		return data, true
@@ -408,112 +483,26 @@ func parseInventory(data []byte) ([]byte, bool) {
 	}
 
 	for i := 0; i < cmdCount; i++ {
-		if cmd&kInvCmdIndex != 0 && (cmd&^kInvCmdIndex == kInvCmdFull || cmd&^kInvCmdIndex == kInvCmdNone) {
-			if len(data) < 1 {
-				logError("inventory: missing index for cmd %x", cmd)
-				return nil, false
-			}
-			// consume the index and drop the flag
-			data = data[1:]
-			cmd &^= kInvCmdIndex
-			if cmd == kInvCmdNone {
-				// nothing else to do
-				if len(data) > 0 {
-					cmd = int(data[0])
-					data = data[1:]
-				}
-				continue
-			}
-		}
-
-		base := cmd &^ kInvCmdIndex
-		switch base {
+		switch cmd {
 		case kInvCmdFull:
-			if cmd&kInvCmdIndex != 0 {
-				if len(data) < 1 {
-					return nil, false
-				}
-				// consume index byte but ignore value
-				data = data[1:]
-			}
-			if len(data) < 1 {
-				logError("inventory: full cmd missing count")
+			var ok bool
+			data, ok = handleInvCmdFull(data)
+			if !ok {
 				return nil, false
 			}
-			itemCount := int(data[0])
-			data = data[1:]
-			bytesNeeded := (itemCount+7)>>3 + itemCount*2
-			if len(data) < bytesNeeded {
-				logError("inventory: full cmd truncated")
-				return nil, false
-			}
-			equipBytes := (itemCount + 7) >> 3
-			equips := data[:equipBytes]
-			ids := make([]uint16, itemCount)
-			for j := 0; j < itemCount; j++ {
-				ids[j] = binary.BigEndian.Uint16(data[equipBytes+j*2:])
-			}
-			eq := make([]bool, itemCount)
-			for j := 0; j < itemCount; j++ {
-				if equips[j/8]&(1<<uint(j%8)) != 0 {
-					eq[j] = true
-				}
-			}
-			setFullInventory(ids, eq)
-			data = data[bytesNeeded:]
 		case kInvCmdNone:
-			if cmd&kInvCmdIndex != 0 {
-				if len(data) < 1 {
-					return nil, false
-				}
-				// consume index byte but ignore value
-				data = data[1:]
-			}
-			// nothing else to do for kInvCmdNone
-		case kInvCmdAdd, kInvCmdAddEquip, kInvCmdDelete, kInvCmdEquip,
-			kInvCmdUnequip, kInvCmdName:
-			if len(data) < 2 {
-				logError("inventory: cmd %x missing id", cmd)
+			// nothing
+		case kInvCmdFull | kInvCmdIndex, kInvCmdNone | kInvCmdIndex:
+			if len(data) < 1 {
 				return nil, false
 			}
-			id := binary.BigEndian.Uint16(data[:2])
-			data = data[2:]
-			idx := 0
-			if cmd&kInvCmdIndex != 0 {
-				if len(data) < 1 {
-					logError("inventory: cmd %x missing index", cmd)
-					return nil, false
-				}
-				idx = int(data[0])
-				data = data[1:]
-			}
-			var name string
-			if base == kInvCmdAdd || base == kInvCmdAddEquip || base == kInvCmdName {
-				nidx := bytes.IndexByte(data, 0)
-				if nidx < 0 {
-					logError("inventory: cmd %x missing name", cmd)
-					return nil, false
-				}
-				name = string(data[:nidx])
-				data = data[nidx+1:]
-			}
-			switch base {
-			case kInvCmdAdd:
-				addInventoryItem(id, idx, name, false)
-			case kInvCmdAddEquip:
-				addInventoryItem(id, idx, name, true)
-			case kInvCmdDelete:
-				removeInventoryItem(id, idx)
-			case kInvCmdEquip:
-				equipInventoryItem(id, idx, true)
-			case kInvCmdUnequip:
-				equipInventoryItem(id, idx, false)
-			case kInvCmdName:
-				renameInventoryItem(id, idx, name)
-			}
+			data = data[1:]
 		default:
-			logError("inventory: unknown command %x (%d bytes left)", cmd, len(data))
-			return data, true
+			var ok bool
+			data, ok = handleInvCmdOther(cmd, data)
+			if !ok {
+				return nil, false
+			}
 		}
 		if len(data) > 0 {
 			cmd = int(data[0])
@@ -522,13 +511,14 @@ func parseInventory(data []byte) ([]byte, bool) {
 			cmd = kInvCmdNone
 		}
 	}
-	if cmd == kInvCmdNone|kInvCmdIndex {
+	switch cmd {
+	case kInvCmdNone:
+	case kInvCmdNone | kInvCmdIndex:
 		if len(data) < 1 {
 			return nil, false
 		}
-		// consume trailing index byte
 		data = data[1:]
-	} else if cmd != kInvCmdNone {
+	default:
 		logError("inventory: unexpected trailing cmd %d", cmd)
 	}
 	for len(data) > 0 && data[0] == 0 {
