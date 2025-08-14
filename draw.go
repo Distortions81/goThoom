@@ -752,6 +752,27 @@ func parseDrawState(data []byte) error {
 		state.picShiftX = 0
 		state.picShiftY = 0
 	}
+	if ok {
+		type picKey struct {
+			id   uint16
+			h, v int16
+		}
+		lookup := make(map[picKey]struct{}, len(newPics))
+		for _, p := range newPics {
+			lookup[picKey{p.PictID, p.H, p.V}] = struct{}{}
+		}
+		for _, p := range prevPics {
+			if p.Background {
+				key := picKey{p.PictID, p.H, p.V}
+				if _, found := lookup[key]; !found {
+					p.Again = true
+					newPics = append(newPics, p)
+					bgIdxs = append(bgIdxs, len(newPics)-1)
+					lookup[key] = struct{}{}
+				}
+			}
+		}
+	}
 	if !ok {
 		if pictCount+pictAgain == 0 {
 			prevPics = nil
