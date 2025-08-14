@@ -256,7 +256,7 @@ func captureDrawSnapshot() drawSnapshot {
 		state.bubbles = dedup
 		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
-	if gs.MotionSmoothing || gs.BlendMobiles {
+	if (gs.MotionSmoothing && !gs.noMobileSmoothing) || gs.BlendMobiles {
 		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
 		for idx, m := range state.prevMobiles {
 			snap.prevMobiles[idx] = m
@@ -824,7 +824,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 					}
 					hpos = float64(m.H)
 					vpos = float64(m.V)
-					if gs.MotionSmoothing {
+					if gs.MotionSmoothing && !gs.noMobileSmoothing {
 						if pm, ok := snap.prevMobiles[b.Index]; ok {
 							dh := int(m.H) - int(pm.H) - snap.picShiftX
 							dv := int(m.V) - int(pm.V) - snap.picShiftY
@@ -863,7 +863,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32) {
 	h := float64(m.H)
 	v := float64(m.V)
-	if gs.MotionSmoothing {
+	if gs.MotionSmoothing && !gs.noMobileSmoothing {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			dh := int(m.H) - int(pm.H) - shiftX
 			dv := int(m.V) - int(pm.V) - shiftY
