@@ -956,10 +956,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scale := gsScale
 		scaled := math.Round(float64(drawSize) * scale)
 		scale = scaled / float64(drawSize)
-		half := int(scaled / 2)
-		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
-			return
-		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(scale, scale)
 		tx := math.Round(float64(x) - scaled/2)
@@ -1015,11 +1011,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			text.Draw(screen, lbl, mainFont, op)
 		}
 	} else {
-		half := int(3 * gsScale)
-		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
-			return
-		}
-		vector.DrawFilledRect(screen, float32(float64(x)-3*gsScale), float32(float64(y)-3*gsScale), float32(6*gsScale), float32(6*gsScale), color.RGBA{0xff, 0, 0, 0xff}, false)
+		vector.DrawFilledRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
@@ -1077,19 +1069,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	x += ox
 	y += oy
 
-	pfW := int(math.Round(float64(gameAreaSizeX) * gsScale))
-	pfH := int(math.Round(float64(gameAreaSizeY) * gsScale))
-	left, top := ox, oy
-	right, bottom := ox+pfW, oy+pfH
-
-	scaledW := int(math.Round(float64(w) * gsScale))
-	scaledH := int(math.Round(float64(h) * gsScale))
-	halfW := scaledW / 2
-	halfH := scaledH / 2
-	if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
-		return
-	}
-
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
 	var prevFrame int
@@ -1136,11 +1115,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		scaledH := math.Round(float64(drawH) * sy)
 		sx = scaledW / float64(drawW)
 		sy = scaledH / float64(drawH)
-		halfW := int(scaledW / 2)
-		halfH := int(scaledH / 2)
-		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
-			return
-		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(sx, sy)
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
@@ -1174,10 +1148,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 	} else {
-		half := int(2 * gsScale)
-		if x+half <= left || y+half <= top || x-half >= right || y-half >= bottom {
-			return
-		}
+		half := int(2 * gs.GameScale)
 		clr := color.RGBA{0, 0, 0xff, 0xff}
 		if gs.smoothingDebug && p.Moving {
 			clr = color.RGBA{0xff, 0, 0, 0xff}

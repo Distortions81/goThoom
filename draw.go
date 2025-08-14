@@ -753,9 +753,26 @@ func parseDrawState(data []byte) error {
 		state.picShiftY = 0
 	}
 	if !ok {
-		prevPics = nil
-		again = 0
-		newPics = append([]framePicture(nil), pics...)
+		if pictCount+pictAgain == 0 {
+			prevPics = nil
+			again = 0
+			newPics = nil
+		} else {
+			bgPics := make([]framePicture, 0, len(prevPics))
+			for _, p := range prevPics {
+				if p.Background {
+					p.Again = true
+					bgPics = append(bgPics, p)
+				}
+			}
+			prevPics = bgPics
+			again = len(bgPics)
+			newPics = append(append([]framePicture(nil), bgPics...), pics...)
+			bgIdxs = make([]int, len(bgPics))
+			for i := range bgPics {
+				bgIdxs[i] = i
+			}
+		}
 		state.prevDescs = nil
 		state.prevMobiles = nil
 		state.prevTime = time.Time{}
