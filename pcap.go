@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -49,6 +50,8 @@ func replayPCAP(ctx context.Context, path string) error {
 	pool := tcpassembly.NewStreamPool(factory)
 	assembler := tcpassembly.NewAssembler(pool)
 
+	var prevTS time.Time
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -63,6 +66,14 @@ func replayPCAP(ctx context.Context, path string) error {
 		if err != nil {
 			return err
 		}
+
+		ts := pkt.Metadata().CaptureInfo.Timestamp
+		if !prevTS.IsZero() {
+			if d := ts.Sub(prevTS); d > 0 {
+				time.Sleep(d)
+			}
+		}
+
 		net := pkt.NetworkLayer()
 		if net == nil {
 			continue
@@ -75,8 +86,10 @@ func replayPCAP(ctx context.Context, path string) error {
 		case *layers.UDP:
 			handlePayload(t.Payload)
 		case *layers.TCP:
-			assembler.AssembleWithTimestamp(net.NetworkFlow(), t, pkt.Metadata().CaptureInfo.Timestamp)
+			assembler.AssembleWithTimestamp(net.NetworkFlow(), t, ts)
 		}
+
+		prevTS = ts
 	}
 	assembler.FlushAll()
 	return nil
