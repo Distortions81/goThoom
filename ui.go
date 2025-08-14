@@ -1798,6 +1798,7 @@ func makeInventoryWindow() {
 	inventoryWin.AddItem(title)
 	inventoryWin.AddItem(inventoryList)
 	inventoryWin.AddWindow(false)
+	updateInventoryWindow()
 }
 
 func makePlayersWindow() {
