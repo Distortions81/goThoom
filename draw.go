@@ -475,6 +475,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 	cmdCount := 1
 	if cmd == kInvCmdMultiple {
 		if len(data) < 2 {
+			logDebug("inventory: truncated multiple cmd cmdCount=%d cmd=%#x rem=% x", cmdCount, cmd, data)
 			return nil, false
 		}
 		cmdCount = int(data[0])
@@ -486,21 +487,26 @@ func parseInventory(data []byte) ([]byte, bool) {
 		switch cmd {
 		case kInvCmdFull:
 			var ok bool
+			before := data
 			data, ok = handleInvCmdFull(data)
 			if !ok {
+				logDebug("inventory: cmd %#x failed at %d/%d rem=% x", cmd, i+1, cmdCount, before)
 				return nil, false
 			}
 		case kInvCmdNone:
 			// nothing
 		case kInvCmdFull | kInvCmdIndex, kInvCmdNone | kInvCmdIndex:
 			if len(data) < 1 {
+				logDebug("inventory: cmd %#x truncated at %d/%d rem=% x", cmd, i+1, cmdCount, data)
 				return nil, false
 			}
 			data = data[1:]
 		default:
 			var ok bool
+			before := data
 			data, ok = handleInvCmdOther(cmd, data)
 			if !ok {
+				logDebug("inventory: cmd %#x failed at %d/%d rem=% x", cmd, i+1, cmdCount, before)
 				return nil, false
 			}
 		}
@@ -519,6 +525,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 	case kInvCmdNone:
 	case kInvCmdNone | kInvCmdIndex:
 		if len(data) < 1 {
+			logDebug("inventory: trailing cmd %#x truncated cmdCount=%d rem=% x", cmd, cmdCount, data)
 			return nil, false
 		}
 		data = data[1:]
