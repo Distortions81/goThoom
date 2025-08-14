@@ -19,11 +19,11 @@ func makeInventoryWindow() {
 }
 
 func updateInventoryWindow() {
-	invstr := []string{"Test item"}
+    invstr := []string{}
 
 	items := getInventory()
 	for _, item := range items {
 		invstr = append(invstr, "* "+item.Name)
 	}
-	updateTextWindow(inventoryWin, inventoryList, nil, invstr, gs.ConsoleFontSize, "")
+    updateTextWindow(inventoryWin, inventoryList, nil, invstr, gs.ConsoleFontSize, "")
 }
