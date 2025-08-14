@@ -10,7 +10,8 @@ type inventoryItem struct {
 	ID       uint16
 	Name     string
 	Equipped bool
-	Index    int
+	Index    int // display order (global)
+	IDIndex  int // per-ID index used by server (0-based)
 	Quantity int
 }
 
@@ -35,25 +36,33 @@ func resetInventory() {
 
 func addInventoryItem(id uint16, idx int, name string, equip bool) {
 	inventoryMu.Lock()
-	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
-		inventoryItems[idx].Quantity++
+	if idx >= 0 {
+		// Template item with explicit per-ID index; insert a new entry and renumber
+		// existing items of the same ID whose IDIndex >= idx.
+		for i := range inventoryItems {
+			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex >= idx {
+				inventoryItems[i].IDIndex++
+			}
+		}
+		// Append as a distinct instance; keep display order by placing at end
+		item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: len(inventoryItems), IDIndex: idx, Quantity: 1}
+		inventoryItems = append(inventoryItems, item)
 	} else {
+		// Legacy/non-template: coalesce by ID and bump quantity
 		found := false
 		for i := range inventoryItems {
-			if inventoryItems[i].ID == id {
+			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex < 0 {
 				inventoryItems[i].Quantity++
+				if equip {
+					inventoryItems[i].Equipped = true
+				}
 				found = true
 				break
 			}
 		}
 		if !found {
-			if idx < 0 || idx > len(inventoryItems) {
-				idx = len(inventoryItems)
-			}
-			item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: idx, Quantity: 1}
-			inventoryItems = append(inventoryItems, inventoryItem{})
-			copy(inventoryItems[idx+1:], inventoryItems[idx:])
-			inventoryItems[idx] = item
+			item := inventoryItem{ID: id, Name: name, Equipped: equip, Index: len(inventoryItems), IDIndex: -1, Quantity: 1}
+			inventoryItems = append(inventoryItems, item)
 		}
 	}
 	inventoryNames = make(map[inventoryKey]string)
@@ -63,6 +72,18 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 			inventoryNames[inventoryKey{ID: inventoryItems[i].ID, Index: uint16(i)}] = inventoryItems[i].Name
 		}
 	}
+	// If this item was equipped, clear any other equipped items occupying the
+	// same slot (e.g., hands, head). Mirrors BumpItemsFromSlot in the reference client.
+	if equip && clImages != nil {
+		slot := clImages.ItemSlot(uint32(id))
+		for i := range inventoryItems {
+			if inventoryItems[i].Equipped && (inventoryItems[i].ID != id || i != idx) {
+				if clImages.ItemSlot(uint32(inventoryItems[i].ID)) == slot {
+					inventoryItems[i].Equipped = false
+				}
+			}
+		}
+	}
 	inventoryMu.Unlock()
 	inventoryDirty = true
 }
@@ -70,16 +91,28 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 func removeInventoryItem(id uint16, idx int) {
 	inventoryMu.Lock()
 	removed := false
-	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
-		if inventoryItems[idx].Quantity > 1 {
-			inventoryItems[idx].Quantity--
-		} else {
-			inventoryItems = append(inventoryItems[:idx], inventoryItems[idx+1:]...)
+	if idx >= 0 {
+		// Remove by per-ID index
+		pos := -1
+		for i, it := range inventoryItems {
+			if it.ID == id && it.IDIndex == idx {
+				pos = i
+				break
+			}
+		}
+		if pos >= 0 {
+			// Remove and renumber subsequent per-ID indices
+			inventoryItems = append(inventoryItems[:pos], inventoryItems[pos+1:]...)
+			for i := range inventoryItems {
+				if inventoryItems[i].ID == id && inventoryItems[i].IDIndex > idx {
+					inventoryItems[i].IDIndex--
+				}
+			}
 			removed = true
 		}
 	} else {
 		for i, it := range inventoryItems {
-			if it.ID == id {
+			if it.ID == id && it.IDIndex < 0 {
 				if it.Quantity > 1 {
 					inventoryItems[i].Quantity--
 				} else {
@@ -101,13 +134,35 @@ func removeInventoryItem(id uint16, idx int) {
 
 func equipInventoryItem(id uint16, idx int, equip bool) {
 	inventoryMu.Lock()
-	if idx >= 0 && idx < len(inventoryItems) && inventoryItems[idx].ID == id {
-		inventoryItems[idx].Equipped = equip
+	// Find target by per-ID index when provided; otherwise first by ID.
+	target := -1
+	if idx >= 0 {
+		for i := range inventoryItems {
+			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex == idx {
+				target = i
+				break
+			}
+		}
 	} else {
 		for i := range inventoryItems {
 			if inventoryItems[i].ID == id {
-				inventoryItems[i].Equipped = equip
+				target = i
 				break
+			}
+		}
+	}
+	if target >= 0 {
+		inventoryItems[target].Equipped = equip
+	}
+	// When equipping, make sure other items in the same slot are unequipped.
+	if equip && clImages != nil {
+		slot := clImages.ItemSlot(uint32(id))
+		for i := range inventoryItems {
+			if i == target {
+				continue
+			}
+			if inventoryItems[i].Equipped && clImages.ItemSlot(uint32(inventoryItems[i].ID)) == slot {
+				inventoryItems[i].Equipped = false
 			}
 		}
 	}
@@ -179,8 +234,10 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		if i < len(equipped) && equipped[i] {
 			equip = true
 		}
-		items = append(items, inventoryItem{ID: id, Name: name, Equipped: equip, Index: len(items), Quantity: 1})
-		seen[id] = len(items) - 1
+		// Assign per-ID index sequentially
+		idIdx := seen[id]
+		items = append(items, inventoryItem{ID: id, Name: name, Equipped: equip, Index: len(items), IDIndex: idIdx, Quantity: 1})
+		seen[id] = idIdx + 1
 	}
 	inventoryItems = items
 	inventoryNames = newNames

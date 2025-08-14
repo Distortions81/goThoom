@@ -31,10 +31,12 @@ func updateInventoryWindow() {
 		return
 	}
 
-	// Build a unique list of items by ID while counting duplicates.
+	// Build a unique list of items by ID while counting duplicates and tracking
+	// whether any instance of a given ID is equipped.
 	items := getInventory()
 	counts := make(map[uint16]int)
 	first := make(map[uint16]inventoryItem)
+	anyEquipped := make(map[uint16]bool)
 	order := make([]uint16, 0, len(items))
 	for _, it := range items {
 		if _, seen := counts[it.ID]; !seen {
@@ -42,6 +44,9 @@ func updateInventoryWindow() {
 			first[it.ID] = it
 		}
 		counts[it.ID]++
+		if it.Equipped {
+			anyEquipped[it.ID] = true
+		}
 	}
 
 	// Clear prior contents and rebuild rows as [icon][name (xN)].
@@ -78,9 +83,9 @@ func updateInventoryWindow() {
 			if p := clImages.ItemWornPict(uint32(id)); p != 0 {
 				pict = p
 			}
-			// Location label should be derived from the item's slot, and
-			// only shown when an instance is actually equipped.
-			if it.Equipped {
+			// Location label derived from slot, displayed only if any instance
+			// of this item ID is equipped.
+			if anyEquipped[id] {
 				switch clImages.ItemSlot(uint32(id)) {
 				case 14: // kItemSlotRightHand
 					loc = "right"
@@ -110,10 +115,10 @@ func updateInventoryWindow() {
 			label = fmt.Sprintf("Item %d", id)
 		}
 		if qty > 1 {
-			label = fmt.Sprintf("%s (x%d)", label, qty)
+			label = fmt.Sprintf("(%v) %v", qty, label)
 		}
 		if loc != "" {
-			label = fmt.Sprintf("%s [%s]", label, loc)
+			label = fmt.Sprintf("%v [%v]", label, loc)
 		}
 
 		t, _ := eui.NewText()

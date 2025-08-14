@@ -444,13 +444,14 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 	}
 	id := binary.BigEndian.Uint16(data[:2])
 	data = data[2:]
-	idx := 0
+	idx := -1
 	if cmd&kInvCmdIndex != 0 {
 		if len(data) < 1 {
 			logError("inventory: cmd %x missing index", cmd)
 			return nil, false
 		}
-		idx = int(data[0])
+		// Server sends 1-based index; convert to 0-based for local arrays.
+		idx = int(data[0]) - 1
 		data = data[1:]
 	}
 	var name string
