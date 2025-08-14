@@ -13,7 +13,7 @@ import (
 
 const defaultUpdateBase = "https://m45sci.xyz/downloads/clanlord"
 
-func downloadGZ(url, dest string) error {
+var downloadGZ = func(url, dest string) error {
 	consoleMessage(fmt.Sprintf("Downloading: %v...", url))
 
 	resp, err := http.Get(url)
