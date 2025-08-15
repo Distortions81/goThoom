@@ -45,9 +45,9 @@ func loadPlayersPersist() {
 	if len(pp.Players) == 0 {
 		return
 	}
-	playersMu.Lock()
 	for _, p := range pp.Players {
 		pr := getPlayer(p.Name)
+		playersMu.Lock()
 		pr.Gender = p.Gender
 		pr.Class = p.Class
 		pr.Clan = p.Clan
@@ -59,8 +59,8 @@ func loadPlayersPersist() {
 		pr.GMLevel = p.GMLevel
 		pr.FellWhere = p.FellWhere
 		pr.KillerName = p.KillerName
+		playersMu.Unlock()
 	}
-	playersMu.Unlock()
 	playersDirty = true
 }
 

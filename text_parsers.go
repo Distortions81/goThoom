@@ -65,8 +65,8 @@ func parseShareText(raw []byte, s string) bool {
 		off := bytes.Index(raw, []byte{0xC2, 'p', 'n'})
 		if off >= 0 {
 			for _, name := range parseNames(raw[off:]) {
-				playersMu.Lock()
 				p := getPlayer(name)
+				playersMu.Lock()
 				p.Sharee = true
 				playersMu.Unlock()
 			}
@@ -78,8 +78,8 @@ func parseShareText(raw []byte, s string) bool {
 		off := bytes.Index(raw, []byte{0xC2, 'p', 'n'})
 		if off >= 0 {
 			for _, name := range parseNames(raw[off:]) {
-				playersMu.Lock()
 				p := getPlayer(name)
+				playersMu.Lock()
 				p.Sharing = true
 				playersMu.Unlock()
 			}
@@ -102,8 +102,8 @@ func parseFallenText(raw []byte, s string) bool {
 		}
 		killer := firstTagContent(raw, 'm', 'n')
 		where := firstTagContent(raw, 'l', 'o')
-		playersMu.Lock()
 		p := getPlayer(name)
+		playersMu.Lock()
 		p.Dead = true
 		p.KillerName = killer
 		p.FellWhere = where
