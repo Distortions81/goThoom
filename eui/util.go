@@ -787,6 +787,9 @@ func (item *itemData) contentBounds() point {
 	var flowOffset point
 
 	for _, sub := range list {
+		if sub == nil {
+			continue
+		}
 		off := pointAdd(base, sub.GetPos())
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
@@ -860,6 +863,9 @@ func (item *itemData) resizeFlow(parentSize point) {
 		list = item.Contents
 	}
 	for _, sub := range list {
+		if sub == nil {
+			continue
+		}
 		sub.resizeFlow(available)
 	}
 
