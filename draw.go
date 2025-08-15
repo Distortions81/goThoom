@@ -263,6 +263,35 @@ func pictureOnEdge(p framePicture) bool {
 	return false
 }
 
+// pictureAcrossEdge reports whether the given picture's bounding box spans
+// across the edge of the visible game field, i.e., it is partly inside and
+// partly outside the viewable area.
+func pictureAcrossEdge(p framePicture) bool {
+	if clImages == nil {
+		return false
+	}
+	w, h := clImages.Size(uint32(p.PictID))
+	halfW := w / 2
+	halfH := h / 2
+	left := int(p.H) - halfW
+	right := int(p.H) + halfW
+	top := int(p.V) - halfH
+	bottom := int(p.V) + halfH
+	if left < -fieldCenterX && right > -fieldCenterX {
+		return true
+	}
+	if left < fieldCenterX && right > fieldCenterX {
+		return true
+	}
+	if top < -fieldCenterY && bottom > -fieldCenterY {
+		return true
+	}
+	if top < fieldCenterY && bottom > fieldCenterY {
+		return true
+	}
+	return false
+}
+
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
 // between two consecutive frames. Pictures are matched by PictID (duplicates
 // included) and weighted by their non-transparent pixel counts. The returned
@@ -882,6 +911,27 @@ func parseDrawState(data []byte) error {
 			newPics[idx].Moving = false
 			newPics[idx].Background = true
 		}
+	}
+
+	for _, pp := range prevPics {
+		if pp.Owned || !pp.Background || pp.Moving {
+			continue
+		}
+		np := framePicture{
+			PictID:     pp.PictID,
+			H:          int16(int(pp.H) + state.picShiftX),
+			V:          int16(int(pp.V) + state.picShiftY),
+			PrevH:      pp.H,
+			PrevV:      pp.V,
+			Plane:      pp.Plane,
+			Moving:     false,
+			Background: true,
+			Again:      false,
+		}
+		if !pictureAcrossEdge(np) {
+			continue
+		}
+		newPics = append(newPics, np)
 	}
 
 	state.pictures = newPics
