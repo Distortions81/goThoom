@@ -47,8 +47,23 @@ var downloadGZ = func(url, dest string) error {
 		}
 		return err
 	}
-	// Set up compressed byte counter for progress percentage.
+	// Inform UI that we are connected and initialize progress.
+	if downloadStatus != nil {
+		// Show a succinct state transition so "Connecting" doesn't linger.
+		host := resp.Request.URL.Host
+		humanTotal := "unknown"
+		if resp.ContentLength > 0 {
+			humanTotal = humanize.Bytes(uint64(resp.ContentLength))
+		}
+		downloadStatus(fmt.Sprintf("Connected to %s — starting download (%s)", host, humanTotal))
+	}
+
+	// Set up compressed byte counter for progress percentage and speed/ETA.
 	pc := &progCounter{name: filepath.Base(dest), size: resp.ContentLength}
+	// Kick the UI once so it can switch the bar from idle to active.
+	if downloadProgress != nil {
+		downloadProgress(pc.name, 0, pc.size)
+	}
 	body := io.TeeReader(resp.Body, pc)
 	gz, err := gzip.NewReader(body)
 	if err != nil {
@@ -74,10 +89,9 @@ var downloadGZ = func(url, dest string) error {
 			os.Remove(tmp)
 		}
 	}()
-	// Track progress while decompressing and writing to disk.
-	sw := &statusWriter{name: filepath.Base(dest)}
-	// Copy while counting bytes to update UI status (decompressed size).
-	if _, err := io.Copy(f, readerWithProgress{r: gz, w: sw}); err != nil {
+	// Copy the payload to disk while the progCounter (on the compressed stream)
+	// drives progress updates.
+	if _, err := io.Copy(f, gz); err != nil {
 		f.Close()
 		logError("copy %v: %v", tmp, err)
 		if downloadStatus != nil {
@@ -102,49 +116,6 @@ var downloadGZ = func(url, dest string) error {
 	}
 	removeTmp = false
 	return nil
-}
-
-// readerWithProgress forwards reads and triggers writer progress updates.
-// It exists to ensure periodic UI updates even if the underlying gzip reader
-// yields large chunks infrequently.
-type readerWithProgress struct {
-	r io.Reader
-	w *statusWriter
-}
-
-func (rp readerWithProgress) Read(p []byte) (int, error) {
-	n, err := rp.r.Read(p)
-	if n > 0 {
-		// Push through the status writer without duplicating data on disk.
-		// We only care about counting; the actual disk write is handled by mw.
-		rp.w.count(int64(n))
-	}
-	return n, err
-}
-
-// statusWriter implements counting + throttled status updates.
-type statusWriter struct {
-	last  time.Time
-	total int64
-	name  string
-}
-
-// Count-only; used by readerWithProgress to update bytes without duplicate writes.
-func (sw *statusWriter) count(n int64) {
-	sw.total += n
-	if time.Since(sw.last) >= 200*time.Millisecond {
-		if downloadStatus != nil {
-			downloadStatus(fmt.Sprintf("Downloading %s: %s", sw.name, humanize.Bytes(uint64(sw.total))))
-		}
-		sw.last = time.Now()
-	}
-}
-
-// Write satisfies io.Writer; used with io.MultiWriter to catch bytes written.
-func (sw *statusWriter) Write(p []byte) (int, error) {
-	n := len(p)
-	sw.count(int64(n))
-	return n, nil
 }
 
 // progCounter tracks compressed bytes for progress percentage.

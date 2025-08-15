@@ -321,6 +321,9 @@ func makeDownloadsWindow() {
 		// Clear initial descriptive text once download actually begins
 		statusText.Text = s
 		statusText.Dirty = true
+		if downloadWin != nil {
+			downloadWin.Refresh()
+		}
 	}
 	downloadProgress = func(name string, read, total int64) {
 		if dlStart.IsZero() || name != currentName {
@@ -375,6 +378,9 @@ func makeDownloadsWindow() {
 			etaStr,
 		)
 		statusText.Dirty = true
+		if downloadWin != nil {
+			downloadWin.Refresh()
+		}
 	}
 
 	t, _ := eui.NewText()
@@ -396,23 +402,6 @@ func makeDownloadsWindow() {
 	z.FontSize = 15
 	z.Size = eui.Point{X: 320, Y: 25}
 	flow.AddItem(z)
-
-	// Show the exact URLs that will be fetched
-	urls := plannedDownloadURLs(clientVersion, status)
-	if len(urls) > 0 {
-		ut, _ := eui.NewText()
-		ut.Text = "Download URLs:"
-		ut.FontSize = 15
-		ut.Size = eui.Point{X: 320, Y: 25}
-		flow.AddItem(ut)
-		for _, u := range urls {
-			utx, _ := eui.NewText()
-			utx.Text = u
-			utx.FontSize = 13
-			utx.Size = eui.Point{X: 720, Y: 20}
-			flow.AddItem(utx)
-		}
-	}
 
 	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	dlBtn, dlEvents := eui.NewButton()
