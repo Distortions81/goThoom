@@ -57,7 +57,10 @@ func updatePlayersWindow() {
 	}
 
 	// Determine row height from font metrics (ascent+descent).
-	fontSize := gs.ConsoleFontSize
+	fontSize := gs.PlayersFontSize
+	if fontSize <= 0 {
+		fontSize = gs.ConsoleFontSize
+	}
 	ui := eui.UIScale()
 	facePx := float64(float32(fontSize) * ui)
 	var goFace *text.GoTextFace
@@ -70,7 +73,7 @@ func updatePlayersWindow() {
 	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
 	rowUnits := float32(linePx) / ui
 
-	// Rebuild contents: header + one row per player.
+	// Rebuild contents: header + one row per player (with gender icon).
 	playersList.Contents = nil
 
 	header := fmt.Sprintf("Players Online: %d", len(exiles))
@@ -103,11 +106,46 @@ func updatePlayersWindow() {
 		if len(tags) > 0 {
 			name = fmt.Sprintf("%s [%s]", name, strings.Join(tags, "+"))
 		}
+
+		// Build row flow: [professionIcon?] [genderIcon] [name]
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+
+		// Icon sized to row height, with a small right margin.
+		iconSize := int(rowUnits + 0.5)
+
+		// Try profession sprite first if available from CL_Images.
+		if pid := professionPictID(p.Class); pid != 0 {
+			profItem, _ := eui.NewImageItem(iconSize, iconSize)
+			profItem.Margin = 4
+			profItem.Border = 0
+			profItem.Filled = false
+			if img := loadImage(pid); img != nil {
+				profItem.Image = img
+				profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
+				row.AddItem(profItem)
+			}
+		}
+
+		// Gender icon (vector), always available.
+		genItem, _ := eui.NewImageItem(iconSize, iconSize)
+		genItem.Margin = 4
+		genItem.Border = 0
+		genItem.Filled = false
+		gen := genderFromString(p.Gender)
+		genItem.Image = getGenderIcon(gen, iconSize)
+		row.AddItem(genItem)
+
+		// Name text constrained to the row height.
 		t, _ := eui.NewText()
 		t.Text = name
 		t.FontSize = float32(fontSize)
-		t.Size = eui.Point{X: clientWAvail, Y: rowUnits}
-		playersList.AddItem(t)
+		// Reserve space for up to two icons + margins when sizing the text.
+		t.Size = eui.Point{X: clientWAvail - float32(iconSize*2) - 8, Y: rowUnits}
+		row.AddItem(t)
+
+		// Ensure the row's height matches the content.
+		row.Size.Y = rowUnits
+		playersList.AddItem(row)
 	}
 
 	// Size flows to client area like other text windows.

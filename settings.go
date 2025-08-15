@@ -25,6 +25,7 @@ var gsdef settings = settings{
 	ConsoleFontSize:   12,
 	ChatFontSize:      14,
 	InventoryFontSize: 18,
+	PlayersFontSize:   12,
 	BubbleOpacity:     0.7,
 	NameBgOpacity:     0.7,
 	SpeechBubbles:     true,
@@ -88,6 +89,7 @@ type settings struct {
 	ConsoleFontSize   float64
 	ChatFontSize      float64
 	InventoryFontSize float64
+	PlayersFontSize   float64
 	BubbleOpacity     float64
 	NameBgOpacity     float64
 	SpeechBubbles     bool

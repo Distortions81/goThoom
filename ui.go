@@ -1175,6 +1175,30 @@ func makeSettingsWindow() {
 	}
 	mainFlow.AddItem(invFontSlider)
 
+	// Players list font size slider
+	plFontSlider, plFontEvents := eui.NewSlider()
+	plFontSlider.Label = "Players List Font Size"
+	plFontSlider.MinValue = 6
+	plFontSlider.MaxValue = 24
+	plFontSlider.Value = func() float32 {
+		if gs.PlayersFontSize > 0 {
+			return float32(gs.PlayersFontSize)
+		}
+		return float32(gs.ConsoleFontSize)
+	}()
+	plFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	plFontEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.PlayersFontSize = float64(ev.Value)
+			settingsDirty = true
+			updatePlayersWindow()
+			if playersWin != nil {
+				playersWin.Refresh()
+			}
+		}
+	}
+	mainFlow.AddItem(plFontSlider)
+
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
 	consoleFontSlider.Label = "Console Font Size"
 	consoleFontSlider.MinValue = 6
@@ -1655,7 +1679,7 @@ func makeQualityWindow() {
 	noSmoothCB = nsCB
 	noSmoothCB.Text = "Smooth moving objects,glitchy WIP"
 	noSmoothCB.Size = eui.Point{X: width, Y: 24}
-	noSmoothCB.Checked = !gs.smoothMoving
+	noSmoothCB.Checked = gs.smoothMoving
 	noSmoothCB.Tooltip = "Smooth moving objects that are not 'mobiles' such as chains, clouds, etc"
 	noSmoothEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {

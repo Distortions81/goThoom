@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 )
 
@@ -98,25 +99,57 @@ func parseBackendShare(data []byte) {
 
 // parseBackendWho parses "be-wh" messages listing players.
 func parseBackendWho(data []byte) {
+	batchCount := 0
+	newCount := 0
 	for len(data) > 0 {
 		if len(data) < 3 || data[0] != 0xC2 || data[1] != 'p' || data[2] != 'n' {
-			return
+			break
 		}
 		data = data[3:]
 		end := bytes.Index(data, []byte{0xC2, 'p', 'n'})
 		if end < 0 {
-			return
+			break
 		}
 		name := strings.TrimSpace(decodeMacRoman(data[:end]))
-		getPlayer(name)
-		data = data[end+3:]
-		idx := bytes.IndexByte(data, '\t')
-		if idx < 0 {
-			return
+		// After name, expect: ',' <real-name> ',' <gmlevel> '\t'
+		seg := data[end+3:]
+		tab := bytes.IndexByte(seg, '\t')
+		if tab < 0 {
+			break
 		}
-		data = data[idx+1:]
+		meta := seg[:tab] // leading comma-realname-comma-gm
+		gm := 0
+		if c1 := bytes.IndexByte(meta, ','); c1 >= 0 {
+			if c2 := bytes.IndexByte(meta[c1+1:], ','); c2 >= 0 {
+				gmStr := strings.TrimSpace(decodeMacRoman(meta[c1+1+c2+1:]))
+				if gmv, err := strconv.Atoi(gmStr); err == nil {
+					gm = gmv
+				}
+			}
+		}
+		// Advance to after tab for next entry
+		data = seg[tab+1:]
+
+		// Update player record and enqueue info request if needed.
+		playersMu.Lock()
+		p, ok := players[name]
+		if !ok {
+			p = &Player{Name: name}
+			players[name] = p
+			newCount++
+		}
+		if gm >= 0 {
+			p.GMLevel = gm
+		}
+		playersMu.Unlock()
+		queueInfoRequest(name)
+		batchCount++
 	}
-	playersDirty = true
+	if batchCount > 0 {
+		playersDirty = true
+	}
+	// Consider requesting another who batch if this looks like a partial page
+	considerNextWhoBatch(batchCount, newCount)
 }
 
 // parseNames extracts a slice of names from a sequence of "-pn name -pn" entries.
