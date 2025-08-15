@@ -80,6 +80,10 @@ var (
 	potatoCB        *eui.ItemData
 )
 
+// lastWhoRequest tracks the last time we requested a backend who list so we
+// can avoid spamming the server when the Players window is toggled rapidly.
+var lastWhoRequest time.Time
+
 func init() {
 	eui.WindowStateChanged = func() {
 		// Keep the Windows window's checkboxes in sync
@@ -101,6 +105,16 @@ func init() {
 		}
 		if windowsWin != nil {
 			windowsWin.Refresh()
+		}
+
+		// If the Players window just opened (or is open) and it's been a few
+		// seconds since our last request, trigger a backend who scan so the
+		// list includes everyone online, not just nearby mobiles.
+		if playersWin != nil && playersWin.IsOpen() {
+			if time.Since(lastWhoRequest) > 5*time.Second {
+				pendingCommand = "/be-who"
+				lastWhoRequest = time.Now()
+			}
 		}
 	}
 }
@@ -2255,24 +2269,19 @@ func makePlayersWindow() {
 	if playersWin != nil {
 		return
 	}
-	playersWin = eui.NewWindow()
-	playersWin.Title = "Players"
+	// Use the common text window scaffold to get an inner scrollable list
+	// and consistent padding/behavior with Inventory/Chat windows.
+	playersWin, playersList, _ = makeTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)
+	// Restore saved geometry if present, otherwise keep defaults from helper.
 	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
 		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
-	} else {
-		playersWin.Size = eui.Point{X: 410, Y: 600}
 	}
-	playersWin.Closable = true
-	playersWin.Resizable = true
-	playersWin.Movable = true
-	playersWin.SetZone(eui.HZoneRight, eui.VZoneTop)
 	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
 		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}
 	}
-
-	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	playersWin.AddItem(playersList)
-	playersWin.AddWindow(false)
+	// Refresh contents on resize so word-wrapping and row sizing stay correct.
+	playersWin.OnResize = func() { updatePlayersWindow() }
+	updatePlayersWindow()
 }
 
 func makeHelpWindow() {

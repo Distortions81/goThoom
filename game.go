@@ -382,6 +382,11 @@ func (g *Game) Update() error {
 		inventoryDirty = false
 	}
 
+	if playersDirty {
+		updatePlayersWindow()
+		playersDirty = false
+	}
+
 	if syncWindowSettings() {
 		settingsDirty = true
 	}
@@ -1457,7 +1462,8 @@ func initGame() {
 	loadSettings()
 	theme := gs.Theme
 	if theme == "" {
-		if darkMode, err := dark.IsDarkMode(); err == nil {
+		darkMode, err := dark.IsDarkMode()
+		if err == nil {
 			if darkMode {
 				theme = "AccentDark"
 			} else {

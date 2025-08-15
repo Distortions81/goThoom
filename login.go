@@ -19,21 +19,21 @@ var (
 )
 
 func handleDisconnect() {
-    loginMu.Lock()
-    if loginCancel == nil {
-        loginMu.Unlock()
-        return
-    }
-    cancel := loginCancel
-    loginCancel = nil
-    loginMu.Unlock()
+	loginMu.Lock()
+	if loginCancel == nil {
+		loginMu.Unlock()
+		return
+	}
+	cancel := loginCancel
+	loginCancel = nil
+	loginMu.Unlock()
 
-    cancel()
-    // Reset session sources so we return to splash state
-    clmov = ""
-    pcapPath = ""
-    consoleMessage("Disconnected from server.")
-    loginWin.MarkOpen()
+	cancel()
+	// Reset session sources so we return to splash state
+	clmov = ""
+	pcapPath = ""
+	consoleMessage("Disconnected from server.")
+	loginWin.MarkOpen()
 }
 
 const CL_ImagesFile = "CL_Images"
