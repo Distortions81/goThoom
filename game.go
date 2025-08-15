@@ -115,10 +115,12 @@ var gameCtx context.Context
 var frameCounter int
 var gameStarted = make(chan struct{})
 
+const framems = 200
+
 var (
 	frameCh       = make(chan struct{}, 1)
 	lastFrameTime time.Time
-	frameInterval = 200 * time.Millisecond
+	frameInterval = framems * time.Millisecond
 	intervalHist  = map[int]int{}
 	frameMu       sync.Mutex
 	serverFPS     float64
@@ -162,7 +164,11 @@ var (
 	stateMu      sync.Mutex
 )
 
-// bubble stores temporary bubble debug information.
+// bubble stores temporary chat bubble information. Bubbles expire after a
+// fixed number of game update frames from when they were created — no FPS
+// correction or wall-clock timing is applied to keep playback simple.
+const bubbleLifeFrames = (1000 / framems) * 4 // ~4s
+
 type bubble struct {
 	Index        uint8
 	H, V         int16
@@ -171,7 +177,6 @@ type bubble struct {
 	Text         string
 	Type         int
 	CreatedFrame int
-	LifeFrames   int
 }
 
 // drawSnapshot is a read-only copy of the current draw state.
@@ -235,7 +240,7 @@ func captureDrawSnapshot() drawSnapshot {
 		curFrame := frameCounter
 		kept := state.bubbles[:0]
 		for _, b := range state.bubbles {
-			if (curFrame - b.CreatedFrame) < b.LifeFrames {
+			if (curFrame - b.CreatedFrame) < bubbleLifeFrames {
 				if !b.Far {
 					if m, ok := state.mobiles[b.Index]; ok {
 						b.H, b.V = m.H, m.V
