@@ -1,6 +1,11 @@
 package main
 
-import "gothoom/eui"
+import (
+	"strings"
+
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"gothoom/eui"
+)
 
 // makeTextWindow creates a standardized text window with optional input bar.
 func makeTextWindow(title string, hz eui.HZone, vz eui.VZone, withInput bool) (*eui.WindowData, *eui.ItemData, *eui.ItemData) {
@@ -56,22 +61,41 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	}
 
 	// Compute a row height that matches the rendered text height at the
-	// current UI scale to avoid clipping.
+	// current UI scale to avoid clipping. rowUnits is height in item units.
 	ui := eui.UIScale()
 	rowUnits := (float32(fontSize)*ui + 4) / ui
 
+	// Prepare wrapping parameters: face at pixel size and wrap width in pixels.
+	facePx := float64(float32(fontSize)*ui + 2)
+	var face text.Face
+	if src := eui.FontSource(); src != nil {
+		face = &text.GoTextFace{Source: src, Size: facePx}
+	} else {
+		face = &text.GoTextFace{Size: facePx}
+	}
+	// list.Size.X is in item units; convert to pixels for measurement.
+	wrapWidthPx := float64(list.Size.X * ui)
+
 	for i, msg := range msgs {
+		// Word-wrap the message to the available width.
+		_, lines := wrapText(msg, face, wrapWidthPx)
+		wrapped := strings.Join(lines, "\n")
+		linesN := len(lines)
+		if linesN < 1 {
+			linesN = 1
+		}
 		if i < len(list.Contents) {
-			if list.Contents[i].Text != msg || list.Contents[i].FontSize != float32(fontSize) {
-				list.Contents[i].Text = msg
+			if list.Contents[i].Text != wrapped || list.Contents[i].FontSize != float32(fontSize) {
+				list.Contents[i].Text = wrapped
 				list.Contents[i].FontSize = float32(fontSize)
 			}
-			list.Contents[i].Size.Y = rowUnits
+			list.Contents[i].Size.Y = rowUnits * float32(linesN)
+			list.Contents[i].Size.X = clientWAvail
 		} else {
 			t, _ := eui.NewText()
-			t.Text = msg
+			t.Text = wrapped
 			t.FontSize = float32(fontSize)
-			t.Size = eui.Point{X: 1000, Y: rowUnits}
+			t.Size = eui.Point{X: clientWAvail, Y: rowUnits * float32(linesN)}
 			// Append to maintain ordering with the msgs index
 			list.AddItem(t)
 		}
