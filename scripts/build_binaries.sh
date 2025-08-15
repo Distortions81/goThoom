@@ -83,7 +83,7 @@ ensure_osxcross() {
 
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
-  BIN_NAME="thoomspeak-${GOOS}-${GOARCH}"
+  BIN_NAME="gothoom-${GOOS}-${GOARCH}"
   ZIP_NAME="${BIN_NAME}.zip"
   TAGS=""
   LDFLAGS="-s -w"
@@ -137,7 +137,7 @@ for platform in "${platforms[@]}"; do
       -ldflags="$LDFLAGS" \
       -o "${OUTPUT_DIR}/${BIN_NAME}" .
   if [ "$GOOS" = "darwin" ]; then
-    APP_NAME="ThoomSpeak"
+    APP_NAME="gothoom"
     APP_DIR="${OUTPUT_DIR}/${APP_NAME}.app"
 
     echo "Creating ${APP_NAME}.app bundle..."
@@ -150,11 +150,11 @@ for platform in "${platforms[@]}"; do
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>ThoomSpeak</string>
+  <string>gothoom</string>
   <key>CFBundleIdentifier</key>
   <string>com.goThoom.client</string>
   <key>CFBundleName</key>
-  <string>ThoomSpeak</string>
+  <string>gothoom</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleVersion</key>
