@@ -26,6 +26,7 @@ type Theme struct {
 	Input    itemData
 	Slider   itemData
 	Dropdown itemData
+	Progress itemData
 	Tab      itemData
 }
 

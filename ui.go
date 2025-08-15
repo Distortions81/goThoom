@@ -304,12 +304,78 @@ func makeDownloadsWindow() {
 	statusText.Text = ""
 	statusText.FontSize = 13
 	statusText.Size = eui.Point{X: 700, Y: 20}
-	// Hook download progress/status messages into this text label.
+	flow.AddItem(statusText)
+
+	// Progress bar for downloads (barber pole when size unknown)
+	pb, _ := eui.NewProgressBar()
+	pb.Size = eui.Point{X: 700, Y: 14}
+	pb.MinValue = 0
+	pb.MaxValue = 1
+	pb.Value = 0
+	pb.Indeterminate = true
+	flow.AddItem(pb)
+	// Track throughput for kb/s and ETA
+	var dlStart time.Time
+	var currentName string
 	downloadStatus = func(s string) {
-		statusText.Text = "Status: " + s
+		// Clear initial descriptive text once download actually begins
+		statusText.Text = s
 		statusText.Dirty = true
 	}
-	flow.AddItem(statusText)
+	downloadProgress = func(name string, read, total int64) {
+		if dlStart.IsZero() || name != currentName {
+			dlStart = time.Now()
+			currentName = name
+		}
+		// Update progress bar
+		if total > 0 {
+			pb.Indeterminate = false
+			pb.Value = float32(float64(read) / float64(total))
+		} else {
+			pb.Indeterminate = true
+		}
+		pb.Dirty = true
+
+		// Compose status with kb/s and ETA when possible
+		elapsed := time.Since(dlStart).Seconds()
+		rate := float64(read)
+		if elapsed > 0 {
+			rate = rate / elapsed // bytes/sec
+		} else {
+			rate = 0
+		}
+		var etaStr string
+		if total > 0 && rate > 1 {
+			remain := float64(total-read) / rate
+			if remain < 0 {
+				remain = 0
+			}
+			eta := time.Duration(remain) * time.Second
+			// Format as M:SS for compactness
+			m := int(eta.Minutes())
+			s := int(eta.Seconds()) % 60
+			etaStr = fmt.Sprintf(" ETA %d:%02d", m, s)
+		}
+		var pct string
+		if total > 0 {
+			pct = fmt.Sprintf(" (%.1f%%)", 100*float64(read)/float64(total))
+		}
+		statusText.Text = fmt.Sprintf("Downloading %s: %s/%s%s  %s/s%s",
+			name,
+			humanize.Bytes(uint64(read)),
+			func() string {
+				if total > 0 {
+					return humanize.Bytes(uint64(total))
+				} else {
+					return "?"
+				}
+			}(),
+			pct,
+			humanize.Bytes(uint64(rate)),
+			etaStr,
+		)
+		statusText.Dirty = true
+	}
 
 	t, _ := eui.NewText()
 	t.Text = "Files we must download:"
@@ -358,6 +424,9 @@ func makeDownloadsWindow() {
 				return
 			}
 			startedDownload = true
+			// Clean up the dialog and show only live status + progress
+			flow.Contents = []*eui.ItemData{statusText, pb}
+			downloadWin.Refresh()
 			go func() {
 				dlMutex.Lock()
 				defer dlMutex.Unlock()
@@ -385,12 +454,16 @@ func makeDownloadsWindow() {
 				}
 				// Reload characters in case data dir was created during download
 				loadCharacters()
+				// Force reselect from LastCharacter if available
+				name = ""
+				passHash = ""
 				updateCharacterButtons()
 				if loginWin != nil {
 					loginWin.Refresh()
 				}
 				// Clear the callback to avoid stray updates after closing.
 				downloadStatus = nil
+				downloadProgress = nil
 				downloadWin.Close()
 				loginWin.MarkOpen()
 			}()

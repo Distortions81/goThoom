@@ -211,6 +211,18 @@ func NewText() (*itemData, *EventHandler) {
 	return &newItem, h
 }
 
+// Create a new progress bar from the default theme
+func NewProgressBar() (*itemData, *EventHandler) {
+	if currentTheme == nil {
+		currentTheme = baseTheme
+	}
+	newItem := currentTheme.Progress
+	h := newHandler()
+	newItem.Handler = h
+	newItem.Theme = currentTheme
+	return &newItem, h
+}
+
 // Bring a window to the front
 func (target *windowData) BringForward() {
 	if target.AlwaysDrawFirst {
@@ -245,6 +257,9 @@ func (target *windowData) MarkOpen() {
 		WindowStateChanged()
 	}
 }
+
+// Refresh marks the window and its children dirty so they are redrawn and
+// layout is recalculated on the next frame.
 
 // MarkOpen sets the window to open and brings it forward if necessary.
 func (target *windowData) Toggle() {

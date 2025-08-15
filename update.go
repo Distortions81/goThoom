@@ -20,6 +20,10 @@ const defaultUpdateBase = "https://m45sci.xyz/downloads/clanlord"
 // during downloads (e.g., connecting, bytes downloaded, completion).
 var downloadStatus func(string)
 
+// downloadProgress, when set by the UI, receives byte progress updates.
+// total will be <= 0 if unknown.
+var downloadProgress func(name string, read, total int64)
+
 var downloadGZ = func(url, dest string) error {
 	consoleMessage(fmt.Sprintf("Downloading: %v...", url))
 	if downloadStatus != nil {
@@ -43,7 +47,10 @@ var downloadGZ = func(url, dest string) error {
 		}
 		return err
 	}
-	gz, err := gzip.NewReader(resp.Body)
+	// Set up compressed byte counter for progress percentage.
+	pc := &progCounter{name: filepath.Base(dest), size: resp.ContentLength}
+	body := io.TeeReader(resp.Body, pc)
+	gz, err := gzip.NewReader(body)
 	if err != nil {
 		logError("gzip reader %v: %v", url, err)
 		if downloadStatus != nil {
@@ -137,6 +144,26 @@ func (sw *statusWriter) count(n int64) {
 func (sw *statusWriter) Write(p []byte) (int, error) {
 	n := len(p)
 	sw.count(int64(n))
+	return n, nil
+}
+
+// progCounter tracks compressed bytes for progress percentage.
+type progCounter struct {
+	last  time.Time
+	total int64
+	size  int64
+	name  string
+}
+
+func (pc *progCounter) Write(p []byte) (int, error) {
+	n := len(p)
+	pc.total += int64(n)
+	if time.Since(pc.last) >= 200*time.Millisecond {
+		if downloadProgress != nil {
+			downloadProgress(pc.name, pc.total, pc.size)
+		}
+		pc.last = time.Now()
+	}
 	return n, nil
 }
 

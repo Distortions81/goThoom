@@ -1106,6 +1106,56 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 		top.ColorScale.ScaleWithColor(style.TextColor)
 		text.Draw(subImg, item.Text, face, top)
+
+	} else if item.ItemType == ITEM_PROGRESS {
+
+		// Draw progress track
+		track := maxSize
+		if item.Filled {
+			drawRoundRect(subImg, &roundRect{
+				Size:     track,
+				Position: offset,
+				Fillet:   item.Fillet,
+				Filled:   true,
+				Color:    style.Color,
+			})
+		}
+
+		// Determine ratio
+		ratio := 0.0
+		if !item.Indeterminate && item.MaxValue > item.MinValue {
+			ratio = float64((item.Value - item.MinValue) / (item.MaxValue - item.MinValue))
+			if ratio < 0 {
+				ratio = 0
+			} else if ratio > 1 {
+				ratio = 1
+			}
+		}
+
+		if item.Indeterminate {
+			// Barber pole: animate diagonal stripes moving to the right
+			stripeW := float32(8) * uiScale
+			offsetAnim := float32((time.Now().UnixNano()/int64(time.Millisecond))%1000) / 1000.0 * stripeW * 2
+			bg := style.HoverColor.ToRGBA()
+			// Fill base with hover color
+			drawRoundRect(subImg, &roundRect{Size: track, Position: offset, Fillet: item.Fillet, Filled: true, Color: Color(bg)})
+			// Draw stripes
+			for x := offset.X - track.Y; x < offset.X+track.X+track.Y; x += stripeW * 2 {
+				sx := x + offsetAnim
+				drawParallelogram(subImg, sx, offset.Y, stripeW, track.Y, stripeW, style.SelectedColor.ToRGBA())
+			}
+		} else {
+			filledW := float32(ratio) * track.X
+			if filledW > 0 {
+				drawRoundRect(subImg, &roundRect{
+					Size:     point{X: filledW, Y: track.Y},
+					Position: offset,
+					Fillet:   item.Fillet,
+					Filled:   true,
+					Color:    style.SelectedColor,
+				})
+			}
+		}
 	}
 
 	if item.Outlined && item.Border > 0 && item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO {
@@ -1129,6 +1179,27 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 	}
 
 	item.DrawRect = rectAdd(item.DrawRect, base)
+}
+
+// drawParallelogram draws a filled, axis-aligned parallelogram with a rightward slant.
+func drawParallelogram(dst *ebiten.Image, x, y, w, h, slant float32, col color.Color) {
+	// Parallelogram points: (x,y) -> (x+w,y) -> (x+w+slant,y+h) -> (x+slant,y+h)
+	path := vector.Path{}
+	path.MoveTo(x, y)
+	path.LineTo(x+w, y)
+	path.LineTo(x+w+slant, y+h)
+	path.LineTo(x+slant, y+h)
+	path.Close()
+	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	for i := range vs {
+		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = colorToVec4(col)
+	}
+	dst.DrawTriangles(vs, is, ebiten.NewImage(1, 1), &ebiten.DrawTrianglesOptions{})
+}
+
+func colorToVec4(c color.Color) (r, g, b, a float32) {
+	rr, gg, bb, aa := c.RGBA()
+	return float32(rr) / 65535, float32(gg) / 65535, float32(bb) / 65535, float32(aa) / 65535
 }
 
 func (item *itemData) drawItem(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image, dropdowns *[]openDropdown) {

@@ -193,6 +193,28 @@ var defaultColorWheel = &itemData{
 	WheelColor:    NewColor(255, 0, 0, 255),
 }
 
+var defaultProgress = &itemData{
+	ItemType: ITEM_PROGRESS,
+	Size:     point{X: 200, Y: 14},
+	Position: point{X: 4, Y: 4},
+	Padding:  0,
+	Margin:   4,
+
+	MinValue: 0,
+	MaxValue: 1,
+	Value:    0,
+
+	Fillet: 4,
+	Filled: true,
+	Border: 0,
+
+	TextColor:    NewColor(255, 255, 255, 255),
+	Color:        NewColor(48, 48, 48, 255),
+	HoverColor:   NewColor(96, 96, 96, 255),
+	ClickColor:   NewColor(0, 160, 160, 255),
+	OutlineColor: NewColor(0, 160, 160, 255),
+}
+
 var defaultTab = &itemData{
 	ItemType:      ITEM_FLOW,
 	FontSize:      12,
@@ -220,6 +242,7 @@ var (
 	baseSlider     = *defaultSlider
 	baseDropdown   = *defaultDropdown
 	baseColorWheel = *defaultColorWheel
+	baseProgress   = *defaultProgress
 	baseTab        = *defaultTab
 	baseTheme      = &Theme{
 		Window:   baseWindow,
@@ -230,6 +253,7 @@ var (
 		Input:    baseInput,
 		Slider:   baseSlider,
 		Dropdown: baseDropdown,
+		Progress: baseProgress,
 		Tab:      baseTab,
 	}
 )

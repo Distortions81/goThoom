@@ -168,6 +168,10 @@ type itemData struct {
 
 	// RenderCount tracks how often the item has been drawn.
 	RenderCount int
+
+	// Indeterminate indicates that the widget should render an animated
+	// barber-pole style progress when exact value is unknown.
+	Indeterminate bool
 }
 
 type roundRect struct {
@@ -257,6 +261,7 @@ const (
 	ITEM_DROPDOWN
 	ITEM_COLORWHEEL
 	ITEM_IMAGE
+	ITEM_PROGRESS
 )
 
 // Exported type aliases for library consumers

@@ -33,6 +33,8 @@ func (item *itemData) themeStyle() *itemData {
 		return &item.Theme.Slider
 	case ITEM_DROPDOWN:
 		return &item.Theme.Dropdown
+	case ITEM_PROGRESS:
+		return &item.Theme.Progress
 	case ITEM_FLOW:
 		if len(item.Tabs) > 0 {
 			return &item.Theme.Tab
