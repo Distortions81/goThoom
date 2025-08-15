@@ -14,6 +14,7 @@ import (
 var (
 	shortUnits, _ = durafmt.DefaultUnitsCoder.Decode("y:yrs,wk:wks,d:d,h:h,m:m,s:s,ms:ms,us:us")
 	playingMovie  bool
+	movieWin      *eui.WindowData
 )
 
 // moviePlayer manages clMov playback with basic controls.
@@ -49,6 +50,7 @@ func newMoviePlayer(frames [][]byte, fps int, cancel context.CancelFunc) *movieP
 // makePlaybackWindow creates the playback control window.
 func (p *moviePlayer) makePlaybackWindow() {
 	win := eui.NewWindow()
+	movieWin = win
 	win.Title = "Movie Controls"
 	win.Closable = true
 	win.Resizable = false
@@ -212,6 +214,24 @@ func (p *moviePlayer) makePlaybackWindow() {
 		}
 	}
 	bFlow.AddItem(dbl)
+
+	exitBtn, exitEv := eui.NewButton()
+	exitBtn.Text = "Exit"
+	exitBtn.Size = eui.Point{X: 80, Y: 24}
+	exitEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			showPopup(
+				"Exit Movie",
+				"Stop playback and return to login?",
+				[]popupButton{{Text: "Cancel"}, {Text: "Exit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+					if movieWin != nil {
+						movieWin.Close()
+					}
+				}}},
+			)
+		}
+	}
+	bFlow.AddItem(exitBtn)
 
 	buf := fmt.Sprintf("%v fps", p.fps)
 	fpsInfo, _ := eui.NewText()

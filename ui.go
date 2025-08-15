@@ -17,6 +17,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sqweek/dialog"
 
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gothoom/climg"
 	"gothoom/clsnd"
 )
@@ -205,6 +206,18 @@ func makeToolbarWindow() {
 	}
 	gameMenu.AddItem(muteBtn)
 
+	// Exit session button: disconnect or stop movie with confirmation
+	exitSessBtn, exitSessEv := eui.NewButton()
+	exitSessBtn.Text = "Exit"
+	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	exitSessBtn.FontSize = toolFontSize
+	exitSessEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmExitSession()
+		}
+	}
+	gameMenu.AddItem(exitSessBtn)
+
 	/*
 		recordBtn, recordEvents := eui.NewButton()
 		recordBtn.Text = "Record"
@@ -282,6 +295,34 @@ func makeToolbarWindow() {
 	toolbarWin.MarkOpen()
 
 	//eui.TreeMode = true
+}
+
+func confirmExitSession() {
+	if playingMovie {
+		showPopup("Exit Movie", "Stop playback and return to login?", []popupButton{
+			{Text: "Cancel"},
+			{Text: "Exit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+				if movieWin != nil {
+					movieWin.Close()
+				} else {
+					// Fallback: ensure login is visible
+					loginWin.MarkOpen()
+				}
+			}},
+		})
+		return
+	}
+	if tcpConn != nil { // Connected to server
+		showPopup("Exit Session", "Disconnect and return to login?", []popupButton{
+			{Text: "Cancel"},
+			{Text: "Disconnect", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+				handleDisconnect()
+			}},
+		})
+		return
+	}
+	// No active session; just go to login
+	loginWin.MarkOpen()
 }
 
 var dlMutex sync.Mutex
@@ -454,7 +495,7 @@ func makeDownloadsWindow() {
 				quitBtn.Size = eui.Point{X: 100, Y: 24}
 				quitEvents.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventClick {
-						os.Exit(1)
+						confirmQuit()
 					}
 				}
 				retryRow.AddItem(quitBtn)
@@ -513,7 +554,7 @@ func makeDownloadsWindow() {
 	closeBtn.Size = eui.Point{X: 100, Y: 24}
 	closeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			os.Exit(0)
+			confirmQuit()
 		}
 	}
 	btnFlow.AddItem(closeBtn)
@@ -850,9 +891,7 @@ func makeLoginWindow() {
 	quitBttn.Size = eui.Point{X: 200, Y: 24}
 	quitEvn.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			saveCharacters()
-			saveSettings()
-			os.Exit(0)
+			confirmQuit()
 		}
 	}
 	loginFlow.AddItem(quitBttn)
@@ -890,39 +929,8 @@ func explainError(msg string) string {
 }
 
 func makeErrorWindow(msg string) {
-	win := eui.NewWindow()
-	win.Title = "Error"
-	win.Closable = false
-	win.Resizable = false
-	win.AutoSize = true
-	win.Movable = true
-	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleBottom)
-
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	// Raw error line
-	text, _ := eui.NewText()
-	text.Text = msg
-	text.FontSize = 14
-	text.Size = eui.Point{X: 600, Y: 36}
-	flow.AddItem(text)
-	// Friendly explanation
-	more, _ := eui.NewText()
-	more.Text = explainError(msg)
-	more.FontSize = 12
-	more.Size = eui.Point{X: 600, Y: 48}
-	flow.AddItem(more)
-	okBtn, okEvents := eui.NewButton()
-	okBtn.Text = "OK"
-	okBtn.Size = eui.Point{X: 200, Y: 24}
-	okEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			win.Close()
-		}
-	}
-	flow.AddItem(okBtn)
-	win.AddItem(flow)
-	win.AddWindow(false)
-	win.MarkOpen()
+	body := msg + "\n" + explainError(msg)
+	showPopup("Error", body, []popupButton{{Text: "OK"}})
 }
 
 func makeSettingsWindow() {
@@ -949,7 +957,7 @@ func makeSettingsWindow() {
 	resetBtn.Tooltip = "Restore defaults and reapply"
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			resetAllSettings()
+			confirmResetSettings()
 		}
 	}
 	mainFlow.AddItem(resetBtn)
@@ -1276,6 +1284,126 @@ func resetAllSettings() {
 		makeSettingsWindow()
 		settingsWin.MarkOpen()
 	}
+}
+
+// popupButton defines a button in a popup dialog.
+type popupButton struct {
+	Text       string
+	Color      *eui.Color
+	HoverColor *eui.Color
+	Action     func()
+}
+
+// showPopup creates a simple modal-like popup with a message and buttons.
+func showPopup(title, message string, buttons []popupButton) *eui.WindowData {
+	win := eui.NewWindow()
+	win.Title = title
+	win.Closable = false
+	win.Resizable = false
+	win.AutoSize = true
+	win.Movable = true
+	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
+	// Add some breathing room so text doesn't hug the border
+	win.Padding = 8
+	win.BorderPad = 4
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	// Message (wrapped to a reasonable width)
+	uiScale := eui.UIScale()
+	targetWidthPx := float64(520)
+	// Add horizontal padding on both sides to avoid right-edge clipping.
+	hpadPx := float64(24)
+	padUnits := float32(hpadPx / float64(uiScale))
+	// targetWidthUnits not used directly; inner width sets actual text width
+	// Match renderer size: (FontSize*uiScale)+2
+	facePx := float64(12*uiScale + 2)
+	var face text.Face
+	if src := eui.FontSource(); src != nil {
+		face = &text.GoTextFace{Source: src, Size: facePx}
+	} else {
+		face = &text.GoTextFace{Size: facePx}
+	}
+	// Wrap to inner width (minus horizontal padding)
+	innerPx := targetWidthPx - 2*hpadPx
+	if innerPx < 50 {
+		innerPx = 50
+	}
+	_, lines := wrapText(message, face, innerPx)
+	wrapped := strings.Join(lines, "\n")
+	gm := face.Metrics()
+	lineHpx := float64(gm.HAscent + gm.HDescent)
+	if lineHpx < 14 {
+		lineHpx = 14
+	}
+	heightUnits := float32((lineHpx*float64(len(lines)) + 8) / float64(uiScale))
+	if heightUnits < 24 {
+		heightUnits = 24
+	}
+	txt, _ := eui.NewText()
+	txt.Text = wrapped
+	txt.FontSize = 12
+	// Slight width fudge to avoid right-edge clipping from rounding
+	fudgeUnits := float32(2.0 / float64(uiScale))
+	txt.Size = eui.Point{X: float32(innerPx/float64(uiScale)) + fudgeUnits, Y: heightUnits}
+	txt.Position = eui.Point{X: padUnits, Y: 0}
+	flow.AddItem(txt)
+
+	// Buttons row
+	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	for _, b := range buttons {
+		btn, ev := eui.NewButton()
+		btn.Text = b.Text
+		btn.Size = eui.Point{X: 120, Y: 24}
+		if b.Color != nil {
+			btn.Color = *b.Color
+		}
+		if b.HoverColor != nil {
+			btn.HoverColor = *b.HoverColor
+		}
+		action := b.Action
+		ev.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventClick {
+				if action != nil {
+					action()
+				}
+				win.Close()
+			}
+		}
+		btnRow.AddItem(btn)
+	}
+	flow.AddItem(btnRow)
+
+	win.AddItem(flow)
+	win.AddWindow(false)
+	win.MarkOpen()
+	return win
+}
+
+func confirmResetSettings() {
+	// Use a red confirm button to indicate a destructive action
+	showPopup(
+		"Confirm Reset",
+		"Reset all settings to defaults? This cannot be undone.",
+		[]popupButton{
+			{Text: "Cancel"},
+			{Text: "Reset", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() { resetAllSettings() }},
+		},
+	)
+}
+
+func confirmQuit() {
+	showPopup(
+		"Confirm Quit",
+		"Quit the app? Unsaved state will be lost.",
+		[]popupButton{
+			{Text: "Cancel"},
+			{Text: "Quit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+				saveCharacters()
+				saveSettings()
+				os.Exit(0)
+			}},
+		},
+	)
 }
 
 func makeGraphicsWindow() {
