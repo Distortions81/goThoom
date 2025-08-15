@@ -333,7 +333,10 @@ func makeDownloadsWindow() {
 		// Update progress bar
 		if total > 0 {
 			pb.Indeterminate = false
-			pb.Value = float32(float64(read) / float64(total))
+			// Use absolute scale so ratio = (Value-Min)/(Max-Min) is robust
+			pb.MinValue = 0
+			pb.MaxValue = float32(total)
+			pb.Value = float32(read)
 		} else {
 			pb.Indeterminate = true
 		}

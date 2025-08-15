@@ -106,6 +106,10 @@ var downloadGZ = func(url, dest string) error {
 		}
 		return err
 	}
+	// Ensure a final 100% progress update when size is known.
+	if downloadProgress != nil && pc.size > 0 {
+		downloadProgress(pc.name, pc.size, pc.size)
+	}
 	consoleMessage("Download complete.")
 	if downloadStatus != nil {
 		downloadStatus(fmt.Sprintf("Download complete: %s", filepath.Base(dest)))

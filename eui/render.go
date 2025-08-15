@@ -34,6 +34,11 @@ func Draw(screen *ebiten.Image) {
 		if !win.Open {
 			continue
 		}
+		// If a window contains an indeterminate progress bar, force a repaint
+		// so the barber-pole animation advances even without data events.
+		if !win.Dirty && windowHasIndeterminateProgress(win) {
+			win.Dirty = true
+		}
 		win.Draw(screen, &dropdowns)
 	}
 
@@ -68,6 +73,37 @@ func Draw(screen *ebiten.Image) {
 		dumpDone = true
 		os.Exit(0)
 	}
+}
+
+// windowHasIndeterminateProgress reports whether win contains any indeterminate
+// progress bar that requires continuous repaint to animate.
+func windowHasIndeterminateProgress(win *windowData) bool {
+	return itemsHaveIndeterminateProgress(win.Contents)
+}
+
+func itemsHaveIndeterminateProgress(items []*itemData) bool {
+	for _, it := range items {
+		if it.ItemType == ITEM_PROGRESS && it.Indeterminate {
+			return true
+		}
+		if len(it.Tabs) > 0 {
+			if it.ActiveTab >= len(it.Tabs) {
+				// Clamp defensively
+				if len(it.Tabs) > 0 {
+					it.ActiveTab = 0
+				}
+			}
+			if it.ActiveTab >= 0 && it.ActiveTab < len(it.Tabs) {
+				if itemsHaveIndeterminateProgress(it.Tabs[it.ActiveTab].Contents) {
+					return true
+				}
+			}
+		}
+		if itemsHaveIndeterminateProgress(it.Contents) {
+			return true
+		}
+	}
+	return false
 }
 
 func drawZoneOverlay(screen *ebiten.Image, win *windowData) {

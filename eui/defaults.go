@@ -213,6 +213,8 @@ var defaultProgress = &itemData{
 	HoverColor:   NewColor(96, 96, 96, 255),
 	ClickColor:   NewColor(0, 160, 160, 255),
 	OutlineColor: NewColor(0, 160, 160, 255),
+	// Use accent-like color for the filled portion of the bar.
+	SelectedColor: NewColor(0, 160, 160, 255),
 }
 
 var defaultTab = &itemData{
