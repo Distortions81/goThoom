@@ -849,8 +849,8 @@ func makeErrorWindow(msg string) {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	text, _ := eui.NewText()
 	text.Text = msg
-	text.FontSize = 8
-	text.Size = eui.Point{X: 500, Y: 25}
+	text.FontSize = 12
+	text.Size = eui.Point{X: 600, Y: 25}
 	flow.AddItem(text)
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "OK"
