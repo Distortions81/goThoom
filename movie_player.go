@@ -254,25 +254,26 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	// When the movie controls window is closed, stop playback and return to
 	// the login window so a new movie can be selected.
-	win.OnClose = func() {
-		// Pause and stop ticker
-		p.pause()
-		if p.ticker != nil {
-			p.ticker.Stop()
-		}
-		// Stop any active sounds
-		stopAllSounds()
-		// Cancel playback loop
-		if p.cancel != nil {
-			p.cancel()
-		}
-		playingMovie = false
-		// Clear the selected movie path and reopen the login window.
-		clmov = ""
-		if loginWin != nil {
-			loginWin.MarkOpen()
-		}
-	}
+    win.OnClose = func() {
+        // Pause and stop ticker
+        p.pause()
+        if p.ticker != nil {
+            p.ticker.Stop()
+        }
+        // Stop any active sounds
+        stopAllSounds()
+        // Cancel playback loop
+        if p.cancel != nil {
+            p.cancel()
+        }
+        playingMovie = false
+        // Clear the selected movie path and reopen the login window.
+        clmov = ""
+        pcapPath = ""
+        if loginWin != nil {
+            loginWin.MarkOpen()
+        }
+    }
 
 	p.updateUI()
 }
