@@ -771,6 +771,12 @@ func makeLoginWindow() {
 	connEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if name == "" {
+				makeErrorWindow("Error: Login: login is empty")
+				return
+			}
+			// Ensure a password exists (either stored hash or plain) before attempting login
+			if !demo && passHash == "" && pass == "" {
+				makeErrorWindow("Error: Login: password is empty")
 				return
 			}
 			gs.LastCharacter = name
@@ -858,6 +864,10 @@ func makeLoginWindow() {
 func explainError(msg string) string {
 	m := strings.ToLower(msg)
 	switch {
+	case strings.Contains(m, "login is empty"):
+		return "No character selected. Choose a character or add one before connecting."
+	case strings.Contains(m, "password is empty"):
+		return "No password provided. Enter or save a password for this character, then try again."
 	case strings.Contains(m, "tcp connect") || strings.Contains(m, "udp connect") || strings.Contains(m, "connection refused") || strings.Contains(m, "dial"):
 		return "Can't reach the server. Check your internet connection, the server address/port, and any firewall/VPN rules."
 	case strings.Contains(m, "auto update") || strings.Contains(m, "download ") || strings.Contains(m, "http error") || strings.Contains(m, "gzip reader"):
