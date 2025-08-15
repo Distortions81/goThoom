@@ -940,6 +940,20 @@ func makeSettingsWindow() {
 	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	var width float32 = 250
 
+	// Reset all settings button
+	resetBtn, resetEv := eui.NewButton()
+	resetBtn.Text = "Reset All Settings"
+	resetBtn.Size = eui.Point{X: width, Y: 24}
+	resetBtn.Color = eui.ColorDarkRed
+	resetBtn.HoverColor = eui.ColorRed
+	resetBtn.Tooltip = "Restore defaults and reapply"
+	resetEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			resetAllSettings()
+		}
+	}
+	mainFlow.AddItem(resetBtn)
+
 	themeDD, themeEvents := eui.NewDropdown()
 	themeDD.Label = "Theme"
 	if opts, err := eui.ListThemes(); err == nil {
@@ -1229,6 +1243,39 @@ func makeSettingsWindow() {
 
 	settingsWin.AddItem(mainFlow)
 	settingsWin.AddWindow(false)
+}
+
+// resetAllSettings restores gs to defaults, reapplies, and refreshes windows.
+func resetAllSettings() {
+	gs = gsdef
+	clampWindowSettings()
+	applySettings()
+	updateGameWindowSize()
+	saveSettings()
+	settingsDirty = false
+
+	if consoleWin != nil {
+		updateConsoleWindow()
+		consoleWin.Refresh()
+	}
+	if chatWin != nil {
+		updateChatWindow()
+		chatWin.Refresh()
+	}
+	if graphicsWin != nil {
+		graphicsWin.Refresh()
+	}
+	if qualityWin != nil {
+		qualityWin.Refresh()
+	}
+
+	// Rebuild the Settings window UI so control values match defaults
+	if settingsWin != nil {
+		settingsWin.Close()
+		settingsWin = nil
+		makeSettingsWindow()
+		settingsWin.MarkOpen()
+	}
 }
 
 func makeGraphicsWindow() {
