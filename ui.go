@@ -441,7 +441,7 @@ func updateCharacterButtons() {
 	charactersList.Contents = charactersList.Contents[:0]
 	if len(characters) == 0 {
 		empty, _ := eui.NewText()
-		empty.Text = "empty"
+		empty.Text = "No characters, click add!"
 		empty.Size = eui.Point{X: 160, Y: 64}
 		charactersList.AddItem(empty)
 		name = ""
