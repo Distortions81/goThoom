@@ -75,6 +75,7 @@ var gsdef settings = settings{
 	smoothMoving:           false,
 	dontShiftNewSprites:    false,
 	retainLostGroundImages: true,
+	debugCamera:            false,
 	fastBars:               true,
 	recordAssetStats:       false,
 }
@@ -138,6 +139,7 @@ type settings struct {
 	smoothMoving           bool
 	dontShiftNewSprites    bool
 	retainLostGroundImages bool
+	debugCamera            bool
 	fastBars               bool
 	recordAssetStats       bool
 	NoCaching              bool

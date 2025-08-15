@@ -2114,6 +2114,19 @@ func makeDebugWindow() {
 	}
 	debugFlow.AddItem(retainGroundCB)
 
+	debugCamCB, debugCamEvents := eui.NewCheckbox()
+	debugCamCB.Text = "Debug camera"
+	debugCamCB.Size = eui.Point{X: width, Y: 24}
+	debugCamCB.Checked = gs.debugCamera
+	debugCamCB.Tooltip = "Disable curtain and culling"
+	debugCamEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.debugCamera = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(debugCamCB)
+
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}

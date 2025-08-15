@@ -952,10 +952,10 @@ func parseDrawState(data []byte) error {
 				Again:      false,
 			}
 			across := pictureAcrossEdge(np)
-			if !pp.CarryOver && !across {
+			if !gs.debugCamera && !pp.CarryOver && !across {
 				continue
 			}
-			if !pictureInView(np) {
+			if !gs.debugCamera && !pictureInView(np) {
 				continue
 			}
 			np.CarryOver = pp.CarryOver || across

@@ -681,7 +681,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			drawNightOverlay(offscreen, 0, 0)
 		}
 		drawEquippedItems(offscreen, 0, 0)
-		drawGameCurtain(offscreen, 0, 0)
+		if !gs.debugCamera {
+			drawGameCurtain(offscreen, 0, 0)
+		}
 		drawStatusBars(offscreen, 0, 0, snap, alpha)
 		gs.GameScale = saved
 		initFont()
@@ -709,7 +711,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawNightOverlay(screen, ox, oy)
 	}
 	drawEquippedItems(screen, ox, oy)
-	drawGameCurtain(screen, ox, oy)
+	if !gs.debugCamera {
+		drawGameCurtain(screen, ox, oy)
+	}
 	drawStatusBars(screen, ox, oy, snap, alpha)
 	eui.Draw(screen)
 	if gs.ShowFPS {
@@ -952,7 +956,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scaled := math.Round(float64(drawSize) * scale)
 		scale = scaled / float64(drawSize)
 		half := int(scaled / 2)
-		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
+		if !gs.debugCamera && (x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH) {
 			return
 		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
@@ -1011,7 +1015,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		}
 	} else {
 		half := int(3 * gs.GameScale)
-		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
+		if !gs.debugCamera && (x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH) {
 			return
 		}
 		vector.DrawFilledRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
@@ -1080,7 +1084,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	scaledH := int(math.Round(float64(h) * gs.GameScale))
 	halfW := scaledW / 2
 	halfH := scaledH / 2
-	if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
+	if !gs.debugCamera && (x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom) {
 		return
 	}
 
@@ -1132,7 +1136,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		sy = scaledH / float64(drawH)
 		halfW := int(scaledW / 2)
 		halfH := int(scaledH / 2)
-		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
+		if !gs.debugCamera && (x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom) {
 			return
 		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
@@ -1171,7 +1175,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	} else {
 		half := int(2 * gs.GameScale)
-		if x+half <= left || y+half <= top || x-half >= right || y-half >= bottom {
+		if !gs.debugCamera && (x+half <= left || y+half <= top || x-half >= right || y-half >= bottom) {
 			return
 		}
 		clr := color.RGBA{0, 0, 0xff, 0xff}
