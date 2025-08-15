@@ -935,7 +935,7 @@ func parseDrawState(data []byte) error {
 		}
 	}
 
-	if gs.retainLostGroundImages {
+	if ok && gs.retainLostGroundImages {
 		for _, pp := range prevPics {
 			if pp.Owned || !pp.Background || pp.Moving {
 				continue
