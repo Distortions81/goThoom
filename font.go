@@ -21,8 +21,10 @@ var notoSansItalic []byte
 var notoSansBoldItalic []byte
 
 var mainFont, mainFontBold, mainFontItalic, mainFontBoldItalic, bubbleFont text.Face
+var fontGen uint32
 
 func initFont() {
+	fontGen++
 	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)

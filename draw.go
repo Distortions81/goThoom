@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 // frameDescriptor describes an on-screen descriptor.
@@ -41,6 +44,18 @@ type frameMobile struct {
 	State  uint8
 	H, V   int16
 	Colors uint8
+	// Cached name tag image (for d.Name != "").
+	nameTag    *ebiten.Image
+	nameTagW   int
+	nameTagH   int
+	nameTagKey nameTagKey
+}
+
+type nameTagKey struct {
+	Text    string
+	Colors  uint8
+	Opacity uint8
+	FontGen uint32
 }
 
 const poseDead = 32
@@ -310,6 +325,37 @@ func mobileVisible(m frameMobile, descByIndex map[uint8]frameDescriptor) bool {
 		return false
 	}
 	return true
+}
+
+// buildNameTagImage creates a cached image for a mobile name tag using the
+// current font and settings. Returns the image and its width/height in pixels.
+func buildNameTagImage(name string, colorCode uint8, opacity uint8) (*ebiten.Image, int, int) {
+	if name == "" {
+		return nil, 0, 0
+	}
+	textClr, bgClr, frameClr := mobileNameColors(colorCode)
+	bgClr.A = opacity
+	frameClr.A = opacity
+	w, h := text.Measure(name, mainFont, 0)
+	iw := int(math.Ceil(w))
+	ih := int(math.Ceil(h))
+	if iw <= 0 || ih <= 0 {
+		iw, ih = 1, 1
+	}
+	img := newImage(iw+5, ih)
+	// Fill background
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(float64(iw+5), float64(ih))
+	op.ColorScale.ScaleWithColor(bgClr)
+	img.DrawImage(whiteImage, op)
+	// Border
+	vector.StrokeRect(img, 0, 0, float32(iw+5), float32(ih), 1, frameClr, false)
+	// Text
+	opTxt := &text.DrawOptions{}
+	opTxt.GeoM.Translate(2, 2)
+	opTxt.ColorScale.ScaleWithColor(textClr)
+	text.Draw(img, name, mainFont, opTxt)
+	return img, iw + 5, ih
 }
 
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
@@ -991,9 +1037,30 @@ func parseDrawState(data []byte) error {
 		}
 	}
 	for _, m := range mobiles {
-		if mobileVisible(m, descByIndex) {
-			state.mobiles[m.Index] = m
+		if !mobileVisible(m, descByIndex) {
+			continue
 		}
+		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" {
+			key := nameTagKey{
+				Text:    d.Name,
+				Colors:  m.Colors,
+				Opacity: uint8(gs.NameBgOpacity*255 + 0.5),
+				FontGen: fontGen,
+			}
+			if prev, ok := state.mobiles[m.Index]; ok && prev.nameTag != nil && prev.nameTagKey == key {
+				m.nameTag = prev.nameTag
+				m.nameTagW = prev.nameTagW
+				m.nameTagH = prev.nameTagH
+				m.nameTagKey = prev.nameTagKey
+			} else {
+				img, iw, ih := buildNameTagImage(d.Name, m.Colors, key.Opacity)
+				m.nameTag = img
+				m.nameTagW = iw
+				m.nameTagH = ih
+				m.nameTagKey = key
+			}
+		}
+		state.mobiles[m.Index] = m
 	}
 	// Prepare render caches now that state has been updated.
 	prepareRenderCacheLocked()

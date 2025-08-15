@@ -847,8 +847,8 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 					}
 				}
 			}
-			x := int((math.Round(hpos) + float64(fieldCenterX)) * gs.GameScale)
-			y := int((math.Round(vpos) + float64(fieldCenterY)) * gs.GameScale)
+			x := roundToInt((hpos + float64(fieldCenterX)) * gs.GameScale)
+			y := roundToInt((vpos + float64(fieldCenterY)) * gs.GameScale)
 			if !b.Far {
 				if d, ok := descMap[b.Index]; ok {
 					if size := mobileSize(d.PictID); size > 0 {
@@ -881,8 +881,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			}
 		}
 	}
-	x := int((math.Round(h) + float64(fieldCenterX)) * gs.GameScale)
-	y := int((math.Round(v) + float64(fieldCenterY)) * gs.GameScale)
+	x := roundToInt((h + float64(fieldCenterX)) * gs.GameScale)
+	y := roundToInt((v + float64(fieldCenterY)) * gs.GameScale)
 	x += ox
 	y += oy
 	// view bounds culling is handled during state parse; no per-frame check here
@@ -957,36 +957,45 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			src = img
 		}
 		scale := gs.GameScale
-		scaled := math.Round(float64(drawSize) * scale)
+		scaled := float64(roundToInt(float64(drawSize) * scale))
 		scale = scaled / float64(drawSize)
 		// No per-frame bounds check (culled earlier).
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(scale, scale)
-		tx := math.Round(float64(x) - scaled/2)
-		ty := math.Round(float64(y) - scaled/2)
+		tx := float64(x) - scaled/2
+		ty := float64(y) - scaled/2
 		op.GeoM.Translate(tx, ty)
 		screen.DrawImage(src, op)
 		if d, ok := descMap[m.Index]; ok {
 			alpha := uint8(gs.NameBgOpacity * 255)
 			if d.Name != "" {
-				textClr, bgClr, frameClr := mobileNameColors(m.Colors)
-				bgClr.A = alpha
-				frameClr.A = alpha
-				w, h := text.Measure(d.Name, mainFont, 0)
-				iw := int(math.Ceil(w))
-				ih := int(math.Ceil(h))
-				top := y + int(20*gs.GameScale)
-				left := x - iw/2
-				op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
-				op.GeoM.Scale(float64(iw+5), float64(ih))
-				op.GeoM.Translate(float64(left), float64(top))
-				op.ColorScale.ScaleWithColor(bgClr)
-				screen.DrawImage(whiteImage, op)
-				vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
-				opTxt := &text.DrawOptions{}
-				opTxt.GeoM.Translate(float64(left+2), float64(top+2))
-				opTxt.ColorScale.ScaleWithColor(textClr)
-				text.Draw(screen, d.Name, mainFont, opTxt)
+				// Prefer cached name tag if parameters match current settings.
+				if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == alpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors {
+					top := y + int(20*gs.GameScale)
+					left := x - m.nameTagW/2
+					op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+					op.GeoM.Translate(float64(left), float64(top))
+					screen.DrawImage(m.nameTag, op)
+				} else {
+					textClr, bgClr, frameClr := mobileNameColors(m.Colors)
+					bgClr.A = alpha
+					frameClr.A = alpha
+					w, h := text.Measure(d.Name, mainFont, 0)
+					iw := int(math.Ceil(w))
+					ih := int(math.Ceil(h))
+					top := y + int(20*gs.GameScale)
+					left := x - iw/2
+					op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+					op.GeoM.Scale(float64(iw+5), float64(ih))
+					op.GeoM.Translate(float64(left), float64(top))
+					op.ColorScale.ScaleWithColor(bgClr)
+					screen.DrawImage(whiteImage, op)
+					vector.StrokeRect(screen, float32(left), float32(top), float32(iw+5), float32(ih), 1, frameClr, false)
+					opTxt := &text.DrawOptions{}
+					opTxt.GeoM.Translate(float64(left+2), float64(top+2))
+					opTxt.ColorScale.ScaleWithColor(textClr)
+					text.Draw(screen, d.Name, mainFont, opTxt)
+				}
 			} else {
 				back := int((m.Colors >> 4) & 0x0f)
 				if back != kColorCodeBackWhite && back != kColorCodeBackBlue && !(back == kColorCodeBackBlack && d.Type == kDescMonster) {
@@ -1068,8 +1077,8 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 
-	x := int((math.Round(float64(p.H)+offX+mobileX) + float64(fieldCenterX)) * gs.GameScale)
-	y := int((math.Round(float64(p.V)+offY+mobileY) + float64(fieldCenterY)) * gs.GameScale)
+	x := roundToInt(((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale)
+	y := roundToInt(((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale)
 	x += ox
 	y += oy
 
@@ -1117,15 +1126,15 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			drawW, drawH = src.Bounds().Dx(), src.Bounds().Dy()
 		}
 		sx, sy := scaleForFiltering(gs.GameScale, drawW, drawH)
-		scaledW := math.Round(float64(drawW) * sx)
-		scaledH := math.Round(float64(drawH) * sy)
+		scaledW := float64(roundToInt(float64(drawW) * sx))
+		scaledH := float64(roundToInt(float64(drawH) * sy))
 		sx = scaledW / float64(drawW)
 		sy = scaledH / float64(drawH)
 		// No per-frame bounds check (culled earlier).
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(sx, sy)
-		tx := math.Round(float64(x) - float64(drawW)*sx/2)
-		ty := math.Round(float64(y) - float64(drawH)*sy/2)
+		tx := float64(x) - scaledW/2
+		ty := float64(y) - scaledH/2
 		op.GeoM.Translate(tx, ty)
 		if gs.pictAgainDebug && p.Again {
 			op.ColorScale.Scale(0, 0, 1, 1)
@@ -1138,7 +1147,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%d", p.PictID)
 			txtW, _ := text.Measure(lbl, mainFont, 0)
-			xPos := x + int(float64(w)*gs.GameScale/2) - int(math.Round(txtW))
+			xPos := x + int(float64(w)*gs.GameScale/2) - roundToInt(txtW)
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(h)*gs.GameScale/2-metrics.HAscent)
 			opTxt.ColorScale.ScaleWithColor(color.Black)
@@ -1169,7 +1178,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			lbl := fmt.Sprintf("%d", p.PictID)
 			txtW, _ := text.Measure(lbl, mainFont, 0)
 			half := int(2 * gs.GameScale)
-			xPos := x + half - int(math.Round(txtW))
+			xPos := x + half - roundToInt(txtW)
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(half)-metrics.HAscent)
 			opTxt.ColorScale.ScaleWithColor(color.RGBA{R: 1, A: 1})
@@ -1779,4 +1788,13 @@ func looksLikePictureTable(m []byte) bool {
 	count := int(binary.BigEndian.Uint16(m[:2]))
 	size := 2 + 6*count + 4
 	return count > 0 && size == len(m)
+}
+
+// roundToInt returns the nearest integer to f. It avoids calling math.Round
+// and handles negative values correctly.
+func roundToInt(f float64) int {
+	if f >= 0 {
+		return int(f + 0.5)
+	}
+	return int(f - 0.5)
 }
