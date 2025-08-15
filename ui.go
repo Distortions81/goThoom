@@ -19,9 +19,10 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sqweek/dialog"
 
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gothoom/climg"
 	"gothoom/clsnd"
+
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 const cval = 1000
@@ -1541,6 +1542,7 @@ func makeGraphicsWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.Fullscreen = ev.Checked
 			ebiten.SetFullscreen(gs.Fullscreen)
+			ebiten.SetWindowFloating(gs.Fullscreen)
 			settingsDirty = true
 		}
 	}

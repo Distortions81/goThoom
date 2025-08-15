@@ -193,6 +193,7 @@ func applySettings() {
 	}
 	ebiten.SetVsyncEnabled(gs.vsync)
 	ebiten.SetFullscreen(gs.Fullscreen)
+	ebiten.SetWindowFloating(gs.Fullscreen)
 	initFont()
 	updateSoundVolume()
 }
