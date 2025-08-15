@@ -8,6 +8,8 @@ import (
 
 // parseBackend handles back-end BEP commands following the "be" prefix.
 func parseBackend(data []byte) {
+	// Expect a BEPP tag for the backend subcommand (e.g., -wh, -in, -sh)
+	// immediately following the initial -be.
 	if len(data) < 3 || data[0] != 0xC2 {
 		return
 	}
@@ -35,7 +37,15 @@ func parseBackendInfo(data []byte) {
 	}
 	name := strings.TrimSpace(decodeMacRoman(rest[:end]))
 	rest = rest[end+3:]
+	// Skip any leading tabs before the race field (stock client does this).
+	for len(rest) > 0 && rest[0] == '\t' {
+		rest = rest[1:]
+	}
 	fields := bytes.Split(rest, []byte{'\t'})
+	// Some servers/messages include a leading empty field; drop it.
+	if len(fields) > 0 && len(fields[0]) == 0 {
+		fields = fields[1:]
+	}
 	if len(fields) < 3 {
 		return
 	}
@@ -58,6 +68,7 @@ func parseBackendInfo(data []byte) {
 	p.Clan = clan
 	playersMu.Unlock()
 	playersDirty = true
+	playersPersistDirty = true
 }
 
 // parseBackendShare parses "be-sh" messages describing sharing relationships.
@@ -147,6 +158,9 @@ func parseBackendWho(data []byte) {
 	}
 	if batchCount > 0 {
 		playersDirty = true
+	}
+	if newCount > 0 {
+		playersPersistDirty = true
 	}
 	// Consider requesting another who batch if this looks like a partial page
 	considerNextWhoBatch(batchCount, newCount)
