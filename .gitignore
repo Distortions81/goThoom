@@ -6,9 +6,11 @@ settings.json
 characters.json
 binaries/*.zip
 cpu.svg
-data/stats.json
+stats.json
 internalimages*
-debug/tree.json
-*.pcapng
+tree.json
+.pcapng
 .gocache
 .gomodcache
+Players.xml
+ClanLord.xml

@@ -401,6 +401,15 @@ func (g *Game) Update() error {
 		lastSettingsSave = time.Now()
 	}
 
+	// Periodically persist players if there were changes.
+	if time.Since(lastPlayersSave) >= 5*time.Second {
+		if playersDirty || playersPersistDirty {
+			savePlayersPersist()
+			playersPersistDirty = false
+		}
+		lastPlayersSave = time.Now()
+	}
+
 	if inputActive {
 		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
@@ -1734,6 +1743,14 @@ loop:
 			}
 		}
 		processServerMessage(m)
+		// Allow maintenance queues to issue commands even when the
+		// player isn't moving; this keeps /be-info and /be-who flowing
+		// during idle periods on live connections.
+		if pendingCommand == "" {
+			if !maybeEnqueueInfo() {
+				_ = maybeEnqueueWho()
+			}
+		}
 		select {
 		case <-ctx.Done():
 			break loop

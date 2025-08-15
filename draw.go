@@ -620,6 +620,8 @@ func parseDrawState(data []byte) error {
 		d.Colors = append([]byte(nil), data[p:p+cnt]...)
 		p += cnt
 		updatePlayerAppearance(d.Name, d.PictID, d.Colors, d.Type == kDescNPC)
+		// Opportunistically request full info for visible players.
+		queueInfoRequest(d.Name)
 		descs = append(descs, d)
 	}
 

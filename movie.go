@@ -302,6 +302,11 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		}
 		state.descriptors[d.Index] = d
 		stateMu.Unlock()
+
+		// Update the Players list appearance immediately from descriptor data,
+		// mirroring live behavior so movies show avatars right away.
+		updatePlayerAppearance(d.Name, d.PictID, d.Colors, d.Type == kDescNPC)
+		queueInfoRequest(d.Name)
 	}
 	return pos
 }
