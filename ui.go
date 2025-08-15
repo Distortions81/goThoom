@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -755,8 +756,49 @@ func makeLoginWindow() {
 	}
 	loginFlow.AddItem(addBtn)
 
+	loginFlow.AddItem(charactersList)
+
+	label, _ := eui.NewText()
+	label.Text = ""
+	label.FontSize = 15
+	label.Size = eui.Point{X: 1, Y: 25}
+	loginFlow.AddItem(label)
+
+	connBtn, connEvents := eui.NewButton()
+	connBtn.Text = "Connect"
+	connBtn.Size = eui.Point{X: 200, Y: 48}
+	connBtn.Padding = 10
+	connEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if name == "" {
+				return
+			}
+			gs.LastCharacter = name
+			saveSettings()
+			loginWin.Close()
+			go func() {
+				ctx, cancel := context.WithCancel(gameCtx)
+				loginMu.Lock()
+				loginCancel = cancel
+				loginMu.Unlock()
+				if err := login(ctx, clientVersion); err != nil {
+					logError("login: %v", err)
+					makeErrorWindow("Error: Login: " + err.Error())
+					loginWin.MarkOpen()
+				}
+			}()
+		}
+	}
+	loginFlow.AddItem(connBtn)
+
+	label2, _ := eui.NewText()
+	label2.Text = ""
+	label2.FontSize = 15
+	label2.Size = eui.Point{X: 1, Y: 25}
+	loginFlow.AddItem(label2)
+
 	openBtn, openEvents := eui.NewButton()
-	openBtn.Text = "Open clMov"
+	openBtn.Text = "Play movie file (clMov)"
 	openBtn.Size = eui.Point{X: 200, Y: 24}
 	openEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -797,44 +839,44 @@ func makeLoginWindow() {
 		}
 	}
 	loginFlow.AddItem(openBtn)
-
-	loginFlow.AddItem(charactersList)
-
-	label, _ := eui.NewText()
-	label.Text = ""
-	label.FontSize = 15
-	label.Size = eui.Point{X: 1, Y: 25}
-	loginFlow.AddItem(label)
-
-	connBtn, connEvents := eui.NewButton()
-	connBtn.Text = "Connect"
-	connBtn.Size = eui.Point{X: 200, Y: 48}
-	connBtn.Padding = 10
-	connEvents.Handle = func(ev eui.UIEvent) {
+	quitBttn, quitEvn := eui.NewButton()
+	quitBttn.Text = "Quit"
+	quitBttn.Size = eui.Point{X: 200, Y: 24}
+	quitEvn.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if name == "" {
-				return
-			}
-			gs.LastCharacter = name
+			saveCharacters()
 			saveSettings()
-			loginWin.Close()
-			go func() {
-				ctx, cancel := context.WithCancel(gameCtx)
-				loginMu.Lock()
-				loginCancel = cancel
-				loginMu.Unlock()
-				if err := login(ctx, clientVersion); err != nil {
-					logError("login: %v", err)
-					makeErrorWindow("Error: Login: " + err.Error())
-					loginWin.MarkOpen()
-				}
-			}()
+			os.Exit(0)
 		}
 	}
-	loginFlow.AddItem(connBtn)
-
+	loginFlow.AddItem(quitBttn)
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
+}
+
+// explainError returns a plain-English explanation and suggestions for an error message.
+func explainError(msg string) string {
+	m := strings.ToLower(msg)
+	switch {
+	case strings.Contains(m, "tcp connect") || strings.Contains(m, "udp connect") || strings.Contains(m, "connection refused") || strings.Contains(m, "dial"):
+		return "Can't reach the server. Check your internet connection, the server address/port, and any firewall/VPN rules."
+	case strings.Contains(m, "auto update") || strings.Contains(m, "download ") || strings.Contains(m, "http error") || strings.Contains(m, "gzip reader"):
+		return "The game data download failed. Check network connectivity, disk space, and that the data directory is writable, then try again."
+	case strings.Contains(m, "permission denied"):
+		return "Operation not permitted. Ensure the app has permission to read/write the required files or try a different folder."
+	case strings.Contains(m, "no such file") || strings.Contains(m, "file not found"):
+		return "The file path does not exist. Verify the path and that the file is present."
+	case strings.Contains(m, "open clmov"):
+		return "Couldn't open the .clMov file. Make sure the file exists and is readable."
+	case strings.Contains(m, "record movie"):
+		return "Couldn't start recording. Ensure the destination folder is writable and there is enough free space."
+	case strings.Contains(m, "login failed") || strings.Contains(m, "error: login"):
+		return "Login failed. Verify your character name and password, and that the account has available characters."
+	case strings.Contains(m, "x11") || strings.Contains(m, "display"):
+		return "No display detected. If running remotely/headless, set DISPLAY or run in a desktop session."
+	default:
+		return "An error occurred. Try again. If it persists, check the console logs for details."
+	}
 }
 
 func makeErrorWindow(msg string) {
@@ -847,11 +889,18 @@ func makeErrorWindow(msg string) {
 	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleBottom)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	// Raw error line
 	text, _ := eui.NewText()
 	text.Text = msg
-	text.FontSize = 12
-	text.Size = eui.Point{X: 600, Y: 25}
+	text.FontSize = 14
+	text.Size = eui.Point{X: 500, Y: 36}
 	flow.AddItem(text)
+	// Friendly explanation
+	more, _ := eui.NewText()
+	more.Text = explainError(msg)
+	more.FontSize = 12
+	more.Size = eui.Point{X: 500, Y: 48}
+	flow.AddItem(more)
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "OK"
 	okBtn.Size = eui.Point{X: 200, Y: 24}
