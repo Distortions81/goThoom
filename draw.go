@@ -293,6 +293,27 @@ func pictureAcrossEdge(p framePicture) bool {
 	return false
 }
 
+// pictureInView reports whether the given picture's bounding box intersects
+// the visible game field. It returns false only when the picture lies
+// completely outside the viewable area.
+func pictureInView(p framePicture) bool {
+	if clImages == nil {
+		return false
+	}
+	w, h := clImages.Size(uint32(p.PictID))
+	halfW := w / 2
+	halfH := h / 2
+	left := int(p.H) - halfW
+	right := int(p.H) + halfW
+	top := int(p.V) - halfH
+	bottom := int(p.V) + halfH
+	if right < -fieldCenterX || left > fieldCenterX ||
+		bottom < -fieldCenterY || top > fieldCenterY {
+		return false
+	}
+	return true
+}
+
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
 // between two consecutive frames. Pictures are matched by PictID (duplicates
 // included) and weighted by their non-transparent pixel counts. The returned
@@ -929,11 +950,15 @@ func parseDrawState(data []byte) error {
 				Moving:     false,
 				Background: true,
 				Again:      false,
-				CarryOver:  true,
 			}
-			if !pictureAcrossEdge(np) {
+			across := pictureAcrossEdge(np)
+			if !pp.CarryOver && !across {
 				continue
 			}
+			if !pictureInView(np) {
+				continue
+			}
+			np.CarryOver = pp.CarryOver || across
 			newPics = append(newPics, np)
 		}
 	}
