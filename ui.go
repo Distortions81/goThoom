@@ -406,59 +406,99 @@ func makeDownloadsWindow() {
 	z.Size = eui.Point{X: 320, Y: 25}
 	flow.AddItem(z)
 
+    // Helper to start the download process; reused by Download and Retry
+    var startDownload func()
+    startDownload = func() {
+		if startedDownload {
+			return
+		}
+		startedDownload = true
+		// Reset UI state
+		dlStart = time.Time{}
+		currentName = ""
+		pb.Indeterminate = true
+		pb.MinValue = 0
+		pb.MaxValue = 1
+		pb.Value = 0
+		pb.Dirty = true
+		statusText.Dirty = true
+		// Show only the live status + progress while downloading
+		flow.Contents = []*eui.ItemData{statusText, pb}
+		downloadWin.Refresh()
+		go func() {
+			dlMutex.Lock()
+			defer dlMutex.Unlock()
+
+			if err := downloadDataFiles(clientVersion, status); err != nil {
+				logError("download data files: %v", err)
+				// Present inline Retry and Quit buttons
+				retryRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+				retryBtn, retryEvents := eui.NewButton()
+				retryBtn.Text = "Retry"
+				retryBtn.Size = eui.Point{X: 100, Y: 24}
+				retryEvents.Handle = func(ev eui.UIEvent) {
+					if ev.Type == eui.EventClick {
+						startedDownload = false
+						startDownload()
+					}
+				}
+				retryRow.AddItem(retryBtn)
+
+				quitBtn, quitEvents := eui.NewButton()
+				quitBtn.Text = "Quit"
+				quitBtn.Size = eui.Point{X: 100, Y: 24}
+				quitEvents.Handle = func(ev eui.UIEvent) {
+					if ev.Type == eui.EventClick {
+						os.Exit(1)
+					}
+				}
+				retryRow.AddItem(quitBtn)
+
+				flow.AddItem(retryRow)
+				startedDownload = false
+				downloadWin.Refresh()
+				return
+			}
+			img, err := climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
+			if err != nil {
+				logError("failed to load CL_Images: %v", err)
+				return
+			} else {
+				img.Denoise = gs.DenoiseImages
+				img.DenoiseSharpness = gs.DenoiseSharpness
+				img.DenoisePercent = gs.DenoisePercent
+				clImages = img
+			}
+
+			clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
+			if err != nil {
+				logError("failed to load CL_Sounds: %v", err)
+				return
+			}
+			// Reload characters in case data dir was created during download
+			loadCharacters()
+			// Force reselect from LastCharacter if available
+			name = ""
+			passHash = ""
+			updateCharacterButtons()
+			if loginWin != nil {
+				loginWin.Refresh()
+			}
+			// Clear the callback to avoid stray updates after closing.
+			downloadStatus = nil
+			downloadProgress = nil
+			downloadWin.Close()
+			loginWin.MarkOpen()
+		}()
+	}
+
 	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	dlBtn, dlEvents := eui.NewButton()
 	dlBtn.Text = "Download"
 	dlBtn.Size = eui.Point{X: 100, Y: 24}
 	dlEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if startedDownload {
-				return
-			}
-			startedDownload = true
-			// Clean up the dialog and show only live status + progress
-			flow.Contents = []*eui.ItemData{statusText, pb}
-			downloadWin.Refresh()
-			go func() {
-				dlMutex.Lock()
-				defer dlMutex.Unlock()
-
-				if err := downloadDataFiles(clientVersion, status); err != nil {
-					logError("download data files: %v", err)
-					makeErrorWindow("Error: Download Data Files: " + err.Error())
-					return
-				}
-				img, err := climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
-				if err != nil {
-					logError("failed to load CL_Images: %v", err)
-					return
-				} else {
-					img.Denoise = gs.DenoiseImages
-					img.DenoiseSharpness = gs.DenoiseSharpness
-					img.DenoisePercent = gs.DenoisePercent
-					clImages = img
-				}
-
-				clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
-				if err != nil {
-					logError("failed to load CL_Sounds: %v", err)
-					return
-				}
-				// Reload characters in case data dir was created during download
-				loadCharacters()
-				// Force reselect from LastCharacter if available
-				name = ""
-				passHash = ""
-				updateCharacterButtons()
-				if loginWin != nil {
-					loginWin.Refresh()
-				}
-				// Clear the callback to avoid stray updates after closing.
-				downloadStatus = nil
-				downloadProgress = nil
-				downloadWin.Close()
-				loginWin.MarkOpen()
-			}()
+			startDownload()
 		}
 	}
 	btnFlow.AddItem(dlBtn)
