@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -924,6 +926,15 @@ func explainError(msg string) string {
 	case strings.Contains(m, "x11") || strings.Contains(m, "display"):
 		return "No display detected. If running remotely/headless, set DISPLAY or run in a desktop session."
 	default:
+		// Try to extract a kError code from the message and convert it.
+		re := regexp.MustCompile(`-?\d+`)
+		if loc := re.FindString(msg); loc != "" {
+			if v, err := strconv.Atoi(loc); err == nil {
+				if desc, name, ok := describeKError(int16(v)); ok {
+					return fmt.Sprintf("%s (%s %d)", desc, name, v)
+				}
+			}
+		}
 		return "An error occurred. Try again. If it persists, check the console logs for details."
 	}
 }

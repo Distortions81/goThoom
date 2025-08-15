@@ -77,6 +77,38 @@ var errorNames = map[int16]string{
 	-30981: "kCharOnline",
 }
 
+// errorFriendly maps known kError codes to concise, plain-English descriptions
+// that are shown to the user. The technical kError name is still surfaced
+// alongside the code for those who want details.
+var errorFriendly = map[int16]string{
+	-30999: "Unknown character name",
+	-30998: "Incorrect character password",
+	-30996: "Incompatible client version",
+	-30992: "Server is shutting down",
+	-30991: "Game is not open",
+	-30988: "Unknown account name",
+	-30987: "Incorrect account password",
+	-30985: "Server is full (no free slot)",
+	-30984: "Character does not belong to this account",
+	-30981: "Character is already logged in",
+	-30973: "A newer client/data version is required (test)",
+	-30972: "A newer client/data version is required",
+}
+
+// describeKError returns a friendly description and the kError name for a
+// known error code. ok is false when the code is unknown.
+func describeKError(code int16) (desc, name string, ok bool) {
+	name, ok = errorNames[code]
+	if !ok {
+		return "", "", false
+	}
+	if d, ok2 := errorFriendly[code]; ok2 {
+		return d, name, true
+	}
+	// Fallback to the technical name split into words
+	return name, name, true
+}
+
 func loadAdditionalErrorNames() {
 	path := filepath.Join("..", "mac_client", "client", "public", "Public_cl.h")
 	f, err := os.Open(path)
