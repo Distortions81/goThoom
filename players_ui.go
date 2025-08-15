@@ -18,6 +18,21 @@ var playersWin *eui.WindowData
 var playersList *eui.ItemData
 var playersDirty bool
 
+// defaultMobilePictID returns a fallback CL_Images mobile pict ID for the
+// given gender when a player's specific PictID is unknown. Values are chosen
+// to match classic client defaults (peasant male/female). For neutral/other,
+// we fall back to the male peasant.
+func defaultMobilePictID(g genderIcon) uint16 {
+	switch g {
+	case genderMale:
+		return 447
+	case genderFemale:
+		return 456
+	default:
+		return 22
+	}
+}
+
 func updatePlayersWindow() {
 	if playersWin == nil || playersList == nil {
 		return
@@ -75,7 +90,8 @@ func updatePlayersWindow() {
 	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
 	rowUnits := float32(linePx) / ui
 
-	// Rebuild contents: header + one row per player (avatar + gender + optional profession).
+	// Rebuild contents: header + one row per player
+	// Layout per row: [avatar (or default/blank)] [profession (or blank)] [name]
 	playersList.Contents = nil
 
 	header := fmt.Sprintf("Players Online: %d", len(exiles))
@@ -109,14 +125,14 @@ func updatePlayersWindow() {
 			name = fmt.Sprintf("%s [%s]", name, strings.Join(tags, "+"))
 		}
 
-		// Build row flow: [avatar?] [professionIcon?] [genderIcon] [name]
+		// Build row flow: [avatar/default/blank] [profession/blank] [name]
 		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 
 		// Icon sized to row height, with a small right margin.
 		iconSize := int(rowUnits + 0.5)
 
-		// Avatar: derived from the player's current PictID/colors (from descriptors).
-		if p.PictID != 0 {
+		// Avatar: try live PictID first; else use default by gender; else blank.
+		{
 			avItem, _ := eui.NewImageItem(iconSize, iconSize)
 			avItem.Margin = 4
 			avItem.Border = 0
@@ -127,38 +143,47 @@ func updatePlayersWindow() {
 			if p.Dead {
 				state = 32 // kPoseDead
 			}
-			if m := loadMobileFrame(p.PictID, state, p.Colors); m != nil {
-				img = m
-			} else if im := loadImage(p.PictID); im != nil {
-				img = im
+			if p.PictID != 0 {
+				if m := loadMobileFrame(p.PictID, state, p.Colors); m != nil {
+					img = m
+				} else if im := loadImage(p.PictID); im != nil {
+					img = im
+				}
+			}
+			if img == nil {
+				// Fallback to default character image per gender (like classic client)
+				gid := defaultMobilePictID(genderFromString(p.Gender))
+				if gid != 0 {
+					if m := loadMobileFrame(gid, state, nil); m != nil {
+						img = m
+					} else if im := loadImage(gid); im != nil {
+						img = im
+					}
+				}
 			}
 			if img != nil {
 				avItem.Image = img
-				row.AddItem(avItem)
 			}
+			// Always add avatar slot, even if blank, to keep alignment.
+			row.AddItem(avItem)
 		}
 
-		// Try profession sprite first if available from CL_Images.
-		if pid := professionPictID(p.Class); pid != 0 {
+		// Profession sprite if available; else add a blank image to preserve spacing.
+		{
 			profItem, _ := eui.NewImageItem(iconSize, iconSize)
 			profItem.Margin = 4
 			profItem.Border = 0
 			profItem.Filled = false
-			if img := loadImage(pid); img != nil {
-				profItem.Image = img
-				profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
-				row.AddItem(profItem)
+			if pid := professionPictID(p.Class); pid != 0 {
+				if img := loadImage(pid); img != nil {
+					profItem.Image = img
+					profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
+				}
 			}
+			row.AddItem(profItem)
 		}
 
-		// Gender icon (vector), always available.
-		genItem, _ := eui.NewImageItem(iconSize, iconSize)
-		genItem.Margin = 4
-		genItem.Border = 0
-		genItem.Filled = false
-		gen := genderFromString(p.Gender)
-		genItem.Image = getGenderIcon(gen, iconSize)
-		row.AddItem(genItem)
+		// Gender icon removed per request; columns remain avatar + profession only.
 
 		// Name text constrained to the row height.
 		t, _ := eui.NewText()
@@ -168,8 +193,8 @@ func updatePlayersWindow() {
 			// Dim the name for fallen players
 			t.TextColor = eui.NewColor(180, 180, 180, 255)
 		}
-		// Reserve space for up to three icons + margins when sizing the text.
-		t.Size = eui.Point{X: clientWAvail - float32(iconSize*3) - 12, Y: rowUnits}
+		// Reserve space for two icons (avatar + profession) + margins.
+		t.Size = eui.Point{X: clientWAvail - float32(iconSize*2) - 8, Y: rowUnits}
 		row.AddItem(t)
 
 		// Ensure the row's height matches the content.
