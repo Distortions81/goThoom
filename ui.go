@@ -893,13 +893,13 @@ func makeErrorWindow(msg string) {
 	text, _ := eui.NewText()
 	text.Text = msg
 	text.FontSize = 14
-	text.Size = eui.Point{X: 500, Y: 36}
+	text.Size = eui.Point{X: 600, Y: 36}
 	flow.AddItem(text)
 	// Friendly explanation
 	more, _ := eui.NewText()
 	more.Text = explainError(msg)
 	more.FontSize = 12
-	more.Size = eui.Point{X: 500, Y: 48}
+	more.Size = eui.Point{X: 600, Y: 48}
 	flow.AddItem(more)
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "OK"
