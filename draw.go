@@ -1028,7 +1028,7 @@ func parseDrawState(data []byte) error {
 				interval := frameInterval
 				frameMu.Unlock()
 				frames := int((4*time.Second + interval - 1) / interval)
-				b := bubble{Index: idx, Text: txt, Type: typ, ExpireFrame: frameCounter + frames}
+				b := bubble{Index: idx, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: frames}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 					b.NoArrow = true
