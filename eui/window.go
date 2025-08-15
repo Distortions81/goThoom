@@ -402,11 +402,15 @@ func (target *windowData) ToBack() {
 	}
 }
 
+// getPosition returns the window's position in screen pixels
+// (i.e., scaled by the effective UI scale for this window).
 func (win *windowData) getPosition() point {
-	return win.Position
+	return Point{X: win.Position.X * win.scale(), Y: win.Position.Y * win.scale()}
 }
 
+// getPosition returns the item's position in screen pixels relative to its
+// parent window, honoring the current UI scale.
 func (item *itemData) getPosition(win *windowData) point {
-
-	return item.Position
+	_ = win // retained for symmetry; item position already depends on global scale
+	return Point{X: item.Position.X * uiScale, Y: item.Position.Y * uiScale}
 }

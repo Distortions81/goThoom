@@ -1131,7 +1131,7 @@ func makeSettingsWindow() {
 	chatFontSlider, chatFontEvents := eui.NewSlider()
 	chatFontSlider.Label = "Chat Bubble Font Size"
 	chatFontSlider.MinValue = 6
-	chatFontSlider.MaxValue = 24
+	chatFontSlider.MaxValue = 48
 	chatFontSlider.Value = float32(gs.BubbleFontSize)
 	chatFontSlider.Size = eui.Point{X: width - 10, Y: 24}
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
@@ -1145,8 +1145,8 @@ func makeSettingsWindow() {
 
 	labelFontSlider, labelFontEvents := eui.NewSlider()
 	labelFontSlider.Label = "Name Font Size"
-	labelFontSlider.MinValue = 6
-	labelFontSlider.MaxValue = 24
+	labelFontSlider.MinValue = 5
+	labelFontSlider.MaxValue = 48
 	labelFontSlider.Value = float32(gs.MainFontSize)
 	labelFontSlider.Size = eui.Point{X: width - 10, Y: 24}
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
@@ -1161,8 +1161,8 @@ func makeSettingsWindow() {
 	// Inventory font size slider
 	invFontSlider, invFontEvents := eui.NewSlider()
 	invFontSlider.Label = "Inventory Font Size"
-	invFontSlider.MinValue = 6
-	invFontSlider.MaxValue = 24
+	invFontSlider.MinValue = 5
+	invFontSlider.MaxValue = 48
 	invFontSlider.Value = func() float32 {
 		if gs.InventoryFontSize > 0 {
 			return float32(gs.InventoryFontSize)
@@ -1182,8 +1182,8 @@ func makeSettingsWindow() {
 	// Players list font size slider
 	plFontSlider, plFontEvents := eui.NewSlider()
 	plFontSlider.Label = "Players List Font Size"
-	plFontSlider.MinValue = 6
-	plFontSlider.MaxValue = 24
+	plFontSlider.MinValue = 5
+	plFontSlider.MaxValue = 48
 	plFontSlider.Value = func() float32 {
 		if gs.PlayersFontSize > 0 {
 			return float32(gs.PlayersFontSize)
