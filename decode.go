@@ -89,13 +89,15 @@ func decodeBEPP(data []byte) string {
 		return ""
 	}
 	prefix := string(data[1:3])
-	textBytes := data[3:]
-	if i := bytes.IndexByte(textBytes, 0); i >= 0 {
-		textBytes = textBytes[:i]
+	// Keep a raw copy (without NUL terminator) for backend parsing.
+	raw := data[3:]
+	if i := bytes.IndexByte(raw, 0); i >= 0 {
+		raw = raw[:i]
 	}
-	textBytes = stripBEPPTags(textBytes)
-	text := strings.TrimSpace(decodeMacRoman(textBytes))
-	if text == "" {
+	// For displayable text, strip BEPP tags and non-printables.
+	cleaned := stripBEPPTags(append([]byte(nil), raw...))
+	text := strings.TrimSpace(decodeMacRoman(cleaned))
+	if text == "" && prefix != "be" { // backend commands may have no printable text
 		return ""
 	}
 
@@ -113,8 +115,8 @@ func decodeBEPP(data []byte) string {
 			return "share: " + text
 		}
 	case "be":
-		// Back-end command: handle internally, do not echo or warn.
-		parseBackend(textBytes)
+		// Back-end command: handle internally using raw (unstripped) data.
+		parseBackend(raw)
 		return ""
 	case "yk", "iv", "hp", "cf", "pn", "lg":
 		// Known simple pass-through prefixes (e.g., iv: item/verb, lg: login/clan notices)

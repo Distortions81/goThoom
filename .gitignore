@@ -11,3 +11,4 @@ internalimages*
 debug/tree.json
 *.pcapng
 .gocache
+.gomodcache
