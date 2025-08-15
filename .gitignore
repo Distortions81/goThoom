@@ -10,3 +10,4 @@ data/stats.json
 internalimages*
 debug/tree.json
 *.pcapng
+.gocache

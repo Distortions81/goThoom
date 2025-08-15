@@ -99,16 +99,17 @@ func main() {
 	clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)
-		return
+		// Do not exit; allow UI to open download window.
+	} else {
+		clImages.Denoise = gs.DenoiseImages
+		clImages.DenoiseSharpness = gs.DenoiseSharpness
+		clImages.DenoisePercent = gs.DenoisePercent
 	}
-	clImages.Denoise = gs.DenoiseImages
-	clImages.DenoiseSharpness = gs.DenoiseSharpness
-	clImages.DenoisePercent = gs.DenoisePercent
 
 	clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
 	if err != nil {
 		logError("failed to load CL_Sounds: %v", err)
-		return
+		// Do not exit; allow UI to open download window.
 	}
 
 	if (gs.precacheSounds || gs.precacheImages) && !gs.NoCaching {

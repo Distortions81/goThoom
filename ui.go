@@ -331,14 +331,15 @@ func makeDownloadsWindow() {
 					makeErrorWindow("Error: Download Data Files: " + err.Error())
 					return
 				}
-				clImages, err := climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
+				img, err := climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 				if err != nil {
 					logError("failed to load CL_Images: %v", err)
 					return
 				} else {
-					clImages.Denoise = gs.DenoiseImages
-					clImages.DenoiseSharpness = gs.DenoiseSharpness
-					clImages.DenoisePercent = gs.DenoisePercent
+					img.Denoise = gs.DenoiseImages
+					img.DenoiseSharpness = gs.DenoiseSharpness
+					img.DenoisePercent = gs.DenoisePercent
+					clImages = img
 				}
 
 				clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
