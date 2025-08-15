@@ -411,6 +411,9 @@ func (win *windowData) getPosition() point {
 // getPosition returns the item's position in screen pixels relative to its
 // parent window, honoring the current UI scale.
 func (item *itemData) getPosition(win *windowData) point {
-	_ = win // retained for symmetry; item position already depends on global scale
-	return Point{X: item.Position.X * uiScale, Y: item.Position.Y * uiScale}
+	s := uiScale
+	if win != nil {
+		s = win.scale()
+	}
+	return Point{X: item.Position.X * s, Y: item.Position.Y * s}
 }

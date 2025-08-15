@@ -5,7 +5,9 @@ package main
 import (
 	"fmt"
 	"gothoom/eui"
+	"math"
 
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -52,15 +54,24 @@ func updateInventoryWindow() {
 	// Clear prior contents and rebuild rows as [icon][name (xN)].
 	inventoryList.Contents = nil
 
-	// Auto-scale row height to approximately the text height in screen pixels,
-	// then convert back to UI units so flows/layout remain correct under
-	// different UI scales.
+	// Compute row height from actual font metrics (ascent+descent) and add
+	// a small cushion so descenders are never clipped regardless of scale.
 	fontSize := gs.InventoryFontSize
 	if fontSize <= 0 {
 		fontSize = gs.ConsoleFontSize
 	}
 	uiScale := eui.UIScale()
-	rowPx := float32(fontSize)*uiScale + 4 // 2px ascent/descent cushion
+	// Build a face at the scaled point size and measure
+	facePx := float64(float32(fontSize) * uiScale)
+	var goFace *text.GoTextFace
+	if src := eui.FontSource(); src != nil {
+		goFace = &text.GoTextFace{Source: src, Size: facePx}
+	} else {
+		goFace = &text.GoTextFace{Size: facePx}
+	}
+	metrics := goFace.Metrics()
+	// Use ceil(ascent+descent) plus 2px cushion to protect descenders
+	rowPx := float32(math.Ceil(metrics.HAscent + metrics.HDescent + 2))
 	rowUnits := rowPx / uiScale
 	iconSize := int(rowUnits + 0.5)
 	for _, id := range order {

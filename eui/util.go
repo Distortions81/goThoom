@@ -693,23 +693,23 @@ func (item *itemData) bounds(offset point) rect {
 		for _, sub := range subItems {
 			var off point
 			if item.FlowType == FLOW_HORIZONTAL {
-				off = pointAdd(offset, point{X: flowOffset.X + sub.GetPos().X, Y: sub.GetPos().Y})
+				off = pointAdd(offset, point{X: flowOffset.X + sub.getPosition(item.ParentWindow).X, Y: sub.getPosition(item.ParentWindow).Y})
 			} else if item.FlowType == FLOW_VERTICAL {
-				off = pointAdd(offset, point{X: sub.GetPos().X, Y: flowOffset.Y + sub.GetPos().Y})
+				off = pointAdd(offset, point{X: sub.getPosition(item.ParentWindow).X, Y: flowOffset.Y + sub.getPosition(item.ParentWindow).Y})
 			} else {
-				off = pointAdd(offset, pointAdd(flowOffset, sub.GetPos()))
+				off = pointAdd(offset, pointAdd(flowOffset, sub.getPosition(item.ParentWindow)))
 			}
 			sr := sub.bounds(off)
 			r = unionRect(r, sr)
 			if item.FlowType == FLOW_HORIZONTAL {
-				flowOffset.X += sub.GetSize().X + sub.GetPos().X
+				flowOffset.X += sub.GetSize().X + sub.getPosition(item.ParentWindow).X
 			} else if item.FlowType == FLOW_VERTICAL {
-				flowOffset.Y += sub.GetSize().Y + sub.GetPos().Y
+				flowOffset.Y += sub.GetSize().Y + sub.getPosition(item.ParentWindow).Y
 			}
 		}
 	} else {
 		for _, sub := range item.Contents {
-			off := pointAdd(offset, sub.GetPos())
+			off := pointAdd(offset, sub.getPosition(item.ParentWindow))
 			r = unionRect(r, sub.bounds(off))
 		}
 	}
@@ -730,13 +730,13 @@ func (win *windowData) contentBounds() point {
 		if item.ItemType == ITEM_FLOW {
 			cb := item.contentBounds()
 			r = rect{
-				X0: base.X + item.GetPos().X,
-				Y0: base.Y + item.GetPos().Y,
-				X1: base.X + item.GetPos().X + cb.X,
-				Y1: base.Y + item.GetPos().Y + cb.Y,
+				X0: base.X + item.getPosition(win).X,
+				Y0: base.Y + item.getPosition(win).Y,
+				X1: base.X + item.getPosition(win).X + cb.X,
+				Y1: base.Y + item.getPosition(win).Y + cb.Y,
 			}
 		} else {
-			r = item.bounds(pointAdd(base, item.GetPos()))
+			r = item.bounds(pointAdd(base, item.getPosition(win)))
 		}
 		if first {
 			b = r
@@ -797,14 +797,14 @@ func (item *itemData) contentBounds() point {
 		if sub == nil {
 			continue
 		}
-		off := pointAdd(base, sub.GetPos())
+		off := pointAdd(base, sub.getPosition(item.ParentWindow))
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
-				off = pointAdd(base, point{X: flowOffset.X + sub.GetPos().X, Y: sub.GetPos().Y})
+				off = pointAdd(base, point{X: flowOffset.X + sub.getPosition(item.ParentWindow).X, Y: sub.getPosition(item.ParentWindow).Y})
 			} else if item.FlowType == FLOW_VERTICAL {
-				off = pointAdd(base, point{X: sub.GetPos().X, Y: flowOffset.Y + sub.GetPos().Y})
+				off = pointAdd(base, point{X: sub.getPosition(item.ParentWindow).X, Y: flowOffset.Y + sub.getPosition(item.ParentWindow).Y})
 			} else {
-				off = pointAdd(base, pointAdd(flowOffset, sub.GetPos()))
+				off = pointAdd(base, pointAdd(flowOffset, sub.getPosition(item.ParentWindow)))
 			}
 		}
 
@@ -818,9 +818,9 @@ func (item *itemData) contentBounds() point {
 
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
-				flowOffset.X += sub.GetSize().X + sub.GetPos().X
+				flowOffset.X += sub.GetSize().X + sub.getPosition(item.ParentWindow).X
 			} else if item.FlowType == FLOW_VERTICAL {
-				flowOffset.Y += sub.GetSize().Y + sub.GetPos().Y
+				flowOffset.Y += sub.GetSize().Y + sub.getPosition(item.ParentWindow).Y
 			}
 		}
 	}

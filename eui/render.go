@@ -591,9 +591,10 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	for _, subItem := range activeContents {
 
 		if subItem.ItemType == ITEM_FLOW {
-			flowPos := pointAdd(drawOffset, item.GetPos())
+			// Use window-aware scaled position to handle NoScale windows correctly.
+			flowPos := pointAdd(drawOffset, item.getPosition(win))
 			flowOff := pointAdd(flowPos, flowOffset)
-			itemPos := pointAdd(flowOff, subItem.GetPos())
+			itemPos := pointAdd(flowOff, subItem.getPosition(win))
 			subRect := rect{
 				X0: itemPos.X,
 				Y0: itemPos.Y,
@@ -630,7 +631,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			} else {
 				objOff := flowOff
 				if parent != nil && parent.ItemType == ITEM_FLOW {
-					objOff = pointAdd(objOff, subItem.GetPos())
+					objOff = pointAdd(objOff, subItem.getPosition(win))
 				}
 				subRect := rect{
 					X0: objOff.X,
@@ -650,10 +651,10 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
 				flowOffset = pointAdd(flowOffset, point{X: subItem.GetSize().X, Y: 0})
-				flowOffset = pointAdd(flowOffset, point{X: subItem.GetPos().X})
+				flowOffset = pointAdd(flowOffset, point{X: subItem.getPosition(win).X})
 			} else if item.FlowType == FLOW_VERTICAL {
 				flowOffset = pointAdd(flowOffset, point{X: 0, Y: subItem.GetSize().Y})
-				flowOffset = pointAdd(flowOffset, point{Y: subItem.GetPos().Y})
+				flowOffset = pointAdd(flowOffset, point{Y: subItem.getPosition(win).Y})
 			}
 		}
 	}
