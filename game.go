@@ -1140,7 +1140,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
 		op.GeoM.Translate(tx, ty)
-		if gs.pictAgainDebug && p.Again {
+		if p.CarryOver {
+			op.ColorScale.Scale(1, 1, 0, 1)
+		} else if gs.pictAgainDebug && p.Again {
 			op.ColorScale.Scale(0, 0, 1, 1)
 		} else if src == img && gs.smoothingDebug && p.Moving {
 			op.ColorScale.Scale(1, 0, 0, 1)
@@ -1173,11 +1175,15 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			return
 		}
 		clr := color.RGBA{0, 0, 0xff, 0xff}
-		if gs.smoothingDebug && p.Moving {
-			clr = color.RGBA{0xff, 0, 0, 0xff}
-		}
-		if gs.pictAgainDebug && p.Again {
-			clr = color.RGBA{0, 0, 0xff, 0xff}
+		if p.CarryOver {
+			clr = color.RGBA{0xff, 0xff, 0, 0xff}
+		} else {
+			if gs.smoothingDebug && p.Moving {
+				clr = color.RGBA{0xff, 0, 0, 0xff}
+			}
+			if gs.pictAgainDebug && p.Again {
+				clr = color.RGBA{0, 0, 0xff, 0xff}
+			}
 		}
 		vector.DrawFilledRect(screen, float32(float64(x)-2*gs.GameScale), float32(float64(y)-2*gs.GameScale), float32(4*gs.GameScale), float32(4*gs.GameScale), clr, false)
 		if gs.pictIDDebug {

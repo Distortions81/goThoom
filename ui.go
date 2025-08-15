@@ -2100,6 +2100,20 @@ func makeDebugWindow() {
 		}
 	}
 	debugFlow.AddItem(shiftSpriteCB)
+
+	retainGroundCB, retainGroundEvents := eui.NewCheckbox()
+	retainGroundCB.Text = "Retain lost ground images"
+	retainGroundCB.Size = eui.Point{X: width, Y: 24}
+	retainGroundCB.Checked = gs.retainLostGroundImages
+	retainGroundCB.Tooltip = "Redraw old background pictures at edge"
+	retainGroundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.retainLostGroundImages = ev.Checked
+			settingsDirty = true
+		}
+	}
+	debugFlow.AddItem(retainGroundCB)
+
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}

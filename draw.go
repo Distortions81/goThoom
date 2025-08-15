@@ -33,6 +33,7 @@ type framePicture struct {
 	Background   bool
 	Owned        bool
 	Again        bool
+	CarryOver    bool
 }
 
 type frameMobile struct {
@@ -913,25 +914,28 @@ func parseDrawState(data []byte) error {
 		}
 	}
 
-	for _, pp := range prevPics {
-		if pp.Owned || !pp.Background || pp.Moving {
-			continue
+	if gs.retainLostGroundImages {
+		for _, pp := range prevPics {
+			if pp.Owned || !pp.Background || pp.Moving {
+				continue
+			}
+			np := framePicture{
+				PictID:     pp.PictID,
+				H:          int16(int(pp.H) + state.picShiftX),
+				V:          int16(int(pp.V) + state.picShiftY),
+				PrevH:      pp.H,
+				PrevV:      pp.V,
+				Plane:      pp.Plane,
+				Moving:     false,
+				Background: true,
+				Again:      false,
+				CarryOver:  true,
+			}
+			if !pictureAcrossEdge(np) {
+				continue
+			}
+			newPics = append(newPics, np)
 		}
-		np := framePicture{
-			PictID:     pp.PictID,
-			H:          int16(int(pp.H) + state.picShiftX),
-			V:          int16(int(pp.V) + state.picShiftY),
-			PrevH:      pp.H,
-			PrevV:      pp.V,
-			Plane:      pp.Plane,
-			Moving:     false,
-			Background: true,
-			Again:      false,
-		}
-		if !pictureAcrossEdge(np) {
-			continue
-		}
-		newPics = append(newPics, np)
 	}
 
 	state.pictures = newPics
