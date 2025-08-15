@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // Player holds minimal information extracted from BEP messages and descriptors.
 type Player struct {
@@ -18,6 +21,9 @@ type Player struct {
 	Dead       bool // parsed from obit messages (future)
 	FellWhere  string
 	KillerName string
+	// Presence tracking
+	LastSeen time.Time // last time we observed any activity/info for this player
+	Offline  bool      // explicitly observed as offline/logged off
 }
 
 var (
@@ -44,6 +50,9 @@ func getPlayer(name string) *Player {
 }
 
 func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC bool) {
+	if isNPC {
+		return
+	}
 	playersMu.Lock()
 	p, ok := players[name]
 	if !ok {
@@ -54,7 +63,10 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	if len(colors) > 0 {
 		p.Colors = append(p.Colors[:0], colors...)
 	}
-	p.IsNPC = isNPC
+	p.IsNPC = false
+	// Seeing a player on screen implies they are present now.
+	p.LastSeen = time.Now()
+	p.Offline = false
 	playersMu.Unlock()
 	playersDirty = true
 }

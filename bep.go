@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // parseBackend handles back-end BEP commands following the "be" prefix.
@@ -66,6 +67,8 @@ func parseBackendInfo(data []byte) {
 	p.Gender = gender
 	p.Class = class
 	p.Clan = clan
+	p.LastSeen = time.Now()
+	p.Offline = false
 	playersMu.Unlock()
 	playersDirty = true
 	playersPersistDirty = true
@@ -93,6 +96,7 @@ func parseBackendShare(data []byte) {
 			players[name] = p
 		}
 		p.Sharee = true
+		p.LastSeen = time.Now()
 		playersMu.Unlock()
 	}
 	for _, name := range parseNames(sharerPart) {
@@ -103,6 +107,7 @@ func parseBackendShare(data []byte) {
 			players[name] = p
 		}
 		p.Sharing = true
+		p.LastSeen = time.Now()
 		playersMu.Unlock()
 	}
 	playersDirty = true
@@ -152,6 +157,8 @@ func parseBackendWho(data []byte) {
 		if gm >= 0 {
 			p.GMLevel = gm
 		}
+		p.LastSeen = time.Now()
+		p.Offline = false
 		playersMu.Unlock()
 		queueInfoRequest(name)
 		batchCount++

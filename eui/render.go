@@ -1124,6 +1124,10 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 				op.GeoM.Scale(float64(maxSize.X)/float64(iw), float64(maxSize.Y)/float64(ih))
 			}
 			op.GeoM.Translate(float64(offset.X), float64(offset.Y))
+			if item.Disabled {
+				// Lightly dim disabled images to indicate inactive/offline state.
+				op.ColorScale.Scale(0.7, 0.7, 0.7, 1.0)
+			}
 			subImg.DrawImage(item.Image, op)
 		}
 	} else if item.ItemType == ITEM_TEXT {

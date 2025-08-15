@@ -22,6 +22,7 @@ type frameDescriptor struct {
 	PictID uint16
 	Name   string
 	Colors []byte
+	Plane  int
 }
 
 type framePicture struct {
@@ -261,6 +262,54 @@ func pictureOnEdge(p framePicture) bool {
 		return true
 	}
 	return false
+}
+
+// pictureVisible reports whether a picture's bounding box intersects
+// the visible playfield in game coordinates.
+func pictureVisible(p framePicture) bool {
+	if clImages == nil {
+		// Without metadata, conservatively keep.
+		return true
+	}
+	w, h := clImages.Size(uint32(p.PictID))
+	halfW := w / 2
+	halfH := h / 2
+	// Intersect against [-fieldCenterX, fieldCenterX] × [-fieldCenterY, fieldCenterY].
+	minX := int(p.H) - halfW
+	maxX := int(p.H) + halfW
+	minY := int(p.V) - halfH
+	maxY := int(p.V) + halfH
+	if maxX <= -fieldCenterX || minX >= fieldCenterX || maxY <= -fieldCenterY || minY >= fieldCenterY {
+		return false
+	}
+	return true
+}
+
+// mobileVisible reports whether a mobile's bounding box intersects the
+// visible playfield. It uses descriptor info for size when available.
+func mobileVisible(m frameMobile, descByIndex map[uint8]frameDescriptor) bool {
+	if clImages == nil {
+		return true
+	}
+	d, ok := descByIndex[m.Index]
+	if !ok {
+		// No descriptor yet; keep to avoid over-culling.
+		return true
+	}
+	size := mobileSize(d.PictID)
+	if size <= 0 {
+		// Fallback: unknown size, keep.
+		return true
+	}
+	half := size / 2
+	minX := int(m.H) - half
+	maxX := int(m.H) + half
+	minY := int(m.V) - half
+	maxY := int(m.V) + half
+	if maxX <= -fieldCenterX || minX >= fieldCenterX || maxY <= -fieldCenterY || minY >= fieldCenterY {
+		return false
+	}
+	return true
 }
 
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
@@ -619,9 +668,15 @@ func parseDrawState(data []byte) error {
 		}
 		d.Colors = append([]byte(nil), data[p:p+cnt]...)
 		p += cnt
-		updatePlayerAppearance(d.Name, d.PictID, d.Colors, d.Type == kDescNPC)
-		// Opportunistically request full info for visible players.
-		queueInfoRequest(d.Name)
+		if clImages != nil {
+			d.Plane = clImages.Plane(uint32(d.PictID))
+		}
+		// Skip NPCs entirely for player list scanning.
+		if d.Type != kDescNPC && d.Name != "" {
+			updatePlayerAppearance(d.Name, d.PictID, d.Colors, false)
+			// Opportunistically request full info for visible players.
+			queueInfoRequest(d.Name)
+		}
 		descs = append(descs, d)
 	}
 
@@ -885,6 +940,19 @@ func parseDrawState(data []byte) error {
 	}
 
 	state.pictures = newPics
+	// Build descriptor index → descriptor map for visibility checks.
+	descByIndex := make(map[uint8]frameDescriptor, len(state.descriptors))
+	for idx, d := range state.descriptors {
+		descByIndex[idx] = d
+	}
+	// Cull pictures that are entirely outside the field of view.
+	kept := newPics[:0]
+	for _, p := range newPics {
+		if pictureVisible(p) {
+			kept = append(kept, p)
+		}
+	}
+	state.pictures = kept
 
 	needPrev := (gs.MotionSmoothing || gs.BlendMobiles) && ok
 	if needPrev {
@@ -923,8 +991,12 @@ func parseDrawState(data []byte) error {
 		}
 	}
 	for _, m := range mobiles {
-		state.mobiles[m.Index] = m
+		if mobileVisible(m, descByIndex) {
+			state.mobiles[m.Index] = m
+		}
 	}
+	// Prepare render caches now that state has been updated.
+	prepareRenderCacheLocked()
 	ack := state.ackCmd
 	light := state.lightingFlags
 	stateMu.Unlock()

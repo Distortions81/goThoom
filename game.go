@@ -153,6 +153,14 @@ type drawState struct {
 	prevBalance, prevBalanceMax int
 	ackCmd                      uint8
 	lightingFlags               uint8
+
+	// Prepared render caches populated only when a new game state arrives.
+	// These avoid per-frame sorting and partitioning work in Draw.
+	picsNeg  []framePicture
+	picsZero []framePicture
+	picsPos  []framePicture
+	liveMobs []frameMobile
+	deadMobs []frameMobile
 }
 
 var (
@@ -165,6 +173,41 @@ var (
 	initialState drawState
 	stateMu      sync.Mutex
 )
+
+// prepareRenderCacheLocked populates render-ready, sorted/partitioned slices.
+// Call with stateMu held and only when a new game state is applied.
+func prepareRenderCacheLocked() {
+	// Mobiles: split into live and dead, then sort by V then H.
+	state.liveMobs = state.liveMobs[:0]
+	state.deadMobs = state.deadMobs[:0]
+	for _, m := range state.mobiles {
+		if m.State == poseDead {
+			state.deadMobs = append(state.deadMobs, m)
+		}
+		state.liveMobs = append(state.liveMobs, m)
+	}
+	sortMobiles(state.deadMobs)
+	sortMobiles(state.liveMobs)
+
+	// Pictures: sort once, then partition by plane while preserving order.
+	// Work on a copy to avoid reordering the canonical state.pictures slice
+	// which is also copied into snapshots.
+	tmp := append([]framePicture(nil), state.pictures...)
+	sortPictures(tmp)
+	state.picsNeg = state.picsNeg[:0]
+	state.picsZero = state.picsZero[:0]
+	state.picsPos = state.picsPos[:0]
+	for _, p := range tmp {
+		switch {
+		case p.Plane < 0:
+			state.picsNeg = append(state.picsNeg, p)
+		case p.Plane == 0:
+			state.picsZero = append(state.picsZero, p)
+		default:
+			state.picsPos = append(state.picsPos, p)
+		}
+	}
+}
 
 // bubble stores temporary chat bubble information. Bubbles expire after a
 // fixed number of game update frames from when they were created — no FPS
@@ -201,6 +244,13 @@ type drawSnapshot struct {
 	prevBalance, prevBalanceMax int
 	ackCmd                      uint8
 	lightingFlags               uint8
+
+	// Precomputed, sorted/partitioned data for rendering
+	picsNeg  []framePicture
+	picsZero []framePicture
+	picsPos  []framePicture
+	liveMobs []frameMobile
+	deadMobs []frameMobile
 }
 
 // captureDrawSnapshot copies the shared draw state under a mutex.
@@ -230,6 +280,12 @@ func captureDrawSnapshot() drawSnapshot {
 		prevBalanceMax: state.prevBalanceMax,
 		ackCmd:         state.ackCmd,
 		lightingFlags:  state.lightingFlags,
+		// prepared caches
+		picsNeg:  append([]framePicture(nil), state.picsNeg...),
+		picsZero: append([]framePicture(nil), state.picsZero...),
+		picsPos:  append([]framePicture(nil), state.picsPos...),
+		liveMobs: append([]frameMobile(nil), state.liveMobs...),
+		deadMobs: append([]frameMobile(nil), state.deadMobs...),
 	}
 
 	for idx, d := range state.descriptors {
@@ -696,41 +752,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	snap := captureDrawSnapshot()
 	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 
-	if gs.AnyGameWindowSize {
-		updateGameScale()
-		if offscreen == nil {
-			offscreen = newImage(gameAreaSizeX*2, gameAreaSizeY*2)
-		}
-		offscreen.Clear()
-		saved := gs.GameScale
-		gs.GameScale = 2
-		initFont()
-		drawScene(offscreen, 0, 0, snap, alpha, mobileFade, pictFade)
-		if gs.nightEffect {
-			drawNightOverlay(offscreen, 0, 0)
-		}
-		drawEquippedItems(offscreen, 0, 0)
-		drawGameCurtain(offscreen, 0, 0)
-		drawStatusBars(offscreen, 0, 0, snap, alpha)
-		gs.GameScale = saved
-		initFont()
-		ox, oy := gameContentOrigin()
-		size := gameWin.GetSize()
-		pad := float64(2 * gameWin.Padding)
-		scaleW := (float64(size.X) - pad) / (gameAreaSizeX * 2)
-		scaleH := (float64(size.Y) - pad) / (gameAreaSizeY * 2)
-		scale := math.Min(scaleW, scaleH)
-		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-		op.GeoM.Scale(scale, scale)
-		op.GeoM.Translate(float64(ox), float64(oy))
-		screen.DrawImage(offscreen, op)
-		eui.Draw(screen)
-		if gs.ShowFPS {
-			drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
-		}
-		return
-	}
-
 	ox, oy := gameContentOrigin()
 	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
 	updateGameScale()
@@ -748,42 +769,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
-	descSlice := make([]frameDescriptor, 0, len(snap.descriptors))
-	for _, d := range snap.descriptors {
-		descSlice = append(descSlice, d)
-	}
-	sortDescriptors(descSlice)
-	descMap := make(map[uint8]frameDescriptor, len(descSlice))
-	for _, d := range descSlice {
-		descMap[d.Index] = d
-	}
+	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
+	descMap := snap.descriptors
 
-	sortPictures(snap.pictures)
-
-	dead := make([]frameMobile, 0, len(snap.mobiles))
-	live := make([]frameMobile, 0, len(snap.mobiles))
-	for _, m := range snap.mobiles {
-		if m.State == poseDead {
-			dead = append(dead, m)
-		}
-		live = append(live, m)
-	}
-	sortMobiles(dead)
-	sortMobiles(live)
-
-	negPics := make([]framePicture, 0)
-	zeroPics := make([]framePicture, 0)
-	posPics := make([]framePicture, 0)
-	for _, p := range snap.pictures {
-		switch {
-		case p.Plane < 0:
-			negPics = append(negPics, p)
-		case p.Plane == 0:
-			zeroPics = append(zeroPics, p)
-		default:
-			posPics = append(posPics, p)
-		}
-	}
+	// Use precomputed, sorted partitions
+	negPics := snap.picsNeg
+	zeroPics := snap.picsZero
+	posPics := snap.picsPos
+	live := snap.liveMobs
+	dead := snap.deadMobs
 
 	for _, p := range negPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY)
@@ -830,7 +824,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		for _, b := range snap.bubbles {
 			hpos := float64(b.H)
 			vpos := float64(b.V)
-			var img *ebiten.Image
 			if !b.Far {
 				var m *frameMobile
 				for i := range snap.mobiles {
@@ -840,15 +833,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 					}
 				}
 				if m != nil {
-					if d, ok := descMap[m.Index]; ok {
-						colors := d.Colors
-						playersMu.RLock()
-						if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
-							colors = append([]byte(nil), p.Colors...)
-						}
-						playersMu.RUnlock()
-						img = loadMobileFrame(d.PictID, m.State, colors)
-					}
 					hpos = float64(m.H)
 					vpos = float64(m.V)
 					if gs.MotionSmoothing {
@@ -868,17 +852,15 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			if !b.Far {
 				if d, ok := descMap[b.Index]; ok {
 					if size := mobileSize(d.PictID); size > 0 {
-						scaled := math.Round(float64(size) * gs.GameScale)
+						// Equivalent to: tailHeight - half(sprite) - half(sprite image height)
+						// Replace image-based height with mobileSize to avoid texture fetch.
 						tailHeight := int(10 * gs.GameScale)
-						y += tailHeight - int(scaled/2)
+						y += tailHeight - int(math.Round(float64(size)*gs.GameScale))
 					}
 				}
 			}
 			x += ox
 			y += oy
-			if img != nil && !b.Far {
-				y -= int(float64(img.Bounds().Dy()) * gs.GameScale / 2)
-			}
 			borderCol, bgCol, textCol := bubbleColors(b.Type)
 			drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, borderCol, bgCol, textCol)
 		}
@@ -903,8 +885,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	y := int((math.Round(v) + float64(fieldCenterY)) * gs.GameScale)
 	x += ox
 	y += oy
-	viewW := int(float64(gameAreaSizeX) * gs.GameScale)
-	viewH := int(float64(gameAreaSizeY) * gs.GameScale)
+	// view bounds culling is handled during state parse; no per-frame check here
 	var img *ebiten.Image
 	plane := 0
 	var d frameDescriptor
@@ -920,9 +901,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		playersMu.RUnlock()
 		state = m.State
 		img = loadMobileFrame(d.PictID, state, colors)
-		if clImages != nil {
-			plane = clImages.Plane(uint32(d.PictID))
-		}
+		plane = d.Plane
 	}
 	var prevImg *ebiten.Image
 	var prevColors []byte
@@ -980,10 +959,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scale := gs.GameScale
 		scaled := math.Round(float64(drawSize) * scale)
 		scale = scaled / float64(drawSize)
-		half := int(scaled / 2)
-		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
-			return
-		}
+		// No per-frame bounds check (culled earlier).
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(scale, scale)
 		tx := math.Round(float64(x) - scaled/2)
@@ -1039,10 +1015,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			text.Draw(screen, lbl, mainFont, op)
 		}
 	} else {
-		half := int(3 * gs.GameScale)
-		if x+half <= ox || y+half <= oy || x-half >= ox+viewW || y-half >= oy+viewH {
-			return
-		}
+		// Fallback marker when image missing; no per-frame bounds check.
 		vector.DrawFilledRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
@@ -1100,18 +1073,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	x += ox
 	y += oy
 
-	pfW := int(math.Round(float64(gameAreaSizeX) * gs.GameScale))
-	pfH := int(math.Round(float64(gameAreaSizeY) * gs.GameScale))
-	left, top := ox, oy
-	right, bottom := ox+pfW, oy+pfH
-
-	scaledW := int(math.Round(float64(w) * gs.GameScale))
-	scaledH := int(math.Round(float64(h) * gs.GameScale))
-	halfW := scaledW / 2
-	halfH := scaledH / 2
-	if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
-		return
-	}
+	// No per-frame bounds check (culled earlier).
 
 	img := loadImageFrame(p.PictID, frame)
 	var prevImg *ebiten.Image
@@ -1159,11 +1121,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		scaledH := math.Round(float64(drawH) * sy)
 		sx = scaledW / float64(drawW)
 		sy = scaledH / float64(drawH)
-		halfW := int(scaledW / 2)
-		halfH := int(scaledH / 2)
-		if x+halfW <= left || y+halfH <= top || x-halfW >= right || y-halfH >= bottom {
-			return
-		}
+		// No per-frame bounds check (culled earlier).
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
 		op.GeoM.Scale(sx, sy)
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
@@ -1197,10 +1155,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			text.Draw(screen, lbl, mainFont, opTxt)
 		}
 	} else {
-		half := int(2 * gs.GameScale)
-		if x+half <= left || y+half <= top || x-half >= right || y-half >= bottom {
-			return
-		}
+		// No per-frame bounds check (culled earlier).
 		clr := color.RGBA{0, 0, 0xff, 0xff}
 		if gs.smoothingDebug && p.Moving {
 			clr = color.RGBA{0xff, 0, 0, 0xff}
@@ -1213,6 +1168,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%d", p.PictID)
 			txtW, _ := text.Measure(lbl, mainFont, 0)
+			half := int(2 * gs.GameScale)
 			xPos := x + half - int(math.Round(txtW))
 			opTxt := &text.DrawOptions{}
 			opTxt.GeoM.Translate(float64(xPos), float64(y)-float64(half)-metrics.HAscent)

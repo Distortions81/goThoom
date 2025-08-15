@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"gothoom/eui"
 
@@ -40,9 +41,21 @@ func updatePlayersWindow() {
 
 	// Gather current players and filter to non-NPCs with names.
 	ps := getPlayers()
-	sort.Slice(ps, func(i, j int) bool { return ps[i].Name < ps[j].Name })
+	// Sort: online (recently seen and not explicitly offline) first, by name; offline last, by name.
+	sort.Slice(ps, func(i, j int) bool {
+		staleI := time.Since(ps[i].LastSeen) > 5*time.Minute
+		staleJ := time.Since(ps[j].LastSeen) > 5*time.Minute
+		offI := ps[i].Offline || staleI
+		offJ := ps[j].Offline || staleJ
+		if offI != offJ {
+			return !offI && offJ
+		}
+		// Both same offline status: sort by name
+		return ps[i].Name < ps[j].Name
+	})
 	exiles := make([]Player, 0, len(ps))
 	shareCount, shareeCount := 0, 0
+	onlineCount := 0
 	for _, p := range ps {
 		if p.Name == "" || p.IsNPC {
 			continue
@@ -54,6 +67,9 @@ func updatePlayersWindow() {
 			shareeCount++
 		}
 		exiles = append(exiles, p)
+		if !(p.Offline || time.Since(p.LastSeen) > 5*time.Minute) {
+			onlineCount++
+		}
 	}
 
 	// Compute client area for sizing children similar to updateTextWindow.
@@ -94,7 +110,7 @@ func updatePlayersWindow() {
 	// Layout per row: [avatar (or default/blank)] [profession (or blank)] [name]
 	playersList.Contents = nil
 
-	header := fmt.Sprintf("Players Online: %d", len(exiles))
+	header := fmt.Sprintf("Players Online: %d", onlineCount)
 	// Include simple share summary when relevant.
 	if shareCount > 0 || shareeCount > 0 {
 		parts := make([]string, 0, 2)
@@ -113,6 +129,7 @@ func updatePlayersWindow() {
 	playersList.AddItem(ht)
 
 	for _, p := range exiles {
+		offline := p.Offline || time.Since(p.LastSeen) > 5*time.Minute
 		name := p.Name
 		tags := make([]string, 0, 2)
 		if p.Sharing {
@@ -137,6 +154,7 @@ func updatePlayersWindow() {
 			avItem.Margin = 4
 			avItem.Border = 0
 			avItem.Filled = false
+			avItem.Disabled = offline
 			var img *ebiten.Image
 			// Prefer mobile frame; use dead pose when fallen.
 			state := uint8(0)
@@ -174,6 +192,7 @@ func updatePlayersWindow() {
 			profItem.Margin = 4
 			profItem.Border = 0
 			profItem.Filled = false
+			profItem.Disabled = offline
 			if pid := professionPictID(p.Class); pid != 0 {
 				if img := loadImage(pid); img != nil {
 					profItem.Image = img
@@ -189,8 +208,8 @@ func updatePlayersWindow() {
 		t, _ := eui.NewText()
 		t.Text = name
 		t.FontSize = float32(fontSize)
-		if p.Dead {
-			// Dim the name for fallen players
+		// Dim the name when fallen or stale/offline.
+		if p.Dead || offline {
 			t.TextColor = eui.NewColor(180, 180, 180, 255)
 		}
 		// Reserve space for two icons (avatar + profession) + margins.

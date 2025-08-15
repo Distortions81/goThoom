@@ -359,7 +359,7 @@ func handleInfoText(data []byte) {
 		if parseNightCommand(s) {
 			continue
 		}
-		// Plain-text parsers for who/share/fallen with embedded BEPP tags
+		// Plain-text parsers for who/share/fallen/presence with embedded BEPP tags
 		if parseWhoText(line, s) {
 			continue
 		}
@@ -367,6 +367,9 @@ func handleInfoText(data []byte) {
 			continue
 		}
 		if parseFallenText(line, s) {
+			continue
+		}
+		if parsePresenceText(line, s) {
 			continue
 		}
 		if strings.HasPrefix(s, "/") {

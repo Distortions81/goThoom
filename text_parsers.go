@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"strings"
+	"time"
 )
 
 // parseWhoText parses a plain-text /who line with embedded BEPP player tags.
@@ -26,7 +27,11 @@ func parseWhoText(raw []byte, s string) bool {
 		return true
 	}
 	for _, name := range names {
-		getPlayer(name)
+		p := getPlayer(name)
+		playersMu.Lock()
+		p.LastSeen = time.Now()
+		p.Offline = false
+		playersMu.Unlock()
 	}
 	playersDirty = true
 	return true
@@ -122,6 +127,39 @@ func parseFallenText(raw []byte, s string) bool {
 			p.Dead = false
 			p.FellWhere = ""
 			p.KillerName = ""
+		}
+		playersMu.Unlock()
+		playersDirty = true
+		return true
+	}
+	return false
+}
+
+// parsePresenceText detects login/logoff/plain presence changes. Returns true if handled.
+func parsePresenceText(raw []byte, s string) bool {
+	// Attempt to detect common phrases. Names are provided in -pn tags.
+	// We treat any recognized login as Online and any recognized logout as Offline.
+	lower := strings.ToLower(s)
+	name := firstTagContent(raw, 'p', 'n')
+	if name == "" {
+		return false
+	}
+	// Login-like phrases
+	if strings.Contains(lower, "has logged on") || strings.Contains(lower, "has entered the lands") || strings.Contains(lower, "has joined the world") || strings.Contains(lower, "has arrived") {
+		playersMu.Lock()
+		if p, ok := players[name]; ok {
+			p.LastSeen = time.Now()
+			p.Offline = false
+		}
+		playersMu.Unlock()
+		playersDirty = true
+		return true
+	}
+	// Logout-like phrases
+	if strings.Contains(lower, "has logged off") || strings.Contains(lower, "has left the lands") || strings.Contains(lower, "has left the world") || strings.Contains(lower, "has departed") || strings.Contains(lower, "has signed off") {
+		playersMu.Lock()
+		if p, ok := players[name]; ok {
+			p.Offline = true
 		}
 		playersMu.Unlock()
 		playersDirty = true
