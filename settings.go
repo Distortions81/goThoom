@@ -23,7 +23,7 @@ var gsdef settings = settings{
 	MainFontSize:      8,
 	BubbleFontSize:    6,
 	ConsoleFontSize:   12,
-	ChatFontSize:      12,
+	ChatFontSize:      14,
 	InventoryFontSize: 18,
 	BubbleOpacity:     0.7,
 	NameBgOpacity:     0.7,

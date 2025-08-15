@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -60,19 +61,22 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 		clientHAvail = 0
 	}
 
-	// Compute a row height that matches the rendered text height at the
-	// current UI scale to avoid clipping. rowUnits is height in item units.
+	// Compute a row height from actual font metrics (ascent+descent) to
+	// avoid clipping at large sizes. Convert pixels to item units.
 	ui := eui.UIScale()
-	rowUnits := (float32(fontSize)*ui + 4) / ui
-
-	// Prepare wrapping parameters: face at pixel size and wrap width in pixels.
-	facePx := float64(float32(fontSize)*ui + 2)
-	var face text.Face
+	facePx := float64(float32(fontSize) * ui)
+	var goFace *text.GoTextFace
 	if src := eui.FontSource(); src != nil {
-		face = &text.GoTextFace{Source: src, Size: facePx}
+		goFace = &text.GoTextFace{Source: src, Size: facePx}
 	} else {
-		face = &text.GoTextFace{Size: facePx}
+		goFace = &text.GoTextFace{Size: facePx}
 	}
+	metrics := goFace.Metrics()
+	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
+	rowUnits := float32(linePx) / ui
+
+	// Prepare wrapping parameters: use the same face for measurement.
+	var face text.Face = goFace
 	// list.Size.X is in item units; convert to pixels for measurement.
 	wrapWidthPx := float64(list.Size.X * ui)
 

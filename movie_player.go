@@ -292,6 +292,11 @@ func (p *moviePlayer) step() {
 	m := p.frames[p.cur]
 	if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
 		handleDrawState(m)
+	} else {
+		// Advance the logical frame counter even when this movie frame
+		// does not contain a draw-state update so time-based effects
+		// (e.g., bubble expiration) progress correctly during playback.
+		frameCounter++
 	}
 	if txt := decodeMessage(m); txt != "" {
 		_ = txt
@@ -383,6 +388,10 @@ func (p *moviePlayer) seek(idx int) {
 		m := p.frames[i]
 		if len(m) >= 2 && binary.BigEndian.Uint16(m[:2]) == 2 {
 			handleDrawState(m)
+		} else {
+			// Keep timeline consistent during scrubbing when frames
+			// without draw-state are encountered.
+			frameCounter++
 		}
 		if txt := decodeMessage(m); txt != "" {
 			_ = txt
