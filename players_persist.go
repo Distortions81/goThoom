@@ -25,7 +25,7 @@ type persistPlayer struct {
 	KillerName string `xml:"killer,omitempty"`
 }
 
-const PlayersFile = "Players.xml"
+const PlayersFile = "GT_Players.xml"
 
 var (
 	lastPlayersSave     = lastSettingsSave
