@@ -46,6 +46,12 @@ var addCharRemember bool
 var addCharNameInput *eui.ItemData
 var addCharPassInput *eui.ItemData
 var windowsWin *eui.WindowData
+
+// Checkboxes in the Windows window so we can update their state live
+var windowsPlayersCB *eui.ItemData
+var windowsInventoryCB *eui.ItemData
+var windowsChatCB *eui.ItemData
+var windowsConsoleCB *eui.ItemData
 var toolbarWin *eui.WindowData
 
 var (
@@ -75,6 +81,23 @@ var (
 
 func init() {
 	eui.WindowStateChanged = func() {
+		// Keep the Windows window's checkboxes in sync
+		if windowsPlayersCB != nil {
+			windowsPlayersCB.Checked = playersWin != nil && playersWin.IsOpen()
+			windowsPlayersCB.Dirty = true
+		}
+		if windowsInventoryCB != nil {
+			windowsInventoryCB.Checked = inventoryWin != nil && inventoryWin.IsOpen()
+			windowsInventoryCB.Dirty = true
+		}
+		if windowsChatCB != nil {
+			windowsChatCB.Checked = chatWin != nil && chatWin.IsOpen()
+			windowsChatCB.Dirty = true
+		}
+		if windowsConsoleCB != nil {
+			windowsConsoleCB.Checked = consoleWin != nil && consoleWin.IsOpen()
+			windowsConsoleCB.Dirty = true
+		}
 		if windowsWin != nil {
 			windowsWin.Refresh()
 		}
@@ -832,8 +855,9 @@ func makeLoginWindow() {
 				loginMu.Unlock()
 				if err := login(ctx, clientVersion); err != nil {
 					logError("login: %v", err)
-					makeErrorWindow("Error: Login: " + err.Error())
+					// Bring login forward first so the popup stays on top
 					loginWin.MarkOpen()
+					makeErrorWindow("Error: Login: " + err.Error())
 				}
 			}()
 		}
@@ -855,6 +879,7 @@ func makeLoginWindow() {
 			if err != nil {
 				if err != dialog.Cancelled {
 					logError("open clMov: %v", err)
+					// Keep popup on top of login
 					makeErrorWindow("Error: Open clMov: " + err.Error())
 				}
 				return
@@ -870,8 +895,8 @@ func makeLoginWindow() {
 				if err != nil {
 					logError("parse movie: %v", err)
 					clmov = ""
-					makeErrorWindow("Error: Open clMov: " + err.Error())
 					loginWin.MarkOpen()
+					makeErrorWindow("Error: Open clMov: " + err.Error())
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
@@ -2156,9 +2181,10 @@ func makeWindowsWindow() {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	playersBox, playersBoxEvents := eui.NewCheckbox()
+	windowsPlayersCB = playersBox
 	playersBox.Text = "Players"
 	playersBox.Size = eui.Point{X: 128, Y: 24}
-	playersBox.Checked = playersWin != nil
+	playersBox.Checked = playersWin != nil && playersWin.IsOpen()
 	playersBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -2171,9 +2197,10 @@ func makeWindowsWindow() {
 	flow.AddItem(playersBox)
 
 	inventoryBox, inventoryBoxEvents := eui.NewCheckbox()
+	windowsInventoryCB = inventoryBox
 	inventoryBox.Text = "Inventory"
 	inventoryBox.Size = eui.Point{X: 128, Y: 24}
-	inventoryBox.Checked = inventoryWin != nil
+	inventoryBox.Checked = inventoryWin != nil && inventoryWin.IsOpen()
 	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -2186,9 +2213,10 @@ func makeWindowsWindow() {
 	flow.AddItem(inventoryBox)
 
 	chatBox, chatBoxEvents := eui.NewCheckbox()
+	windowsChatCB = chatBox
 	chatBox.Text = "Chat"
 	chatBox.Size = eui.Point{X: 128, Y: 24}
-	chatBox.Checked = consoleWin != nil
+	chatBox.Checked = chatWin != nil && chatWin.IsOpen()
 	chatBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
@@ -2201,9 +2229,10 @@ func makeWindowsWindow() {
 	flow.AddItem(chatBox)
 
 	consoleBox, consoleBoxEvents := eui.NewCheckbox()
+	windowsConsoleCB = consoleBox
 	consoleBox.Text = "Console"
 	consoleBox.Size = eui.Point{X: 128, Y: 24}
-	consoleBox.Checked = consoleWin.Open
+	consoleBox.Checked = consoleWin != nil && consoleWin.IsOpen()
 	consoleBoxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if ev.Checked {
