@@ -30,7 +30,6 @@ const defaultHandPictID = 6
 const initialWindowW, initialWindowH = 100, 100
 
 var blackPixel *ebiten.Image
-var offscreen *ebiten.Image
 
 // scaleForFiltering returns adjusted scale values for width and height to reduce
 // filtering seams. If either dimension is zero, the original scale is returned
@@ -110,7 +109,8 @@ var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var qualityWin *eui.WindowData
 var graphicsWin *eui.WindowData
-var soundWin *eui.WindowData
+
+// Deprecated: sound settings window removed; kept other windows.
 var gameCtx context.Context
 var frameCounter int
 var gameStarted = make(chan struct{})
