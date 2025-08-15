@@ -127,6 +127,8 @@ var (
 	netLatency    time.Duration
 	lastInputSent time.Time
 	latencyMu     sync.Mutex
+	// Throttled refresh for movie controller window
+	lastMovieWinTick time.Time
 )
 
 // drawState tracks information needed by the Ebiten renderer.
@@ -410,8 +412,13 @@ func (g *Game) Update() error {
 		lastPlayersSave = time.Now()
 	}
 
+	// Track console input changes to refresh the console window only when needed.
+	changedInput := false
 	if inputActive {
-		inputText = append(inputText, ebiten.AppendInputChars(nil)...)
+		if newChars := ebiten.AppendInputChars(nil); len(newChars) > 0 {
+			inputText = append(inputText, newChars...)
+			changedInput = true
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			if len(inputHistory) > 0 {
 				if historyPos > 0 {
@@ -420,6 +427,7 @@ func (g *Game) Update() error {
 					historyPos = 0
 				}
 				inputText = []rune(inputHistory[historyPos])
+				changedInput = true
 			}
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
@@ -427,19 +435,23 @@ func (g *Game) Update() error {
 				if historyPos < len(inputHistory)-1 {
 					historyPos++
 					inputText = []rune(inputHistory[historyPos])
+					changedInput = true
 				} else {
 					historyPos = len(inputHistory)
 					inputText = inputText[:0]
+					changedInput = true
 				}
 			}
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 			if len(inputText) > 0 {
 				inputText = inputText[:len(inputText)-1]
+				changedInput = true
 			}
 		} else if d := inpututil.KeyPressDuration(ebiten.KeyBackspace); d > 30 && d%3 == 0 {
 			if len(inputText) > 0 {
 				inputText = inputText[:len(inputText)-1]
+				changedInput = true
 			}
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
@@ -456,21 +468,38 @@ func (g *Game) Update() error {
 			inputActive = false
 			inputText = inputText[:0]
 			historyPos = len(inputHistory)
+			changedInput = true
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			inputActive = false
 			inputText = inputText[:0]
 			historyPos = len(inputHistory)
+			changedInput = true
 		}
 	} else {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			inputActive = true
 			inputText = inputText[:0]
 			historyPos = len(inputHistory)
+			changedInput = true
 		}
 	}
 
-	updateConsoleWindow()
+	if changedInput {
+		updateConsoleWindow()
+		if consoleWin != nil {
+			consoleWin.Refresh()
+		}
+	}
+
+	// Ensure the movie controller window repaints at least once per second
+	// while open, even without other UI events.
+	if movieWin != nil && movieWin.IsOpen() {
+		if time.Since(lastMovieWinTick) >= time.Second {
+			lastMovieWinTick = time.Now()
+			movieWin.Refresh()
+		}
+	}
 
 	if !inputActive {
 		dx, dy := 0, 0

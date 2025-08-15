@@ -32,6 +32,11 @@ func makeConsoleWindow() {
 	}
 	consoleWin, messagesFlow, inputFlow = makeTextWindow("Console", eui.HZoneLeft, eui.VZoneBottom, true)
 	// Rewrap and refresh on window resize
-	consoleWin.OnResize = func() { updateConsoleWindow() }
+	consoleWin.OnResize = func() {
+		updateConsoleWindow()
+		if consoleWin != nil {
+			consoleWin.Refresh()
+		}
+	}
 	updateConsoleWindow()
 }

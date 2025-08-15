@@ -27,7 +27,12 @@ func makeChatWindow() error {
 	}
 	chatWin, chatList, _ = makeTextWindow("Chat", eui.HZoneRight, eui.VZoneBottom, false)
 	// Rewrap and refresh on window resize
-	chatWin.OnResize = func() { updateChatWindow() }
+	chatWin.OnResize = func() {
+		updateChatWindow()
+		if chatWin != nil {
+			chatWin.Refresh()
+		}
+	}
 	updateChatWindow()
 	return nil
 }

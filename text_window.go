@@ -149,6 +149,6 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 		} else {
 			list.Size.Y = clientHAvail
 		}
-		win.Refresh()
+		// Do not refresh here unconditionally; callers decide when to refresh.
 	}
 }
