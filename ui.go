@@ -74,7 +74,8 @@ func init() {
 }
 
 func initUI() {
-	status, err := checkDataFiles(clientVersion)
+	var err error
+	status, err = checkDataFiles(clientVersion)
 	if err != nil {
 		logError("check data files: %v", err)
 	}
@@ -292,24 +293,59 @@ func makeDownloadsWindow() {
 	downloadWin.Resizable = false
 	downloadWin.AutoSize = true
 	downloadWin.Movable = true
-	//downloadWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	downloadWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
 
 	startedDownload := false
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
+	// Live status line updated during downloads
+	statusText, _ := eui.NewText()
+	statusText.Text = ""
+	statusText.FontSize = 13
+	statusText.Size = eui.Point{X: 700, Y: 20}
+	// Hook download progress/status messages into this text label.
+	downloadStatus = func(s string) {
+		statusText.Text = "Status: " + s
+		statusText.Dirty = true
+	}
+	flow.AddItem(statusText)
+
 	t, _ := eui.NewText()
 	t.Text = "Files we must download:"
 	t.FontSize = 15
-	t.Size = eui.Point{X: 200, Y: 25}
+	t.Size = eui.Point{X: 320, Y: 25}
 	flow.AddItem(t)
 
 	for _, f := range status.Files {
 		t, _ := eui.NewText()
 		t.Text = f
 		t.FontSize = 15
-		t.Size = eui.Point{X: 200, Y: 25}
+		t.Size = eui.Point{X: 320, Y: 25}
 		flow.AddItem(t)
+	}
+
+	z, _ := eui.NewText()
+	z.Text = ""
+	z.FontSize = 15
+	z.Size = eui.Point{X: 320, Y: 25}
+	flow.AddItem(z)
+
+	// Show the exact URLs that will be fetched
+	urls := plannedDownloadURLs(clientVersion, status)
+	if len(urls) > 0 {
+		ut, _ := eui.NewText()
+		ut.Text = "Download URLs:"
+		ut.FontSize = 15
+		ut.Size = eui.Point{X: 320, Y: 25}
+		flow.AddItem(ut)
+		for _, u := range urls {
+			utx, _ := eui.NewText()
+			utx.Text = u
+			utx.FontSize = 13
+			utx.Size = eui.Point{X: 720, Y: 20}
+			flow.AddItem(utx)
+		}
 	}
 
 	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
@@ -347,6 +383,14 @@ func makeDownloadsWindow() {
 					logError("failed to load CL_Sounds: %v", err)
 					return
 				}
+				// Reload characters in case data dir was created during download
+				loadCharacters()
+				updateCharacterButtons()
+				if loginWin != nil {
+					loginWin.Refresh()
+				}
+				// Clear the callback to avoid stray updates after closing.
+				downloadStatus = nil
 				downloadWin.Close()
 				loginWin.MarkOpen()
 			}()
@@ -511,7 +555,7 @@ func makeAddCharacterWindow() {
 			gs.LastCharacter = addCharName
 			saveSettings()
 			updateCharacterButtons()
-			if loginWin != nil && loginWin.IsOpen() {
+			if loginWin != nil {
 				loginWin.Refresh()
 			}
 			loginWin.MarkOpen()
