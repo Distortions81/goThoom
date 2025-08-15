@@ -37,6 +37,10 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
+
+// Keep references to inputs so we can clear text programmatically.
+var addCharNameInput *eui.ItemData
+var addCharPassInput *eui.ItemData
 var windowsWin *eui.WindowData
 var toolbarWin *eui.WindowData
 
@@ -406,9 +410,9 @@ func makeDownloadsWindow() {
 	z.Size = eui.Point{X: 320, Y: 25}
 	flow.AddItem(z)
 
-    // Helper to start the download process; reused by Download and Retry
-    var startDownload func()
-    startDownload = func() {
+	// Helper to start the download process; reused by Download and Retry
+	var startDownload func()
+	startDownload = func() {
 		if startedDownload {
 			return
 		}
@@ -547,7 +551,8 @@ func updateCharacterButtons() {
 	if len(characters) == 0 {
 		empty, _ := eui.NewText()
 		empty.Text = "No characters, click add!"
-		empty.Size = eui.Point{X: 160, Y: 64}
+		empty.FontSize = 14
+		empty.Size = eui.Point{X: 200, Y: 64}
 		charactersList.AddItem(empty)
 		name = ""
 		passHash = ""
@@ -570,6 +575,12 @@ func updateCharacterButtons() {
 					passHash = hashCopy
 					gs.LastCharacter = nameCopy
 					saveSettings()
+					// Rebuild the list so only the selected radio is checked
+					// across all rows and refresh the login UI immediately.
+					updateCharacterButtons()
+					if loginWin != nil {
+						loginWin.Refresh()
+					}
 				}
 			}
 			row.AddItem(radio)
@@ -618,11 +629,13 @@ func makeAddCharacterWindow() {
 	nameInput.Label = "Character"
 	nameInput.TextPtr = &addCharName
 	nameInput.Size = eui.Point{X: 200, Y: 24}
+	addCharNameInput = nameInput
 	flow.AddItem(nameInput)
 	passInput, _ := eui.NewInput()
 	passInput.Label = "Password"
 	passInput.TextPtr = &addCharPass
 	passInput.Size = eui.Point{X: 200, Y: 24}
+	addCharPassInput = passInput
 	flow.AddItem(passInput)
 	rememberCB, rememberEvents := eui.NewCheckbox()
 	rememberCB.Text = "Remember"
@@ -654,16 +667,35 @@ func makeAddCharacterWindow() {
 			}
 			if addCharRemember {
 				saveCharacters()
+				// Reload to ensure in-memory state matches persisted data.
+				loadCharacters()
 			}
+			// Update selection to the newly added character
 			name = addCharName
 			passHash = hash
 			gs.LastCharacter = addCharName
 			saveSettings()
+			// Ensure the login window is open before updating its contents
+			if loginWin != nil {
+				loginWin.MarkOpen()
+			}
+			// Refresh the login UI to show the new character immediately
 			updateCharacterButtons()
 			if loginWin != nil {
 				loginWin.Refresh()
 			}
-			loginWin.MarkOpen()
+			// Clear the add-character inputs for good UX on repeat adds
+			addCharName = ""
+			addCharPass = ""
+			if addCharNameInput != nil {
+				addCharNameInput.Text = ""
+				addCharNameInput.Dirty = true
+			}
+			if addCharPassInput != nil {
+				addCharPassInput.Text = ""
+				addCharPassInput.Dirty = true
+			}
+			// Return user to login (already open above)
 			addCharWin.Close()
 		}
 	}
@@ -812,6 +844,7 @@ func makeErrorWindow(msg string) {
 	win.Resizable = false
 	win.AutoSize = true
 	win.Movable = true
+	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleBottom)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	text, _ := eui.NewText()
