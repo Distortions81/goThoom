@@ -197,7 +197,7 @@ func drawNightOverlay(screen *ebiten.Image, ox, oy int) {
 	if ih > 0 {
 		sy = vh / float64(ih)
 	}
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op.GeoM.Scale(sx, sy)
 	alpha := float32(lvl) / 100.0
 	op.ColorScale.ScaleAlpha(alpha)

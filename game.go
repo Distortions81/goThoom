@@ -960,7 +960,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scaled := math.Round(float64(drawSize) * scale)
 		scale = scaled / float64(drawSize)
 		// No per-frame bounds check (culled earlier).
-		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(scale, scale)
 		tx := math.Round(float64(x) - scaled/2)
 		ty := math.Round(float64(y) - scaled/2)
@@ -977,7 +977,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				ih := int(math.Ceil(h))
 				top := y + int(20*gs.GameScale)
 				left := x - iw/2
-				op := &ebiten.DrawImageOptions{}
+				op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 				op.GeoM.Scale(float64(iw+5), float64(ih))
 				op.GeoM.Translate(float64(left), float64(top))
 				op.ColorScale.ScaleWithColor(bgClr)
@@ -997,7 +997,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 					barClr.A = alpha
 					top := y + int(float64(size)*gs.GameScale/2+2*gs.GameScale)
 					left := x - int(6*gs.GameScale)
-					op := &ebiten.DrawImageOptions{}
+					op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 					op.GeoM.Scale(12*gs.GameScale, 2*gs.GameScale)
 					op.GeoM.Translate(float64(left), float64(top))
 					op.ColorScale.ScaleWithColor(barClr)
@@ -1122,7 +1122,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		sx = scaledW / float64(drawW)
 		sy = scaledH / float64(drawH)
 		// No per-frame bounds check (culled earlier).
-		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(sx, sy)
 		tx := math.Round(float64(x) - float64(drawW)*sx/2)
 		ty := math.Round(float64(y) - float64(drawH)*sy/2)
@@ -1229,7 +1229,7 @@ func drawGameCurtain(screen *ebiten.Image, ox, oy int) {
 		blackPixel.Fill(color.Black)
 	}
 
-	op := &ebiten.DrawImageOptions{}
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 
 	if oy > 0 {
 		op.GeoM.Scale(float64(sw), float64(oy))
@@ -1258,7 +1258,7 @@ func drawGameCurtain(screen *ebiten.Image, ox, oy int) {
 // drawStatusBars renders health, balance and spirit bars.
 func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64) {
 	drawRect := func(x, y, w, h int, clr color.RGBA) {
-		op := &ebiten.DrawImageOptions{}
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(float64(w), float64(h))
 		op.GeoM.Translate(float64(ox+x), float64(oy+y))
 		op.ColorScale.ScaleWithColor(clr)
@@ -1380,12 +1380,12 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 			return
 		}
 		w := int(float64(img.Bounds().Dx()) * gs.GameScale)
-		opRight := &ebiten.DrawImageOptions{}
+		opRight := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		opRight.GeoM.Scale(gs.GameScale, gs.GameScale)
 		opRight.GeoM.Translate(float64(x), float64(y))
 		screen.DrawImage(img, opRight)
 
-		opLeft := &ebiten.DrawImageOptions{}
+		opLeft := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		opLeft.GeoM.Scale(-gs.GameScale, gs.GameScale)
 		opLeft.GeoM.Translate(float64(w), 0)
 		opLeft.GeoM.Translate(float64(x+w)+4*gs.GameScale, float64(y))
@@ -1395,7 +1395,7 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 
 	if rightID != 0 {
 		if img := loadImage(rightID); img != nil {
-			op := &ebiten.DrawImageOptions{}
+			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			op.GeoM.Scale(gs.GameScale, gs.GameScale)
 			op.GeoM.Translate(float64(x), float64(y))
 			screen.DrawImage(img, op)
@@ -1405,7 +1405,7 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 	if leftID != 0 {
 		if img := loadImage(leftID); img != nil {
 			w := int(float64(img.Bounds().Dx()) * gs.GameScale)
-			op := &ebiten.DrawImageOptions{}
+			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			// Mirror the left-hand icon for a subtle visual cue.
 			op.GeoM.Scale(-gs.GameScale, gs.GameScale)
 			op.GeoM.Translate(float64(w), 0)

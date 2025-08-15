@@ -170,7 +170,7 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 	drawFilledRect(screen, x, y, width, height, bg, true)
 	strokeRect(screen, x, y, width, height, 1, border, true)
 
-	dop := ebiten.DrawImageOptions{}
+	dop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	dop.GeoM.Translate(float64(x+pad), float64(y+pad))
 	top := &text.DrawOptions{DrawImageOptions: dop}
 	top.ColorScale.ScaleWithColor(fg)
@@ -205,7 +205,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 	} else {
 		win.collectDropdowns(dropdowns)
 	}
-	op := &ebiten.DrawImageOptions{}
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op.GeoM.Translate(float64(win.getPosition().X), float64(win.getPosition().Y))
 	screen.DrawImage(win.Render, op)
 	win.drawDebug(screen)
@@ -265,7 +265,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 				PrimaryAlign:   text.AlignStart,
 				SecondaryAlign: text.AlignCenter,
 			}
-			tdop := ebiten.DrawImageOptions{}
+			tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			tdop.GeoM.Translate(float64(win.getPosition().X+((win.GetTitleSize())/4)),
 				float64(win.getPosition().Y+((win.GetTitleSize())/2)))
 
@@ -557,7 +557,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				)
 			}
 			loo := text.LayoutOptions{PrimaryAlign: text.AlignCenter, SecondaryAlign: text.AlignCenter}
-			dop := ebiten.DrawImageOptions{}
+			dop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			dop.GeoM.Translate(float64(x+w/2), float64(offset.Y+tabHeight/2))
 			dto := &text.DrawOptions{DrawImageOptions: dop, LayoutOptions: loo}
 			dto.ColorScale.ScaleWithColor(style.TextColor)
@@ -748,7 +748,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		textSize := (item.FontSize * uiScale) + 2
 		face := textFace(textSize)
 		loo := text.LayoutOptions{PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(float64(offset.X), float64(offset.Y+textSize/2))
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 		if style != nil {
@@ -810,7 +810,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			PrimaryAlign:   text.AlignStart,
 			SecondaryAlign: text.AlignCenter,
 		}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(
 			float64(offset.X+auxSize.X+item.AuxSpace),
 			float64(offset.Y+(auxSize.Y/2)),
@@ -866,7 +866,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			PrimaryAlign:   text.AlignStart,
 			SecondaryAlign: text.AlignCenter,
 		}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(
 			float64(offset.X+auxSize.X+item.AuxSpace),
 			float64(offset.Y+(auxSize.Y/2)),
@@ -878,7 +878,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 	} else if item.ItemType == ITEM_BUTTON {
 
 		if item.Image != nil {
-			sop := &ebiten.DrawImageOptions{}
+			sop := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			sop.GeoM.Scale(float64(maxSize.X)/float64(item.Image.Bounds().Dx()),
 				float64(maxSize.Y)/float64(item.Image.Bounds().Dy()))
 			sop.GeoM.Translate(float64(offset.X), float64(offset.Y))
@@ -908,7 +908,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			PrimaryAlign:   text.AlignCenter,
 			SecondaryAlign: text.AlignCenter,
 		}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(
 			float64(offset.X+((maxSize.X)/2)),
 			float64(offset.Y+((maxSize.Y)/2)))
@@ -943,7 +943,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			PrimaryAlign:   text.AlignStart,
 			SecondaryAlign: text.AlignCenter,
 		}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(
 			float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale),
 			float64(offset.Y+((maxSize.Y)/2)),
@@ -1035,7 +1035,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		if showValue {
 			// value text drawn to the right of the slider track
 			loo := text.LayoutOptions{LineSpacing: 1.2, PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
-			tdop := ebiten.DrawImageOptions{}
+			tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			tdop.GeoM.Translate(
 				float64(trackStart+trackWidth+gap),
 				float64(offset.Y+(maxSize.Y/2)),
@@ -1067,7 +1067,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		textSize := (item.FontSize * uiScale) + 2
 		face := textFace(textSize)
 		loo := text.LayoutOptions{PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale), float64(offset.Y+maxSize.Y/2))
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 		top.ColorScale.ScaleWithColor(style.TextColor)
@@ -1094,7 +1094,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		if item.Image == nil || item.Image.Bounds().Dx() != int(wheelSize) {
 			item.Image = colorWheelImage(int(wheelSize))
 		}
-		op := &ebiten.DrawImageOptions{}
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Translate(float64(offset.X), float64(offset.Y))
 		subImg.DrawImage(item.Image, op)
 
@@ -1119,7 +1119,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 	} else if item.ItemType == ITEM_IMAGE {
 		if item.Image != nil {
 			iw, ih := item.Image.Bounds().Dx(), item.Image.Bounds().Dy()
-			op := &ebiten.DrawImageOptions{}
+			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			if int(maxSize.X) != iw || int(maxSize.Y) != ih {
 				op.GeoM.Scale(float64(maxSize.X)/float64(iw), float64(maxSize.Y)/float64(ih))
 			}
@@ -1139,7 +1139,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			PrimaryAlign:   text.AlignStart,
 			SecondaryAlign: text.AlignStart,
 		}
-		tdop := ebiten.DrawImageOptions{}
+		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(
 			float64(offset.X),
 			float64(offset.Y))
@@ -1274,7 +1274,7 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 			int(drawRect.Y1-offset.Y),
 		)
 		sub := item.Render.SubImage(src).(*ebiten.Image)
-		op := &ebiten.DrawImageOptions{}
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Translate(float64(drawRect.X0), float64(drawRect.Y0))
 		screen.DrawImage(sub, op)
 	} else {
@@ -1342,7 +1342,7 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 			}
 			drawRoundRect(subImg, &roundRect{Size: maxSize, Position: point{X: offset.X, Y: y}, Fillet: item.Fillet, Filled: true, Color: col})
 		}
-		td := ebiten.DrawImageOptions{}
+		td := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		td.GeoM.Translate(float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale), float64(y+optionH/2))
 		tdo := &text.DrawOptions{DrawImageOptions: td, LayoutOptions: loo}
 		tdo.ColorScale.ScaleWithColor(style.TextColor)

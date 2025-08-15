@@ -302,13 +302,13 @@ func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, tota
 	blended := newImage(size, size)
 	alpha := float32(step) / float32(total)
 	offPrev := (size - prevImg.Bounds().Dx()) / 2
-	op1 := &ebiten.DrawImageOptions{}
+	op1 := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op1.ColorScale.ScaleAlpha(1 - alpha)
 	op1.Blend = ebiten.BlendCopy
 	op1.GeoM.Translate(float64(offPrev), float64(offPrev))
 	blended.DrawImage(prevImg, op1)
 	offCur := (size - img.Bounds().Dx()) / 2
-	op2 := &ebiten.DrawImageOptions{}
+	op2 := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op2.ColorScale.ScaleAlpha(alpha)
 	op2.Blend = ebiten.BlendLighter
 	op2.GeoM.Translate(float64(offCur), float64(offCur))
@@ -349,14 +349,14 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 	alpha := float32(step) / float32(total)
 	offPrevX := (w - w1) / 2
 	offPrevY := (h - h1) / 2
-	op1 := &ebiten.DrawImageOptions{}
+	op1 := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op1.ColorScale.ScaleAlpha(1 - alpha)
 	op1.Blend = ebiten.BlendCopy
 	op1.GeoM.Translate(float64(offPrevX), float64(offPrevY))
 	blended.DrawImage(prevImg, op1)
 	offCurX := (w - w2) / 2
 	offCurY := (h - h2) / 2
-	op2 := &ebiten.DrawImageOptions{}
+	op2 := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op2.ColorScale.ScaleAlpha(alpha)
 	op2.Blend = ebiten.BlendLighter
 	op2.GeoM.Translate(float64(offCurX), float64(offCurY))
