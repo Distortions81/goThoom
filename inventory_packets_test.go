@@ -10,7 +10,7 @@ import (
 func TestParseInventoryFull(t *testing.T) {
 	resetInventory()
 	inventoryDirty = false
-	data := []byte{byte(kInvCmdFull), 2, 0x02, 0x00, 0x64, 0x00, 0xC8, byte(kInvCmdNone), 0x99}
+	data := []byte{byte(kInvCmdFull), 2, 0x40, 0x00, 0x64, 0x00, 0xC8, byte(kInvCmdNone), 0x99}
 	rest, ok := parseInventory(data)
 	if !ok {
 		t.Fatalf("parse failed")

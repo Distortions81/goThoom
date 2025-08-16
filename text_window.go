@@ -4,8 +4,9 @@ import (
 	"math"
 	"strings"
 
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gothoom/eui"
+
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 // makeTextWindow creates a standardized text window with optional input bar.

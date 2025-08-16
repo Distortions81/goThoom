@@ -22,7 +22,7 @@ func makeInventoryWindow() {
 	if inventoryWin != nil {
 		return
 	}
-	inventoryWin, inventoryList, _ = makeTextWindow("Inventory", eui.HZoneLeft, eui.VZoneTop, true)
+	inventoryWin, inventoryList, _ = makeTextWindow("Inventory", eui.HZoneLeft, eui.VZoneMiddleTop, true)
 	// Ensure layout updates immediately on resize to avoid gaps.
 	inventoryWin.OnResize = func() { updateInventoryWindow() }
 	updateInventoryWindow()

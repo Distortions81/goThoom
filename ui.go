@@ -143,8 +143,7 @@ func initUI() {
 	makeInventoryWindow()
 	makePlayersWindow()
 	makeHelpWindow()
-	makeHUDWindow()
-	makeToolbarWindow()
+	makeToolbar()
 
 	// Load any persisted players data (e.g., from prior sessions) so
 	// avatars/classes can show up immediately.
@@ -162,15 +161,12 @@ func initUI() {
 	}
 }
 
-func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool) *eui.ItemData {
+func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData {
 	var row1, row2, menu *eui.ItemData
-	if twoRows {
-		row1 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-		row2 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-		menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	} else {
-		menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	}
+
+	row1 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row2 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
@@ -181,11 +177,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool)
 			windowsWin.ToggleNear(ev.Item)
 		}
 	}
-	if twoRows {
-		row1.AddItem(winBtn)
-	} else {
-		menu.AddItem(winBtn)
-	}
+	row1.AddItem(winBtn)
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
@@ -196,11 +188,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool)
 			settingsWin.ToggleNear(ev.Item)
 		}
 	}
-	if twoRows {
-		row1.AddItem(btn)
-	} else {
-		menu.AddItem(btn)
-	}
+	row1.AddItem(btn)
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
@@ -211,11 +199,18 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool)
 			helpWin.ToggleNear(ev.Item)
 		}
 	}
-	if twoRows {
-		row1.AddItem(helpBtn)
-	} else {
-		menu.AddItem(helpBtn)
+	row1.AddItem(helpBtn)
+
+	exitSessBtn, exitSessEv := eui.NewButton()
+	exitSessBtn.Text = "Exit"
+	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	exitSessBtn.FontSize = toolFontSize
+	exitSessEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmExitSession()
+		}
 	}
+	row1.AddItem(exitSessBtn)
 
 	volumeSlider, volumeEvents := eui.NewSlider()
 	volumeSlider.MinValue = 0
@@ -230,11 +225,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool)
 			updateSoundVolume()
 		}
 	}
-	if twoRows {
-		row2.AddItem(volumeSlider)
-	} else {
-		menu.AddItem(volumeSlider)
-	}
+	row2.AddItem(volumeSlider)
 
 	muteBtn, muteEvents := eui.NewButton()
 	muteBtn.Text = "Mute"
@@ -256,71 +247,22 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool)
 			updateSoundVolume()
 		}
 	}
-	if twoRows {
-		row2.AddItem(muteBtn)
-	} else {
-		menu.AddItem(muteBtn)
-	}
-
-	exitSessBtn, exitSessEv := eui.NewButton()
-	exitSessBtn.Text = "Exit"
-	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	exitSessBtn.FontSize = toolFontSize
-	exitSessEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			confirmExitSession()
-		}
-	}
-	if twoRows {
-		row2.AddItem(exitSessBtn)
-	} else {
-		menu.AddItem(exitSessBtn)
-	}
+	row2.AddItem(muteBtn)
 
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
 	recordStatus.Size = eui.Point{X: 80, Y: buttonHeight}
 	recordStatus.FontSize = toolFontSize
 	recordStatus.Color = eui.ColorRed
-	if twoRows {
-		row2.AddItem(recordStatus)
-	} else {
-		menu.AddItem(recordStatus)
-	}
+	row2.AddItem(recordStatus)
 
-	if twoRows {
-		menu.AddItem(row1)
-		menu.AddItem(row2)
-	}
+	menu.AddItem(row1)
+	menu.AddItem(row2)
 
 	return menu
 }
 
-func makeToolbarWindow() {
-	var toolFontSize float32 = 10
-	var buttonHeight float32 = 15
-	var buttonWidth float32 = 64
-
-	toolbarWin = eui.NewWindow()
-	toolbarWin.Title = ""
-	toolbarWin.SetTitleSize(8)
-	toolbarWin.Closable = false
-	toolbarWin.Resizable = false
-	toolbarWin.AutoSize = false
-	toolbarWin.ShowDragbar = false
-	toolbarWin.Movable = true
-	toolbarWin.NoScroll = true
-	toolbarWin.Size = eui.Point{X: 500, Y: 35}
-	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
-
-	toolbarWin.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight, false))
-	toolbarWin.AddWindow(false)
-	toolbarWin.MarkOpen()
-
-	//eui.TreeMode = true
-}
-
-func makeHUDWindow() {
+func makeToolbar() {
 	if hudWin != nil {
 		return
 	}
@@ -329,7 +271,7 @@ func makeHUDWindow() {
 	var buttonWidth float32 = 64
 
 	hudWin = eui.NewWindow()
-	hudWin.Title = "HUD"
+	hudWin.Title = "Toolbar"
 	hudWin.Closable = true
 	hudWin.Resizable = false
 	hudWin.AutoSize = true
@@ -346,7 +288,7 @@ func makeHUDWindow() {
 	hands.AddItem(leftHandImg)
 	hands.AddItem(rightHandImg)
 	flow.AddItem(hands)
-	flow.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight, true))
+	flow.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
 
 	hudWin.AddItem(flow)
 	hudWin.AddWindow(false)
