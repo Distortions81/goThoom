@@ -1705,22 +1705,6 @@ func makeGraphicsWindow() {
 	}
 	advanced.AddItem(intCB)
 
-	tbMaxCB, tbMaxEvents := eui.NewCheckbox()
-	tbMaxCB.Text = "Show titlebar Maximize button"
-	tbMaxCB.Size = eui.Point{X: rightW, Y: 24}
-	tbMaxCB.Checked = gs.TitlebarMaximize
-	tbMaxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.TitlebarMaximize = ev.Checked
-			if gameWin != nil {
-				gameWin.Maximizable = ev.Checked
-				gameWin.Refresh()
-			}
-			settingsDirty = true
-		}
-	}
-	advanced.AddItem(tbMaxCB)
-
 	outer.AddItem(simple)
 	outer.AddItem(advanced)
 	graphicsWin.AddItem(outer)

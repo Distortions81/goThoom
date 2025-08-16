@@ -148,6 +148,22 @@ func updatePlayersWindow() {
 		// Icon sized to row height, with a small right margin.
 		iconSize := int(rowUnits + 0.5)
 
+		// Profession sprite if available; else add a blank image to preserve spacing.
+		{
+			profItem, _ := eui.NewImageItem(iconSize, iconSize)
+			profItem.Margin = 4
+			profItem.Border = 0
+			profItem.Filled = false
+			profItem.Disabled = offline
+			if pid := professionPictID(p.Class); pid != 0 {
+				if img := loadImage(pid); img != nil {
+					profItem.Image = img
+					profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
+				}
+			}
+			row.AddItem(profItem)
+		}
+
 		// Avatar: try live PictID first; else use default by gender; else blank.
 		{
 			avItem, _ := eui.NewImageItem(iconSize, iconSize)
@@ -184,22 +200,6 @@ func updatePlayersWindow() {
 			}
 			// Always add avatar slot, even if blank, to keep alignment.
 			row.AddItem(avItem)
-		}
-
-		// Profession sprite if available; else add a blank image to preserve spacing.
-		{
-			profItem, _ := eui.NewImageItem(iconSize, iconSize)
-			profItem.Margin = 4
-			profItem.Border = 0
-			profItem.Filled = false
-			profItem.Disabled = offline
-			if pid := professionPictID(p.Class); pid != 0 {
-				if img := loadImage(pid); img != nil {
-					profItem.Image = img
-					profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
-				}
-			}
-			row.AddItem(profItem)
 		}
 
 		// Gender icon removed per request; columns remain avatar + profession only.

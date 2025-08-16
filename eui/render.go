@@ -351,7 +351,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 				win.HoverMax = false
 			}
 			// Draw a window-like maximize icon: outer frame + top bar
-			inset := uiScale * 2
+			inset := uiScale * 5
 			x := mr.X0 + inset
 			y := mr.Y0 + inset
 			w := (mr.X1 - mr.X0) - inset*2
@@ -516,16 +516,16 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 }
 
 func (win *windowData) drawItems(screen *ebiten.Image, base point, dropdowns *[]openDropdown) {
-    pad := (win.Padding + win.BorderPad) * win.scale()
-    winPos := point{X: pad, Y: win.GetTitleSize() + pad}
-    winPos = pointSub(winPos, win.Scroll)
-    // In NoCache mode we draw to the main screen using absolute coordinates.
-    // Offset window-local positions by the window's screen position so items
-    // render at the correct place.
-    if win.NoCache {
-        winPos = pointAdd(winPos, win.getPosition())
-    }
-    clip := win.getMainRect()
+	pad := (win.Padding + win.BorderPad) * win.scale()
+	winPos := point{X: pad, Y: win.GetTitleSize() + pad}
+	winPos = pointSub(winPos, win.Scroll)
+	// In NoCache mode we draw to the main screen using absolute coordinates.
+	// Offset window-local positions by the window's screen position so items
+	// render at the correct place.
+	if win.NoCache {
+		winPos = pointAdd(winPos, win.getPosition())
+	}
+	clip := win.getMainRect()
 
 	for _, item := range win.Contents {
 		itemPos := pointAdd(winPos, item.getPosition(win))

@@ -51,7 +51,6 @@ var gsdef settings = settings{
 	WindowTiling:      false,
 	WindowSnapping:    false,
 	AnyGameWindowSize: true,
-	TitlebarMaximize:  true,
 	IntegerScaling:    false,
 	NoCaching:         false,
 	PotatoComputer:    false,
@@ -117,7 +116,6 @@ type settings struct {
 	MessagesToConsole bool
 	WindowTiling      bool
 	WindowSnapping    bool
-	TitlebarMaximize  bool
 	IntegerScaling    bool
 
 	GameWindow      WindowState
@@ -168,6 +166,7 @@ func loadSettings() bool {
 	path := filepath.Join(dataDirPath, settingsFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
+		applyQualityPreset("High")
 		return false
 	}
 

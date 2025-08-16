@@ -1676,7 +1676,7 @@ func makeGameWindow() {
 	gameWin.MarkOpen()
 	gameWin.OnResize = func() { onGameWindowResize() }
 	// Titlebar maximize button controlled by settings (now default on)
-	gameWin.Maximizable = gs.TitlebarMaximize
+	gameWin.Maximizable = true
 	// Keep same horizontal center on maximize
 	gameWin.OnMaximize = func() {
 		if gameWin == nil {
