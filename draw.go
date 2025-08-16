@@ -518,7 +518,7 @@ func handleInvCmdFull(data []byte) ([]byte, bool) {
 	// bit numbering so index 0 maps to bit 7, index 1 to bit 6, and so on.
 	eq := make([]bool, itemCount)
 	for i := 0; i < itemCount; i++ {
-		if equips[i/8]&(1<<uint(7-i%8)) != 0 {
+		if equips[i/8]&(1<<uint(i%8)) != 0 {
 			eq[i] = true
 		}
 	}
