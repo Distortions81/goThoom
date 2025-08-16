@@ -8,8 +8,7 @@ import (
 )
 
 func initDiscordRPC(ctx context.Context) {
-	appID := "1406171210240360508"
-	if err := client.Login(appID); err != nil {
+	if err := client.Login("1406171210240360508"); err != nil {
 		logError("discord rpc login: %v", err)
 		return
 	}
