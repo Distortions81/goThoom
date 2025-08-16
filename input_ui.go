@@ -8,9 +8,8 @@ import (
 func pointInUI(x, y int) bool {
 	fx, fy := float32(x), float32(y)
 
-	wins := eui.Windows()
-	for i := len(wins) - 1; i >= 0; i-- {
-		win := wins[i]
+	windows := eui.Windows()
+	for _, win := range windows {
 		if win == gameWin {
 			continue
 		}

@@ -440,12 +440,13 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 			Color:    FrameColor,
 		})
 	}
-	if win.Resizable {
+	if win.Resizable && !win.NoScale {
 		win.drawResizeThumb(screen)
 	}
 }
 
 func (win *windowData) drawResizeThumb(screen *ebiten.Image) {
+
 	size := float32(12) * uiScale
 	step := float32(4) * uiScale
 	pad := win.BorderPad * win.scale()

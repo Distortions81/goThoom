@@ -28,8 +28,9 @@ const lateRatio = 85
 const gameAreaSizeX, gameAreaSizeY = 547, 540
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const defaultHandPictID = 6
+const initialWindowW, initialWindowH = 1920, 720
 
-const initialWindowW, initialWindowH = 100, 100
+var MHOX, MHOY int
 
 var blackPixel *ebiten.Image
 
@@ -42,7 +43,6 @@ var worldRT *ebiten.Image
 // the rendered world, and gameImage is its backing texture.
 var gameImageItem *eui.ItemData
 var gameImage *ebiten.Image
-var prevGameWinSize eui.Point
 var inAspectResize bool
 
 // gameWindowBG picks a background color for the game window content area.
@@ -155,10 +155,8 @@ var (
 	inputMu     sync.Mutex
 )
 
-var keyWalk bool
 var keyX, keyY int16
 var walkToggled bool
-var walkTargetX, walkTargetY int16
 
 var inputActive bool
 var inputText []rune
@@ -507,12 +505,14 @@ func (g *Game) Update() error {
 		return errors.New("shutdown")
 	default:
 	}
-	eui.Update()
+	eui.Update() //We really need this to return eaten clicks
 
 	once.Do(func() {
 		initGame()
 	})
 
+	/* this should not be here */
+	/* this should not be here */
 	if inventoryDirty {
 		updateInventoryWindow()
 		updateHandsWindow()
@@ -523,7 +523,6 @@ func (g *Game) Update() error {
 		updatePlayersWindow()
 		playersDirty = false
 	}
-
 	if syncWindowSettings() {
 		settingsDirty = true
 	}
@@ -547,7 +546,18 @@ func (g *Game) Update() error {
 		lastPlayersSave = time.Now()
 	}
 
-	// Track console input changes to refresh the console window only when needed.
+	// Ensure the movie controller window repaints at least once per second
+	// while open, even without other UI events.
+	if movieWin != nil && movieWin.IsOpen() {
+		if time.Since(lastMovieWinTick) >= time.Second {
+			lastMovieWinTick = time.Now()
+			movieWin.Refresh()
+		}
+	}
+	/* this should not be here */
+	/* this should not be here */
+
+	/* Console input */
 	changedInput := false
 	if inputActive {
 		if newChars := ebiten.AppendInputChars(nil); len(newChars) > 0 {
@@ -627,15 +637,9 @@ func (g *Game) Update() error {
 		}
 	}
 
-	// Ensure the movie controller window repaints at least once per second
-	// while open, even without other UI events.
-	if movieWin != nil && movieWin.IsOpen() {
-		if time.Since(lastMovieWinTick) >= time.Second {
-			lastMovieWinTick = time.Now()
-			movieWin.Refresh()
-		}
-	}
+	/* WASD / ARROWS */
 
+	var keyWalk bool
 	if !inputActive {
 		dx, dy := 0, 0
 		if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
@@ -661,111 +665,62 @@ func (g *Game) Update() error {
 		} else {
 			keyWalk = false
 		}
-
-		mx, my := ebiten.CursorPosition()
-		overUI := pointInUI(mx, my)
-		gx, gy := gameWindowOrigin()
-
-		if gs.ClickToToggle {
-			if !overUI && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-				if walkToggled {
-					walkToggled = false
-				} else {
-					walkTargetX = int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
-					walkTargetY = int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
-					walkToggled = true
-				}
-			}
-			if walkToggled {
-				if gameWin == nil {
-					walkToggled = false
-				} else {
-					size := gameWin.GetSize()
-					x1 := gx + int(size.X)
-					y1 := gy + int(size.Y)
-					if overUI || mx < gx || my < gy || mx >= x1 || my >= y1 {
-						walkToggled = false
-					} else {
-						walkTargetX = int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
-						walkTargetY = int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
-					}
-				}
-			}
-		} else {
-			walkToggled = false
-		}
-	} else {
-		keyWalk = false
-		if walkToggled {
-			walkToggled = false
-		}
 	}
 
 	mx, my := ebiten.CursorPosition()
 	gx, gy := gameWindowOrigin()
 	baseX := int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
 	baseY := int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
-	baseDown := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
+	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
+	click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+
+	if click && heldTime <= 1 {
+		MHOX, MHOY = mx, my
+	}
+
+	/*
+	 * Detect used in UI
+	 * TODO CLEANUP
+	 */
+	walk := false
 	if pointInUI(mx, my) {
-		baseDown = false
+		if !click && heldTime > 1 {
+			if pointInUI(MHOX, MHOY) {
+				click = false
+				heldTime = 0
+			}
+		}
+		click = false
 	}
+
 	x, y := baseX, baseY
-	down := baseDown
 	if keyWalk {
-		x, y, down = keyX, keyY, true
-	} else if gs.ClickToToggle {
-		x, y = walkTargetX, walkTargetY
-		down = walkToggled
+		x, y, walk = keyX, keyY, true
+		walkToggled = false
+	} else if gs.ClickToToggle && click {
+		walkToggled = !walkToggled
+		walk = walkToggled
+	} else if !gs.ClickToToggle && heldTime > 1 && !click {
+		walk = true
+		walkToggled = false
 	}
-	if down && !keyWalk {
+
+	if gs.ClickToToggle && walkToggled {
+		walk = walkToggled
+	}
+
+	/* Change Cursor */
+	if walk && !keyWalk {
 		ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
 	} else {
 		ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 	}
+
 	inputMu.Lock()
-	latestInput = inputState{mouseX: x, mouseY: y, mouseDown: down}
+	latestInput = inputState{mouseX: x, mouseY: y, mouseDown: walk}
 	inputMu.Unlock()
 
 	return nil
-}
-
-func updateGameScale() {
-	if gameWin == nil {
-		return
-	}
-	size := gameWin.GetRawSize()
-	pad := float64(2 * gameWin.Padding)
-	w := float64(size.X) - pad
-	h := float64(size.Y) - pad
-	if w <= 0 || h <= 0 {
-		return
-	}
-
-	scaleW := w / float64(gameAreaSizeX)
-	scaleH := h / float64(gameAreaSizeY)
-	newScale := math.Min(scaleW, scaleH)
-	if newScale < 0.25 {
-		newScale = 0.25
-	}
-
-	if gs.AnyGameWindowSize {
-		if gs.GameScale != newScale {
-			gs.GameScale = newScale
-			initFont()
-		}
-		updateGameWindowSize()
-		return
-	}
-
-	snapped, exact := exactScale(newScale, 8, 1e-6)
-	if !exact {
-		snapped = math.Max(1, math.Round(newScale))
-	}
-
-	if gs.GameScale != snapped {
-		gs.GameScale = snapped
-		initFont()
-	}
 }
 
 func updateGameWindowSize() {
@@ -1730,7 +1685,6 @@ func onGameWindowResize() {
 	}
 	if inAspectResize {
 		updateGameImageSize()
-		prevGameWinSize = gameWin.GetSize()
 		return
 	}
 
@@ -1746,7 +1700,6 @@ func onGameWindowResize() {
 	availH := float64(int(size.Y)&^1) - pad - title
 	if availW <= 0 || availH <= 0 {
 		updateGameImageSize()
-		prevGameWinSize = size
 		return
 	}
 
@@ -1768,7 +1721,6 @@ func onGameWindowResize() {
 		inAspectResize = false
 	}
 	updateGameImageSize()
-	prevGameWinSize = gameWin.GetSize()
 }
 
 func noteFrame() {
