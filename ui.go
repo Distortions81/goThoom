@@ -172,7 +172,6 @@ func makeToolbarWindow() {
 	toolbarWin.AutoSize = false
 	toolbarWin.ShowDragbar = false
 	toolbarWin.Movable = true
-	toolbarWin.NoScale = true
 	toolbarWin.NoScroll = true
 	toolbarWin.Size = eui.Point{X: 500, Y: 35}
 	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
