@@ -548,8 +548,15 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 			logError("inventory: cmd %x missing index", cmd)
 			return nil, false
 		}
-		// Server sends 1-based index; convert to 0-based for local arrays.
-		idx = int(data[0]) - 1
+		// Server uses 1-based indices for template items and 0 for
+		// non-template items. Convert to our 0-based index, mapping
+		// 0 to -1 so lookups fall back to the first matching ID.
+		b := int(data[0])
+		if b == 0 {
+			idx = -1
+		} else {
+			idx = b - 1
+		}
 		data = data[1:]
 	}
 	var name string
