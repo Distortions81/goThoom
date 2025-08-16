@@ -157,6 +157,30 @@ func (win *windowData) pinRect() rect {
 		x1 -= size
 		x0 -= size
 	}
+	if win.Maximizable {
+		x1 -= size
+		x0 -= size
+	}
+	return rect{
+		X0: x0,
+		Y0: pos.Y + xpad,
+		X1: x1,
+		Y1: pos.Y + size - xpad,
+	}
+}
+
+func (win *windowData) maxRect() rect {
+	if win.TitleHeight <= 0 || !win.Maximizable {
+		return rect{}
+	}
+	var xpad float32 = win.Border * win.scale()
+	size := win.GetTitleSize()
+	pos := win.GetPos()
+	x1 := pos.X + win.GetSize().X - xpad
+	if win.Closable {
+		x1 -= size
+	}
+	x0 := x1 - size
 	return rect{
 		X0: x0,
 		Y0: pos.Y + xpad,
@@ -171,6 +195,12 @@ func (win *windowData) dragbarRect() rect {
 	}
 	pos := win.GetPos()
 	pr := win.pinRect()
+	if win.Maximizable {
+		mr := win.maxRect()
+		if mr.X0 < pr.X0 {
+			pr = mr
+		}
+	}
 	return rect{
 		X0: pos.X,
 		Y0: pos.Y,
@@ -269,6 +299,20 @@ func (win *windowData) clampToScreen() {
 	old := win.Position
 	s := win.scale()
 
+	// Ensure window size never exceeds the screen bounds. If it does,
+	// shrink the window so it can be fully clamped on-screen.
+	sizeChanged := false
+	if size.X > float32(screenWidth) {
+		win.Size.X = float32(screenWidth) / s
+		size.X = float32(screenWidth)
+		sizeChanged = true
+	}
+	if size.Y > float32(screenHeight) {
+		win.Size.Y = float32(screenHeight) / s
+		size.Y = float32(screenHeight)
+		sizeChanged = true
+	}
+
 	if pos.X < 0 {
 		win.Position.X -= pos.X / s
 		pos.X = 0
@@ -285,6 +329,13 @@ func (win *windowData) clampToScreen() {
 	overY := pos.Y + size.Y - float32(screenHeight)
 	if overY > 0 {
 		win.Position.Y -= overY / s
+	}
+	if sizeChanged {
+		win.resizeFlows()
+		win.adjustScrollForResize()
+		if win.OnResize != nil {
+			win.OnResize()
+		}
 	}
 	if win.Position != old {
 		//win.markDirty()
@@ -364,6 +415,10 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 		if win.Closable && win.xRect().containsPoint(mpos) {
 			win.HoverClose = true
 			return PART_CLOSE
+		}
+		if win.Maximizable && win.maxRect().containsPoint(mpos) {
+			win.HoverMax = true
+			return PART_MAXIMIZE
 		}
 		if win.pinRect().containsPoint(mpos) {
 			win.HoverPin = true

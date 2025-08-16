@@ -92,8 +92,20 @@ func NewWindow() *windowData {
 		currentTheme = baseTheme
 	}
 	newWindow := currentTheme.Window
+	// Default: windows can be maximized if desired by the app
+	newWindow.Maximizable = false
 	newWindow.Theme = currentTheme
 	return &newWindow
+}
+
+// Maximize resizes this window to cover the full screen area and moves it to (0,0).
+func (win *windowData) Maximize() {
+	if win == nil {
+		return
+	}
+	win.ClearZone()
+	_ = win.SetPos(Point{X: 0, Y: 0})
+	_ = win.SetSize(Point{X: float32(screenWidth), Y: float32(screenHeight)})
 }
 
 // Create a new button from the default theme

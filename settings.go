@@ -51,6 +51,7 @@ var gsdef settings = settings{
 	WindowTiling:      false,
 	WindowSnapping:    false,
 	AnyGameWindowSize: true,
+	TitlebarMaximize:  false,
 	NoCaching:         false,
 	PotatoComputer:    false,
 
@@ -115,6 +116,7 @@ type settings struct {
 	MessagesToConsole bool
 	WindowTiling      bool
 	WindowSnapping    bool
+	TitlebarMaximize  bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState
@@ -184,6 +186,8 @@ func loadSettings() bool {
 }
 
 func applySettings() {
+	// Fixed-size mode is deprecated; force any-size mode on.
+	gs.AnyGameWindowSize = true
 	eui.SetWindowTiling(gs.WindowTiling)
 	eui.SetWindowSnapping(gs.WindowSnapping)
 	eui.SetPotatoMode(gs.PotatoComputer)

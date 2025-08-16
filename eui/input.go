@@ -130,6 +130,10 @@ func Update() error {
 					win.Close()
 					continue
 				}
+				if part == PART_MAXIMIZE {
+					win.Maximize()
+					break
+				}
 				if part == PART_PIN {
 					if win.zone != nil {
 						win.ClearZone()

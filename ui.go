@@ -1527,52 +1527,22 @@ func makeGraphicsWindow() {
 	}
 	flow.AddItem(uiScaleApplyBtn)
 
-	gameSizeSlider, gameSizeEvents := eui.NewSlider()
-	gameSizeSlider.Label = "Game Window Magnify (Sharp)"
-	gameSizeSlider.MinValue = 1
-	gameSizeSlider.MaxValue = 5
-	gameSizeSlider.IntOnly = true
-	gsVal := gs.GameScale
-	if gsVal < 1 {
-		gsVal = 1
-	} else if gsVal > 5 {
-		gsVal = 5
-	}
-	gameSizeSlider.Value = float32(gsVal)
-	gameSizeSlider.Size = eui.Point{X: width - 10, Y: 24}
-	gameSizeSlider.Disabled = gs.AnyGameWindowSize
-	gameSizeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.GameScale = float64(ev.Value)
-			updateGameWindowSize()
-			initFont()
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(gameSizeSlider)
-
-	anySizeWarn, _ := eui.NewText()
-	anySizeWarn.Text = "Warning: any size uses\nlinear filtering (blurrier)"
-	anySizeWarn.FontSize = 10
-	anySizeWarn.Color = eui.ColorRed
-	anySizeWarn.Size = eui.Point{X: width, Y: 32}
-	anySizeWarn.Invisible = !gs.AnyGameWindowSize
-
-	anySizeCB, anySizeEvents := eui.NewCheckbox()
-	anySizeCB.Text = "Any size game window (linear)"
-	anySizeCB.Size = eui.Point{X: width, Y: 24}
-	anySizeCB.Checked = gs.AnyGameWindowSize
-	anySizeEvents.Handle = func(ev eui.UIEvent) {
+	// Titlebar maximize toggle (default off)
+	tbMaxCB, tbMaxEvents := eui.NewCheckbox()
+	tbMaxCB.Text = "Show titlebar Maximize button"
+	tbMaxCB.Size = eui.Point{X: width, Y: 24}
+	tbMaxCB.Checked = gs.TitlebarMaximize
+	tbMaxEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.AnyGameWindowSize = ev.Checked
-			gameSizeSlider.Disabled = ev.Checked
-			anySizeWarn.Invisible = !ev.Checked
-			updateGameWindowSize()
+			gs.TitlebarMaximize = ev.Checked
+			if gameWin != nil {
+				gameWin.Maximizable = ev.Checked
+				gameWin.Refresh()
+			}
 			settingsDirty = true
 		}
 	}
-	flow.AddItem(anySizeCB)
-	flow.AddItem(anySizeWarn)
+	flow.AddItem(tbMaxCB)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"

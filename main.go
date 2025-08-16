@@ -77,7 +77,7 @@ func main() {
 	loadStats()
 	defer saveStats()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 	if *genPGO {
 		f, err := os.Create("default.pgo")
 		if err != nil {

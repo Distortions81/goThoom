@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"image/color"
 	"log"
@@ -40,13 +41,21 @@ var worldRT *ebiten.Image
 // the rendered world, and gameImage is its backing texture.
 var gameImageItem *eui.ItemData
 var gameImage *ebiten.Image
+var prevGameWinSize eui.Point
+var inAspectResize bool
 
 // gameWindowBG picks a background color for the game window content area.
 // Prefers the game window's theme BGColor when opaque, otherwise falls
 // back to any other window's BGColor, and finally to black.
-func ensureWorldRT() {
-	if worldRT == nil || worldRT.Bounds().Dx() != gameAreaSizeX || worldRT.Bounds().Dy() != gameAreaSizeY {
-		worldRT = ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+func ensureWorldRT(w, h int) {
+	if w < 1 {
+		w = 1
+	}
+	if h < 1 {
+		h = 1
+	}
+	if worldRT == nil || worldRT.Bounds().Dx() != w || worldRT.Bounds().Dy() != h {
+		worldRT = ebiten.NewImage(w, h)
 	}
 }
 
@@ -58,9 +67,10 @@ func updateGameImageSize() {
 	}
 	size := gameWin.GetSize()
 	pad := float64(2 * gameWin.Padding)
-	// Inner content size (inside padding)
+	title := float64(gameWin.GetTitleSize())
+	// Inner content size (exclude titlebar and inside padding)
 	cw := int(float64(int(size.X)&^1) - pad)
-	ch := int(float64(int(size.Y)&^1) - pad)
+	ch := int(float64(int(size.Y)&^1) - pad - title)
 	// Leave a 2px margin on all sides for window edges
 	w := cw - 4
 	h := ch - 4
@@ -490,6 +500,11 @@ type Game struct{}
 var once sync.Once
 
 func (g *Game) Update() error {
+	select {
+	case <-gameCtx.Done():
+		return errors.New("shutdown")
+	default:
+	}
 	eui.Update()
 
 	once.Do(func() {
@@ -809,21 +824,52 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	// Prepare native render target
-	ensureWorldRT()
+	// Determine offscreen integer render scale and composite scale
+	bufW := gameImage.Bounds().Dx()
+	bufH := gameImage.Bounds().Dy()
+	const maxSuperSampleScale = 4
+	worldW, worldH := gameAreaSizeX, gameAreaSizeY
+
+	var offIntScale int
+	var finalFilter ebiten.Filter
+	if gs.AnyGameWindowSize {
+		// Pick integer scale >= window-fit scale for supersampling
+		fit := math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))
+		if fit < 1 {
+			fit = 1
+		}
+		offIntScale = int(math.Ceil(fit))
+		if offIntScale > maxSuperSampleScale {
+			offIntScale = maxSuperSampleScale
+		}
+		finalFilter = ebiten.FilterLinear
+	} else {
+		// Use current integer game scale for sharp mode
+		s := math.Round(gs.GameScale)
+		if s < 1 {
+			s = 1
+		}
+		offIntScale = int(s)
+		finalFilter = ebiten.FilterNearest
+	}
+
+	// Prepare variable-sized offscreen target (supersampled in any-size)
+	offW := worldW * offIntScale
+	offH := worldH * offIntScale
+	ensureWorldRT(offW, offH)
 	worldRT.Clear()
 
-	// Render splash or live frame into worldRT at native scale
+	// Render splash or live frame into worldRT using offscreen integer scale
 	if clmov == "" && tcpConn == nil && pcapPath == "" {
 		prev := gs.GameScale
-		gs.GameScale = 1
+		gs.GameScale = float64(offIntScale)
 		drawSplash(worldRT, 0, 0)
 		gs.GameScale = prev
 	} else {
 		snap := captureDrawSnapshot()
 		alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		prev := gs.GameScale
-		gs.GameScale = 1
+		gs.GameScale = float64(offIntScale)
 		drawScene(worldRT, 0, 0, snap, alpha, mobileFade, pictFade)
 		if gs.nightEffect {
 			drawNightOverlay(worldRT, 0, 0)
@@ -831,36 +877,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawEquippedItems(worldRT, 0, 0)
 		drawStatusBars(worldRT, 0, 0, snap, alpha)
 		gs.GameScale = prev
-		updateGameScale()
 	}
 
-	// Composite worldRT into the gameImage buffer, respecting settings.
+	// Composite worldRT into the gameImage buffer: downscale/center
 	gameImage.Clear()
-	bufW := gameImage.Bounds().Dx()
-	bufH := gameImage.Bounds().Dy()
-	var sx, sy float64
-	var filter ebiten.Filter
-	if gs.AnyGameWindowSize {
-		// Fit to buffer with linear filtering
-		scale := math.Min(float64(bufW)/float64(gameAreaSizeX), float64(bufH)/float64(gameAreaSizeY))
-		sx, sy = scaleForFiltering(scale, gameAreaSizeX, gameAreaSizeY)
-		filter = ebiten.FilterLinear
-	} else {
-		// Use snapped integer scale with nearest filtering
-		scale := gs.GameScale
-		if scale < 1 {
-			scale = 1
-		}
-		sx, sy = float64(scale), float64(scale)
-		filter = ebiten.FilterNearest
+	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
+	if scaleDown <= 0 {
+		scaleDown = 1
 	}
-	// Center inside buffer
-	drawW := float64(gameAreaSizeX) * sx
-	drawH := float64(gameAreaSizeY) * sy
+	drawW := float64(offW) * scaleDown
+	drawH := float64(offH) * scaleDown
 	tx := (float64(bufW) - drawW) / 2
 	ty := (float64(bufH) - drawH) / 2
-	op := &ebiten.DrawImageOptions{Filter: filter, DisableMipmaps: true}
-	op.GeoM.Scale(sx, sy)
+	op := &ebiten.DrawImageOptions{Filter: finalFilter, DisableMipmaps: true}
+	op.GeoM.Scale(scaleDown, scaleDown)
 	op.GeoM.Translate(tx, ty)
 	gameImage.DrawImage(worldRT, op)
 
@@ -1593,30 +1623,84 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = eui.NewWindow()
-	gameWin.Margin = 0
-	gameWin.Padding = 1 // one-pixel border for easier resizing
-	gameWin.Border = 0
-	gameWin.BorderPad = 0
-	th := *gameWin.Theme
-	th.Window.Theme = &th
-	th.Window.BGColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
-	th.Window.ShadowColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
-	gameWin.Theme = &th
-	gameWin.ShadowColor = eui.Color{R: 0, G: 0, B: 0, A: 0}
-	gameWin.NoBGColor = true
 	gameWin.Title = "Clan Lord"
+	gameWin.BGColor = eui.Color{R: 32, G: 32, B: 32, A: 255}
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.Movable = true
-	gameWin.NoScale = true
+	gameWin.NoScroll = true
 	gameWin.NoCache = true
+	gameWin.NoScale = true
 	gameWin.AlwaysDrawFirst = true
-	gameWin.Size = eui.Point{X: gameAreaSizeX, Y: gameAreaSizeY}
 	gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
+	gameWin.Size = eui.Point{X: 8000, Y: 8000}
 	gameWin.MarkOpen()
-	gameWin.OnResize = func() { updateGameImageSize() }
+	gameWin.OnResize = func() { onGameWindowResize() }
+	// Titlebar maximize button controlled by settings (default off)
+	gameWin.Maximizable = gs.TitlebarMaximize
 	updateGameWindowSize()
 	updateGameImageSize()
+}
+
+// maximizeGameWindow resizes the game window to fill the Ebiten screen area.
+func maximizeGameWindow() {
+	if gameWin == nil {
+		return
+	}
+	w, h := eui.ScreenSize()
+	gameWin.ClearZone()
+	_ = gameWin.SetPos(eui.Point{X: 0, Y: 0})
+	_ = gameWin.SetSize(eui.Point{X: float32(w), Y: float32(h)})
+	updateGameImageSize()
+}
+
+// onGameWindowResize enforces the game's aspect ratio on the window's
+// content area (excluding titlebar and padding) and updates the image size.
+func onGameWindowResize() {
+	if gameWin == nil {
+		return
+	}
+	if inAspectResize {
+		updateGameImageSize()
+		prevGameWinSize = gameWin.GetSize()
+		return
+	}
+
+	size := gameWin.GetSize()
+	if size.X <= 0 || size.Y <= 0 {
+		return
+	}
+
+	// Available inner content area (exclude titlebar and padding)
+	pad := float64(2 * gameWin.Padding)
+	title := float64(gameWin.GetTitleSize())
+	availW := float64(int(size.X)&^1) - pad
+	availH := float64(int(size.Y)&^1) - pad - title
+	if availW <= 0 || availH <= 0 {
+		updateGameImageSize()
+		prevGameWinSize = size
+		return
+	}
+
+	// Fit the content to the largest rectangle with the game's aspect ratio.
+	targetW := float64(gameAreaSizeX)
+	targetH := float64(gameAreaSizeY)
+	scale := math.Min(availW/targetW, availH/targetH)
+	if scale < 0.25 {
+		scale = 0.25
+	}
+	fitW := targetW * scale
+	fitH := targetH * scale
+	newW := float32(math.Round(fitW + pad))
+	newH := float32(math.Round(fitH + pad + title))
+
+	if math.Abs(float64(size.X)-float64(newW)) > 0.5 || math.Abs(float64(size.Y)-float64(newH)) > 0.5 {
+		inAspectResize = true
+		_ = gameWin.SetSize(eui.Point{X: newW, Y: newH})
+		inAspectResize = false
+	}
+	updateGameImageSize()
+	prevGameWinSize = gameWin.GetSize()
 }
 
 func noteFrame() {

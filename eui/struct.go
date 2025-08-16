@@ -34,8 +34,8 @@ type windowData struct {
 	Outlined  bool
 
 	Open, Hovered, Flow,
-	Closable, Movable, Resizable,
-	HoverClose, HoverDragbar, HoverPin,
+	Closable, Movable, Resizable, Maximizable,
+	HoverClose, HoverDragbar, HoverPin, HoverMax,
 	AutoSize bool
 
 	// Scroll position and behavior
@@ -233,6 +233,7 @@ const (
 	PART_BAR
 	PART_CLOSE
 	PART_PIN
+	PART_MAXIMIZE
 
 	PART_TOP
 	PART_RIGHT

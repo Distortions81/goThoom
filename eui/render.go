@@ -283,7 +283,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			textWidth = 0
 		}
 
-		//Close X and Pin icon
+		//Close, Maximize, and Pin icons
 		var buttonsWidth float32 = 0
 		if win.Closable {
 			var xpad float32 = (win.GetTitleSize()) / 3.0
@@ -313,6 +313,19 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 				win.getPosition().Y+(win.GetTitleSize())-xpad,
 				xThick, color, true)
 
+			buttonsWidth += (win.GetTitleSize())
+		}
+
+		// Maximize icon
+		if win.Maximizable {
+			mr := win.maxRect()
+			color := win.Theme.Window.TitleColor
+			if win.HoverMax {
+				color = win.Theme.Window.HoverTitleColor
+				win.HoverMax = false
+			}
+			// Draw a square outline to represent maximize
+			strokeRect(screen, mr.X0+uiScale*2, mr.Y0+uiScale*2, (mr.X1-mr.X0)-uiScale*4, (mr.Y1-mr.Y0)-uiScale*4, uiScale, color, true)
 			buttonsWidth += (win.GetTitleSize())
 		}
 
