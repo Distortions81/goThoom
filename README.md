@@ -1,6 +1,6 @@
 # goThoom Client
 
-A alpha open source (MIT) client for the Clan Lord MMORPG.
+A open source (MIT) client for the Clan Lord MMORPG.
 
 This repository hosts the Go implementation of the client. The
 `old_mac_client/` directory contains a historical C implementation provided
