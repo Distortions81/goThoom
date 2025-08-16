@@ -1000,13 +1000,19 @@ func makeSettingsWindow() {
 	settingsWin.Movable = true
 	//settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	mainFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	var width float32 = 250
+	// Split settings into two columns: simple (left) and advanced (right)
+	var leftW float32 = 270
+	var rightW float32 = 270
+	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	left := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	left.Size = eui.Point{X: leftW, Y: 10}
+	right := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	right.Size = eui.Point{X: rightW, Y: 10}
 
 	// Reset all settings button
 	resetBtn, resetEv := eui.NewButton()
 	resetBtn.Text = "Reset All Settings"
-	resetBtn.Size = eui.Point{X: width, Y: 24}
+	resetBtn.Size = eui.Point{X: leftW, Y: 24}
 	resetBtn.Color = eui.ColorDarkRed
 	resetBtn.HoverColor = eui.ColorRed
 	resetBtn.Tooltip = "Restore defaults and reapply"
@@ -1015,7 +1021,7 @@ func makeSettingsWindow() {
 			confirmResetSettings()
 		}
 	}
-	mainFlow.AddItem(resetBtn)
+	left.AddItem(resetBtn)
 
 	themeDD, themeEvents := eui.NewDropdown()
 	themeDD.Label = "Theme"
@@ -1029,7 +1035,7 @@ func makeSettingsWindow() {
 			}
 		}
 	}
-	themeDD.Size = eui.Point{X: width, Y: 24}
+	themeDD.Size = eui.Point{X: leftW, Y: 24}
 	themeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			name := themeDD.Options[ev.Index]
@@ -1040,17 +1046,17 @@ func makeSettingsWindow() {
 			}
 		}
 	}
-	mainFlow.AddItem(themeDD)
+	left.AddItem(themeDD)
 
 	label, _ := eui.NewText()
 	label.Text = "\nControls:"
 	label.FontSize = 15
-	label.Size = eui.Point{X: 100, Y: 50}
-	mainFlow.AddItem(label)
+	label.Size = eui.Point{X: leftW, Y: 50}
+	left.AddItem(label)
 
 	toggle, toggleEvents := eui.NewCheckbox()
 	toggle.Text = "Click-to-toggle movement"
-	toggle.Size = eui.Point{X: width, Y: 24}
+	toggle.Size = eui.Point{X: leftW, Y: 24}
 	toggle.Checked = gs.ClickToToggle
 	toggle.Tooltip = "Click once to start walking, click again to stop."
 	toggleEvents.Handle = func(ev eui.UIEvent) {
@@ -1062,31 +1068,31 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(toggle)
+	left.AddItem(toggle)
 
 	keySpeedSlider, keySpeedEvents := eui.NewSlider()
 	keySpeedSlider.Label = "Keyboard Walk Speed"
 	keySpeedSlider.MinValue = 0.1
 	keySpeedSlider.MaxValue = 1.0
 	keySpeedSlider.Value = float32(gs.KBWalkSpeed)
-	keySpeedSlider.Size = eui.Point{X: width - 10, Y: 24}
+	keySpeedSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	keySpeedEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.KBWalkSpeed = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(keySpeedSlider)
+	left.AddItem(keySpeedSlider)
 
 	label, _ = eui.NewText()
 	label.Text = "\nWindow Behavior:"
 	label.FontSize = 15
-	label.Size = eui.Point{X: 150, Y: 50}
-	mainFlow.AddItem(label)
+	label.Size = eui.Point{X: rightW, Y: 50}
+	right.AddItem(label)
 
 	tilingCB, tilingEvents := eui.NewCheckbox()
 	tilingCB.Text = "Tiling window mode"
-	tilingCB.Size = eui.Point{X: width, Y: 24}
+	tilingCB.Size = eui.Point{X: rightW, Y: 24}
 	tilingCB.Checked = gs.WindowTiling
 	tilingCB.Tooltip = "Prevent windows from overlapping"
 	tilingEvents.Handle = func(ev eui.UIEvent) {
@@ -1096,11 +1102,11 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(tilingCB)
+	right.AddItem(tilingCB)
 
 	snapCB, snapEvents := eui.NewCheckbox()
 	snapCB.Text = "Window snapping (buggy)"
-	snapCB.Size = eui.Point{X: width, Y: 24}
+	snapCB.Size = eui.Point{X: rightW, Y: 24}
 	snapCB.Checked = gs.WindowSnapping
 	snapCB.Tooltip = "Snap windows to edges and others"
 	snapEvents.Handle = func(ev eui.UIEvent) {
@@ -1110,30 +1116,30 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(snapCB)
+	right.AddItem(snapCB)
 
 	graphicsBtn, graphicsEvents := eui.NewButton()
 	graphicsBtn.Text = "Screen Size Settings"
-	graphicsBtn.Size = eui.Point{X: width, Y: 24}
+	graphicsBtn.Size = eui.Point{X: leftW, Y: 24}
 	graphicsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			graphicsWin.ToggleNear(ev.Item)
 		}
 	}
-	mainFlow.AddItem(graphicsBtn)
+	left.AddItem(graphicsBtn)
 
 	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
 	label.FontSize = 15
-	label.Size = eui.Point{X: 100, Y: 50}
-	mainFlow.AddItem(label)
+	label.Size = eui.Point{X: leftW, Y: 50}
+	left.AddItem(label)
 
 	chatFontSlider, chatFontEvents := eui.NewSlider()
 	chatFontSlider.Label = "Chat Bubble Font Size"
 	chatFontSlider.MinValue = 6
 	chatFontSlider.MaxValue = 48
 	chatFontSlider.Value = float32(gs.BubbleFontSize)
-	chatFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	chatFontSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	chatFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleFontSize = float64(ev.Value)
@@ -1141,14 +1147,14 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(chatFontSlider)
+	left.AddItem(chatFontSlider)
 
 	labelFontSlider, labelFontEvents := eui.NewSlider()
 	labelFontSlider.Label = "Name Font Size"
 	labelFontSlider.MinValue = 5
 	labelFontSlider.MaxValue = 48
 	labelFontSlider.Value = float32(gs.MainFontSize)
-	labelFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	labelFontSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	labelFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MainFontSize = float64(ev.Value)
@@ -1156,7 +1162,7 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(labelFontSlider)
+	left.AddItem(labelFontSlider)
 
 	// Inventory font size slider
 	invFontSlider, invFontEvents := eui.NewSlider()
@@ -1169,7 +1175,7 @@ func makeSettingsWindow() {
 		}
 		return float32(gs.ConsoleFontSize)
 	}()
-	invFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	invFontSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	invFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.InventoryFontSize = float64(ev.Value)
@@ -1177,7 +1183,7 @@ func makeSettingsWindow() {
 			updateInventoryWindow()
 		}
 	}
-	mainFlow.AddItem(invFontSlider)
+	left.AddItem(invFontSlider)
 
 	// Players list font size slider
 	plFontSlider, plFontEvents := eui.NewSlider()
@@ -1190,7 +1196,7 @@ func makeSettingsWindow() {
 		}
 		return float32(gs.ConsoleFontSize)
 	}()
-	plFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	plFontSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	plFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.PlayersFontSize = float64(ev.Value)
@@ -1201,14 +1207,14 @@ func makeSettingsWindow() {
 			}
 		}
 	}
-	mainFlow.AddItem(plFontSlider)
+	left.AddItem(plFontSlider)
 
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
 	consoleFontSlider.Label = "Console Font Size"
 	consoleFontSlider.MinValue = 6
 	consoleFontSlider.MaxValue = 24
 	consoleFontSlider.Value = float32(gs.ConsoleFontSize)
-	consoleFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	consoleFontSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	consoleFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ConsoleFontSize = float64(ev.Value)
@@ -1219,14 +1225,14 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(consoleFontSlider)
+	left.AddItem(consoleFontSlider)
 
 	chatWindowFontSlider, chatWindowFontEvents := eui.NewSlider()
 	chatWindowFontSlider.Label = "Chat Window Font Size"
 	chatWindowFontSlider.MinValue = 6
 	chatWindowFontSlider.MaxValue = 24
 	chatWindowFontSlider.Value = float32(gs.ChatFontSize)
-	chatWindowFontSlider.Size = eui.Point{X: width - 10, Y: 24}
+	chatWindowFontSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	chatWindowFontEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ChatFontSize = float64(ev.Value)
@@ -1237,51 +1243,51 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(chatWindowFontSlider)
+	left.AddItem(chatWindowFontSlider)
 
 	label, _ = eui.NewText()
 	label.Text = "\nOpacity Settings:"
 	label.FontSize = 15
-	label.Size = eui.Point{X: 150, Y: 50}
-	mainFlow.AddItem(label)
+	label.Size = eui.Point{X: rightW, Y: 50}
+	right.AddItem(label)
 
 	bubbleOpSlider, bubbleOpEvents := eui.NewSlider()
 	bubbleOpSlider.Label = "Bubble Opacity"
 	bubbleOpSlider.MinValue = 0
 	bubbleOpSlider.MaxValue = 1
 	bubbleOpSlider.Value = float32(gs.BubbleOpacity)
-	bubbleOpSlider.Size = eui.Point{X: width - 10, Y: 24}
+	bubbleOpSlider.Size = eui.Point{X: rightW - 10, Y: 24}
 	bubbleOpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleOpacity = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(bubbleOpSlider)
+	right.AddItem(bubbleOpSlider)
 
 	nameBgSlider, nameBgEvents := eui.NewSlider()
 	nameBgSlider.Label = "Name Background Opacity"
 	nameBgSlider.MinValue = 0
 	nameBgSlider.MaxValue = 1
 	nameBgSlider.Value = float32(gs.NameBgOpacity)
-	nameBgSlider.Size = eui.Point{X: width - 10, Y: 24}
+	nameBgSlider.Size = eui.Point{X: rightW - 10, Y: 24}
 	nameBgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.NameBgOpacity = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	mainFlow.AddItem(nameBgSlider)
+	right.AddItem(nameBgSlider)
 
 	label, _ = eui.NewText()
 	label.Text = "\nQuality Settings:"
 	label.FontSize = 15
-	label.Size = eui.Point{X: 150, Y: 50}
-	mainFlow.AddItem(label)
+	label.Size = eui.Point{X: rightW, Y: 50}
+	right.AddItem(label)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
 	qualityPresetDD.Options = []string{"Ultra-Low", "Low", "Standard", "High", "Ultimate", "Custom"}
-	qualityPresetDD.Size = eui.Point{X: width, Y: 24}
+	qualityPresetDD.Size = eui.Point{X: rightW, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.FontSize = 12
 	qpEvents.Handle = func(ev eui.UIEvent) {
@@ -1301,34 +1307,36 @@ func makeSettingsWindow() {
 			qualityPresetDD.Selected = detectQualityPreset()
 		}
 	}
-	mainFlow.AddItem(qualityPresetDD)
+	right.AddItem(qualityPresetDD)
 
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Options"
-	qualityBtn.Size = eui.Point{X: width, Y: 24}
+	qualityBtn.Size = eui.Point{X: rightW, Y: 24}
 	qualityEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			qualityWin.ToggleNear(ev.Item)
 		}
 	}
-	mainFlow.AddItem(qualityBtn)
+	right.AddItem(qualityBtn)
 
 	label, _ = eui.NewText()
 	label.Text = ""
-	label.Size = eui.Point{X: 150, Y: 15}
-	mainFlow.AddItem(label)
+	label.Size = eui.Point{X: rightW, Y: 15}
+	right.AddItem(label)
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
-	debugBtn.Size = eui.Point{X: width, Y: 24}
+	debugBtn.Size = eui.Point{X: rightW, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			debugWin.ToggleNear(ev.Item)
 		}
 	}
-	mainFlow.AddItem(debugBtn)
+	right.AddItem(debugBtn)
 
-	settingsWin.AddItem(mainFlow)
+	outer.AddItem(left)
+	outer.AddItem(right)
+	settingsWin.AddItem(outer)
 	settingsWin.AddWindow(false)
 }
 
@@ -1486,109 +1494,109 @@ func confirmQuit() {
 }
 
 func makeGraphicsWindow() {
-    if graphicsWin != nil {
-        return
-    }
-    // Column widths
-    var leftW float32 = 260
-    var rightW float32 = 260
+	if graphicsWin != nil {
+		return
+	}
+	// Column widths
+	var leftW float32 = 260
+	var rightW float32 = 260
 
-    graphicsWin = eui.NewWindow()
-    graphicsWin.Title = "Screen Size Settings"
-    graphicsWin.Closable = true
-    graphicsWin.Resizable = false
-    graphicsWin.AutoSize = true
-    graphicsWin.Movable = true
-    graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	graphicsWin = eui.NewWindow()
+	graphicsWin.Title = "Screen Size Settings"
+	graphicsWin.Closable = true
+	graphicsWin.Resizable = false
+	graphicsWin.AutoSize = true
+	graphicsWin.Movable = true
+	graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-    // Outer horizontal flow with two vertical columns
-    outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	// Outer horizontal flow with two vertical columns
+	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-    simple := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-    simple.Size = eui.Point{X: leftW, Y: 10}
+	simple := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	simple.Size = eui.Point{X: leftW, Y: 10}
 
-    advanced := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-    advanced.Size = eui.Point{X: rightW, Y: 10}
+	advanced := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	advanced.Size = eui.Point{X: rightW, Y: 10}
 
-    // Simple (left) controls
-    uiScaleSlider, uiScaleEvents := eui.NewSlider()
-    uiScaleSlider.Label = "UI Scaling"
-    uiScaleSlider.MinValue = 1.0
-    uiScaleSlider.MaxValue = 2.5
-    uiScaleSlider.Value = float32(gs.UIScale)
-    uiScaleSlider.Size = eui.Point{X: leftW - 10, Y: 24}
-    pendingUIScale := gs.UIScale
-    uiScaleEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventSliderChanged {
-            pendingUIScale = float64(ev.Value)
-        }
-    }
-    simple.AddItem(uiScaleSlider)
+	// Simple (left) controls
+	uiScaleSlider, uiScaleEvents := eui.NewSlider()
+	uiScaleSlider.Label = "UI Scaling"
+	uiScaleSlider.MinValue = 1.0
+	uiScaleSlider.MaxValue = 2.5
+	uiScaleSlider.Value = float32(gs.UIScale)
+	uiScaleSlider.Size = eui.Point{X: leftW - 10, Y: 24}
+	pendingUIScale := gs.UIScale
+	uiScaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			pendingUIScale = float64(ev.Value)
+		}
+	}
+	simple.AddItem(uiScaleSlider)
 
-    uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
-    uiScaleApplyBtn.Text = "Apply UI Scale"
-    uiScaleApplyBtn.Size = eui.Point{X: 140, Y: 24}
-    uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventClick {
-            gs.UIScale = pendingUIScale
-            eui.SetUIScale(float32(gs.UIScale))
-            updateGameWindowSize()
-            settingsDirty = true
-        }
-    }
-    simple.AddItem(uiScaleApplyBtn)
+	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
+	uiScaleApplyBtn.Text = "Apply UI Scale"
+	uiScaleApplyBtn.Size = eui.Point{X: 140, Y: 24}
+	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			gs.UIScale = pendingUIScale
+			eui.SetUIScale(float32(gs.UIScale))
+			updateGameWindowSize()
+			settingsDirty = true
+		}
+	}
+	simple.AddItem(uiScaleApplyBtn)
 
-    fullscreenCB, fullscreenEvents := eui.NewCheckbox()
-    fullscreenCB.Text = "Fullscreen"
-    fullscreenCB.Size = eui.Point{X: leftW, Y: 24}
-    fullscreenCB.Checked = gs.Fullscreen
-    fullscreenEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventCheckboxChanged {
-            gs.Fullscreen = ev.Checked
-            ebiten.SetFullscreen(gs.Fullscreen)
-            ebiten.SetWindowFloating(gs.Fullscreen)
-            settingsDirty = true
-        }
-    }
-    simple.AddItem(fullscreenCB)
+	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
+	fullscreenCB.Text = "Fullscreen"
+	fullscreenCB.Size = eui.Point{X: leftW, Y: 24}
+	fullscreenCB.Checked = gs.Fullscreen
+	fullscreenEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.Fullscreen = ev.Checked
+			ebiten.SetFullscreen(gs.Fullscreen)
+			ebiten.SetWindowFloating(gs.Fullscreen)
+			settingsDirty = true
+		}
+	}
+	simple.AddItem(fullscreenCB)
 
-    // Advanced (right) controls
-    intCB, intEvents := eui.NewCheckbox()
-    intCB.Text = "Integer scale (sharper, faster)"
-    intCB.Size = eui.Point{X: rightW, Y: 24}
-    intCB.Checked = gs.IntegerScaling
-    intEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventCheckboxChanged {
-            gs.IntegerScaling = ev.Checked
-            initFont()
-            if gameWin != nil {
-                gameWin.Refresh()
-            }
-            settingsDirty = true
-        }
-    }
-    advanced.AddItem(intCB)
+	// Advanced (right) controls
+	intCB, intEvents := eui.NewCheckbox()
+	intCB.Text = "Integer scale (sharper, faster)"
+	intCB.Size = eui.Point{X: rightW, Y: 24}
+	intCB.Checked = gs.IntegerScaling
+	intEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.IntegerScaling = ev.Checked
+			initFont()
+			if gameWin != nil {
+				gameWin.Refresh()
+			}
+			settingsDirty = true
+		}
+	}
+	advanced.AddItem(intCB)
 
-    tbMaxCB, tbMaxEvents := eui.NewCheckbox()
-    tbMaxCB.Text = "Show titlebar Maximize button"
-    tbMaxCB.Size = eui.Point{X: rightW, Y: 24}
-    tbMaxCB.Checked = gs.TitlebarMaximize
-    tbMaxEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventCheckboxChanged {
-            gs.TitlebarMaximize = ev.Checked
-            if gameWin != nil {
-                gameWin.Maximizable = ev.Checked
-                gameWin.Refresh()
-            }
-            settingsDirty = true
-        }
-    }
-    advanced.AddItem(tbMaxCB)
+	tbMaxCB, tbMaxEvents := eui.NewCheckbox()
+	tbMaxCB.Text = "Show titlebar Maximize button"
+	tbMaxCB.Size = eui.Point{X: rightW, Y: 24}
+	tbMaxCB.Checked = gs.TitlebarMaximize
+	tbMaxEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.TitlebarMaximize = ev.Checked
+			if gameWin != nil {
+				gameWin.Maximizable = ev.Checked
+				gameWin.Refresh()
+			}
+			settingsDirty = true
+		}
+	}
+	advanced.AddItem(tbMaxCB)
 
-    outer.AddItem(simple)
-    outer.AddItem(advanced)
-    graphicsWin.AddItem(outer)
-    graphicsWin.AddWindow(false)
+	outer.AddItem(simple)
+	outer.AddItem(advanced)
+	graphicsWin.AddItem(outer)
+	graphicsWin.AddWindow(false)
 }
 
 func makeQualityWindow() {
