@@ -515,6 +515,7 @@ func (g *Game) Update() error {
 
 	if inventoryDirty {
 		updateInventoryWindow()
+		updateHandsWindow()
 		inventoryDirty = false
 	}
 
@@ -907,7 +908,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if gs.nightEffect {
 			drawNightOverlay(worldRT, 0, 0)
 		}
-		drawEquippedItems(worldRT, 0, 0)
 		drawStatusBars(worldRT, 0, 0, snap, alpha)
 		gs.GameScale = prev
 	}
@@ -1495,12 +1495,9 @@ func drawServerFPS(screen *ebiten.Image, ox, oy int, fps float64) {
 	text.Draw(screen, msg, mainFont, op)
 }
 
-// drawEquippedItems renders icons for all currently equipped items in the top left.
-func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
+// equippedItemPicts returns pict IDs for items equipped in right and left hands.
+func equippedItemPicts() (uint16, uint16) {
 	items := getInventory()
-	x := ox + int(4*gs.GameScale)
-	y := oy + int(4*gs.GameScale)
-	// Prefer explicit right/left hand items; otherwise show default hands.
 	var rightID, leftID uint16
 	var bothIDRight, bothIDLeft uint16
 	if clImages != nil {
@@ -1523,7 +1520,6 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 					leftID = uint16(id)
 				}
 			case kItemSlotBothHands:
-				// Remember a two-handed item for fallback if explicit left/right are absent
 				if id := clImages.ItemRightHandPict(uint32(it.ID)); id != 0 {
 					bothIDRight = uint16(id)
 				} else if id := clImages.ItemWornPict(uint32(it.ID)); id != 0 {
@@ -1537,9 +1533,7 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 			}
 		}
 	}
-
 	if rightID == 0 && leftID == 0 {
-		// If a two-handed item is equipped, show both icons from it.
 		if bothIDRight != 0 || bothIDLeft != 0 {
 			if rightID == 0 {
 				rightID = bothIDRight
@@ -1555,7 +1549,14 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 			}
 		}
 	}
+	return rightID, leftID
+}
 
+// drawEquippedItems renders icons for all currently equipped items in the top left.
+func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
+	rightID, leftID := equippedItemPicts()
+	x := ox + int(4*gs.GameScale)
+	y := oy + int(4*gs.GameScale)
 	if rightID == 0 && leftID == 0 {
 		img := loadImage(defaultHandPictID)
 		if img == nil {
@@ -1588,7 +1589,6 @@ func drawEquippedItems(screen *ebiten.Image, ox, oy int) {
 		if img := loadImage(leftID); img != nil {
 			w := int(float64(img.Bounds().Dx()) * gs.GameScale)
 			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
-			// Mirror the left-hand icon for a subtle visual cue.
 			op.GeoM.Scale(-gs.GameScale, gs.GameScale)
 			op.GeoM.Translate(float64(w), 0)
 			op.GeoM.Translate(float64(x), float64(y))
