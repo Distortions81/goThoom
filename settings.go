@@ -12,10 +12,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+const SETTINGS_VERSION = 4
+
 var gs settings = gsdef
 
 var gsdef settings = settings{
-	Version: 3,
+	Version: SETTINGS_VERSION,
 
 	LastCharacter:     "",
 	ClickToToggle:     false,
@@ -174,12 +176,11 @@ func loadSettings() bool {
 	if err := json.Unmarshal(data, &newGS); err != nil {
 		return false
 	}
-	if newGS.Theme == "" {
-		newGS.Theme = gsdef.Theme
-	}
 
-	if newGS.Version == 2 || newGS.Version == 3 {
+	if newGS.Version == SETTINGS_VERSION {
 		gs = newGS
+	} else {
+		applyQualityPreset("High")
 	}
 
 	clampWindowSettings()
