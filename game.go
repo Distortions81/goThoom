@@ -511,52 +511,6 @@ func (g *Game) Update() error {
 		initGame()
 	})
 
-	/* this should not be here */
-	/* this should not be here */
-	if inventoryDirty {
-		updateInventoryWindow()
-		updateHandsWindow()
-		inventoryDirty = false
-	}
-
-	if playersDirty {
-		updatePlayersWindow()
-		playersDirty = false
-	}
-	if syncWindowSettings() {
-		settingsDirty = true
-	}
-	if settingsDirty && qualityPresetDD != nil {
-		qualityPresetDD.Selected = detectQualityPreset()
-	}
-	if time.Since(lastSettingsSave) >= 5*time.Second {
-		if settingsDirty {
-			saveSettings()
-			settingsDirty = false
-		}
-		lastSettingsSave = time.Now()
-	}
-
-	// Periodically persist players if there were changes.
-	if time.Since(lastPlayersSave) >= 5*time.Second {
-		if playersDirty || playersPersistDirty {
-			savePlayersPersist()
-			playersPersistDirty = false
-		}
-		lastPlayersSave = time.Now()
-	}
-
-	// Ensure the movie controller window repaints at least once per second
-	// while open, even without other UI events.
-	if movieWin != nil && movieWin.IsOpen() {
-		if time.Since(lastMovieWinTick) >= time.Second {
-			lastMovieWinTick = time.Now()
-			movieWin.Refresh()
-		}
-	}
-	/* this should not be here */
-	/* this should not be here */
-
 	/* Console input */
 	changedInput := false
 	if inputActive {
