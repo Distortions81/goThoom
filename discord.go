@@ -2,26 +2,23 @@ package main
 
 import (
 	"context"
-	"os"
 	"time"
 
 	client "github.com/hugolgst/rich-go/client"
 )
 
 func initDiscordRPC(ctx context.Context) {
-	appID := os.Getenv("DISCORD_APP_ID")
-	if appID == "" {
-		return
-	}
+	appID := "1406171210240360508"
 	if err := client.Login(appID); err != nil {
 		logError("discord rpc login: %v", err)
 		return
 	}
+	now := time.Now()
 	if err := client.SetActivity(client.Activity{
 		State:   "GoThoom",
 		Details: "In game",
 		Timestamps: &client.Timestamps{
-			Start: time.Now(),
+			Start: &now,
 		},
 	}); err != nil {
 		logError("discord rpc activity: %v", err)
