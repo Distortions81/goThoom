@@ -55,6 +55,9 @@ var windowsInventoryCB *eui.ItemData
 var windowsChatCB *eui.ItemData
 var windowsConsoleCB *eui.ItemData
 var toolbarWin *eui.WindowData
+var hudWin *eui.WindowData
+var rightHandImg *eui.ItemData
+var leftHandImg *eui.ItemData
 
 var (
 	sheetCacheLabel  *eui.ItemData
@@ -140,6 +143,7 @@ func initUI() {
 	makeInventoryWindow()
 	makePlayersWindow()
 	makeHelpWindow()
+	makeHUDWindow()
 	makeToolbarWindow()
 
 	// Load any persisted players data (e.g., from prior sessions) so
@@ -158,28 +162,16 @@ func initUI() {
 	}
 }
 
-func makeToolbarWindow() {
-
-	var toolFontSize float32 = 10
-	var buttonHeight float32 = 15
-	var buttonWidth float32 = 64
-
-	toolbarWin = eui.NewWindow()
-	toolbarWin.Title = ""
-	toolbarWin.SetTitleSize(8)
-	toolbarWin.Closable = false
-	toolbarWin.Resizable = false
-	toolbarWin.AutoSize = false
-	toolbarWin.ShowDragbar = false
-	toolbarWin.Movable = true
-	toolbarWin.NoScroll = true
-	toolbarWin.Size = eui.Point{X: 500, Y: 35}
-	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
-
-	gameMenu := &eui.ItemData{
-		ItemType: eui.ITEM_FLOW,
-		FlowType: eui.FLOW_HORIZONTAL,
+func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool) *eui.ItemData {
+	var row1, row2, menu *eui.ItemData
+	if twoRows {
+		row1 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row2 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	} else {
+		menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	}
+
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
@@ -189,7 +181,11 @@ func makeToolbarWindow() {
 			windowsWin.ToggleNear(ev.Item)
 		}
 	}
-	gameMenu.AddItem(winBtn)
+	if twoRows {
+		row1.AddItem(winBtn)
+	} else {
+		menu.AddItem(winBtn)
+	}
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
@@ -200,7 +196,11 @@ func makeToolbarWindow() {
 			settingsWin.ToggleNear(ev.Item)
 		}
 	}
-	gameMenu.AddItem(btn)
+	if twoRows {
+		row1.AddItem(btn)
+	} else {
+		menu.AddItem(btn)
+	}
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
@@ -211,7 +211,11 @@ func makeToolbarWindow() {
 			helpWin.ToggleNear(ev.Item)
 		}
 	}
-	gameMenu.AddItem(helpBtn)
+	if twoRows {
+		row1.AddItem(helpBtn)
+	} else {
+		menu.AddItem(helpBtn)
+	}
 
 	volumeSlider, volumeEvents := eui.NewSlider()
 	volumeSlider.MinValue = 0
@@ -226,7 +230,11 @@ func makeToolbarWindow() {
 			updateSoundVolume()
 		}
 	}
-	gameMenu.AddItem(volumeSlider)
+	if twoRows {
+		row2.AddItem(volumeSlider)
+	} else {
+		menu.AddItem(volumeSlider)
+	}
 
 	muteBtn, muteEvents := eui.NewButton()
 	muteBtn.Text = "Mute"
@@ -248,9 +256,12 @@ func makeToolbarWindow() {
 			updateSoundVolume()
 		}
 	}
-	gameMenu.AddItem(muteBtn)
+	if twoRows {
+		row2.AddItem(muteBtn)
+	} else {
+		menu.AddItem(muteBtn)
+	}
 
-	// Exit session button: disconnect or stop movie with confirmation
 	exitSessBtn, exitSessEv := eui.NewButton()
 	exitSessBtn.Text = "Exit"
 	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
@@ -260,85 +271,125 @@ func makeToolbarWindow() {
 			confirmExitSession()
 		}
 	}
-	gameMenu.AddItem(exitSessBtn)
-
-	/*
-		recordBtn, recordEvents := eui.NewButton()
-		recordBtn.Text = "Record"
-		recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-		recordBtn.FontSize = toolFontSize
-		recordBtn.Disabled = true
-		recordEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type != eui.EventClick {
-				return
-			}
-			if recorder != nil {
-				if err := recorder.Close(); err != nil {
-					logError("close recorder: %v", err)
-				}
-				recorder = nil
-				recordBtn.Text = "Record Movie"
-				recordBtn.Dirty = true
-				if recordStatus != nil {
-					recordStatus.Text = ""
-					recordStatus.Dirty = true
-				}
-				return
-			}
-			recDir := filepath.Join("recordings")
-			if err := os.MkdirAll(recDir, 0755); err != nil {
-				logError("create recordings dir: %v", err)
-				makeErrorWindow("Error: Record Movie: " + err.Error())
-				return
-			}
-			name := gs.LastCharacter
-			if playerName != "" {
-				name = playerName
-			}
-			if name == "" {
-				name = "recording"
-			}
-			defName := fmt.Sprintf("%s_%s.clMov", name, time.Now().Format("20060102_150405"))
-			filename, err := dialog.File().Filter("clMov files", "clMov", "clmov").SetStartDir(recDir).SetStartFile(defName).Title("Record Movie").Save()
-			if err != nil {
-				if err != dialog.ErrCancelled {
-					logError("record movie save: %v", err)
-					makeErrorWindow("Error: Record Movie: " + err.Error())
-				}
-				return
-			}
-			if filename == "" {
-				return
-			}
-			rec, err := newMovieRecorder(filename, clientVersion, int(movieRevision))
-			if err != nil {
-				logError("start recorder: %v", err)
-				makeErrorWindow("Error: Record Movie: " + err.Error())
-				return
-			}
-			recorder = rec
-			recordBtn.Text = "Stop Recording"
-			recordBtn.Dirty = true
-			if recordStatus != nil {
-				recordStatus.Text = "REC"
-				recordStatus.Dirty = true
-			}
-		}
-		gameMenu.AddItem(recordBtn)
-	*/
+	if twoRows {
+		row2.AddItem(exitSessBtn)
+	} else {
+		menu.AddItem(exitSessBtn)
+	}
 
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
 	recordStatus.Size = eui.Point{X: 80, Y: buttonHeight}
 	recordStatus.FontSize = toolFontSize
 	recordStatus.Color = eui.ColorRed
-	gameMenu.AddItem(recordStatus)
+	if twoRows {
+		row2.AddItem(recordStatus)
+	} else {
+		menu.AddItem(recordStatus)
+	}
 
-	toolbarWin.AddItem(gameMenu)
+	if twoRows {
+		menu.AddItem(row1)
+		menu.AddItem(row2)
+	}
+
+	return menu
+}
+
+func makeToolbarWindow() {
+	var toolFontSize float32 = 10
+	var buttonHeight float32 = 15
+	var buttonWidth float32 = 64
+
+	toolbarWin = eui.NewWindow()
+	toolbarWin.Title = ""
+	toolbarWin.SetTitleSize(8)
+	toolbarWin.Closable = false
+	toolbarWin.Resizable = false
+	toolbarWin.AutoSize = false
+	toolbarWin.ShowDragbar = false
+	toolbarWin.Movable = true
+	toolbarWin.NoScroll = true
+	toolbarWin.Size = eui.Point{X: 500, Y: 35}
+	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
+
+	toolbarWin.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight, false))
 	toolbarWin.AddWindow(false)
 	toolbarWin.MarkOpen()
 
 	//eui.TreeMode = true
+}
+
+func makeHUDWindow() {
+	if hudWin != nil {
+		return
+	}
+	var toolFontSize float32 = 10
+	var buttonHeight float32 = 15
+	var buttonWidth float32 = 64
+
+	hudWin = eui.NewWindow()
+	hudWin.Title = "HUD"
+	hudWin.Closable = true
+	hudWin.Resizable = false
+	hudWin.AutoSize = true
+	hudWin.Movable = true
+	hudWin.NoScroll = true
+	hudWin.SetZone(eui.HZoneLeft, eui.VZoneTop)
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	hands := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	leftHandImg, _ = eui.NewImageItem(32, 32)
+	leftHandImg.Margin = 2
+	rightHandImg, _ = eui.NewImageItem(32, 32)
+	rightHandImg.Margin = 2
+	hands.AddItem(leftHandImg)
+	hands.AddItem(rightHandImg)
+	flow.AddItem(hands)
+	flow.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight, true))
+
+	hudWin.AddItem(flow)
+	hudWin.AddWindow(false)
+	hudWin.MarkOpen()
+	updateHandsWindow()
+}
+
+func updateHandsWindow() {
+	if rightHandImg == nil || leftHandImg == nil {
+		return
+	}
+	rightID, leftID := equippedItemPicts()
+	var rightImg, leftImg *ebiten.Image
+	if rightID == 0 && leftID == 0 {
+		img := loadImage(defaultHandPictID)
+		if img == nil {
+			return
+		}
+		rightImg = img
+		leftImg = mirrorImage(img)
+	} else {
+		if rightID != 0 {
+			rightImg = loadImage(rightID)
+		}
+		if leftID != 0 {
+			if img := loadImage(leftID); img != nil {
+				leftImg = mirrorImage(img)
+			}
+		}
+	}
+	if rightImg != nil {
+		rightHandImg.Image = rightImg
+		rightHandImg.Size = eui.Point{X: float32(rightImg.Bounds().Dx()), Y: float32(rightImg.Bounds().Dy())}
+		rightHandImg.Dirty = true
+	}
+	if leftImg != nil {
+		leftHandImg.Image = leftImg
+		leftHandImg.Size = eui.Point{X: float32(leftImg.Bounds().Dx()), Y: float32(leftImg.Bounds().Dy())}
+		leftHandImg.Dirty = true
+	}
+	if hudWin != nil {
+		hudWin.Refresh()
+	}
 }
 
 func confirmExitSession() {
