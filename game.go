@@ -623,9 +623,10 @@ func (g *Game) Update() error {
 	}
 
 	mx, my := ebiten.CursorPosition()
-	gx, gy := gameWindowOrigin()
-	baseX := int16(float64(mx-gx)/gs.GameScale - float64(fieldCenterX))
-	baseY := int16(float64(my-gy)/gs.GameScale - float64(fieldCenterY))
+	// Map mouse to world coordinates accounting for current draw scale/offset.
+	origX, origY, worldScale := worldDrawInfo()
+	baseX := int16(float64(mx-origX)/worldScale - float64(fieldCenterX))
+	baseY := int16(float64(my-origY)/worldScale - float64(fieldCenterY))
 	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
 	click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 
@@ -726,6 +727,110 @@ func gameContentOrigin() (int, int) {
 		y += int(math.Round((h - fh) / 2))
 	}
 	return x, y
+}
+
+// worldDrawInfo reports the on-screen origin (top-left) of the rendered world
+// inside the game window, and the effective scale in pixels per world unit.
+// This matches the draw-time composition logic so input stays aligned even
+// when the window size or aspect ratio changes.
+func worldDrawInfo() (int, int, float64) {
+	gx, gy := gameWindowOrigin()
+	if gameWin == nil {
+		// Fallback to current game scale with no offset.
+		if gs.GameScale <= 0 {
+			return gx, gy, 1.0
+		}
+		return gx, gy, gs.GameScale
+	}
+
+	// Derive the inner content buffer size used for the game image.
+	size := gameWin.GetSize()
+	pad := float64(2 * gameWin.Padding)
+	cw := int(float64(int(size.X)&^1) - pad) // content width
+	ch := int(float64(int(size.Y)&^1) - pad) // content height
+	// Leave a 2px margin on all sides (matches gameImageItem.Position and sizing).
+	bufW := cw - 4
+	bufH := ch - 4
+	if bufW <= 0 || bufH <= 0 {
+		if gs.GameScale <= 0 {
+			return gx, gy, 1.0
+		}
+		return gx, gy, gs.GameScale
+	}
+
+	// Match Draw() scaling rules.
+	const maxSuperSampleScale = 4
+	worldW, worldH := gameAreaSizeX, gameAreaSizeY
+
+	// Slider-desired integer scale.
+	desired := int(math.Round(gs.GameScale))
+	if desired < 1 {
+		desired = 1
+	}
+	if desired > 10 {
+		desired = 10
+	}
+
+	// Max integer fit into current buffer.
+	fit := int(math.Floor(math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))))
+	if fit < 1 {
+		fit = 1
+	}
+
+	var offIntScale int
+	var target int
+	if gs.IntegerScaling {
+		target = desired
+		if target > fit {
+			target = fit
+		}
+		offIntScale = target
+	} else if gs.AnyGameWindowSize {
+		target = fit
+		offIntScale = int(math.Ceil(float64(fit)))
+		if desired > offIntScale {
+			offIntScale = desired
+		}
+		if offIntScale > maxSuperSampleScale {
+			offIntScale = maxSuperSampleScale
+		}
+		if offIntScale < 1 {
+			offIntScale = 1
+		}
+	} else {
+		target = desired
+		offIntScale = target
+		if offIntScale < 1 {
+			offIntScale = 1
+		}
+	}
+
+	offW := worldW * offIntScale
+	offH := worldH * offIntScale
+
+	scaleDown := 1.0
+	if !gs.IntegerScaling {
+		if gs.AnyGameWindowSize {
+			scaleDown = math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
+		} else {
+			scaleDown = float64(target) / float64(offIntScale)
+		}
+	}
+
+	drawW := float64(offW) * scaleDown
+	drawH := float64(offH) * scaleDown
+	tx := (float64(bufW) - drawW) / 2
+	ty := (float64(bufH) - drawH) / 2
+
+	// Add the 2px inner margin to the window origin to reach the game image.
+	originX := gx + 2 + int(math.Round(tx))
+	originY := gy + 2 + int(math.Round(ty))
+	// Effective world scale on screen in pixels per world unit.
+	effScale := float64(offIntScale) * scaleDown
+	if effScale <= 0 {
+		effScale = 1.0
+	}
+	return originX, originY, effScale
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
