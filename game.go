@@ -84,6 +84,9 @@ func updateGameImageSize() {
 		uis = 1
 	}
 	inv := 1 / uis
+	if gameWin != nil && gameWin.NoScale {
+		inv = 1
+	}
 
 	if gameImageItem == nil {
 		it, img := eui.NewImageItem(w, h)
