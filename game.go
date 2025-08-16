@@ -509,6 +509,7 @@ func (g *Game) Update() error {
 
 	once.Do(func() {
 		initGame()
+		runBackgroundTasks()
 	})
 
 	/* Console input */
