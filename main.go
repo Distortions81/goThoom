@@ -96,6 +96,8 @@ func main() {
 		}()
 	}
 
+	initDiscordRPC(ctx)
+
 	clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)
