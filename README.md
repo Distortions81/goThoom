@@ -1,6 +1,6 @@
 # goThoom Client
 
-A pre-alpha open source (MIT) client for the Clan Lord MMORPG.
+A alpha open source (MIT) client for the Clan Lord MMORPG.
 
 This repository hosts the Go implementation of the client. The
 `old_mac_client/` directory contains a historical C implementation provided
@@ -33,7 +33,8 @@ go build
 Launch the client with:
 
 ```bash
-go run .
+go build
+./gothoom
 ```
 
 To exercise parsing and the GUI without a server, replay a captured
@@ -49,29 +50,18 @@ To build release binaries for Linux and Windows, use:
 scripts/build_binaries.sh
 ```
 
-### Discord Rich Presence
-
-Set the `DISCORD_APP_ID` environment variable to enable Discord Rich Presence via [rich-go](https://github.com/hugolgst/rich-go).
-
 ## Command-line Flags
 
 The Go client accepts the following flags:
 
-- `-host` – server address (default `server.deltatao.com:5010`)
 - `-clmov` – play back a `.clMov` movie file instead of connecting to a server
 - `-pcap` – replay network frames from a `.pcap/.pcapng` file
-- `-pgo` – create `default.pgo` by playing `test.clMov` at 60 fps for 30 seconds
-- `-client-version` – client version number (`kVersionNumber`, default `1440`)
+- `-pgo` – create `default.pgo` by playing `test.clMov` at 30 fps for 30 seconds
+- `-client-version` – client version number (`kVersionNumber`, default `1445`)
 - `-debug` – enable debug logging (default `true`)
-- `-scale` – screen scale factor (default `2`)
-- `-interp` – enable movement interpolation
-- `-onion` – cross-fade sprite animations
-- `-noFastAnimation` – draw a mobile's previous animation frame when available
-- `-night` – force night level (0-100)
 
-## Data and Logging
+## Setup
 
-- The default server is `server.deltatao.com:5010`; override it with `-host`.
-- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically from `https://m45sci.xyz/downloads/clanlord`.
+- Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically
   They are saved as `CL_Images` and `CL_Sounds`.
 
