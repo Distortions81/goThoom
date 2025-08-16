@@ -79,14 +79,19 @@ func updateGameImageSize() {
 	if w <= 0 || h <= 0 {
 		return
 	}
+	uis := eui.UIScale()
+	if uis <= 0 {
+		uis = 1
+	}
+	inv := 1 / uis
+
 	if gameImageItem == nil {
 		it, img := eui.NewImageItem(w, h)
 		gameImageItem = it
 		gameImage = img
-		gameImageItem.Position = eui.Point{X: 2, Y: 2}
 		gameWin.AddItem(gameImageItem)
-		return
 	}
+
 	// Resize backing image only when dimensions change
 	iw, ih := 0, 0
 	if gameImage != nil {
@@ -96,8 +101,16 @@ func updateGameImageSize() {
 	if iw != w || ih != h {
 		gameImage = ebiten.NewImage(w, h)
 		gameImageItem.Image = gameImage
-		gameImageItem.Size = eui.Point{X: float32(w), Y: float32(h)}
-		gameImageItem.Position = eui.Point{X: 2, Y: 2}
+		if gameWin != nil {
+			gameWin.Dirty = true
+		}
+	}
+
+	newSize := eui.Point{X: float32(w) * inv, Y: float32(h) * inv}
+	newPos := eui.Point{X: 2 * inv, Y: 2 * inv}
+	if gameImageItem.Size != newSize || gameImageItem.Position != newPos {
+		gameImageItem.Size = newSize
+		gameImageItem.Position = newPos
 		if gameWin != nil {
 			gameWin.Dirty = true
 		}
