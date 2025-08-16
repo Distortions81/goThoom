@@ -1,14 +1,12 @@
 # goThoom Client
 
-A pre-alpha open source (MIT) client for the Clan Lord MMORPG.
-
-This repository hosts the Go implementation of the client. The
-`old_mac_client/` directory contains a historical C implementation provided
-for reference only (do not modify).
+goThoom is a pre-alpha, open source (MIT) client for the Clan Lord MMORPG
+written in Go. The `old_mac_client/` directory contains a historical C
+implementation provided for reference only and should **not** be modified.
 
 ## Quick Start
 
-### Requirements
+### Install dependencies
 
 - Go 1.24 or newer
 - OpenGL and X11 development libraries
@@ -25,8 +23,13 @@ sudo apt-get install -y golang-go build-essential libgl1-mesa-dev libglu1-mesa-d
 From the repository root run:
 
 ```bash
+go fmt ./...
+go vet ./...
 go build
 ```
+
+Alternatively, `scripts/build_gothoom.sh` will fetch Go modules and build the
+client in one step.
 
 ### Run
 
@@ -36,6 +39,8 @@ Launch the client with:
 go run .
 ```
 
+The helper script `scripts/run_gothoom.sh` performs the same steps.
+
 To exercise parsing and the GUI without a server, replay a captured
 network trace:
 
@@ -43,15 +48,12 @@ network trace:
 go run . -pcap reference-client.pcapng
 ```
 
-To build release binaries for Linux and Windows, use:
-
-```bash
-scripts/build_binaries.sh
-```
+To build release binaries for Linux and Windows, use `scripts/build_binaries.sh`.
 
 ### Discord Rich Presence
 
-Set the `DISCORD_APP_ID` environment variable to enable Discord Rich Presence via [rich-go](https://github.com/hugolgst/rich-go).
+Set the `DISCORD_APP_ID` environment variable to enable Discord Rich Presence via
+[rich-go](https://github.com/hugolgst/rich-go).
 
 ## Command-line Flags
 
