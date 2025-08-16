@@ -219,6 +219,10 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 }
 
 func (win *windowData) drawBG(screen *ebiten.Image) {
+	// In NoBGColor mode, skip all background work entirely (no shadow, no fill).
+	if win.NoBGColor {
+		return
+	}
 	if win.ShadowSize > 0 && win.ShadowColor.A > 0 {
 		rr := roundRect{
 			Size:     win.GetSize(),
@@ -228,9 +232,6 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 			Color:    win.ShadowColor,
 		}
 		drawDropShadow(screen, &rr, win.ShadowSize, win.ShadowColor)
-	}
-	if win.NoBGColor {
-		return
 	}
 	r := rect{
 		X0: win.getPosition().X + win.BorderPad*win.scale(),
