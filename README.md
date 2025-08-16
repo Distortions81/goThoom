@@ -63,5 +63,4 @@ The Go client accepts the following flags:
 ## Setup
 
 - Missing `CL_Images` or `CL_Sounds` archives in `data` are fetched automatically
-  They are saved as `CL_Images` and `CL_Sounds`.
 
