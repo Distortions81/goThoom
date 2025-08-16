@@ -49,6 +49,10 @@ To build release binaries for Linux and Windows, use:
 scripts/build_binaries.sh
 ```
 
+### Discord Rich Presence
+
+Set the `DISCORD_APP_ID` environment variable to enable Discord Rich Presence via [rich-go](https://github.com/hugolgst/rich-go).
+
 ## Command-line Flags
 
 The Go client accepts the following flags:
