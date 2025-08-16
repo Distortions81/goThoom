@@ -119,50 +119,49 @@ func main() {
 	consoleMessage("Starting...")
 
 	go func() {
-		runGame(ctx)
-		cancel()
+		if clmovPath != "" {
+			drawStateEncrypted = false
+			frames, err := parseMovie(clmovPath, *clientVer)
+			if err != nil {
+				log.Fatalf("parse movie: %v", err)
+			}
+
+			playerName = extractMoviePlayerName(frames)
+
+			mp := newMoviePlayer(frames, clMovFPS, cancel)
+			mp.makePlaybackWindow()
+
+			if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+				for !assetsPrecached {
+					time.Sleep(time.Millisecond * 100)
+				}
+			}
+			go mp.run(ctx)
+
+			<-ctx.Done()
+			return
+		}
+
+		if pcapPath != "" {
+			drawStateEncrypted = false
+			if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+				for !assetsPrecached {
+					time.Sleep(time.Millisecond * 100)
+				}
+			}
+			go func() {
+				if err := replayPCAP(ctx, pcapPath); err != nil {
+					log.Printf("replay PCAP: %v", err)
+				} else {
+					log.Print("PCAP replay complete")
+				}
+			}()
+			<-ctx.Done()
+			return
+		}
 	}()
-
-	if clmovPath != "" {
-		drawStateEncrypted = false
-		frames, err := parseMovie(clmovPath, *clientVer)
-		if err != nil {
-			log.Fatalf("parse movie: %v", err)
-		}
-
-		playerName = extractMoviePlayerName(frames)
-
-		mp := newMoviePlayer(frames, clMovFPS, cancel)
-		mp.makePlaybackWindow()
-
-		if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
-			for !assetsPrecached {
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-		go mp.run(ctx)
-
-		<-ctx.Done()
-		return
-	}
-
-	if pcapPath != "" {
-		drawStateEncrypted = false
-		if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
-			for !assetsPrecached {
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-		go func() {
-			if err := replayPCAP(ctx, pcapPath); err != nil {
-				log.Printf("replay PCAP: %v", err)
-			} else {
-				log.Print("PCAP replay complete")
-			}
-		}()
-		<-ctx.Done()
-		return
-	}
+	runGame(ctx)
+	cancel()
 
 	<-ctx.Done()
 }
