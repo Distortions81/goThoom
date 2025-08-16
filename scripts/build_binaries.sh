@@ -19,7 +19,7 @@ install_linux_deps() {
   sudo apt-get install -y git cmake ninja-build clang llvm lldb \
     build-essential g++ pkg-config \
     libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
-    cpio unzip xz-utils curl \
+    cpio unzip zip xz-utils curl \
     g++-12 libstdc++-12-dev libc6-dev
 }
 
@@ -34,12 +34,36 @@ ensure_osxcross() {
     return
   fi
 
-  echo "Installing osxcross toolchain to $OSXCROSS_ROOT ..."
+  # By default, do not auto-bootstrap osxcross due to common SDK/Clang
+  # incompatibilities (e.g., macOS 15.x SDK). Provide a clear error
+  # and instructions. Opt-in by setting OSXCROSS_BOOTSTRAP=1.
+  if [ "${OSXCROSS_BOOTSTRAP:-0}" != "1" ]; then
+    cat >&2 <<'MSG'
+macOS cross toolchain not found (o64-clang/oa64-clang missing).
+
+To enable macOS builds, install osxcross and an SDK (recommended: MacOSX13.3.sdk),
+then set OSXCROSS_ROOT accordingly. You can run the helper installer:
+
+  ./scripts/install_osxcross.sh --sdk-tarball /path/to/MacOSX13.3.sdk.tar.xz
+
+Or manual steps:
+
+  git clone https://github.com/tpoechtrager/osxcross.git "$HOME/osxcross"
+  mkdir -p "$HOME/osxcross/tarballs" && cp MacOSX13.3.sdk.tar.xz "$HOME/osxcross/tarballs"
+  (cd "$HOME/osxcross" && UNATTENDED=1 ./build.sh)
+
+Once installed, rerun this script. To let this script attempt a bootstrap
+automatically (not recommended), set OSXCROSS_BOOTSTRAP=1.
+MSG
+    exit 1
+  fi
+
+  echo "Bootstrapping osxcross toolchain to $OSXCROSS_ROOT ..."
   sudo apt-get update -qq
   sudo apt-get install -y git cmake ninja-build clang llvm lldb \
     build-essential g++ pkg-config \
     libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
-    cpio unzip xz-utils curl
+    cpio unzip zip xz-utils curl
 
   mkdir -p "$OSXCROSS_ROOT"
   if [ ! -d "$OSXCROSS_ROOT/.git" ]; then
@@ -60,10 +84,18 @@ ensure_osxcross() {
     fi
   fi
 
-  # Check if we have any SDK tarballs now
-  if ! ls tarballs/MacOSX*.sdk.tar.* >/dev/null 2>&1; then
-    echo "No macOS SDK found in $OSXCROSS_ROOT/tarballs."
-    echo "Place MacOSX*.sdk.tar.* there, or set MACOSX_SDK_URL to a valid SDK tarball and re-run."
+  # Pick an SDK tarball and validate version (avoid known-bad 15.x)
+  sdk_file="$(ls -1 tarballs/MacOSX*.sdk.tar.* 2>/dev/null | head -n1 || true)"
+  if [ -z "$sdk_file" ]; then
+    echo "No macOS SDK found in $OSXCROSS_ROOT/tarballs." >&2
+    echo "Place MacOSX*.sdk.tar.* there, or set MACOSX_SDK_URL to a valid SDK tarball and re-run." >&2
+    exit 1
+  fi
+  sdk_base="$(basename "$sdk_file")"
+  sdk_ver="$(printf '%s' "$sdk_base" | sed -n 's/^MacOSX\([0-9][0-9]*\)\(\.[0-9][0-9]*\)\?\.sdk.*/\1/p')"
+  if [ -n "$sdk_ver" ] && [ "$sdk_ver" -ge 15 ]; then
+    echo "Detected SDK $sdk_base (major $sdk_ver), which is often incompatible with osxcross on Linux." >&2
+    echo "Use an older SDK like MacOSX13.3.sdk.* and retry." >&2
     exit 1
   fi
 
@@ -75,7 +107,7 @@ ensure_osxcross() {
 
   # Sanity check
   if ! have oa64-clang && ! have o64-clang; then
-    echo "oa64-clang/o64-clang still not found in PATH ($PATH)."
+    echo "oa64-clang/o64-clang still not found in PATH ($PATH)." >&2
     exit 1
   fi
   cd - >/dev/null
@@ -123,8 +155,15 @@ for platform in "${platforms[@]}"; do
       ;;
   esac
 
-  # Make sure nothing forces the OpenGL backend for mac
-  unset EBITENGINE_OPENGL || true
+  # Make sure nothing forces the OpenGL backend for mac (support old/new env names)
+  # Note: unsetting a non-existent var is OK; keep '|| true' for safety under -e
+  unset EBITEN_GRAPHICS_LIBRARY EBITENGINE_GRAPHICS_LIBRARY EBITEN_USEGL || true
+
+  # Build argument list safely (avoid embedding quotes into -tags)
+  extra_args=()
+  if [ -n "$TAGS" ]; then
+    extra_args+=( -tags "$TAGS" )
+  fi
 
   env \
     GOOS="$GOOS" GOARCH="$GOARCH" \
@@ -133,8 +172,8 @@ for platform in "${platforms[@]}"; do
     PATH="${OSXCROSS_ROOT:-$HOME/osxcross}/target/bin:${PATH}" \
     go build \
       -trimpath \
-      ${TAGS:+-tags="$TAGS"} \
-      -ldflags="$LDFLAGS" \
+      "${extra_args[@]}" \
+      -ldflags "$LDFLAGS" \
       -o "${OUTPUT_DIR}/${BIN_NAME}" .
   if [ "$GOOS" = "darwin" ]; then
     APP_NAME="gothoom"
