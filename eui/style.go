@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -121,10 +122,12 @@ var (
 )
 
 func LoadStyle(name string) error {
-	file := filepath.Join(os.Getenv("PWD")+"/themes/styles", name+".json")
+	// Try local filesystem first (relative to executable dir; see paths.go)
+	file := filepath.Join("themes", "styles", name+".json")
 	data, err := os.ReadFile(file)
 	if err != nil {
-		data, err = embeddedStyles.ReadFile(filepath.Join("themes/styles", name+".json"))
+		// Fallback to embedded styles; embed paths must use forward slashes
+		data, err = embeddedStyles.ReadFile(path.Join("themes", "styles", name+".json"))
 		if err != nil {
 			return err
 		}

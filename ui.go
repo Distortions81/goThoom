@@ -1009,19 +1009,7 @@ func makeSettingsWindow() {
 	right := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	right.Size = eui.Point{X: rightW, Y: 10}
 
-	// Reset all settings button
-	resetBtn, resetEv := eui.NewButton()
-	resetBtn.Text = "Reset All Settings"
-	resetBtn.Size = eui.Point{X: leftW, Y: 24}
-	resetBtn.Color = eui.ColorDarkRed
-	resetBtn.HoverColor = eui.ColorRed
-	resetBtn.Tooltip = "Restore defaults and reapply"
-	resetEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			confirmResetSettings()
-		}
-	}
-	left.AddItem(resetBtn)
+	// (Reset button added at the bottom-right later)
 
 	themeDD, themeEvents := eui.NewDropdown()
 	themeDD.Label = "Theme"
@@ -1035,7 +1023,7 @@ func makeSettingsWindow() {
 			}
 		}
 	}
-	themeDD.Size = eui.Point{X: leftW, Y: 24}
+	themeDD.Size = eui.Point{X: rightW, Y: 24}
 	themeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			name := themeDD.Options[ev.Index]
@@ -1046,7 +1034,7 @@ func makeSettingsWindow() {
 			}
 		}
 	}
-	left.AddItem(themeDD)
+	right.AddItem(themeDD)
 
 	label, _ := eui.NewText()
 	label.Text = "\nControls:"
@@ -1120,13 +1108,13 @@ func makeSettingsWindow() {
 
 	graphicsBtn, graphicsEvents := eui.NewButton()
 	graphicsBtn.Text = "Screen Size Settings"
-	graphicsBtn.Size = eui.Point{X: leftW, Y: 24}
+	graphicsBtn.Size = eui.Point{X: rightW, Y: 24}
 	graphicsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			graphicsWin.ToggleNear(ev.Item)
 		}
 	}
-	left.AddItem(graphicsBtn)
+	right.AddItem(graphicsBtn)
 
 	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
@@ -1248,36 +1236,36 @@ func makeSettingsWindow() {
 	label, _ = eui.NewText()
 	label.Text = "\nOpacity Settings:"
 	label.FontSize = 15
-	label.Size = eui.Point{X: rightW, Y: 50}
-	right.AddItem(label)
+	label.Size = eui.Point{X: leftW, Y: 30}
+	left.AddItem(label)
 
 	bubbleOpSlider, bubbleOpEvents := eui.NewSlider()
 	bubbleOpSlider.Label = "Bubble Opacity"
 	bubbleOpSlider.MinValue = 0
 	bubbleOpSlider.MaxValue = 1
 	bubbleOpSlider.Value = float32(gs.BubbleOpacity)
-	bubbleOpSlider.Size = eui.Point{X: rightW - 10, Y: 24}
+	bubbleOpSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	bubbleOpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleOpacity = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	right.AddItem(bubbleOpSlider)
+	left.AddItem(bubbleOpSlider)
 
 	nameBgSlider, nameBgEvents := eui.NewSlider()
 	nameBgSlider.Label = "Name Background Opacity"
 	nameBgSlider.MinValue = 0
 	nameBgSlider.MaxValue = 1
 	nameBgSlider.Value = float32(gs.NameBgOpacity)
-	nameBgSlider.Size = eui.Point{X: rightW - 10, Y: 24}
+	nameBgSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	nameBgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.NameBgOpacity = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	right.AddItem(nameBgSlider)
+	left.AddItem(nameBgSlider)
 
 	label, _ = eui.NewText()
 	label.Text = "\nQuality Settings:"
@@ -1333,6 +1321,20 @@ func makeSettingsWindow() {
 		}
 	}
 	right.AddItem(debugBtn)
+
+	// Bottom-right: Reset All Settings
+	resetBtn, resetEv := eui.NewButton()
+	resetBtn.Text = "Reset All Settings"
+	resetBtn.Size = eui.Point{X: rightW, Y: 24}
+	resetBtn.Color = eui.ColorDarkRed
+	resetBtn.HoverColor = eui.ColorRed
+	resetBtn.Tooltip = "Restore defaults and reapply"
+	resetEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmResetSettings()
+		}
+	}
+	right.AddItem(resetBtn)
 
 	outer.AddItem(left)
 	outer.AddItem(right)

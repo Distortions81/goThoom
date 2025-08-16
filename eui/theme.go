@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -67,10 +68,12 @@ func resolveColor(s string, colors map[string]string, seen map[string]bool) (Col
 // LoadTheme reads a theme JSON file from the themes directory and
 // sets it as the current theme without modifying existing windows.
 func LoadTheme(name string) error {
-	file := filepath.Join(os.Getenv("PWD")+"/themes", "palettes", name+".json")
+	// Try local filesystem first (relative to executable dir; see paths.go)
+	file := filepath.Join("themes", "palettes", name+".json")
 	data, err := os.ReadFile(file)
 	if err != nil {
-		data, err = embeddedThemes.ReadFile(filepath.Join("themes", "palettes", name+".json"))
+		// Fallback to embedded palettes; embed paths must use forward slashes
+		data, err = embeddedThemes.ReadFile(path.Join("themes", "palettes", name+".json"))
 		if err != nil {
 			return err
 		}
