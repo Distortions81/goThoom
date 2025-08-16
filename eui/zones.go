@@ -60,11 +60,12 @@ func (win *windowData) updateZonePosition() {
 	cx := hZoneCoord(win.zone.h, screenWidth)
 	cy := vZoneCoord(win.zone.v, screenHeight)
 	size := win.GetSize()
-	win.Position.X = (cx - size.X/2) / uiScale
-	win.Position.Y = (cy - size.Y/2) / uiScale
+	s := win.scale()
+	win.Position.X = (cx - size.X/2) / s
+	win.Position.Y = (cy - size.Y/2) / s
 
-	maxX := (float32(screenWidth) - size.X) / uiScale
-	maxY := (float32(screenHeight) - size.Y) / uiScale
+	maxX := (float32(screenWidth) - size.X) / s
+	maxY := (float32(screenHeight) - size.Y) / s
 	if maxX < 0 {
 		maxX = 0
 	}
