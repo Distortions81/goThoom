@@ -162,8 +162,16 @@ func initUI() {
 	}
 }
 
-func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData {
-	gameMenu := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32, twoRows bool) *eui.ItemData {
+	var row1, row2, menu *eui.ItemData
+	if twoRows {
+		row1 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row2 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	} else {
+		menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	}
+
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
@@ -173,7 +181,11 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			windowsWin.ToggleNear(ev.Item)
 		}
 	}
-	gameMenu.AddItem(winBtn)
+	if twoRows {
+		row1.AddItem(winBtn)
+	} else {
+		menu.AddItem(winBtn)
+	}
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
@@ -184,7 +196,11 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			settingsWin.ToggleNear(ev.Item)
 		}
 	}
-	gameMenu.AddItem(btn)
+	if twoRows {
+		row1.AddItem(btn)
+	} else {
+		menu.AddItem(btn)
+	}
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
@@ -195,7 +211,11 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			helpWin.ToggleNear(ev.Item)
 		}
 	}
-	gameMenu.AddItem(helpBtn)
+	if twoRows {
+		row1.AddItem(helpBtn)
+	} else {
+		menu.AddItem(helpBtn)
+	}
 
 	volumeSlider, volumeEvents := eui.NewSlider()
 	volumeSlider.MinValue = 0
@@ -210,7 +230,11 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			updateSoundVolume()
 		}
 	}
-	gameMenu.AddItem(volumeSlider)
+	if twoRows {
+		row2.AddItem(volumeSlider)
+	} else {
+		menu.AddItem(volumeSlider)
+	}
 
 	muteBtn, muteEvents := eui.NewButton()
 	muteBtn.Text = "Mute"
@@ -232,7 +256,11 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			updateSoundVolume()
 		}
 	}
-	gameMenu.AddItem(muteBtn)
+	if twoRows {
+		row2.AddItem(muteBtn)
+	} else {
+		menu.AddItem(muteBtn)
+	}
 
 	exitSessBtn, exitSessEv := eui.NewButton()
 	exitSessBtn.Text = "Exit"
@@ -243,16 +271,29 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			confirmExitSession()
 		}
 	}
-	gameMenu.AddItem(exitSessBtn)
+	if twoRows {
+		row2.AddItem(exitSessBtn)
+	} else {
+		menu.AddItem(exitSessBtn)
+	}
 
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
 	recordStatus.Size = eui.Point{X: 80, Y: buttonHeight}
 	recordStatus.FontSize = toolFontSize
 	recordStatus.Color = eui.ColorRed
-	gameMenu.AddItem(recordStatus)
+	if twoRows {
+		row2.AddItem(recordStatus)
+	} else {
+		menu.AddItem(recordStatus)
+	}
 
-	return gameMenu
+	if twoRows {
+		menu.AddItem(row1)
+		menu.AddItem(row2)
+	}
+
+	return menu
 }
 
 func makeToolbarWindow() {
@@ -272,7 +313,7 @@ func makeToolbarWindow() {
 	toolbarWin.Size = eui.Point{X: 500, Y: 35}
 	toolbarWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 
-	toolbarWin.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
+	toolbarWin.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight, false))
 	toolbarWin.AddWindow(false)
 	toolbarWin.MarkOpen()
 
@@ -298,14 +339,14 @@ func makeHUDWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	hands := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	rightHandImg, _ = eui.NewImageItem(32, 32)
-	rightHandImg.Margin = 2
 	leftHandImg, _ = eui.NewImageItem(32, 32)
 	leftHandImg.Margin = 2
-	hands.AddItem(rightHandImg)
+	rightHandImg, _ = eui.NewImageItem(32, 32)
+	rightHandImg.Margin = 2
 	hands.AddItem(leftHandImg)
+	hands.AddItem(rightHandImg)
 	flow.AddItem(hands)
-	flow.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
+	flow.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight, true))
 
 	hudWin.AddItem(flow)
 	hudWin.AddWindow(false)
