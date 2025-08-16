@@ -179,9 +179,34 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 
 func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if win.NoCache {
-		// Force re-render every frame when NoCache is set.
-		win.Dirty = true
+		// In NoCache mode, render directly into the main screen with absolute
+		// coordinates. Do not alter win.Position; all helpers compute and draw
+		// using screen-space. Item.DrawRect stays absolute by passing base={0,0}.
+		if CacheCheck {
+			win.RenderCount++
+		}
+		size := win.GetSize()
+		if size.X < 1 || size.Y < 1 {
+			return
+		}
+		win.drawBG(screen)
+		win.drawItems(screen, point{}, dropdowns)
+		win.drawScrollbars(screen)
+		titleArea := screen.SubImage(win.getTitleRect().getRectangle()).(*ebiten.Image)
+		win.drawWinTitle(titleArea)
+		windowArea := screen.SubImage(win.getWinRect().getRectangle()).(*ebiten.Image)
+		win.drawBorder(windowArea)
+		win.Dirty = false
+		// Collect dropdowns for separate overlay rendering and draw debug.
+		win.collectDropdowns(dropdowns)
+		win.drawDebug(screen)
+		if CacheCheck {
+			ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", win.RenderCount), int(win.getPosition().X), int(win.getPosition().Y))
+		}
+		return
 	}
+
+	// Cached/offscreen render path
 	if win.Dirty || win.Render == nil {
 		if CacheCheck {
 			win.RenderCount++
@@ -491,10 +516,16 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 }
 
 func (win *windowData) drawItems(screen *ebiten.Image, base point, dropdowns *[]openDropdown) {
-	pad := (win.Padding + win.BorderPad) * win.scale()
-	winPos := point{X: pad, Y: win.GetTitleSize() + pad}
-	winPos = pointSub(winPos, win.Scroll)
-	clip := win.getMainRect()
+    pad := (win.Padding + win.BorderPad) * win.scale()
+    winPos := point{X: pad, Y: win.GetTitleSize() + pad}
+    winPos = pointSub(winPos, win.Scroll)
+    // In NoCache mode we draw to the main screen using absolute coordinates.
+    // Offset window-local positions by the window's screen position so items
+    // render at the correct place.
+    if win.NoCache {
+        winPos = pointAdd(winPos, win.getPosition())
+    }
+    clip := win.getMainRect()
 
 	for _, item := range win.Contents {
 		itemPos := pointAdd(winPos, item.getPosition(win))
