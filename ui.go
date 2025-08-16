@@ -1486,80 +1486,109 @@ func confirmQuit() {
 }
 
 func makeGraphicsWindow() {
-	if graphicsWin != nil {
-		return
-	}
-	var width float32 = 250
-	graphicsWin = eui.NewWindow()
-	graphicsWin.Title = "Screen Size Settings"
-	graphicsWin.Closable = true
-	graphicsWin.Resizable = false
-	graphicsWin.AutoSize = true
-	graphicsWin.Movable = true
-	graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+    if graphicsWin != nil {
+        return
+    }
+    // Column widths
+    var leftW float32 = 260
+    var rightW float32 = 260
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+    graphicsWin = eui.NewWindow()
+    graphicsWin.Title = "Screen Size Settings"
+    graphicsWin.Closable = true
+    graphicsWin.Resizable = false
+    graphicsWin.AutoSize = true
+    graphicsWin.Movable = true
+    graphicsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	uiScaleSlider, uiScaleEvents := eui.NewSlider()
-	uiScaleSlider.Label = "UI Scaling"
-	uiScaleSlider.MinValue = 1.0
-	uiScaleSlider.MaxValue = 2.5
-	uiScaleSlider.Value = float32(gs.UIScale)
-	uiScaleSlider.Size = eui.Point{X: width - 10, Y: 24}
-	pendingUIScale := gs.UIScale
-	uiScaleEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			pendingUIScale = float64(ev.Value)
-		}
-	}
-	flow.AddItem(uiScaleSlider)
+    // Outer horizontal flow with two vertical columns
+    outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
-	uiScaleApplyBtn.Text = "Apply UI Scale"
-	uiScaleApplyBtn.Size = eui.Point{X: 100, Y: 24}
-	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			gs.UIScale = pendingUIScale
-			eui.SetUIScale(float32(gs.UIScale))
-			updateGameWindowSize()
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(uiScaleApplyBtn)
+    simple := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+    simple.Size = eui.Point{X: leftW, Y: 10}
 
-	// Titlebar maximize toggle (default off)
-	tbMaxCB, tbMaxEvents := eui.NewCheckbox()
-	tbMaxCB.Text = "Show titlebar Maximize button"
-	tbMaxCB.Size = eui.Point{X: width, Y: 24}
-	tbMaxCB.Checked = gs.TitlebarMaximize
-	tbMaxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.TitlebarMaximize = ev.Checked
-			if gameWin != nil {
-				gameWin.Maximizable = ev.Checked
-				gameWin.Refresh()
-			}
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(tbMaxCB)
+    advanced := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+    advanced.Size = eui.Point{X: rightW, Y: 10}
 
-	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
-	fullscreenCB.Text = "Fullscreen"
-	fullscreenCB.Size = eui.Point{X: width, Y: 24}
-	fullscreenCB.Checked = gs.Fullscreen
-	fullscreenEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.Fullscreen = ev.Checked
-			ebiten.SetFullscreen(gs.Fullscreen)
-			ebiten.SetWindowFloating(gs.Fullscreen)
-			settingsDirty = true
-		}
-	}
-	flow.AddItem(fullscreenCB)
+    // Simple (left) controls
+    uiScaleSlider, uiScaleEvents := eui.NewSlider()
+    uiScaleSlider.Label = "UI Scaling"
+    uiScaleSlider.MinValue = 1.0
+    uiScaleSlider.MaxValue = 2.5
+    uiScaleSlider.Value = float32(gs.UIScale)
+    uiScaleSlider.Size = eui.Point{X: leftW - 10, Y: 24}
+    pendingUIScale := gs.UIScale
+    uiScaleEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventSliderChanged {
+            pendingUIScale = float64(ev.Value)
+        }
+    }
+    simple.AddItem(uiScaleSlider)
 
-	graphicsWin.AddItem(flow)
-	graphicsWin.AddWindow(false)
+    uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
+    uiScaleApplyBtn.Text = "Apply UI Scale"
+    uiScaleApplyBtn.Size = eui.Point{X: 140, Y: 24}
+    uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventClick {
+            gs.UIScale = pendingUIScale
+            eui.SetUIScale(float32(gs.UIScale))
+            updateGameWindowSize()
+            settingsDirty = true
+        }
+    }
+    simple.AddItem(uiScaleApplyBtn)
+
+    fullscreenCB, fullscreenEvents := eui.NewCheckbox()
+    fullscreenCB.Text = "Fullscreen"
+    fullscreenCB.Size = eui.Point{X: leftW, Y: 24}
+    fullscreenCB.Checked = gs.Fullscreen
+    fullscreenEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventCheckboxChanged {
+            gs.Fullscreen = ev.Checked
+            ebiten.SetFullscreen(gs.Fullscreen)
+            ebiten.SetWindowFloating(gs.Fullscreen)
+            settingsDirty = true
+        }
+    }
+    simple.AddItem(fullscreenCB)
+
+    // Advanced (right) controls
+    intCB, intEvents := eui.NewCheckbox()
+    intCB.Text = "Integer scale (sharper, faster)"
+    intCB.Size = eui.Point{X: rightW, Y: 24}
+    intCB.Checked = gs.IntegerScaling
+    intEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventCheckboxChanged {
+            gs.IntegerScaling = ev.Checked
+            initFont()
+            if gameWin != nil {
+                gameWin.Refresh()
+            }
+            settingsDirty = true
+        }
+    }
+    advanced.AddItem(intCB)
+
+    tbMaxCB, tbMaxEvents := eui.NewCheckbox()
+    tbMaxCB.Text = "Show titlebar Maximize button"
+    tbMaxCB.Size = eui.Point{X: rightW, Y: 24}
+    tbMaxCB.Checked = gs.TitlebarMaximize
+    tbMaxEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventCheckboxChanged {
+            gs.TitlebarMaximize = ev.Checked
+            if gameWin != nil {
+                gameWin.Maximizable = ev.Checked
+                gameWin.Refresh()
+            }
+            settingsDirty = true
+        }
+    }
+    advanced.AddItem(tbMaxCB)
+
+    outer.AddItem(simple)
+    outer.AddItem(advanced)
+    graphicsWin.AddItem(outer)
+    graphicsWin.AddWindow(false)
 }
 
 func makeQualityWindow() {

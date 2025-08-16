@@ -131,7 +131,11 @@ func Update() error {
 					continue
 				}
 				if part == PART_MAXIMIZE {
-					win.Maximize()
+					if win.OnMaximize != nil {
+						win.OnMaximize()
+					} else {
+						win.Maximize()
+					}
 					break
 				}
 				if part == PART_PIN {

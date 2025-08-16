@@ -51,7 +51,8 @@ var gsdef settings = settings{
 	WindowTiling:      false,
 	WindowSnapping:    false,
 	AnyGameWindowSize: true,
-	TitlebarMaximize:  false,
+	TitlebarMaximize:  true,
+	IntegerScaling:    false,
 	NoCaching:         false,
 	PotatoComputer:    false,
 
@@ -117,6 +118,7 @@ type settings struct {
 	WindowTiling      bool
 	WindowSnapping    bool
 	TitlebarMaximize  bool
+	IntegerScaling    bool
 
 	GameWindow      WindowState
 	InventoryWindow WindowState

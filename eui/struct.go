@@ -82,6 +82,10 @@ type windowData struct {
 	// OnResize is an optional callback invoked when the window's size changes
 	// due to user interaction or programmatic updates.
 	OnResize func()
+
+	// OnMaximize is an optional callback invoked when the user clicks the
+	// titlebar maximize button. If unset, a default Maximize() is performed.
+	OnMaximize func()
 }
 
 type itemData struct {

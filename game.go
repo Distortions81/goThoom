@@ -832,8 +832,19 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	var offIntScale int
 	var finalFilter ebiten.Filter
-	if gs.AnyGameWindowSize {
-		// Pick integer scale >= window-fit scale for supersampling
+	if gs.IntegerScaling {
+		// Integer-fit scale (no downscale), nearest filter
+		fit := math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))
+		if fit < 1 {
+			fit = 1
+		}
+		offIntScale = int(math.Floor(fit))
+		if offIntScale < 1 {
+			offIntScale = 1
+		}
+		finalFilter = ebiten.FilterNearest
+	} else if gs.AnyGameWindowSize {
+		// Supersample at integer scale and downscale linearly
 		fit := math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))
 		if fit < 1 {
 			fit = 1
@@ -844,7 +855,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		finalFilter = ebiten.FilterLinear
 	} else {
-		// Use current integer game scale for sharp mode
+		// Classic sharp mode using configured integer scale
 		s := math.Round(gs.GameScale)
 		if s < 1 {
 			s = 1
@@ -883,6 +894,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	gameImage.Clear()
 	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
 	if scaleDown <= 0 {
+		scaleDown = 1
+	}
+	if gs.IntegerScaling {
+		// Rendered at exact integer; do not rescale (avoid blur)
 		scaleDown = 1
 	}
 	drawW := float64(offW) * scaleDown
@@ -1624,9 +1639,9 @@ func makeGameWindow() {
 	}
 	gameWin = eui.NewWindow()
 	gameWin.Title = "Clan Lord"
-	gameWin.BGColor = eui.Color{R: 32, G: 32, B: 32, A: 255}
 	gameWin.Closable = false
 	gameWin.Resizable = true
+	gameWin.NoBGColor = true
 	gameWin.Movable = true
 	gameWin.NoScroll = true
 	gameWin.NoCache = true
@@ -1636,8 +1651,37 @@ func makeGameWindow() {
 	gameWin.Size = eui.Point{X: 8000, Y: 8000}
 	gameWin.MarkOpen()
 	gameWin.OnResize = func() { onGameWindowResize() }
-	// Titlebar maximize button controlled by settings (default off)
+	// Titlebar maximize button controlled by settings (now default on)
 	gameWin.Maximizable = gs.TitlebarMaximize
+	// Keep same horizontal center on maximize
+	gameWin.OnMaximize = func() {
+		if gameWin == nil {
+			return
+		}
+		// Record current center X before size change
+		pos := gameWin.GetPos()
+		sz := gameWin.GetSize()
+		centerX := float64(pos.X) + float64(sz.X)/2
+		// Maximize to screen bounds first
+		w, h := eui.ScreenSize()
+		gameWin.ClearZone()
+		_ = gameWin.SetPos(eui.Point{X: 0, Y: 0})
+		_ = gameWin.SetSize(eui.Point{X: float32(w), Y: float32(h)})
+		// Aspect ratio handler will adjust size via OnResize; recalc size
+		sz2 := gameWin.GetSize()
+		newW := float64(sz2.X)
+		// Recenter horizontally to keep same center
+		newX := centerX - newW/2
+		if newX < 0 {
+			newX = 0
+		}
+		maxX := float64(w) - newW
+		if newX > maxX {
+			newX = maxX
+		}
+		_ = gameWin.SetPos(eui.Point{X: float32(newX), Y: 0})
+		updateGameImageSize()
+	}
 	updateGameWindowSize()
 	updateGameImageSize()
 }

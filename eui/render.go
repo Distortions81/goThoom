@@ -324,8 +324,25 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 				color = win.Theme.Window.HoverTitleColor
 				win.HoverMax = false
 			}
-			// Draw a square outline to represent maximize
-			strokeRect(screen, mr.X0+uiScale*2, mr.Y0+uiScale*2, (mr.X1-mr.X0)-uiScale*4, (mr.Y1-mr.Y0)-uiScale*4, uiScale, color, true)
+			// Draw a window-like maximize icon: outer frame + top bar
+			inset := uiScale * 2
+			x := mr.X0 + inset
+			y := mr.Y0 + inset
+			w := (mr.X1 - mr.X0) - inset*2
+			h := (mr.Y1 - mr.Y0) - inset*2
+			if w < uiScale*4 {
+				w = uiScale * 4
+			}
+			if h < uiScale*4 {
+				h = uiScale * 4
+			}
+			strokeRect(screen, x, y, w, h, uiScale, color, true)
+			// top bar
+			barH := uiScale * 2
+			if barH < 1 {
+				barH = 1
+			}
+			drawFilledRect(screen, x+uiScale, y+uiScale, w-uiScale*2, barH, color.ToRGBA(), true)
 			buttonsWidth += (win.GetTitleSize())
 		}
 
