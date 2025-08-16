@@ -1178,29 +1178,6 @@ func makeSettingsWindow() {
 	}
 	right.AddItem(renderScale)
 
-	/*
-		intCB, intEvents := eui.NewCheckbox()
-		intCB.Text = "Integer scale (sharper, faster)"
-		intCB.Size = eui.Point{X: rightW, Y: 24}
-		intCB.Checked = gs.IntegerScaling
-		intEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				gs.IntegerScaling = ev.Checked
-				initFont()
-				if gameWin != nil {
-					gameWin.Refresh()
-				}
-				if graphicsWin != nil {
-					graphicsWin.Refresh()
-				}
-				if debugWin != nil {
-					debugWin.Refresh()
-				}
-			}
-		}
-		right.AddItem(intCB)
-	*/
-
 	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
 	label.FontSize = 15
