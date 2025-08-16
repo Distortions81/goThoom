@@ -1111,14 +1111,12 @@ func makeSettingsWindow() {
 	uiScaleSlider.MinValue = 1.0
 	uiScaleSlider.MaxValue = 2.5
 	uiScaleSlider.Value = float32(gs.UIScale)
-	uiScaleSlider.Size = eui.Point{X: rightW - 10, Y: 24}
 	pendingUIScale := gs.UIScale
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			pendingUIScale = float64(ev.Value)
 		}
 	}
-	right.AddItem(uiScaleSlider)
 
 	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
 	uiScaleApplyBtn.Text = "Apply UI Scale"
@@ -1131,7 +1129,14 @@ func makeSettingsWindow() {
 			settingsDirty = true
 		}
 	}
-	right.AddItem(uiScaleApplyBtn)
+
+	// Place the slider and button on the same row
+	uiScaleRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	// Fit slider to remaining width in the row
+	uiScaleSlider.Size = eui.Point{X: rightW - uiScaleApplyBtn.Size.X - 10, Y: 24}
+	uiScaleRow.AddItem(uiScaleSlider)
+	uiScaleRow.AddItem(uiScaleApplyBtn)
+	right.AddItem(uiScaleRow)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
@@ -1613,14 +1618,12 @@ func makeGraphicsWindow() {
 	uiScaleSlider.MinValue = 1.0
 	uiScaleSlider.MaxValue = 2.5
 	uiScaleSlider.Value = float32(gs.UIScale)
-	uiScaleSlider.Size = eui.Point{X: leftW - 10, Y: 24}
 	pendingUIScale := gs.UIScale
 	uiScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			pendingUIScale = float64(ev.Value)
 		}
 	}
-	simple.AddItem(uiScaleSlider)
 
 	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
 	uiScaleApplyBtn.Text = "Apply UI Scale"
@@ -1633,7 +1636,13 @@ func makeGraphicsWindow() {
 			settingsDirty = true
 		}
 	}
-	simple.AddItem(uiScaleApplyBtn)
+
+	// Place the slider and button on the same row
+	uiScaleRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	uiScaleSlider.Size = eui.Point{X: leftW - uiScaleApplyBtn.Size.X - 10, Y: 24}
+	uiScaleRow.AddItem(uiScaleSlider)
+	uiScaleRow.AddItem(uiScaleApplyBtn)
+	simple.AddItem(uiScaleRow)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
