@@ -178,6 +178,10 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 }
 
 func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
+	if win.NoCache {
+		// Force re-render every frame when NoCache is set.
+		win.Dirty = true
+	}
 	if win.Dirty || win.Render == nil {
 		if CacheCheck {
 			win.RenderCount++

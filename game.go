@@ -31,6 +31,67 @@ const initialWindowW, initialWindowH = 100, 100
 
 var blackPixel *ebiten.Image
 
+// worldRT is the offscreen render target for the game world when
+// arbitrary window sizing is enabled. It stays at the native field size
+// and is scaled to the window with linear filtering.
+var worldRT *ebiten.Image
+
+// gameImageItem is the UI image item inside the game window that displays
+// the rendered world, and gameImage is its backing texture.
+var gameImageItem *eui.ItemData
+var gameImage *ebiten.Image
+
+// gameWindowBG picks a background color for the game window content area.
+// Prefers the game window's theme BGColor when opaque, otherwise falls
+// back to any other window's BGColor, and finally to black.
+func ensureWorldRT() {
+	if worldRT == nil || worldRT.Bounds().Dx() != gameAreaSizeX || worldRT.Bounds().Dy() != gameAreaSizeY {
+		worldRT = ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+	}
+}
+
+// updateGameImageSize ensures the game image item exists and matches the
+// current inner content size of the game window.
+func updateGameImageSize() {
+	if gameWin == nil {
+		return
+	}
+	size := gameWin.GetSize()
+	pad := float64(2 * gameWin.Padding)
+	// Inner content size (inside padding)
+	cw := int(float64(int(size.X)&^1) - pad)
+	ch := int(float64(int(size.Y)&^1) - pad)
+	// Leave a 2px margin on all sides for window edges
+	w := cw - 4
+	h := ch - 4
+	if w <= 0 || h <= 0 {
+		return
+	}
+	if gameImageItem == nil {
+		it, img := eui.NewImageItem(w, h)
+		gameImageItem = it
+		gameImage = img
+		gameImageItem.Position = eui.Point{X: 2, Y: 2}
+		gameWin.AddItem(gameImageItem)
+		return
+	}
+	// Resize backing image only when dimensions change
+	iw, ih := 0, 0
+	if gameImage != nil {
+		b := gameImage.Bounds()
+		iw, ih = b.Dx(), b.Dy()
+	}
+	if iw != w || ih != h {
+		gameImage = ebiten.NewImage(w, h)
+		gameImageItem.Image = gameImage
+		gameImageItem.Size = eui.Point{X: float32(w), Y: float32(h)}
+		gameImageItem.Position = eui.Point{X: 2, Y: 2}
+		if gameWin != nil {
+			gameWin.Dirty = true
+		}
+	}
+}
+
 // scaleForFiltering returns adjusted scale values for width and height to reduce
 // filtering seams. If either dimension is zero, the original scale is returned
 // unchanged to avoid division by zero on the half-texel offset.
@@ -740,27 +801,70 @@ func gameContentOrigin() (int, int) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	if clmov == "" && tcpConn == nil && pcapPath == "" {
-		ox, oy := gameContentOrigin()
-		drawSplash(screen, ox, oy)
+	// Ensure the game image item/buffer exists and matches window content.
+	updateGameImageSize()
+	if gameImage == nil {
+		// UI not ready yet
 		eui.Draw(screen)
-		if gs.ShowFPS {
-			drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
-		}
 		return
 	}
-	snap := captureDrawSnapshot()
-	alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 
-	ox, oy := gameContentOrigin()
-	drawScene(screen, ox, oy, snap, alpha, mobileFade, pictFade)
-	updateGameScale()
-	if gs.nightEffect {
-		drawNightOverlay(screen, ox, oy)
+	// Prepare native render target
+	ensureWorldRT()
+	worldRT.Clear()
+
+	// Render splash or live frame into worldRT at native scale
+	if clmov == "" && tcpConn == nil && pcapPath == "" {
+		prev := gs.GameScale
+		gs.GameScale = 1
+		drawSplash(worldRT, 0, 0)
+		gs.GameScale = prev
+	} else {
+		snap := captureDrawSnapshot()
+		alpha, mobileFade, pictFade := computeInterpolation(snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
+		prev := gs.GameScale
+		gs.GameScale = 1
+		drawScene(worldRT, 0, 0, snap, alpha, mobileFade, pictFade)
+		if gs.nightEffect {
+			drawNightOverlay(worldRT, 0, 0)
+		}
+		drawEquippedItems(worldRT, 0, 0)
+		drawStatusBars(worldRT, 0, 0, snap, alpha)
+		gs.GameScale = prev
+		updateGameScale()
 	}
-	drawEquippedItems(screen, ox, oy)
-	drawGameCurtain(screen, ox, oy)
-	drawStatusBars(screen, ox, oy, snap, alpha)
+
+	// Composite worldRT into the gameImage buffer, respecting settings.
+	gameImage.Clear()
+	bufW := gameImage.Bounds().Dx()
+	bufH := gameImage.Bounds().Dy()
+	var sx, sy float64
+	var filter ebiten.Filter
+	if gs.AnyGameWindowSize {
+		// Fit to buffer with linear filtering
+		scale := math.Min(float64(bufW)/float64(gameAreaSizeX), float64(bufH)/float64(gameAreaSizeY))
+		sx, sy = scaleForFiltering(scale, gameAreaSizeX, gameAreaSizeY)
+		filter = ebiten.FilterLinear
+	} else {
+		// Use snapped integer scale with nearest filtering
+		scale := gs.GameScale
+		if scale < 1 {
+			scale = 1
+		}
+		sx, sy = float64(scale), float64(scale)
+		filter = ebiten.FilterNearest
+	}
+	// Center inside buffer
+	drawW := float64(gameAreaSizeX) * sx
+	drawH := float64(gameAreaSizeY) * sy
+	tx := (float64(bufW) - drawW) / 2
+	ty := (float64(bufH) - drawH) / 2
+	op := &ebiten.DrawImageOptions{Filter: filter, DisableMipmaps: true}
+	op.GeoM.Scale(sx, sy)
+	op.GeoM.Translate(tx, ty)
+	gameImage.DrawImage(worldRT, op)
+
+	// Finally, draw UI (which includes the game window image)
 	eui.Draw(screen)
 	if gs.ShowFPS {
 		drawServerFPS(screen, screen.Bounds().Dx()-40, 4, serverFPS)
@@ -1505,11 +1609,14 @@ func makeGameWindow() {
 	gameWin.Resizable = true
 	gameWin.Movable = true
 	gameWin.NoScale = true
+	gameWin.NoCache = true
 	gameWin.AlwaysDrawFirst = true
 	gameWin.Size = eui.Point{X: gameAreaSizeX, Y: gameAreaSizeY}
 	gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	gameWin.MarkOpen()
+	gameWin.OnResize = func() { updateGameImageSize() }
 	updateGameWindowSize()
+	updateGameImageSize()
 }
 
 func noteFrame() {

@@ -50,7 +50,7 @@ var gsdef settings = settings{
 	MessagesToConsole: false,
 	WindowTiling:      false,
 	WindowSnapping:    false,
-	AnyGameWindowSize: false,
+	AnyGameWindowSize: true,
 	NoCaching:         false,
 	PotatoComputer:    false,
 

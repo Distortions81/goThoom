@@ -44,6 +44,7 @@ type windowData struct {
 	NoScale         bool
 	NoBGColor       bool
 	AlwaysDrawFirst bool
+	NoCache         bool
 
 	TitleHeight float32
 

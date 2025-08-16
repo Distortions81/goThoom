@@ -1551,30 +1551,28 @@ func makeGraphicsWindow() {
 	}
 	flow.AddItem(gameSizeSlider)
 
-	/*
-		anySizeWarn, _ := eui.NewText()
-		anySizeWarn.Text = "Warning: this option will\nproduce blurrier graphics"
-		anySizeWarn.FontSize = 10
-		anySizeWarn.Color = eui.ColorRed
-		anySizeWarn.Size = eui.Point{X: width, Y: 32}
-		anySizeWarn.Invisible = !gs.AnyGameWindowSize
+	anySizeWarn, _ := eui.NewText()
+	anySizeWarn.Text = "Warning: any size uses\nlinear filtering (blurrier)"
+	anySizeWarn.FontSize = 10
+	anySizeWarn.Color = eui.ColorRed
+	anySizeWarn.Size = eui.Point{X: width, Y: 32}
+	anySizeWarn.Invisible = !gs.AnyGameWindowSize
 
-			anySizeCB, anySizeEvents := eui.NewCheckbox()
-			anySizeCB.Text = "Any size game window"
-			anySizeCB.Size = eui.Point{X: width, Y: 24}
-			anySizeCB.Checked = gs.AnyGameWindowSize
-			anySizeEvents.Handle = func(ev eui.UIEvent) {
-				if ev.Type == eui.EventCheckboxChanged {
-					gs.AnyGameWindowSize = ev.Checked
-					gameSizeSlider.Disabled = ev.Checked
-					anySizeWarn.Invisible = !ev.Checked
-					updateGameWindowSize()
-					settingsDirty = true
-				}
-			}
-			flow.AddItem(anySizeCB)
-			flow.AddItem(anySizeWarn)
-	*/
+	anySizeCB, anySizeEvents := eui.NewCheckbox()
+	anySizeCB.Text = "Any size game window (linear)"
+	anySizeCB.Size = eui.Point{X: width, Y: 24}
+	anySizeCB.Checked = gs.AnyGameWindowSize
+	anySizeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AnyGameWindowSize = ev.Checked
+			gameSizeSlider.Disabled = ev.Checked
+			anySizeWarn.Invisible = !ev.Checked
+			updateGameWindowSize()
+			settingsDirty = true
+		}
+	}
+	flow.AddItem(anySizeCB)
+	flow.AddItem(anySizeWarn)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen"
