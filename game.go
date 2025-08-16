@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"image"
 	"image/color"
 	"log"
 	"math"
@@ -33,8 +34,8 @@ const initialWindowW, initialWindowH = 100, 100
 var blackPixel *ebiten.Image
 
 // worldRT is the offscreen render target for the game world when
-// arbitrary window sizing is enabled. It stays at the native field size
-// and is scaled to the window with linear filtering.
+// arbitrary window sizing is enabled. It stays at an integer-scaled
+// multiple of the native field size and is composited into the window.
 var worldRT *ebiten.Image
 
 // gameImageItem is the UI image item inside the game window that displays
@@ -55,7 +56,8 @@ func ensureWorldRT(w, h int) {
 		h = 1
 	}
 	if worldRT == nil || worldRT.Bounds().Dx() != w || worldRT.Bounds().Dy() != h {
-		worldRT = ebiten.NewImage(w, h)
+		// Use unmanaged images for faster off-screen rendering.
+		worldRT = ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
 	}
 }
 
@@ -824,43 +826,63 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	// Determine offscreen integer render scale and composite scale
+	// Determine offscreen integer render scale and composite scale.
+	// A user-selected render scale (gs.GameScale) in 1x..10x controls
+	// the apparent size of the world. In integer mode we render exactly
+	// at that integer and composite with nearest-neighbor.
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
 	const maxSuperSampleScale = 4
 	worldW, worldH := gameAreaSizeX, gameAreaSizeY
 
+	// Clamp desired render scale from settings (treat as integer steps)
+	desired := int(math.Round(gs.GameScale))
+	if desired < 1 {
+		desired = 1
+	}
+	if desired > 10 {
+		desired = 10
+	}
+	// Maximum scale that fits the current buffer without clipping
+	fit := int(math.Floor(math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))))
+	if fit < 1 {
+		fit = 1
+	}
+
 	var offIntScale int
+	var target int // final intended on-screen integer scale
 	var finalFilter ebiten.Filter
 	if gs.IntegerScaling {
-		// Integer-fit scale (no downscale), nearest filter
-		fit := math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))
-		if fit < 1 {
-			fit = 1
+		// Render and composite at the same exact integer scale.
+		target = desired
+		if target > fit {
+			target = fit
 		}
-		offIntScale = int(math.Floor(fit))
-		if offIntScale < 1 {
-			offIntScale = 1
-		}
+		offIntScale = target
 		finalFilter = ebiten.FilterNearest
 	} else if gs.AnyGameWindowSize {
-		// Supersample at integer scale and downscale linearly
-		fit := math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))
-		if fit < 1 {
-			fit = 1
+		// Any-size mode: always fill the window with linear filtering.
+		// Use the slider value as a supersample factor (up to a safe cap),
+		// but prefer at least the integer fit so we don't upscale the RT.
+		target = fit // final on-screen scale is whatever fits the window
+		offIntScale = int(math.Ceil(float64(fit)))
+		if desired > offIntScale {
+			offIntScale = desired
 		}
-		offIntScale = int(math.Ceil(fit))
 		if offIntScale > maxSuperSampleScale {
 			offIntScale = maxSuperSampleScale
 		}
+		if offIntScale < 1 {
+			offIntScale = 1
+		}
 		finalFilter = ebiten.FilterLinear
 	} else {
-		// Classic sharp mode using configured integer scale
-		s := math.Round(gs.GameScale)
-		if s < 1 {
-			s = 1
+		// Classic fixed-size mode: render to the target integer scale.
+		target = desired
+		offIntScale = target
+		if offIntScale < 1 {
+			offIntScale = 1
 		}
-		offIntScale = int(s)
 		finalFilter = ebiten.FilterNearest
 	}
 
@@ -890,15 +912,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 	}
 
-	// Composite worldRT into the gameImage buffer: downscale/center
+	// Composite worldRT into the gameImage buffer: scale/center
 	gameImage.Clear()
-	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
-	if scaleDown <= 0 {
-		scaleDown = 1
-	}
-	if gs.IntegerScaling {
-		// Rendered at exact integer; do not rescale (avoid blur)
-		scaleDown = 1
+	// In integer mode we render at target and do not rescale.
+	// Any-size mode fills the window; otherwise scale to the target.
+	scaleDown := 1.0
+	if !gs.IntegerScaling {
+		if gs.AnyGameWindowSize {
+			scaleDown = math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
+		} else {
+			scaleDown = float64(target) / float64(offIntScale)
+		}
 	}
 	drawW := float64(offW) * scaleDown
 	drawH := float64(offH) * scaleDown

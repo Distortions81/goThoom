@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -133,7 +134,6 @@ func initUI() {
 	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
-	makeGraphicsWindow()
 	makeQualityWindow()
 	makeDebugWindow()
 	makeWindowsWindow()
@@ -998,7 +998,6 @@ func makeSettingsWindow() {
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
-	//settingsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	// Split settings into two columns: simple (left) and advanced (right)
 	var leftW float32 = 270
@@ -1079,7 +1078,7 @@ func makeSettingsWindow() {
 	right.AddItem(label)
 
 	tilingCB, tilingEvents := eui.NewCheckbox()
-	tilingCB.Text = "Tiling window mode"
+	tilingCB.Text = "Tiling window mode (buggy)"
 	tilingCB.Size = eui.Point{X: rightW, Y: 24}
 	tilingCB.Checked = gs.WindowTiling
 	tilingCB.Tooltip = "Prevent windows from overlapping"
@@ -1106,15 +1105,100 @@ func makeSettingsWindow() {
 	}
 	right.AddItem(snapCB)
 
-	graphicsBtn, graphicsEvents := eui.NewButton()
-	graphicsBtn.Text = "Screen Size Settings"
-	graphicsBtn.Size = eui.Point{X: rightW, Y: 24}
-	graphicsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			graphicsWin.ToggleNear(ev.Item)
+	// Screen size settings in-place (moved from separate window)
+	uiScaleSlider, uiScaleEvents := eui.NewSlider()
+	uiScaleSlider.Label = "UI Scaling"
+	uiScaleSlider.MinValue = 1.0
+	uiScaleSlider.MaxValue = 2.5
+	uiScaleSlider.Value = float32(gs.UIScale)
+	uiScaleSlider.Size = eui.Point{X: rightW - 10, Y: 24}
+	pendingUIScale := gs.UIScale
+	uiScaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			pendingUIScale = float64(ev.Value)
 		}
 	}
-	right.AddItem(graphicsBtn)
+	right.AddItem(uiScaleSlider)
+
+	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
+	uiScaleApplyBtn.Text = "Apply UI Scale"
+	uiScaleApplyBtn.Size = eui.Point{X: 140, Y: 24}
+	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			gs.UIScale = pendingUIScale
+			eui.SetUIScale(float32(gs.UIScale))
+			updateGameWindowSize()
+			settingsDirty = true
+		}
+	}
+	right.AddItem(uiScaleApplyBtn)
+
+	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
+	fullscreenCB.Text = "Fullscreen"
+	fullscreenCB.Size = eui.Point{X: rightW, Y: 24}
+	fullscreenCB.Checked = gs.Fullscreen
+	fullscreenEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.Fullscreen = ev.Checked
+			ebiten.SetFullscreen(gs.Fullscreen)
+			ebiten.SetWindowFloating(gs.Fullscreen)
+			settingsDirty = true
+		}
+	}
+	right.AddItem(fullscreenCB)
+
+	renderScale, renderScaleEvents := eui.NewSlider()
+	renderScale.Label = "Render Scale"
+	renderScale.MinValue = 1
+	renderScale.MaxValue = 10
+	if gs.GameScale < 1 {
+		gs.GameScale = 1
+	}
+	if gs.GameScale > 10 {
+		gs.GameScale = 10
+	}
+	renderScale.Value = float32(math.Round(gs.GameScale))
+	renderScale.Size = eui.Point{X: rightW - 10, Y: 24}
+	renderScale.Tooltip = "Game render zoom (1x–10x). In Integer mode uses nearest filtering."
+	renderScaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			v := math.Round(float64(ev.Value))
+			if v < 1 {
+				v = 1
+			}
+			if v > 10 {
+				v = 10
+			}
+			gs.GameScale = v
+			renderScale.Value = float32(v)
+			settingsDirty = true
+			if gameWin != nil {
+				gameWin.Refresh()
+			}
+		}
+	}
+	right.AddItem(renderScale)
+
+	intCB, intEvents := eui.NewCheckbox()
+	intCB.Text = "Integer scale (sharper, faster)"
+	intCB.Size = eui.Point{X: rightW, Y: 24}
+	intCB.Checked = gs.IntegerScaling
+	intEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.IntegerScaling = ev.Checked
+			initFont()
+			if gameWin != nil {
+				gameWin.Refresh()
+			}
+			if graphicsWin != nil {
+				graphicsWin.Refresh()
+			}
+			if debugWin != nil {
+				debugWin.Refresh()
+			}
+		}
+	}
+	right.AddItem(intCB)
 
 	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
@@ -1561,6 +1645,43 @@ func makeGraphicsWindow() {
 		}
 	}
 	simple.AddItem(fullscreenCB)
+
+	// Render scale (world zoom) 1x..10x, defaults to 2x
+	renderScale, renderScaleEvents := eui.NewSlider()
+	renderScale.Label = "Render Scale"
+	renderScale.MinValue = 1
+	renderScale.MaxValue = 10
+	renderScale.IntOnly = true
+	// Snap to integer steps by rounding the current setting
+	if gs.GameScale < 1 {
+		gs.GameScale = 1
+	}
+	if gs.GameScale > 10 {
+		gs.GameScale = 10
+	}
+	renderScale.Value = float32(math.Round(gs.GameScale))
+	renderScale.Size = eui.Point{X: leftW - 10, Y: 24}
+	renderScale.Tooltip = "Game render zoom (1x–10x). In Integer mode uses nearest filtering."
+	renderScaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			// Round to integer steps and clamp
+			v := math.Round(float64(ev.Value))
+			if v < 1 {
+				v = 1
+			}
+			if v > 10 {
+				v = 10
+			}
+			gs.GameScale = v
+			// Reflect the snapped value on the slider UI
+			renderScale.Value = float32(v)
+			settingsDirty = true
+			if gameWin != nil {
+				gameWin.Refresh()
+			}
+		}
+	}
+	simple.AddItem(renderScale)
 
 	// Advanced (right) controls
 	intCB, intEvents := eui.NewCheckbox()
