@@ -57,19 +57,27 @@ func getChatMessages() []string {
 }
 
 func isSelfChatMessage(msg string) bool {
-	if playerName == "" {
-		return false
-	}
-	m := strings.ToLower(strings.TrimSpace(msg))
-	name := strings.ToLower(playerName)
+    if playerName == "" {
+        return false
+    }
+    m := strings.ToLower(strings.TrimSpace(msg))
+    name := strings.ToLower(playerName)
 
-	if strings.HasPrefix(m, "("+name+" ") {
-		return true
-	}
-	if strings.HasPrefix(m, name+" ") {
-		return true
-	}
-	return false
+    // Emotes like "(Hero waves)"
+    if strings.HasPrefix(m, "("+name+" ") {
+        return true
+    }
+    // Spoken lines like "Hero says, ..." or "Hero yells, ..."
+    if strings.HasPrefix(m, name+" ") {
+        rest := strings.TrimSpace(m[len(name):])
+        if strings.HasPrefix(rest, "says,") ||
+            strings.HasPrefix(rest, "yells,") ||
+            strings.HasPrefix(rest, "whispers,") ||
+            strings.HasPrefix(rest, "exclaims,") {
+            return true
+        }
+    }
+    return false
 }
 
 // chatSpeaker extracts the leading player name from a chat message, folded to

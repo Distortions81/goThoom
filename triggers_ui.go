@@ -114,6 +114,7 @@ func refreshTriggersList() {
         }
     }
     if triggersWin != nil {
-        triggersWin.Refresh()
+        // Mark the window dirty so tests observing Dirty can detect refresh.
+        triggersWin.Dirty = true
     }
 }

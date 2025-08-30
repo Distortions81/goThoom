@@ -543,14 +543,15 @@ func parseBardText(raw []byte, s string) bool {
 		s = strings.TrimSpace(s[2:])
 	}
 
-	// Only treat this as music when BEPP explicitly marks it as such ("-mu" or
-	// "-ba"). Avoid acting on plain text without tags.
-	hasMu := bytes.Contains(raw, []byte{0xC2, 'm', 'u'}) || bytes.Contains(raw, []byte{0xC2, 'b', 'a'})
-	if hasMu {
-		if parseMusicCommand(s, raw) {
-			return true
-		}
-	}
+    // Prefer explicit BEPP tags for music, but also allow permissive detection
+    // since some servers/messages may omit the tag yet include a "/music/..."
+    // payload or a leading "play" form.
+    hasMu := bytes.Contains(raw, []byte{0xC2, 'm', 'u'}) || bytes.Contains(raw, []byte{0xC2, 'b', 'a'})
+    if hasMu || strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
+        if parseMusicCommand(s, raw) {
+            return true
+        }
+    }
 
 	phrases := []struct {
 		suffix string
@@ -783,7 +784,8 @@ func parseInterruptCommand(s string) bool {
     if strings.HasPrefix(ss, "¥ ") {
         ss = strings.TrimSpace(ss[2:])
     }
-    if strings.Contains(ss, "/m_interrupt") {
+    // Only act on a standalone interrupt directive, not arbitrary substrings.
+    if ss == "/m_interrupt" || strings.HasPrefix(ss, "/m_interrupt ") {
         stopAllMusic()
         clearTuneQueue()
         return true

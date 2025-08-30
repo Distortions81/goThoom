@@ -11,8 +11,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
 func TestListPiperVoices(t *testing.T) {
@@ -66,10 +64,6 @@ func TestListPiperVoices(t *testing.T) {
 }
 
 func TestChatTTSPendingLimit(t *testing.T) {
-	origCtx := audioContext
-	audioContext = audio.NewContext(44100)
-	defer func() { audioContext = origCtx }()
-
 	origGS := gs
 	gs.ChatTTS = true
 	gs.Mute = false
@@ -103,10 +97,6 @@ func TestChatTTSPendingLimit(t *testing.T) {
 }
 
 func TestChatTTSDisableDropsQueued(t *testing.T) {
-	origCtx := audioContext
-	audioContext = audio.NewContext(44100)
-	defer func() { audioContext = origCtx }()
-
 	origGS := gs
 	gs.ChatTTS = true
 	gs.Mute = false

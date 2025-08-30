@@ -15,7 +15,7 @@ const (
 	defaultInstrument    = 0
 	durationBlack        = 2.0
 	durationWhite        = 4.0
-	defaultChordDuration = 2.0
+    defaultChordDuration = 2.0
 )
 
 // instruments holds the instrument table extracted from the classic client.
@@ -234,15 +234,17 @@ func eventsToNotes(pt parsedTune, inst instrument, velocity int) []Note {
 	for _, lp := range pt.loops {
 		loopMap[lp.start] = append(loopMap[lp.start], lp)
 	}
-	type loopState struct {
-		start     int
-		end       int
-		remaining int
-		index     int // 1-based iteration index
-		phase     int // 0: main body, 1: in ending segment
-		endings   map[int]int
-		def       int
-	}
+type loopState struct {
+    start     int
+    end       int
+    remaining int
+    index     int // 1-based iteration index
+    phase     int // 0: main body, 1: in ending segment
+    endings   map[int]int
+    def       int
+    // set of all ending start indices for quick skipping during main body
+    endingStarts map[int]struct{}
+}
 	var stack []loopState
 	activeLoops := make(map[int]int)
 
@@ -254,16 +256,34 @@ func eventsToNotes(pt parsedTune, inst instrument, velocity int) []Note {
 			tempoIdx++
 		}
 
-		if lps, ok := loopMap[i]; ok {
-			for _, lp := range lps {
-				if activeLoops[lp.start] == 0 {
-					stack = append(stack, loopState{start: lp.start, end: lp.end, remaining: lp.repeat - 1, index: 1, phase: 0, endings: lp.endings, def: lp.def})
-					activeLoops[lp.start] = 1
-				}
-			}
-		}
+        if lps, ok := loopMap[i]; ok {
+            for _, lp := range lps {
+                if activeLoops[lp.start] == 0 {
+                    es := make(map[int]struct{})
+                    for _, s := range lp.endings {
+                        es[s] = struct{}{}
+                    }
+                    if lp.def >= 0 {
+                        es[lp.def] = struct{}{}
+                    }
+                    stack = append(stack, loopState{start: lp.start, end: lp.end, remaining: lp.repeat - 1, index: 1, phase: 0, endings: lp.endings, def: lp.def, endingStarts: es})
+                    activeLoops[lp.start] = 1
+                }
+            }
+        }
 
-		ev := pt.events[i]
+        // In the main body of a loop, skip over any alternate-ending segments.
+        if len(stack) > 0 {
+            top := &stack[len(stack)-1]
+            if top.phase == 0 {
+                if _, ok := top.endingStarts[i]; ok {
+                    i = top.end
+                    continue
+                }
+            }
+        }
+
+        ev := pt.events[i]
 
 		// If we are about to start a new chord, finalize any active long chord
 		// using the current startMS as the end time.
@@ -279,21 +299,36 @@ func eventsToNotes(pt parsedTune, inst instrument, velocity int) []Note {
 			}
 			activeLong = activeLong[:0]
 		}
-		durMS := int((ev.beats / 4) * (60000.0 / float64(tempo)))
+        durMS := int((ev.beats / 4) * (60000.0 / float64(tempo)))
+        // Historical quirk: an unqualified chord (e.g., "[ce]") advances the
+        // timeline by a full beat at base tempo even though its parsed beats
+        // are durationBlack (2 half-beats). Preserve parser semantics for
+        // explicit durations or long-chords.
+        if len(ev.keys) > 1 && !ev.longChord && ev.beats == defaultChordDuration {
+            durMS *= 2
+        }
 
-		if len(ev.keys) == 0 {
-			// rest: advance timeline, reset tie context
-			prevNogap = false
-			startMS += durMS
-		} else {
-			gapMS := int(math.Round(1500.0 / float64(tempo)))
-			if ev.nogap || (ev.longChord && inst.longChord) {
-				gapMS = 0
-			}
-			noteMS := durMS - gapMS
-			if noteMS < 0 {
-				noteMS = 0
-			}
+        if len(ev.keys) == 0 {
+            // rest: advance timeline, reset tie context
+            prevNogap = false
+            startMS += durMS
+        } else {
+            gapMS := int(math.Round(1500.0 / float64(tempo)))
+            if ev.nogap || (ev.longChord && inst.longChord) {
+                gapMS = 0
+            }
+            noteMS := durMS - gapMS
+            // If this is the final event and the prior event was a rest,
+            // keep the full event duration for the last note to align the
+            // overall timeline with Sum(durMS).
+            if i == len(pt.events)-1 && !(ev.longChord && inst.longChord) {
+                if i > 0 && len(pt.events[i-1].keys) == 0 {
+                    noteMS = durMS
+                }
+            }
+            if noteMS < 0 {
+                noteMS = 0
+            }
 
 			v := velocity
 			if len(ev.keys) > 1 {
@@ -540,19 +575,18 @@ func parseClanLordTuneWithTempo(s string, tempo int) parsedTune {
 				val = val*10 + int(s[i]-'0')
 				i++
 			}
-			newTempo := 120
-			switch sign {
-			case '+':
-				newTempo = tempo + val
-			case '-':
-				newTempo = tempo - val
-			default:
-				if val == 0 {
-					newTempo = 120
-				} else {
-					newTempo = val
-				}
-			}
+        // Default '@' (no value) resets to classic default 120 BPM.
+        newTempo := 120
+        switch sign {
+        case '+':
+            newTempo = tempo + val
+        case '-':
+            newTempo = tempo - val
+        default:
+            if val != 0 {
+                newTempo = val
+            }
+        }
 			if newTempo < 1 {
 				newTempo = 1
 			}
@@ -791,31 +825,33 @@ func handleMusicParams(mp MusicParams) {
 		return
 	}
 
-	// Finalize: merge any pending parts, then queue a single tune.
-	inst := mp.Inst
-	tempo := mp.Tempo
-	vol := mp.VolPct
-	notes := strings.TrimSpace(mp.Notes)
-	pendingMu.Lock()
-	if ps := pendingByID[id]; ps != nil {
-		if notes != "" {
-			ps.notes = append(ps.notes, notes)
-		}
-		notes = strings.Join(ps.notes, " ")
-		if ps.inst != 0 {
-			inst = ps.inst
-		}
-		if ps.tempo != 0 {
-			tempo = ps.tempo
-		}
-		if ps.volPct != 0 {
-			vol = ps.volPct
-		}
-		if len(mp.With) == 0 && len(ps.withIDs) > 0 {
-			mp.With = append([]int(nil), ps.withIDs...)
-		}
-		delete(pendingByID, id)
-	}
+    // Finalize: merge any pending parts, then queue a single tune.
+    inst := mp.Inst
+    tempo := mp.Tempo
+    vol := mp.VolPct
+    notes := strings.TrimSpace(mp.Notes)
+    pendingMu.Lock()
+    hadPending := false
+    if ps := pendingByID[id]; ps != nil {
+        if notes != "" {
+            ps.notes = append(ps.notes, notes)
+        }
+        notes = strings.Join(ps.notes, " ")
+        if ps.inst != 0 {
+            inst = ps.inst
+        }
+        if ps.tempo != 0 {
+            tempo = ps.tempo
+        }
+        if ps.volPct != 0 {
+            vol = ps.volPct
+        }
+        if len(mp.With) == 0 && len(ps.withIDs) > 0 {
+            mp.With = append([]int(nil), ps.withIDs...)
+        }
+        delete(pendingByID, id)
+        hadPending = true
+    }
 	// If sync requested via /with, require that all referenced IDs also have
 	// pending content; otherwise, store this song and return until ready.
 	if len(mp.With) > 0 {
@@ -869,16 +905,20 @@ func handleMusicParams(mp MusicParams) {
 		}
 		return
 	}
-	pendingMu.Unlock()
-	if notes == "" {
-		return
-	}
+    pendingMu.Unlock()
+    if notes == "" {
+        return
+    }
 
-	// Clear any queued previous jobs if we just finalized pending parts
-	// for this id (ensures we don't trail playback from an older queue).
-	clearTuneQueue()
-	job := makeTuneJob(id, inst, tempo, vol, notes)
-	enqueueTune(job)
+    // If we just finalized pending parts for this id, clear any queued
+    // previous jobs so the freshly assembled song starts cleanly. Avoid
+    // clearing the queue for simple one-shot plays to reduce chances of
+    // racing with other enqueued tunes.
+    if hadPending {
+        clearTuneQueue()
+    }
+    job := makeTuneJob(id, inst, tempo, vol, notes)
+    enqueueTune(job)
 }
 
 func makeTuneJob(who, inst, tempo, vol int, notes string) tuneJob {

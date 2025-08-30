@@ -78,37 +78,38 @@ func disableTTS() {
 }
 
 func chatTTSWorker(ctx context.Context, queue <-chan string) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-queue:
-			msgs := []string{msg}
-			timer := time.NewTimer(200 * time.Millisecond)
-		collect:
-			for {
-				select {
-				case <-ctx.Done():
-					timer.Stop()
-					atomic.AddInt32(&pendingTTS, -int32(len(msgs)))
-					return
-				case m := <-queue:
-					msgs = append(msgs, m)
-				case <-timer.C:
-					break collect
-				}
-			}
-			timer.Stop()
-			select {
-			case <-ctx.Done():
-				atomic.AddInt32(&pendingTTS, -int32(len(msgs)))
-				return
-			default:
-			}
-			playChatTTSFunc(ctx, strings.Join(msgs, ". "))
-			atomic.AddInt32(&pendingTTS, -int32(len(msgs)))
-		}
-	}
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case msg := <-queue:
+            msgs := []string{msg}
+            timer := time.NewTimer(200 * time.Millisecond)
+        collect:
+            for {
+                select {
+                case <-ctx.Done():
+                    timer.Stop()
+                    // On cancellation, do not adjust pendingTTS here; stopAllTTS
+                    // is responsible for resetting the counter to 0.
+                    return
+                case m := <-queue:
+                    msgs = append(msgs, m)
+                case <-timer.C:
+                    break collect
+                }
+            }
+            timer.Stop()
+            select {
+            case <-ctx.Done():
+                // Do not adjust pendingTTS on cancellation; it will be reset elsewhere.
+                return
+            default:
+            }
+            playChatTTSFunc(ctx, strings.Join(msgs, ". "))
+            atomic.AddInt32(&pendingTTS, -int32(len(msgs)))
+        }
+    }
 }
 
 func ensurePiper() bool {

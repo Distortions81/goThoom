@@ -5,15 +5,9 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
 func TestNoTTSBlocklist(t *testing.T) {
-	origCtx := audioContext
-	audioContext = audio.NewContext(44100)
-	defer func() { audioContext = origCtx }()
-
 	origGS := gs
 	gs.ChatTTS = true
 	gs.Mute = false

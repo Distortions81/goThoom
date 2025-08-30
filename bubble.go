@@ -165,24 +165,31 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 
 	var tail vector.Path
 	if !far && !noArrow {
-		if bubbleType == kBubblePonder {
-			r1 := float32(tailHalf)
-			phase := float64(time.Now().UnixNano()) / float64(time.Second)
-			offset1 := r1 * 0.3 * float32(math.Sin(phase))
-			cx1 := float32(baseX)
-			cy1 := float32(bottom) + r1 - offset1
-			tail.MoveTo(cx1+r1, cy1)
-			tail.Arc(cx1, cy1, r1, 0, 2*math.Pi, vector.Clockwise)
-			tail.Close()
-			rMid := r1 * 0.6
-			offsetMid := rMid * 0.5 * float32(math.Sin(phase+math.Pi/4))
-			cxMid := float32(baseX+tailX) / 2
-			cyMid := float32(bottom+tailY)/2 - offsetMid
-			tail.MoveTo(cxMid+rMid, cyMid)
-			tail.Arc(cxMid, cyMid, rMid, 0, 2*math.Pi, vector.Clockwise)
-			tail.Close()
-			r2 := float32(tailHalf) / 2
-			offset2 := r2 * 0.6 * float32(math.Sin(phase+math.Pi/2))
+        if bubbleType == kBubblePonder {
+            r1 := float32(tailHalf)
+            phase := float64(time.Now().UnixNano()) / float64(time.Second)
+            offset1 := r1 * 0.3 * float32(math.Sin(phase))
+            cx1 := float32(baseX)
+            // Bias ponder tail circles closer to the mobile so the origin is
+            // easier to see. Space the first (largest) circle at ~20% of the
+            // way from the bubble bottom to the tail tip instead of directly
+            // hugging the bubble.
+            dist := float32(tailY - bottom)
+            if dist < 0 { dist = 0 }
+            cy1 := float32(bottom) + r1 + dist*0.2 - offset1
+            tail.MoveTo(cx1+r1, cy1)
+            tail.Arc(cx1, cy1, r1, 0, 2*math.Pi, vector.Clockwise)
+            tail.Close()
+            rMid := r1 * 0.6
+            offsetMid := rMid * 0.5 * float32(math.Sin(phase+math.Pi/4))
+            cxMid := float32(baseX+tailX) / 2
+            // Place the middle circle at ~65% down the path toward the tail.
+            cyMid := float32(bottom) + dist*0.65 - offsetMid
+            tail.MoveTo(cxMid+rMid, cyMid)
+            tail.Arc(cxMid, cyMid, rMid, 0, 2*math.Pi, vector.Clockwise)
+            tail.Close()
+            r2 := float32(tailHalf) / 2
+            offset2 := r2 * 0.6 * float32(math.Sin(phase+math.Pi/2))
 			cx2 := float32(tailX)
 			cy2 := float32(tailY) - offset2
 			tail.MoveTo(cx2+r2, cy2)

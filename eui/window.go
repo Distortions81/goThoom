@@ -227,14 +227,19 @@ func NewImageFastItem(w, h int) (*itemData, *ebiten.Image) {
 
 // Create a new textbox from the default theme
 func NewText() (*itemData, *EventHandler) {
-	if currentTheme == nil {
-		currentTheme = baseTheme
-	}
-	newItem := currentTheme.Text
-	h := newHandler()
-	newItem.Handler = h
-	newItem.Theme = currentTheme
-	return &newItem, h
+    if currentTheme == nil {
+        currentTheme = baseTheme
+    }
+    newItem := currentTheme.Text
+    // Ensure a default text face is available immediately for code that
+    // queries metrics without drawing first.
+    if newItem.Face == nil {
+        newItem.Face = textFace(newItem.FontSize)
+    }
+    h := newHandler()
+    newItem.Handler = h
+    newItem.Theme = currentTheme
+    return &newItem, h
 }
 
 // Create a new progress bar from the default theme

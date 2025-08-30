@@ -22,8 +22,9 @@ const (
 	// processing sizes to avoid internal ring-buffer edge cases.
 	block = 64
 
-	// tailSamples extends the rendered length by 2 seconds to allow reverb to decay.
-	tailSamples = sampleRate * 2
+    // tailSamples extends the rendered length to allow reverb to decay.
+    // Keep this short to better match classic client perceived song length.
+    tailSamples = sampleRate / 2 // ~0.5s
 )
 
 // Note represents a single MIDI note with a duration and start time.
@@ -252,17 +253,28 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 	musicPlayers[player] = struct{}{}
 	musicPlayersMu.Unlock()
 
-	player.Play()
+    player.Play()
 
-	dur := time.Duration(len(leftAll)) * time.Second / sampleRate
-	deadline := time.Now().Add(dur)
-	for time.Now().Before(deadline) {
-		// Exit early if the player has been stopped/closed (e.g., due to mute).
-		if !safeIsPlaying(player) {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
+    // Compute the logical song duration from note events (without long
+    // reverb tail), then add a small grace period to avoid clipping endings.
+    // This keeps playback length closer to the classic client.
+    var lastEnd time.Duration
+    for _, n := range notes {
+        if e := n.Start + n.Duration; e > lastEnd {
+            lastEnd = e
+        }
+    }
+    grace := 300 * time.Millisecond
+    if grace < 0 {
+        grace = 0
+    }
+    target := time.Now().Add(lastEnd + grace)
+    for time.Now().Before(target) {
+        if !safeIsPlaying(player) {
+            break
+        }
+        time.Sleep(25 * time.Millisecond)
+    }
 
 	musicPlayersMu.Lock()
 	delete(musicPlayers, player)

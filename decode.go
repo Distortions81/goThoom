@@ -453,14 +453,15 @@ func handleInfoText(data []byte) {
         if parseInterruptCommand(s) {
             continue
         }
-		// Empirical: classic client handles server-sent info-text music commands
-		// like "/music/..." here. Accept only this canonical prefix from
-		// info-text (not bubbles), and otherwise avoid parsing plain text.
-		if strings.HasPrefix(s, "/music/") {
-			if parseMusicCommand(s, line) {
-				continue
-			}
-		}
+        // Empirical: classic client handles server-sent info-text music commands.
+        // Be permissive here as servers can vary:
+        // - Accept explicit "/music/..." payloads anywhere in the line
+        // - Accept leading "play ..." or "play/..." forms
+        if strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
+            if parseMusicCommand(s, line) {
+                continue
+            }
+        }
 		// Ignore other command-like lines.
 		if strings.HasPrefix(s, "/") {
 			continue
