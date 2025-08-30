@@ -46,18 +46,32 @@ func updatePlayersWindow() {
 
 	// Gather current players and filter to non-NPCs with names.
 	ps := getPlayers()
-	// Sort: online (recently seen and not explicitly offline) first, by name; offline last, by name.
-	sort.Slice(ps, func(i, j int) bool {
-		staleI := time.Since(ps[i].LastSeen) > 5*time.Minute
-		staleJ := time.Since(ps[j].LastSeen) > 5*time.Minute
-		offI := ps[i].Offline || staleI
-		offJ := ps[j].Offline || staleJ
-		if offI != offJ {
-			return !offI && offJ
-		}
-		// Both same offline status: sort by name
-		return ps[i].Name < ps[j].Name
-	})
+    // Sort: online (recently seen and not explicitly offline) first,
+    // then by label/color group, then by name.
+    sort.Slice(ps, func(i, j int) bool {
+        staleI := time.Since(ps[i].LastSeen) > 5*time.Minute
+        staleJ := time.Since(ps[j].LastSeen) > 5*time.Minute
+        offI := ps[i].Offline || staleI
+        offJ := ps[j].Offline || staleJ
+        if offI != offJ {
+            return !offI && offJ
+        }
+        // Same online/offline status: sort by label group.
+        li := ps[i].FriendLabel
+        lj := ps[j].FriendLabel
+        // Treat unlabeled (0) as after labeled groups.
+        if li == 0 && lj != 0 {
+            return false
+        }
+        if lj == 0 && li != 0 {
+            return true
+        }
+        if li != lj {
+            return li < lj
+        }
+        // Final tie-breaker: by name.
+        return ps[i].Name < ps[j].Name
+    })
 	exiles := make([]Player, 0, len(ps))
 	shareCount, shareeCount := 0, 0
 	onlineCount := 0
