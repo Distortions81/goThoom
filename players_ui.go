@@ -322,12 +322,40 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	// Close any existing context menus.
 	eui.CloseContextMenus()
 
-	displayName := name
-	options := []string{}
-	if displayName != "" {
-		options = append(options, displayName)
-	}
-	actions := []func(){}
+    displayName := name
+    options := []string{}
+    actions := []func(){}
+
+    // If the player has a label color/group, show that as a disabled header
+    // line at the top of the menu. Otherwise, fall back to showing the
+    // player's name as the header.
+    headerCount := 0
+    if displayName != "" {
+        if p := getPlayer(displayName); p != nil && p.FriendLabel > 0 {
+            idx := p.FriendLabel
+            colorName := ""
+            if idx > 0 && idx <= len(defaultLabelNames) {
+                colorName = defaultLabelNames[idx-1]
+            }
+            groupName := labelName(idx)
+            header := ""
+            if colorName != "" && groupName != "" && !strings.EqualFold(colorName, groupName) {
+                header = fmt.Sprintf("%s — %s", colorName, groupName)
+            } else if groupName != "" {
+                header = groupName
+            } else if colorName != "" {
+                header = colorName
+            }
+            if header != "" {
+                options = append(options, header)
+                headerCount = 1
+            }
+        }
+        if headerCount == 0 {
+            options = append(options, displayName)
+            headerCount = 1
+        }
+    }
 
 	// Thank: immediate thank.
 	if displayName != "" {
@@ -418,16 +446,13 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	if len(options) == 0 {
 		return
 	}
-	menu := eui.ShowContextMenu(options, pos.X, pos.Y, func(i int) {
-		adj := i
-		if displayName != "" {
-			adj = i - 1
-		}
-		if adj >= 0 && adj < len(actions) {
-			actions[adj]()
-		}
-	})
-	if menu != nil && displayName != "" {
-		menu.HeaderCount = 1
-	}
+    menu := eui.ShowContextMenu(options, pos.X, pos.Y, func(i int) {
+        adj := i - headerCount
+        if adj >= 0 && adj < len(actions) {
+            actions[adj]()
+        }
+    })
+    if menu != nil && headerCount > 0 {
+        menu.HeaderCount = headerCount
+    }
 }
