@@ -761,7 +761,9 @@ func pluginRegisterTriggers(owner, name string, phrases []string, fn func()) {
 		p = strings.ToLower(p)
 		pluginTriggers[p] = append(pluginTriggers[p], triggerHandler{owner: owner, name: name, fn: fn})
 	}
-	triggerHandlersMu.Unlock()
+    triggerHandlersMu.Unlock()
+    // Update the UI list if the window exists.
+    refreshTriggersList()
 }
 
 func pluginRegisterConsoleTriggers(owner string, phrases []string, fn func()) {

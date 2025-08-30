@@ -767,6 +767,30 @@ func parseMusicCommand(s string, raw []byte) bool {
 	return true
 }
 
+// parseInterruptCommand handles server-issued interrupt commands that should
+// immediately stop any in-flight music playback and clear pending tunes. The
+// classic client uses a special "/m_interrupt" directive for this purpose.
+// Returns true if handled and output should be suppressed.
+func parseInterruptCommand(s string) bool {
+    ss := strings.TrimSpace(s)
+    if ss == "" {
+        return false
+    }
+    // Normalize common leading markers that may prefix system lines.
+    if strings.HasPrefix(ss, "* ") {
+        ss = strings.TrimSpace(ss[2:])
+    }
+    if strings.HasPrefix(ss, "¥ ") {
+        ss = strings.TrimSpace(ss[2:])
+    }
+    if strings.Contains(ss, "/m_interrupt") {
+        stopAllMusic()
+        clearTuneQueue()
+        return true
+    }
+    return false
+}
+
 // truncate helps keep debug output short
 func truncate(s string, n int) string {
 	if len(s) <= n {

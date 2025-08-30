@@ -336,9 +336,12 @@ func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, bubbl
 		if s == "" {
 			continue
 		}
-		if parseNightCommand(s) {
-			continue
-		}
+        if parseNightCommand(s) {
+            continue
+        }
+        if parseInterruptCommand(s) {
+            continue
+        }
 		if text == "" {
 			text = s
 		} else {
@@ -444,9 +447,12 @@ func handleInfoText(data []byte) {
 		if s == "" {
 			continue
 		}
-		if parseNightCommand(s) {
-			continue
-		}
+        if parseNightCommand(s) {
+            continue
+        }
+        if parseInterruptCommand(s) {
+            continue
+        }
 		// Empirical: classic client handles server-sent info-text music commands
 		// like "/music/..." here. Accept only this canonical prefix from
 		// info-text (not bubbles), and otherwise avoid parsing plain text.

@@ -1,11 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"sort"
-	"strings"
+    "fmt"
+    "math"
+    "sort"
+    "strings"
 
-	"gothoom/eui"
+    "gothoom/eui"
+    text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 var (
@@ -26,22 +28,54 @@ func makeMacrosWindow() {
 	macrosWin.NoScroll = true
 	macrosWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
-	macrosWin.AddItem(flow)
+    flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+    macrosWin.AddItem(flow)
 
-	macrosList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
-	macrosList.Size = macrosWin.Size
-	flow.AddItem(macrosList)
-	macrosWin.OnResize = func() { macrosList.Size = macrosWin.Size }
-	macrosWin.AddWindow(false)
-	refreshMacrosList()
+    macrosList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+    flow.AddItem(macrosList)
+    macrosWin.OnResize = func() { refreshMacrosList(); if macrosWin != nil { macrosWin.Refresh() } }
+    macrosWin.AddWindow(false)
+    refreshMacrosList()
 }
 
 func refreshMacrosList() {
-	if macrosList == nil {
-		return
-	}
-	macrosList.Contents = macrosList.Contents[:0]
+    if macrosList == nil {
+        return
+    }
+    // Compute client area for sizing the flow and list.
+    clientW := macrosWin.GetSize().X
+    clientH := macrosWin.GetSize().Y - macrosWin.GetTitleSize()
+    s := eui.UIScale()
+    if macrosWin.NoScale { s = 1 }
+    pad := (macrosWin.Padding + macrosWin.BorderPad) * s
+    clientWAvail := clientW - 2*pad
+    if clientWAvail < 0 { clientWAvail = 0 }
+    clientHAvail := clientH - 2*pad
+    if clientHAvail < 0 { clientHAvail = 0 }
+
+    // Determine row height from font metrics.
+    fontSize := gs.ConsoleFontSize
+    ui := eui.UIScale()
+    facePx := float64(float32(fontSize) * ui)
+    var goFace *text.GoTextFace
+    if src := eui.FontSource(); src != nil {
+        goFace = &text.GoTextFace{Source: src, Size: facePx}
+    } else {
+        goFace = &text.GoTextFace{Size: facePx}
+    }
+    metrics := goFace.Metrics()
+    linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2)
+    rowUnits := float32(linePx) / ui
+
+    // Size the outer flow and list to the client area.
+    if macrosList.Parent != nil {
+        macrosList.Parent.Size.X = clientWAvail
+        macrosList.Parent.Size.Y = clientHAvail
+    }
+    macrosList.Size.X = clientWAvail
+    macrosList.Size.Y = clientHAvail
+
+    macrosList.Contents = macrosList.Contents[:0]
 	macroMu.RLock()
 	type pair struct{ short, full string }
 	type entry struct {
@@ -63,15 +97,22 @@ func refreshMacrosList() {
 		if disp == "" {
 			disp = p.owner
 		}
-		macrosList.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Text: disp + ":", Fixed: true})
+        ht, _ := eui.NewText()
+        ht.Text = disp + ":"
+        ht.FontSize = float32(fontSize)
+        ht.Size = eui.Point{X: clientWAvail, Y: rowUnits}
+        macrosList.AddItem(ht)
 		sort.Slice(p.macros, func(i, j int) bool { return p.macros[i].short < p.macros[j].short })
-		for _, m := range p.macros {
-			txt := fmt.Sprintf("  %s = %s", m.short, strings.TrimSpace(m.full))
-			item := &eui.ItemData{ItemType: eui.ITEM_TEXT, Text: txt, Fixed: true}
-			macrosList.AddItem(item)
-		}
-	}
-	if macrosWin != nil {
-		macrosWin.Refresh()
-	}
+        for _, m := range p.macros {
+            txt := fmt.Sprintf("  %s = %s", m.short, strings.TrimSpace(m.full))
+            t, _ := eui.NewText()
+            t.Text = txt
+            t.FontSize = float32(fontSize)
+            t.Size = eui.Point{X: clientWAvail, Y: rowUnits}
+            macrosList.AddItem(t)
+        }
+    }
+    if macrosWin != nil {
+        macrosWin.Refresh()
+    }
 }

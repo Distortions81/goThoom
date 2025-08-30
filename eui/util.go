@@ -886,12 +886,104 @@ func (win *windowData) GetRawSize() Point { return win.Size }
 func (win *windowData) GetRawPos() Point { return win.Position }
 
 func (item *itemData) GetSize() Point {
-	sz := Point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
-	if item.Label != "" {
-		textSize := (item.FontSize * uiScale) + 2
-		sz.Y += textSize + currentStyle.TextPadding*uiScale
-	}
-	return sz
+    // Start with the explicitly set size (scaled to pixels).
+    sz := Point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
+
+    // Auto-size when a dimension is missing or zero.
+    if sz.X <= 0 || sz.Y <= 0 {
+        // 1) If this is an image and no size is provided, use the image bounds.
+        if item.Image != nil {
+            w, h := item.Image.Size()
+            if sz.X <= 0 {
+                sz.X = float32(w)
+            }
+            if sz.Y <= 0 {
+                sz.Y = float32(h)
+            }
+        }
+
+        // 2) If this is a text item, derive size from its text content and font metrics.
+        if item.ItemType == ITEM_TEXT && (sz.X <= 0 || sz.Y <= 0) {
+            // Choose an effective font size.
+            effFont := item.FontSize
+            if effFont <= 0 {
+                if st := item.themeStyle(); st != nil && st.FontSize > 0 {
+                    effFont = st.FontSize
+                } else {
+                    effFont = 12
+                }
+            }
+            textSize := (effFont * uiScale) + 2
+            var face text.Face
+            if src := FontSource(); src != nil {
+                face = &text.GoTextFace{Source: src, Size: float64(textSize)}
+            } else {
+                face = &text.GoTextFace{Size: float64(textSize)}
+            }
+            // Measure lines and compute bounding box.
+            lines := strings.Split(item.Text, "\n")
+            if len(lines) == 0 {
+                lines = []string{""}
+            }
+            maxW := float64(0)
+            for _, ln := range lines {
+                if w, _ := text.Measure(ln, face, 0); w > maxW {
+                    maxW = w
+                }
+            }
+            metrics := face.Metrics()
+            linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2)
+            totalH := float32(linePx) * float32(len(lines))
+            if sz.X <= 0 {
+                if maxW <= 0 {
+                    sz.X = textSize // minimal width
+                } else {
+                    sz.X = float32(maxW)
+                }
+            }
+            if sz.Y <= 0 {
+                sz.Y = totalH
+            }
+        }
+
+        // 3) For flows with unspecified size, adopt their content bounds for missing dimensions.
+        if item.ItemType == ITEM_FLOW && (sz.X <= 0 || sz.Y <= 0) {
+            cb := item.contentBounds()
+            if sz.X <= 0 {
+                sz.X = cb.X
+            }
+            if sz.Y <= 0 {
+                sz.Y = cb.Y
+            }
+        }
+
+        // 4) Fall back to theme defaults for remaining unspecified dimensions.
+        if (sz.X <= 0 || sz.Y <= 0) && currentTheme != nil {
+            if st := item.themeStyle(); st != nil {
+                def := st.GetSize()
+                if sz.X <= 0 {
+                    sz.X = def.X
+                }
+                if sz.Y <= 0 {
+                    sz.Y = def.Y
+                }
+            }
+        }
+        // Ensure size is at least 1px to participate in layout.
+        if sz.X <= 0 {
+            sz.X = 1
+        }
+        if sz.Y <= 0 {
+            sz.Y = 1
+        }
+    }
+
+    // Account for label text below an item if set.
+    if item.Label != "" {
+        textSize := (item.FontSize * uiScale) + 2
+        sz.Y += textSize + currentStyle.TextPadding*uiScale
+    }
+    return sz
 }
 
 func (item *itemData) GetPos() Point {
@@ -1130,16 +1222,26 @@ func (item *itemData) contentBounds() point {
 }
 
 func (item *itemData) resizeFlow(parentSize point) {
-	available := parentSize
+    available := parentSize
 
-	if item.ItemType == ITEM_FLOW {
-		size := available
-		if item.Fixed {
-			size = item.GetSize()
-		} else if !item.Scrollable {
-			// Unfixed, non-scrollable flows should size to their content
-			size = item.contentBounds()
-		}
+    if item.ItemType == ITEM_FLOW {
+        size := available
+        if item.Fixed {
+            size = item.GetSize()
+            // If a fixed flow has unspecified dimensions, expand missing ones to content bounds.
+            if size.X <= 1 || size.Y <= 1 {
+                cb := item.contentBounds()
+                if size.X <= 1 {
+                    size.X = cb.X
+                }
+                if size.Y <= 1 {
+                    size.Y = cb.Y
+                }
+            }
+        } else if !item.Scrollable {
+            // Unfixed, non-scrollable flows should size to their content
+            size = item.contentBounds()
+        }
 
 		if !item.Scrollable {
 			// Ensure the flow is large enough to contain its children
