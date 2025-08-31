@@ -425,27 +425,25 @@ func refreshPluginsWindow() {
 	legend.AddItem(plugTxt)
 	pluginsList.AddItem(legend)
 
-	type entry struct {
-		owner   string
-		name    string
-		scope   string
-		cat     string
-		sub     string
-		invalid bool
-	}
-	pluginMu.RLock()
-	cats := make(map[string][]entry)
-	for o, n := range pluginDisplayNames {
-		cats[pluginCategories[o]] = append(cats[pluginCategories[o]], entry{
-			owner:   o,
-			name:    n,
-			scope:   pluginEnabledFor[o],
-			cat:     pluginCategories[o],
-			sub:     pluginSubCategories[o],
-			invalid: pluginInvalid[o],
-		})
-	}
-	pluginMu.RUnlock()
+    type entry struct {
+        owner   string
+        name    string
+        cat     string
+        sub     string
+        invalid bool
+    }
+    pluginMu.RLock()
+    cats := make(map[string][]entry)
+    for o, n := range pluginDisplayNames {
+        cats[pluginCategories[o]] = append(cats[pluginCategories[o]], entry{
+            owner:   o,
+            name:    n,
+            cat:     pluginCategories[o],
+            sub:     pluginSubCategories[o],
+            invalid: pluginInvalid[o],
+        })
+    }
+    pluginMu.RUnlock()
 	var catList []string
 	for c := range cats {
 		catList = append(catList, c)
@@ -484,16 +482,19 @@ func refreshPluginsWindow() {
             if effChar == "" {
                 effChar = gs.LastCharacter
             }
-            charCB.Checked = effChar != "" && e.scope == effChar
-			charCB.Disabled = e.invalid
-			allCB.Checked = e.scope == "all"
-			allCB.Disabled = e.invalid
-			label := e.name
-			if e.sub != "" {
-				label += " [" + e.sub + "]"
-			}
-			owner := e.owner
-			click := func() { selectPlugin(owner) }
+            label := e.name
+            if e.sub != "" {
+                label += " [" + e.sub + "]"
+            }
+            owner := e.owner
+            pluginMu.RLock()
+            scope := pluginEnabledFor[owner]
+            pluginMu.RUnlock()
+            charCB.Checked = effChar != "" && scope.Chars != nil && scope.Chars[effChar]
+            charCB.Disabled = e.invalid || effChar == ""
+            allCB.Checked = scope.All
+            allCB.Disabled = e.invalid
+            click := func() { selectPlugin(owner) }
 			if selectedPlugin == owner {
 				row.Filled = true
 				if pluginsWin != nil && pluginsWin.Theme != nil {

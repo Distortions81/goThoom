@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"time"
 
 	"gothoom/climg"
@@ -109,7 +110,7 @@ var gsdef settings = settings{
 	PlayersWindow:   WindowState{Open: true},
 	MessagesWindow:  WindowState{Open: true},
 	ChatWindow:      WindowState{Open: true},
-	EnabledPlugins:  map[string]string{},
+    EnabledPlugins:  map[string]any{},
 	vsync:           true,
 	nightEffect:     true,
 	shaderLighting:  true,
@@ -221,7 +222,7 @@ type settings struct {
 	pluginOutputDebug   bool
 	hideMoving          bool
 	hideMobiles         bool
-	EnabledPlugins      map[string]string
+    EnabledPlugins      map[string]any
 	vsync               bool
 	nightEffect         bool
 	shaderLighting      bool
@@ -275,10 +276,10 @@ func loadSettings() bool {
 		return false
 	}
 
-	type settingsFile struct {
-		settings
-		EnabledPlugins map[string]interface{} `json:"EnabledPlugins"`
-	}
+    type settingsFile struct {
+        settings
+        EnabledPlugins map[string]any `json:"EnabledPlugins"`
+    }
 
 	tmp := settingsFile{settings: gsdef}
 	if err := json.Unmarshal(data, &tmp); err != nil {
@@ -287,32 +288,30 @@ func loadSettings() bool {
 		return false
 	}
 
-	if tmp.settings.Version == SETTINGS_VERSION {
-		gs = tmp.settings
-		gs.EnabledPlugins = make(map[string]string)
-		for k, v := range tmp.EnabledPlugins {
-			switch val := v.(type) {
-			case bool:
-				if val && gs.LastCharacter != "" {
-					gs.EnabledPlugins[k] = gs.LastCharacter
-				}
-			case string:
-				if val != "" {
-					gs.EnabledPlugins[k] = val
-				}
-			}
-		}
-		settingsLoaded = true
-	} else {
+    if tmp.settings.Version == SETTINGS_VERSION {
+        gs = tmp.settings
+        // Normalize and retain whatever was in the file; migrate into runtime scope map.
+        gs.EnabledPlugins = make(map[string]any)
+        for k, v := range tmp.EnabledPlugins {
+            gs.EnabledPlugins[k] = v
+            s := scopeFromSettingValue(v)
+            if !s.empty() {
+                pluginMu.Lock()
+                pluginEnabledFor[k] = s
+                pluginMu.Unlock()
+            }
+        }
+        settingsLoaded = true
+    } else {
 		gs = gsdef
 		applyQualityPreset("High")
 		settingsLoaded = false
 		return false
 	}
 
-	if gs.EnabledPlugins == nil {
-		gs.EnabledPlugins = make(map[string]string)
-	}
+    if gs.EnabledPlugins == nil {
+        gs.EnabledPlugins = make(map[string]any)
+    }
 
 	if gs.ChatTTSBlocklist == nil {
 		gs.ChatTTSBlocklist = append([]string(nil), gsdef.ChatTTSBlocklist...)
@@ -416,18 +415,25 @@ func updateBubbleVisibility() {
 }
 
 func saveSettings() {
-	pluginMu.RLock()
-	if gs.EnabledPlugins == nil {
-		gs.EnabledPlugins = make(map[string]string, len(pluginEnabledFor))
-	} else {
-		for k := range gs.EnabledPlugins {
-			delete(gs.EnabledPlugins, k)
-		}
-	}
-	for k, v := range pluginEnabledFor {
-		gs.EnabledPlugins[k] = v
-	}
-	pluginMu.RUnlock()
+    pluginMu.RLock()
+    // Rebuild the persisted map from the current scope set.
+    gs.EnabledPlugins = make(map[string]any, len(pluginEnabledFor))
+    for k, s := range pluginEnabledFor {
+        if s.All {
+            gs.EnabledPlugins[k] = "all"
+            continue
+        }
+        if len(s.Chars) > 0 {
+            // Collect and sort for stable output
+            names := make([]string, 0, len(s.Chars))
+            for n := range s.Chars {
+                names = append(names, n)
+            }
+            sort.Strings(names)
+            gs.EnabledPlugins[k] = names
+        }
+    }
+    pluginMu.RUnlock()
 
 	data, err := json.MarshalIndent(gs, "", "  ")
 	if err != nil {

@@ -32,7 +32,7 @@ const PluginName = "MetaTest"
 	pluginSubCategories = map[string]string{}
 	pluginInvalid = map[string]bool{}
 	pluginDisabled = map[string]bool{}
-	pluginEnabledFor = map[string]string{}
+    pluginEnabledFor = map[string]pluginScope{}
 	pluginNames = map[string]bool{}
 
 	loadPlugins()
@@ -46,9 +46,9 @@ const PluginName = "MetaTest"
 
 	playerName = "Tester"
 	setPluginEnabled(owner, true, false)
-	if pluginEnabledFor[owner] != "" {
-		t.Fatalf("invalid plugin unexpectedly enabled: %q", pluginEnabledFor[owner])
-	}
+    if s, ok := pluginEnabledFor[owner]; ok && !s.empty() {
+        t.Fatalf("invalid plugin unexpectedly enabled: %+v", s)
+    }
 	if !pluginDisabled[owner] {
 		t.Fatalf("invalid plugin became enabled")
 	}

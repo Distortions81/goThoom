@@ -18,6 +18,40 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 )
 
+type pluginScope struct {
+    All   bool
+    Chars map[string]bool
+}
+
+func (s pluginScope) enablesFor(effChar string) bool {
+    if s.All {
+        return true
+    }
+    if effChar == "" || s.Chars == nil {
+        return false
+    }
+    return s.Chars[effChar]
+}
+
+func (s *pluginScope) addChar(name string) {
+    if name == "" {
+        return
+    }
+    if s.Chars == nil {
+        s.Chars = map[string]bool{}
+    }
+    s.Chars[name] = true
+}
+
+func (s *pluginScope) removeChar(name string) {
+    if s.Chars == nil || name == "" {
+        return
+    }
+    delete(s.Chars, name)
+}
+
+func (s pluginScope) empty() bool { return !s.All && (s.Chars == nil || len(s.Chars) == 0) }
+
 // Expose the plugin API under both a short and a module-qualified path so
 // Yaegi can resolve imports regardless of how the script refers to it.
 var basePluginExports = interp.Exports{
@@ -326,7 +360,7 @@ var (
 	pluginSubCategories   = map[string]string{}
 	pluginInvalid         = map[string]bool{}
 	pluginDisabled        = map[string]bool{}
-	pluginEnabledFor      = map[string]string{}
+	pluginEnabledFor      = map[string]pluginScope{}
 	pluginPaths           = map[string]string{}
 	pluginTerminators     = map[string]func(){}
 	pluginTriggers        = map[string][]triggerHandler{}
@@ -604,14 +638,13 @@ func applyEnabledPlugins() {
 			pluginMu.Unlock()
 			continue
 		}
-        // Enable when set to all, or when the scope matches the active
-        // character. If not logged in, fall back to LastCharacter so the
-        // per-character setting takes effect on launch.
+        // Enable when set to all, or when the scope includes the active
+        // character. If not logged in, fall back to LastCharacter.
         effChar := playerName
         if effChar == "" {
             effChar = gs.LastCharacter
         }
-        shouldEnable := scope == "all" || (effChar != "" && scope == effChar)
+        shouldEnable := scope.enablesFor(effChar)
 		if disabled && shouldEnable {
 			enablePlugin(o)
 		} else if !disabled && !shouldEnable {
@@ -630,20 +663,34 @@ func setPluginEnabled(owner string, char, all bool) {
         pluginMu.Unlock()
         return
     }
+    s := pluginEnabledFor[owner]
     if all {
-        pluginEnabledFor[owner] = "all"
+        s.All = true
+        s.Chars = nil
     } else if char {
         effChar := playerName
         if effChar == "" {
             effChar = gs.LastCharacter
         }
         if effChar != "" {
-            pluginEnabledFor[owner] = effChar
-        } else {
-            delete(pluginEnabledFor, owner)
+            s.All = false
+            s.addChar(effChar)
         }
     } else {
+        effChar := playerName
+        if effChar == "" {
+            effChar = gs.LastCharacter
+        }
+        if effChar != "" {
+            s.removeChar(effChar)
+        } else {
+            s = pluginScope{}
+        }
+    }
+    if s.empty() {
         delete(pluginEnabledFor, owner)
+    } else {
+        pluginEnabledFor[owner] = s
     }
     pluginMu.Unlock()
     applyEnabledPlugins()
@@ -1056,9 +1103,9 @@ func rescanPlugins() {
 	pluginAuthors = make(map[string]string, len(scanned))
 	pluginCategories = make(map[string]string, len(scanned))
 	pluginSubCategories = make(map[string]string, len(scanned))
-	pluginInvalid = make(map[string]bool, len(scanned))
-	pluginDisabled = make(map[string]bool, len(scanned))
-	newEnabled := map[string]string{}
+    pluginInvalid = make(map[string]bool, len(scanned))
+    pluginDisabled = make(map[string]bool, len(scanned))
+    newEnabled := map[string]pluginScope{}
     for o, info := range scanned {
 		pluginDisplayNames[o] = info.name
 		pluginPaths[o] = info.path
@@ -1066,25 +1113,24 @@ func rescanPlugins() {
 		pluginCategories[o] = info.category
 		pluginSubCategories[o] = info.subCategory
 		pluginInvalid[o] = info.invalid
-		if info.invalid {
-			pluginDisabled[o] = true
-			continue
-		}
-		if en, ok := pluginEnabledFor[o]; ok {
-			newEnabled[o] = en
-		} else if gs.EnabledPlugins != nil {
-			if val, ok := gs.EnabledPlugins[o]; ok {
-				newEnabled[o] = val
-			}
-		}
-        en := newEnabled[o]
+        if info.invalid {
+            pluginDisabled[o] = true
+            continue
+        }
+        if en, ok := pluginEnabledFor[o]; ok {
+            newEnabled[o] = en
+        } else if gs.EnabledPlugins != nil {
+            if val, ok := gs.EnabledPlugins[o]; ok {
+                newEnabled[o] = scopeFromSettingValue(val)
+            }
+        }
         effChar := playerName
         if effChar == "" {
             effChar = gs.LastCharacter
         }
-        pluginDisabled[o] = !(en == "all" || (effChar != "" && en == effChar))
+        pluginDisabled[o] = !newEnabled[o].enablesFor(effChar)
     }
-	pluginEnabledFor = newEnabled
+    pluginEnabledFor = newEnabled
 	pluginNames = make(map[string]bool, len(scanned))
 	for _, info := range scanned {
 		pluginNames[strings.ToLower(info.name)] = true
@@ -1118,26 +1164,28 @@ func loadPlugins() {
 		consoleMessage("[plugin] duplicate name: " + name)
 	})
 
-	pluginNames = make(map[string]bool, len(scanned))
-	for o, info := range scanned {
-		pluginNames[strings.ToLower(info.name)] = true
-		en := ""
-		if gs.EnabledPlugins != nil {
-			if val, ok := gs.EnabledPlugins[o]; ok {
-				en = val
-			}
-		}
+    pluginNames = make(map[string]bool, len(scanned))
+    for o, info := range scanned {
+        pluginNames[strings.ToLower(info.name)] = true
+        s, ok := pluginEnabledFor[o]
+        if !ok && gs.EnabledPlugins != nil {
+            if val, ok2 := gs.EnabledPlugins[o]; ok2 {
+                s = scopeFromSettingValue(val)
+            }
+        }
         effChar := playerName
         if effChar == "" {
             effChar = gs.LastCharacter
         }
-        disabled := info.invalid || !(en == "all" || (effChar != "" && en == effChar))
+        disabled := info.invalid || !s.enablesFor(effChar)
 		pluginMu.Lock()
 		pluginDisplayNames[o] = info.name
 		pluginCategories[o] = info.category
 		pluginSubCategories[o] = info.subCategory
-		pluginPaths[o] = info.path
-		pluginEnabledFor[o] = en
+        pluginPaths[o] = info.path
+        if !s.empty() {
+            pluginEnabledFor[o] = s
+        }
 		pluginAuthors[o] = info.author
 		pluginInvalid[o] = info.invalid
 		pluginDisabled[o] = disabled
@@ -1156,4 +1204,40 @@ func loadPlugins() {
 	refreshHotkeysList()
 	refreshPluginsWindow()
 	refreshPluginMod()
+}
+
+// scopeFromSettingValue converts a settings value into a pluginScope.
+// Accepted values:
+// - string("all"): All=true
+// - string(name): include that character
+// - []string: include all listed characters
+// - []any (from JSON): include all listed string characters
+// - bool(true): include LastCharacter if present
+func scopeFromSettingValue(v any) pluginScope {
+    s := pluginScope{}
+    switch val := v.(type) {
+    case string:
+        if val == "all" {
+            s.All = true
+        } else if val != "" {
+            s.addChar(val)
+        }
+    case []string:
+        for _, n := range val {
+            if n != "" {
+                s.addChar(n)
+            }
+        }
+    case []any:
+        for _, e := range val {
+            if str, ok := e.(string); ok && str != "" {
+                s.addChar(str)
+            }
+        }
+    case bool:
+        if val && gs.LastCharacter != "" {
+            s.addChar(gs.LastCharacter)
+        }
+    }
+    return s
 }
