@@ -17,14 +17,19 @@ import (
 )
 
 const (
-	sampleRate = 44100
+    sampleRate = 44100
 	// Use a small fixed render block that aligns with common synth effect
 	// processing sizes to avoid internal ring-buffer edge cases.
 	block = 64
 
     // tailSamples extends the rendered length to allow natural release/verb.
-    // Increase to ~1.0s to avoid cutting off plucked/struck instruments.
-    tailSamples = sampleRate // ~1.0s
+    // Keep a small base tail to capture synth effect decays even without fade.
+    tailSamples = sampleRate // ~1.0s base tail
+
+    // fadeOutSamples adds additional render time that we will fade to silence.
+    // This ensures a smooth 2s fade at the end of the song and gives effects
+    // time to decay while the fade is applied.
+    fadeOutSamples = 2 * sampleRate // 2 seconds
 )
 
 // Note represents a single MIDI note with a duration and start time.
@@ -177,7 +182,8 @@ func renderSong(program int, notes []Note) ([]float32, []float32, error) {
         }
     }
 
-    totalSamples := maxEnd + tailSamples
+    // Render extra frames to capture reverb/decay and provide space to fade out.
+    totalSamples := maxEnd + tailSamples + fadeOutSamples
 
 	leftAll := make([]float32, 0, totalSamples)
 	rightAll := make([]float32, 0, totalSamples)
@@ -241,12 +247,31 @@ func safeRender(s synthesizer, left, right []float32) (err error) {
 // mixPCM normalizes the provided samples and returns interleaved 16-bit PCM
 // data suitable for audio playback.
 func mixPCM(leftAll, rightAll []float32) []byte {
-	// Normalize to avoid clipping and boost quiet audio
-	var peak float32
-	for i := range leftAll {
-		if v := float32(math.Abs(float64(leftAll[i]))); v > peak {
-			peak = v
-		}
+    // Apply a 2s fade-out at the end to ensure smooth endings.
+    if len(leftAll) == len(rightAll) && len(leftAll) > 0 {
+        fadeSamples := 2 * sampleRate
+        n := len(leftAll)
+        if fadeSamples > n {
+            fadeSamples = n
+        }
+        start := n - fadeSamples
+        // Linear fade from 1.0 -> 0.0 over the last fadeSamples
+        for i := start; i < n; i++ {
+            t := float32(i-start) / float32(fadeSamples)
+            if t < 0 { t = 0 }
+            if t > 1 { t = 1 }
+            g := 1.0 - t
+            leftAll[i] *= g
+            rightAll[i] *= g
+        }
+    }
+
+    // Normalize to avoid clipping and boost quiet audio
+    var peak float32
+    for i := range leftAll {
+        if v := float32(math.Abs(float64(leftAll[i]))); v > peak {
+            peak = v
+        }
 		if v := float32(math.Abs(float64(rightAll[i]))); v > peak {
 			peak = v
 		}
