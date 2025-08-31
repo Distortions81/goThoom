@@ -84,6 +84,10 @@ var (
     currentWho int
     // musicTimingScale retained for legacy tests; runtime uses classic path.
     musicTimingScale = 0.6
+    // Timestamp of most recent stop; used to impose a small start delay
+    // to avoid late-arriving stops killing freshly started playback.
+    lastMusicStop   time.Time
+    lastMusicStopMu sync.Mutex
 )
 
 func disableMusic() {
@@ -101,29 +105,38 @@ func disableMusic() {
 }
 
 func startTuneWorker() {
-	tuneQueue = make(chan tuneJob, 128)
-	go func() {
-		for job := range tuneQueue {
-			if audioContext == nil {
-				disableMusic()
-				continue
-			}
-			currentMu.Lock()
-			currentWho = job.who
-			currentMu.Unlock()
-			if err := Play(audioContext, job.program, job.notes); err != nil {
-				log.Printf("play tune worker: %v", err)
-				if musicDebug {
-					consoleMessage("play tune: " + err.Error())
-					chatMessage("play tune: " + err.Error())
-				}
-				disableMusic()
-			}
-			currentMu.Lock()
-			currentWho = 0
-			currentMu.Unlock()
-		}
-	}()
+    tuneQueue = make(chan tuneJob, 128)
+    go func() {
+        for job := range tuneQueue {
+            if audioContext == nil {
+                disableMusic()
+                continue
+            }
+            currentMu.Lock()
+            currentWho = job.who
+            currentMu.Unlock()
+            // Impose a small minimum delay after the last stop to avoid a
+            // late stop request immediately killing a newly started player.
+            const minStartDelay = 80 * time.Millisecond
+            lastMusicStopMu.Lock()
+            since := time.Since(lastMusicStop)
+            lastMusicStopMu.Unlock()
+            if since < minStartDelay {
+                time.Sleep(minStartDelay - since)
+            }
+            if err := Play(audioContext, job.program, job.notes); err != nil {
+                log.Printf("play tune worker: %v", err)
+                if musicDebug {
+                    consoleMessage("play tune: " + err.Error())
+                    chatMessage("play tune: " + err.Error())
+                }
+                disableMusic()
+            }
+            currentMu.Lock()
+            currentWho = 0
+            currentMu.Unlock()
+        }
+    }()
 }
 
 // noteEvent represents a parsed tune event. A single event may contain multiple

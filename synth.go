@@ -22,9 +22,9 @@ const (
 	// processing sizes to avoid internal ring-buffer edge cases.
 	block = 64
 
-    // tailSamples extends the rendered length to allow reverb to decay.
-    // Keep this short to better match classic client perceived song length.
-    tailSamples = sampleRate / 2 // ~0.5s
+    // tailSamples extends the rendered length to allow natural release/verb.
+    // Increase to ~1.0s to avoid cutting off plucked/struck instruments.
+    tailSamples = sampleRate // ~1.0s
 )
 
 // Note represents a single MIDI note with a duration and start time.
@@ -63,12 +63,15 @@ var newSynthesizer = func(sf *meltysynth.SoundFont, settings *meltysynth.Synthes
 }
 
 func stopAllMusic() {
-	musicPlayersMu.Lock()
-	defer musicPlayersMu.Unlock()
-	for p := range musicPlayers {
-		_ = p.Close()
-		delete(musicPlayers, p)
-	}
+    lastMusicStopMu.Lock()
+    lastMusicStop = time.Now()
+    lastMusicStopMu.Unlock()
+    musicPlayersMu.Lock()
+    defer musicPlayersMu.Unlock()
+    for p := range musicPlayers {
+        _ = p.Close()
+        delete(musicPlayers, p)
+    }
 }
 
 func setupSynth() {
@@ -116,8 +119,8 @@ func renderSong(program int, notes []Note) ([]float32, []float32, error) {
 		key, vel   int
 		start, end int
 	}
-	var events []event
-	var maxEnd int
+    var events []event
+    var maxEnd int
 	for _, n := range notes {
 		durSamples := int((n.Duration.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
 		if durSamples <= 0 {
@@ -130,25 +133,74 @@ func renderSong(program int, notes []Note) ([]float32, []float32, error) {
 			maxEnd = ev.end
 		}
 	}
-	totalSamples := maxEnd + tailSamples
+    // Optional per-program release extension to avoid abrupt cuts on plucked
+    // instruments without affecting scheduling. Extend ends slightly but never
+    // past the next start for the same key.
+    // Tune values conservatively to preserve rhythmic gaps.
+    extraRelease := 0
+    switch program {
+    case 25: // Acoustic Guitar (steel) – Gitor
+        extraRelease = int(0.800 * sampleRate) // ~800ms
+    case 46: // Harp
+        extraRelease = int(0.300 * sampleRate) // ~300ms
+    }
+    if extraRelease > 0 && len(events) > 0 {
+        // Build per-key indices of starts
+        startsByKey := make(map[int][]int)
+        for i, ev := range events {
+            startsByKey[ev.key] = append(startsByKey[ev.key], i)
+        }
+        for _, idxs := range startsByKey {
+            // For each occurrence of this key, extend end up to next start-1
+            for j, idx := range idxs {
+                nextStart := int(^uint(0) >> 1) // max int
+                if j+1 < len(idxs) {
+                    nextIdx := idxs[j+1]
+                    nextStart = events[nextIdx].start
+                }
+                // Proposed new end
+                newEnd := events[idx].end + extraRelease
+                if newEnd >= nextStart {
+                    newEnd = nextStart - 1
+                }
+                if newEnd > events[idx].end {
+                    events[idx].end = newEnd
+                }
+            }
+        }
+        // Recompute maxEnd
+        maxEnd = 0
+        for _, ev := range events {
+            if ev.end > maxEnd {
+                maxEnd = ev.end
+            }
+        }
+    }
+
+    totalSamples := maxEnd + tailSamples
 
 	leftAll := make([]float32, 0, totalSamples)
 	rightAll := make([]float32, 0, totalSamples)
 	active := map[int]bool{}
 
-	trigger := func(start, count int) {
-		end := start + count
-		for _, ev := range events {
-			if ev.start >= start && ev.start < end && !active[ev.key] {
-				syn.NoteOn(ch, int32(ev.key), int32(ev.vel))
-				active[ev.key] = true
-			}
-			if ev.end >= start && ev.end < end && active[ev.key] {
-				syn.NoteOff(ch, int32(ev.key))
-				active[ev.key] = false
-			}
-		}
-	}
+    trigger := func(start, count int) {
+        end := start + count
+        // First process all note-offs that land in this block so that a
+        // note retrigger (end and start in same block) can fire correctly.
+        for _, ev := range events {
+            if ev.end >= start && ev.end < end && active[ev.key] {
+                syn.NoteOff(ch, int32(ev.key))
+                active[ev.key] = false
+            }
+        }
+        // Then process note-ons for this block.
+        for _, ev := range events {
+            if ev.start >= start && ev.start < end && !active[ev.key] {
+                syn.NoteOn(ch, int32(ev.key), int32(ev.vel))
+                active[ev.key] = true
+            }
+        }
+    }
 
 	for pos := 0; pos < totalSamples; pos += block {
 		// Render in fixed-size blocks to avoid triggering edge cases in the
@@ -237,11 +289,11 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 		return err
 	}
 
-	pcm := mixPCM(leftAll, rightAll)
+    pcm := mixPCM(leftAll, rightAll)
 	if dumpMusic {
 		dumpPCMAsWAV(pcm)
 	}
-	player := ctx.NewPlayerFromBytes(pcm)
+    player := ctx.NewPlayerFromBytes(pcm)
 
 	vol := gs.MasterVolume * gs.MusicVolume
 	if gs.Mute {
@@ -257,23 +309,20 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 
     // Compute the logical song duration from note events (without long
     // reverb tail), then add a small grace period to avoid clipping endings.
-    // This keeps playback length closer to the classic client.
-    var lastEnd time.Duration
-    for _, n := range notes {
-        if e := n.Start + n.Duration; e > lastEnd {
-            lastEnd = e
-        }
+    // Wait for the audio to finish based on the rendered PCM duration, with
+    // a small grace period for device buffering. This avoids cutting off
+    // lingering releases on guitar/harp-like patches without altering timing.
+    totalFrames := len(pcm) / 4 // 2ch * 16-bit
+    playDur := time.Second * time.Duration(totalFrames) / sampleRate
+    if playDur < 0 {
+        playDur = 0
     }
-    grace := 300 * time.Millisecond
-    if grace < 0 {
-        grace = 0
-    }
-    target := time.Now().Add(lastEnd + grace)
+    target := time.Now().Add(playDur + 100*time.Millisecond)
     for time.Now().Before(target) {
         if !safeIsPlaying(player) {
             break
         }
-        time.Sleep(25 * time.Millisecond)
+        time.Sleep(20 * time.Millisecond)
     }
 
 	musicPlayersMu.Lock()
