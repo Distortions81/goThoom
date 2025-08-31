@@ -39,9 +39,9 @@ func TestPluginRegisterAndDisableCommand(t *testing.T) {
 	pluginMu = sync.RWMutex{}
 	pluginCommands = map[string]PluginCommandHandler{}
 	pluginCommandOwners = map[string]string{}
-	pluginDisabled = map[string]bool{}
-	pluginInvalid = map[string]bool{}
-	pluginEnabledFor = map[string]string{}
+    pluginDisabled = map[string]bool{}
+    pluginInvalid = map[string]bool{}
+    pluginEnabledFor = map[string]pluginScope{}
 	pluginSendHistory = map[string][]time.Time{}
 	consoleLog = messageLog{max: maxMessages}
 	commandQueue = nil
@@ -155,12 +155,12 @@ func TestPluginRegisterCommandConflict(t *testing.T) {
 
 // Test that trigger handlers registered by plugins receive messages.
 func TestPluginTriggers(t *testing.T) {
-	pluginTriggers = map[string][]triggerHandler{}
-	pluginConsoleTriggers = map[string][]triggerHandler{}
-	triggerHandlersMu = sync.RWMutex{}
-	pluginDisabled = map[string]bool{}
-	pluginInvalid = map[string]bool{}
-	pluginEnabledFor = map[string]string{}
+    pluginTriggers = map[string][]triggerHandler{}
+    pluginConsoleTriggers = map[string][]triggerHandler{}
+    triggerHandlersMu = sync.RWMutex{}
+    pluginDisabled = map[string]bool{}
+    pluginInvalid = map[string]bool{}
+    pluginEnabledFor = map[string]pluginScope{}
 	triggered := false
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -177,15 +177,15 @@ func TestPluginTriggers(t *testing.T) {
 
 // Test that disabling a plugin removes any trigger handlers it registered.
 func TestPluginRemoveTriggersOnDisable(t *testing.T) {
-	pluginTriggers = map[string][]triggerHandler{}
-	pluginConsoleTriggers = map[string][]triggerHandler{}
-	triggerHandlersMu = sync.RWMutex{}
+    pluginTriggers = map[string][]triggerHandler{}
+    pluginConsoleTriggers = map[string][]triggerHandler{}
+    triggerHandlersMu = sync.RWMutex{}
 	pluginInputHandlers = nil
 	inputHandlersMu = sync.RWMutex{}
 	pluginMu = sync.RWMutex{}
 	pluginDisabled = map[string]bool{}
-	pluginInvalid = map[string]bool{}
-	pluginEnabledFor = map[string]string{}
+    pluginInvalid = map[string]bool{}
+    pluginEnabledFor = map[string]pluginScope{}
 	pluginDisplayNames = map[string]string{}
 	pluginCategories = map[string]string{}
 	pluginSubCategories = map[string]string{}

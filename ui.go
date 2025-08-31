@@ -519,7 +519,9 @@ func refreshPluginsWindow() {
                         if ev.Checked {
                             setPluginEnabled(owner, false, true)
                         } else {
-                            setPluginEnabled(owner, charCB.Checked, false)
+                            // Unchecking "All" should fully disable the plugin,
+                            // regardless of the per-character box state.
+                            clearPluginScope(owner)
                         }
                     }
                 }

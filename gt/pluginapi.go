@@ -17,9 +17,13 @@ func Logf(format string, args ...interface{}) {}
 
 // Console writes a message to the in-client console.
 func Console(msg string) {}
+// Print writes a message to the in-client console (alias).
+func Print(msg string) {}
 
 // ShowNotification displays a notification bubble.
 func ShowNotification(msg string) {}
+// Notify displays a notification bubble (alias).
+func Notify(msg string) {}
 
 // AddHotkey binds a key combo to a slash command.
 func AddHotkey(combo, command string) {}
@@ -130,7 +134,52 @@ func Players() []Player { return nil }
 
 // RegisterTriggers registers a callback for chat messages containing any phrase
 // from the specified player name. An empty name matches any speaker.
+// The handler receives the full message text.
 func RegisterTriggers(name string, phrases []string, fn func(msg string)) {}
+
+// RegisterChat registers a chat trigger with kind flags (ChatAny, ChatPlayer, ChatNPC, ChatCreature).
+// Use an empty name to match any speaker; handler receives the full message.
+func RegisterChat(name string, phrases []string, flags int, fn func(msg string)) {}
+
+// Simpler chat helpers for non-programmers
+func RegisterChatAny(name string, phrases []string, fn func(msg string)) {}
+func RegisterChatPlayers(name string, phrases []string, fn func(msg string)) {}
+func RegisterChatNPCs(name string, phrases []string, fn func(msg string)) {}
+func RegisterChatCreatures(name string, phrases []string, fn func(msg string)) {}
+func RegisterChatSelf(phrases []string, fn func(msg string)) {}
+func RegisterChatOthers(name string, phrases []string, fn func(msg string)) {}
+
+// No-slice convenience (one phrase per call)
+func Chat(phrase string, fn func(msg string)) {}
+func PlayerChat(phrase string, fn func(msg string)) {}
+func NPCChat(phrase string, fn func(msg string)) {}
+func CreatureChat(phrase string, fn func(msg string)) {}
+func SelfChat(phrase string, fn func(msg string)) {}
+func OtherChat(name, phrase string, fn func(msg string)) {}
+func ChatFrom(name, phrase string, fn func(msg string)) {}
+func PlayerChatFrom(name, phrase string, fn func(msg string)) {}
+func OtherChatFrom(name, phrase string, fn func(msg string)) {}
+
+// RegisterConsole registers a console trigger; handler receives the full message text.
+func RegisterConsole(phrases []string, fn func(msg string)) {}
+// ConsoleMsg registers a single console phrase (no slices needed).
+func ConsoleMsg(phrase string, fn func(msg string)) {}
+
+// Minimal DSL helpers
+func Cmd(text string) {}
+func Run(text string) {}
+func Me() string { return "" }
+func Has(name string) bool { return false }
+func Toggle(id uint16) {}
+func Save(key, value string) {}
+func Load(key string) string { return "" }
+func Delete(key string) {}
+func Input() string { return "" }
+func SetInput(text string) {}
+func Thank(name string) {}
+func Curse(name string) {}
+func Share(name string) {}
+func Unshare(name string) {}
 
 // RegisterConsoleTriggers registers a callback for console messages containing
 // any phrase.
@@ -234,6 +283,15 @@ func FrameNumber() int { return 0 }
 // StorageGet retrieves a value previously stored with StorageSet.
 func StorageGet(key string) any { return nil }
 
+// Chat trigger flags
+const (
+    ChatAny      = 1 << iota // match any chat message
+    ChatPlayer               // message from a known player (not NPC)
+    ChatNPC                  // message from a known NPC
+    ChatCreature             // message from an unknown/non-player speaker
+    ChatSelf                 // message from yourself
+    ChatOther                // message not from yourself
+)
 // StorageSet stores a value associated with key for the plugin.
 func StorageSet(key string, value any) {}
 

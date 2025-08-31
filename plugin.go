@@ -19,35 +19,35 @@ import (
 )
 
 type pluginScope struct {
-    All   bool
-    Chars map[string]bool
+	All   bool
+	Chars map[string]bool
 }
 
 func (s pluginScope) enablesFor(effChar string) bool {
-    if s.All {
-        return true
-    }
-    if effChar == "" || s.Chars == nil {
-        return false
-    }
-    return s.Chars[effChar]
+	if s.All {
+		return true
+	}
+	if effChar == "" || s.Chars == nil {
+		return false
+	}
+	return s.Chars[effChar]
 }
 
 func (s *pluginScope) addChar(name string) {
-    if name == "" {
-        return
-    }
-    if s.Chars == nil {
-        s.Chars = map[string]bool{}
-    }
-    s.Chars[name] = true
+	if name == "" {
+		return
+	}
+	if s.Chars == nil {
+		s.Chars = map[string]bool{}
+	}
+	s.Chars[name] = true
 }
 
 func (s *pluginScope) removeChar(name string) {
-    if s.Chars == nil || name == "" {
-        return
-    }
-    delete(s.Chars, name)
+	if s.Chars == nil || name == "" {
+		return
+	}
+	delete(s.Chars, name)
 }
 
 func (s pluginScope) empty() bool { return !s.All && (s.Chars == nil || len(s.Chars) == 0) }
@@ -95,6 +95,13 @@ var basePluginExports = interp.Exports{
 		"Join":             reflect.ValueOf(pluginJoin),
 		"Replace":          reflect.ValueOf(pluginReplace),
 		"Split":            reflect.ValueOf(pluginSplit),
+		// Chat trigger flags
+		"ChatAny":      reflect.ValueOf(ChatAny),
+		"ChatPlayer":   reflect.ValueOf(ChatPlayer),
+		"ChatNPC":      reflect.ValueOf(ChatNPC),
+		"ChatCreature": reflect.ValueOf(ChatCreature),
+		"ChatSelf":     reflect.ValueOf(ChatSelf),
+		"ChatOther":    reflect.ValueOf(ChatOther),
 	},
 }
 
@@ -114,14 +121,129 @@ func exportsForPlugin(owner string) interp.Exports {
 		})
 		m["AddMacro"] = reflect.ValueOf(func(short, full string) { pluginAddMacro(owner, short, full) })
 		m["AddMacros"] = reflect.ValueOf(func(macros map[string]string) { pluginAddMacros(owner, macros) })
-		m["RegisterTriggers"] = reflect.ValueOf(func(name string, phrases []string, handler func()) {
-			pluginRegisterTriggers(owner, name, phrases, handler)
+		// Chat trigger APIs
+		m["RegisterChat"] = reflect.ValueOf(func(name string, phrases []string, flags int, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, flags, handler)
 		})
-		m["RegisterTrigger"] = reflect.ValueOf(func(name, phrase string, handler func()) {
-			pluginRegisterTriggers(owner, name, []string{phrase}, handler)
+		m["RegisterChatAny"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, ChatAny, handler)
+		})
+		m["RegisterChatPlayers"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, ChatPlayer, handler)
+		})
+		m["RegisterChatNPCs"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, ChatNPC, handler)
+		})
+		m["RegisterChatCreatures"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, ChatCreature, handler)
+		})
+		m["RegisterChatSelf"] = reflect.ValueOf(func(phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, "", phrases, ChatSelf, handler)
+		})
+		m["RegisterChatOthers"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, ChatOther, handler)
+		})
+		// Back-compat: RegisterTriggers without flags, handler without msg parameter.
+		m["RegisterTriggers"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
+			pluginRegisterChat(owner, name, phrases, ChatAny, handler)
+		})
+		m["RegisterTrigger"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
+			pluginRegisterChat(owner, name, []string{phrase}, ChatAny, handler)
+		})
+		// Console registration (full message)
+		m["RegisterConsole"] = reflect.ValueOf(func(phrases []string, handler func(string)) {
+			pluginRegisterConsole(owner, phrases, handler)
 		})
 		m["RegisterConsoleTriggers"] = reflect.ValueOf(func(phrases []string, handler func()) {
 			pluginRegisterConsoleTriggers(owner, phrases, handler)
+		})
+		// Simple DSL aliases
+		m["Print"] = reflect.ValueOf(pluginConsole)
+		m["Notify"] = reflect.ValueOf(pluginShowNotification)
+		m["Cmd"] = reflect.ValueOf(func(text string) { pluginEnqueueCommand(owner, strings.TrimSpace(text)) })
+		m["Run"] = reflect.ValueOf(func(text string) { pluginRunCommand(owner, strings.TrimSpace(text)) })
+		m["Me"] = reflect.ValueOf(pluginPlayerName)
+		m["Has"] = reflect.ValueOf(func(name string) bool { return pluginHasItem(name) })
+		m["Toggle"] = reflect.ValueOf(func(id uint16) { pluginToggleEquip(owner, id) })
+		m["Save"] = reflect.ValueOf(func(key, value string) { pluginStorageSet(owner, key, value) })
+		m["Load"] = reflect.ValueOf(func(key string) string {
+			if v, ok := pluginStorageGet(owner, key).(string); ok {
+				return v
+			}
+			return ""
+		})
+		m["Delete"] = reflect.ValueOf(func(key string) { pluginStorageDelete(owner, key) })
+		m["Input"] = reflect.ValueOf(pluginInputText)
+		m["SetInput"] = reflect.ValueOf(pluginSetInputText)
+		// Social/convenience commands
+		m["Thank"] = reflect.ValueOf(func(name string) {
+			n := strings.TrimSpace(name)
+			if n != "" {
+				pluginEnqueueCommand(owner, "/thank "+maybeQuoteName(n))
+			}
+		})
+		m["Curse"] = reflect.ValueOf(func(name string) {
+			n := strings.TrimSpace(name)
+			if n != "" {
+				pluginEnqueueCommand(owner, "/curse "+maybeQuoteName(n))
+			}
+		})
+		m["Share"] = reflect.ValueOf(func(name string) {
+			n := strings.TrimSpace(name)
+			if n != "" {
+				pluginEnqueueCommand(owner, "/share "+maybeQuoteName(n))
+			}
+		})
+		m["Unshare"] = reflect.ValueOf(func(name string) {
+			n := strings.TrimSpace(name)
+			if n != "" {
+				pluginEnqueueCommand(owner, "/unshare "+maybeQuoteName(n))
+			}
+		})
+		// No-slice chat/console helpers (one call per phrase)
+		m["Chat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatAny, handler) }
+		})
+		m["PlayerChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatPlayer, handler) }
+		})
+		m["NPCChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatNPC, handler) }
+		})
+		m["CreatureChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatCreature, handler) }
+		})
+		m["SelfChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatSelf, handler) }
+		})
+		m["OtherChat"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
+			n := strings.TrimSpace(name)
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterChat(owner, n, []string{p}, ChatOther, handler) }
+		})
+		m["ChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
+			n := strings.TrimSpace(name)
+			p := strings.TrimSpace(phrase)
+			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatAny, handler) }
+		})
+		m["PlayerChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
+			n := strings.TrimSpace(name)
+			p := strings.TrimSpace(phrase)
+			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatPlayer, handler) }
+		})
+		m["OtherChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
+			n := strings.TrimSpace(name)
+			p := strings.TrimSpace(phrase)
+			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatOther, handler) }
+		})
+		m["ConsoleMsg"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" { pluginRegisterConsole(owner, []string{p}, handler) }
 		})
 		m["RegisterInputHandler"] = reflect.ValueOf(func(fn func(string) string) { pluginRegisterInputHandler(owner, fn) })
 		m["RunCommand"] = reflect.ValueOf(func(cmd string) { pluginRunCommand(owner, cmd) })
@@ -329,11 +451,11 @@ func pluginAddHotkey(owner, combo, command string) {
 	if name == "" {
 		name = owner
 	}
-    msg := fmt.Sprintf("[plugin:%s] hotkey added: %s -> %s", name, combo, command)
-    if gs.pluginOutputDebug {
-        consoleMessage(msg)
-    }
-    log.Print(msg)
+	msg := fmt.Sprintf("[plugin:%s] hotkey added: %s -> %s", name, combo, command)
+	if gs.pluginOutputDebug {
+		consoleMessage(msg)
+	}
+	log.Print(msg)
 }
 
 // Plugin command registries.
@@ -342,7 +464,8 @@ type PluginCommandHandler func(args string)
 type triggerHandler struct {
 	owner string
 	name  string
-	fn    func()
+	flags int
+	fn    func(string)
 }
 
 type inputHandler struct {
@@ -626,25 +749,25 @@ func applyEnabledPlugins() {
 		owners = append(owners, o)
 	}
 	pluginMu.RUnlock()
-    for _, o := range owners {
-        pluginMu.RLock()
-        scope := pluginEnabledFor[o]
-        disabled := pluginDisabled[o]
-        invalid := pluginInvalid[o]
-        pluginMu.RUnlock()
+	for _, o := range owners {
+		pluginMu.RLock()
+		scope := pluginEnabledFor[o]
+		disabled := pluginDisabled[o]
+		invalid := pluginInvalid[o]
+		pluginMu.RUnlock()
 		if invalid {
 			pluginMu.Lock()
 			pluginDisabled[o] = true
 			pluginMu.Unlock()
 			continue
 		}
-        // Enable when set to all, or when the scope includes the active
-        // character. If not logged in, fall back to LastCharacter.
-        effChar := playerName
-        if effChar == "" {
-            effChar = gs.LastCharacter
-        }
-        shouldEnable := scope.enablesFor(effChar)
+		// Enable when set to all, or when the scope includes the active
+		// character. If not logged in, fall back to LastCharacter.
+		effChar := playerName
+		if effChar == "" {
+			effChar = gs.LastCharacter
+		}
+		shouldEnable := scope.enablesFor(effChar)
 		if disabled && shouldEnable {
 			enablePlugin(o)
 		} else if !disabled && !shouldEnable {
@@ -658,40 +781,52 @@ func applyEnabledPlugins() {
 }
 
 func setPluginEnabled(owner string, char, all bool) {
+	pluginMu.Lock()
+	if pluginInvalid[owner] {
+		pluginMu.Unlock()
+		return
+	}
+	s := pluginEnabledFor[owner]
+	if all {
+		s.All = true
+		s.Chars = nil
+	} else if char {
+		effChar := playerName
+		if effChar == "" {
+			effChar = gs.LastCharacter
+		}
+		if effChar != "" {
+			s.All = false
+			s.addChar(effChar)
+		}
+	} else {
+		effChar := playerName
+		if effChar == "" {
+			effChar = gs.LastCharacter
+		}
+		if effChar != "" {
+			s.removeChar(effChar)
+		} else {
+			s = pluginScope{}
+		}
+	}
+	if s.empty() {
+		delete(pluginEnabledFor, owner)
+	} else {
+		pluginEnabledFor[owner] = s
+	}
+	pluginMu.Unlock()
+	applyEnabledPlugins()
+	saveSettings()
+	refreshPluginsWindow()
+}
+
+// clearPluginScope removes all enablement for a plugin (no all, no characters)
+// and refreshes apply/save/UI. Used by the UI when unchecking the "All" box
+// to explicitly stop a plugin regardless of any per-character flags.
+func clearPluginScope(owner string) {
     pluginMu.Lock()
-    if pluginInvalid[owner] {
-        pluginMu.Unlock()
-        return
-    }
-    s := pluginEnabledFor[owner]
-    if all {
-        s.All = true
-        s.Chars = nil
-    } else if char {
-        effChar := playerName
-        if effChar == "" {
-            effChar = gs.LastCharacter
-        }
-        if effChar != "" {
-            s.All = false
-            s.addChar(effChar)
-        }
-    } else {
-        effChar := playerName
-        if effChar == "" {
-            effChar = gs.LastCharacter
-        }
-        if effChar != "" {
-            s.removeChar(effChar)
-        } else {
-            s = pluginScope{}
-        }
-    }
-    if s.empty() {
-        delete(pluginEnabledFor, owner)
-    } else {
-        pluginEnabledFor[owner] = s
-    }
+    delete(pluginEnabledFor, owner)
     pluginMu.Unlock()
     applyEnabledPlugins()
     saveSettings()
@@ -812,7 +947,18 @@ func pluginRegisterInputHandler(owner string, fn func(string) string) {
 	inputHandlersMu.Unlock()
 }
 
-func pluginRegisterTriggers(owner, name string, phrases []string, fn func()) {
+// Chat trigger kinds for filtering messages by source.
+const (
+	ChatAny      = 1 << iota // match any chat message
+	ChatPlayer               // message from a known player (not NPC)
+	ChatNPC                  // message from a known NPC
+	ChatCreature             // message from an unknown/non-player speaker
+	ChatSelf                 // message from yourself
+	ChatOther                // message not from yourself
+)
+
+// pluginRegisterChat registers a chat trigger with optional name and kind flags.
+func pluginRegisterChat(owner, name string, phrases []string, flags int, fn func(string)) {
 	if pluginIsDisabled(owner) || fn == nil {
 		return
 	}
@@ -823,14 +969,22 @@ func pluginRegisterTriggers(owner, name string, phrases []string, fn func()) {
 			continue
 		}
 		p = strings.ToLower(p)
-		pluginTriggers[p] = append(pluginTriggers[p], triggerHandler{owner: owner, name: name, fn: fn})
+		pluginTriggers[p] = append(pluginTriggers[p], triggerHandler{owner: owner, name: name, flags: flags, fn: fn})
 	}
-    triggerHandlersMu.Unlock()
-    // Update the UI list if the window exists.
-    refreshTriggersList()
+	triggerHandlersMu.Unlock()
+	refreshTriggersList()
 }
 
-func pluginRegisterConsoleTriggers(owner string, phrases []string, fn func()) {
+// Back-compat wrapper for older API without flags.
+func pluginRegisterTriggers(owner, name string, phrases []string, fn func()) {
+	if fn == nil {
+		return
+	}
+	pluginRegisterChat(owner, name, phrases, ChatAny, func(string) { fn() })
+}
+
+// New console registration with message parameter
+func pluginRegisterConsole(owner string, phrases []string, fn func(string)) {
 	if pluginIsDisabled(owner) || fn == nil {
 		return
 	}
@@ -846,6 +1000,14 @@ func pluginRegisterConsoleTriggers(owner string, phrases []string, fn func()) {
 	refreshTriggersList()
 }
 
+// Back-compat: old console registration without msg parameter
+func pluginRegisterConsoleTriggers(owner string, phrases []string, fn func()) {
+	if fn == nil {
+		return
+	}
+	pluginRegisterConsole(owner, phrases, func(string) { fn() })
+}
+
 // pluginAutoReply sends a command when a chat message contains trigger.
 func pluginAutoReply(owner, trigger, command string) {
 	if pluginIsDisabled(owner) || trigger == "" || command == "" {
@@ -856,7 +1018,7 @@ func pluginAutoReply(owner, trigger, command string) {
 	})
 }
 
-func pluginRegisterTrigger(owner string, phrase string, fn func()) {
+func pluginRegisterTrigger(owner string, phrase string, fn func(string)) {
 	if pluginIsDisabled(owner) || fn == nil {
 		return
 	}
@@ -895,11 +1057,45 @@ func runInputHandlers(txt string) string {
 
 func runChatTriggers(msg string) {
 	triggerHandlersMu.RLock()
+	// Determine message flags and speaker for filtering.
+	speaker := chatSpeaker(msg)
+	msgFlags := ChatAny
+	if strings.EqualFold(speaker, playerName) && playerName != "" {
+		msgFlags |= ChatSelf
+	} else {
+		msgFlags |= ChatOther
+	}
+	if speaker != "" {
+		playersMu.RLock()
+		if p, ok := players[speaker]; ok {
+			if p.IsNPC {
+				msgFlags |= ChatNPC
+			} else {
+				msgFlags |= ChatPlayer
+			}
+		} else {
+			msgFlags |= ChatCreature
+		}
+		playersMu.RUnlock()
+	} else {
+		msgFlags |= ChatCreature
+	}
 	for phrase, hs := range pluginTriggers {
-		if strings.Contains(msg, phrase) {
+		if strings.Contains(strings.ToLower(msg), phrase) {
 			for _, h := range hs {
-				if h.name == "" || h.name == chatSpeaker(msg) {
-					go h.fn()
+				// Name filter matches literal name if set.
+				if h.name != "" && h.name != strings.ToLower(speaker) {
+					continue
+				}
+				// Flag filter: default to ChatAny, then require intersection.
+				f := h.flags
+				if f == 0 {
+					f = ChatAny
+				}
+				match := (f & msgFlags) != 0
+				if match {
+					fn := h.fn
+					go fn(msg)
 				}
 			}
 		}
@@ -913,7 +1109,8 @@ func runConsoleTriggers(msg string) {
 	for phrase, hs := range pluginConsoleTriggers {
 		if strings.Contains(msgLower, phrase) {
 			for _, h := range hs {
-				go h.fn()
+				fn := h.fn
+				go fn(msg)
 			}
 		}
 	}
@@ -1103,34 +1300,34 @@ func rescanPlugins() {
 	pluginAuthors = make(map[string]string, len(scanned))
 	pluginCategories = make(map[string]string, len(scanned))
 	pluginSubCategories = make(map[string]string, len(scanned))
-    pluginInvalid = make(map[string]bool, len(scanned))
-    pluginDisabled = make(map[string]bool, len(scanned))
-    newEnabled := map[string]pluginScope{}
-    for o, info := range scanned {
+	pluginInvalid = make(map[string]bool, len(scanned))
+	pluginDisabled = make(map[string]bool, len(scanned))
+	newEnabled := map[string]pluginScope{}
+	for o, info := range scanned {
 		pluginDisplayNames[o] = info.name
 		pluginPaths[o] = info.path
 		pluginAuthors[o] = info.author
 		pluginCategories[o] = info.category
 		pluginSubCategories[o] = info.subCategory
 		pluginInvalid[o] = info.invalid
-        if info.invalid {
-            pluginDisabled[o] = true
-            continue
-        }
-        if en, ok := pluginEnabledFor[o]; ok {
-            newEnabled[o] = en
-        } else if gs.EnabledPlugins != nil {
-            if val, ok := gs.EnabledPlugins[o]; ok {
-                newEnabled[o] = scopeFromSettingValue(val)
-            }
-        }
-        effChar := playerName
-        if effChar == "" {
-            effChar = gs.LastCharacter
-        }
-        pluginDisabled[o] = !newEnabled[o].enablesFor(effChar)
-    }
-    pluginEnabledFor = newEnabled
+		if info.invalid {
+			pluginDisabled[o] = true
+			continue
+		}
+		if en, ok := pluginEnabledFor[o]; ok {
+			newEnabled[o] = en
+		} else if gs.EnabledPlugins != nil {
+			if val, ok := gs.EnabledPlugins[o]; ok {
+				newEnabled[o] = scopeFromSettingValue(val)
+			}
+		}
+		effChar := playerName
+		if effChar == "" {
+			effChar = gs.LastCharacter
+		}
+		pluginDisabled[o] = !newEnabled[o].enablesFor(effChar)
+	}
+	pluginEnabledFor = newEnabled
 	pluginNames = make(map[string]bool, len(scanned))
 	for _, info := range scanned {
 		pluginNames[strings.ToLower(info.name)] = true
@@ -1164,28 +1361,28 @@ func loadPlugins() {
 		consoleMessage("[plugin] duplicate name: " + name)
 	})
 
-    pluginNames = make(map[string]bool, len(scanned))
-    for o, info := range scanned {
-        pluginNames[strings.ToLower(info.name)] = true
-        s, ok := pluginEnabledFor[o]
-        if !ok && gs.EnabledPlugins != nil {
-            if val, ok2 := gs.EnabledPlugins[o]; ok2 {
-                s = scopeFromSettingValue(val)
-            }
-        }
-        effChar := playerName
-        if effChar == "" {
-            effChar = gs.LastCharacter
-        }
-        disabled := info.invalid || !s.enablesFor(effChar)
+	pluginNames = make(map[string]bool, len(scanned))
+	for o, info := range scanned {
+		pluginNames[strings.ToLower(info.name)] = true
+		s, ok := pluginEnabledFor[o]
+		if !ok && gs.EnabledPlugins != nil {
+			if val, ok2 := gs.EnabledPlugins[o]; ok2 {
+				s = scopeFromSettingValue(val)
+			}
+		}
+		effChar := playerName
+		if effChar == "" {
+			effChar = gs.LastCharacter
+		}
+		disabled := info.invalid || !s.enablesFor(effChar)
 		pluginMu.Lock()
 		pluginDisplayNames[o] = info.name
 		pluginCategories[o] = info.category
 		pluginSubCategories[o] = info.subCategory
-        pluginPaths[o] = info.path
-        if !s.empty() {
-            pluginEnabledFor[o] = s
-        }
+		pluginPaths[o] = info.path
+		if !s.empty() {
+			pluginEnabledFor[o] = s
+		}
 		pluginAuthors[o] = info.author
 		pluginInvalid[o] = info.invalid
 		pluginDisabled[o] = disabled
@@ -1214,30 +1411,30 @@ func loadPlugins() {
 // - []any (from JSON): include all listed string characters
 // - bool(true): include LastCharacter if present
 func scopeFromSettingValue(v any) pluginScope {
-    s := pluginScope{}
-    switch val := v.(type) {
-    case string:
-        if val == "all" {
-            s.All = true
-        } else if val != "" {
-            s.addChar(val)
-        }
-    case []string:
-        for _, n := range val {
-            if n != "" {
-                s.addChar(n)
-            }
-        }
-    case []any:
-        for _, e := range val {
-            if str, ok := e.(string); ok && str != "" {
-                s.addChar(str)
-            }
-        }
-    case bool:
-        if val && gs.LastCharacter != "" {
-            s.addChar(gs.LastCharacter)
-        }
-    }
-    return s
+	s := pluginScope{}
+	switch val := v.(type) {
+	case string:
+		if val == "all" {
+			s.All = true
+		} else if val != "" {
+			s.addChar(val)
+		}
+	case []string:
+		for _, n := range val {
+			if n != "" {
+				s.addChar(n)
+			}
+		}
+	case []any:
+		for _, e := range val {
+			if str, ok := e.(string); ok && str != "" {
+				s.addChar(str)
+			}
+		}
+	case bool:
+		if val && gs.LastCharacter != "" {
+			s.addChar(gs.LastCharacter)
+		}
+	}
+	return s
 }

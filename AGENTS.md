@@ -57,6 +57,10 @@ The module path is `gothoom` and the main package is located in this directory.
 
 The `mac_client` directory contains a reference implementation written in C and should *never* be modified. It is only for reference!
 
+## Quick Commands Reference
+
+Click and drag to move. Type \HELP <COMMAND>. The commands are: \ACTION, \AFFILIATIONS, \ANONCURSE, \ANONTHANK, \BAG, \BOOT, \BUG, \BUY, \CURSE, \DEPART, \DROP, \EQUIP, \EXAMINE, \GIVE, \HELP, \INFO, \KARMA, \MONEY, \NAME, \NARRATE, \NEWS, \OPTIONS, \PONDER, \POSE, \PRAY, \PULL, \PUSH, \REPORT, \SELL, \SHARE, \SHOW, \SKY, \SLEEP, \SPEAK, \STATUS, \SWEAR, \THANK, \THINK, \THINKCLAN, \THINKGROUP, \THINKTO, \TIP, \UNEQUIP, \UNSHARE, \USE, \USEITEM, \WHISPER, \WHO, \WHOCLAN, \YELL
+
 ## Session notes
 The following dependencies were installed when building the Go client
 in this session:
