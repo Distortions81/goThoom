@@ -902,9 +902,10 @@ func (g *Game) Update() error {
 	origX, origY, worldScale = worldDrawInfo()
 	baseX := int16(float64(mx-origX)/worldScale - float64(fieldCenterX))
 	baseY := int16(float64(my-origY)/worldScale - float64(fieldCenterY))
-	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
-	click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
+    heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
+    click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+    rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
+    middleClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
 
 	winW, winH := ebiten.WindowSize()
 	inWindow := mx > 0 && my > 0 && mx < winW-1 && my < winH-1
@@ -913,11 +914,12 @@ func (g *Game) Update() error {
 			walkToggled = false
 		}
 	}
-	if !focused || !inWindow {
-		click = false
-		rightClick = false
-		heldTime = 0
-	}
+    if !focused || !inWindow {
+        click = false
+        rightClick = false
+        middleClick = false
+        heldTime = 0
+    }
 
 	stopWalkIfOutside(click, inGame)
 	inputMu.Lock()
@@ -934,12 +936,15 @@ func (g *Game) Update() error {
 			heldTime = 0
 		}
 	}
-	if click && !uiMouseDown && inGame {
-		handleWorldClick(baseX, baseY)
-	}
-	if rightClick && inGame && !pointInUI(mx, my) {
-		handleWorldClick(baseX, baseY)
-	}
+    if click && !uiMouseDown && inGame {
+        handleWorldClick(baseX, baseY, ebiten.MouseButtonLeft)
+    }
+    if rightClick && inGame && !pointInUI(mx, my) {
+        handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
+    }
+    if middleClick && inGame && !pointInUI(mx, my) {
+        handleWorldClick(baseX, baseY, ebiten.MouseButtonMiddle)
+    }
 	// (right-click handling for menus/copy is handled earlier)
 
 	// Default desired target from current pointer, even if outside game window.

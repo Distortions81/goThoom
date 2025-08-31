@@ -1,23 +1,24 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"math"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "math"
+    "os"
+    "path/filepath"
+    "strconv"
+    "strings"
+    "sync"
+    "time"
 
-	"gothoom/eui"
+    "gothoom/eui"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
-	"golang.org/x/image/font/gofont/goregular"
+    "github.com/hajimehoshi/ebiten/v2"
+    "github.com/hajimehoshi/ebiten/v2/inpututil"
+    text "github.com/hajimehoshi/ebiten/v2/text/v2"
+    "golang.org/x/image/font/gofont/goregular"
+    "regexp"
 )
 
 const hotkeysFile = "global-hotkeys.json"
@@ -126,7 +127,7 @@ func loadHotkeys() {
 	pluginHotkeyMu.Unlock()
 
 	// Ensure default hotkeys exist.
-	def := Hotkey{Name: "Click To Use", Combo: "RightClick", Commands: []HotkeyCommand{{Command: "/use @clicked"}}, Disabled: true}
+    def := Hotkey{Name: "Click To Use", Combo: "RightClick", Commands: []HotkeyCommand{{Command: "/use @right.clicked"}}, Disabled: true}
 	exists := false
 	for _, hk := range newList {
 		if hk.Combo == def.Combo && hk.Plugin == "" {
@@ -279,7 +280,7 @@ func makeHotkeysWindow() {
 	flow.AddItem(hotkeysList)
 
 	infoFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	infoText := "@clicked -> clicked player\n@hovered -> currently hovered player\n@selected.player -> selected player\n@selected.item -> selected item\n@equipped.left -> left hand item\n@equipped.belt -> belt item\n@equipped.<slot> -> item in wear slot"
+    infoText := "@right.clicked -> last right-clicked player\n@middle.clicked -> last middle-clicked player\n@<button>.<mod>.clicked -> clicked player with modifier (button: left|middle|right; mod: control|alt|shift)\n@hovered -> currently hovered player\n@selected.player -> selected player\n@selected.item -> selected item\n@equipped.left -> left hand item\n@equipped.belt -> belt item\n@equipped.<slot> -> item in wear slot"
 	help := &eui.ItemData{ItemType: eui.ITEM_TEXT, Text: infoText}
 	help.Size = eui.Point{X: 256, Y: 256}
 	help.FontSize = 10
@@ -830,35 +831,81 @@ func isModifier(k ebiten.Key) bool {
 }
 
 func applyHotkeyVars(cmd string) (string, bool) {
-	needClicked := strings.Contains(cmd, "@clicked") || strings.Contains(cmd, "@")
-	needHovered := strings.Contains(cmd, "@hovered")
+    // Resolve @hovered first (simple, unchanged)
+    needHovered := strings.Contains(cmd, "@hovered")
+    if needHovered {
+        var hoveredName string
+        lastHoverMu.Lock()
+        hoveredName = lastHover.Mobile.Name
+        lastHoverMu.Unlock()
+        if hoveredName == "" {
+            return "", false
+        }
+        cmd = strings.ReplaceAll(cmd, "@hovered", hoveredName)
+    }
 
-	var clickedName, hoveredName string
-	if needClicked {
-		lastClickMu.Lock()
-		clickedName = lastClick.Mobile.Name
-		lastClickMu.Unlock()
-		if clickedName == "" {
-			return "", false
-		}
-	}
-	if needHovered {
-		lastHoverMu.Lock()
-		hoveredName = lastHover.Mobile.Name
-		lastHoverMu.Unlock()
-		if hoveredName == "" {
-			return "", false
-		}
-	}
+    // Handle new click variables via regex replacement.
+    re := regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
+    out := re.ReplaceAllStringFunc(cmd, func(segment string) string {
+        m := re.FindStringSubmatch(segment)
+        if len(m) < 3 {
+            return segment
+        }
+        button := strings.ToLower(m[1])
+        modsPart := m[2]
+        var info ClickInfo
+        ok := false
+        switch button {
+        case "right", "rightclick":
+            lastClickByButtonMu.Lock()
+            info, ok = lastClickByButton[ebiten.MouseButtonRight]
+            lastClickByButtonMu.Unlock()
+        case "middle", "middleclick":
+            lastClickByButtonMu.Lock()
+            info, ok = lastClickByButton[ebiten.MouseButtonMiddle]
+            lastClickByButtonMu.Unlock()
+        case "left", "leftclick":
+            lastClickByButtonMu.Lock()
+            info, ok = lastClickByButton[ebiten.MouseButtonLeft]
+            lastClickByButtonMu.Unlock()
+        default:
+            ok = false
+        }
+        if !ok || info.Mobile.Name == "" {
+            // Force overall failure by returning an impossible token; marker checked below.
+            return "@@UNRESOLVED_CLICK@@"
+        }
+        if modsPart != "" {
+            // modsPart is like ".control.shift"; split and verify each
+            for _, raw := range strings.Split(strings.TrimPrefix(modsPart, "."), ".") {
+                switch strings.ToLower(strings.TrimSpace(raw)) {
+                case "control", "ctrl":
+                    if !info.Ctrl {
+                        return "@@UNRESOLVED_CLICK@@"
+                    }
+                case "alt":
+                    if !info.Alt {
+                        return "@@UNRESOLVED_CLICK@@"
+                    }
+                case "shift":
+                    if !info.Shift {
+                        return "@@UNRESOLVED_CLICK@@"
+                    }
+                case "":
+                    // ignore
+                default:
+                    return "@@UNRESOLVED_CLICK@@"
+                }
+            }
+        }
+        return info.Mobile.Name
+    })
+    if strings.Contains(out, "@@UNRESOLVED_CLICK@@") {
+        return "", false
+    }
+    cmd = out
 
-	if needClicked {
-		cmd = strings.ReplaceAll(cmd, "@clicked", clickedName)
-		cmd = strings.ReplaceAll(cmd, "@", clickedName)
-	}
-	if needHovered {
-		cmd = strings.ReplaceAll(cmd, "@hovered", hoveredName)
-	}
-	return cmd, true
+    return cmd, true
 }
 
 func updateHotkeyRecording() {

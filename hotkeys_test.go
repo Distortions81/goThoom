@@ -1,14 +1,15 @@
 package main
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
+    "encoding/json"
+    "os"
+    "path/filepath"
+    "strings"
+    "testing"
 
-	"golang.org/x/image/font/gofont/goregular"
-	"gothoom/eui"
+    "github.com/hajimehoshi/ebiten/v2"
+    "golang.org/x/image/font/gofont/goregular"
+    "gothoom/eui"
 )
 
 // Test that closing the hotkey editor clears the reference and allows reopening.
@@ -246,15 +247,16 @@ func TestHotkeyEditorWrapsAndResizes(t *testing.T) {
 	hotkeyEditWin.Close()
 }
 
-// Test that @clicked in commands expands to the last clicked mobile name.
+// Test that @right.clicked in commands expands to the last right-clicked mobile name.
 func TestApplyHotkeyVars(t *testing.T) {
-	lastClickMu.Lock()
-	lastClick = ClickInfo{OnMobile: true, Mobile: Mobile{Name: "Target"}}
-	lastClickMu.Unlock()
-	got, ok := applyHotkeyVars("/use @clicked")
-	if !ok || got != "/use Target" {
-		t.Fatalf("got %q, ok %v", got, ok)
-	}
+    // Populate lastClickByButton for right-click
+    lastClickByButtonMu.Lock()
+    lastClickByButton[ebiten.MouseButtonRight] = ClickInfo{OnMobile: true, Mobile: Mobile{Name: "Target"}}
+    lastClickByButtonMu.Unlock()
+    got, ok := applyHotkeyVars("/use @right.clicked")
+    if !ok || got != "/use Target" {
+        t.Fatalf("got %q, ok %v", got, ok)
+    }
 }
 
 // Test that @hovered in commands expands to the currently hovered mobile name.
@@ -268,14 +270,14 @@ func TestApplyHotkeyVarsHovered(t *testing.T) {
 	}
 }
 
-// Test that commands referencing @clicked don't fire without a target.
+// Test that commands referencing @right.clicked don't fire without a target.
 func TestApplyHotkeyVarsNoClicked(t *testing.T) {
-	lastClickMu.Lock()
-	lastClick = ClickInfo{}
-	lastClickMu.Unlock()
-	if got, ok := applyHotkeyVars("/use @clicked"); ok || got != "" {
-		t.Fatalf("got %q, ok %v", got, ok)
-	}
+    lastClickByButtonMu.Lock()
+    delete(lastClickByButton, ebiten.MouseButtonRight)
+    lastClickByButtonMu.Unlock()
+    if got, ok := applyHotkeyVars("/use @right.clicked"); ok || got != "" {
+        t.Fatalf("got %q, ok %v", got, ok)
+    }
 }
 
 // Test that commands referencing @hovered don't fire without a target.
