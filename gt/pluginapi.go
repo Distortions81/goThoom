@@ -164,6 +164,8 @@ func OtherChatFrom(name, phrase string, fn func(msg string)) {}
 func RegisterConsole(phrases []string, fn func(msg string)) {}
 // ConsoleMsg registers a single console phrase (no slices needed).
 func ConsoleMsg(phrase string, fn func(msg string)) {}
+// Console registers a single console phrase (alias of ConsoleMsg).
+func Console(phrase string, fn func(msg string)) {}
 
 // Minimal DSL helpers
 func Cmd(text string) {}
@@ -176,10 +178,8 @@ func Load(key string) string { return "" }
 func Delete(key string) {}
 func Input() string { return "" }
 func SetInput(text string) {}
-func Thank(name string) {}
-func Curse(name string) {}
-func Share(name string) {}
-func Unshare(name string) {}
+// (Intentionally no helpers that duplicate in-game slash commands
+// like Thank/Curse/Share/Unshare; use Cmd("/...") in scripts.)
 
 // RegisterConsoleTriggers registers a callback for console messages containing
 // any phrase.

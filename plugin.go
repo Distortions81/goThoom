@@ -175,31 +175,8 @@ func exportsForPlugin(owner string) interp.Exports {
 		m["Delete"] = reflect.ValueOf(func(key string) { pluginStorageDelete(owner, key) })
 		m["Input"] = reflect.ValueOf(pluginInputText)
 		m["SetInput"] = reflect.ValueOf(pluginSetInputText)
-		// Social/convenience commands
-		m["Thank"] = reflect.ValueOf(func(name string) {
-			n := strings.TrimSpace(name)
-			if n != "" {
-				pluginEnqueueCommand(owner, "/thank "+maybeQuoteName(n))
-			}
-		})
-		m["Curse"] = reflect.ValueOf(func(name string) {
-			n := strings.TrimSpace(name)
-			if n != "" {
-				pluginEnqueueCommand(owner, "/curse "+maybeQuoteName(n))
-			}
-		})
-		m["Share"] = reflect.ValueOf(func(name string) {
-			n := strings.TrimSpace(name)
-			if n != "" {
-				pluginEnqueueCommand(owner, "/share "+maybeQuoteName(n))
-			}
-		})
-		m["Unshare"] = reflect.ValueOf(func(name string) {
-			n := strings.TrimSpace(name)
-			if n != "" {
-				pluginEnqueueCommand(owner, "/unshare "+maybeQuoteName(n))
-			}
-		})
+		// (Removed explicit Thank/Curse/Share/Unshare helpers to avoid duplicating
+		// in-game commands; authors can use Cmd("/thank ...") etc.)
 		// No-slice chat/console helpers (one call per phrase)
 		m["Chat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
@@ -241,10 +218,15 @@ func exportsForPlugin(owner string) interp.Exports {
 			p := strings.TrimSpace(phrase)
 			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatOther, handler) }
 		})
-		m["ConsoleMsg"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterConsole(owner, []string{p}, handler) }
-		})
+        m["ConsoleMsg"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+            p := strings.TrimSpace(phrase)
+            if p != "" { pluginRegisterConsole(owner, []string{p}, handler) }
+        })
+        // Simpler alias: Console("text", fn)
+        m["Console"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+            p := strings.TrimSpace(phrase)
+            if p != "" { pluginRegisterConsole(owner, []string{p}, handler) }
+        })
 		m["RegisterInputHandler"] = reflect.ValueOf(func(fn func(string) string) { pluginRegisterInputHandler(owner, fn) })
 		m["RunCommand"] = reflect.ValueOf(func(cmd string) { pluginRunCommand(owner, cmd) })
 		m["EnqueueCommand"] = reflect.ValueOf(func(cmd string) { pluginEnqueueCommand(owner, cmd) })
