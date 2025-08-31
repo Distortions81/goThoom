@@ -1,13 +1,14 @@
 package main
 
 import (
-	"embed"
-	"fmt"
-	"log"
-	"os"
-	"path"
-	"path/filepath"
-	"reflect"
+    "embed"
+    "fmt"
+    "strconv"
+    "log"
+    "os"
+    "path"
+    "path/filepath"
+    "reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -17,6 +18,8 @@ import (
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 )
+
+const pluginAPICurrentVersion = 1
 
 type pluginScope struct {
 	All   bool
@@ -57,8 +60,9 @@ func (s pluginScope) empty() bool { return !s.All && (s.Chars == nil || len(s.Ch
 var basePluginExports = interp.Exports{
 	// Short path used by simple plugin scripts: import "gt"
 	// Yaegi expects keys as "importPath/pkgName".
-	"gt/gt": {
-		"Console":          reflect.ValueOf(pluginConsole),
+    "gt/gt": {
+        "APIVersion":       reflect.ValueOf(pluginAPICurrentVersion),
+        "Console":          reflect.ValueOf(pluginConsole),
 		"ShowNotification": reflect.ValueOf(pluginShowNotification),
 		"ClientVersion":    reflect.ValueOf(&clientVersion).Elem(),
 		"PlayerName":       reflect.ValueOf(pluginPlayerName),
@@ -121,42 +125,7 @@ func exportsForPlugin(owner string) interp.Exports {
 		})
 		m["AddMacro"] = reflect.ValueOf(func(short, full string) { pluginAddMacro(owner, short, full) })
 		m["AddMacros"] = reflect.ValueOf(func(macros map[string]string) { pluginAddMacros(owner, macros) })
-		// Chat trigger APIs
-		m["RegisterChat"] = reflect.ValueOf(func(name string, phrases []string, flags int, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, flags, handler)
-		})
-		m["RegisterChatAny"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, ChatAny, handler)
-		})
-		m["RegisterChatPlayers"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, ChatPlayer, handler)
-		})
-		m["RegisterChatNPCs"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, ChatNPC, handler)
-		})
-		m["RegisterChatCreatures"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, ChatCreature, handler)
-		})
-		m["RegisterChatSelf"] = reflect.ValueOf(func(phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, "", phrases, ChatSelf, handler)
-		})
-		m["RegisterChatOthers"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, ChatOther, handler)
-		})
-		// Back-compat: RegisterTriggers without flags, handler without msg parameter.
-		m["RegisterTriggers"] = reflect.ValueOf(func(name string, phrases []string, handler func(string)) {
-			pluginRegisterChat(owner, name, phrases, ChatAny, handler)
-		})
-		m["RegisterTrigger"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
-			pluginRegisterChat(owner, name, []string{phrase}, ChatAny, handler)
-		})
-		// Console registration (full message)
-		m["RegisterConsole"] = reflect.ValueOf(func(phrases []string, handler func(string)) {
-			pluginRegisterConsole(owner, phrases, handler)
-		})
-		m["RegisterConsoleTriggers"] = reflect.ValueOf(func(phrases []string, handler func()) {
-			pluginRegisterConsoleTriggers(owner, phrases, handler)
-		})
+        // Chat/Console (simple, no slices)
 		// Simple DSL aliases
 		m["Print"] = reflect.ValueOf(pluginConsole)
 		m["Notify"] = reflect.ValueOf(pluginShowNotification)
@@ -1152,20 +1121,22 @@ func refreshPluginMod() {
 }
 
 type pluginInfo struct {
-	name        string
-	author      string
-	category    string
-	subCategory string
-	path        string
-	src         []byte
-	invalid     bool
+    name        string
+    author      string
+    category    string
+    subCategory string
+    path        string
+    src         []byte
+    invalid     bool
+    apiVer      int
 }
 
 func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pluginInfo {
-	nameRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginName\s*=\s*"([^"]+)"`)
-	authorRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAuthor\s*=\s*"([^"]+)"`)
-	categoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginCategory\s*=\s*"([^"]+)"`)
-	subCategoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginSubCategory\s*=\s*"([^"]+)"`)
+    nameRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginName\s*=\s*"([^"]+)"`)
+    authorRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAuthor\s*=\s*"([^"]+)"`)
+    categoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginCategory\s*=\s*"([^"]+)"`)
+    subCategoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginSubCategory\s*=\s*"([^"]+)"`)
+    apiVerRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAPIVersion\s*=\s*([0-9]+)\s*$`)
 	plugins := map[string]pluginInfo{}
 	seenNames := map[string]bool{}
 	for _, dir := range pluginDirs {
@@ -1206,8 +1177,9 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 			if match := authorRE.FindSubmatch(src); len(match) >= 2 {
 				author = strings.TrimSpace(string(match[1]))
 			}
-			invalid := false
-			if len(nameMatch) < 2 || name == "" || invalidPluginValue(name) {
+            invalid := false
+            apiVer := 0
+            if len(nameMatch) < 2 || name == "" || invalidPluginValue(name) {
 				if len(nameMatch) < 2 || name == "" {
 					consoleMessage("[plugin] missing name: " + path)
 					name = base
@@ -1231,8 +1203,13 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 					consoleMessage("[plugin] invalid category: " + path)
 				}
 				invalid = true
-			}
-			lower := strings.ToLower(name)
+            }
+            if m := apiVerRE.FindSubmatch(src); len(m) >= 2 {
+                if n, err := strconv.Atoi(strings.TrimSpace(string(m[1]))); err == nil {
+                    apiVer = n
+                }
+            }
+            lower := strings.ToLower(name)
 			if seenNames[lower] {
 				if dup != nil {
 					dup(name, path)
@@ -1241,18 +1218,19 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 			}
 			seenNames[lower] = true
 			owner := name + "_" + base
-			plugins[owner] = pluginInfo{
-				name:        name,
-				author:      author,
-				category:    category,
-				subCategory: subCategory,
-				path:        path,
-				src:         src,
-				invalid:     invalid,
-			}
-		}
-	}
-	return plugins
+            plugins[owner] = pluginInfo{
+                name:        name,
+                author:      author,
+                category:    category,
+                subCategory: subCategory,
+                path:        path,
+                src:         src,
+                invalid:     invalid,
+                apiVer:      apiVer,
+            }
+        }
+    }
+    return plugins
 }
 
 func rescanPlugins() {
@@ -1291,11 +1269,13 @@ func rescanPlugins() {
 		pluginAuthors[o] = info.author
 		pluginCategories[o] = info.category
 		pluginSubCategories[o] = info.subCategory
-		pluginInvalid[o] = info.invalid
-		if info.invalid {
-			pluginDisabled[o] = true
-			continue
-		}
+        // Require a matching plugin API version
+        invalid := info.invalid || info.apiVer != pluginAPICurrentVersion
+        pluginInvalid[o] = invalid
+        if invalid {
+            pluginDisabled[o] = true
+            continue
+        }
 		if en, ok := pluginEnabledFor[o]; ok {
 			newEnabled[o] = en
 		} else if gs.EnabledPlugins != nil {
@@ -1356,7 +1336,8 @@ func loadPlugins() {
 		if effChar == "" {
 			effChar = gs.LastCharacter
 		}
-		disabled := info.invalid || !s.enablesFor(effChar)
+        invalid := info.invalid || info.apiVer != pluginAPICurrentVersion
+        disabled := invalid || !s.enablesFor(effChar)
 		pluginMu.Lock()
 		pluginDisplayNames[o] = info.name
 		pluginCategories[o] = info.category
@@ -1366,7 +1347,7 @@ func loadPlugins() {
 			pluginEnabledFor[o] = s
 		}
 		pluginAuthors[o] = info.author
-		pluginInvalid[o] = info.invalid
+        pluginInvalid[o] = invalid
 		pluginDisabled[o] = disabled
 		pluginMu.Unlock()
 		if !disabled {

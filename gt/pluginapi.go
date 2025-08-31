@@ -9,6 +9,10 @@ package gt
 
 import "time"
 
+// APIVersion exposes the client plugin API version so plugins can declare
+// compatibility, e.g.: const PluginAPIVersion = gt.APIVersion
+var APIVersion int
+
 // ClientVersion mirrors the client version value exported to plugins.
 var ClientVersion int
 
@@ -137,19 +141,7 @@ func Players() []Player { return nil }
 // The handler receives the full message text.
 func RegisterTriggers(name string, phrases []string, fn func(msg string)) {}
 
-// RegisterChat registers a chat trigger with kind flags (ChatAny, ChatPlayer, ChatNPC, ChatCreature).
-// Use an empty name to match any speaker; handler receives the full message.
-func RegisterChat(name string, phrases []string, flags int, fn func(msg string)) {}
-
-// Simpler chat helpers for non-programmers
-func RegisterChatAny(name string, phrases []string, fn func(msg string)) {}
-func RegisterChatPlayers(name string, phrases []string, fn func(msg string)) {}
-func RegisterChatNPCs(name string, phrases []string, fn func(msg string)) {}
-func RegisterChatCreatures(name string, phrases []string, fn func(msg string)) {}
-func RegisterChatSelf(phrases []string, fn func(msg string)) {}
-func RegisterChatOthers(name string, phrases []string, fn func(msg string)) {}
-
-// No-slice convenience (one phrase per call)
+// Chat helpers (one phrase per call)
 func Chat(phrase string, fn func(msg string)) {}
 func PlayerChat(phrase string, fn func(msg string)) {}
 func NPCChat(phrase string, fn func(msg string)) {}
@@ -160,9 +152,9 @@ func ChatFrom(name, phrase string, fn func(msg string)) {}
 func PlayerChatFrom(name, phrase string, fn func(msg string)) {}
 func OtherChatFrom(name, phrase string, fn func(msg string)) {}
 
-// RegisterConsole registers a console trigger; handler receives the full message text.
-func RegisterConsole(phrases []string, fn func(msg string)) {}
-// ConsoleMsg registers a single console phrase (no slices needed).
+// Console registers a single console phrase; handler receives the full message text.
+func Console(phrase string, fn func(msg string)) {}
+// ConsoleMsg is an alias of Console.
 func ConsoleMsg(phrase string, fn func(msg string)) {}
 // Console registers a single console phrase (alias of ConsoleMsg).
 func Console(phrase string, fn func(msg string)) {}
