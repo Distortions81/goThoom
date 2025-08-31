@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"flag"
+	"fmt"
 	"image"
 	"image/png"
 	"log"
@@ -29,6 +30,7 @@ var (
 	//go:embed goThoom.png
 	windowIconPNG []byte
 
+	// Default movie playback FPS; classic client updates ~10Hz.
 	clMovFPS int = 5
 
 	host     string = "server.deltatao.com:5010"
@@ -56,6 +58,9 @@ var (
 
 func main() {
 	clientVersion = clVersion
+    dumpTune := flag.String("dumpTune", "", "dump parsed note timings for the given tune string and exit")
+    dumpTempo := flag.Int("dumpTempo", 120, "tempo for -dumpTune (BPM)")
+    dumpInst := flag.Int("dumpInst", defaultInstrument, "instrument index for -dumpTune")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.StringVar(&pcapPath, "pcap", "", "replay network frames from a .pcap/.pcapng file")
 	flag.BoolVar(&fake, "fake", false, "simulate server messages without connecting")
@@ -71,6 +76,30 @@ func main() {
 	flag.BoolVar(&hdTextures, "hd", false, "enable HD texture loading from data/hd")
 	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 30 fps for 30s")
 	flag.Parse()
+
+    // Classic timing and parser are always enabled; flags removed.
+
+    if *dumpTune != "" {
+        // Minimal dump path: no window/audio init needed.
+        notes := *dumpTune
+        tempo := *dumpTempo
+        inst := *dumpInst
+        if inst < 0 || inst >= len(instruments) {
+            inst = defaultInstrument
+        }
+        ns := classicNotesFromTune(notes, instruments[inst], tempo, 100)
+        var end time.Duration
+        for i, n := range ns {
+            s := n.Start.Milliseconds()
+            d := n.Duration.Milliseconds()
+            println(fmt.Sprintf("%02d: key=%3d start=%6dms dur=%6dms", i, n.Key, s, d))
+            if e := n.Start + n.Duration; e > end {
+                end = e
+            }
+        }
+        println(fmt.Sprintf("total end: %dms (tempo=%d inst=%d)", end.Milliseconds(), tempo, inst))
+        return
+    }
 
 	if err := clipboard.Init(); err != nil {
 		log.Printf("clipboard init: %v", err)

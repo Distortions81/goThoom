@@ -100,10 +100,11 @@ func TestEventsToNotesChordStart(t *testing.T) {
 	if notes[0].Start != 0 || notes[1].Start != 0 {
 		t.Fatalf("chord notes have different start times: %v %v", notes[0].Start, notes[1].Start)
 	}
-	quarter := 500 * time.Millisecond
-	if notes[2].Start != quarter {
-		t.Fatalf("third note start = %v; want %v", notes[2].Start, quarter)
-	}
+    // Default chord duration at base tempo is a half-beat (250ms at 120 BPM).
+    half := 250 * time.Millisecond
+    if notes[2].Start != half {
+        t.Fatalf("third note start = %v; want %v", notes[2].Start, half)
+    }
 }
 
 func TestPCMBufferDuration(t *testing.T) {

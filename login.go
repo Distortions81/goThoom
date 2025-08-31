@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/pkg/browser"
 )
 
 var (
@@ -384,10 +382,16 @@ func login(ctx context.Context, clientVersion int) error {
 		}
 
 		if result == -30972 || result == -30973 {
-			browser.OpenURL("https://github.com/Distortions81/goThoom/releases")
+			// Server indicates our client/data is out of date. Attempt an
+			// in-place auto-update using the provided base URL if available.
+			// Some servers omit version fields; autoUpdate handles this by
+			// still attempting to fetch assets from the base path. Regardless
+			// of outcome, retry the login once assets may have been updated.
+			_, _ = autoUpdate(resp, dataDirPath)
 			tcpConn.Close()
 			udpConn.Close()
-			return fmt.Errorf("client out of date; please download the latest release")
+			// Retry the outer loop instead of failing or opening a browser.
+			continue
 		}
 
 		if result != 0 {
