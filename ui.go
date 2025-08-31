@@ -500,18 +500,29 @@ func refreshPluginsWindow() {
 					row.Color = pluginsWin.Theme.Button.SelectedColor
 				}
 			}
-			if !e.invalid {
-				charEvents.Handle = func(ev eui.UIEvent) {
-					if ev.Type == eui.EventCheckboxChanged {
-						setPluginEnabled(owner, ev.Checked, allCB.Checked)
-					}
-				}
-				allEvents.Handle = func(ev eui.UIEvent) {
-					if ev.Type == eui.EventCheckboxChanged {
-						setPluginEnabled(owner, charCB.Checked, ev.Checked)
-					}
-				}
-			}
+            if !e.invalid {
+                charEvents.Handle = func(ev eui.UIEvent) {
+                    if ev.Type == eui.EventCheckboxChanged {
+                        // Character/all are mutually exclusive. Prioritize the
+                        // clicked box and clear the other to reflect scope.
+                        if ev.Checked {
+                            setPluginEnabled(owner, true, false)
+                        } else {
+                            // Unchecking character when not selecting "all" disables.
+                            setPluginEnabled(owner, false, allCB.Checked)
+                        }
+                    }
+                }
+                allEvents.Handle = func(ev eui.UIEvent) {
+                    if ev.Type == eui.EventCheckboxChanged {
+                        if ev.Checked {
+                            setPluginEnabled(owner, false, true)
+                        } else {
+                            setPluginEnabled(owner, charCB.Checked, false)
+                        }
+                    }
+                }
+            }
 			row.AddItem(charCB)
 			row.AddItem(allCB)
 			nameTxt, _ := eui.NewText()
