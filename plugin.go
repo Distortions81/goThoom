@@ -202,6 +202,44 @@ func exportsForPlugin(owner string) interp.Exports {
 		m["StorageGet"] = reflect.ValueOf(func(key string) any { return pluginStorageGet(owner, key) })
 		m["StorageSet"] = reflect.ValueOf(func(key string, value any) { pluginStorageSet(owner, key, value) })
 		m["StorageDelete"] = reflect.ValueOf(func(key string) { pluginStorageDelete(owner, key) })
+
+		// Timers
+		m["After"] = reflect.ValueOf(func(ms int, fn func()) {
+			if fn == nil || ms <= 0 { return }
+			t := time.AfterFunc(time.Duration(ms)*time.Millisecond, fn)
+			pluginMu.Lock()
+			pluginTimers[owner] = append(pluginTimers[owner], t)
+			pluginMu.Unlock()
+		})
+		m["Every"] = reflect.ValueOf(func(ms int, fn func()) {
+			if fn == nil || ms <= 0 { return }
+			stop := make(chan struct{})
+			pluginMu.Lock()
+			pluginTickerStops[owner] = append(pluginTickerStops[owner], stop)
+			pluginMu.Unlock()
+			d := time.Duration(ms)*time.Millisecond
+			go func(){
+				ticker := time.NewTicker(d)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						fn()
+					case <-stop:
+						return
+					}
+				}
+			}()
+		})
+
+		// Key binding to a function: creates a hidden command and binds a hotkey to it
+		m["Key"] = reflect.ValueOf(func(combo string, handler func()) {
+			c := strings.TrimSpace(combo)
+			if c == "" || handler == nil { return }
+			cmd := "__hk_" + strings.ReplaceAll(strings.ToLower(c), " ", "_")
+			pluginRegisterCommand(owner, cmd, func(args string){ handler() })
+			pluginAddHotkey(owner, c, "/"+cmd)
+		})
 		ex[pkg] = m
 	}
 	return ex
@@ -443,9 +481,12 @@ var (
 	pluginInputHandlers   []inputHandler
 	inputHandlersMu       sync.RWMutex
 	pluginCommandOwners   = map[string]string{}
-	pluginSendHistory     = map[string][]time.Time{}
-	pluginModTime         time.Time
-	pluginModCheck        time.Time
+    pluginSendHistory     = map[string][]time.Time{}
+    pluginModTime         time.Time
+    pluginModCheck        time.Time
+    // timers per plugin owner
+    pluginTimers      = map[string][]*time.Timer{}
+    pluginTickerStops = map[string][]chan struct{}{}
 )
 
 const (
@@ -595,8 +636,8 @@ func recordPluginSend(owner string) bool {
 }
 
 func disablePlugin(owner, reason string) {
-	pluginMu.Lock()
-	pluginDisabled[owner] = true
+    pluginMu.Lock()
+    pluginDisabled[owner] = true
 	if reason != "disabled for this character" && reason != "reloaded" {
 		delete(pluginEnabledFor, owner)
 	}
@@ -779,6 +820,15 @@ func clearPluginScope(owner string) {
     pluginMu.Lock()
     delete(pluginEnabledFor, owner)
     pluginMu.Unlock()
+    // Stop scheduled timers/tickers for this plugin
+    if list := pluginTimers[owner]; len(list) > 0 {
+        for _, t := range list { if t != nil { t.Stop() } }
+        delete(pluginTimers, owner)
+    }
+    if stops := pluginTickerStops[owner]; len(stops) > 0 {
+        for _, ch := range stops { if ch != nil { close(ch) } }
+        delete(pluginTickerStops, owner)
+    }
     applyEnabledPlugins()
     saveSettings()
     refreshPluginsWindow()
