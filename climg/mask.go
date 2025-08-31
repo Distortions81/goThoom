@@ -126,10 +126,7 @@ func (c *CLImages) AlphaMaskQuarter(id uint32, forceTransparent bool) *AlphaMask
 		height--
 	}
 
-	_, transparent := alphaTransparentForFlags(ref.flags)
-	if forceTransparent {
-		transparent = true
-	}
+    // Always treat palette index 0 as transparent for mask purposes.
 
 	qW := (width + 3) / 4
 	qH := (height + 3) / 4
@@ -137,7 +134,7 @@ func (c *CLImages) AlphaMaskQuarter(id uint32, forceTransparent bool) *AlphaMask
 	for by := 0; by < qH; by++ {
 		for bx := 0; bx < qW; bx++ {
 			opaque := false
-			for y := 0; y < 4 && !opaque; y++ {
+            for y := 0; y < 4 && !opaque; y++ {
 				py := by*4 + y
 				if py >= height {
 					break
@@ -148,11 +145,11 @@ func (c *CLImages) AlphaMaskQuarter(id uint32, forceTransparent bool) *AlphaMask
 					if px >= width {
 						break
 					}
-					idx := data[row+px]
-					if idx != 0 || !transparent {
-						opaque = true
-						break
-					}
+                    idx := data[row+px]
+                    if idx != 0 {
+                        opaque = true
+                        break
+                    }
 				}
 			}
 			if opaque {

@@ -1391,7 +1391,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 			}
 			if showBubble && !skipRender {
 				words := len(strings.Fields(txt))
-				lifeSeconds := gs.BubbleBaseLife + float64(words)
+                lifeSeconds := gs.BubbleBaseLife + float64(words)*gs.BubbleLifePerWord
 				life := int(lifeSeconds * float64(1000/framems))
 				if life < 1 {
 					life = 1

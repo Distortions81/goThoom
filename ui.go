@@ -478,7 +478,13 @@ func refreshPluginsWindow() {
 			charCB.Size = checkSize
 			allCB, allEvents := eui.NewCheckbox()
 			allCB.Size = checkSize
-			charCB.Checked = playerName != "" && e.scope == playerName
+            // Consider LastCharacter before login so the per-character
+            // checkbox reflects the saved preference.
+            effChar := playerName
+            if effChar == "" {
+                effChar = gs.LastCharacter
+            }
+            charCB.Checked = effChar != "" && e.scope == effChar
 			charCB.Disabled = e.invalid
 			allCB.Checked = e.scope == "all"
 			allCB.Disabled = e.invalid
@@ -2588,19 +2594,34 @@ func makeSettingsWindow() {
 	}
 	right.AddItem(bubbleOpSlider)
 
-	bubbleBaseLifeSlider, bubbleBaseLifeEvents := eui.NewSlider()
-	bubbleBaseLifeSlider.Label = "Base Bubble Life (s)"
-	bubbleBaseLifeSlider.MinValue = 1
-	bubbleBaseLifeSlider.MaxValue = 5
-	bubbleBaseLifeSlider.Value = float32(gs.BubbleBaseLife)
-	bubbleBaseLifeSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
-	bubbleBaseLifeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.BubbleBaseLife = float64(ev.Value)
-			settingsDirty = true
-		}
-	}
-	right.AddItem(bubbleBaseLifeSlider)
+    bubbleBaseLifeSlider, bubbleBaseLifeEvents := eui.NewSlider()
+    bubbleBaseLifeSlider.Label = "Base Bubble Life (s)"
+    bubbleBaseLifeSlider.MinValue = 1
+    bubbleBaseLifeSlider.MaxValue = 5
+    bubbleBaseLifeSlider.Value = float32(gs.BubbleBaseLife)
+    bubbleBaseLifeSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+    bubbleBaseLifeEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventSliderChanged {
+            gs.BubbleBaseLife = float64(ev.Value)
+            settingsDirty = true
+        }
+    }
+    right.AddItem(bubbleBaseLifeSlider)
+
+    // Life added per word in a bubble
+    bubblePerWordSlider, bubblePerWordEvents := eui.NewSlider()
+    bubblePerWordSlider.Label = "Bubble Life per Word (s)"
+    bubblePerWordSlider.MinValue = 0
+    bubblePerWordSlider.MaxValue = 2
+    bubblePerWordSlider.Value = float32(gs.BubbleLifePerWord)
+    bubblePerWordSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+    bubblePerWordEvents.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventSliderChanged {
+            gs.BubbleLifePerWord = float64(ev.Value)
+            settingsDirty = true
+        }
+    }
+    right.AddItem(bubblePerWordSlider)
 
 	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
 	fadePicsCB.Text = "Fade objects obscuring mobiles"

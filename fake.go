@@ -54,7 +54,7 @@ func runFakeMode(ctx context.Context) {
 		// Helper to append a bubble and show corresponding chat message.
 		emitBubble := func(idx uint8, typ int, name, verb, txt string) {
 			words := len(strings.Fields(txt))
-			lifeSeconds := gs.BubbleBaseLife + float64(words)
+            lifeSeconds := gs.BubbleBaseLife + float64(words)*gs.BubbleLifePerWord
 			life := int(lifeSeconds * float64(1000/framems))
 			if life < 1 {
 				life = 1
@@ -116,7 +116,7 @@ func runFakeMode(ctx context.Context) {
 				emitBubble(1, kBubbleMonster, p2, "growls", "Grrr!")
 			case 12: // Off-screen bubble
 				words := len(strings.Fields("Over here!"))
-				lifeSeconds := gs.BubbleBaseLife + float64(words)
+                lifeSeconds := gs.BubbleBaseLife + float64(words)*gs.BubbleLifePerWord
 				life := int(lifeSeconds * float64(1000/framems))
 				if life < 1 {
 					life = 1

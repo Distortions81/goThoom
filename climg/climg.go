@@ -620,10 +620,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	// sprite definition flags. Some assets (like mobiles) rely on
 	// index 0 being transparent even without the explicit flag, so
 	// allow callers to force this behavior.
-	alpha, transparent := alphaTransparentForFlags(ref.flags)
-	if forceTransparent {
-		transparent = true
-	}
+    alpha, _ := alphaTransparentForFlags(ref.flags)
 
 	pix := img.Pix
 	stride := img.Stride
@@ -632,10 +629,13 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		r := uint8(pal[idx*3])
 		g := uint8(pal[idx*3+1])
 		b := uint8(pal[idx*3+2])
-		a := alpha
-		if idx == 0 && transparent {
-			a = 0
-		}
+        a := alpha
+        // Treat palette index 0 as fully transparent universally. The
+        // legacy client consistently uses index 0 for transparency,
+        // even on assets without the explicit transparent flag.
+        if idx == 0 {
+            a = 0
+        }
 		// Ebiten expects premultiplied alpha values.
 		r = uint8(int(r) * int(a) / 255)
 		g = uint8(int(g) * int(a) / 255)
@@ -823,19 +823,14 @@ func (c *CLImages) NonTransparentPixels(id uint32) int {
 		data = data[width:]
 	}
 
-	_, transparent := alphaTransparentForFlags(ref.flags)
-	if !transparent {
-		return len(data)
-	}
-
-	col := colLoc.colorBytes
-	count := 0
-	for _, idx := range data {
-		if col[idx] != 0 {
-			count++
-		}
-	}
-	return count
+    col := colLoc.colorBytes
+    count := 0
+    for _, idx := range data {
+        if col[idx] != 0 {
+            count++
+        }
+    }
+    return count
 }
 
 // HasOpaqueRect reports whether any non-transparent pixels exist within the
@@ -931,21 +926,16 @@ func (c *CLImages) HasOpaqueRect(id uint32, rect image.Rectangle) bool {
 		data = data[width:]
 	}
 
-	_, transparent := alphaTransparentForFlags(ref.flags)
-	if !transparent {
-		return true
-	}
-
-	col := colLoc.colorBytes
-	for y := rect.Min.Y; y < rect.Max.Y; y++ {
-		row := y * width
-		for x := rect.Min.X; x < rect.Max.X; x++ {
-			if col[data[row+x]] != 0 {
-				return true
-			}
-		}
-	}
-	return false
+    col := colLoc.colorBytes
+    for y := rect.Min.Y; y < rect.Max.Y; y++ {
+        row := y * width
+        for x := rect.Min.X; x < rect.Max.X; x++ {
+            if col[data[row+x]] != 0 {
+                return true
+            }
+        }
+    }
+    return false
 }
 
 // applyCustomPalette replaces entries in col according to mapping and custom.
