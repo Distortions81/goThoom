@@ -91,7 +91,7 @@ func updatePlayersWindow() {
 		}
 	}
 
-	myClan := ""
+    myClan := ""
 	if playerName != "" {
 		playersMu.RLock()
 		if me, ok := players[playerName]; ok {
@@ -167,9 +167,9 @@ func updatePlayersWindow() {
 		if p.Sharing {
 			tags = append(tags, ">")
 		}
-		if myClan != "" && p.Clan != "" && strings.EqualFold(p.Clan, myClan) {
-			tags = append(tags, "*")
-		}
+        if sameRealClan(p.Clan, myClan) {
+            tags = append(tags, "*")
+        }
 		if len(tags) > 0 {
 			name = fmt.Sprintf("%s %s", name, strings.Join(tags, "--"))
 		}

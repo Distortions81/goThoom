@@ -34,9 +34,9 @@ func parseWhoText(raw []byte, s string) bool {
 		playersMu.Lock()
 		prevSC := p.SameClan
 		prevBW := p.BeWho
-		if me, ok := players[playerName]; ok {
-			p.SameClan = me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-		}
+        if me, ok := players[playerName]; ok {
+            p.SameClan = sameRealClan(me.Clan, p.Clan)
+        }
 		p.LastSeen = time.Now()
 		p.Offline = false
 		p.BeWho = true
@@ -91,13 +91,13 @@ func parseShareText(raw []byte, s string) bool {
 						p.Sharee = false
 						changedPlayer = true
 					}
-					if me, ok := players[playerName]; ok {
-						sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-						if p.SameClan != sc {
-							p.SameClan = sc
-							changedPlayer = true
-						}
-					}
+                    if me, ok := players[playerName]; ok {
+                        sc := sameRealClan(me.Clan, p.Clan)
+                        if p.SameClan != sc {
+                            p.SameClan = sc
+                            changedPlayer = true
+                        }
+                    }
 					if !p.BeWho {
 						p.BeWho = true
 						playersPersistDirty = true
@@ -141,13 +141,13 @@ func parseShareText(raw []byte, s string) bool {
 					p.Sharee = true
 					added = append(added, *p)
 				}
-				if me, ok := players[playerName]; ok {
-					sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-					if p.SameClan != sc {
-						p.SameClan = sc
-						added = append(added, *p)
-					}
-				}
+                if me, ok := players[playerName]; ok {
+                    sc := sameRealClan(me.Clan, p.Clan)
+                    if p.SameClan != sc {
+                        p.SameClan = sc
+                        added = append(added, *p)
+                    }
+                }
 				if !p.BeWho {
 					p.BeWho = true
 					playersPersistDirty = true
@@ -201,13 +201,13 @@ func parseShareText(raw []byte, s string) bool {
 				p.Sharee = true
 				changed = true
 			}
-			if me, ok := players[playerName]; ok {
-				sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-				if p.SameClan != sc {
-					p.SameClan = sc
-					changed = true
-				}
-			}
+            if me, ok := players[playerName]; ok {
+                sc := sameRealClan(me.Clan, p.Clan)
+                if p.SameClan != sc {
+                    p.SameClan = sc
+                    changed = true
+                }
+            }
 			if !p.BeWho {
 				p.BeWho = true
 				playersPersistDirty = true
@@ -243,13 +243,13 @@ func parseShareText(raw []byte, s string) bool {
 					p.Sharee = false
 					changedPlayer = true
 				}
-				if me, ok := players[playerName]; ok {
-					sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-					if p.SameClan != sc {
-						p.SameClan = sc
-						changedPlayer = true
-					}
-				}
+                if me, ok := players[playerName]; ok {
+                    sc := sameRealClan(me.Clan, p.Clan)
+                    if p.SameClan != sc {
+                        p.SameClan = sc
+                        changedPlayer = true
+                    }
+                }
 				if !p.BeWho {
 					p.BeWho = true
 					playersPersistDirty = true

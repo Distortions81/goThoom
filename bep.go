@@ -73,22 +73,22 @@ func parseBackendInfo(data []byte) {
 	p.BeWho = true
 	changedNames := make([]string, 0, 1)
 	if playerName != "" {
-		if name == playerName {
-			myClan := clan
-			for _, pl := range players {
-				sc := myClan != "" && pl.Clan != "" && strings.EqualFold(pl.Clan, myClan)
-				if pl.SameClan != sc {
-					pl.SameClan = sc
-					changedNames = append(changedNames, pl.Name)
-				}
-			}
-		} else if me, ok := players[playerName]; ok {
-			sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-			if p.SameClan != sc {
-				p.SameClan = sc
-				changedNames = append(changedNames, p.Name)
-			}
-		}
+        if name == playerName {
+            myClan := clan
+            for _, pl := range players {
+                sc := sameRealClan(pl.Clan, myClan)
+                if pl.SameClan != sc {
+                    pl.SameClan = sc
+                    changedNames = append(changedNames, pl.Name)
+                }
+            }
+        } else if me, ok := players[playerName]; ok {
+            sc := sameRealClan(me.Clan, p.Clan)
+            if p.SameClan != sc {
+                p.SameClan = sc
+                changedNames = append(changedNames, p.Name)
+            }
+        }
 	}
 	playerCopy := *p
 	playersMu.Unlock()
@@ -146,13 +146,13 @@ func parseBackendShare(data []byte) {
 		}
 		changed := !p.Sharee
 		bwChanged := !p.BeWho
-		if me, ok := players[playerName]; ok {
-			sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-			if p.SameClan != sc {
-				p.SameClan = sc
-				changed = true
-			}
-		}
+        if me, ok := players[playerName]; ok {
+            sc := sameRealClan(me.Clan, p.Clan)
+            if p.SameClan != sc {
+                p.SameClan = sc
+                changed = true
+            }
+        }
 		p.BeWho = true
 		p.Sharee = true
 		p.LastSeen = time.Now()
@@ -175,13 +175,13 @@ func parseBackendShare(data []byte) {
 		}
 		changed := !p.Sharing
 		bwChanged := !p.BeWho
-		if me, ok := players[playerName]; ok {
-			sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-			if p.SameClan != sc {
-				p.SameClan = sc
-				changed = true
-			}
-		}
+        if me, ok := players[playerName]; ok {
+            sc := sameRealClan(me.Clan, p.Clan)
+            if p.SameClan != sc {
+                p.SameClan = sc
+                changed = true
+            }
+        }
 		p.BeWho = true
 		p.Sharing = true
 		p.LastSeen = time.Now()
@@ -246,13 +246,13 @@ func parseBackendWho(data []byte) {
 		p.Offline = false
 		bwChanged := !p.BeWho
 		scChanged := false
-		if me, ok := players[playerName]; ok {
-			sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-			if p.SameClan != sc {
-				p.SameClan = sc
-				scChanged = true
-			}
-		}
+        if me, ok := players[playerName]; ok {
+            sc := sameRealClan(me.Clan, p.Clan)
+            if p.SameClan != sc {
+                p.SameClan = sc
+                scChanged = true
+            }
+        }
 		p.BeWho = true
 		playerCopy := *p
 		playersMu.Unlock()

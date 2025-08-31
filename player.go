@@ -89,10 +89,10 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	p.Offline = false
 	bwChanged := !p.BeWho
 	p.BeWho = true
-	prevSC := p.SameClan
-	if me, ok := players[playerName]; ok {
-		p.SameClan = me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
-	}
+    prevSC := p.SameClan
+    if me, ok := players[playerName]; ok {
+        p.SameClan = sameRealClan(me.Clan, p.Clan)
+    }
 	playerCopy := *p
 	playersMu.Unlock()
 	playersDirty = true
