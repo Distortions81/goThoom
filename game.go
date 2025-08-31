@@ -589,7 +589,9 @@ func (g *Game) Update() error {
 		eui.ClearFocus(inputFlow.Contents[0])
 		inputFlow.Contents[0].Focused = false
 	}
-	eui.Update() //We really need this to return eaten clicks
+    eui.Update() //We really need this to return eaten clicks
+    // Advance plugin tick waiters once per frame
+    pluginAdvanceTick()
 	typingElsewhere := typingInUI()
 	if inputActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
 		item := inputFlow.Contents[0]

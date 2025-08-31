@@ -9,23 +9,18 @@ package gt
 
 import "time"
 
-// APIVersion exposes the client plugin API version so plugins can declare
-// compatibility, e.g.: const PluginAPIVersion = gt.APIVersion
-var APIVersion int
-
 // ClientVersion mirrors the client version value exported to plugins.
 var ClientVersion int
 
-// Logf is a no-op printf-style logger for editor/linter happiness.
-func Logf(format string, args ...interface{}) {}
-
 // Console writes a message to the in-client console.
 func Console(msg string) {}
+
 // Print writes a message to the in-client console (alias).
 func Print(msg string) {}
 
 // ShowNotification displays a notification bubble.
 func ShowNotification(msg string) {}
+
 // Notify displays a notification bubble (alias).
 func Notify(msg string) {}
 
@@ -46,6 +41,15 @@ type Hotkey struct {
 	Disabled bool
 }
 
+// HotkeyEvent describes which key(s) or mouse button triggered a plugin hotkey.
+// Combo is the full recorded combo string (e.g., "Ctrl-Shift-D" or "RightClick").
+// Parts are the components split by '-', and Trigger is usually the last part.
+type HotkeyEvent struct {
+	Combo   string
+	Parts   []string
+	Trigger string
+}
+
 // Hotkeys returns the plugin's registered hotkeys.
 func Hotkeys() []Hotkey { return nil }
 
@@ -60,6 +64,10 @@ func RunCommand(cmd string) {}
 
 // EnqueueCommand queues a command for the next tick without echoing.
 func EnqueueCommand(cmd string) {}
+
+// AddHotkeyFn binds a key combo to a function handler.
+// The handler receives which key(s)/button triggered it via HotkeyEvent.
+func AddHotkeyFn(combo string, handler func(HotkeyEvent)) {}
 
 // IgnoreCase reports whether a and b are equal ignoring capitalization.
 func IgnoreCase(a, b string) bool { return false }
@@ -100,9 +108,6 @@ func AddMacro(short, full string) {}
 // AddMacros registers multiple macros at once.
 func AddMacros(macros map[string]string) {}
 
-// AutoReply sends a command when a chat message begins with trigger.
-func AutoReply(trigger, command string) {}
-
 // PlayerName returns the current player's name.
 func PlayerName() string { return "" }
 
@@ -142,38 +147,40 @@ func Players() []Player { return nil }
 func RegisterTriggers(name string, phrases []string, fn func(msg string)) {}
 
 // Chat helpers (one phrase per call)
-func Chat(phrase string, fn func(msg string)) {}
-func PlayerChat(phrase string, fn func(msg string)) {}
-func NPCChat(phrase string, fn func(msg string)) {}
-func CreatureChat(phrase string, fn func(msg string)) {}
-func SelfChat(phrase string, fn func(msg string)) {}
-func OtherChat(name, phrase string, fn func(msg string)) {}
-func ChatFrom(name, phrase string, fn func(msg string)) {}
+func Chat(phrase string, fn func(msg string))                 {}
+func PlayerChat(phrase string, fn func(msg string))           {}
+func NPCChat(phrase string, fn func(msg string))              {}
+func CreatureChat(phrase string, fn func(msg string))         {}
+func SelfChat(phrase string, fn func(msg string))             {}
+func OtherChat(name, phrase string, fn func(msg string))      {}
+func ChatFrom(name, phrase string, fn func(msg string))       {}
 func PlayerChatFrom(name, phrase string, fn func(msg string)) {}
-func OtherChatFrom(name, phrase string, fn func(msg string)) {}
+func OtherChatFrom(name, phrase string, fn func(msg string))  {}
 
 // Timers: by milliseconds or by duration
-func After(ms int, fn func()) {}
-func Every(ms int, fn func()) {}
+func After(ms int, fn func())             {}
+func Every(ms int, fn func())             {}
 func AfterDur(d time.Duration, fn func()) {}
 func EveryDur(d time.Duration, fn func()) {}
 
-// Console registers a single console phrase; handler receives the full message text.
-func Console(phrase string, fn func(msg string)) {}
+// SleepTicks blocks the current handler goroutine for a number of server frames.
+func SleepTicks(ticks int) {}
+
 // ConsoleMsg is an alias of Console.
 func ConsoleMsg(phrase string, fn func(msg string)) {}
 
 // Minimal DSL helpers
-func Cmd(text string) {}
-func Run(text string) {}
-func Me() string { return "" }
-func Has(name string) bool { return false }
-func Toggle(id uint16) {}
+func Cmd(text string)        {}
+func Run(text string)        {}
+func Me() string             { return "" }
+func Has(name string) bool   { return false }
+func Toggle(id uint16)       {}
 func Save(key, value string) {}
 func Load(key string) string { return "" }
-func Delete(key string) {}
-func Input() string { return "" }
-func SetInput(text string) {}
+func Delete(key string)      {}
+func Input() string          { return "" }
+func SetInput(text string)   {}
+
 // (Intentionally no helpers that duplicate in-game slash commands
 // like Thank/Curse/Share/Unshare; use Cmd("/...") in scripts.)
 
@@ -205,24 +212,11 @@ type InventoryItem struct {
 // Inventory returns the player's inventory.
 func Inventory() []InventoryItem { return nil }
 
-// ToggleEquip toggles the equipped state of an item by ID.
-func ToggleEquip(id uint16) {}
-
 // InputText returns the current text in the input bar.
 func InputText() string { return "" }
 
 // SetInputText replaces the text in the input bar.
 func SetInputText(text string) {}
-
-// Stats mirrors the player's HP, SP, and balance values.
-type Stats struct {
-	HP, HPMax           int
-	SP, SPMax           int
-	Balance, BalanceMax int
-}
-
-// PlayerStats returns the player's current stat values.
-func PlayerStats() Stats { return Stats{} }
 
 // Equip equips the specified item by ID if it isn't already equipped.
 func Equip(id uint16) {}
@@ -233,14 +227,8 @@ func Unequip(id uint16) {}
 // PlaySound plays the sounds referenced by the provided IDs.
 func PlaySound(ids []uint16) {}
 
-// KeyPressed reports whether the given key is currently pressed.
-func KeyPressed(name string) bool { return false }
-
 // KeyJustPressed reports whether the given key was pressed this frame.
 func KeyJustPressed(name string) bool { return false }
-
-// MousePressed reports whether the given mouse button is pressed.
-func MousePressed(name string) bool { return false }
 
 // MouseJustPressed reports whether the given mouse button was pressed this frame.
 func MouseJustPressed(name string) bool { return false }
@@ -273,23 +261,25 @@ func EquippedItems() []InventoryItem { return nil }
 // HasItem reports whether an inventory item with the given name exists.
 func HasItem(name string) bool { return false }
 
-// FrameNumber returns the current frame counter.
-func FrameNumber() int { return 0 }
-
 // StorageGet retrieves a value previously stored with StorageSet.
 func StorageGet(key string) any { return nil }
 
 // Chat trigger flags
 const (
-    ChatAny      = 1 << iota // match any chat message
-    ChatPlayer               // message from a known player (not NPC)
-    ChatNPC                  // message from a known NPC
-    ChatCreature             // message from an unknown/non-player speaker
-    ChatSelf                 // message from yourself
-    ChatOther                // message not from yourself
+	ChatAny      = 1 << iota // match any chat message
+	ChatPlayer               // message from a known player (not NPC)
+	ChatNPC                  // message from a known NPC
+	ChatCreature             // message from an unknown/non-player speaker
+	ChatSelf                 // message from yourself
+	ChatOther                // message not from yourself
 )
+
 // StorageSet stores a value associated with key for the plugin.
 func StorageSet(key string, value any) {}
 
 // StorageDelete removes a stored value for key.
 func StorageDelete(key string) {}
+
+// RegisterChatHandler registers a callback for any chat message.
+// The handler receives the full message text.
+func RegisterChatHandler(fn func(msg string)) {}

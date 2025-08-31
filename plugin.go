@@ -61,31 +61,23 @@ var basePluginExports = interp.Exports{
 	// Short path used by simple plugin scripts: import "gt"
 	// Yaegi expects keys as "importPath/pkgName".
 	"gt/gt": {
-		"APIVersion":       reflect.ValueOf(pluginAPICurrentVersion),
 		"Console":          reflect.ValueOf(pluginConsole),
 		"ShowNotification": reflect.ValueOf(pluginShowNotification),
 		"ClientVersion":    reflect.ValueOf(&clientVersion).Elem(),
 		"PlayerName":       reflect.ValueOf(pluginPlayerName),
 		"Players":          reflect.ValueOf(pluginPlayers),
-		"Player":           reflect.ValueOf((*Player)(nil)),
 		"Inventory":        reflect.ValueOf(pluginInventory),
 		"InventoryItem":    reflect.ValueOf((*InventoryItem)(nil)),
 		"PlaySound":        reflect.ValueOf(pluginPlaySound),
 		"InputText":        reflect.ValueOf(pluginInputText),
 		"SetInputText":     reflect.ValueOf(pluginSetInputText),
-		"PlayerStats":      reflect.ValueOf(pluginPlayerStats),
-		"Stats":            reflect.ValueOf((*Stats)(nil)),
-		"KeyPressed":       reflect.ValueOf(pluginKeyPressed),
 		"KeyJustPressed":   reflect.ValueOf(pluginKeyJustPressed),
-		"MousePressed":     reflect.ValueOf(pluginMousePressed),
 		"MouseJustPressed": reflect.ValueOf(pluginMouseJustPressed),
 		"MouseWheel":       reflect.ValueOf(pluginMouseWheel),
-		"LastClick":        reflect.ValueOf(pluginLastClick),
 		"ClickInfo":        reflect.ValueOf((*ClickInfo)(nil)),
 		"Mobile":           reflect.ValueOf((*Mobile)(nil)),
 		"EquippedItems":    reflect.ValueOf(pluginEquippedItems),
 		"HasItem":          reflect.ValueOf(pluginHasItem),
-		"FrameNumber":      reflect.ValueOf(pluginFrameNumber),
 		"IgnoreCase":       reflect.ValueOf(pluginIgnoreCase),
 		"StartsWith":       reflect.ValueOf(pluginStartsWith),
 		"EndsWith":         reflect.ValueOf(pluginEndsWith),
@@ -99,6 +91,8 @@ var basePluginExports = interp.Exports{
 		"Join":             reflect.ValueOf(pluginJoin),
 		"Replace":          reflect.ValueOf(pluginReplace),
 		"Split":            reflect.ValueOf(pluginSplit),
+		// Hotkey event type for function-based hotkeys
+		"HotkeyEvent": reflect.ValueOf((*HotkeyEvent)(nil)),
 		// Chat trigger flags
 		"ChatAny":      reflect.ValueOf(ChatAny),
 		"ChatPlayer":   reflect.ValueOf(ChatPlayer),
@@ -119,6 +113,7 @@ func exportsForPlugin(owner string) interp.Exports {
 		m["Equip"] = reflect.ValueOf(func(id uint16) { pluginEquip(owner, id) })
 		m["Unequip"] = reflect.ValueOf(func(id uint16) { pluginUnequip(owner, id) })
 		m["AddHotkey"] = reflect.ValueOf(func(combo, command string) { pluginAddHotkey(owner, combo, command) })
+		m["AddHotkeyFn"] = reflect.ValueOf(func(combo string, handler func(HotkeyEvent)) { pluginAddHotkeyFn(owner, combo, handler) })
 		m["RemoveHotkey"] = reflect.ValueOf(func(combo string) { pluginRemoveHotkey(owner, combo) })
 		m["RegisterCommand"] = reflect.ValueOf(func(name string, handler PluginCommandHandler) {
 			pluginRegisterCommand(owner, name, handler)
@@ -133,7 +128,6 @@ func exportsForPlugin(owner string) interp.Exports {
 		m["Run"] = reflect.ValueOf(func(text string) { pluginRunCommand(owner, strings.TrimSpace(text)) })
 		m["Me"] = reflect.ValueOf(pluginPlayerName)
 		m["Has"] = reflect.ValueOf(func(name string) bool { return pluginHasItem(name) })
-		m["Toggle"] = reflect.ValueOf(func(id uint16) { pluginToggleEquip(owner, id) })
 		m["Save"] = reflect.ValueOf(func(key, value string) { pluginStorageSet(owner, key, value) })
 		m["Load"] = reflect.ValueOf(func(key string) string {
 			if v, ok := pluginStorageGet(owner, key).(string); ok {
@@ -211,6 +205,8 @@ func exportsForPlugin(owner string) interp.Exports {
 				pluginRegisterConsole(owner, []string{p}, handler)
 			}
 		})
+		// Sleep for game ticks (blocks current goroutine only)
+		m["SleepTicks"] = reflect.ValueOf(func(ticks int) { pluginSleepTicks(owner, ticks) })
 		// Simpler alias: Console("text", fn)
 		m["Console"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
@@ -505,6 +501,100 @@ func pluginAddHotkey(owner, combo, command string) {
 	log.Print(msg)
 }
 
+// HotkeyEvent describes a triggered hotkey in a compact form.
+// Combo is the full combo string (e.g., "Ctrl-Shift-D", "RightClick").
+// Parts is Combo split at '-', and Trigger is usually the last element
+// (e.g., "D", "RightClick", "WheelUp").
+type HotkeyEvent struct {
+	Combo   string
+	Parts   []string
+	Trigger string
+}
+
+var (
+	pluginHotkeyFnMu sync.RWMutex
+	pluginHotkeyFns  = map[string]map[string]func(HotkeyEvent){}
+)
+
+// pluginAddHotkeyFn registers a function-based hotkey for a plugin.
+// The hotkey appears in the "Plugin Hotkeys" list and can be enabled/disabled
+// like command-based hotkeys, but when pressed it will call the provided
+// handler instead of emitting a slash command.
+func pluginAddHotkeyFn(owner, combo string, handler func(HotkeyEvent)) {
+	if pluginIsDisabled(owner) || handler == nil {
+		return
+	}
+	// Remember handler
+	pluginHotkeyFnMu.Lock()
+	m := pluginHotkeyFns[owner]
+	if m == nil {
+		m = map[string]func(HotkeyEvent){}
+		pluginHotkeyFns[owner] = m
+	}
+	m[combo] = handler
+	pluginHotkeyFnMu.Unlock()
+
+	// Ensure a visible toggleable hotkey entry exists for this plugin+combo.
+	hk := Hotkey{Name: "", Combo: combo, Plugin: owner, Disabled: true}
+	pluginHotkeyMu.RLock()
+	if m := pluginHotkeyEnabled[owner]; m != nil {
+		if m[combo] {
+			hk.Disabled = false
+		}
+	}
+	pluginHotkeyMu.RUnlock()
+	hotkeysMu.Lock()
+	for _, existing := range hotkeys {
+		if existing.Plugin == owner && existing.Combo == combo {
+			hotkeysMu.Unlock()
+			refreshHotkeysList()
+			saveHotkeys()
+			return
+		}
+	}
+	hotkeys = append(hotkeys, hk)
+	hotkeysMu.Unlock()
+	pluginHotkeyMu.Lock()
+	if hk.Disabled {
+		if m := pluginHotkeyEnabled[owner]; m != nil {
+			delete(m, combo)
+			if len(m) == 0 {
+				delete(pluginHotkeyEnabled, owner)
+			}
+		}
+	} else {
+		m := pluginHotkeyEnabled[owner]
+		if m == nil {
+			m = map[string]bool{}
+			pluginHotkeyEnabled[owner] = m
+		}
+		m[combo] = true
+	}
+	pluginHotkeyMu.Unlock()
+	refreshHotkeysList()
+	saveHotkeys()
+	name := pluginDisplayNames[owner]
+	if name == "" {
+		name = owner
+	}
+	msg := fmt.Sprintf("[plugin:%s] hotkey added: %s -> <function>", name, combo)
+	if gs.pluginOutputDebug {
+		consoleMessage(msg)
+	}
+	log.Print(msg)
+}
+
+func pluginGetHotkeyFn(owner, combo string) (func(HotkeyEvent), bool) {
+	pluginHotkeyFnMu.RLock()
+	defer pluginHotkeyFnMu.RUnlock()
+	if m := pluginHotkeyFns[owner]; m != nil {
+		if fn := m[combo]; fn != nil {
+			return fn, true
+		}
+	}
+	return nil, false
+}
+
 // Plugin command registries.
 type PluginCommandHandler func(args string)
 
@@ -545,7 +635,52 @@ var (
 	// timers per plugin owner
 	pluginTimers      = map[string][]*time.Timer{}
 	pluginTickerStops = map[string][]chan struct{}{}
+	pluginTickWaiters = map[string][]*tickWaiter{}
 )
+
+type tickWaiter struct {
+	remain int
+	done   chan struct{}
+}
+
+func pluginSleepTicks(owner string, ticks int) {
+	if ticks <= 0 {
+		return
+	}
+	w := &tickWaiter{remain: ticks, done: make(chan struct{}, 1)}
+	pluginMu.Lock()
+	pluginTickWaiters[owner] = append(pluginTickWaiters[owner], w)
+	pluginMu.Unlock()
+	<-w.done
+}
+
+func pluginAdvanceTick() {
+	pluginMu.Lock()
+	for owner, list := range pluginTickWaiters {
+		n := 0
+		for _, w := range list {
+			if w == nil {
+				continue
+			}
+			w.remain--
+			if w.remain <= 0 {
+				select {
+				case w.done <- struct{}{}:
+				default:
+				}
+			} else {
+				list[n] = w
+				n++
+			}
+		}
+		if n == 0 {
+			delete(pluginTickWaiters, owner)
+		} else {
+			pluginTickWaiters[owner] = list[:n]
+		}
+	}
+	pluginMu.Unlock()
+}
 
 const (
 	minPluginMetaLen = 2
@@ -746,6 +881,10 @@ func disablePlugin(owner, reason string) {
 		}
 	}
 	triggerHandlersMu.Unlock()
+	// Remove function hotkeys
+	pluginHotkeyFnMu.Lock()
+	delete(pluginHotkeyFns, owner)
+	pluginHotkeyFnMu.Unlock()
 	refreshTriggersList()
 	playerHandlersMu.Lock()
 	for i := len(pluginPlayerHandlers) - 1; i >= 0; i-- {
@@ -754,6 +893,36 @@ func disablePlugin(owner, reason string) {
 		}
 	}
 	playerHandlersMu.Unlock()
+	// Stop any timers/tickers and tick waiters for this plugin
+	pluginMu.Lock()
+	if list := pluginTimers[owner]; len(list) > 0 {
+		for _, t := range list {
+			if t != nil {
+				t.Stop()
+			}
+		}
+		delete(pluginTimers, owner)
+	}
+	if stops := pluginTickerStops[owner]; len(stops) > 0 {
+		for _, ch := range stops {
+			if ch != nil {
+				close(ch)
+			}
+		}
+		delete(pluginTickerStops, owner)
+	}
+	if waits := pluginTickWaiters[owner]; len(waits) > 0 {
+		for _, w := range waits {
+			if w != nil {
+				select {
+				case w.done <- struct{}{}:
+				default:
+				}
+			}
+		}
+		delete(pluginTickWaiters, owner)
+	}
+	pluginMu.Unlock()
 	pluginMu.Lock()
 	for cmd, o := range pluginCommandOwners {
 		if o == owner {

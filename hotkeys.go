@@ -954,18 +954,28 @@ func checkHotkeys() {
 	if recording || inputActive || typingInUI() {
 		return
 	}
-	if combo := detectCombo(); combo != "" {
-		hotkeysMu.RLock()
-		list := append([]Hotkey(nil), hotkeys...)
-		hotkeysMu.RUnlock()
-		for _, hk := range list {
-			if hk.Combo == combo && !hk.Disabled {
-				for _, c := range hk.Commands {
-					cmd := strings.TrimSpace(c.Command)
-					lower := strings.ToLower(cmd)
-					if lower == "/fullscreen" {
-						SettingsLock.Lock()
-						gs.Fullscreen = !gs.Fullscreen
+    if combo := detectCombo(); combo != "" {
+        hotkeysMu.RLock()
+        list := append([]Hotkey(nil), hotkeys...)
+        hotkeysMu.RUnlock()
+        for _, hk := range list {
+            if hk.Combo == combo && !hk.Disabled {
+                // If this is a plugin hotkey with a function handler, call it.
+                if hk.Plugin != "" {
+                    if fn, ok := pluginGetHotkeyFn(hk.Plugin, hk.Combo); ok && fn != nil {
+                        parts := strings.Split(combo, "-")
+                        trig := ""
+                        if len(parts) > 0 { trig = parts[len(parts)-1] }
+                        ev := HotkeyEvent{Combo: combo, Parts: parts, Trigger: trig}
+                        go fn(ev)
+                    }
+                }
+                for _, c := range hk.Commands {
+                    cmd := strings.TrimSpace(c.Command)
+                    lower := strings.ToLower(cmd)
+                    if lower == "/fullscreen" {
+                        SettingsLock.Lock()
+                        gs.Fullscreen = !gs.Fullscreen
 						ebiten.SetFullscreen(gs.Fullscreen)
 						ebiten.SetWindowFloating(gs.Fullscreen || gs.AlwaysOnTop)
 						SettingsLock.Unlock()
@@ -988,11 +998,11 @@ func checkHotkeys() {
                             consoleMessage("> " + cmd)
                         }
                     }
-					enqueueCommand(cmd)
-				}
-				nextCommand()
-				break
-			}
-		}
-	}
+                    enqueueCommand(cmd)
+                }
+                nextCommand()
+                break
+            }
+        }
+    }
 }

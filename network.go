@@ -200,11 +200,13 @@ func processServerMessage(msg []byte) {
 		return
 	}
 	tag := binary.BigEndian.Uint16(msg[:2])
-	if tag == 2 {
-		noteFrame()
-		handleDrawState(msg, true)
-		return
-	}
+    if tag == 2 {
+        noteFrame()
+        // Advance plugin tick sleepers on each server frame
+        pluginAdvanceTick()
+        handleDrawState(msg, true)
+        return
+    }
 	if txt := decodeMessage(msg); txt != "" {
 		consoleMessage(txt)
 	} else {
