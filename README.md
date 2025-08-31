@@ -18,7 +18,7 @@ An open-source (MIT) client for the classic **[Clan Lord](https://www.deltatao.c
 - Quicktime MIDI is dead on modern OS X
 - Quicktime for Windows is unsupported past Windows 7 (last updated 2009) and is a real security risk
 - A number of security concerns with the old client
-- All existing clients are single-platform
+- All existing (functioning) clients are single-platform and closed-source
 - Input schemes are odd or outdated
 - Macros seem to be manitory to keep up. Most available are ancient, difficult to find and require fiddling in a odd macro language
 
