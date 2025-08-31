@@ -1,16 +1,16 @@
 package main
 
 import (
-    "embed"
-    "fmt"
-    "strconv"
-    "log"
-    "os"
-    "path"
-    "path/filepath"
-    "reflect"
+	"embed"
+	"fmt"
+	"log"
+	"os"
+	"path"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -60,9 +60,9 @@ func (s pluginScope) empty() bool { return !s.All && (s.Chars == nil || len(s.Ch
 var basePluginExports = interp.Exports{
 	// Short path used by simple plugin scripts: import "gt"
 	// Yaegi expects keys as "importPath/pkgName".
-    "gt/gt": {
-        "APIVersion":       reflect.ValueOf(pluginAPICurrentVersion),
-        "Console":          reflect.ValueOf(pluginConsole),
+	"gt/gt": {
+		"APIVersion":       reflect.ValueOf(pluginAPICurrentVersion),
+		"Console":          reflect.ValueOf(pluginConsole),
 		"ShowNotification": reflect.ValueOf(pluginShowNotification),
 		"ClientVersion":    reflect.ValueOf(&clientVersion).Elem(),
 		"PlayerName":       reflect.ValueOf(pluginPlayerName),
@@ -125,7 +125,7 @@ func exportsForPlugin(owner string) interp.Exports {
 		})
 		m["AddMacro"] = reflect.ValueOf(func(short, full string) { pluginAddMacro(owner, short, full) })
 		m["AddMacros"] = reflect.ValueOf(func(macros map[string]string) { pluginAddMacros(owner, macros) })
-        // Chat/Console (simple, no slices)
+		// Chat/Console (simple, no slices)
 		// Simple DSL aliases
 		m["Print"] = reflect.ValueOf(pluginConsole)
 		m["Notify"] = reflect.ValueOf(pluginShowNotification)
@@ -149,53 +149,75 @@ func exportsForPlugin(owner string) interp.Exports {
 		// No-slice chat/console helpers (one call per phrase)
 		m["Chat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatAny, handler) }
+			if p != "" {
+				pluginRegisterChat(owner, "", []string{p}, ChatAny, handler)
+			}
 		})
 		m["PlayerChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatPlayer, handler) }
+			if p != "" {
+				pluginRegisterChat(owner, "", []string{p}, ChatPlayer, handler)
+			}
 		})
 		m["NPCChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatNPC, handler) }
+			if p != "" {
+				pluginRegisterChat(owner, "", []string{p}, ChatNPC, handler)
+			}
 		})
 		m["CreatureChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatCreature, handler) }
+			if p != "" {
+				pluginRegisterChat(owner, "", []string{p}, ChatCreature, handler)
+			}
 		})
 		m["SelfChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
 			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterChat(owner, "", []string{p}, ChatSelf, handler) }
+			if p != "" {
+				pluginRegisterChat(owner, "", []string{p}, ChatSelf, handler)
+			}
 		})
 		m["OtherChat"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
 			n := strings.TrimSpace(name)
 			p := strings.TrimSpace(phrase)
-			if p != "" { pluginRegisterChat(owner, n, []string{p}, ChatOther, handler) }
+			if p != "" {
+				pluginRegisterChat(owner, n, []string{p}, ChatOther, handler)
+			}
 		})
 		m["ChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
 			n := strings.TrimSpace(name)
 			p := strings.TrimSpace(phrase)
-			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatAny, handler) }
+			if n != "" && p != "" {
+				pluginRegisterChat(owner, n, []string{p}, ChatAny, handler)
+			}
 		})
 		m["PlayerChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
 			n := strings.TrimSpace(name)
 			p := strings.TrimSpace(phrase)
-			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatPlayer, handler) }
+			if n != "" && p != "" {
+				pluginRegisterChat(owner, n, []string{p}, ChatPlayer, handler)
+			}
 		})
 		m["OtherChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
 			n := strings.TrimSpace(name)
 			p := strings.TrimSpace(phrase)
-			if n != "" && p != "" { pluginRegisterChat(owner, n, []string{p}, ChatOther, handler) }
+			if n != "" && p != "" {
+				pluginRegisterChat(owner, n, []string{p}, ChatOther, handler)
+			}
 		})
-        m["ConsoleMsg"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-            p := strings.TrimSpace(phrase)
-            if p != "" { pluginRegisterConsole(owner, []string{p}, handler) }
-        })
-        // Simpler alias: Console("text", fn)
-        m["Console"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-            p := strings.TrimSpace(phrase)
-            if p != "" { pluginRegisterConsole(owner, []string{p}, handler) }
-        })
+		m["ConsoleMsg"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" {
+				pluginRegisterConsole(owner, []string{p}, handler)
+			}
+		})
+		// Simpler alias: Console("text", fn)
+		m["Console"] = reflect.ValueOf(func(phrase string, handler func(string)) {
+			p := strings.TrimSpace(phrase)
+			if p != "" {
+				pluginRegisterConsole(owner, []string{p}, handler)
+			}
+		})
 		m["RegisterInputHandler"] = reflect.ValueOf(func(fn func(string) string) { pluginRegisterInputHandler(owner, fn) })
 		m["RunCommand"] = reflect.ValueOf(func(cmd string) { pluginRunCommand(owner, cmd) })
 		m["EnqueueCommand"] = reflect.ValueOf(func(cmd string) { pluginEnqueueCommand(owner, cmd) })
@@ -205,20 +227,54 @@ func exportsForPlugin(owner string) interp.Exports {
 
 		// Timers
 		m["After"] = reflect.ValueOf(func(ms int, fn func()) {
-			if fn == nil || ms <= 0 { return }
+			if fn == nil || ms <= 0 {
+				return
+			}
 			t := time.AfterFunc(time.Duration(ms)*time.Millisecond, fn)
 			pluginMu.Lock()
 			pluginTimers[owner] = append(pluginTimers[owner], t)
 			pluginMu.Unlock()
 		})
+		m["AfterDur"] = reflect.ValueOf(func(d time.Duration, fn func()) {
+			if fn == nil || d <= 0 {
+				return
+			}
+			t := time.AfterFunc(d, fn)
+			pluginMu.Lock()
+			pluginTimers[owner] = append(pluginTimers[owner], t)
+			pluginMu.Unlock()
+		})
 		m["Every"] = reflect.ValueOf(func(ms int, fn func()) {
-			if fn == nil || ms <= 0 { return }
+			if fn == nil || ms <= 0 {
+				return
+			}
 			stop := make(chan struct{})
 			pluginMu.Lock()
 			pluginTickerStops[owner] = append(pluginTickerStops[owner], stop)
 			pluginMu.Unlock()
-			d := time.Duration(ms)*time.Millisecond
-			go func(){
+			d := time.Duration(ms) * time.Millisecond
+			go func() {
+				ticker := time.NewTicker(d)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						fn()
+					case <-stop:
+						return
+					}
+				}
+			}()
+		})
+		m["EveryDur"] = reflect.ValueOf(func(d time.Duration, fn func()) {
+			if fn == nil || d <= 0 {
+				return
+			}
+			stop := make(chan struct{})
+			pluginMu.Lock()
+			pluginTickerStops[owner] = append(pluginTickerStops[owner], stop)
+			pluginMu.Unlock()
+			go func() {
 				ticker := time.NewTicker(d)
 				defer ticker.Stop()
 				for {
@@ -235,9 +291,11 @@ func exportsForPlugin(owner string) interp.Exports {
 		// Key binding to a function: creates a hidden command and binds a hotkey to it
 		m["Key"] = reflect.ValueOf(func(combo string, handler func()) {
 			c := strings.TrimSpace(combo)
-			if c == "" || handler == nil { return }
+			if c == "" || handler == nil {
+				return
+			}
 			cmd := "__hk_" + strings.ReplaceAll(strings.ToLower(c), " ", "_")
-			pluginRegisterCommand(owner, cmd, func(args string){ handler() })
+			pluginRegisterCommand(owner, cmd, func(args string) { handler() })
 			pluginAddHotkey(owner, c, "/"+cmd)
 		})
 		ex[pkg] = m
@@ -481,12 +539,12 @@ var (
 	pluginInputHandlers   []inputHandler
 	inputHandlersMu       sync.RWMutex
 	pluginCommandOwners   = map[string]string{}
-    pluginSendHistory     = map[string][]time.Time{}
-    pluginModTime         time.Time
-    pluginModCheck        time.Time
-    // timers per plugin owner
-    pluginTimers      = map[string][]*time.Timer{}
-    pluginTickerStops = map[string][]chan struct{}{}
+	pluginSendHistory     = map[string][]time.Time{}
+	pluginModTime         time.Time
+	pluginModCheck        time.Time
+	// timers per plugin owner
+	pluginTimers      = map[string][]*time.Timer{}
+	pluginTickerStops = map[string][]chan struct{}{}
 )
 
 const (
@@ -636,8 +694,8 @@ func recordPluginSend(owner string) bool {
 }
 
 func disablePlugin(owner, reason string) {
-    pluginMu.Lock()
-    pluginDisabled[owner] = true
+	pluginMu.Lock()
+	pluginDisabled[owner] = true
 	if reason != "disabled for this character" && reason != "reloaded" {
 		delete(pluginEnabledFor, owner)
 	}
@@ -817,21 +875,29 @@ func setPluginEnabled(owner string, char, all bool) {
 // and refreshes apply/save/UI. Used by the UI when unchecking the "All" box
 // to explicitly stop a plugin regardless of any per-character flags.
 func clearPluginScope(owner string) {
-    pluginMu.Lock()
-    delete(pluginEnabledFor, owner)
-    pluginMu.Unlock()
-    // Stop scheduled timers/tickers for this plugin
-    if list := pluginTimers[owner]; len(list) > 0 {
-        for _, t := range list { if t != nil { t.Stop() } }
-        delete(pluginTimers, owner)
-    }
-    if stops := pluginTickerStops[owner]; len(stops) > 0 {
-        for _, ch := range stops { if ch != nil { close(ch) } }
-        delete(pluginTickerStops, owner)
-    }
-    applyEnabledPlugins()
-    saveSettings()
-    refreshPluginsWindow()
+	pluginMu.Lock()
+	delete(pluginEnabledFor, owner)
+	pluginMu.Unlock()
+	// Stop scheduled timers/tickers for this plugin
+	if list := pluginTimers[owner]; len(list) > 0 {
+		for _, t := range list {
+			if t != nil {
+				t.Stop()
+			}
+		}
+		delete(pluginTimers, owner)
+	}
+	if stops := pluginTickerStops[owner]; len(stops) > 0 {
+		for _, ch := range stops {
+			if ch != nil {
+				close(ch)
+			}
+		}
+		delete(pluginTickerStops, owner)
+	}
+	applyEnabledPlugins()
+	saveSettings()
+	refreshPluginsWindow()
 }
 
 func pluginPlayerName() string {
@@ -1171,22 +1237,22 @@ func refreshPluginMod() {
 }
 
 type pluginInfo struct {
-    name        string
-    author      string
-    category    string
-    subCategory string
-    path        string
-    src         []byte
-    invalid     bool
-    apiVer      int
+	name        string
+	author      string
+	category    string
+	subCategory string
+	path        string
+	src         []byte
+	invalid     bool
+	apiVer      int
 }
 
 func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pluginInfo {
-    nameRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginName\s*=\s*"([^"]+)"`)
-    authorRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAuthor\s*=\s*"([^"]+)"`)
-    categoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginCategory\s*=\s*"([^"]+)"`)
-    subCategoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginSubCategory\s*=\s*"([^"]+)"`)
-    apiVerRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAPIVersion\s*=\s*([0-9]+)\s*$`)
+	nameRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginName\s*=\s*"([^"]+)"`)
+	authorRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAuthor\s*=\s*"([^"]+)"`)
+	categoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginCategory\s*=\s*"([^"]+)"`)
+	subCategoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginSubCategory\s*=\s*"([^"]+)"`)
+	apiVerRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+PluginAPIVersion\s*=\s*([0-9]+)\s*$`)
 	plugins := map[string]pluginInfo{}
 	seenNames := map[string]bool{}
 	for _, dir := range pluginDirs {
@@ -1227,9 +1293,9 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 			if match := authorRE.FindSubmatch(src); len(match) >= 2 {
 				author = strings.TrimSpace(string(match[1]))
 			}
-            invalid := false
-            apiVer := 0
-            if len(nameMatch) < 2 || name == "" || invalidPluginValue(name) {
+			invalid := false
+			apiVer := 0
+			if len(nameMatch) < 2 || name == "" || invalidPluginValue(name) {
 				if len(nameMatch) < 2 || name == "" {
 					consoleMessage("[plugin] missing name: " + path)
 					name = base
@@ -1253,13 +1319,13 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 					consoleMessage("[plugin] invalid category: " + path)
 				}
 				invalid = true
-            }
-            if m := apiVerRE.FindSubmatch(src); len(m) >= 2 {
-                if n, err := strconv.Atoi(strings.TrimSpace(string(m[1]))); err == nil {
-                    apiVer = n
-                }
-            }
-            lower := strings.ToLower(name)
+			}
+			if m := apiVerRE.FindSubmatch(src); len(m) >= 2 {
+				if n, err := strconv.Atoi(strings.TrimSpace(string(m[1]))); err == nil {
+					apiVer = n
+				}
+			}
+			lower := strings.ToLower(name)
 			if seenNames[lower] {
 				if dup != nil {
 					dup(name, path)
@@ -1268,19 +1334,19 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 			}
 			seenNames[lower] = true
 			owner := name + "_" + base
-            plugins[owner] = pluginInfo{
-                name:        name,
-                author:      author,
-                category:    category,
-                subCategory: subCategory,
-                path:        path,
-                src:         src,
-                invalid:     invalid,
-                apiVer:      apiVer,
-            }
-        }
-    }
-    return plugins
+			plugins[owner] = pluginInfo{
+				name:        name,
+				author:      author,
+				category:    category,
+				subCategory: subCategory,
+				path:        path,
+				src:         src,
+				invalid:     invalid,
+				apiVer:      apiVer,
+			}
+		}
+	}
+	return plugins
 }
 
 func rescanPlugins() {
@@ -1319,13 +1385,13 @@ func rescanPlugins() {
 		pluginAuthors[o] = info.author
 		pluginCategories[o] = info.category
 		pluginSubCategories[o] = info.subCategory
-        // Require a matching plugin API version
-        invalid := info.invalid || info.apiVer != pluginAPICurrentVersion
-        pluginInvalid[o] = invalid
-        if invalid {
-            pluginDisabled[o] = true
-            continue
-        }
+		// Require a matching plugin API version
+		invalid := info.invalid || info.apiVer != pluginAPICurrentVersion
+		pluginInvalid[o] = invalid
+		if invalid {
+			pluginDisabled[o] = true
+			continue
+		}
 		if en, ok := pluginEnabledFor[o]; ok {
 			newEnabled[o] = en
 		} else if gs.EnabledPlugins != nil {
@@ -1386,8 +1452,8 @@ func loadPlugins() {
 		if effChar == "" {
 			effChar = gs.LastCharacter
 		}
-        invalid := info.invalid || info.apiVer != pluginAPICurrentVersion
-        disabled := invalid || !s.enablesFor(effChar)
+		invalid := info.invalid || info.apiVer != pluginAPICurrentVersion
+		disabled := invalid || !s.enablesFor(effChar)
 		pluginMu.Lock()
 		pluginDisplayNames[o] = info.name
 		pluginCategories[o] = info.category
@@ -1397,7 +1463,7 @@ func loadPlugins() {
 			pluginEnabledFor[o] = s
 		}
 		pluginAuthors[o] = info.author
-        pluginInvalid[o] = invalid
+		pluginInvalid[o] = invalid
 		pluginDisabled[o] = disabled
 		pluginMu.Unlock()
 		if !disabled {
