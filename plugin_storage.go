@@ -31,7 +31,9 @@ func pluginStoragePath(owner string) string {
 	pluginMu.RUnlock()
 	sum := sha256.Sum256([]byte(name + ":" + author))
 	file := hex.EncodeToString(sum[:]) + ".json"
-	return filepath.Join(dataDirPath, "plugins", "storage", file)
+    // Store per-script data under data/scripts/storage to avoid cluttering
+    // the executable directory.
+    return filepath.Join(dataDirPath, "scripts", "storage", file)
 }
 
 func getPluginStore(owner string) *pluginStore {

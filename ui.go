@@ -184,7 +184,7 @@ func initUI() {
 	makeWindowsWindow()
 	makeInventoryWindow()
 	makePlayersWindow()
-	makeMacrosWindow()
+    makeShortcutsWindow()
 	makeHotkeysWindow()
 	makeTriggersWindow()
 	makePluginsWindow()
@@ -245,19 +245,19 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			return
 		}
 		r := ev.Item.DrawRect
-		options := []string{
-			"Hotkeys",
-			"Macros",
-			"Triggers",
-			"Plugins",
-		}
+        options := []string{
+            "Hotkeys",
+            "Shortcuts",
+            "Triggers",
+            "Scripts",
+        }
 		eui.ShowContextMenu(options, r.X0, r.Y1, func(i int) {
 			switch i {
 			case 0:
 				hotkeysWin.ToggleNear(actionsBtn)
-			case 1:
-				refreshMacrosList()
-				macrosWin.ToggleNear(actionsBtn)
+            case 1:
+                refreshShortcutsList()
+                shortcutsWin.ToggleNear(actionsBtn)
 			case 2:
 				refreshTriggersList()
 				triggersWin.ToggleNear(actionsBtn)
@@ -351,8 +351,8 @@ func makePluginsWindow() {
 	if pluginsWin != nil {
 		return
 	}
-	pluginsWin = eui.NewWindow()
-	pluginsWin.Title = "Plugins"
+    pluginsWin = eui.NewWindow()
+    pluginsWin.Title = "Scripts"
 	pluginsWin.Closable = true
 	pluginsWin.Resizable = false
 	pluginsWin.AutoSize = true
@@ -386,11 +386,11 @@ func makePluginsWindow() {
 	buttonsBottom.AddItem(refreshBtn)
 
 	openBtn, oh := eui.NewButton()
-	openBtn.Text = "Open plugins folder"
+    openBtn.Text = "Open scripts folder"
 	openBtn.Size = eui.Point{X: 160, Y: 24}
 	oh.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			open.Run(userPluginsDir())
+            open.Run(userScriptsDir())
 		}
 	}
 	buttonsBottom.AddItem(openBtn)
@@ -629,21 +629,21 @@ func refreshPluginDetails() {
 		}
 		catLabel += sub
 	}
-	line("Category: " + catLabel)
-	line("Status: " + status)
+    line("Category: " + catLabel)
+    line("Status: " + status)
 	errText := "None"
 	if invalid {
 		errText = "Invalid plugin"
 	}
 	line("Errors: " + errText)
 
-	macroMu.RLock()
-	m := macroMaps[owner]
-	macroMu.RUnlock()
-	if len(m) == 0 {
-		line("Macros: none")
-	} else {
-		line("Macros:")
+    shortcutMu.RLock()
+    m := shortcutMaps[owner]
+    shortcutMu.RUnlock()
+    if len(m) == 0 {
+        line("Shortcuts: none")
+    } else {
+        line("Shortcuts:")
 		type pair struct{ short, full string }
 		var list []pair
 		for k, v := range m {

@@ -4,7 +4,7 @@ package main
 
 import "gt"
 
-// Default Macros – type short codes that expand into full commands.
+// Default Shortcuts – type short codes that expand into full commands.
 //
 // Notes for non‑technical players:
 // - Type these at the very start of the chat bar. Example: pp hello → /ponder hello
@@ -12,13 +12,13 @@ import "gt"
 // - You can add or remove entries in the list below; each line is "short": "full".
 
 const PluginAPIVersion = 1
-const PluginName = "Default Macros"
+const PluginName = "Default Shortcuts"
 const PluginAuthor = "Distortions"
 const PluginCategory = "Quality Of Life"
 
 func Init() {
     // Keys are what you type; values are the full command to send.
-    macros := map[string]string{
+    shortcuts := map[string]string{
         "??": "/help ",
         "aa": "/action ",
         "gg": "/give ",
@@ -41,5 +41,6 @@ func Init() {
         "yy": "/yell ",
     }
     // Register them in a single call.
-    gt.AddMacros(macros)
+    gt.AddShortcuts(shortcuts)
 }
+

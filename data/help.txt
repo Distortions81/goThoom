@@ -14,7 +14,7 @@ Communication
 UI Navigation
 -------------
 - Click the "Windows" button on the toolbar to open/close UI windows.
-- Click the "Actions" button on the toolbar for hotkeys, macros, or plugins.
+- Click the "Actions" button on the toolbar for hotkeys, shortcuts, or scripts.
 - Mouse wheel scrolls lists and text windows.
 - Window positions, sizes, and open/closed state persist between runs.
 
@@ -40,9 +40,9 @@ Inventory
 Other Windows
 -------------
 - Help: this guide. Open via Windows → Help.
-- Hotkeys: configure built-in and plugin hotkeys.
-- Macros: define text expansions for the input bar.
-- Triggers: view plugin trigger phrases.
+- Hotkeys: configure built-in and script hotkeys.
+- Shortcuts: define text expansions for the input bar.
+- Triggers: view script trigger phrases.
 - Mixer: adjust overall, game, music, and TTS volumes; toggle channels.
 - Settings/Quality: tweak visuals (motion smoothing, blending), sound, notifications, and presets.
 

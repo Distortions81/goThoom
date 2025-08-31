@@ -223,7 +223,7 @@ func TestDisablePluginRemovesHandlers(t *testing.T) {
 	pluginMu = sync.RWMutex{}
 	pluginDisabled = map[string]bool{}
 	pluginInvalid = map[string]bool{}
-	pluginEnabledFor = map[string]string{}
+    pluginEnabledFor = map[string]pluginScope{}
 	pluginDisplayNames = map[string]string{"plug": "Plug"}
 	pluginTerminators = map[string]func(){}
 	pluginCommandOwners = map[string]string{}

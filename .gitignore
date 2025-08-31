@@ -31,10 +31,11 @@ example_plugins.zip
 *.icns
 gt.zip
 data/plugins/
+data/scripts
+data/scripts/
 dump/
 Text Logs/
 gothoom_deps.tar.gz
 spellcheck_words.txt
 *.wav
 .gocache-local/
-

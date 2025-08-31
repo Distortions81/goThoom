@@ -14,8 +14,8 @@ func TestTriggersWindowListsTriggers(t *testing.T) {
 	pluginSubCategories = map[string]string{}
 	triggersWin = nil
 	triggersList = nil
-	macroMu = sync.RWMutex{}
-	macroMaps = map[string]map[string]string{}
+    shortcutMu = sync.RWMutex{}
+    shortcutMaps = map[string]map[string]string{}
 	t.Cleanup(func() {
 		triggerHandlersMu = sync.RWMutex{}
 		pluginTriggers = map[string][]triggerHandler{}
@@ -24,8 +24,8 @@ func TestTriggersWindowListsTriggers(t *testing.T) {
 		pluginSubCategories = map[string]string{}
 		triggersWin = nil
 		triggersList = nil
-		macroMu = sync.RWMutex{}
-		macroMaps = map[string]map[string]string{}
+        shortcutMu = sync.RWMutex{}
+        shortcutMaps = map[string]map[string]string{}
 	})
 
 	makeTriggersWindow()
@@ -57,12 +57,12 @@ func TestDisablePluginRefreshesTriggers(t *testing.T) {
 	pluginSubCategories = map[string]string{}
 	triggersWin = nil
 	triggersList = nil
-	macroMu = sync.RWMutex{}
-	macroMaps = map[string]map[string]string{}
+    shortcutMu = sync.RWMutex{}
+    shortcutMaps = map[string]map[string]string{}
 	pluginMu = sync.RWMutex{}
 	pluginDisabled = map[string]bool{}
 	pluginInvalid = map[string]bool{}
-	pluginEnabledFor = map[string]string{}
+    pluginEnabledFor = map[string]pluginScope{}
 	pluginTerminators = map[string]func(){}
 	t.Cleanup(func() {
 		triggerHandlersMu = sync.RWMutex{}
@@ -72,12 +72,12 @@ func TestDisablePluginRefreshesTriggers(t *testing.T) {
 		pluginSubCategories = map[string]string{}
 		triggersWin = nil
 		triggersList = nil
-		macroMu = sync.RWMutex{}
-		macroMaps = map[string]map[string]string{}
+        shortcutMu = sync.RWMutex{}
+        shortcutMaps = map[string]map[string]string{}
 		pluginMu = sync.RWMutex{}
 		pluginDisabled = map[string]bool{}
 		pluginInvalid = map[string]bool{}
-		pluginEnabledFor = map[string]string{}
+        pluginEnabledFor = map[string]pluginScope{}
 		pluginTerminators = map[string]func(){}
 	})
 

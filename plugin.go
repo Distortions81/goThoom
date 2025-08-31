@@ -118,8 +118,8 @@ func exportsForPlugin(owner string) interp.Exports {
 		m["RegisterCommand"] = reflect.ValueOf(func(name string, handler PluginCommandHandler) {
 			pluginRegisterCommand(owner, name, handler)
 		})
-		m["AddMacro"] = reflect.ValueOf(func(short, full string) { pluginAddMacro(owner, short, full) })
-		m["AddMacros"] = reflect.ValueOf(func(macros map[string]string) { pluginAddMacros(owner, macros) })
+        m["AddShortcut"] = reflect.ValueOf(func(short, full string) { pluginAddShortcut(owner, short, full) })
+        m["AddShortcuts"] = reflect.ValueOf(func(shortcuts map[string]string) { pluginAddShortcuts(owner, shortcuts) })
 		// Chat/Console (simple, no slices)
 		// Simple DSL aliases
 		m["Print"] = reflect.ValueOf(pluginConsole)
@@ -299,94 +299,101 @@ func exportsForPlugin(owner string) interp.Exports {
 	return ex
 }
 
-//go:embed example_plugins
+//go:embed example_scripts
 var pluginExamples embed.FS
 
-func userPluginsDir() string {
-	return filepath.Join(dataDirPath, "plugins")
+// userScriptsDir returns the preferred location for user-editable scripts.
+// Scripts now live alongside the executable in a top-level "scripts" folder
+// instead of under the data directory.
+func userScriptsDir() string {
+    exe, err := os.Executable()
+    if err != nil {
+        return "scripts"
+    }
+    return filepath.Join(filepath.Dir(exe), "scripts")
 }
 
-// ensureExamplePlugins creates the example_plugins directory next to the
+// ensureExampleScripts creates the example_scripts directory next to the
 // executable and populates it with the embedded example plugin files if it is
 // missing.
-func ensureExamplePlugins() {
-	exe, err := os.Executable()
-	if err != nil {
-		return
-	}
-	dir := filepath.Join(filepath.Dir(exe), "example_plugins")
-	if _, err := os.Stat(dir); err == nil {
-		return
-	} else if !os.IsNotExist(err) {
-		log.Printf("check example_plugins dir: %v", err)
-		return
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		log.Printf("create example_plugins dir: %v", err)
-		return
-	}
-	entries, err := pluginExamples.ReadDir("example_plugins")
-	if err != nil {
-		log.Printf("read embedded example plugins: %v", err)
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		data, err := pluginExamples.ReadFile(path.Join("example_plugins", e.Name()))
-		if err != nil {
-			log.Printf("read embedded %s: %v", e.Name(), err)
-			continue
-		}
-		dst := filepath.Join(dir, e.Name())
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			log.Printf("write %s: %v", dst, err)
-		}
-	}
+func ensureExampleScripts() {
+    exe, err := os.Executable()
+    if err != nil {
+        return
+    }
+    dir := filepath.Join(filepath.Dir(exe), "example_scripts")
+    if _, err := os.Stat(dir); err == nil {
+        return
+    } else if !os.IsNotExist(err) {
+        log.Printf("check example_scripts dir: %v", err)
+        return
+    }
+    if err := os.MkdirAll(dir, 0o755); err != nil {
+        log.Printf("create example_scripts dir: %v", err)
+        return
+    }
+    entries, err := pluginExamples.ReadDir("example_scripts")
+    if err != nil {
+        log.Printf("read embedded example scripts: %v", err)
+        return
+    }
+    for _, e := range entries {
+        if e.IsDir() {
+            continue
+        }
+        data, err := pluginExamples.ReadFile(path.Join("example_scripts", e.Name()))
+        if err != nil {
+            log.Printf("read embedded %s: %v", e.Name(), err)
+            continue
+        }
+        dst := filepath.Join(dir, e.Name())
+        if err := os.WriteFile(dst, data, 0o644); err != nil {
+            log.Printf("write %s: %v", dst, err)
+        }
+    }
 }
 
-// ensureDefaultPlugins creates the user plugins directory and populates it
-// with an example plugin when it is empty.
-func ensureDefaultPlugins() {
-	dir := userPluginsDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		log.Printf("create plugins dir: %v", err)
-		return
-	}
-	// Check if directory already has any .go plugin files
-	hasGo := false
-	if entries, err := os.ReadDir(dir); err == nil {
-		for _, e := range entries {
-			if !e.IsDir() {
-				hasGo = true
-				break
-			}
-		}
-	}
-	if hasGo {
-		return
-	}
-	// Write example plugin files
-	files := []string{
-		"default_macros.go",
-		"README.txt",
-		"numpad_poser.go",
-	}
-	for _, src := range files {
-		sPath := path.Join("example_plugins", src)
-		data, err := pluginExamples.ReadFile(sPath)
-		if err != nil {
-			log.Printf("read embedded %s: %v", sPath, err)
-			continue
-		}
-		base := filepath.Base(sPath)
-		dst := filepath.Join(dir, base)
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			log.Printf("write %s: %v", dst, err)
-			continue
-		}
-	}
+// ensureDefaultScripts creates the user scripts directory and populates it
+// with example scripts when it is empty.
+func ensureDefaultScripts() {
+    dir := userScriptsDir()
+    if err := os.MkdirAll(dir, 0o755); err != nil {
+        log.Printf("create scripts dir: %v", err)
+        return
+    }
+    // Check if directory already has any .go script files
+    hasGo := false
+    if entries, err := os.ReadDir(dir); err == nil {
+        for _, e := range entries {
+            if !e.IsDir() {
+                hasGo = true
+                break
+            }
+        }
+    }
+    if hasGo {
+        return
+    }
+    // Write example plugin files
+    files := []string{
+        "default_shortcuts.go",
+        "README.txt",
+        "numpad_poser.go",
+    }
+    for _, src := range files {
+        sPath := path.Join("example_scripts", src)
+        data, err := pluginExamples.ReadFile(sPath)
+        if err != nil {
+            log.Printf("read embedded %s: %v", sPath, err)
+            continue
+        }
+        base := filepath.Base(sPath)
+        dst := filepath.Join(dir, base)
+        if err := os.WriteFile(dst, data, 0o644); err != nil {
+            log.Printf("write %s: %v", dst, err)
+            continue
+        }
+    }
 }
 
 var pluginAllowedPkgs = []string{
@@ -843,7 +850,7 @@ func disablePlugin(owner, reason string) {
 	for _, hk := range pluginHotkeys(owner) {
 		pluginRemoveHotkey(owner, hk.Combo)
 	}
-	pluginRemoveMacros(owner)
+    pluginRemoveShortcuts(owner)
 	inputHandlersMu.Lock()
 	for i := len(pluginInputHandlers) - 1; i >= 0; i-- {
 		if pluginInputHandlers[i].owner == owner {
@@ -1384,7 +1391,7 @@ func pluginSource(owner string) string {
 }
 
 func refreshPluginMod() {
-	dirs := []string{userPluginsDir(), "plugins"}
+    dirs := []string{userScriptsDir(), "scripts"}
 	latest := time.Time{}
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
@@ -1519,7 +1526,7 @@ func scanPlugins(pluginDirs []string, dup func(name, path string)) map[string]pl
 }
 
 func rescanPlugins() {
-	pluginDirs := []string{userPluginsDir(), "plugins"}
+    pluginDirs := []string{userScriptsDir(), "scripts"}
 	scanned := scanPlugins(pluginDirs, nil)
 
 	pluginMu.RLock()
@@ -1599,10 +1606,10 @@ func checkPluginMods() {
 }
 
 func loadPlugins() {
-	ensureExamplePlugins()
-	ensureDefaultPlugins()
+    ensureExampleScripts()
+    ensureDefaultScripts()
 
-	pluginDirs := []string{userPluginsDir(), "plugins"}
+    pluginDirs := []string{userScriptsDir(), "scripts"}
 	scanned := scanPlugins(pluginDirs, func(name, path string) {
 		log.Printf("plugin %s duplicate name %s", path, name)
 		consoleMessage("[plugin] duplicate name: " + name)

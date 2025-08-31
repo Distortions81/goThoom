@@ -9,42 +9,61 @@ An open-source (MIT) client for the classic **[Clan Lord](https://www.deltatao.c
 
 ---
 
-## Why this exists
+## Why I made this
 
-- The original client is old and finicky.
-- Single binary, fast rendering (OpenGL), and fewer weird dependencies.
-- Higher framerates (linear interpolation), de-dithering of old graphics, multi-platform.
+- The windows client is finicky
+- 3 to 5 FPS with LCD popping/strobing effects are very hard to look at... I personally really struggle with motion sickness from it.
+- The art assets make heavy use of dithering that looked great on small CRTs but look entirely different (and unpleasant) on modern displays without filtering.
+- The game window not resizeable (547×540) and didn't look good or fit well on most screens even with OS/VM scaling
+- Quicktime MIDI is dead on modern OS X
+- Quicktime for Windows is unsupported past Windows 7 (last updated 2009) and is a real security risk
+- A number of security concerns with the old client
+- All existing clients are single-platform
+- Input schemes are odd or outdated
+- Macros seem to be manitory to keep up. Most available are ancient, difficult to find and require fiddling in a odd macro language
+
+## What does goThoom offer?
+
+- Optional Interpolation for smooth movement at any frame-rate with a trade-off of more positional latency (animations and sounds are unaffected)
+- Texture processing that intelligently smooths dithering to restore a more CRT-like look to revive lurking color information and reduce popping/strobing effects when moving
+- Animation frame blending for a far smoother and pleasant experience that helps the existing animations look their best
+- High quality adjustable game window resizing that retains sharpness with very little artifacts
+- High quality audio resampling that is very flattering to the original recordings and more pleasant to the ear
+* Resampling: (1024-Phase 6-Tap Lanczos Windowed-Sinc),
+* Bit depth conversion: TPDF noise shaping with 257 scaling for the best 8-bit to 16-bit conversion possible
+- Much higher quality music synthisizer that is more flexible (currently uses a 309MB soundfont file) that is not tied to a dead dependency.
+- Built-in local AI text-to-speech with a large choice of voices available online
+- Text rendering is anti-aliased and uses high quality modern fonts via OpenType and fractional font sizes are supported
+- Many-platform support: Windows, OS X, Linux and others are possible
+- Modern APIs: DirectX on Windows, Metal on OS X and Vulkan via Zink on Linux and even supports software rendering.
+* Use of Metal API is important because OpenGL support has been deprecated for ages on OS X and will be stuck at v4.1 and eventually removed.
+- Self-contained portable binary, no installers or external dependencies
+- Open-source and public domain to prevent it becoming unmaintained abandonware
+- Powerful scripting system using a common language, meaning most users will be able to seek support from LLMs.
+- Choices for more modern input schemes like enter-to-talk, WASD and use of non-fkeys
+* Modern laptops often do not support touchpad + keyboard simultaneously (palm rejection)
+* Many modern PCs only have 'media keys' and require you use a function key or mode switch to use. Some only offer touch-screen F-Keys or even no F-Keys at all!
 
 ---
 
 ## Download
-
 **Easiest:** grab the latest build from **Releases** on this repo (Windows, macOS, Linux).
 
-If you build from source, you'll need Go **1.24+** and OpenGL/X11 dev libs on Linux. See "Build from source."
-
----
-
-## Quick start (players)
-
-1. **Download** a release for your OS and unzip it.  
-2. **Run** the app:
-   - **Windows/macOS:** launch the executable/app bundle.
-   - **Linux:** `./gothoom` (you may need `chmod +x gothoom`).
-3. On first run, the client **auto-fetches missing game assets** (images, sounds) into `data/`. No manual wrangling.
+## Quick start
+- On first run, the client **auto-fetches missing game assets** (images, sounds) into `data/`. No manual wrangling.
 
 ### Optional extras
 - Drop a `background.png` and/or `splash.png` into `data/` for a custom look.
 
 ### Text-to-speech voices
-Piper voices are stored in `data/piper/voices`. The client and `scripts/download_piper.sh` support voice archives in `.tar.gz` format and automatically extract and remove the archives. If a voice archive isn't available, the script falls back to downloading raw `.onnx` models with matching `.onnx.json` configs.
+Piper voices are stored in `data/piper/voices`. The client and `scripts/download_piper.sh` support voice archives in `.tar.gz` format and automatically extract and remove the archives. If a voice archive isn't available, the program falls back to downloading raw `.onnx` models with matching `.onnx.json` configs.
 
 ---
 
 ## Using the UI
 
-- Windows: Click the `Windows` toolbar button to toggle common panels: Players, Inventory, Chat, Console, Help, Hotkeys, Macros, Mixer, Settings, and more. Window layout and open/closed state persist between runs.
-- Actions: Use the `Actions` toolbar drop-down for Hotkeys, Macros, Triggers, or Plugins. Dedicated buttons provide quick access to Settings, Help, Snapshot, Mixer, and Exit.
+- Windows: Click the `Windows` toolbar button to toggle common panels: Players, Inventory, Chat, Console, Help, Hotkeys, Shortcuts, Mixer, Settings, and more. Window layout and open/closed state persist between runs.
+- Actions: Use the `Actions` toolbar drop-down for Hotkeys, Shortcuts, Triggers, or Scripts. Dedicated buttons provide quick access to Settings, Help, Snapshot, Mixer, and Exit.
 - Movement: Left-click to walk, or use WASD/arrow keys (hold Shift to run). An optional "Click-to-Toggle Walk" sets a target with one click.
 - Input bar: Press Enter to type; press Enter again to send. Esc cancels. Up/Down browse history. While typing, Ctrl-V pastes and Ctrl-C copies the whole line. Right-click the input bar for Paste / Copy Line / Clear Line (Paste and Clear switch to typing mode and refresh immediately).
 - Chat/Console: Chat and Console are separate windows by default. Right-click any chat or console line to copy it; the line briefly highlights. You can merge chat into the console in Settings.
@@ -57,141 +76,10 @@ Tip: The input bar auto-expands as you type and has a context menu for quick pas
 
 ---
 
-## In‑game Commands (quick reference)
+## Scripts
 
-Click and drag to move. Type \HELP <COMMAND>. The commands are: \ACTION, \AFFILIATIONS, \ANONCURSE, \ANONTHANK, \BAG, \BOOT, \BUG, \BUY, \CURSE, \DEPART, \DROP, \EQUIP, \EXAMINE, \GIVE, \HELP, \INFO, \KARMA, \MONEY, \NAME, \NARRATE, \NEWS, \OPTIONS, \PONDER, \POSE, \PRAY, \PULL, \PUSH, \REPORT, \SELL, \SHARE, \SHOW, \SKY, \SLEEP, \SPEAK, \STATUS, \SWEAR, \THANK, \THINK, \THINKCLAN, \THINKGROUP, \THINKTO, \TIP, \UNEQUIP, \UNSHARE, \USE, \USEITEM, \WHISPER, \WHO, \WHOCLAN, \YELL
-
-Full command help (arguments and examples):
-- Local: docs/CommandsHelp.md
-- External (very detailed): https://clump.clanlord.net/library/index.php?title=Command_Reference
-
----
-
-## Power-user tricks
-
-You can run the client with flags:
-
-- `-clmov` - play a recorded `.clMov` movie file
-- `-pcap`  - replay network frames from a `.pcap/.pcapng` (good for testing UI/parse)  
-- `-pgo`   - create `default.pgo` by playing `test.clMov` at 30fps for 30s  
-- `-debug` - verbose logging
-- `-dumpMusic` - save played music as WAV
-- `-imgDump` - dump loaded images as PNG to `dump/img`
-- `-sndDump` - dump loaded sounds as WAV to `dump/snd`
-
-Examples:
-```bash
-# Replay a capture to kick the tires
-go run . -pcap reference-client.pcapng
-```
-
----
-
-## Plugins
-
-goThoom can load optional plugins at startup using [yaegi](https://github.com/traefik/yaegi), a Go interpreter.
-Place `.go` files inside the `plugins/` directory. Each plugin is evaluated and may
-define an `Init()` function that runs after client initialization. Every plugin
-must declare a unique `PluginName` string and can classify itself with optional
-`PluginCategory` and `PluginSubCategory` fields. Suggested categories include
-"Quality Of Life", "Profession", "Fun", and "Equipment". For example,
-`PluginCategory = "Profession"` with `PluginSubCategory = "Healer"`.
-
-Plugins only see a small, approved API exposed through the `gt` package:
-
-```go
-import "gt"
-
-func Init() {
-    gt.Logf("plugin active")
-    gt.AddHotkey("ctrl+h", "/hello")
-    _ = gt.ClientVersion
-}
-```
-
-Currently exposed symbols:
-
-- `gt.Logf(format, ...any)` – write to the client log
-- `gt.AddHotkey(combo, command)` – bind a hotkey to a slash command
-- `gt.RegisterCommand(name, func(args string))` – handle a local slash command
-- `gt.RunCommand(cmd)` – echo and send a command immediately
-- `gt.EnqueueCommand(cmd)` – queue a command silently for the next tick
-- `gt.ClientVersion` – current client version (read/write)
-
-Hotkey command strings may include `@`, which expands to the name of the last
-right-clicked mobile.
-
-All plugin code runs in the same process but is sandboxed to this approved list of
-functions and variables.
-
----
-
-## Build from source (devs)
-
-### Linux (Debian/Ubuntu)
-```bash
-sudo apt-get update
-sudo apt-get install -y golang-go build-essential libgl1-mesa-dev libglu1-mesa-dev xorg-dev
-go build
-./gothoom
-```
-Requirements: Go **1.24+**, OpenGL + X11 development libraries.
-
-### Dependency bundle for faster setup
-To prefetch all Debian packages and Go modules into a single archive for
-offline installs, run:
-```bash
-scripts/build_dep_bundle.sh
-```
-Unpack `gothoom_deps.tar.gz` on another machine and install the `.deb`
-files from `apt/`. Set `GOMODCACHE` to the extracted `go/mod` directory to
-reuse the module cache when running `go mod download`.
-
-### Cross-platform release builds
-A helper script builds **Linux + Windows** binaries (and can sign Windows EXEs and macOS `.app` bundles). On Ubuntu it will install missing tools like `zip`/`osslsigncode` automatically. Set cert env vars, then run:
-```bash
-export WINDOWS_CERT_FILE=certs/fullchain.pem
-export WINDOWS_KEY_FILE=certs/privkey.pem   # optional: WINDOWS_KEY_PASS, WINDOWS_CERT_NAME, WINDOWS_TIMESTAMP_URL
-# macOS signing (defaults: ad-hoc identity, repo entitlements)
-export MAC_SIGN_IDENTITY="-"                # '-' for ad-hoc; set to your certificate name to sign
-export MAC_ENTITLEMENTS=scripts/goThoom.entitlements  # override for custom entitlements
-scripts/build_binaries.sh
-```
-
-The script uses [rcodesign](https://gregoryszorc.com/projects/apple-codesign/) to ad-hoc sign macOS `.app` bundles when available. Install it on Linux with:
-
-```bash
-curl -L -o rcodesign.tar.gz https://gregoryszorc.com/projects/apple-codesign/releases/latest/linux-x86_64.tar.gz
-tar -xf rcodesign.tar.gz && sudo mv rcodesign /usr/local/bin/
-```
-
-This helper uses [`go-winres`](https://github.com/tc-hib/go-winres) to embed
-`goThoom.png` as the Windows executable icon. To build manually with the icon:
-
-```bash
-go install github.com/tc-hib/go-winres@latest   # once
-go-winres simply --icon goThoom.png --arch amd64 --manifest gui
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-H=windowsgui" -o gothoom.exe
-```
-
-`MAC_SIGN_IDENTITY` uses `-` by default for ad-hoc signatures. Set it to
-your certificate name to sign with a real identity. `MAC_ENTITLEMENTS`
-defaults to `scripts/goThoom.entitlements`; point it elsewhere (or to
-`/dev/null`) to use custom entitlements.
-
----
-
-## Troubleshooting
-
-- **Missing assets**: the client will fetch `CL_Images` / `CL_Sounds` archives on first run. If you interrupted it, delete partial files in `data/` and relaunch.
-- **Linux can’t start**: ensure OpenGL and X11 dev libs are installed (see commands above).
-- **Weird graphics/audio**: try `-debug` to see logs, and file an issue with your OS/GPU/driver info.
-
----
-
-## Contributing
-
-PRs welcome. Keep changes focused and testable. If you’re adding protocol or UI tweaks, include a small `.pcap` or `.clMov` so others can reproduce quickly. The repo includes tests for text parsing, sound, synthesis, and more—use them.
+goThoom can load optional scripts at startup using [yaegi](https://github.com/traefik/yaegi), a Go interpreter.
+Place `.go` files inside the `scripts/` directory.
 
 ---
 

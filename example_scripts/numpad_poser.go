@@ -38,3 +38,4 @@ func npPose6(e gt.HotkeyEvent) { gt.RunCommand("/pose angry") }
 func npPose7(e gt.HotkeyEvent) { gt.RunCommand("/pose lie") }
 func npPose8(e gt.HotkeyEvent) { gt.RunCommand("/pose seated") }
 func npPose9(e gt.HotkeyEvent) { gt.RunCommand("/pose celebrate") }
+

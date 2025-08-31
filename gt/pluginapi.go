@@ -1,10 +1,18 @@
-// Package gt provides a tiny, editor-only stub for the
-// interpreted plugin API exposed by the client at runtime via Yaegi.
+// Package gt provides an editor-only stub of the goThoom script API.
 //
-// This package exists solely to satisfy linters and IDEs for files in
-// the plugins/ directory (e.g., healer.go) that do `import "gt"`.
-// The real implementations are injected into the Yaegi interpreter at
-// runtime; these no-op stubs are never called by the compiled client.
+// Scripts are plain .go files interpreted at runtime via Yaegi. At
+// compile-time your editor and static analysis tools still need symbols
+// to type-check imports like `import "gt"`. This package defines those
+// symbols with no-op implementations and brief docs so you can browse
+// available functions in your IDE. The real implementations are injected
+// into the Yaegi interpreter by the client at runtime.
+//
+// Notes
+// - These stubs are never called by the compiled client binary.
+// - Keep names and signatures in sync with the runtime export table in
+//   plugin.go (search for exportsForPlugin).
+// - This package is intentionally tiny: it has zero dependencies and
+//   returns zero values.
 package gt
 
 import "time"
@@ -102,11 +110,20 @@ func Words(text string) []string { return nil }
 // Join concatenates parts with sep between elements.
 func Join(parts []string, sep string) string { return "" }
 
-// AddMacro replaces a short prefix with a full command in the chat box.
-func AddMacro(short, full string) {}
+// Replace returns a copy of s with the first n non-overlapping instances of
+// old replaced by new. If n < 0, all instances are replaced.
+func Replace(s, old, new string, n int) string { return "" }
 
-// AddMacros registers multiple macros at once.
-func AddMacros(macros map[string]string) {}
+// Split slices s into all substrings separated by sep and returns a slice.
+func Split(s, sep string) []string { return nil }
+
+// AddShortcut replaces a short prefix with a full command in the chat box.
+// When you type the short text at the start of the input bar it is expanded
+// to the full command (with arguments preserved after a space).
+func AddShortcut(short, full string) {}
+
+// AddShortcuts registers multiple shortcuts at once.
+func AddShortcuts(shortcuts map[string]string) {}
 
 // PlayerName returns the current player's name.
 func PlayerName() string { return "" }
@@ -162,6 +179,11 @@ func After(ms int, fn func())             {}
 func Every(ms int, fn func())             {}
 func AfterDur(d time.Duration, fn func()) {}
 func EveryDur(d time.Duration, fn func()) {}
+
+// Key binds a key combo to a handler function. The combo string should use
+// names like "Ctrl-Shift-D" or "RightClick"; see the example README for a
+// complete list.
+func Key(combo string, handler func()) {}
 
 // SleepTicks blocks the current handler goroutine for a number of server frames.
 func SleepTicks(ticks int) {}
