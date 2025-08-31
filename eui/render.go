@@ -26,10 +26,18 @@ type openDropdown struct {
 }
 
 func itemFace(item *itemData, size float32) text.Face {
-	if item != nil && item.Face != nil {
-		return item.Face
-	}
-	return textFace(size)
+    // If an item already has a face set, prefer it only when it matches the
+    // requested size. Otherwise, pull the appropriately sized face from the
+    // cache so the supplied font size is honored.
+    if item != nil && item.Face != nil {
+        if gf, ok := item.Face.(*text.GoTextFace); ok {
+            if gf.Size != float64(size) {
+                return textFace(size)
+            }
+        }
+        return item.Face
+    }
+    return textFace(size)
 }
 
 // Draw renders the UI to the provided screen image.

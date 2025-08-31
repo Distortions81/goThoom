@@ -983,9 +983,11 @@ func checkHotkeys() {
 							continue
 						}
 					}
-					if cmd != "" {
-						consoleMessage("> " + cmd)
-					}
+                    if cmd != "" {
+                        if gs.pluginOutputDebug {
+                            consoleMessage("> " + cmd)
+                        }
+                    }
 					enqueueCommand(cmd)
 				}
 				nextCommand()

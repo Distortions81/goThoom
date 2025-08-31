@@ -62,9 +62,11 @@ func pluginAddMacro(owner, short, full string) {
 	if name == "" {
 		name = owner
 	}
-	msg := fmt.Sprintf("[plugin:%s] macro added: %s -> %s", name, short, full)
-	consoleMessage(msg)
-	log.Print(msg)
+    msg := fmt.Sprintf("[plugin:%s] macro added: %s -> %s", name, short, full)
+    if gs.pluginOutputDebug {
+        consoleMessage(msg)
+    }
+    log.Print(msg)
 }
 
 // pluginAddMacros registers many macros at once for the given plugin.
@@ -89,7 +91,9 @@ func pluginRemoveMacros(owner string) {
 	if name == "" {
 		name = owner
 	}
-	msg := fmt.Sprintf("[plugin:%s] macros removed", name)
-	consoleMessage(msg)
-	log.Print(msg)
+    msg := fmt.Sprintf("[plugin:%s] macros removed", name)
+    if gs.pluginOutputDebug {
+        consoleMessage(msg)
+    }
+    log.Print(msg)
 }

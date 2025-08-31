@@ -295,9 +295,11 @@ func pluginAddHotkey(owner, combo, command string) {
 	if name == "" {
 		name = owner
 	}
-	msg := fmt.Sprintf("[plugin:%s] hotkey added: %s -> %s", name, combo, command)
-	consoleMessage(msg)
-	log.Print(msg)
+    msg := fmt.Sprintf("[plugin:%s] hotkey added: %s -> %s", name, combo, command)
+    if gs.pluginOutputDebug {
+        consoleMessage(msg)
+    }
+    log.Print(msg)
 }
 
 // Plugin command registries.
