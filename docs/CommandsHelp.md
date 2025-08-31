@@ -2,6 +2,9 @@
 
 This reference captures the in‑game help responses for core commands. Text is taken verbatim from the client’s /help output (minor spacing preserved). Some responses are contextual and may vary.
 
+See also: Command Reference (external, very detailed)
+https://clump.clanlord.net/library/index.php?title=Command_Reference
+
 Note: “BOOT” help lines were observed with a truncated command label (“OT”) due to a known parse quirk; content below reflects the intended BOOT command.
 
 ## ACTION
@@ -167,4 +170,3 @@ Note: “BOOT” help lines were observed with a truncated command label (“OT�
 
 ## YELL
 - \YELL <MESSAGE> will be heard for a good distance.
-

@@ -152,12 +152,16 @@ func ChatFrom(name, phrase string, fn func(msg string)) {}
 func PlayerChatFrom(name, phrase string, fn func(msg string)) {}
 func OtherChatFrom(name, phrase string, fn func(msg string)) {}
 
+// Timers: by milliseconds or by duration
+func After(ms int, fn func()) {}
+func Every(ms int, fn func()) {}
+func AfterDur(d time.Duration, fn func()) {}
+func EveryDur(d time.Duration, fn func()) {}
+
 // Console registers a single console phrase; handler receives the full message text.
 func Console(phrase string, fn func(msg string)) {}
 // ConsoleMsg is an alias of Console.
 func ConsoleMsg(phrase string, fn func(msg string)) {}
-// Console registers a single console phrase (alias of ConsoleMsg).
-func Console(phrase string, fn func(msg string)) {}
 
 // Minimal DSL helpers
 func Cmd(text string) {}

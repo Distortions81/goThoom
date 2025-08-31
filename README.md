@@ -61,7 +61,9 @@ Tip: The input bar auto-expands as you type and has a context menu for quick pas
 
 Click and drag to move. Type \HELP <COMMAND>. The commands are: \ACTION, \AFFILIATIONS, \ANONCURSE, \ANONTHANK, \BAG, \BOOT, \BUG, \BUY, \CURSE, \DEPART, \DROP, \EQUIP, \EXAMINE, \GIVE, \HELP, \INFO, \KARMA, \MONEY, \NAME, \NARRATE, \NEWS, \OPTIONS, \PONDER, \POSE, \PRAY, \PULL, \PUSH, \REPORT, \SELL, \SHARE, \SHOW, \SKY, \SLEEP, \SPEAK, \STATUS, \SWEAR, \THANK, \THINK, \THINKCLAN, \THINKGROUP, \THINKTO, \TIP, \UNEQUIP, \UNSHARE, \USE, \USEITEM, \WHISPER, \WHO, \WHOCLAN, \YELL
 
-Full command help (arguments and examples): see docs/CommandsHelp.md
+Full command help (arguments and examples):
+- Local: docs/CommandsHelp.md
+- External (very detailed): https://clump.clanlord.net/library/index.php?title=Command_Reference
 
 ---
 
