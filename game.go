@@ -180,6 +180,7 @@ type inputState struct {
 
 var (
 	latestInput inputState
+	inputQueue  []inputState
 	inputMu     sync.Mutex
 )
 
@@ -992,9 +993,7 @@ func (g *Game) Update() error {
 		x, y = prev.mouseX, prev.mouseY
 	}
 
-	inputMu.Lock()
-	latestInput = inputState{mouseX: x, mouseY: y, mouseDown: walk}
-	inputMu.Unlock()
+	queueInput(inputState{mouseX: x, mouseY: y, mouseDown: walk})
 
 	updateHotkeyRecording()
 	checkHotkeys()
@@ -1010,6 +1009,25 @@ func stopWalkIfOutside(click, inGame bool) {
 
 func continueHeldWalk(prev inputState, inGame, buttonPressed bool, heldTime int, click bool) bool {
 	return (heldTime > 1 && !click && inGame) || (prev.mouseDown && buttonPressed)
+}
+
+func queueInput(s inputState) {
+	inputMu.Lock()
+	switch len(inputQueue) {
+	case 0:
+		if latestInput != s {
+			inputQueue = append(inputQueue, s)
+		}
+	case 1:
+		if inputQueue[0] != s {
+			inputQueue = append(inputQueue, s)
+		}
+	default:
+		if inputQueue[len(inputQueue)-1] != s {
+			inputQueue[len(inputQueue)-1] = s
+		}
+	}
+	inputMu.Unlock()
 }
 
 func updateGameWindowSize() {
@@ -2518,10 +2536,21 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 			continue
 		}
 		inputMu.Lock()
-		s := latestInput
-		if keyStopFrames > 0 {
-			s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
-			keyStopFrames--
+		var s inputState
+		if len(inputQueue) > 0 {
+			s = inputQueue[0]
+			latestInput = s
+			inputQueue = inputQueue[1:]
+			if keyStopFrames > 0 && len(inputQueue) == 0 && !s.mouseDown {
+				s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
+				keyStopFrames--
+			}
+		} else {
+			s = latestInput
+			if keyStopFrames > 0 {
+				s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
+				keyStopFrames--
+			}
 		}
 		inputMu.Unlock()
 
