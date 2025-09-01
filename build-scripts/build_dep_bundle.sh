@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Build a tarball containing goThoom's system and Go module dependencies.
-# The resulting archive can be unpacked on another machine to speed up
-# environment setup without hitting the network.
+# Build a tarball containing goThoom's Go toolchain, module cache, and
+# selected data files. The resulting archive can be unpacked on another
+# machine to speed up environment setup without hitting the network for Go
+# artifacts.
 
 set -euo pipefail
 
@@ -11,37 +12,12 @@ set -euo pipefail
 OUT_FILE="${1:-gothoom_deps.tar.gz}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
-APT_DIR="$WORK_DIR/apt"
 GO_DIR="$WORK_DIR/go"
 
-mkdir -p "$APT_DIR" "$GO_DIR"
+mkdir -p "$GO_DIR"
 
-# Packages needed to build goThoom. The Go toolchain is downloaded below.
-# NOTE: Keep this list in sync with AGENTS.md (see "Adding Dependencies").
-# When adding a new system package, document it in AGENTS.md and add it here.
-DEB_PACKAGES=(
-  build-essential
-  libgl1-mesa-dev
-  libglu1-mesa-dev
-  xorg-dev
-  libxrandr-dev
-  libasound2-dev
-  libgtk-3-dev
-  xdg-utils
-)
-
-if command -v apt-get >/dev/null 2>&1; then
-  echo "Downloading Debian packages..."
-  apt-get update -qq
-  (
-    cd "$APT_DIR"
-    apt-get -y -o Dir::Cache::Archives="$APT_DIR" \
-      -o APT::Sandbox::User=root \
-      install --download-only "${DEB_PACKAGES[@]}"
-  )
-else
-  echo "apt-get not found; skipping Debian package download" >&2
-fi
+# System packages are not bundled; install them separately via your package
+# manager before using this archive.
 
 # Include Go toolchain
 # NOTE: If this version changes, update AGENTS.md instructions to match.
