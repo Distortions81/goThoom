@@ -103,9 +103,10 @@ var gsdef settings = settings{
 	NotifyNotFallen:      true,
 	NotifyShares:         true,
 	NotifyFriendOnline:   true,
-	NotifyCopyText:       true,
-	NotificationDuration: 6,
-	PluginSpamKill:       true,
+    NotifyCopyText:       true,
+    NotificationDuration: 6,
+    PluginSpamKill:       true,
+    PromptOnSaveRecording: true,
 	TimestampFormat:      "3:04PM",
 	LastUpdateCheck:      time.Time{},
 	NotifiedVersion:      0,
@@ -196,9 +197,10 @@ type settings struct {
 	NotifyNotFallen      bool
 	NotifyShares         bool
 	NotifyFriendOnline   bool
-	NotifyCopyText       bool
-	NotificationDuration float64
-	PluginSpamKill       bool
+    NotifyCopyText       bool
+    NotificationDuration float64
+    PluginSpamKill       bool
+    PromptOnSaveRecording bool
 	ChatTimestamps       bool
 	ConsoleTimestamps    bool
 	TimestampFormat      string

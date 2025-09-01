@@ -1,17 +1,17 @@
 package main
 
 import (
-	"context"
-	"crypto/md5"
-	"encoding/hex"
-	"fmt"
-	"math"
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
+    "context"
+    "crypto/md5"
+    "encoding/hex"
+    "fmt"
+    "math"
+    "os"
+    "path/filepath"
+    "regexp"
+    "sort"
+    "strconv"
+    "strings"
 	"sync"
 	"time"
 
@@ -1147,10 +1147,14 @@ func stopRecording() {
 	if hudWin != nil {
 		hudWin.Refresh()
 	}
-	if recordPath != "" {
-		consoleMessage(fmt.Sprintf("saved movie: %s", filepath.Base(recordPath)))
-		recordPath = ""
-	}
+    if recordPath != "" {
+        saved := recordPath
+        consoleMessage(fmt.Sprintf("saved movie: %s", filepath.Base(saved)))
+        if gs.PromptOnSaveRecording {
+            showRecordingSaveDialog(saved)
+        }
+        recordPath = ""
+    }
 }
 
 func toggleRecording() {
@@ -1167,6 +1171,129 @@ func toggleRecording() {
 
 var dlMutex sync.Mutex
 var status dataFilesStatus
+// ===== Recording save/rename/compress dialog =====
+var recordSaveWin *eui.WindowData
+var recordSaveInput *eui.ItemData
+var recordSaveCompressCB *eui.ItemData
+var recordSaveDontShowCB *eui.ItemData
+
+func showRecordingSaveDialog(path string) {
+    dir := filepath.Dir(path)
+    base := filepath.Base(path)
+    if recordSaveWin == nil {
+        recordSaveWin = eui.NewWindow()
+        recordSaveWin.Title = "Save Recording"
+        recordSaveWin.Closable = true
+        recordSaveWin.Resizable = false
+        recordSaveWin.AutoSize = true
+        recordSaveWin.Movable = true
+        recordSaveWin.NoScroll = true
+        recordSaveWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
+    }
+    recordSaveWin.Contents = nil
+
+    flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+    info, _ := eui.NewText()
+    info.Text = "Rename the .clMov file and optionally create a .zip archive (about half smaller)."
+    info.Size = eui.Point{X: 420, Y: 36}
+    info.FontSize = 10
+    flow.AddItem(info)
+
+    row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+    lbl, _ := eui.NewText()
+    lbl.Text = "Filename:"
+    lbl.Size = eui.Point{X: 64, Y: 24}
+    lbl.FontSize = 12
+    row.AddItem(lbl)
+    recordSaveInput, _ = eui.NewInput()
+    recordSaveInput.Size = eui.Point{X: 340, Y: 24}
+    recordSaveInput.FontSize = 12
+    recordSaveInput.Text = base
+    row.AddItem(recordSaveInput)
+    flow.AddItem(row)
+
+    recordSaveCompressCB, _ = eui.NewCheckbox()
+    recordSaveCompressCB.Text = ".zip compress (about half smaller)"
+    recordSaveCompressCB.Checked = true
+    recordSaveCompressCB.Size = eui.Point{X: 420, Y: 24}
+    flow.AddItem(recordSaveCompressCB)
+
+    recordSaveDontShowCB, _ = eui.NewCheckbox()
+    recordSaveDontShowCB.Text = "Don't show this again"
+    recordSaveDontShowCB.Size = eui.Point{X: 420, Y: 24}
+    flow.AddItem(recordSaveDontShowCB)
+
+    // Buttons
+    btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Alignment: eui.ALIGN_RIGHT}
+    btnRow.Size = eui.Point{X: 420, Y: 28}
+    cancelBtn, cancelEv := eui.NewButton()
+    cancelBtn.Text = "Skip"
+    cancelBtn.Size = eui.Point{X: 80, Y: 24}
+    cancelEv.Handle = func(ev eui.UIEvent) {
+        if ev.Type == eui.EventClick {
+            if recordSaveWin != nil {
+                recordSaveWin.Close()
+            }
+        }
+    }
+    saveBtn, saveEv := eui.NewButton()
+    saveBtn.Text = "Save"
+    saveBtn.Size = eui.Point{X: 80, Y: 24}
+    saveEv.Handle = func(ev eui.UIEvent) {
+        if ev.Type != eui.EventClick {
+            return
+        }
+        // Apply don't-show preference
+        if recordSaveDontShowCB != nil && recordSaveDontShowCB.Checked {
+            gs.PromptOnSaveRecording = false
+            settingsDirty = true
+            saveSettings()
+        }
+        // Resolve new path
+        name := base
+        if recordSaveInput != nil && strings.TrimSpace(recordSaveInput.Text) != "" {
+            name = strings.TrimSpace(recordSaveInput.Text)
+        }
+        // Ensure extension
+        if !strings.EqualFold(filepath.Ext(name), ".clmov") {
+            name += ".clMov"
+        }
+        newPath := filepath.Join(dir, name)
+        // Rename if changed
+        if newPath != path {
+            if err := os.Rename(path, newPath); err != nil {
+                logError("rename recording: %v", err)
+                consoleMessage("rename failed: " + err.Error())
+            } else {
+                consoleMessage("renamed to: " + filepath.Base(newPath))
+                path = newPath
+            }
+        }
+        // Compress if requested (to .zip using archive/zip)
+        if recordSaveCompressCB != nil && recordSaveCompressCB.Checked {
+            go func(src string) {
+                outName := filepath.Base(src) + ".zip"
+                dst := filepath.Join(filepath.Dir(src), outName)
+                if err := compressZip(src, dst); err != nil {
+                    logError("zip compress: %v", err)
+                    consoleMessage("compress failed: " + err.Error())
+                } else {
+                    consoleMessage("compressed: " + outName)
+                }
+            }(path)
+        }
+        if recordSaveWin != nil {
+            recordSaveWin.Close()
+        }
+    }
+    btnRow.AddItem(cancelBtn)
+    btnRow.AddItem(saveBtn)
+    flow.AddItem(btnRow)
+
+    recordSaveWin.AddItem(flow)
+    recordSaveWin.AddWindow(true)
+    recordSaveWin.MarkOpen()
+}
 
 // handleDownloadAssetError presents error options when a required asset fails to load.
 // It resets the download state and provides Retry and Quit buttons so the user

@@ -40,3 +40,5 @@ spellcheck_words.txt
 *.wav
 .gocache-local/
 data/Movies/*.clMov
+go/mod/cache/
+go/mod/

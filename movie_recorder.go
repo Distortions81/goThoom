@@ -24,8 +24,14 @@ type frameHead struct {
 }
 
 type movieRecorder struct {
-	f    *os.File
-	head fileHead
+    f    *os.File
+    head fileHead
+    // preData holds optional pre-frame blocks (e.g., GameState) that
+    // should be written immediately before the next frame payload. These
+    // bytes are not counted in the frame Size field; the parser consumes
+    // them based on Flags before reading Size bytes of payload.
+    preData  []byte
+    preFlags uint16
 }
 
 const macEpochDelta = 2082844800
@@ -69,11 +75,11 @@ func (m *movieRecorder) writeHeader() error {
 }
 
 func (m *movieRecorder) AddBlock(data []byte, flag uint16) {
-	if len(data) == 0 {
-		return
-	}
-	m.preData = append(m.preData, data...)
-	m.preFlags |= flag
+    if len(data) == 0 {
+        return
+    }
+    m.preData = append(m.preData, data...)
+    m.preFlags |= flag
 }
 
 func gameStateBlock(leftPictID, rightPictID, mode, maxSize, curSize, expectedSize int, payload []byte) []byte {
@@ -89,26 +95,37 @@ func gameStateBlock(leftPictID, rightPictID, mode, maxSize, curSize, expectedSiz
 }
 
 func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
-	if m.f == nil {
-		return os.ErrClosed
-	}
-	fh := frameHead{
-		Signature: movieSignature,
-		Frame:     m.head.Frames,
-		Size:      uint16(len(data)),
-		Flags:     flags,
-	}
-	m.head.Frames++
-	buf := make([]byte, 12)
-	binary.BigEndian.PutUint32(buf[0:], fh.Signature)
-	binary.BigEndian.PutUint32(buf[4:], uint32(fh.Frame))
-	binary.BigEndian.PutUint16(buf[8:], fh.Size)
-	binary.BigEndian.PutUint16(buf[10:], fh.Flags)
-	if _, err := m.f.Write(buf); err != nil {
-		return err
-	}
-	_, err := m.f.Write(data)
-	return err
+    if m.f == nil {
+        return os.ErrClosed
+    }
+    // Merge any pending pre-frame blocks and flags into this frame.
+    mergedFlags := flags | m.preFlags
+    fh := frameHead{
+        Signature: movieSignature,
+        Frame:     m.head.Frames,
+        Size:      uint16(len(data)),
+        Flags:     mergedFlags,
+    }
+    m.head.Frames++
+    buf := make([]byte, 12)
+    binary.BigEndian.PutUint32(buf[0:], fh.Signature)
+    binary.BigEndian.PutUint32(buf[4:], uint32(fh.Frame))
+    binary.BigEndian.PutUint16(buf[8:], fh.Size)
+    binary.BigEndian.PutUint16(buf[10:], fh.Flags)
+    if _, err := m.f.Write(buf); err != nil {
+        return err
+    }
+    // Write any pre-frame blocks first, then the frame payload.
+    if len(m.preData) > 0 {
+        if _, err := m.f.Write(m.preData); err != nil {
+            return err
+        }
+        // Clear for next frame.
+        m.preData = nil
+        m.preFlags = 0
+    }
+    _, err := m.f.Write(data)
+    return err
 }
 
 func (m *movieRecorder) WriteBlock(data []byte, flag uint16) error {

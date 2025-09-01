@@ -4,6 +4,7 @@ go 1.25
 
 require github.com/hajimehoshi/ebiten/v2 v2.8.8
 
+
 require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/f1monkey/spellchecker v1.2.0
