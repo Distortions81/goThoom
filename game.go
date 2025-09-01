@@ -589,9 +589,9 @@ func (g *Game) Update() error {
 		eui.ClearFocus(inputFlow.Contents[0])
 		inputFlow.Contents[0].Focused = false
 	}
-    eui.Update() //We really need this to return eaten clicks
-    // Advance plugin tick waiters once per frame
-    pluginAdvanceTick()
+	eui.Update() //We really need this to return eaten clicks
+	// Advance plugin tick waiters once per frame
+	pluginAdvanceTick()
 	typingElsewhere := typingInUI()
 	if inputActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
 		item := inputFlow.Contents[0]
@@ -904,10 +904,10 @@ func (g *Game) Update() error {
 	origX, origY, worldScale = worldDrawInfo()
 	baseX := int16(float64(mx-origX)/worldScale - float64(fieldCenterX))
 	baseY := int16(float64(my-origY)/worldScale - float64(fieldCenterY))
-    heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
-    click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-    rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
-    middleClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
+	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
+	click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
+	middleClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
 
 	winW, winH := ebiten.WindowSize()
 	inWindow := mx > 0 && my > 0 && mx < winW-1 && my < winH-1
@@ -916,12 +916,12 @@ func (g *Game) Update() error {
 			walkToggled = false
 		}
 	}
-    if !focused || !inWindow {
-        click = false
-        rightClick = false
-        middleClick = false
-        heldTime = 0
-    }
+	if !focused || !inWindow {
+		click = false
+		rightClick = false
+		middleClick = false
+		heldTime = 0
+	}
 
 	stopWalkIfOutside(click, inGame)
 	inputMu.Lock()
@@ -938,15 +938,15 @@ func (g *Game) Update() error {
 			heldTime = 0
 		}
 	}
-    if click && !uiMouseDown && inGame {
-        handleWorldClick(baseX, baseY, ebiten.MouseButtonLeft)
-    }
-    if rightClick && inGame && !pointInUI(mx, my) {
-        handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
-    }
-    if middleClick && inGame && !pointInUI(mx, my) {
-        handleWorldClick(baseX, baseY, ebiten.MouseButtonMiddle)
-    }
+	if click && !uiMouseDown && inGame {
+		handleWorldClick(baseX, baseY, ebiten.MouseButtonLeft)
+	}
+	if rightClick && inGame && !pointInUI(mx, my) {
+		handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
+	}
+	if middleClick && inGame && !pointInUI(mx, my) {
+		handleWorldClick(baseX, baseY, ebiten.MouseButtonMiddle)
+	}
 	// (right-click handling for menus/copy is handled earlier)
 
 	// Default desired target from current pointer, even if outside game window.
@@ -1905,12 +1905,14 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				screen.DrawImage(m.nameTag, op)
 			} else {
 				textClr, bgClr, frameClr := mobileNameColors(m.Colors)
-				playersMu.RLock()
-				if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
-					lc := labelColors[p.FriendLabel-1]
-					frameClr = color.RGBA{lc.R, lc.G, lc.B, frameClr.A}
+				if gs.NameTagLabelColors {
+					playersMu.RLock()
+					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
+						lc := labelColors[p.FriendLabel-1]
+						frameClr = color.RGBA{lc.R, lc.G, lc.B, frameClr.A}
+					}
+					playersMu.RUnlock()
 				}
-				playersMu.RUnlock()
 				bgClr.A = nameAlpha
 				frameClr.A = nameAlpha
 				face := mainFont

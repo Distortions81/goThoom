@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"image/color"
 	"math"
 	"sort"
 	"strings"
@@ -371,11 +372,15 @@ func mobileOnEdge(m frameMobile, d frameDescriptor) bool {
 
 // buildNameTagImage creates a cached image for a mobile name tag using the
 // current font and settings. Returns the image and its width/height in pixels.
-func buildNameTagImage(name string, colorCode uint8, opacity uint8, style uint8) (*ebiten.Image, int, int) {
+// The frame color defaults to the name color unless frameClr overrides it.
+func buildNameTagImage(name string, colorCode uint8, opacity uint8, style uint8, frameClr color.RGBA) (*ebiten.Image, int, int) {
 	if name == "" {
 		return nil, 0, 0
 	}
-	textClr, bgClr, frameClr := mobileNameColors(colorCode)
+	textClr, bgClr, defFrame := mobileNameColors(colorCode)
+	if frameClr.A == 0 {
+		frameClr = defFrame
+	}
 	face := mainFont
 	switch style {
 	case styleBold:
@@ -1224,7 +1229,16 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				m.nameTagH = prev.nameTagH
 				m.nameTagKey = prev.nameTagKey
 			} else {
-				img, iw, ih := buildNameTagImage(d.Name, m.Colors, uint8(gs.NameBgOpacity*255+0.5), style)
+				frame := color.RGBA{}
+				if gs.NameTagLabelColors {
+					playersMu.RLock()
+					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
+						lc := labelColors[p.FriendLabel-1]
+						frame = color.RGBA{lc.R, lc.G, lc.B, 0xff}
+					}
+					playersMu.RUnlock()
+				}
+				img, iw, ih := buildNameTagImage(d.Name, m.Colors, uint8(gs.NameBgOpacity*255+0.5), style, frame)
 				m.nameTag = img
 				m.nameTagW = iw
 				m.nameTagH = ih
