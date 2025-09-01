@@ -1,7 +1,5 @@
 # goThoom
 
-[![CI](https://github.com/Distortions81/goThoom/actions/workflows/ci.yml/badge.svg)](https://github.com/Distortions81/goThoom/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Distortions81/goThoom.svg)](https://pkg.go.dev/github.com/Distortions81/goThoom)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Distortions81/goThoom)](https://goreportcard.com/report/github.com/Distortions81/goThoom)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/Distortions81/goThoom)](https://github.com/Distortions81/goThoom/releases)
