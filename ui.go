@@ -86,6 +86,7 @@ var (
 	soundTestID       int
 	recordBtn         *eui.ItemData
 	recordStatus      *eui.ItemData
+	recordPath        string
 	qualityPresetDD   *eui.ItemData
 	shaderLightSlider *eui.ItemData
 	shaderGlowSlider  *eui.ItemData
@@ -334,6 +335,17 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	*/
 
 	// Removed toolbar volume slider and mute button (use Mixer instead)
+
+	recordBtn, recordEvents := eui.NewButton()
+	recordBtn.Text = "Record"
+	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	recordBtn.FontSize = toolFontSize
+	recordEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			toggleRecording()
+		}
+	}
+	row2.AddItem(recordBtn)
 
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
@@ -1065,6 +1077,80 @@ func confirmExitSession() {
 	}
 	// No active session; just go to login
 	loginWin.MarkOpen()
+}
+
+func startRecording() {
+	dir := filepath.Join(dataDirPath, "Movies")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		logError("record movie: %v", err)
+		return
+	}
+	ts := time.Now().Format("2006-01-02-15-04-05")
+	base := gs.LastCharacter
+	if base == "" {
+		base = "movie"
+	}
+	recordPath = filepath.Join(dir, fmt.Sprintf("%s__%s.clMov", base, ts))
+	mr, err := newMovieRecorder(recordPath, clientVersion, int(movieRevision))
+	if err != nil {
+		logError("record movie: %v", err)
+		recordPath = ""
+		return
+	}
+	recorder = mr
+	loginGameState = nil
+	loginMobileData = nil
+	loginPictureTable = nil
+	wroteLoginBlocks = false
+	recordStatus.Text = "REC"
+	recordStatus.Dirty = true
+	if recordBtn != nil {
+		recordBtn.Text = "Stop"
+		recordBtn.Dirty = true
+	}
+	if hudWin != nil {
+		hudWin.Refresh()
+	}
+	consoleMessage(fmt.Sprintf("recording to %s", filepath.Base(recordPath)))
+}
+
+func stopRecording() {
+	if recorder == nil {
+		return
+	}
+	if err := recorder.Close(); err != nil {
+		logError("record movie: %v", err)
+	}
+	recorder = nil
+	loginGameState = nil
+	loginMobileData = nil
+	loginPictureTable = nil
+	wroteLoginBlocks = false
+	recordStatus.Text = ""
+	recordStatus.Dirty = true
+	if recordBtn != nil {
+		recordBtn.Text = "Record"
+		recordBtn.Dirty = true
+	}
+	if hudWin != nil {
+		hudWin.Refresh()
+	}
+	if recordPath != "" {
+		consoleMessage(fmt.Sprintf("saved movie: %s", filepath.Base(recordPath)))
+		recordPath = ""
+	}
+}
+
+func toggleRecording() {
+	if recorder != nil {
+		stopRecording()
+		return
+	}
+	if clmov != "" || playingMovie || pcapPath != "" || fake {
+		consoleMessage("cannot record during playback or replay")
+		return
+	}
+	startRecording()
 }
 
 var dlMutex sync.Mutex
