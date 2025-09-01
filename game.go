@@ -2577,7 +2577,8 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			if !wroteLoginBlocks {
 				if tag == 2 { // first draw state
 					if len(loginGameState) > 0 {
-						recorder.AddBlock(gameStateBlock(loginGameState), flagGameState)
+						l := len(loginGameState)
+						recorder.AddBlock(gameStateBlock(0, 0, 0, l, l, l, loginGameState), flagGameState)
 					}
 					if len(loginMobileData) > 0 {
 						recorder.AddBlock(loginMobileData, flagMobileData)
@@ -2659,7 +2660,8 @@ loop:
 			if !wroteLoginBlocks {
 				if tag == 2 { // first draw state
 					if len(loginGameState) > 0 {
-						recorder.AddBlock(gameStateBlock(loginGameState), flagGameState)
+						l := len(loginGameState)
+						recorder.AddBlock(gameStateBlock(0, 0, 0, l, l, l, loginGameState), flagGameState)
 					}
 					if len(loginMobileData) > 0 {
 						recorder.AddBlock(loginMobileData, flagMobileData)
