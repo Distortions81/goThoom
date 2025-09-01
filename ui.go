@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 
 	"gothoom/eui"
 
@@ -47,10 +46,8 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
-var addCharPassWarn *eui.ItemData
 var passWin *eui.WindowData
 var passInput *eui.ItemData
-var passCapsWarn *eui.ItemData
 
 var changelogWin *eui.WindowData
 var changelogList *eui.ItemData
@@ -121,42 +118,6 @@ var ttsTestPhrase = "The quick brown fox jumps over the lazy dog"
 // lastWhoRequest tracks the last time we requested a backend who list so we
 // can avoid spamming the server when the Players window is toggled rapidly.
 var lastWhoRequest time.Time
-
-func setupCapsLockWarning(input *eui.ItemData, warn *eui.ItemData) {
-	if input == nil || warn == nil {
-		return
-	}
-	warn.Invisible = true
-	warn.FontSize = input.FontSize
-	warn.Size = input.Size
-	warn.Dirty = true
-	h := input.Handler
-	prevHandle := h.Handle
-	h.Handle = func(ev eui.UIEvent) {
-		if prevHandle != nil {
-			prevHandle(ev)
-		}
-		if ev.Type != eui.EventInputChanged {
-			return
-		}
-		runes := []rune(ev.Text)
-		if len(runes) == 0 {
-			if !warn.Invisible {
-				warn.Invisible = true
-				warn.Dirty = true
-			}
-			return
-		}
-		r := runes[len(runes)-1]
-		shift := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
-		show := unicode.IsLetter(r) && ((unicode.IsUpper(r) && !shift) || (unicode.IsLower(r) && shift))
-		inv := !show
-		if warn.Invisible != inv {
-			warn.Invisible = inv
-			warn.Dirty = true
-		}
-	}
-}
 
 func init() {
 	eui.WindowStateChanged = func() {
@@ -1880,11 +1841,6 @@ func makeAddCharacterWindow() {
 	addCharPassInput = passInput
 	flow.AddItem(passInput)
 
-	addCharPassWarn, _ = eui.NewText()
-	addCharPassWarn.Text = "Caps Lock is ON"
-	addCharPassWarn.TextColor = eui.ColorRed
-	flow.AddItem(addCharPassWarn)
-	setupCapsLockWarning(passInput, addCharPassWarn)
 	rememberCB, rememberEvents := eui.NewCheckbox()
 	rememberCB.Text = "Remember Password"
 	rememberCB.Size = eui.Point{X: 200, Y: 24}
@@ -1947,7 +1903,6 @@ func makeAddCharacterWindow() {
 			}
 			// Return user to login (already open above)
 			addCharWin.Close()
-			addCharPassWarn = nil
 		}
 	}
 	flow.AddItem(addBtn)
@@ -1958,7 +1913,6 @@ func makeAddCharacterWindow() {
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharWin.Close()
-			addCharPassWarn = nil
 			loginWin.MarkOpen()
 		}
 	}
@@ -1989,12 +1943,6 @@ func makePasswordWindow() {
 	passInput = input
 	flow.AddItem(input)
 
-	passCapsWarn, _ = eui.NewText()
-	passCapsWarn.Text = "Caps Lock is ON"
-	passCapsWarn.TextColor = eui.ColorRed
-	flow.AddItem(passCapsWarn)
-	setupCapsLockWarning(input, passCapsWarn)
-
 	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
 	cancelBtn, cancelEvents := eui.NewButton()
@@ -2004,7 +1952,6 @@ func makePasswordWindow() {
 		if ev.Type == eui.EventClick {
 			pass = ""
 			passWin.Close()
-			passCapsWarn = nil
 		}
 	}
 	btnFlow.AddItem(cancelBtn)
@@ -2019,7 +1966,6 @@ func makePasswordWindow() {
 				return
 			}
 			passWin.Close()
-			passCapsWarn = nil
 			startLogin()
 		}
 	}
