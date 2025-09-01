@@ -2033,8 +2033,8 @@ func makeLoginWindow() {
 	verFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Size: eui.Point{X: 260, Y: 24}}
 	verLabel, _ := eui.NewText()
 	verLabel.Text = fmt.Sprintf("goThoom test %4d", appVersion)
-	verLabel.FontSize = 13
-	verLabel.Size = eui.Point{X: 170, Y: 24}
+	verLabel.FontSize = 9
+	verLabel.Size = eui.Point{X: 110, Y: 24}
 	verFlow.AddItem(verLabel)
 
 	changeBtn, changeEvents := eui.NewButton()
