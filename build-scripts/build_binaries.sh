@@ -68,7 +68,7 @@ macOS cross toolchain not found (o64-clang/oa64-clang missing).
 To enable macOS builds, install osxcross and an SDK (recommended: MacOSX13.3.sdk),
 then set OSXCROSS_ROOT accordingly. You can run the helper installer:
 
-  ./scripts/install_osxcross.sh --sdk-tarball /path/to/MacOSX13.3.sdk.tar.xz
+  ./build-scripts/install_osxcross.sh --sdk-tarball /path/to/MacOSX13.3.sdk.tar.xz
 
 Or manual steps:
 

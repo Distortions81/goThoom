@@ -1,0 +1,13 @@
+Macros and triggers windows now show macros and triggers loaded from plugins, and which plugin.
+Plugins window is sorted by mod category and sub-category.
+equip and unequip commands that are redundant are automatically skipped.
+Hotkeys now support modifier keys for right and middle click
+exit now works at main menu with confirm dialog.
+music tempo issues have been resolved, as well as sustain and end of song fadeout.
+Added UDP buffer to handle multi-packet messages and now properly handles dropped key-frames. This fixes the 'glitched after login' and 'missing sprite at begining of clmov" bugs. (edited)
+Added about dialog with licences and attribution info also found in attribute.md
+Added option to show player group color around in-game name tags (default on) (edited)
+Fixed logging to proper character name
+Added many new tooltips
+Fixed some issues with the players list refreshing
+Not perfect, but WASD is now more responsive.

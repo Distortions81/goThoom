@@ -63,7 +63,7 @@ Approximately 45,000 lines of Go code.
 - Drop a `background.png` and/or `splash.png` into `data/` for a custom look.
 
 ### Text-to-speech voices
-Piper voices are stored in `data/piper/voices`. The client and `scripts/download_piper.sh` support voice archives in `.tar.gz` format and automatically extract and remove the archives. If a voice archive isn't available, the program falls back to downloading raw `.onnx` models with matching `.onnx.json` configs.
+Piper voices are stored in `data/piper/voices`. The client and `build-scripts/download_piper.sh` support voice archives in `.tar.gz` format and automatically extract and remove the archives. If a voice archive isn't available, the program falls back to downloading raw `.onnx` models with matching `.onnx.json` configs.
 
 ## Build from source
 

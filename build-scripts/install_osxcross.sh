@@ -4,18 +4,18 @@ set -euo pipefail
 # install_osxcross.sh — bootstrap osxcross and a macOS SDK
 #
 # Usage examples:
-#   scripts/install_osxcross.sh \
+#   build-scripts/install_osxcross.sh \
 #     --root "$HOME/osxcross" \
 #     --sdk-tarball "/path/to/MacOSX13.3.sdk.tar.xz"
 #
-#   scripts/install_osxcross.sh \
+#   build-scripts/install_osxcross.sh \
 #     --sdk-url "https://example/MacOSX13.3.sdk.tar.xz"
 #
-#   scripts/install_osxcross.sh \
+#   build-scripts/install_osxcross.sh \
 #     --sdk-version 13.3 \
 #     --sdks-json "https://raw.githubusercontent.com/joseluisq/macosx-sdks/master/macosx_sdks.json"
 #
-#   OSXCROSS_ALLOW_SDK15=1 scripts/install_osxcross.sh --sdk-tarball ./MacOSX15.5.sdk.tar.xz
+#   OSXCROSS_ALLOW_SDK15=1 build-scripts/install_osxcross.sh --sdk-tarball ./MacOSX15.5.sdk.tar.xz
 #
 # Notes:
 # - Installs required build deps on Debian/Ubuntu if apt-get is available

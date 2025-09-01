@@ -1,6 +1,6 @@
 package main
 
-//go:generate scripts/download_spellcheck_dict.sh
+//go:generate build-scripts/download_spellcheck_dict.sh
 
 import (
 	"bytes"
