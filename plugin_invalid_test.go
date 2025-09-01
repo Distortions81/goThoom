@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package main
 
 import (
@@ -32,7 +35,7 @@ const PluginName = "MetaTest"
 	pluginSubCategories = map[string]string{}
 	pluginInvalid = map[string]bool{}
 	pluginDisabled = map[string]bool{}
-    pluginEnabledFor = map[string]pluginScope{}
+	pluginEnabledFor = map[string]pluginScope{}
 	pluginNames = map[string]bool{}
 
 	loadPlugins()
@@ -46,9 +49,9 @@ const PluginName = "MetaTest"
 
 	playerName = "Tester"
 	setPluginEnabled(owner, true, false)
-    if s, ok := pluginEnabledFor[owner]; ok && !s.empty() {
-        t.Fatalf("invalid plugin unexpectedly enabled: %+v", s)
-    }
+	if s, ok := pluginEnabledFor[owner]; ok && !s.empty() {
+		t.Fatalf("invalid plugin unexpectedly enabled: %+v", s)
+	}
 	if !pluginDisabled[owner] {
 		t.Fatalf("invalid plugin became enabled")
 	}
