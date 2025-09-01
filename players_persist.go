@@ -71,7 +71,7 @@ func loadPlayersPersist() {
 		playersMu.Lock()
 		pr.Gender = p.Gender
 		pr.Class = p.Class
-		pr.Clan = p.clan
+               pr.clan = p.Clan
 		pr.PictID = p.PictID
 		// Decode ColorsHex: optional hex of [count][bytes]
 		if p.ColorsHex != "" {
@@ -86,12 +86,12 @@ func loadPlayersPersist() {
 			}
 		}
 		pr.Dead = p.Dead
-		pr.GMLevel = p.gmLevel
+               pr.gmLevel = p.GMLevel
 		pr.GlobalLabel = p.GlobalLabel
 		applyPlayerLabel(pr)
 		pr.Bard = p.Bard
 		pr.SameClan = p.SameClan
-		pr.BeWho = p.beWho
+               pr.beWho = p.BeWho
 		pr.Seen = p.Seen
 		pr.FellWhere = p.FellWhere
 		if p.FellTime != 0 {
