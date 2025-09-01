@@ -1919,12 +1919,14 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				screen.DrawImage(m.nameTag, op)
 			} else {
 				textClr, bgClr, frameClr := mobileNameColors(m.Colors)
-				playersMu.RLock()
-				if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
-					lc := labelColors[p.FriendLabel-1]
-					frameClr = color.RGBA{lc.R, lc.G, lc.B, frameClr.A}
+				if gs.NameTagLabelColors {
+					playersMu.RLock()
+					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
+						lc := labelColors[p.FriendLabel-1]
+						frameClr = color.RGBA{lc.R, lc.G, lc.B, frameClr.A}
+					}
+					playersMu.RUnlock()
 				}
-				playersMu.RUnlock()
 				bgClr.A = nameAlpha
 				frameClr.A = nameAlpha
 				face := mainFont

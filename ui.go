@@ -2606,6 +2606,23 @@ func makeSettingsWindow() {
 	}
 	right.AddItem(nameBgSlider)
 
+	nameBorderCB, nameBorderEvents := eui.NewCheckbox()
+	nameBorderCB.Text = "Name Tag Label Colors"
+	nameBorderCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	nameBorderCB.Checked = gs.NameTagLabelColors
+	nameBorderCB.Tooltip = "Show player label colors on name tag borders"
+	nameBorderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+
+			gs.NameTagLabelColors = ev.Checked
+			killNameTagCache()
+			settingsDirty = true
+		}
+	}
+	right.AddItem(nameBorderCB)
+
 	bubbleOpSlider, bubbleOpEvents := eui.NewSlider()
 	bubbleOpSlider.Label = "Bubble Opacity"
 	bubbleOpSlider.MinValue = 0

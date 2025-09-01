@@ -46,32 +46,32 @@ func updatePlayersWindow() {
 
 	// Gather current players and filter to non-NPCs with names.
 	ps := getPlayers()
-    // Sort: online (recently seen and not explicitly offline) first,
-    // then by label/color group, then by name.
-    sort.Slice(ps, func(i, j int) bool {
-        staleI := time.Since(ps[i].LastSeen) > 5*time.Minute
-        staleJ := time.Since(ps[j].LastSeen) > 5*time.Minute
-        offI := ps[i].Offline || staleI
-        offJ := ps[j].Offline || staleJ
-        if offI != offJ {
-            return !offI && offJ
-        }
-        // Same online/offline status: sort by label group.
-        li := ps[i].FriendLabel
-        lj := ps[j].FriendLabel
-        // Treat unlabeled (0) as after labeled groups.
-        if li == 0 && lj != 0 {
-            return false
-        }
-        if lj == 0 && li != 0 {
-            return true
-        }
-        if li != lj {
-            return li < lj
-        }
-        // Final tie-breaker: by name.
-        return ps[i].Name < ps[j].Name
-    })
+	// Sort: online (recently seen and not explicitly offline) first,
+	// then by label/color group, then by name.
+	sort.Slice(ps, func(i, j int) bool {
+		staleI := time.Since(ps[i].LastSeen) > 5*time.Minute
+		staleJ := time.Since(ps[j].LastSeen) > 5*time.Minute
+		offI := ps[i].Offline || staleI
+		offJ := ps[j].Offline || staleJ
+		if offI != offJ {
+			return !offI && offJ
+		}
+		// Same online/offline status: sort by label group.
+		li := ps[i].FriendLabel
+		lj := ps[j].FriendLabel
+		// Treat unlabeled (0) as after labeled groups.
+		if li == 0 && lj != 0 {
+			return false
+		}
+		if lj == 0 && li != 0 {
+			return true
+		}
+		if li != lj {
+			return li < lj
+		}
+		// Final tie-breaker: by name.
+		return ps[i].Name < ps[j].Name
+	})
 	exiles := make([]Player, 0, len(ps))
 	shareCount, shareeCount := 0, 0
 	onlineCount := 0
@@ -91,7 +91,7 @@ func updatePlayersWindow() {
 		}
 	}
 
-    myClan := ""
+	myClan := ""
 	if playerName != "" {
 		playersMu.RLock()
 		if me, ok := players[playerName]; ok {
@@ -167,9 +167,9 @@ func updatePlayersWindow() {
 		if p.Sharing {
 			tags = append(tags, ">")
 		}
-        if sameRealClan(p.Clan, myClan) {
-            tags = append(tags, "*")
-        }
+		if sameRealClan(p.Clan, myClan) {
+			tags = append(tags, "*")
+		}
 		if len(tags) > 0 {
 			name = fmt.Sprintf("%s %s", name, strings.Join(tags, "--"))
 		}
@@ -178,7 +178,7 @@ func updatePlayersWindow() {
 
 		if p.FriendLabel > 0 {
 			row.Outlined = true
-			row.Border = 2
+			row.Border = 3
 			row.OutlineColor = labelColor(p.FriendLabel)
 		}
 
@@ -336,40 +336,40 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	// Close any existing context menus.
 	eui.CloseContextMenus()
 
-    displayName := name
-    options := []string{}
-    actions := []func(){}
+	displayName := name
+	options := []string{}
+	actions := []func(){}
 
-    // If the player has a label color/group, show that as a disabled header
-    // line at the top of the menu. Otherwise, fall back to showing the
-    // player's name as the header.
-    headerCount := 0
-    if displayName != "" {
-        if p := getPlayer(displayName); p != nil && p.FriendLabel > 0 {
-            idx := p.FriendLabel
-            colorName := ""
-            if idx > 0 && idx <= len(defaultLabelNames) {
-                colorName = defaultLabelNames[idx-1]
-            }
-            groupName := labelName(idx)
-            header := ""
-            if colorName != "" && groupName != "" && !strings.EqualFold(colorName, groupName) {
-                header = fmt.Sprintf("%s — %s", colorName, groupName)
-            } else if groupName != "" {
-                header = groupName
-            } else if colorName != "" {
-                header = colorName
-            }
-            if header != "" {
-                options = append(options, header)
-                headerCount = 1
-            }
-        }
-        if headerCount == 0 {
-            options = append(options, displayName)
-            headerCount = 1
-        }
-    }
+	// If the player has a label color/group, show that as a disabled header
+	// line at the top of the menu. Otherwise, fall back to showing the
+	// player's name as the header.
+	headerCount := 0
+	if displayName != "" {
+		if p := getPlayer(displayName); p != nil && p.FriendLabel > 0 {
+			idx := p.FriendLabel
+			colorName := ""
+			if idx > 0 && idx <= len(defaultLabelNames) {
+				colorName = defaultLabelNames[idx-1]
+			}
+			groupName := labelName(idx)
+			header := ""
+			if colorName != "" && groupName != "" && !strings.EqualFold(colorName, groupName) {
+				header = fmt.Sprintf("%s — %s", colorName, groupName)
+			} else if groupName != "" {
+				header = groupName
+			} else if colorName != "" {
+				header = colorName
+			}
+			if header != "" {
+				options = append(options, header)
+				headerCount = 1
+			}
+		}
+		if headerCount == 0 {
+			options = append(options, displayName)
+			headerCount = 1
+		}
+	}
 
 	// Thank: immediate thank.
 	if displayName != "" {
@@ -460,13 +460,13 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	if len(options) == 0 {
 		return
 	}
-    menu := eui.ShowContextMenu(options, pos.X, pos.Y, func(i int) {
-        adj := i - headerCount
-        if adj >= 0 && adj < len(actions) {
-            actions[adj]()
-        }
-    })
-    if menu != nil && headerCount > 0 {
-        menu.HeaderCount = headerCount
-    }
+	menu := eui.ShowContextMenu(options, pos.X, pos.Y, func(i int) {
+		adj := i - headerCount
+		if adj >= 0 && adj < len(actions) {
+			actions[adj]()
+		}
+	})
+	if menu != nil && headerCount > 0 {
+		menu.HeaderCount = headerCount
+	}
 }
