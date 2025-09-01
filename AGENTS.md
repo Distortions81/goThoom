@@ -8,24 +8,24 @@ Try to avoid completely over-thinking your replies and feel free to stop and ask
 
 ## Installing dependencies
 
-1. **Always** download and install the prebuilt dependency bundle:
+1. Install required system packages (if missing):
+   ```bash
+   sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev \
+     xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
+   ```
+2. **Always** download and install the prebuilt dependency bundle:
    ```bash
    curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
    tar -xzf gothoom_deps.tar.gz
-   sudo apt-get install -y ./apt/*.deb
    sudo tar -C /usr/local -xzf go/go1.25.0.linux-amd64.tar.gz
    export PATH="/usr/local/go/bin:$PATH"
    go env -w GOMODCACHE="$(pwd)/go/mod"
    ```
-   The archive, produced by `build-scripts/build_dep_bundle.sh`, contains the
-   required Debian packages under `apt/`, a Go 1.25 toolchain under `go/`,
-   and a cached Go module tree under `go/mod`. Extracting it and installing
-   these contents avoids fetching dependencies individually. The bundled
-   packages currently include `build-essential`, `libgl1-mesa-dev`,
-   `libglu1-mesa-dev`, `xorg-dev`, `libxrandr-dev`, `libasound2-dev`,
-   `libgtk-3-dev`, and `xdg-utils`.
+   The archive, produced by `build-scripts/build_dep_bundle.sh`, contains a
+   Go 1.25 toolchain under `go/` and a cached Go module tree under `go/mod`.
+   Extracting it avoids fetching Go artifacts individually.
    
-2. Fetch Go module dependencies:
+3. Fetch Go module dependencies:
    ```bash
    cd gothoom
    go mod download
@@ -40,8 +40,8 @@ The `build-scripts` directory provides helper scripts for development.
 Run these scripts from the repository root.
 
 ## Adding Dependencies
-- Always document new system packages here and add them to `DEB_PACKAGES` in `build-scripts/build_dep_bundle.sh`.
-- If the Go toolchain version changes, update `GO_VERSION` in `build_dep_bundle.sh` and rebuild the bundle.
+- Document any required system packages here.
+- If the Go toolchain version changes, update `GO_VERSION` in `build-scripts/build_dep_bundle.sh` and rebuild the bundle.
 - After updates, regenerate the archive by running `build-scripts/build_dep_bundle.sh` from the repo root and re-share `gothoom_deps.tar.gz`.
 
 ## Build steps
