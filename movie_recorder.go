@@ -68,9 +68,22 @@ func (m *movieRecorder) writeHeader() error {
 	return err
 }
 
-func gameStateBlock(payload []byte) []byte {
+func (m *movieRecorder) AddBlock(data []byte, flag uint16) {
+	if len(data) == 0 {
+		return
+	}
+	m.preData = append(m.preData, data...)
+	m.preFlags |= flag
+}
+
+func gameStateBlock(leftPictID, rightPictID, mode, maxSize, curSize, expectedSize int, payload []byte) []byte {
 	buf := make([]byte, 24+len(payload))
-	binary.BigEndian.PutUint32(buf[12:], uint32(len(payload)))
+	binary.BigEndian.PutUint32(buf[0:], uint32(leftPictID))
+	binary.BigEndian.PutUint32(buf[4:], uint32(rightPictID))
+	binary.BigEndian.PutUint32(buf[8:], uint32(mode))
+	binary.BigEndian.PutUint32(buf[12:], uint32(maxSize))
+	binary.BigEndian.PutUint32(buf[16:], uint32(curSize))
+	binary.BigEndian.PutUint32(buf[20:], uint32(expectedSize))
 	copy(buf[24:], payload)
 	return buf
 }
