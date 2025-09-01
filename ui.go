@@ -1655,6 +1655,11 @@ func makeDownloadsWindow() {
 				img.DenoiseSharpness = gs.DenoiseSharpness
 				img.DenoiseAmount = gs.DenoiseAmount
 				clImages = img
+				// Refresh windows that depend on CL_Images now that
+				// the archive is available so icons appear without
+				// requiring a manual resize.
+				inventoryDirty = true
+				playersDirty = true
 			}
 
 			clSounds, err = clsnd.Load(filepath.Join("data/CL_Sounds"))
