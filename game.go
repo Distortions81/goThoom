@@ -998,16 +998,6 @@ func (g *Game) Update() error {
 
 	updateHotkeyRecording()
 	checkHotkeys()
-	if keyStopFrames > 0 {
-		if keyWalk {
-			keyStopFrames = 0
-		} else {
-			inputMu.Lock()
-			latestInput = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
-			inputMu.Unlock()
-			keyStopFrames--
-		}
-	}
 
 	return nil
 }
@@ -2529,6 +2519,10 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 		}
 		inputMu.Lock()
 		s := latestInput
+		if keyStopFrames > 0 {
+			s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
+			keyStopFrames--
+		}
 		inputMu.Unlock()
 
 		reliable := false
