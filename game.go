@@ -1002,7 +1002,9 @@ func (g *Game) Update() error {
 		if keyWalk {
 			keyStopFrames = 0
 		} else {
-			enqueueCommand("/move stop")
+			inputMu.Lock()
+			latestInput = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
+			inputMu.Unlock()
 			keyStopFrames--
 		}
 	}
