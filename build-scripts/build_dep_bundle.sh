@@ -17,6 +17,8 @@ GO_DIR="$WORK_DIR/go"
 mkdir -p "$APT_DIR" "$GO_DIR"
 
 # Packages needed to build goThoom. The Go toolchain is downloaded below.
+# NOTE: Keep this list in sync with AGENTS.md (see "Adding Dependencies").
+# When adding a new system package, document it in AGENTS.md and add it here.
 DEB_PACKAGES=(
   build-essential
   libgl1-mesa-dev
@@ -39,6 +41,7 @@ else
 fi
 
 # Include Go toolchain
+# NOTE: If this version changes, update AGENTS.md instructions to match.
 GO_VERSION="1.25.0"
 GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
 echo "Downloading Go ${GO_VERSION}..."
@@ -49,7 +52,7 @@ GO_CACHE="$GO_DIR/mod"
 mkdir -p "$GO_CACHE"
 
 echo "Downloading Go modules..."
-GOMODCACHE="$GO_CACHE" go mod download
+GOMODCACHE="$GO_CACHE" /usr/local/go/bin/go mod download
 
 
 # Copy useful data files

@@ -36,6 +36,11 @@ The `build-scripts` directory provides helper scripts for development.
 `build-scripts/setup_dev_env.sh` bootstraps a development environment.
 Run these scripts from the repository root.
 
+## Adding Dependencies
+- Always document new system packages here and add them to `DEB_PACKAGES` in `build-scripts/build_dep_bundle.sh`.
+- If the Go toolchain version changes, update `GO_VERSION` in `build_dep_bundle.sh` and rebuild the bundle.
+- After updates, regenerate the archive by running `build-scripts/build_dep_bundle.sh` from the repo root and re-share `gothoom_deps.tar.gz`.
+
 ## Build steps
 1. Navigate to the `gothoom` directory if not already there:
    ```bash
