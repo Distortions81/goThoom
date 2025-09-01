@@ -196,6 +196,9 @@ func parseBackendShare(data []byte) {
 
 // parseBackendWho parses "be-wh" messages listing players.
 func parseBackendWho(data []byte) {
+	if !whoActive {
+		clearBeWhoFlags()
+	}
 	batchCount := 0
 	newCount := 0
 	for len(data) > 0 {
@@ -230,6 +233,10 @@ func parseBackendWho(data []byte) {
 		// Update player record and enqueue info request if needed.
 		playersMu.Lock()
 		p, ok := players[name]
+		if ok && p.beWho {
+			playersMu.Unlock()
+			break
+		}
 		if !ok {
 			p = &Player{Name: name}
 			players[name] = p
@@ -271,7 +278,7 @@ func parseBackendWho(data []byte) {
 		playersPersistDirty = true
 	}
 	// Consider requesting another who batch if this looks like a partial page
-	considerNextWhoBatch(batchCount, newCount)
+	considerNextWhoBatch(batchCount)
 }
 
 // parseNames extracts a slice of names from a sequence of "-pn name -pn" entries.
