@@ -1,5 +1,11 @@
 # goThoom
 
+[![CI](https://github.com/m45sci/goThoom/actions/workflows/ci.yml/badge.svg)](https://github.com/m45sci/goThoom/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/m45sci/goThoom.svg)](https://pkg.go.dev/github.com/m45sci/goThoom)
+[![Go Report Card](https://goreportcard.com/badge/github.com/m45sci/goThoom)](https://goreportcard.com/report/github.com/m45sci/goThoom)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/m45sci/goThoom)](https://github.com/m45sci/goThoom/releases)
+
 An open-source (MIT) client for the classic **[Clan Lord](https://www.deltatao.com/clanlord/)** MMORPG
 
 <img width="125" height="125" alt="goThoom" src="https://github.com/user-attachments/assets/b036f99a-668b-408e-8a43-524a0659a260" />
