@@ -1,24 +1,24 @@
 package main
 
 import (
-    "bytes"
-    "encoding/json"
-    "fmt"
-    "math"
-    "os"
-    "path/filepath"
-    "strconv"
-    "strings"
-    "sync"
-    "time"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
-    "gothoom/eui"
+	"gothoom/eui"
 
-    "github.com/hajimehoshi/ebiten/v2"
-    "github.com/hajimehoshi/ebiten/v2/inpututil"
-    text "github.com/hajimehoshi/ebiten/v2/text/v2"
-    "golang.org/x/image/font/gofont/goregular"
-    "regexp"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"golang.org/x/image/font/gofont/goregular"
+	"regexp"
 )
 
 const hotkeysFile = "global-hotkeys.json"
@@ -127,7 +127,7 @@ func loadHotkeys() {
 	pluginHotkeyMu.Unlock()
 
 	// Ensure default hotkeys exist.
-    def := Hotkey{Name: "Click To Use", Combo: "RightClick", Commands: []HotkeyCommand{{Command: "/use @right.clicked"}}, Disabled: true}
+	def := Hotkey{Name: "Click To Use", Combo: "RightClick", Commands: []HotkeyCommand{{Command: "/use @right.clicked"}}, Disabled: true}
 	exists := false
 	for _, hk := range newList {
 		if hk.Combo == def.Combo && hk.Plugin == "" {
@@ -280,7 +280,7 @@ func makeHotkeysWindow() {
 	flow.AddItem(hotkeysList)
 
 	infoFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-    infoText := "@right.clicked -> last right-clicked player\n@middle.clicked -> last middle-clicked player\n@<button>.<mod>.clicked -> clicked player with modifier (button: left|middle|right; mod: control|alt|shift)\n@hovered -> currently hovered player\n@selected.player -> selected player\n@selected.item -> selected item\n@equipped.left -> left hand item\n@equipped.belt -> belt item\n@equipped.<slot> -> item in wear slot"
+	infoText := "@right.clicked -> last right-clicked player\n@middle.clicked -> last middle-clicked player\n@<button>.<mod>.clicked -> clicked player with modifier (button: left|middle|right; mod: control|alt|shift)\n@hovered -> currently hovered player\n@selected.player -> selected player\n@selected.item -> selected item\n@equipped.left -> left hand item\n@equipped.belt -> belt item\n@equipped.<slot> -> item in wear slot"
 	help := &eui.ItemData{ItemType: eui.ITEM_TEXT, Text: infoText}
 	help.Size = eui.Point{X: 256, Y: 256}
 	help.FontSize = 10
@@ -470,16 +470,16 @@ func openHotkeyEditor(idx int) {
 	hotkeyComboText.Size = eui.Point{X: 200, Y: 20}
 	hotkeyComboText.FontSize = 12
 	row.AddItem(hotkeyComboText)
-	recordBtn, recordEvents := eui.NewButton()
-	recordBtn.Text = "Record"
-	recordBtn.Size = eui.Point{X: 60, Y: 20}
-	recordBtn.FontSize = 12
+	hotkeyRecordBtn, recordEvents := eui.NewButton()
+	hotkeyRecordBtn.Text = "Record"
+	hotkeyRecordBtn.Size = eui.Point{X: 60, Y: 20}
+	hotkeyRecordBtn.FontSize = 12
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			startRecording(hotkeyComboText)
+			startHotkeyRecording(hotkeyComboText)
 		}
 	}
-	row.AddItem(recordBtn)
+	row.AddItem(hotkeyRecordBtn)
 	flow.AddItem(row)
 
 	nameRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
@@ -689,7 +689,7 @@ func finishHotkeyEdit(save bool) {
 	}
 }
 
-func startRecording(target *eui.ItemData) {
+func startHotkeyRecording(target *eui.ItemData) {
 	recording = true
 	recordStart = time.Now()
 	recordTarget = target
@@ -831,81 +831,81 @@ func isModifier(k ebiten.Key) bool {
 }
 
 func applyHotkeyVars(cmd string) (string, bool) {
-    // Resolve @hovered first (simple, unchanged)
-    needHovered := strings.Contains(cmd, "@hovered")
-    if needHovered {
-        var hoveredName string
-        lastHoverMu.Lock()
-        hoveredName = lastHover.Mobile.Name
-        lastHoverMu.Unlock()
-        if hoveredName == "" {
-            return "", false
-        }
-        cmd = strings.ReplaceAll(cmd, "@hovered", hoveredName)
-    }
+	// Resolve @hovered first (simple, unchanged)
+	needHovered := strings.Contains(cmd, "@hovered")
+	if needHovered {
+		var hoveredName string
+		lastHoverMu.Lock()
+		hoveredName = lastHover.Mobile.Name
+		lastHoverMu.Unlock()
+		if hoveredName == "" {
+			return "", false
+		}
+		cmd = strings.ReplaceAll(cmd, "@hovered", hoveredName)
+	}
 
-    // Handle new click variables via regex replacement.
-    re := regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
-    out := re.ReplaceAllStringFunc(cmd, func(segment string) string {
-        m := re.FindStringSubmatch(segment)
-        if len(m) < 3 {
-            return segment
-        }
-        button := strings.ToLower(m[1])
-        modsPart := m[2]
-        var info ClickInfo
-        ok := false
-        switch button {
-        case "right", "rightclick":
-            lastClickByButtonMu.Lock()
-            info, ok = lastClickByButton[ebiten.MouseButtonRight]
-            lastClickByButtonMu.Unlock()
-        case "middle", "middleclick":
-            lastClickByButtonMu.Lock()
-            info, ok = lastClickByButton[ebiten.MouseButtonMiddle]
-            lastClickByButtonMu.Unlock()
-        case "left", "leftclick":
-            lastClickByButtonMu.Lock()
-            info, ok = lastClickByButton[ebiten.MouseButtonLeft]
-            lastClickByButtonMu.Unlock()
-        default:
-            ok = false
-        }
-        if !ok || info.Mobile.Name == "" {
-            // Force overall failure by returning an impossible token; marker checked below.
-            return "@@UNRESOLVED_CLICK@@"
-        }
-        if modsPart != "" {
-            // modsPart is like ".control.shift"; split and verify each
-            for _, raw := range strings.Split(strings.TrimPrefix(modsPart, "."), ".") {
-                switch strings.ToLower(strings.TrimSpace(raw)) {
-                case "control", "ctrl":
-                    if !info.Ctrl {
-                        return "@@UNRESOLVED_CLICK@@"
-                    }
-                case "alt":
-                    if !info.Alt {
-                        return "@@UNRESOLVED_CLICK@@"
-                    }
-                case "shift":
-                    if !info.Shift {
-                        return "@@UNRESOLVED_CLICK@@"
-                    }
-                case "":
-                    // ignore
-                default:
-                    return "@@UNRESOLVED_CLICK@@"
-                }
-            }
-        }
-        return info.Mobile.Name
-    })
-    if strings.Contains(out, "@@UNRESOLVED_CLICK@@") {
-        return "", false
-    }
-    cmd = out
+	// Handle new click variables via regex replacement.
+	re := regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
+	out := re.ReplaceAllStringFunc(cmd, func(segment string) string {
+		m := re.FindStringSubmatch(segment)
+		if len(m) < 3 {
+			return segment
+		}
+		button := strings.ToLower(m[1])
+		modsPart := m[2]
+		var info ClickInfo
+		ok := false
+		switch button {
+		case "right", "rightclick":
+			lastClickByButtonMu.Lock()
+			info, ok = lastClickByButton[ebiten.MouseButtonRight]
+			lastClickByButtonMu.Unlock()
+		case "middle", "middleclick":
+			lastClickByButtonMu.Lock()
+			info, ok = lastClickByButton[ebiten.MouseButtonMiddle]
+			lastClickByButtonMu.Unlock()
+		case "left", "leftclick":
+			lastClickByButtonMu.Lock()
+			info, ok = lastClickByButton[ebiten.MouseButtonLeft]
+			lastClickByButtonMu.Unlock()
+		default:
+			ok = false
+		}
+		if !ok || info.Mobile.Name == "" {
+			// Force overall failure by returning an impossible token; marker checked below.
+			return "@@UNRESOLVED_CLICK@@"
+		}
+		if modsPart != "" {
+			// modsPart is like ".control.shift"; split and verify each
+			for _, raw := range strings.Split(strings.TrimPrefix(modsPart, "."), ".") {
+				switch strings.ToLower(strings.TrimSpace(raw)) {
+				case "control", "ctrl":
+					if !info.Ctrl {
+						return "@@UNRESOLVED_CLICK@@"
+					}
+				case "alt":
+					if !info.Alt {
+						return "@@UNRESOLVED_CLICK@@"
+					}
+				case "shift":
+					if !info.Shift {
+						return "@@UNRESOLVED_CLICK@@"
+					}
+				case "":
+					// ignore
+				default:
+					return "@@UNRESOLVED_CLICK@@"
+				}
+			}
+		}
+		return info.Mobile.Name
+	})
+	if strings.Contains(out, "@@UNRESOLVED_CLICK@@") {
+		return "", false
+	}
+	cmd = out
 
-    return cmd, true
+	return cmd, true
 }
 
 func updateHotkeyRecording() {
@@ -954,28 +954,30 @@ func checkHotkeys() {
 	if recording || inputActive || typingInUI() {
 		return
 	}
-    if combo := detectCombo(); combo != "" {
-        hotkeysMu.RLock()
-        list := append([]Hotkey(nil), hotkeys...)
-        hotkeysMu.RUnlock()
-        for _, hk := range list {
-            if hk.Combo == combo && !hk.Disabled {
-                // If this is a plugin hotkey with a function handler, call it.
-                if hk.Plugin != "" {
-                    if fn, ok := pluginGetHotkeyFn(hk.Plugin, hk.Combo); ok && fn != nil {
-                        parts := strings.Split(combo, "-")
-                        trig := ""
-                        if len(parts) > 0 { trig = parts[len(parts)-1] }
-                        ev := HotkeyEvent{Combo: combo, Parts: parts, Trigger: trig}
-                        go fn(ev)
-                    }
-                }
-                for _, c := range hk.Commands {
-                    cmd := strings.TrimSpace(c.Command)
-                    lower := strings.ToLower(cmd)
-                    if lower == "/fullscreen" {
-                        SettingsLock.Lock()
-                        gs.Fullscreen = !gs.Fullscreen
+	if combo := detectCombo(); combo != "" {
+		hotkeysMu.RLock()
+		list := append([]Hotkey(nil), hotkeys...)
+		hotkeysMu.RUnlock()
+		for _, hk := range list {
+			if hk.Combo == combo && !hk.Disabled {
+				// If this is a plugin hotkey with a function handler, call it.
+				if hk.Plugin != "" {
+					if fn, ok := pluginGetHotkeyFn(hk.Plugin, hk.Combo); ok && fn != nil {
+						parts := strings.Split(combo, "-")
+						trig := ""
+						if len(parts) > 0 {
+							trig = parts[len(parts)-1]
+						}
+						ev := HotkeyEvent{Combo: combo, Parts: parts, Trigger: trig}
+						go fn(ev)
+					}
+				}
+				for _, c := range hk.Commands {
+					cmd := strings.TrimSpace(c.Command)
+					lower := strings.ToLower(cmd)
+					if lower == "/fullscreen" {
+						SettingsLock.Lock()
+						gs.Fullscreen = !gs.Fullscreen
 						ebiten.SetFullscreen(gs.Fullscreen)
 						ebiten.SetWindowFloating(gs.Fullscreen || gs.AlwaysOnTop)
 						SettingsLock.Unlock()
@@ -993,16 +995,16 @@ func checkHotkeys() {
 							continue
 						}
 					}
-                    if cmd != "" {
-                        if gs.pluginOutputDebug {
-                            consoleMessage("> " + cmd)
-                        }
-                    }
-                    enqueueCommand(cmd)
-                }
-                nextCommand()
-                break
-            }
-        }
-    }
+					if cmd != "" {
+						if gs.pluginOutputDebug {
+							consoleMessage("> " + cmd)
+						}
+					}
+					enqueueCommand(cmd)
+				}
+				nextCommand()
+				break
+			}
+		}
+	}
 }
