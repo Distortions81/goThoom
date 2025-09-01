@@ -2503,6 +2503,11 @@ func noteFrame() {
 }
 
 func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
+	defer func() {
+		if r := recover(); r != nil {
+			logPanic(r)
+		}
+	}()
 	// nextReliable determines when to send the next keep-alive packet via
 	// the reliable channel to preserve NAT mappings.
 	var nextReliable time.Time
@@ -2541,15 +2546,19 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 			err = sendPlayerInput(udpConn, s.mouseX, s.mouseY, s.mouseDown, false)
 		}
 		if err != nil {
-			logError("send player input: %v", err)
+			// ignore errors from dead connections
 		}
 	}
 }
 
 func udpReadLoop(ctx context.Context, conn net.Conn) {
+	defer func() {
+		if r := recover(); r != nil {
+			logPanic(r)
+		}
+	}()
 	for {
 		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-			logError("udp deadline: %v", err)
 			return
 		}
 		m, err := readUDPMessage(conn)
@@ -2562,7 +2571,6 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 					continue
 				}
 			}
-			logError("udp read error: %v", err)
 			handleDisconnect()
 			return
 		}
@@ -2633,10 +2641,14 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 }
 
 func tcpReadLoop(ctx context.Context, conn net.Conn) {
+	defer func() {
+		if r := recover(); r != nil {
+			logPanic(r)
+		}
+	}()
 loop:
 	for {
 		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-			logError("set read deadline: %v", err)
 			break
 		}
 		m, err := readTCPMessage(conn)
@@ -2649,7 +2661,6 @@ loop:
 					continue
 				}
 			}
-			logError("read error: %v", err)
 			handleDisconnect()
 			break
 		}

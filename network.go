@@ -57,11 +57,9 @@ func sendTCPMessage(connection net.Conn, payload []byte) error {
 	var size [2]byte
 	binary.BigEndian.PutUint16(size[:], uint16(len(payload)))
 	if err := writeAll(connection, size[:]); err != nil {
-		logError("send tcp size: %v", err)
 		return err
 	}
 	if err := writeAll(connection, payload); err != nil {
-		logError("send tcp payload: %v", err)
 		return err
 	}
 	tag := binary.BigEndian.Uint16(payload[:2])
@@ -76,7 +74,6 @@ func sendUDPMessage(connection net.Conn, payload []byte) error {
 	binary.BigEndian.PutUint16(size[:], uint16(len(payload)))
 	buf := append(size[:], payload...)
 	if err := writeAll(connection, buf); err != nil {
-		logError("send udp payload: %v", err)
 		return err
 	}
 	tag := binary.BigEndian.Uint16(payload[:2])
@@ -194,7 +191,6 @@ func readTCPMessage(connection net.Conn) ([]byte, error) {
 	sz := binary.BigEndian.Uint16(sizeBuf[:])
 	buf := make([]byte, sz)
 	if _, err := io.ReadFull(connection, buf); err != nil {
-		logError("read tcp payload: %v", err)
 		return nil, err
 	}
 	tag := binary.BigEndian.Uint16(buf[:2])
