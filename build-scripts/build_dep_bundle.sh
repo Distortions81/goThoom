@@ -5,19 +5,19 @@
 
 set -euo pipefail
 
-# Usage: scripts/build_dep_bundle.sh [output.tar.gz]
+# Usage: build-scripts/build_dep_bundle.sh [output.tar.gz]
 # Default output is gothoom_deps.tar.gz in the current directory.
 
 OUT_FILE="${1:-gothoom_deps.tar.gz}"
 WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
 APT_DIR="$WORK_DIR/apt"
 GO_DIR="$WORK_DIR/go"
 
 mkdir -p "$APT_DIR" "$GO_DIR"
 
-# Packages needed to build goThoom.
+# Packages needed to build goThoom. The Go toolchain is downloaded below.
 DEB_PACKAGES=(
-  golang-go
   build-essential
   libgl1-mesa-dev
   libglu1-mesa-dev
@@ -38,12 +38,18 @@ else
   echo "apt-get not found; skipping Debian package download" >&2
 fi
 
+# Include Go toolchain
+GO_VERSION="1.25.0"
+GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
+echo "Downloading Go ${GO_VERSION}..."
+curl -L -o "$GO_DIR/$GO_TARBALL" "https://go.dev/dl/$GO_TARBALL"
+
 # Cache Go modules into a local mod cache inside the bundle.
 GO_CACHE="$GO_DIR/mod"
 mkdir -p "$GO_CACHE"
 
 echo "Downloading Go modules..."
-GOMODCACHE="$GO_CACHE" /usr/local/go/bin/go mod download
+GOMODCACHE="$GO_CACHE" go mod download
 
 
 # Copy useful data files
