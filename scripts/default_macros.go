@@ -17,30 +17,30 @@ const PluginAuthor = "Distortions"
 const PluginCategory = "Quality Of Life"
 
 func Init() {
-    // Keys are what you type; values are the full text to insert.
-    // This uses the unified shortcut API.
-    macros := map[string]string{
-        "??": "/help ",
-        "aa": "/action ",
-        "gg": "/give ",
-        "ii": "/info ",
-        "kk": "/karma ",
-        "mm": "/money",   // no args
-        "nn": "/news",    // no args
-        "pp": "/ponder ",
-        "sh": "/share ",
-        "sl": "/sleep",   // no args
-        "t":  "/think ",
-        "tt": "/thinkto ",
-        "th": "/thank ",
-        "ui": "/useitem ",
-        "uu": "/use ",
-        "un": "/unshare ",
-        // Tip: /who often needs a name; leave a space so you can keep typing.
-        "w":  "/who ",
-        "wh": "/whisper ",
-        "yy": "/yell ",
-    }
-    // Register them in a single call.
-    gt.AddShortcuts(macros)
+	// Keys are what you type; values are the full text to insert.
+	// This uses the unified shortcut API.
+	macros := map[string]string{
+		"??": "/help ",
+		"aa": "/action ",
+		"gg": "/give ",
+		"ii": "/info ",
+		"kk": "/karma ",
+		"mm": "/money", // no args
+		"nn": "/news",  // no args
+		"pp": "/ponder ",
+		"sh": "/share ",
+		"sl": "/sleep", // no args
+		"t":  "/think ",
+		"tt": "/thinkto ",
+		"th": "/thank ",
+		"ui": "/useitem ",
+		"uu": "/use ",
+		"un": "/unshare ",
+		// Tip: /who often needs a name; leave a space so you can keep typing.
+		"w":  "/who ",
+		"wh": "/whisper ",
+		"yy": "/yell ",
+	}
+	// Register them in a single call.
+	gt.AddShortcuts(macros)
 }

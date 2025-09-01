@@ -3,10 +3,10 @@
 package main
 
 import (
-    "fmt"
-    "gt"
-    "strconv"
-    "time"
+	"fmt"
+	"gt"
+	"strconv"
+	"time"
 )
 
 // Plugin metadata
@@ -22,45 +22,45 @@ var (
 )
 
 func Init() {
-    // Toggle counting with /cw.
-    gt.RegisterCommand("cw", cwCmd)
+	// Toggle counting with /cw.
+	gt.RegisterCommand("cw", cwCmd)
 
-    // Reset the totals with /cwnew.
-    gt.RegisterCommand("cwnew", cwNewCmd)
+	// Reset the totals with /cwnew.
+	gt.RegisterCommand("cwnew", cwNewCmd)
 
-    // Show current totals with /cwdata or Shift+C.
-    gt.RegisterCommand("cwdata", cwDataCmd)
+	// Show current totals with /cwdata or Shift+C.
+	gt.RegisterCommand("cwdata", cwDataCmd)
 
-    // Tally coin messages like "You get 3 coins"
-    gt.Chat("You get ", clHandle)
-    // Use a function hotkey instead of running a slash command.
-    gt.Key("Shift-C", cwDataHotkey)
+	// Tally coin messages like "You get 3 coins"
+	gt.Chat("You get ", clHandle)
+	// Use a function hotkey instead of running a slash command.
+	gt.Key("Shift-C", cwDataHotkey)
 }
 
 func cwCmd(args string) {
-    clRunning = !clRunning
-    if clRunning {
-        clStart = time.Now()
-        clTotal = 0
-        gt.Console("Coin Lord started")
-    } else {
-        gt.Console("Coin Lord stopped")
-    }
+	clRunning = !clRunning
+	if clRunning {
+		clStart = time.Now()
+		clTotal = 0
+		gt.Console("Coin Lord started")
+	} else {
+		gt.Console("Coin Lord stopped")
+	}
 }
 
 func cwNewCmd(args string) {
-    clStart = time.Now()
-    clTotal = 0
-    gt.Console("Coin data reset")
+	clStart = time.Now()
+	clTotal = 0
+	gt.Console("Coin data reset")
 }
 
 func cwDataCmd(args string) {
-    hours := time.Since(clStart).Hours()
-    rate := 0.0
-    if hours > 0 {
-        rate = float64(clTotal) / hours
-    }
-    gt.Console(fmt.Sprintf("Coins: %d (%.0f/hr)", clTotal, rate))
+	hours := time.Since(clStart).Hours()
+	rate := 0.0
+	if hours > 0 {
+		rate = float64(clTotal) / hours
+	}
+	gt.Console(fmt.Sprintf("Coins: %d (%.0f/hr)", clTotal, rate))
 }
 
 func cwDataHotkey() { cwDataCmd("") }

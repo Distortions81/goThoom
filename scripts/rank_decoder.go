@@ -72,14 +72,14 @@ var rankMessages = map[string]string{
 }
 
 func Init() {
-    gt.Chat("", rankDecodeChat)
+	gt.Chat("", rankDecodeChat)
 }
 
 func rankDecodeChat(msg string) {
-    for phrase, rank := range rankMessages {
-        if gt.Includes(msg, phrase) {
-            gt.ShowNotification("Rank " + rank)
-            break
-        }
-    }
+	for phrase, rank := range rankMessages {
+		if gt.Includes(msg, phrase) {
+			gt.ShowNotification("Rank " + rank)
+			break
+		}
+	}
 }
