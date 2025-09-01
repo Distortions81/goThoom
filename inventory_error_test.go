@@ -8,7 +8,7 @@ func TestParseDrawStateBadInventory(t *testing.T) {
 	data := buildDrawData("Bob", kBubbleNormal, "hi")
 	// Replace inventory with an incomplete multiple command.
 	data[len(data)-1] = byte(kInvCmdMultiple)
-	if err := parseDrawState(data, false); err == nil {
+	if _, _, err := parseDrawState(data, false); err == nil {
 		t.Fatalf("parseDrawState succeeded for malformed inventory")
 	}
 }
