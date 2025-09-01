@@ -611,9 +611,7 @@ func parseMusicCommand(s string, raw []byte) bool {
 		}
 		return false
 	}
-	if strings.HasPrefix(s, "/music/") {
-		s = s[len("/music/"):]
-	}
+	s = strings.TrimPrefix(s, "/music/")
 
 	// Recognize and act on /stop (or /S) even if combined with play.
 	stop := false
