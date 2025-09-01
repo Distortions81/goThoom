@@ -14,8 +14,8 @@ var cycleItems = []string{"Axe", "Short Sword", "Dagger", "Chocolate"}
 
 // Init binds F3 to cycle through weapons.
 func Init() {
-    gt.RegisterCommand("cycleweapon", cycleWeaponCmd)
-    gt.Key("F3", cycleWeapon)
+	gt.RegisterCommand("cycleweapon", cycleWeaponCmd)
+	gt.Key("F3", cycleWeapon)
 }
 
 func cycleWeaponCmd(args string) { cycleWeapon() }

@@ -18,18 +18,18 @@ var armorCondition string
 
 // Init wires up commands, hotkeys, and a chat watcher for examine results.
 func Init() {
-    gt.RegisterCommand("ironarmortoggle", ironArmorToggleCmd)
-    gt.RegisterCommand("examinearmor", examineArmorCmd)
-    gt.AddHotkeyFn("Ctrl-F10", ironArmorToggleHotkey)
-    gt.AddHotkeyFn("Ctrl-F11", examineArmorHotkey)
-    gt.RegisterChatHandler(armorChat)
+	gt.RegisterCommand("ironarmortoggle", ironArmorToggleCmd)
+	gt.RegisterCommand("examinearmor", examineArmorCmd)
+	gt.AddHotkeyFn("Ctrl-F10", ironArmorToggleHotkey)
+	gt.AddHotkeyFn("Ctrl-F11", examineArmorHotkey)
+	gt.RegisterChatHandler(armorChat)
 }
 
-func ironArmorToggleCmd(args string) { ironArmorToggler() }
-func examineArmorCmd(args string)    { examineArmor() }
+func ironArmorToggleCmd(args string)         { ironArmorToggler() }
+func examineArmorCmd(args string)            { examineArmor() }
 func ironArmorToggleHotkey(e gt.HotkeyEvent) { ironArmorToggler() }
 func examineArmorHotkey(e gt.HotkeyEvent)    { examineArmor() }
-func armorChat(msg string)                    { armorCondition = msg }
+func armorChat(msg string)                   { armorCondition = msg }
 
 func hasEquipped(name string) bool {
 	for _, it := range gt.EquippedItems() {
@@ -41,13 +41,13 @@ func hasEquipped(name string) bool {
 }
 
 func ironArmorToggler() {
-    if hasEquipped("iron breastplate") && hasEquipped("iron helmet") && hasEquipped("iron shield") {
-        gt.Run("/unequip ironbreastplate")
-        gt.Run("/unequip ironhelmet")
-        gt.Run("/unequip ironshield")
-        return
-    }
-    equipIronArmor()
+	if hasEquipped("iron breastplate") && hasEquipped("iron helmet") && hasEquipped("iron shield") {
+		gt.Run("/unequip ironbreastplate")
+		gt.Run("/unequip ironhelmet")
+		gt.Run("/unequip ironshield")
+		return
+	}
+	equipIronArmor()
 }
 
 func equipIronArmor() {
@@ -57,34 +57,34 @@ func equipIronArmor() {
 }
 
 func equipItem(name, cmd, display string) {
-    if hasEquipped(name) {
-        return
-    }
-    gt.Run("/equip " + cmd)
-    time.Sleep(100 * time.Millisecond)
-    if !hasEquipped(name) {
-        gt.Run("/unequip " + cmd)
-        gt.Console("* " + display + " unequipped due to durability.")
-    }
+	if hasEquipped(name) {
+		return
+	}
+	gt.Run("/equip " + cmd)
+	time.Sleep(100 * time.Millisecond)
+	if !hasEquipped(name) {
+		gt.Run("/unequip " + cmd)
+		gt.Console("* " + display + " unequipped due to durability.")
+	}
 }
 
 func examineArmor() {
-    gt.Console("* Armor Examiner:")
-    if gt.HasItem("iron breastplate") {
-        gt.Run("/examine ironbreastplate")
-        time.Sleep(100 * time.Millisecond)
-        armorLabeler("5")
-    }
-    if gt.HasItem("iron helmet") {
-        gt.Run("/examine ironhelmet")
-        time.Sleep(100 * time.Millisecond)
-        armorLabeler("4")
-    }
-    if gt.HasItem("iron shield") {
-        gt.Run("/examine ironshield")
-        time.Sleep(100 * time.Millisecond)
-        armorLabeler("3")
-    }
+	gt.Console("* Armor Examiner:")
+	if gt.HasItem("iron breastplate") {
+		gt.Run("/examine ironbreastplate")
+		time.Sleep(100 * time.Millisecond)
+		armorLabeler("5")
+	}
+	if gt.HasItem("iron helmet") {
+		gt.Run("/examine ironhelmet")
+		time.Sleep(100 * time.Millisecond)
+		armorLabeler("4")
+	}
+	if gt.HasItem("iron shield") {
+		gt.Run("/examine ironshield")
+		time.Sleep(100 * time.Millisecond)
+		armorLabeler("3")
+	}
 }
 
 func armorLabeler(slot string) {

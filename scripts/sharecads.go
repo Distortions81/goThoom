@@ -3,8 +3,8 @@
 package main
 
 import (
-    "gt"
-    "time"
+	"gt"
+	"time"
 )
 
 // Plugin metadata
@@ -20,18 +20,18 @@ var (
 
 // Init toggles the feature with /shcads or Shift+S.
 func Init() {
-    gt.RegisterCommand("shcads", scToggleCmd)
-    gt.Chat("You sense healing energy from ", handleSharecads)
-    gt.AddHotkeyFn("Shift-S", scToggleHotkey)
+	gt.RegisterCommand("shcads", scToggleCmd)
+	gt.Chat("You sense healing energy from ", handleSharecads)
+	gt.AddHotkeyFn("Shift-S", scToggleHotkey)
 }
 
 func scToggleCmd(args string) {
-    scOn = !scOn
-    if scOn {
-        gt.Console("* Sharecads enabled")
-    } else {
-        gt.Console("* Sharecads disabled")
-    }
+	scOn = !scOn
+	if scOn {
+		gt.Console("* Sharecads enabled")
+	} else {
+		gt.Console("* Sharecads disabled")
+	}
 }
 
 func scToggleHotkey(e gt.HotkeyEvent) { scToggleCmd("") }
@@ -64,5 +64,5 @@ func handleSharecads(msg string) {
 		}
 	}
 	scShare[name] = now
-    gt.Cmd("/share " + name)
+	gt.Cmd("/share " + name)
 }
