@@ -24,10 +24,8 @@ type frameHead struct {
 }
 
 type movieRecorder struct {
-	f        *os.File
-	head     fileHead
-	preFlags uint16
-	preData  []byte
+	f    *os.File
+	head fileHead
 }
 
 const macEpochDelta = 2082844800
@@ -98,7 +96,7 @@ func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 		Signature: movieSignature,
 		Frame:     m.head.Frames,
 		Size:      uint16(len(data)),
-		Flags:     flags | m.preFlags,
+		Flags:     flags,
 	}
 	m.head.Frames++
 	buf := make([]byte, 12)
@@ -109,12 +107,31 @@ func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 	if _, err := m.f.Write(buf); err != nil {
 		return err
 	}
-	if len(m.preData) > 0 {
-		if _, err := m.f.Write(m.preData); err != nil {
-			return err
-		}
-		m.preData = nil
-		m.preFlags = 0
+	_, err := m.f.Write(data)
+	return err
+}
+
+func (m *movieRecorder) WriteBlock(data []byte, flag uint16) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if m.f == nil {
+		return os.ErrClosed
+	}
+	fh := frameHead{
+		Signature: movieSignature,
+		Frame:     m.head.Frames,
+		Size:      0,
+		Flags:     flag,
+	}
+	m.head.Frames++
+	buf := make([]byte, 12)
+	binary.BigEndian.PutUint32(buf[0:], fh.Signature)
+	binary.BigEndian.PutUint32(buf[4:], uint32(fh.Frame))
+	binary.BigEndian.PutUint16(buf[8:], fh.Size)
+	binary.BigEndian.PutUint16(buf[10:], fh.Flags)
+	if _, err := m.f.Write(buf); err != nil {
+		return err
 	}
 	_, err := m.f.Write(data)
 	return err

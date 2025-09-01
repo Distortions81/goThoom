@@ -2581,10 +2581,14 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 						recorder.AddBlock(gameStateBlock(0, 0, 0, l, l, l, loginGameState), flagGameState)
 					}
 					if len(loginMobileData) > 0 {
-						recorder.AddBlock(loginMobileData, flagMobileData)
+						if err := recorder.WriteBlock(loginMobileData, flagMobileData); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					if len(loginPictureTable) > 0 {
-						recorder.AddBlock(loginPictureTable, flagPictureTable)
+						if err := recorder.WriteBlock(loginPictureTable, flagPictureTable); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					wroteLoginBlocks = true
 					if err := recorder.WriteFrame(m, flags); err != nil {
@@ -2664,10 +2668,14 @@ loop:
 						recorder.AddBlock(gameStateBlock(0, 0, 0, l, l, l, loginGameState), flagGameState)
 					}
 					if len(loginMobileData) > 0 {
-						recorder.AddBlock(loginMobileData, flagMobileData)
+						if err := recorder.WriteBlock(loginMobileData, flagMobileData); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					if len(loginPictureTable) > 0 {
-						recorder.AddBlock(loginPictureTable, flagPictureTable)
+						if err := recorder.WriteBlock(loginPictureTable, flagPictureTable); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					wroteLoginBlocks = true
 					if err := recorder.WriteFrame(m, flags); err != nil {

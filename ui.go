@@ -271,6 +271,17 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(actionsBtn)
 
+	recordBtn, recordEvents := eui.NewButton()
+	recordBtn.Text = "Record"
+	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	recordBtn.FontSize = toolFontSize
+	recordEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			toggleRecording()
+		}
+	}
+	row1.AddItem(recordBtn)
+
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
@@ -335,17 +346,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	*/
 
 	// Removed toolbar volume slider and mute button (use Mixer instead)
-
-	recordBtn, recordEvents := eui.NewButton()
-	recordBtn.Text = "Record"
-	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	recordBtn.FontSize = toolFontSize
-	recordEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			toggleRecording()
-		}
-	}
-	row2.AddItem(recordBtn)
 
 	recordStatus, _ = eui.NewText()
 	recordStatus.Text = ""
