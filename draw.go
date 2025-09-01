@@ -1562,7 +1562,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	stage = "inventory"
 	rest, ok := parseInventory(stateData)
 	if !ok || len(rest) > 0 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 
 	return ack, resend, nil
