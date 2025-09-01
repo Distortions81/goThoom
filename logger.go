@@ -65,6 +65,22 @@ func logDebug(format string, v ...interface{}) {
 	}
 }
 
+func logWarn(format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	if errorLogger != nil {
+		errorLogOnce.Do(func() {
+			if f, err := os.Create(errorLogPath); err == nil {
+				errorLogger.SetOutput(io.MultiWriter(os.Stdout, f))
+				log.SetOutput(errorLogger.Writer())
+			}
+		})
+		errorLogger.Printf("warning: %s", msg)
+	}
+	if !silent {
+		consoleMessage(fmt.Sprintf("warning: %s", msg))
+	}
+}
+
 func logDebugPacket(prefix string, data []byte) {
 	if debugLogger == nil {
 		return
