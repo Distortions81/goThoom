@@ -1,6 +1,6 @@
 # AGENTS
 
-This repo includes a Go client under `gothoom/`. To build or run the Go program you need Go version 1.25. A Go 1.25 toolchain is bundled with the repository and should be used instead of the system `golang-go` package.
+This repo includes a Go client under `gothoom/`. To build or run the Go program you need Go version 1.25 from the official Go distribution; avoid the system `golang-go` package.
 Do not increment JSON versions in GT_Players.json or settings.json or characters.json. They will be done manually if needed.
 Any functions or variables or types exposed to the plugins need to also be put empty stubs into gt so the linters do not complain for users.
 Also I prefer to-the-point and simple solutions. We'll get complex if it is needed but I prefer to not over complicate things. "Keep it simple stupid"
@@ -13,19 +13,22 @@ Try to avoid completely over-thinking your replies and feel free to stop and ask
    sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev \
      xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
    ```
-2. **Always** download and install the prebuilt dependency bundle:
+2. Install Go 1.25:
+   ```bash
+   curl -LO https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
+   sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
+   export PATH="/usr/local/go/bin:$PATH"
+   ```
+3. **Always** download and extract the prebuilt dependency bundle:
    ```bash
    curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
    tar -xzf gothoom_deps.tar.gz
-   sudo tar -C /usr/local -xzf go/go1.25.0.linux-amd64.tar.gz
-   export PATH="/usr/local/go/bin:$PATH"
-   go env -w GOMODCACHE="$(pwd)/go/mod"
    ```
-   The archive, produced by `build-scripts/build_dep_bundle.sh`, contains a
-   Go 1.25 toolchain under `go/` and a cached Go module tree under `go/mod`.
-   Extracting it avoids fetching Go artifacts individually.
-   
-3. Fetch Go module dependencies:
+   The archive, produced by `build-scripts/build_dep_bundle.sh`, contains
+   resource files used by the client. Extracting it avoids fetching them
+   individually.
+
+4. Fetch Go module dependencies:
    ```bash
    cd gothoom
    go mod download
@@ -41,7 +44,8 @@ Run these scripts from the repository root.
 
 ## Adding Dependencies
 - Document any required system packages here.
-- If the Go toolchain version changes, update `GO_VERSION` in `build-scripts/build_dep_bundle.sh` and rebuild the bundle.
+- Update `build-scripts/build_dep_bundle.sh` if additional data files need to
+  be bundled and regenerate the archive with the script.
 - After updates, regenerate the archive by running `build-scripts/build_dep_bundle.sh` from the repo root and re-share `gothoom_deps.tar.gz`.
 
 ## Build steps

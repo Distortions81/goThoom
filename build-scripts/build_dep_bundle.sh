@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Build a tarball containing goThoom's Go toolchain, module cache, and
-# selected data files. The resulting archive can be unpacked on another
-# machine to speed up environment setup without hitting the network for Go
-# artifacts.
+# Build a tarball containing selected data files. The resulting archive can
+# be unpacked on another machine to speed up environment setup without
+# hitting the network for these assets.
 
 set -euo pipefail
 
@@ -12,27 +11,9 @@ set -euo pipefail
 OUT_FILE="${1:-gothoom_deps.tar.gz}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
-GO_DIR="$WORK_DIR/go"
-
-mkdir -p "$GO_DIR"
 
 # System packages are not bundled; install them separately via your package
 # manager before using this archive.
-
-# Include Go toolchain
-# NOTE: If this version changes, update AGENTS.md instructions to match.
-GO_VERSION="1.25.0"
-GO_TARBALL="go${GO_VERSION}.linux-amd64.tar.gz"
-echo "Downloading Go ${GO_VERSION}..."
-curl -L -o "$GO_DIR/$GO_TARBALL" "https://go.dev/dl/$GO_TARBALL"
-
-# Cache Go modules into a local mod cache inside the bundle.
-GO_CACHE="$GO_DIR/mod"
-mkdir -p "$GO_CACHE"
-
-echo "Downloading Go modules..."
-GOMODCACHE="$GO_CACHE" /usr/local/go/bin/go mod download
-
 
 # Copy useful data files
 DATA_SRC="data"
