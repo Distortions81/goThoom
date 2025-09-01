@@ -26,6 +26,30 @@ type dummyAddr struct{}
 func (dummyAddr) Network() string { return "dummy" }
 func (dummyAddr) String() string  { return "dummy" }
 
+// packetConn returns predetermined datagrams on each Read call.
+type packetConn struct {
+	packets [][]byte
+	idx     int
+}
+
+func (c *packetConn) Read(b []byte) (int, error) {
+	if c.idx >= len(c.packets) {
+		return 0, io.EOF
+	}
+	p := c.packets[c.idx]
+	c.idx++
+	copy(b, p)
+	return len(p), nil
+}
+
+func (c *packetConn) Write(b []byte) (int, error)        { return len(b), nil }
+func (c *packetConn) Close() error                       { return nil }
+func (c *packetConn) LocalAddr() net.Addr                { return dummyAddr{} }
+func (c *packetConn) RemoteAddr() net.Addr               { return dummyAddr{} }
+func (c *packetConn) SetDeadline(t time.Time) error      { return nil }
+func (c *packetConn) SetReadDeadline(t time.Time) error  { return nil }
+func (c *packetConn) SetWriteDeadline(t time.Time) error { return nil }
+
 // extractCommand reads the command number from a packet written to bufConn.
 func extractCommand(t *testing.T, buf *bufConn) uint32 {
 	data := buf.Bytes()
@@ -95,5 +119,51 @@ func TestSendPlayerInputCommandNumIncrementsWithCommand(t *testing.T) {
 	}
 	if cmd := extractCommand(t, conn); cmd != 10 {
 		t.Fatalf("packet command=%d, want 10", cmd)
+	}
+}
+
+func TestReadUDPMessageFragmented(t *testing.T) {
+	udpBuffer = nil
+	msg := []byte{0x00, 0x03, 0xde, 0xad, 0xbe, 0xef}
+	datagrams := [][]byte{{0x00}, append([]byte{0x06}, msg...)}
+	conn := &packetConn{packets: datagrams}
+
+	got, err := readUDPMessage(conn)
+	if err != nil {
+		t.Fatalf("readUDPMessage: %v", err)
+	}
+	if !bytes.Equal(got, msg) {
+		t.Fatalf("got %x want %x", got, msg)
+	}
+	if conn.idx != 2 {
+		t.Fatalf("expected 2 reads, got %d", conn.idx)
+	}
+}
+
+func TestReadUDPMessageMultiple(t *testing.T) {
+	udpBuffer = nil
+	msg1 := []byte{0x00, 0x01}
+	msg2 := []byte{0x00, 0x02, 0xff}
+	d := append([]byte{0x00, byte(len(msg1))}, msg1...)
+	d = append(d, []byte{0x00, byte(len(msg2))}...)
+	d = append(d, msg2...)
+	conn := &packetConn{packets: [][]byte{d}}
+
+	got1, err := readUDPMessage(conn)
+	if err != nil {
+		t.Fatalf("readUDPMessage 1: %v", err)
+	}
+	if !bytes.Equal(got1, msg1) {
+		t.Fatalf("msg1 %x want %x", got1, msg1)
+	}
+	got2, err := readUDPMessage(conn)
+	if err != nil {
+		t.Fatalf("readUDPMessage 2: %v", err)
+	}
+	if !bytes.Equal(got2, msg2) {
+		t.Fatalf("msg2 %x want %x", got2, msg2)
+	}
+	if conn.idx != 1 {
+		t.Fatalf("expected 1 read, got %d", conn.idx)
 	}
 }
