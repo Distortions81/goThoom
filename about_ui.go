@@ -28,11 +28,20 @@ func openAboutWindow(anchor *eui.ItemData) {
 	if aboutWin == nil {
 		return
 	}
+
+	if aboutWin.Open {
+		aboutWin.Close()
+		return
+	}
+
 	updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource)
 	if anchor != nil {
 		aboutWin.MarkOpenNear(anchor)
 	} else {
 		aboutWin.MarkOpen()
+	}
+	if aboutWin.OnResize != nil {
+		aboutWin.OnResize()
 	}
 	aboutWin.Refresh()
 }
