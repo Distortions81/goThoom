@@ -1,6 +1,6 @@
 # Themes
 
-This directory holds the built-in color palettes and style themes used by EUI. Themes are JSON files that control the appearance and spacing of all widgets. You can load them at runtime or create your own variants.
+This directory holds the built-in color palettes and style themes used by EUI. Themes are JSON files that control the appearance and spacing of all widgets. You can load them at runtime or create your own variants. Set `eui.AutoReload = true` to have changes picked up automatically while editing.
 
 ## Palettes
 

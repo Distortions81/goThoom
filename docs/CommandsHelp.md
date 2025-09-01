@@ -2,6 +2,8 @@
 
 This reference captures the in‑game help responses for core commands. Text is taken verbatim from the client’s /help output (minor spacing preserved). Some responses are contextual and may vary.
 
+_Updated 2025._
+
 See also: Command Reference (external, very detailed)
 https://clump.clanlord.net/library/index.php?title=Command_Reference
 

@@ -65,6 +65,28 @@ An open-source (MIT) client for the classic **[Clan Lord](https://www.deltatao.c
 ### Text-to-speech voices
 Piper voices are stored in `data/piper/voices`. The client and `scripts/download_piper.sh` support voice archives in `.tar.gz` format and automatically extract and remove the archives. If a voice archive isn't available, the program falls back to downloading raw `.onnx` models with matching `.onnx.json` configs.
 
+## Build from source
+
+1. Install system packages:
+   ```bash
+   sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev \
+     xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
+   ```
+2. Install Go 1.25 from [go.dev](https://go.dev/dl/).
+3. Fetch the resource bundle and extract it in the repo root:
+   ```bash
+   curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
+   tar -xzf gothoom_deps.tar.gz
+   ```
+4. Download Go modules:
+   ```bash
+   go mod download
+   ```
+5. Build the client:
+   ```bash
+   go build
+   ```
+
 ---
 
 ## Using the UI
