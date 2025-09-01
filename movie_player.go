@@ -148,8 +148,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 	}
 	bFlow.AddItem(back)
 
-	play, playEv := eui.NewButton()
-	play.Text = "Play/Pause"
+    play, playEv := eui.NewButton()
+    play.Text = "Play/Pause"
+    play.Tooltip = "Toggle playback"
 	play.Size = eui.Point{X: 140, Y: 24}
 	p.playButton = play
 	changePlayButton(p, p.playButton)
@@ -214,8 +215,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 	}
 	bFlow.AddItem(dec)
 
-	reset, resetEv := eui.NewButton()
-	reset.Text = "RESET"
+    reset, resetEv := eui.NewButton()
+    reset.Text = "RESET"
+    reset.Tooltip = "Reset playback speed"
 	reset.Size = eui.Point{X: 140, Y: 24}
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

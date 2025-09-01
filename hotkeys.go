@@ -262,8 +262,9 @@ func makeHotkeysWindow() {
 	root.AddItem(flow)
 
 	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-	addBtn, addEvents := eui.NewButton()
-	addBtn.Text = "+"
+    addBtn, addEvents := eui.NewButton()
+    addBtn.Text = "+"
+    addBtn.Tooltip = "Create a new hotkey"
 	addBtn.Size = eui.Point{X: 20, Y: 20}
 	addBtn.FontSize = 14
 	addEvents.Handle = func(ev eui.UIEvent) {
@@ -330,8 +331,9 @@ func refreshHotkeysList() {
 			}
 		}
 		row.AddItem(btn)
-		delBtn, delEvents := eui.NewButton()
-		delBtn.Text = "x"
+        delBtn, delEvents := eui.NewButton()
+        delBtn.Text = "x"
+        delBtn.Tooltip = "Remove this hotkey"
 		delBtn.Size = eui.Point{X: 20, Y: 20}
 		delBtn.FontSize = 10
 		delEvents.Handle = func(ev eui.UIEvent) {
@@ -470,8 +472,9 @@ func openHotkeyEditor(idx int) {
 	hotkeyComboText.Size = eui.Point{X: 200, Y: 20}
 	hotkeyComboText.FontSize = 12
 	row.AddItem(hotkeyComboText)
-	hotkeyRecordBtn, recordEvents := eui.NewButton()
-	hotkeyRecordBtn.Text = "Record"
+    hotkeyRecordBtn, recordEvents := eui.NewButton()
+    hotkeyRecordBtn.Text = "Record"
+    hotkeyRecordBtn.Tooltip = "Capture a key/mouse combo"
 	hotkeyRecordBtn.Size = eui.Point{X: 60, Y: 20}
 	hotkeyRecordBtn.FontSize = 12
 	recordEvents.Handle = func(ev eui.UIEvent) {
@@ -499,8 +502,9 @@ func openHotkeyEditor(idx int) {
 	hotkeyCmdInputs = nil
 
 	// Row to add a command input
-	addCmdRow, addCmdEvents := eui.NewButton()
-	addCmdRow.Text = "+"
+    addCmdRow, addCmdEvents := eui.NewButton()
+    addCmdRow.Text = "+"
+    addCmdRow.Tooltip = "Add another command line"
 	addCmdRow.Size = eui.Point{X: 20, Y: 20}
 	addCmdRow.FontSize = 14
 	addCmdEvents.Handle = func(ev eui.UIEvent) {
