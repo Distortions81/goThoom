@@ -4,10 +4,13 @@ This folder contains example script files for goThoom.
 
 Getting Started
 - Copy or edit any of the example .go files to get started.
+- Start each file with `//go:build plugin`.
 - Each script must define an Init() function. The client discovers and calls this function after loading the file.
 - Each script must define a unique PluginName, PluginAuthor and PluginCategory string. Changing Name or Author will make the script unable to access old saved data!
 - Place .go files in the scripts/ directory next to the game.
 - Hotkeys added by scripts appear in a "Plugin Hotkeys" section of the hotkeys window where you can enable or disable them.
+
+Run the client with `go run .` or the built binary and any scripts in this folder load automatically.
 
 API
 The interpreter allows only these packages: gt, bytes, encoding/json,
