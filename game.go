@@ -2577,13 +2577,19 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			if !wroteLoginBlocks {
 				if tag == 2 { // first draw state
 					if len(loginGameState) > 0 {
-						recorder.AddBlock(gameStateBlock(loginGameState), flagGameState)
+						if err := recorder.WriteBlock(gameStateBlock(loginGameState), flagGameState); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					if len(loginMobileData) > 0 {
-						recorder.AddBlock(loginMobileData, flagMobileData)
+						if err := recorder.WriteBlock(loginMobileData, flagMobileData); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					if len(loginPictureTable) > 0 {
-						recorder.AddBlock(loginPictureTable, flagPictureTable)
+						if err := recorder.WriteBlock(loginPictureTable, flagPictureTable); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					wroteLoginBlocks = true
 					if err := recorder.WriteFrame(m, flags); err != nil {
@@ -2659,13 +2665,19 @@ loop:
 			if !wroteLoginBlocks {
 				if tag == 2 { // first draw state
 					if len(loginGameState) > 0 {
-						recorder.AddBlock(gameStateBlock(loginGameState), flagGameState)
+						if err := recorder.WriteBlock(gameStateBlock(loginGameState), flagGameState); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					if len(loginMobileData) > 0 {
-						recorder.AddBlock(loginMobileData, flagMobileData)
+						if err := recorder.WriteBlock(loginMobileData, flagMobileData); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					if len(loginPictureTable) > 0 {
-						recorder.AddBlock(loginPictureTable, flagPictureTable)
+						if err := recorder.WriteBlock(loginPictureTable, flagPictureTable); err != nil {
+							logError("record block: %v", err)
+						}
 					}
 					wroteLoginBlocks = true
 					if err := recorder.WriteFrame(m, flags); err != nil {
