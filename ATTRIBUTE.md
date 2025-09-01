@@ -1,34 +1,47 @@
-# Third-Party Libraries Attribution
+# Attribution
 
-This project uses the following third-party Go libraries.
+goThoom is licensed under the [MIT License](LICENSE).  
+Copyright (c) 2025 Carl Frank Otto III.
 
-| Library | Repository | License | Author(s) |
-| --- | --- | --- | --- |
-| Ebitengine | https://github.com/hajimehoshi/ebiten | Apache-2.0 | Hajime Hoshi |
-| go-humanize | https://github.com/dustin/go-humanize | MIT | Dustin Sallings |
-| piper | https://github.com/fresh-cut/piper | MIT | Amity Bell |
-| gopacket | https://github.com/google/gopacket | BSD-3-Clause | Google, Inc.; Andreas Krennmair |
-| durafmt | https://github.com/hako/durafmt | MIT | Wesley Hill |
-| rich-go | https://github.com/hugolgst/rich-go | MIT | Hugo Lageneste |
-| sizedwaitgroup | https://github.com/remeh/sizedwaitgroup | MIT | Rémy Mathieu |
-| go-meltysynth | https://github.com/sinshu/go-meltysynth | MIT | Nobuaki Tanaka |
-| dialog | https://github.com/sqweek/dialog | ISC | sqweek and contributors |
-| dark-mode-go | https://github.com/thiagokokada/dark-mode-go | MIT | Thiago Kenji Okada |
-| clipboard | https://github.com/golang-design/clipboard | MIT | Changkun Ou |
-| x/crypto | https://github.com/golang/crypto | BSD-3-Clause | The Go Authors |
-| x/text | https://github.com/golang/text | BSD-3-Clause | The Go Authors |
-| x/time | https://github.com/golang/time | BSD-3-Clause | The Go Authors |
+## Third-Party Libraries
+
+- **Ebitengine** — Apache-2.0 — Hajime Hoshi  
+  https://github.com/hajimehoshi/ebiten
+- **go-humanize** — MIT — Dustin Sallings  
+  https://github.com/dustin/go-humanize
+- **piper** — MIT — Amity Bell  
+  https://github.com/fresh-cut/piper
+- **gopacket** — BSD-3-Clause — Google, Inc.; Andreas Krennmair  
+  https://github.com/google/gopacket
+- **durafmt** — MIT — Wesley Hill  
+  https://github.com/hako/durafmt
+- **rich-go** — MIT — Hugo Lageneste  
+  https://github.com/hugolgst/rich-go
+- **sizedwaitgroup** — MIT — Rémy Mathieu  
+  https://github.com/remeh/sizedwaitgroup
+- **go-meltysynth** — MIT — Nobuaki Tanaka  
+  https://github.com/sinshu/go-meltysynth
+- **dialog** — ISC — sqweek and contributors  
+  https://github.com/sqweek/dialog
+- **dark-mode-go** — MIT — Thiago Kenji Okada  
+  https://github.com/thiagokokada/dark-mode-go
+- **clipboard** — MIT — Changkun Ou  
+  https://github.com/golang-design/clipboard
+- **x/crypto** — BSD-3-Clause — The Go Authors  
+  https://github.com/golang/crypto
+- **x/text** — BSD-3-Clause — The Go Authors  
+  https://github.com/golang/text
+- **x/time** — BSD-3-Clause — The Go Authors  
+  https://github.com/golang/time
 
 ## Fonts
 
-| Font | Repository | License | Author(s) |
-| --- | --- | --- | --- |
-| Noto Sans (Regular, Bold, Italic, BoldItalic) | https://github.com/googlefonts/noto-fonts | SIL Open Font License 1.1 | The Noto Project Authors |
+- **Noto Sans (Regular, Bold, Italic, BoldItalic)** — SIL Open Font License 1.1 — The Noto Project Authors  
+  https://github.com/googlefonts/noto-fonts
 
 ## Delta Tao Software
 
-| Resource | URL | License | Author(s) |
-| --- | --- | --- | --- |
-| Clan Lord | https://www.deltatao.com/clanlord/ | Proprietary | Delta Tao Software |
-| Clan Lord Client | https://github.com/YappyGM/ClanLordClient | Apache-2.0 | Delta Tao Software |
-
+- **Clan Lord** — Proprietary — Delta Tao Software  
+  https://www.deltatao.com/clanlord/
+- **Clan Lord Client** — Apache-2.0 — Delta Tao Software  
+  https://github.com/YappyGM/ClanLordClient
