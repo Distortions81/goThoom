@@ -13,13 +13,13 @@ type Player struct {
 	Race        string
 	Gender      string
 	Class       string
-	Clan        string
+	clan        string
 	PictID      uint16
 	Colors      []byte
 	IsNPC       bool // entry represents an NPC
 	Sharee      bool // we are sharing to this player
 	Sharing     bool // player is sharing to us
-	GMLevel     int  // parsed from be-who; not rendered
+	gmLevel     int  // parsed from be-who; not rendered
 	Friend      bool // marked as friend
 	FriendLabel int  // effective label/color (0-7)
 	LocalLabel  int  // character-specific label
@@ -32,7 +32,8 @@ type Player struct {
 	KillerName  string
 	Bard        bool // true if player is in the Bards' Guild
 	SameClan    bool // true if player is in our clan
-	BeWho       bool // true if player has been enumerated
+	beWho       bool // true if player has been enumerated via /be-who
+	Seen        bool // true if player has been observed
 	// Presence tracking
 	LastSeen time.Time // last time we observed any activity/info for this player
 	Offline  bool      // explicitly observed as offline/logged off
@@ -87,16 +88,16 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	// Seeing a player on screen implies they are present now.
 	p.LastSeen = time.Now()
 	p.Offline = false
-	bwChanged := !p.BeWho
-	p.BeWho = true
-    prevSC := p.SameClan
-    if me, ok := players[playerName]; ok {
-        p.SameClan = sameRealClan(me.Clan, p.Clan)
-    }
+	seenChanged := !p.Seen
+	p.Seen = true
+	prevSC := p.SameClan
+	if me, ok := players[playerName]; ok {
+		p.SameClan = sameRealClan(me.clan, p.clan)
+	}
 	playerCopy := *p
 	playersMu.Unlock()
 	playersDirty = true
-	if bwChanged || prevSC != p.SameClan {
+	if seenChanged || prevSC != p.SameClan {
 		playersPersistDirty = true
 	}
 	if prevSC != p.SameClan {

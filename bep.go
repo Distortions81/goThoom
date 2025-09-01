@@ -66,29 +66,28 @@ func parseBackendInfo(data []byte) {
 	p.Race = race
 	p.Gender = gender
 	p.Class = class
-	p.Clan = clan
+	p.clan = clan
 	p.LastSeen = time.Now()
 	p.Offline = false
-	bwChanged := !p.BeWho
-	p.BeWho = true
+	p.Seen = true
 	changedNames := make([]string, 0, 1)
 	if playerName != "" {
-        if name == playerName {
-            myClan := clan
-            for _, pl := range players {
-                sc := sameRealClan(pl.Clan, myClan)
-                if pl.SameClan != sc {
-                    pl.SameClan = sc
-                    changedNames = append(changedNames, pl.Name)
-                }
-            }
-        } else if me, ok := players[playerName]; ok {
-            sc := sameRealClan(me.Clan, p.Clan)
-            if p.SameClan != sc {
-                p.SameClan = sc
-                changedNames = append(changedNames, p.Name)
-            }
-        }
+		if name == playerName {
+			myClan := clan
+			for _, pl := range players {
+				sc := sameRealClan(pl.clan, myClan)
+				if pl.SameClan != sc {
+					pl.SameClan = sc
+					changedNames = append(changedNames, pl.Name)
+				}
+			}
+		} else if me, ok := players[playerName]; ok {
+			sc := sameRealClan(me.clan, p.clan)
+			if p.SameClan != sc {
+				p.SameClan = sc
+				changedNames = append(changedNames, p.Name)
+			}
+		}
 	}
 	playerCopy := *p
 	playersMu.Unlock()
@@ -97,9 +96,6 @@ func parseBackendInfo(data []byte) {
 	notifyPlayerHandlers(playerCopy)
 	for _, nm := range changedNames {
 		killNameTagCacheFor(nm)
-	}
-	if bwChanged {
-		playersPersistDirty = true
 	}
 
 	if playerName != "" && strings.EqualFold(name, playerName) {
@@ -145,15 +141,15 @@ func parseBackendShare(data []byte) {
 			players[name] = p
 		}
 		changed := !p.Sharee
-		bwChanged := !p.BeWho
-        if me, ok := players[playerName]; ok {
-            sc := sameRealClan(me.Clan, p.Clan)
-            if p.SameClan != sc {
-                p.SameClan = sc
-                changed = true
-            }
-        }
-		p.BeWho = true
+		seenChanged := !p.Seen
+		if me, ok := players[playerName]; ok {
+			sc := sameRealClan(me.clan, p.clan)
+			if p.SameClan != sc {
+				p.SameClan = sc
+				changed = true
+			}
+		}
+		p.Seen = true
 		p.Sharee = true
 		p.LastSeen = time.Now()
 		playerCopy := *p
@@ -161,7 +157,7 @@ func parseBackendShare(data []byte) {
 		if changed {
 			killNameTagCacheFor(name)
 		}
-		if bwChanged {
+		if seenChanged {
 			playersPersistDirty = true
 		}
 		notifyPlayerHandlers(playerCopy)
@@ -174,15 +170,15 @@ func parseBackendShare(data []byte) {
 			players[name] = p
 		}
 		changed := !p.Sharing
-		bwChanged := !p.BeWho
-        if me, ok := players[playerName]; ok {
-            sc := sameRealClan(me.Clan, p.Clan)
-            if p.SameClan != sc {
-                p.SameClan = sc
-                changed = true
-            }
-        }
-		p.BeWho = true
+		seenChanged := !p.Seen
+		if me, ok := players[playerName]; ok {
+			sc := sameRealClan(me.clan, p.clan)
+			if p.SameClan != sc {
+				p.SameClan = sc
+				changed = true
+			}
+		}
+		p.Seen = true
 		p.Sharing = true
 		p.LastSeen = time.Now()
 		playerCopy := *p
@@ -190,7 +186,7 @@ func parseBackendShare(data []byte) {
 		if changed {
 			killNameTagCacheFor(name)
 		}
-		if bwChanged {
+		if seenChanged {
 			playersPersistDirty = true
 		}
 		notifyPlayerHandlers(playerCopy)
@@ -240,27 +236,29 @@ func parseBackendWho(data []byte) {
 			newCount++
 		}
 		if gm >= 0 {
-			p.GMLevel = gm
+			p.gmLevel = gm
 		}
 		p.LastSeen = time.Now()
 		p.Offline = false
-		bwChanged := !p.BeWho
+		bwChanged := !p.beWho
+		seenChanged := !p.Seen
 		scChanged := false
-        if me, ok := players[playerName]; ok {
-            sc := sameRealClan(me.Clan, p.Clan)
-            if p.SameClan != sc {
-                p.SameClan = sc
-                scChanged = true
-            }
-        }
-		p.BeWho = true
+		if me, ok := players[playerName]; ok {
+			sc := sameRealClan(me.clan, p.clan)
+			if p.SameClan != sc {
+				p.SameClan = sc
+				scChanged = true
+			}
+		}
+		p.beWho = true
+		p.Seen = true
 		playerCopy := *p
 		playersMu.Unlock()
 		notifyPlayerHandlers(playerCopy)
 		if scChanged {
 			killNameTagCacheFor(name)
 		}
-		if bwChanged {
+		if bwChanged || seenChanged {
 			playersPersistDirty = true
 		}
 		queueInfoRequest(name)
