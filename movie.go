@@ -22,8 +22,10 @@ var gameFrame int
 var movieRevision int32
 
 type movieFrame struct {
-	data  []byte
-	index int32
+	data    []byte
+	index   int32
+	flags   uint16
+	preData []byte
 }
 
 func parseMovie(path string, clientVersion int) ([]movieFrame, error) {
@@ -74,10 +76,9 @@ func parseMovie(path string, clientVersion int) ([]movieFrame, error) {
 		lastFrame = frame
 		size := int(binary.BigEndian.Uint16(data[pos+8 : pos+10]))
 		flags := binary.BigEndian.Uint16(data[pos+10 : pos+12])
-		//logDebug("frame %d index=%d size=%d flags=0x%x", frameNum, frame, size, flags)
 		pos += 12
+		preStart := pos
 		if flags&flagGameState != 0 {
-			//logDebug("GameState block at %d", pos)
 			if pos+24 > len(data) {
 				break
 			}
@@ -91,11 +92,9 @@ func parseMovie(path string, clientVersion int) ([]movieFrame, error) {
 			pos = end
 		}
 		if flags&flagMobileData != 0 {
-			//logDebug("MobileData table at %d", pos)
 			pos = parseMobileTable(data, pos, version, revision)
 		}
 		if flags&flagPictureTable != 0 {
-			//logDebug("PictureTable at %d", pos)
 			if pos+2 > len(data) {
 				break
 			}
@@ -117,17 +116,18 @@ func parseMovie(path string, clientVersion int) ([]movieFrame, error) {
 				pos += 4
 			}
 			stateMu.Lock()
-			// Preserve on-disk ordering for pictAgain semantics.
 			state.pictures = pics
 			stateMu.Unlock()
 		}
+		preData := append([]byte(nil), data[preStart:pos]...)
 		if size > 0 {
 			if pos+size > len(data) {
 				break
 			}
-			frames = append(frames, movieFrame{data: append([]byte(nil), data[pos:pos+size]...), index: frame})
+			frames = append(frames, movieFrame{data: append([]byte(nil), data[pos:pos+size]...), index: frame, flags: flags, preData: preData})
 			pos += size
 		} else {
+			frames = append(frames, movieFrame{index: frame, flags: flags, preData: preData})
 			idx := bytes.Index(data[pos:], sign)
 			if idx < 0 {
 				break
