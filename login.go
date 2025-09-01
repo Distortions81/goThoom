@@ -31,6 +31,9 @@ func handleDisconnect() {
 	loginMu.Unlock()
 
 	cancel()
+	if recorder != nil {
+		stopRecording()
+	}
 	// Reset session sources so we return to splash state
 	clmov = ""
 	pcapPath = ""

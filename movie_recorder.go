@@ -128,3 +128,17 @@ func (m *movieRecorder) Close() error {
 	m.f = nil
 	return err
 }
+
+func stopRecording() {
+	if recorder == nil {
+		return
+	}
+	if err := recorder.Close(); err != nil {
+		logError("stop recording: %v", err)
+	}
+	recorder = nil
+	wroteLoginBlocks = false
+	if recordStatus != nil {
+		recordStatus.Text = ""
+	}
+}
