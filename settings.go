@@ -36,7 +36,7 @@ var settingsLoaded bool
 var windowsRestored bool
 
 var gsdef settings = settings{
-	Version: SETTINGS_VERSION,
+    Version: SETTINGS_VERSION,
 
 	KBWalkSpeed:             0.25,
 	MainFontSize:            8,
@@ -49,7 +49,7 @@ var gsdef settings = settings{
 	BubbleBaseLife:          2.0,
 	BubbleLifePerWord:       1.0,
 	NameBgOpacity:           0.7,
-	NameTagLabelColors:      false,
+    NameTagLabelColors:      true,
 	BarOpacity:              0.5,
 	ObscuringPictureOpacity: 0.5,
 	FadeObscuringPictures:   true,
@@ -68,8 +68,12 @@ var gsdef settings = settings{
 	BubbleMonsters:          true,
 	BubbleNarration:         true,
 
-	MotionSmoothing:      true,
-	ObjectPinning:        true,
+    MotionSmoothing:      true,
+    DenoiseImages:        true,  // High preset default
+    BlendMobiles:         false, // High preset default
+    BlendPicts:           true,  // High preset default
+    NoCaching:            false, // High preset default
+    ObjectPinning:        true,
 	BlendAmount:          1.0,
 	MobileBlendAmount:    0.33,
 	MobileBlendFrames:    10,

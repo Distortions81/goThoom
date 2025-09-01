@@ -39,3 +39,4 @@ gothoom_deps.tar.gz
 spellcheck_words.txt
 *.wav
 .gocache-local/
+data/Movies/*.clMov
