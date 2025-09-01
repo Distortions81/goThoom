@@ -17,7 +17,7 @@ func TestMotionSmoothingFailure(t *testing.T) {
 	}
 	parsed := 0
 	for _, f := range frames {
-		if err := parseDrawState(f.data, false); err != nil {
+		if _, _, err := parseDrawState(f.data, false); err != nil {
 			continue
 		}
 		parsed++

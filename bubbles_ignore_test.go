@@ -42,7 +42,7 @@ func TestBubbleDroppedForBlockedPlayer(t *testing.T) {
 	resetTestState()
 	players["Bob"] = &Player{Name: "Bob", Blocked: true}
 	data := buildDrawData("Bob", kBubbleNormal, "hello")
-	if err := parseDrawState(data, false); err != nil {
+	if _, _, err := parseDrawState(data, false); err != nil {
 		t.Fatalf("parseDrawState: %v", err)
 	}
 	stateMu.Lock()
@@ -57,7 +57,7 @@ func TestThinkMessageDroppedForIgnoredPlayer(t *testing.T) {
 	resetTestState()
 	players["Bob"] = &Player{Name: "Bob", Ignored: true}
 	data := buildDrawData("Bob", kBubbleThought, "hmm")
-	if err := parseDrawState(data, false); err != nil {
+	if _, _, err := parseDrawState(data, false); err != nil {
 		t.Fatalf("parseDrawState: %v", err)
 	}
 	if len(thinkMessages) != 0 {
