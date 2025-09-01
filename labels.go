@@ -176,5 +176,5 @@ func labelColor(i int) eui.Color {
 		return eui.Color{}
 	}
 	c := labelColors[i-1]
-	return eui.Color{c.R, c.G, c.B, c.A}
+	return eui.Color{R: c.R, G: c.G, B: c.B, A: c.A}
 }

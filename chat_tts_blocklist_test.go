@@ -60,14 +60,16 @@ func TestHandleNoTTSList(t *testing.T) {
 	origList := gs.ChatTTSBlocklist
 	gs.ChatTTSBlocklist = []string{"foo", "bar"}
 	syncTTSBlocklist()
-	origLog := consoleLog
-	consoleLog = messageLog{max: maxMessages}
+	origEntries, origMax := consoleLog.entries, consoleLog.max
+	consoleLog.entries = nil
+	consoleLog.max = maxMessages
 	handleNoTTSCommand("list")
 	msgs := getConsoleMessages()
 	if len(msgs) != 1 || msgs[0] != "TTS blocklist: foo, bar" {
 		t.Fatalf("got %v", msgs)
 	}
-	consoleLog = origLog
+	consoleLog.entries = origEntries
+	consoleLog.max = origMax
 	gs.ChatTTSBlocklist = origList
 	syncTTSBlocklist()
 }
