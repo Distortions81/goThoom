@@ -1,0 +1,27 @@
+goThoom is licensed under the MIT License.
+Copyright (c) 2025 Carl Frank Otto III.
+
+Third-Party Libraries:
+- Ebitengine (Apache-2.0) by Hajime Hoshi
+- go-humanize (MIT) by Dustin Sallings
+- piper (MIT) by Amity Bell
+- gopacket (BSD-3-Clause) by Google, Inc.; Andreas Krennmair
+- durafmt (MIT) by Wesley Hill
+- rich-go (MIT) by Hugo Lageneste
+- sizedwaitgroup (MIT) by Rémy Mathieu
+- go-meltysynth (MIT) by Nobuaki Tanaka
+- dialog (ISC) by sqweek and contributors
+- dark-mode-go (MIT) by Thiago Kenji Okada
+- clipboard (MIT) by Changkun Ou
+- x/crypto (BSD-3-Clause) by The Go Authors
+- x/text (BSD-3-Clause) by The Go Authors
+- x/time (BSD-3-Clause) by The Go Authors
+
+Fonts:
+- Noto Sans (Regular, Bold, Italic, BoldItalic) – SIL Open Font License 1.1
+
+Delta Tao Software:
+- Clan Lord – Proprietary – Delta Tao Software
+- Clan Lord Client – Apache-2.0 – Delta Tao Software
+
+For more details, see ATTRIBUTE.md.

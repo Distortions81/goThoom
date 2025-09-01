@@ -181,10 +181,11 @@ func initUI() {
 	makeBubbleWindow()
 	makeDebugWindow()
 	initHelpUI()
+	initAboutUI()
 	makeWindowsWindow()
 	makeInventoryWindow()
 	makePlayersWindow()
-    makeShortcutsWindow()
+	makeShortcutsWindow()
 	makeHotkeysWindow()
 	makeTriggersWindow()
 	makePluginsWindow()
@@ -245,19 +246,19 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			return
 		}
 		r := ev.Item.DrawRect
-        options := []string{
-            "Hotkeys",
-            "Shortcuts",
-            "Triggers",
-            "Scripts",
-        }
+		options := []string{
+			"Hotkeys",
+			"Shortcuts",
+			"Triggers",
+			"Scripts",
+		}
 		eui.ShowContextMenu(options, r.X0, r.Y1, func(i int) {
 			switch i {
 			case 0:
 				hotkeysWin.ToggleNear(actionsBtn)
-            case 1:
-                refreshShortcutsList()
-                shortcutsWin.ToggleNear(actionsBtn)
+			case 1:
+				refreshShortcutsList()
+				shortcutsWin.ToggleNear(actionsBtn)
 			case 2:
 				refreshTriggersList()
 				triggersWin.ToggleNear(actionsBtn)
@@ -351,8 +352,8 @@ func makePluginsWindow() {
 	if pluginsWin != nil {
 		return
 	}
-    pluginsWin = eui.NewWindow()
-    pluginsWin.Title = "Scripts"
+	pluginsWin = eui.NewWindow()
+	pluginsWin.Title = "Scripts"
 	pluginsWin.Closable = true
 	pluginsWin.Resizable = false
 	pluginsWin.AutoSize = true
@@ -386,11 +387,11 @@ func makePluginsWindow() {
 	buttonsBottom.AddItem(refreshBtn)
 
 	openBtn, oh := eui.NewButton()
-    openBtn.Text = "Open scripts folder"
+	openBtn.Text = "Open scripts folder"
 	openBtn.Size = eui.Point{X: 160, Y: 24}
 	oh.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-            open.Run(userScriptsDir())
+			open.Run(userScriptsDir())
 		}
 	}
 	buttonsBottom.AddItem(openBtn)
@@ -425,25 +426,25 @@ func refreshPluginsWindow() {
 	legend.AddItem(plugTxt)
 	pluginsList.AddItem(legend)
 
-    type entry struct {
-        owner   string
-        name    string
-        cat     string
-        sub     string
-        invalid bool
-    }
-    pluginMu.RLock()
-    cats := make(map[string][]entry)
-    for o, n := range pluginDisplayNames {
-        cats[pluginCategories[o]] = append(cats[pluginCategories[o]], entry{
-            owner:   o,
-            name:    n,
-            cat:     pluginCategories[o],
-            sub:     pluginSubCategories[o],
-            invalid: pluginInvalid[o],
-        })
-    }
-    pluginMu.RUnlock()
+	type entry struct {
+		owner   string
+		name    string
+		cat     string
+		sub     string
+		invalid bool
+	}
+	pluginMu.RLock()
+	cats := make(map[string][]entry)
+	for o, n := range pluginDisplayNames {
+		cats[pluginCategories[o]] = append(cats[pluginCategories[o]], entry{
+			owner:   o,
+			name:    n,
+			cat:     pluginCategories[o],
+			sub:     pluginSubCategories[o],
+			invalid: pluginInvalid[o],
+		})
+	}
+	pluginMu.RUnlock()
 	var catList []string
 	for c := range cats {
 		catList = append(catList, c)
@@ -476,56 +477,56 @@ func refreshPluginsWindow() {
 			charCB.Size = checkSize
 			allCB, allEvents := eui.NewCheckbox()
 			allCB.Size = checkSize
-            // Consider LastCharacter before login so the per-character
-            // checkbox reflects the saved preference.
-            effChar := playerName
-            if effChar == "" {
-                effChar = gs.LastCharacter
-            }
-            label := e.name
-            if e.sub != "" {
-                label += " [" + e.sub + "]"
-            }
-            owner := e.owner
-            pluginMu.RLock()
-            scope := pluginEnabledFor[owner]
-            pluginMu.RUnlock()
-            charCB.Checked = effChar != "" && scope.Chars != nil && scope.Chars[effChar]
-            charCB.Disabled = e.invalid || effChar == ""
-            allCB.Checked = scope.All
-            allCB.Disabled = e.invalid
-            click := func() { selectPlugin(owner) }
+			// Consider LastCharacter before login so the per-character
+			// checkbox reflects the saved preference.
+			effChar := playerName
+			if effChar == "" {
+				effChar = gs.LastCharacter
+			}
+			label := e.name
+			if e.sub != "" {
+				label += " [" + e.sub + "]"
+			}
+			owner := e.owner
+			pluginMu.RLock()
+			scope := pluginEnabledFor[owner]
+			pluginMu.RUnlock()
+			charCB.Checked = effChar != "" && scope.Chars != nil && scope.Chars[effChar]
+			charCB.Disabled = e.invalid || effChar == ""
+			allCB.Checked = scope.All
+			allCB.Disabled = e.invalid
+			click := func() { selectPlugin(owner) }
 			if selectedPlugin == owner {
 				row.Filled = true
 				if pluginsWin != nil && pluginsWin.Theme != nil {
 					row.Color = pluginsWin.Theme.Button.SelectedColor
 				}
 			}
-            if !e.invalid {
-                charEvents.Handle = func(ev eui.UIEvent) {
-                    if ev.Type == eui.EventCheckboxChanged {
-                        // Character/all are mutually exclusive. Prioritize the
-                        // clicked box and clear the other to reflect scope.
-                        if ev.Checked {
-                            setPluginEnabled(owner, true, false)
-                        } else {
-                            // Unchecking character when not selecting "all" disables.
-                            setPluginEnabled(owner, false, allCB.Checked)
-                        }
-                    }
-                }
-                allEvents.Handle = func(ev eui.UIEvent) {
-                    if ev.Type == eui.EventCheckboxChanged {
-                        if ev.Checked {
-                            setPluginEnabled(owner, false, true)
-                        } else {
-                            // Unchecking "All" should fully disable the plugin,
-                            // regardless of the per-character box state.
-                            clearPluginScope(owner)
-                        }
-                    }
-                }
-            }
+			if !e.invalid {
+				charEvents.Handle = func(ev eui.UIEvent) {
+					if ev.Type == eui.EventCheckboxChanged {
+						// Character/all are mutually exclusive. Prioritize the
+						// clicked box and clear the other to reflect scope.
+						if ev.Checked {
+							setPluginEnabled(owner, true, false)
+						} else {
+							// Unchecking character when not selecting "all" disables.
+							setPluginEnabled(owner, false, allCB.Checked)
+						}
+					}
+				}
+				allEvents.Handle = func(ev eui.UIEvent) {
+					if ev.Type == eui.EventCheckboxChanged {
+						if ev.Checked {
+							setPluginEnabled(owner, false, true)
+						} else {
+							// Unchecking "All" should fully disable the plugin,
+							// regardless of the per-character box state.
+							clearPluginScope(owner)
+						}
+					}
+				}
+			}
 			row.AddItem(charCB)
 			row.AddItem(allCB)
 			nameTxt, _ := eui.NewText()
@@ -629,21 +630,21 @@ func refreshPluginDetails() {
 		}
 		catLabel += sub
 	}
-    line("Category: " + catLabel)
-    line("Status: " + status)
+	line("Category: " + catLabel)
+	line("Status: " + status)
 	errText := "None"
 	if invalid {
 		errText = "Invalid plugin"
 	}
 	line("Errors: " + errText)
 
-    shortcutMu.RLock()
-    m := shortcutMaps[owner]
-    shortcutMu.RUnlock()
-    if len(m) == 0 {
-        line("Shortcuts: none")
-    } else {
-        line("Shortcuts:")
+	shortcutMu.RLock()
+	m := shortcutMaps[owner]
+	shortcutMu.RUnlock()
+	if len(m) == 0 {
+		line("Shortcuts: none")
+	} else {
+		line("Shortcuts:")
 		type pair struct{ short, full string }
 		var list []pair
 		for k, v := range m {
@@ -1943,7 +1944,7 @@ func makeLoginWindow() {
 		}
 	}
 
-	verFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Size: eui.Point{X: 200, Y: 24}}
+	verFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Size: eui.Point{X: 260, Y: 24}}
 	verLabel, _ := eui.NewText()
 	verLabel.Text = fmt.Sprintf("goThoom test %4d", appVersion)
 	verLabel.FontSize = 13
@@ -1963,6 +1964,17 @@ func makeLoginWindow() {
 		}
 	}
 	verFlow.AddItem(changeBtn)
+
+	aboutBtn, aboutEvents := eui.NewButton()
+	aboutBtn.Text = "About"
+	aboutBtn.Size = eui.Point{X: 60, Y: 24}
+	aboutBtn.FontSize = 10
+	aboutEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			openAboutWindow(ev.Item)
+		}
+	}
+	verFlow.AddItem(aboutBtn)
 
 	loginFlow.AddItem(connBtn)
 	loginFlow.AddItem(demoBtn)
@@ -2608,34 +2620,34 @@ func makeSettingsWindow() {
 	}
 	right.AddItem(bubbleOpSlider)
 
-    bubbleBaseLifeSlider, bubbleBaseLifeEvents := eui.NewSlider()
-    bubbleBaseLifeSlider.Label = "Base Bubble Life (s)"
-    bubbleBaseLifeSlider.MinValue = 1
-    bubbleBaseLifeSlider.MaxValue = 5
-    bubbleBaseLifeSlider.Value = float32(gs.BubbleBaseLife)
-    bubbleBaseLifeSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
-    bubbleBaseLifeEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventSliderChanged {
-            gs.BubbleBaseLife = float64(ev.Value)
-            settingsDirty = true
-        }
-    }
-    right.AddItem(bubbleBaseLifeSlider)
+	bubbleBaseLifeSlider, bubbleBaseLifeEvents := eui.NewSlider()
+	bubbleBaseLifeSlider.Label = "Base Bubble Life (s)"
+	bubbleBaseLifeSlider.MinValue = 1
+	bubbleBaseLifeSlider.MaxValue = 5
+	bubbleBaseLifeSlider.Value = float32(gs.BubbleBaseLife)
+	bubbleBaseLifeSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	bubbleBaseLifeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.BubbleBaseLife = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	right.AddItem(bubbleBaseLifeSlider)
 
-    // Life added per word in a bubble
-    bubblePerWordSlider, bubblePerWordEvents := eui.NewSlider()
-    bubblePerWordSlider.Label = "Bubble Life per Word (s)"
-    bubblePerWordSlider.MinValue = 0
-    bubblePerWordSlider.MaxValue = 2
-    bubblePerWordSlider.Value = float32(gs.BubbleLifePerWord)
-    bubblePerWordSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
-    bubblePerWordEvents.Handle = func(ev eui.UIEvent) {
-        if ev.Type == eui.EventSliderChanged {
-            gs.BubbleLifePerWord = float64(ev.Value)
-            settingsDirty = true
-        }
-    }
-    right.AddItem(bubblePerWordSlider)
+	// Life added per word in a bubble
+	bubblePerWordSlider, bubblePerWordEvents := eui.NewSlider()
+	bubblePerWordSlider.Label = "Bubble Life per Word (s)"
+	bubblePerWordSlider.MinValue = 0
+	bubblePerWordSlider.MaxValue = 2
+	bubblePerWordSlider.Value = float32(gs.BubbleLifePerWord)
+	bubblePerWordSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	bubblePerWordEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.BubbleLifePerWord = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	right.AddItem(bubblePerWordSlider)
 
 	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
 	fadePicsCB.Text = "Fade objects obscuring mobiles"
