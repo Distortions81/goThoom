@@ -126,8 +126,10 @@ func setupCapsLockWarning(input *eui.ItemData, warn *eui.ItemData) {
 	if input == nil || warn == nil {
 		return
 	}
-	prev := 0
 	warn.Invisible = true
+	warn.FontSize = input.FontSize
+	warn.Size = input.Size
+	warn.Dirty = true
 	h := input.Handler
 	prevHandle := h.Handle
 	h.Handle = func(ev eui.UIEvent) {
@@ -138,18 +140,21 @@ func setupCapsLockWarning(input *eui.ItemData, warn *eui.ItemData) {
 			return
 		}
 		runes := []rune(ev.Text)
-		l := len(runes)
-		if l > prev {
-			r := runes[l-1]
-			shift := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
-			show := unicode.IsLetter(r) && ((unicode.IsUpper(r) && !shift) || (unicode.IsLower(r) && shift))
-			inv := !show
-			if warn.Invisible != inv {
-				warn.Invisible = inv
+		if len(runes) == 0 {
+			if !warn.Invisible {
+				warn.Invisible = true
 				warn.Dirty = true
 			}
+			return
 		}
-		prev = l
+		r := runes[len(runes)-1]
+		shift := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
+		show := unicode.IsLetter(r) && ((unicode.IsUpper(r) && !shift) || (unicode.IsLower(r) && shift))
+		inv := !show
+		if warn.Invisible != inv {
+			warn.Invisible = inv
+			warn.Dirty = true
+		}
 	}
 }
 
