@@ -46,8 +46,10 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
+var addCharPassWarn *eui.ItemData
 var passWin *eui.WindowData
 var passInput *eui.ItemData
+var passCapsWarn *eui.ItemData
 
 var changelogWin *eui.WindowData
 var changelogList *eui.ItemData
@@ -118,6 +120,24 @@ var ttsTestPhrase = "The quick brown fox jumps over the lazy dog"
 // lastWhoRequest tracks the last time we requested a backend who list so we
 // can avoid spamming the server when the Players window is toggled rapidly.
 var lastWhoRequest time.Time
+
+func updateCapsLockWarning() {
+	caps := ebiten.IsKeyPressed(ebiten.KeyCapsLock)
+	if passWin != nil && passWin.IsOpen() && passCapsWarn != nil {
+		inv := !caps
+		if passCapsWarn.Invisible != inv {
+			passCapsWarn.Invisible = inv
+			passCapsWarn.Dirty = true
+		}
+	}
+	if addCharWin != nil && addCharWin.IsOpen() && addCharPassWarn != nil {
+		inv := !caps
+		if addCharPassWarn.Invisible != inv {
+			addCharPassWarn.Invisible = inv
+			addCharPassWarn.Dirty = true
+		}
+	}
+}
 
 func init() {
 	eui.WindowStateChanged = func() {
@@ -216,9 +236,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	row2 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
-    winBtn, winEvents := eui.NewButton()
-    winBtn.Text = "Windows"
-    winBtn.Tooltip = "Manage windows layout and visibility"
+	winBtn, winEvents := eui.NewButton()
+	winBtn.Text = "Windows"
+	winBtn.Tooltip = "Manage windows layout and visibility"
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	winBtn.FontSize = toolFontSize
 	winEvents.Handle = func(ev eui.UIEvent) {
@@ -228,9 +248,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(winBtn)
 
-    btn, setEvents := eui.NewButton()
-    btn.Text = "Settings"
-    btn.Tooltip = "Open settings"
+	btn, setEvents := eui.NewButton()
+	btn.Text = "Settings"
+	btn.Tooltip = "Open settings"
 	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	btn.FontSize = toolFontSize
 	setEvents.Handle = func(ev eui.UIEvent) {
@@ -240,9 +260,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(btn)
 
-    actionsBtn, actionsEvents := eui.NewButton()
-    actionsBtn.Text = "Actions"
-    actionsBtn.Tooltip = "Hotkeys, Shortcuts, Triggers, Scripts"
+	actionsBtn, actionsEvents := eui.NewButton()
+	actionsBtn.Text = "Actions"
+	actionsBtn.Tooltip = "Hotkeys, Shortcuts, Triggers, Scripts"
 	actionsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	actionsBtn.FontSize = toolFontSize
 	actionsEvents.Handle = func(ev eui.UIEvent) {
@@ -274,9 +294,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(actionsBtn)
 
-    recordBtn, recordEvents := eui.NewButton()
-    recordBtn.Text = "Record"
-    recordBtn.Tooltip = "Start/stop recording (.clmov)"
+	recordBtn, recordEvents := eui.NewButton()
+	recordBtn.Text = "Record"
+	recordBtn.Tooltip = "Start/stop recording (.clmov)"
 	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	recordBtn.FontSize = toolFontSize
 	recordEvents.Handle = func(ev eui.UIEvent) {
@@ -286,9 +306,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(recordBtn)
 
-    helpBtn, helpEvents := eui.NewButton()
-    helpBtn.Text = "Help"
-    helpBtn.Tooltip = "Open help"
+	helpBtn, helpEvents := eui.NewButton()
+	helpBtn.Text = "Help"
+	helpBtn.Tooltip = "Open help"
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
 	helpEvents.Handle = func(ev eui.UIEvent) {
@@ -298,9 +318,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row2.AddItem(helpBtn)
 
-    shotBtn, shotEvents := eui.NewButton()
-    shotBtn.Text = "Snapshot"
-    shotBtn.Tooltip = "Save screenshot"
+	shotBtn, shotEvents := eui.NewButton()
+	shotBtn.Text = "Snapshot"
+	shotBtn.Tooltip = "Save screenshot"
 	shotBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	shotBtn.FontSize = toolFontSize
 	shotEvents.Handle = func(ev eui.UIEvent) {
@@ -310,9 +330,9 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row2.AddItem(shotBtn)
 
-    exitSessBtn, exitSessEv := eui.NewButton()
-    exitSessBtn.Text = "Exit"
-    exitSessBtn.Tooltip = "Exit session"
+	exitSessBtn, exitSessEv := eui.NewButton()
+	exitSessBtn.Text = "Exit"
+	exitSessBtn.Tooltip = "Exit session"
 	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	exitSessBtn.FontSize = toolFontSize
 	exitSessEv.Handle = func(ev eui.UIEvent) {
@@ -322,10 +342,10 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row2.AddItem(exitSessBtn)
 
-    mixBtn, mixEvents := eui.NewButton()
-    mixBtn.Text = "Mixer"
-    mixBtn.Tooltip = "Adjust volumes and enable channels"
-    mixBtn.Tooltip = "Open audio mixer"
+	mixBtn, mixEvents := eui.NewButton()
+	mixBtn.Text = "Mixer"
+	mixBtn.Tooltip = "Adjust volumes and enable channels"
+	mixBtn.Tooltip = "Open audio mixer"
 	mixBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	mixBtn.FontSize = toolFontSize
 	mixEvents.Handle = func(ev eui.UIEvent) {
@@ -397,9 +417,9 @@ func makePluginsWindow() {
 	buttonsBottom := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	root.AddItem(buttonsBottom)
 
-    refreshBtn, rh := eui.NewButton()
-    refreshBtn.Text = "Refresh"
-    refreshBtn.Tooltip = "Rescan scripts and reload list"
+	refreshBtn, rh := eui.NewButton()
+	refreshBtn.Text = "Refresh"
+	refreshBtn.Tooltip = "Rescan scripts and reload list"
 	refreshBtn.Size = eui.Point{X: 64, Y: 24}
 	rh.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -408,9 +428,9 @@ func makePluginsWindow() {
 	}
 	buttonsBottom.AddItem(refreshBtn)
 
-    openBtn, oh := eui.NewButton()
-    openBtn.Text = "Open scripts folder"
-    // Label already clear; no tooltip.
+	openBtn, oh := eui.NewButton()
+	openBtn.Text = "Open scripts folder"
+	// Label already clear; no tooltip.
 	openBtn.Size = eui.Point{X: 160, Y: 24}
 	oh.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -562,9 +582,9 @@ func refreshPluginsWindow() {
 			row.AddItem(nameTxt)
 
 			if !e.invalid {
-                reloadBtn, rh := eui.NewButton()
-                reloadBtn.Text = "Reload"
-                reloadBtn.Tooltip = "Restart this plugin if enabled"
+				reloadBtn, rh := eui.NewButton()
+				reloadBtn.Text = "Reload"
+				reloadBtn.Tooltip = "Restart this plugin if enabled"
 				reloadBtn.Size = eui.Point{X: 55, Y: 24}
 				rh.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventClick {
@@ -1707,6 +1727,12 @@ func makeAddCharacterWindow() {
 	passInput.Size = eui.Point{X: 200, Y: 24}
 	addCharPassInput = passInput
 	flow.AddItem(passInput)
+
+	addCharPassWarn, _ = eui.NewText()
+	addCharPassWarn.Text = "Caps Lock is ON"
+	addCharPassWarn.TextColor = eui.ColorRed
+	addCharPassWarn.Invisible = !ebiten.IsKeyPressed(ebiten.KeyCapsLock)
+	flow.AddItem(addCharPassWarn)
 	rememberCB, rememberEvents := eui.NewCheckbox()
 	rememberCB.Text = "Remember Password"
 	rememberCB.Size = eui.Point{X: 200, Y: 24}
@@ -1769,6 +1795,7 @@ func makeAddCharacterWindow() {
 			}
 			// Return user to login (already open above)
 			addCharWin.Close()
+			addCharPassWarn = nil
 		}
 	}
 	flow.AddItem(addBtn)
@@ -1779,6 +1806,7 @@ func makeAddCharacterWindow() {
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharWin.Close()
+			addCharPassWarn = nil
 			loginWin.MarkOpen()
 		}
 	}
@@ -1809,6 +1837,12 @@ func makePasswordWindow() {
 	passInput = input
 	flow.AddItem(input)
 
+	passCapsWarn, _ = eui.NewText()
+	passCapsWarn.Text = "Caps Lock is ON"
+	passCapsWarn.TextColor = eui.ColorRed
+	passCapsWarn.Invisible = !ebiten.IsKeyPressed(ebiten.KeyCapsLock)
+	flow.AddItem(passCapsWarn)
+
 	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
 	cancelBtn, cancelEvents := eui.NewButton()
@@ -1818,6 +1852,7 @@ func makePasswordWindow() {
 		if ev.Type == eui.EventClick {
 			pass = ""
 			passWin.Close()
+			passCapsWarn = nil
 		}
 	}
 	btnFlow.AddItem(cancelBtn)
@@ -1832,6 +1867,7 @@ func makePasswordWindow() {
 				return
 			}
 			passWin.Close()
+			passCapsWarn = nil
 			startLogin()
 		}
 	}
@@ -1955,9 +1991,9 @@ func makeLoginWindow() {
 		}
 	}
 
-    demoBtn, demoEvents := eui.NewButton()
-    demoBtn.Text = "Try the demo"
-    demoBtn.Tooltip = "Connect with a random demo character"
+	demoBtn, demoEvents := eui.NewButton()
+	demoBtn.Text = "Try the demo"
+	demoBtn.Tooltip = "Connect with a random demo character"
 	demoBtn.Size = eui.Point{X: charWinWidth, Y: 24}
 	demoEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -1990,9 +2026,9 @@ func makeLoginWindow() {
 		}
 	}
 
-    openBtn, openEvents := eui.NewButton()
-    openBtn.Text = "Play movie file"
-    openBtn.Tooltip = "Open and play a .clmov recording"
+	openBtn, openEvents := eui.NewButton()
+	openBtn.Text = "Play movie file"
+	openBtn.Tooltip = "Open and play a .clmov recording"
 	openBtn.Size = eui.Point{X: charWinWidth, Y: 24}
 	openEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -2051,9 +2087,9 @@ func makeLoginWindow() {
 	verLabel.Size = eui.Point{X: 110, Y: 24}
 	verFlow.AddItem(verLabel)
 
-    changeBtn, changeEvents := eui.NewButton()
-    changeBtn.Text = "Changelog"
-    changeBtn.Tooltip = "View recent changes"
+	changeBtn, changeEvents := eui.NewButton()
+	changeBtn.Text = "Changelog"
+	changeBtn.Tooltip = "View recent changes"
 	changeBtn.Size = eui.Point{X: 70, Y: 24}
 	changeBtn.FontSize = 10
 	changeEvents.Handle = func(ev eui.UIEvent) {
@@ -2488,9 +2524,9 @@ func makeSettingsWindow() {
 	}
 	left.AddItem(qualityPresetDD)
 
-    qualityBtn, qualityEvents := eui.NewButton()
-    qualityBtn.Text = "Quality Settings"
-    qualityBtn.Tooltip = "Open detailed quality options"
+	qualityBtn, qualityEvents := eui.NewButton()
+	qualityBtn.Text = "Quality Settings"
+	qualityBtn.Tooltip = "Open detailed quality options"
 	qualityBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

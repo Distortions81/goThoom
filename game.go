@@ -604,6 +604,7 @@ func (g *Game) Update() error {
 	checkPluginMods()
 	updateNotifications()
 	updateThinkMessages()
+	updateCapsLockWarning()
 
 	mx, my := eui.PointerPosition()
 	origX, origY, worldScale := worldDrawInfo()
