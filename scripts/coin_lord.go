@@ -34,7 +34,7 @@ func Init() {
     // Tally coin messages like "You get 3 coins"
     gt.Chat("You get ", clHandle)
     // Use a function hotkey instead of running a slash command.
-    gt.AddHotkeyFn("Shift-C", cwDataHotkey)
+    gt.Key("Shift-C", cwDataHotkey)
 }
 
 func cwCmd(args string) {
@@ -63,7 +63,7 @@ func cwDataCmd(args string) {
     gt.Console(fmt.Sprintf("Coins: %d (%.0f/hr)", clTotal, rate))
 }
 
-func cwDataHotkey(e gt.HotkeyEvent) { cwDataCmd("") }
+func cwDataHotkey() { cwDataCmd("") }
 
 // clHandle watches chat for messages like "You get 3 coins" and tallies them.
 func clHandle(msg string) {

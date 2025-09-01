@@ -17,7 +17,8 @@ const PluginAuthor = "Distortions"
 const PluginCategory = "Quality Of Life"
 
 func Init() {
-    // Keys are what you type; values are the full command to send.
+    // Keys are what you type; values are the full text to insert.
+    // This uses the unified shortcut API.
     macros := map[string]string{
         "??": "/help ",
         "aa": "/action ",
@@ -41,5 +42,5 @@ func Init() {
         "yy": "/yell ",
     }
     // Register them in a single call.
-    gt.AddMacros(macros)
+    gt.AddShortcuts(macros)
 }

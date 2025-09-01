@@ -42,5 +42,5 @@ func sendYes(msg string) {
 		return
 	}
 	lastYes = now
-	gt.Run("/whisper yes")
+    gt.Run("/whisper yes")
 }

@@ -3,9 +3,9 @@
 package main
 
 import (
-	"time"
+    "time"
 
-	"gt"
+    "gt"
 )
 
 // Plugin metadata
@@ -22,22 +22,22 @@ func Init() {
 				c := gt.LastClick()
 				if c.OnMobile {
 					if gt.IgnoreCase(c.Mobile.Name, gt.PlayerName()) {
-						equipItem("moonstone")
-						gt.RunCommand("/use 10")
+                    equipItem("moonstone")
+                    gt.Run("/use 10")
 					} else {
-						equipItem("asklepean")
-						gt.RunCommand("/use " + c.Mobile.Name)
+                        equipItem("asklepean")
+                        gt.Run("/use " + c.Mobile.Name)
 					}
 				}
 			} else if gt.MouseJustPressed("middle") {
 				c := gt.LastClick()
 				if c.OnMobile {
 					if gt.IgnoreCase(c.Mobile.Name, gt.PlayerName()) {
-						equipItem("asklepean")
-						gt.RunCommand("/use")
+                    equipItem("asklepean")
+                    gt.Run("/use")
 					} else {
-						equipItem("moonstone")
-						gt.RunCommand("/use 10")
+                        equipItem("moonstone")
+                        gt.Run("/use 10")
 					}
 				}
 			}

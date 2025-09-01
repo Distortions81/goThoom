@@ -20,18 +20,17 @@ const PluginName = "Dance Macros"
 func Init() {
     // Allow typing /dance to trigger it.
     gt.RegisterCommand("dance", danceCmd)
-    // Press Shift+D to start dancing (function hotkey; no slash command).
-    gt.AddHotkeyFn("Shift-D", danceHotkey)
+    // Press Shift+D to start dancing (simpler key binding).
+    gt.Key("Shift-D", runDance)
 }
 
 func danceCmd(args string) { runDance() }
-func danceHotkey(e gt.HotkeyEvent) { runDance() }
 
 func runDance() {
     // A tiny routine of poses played in sequence.
     poses := []string{"celebrate", "leanleft", "leanright", "celebrate"}
     for _, p := range poses {
-        gt.RunCommand("/pose " + p)
+        gt.Run("/pose " + p)
         time.Sleep(250 * time.Millisecond)
     }
 }

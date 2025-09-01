@@ -2,7 +2,10 @@
 
 package main
 
-import "gt"
+import (
+    "time"
+    "gt"
+)
 
 // Plugin metadata
 const PluginName = "Chain Swap"
@@ -11,28 +14,25 @@ const PluginCategory = "Equipment"
 const PluginAPIVersion = 1
 
 var savedID uint16
-var lastFrame int
+var lastSwap time.Time
 
 // Init wires up our command and mouse-wheel hotkeys.
 func Init() {
     gt.RegisterCommand("swapchain", swapChainCmd)
-    // Bind wheel to call the function directly (no slash command).
-    gt.AddHotkeyFn("WheelUp", chainWheelUp)
-    gt.AddHotkeyFn("WheelDown", chainWheelDown)
+    // Bind wheel to a simple function handler.
+    gt.Key("WheelUp", swapChain)
+    gt.Key("WheelDown", swapChain)
 }
 
 func swapChainCmd(args string) { swapChain() }
-func chainWheelUp(e gt.HotkeyEvent) { swapChain() }
-func chainWheelDown(e gt.HotkeyEvent) { swapChain() }
 
 // swapChain toggles between a chain weapon and whatever was equipped before.
 func swapChain() {
-	frame := gt.FrameNumber()
-	if frame == lastFrame {
-		// Ignore repeated triggers on the same frame.
-		return
-	}
-	lastFrame = frame
+    // Tiny debounce to avoid duplicate toggles on the same wheel action.
+    if time.Since(lastSwap) < 40*time.Millisecond {
+        return
+    }
+    lastSwap = time.Now()
 
 	var chainID uint16
 	var equipped *gt.InventoryItem

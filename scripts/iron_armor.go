@@ -41,13 +41,13 @@ func hasEquipped(name string) bool {
 }
 
 func ironArmorToggler() {
-	if hasEquipped("iron breastplate") && hasEquipped("iron helmet") && hasEquipped("iron shield") {
-		gt.RunCommand("/unequip ironbreastplate")
-		gt.RunCommand("/unequip ironhelmet")
-		gt.RunCommand("/unequip ironshield")
-		return
-	}
-	equipIronArmor()
+    if hasEquipped("iron breastplate") && hasEquipped("iron helmet") && hasEquipped("iron shield") {
+        gt.Run("/unequip ironbreastplate")
+        gt.Run("/unequip ironhelmet")
+        gt.Run("/unequip ironshield")
+        return
+    }
+    equipIronArmor()
 }
 
 func equipIronArmor() {
@@ -57,44 +57,44 @@ func equipIronArmor() {
 }
 
 func equipItem(name, cmd, display string) {
-	if hasEquipped(name) {
-		return
-	}
-	gt.RunCommand("/equip " + cmd)
-	time.Sleep(100 * time.Millisecond)
-	if !hasEquipped(name) {
-		gt.RunCommand("/unequip " + cmd)
-		gt.Console("* " + display + " unequipped due to durability.")
-	}
+    if hasEquipped(name) {
+        return
+    }
+    gt.Run("/equip " + cmd)
+    time.Sleep(100 * time.Millisecond)
+    if !hasEquipped(name) {
+        gt.Run("/unequip " + cmd)
+        gt.Console("* " + display + " unequipped due to durability.")
+    }
 }
 
 func examineArmor() {
-	gt.Console("* Armor Examiner:")
-	if gt.HasItem("iron breastplate") {
-		gt.RunCommand("/examine ironbreastplate")
-		time.Sleep(100 * time.Millisecond)
-		armorLabeler("5")
-	}
-	if gt.HasItem("iron helmet") {
-		gt.RunCommand("/examine ironhelmet")
-		time.Sleep(100 * time.Millisecond)
-		armorLabeler("4")
-	}
-	if gt.HasItem("iron shield") {
-		gt.RunCommand("/examine ironshield")
-		time.Sleep(100 * time.Millisecond)
-		armorLabeler("3")
-	}
+    gt.Console("* Armor Examiner:")
+    if gt.HasItem("iron breastplate") {
+        gt.Run("/examine ironbreastplate")
+        time.Sleep(100 * time.Millisecond)
+        armorLabeler("5")
+    }
+    if gt.HasItem("iron helmet") {
+        gt.Run("/examine ironhelmet")
+        time.Sleep(100 * time.Millisecond)
+        armorLabeler("4")
+    }
+    if gt.HasItem("iron shield") {
+        gt.Run("/examine ironshield")
+        time.Sleep(100 * time.Millisecond)
+        armorLabeler("3")
+    }
 }
 
 func armorLabeler(slot string) {
 	lower := gt.Lower(armorCondition)
 	switch {
 	case gt.Includes(lower, "perfect"):
-		gt.RunCommand("/name " + slot + " (perfect)")
+		gt.Run("/name " + slot + " (perfect)")
 	case gt.Includes(lower, "good"):
-		gt.RunCommand("/name " + slot + " (good)")
+		gt.Run("/name " + slot + " (good)")
 	case gt.Includes(lower, "look"):
-		gt.RunCommand("/name " + slot + " (worn)")
+		gt.Run("/name " + slot + " (worn)")
 	}
 }

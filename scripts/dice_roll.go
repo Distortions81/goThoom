@@ -61,5 +61,5 @@ func roll(args string) {
 		rolls[i] = strconv.Itoa(r)
 		total += r
 	}
-	gt.RunCommand(fmt.Sprintf("/me rolls %s: %s (total %d)", args, gt.Join(rolls, " "), total))
+    gt.Run(fmt.Sprintf("/me rolls %s: %s (total %d)", args, gt.Join(rolls, " "), total))
 }

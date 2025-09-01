@@ -17,15 +17,13 @@ strings, time, unicode/utf8.
 Common API calls:
 - gt.Print(msg) – write a message to the in-game console.
 - gt.ShowNotification(msg) – pop up a notification on screen.
-- gt.AddHotkey(combo, "/thing") – register a hotkey combo that runs a slash command.
-- gt.AddHotkeyFn(combo, handler) – register a hotkey that calls your function; like Ctrl-Shift-D or RightClick.
-- gt.Hotkeys() – list hotkeys registered by this script.
-- gt.RemoveHotkey(combo) – remove a hotkey this script owns.
 - gt.RegisterCommand(name, handler) – define a local slash command.
-- gt.RunCommand("/thing") – send a command to the server immediately.
-- gt.EnqueueCommand("/thing") – queue a command to send on the next tick, this avoids delaying player commands.
-- gt.AddShortcut("yy", "/yell ") – expand a short prefix into a full command.
-- gt.AddShortcuts(MapOfShortcuts) – register many shortcuts at once.
+- gt.Run("/thing") – send a command immediately (alias of RunCommand).
+- gt.Cmd("/thing") – enqueue a command for the next tick (alias of EnqueueCommand).
+- gt.AddHotkey(combo, "/thing") – bind a combo to a slash command.
+- gt.Key(combo, func()) – bind a combo directly to a function.
+- gt.AddShortcut("yy", "/yell ") – expand a short prefix in the input.
+- gt.AddShortcuts(map[string]string) – register many shortcuts at once.
 - gt.RegisterInputHandler(handler) – inspect/change chat text before sending.
 - gt.PlayerName() – name of your current character.
 - gt.Players() – slice of known players with basic info.
@@ -53,17 +51,18 @@ A minimal script typically looks like this:
     func Init() {
         // Add a local command you can type as "/hello".
         gt.RegisterCommand("hello", helloCmd)
-        // Bind a hotkey to a function. e.Combo is like "Ctrl-H".
-        gt.AddHotkeyFn("Ctrl-H", helloHotkey)
+        // Bind a hotkey to a named function.
+        gt.Key("Ctrl-H", helloHotkey)
     }
 
     func helloCmd(args string) {
         gt.Print("Hello, " + args)
     }
 
-    func helloHotkey(e gt.HotkeyEvent) {
-        gt.RunCommand("/think Hello from hotkey " + e.Combo)
+    func helloHotkey() {
+        gt.Run("/think Hello!")
     }
+    // Or use AddHotkeyFn when you need the full HotkeyEvent
 
 Where to put files:
 - Place .go files in the scripts/ directory next to the game.
@@ -96,7 +95,4 @@ Numpad8, Numpad9, NumpadAdd, NumpadDecimal, NumpadDivide, NumpadEnter,
 NumpadEqual, NumpadMultiply, NumpadSubtract, O, P, PageDown, PageUp, Pause,
 Period, PrintScreen, Q, Quote, R, S, ScrollLock, Semicolon, Shift, ShiftLeft,
 ShiftRight, Slash, Space, T, Tab, U, V, W, X, Y, Z
-
-Examples
-Copy the files from this folder into your scripts/ directory and restart the game.
 

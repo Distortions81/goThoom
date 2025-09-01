@@ -37,17 +37,15 @@ var others = []string{
 const pauseDuration = 3 * time.Second
 
 func Init() {
-	gt.RegisterCommand("ledgerfind", ledgerFind)
-	gt.RegisterCommand("ledgerlanguage", ledgerLanguage)
+    gt.RegisterCommand("ledgerfind", ledgerFind)
+    gt.RegisterCommand("ledgerlanguage", ledgerLanguage)
 }
 
 func ledgerFind(args string) {
-	gt.Logf("ledger plugin, find trainers")
-	gt.RunCommand("/equip trainingledger")
+    gt.Console("ledger: find trainers")
+    gt.Run("/equip trainingledger")
 	fields := gt.Words(args)
-	for i := 0; i < 3 && i < len(fields); i++ {
-		gt.Logf("word %d - %s", i, fields[i])
-	}
+    // (trimmed debug output)
 	playerName := gt.PlayerName()
 	category := ""
 	if len(fields) > 0 {
@@ -57,39 +55,35 @@ func ledgerFind(args string) {
 		playerName = fields[1]
 	}
 	if category == "healer" || category == "all" {
-		for _, h := range healers {
-			gt.Logf("testing %s", h)
-			gt.RunCommand("/use " + h + " /judge " + playerName)
-			time.Sleep(pauseDuration)
-		}
-	}
-	if category == "fighter" || category == "all" {
-		for _, f := range fighters {
-			gt.Logf("testing %s", f)
-			gt.RunCommand("/use " + f + " /judge " + playerName)
-			time.Sleep(pauseDuration)
-		}
-	}
-	if category == "other" || category == "all" {
-		for _, o := range others {
-			gt.Logf("testing %s", o)
-			gt.RunCommand("/use " + o + " /judge " + playerName)
-			time.Sleep(pauseDuration)
-		}
-	}
+        for _, h := range healers {
+            gt.Run("/use " + h + " /judge " + playerName)
+            time.Sleep(pauseDuration)
+        }
+    }
+    if category == "fighter" || category == "all" {
+        for _, f := range fighters {
+            gt.Run("/use " + f + " /judge " + playerName)
+            time.Sleep(pauseDuration)
+        }
+    }
+    if category == "other" || category == "all" {
+        for _, o := range others {
+            gt.Run("/use " + o + " /judge " + playerName)
+            time.Sleep(pauseDuration)
+        }
+    }
 }
 
 func ledgerLanguage(args string) {
-	gt.Logf("ledger plugin, judge language")
-	gt.RunCommand("/equip trainingledger")
+    gt.Console("ledger: judge language")
+    gt.Run("/equip trainingledger")
 	fields := gt.Words(args)
 	if len(fields) == 0 {
 		return
 	}
 	playerName := fields[0]
-	gt.Logf("playerName = %s", playerName)
-	gt.RunCommand("/use babellelyrn /judge " + playerName)
-	if len(fields) > 1 {
-		gt.RunCommand("/use babellelyrn /judge " + fields[1])
-	}
+    gt.Run("/use babellelyrn /judge " + playerName)
+    if len(fields) > 1 {
+        gt.Run("/use babellelyrn /judge " + fields[1])
+    }
 }

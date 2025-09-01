@@ -17,29 +17,29 @@ func Init() {
     gt.RegisterCommand("zustore", zuStoreCmd)
     gt.RegisterCommand("zutrans", zuTransCmd)
     // Press Shift+K to plant a seed.
-    gt.AddHotkeyFn("Shift-K", zuHotkey)
+    gt.Key("Shift-K", zuHotkey)
 }
 
 func zuCmd(args string) {
     // Quickly plant a seed at your feet.
-    gt.RunCommand("/plant kudzu")
+    gt.Run("/plant kudzu")
 }
 
 func zuGetCmd(args string) {
     // Move a seed from the ground into your bag.
-    gt.RunCommand("/useitem bag of kudzu seedlings /add")
+    gt.Run("/useitem bag of kudzu seedlings /add")
 }
 
 func zuStoreCmd(args string) {
     // Take a seed out of your bag.
-    gt.RunCommand("/useitem bag of kudzu seedlings /remove")
+    gt.Run("/useitem bag of kudzu seedlings /remove")
 }
 
 func zuTransCmd(args string) {
     // Give seeds to another exile if a name is provided.
     if args != "" {
-        gt.RunCommand("/transfer " + args)
+        gt.Run("/transfer " + args)
     }
 }
 
-func zuHotkey(e gt.HotkeyEvent) { zuCmd("") }
+func zuHotkey() { zuCmd("") }

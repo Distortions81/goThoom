@@ -13,7 +13,7 @@ const PluginAPIVersion = 1
 // Init registers a bunch of chat shortcuts so typing
 // "abo" automatically expands to the full creature name.
 func Init() {
-	gt.AddMacros(map[string]string{
+	gt.AddShortcuts(map[string]string{
 		"abo":   "Abominable Snow Yorilla",
 		"asy":   "Abominable Snow Yorilla",
 		"ag":    "Agronox",

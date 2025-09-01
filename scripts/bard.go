@@ -16,7 +16,7 @@ func Init() {
     gt.RegisterCommand("playsong", playSongCmd)
 
     // A handy hotkey that plays a simple tune directly.
-    gt.AddHotkeyFn("Shift-B", playSongHotkey)
+    gt.Key("Shift-B", playSongHotkey)
 }
 
 func playSongCmd(args string) {
@@ -31,14 +31,14 @@ func playSongCmd(args string) {
 
     // Pull the instrument from our case, play the notes,
     // then put it back where we found it.
-    gt.RunCommand("/equip instrument case")
-    gt.RunCommand("/useitem instrument case /remove " + inst)
-    gt.RunCommand("/equip " + inst)
-    gt.RunCommand("/useitem " + inst + " " + notes)
-    gt.RunCommand("/useitem instrument case /add " + inst)
+    gt.Run("/equip instrument case")
+    gt.Run("/useitem instrument case /remove " + inst)
+    gt.Run("/equip " + inst)
+    gt.Run("/useitem " + inst + " " + notes)
+    gt.Run("/useitem instrument case /add " + inst)
 }
 
-func playSongHotkey(e gt.HotkeyEvent) {
+func playSongHotkey() {
     // Example: play a short riff on pine_flute.
     playSongCmd("pine_flute cfedcgdec")
 }
