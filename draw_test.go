@@ -131,3 +131,22 @@ func TestPictureShiftBackgroundCap(t *testing.T) {
 		t.Fatalf("pictureShift = (%d,%d) ok=%v, want (5,0) true", dx, dy, ok)
 	}
 }
+
+func TestHandleDrawStateParseErrorDoesNotAdvance(t *testing.T) {
+	resetDrawState()
+	ackFrame = 5
+	resendFrame = 0
+	lastAckFrame = 5
+	m := make([]byte, 11)
+	binary.BigEndian.PutUint16(m[0:2], 2)
+	m[2] = 0
+	binary.BigEndian.PutUint32(m[3:7], uint32(10))
+	binary.BigEndian.PutUint32(m[7:11], 0)
+	handleDrawState(m, false)
+	if ackFrame != 5 {
+		t.Fatalf("ackFrame = %d, want 5", ackFrame)
+	}
+	if resendFrame != 6 {
+		t.Fatalf("resendFrame = %d, want 6", resendFrame)
+	}
+}

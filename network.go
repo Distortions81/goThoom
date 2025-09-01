@@ -101,26 +101,38 @@ func writeAll(conn net.Conn, data []byte) error {
 	return nil
 }
 
-// readUDPMessage reads a single length-prefixed message from the UDP connection.
+// udpBuffer holds leftover datagram data between reads.
+var udpBuffer []byte
+
+// readUDPMessage reads a single length-prefixed message from the UDP
+// connection. Packets may be fragmented across multiple datagrams or multiple
+// messages may be present in a single datagram. Data is accumulated in
+// udpBuffer until a full message is available.
 func readUDPMessage(connection net.Conn) ([]byte, error) {
-	buf := make([]byte, 65535)
-	n, err := connection.Read(buf)
-	if err != nil {
-		//logError("read udp: %v", err)
-		return nil, err
+	for {
+		if len(udpBuffer) >= 2 {
+			sz := int(binary.BigEndian.Uint16(udpBuffer[:2]))
+			if len(udpBuffer) >= 2+sz {
+				msg := append([]byte(nil), udpBuffer[2:2+sz]...)
+				udpBuffer = udpBuffer[2+sz:]
+				tag := binary.BigEndian.Uint16(msg[:2])
+				logDebug("recv udp tag %d len %d", tag, len(msg))
+				hexDump("recv", msg)
+				return msg, nil
+			}
+		}
+
+		buf := make([]byte, 65535)
+		n, err := connection.Read(buf)
+		if err != nil {
+			//logError("read udp: %v", err)
+			return nil, err
+		}
+		if n == 0 {
+			return nil, fmt.Errorf("short udp packet")
+		}
+		udpBuffer = append(udpBuffer, buf[:n]...)
 	}
-	if n < 2 {
-		return nil, fmt.Errorf("short udp packet")
-	}
-	sz := int(binary.BigEndian.Uint16(buf[:2]))
-	if sz > n-2 {
-		return nil, fmt.Errorf("incomplete udp packet")
-	}
-	msg := append([]byte(nil), buf[2:2+sz]...)
-	tag := binary.BigEndian.Uint16(msg[:2])
-	logDebug("recv udp tag %d len %d", tag, len(msg))
-	hexDump("recv", msg)
-	return msg, nil
 }
 
 // sendPlayerInput sends the provided mouse state to the server. When
@@ -200,13 +212,13 @@ func processServerMessage(msg []byte) {
 		return
 	}
 	tag := binary.BigEndian.Uint16(msg[:2])
-    if tag == 2 {
-        noteFrame()
-        // Advance plugin tick sleepers on each server frame
-        pluginAdvanceTick()
-        handleDrawState(msg, true)
-        return
-    }
+	if tag == 2 {
+		noteFrame()
+		// Advance plugin tick sleepers on each server frame
+		pluginAdvanceTick()
+		handleDrawState(msg, true)
+		return
+	}
 	if txt := decodeMessage(msg); txt != "" {
 		consoleMessage(txt)
 	} else {

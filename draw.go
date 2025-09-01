@@ -568,9 +568,19 @@ func handleDrawState(m []byte, buildCache bool) {
 	if drawStateEncrypted {
 		simpleEncrypt(data)
 	}
-	if err := parseDrawState(data, buildCache); err != nil {
+	ack, resend, err := parseDrawState(data, buildCache)
+	if err != nil {
+		logWarn("parseDrawState failed: %v", err)
 		logDebugPacket(fmt.Sprintf("parseDrawState error: %v", err), data)
+		if ackFrame > 0 {
+			resendFrame = ackFrame + 1
+		} else {
+			resendFrame = 0
+		}
+		return
 	}
+	ackFrame = ack
+	resendFrame = resend
 }
 
 // handleInvCmdFull resets and rebuilds the inventory from a full list command.
@@ -751,20 +761,20 @@ func parseInventory(data []byte) ([]byte, bool) {
 //
 // When buildCache is false, state is updated without rebuilding the render
 // cache.
-func parseDrawState(data []byte, buildCache bool) error {
+func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	stage := "header"
 	if len(data) < 9 {
-		return errors.New(stage)
+		return 0, 0, errors.New(stage)
 	}
 
 	ackCmd := data[0]
-	ackFrame = int32(binary.BigEndian.Uint32(data[1:5]))
-	resendFrame = int32(binary.BigEndian.Uint32(data[5:9]))
+	ack := int32(binary.BigEndian.Uint32(data[1:5]))
+	resend := int32(binary.BigEndian.Uint32(data[5:9]))
 	dropped := 0
 	if movieMode {
 		dropped = movieDropped
 	} else {
-		dropped = updateFrameCounters(ackFrame)
+		dropped = updateFrameCounters(ack)
 	}
 	extra := dropped
 	if extra > 2 {
@@ -774,18 +784,18 @@ func parseDrawState(data []byte, buildCache bool) error {
 
 	stage = "descriptor count"
 	if len(data) <= p {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	descCount := int(data[p])
 	p++
 	if descCount > maxDescriptors {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	stage = "descriptor"
 	descs := make([]frameDescriptor, 0, descCount)
 	for i := 0; i < descCount && p < len(data); i++ {
 		if p+4 > len(data) {
-			return errors.New(stage)
+			return ack, resend, errors.New(stage)
 		}
 		d := frameDescriptor{}
 		d.Index = data[p]
@@ -799,15 +809,15 @@ func parseDrawState(data []byte, buildCache bool) error {
 				playerIndex = d.Index
 			}
 		} else {
-			return errors.New(stage)
+			return ack, resend, errors.New(stage)
 		}
 		if p >= len(data) {
-			return errors.New(stage)
+			return ack, resend, errors.New(stage)
 		}
 		cnt := int(data[p])
 		p++
 		if p+cnt > len(data) {
-			return errors.New(stage)
+			return ack, resend, errors.New(stage)
 		}
 		d.Colors = append([]byte(nil), data[p:p+cnt]...)
 		p += cnt
@@ -829,7 +839,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 
 	stage = "stats"
 	if len(data) < p+7 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	hp := int(data[p])
 	hpMax := int(data[p+1])
@@ -843,7 +853,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 
 	stage = "picture count"
 	if len(data) <= p {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	pictCount := int(data[p])
 	p++
@@ -851,7 +861,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 	stage = "picture header"
 	if pictCount == 255 {
 		if len(data) < p+2 {
-			return errors.New(stage)
+			return ack, resend, errors.New(stage)
 		}
 		pictAgain = int(data[p])
 		pictCount = int(data[p+1])
@@ -859,7 +869,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 	}
 	stage = "picture count"
 	if pictAgain+pictCount > maxPictures {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 
 	stage = "pictures"
@@ -868,15 +878,15 @@ func parseDrawState(data []byte, buildCache bool) error {
 	for i := 0; i < pictCount; i++ {
 		idBits, ok := br.readBits(14)
 		if !ok {
-			return errors.New("truncated picture bit stream")
+			return ack, resend, errors.New("truncated picture bit stream")
 		}
 		hBits, ok := br.readBits(11)
 		if !ok {
-			return errors.New("truncated picture bit stream")
+			return ack, resend, errors.New("truncated picture bit stream")
 		}
 		vBits, ok := br.readBits(11)
 		if !ok {
-			return errors.New("truncated picture bit stream")
+			return ack, resend, errors.New("truncated picture bit stream")
 		}
 		id := uint16(idBits)
 		h := signExtend(hBits, 11)
@@ -894,12 +904,12 @@ func parseDrawState(data []byte, buildCache bool) error {
 
 	stage = "mobile count"
 	if len(data) <= p {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	mobileCount := int(data[p])
 	p++
 	if mobileCount > maxMobiles {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	stage = "mobiles"
 	mobiles := make([]frameMobile, 0, mobileCount)
@@ -914,17 +924,17 @@ func parseDrawState(data []byte, buildCache bool) error {
 		mobiles = append(mobiles, m)
 	}
 	if len(mobiles) != mobileCount {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 
 	stage = "state size"
 	if len(data) < p+2 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	stateLen := int(binary.BigEndian.Uint16(data[p:]))
 	p += 2
 	if len(data) < p+stateLen {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	stateData := data[p : p+stateLen]
 
@@ -1234,8 +1244,8 @@ func parseDrawState(data []byte, buildCache bool) error {
 	stateMu.Unlock()
 
 	/*
-		logDebug("draw state cmd=%d ack=%d resend=%d light=%#x desc=%d pict=%d again=%d mobile=%d state=%d",
-			ack, ackFrame, resendFrame, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
+	   logDebug("draw state cmd=%d ack=%d resend=%d light=%#x desc=%d pict=%d again=%d mobile=%d state=%d",
+	           ackCmd, ack, resend, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
 	*/
 
 	stage = "info strings"
@@ -1244,7 +1254,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 	// defensively skip any additional stray C strings until what looks
 	// like a valid bubble count (<= maxBubbles) is encountered.
 	if len(stateData) == 0 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
 		if idx > 0 {
@@ -1252,7 +1262,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 		}
 		stateData = stateData[idx+1:]
 	} else {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	for len(stateData) > 0 {
 		if int(stateData[0]) <= maxBubbles {
@@ -1267,48 +1277,48 @@ func parseDrawState(data []byte, buildCache bool) error {
 			continue
 		}
 		// No terminating zero found; give up.
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 
 	stage = "bubble count"
 	if len(stateData) == 0 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	bubbleCount := int(stateData[0])
 	stateData = stateData[1:]
 	if bubbleCount > maxBubbles {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	stage = "bubble"
 	for i := 0; i < bubbleCount && len(stateData) > 0; i++ {
 		off := len(data) - len(stateData)
 		if len(stateData) < 2 {
-			return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+			return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 		}
 		idx := stateData[0]
 		typ := int(stateData[1])
 		p := 2
 		if typ&kBubbleNotCommon != 0 {
 			if len(stateData) < p+1 {
-				return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 			}
 			p++
 		}
 		var h, v int16
 		if typ&kBubbleFar != 0 {
 			if len(stateData) < p+4 {
-				return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 			}
 			h = int16(binary.BigEndian.Uint16(stateData[p:]))
 			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 			p += 4
 		}
 		if len(stateData) <= p {
-			return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+			return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 		}
 		end := bytes.IndexByte(stateData[p:], 0)
 		if end < 0 {
-			return fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+			return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 		}
 		bubbleData := stateData[:p+end+1]
 		if verb, txt, bubbleName, lang, code, bubbleType, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
@@ -1391,7 +1401,7 @@ func parseDrawState(data []byte, buildCache bool) error {
 			}
 			if showBubble && !skipRender {
 				words := len(strings.Fields(txt))
-                lifeSeconds := gs.BubbleBaseLife + float64(words)*gs.BubbleLifePerWord
+				lifeSeconds := gs.BubbleBaseLife + float64(words)*gs.BubbleLifePerWord
 				life := int(lifeSeconds * float64(1000/framems))
 				if life < 1 {
 					life = 1
@@ -1494,13 +1504,13 @@ func parseDrawState(data []byte, buildCache bool) error {
 
 	stage = "sound count"
 	if len(stateData) < 1 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	soundCount := int(stateData[0])
 	stateData = stateData[1:]
 	stage = "sounds"
 	if len(stateData) < soundCount*2 {
-		return errors.New(stage)
+		return ack, resend, errors.New(stage)
 	}
 	var newSounds []uint16
 	var numNewSounds int
@@ -1550,9 +1560,12 @@ func parseDrawState(data []byte, buildCache bool) error {
 	prevSounds = newSounds
 
 	stage = "inventory"
-	parseInventory(stateData)
+	rest, ok := parseInventory(stateData)
+	if !ok || len(rest) > 0 {
+		return ack, resend, errors.New(stage)
+	}
 
-	return nil
+	return ack, resend, nil
 }
 
 var prevSounds []uint16
