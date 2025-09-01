@@ -35,6 +35,7 @@ An open-source (MIT) client for the classic **[Clan Lord](https://www.deltatao.c
 - Built-in local AI text-to-speech with a large choice of voices available online
 - Text rendering is anti-aliased and uses high quality modern fonts via OpenType and fractional font sizes are supported
 - Many-platform support: Windows, OS X, Linux and others are possible
+- Dark mode, light mode or fun colorful themes (even create your own)
 - Modern APIs: DirectX on Windows, Metal on OS X and Vulkan via Zink on Linux and even supports software rendering.
 * Use of Metal API is important because OpenGL support has been deprecated for ages on OS X and will be stuck at v4.1 and eventually removed.
 - Self-contained portable binary, no installers or external dependencies
