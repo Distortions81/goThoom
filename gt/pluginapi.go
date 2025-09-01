@@ -8,11 +8,11 @@
 // into the Yaegi interpreter by the client at runtime.
 //
 // Notes
-// - These stubs are never called by the compiled client binary.
-// - Keep names and signatures in sync with the runtime export table in
-//   plugin.go (search for exportsForPlugin).
-// - This package is intentionally tiny: it has zero dependencies and
-//   returns zero values.
+//   - These stubs are never called by the compiled client binary.
+//   - Keep names and signatures in sync with the runtime export table in
+//     plugin.go (search for exportsForPlugin).
+//   - This package is intentionally tiny: it has zero dependencies and
+//     returns zero values.
 package gt
 
 import "time"
@@ -134,13 +134,11 @@ type Player struct {
 	Race       string
 	Gender     string
 	Class      string
-	Clan       string
 	PictID     uint16
 	Colors     []byte
 	IsNPC      bool
 	Sharee     bool
 	Sharing    bool
-	GMLevel    int
 	Friend     bool
 	Blocked    bool
 	Ignored    bool
@@ -150,7 +148,7 @@ type Player struct {
 	KillerName string
 	Bard       bool
 	SameClan   bool
-	BeWho      bool
+	Seen       bool
 	LastSeen   time.Time
 	Offline    bool
 }

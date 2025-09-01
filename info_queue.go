@@ -24,7 +24,7 @@ func queueInfoRequest(name string) {
 	p, ok := players[name]
 	playersMu.RUnlock()
 	if ok {
-		if p.Class != "" && p.Gender != "" && p.Race != "" && p.Clan != "" {
+		if p.Class != "" && p.Gender != "" && p.Race != "" && p.clan != "" {
 			return // no need
 		}
 	}

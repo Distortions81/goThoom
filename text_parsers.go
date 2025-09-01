@@ -33,19 +33,19 @@ func parseWhoText(raw []byte, s string) bool {
 		p := getPlayer(name)
 		playersMu.Lock()
 		prevSC := p.SameClan
-		prevBW := p.BeWho
-        if me, ok := players[playerName]; ok {
-            p.SameClan = sameRealClan(me.Clan, p.Clan)
-        }
+		prevSeen := p.Seen
+		if me, ok := players[playerName]; ok {
+			p.SameClan = sameRealClan(me.clan, p.clan)
+		}
 		p.LastSeen = time.Now()
 		p.Offline = false
-		p.BeWho = true
+		p.Seen = true
 		playerCopy := *p
 		playersMu.Unlock()
 		if prevSC != p.SameClan {
 			killNameTagCacheFor(name)
 		}
-		if !prevBW {
+		if !prevSeen {
 			playersPersistDirty = true
 		}
 		notifyPlayerHandlers(playerCopy)
@@ -91,15 +91,15 @@ func parseShareText(raw []byte, s string) bool {
 						p.Sharee = false
 						changedPlayer = true
 					}
-                    if me, ok := players[playerName]; ok {
-                        sc := sameRealClan(me.Clan, p.Clan)
-                        if p.SameClan != sc {
-                            p.SameClan = sc
-                            changedPlayer = true
-                        }
-                    }
-					if !p.BeWho {
-						p.BeWho = true
+					if me, ok := players[playerName]; ok {
+						sc := sameRealClan(me.clan, p.clan)
+						if p.SameClan != sc {
+							p.SameClan = sc
+							changedPlayer = true
+						}
+					}
+					if !p.Seen {
+						p.Seen = true
 						playersPersistDirty = true
 					}
 					if changedPlayer {
@@ -141,15 +141,15 @@ func parseShareText(raw []byte, s string) bool {
 					p.Sharee = true
 					added = append(added, *p)
 				}
-                if me, ok := players[playerName]; ok {
-                    sc := sameRealClan(me.Clan, p.Clan)
-                    if p.SameClan != sc {
-                        p.SameClan = sc
-                        added = append(added, *p)
-                    }
-                }
-				if !p.BeWho {
-					p.BeWho = true
+				if me, ok := players[playerName]; ok {
+					sc := sameRealClan(me.clan, p.clan)
+					if p.SameClan != sc {
+						p.SameClan = sc
+						added = append(added, *p)
+					}
+				}
+				if !p.Seen {
+					p.Seen = true
 					playersPersistDirty = true
 				}
 			}
@@ -201,15 +201,15 @@ func parseShareText(raw []byte, s string) bool {
 				p.Sharee = true
 				changed = true
 			}
-            if me, ok := players[playerName]; ok {
-                sc := sameRealClan(me.Clan, p.Clan)
-                if p.SameClan != sc {
-                    p.SameClan = sc
-                    changed = true
-                }
-            }
-			if !p.BeWho {
-				p.BeWho = true
+			if me, ok := players[playerName]; ok {
+				sc := sameRealClan(me.clan, p.clan)
+				if p.SameClan != sc {
+					p.SameClan = sc
+					changed = true
+				}
+			}
+			if !p.Seen {
+				p.Seen = true
 				playersPersistDirty = true
 			}
 			if changed {
@@ -243,15 +243,15 @@ func parseShareText(raw []byte, s string) bool {
 					p.Sharee = false
 					changedPlayer = true
 				}
-                if me, ok := players[playerName]; ok {
-                    sc := sameRealClan(me.Clan, p.Clan)
-                    if p.SameClan != sc {
-                        p.SameClan = sc
-                        changedPlayer = true
-                    }
-                }
-				if !p.BeWho {
-					p.BeWho = true
+				if me, ok := players[playerName]; ok {
+					sc := sameRealClan(me.clan, p.clan)
+					if p.SameClan != sc {
+						p.SameClan = sc
+						changedPlayer = true
+					}
+				}
+				if !p.Seen {
+					p.Seen = true
 					playersPersistDirty = true
 				}
 				if changedPlayer {
@@ -323,14 +323,14 @@ func parseShareText(raw []byte, s string) bool {
 					changedPlayer = true
 				}
 				if me, ok := players[playerName]; ok {
-					sc := me.Clan != "" && p.Clan != "" && strings.EqualFold(p.Clan, me.Clan)
+					sc := me.clan != "" && p.clan != "" && strings.EqualFold(p.clan, me.clan)
 					if p.SameClan != sc {
 						p.SameClan = sc
 						changedPlayer = true
 					}
 				}
-				if !p.BeWho {
-					p.BeWho = true
+				if !p.Seen {
+					p.Seen = true
 					playersPersistDirty = true
 				}
 				if changedPlayer {
@@ -543,15 +543,15 @@ func parseBardText(raw []byte, s string) bool {
 		s = strings.TrimSpace(s[2:])
 	}
 
-    // Prefer explicit BEPP tags for music, but also allow permissive detection
-    // since some servers/messages may omit the tag yet include a "/music/..."
-    // payload or a leading "play" form.
-    hasMu := bytes.Contains(raw, []byte{0xC2, 'm', 'u'}) || bytes.Contains(raw, []byte{0xC2, 'b', 'a'})
-    if hasMu || strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
-        if parseMusicCommand(s, raw) {
-            return true
-        }
-    }
+	// Prefer explicit BEPP tags for music, but also allow permissive detection
+	// since some servers/messages may omit the tag yet include a "/music/..."
+	// payload or a leading "play" form.
+	hasMu := bytes.Contains(raw, []byte{0xC2, 'm', 'u'}) || bytes.Contains(raw, []byte{0xC2, 'b', 'a'})
+	if hasMu || strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
+		if parseMusicCommand(s, raw) {
+			return true
+		}
+	}
 
 	phrases := []struct {
 		suffix string
@@ -773,24 +773,24 @@ func parseMusicCommand(s string, raw []byte) bool {
 // classic client uses a special "/m_interrupt" directive for this purpose.
 // Returns true if handled and output should be suppressed.
 func parseInterruptCommand(s string) bool {
-    ss := strings.TrimSpace(s)
-    if ss == "" {
-        return false
-    }
-    // Normalize common leading markers that may prefix system lines.
-    if strings.HasPrefix(ss, "* ") {
-        ss = strings.TrimSpace(ss[2:])
-    }
-    if strings.HasPrefix(ss, "¥ ") {
-        ss = strings.TrimSpace(ss[2:])
-    }
-    // Only act on a standalone interrupt directive, not arbitrary substrings.
-    if ss == "/m_interrupt" || strings.HasPrefix(ss, "/m_interrupt ") {
-        stopAllMusic()
-        clearTuneQueue()
-        return true
-    }
-    return false
+	ss := strings.TrimSpace(s)
+	if ss == "" {
+		return false
+	}
+	// Normalize common leading markers that may prefix system lines.
+	if strings.HasPrefix(ss, "* ") {
+		ss = strings.TrimSpace(ss[2:])
+	}
+	if strings.HasPrefix(ss, "¥ ") {
+		ss = strings.TrimSpace(ss[2:])
+	}
+	// Only act on a standalone interrupt directive, not arbitrary substrings.
+	if ss == "/m_interrupt" || strings.HasPrefix(ss, "/m_interrupt ") {
+		stopAllMusic()
+		clearTuneQueue()
+		return true
+	}
+	return false
 }
 
 // truncate helps keep debug output short

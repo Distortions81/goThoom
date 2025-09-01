@@ -28,6 +28,7 @@ type persistPlayer struct {
 	Bard        bool   `json:"bard,omitempty"`
 	SameClan    bool   `json:"same_clan,omitempty"`
 	BeWho       bool   `json:"bewho,omitempty"`
+	Seen        bool   `json:"seen,omitempty"`
 	ColorsHex   string `json:"colors,omitempty"` // hex of [count][colors...]
 	FellWhere   string `json:"fell_where,omitempty"`
 	FellTime    int64  `json:"fell_time,omitempty"`
@@ -70,7 +71,7 @@ func loadPlayersPersist() {
 		playersMu.Lock()
 		pr.Gender = p.Gender
 		pr.Class = p.Class
-		pr.Clan = p.Clan
+		pr.Clan = p.clan
 		pr.PictID = p.PictID
 		// Decode ColorsHex: optional hex of [count][bytes]
 		if p.ColorsHex != "" {
@@ -85,12 +86,13 @@ func loadPlayersPersist() {
 			}
 		}
 		pr.Dead = p.Dead
-		pr.GMLevel = p.GMLevel
+		pr.GMLevel = p.gmLevel
 		pr.GlobalLabel = p.GlobalLabel
 		applyPlayerLabel(pr)
 		pr.Bard = p.Bard
 		pr.SameClan = p.SameClan
-		pr.BeWho = p.BeWho
+		pr.BeWho = p.beWho
+		pr.Seen = p.Seen
 		pr.FellWhere = p.FellWhere
 		if p.FellTime != 0 {
 			pr.FellTime = time.Unix(p.FellTime, 0)
@@ -152,17 +154,18 @@ func savePlayersPersist() {
 			Name:        p.Name,
 			Gender:      p.Gender,
 			Class:       p.Class,
-			Clan:        p.Clan,
+			Clan:        p.clan,
 			PictID:      p.PictID,
 			Dead:        p.Dead,
-			GMLevel:     p.GMLevel,
+			GMLevel:     p.gmLevel,
 			Friend:      friend,
 			GlobalLabel: p.GlobalLabel,
 			Blocked:     blocked,
 			Ignored:     ignored,
 			Bard:        p.Bard,
 			SameClan:    p.SameClan,
-			BeWho:       p.BeWho,
+			BeWho:       p.beWho,
+			Seen:        p.Seen,
 			ColorsHex:   hex,
 			FellWhere:   p.FellWhere,
 			FellTime:    ft,

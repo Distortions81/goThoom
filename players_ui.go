@@ -95,7 +95,7 @@ func updatePlayersWindow() {
 	if playerName != "" {
 		playersMu.RLock()
 		if me, ok := players[playerName]; ok {
-			myClan = me.Clan
+			myClan = me.clan
 		}
 		playersMu.RUnlock()
 	}
@@ -167,7 +167,7 @@ func updatePlayersWindow() {
 		if p.Sharing {
 			tags = append(tags, ">")
 		}
-		if sameRealClan(p.Clan, myClan) {
+		if sameRealClan(p.clan, myClan) {
 			tags = append(tags, "*")
 		}
 		if len(tags) > 0 {
