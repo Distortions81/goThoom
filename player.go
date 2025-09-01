@@ -148,3 +148,11 @@ func notifyPlayerHandlers(p Player) {
 		go fn(p)
 	}
 }
+
+func clearBeWhoFlags() {
+	playersMu.Lock()
+	for _, p := range players {
+		p.beWho = false
+	}
+	playersMu.Unlock()
+}

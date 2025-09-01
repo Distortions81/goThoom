@@ -14,15 +14,15 @@ var (
 
 // considerNextWhoBatch decides if we should ask for another page.
 // The classic client expects batches of up to 20; continue when we saw a full
-// batch and it added at least one new name.
-func considerNextWhoBatch(batchCount, newCount int) {
-	if batchCount >= 20 && newCount > 0 {
+// batch. Duplicate detection in parseBackendWho ends the scan early.
+func considerNextWhoBatch(batchCount int) {
+	if batchCount >= 20 {
 		whoActive = true
 		// Schedule another request soon; the actual command emission happens
 		// in pickQueuedCommand() to coalesce with other command traffic.
 		return
 	}
-	// Fewer than 20 or no new names: end the scan.
+	// Fewer than 20: end the scan.
 	whoActive = false
 }
 
