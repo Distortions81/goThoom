@@ -27,6 +27,7 @@ DEB_PACKAGES=(
   libxrandr-dev
   libasound2-dev
   libgtk-3-dev
+  xdg-utils
 )
 
 if command -v apt-get >/dev/null 2>&1; then
@@ -34,7 +35,9 @@ if command -v apt-get >/dev/null 2>&1; then
   apt-get update -qq
   (
     cd "$APT_DIR"
-     apt-get -o APT::Sandbox::User=root -qq download "${DEB_PACKAGES[@]}"
+    apt-get -y -o Dir::Cache::Archives="$APT_DIR" \
+      -o APT::Sandbox::User=root \
+      install --download-only "${DEB_PACKAGES[@]}"
   )
 else
   echo "apt-get not found; skipping Debian package download" >&2

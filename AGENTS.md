@@ -20,7 +20,10 @@ Try to avoid completely over-thinking your replies and feel free to stop and ask
    The archive, produced by `build-scripts/build_dep_bundle.sh`, contains the
    required Debian packages under `apt/`, a Go 1.25 toolchain under `go/`,
    and a cached Go module tree under `go/mod`. Extracting it and installing
-   these contents avoids fetching dependencies individually.
+   these contents avoids fetching dependencies individually. The bundled
+   packages currently include `build-essential`, `libgl1-mesa-dev`,
+   `libglu1-mesa-dev`, `xorg-dev`, `libxrandr-dev`, `libasound2-dev`,
+   `libgtk-3-dev`, and `xdg-utils`.
    
 2. Fetch Go module dependencies:
    ```bash
