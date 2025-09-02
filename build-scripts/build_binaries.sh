@@ -29,8 +29,8 @@ ensure_cmd() {
   if ! have "$cmd"; then
     if have apt-get; then
       echo "Installing $pkg..."
-      sudo apt-get update -qq
-      sudo apt-get install -y "$pkg"
+      apt-get update -qq
+      apt-get install -y "$pkg"
     else
       echo "$cmd not found and apt-get unavailable; please install $pkg" >&2
     fi
@@ -39,8 +39,8 @@ ensure_cmd() {
 
 install_linux_deps() {
   echo "Installing Linux build dependencies..."
-  sudo apt-get update -qq
-  sudo apt-get install -y git cmake ninja-build clang llvm lldb \
+  apt-get update -qq
+  apt-get install -y git cmake ninja-build clang llvm lldb \
     build-essential g++ pkg-config \
     libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
     cpio unzip zip xz-utils curl \
@@ -83,8 +83,8 @@ MSG
   fi
 
   echo "Bootstrapping osxcross toolchain to $OSXCROSS_ROOT ..."
-  sudo apt-get update -qq
-  sudo apt-get install -y git cmake ninja-build clang llvm lldb \
+  apt-get update -qq
+  apt-get install -y git cmake ninja-build clang llvm lldb \
     build-essential g++ pkg-config \
     libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
     cpio unzip zip xz-utils curl
