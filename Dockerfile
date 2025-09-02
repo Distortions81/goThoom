@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2-dev alsa-utils libgtk-3-dev xdg-utils \
     libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
     cpio unzip zip xz-utils curl ca-certificates jq \
-    osslsigncode imagemagick \
+    osslsigncode imagemagick libpcsclite-dev pcscd \
   && rm -rf /var/lib/apt/lists/*
 
 # Go toolchain
@@ -34,6 +34,13 @@ ENV PATH="$OSXCROSS_ROOT/target/bin:${PATH}"
 
 # Windows resource tool (no need to go get as well)
 RUN go install github.com/tc-hib/go-winres@latest
+
+# rcodesign for macOS signing
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . "$HOME/.cargo/env" \
+    && rustup default stable \
+    && cargo install apple-codesign
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Build (assumes script writes to /binaries)
 RUN bash ./build-scripts/build_binaries.sh
