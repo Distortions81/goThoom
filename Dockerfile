@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     build-essential g++-12 libstdc++-12-dev libc6-dev \
     git cmake ninja-build clang llvm lldb pkg-config \
     libgl1-mesa-dev libglu1-mesa-dev xorg-dev libxrandr-dev \
-    libasound2-dev libgtk-3-dev xdg-utils \
+    libasound2-dev alsa-utils libgtk-3-dev xdg-utils \
     libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
     cpio unzip zip xz-utils curl ca-certificates jq \
     osslsigncode imagemagick && \
