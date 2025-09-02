@@ -87,6 +87,21 @@ Piper voices are stored in `data/piper/voices`. The client and `build-scripts/do
    go build
    ```
 
+### Build with Docker
+
+A `Dockerfile` provides a reproducible cross-platform build environment.
+
+```bash
+./build-scripts/docker_dev_env.sh
+docker create --name gothoom-build gothoom-build-env
+mkdir -p dist
+docker cp gothoom-build:/out ./dist
+docker rm gothoom-build
+```
+
+The `dist/` directory will contain the compiled binaries.
+See [`docs/Docker.md`](docs/Docker.md) for details.
+
 ---
 
 ## Using the UI
