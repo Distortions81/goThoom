@@ -438,9 +438,37 @@ func captureDrawSnapshot() drawSnapshot {
 		deadMobs: append([]frameMobile(nil), state.deadMobs...),
 	}
 
+	playerCache := map[string]struct {
+		style uint8
+		label color.RGBA
+	}{}
+	playersMu.RLock()
 	for idx, d := range state.descriptors {
+		if d.Name != "" {
+			ps, ok := playerCache[d.Name]
+			if !ok {
+				ps.style = styleRegular
+				if p, ok := players[d.Name]; ok {
+					if p.Sharing && p.Sharee {
+						ps.style = styleBoldItalic
+					} else if p.Sharing {
+						ps.style = styleBold
+					} else if p.Sharee {
+						ps.style = styleItalic
+					}
+					if gs.NameTagLabelColors && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
+						lc := labelColors[p.FriendLabel-1]
+						ps.label = color.RGBA{lc.R, lc.G, lc.B, 0}
+					}
+				}
+				playerCache[d.Name] = ps
+			}
+			d.NameTagStyle = ps.style
+			d.LabelColor = ps.label
+		}
 		snap.descriptors[idx] = d
 	}
+	playersMu.RUnlock()
 	if len(state.bubbles) > 0 {
 		curFrame := frameCounter
 		kept := state.bubbles[:0]
@@ -1909,18 +1937,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 		}
 		offset := float64(size) * gs.GameScale / 2
 		if d.Name != "" {
-			style := styleRegular
-			playersMu.RLock()
-			if p, ok := players[d.Name]; ok {
-				if p.Sharing && p.Sharee {
-					style = styleBoldItalic
-				} else if p.Sharing {
-					style = styleBold
-				} else if p.Sharee {
-					style = styleItalic
-				}
-			}
-			playersMu.RUnlock()
+			style := d.NameTagStyle
 			if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == nameAlpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors && m.nameTagKey.Style == style {
 				top := y + int(offset)
 				left := x - int(float64(m.nameTagW)/2)
@@ -1929,13 +1946,9 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				screen.DrawImage(m.nameTag, op)
 			} else {
 				textClr, bgClr, frameClr := mobileNameColors(m.Colors)
-				if gs.NameTagLabelColors {
-					playersMu.RLock()
-					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
-						lc := labelColors[p.FriendLabel-1]
-						frameClr = color.RGBA{lc.R, lc.G, lc.B, frameClr.A}
-					}
-					playersMu.RUnlock()
+				if d.LabelColor != (color.RGBA{}) {
+					lc := d.LabelColor
+					frameClr = color.RGBA{lc.R, lc.G, lc.B, frameClr.A}
 				}
 				bgClr.A = nameAlpha
 				frameClr.A = nameAlpha

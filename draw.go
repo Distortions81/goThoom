@@ -19,12 +19,14 @@ import (
 
 // frameDescriptor describes an on-screen descriptor.
 type frameDescriptor struct {
-	Index  uint8
-	Type   uint8
-	PictID uint16
-	Name   string
-	Colors []byte
-	Plane  int
+	Index        uint8
+	Type         uint8
+	PictID       uint16
+	Name         string
+	Colors       []byte
+	Plane        int
+	NameTagStyle uint8
+	LabelColor   color.RGBA
 }
 
 type framePicture struct {
