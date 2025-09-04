@@ -48,6 +48,8 @@ var inAspectResize bool
 // updateDimmedScreenBG refreshes this color when the theme changes.
 var dimmedScreenBG = color.RGBA{0, 0, 0, 255}
 
+var colorBufPool = sync.Pool{New: func() any { return make([]byte, 8) }}
+
 func updateDimmedScreenBG() {
 	c := color.RGBA{0, 0, 0, 255}
 	if gameWin != nil && gameWin.Theme != nil {
@@ -399,6 +401,8 @@ type drawSnapshot struct {
 	picsPos  []framePicture
 	liveMobs []frameMobile
 	deadMobs []frameMobile
+
+	pooledColors [][]byte
 }
 
 // captureDrawSnapshot copies the shared draw state under a mutex.
@@ -438,7 +442,18 @@ func captureDrawSnapshot() drawSnapshot {
 		deadMobs: append([]frameMobile(nil), state.deadMobs...),
 	}
 
+	playersMu.RLock()
 	for idx, d := range state.descriptors {
+		if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
+			buf := colorBufPool.Get().([]byte)
+			if cap(buf) < len(p.Colors) {
+				buf = make([]byte, len(p.Colors))
+			}
+			buf = buf[:len(p.Colors)]
+			copy(buf, p.Colors)
+			d.Colors = buf
+			snap.pooledColors = append(snap.pooledColors, buf)
+		}
 		snap.descriptors[idx] = d
 	}
 	if len(state.bubbles) > 0 {
@@ -476,10 +491,27 @@ func captureDrawSnapshot() drawSnapshot {
 	if gs.BlendMobiles {
 		snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
 		for idx, d := range state.prevDescs {
+			if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
+				buf := colorBufPool.Get().([]byte)
+				if cap(buf) < len(p.Colors) {
+					buf = make([]byte, len(p.Colors))
+				}
+				buf = buf[:len(p.Colors)]
+				copy(buf, p.Colors)
+				d.Colors = buf
+				snap.pooledColors = append(snap.pooledColors, buf)
+			}
 			snap.prevDescs[idx] = d
 		}
 	}
+	playersMu.RUnlock()
 	return snap
+}
+
+func releaseDrawSnapshot(snap drawSnapshot) {
+	for _, buf := range snap.pooledColors {
+		colorBufPool.Put(buf[:0])
+	}
 }
 
 // cloneDrawState makes a deep copy of a drawState.
@@ -1241,6 +1273,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			drawMobileNameTags(worldView, snap, alpha)
 		}
 		drawSpeechBubbles(worldView, snap, alpha)
+		releaseDrawSnapshot(snap)
 		gs.GameScale = prev
 	}
 
@@ -1368,11 +1401,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	if desc, ok := descMap[m.Index]; ok {
 		d = desc
 		colors = d.Colors
-		playersMu.RLock()
-		if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
-			colors = append([]byte(nil), p.Colors...)
-		}
-		playersMu.RUnlock()
 		state = m.State
 		img = loadMobileFrame(d.PictID, state, colors)
 		plane = d.Plane
@@ -1388,11 +1416,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				pd = d
 			}
 			prevColors = pd.Colors
-			playersMu.RLock()
-			if p, ok := players[pd.Name]; ok && len(p.Colors) > 0 {
-				prevColors = append([]byte(nil), p.Colors...)
-			}
-			playersMu.RUnlock()
 			prevImg = loadMobileFrame(pd.PictID, pm.State, prevColors)
 			prevPict = pd.PictID
 			prevState = pm.State
