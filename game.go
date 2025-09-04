@@ -372,14 +372,17 @@ type bubble struct {
 
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
-	descriptors                 map[uint8]frameDescriptor
+	descriptors                 []frameDescriptor
+	descPresent                 []bool
 	pictures                    []framePicture
 	prevPictures                []framePicture
 	picShiftX                   int
 	picShiftY                   int
 	mobiles                     []frameMobile // sorted right-to-left, top-to-bottom
-	prevMobiles                 map[uint8]frameMobile
-	prevDescs                   map[uint8]frameDescriptor
+	prevMobiles                 []frameMobile
+	prevMobPresent              []bool
+	prevDescs                   []frameDescriptor
+	prevDescPresent             []bool
 	prevTime                    time.Time
 	curTime                     time.Time
 	bubbles                     []bubble
@@ -407,29 +410,34 @@ func captureDrawSnapshot() drawSnapshot {
 	defer stateMu.Unlock()
 
 	snap := drawSnapshot{
-		descriptors:    make(map[uint8]frameDescriptor, len(state.descriptors)),
-		pictures:       append([]framePicture(nil), state.pictures...),
-		prevPictures:   append([]framePicture(nil), state.prevPictures...),
-		picShiftX:      state.picShiftX,
-		picShiftY:      state.picShiftY,
-		mobiles:        append([]frameMobile(nil), state.nameMobs...),
-		prevTime:       state.prevTime,
-		curTime:        state.curTime,
-		hp:             state.hp,
-		hpMax:          state.hpMax,
-		sp:             state.sp,
-		spMax:          state.spMax,
-		balance:        state.balance,
-		balanceMax:     state.balanceMax,
-		prevHP:         state.prevHP,
-		prevHPMax:      state.prevHPMax,
-		prevSP:         state.prevSP,
-		prevSPMax:      state.prevSPMax,
-		prevBalance:    state.prevBalance,
-		prevBalanceMax: state.prevBalanceMax,
-		ackCmd:         state.ackCmd,
-		lightingFlags:  state.lightingFlags,
-		dropped:        state.dropped,
+		descriptors:     make([]frameDescriptor, 256),
+		descPresent:     make([]bool, 256),
+		pictures:        append([]framePicture(nil), state.pictures...),
+		prevPictures:    append([]framePicture(nil), state.prevPictures...),
+		picShiftX:       state.picShiftX,
+		picShiftY:       state.picShiftY,
+		mobiles:         append([]frameMobile(nil), state.nameMobs...),
+		prevMobiles:     make([]frameMobile, 256),
+		prevMobPresent:  make([]bool, 256),
+		prevDescs:       make([]frameDescriptor, 256),
+		prevDescPresent: make([]bool, 256),
+		prevTime:        state.prevTime,
+		curTime:         state.curTime,
+		hp:              state.hp,
+		hpMax:           state.hpMax,
+		sp:              state.sp,
+		spMax:           state.spMax,
+		balance:         state.balance,
+		balanceMax:      state.balanceMax,
+		prevHP:          state.prevHP,
+		prevHPMax:       state.prevHPMax,
+		prevSP:          state.prevSP,
+		prevSPMax:       state.prevSPMax,
+		prevBalance:     state.prevBalance,
+		prevBalanceMax:  state.prevBalanceMax,
+		ackCmd:          state.ackCmd,
+		lightingFlags:   state.lightingFlags,
+		dropped:         state.dropped,
 		// prepared caches
 		picsNeg:  append([]framePicture(nil), state.picsNeg...),
 		picsZero: append([]framePicture(nil), state.picsZero...),
@@ -440,6 +448,7 @@ func captureDrawSnapshot() drawSnapshot {
 
 	for idx, d := range state.descriptors {
 		snap.descriptors[idx] = d
+		snap.descPresent[idx] = true
 	}
 	if len(state.bubbles) > 0 {
 		curFrame := frameCounter
@@ -468,15 +477,15 @@ func captureDrawSnapshot() drawSnapshot {
 		snap.bubbles = append([]bubble(nil), state.bubbles...)
 	}
 	if gs.MotionSmoothing || gs.BlendMobiles {
-		snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
 		for idx, m := range state.prevMobiles {
 			snap.prevMobiles[idx] = m
+			snap.prevMobPresent[idx] = true
 		}
 	}
 	if gs.BlendMobiles {
-		snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
 		for idx, d := range state.prevDescs {
 			snap.prevDescs[idx] = d
+			snap.prevDescPresent[idx] = true
 		}
 	}
 	return snap
@@ -1270,8 +1279,12 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		frameDarks = frameDarks[:0]
 	}
 
-	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
-	descMap := snap.descriptors
+	descs := snap.descriptors
+	descPresent := snap.descPresent
+	prevMobs := snap.prevMobiles
+	prevMobsPresent := snap.prevMobPresent
+	prevDescs := snap.prevDescs
+	prevDescsPresent := snap.prevDescPresent
 	mobileLimit := maxMobileInterpPixels * (snap.dropped + 1)
 
 	// Use precomputed, sorted partitions
@@ -1282,16 +1295,16 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	dead := snap.deadMobs
 
 	for _, p := range negPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPictures, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descs, descPresent, prevMobs, prevMobsPresent, snap.prevPictures, snap.picShiftX, snap.picShiftY)
 	}
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPictures, snap.picShiftX, snap.picShiftY)
+			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descs, descPresent, prevMobs, prevMobsPresent, snap.prevPictures, snap.picShiftX, snap.picShiftY)
 		}
 	} else {
 		for _, m := range dead {
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit)
+			drawMobile(screen, ox, oy, m, descs, descPresent, prevMobs, prevMobsPresent, prevDescs, prevDescsPresent, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit)
 			if !gs.nameTagsNative {
 				drawMobileNameTag(screen, snap, m, alpha)
 			}
@@ -1311,21 +1324,21 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit)
+					drawMobile(screen, ox, oy, live[i], descs, descPresent, prevMobs, prevMobsPresent, prevDescs, prevDescsPresent, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit)
 					if !gs.nameTagsNative {
 						drawMobileNameTag(screen, snap, live[i], alpha)
 					}
 				}
 				i++
 			} else {
-				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPictures, snap.picShiftX, snap.picShiftY)
+				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, descs, descPresent, prevMobs, prevMobsPresent, snap.prevPictures, snap.picShiftX, snap.picShiftY)
 				j++
 			}
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPictures, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descs, descPresent, prevMobs, prevMobsPresent, snap.prevPictures, snap.picShiftX, snap.picShiftY)
 	}
 }
 
@@ -1333,11 +1346,12 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 // When a mobile lacks history but the world shifts, a pseudo-previous position
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist int) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descs []frameDescriptor, descPresent []bool, prevMobiles []frameMobile, prevMobPresent []bool, prevDescs []frameDescriptor, prevDescPresent []bool, shiftX, shiftY int, alpha float64, fade float32, maxDist int) {
 	h := float64(m.H)
 	v := float64(m.V)
 	if gs.MotionSmoothing {
-		if pm, ok := prevMobiles[m.Index]; ok {
+		if prevMobPresent[m.Index] {
+			pm := prevMobiles[m.Index]
 			dh := int(m.H) - int(pm.H) - shiftX
 			dv := int(m.V) - int(pm.V) - shiftY
 			dist := dh*dh + dv*dv
@@ -1365,8 +1379,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	var d frameDescriptor
 	var colors []byte
 	var state uint8
-	if desc, ok := descMap[m.Index]; ok {
-		d = desc
+	if descPresent[m.Index] {
+		d = descs[m.Index]
 		colors = d.Colors
 		playersMu.RLock()
 		if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
@@ -1382,10 +1396,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	var prevPict uint16
 	var prevState uint8
 	if gs.BlendMobiles {
-		if pm, ok := prevMobiles[m.Index]; ok {
-			pd := descMap[m.Index]
-			if d, ok := prevDescs[m.Index]; ok {
-				pd = d
+		if prevMobPresent[m.Index] {
+			pm := prevMobiles[m.Index]
+			pd := descs[m.Index]
+			if prevDescPresent[m.Index] {
+				pd = prevDescs[m.Index]
 			}
 			prevColors = pd.Colors
 			playersMu.RLock()
@@ -1590,7 +1605,7 @@ func pictureDrawsAfterMobileAt(p framePicture, pictH, pictV int16, mobH, mobV in
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevPictures []framePicture, shiftX, shiftY int) {
+func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, descs []frameDescriptor, descPresent []bool, prevMobiles []frameMobile, prevMobPresent []bool, prevPictures []framePicture, shiftX, shiftY int) {
 	if gs.hideMoving && p.Moving {
 		return
 	}
@@ -1626,7 +1641,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	var mobileX, mobileY float64
 	if gs.ObjectPinning && gs.MotionSmoothing && w <= 500 && h <= 500 {
-		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPictures, alpha); ok {
+		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevMobPresent, prevPictures, alpha); ok {
 			mobileX, mobileY = dx, dy
 			offX = 0
 			offY = 0
@@ -1644,13 +1659,13 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	fadeAlpha := float32(1.0)
 	if gs.FadeObscuringPictures && w > 0 && h > 0 && clImages != nil && !clImages.IsSemiTransparent(uint32(p.PictID)) {
 		for _, m := range mobiles {
-			d, ok := descMap[m.Index]
-			if !ok {
+			if !descPresent[m.Index] {
 				continue
 			}
+			d := descs[m.Index]
 			prevMob := m
-			if pm, ok := prevMobiles[m.Index]; ok {
-				prevMob = pm
+			if prevMobPresent[m.Index] {
+				prevMob = prevMobiles[m.Index]
 			}
 			prevDrawAfter := pictureDrawsAfterMobileAt(p, p.PrevH, p.PrevV, prevMob.H, prevMob.V, d.Plane)
 			currDrawAfter := pictureDrawsAfterMobileAt(p, p.H, p.V, m.H, m.V, d.Plane)
@@ -1792,7 +1807,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 // pictureMobileOffset checks for exact offset match between the picture and a
 // mobile across frames using raw coordinates only (no picShift). When matched,
 // it returns the mobile's interpolated delta so the picture follows smoothly.
-func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPictures []framePicture, alpha float64) (float64, float64, bool) {
+func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles []frameMobile, prevMobPresent []bool, prevPictures []framePicture, alpha float64) (float64, float64, bool) {
 	// Use exact previous picture position for the same PictID to verify the
 	// picture-to-mobile offset stayed identical across frames.
 	// Try the hero (playerIndex) first to ensure centered player effects pin.
@@ -1801,10 +1816,10 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 			continue
 		}
 		m := mobiles[i]
-		pm, ok := prevMobiles[m.Index]
-		if !ok {
+		if !prevMobPresent[m.Index] {
 			break
 		}
+		pm := prevMobiles[m.Index]
 		offH := int(p.H) - int(m.H)
 		offV := int(p.V) - int(m.V)
 		if offH < -64 || offH > 64 || offV < -64 || offV > 64 {
@@ -1829,10 +1844,10 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 	var bestDX, bestDY float64
 	found := false
 	for _, m := range mobiles {
-		pm, ok := prevMobiles[m.Index]
-		if !ok {
+		if !prevMobPresent[m.Index] {
 			continue
 		}
+		pm := prevMobiles[m.Index]
 		offH := int(p.H) - int(m.H)
 		offV := int(p.V) - int(m.V)
 		if offH < -64 || offH > 64 || offV < -64 || offV > 64 {
@@ -1872,7 +1887,8 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 	// Exact-center case: picture exactly at a mobile; requires prev sample
 	for _, m := range mobiles {
 		if int(p.H) == int(m.H) && int(p.V) == int(m.V) {
-			if pm, ok := prevMobiles[m.Index]; ok {
+			if prevMobPresent[m.Index] {
+				pm := prevMobiles[m.Index]
 				h := float64(pm.H)*(1-alpha) + float64(m.H)*alpha
 				v := float64(pm.V)*(1-alpha) + float64(m.V)*alpha
 				return h - float64(m.H), v - float64(m.V), true
@@ -1889,7 +1905,8 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 	h := float64(m.H)
 	v := float64(m.V)
 	if gs.MotionSmoothing {
-		if pm, ok := snap.prevMobiles[m.Index]; ok {
+		if snap.prevMobPresent[m.Index] {
+			pm := snap.prevMobiles[m.Index]
 			dh := int(m.H) - int(pm.H) - snap.picShiftX
 			dv := int(m.V) - int(pm.V) - snap.picShiftY
 			maxDist := maxMobileInterpPixels * (snap.dropped + 1)
@@ -1901,7 +1918,8 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 	}
 	x := roundToInt((h + float64(fieldCenterX)) * gs.GameScale)
 	y := roundToInt((v + float64(fieldCenterY)) * gs.GameScale)
-	if d, ok := snap.descriptors[m.Index]; ok {
+	if snap.descPresent[m.Index] {
+		d := snap.descriptors[m.Index]
 		nameAlpha := uint8(gs.NameBgOpacity*255 + 0.5)
 		size := mobileSize(d.PictID)
 		if size <= 0 {
@@ -2000,7 +2018,6 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 	if !gs.SpeechBubbles {
 		return
 	}
-	descMap := snap.descriptors
 	maxDist := maxMobileInterpPixels * (snap.dropped + 1)
 	for _, b := range snap.bubbles {
 		bubbleType := b.Type & kBubbleTypeMask
@@ -2053,7 +2070,8 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 				hpos = float64(m.H)
 				vpos = float64(m.V)
 				if gs.MotionSmoothing {
-					if pm, ok := snap.prevMobiles[b.Index]; ok {
+					if snap.prevMobPresent[b.Index] {
+						pm := snap.prevMobiles[b.Index]
 						dh := int(m.H) - int(pm.H) - snap.picShiftX
 						dv := int(m.V) - int(pm.V) - snap.picShiftY
 						if dh*dh+dv*dv <= maxDist*maxDist {
@@ -2067,7 +2085,8 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64) {
 		x := roundToInt((hpos + float64(fieldCenterX)) * gs.GameScale)
 		y := roundToInt((vpos + float64(fieldCenterY)) * gs.GameScale)
 		if !b.Far {
-			if d, ok := descMap[b.Index]; ok {
+			if snap.descPresent[b.Index] {
+				d := snap.descriptors[b.Index]
 				if size := mobileSize(d.PictID); size > 0 {
 					tailHeight := int(10 * gs.GameScale)
 					y += tailHeight - int(math.Round(float64(size)*gs.GameScale))
