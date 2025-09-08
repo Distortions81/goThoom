@@ -58,6 +58,11 @@ var (
 	// pluginHotkeyEnabled holds the persisted enabled state for plugin
 	// hotkeys. The map is keyed first by plugin name and then by combo.
 	pluginHotkeyEnabled = map[string]map[string]bool{}
+
+	// hotkeyClickVarRE matches hotkey click variables like @right.clicked
+	// and supports modifier segments (e.g., @right.ctrl.shift.clicked).
+	// Digits are allowed so gamepad buttons (e.g., @button1.clicked) work.
+	hotkeyClickVarRE = regexp.MustCompile(`@([A-Za-z0-9]+)((?:\.[A-Za-z0-9]+)*)\.clicked`)
 )
 
 func loadHotkeys() {
@@ -748,6 +753,11 @@ func detectCombo() string {
 	if wx < 0 {
 		return comboFromWheel("WheelLeft")
 	}
+	for _, id := range ebiten.AppendGamepadIDs(nil) {
+		for _, b := range inpututil.AppendJustPressedGamepadButtons(id, nil) {
+			return comboFromGamepadButton(id, b)
+		}
+	}
 	for _, k := range inpututil.AppendJustPressedKeys(nil) {
 		if isModifier(k) {
 			continue
@@ -794,6 +804,13 @@ func comboFromMouseWithKey(b ebiten.MouseButton) string {
 		mods = append(mods, keyPart)
 	}
 	name := mouseButtonName(b)
+	mods = append(mods, name)
+	return strings.Join(mods, "-")
+}
+
+func comboFromGamepadButton(id ebiten.GamepadID, b ebiten.GamepadButton) string {
+	mods := currentMods()
+	name := fmt.Sprintf("Pad%dButton%d", id, b)
 	mods = append(mods, name)
 	return strings.Join(mods, "-")
 }
@@ -849,10 +866,9 @@ func applyHotkeyVars(cmd string) (string, bool) {
 		cmd = strings.ReplaceAll(cmd, "@hovered", hoveredName)
 	}
 
-	// Handle new click variables via regex replacement.
-	re := regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
-	out := re.ReplaceAllStringFunc(cmd, func(segment string) string {
-		m := re.FindStringSubmatch(segment)
+	// Handle new click variables via regex replacement using a precompiled regex.
+	out := hotkeyClickVarRE.ReplaceAllStringFunc(cmd, func(segment string) string {
+		m := hotkeyClickVarRE.FindStringSubmatch(segment)
 		if len(m) < 3 {
 			return segment
 		}
