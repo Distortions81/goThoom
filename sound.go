@@ -444,10 +444,11 @@ func applyFadeInOut(samples []int16, rate int) {
 	}
 }
 
-// applyGameSoundReverb adds a feedback reverb tuned to mimic hearing a source
-// in an open field a short distance away. The processing works on 32-bit
-// intermediate samples so the later normalization step still keeps the output
-// within 16-bit range.
+// applyGameSoundReverb adds a very light ambience tuned to resemble a wide
+// open field. The goal is mostly a dry signal with a faint sense of distance,
+// so the processing uses short delays, low feedback, and a gentle roll-off of
+// the high end. The work is done on 32-bit intermediate samples so the later
+// normalization still fits the 16-bit output range.
 func applyGameSoundReverb(samples []int32, rate int) {
 	if len(samples) == 0 || rate <= 0 {
 		return
@@ -462,10 +463,9 @@ func applyGameSoundReverb(samples []int32, rate int) {
 		seconds  float64
 		feedback float64
 	}{
-		{seconds: 0.057, feedback: 0.43},
-		{seconds: 0.093, feedback: 0.39},
-		{seconds: 0.137, feedback: 0.36},
-		{seconds: 0.181, feedback: 0.33},
+		{seconds: 0.021, feedback: 0.18},
+		{seconds: 0.033, feedback: 0.15},
+		{seconds: 0.044, feedback: 0.13},
 	}
 
 	combs := make([]comb, 0, len(base))
@@ -476,7 +476,14 @@ func applyGameSoundReverb(samples []int32, rate int) {
 		}
 		combs = append(combs, comb{delay: delay, feedback: c.feedback})
 	}
-	if len(combs) == 0 {
+
+	scatterDelay := int(float64(rate) * 0.03)
+	var scatter []float64
+	if scatterDelay > 0 {
+		scatter = make([]float64, scatterDelay)
+	}
+
+	if len(combs) == 0 && len(scatter) == 0 {
 		return
 	}
 
@@ -487,43 +494,44 @@ func applyGameSoundReverb(samples []int32, rate int) {
 		buffers[i] = make([]float64, c.delay)
 	}
 
-	preDelaySamples := int(float64(rate) * 0.011)
-	var preDelay []float64
-	if preDelaySamples > 0 {
-		preDelay = make([]float64, preDelaySamples)
+	const wetMix = 0.08
+	const scatterRatio = 0.35
+	combMix := wetMix * (1 - scatterRatio)
+	if combMix < 0 {
+		combMix = 0
 	}
-	preIndex := 0
-
-	const wetMix = 0.34
+	scatterMix := wetMix - combMix
+	if scatterMix < 0 {
+		scatterMix = 0
+	}
 	const dryMix = 1 - wetMix
-	const damping = 0.45
-	const dryAirDamping = 0.5
+	const damping = 0.22
+	const wetLowpass = 0.25
+	const scatterFeedback = 0.07
 	const maxInt32 = float64(1<<31 - 1)
 	const minInt32 = -float64(1 << 31)
-	mixScale := wetMix / float64(len(combs))
 
-	var dryState float64
+	var perComb float64
+	if len(combs) > 0 && combMix > 0 {
+		perComb = combMix / float64(len(combs))
+	}
+
+	scatterIndex := 0
+
+	var wetState float64
 
 	for i := 0; i < len(samples); i++ {
 		input := float64(samples[i])
-		source := input
-		if len(preDelay) > 0 {
-			source = preDelay[preIndex]
-			preDelay[preIndex] = input
-			preIndex++
-			if preIndex >= len(preDelay) {
-				preIndex = 0
-			}
-		}
+
 		wet := 0.0
 		for idx := range combs {
 			buf := buffers[idx]
 			pos := indices[idx]
 			delayed := buf[pos]
-			damped := delayed*(1-damping) + last[idx]*damping
-			wet += damped
-			buf[pos] = source + damped*combs[idx].feedback
-			last[idx] = damped
+			filtered := delayed + (last[idx]-delayed)*damping
+			wet += filtered * perComb
+			buf[pos] = input + filtered*combs[idx].feedback
+			last[idx] = filtered
 			pos++
 			if pos >= len(buf) {
 				pos = 0
@@ -531,8 +539,18 @@ func applyGameSoundReverb(samples []int32, rate int) {
 			indices[idx] = pos
 		}
 
-		dryState += (input - dryState) * dryAirDamping
-		val := dryState*dryMix + wet*mixScale
+		if len(scatter) > 0 && scatterMix > 0 {
+			delayed := scatter[scatterIndex]
+			wet += delayed * scatterMix
+			scatter[scatterIndex] = input + delayed*scatterFeedback
+			scatterIndex++
+			if scatterIndex >= len(scatter) {
+				scatterIndex = 0
+			}
+		}
+
+		wetState += (wet - wetState) * wetLowpass
+		val := input*dryMix + wetState
 		if val > maxInt32 {
 			val = maxInt32
 		} else if val < minInt32 {
