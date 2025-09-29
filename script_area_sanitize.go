@@ -102,7 +102,8 @@ func fixAreaJSON(data []byte) ([]byte, bool) {
 			// Look ahead to see if this dot sits immediately before a
 			// delimiter such as ',', '}', or ']'. If so, drop it; these
 			// dots commonly appear after sentences that were copied into
-			// JSON without removing the trailing period.
+			// JSON without removing the trailing period. Also drop the dot
+			// if it is the final non-whitespace character in the file.
 			j := i + 1
 			for j < len(data) {
 				if data[j] == ' ' || data[j] == '\t' || data[j] == '\n' || data[j] == '\r' {
@@ -111,12 +112,14 @@ func fixAreaJSON(data []byte) ([]byte, bool) {
 				}
 				break
 			}
-			if j < len(data) {
-				next := data[j]
-				if next == ',' || next == '}' || next == ']' {
-					changed = true
-					continue
-				}
+			if j >= len(data) {
+				changed = true
+				continue
+			}
+			next := data[j]
+			if next == ',' || next == '}' || next == ']' {
+				changed = true
+				continue
 			}
 		}
 		out.WriteByte(c)
