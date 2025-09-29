@@ -1,0 +1,10 @@
+{
+  "name": "Start",
+  "description": "A quiet plaza where new adventurers gather before beginning their journey.",
+  "neighbors": {
+    "north": "north_gate",
+    "south": "south_road",
+    "east": "market_square",
+    "west": "training_yard"
+  }
+}
