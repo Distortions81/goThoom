@@ -1948,6 +1948,7 @@ func loadScripts() {
 	}
 	ensureScriptsDir()
 	ensureDefaultScripts()
+	sanitizeAreaJSONs(scriptSearchDirs())
 	scanned := scanscripts(scriptSearchDirs(), func(name, path string) {
 		log.Printf("script %s duplicate name %s", path, name)
 		consoleMessage("[script] duplicate name: " + name)
