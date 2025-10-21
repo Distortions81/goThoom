@@ -211,18 +211,15 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	fillColor := color.RGBA64{R: uint16(bgR), G: uint16(bgG), B: uint16(bgB), A: uint16(bgA)}
 	borderColor := color.RGBA64{R: uint16(bdR), G: uint16(bdG), B: uint16(bdB), A: uint16(bdA)}
 
+	if !far && !noArrow {
+		tailOp := &vector.DrawPathOptions{AntiAlias: true}
+		tailOp.ColorScale.ScaleWithColor(fillColor)
+		vector.FillPath(screen, &tail, nil, tailOp)
+	}
 	if bubbleType != kBubblePonder {
 		fillOp := &vector.DrawPathOptions{AntiAlias: true}
 		fillOp.ColorScale.ScaleWithColor(fillColor)
 		vector.FillPath(screen, &body, nil, fillOp)
-	}
-	if !far && !noArrow {
-		tailOp := &vector.DrawPathOptions{
-			AntiAlias: true,
-			Blend:     ebiten.BlendCopy,
-		}
-		tailOp.ColorScale.ScaleWithColor(fillColor)
-		vector.FillPath(screen, &tail, nil, tailOp)
 	}
 	if bubbleType != kBubblePonder {
 		var outline vector.Path
