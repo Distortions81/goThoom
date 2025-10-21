@@ -34,8 +34,8 @@ const initialWindowW, initialWindowH = 1920, 1080
 
 var uiMouseDown bool
 
-// worldRT is the offscreen render target for the game world. It stays at an
-// integer multiple of the native field size and is composited into the window.
+// worldRT is the offscreen render target for the game world. It matches the
+// current on-screen world size and is composited into the window.
 var worldRT *ebiten.Image
 
 // worldRTUsedRect tracks the active portion of worldRT used for the latest
@@ -1196,42 +1196,38 @@ func worldDrawInfo() (int, int, float64) {
 	}
 
 	// Match Draw() scaling rules.
-	const maxSuperSampleScale = 4
 	worldW, worldH := gameAreaSizeX, gameAreaSizeY
 
-	// Slider-desired scale.
-	desired := int(math.Round(gs.GameScale))
-	if desired < 1 {
-		desired = 1
-	}
-	if desired > 10 {
-		desired = 10
+	scale := math.Min(float64(bufW)/float64(worldW), float64(bufH)/float64(worldH))
+	if scale <= 0 {
+		scale = 1.0
 	}
 
-	// Use the slider-selected scale directly for the offscreen render target.
-	offIntScale := desired
-	if offIntScale > maxSuperSampleScale {
-		offIntScale = maxSuperSampleScale
+	drawW := int(math.Round(float64(worldW) * scale))
+	drawH := int(math.Round(float64(worldH) * scale))
+	if drawW < 1 {
+		drawW = 1
 	}
-	if offIntScale < 1 {
-		offIntScale = 1
+	if drawH < 1 {
+		drawH = 1
+	}
+	if drawW > bufW {
+		drawW = bufW
+	}
+	if drawH > bufH {
+		drawH = bufH
 	}
 
-	offW := worldW * offIntScale
-	offH := worldH * offIntScale
-
-	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
-
-	drawW := float64(offW) * scaleDown
-	drawH := float64(offH) * scaleDown
-	tx := (float64(bufW) - drawW) / 2
-	ty := (float64(bufH) - drawH) / 2
+	tx := float64(bufW-drawW) / 2
+	ty := float64(bufH-drawH) / 2
 
 	// Add the 2px inner margin to the window origin to reach the game image.
 	originX := gx + 2 + int(math.Round(tx))
 	originY := gy + 2 + int(math.Round(ty))
 	// Effective world scale on screen in pixels per world unit.
-	effScale := float64(offIntScale) * scaleDown
+	scaleX := float64(drawW) / float64(worldW)
+	scaleY := float64(drawH) / float64(worldH)
+	effScale := math.Min(scaleX, scaleY)
 	if effScale <= 0 {
 		effScale = 1.0
 	}
@@ -1287,36 +1283,40 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	// Determine offscreen render scale and composite scale.
-	// A user-selected render scale (gs.GameScale) in 1x..10x acts as a
-	// supersample factor. The window is always filled using linear filtering.
+	// Determine the render scale from the current window resolution.
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
-	const maxSuperSampleScale = 4
 	worldW, worldH := gameAreaSizeX, gameAreaSizeY
 
-	// Clamp desired render scale from settings (treat as integer steps)
-	desired := int(math.Round(gs.GameScale))
-	if desired < 1 {
-		desired = 1
-	}
-	if desired > 10 {
-		desired = 10
-	}
-	// Use the slider-selected scale directly for offscreen rendering
-	offIntScale := desired
-	if offIntScale > maxSuperSampleScale {
-		offIntScale = maxSuperSampleScale
-	}
-	if offIntScale < 1 {
-		offIntScale = 1
+	finalScale := worldScale
+	if finalScale <= 0 {
+		finalScale = 1.0
 	}
 
-	// Prepare variable-sized offscreen target (supersampled)
-	offW := worldW * offIntScale
-	offH := worldH * offIntScale
-	ensureWorldRT(offW, offH)
-	worldRect := image.Rect(0, 0, offW, offH)
+	drawW := int(math.Round(float64(worldW) * finalScale))
+	drawH := int(math.Round(float64(worldH) * finalScale))
+	if drawW < 1 {
+		drawW = 1
+	}
+	if drawH < 1 {
+		drawH = 1
+	}
+	if drawW > bufW {
+		drawW = bufW
+	}
+	if drawH > bufH {
+		drawH = bufH
+	}
+
+	scaleX := float64(drawW) / float64(worldW)
+	scaleY := float64(drawH) / float64(worldH)
+	finalScale = math.Min(scaleX, scaleY)
+	if finalScale <= 0 {
+		finalScale = 1.0
+	}
+
+	ensureWorldRT(drawW, drawH)
+	worldRect := image.Rect(0, 0, drawW, drawH)
 	worldRTUsedRect = worldRect
 	worldView := worldRT.SubImage(worldRect).(*ebiten.Image)
 	worldView.Fill(color.Black)
@@ -1327,7 +1327,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	var haveSnap bool
 	if clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
 		prev := gs.GameScale
-		gs.GameScale = float64(offIntScale)
+		gs.GameScale = finalScale
 		drawSplash(worldView, 0, 0)
 		gs.GameScale = prev
 	} else {
@@ -1335,11 +1335,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		var mobileFade, pictFade float32
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		prev := gs.GameScale
-		gs.GameScale = float64(offIntScale)
+		gs.GameScale = finalScale
 		drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
 		if gs.ShaderLighting {
 			// Use shader-based night darkening with inverse-square falloff.
-			addNightDarkSources(offW, offH, float32(alpha))
+			addNightDarkSources(drawW, drawH, float32(alpha))
 		} else {
 			// Classic overlay path when shader is off.
 			//drawNightAmbient(worldView, 0, 0)
@@ -1354,29 +1354,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		haveSnap = true
 	}
 
-	// Composite worldRT into the gameImage buffer: scale/center
-	// Keep this simple: the offscreen world is rendered at integer scale
-	// (nearest) and the final composite to the resizable window uses linear.
-	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
-	sx, sy := scaleDown, scaleDown
-	drawW := float64(offW) * sx
-	drawH := float64(offH) * sy
-	tx := (float64(bufW) - drawW) / 2
-	ty := (float64(bufH) - drawH) / 2
+	// Composite worldRT into the gameImage buffer without post scaling.
+	tx := (float64(bufW) - float64(drawW)) / 2
+	ty := (float64(bufH) - float64(drawH)) / 2
+	offsetX := int(math.Round(tx))
+	offsetY := int(math.Round(ty))
 	op := acquireDrawOpts()
-	// Always use linear filtering for the final window composite.
-	op.Filter = ebiten.FilterLinear
 	op.DisableMipmaps = true
 	// worldView was cleared and fully redrawn; a copy avoids extra blending cost.
 	op.Blend = ebiten.BlendCopy
-	op.GeoM.Scale(sx, sy)
-	op.GeoM.Translate(tx, ty)
+	op.GeoM.Translate(float64(offsetX), float64(offsetY))
 	gameImage.DrawImage(worldView, op)
 	releaseDrawOpts(op)
-	left := roundToInt(tx)
-	top := roundToInt(ty)
-	right := left + roundToInt(drawW)
-	bottom := top + roundToInt(drawH)
+	left := offsetX
+	top := offsetY
+	right := left + drawW
+	bottom := top + drawH
 	if left < 0 {
 		left = 0
 	}
@@ -1397,7 +1390,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if haveSnap {
 		prev := gs.GameScale
-		finalScale := float64(offIntScale) * scaleDown
 		gs.GameScale = finalScale
 		if !viewRect.Empty() {
 			worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
