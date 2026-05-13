@@ -33,6 +33,9 @@ RUN go env -w GOPROXY=https://proxy.golang.org,direct \
 # Bring in the rest of the project
 COPY . .
 
+# spellcheck_words.txt is generated and git-ignored, but spellcheck.go embeds it.
+RUN bash ./build-scripts/download_spellcheck_dict.sh
+
 # ---- osxcross (macOS SDK for darwin builds) ----
 # Your script should fetch or embed the SDK; after this runs, /osxcross is fully usable offline.
 RUN ./build-scripts/install_osxcross.sh --root /osxcross --sdk-version 13.3 --no-deps

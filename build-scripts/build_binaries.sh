@@ -81,6 +81,14 @@ ensure_cmd() {
   fi
 }
 
+ensure_spellcheck_dict() {
+  local dict="${SCRIPT_DIR}/../spellcheck_words.txt"
+  if [ ! -f "$dict" ]; then
+    ensure_cmd curl curl
+    bash "${SCRIPT_DIR}/download_spellcheck_dict.sh"
+  fi
+}
+
 install_linux_deps() {
   echo "Installing Linux build dependencies..."
   apt-get update -qq
@@ -183,6 +191,7 @@ MSG
 
 # Ensure zip is available for packaging on Ubuntu systems
 ensure_cmd zip
+ensure_spellcheck_dict
 
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
