@@ -93,7 +93,7 @@ func TestScale4xRGBAChainsTwoScale2xPasses(t *testing.T) {
 		t.Fatalf("4x upscale should match two chained 2x passes")
 	}
 
-	center := dst.RGBAAt(8, 8)
+	center := dst.RGBAAt(6, 6)
 	if center != white {
 		t.Fatalf("expected center pixel to remain white, got %#v", center)
 	}

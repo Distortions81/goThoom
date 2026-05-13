@@ -1634,8 +1634,8 @@ func makeDownloadsWindow() {
 	downloadWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
 
 	startedDownload := false
-	downloadSoundfont := true
-	downloadTTS := true
+	var downloadSoundfontCB *eui.ItemData
+	var downloadTTSCB *eui.ItemData
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -1760,7 +1760,7 @@ func makeDownloadsWindow() {
 		flow.AddItem(info)
 	}
 	if status.NeedSoundfont {
-		sfCB, sfEvents := eui.NewCheckbox()
+		sfCB, _ := eui.NewCheckbox()
 		label := "Download soundfont (music)"
 		if status.SoundfontSize > 0 {
 			label = fmt.Sprintf("Download soundfont (%s) (Music)", humanize.Bytes(uint64(status.SoundfontSize)))
@@ -1768,15 +1768,11 @@ func makeDownloadsWindow() {
 		sfCB.Text = label
 		sfCB.Size = eui.Point{X: 320, Y: 24}
 		sfCB.Checked = true
-		sfEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				downloadSoundfont = ev.Checked
-			}
-		}
+		downloadSoundfontCB = sfCB
 		flow.AddItem(sfCB)
 	}
 	if status.NeedPiper || status.NeedPiperFem || status.NeedPiperMale {
-		pc, pe := eui.NewCheckbox()
+		pc, _ := eui.NewCheckbox()
 		total := status.PiperSize + status.PiperFemSize + status.PiperMaleSize
 		label := "Download Piper files (TTS)"
 		if total > 0 {
@@ -1785,11 +1781,7 @@ func makeDownloadsWindow() {
 		pc.Text = label
 		pc.Size = eui.Point{X: 320, Y: 24}
 		pc.Checked = false
-		pe.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				downloadTTS = ev.Checked
-			}
-		}
+		downloadTTSCB = pc
 		flow.AddItem(pc)
 	}
 
@@ -1817,6 +1809,7 @@ func makeDownloadsWindow() {
 		pb.Value = 0
 		pb.Dirty = true
 		statusText.Dirty = true
+		downloadSoundfont, downloadTTS := optionalDownloadSelections(downloadSoundfontCB, downloadTTSCB)
 		// Show the live status + progress and provide a cancel button
 		cancelRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 		cancelBtn, cancelEvents := eui.NewButton()
@@ -1975,6 +1968,16 @@ func makeDownloadsWindow() {
 
 	downloadWin.AddItem(flow)
 	downloadWin.AddWindow(false)
+}
+
+func optionalDownloadSelections(soundfontCB, ttsCB *eui.ItemData) (soundfont, tts bool) {
+	if soundfontCB != nil {
+		soundfont = soundfontCB.Checked
+	}
+	if ttsCB != nil {
+		tts = ttsCB.Checked
+	}
+	return soundfont, tts
 }
 
 const charWinWidth = 500

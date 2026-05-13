@@ -47,9 +47,12 @@ var (
 )
 
 // gameImageItem is the UI image item inside the game window that displays
-// the rendered world, and gameImage is its backing texture.
+// the rendered world. gameImage is the current visible view, while
+// gameImageBacking may be larger so interactive resize does not churn texture
+// allocations.
 var gameImageItem *eui.ItemData
 var gameImage *ebiten.Image
+var gameImageBacking *ebiten.Image
 var inAspectResize bool
 
 // dimmedScreenBG holds the theme window background color dimmed by 25%.
@@ -109,25 +112,30 @@ func updateGameImageSize() {
 	if gameImageItem == nil {
 		it, img := eui.NewImageFastItem(w, h)
 		gameImageItem = it
+		gameImageBacking = img
 		gameImage = img
+		gameImageItem.Image = gameImage
 		gameImageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
 		gameImageItem.Position = eui.Point{X: 2 / s, Y: 2 / s}
 		gameWin.AddItem(gameImageItem)
 		return
 	}
-	// Resize backing image only when dimensions change
+	// Grow the backing image only when needed, but expose a current-size
+	// subimage so eui draws the game view 1:1 instead of scaling the larger
+	// backing texture during window shrink.
 	iw, ih := 0, 0
-	if gameImage != nil {
-		b := gameImage.Bounds()
+	if gameImageBacking != nil {
+		b := gameImageBacking.Bounds()
 		iw, ih = b.Dx(), b.Dy()
 	}
-	if iw < w || ih < h {
-		_, gameImage = eui.NewImageFastItem(w, h)
-		gameImageItem.Image = gameImage
+	if gameImageBacking == nil || iw < w || ih < h {
+		_, gameImageBacking = eui.NewImageFastItem(w, h)
 		if gameWin != nil {
 			gameWin.Dirty = true
 		}
 	}
+	gameImage = gameImageBacking.SubImage(image.Rect(0, 0, w, h)).(*ebiten.Image)
+	gameImageItem.Image = gameImage
 	// Always update the item size/position even if we reuse a larger backing image.
 	gameImageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
 	gameImageItem.Position = eui.Point{X: 2 / s, Y: 2 / s}
@@ -988,7 +996,7 @@ func (g *Game) Update() error {
 				}
 				joyCursorX += float64(ax) * 5
 				joyCursorY += float64(ay) * 5
-				winW, winH := ebiten.WindowSize()
+				winW, winH := eui.ScreenSize()
 				if joyCursorX < 0 {
 					joyCursorX = 0
 				} else if joyCursorX > float64(winW-1) {
@@ -1014,8 +1022,7 @@ func (g *Game) Update() error {
 	rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2
 	middleClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle) || joyClick3
 
-	winW, winH := ebiten.WindowSize()
-	inWindow := mx > 0 && my > 0 && mx < winW-1 && my < winH-1
+	inWindow := pointInAppScreen(mx, my)
 	if !focused {
 		if walkToggled {
 			walkToggled = false
@@ -1183,8 +1190,9 @@ func worldDrawInfo() (int, int, float64) {
 	// Derive the inner content buffer size used for the game image.
 	size := gameWin.GetSize()
 	pad := float64(2 * gameWin.Padding)
-	cw := int(float64(int(size.X)&^1) - pad) // content width
-	ch := int(float64(int(size.Y)&^1) - pad) // content height
+	title := float64(gameWin.GetTitleSize())
+	cw := int(float64(int(size.X)&^1) - pad)         // content width
+	ch := int(float64(int(size.Y)&^1) - pad - title) // content height
 	// Leave a 2px margin on all sides (matches gameImageItem.Position and sizing).
 	bufW := cw - 4
 	bufH := ch - 4
@@ -1292,6 +1300,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// supersample factor. The window is always filled using linear filtering.
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
+	gameImage.Fill(color.Black)
 	const maxSuperSampleScale = 4
 	worldW, worldH := gameAreaSizeX, gameAreaSizeY
 

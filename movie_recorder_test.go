@@ -5,17 +5,12 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
 func TestRecordRoundTrip(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	moviePath := filepath.Join(filepath.Dir(file), "clmovFiles", "test.clMov")
-	orig, err := os.ReadFile(moviePath)
-	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
-	}
+	moviePath := movieFixturePath(t, "test.clMov")
+	orig := readMovieFixture(t, "test.clMov")
 	if len(orig) < 24 {
 		t.Fatalf("short file")
 	}
@@ -173,9 +168,11 @@ func TestAddBlockWriteFrame(t *testing.T) {
 }
 
 func TestParseMovieZip(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	moviePath := filepath.Join(filepath.Dir(file), "clmovFiles", "test.clMov")
 	dir := t.TempDir()
+	moviePath := filepath.Join(dir, "test.clMov")
+	if err := os.WriteFile(moviePath, readMovieFixture(t, "test.clMov"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	zipPath := filepath.Join(dir, "test.clMov.zip")
 	if err := compressZip(moviePath, zipPath); err != nil {
 		t.Fatalf("compressZip: %v", err)

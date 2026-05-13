@@ -407,6 +407,10 @@ func applyUpscaleAntialias(src *image.RGBA) *image.RGBA {
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			center := sampleRGBA(src, x, y)
+			if x == 0 || y == 0 || x == w-1 || y == h-1 {
+				setRGBA(dst, x, y, center)
+				continue
+			}
 			if center.a == 0 {
 				setRGBA(dst, x, y, center)
 				continue

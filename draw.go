@@ -72,7 +72,7 @@ const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
 
 // percent of area that must be outside the field to count as "on the edge"
-const edgeOutsidePercent = 45
+const edgeOutsidePercent = 70
 const secondBestShiftRatio = 0.4
 
 // sanity limits for parsed counts to avoid excessive allocations or

@@ -4,18 +4,12 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
 // Test that parseMovie records the full 32-bit revision from the header.
 func TestParseMovieRevision(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	src := filepath.Join(filepath.Dir(file), "clmovFiles", "test.clMov")
-	data, err := os.ReadFile(src)
-	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
-	}
+	data := readMovieFixture(t, "test.clMov")
 	// Overwrite revision bytes with a distinctive value.
 	binary.BigEndian.PutUint32(data[16:20], 0x01020304)
 	tmp := filepath.Join(t.TempDir(), "rev.clMov")

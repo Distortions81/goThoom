@@ -8,7 +8,7 @@ import (
 )
 
 // Test that script equip command skips already equipped items.
-func TestscriptEquipAlreadyEquipped(t *testing.T) {
+func TestScriptEquipAlreadyEquipped(t *testing.T) {
 	resetInventory()
 	addInventoryItem(200, -1, "Shield", true)
 	consoleLog = messageLog{max: maxMessages}
@@ -34,7 +34,7 @@ func getQueuedCommands() []string {
 
 // Test registering and running a mixed-case command and ensuring disabled scripts
 // cannot run commands.
-func TestscriptRegisterAndDisableCommand(t *testing.T) {
+func TestScriptRegisterAndDisableCommand(t *testing.T) {
 	// Reset shared state.
 	scriptMu = sync.RWMutex{}
 	scriptCommands = map[string]scriptCommandHandler{}
@@ -120,7 +120,7 @@ func TestDisabledscriptCommandFallsThrough(t *testing.T) {
 }
 
 // Test that registering a command twice logs a conflict and keeps the original handler.
-func TestscriptRegisterCommandConflict(t *testing.T) {
+func TestScriptRegisterCommandConflict(t *testing.T) {
 	// Reset shared state.
 	scriptMu = sync.RWMutex{}
 	scriptCommands = map[string]scriptCommandHandler{}
@@ -154,7 +154,7 @@ func TestscriptRegisterCommandConflict(t *testing.T) {
 }
 
 // Test that trigger handlers registered by scripts receive messages.
-func TestscriptTriggers(t *testing.T) {
+func TestScriptTriggers(t *testing.T) {
 	scriptTriggers = map[string][]triggerHandler{}
 	scriptConsoleTriggers = map[string][]triggerHandler{}
 	triggerHandlersMu = sync.RWMutex{}
@@ -176,7 +176,7 @@ func TestscriptTriggers(t *testing.T) {
 }
 
 // Test that disabling a script removes any trigger handlers it registered.
-func TestscriptRemoveTriggersOnDisable(t *testing.T) {
+func TestScriptRemoveTriggersOnDisable(t *testing.T) {
 	scriptTriggers = map[string][]triggerHandler{}
 	scriptConsoleTriggers = map[string][]triggerHandler{}
 	triggerHandlersMu = sync.RWMutex{}

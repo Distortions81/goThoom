@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,15 +13,12 @@ import (
 
 	"gothoom/eui"
 
-	"regexp"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 const hotkeysFile = "global-hotkeys.json"
+const hotkeyCommandInputHeight float32 = 20
 
 type HotkeyCommand struct {
 	Command string `json:"command,omitempty"`
@@ -479,7 +475,7 @@ func openHotkeyEditor(idx int) {
 			startHotkeyRecording(hotkeyComboText)
 		}
 	}
-	//row.AddItem(hotkeyRecordBtn)
+	row.AddItem(hotkeyRecordBtn)
 	flow.AddItem(row)
 
 	nameRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
@@ -572,19 +568,17 @@ func addHotkeyCommand(cmd string) {
 
 	var cmdEvents *eui.EventHandler
 	cmdInput, cmdEvents := eui.NewInput()
-	cmdInput.Size = eui.Point{X: hotkeyEditWin.Size.X - 40, Y: 20}
+	cmdInput.Size = eui.Point{X: hotkeyEditWin.Size.X - 40, Y: hotkeyCommandInputHeight}
 	cmdInput.FontSize = 12
-	cmdInput.Scrollable = true
 	cmdInput.Text = cmd
 	cmdEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventInputChanged {
-			wrapHotkeyInputs()
+			sanitizeHotkeyCommandInput(ev.Item)
 		}
 	}
 	hotkeyCmdSection.AddItem(cmdInput)
 	hotkeyCmdInputs = append(hotkeyCmdInputs, cmdInput)
 
-	hotkeyEditWin.Refresh()
 	wrapHotkeyInputs()
 }
 
@@ -592,49 +586,31 @@ func wrapHotkeyInputs() {
 	if hotkeyEditWin == nil {
 		return
 	}
-	ui := eui.UIScale()
-	fs := float32(12)
-	if len(hotkeyCmdInputs) > 0 {
-		fs = hotkeyCmdInputs[0].FontSize
-	}
-	facePx := float64(fs * ui)
-	src := eui.FontSource()
-	if src == nil {
-		if s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF)); err == nil {
-			src = s
-		} else {
-			return
-		}
-	}
-	goFace := &text.GoTextFace{Source: src, Size: facePx}
-	metrics := goFace.Metrics()
-	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2)
-	rowUnits := float32(linePx) / ui
-	padPx := float64(6) * float64(ui)
-
-	resize := func(it *eui.ItemData) {
-		if it == nil {
-			return
-		}
-		raw := strings.ReplaceAll(it.Text, "\n", " ")
-		_, lines := wrapText(raw, goFace, float64(it.Size.X*ui)-padPx)
-		if len(lines) == 0 {
-			lines = []string{""}
-		}
-		if n := len(raw) - len(strings.TrimRight(raw, " ")); n > 0 {
-			lines[len(lines)-1] += strings.Repeat(" ", n)
-		}
-		it.Text = strings.Join(lines, "\n")
-		if it.TextPtr != nil {
-			*it.TextPtr = it.Text
-		}
-		it.Size.Y = rowUnits * float32(len(lines))
-	}
-
 	for _, it := range hotkeyCmdInputs {
-		resize(it)
+		sanitizeHotkeyCommandInput(it)
 	}
 	hotkeyEditWin.Refresh()
+}
+
+func sanitizeHotkeyCommandInput(it *eui.ItemData) {
+	if it == nil {
+		return
+	}
+	text := strings.NewReplacer("\r", " ", "\n", " ").Replace(it.Text)
+	if text != it.Text {
+		it.Text = text
+	}
+	if it.TextPtr != nil {
+		*it.TextPtr = it.Text
+	}
+	if it.CursorPos > len([]rune(it.Text)) {
+		it.CursorPos = len([]rune(it.Text))
+	}
+	if it.CursorPos < 0 {
+		it.CursorPos = 0
+	}
+	it.Size.Y = hotkeyCommandInputHeight
+	it.Dirty = true
 }
 
 func finishHotkeyEdit(save bool) {

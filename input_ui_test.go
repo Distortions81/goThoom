@@ -38,6 +38,45 @@ func TestPointInGameWindow(t *testing.T) {
 	}
 }
 
+func TestPointInGameWindowNoScaleUsesWindowScale(t *testing.T) {
+	oldGameWin := gameWin
+	oldW, oldH := eui.ScreenSize()
+	defer func() {
+		gameWin = oldGameWin
+		eui.SetUIScale(1)
+		eui.SetScreenSize(oldW, oldH)
+	}()
+
+	eui.SetUIScale(2)
+	gameWin = eui.NewWindow()
+	gameWin.NoScale = true
+	gameWin.MarkOpen()
+	_ = gameWin.SetPos(eui.Point{X: 10, Y: 10})
+	_ = gameWin.SetSize(eui.Point{X: 100, Y: 100})
+	gameWin.Margin = 2
+	gameWin.Border = 1
+	gameWin.BorderPad = 1
+	gameWin.Padding = 1
+	gameWin.TitleHeight = 0
+
+	if !pointInGameWindow(16, 50) {
+		t.Fatalf("NoScale game window hit test should not multiply frame by UI scale")
+	}
+}
+
+func TestPointInAppScreenUsesEUIScreenSize(t *testing.T) {
+	oldW, oldH := eui.ScreenSize()
+	defer eui.SetScreenSize(oldW, oldH)
+
+	eui.SetScreenSize(1500, 1000)
+	if !pointInAppScreen(1400, 900) {
+		t.Fatalf("pointInAppScreen should use EUI screen size")
+	}
+	if pointInAppScreen(1500, 900) {
+		t.Fatalf("pointInAppScreen should reject coordinates beyond EUI screen size")
+	}
+}
+
 func TestTypingInUI(t *testing.T) {
 	for _, w := range eui.Windows() {
 		w.Close()

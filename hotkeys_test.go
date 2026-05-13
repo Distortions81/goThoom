@@ -231,24 +231,74 @@ func TestLoadHotkeysShowsEntriesInWindow(t *testing.T) {
 	}
 }
 
-// Test that long input lines wrap and cause the window to grow.
-func TestHotkeyEditorWrapsAndResizes(t *testing.T) {
+// Test that the editor shows the key recording button.
+func TestHotkeyEditorShowsRecordButton(t *testing.T) {
 	hotkeyEditWin = nil
 	openHotkeyEditor(-1)
 	if hotkeyEditWin == nil {
 		t.Fatalf("editor not opened")
 	}
+	defer hotkeyEditWin.Close()
+
+	if len(hotkeyEditWin.Contents) == 0 || len(hotkeyEditWin.Contents[0].Contents) == 0 {
+		t.Fatalf("editor layout malformed")
+	}
+	keyRow := hotkeyEditWin.Contents[0].Contents[0]
+	if len(keyRow.Contents) != 3 {
+		t.Fatalf("expected keys row to include label, combo text, and record button; got %d items", len(keyRow.Contents))
+	}
+	if got := keyRow.Contents[2].Text; got != "Record" {
+		t.Fatalf("expected record button, got %q", got)
+	}
+}
+
+// Test that long input lines stay single-line and keep the editor stable.
+func TestHotkeyEditorKeepsCommandInputFixedHeight(t *testing.T) {
+	hotkeyEditWin = nil
+	openHotkeyEditor(-1)
+	if hotkeyEditWin == nil {
+		t.Fatalf("editor not opened")
+	}
+	defer hotkeyEditWin.Close()
+
 	base := hotkeyEditWin.Size.Y
 	long := "this is a very long command line that should wrap across multiple lines for testing"
 	hotkeyCmdInputs[0].Text = long
 	wrapHotkeyInputs()
-	if !strings.Contains(hotkeyCmdInputs[0].Text, "\n") || hotkeyCmdInputs[0].Size.Y <= 20 {
-		t.Fatalf("command input did not wrap or grow: %q size %v", hotkeyCmdInputs[0].Text, hotkeyCmdInputs[0].Size.Y)
+	if strings.Contains(hotkeyCmdInputs[0].Text, "\n") {
+		t.Fatalf("command input wrapped: %q", hotkeyCmdInputs[0].Text)
 	}
-	if hotkeyEditWin.Size.Y <= base {
-		t.Fatalf("window did not resize: %v <= %v", hotkeyEditWin.Size.Y, base)
+	if hotkeyCmdInputs[0].Size.Y != hotkeyCommandInputHeight {
+		t.Fatalf("command input grew: %v", hotkeyCmdInputs[0].Size.Y)
 	}
-	hotkeyEditWin.Close()
+	if hotkeyEditWin.Size.Y != base {
+		t.Fatalf("window resized: %v != %v", hotkeyEditWin.Size.Y, base)
+	}
+}
+
+func TestHotkeyCommandInputChangeDoesNotRefreshEditorLayout(t *testing.T) {
+	hotkeyEditWin = nil
+	openHotkeyEditor(-1)
+	if hotkeyEditWin == nil {
+		t.Fatalf("editor not opened")
+	}
+	defer hotkeyEditWin.Close()
+
+	input := hotkeyCmdInputs[0]
+	base := hotkeyEditWin.Size.Y
+	input.Text = "first\nsecond"
+	input.CursorPos = len([]rune(input.Text))
+	input.Handler.Emit(eui.UIEvent{Item: input, Type: eui.EventInputChanged, Text: input.Text})
+
+	if strings.Contains(input.Text, "\n") {
+		t.Fatalf("command input kept newline: %q", input.Text)
+	}
+	if input.Size.Y != hotkeyCommandInputHeight {
+		t.Fatalf("command input grew: %v", input.Size.Y)
+	}
+	if hotkeyEditWin.Size.Y != base {
+		t.Fatalf("window resized during input event: %v != %v", hotkeyEditWin.Size.Y, base)
+	}
 }
 
 // Test that @right.clicked in commands expands to the last right-clicked mobile name.
@@ -310,7 +360,7 @@ func TestHotkeyEquipAlreadyEquipped(t *testing.T) {
 
 // Test that script hotkeys are rendered with a valid font size.
 func TestscriptHotkeysFontSize(t *testing.T) {
-	hotkeys = []Hotkey{{Combo: "Ctrl-P", script: "plug", Commands: []HotkeyCommand{{Command: "say hi"}}}}
+	hotkeys = []Hotkey{{Combo: "Ctrl-P", Script: "plug", Commands: []HotkeyCommand{{Command: "say hi"}}}}
 	hotkeysWin = nil
 	hotkeysList = nil
 	scriptDisplayNames = map[string]string{"plug": "script"}
@@ -382,7 +432,7 @@ func TestscriptHotkeyStatePersisted(t *testing.T) {
 	found := false
 	hotkeysMu.RLock()
 	for _, hk := range hotkeys {
-		if hk.script == "plug" {
+		if hk.Script == "plug" {
 			found = true
 			if hk.Disabled {
 				t.Fatalf("hotkey disabled after reload")
@@ -451,7 +501,7 @@ func TestscriptRemoveHotkeyClearsState(t *testing.T) {
 
 	hotkeysMu.RLock()
 	for _, hk := range hotkeys {
-		if hk.script == "plug" && hk.Combo == "Ctrl-P" {
+		if hk.Script == "plug" && hk.Combo == "Ctrl-P" {
 			hotkeysMu.RUnlock()
 			t.Fatalf("script hotkey not removed")
 		}

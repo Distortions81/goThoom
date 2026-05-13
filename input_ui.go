@@ -15,7 +15,7 @@ func pointInUI(x, y int) bool {
 		}
 		pos := win.GetPos()
 		size := win.GetSize()
-		s := eui.UIScale()
+		s := windowInputScale(win)
 		frame := (win.Margin + win.Border + win.BorderPad + win.Padding) * s
 		title := win.GetTitleSize()
 		x0, y0 := pos.X+1, pos.Y+1
@@ -40,6 +40,18 @@ func pointInUI(x, y int) bool {
 	return false
 }
 
+func pointInAppScreen(x, y int) bool {
+	w, h := eui.ScreenSize()
+	return x >= 0 && y >= 0 && x < w && y < h
+}
+
+func windowInputScale(win *eui.WindowData) float32 {
+	if win != nil && win.NoScale {
+		return 1
+	}
+	return eui.UIScale()
+}
+
 // pointInGameWindow reports whether the given screen coordinate lies within the
 // playable area of the game window.
 func pointInGameWindow(x, y int) bool {
@@ -50,7 +62,7 @@ func pointInGameWindow(x, y int) bool {
 	fx, fy := float32(x), float32(y)
 	pos := gameWin.GetPos()
 	size := gameWin.GetSize()
-	s := eui.UIScale()
+	s := windowInputScale(gameWin)
 	frame := (gameWin.Margin + gameWin.Border + gameWin.BorderPad + gameWin.Padding) * s
 	title := gameWin.GetTitleSize()
 	x0 := pos.X + frame

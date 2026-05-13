@@ -83,8 +83,9 @@ var TitleCaser = cases.Title(language.AmericanEnglish)
 var foldCaser = cases.Fold()
 
 var (
-	invBoldSrc   *text.GoTextFaceSource
-	invItalicSrc *text.GoTextFaceSource
+	invRegularSrc *text.GoTextFaceSource
+	invBoldSrc    *text.GoTextFaceSource
+	invItalicSrc  *text.GoTextFaceSource
 )
 
 type invGroupKey struct {
@@ -223,6 +224,9 @@ func updateInventoryWindow() {
 }
 
 func ensureInventoryFontSources() {
+	if invRegularSrc == nil {
+		invRegularSrc, _ = text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
+	}
 	if invBoldSrc == nil {
 		invBoldSrc, _ = text.NewGoTextFaceSource(bytes.NewReader(notoSansBold))
 	}
@@ -232,14 +236,13 @@ func ensureInventoryFontSources() {
 }
 
 func (s *inventoryRenderState) ensureFaces(fontSize int, uiScale float32, src *text.GoTextFaceSource) bool {
+	if src == nil {
+		src = invRegularSrc
+	}
 	facePx := float64(float32(fontSize)*uiScale) + 2
 	changed := s.baseFace == nil || s.fontSize != fontSize || s.uiScale != uiScale || s.fontSource != src || s.facePx != facePx
 	if changed {
-		if src != nil {
-			s.baseFace = &text.GoTextFace{Source: src, Size: facePx}
-		} else {
-			s.baseFace = &text.GoTextFace{Size: facePx}
-		}
+		s.baseFace = &text.GoTextFace{Source: src, Size: facePx}
 		if invBoldSrc != nil {
 			s.boldFace = &text.GoTextFace{Source: invBoldSrc, Size: facePx}
 		} else {
@@ -351,6 +354,7 @@ func (s *inventoryRenderState) ensureSpacer() {
 		s.spacer = spacer
 	}
 	s.spacer.Size = eui.Point{X: 1, Y: s.rowUnits}
+	s.spacer.Position = eui.Point{}
 	s.spacer.FontSize = float32(s.fontSize)
 }
 
@@ -385,17 +389,25 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 	}
 
 	if row.icon != nil {
+		imageChanged := row.icon.Image != data.icon || row.icon.ImageName != data.iconName
+		if imageChanged {
+			row.icon.UpdateImage(data.icon)
+		}
 		row.icon.Size = eui.Point{X: float32(s.iconSize), Y: float32(s.iconSize)}
+		row.icon.Position = eui.Point{}
 		row.icon.Margin = 4
 		row.icon.Filled = false
 		row.icon.Border = 0
-		row.icon.Image = data.icon
 		row.icon.ImageName = data.iconName
+		if imageChanged {
+			row.icon.Dirty = true
+		}
 	}
 
 	if row.label != nil {
 		row.label.FontSize = float32(s.fontSize)
 		row.label.Face = data.face
+		row.label.Position = eui.Point{X: row.icon.Margin, Y: 0}
 		avail := s.clientWAvail - float32(s.iconSize) - row.icon.Margin - data.slotWidth
 		if avail < 0 {
 			avail = 0
@@ -406,18 +418,22 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 	}
 
 	if data.slotText != "" {
+		newSlot := false
 		if row.slot == nil {
 			lt, _ := eui.NewText()
 			lt.Fixed = true
-			row.row.AddItem(lt)
 			row.slot = lt
+			newSlot = true
 		}
 		row.slot.FontSize = float32(s.fontSize)
 		row.slot.Face = data.face
 		row.slot.Size.X = data.slotWidth
 		row.slot.Size.Y = s.rowUnits
-		row.slot.Position.X = row.row.Size.X - data.slotWidth
+		row.slot.Position = eui.Point{}
 		row.slot.UpdateText(data.slotText)
+		if newSlot {
+			row.row.AddItem(row.slot)
+		}
 	} else if row.slot != nil {
 		row.row.RemoveItem(row.slot)
 		row.slot = nil

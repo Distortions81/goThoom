@@ -27,7 +27,7 @@ import (
 
 const (
 	defaultServerHostName = "server.deltatao.com"
-	fallbackServerIP      = "104.239.142.81"
+	fallbackServerIP      = "172.236.246.13"
 )
 
 var (

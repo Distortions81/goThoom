@@ -1,6 +1,6 @@
 # AGENTS
 
-This repo includes a Go client under `gothoom/`. To build or run the Go program you need Go version 1.25 from the official Go distribution; avoid the system `golang-go` package.
+This repo includes a Go client under `gothoom/`. To build or run the Go program you need Go version 1.26.3 from the official Go distribution; avoid the system `golang-go` package.
 Do not increment JSON versions in GT_Players.json or settings.json or characters.json. They will be done manually if needed.
 Any functions or variables or types exposed to the scripts need to also be put empty stubs into gt so the linters do not complain for users.
 Also I prefer to-the-point and simple solutions. We'll get complex if it is needed but I prefer to not over complicate things. "Keep it simple stupid"
@@ -13,10 +13,10 @@ Try to avoid completely over-thinking your replies and feel free to stop and ask
    sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev \
      xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
    ```
-2. Install Go 1.25:
+2. Install Go 1.26.3:
    ```bash
-   curl -LO https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
-   sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
+   curl -LO https://go.dev/dl/go1.26.3.linux-amd64.tar.gz
+   sudo tar -C /usr/local -xzf go1.26.3.linux-amd64.tar.gz
    export PATH="/usr/local/go/bin:$PATH"
    ```
 3. **Always** download and extract the prebuilt dependency bundle:

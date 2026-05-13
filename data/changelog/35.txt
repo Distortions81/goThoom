@@ -1,0 +1,15 @@
+Updated GothOom v35 to target Clan Lord v1484.
+Updated fallback server IP to 172.236.246.13.
+Updated required Go toolchain to 1.26.3.
+Updated Ebitengine from v2.9.2 to v2.9.9 and refreshed related Go dependencies. https://ebitengine.org/en/documents/2.9.html#v2.9.9
+Fixed inventory window item layout sometimes leaving large blank gaps or hiding rows until the window was resized.
+Fixed inventory item icons sometimes not repainting until the inventory window was resized.
+Fixed optional music and TTS downloads so unchecked boxes are respected when starting the dependency download.
+Fixed click-to-move hit testing with scaled/high-DPI windows, including cases where clicking only worked reliably after maximizing the window.
+Fixed Clan Lord game window resizing so the eui image item does not nearest-neighbor scale a larger backing texture.
+Fixed active/focused window blue outlines so the highlight now appears on all four edges.
+Fixed the hotkey editor so the Record button is visible and key or mouse combos can be captured again.
+Fixed hotkey command fields expanding or reflowing while typing; command inputs now stay single-line.
+Fixed edge persistence detection for pictures and mobiles so only mostly-offscreen objects are treated as edge objects.
+Fixed sprite upscale anti-aliasing so border pixels are not blended away.
+Cleaned up script test names and Go workspace files.

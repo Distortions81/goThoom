@@ -227,7 +227,8 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		}
 
 		// Offscreen render for opacity blending
-		tmp := newImage(int(size.X), int(size.Y))
+		imgW, imgH := renderImageSize(size)
+		tmp := newImage(imgW, imgH)
 		// Draw into tmp in local coords: temporarily zero Position like cached path
 		origPos := win.Position
 		basePos := win.getPosition()
@@ -259,11 +260,12 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 			win.RenderCount++
 		}
 		size := win.GetSize()
-		if win.Render == nil || win.Render.Bounds().Dx() != int(size.X) || win.Render.Bounds().Dy() != int(size.Y) {
+		imgW, imgH := renderImageSize(size)
+		if win.Render == nil || win.Render.Bounds().Dx() != imgW || win.Render.Bounds().Dy() != imgH {
 			if size.X < 1 || size.Y < 1 {
 				return
 			}
-			win.Render = newImage(int(size.X), int(size.Y))
+			win.Render = newImage(imgW, imgH)
 		} else {
 			win.Render.Clear()
 		}
@@ -299,6 +301,18 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if CacheCheck {
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", win.RenderCount), int(win.getPosition().X), int(win.getPosition().Y))
 	}
+}
+
+func renderImageSize(size point) (int, int) {
+	w := int(math.Round(float64(size.X)))
+	h := int(math.Round(float64(size.Y)))
+	if w < 1 {
+		w = 1
+	}
+	if h < 1 {
+		h = 1
+	}
+	return w, h
 }
 
 func (win *windowData) drawBG(screen *ebiten.Image) {
@@ -533,17 +547,90 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 		} else if win.Hovered {
 			FrameColor = win.Theme.Window.HoverColor
 		}
-		drawRoundRect(screen, &roundRect{
-			Size:     win.GetSize(),
-			Position: win.getPosition(),
-			Fillet:   win.Fillet,
-			Filled:   false,
-			Border:   win.Border,
-			Color:    FrameColor,
-		})
+		drawWindowOutline(screen, win.getPosition(), win.GetSize(), win.Fillet, win.Border, FrameColor)
 	}
 	if win.Resizable {
 		win.drawResizeThumb(screen)
+	}
+}
+
+func drawWindowOutline(screen *ebiten.Image, pos, size point, fillet, border float32, col Color) {
+	width := float32(math.Round(float64(border)))
+	if width <= 0 || size.X <= 0 || size.Y <= 0 {
+		return
+	}
+
+	x := float32(math.Round(float64(pos.X)))
+	y := float32(math.Round(float64(pos.Y)))
+	w := float32(math.Round(float64(size.X)))
+	h := float32(math.Round(float64(size.Y)))
+	if w <= 0 || h <= 0 {
+		return
+	}
+	if width > w {
+		width = w
+	}
+	if width > h {
+		width = h
+	}
+
+	drawColor := color.RGBA(col)
+	if fillet <= 0 {
+		drawInsideRectBorder(screen, x, y, w, h, width, drawColor)
+		return
+	}
+
+	inset := width / 2
+	x += inset
+	y += inset
+	w -= width
+	h -= width
+	if w <= 0 || h <= 0 {
+		return
+	}
+	if fillet > inset {
+		fillet -= inset
+	} else {
+		fillet = 0
+	}
+	if fillet*2 > w {
+		fillet = w / 2
+	}
+	if fillet*2 > h {
+		fillet = h / 2
+	}
+	fillet = float32(math.Round(float64(fillet)))
+
+	var path vector.Path
+	path.MoveTo(x+fillet, y)
+	path.LineTo(x+w-fillet, y)
+	path.QuadTo(x+w, y, x+w, y+fillet)
+	path.LineTo(x+w, y+h-fillet)
+	path.QuadTo(x+w, y+h, x+w-fillet, y+h)
+	path.LineTo(x+fillet, y+h)
+	path.QuadTo(x, y+h, x, y+h-fillet)
+	path.LineTo(x, y+fillet)
+	path.QuadTo(x, y, x+fillet, y)
+	path.Close()
+
+	strokeOp := &vector.StrokeOptions{Width: width}
+	drawOp := &vector.DrawPathOptions{AntiAlias: true}
+	drawOp.ColorScale.ScaleWithColor(drawColor)
+	vector.StrokePath(screen, &path, strokeOp, drawOp)
+}
+
+func drawInsideRectBorder(screen *ebiten.Image, x, y, w, h, width float32, col color.Color) {
+	for _, r := range insideRectBorderRects(x, y, w, h, width) {
+		drawFilledRect(screen, r.X0, r.Y0, r.X1-r.X0, r.Y1-r.Y0, col, false)
+	}
+}
+
+func insideRectBorderRects(x, y, w, h, width float32) [4]rect {
+	return [4]rect{
+		{X0: x, Y0: y, X1: x + w, Y1: y + width},
+		{X0: x, Y0: y + h - width, X1: x + w, Y1: y + h},
+		{X0: x, Y0: y, X1: x + width, Y1: y + h},
+		{X0: x + w - width, Y0: y, X1: x + w, Y1: y + h},
 	}
 }
 
