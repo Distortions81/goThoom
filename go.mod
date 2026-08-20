@@ -19,8 +19,8 @@ require (
 	github.com/thiagokokada/dark-mode-go v0.0.2
 	github.com/traefik/yaegi v0.16.1
 	golang.design/x/clipboard v0.7.1
-	golang.org/x/image v0.40.0
-	golang.org/x/text v0.37.0
+	golang.org/x/image v0.45.0
+	golang.org/x/text v0.41.0
 	golang.org/x/time v0.15.0
 )
 
@@ -47,7 +47,7 @@ require (
 	golang.org/x/exp/shiny v0.0.0-20260508232706-74f9aab9d74a // indirect
 	golang.org/x/mobile v0.0.0-20260508232728-bebd421c7fa8 // indirect
 	golang.org/x/net v0.54.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
