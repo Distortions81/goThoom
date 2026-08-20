@@ -1,6 +1,7 @@
 module gothoom
 
-go 1.26.3
+go 1.26.6
+toolchain go1.26.6
 
 require github.com/hajimehoshi/ebiten/v2 v2.9.9
 
