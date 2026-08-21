@@ -22,7 +22,7 @@ import (
 
 const defaultUpdateBase = "https://m45sci.xyz/downloads/clanlord"
 const fallbackUpdateBase = "https://www.deltatao.com/downloads/clanlord"
-const wasmUpdateBase = "https://gothoom.xyz/webgt"
+const wasmUpdateBase = "https://gothoom.m45sci.xyz"
 const soundFontURL = "https://m45sci.xyz/u/dist/goThoom/soundfont.sf2.gz"
 const soundFontFile = "soundfont.sf2"
 const extraDataBase = "https://m45sci.xyz/u/dist/goThoom/"

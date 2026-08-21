@@ -80,9 +80,14 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 		p = &Player{Name: name}
 		players[name] = p
 	}
+	paletteChanged := !bytes.Equal(p.Colors, colors)
+	appearanceChanged := p.PictID != pictID || paletteChanged
 	p.PictID = pictID
-	if len(colors) > 0 {
-		p.Colors = append(p.Colors[:0], colors...)
+	if paletteChanged {
+		// Publish a new backing array so draw callers can safely retain the
+		// previous palette after releasing playersMu. An empty palette is a
+		// real update: it means the player removed their custom clothing.
+		p.Colors = append([]byte(nil), colors...)
 	}
 	p.IsNPC = false
 	// Seeing a player on screen implies they are present now.
@@ -101,12 +106,13 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 		p.SameClan = sameRealClan(me.clan, p.clan)
 	}
 	playerCopy := *p
+	playerCopy.Colors = append([]byte(nil), p.Colors...)
 	playersMu.Unlock()
 	playersDirty = true
-	if seenChanged || prevSC != p.SameClan {
+	if seenChanged || appearanceChanged || prevSC != playerCopy.SameClan {
 		playersPersistDirty = true
 	}
-	if prevSC != p.SameClan {
+	if prevSC != playerCopy.SameClan {
 		killNameTagCacheFor(name)
 	}
 	notifyPlayerHandlers(playerCopy)
@@ -119,8 +125,8 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 					characters[i].PictID = pictID
 					changed = true
 				}
-				if len(colors) > 0 && !bytes.Equal(characters[i].Colors, colors) {
-					characters[i].Colors = append(characters[i].Colors[:0], colors...)
+				if !bytes.Equal(characters[i].Colors, colors) {
+					characters[i].Colors = append([]byte(nil), colors...)
 					changed = true
 				}
 				if changed {
@@ -137,9 +143,24 @@ func getPlayers() []Player {
 	defer playersMu.RUnlock()
 	out := make([]Player, 0, len(players))
 	for _, p := range players {
-		out = append(out, *p)
+		playerCopy := *p
+		playerCopy.Colors = append([]byte(nil), p.Colors...)
+		out = append(out, playerCopy)
 	}
 	return out
+}
+
+// playerColorsForDescriptor returns the effective immutable palette for a
+// descriptor. Player appearance updates replace the Colors backing array, so
+// the returned slice remains valid after playersMu is released.
+func playerColorsForDescriptor(d frameDescriptor) []byte {
+	colors := d.Colors
+	playersMu.RLock()
+	if p, ok := players[d.Name]; ok && len(p.Colors) > 0 {
+		colors = p.Colors
+	}
+	playersMu.RUnlock()
+	return colors
 }
 
 func notifyPlayerHandlers(p Player) {

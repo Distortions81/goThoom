@@ -1560,6 +1560,8 @@ func runChatTriggers(msg string) {
 	triggerHandlersMu.RLock()
 	// Determine message flags and speaker for filtering.
 	speaker := chatSpeaker(msg)
+	msgLower := strings.ToLower(msg)
+	speakerLower := strings.ToLower(speaker)
 	msgFlags := ChatAny
 	if strings.EqualFold(speaker, playerName) && playerName != "" {
 		msgFlags |= ChatSelf
@@ -1601,9 +1603,9 @@ func runChatTriggers(msg string) {
 		msgFlags |= ChatCreature
 	}
 	for phrase, hs := range scriptTriggers {
-		if strings.Contains(strings.ToLower(msg), phrase) {
+		if strings.Contains(msgLower, phrase) {
 			for _, h := range hs {
-				if h.name != "" && h.name != strings.ToLower(speaker) {
+				if h.name != "" && h.name != speakerLower {
 					continue
 				}
 				f := h.flags

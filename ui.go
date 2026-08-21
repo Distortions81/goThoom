@@ -1881,6 +1881,7 @@ func makeDownloadsWindow() {
 				img.DenoiseSharpness = gs.DenoiseSharpness
 				img.DenoiseAmount = gs.DenoiseAmount
 				clImages = img
+				markWorldStateChanged()
 				if measureLoads {
 					dtms := float64(time.Since(imgStart).Nanoseconds()) / 1e6
 					log.Printf("measure: CL_Images archive loaded in %.2fms frame=%d", dtms, frameCounter)
@@ -2389,20 +2390,8 @@ func startLogin() {
 		showPrecachePopup(startLogin)
 		return
 	}
-	if status.Version > 0 && clVersion < status.Version {
-		msg := fmt.Sprintf("goThoom is only tested with version %d, it may still work with version %d.", clVersion, status.Version)
-		showPopup(
-			"Untested Version",
-			msg,
-			[]popupButton{
-				{Text: "Cancel"},
-				{Text: "Proceed", Color: &eui.ColorGray, Action: func() {
-					clVersion = status.Version
-					//startLogin()
-				}},
-			},
-		)
-		return
+	if status.Version > clVersion {
+		clVersion = status.Version
 	}
 
 	loginWin.Close()

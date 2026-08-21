@@ -33,6 +33,9 @@ type dataLocation struct {
 
 	numAnims       int16
 	animFrameTable [16]int16
+	sizeOnce       sync.Once
+	width          uint16
+	height         uint16
 }
 
 type CLImages struct {
@@ -71,20 +74,20 @@ const (
 )
 
 func Load(path string) (*CLImages, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        return nil, err
-    }
-    return parseCLImages(data)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return parseCLImages(data)
 }
 
 // LoadBytes parses the CL_Images keyfile from an in-memory byte slice.
 func LoadBytes(data []byte) (*CLImages, error) { return parseCLImages(data) }
 
 func parseCLImages(data []byte) (*CLImages, error) {
-    r := bytes.NewReader(data)
-    var header uint16
-    var entryCount uint32
+	r := bytes.NewReader(data)
+	var header uint16
+	var entryCount uint32
 	if err := binary.Read(r, binary.BigEndian, &header); err != nil {
 		return nil, err
 	}
@@ -417,7 +420,7 @@ func parseCLImages(data []byte) (*CLImages, error) {
 			c.colorBytes[i] = uint16(b)
 		}
 	}
-    return imgs, loadErr
+	return imgs, loadErr
 }
 
 // ClientItem describes per-item metadata stored in CL_Images (kTypeClientItem).
@@ -776,18 +779,16 @@ func (c *CLImages) Size(id uint32) (int, int) {
 	if imgLoc == nil {
 		return 0, 0
 	}
-	r := bytes.NewReader(c.data)
-	if _, err := r.Seek(int64(imgLoc.offset), io.SeekStart); err != nil {
-		return 0, 0
-	}
-	var h, w uint16
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		return 0, 0
-	}
-	if err := binary.Read(r, binary.BigEndian, &w); err != nil {
-		return 0, 0
-	}
-	return int(w), int(h)
+	imgLoc.sizeOnce.Do(func() {
+		off := uint64(imgLoc.offset)
+		if off+4 > uint64(len(c.data)) {
+			return
+		}
+		start := int(off)
+		imgLoc.height = binary.BigEndian.Uint16(c.data[start : start+2])
+		imgLoc.width = binary.BigEndian.Uint16(c.data[start+2 : start+4])
+	})
+	return int(imgLoc.width), int(imgLoc.height)
 }
 
 // IsSemiTransparent reports whether the sprite with the given ID uses a blend

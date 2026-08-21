@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-GO_VERSION="${GO_VERSION:-1.26.3}"
+GO_VERSION="${GO_VERSION:-1.26.6}"
 export PATH="/usr/local/go/bin:$PATH"
 
 if ! command -v apt-get >/dev/null 2>&1; then

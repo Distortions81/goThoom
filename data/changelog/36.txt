@@ -1,0 +1,19 @@
+Updated goThoom to version 36, targeting Clan Lord v1497.
+Removed the untested Clan Lord version prompt so newer local data versions are accepted automatically at login.
+Updated web asset downloads to use the dedicated gothoom.m45sci.xyz mirror first.
+Added a standalone responsive project website under website/ without changing the WASM client.
+Updated the required Go toolchain from 1.26.3 to 1.26.6 across the modules, development setup, documentation, and Docker build.
+Updated Ebitengine from v2.9.9 to v2.9.10 and refreshed related Go dependencies. https://ebitengine.org/en/documents/2.9.html#v2.9.10
+Updated clipboard integration for the new cancellable API, restoring copy and paste after the dependency update.
+Fixed script gt.Key hotkeys so functions run locally instead of being routed through hidden server commands.
+Added support for both Mouse4 and Mouse 4 hotkey spellings and expanded AddHotkeyFn documentation.
+Fixed music worker races by applying disable requests on the game loop and preserving debug state per queued tune.
+Fixed anonymous thoughts from blocked or ignored players still being rendered.
+Fixed live player palette updates so changing or removing clothing immediately uses the network-provided palette and is saved correctly.
+Reduced recurring renderer allocations by reusing draw snapshots and immutable player palette data.
+Indexed previous picture positions used by object pinning, reducing dense lookup time by about 90% (about 9.8x faster).
+Reduced 64x64 image-denoising runtime by about 12% and scratch memory by about 85%, while avoiding excess workers for small sprites.
+Cached image dimensions and unchanged hover hit tests to avoid unnecessary image decoding and repeated world scans.
+Normalized chat trigger text once per message instead of once per registered trigger.
+Added weekly Dependabot checks for Go modules and GitHub Actions.
+Expanded regression tests and performance benchmarks for the optimized paths.

@@ -163,7 +163,7 @@ Available message types:
    sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev \
      xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
    ```
-2. Install Go 1.26.3 from [go.dev](https://go.dev/dl/).
+2. Install Go 1.26.6 from [go.dev](https://go.dev/dl/).
 3. Download Go modules:
    ```bash
    go mod download

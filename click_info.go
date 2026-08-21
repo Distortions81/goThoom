@@ -2,6 +2,7 @@ package main
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -37,16 +38,30 @@ var (
 
 	lastHover   ClickInfo
 	lastHoverMu sync.Mutex
+
+	worldStateGeneration atomic.Uint64
+	lastHoverGeneration  uint64
+	lastHoverQueryValid  bool
 )
+
+func markWorldStateChanged() {
+	worldStateGeneration.Add(1)
+}
 
 // worldInfoAt returns information about the world location including any
 // mobile under the provided coordinates.
 func worldInfoAt(x, y int16) ClickInfo {
+	info, _ := worldInfoAtGeneration(x, y)
+	return info
+}
+
+func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 	info := ClickInfo{X: x, Y: y}
 	stateMu.Lock()
+	generation := worldStateGeneration.Load()
 	for _, m := range state.liveMobs {
 		if d, ok := state.descriptors[m.Index]; ok {
-			size := mobileSize(d.PictID)
+			size := mobileSizeFunc(d.PictID)
 			half := int16(size / 2)
 			if x >= m.H-half && x < m.H+half && y >= m.V-half && y < m.V+half {
 				info.OnMobile = true
@@ -63,7 +78,7 @@ func worldInfoAt(x, y int16) ClickInfo {
 		}
 	}
 	stateMu.Unlock()
-	return info
+	return info, generation
 }
 
 // handleWorldClick records a click in the game world and captures
@@ -95,8 +110,18 @@ func handleWorldClick(x, y int16, b ebiten.MouseButton) {
 
 // updateWorldHover updates the last hovered world location and mobile.
 func updateWorldHover(x, y int16) {
-	info := worldInfoAt(x, y)
+	generation := worldStateGeneration.Load()
+	lastHoverMu.Lock()
+	if lastHoverQueryValid && lastHoverGeneration == generation && lastHover.X == x && lastHover.Y == y {
+		lastHoverMu.Unlock()
+		return
+	}
+	lastHoverMu.Unlock()
+
+	info, generation := worldInfoAtGeneration(x, y)
 	lastHoverMu.Lock()
 	lastHover = info
+	lastHoverGeneration = generation
+	lastHoverQueryValid = true
 	lastHoverMu.Unlock()
 }

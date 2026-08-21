@@ -79,10 +79,10 @@ func loadPlayersPersist() {
 			if b, ok := decodeHex(p.ColorsHex); ok && len(b) > 0 {
 				count := int(b[0])
 				if count > 0 && 1+count <= len(b) {
-					pr.Colors = append(pr.Colors[:0], b[1:1+count]...)
+					pr.Colors = append([]byte(nil), b[1:1+count]...)
 				} else {
 					// if malformed, fall back to raw tail
-					pr.Colors = append(pr.Colors[:0], b...)
+					pr.Colors = append([]byte(nil), b...)
 				}
 			}
 		}

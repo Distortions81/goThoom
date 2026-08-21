@@ -417,11 +417,14 @@ func getScaledMobileFrame(key mobileKey, img *ebiten.Image) *ebiten.Image {
 // mobileSize returns the dimension of a single mobile frame for the given
 // image ID. If the image cannot be loaded, 0 is returned.
 func mobileSize(id uint16) int {
-	sheet := loadSheet(id, nil, true)
-	if sheet == nil {
+	if clImages == nil {
 		return 0
 	}
-	return (sheet.Bounds().Dx() - 2) / 16
+	w, _ := clImages.Size(uint32(id))
+	if w <= 0 {
+		return 0
+	}
+	return w / 16
 }
 
 func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
