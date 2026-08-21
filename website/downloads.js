@@ -3,9 +3,9 @@
   const RELEASES_URL = "https://github.com/Distortions81/goThoom/releases/latest";
 
   const platforms = [
-    { key: "windows", name: "Windows", detail: "64-bit · Windows 10 or later", icon: "⊞", matches: ["windows"] },
-    { key: "macos", name: "macOS", detail: "Apple Silicon & Intel", icon: "●", matches: ["macos", "darwin", "apple"] },
-    { key: "linux", name: "Linux", detail: "64-bit · x86_64", icon: "◆", matches: ["linux"] },
+    { key: "windows", name: "Windows", detail: "64-bit · Windows 10 or later", icon: "windows-logo.svg", matches: ["windows"] },
+    { key: "macos", name: "macOS", detail: "Apple Silicon & Intel", icon: "apple-logo.svg", matches: ["macos", "darwin", "apple"] },
+    { key: "linux", name: "Linux", detail: "64-bit · x86_64", icon: "linux-logo.svg", matches: ["linux"] },
   ];
 
   const grid = document.querySelector("#download-grid");
@@ -59,7 +59,7 @@
 
     article.innerHTML = `
       ${recommended ? '<span class="recommended-badge">Recommended</span>' : ""}
-      <div class="platform-icon platform-${platform.key}" aria-hidden="true">${platform.icon}</div>
+      <div class="platform-icon platform-${platform.key}"><img src="${platform.icon}" alt="${platform.name} logo"></div>
       <div class="card-title"><h3>${platform.name}</h3><p>${platform.detail}</p></div>
       <div class="asset-list">${actions}</div>`;
     return article;
