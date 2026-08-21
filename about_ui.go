@@ -24,7 +24,7 @@ var aboutLines []string
 var patreonList *eui.ItemData
 
 const patreonsURL = "https://m45sci.xyz/u/dist/goThoom/patreons.json"
-const websiteURL = "https://gothoom.xyz"
+const websiteURL = "https://gothoom.m45sci.xyz/"
 
 func initAboutUI() {
 	if aboutWin != nil {

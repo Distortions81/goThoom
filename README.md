@@ -13,7 +13,7 @@ Currently supports Macintosh, Windows and Linux via the [Ebiten](https://ebiteng
 Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, Android, iOS, Nintendo Switch, Steam Deck, Xbox, PlayStation 5, Raspberry Pi, Steamworks.
 
 
-[Website Here](https://gothoom.xyz/)
+[Website Here](https://gothoom.m45sci.xyz/)
 
 [Video Overview](https://youtu.be/MrGdcqIl3a4)
 
