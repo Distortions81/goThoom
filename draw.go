@@ -1195,7 +1195,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	state.balance = bal
 	state.balanceMax = balMax
 	changed := false
-	if gs.BlendMobiles && !seekingMov {
+	if mobileFrameBlendingEnabled() && !seekingMov {
 		if len(descs) > 0 {
 			changed = true
 		}
@@ -1396,7 +1396,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	state.prevPictures = append([]framePicture(nil), prevPics...)
 	state.pictures = newPics
 
-	needPrev := (gs.MotionSmoothing || gs.BlendMobiles) && !seekingMov && ok
+	needPrev := gs.MotionSmoothing && !seekingMov && ok
 	if needPrev {
 		if state.prevMobiles == nil {
 			state.prevMobiles = make(map[uint8]frameMobile, len(state.mobiles))
@@ -1407,7 +1407,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			state.prevMobiles[idx] = m
 		}
 	}
-	needAnimUpdate := (gs.MotionSmoothing || (gs.BlendMobiles && changed)) && ok && !seekingMov
+	needAnimUpdate := gs.MotionSmoothing && ok && !seekingMov
 	if needAnimUpdate {
 		// Use the latest measured server interval; do not reuse the previous
 		// cur-prev duration as that can get stuck until a hard reset (e.g.,

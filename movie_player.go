@@ -42,6 +42,9 @@ type moviePlayer struct {
 	repeat  bool
 	ticker  *time.Ticker
 	cancel  context.CancelFunc
+	// resetOnNextDraw removes interpolation history after the first complete
+	// draw at movie start or after looping back to frame zero.
+	resetOnNextDraw bool
 
 	checkpoints []movieCheckpoint
 
@@ -64,13 +67,14 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 	resetInterpolation()
 	suppressInterpOnce = true
 	return &moviePlayer{
-		frames:      frames,
-		fps:         fps,
-		baseFPS:     fps,
-		playing:     true,
-		ticker:      time.NewTicker(time.Second / time.Duration(fps)),
-		cancel:      cancel,
-		checkpoints: []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState)}},
+		frames:          frames,
+		fps:             fps,
+		baseFPS:         fps,
+		playing:         true,
+		resetOnNextDraw: true,
+		ticker:          time.NewTicker(time.Second / time.Duration(fps)),
+		cancel:          cancel,
+		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState)}},
 	}
 }
 
@@ -412,6 +416,11 @@ func (p *moviePlayer) step() {
 	movieDropped = updateFrameCounters(m.index)
 	if len(m.data) >= 2 && binary.BigEndian.Uint16(m.data[:2]) == 2 {
 		handleDrawState(m.data, true)
+		if p.resetOnNextDraw {
+			resetInterpolation()
+			suppressInterpOnce = true
+			p.resetOnNextDraw = false
+		}
 	} else {
 		// Advance the logical frame counter even when this movie frame
 		// does not contain a draw-state update so time-based effects
@@ -521,15 +530,19 @@ func (p *moviePlayer) seek(idx int) {
 	stopAllSounds()
 	stopAllTTS()
 	stopAllMusic()
+	previousBlockSound := blockSound
+	previousBlockBubbles := blockBubbles
+	previousBlockTTS := blockTTS
+	previousBlockMusic := blockMusic
 	blockSound = true
 	blockBubbles = true
 	blockTTS = true
 	blockMusic = true
 	defer func() {
-		blockSound = false
-		blockBubbles = false
-		blockTTS = false
-		blockMusic = false
+		blockSound = previousBlockSound
+		blockBubbles = previousBlockBubbles
+		blockTTS = previousBlockTTS
+		blockMusic = previousBlockMusic
 	}()
 
 	if idx < 0 {
@@ -587,10 +600,11 @@ func (p *moviePlayer) seek(idx int) {
 		p.checkpoints = append(p.checkpoints, snap)
 	}
 	p.cur = idx
+	setInterpFPS(p.fps)
 	resetInterpolation()
+	p.resetOnNextDraw = idx == 0
 	// Avoid interpolation artifacts on the first frame after a seek.
 	suppressInterpOnce = true
-	setInterpFPS(p.fps)
 	p.updateUI()
 	p.playing = wasPlaying
 }
@@ -617,7 +631,22 @@ func resetInterpolation() {
 	stateMu.Lock()
 	state.prevMobiles = make(map[uint8]frameMobile)
 	state.prevDescs = make(map[uint8]frameDescriptor)
+	state.prevPictures = nil
+	state.picShiftX = 0
+	state.picShiftY = 0
+	for i := range state.pictures {
+		state.pictures[i].PrevH = state.pictures[i].H
+		state.pictures[i].PrevV = state.pictures[i].V
+		state.pictures[i].Moving = false
+	}
 	state.prevTime = state.curTime
+	state.prevHP = state.hp
+	state.prevHPMax = state.hpMax
+	state.prevSP = state.sp
+	state.prevSPMax = state.spMax
+	state.prevBalance = state.balance
+	state.prevBalanceMax = state.balanceMax
+	prepareRenderCacheLocked()
 	stateMu.Unlock()
 }
 

@@ -248,6 +248,31 @@ func parseGameState(gs []byte, version, revision uint16) {
 	}
 }
 
+type mobileTableLayout struct {
+	descSize            int
+	colorsOffset        int
+	nameOffset          int
+	numColorsOffset     int
+	bubbleCounterOffset int
+}
+
+func layoutForMobileTable(version uint16) (mobileTableLayout, bool) {
+	switch {
+	case version > 141: // v142+ (current format)
+		return mobileTableLayout{descSize: 156, colorsOffset: 56, nameOffset: 86, numColorsOffset: 48, bubbleCounterOffset: 28}, true
+	case version > 113: // v114-141
+		return mobileTableLayout{descSize: 150, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24}, true
+	case version > 105: // v106-113
+		return mobileTableLayout{descSize: 142, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24}, true
+	case version > 97: // v98-105
+		return mobileTableLayout{descSize: 130, colorsOffset: 40, nameOffset: 70, numColorsOffset: 32, bubbleCounterOffset: 24}, true
+	case version >= 80: // v80-97
+		return mobileTableLayout{descSize: 126, colorsOffset: 36, nameOffset: 66, numColorsOffset: 28, bubbleCounterOffset: 20}, true
+	default:
+		return mobileTableLayout{}, false
+	}
+}
+
 // parseMobileTable decodes the descriptor table for a frame.  Descriptor
 // layouts have changed many times over Clan Lord's long history; the version
 // checks below mirror the Mac client's ReadMobileTable/Read1Descriptor logic.
@@ -256,30 +281,10 @@ func parseGameState(gs []byte, version, revision uint16) {
 func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 	const descTableSize = 266 // kDescTableSize
 
-	type layout struct {
-		descSize            int
-		colorsOffset        int
-		nameOffset          int
-		numColorsOffset     int
-		bubbleCounterOffset int
-	}
-
-	var l layout
-	switch {
-	case version > 141: // v142+ (current format)
-		l = layout{descSize: 156, colorsOffset: 56, nameOffset: 86, numColorsOffset: 48, bubbleCounterOffset: 28}
-	case version > 113: // v114-141
-		l = layout{descSize: 150, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24}
-	case version > 105: // v106-113
-		l = layout{descSize: 142, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24}
-	case version > 97: // v98-105
-		l = layout{descSize: 130, colorsOffset: 40, nameOffset: 70, numColorsOffset: 32, bubbleCounterOffset: 24}
-	default: // v80-97
-		if version < 80 {
-			logDebug("unsupported mobile table version %d", version)
-			return pos
-		}
-		l = layout{descSize: 126, colorsOffset: 36, nameOffset: 66, numColorsOffset: 28, bubbleCounterOffset: 20}
+	l, ok := layoutForMobileTable(version)
+	if !ok {
+		logDebug("unsupported mobile table version %d", version)
+		return pos
 	}
 
 	for pos+4 <= len(data) {
@@ -319,6 +324,9 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 			d.PictID = 0
 		} else {
 			d.PictID = uint16(pict)
+		}
+		if clImages != nil {
+			d.Plane = clImages.Plane(uint32(d.PictID))
 		}
 
 		numColors := int(binary.BigEndian.Uint32(buf[l.numColorsOffset : l.numColorsOffset+4]))

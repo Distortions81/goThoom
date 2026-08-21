@@ -1,19 +1,27 @@
-Updated goThoom to version 36, targeting Clan Lord v1497.
-Removed the untested Clan Lord version prompt so newer local data versions are accepted automatically at login.
-Updated web asset downloads to use the dedicated gothoom.m45sci.xyz mirror first.
-Added a standalone responsive project website.
-Updated project website links to gothoom.m45sci.xyz.
-Updated the required Go toolchain from 1.26.3 to 1.26.6 across the modules, development setup, documentation, and Docker build.
-Updated Ebitengine from v2.9.9 to v2.9.10 and refreshed related Go dependencies. https://ebitengine.org/en/documents/2.9.html#v2.9.10
-Updated clipboard integration for the new cancellable API, restoring copy and paste after the dependency update.
-Fixed script gt.Key hotkeys so functions run locally instead of being routed through hidden server commands.
-Added support for both Mouse4 and Mouse 4 hotkey spellings and expanded AddHotkeyFn documentation.
-Fixed music worker races by applying disable requests on the game loop and preserving debug state per queued tune.
-Fixed anonymous thoughts from blocked or ignored players still being rendered.
-Reduced recurring renderer allocations by reusing draw snapshots and immutable player palette data.
-Indexed previous picture positions used by object pinning, reducing dense lookup time by about 90% (about 9.8x faster).
-Reduced 64x64 image-denoising runtime by about 12% and scratch memory by about 85%, while avoiding excess workers for small sprites.
-Cached image dimensions and unchanged hover hit tests to avoid unnecessary image decoding and repeated world scans.
-Normalized chat trigger text once per message instead of once per registered trigger.
-Added weekly Dependabot checks for Go modules and GitHub Actions.
-Expanded regression tests and performance benchmarks for the optimized paths.
+goThoom 36 adds support for Clan Lord v1497.
+
+New and improved:
+- Added a friendly setup wizard for controls, status bars, bubbles, name tags, graphics, and performance. Its controls reflect your existing settings and changes appear immediately in the live offline preview.
+- Added a live graphics preview to the setup wizard. A short Clan Lord recording loops through the real game renderer so you can see dithering, artwork upscaling, motion smoothing, and shader lighting as you change them.
+- Movie recording now starts correctly whether it is armed before connecting or started while already playing. New recordings remain compatible with the existing movie format.
+- Alternate networking mode and timing choices are now remembered between sessions.
+- Added support for both "Mouse4" and "Mouse 4" hotkey spellings, with clearer scripting help for function hotkeys.
+- New installs now enable fading obscuring artwork, dither blending, smooth movement, character and world animation blending, shader lighting, and sprite gamma correction by default.
+- Launched the new project website at https://gothoom.m45sci.xyz/ and moved game-asset downloads to its dedicated mirror.
+
+Fixes:
+- Fixed recorded movies starting without the player, clothing, scenery, or other initial world details.
+- Fixed the scene sliding between the end and beginning when a movie loops.
+- Restored copy and paste after the recent library update.
+- Fixed script function hotkeys being sent as hidden server commands instead of running locally.
+- Fixed anonymous thoughts from blocked or ignored players still appearing.
+- Fixed several music playback race conditions.
+- Newer locally installed Clan Lord data no longer triggers the untested-version warning.
+
+Performance:
+- Reduced rendering allocations and repeated work for smoother play, especially in busy scenes.
+- Made object-pinning lookups about 9.8x faster in dense scenes.
+- Made image dithering cleanup about 12% faster while using about 85% less temporary memory.
+- Reduced unnecessary image decoding, hover checks, and repeated chat-trigger text processing.
+
+For source builds, goThoom now uses Go 1.26.6, Ebitengine 2.9.10, and refreshed dependencies. Automated dependency checks and additional regression tests and benchmarks were also added.

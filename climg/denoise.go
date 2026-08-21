@@ -1,3 +1,5 @@
+//go:build !nodenoise
+
 package climg
 
 import (
@@ -23,6 +25,12 @@ func denoiseImage(img *image.RGBA, sharpness, maxPercent float64) {
 		workers = maxWorkers
 	}
 	denoiseImageWithWorkers(img, sharpness, maxPercent, workers)
+}
+
+// DenoiseRGBA applies the same palette-dithering blend used by decoded game
+// artwork. It is exported for deterministic preview and diagnostic tools.
+func DenoiseRGBA(img *image.RGBA, sharpness, maxPercent float64) {
+	denoiseImage(img, sharpness, maxPercent)
 }
 
 const (

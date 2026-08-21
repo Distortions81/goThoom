@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/binary"
 	"os"
+	"sort"
+	"sync"
 	"time"
 )
 
@@ -24,6 +26,7 @@ type frameHead struct {
 }
 
 type movieRecorder struct {
+	mu   sync.Mutex
 	f    *os.File
 	head fileHead
 	// preData holds optional pre-frame blocks (e.g., GameState) that
@@ -75,6 +78,12 @@ func (m *movieRecorder) writeHeader() error {
 }
 
 func (m *movieRecorder) AddBlock(data []byte, flag uint16) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.addBlockLocked(data, flag)
+}
+
+func (m *movieRecorder) addBlockLocked(data []byte, flag uint16) {
 	if len(data) == 0 {
 		return
 	}
@@ -95,6 +104,12 @@ func gameStateBlock(leftPictID, rightPictID, mode, maxSize, curSize, expectedSiz
 }
 
 func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.writeFrameLocked(data, flags)
+}
+
+func (m *movieRecorder) writeFrameLocked(data []byte, flags uint16) error {
 	if m.f == nil {
 		return os.ErrClosed
 	}
@@ -128,7 +143,118 @@ func (m *movieRecorder) WriteFrame(data []byte, flags uint16) error {
 	return err
 }
 
+// WriteNetworkMessage stores state-table messages as pre-frame blocks and all
+// other messages as ordinary movie frames. This matches what parseMovie reads.
+func (m *movieRecorder) WriteNetworkMessage(data []byte, flags uint16) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(data) < 2 {
+		return m.writeFrameLocked(data, flags&flagStale)
+	}
+	tag := binary.BigEndian.Uint16(data[:2])
+	blockFlags := flags & (flagGameState | flagMobileData | flagPictureTable)
+	if tag != 2 && blockFlags != 0 {
+		payload := append([]byte(nil), data[2:]...)
+		switch {
+		case blockFlags&flagGameState != 0:
+			l := len(payload)
+			m.addBlockLocked(gameStateBlock(0, 0, 0, l, l, l, payload), flagGameState)
+		case blockFlags&flagMobileData != 0:
+			m.addBlockLocked(payload, flagMobileData)
+		case blockFlags&flagPictureTable != 0:
+			m.addBlockLocked(payload, flagPictureTable)
+		}
+		return nil
+	}
+	return m.writeFrameLocked(data, flags&flagStale)
+}
+
+func encodePictureTableSnapshot(pictures []framePicture) []byte {
+	if len(pictures) > 0xffff {
+		pictures = pictures[:0xffff]
+	}
+	buf := make([]byte, 2+6*len(pictures)+4)
+	binary.BigEndian.PutUint16(buf[:2], uint16(len(pictures)))
+	pos := 2
+	for _, p := range pictures {
+		binary.BigEndian.PutUint16(buf[pos:pos+2], p.PictID)
+		binary.BigEndian.PutUint16(buf[pos+2:pos+4], uint16(p.H))
+		binary.BigEndian.PutUint16(buf[pos+4:pos+6], uint16(p.V))
+		pos += 6
+	}
+	return buf
+}
+
+func encodeMobileTableSnapshot(s drawState, version uint16) []byte {
+	l, ok := layoutForMobileTable(version)
+	if !ok {
+		return nil
+	}
+	indexes := make([]int, 0, len(s.descriptors)+len(s.mobiles))
+	seen := make(map[uint8]struct{}, len(s.descriptors)+len(s.mobiles))
+	for idx := range s.descriptors {
+		seen[idx] = struct{}{}
+		indexes = append(indexes, int(idx))
+	}
+	for idx := range s.mobiles {
+		if _, exists := seen[idx]; exists {
+			continue
+		}
+		indexes = append(indexes, int(idx))
+	}
+	sort.Ints(indexes)
+
+	buf := make([]byte, 0, len(indexes)*(4+16+l.descSize)+4)
+	for _, rawIdx := range indexes {
+		idx := uint8(rawIdx)
+		mob, hasMobile := s.mobiles[idx]
+		tableIdx := int32(rawIdx)
+		if !hasMobile {
+			tableIdx += 266
+		}
+		entry := make([]byte, 4)
+		binary.BigEndian.PutUint32(entry, uint32(tableIdx))
+		buf = append(buf, entry...)
+		if hasMobile {
+			mobile := make([]byte, 16)
+			binary.BigEndian.PutUint32(mobile[0:4], uint32(mob.State))
+			binary.BigEndian.PutUint32(mobile[4:8], uint32(int32(mob.H)))
+			binary.BigEndian.PutUint32(mobile[8:12], uint32(int32(mob.V)))
+			binary.BigEndian.PutUint32(mobile[12:16], uint32(mob.Colors))
+			buf = append(buf, mobile...)
+		}
+
+		d := s.descriptors[idx]
+		desc := make([]byte, l.descSize)
+		binary.BigEndian.PutUint32(desc[0:4], uint32(d.PictID))
+		binary.BigEndian.PutUint32(desc[16:20], uint32(d.Type))
+		colors := d.Colors
+		if len(colors) > 30 {
+			colors = colors[:30]
+		}
+		binary.BigEndian.PutUint32(desc[l.numColorsOffset:l.numColorsOffset+4], uint32(len(colors)))
+		copy(desc[l.colorsOffset:], colors)
+		name := encodeMacRoman(d.Name)
+		if len(name) > 47 {
+			name = name[:47]
+		}
+		copy(desc[l.nameOffset:l.nameOffset+48], name)
+		buf = append(buf, desc...)
+	}
+	buf = append(buf, 0xff, 0xff, 0xff, 0xff)
+	return buf
+}
+
+func (m *movieRecorder) AddStateSnapshot(s drawState, version uint16) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.addBlockLocked(encodeMobileTableSnapshot(s, version), flagMobileData)
+	m.addBlockLocked(encodePictureTableSnapshot(s.pictures), flagPictureTable)
+}
+
 func (m *movieRecorder) WriteBlock(data []byte, flag uint16) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if len(data) == 0 {
 		return nil
 	}
@@ -155,8 +281,19 @@ func (m *movieRecorder) WriteBlock(data []byte, flag uint16) error {
 }
 
 func (m *movieRecorder) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.f == nil {
 		return nil
+	}
+	// Preserve a start-state snapshot even when recording is stopped before
+	// another network frame arrives.
+	if len(m.preData) > 0 {
+		if err := m.writeFrameLocked(nil, 0); err != nil {
+			m.f.Close()
+			m.f = nil
+			return err
+		}
 	}
 	if err := m.writeHeader(); err != nil {
 		m.f.Close()

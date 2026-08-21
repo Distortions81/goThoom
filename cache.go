@@ -42,7 +42,7 @@ var precacheProgress func(done, total int)
 func precacheAssets() {
 
 	for {
-		if (gs.precacheImages && clImages == nil) || (gs.precacheSounds && clSounds == nil) {
+		if (gs.PrecacheImages && clImages == nil) || (gs.PrecacheSounds && clSounds == nil) {
 			time.Sleep(time.Millisecond * 100)
 		} else {
 			break
@@ -51,11 +51,11 @@ func precacheAssets() {
 
 	var preloadMsg string
 	switch {
-	case gs.precacheImages && gs.precacheSounds:
+	case gs.PrecacheImages && gs.PrecacheSounds:
 		preloadMsg = "Precaching game sounds and images..."
-	case gs.precacheImages:
+	case gs.PrecacheImages:
 		preloadMsg = "Precaching game images..."
-	case gs.precacheSounds:
+	case gs.PrecacheSounds:
 		preloadMsg = "Precaching game sounds..."
 	}
 	if preloadMsg != "" {
@@ -63,10 +63,10 @@ func precacheAssets() {
 	}
 
 	var total int
-	if gs.precacheImages && clImages != nil {
+	if gs.PrecacheImages && clImages != nil {
 		total += len(clImages.IDs())
 	}
-	if gs.precacheSounds && clSounds != nil {
+	if gs.PrecacheSounds && clSounds != nil {
 		total += len(clSounds.IDs())
 	}
 	if precacheProgress != nil {
@@ -75,7 +75,7 @@ func precacheAssets() {
 
 	var done int32
 	wg := sizedwaitgroup.New(runtime.NumCPU())
-	if gs.precacheImages && clImages != nil {
+	if gs.PrecacheImages && clImages != nil {
 		for _, id := range clImages.IDs() {
 			wg.Add()
 			go func(id uint32) {
@@ -89,7 +89,7 @@ func precacheAssets() {
 		}
 	}
 
-	if gs.precacheSounds && clSounds != nil {
+	if gs.PrecacheSounds && clSounds != nil {
 		for _, id := range clSounds.IDs() {
 			wg.Add()
 			go func(id uint32) {
@@ -110,11 +110,11 @@ func precacheAssets() {
 
 	var doneMsg string
 	switch {
-	case gs.precacheImages && gs.precacheSounds:
+	case gs.PrecacheImages && gs.PrecacheSounds:
 		doneMsg = "All images and sounds have been loaded."
-	case gs.precacheImages:
+	case gs.PrecacheImages:
 		doneMsg = "All images have been loaded."
-	case gs.precacheSounds:
+	case gs.PrecacheSounds:
 		doneMsg = "All sounds have been loaded."
 	}
 	if doneMsg != "" {

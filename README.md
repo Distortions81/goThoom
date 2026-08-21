@@ -67,6 +67,7 @@ Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, An
 
 ## Quick start
 - On first run, the client **auto-fetches missing game assets** (images, sounds) into `data/`. No manual wrangling.
+- A short setup wizard opens on first run and once for each new goThoom release. Every control starts from the user's current setting, and changes are shown immediately in the live offline preview.
 
 ### Optional extras
 - **Background and splash images** – place `background.png` and/or `splash.png` in `data/` to override the default visuals.
@@ -96,6 +97,7 @@ Enable **Potato GPU (low VRAM)** in Settings → Graphics if your system or driv
 - Players: Single-click selects a player. Right-click a name for Thank, Curse, Anon Thank…, Anon Curse…, Share, Unshare, Info, Pull, or Push. Tags in the list: `>` sharing, `<` sharee, `*` same clan.
 - Mixer: Adjust Main/Game/Music/TTS volumes and enable/disable channels.
 - Quality: Pick a preset, or tweak motion smoothing, denoising, blending.
+- Setup Wizard: Reopen the release tour at any time from Settings. Completing or skipping it records the current goThoom release in `settings.json`, so it returns only after the next upgrade.
 
 Tip: The input bar auto-expands as you type and has a context menu for quick paste/copy/clear.
 
@@ -172,6 +174,10 @@ Available message types:
    ```bash
    go build
    ```
+
+### Setup wizard graphics preview
+
+While the setup wizard is open offline, a short embedded Clan Lord recording loops behind it through the normal movie player and game renderer. Changes to dithering, artwork upscaling, motion smoothing, and shader lighting are therefore demonstrated through the same paths as regular play. Speech bubbles remain suppressed so the artwork stays easy to compare.
 
 ### Build with Docker (cross compile capable)
 

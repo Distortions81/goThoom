@@ -10,7 +10,7 @@ func updateRecordButton() {
 	if recordBtn == nil {
 		return
 	}
-	if playingMovie || recordingMovie {
+	if (playingMovie && !setupWizardPreviewActive) || recordingMovie {
 		recordBtn.Text = "STOP"
 	} else {
 		recordBtn.Text = "Record"

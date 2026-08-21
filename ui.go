@@ -286,8 +286,8 @@ func initUI() {
 	if !windowsRestored {
 		restoreWindowSettings()
 	}
-
-	if !settingsLoaded {
+	if clmov == "" && pcapPath == "" && !fake && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+		openSetupWizard(false)
 	}
 }
 
@@ -369,8 +369,11 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	recordBtn.FontSize = toolFontSize
 	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
+			if setupWizardPreviewActive {
+				return
+			}
 			// STOP during playback
-			if playingMovie {
+			if playingMovie && !setupWizardPreviewActive {
 				if movieWin != nil {
 					movieWin.Close()
 				} else {
@@ -430,7 +433,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	mixBtn, mixEvents := eui.NewButton()
 	mixBtn.Text = "Mixer"
-	mixBtn.SetTooltip("Adjust volumes and enable channels")
 	mixBtn.SetTooltip("Open audio mixer")
 	mixBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	mixBtn.FontSize = toolFontSize
@@ -1348,7 +1350,7 @@ func updateHandsWindow() {
 }
 
 func confirmExitSession() {
-	if playingMovie {
+	if playingMovie && !setupWizardPreviewActive {
 		showPopup("Exit Movie", "Stop playback and return to login?", []popupButton{
 			{Text: "Cancel"},
 			{Text: "Exit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
@@ -1398,8 +1400,11 @@ func startRecording() {
 		recordPath = ""
 		return
 	}
+	stateMu.Lock()
+	snapshot := cloneDrawState(state)
+	stateMu.Unlock()
+	mr.AddStateSnapshot(snapshot, uint16(clVersion))
 	recorder = mr
-	wroteLoginBlocks = false
 	consoleMessage(fmt.Sprintf("recording to %s", filepath.Base(recordPath)))
 	updateRecordButton()
 }
@@ -1412,7 +1417,6 @@ func stopRecording() {
 		logError("record movie: %v", err)
 	}
 	recorder = nil
-	wroteLoginBlocks = false
 	if recordPath != "" {
 		saved := recordPath
 		consoleMessage(fmt.Sprintf("saved movie: %s", filepath.Base(saved)))
@@ -1923,6 +1927,9 @@ func makeDownloadsWindow() {
 			downloadStatus = nil
 			downloadProgress = nil
 			downloadWin.Close()
+			if setupWizardWin != nil && setupWizardWin.IsOpen() {
+				startSetupWizardPreview()
+			}
 			if name == "" && loginWin != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake {
 				loginWin.MarkOpen()
 			}
@@ -2346,11 +2353,11 @@ func showPrecachePopup(onDone func()) {
 	}
 	var msg string
 	switch {
-	case gs.precacheImages && gs.precacheSounds:
+	case gs.PrecacheImages && gs.PrecacheSounds:
 		msg = "Preloading images and sounds..."
-	case gs.precacheImages:
+	case gs.PrecacheImages:
 		msg = "Preloading images..."
-	case gs.precacheSounds:
+	case gs.PrecacheSounds:
 		msg = "Preloading sounds..."
 	}
 	pb, _ := eui.NewProgressBar()
@@ -2386,7 +2393,7 @@ func showPrecachePopup(onDone func()) {
 }
 
 func startLogin() {
-	if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+	if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
 		showPrecachePopup(startLogin)
 		return
 	}
@@ -2644,7 +2651,7 @@ func makeLoginWindow() {
 				mp := newMoviePlayer(frames, clMovFPS, cancel)
 				mp.makePlaybackWindow()
 				run := func() { go mp.run(ctx) }
-				if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+				if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
 					showPrecachePopup(run)
 				} else {
 					run()
@@ -3432,6 +3439,32 @@ func makeSettingsWindow() {
 	right.AddItem(advancedBtn)
 
 	label, _ = eui.NewText()
+	label.Text = "\nGetting Started:"
+	label.FontSize = 15
+	label.Size = eui.Point{X: panelWidth, Y: 50}
+	applyBoldFace(label)
+	center.AddItem(label)
+
+	setupBtn, setupEvents := eui.NewButton()
+	setupBtn.Text = "Setup Wizard"
+	setupBtn.SetTooltip("Review common controls and graphics settings")
+	setupBtn.Size = eui.Point{X: panelWidth, Y: 40}
+	setupBtn.FontSize = 15
+	setupBtn.Color = eui.ColorDarkOrange
+	setupBtn.HoverColor = eui.ColorOrange
+	setupBtn.TextColor = eui.ColorWhite
+	setupBtn.ForceTextColor = true
+	setupEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if settingsWin != nil {
+				settingsWin.Close()
+			}
+			openSetupWizard(true)
+		}
+	}
+	center.AddItem(setupBtn)
+
+	label, _ = eui.NewText()
 	label.Text = "\nText Sizes:"
 	label.FontSize = 15
 	label.Size = eui.Point{X: panelWidth, Y: 50}
@@ -4064,11 +4097,11 @@ func makeQualityWindow() {
 	precacheSoundCB = psCB
 	precacheSoundCB.Text = "Precache Sounds"
 	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
-	precacheSoundCB.Checked = gs.precacheSounds
+	precacheSoundCB.Checked = gs.PrecacheSounds
 	precacheSoundCB.SetTooltip("Load and pre-process all sounds, uses RAM but runs smoother (~300MB)")
 	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.precacheSounds = ev.Checked
+			gs.PrecacheSounds = ev.Checked
 			if ev.Checked {
 				if noCacheCB != nil {
 					noCacheCB.Checked = false
@@ -4093,11 +4126,11 @@ func makeQualityWindow() {
 	precacheImageCB = piCB
 	precacheImageCB.Text = "Precache Images"
 	precacheImageCB.Size = eui.Point{X: width, Y: 24}
-	precacheImageCB.Checked = gs.precacheImages
+	precacheImageCB.Checked = gs.PrecacheImages
 	precacheImageCB.SetTooltip("Load and pre-process all images, more RAM but runs smoother (<2GB)")
 	precacheImageEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.precacheImages = ev.Checked
+			gs.PrecacheImages = ev.Checked
 			if ev.Checked {
 				if noCacheCB != nil {
 					noCacheCB.Checked = false
@@ -4142,12 +4175,12 @@ func makeQualityWindow() {
 	vsyncCB, vsyncEvents := eui.NewCheckbox()
 	vsyncCB.Text = "VSync - Limit FPS"
 	vsyncCB.Size = eui.Point{X: width, Y: 24}
-	vsyncCB.Checked = gs.vsync
+	vsyncCB.Checked = gs.VSync
 	vsyncCB.SetTooltip("Limit framerate to monitor Hz. OFF can improve speed")
 	vsyncEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.vsync = ev.Checked
-			ebiten.SetVsyncEnabled(gs.vsync)
+			gs.VSync = ev.Checked
+			ebiten.SetVsyncEnabled(gs.VSync)
 			settingsDirty = true
 		}
 	}
@@ -5052,11 +5085,11 @@ func makeAdvancedSettingsWindow() {
 	altNetCB, altNetEvents := eui.NewCheckbox()
 	altNetCB.Text = "Alt Networking"
 	altNetCB.Size = eui.Point{X: columnWidth, Y: 24}
-	altNetCB.Checked = gs.altNetMode
+	altNetCB.Checked = gs.AltNetMode
 	altNetCB.SetTooltip("Send input after a delay following server packets")
 	altNetEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.altNetMode = ev.Checked
+			gs.AltNetMode = ev.Checked
 			settingsDirty = true
 		}
 	}
@@ -5066,11 +5099,11 @@ func makeAdvancedSettingsWindow() {
 	netDelaySlider.Label = "Net Delay (ms)"
 	netDelaySlider.MinValue = 0
 	netDelaySlider.MaxValue = 190
-	netDelaySlider.Value = float32(gs.altNetDelay)
+	netDelaySlider.Value = float32(gs.AltNetDelay)
 	netDelaySlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
 	netDelayEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			gs.altNetDelay = int(ev.Value)
+			gs.AltNetDelay = int(ev.Value)
 			settingsDirty = true
 		}
 	}

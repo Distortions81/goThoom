@@ -81,7 +81,8 @@ func normalizeGamma(v, fallback float64) float64 {
 }
 
 var gsdef settings = settings{
-	Version: SETTINGS_VERSION,
+	Version:            SETTINGS_VERSION,
+	SetupWizardVersion: 0,
 
 	LastCharacter:           "",
 	ClickToToggle:           false,
@@ -103,7 +104,7 @@ var gsdef settings = settings{
 	NameTagsOnHoverOnly:     false,
 	BarOpacity:              0.66,
 	ObscuringPictureOpacity: 0.66,
-	FadeObscuringPictures:   false,
+	FadeObscuringPictures:   true,
 	SpeechBubbles:           true,
 	BubbleNormal:            true,
 	BubbleWhisper:           true,
@@ -119,15 +120,15 @@ var gsdef settings = settings{
 	BubbleMonsters:          true,
 	BubbleNarration:         true,
 
-	MotionSmoothing:       false,
+	MotionSmoothing:       true,
 	ObjectPinning:         true,
-	BlendMobiles:          false,
-	BlendPicts:            false,
+	BlendMobiles:          true,
+	BlendPicts:            true,
 	BlendAmount:           1.0,
 	MobileBlendAmount:     0.25,
 	MobileBlendFrames:     10,
 	PictBlendFrames:       10,
-	DenoiseImages:         false,
+	DenoiseImages:         true,
 	DenoiseSharpness:      4,
 	DenoiseAmount:         0.33,
 	ShowFPS:               true,
@@ -207,19 +208,19 @@ var gsdef settings = settings{
 	ServerAddress:          defaultServerHostName + ":5010",
 
 	NightEffect:    true,
-	ShaderLighting: false,
+	ShaderLighting: true,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,
 
-	//Unexported
-	vsync:             true,
-	precacheSounds:    false,
-	precacheImages:    false,
+	// Advanced and runtime defaults.
+	VSync:             true,
+	PrecacheSounds:    false,
+	PrecacheImages:    false,
 	smoothMoving:      false,
 	recordAssetStats:  false,
-	altNetMode:        true,
-	altNetDelay:       100,
+	AltNetMode:        true,
+	AltNetDelay:       100,
 	hideMobiles:       false,
 	imgPlanesDebug:    false,
 	smoothingDebug:    false,
@@ -231,7 +232,8 @@ var gsdef settings = settings{
 }
 
 type settings struct {
-	Version int
+	Version            int
+	SetupWizardVersion int
 
 	LastCharacter         string
 	ClickToToggle         bool
@@ -287,6 +289,7 @@ type settings struct {
 	UIScale               float64
 	Fullscreen            bool
 	AlwaysOnTop           bool
+	VSync                 bool
 	MasterVolume          float64
 	GameVolume            float64
 	MusicVolume           float64
@@ -361,6 +364,8 @@ type settings struct {
 	ShaderGlowStrength  float64
 
 	PotatoGPU              bool
+	PrecacheSounds         bool
+	PrecacheImages         bool
 	Enabledscripts         map[string]any
 	BarColorByValue        bool
 	ThrottleSounds         bool
@@ -375,19 +380,16 @@ type settings struct {
 	pictIDDebug       bool
 	scriptOutputDebug bool
 	scriptEventDebug  bool
-	altNetMode        bool
-	altNetDelay       int
+	AltNetMode        bool
+	AltNetDelay       int
 	ServerAddress     string
 	hideMoving        bool
 	hideMobiles       bool
-	vsync             bool
 	NightEffect       bool
 	ShaderLighting    bool
 
 	// Window behavior
 	ShowClanLordSplashImage bool
-	precacheSounds          bool
-	precacheImages          bool
 	smoothMoving            bool
 	recordAssetStats        bool
 }
@@ -498,6 +500,9 @@ func loadSettings() bool {
 	if gs.DenoiseSharpness < 0 || gs.DenoiseSharpness > 20 {
 		gs.DenoiseSharpness = gsdef.DenoiseSharpness
 	}
+	if gs.AltNetDelay < 0 || gs.AltNetDelay > 190 {
+		gs.AltNetDelay = gsdef.AltNetDelay
+	}
 
 	gs.SpriteGamma = normalizeGamma(gs.SpriteGamma, gsdef.SpriteGamma)
 	gs.MonitorGamma = normalizeGamma(gs.MonitorGamma, gsdef.MonitorGamma)
@@ -564,7 +569,7 @@ func applySettings() {
 		clImages.DenoiseAmount = gs.DenoiseAmount
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 	}
-	ebiten.SetVsyncEnabled(gs.vsync)
+	ebiten.SetVsyncEnabled(gs.VSync)
 	ebiten.SetFullscreen(gs.Fullscreen)
 	ebiten.SetWindowFloating(gs.Fullscreen || gs.AlwaysOnTop)
 	initFont()

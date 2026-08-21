@@ -191,10 +191,6 @@ var historyPos int
 var (
 	recorder            *movieRecorder
 	gPlayersListIsStale bool
-	loginGameState      []byte
-	loginMobileData     []byte
-	loginPictureTable   []byte
-	wroteLoginBlocks    bool
 )
 
 // gameWin represents the main playfield window. Its size corresponds to the
@@ -488,7 +484,7 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 		state.bubbles = dedup
 		snap.bubbles = append(snap.bubbles, state.bubbles...)
 	}
-	if gs.MotionSmoothing || gs.BlendMobiles {
+	if gs.MotionSmoothing {
 		if snap.prevMobiles == nil {
 			snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
 		} else {
@@ -500,7 +496,7 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	} else if snap.prevMobiles != nil {
 		clear(snap.prevMobiles)
 	}
-	if gs.BlendMobiles {
+	if mobileFrameBlendingEnabled() {
 		if snap.prevDescs == nil {
 			snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
 		} else {
@@ -558,6 +554,14 @@ func cloneDrawState(src drawState) drawState {
 	return dst
 }
 
+func mobileFrameBlendingEnabled() bool {
+	return gs.MotionSmoothing && gs.BlendMobiles
+}
+
+func pictureFrameBlendingEnabled() bool {
+	return gs.MotionSmoothing && gs.BlendPicts
+}
+
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
 // It returns separate fade values for mobiles and pictures based on their respective rates.
 func computeInterpolation(now, prevTime, curTime time.Time, mobileRate, pictRate float64) (alpha float64, mobileFade, pictFade float32) {
@@ -569,7 +573,7 @@ func computeInterpolation(now, prevTime, curTime time.Time, mobileRate, pictRate
 	alpha = 1.0
 	mobileFade = 1.0
 	pictFade = 1.0
-	if (gs.MotionSmoothing || gs.BlendMobiles || gs.BlendPicts) && !curTime.IsZero() && curTime.After(prevTime) {
+	if gs.MotionSmoothing && !curTime.IsZero() && curTime.After(prevTime) {
 		// Use cached frame time to avoid repeated runtime.Now calls
 		elapsed := now.Sub(prevTime)
 		interval := curTime.Sub(prevTime)
@@ -582,7 +586,7 @@ func computeInterpolation(now, prevTime, curTime time.Time, mobileRate, pictRate
 				alpha = 1
 			}
 		}
-		if gs.BlendMobiles {
+		if mobileFrameBlendingEnabled() {
 			half := float64(interval) * mobileRate
 			if half > 0 {
 				mobileFade = float32(float64(elapsed) / float64(half))
@@ -594,7 +598,7 @@ func computeInterpolation(now, prevTime, curTime time.Time, mobileRate, pictRate
 				mobileFade = 1
 			}
 		}
-		if gs.BlendPicts {
+		if pictureFrameBlendingEnabled() {
 			half := float64(interval) * pictRate
 			if half > 0 {
 				pictFade = float32(float64(elapsed) / float64(half))
@@ -1491,7 +1495,7 @@ var lastSeekPrev time.Time
 func drawRecPlayBadge(dst *ebiten.Image) {
 	// Only show when actively recording/armed or playing back.
 	showRec := recorder != nil || recordingMovie
-	showPlay := !showRec && playingMovie
+	showPlay := !showRec && playingMovie && !setupWizardPreviewActive
 	if !showRec && !showPlay {
 		return
 	}
@@ -1634,7 +1638,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	var prevColors []byte
 	var prevPict uint16
 	var prevState uint8
-	if gs.BlendMobiles {
+	if mobileFrameBlendingEnabled() {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			pd := descMap[m.Index]
 			if d, ok := prevDescs[m.Index]; ok {
@@ -1654,7 +1658,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			size = img.Bounds().Dx()
 		}
 		addLightSource(uint32(d.PictID), float64(x), float64(y), size)
-		blend := gs.BlendMobiles && prevImg != nil && fade > 0 && fade < 1
+		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
 		if blend {
@@ -1673,7 +1677,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			} else {
 				src = img
 			}
-		} else if gs.BlendMobiles && prevImg != nil {
+		} else if mobileFrameBlendingEnabled() && prevImg != nil {
 			if fade <= 0 {
 				src = prevImg
 				drawSize = prevImg.Bounds().Dx()
@@ -1933,7 +1937,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 	var prevImg *ebiten.Image
-	if gs.BlendPicts && clImages != nil {
+	if pictureFrameBlendingEnabled() && clImages != nil {
 		if prevFrame != frame {
 			prevImg = loadImageFrame(p.PictID, prevFrame)
 			prevImg = getScaledPictureFrame(p.PictID, prevFrame, prevImg)
@@ -1942,7 +1946,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	if img != nil {
 		drawW, drawH := w, h
-		blend := gs.BlendPicts && prevImg != nil && fade > 0 && fade < 1
+		blend := pictureFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		if blend {
 			steps := gs.PictBlendFrames
@@ -1959,7 +1963,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 				src = img
 				blend = false
 			}
-		} else if gs.BlendPicts && prevImg != nil {
+		} else if pictureFrameBlendingEnabled() && prevImg != nil {
 			if fade <= 0 {
 				src = prevImg
 			} else {
@@ -2622,7 +2626,7 @@ func runGame(ctx context.Context) {
 
 func initGame() {
 	ebiten.SetWindowTitle("goThoom Client")
-	ebiten.SetVsyncEnabled(gs.vsync)
+	ebiten.SetVsyncEnabled(gs.VSync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
@@ -2822,8 +2826,8 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 		case <-frameCh:
 		}
 		frameCount++
-		if gs.altNetMode {
-			delay, rs := altNetDelay(frameCount, rampStart, time.Now(), time.Duration(gs.altNetDelay)*time.Millisecond)
+		if gs.AltNetMode {
+			delay, rs := altNetDelay(frameCount, rampStart, time.Now(), time.Duration(gs.AltNetDelay)*time.Millisecond)
 			rampStart = rs
 			if delay > 0 {
 				time.Sleep(delay)
@@ -2892,73 +2896,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			handleDisconnect()
 			return
 		}
-		tag := binary.BigEndian.Uint16(m[:2])
-		flags := frameFlags(m)
-		// Arm-to-record behavior: collect pre-login blocks and start on first draw.
-		if recorder == nil && recordingMovie {
-			if tag == 2 {
-				startRecording()
-				recordingMovie = false
-			} else {
-				if flags&flagGameState != 0 {
-					payload := append([]byte(nil), m[2:]...)
-					parseGameState(payload, uint16(clVersion), uint16(movieRevision))
-					loginGameState = payload
-				}
-				if flags&flagMobileData != 0 {
-					payload := append([]byte(nil), m[2:]...)
-					parseMobileTable(payload, 0, uint16(clVersion), uint16(movieRevision))
-					loginMobileData = payload
-				}
-				if flags&flagPictureTable != 0 {
-					payload := append([]byte(nil), m[2:]...)
-					loginPictureTable = payload
-				}
-			}
-		}
-		if recorder != nil {
-			if !wroteLoginBlocks {
-				if tag == 2 { // first draw state
-					if len(loginGameState) > 0 {
-						l := len(loginGameState)
-						recorder.AddBlock(gameStateBlock(0, 0, 0, l, l, l, loginGameState), flagGameState)
-					}
-					if len(loginMobileData) > 0 {
-						if err := recorder.WriteBlock(loginMobileData, flagMobileData); err != nil {
-							logError("record block: %v", err)
-						}
-					}
-					if len(loginPictureTable) > 0 {
-						if err := recorder.WriteBlock(loginPictureTable, flagPictureTable); err != nil {
-							logError("record block: %v", err)
-						}
-					}
-					wroteLoginBlocks = true
-					if err := recorder.WriteFrame(m, flags); err != nil {
-						logError("record frame: %v", err)
-					}
-				} else {
-					if flags&flagGameState != 0 {
-						payload := append([]byte(nil), m[2:]...)
-						parseGameState(payload, uint16(clVersion), uint16(movieRevision))
-						loginGameState = payload
-					}
-					if flags&flagMobileData != 0 {
-						payload := append([]byte(nil), m[2:]...)
-						parseMobileTable(payload, 0, uint16(clVersion), uint16(movieRevision))
-						loginMobileData = payload
-					}
-					if flags&flagPictureTable != 0 {
-						payload := append([]byte(nil), m[2:]...)
-						loginPictureTable = payload
-					}
-				}
-			} else {
-				if err := recorder.WriteFrame(m, flags); err != nil {
-					logError("record frame: %v", err)
-				}
-			}
-		}
+		alreadyProcessed := recordIncomingMovieMessage(m)
 		latencyMu.Lock()
 		if !lastInputSent.IsZero() {
 			rtt := time.Since(lastInputSent)
@@ -2976,7 +2914,9 @@ func udpReadLoop(ctx context.Context, conn net.Conn) {
 			lastInputSent = time.Time{}
 		}
 		latencyMu.Unlock()
-		processServerMessage(m)
+		if !alreadyProcessed {
+			processServerMessage(m)
+		}
 	}
 }
 
@@ -2999,73 +2939,9 @@ loop:
 			handleDisconnect()
 			break
 		}
-		tag := binary.BigEndian.Uint16(m[:2])
-		flags := frameFlags(m)
-		if recorder == nil && recordingMovie {
-			if tag == 2 {
-				startRecording()
-				recordingMovie = false
-			} else {
-				if flags&flagGameState != 0 {
-					payload := append([]byte(nil), m[2:]...)
-					parseGameState(payload, uint16(clVersion), uint16(movieRevision))
-					loginGameState = payload
-				}
-				if flags&flagMobileData != 0 {
-					payload := append([]byte(nil), m[2:]...)
-					parseMobileTable(payload, 0, uint16(clVersion), uint16(movieRevision))
-					loginMobileData = payload
-				}
-				if flags&flagPictureTable != 0 {
-					payload := append([]byte(nil), m[2:]...)
-					loginPictureTable = payload
-				}
-			}
+		if !recordIncomingMovieMessage(m) {
+			processServerMessage(m)
 		}
-		if recorder != nil {
-			if !wroteLoginBlocks {
-				if tag == 2 { // first draw state
-					if len(loginGameState) > 0 {
-						l := len(loginGameState)
-						recorder.AddBlock(gameStateBlock(0, 0, 0, l, l, l, loginGameState), flagGameState)
-					}
-					if len(loginMobileData) > 0 {
-						if err := recorder.WriteBlock(loginMobileData, flagMobileData); err != nil {
-							logError("record block: %v", err)
-						}
-					}
-					if len(loginPictureTable) > 0 {
-						if err := recorder.WriteBlock(loginPictureTable, flagPictureTable); err != nil {
-							logError("record block: %v", err)
-						}
-					}
-					wroteLoginBlocks = true
-					if err := recorder.WriteFrame(m, flags); err != nil {
-						logError("record frame: %v", err)
-					}
-				} else {
-					if flags&flagGameState != 0 {
-						payload := append([]byte(nil), m[2:]...)
-						parseGameState(payload, uint16(clVersion), uint16(movieRevision))
-						loginGameState = payload
-					}
-					if flags&flagMobileData != 0 {
-						payload := append([]byte(nil), m[2:]...)
-						parseMobileTable(payload, 0, uint16(clVersion), uint16(movieRevision))
-						loginMobileData = payload
-					}
-					if flags&flagPictureTable != 0 {
-						payload := append([]byte(nil), m[2:]...)
-						loginPictureTable = payload
-					}
-				}
-			} else {
-				if err := recorder.WriteFrame(m, flags); err != nil {
-					logError("record frame: %v", err)
-				}
-			}
-		}
-		processServerMessage(m)
 		// Allow maintenance queues to issue commands even when the
 		// player isn't moving; this keeps /be-info and /be-who flowing
 		// during idle periods on live connections.
@@ -3108,6 +2984,32 @@ func frameFlags(m []byte) uint16 {
 		}
 	}
 	return flags
+}
+
+// recordIncomingMovieMessage is shared by TCP and UDP so both transports use
+// the same existing clMov state-block encoding.
+func recordIncomingMovieMessage(m []byte) bool {
+	if len(m) < 2 {
+		return false
+	}
+	tag := binary.BigEndian.Uint16(m[:2])
+	if recorder == nil && recordingMovie && tag == 2 {
+		// Apply the first complete draw before taking the initial snapshot.
+		// This avoids an empty baseline when recording was armed pre-login.
+		processServerMessage(m)
+		startRecording()
+		if recorder != nil {
+			recordingMovie = false
+		}
+		return true
+	}
+	if recorder == nil {
+		return false
+	}
+	if err := recorder.WriteNetworkMessage(m, frameFlags(m)); err != nil {
+		logError("record frame: %v", err)
+	}
+	return false
 }
 
 func looksLikeGameState(m []byte) bool {

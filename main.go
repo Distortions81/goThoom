@@ -217,7 +217,7 @@ func main() {
 		log.Printf("measure: CL_Sounds archive loaded in %.2fms frame=%d", dtms, frameCounter)
 	}
 
-	if gs.precacheSounds || gs.precacheImages {
+	if gs.PrecacheSounds || gs.PrecacheImages {
 		go precacheAssets()
 	}
 
@@ -261,7 +261,7 @@ func main() {
 			}
 			mp.makePlaybackWindow()
 
-			if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+			if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
 				for !assetsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}
@@ -274,7 +274,7 @@ func main() {
 
 		if pcapPath != "" {
 			drawStateEncrypted = false
-			if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+			if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
 				for !assetsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}
@@ -292,7 +292,7 @@ func main() {
 
 		if fake {
 			drawStateEncrypted = false
-			if (gs.precacheSounds || gs.precacheImages) && !assetsPrecached {
+			if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
 				for !assetsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}

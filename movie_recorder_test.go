@@ -167,6 +167,148 @@ func TestAddBlockWriteFrame(t *testing.T) {
 	}
 }
 
+func TestStateSnapshotRoundTrip(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "snapshot.clMov")
+	mr, err := newMovieRecorder(tmp, 1497, 0)
+	if err != nil {
+		t.Fatalf("newMovieRecorder: %v", err)
+	}
+	snapshot := drawState{
+		descriptors: map[uint8]frameDescriptor{
+			3: {Index: 3, Type: kDescPlayer, PictID: 447, Name: "Distortions", Colors: []byte{1, 2, 3, 4}},
+			9: {Index: 9, Type: kDescNPC, PictID: 822, Name: "Trainer"},
+		},
+		mobiles: map[uint8]frameMobile{
+			3: {Index: 3, State: 7, H: -123, V: 456, Colors: 5},
+		},
+		pictures: []framePicture{
+			{PictID: 100, H: -20, V: 30},
+			{PictID: 200, H: 40, V: -50},
+		},
+	}
+	mr.AddStateSnapshot(snapshot, 1497)
+	frame := []byte{0, 2, 0, 0}
+	if err := mr.WriteFrame(frame, 0); err != nil {
+		t.Fatalf("WriteFrame: %v", err)
+	}
+	if err := mr.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	frames, err := parseMovie(tmp, 1497)
+	if err != nil {
+		t.Fatalf("parseMovie: %v", err)
+	}
+	if len(frames) != 1 {
+		t.Fatalf("frames = %d, want 1", len(frames))
+	}
+	if got := frames[0].flags; got != flagMobileData|flagPictureTable {
+		t.Fatalf("snapshot flags = %#x", got)
+	}
+	if !bytes.Equal(frames[0].data, frame) {
+		t.Fatalf("frame payload changed: %v", frames[0].data)
+	}
+
+	stateMu.Lock()
+	got := cloneDrawState(state)
+	stateMu.Unlock()
+	if len(got.pictures) != 2 || got.pictures[0].PictID != 100 || got.pictures[1].PictID != 200 {
+		t.Fatalf("pictures not restored: %+v", got.pictures)
+	}
+	if got.pictures[0].H != -20 || got.pictures[1].V != -50 {
+		t.Fatalf("picture positions not restored: %+v", got.pictures)
+	}
+	mob, ok := got.mobiles[3]
+	if !ok || mob.State != 7 || mob.H != -123 || mob.V != 456 || mob.Colors != 5 {
+		t.Fatalf("mobile not restored: %+v, present=%t", mob, ok)
+	}
+	desc := got.descriptors[3]
+	if desc.Name != "Distortions" || desc.PictID != 447 || !bytes.Equal(desc.Colors, []byte{1, 2, 3, 4}) {
+		t.Fatalf("descriptor not restored: %+v", desc)
+	}
+	if npc := got.descriptors[9]; npc.Name != "Trainer" || npc.PictID != 822 {
+		t.Fatalf("descriptor-only entry not restored: %+v", npc)
+	}
+}
+
+func TestWriteNetworkMessageQueuesExistingStateBlock(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "network-state.clMov")
+	mr, err := newMovieRecorder(tmp, 1497, 0)
+	if err != nil {
+		t.Fatalf("newMovieRecorder: %v", err)
+	}
+	snapshot := drawState{
+		descriptors: map[uint8]frameDescriptor{
+			1: {Index: 1, Type: kDescPlayer, PictID: 447, Name: "Changed Clothes", Colors: []byte{9, 8, 7}},
+		},
+		mobiles: map[uint8]frameMobile{
+			1: {Index: 1, H: 10, V: 20, Colors: 2},
+		},
+	}
+	mobileBlock := encodeMobileTableSnapshot(snapshot, 1497)
+	stateMessage := append([]byte{0, 3}, mobileBlock...)
+	if err := mr.WriteNetworkMessage(stateMessage, flagMobileData); err != nil {
+		t.Fatalf("WriteNetworkMessage state: %v", err)
+	}
+	drawFrame := []byte{0, 2, 0, 0}
+	if err := mr.WriteNetworkMessage(drawFrame, 0); err != nil {
+		t.Fatalf("WriteNetworkMessage draw: %v", err)
+	}
+	if err := mr.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	frames, err := parseMovie(tmp, 1497)
+	if err != nil {
+		t.Fatalf("parseMovie: %v", err)
+	}
+	if len(frames) != 1 || !bytes.Equal(frames[0].data, drawFrame) {
+		t.Fatalf("state message became a movie frame: %+v", frames)
+	}
+	if frames[0].flags&flagMobileData == 0 {
+		t.Fatalf("mobile state flag missing: %#x", frames[0].flags)
+	}
+	stateMu.Lock()
+	desc := state.descriptors[1]
+	stateMu.Unlock()
+	if desc.Name != "Changed Clothes" || !bytes.Equal(desc.Colors, []byte{9, 8, 7}) {
+		t.Fatalf("mobile update not restored: %+v", desc)
+	}
+}
+
+func TestCloseFlushesSnapshotWithoutAnotherFrame(t *testing.T) {
+	tmp := filepath.Join(t.TempDir(), "snapshot-only.clMov")
+	mr, err := newMovieRecorder(tmp, 1497, 0)
+	if err != nil {
+		t.Fatalf("newMovieRecorder: %v", err)
+	}
+	mr.AddStateSnapshot(drawState{
+		descriptors: map[uint8]frameDescriptor{
+			2: {Index: 2, Type: kDescPlayer, PictID: 447, Name: "Already Playing"},
+		},
+		mobiles: map[uint8]frameMobile{
+			2: {Index: 2, H: 25, V: 50},
+		},
+	}, 1497)
+	if err := mr.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	frames, err := parseMovie(tmp, 1497)
+	if err != nil {
+		t.Fatalf("parseMovie: %v", err)
+	}
+	if len(frames) != 1 || len(frames[0].data) != 0 {
+		t.Fatalf("snapshot-only frames: %+v", frames)
+	}
+	stateMu.Lock()
+	desc := state.descriptors[2]
+	mob := state.mobiles[2]
+	stateMu.Unlock()
+	if desc.Name != "Already Playing" || mob.H != 25 || mob.V != 50 {
+		t.Fatalf("snapshot not restored: desc=%+v mob=%+v", desc, mob)
+	}
+}
+
 func TestParseMovieZip(t *testing.T) {
 	dir := t.TempDir()
 	moviePath := filepath.Join(dir, "test.clMov")
