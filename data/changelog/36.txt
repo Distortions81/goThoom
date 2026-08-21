@@ -2,7 +2,7 @@ goThoom 36 adds support for Clan Lord v1497.
 
 New and improved:
 - Added a friendly setup wizard for controls, status bars, bubbles, name tags, graphics, and performance. Its controls reflect your existing settings and changes appear immediately in the live offline preview.
-- Added a live graphics preview to the setup wizard. A short Clan Lord recording loops through the real game renderer so you can see dithering, artwork upscaling, motion smoothing, and shader lighting as you change them.
+- Added a live graphics preview to the setup wizard. A short Clan Lord recording loops through the real game renderer so you can see dithering, artwork upscaling, motion smoothing, and shader lighting as you change them if you aren't clanning.
 - Movie recording now starts correctly whether it is armed before connecting or started while already playing. New recordings remain compatible with the existing movie format.
 - Alternate networking mode and timing choices are now remembered between sessions.
 - Added support for both "Mouse4" and "Mouse 4" hotkey spellings, with clearer scripting help for function hotkeys.
