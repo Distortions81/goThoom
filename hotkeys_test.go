@@ -58,6 +58,12 @@ func TestOpenHotkeyEditorReopenAfterClose(t *testing.T) {
 	hotkeyEditWin.Close()
 }
 
+func TestSameComboAcceptsCompactMouseButtons(t *testing.T) {
+	if !sameCombo("Mouse4", "Mouse 4") {
+		t.Fatal("Mouse4 should match Mouse 4")
+	}
+}
+
 // Test that entering a command in the hotkey editor saves correctly.
 func TestHotkeyCommandInput(t *testing.T) {
 	hotkeys = nil

@@ -1079,6 +1079,13 @@ func sameCombo(a, b string) bool {
 			return map[string]bool{}, ""
 		}
 		trig = strings.ToLower(parts[len(parts)-1])
+		// Mouse buttons above Middle are emitted as "Mouse 4", but scripts
+		// have also historically used the compact "Mouse4" spelling.
+		if strings.HasPrefix(trig, "mouse") {
+			if n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(trig, "mouse"))); err == nil {
+				trig = fmt.Sprintf("mouse%d", n)
+			}
+		}
 		mods = map[string]bool{}
 		for _, p := range parts[:len(parts)-1] {
 			switch strings.ToLower(strings.TrimSpace(p)) {

@@ -334,15 +334,10 @@ func exportsForscript(owner string) interp.Exports {
 			}()
 		})
 
-		// Key binding to a function: creates a hidden command and binds a hotkey to it
+		// Key binding to a function. Keep this simple form alongside
+		// AddHotkeyFn for scripts that do not need the event details.
 		m["Key"] = reflect.ValueOf(func(combo string, handler func()) {
-			c := strings.TrimSpace(combo)
-			if c == "" || handler == nil {
-				return
-			}
-			cmd := "__hk_" + strings.ReplaceAll(strings.ToLower(c), " ", "_")
-			scriptRegisterCommand(owner, cmd, func(args string) { handler() })
-			scriptAddHotkey(owner, c, "/"+cmd)
+			scriptAddKey(owner, combo, handler)
 		})
 		ex[pkg] = m
 	}
@@ -538,6 +533,16 @@ func scriptIsDisabled(owner string) bool {
 	disabled := scriptDisabled[owner]
 	scriptMu.RUnlock()
 	return disabled
+}
+
+// scriptAddKey registers a simple function hotkey without routing it through
+// the server-command queue.
+func scriptAddKey(owner, combo string, handler func()) {
+	c := strings.TrimSpace(combo)
+	if c == "" || handler == nil {
+		return
+	}
+	scriptAddHotkeyFn(owner, c, func(HotkeyEvent) { handler() })
 }
 
 func scriptAddHotkey(owner, combo, command string) {

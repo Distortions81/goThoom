@@ -32,6 +32,48 @@ func getQueuedCommands() []string {
 	return cmds
 }
 
+func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
+	origHotkeys := hotkeys
+	origFns := scriptHotkeyFns
+	origCommands := scriptCommands
+	origOwners := scriptCommandOwners
+	origDisabled := scriptDisabled
+	origEnabled := scriptHotkeyEnabled
+	origDataDir := dataDirPath
+	defer func() {
+		hotkeys = origHotkeys
+		scriptHotkeyFns = origFns
+		scriptCommands = origCommands
+		scriptCommandOwners = origOwners
+		scriptDisabled = origDisabled
+		scriptHotkeyEnabled = origEnabled
+		dataDirPath = origDataDir
+	}()
+
+	hotkeys = nil
+	scriptHotkeyFns = map[string]map[string]func(HotkeyEvent){}
+	scriptCommands = map[string]scriptCommandHandler{}
+	scriptCommandOwners = map[string]string{}
+	scriptDisabled = map[string]bool{}
+	scriptHotkeyEnabled = map[string]map[string]bool{}
+	dataDirPath = t.TempDir()
+
+	ran := false
+	scriptAddKey("test", "F4", func() { ran = true })
+
+	if _, ok := scriptCommands["__hk_f4"]; ok {
+		t.Fatal("Key registered a server-command handler")
+	}
+	fn, ok := scriptGetHotkeyFn("test", "F4")
+	if !ok || fn == nil {
+		t.Fatal("Key did not register a function hotkey")
+	}
+	fn(HotkeyEvent{Combo: "F4", Parts: []string{"F4"}, Trigger: "F4"})
+	if !ran {
+		t.Fatal("Key hotkey did not invoke its handler")
+	}
+}
+
 // Test registering and running a mixed-case command and ensuring disabled scripts
 // cannot run commands.
 func TestScriptRegisterAndDisableCommand(t *testing.T) {

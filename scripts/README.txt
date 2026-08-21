@@ -24,7 +24,9 @@ Common API calls:
 - gt.Run("/thing") – send a command immediately (alias of RunCommand).
 - gt.Cmd("/thing") – enqueue a command for the next tick (alias of EnqueueCommand).
 - gt.AddHotkey(combo, "/thing") – bind a combo to a slash command.
-- gt.Key(combo, func()) – bind a combo directly to a function.
+- gt.Key(combo, func()) – bind a combo directly to a no-argument function.
+- gt.AddHotkeyFn(combo, func(HotkeyEvent)) – bind a combo directly to a
+  function that receives the combo, its parts, and its trigger key.
 - gt.AddShortcut("yy", "/yell ") – expand a short prefix in the input.
 - gt.AddShortcuts(map[string]string) – register many shortcuts at once.
 - gt.RegisterInputHandler(handler) – inspect/change chat text before sending.
@@ -66,7 +68,8 @@ A minimal script typically looks like this:
     func helloHotkey() {
         gt.Run("/think Hello!")
     }
-    // Or use AddHotkeyFn when you need the full HotkeyEvent
+    // Or use AddHotkeyFn when you need the full HotkeyEvent:
+    // gt.AddHotkeyFn("Ctrl-H", func(e gt.HotkeyEvent) { helloHotkey() })
 
 Where to put files:
 - Place .go files in the scripts/ directory next to the game.
@@ -77,8 +80,8 @@ Combine modifiers with - like Ctrl-Shift-A. Names are case-insensitive.
 
 Modifiers: Ctrl, Alt, Shift
 
-Mouse buttons for hotkeys: LeftClick, RightClick, MiddleClick, Mouse 3,
-Mouse 4, …
+Mouse buttons for hotkeys: LeftClick, RightClick, MiddleClick, Mouse3,
+Mouse4, … (`Mouse 3` and `Mouse 4` are also accepted.)
 
 Mouse buttons for MousePressed and MouseJustPressed: right, middle,
 mouse1, mouse2, mouse3, …
