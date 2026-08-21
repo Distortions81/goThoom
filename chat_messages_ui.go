@@ -3,8 +3,10 @@
 package main
 
 import (
-	"gothoom/eui"
+	"context"
 	"time"
+
+	"gothoom/eui"
 
 	clipboard "golang.design/x/clipboard"
 )
@@ -78,7 +80,7 @@ func handleChatCopyRightClick(mx, my int) bool {
 			chatWin.Refresh()
 			scheduleChatUnhighlight(row)
 			if row.Text != "" {
-				clipboard.Write(clipboard.FmtText, []byte(row.Text))
+				_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(row.Text))
 				if gs.NotifyCopyText {
 					showNotification("text copied")
 				}

@@ -1,6 +1,7 @@
 package eui
 
 import (
+	"context"
 	"math"
 	"strings"
 	"time"
@@ -389,7 +390,7 @@ func Update() error {
 		}
 
 		if ctrlPressed && inpututil.IsKeyJustPressed(ebiten.KeyV) {
-			if txt := clipboard.Read(clipboard.FmtText); len(txt) > 0 {
+			if txt, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(txt) > 0 {
 				runes := []rune(string(txt))
 				pos := focusedItem.CursorPos
 				if focusedItem.HideText {
@@ -423,7 +424,7 @@ func Update() error {
 			if focusedItem.HideText {
 				text = focusedItem.SecretText
 			}
-			clipboard.Write(clipboard.FmtText, []byte(text))
+			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(text))
 		}
 
 		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {

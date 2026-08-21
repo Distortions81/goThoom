@@ -3,8 +3,10 @@
 package main
 
 import (
-	"gothoom/eui"
+	"context"
 	"time"
+
+	"gothoom/eui"
 
 	clipboard "golang.design/x/clipboard"
 )
@@ -71,7 +73,7 @@ func handleConsoleInputContext(mx, my int) bool {
 	}
 	// Prepare clipboard preview for Paste action.
 	var clip string
-	if b := clipboard.Read(clipboard.FmtText); len(b) > 0 {
+	if b, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(b) > 0 {
 		clip = string(b)
 	}
 	preview := func(s string) string {
@@ -107,7 +109,7 @@ func handleConsoleInputContext(mx, my int) bool {
 	actions = append(actions, func() {
 		cur := string(inputText)
 		if cur != "" {
-			clipboard.Write(clipboard.FmtText, []byte(cur))
+			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(cur))
 			if gs.NotifyCopyText {
 				showNotification("text copied")
 			}
@@ -164,7 +166,7 @@ func handleConsoleCopyRightClick(mx, my int) bool {
 			scheduleConsoleUnhighlight(row)
 			// Copy its raw text.
 			if row.Text != "" {
-				clipboard.Write(clipboard.FmtText, []byte(row.Text))
+				_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(row.Text))
 				if gs.NotifyCopyText {
 					showNotification("text copied")
 				}

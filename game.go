@@ -757,7 +757,7 @@ func (g *Game) Update() error {
 		}
 		ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
 		if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyV) {
-			if txt := clipboard.Read(clipboard.FmtText); len(txt) > 0 {
+			if txt, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(txt) > 0 {
 				runes := []rune(string(txt))
 				inputText = append(inputText[:inputPos], append(runes, inputText[inputPos:]...)...)
 				inputPos += len(runes)
@@ -766,7 +766,7 @@ func (g *Game) Update() error {
 			}
 		}
 		if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyC) {
-			clipboard.Write(clipboard.FmtText, []byte(string(inputText)))
+			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(string(inputText)))
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
 			if inputPos > 0 {
