@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#081019">
+    <meta name="description" content="Download the latest goThoom release for Windows, macOS, or Linux.">
+
+    <title>Downloads — goThoom</title>
+    <link rel="canonical" href="https://gothoom.m45sci.xyz/downloads.html">
+    <link rel="icon" type="image/png" href="mark.png">
+    <link rel="stylesheet" href="styles.css">
+    <script src="downloads.js" defer></script>
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Download goThoom">
+    <meta property="og:description" content="Get the latest goThoom release for Windows, macOS, or Linux.">
+    <meta property="og:url" content="https://gothoom.m45sci.xyz/downloads.html">
+    <meta property="og:image" content="https://gothoom.m45sci.xyz/og.png">
+  </head>
+  <body class="downloads-page">
+    <header class="site-header">
+      <a class="brand" href="index.html" aria-label="goThoom home">
+        <img src="mark.png" width="42" height="42" alt="">
+        <span>goThoom</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#platforms">Platforms</a>
+        <a href="downloads.html" aria-current="page">Downloads</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="download-hero" aria-labelledby="download-title">
+        <div>
+          <a class="back-link" href="index.html"><span aria-hidden="true">←</span> Back to goThoom</a>
+          <p class="eyebrow"><span></span> Official release builds</p>
+          <h1 id="download-title">Choose your<br><em>way back in.</em></h1>
+          <p class="lede">Portable builds for every desktop. Download, unpack, and launch—your client will guide you through the rest.</p>
+        </div>
+        <aside class="release-stamp" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <div>
+            <small>Latest stable release</small>
+            <strong id="release-version">Checking GitHub…</strong>
+            <span id="release-date">Live release information</span>
+          </div>
+        </aside>
+      </section>
+
+      <section class="download-section" aria-labelledby="builds-title">
+        <div class="download-heading">
+          <div>
+            <p class="eyebrow"><span></span> Pick a platform</p>
+            <h2 id="builds-title">Latest builds</h2>
+          </div>
+          <p id="platform-hint">We’ll highlight the build that best matches this device.</p>
+        </div>
+
+        <div id="release-error" class="release-error" hidden>
+          <strong>GitHub is taking a little too long.</strong>
+          <span>You can still view and download every release directly from GitHub.</span>
+          <a href="https://github.com/Distortions81/goThoom/releases/latest">Open latest release <span aria-hidden="true">↗</span></a>
+        </div>
+
+        <div id="download-grid" class="download-grid" aria-live="polite" aria-busy="true">
+          <article class="download-card loading-card"><div class="skeleton icon-skeleton"></div><div class="skeleton line-wide"></div><div class="skeleton line-short"></div></article>
+          <article class="download-card loading-card"><div class="skeleton icon-skeleton"></div><div class="skeleton line-wide"></div><div class="skeleton line-short"></div></article>
+          <article class="download-card loading-card"><div class="skeleton icon-skeleton"></div><div class="skeleton line-wide"></div><div class="skeleton line-short"></div></article>
+        </div>
+
+        <div class="release-tools">
+          <div>
+            <strong>Verify your download</strong>
+            <span>Compare your file against the published SHA-256 checksums.</span>
+          </div>
+          <a id="checksums-link" class="button secondary disabled" href="https://github.com/Distortions81/goThoom/releases/latest" aria-disabled="true">SHA256SUMS.txt</a>
+          <a class="text-link" href="https://github.com/Distortions81/goThoom/releases">All releases <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
+      <section class="install-notes" aria-labelledby="install-title">
+        <div class="section-heading compact">
+          <p class="eyebrow"><span></span> After downloading</p>
+          <h2 id="install-title">A short path<br>to Puddleby.</h2>
+        </div>
+        <ol>
+          <li><span>01</span><div><strong>Unpack the archive</strong><p>Extract the downloaded ZIP somewhere you can keep it.</p></div></li>
+          <li><span>02</span><div><strong>Open goThoom</strong><p>Launch the app. On macOS, you may need to allow it in Privacy &amp; Security the first time.</p></div></li>
+          <li><span>03</span><div><strong>Enter the Lands</strong><p>Use your existing Clan Lord account and let the client download any game data it needs.</p></div></li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-brand"><img src="mark.png" width="36" height="36" alt=""><strong>goThoom</strong></div>
+      <p>Release files are served directly by GitHub. Clan Lord and its assets are property of Delta Tao Software.</p>
+      <div class="footer-links">
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+        <a href="https://github.com/Distortions81/goThoom/blob/main/LICENSE">MIT License</a>
+      </div>
+    </footer>
+  </body>
+</html>
