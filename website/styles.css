@@ -338,6 +338,7 @@ footer p { margin: 0; text-align: center; }
 .text-link { color: var(--muted); font-size: .76rem; font-weight: 700; text-decoration: none; }
 .text-link:hover { color: var(--text); }
 .release-error { display: flex; gap: 10px; flex-direction: column; align-items: flex-start; padding: 34px; border: 1px solid rgba(79,215,235,.22); border-radius: 18px; background: rgba(79,215,235,.05); }
+.release-error[hidden] { display: none; }
 .release-error span { color: var(--muted); font-size: .86rem; }
 .release-error a { margin-top: 8px; color: var(--blue); font-size: .8rem; font-weight: 750; text-decoration: none; }
 .skeleton { border-radius: 8px; background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.09), rgba(255,255,255,.04)); background-size: 240% 100%; animation: shimmer 1.5s infinite; }
