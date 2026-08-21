@@ -613,6 +613,7 @@ func (g *Game) Update() error {
 	once.Do(func() {
 		initGame()
 	})
+	processMusicRequests()
 
 	if classicSplashFilterPending && gs.ShowClanLordSplashImage {
 		prepareClassicSplash()

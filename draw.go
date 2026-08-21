@@ -1618,10 +1618,18 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				}
 				stateMu.Unlock()
 			}
+			filterName := name
+			if bubbleName == ThinkUnknownName {
+				stateMu.Lock()
+				if d, ok := state.descriptors[idx]; ok && d.Name != "" {
+					filterName = d.Name
+				}
+				stateMu.Unlock()
+			}
 			skipRender := false
-			if name != "" {
+			if filterName != "" {
 				playersMu.RLock()
-				if p, ok := players[name]; ok && (p.Blocked || p.Ignored) {
+				if p, ok := players[filterName]; ok && (p.Blocked || p.Ignored) {
 					skipRender = true
 				}
 				playersMu.RUnlock()

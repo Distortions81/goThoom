@@ -549,8 +549,9 @@ func parseBardText(raw []byte, s string) bool {
 // stripped text is empty, it falls back to decoding the raw BEPP payload.
 func parseMusicCommand(s string, raw []byte) bool {
 	orig := s
+	debugMusic := musicDebug
 	debug := func(msg string) {
-		if musicDebug {
+		if debugMusic {
 			consoleMessage(msg)
 			chatMessage(msg)
 			log.Print(msg)
@@ -711,12 +712,12 @@ func parseMusicCommand(s string, raw []byte) bool {
 		return false
 	}
 
-	if musicDebug {
+	if debugMusic {
 		msg := fmt.Sprintf("/play %d %s", inst, notes)
 		debug(msg)
 	}
 	go func() {
-		handleMusicParams(MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me})
+		handleMusicParams(MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
 	}()
 	return true
 }

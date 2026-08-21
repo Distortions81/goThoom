@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -73,16 +74,31 @@ type tuneJob struct {
 	program int
 	notes   []Note
 	who     int
+	debug   bool
 }
 
 var (
-	tuneOnce        sync.Once
-	tuneQueue       chan tuneJob
-	currentMu       sync.Mutex
-	currentWho      int
-	lastMusicStop   time.Time
-	lastMusicStopMu sync.Mutex
+	tuneOnce         sync.Once
+	tuneQueue        chan tuneJob
+	currentMu        sync.Mutex
+	currentWho       int
+	lastMusicStop    time.Time
+	lastMusicStopMu  sync.Mutex
+	disableRequested atomic.Bool
 )
+
+// requestDisableMusic hands settings and UI changes back to the game loop.
+// Tune playback runs in a worker goroutine, while disableMusic touches state
+// owned by the main thread.
+func requestDisableMusic() {
+	disableRequested.Store(true)
+}
+
+func processMusicRequests() {
+	if disableRequested.Swap(false) {
+		disableMusic()
+	}
+}
 
 func disableMusic() {
 	gs.Music = false
@@ -103,7 +119,7 @@ func startTuneWorker() {
 	go func() {
 		for job := range tuneQueue {
 			if audioContext == nil {
-				disableMusic()
+				requestDisableMusic()
 				continue
 			}
 			currentMu.Lock()
@@ -120,11 +136,11 @@ func startTuneWorker() {
 			}
 			if err := Play(audioContext, job.program, job.notes); err != nil {
 				log.Printf("play tune worker: %v", err)
-				if musicDebug {
+				if job.debug {
 					consoleMessage("play tune: " + err.Error())
 					chatMessage("play tune: " + err.Error())
 				}
-				disableMusic()
+				requestDisableMusic()
 			}
 			currentMu.Lock()
 			currentWho = 0
@@ -138,7 +154,7 @@ func startTuneWorker() {
 // For example: "3 cde" plays on instrument #3. It returns any playback error.
 func playClanLordTune(tune string) error {
 	if audioContext == nil {
-		disableMusic()
+		requestDisableMusic()
 		return fmt.Errorf("audio disabled")
 	}
 	if blockMusic {
@@ -192,6 +208,7 @@ type MusicParams struct {
 	Who    int
 	With   []int
 	Me     bool
+	debug  bool
 }
 
 // Internal state for assembling multipart songs.
@@ -350,7 +367,7 @@ func handleMusicParams(mp MusicParams) {
 		for _, w := range ids {
 			ps := pendingByID[w]
 			nstr := strings.Join(ps.notes, " ")
-			jobs = append(jobs, makeTuneJob(w, ps.inst, ps.tempo, ps.volPct, nstr))
+			jobs = append(jobs, makeTuneJob(w, ps.inst, ps.tempo, ps.volPct, nstr, mp.debug))
 			delete(pendingByID, w)
 		}
 		pendingMu.Unlock()
@@ -374,9 +391,9 @@ func handleMusicParams(mp MusicParams) {
 	if hadPending {
 		clearTuneQueue()
 	}
-	job := makeTuneJob(id, inst, tempo, vol, notes)
+	job := makeTuneJob(id, inst, tempo, vol, notes, mp.debug)
 	enqueueTune(job)
-	if musicDebug {
+	if mp.debug {
 		// Classic-only debug: compute notes via classic path and dump.
 		ns := classicNotesFromTune(notes, instruments[inst], tempo, 100)
 		var end time.Duration
@@ -392,7 +409,7 @@ func handleMusicParams(mp MusicParams) {
 	}
 }
 
-func makeTuneJob(who, inst, tempo, vol int, notes string) tuneJob {
+func makeTuneJob(who, inst, tempo, vol int, notes string, debug bool) tuneJob {
 	instData := instruments[inst]
 	prog := instData.program
 	// Scale 0..100 to 1..127 velocity.
@@ -410,7 +427,7 @@ func makeTuneJob(who, inst, tempo, vol int, notes string) tuneJob {
 		vel = 127
 	}
 	notesOut := classicNotesFromTune(notes, instData, tempo, vel)
-	return tuneJob{program: prog, notes: notesOut, who: who}
+	return tuneJob{program: prog, notes: notesOut, who: who, debug: debug}
 }
 
 func enqueueTune(job tuneJob) {

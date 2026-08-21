@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"gothoom/eui"
+)
 
 // buildDrawData constructs minimal draw state packet containing a single bubble
 // from the given player.
@@ -55,6 +59,9 @@ func TestBubbleDroppedForBlockedPlayer(t *testing.T) {
 
 func TestThinkMessageDroppedForIgnoredPlayer(t *testing.T) {
 	resetTestState()
+	origGameWin := gameWin
+	gameWin = eui.NewWindow()
+	t.Cleanup(func() { gameWin = origGameWin })
 	players["Bob"] = &Player{Name: "Bob", Ignored: true}
 	data := buildDrawData("Bob", kBubbleThought, "hmm")
 	if _, _, err := parseDrawState(data, false); err != nil {

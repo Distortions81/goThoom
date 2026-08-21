@@ -212,6 +212,9 @@ func TestScriptTriggers(t *testing.T) {
 	})
 	runChatTriggers("say hello")
 	wg.Wait()
+	triggerHandlersMu.Lock()
+	delete(scriptTriggers, "hello")
+	triggerHandlersMu.Unlock()
 	if !triggered {
 		t.Fatalf("handler did not run")
 	}
