@@ -139,3 +139,28 @@ func TestTypingInUISearch(t *testing.T) {
 	}
 	eui.SetActiveSearchForTest(nil)
 }
+
+func TestLegacyMacroInputSelection(t *testing.T) {
+	oldInputActive := inputActive
+	oldInputFlow := inputFlow
+	defer func() {
+		inputActive = oldInputActive
+		inputFlow = oldInputFlow
+	}()
+
+	inputActive = true
+	inputFlow = &eui.ItemData{}
+	item, _ := eui.NewText()
+	item.Text = "hello world"
+	item.SelectStart = 6
+	item.SelectEnd = 11
+	inputFlow.AddItem(item)
+
+	if got, want := legacyMacroInputSelection(), "world"; got != want {
+		t.Fatalf("legacyMacroInputSelection() = %q, want %q", got, want)
+	}
+	item.SelectEnd = item.SelectStart
+	if got := legacyMacroInputSelection(); got != "" {
+		t.Fatalf("unselected @textsel source = %q, want empty", got)
+	}
+}

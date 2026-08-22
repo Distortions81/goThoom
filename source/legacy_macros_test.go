@@ -1234,8 +1234,12 @@ func TestLegacyMacroReplacementExpansion(t *testing.T) {
 		t.Fatalf("empty replacement = (%q, %d, %t)", updated, cursor, handled)
 	}
 	updated, cursor, handled = runtime.triggerReplacement("say show later", len([]rune("say show")))
-	if !handled || updated != "say [say show later|show] later" || cursor != len([]rune("say [say show later|show]")) {
+	if !handled || updated != "say [say show later|] later" || cursor != len([]rune("say [say show later|]")) {
 		t.Fatalf("context replacement = (%q, %d, %t)", updated, cursor, handled)
+	}
+	updated, cursor, handled = runtime.triggerReplacementWithSelection("say show later", len([]rune("say show")), "show")
+	if !handled || updated != "say [say show later|show] later" || cursor != len([]rune("say [say show later|show]")) {
+		t.Fatalf("selected context replacement = (%q, %d, %t)", updated, cursor, handled)
 	}
 	updated, _, handled = runtime.triggerReplacement("wait", len([]rune("wait")))
 	if !handled || updated != "soon" {

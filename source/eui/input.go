@@ -370,6 +370,9 @@ func Update() error {
 		idx := selectedTextItem.cursorIndexAt(mpos)
 		if idx != selectedTextItem.SelectEnd {
 			selectedTextItem.SelectEnd = idx
+			if selectedTextItem.ItemType == ITEM_INPUT || (selectedTextItem.ItemType == ITEM_TEXT && selectedTextItem.Filled) {
+				selectedTextItem.CursorPos = idx
+			}
 			selectedTextItem.markDirty()
 		}
 	}
@@ -798,12 +801,17 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 	if click {
 		activeItem = item
 		item.Clicked = time.Now()
-		if item.ItemType == ITEM_TEXT && item.SelectableText {
+		if (item.ItemType == ITEM_TEXT || item.ItemType == ITEM_INPUT) && item.SelectableText {
 			idx := item.cursorIndexAt(mpos)
 			item.SelectStart = idx
 			item.SelectEnd = idx
 			item.selecting = true
 			selectedTextItem = item
+			if item.ItemType == ITEM_INPUT || item.Filled {
+				focusedItem = item
+				item.CursorPos = idx
+				item.Focused = true
+			}
 			item.markDirty()
 			if item.OnURLClick != nil {
 				if url := item.urlAtChar(idx); url != "" {

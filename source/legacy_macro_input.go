@@ -29,12 +29,16 @@ var legacyMacroInputState struct {
 	consumedKeys  map[ebiten.Key]bool
 	consumedMouse map[ebiten.MouseButton]bool
 	consumed      map[string]bool
+	textSelection string
 	moved         bool
 }
 
 func legacyMacroBeginInputFrame() {
 	legacyMacroInputState.Lock()
 	legacyMacroInputState.moved = false
+	// Capture this before EUI processes a click, since clicking the game world
+	// removes the visual selection before click macros run later in the frame.
+	legacyMacroInputState.textSelection = legacyMacroInputSelection()
 	if legacyMacroInputState.consumed == nil {
 		legacyMacroInputState.consumed = make(map[string]bool)
 	} else {
@@ -51,6 +55,15 @@ func legacyMacroBeginInputFrame() {
 		}
 	}
 	legacyMacroInputState.Unlock()
+}
+
+func legacyMacroFrameInputSelection() string {
+	if selection := legacyMacroInputSelection(); selection != "" {
+		return selection
+	}
+	legacyMacroInputState.Lock()
+	defer legacyMacroInputState.Unlock()
+	return legacyMacroInputState.textSelection
 }
 
 func legacyMacroMovedThisFrame() bool {
@@ -240,6 +253,10 @@ func (runtime *legacyMacroRuntime) removeExecutionLocked(execution *legacyMacroE
 }
 
 func (runtime *legacyMacroRuntime) triggerExpression(text string, frame int64) bool {
+	return runtime.triggerExpressionWithSelection(text, "", frame)
+}
+
+func (runtime *legacyMacroRuntime) triggerExpressionWithSelection(text, selection string, frame int64) bool {
 	trigger, _, triggerEnd := legacyMacroFirstInputWordRange(text)
 	if trigger == "" {
 		return false
@@ -257,7 +274,7 @@ func (runtime *legacyMacroRuntime) triggerExpression(text string, frame int64) b
 		macroText := text[triggerEnd:]
 		_, _ = runtime.startTriggeredLocked(index, legacyMacroExecutionContext{
 			Text:          macroText,
-			TextSelection: text,
+			TextSelection: selection,
 		}, frame)
 		return true
 	}
@@ -360,6 +377,10 @@ func legacyMacroWheelInput(wheelX, wheelY float64, modifiers legacyMacroModifier
 }
 
 func (runtime *legacyMacroRuntime) triggerReplacement(text string, cursor int) (string, int, bool) {
+	return runtime.triggerReplacementWithSelection(text, cursor, "")
+}
+
+func (runtime *legacyMacroRuntime) triggerReplacementWithSelection(text string, cursor int, selection string) (string, int, bool) {
 	runes := []rune(text)
 	if cursor < 0 {
 		cursor = 0
@@ -384,7 +405,7 @@ func (runtime *legacyMacroRuntime) triggerReplacement(text string, cursor int) (
 		}
 		execution, err := runtime.startDeclarationWithOptionsLocked(index, legacyMacroExecutionContext{
 			Text:          text,
-			TextSelection: word,
+			TextSelection: selection,
 		}, true)
 		if err != nil {
 			return text, cursor, false
@@ -417,7 +438,7 @@ func legacyMacroReplacementBreak(char rune) bool {
 
 func legacyMacroTriggerExpression(text string, frame int64) bool {
 	runtime := legacyMacroRuntimeSnapshot()
-	return runtime != nil && runtime.triggerExpression(text, frame)
+	return runtime != nil && runtime.triggerExpressionWithSelection(text, legacyMacroFrameInputSelection(), frame)
 }
 
 func legacyMacroHasExpression(text string) bool {
@@ -430,7 +451,7 @@ func legacyMacroTriggerReplacement(text string, cursor int) (string, int, bool) 
 	if runtime == nil {
 		return text, cursor, false
 	}
-	return runtime.triggerReplacement(text, cursor)
+	return runtime.triggerReplacementWithSelection(text, cursor, legacyMacroFrameInputSelection())
 }
 
 func legacyMacroTriggerClick(event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {

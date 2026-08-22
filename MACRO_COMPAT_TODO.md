@@ -57,7 +57,7 @@ scripts, with behavior matching the reference client where practical.
 
 ## Remaining known gaps
 
-- [ ] Feed real input-box selections into `@textsel` when the input box gains
+- [x] Feed real input-box selections into `@textsel` when the input box gains
       text-selection support.
 - [ ] Verify printed keys, shifted wheel input, and extra mouse buttons on real
       desktop hardware across the supported platforms.
