@@ -63,7 +63,7 @@ var (
 
 type musicTrack struct {
 	stream *musicStream
-	who    int
+	whos   map[int]struct{}
 }
 
 // newSynthesizer constructs a meltysynth synthesizer. Tests may override this to
@@ -85,7 +85,7 @@ func stopAllMusic() {
 func stopMusicFor(who int) {
 	musicPlayersMu.Lock()
 	for p, track := range musicPlayers {
-		if track.who != who {
+		if _, ok := track.whos[who]; !ok {
 			continue
 		}
 		_ = p.Close()
@@ -512,49 +512,85 @@ const (
 // one-second chunks are produced before playback starts; after that the
 // renderer stays at most five seconds ahead of the output device.
 type musicStream struct {
-	chunks    chan []byte
-	done      chan struct{}
-	ready     chan struct{}
-	once      sync.Once
-	readyOnce sync.Once
-	data      []byte
-	err       error
-	mu        sync.Mutex
+	chunks      chan []byte
+	done        chan struct{}
+	ready       chan struct{}
+	totalFrames int
+	once        sync.Once
+	readyOnce   sync.Once
+	data        []byte
+	err         error
+	mu          sync.Mutex
 }
 
 func newMusicStream(program int, notes []Note) (*musicStream, error) {
-	renderer, err := newSongRenderer(program, notes)
-	if err != nil {
-		return nil, err
+	return newMixedMusicStream([]musicPart{{program: program, notes: notes}})
+}
+
+type musicPart struct {
+	program int
+	notes   []Note
+}
+
+// newMixedMusicStream renders all parts into one PCM stream. This avoids
+// relying on simultaneous audio-backend players for /with bard groups.
+func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
+	if len(parts) == 0 {
+		return nil, errors.New("empty music group")
+	}
+	renderers := make([]*songRenderer, 0, len(parts))
+	maxFrames := 0
+	for _, part := range parts {
+		renderer, err := newSongRenderer(part.program, part.notes)
+		if err != nil {
+			return nil, err
+		}
+		renderers = append(renderers, renderer)
+		if renderer.totalSamples > maxFrames {
+			maxFrames = renderer.totalSamples
+		}
 	}
 	s := &musicStream{
-		chunks: make(chan []byte, musicBufferSeconds),
-		done:   make(chan struct{}),
-		ready:  make(chan struct{}),
+		chunks:      make(chan []byte, musicBufferSeconds),
+		done:        make(chan struct{}),
+		ready:       make(chan struct{}),
+		totalFrames: maxFrames,
 	}
-	go s.produce(renderer)
+	go s.produceMixed(renderers)
 	<-s.ready // render five seconds before the caller starts the player
 	return s, nil
 }
 
-func (s *musicStream) produce(renderer *songRenderer) {
+func (s *musicStream) produceMixed(renderers []*songRenderer) {
 	defer close(s.chunks)
 	defer s.signalReady()
 	chunkFrames := musicRenderSeconds * sampleRate
 	buffered := 0
 	var dump []byte
-	for renderer.remaining() > 0 {
-		left, right, err := renderer.render(min(chunkFrames, renderer.remaining()))
-		if err != nil {
-			s.mu.Lock()
-			s.err = err
-			s.mu.Unlock()
-			return
+	for pos := 0; pos < s.totalFrames; {
+		frames := min(chunkFrames, s.totalFrames-pos)
+		left, right := make([]float32, frames), make([]float32, frames)
+		for _, renderer := range renderers {
+			if renderer.remaining() == 0 {
+				continue
+			}
+			partLeft, partRight, err := renderer.render(min(frames, renderer.remaining()))
+			if err != nil {
+				s.mu.Lock()
+				s.err = err
+				s.mu.Unlock()
+				return
+			}
+			for i := range partLeft {
+				left[i] += partLeft[i]
+				right[i] += partRight[i]
+			}
 		}
 		if gs.MusicEnhancement {
 			applyMusicReverb(left, right, sampleRate)
 		}
-		pcm := mixPCMChunk(left, right, renderer.remaining() == 0)
+		pos += frames
+		pcm := mixPCMChunk(left, right, pos == s.totalFrames)
 		if dumpMusic {
 			dump = append(dump, pcm...)
 		}
@@ -640,6 +676,10 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 // playback so a /with group can begin its independently rendered tracks at the
 // same instant.
 func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared func(), start <-chan struct{}) error {
+	return playMusicGroup(ctx, []musicPart{{program: program, notes: notes}}, []int{who}, prepared, start)
+}
+
+func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}) error {
 
 	if ctx == nil {
 		return errors.New("nil audio context")
@@ -649,7 +689,7 @@ func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared 
 		return errors.New("music muted")
 	}
 
-	stream, err := newMusicStream(program, notes)
+	stream, err := newMixedMusicStream(parts)
 	if err != nil {
 		if prepared != nil {
 			prepared()
@@ -672,7 +712,11 @@ func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared 
 	player.SetVolume(vol)
 
 	musicPlayersMu.Lock()
-	musicPlayers[player] = musicTrack{stream: stream, who: who}
+	trackWhos := make(map[int]struct{}, len(whos))
+	for _, who := range whos {
+		trackWhos[who] = struct{}{}
+	}
+	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos}
 	musicPlayersMu.Unlock()
 
 	if prepared != nil {
@@ -683,8 +727,20 @@ func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared 
 	}
 	player.Play()
 
-	for safeIsPlaying(player) {
-		time.Sleep(20 * time.Millisecond)
+	// Oto can report IsPlaying false briefly before its first audio callback.
+	// Keep the stream alive for its rendered duration instead of treating that
+	// transient state as an ended song.
+	playDuration := time.Duration(stream.totalFrames) * time.Second / sampleRate
+	timer := time.NewTimer(playDuration + 100*time.Millisecond)
+	select {
+	case <-timer.C:
+	case <-stream.done:
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
 	}
 
 	musicPlayersMu.Lock()

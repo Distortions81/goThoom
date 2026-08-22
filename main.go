@@ -13,7 +13,10 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"gothoom/climg"
 	"gothoom/clsnd"
@@ -342,11 +345,11 @@ func extractMoviePlayerName(frames []movieFrame) string {
 	for _, m := range frames {
 		if len(m.data) >= 2 && binary.BigEndian.Uint16(m.data[:2]) == 2 {
 			data := append([]byte(nil), m.data[2:]...)
-			if n := playerFromDrawState(data); n != "" {
+			if n := validMoviePlayerName(playerFromDrawState(data)); n != "" {
 				return n
 			}
 			simpleEncrypt(data)
-			if n := playerFromDrawState(data); n != "" {
+			if n := validMoviePlayerName(playerFromDrawState(data)); n != "" {
 				return n
 			}
 		}
@@ -355,16 +358,40 @@ func extractMoviePlayerName(frames []movieFrame) string {
 	for _, m := range frames {
 		if len(m.data) >= 2 && binary.BigEndian.Uint16(m.data[:2]) == 2 {
 			data := append([]byte(nil), m.data[2:]...)
-			if n := firstDescriptorName(data); n != "" {
+			if n := validMoviePlayerName(firstDescriptorName(data)); n != "" {
 				return n
 			}
 			simpleEncrypt(data)
-			if n := firstDescriptorName(data); n != "" {
+			if n := validMoviePlayerName(firstDescriptorName(data)); n != "" {
 				return n
 			}
 		}
 	}
 	return ""
+}
+
+// validMoviePlayerName rejects names obtained by accidentally interpreting an
+// encrypted or non-draw frame as a descriptor. Those values must never reach
+// the Clan Lord window title.
+func validMoviePlayerName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" || utf8.RuneCountInString(name) > 48 {
+		return ""
+	}
+	hasLetter := false
+	for _, r := range name {
+		switch {
+		case unicode.IsLetter(r):
+			hasLetter = true
+		case unicode.IsDigit(r), r == ' ', r == '\'', r == '-':
+		default:
+			return ""
+		}
+	}
+	if !hasLetter {
+		return ""
+	}
+	return name
 }
 
 func playerFromDrawState(data []byte) string {

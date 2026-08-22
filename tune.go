@@ -355,36 +355,33 @@ func enqueueTune(job tuneJob) {
 	enqueueTunes([]tuneJob{job})
 }
 
-// enqueueTunes starts each track on its own renderer. A group waits until every
-// track has rendered its initial five seconds, then releases all players
-// together so /with bards remain synchronized.
+// enqueueTunes renders a /with group into one buffered player so every bard is
+// mixed and started together, even on audio backends that do not reliably
+// start several new players at once.
 func enqueueTunes(jobs []tuneJob) {
 	if len(jobs) == 0 {
 		return
 	}
-	start := make(chan struct{})
-	var prepared sync.WaitGroup
-	prepared.Add(len(jobs))
-	for _, job := range jobs {
-		job := job
-		go func() {
-			if audioContext == nil {
-				prepared.Done()
-				log.Printf("play tune: audio disabled")
-				return
-			}
-			if err := playMusic(audioContext, job.program, job.notes, job.who, prepared.Done, start); err != nil {
-				log.Printf("play tune: %v", err)
-				if job.debug {
-					consoleMessage("play tune: " + err.Error())
-					chatMessage("play tune: " + err.Error())
-				}
-			}
-		}()
-	}
 	go func() {
-		prepared.Wait()
-		close(start)
+		if audioContext == nil {
+			log.Printf("play tune: audio disabled")
+			return
+		}
+		parts := make([]musicPart, 0, len(jobs))
+		whos := make([]int, 0, len(jobs))
+		debug := false
+		for _, job := range jobs {
+			parts = append(parts, musicPart{program: job.program, notes: job.notes})
+			whos = append(whos, job.who)
+			debug = debug || job.debug
+		}
+		if err := playMusicGroup(audioContext, parts, whos, nil, nil); err != nil {
+			log.Printf("play tune: %v", err)
+			if debug {
+				consoleMessage("play tune: " + err.Error())
+				chatMessage("play tune: " + err.Error())
+			}
+		}
 	}()
 }
 

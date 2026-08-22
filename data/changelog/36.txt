@@ -12,7 +12,7 @@ New and improved:
 - The Clan Lord window title now includes the active character name.
 - Alternate networking mode and timing choices are now remembered between sessions.
 - Hotkeys accept both `Mouse4` and `Mouse 4` spellings, with clearer function-hotkey scripting help.
-- Bard songs can now play concurrently instead of serializing one performer after another. `/with` multi-bard parts synchronize after every track has rendered its startup buffer.
+- Bard songs can now play concurrently instead of serializing one performer after another. `/with` multi-bard parts are rendered separately, mixed into one output player, and start after the shared startup buffer is ready.
 - Music now renders one-second PCM chunks and pre-buffers five seconds before playback, reducing audio starvation without rendering an entire song up front.
 
 Defaults and options:
@@ -28,6 +28,10 @@ Fixes:
 - Fixed anonymous thoughts from blocked or ignored players still appearing.
 - Fixed several music playback race conditions and script function hotkeys being sent as hidden server commands.
 - Fixed movie playhead dragging so repeated drag events are coalesced and the player seeks to the final position when released.
+- Movie Controls now previews the target time while dragging, includes Stop Seek for a long rebuild, and defaults to centered 100px above the bottom edge.
+- Fixed movie playback occasionally showing binary data as the player name in the Clan Lord window title.
+- Fixed Clan Lord `/music/W...` messages assigning every performer to ID zero; multipart trio and larger `/with` songs now assemble in movie-frame order.
+- Fixed music volume refreshes closing valid players while their startup buffer was still being prepared.
 - Seeking no longer lets historical `/music` or `/m_interrupt` frames run after replay and silence later music.
 - Stopping a song, a playback error, or a missing audio device no longer turns off the Music mixer setting.
 - Newer locally installed Clan Lord data no longer triggers the untested-version warning.

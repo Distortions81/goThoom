@@ -37,14 +37,26 @@ const (
 )
 
 type windowZone struct {
-	h HZone
-	v VZone
+	h      HZone
+	v      VZone
+	offset Point
 }
 
 // SetZone assigns a horizontal and vertical zone to the window. The window's
 // center will be kept on this zone.
 func (win *windowData) SetZone(h HZone, v VZone) {
 	win.zone = &windowZone{h: h, v: v}
+	win.updateZonePosition()
+}
+
+// SetZoneOffset adjusts a zoned window by a screen-pixel offset. The offset
+// stays applied when the screen size changes, while dragging clears the zone
+// and leaves the window at its current position.
+func (win *windowData) SetZoneOffset(offset Point) {
+	if win.zone == nil {
+		return
+	}
+	win.zone.offset = offset
 	win.updateZonePosition()
 }
 
@@ -61,8 +73,8 @@ func (win *windowData) updateZonePosition() {
 	cy := vZoneCoord(win.zone.v, screenHeight)
 	size := win.GetSize()
 	s := win.scale()
-	win.Position.X = (cx - size.X/2) / s
-	win.Position.Y = (cy - size.Y/2) / s
+	win.Position.X = (cx - size.X/2 + win.zone.offset.X) / s
+	win.Position.Y = (cy - size.Y/2 + win.zone.offset.Y) / s
 
 	maxX := (float32(screenWidth) - size.X) / s
 	maxY := (float32(screenHeight) - size.Y) / s

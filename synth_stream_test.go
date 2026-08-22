@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/binary"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -53,4 +56,48 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 			t.Fatalf("chunk %d length = %d, want %d", i, n, len(buf))
 		}
 	}
+}
+
+func TestMusicStreamProducesAudiblePCM(t *testing.T) {
+	origOnce, origFont, origSettings := setupSynthOnce, sfntCached, synthSettings
+	origDataDir, origSettingsState := dataDirPath, gs
+	t.Cleanup(func() {
+		setupSynthOnce, sfntCached, synthSettings = origOnce, origFont, origSettings
+		dataDirPath, gs = origDataDir, origSettingsState
+	})
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("find test source path")
+	}
+	dataDirPath = filepath.Join(filepath.Dir(thisFile), "data")
+	setupSynthOnce = sync.Once{}
+	sfntCached = nil
+	synthSettings = nil
+	gs.MusicEnhancement = false
+
+	stream, err := newMusicStream(instruments[0].program, []Note{{Key: 60, Velocity: 100, Duration: time.Second}})
+	if err != nil {
+		t.Fatalf("newMusicStream: %v", err)
+	}
+	defer stream.Close()
+
+	pcm := make([]byte, sampleRate*4)
+	if n, err := stream.Read(pcm); err != nil || n != len(pcm) {
+		t.Fatalf("read first PCM second: n=%d err=%v", n, err)
+	}
+	var peak int16
+	for i := 0; i+1 < len(pcm); i += 2 {
+		v := int16(binary.LittleEndian.Uint16(pcm[i:]))
+		if v < 0 {
+			v = -v
+		}
+		if v > peak {
+			peak = v
+		}
+	}
+	if peak == 0 {
+		t.Fatal("rendered music PCM is silent")
+	}
+	t.Logf("first-second music peak: %d", peak)
 }

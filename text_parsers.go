@@ -568,6 +568,12 @@ func parseMusicCommand(s string, raw []byte) bool {
 		return false
 	}
 	s = strings.TrimPrefix(s, "/music/")
+	prefixWho := 0
+	if strings.HasPrefix(s, "W") {
+		if end := strings.IndexByte(s, '/'); end > 1 {
+			prefixWho, _ = strconv.Atoi(s[1:end])
+		}
+	}
 
 	// Recognize and act on /stop (or /S) even if combined with play.
 	stop := false
@@ -605,14 +611,26 @@ func parseMusicCommand(s string, raw []byte) bool {
 	inst := defaultInstrument
 	tempo := 120
 	vol := 100
-	who := 0
+	who := prefixWho
 	me := false
 	part := false
 	withIDs := []int{}
 
 	getInt := func(after string) (int, bool) {
-		if idx := strings.Index(s, after); idx >= 0 {
+		idx := strings.Index(s, after)
+		// The first parameter immediately follows the stripped "/music/"
+		// prefix, so the sender is encoded as "W123" rather than "/W123".
+		if idx < 0 {
+			bare := strings.TrimPrefix(after, "/")
+			if strings.HasPrefix(s, bare) {
+				idx = 0
+			}
+		}
+		if idx >= 0 {
 			v := s[idx+len(after):]
+			if idx == 0 && !strings.HasPrefix(s, after) {
+				v = s[len(strings.TrimPrefix(after, "/")):]
+			}
 			if len(v) > 0 && v[0] == '/' {
 				v = v[1:]
 			}
@@ -722,9 +740,11 @@ func parseMusicCommand(s string, raw []byte) bool {
 		msg := fmt.Sprintf("/play %d %s", inst, notes)
 		debug(msg)
 	}
-	go func() {
-		handleMusicParams(MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
-	}()
+	// Keep multipart /music messages in their server/movie-frame order. The
+	// actual PCM rendering is started asynchronously by enqueueTunes; handing
+	// every small command to a separate goroutine can reorder /part chunks and
+	// leave a /with group permanently incomplete.
+	handleMusicParams(MusicParams{Inst: inst, Notes: notes, Tempo: tempo, VolPct: vol, Part: part, Who: who, With: withIDs, Me: me, debug: debugMusic})
 	return true
 }
 

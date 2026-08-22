@@ -51,6 +51,8 @@ type moviePlayer struct {
 	seekMu      sync.Mutex
 	seekTarget  int
 	seekPending bool
+	seekEpoch   uint64
+	seekStopped bool
 
 	checkpoints []movieCheckpoint
 
@@ -98,7 +100,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Closable = true
 	win.Resizable = false
 	win.AutoSize = true
-	win.SetZone(eui.HZoneCenter, eui.VZoneTop)
+	win.SetZone(eui.HZoneCenter, eui.VZoneBottom)
+	win.SetZoneOffset(eui.Point{Y: -100})
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -302,11 +305,21 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(fpsInfo)
 
 	flow.AddItem(bFlow)
+
+	stopSeek, stopSeekEv := eui.NewButton()
+	stopSeek.Text = "Stop Seek"
+	stopSeek.SetTooltip("Stop rebuilding the movie at the current seek position")
+	stopSeek.Size = eui.Point{X: 100, Y: 24}
+	stopSeekEv.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			p.stopSeek()
+		}
+	}
+	bFlow.AddItem(stopSeek)
 	win.AddItem(flow)
 
 	// Recompute window dimensions now that all controls are present
 	win.Refresh()
-
 	// Add and open the fully populated window
 	win.AddWindow(false)
 	win.MarkOpen()
@@ -450,18 +463,20 @@ func (p *moviePlayer) step() {
 }
 
 func (p *moviePlayer) updateUI() {
-	if p.slider != nil && !p.hasPendingSeek() {
+	pendingTarget, seekPending := p.pendingSeekTarget()
+	if p.slider != nil && !seekPending {
 		p.slider.Value = float32(p.cur)
 		p.slider.Dirty = true
 	}
 	if p.curLabel != nil {
-		d := time.Duration(p.cur) * time.Second / time.Duration(p.fps)
-		d = d.Round(time.Second)
-		p.curLabel.Text = durafmt.Parse(d).LimitFirstN(2).Format(shortUnits)
-		p.curLabel.Dirty = true
+		if seekPending {
+			p.setCurrentTimeLabel(pendingTarget)
+		} else {
+			p.setCurrentTimeLabel(p.cur)
+		}
 	}
 	if p.totalLabel != nil {
-		totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.fps)
+		totalDur := time.Duration(len(p.frames)) * time.Second / time.Duration(p.baseFPS)
 		totalDur = totalDur.Round(time.Second)
 		p.totalLabel.Text = durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits)
 		p.totalLabel.Dirty = true
@@ -481,10 +496,33 @@ func (p *moviePlayer) updateUI() {
 	}
 }
 
+func (p *moviePlayer) setCurrentTimeLabel(idx int) {
+	if p.curLabel == nil {
+		return
+	}
+	if idx < 0 {
+		idx = 0
+	} else if idx > len(p.frames) {
+		idx = len(p.frames)
+	}
+	fps := p.baseFPS
+	if fps < 1 {
+		fps = p.fps
+	}
+	d := time.Duration(idx) * time.Second / time.Duration(fps)
+	p.curLabel.Text = durafmt.Parse(d.Round(time.Second)).LimitFirstN(2).Format(shortUnits)
+	p.curLabel.Dirty = true
+}
+
 func (p *moviePlayer) hasPendingSeek() bool {
+	_, pending := p.pendingSeekTarget()
+	return pending
+}
+
+func (p *moviePlayer) pendingSeekTarget() (int, bool) {
 	p.seekMu.Lock()
 	defer p.seekMu.Unlock()
-	return p.seekPending
+	return p.seekTarget, p.seekPending
 }
 
 // requestSeek coalesces drag events. The final slider position is never lost
@@ -492,6 +530,13 @@ func (p *moviePlayer) hasPendingSeek() bool {
 func (p *moviePlayer) requestSeek(idx int) {
 	p.seekMu.Lock()
 	p.seekTarget = idx
+	p.seekEpoch++
+	p.seekStopped = false
+	p.setCurrentTimeLabel(idx)
+	if p.slider != nil {
+		p.slider.Value = float32(idx)
+		p.slider.Dirty = true
+	}
 	if p.seekPending {
 		p.seekMu.Unlock()
 		return
@@ -503,13 +548,24 @@ func (p *moviePlayer) requestSeek(idx int) {
 		for {
 			p.seekMu.Lock()
 			target := p.seekTarget
+			epoch := p.seekEpoch
 			p.seekMu.Unlock()
 
 			seekLock.Lock()
-			p.seek(target)
+			p.seekWithCancel(target, func() bool {
+				p.seekMu.Lock()
+				defer p.seekMu.Unlock()
+				return p.seekStopped || p.seekEpoch != epoch
+			})
 			seekLock.Unlock()
 
 			p.seekMu.Lock()
+			if p.seekStopped {
+				p.seekPending = false
+				p.seekMu.Unlock()
+				p.updateUI()
+				return
+			}
 			if p.seekTarget == target {
 				p.seekPending = false
 				p.seekMu.Unlock()
@@ -519,6 +575,15 @@ func (p *moviePlayer) requestSeek(idx int) {
 			p.seekMu.Unlock()
 		}
 	}()
+}
+
+func (p *moviePlayer) stopSeek() {
+	p.seekMu.Lock()
+	if p.seekPending {
+		p.seekStopped = true
+		p.seekEpoch++
+	}
+	p.seekMu.Unlock()
 }
 
 func (p *moviePlayer) setFPS(fps int) {
@@ -565,6 +630,12 @@ func (p *moviePlayer) skipForwardMilli(milli int) {
 }
 
 func (p *moviePlayer) seek(idx int) {
+	p.seekWithCancel(idx, nil)
+}
+
+// seekWithCancel rebuilds movie state up to idx. A drag update or Stop Seek
+// can end the rebuild early, retaining the latest fully processed frame.
+func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	seekingMov = true
 	defer func() { seekingMov = false }()
 
@@ -613,6 +684,10 @@ func (p *moviePlayer) seek(idx int) {
 	frameCounter = cp.idx
 
 	for i := cp.idx; i < idx; i++ {
+		if cancelled != nil && cancelled() {
+			idx = i
+			break
+		}
 		m := p.frames[i]
 		movieDropped = updateFrameCounters(m.index)
 		if len(m.data) >= 2 && binary.BigEndian.Uint16(m.data[:2]) == 2 {
