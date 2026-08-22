@@ -64,6 +64,31 @@ func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, noTail bool) 
 
 func bubbleColors(typ int) (border, bg, text color.Color) {
 	alpha := uint8(gs.BubbleOpacity * 255)
+	if gs.DarkBubblesAndNames {
+		bg = color.NRGBA{0x24, 0x24, 0x24, alpha}
+		text = color.White
+		switch typ & kBubbleTypeMask {
+		case kBubbleWhisper:
+			border = color.NRGBA{0x80, 0x80, 0x80, 0xff}
+		case kBubbleYell:
+			border = color.NRGBA{0xff, 0xff, 0x00, 0xff}
+		case kBubbleThought:
+			border = color.NRGBA{0x00, 0x00, 0x00, 0x00}
+		case kBubblePonder:
+			border = color.NRGBA{0x24, 0x24, 0x24, alpha}
+		case kBubbleRealAction:
+			border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
+		case kBubblePlayerAction:
+			border = color.NRGBA{0x80, 0x00, 0x00, 0xff}
+		case kBubbleNarrate:
+			border = color.NRGBA{0x00, 0x80, 0x00, 0xff}
+		case kBubbleMonster:
+			border = color.NRGBA{0xd6, 0xd6, 0xd6, 0xff}
+		default:
+			border = color.White
+		}
+		return
+	}
 	switch typ & kBubbleTypeMask {
 	case kBubbleWhisper:
 		border = color.NRGBA{0x80, 0x80, 0x80, 0xff}

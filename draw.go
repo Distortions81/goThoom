@@ -57,6 +57,7 @@ type nameTagKey struct {
 	Opacity uint8
 	FontGen uint32
 	Style   uint8
+	Dead    bool
 }
 
 const (
@@ -617,14 +618,17 @@ func mobileOnEdge(m frameMobile, d frameDescriptor) bool {
 
 // buildNameTagImage creates a cached image for a mobile name tag using the
 // current font and settings. Returns the image and its width/height in pixels.
-// The frame color defaults to the name color unless frameClr overrides it.
-func buildNameTagImage(name string, colorCode uint8, opacity uint8, style uint8, frameClr color.RGBA) (*ebiten.Image, int, int) {
+// A non-zero frameClr draws the optional player-label frame.
+func buildNameTagImage(name string, colorCode uint8, opacity uint8, style uint8, dead bool, frameClr color.RGBA) (*ebiten.Image, int, int) {
 	if name == "" {
 		return nil, 0, 0
 	}
-	textClr, bgClr, defFrame := mobileNameColors(colorCode)
-	if frameClr.A == 0 {
-		frameClr = defFrame
+	textClr, bgClr, _ := mobileNameColors(colorCode)
+	if dead {
+		textClr = color.RGBA{0x90, 0x90, 0x90, 0xff}
+		if gs.DarkBubblesAndNames {
+			bgClr = color.RGBA{0xff, 0xff, 0xff, 0xff}
+		}
 	}
 	face := mainFont
 	switch style {
@@ -649,13 +653,15 @@ func buildNameTagImage(name string, colorCode uint8, opacity uint8, style uint8,
 	op.ColorScale.ScaleAlpha(float32(opacity) / 255)
 	img.DrawImage(whiteImage, op)
 	releaseDrawOpts(op)
-	// Border aligned to the filled background
-	width := float32(iw + 5)
-	height := float32(ih)
-	vector.FillRect(img, 0, 0, width, 1, frameClr, false)
-	vector.FillRect(img, 0, height-1, width, 1, frameClr, false)
-	vector.FillRect(img, 0, 0, 1, height, frameClr, false)
-	vector.FillRect(img, width-1, 0, 1, height, frameClr, false)
+	if frameClr.A > 0 {
+		// Border aligned to the filled background.
+		width := float32(iw + 5)
+		height := float32(ih)
+		vector.FillRect(img, 0, 0, width, 1, frameClr, false)
+		vector.FillRect(img, 0, height-1, width, 1, frameClr, false)
+		vector.FillRect(img, 0, 0, 1, height, frameClr, false)
+		vector.FillRect(img, width-1, 0, 1, height, frameClr, false)
+	}
 	// Text
 	opTxt := &text.DrawOptions{}
 	opTxt.GeoM.Translate(2, 2)
@@ -1529,8 +1535,9 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		clearMap(state.mobiles)
 	}
 	for _, m := range mobiles {
-		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" {
+		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
 			style := styleRegular
+			dead := m.State == poseDead
 			playersMu.RLock()
 			if p, ok := players[d.Name]; ok {
 				if p.Sharing && p.Sharee {
@@ -1548,6 +1555,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				Opacity: uint8(gs.NameBgOpacity*255 + 0.5),
 				FontGen: fontGen,
 				Style:   style,
+				Dead:    dead,
 			}
 			if prev, ok := state.mobiles[m.Index]; ok && prev.nameTag != nil && prev.nameTagKey == key {
 				m.nameTag = prev.nameTag
@@ -1564,7 +1572,10 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 					}
 					playersMu.RUnlock()
 				}
-				img, iw, ih := buildNameTagImage(d.Name, m.Colors, uint8(gs.NameBgOpacity*255+0.5), style, frame)
+				if frame.A > 0 {
+					frame.A = uint8(gs.NameBgOpacity*255 + 0.5)
+				}
+				img, iw, ih := buildNameTagImage(d.Name, m.Colors, uint8(gs.NameBgOpacity*255+0.5), style, dead, frame)
 				m.nameTag = img
 				m.nameTagW = iw
 				m.nameTagH = ih

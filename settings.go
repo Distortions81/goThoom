@@ -101,7 +101,9 @@ var gsdef settings = settings{
 	BubbleLifePerWord:       1,
 	BubbleScale:             2.0,
 	NameBgOpacity:           0.8,
+	DarkBubblesAndNames:     true,
 	NameTagLabelColors:      true,
+	HideSelfNameTag:         true,
 	NameTagsOnHoverOnly:     false,
 	BarOpacity:              0.66,
 	ObscuringPictureOpacity: 0.66,
@@ -181,6 +183,7 @@ var gsdef settings = settings{
 	NotifiedVersion:       0,
 	WindowTiling:          false,
 	WindowSnapping:        false,
+	WindowPinning:         false,
 	ShowPinToLocations:    false,
 
 	JoystickEnabled:        false,
@@ -252,9 +255,11 @@ type settings struct {
 	BubbleBaseLife          float64
 	BubbleLifePerWord       float64
 	// BubbleScale scales bubble visuals (not font). Range 1.0–8.0.
-	BubbleScale        float64
-	NameBgOpacity      float64
-	NameTagLabelColors bool
+	BubbleScale         float64
+	NameBgOpacity       float64
+	DarkBubblesAndNames bool
+	NameTagLabelColors  bool
+	HideSelfNameTag     bool
 	// NameTagsOnHoverOnly hides name tags unless the cursor is over a mobile.
 	NameTagsOnHoverOnly     bool
 	BarOpacity              float64
@@ -344,6 +349,7 @@ type settings struct {
 	NotifiedVersion       int
 	WindowTiling          bool
 	WindowSnapping        bool
+	WindowPinning         bool
 	ShowPinToLocations    bool
 
 	JoystickEnabled        bool
@@ -563,6 +569,7 @@ func applyServerAddressSetting() {
 func applySettings() {
 	eui.SetWindowTiling(gs.WindowTiling)
 	eui.SetWindowSnapping(gs.WindowSnapping)
+	eui.SetWindowPinning(gs.WindowPinning)
 	eui.SetShowPinLocations(gs.ShowPinToLocations)
 	eui.SetMiddleClickMove(gs.MiddleClickMoveWindow)
 	eui.SetPotatoMode(gs.PotatoGPU)

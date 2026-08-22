@@ -3362,6 +3362,23 @@ func makeSettingsWindow() {
 	}
 	right.AddItem(nameBgSlider)
 
+	darkBubblesAndNamesCB, darkBubblesAndNamesEvents := eui.NewCheckbox()
+	darkBubblesAndNamesCB.Text = "Dark Bubbles and Names"
+	darkBubblesAndNamesCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	darkBubblesAndNamesCB.Checked = gs.DarkBubblesAndNames
+	darkBubblesAndNamesCB.SetTooltip("Use dark backgrounds with light text for speech bubbles and name tags")
+	darkBubblesAndNamesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+
+			gs.DarkBubblesAndNames = ev.Checked
+			killNameTagCache()
+			settingsDirty = true
+		}
+	}
+	right.AddItem(darkBubblesAndNamesCB)
+
 	nameBorderCB, nameBorderEvents := eui.NewCheckbox()
 	nameBorderCB.Text = "Name Tag Label Colors"
 	nameBorderCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
@@ -3378,6 +3395,23 @@ func makeSettingsWindow() {
 		}
 	}
 	right.AddItem(nameBorderCB)
+
+	hideSelfNameCB, hideSelfNameEvents := eui.NewCheckbox()
+	hideSelfNameCB.Text = "Hide My Name Tag"
+	hideSelfNameCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	hideSelfNameCB.Checked = gs.HideSelfNameTag
+	hideSelfNameCB.SetTooltip("Do not show a name tag over your own character")
+	hideSelfNameEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+
+			gs.HideSelfNameTag = ev.Checked
+			killNameTagCache()
+			settingsDirty = true
+		}
+	}
+	right.AddItem(hideSelfNameCB)
 
 	// Name-tags hover-only toggle
 	nameHoverCB, nameHoverEvents := eui.NewCheckbox()
@@ -4922,6 +4956,22 @@ func makeAdvancedSettingsWindow() {
 		}
 	}
 	interfaceCol.AddItem(midMove)
+
+	windowPinCB, windowPinEvents := eui.NewCheckbox()
+	windowPinCB.Text = "Window pinning"
+	windowPinCB.Size = eui.Point{X: columnWidth, Y: 24}
+	windowPinCB.Checked = gs.WindowPinning
+	windowPinCB.SetTooltip("Show title-bar buttons for pinning windows to layout locations")
+	windowPinEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.WindowPinning = ev.Checked
+			SettingsLock.Unlock()
+			eui.SetWindowPinning(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	interfaceCol.AddItem(windowPinCB)
 
 	pinLocCB, pinLocEvents := eui.NewCheckbox()
 	pinLocCB.Text = "Show pin-to locations"

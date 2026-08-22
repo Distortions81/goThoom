@@ -461,7 +461,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 		}
 
 		// Pin icon
-		{
+		if windowPinning {
 			pr := win.pinRect()
 			color := win.Theme.Window.TitleColor
 			if win.zone == nil {

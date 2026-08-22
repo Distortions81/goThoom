@@ -312,7 +312,7 @@ func (win *windowData) xRect() rect {
 }
 
 func (win *windowData) pinRect() rect {
-	if win.TitleHeight <= 0 {
+	if !windowPinning || win.TitleHeight <= 0 {
 		return rect{}
 	}
 
@@ -437,17 +437,16 @@ func (win *windowData) dragbarRect() rect {
 		return rect{}
 	}
 	pos := win.GetPos()
-	pr := win.pinRect()
-	if win.Maximizable {
-		mr := win.maxRect()
-		if mr.X0 < pr.X0 {
-			pr = mr
+	right := pos.X + win.GetSize().X
+	for _, control := range []rect{win.xRect(), win.maxRect(), win.searchRect(), win.pinRect()} {
+		if control.X0 > pos.X && control.X0 < right {
+			right = control.X0
 		}
 	}
 	return rect{
 		X0: pos.X,
 		Y0: pos.Y,
-		X1: pr.X0,
+		X1: right,
 		Y1: pos.Y + win.GetTitleSize(),
 	}
 }

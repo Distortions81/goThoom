@@ -2321,6 +2321,9 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 	x := roundToInt((h + float64(fieldCenterX)) * gs.GameScale)
 	y := roundToInt((v + float64(fieldCenterY)) * gs.GameScale)
 	if d, ok := snap.descriptors[m.Index]; ok {
+		if gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName) {
+			return
+		}
 		showName := d.Name != ""
 		if showName && gs.NameTagsOnHoverOnly {
 			lastHoverMu.Lock()
@@ -2358,6 +2361,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 		}
 		if showName {
 			style := styleRegular
+			dead := m.State == poseDead
 			playersMu.RLock()
 			if p, ok := players[d.Name]; ok {
 				if p.Sharing && p.Sharee {
@@ -2369,7 +2373,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 			}
 			playersMu.RUnlock()
-			if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == nameAlpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors && m.nameTagKey.Style == style {
+			if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == nameAlpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors && m.nameTagKey.Style == style && m.nameTagKey.Dead == dead {
 				top := y + int(offset)
 				left := x - int(float64(m.nameTagW)/2)
 				op := acquireDrawOpts()
@@ -2381,7 +2385,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			} else {
 				// Rebuild the cached name tag image on mismatch to avoid per-frame vector draws.
 				// Respect label color frames if enabled.
-				_, _, frameClr := mobileNameColors(m.Colors)
+				frameClr := color.RGBA{}
 				if gs.NameTagLabelColors {
 					playersMu.RLock()
 					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
@@ -2390,8 +2394,10 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 					}
 					playersMu.RUnlock()
 				}
-				frameClr.A = nameAlpha
-				img, iw, ih := buildNameTagImage(d.Name, m.Colors, nameAlpha, style, frameClr)
+				if frameClr.A > 0 {
+					frameClr.A = nameAlpha
+				}
+				img, iw, ih := buildNameTagImage(d.Name, m.Colors, nameAlpha, style, dead, frameClr)
 				if img != nil {
 					// Update shared cache so next frames reuse this image.
 					stateMu.Lock()
@@ -2399,7 +2405,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 						sm.nameTag = img
 						sm.nameTagW = iw
 						sm.nameTagH = ih
-						sm.nameTagKey = nameTagKey{Text: d.Name, Colors: m.Colors, Opacity: nameAlpha, FontGen: fontGen, Style: style}
+						sm.nameTagKey = nameTagKey{Text: d.Name, Colors: m.Colors, Opacity: nameAlpha, FontGen: fontGen, Style: style, Dead: dead}
 						state.mobiles[m.Index] = sm
 					}
 					stateMu.Unlock()

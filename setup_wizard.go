@@ -313,6 +313,16 @@ func buildSetupVisibilityPage(root *eui.ItemData) {
 		gs.BubbleScale = float64(value)
 		settingsDirty = true
 	}))
+	root.AddItem(setupWizardCheckbox("Dark bubbles and names", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
+		gs.DarkBubblesAndNames = checked
+		killNameTagCache()
+		settingsDirty = true
+	}))
+	root.AddItem(setupWizardCheckbox("Hide my name tag", "Do not show a name tag over your own character.", gs.HideSelfNameTag, func(checked bool) {
+		gs.HideSelfNameTag = checked
+		killNameTagCache()
+		settingsDirty = true
+	}))
 	root.AddItem(setupWizardCheckbox("Name tags only on hover", "Hide character names until the pointer is over that character.", gs.NameTagsOnHoverOnly, func(checked bool) {
 		gs.NameTagsOnHoverOnly = checked
 		settingsDirty = true

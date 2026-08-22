@@ -3,10 +3,14 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
+	"image/png"
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"gothoom/eui"
@@ -22,6 +26,52 @@ var playersRowRefs = map[*eui.ItemData]string{}
 var selectedPlayerName string
 var lastPlayerClickName string
 var lastPlayerClickTime time.Time
+
+//go:embed data/icons/share-out.png
+var shareOutPNG []byte
+
+//go:embed data/icons/share-both.png
+var shareBothPNG []byte
+
+var (
+	shareIconOnce sync.Once
+	shareOutIcon  *ebiten.Image
+	shareInIcon   *ebiten.Image
+	shareBothIcon *ebiten.Image
+)
+
+// playerSharingIcons builds the small sharing icons once. The incoming icon is
+// a mirror of the outgoing icon; mutual sharing has its own filled-person icon.
+func playerSharingIcons() (outgoing, incoming, mutual *ebiten.Image) {
+	shareIconOnce.Do(func() {
+		if src, err := png.Decode(bytes.NewReader(shareOutPNG)); err == nil {
+			shareOutIcon = newImageFromImage(src)
+			shareInIcon = mirrorImage(shareOutIcon)
+		} else {
+			logError("decode outgoing sharing icon: %v", err)
+		}
+		if src, err := png.Decode(bytes.NewReader(shareBothPNG)); err == nil {
+			shareBothIcon = newImageFromImage(src)
+		} else {
+			logError("decode mutual sharing icon: %v", err)
+		}
+	})
+	return shareOutIcon, shareInIcon, shareBothIcon
+}
+
+func playerSharingIcon(p Player) *ebiten.Image {
+	outgoing, incoming, mutual := playerSharingIcons()
+	switch {
+	case p.Sharee && p.Sharing:
+		return mutual
+	case p.Sharee && !p.Sharing:
+		return outgoing
+	case p.Sharing && !p.Sharee:
+		return incoming
+	default:
+		return nil
+	}
+}
 
 func playersWindowTitle(online, sharedTo, sharingToUs int) string {
 	return fmt.Sprintf("Players   Online: %d   Shared: %d   Sharing: %d", online, sharedTo, sharingToUs)
@@ -269,8 +319,12 @@ func updatePlayersWindow() {
 			t.ForceTextColor = true
 		}
 		indicator := playerSharingIndicator(p)
+		shareIcon := playerSharingIcon(p)
 		indicatorWidth := float32(0)
-		if indicator != "" {
+		if shareIcon != nil {
+			bounds := shareIcon.Bounds()
+			indicatorWidth = rowUnits*float32(bounds.Dx())/float32(bounds.Dy()) + 4
+		} else if indicator != "" {
 			if w, _ := text.Measure("↔", face, 0); w > 0 {
 				indicatorWidth = float32(math.Ceil(w/float64(ui))) + 8
 			}
@@ -282,14 +336,25 @@ func updatePlayersWindow() {
 		row.AddItem(t)
 
 		if indicatorWidth > 0 {
-			shareItem, _ := eui.NewText()
-			shareItem.Text = indicator
-			shareItem.FontSize = float32(fontSize)
-			shareItem.Face = face
-			shareItem.Size = eui.Point{X: indicatorWidth, Y: rowUnits}
-			shareItem.SetTooltip(playerSharingTooltip(p))
-			shareItem.Action = func() { handlePlayersClick(n) }
-			row.AddItem(shareItem)
+			if shareIcon != nil {
+				shareItem, _ := eui.NewImageItem(int(math.Ceil(float64(indicatorWidth))), int(math.Ceil(float64(rowUnits))))
+				shareItem.Image = shareIcon
+				shareItem.Filled = false
+				shareItem.Border = 0
+				shareItem.Disabled = offline
+				shareItem.SetTooltip(playerSharingTooltip(p))
+				shareItem.Action = func() { handlePlayersClick(n) }
+				row.AddItem(shareItem)
+			} else {
+				shareItem, _ := eui.NewText()
+				shareItem.Text = indicator
+				shareItem.FontSize = float32(fontSize)
+				shareItem.Face = face
+				shareItem.Size = eui.Point{X: indicatorWidth, Y: rowUnits}
+				shareItem.SetTooltip(playerSharingTooltip(p))
+				shareItem.Action = func() { handlePlayersClick(n) }
+				row.AddItem(shareItem)
+			}
 		}
 
 		// Also allow clicking the row background to select.

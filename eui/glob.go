@@ -43,6 +43,9 @@ var (
 	// windowSnapping snaps windows to screen edges or other windows when enabled.
 	windowSnapping bool = true
 
+	// windowPinning enables title-bar buttons for pinning windows to layout zones.
+	windowPinning bool
+
 	// showPinLocations enables drawing pin-to zone indicators while dragging windows.
 	showPinLocations bool
 

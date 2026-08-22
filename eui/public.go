@@ -21,6 +21,20 @@ func WindowSnapping() bool { return windowSnapping }
 // SetWindowSnapping enables or disables window snapping.
 func SetWindowSnapping(enabled bool) { windowSnapping = enabled }
 
+// WindowPinning reports whether title-bar pin buttons are enabled.
+func WindowPinning() bool { return windowPinning }
+
+// SetWindowPinning enables title-bar buttons for pinning windows to layout zones.
+func SetWindowPinning(enabled bool) {
+	if windowPinning == enabled {
+		return
+	}
+	windowPinning = enabled
+	for _, win := range windows {
+		win.markDirty()
+	}
+}
+
 // ShowPinLocations reports whether pin-to zone indicators are shown while dragging windows.
 func ShowPinLocations() bool { return showPinLocations }
 
