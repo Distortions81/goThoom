@@ -106,32 +106,12 @@ Implementation notes:
 Tests should cover shadows enabled, `kLightNoShadows`, daylight, and night
 levels on both sides of the 33 threshold.
 
-## Closely related lighting adjustments
-
-These are not additional `PictDef` flags, but they are part of the same original
-lighting-data behavior.
-
-### Default radii differ from the original
-
-When `LightingData.ilRadius` is zero, the original uses different defaults:
-
-- World picture: frame width plus frame height.
-- Mobile: twice the width of one mobile pose.
-- Darkcaster: multiply the resulting radius by four.
-- Dead light-emitting mobile: halve radius and intensity.
-
-goThoom currently uses the picture width or one mobile-pose width, does not
-apply the darkcaster radius multiplier, and does not reduce dead-mobile light.
-These differences should be reviewed visually before changing them because the
-current shader has its own global radius scaling.
-
 ## Recommended implementation order
 
 1. Random animation.
 2. Explicit shadow-picture suppression and night blending.
-3. Radius parity review.
 
-The first two items are contained changes with direct asset coverage.
+Both items are contained changes with direct asset coverage.
 
 ## Completion checklist
 

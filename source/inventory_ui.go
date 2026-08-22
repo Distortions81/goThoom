@@ -447,7 +447,7 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.label.FontSize = float32(s.fontSize)
 		row.label.Face = data.face
 		row.label.Position = eui.Point{X: row.icon.Margin, Y: 0}
-		avail := s.clientWAvail - float32(s.iconSize) - row.icon.Margin - data.slotWidth
+		avail := s.clientWAvail - float32(s.iconSize) - row.icon.Margin - data.slotWidth - eui.ScrollbarWidth()
 		if avail < 0 {
 			avail = 0
 		}

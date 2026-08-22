@@ -2,9 +2,11 @@ package main
 
 import (
 	_ "embed"
-	"gothoom/climg"
+	"image"
 	"math"
 	"os"
+
+	"gothoom/climg"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -53,26 +55,25 @@ func init() {
 	}
 	// Initialize reusable uniforms and options
 	lightingUniforms = map[string]any{
-		"LightCount":        0,
-		"DarkCount":         0,
-		"LightPosX":         lposX[:],
-		"LightPosY":         lposY[:],
-		"LightRadius":       lradius[:],
-		"LightR":            lr[:],
-		"LightG":            lg[:],
-		"LightB":            lb[:],
-		"LightIntensity":    lint[:],
-		"DarkPosX":          dposX[:],
-		"DarkPosY":          dposY[:],
-		"DarkRadius":        dradius[:],
-		"DarkAlpha":         da[:],
-		"DarkIntensity":     dint[:],
-		"DarkPlane":         dplane[:],
-		"LightStrength":     float32(1),
-		"GlowStrength":      float32(1),
-		"NightFactor":       float32(0),
-		"MaxLightPlane":     float32(32767),
-		"PlaneOrderEnabled": float32(1),
+		"LightCount":     0,
+		"DarkCount":      0,
+		"LightPosX":      lposX[:],
+		"LightPosY":      lposY[:],
+		"LightRadius":    lradius[:],
+		"LightR":         lr[:],
+		"LightG":         lg[:],
+		"LightB":         lb[:],
+		"LightIntensity": lint[:],
+		"DarkPosX":       dposX[:],
+		"DarkPosY":       dposY[:],
+		"DarkRadius":     dradius[:],
+		"DarkAlpha":      da[:],
+		"DarkIntensity":  dint[:],
+		"DarkPlane":      dplane[:],
+		"LightStrength":  float32(1),
+		"GlowStrength":   float32(1),
+		"NightFactor":    float32(0),
+		"MaxLightPlane":  float32(32767),
 	}
 	lightingOp = ebiten.DrawRectShaderOptions{}
 	lightingOp.Uniforms = lightingUniforms
@@ -181,11 +182,6 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	lightingUniforms["LightStrength"] = float32(gs.ShaderLightStrength)
 	lightingUniforms["GlowStrength"] = float32(gs.ShaderGlowStrength)
 	lightingUniforms["MaxLightPlane"] = highestLightPlane(il)
-	if gs.LightingPlaneOrder {
-		lightingUniforms["PlaneOrderEnabled"] = float32(1)
-	} else {
-		lightingUniforms["PlaneOrderEnabled"] = float32(0)
-	}
 
 	// Smoothed night factor (0..1)
 	nightFactor := float32(0)
@@ -296,6 +292,57 @@ func mobileLightEnabled(flags uint32, state uint8) bool {
 	return state < poseDead && state%4 == 3
 }
 
+type lightGeometry struct {
+	radius    float32
+	intensity float32
+}
+
+func pictureLightGeometry(metadataRadius uint16, flags uint32, width, height int) lightGeometry {
+	radius := float32(metadataRadius)
+	combinedSize := width + height
+	if radius == 0 {
+		radius = float32(combinedSize)
+	}
+	if flags&climg.PictDefFlagLightDarkcaster != 0 {
+		radius *= 4
+	}
+	minimum := float32(combinedSize) / 2
+	if radius < minimum {
+		radius = minimum
+	}
+	return lightGeometry{radius: radius, intensity: 1}
+}
+
+func mobileLightGeometry(metadataRadius uint16, flags uint32, size int, state uint8) lightGeometry {
+	radius := float32(metadataRadius)
+	if radius == 0 {
+		radius = float32(size * 2)
+	}
+	if flags&climg.PictDefFlagLightDarkcaster != 0 {
+		radius *= 4
+	}
+	intensity := float32(1)
+	if state == poseDead {
+		radius /= 2
+		intensity = 0.5
+	}
+	minimum := float32(size)
+	if radius < minimum {
+		radius = minimum
+	}
+	return lightGeometry{radius: radius, intensity: intensity}
+}
+
+func lightIntersectsViewport(x, y float32, radius float32, bounds image.Rectangle) bool {
+	if radius <= 0 || bounds.Empty() {
+		return false
+	}
+	return x+radius >= float32(bounds.Min.X) &&
+		x-radius <= float32(bounds.Max.X) &&
+		y+radius >= float32(bounds.Min.Y) &&
+		y-radius <= float32(bounds.Max.Y)
+}
+
 func mixLightFlicker(value uint64) uint64 {
 	value += 0x9e3779b97f4a7c15
 	value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9
@@ -352,31 +399,31 @@ func flameLightFlicker(flags uint32, pictID uint32, instanceKey uint64, logicalF
 	return modulation
 }
 
-func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size, logicalFrame int, interpolation float64) {
+func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !gs.ShaderLighting || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)
+	if flags&climg.PictDefFlagEmitsLight == 0 {
+		return
+	}
 	if !mobileLightEnabled(flags, state) {
 		return
 	}
+	li, ok := clImages.Lighting(pictID)
+	if !ok {
+		return
+	}
 	const mobileKeyTag = uint64(1) << 63
-	addLightSource(pictID, flags, mobileKeyTag|uint64(index), x, y, size, logicalFrame, interpolation)
+	geometry := mobileLightGeometry(li.Radius, flags, size, state)
+	addLightSource(pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
 }
 
-func addPictureLightSource(pictID uint32, h, v int16, x, y float64, size, logicalFrame int, interpolation float64) {
+func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !gs.ShaderLighting || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)
-	instanceKey := uint64(uint16(h))<<16 | uint64(uint16(v))
-	addLightSource(pictID, flags, instanceKey, x, y, size, logicalFrame, interpolation)
-}
-
-func addLightSource(pictID, flags uint32, instanceKey uint64, x, y float64, size, logicalFrame int, interpolation float64) {
-	if !gs.ShaderLighting || clImages == nil {
-		return
-	}
 	if flags&climg.PictDefFlagEmitsLight == 0 {
 		return
 	}
@@ -384,10 +431,13 @@ func addLightSource(pictID, flags uint32, instanceKey uint64, x, y float64, size
 	if !ok {
 		return
 	}
-	radius := float32(li.Radius)
-	if radius == 0 {
-		radius = float32(size)
-	}
+	instanceKey := uint64(uint16(h))<<16 | uint64(uint16(v))
+	geometry := pictureLightGeometry(li.Radius, flags, width, height)
+	addLightSource(pictID, flags, li, geometry, instanceKey, x, y, logicalFrame, interpolation, bounds)
+}
+
+func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeometry, instanceKey uint64, x, y float64, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+	radius := geometry.radius
 	radius *= float32(gs.GameScale)
 	strength := gs.FlameFlickerStrength
 	if !gs.FlameLightFlicker {
@@ -399,16 +449,23 @@ func addLightSource(pictID, flags uint32, instanceKey uint64, x, y float64, size
 	cx := float32(x)
 	cy := float32(y)
 	if flags&climg.PictDefFlagLightDarkcaster != 0 {
+		if !lightIntersectsViewport(cx, cy, radius, bounds) {
+			return
+		}
 		if len(frameDarks) < maxLights {
-			alpha := float32(li.Color[3]) / 255
+			alpha := float32(li.Color[3]) / 255 * geometry.intensity
 			frameDarks = append(frameDarks, darkSource{X: cx, Y: cy, Radius: radius, Alpha: alpha, Plane: li.Plane, Intensity: 1})
 		}
 	} else {
+		radius *= flame.radius
+		if !lightIntersectsViewport(cx, cy, radius, bounds) {
+			return
+		}
 		if len(frameLights) < maxLights {
-			radius *= flame.radius
-			r := float32(li.Color[0]) / 255 * flame.brightness
-			g := float32(li.Color[1]) / 255 * flame.brightness
-			b := float32(li.Color[2]) / 255 * flame.brightness
+			brightness := flame.brightness * geometry.intensity
+			r := float32(li.Color[0]) / 255 * brightness
+			g := float32(li.Color[1]) / 255 * brightness
+			b := float32(li.Color[2]) / 255 * brightness
 			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: 1})
 		}
 	}

@@ -217,7 +217,6 @@ var gsdef settings = settings{
 
 	NightEffect:              true,
 	ShaderLighting:           true,
-	LightingPlaneOrder:       true,
 	CharacterShadows:         true,
 	DetailedCharacterShadows: true,
 
@@ -407,7 +406,6 @@ type settings struct {
 	hideMobiles              bool
 	NightEffect              bool
 	ShaderLighting           bool
-	LightingPlaneOrder       bool
 	CharacterShadows         bool
 	DetailedCharacterShadows bool
 
@@ -938,9 +936,6 @@ func applyQualityPreset(name string) {
 	}
 	if shaderGlowSlider != nil {
 		shaderGlowSlider.Disabled = !gs.ShaderLighting
-	}
-	if lightingPlaneOrderCB != nil {
-		lightingPlaneOrderCB.Disabled = !gs.ShaderLighting
 	}
 }
 

@@ -1,10 +1,88 @@
 package main
 
 import (
+	"image"
 	"testing"
 
 	"gothoom/climg"
 )
+
+func TestPictureLightGeometry(t *testing.T) {
+	const dark = climg.PictDefFlagLightDarkcaster
+	tests := []struct {
+		name           string
+		metadataRadius uint16
+		flags          uint32
+		width, height  int
+		wantRadius     float32
+	}{
+		{name: "default radius", width: 40, height: 20, wantRadius: 60},
+		{name: "explicit radius", metadataRadius: 50, width: 40, height: 20, wantRadius: 50},
+		{name: "minimum radius", metadataRadius: 5, width: 40, height: 20, wantRadius: 30},
+		{name: "darkcaster radius", metadataRadius: 50, flags: dark, width: 40, height: 20, wantRadius: 200},
+		{name: "default darkcaster radius", flags: dark, width: 40, height: 20, wantRadius: 240},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pictureLightGeometry(tt.metadataRadius, tt.flags, tt.width, tt.height)
+			if got.radius != tt.wantRadius || got.intensity != 1 {
+				t.Fatalf("pictureLightGeometry() = %+v, want radius %v intensity 1", got, tt.wantRadius)
+			}
+		})
+	}
+}
+
+func TestMobileLightGeometry(t *testing.T) {
+	const dark = climg.PictDefFlagLightDarkcaster
+	tests := []struct {
+		name           string
+		metadataRadius uint16
+		flags          uint32
+		size           int
+		state          uint8
+		wantRadius     float32
+		wantIntensity  float32
+	}{
+		{name: "default radius", size: 20, wantRadius: 40, wantIntensity: 1},
+		{name: "explicit radius", metadataRadius: 30, size: 20, wantRadius: 30, wantIntensity: 1},
+		{name: "minimum radius", metadataRadius: 5, size: 20, wantRadius: 20, wantIntensity: 1},
+		{name: "darkcaster radius", metadataRadius: 30, flags: dark, size: 20, wantRadius: 120, wantIntensity: 1},
+		{name: "dead emitter", metadataRadius: 60, size: 20, state: poseDead, wantRadius: 30, wantIntensity: 0.5},
+		{name: "dead minimum", metadataRadius: 10, size: 20, state: poseDead, wantRadius: 20, wantIntensity: 0.5},
+		{name: "dead darkcaster", metadataRadius: 30, flags: dark, size: 20, state: poseDead, wantRadius: 60, wantIntensity: 0.5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := mobileLightGeometry(tt.metadataRadius, tt.flags, tt.size, tt.state)
+			if got.radius != tt.wantRadius || got.intensity != tt.wantIntensity {
+				t.Fatalf("mobileLightGeometry() = %+v, want radius %v intensity %v", got, tt.wantRadius, tt.wantIntensity)
+			}
+		})
+	}
+}
+
+func TestLightIntersectsViewport(t *testing.T) {
+	bounds := image.Rect(10, 20, 110, 120)
+	tests := []struct {
+		name    string
+		x, y, r float32
+		want    bool
+	}{
+		{name: "inside", x: 50, y: 60, r: 10, want: true},
+		{name: "touching left", x: 0, y: 60, r: 10, want: true},
+		{name: "left", x: -1, y: 60, r: 10, want: false},
+		{name: "touching bottom", x: 50, y: 130, r: 10, want: true},
+		{name: "bottom", x: 50, y: 131, r: 10, want: false},
+		{name: "zero radius", x: 50, y: 60, r: 0, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := lightIntersectsViewport(tt.x, tt.y, tt.r, bounds); got != tt.want {
+				t.Fatalf("lightIntersectsViewport(%v, %v, %v) = %v, want %v", tt.x, tt.y, tt.r, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestMobileLightEnabled(t *testing.T) {
 	const attackOnly = climg.PictDefFlagOnlyAttackPosesLit

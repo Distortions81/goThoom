@@ -484,9 +484,6 @@ func buildSetupLightingPage(root *eui.ItemData) {
 			if shaderLightingCB != nil {
 				shaderLightingCB.Checked = checked
 			}
-			if lightingPlaneOrderCB != nil {
-				lightingPlaneOrderCB.Disabled = !checked
-			}
 			if shaderLightSlider != nil {
 				shaderLightSlider.Disabled = !checked
 			}

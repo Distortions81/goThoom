@@ -29,7 +29,6 @@ var (
     GlowStrength float
     NightFactor float
     MaxLightPlane float
-    PlaneOrderEnabled float
 )
 
 func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
@@ -47,7 +46,7 @@ func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
             nd := dist / DarkRadius[i]
             f := 1.0 / (1.0 + nd*nd)
             d := clamp(DarkScale*DarkAlpha[i]*f, 0.0, 1.0) * DarkIntensity[i]
-            if PlaneOrderEnabled > 0.5 && DarkPlane[i] > MaxLightPlane {
+            if DarkPlane[i] > MaxLightPlane {
                 postLightDim *= vec3(1.0 - d)
             } else {
                 preLightDim *= vec3(1.0 - d)

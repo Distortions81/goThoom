@@ -1,0 +1,30 @@
+goThoom 37 changes since test36.
+
+New and improved:
+- Light and dark casters now always respect their lighting-plane metadata while retaining the single-pass shader path.
+- Added support for `kPictDefFlagOnlyAttackPosesLit` and `kPictDefFlagLightFlicker`.
+- Flickering lights now use smoothly changing, flame-like position, brightness, and radius variation. The effect and its strength can be adjusted in the graphics settings.
+- Corrected default light sizes for scenery and mobiles, expanded darkcaster coverage, reduced dead-mobile light, and stopped fully off-screen sources from consuming shader capacity.
+- Added Character Shadows, enabled by default. Upright characters cast sun-directed projected shadows while creatures, boats, and prone characters use inexpensive drop shadows.
+- Added Accurate Character Shadows, enabled by default. Overlapping character shadows are combined before darkening the scene so crowded groups do not become excessively dark.
+- Upright character shadows fade from darker at the feet to lighter toward the projected head, and their length and contrast vary with the sun position.
+- Legacy macros now receive the real input-box selection through `@textsel` while editing or invoking a macro.
+
+Defaults and options:
+- Flame-style light flicker, Character Shadows, and Accurate Character Shadows default to on.
+- Stereo Music now defaults to off.
+- When Stereo Music is enabled, bard parts are spread across a maximum 40% stereo field instead of 70%.
+
+Fixes:
+- Fixed inventory wear-location labels extending underneath the list scrollbar.
+- Increased the minimum scrollbar thumb size so the window resize corner cannot cover the entire thumb.
+- Fixed closing or interacting with a UI window sometimes allowing the same click to reach the game world and accidentally move the player.
+- Fixed music players sometimes being treated as finished before their first audio callback, which could stop music and produce "audio: player is already closed" errors.
+- Fixed streamed music chunk boundaries so synthesizer render blocks are kept intact, reducing audible seams between chunks.
+- Music rendering now continues filling its bounded playback queue while a song is playing, after the initial five-second buffer is ready.
+- Scoped music-stop commands now close only the matching performer or group stream without disabling the Music mixer setting.
+
+Technical changes:
+- Moved the Go module and runtime source tree under `source/`; repository-level build scripts and documentation were updated for the new layout.
+- Published release builds no longer run for ordinary pushes, and the WebAssembly build is maintained as a separate explicit build script.
+- Added regression coverage for lighting flags and planes, character shadows, music streaming and stopping, scrollbar sizing, UI click ownership, and legacy macro text selection.

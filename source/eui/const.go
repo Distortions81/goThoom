@@ -21,6 +21,10 @@ const (
 	// to leave room for overlay controls.
 	dropdownOverlayReserve = 1
 
+	// minScrollbarThumbSize leaves a usable section above the bottom-right
+	// corner's resize hit area when a vertical thumb is scrolled to the end.
+	minScrollbarThumbSize float32 = cornerTolerance + 16
+
 	// MinWindowSize defines the minimum width and height for any window.
 	MinWindowSize = 64
 )

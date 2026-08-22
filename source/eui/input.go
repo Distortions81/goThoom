@@ -1406,7 +1406,7 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 		Y: win.GetSize().Y - win.GetTitleSize() - 2*pad,
 	}
 	if vert && req.Y > avail.Y {
-		barH := avail.Y * avail.Y / req.Y
+		barH := scrollbarThumbLength(avail.Y, req.Y, win.scale())
 		slack := 4 * UIScale()
 		maxScroll := req.Y - avail.Y + slack
 		track := win.getPosition().Y + win.GetTitleSize() + win.BorderPad*win.scale()
@@ -1426,7 +1426,7 @@ func dragWindowScroll(win *windowData, mpos point, vert bool) {
 		win.Scroll.Y = 0
 	}
 	if !vert && req.X > avail.X {
-		barW := avail.X * avail.X / req.X
+		barW := scrollbarThumbLength(avail.X, req.X, win.scale())
 		slack := 4 * UIScale()
 		maxScroll := req.X - avail.X + slack
 		track := win.getPosition().X + win.BorderPad*win.scale()
@@ -1458,7 +1458,7 @@ func dragFlowScroll(flow *itemData, mpos point, vert bool) {
 	req := flow.contentBounds()
 	size := flow.GetSize()
 	if vert && flow.FlowType == FLOW_VERTICAL && req.Y > size.Y {
-		barH := size.Y * size.Y / req.Y
+		barH := scrollbarThumbLength(size.Y, req.Y, UIScale())
 		slack := 4 * UIScale()
 		maxScroll := req.Y - size.Y + slack
 		track := flow.DrawRect.Y0
@@ -1478,7 +1478,7 @@ func dragFlowScroll(flow *itemData, mpos point, vert bool) {
 		flow.Scroll.Y = 0
 	}
 	if !vert && flow.FlowType == FLOW_HORIZONTAL && req.X > size.X {
-		barW := size.X * size.X / req.X
+		barW := scrollbarThumbLength(size.X, req.X, UIScale())
 		slack := 4 * UIScale()
 		maxScroll := req.X - size.X + slack
 		track := flow.DrawRect.X0

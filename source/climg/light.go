@@ -3,8 +3,8 @@ package climg
 // LightInfo holds lighting metadata for images that emit light or darkness.
 // Color stores RGBA components. For lightcasters only RGB is used and alpha
 // should be 255. For darkcasters RGB will be zero and alpha specifies the
-// darkness intensity. Radius is in pixels and a zero radius indicates the
-// image width should be used. Plane mirrors the picture definition plane.
+// darkness intensity. Radius is in pixels; the renderer derives a source-type
+// default when it is zero. Plane mirrors the picture definition plane.
 type LightInfo struct {
 	Color  [4]byte
 	Radius uint16

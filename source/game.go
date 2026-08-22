@@ -1768,7 +1768,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha)
+		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
@@ -2017,7 +2017,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	x += ox
 	y += oy
 
-	addPictureLightSource(uint32(p.PictID), p.H, p.V, float64(x), float64(y), w, logicalFrame, alpha)
+	addPictureLightSource(uint32(p.PictID), p.H, p.V, float64(x), float64(y), w, h, logicalFrame, alpha, screen.Bounds())
 
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)

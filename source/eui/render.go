@@ -672,7 +672,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 		Y: win.GetSize().Y - win.GetTitleSize() - 2*pad,
 	}
 	if req.Y > avail.Y {
-		barH := avail.Y * avail.Y / req.Y
+		barH := scrollbarThumbLength(avail.Y, req.Y, win.scale())
 		maxScroll := req.Y - avail.Y
 		pos := float32(0)
 		if maxScroll > 0 {
@@ -688,7 +688,7 @@ func (win *windowData) drawScrollbars(screen *ebiten.Image) {
 		})
 	}
 	if req.X > avail.X {
-		barW := avail.X * avail.X / req.X
+		barW := scrollbarThumbLength(avail.X, req.X, win.scale())
 		maxScroll := req.X - avail.X
 		pos := float32(0)
 		if maxScroll > 0 {
@@ -956,7 +956,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		req := item.contentBounds()
 		size := item.GetSize()
 		if item.FlowType == FLOW_VERTICAL && req.Y > size.Y {
-			barH := size.Y * size.Y / req.Y
+			barH := scrollbarThumbLength(size.Y, req.Y, UIScale())
 			maxScroll := req.Y - size.Y
 			pos := float32(0)
 			if maxScroll > 0 {
@@ -976,7 +976,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			col := NewColor(96, 96, 96, 192)
 			drawFilledRect(subImg, drawRect.X1-sbW, drawRect.Y0+pos, sbW, barH, col.ToRGBA(), false)
 		} else if item.FlowType == FLOW_HORIZONTAL && req.X > size.X {
-			barW := size.X * size.X / req.X
+			barW := scrollbarThumbLength(size.X, req.X, UIScale())
 			maxScroll := req.X - size.X
 			pos := float32(0)
 			if maxScroll > 0 {
@@ -1898,7 +1898,7 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 	if len(item.Options) > visible {
 		openH := optionH * float32(visible)
 		totalH := optionH * float32(len(item.Options))
-		barH := openH * openH / totalH
+		barH := scrollbarThumbLength(openH, totalH, UIScale())
 		maxScroll := totalH - openH
 		pos := float32(0)
 		if maxScroll > 0 {

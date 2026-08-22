@@ -869,7 +869,7 @@ func (win *windowData) getScrollbarPart(mpos point) dragType {
 		Y: win.GetSize().Y - win.GetTitleSize() - 2*pad,
 	}
 	if req.Y > avail.Y {
-		barH := avail.Y * avail.Y / req.Y
+		barH := scrollbarThumbLength(avail.Y, req.Y, win.scale())
 		maxScroll := req.Y - avail.Y
 		pos := float32(0)
 		if maxScroll > 0 {
@@ -887,7 +887,7 @@ func (win *windowData) getScrollbarPart(mpos point) dragType {
 		}
 	}
 	if req.X > avail.X {
-		barW := avail.X * avail.X / req.X
+		barW := scrollbarThumbLength(avail.X, req.X, win.scale())
 		maxScroll := req.X - avail.X
 		pos := float32(0)
 		if maxScroll > 0 {
@@ -915,7 +915,7 @@ func (item *itemData) getScrollbarPart(mpos point) dragType {
 	req := item.contentBounds()
 	size := item.GetSize()
 	if item.FlowType == FLOW_VERTICAL && req.Y > size.Y {
-		barH := size.Y * size.Y / req.Y
+		barH := scrollbarThumbLength(size.Y, req.Y, UIScale())
 		maxScroll := req.Y - size.Y
 		pos := float32(0)
 		if maxScroll > 0 {
@@ -933,7 +933,7 @@ func (item *itemData) getScrollbarPart(mpos point) dragType {
 		}
 	}
 	if item.FlowType == FLOW_HORIZONTAL && req.X > size.X {
-		barW := size.X * size.X / req.X
+		barW := scrollbarThumbLength(size.X, req.X, UIScale())
 		maxScroll := req.X - size.X
 		pos := float32(0)
 		if maxScroll > 0 {
@@ -951,6 +951,24 @@ func (item *itemData) getScrollbarPart(mpos point) dragType {
 		}
 	}
 	return PART_NONE
+}
+
+func scrollbarThumbLength(track, content, scale float32) float32 {
+	if track <= 0 {
+		return 0
+	}
+	if content <= track {
+		return track
+	}
+	length := track * track / content
+	minimum := minScrollbarThumbSize * scale
+	if minimum > track {
+		minimum = track
+	}
+	if length < minimum {
+		length = minimum
+	}
+	return length
 }
 
 func (win *windowData) SetTitleSize(size float32) {

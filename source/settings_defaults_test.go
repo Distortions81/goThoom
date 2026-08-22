@@ -16,7 +16,6 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"world animation blending":     gsdef.BlendPicts,
 		"shader lighting":              gsdef.ShaderLighting,
 		"flame light flicker":          gsdef.FlameLightFlicker,
-		"lighting plane order":         gsdef.LightingPlaneOrder,
 		"character shadows":            gsdef.CharacterShadows,
 		"detailed character shadows":   gsdef.DetailedCharacterShadows,
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
@@ -70,7 +69,6 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		"world animation blending":     gs.BlendPicts,
 		"shader effects":               gs.ShaderLighting,
 		"flame light flicker":          gs.FlameLightFlicker,
-		"lighting plane order":         gs.LightingPlaneOrder,
 		"character shadows":            gs.CharacterShadows,
 		"detailed character shadows":   gs.DetailedCharacterShadows,
 		"sound enhancement":            gs.SoundEnhancement,
@@ -102,15 +100,11 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gs.LightingPlaneOrder = false
 	gs.CharacterShadows = false
 	gs.DetailedCharacterShadows = false
 	gs.FlameLightFlicker = false
 	if !loadSettings() {
 		t.Fatal("loadSettings() = false for current-version settings")
-	}
-	if !gs.LightingPlaneOrder {
-		t.Error("settings without LightingPlaneOrder should default it on")
 	}
 	if !gs.CharacterShadows {
 		t.Error("settings without CharacterShadows should default it on")
