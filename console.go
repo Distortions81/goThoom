@@ -14,6 +14,7 @@ func consoleMessage(msg string) {
 	if wasmPrivacyActive() {
 		return
 	}
+	legacyMacroSetTextLog(msg)
 	if msg == "You have been idle for too long." {
 		showNotification(msg)
 		playSound([]uint16{sndTink})

@@ -535,6 +535,9 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("character password required")
 	}
 	playerName = utfFold(name)
+	if err := loadLegacyMacrosForCharacter(playerName); err != nil {
+		log.Printf("legacy macros: %v", err)
+	}
 	applyLocalLabels()
 	applyEnabledScripts()
 	loadShortcuts()

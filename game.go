@@ -665,6 +665,7 @@ func (g *Game) Update() error {
 	eui.Update() //We really need this to return eaten clicks
 	// Advance script tick waiters once per frame
 	scriptAdvanceTick()
+	advanceLegacyMacros(int64(ackFrame))
 	typingElsewhere := typingInUI()
 	if inputActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
 		item := inputFlow.Contents[0]
