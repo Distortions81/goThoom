@@ -64,6 +64,9 @@ func openSetupWizard(force bool) {
 	}
 	rebuildSetupWizard()
 	setupWizardWin.MarkOpen()
+	// Assets can finish loading after startup settings were first applied.
+	// Reapply everything before the preview uses the normal game renderer.
+	applySettings()
 	startSetupWizardPreview()
 }
 
