@@ -1,0 +1,115 @@
+// Name: Keys
+//=====================================================
+// keys.mac
+//------------------------------------------------
+// HouseKey macros
+//=====================================================
+
+"/keys"
+{
+	set MyShield "squiresshield"
+	if @my.left_item != "keyring"
+		setglobal lsaveitem @my.left_item
+	else if @my.leftitem == MyShield
+		setglobal lsaveitem @my.left_item
+	end if
+	if @text == ""
+		message "Usage: /keys action."
+		message "Actions: "
+		message "add = add anykeys out to ring"
+		message "list = list keys by name and number"
+		message "stow = put away and requip shield"
+		message "clan = remove and equip clanhouse Master key"
+		message "clan-guest = remove and equip clanhouse Guest key"
+		message "clan-house = remove and equip clanhouse Regular key"
+		message "fin = to remove and equip finegas key"
+		message "inu OR garden = remove and equip Inu's garden key"
+		message "lem or lemming = remove and equip Lemming's Clan House key"
+	else if @text == "list"
+		"/equip keyring \r"
+		"/useitem left \r"
+		call listkeys
+	else if @text == "garden" 
+		call inugarden
+	else if @text == "inu"
+		call inugarden
+	else if @text == "clan"
+		call LAclankey
+	else if @text == "fin"
+		call finnyshouse
+	else if @text == "clan-guest"
+		call clanguest
+	else if @text == "clan-house"
+		call clanhouse
+	else if @text == "lem"
+		call lemming
+	else if @text == "lemming"
+		call lemming
+	else if @text == "knight"
+		call knightshouse
+	else if @text == "add"
+		"/equip keyring \r"
+		"/useitem left /add 2391 \r"
+		"/useitem left /add 2411 \r"
+		"/useitem left /add 2317 \r"
+		"/useitem left /add 2407 \r"
+		"/useitem left /add 2408 \r"
+		"/useitem left /add \r"
+		"/unequip keyring \r"
+		"/equip " MyShield "\r"
+	else if @text == "stow"
+		"/unequip keyring \r"
+		"/equip " MyShield "\r"
+	end if
+}
+clanguest 
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2411 guest \r"
+	"/equip guestkey \r"
+}
+clanhouse
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2411 house \r"
+	"/equip guestkey \r"
+}
+
+finnyshouse
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2317 \r"
+	"/equip guestkey \r"
+}
+inugarden
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2391 \r"
+	"/equip masterkey \r"
+}
+knightshouse
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2408 \r"
+	"/equip guestkey \r"
+}
+LAclankey
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2411 master \r"
+	"/equip masterkey \r"
+}
+lemming
+{
+	"/equip keyring \r"
+	"/useitem left /remove 2407 \r"
+	"/equip guestkey \r"
+}
+listkeys
+{
+	message "2411 = LA clan house (clan)"
+	message "2317 = finny's hollows house (fin)"
+	message "2391 = inu's garden (inu)"
+	message "2407 = Lemming clan house = (lem)"
+	message "2408 = Knights tree house = (knight)"
+}

@@ -108,6 +108,25 @@ Tip: The input bar auto-expands as you type and has a context menu for quick pas
 goThoom can load optional scripts at startup using [yaegi](https://github.com/traefik/yaegi), a Go interpreter.
 Place `.go` files inside the `scripts/` directory.
 
+### Legacy `.mac` macros
+
+Open **Actions → Legacy Macros** to browse the public legacy macro library
+embedded in the client. The first time it opens, the bundled sources are copied
+to `Macros/Library/` without overwriting anything. Every `.mac` file in that
+directory then appears in the list, including files you add yourself.
+
+- Add `// Name: My friendly macro name` anywhere on its own comment line to
+  give a macro a display name. Without it, the filename is shown.
+- **Global** and selected **Player** checkboxes are saved in
+  `Macros/Library/enabled.json`. They tell goThoom which library files to load
+  and never rewrite `Macros/Default` or `Macros/<player name>`.
+
+Changing a checkbox reloads the active macro program immediately. After
+editing a `.mac` file, use **Reload Macros** in the Legacy Macros window.
+The bundled sources remain attributed to their original authors in
+`testdata/legacy_macros/web/README.md`. Some advanced files rely on
+compatibility work still listed in `MACRO_COMPAT_TODO.md`.
+
 ### Testing server messages
 
 Use the `/testhooks` command to inject fake server messages for debugging or

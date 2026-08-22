@@ -151,7 +151,10 @@ func loadLegacyMacrosForCharacter(character string) error {
 		}
 	}
 
+	libraryRoots, libraryDiagnostics := legacyMacroLibrarySelectedSources(character)
+	roots = append(roots, libraryRoots...)
 	program := parseLegacyMacroSources(roots)
+	program.Diagnostics = append(program.Diagnostics, libraryDiagnostics...)
 	runtime := newLegacyMacroRuntime(program)
 	runtime.startFunctionIfDefined("@login")
 	legacyMacrosMu.Lock()

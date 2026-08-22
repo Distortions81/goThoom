@@ -1,0 +1,750 @@
+// Name: Macro Tetris
+
+// Settings:
+set gTetris_start_speed 3 // Starting speed, as a delay of frames (lower numbers are faster).
+set gTetris_lowest_speed 1 // Lowest (ie fastest) speed the game will reach as level advances.
+set gTetris_max_flood 4 // Once the fastest speed has been reached, rows will begin to flood up to the maximum specified here.
+set gTetris_level_length 25 // Length of each level, in number of blocks dropped.
+
+// Characters used in display (changing these may result in unaligned rows):
+set gTetris_empty "~" // Empty ("background").
+set gTetris_block "0" // Block.
+set gTetris_falling "*" // Falling block.
+set gTetris_destroyed "=" // Destroyed line.
+set gTetris_flood "U" // Flood block.
+set gTetris_top "///////\\\\\\\\\\\\\\" // Upper divider of display.
+set gTetris_bottom "\\\\\\\\\\\\\\///////" // Lower divider of display.
+
+// Global initializations, do not change:
+set gTetris_on 0
+set gTetris_init 0
+set gTetris_moving 0 // Positive for right, Negative for left.
+set gTetris_rotating 0 // Positive for rotate right, Negative for rotate left.
+set gTetris_dropping 0 // 1 for drop.
+
+// Controls:
+// Move left:
+control-left
+{
+if gTetris_on == 1
+  setglobal gTetris_moving - 1
+  call "fTetris_show"
+end if
+}
+// Move right:
+control-right
+{
+if gTetris_on == 1
+  setglobal gTetris_moving + 1
+  call "fTetris_show"
+end if
+}
+// Rotate left:
+control-down
+{
+if gTetris_on == 1
+  setglobal gTetris_rotating - 1
+  call "fTetris_show"
+end if
+}
+// Rotate right:
+control-up
+{
+if gTetris_on == 1
+  setglobal gTetris_rotating + 1
+  call "fTetris_show"
+end if
+}
+// Drop:
+control-space
+{
+if gTetris_on == 1
+  setglobal gTetris_dropping 1
+  call "fTetris_show"
+end if
+}
+
+// /tetris to start or pause/unpause.
+"/tetris"
+{
+if gTetris_on == 1
+  setglobal gTetris_on 0
+else
+  setglobal gTetris_on 1
+  if gTetris_init == 0
+    setglobal gTetris_init 1
+    setglobal gTetris_speed gTetris_start_speed
+    setglobal gTetris_level 1
+    setglobal gTetris_timer 0
+    setglobal gTetris_lines 0
+    setglobal gTetris_flooded 0
+    setglobal gTetris_state 0 // 0 - Block Landed. 1 - Block Falling. 2 - Line Destroyed.
+    setglobal gTetris_score 0
+    setglobal gTetris_rotate 0
+    setglobal gTetris_posX 0
+    setglobal gTetris_posY 0
+    setglobal gTetris_block 0
+    setglobal gTetris_show 1
+    setglobal gTetris_temp 0
+    label TETRISINITY
+      if gTetris_temp < 10
+        setglobal gTetris[gTetris_temp] "|"
+        set tetris_X 0
+        label TETRISINITX
+          if tetris_X < 10
+            setglobal gTetris[gTetris_temp] + gTetris_empty
+            set tetris_X + 1
+            goto "TETRISINITX"
+          end if
+        setglobal gTetris[gTetris_temp] + "|"
+        setglobal gTetris_temp + 1
+        goto "TETRISINITY"
+      end if
+  else
+    setglobal gTetris_moving 0
+    setglobal gTetris_rotating 0
+    setglobal gTetris_dropping 0
+  end if
+  label TETRISGAME
+    call "fTetris_input"
+    if gTetris_state == 1 // Block Falling.
+      setglobal gTetris_posY + 1
+      call "fTetris_check"
+      if tetris_ok == 0
+        setglobal gTetris_posY - 1
+        setglobal gTetris_state 0
+        call "fTetris_solidify"  
+      end if
+    else if gTetris_state == 0 // Block Landed.
+      call "fTetris_next"
+      call "fTetris_check"
+      setglobal gTetris_state 1
+      if tetris_ok == 0
+        // Game over.
+        setglobal gTetris_on 0
+        setglobal gTetris_init 0
+      end if
+    else // Line Destroyed.
+      call "fTetris_destroy"
+      setglobal gTetris_state 0
+    end if
+    call "fTetris_display"
+    pause gTetris_speed
+    if gTetris_on == 1
+      goto "TETRISGAME"
+    end if
+end if
+}
+
+fTetris_show
+{
+if gTetris_show == 1
+  call "fTetris_showing"
+end if
+}
+
+fTetris_showing
+{
+set tetris_disp ""
+set tetris_X gTetris_moving
+if tetris_X != 0
+  set tetris_disp "Move: "
+  label TETRISSHOWM
+    if tetris_X > 0
+      set tetris_disp + "-> "
+      set tetris_X - 1
+      goto "TETRISSHOWM"
+    else if tetris_X < 0
+      set tetris_disp + "<- "
+      set tetris_X + 1
+      goto "TETRISSHOWM"
+    end if
+  set tetris_disp + "   "
+end if
+set tetris_X gTetris_rotating
+if tetris_X != 0
+  set tetris_disp + "Rotate: "
+  label TETRISSHOWR
+    if tetris_X > 0
+      set tetris_disp + "=> "
+      set tetris_X - 1
+      goto "TETRISSHOWR"
+    else if tetris_X < 0
+      set tetris_disp + "<= "
+      set tetris_X + 1
+      goto "TETRISSHOWR"
+    end if
+  set tetris_disp + "   "
+end if
+if gTetris_dropping == 1
+  set tetris_disp + "Drop!"
+end if
+if tetris_disp != ""
+  message tetris_disp
+end if
+}
+
+fTetris_input
+{
+if gTetris_state == 1
+  label TETRISMOVE
+    if gTetris_moving != 0
+      if gTetris_moving > 0
+        setglobal gTetris_posX + 1
+        call "fTetris_check"
+        if tetris_ok == 0
+          setglobal gTetris_posX - 1
+          setglobal gTetris_moving 0
+        else
+          setglobal gTetris_moving - 1
+        end if
+      else
+        setglobal gTetris_posX - 1
+        call "fTetris_check"
+        if tetris_ok == 0
+          setglobal gTetris_posX + 1
+          setglobal gTetris_moving 0
+        else
+          setglobal gTetris_moving + 1
+        end if
+      end if
+      goto "TETRISMOVE"
+    end if
+  label TETRISROTATE
+    if gTetris_rotating != 0
+      if gTetris_rotating > 0
+        setglobal gTetris_rotate + 4
+        if gTetris_rotate >= 16
+          setglobal gTetris_rotate - 16
+        else if gTetris_rotate < 0
+          setglobal gTetris_rotate + 16
+        end if
+        call "fTetris_check"
+        if tetris_ok == 0
+          setglobal gTetris_rotate - 4
+          if gTetris_rotate >= 16
+            setglobal gTetris_rotate - 16
+          else if gTetris_rotate < 0
+            setglobal gTetris_rotate + 16
+          end if
+          setglobal gTetris_rotating 0
+        else
+          setglobal gTetris_rotating - 1
+        end if
+      else
+        setglobal gTetris_rotate - 4
+        if gTetris_rotate >= 16
+          setglobal gTetris_rotate - 16
+        else if gTetris_rotate < 0
+          setglobal gTetris_rotate + 16
+        end if
+        call "fTetris_check"
+        if tetris_ok == 0
+          setglobal gTetris_rotate + 4
+          if gTetris_rotate >= 16
+            setglobal gTetris_rotate - 16
+          else if gTetris_rotate < 0
+            setglobal gTetris_rotate + 16
+          end if
+          setglobal gTetris_rotating 0
+        else
+          setglobal gTetris_rotating + 1
+        end if
+      end if          
+      goto "TETRISROTATE"
+    end if
+  if gTetris_dropping == 1
+    setglobal gTetris_dropping 0
+    label TETRISDROP
+      setglobal gTetris_posY + 1
+      call "fTetris_check"
+      if tetris_ok == 1
+        setglobal gTetris_score + 1
+        goto "TETRISDROP"
+      else
+        setglobal gTetris_posY - 1
+      end if
+  end if
+else
+  setglobal gTetris_moving 0
+  setglobal gTetris_rotating 0
+  setglobal gTetris_dropping 0
+end if
+}
+
+fTetris_display
+{
+setglobal gTetris_show 0
+set tetris_Y gTetris_posY
+set tetris_Y + 4
+set tetris_X gTetris_posX
+set tetris_X + 4
+set tetris_YY gTetris_rotate
+if gTetris_posY < 0
+  set tetris_YY - gTetris_posY
+end if
+setglobal gTetris_temp 0
+message gTetris_top
+label TETRISDISP
+  if gTetris_temp < 10
+    if gTetris_temp >= gTetris_posY
+      if gTetris_temp == gTetris_posY
+        set tetris_disp gTetris_temp
+        call "fTetris_input"
+        setglobal gTetris_temp tetris_disp
+        set tetris_Y gTetris_posY
+        set tetris_Y + 4
+        set tetris_X gTetris_posX
+        set tetris_X + 4
+        set tetris_YY gTetris_rotate
+        if gTetris_posY < 0
+          set tetris_YY - gTetris_posY
+        end if
+        if gTetris_temp != gTetris_posY
+          goto "TETRISDISP"
+        end if
+      end if
+      if gTetris_temp < tetris_Y
+        if gTetris_state == 1
+          set tetris_disp 1
+          set tetris_msg "|"
+          set tetris_line gTetris[gTetris_temp]
+          set tetris_block gTetris_block[tetris_YY]
+          set tetris_XX 0
+          if gTetris_posX < 1
+            set tetris_XX - gTetris_posX
+            set tetris_XX + 1
+          end if
+          label TETRISMSG
+            if tetris_disp < 11
+              if tetris_disp >= gTetris_posX
+                if tetris_disp < tetris_X
+                  set tetris_letter tetris_line.letter[tetris_disp]
+                  if tetris_letter == gTetris_empty
+                    if tetris_block.letter[tetris_XX] == "C"
+                      set tetris_msg + gTetris_falling
+                    else
+                      set tetris_msg + gTetris_empty
+                    end if
+                  else
+                    set tetris_msg + gTetris_block
+                  end if
+                  set tetris_XX + 1
+                else
+                  set tetris_msg + tetris_line.letter[tetris_disp]
+                end if
+              else
+                set tetris_msg + tetris_line.letter[tetris_disp]
+              end if
+              set tetris_disp + 1
+              goto "TETRISMSG"
+            end if
+          set tetris_msg + "|"
+          message tetris_msg
+          set tetris_YY + 1
+        else
+          message gTetris[gTetris_temp]
+        end if
+      else
+        message gTetris[gTetris_temp]
+      end if
+    else
+      message gTetris[gTetris_temp]
+    end if
+    setglobal gTetris_temp + 1
+    goto "TETRISDISP"
+  end if
+message gTetris_bottom
+message "Score:" gTetris_score "   Lines:" gTetris_lines "   Level:" gTetris_level
+if gTetris_init == 0
+  message "* GAME OVER!"
+else
+  call "fTetris_showing"
+end if
+setglobal gTetris_show 1
+}
+
+fTetris_destroy
+{
+set tetris_Y 0
+set tetris_score 0
+label TETRISDESTROY
+  if tetris_Y < 10
+    set tetris_line gTetris[tetris_Y]
+    if tetris_line.letter[1] == gTetris_destroyed
+      set tetris_score + 1
+      setglobal gTetris_temp tetris_Y
+      set tetris_YY tetris_Y
+      label TETRISDESTROYY
+        set tetris_YY - 1
+        if gTetris_temp > 0
+          setglobal gTetris[gTetris_temp] gTetris[tetris_YY]
+          setglobal gTetris_temp - 1
+          goto "TETRISDESTROYY"
+        end if
+      setglobal gTetris[0] "|"
+      set tetris_X 0
+      label TETRISINITXX
+        if tetris_X < 10
+          setglobal gTetris[0] + gTetris_empty
+          set tetris_X + 1
+          goto "TETRISINITXX"
+        end if
+      setglobal gTetris[0] + "|"
+    end if
+    set tetris_Y + 1
+    goto "TETRISDESTROY"
+  end if
+setglobal gTetris_lines + tetris_score
+set tetris_adj 5
+set tetris_adj - gTetris_speed
+if tetris_adj < 1
+  set tetris_adj 1
+end if
+set tetris_adj + gTetris_flooded
+if tetris_score == 1
+  set tetris_score 30
+else if tetris_score == 2
+  set tetris_score 75
+else if tetris_score == 3
+  set tetris_score 150
+else if tetris_score == 4
+  set tetris_score 300
+end if
+set tetris_score * tetris_adj
+setglobal gTetris_score + tetris_score
+}
+
+fTetris_solidify
+{
+set tetris_Y gTetris_posY // Y pos in main area.
+set tetris_YY 0 // Y pos in block area.
+if tetris_Y < 0
+  set tetris_YY - tetris_Y
+  set tetris_Y 0
+end if
+label TETRISSOLIDY
+  if tetris_YY < 4
+    if tetris_Y < 10
+      set tetris_destroy 1
+      set tetris_XX gTetris_posX
+      set tetris_XX + 4 // Ending X pos of block.
+      set tetris_line gTetris[tetris_Y]
+      setglobal gTetris_temp tetris_YY
+      setglobal gTetris_temp + gTetris_rotate
+      set tetris_block gTetris_block[gTetris_temp]
+      set tetris_disp "|"
+      setglobal gTetris_temp 1
+      label TETRISSOLIDX
+      if gTetris_temp < 11
+        if gTetris_temp >= gTetris_posX
+          if gTetris_temp < tetris_XX  
+            set tetris_X gTetris_temp
+            set tetris_X - gTetris_posX
+            if tetris_block.letter[tetris_X] == "C"
+              set tetris_disp + gTetris_block
+            else
+              set tetris_disp + tetris_line.letter[gTetris_temp]
+              if tetris_line.letter[gTetris_temp] != gTetris_block
+                set tetris_destroy 0
+              end if
+            end if
+          else
+            set tetris_disp + tetris_line.letter[gTetris_temp]
+            if tetris_line.letter[gTetris_temp] != gTetris_block
+              set tetris_destroy 0
+            end if
+          end if
+        else
+          set tetris_disp + tetris_line.letter[gTetris_temp]
+          if tetris_line.letter[gTetris_temp] != gTetris_block
+            set tetris_destroy 0
+          end if
+        end if
+        setglobal gTetris_temp + 1
+        goto "TETRISSOLIDX"
+      end if
+      if tetris_destroy == 1
+        set tetris_disp "|"
+        set tetris_X 0
+        label TETRISSOLIDD
+          if tetris_X < 10
+            set tetris_disp + gTetris_destroyed
+            set tetris_X + 1
+            goto "TETRISSOLIDD"
+          end if
+        setglobal gTetris_state 2
+      end if
+      set tetris_disp + "|"
+      setglobal gTetris_temp tetris_Y
+      setglobal gTetris[gTetris_temp] tetris_disp
+      set tetris_Y + 1
+      set tetris_YY + 1
+      goto "TETRISSOLIDY"
+    end if
+  end if
+if gTetris_speed > gTetris_lowest_speed
+  setglobal gTetris_timer + 1
+  if gTetris_timer >= gTetris_level_length
+    setglobal gTetris_timer 0
+    setglobal gTetris_level + 1
+    setglobal gTetris_speed - 1
+  end if
+else if gTetris_flooded < gTetris_max_flood
+  setglobal gTetris_timer + 1
+  if gTetris_timer >= gTetris_level_length
+    setglobal gTetris_timer 0
+    setglobal gTetris_level + 1
+    setglobal gTetris_flooded + 1
+    call "fTetris_flood"
+  end if
+end if
+}
+
+fTetris_flood
+{
+setglobal gTetris_temp 0
+set tetris_Y 1
+label TETRISFLOODY
+  if tetris_Y < 10
+    setglobal gTetris[gTetris_temp] gTetris[tetris_Y]
+    setglobal gTetris_temp + 1
+    set tetris_Y + 1
+    goto "TETRISFLOODY"
+  end if
+setglobal gTetris[9] "|"
+set tetris_X 0
+label TETRISFLOODX
+  if tetris_X < 10
+    setglobal gTetris[gTetris_temp] + gTetris_flood
+    set tetris_X + 1
+    goto "TETRISFLOODX"
+  end if
+setglobal gTetris[gTetris_temp] + "|"
+}
+
+fTetris_check
+{
+set tetris_ok 1
+set tetris_Y gTetris_posY // Y pos in main area.
+set tetris_YY 0 // Y pos in block area.
+label TETRISCHECKY
+  if tetris_YY < 4
+    set tetris_XX 0 // X pos in block area.
+    set tetris_X gTetris_posX // X pos in main area.
+    if tetris_Y >= 0
+      if tetris_Y < 10
+        set tetris_line gTetris[tetris_Y]
+      end if
+    end if
+    setglobal gTetris_temp tetris_YY
+    setglobal gTetris_temp + gTetris_rotate
+    set tetris_block gTetris_block[gTetris_temp]
+    label TETRISCHECKX
+      if tetris_XX < 4
+        if tetris_block.letter[tetris_XX] == "C"
+          if tetris_X < 1 // Not ok if off left edge.
+            set tetris_ok 0
+          else if tetris_X >= 11 // Not ok if off right edge.
+            set tetris_ok 0
+          else if tetris_Y >= 10 // Not ok if off bottom edge.
+            set tetris_ok 0
+          else if tetris_Y >= 0
+            if tetris_line.letter[tetris_X] != gTetris_empty // Not ok if moving into block.
+              set tetris_ok 0
+            else
+              set tetris_X + 1
+              set tetris_XX + 1
+              goto "TETRISCHECKX"
+            end if
+          else
+            set tetris_X + 1
+            set tetris_XX + 1
+            goto "TETRISCHECKX"
+          end if
+        else
+          set tetris_X + 1
+          set tetris_XX + 1
+          goto "TETRISCHECKX"
+        end if
+      else
+        set tetris_YY + 1
+        set tetris_Y + 1
+        goto "TETRISCHECKY"
+      end if
+  end if
+}
+
+fTetris_next
+{
+setglobal gTetris_rotate 0
+random
+  // ####
+  setglobal gTetris_posX 4
+  setglobal gTetris_posY -2
+  
+  setglobal gTetris_block[0] "aaaa"
+  setglobal gTetris_block[1] "aaaa"
+  setglobal gTetris_block[2] "CCCC"
+  setglobal gTetris_block[3] "aaaa"
+  
+  setglobal gTetris_block[4] "aaCa"
+  setglobal gTetris_block[5] "aaCa"
+  setglobal gTetris_block[6] "aaCa"
+  setglobal gTetris_block[7] "aaCa"
+  
+  setglobal gTetris_block[8] "aaaa"
+  setglobal gTetris_block[9] "aaaa"
+  setglobal gTetris_block[10] "CCCC"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "aaCa"
+  setglobal gTetris_block[13] "aaCa"
+  setglobal gTetris_block[14] "aaCa"
+  setglobal gTetris_block[15] "aaCa"
+or // ###
+   //   #
+  setglobal gTetris_posX 4
+  setglobal gTetris_posY -2
+  
+  setglobal gTetris_block[0] "aaaa"
+  setglobal gTetris_block[1] "CCCa"
+  setglobal gTetris_block[2] "aaCa"
+  setglobal gTetris_block[3] "aaaa"
+  
+  setglobal gTetris_block[4] "aCaa"
+  setglobal gTetris_block[5] "aCaa"
+  setglobal gTetris_block[6] "CCaa"
+  setglobal gTetris_block[7] "aaaa"
+  
+  setglobal gTetris_block[8] "Caaa"
+  setglobal gTetris_block[9] "CCCa"
+  setglobal gTetris_block[10] "aaaa"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "aCCa"
+  setglobal gTetris_block[13] "aCaa"
+  setglobal gTetris_block[14] "aCaa"
+  setglobal gTetris_block[15] "aaaa"
+or // ###
+   // #
+  setglobal gTetris_posX 4
+  setglobal gTetris_posY -2
+  
+  setglobal gTetris_block[0] "aaaa"
+  setglobal gTetris_block[1] "CCCa"
+  setglobal gTetris_block[2] "Caaa"
+  setglobal gTetris_block[3] "aaaa"
+  
+  setglobal gTetris_block[4] "CCaa"
+  setglobal gTetris_block[5] "aCaa"
+  setglobal gTetris_block[6] "aCaa"
+  setglobal gTetris_block[7] "aaaa"
+  
+  setglobal gTetris_block[8] "aaCa"
+  setglobal gTetris_block[9] "CCCa"
+  setglobal gTetris_block[10] "aaaa"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "aCaa"
+  setglobal gTetris_block[13] "aCaa"
+  setglobal gTetris_block[14] "aCCa"
+  setglobal gTetris_block[15] "aaaa"
+or // ##
+   //  ##
+  setglobal gTetris_posX 5
+  setglobal gTetris_posY -1
+  setglobal gTetris_block[0] "CCaa"
+  setglobal gTetris_block[1] "aCCa"
+  setglobal gTetris_block[2] "aaaa"
+  setglobal gTetris_block[3] "aaaa"
+  
+  setglobal gTetris_block[4] "aaCa"
+  setglobal gTetris_block[5] "aCCa"
+  setglobal gTetris_block[6] "aCaa"
+  setglobal gTetris_block[7] "aaaa"
+  
+  setglobal gTetris_block[8] "CCaa"
+  setglobal gTetris_block[9] "aCCa"
+  setglobal gTetris_block[10] "aaaa"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "aaCa"
+  setglobal gTetris_block[13] "aCCa"
+  setglobal gTetris_block[14] "aCaa"
+  setglobal gTetris_block[15] "aaaa"
+or //  ##
+   // ##
+  setglobal gTetris_posX 5
+  setglobal gTetris_posY -1
+  
+  setglobal gTetris_block[0] "aCCa"
+  setglobal gTetris_block[1] "CCaa"
+  setglobal gTetris_block[2] "aaaa"
+  setglobal gTetris_block[3] "aaaa"
+  
+  setglobal gTetris_block[4] "aCaa"
+  setglobal gTetris_block[5] "aCCa"
+  setglobal gTetris_block[6] "aaCa"
+  setglobal gTetris_block[7] "aaaa"
+  
+  setglobal gTetris_block[8] "aCCa"
+  setglobal gTetris_block[9] "CCaa"
+  setglobal gTetris_block[10] "aaaa"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "aCaa"
+  setglobal gTetris_block[13] "aCCa"
+  setglobal gTetris_block[14] "aaCa"
+  setglobal gTetris_block[15] "aaaa"
+or // ##
+   // ##
+  setglobal gTetris_posX 5
+  setglobal gTetris_posY -1
+  
+  setglobal gTetris_block[0] "CCaa"
+  setglobal gTetris_block[1] "CCaa"
+  setglobal gTetris_block[2] "aaaa"
+  setglobal gTetris_block[3] "aaaa"
+
+  setglobal gTetris_block[4] "CCaa"
+  setglobal gTetris_block[5] "CCaa"
+  setglobal gTetris_block[6] "aaaa"
+  setglobal gTetris_block[7] "aaaa"
+  
+  setglobal gTetris_block[8] "CCaa"
+  setglobal gTetris_block[9] "CCaa"
+  setglobal gTetris_block[10] "aaaa"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "CCaa"
+  setglobal gTetris_block[13] "CCaa"
+  setglobal gTetris_block[14] "aaaa"
+  setglobal gTetris_block[15] "aaaa"
+or // ###
+   //  #
+  setglobal gTetris_posX 4
+  setglobal gTetris_posY -2
+  
+  setglobal gTetris_block[0] "aaaa"
+  setglobal gTetris_block[1] "CCCa"
+  setglobal gTetris_block[2] "aCaa"
+  setglobal gTetris_block[3] "aaaa"
+  
+  setglobal gTetris_block[4] "aCaa"
+  setglobal gTetris_block[5] "CCaa"
+  setglobal gTetris_block[6] "aCaa"
+  setglobal gTetris_block[7] "aaaa"
+  
+  setglobal gTetris_block[8] "aCaa"
+  setglobal gTetris_block[9] "CCCa"
+  setglobal gTetris_block[10] "aaaa"
+  setglobal gTetris_block[11] "aaaa"
+  
+  setglobal gTetris_block[12] "aCaa"
+  setglobal gTetris_block[13] "aCCa"
+  setglobal gTetris_block[14] "aCaa"
+  setglobal gTetris_block[15] "aaaa"
+end random
+}
+

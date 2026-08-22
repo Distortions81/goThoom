@@ -19,10 +19,32 @@ type legacyMacroRuntimeHooks struct {
 	InsertText   func(string)
 	SetText      func(string)
 	Message      func(string)
+	Move         func(legacyMacroMove)
 	Complete     func(*legacyMacroExecution)
 	RandomInt    func(int) int
 	ResolveState func(string) (string, bool)
 }
+
+// legacyMacroMove is the native movement command accepted by the reference
+// macro language. Direction zero is the explicit stop command.
+type legacyMacroMove struct {
+	Direction legacyMacroMoveDirection
+	Run       bool
+}
+
+type legacyMacroMoveDirection uint8
+
+const (
+	legacyMacroMoveStop legacyMacroMoveDirection = iota
+	legacyMacroMoveEast
+	legacyMacroMoveNorthEast
+	legacyMacroMoveNorth
+	legacyMacroMoveNorthWest
+	legacyMacroMoveWest
+	legacyMacroMoveSouthWest
+	legacyMacroMoveSouth
+	legacyMacroMoveSouthEast
+)
 
 // legacyMacroRuntime owns variables and active executions for one loaded macro
 // program. Its work is advanced by frames, so pause never blocks rendering or
@@ -80,6 +102,7 @@ const (
 	legacyMacroControlRandom
 	legacyMacroControlOr
 	legacyMacroControlEndRandom
+	legacyMacroControlEnd
 	legacyMacroControlLabel
 	legacyMacroControlGoto
 )
@@ -90,6 +113,7 @@ func newLegacyMacroRuntime(program legacyMacroProgram) *legacyMacroRuntime {
 		InsertText: legacyMacroInsertInputText,
 		SetText:    legacyMacroSetInputText,
 		Message:    consoleMessage,
+		Move:       legacyMacroMovePlayer,
 	})
 }
 
@@ -277,7 +301,7 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 	case legacyMacroControlElse:
 		runtime.skipToEndIfLocked(execution, currentFrame, line)
 		return
-	case legacyMacroControlEndIf, legacyMacroControlEndRandom, legacyMacroControlLabel:
+	case legacyMacroControlEndIf, legacyMacroControlEndRandom, legacyMacroControlEnd, legacyMacroControlLabel:
 		return
 	case legacyMacroControlRandom:
 		runtime.executeRandomLocked(execution, currentFrame, lineIndex, line)
@@ -334,8 +358,68 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 			message = append(message, runtime.expandTokenLocked(token, execution))
 		}
 		runtime.messageLocked(strings.Join(message, " "))
+	case strings.EqualFold(first.Text, "move"):
+		move, err := runtime.moveLocked(line, execution)
+		if err != nil {
+			runtime.failExecutionLocked(execution, line, err.Error())
+			return
+		}
+		if runtime.hooks.Move != nil {
+			runtime.hooks.Move(move)
+		}
 	default:
 		runtime.appendTextLocked(execution, line.Tokens)
+	}
+}
+
+func (runtime *legacyMacroRuntime) moveLocked(line legacyMacroLine, execution *legacyMacroExecution) (legacyMacroMove, error) {
+	switch len(line.Tokens) {
+	case 2:
+		if strings.EqualFold(runtime.expandTokenLocked(line.Tokens[1], execution), "stop") {
+			return legacyMacroMove{Direction: legacyMacroMoveStop}, nil
+		}
+	case 3:
+		speed := runtime.expandTokenLocked(line.Tokens[1], execution)
+		run := false
+		switch {
+		case strings.EqualFold(speed, "walk"):
+		case strings.EqualFold(speed, "run"):
+			run = true
+		default:
+			return legacyMacroMove{}, fmt.Errorf("move speed %q is not walk or run", speed)
+		}
+		directionName := runtime.expandTokenLocked(line.Tokens[2], execution)
+		direction, ok := legacyMacroMoveDirectionByName(directionName)
+		if !ok {
+			return legacyMacroMove{}, fmt.Errorf("move direction %q is not recognized", directionName)
+		}
+		return legacyMacroMove{Direction: direction, Run: run}, nil
+	}
+	return legacyMacroMove{}, fmt.Errorf("move requires stop, or walk/run and a direction")
+}
+
+func legacyMacroMoveDirectionByName(name string) (legacyMacroMoveDirection, bool) {
+	switch strings.ToLower(name) {
+	case "stop":
+		return legacyMacroMoveStop, true
+	case "e", "east":
+		return legacyMacroMoveEast, true
+	case "ne", "northeast":
+		return legacyMacroMoveNorthEast, true
+	case "n", "north":
+		return legacyMacroMoveNorth, true
+	case "nw", "northwest":
+		return legacyMacroMoveNorthWest, true
+	case "w", "west":
+		return legacyMacroMoveWest, true
+	case "sw", "southwest":
+		return legacyMacroMoveSouthWest, true
+	case "s", "south":
+		return legacyMacroMoveSouth, true
+	case "se", "southeast":
+		return legacyMacroMoveSouthEast, true
+	default:
+		return legacyMacroMoveStop, false
 	}
 }
 
@@ -553,6 +637,7 @@ func legacyMacroLineControl(line legacyMacroLine) legacyMacroControl {
 				return legacyMacroControlEndRandom
 			}
 		}
+		return legacyMacroControlEnd
 	case strings.EqualFold(first, "random"):
 		return legacyMacroControlRandom
 	case strings.EqualFold(first, "or"):

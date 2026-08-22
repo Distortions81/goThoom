@@ -1,0 +1,2179 @@
+// Name: Macro Chess
+//   Macro Chess v1.2
+
+//   This is a macro to play a Chess game against another player.
+//   In order to play against someone else, they also need to have the macro.
+
+// INSTRUCTIONS:
+//   To begin, enter "/chessnew <player>" to challenge someone.
+//   Your opponent must then do the same to accept your challenge and start
+// the game.
+//   When it is your turn, there are two different ways to input your move,
+// which can be chosen with "/chessopt input".
+//   (1) If you don't change anything, the default way is through "Select and Move":
+//   First, use "/chessgrab <piece> <#>" to select the piece you want to move.
+//   For example, "/chessgrab pawn 3" or "/chessgrab p 3" to select your 3rd pawn.
+//   Once you have selected the piece you want to move, use "/chessmove <directions>" 
+// to move the cursor around to indicate where you want to move the piece.
+//   For example, "/chessmove 3nw e" to move the cursor 3 spaces northwest and 1 east.
+//   Once you have selected your move, use "/chessmove go" to execute it.
+//   (2) The other way of inputting moves is through coordinates.
+//   Use "/chessmove <coords of piece> <coords to move>" to select your move.
+//   For the coordinates, a1 is the lower left corner, h1 is the lower right, h8
+// is the upper right, etc.
+//   For example, "/chessmove d7 d5" would select the piece at d7 and choose to
+// move it 2 south to d5.
+//   Once you have selected your move, use "/chessmove go" to execute it.
+
+// SETTINGS:
+//   There are 4 settings which you can change with the /chessopt command.
+//   (1) Data transfer: ("/chessopt send" to change) You can choose to have
+// your moves sent to your opponent through either thinkto or whisper. This
+// is set to thinkto by default.
+//   (2) Automatic command prompts: ("/chessopt prompts" to change) If this
+// is on, you will be automatically be prompted with the appropriate input
+// command when it is your turn.
+//   (3) Input command: ("/chessopt input" to change) You can choose either
+// "Select and Move" or "Coordinates" to input your moves. Both are described
+// in the instructions above.
+//   (4) Checkmate handling: ("/chessopt checkmates" to change) If this is
+// on, the macro will be checking to see if the moving side is in checkmate.
+// This can be slow at times, so if you want to speed it up a bit, turn this
+// setting off.
+
+// BUGS:
+//   (1) Sometimes the macro loop will fail to pick up your opponent's move when it
+// is sent to you. In this case you must do one of two things:
+//   Ask your opponent to resend the command to you. They can do this simply by
+// entering "/chessmove resend".
+//   Or you can enter "/chess receive" to have the macro request your opponent's
+// full board data for you.
+//   (2) Sometimes your client may print things to your sidebar while it's in the middle
+// of displaying the board, in which case it will be broken up and hard to read.
+//   If this occurs you can enter "/chess" to have the board printed out again.
+//   (3) Be careful not to input commands too quickly. If you try to input something
+// while the macro is in the middle of printing out the board, it may come out wrong.
+
+// FULL LIST OF COMMANDS:
+//   /chess - displays current chess board.
+//   /chess ? - displays list of commands.
+//   /chess send - sends full board data to opponent. (only use if both of your boards
+// do not match each other)
+//   /chess receive - waits to receive full board data from opponent. (only use if both
+// of your boards do not match)
+//   /chessnew <player> - starts a new game. (they must have the macro as well)
+//   /chesspause - pauses/resumes chess wait loop when awaiting opponent's move.
+//   /chessquit - ends current game.
+//   /chessopt - alters/displays your settings.
+//   /chessgrab <piece> - selects a piece to move.
+//   /chessmove <directions> - selects where to move the piece.
+//   /chessmove go - executes selected move.
+//   /chessmove resend - resends last move to opponent. (only use if opponent did not
+// receive it the first time)
+//   /chessundo - undoes last move.
+
+// Default settings (Change these if you want):
+set gChess_sending 0 // How data is transfered to opponent: 0 = thinkto, 1 = whisper.
+set gChess_prompts 1 // Automatic command prompts: 0 = off, 1 = on.
+set gChess_checkmates 1 // Checks to see if moving side is in checkmate: 0 = off, 1 = on (can be slow).
+set gChess_input 0 // How moves are inputted: 0 = by select and move, 1 = by coordinates
+
+// Representations of chess pieces:
+set gChessPiece[0] "  -  "
+set gChessPiece[1] "  =  "
+set gChessPiece[2] "::P::"
+set gChessPiece[3] "::R::"
+set gChessPiece[4] "::N::"
+set gChessPiece[5] "::B::"
+set gChessPiece[6] "::Q::"
+set gChessPiece[7] "::K::"
+set gChessPiece[8] "(P)"
+set gChessPiece[9] "(R)"
+set gChessPiece[10] "(N)"
+set gChessPiece[11] "(B)"
+set gChessPiece[12] "(Q)"
+set gChessPiece[13] "(K)"
+
+set gChess_divider "* - - - - - - - - - - - *"
+
+// Global initializations. (DO NOT CHANGE)
+set gChess_selected -1
+set gChess_cursor -1
+set gChess_side -1
+set gChess_turn -1
+set gChess_opponent ""
+set gChess_opponentA ""
+set gChess_opponentB ""
+set gChess_waiting 0
+set gChess_last_piece -1
+set gChess_last_move -1
+set gChess_undo_locA -1
+set gChess_undo_pieceA -1
+set gChess_undo_locB -1
+set gChess_undo_pieceB -1
+set gChess_can_move -1
+set gChess_check -1
+
+// Displays current board, or sends/receives board.
+"/chess"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  message "/chess - displays current chess board."
+  message "/chess send - sends full board data to opponent. (only use if both of your boards do not match)"
+  message "/chess receive - waits to receive full board data from opponent. (only use if both of your boards do not match)"
+  message "/chessnew <player> - starts a new game. (they must have the macro as well)"
+  message "/chesspause - pauses/resumes chess wait loop."
+  message "/chessquit - ends current game."
+  message "/chessopt - alters/displays your settings."
+  message "/chessgrab <piece> - selects a piece to move."
+  message "/chessmove <directions> - selects where to move the piece."
+  message "/chessmove go - executes selected move."
+  message "/chessmove resend - resends last move to opponent. (only use if opponent did not receive it the first time)"
+  message "/chessundo - undoes last move."
+  message gChess_divider
+else
+  if gChess_side == -1
+    message gChess_divider
+    message "You are not currently in a Chess game."
+    message "/chessnew <player> to challenge someone. (they must have the macro as well)"
+    message "/chess ? for help."
+    message gChess_divider
+  else
+    if @text == ""
+      call "fChess_display"
+    else if @text.word[0] == "send"
+      call "fChess_send_board"
+    else if @text.word[0] >= "rec"
+      if @text.word[0] <= "receive"
+        message gChess_divider
+        message "Awaiting board data from opponent."
+        message "If opponent does not automatically send the data, they must use /chess send."
+        message gChess_divider
+        set inChess_msg "Chess?"
+        call "fChess_tell"
+        if gChess_waiting == 0
+          set chess_delay 0
+          call "fChess_wait_move"
+        end if
+      else
+        message gChess_divider
+        message "Unknown option. /chess ? for help."
+        message gChess_divider
+      end if
+    else
+      message gChess_divider
+      message "Unknown option. /chess ? for help."
+      message gChess_divider
+    end if
+  end if
+end if
+}
+
+// Starts a new game.
+"/chessnew"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  message "/chessnew <player> - accepts or challenges another player to a Macro Chess game."
+  message gChess_divider
+else if gChess_side != -1
+  message "* You are already in a Chess game. /chessquit to quit."
+else if gChess_waiting == 1
+  setglobal gChess_waiting 0
+  message "* Canceling chess wait loop."
+else if @text == ""
+  message "* You must specify a player to challenge."
+else
+  set chess_sel @selplayer.simple_name
+  "/select " @text.word[0] "\r"
+  if @selplayer.name == ""
+    "/select " chess_sel "\r"
+    message "* Specified player does not appear to be online."
+  else if @selplayer.name == @my.name
+    "/select " chess_sel "\r"
+    message "* You can not challenge yourself."
+  else
+    setglobal gChess_opponent @selplayer.name
+    setglobal gChess_opponentA @selplayer.name
+    setglobal gChess_opponentA + "'s"
+    setglobal gChess_opponentB @selplayer.simple_name
+    set inChess_msg "Chess?"
+    call "fChess_tell"
+    set chess_delay 0
+    if gChess_sending == 0
+      set chess_delay 60
+    end if
+    "/select " chess_sel "\r"
+    message "* Waiting for" gChess_opponent "to accept your challenge."
+    call "fChess_wait_move"
+  end if
+end if
+}
+
+// Ends current game.
+"/chessquit"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  message "/chessquit - ends current Chess game."
+  message gChess_divider
+else if gChess_side == -1
+  if gChess_waiting == 1
+    setglobal gChess_waiting 0
+    message "* Canceling chess wait loop."
+  else
+    message "* You are not currently in a Chess game."
+  end if
+else
+  setglobal gChess_waiting 0
+  setglobal gChess_selected -1
+  setglobal gChess_cursor -1
+  setglobal gChess_side -1
+  setglobal gChess_turn -1
+  setglobal gChess_opponent ""
+  setglobal gChess_opponentA ""
+  setglobal gChess_opponentB ""
+  setglobal gChess_last_piece -1
+  setglobal gChess_last_move -1
+  setglobal gChess_undo_locA -1
+  setglobal gChess_undo_pieceA -1
+  setglobal gChess_undo_locB -1
+  setglobal gChess_undo_pieceB -1
+  setglobal gChess_can_move -1
+  setglobal gChess_check -1
+  message "* Chess game has been ended."
+end if
+}
+
+// Pauses/resumes wait loop.
+"/chesspause"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  message "/chesspause - pauses/resumes chess wait loop when awaiting opponent's move."
+  message gChess_divider
+else if gChess_waiting == 1
+  setglobal gChess_waiting 0
+  message "* Pausing chess wait loop."
+else if gChess_side == -1
+  message "* You are not currently in a Chess game."
+else if gChess_side != gChess_turn
+  set chess_delay 0
+  message "* Resuming chess wait loop."
+  call "fChess_wait_move"
+else
+  message "* It is already your turn."
+end if
+}
+
+// Undoes last move.
+"/chessundo"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  message "/chessundo - undoes last move. (opponent will need to use this too)"
+  message gChess_divider
+else if gChess_side == -1
+  message "* You are not currently in a Chess game."
+else if gChess_undo_locA != -1
+  message gChess_divider
+  message "* Undoing last move. Opponent should also use /chessundo."
+  call "fChess_undo"
+  call "fChess_update_status"
+  call "fChess_display"
+  if gChess_side == gChess_turn
+    if gChess_prompts == 1
+      setglobal gChess_waiting 0
+      pause 1
+      if gChess_input == 0
+        "/chessgrab "
+      else
+        "/chessmove "
+      end if
+    end if
+  else if gChess_waiting == 0
+    set chess_delay 0
+    call "fChess_wait_move"
+  end if
+else
+  message "* There is no move to undo."
+end if
+}
+
+// Displays/changes settings.
+"/chessopt"
+{
+message gChess_divider
+if @text.word[0] == "?"
+  message "/chessopt - displays current options."
+  message "/chessopt send - toggles how data is transferred."
+  message "/chessopt input/commands - toggles how moves are inputted."
+  message "/chessopt prompts - toggles automatic command prompting."
+  message "/chessopt checkmates - toggles checkmate handling (can be slow)."
+else if @text == ""
+  if gChess_sending == 0
+    set chess_opt "THINKTO"
+  else
+    set chess_opt "WHISPER"
+  end if
+  message "Sending data through:" chess_opt
+  if gChess_input == 0
+    set chess_opt "SELECT AND MOVE"
+  else
+    set chess_opt "COORDINATES"
+  end if
+  message "Commands are inputted by:" chess_opt
+  if gChess_prompts == 0
+    set chess_opt "OFF"
+  else
+    set chess_opt "ON"
+  end if
+  message "Automatic command prompts:" chess_opt
+  if gChess_checkmates == 0
+    set chess_opt "OFF"
+  else
+    set chess_opt "ON (Can be slow)"
+  end if
+  message "Checkmate handling:" chess_opt
+else if @text.word[0] <= "send"
+  setglobal gChess_sending + 1
+  setglobal gChess_sending % 2
+  if gChess_sending == 0
+    set chess_opt "THINKTO"
+  else
+    set chess_opt "WHISPER"
+  end if
+  message "Now sending data through:" chess_opt
+else if @text.word[0] <= "input"
+  setglobal gChess_input + 1
+  setglobal gChess_input % 2
+  if gChess_input == 0
+    set chess_opt "GRAB & MOVE"
+  else
+    set chess_opt "COORDINATES"
+  end if
+  message "Commands will now be inputted by:" chess_opt
+else if @text.word[0] <= "commands"
+  setglobal gChess_input + 1
+  setglobal gChess_input % 2
+  if gChess_input == 0
+    set chess_opt "GRAB & MOVE"
+  else
+    set chess_opt "COORDINATES"
+  end if
+  message "Commands will now be inputted by:" chess_opt
+else if @text.word[0] <= "prompts"
+  setglobal gChess_prompts + 1
+  setglobal gChess_prompts % 2
+  if gChess_prompts == 0
+    set chess_opt "OFF"
+  else
+    set chess_opt "ON"
+  end if
+  message "Automatic command prompts are now:" chess_opt
+else if @text.word[0] <= "checkmates"
+  setglobal gChess_checkmates + 1
+  setglobal gChess_checkmates % 2
+  if gChess_checkmates == 0
+    set chess_opt "OFF"
+  else
+    set chess_opt "ON (Can be slow)"
+  end if
+  message "Checkmate handling is now:" chess_opt
+else
+  message "Unknown option. /chessopt ? for help."
+end if
+message gChess_divider
+}
+
+// Selects a piece to move.
+"/chessgrab"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  if gChess_input == 0
+    message "/chessgrab <piece> <#> - selects a piece to move, the optional number indicates which one, starting from left to right."
+  else
+    message "/chessmove <coordinates of piece> - selects a piece to move."
+    message "(a1 is the lower left corner, h1 is the lower right, h8 is the upper right, etc)"
+  end if
+  message gChess_divider
+else if gChess_side == -1
+  message gChess_divider
+  message "You are not currently in a Chess game."
+  message "/chessnew <player> to challenge someone."
+  message gChess_divider
+else if gChess_side != gChess_turn
+  message "* It is not currently your turn."
+else if @text.word[0] == ""
+  message "* You must specify a piece to select."
+else if gChess_input == 0
+  setglobal inChess_piece 0
+  if @text.letter[0] == "p"
+    if @text.word[0] <= "pawn"
+      setglobal inChess_piece 2
+    else if @text.word[0] <= "Pawn"
+      setglobal inChess_piece 2
+    end if
+  else if @text.letter[0] == "r"
+    if @text.word[0] <= "rook"
+      setglobal inChess_piece 3
+    else if @text.word[0] <= "Rook"
+      setglobal inChess_piece 3
+    end if
+  else if @text.letter[0] == "n"
+    if @text.word[0] <= "night"
+      setglobal inChess_piece 4
+    else if @text.word[0] <= "Night"
+      setglobal inChess_piece 4
+    end if
+  else if @text.letter[0] == "b"
+    if @text.word[0] <= "bishop"
+      setglobal inChess_piece 5
+    else if @text.word[0] <= "Bishop"
+      setglobal inChess_piece 5
+    end if
+  else if @text.letter[0] == "q"
+    if @text.word[0] <= "queen"
+      setglobal inChess_piece 6
+    else if @text.word[0] <= "Queen"
+      setglobal inChess_piece 6
+    end if
+  else if @text.letter[0] == "k"
+    if @text.word[0] <= "king"
+      setglobal inChess_piece 7
+    else if @text.word[0] <= "King"
+      setglobal inChess_piece 7
+    else if @text.word[0] <= "knight"
+      setglobal inChess_piece 4
+    else if @text.word[0] <= "Knight"
+      setglobal inChess_piece 4
+    end if
+  end if
+  if inChess_piece != 0
+    if gChess_side == 1
+      setglobal inChess_piece + 6
+    end if
+    set chess_grab 1
+    if @text.word[1] != ""
+      if @text.word[1] > 0
+        set chess_grab + @text.word[1]
+        set chess_grab - 1
+      end if
+    end if
+    setglobal gChess_selected -1
+    label CHESSGRAB
+    if chess_grab > 0
+      set inChess_ignore gChess_selected
+      if inChess_ignore == -1
+        set inChess_ignore 64
+      end if
+      call "fChess_find_piece"
+      if outChess_loc == 64
+        set outChess_loc -1
+      end if
+      setglobal gChess_selected outChess_loc
+      setglobal gChess_cursor outChess_loc
+      set chess_grab - 1
+      goto "CHESSGRAB"
+    end if
+    call "fChess_display"
+    if gChess_prompts == 1
+      pause 1
+      "/chessmove "
+    end if
+  else
+    message "* You must specify a valid piece to select."
+  end if
+else
+  set inChess_input @text.word[0]
+  call "fChess_convert_input"
+  if outChess_coords != -1
+    set inChess_loc outChess_coords
+    call "fChess_piece_side"
+    if outChess_side == gChess_side
+      setglobal gChess_selected outChess_coords
+      setglobal gChess_cursor outChess_coords
+      call "fChess_display"
+      if gChess_prompts == 1
+        pause 1
+        "/chessmove "
+      end if
+    else
+      message "* You can not select that."
+    end if
+  else
+    message "* You must specify valid coordinates."
+  end if
+end if
+}
+
+// Selects where to move selected piece.
+"/chessmove"
+{
+if @text.word[0] == "?"
+  message gChess_divider
+  message "/chessgrab <piece> <#> - selects a piece to move."
+  if gChess_input == 0
+    message "/chessmove <directions> - moves the cursor around to indicate where you want to move the piece you have selected."
+    message "(Example: /chessmove w 2sw - moves the cursor 1 west, then 2 southwest)"
+  else
+    message "/chessmove <coordinates of piece> <coordinates to move> - selects a piece and a position to move it to."
+    message "(a1 is the lower left corner, h1 is the lower right, h8 is the upper right, etc)"
+  end if
+  message "/chessmove go - executes the move you have selected."
+  message "/chessmove resend - resends your last move to your opponent, in case their macro loop missed it."
+  message gChess_divider
+else if gChess_side == -1
+  message gChess_divider
+  message "You are not currently in a Chess game."
+  message "/chessnew <player> to challenge someone."
+  message gChess_divider
+else if gChess_side != gChess_turn
+  if @text.word[0] == "resend"
+    if gChess_last_piece != -1
+      set inChess_msg "-> "
+      set inChess_msg + gChess_last_piece
+      set inChess_msg + " "
+      set inChess_msg + gChess_last_move
+      call "fChess_tell"
+    else
+      message "* There is no move to resend."
+    end if
+  else
+    message "* It is not currently your turn."
+  end if
+else if @text.word[0] == ""
+  message "* You must specify where to move to."
+else if @text.word[0] == "go"
+  if gChess_cursor != gChess_selected
+    setglobal inChess_piece gChess_selected
+    setglobal inChess_move gChess_cursor
+    call "fChess_check_legal"
+    if outChess_legal == 1
+      call "fChess_move"
+      call "fChess_update_status"
+      call "fChess_display"
+      set inChess_msg "-> "
+      set inChess_msg + gChess_selected
+      set inChess_msg + " "
+      set inChess_msg + gChess_cursor
+      call "fChess_tell"
+      setglobal gChess_last_piece gChess_selected
+      setglobal gChess_last_move gChess_cursor
+      setglobal gChess_selected -1
+      setglobal gChess_cursor -1
+      set chess_delay 0
+      if gChess_can_move == 1
+        call "fChess_wait_move"
+      end if
+    else
+      if outChess_legal == -1
+        message "* That would put your King in check."
+      else
+        message "* That is an illegal move."
+      end if
+      if gChess_prompts == 1
+        pause 1
+        "/chessmove "
+      end if
+    end if
+  else
+    message "* You need to select your move first."
+  end if
+else if gChess_input == 1
+  set inChess_input @text.word[0]
+  call "fChess_convert_input"
+  if outChess_coords == -1
+    message "* You must specify valid coordinates."
+    goto "CHESSMOVEERROR"
+  end if  
+  if @text.num_words > 1
+    set inChess_loc outChess_coords
+    call "fChess_piece_side"
+    if outChess_side == gChess_side
+      setglobal gChess_selected outChess_coords
+      setglobal gChess_cursor outChess_coords
+    else
+      message "* You can not select that."
+      goto "CHESSMOVEERROR"
+    end if
+    set inChess_input @text.word[1]
+    call "fChess_convert_input"
+    if outChess_coords == -1
+      message "* You must specify valid coordinates."
+      goto "CHESSMOVEERROR"
+    end if
+  end if
+  if gChess_selected != -1
+    setglobal gChess_cursor outChess_coords
+  else
+    set inChess_loc outChess_coords
+    call "fChess_piece_side"
+    if outChess_side == gChess_side
+      setglobal gChess_selected outChess_coords
+      setglobal gChess_cursor outChess_coords
+    else
+      message "* You can not select that."
+      goto "CHESSMOVEERROR"
+    end if
+  end if
+  call "fChess_display"
+  label CHESSMOVEERROR
+  if gChess_prompts == 1
+    pause 1
+    "/chessmove "
+  end if
+else if gChess_selected == -1
+  message "* You need to grab a piece first."
+else
+  set inChess_X 0
+  set inChess_Y 0
+  set chess_input 0
+  set chess_last_X 0
+  set chess_last_Y 0
+  set chess_repeat 1
+  label CHESSMOVE
+  if chess_input <= @text.num_letters
+    if @text.letter[chess_input] == "n"
+      set chess_last_Y - 1
+    else if @text.letter[chess_input] == "s"
+      set chess_last_Y + 1
+    else if @text.letter[chess_input] == "e"
+      set chess_last_X + 1
+    else if @text.letter[chess_input] == "w"
+      set chess_last_X - 1
+    else if @text.letter[chess_input] == " "
+      label CHESSMOVEREP
+      if chess_repeat > 0
+        set chess_repeat - 1
+        set inChess_X + chess_last_X
+        set inChess_Y + chess_last_Y
+        goto "CHESSMOVEREP"
+      end if
+      set chess_repeat 1
+      set chess_last_X 0
+      set chess_last_Y 0
+    else if @text.letter[chess_input] == ""
+      goto "CHESSMOVEREP"
+    else if @text.letter[chess_input] > 0
+      set chess_repeat @text.letter[chess_input]
+    end if
+    set chess_input + 1
+    goto "CHESSMOVE"
+  end if
+  set inChess_start gChess_cursor
+  call "fChess_check_edge"
+  setglobal gChess_cursor outChess_pos
+  call "fChess_display"
+  if gChess_prompts == 1
+    pause 1
+    "/chessmove "
+  end if
+end if
+}
+
+// Wait loop when waiting for opponent's move.
+fChess_wait_move
+{
+setglobal gChess_waiting 1
+label CHESSWAITMOVE
+  pause 1
+  set chess_log @env.textLog
+  if gChess_waiting == 0
+    goto "CHESSWAITDONE"
+  else if chess_log.word[2] == gChess_opponent.word[0]
+    set chess_log_word 3
+    label CHESSLOGB
+    if chess_log.word[chess_log_word] != ""
+      if chess_log.word[chess_log_word] == "\"[["
+        set chess_log_word + 1
+        if chess_log.word[chess_log_word] == "->"
+          if gChess_side != gChess_turn
+            set chess_log_word + 1
+            setglobal inChess_piece chess_log.word[chess_log_word]
+            set chess_log_word + 1
+            setglobal inChess_move chess_log.word[chess_log_word]
+            setglobal gChess_selected inChess_piece
+            setglobal gChess_cursor inChess_move
+            call "fChess_display"
+            call "fChess_check_legal"
+            if outChess_legal == 1
+              call "fChess_move"
+              call "fChess_update_status"
+              call "fChess_display"
+              setglobal gChess_selected -1
+              setglobal gChess_cursor -1
+              if gChess_prompts == 1
+                pause 1
+                if gChess_input == 0
+                  "/chessgrab "
+                else
+                  "/chessmove "
+                end if
+              end if
+              goto "CHESSWAITDONE"
+            else
+              message "Your opponent has tried to perform an illegal move."
+              message "Please make sure both of your boards match each other."
+              message "If they do not, one of you must use /chess send."
+              message gChess_divider
+              setglobal gChess_selected -1
+              setglobal gChess_cursor -1
+              set inChess_msg "illegal"
+              call "fChess_tell"
+            end if
+          end if
+        else if chess_log.word[chess_log_word] == "=>"
+          if gChess_side == -1
+            message "* You have accepted" gChess_opponentA "'s challenge."
+          else
+            message "* Receiving opponent's board data."            
+          end if
+          set chess_log_word + 1
+          setglobal gChess_last_piece -1
+          setglobal gChess_last_move -1
+          set inChess_msg chess_log
+          set inChess_index chess_log_word
+          call "fChess_get_board"
+          call "fChess_display"
+          if gChess_side != gChess_turn
+            goto "CHESSWAITMOVE"
+          end if
+          if gChess_prompts == 1
+            pause 1
+            if gChess_input == 0
+              "/chessgrab "
+            else
+              "/chessmove "
+            end if
+          end if
+          goto "CHESSWAITDONE"
+        else if chess_log.word[chess_log_word] == "illegal"
+          if gChess_side != -1
+            if gChess_undo_locA != -1
+              call "fChess_undo"
+              message "* Undoing last move."
+              call "fChess_update_status"
+              call "fChess_display"
+            end if
+            message gChess_divider
+            message "Your opponent thinks you have performed an illegal move."
+            message "Please make sure both of your boards match each other."
+            message "If they do not, one of you must use /chess send."
+            message gChess_divider
+            if gChess_side != gChess_turn
+              goto "CHESSWAITMOVE"
+            end if
+            if gChess_prompts == 1
+              pause 1
+              if gChess_input == 0
+                "/chessgrab "
+              else
+                "/chessmove "
+              end if
+            end if
+            goto "CHESSWAITDONE"
+          end if
+        else if chess_log.word[chess_log_word] == "Chess?"
+          if gChess_side == -1
+            message "* Challenge accepted. Starting new game."
+			pause 2
+            call "fChess_setup"
+            setglobal gChess_side 0
+            setglobal gChess_turn 1
+            if chess_delay > 0
+              pause chess_delay
+            end if
+            call "fChess_send_board"
+            call "fChess_display"
+          else
+            message "* Sending board data to opponent."
+            call "fChess_send_board"
+          end if
+        end if
+      else
+        set chess_log_word + 1
+        goto "CHESSLOGB"
+      end if
+    end if
+  end if
+  if chess_delay > 0
+    set chess_delay - 1
+  end if
+  goto "CHESSWAITMOVE"
+label CHESSWAITDONE
+setglobal gChess_waiting 0
+}
+
+// Sends board data to opponent.
+fChess_send_board
+{
+set inChess_msg "=> "
+set inChess_msg + gChess_turn
+set inChess_msg + " "
+if gChess_side == 0
+  set inChess_msg + 1
+else
+  set inChess_msg + 0
+end if
+setglobal gChess_temp 0
+label CHESSSENDBOARD
+  if gChess_temp < 64
+    set inChess_msg + " "
+    set inChess_msg + chess[gChess_temp]
+    setglobal gChess_temp + 1
+    goto "CHESSSENDBOARD"
+  end if
+  call "fChess_tell"
+}
+
+// Gets board data from opponent's thinkto message.
+// Args:
+//   inChess_msg - thinkto message received
+//   inChess_index - index where data begins
+fChess_get_board
+{
+setglobal gChess_turn inChess_msg.word[inChess_index]
+set inChess_index + 1
+setglobal gChess_side inChess_msg.word[inChess_index]
+set inChess_index + 1
+setglobal gChess_temp 0
+label CHESSGETBOARD
+if gChess_temp < 64
+  setglobal chess[gChess_temp] inChess_msg.word[inChess_index]
+  set inChess_index + 1
+  setglobal gChess_temp + 1
+  goto "CHESSGETBOARD"
+end if
+setglobal gChess_undo_locA -1
+setglobal gChess_undo_pieceA -1
+setglobal gChess_undo_locB -1
+setglobal gChess_undo_pieceB -1
+call "fChess_update_status"
+}
+
+// Undoes last move.
+fChess_undo
+{
+setglobal chess[gChess_undo_locA] gChess_undo_pieceA
+setglobal chess[gChess_undo_locB] gChess_undo_pieceB
+setglobal gChess_undo_locA -1
+setglobal gChess_undo_pieceA -1
+setglobal gChess_undo_locB -1
+setglobal gChess_undo_pieceB -1
+setglobal gChess_last_piece -1
+setglobal gChess_last_move -1
+setglobal gChess_selected -1
+setglobal gChess_cursor -1
+setglobal gChess_turn + 1
+setglobal gChess_turn % 2
+}
+
+// Moves a piece on the chess board.
+// Args:
+//   inChess_piece - location of piece to be moved
+//   inChess_move - location to move piece to
+fChess_move
+{
+setglobal gChess_undo_locA inChess_piece
+setglobal gChess_undo_pieceA chess[inChess_piece]
+setglobal gChess_undo_locB inChess_move
+setglobal gChess_undo_pieceB chess[inChess_move]
+setglobal chess[inChess_move] chess[inChess_piece]
+setglobal chess[inChess_piece] inChess_piece
+setglobal chess[inChess_piece] / 8
+setglobal chess[inChess_piece] % 2
+setglobal chess[inChess_piece] + inChess_piece
+setglobal chess[inChess_piece] % 2
+// Pawn upgrades to Queen.
+if inChess_move <= 7
+  if chess[inChess_move] == 8
+    setglobal chess[inChess_move] 12
+  end if
+else if inChess_move >= 56
+  if chess[inChess_move] == 2
+    setglobal chess[inChess_move] 6
+  end if
+end if
+setglobal gChess_turn + 1
+setglobal gChess_turn % 2
+}
+
+// Finds location of specified piece.
+// Args:
+//   inChess_piece - piece to find (as number)
+//   inChess_ignore - starts/ends from this index
+// Returns:
+//   outChess_loc - location of piece when found
+fChess_find_piece
+{
+setglobal gChess_index inChess_ignore
+setglobal gChess_index + 1
+label CHESSFIND
+if gChess_index == inChess_ignore
+  set outChess_loc inChess_ignore
+else
+  if gChess_index >= 64
+    setglobal gChess_index 0
+  end if
+  if inChess_piece == chess[gChess_index]
+    set outChess_loc gChess_index
+  else
+    setglobal gChess_index + 1
+    goto "CHESSFIND"
+  end if
+end if
+}
+
+// Displays current board.
+fChess_display
+{
+set chess_name @my.name
+set chess_name + "'s"
+message gChess_divider
+if gChess_turn == 0
+  if gChess_side == 0
+    message "*" chess_name "turn."
+  else
+    message "*" gChess_opponentA "turn."
+  end if
+  if gChess_check == 1
+    if gChess_can_move == 1
+      message "*** CHECK ***"
+    else
+      message "**** CHECKMATE ****"
+    end if
+  else if gChess_can_move == 0
+    message "**** STALEMATE ****"
+  end if
+else if gChess_check == 1
+  if gChess_can_move == 0
+    if gChess_side == 0
+      message "****" @my.name "wins! ****"
+    else
+      message "****" gChess_opponent "wins! ****"
+    end if
+  end if
+else if gChess_can_move == 0
+  message "**** STALEMATE ****"
+end if
+setglobal gChess_index 0
+setglobal gChess_column 0
+set chess_display "|"
+label CHESSDISPLAY
+if gChess_column >= 8
+  set chess_display + "|"
+  message chess_display
+  set chess_display "|"
+  setglobal gChess_column 0
+end if
+if gChess_index < 64
+  setglobal gChess_temp chess[gChess_index]
+  setglobal gChess_temp gChessPiece[gChess_temp]
+  if gChess_index == gChess_selected
+    set chess_display + "|"
+    set chess_display + gChess_temp
+    set chess_display + "|"
+  else if gChess_index == gChess_cursor
+    set chess_display + "!"
+    set chess_display + gChess_temp
+    set chess_display + "!"
+  else
+    set chess_display + " "
+    set chess_display + gChess_temp
+    set chess_display + " "
+  end if
+  setglobal gChess_index + 1
+  setglobal gChess_column + 1
+  goto "CHESSDISPLAY"
+end if
+if gChess_turn == 1
+  if gChess_side == 1
+    message "*" chess_name "turn."
+  else
+    message "*" gChess_opponentA "turn."
+  end if
+  if gChess_check == 1
+    if gChess_can_move == 1
+      message "*** CHECK ***"
+    else
+      message "**** CHECKMATE ****"
+    end if
+  else if gChess_can_move == 0
+    message "**** STALEMATE ****"
+  end if
+else if gChess_check == 1
+  if gChess_can_move == 0
+    if gChess_side == 1
+      message "****" @my.name "wins! ****"
+    else
+      message "****" gChess_opponent "wins! ****"
+    end if
+  end if
+else if gChess_can_move == 0
+  message "**** STALEMATE ****"
+end if
+message gChess_divider
+}
+
+// Sets up board for a new game.
+fChess_setup
+{
+setglobal chess[0] "3"
+setglobal chess[1] "4"
+setglobal chess[2] "5"
+setglobal chess[3] "7"
+setglobal chess[4] "6"
+setglobal chess[5] "5"
+setglobal chess[6] "4"
+setglobal chess[7] "3"
+setglobal chess[8] "2"
+setglobal chess[9] "2"
+setglobal chess[10] "2"
+setglobal chess[11] "2"
+setglobal chess[12] "2"
+setglobal chess[13] "2"
+setglobal chess[14] "2"
+setglobal chess[15] "2"
+setglobal gChess_temp 16
+label CHESSSETUP
+  if gChess_temp < 48
+    setglobal chess[gChess_temp] gChess_temp
+    setglobal chess[gChess_temp] / 8
+    setglobal chess[gChess_temp] % 2
+    setglobal chess[gChess_temp] + gChess_temp
+    setglobal chess[gChess_temp] % 2
+    setglobal gChess_temp + 1
+    goto CHESSSETUP
+  end if
+setglobal chess[48] "8"
+setglobal chess[49] "8"
+setglobal chess[50] "8"
+setglobal chess[51] "8"
+setglobal chess[52] "8"
+setglobal chess[53] "8"
+setglobal chess[54] "8"
+setglobal chess[55] "8"
+setglobal chess[56] "9"
+setglobal chess[57] "10"
+setglobal chess[58] "11"
+setglobal chess[59] "13"
+setglobal chess[60] "12"
+setglobal chess[61] "11"
+setglobal chess[62] "10"
+setglobal chess[63] "9"
+setglobal gChess_can_move 1
+setglobal gChess_check 0
+}
+
+// Sends data to opponent.
+// Args:
+//   inChess_msg - message to send
+fChess_tell
+{
+if gChess_sending == 0
+  "/thinkto " gChess_opponentB " [[ " inChess_msg " ]]\r"
+else
+  "/whisper [[ " inChess_msg " ]]\r"
+end if
+}
+
+// Checks if a specified move would be legal.
+// Args:
+//   inChess_piece - location of piece to be moved
+//   inChess_move - location to move piece to
+// Returns:
+//   outChess_legal - 0 if illegal, 1 if legal, -1 of illegal because it would put in check.
+fChess_check_legal
+{
+set outChess_legal 0
+set inChess_loc inChess_piece
+call "fChess_piece_side"
+set chess_moving_side outChess_side
+set chess_moving_piece chess[inChess_piece]
+if chess_moving_side == 1
+  set chess_moving_piece - 6
+end if
+// Illegal if trying to move opponent's piece.
+if gChess_turn != chess_moving_side
+// Pawn:
+else if chess_moving_piece == "2"
+  // If north side, check moving south. If south side, check moving north.
+  if chess_moving_side == 0
+    set chess_opper "+"
+  else
+    set chess_opper "-"
+  end if
+  set chess_check inChess_piece
+  set chess_check chess_opper 8
+  // Check if tried 1 south/north.
+  if chess_check == inChess_move
+    // Check if space empty.
+    if chess[chess_check] <= 1
+      set outChess_legal 1
+    end if
+  else
+    set chess_check chess_opper 8
+    // Check if tried 2 south/north.
+    if chess_check == inChess_move
+      // Check if from starting position.
+      if chess_moving_side == 0
+        if inChess_piece >= 8
+          if inChess_piece <= 15
+            // Check if path empty.
+            if chess[chess_check] <= 1
+              set chess_check - 8
+              if chess[chess_check] <= 1
+                set outChess_legal 1
+              end if
+            end if
+          end if
+        end if
+      else
+        if inChess_piece >= 48
+          if inChess_piece <= 55
+            // Check if path empty.
+            if chess[chess_check] <= 1
+              set chess_check + 8
+              if chess[chess_check] <= 1
+                set outChess_legal 1
+              end if
+            end if
+          end if
+        end if
+      end if
+    else
+      set inChess_start inChess_piece
+      set inChess_X -1
+      if chess_moving_side == 0
+        set inChess_Y 1
+      else
+        set inChess_Y -1
+      end if
+      // Check if tried 1 sw/nw.
+      call "fChess_check_edge"
+      if outChess_off_edge == 0
+        set chess_check outChess_pos
+        if chess_check == inChess_move
+          // Check if enemy piece there.
+          set inChess_loc chess_check
+          call "fChess_piece_side"
+          set chess_moving_side + 1
+          set chess_moving_side % 2
+          if chess_moving_side == outChess_side
+            set outChess_legal 1
+          end if
+        end if
+      end if
+      set inChess_X 1
+      // Check if tried 1 se/ne.
+      call "fChess_check_edge"
+      if outChess_off_edge == 0
+        set chess_check outChess_pos
+        if chess_check == inChess_move
+          set inChess_loc chess_check
+          call "fChess_piece_side"
+          set chess_moving_side + 1
+          set chess_moving_side % 2
+          if chess_moving_side == outChess_side
+            set outChess_legal 1
+          end if
+        end if
+      end if
+    end if
+  end if
+// Rook:
+else if chess_moving_piece == "3"
+  set inChess_X -1
+  set inChess_Y 0
+  set inChess_find inChess_move
+  label CHESSROOK
+    set inChess_start inChess_piece
+    // Check along one direction at a time.
+    call "fChess_check_dir"
+    // Check if found where moving to.
+    if outChess_found == 1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if space not occupied by own side's piece.
+      if chess_moving_side != outChess_side
+        set outChess_legal 1
+      end if
+    end if
+    // Check along next direction.
+    if outChess_legal == 0
+      if inChess_X == -1
+        set inChess_X 1
+      else if inChess_X == 1
+        set inChess_X 0
+        set inChess_Y -1
+      else if inChess_Y == -1
+        set inChess_Y 1
+      else
+        goto "CHESSROOKDONE"
+      end if
+      goto "CHESSROOK"
+      label CHESSROOKDONE
+    end if
+// Knight:
+else if chess_moving_piece == "4"
+  set inChess_start inChess_piece
+  set inChess_X 1
+  set inChess_Y 2
+  label CHESSKNIGHT
+    call "fChess_check_edge"
+    // Check if trying to check off edge.
+    if outChess_off_edge == 0
+      // Check if moving to this position.
+      if outChess_pos == inChess_move
+        set inChess_loc outChess_pos
+        call "fChess_piece_side"
+        // Check if space not occupied by own side's piece.
+        if chess_moving_side != outChess_side
+          set outChess_legal 1
+        end if
+      end if
+    end if
+    if outChess_legal == 0
+      if inChess_X == 1
+        if inChess_Y == 2
+          set inChess_Y -2
+        else
+          set inChess_X -1
+        end if
+      else if inChess_X == -1
+        if inChess_Y == -2
+          set inChess_Y 2
+        else
+          set inChess_X 2
+          set inChess_Y 1
+        end if
+      else if inChess_X == 2
+        if inChess_Y == 1
+          set inChess_Y -1
+        else
+          set inChess_X -2
+        end if
+      else if inChess_Y == -1
+        set inChess_Y 1
+      else
+        goto "CHESSKNIGHTDONE"
+      end if
+      goto "CHESSKNIGHT"
+    end if
+    label CHESSKNIGHTDONE
+// Bishop:
+else if chess_moving_piece == "5"
+  set inChess_X -1
+  set inChess_Y -1
+  set inChess_find inChess_move
+  label CHESSBISHOP
+    set inChess_start inChess_piece
+    // Check along one direction at a time.
+    call "fChess_check_dir"
+    // Check if found where moving to.
+    if outChess_found == 1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if space not occupied by own side's piece.
+      if chess_moving_side != outChess_side
+        set outChess_legal 1
+      end if
+    end if
+    // Check along next direction.
+    if outChess_legal == 0
+      set inChess_Y + 2
+      if inChess_Y >= 2
+        set inChess_X + 2
+        set inChess_Y -1
+      end if
+      if inChess_X < 2
+        if inChess_X == 0
+          if inChess_Y == 0
+            set inChess_Y 1
+          end if
+       end if
+        goto "CHESSBISHOP"
+      end if
+    end if
+// Queen:
+else if chess_moving_piece == "6"
+  set inChess_X -1
+  set inChess_Y -1
+  set inChess_find inChess_move
+  label CHESSQUEEN
+    set inChess_start inChess_piece
+    // Check along one direction at a time.
+    call "fChess_check_dir"
+    // Check if found where moving to.
+    if outChess_found == 1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if space not occupied by own side's piece.
+      if chess_moving_side != outChess_side
+        set outChess_legal 1
+      end if
+    end if
+    // Check along next direction.
+    if outChess_legal == 0
+      set inChess_Y + 1
+      if inChess_Y >= 2
+        set inChess_X + 1
+        set inChess_Y -1
+      end if
+      if inChess_X < 2
+        if inChess_X == 0
+          if inChess_Y == 0
+            set inChess_Y 1
+          end if
+       end if
+        goto "CHESSQUEEN"
+      end if
+    end if
+// King:
+else if chess_moving_piece == "7"
+  set inChess_start inChess_piece
+  set inChess_X -1
+  set inChess_Y -1
+  label CHESSKING
+    // Check one direction at a time.
+    call "fChess_check_edge"
+    // Check if trying to check off edge.
+    if outChess_off_edge == 0
+      // Check if moving to this position.
+      if outChess_pos == inChess_move
+        set inChess_loc outChess_pos
+        call "fChess_piece_side"
+        // Check if space not occupied by own side's piece.
+        if chess_moving_side != outChess_side
+          set outChess_legal 1
+        end if
+      end if
+    end if
+    // Check next direction.
+    if outChess_legal == 0
+      set inChess_Y + 1
+      if inChess_Y >= 2
+        set inChess_X + 1
+        set inChess_Y -1
+      end if
+      if inChess_X < 2
+        if inChess_X == 0
+          if inChess_Y == 0
+            set inChess_Y 1
+          end if
+       end if
+        goto "CHESSKING"
+      end if
+    end if
+end if
+// Check if move would put in check.
+if outChess_legal == 1
+  // Save globals.
+  set chess_save_undo_locA gChess_undo_locA
+  set chess_save_undo_pieceA gChess_undo_pieceA
+  set chess_save_undo_locB gChess_undo_locB
+  set chess_save_undo_pieceB gChess_undo_pieceB
+  set chess_save_last_piece gChess_last_piece
+  set chess_save_last_move gChess_last_move
+  set chess_save_selected gChess_selected
+  set chess_save_cursor gChess_cursor
+  // Do move.
+  set inChess_side gChess_turn
+  call "fChess_move"
+  // Determine if this would put in check.
+  call "fChess_check_check"
+  // Undo move.
+  call "fChess_undo"
+  // Reload globals.
+  setglobal gChess_undo_locA chess_save_undo_locA
+  setglobal gChess_undo_pieceA chess_save_undo_pieceA
+  setglobal gChess_undo_locB chess_save_undo_locB
+  setglobal gChess_undo_pieceB chess_save_undo_pieceB
+  setglobal gChess_last_piece chess_save_last_piece
+  setglobal gChess_last_move chess_save_last_move
+  setglobal gChess_selected chess_save_selected
+  setglobal gChess_cursor chess_save_cursor
+  // If was in check, return illegal.
+  if outChess_check == 1
+    set outChess_legal -1
+  end if
+end if
+}
+
+// Determines if a side is in check.
+// Args:
+//   inChess_side - side to check for.
+// Returns:
+//   outChess_check - 0 if not in check, 1 if in check
+fChess_check_check
+{
+set outChess_check 0
+set chess_save_piece inChess_piece
+if inChess_side == 1
+  setglobal inChess_piece 13
+else
+  setglobal inChess_piece 7
+end if
+set inChess_ignore 64
+call "fChess_find_piece"
+setglobal inChess_piece chess_save_piece
+if outChess_loc != 64
+  // Check Knight:
+  set inChess_start outChess_loc
+  set inChess_X 1
+  set inChess_Y 2
+  label CHESSCHECKKNIGHT
+    call "fChess_check_edge"
+    // Check if trying to check off edge.
+    if outChess_off_edge == 0
+      // Check if enemy Knight as this position.
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      if outChess_side != inChess_side
+        if outChess_base_piece == 4
+          set outChess_check 1
+          goto "CHESSCHECKDONE"
+        end if
+      end if
+    end if
+    if inChess_X == 1
+      if inChess_Y == 2
+        set inChess_Y -2
+      else
+        set inChess_X -1
+      end if
+    else if inChess_X == -1
+      if inChess_Y == -2
+        set inChess_Y 2
+      else
+        set inChess_X 2
+        set inChess_Y 1
+      end if
+    else if inChess_X == 2
+      if inChess_Y == 1
+        set inChess_Y -1
+      else
+        set inChess_X -2
+      end if
+    else if inChess_Y == -1
+      set inChess_Y 1
+    else
+      goto "CHESSCHECKKNIGHTDONE"
+    end if
+  goto "CHESSCHECKKNIGHT"
+  label CHESSCHECKKNIGHTDONE
+  // Check Bishop, Queen (Diagonals):
+  set inChess_X -1
+  set inChess_Y -1
+  set inChess_find -1
+  label CHESSCHECKBISHOP
+    set inChess_start outChess_loc
+    // Check along one direction at a time.
+    call "fChess_check_dir"
+    // Check if ran into enemy piece.
+    if outChess_pos != -1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      if outChess_side != inChess_side
+        // Check if piece is Bishop.
+        if outChess_base_piece == 5
+          set outChess_check 1
+          goto "CHESSCHECKDONE"
+        // Check if piece is Queen.
+        else if outChess_base_piece == 6
+          set outChess_check 1
+          goto "CHESSCHECKDONE"
+        end if
+      end if
+    end if
+    // Check along next direction.
+    set inChess_Y + 2
+    if inChess_Y >= 2
+      set inChess_X + 2
+      set inChess_Y -1
+    end if
+    if inChess_X < 2
+      if inChess_X == 0
+        if inChess_Y == 0
+          set inChess_Y 1
+        end if
+      end if
+      goto "CHESSCHECKBISHOP"
+    end if
+  // Check Rook, Queen (Straight):
+  set inChess_X -1
+  set inChess_Y 0
+  set inChess_find -1
+  label CHESSCHECKROOK
+    set inChess_start outChess_loc
+    // Check along one direction at a time.
+    call "fChess_check_dir"
+    // Check if ran into enemy piece.
+    if outChess_pos != -1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      if outChess_side != inChess_side
+        // Check if piece is Rook.
+        if outChess_base_piece == 3
+          set outChess_check 1
+          goto "CHESSCHECKDONE"
+        // Check if piece is Queen.
+        else if outChess_base_piece == 6
+          set outChess_check 1
+          goto "CHESSCHECKDONE"
+        end if
+      end if
+    end if
+    // Check along next direction.
+    if inChess_X == -1
+      set inChess_X 1
+    else if inChess_X == 1
+      set inChess_X 0
+      set inChess_Y -1
+    else if inChess_Y == -1
+      set inChess_Y 1
+    else
+      goto "CHESSCHECKROOKDONE"
+    end if
+  goto "CHESSCHECKROOK"
+  label CHESSCHECKROOKDONE
+  // Check Pawn, King (Adjacent):
+  set inChess_start outChess_loc
+  set inChess_X -1
+  set inChess_Y -1
+  label CHESSCHECKKING
+    // Check one direction at a time.
+    call "fChess_check_edge"
+    // Check if trying to check off edge.
+    if outChess_off_edge == 0
+      // Check if enemy piece at this position.
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      if outChess_side != inChess_side
+        // Check if piece is enemy King.
+        if outChess_base_piece == 7
+          set outChess_check 1
+          goto "CHESSCHECKDONE"
+        // Check if piece is enemy Pawn.
+        else if outChess_base_piece == 2
+          // Check if pawn can attack from that angle.
+          if gChess_turn == 0
+            set chess_opper "-"
+          else
+            set chess_opper "+"
+          end if
+          set outChess_pos chess_opper 7
+		  if outChess_pos == outChess_loc
+            set outChess_check 1
+            goto "CHESSCHECKDONE"
+          else
+            set outChess_pos chess_opper 2
+            if outChess_pos == outChess_loc
+              set outChess_check 1
+              goto "CHESSCHECKDONE"
+            end if
+          end if
+        end if
+      end if
+    end if
+    // Check next direction.
+    set inChess_Y + 1
+    if inChess_Y >= 2
+      set inChess_X + 1
+      set inChess_Y -1
+    end if
+    if inChess_X < 2
+      if inChess_X == 0
+        if inChess_Y == 0
+          set inChess_Y 1
+        end if
+      end if
+      goto "CHESSCHECKKING"
+    end if 
+end if
+label CHESSCHECKDONE
+}
+
+// Determines if a side has any valid moves available to them.
+// Args:
+//   inChess_side - side to check for.
+// Returns:
+//   outChess_can_move - 1 if can move, 0 if can't move (check/stalemate)
+fChess_check_can_move
+{
+// Save globals.
+set chess_save_undo_locA gChess_undo_locA
+set chess_save_undo_pieceA gChess_undo_pieceA
+set chess_save_undo_locB gChess_undo_locB
+set chess_save_undo_pieceB gChess_undo_pieceB
+set chess_save_last_piece gChess_last_piece
+set chess_save_last_move gChess_last_move
+set chess_save_selected gChess_selected
+set chess_save_cursor gChess_cursor
+// Check all coords on board.
+set outChess_can_move 0
+setglobal inChess_piece 0
+label CHESSCHECKALL
+  // Stop after last index.
+  if inChess_piece < 64
+    set inChess_loc inChess_piece
+    call "fChess_piece_side"
+    // If piece here on side, check all moves.
+    if outChess_side == inChess_side
+      call "fChess_find_legal"
+      if outChess_legal == 1
+        set outChess_can_move 1
+        goto "CHESSCHECKALLDONE"
+      end if
+    end if
+    setglobal inChess_piece + 1
+    goto "CHESSCHECKALL"
+  end if
+label CHESSCHECKALLDONE
+// Reload globals.
+setglobal gChess_undo_locA chess_save_undo_locA
+setglobal gChess_undo_pieceA chess_save_undo_pieceA
+setglobal gChess_undo_locB chess_save_undo_locB
+setglobal gChess_undo_pieceB chess_save_undo_pieceB
+setglobal gChess_last_piece chess_save_last_piece
+setglobal gChess_last_move chess_save_last_move
+setglobal gChess_selected chess_save_selected
+setglobal gChess_cursor chess_save_cursor
+}
+
+// Checks if a specified piece has any legal moves.
+// Args:
+//   inChess_piece - location of piece to be moved
+//   inChess_side - side of piece at location
+// Returns:
+//   outChess_legal - 0 if no legal move, 1 if found legal move.
+fChess_find_legal
+{
+set outChess_legal 0
+set inChess_loc inChess_piece
+set chess_moving_piece chess[inChess_piece]
+if inChess_side == 1
+  set chess_moving_piece - 6
+end if
+// Pawn.
+if chess_moving_piece == "2"
+  // If north side, check south. If south side, check north.
+  if inChess_side == 0
+    set chess_opper "+"
+  else
+    set chess_opper "-"
+  end if
+  setglobal inChess_move inChess_piece
+  setglobal inChess_move chess_opper 8
+  // Check if 1 south/north is empty.
+  if chess[inChess_move] <= 1
+    // If valid move, see if would put in check.
+    call "fChess_move"
+    call "fChess_check_check"
+    call "fChess_undo"
+    if outChess_check == 0
+      set outChess_legal 1
+      goto "CHESSFINDLEGALDONE"
+    else
+      // Check if 2 south/north is empty.
+      setglobal inChess_move chess_opper 8
+      if chess[inChess_move] <= 1
+        // Check if from starting position.
+        if chess_moving_side == 0
+          if inChess_piece >= 8
+            if inChess_piece <= 15
+              // If valid move, see if would put in check.
+              call "fChess_move"
+              call "fChess_check_check"
+              call "fChess_undo"
+              if outChess_check == 0
+                set outChess_legal 1
+                goto "CHESSFINDLEGALDONE"
+              end if
+            end if
+          end if
+        else
+          if inChess_piece >= 48
+            if inChess_piece <= 55
+              // If valid move, see if would put in check.
+              call "fChess_move"
+              call "fChess_check_check"
+              call "fChess_undo"
+              if outChess_check == 0
+                set outChess_legal 1
+                goto "CHESSFINDLEGALDONE"
+              end if
+            end if
+          end if
+        end if
+      end if
+    end if
+  end if
+  // Check diagonals.
+  set inChess_start inChess_piece
+  set inChess_X -1
+  if inChess_side == 0
+    set inChess_Y 1
+  else
+    set inChess_Y -1
+  end if
+  // Check 1 sw/nw.
+  call "fChess_check_edge"
+  if outChess_off_edge == 0
+    setglobal inChess_move outChess_pos
+    // Check if enemy piece there.
+    set inChess_loc inChess_move
+    call "fChess_piece_side"
+    set chess_other_side inChess_side
+    set chess_other_side +1
+    set chess_other_side % 2
+    if chess_other_side == outChess_side
+      // If valid move, see if would put in check.
+      call "fChess_move"
+      call "fChess_check_check"
+      call "fChess_undo"
+      if outChess_check == 0
+        set outChess_legal 1
+        goto "CHESSFINDLEGALDONE"
+      end if
+    end if
+  end if
+  set inChess_start inChess_piece
+  set inChess_X 1
+  if inChess_side == 0
+    set inChess_Y 1
+  else
+    set inChess_Y -1
+  end if 
+  // Check 1 se/ne.
+  call "fChess_check_edge"
+  if outChess_off_edge == 0
+    setglobal inChess_move outChess_pos
+    // Check if enemy piece there.
+    set inChess_loc chess_check
+    call "fChess_piece_side"
+    set chess_other_side inChess_side
+    set chess_other_side + 1
+    set chess_other_side % 2
+    if chess_other_side == outChess_side
+      // If valid move, see if would put in check.
+      call "fChess_move"
+      call "fChess_check_check"
+      call "fChess_undo"
+      if outChess_check == 0
+        set outChess_legal 1
+        goto "CHESSFINDLEGALDONE"
+      end if
+    end if
+  end if
+// Rook:
+else if chess_moving_piece == "3"
+  set inChess_XX -1
+  set inChess_YY 0
+  set inChess_find -2 // Checks for any legal move.
+  label CHESSROOKLEGAL
+    set inChess_start inChess_piece
+    // Check along one direction at a time.
+    set inChess_X inChess_XX
+    set inChess_Y inChess_YY
+    call "fChess_check_dir"
+    // If found legal move, done.
+    if outChess_legal == 1
+      goto "CHESSFINDLEGALDONE"
+    end if
+    // Check if ran into a piece.
+    if outChess_pos != -1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if piece belongs to enemy.
+      if inChess_side != outChess_side
+        // If valid move, see if would put in check.
+        setglobal inChess_move outChess_pos
+        call "fChess_move"
+        call "fChess_check_check"
+        call "fChess_undo"
+        if outChess_check == 0
+          set outChess_legal 1
+          goto "CHESSFINDLEGALDONE"
+        end if
+      end if
+    end if
+    // Check along next direction.
+    if inChess_XX == -1
+      set inChess_XX 1
+    else if inChess_XX == 1
+      set inChess_XX 0
+      set inChess_YY -1
+    else if inChess_YY == -1
+      set inChess_YY 1
+    else
+      goto "CHESSROOKLEGALDONE"
+    end if
+    goto "CHESSROOKLEGAL"
+  label CHESSROOKLEGALDONE
+// Knight:
+else if chess_moving_piece == "4"
+  set inChess_XX 1
+  set inChess_YY 2
+  label CHESSKNIGHTLEGAL
+    set inChess_start inChess_piece
+    set inChess_X inChess_XX
+    set inChess_Y inChess_YY
+    call "fChess_check_edge"
+    // Check if trying to check off edge.
+    if outChess_off_edge == 0
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if space not occupied by own side's piece.
+      if inChess_side != outChess_side
+        // If valid move, see if would put in check.
+        setglobal inChess_move outChess_pos
+        call "fChess_move"
+        call "fChess_check_check"
+        call "fChess_undo"
+        if outChess_check == 0
+          set outChess_legal 1
+          goto "CHESSFINDLEGALDONE"
+        end if
+      end if
+    end if
+    if inChess_XX == 1
+      if inChess_YY == 2
+        set inChess_YY -2
+      else
+        set inChess_XX -1
+      end if
+    else if inChess_XX == -1
+      if inChess_YY == -2
+        set inChess_YY 2
+      else
+        set inChess_XX 2
+        set inChess_YY 1
+      end if
+    else if inChess_XX == 2
+      if inChess_YY == 1
+        set inChess_YY -1
+      else
+        set inChess_XX -2
+      end if
+    else if inChess_YY == -1
+      set inChess_YY 1
+    else
+      goto "CHESSKNIGHTLEGALDONE"
+    end if
+    goto "CHESSKNIGHTLEGAL"
+  label CHESSKNIGHTLEGALDONE
+// Bishop:
+else if chess_moving_piece == "5"
+  set inChess_XX -1
+  set inChess_YY -1
+  set inChess_find -2
+  label CHESSBISHOPLEGAL
+    set inChess_start inChess_piece
+    // Check along one direction at a time.
+    set inChess_X inChess_XX
+    set inChess_Y inChess_YY
+    call "fChess_check_dir"
+    // If found legal move, done.
+    if outChess_legal == 1
+      goto "CHESSFINDLEGALDONE"
+    end if
+    // Check if ran into a piece.
+    if outChess_pos != -1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if piece belongs to enemy.
+      if inChess_side != outChess_side
+        // If valid move, see if would put in check.
+        setglobal inChess_move outChess_pos
+        call "fChess_move"
+        call "fChess_check_check"
+        call "fChess_undo"
+        if outChess_check == 0
+          set outChess_legal 1
+          goto "CHESSFINDLEGALDONE"
+        end if
+      end if
+    end if
+    // Check along next direction.
+    set inChess_YY + 2
+    if inChess_YY >= 2
+      set inChess_XX + 2
+      set inChess_YY -1
+    end if
+    if inChess_XX < 2
+      if inChess_XX == 0
+        if inChess_YY == 0
+          set inChess_YY 1
+        end if
+     end if
+      goto "CHESSBISHOPLEGAL"
+    end if
+// Queen:
+else if chess_moving_piece == "6"
+  set inChess_XX -1
+  set inChess_YY -1
+  set inChess_find -2
+  label CHESSQUEENLEGAL
+    set inChess_start inChess_piece
+    // Check along one direction at a time.
+    set inChess_X inChess_XX
+    set inChess_Y inChess_YY
+    call "fChess_check_dir"
+    // If found legal move, done.
+    if outChess_legal == 1
+      goto "CHESSFINDLEGALDONE"
+    end if
+    // Check if ran into a piece.
+    if outChess_pos != -1
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if piece belongs to enemy.
+      if inChess_side != outChess_side
+        // If valid move, see if would put in check.
+        setglobal inChess_move outChess_pos
+        call "fChess_move"
+        call "fChess_check_check"
+        call "fChess_undo"
+        if outChess_check == 0
+          set outChess_legal 1
+          goto "CHESSFINDLEGALDONE"
+        end if
+      end if
+    end if
+    // Check along next direction.
+    set inChess_YY + 1
+    if inChess_YY >= 2
+      set inChess_XX + 1
+      set inChess_YY -1
+    end if
+    if inChess_XX < 2
+      if inChess_XX == 0
+        if inChess_YY == 0
+          set inChess_YY 1
+        end if
+      end if
+      goto "CHESSQUEENLEGAL"
+    end if
+// King:
+else if chess_moving_piece == "7"
+  set inChess_XX -1
+  set inChess_YY -1
+  label CHESSKINGLEGAL
+    set inChess_start inChess_piece
+    // Check one direction at a time.
+    set inChess_X inChess_XX
+    set inChess_Y inChess_YY
+    call "fChess_check_edge"
+    // Check if trying to check off edge.
+    if outChess_off_edge == 0
+      set inChess_loc outChess_pos
+      call "fChess_piece_side"
+      // Check if space not occupied by own side's piece.
+      if inChess_side != outChess_side
+        // If valid move, see if would put in check.
+        setglobal inChess_move outChess_pos
+        call "fChess_move"
+        call "fChess_check_check"
+        call "fChess_undo"
+        if outChess_check == 0
+          set outChess_legal 1
+          goto "CHESSFINDLEGALDONE"
+        end if
+      end if
+    end if
+    // Check next direction.
+    set inChess_YY + 1
+    if inChess_YY >= 2
+      set inChess_XX + 1
+      set inChess_YY -1
+    end if
+    if inChess_XX < 2
+      if inChess_XX == 0
+        if inChess_YY == 0
+          set inChess_YY 1
+        end if
+      end if
+      goto "CHESSKINGLEGAL"
+    end if
+end if
+label CHESSFINDLEGALDONE
+}
+
+
+// Checks all spaces in a given direction from a specified spot.
+// Searches for a location and/or stops when finds a piece.
+// Args:
+//   inChess_start - starting location
+//   inChess_X - X axis movement
+//   inChess_Y - Y axis movement
+//   inChess_find - coordinates to find, -1 if none to find, -2 if trying to find any legal move.
+// Returns:
+//   outChess_found - 0 if didn't find coords, 1 if found coords
+//   outChess_pos - position where a piece or coords where found, or -1 if off edge.
+fChess_check_dir
+{
+set outChess_found 0
+label CHESSDIR
+  call "fChess_check_edge"
+  // Check if off edge.
+  if outChess_off_edge == 0
+    set inChess_start outChess_pos
+    // Check if at coords.
+    if outChess_pos == inChess_find
+      set outChess_found 1
+    // Check if current position is empty.
+    else if chess[outChess_pos] < 2
+      // If trying to find valid move, see if would put in check.
+      if inChess_find == -2
+        // Assumes inChess_piece and inChess_side already specified.
+        setglobal inChess_move outChess_pos
+        call "fChess_move"
+        call "fChess_check_check"
+        call "fChess_undo"
+        if outChess_check == 0
+          set outChess_legal 1
+          set outChess_found 1
+          goto "CHESSDIRDONE"
+        end if 
+      end if
+      goto "CHESSDIR"
+    end if
+  else
+    set outChess_pos -1
+  end if
+label CHESSDIRDONE
+}
+
+// Determines the side and type of piece at a specified spot.
+// Args:
+//   inChess_loc - location of piece
+// Returns:
+//   outChess_side - side of piece
+//   outChess_base_piece - base piece type
+fChess_piece_side
+{
+set outChess_base_piece chess[inChess_loc]
+if chess[inChess_loc] >= 2
+  if chess[inChess_loc] <= 7
+    set outChess_side 0
+  else
+    set outChess_side 1
+    set outChess_base_piece - 6
+  end if
+else
+  set outChess_side -1
+end if
+}
+
+// Checks if a location offset would go off the board's edge.
+// Args:
+//   inChess_start - starting location
+//   inChess_X - X axis movement
+//   inChess_Y - Y axis movement
+// Returns:
+//   outChess_off_edge - 0 if on board, 1 if off board
+//   outChess_pos - location within board
+fChess_check_edge
+{
+set outChess_off_edge 0
+set chess_X inChess_start
+set chess_X % 8
+set chess_Y inChess_start
+set chess_Y / 8
+set chess_X + inChess_X
+set chess_Y + inChess_Y
+if chess_X >= 8
+  set outChess_off_edge 1
+  set chess_X 7
+else if chess_X < 0
+  set outChess_off_edge 1
+  set chess_X 0
+end if
+if chess_Y >= 8
+  set outChess_off_edge 1
+  set chess_Y 7
+else if chess_Y < 0
+  set outChess_off_edge 1
+  set chess_Y 0
+end if
+set outChess_pos chess_Y
+set outChess_pos * 8
+set outChess_pos + chess_X
+}
+
+// Updates check/checkmate status.
+fChess_update_status
+{
+set inChess_side gChess_turn
+set chess_save_pieceA inChess_piece
+set chess_save_moveA inChess_move
+if gChess_checkmates == 1
+  call "fChess_check_can_move"
+else
+  set outChess_can_move 1
+end if
+call "fChess_check_check"
+setglobal gChess_can_move outChess_can_move
+setglobal gChess_check outChess_check
+setglobal inChess_piece chess_save_pieceA
+setglobal inChess_move chess_save_moveA
+}
+
+// Converts coordinate input to index on chess board.
+// Args:
+//   inChess_input - input to get position from.
+// Returns:
+//   outChess_coords - conversion to chess board index, -1 if invalid.
+fChess_convert_input
+{
+set outChess_coords -1
+set inChess_start 0
+set inChess_X -1
+set inChess_Y -1
+if inChess_input.letter[0] == "a"
+  set inChess_X 0
+else if inChess_input.letter[0] == "b"
+  set inChess_X 1
+else if inChess_input.letter[0] == "c"
+  set inChess_X 2
+else if inChess_input.letter[0] == "d"
+  set inChess_X 3
+else if inChess_input.letter[0] == "e"
+  set inChess_X 4
+else if inChess_input.letter[0] == "f"
+  set inChess_X 5
+else if inChess_input.letter[0] == "g"
+  set inChess_X 6
+else if inChess_input.letter[0] == "h"
+  set inChess_X 7
+end if
+if inChess_input.letter[1] == "1"
+  set inChess_Y 7
+else if inChess_input.letter[1] == "2"
+  set inChess_Y 6
+else if inChess_input.letter[1] == "3"
+  set inChess_Y 5
+else if inChess_input.letter[1] == "4"
+  set inChess_Y 4
+else if inChess_input.letter[1] == "5"
+  set inChess_Y 3
+else if inChess_input.letter[1] == "6"
+  set inChess_Y 2
+else if inChess_input.letter[1] == "7"
+  set inChess_Y 1
+else if inChess_input.letter[1] == "8"
+  set inChess_Y 0
+end if
+if inChess_input.num_letters == 2
+  if inChess_X != -1
+    if inChess_Y != -1
+      call "fChess_check_edge"
+      set outChess_coords outChess_pos
+    end if
+  end if
+end if
+}

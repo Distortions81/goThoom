@@ -1,0 +1,795 @@
+// Name: Right-Clicker
+
+/*****************************************************************************
+*****  The Right-Clicker v2.0.1  *********************************************
+*****         By Gorvin          *********************************************
+******************************************************************************
+**
+** Macro Contents:
+** (1) Documentation
+**     (1.1) Introduction
+**     (1.2) Default Settings
+**     (1.3) Changing Sets
+**     (1.4) Global Settings
+**     (1.5) Customizing Sets
+** (2) Global Settings
+** (3) Sets
+**     (3.1) Fighter Set
+**     (3.2) Healer Set
+** (4) Macro Actions
+** (5) Internal Functions
+**
+***************************** (1) DOCUMENTATION ******************************
+**
+******************************************************************************
+*********   (1.1) INTRODUCTION   *********************************************
+******************************************************************************
+**
+** The Right-Clicker is a macro that allows you to configure your right mouse
+** button and mouse wheel to perform specific functions.  The Right-Clicker
+** links itself up with other macros, which it will call upon when you right-
+** click or spin your mouse wheel.  Different macros will be called upon
+** depending on what you're right-clicking on, whether you have a certain item
+** equipped, and whether the right-click is a single or double-click, or in
+** the case of the mouse wheel, which direction the wheel is being spun.
+**
+******************************************************************************
+*********   (1.2) DEFAULT SETTINGS   *****************************************
+******************************************************************************
+**
+** The macro comes with preconfigured settings for both Fighters and Healers.
+** You can choose to use them or ignore them and customize the settings
+** yourself.  See section 1.3 for how to choose which set to use.  See section
+** 1.5 for how to create your own custom settings.
+**
+** The preconfigured Fighter settings are:
+**   Double right-click on yourself to swap your right-hand item with a chain
+**     or back.
+**   Right-click on another player to pull them.
+**   Spin your mouse wheel up 3 ticks to equip or use a chain.
+**   Spin your mouse wheel down 3 ticks to toggle your weapon on or off.
+**   If a chain is NOT equipped:
+**     Double right-click on the ground to disarm or rearm.
+**   If a chain is equipped:
+**     Right-click on the ground to use your chain.
+**
+** The preconfigured Healer settings are:
+**   Spin your mouse wheel up 3 ticks to equip or use a chain.
+**   Spin your mouse wheel down 3 ticks to equip moonstone and use a self-heal
+**     pulse (will unequip chain if one is equipped).
+**   If a chain is NOT equipped:
+**     Double right-click on yourself to start or stop a loop that will
+**       automatically selfheal you whenever your moonstone is equipped.
+**     Right-click on another player to cad them.
+**     Double right-click on another player to lock your healing onto them.
+**     Right-click on the ground to stop cadding.
+**   If a chain is equipped:
+**     Double right-click on yourself to switch back to moonstone.
+**     Right-click on the ground to use your chain.
+**     Right-click on another player to pull them.
+**
+******************************************************************************
+*********   (1.3) CHANGING SETS   ********************************************
+******************************************************************************
+**
+** If you choose to use the preconfigured Fighter settings, no changes are
+** required to get the macro to perform properly.  If you choose to use the
+** preconfigured Healer settings or a different set of your own, in section 2
+** you'll see this line:
+**    setglobal gRC_setup "RC_fighter_setup"
+** The variable gRC_setup contains the name of a macro that will set the
+** settings for the Right-Clicker. Change the name in quotes to the name of
+** the macro that sets the settings you want to use.
+** "RC_fighter_setup" is the macro that sets up the Fighter settings.
+** "RC_healer_setup" is the macro that sets up the Healer settings.
+** So if you want to use the Healer settings, you would change the line to:
+**    setglobal gRC_setup "RC_healer_setup"
+**
+** If, for example, you create a macro called "my_set" that defines a custom
+** set that you want to use, you would change the line to:
+**    setglobal gRC_setup "my_set"
+** See section 1.5 for information on how to create custom sets.
+**
+** If you want to have different characters use different sets, you would copy
+** and paste that line into a character's macro file after their include
+** lines.  You would then change the set name to the one you want to use for
+** that character.
+** 
+** Alternatively, the commands "/fightmode" and "/healmode" exist to allow you
+** to change to the preconfigured Fighter and Healer settings while in-game.
+** Doing so will change your settings until you log out or reload your macros.
+** 
+** If you will be using the Healer set, you will need to set a variable that
+** determines the item that you will be cadding with.  Copy and paste the
+** following line into the character's macro file after the include lines and
+** change the value of the variable to the desired item:
+**   setglobal gRC_healing_item "Mercurial Staff"
+** 
+******************************************************************************
+*********   (1.4) GLOBAL SETTINGS   ******************************************
+******************************************************************************
+**
+** In section 2, GLOBAL SETTINGS, there are a few other variables that
+** determine your double-click speed, number of wheel ticks to activate a
+** wheel action, and wheel tick speed.
+**
+** By default, the number of wheel ticks required to activate a wheel action
+** is 3.  This means that you must tick your mouse wheel up or down at least
+** 3 times quickly to activate a wheel action.  If you just tick your mouse
+** wheel up or down once, nothing will.  To change the number of required
+** ticks, change the value of the variable gRC_wheel_ticks.
+**
+** See section 2 for descriptions of the other variables, and adjust them as
+** you see fit.
+**
+******************************************************************************
+*********   (1.5) CUSTOMIZING SETS   *****************************************
+******************************************************************************
+**
+** The Right-Clicker is set to have links to other macros, which it will call
+** upon when you right-click or spin your mouse wheel.  Which of these linked
+** macros is called when you right-click or spin your mouse wheel is determined
+** by the following factors:
+**   For right-clicks:
+**     Where you clicked (the ground, yourself, or another player).
+**     Whether it was a single or a double right-click.
+**     Whether you have a certain item equipped.
+**   For the mouse wheel:
+**     The direction the wheel is ticked in.
+**     Whether you have a certain item equipped.
+** To create your own set, create a copy of one of the preconfigured sets in
+** section 3 (RC_fighter_setup or RC_healer_setup), and make the following
+** changes:
+**   Change the macro's name and the message it prints.
+**   Change gRC_item to your set's special item (different macros will be
+**     called upon depending on whether this item is equipped or not).
+**   Change gRC_item_slot to the slot that the special item is equipped in:
+**     right, left, neck, finger, or forehead.
+**   Each of the individual right-click and wheel tick variables must be set
+**     to the macros you want to be called when you right-click or spin your
+**     mouse wheel.  Or set to "0" if you want no macro to be called in that
+**     particular instance.
+** As an example of the right-click variables:
+**   The preconfigured Fighter set sets the variable gRC_right_click_player to
+**     "RC_pull".  This will cause the Right-Clicker to call the macro "RC_pull"
+**     whenever you right-click on another player.
+** The right-click variables can also be set to in-game slash commands instead
+**   of actual macros.
+** For a description of each of the variables, see the comments in the sets
+**   themselves.
+** For information on how to use a custom set after you've created one, see
+**   section 1.3 of the documentation.
+** 
+******************************************************************************
+*********   End documentation   **********************************************
+*****************************************************************************/
+
+
+
+
+// ************************** (2) GLOBAL SETTINGS ***********************
+
+// Default set to use.  "RC_fighter_setup" is the preconfigured Fighter
+// set, "RC_healer_setup" is the preconfigured Healer set, and any custom
+// sets you create are whatever you name them.
+setglobal gRC_setup "RC_fighter_setup"
+
+// Number of frames before the double right-click timer resets.  You must
+// right-click twice within this amount of time to register a double-click.
+// NOTE: 4 frames equals approximately 1 second.
+setglobal gRC_click_speed 4
+
+// Number of wheel ticks that must be turned at once to activate a wheel action.
+setglobal gRC_wheel_ticks 3
+
+// Number of frames before the wheel tick timer resets.  You must tick your
+// mouse wheel gRC_wheel_ticks times within this amount of time to activate
+// a wheel action.
+setglobal gRC_wheel_speed 3
+
+// **********************************************************************
+
+
+
+
+// ****************************** (3) SETS ******************************
+// Sets determine what actions your right-clicks and wheel ticks call
+// upon and under what conditions.  Allowable actions are:
+//   "0" - No action will be performed.
+//   Slash commands - Normal in-game slash commands, like "/equip chain".
+//   Macro functions - Any callable macro can be used.
+// See section 1.5 of the documentation for further explanation on creating
+// or redefining sets.
+
+
+
+// *********************** (3.1) FIGHTER SET ************************
+"/fightmode" call "RC_fighter_setup"
+
+RC_fighter_setup
+{
+message "* Using Fighter right-click settings."
+
+setglobal gRC_init 1	// Lets the Right-Clicker know that settings have been initialized.  Don't change this.
+
+setglobal gRC_item "chain"		// This set's special ITEM.
+setglobal gRC_item_slot "right"		// The SLOT this item is equipped in (right, left, neck, finger, shoulders, selected, etc).
+
+// Actions without special item equipped:
+setglobal gRC_right_click_ground "0"		// Action called on SINGLE right-click on GROUND.
+setglobal gRC_double_right_click_ground "RC_toggle_disarm"		// Action called on DOUBLE right-click on GROUND.
+
+setglobal gRC_right_click_player "RC_pull"		// Action called on SINGLE right-click on ANOTHER PLAYER.
+setglobal gRC_double_right_click_player "0"		// Action called on DOUBLE right-click on ANOTHER PLAYER.
+
+setglobal gRC_right_click_self "0"		// Action called on SINGLE right-click on YOURSELF.
+setglobal gRC_double_right_click_self "RC_toggle_chain"		// Action called on DOUBLE right-click on YOURSELF.
+
+setglobal gRC_wheel_up "RC_use_chain"		// Action called on WHEEL ticks UP.
+setglobal gRC_wheel_up_cooldown 0		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down "RC_toggle_disarm"		// Action called on WHEEL ticks DOWN.
+setglobal gRC_wheel_down_cooldown 1		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+// Actions with special ITEM equipped:
+setglobal gRC_right_click_ground_with_item "/useitem chain\r"	// Action called on SINGLE right-click on GROUND with special ITEM equipped.
+setglobal gRC_double_right_click_ground_with_item "0"	// Action called on DOUBLE right-click on GROUND with special ITEM equipped.
+
+setglobal gRC_right_click_player_with_item "RC_pull"	// Action called on SINGLE right-click on ANOTHER PLAYER with special ITEM equipped.
+setglobal gRC_double_right_click_player_with_item "0"	// Action called on DOUBLE right-click on ANOTHER PLAYER with special ITEM equipped.
+
+setglobal gRC_right_click_self_with_item "0"	// Action called on SINGLE right-click on YOURSELF with special ITEM equipped.
+setglobal gRC_double_right_click_self_with_item "RC_toggle_chain"	// Action called on DOUBLE right-click on YOURSELF with special ITEM equipped.
+
+setglobal gRC_wheel_up_with_item "/useitem chain\r"	// Action called on WHEEL ticks UP with special ITEM equipped.
+setglobal gRC_wheel_up_with_item_cooldown 0	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down_with_item "RC_rearm"	// Action called on WHEEL ticks DOWN with special ITEM equipped.
+setglobal gRC_wheel_down_with_item_cooldown 1	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+}
+// ******************************************************************
+
+
+
+// *********************** (3.2) HEALER SET *************************
+setglobal gRC_healing_item "Mercurial Staff"	// Set this variable to the name of the item you will be cadding with.
+
+"/healmode" call "RC_healer_setup"
+
+RC_healer_setup
+{
+message "* Using Healer right-click settings."
+
+setglobal gRC_init 1	// Lets the Right-Clicker know that the settings have been initialized.  Don't change this.
+
+setglobal gRC_item "chain"		// This set's special ITEM.
+setglobal gRC_item_slot "right"		// The SLOT this item is equipped in (right, left, neck, finger, shoulders, selected, etc).
+
+// Actions without special item equipped:
+setglobal gRC_right_click_ground "RC_stop_cad"		// Action called on SINGLE right-click on GROUND.
+setglobal gRC_double_right_click_ground "0"		// Action called on DOUBLE right-click on GROUND.
+
+setglobal gRC_right_click_player "RC_cad"		// Action called on SINGLE right-click on ANOTHER PLAYER.
+setglobal gRC_double_right_click_player "RC_cad_lock"		// Action called on DOUBLE right-click on ANOTHER PLAYER.
+
+setglobal gRC_right_click_self "0"		// Action called on SINGLE right-click on YOURSELF.
+setglobal gRC_double_right_click_self "RC_toggle_selfheal"		// Action called on DOUBLE right-click on YOURSELF.
+
+setglobal gRC_wheel_up "RC_use_chain"		// Action called on WHEEL ticks UP.
+setglobal gRC_wheel_up_cooldown 0		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down "RC_selfheal_pulse"		// Action called on WHEEL ticks DOWN.
+setglobal gRC_wheel_down_cooldown 0		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+// Actions with special ITEM equipped:
+setglobal gRC_right_click_ground_with_item "/useitem chain\r"	// Action called on SINGLE right-click on GROUND with special ITEM equipped.
+setglobal gRC_double_right_click_ground_with_item "0"	// Action called on DOUBLE right-click on GROUND with special ITEM equipped.
+
+setglobal gRC_right_click_player_with_item "RC_pull"	// Action called on SINGLE right-click on ANOTHER PLAYER with special ITEM equipped.
+setglobal gRC_double_right_click_player_with_item "0"	// Action called on DOUBLE right-click on ANOTHER PLAYER with special ITEM equipped.
+
+setglobal gRC_right_click_self_with_item "0"	// Action called on SINGLE right-click on YOURSELF with special ITEM equipped.
+setglobal gRC_double_right_click_self_with_item "RC_toggle_chain"	// Action called on DOUBLE right-click on YOURSELF with special ITEM equipped.
+
+setglobal gRC_wheel_up_with_item "/useitem chain\r"	// Action called on WHEEL ticks UP with special ITEM equipped.
+setglobal gRC_wheel_up_with_item_cooldown 0	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down_with_item "RC_selfheal_pulse"	// Action called on WHEEL ticks DOWN with special ITEM equipped.
+setglobal gRC_wheel_down_with_item_cooldown 0	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+}
+// ******************************************************************
+
+
+
+// **********************************************************************
+
+
+
+// ************************* (4) MACRO ACTIONS **************************
+// These are macro functions that the preconfigured Fighter and Healer sets
+// link to. If you're creating your own sets, you're NOT restricted to using
+// only the macros defined here.  Sets can be configured to call upon ANY
+// macros, even if they exist in separate macro files.
+
+setglobal gRC_equip_right @my.right_item
+setglobal gRC_equip_left @my.left_item
+
+// Toggles chain with current right hand item.
+RC_toggle_chain
+{
+if @my.right_item == "chain"
+	"/equip " gRC_equip_right "\r"
+else
+	if @my.right_item != "Nothing"
+		setglobal gRC_equip_right @my.right_item
+	end if
+	"/equip chain\r"
+end if
+}
+
+// Uses a chain.  Equips chain if it's not already equipped.
+RC_use_chain
+{
+if @my.right_item != "chain"
+	if @my.right_item != "Nothing"
+		setglobal gRC_equip_right @my.right_item
+	end if
+	"/equip chain\r"
+end if
+"/useitem chain\r"
+}
+
+// Unequips right hand, or reequips right hand if it's currently disarmed.
+RC_toggle_disarm
+{
+if @my.right_item == "Nothing"
+	"/equip " gRC_equip_right "\r"
+else if @my.right_item == "chain"
+	"/equip " gRC_equip_right "\r"
+else
+	setglobal gRC_equip_right @my.right_item
+	"/unequip right\r"
+end if
+}
+
+// Reequips right hand item.
+RC_rearm
+{
+if @my.right_item != gRC_equip_right
+	"/equip " gRC_equip_right "\r"
+end if
+}
+
+// Pulls clicked player.
+RC_pull
+{
+"/pull " @clicksplayer "\r"
+}
+
+// Uses a selfheal pulse.
+RC_selfheal_pulse
+{
+if @my.right_item != "moonstone"
+	"/equip moonstone\r"
+end if
+"/useitem moonstone\r"
+}
+
+setglobal gRC_selfheal 0
+
+// Toggles on or off a continuous selfheal loop.
+RC_toggle_selfheal
+{
+if gRC_selfheal == 1
+	setglobal gRC_selfheal 0
+else
+	setglobal gRC_selfheal 1
+	if @my.right_item != "moonstone"
+		"/equip moonstone\r"
+	end if
+	message "* You begin self healing."
+	set rc_moonstone 1
+	"/useitem moonstone 10\r"
+	pause 2
+	set rc_wait 3
+	set rc_count 0
+	label RCSELFHEAL
+		if gRC_selfheal == 1
+			if @my.right_item == "moonstone"
+				if rc_moonstone == 0
+					"/useitem moonstone 10\r"
+					set rc_moonstone 1
+					set rc_count rc_wait
+				else if rc_count <= 0
+					"/useitem moonstone\r"
+					set rc_count rc_wait
+				else
+					set rc_count - 1
+				end if
+			else
+				if rc_moonstone == 1
+					set rc_moonstone 0
+				end if
+			end if
+			pause 1
+			goto "RCSELFHEAL"
+		end if
+	message "* You are no longer self healing."
+end if
+}
+
+// Cads clicked player.
+RC_cad
+{
+if @my.right_item != gRC_healing_item
+	"/equip " gRC_healing_item "\r"
+end if
+"/useitem \"" gRC_healing_item "\" " @clicksplayer "\r"
+message "* Healing" @clicksplayer
+}
+
+// Cad-locks clicked player.
+RC_cad_lock
+{
+if @my.right_item != gRC_healing_item
+	"/equip " gRC_healing_item "\r"
+end if
+"/useitem \"" gRC_healing_item "\" /lock " @clicksplayer "\r"
+}
+
+// Cancels cadding.
+RC_stop_cad
+{
+if @my.right_item == gRC_healing_item
+	"/useitem \"" gRC_healing_item "\" /off\r"
+end if
+}
+
+// **********************************************************************
+
+
+
+// *********************** (5) INTERNAL FUNCTIONS ***********************
+// This section contains all the internal functions that make the macro
+// work. Modifying these is not recommended.
+
+setglobal gRC_init 0	// Are button-action settings initialized?
+
+setglobal gRC_clicked 0	// Is last single right-click still within the double click period?
+setglobal gRC_click_on ""	// What was last clicked on.
+
+setglobal gRC_wheel 0	// Number of consecutive wheel ticks. Positive for up, negative for down.
+setglobal gRC_wheel_cooldown 0	// Is last wheel action in cooldown?
+setglobal gRC_wheel_cooldown_dir 0	// Direction that wheel was ticked for the action in cooldown. Positive for up, negative for down.
+
+setglobal gRC_running 0	// Is the timer running?
+setglobal gRC_ctimer 0	// Double click period timer.
+setglobal gRC_wtimer 0	// Wheel tick period timer.
+setglobal gRC_ping 0	// Ping to the timer loop to ensure that nothing has broken it.
+
+
+
+click2
+{
+$any_click
+call "fRC_click"
+}
+
+wheelup
+{
+set aRC_wheel 1
+call "fRC_wheel"
+}
+
+wheeldown
+{
+set aRC_wheel -1
+call "fRC_wheel"
+}
+
+
+
+// Called each tick of mouse wheel.
+// Args:
+//	aRC_wheel - 1 if wheel is ticked up, -1 if ticked down.
+fRC_wheel
+{
+// Initialize settings if not already set.
+if gRC_init == 0
+	setglobal gRC_init 1
+	call gRC_setup
+end if
+setglobal gRC_wtimer 0
+set rc_activate 0
+set rc_wheel gRC_wheel
+// Adjust wheel tick counter and determine if it's been ticked enough to do an action.
+if aRC_wheel > 0
+	// Wheel up.
+	if gRC_wheel_cooldown == 1
+		if gRC_wheel_cooldown_dir < 0
+			setglobal gRC_wheel_cooldown 0
+		end if
+	end if
+	if rc_wheel < 0
+		set rc_wheel aRC_wheel
+	else
+		set rc_wheel + aRC_wheel
+	end if
+	if rc_wheel >= gRC_wheel_ticks
+		set rc_activate 1
+		set rc_wheel - gRC_wheel_ticks
+	end if
+else
+	// Wheel down.
+	if gRC_wheel_cooldown == 1
+		if gRC_wheel_cooldown_dir > 0
+			setglobal gRC_wheel_cooldown 0
+		end if
+	end if
+	if rc_wheel > 0
+		set rc_wheel aRC_wheel
+	else
+		set rc_wheel + aRC_wheel
+	end if
+	set rc_wheel * -1
+	if rc_wheel >= gRC_wheel_ticks
+		set rc_activate 1
+		set rc_wheel - gRC_wheel_ticks
+	end if
+	set rc_wheel * -1
+end if
+setglobal gRC_wheel rc_wheel
+// Activate wheel action if it's been ticked enough.
+if rc_activate == 1
+	// Get action to call.
+	call "fRC_get_wheel_action"
+	// If we have an action to call, call it.
+	if rRC_func != "0"
+		if rRC_cooldown == 1
+			if gRC_wheel_cooldown == 1
+				goto "WHEELONCOOLDOWN"
+			else
+				setglobal gRC_wheel_cooldown 1
+				setglobal gRC_wheel_cooldown_dir aRC_wheel
+			end if
+		end if
+		// If it's a slash command, enter the command. Otherwise, call the function.
+		if rRC_func.letter[0] == "/"
+			rRC_func
+			set rc_index rRC_func.num_letters
+			set rc_index - 1
+			set rc_letter rRC_func.letter[rc_index]
+			if rc_letter == "r"
+				set rc_index - 1
+				if rc_letter != "\\"
+					"\r"
+				end if
+			else
+				"\r"
+			end if
+		else
+			call rRC_func
+		end if
+		label WHEELONCOOLDOWN
+	end if
+end if
+// Maintain timer.
+call "fRC_check_timer"
+}
+
+
+
+// Called at each right-click.
+fRC_click
+{
+// Initialize settings if not already set.
+if gRC_init == 0
+	setglobal gRC_init 1
+	call gRC_setup
+end if
+// Update timer and click locations.
+setglobal gRC_ctimer 0
+set aRC_curr_click @clicksplayer
+set rc_prev_click gRC_click_on
+setglobal gRC_click_on aRC_curr_click
+// Update successive clicks.
+set aRC_double gRC_clicked
+if aRC_double == 1
+	if rc_prev_click == aRC_curr_click
+		setglobal gRC_clicked 0
+	else
+		set aRC_double 0
+	end if
+else
+	set aRC_double 0
+	setglobal gRC_clicked 1
+end if
+// Get action to call.
+call "fRC_get_action"
+// If we have an action to call, call it.
+if rRC_func != "0"
+	// If it's a slash command, enter the command. Otherwise, call the function.
+	if rRC_func.letter[0] == "/"
+		rRC_func
+		set rc_index rRC_func.num_letters
+		set rc_index - 1
+		set rc_letter rRC_func.letter[rc_index]
+		if rc_letter == "r"
+			set rc_index - 1
+			if rc_letter != "\\"
+				"\r"
+			end if
+		else
+			"\r"
+		end if
+	else
+		call rRC_func
+	end if
+end if
+// Maintain timer.
+call "fRC_check_timer"
+}
+
+
+
+// Returns whether set's item is equipped.
+// Returns:
+//   rRC_equipped - 1 if equipped, 0 if not.
+fRC_is_item_equipped
+{
+set rRC_equipped 0
+set rc_equip "@my."
+set rc_equip + gRC_item_slot
+set rc_equip + "_item"
+if rc_equip == gRC_item
+	set rRC_equipped 1
+else if rc_equip >= gRC_item
+	set rRC_equipped 1
+end if
+}
+
+
+
+// Gets function to call given what is being clicked or double-clicked on.
+// Args:
+//   aRC_curr_click - What is currently being clicked on.
+//   aRC_double - 1 if double clicked on target, 0 otherwise.
+// Returns:
+//   rRC_func - Function to call.
+fRC_get_action
+{
+// Check click location.
+if aRC_curr_click == ""
+	set rc_loc "ground"
+else if aRC_curr_click == @my.simple_name
+	set rc_loc "self"
+else
+	set rc_loc "player"
+end if
+
+// Check for equipped item.
+call "fRC_is_item_equipped"
+if rRC_equipped == 1
+	set rc_loc + "_with_item"
+end if
+
+// Complete variable name to obtain function to use.
+set rRC_func "gRC_"
+if aRC_double == 1
+	set rRC_func + "double_"
+end if
+set rRC_func + "right_click_"
+set rRC_func + rc_loc
+
+// If no function bound here and we've double clicked, use single click function.
+if rRC_func == "0"
+	if aRC_double == 1
+		set rRC_func "gRC_"
+		set rRC_func + "right_click_"
+		set rRC_func + rc_loc
+	end if
+end if
+}
+
+
+
+// Gets wheel function to call.
+// Args:
+//   aRC_wheel - Wheel tick direction.  Positive for up, negative for down.
+// Returns:
+//   rRC_func - Function to call.
+//   rRC_cooldown - Whether this function has a cooldown or not.
+fRC_get_wheel_action
+{
+// Check wheel direction.
+if aRC_wheel > 0
+	set rc_dir "up"
+else
+	set rc_dir "down"
+end if
+
+// Check for equipped item.
+call "fRC_is_item_equipped"
+if rRC_equipped == 1
+	set rc_dir + "_with_item"
+end if
+
+// Complete variable names to obtain cooldown and function to use.
+set rRC_func "gRC_wheel_"
+set rRC_cooldown rRC_func
+set rRC_func + rc_dir
+set rc_temp rc_dir
+set rc_temp + "_cooldown"
+set rRC_cooldown + rc_temp
+}
+
+
+
+// Starts up timer if it isn't already running or restarts it if it's been broken.
+fRC_check_timer
+{
+// If double click and wheel timer isn't running yet, start it up.
+if gRC_running != 1
+	setglobal gRC_running 1
+	call "fRC_timer"
+else
+	setglobal gRC_ping 0
+	// If timer is already running, ping it to make sure it hasn't been broken.
+	set rc_wait 4
+	label RCPING
+		if gRC_ping == 0
+			if rc_wait > 0
+				set rc_wait - 1
+				pause 1
+				goto "RCPING"
+			else
+				// No response from ping. Loop has been broken and needs to be restarted.
+				setglobal gRC_ping 1
+				setglobal gRC_running 1
+				message "Macro loop break detected."
+				call "fRC_timer"
+			end if
+		end if
+end if
+}
+
+
+
+// Runs a double-click and wheel-tick timer.
+fRC_timer
+{
+setglobal gRC_ctimer 0
+message "Click timer started."
+label RCTIMER
+	setglobal gRC_ping 1
+	// If we've had a right-click recently, increment double-click timer.
+	if gRC_clicked > 0
+		// If we've passed the double-click period, forget last right-click.
+		if gRC_ctimer >= gRC_click_speed
+			setglobal gRC_clicked 0
+		else
+			setglobal gRC_ctimer + 1
+		end if
+	end if
+	// If we've had a wheel-tick recently or wheel action is in cooldown, increment wheel timer.
+	if gRC_wheel != 0
+		// If we've passed the wheel-tick period, forget last ticks.
+		if gRC_wtimer >= gRC_wheel_speed
+			setglobal gRC_wheel 0
+			setglobal gRC_wheel_cooldown 0
+		else
+			setglobal gRC_wtimer + 1
+		end if
+	else if gRC_wheel_cooldown == 1
+		// If we've passed the wheel-tick period, end cooldown.
+		if gRC_wtimer >= gRC_wheel_speed
+			setglobal gRC_wheel_cooldown 0
+		else
+			setglobal gRC_wtimer + 1
+		end if
+	end if
+	pause 1
+	goto "RCTIMER"
+}
+
+// **********************************************************************

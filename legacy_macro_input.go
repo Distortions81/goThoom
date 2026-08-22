@@ -555,6 +555,51 @@ func legacyMacroKeyProducesText(key ebiten.Key) bool {
 	return ok && (utf8.RuneCountInString(name) == 1 || name == "space" || name == "minus")
 }
 
+// legacyMacroMovePlayer translates the reference client's directional move
+// command into one queued game-input sample. Repeating movement macros issue
+// another sample after each pause, just as the original client does.
+func legacyMacroMovePlayer(move legacyMacroMove) {
+	if move.Direction == legacyMacroMoveStop {
+		inputMu.Lock()
+		previous := latestInput
+		inputMu.Unlock()
+		queueInput(inputState{mouseX: previous.mouseX, mouseY: previous.mouseY})
+		return
+	}
+
+	dx, dy := 0, 0
+	switch move.Direction {
+	case legacyMacroMoveEast:
+		dx = 1
+	case legacyMacroMoveNorthEast:
+		dx, dy = 1, -1
+	case legacyMacroMoveNorth:
+		dy = -1
+	case legacyMacroMoveNorthWest:
+		dx, dy = -1, -1
+	case legacyMacroMoveWest:
+		dx = -1
+	case legacyMacroMoveSouthWest:
+		dx, dy = -1, 1
+	case legacyMacroMoveSouth:
+		dy = 1
+	case legacyMacroMoveSouthEast:
+		dx, dy = 1, 1
+	default:
+		return
+	}
+
+	speed := gs.KBWalkSpeed
+	if move.Run {
+		speed = 1
+	}
+	queueInput(inputState{
+		mouseX:    int16(float64(dx) * float64(fieldCenterX) * speed),
+		mouseY:    int16(float64(dy) * float64(fieldCenterY) * speed),
+		mouseDown: true,
+	})
+}
+
 func legacyMacroReplacementBoundary(char rune) bool {
 	return unicode.IsPrint(char) && !unicode.IsLetter(char) && !unicode.IsDigit(char)
 }

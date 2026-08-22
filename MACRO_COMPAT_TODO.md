@@ -22,10 +22,15 @@ scripts, with behavior matching the reference client where practical.
       click, and wheel macros with existing input handling.
 - [ ] Add Ctrl-Escape cancellation and key/click interruption behavior.
 - [ ] Add Reload Macros and visible parse/runtime errors.
+- [ ] Track click chords/double-clicks for `@click.chord` and Right-Clicker
+      compatibility.
 - [ ] Implement reference modifier-click player interaction: select, insert
       name, label cycle, block/ignore cycle.
-- [ ] Add parser and end-to-end compatibility fixtures, then document legacy
-      macros next to Go scripts.
+- [x] Add a public parser corpus and selected end-to-end compatibility
+      fixtures from legacy C-client macros.
+- [x] Document legacy macros next to Go scripts and expose the bundled source
+      library in Actions, with global and per-player selections kept separate
+      from users' legacy macro files.
 
 ## Compatibility boundaries
 

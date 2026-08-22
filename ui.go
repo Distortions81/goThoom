@@ -324,7 +324,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	actionsBtn, actionsEvents := eui.NewButton()
 	actionsBtn.Text = "Actions"
-	actionsBtn.SetTooltip("Hotkeys, Shortcuts, Triggers, Scripts")
+	actionsBtn.SetTooltip("Hotkeys, Shortcuts, Triggers, Scripts, Legacy Macros")
 	actionsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	actionsBtn.FontSize = toolFontSize
 	actionsEvents.Handle = func(ev eui.UIEvent) {
@@ -337,6 +337,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			"Shortcuts",
 			"Triggers",
 			"Scripts",
+			"Legacy Macros",
 			"Saved Data",
 		}
 		eui.ShowContextMenu(options, r.X0, r.Y1, func(i int) {
@@ -353,6 +354,10 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 				refreshscriptsWindow()
 				scriptsWin.ToggleNear(actionsBtn)
 			case 4:
+				makeLegacyMacroLibraryWindow()
+				refreshLegacyMacroLibraryWindow()
+				legacyMacroLibraryWin.ToggleNear(actionsBtn)
+			case 5:
 				makeSavedDataWindow()
 				savedDataWin.ToggleNear(actionsBtn)
 			}
