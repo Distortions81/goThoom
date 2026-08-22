@@ -12,11 +12,13 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/pkg/browser"
 )
 
 const (
 	setupWizardPageCount = 8
 	setupWizardTopGap    = 24
+	setupWizardKoFiURL   = "https://ko-fi.com/distortions"
 )
 
 //go:embed data/setup-wizard/Distortions__2026-08-21-17-35-52.clMov.zip
@@ -509,6 +511,16 @@ func buildSetupFinishPage(root *eui.ItemData) {
 func setupWizardNavigation() *eui.ItemData {
 	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Alignment: eui.ALIGN_RIGHT}
 	row.Size = eui.Point{X: 620, Y: 30}
+
+	fund, fundEvents := eui.NewButton()
+	fund.Text = "Fund development on Ko-fi"
+	fund.Size = eui.Point{X: 185, Y: 24}
+	fundEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			browser.OpenURL(setupWizardKoFiURL)
+		}
+	}
+	row.AddItem(fund)
 
 	if setupWizardPage > 0 {
 		back, backEvents := eui.NewButton()
