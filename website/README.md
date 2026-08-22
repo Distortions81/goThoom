@@ -1,7 +1,7 @@
 # goThoom project website
 
-This directory is a standalone static project website. It is separate from the
-WASM client and the existing `web/` bundle.
+This directory is a standalone static project website. The WASM client files
+live separately under `website/wasm/`.
 
 Serve the contents of this directory at `https://gothoom.m45sci.xyz/`. No build
 step is required.

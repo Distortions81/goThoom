@@ -58,5 +58,5 @@ functions only where text enters or leaves the legacy MacRoman protocol.
 The focused local round-trip test is:
 
 ```bash
-go test . -run '^TestMacRomanEscapedRoundTrip$' -count=1 -v
+go -C source test . -run '^TestMacRomanEscapedRoundTrip$' -count=1 -v
 ```

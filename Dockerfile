@@ -25,8 +25,9 @@ ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 WORKDIR /app
 
 # Copy mod files first to populate module cache in the image
-COPY go.mod go.sum ./
-RUN go env -w GOPROXY=https://proxy.golang.org,direct \
+COPY source/go.mod source/go.sum ./source/
+RUN cd source \
+ && go env -w GOPROXY=https://proxy.golang.org,direct \
  && go env -w GOSUMDB=sum.golang.org \
  && go mod download
 

@@ -115,7 +115,7 @@ directory then appears in the list, including files you add yourself.
 
 - Optional comment metadata gives macros a friendly name, description, and
   tags. Tags are separated with commas. Copy the simple template and real
-  example in [METADATA.md](testdata/legacy_macros/web/METADATA.md). The same
+  example in [METADATA.md](source/testdata/legacy_macros/web/METADATA.md). The same
   guide is installed as `Macros/Library/METADATA.md`.
 - **Global** and selected **Player** checkboxes are saved in
   `Macros/Library/enabled.json`. They tell goThoom which library files to load
@@ -195,16 +195,20 @@ Available message types:
 3. Download and extract the prebuilt dependency bundle from the repository root:
    ```bash
    curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
-   tar -xzf gothoom_deps.tar.gz
+   tar -C source -xzf gothoom_deps.tar.gz
    ```
 4. Download Go modules:
    ```bash
+   cd source
    go mod download
    ```
 5. Build the client:
    ```bash
    go build
    ```
+
+The complete Go module lives in `source/`, including the client, shared
+packages, scripts, assets, and tests.
 
 ### Build the WebAssembly package
 

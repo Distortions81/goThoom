@@ -1,6 +1,6 @@
 # AGENTS
 
-This repo includes a Go client under `gothoom/`. To build or run the Go program you need Go version 1.26.6 from the official Go distribution; avoid the system `golang-go` package.
+This repo includes a Go client under `source/`. To build or run the Go program you need Go version 1.26.6 from the official Go distribution; avoid the system `golang-go` package.
 Do not increment JSON versions in GT_Players.json or settings.json or characters.json. They will be done manually if needed.
 Any functions or variables or types exposed to the scripts need to also be put empty stubs into gt so the linters do not complain for users.
 Also I prefer to-the-point and simple solutions. We'll get complex if it is needed but I prefer to not over complicate things. "Keep it simple stupid"
@@ -22,7 +22,7 @@ Try to avoid completely over-thinking your replies and feel free to stop and ask
 3. **Always** download and extract the prebuilt dependency bundle:
    ```bash
    curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
-   tar -xzf gothoom_deps.tar.gz
+   tar -C source -xzf gothoom_deps.tar.gz
    ```
    The archive, produced by `build-scripts/build_dep_bundle.sh`, contains
    resource files used by the client. Extracting it avoids fetching them
@@ -30,7 +30,7 @@ Try to avoid completely over-thinking your replies and feel free to stop and ask
 
 4. Fetch Go module dependencies:
    ```bash
-   cd gothoom
+   cd source
    go mod download
    ```
 
@@ -49,20 +49,20 @@ Run these scripts from the repository root.
 - After updates, regenerate the archive by running `build-scripts/build_dep_bundle.sh` from the repo root and re-share `gothoom_deps.tar.gz`.
 
 ## Build steps
-1. Navigate to the `gothoom` directory if not already there:
+1. Navigate to the Go module:
    ```bash
-   cd gothoom
+   cd source
    ```
 2. Compile the program:
    ```bash
    go build
    ```
-   This produces the executable `gothoom` in the current directory.
+   This produces the executable `gothoom` in `source/`.
 3. You can also run the program directly with:
    ```bash
    go run .
    ```
-The module path is `gothoom` and the main package is located in this directory.
+The module path is `gothoom`; the complete Go module is located in `source/`.
 
 ## Quick Commands Reference
 

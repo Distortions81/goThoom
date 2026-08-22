@@ -2,10 +2,11 @@
 set -euo pipefail
 
 # Freeze deps + the CURRENT Go toolchain (OS/arch specific) for offline builds.
-# Usage: modcache-pack.sh [project-dir=. ] [outdir=. ]
+# Usage: modcache-pack.sh [project-dir=source] [outdir=. ]
 # Output: <outdir>/offline-go-<name>-<yyyymmdd>.tar.(zst|xz|gz) (+ .sha256)
 
-PROJ="${1:-.}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJ="${1:-${SCRIPT_DIR}/../source}"
 OUTDIR="${2:-.}"
 
 cd "$PROJ"

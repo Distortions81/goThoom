@@ -30,7 +30,7 @@ jobs:
         run: |
           docker build \
             --progress=plain \
-            --build-arg GO_VERSION=1.26.3 \
+            --build-arg GO_VERSION=1.26.6 \
             -t gothoom-build-env \
             .
 

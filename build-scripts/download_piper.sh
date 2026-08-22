@@ -4,7 +4,7 @@ set -euo pipefail
 # Determine repository root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PIPER_DIR="$ROOT_DIR/data/piper"
+PIPER_DIR="$ROOT_DIR/source/data/piper"
 VOICE_DIR="$PIPER_DIR/voices"
 
 mkdir -p "$PIPER_DIR" "$VOICE_DIR"

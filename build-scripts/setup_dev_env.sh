@@ -35,6 +35,9 @@ if ! pgrep -x Xvfb >/dev/null 2>&1; then
 fi
 export DISPLAY=${DISPLAY:-:99}
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}/../source"
+
 go mod download
 go fmt ./...
 go vet ./...

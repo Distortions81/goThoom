@@ -64,13 +64,12 @@ func (*bufferedStreamSynth) Render(left, right []float32)                  {}
 
 func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	origSynth := newSynthesizer
-	origOnce := setupSynthOnce
 	origFont := sfntCached
 	origSettings := synthSettings
 	origSettingsState := gs
 	t.Cleanup(func() {
 		newSynthesizer = origSynth
-		setupSynthOnce = origOnce
+		setupSynthOnce = sync.Once{}
 		sfntCached = origFont
 		synthSettings = origSettings
 		gs = origSettingsState
@@ -103,10 +102,11 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 }
 
 func TestMusicStreamProducesAudiblePCM(t *testing.T) {
-	origOnce, origFont, origSettings := setupSynthOnce, sfntCached, synthSettings
+	origFont, origSettings := sfntCached, synthSettings
 	origDataDir, origSettingsState := dataDirPath, gs
 	t.Cleanup(func() {
-		setupSynthOnce, sfntCached, synthSettings = origOnce, origFont, origSettings
+		setupSynthOnce = sync.Once{}
+		sfntCached, synthSettings = origFont, origSettings
 		dataDirPath, gs = origDataDir, origSettingsState
 	})
 

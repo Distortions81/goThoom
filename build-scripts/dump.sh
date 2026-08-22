@@ -4,8 +4,11 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 KEY="i"          # default key to press in-game to dump internal images
-MODULE_PATH="."  # default Go module/package to run (current dir)
+MODULE_PATH="."  # default Go package to run
 
 usage() {
   cat <<EOF
@@ -50,5 +53,6 @@ echo "==> go run ${MODULE_PATH} -- $*"
 echo
 
 # Run with the debug build tag enabled
-go build -tags ebitenginedebug "${MODULE_PATH}"
-./gothoom -clmov=clmovFiles/chain.clMov
+cd "${ROOT_DIR}/source"
+go build -tags ebitenginedebug -o gothoom "${MODULE_PATH}"
+./gothoom -clmov=clmovFiles/chain.clMov "$@"

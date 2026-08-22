@@ -5,10 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}/.."
 OUTPUT_DIR="${ROOT_DIR}/binaries/goThoom-Web"
 WASM_OUT="${OUTPUT_DIR}/gothoom.wasm"
-WEB_DIR="${ROOT_DIR}/web"
+WEB_DIR="${ROOT_DIR}/website/wasm"
 
 if [ ! -f "${WEB_DIR}/index.html" ]; then
-  echo "Missing web/index.html. Please create it before building the WASM bundle." >&2
+  echo "Missing website/wasm/index.html. Please create it before building the WASM bundle." >&2
   exit 1
 fi
 
@@ -21,7 +21,7 @@ rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
 (
-  cd "${ROOT_DIR}"
+  cd "${ROOT_DIR}/source"
   env \
     GOOS=js GOARCH=wasm \
     CGO_ENABLED=0 \

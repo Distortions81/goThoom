@@ -2,8 +2,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${ROOT_DIR}/source"
 
-OUTPUT_DIR="binaries"
+OUTPUT_DIR="${ROOT_DIR}/binaries"
 mkdir -p "$OUTPUT_DIR"
 
 platforms=(
@@ -38,7 +40,7 @@ ensure_cmd() {
 }
 
 ensure_spellcheck_dict() {
-  local dict="${SCRIPT_DIR}/../spellcheck_words.txt"
+  local dict="${SCRIPT_DIR}/../source/spellcheck_words.txt"
   if [ ! -f "$dict" ]; then
     ensure_cmd curl curl
     bash "${SCRIPT_DIR}/download_spellcheck_dict.sh"
@@ -254,7 +256,7 @@ for platform in "${platforms[@]}"; do
       cp "${OUTPUT_DIR}/${BIN_NAME}" "$APP_DIR/Contents/MacOS/${APP_NAME}"
       mkdir -p "$APP_DIR/Contents/Resources"
       ensure_cmd convert imagemagick
-      convert "$SCRIPT_DIR/../logo.png" -define icon:auto-resize=16,32,64,128,256,512 "$APP_DIR/Contents/Resources/goThoom.icns"
+      convert "$ROOT_DIR/source/logo.png" -define icon:auto-resize=16,32,64,128,256,512 "$APP_DIR/Contents/Resources/goThoom.icns"
       cat <<'EOF' >"$APP_DIR/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -313,7 +315,7 @@ EOF
     ICON_DIR="$PKG_DIR/share/icons/hicolor/256x256/apps"
     DESKTOP_DIR="$PKG_DIR/share/applications"
     mkdir -p "$ICON_DIR" "$DESKTOP_DIR"
-    convert "$SCRIPT_DIR/../logo.png" -resize 256x256 "$ICON_DIR/goThoom.png"
+    convert "$ROOT_DIR/source/logo.png" -resize 256x256 "$ICON_DIR/goThoom.png"
     cat <<'EOF' >"$DESKTOP_DIR/goThoom.desktop"
 [Desktop Entry]
 Type=Application

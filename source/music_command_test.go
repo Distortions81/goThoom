@@ -202,7 +202,7 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 		t.Fatalf("parseMovie: %v", err)
 	}
 	oldSettings, oldBlock := gs, blockMusic
-	oldDataDir, oldOnce, oldFont, oldSynthSettings := dataDirPath, setupSynthOnce, sfntCached, synthSettings
+	oldDataDir, oldFont, oldSynthSettings := dataDirPath, sfntCached, synthSettings
 	_, testFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("find test source path")
@@ -219,7 +219,9 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 	t.Cleanup(func() {
 		stopAllMusic()
 		gs, blockMusic = oldSettings, oldBlock
-		dataDirPath, setupSynthOnce, sfntCached, synthSettings = oldDataDir, oldOnce, oldFont, oldSynthSettings
+		dataDirPath = oldDataDir
+		setupSynthOnce = sync.Once{}
+		sfntCached, synthSettings = oldFont, oldSynthSettings
 		pendingMu.Lock()
 		pendingByID = make(map[int]*pendingSong)
 		pendingMu.Unlock()
