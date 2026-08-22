@@ -1,0 +1,201 @@
+// goThoom bundled macro: quickchain.mac
+// Source: https://clump.clanlord.net/library/index.php?title=Quickchain.mac
+// Original authors retain copyright.
+
+// Metadata
+// Name: Quickchain
+// Version: 3.1
+// Tags: fighter, healer, chaining
+// Desc: Chain-use helper bindings.
+// Author: Noivad
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Quickchain.mac
+//------------------------------------------------
+// quickchain.mac
+//------------------------------------------------
+// Noivad's v3.1 9-18-06
+// Debug helpers Chmee, Xenos, Zaerion
+// NOTE: right-click is not used for actions, instead see AlternateDefault for key assignment of click-action.
+// Use: right-click on self: 			equips (weapon_of_choice)
+//		right-click on fallen exile: 	chains fallen
+//		right-click on chain exile:	pulls exile
+//		right-click on standing exile:	pulls exile + re-equips weapon*
+//		right-click on ground:		equips (weapon of choice)
+// Edit weapon_of_choice text to match your favorite weapon.
+// *If you are chaining and you right-click the ground or a standing or chained 
+// exile exile within 15 seconds after your last chain, the weapon will not be 
+// re-equipped to avoid accidental dechaining.
+
+set quickc 0
+set chainlock 0
+set chaintype "chain"
+
+//begin chain macros
+//The QuickChain
+// f5 call flybychain -- Moved to AlternateDefault to prevent conflicts if redefined there.
+
+flybychain
+{
+	if @my.right_item != chaintype
+		setglobal rsaveitem @my.right_item
+		"/equip " chaintype "\r"
+	end if
+	pause 1
+	"/use \r"
+      setglobal chainlock + 15
+      if debug == 1
+            msg "chainlock: " chainlock
+      end if
+     call chaincountdown
+}
+
+
+click-action
+{
+$any_click
+if @click.simple_name == @my.simple_name
+	"/select " @my.simple_name "\r"
+	if debug == 1
+	   message "clickplayer" @click.simple_name
+	   message "*It's you!"
+	end if
+	if chainlock < 1
+		if @my.right_item != weapon_of_choice
+			"/equip " weapon_of_choice "\r"
+			if weapon_of_choice == "caduceus"
+				"/equip cad\r"
+			else if weapon_of_choice == "merc"
+				"/equip merc\r"
+			else if weapon_of_choice == "moonstone"
+				"/equip moonstone\r"
+				"/use 3\r"
+				call burster
+			end if
+		end if
+	end if
+else if @click.simple_name == ""
+	if debug == 1
+	   message "clickplayer:" @click.simple_name
+	   message "*Ground detected."
+	end if
+	if chainlock < 1
+		if @my.right_item != weapon_of_choice
+			"/equip " weapon_of_choice "\r"
+		else
+			if debug == 1
+	   			message "*Weapon of choice: " weapon of choice
+	 			message "*To change Weapon of choice, Edit quickchain.txt"
+	 			message "*line 15: 'set weapon_of_choice' <weapon name>'"
+			end if
+		end if
+	end if
+else if @click.simple_name != ""
+		"/select "@click.simple_name "\r"
+	setglobal quickc 1
+	if debug == 1
+// 	   pause 1
+	   message "*Exile detected!"
+	   message ":clickplayer:" @clickplayer
+	end if 
+	call quickchain
+else
+	if debug == 1
+		message "*Macro Error in click-action section of quickchain.mac"
+	end if
+end if
+}
+
+quickchain
+{
+if quickc == 1 
+	if @my.right_item != "chain"
+		setglobal rsaveitem @my.right_item
+		"/equip " chaintype "\r"
+		pause 1
+	end if	
+
+"/use " @selplayer.simple_name "\r"
+pause 1
+	if @env.textlog < "You start dragging"
+		setglobal chainlock + 15
+			setglobal quickc 0
+		call chaincountdown
+	else if @env.textlog < "You must specify a fallen exile."
+		goto pullexile
+	else if @env.textlog < "is already on a chain."
+		goto pullexile
+	else if @env.textLog < "There is no target for your chain."
+		goto pullexile
+	else if @env.textlog < "You cannot drag sleeping exiles."
+		goto pullexile
+	else if @env.textlog < "You are still fatigued"
+		setglobal chainlock + 9
+		setglobal quickc 0
+		call chaincountdown
+	else if  @env.textlog < "is too far away for you to reach."
+		if chainlock < 1
+			if weapon_of_choice == "caduceus"
+					"/equip cad\r"
+					"/use "  @selplayer.simple_name "\r"
+				else if weapon_of_choice == "merc"
+					"/equip merc\r"
+					"/use "  @selplayer.simple_name "\r"
+			end if 
+		end if
+	else 
+		message "*No known textlog event found."
+	    goto msgend
+	end if
+
+label pullexile
+//	pause 1
+	"/pull " @selplayer.simple_name "\r"
+	if chainlock < 1
+		"/equip " rsaveitem "\r"
+	else
+	   message "‚Ä¢Chaining Limiter is on! Unable to equip " rsaveitem " for " chainlock " seconds."
+	end if
+
+label msgend
+if debug == 1
+	message "*QuiC End Reached"
+	setglobal quickc 0
+end if
+}
+
+chaincountdown
+{
+set fps 4
+set seconds chainlock
+set frames 1
+set frames * seconds
+set frames * fps
+
+if debug == 1
+	message "*frames:" frames "seconds:" seconds
+	message "fps " fps 
+	message loop start
+end if
+
+label chaindelay
+if frames > 0
+	set frames - 4
+	setglobal chainlock - 1 
+	pause fps
+	goto chaindelay
+else 
+goto end
+end if
+
+label end
+if debug == 1
+	message "*CCD End reached"
+end if
+}
+
+"testqchain"
+{
+setglobal chainlock + 10
+message "chainlock" chainlock
+
+}
