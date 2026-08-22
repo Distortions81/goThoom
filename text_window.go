@@ -8,12 +8,15 @@ import (
 
 	ebiten "github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/pkg/browser"
 )
 
 var (
 	cursorPosition  = ebiten.CursorPosition
 	showContextMenu = eui.ShowContextMenu
 )
+
+var alternateRowColor = eui.NewColor(128, 128, 128, 24)
 
 // makeTextWindow creates a standardized text window with optional input bar.
 func makeTextWindow(title string, hz eui.HZone, vz eui.VZone, withInput bool) (*eui.WindowData, *eui.ItemData, *eui.ItemData) {
@@ -60,7 +63,7 @@ func newTextWindow(name string, hz eui.HZone, vz eui.VZone, hasInput bool, updat
 
 // updateTextWindow refreshes a text window's content and optional input message.
 // If faceSrc is nil the default font source is used.
-func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource) {
+func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource, alternateRows bool) {
 	if list == nil || win == nil {
 		return
 	}
@@ -131,12 +134,20 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			list.Contents[i].Face = face
 			list.Contents[i].Size.Y = rowUnits * float32(linesN)
 			list.Contents[i].Size.X = contentW
+			list.Contents[i].SelectableText = true
+			list.Contents[i].Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
+			list.Contents[i].Color = alternateRowColor
+			list.Contents[i].OnURLClick = func(url string) { _ = browser.OpenURL(url) }
 		} else {
 			t, _ := eui.NewText()
 			t.Text = wrapped
 			t.FontSize = float32(fontSize)
 			t.Face = face
 			t.Size = eui.Point{X: contentW, Y: rowUnits * float32(linesN)}
+			t.SelectableText = true
+			t.Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
+			t.Color = alternateRowColor
+			t.OnURLClick = func(url string) { _ = browser.OpenURL(url) }
 			// Append to maintain ordering with the msgs index
 			list.AddItem(t)
 		}

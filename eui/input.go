@@ -3,6 +3,7 @@ package eui
 import (
 	"context"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,7 +24,8 @@ var (
 
 	downWin *windowData
 
-	activeSearch *windowData
+	activeSearch     *windowData
+	selectedTextItem *itemData
 
 	inputBuf []rune
 )
@@ -51,7 +53,6 @@ func Update() error {
 		}
 	}
 	_ = altPressed
-	_ = metaPressed
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyGraveAccent) && shiftPressed {
 		_ = DumpTree()
@@ -79,6 +80,7 @@ func Update() error {
 		}
 	}
 	if click {
+		clearTextSelection()
 		if !dropdownOpenContainsAnywhere(mpos) {
 			closeAllDropdowns()
 		}
@@ -102,6 +104,10 @@ func Update() error {
 	midClickDrag := midClickTime > 1
 
 	if !pointerPressed() && !midPressed {
+		if selectedTextItem != nil && selectedTextItem.selecting {
+			selectedTextItem.selecting = false
+			selectedTextItem.markDirty()
+		}
 		if dragPart == PART_BAR && dragWin != nil {
 			preventOverlap(dragWin)
 		}
@@ -353,9 +359,29 @@ func Update() error {
 		}
 	}
 
+	if selectedTextItem != nil && selectedTextItem.selecting && pointerPressed() {
+		idx := selectedTextItem.cursorIndexAt(mpos)
+		if idx != selectedTextItem.SelectEnd {
+			selectedTextItem.SelectEnd = idx
+			selectedTextItem.markDirty()
+		}
+	}
+
+	if hoveredItem != nil && hoveredItem.ItemType == ITEM_TEXT && hoveredItem.OnURLClick != nil && c == ebiten.CursorShapeDefault {
+		if hoveredItem.urlAtChar(hoveredItem.cursorIndexAt(mpos)) != "" {
+			c = ebiten.CursorShapePointer
+		}
+	}
+
 	if cursorShape != c {
 		ebiten.SetCursorShape(c)
 		cursorShape = c
+	}
+
+	if (ctrlPressed || metaPressed) && inpututil.IsKeyJustPressed(ebiten.KeyC) && selectedTextItem != nil {
+		if selected := selectedTextItem.SelectedText(); selected != "" {
+			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(selected))
+		}
 	}
 
 	if focusedItem != nil {
@@ -419,7 +445,7 @@ func Update() error {
 				}
 			}
 		}
-		if ctrlPressed && inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		if (ctrlPressed || metaPressed) && inpututil.IsKeyJustPressed(ebiten.KeyC) {
 			text := focusedItem.Text
 			if focusedItem.HideText {
 				text = focusedItem.SecretText
@@ -765,6 +791,20 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 	if click {
 		activeItem = item
 		item.Clicked = time.Now()
+		if item.ItemType == ITEM_TEXT && item.SelectableText {
+			idx := item.cursorIndexAt(mpos)
+			item.SelectStart = idx
+			item.SelectEnd = idx
+			item.selecting = true
+			selectedTextItem = item
+			item.markDirty()
+			if item.OnURLClick != nil {
+				if url := item.urlAtChar(idx); url != "" {
+					item.OnURLClick(url)
+				}
+			}
+			return true
+		}
 		if item.ItemType == ITEM_SLIDER {
 			// Record drag start state for precision-drag (Ctrl) behavior
 			item.dragStart = mpos
@@ -901,6 +941,61 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 		}
 	}
 	return true
+}
+
+var urlRe = regexp.MustCompile(`https?://[^\s<>"')\]]+`)
+
+// urlRanges returns rune-indexed HTTP(S) URL spans in the item text.
+func (item *itemData) urlRanges() []TextSpan {
+	var spans []TextSpan
+	for _, match := range urlRe.FindAllStringIndex(item.Text, -1) {
+		start := len([]rune(item.Text[:match[0]]))
+		end := start + len([]rune(item.Text[match[0]:match[1]]))
+		spans = append(spans, TextSpan{Start: start, End: end})
+	}
+	return spans
+}
+
+func (item *itemData) urlAtChar(index int) string {
+	for _, span := range item.urlRanges() {
+		if index >= span.Start && index < span.End {
+			return string([]rune(item.Text)[span.Start:span.End])
+		}
+	}
+	return ""
+}
+
+// SelectedText returns the currently selected text range for this item.
+func (item *itemData) SelectedText() string {
+	if item == nil || item.SelectStart == item.SelectEnd {
+		return ""
+	}
+	runes := []rune(item.Text)
+	start, end := item.SelectStart, item.SelectEnd
+	if start > end {
+		start, end = end, start
+	}
+	if start < 0 {
+		start = 0
+	}
+	if end > len(runes) {
+		end = len(runes)
+	}
+	if start >= end {
+		return ""
+	}
+	return string(runes[start:end])
+}
+
+func clearTextSelection() {
+	if selectedTextItem == nil {
+		return
+	}
+	selectedTextItem.SelectStart = 0
+	selectedTextItem.SelectEnd = 0
+	selectedTextItem.selecting = false
+	selectedTextItem.markDirty()
+	selectedTextItem = nil
 }
 
 func (item *itemData) cursorIndexAt(mpos point) int {

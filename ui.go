@@ -2783,7 +2783,7 @@ func updateChangelogWindow() {
 	lines := strings.Split(changelog, "\n")
 	header := fmt.Sprintf("goThoom test %d", appVersion)
 	lines = append([]string{header, ""}, lines...)
-	updateTextWindow(changelogWin, changelogList, nil, lines, 14, "", monoFaceSource)
+	updateTextWindow(changelogWin, changelogList, nil, lines, 14, "", monoFaceSource, false)
 	if changelogPrevBtn != nil {
 		changelogPrevBtn.Disabled = changelogVersionIdx <= 0
 		changelogPrevBtn.Dirty = true
@@ -2867,6 +2867,17 @@ func makeSettingsWindow() {
 	label.Size = eui.Point{X: panelWidth, Y: 50}
 	applyBoldFace(label)
 	left.AddItem(label)
+
+	resetWindowsBtn, resetWindowsEvents := eui.NewButton()
+	resetWindowsBtn.Text = "Reset Windows"
+	resetWindowsBtn.Size = eui.Point{X: panelWidth, Y: 24}
+	resetWindowsBtn.SetTooltip("Restore the default window layout and visibility")
+	resetWindowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmResetWindows()
+		}
+	}
+	left.AddItem(resetWindowsBtn)
 
 	/*
 				tilingCB, tilingEvents := eui.NewCheckbox()
@@ -3242,6 +3253,26 @@ func makeSettingsWindow() {
 		}
 	}
 	left.AddItem(textColorsBtn)
+
+	alternateRowsCB, alternateRowsEvents := eui.NewCheckbox()
+	alternateRowsCB.Text = "Alternate row backgrounds"
+	alternateRowsCB.Size = eui.Point{X: panelWidth, Y: 24}
+	alternateRowsCB.Checked = gs.AlternateRowBackgrounds
+	alternateRowsCB.SetTooltip("Shade every other row in chat, console, inventory, and players")
+	alternateRowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		SettingsLock.Lock()
+		gs.AlternateRowBackgrounds = ev.Checked
+		SettingsLock.Unlock()
+		settingsDirty = true
+		updateConsoleWindow()
+		updateChatWindow()
+		updateInventoryWindow()
+		updatePlayersWindow()
+	}
+	left.AddItem(alternateRowsCB)
 
 	label, _ = eui.NewText()
 	label.Text = "\nStatus Bar Options:"
@@ -3733,6 +3764,56 @@ func resetAllSettings() {
 	}
 }
 
+// resetWindows restores the default window layout without changing other settings.
+func resetWindows() {
+	resetSavedWindowSettings()
+	eui.LoadWindowZones(gs.WindowZones)
+
+	if gameWin != nil {
+		gameWin.ClearZone()
+		_ = gameWin.SetPos(eui.Point{})
+		w, h := eui.ScreenSize()
+		if w > 0 && h > 0 {
+			_ = gameWin.SetSize(eui.Point{X: float32(w), Y: float32(h)})
+		}
+		gameWin.MarkOpen()
+	}
+
+	forgetWindow := func(win **eui.WindowData) {
+		if *win != nil {
+			(*win).RemoveWindow()
+			*win = nil
+		}
+	}
+	forgetWindow(&inventoryWin)
+	forgetWindow(&playersWin)
+	forgetWindow(&consoleWin)
+	forgetWindow(&chatWin)
+
+	makeInventoryWindow()
+	makePlayersWindow()
+	makeConsoleWindow()
+	_ = makeChatWindow()
+	if inventoryWin != nil && gs.InventoryWindow.Open {
+		inventoryWin.MarkOpen()
+	}
+	if playersWin != nil && gs.PlayersWindow.Open {
+		playersWin.MarkOpen()
+	}
+	if consoleWin != nil && gs.MessagesWindow.Open {
+		consoleWin.MarkOpen()
+	}
+	if chatWin != nil && gs.ChatWindow.Open {
+		chatWin.MarkOpen()
+	}
+	windowsRestored = true
+
+	// Save the newly-created default geometry and zones immediately.
+	syncWindowSettings()
+	saveSettings()
+	settingsDirty = false
+}
+
 // popupButton defines a button in a popup dialog.
 type popupButton struct {
 	Text       string
@@ -3842,6 +3923,17 @@ func confirmResetSettings() {
 		[]popupButton{
 			{Text: "Cancel"},
 			{Text: "Reset", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() { resetAllSettings() }},
+		},
+	)
+}
+
+func confirmResetWindows() {
+	showPopup(
+		"Confirm Reset Windows",
+		"Reset window positions, sizes, visibility, and pinned locations to defaults?",
+		[]popupButton{
+			{Text: "Cancel"},
+			{Text: "Reset", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: resetWindows},
 		},
 	)
 }
@@ -5727,6 +5819,17 @@ func makeWindowsWindow() {
 		}
 	}
 	flow.AddItem(helpBox)
+
+	resetBtn, resetEvents := eui.NewButton()
+	resetBtn.Text = "Reset Windows"
+	resetBtn.Size = eui.Point{X: 128, Y: 24}
+	resetBtn.SetTooltip("Restore the default window layout and visibility")
+	resetEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmResetWindows()
+		}
+	}
+	flow.AddItem(resetBtn)
 
 	windowsWin.AddItem(flow)
 	windowsWin.AddWindow(false)

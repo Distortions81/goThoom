@@ -95,6 +95,7 @@ var gsdef settings = settings{
 	ChatFontSize:            14,
 	InventoryFontSize:       18,
 	PlayersFontSize:         18,
+	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
 	BubbleBaseLife:          2,
 	BubbleLifePerWord:       1,
@@ -235,20 +236,21 @@ type settings struct {
 	Version            int
 	SetupWizardVersion int
 
-	LastCharacter         string
-	ClickToToggle         bool
-	MiddleClickMoveWindow bool
-	InputBarAlwaysOpen    bool
-	KBWalkSpeed           float64
-	MainFontSize          float64
-	BubbleFontSize        float64
-	ConsoleFontSize       float64
-	ChatFontSize          float64
-	InventoryFontSize     float64
-	PlayersFontSize       float64
-	BubbleOpacity         float64
-	BubbleBaseLife        float64
-	BubbleLifePerWord     float64
+	LastCharacter           string
+	ClickToToggle           bool
+	MiddleClickMoveWindow   bool
+	InputBarAlwaysOpen      bool
+	KBWalkSpeed             float64
+	MainFontSize            float64
+	BubbleFontSize          float64
+	ConsoleFontSize         float64
+	ChatFontSize            float64
+	InventoryFontSize       float64
+	PlayersFontSize         float64
+	AlternateRowBackgrounds bool
+	BubbleOpacity           float64
+	BubbleBaseLife          float64
+	BubbleLifePerWord       float64
 	// BubbleScale scales bubble visuals (not font). Range 1.0–8.0.
 	BubbleScale        float64
 	NameBgOpacity      float64
@@ -655,6 +657,17 @@ func syncWindowSettings() bool {
 		}
 	}
 	return changed
+}
+
+// resetSavedWindowSettings restores only persisted window layout state.
+// Other client preferences intentionally remain unchanged.
+func resetSavedWindowSettings() {
+	gs.GameWindow = gsdef.GameWindow
+	gs.InventoryWindow = gsdef.InventoryWindow
+	gs.PlayersWindow = gsdef.PlayersWindow
+	gs.MessagesWindow = gsdef.MessagesWindow
+	gs.ChatWindow = gsdef.ChatWindow
+	gs.WindowZones = make(map[string]eui.WindowZoneState)
 }
 
 func syncWindow(win *eui.WindowData, state *WindowState) bool {

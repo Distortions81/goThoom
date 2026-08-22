@@ -23,6 +23,36 @@ var selectedPlayerName string
 var lastPlayerClickName string
 var lastPlayerClickTime time.Time
 
+func playersWindowTitle(online, sharedTo, sharingToUs int) string {
+	return fmt.Sprintf("Players   Online: %d   Shared: %d   Sharing: %d", online, sharedTo, sharingToUs)
+}
+
+func playerSharingIndicator(p Player) string {
+	switch {
+	case p.Sharee && p.Sharing:
+		return "↔"
+	case p.Sharee:
+		return "→"
+	case p.Sharing:
+		return "←"
+	default:
+		return ""
+	}
+}
+
+func playerSharingTooltip(p Player) string {
+	switch {
+	case p.Sharee && p.Sharing:
+		return "You share with each other"
+	case p.Sharee:
+		return "You share to this player"
+	case p.Sharing:
+		return "This player shares to you"
+	default:
+		return ""
+	}
+}
+
 // defaultMobilePictID returns a fallback CL_Images mobile pict ID for the
 // given gender when a player's specific PictID is unknown. Values are chosen
 // to match classic client defaults (peasant male/female). For neutral/other,
@@ -93,6 +123,7 @@ func updatePlayersWindow() {
 			onlineCount++
 		}
 	}
+	playersWin.Title = playersWindowTitle(onlineCount, shareeCount, shareCount)
 
 	myClan := ""
 	if playerName != "" {
@@ -137,48 +168,20 @@ func updatePlayersWindow() {
 	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
 	rowUnits := float32(linePx) / ui
 
-	// Rebuild contents: header + one row per player
+	// Rebuild contents: one row per player.
 	// Layout per row: [avatar (or default/blank)] [profession (or blank)] [name]
 	playersList.Contents = nil
 	playersRowRefs = map[*eui.ItemData]string{}
 	var selectedRow *eui.ItemData
 
-	header := fmt.Sprintf("Players Online: %d", onlineCount)
-	// Include simple share summary when relevant.
-	if shareCount > 0 || shareeCount > 0 {
-		parts := make([]string, 0, 2)
-		if shareCount > 0 {
-			parts = append(parts, fmt.Sprintf("sharing %d", shareCount))
-		}
-		if shareeCount > 0 {
-			parts = append(parts, fmt.Sprintf("sharees %d", shareeCount))
-		}
-		header = fmt.Sprintf("%s — %s", header, strings.Join(parts, ", "))
-	}
-	ht, _ := eui.NewText()
-	ht.Text = header
-	ht.FontSize = float32(fontSize)
-	ht.Size = eui.Point{X: clientWAvail, Y: rowUnits}
-	playersList.AddItem(ht)
-
-	for _, p := range exiles {
+	for rowIndex, p := range exiles {
 		offline := p.Offline || time.Since(p.LastSeen) > 5*time.Minute
 		name := p.Name
-		tags := make([]string, 0, 3)
-		if p.Sharee {
-			tags = append(tags, "<")
-		}
-		if p.Sharing {
-			tags = append(tags, ">")
-		}
 		if sameRealClan(p.clan, myClan) {
-			tags = append(tags, "*")
-		}
-		if len(tags) > 0 {
-			name = fmt.Sprintf("%s %s", name, strings.Join(tags, "--"))
+			name += " *"
 		}
 
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Filled: gs.AlternateRowBackgrounds && rowIndex%2 == 1, Color: alternateRowColor}
 
 		if p.FriendLabel > 0 {
 			row.Outlined = true
@@ -265,11 +268,29 @@ func updatePlayersWindow() {
 			t.TextColor = eui.ColorVeryDarkGray
 			t.ForceTextColor = true
 		}
-		t.Size = eui.Point{X: clientWAvail - float32(iconSize*2) - 8, Y: rowUnits}
+		indicator := playerSharingIndicator(p)
+		indicatorWidth := float32(0)
+		if indicator != "" {
+			if w, _ := text.Measure("↔", face, 0); w > 0 {
+				indicatorWidth = float32(math.Ceil(w/float64(ui))) + 8
+			}
+		}
+		t.Size = eui.Point{X: clientWAvail - float32(iconSize*2) - 8 - indicatorWidth, Y: rowUnits}
 		// Click selects this player.
 		n := p.Name
 		t.Action = func() { handlePlayersClick(n) }
 		row.AddItem(t)
+
+		if indicatorWidth > 0 {
+			shareItem, _ := eui.NewText()
+			shareItem.Text = indicator
+			shareItem.FontSize = float32(fontSize)
+			shareItem.Face = face
+			shareItem.Size = eui.Point{X: indicatorWidth, Y: rowUnits}
+			shareItem.SetTooltip(playerSharingTooltip(p))
+			shareItem.Action = func() { handlePlayersClick(n) }
+			row.AddItem(shareItem)
+		}
 
 		// Also allow clicking the row background to select.
 		n = p.Name

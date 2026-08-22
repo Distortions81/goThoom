@@ -27,7 +27,7 @@ func updateConsoleWindow() {
 	scrollit := messagesFlow.ScrollAtBottom()
 
 	msgs, types := getConsoleMessageEntries()
-	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil)
+	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, true)
 	searchTextWindow(consoleWin, messagesFlow, consoleWin.SearchText)
 	if inputFlow != nil && len(inputFlow.Contents) > 0 {
 		inputItem := inputFlow.Contents[0]

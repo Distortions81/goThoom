@@ -182,8 +182,14 @@ type itemData struct {
 	SecretText    string
 	HideText      bool
 	CursorPos     int
-	Handler       *EventHandler
-	Contents      []*itemData
+	// SelectableText allows a read-only text item to be drag-selected and copied.
+	SelectableText         bool
+	SelectStart, SelectEnd int
+	selecting              bool
+	// OnURLClick is called when a HTTP(S) URL in a text item is clicked.
+	OnURLClick func(string)
+	Handler    *EventHandler
+	Contents   []*itemData
 
 	// Tabs allows a flow to contain multiple tabbed flows. Only the
 	// flow referenced by ActiveTab will be drawn and receive input.

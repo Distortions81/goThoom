@@ -48,7 +48,7 @@ func initAboutUI() {
 	flow.PrependItem(linkBtn)
 
 	aboutLines = strings.Split(strings.ReplaceAll(aboutText, "\r\n", "\n"), "\n")
-	aboutWin.OnResize = func() { updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource) }
+	aboutWin.OnResize = func() { updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource, false) }
 
 	go loadPatreons()
 }
@@ -63,7 +63,7 @@ func openAboutWindow(anchor *eui.ItemData) {
 		return
 	}
 
-	updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource)
+	updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource, false)
 	if anchor != nil {
 		aboutWin.MarkOpenNear(anchor)
 	} else {

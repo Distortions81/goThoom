@@ -23,7 +23,7 @@ func updateChatWindow() {
 	scrollit := chatList.ScrollAtBottom()
 
 	msgs, types := getChatMessageEntries()
-	updateTextWindow(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil)
+	updateTextWindow(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, true)
 	searchTextWindow(chatWin, chatList, chatWin.SearchText)
 	if chatList != nil {
 		for i, msg := range msgs {

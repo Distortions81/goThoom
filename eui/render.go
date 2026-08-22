@@ -1573,6 +1573,50 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		top.ColorScale.ScaleWithColor(tcolor)
 		text.Draw(subImg, item.Text, face, top)
 
+		if item.SelectableText && item.SelectStart != item.SelectEnd && len(item.Text) > 0 {
+			start, end := item.SelectStart, item.SelectEnd
+			if start > end {
+				start, end = end, start
+			}
+			runes := []rune(item.Text)
+			if start < 0 {
+				start = 0
+			}
+			if end > len(runes) {
+				end = len(runes)
+			}
+			if start < end {
+				lineStarts := []int{0}
+				for i, r := range runes {
+					if r == '\n' {
+						lineStarts = append(lineStarts, i+1)
+					}
+				}
+				for line, lineStart := range lineStarts {
+					lineEnd := len(runes)
+					if line+1 < len(lineStarts) {
+						lineEnd = lineStarts[line+1] - 1
+					}
+					selectedStart := max(start, lineStart)
+					selectedEnd := min(end, lineEnd)
+					if selectedStart >= selectedEnd {
+						continue
+					}
+					prefixWidth, _ := text.Measure(string(runes[lineStart:selectedStart]), face, 0)
+					selectedWidth, _ := text.Measure(string(runes[selectedStart:selectedEnd]), face, 0)
+					baseY := offset.Y + float32(line)*lineSpacing + float32(metrics.HAscent)
+					topY := baseY - float32(math.Ceil(metrics.HAscent))
+					bottomY := baseY + float32(math.Ceil(metrics.HDescent))
+					drawRoundRect(subImg, &roundRect{
+						Size:     point{X: float32(selectedWidth), Y: bottomY - topY},
+						Position: point{X: offset.X + float32(prefixWidth), Y: topY},
+						Filled:   true,
+						Color:    Color{R: 0x33, G: 0x99, B: 0xFF, A: 0x88},
+					})
+				}
+			}
+		}
+
 		if item.Focused {
 			runes := []rune(item.Text)
 			if focused := item.CursorPos; focused < 0 {
@@ -1620,6 +1664,26 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 					offset.X+float32(x0+w), y,
 					1,
 					color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, true)
+			}
+		}
+
+		if item.OnURLClick != nil {
+			runes := []rune(item.Text)
+			for _, span := range item.urlRanges() {
+				line, lineStart := 0, 0
+				for i := 0; i < span.Start; i++ {
+					if runes[i] == '\n' {
+						line++
+						lineStart = i + 1
+					}
+				}
+				prefixWidth, _ := text.Measure(string(runes[lineStart:span.Start]), face, 0)
+				urlWidth, _ := text.Measure(string(runes[span.Start:span.End]), face, 0)
+				baseY := offset.Y + float32(line)*lineSpacing + float32(metrics.HAscent)
+				vector.StrokeLine(subImg,
+					offset.X+float32(prefixWidth), baseY+1,
+					offset.X+float32(prefixWidth+urlWidth), baseY+1,
+					1, color.NRGBA{R: 0x66, G: 0xAA, B: 0xFF, A: 0xFF}, true)
 			}
 		}
 

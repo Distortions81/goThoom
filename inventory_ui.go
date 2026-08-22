@@ -21,6 +21,16 @@ var inventoryWin *eui.WindowData
 var inventoryList *eui.ItemData
 var inventoryDirty bool
 
+const inventoryMaxSlots = 32
+
+func inventoryWindowTitle(used int) string {
+	free := inventoryMaxSlots - used
+	if free <= 5 {
+		return fmt.Sprintf("Inventory   Slots: %d/%d (%d free)", used, inventoryMaxSlots, free)
+	}
+	return fmt.Sprintf("Inventory   Slots: %d/%d", used, inventoryMaxSlots)
+}
+
 type invRef struct {
 	id     uint16
 	idx    int
@@ -61,6 +71,7 @@ type inventoryRenderState struct {
 var invRender inventoryRenderState
 
 type inventoryRowData struct {
+	rowIndex  int
 	key       invGroupKey
 	id        uint16
 	idx       int
@@ -199,9 +210,12 @@ func updateInventoryWindow() {
 	invRender.clientHAvail = clientHAvail
 
 	rows := make([]inventoryRowData, 0, len(order))
-	for _, key := range order {
-		rows = append(rows, invRender.makeRowData(key, first[key], counts[key], anyEquipped[key]))
+	for rowIndex, key := range order {
+		row := invRender.makeRowData(key, first[key], counts[key], anyEquipped[key])
+		row.rowIndex = rowIndex
+		rows = append(rows, row)
 	}
+	inventoryWin.Title = inventoryWindowTitle(len(order))
 
 	if geometryChanged {
 		invRender.rebuild(rows)
@@ -386,6 +400,8 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.row.Fixed = true
 		row.row.Size.X = s.clientWAvail
 		row.row.Size.Y = s.rowUnits
+		row.row.Filled = gs.AlternateRowBackgrounds && data.rowIndex%2 == 1
+		row.row.Color = alternateRowColor
 	}
 
 	if row.icon != nil {

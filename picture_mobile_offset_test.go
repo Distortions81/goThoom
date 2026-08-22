@@ -98,3 +98,21 @@ func TestPictureCanWanderWithMobileRequiresTransparency(t *testing.T) {
 		t.Fatal("sprite with more than 40% transparency cannot wander with a mobile")
 	}
 }
+
+func TestPictureFollowingBackgroundIsNotPinned(t *testing.T) {
+	originalPinning := gs.ObjectPinning
+	originalSmoothing := gs.MotionSmoothing
+	gs.ObjectPinning = true
+	gs.MotionSmoothing = true
+	defer func() {
+		gs.ObjectPinning = originalPinning
+		gs.MotionSmoothing = originalSmoothing
+	}()
+
+	if pictureCanPinToMobile(framePicture{Moving: false}, 64, 64) {
+		t.Fatal("picture following the background must not be pinned")
+	}
+	if !pictureCanPinToMobile(framePicture{Moving: true}, 64, 64) {
+		t.Fatal("independently moving picture should still be eligible for pinning")
+	}
+}
