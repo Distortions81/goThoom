@@ -46,6 +46,7 @@ Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, An
 - High quality audio resampling that is very flattering to the original recordings and more pleasant to the ear
 * Resampling: (1024-Phase 8192-Tap Lanczos Windowed-Sinc),
 * Bit depth conversion: TPDF noise shaping with 257 scaling for the best 8-bit to 16-bit conversion possible
+- `.clmov` recording playback with seeking, so you can jump through Clan Lord captures without replaying them from the start
 - Much higher quality music synthisizer that is more flexible (currently uses a 309MB soundfont file) that is not tied to a dead dependency.
 - Built-in local AI text-to-speech with a large choice of voices available online
 - Text rendering is anti-aliased and uses high quality modern fonts via OpenType and fractional font sizes are supported

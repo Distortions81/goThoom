@@ -92,7 +92,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Closable = true
 	win.Resizable = false
 	win.AutoSize = true
-	win.SetZone(eui.HZoneCenter, eui.VZoneBottomMiddle)
+	win.SetZone(eui.HZoneCenter, eui.VZoneTop)
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 

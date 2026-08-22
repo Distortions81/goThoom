@@ -1959,7 +1959,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !gs.smoothMoving {
+	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p.PictID) {
 		if int(p.PrevH) == int(p.H)-shiftX && int(p.PrevV) == int(p.V)-shiftY {
 			//
 		} else {
@@ -1985,7 +1985,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 
 	var mobileX, mobileY float64
-	if gs.ObjectPinning && gs.MotionSmoothing && w <= 500 && h <= 500 {
+	if gs.ObjectPinning && gs.MotionSmoothing && !p.Background && w <= 500 && h <= 500 {
 		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPicturePositions, alpha); ok {
 			mobileX, mobileY = dx, dy
 			offX = 0
@@ -2179,6 +2179,9 @@ type picturePositionKey struct {
 	h, v   int16
 }
 
+const mobilePictureOffsetJitter = 8
+const maxWanderingPinnedPictureSize = 96
+
 func hasPreviousPicture(positions map[picturePositionKey]struct{}, pictID uint16, h, v int) bool {
 	if h < -32768 || h > 32767 || v < -32768 || v > 32767 {
 		return false
@@ -2187,9 +2190,37 @@ func hasPreviousPicture(positions map[picturePositionKey]struct{}, pictID uint16
 	return ok
 }
 
+func hasPreviousPictureNear(positions map[picturePositionKey]struct{}, pictID uint16, h, v, jitter int) bool {
+	if hasPreviousPicture(positions, pictID, h, v) {
+		return true
+	}
+	for dv := -jitter; dv <= jitter; dv++ {
+		for dh := -jitter; dh <= jitter; dh++ {
+			if dh*dh+dv*dv <= jitter*jitter && hasPreviousPicture(positions, pictID, h+dh, v+dv) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func pictureCanWanderWithMobile(pictID uint16) bool {
+	w, h := pictureSize(pictID)
+	if w <= 0 || h <= 0 || w > maxWanderingPinnedPictureSize || h > maxWanderingPinnedPictureSize {
+		return false
+	}
+	// Wandering effects are mostly transparent. Opaque small scenery should
+	// not be associated with a nearby mobile.
+	return nonTransparentPixels(pictID)*100 < w*h*60
+}
+
 func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, alpha float64) (float64, float64, bool) {
-	// Use exact previous picture position for the same PictID to verify the
-	// picture-to-mobile offset stayed identical across frames.
+	// Use the previous picture position for the same PictID to verify the
+	// picture-to-mobile offset stayed stable across frames.
+	jitter := 0
+	if pictureCanWanderWithMobile(p.PictID) {
+		jitter = mobilePictureOffsetJitter
+	}
 	// Try the hero (playerIndex) first to ensure centered player effects pin.
 	for i := range mobiles {
 		if mobiles[i].Index != playerIndex {
@@ -2207,7 +2238,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 		}
 		expPrevH := int(pm.H) + offH
 		expPrevV := int(pm.V) + offV
-		if hasPreviousPicture(prevPicturePositions, p.PictID, expPrevH, expPrevV) {
+		if hasPreviousPictureNear(prevPicturePositions, p.PictID, expPrevH, expPrevV, jitter) {
 			h := float64(pm.H)*(1-alpha) + float64(m.H)*alpha
 			v := float64(pm.V)*(1-alpha) + float64(m.V)*alpha
 			return h - float64(m.H), v - float64(m.V), true
@@ -2230,7 +2261,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 		// Expected previous picture position if offset is identical
 		expPrevH := int(pm.H) + offH
 		expPrevV := int(pm.V) + offV
-		if !hasPreviousPicture(prevPicturePositions, p.PictID, expPrevH, expPrevV) {
+		if !hasPreviousPictureNear(prevPicturePositions, p.PictID, expPrevH, expPrevV, jitter) {
 			continue
 		}
 		// Interpolate mobile

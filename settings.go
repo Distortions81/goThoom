@@ -200,7 +200,7 @@ var gsdef settings = settings{
 
 	PotatoGPU:              false,
 	BarColorByValue:        false,
-	ThrottleSounds:         false,
+	ThrottleSounds:         true,
 	SoundEnhancement:       false,
 	SoundEnhancementAmount: 1.5,
 	MusicEnhancement:       true,

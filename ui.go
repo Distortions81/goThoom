@@ -5030,7 +5030,7 @@ func makeAdvancedSettingsWindow() {
 
 	throttleCB, throttleEvents := eui.NewCheckbox()
 	throttleSoundCB = throttleCB
-	throttleSoundCB.Text = "Throttle Sounds"
+	throttleSoundCB.Text = "Throttle Repeated Sounds"
 	throttleSoundCB.Size = eui.Point{X: columnWidth, Y: 24}
 	throttleSoundCB.Checked = gs.ThrottleSounds
 	throttleSoundCB.SetTooltip("Prevent same sound from playing every tick")

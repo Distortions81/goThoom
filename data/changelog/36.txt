@@ -23,3 +23,9 @@ Performance:
 - Reduced unnecessary image decoding, hover checks, and repeated chat-trigger text processing.
 
 For source builds, goThoom now uses Go 1.26.6, Ebitengine 2.9.10, and refreshed dependencies. Automated dependency checks and additional regression tests and benchmarks were also added.
+
+Additional updates:
+- Added an Edit button to open individual legacy macro files in the default editor on supported desktop platforms.
+- Added Settings → Text Colors for separate Say, Whisper, Yell, Think, Action, Ponder, Narration, Monster, and System message colors.
+- Improved motion smoothing for large, semi-transparent moving sprites such as clouds.
+- Throttle Repeated Sounds now defaults to on.

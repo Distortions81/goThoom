@@ -70,6 +70,7 @@ const poseDead = 32
 const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
+const minMovingPicturePixels = 12000
 
 // percent of area that must be outside the field to count as "on the edge"
 const edgeOutsidePercent = 70
@@ -90,12 +91,95 @@ var skipPictShift = map[uint16]struct{}{
 	3037: {},
 }
 
+var pictureSemiTransparent = func(id uint16) bool {
+	return clImages != nil && clImages.IsSemiTransparent(uint32(id))
+}
+
+var pictureSize = func(id uint16) (int, int) {
+	if clImages == nil {
+		return 0, 0
+	}
+	return clImages.Size(uint32(id))
+}
+
+// pictureCloudMotionEnabled identifies sprites, such as clouds, that move
+// with the camera but also drift independently. The automatic path requires
+// both signals: large dimensions and a semi-transparent blend flag.
+func pictureCloudMotionEnabled(id uint16) bool {
+	w, h := pictureSize(id)
+	large := w >= 128 || h >= 128 || nonTransparentPixels(id) >= minMovingPicturePixels
+	return large && pictureSemiTransparent(id)
+}
+
+func pictureMotionInterpolationEnabled(id uint16) bool {
+	return gs.smoothMoving || pictureCloudMotionEnabled(id)
+}
+
+// pictureExcludedFromShift keeps independently drifting pictures from
+// influencing the shared camera-motion estimate.
+func pictureExcludedFromShift(id uint16) bool {
+	if _, skip := skipPictShift[id]; skip {
+		return true
+	}
+	return pictureCloudMotionEnabled(id)
+}
+
 type pictureShiftScratch struct {
 	counts     map[[2]int]int
 	idxMap     map[[2]int]map[int]struct{}
 	curIdx     map[uint16][]int
 	pixelCache map[uint16]int
 	idxSetPool []map[int]struct{}
+}
+
+type picturePositionMatch struct {
+	current  int
+	previous int
+	distance int
+}
+
+// matchPicturePositions pairs each current picture with at most one previous
+// picture of the same ID. Matching is global and camera-adjusted, rather than
+// depending on draw order, so identical nearby sprites cannot steal one
+// another's previous location.
+func matchPicturePositions(prev, cur []framePicture, shiftX, shiftY, max int, again int) map[int]int {
+	maxDistance := max * max
+	candidates := make([]picturePositionMatch, 0)
+	for current := again; current < len(cur); current++ {
+		for previous := range prev {
+			if prev[previous].Again || prev[previous].PictID != cur[current].PictID {
+				continue
+			}
+			dh := int(cur[current].H) - int(prev[previous].H) - shiftX
+			dv := int(cur[current].V) - int(prev[previous].V) - shiftY
+			distance := dh*dh + dv*dv
+			if distance <= maxDistance {
+				candidates = append(candidates, picturePositionMatch{current, previous, distance})
+			}
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].distance != candidates[j].distance {
+			return candidates[i].distance < candidates[j].distance
+		}
+		if candidates[i].current != candidates[j].current {
+			return candidates[i].current < candidates[j].current
+		}
+		return candidates[i].previous < candidates[j].previous
+	})
+	matches := make(map[int]int)
+	used := make(map[int]struct{})
+	for _, candidate := range candidates {
+		if _, alreadyMatched := matches[candidate.current]; alreadyMatched {
+			continue
+		}
+		if _, alreadyUsed := used[candidate.previous]; alreadyUsed {
+			continue
+		}
+		matches[candidate.current] = candidate.previous
+		used[candidate.previous] = struct{}{}
+	}
+	return matches
 }
 
 func newPictureShiftScratch() *pictureShiftScratch {
@@ -608,7 +692,7 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	// Build a map from PictID to indexes in the current frame to avoid
 	// repeatedly scanning the entire list for matches.
 	for i, c := range cur {
-		if _, skip := skipPictShift[c.PictID]; skip {
+		if pictureExcludedFromShift(c.PictID) {
 			continue
 		}
 		curIdx[c.PictID] = append(curIdx[c.PictID], i)
@@ -617,7 +701,7 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	// Cache pixel counts locally so that each PictID is computed at most once
 	// per pictureShift invocation.
 	for _, p := range prev {
-		if _, skip := skipPictShift[p.PictID]; skip {
+		if pictureExcludedFromShift(p.PictID) {
 			continue
 		}
 		bestDist := maxInt
@@ -1276,8 +1360,15 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	for i := range prevPics {
 		prevPics[i].Owned = false
 	}
+	positionMatches := matchPicturePositions(prevPics, newPics, state.picShiftX, state.picShiftY, maxInterp, again)
 	for i := range newPics {
+		cloudMotion := pictureCloudMotionEnabled(newPics[i].PictID)
 		if _, skip := skipPictShift[newPics[i].PictID]; skip {
+			newPics[i].PrevH = newPics[i].H
+			newPics[i].PrevV = newPics[i].V
+		} else if cloudMotion {
+			// Do not draw a newly appeared cloud at the prior camera position.
+			// A matching old position is assigned below.
 			newPics[i].PrevH = newPics[i].H
 			newPics[i].PrevV = newPics[i].V
 		} else {
@@ -1289,44 +1380,30 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		if i < again {
 			moving = false
 			owner = &prevPics[i]
-		} else {
-			for j := range prevPics {
-				pp := &prevPics[j]
-				if pp.Owned {
-					continue
-				}
-				if pp.PictID == newPics[i].PictID &&
-					int(pp.H)+state.picShiftX == int(newPics[i].H) &&
-					int(pp.V)+state.picShiftY == int(newPics[i].V) {
-					moving = false
-					owner = pp
-					break
-				}
+		} else if j, ok := positionMatches[i]; ok {
+			pp := &prevPics[j]
+			if int(pp.H)+state.picShiftX == int(newPics[i].H) &&
+				int(pp.V)+state.picShiftY == int(newPics[i].V) {
+				moving = false
+				owner = pp
 			}
+		}
+		if cloudMotion && owner != nil {
+			// Continue a cloud from its fresh previous packet position, including
+			// camera motion. Keep it marked moving so drawPicture uses PrevH/V.
+			moving = true
+			newPics[i].PrevH = owner.H
+			newPics[i].PrevV = owner.V
 		}
 		if moving && pictureOnEdge(newPics[i]) {
 			moving = false
 		}
-		if moving && gs.smoothMoving {
-			bestDist := maxInterp*maxInterp + 1
-			var best *framePicture
-			for j := range prevPics {
-				pp := &prevPics[j]
-				if pp.Owned || pp.PictID != newPics[i].PictID {
-					continue
-				}
-				dh := int(newPics[i].H) - int(pp.H) - state.picShiftX
-				dv := int(newPics[i].V) - int(pp.V) - state.picShiftY
-				dist := dh*dh + dv*dv
-				if dist < bestDist {
-					bestDist = dist
-					best = pp
-				}
-			}
-			if best != nil && bestDist <= maxInterp*maxInterp {
-				newPics[i].PrevH = best.H
-				newPics[i].PrevV = best.V
-				best.Owned = true
+		if moving && pictureMotionInterpolationEnabled(newPics[i].PictID) {
+			if j, ok := positionMatches[i]; ok {
+				previous := &prevPics[j]
+				newPics[i].PrevH = previous.H
+				newPics[i].PrevV = previous.V
+				previous.Owned = true
 			}
 		} else if owner != nil {
 			owner.Owned = true

@@ -11,6 +11,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"world animation blending":     gsdef.BlendPicts,
 		"shader lighting":              gsdef.ShaderLighting,
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
+		"throttle sounds":              gsdef.ThrottleSounds,
 	}
 	for name, enabled := range defaults {
 		if !enabled {
