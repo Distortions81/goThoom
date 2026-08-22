@@ -19,6 +19,7 @@ const (
 	detailedEdgeBaseRadius = 0.50
 	detailedEdgeLengthGain = 0.20
 	detailedEdgeMaxRadius  = 2.00
+	shadowHeadOpacity      = 0.20
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -31,6 +32,24 @@ var shadowDarkenBlend = ebiten.Blend{
 	BlendOperationRGB:           ebiten.BlendOperationAdd,
 	BlendOperationAlpha:         ebiten.BlendOperationAdd,
 }
+
+// Detailed layers are combined by maximum opacity before touching the scene.
+// This prevents the core, soft edges, and neighboring character shadows from
+// repeatedly darkening the same ground pixels.
+var shadowMaskBlend = ebiten.Blend{
+	BlendOperationRGB:   ebiten.BlendOperationMax,
+	BlendOperationAlpha: ebiten.BlendOperationMax,
+}
+
+var (
+	uprightShadowVertices = [4]ebiten.Vertex{}
+	uprightShadowIndices  = [6]uint16{0, 1, 2, 1, 3, 2}
+	uprightShadowDrawOpts = ebiten.DrawTrianglesOptions{
+		Filter: ebiten.FilterLinear,
+		Blend:  shadowDarkenBlend,
+	}
+	detailedCharacterShadowMask *ebiten.Image
+)
 
 type characterShadowProjection struct {
 	angle       float64
@@ -128,6 +147,13 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		return
 	}
 	projection := newCharacterShadowProjection(azimuth)
+	shadowTarget := screen
+	shadowBlend := shadowDarkenBlend
+	if gs.DetailedCharacterShadows {
+		shadowTarget = characterShadowMask(screen)
+		shadowTarget.Clear()
+		shadowBlend = shadowMaskBlend
+	}
 
 	for _, mobile := range mobiles {
 		desc, ok := descMap[mobile.Index]
@@ -157,11 +183,26 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 			size = img.Bounds().Dx()
 		}
 		x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
-		drawCharacterShadow(screen, img, size, x, y, shadowAlpha, projection, upright)
+		drawCharacterShadow(shadowTarget, img, size, x, y, shadowAlpha, projection, upright, shadowBlend)
+	}
+
+	if gs.DetailedCharacterShadows {
+		op := acquireDrawOpts()
+		op.Blend = shadowDarkenBlend
+		screen.DrawImage(shadowTarget, op)
+		releaseDrawOpts(op)
 	}
 }
 
-func drawCharacterShadow(screen, img *ebiten.Image, size, x, y int, alpha float32, projection characterShadowProjection, upright bool) {
+func characterShadowMask(screen *ebiten.Image) *ebiten.Image {
+	bounds := screen.Bounds()
+	if detailedCharacterShadowMask == nil || detailedCharacterShadowMask.Bounds().Dx() != bounds.Dx() || detailedCharacterShadowMask.Bounds().Dy() != bounds.Dy() {
+		detailedCharacterShadowMask = ebiten.NewImage(bounds.Dx(), bounds.Dy())
+	}
+	return detailedCharacterShadowMask
+}
+
+func drawCharacterShadow(screen, img *ebiten.Image, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {
 	drawSize := img.Bounds().Dx()
 	if drawSize <= 0 || size <= 0 {
 		return
@@ -171,31 +212,56 @@ func drawCharacterShadow(screen, img *ebiten.Image, size, x, y int, alpha float3
 		radius := detailedCharacterShadowRadius(projection)
 		edgeAlpha := shadowAlpha * detailedEdgeOpacity
 		for _, offset := range [][2]float64{{-radius, 0}, {radius, 0}, {0, -radius}, {0, radius}} {
-			drawCharacterShadowLayer(screen, img, drawSize, size, x, y, edgeAlpha, projection, upright, offset[0], offset[1])
+			drawCharacterShadowLayer(screen, img, drawSize, size, x, y, edgeAlpha, projection, upright, offset[0], offset[1], blend)
 		}
 		shadowAlpha *= detailedCoreOpacity
 	}
-	drawCharacterShadowLayer(screen, img, drawSize, size, x, y, shadowAlpha, projection, upright, 0, 0)
+	drawCharacterShadowLayer(screen, img, drawSize, size, x, y, shadowAlpha, projection, upright, 0, 0, blend)
 }
 
-func drawCharacterShadowLayer(screen, img *ebiten.Image, drawSize, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, offsetX, offsetY float64) {
+func drawCharacterShadowLayer(screen, img *ebiten.Image, drawSize, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, offsetX, offsetY float64, blend ebiten.Blend) {
+	if upright {
+		geo := uprightShadowGeoM(drawSize, size, x, y, projection)
+		geo.Translate(offsetX, offsetY)
+		drawUprightShadowGradient(screen, img, geo, alpha, blend)
+		return
+	}
+
 	target := float64(roundToInt(float64(size) * gs.GameScale))
 	baseScale := target / float64(drawSize)
 	op := acquireDrawOpts()
 	op.Filter = ebiten.FilterLinear
 	op.DisableMipmaps = true
-	op.Blend = shadowDarkenBlend
+	op.Blend = blend
 	op.ColorScale.Scale(0, 0, 0, alpha)
-	if upright {
-		op.GeoM = uprightShadowGeoM(drawSize, size, x, y, projection)
-	} else {
-		op.GeoM.Scale(baseScale, baseScale)
-		op.GeoM.Translate(float64(x)-target/2+projection.dropOffsetX, float64(y)-target/2+projection.dropOffsetY)
-	}
+	op.GeoM.Scale(baseScale, baseScale)
+	op.GeoM.Translate(float64(x)-target/2+projection.dropOffsetX, float64(y)-target/2+projection.dropOffsetY)
 	op.GeoM.Translate(offsetX, offsetY)
 
 	screen.DrawImage(img, op)
 	releaseDrawOpts(op)
+}
+
+// drawUprightShadowGradient keeps the shadow darkest at the feet and linearly
+// fades it toward the projected head. DrawTriangles already uses a four-vertex
+// quad internally, so this adds no render pass and negligible GPU work.
+func drawUprightShadowGradient(screen, img *ebiten.Image, geo ebiten.GeoM, alpha float32, blend ebiten.Blend) {
+	bounds := img.Bounds()
+	w, h := float64(bounds.Dx()), float64(bounds.Dy())
+	topLeftX, topLeftY := geo.Apply(0, 0)
+	topRightX, topRightY := geo.Apply(w, 0)
+	bottomLeftX, bottomLeftY := geo.Apply(0, h)
+	bottomRightX, bottomRightY := geo.Apply(w, h)
+	topAlpha := alpha * shadowHeadOpacity
+
+	uprightShadowVertices = [4]ebiten.Vertex{
+		{DstX: float32(topLeftX), DstY: float32(topLeftY), SrcX: float32(bounds.Min.X), SrcY: float32(bounds.Min.Y), ColorA: topAlpha},
+		{DstX: float32(topRightX), DstY: float32(topRightY), SrcX: float32(bounds.Max.X), SrcY: float32(bounds.Min.Y), ColorA: topAlpha},
+		{DstX: float32(bottomLeftX), DstY: float32(bottomLeftY), SrcX: float32(bounds.Min.X), SrcY: float32(bounds.Max.Y), ColorA: alpha},
+		{DstX: float32(bottomRightX), DstY: float32(bottomRightY), SrcX: float32(bounds.Max.X), SrcY: float32(bounds.Max.Y), ColorA: alpha},
+	}
+	uprightShadowDrawOpts.Blend = blend
+	screen.DrawTriangles(uprightShadowVertices[:], uprightShadowIndices[:], img, &uprightShadowDrawOpts)
 }
 
 func uprightShadowGeoM(drawSize, size, x, y int, projection characterShadowProjection) ebiten.GeoM {

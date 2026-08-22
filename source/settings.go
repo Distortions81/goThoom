@@ -219,7 +219,7 @@ var gsdef settings = settings{
 	ShaderLighting:           true,
 	LightingPlaneOrder:       true,
 	CharacterShadows:         true,
-	DetailedCharacterShadows: false,
+	DetailedCharacterShadows: true,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,

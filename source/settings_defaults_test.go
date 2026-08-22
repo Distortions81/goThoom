@@ -18,6 +18,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"flame light flicker":          gsdef.FlameLightFlicker,
 		"lighting plane order":         gsdef.LightingPlaneOrder,
 		"character shadows":            gsdef.CharacterShadows,
+		"detailed character shadows":   gsdef.DetailedCharacterShadows,
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
 		"throttle sounds":              gsdef.ThrottleSounds,
 		"alternate row backgrounds":    gsdef.AlternateRowBackgrounds,
@@ -29,9 +30,9 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	}
 }
 
-func TestDetailedCharacterShadowsDefaultOff(t *testing.T) {
-	if gsdef.DetailedCharacterShadows {
-		t.Error("detailed character shadows should be opt-in")
+func TestDetailedCharacterShadowsDefaultOn(t *testing.T) {
+	if !gsdef.DetailedCharacterShadows {
+		t.Error("detailed character shadows should be enabled by default")
 	}
 }
 
@@ -71,6 +72,7 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		"flame light flicker":          gs.FlameLightFlicker,
 		"lighting plane order":         gs.LightingPlaneOrder,
 		"character shadows":            gs.CharacterShadows,
+		"detailed character shadows":   gs.DetailedCharacterShadows,
 		"sound enhancement":            gs.SoundEnhancement,
 		"high quality resampling":      gs.HighQualityResampling,
 		"music enhancement":            gs.MusicEnhancement,
@@ -102,6 +104,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 
 	gs.LightingPlaneOrder = false
 	gs.CharacterShadows = false
+	gs.DetailedCharacterShadows = false
 	gs.FlameLightFlicker = false
 	if !loadSettings() {
 		t.Fatal("loadSettings() = false for current-version settings")
@@ -111,6 +114,9 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 	if !gs.CharacterShadows {
 		t.Error("settings without CharacterShadows should default it on")
+	}
+	if !gs.DetailedCharacterShadows {
+		t.Error("settings without DetailedCharacterShadows should default it on")
 	}
 	if !gs.FlameLightFlicker {
 		t.Error("settings without FlameLightFlicker should default it on")

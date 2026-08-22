@@ -79,6 +79,15 @@ func TestDetailedShadowPenumbraGrowsAtLowSun(t *testing.T) {
 	}
 }
 
+func TestUprightShadowGradientFadesTowardHead(t *testing.T) {
+	const alpha = 0.8
+	head := float32(alpha * shadowHeadOpacity)
+	toe := float32(alpha)
+	if head <= 0 || head >= toe {
+		t.Fatalf("gradient alpha head=%v toe=%v", head, toe)
+	}
+}
+
 func TestUprightShadowProjectionDirection(t *testing.T) {
 	originalScale := gs.GameScale
 	gs.GameScale = 1
