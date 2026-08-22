@@ -18,7 +18,7 @@ Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, An
 [Video Overview](https://youtu.be/MrGdcqIl3a4)
 
 <img width="125" height="125" alt="goThoom" src="https://github.com/user-attachments/assets/b036f99a-668b-408e-8a43-524a0659a260" />
-<img src="dev-screenshots/Screenshot_20250901_074853.png"/>
+<img src="dev-screenshots/Screenshot_20260822_085832.png"/>
 
 > Status: actively developed, cross-platform builds provided in Releases.
 
