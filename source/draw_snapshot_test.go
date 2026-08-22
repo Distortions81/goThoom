@@ -19,13 +19,14 @@ func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
 		prevDescs: map[uint8]frameDescriptor{
 			1: {Index: 1, Name: "Bob", PictID: 100, Colors: []byte{1, 2, 3}},
 		},
-		bubbles:  []bubble{{Index: 1, Text: "hello", LifeFrames: 1000}},
-		picsNeg:  []framePicture{{PictID: 11, Plane: -1}},
-		picsZero: []framePicture{{PictID: 12}},
-		picsPos:  []framePicture{{PictID: 13, Plane: 1}},
-		liveMobs: []frameMobile{{Index: 1, H: 4, V: 5}},
-		deadMobs: []frameMobile{{Index: 2, State: poseDead}},
-		nameMobs: []frameMobile{{Index: 1, H: 4, V: 5}},
+		bubbles:      []bubble{{Index: 1, Text: "hello", LifeFrames: 1000}},
+		picsNeg:      []framePicture{{PictID: 11, Plane: -1}},
+		picsZero:     []framePicture{{PictID: 12}},
+		picsPos:      []framePicture{{PictID: 13, Plane: 1}},
+		liveMobs:     []frameMobile{{Index: 1, H: 4, V: 5}},
+		deadMobs:     []frameMobile{{Index: 2, State: poseDead}},
+		nameMobs:     []frameMobile{{Index: 1, H: 4, V: 5}},
+		logicalFrame: 77,
 	}
 	stateMu.Unlock()
 
@@ -57,5 +58,8 @@ func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
 	}
 	if len(snap.descriptors) != 1 || len(snap.prevPicturePositions) != 1 || len(snap.picsNeg) != 1 || len(snap.liveMobs) != 1 {
 		t.Fatalf("snapshot was not populated: %#v", snap)
+	}
+	if snap.logicalFrame != 77 {
+		t.Fatalf("snapshot logical frame = %d, want 77", snap.logicalFrame)
 	}
 }

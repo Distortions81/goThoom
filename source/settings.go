@@ -142,7 +142,7 @@ var gsdef settings = settings{
 	GameVolume:            0.28260868787765503,
 	MusicVolume:           1.0,
 	Music:                 true,
-	MusicStereoPan:        true,
+	MusicStereoPan:        false,
 	GameSound:             true,
 	Mute:                  false,
 	GameScale:             2.0,
@@ -201,8 +201,10 @@ var gsdef settings = settings{
 	MovieWindow:     WindowState{},
 	WindowZones:     *new(map[string]eui.WindowZoneState),
 
-	ShaderLightStrength: 1.0,
-	ShaderGlowStrength:  1.0,
+	ShaderLightStrength:  1.0,
+	ShaderGlowStrength:   1.0,
+	FlameLightFlicker:    true,
+	FlameFlickerStrength: 1.0,
 
 	PotatoGPU:              false,
 	BarColorByValue:        false,
@@ -213,9 +215,11 @@ var gsdef settings = settings{
 	HighQualityResampling:  true,
 	ServerAddress:          defaultServerHostName + ":5010",
 
-	NightEffect:        true,
-	ShaderLighting:     true,
-	LightingPlaneOrder: true,
+	NightEffect:              true,
+	ShaderLighting:           true,
+	LightingPlaneOrder:       true,
+	CharacterShadows:         true,
+	DetailedCharacterShadows: false,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,
@@ -374,8 +378,10 @@ type settings struct {
 	MovieWindow     WindowState
 	WindowZones     map[string]eui.WindowZoneState
 
-	ShaderLightStrength float64
-	ShaderGlowStrength  float64
+	ShaderLightStrength  float64
+	ShaderGlowStrength   float64
+	FlameLightFlicker    bool
+	FlameFlickerStrength float64
 
 	PotatoGPU              bool
 	PrecacheSounds         bool
@@ -388,20 +394,22 @@ type settings struct {
 	MusicEnhancement       bool
 	HighQualityResampling  bool
 
-	imgPlanesDebug     bool
-	smoothingDebug     bool
-	pictAgainDebug     bool
-	pictIDDebug        bool
-	scriptOutputDebug  bool
-	scriptEventDebug   bool
-	AltNetMode         bool
-	AltNetDelay        int
-	ServerAddress      string
-	hideMoving         bool
-	hideMobiles        bool
-	NightEffect        bool
-	ShaderLighting     bool
-	LightingPlaneOrder bool
+	imgPlanesDebug           bool
+	smoothingDebug           bool
+	pictAgainDebug           bool
+	pictIDDebug              bool
+	scriptOutputDebug        bool
+	scriptEventDebug         bool
+	AltNetMode               bool
+	AltNetDelay              int
+	ServerAddress            string
+	hideMoving               bool
+	hideMobiles              bool
+	NightEffect              bool
+	ShaderLighting           bool
+	LightingPlaneOrder       bool
+	CharacterShadows         bool
+	DetailedCharacterShadows bool
 
 	// Window behavior
 	ShowClanLordSplashImage bool
@@ -535,6 +543,9 @@ func loadSettings() bool {
 	}
 	if gs.ShaderGlowStrength < 0 || gs.ShaderGlowStrength > 2 {
 		gs.ShaderGlowStrength = gsdef.ShaderGlowStrength
+	}
+	if gs.FlameFlickerStrength < 0 || gs.FlameFlickerStrength > 2 {
+		gs.FlameFlickerStrength = gsdef.FlameFlickerStrength
 	}
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)

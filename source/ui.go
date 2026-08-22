@@ -122,6 +122,8 @@ var (
 	qualityPresetDD    *eui.ItemData
 	shaderLightSlider  *eui.ItemData
 	shaderGlowSlider   *eui.ItemData
+	flameFlickerCB     *eui.ItemData
+	flameFlickerSlider *eui.ItemData
 	gammaCorrectionCB  *eui.ItemData
 	spriteGammaSlider  *eui.ItemData
 	monitorGammaSlider *eui.ItemData
@@ -4356,6 +4358,37 @@ func makeQualityWindow() {
 	}
 	left.AddItem(vsyncCB)
 
+	var detailedShadowsCB *eui.ItemData
+	characterShadowsCB, characterShadowsEvents := eui.NewCheckbox()
+	characterShadowsCB.Text = "Character Shadows"
+	characterShadowsCB.Size = eui.Point{X: width, Y: 24}
+	characterShadowsCB.Checked = gs.CharacterShadows
+	characterShadowsCB.SetTooltip("Cast sun-directed shadows from characters and creatures")
+	characterShadowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.CharacterShadows = ev.Checked
+			if detailedShadowsCB != nil {
+				detailedShadowsCB.Disabled = !ev.Checked
+			}
+			settingsDirty = true
+		}
+	}
+	left.AddItem(characterShadowsCB)
+
+	detailedShadowsCB, detailedShadowsEvents := eui.NewCheckbox()
+	detailedShadowsCB.Text = "Detailed Character Shadows"
+	detailedShadowsCB.Size = eui.Point{X: width, Y: 24}
+	detailedShadowsCB.Checked = gs.DetailedCharacterShadows
+	detailedShadowsCB.Disabled = !gs.CharacterShadows
+	detailedShadowsCB.SetTooltip("Add soft shadow edges at the cost of extra drawing")
+	detailedShadowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.DetailedCharacterShadows = ev.Checked
+			settingsDirty = true
+		}
+	}
+	left.AddItem(detailedShadowsCB)
+
 	// Shader lighting toggle in the Quality window
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()
 	shaderLightingCB = shaderQualityCB
@@ -4379,6 +4412,12 @@ func makeQualityWindow() {
 			if lightingPlaneOrderCB != nil {
 				lightingPlaneOrderCB.Disabled = !ev.Checked
 			}
+			if flameFlickerCB != nil {
+				flameFlickerCB.Disabled = !ev.Checked
+			}
+			if flameFlickerSlider != nil {
+				flameFlickerSlider.Disabled = !ev.Checked || !gs.FlameLightFlicker
+			}
 			if debugWin != nil {
 				debugWin.Refresh()
 			}
@@ -4400,6 +4439,42 @@ func makeQualityWindow() {
 		}
 	}
 	left.AddItem(planeOrderCB)
+
+	flameCB, flameEvents := eui.NewCheckbox()
+	flameFlickerCB = flameCB
+	flameFlickerCB.Text = "Flame Light Flicker"
+	flameFlickerCB.Size = eui.Point{X: width, Y: 24}
+	flameFlickerCB.Checked = gs.FlameLightFlicker
+	flameFlickerCB.Disabled = !gs.ShaderLighting
+	flameFlickerCB.SetTooltip("Add natural movement, brightness, and radius variation to flagged flame lights")
+	flameEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.FlameLightFlicker = ev.Checked
+			if flameFlickerSlider != nil {
+				flameFlickerSlider.Disabled = !ev.Checked || !gs.ShaderLighting
+			}
+			settingsDirty = true
+		}
+	}
+	left.AddItem(flameFlickerCB)
+
+	flameSlider, flameSliderEvents := eui.NewSlider()
+	flameFlickerSlider = flameSlider
+	flameFlickerSlider.Label = "Flame Flicker Strength"
+	flameFlickerSlider.MinValue = 0
+	flameFlickerSlider.MaxValue = 200
+	flameFlickerSlider.IntOnly = true
+	flameFlickerSlider.Value = float32(gs.FlameFlickerStrength * 100)
+	flameFlickerSlider.Size = eui.Point{X: width - 10, Y: 24}
+	flameFlickerSlider.Disabled = !gs.ShaderLighting || !gs.FlameLightFlicker
+	flameFlickerSlider.SetTooltip("Scale flame movement and breathing from 0% to 200%")
+	flameSliderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.FlameFlickerStrength = float64(ev.Value / 100)
+			settingsDirty = true
+		}
+	}
+	left.AddItem(flameFlickerSlider)
 
 	sLS, shaderLightEvents := eui.NewSlider()
 	shaderLightSlider = sLS

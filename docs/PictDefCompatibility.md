@@ -18,9 +18,6 @@ that are already supported are intentionally omitted.
 | Flag | Value | Asset count | Required work |
 |---|---:|---:|---|
 | `kPictDefIsShadow` | `0x1000` | 50 | Respect area shadow state and night opacity |
-| `kPictDefFlagUprightShadow` | `0x0800` | 515 | Add generated mobile shadows and upright projection |
-| `kPictDefFlagOnlyAttackPosesLit` | `0x0100` | 30 | Restrict mobile lighting to attack poses |
-| `kPictDefFlagLightFlicker` | `0x0080` | 96 | Add positional light jitter |
 | `kPictDefFlagRandomAnimation` | `0x0004` | 147 | Select animation-table entries randomly |
 
 ## Work to add
@@ -73,69 +70,7 @@ Tests should verify that:
 - Different logical frames are not forced into sequential order.
 - Movie seek and replay produce the same selected frames.
 
-### 2. Attack-pose-only lighting (`0x0100`)
-
-Original behavior:
-
-- This modifier applies to light-emitting mobiles.
-- A flagged mobile casts light only when `state < 32` and `state % 4 == 3`,
-  which identifies its attack poses.
-- World pictures are unaffected by this modifier.
-
-Relevant original code:
-
-- [`GameWin_cl.cp` mobile lighting condition](https://github.com/YappyGM/ClanLordClient/blob/6ba334cfb3fb779ecfe37e0b635fac476cb73a5e/mac_client/client/source/GameWin_cl.cp#L10022-L10034)
-
-Current goThoom behavior:
-
-- `drawMobile` calls `addLightSource` without passing the mobile state.
-- `addLightSource` checks `EmitsLight` and `LightDarkcaster`, but not
-  `OnlyAttackPosesLit`.
-- Flagged mobiles therefore remain lit in every pose.
-
-Implementation notes:
-
-- Pass the mobile state to the mobile-lighting path, or add a small helper that
-  decides whether a mobile should emit light.
-- Do not apply this condition to ordinary world-picture light sources.
-- Keep the pose rule explicit and covered by table-driven tests.
-
-Tests should cover attack states `3`, `7`, `11`, and so on, ordinary movement
-states, and states at or above `32`.
-
-### 3. Light flicker (`0x0080`)
-
-Original behavior:
-
-- Both picture and mobile light sources receive independent horizontal and
-  vertical jitter.
-- Each axis uses `GetRandom(3) - 1`, giving an offset of `-1`, `0`, or `+1`
-  world pixel.
-- The original comment says only position flicker is implemented; intensity
-  does not change.
-
-Relevant original code:
-
-- [`GameWin_cl.cp` picture-light jitter](https://github.com/YappyGM/ClanLordClient/blob/6ba334cfb3fb779ecfe37e0b635fac476cb73a5e/mac_client/client/source/GameWin_cl.cp#L9882-L9890)
-- [`GameWin_cl.cp` mobile-light jitter](https://github.com/YappyGM/ClanLordClient/blob/6ba334cfb3fb779ecfe37e0b635fac476cb73a5e/mac_client/client/source/GameWin_cl.cp#L10071-L10079)
-
-Current goThoom behavior:
-
-- The flag is defined but `addLightSource` always uses the unmodified picture
-  or mobile position.
-
-Implementation notes:
-
-- Apply the jitter before scaling world coordinates to display pixels.
-- Keep it stable within one logical game frame so high-refresh-rate rendering
-  does not make the light vibrate faster than the game updates.
-- Use repeatable values during movie playback and seeking, following the same
-  strategy selected for random animation.
-
-Tests should confirm the allowed offset range, stability within a logical
-frame, and no movement when the flag is absent.
-
-### 4. Explicit shadow pictures (`0x1000`)
+### 2. Explicit shadow pictures (`0x1000`)
 
 Original behavior:
 
@@ -171,40 +106,6 @@ Implementation notes:
 Tests should cover shadows enabled, `kLightNoShadows`, daylight, and night
 levels on both sides of the 33 threshold.
 
-### 5. Generated mobile shadows (`0x0800`)
-
-This is larger than a single flag check because goThoom currently has no
-game-world mobile shadow renderer.
-
-Original behavior:
-
-- Mobiles normally cast a drop shadow made from their current pose.
-- An `UprightShadow` mobile instead casts a rotated shadow using a pose chosen
-  from its facing direction and the sun angle.
-- Dead and lying upright mobiles do not cast the rotated shadow. Other special
-  poses use their current pose.
-- Shadow opacity comes from the area's shadow level, and all generated shadows
-  are disabled by the area's no-shadow flag.
-
-Relevant original code:
-
-- [`GameWin_cl.cp` mobile shadow choice](https://github.com/YappyGM/ClanLordClient/blob/6ba334cfb3fb779ecfe37e0b635fac476cb73a5e/mac_client/client/source/GameWin_cl.cp#L3404-L3475)
-- [`Shadows_cl.cp` pose selection](https://github.com/YappyGM/ClanLordClient/blob/6ba334cfb3fb779ecfe37e0b635fac476cb73a5e/mac_client/client/source/Shadows_cl.cp#L599-L631)
-
-Suggested staging:
-
-1. Add simple drop shadows for ordinary mobiles.
-2. Respect the area shadow level and no-shadow flag.
-3. Add upright pose selection based on facing direction and sun angle.
-4. Add the rotated/projected upright-shadow rendering.
-
-Keep shadow images out of the normal sprite caches unless the cache key also
-contains every input that affects their shape. A small per-frame rendering path
-may be simpler initially.
-
-Tests should cover ordinary and upright mobiles, all eight directions, changing
-sun angle, prone/dead poses, and an area with shadows disabled.
-
 ## Closely related lighting adjustments
 
 These are not additional `PictDef` flags, but they are part of the same original
@@ -227,15 +128,10 @@ current shader has its own global radius scaling.
 ## Recommended implementation order
 
 1. Random animation.
-2. Attack-pose-only lighting.
-3. Light-position flicker.
-4. Explicit shadow-picture suppression and night blending.
-5. Radius parity review.
-6. Generated mobile shadows and upright-shadow projection.
+2. Explicit shadow-picture suppression and night blending.
+3. Radius parity review.
 
-The first four items are contained changes with direct asset coverage. Generated
-mobile shadows are a separate rendering feature and should not block the other
-flag fixes.
+The first two items are contained changes with direct asset coverage.
 
 ## Completion checklist
 
@@ -249,5 +145,4 @@ flag fixes.
 - Lighting is checked with shader lighting both enabled and disabled.
 - Shadow behavior is checked at day, night, cloudy, and no-shadow area states.
 - Visual results are compared with the original client for representative
-  lightning, attack-only light emitters, flickering flames, explicit shadow
-  pictures, upright exiles, and non-upright creatures.
+  lightning and explicit shadow pictures.

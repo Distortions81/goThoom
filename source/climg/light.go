@@ -13,6 +13,7 @@ type LightInfo struct {
 
 // PictDef lighting-related flags.
 const (
+	PictDefFlagUprightShadow      = 0x0800
 	PictDefFlagEmitsLight         = 0x0200
 	PictDefFlagOnlyAttackPosesLit = 0x0100
 	PictDefFlagLightFlicker       = 0x0080

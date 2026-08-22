@@ -168,8 +168,8 @@ func parseNightCommand(s string) bool {
 		gNight.mu.Lock()
 		gNight.BaseLevel = nightLevel
 		gNight.Level = nightLevel
+		gNight.Shadows = shadowLevel
 		gNight.Azimuth = sunAngle
-		gNight.calcCurLevel()
 		gNight.calcRedshift()
 		gNight.mu.Unlock()
 		return true

@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
 func TestParseMusicCommandWithWho(t *testing.T) {
@@ -43,6 +45,72 @@ func TestMusicStopLeavesMixerEnabled(t *testing.T) {
 	handleMusicParams(MusicParams{Stop: true})
 	if !gs.Music {
 		t.Fatal("a song stop must not disable the Music mixer setting")
+	}
+}
+
+func TestMusicStopTokenRecognition(t *testing.T) {
+	tests := []struct {
+		command string
+		want    bool
+	}{
+		{command: "W123/S", want: true},
+		{command: "who123/stop", want: true},
+		{command: "W123/S/P/inst0/Nc", want: true},
+		{command: "W123/Sustain/P/inst0/Nc", want: false},
+		{command: "W123/P/inst0/Nc/S", want: false},
+	}
+	for _, tt := range tests {
+		if got := musicCommandHasStop(tt.command); got != tt.want {
+			t.Errorf("musicCommandHasStop(%q) = %v, want %v", tt.command, got, tt.want)
+		}
+	}
+}
+
+func TestMusicCommandWho(t *testing.T) {
+	for _, command := range []string{"W123/S", "who123/stop", "other/W123/S/P"} {
+		if got := musicCommandWho(command); got != 123 {
+			t.Errorf("musicCommandWho(%q) = %d, want 123", command, got)
+		}
+	}
+}
+
+func TestScopedMusicStopOnlyClosesMatchingBard(t *testing.T) {
+	first, err := audioContext.NewPlayer(bytes.NewReader([]byte{0, 0, 0, 0}))
+	if err != nil {
+		t.Fatalf("first player: %v", err)
+	}
+	second, err := audioContext.NewPlayer(bytes.NewReader([]byte{0, 0, 0, 0}))
+	if err != nil {
+		_ = first.Close()
+		t.Fatalf("second player: %v", err)
+	}
+	newStream := func() *musicStream {
+		return &musicStream{done: make(chan struct{})}
+	}
+
+	musicPlayersMu.Lock()
+	originalPlayers := musicPlayers
+	musicPlayers = map[*audio.Player]musicTrack{
+		first:  {stream: newStream(), whos: map[int]struct{}{123: {}}},
+		second: {stream: newStream(), whos: map[int]struct{}{456: {}}},
+	}
+	musicPlayersMu.Unlock()
+	t.Cleanup(func() {
+		musicPlayersMu.Lock()
+		musicPlayers = originalPlayers
+		musicPlayersMu.Unlock()
+		_ = first.Close()
+		_ = second.Close()
+	})
+
+	if !parseMusicCommand("/music/W123/S", nil) {
+		t.Fatal("scoped stop command was not handled")
+	}
+	if err := first.Close(); err == nil {
+		t.Fatal("matching bard player remained open")
+	}
+	if err := second.Close(); err != nil {
+		t.Fatalf("unrelated bard player was closed: %v", err)
 	}
 }
 

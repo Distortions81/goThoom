@@ -1273,6 +1273,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	stateData := data[p : p+stateLen]
 
 	stateMu.Lock()
+	state.logicalFrame = frameCounter
 	state.ackCmd = ackCmd
 	state.dropped = extra
 	state.lightingFlags = lighting

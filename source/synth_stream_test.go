@@ -62,6 +62,41 @@ func (*bufferedStreamSynth) NoteOn(int32, int32, int32)                    {}
 func (*bufferedStreamSynth) NoteOff(int32, int32)                          {}
 func (*bufferedStreamSynth) Render(left, right []float32)                  {}
 
+type sequentialStreamSynth struct{ next int }
+
+func (*sequentialStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}
+func (*sequentialStreamSynth) NoteOn(int32, int32, int32)                    {}
+func (*sequentialStreamSynth) NoteOff(int32, int32)                          {}
+func (s *sequentialStreamSynth) Render(left, right []float32) {
+	for i := range left {
+		left[i] = float32(s.next)
+		right[i] = float32(s.next)
+		s.next++
+	}
+}
+
+func TestMusicChunksPreserveSynthContinuity(t *testing.T) {
+	if musicChunkFrames%block != 0 {
+		t.Fatalf("music chunk size %d is not aligned to synth block %d", musicChunkFrames, block)
+	}
+	renderer := &songRenderer{
+		syn:          &sequentialStreamSynth{},
+		active:       make(map[int]bool),
+		totalSamples: musicChunkFrames * 2,
+	}
+	first, _, err := renderer.render(musicChunkFrames)
+	if err != nil {
+		t.Fatalf("render first chunk: %v", err)
+	}
+	second, _, err := renderer.render(musicChunkFrames)
+	if err != nil {
+		t.Fatalf("render second chunk: %v", err)
+	}
+	if got, want := second[0], first[len(first)-1]+1; got != want {
+		t.Fatalf("synth jumped at chunk boundary: got %v, want %v", got, want)
+	}
+}
+
 func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	origSynth := newSynthesizer
 	origFont := sfntCached
@@ -89,7 +124,7 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	}
 	defer stream.Close()
 
-	buf := make([]byte, sampleRate*4)
+	buf := make([]byte, musicChunkFrames*4)
 	for i := 0; i < musicBufferSeconds; i++ {
 		n, err := stream.Read(buf)
 		if err != nil {
@@ -98,6 +133,46 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 		if n != len(buf) {
 			t.Fatalf("chunk %d length = %d, want %d", i, n, len(buf))
 		}
+	}
+}
+
+func TestMusicStreamRefillsConsumedChunk(t *testing.T) {
+	origSynth := newSynthesizer
+	origFont := sfntCached
+	origSettings := synthSettings
+	origSettingsState := gs
+	t.Cleanup(func() {
+		newSynthesizer = origSynth
+		setupSynthOnce = sync.Once{}
+		sfntCached = origFont
+		synthSettings = origSettings
+		gs = origSettingsState
+	})
+
+	newSynthesizer = func(*meltysynth.SoundFont, *meltysynth.SynthesizerSettings) (synthesizer, error) {
+		return &bufferedStreamSynth{}, nil
+	}
+	setupSynthOnce = sync.Once{}
+	sfntCached = &meltysynth.SoundFont{}
+	synthSettings = meltysynth.NewSynthesizerSettings(sampleRate)
+	gs.MusicEnhancement = false
+
+	stream, err := newMusicStream(0, []Note{{Key: 60, Velocity: 100, Duration: 10 * time.Second}})
+	if err != nil {
+		t.Fatalf("newMusicStream: %v", err)
+	}
+	defer stream.Close()
+
+	buf := make([]byte, musicChunkFrames*4)
+	if n, err := stream.Read(buf); err != nil || n != len(buf) {
+		t.Fatalf("consume buffered chunk: n=%d err=%v", n, err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for len(stream.chunks) < musicBufferSeconds && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := len(stream.chunks); got != musicBufferSeconds {
+		t.Fatalf("buffered chunks after refill = %d, want %d", got, musicBufferSeconds)
 	}
 }
 
@@ -126,7 +201,7 @@ func TestMusicStreamProducesAudiblePCM(t *testing.T) {
 	}
 	defer stream.Close()
 
-	pcm := make([]byte, sampleRate*4)
+	pcm := make([]byte, musicChunkFrames*4)
 	if n, err := stream.Read(pcm); err != nil || n != len(pcm) {
 		t.Fatalf("read first PCM second: n=%d err=%v", n, err)
 	}

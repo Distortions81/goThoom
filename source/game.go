@@ -261,6 +261,7 @@ type drawState struct {
 	ackCmd                      uint8
 	lightingFlags               uint8
 	dropped                     int
+	logicalFrame                int
 
 	// Prepared render caches populated only when a new game state arrives.
 	// These avoid per-frame sorting and partitioning work in Draw.
@@ -390,6 +391,7 @@ type drawSnapshot struct {
 	ackCmd                      uint8
 	lightingFlags               uint8
 	dropped                     int
+	logicalFrame                int
 
 	// Precomputed, sorted/partitioned data for rendering
 	picsNeg  []framePicture
@@ -448,6 +450,7 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	snap.ackCmd = state.ackCmd
 	snap.lightingFlags = state.lightingFlags
 	snap.dropped = state.dropped
+	snap.logicalFrame = state.logicalFrame
 	snap.picsNeg = append(snap.picsNeg[:0], state.picsNeg...)
 	snap.picsZero = append(snap.picsZero[:0], state.picsZero...)
 	snap.picsPos = append(snap.picsPos[:0], state.picsPos...)
@@ -538,6 +541,7 @@ func cloneDrawState(src drawState) drawState {
 		ackCmd:         src.ackCmd,
 		lightingFlags:  src.lightingFlags,
 		dropped:        src.dropped,
+		logicalFrame:   src.logicalFrame,
 	}
 	for idx, d := range src.descriptors {
 		dst.descriptors[idx] = d
@@ -1644,16 +1648,17 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	dead := snap.deadMobs
 
 	for _, p := range negPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 	}
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY)
+			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 		}
 	} else {
+		drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit)
 		for _, m := range dead {
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit)
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
 		i, j := 0, 0
@@ -1671,27 +1676,23 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit)
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
 				i++
 			} else {
-				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY)
+				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 				j++
 			}
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 	}
 }
 
-// drawMobile renders a single mobile object with optional interpolation and onion skinning.
-// When a mobile lacks history but the world shifts, a pseudo-previous position
-// derived from picShift provides a one-frame interpolation. maxDist sets the
-// maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist int) {
+func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) (int, int) {
 	h := float64(m.H)
 	v := float64(m.V)
 	if gs.MotionSmoothing {
@@ -1714,10 +1715,17 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			}
 		}
 	}
-	x := roundToInt((h + float64(fieldCenterX)) * gs.GameScale)
-	y := roundToInt((v + float64(fieldCenterY)) * gs.GameScale)
-	x += ox
-	y += oy
+	x := roundToInt((h+float64(fieldCenterX))*gs.GameScale) + ox
+	y := roundToInt((v+float64(fieldCenterY))*gs.GameScale) + oy
+	return x, y
+}
+
+// drawMobile renders a single mobile object with optional interpolation and onion skinning.
+// When a mobile lacks history but the world shifts, a pseudo-previous position
+// derived from picShift provides a one-frame interpolation. maxDist sets the
+// maximum allowed pixel delta for interpolation.
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int) {
+	x, y := mobileScreenPosition(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
 	var d frameDescriptor
@@ -1755,7 +1763,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		addLightSource(uint32(d.PictID), float64(x), float64(y), size)
+		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha)
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
@@ -1957,7 +1965,7 @@ func pictureCanPinToMobile(p framePicture, width, height int) bool {
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY int) {
+func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, logicalFrame int) {
 	if gs.hideMoving && p.Moving {
 		return
 	}
@@ -2004,7 +2012,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	x += ox
 	y += oy
 
-	addLightSource(uint32(p.PictID), float64(x), float64(y), w)
+	addPictureLightSource(uint32(p.PictID), p.H, p.V, float64(x), float64(y), w, logicalFrame, alpha)
 
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)

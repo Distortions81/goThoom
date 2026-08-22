@@ -14,3 +14,18 @@ func TestHandleInfoTextParsesNight(t *testing.T) {
 		t.Fatalf("unexpected night values: level=%d az=%d cloudy=%v", lvl, az, cloudy)
 	}
 }
+
+func TestParseLegacyNightCommandKeepsServerShadowLevel(t *testing.T) {
+	gNight = NightInfo{}
+	if !parseNightCommand("/nt 20 75 135 0") {
+		t.Fatal("legacy night command was not parsed")
+	}
+	gNight.mu.Lock()
+	level := gNight.Level
+	shadows := gNight.Shadows
+	azimuth := gNight.Azimuth
+	gNight.mu.Unlock()
+	if level != 20 || shadows != 75 || azimuth != 135 {
+		t.Fatalf("unexpected legacy night values: level=%d shadows=%d azimuth=%d", level, shadows, azimuth)
+	}
+}

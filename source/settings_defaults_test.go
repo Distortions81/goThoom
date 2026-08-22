@@ -15,7 +15,9 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"character animation blending": gsdef.BlendMobiles,
 		"world animation blending":     gsdef.BlendPicts,
 		"shader lighting":              gsdef.ShaderLighting,
+		"flame light flicker":          gsdef.FlameLightFlicker,
 		"lighting plane order":         gsdef.LightingPlaneOrder,
+		"character shadows":            gsdef.CharacterShadows,
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
 		"throttle sounds":              gsdef.ThrottleSounds,
 		"alternate row backgrounds":    gsdef.AlternateRowBackgrounds,
@@ -24,6 +26,24 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		if !enabled {
 			t.Errorf("%s should be enabled by default", name)
 		}
+	}
+}
+
+func TestDetailedCharacterShadowsDefaultOff(t *testing.T) {
+	if gsdef.DetailedCharacterShadows {
+		t.Error("detailed character shadows should be opt-in")
+	}
+}
+
+func TestFlameFlickerStrengthDefault(t *testing.T) {
+	if gsdef.FlameFlickerStrength != 1 {
+		t.Errorf("flame flicker strength = %v, want 1", gsdef.FlameFlickerStrength)
+	}
+}
+
+func TestStereoMusicDefaultOff(t *testing.T) {
+	if gsdef.MusicStereoPan {
+		t.Error("stereo music should be opt-in")
 	}
 }
 
@@ -48,7 +68,9 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		"character animation blending": gs.BlendMobiles,
 		"world animation blending":     gs.BlendPicts,
 		"shader effects":               gs.ShaderLighting,
+		"flame light flicker":          gs.FlameLightFlicker,
 		"lighting plane order":         gs.LightingPlaneOrder,
+		"character shadows":            gs.CharacterShadows,
 		"sound enhancement":            gs.SoundEnhancement,
 		"high quality resampling":      gs.HighQualityResampling,
 		"music enhancement":            gs.MusicEnhancement,
@@ -59,7 +81,7 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 	}
 }
 
-func TestExistingConfigDefaultsLightingPlaneOrderOn(t *testing.T) {
+func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	originalSettings := gs
 	originalDataDir := dataDirPath
 	originalLoaded := settingsLoaded
@@ -79,10 +101,21 @@ func TestExistingConfigDefaultsLightingPlaneOrderOn(t *testing.T) {
 	}
 
 	gs.LightingPlaneOrder = false
+	gs.CharacterShadows = false
+	gs.FlameLightFlicker = false
 	if !loadSettings() {
 		t.Fatal("loadSettings() = false for current-version settings")
 	}
 	if !gs.LightingPlaneOrder {
 		t.Error("settings without LightingPlaneOrder should default it on")
+	}
+	if !gs.CharacterShadows {
+		t.Error("settings without CharacterShadows should default it on")
+	}
+	if !gs.FlameLightFlicker {
+		t.Error("settings without FlameLightFlicker should default it on")
+	}
+	if gs.FlameFlickerStrength != 1 {
+		t.Errorf("settings without FlameFlickerStrength defaulted to %v, want 1", gs.FlameFlickerStrength)
 	}
 }

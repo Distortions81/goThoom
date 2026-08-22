@@ -460,11 +460,16 @@ func mixPCM(leftAll, rightAll []float32) []byte {
 const (
 	musicRenderSeconds = 1
 	musicBufferSeconds = 5
+	// Keep intermediate stream chunks aligned to the synthesizer's render
+	// block. Rendering a partial block advances meltysynth through the entire
+	// block, so discarding its unused tail would create a seam before the next
+	// chunk.
+	musicChunkFrames = (musicRenderSeconds * sampleRate / block) * block
 )
 
 // musicStream exposes rendered PCM to Ebiten as it becomes available. Five
-// one-second chunks are produced before playback starts; after that the
-// renderer stays at most five seconds ahead of the output device.
+// block-aligned chunks (approximately five seconds) are produced before
+// playback starts; after that the renderer keeps the queue full.
 type musicStream struct {
 	chunks      chan []byte
 	done        chan struct{}
@@ -545,7 +550,7 @@ func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
 func (s *musicStream) produceMixed(renderers []*songRenderer) {
 	defer close(s.chunks)
 	defer s.signalReady()
-	chunkFrames := musicRenderSeconds * sampleRate
+	chunkFrames := musicChunkFrames
 	buffered := 0
 	var dump []byte
 	var reverb *musicReverb
@@ -736,7 +741,10 @@ func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared 
 	musicPlayersMu.Unlock()
 
 	_ = stream.Close()
-	return player.Close()
+	// A scoped or global music stop can close the player before this owner
+	// goroutine wakes on stream.done. Closing twice is expected in that case.
+	_ = player.Close()
+	return nil
 }
 
 // safeIsPlaying checks IsPlaying and recovers if the player has been closed.

@@ -289,11 +289,94 @@ func addNightDarkSources(w, h int, t float32) {
 	}
 }
 
-func addLightSource(pictID uint32, x, y float64, size int) {
+func mobileLightEnabled(flags uint32, state uint8) bool {
+	if flags&climg.PictDefFlagOnlyAttackPosesLit == 0 {
+		return true
+	}
+	return state < poseDead && state%4 == 3
+}
+
+func mixLightFlicker(value uint64) uint64 {
+	value += 0x9e3779b97f4a7c15
+	value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9
+	value = (value ^ (value >> 27)) * 0x94d049bb133111eb
+	return value ^ (value >> 31)
+}
+
+func lightFlickerTarget(pictID uint32, instanceKey uint64, logicalFrame int) (float64, float64) {
+	seed := uint64(pictID)<<32 ^ instanceKey ^ uint64(int64(logicalFrame))*0x9e3779b97f4a7c15
+	const hashToSignedUnit = 2.0 / (1 << 53)
+	dx := float64(mixLightFlicker(seed)>>11)*hashToSignedUnit - 1
+	dy := float64(mixLightFlicker(seed+0x517cc1b727220a95)>>11)*hashToSignedUnit - 1
+	return dx, dy
+}
+
+func lightFlickerOffset(pictID uint32, instanceKey uint64, logicalFrame int, interpolation float64) (float64, float64) {
+	prevX, prevY := lightFlickerTarget(pictID, instanceKey, logicalFrame-1)
+	curX, curY := lightFlickerTarget(pictID, instanceKey, logicalFrame)
+	u := float64(ease(float32(interpolation)))
+	return prevX + (curX-prevX)*u, prevY + (curY-prevY)*u
+}
+
+func lightFlickerEnergyTarget(pictID uint32, instanceKey uint64, logicalFrame int) float64 {
+	seed := uint64(pictID)<<32 ^ instanceKey ^ uint64(int64(logicalFrame))*0x9e3779b97f4a7c15
+	const hashToSignedUnit = 2.0 / (1 << 53)
+	return float64(mixLightFlicker(seed+0xd1b54a32d192ed03)>>11)*hashToSignedUnit - 1
+}
+
+type flameLightModulation struct {
+	offsetX, offsetY float64
+	radius           float32
+	brightness       float32
+}
+
+func flameLightFlicker(flags uint32, pictID uint32, instanceKey uint64, logicalFrame int, interpolation, strength float64) flameLightModulation {
+	modulation := flameLightModulation{radius: 1, brightness: 1}
+	if flags&climg.PictDefFlagLightFlicker == 0 || strength <= 0 {
+		return modulation
+	}
+	if strength > 2 {
+		strength = 2
+	}
+	modulation.offsetX, modulation.offsetY = lightFlickerOffset(pictID, instanceKey, logicalFrame, interpolation)
+	modulation.offsetX *= strength
+	modulation.offsetY *= strength
+	previous := lightFlickerEnergyTarget(pictID, instanceKey, logicalFrame-1)
+	current := lightFlickerEnergyTarget(pictID, instanceKey, logicalFrame)
+	u := float64(ease(float32(interpolation)))
+	energy := previous + (current-previous)*u
+	// Flame light usually dips more noticeably than it flares. Radius follows
+	// brightness so the pool of light breathes instead of merely blinking.
+	modulation.radius = float32(1 + (-0.03+0.05*energy)*strength)
+	modulation.brightness = float32(1 + (-0.06+0.10*energy)*strength)
+	return modulation
+}
+
+func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size, logicalFrame int, interpolation float64) {
 	if !gs.ShaderLighting || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)
+	if !mobileLightEnabled(flags, state) {
+		return
+	}
+	const mobileKeyTag = uint64(1) << 63
+	addLightSource(pictID, flags, mobileKeyTag|uint64(index), x, y, size, logicalFrame, interpolation)
+}
+
+func addPictureLightSource(pictID uint32, h, v int16, x, y float64, size, logicalFrame int, interpolation float64) {
+	if !gs.ShaderLighting || clImages == nil {
+		return
+	}
+	flags := clImages.Flags(pictID)
+	instanceKey := uint64(uint16(h))<<16 | uint64(uint16(v))
+	addLightSource(pictID, flags, instanceKey, x, y, size, logicalFrame, interpolation)
+}
+
+func addLightSource(pictID, flags uint32, instanceKey uint64, x, y float64, size, logicalFrame int, interpolation float64) {
+	if !gs.ShaderLighting || clImages == nil {
+		return
+	}
 	if flags&climg.PictDefFlagEmitsLight == 0 {
 		return
 	}
@@ -306,6 +389,13 @@ func addLightSource(pictID uint32, x, y float64, size int) {
 		radius = float32(size)
 	}
 	radius *= float32(gs.GameScale)
+	strength := gs.FlameFlickerStrength
+	if !gs.FlameLightFlicker {
+		strength = 0
+	}
+	flame := flameLightFlicker(flags, pictID, instanceKey, logicalFrame, interpolation, strength)
+	x += flame.offsetX * gs.GameScale
+	y += flame.offsetY * gs.GameScale
 	cx := float32(x)
 	cy := float32(y)
 	if flags&climg.PictDefFlagLightDarkcaster != 0 {
@@ -315,9 +405,10 @@ func addLightSource(pictID uint32, x, y float64, size int) {
 		}
 	} else {
 		if len(frameLights) < maxLights {
-			r := float32(li.Color[0]) / 255
-			g := float32(li.Color[1]) / 255
-			b := float32(li.Color[2]) / 255
+			radius *= flame.radius
+			r := float32(li.Color[0]) / 255 * flame.brightness
+			g := float32(li.Color[1]) / 255 * flame.brightness
+			b := float32(li.Color[2]) / 255 * flame.brightness
 			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: 1})
 		}
 	}

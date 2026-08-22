@@ -547,6 +547,42 @@ func parseBardText(raw []byte, s string) bool {
 // It supports both the simple "/play <inst> <notes>" form and the slash-delimited
 // backend messages like "/music/.../play/inst<inst>/notes<notes>". If the
 // stripped text is empty, it falls back to decoding the raw BEPP payload.
+func musicCommandControlTokens(s string) []string {
+	end := len(s)
+	for _, marker := range []string{"/notes", "/N"} {
+		if idx := strings.Index(s, marker); idx >= 0 && idx < end {
+			end = idx
+		}
+	}
+	return strings.Split(s[:end], "/")
+}
+
+func musicCommandHasStop(s string) bool {
+	for _, token := range musicCommandControlTokens(s) {
+		if token == "S" || strings.EqualFold(token, "stop") {
+			return true
+		}
+	}
+	return false
+}
+
+func musicCommandWho(s string) int {
+	for _, token := range musicCommandControlTokens(s) {
+		value := ""
+		if len(token) > 1 && token[0] == 'W' {
+			value = token[1:]
+		} else if len(token) > len("who") && strings.EqualFold(token[:len("who")], "who") {
+			value = token[len("who"):]
+		}
+		if value != "" {
+			if who, err := strconv.Atoi(value); err == nil {
+				return who
+			}
+		}
+	}
+	return 0
+}
+
 func parseMusicCommand(s string, raw []byte) bool {
 	orig := s
 	debugMusic := musicDebug
@@ -568,18 +604,10 @@ func parseMusicCommand(s string, raw []byte) bool {
 		return false
 	}
 	s = strings.TrimPrefix(s, "/music/")
-	prefixWho := 0
-	if strings.HasPrefix(s, "W") {
-		if end := strings.IndexByte(s, '/'); end > 1 {
-			prefixWho, _ = strconv.Atoi(s[1:end])
-		}
-	}
+	prefixWho := musicCommandWho(s)
 
 	// Recognize and act on /stop (or /S) even if combined with play.
-	stop := false
-	if strings.Contains(s, "/stop") || strings.Contains(s, "/S") {
-		stop = true
-	}
+	stop := musicCommandHasStop(s)
 
 	// Look for an explicit play command: "/play", "/P" or a leading
 	// "play " (plain text). Avoid misclassifying arbitrary 'P...' lines.
@@ -595,6 +623,12 @@ func parseMusicCommand(s string, raw []byte) bool {
 		s = s[len("play "):]
 		simplePlay = true
 	} else {
+		if stop {
+			if !blockMusic {
+				handleMusicParams(MusicParams{Stop: true, Who: prefixWho})
+			}
+			return true
+		}
 		debug(orig)
 		return false
 	}
@@ -723,7 +757,7 @@ func parseMusicCommand(s string, raw []byte) bool {
 	notes = strings.Trim(notes, "/")
 
 	if stop {
-		handleMusicParams(MusicParams{Stop: true})
+		handleMusicParams(MusicParams{Stop: true, Who: who})
 		// Continue to parse play if present; otherwise return.
 		if strings.TrimSpace(notes) == "" && !part {
 			return true
