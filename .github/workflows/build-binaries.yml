@@ -7,9 +7,6 @@ on:
         description: "Existing tag/release to build, such as test35 or v35"
         required: false
         type: string
-  push:
-    tags:
-      - "*"
   release:
     types:
       - published
