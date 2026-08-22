@@ -535,6 +535,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("character password required")
 	}
 	playerName = utfFold(name)
+	updateGameWindowTitle()
 	applyLocalLabels()
 	applyEnabledScripts()
 	loadShortcuts()

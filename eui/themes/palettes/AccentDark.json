@@ -8,6 +8,7 @@
     "button": "0.0,0.00,0.25",
     "hover": "0.0,0.00,0.5",
     "accent": "200.6,0.74,0.91",
+    "highlight": "200.6,0.74,0.45",
     "disabled": "0.0,0.00,0.2"
   },
   "Window": {
@@ -36,7 +37,7 @@
     "TextColor": "text",
     "Color": "disabled",
     "HoverColor": "disabled",
-    "ClickColor": "accent",
+    "ClickColor": "highlight",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
     "SelectedColor": "disabled"

@@ -16,7 +16,16 @@ var (
 	showContextMenu = eui.ShowContextMenu
 )
 
-var alternateRowColor = eui.NewColor(128, 128, 128, 24)
+func alternateRowColor() eui.Color { return eui.SubtleAlternateRowColor() }
+
+func restoreAlternateTextRow(row *eui.ItemData, index int) {
+	row.Filled = gs.AlternateRowBackgrounds && index%2 == 1
+	if row.Filled {
+		row.Color = alternateRowColor()
+	} else {
+		row.Color = eui.Color{}
+	}
+}
 
 // makeTextWindow creates a standardized text window with optional input bar.
 func makeTextWindow(title string, hz eui.HZone, vz eui.VZone, withInput bool) (*eui.WindowData, *eui.ItemData, *eui.ItemData) {
@@ -136,7 +145,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			list.Contents[i].Size.X = contentW
 			list.Contents[i].SelectableText = true
 			list.Contents[i].Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
-			list.Contents[i].Color = alternateRowColor
+			list.Contents[i].Color = alternateRowColor()
 			list.Contents[i].OnURLClick = func(url string) { _ = browser.OpenURL(url) }
 		} else {
 			t, _ := eui.NewText()
@@ -146,7 +155,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			t.Size = eui.Point{X: contentW, Y: rowUnits * float32(linesN)}
 			t.SelectableText = true
 			t.Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
-			t.Color = alternateRowColor
+			t.Color = alternateRowColor()
 			t.OnURLClick = func(url string) { _ = browser.OpenURL(url) }
 			// Append to maintain ordering with the msgs index
 			list.AddItem(t)
@@ -333,8 +342,7 @@ func searchTextWindow(win *eui.WindowData, list *eui.ItemData, query string) {
 			it.Color = accent
 			marks = append(marks, float32(i)/float32(total))
 		} else {
-			it.Filled = false
-			it.Color = eui.Color{}
+			restoreAlternateTextRow(it, i)
 		}
 	}
 	list.ScrollMarks = marks

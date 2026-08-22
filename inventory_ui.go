@@ -133,7 +133,7 @@ func makeInventoryWindow() {
 	}
 	inventoryWin, inventoryList, _ = makeTextWindow("Inventory", eui.HZoneLeft, eui.VZoneMiddleTop, true)
 	inventoryWin.Searchable = true
-	inventoryWin.OnSearch = func(s string) { searchTextWindow(inventoryWin, inventoryList, s) }
+	inventoryWin.OnSearch = searchInventoryWindow
 	// Ensure layout updates immediately on resize to avoid gaps.
 	inventoryWin.OnResize = func() { updateInventoryWindow() }
 	updateInventoryWindow()
@@ -145,8 +145,6 @@ func updateInventoryWindow() {
 	}
 
 	ensureInventoryFontSources()
-
-	accent := eui.AccentColor()
 
 	prevScroll := inventoryList.Scroll
 
@@ -231,8 +229,33 @@ func updateInventoryWindow() {
 		inventoryList.Size.X = clientWAvail
 		inventoryList.Size.Y = clientHAvail
 		inventoryList.Scroll = prevScroll
-		searchTextWindow(inventoryWin, inventoryList, inventoryWin.SearchText)
-		invRender.applySelection(accent)
+		searchInventoryWindow(inventoryWin.SearchText)
+	}
+}
+
+// searchInventoryWindow highlights matching item rows and adds markers to the
+// scrollbar. Selection remains highlighted even when it does not match.
+func searchInventoryWindow(query string) {
+	if inventoryList == nil {
+		if inventoryWin != nil {
+			inventoryWin.Refresh()
+		}
+		return
+	}
+
+	q := strings.ToLower(query)
+	marks := make([]float32, 0)
+	total := len(invRender.order)
+	if q != "" && total > 0 {
+		for i, key := range invRender.order {
+			if row := invRender.rows[key]; row != nil && row.label != nil && strings.Contains(strings.ToLower(row.label.Text), q) {
+				marks = append(marks, float32(i)/float32(total))
+			}
+		}
+	}
+	inventoryList.ScrollMarks = marks
+	invRender.applySelection(eui.AccentColor())
+	if inventoryWin != nil {
 		inventoryWin.Refresh()
 	}
 }
@@ -401,7 +424,7 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.row.Size.X = s.clientWAvail
 		row.row.Size.Y = s.rowUnits
 		row.row.Filled = gs.AlternateRowBackgrounds && data.rowIndex%2 == 1
-		row.row.Color = alternateRowColor
+		row.row.Color = alternateRowColor()
 	}
 
 	if row.icon != nil {
@@ -562,17 +585,26 @@ func (s *inventoryRenderState) reconcileContents(desired []*eui.ItemData) {
 }
 
 func (s *inventoryRenderState) applySelection(accent eui.Color) {
-	for _, key := range s.order {
+	query := ""
+	if inventoryWin != nil {
+		query = strings.ToLower(inventoryWin.SearchText)
+	}
+	for i, key := range s.order {
 		row := s.rows[key]
 		if row == nil || row.row == nil {
 			continue
 		}
-		if row.id == selectedInvID && row.idx == selectedInvIdx {
+		matchesSearch := query != "" && row.label != nil && strings.Contains(strings.ToLower(row.label.Text), query)
+		if row.id == selectedInvID && row.idx == selectedInvIdx || matchesSearch {
 			row.row.Filled = true
 			row.row.Color = accent
 		} else {
-			row.row.Filled = false
-			row.row.Color = eui.Color{}
+			row.row.Filled = gs.AlternateRowBackgrounds && i%2 == 1
+			if row.row.Filled {
+				row.row.Color = alternateRowColor()
+			} else {
+				row.row.Color = eui.Color{}
+			}
 		}
 	}
 }

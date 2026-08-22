@@ -251,6 +251,7 @@ func main() {
 			if wasmPrivacyActive() {
 				playerName = ""
 			}
+			updateGameWindowTitle()
 			applyEnabledScripts()
 
 			mp := newMoviePlayer(frames, clMovFPS, cancel)

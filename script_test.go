@@ -9,6 +9,7 @@ import (
 
 // Test that script equip command skips already equipped items.
 func TestScriptEquipAlreadyEquipped(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	resetInventory()
 	addInventoryItem(200, -1, "Shield", true)
 	consoleLog = messageLog{max: maxMessages}
@@ -77,6 +78,7 @@ func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
 // Test registering and running a mixed-case command and ensuring disabled scripts
 // cannot run commands.
 func TestScriptRegisterAndDisableCommand(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	// Reset shared state.
 	scriptMu = sync.RWMutex{}
 	scriptCommands = map[string]scriptCommandHandler{}
@@ -163,6 +165,7 @@ func TestDisabledscriptCommandFallsThrough(t *testing.T) {
 
 // Test that registering a command twice logs a conflict and keeps the original handler.
 func TestScriptRegisterCommandConflict(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	// Reset shared state.
 	scriptMu = sync.RWMutex{}
 	scriptCommands = map[string]scriptCommandHandler{}

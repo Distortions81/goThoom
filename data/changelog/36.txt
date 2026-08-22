@@ -29,3 +29,7 @@ Additional updates:
 - Added Settings → Text Colors for separate Say, Whisper, Yell, Think, Action, Ponder, Narration, Monster, and System message colors.
 - Improved motion smoothing for large, semi-transparent moving sprites such as clouds.
 - Throttle Repeated Sounds now defaults to on.
+- Added dark speech bubbles and name tags, enabled by default, with a distinct white-and-gray style for fallen characters.
+- Your own name tag is hidden by default; name-tag frames now appear only for players with a label color.
+- Added compact sharing-status icons to the Players window, including mirrored one-way indicators and a mutual-sharing indicator.
+- Window-pinning buttons are now off by default and can be enabled in Settings.

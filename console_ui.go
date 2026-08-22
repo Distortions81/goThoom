@@ -161,8 +161,8 @@ func handleConsoleCopyRightClick(mx, my int) bool {
 		r := row.DrawRect
 		if pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1 {
 			// Clear previous highlights in this list.
-			for _, it := range messagesFlow.Contents {
-				it.Filled = false
+			for i, it := range messagesFlow.Contents {
+				restoreAlternateTextRow(it, i)
 				it.Focused = false
 			}
 			// Highlight selected line briefly.
@@ -188,7 +188,12 @@ func scheduleConsoleUnhighlight(row *eui.ItemData) {
 	go func(target *eui.ItemData) {
 		time.Sleep(1200 * time.Millisecond)
 		if consoleHighlighted == target {
-			target.Filled = false
+			for i, it := range messagesFlow.Contents {
+				if it == target {
+					restoreAlternateTextRow(it, i)
+					break
+				}
+			}
 			target.Focused = false
 			if consoleWin != nil {
 				consoleWin.Refresh()

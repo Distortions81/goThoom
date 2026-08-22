@@ -352,6 +352,7 @@ func TestApplyHotkeyVarsNoHovered(t *testing.T) {
 
 // Test that hotkey equip commands skip already equipped items.
 func TestHotkeyEquipAlreadyEquipped(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	resetInventory()
 	addInventoryItem(100, -1, "Sword", true)
 	consoleLog = messageLog{max: maxMessages}

@@ -229,6 +229,23 @@ func AccentColor() Color {
 	return Color(hsvaToRGBA(accentHue, accentSaturation, accentValue, accentAlpha))
 }
 
+// SubtleAlternateRowColor returns a low-contrast opaque row color derived
+// from the active window background.
+func SubtleAlternateRowColor() Color {
+	bg := Color{R: 48, G: 48, B: 48, A: 255}
+	if currentTheme != nil {
+		bg = currentTheme.Window.BGColor
+	}
+	target := 255
+	if int(bg.R)+int(bg.G)+int(bg.B) >= 384 {
+		target = 0
+	}
+	blend := func(v uint8) uint8 {
+		return uint8((int(v)*97 + target*3) / 100)
+	}
+	return Color{R: blend(bg.R), G: blend(bg.G), B: blend(bg.B), A: 255}
+}
+
 // ClearFocus removes focus from the provided item if it is currently focused.
 func ClearFocus(it *ItemData) {
 	if focusedItem == it {

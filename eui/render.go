@@ -1574,6 +1574,8 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		text.Draw(subImg, item.Text, face, top)
 
 		if item.SelectableText && item.SelectStart != item.SelectEnd && len(item.Text) > 0 {
+			selectionColor := style.ClickColor
+			selectionColor.A = 0x60
 			start, end := item.SelectStart, item.SelectEnd
 			if start > end {
 				start, end = end, start
@@ -1611,7 +1613,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 						Size:     point{X: float32(selectedWidth), Y: bottomY - topY},
 						Position: point{X: offset.X + float32(prefixWidth), Y: topY},
 						Filled:   true,
-						Color:    Color{R: 0x33, G: 0x99, B: 0xFF, A: 0x88},
+						Color:    selectionColor,
 					})
 				}
 			}

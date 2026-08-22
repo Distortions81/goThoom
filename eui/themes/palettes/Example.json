@@ -3,7 +3,9 @@
   "Colors": {
     "background": "#202020",
     "panel": "#303030",
-    "accent": "#ffd700"
+    "accent": "#ffd700",
+    "text": "#ffffff",
+    "highlight": "#665600"
   },
   "Window": {
     "Padding": 8,
@@ -12,7 +14,7 @@
     "ActiveColor": "accent"
   },
   "Button": { "TextColor": "accent", "Color": "panel", "HoverColor": "accent" },
-  "Text": { "TextColor": "accent", "Color": "panel" },
+  "Text": { "TextColor": "text", "Color": "panel", "ClickColor": "highlight" },
   "Checkbox": { "TextColor": "accent", "Color": "panel" },
   "Radio": { "TextColor": "accent", "Color": "panel" },
   "Input": { "TextColor": "accent", "Color": "panel" },

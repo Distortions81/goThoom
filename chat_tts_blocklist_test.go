@@ -61,6 +61,7 @@ func TestHandleNoTTSCommand(t *testing.T) {
 }
 
 func TestHandleNoTTSList(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	origList := gs.ChatTTSBlocklist
 	gs.ChatTTSBlocklist = []string{"foo", "bar"}
 	syncTTSBlocklist()

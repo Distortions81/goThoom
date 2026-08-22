@@ -71,8 +71,8 @@ func handleChatCopyRightClick(mx, my int) bool {
 		r := row.DrawRect
 		if pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1 {
 			// Clear previous highlights in chat list.
-			for _, it := range chatList.Contents {
-				it.Filled = false
+			for i, it := range chatList.Contents {
+				restoreAlternateTextRow(it, i)
 				it.Focused = false
 			}
 			// Highlight selected line briefly and copy the text.
@@ -97,7 +97,12 @@ func scheduleChatUnhighlight(row *eui.ItemData) {
 	go func(target *eui.ItemData) {
 		time.Sleep(1200 * time.Millisecond)
 		if chatHighlighted == target {
-			target.Filled = false
+			for i, it := range chatList.Contents {
+				if it == target {
+					restoreAlternateTextRow(it, i)
+					break
+				}
+			}
 			target.Focused = false
 			if chatWin != nil {
 				chatWin.Refresh()

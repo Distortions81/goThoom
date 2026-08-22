@@ -77,6 +77,44 @@ func playersWindowTitle(online, sharedTo, sharingToUs int) string {
 	return fmt.Sprintf("Players   Online: %d   Shared: %d   Sharing: %d", online, sharedTo, sharingToUs)
 }
 
+// searchPlayersWindow highlights player rows whose names contain query and
+// adds matching-row markers to the scrollbar.
+func searchPlayersWindow(query string) {
+	if playersList == nil {
+		if playersWin != nil {
+			playersWin.Refresh()
+		}
+		return
+	}
+
+	q := strings.ToLower(query)
+	total := len(playersList.Contents)
+	marks := make([]float32, 0)
+	accent := eui.AccentColor()
+	for i, row := range playersList.Contents {
+		row.Focused = false
+		name := playersRowRefs[row]
+		if q != "" && strings.Contains(strings.ToLower(name), q) {
+			row.Filled = true
+			row.Color = accent
+			if total > 0 {
+				marks = append(marks, float32(i)/float32(total))
+			}
+			continue
+		}
+		row.Filled = gs.AlternateRowBackgrounds && i%2 == 1
+		if row.Filled {
+			row.Color = alternateRowColor()
+		} else {
+			row.Color = eui.Color{}
+		}
+	}
+	playersList.ScrollMarks = marks
+	if playersWin != nil {
+		playersWin.Refresh()
+	}
+}
+
 func playerSharingIndicator(p Player) string {
 	switch {
 	case p.Sharee && p.Sharing:
@@ -231,7 +269,7 @@ func updatePlayersWindow() {
 			name += " *"
 		}
 
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Filled: gs.AlternateRowBackgrounds && rowIndex%2 == 1, Color: alternateRowColor}
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Filled: gs.AlternateRowBackgrounds && rowIndex%2 == 1, Color: alternateRowColor()}
 
 		if p.FriendLabel > 0 {
 			row.Outlined = true
@@ -374,7 +412,7 @@ func updatePlayersWindow() {
 	playersList.Size.X = clientWAvail
 	playersList.Size.Y = clientHAvail
 	playersList.Scroll = prevScroll
-	searchTextWindow(playersWin, playersList, playersWin.SearchText)
+	searchPlayersWindow(playersWin.SearchText)
 	if selectedRow != nil {
 		selectedRow.Filled = true
 		selectedRow.Color = accent

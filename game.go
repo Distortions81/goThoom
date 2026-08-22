@@ -2186,9 +2186,6 @@ type picturePositionKey struct {
 	h, v   int16
 }
 
-const mobilePictureOffsetJitter = 8
-const maxWanderingPinnedPictureSize = 96
-
 func hasPreviousPicture(positions map[picturePositionKey]struct{}, pictID uint16, h, v int) bool {
 	if h < -32768 || h > 32767 || v < -32768 || v > 32767 {
 		return false
@@ -2197,37 +2194,9 @@ func hasPreviousPicture(positions map[picturePositionKey]struct{}, pictID uint16
 	return ok
 }
 
-func hasPreviousPictureNear(positions map[picturePositionKey]struct{}, pictID uint16, h, v, jitter int) bool {
-	if hasPreviousPicture(positions, pictID, h, v) {
-		return true
-	}
-	for dv := -jitter; dv <= jitter; dv++ {
-		for dh := -jitter; dh <= jitter; dh++ {
-			if dh*dh+dv*dv <= jitter*jitter && hasPreviousPicture(positions, pictID, h+dh, v+dv) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func pictureCanWanderWithMobile(pictID uint16) bool {
-	w, h := pictureSize(pictID)
-	if w <= 0 || h <= 0 || w > maxWanderingPinnedPictureSize || h > maxWanderingPinnedPictureSize {
-		return false
-	}
-	// Wandering effects are mostly transparent. Opaque small scenery should
-	// not be associated with a nearby mobile.
-	return nonTransparentPixels(pictID)*100 < w*h*60
-}
-
 func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, alpha float64) (float64, float64, bool) {
-	// Use the previous picture position for the same PictID to verify the
-	// picture-to-mobile offset stayed stable across frames.
-	jitter := 0
-	if pictureCanWanderWithMobile(p.PictID) {
-		jitter = mobilePictureOffsetJitter
-	}
+	// Use exact previous picture position for the same PictID to verify the
+	// picture-to-mobile offset stayed identical across frames.
 	// Try the hero (playerIndex) first to ensure centered player effects pin.
 	for i := range mobiles {
 		if mobiles[i].Index != playerIndex {
@@ -2245,7 +2214,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 		}
 		expPrevH := int(pm.H) + offH
 		expPrevV := int(pm.V) + offV
-		if hasPreviousPictureNear(prevPicturePositions, p.PictID, expPrevH, expPrevV, jitter) {
+		if hasPreviousPicture(prevPicturePositions, p.PictID, expPrevH, expPrevV) {
 			h := float64(pm.H)*(1-alpha) + float64(m.H)*alpha
 			v := float64(pm.V)*(1-alpha) + float64(m.V)*alpha
 			return h - float64(m.H), v - float64(m.V), true
@@ -2268,7 +2237,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 		// Expected previous picture position if offset is identical
 		expPrevH := int(pm.H) + offH
 		expPrevV := int(pm.V) + offV
-		if !hasPreviousPictureNear(prevPicturePositions, p.PictID, expPrevH, expPrevV, jitter) {
+		if !hasPreviousPicture(prevPicturePositions, p.PictID, expPrevH, expPrevV) {
 			continue
 		}
 		// Interpolate mobile
@@ -2806,7 +2775,7 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = eui.NewWindow()
-	gameWin.Title = "Clan Lord"
+	updateGameWindowTitle()
 	gameWin.Closable = false
 	gameWin.Resizable = true
 	gameWin.NoBGColor = true
@@ -2855,6 +2824,16 @@ func makeGameWindow() {
 	updateGameWindowSize()
 	updateGameImageSize()
 	layoutNotifications()
+}
+
+func updateGameWindowTitle() {
+	if gameWin == nil {
+		return
+	}
+	gameWin.Title = "Clan Lord"
+	if playerName != "" {
+		gameWin.Title += " -- " + playerName
+	}
 }
 
 // onGameWindowResize enforces the game's aspect ratio on the window's

@@ -3,6 +3,7 @@ package main
 import "testing"
 
 func TestHandleBlockCommandToggle(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	players = make(map[string]*Player)
 	consoleLog = messageLog{max: maxMessages}
 	handleBlockCommand("Bob")
@@ -25,6 +26,7 @@ func TestHandleBlockCommandToggle(t *testing.T) {
 }
 
 func TestHandleIgnoreCommandToggle(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	players = make(map[string]*Player)
 	consoleLog = messageLog{max: maxMessages}
 	handleIgnoreCommand("Bob")
@@ -47,6 +49,7 @@ func TestHandleIgnoreCommandToggle(t *testing.T) {
 }
 
 func TestHandleForgetCommand(t *testing.T) {
+	withoutConsoleTimestamps(t)
 	players = make(map[string]*Player)
 	consoleLog = messageLog{max: maxMessages}
 	p := getPlayer("Bob")
