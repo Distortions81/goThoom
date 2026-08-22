@@ -15,7 +15,7 @@ This builds an image tagged `gothoom-build-env` and compiles the binaries inside
 ```bash
 docker create --name gothoom-build gothoom-build-env
 mkdir -p dist
-docker cp gothoom-build:/out ./dist
+docker cp gothoom-build:/binaries/. ./dist/
 docker rm gothoom-build
 ```
 
