@@ -115,34 +115,26 @@ embedded in the client. The first time it opens, the bundled sources are copied
 to `Macros/Library/` without overwriting anything. Every `.mac` file in that
 directory then appears in the list, including files you add yourself.
 
-- Optional comment metadata gives macros a friendly presentation. Use this
-  standard at the top of a macro:
-
-  ```text
-  // Metadata
-  // Name: <macro name>
-  // Version: <version>
-  // Tags: <healer/fighter/sharing/sunstone/anything>
-  // Desc: <macro description>
-  // Author: <author name>
-  // License: <license name> (year)
-  // Website: <website or author site>
-  // Update: <macro update URL>
-  ```
-
-  The description appears beside the name when it fits; the **i** button
-  shows every field. Without `Name`, the filename is shown. See
-  [Legacy macro metadata](docs/MacroMetadata.md) for field definitions and
-  parsing behavior.
+- Optional comment metadata gives macros a friendly name, description, and
+  tags. Tags are separated with commas. Copy the simple template and real
+  example in [METADATA.md](testdata/legacy_macros/web/METADATA.md). The same
+  guide is installed as `Macros/Library/METADATA.md`.
 - **Global** and selected **Player** checkboxes are saved in
   `Macros/Library/enabled.json`. They tell goThoom which library files to load
   and never rewrite `Macros/Default` or `Macros/<player name>`.
 
 Changing a checkbox reloads the active macro program immediately. After
 editing a `.mac` file, use **Reload Macros** in the Legacy Macros window.
-The bundled sources remain attributed to their original authors in
-`testdata/legacy_macros/web/README.md`. Some advanced files rely on
-compatibility work still listed in `MACRO_COMPAT_TODO.md`.
+The **i** button shows each bundled macro's author and source links. Remaining
+compatibility work is tracked in `MACRO_COMPAT_TODO.md`.
+
+Legacy macro files and server messages use MacRoman, while goThoom keeps normal
+text as Unicode internally. See
+[Legacy text compatibility](docs/LegacyTextCompatibility.md) for the Unicode
+escape format, examples, and round-trip behavior.
+
+Very old `undo` key bindings need a different key on modern keyboards. Mouse
+buttons beyond the five reported by the client cannot trigger a macro.
 
 ### Testing server messages
 

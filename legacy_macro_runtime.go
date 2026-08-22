@@ -12,6 +12,7 @@ const (
 	legacyMacroMaxStepsPerTick      = 64
 	legacyMacroMaxStepsPerExecution = 10000
 	legacyMacroMaxCallDepth         = 32
+	legacyMacroMaxHistory           = 256
 )
 
 type legacyMacroRuntimeHooks struct {
@@ -279,6 +280,10 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 			}
 			runtime.sendTextLocked(execution, execution.buffer[:returnAt])
 			execution.buffer = execution.buffer[returnAt+1:]
+			// A return yields for one macro frame in the reference client. It is
+			// also a safe point for resetting the runaway-loop budget.
+			execution.waitUntil = frame + 1
+			execution.steps = 0
 			return
 		}
 
@@ -364,6 +369,7 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 		}
 		if frames > 0 {
 			execution.waitUntil = frame + int64(frames)
+			execution.steps = 0
 		}
 	case strings.EqualFold(first.Text, "set"):
 		if err := runtime.setVariableLocked(line, execution, false); err != nil {
@@ -389,12 +395,22 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 			return
 		}
 		execution.frames = append(execution.frames, legacyMacroCallFrame{declaration: index, elseIfLine: -1})
-	case strings.EqualFold(first.Text, "message"):
-		message := make([]string, 0, len(line.Tokens)-1)
+	case strings.EqualFold(first.Text, "message"), strings.EqualFold(first.Text, "msg"):
+		var message strings.Builder
 		for _, token := range line.Tokens[1:] {
-			message = append(message, runtime.expandTokenLocked(token, execution))
+			message.WriteString(runtime.expandTextTokenLocked(token, execution))
 		}
-		runtime.messageLocked(strings.Join(message, " "))
+		runtime.messageLocked(message.String())
+	case strings.EqualFold(first.Text, "equip"), strings.EqualFold(first.Text, "unequip"):
+		if len(line.Tokens) < 2 {
+			runtime.failExecutionLocked(execution, line, first.Text+" requires an item or slot")
+			return
+		}
+		arguments := make([]string, 0, len(line.Tokens)-1)
+		for _, token := range line.Tokens[1:] {
+			arguments = append(arguments, runtime.expandTokenLocked(token, execution))
+		}
+		execution.buffer += "/" + strings.ToLower(first.Text) + " " + strings.Join(arguments, " ") + "\r"
 	case strings.EqualFold(first.Text, "move"):
 		move, err := runtime.moveLocked(line, execution)
 		if err != nil {
@@ -465,9 +481,9 @@ func (runtime *legacyMacroRuntime) executeIfLocked(execution *legacyMacroExecuti
 		runtime.failExecutionLocked(execution, line, "if requires a value, comparison, and value")
 		return
 	}
-	left := runtime.expandTokenLocked(line.Tokens[conditionStart], execution)
+	left := runtime.expandValueTokenLocked(line.Tokens[conditionStart], execution)
 	comparison := runtime.expandTokenLocked(line.Tokens[conditionStart+1], execution)
-	right := runtime.expandTokenLocked(line.Tokens[conditionStart+2], execution)
+	right := runtime.expandValueTokenLocked(line.Tokens[conditionStart+2], execution)
 	passed, err := legacyMacroCompare(left, comparison, right)
 	if err != nil {
 		runtime.failExecutionLocked(execution, line, err.Error())
@@ -635,13 +651,13 @@ func legacyMacroCompare(left, comparison, right string) (bool, error) {
 
 	switch comparison {
 	case ">":
-		return strings.Contains(right, left) && !strings.EqualFold(left, right), nil
-	case "<":
-		return strings.Contains(left, right) && !strings.EqualFold(left, right), nil
-	case ">=":
-		return strings.Contains(left, right), nil
-	case "<=":
 		return strings.Contains(right, left), nil
+	case "<":
+		return strings.Contains(left, right), nil
+	case ">=":
+		return strings.Contains(right, left), nil
+	case "<=":
+		return strings.Contains(left, right), nil
 	case "==":
 		return strings.EqualFold(left, right), nil
 	case "!=":
@@ -751,15 +767,19 @@ func legacyMacroFindLabel(body []legacyMacroLine, name string) (int, bool) {
 
 func (runtime *legacyMacroRuntime) appendTextLocked(execution *legacyMacroExecution, tokens []legacyMacroToken) {
 	for _, token := range tokens {
-		execution.buffer += runtime.expandTokenLocked(token, execution)
+		execution.buffer += runtime.expandTextTokenLocked(token, execution)
 	}
 }
 
 func (runtime *legacyMacroRuntime) setVariableLocked(line legacyMacroLine, execution *legacyMacroExecution, global bool) error {
-	if len(line.Tokens) != 3 && len(line.Tokens) != 4 {
+	if len(line.Tokens) < 3 {
 		return fmt.Errorf("set requires a variable and value, or a variable, operation, and value")
 	}
-	name := legacyMacroWritableVariableName(line.Tokens[1].Text)
+	name, ok := runtime.expandIndexedNameLocked(line.Tokens[1].Text, execution, 0)
+	if !ok {
+		return fmt.Errorf("set variable index %q is not defined", line.Tokens[1].Text)
+	}
+	name = legacyMacroWritableVariableName(name)
 	if name == "" {
 		return fmt.Errorf("set variable name cannot be empty")
 	}
@@ -768,8 +788,16 @@ func (runtime *legacyMacroRuntime) setVariableLocked(line legacyMacroLine, execu
 	if !global && execution != nil {
 		target = execution.variables
 	}
-	if len(line.Tokens) == 3 {
-		target[name] = runtime.expandTokenLocked(line.Tokens[2], execution)
+	operation := ""
+	if len(line.Tokens) == 4 {
+		operation = runtime.expandTokenLocked(line.Tokens[2], execution)
+	}
+	if len(line.Tokens) != 4 || !legacyMacroSetOperation(operation) {
+		var value strings.Builder
+		for _, token := range line.Tokens[2:] {
+			value.WriteString(runtime.expandValueTokenLocked(token, execution))
+		}
+		target[name] = value.String()
 		return nil
 	}
 
@@ -777,14 +805,22 @@ func (runtime *legacyMacroRuntime) setVariableLocked(line legacyMacroLine, execu
 	if !ok {
 		return fmt.Errorf("set variable %q is not defined", name)
 	}
-	operation := runtime.expandTokenLocked(line.Tokens[2], execution)
-	other := runtime.expandTokenLocked(line.Tokens[3], execution)
+	other := runtime.expandValueTokenLocked(line.Tokens[3], execution)
 	result, err := legacyMacroOperate(value, operation, other)
 	if err != nil {
 		return err
 	}
 	target[name] = result
 	return nil
+}
+
+func legacyMacroSetOperation(operation string) bool {
+	switch operation {
+	case "+", "-", "*", "/", "%":
+		return true
+	default:
+		return false
+	}
 }
 
 func legacyMacroOperate(left, operation, right string) (string, error) {
@@ -840,14 +876,80 @@ func (runtime *legacyMacroRuntime) expandTokenLocked(token legacyMacroToken, exe
 	if token.Quote != 0 {
 		return token.Text
 	}
-	if value, ok := runtime.variableLocked(token.Text, execution); ok {
+	if value, ok := runtime.expandedVariableLocked(token.Text, execution); ok {
 		return value
+	}
+	if expanded, ok := runtime.expandIndexedNameLocked(token.Text, execution, 0); ok {
+		return expanded
 	}
 	return token.Text
 }
 
+func (runtime *legacyMacroRuntime) expandTextTokenLocked(token legacyMacroToken, execution *legacyMacroExecution) string {
+	if token.Quote != 0 {
+		return token.Text
+	}
+	value, _ := runtime.expandedVariableLocked(token.Text, execution)
+	return value
+}
+
+func (runtime *legacyMacroRuntime) expandValueTokenLocked(token legacyMacroToken, execution *legacyMacroExecution) string {
+	if token.Quote != 0 {
+		return token.Text
+	}
+	if value, ok := runtime.expandedVariableLocked(token.Text, execution); ok {
+		return value
+	}
+	if _, err := strconv.Atoi(token.Text); err == nil || strings.EqualFold(token.Text, "true") || strings.EqualFold(token.Text, "false") {
+		return token.Text
+	}
+	return ""
+}
+
+// expandedVariableLocked follows values that name another variable. Several
+// established macros construct names such as "@my.right_item" or
+// "gRC_right_click_player" at runtime and then read through them.
+func (runtime *legacyMacroRuntime) expandedVariableLocked(name string, execution *legacyMacroExecution) (string, bool) {
+	value, ok := runtime.variableLocked(name, execution)
+	if !ok {
+		return "", false
+	}
+	if strings.HasPrefix(legacyMacroReadVariableName(name), "@") {
+		return value, true
+	}
+	seen := map[string]bool{strings.ToLower(name): true}
+	for depth := 0; depth < legacyMacroMaxCallDepth; depth++ {
+		key := strings.ToLower(value)
+		if seen[key] {
+			break
+		}
+		next, exists := runtime.variableLocked(value, execution)
+		if !exists {
+			break
+		}
+		seen[key] = true
+		value = next
+		if strings.HasPrefix(legacyMacroReadVariableName(key), "@") {
+			break
+		}
+	}
+	return value, true
+}
+
 func (runtime *legacyMacroRuntime) variableLocked(name string, execution *legacyMacroExecution) (string, bool) {
+	return runtime.variableLockedDepth(name, execution, 0)
+}
+
+func (runtime *legacyMacroRuntime) variableLockedDepth(name string, execution *legacyMacroExecution, depth int) (string, bool) {
+	if depth > legacyMacroMaxCallDepth {
+		return "", false
+	}
 	name = legacyMacroReadVariableName(name)
+	var ok bool
+	name, ok = runtime.expandIndexedNameLocked(name, execution, depth)
+	if !ok {
+		return "", false
+	}
 	if base, trailers, ok := legacyMacroSplitTextTrailers(name); ok {
 		value, ok := runtime.variableBaseLocked(base, execution)
 		if !ok {
@@ -856,6 +958,41 @@ func (runtime *legacyMacroRuntime) variableLocked(name string, execution *legacy
 		return legacyMacroApplyTextTrailers(value, trailers), true
 	}
 	return runtime.variableBaseLocked(name, execution)
+}
+
+// expandIndexedNameLocked resolves the variable inside each array or text
+// index. Existing macro libraries commonly use names such as board[row] and
+// @text.word[word]. Numeric indexes are left alone.
+func (runtime *legacyMacroRuntime) expandIndexedNameLocked(name string, execution *legacyMacroExecution, depth int) (string, bool) {
+	if depth > legacyMacroMaxCallDepth {
+		return "", false
+	}
+	var expanded strings.Builder
+	for {
+		open := strings.IndexByte(name, '[')
+		if open < 0 {
+			expanded.WriteString(name)
+			return expanded.String(), true
+		}
+		closeOffset := strings.IndexByte(name[open+1:], ']')
+		if closeOffset < 0 {
+			return "", false
+		}
+		close := open + 1 + closeOffset
+		expanded.WriteString(name[:open+1])
+		indexName := strings.TrimSpace(name[open+1 : close])
+		if _, err := strconv.Atoi(indexName); err == nil {
+			expanded.WriteString(indexName)
+		} else {
+			index, ok := runtime.variableLockedDepth(indexName, execution, depth+1)
+			if !ok {
+				return "", false
+			}
+			expanded.WriteString(index)
+		}
+		expanded.WriteByte(']')
+		name = name[close+1:]
+	}
 }
 
 func (runtime *legacyMacroRuntime) variableBaseLocked(name string, execution *legacyMacroExecution) (string, bool) {
@@ -880,6 +1017,9 @@ func (runtime *legacyMacroRuntime) variableBaseLocked(name string, execution *le
 
 func (runtime *legacyMacroRuntime) sendTextLocked(execution *legacyMacroExecution, text string) {
 	runtime.sent = append(runtime.sent, text)
+	if len(runtime.sent) > legacyMacroMaxHistory {
+		runtime.sent = append([]string(nil), runtime.sent[len(runtime.sent)-legacyMacroMaxHistory:]...)
+	}
 	if runtime.hooks.SendText != nil {
 		runtime.hooks.SendText(text)
 	}
@@ -890,6 +1030,9 @@ func (runtime *legacyMacroRuntime) sendTextLocked(execution *legacyMacroExecutio
 
 func (runtime *legacyMacroRuntime) messageLocked(message string) {
 	runtime.messages = append(runtime.messages, message)
+	if len(runtime.messages) > legacyMacroMaxHistory {
+		runtime.messages = append([]string(nil), runtime.messages[len(runtime.messages)-legacyMacroMaxHistory:]...)
+	}
 	if runtime.hooks.Message != nil {
 		runtime.hooks.Message(message)
 	}
@@ -939,6 +1082,9 @@ func (runtime *legacyMacroRuntime) recordDiagnosticLocked(line legacyMacroLine, 
 		Location: location,
 		Message:  message,
 	})
+	if len(runtime.diagnostics) > legacyMacroMaxHistory {
+		runtime.diagnostics = append([]legacyMacroDiagnostic(nil), runtime.diagnostics[len(runtime.diagnostics)-legacyMacroMaxHistory:]...)
+	}
 }
 
 func (runtime *legacyMacroRuntime) globalsSnapshot() map[string]string {

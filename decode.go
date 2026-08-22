@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"log"
 	"strings"
-
-	"golang.org/x/text/encoding/charmap"
 )
 
 type thinkTarget int
@@ -85,14 +83,6 @@ var languageYellVerb = []string{
 	"yelps",           // Lepori
 }
 
-func decodeMacRoman(b []byte) string {
-	s, err := charmap.Macintosh.NewDecoder().Bytes(b)
-	if err != nil {
-		return string(b)
-	}
-	return string(s)
-}
-
 /*
 BEPP tag reference (two-letter codes following the 0xC2 prefix):
 
@@ -143,7 +133,7 @@ func decodeBEPP(data []byte) string {
 	}
 	// For displayable text, strip BEPP tags and non-printables.
 	cleaned := stripBEPPTags(append([]byte(nil), raw...))
-	text := strings.TrimSpace(decodeMacRoman(cleaned))
+	text := strings.TrimSpace(decodeServerText(cleaned))
 
 	if dumpBEPPTags {
 		// Log the tag and a truncated form of the text for empirical analysis.
@@ -332,7 +322,7 @@ func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, bubbl
 		if len(ln) == 0 {
 			continue
 		}
-		s := strings.TrimSpace(decodeMacRoman(ln))
+		s := strings.TrimSpace(decodeServerText(ln))
 		if s == "" {
 			continue
 		}
@@ -408,7 +398,7 @@ func decodeMessage(m []byte) string {
 			data = data[:i]
 		}
 		if len(data) > 0 {
-			txt := decodeMacRoman(data)
+			txt := decodeServerText(data)
 			if len([]rune(strings.TrimSpace(txt))) >= 4 {
 				return txt
 			}
@@ -443,7 +433,7 @@ func handleInfoText(data []byte) {
 			}
 			continue
 		}
-		s := strings.TrimSpace(decodeMacRoman(stripBEPPTags(line)))
+		s := strings.TrimSpace(decodeServerText(stripBEPPTags(line)))
 		if s == "" {
 			continue
 		}

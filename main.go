@@ -388,7 +388,7 @@ func playerFromDrawState(data []byte) string {
 		typ := data[p+1]
 		p += 4
 		if off := bytes.IndexByte(data[p:], 0); off >= 0 {
-			name := utfFold(decodeMacRoman(data[p : p+off]))
+			name := utfFold(decodeServerText(data[p : p+off]))
 			p += off + 1
 			if p >= len(data) {
 				return ""
@@ -478,7 +478,7 @@ func firstDescriptorName(data []byte) string {
 	}
 	p += 4
 	if idx := bytes.IndexByte(data[p:], 0); idx >= 0 {
-		return utfFold(decodeMacRoman(data[p : p+idx]))
+		return utfFold(decodeServerText(data[p : p+idx]))
 	}
 	return ""
 }

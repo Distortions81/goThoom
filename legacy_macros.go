@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -163,7 +164,13 @@ func loadLegacyMacrosForCharacter(character string) error {
 	legacyMacrosProgram = program
 	legacyMacrosRuntime = runtime
 	legacyMacrosMu.Unlock()
-	return program.err()
+	if err := program.err(); err != nil {
+		return err
+	}
+	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) > 0 {
+		return fmt.Errorf("legacy macro setup failed: %s", diagnostics[0])
+	}
+	return nil
 }
 
 func readLegacyMacroSource(path string) (legacyMacroSource, bool, error) {
@@ -174,7 +181,17 @@ func readLegacyMacroSource(path string) (legacyMacroSource, bool, error) {
 	if err != nil {
 		return legacyMacroSource{}, false, fmt.Errorf("read legacy macro file %q: %w", path, err)
 	}
-	return legacyMacroSource{Path: path, Text: string(text)}, true, nil
+	return legacyMacroSource{Path: path, Text: decodeLegacyMacroSourceText(text)}, true, nil
+}
+
+// decodeLegacyMacroSourceText accepts both original MacRoman macro files and
+// modern UTF-8 files. ASCII is identical in both encodings.
+func decodeLegacyMacroSourceText(text []byte) string {
+	text = bytes.TrimPrefix(text, []byte{0xef, 0xbb, 0xbf})
+	if utf8.Valid(text) {
+		return string(text)
+	}
+	return decodeMacRoman(text)
 }
 
 func legacyMacroSourcesSnapshot() []legacyMacroSource {
@@ -250,7 +267,7 @@ func parseLegacyMacroDeclarations(program *legacyMacroProgram) {
 			// no current macro. A new declaration below becomes the only macro
 			// a following braced block can extend.
 			lastMacro = -1
-			if first.Quote == 0 && legacyMacroKeywordPrefix(first.Text, "set") {
+			if first.Quote == 0 && (legacyMacroKeyword(first.Text, "set") || legacyMacroKeyword(first.Text, "setglobal")) {
 				program.TopLevel = append(program.TopLevel, line)
 				continue
 			}
@@ -277,8 +294,8 @@ func parseLegacyMacroDeclarations(program *legacyMacroProgram) {
 	}
 }
 
-func legacyMacroKeywordPrefix(text, keyword string) bool {
-	return len(text) >= len(keyword) && strings.EqualFold(text[:len(keyword)], keyword)
+func legacyMacroKeyword(text, keyword string) bool {
+	return strings.EqualFold(text, keyword)
 }
 
 func newLegacyMacroDeclaration(line legacyMacroLine) legacyMacroDeclaration {
@@ -348,9 +365,11 @@ func parseLegacyMacroKeyBinding(trigger string) (legacyMacroKind, legacyMacroKey
 
 	var modifiers legacyMacroModifiers
 	for _, part := range modifierParts {
-		if modifier, ok := legacyMacroModifier(part); ok {
-			modifiers |= modifier
+		modifier, ok := legacyMacroModifier(part)
+		if !ok {
+			return 0, legacyMacroKeyBinding{}, false
 		}
+		modifiers |= modifier
 	}
 
 	name := strings.ToLower(keyName)
@@ -412,7 +431,8 @@ func legacyMacroModifier(name string) (legacyMacroModifiers, bool) {
 		return legacyMacroModCommand, true
 	case strings.EqualFold(name, "control"):
 		return legacyMacroModControl, true
-	case strings.EqualFold(name, "numpad"):
+	case strings.EqualFold(name, "numpad"), strings.EqualFold(name, "wnumpad"):
+		// The published Delta Tao examples contain the old wnumpad spelling.
 		return legacyMacroModNumpad, true
 	case strings.EqualFold(name, "option"):
 		return legacyMacroModOption, true
@@ -429,7 +449,7 @@ func legacyMacroNamedKey(name string) bool {
 		"f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8",
 		"f9", "f10", "f11", "f12", "f13", "f14", "f15", "f16",
 		"minus", "delete", "tab", "return", "space", "help", "home",
-		"pageup", "del", "end", "pagedown", "up", "down", "left",
+		"undo", "pageup", "del", "end", "pagedown", "up", "down", "left",
 		"right", "clear", "enter":
 		return true
 	default:
@@ -474,7 +494,7 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 				continue
 			}
 
-			if tokens[0].Quote == 0 && legacyMacroKeywordPrefix(tokens[0].Text, "include") {
+			if tokens[0].Quote == 0 && legacyMacroKeyword(tokens[0].Text, "include") {
 				if len(tokens) < 2 || tokens[1].Text == "" {
 					program.Diagnostics = append(program.Diagnostics, legacyMacroDiagnostic{
 						Location: tokenLocation(line, tokens[0]),

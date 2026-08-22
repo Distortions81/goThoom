@@ -32,6 +32,64 @@ func TestLegacyMacroLibraryEmbeddedCorpusHasDisplayNames(t *testing.T) {
 	}
 }
 
+func TestLegacyMacroMetadataStopsAtMacroCode(t *testing.T) {
+	metadata := parseLegacyMacroLibraryMetadata("example.mac", strings.Join([]string{
+		"// Metadata",
+		"// Name: Real Name",
+		"f1 \"/wave\\r\"",
+		"// Name: Mentioned Later",
+	}, "\n"))
+	if metadata.Name != "Real Name" {
+		t.Fatalf("metadata name = %q, want Real Name", metadata.Name)
+	}
+}
+
+func TestLegacyMacroLibraryDecodesMacRomanMetadata(t *testing.T) {
+	originalDataDir := dataDirPath
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() { dataDirPath = originalDataDir })
+
+	if _, err := legacyMacroLibraryEntries(); err != nil {
+		t.Fatal(err)
+	}
+	raw := append([]byte("// Metadata\n// Name: Caf"), 0x8e)
+	raw = append(raw, []byte(" Dance\n// Desc: Caf")...)
+	raw = append(raw, 0x8e)
+	raw = append(raw, []byte(" helper.\nf1 \"/dance\\r\"\n")...)
+	path := filepath.Join(legacyMacroLibraryPath(), "macroman.mac")
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := legacyMacroLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := legacyMacroLibraryEntryForTest(entries, "macroman.mac")
+	if entry.Name != "Café Dance" || entry.Description != "Café helper." {
+		t.Fatalf("MacRoman metadata = %#v", entry)
+	}
+}
+
+func TestLegacyMacroLibraryEmbeddedInfoUsesEmbeddedSource(t *testing.T) {
+	originalWASM := isWASM
+	isWASM = true
+	t.Cleanup(func() { isWASM = originalWASM })
+
+	entries, err := legacyMacroLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := legacyMacroLibraryEntryForTest(entries, "official-example.mac")
+	info, err := collectLegacyMacroLibraryInfo(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(info.Commands) == 0 || len(info.Hotkeys) == 0 {
+		t.Fatalf("embedded info = %#v, want commands and hotkeys", info)
+	}
+}
+
 func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing.T) {
 	originalDataDir := dataDirPath
 	dataDirPath = t.TempDir()
@@ -50,6 +108,19 @@ func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing
 	}
 	if !strings.Contains(string(metadataReference), "// Metadata") {
 		t.Fatalf("installed metadata reference is incomplete: %q", metadataReference)
+	}
+	if err := os.WriteFile(filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName), []byte("old guide"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacyMacroLibraryEntries(); err != nil {
+		t.Fatal(err)
+	}
+	metadataReference, err = os.ReadFile(filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(metadataReference), "old guide") || !strings.Contains(string(metadataReference), "Separate each tag with a") {
+		t.Fatalf("installed metadata reference was not refreshed: %q", metadataReference)
 	}
 	keys := legacyMacroLibraryEntryForTest(entries, "keys.mac")
 	if keys.Name != "Keys" {
@@ -92,6 +163,100 @@ func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing
 	}
 	if got := legacyMacroLibraryEntryForTest(entries, "no-title.mac").Name; got != "no-title.mac" {
 		t.Fatalf("fallback source display name = %q", got)
+	}
+}
+
+func TestLegacyMacroLibraryUpdatesPristineSourcesButPreservesEdits(t *testing.T) {
+	originalDataDir := dataDirPath
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() { dataDirPath = originalDataDir })
+
+	entries, err := legacyMacroLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := legacyMacroLibraryEntryForTest(entries, "keys.mac")
+	keysText, err := os.ReadFile(keys.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keysText = append(keysText, []byte("\n// my local change\n")...)
+	if err := os.WriteFile(keys.Path, keysText, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	official := legacyMacroLibraryEntryForTest(entries, "official-example.mac")
+	officialText, err := os.ReadFile(official.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOfficial := string(officialText)
+	for _, comparison := range []string{
+		"if i < numbounces",
+		"if i < seed",
+		"if charind < numchar",
+		"if wordind < numword",
+	} {
+		oldOfficial = strings.Replace(oldOfficial, comparison, strings.Replace(comparison, " < ", " &lt; ", 1), 1)
+	}
+	if err := os.WriteFile(official.Path, []byte(oldOfficial), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := legacyMacroLibraryEntries(); err != nil {
+		t.Fatal(err)
+	}
+	gotKeys, err := os.ReadFile(keys.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotKeys) != string(keysText) {
+		t.Fatal("user-edited bundled macro was overwritten")
+	}
+	gotOfficial, err := os.ReadFile(official.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(gotOfficial), "&lt;") {
+		t.Fatal("pristine pre-manifest source was not updated")
+	}
+}
+
+func TestLegacyMacroLibraryRecoversDamagedManifestWithoutOverwritingMacros(t *testing.T) {
+	originalDataDir := dataDirPath
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() { dataDirPath = originalDataDir })
+
+	if err := os.MkdirAll(legacyMacroLibraryPath(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryManifestName)
+	if err := os.WriteFile(manifestPath, []byte("not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	keysPath := filepath.Join(legacyMacroLibraryPath(), "keys.mac")
+	custom := []byte("// my customized keys\nf1 \"/wave\\r\"\n")
+	if err := os.WriteFile(keysPath, custom, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := legacyMacroLibraryEntries(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(keysPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(custom) {
+		t.Fatal("customized macro was overwritten while recovering manifest")
+	}
+	manifestData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]string
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		t.Fatalf("recovered manifest is invalid: %v", err)
 	}
 }
 

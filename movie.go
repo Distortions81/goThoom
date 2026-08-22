@@ -341,9 +341,9 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 
 		nameBytes := buf[l.nameOffset : l.nameOffset+48]
 		if i := bytes.IndexByte(nameBytes, 0); i >= 0 {
-			d.Name = string(nameBytes[:i])
+			d.Name = decodeServerText(nameBytes[:i])
 		} else {
-			d.Name = string(nameBytes)
+			d.Name = decodeServerText(nameBytes)
 		}
 
 		bubbleCounter := int32(binary.BigEndian.Uint32(buf[l.bubbleCounterOffset : l.bubbleCounterOffset+4]))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ const (
 	legacyMacroLibraryDirName       = "Library"
 	legacyMacroLibrarySelectionName = "enabled.json"
 	legacyMacroLibraryMetadataName  = "METADATA.md"
+	legacyMacroLibraryManifestName  = ".bundled-hashes.json"
 )
 
 // legacyMacroLibraryFS contains the public legacy macro corpus shipped with
@@ -119,19 +121,20 @@ var legacyMacroBundledLibrary = []legacyMacroLibraryBundledEntry{
 // legacyMacroLibraryEntry is a source file available to the library UI. ID is
 // always its filename, which stays stable if its display name is edited.
 type legacyMacroLibraryEntry struct {
-	ID          string
-	Name        string
-	Version     string
-	Path        string
-	Tags        string
-	Description string
-	Author      string
-	License     string
-	Website     string
-	Update      string
-	SourceURL   string
-	Note        string
-	Bundled     bool
+	ID           string
+	Name         string
+	Version      string
+	Path         string
+	EmbeddedPath string
+	Tags         string
+	Description  string
+	Author       string
+	License      string
+	Website      string
+	Update       string
+	SourceURL    string
+	Note         string
+	Bundled      bool
 }
 
 type legacyMacroLibraryScope uint8
@@ -172,7 +175,7 @@ func legacyMacroLibrarySource(entry legacyMacroLibraryBundledEntry) (string, err
 	if err != nil {
 		return "", fmt.Errorf("read bundled macro %q: %w", entry.Filename, err)
 	}
-	return string(text), nil
+	return decodeLegacyMacroSourceText(text), nil
 }
 
 func legacyMacroLibraryMetadataReference() ([]byte, error) {
@@ -218,7 +221,8 @@ func legacyMacroLibraryEntriesLocked() ([]legacyMacroLibraryEntry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read library macro %q: %w", id, err)
 		}
-		metadata := parseLegacyMacroLibraryMetadata(id, string(text))
+		source := decodeLegacyMacroSourceText(text)
+		metadata := parseLegacyMacroLibraryMetadata(id, source)
 		entry := legacyMacroLibraryEntry{
 			ID:          id,
 			Name:        metadata.Name,
@@ -231,8 +235,9 @@ func legacyMacroLibraryEntriesLocked() ([]legacyMacroLibraryEntry, error) {
 			Website:     metadata.Website,
 			Update:      metadata.Update,
 		}
-		if bundled, ok := legacyMacroLibraryBundledEntryByFilename(id); ok && strings.Contains(string(text), "// goThoom bundled macro:") {
+		if bundled, ok := legacyMacroLibraryBundledEntryByFilename(id); ok && strings.Contains(source, "// goThoom bundled macro:") {
 			entry.Bundled = true
+			entry.EmbeddedPath = bundled.EmbeddedPath
 			if entry.Description == "" {
 				entry.Description = bundled.Description
 			}
@@ -258,19 +263,20 @@ func legacyMacroLibraryEmbeddedEntries() ([]legacyMacroLibraryEntry, error) {
 			description = bundled.Description
 		}
 		entries = append(entries, legacyMacroLibraryEntry{
-			ID:          bundled.Filename,
-			Name:        metadata.Name,
-			Version:     metadata.Version,
-			Path:        filepath.Join(legacyMacroLibraryPath(), bundled.Filename),
-			Tags:        metadata.Tags,
-			Description: description,
-			Author:      metadata.Author,
-			License:     metadata.License,
-			Website:     metadata.Website,
-			Update:      metadata.Update,
-			SourceURL:   bundled.SourceURL,
-			Note:        bundled.Note,
-			Bundled:     true,
+			ID:           bundled.Filename,
+			Name:         metadata.Name,
+			Version:      metadata.Version,
+			Path:         filepath.Join(legacyMacroLibraryPath(), bundled.Filename),
+			EmbeddedPath: bundled.EmbeddedPath,
+			Tags:         metadata.Tags,
+			Description:  description,
+			Author:       metadata.Author,
+			License:      metadata.License,
+			Website:      metadata.Website,
+			Update:       metadata.Update,
+			SourceURL:    bundled.SourceURL,
+			Note:         bundled.Note,
+			Bundled:      true,
 		})
 	}
 	legacyMacroLibrarySortEntries(entries)
@@ -327,8 +333,11 @@ func parseLegacyMacroLibraryMetadata(filename, source string) legacyMacroLibrary
 	metadata := legacyMacroLibraryMetadata{Name: filepath.Base(filename)}
 	for _, line := range strings.Split(source, "\n") {
 		line = strings.TrimSpace(strings.TrimPrefix(line, "\ufeff"))
-		if !strings.HasPrefix(line, "//") {
+		if line == "" {
 			continue
+		}
+		if !strings.HasPrefix(line, "//") {
+			break
 		}
 		comment := strings.TrimSpace(strings.TrimPrefix(line, "//"))
 		for _, field := range []struct {
@@ -367,15 +376,49 @@ func installLegacyMacroLibrarySourcesLocked() error {
 	if err := os.MkdirAll(legacyMacroLibraryPath(), 0o755); err != nil {
 		return fmt.Errorf("create bundled macro directory: %w", err)
 	}
+	manifest, err := legacyMacroLibraryReadManifest()
+	if err != nil {
+		return err
+	}
 	for _, entry := range legacyMacroBundledLibrary {
-		if _, err := saveLegacyMacroLibrarySource(entry); err != nil {
+		_, hash, managed, err := saveLegacyMacroLibrarySource(entry, manifest[entry.Filename])
+		if err != nil {
 			return err
 		}
+		if managed {
+			manifest[entry.Filename] = hash
+		}
+	}
+	manifestData, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode bundled macro manifest: %w", err)
+	}
+	manifestPath := filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryManifestName)
+	if err := legacyMacroAtomicWriteFile(manifestPath, append(manifestData, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write bundled macro manifest: %w", err)
 	}
 	if err := saveLegacyMacroLibraryMetadataReference(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func legacyMacroLibraryReadManifest() (map[string]string, error) {
+	path := filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryManifestName)
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return make(map[string]string), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read bundled macro manifest: %w", err)
+	}
+	manifest := make(map[string]string)
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		// The manifest only tracks goThoom's last installed copies. Recovering
+		// from a damaged file is safe: unmatched .mac files remain untouched.
+		return make(map[string]string), nil
+	}
+	return manifest, nil
 }
 
 func saveLegacyMacroLibraryMetadataReference() error {
@@ -384,63 +427,73 @@ func saveLegacyMacroLibraryMetadataReference() error {
 		return err
 	}
 	path := filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName)
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o644)
-	if os.IsExist(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("create macro metadata reference %q: %w", path, err)
-	}
-	if _, err := file.Write(text); err != nil {
-		_ = file.Close()
-		_ = os.Remove(path)
+	// METADATA.md is the generated library guide, not a user macro. Refresh it
+	// so documentation fixes reach existing installs without touching .mac files.
+	if err := legacyMacroAtomicWriteFile(path, text, 0o644); err != nil {
 		return fmt.Errorf("write macro metadata reference %q: %w", path, err)
-	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(path)
-		return fmt.Errorf("close macro metadata reference %q: %w", path, err)
 	}
 	return nil
 }
 
-func saveLegacyMacroLibrarySource(entry legacyMacroLibraryBundledEntry) (string, error) {
+func saveLegacyMacroLibrarySource(entry legacyMacroLibraryBundledEntry, installedHash string) (path, hash string, managed bool, err error) {
 	source, err := legacyMacroLibrarySource(entry)
 	if err != nil {
-		return "", err
+		return "", "", false, err
 	}
 	id, err := legacyMacroLibraryFileID(entry.Filename)
 	if err != nil {
-		return "", err
+		return "", "", false, err
 	}
 	if err := os.MkdirAll(legacyMacroLibraryPath(), 0o755); err != nil {
-		return "", fmt.Errorf("create bundled macro directory: %w", err)
+		return "", "", false, fmt.Errorf("create bundled macro directory: %w", err)
 	}
-	path := filepath.Join(legacyMacroLibraryPath(), id)
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o644)
-	if os.IsExist(err) {
-		info, statErr := os.Stat(path)
-		if statErr != nil {
-			return "", fmt.Errorf("inspect bundled macro source %q: %w", path, statErr)
+	path = filepath.Join(legacyMacroLibraryPath(), id)
+	header := fmt.Sprintf("// goThoom bundled macro: %s\n// Source: %s\n// Original authors retain copyright.\n\n", entry.Filename, entry.SourceURL)
+	desired := []byte(header + source)
+	desiredSum := sha256.Sum256(desired)
+	hash = fmt.Sprintf("%x", desiredSum)
+
+	current, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		if err := legacyMacroAtomicWriteFile(path, desired, 0o644); err != nil {
+			return "", "", false, fmt.Errorf("write bundled macro source %q: %w", path, err)
 		}
-		if info.IsDir() {
-			return "", fmt.Errorf("bundled macro source %q is a directory", path)
-		}
-		return path, nil
+		return path, hash, true, nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("create bundled macro source %q: %w", path, err)
+		return "", "", false, fmt.Errorf("read bundled macro source %q: %w", path, err)
 	}
-	header := fmt.Sprintf("// goThoom bundled macro: %s\n// Source: %s\n// Original authors retain copyright.\n\n", entry.Filename, entry.SourceURL)
-	if _, err := file.WriteString(header + source); err != nil {
-		_ = file.Close()
-		_ = os.Remove(path)
-		return "", fmt.Errorf("write bundled macro source %q: %w", path, err)
+	currentSum := sha256.Sum256(current)
+	currentHash := fmt.Sprintf("%x", currentSum)
+	if currentHash == hash {
+		return path, hash, true, nil
 	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(path)
-		return "", fmt.Errorf("close bundled macro source %q: %w", path, err)
+	if (installedHash != "" && currentHash == installedHash) || legacyMacroLibraryKnownPristineSource(entry, current, desired) {
+		if err := legacyMacroAtomicWriteFile(path, desired, 0o644); err != nil {
+			return "", "", false, fmt.Errorf("update bundled macro source %q: %w", path, err)
+		}
+		return path, hash, true, nil
 	}
-	return path, nil
+	return path, hash, false, nil
+}
+
+// legacyMacroLibraryKnownPristineSource handles the one bundled source update
+// that predates the hash manifest. It only matches the exact previously
+// installed file, so a user-edited copy is never changed.
+func legacyMacroLibraryKnownPristineSource(entry legacyMacroLibraryBundledEntry, current, desired []byte) bool {
+	if entry.Filename != "official-example.mac" {
+		return false
+	}
+	old := string(desired)
+	for _, comparison := range []string{
+		"if i < numbounces",
+		"if i < seed",
+		"if charind < numchar",
+		"if wordind < numword",
+	} {
+		old = strings.Replace(old, comparison, strings.Replace(comparison, " < ", " &lt; ", 1), 1)
+	}
+	return string(current) == old
 }
 
 // saveLegacyMacroLibraryEntry is retained as the one-shot enable helper for
@@ -608,10 +661,36 @@ func legacyMacroLibraryWriteSelectionLocked(selection legacyMacroLibrarySelectio
 	if err := os.MkdirAll(legacyMacroLibraryPath(), 0o755); err != nil {
 		return fmt.Errorf("create macro library directory: %w", err)
 	}
-	if err := os.WriteFile(legacyMacroLibrarySelectionPath(), append(data, '\n'), 0o644); err != nil {
+	if err := legacyMacroAtomicWriteFile(legacyMacroLibrarySelectionPath(), append(data, '\n'), 0o644); err != nil {
 		return fmt.Errorf("write macro library selections: %w", err)
 	}
 	return nil
+}
+
+func legacyMacroAtomicWriteFile(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	temporary, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	if err := temporary.Chmod(mode); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(data); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryPath, path)
 }
 
 func (selection *legacyMacroLibrarySelection) normalize() {

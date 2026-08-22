@@ -1126,8 +1126,7 @@ func stopAllscripts() {
 		disablescript(o, "stopped by user")
 	}
 	if len(owners) > 0 {
-		commandQueue = nil
-		pendingCommand = ""
+		clearCommands()
 		consoleMessage("[script] all scripts stopped")
 	}
 }
@@ -1361,7 +1360,7 @@ func scriptUnequip(owner string, id uint16) {
 	if !equipped {
 		return
 	}
-	pendingCommand = fmt.Sprintf("/unequip %d", id)
+	enqueueCommand(fmt.Sprintf("/unequip %d", id))
 	equipInventoryItem(id, -1, false)
 }
 
@@ -1412,7 +1411,7 @@ func scriptUnequipPartial(owner, pattern string) {
 	items := getInventory()
 	for _, it := range items {
 		if it.Equipped && strings.Contains(strings.ToLower(it.Name), p) {
-			pendingCommand = fmt.Sprintf("/unequip %d", it.ID)
+			enqueueCommand(fmt.Sprintf("/unequip %d", it.ID))
 			equipInventoryItem(it.ID, -1, false)
 			return
 		}
@@ -1450,7 +1449,7 @@ func scriptUnequipByName(owner, name string) {
 	if !equipped {
 		return
 	}
-	pendingCommand = fmt.Sprintf("/unequip %d", id)
+	enqueueCommand(fmt.Sprintf("/unequip %d", id))
 	equipInventoryItem(id, -1, false)
 }
 

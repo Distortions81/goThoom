@@ -228,7 +228,7 @@ func init() {
 		// list includes everyone online, not just nearby mobiles.
 		if playersWin != nil && playersWin.IsOpen() {
 			if time.Since(lastWhoRequest) > 5*time.Second {
-				pendingCommand = "/be-who"
+				enqueueCommand("/be-who")
 				lastWhoRequest = time.Now()
 			}
 		}

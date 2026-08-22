@@ -111,6 +111,7 @@ func legacyMacroCurrentGameVariable(name string) (string, bool) {
 var legacyMacroItemSlots = map[string]int{
 	"@my.forehead_item":  kItemSlotForehead,
 	"@my.neck_item":      kItemSlotNeck,
+	"@my.shoulder_item":  kItemSlotShoulder,
 	"@my.shoulders_item": kItemSlotShoulder,
 	"@my.arms_item":      kItemSlotArms,
 	"@my.gloves_item":    kItemSlotGloves,
@@ -129,14 +130,14 @@ var legacyMacroItemSlots = map[string]int{
 
 func legacyMacroEquippedItemName(slot int) string {
 	if clImages == nil {
-		return ""
+		return "Nothing"
 	}
 	for _, item := range getInventory() {
 		if item.Equipped && clImages.ItemSlot(uint32(item.ID)) == slot {
 			return item.Name
 		}
 	}
-	return ""
+	return "Nothing"
 }
 
 func legacyMacroSelectedItemName() string {
@@ -171,7 +172,8 @@ func legacyMacroShares(outbound bool) string {
 // the reference client. The old environment aliases are also accepted by
 // set/setglobal through legacyMacroWritableVariableName below.
 func legacyMacroReadVariableName(name string) string {
-	switch strings.ToLower(name) {
+	name = strings.ToLower(name)
+	switch name {
 	case "@name":
 		return "@my.name"
 	case "@splayer":
@@ -182,6 +184,10 @@ func legacyMacroReadVariableName(name string) string {
 		return "@my.right_item"
 	case "@lhanditem":
 		return "@my.left_item"
+	case "@my.leftitem":
+		return "@my.left_item"
+	case "@my.rightitem":
+		return "@my.right_item"
 	case "@echo":
 		return "@env.echo"
 	case "@debug":
@@ -192,20 +198,25 @@ func legacyMacroReadVariableName(name string) string {
 		return "@env.key_interrupts"
 	case "@clicksplayer":
 		return "@click.simple_name"
+	case "@clickplayer":
+		return "@click.simple_name"
 	case "@clickrplayer":
 		return "@click.name"
 	case "@wordcount":
 		return "@text.num_words"
+	case "@text.word_count":
+		return "@text.num_words"
 	}
 
-	if len(name) >= len("@word[") && strings.EqualFold(name[:len("@word[")], "@word[") {
+	if len(name) >= len("@word[") && strings.HasPrefix(name, "@word[") {
 		return "@text." + name[1:]
 	}
 	return name
 }
 
 func legacyMacroWritableVariableName(name string) string {
-	switch strings.ToLower(name) {
+	name = strings.ToLower(name)
+	switch name {
 	case "@echo":
 		return "@env.echo"
 	case "@debug":
@@ -263,17 +274,18 @@ func legacyMacroApplyTextTrailers(value, trailers string) string {
 			if err != nil {
 				return value
 			}
-			if index < 0 || index >= len(value) {
+			letters := []rune(value)
+			if index < 0 || index >= len(letters) {
 				value = ""
 			} else {
-				value = value[index : index+1]
+				value = string(letters[index])
 			}
 			trailers = trailers[end+1:]
 		case strings.HasPrefix(lower, ".num_words"):
 			value = strconv.Itoa(len(strings.Fields(value)))
 			trailers = trailers[len(".num_words"):]
 		case strings.HasPrefix(lower, ".num_letters"):
-			value = strconv.Itoa(len(value))
+			value = strconv.Itoa(len([]rune(value)))
 			trailers = trailers[len(".num_letters"):]
 		default:
 			return value

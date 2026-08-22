@@ -47,6 +47,10 @@ func makeLegacyMacroLibraryWindow() {
 	openButton, openEvents := eui.NewButton()
 	openButton.Text = "Open Macro Folder"
 	openButton.Size = eui.Point{X: 160, Y: legacyMacroLibraryButtonsHeight}
+	openButton.Disabled = isWASM
+	if isWASM {
+		openButton.SetTooltip("The web build uses its embedded read-only macro library.")
+	}
 	openEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
 			if err := open.Run(legacyMacroLibraryPath()); err != nil {
@@ -333,12 +337,23 @@ type legacyMacroLibraryInfo struct {
 }
 
 func collectLegacyMacroLibraryInfo(entry legacyMacroLibraryEntry) (legacyMacroLibraryInfo, error) {
-	source, exists, err := readLegacyMacroSource(entry.Path)
-	if err != nil {
-		return legacyMacroLibraryInfo{}, err
-	}
-	if !exists {
-		return legacyMacroLibraryInfo{}, fmt.Errorf("macro file no longer exists")
+	var source legacyMacroSource
+	if isWASM && entry.EmbeddedPath != "" {
+		text, err := legacyMacroLibraryFS.ReadFile(entry.EmbeddedPath)
+		if err != nil {
+			return legacyMacroLibraryInfo{}, err
+		}
+		source = legacyMacroSource{Path: entry.EmbeddedPath, Text: decodeLegacyMacroSourceText(text)}
+	} else {
+		var exists bool
+		var err error
+		source, exists, err = readLegacyMacroSource(entry.Path)
+		if err != nil {
+			return legacyMacroLibraryInfo{}, err
+		}
+		if !exists {
+			return legacyMacroLibraryInfo{}, fmt.Errorf("macro file no longer exists")
+		}
 	}
 	source.Name = entry.ID
 	program := parseLegacyMacroSources([]legacyMacroSource{source})

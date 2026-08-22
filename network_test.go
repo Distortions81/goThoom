@@ -160,6 +160,47 @@ func TestSendPlayerInputPrefersPlayerCommand(t *testing.T) {
 	}
 }
 
+func TestSendPlayerInputEncodesCommandAndChatAsMacRoman(t *testing.T) {
+	oldCommandNum := commandNum
+	oldPending := pendingCommand
+	oldQueue := commandQueue
+	defer func() {
+		commandNum = oldCommandNum
+		pendingCommand = oldPending
+		commandQueue = oldQueue
+	}()
+
+	tests := []struct {
+		name string
+		text string
+		want []byte
+	}{
+		{name: "chat", text: "café ☺", want: append([]byte{'c', 'a', 'f', 0x8e, ' '}, []byte(`\u263A`)...)},
+		{name: "command", text: "/think Méme 🚀 \\u263A", want: append([]byte{'/', 't', 'h', 'i', 'n', 'k', ' ', 'M', 0x8e, 'm', 'e', ' '}, []byte(`\U0001F680 \\u263A`)...)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pendingCommand = test.text
+			commandQueue = nil
+			conn := &bufConn{}
+			if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
+				t.Fatalf("sendPlayerInput: %v", err)
+			}
+			data := conn.Bytes()
+			size := int(binary.BigEndian.Uint16(data[:2]))
+			packet := data[2 : 2+size]
+			command := packet[20:]
+			nul := bytes.IndexByte(command, 0)
+			if nul < 0 {
+				t.Fatal("missing command terminator")
+			}
+			if got := command[:nul]; !bytes.Equal(got, test.want) {
+				t.Fatalf("command bytes = % x, want % x", got, test.want)
+			}
+		})
+	}
+}
+
 func TestReadUDPMessageFragmented(t *testing.T) {
 	udpBuffer = nil
 	msg := []byte{0x00, 0x03, 0xde, 0xad, 0xbe, 0xef}

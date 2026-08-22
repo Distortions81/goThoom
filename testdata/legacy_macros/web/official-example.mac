@@ -143,7 +143,7 @@ kneebend
     
     label bouncelab
    call kneebend
-   if i &lt; numbounces
+   if i < numbounces
       set i + 1
       goto bouncelab
    end if
@@ -188,7 +188,7 @@ kneebend
     set wait + 1
     call randwalk
     pause wait
-    if i &lt; seed
+    if i < seed
         set i + 1
         goto drunklab
     end if
@@ -324,12 +324,12 @@ set tt_target ""
     else
         mychar
     end if
-    if charind &lt; numchar
+    if charind < numchar
         set charind + 1
         goto charlab
     end if
     " "
-    if wordind &lt; numword
+    if wordind < numword
         set wordind + 1
         goto wordlab
     end if

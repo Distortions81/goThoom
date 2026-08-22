@@ -213,11 +213,18 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 		flags = kPIMDownField
 	}
 
+	commandMu.Lock()
+	nextCommandLocked()
 	cmd := pendingCommand
-	if cmd == "" {
-		nextCommand()
-		cmd = pendingCommand
+	packetCommand := commandNum
+	if cmd != "" {
+		// Record last-command frame for who throttling.
+		whoLastCommandFrame = ackFrame
+		pendingCommand = ""
+		nextCommandLocked()
 	}
+	commandNum++
+	commandMu.Unlock()
 	var cmdBytes []byte
 	if cmd != "" {
 		cmdBytes = encodeMacRoman(cmd)
@@ -243,17 +250,9 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	binary.BigEndian.PutUint16(packet[6:8], flags)
 	binary.BigEndian.PutUint32(packet[8:12], uint32(ackFrame))
 	binary.BigEndian.PutUint32(packet[12:16], uint32(resendFrame))
-	packetCommand := commandNum
 	binary.BigEndian.PutUint32(packet[16:20], packetCommand)
 	copy(packet[20:], cmdBytes)
 	packet[20+len(cmdBytes)] = 0
-	if cmd != "" {
-		// Record last-command frame for who throttling.
-		whoLastCommandFrame = ackFrame
-		pendingCommand = ""
-		nextCommand()
-	}
-	commandNum++
 	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", ackFrame, resendFrame, packetCommand, mouseX, mouseY, flags)
 	latencyMu.Lock()
 	lastInputSent = time.Now()

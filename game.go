@@ -667,6 +667,9 @@ func (g *Game) Update() error {
 	// Advance script tick waiters once per frame
 	scriptAdvanceTick()
 	advanceLegacyMacros(int64(ackFrame))
+	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.IsOpen() {
+		legacyMacroLibraryRefreshErrorsButton()
+	}
 	typingElsewhere := typingInUI()
 	if inputActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
 		item := inputFlow.Contents[0]
@@ -956,14 +959,14 @@ func (g *Game) Update() error {
 									} else {
 										// Disabled script commands should fall through so the
 										// server still receives the user's input.
-										pendingCommand = txt
+										enqueueCommand(txt)
 									}
 								} else {
-									pendingCommand = txt
+									enqueueCommand(txt)
 								}
 							}
 						} else {
-							pendingCommand = txt
+							enqueueCommand(txt)
 						}
 						// consoleMessage("> " + txt)
 					}
@@ -1098,19 +1101,9 @@ func (g *Game) Update() error {
 	inGame := pointInGameWindow(mx, my)
 	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) {
 		wheelX, wheelY := ebiten.Wheel()
-		wheelName := ""
-		switch {
-		case wheelY > 0:
-			wheelName = "wheelup"
-		case wheelY < 0:
-			wheelName = "wheeldown"
-		case wheelX > 0:
-			wheelName = "wheelright"
-		case wheelX < 0:
-			wheelName = "wheelleft"
-		}
+		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
 		if wheelName != "" {
-			if started, allowDefault := legacyMacroTriggerWheel(wheelName, legacyMacroCurrentModifiers(false), int64(ackFrame)); started && !allowDefault {
+			if started, allowDefault := legacyMacroTriggerWheel(wheelName, wheelModifiers, int64(ackFrame)); started && !allowDefault {
 				legacyMacroMarkInputConsumed(wheelName)
 			}
 		}
@@ -1183,6 +1176,25 @@ func (g *Game) Update() error {
 			middleClick = false
 		}
 	}
+	for _, extra := range []struct {
+		button ebiten.MouseButton
+		name   string
+		number int
+	}{
+		{button: ebiten.MouseButton3, name: "click4", number: 4},
+		{button: ebiten.MouseButton4, name: "click5", number: 5},
+	} {
+		if !focused || !inWindow || !inGame || pointInUI(mx, my) || !inpututil.IsMouseButtonJustPressed(extra.button) {
+			continue
+		}
+		info := handleWorldClick(baseX, baseY, extra.button)
+		event := legacyMacroWorldClickEvent(info, extra.number, legacyMacroMouseChord(extra.number))
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+			legacyMacroMarkMouseConsumed(extra.button, extra.name)
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+			legacyMacroMarkMouseConsumed(extra.button, extra.name)
+		}
+	}
 	// (right-click handling for menus/copy is handled earlier)
 
 	// Default desired target from current pointer, even if outside game window.
@@ -1222,7 +1234,9 @@ func (g *Game) Update() error {
 		x, y = prev.mouseX, prev.mouseY
 	}
 
-	queueInput(inputState{mouseX: x, mouseY: y, mouseDown: walk})
+	if !legacyMacroMovedThisFrame() {
+		queueInput(inputState{mouseX: x, mouseY: y, mouseDown: walk})
+	}
 
 	// Warn about poor performance and suggest disabling shaders.
 	// Suppress this while intentionally lowering FPS due to power saving
@@ -2944,7 +2958,7 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 
 		reliable := false
 		now := time.Now()
-		if now.After(nextReliable) && pendingCommand == "" && tcpConn != nil {
+		if now.After(nextReliable) && commandQueueIsIdle() && tcpConn != nil {
 			reliable = true
 			// next packet will be 3 to 5 minutes from now
 			nextReliable = now.Add(3*time.Minute + time.Duration(rand.Intn(120))*time.Second)
@@ -3029,7 +3043,7 @@ loop:
 		// Allow maintenance queues to issue commands even when the
 		// player isn't moving; this keeps /be-info and /be-who flowing
 		// during idle periods on live connections.
-		if pendingCommand == "" {
+		if commandQueueIsIdle() {
 			if !maybeEnqueueInfo() {
 				_ = maybeEnqueueWho()
 			}

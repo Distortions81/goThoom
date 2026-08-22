@@ -29,10 +29,12 @@ var legacyMacroInputState struct {
 	consumedKeys  map[ebiten.Key]bool
 	consumedMouse map[ebiten.MouseButton]bool
 	consumed      map[string]bool
+	moved         bool
 }
 
 func legacyMacroBeginInputFrame() {
 	legacyMacroInputState.Lock()
+	legacyMacroInputState.moved = false
 	if legacyMacroInputState.consumed == nil {
 		legacyMacroInputState.consumed = make(map[string]bool)
 	} else {
@@ -49,6 +51,12 @@ func legacyMacroBeginInputFrame() {
 		}
 	}
 	legacyMacroInputState.Unlock()
+}
+
+func legacyMacroMovedThisFrame() bool {
+	legacyMacroInputState.Lock()
+	defer legacyMacroInputState.Unlock()
+	return legacyMacroInputState.moved
 }
 
 func legacyMacroMarkInputConsumed(name string) {
@@ -70,6 +78,11 @@ func legacyMacroMarkKeyConsumed(key ebiten.Key, name string) {
 	}
 	legacyMacroInputState.consumedKeys[key] = true
 	legacyMacroInputState.consumed[legacyMacroInputName(name)] = true
+	// A printed-character macro such as option-µ still came from the physical
+	// M key. Suppress both names so the app's option-m hotkey cannot also fire.
+	if physical, _, ok := legacyMacroKeyName(key); ok {
+		legacyMacroInputState.consumed[legacyMacroInputName(physical)] = true
+	}
 	legacyMacroInputState.Unlock()
 }
 
@@ -227,7 +240,7 @@ func (runtime *legacyMacroRuntime) removeExecutionLocked(execution *legacyMacroE
 }
 
 func (runtime *legacyMacroRuntime) triggerExpression(text string, frame int64) bool {
-	trigger := legacyMacroFirstInputWord(text)
+	trigger, _, triggerEnd := legacyMacroFirstInputWordRange(text)
 	if trigger == "" {
 		return false
 	}
@@ -238,10 +251,10 @@ func (runtime *legacyMacroRuntime) triggerExpression(text string, frame int64) b
 		if declaration.Kind != legacyMacroExpression || !legacyMacroTriggerMatches(declaration, trigger) {
 			continue
 		}
-		macroText := ""
-		if len(text) > len(declaration.Trigger) {
-			macroText = text[len(declaration.Trigger):]
+		for triggerEnd < len(text) && legacyMacroInputBreak(text[triggerEnd]) {
+			triggerEnd++
 		}
+		macroText := text[triggerEnd:]
 		_, _ = runtime.startTriggeredLocked(index, legacyMacroExecutionContext{
 			Text:          macroText,
 			TextSelection: text,
@@ -292,6 +305,11 @@ func (runtime *legacyMacroRuntime) triggerClick(event legacyMacroClickEvent, fra
 
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
+	// The reference client reserves a plain click in the Players window for
+	// normal selection. Modifier-click macros are still allowed there.
+	if event.OnPlayer && !event.HasButton && event.Modifiers == 0 {
+		return false, true
+	}
 	if event.HasButton {
 		runtime.interruptIfEnabledLocked("@env.click_interrupts")
 	}
@@ -320,6 +338,25 @@ func (runtime *legacyMacroRuntime) triggerWheel(name string, modifiers legacyMac
 		return true, declaration.Attributes&legacyMacroNoOverride != 0
 	}
 	return false, true
+}
+
+func legacyMacroWheelInput(wheelX, wheelY float64, modifiers legacyMacroModifiers) (string, legacyMacroModifiers) {
+	switch {
+	case wheelX > 0:
+		return "wheelright", modifiers
+	case wheelX < 0:
+		return "wheelleft", modifiers
+	case modifiers&legacyMacroModShift != 0 && wheelY > 0:
+		return "wheelleft", modifiers &^ legacyMacroModShift
+	case modifiers&legacyMacroModShift != 0 && wheelY < 0:
+		return "wheelright", modifiers &^ legacyMacroModShift
+	case wheelY > 0:
+		return "wheelup", modifiers
+	case wheelY < 0:
+		return "wheeldown", modifiers
+	default:
+		return "", modifiers
+	}
 }
 
 func (runtime *legacyMacroRuntime) triggerReplacement(text string, cursor int) (string, int, bool) {
@@ -375,7 +412,7 @@ func (runtime *legacyMacroRuntime) triggerReplacement(text string, cursor int) (
 }
 
 func legacyMacroReplacementBreak(char rune) bool {
-	return char == ' ' || char == '\t' || char == '\r' || char == '\n'
+	return !unicode.IsLetter(char) && !unicode.IsDigit(char)
 }
 
 func legacyMacroTriggerExpression(text string, frame int64) bool {
@@ -433,23 +470,21 @@ func legacyMacroMouseChord(button int) int {
 		ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft),
 		ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight),
 		ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle),
+		ebiten.IsMouseButtonPressed(ebiten.MouseButton3),
+		ebiten.IsMouseButtonPressed(ebiten.MouseButton4),
 	)
-	if chord == 0 && button > 0 && button <= 3 {
+	if chord == 0 && button > 0 && button <= 5 {
 		chord = 1 << (button - 1)
 	}
 	return chord
 }
 
-func legacyMacroMouseChordFromPressed(left, right, middle bool) int {
+func legacyMacroMouseChordFromPressed(pressed ...bool) int {
 	chord := 0
-	if left {
-		chord |= 1
-	}
-	if right {
-		chord |= 2
-	}
-	if middle {
-		chord |= 4
+	for index, down := range pressed {
+		if down {
+			chord |= 1 << index
+		}
 	}
 	return chord
 }
@@ -517,12 +552,15 @@ func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
 	if runtime == nil {
 		return
 	}
-	for _, key := range inpututil.AppendJustPressedKeys(nil) {
+	keys := inpututil.AppendJustPressedKeys(nil)
+	typed := ebiten.AppendInputChars(nil)
+	for _, key := range keys {
 		name, numpad, ok := legacyMacroKeyName(key)
 		if !ok {
 			continue
 		}
 		modifiers := legacyMacroCurrentModifiers(numpad)
+		name = legacyMacroPrintedKeyName(key, name, modifiers, keys, typed)
 		if key == ebiten.KeyEscape && modifiers&legacyMacroModControl != 0 {
 			runtime.cancelAll()
 			legacyMacroMarkKeyConsumed(key, name)
@@ -537,6 +575,43 @@ func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
 			legacyMacroMarkKeyConsumed(key, name)
 		}
 	}
+}
+
+// legacyMacroPrintedKeyName uses the character reported by the OS when one
+// physical key produced one character. This handles keyboard layouts and
+// bindings such as shift-# and option-µ. The fallback covers common US shifted
+// keys for platforms that do not report input characters outside a text field.
+func legacyMacroPrintedKeyName(key ebiten.Key, physical string, modifiers legacyMacroModifiers, pressed []ebiten.Key, typed []rune) string {
+	if modifiers&(legacyMacroModShift|legacyMacroModOption) == 0 {
+		return physical
+	}
+	if len(pressed) == 1 && len(typed) == 1 && unicode.IsPrint(typed[0]) && !unicode.IsSpace(typed[0]) {
+		return string(typed[0])
+	}
+	if modifiers&legacyMacroModShift == 0 {
+		return physical
+	}
+	if key >= ebiten.KeyDigit0 && key <= ebiten.KeyDigit9 {
+		return string(")!@#$%^&*("[key-ebiten.KeyDigit0])
+	}
+	shifted := map[ebiten.Key]string{
+		ebiten.KeyMinus:         "_",
+		ebiten.KeyEqual:         "+",
+		ebiten.KeyBracketLeft:   "{",
+		ebiten.KeyBracketRight:  "}",
+		ebiten.KeyBackslash:     "|",
+		ebiten.KeyIntlBackslash: "|",
+		ebiten.KeySemicolon:     ":",
+		ebiten.KeyQuote:         "\"",
+		ebiten.KeyBackquote:     "~",
+		ebiten.KeyComma:         "<",
+		ebiten.KeyPeriod:        ">",
+		ebiten.KeySlash:         "?",
+	}
+	if name, ok := shifted[key]; ok {
+		return name
+	}
+	return physical
 }
 
 func legacyMacroCurrentModifiers(numpad bool) legacyMacroModifiers {
@@ -592,6 +667,8 @@ func legacyMacroKeyName(key ebiten.Key) (name string, numpad, ok bool) {
 		return "space", false, true
 	case ebiten.KeyHome:
 		return "home", false, true
+	case ebiten.KeyInsert:
+		return "help", false, true
 	case ebiten.KeyPageUp:
 		return "pageup", false, true
 	case ebiten.KeyEnd:
@@ -643,6 +720,9 @@ func legacyMacroKeyProducesText(key ebiten.Key) bool {
 // command into one queued game-input sample. Repeating movement macros issue
 // another sample after each pause, just as the original client does.
 func legacyMacroMovePlayer(move legacyMacroMove) {
+	legacyMacroInputState.Lock()
+	legacyMacroInputState.moved = true
+	legacyMacroInputState.Unlock()
 	if move.Direction == legacyMacroMoveStop {
 		inputMu.Lock()
 		previous := latestInput
