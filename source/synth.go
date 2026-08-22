@@ -491,10 +491,10 @@ type musicPart struct {
 	notes   []Note
 }
 
-const maxMusicPan = 0.70
+const maxMusicPan = 0.40
 
 // musicPan distributes a group evenly across a conservative stereo field.
-// A single part is centered; two parts use -70% and +70%.
+// A single part is centered; two parts use -40% and +40%.
 func musicPan(index, count int) float32 {
 	if count <= 1 {
 		return 0
