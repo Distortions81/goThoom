@@ -1963,7 +1963,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p.PictID) {
+	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p) {
 		if int(p.PrevH) == int(p.H)-shiftX && int(p.PrevV) == int(p.V)-shiftY {
 			//
 		} else {

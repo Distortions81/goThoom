@@ -71,7 +71,8 @@ const poseDead = 32
 const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
-const minMovingPicturePixels = 12000
+const minMovingPictureDimension = 256
+const minMovingPicturePixels = 48000
 
 // percent of area that must be outside the field to count as "on the edge"
 const edgeOutsidePercent = 70
@@ -104,25 +105,29 @@ var pictureSize = func(id uint16) (int, int) {
 }
 
 // pictureCloudMotionEnabled identifies sprites, such as clouds, that move
-// with the camera but also drift independently. The automatic path requires
-// both signals: large dimensions and a semi-transparent blend flag.
-func pictureCloudMotionEnabled(id uint16) bool {
-	w, h := pictureSize(id)
-	large := w >= 128 || h >= 128 || nonTransparentPixels(id) >= minMovingPicturePixels
-	return large && pictureSemiTransparent(id)
+// with the camera but also drift independently. Clouds render after mobiles,
+// so the automatic path requires a positive plane as well as large dimensions
+// and a semi-transparent blend flag.
+func pictureCloudMotionEnabled(p framePicture) bool {
+	if p.Plane <= 0 {
+		return false
+	}
+	w, h := pictureSize(p.PictID)
+	large := w >= minMovingPictureDimension || h >= minMovingPictureDimension || nonTransparentPixels(p.PictID) >= minMovingPicturePixels
+	return large && pictureSemiTransparent(p.PictID)
 }
 
-func pictureMotionInterpolationEnabled(id uint16) bool {
-	return gs.smoothMoving || pictureCloudMotionEnabled(id)
+func pictureMotionInterpolationEnabled(p framePicture) bool {
+	return gs.smoothMoving || pictureCloudMotionEnabled(p)
 }
 
 // pictureExcludedFromShift keeps independently drifting pictures from
 // influencing the shared camera-motion estimate.
-func pictureExcludedFromShift(id uint16) bool {
-	if _, skip := skipPictShift[id]; skip {
+func pictureExcludedFromShift(p framePicture) bool {
+	if _, skip := skipPictShift[p.PictID]; skip {
 		return true
 	}
-	return pictureCloudMotionEnabled(id)
+	return pictureCloudMotionEnabled(p)
 }
 
 type pictureShiftScratch struct {
@@ -698,7 +703,7 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	// Build a map from PictID to indexes in the current frame to avoid
 	// repeatedly scanning the entire list for matches.
 	for i, c := range cur {
-		if pictureExcludedFromShift(c.PictID) {
+		if pictureExcludedFromShift(c) {
 			continue
 		}
 		curIdx[c.PictID] = append(curIdx[c.PictID], i)
@@ -707,7 +712,7 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	// Cache pixel counts locally so that each PictID is computed at most once
 	// per pictureShift invocation.
 	for _, p := range prev {
-		if pictureExcludedFromShift(p.PictID) {
+		if pictureExcludedFromShift(p) {
 			continue
 		}
 		bestDist := maxInt
@@ -1368,7 +1373,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	}
 	positionMatches := matchPicturePositions(prevPics, newPics, state.picShiftX, state.picShiftY, maxInterp, again)
 	for i := range newPics {
-		cloudMotion := pictureCloudMotionEnabled(newPics[i].PictID)
+		cloudMotion := pictureCloudMotionEnabled(newPics[i])
 		if _, skip := skipPictShift[newPics[i].PictID]; skip {
 			newPics[i].PrevH = newPics[i].H
 			newPics[i].PrevV = newPics[i].V
@@ -1404,7 +1409,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		if moving && pictureOnEdge(newPics[i]) {
 			moving = false
 		}
-		if moving && pictureMotionInterpolationEnabled(newPics[i].PictID) {
+		if moving && pictureMotionInterpolationEnabled(newPics[i]) {
 			if j, ok := positionMatches[i]; ok {
 				previous := &prevPics[j]
 				newPics[i].PrevH = previous.H

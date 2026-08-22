@@ -27,23 +27,29 @@ func TestPictureMotionInterpolationEnabledForLargeSprites(t *testing.T) {
 		}
 		return 32, 32
 	}
-	if pictureMotionInterpolationEnabled(1) {
+	small := framePicture{PictID: 1, Plane: 1}
+	largeOpaque := framePicture{PictID: 2, Plane: 1}
+	cloud := framePicture{PictID: 3, Plane: 1}
+	if pictureMotionInterpolationEnabled(small) {
 		t.Fatal("small sprite enabled moving interpolation")
 	}
-	if pictureCloudMotionEnabled(2) {
+	if pictureCloudMotionEnabled(largeOpaque) {
 		t.Fatal("large opaque sprite enabled moving interpolation")
 	}
-	if !pictureCloudMotionEnabled(3) {
+	if !pictureCloudMotionEnabled(cloud) {
 		t.Fatal("large semi-transparent sprite did not enable moving interpolation")
 	}
-	if pictureExcludedFromShift(2) {
+	if pictureCloudMotionEnabled(framePicture{PictID: 3, Plane: 0}) {
+		t.Fatal("large semi-transparent sprite behind mobiles enabled cloud motion")
+	}
+	if pictureExcludedFromShift(largeOpaque) {
 		t.Fatal("large opaque sprite excluded from camera-motion detection")
 	}
-	if !pictureExcludedFromShift(3) {
+	if !pictureExcludedFromShift(cloud) {
 		t.Fatal("large semi-transparent sprite affected camera-motion detection")
 	}
 	gs.smoothMoving = true
-	if !pictureMotionInterpolationEnabled(1) {
+	if !pictureMotionInterpolationEnabled(small) {
 		t.Fatal("smooth-moving option did not enable interpolation")
 	}
 }
