@@ -65,9 +65,9 @@ func playerSharingIcon(p Player) *ebiten.Image {
 	case p.Sharee && p.Sharing:
 		return mutual
 	case p.Sharee && !p.Sharing:
-		return outgoing
-	case p.Sharing && !p.Sharee:
 		return incoming
+	case p.Sharing && !p.Sharee:
+		return outgoing
 	default:
 		return nil
 	}
