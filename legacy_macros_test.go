@@ -572,6 +572,153 @@ func TestLegacyMacroCurrentGameVariables(t *testing.T) {
 	}
 }
 
+func TestLegacyMacroTriggerDispatch(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join([]string{
+			"\"say\" \"/say\" @text \"\\r\"",
+			"f1 \"/wave\\r\"",
+			"click",
+			"{",
+			"\"/tell \" @click.simple_name \"\\r\"",
+			"}",
+			"click2",
+			"{",
+			"$any_click",
+			"$no_override",
+			"\"/look \" @click.name \"\\r\"",
+			"}",
+			"wheelup \"/up\\r\"",
+		}, "\n"),
+	}})
+	var sent []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		SendText: func(text string) { sent = append(sent, text) },
+	})
+
+	if !runtime.triggerExpression("say hello", 0) {
+		t.Fatal("expression macro did not start")
+	}
+	if started, allowDefault := runtime.triggerKey("f1", 0, 0); !started || allowDefault {
+		t.Fatalf("f1 trigger = (%t, %t), want (true, false)", started, allowDefault)
+	}
+	if started, allowDefault := runtime.triggerClick(legacyMacroClickEvent{
+		Name:      "Bob O'Reilly",
+		HasName:   true,
+		OnPlayer:  true,
+		Button:    1,
+		Chord:     1,
+		HasButton: true,
+		HasChord:  true,
+	}, 0); !started || allowDefault {
+		t.Fatalf("player click trigger = (%t, %t), want (true, false)", started, allowDefault)
+	}
+	if started, allowDefault := runtime.triggerClick(legacyMacroClickEvent{
+		HasName:   true,
+		Button:    2,
+		Chord:     1,
+		HasButton: true,
+		HasChord:  true,
+	}, 0); !started || !allowDefault {
+		t.Fatalf("any-click trigger = (%t, %t), want (true, true)", started, allowDefault)
+	}
+	if started, allowDefault := runtime.triggerWheel("wheelup", 0, 0); !started || allowDefault {
+		t.Fatalf("wheel trigger = (%t, %t), want (true, false)", started, allowDefault)
+	}
+
+	if got, want := sent, []string{"/say hello", "/wave", "/tell BobOReilly", "/look ", "/up"}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
+	}
+}
+
+func TestLegacyMacroReplacementExpansion(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join([]string{
+			"'brb' \"be right back\"",
+			"'drop'",
+			"{",
+			"}",
+			"'show' \"[\" @text \"|\" @textsel \"]\"",
+			"'wait'",
+			"{",
+			"\"soon\"",
+			"pause 1",
+			"}",
+			"'bad' \"prefix\" \"\\r\"",
+		}, "\n"),
+	}})
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{})
+
+	updated, cursor, handled := runtime.triggerReplacement("say brb", len([]rune("say brb")))
+	if !handled || updated != "say be right back" || cursor != len([]rune(updated)) {
+		t.Fatalf("brb replacement = (%q, %d, %t)", updated, cursor, handled)
+	}
+	updated, cursor, handled = runtime.triggerReplacement("say drop", len([]rune("say drop")))
+	if !handled || updated != "say" || cursor != len([]rune("say")) {
+		t.Fatalf("empty replacement = (%q, %d, %t)", updated, cursor, handled)
+	}
+	updated, cursor, handled = runtime.triggerReplacement("say show later", len([]rune("say show")))
+	if !handled || updated != "say [say show later|show] later" || cursor != len([]rune("say [say show later|show]")) {
+		t.Fatalf("context replacement = (%q, %d, %t)", updated, cursor, handled)
+	}
+	updated, _, handled = runtime.triggerReplacement("wait", len([]rune("wait")))
+	if !handled || updated != "soon" {
+		t.Fatalf("paused replacement = (%q, %t)", updated, handled)
+	}
+	updated, _, handled = runtime.triggerReplacement("bad", len([]rune("bad")))
+	if !handled || updated != "prefix" {
+		t.Fatalf("return replacement = (%q, %t)", updated, handled)
+	}
+
+	diagnostics := runtime.diagnosticsSnapshot()
+	if len(diagnostics) != 2 || !strings.Contains(diagnostics[0].Message, "may not pause") ||
+		!strings.Contains(diagnostics[1].Message, "may not contain a return") {
+		t.Fatalf("replacement diagnostics = %#v", diagnostics)
+	}
+}
+
+func TestLegacyMacroRuntimeTriggerOutputTargets(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join([]string{
+			"set @env.echo \"true\"",
+			"\"edit\" \"edited\"",
+			"f1 \"typed\"",
+			"f2 \"/wave\\r\"",
+		}, "\n"),
+	}})
+	var sent, inserted, setText []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		SendText:   func(text string) { sent = append(sent, text) },
+		InsertText: func(text string) { inserted = append(inserted, text) },
+		SetText:    func(text string) { setText = append(setText, text) },
+	})
+
+	if started, allowDefault := runtime.triggerKey("f1", 0, 0); !started || allowDefault {
+		t.Fatalf("f1 trigger = (%t, %t), want (true, false)", started, allowDefault)
+	}
+	if !runtime.triggerExpression("edit", 0) {
+		t.Fatal("expression output macro did not start")
+	}
+	if started, allowDefault := runtime.triggerKey("f2", 0, 0); !started || allowDefault {
+		t.Fatalf("f2 trigger = (%t, %t), want (true, false)", started, allowDefault)
+	}
+
+	if got, want := inserted, []string{"typed"}; !equalStrings(got, want) {
+		t.Fatalf("inserted = %#v, want %#v", got, want)
+	}
+	if got, want := setText, []string{"edited", "/wave"}; !equalStrings(got, want) {
+		t.Fatalf("set text = %#v, want %#v", got, want)
+	}
+	if got, want := sent, []string{"/wave"}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
+	}
+}
+
 func equalStrings(got, want []string) bool {
 	if len(got) != len(want) {
 		return false

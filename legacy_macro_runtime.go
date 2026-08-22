@@ -16,6 +16,8 @@ const (
 
 type legacyMacroRuntimeHooks struct {
 	SendText     func(string)
+	InsertText   func(string)
+	SetText      func(string)
 	Message      func(string)
 	Complete     func(*legacyMacroExecution)
 	RandomInt    func(int) int
@@ -46,6 +48,9 @@ type legacyMacroExecution struct {
 	variables map[string]string
 	buffer    string
 	result    string
+
+	captureOutput bool
+	lastLine      legacyMacroLine
 
 	waitUntil  int64
 	complete   bool
@@ -81,8 +86,10 @@ const (
 
 func newLegacyMacroRuntime(program legacyMacroProgram) *legacyMacroRuntime {
 	return newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
-		SendText: legacyMacroQueueText,
-		Message:  consoleMessage,
+		SendText:   legacyMacroQueueText,
+		InsertText: legacyMacroInsertInputText,
+		SetText:    legacyMacroSetInputText,
+		Message:    consoleMessage,
 	})
 }
 
@@ -159,14 +166,19 @@ func (runtime *legacyMacroRuntime) startDeclarationWithContext(index int, contex
 }
 
 func (runtime *legacyMacroRuntime) startDeclarationWithContextLocked(index int, context legacyMacroExecutionContext) (*legacyMacroExecution, error) {
+	return runtime.startDeclarationWithOptionsLocked(index, context, false)
+}
+
+func (runtime *legacyMacroRuntime) startDeclarationWithOptionsLocked(index int, context legacyMacroExecutionContext, captureOutput bool) (*legacyMacroExecution, error) {
 	if index < 0 || index >= len(runtime.program.Macros) {
 		return nil, fmt.Errorf("legacy macro declaration %d does not exist", index)
 	}
 	declaration := runtime.program.Macros[index]
 	execution := &legacyMacroExecution{
-		kind:      declaration.Kind,
-		frames:    []legacyMacroCallFrame{{declaration: index, elseIfLine: -1}},
-		variables: context.initialVariables(),
+		kind:          declaration.Kind,
+		frames:        []legacyMacroCallFrame{{declaration: index, elseIfLine: -1}},
+		variables:     context.initialVariables(),
+		captureOutput: captureOutput,
 	}
 	runtime.active = append(runtime.active, execution)
 	return execution, nil
@@ -199,7 +211,12 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 
 	for step := 0; step < legacyMacroMaxStepsPerTick; step++ {
 		if returnAt := strings.IndexByte(execution.buffer, '\r'); returnAt >= 0 {
-			runtime.sendTextLocked(execution.buffer[:returnAt])
+			if execution.kind == legacyMacroReplacement {
+				execution.buffer = execution.buffer[:returnAt]
+				runtime.failExecutionLocked(execution, execution.lastLine, "replacement macros may not contain a return")
+				return
+			}
+			runtime.sendTextLocked(execution, execution.buffer[:returnAt])
 			execution.buffer = execution.buffer[returnAt+1:]
 			return
 		}
@@ -221,6 +238,7 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 		lineIndex := current.nextLine
 		line := runtime.program.Macros[current.declaration].Body[lineIndex]
 		current.nextLine++
+		execution.lastLine = line
 		execution.steps++
 		if execution.steps > legacyMacroMaxStepsPerExecution {
 			runtime.failExecutionLocked(execution, line, "execution limit exceeded")
@@ -738,10 +756,13 @@ func (runtime *legacyMacroRuntime) variableBaseLocked(name string, execution *le
 	return value, ok
 }
 
-func (runtime *legacyMacroRuntime) sendTextLocked(text string) {
+func (runtime *legacyMacroRuntime) sendTextLocked(execution *legacyMacroExecution, text string) {
 	runtime.sent = append(runtime.sent, text)
 	if runtime.hooks.SendText != nil {
 		runtime.hooks.SendText(text)
+	}
+	if value, ok := runtime.variableLocked("@env.echo", execution); ok && strings.EqualFold(value, "true") && runtime.hooks.SetText != nil {
+		runtime.hooks.SetText(text)
 	}
 }
 
@@ -753,8 +774,8 @@ func (runtime *legacyMacroRuntime) messageLocked(message string) {
 }
 
 func (runtime *legacyMacroRuntime) completeExecutionLocked(execution *legacyMacroExecution) {
+	runtime.finishExecutionOutputLocked(execution)
 	execution.complete = true
-	execution.result = execution.buffer
 	if runtime.hooks.Complete != nil {
 		runtime.hooks.Complete(execution)
 	}
@@ -763,10 +784,27 @@ func (runtime *legacyMacroRuntime) completeExecutionLocked(execution *legacyMacr
 func (runtime *legacyMacroRuntime) failExecutionLocked(execution *legacyMacroExecution, line legacyMacroLine, message string) {
 	runtime.recordDiagnosticLocked(line, message)
 	execution.diagnostic = &runtime.diagnostics[len(runtime.diagnostics)-1]
+	runtime.finishExecutionOutputLocked(execution)
 	execution.complete = true
-	execution.result = execution.buffer
 	if runtime.hooks.Complete != nil {
 		runtime.hooks.Complete(execution)
+	}
+}
+
+func (runtime *legacyMacroRuntime) finishExecutionOutputLocked(execution *legacyMacroExecution) {
+	execution.result = execution.buffer
+	if execution.captureOutput || execution.buffer == "" {
+		return
+	}
+	switch execution.kind {
+	case legacyMacroExpression:
+		if runtime.hooks.SetText != nil {
+			runtime.hooks.SetText(execution.buffer)
+		}
+	default:
+		if runtime.hooks.InsertText != nil {
+			runtime.hooks.InsertText(execution.buffer)
+		}
 	}
 }
 

@@ -934,6 +934,9 @@ func checkHotkeys() {
 	typing := typingInUI()
 	// Detect any just-pressed combo first.
 	if combo := detectCombo(); combo != "" {
+		if legacyMacroHotkeySuppressed(combo) {
+			return
+		}
 		// If the console/input or another UI text field is active, allow
 		// only non-text triggers (e.g., function keys, arrows, mouse, wheel).
 		// This keeps typing unaffected while still letting F12, etc. work.

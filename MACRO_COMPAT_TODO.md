@@ -18,7 +18,7 @@ scripts, with behavior matching the reference client where practical.
       `goto`, with execution limits for bad loops.
 - [x] Provide `@text`, `@my`, `@selplayer`, `@click`, `@env`, and legacy alias
       variables from current game state.
-- [ ] Integrate expression/replacement macros with the input bar and key,
+- [x] Integrate expression/replacement macros with the input bar and key,
       click, and wheel macros with existing input handling.
 - [ ] Add Ctrl-Escape cancellation and key/click interruption behavior.
 - [ ] Add Reload Macros and visible parse/runtime errors.

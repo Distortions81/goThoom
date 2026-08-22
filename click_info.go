@@ -20,6 +20,7 @@ type Mobile struct {
 type ClickInfo struct {
 	X, Y     int16
 	OnMobile bool
+	OnPlayer bool
 	Mobile   Mobile
 	// Button and modifiers at the time of the click.
 	Button ebiten.MouseButton
@@ -65,6 +66,7 @@ func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 			half := int16(size / 2)
 			if x >= m.H-half && x < m.H+half && y >= m.V-half && y < m.V+half {
 				info.OnMobile = true
+				info.OnPlayer = d.Type == kDescPlayer
 				info.Mobile = Mobile{
 					Index:  m.Index,
 					Name:   d.Name,
@@ -83,7 +85,7 @@ func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 
 // handleWorldClick records a click in the game world and captures
 // information about any mobile under the cursor.
-func handleWorldClick(x, y int16, b ebiten.MouseButton) {
+func handleWorldClick(x, y int16, b ebiten.MouseButton) ClickInfo {
 	info := worldInfoAt(x, y)
 	// Snapshot modifier keys at the moment of click.
 	mods := currentMods()
@@ -106,6 +108,8 @@ func handleWorldClick(x, y int16, b ebiten.MouseButton) {
 	lastClickByButtonMu.Lock()
 	lastClickByButton[b] = info
 	lastClickByButtonMu.Unlock()
+
+	return info
 }
 
 // updateWorldHover updates the last hovered world location and mobile.
