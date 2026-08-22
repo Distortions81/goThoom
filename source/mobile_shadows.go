@@ -14,12 +14,9 @@ const (
 	minimumShadowSunHeight = 12.0
 	nominalNoonSunHeight   = 55.0
 	minimumShadowContrast  = 0.70
-	detailedCoreOpacity    = 0.45
-	detailedEdgeOpacity    = 0.10
-	detailedEdgeBaseRadius = 0.50
-	detailedEdgeLengthGain = 0.20
-	detailedEdgeMaxRadius  = 2.00
-	shadowHeadOpacity      = 0.20
+	normalShadowOpacity    = 0.75
+	detailedCoreOpacity    = 0.75
+	shadowHeadOpacity      = 0.10
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -136,11 +133,6 @@ func currentCharacterShadowState() (float32, int, bool) {
 	return float32(level) / 100, normalizeShadowAzimuth(azimuth), true
 }
 
-func detailedCharacterShadowRadius(projection characterShadowProjection) float64 {
-	radius := (detailedEdgeBaseRadius + detailedEdgeLengthGain*projection.length) * gs.GameScale
-	return math.Max(1, math.Min(radius, detailedEdgeMaxRadius*gs.GameScale))
-}
-
 func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) {
 	shadowAlpha, azimuth, ok := currentCharacterShadowState()
 	if !ok || clImages == nil {
@@ -209,20 +201,16 @@ func drawCharacterShadow(screen, img *ebiten.Image, size, x, y int, alpha float3
 	}
 	shadowAlpha := alpha * projection.contrast
 	if gs.DetailedCharacterShadows {
-		radius := detailedCharacterShadowRadius(projection)
-		edgeAlpha := shadowAlpha * detailedEdgeOpacity
-		for _, offset := range [][2]float64{{-radius, 0}, {radius, 0}, {0, -radius}, {0, radius}} {
-			drawCharacterShadowLayer(screen, img, drawSize, size, x, y, edgeAlpha, projection, upright, offset[0], offset[1], blend)
-		}
 		shadowAlpha *= detailedCoreOpacity
+	} else {
+		shadowAlpha *= normalShadowOpacity
 	}
-	drawCharacterShadowLayer(screen, img, drawSize, size, x, y, shadowAlpha, projection, upright, 0, 0, blend)
+	drawCharacterShadowLayer(screen, img, drawSize, size, x, y, shadowAlpha, projection, upright, blend)
 }
 
-func drawCharacterShadowLayer(screen, img *ebiten.Image, drawSize, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, offsetX, offsetY float64, blend ebiten.Blend) {
+func drawCharacterShadowLayer(screen, img *ebiten.Image, drawSize, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {
 	if upright {
 		geo := uprightShadowGeoM(drawSize, size, x, y, projection)
-		geo.Translate(offsetX, offsetY)
 		drawUprightShadowGradient(screen, img, geo, alpha, blend)
 		return
 	}
@@ -236,7 +224,6 @@ func drawCharacterShadowLayer(screen, img *ebiten.Image, drawSize, size, x, y in
 	op.ColorScale.Scale(0, 0, 0, alpha)
 	op.GeoM.Scale(baseScale, baseScale)
 	op.GeoM.Translate(float64(x)-target/2+projection.dropOffsetX, float64(y)-target/2+projection.dropOffsetY)
-	op.GeoM.Translate(offsetX, offsetY)
 
 	screen.DrawImage(img, op)
 	releaseDrawOpts(op)

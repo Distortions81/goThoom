@@ -64,27 +64,21 @@ func TestLowSunShadowsHaveSofterContrast(t *testing.T) {
 	}
 }
 
-func TestDetailedShadowPenumbraGrowsAtLowSun(t *testing.T) {
-	originalScale := gs.GameScale
-	gs.GameScale = 1
-	t.Cleanup(func() { gs.GameScale = originalScale })
-
-	low := detailedCharacterShadowRadius(newCharacterShadowProjection(0))
-	noon := detailedCharacterShadowRadius(newCharacterShadowProjection(90))
-	if low <= noon {
-		t.Fatalf("low-sun penumbra radius %v should exceed noon radius %v", low, noon)
-	}
-	if noon < 1 || low > detailedEdgeMaxRadius {
-		t.Fatalf("penumbra radii out of bounds: low=%v noon=%v", low, noon)
-	}
-}
-
 func TestUprightShadowGradientFadesTowardHead(t *testing.T) {
 	const alpha = 0.8
 	head := float32(alpha * shadowHeadOpacity)
 	toe := float32(alpha)
 	if head <= 0 || head >= toe {
 		t.Fatalf("gradient alpha head=%v toe=%v", head, toe)
+	}
+}
+
+func TestCharacterShadowModesUseBalancedCoreOpacity(t *testing.T) {
+	if normalShadowOpacity != detailedCoreOpacity {
+		t.Fatalf("normal core opacity %v differs from detailed %v", normalShadowOpacity, detailedCoreOpacity)
+	}
+	if normalShadowOpacity <= 0.5 || normalShadowOpacity >= 1 {
+		t.Fatalf("balanced shadow opacity %v should be between half and full strength", normalShadowOpacity)
 	}
 }
 

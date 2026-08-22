@@ -4376,11 +4376,11 @@ func makeQualityWindow() {
 	left.AddItem(characterShadowsCB)
 
 	detailedShadowsCB, detailedShadowsEvents := eui.NewCheckbox()
-	detailedShadowsCB.Text = "Detailed Character Shadows"
+	detailedShadowsCB.Text = "Accurate Character Shadows"
 	detailedShadowsCB.Size = eui.Point{X: width, Y: 24}
 	detailedShadowsCB.Checked = gs.DetailedCharacterShadows
 	detailedShadowsCB.Disabled = !gs.CharacterShadows
-	detailedShadowsCB.SetTooltip("Add soft shadow edges at the cost of extra drawing")
+	detailedShadowsCB.SetTooltip("Prevent overlapping character shadows from becoming excessively dark")
 	detailedShadowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.DetailedCharacterShadows = ev.Checked
