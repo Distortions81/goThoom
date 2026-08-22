@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"math"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -10,6 +11,49 @@ import (
 
 	meltysynth "github.com/sinshu/go-meltysynth/meltysynth"
 )
+
+func TestMusicReverbCarriesAcrossChunks(t *testing.T) {
+	whole := make([]float32, 2048)
+	whole[0] = 1
+	split := append([]float32(nil), whole...)
+
+	onePass := newMusicReverb(sampleRate)
+	onePass.Process(whole, append([]float32(nil), whole...))
+
+	chunked := newMusicReverb(sampleRate)
+	chunked.Process(split[:1024], append([]float32(nil), split[:1024]...))
+	chunked.Process(split[1024:], append([]float32(nil), split[1024:]...))
+
+	for i := range whole {
+		if math.Abs(float64(whole[i]-split[i])) > 1e-6 {
+			t.Fatalf("chunk boundary changed reverb at sample %d", i)
+		}
+	}
+}
+
+func TestMusicPanDistribution(t *testing.T) {
+	if got := musicPan(0, 1); got != 0 {
+		t.Fatalf("solo pan = %v, want 0", got)
+	}
+	if got := musicPan(0, 2); got != -maxMusicPan {
+		t.Fatalf("first duet pan = %v, want %v", got, -maxMusicPan)
+	}
+	if got := musicPan(1, 2); got != maxMusicPan {
+		t.Fatalf("second duet pan = %v, want %v", got, maxMusicPan)
+	}
+	if got := musicPan(1, 3); got != 0 {
+		t.Fatalf("middle trio pan = %v, want 0", got)
+	}
+	if got := musicPan(1, 4); math.Abs(float64(got+maxMusicPan/3)) > 1e-6 {
+		t.Fatalf("second quartet pan = %v, want %v", got, -maxMusicPan/3)
+	}
+	if got := musicPan(2, 5); got != 0 {
+		t.Fatalf("middle quintet pan = %v, want 0", got)
+	}
+	if got := musicPan(99, 100); math.Abs(float64(got-maxMusicPan)) > 1e-6 {
+		t.Fatalf("last large-group pan = %v, want %v", got, maxMusicPan)
+	}
+}
 
 type bufferedStreamSynth struct{}
 

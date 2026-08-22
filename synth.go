@@ -302,150 +302,104 @@ type musicAllpassTap struct {
 	gain    float64
 }
 
-func applyMusicReverb(left, right []float32, rate int) {
-	if len(left) == 0 || len(right) == 0 || len(left) != len(right) || rate <= 0 {
-		return
-	}
-
-	tapsLeft := []musicReverbTap{
-		{seconds: 0.0297, feedback: 0.82},
-		{seconds: 0.0371, feedback: 0.8},
-		{seconds: 0.0411, feedback: 0.78},
-		{seconds: 0.0531, feedback: 0.76},
-		{seconds: 0.0617, feedback: 0.74},
-	}
-	tapsRight := []musicReverbTap{
-		{seconds: 0.0311, feedback: 0.82},
-		{seconds: 0.0387, feedback: 0.8},
-		{seconds: 0.0433, feedback: 0.78},
-		{seconds: 0.0551, feedback: 0.76},
-		{seconds: 0.0647, feedback: 0.74},
-	}
-
-	diffLeft := []musicAllpassTap{
-		{seconds: 0.0053, gain: 0.63},
-		{seconds: 0.0127, gain: 0.52},
-		{seconds: 0.0017, gain: 0.6},
-	}
-	diffRight := []musicAllpassTap{
-		{seconds: 0.0047, gain: 0.63},
-		{seconds: 0.0119, gain: 0.52},
-		{seconds: 0.0019, gain: 0.6},
-	}
-
-	applyMusicReverbMono(left, rate, tapsLeft, diffLeft, 0.022)
-	applyMusicReverbMono(right, rate, tapsRight, diffRight, 0.028)
+type musicCombState struct {
+	buf      []float64
+	idx      int
+	feedback float64
+	filter   float64
 }
 
-func applyMusicReverbMono(samples []float32, rate int, taps []musicReverbTap, diffusers []musicAllpassTap, preDelaySeconds float64) {
-	if len(samples) == 0 || rate <= 0 || len(taps) == 0 {
-		return
-	}
+type musicAllpassState struct {
+	buf  []float64
+	idx  int
+	gain float64
+}
 
-	type combState struct {
-		buf      []float64
-		idx      int
-		feedback float64
-		filter   float64
-	}
+type musicReverbChannel struct {
+	combs     []musicCombState
+	allpasses []musicAllpassState
+	preDelay  []float64
+	preIdx    int
+	wetState  float64
+}
 
-	combs := make([]combState, 0, len(taps))
+type musicReverb struct {
+	left, right musicReverbChannel
+}
+
+func newMusicReverb(rate int) *musicReverb {
+	return &musicReverb{
+		left:  newMusicReverbChannel(rate, []musicReverbTap{{0.0297, 0.82}, {0.0371, 0.8}, {0.0411, 0.78}, {0.0531, 0.76}, {0.0617, 0.74}}, []musicAllpassTap{{0.0053, 0.63}, {0.0127, 0.52}, {0.0017, 0.6}}, 0.022),
+		right: newMusicReverbChannel(rate, []musicReverbTap{{0.0311, 0.82}, {0.0387, 0.8}, {0.0433, 0.78}, {0.0551, 0.76}, {0.0647, 0.74}}, []musicAllpassTap{{0.0047, 0.63}, {0.0119, 0.52}, {0.0019, 0.6}}, 0.028),
+	}
+}
+
+func newMusicReverbChannel(rate int, taps []musicReverbTap, diffusers []musicAllpassTap, preDelaySeconds float64) musicReverbChannel {
+	r := musicReverbChannel{}
 	for _, t := range taps {
-		delay := int(math.Round(t.seconds * float64(rate)))
-		if delay < 1 {
-			continue
+		if delay := int(math.Round(t.seconds * float64(rate))); delay > 0 {
+			r.combs = append(r.combs, musicCombState{buf: make([]float64, delay), feedback: t.feedback})
 		}
-		combs = append(combs, combState{
-			buf:      make([]float64, delay),
-			feedback: t.feedback,
-		})
 	}
-	if len(combs) == 0 {
+	for _, d := range diffusers {
+		if delay := int(math.Round(d.seconds * float64(rate))); delay > 0 {
+			r.allpasses = append(r.allpasses, musicAllpassState{buf: make([]float64, delay), gain: d.gain})
+		}
+	}
+	if n := int(math.Round(preDelaySeconds * float64(rate))); n > 0 {
+		r.preDelay = make([]float64, n)
+	}
+	return r
+}
+
+func (r *musicReverb) Process(left, right []float32) {
+	r.left.process(left)
+	r.right.process(right)
+}
+
+func (r *musicReverbChannel) process(samples []float32) {
+	if len(r.combs) == 0 {
 		return
 	}
-
-	type allpassState struct {
-		buf  []float64
-		idx  int
-		gain float64
-	}
-
-	allpasses := make([]allpassState, 0, len(diffusers))
-	for _, d := range diffusers {
-		delay := int(math.Round(d.seconds * float64(rate)))
-		if delay < 1 {
-			continue
-		}
-		allpasses = append(allpasses, allpassState{
-			buf:  make([]float64, delay),
-			gain: d.gain,
-		})
-	}
-
-	var preDelay []float64
-	if preSamples := int(math.Round(preDelaySeconds * float64(rate))); preSamples > 0 {
-		preDelay = make([]float64, preSamples)
-	}
-
-	preIdx := 0
-
-	const damping = 0.35
-	const wetMix = 0.34
-	const dryMix = 1 - wetMix
-	const wetLowpass = 0.25
-
-	mixScale := 1 / float64(len(combs))
-	wetState := 0.0
-
+	const damping, wetMix, dryMix, wetLowpass = 0.35, 0.34, 0.66, 0.25
 	for i := range samples {
-		dry := float64(samples[i])
-		input := dry
-		if len(preDelay) > 0 {
-			input = preDelay[preIdx]
-			preDelay[preIdx] = dry
-			preIdx++
-			if preIdx >= len(preDelay) {
-				preIdx = 0
-			}
+		dry, input := float64(samples[i]), float64(samples[i])
+		if len(r.preDelay) > 0 {
+			input = r.preDelay[r.preIdx]
+			r.preDelay[r.preIdx] = dry
+			r.preIdx = (r.preIdx + 1) % len(r.preDelay)
 		}
-
 		wet := 0.0
-		for idx := range combs {
-			c := &combs[idx]
+		for i := range r.combs {
+			c := &r.combs[i]
 			delayed := c.buf[c.idx]
 			c.filter += (delayed - c.filter) * damping
 			wet += c.filter
 			c.buf[c.idx] = input + c.filter*c.feedback
-			c.idx++
-			if c.idx >= len(c.buf) {
-				c.idx = 0
-			}
+			c.idx = (c.idx + 1) % len(c.buf)
 		}
-		wet *= mixScale
-
-		for idx := range allpasses {
-			ap := &allpasses[idx]
-			bufVal := ap.buf[ap.idx]
-			y := bufVal - ap.gain*wet
+		wet /= float64(len(r.combs))
+		for i := range r.allpasses {
+			ap := &r.allpasses[i]
+			y := ap.buf[ap.idx] - ap.gain*wet
 			ap.buf[ap.idx] = wet + y*ap.gain
 			wet = y
-			ap.idx++
-			if ap.idx >= len(ap.buf) {
-				ap.idx = 0
-			}
+			ap.idx = (ap.idx + 1) % len(ap.buf)
 		}
-
-		wetState += (wet - wetState) * wetLowpass
-
-		val := dry*dryMix + wetState*wetMix
-		if val > 1 {
-			val = 1
-		} else if val < -1 {
-			val = -1
+		r.wetState += (wet - r.wetState) * wetLowpass
+		v := dry*dryMix + r.wetState*wetMix
+		if v > 1 {
+			v = 1
+		} else if v < -1 {
+			v = -1
 		}
-		samples[i] = float32(val)
+		samples[i] = float32(v)
 	}
 }
+
+// applyMusicReverb is retained for one-shot callers. Streaming music uses a
+// persistent musicReverb instance instead.
+func applyMusicReverb(left, right []float32, rate int) { newMusicReverb(rate).Process(left, right) }
 
 // mixPCM normalizes the provided samples and returns interleaved 16-bit PCM
 // data suitable for audio playback.
@@ -532,6 +486,33 @@ type musicPart struct {
 	notes   []Note
 }
 
+const maxMusicPan = 0.70
+
+// musicPan distributes a group evenly across a conservative stereo field.
+// A single part is centered; two parts use -70% and +70%.
+func musicPan(index, count int) float32 {
+	if count <= 1 {
+		return 0
+	}
+	return -maxMusicPan + (2*maxMusicPan*float32(index))/float32(count-1)
+}
+
+// applyMusicPan preserves the centered level and attenuates only the far
+// channel. This avoids boosting multi-bard mixes into clipping.
+func applyMusicPan(left, right []float32, pan float32) {
+	if pan < 0 {
+		gain := 1 + pan
+		for i := range right {
+			right[i] *= gain
+		}
+	} else if pan > 0 {
+		gain := 1 - pan
+		for i := range left {
+			left[i] *= gain
+		}
+	}
+}
+
 // newMixedMusicStream renders all parts into one PCM stream. This avoids
 // relying on simultaneous audio-backend players for /with bard groups.
 func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
@@ -567,10 +548,11 @@ func (s *musicStream) produceMixed(renderers []*songRenderer) {
 	chunkFrames := musicRenderSeconds * sampleRate
 	buffered := 0
 	var dump []byte
+	var reverb *musicReverb
 	for pos := 0; pos < s.totalFrames; {
 		frames := min(chunkFrames, s.totalFrames-pos)
 		left, right := make([]float32, frames), make([]float32, frames)
-		for _, renderer := range renderers {
+		for i, renderer := range renderers {
 			if renderer.remaining() == 0 {
 				continue
 			}
@@ -581,13 +563,19 @@ func (s *musicStream) produceMixed(renderers []*songRenderer) {
 				s.mu.Unlock()
 				return
 			}
+			if gs.MusicStereoPan {
+				applyMusicPan(partLeft, partRight, musicPan(i, len(renderers)))
+			}
 			for i := range partLeft {
 				left[i] += partLeft[i]
 				right[i] += partRight[i]
 			}
 		}
 		if gs.MusicEnhancement {
-			applyMusicReverb(left, right, sampleRate)
+			if reverb == nil {
+				reverb = newMusicReverb(sampleRate)
+			}
+			reverb.Process(left, right)
 		}
 		pos += frames
 		pcm := mixPCMChunk(left, right, pos == s.totalFrames)

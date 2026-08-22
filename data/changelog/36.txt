@@ -14,12 +14,14 @@ New and improved:
 - Hotkeys accept both `Mouse4` and `Mouse 4` spellings, with clearer function-hotkey scripting help.
 - Bard songs can now play concurrently instead of serializing one performer after another. `/with` multi-bard parts are rendered separately, mixed into one output player, and start after the shared startup buffer is ready.
 - Music now renders one-second PCM chunks and pre-buffers five seconds before playback, reducing audio starvation without rendering an entire song up front.
+- Music reverb now carries smoothly across rendered chunks instead of resetting at chunk boundaries.
 
 Defaults and options:
 - Chat and Console timestamps, game notifications, and notification beeps now default to on.
 - Throttle Repeated Sounds defaults to on.
 - Your own name tag is hidden by default, and name-tag frames appear only for players with a label color (cleaner)
 - Window-pinning buttons default to off and can be enabled in Settings.
+- Stereo Music defaults to on in the Mixer, spreading any number of simultaneous bard instruments evenly across a conservative 70% stereo field.
 - The Download Files experience and downloads page were refreshed, including platform-specific download links and optional soundfont/TTS downloads.
 
 Fixes:

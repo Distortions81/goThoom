@@ -142,6 +142,7 @@ var gsdef settings = settings{
 	GameVolume:            0.6,
 	MusicVolume:           1.0,
 	Music:                 true,
+	MusicStereoPan:        true,
 	GameSound:             true,
 	Mute:                  false,
 	GameScale:             2.0,
@@ -301,6 +302,7 @@ type settings struct {
 	GameVolume            float64
 	MusicVolume           float64
 	Music                 bool
+	MusicStereoPan        bool
 	GameSound             bool
 	Mute                  bool
 	GameScale             float64

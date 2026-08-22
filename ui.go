@@ -1093,6 +1093,26 @@ func makeMixerWindow() {
 
 	addSpacer()
 
+	panCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 76, Y: 140}}
+	panSpacer, _ := eui.NewText()
+	panSpacer.Size = eui.Point{X: 1, Y: 100}
+	panCol.AddItem(panSpacer)
+	stereoMusicCB, stereoMusicEvents := eui.NewCheckbox()
+	stereoMusicCB.Text = "Stereo Music"
+	stereoMusicCB.Checked = gs.MusicStereoPan
+	stereoMusicCB.Size = eui.Point{X: 76, Y: 24}
+	stereoMusicCB.SetTooltip("Spread simultaneous bard instruments across the stereo field")
+	stereoMusicEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MusicStereoPan = ev.Checked
+			settingsDirty = true
+		}
+	}
+	panCol.AddItem(stereoMusicCB)
+	flow.AddItem(panCol)
+
+	addSpacer()
+
 	ttsMixSlider, ttsMixCB = makeMix(gs.ChatTTSVolume, gs.ChatTTS, "TTS",
 		func(ev eui.UIEvent) {
 			if ev.Type == eui.EventSliderChanged {
