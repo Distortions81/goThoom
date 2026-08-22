@@ -152,6 +152,8 @@ var (
 	ttsMixCB           *eui.ItemData
 )
 
+var lightingPlaneOrderCB *eui.ItemData
+
 var ttsTestPhrase = "The quick brown fox jumps over the lazy dog"
 
 // lastWhoRequest tracks the last time we requested a backend who list so we
@@ -4374,12 +4376,30 @@ func makeQualityWindow() {
 			if shaderGlowSlider != nil {
 				shaderGlowSlider.Disabled = !ev.Checked
 			}
+			if lightingPlaneOrderCB != nil {
+				lightingPlaneOrderCB.Disabled = !ev.Checked
+			}
 			if debugWin != nil {
 				debugWin.Refresh()
 			}
 		}
 	}
 	left.AddItem(shaderQualityCB)
+
+	planeOrderCB, planeOrderEvents := eui.NewCheckbox()
+	lightingPlaneOrderCB = planeOrderCB
+	planeOrderCB.Text = "Layered Lighting"
+	planeOrderCB.Size = eui.Point{X: width, Y: 24}
+	planeOrderCB.Checked = gs.LightingPlaneOrder
+	planeOrderCB.Disabled = !gs.ShaderLighting
+	planeOrderCB.SetTooltip("Preserve lighting layer order so foreground darkness can cover lower lights and glow")
+	planeOrderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.LightingPlaneOrder = ev.Checked
+			settingsDirty = true
+		}
+	}
+	left.AddItem(planeOrderCB)
 
 	sLS, shaderLightEvents := eui.NewSlider()
 	shaderLightSlider = sLS

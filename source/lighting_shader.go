@@ -21,7 +21,7 @@ var (
 	frameDarks     []darkSource
 	// Reused shader data to avoid per-frame allocations
 	lposX, lposY, lradius, lr, lg, lb, lint [maxLights]float32
-	dposX, dposY, dradius, da, dint         [maxLights]float32
+	dposX, dposY, dradius, da, dint, dplane [maxLights]float32
 	lightingUniforms                        map[string]any
 	lightingOp                              ebiten.DrawRectShaderOptions
 )
@@ -53,23 +53,26 @@ func init() {
 	}
 	// Initialize reusable uniforms and options
 	lightingUniforms = map[string]any{
-		"LightCount":     0,
-		"DarkCount":      0,
-		"LightPosX":      lposX[:],
-		"LightPosY":      lposY[:],
-		"LightRadius":    lradius[:],
-		"LightR":         lr[:],
-		"LightG":         lg[:],
-		"LightB":         lb[:],
-		"LightIntensity": lint[:],
-		"DarkPosX":       dposX[:],
-		"DarkPosY":       dposY[:],
-		"DarkRadius":     dradius[:],
-		"DarkAlpha":      da[:],
-		"DarkIntensity":  dint[:],
-		"LightStrength":  float32(1),
-		"GlowStrength":   float32(1),
-		"NightFactor":    float32(0),
+		"LightCount":        0,
+		"DarkCount":         0,
+		"LightPosX":         lposX[:],
+		"LightPosY":         lposY[:],
+		"LightRadius":       lradius[:],
+		"LightR":            lr[:],
+		"LightG":            lg[:],
+		"LightB":            lb[:],
+		"LightIntensity":    lint[:],
+		"DarkPosX":          dposX[:],
+		"DarkPosY":          dposY[:],
+		"DarkRadius":        dradius[:],
+		"DarkAlpha":         da[:],
+		"DarkIntensity":     dint[:],
+		"DarkPlane":         dplane[:],
+		"LightStrength":     float32(1),
+		"GlowStrength":      float32(1),
+		"NightFactor":       float32(0),
+		"MaxLightPlane":     float32(32767),
+		"PlaneOrderEnabled": float32(1),
 	}
 	lightingOp = ebiten.DrawRectShaderOptions{}
 	lightingOp.Uniforms = lightingUniforms
@@ -100,6 +103,7 @@ type lightSource struct {
 	X, Y    float32
 	Radius  float32
 	R, G, B float32
+	Plane   int16
 	// Intensity is a scalar multiplier for this light's contribution
 	// used for temporal fades. 1 = full, 0 = none.
 	Intensity float32
@@ -112,6 +116,7 @@ type darkSource struct {
 	X, Y   float32
 	Radius float32
 	Alpha  float32
+	Plane  int16
 	// Intensity is a scalar multiplier applied to Alpha for fades.
 	Intensity float32
 	// AgeFrames: how many full game frames this dark persisted
@@ -162,6 +167,7 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 		dposY[i] = ds.Y
 		dradius[i] = ds.Radius * float32(darkRadiusScale)
 		da[i] = ds.Alpha
+		dplane[i] = float32(ds.Plane)
 		if ds.Intensity <= 0 {
 			dint[i] = 0
 		} else if ds.Intensity >= 1 {
@@ -174,6 +180,12 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	// Scalars
 	lightingUniforms["LightStrength"] = float32(gs.ShaderLightStrength)
 	lightingUniforms["GlowStrength"] = float32(gs.ShaderGlowStrength)
+	lightingUniforms["MaxLightPlane"] = highestLightPlane(il)
+	if gs.LightingPlaneOrder {
+		lightingUniforms["PlaneOrderEnabled"] = float32(1)
+	} else {
+		lightingUniforms["PlaneOrderEnabled"] = float32(0)
+	}
 
 	// Smoothed night factor (0..1)
 	nightFactor := float32(0)
@@ -194,6 +206,21 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	// Bind source and draw
 	lightingOp.Images[0] = lightingTmp
 	dst.DrawRectShader(w, h, lightingShader, &lightingOp)
+}
+
+func highestLightPlane(lights []lightSource) float32 {
+	if len(lights) == 0 {
+		// With no lights there is no ordering boundary, so keep every darkcaster
+		// on the existing pre-light path.
+		return 32767
+	}
+	maxPlane := lights[0].Plane
+	for _, light := range lights[1:] {
+		if light.Plane > maxPlane {
+			maxPlane = light.Plane
+		}
+	}
+	return float32(maxPlane)
 }
 
 // min helper to avoid importing math just for ints
@@ -284,14 +311,14 @@ func addLightSource(pictID uint32, x, y float64, size int) {
 	if flags&climg.PictDefFlagLightDarkcaster != 0 {
 		if len(frameDarks) < maxLights {
 			alpha := float32(li.Color[3]) / 255
-			frameDarks = append(frameDarks, darkSource{X: cx, Y: cy, Radius: radius, Alpha: alpha, Intensity: 1})
+			frameDarks = append(frameDarks, darkSource{X: cx, Y: cy, Radius: radius, Alpha: alpha, Plane: li.Plane, Intensity: 1})
 		}
 	} else {
 		if len(frameLights) < maxLights {
 			r := float32(li.Color[0]) / 255
 			g := float32(li.Color[1]) / 255
 			b := float32(li.Color[2]) / 255
-			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Intensity: 1})
+			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: 1})
 		}
 	}
 }

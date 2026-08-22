@@ -213,8 +213,9 @@ var gsdef settings = settings{
 	HighQualityResampling:  true,
 	ServerAddress:          defaultServerHostName + ":5010",
 
-	NightEffect:    true,
-	ShaderLighting: true,
+	NightEffect:        true,
+	ShaderLighting:     true,
+	LightingPlaneOrder: true,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,
@@ -387,19 +388,20 @@ type settings struct {
 	MusicEnhancement       bool
 	HighQualityResampling  bool
 
-	imgPlanesDebug    bool
-	smoothingDebug    bool
-	pictAgainDebug    bool
-	pictIDDebug       bool
-	scriptOutputDebug bool
-	scriptEventDebug  bool
-	AltNetMode        bool
-	AltNetDelay       int
-	ServerAddress     string
-	hideMoving        bool
-	hideMobiles       bool
-	NightEffect       bool
-	ShaderLighting    bool
+	imgPlanesDebug     bool
+	smoothingDebug     bool
+	pictAgainDebug     bool
+	pictIDDebug        bool
+	scriptOutputDebug  bool
+	scriptEventDebug   bool
+	AltNetMode         bool
+	AltNetDelay        int
+	ServerAddress      string
+	hideMoving         bool
+	hideMobiles        bool
+	NightEffect        bool
+	ShaderLighting     bool
+	LightingPlaneOrder bool
 
 	// Window behavior
 	ShowClanLordSplashImage bool
@@ -925,6 +927,9 @@ func applyQualityPreset(name string) {
 	}
 	if shaderGlowSlider != nil {
 		shaderGlowSlider.Disabled = !gs.ShaderLighting
+	}
+	if lightingPlaneOrderCB != nil {
+		lightingPlaneOrderCB.Disabled = !gs.ShaderLighting
 	}
 }
 

@@ -24,9 +24,12 @@ var (
     DarkRadius [MaxLights]float
     DarkAlpha [MaxLights]float
     DarkIntensity [MaxLights]float
+    DarkPlane [MaxLights]float
     LightStrength float
     GlowStrength float
     NightFactor float
+    MaxLightPlane float
+    PlaneOrderEnabled float
 )
 
 func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
@@ -34,7 +37,8 @@ func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
     base := imageSrc0At(texCoord)
 
     // Accumulate darkening multiplicatively (subtractive only)
-    dim := vec3(1.0, 1.0, 1.0)
+    preLightDim := vec3(1.0, 1.0, 1.0)
+    postLightDim := vec3(1.0, 1.0, 1.0)
     for i := 0; i < MaxLights; i++ {
         if i < DarkCount {
             dx := pos.x - DarkPosX[i]
@@ -43,10 +47,14 @@ func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
             nd := dist / DarkRadius[i]
             f := 1.0 / (1.0 + nd*nd)
             d := clamp(DarkScale*DarkAlpha[i]*f, 0.0, 1.0) * DarkIntensity[i]
-            dim *= vec3(1.0 - d)
+            if PlaneOrderEnabled > 0.5 && DarkPlane[i] > MaxLightPlane {
+                postLightDim *= vec3(1.0 - d)
+            } else {
+                preLightDim *= vec3(1.0 - d)
+            }
         }
     }
-    col := vec4(base.rgb*dim, base.a)
+    col := vec4(base.rgb*preLightDim, base.a)
 
     // Compute a scalar reveal factor and a normalized color mix for smoother blending.
     // This avoids per-channel "patchwork" reveals and blends light colors proportionally.
@@ -143,6 +151,10 @@ func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
     // Tone-map halo and add with small strength
     halo = halo / (1.0 + halo)
     finalRGB = clamp(finalRGB + BaseHaloStrength*GlowStrength*halo, 0.0, 1.0)
+
+    // Darkness on a lighting plane above every active light is composited
+    // after light reveal and glow, matching the original lightmap ordering.
+    finalRGB *= postLightDim
 
     return vec4(finalRGB, base.a)
 }
