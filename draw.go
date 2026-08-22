@@ -71,8 +71,7 @@ const poseDead = 32
 const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
-const minMovingPictureDimension = 256
-const minMovingPicturePixels = 48000
+const minMovingPicturePixels = 12000
 
 // percent of area that must be outside the field to count as "on the edge"
 const edgeOutsidePercent = 70
@@ -113,7 +112,7 @@ func pictureCloudMotionEnabled(p framePicture) bool {
 		return false
 	}
 	w, h := pictureSize(p.PictID)
-	large := w >= minMovingPictureDimension || h >= minMovingPictureDimension || nonTransparentPixels(p.PictID) >= minMovingPicturePixels
+	large := w >= 128 || h >= 128 || nonTransparentPixels(p.PictID) >= minMovingPicturePixels
 	return large && pictureSemiTransparent(p.PictID)
 }
 
