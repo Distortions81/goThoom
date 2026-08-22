@@ -29,3 +29,18 @@ func TestParseLegacyNightCommandKeepsServerShadowLevel(t *testing.T) {
 		t.Fatalf("unexpected legacy night values: level=%d shadows=%d azimuth=%d", level, shadows, azimuth)
 	}
 }
+
+func TestNightCommandUpdatesShadowProjection(t *testing.T) {
+	gNight = NightInfo{}
+	t.Cleanup(func() { gNight = NightInfo{} })
+
+	handleInfoText([]byte("/nt 0 /sa 30 /cl 0\r"))
+	first := newCharacterShadowProjection(gNight.Azimuth)
+
+	handleInfoText([]byte("/nt 0 /sa 90 /cl 0\r"))
+	second := newCharacterShadowProjection(gNight.Azimuth)
+
+	if first.angle == second.angle || first.length == second.length {
+		t.Fatalf("parsed sun update did not change projection: first=%+v second=%+v", first, second)
+	}
+}

@@ -44,8 +44,25 @@ func TestUprightShadowLengthCardinalAngles(t *testing.T) {
 	if math.Abs(short-uprightShadowLength(270)) > 1e-9 {
 		t.Error("opposite midday angles should produce equal shadow lengths")
 	}
-	if long > 5 {
+	if math.Abs(characterShadowSunHeight(0)-7) > 1e-9 || math.Abs(characterShadowSunHeight(90)-55) > 1e-9 {
+		t.Errorf("classic sun heights = (%v, %v), want (7, 55)", characterShadowSunHeight(0), characterShadowSunHeight(90))
+	}
+	if long > 9 {
 		t.Errorf("low-sun shadow length %v should remain visually bounded", long)
+	}
+}
+
+func TestUprightShadowProjectionChangesWithSun(t *testing.T) {
+	previous := newCharacterShadowProjection(0)
+	for _, azimuth := range []int{30, 60, 90} {
+		current := newCharacterShadowProjection(azimuth)
+		if current.angle == previous.angle {
+			t.Fatalf("azimuth %d retained angle %v", azimuth, current.angle)
+		}
+		if current.length == previous.length {
+			t.Fatalf("azimuth %d retained length %v", azimuth, current.length)
+		}
+		previous = current
 	}
 }
 

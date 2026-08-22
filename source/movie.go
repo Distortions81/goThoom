@@ -20,7 +20,10 @@ const (
 const movieSignature = 0xdeadbeef
 const oldestMovieVersion = 193
 
-var movieRevision int32
+var (
+	movieVersion  uint16
+	movieRevision int32
+)
 
 type movieFrame struct {
 	data    []byte
@@ -97,6 +100,7 @@ func parseMovieData(data []byte, clVersion int) ([]movieFrame, error) {
 	if version > 50000 {
 		version /= 100
 	}
+	movieVersion = version
 	if version < oldestMovieVersion {
 		return nil, fmt.Errorf("movie version too old: %d", version)
 	}

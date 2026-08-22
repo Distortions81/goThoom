@@ -8,6 +8,9 @@ New and improved:
 - Added Character Shadows, enabled by default. Upright characters cast sun-directed projected shadows while creatures, boats, and prone characters use inexpensive drop shadows.
 - Added Accurate Character Shadows, enabled by default. Overlapping character shadows are combined before darkening the scene so crowded groups do not become excessively dark.
 - Upright character shadows fade from darker at the feet to lighter toward the projected head, and their length and contrast vary with the sun position.
+- Character shadow rotation, pose mirroring, and low-sun length now follow the classic client's projection model.
+- Fixed picture decoding in v366-and-older movies so lighting, sun-angle, and other frame state continue updating during playback.
+- Movie seeking now restores night level and sun position from checkpoints, keeping character-shadow direction and length synchronized after scrubbing.
 - Legacy macros now receive the real input-box selection through `@textsel` while editing or invoking a macro.
 
 Defaults and options:

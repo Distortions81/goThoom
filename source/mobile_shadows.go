@@ -11,7 +11,7 @@ import (
 const (
 	poseLie                = 41
 	shadowDropOffset       = 5.0
-	minimumShadowSunHeight = 12.0
+	minimumShadowSunHeight = 7.0
 	nominalNoonSunHeight   = 55.0
 	minimumShadowContrast  = 0.70
 	normalShadowOpacity    = 0.75
@@ -82,9 +82,12 @@ func characterShadowSunHeight(azimuth int) float64 {
 	if angle > 180 {
 		angle -= 180
 	}
-	latitude := 35 * math.Pi / 180
-	hourAngle := angle * math.Pi / 180
-	elevation := math.Asin(math.Cos(latitude)*math.Sin(hourAngle)) * 180 / math.Pi
+	if angle > 90 {
+		angle = 180 - angle
+	}
+	// Match the classic OpenGL client: estimate elevation linearly from the
+	// folded sun azimuth, reaching 55 degrees at local noon.
+	elevation := angle / 90 * nominalNoonSunHeight
 	if elevation < minimumShadowSunHeight {
 		elevation = minimumShadowSunHeight
 	} else if elevation > 85 {
@@ -257,7 +260,9 @@ func uprightShadowGeoM(drawSize, size, x, y int, projection characterShadowProje
 
 	var geo ebiten.GeoM
 	geo.Translate(-float64(drawSize)/2, -float64(drawSize))
-	geo.Scale(baseScale, baseScale*projection.length)
+	// The classic OpenGL path swaps the left and right shadow vertices before
+	// rotating the quad.
+	geo.Scale(-baseScale, baseScale*projection.length)
 	geo.Rotate(-(projection.angle + math.Pi/2))
 	geo.Translate(float64(x), float64(y)+target/2)
 	return geo

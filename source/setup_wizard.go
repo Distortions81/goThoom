@@ -37,6 +37,7 @@ var (
 	setupWizardPreviewPlayer string
 	setupWizardPreviewCrypt  bool
 	setupWizardPreviewBubble bool
+	setupWizardPreviewVer    uint16
 	setupWizardPreviewRev    int32
 )
 
@@ -74,9 +75,11 @@ func startSetupWizardPreview() {
 	if setupWizardPreviewActive || tcpConn != nil || clmov != "" || playingMovie || pcapPath != "" || fake || clImages == nil || gameCtx == nil {
 		return
 	}
+	previousVersion := movieVersion
 	previousRevision := movieRevision
 	frames, err := parseMovieZipBytes(setupWizardMovieZip, clVersion)
 	if err != nil || len(frames) == 0 {
+		movieVersion = previousVersion
 		movieRevision = previousRevision
 		if err != nil {
 			logError("setup wizard movie: %v", err)
@@ -91,6 +94,7 @@ func startSetupWizardPreview() {
 	setupWizardPreviewPlayer = playerName
 	setupWizardPreviewCrypt = drawStateEncrypted
 	setupWizardPreviewBubble = blockBubbles
+	setupWizardPreviewVer = previousVersion
 	setupWizardPreviewRev = previousRevision
 	setupWizardPreviewActive = true
 	blockBubbles = true
@@ -137,6 +141,7 @@ func stopSetupWizardPreview() {
 	blockBubbles = setupWizardPreviewBubble
 	playerName = setupWizardPreviewPlayer
 	drawStateEncrypted = setupWizardPreviewCrypt
+	movieVersion = setupWizardPreviewVer
 	movieRevision = setupWizardPreviewRev
 	setupWizardPreview = nil
 	setupWizardPreviewCancel = nil

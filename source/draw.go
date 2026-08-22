@@ -1206,23 +1206,31 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	if totalPics > cap(pics) {
 		pics = make([]framePicture, 0, totalPics)
 	}
+	pictureIDBits := 14
+	pictureCoordBits := 11
+	// Movies through v366 used the original 12/10/10 packed picture format.
+	// Live frames and newer movies use the expanded 14/11/11 format.
+	if movieMode && movieVersion <= 366 {
+		pictureIDBits = 12
+		pictureCoordBits = 10
+	}
 	br := bitReader{data: data[p:]}
 	for i := 0; i < pictCount; i++ {
-		idBits, ok := br.readBits(14)
+		idBits, ok := br.readBits(pictureIDBits)
 		if !ok {
 			return ack, resend, errors.New("truncated picture bit stream")
 		}
-		hBits, ok := br.readBits(11)
+		hBits, ok := br.readBits(pictureCoordBits)
 		if !ok {
 			return ack, resend, errors.New("truncated picture bit stream")
 		}
-		vBits, ok := br.readBits(11)
+		vBits, ok := br.readBits(pictureCoordBits)
 		if !ok {
 			return ack, resend, errors.New("truncated picture bit stream")
 		}
 		id := uint16(idBits)
-		h := signExtend(hBits, 11)
-		v := signExtend(vBits, 11)
+		h := signExtend(hBits, pictureCoordBits)
+		v := signExtend(vBits, pictureCoordBits)
 		plane := 0
 		if clImages != nil {
 			plane = clImages.Plane(uint32(id))

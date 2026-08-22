@@ -25,6 +25,49 @@ var (
 type movieCheckpoint struct {
 	idx   int
 	state drawState
+	night movieNightState
+}
+
+type movieNightState struct {
+	baseLevel       int
+	azimuth         int
+	cloudy          bool
+	flags           uint
+	level           int
+	shadows         int
+	oldAzimuth      int
+	redshift        float64
+	startOfTwilight int
+}
+
+func captureMovieNightState() movieNightState {
+	gNight.mu.Lock()
+	defer gNight.mu.Unlock()
+	return movieNightState{
+		baseLevel:       gNight.BaseLevel,
+		azimuth:         gNight.Azimuth,
+		cloudy:          gNight.Cloudy,
+		flags:           gNight.Flags,
+		level:           gNight.Level,
+		shadows:         gNight.Shadows,
+		oldAzimuth:      gNight.oldAzimuth,
+		redshift:        gNight.redshift,
+		startOfTwilight: gNight.startOfTwilight,
+	}
+}
+
+func restoreMovieNightState(n movieNightState) {
+	gNight.mu.Lock()
+	gNight.BaseLevel = n.baseLevel
+	gNight.Azimuth = n.azimuth
+	gNight.Cloudy = n.cloudy
+	gNight.Flags = n.flags
+	gNight.Level = n.level
+	gNight.Shadows = n.shadows
+	gNight.oldAzimuth = n.oldAzimuth
+	gNight.redshift = n.redshift
+	gNight.startOfTwilight = n.startOfTwilight
+	gNight.mu.Unlock()
 }
 
 // checkpointInterval determines how often checkpoints are recorded during
@@ -82,7 +125,7 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 		resetOnNextDraw: true,
 		ticker:          time.NewTicker(time.Second / time.Duration(fps)),
 		cancel:          cancel,
-		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState)}},
+		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState), night: captureMovieNightState()}},
 	}
 }
 
@@ -449,8 +492,9 @@ func (p *moviePlayer) step() {
 	maybeDecodeMessage(m.data)
 	p.cur++
 	if p.cur%checkpointInterval == 0 {
+		night := captureMovieNightState()
 		stateMu.Lock()
-		cp := movieCheckpoint{idx: p.cur, state: cloneDrawState(state)}
+		cp := movieCheckpoint{idx: p.cur, state: cloneDrawState(state), night: night}
 		stateMu.Unlock()
 		p.checkpoints = append(p.checkpoints, cp)
 	}
@@ -685,6 +729,7 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	// will be rebuilt again if additional frames are parsed.
 	prepareRenderCacheLocked()
 	stateMu.Unlock()
+	restoreMovieNightState(cp.night)
 	frameCounter = cp.idx
 
 	for i := cp.idx; i < idx; i++ {
@@ -706,8 +751,9 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 		if frameCounter%checkpointInterval == 0 {
 			last := p.checkpoints[len(p.checkpoints)-1]
 			if last.idx != frameCounter {
+				night := captureMovieNightState()
 				stateMu.Lock()
-				snap := movieCheckpoint{idx: frameCounter, state: cloneDrawState(state)}
+				snap := movieCheckpoint{idx: frameCounter, state: cloneDrawState(state), night: night}
 				stateMu.Unlock()
 				p.checkpoints = append(p.checkpoints, snap)
 			}
@@ -715,8 +761,9 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	}
 	last := p.checkpoints[len(p.checkpoints)-1]
 	if last.idx != idx {
+		night := captureMovieNightState()
 		stateMu.Lock()
-		snap := movieCheckpoint{idx: idx, state: cloneDrawState(state)}
+		snap := movieCheckpoint{idx: idx, state: cloneDrawState(state), night: night}
 		stateMu.Unlock()
 		p.checkpoints = append(p.checkpoints, snap)
 	}
