@@ -20,6 +20,28 @@ func TestParseMusicCommandRawFallback(t *testing.T) {
 	}
 }
 
+func TestParseMusicCommandIgnoredWhileMovieSeeking(t *testing.T) {
+	oldBlockMusic := blockMusic
+	blockMusic = true
+	t.Cleanup(func() { blockMusic = oldBlockMusic })
+
+	if !parseMusicCommand("/music/play/inst1/notesabc", nil) {
+		t.Fatal("recognized music command should remain handled while seeking")
+	}
+}
+
+func TestMusicStopLeavesMixerEnabled(t *testing.T) {
+	oldSettings := gs
+	gs = gsdef
+	gs.Music = true
+	t.Cleanup(func() { gs = oldSettings })
+
+	handleMusicParams(MusicParams{Stop: true})
+	if !gs.Music {
+		t.Fatal("a song stop must not disable the Music mixer setting")
+	}
+}
+
 // TestParseMusicCommandFromMovie extracts a /music payload from the lore1.clMov
 // sample and verifies that parseMusicCommand can decode it when debug logging
 // is enabled.

@@ -594,6 +594,12 @@ func parseMusicCommand(s string, raw []byte) bool {
 	}
 
 	s = strings.TrimSpace(s)
+	// Movie seeking replays historical messages. Ignore a recognized music
+	// command immediately while that replay is silenced; deferring it would let
+	// the command run after seek restores audio and stop a later song.
+	if blockMusic {
+		return true
+	}
 
 	// Parse parameters
 	inst := defaultInstrument
@@ -740,6 +746,11 @@ func parseInterruptCommand(s string) bool {
 	}
 	// Only act on a standalone interrupt directive, not arbitrary substrings.
 	if ss == "/m_interrupt" || strings.HasPrefix(ss, "/m_interrupt ") {
+		// Seeking replays old interrupt frames only to rebuild visual state.
+		// They must not cancel music that starts once seeking has completed.
+		if blockMusic {
+			return true
+		}
 		stopAllMusic()
 		clearTuneQueue()
 		return true

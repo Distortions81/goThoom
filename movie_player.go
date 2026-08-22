@@ -46,6 +46,12 @@ type moviePlayer struct {
 	// draw at movie start or after looping back to frame zero.
 	resetOnNextDraw bool
 
+	// Slider motion can generate many values while an expensive seek is still
+	// rebuilding state. Keep only the most recent value and seek to it next.
+	seekMu      sync.Mutex
+	seekTarget  int
+	seekPending bool
+
 	checkpoints []movieCheckpoint
 
 	slider       *eui.ItemData
@@ -113,12 +119,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider.Size = eui.Point{X: 650, Y: 24}
 	p.slider.IntOnly = true
 	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged && !seekingMov {
-			seekLock.Lock()
-			go func() {
-				p.seek(int(ev.Value))
-				seekLock.Unlock()
-			}()
+		if ev.Type == eui.EventSliderChanged {
+			p.requestSeek(int(ev.Value))
 		}
 	}
 	tFlow.AddItem(p.slider)
@@ -448,7 +450,7 @@ func (p *moviePlayer) step() {
 }
 
 func (p *moviePlayer) updateUI() {
-	if p.slider != nil {
+	if p.slider != nil && !p.hasPendingSeek() {
 		p.slider.Value = float32(p.cur)
 		p.slider.Dirty = true
 	}
@@ -477,6 +479,46 @@ func (p *moviePlayer) updateUI() {
 	if p.repeatButton != nil {
 		changeRepeatButton(p, p.repeatButton)
 	}
+}
+
+func (p *moviePlayer) hasPendingSeek() bool {
+	p.seekMu.Lock()
+	defer p.seekMu.Unlock()
+	return p.seekPending
+}
+
+// requestSeek coalesces drag events. The final slider position is never lost
+// merely because an earlier seek is still rebuilding the movie state.
+func (p *moviePlayer) requestSeek(idx int) {
+	p.seekMu.Lock()
+	p.seekTarget = idx
+	if p.seekPending {
+		p.seekMu.Unlock()
+		return
+	}
+	p.seekPending = true
+	p.seekMu.Unlock()
+
+	go func() {
+		for {
+			p.seekMu.Lock()
+			target := p.seekTarget
+			p.seekMu.Unlock()
+
+			seekLock.Lock()
+			p.seek(target)
+			seekLock.Unlock()
+
+			p.seekMu.Lock()
+			if p.seekTarget == target {
+				p.seekPending = false
+				p.seekMu.Unlock()
+				p.updateUI()
+				return
+			}
+			p.seekMu.Unlock()
+		}
+	}()
 }
 
 func (p *moviePlayer) setFPS(fps int) {

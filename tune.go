@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -67,9 +66,6 @@ type instrument struct {
 	polyphony int  // maximum simultaneous chord notes (classic default 6)
 }
 
-// queue sequentializes tune playback so overlapping /play commands do not
-// render concurrently. Each tune section is played to completion before the
-// next begins.
 type tuneJob struct {
 	program int
 	notes   []Note
@@ -77,28 +73,9 @@ type tuneJob struct {
 	debug   bool
 }
 
-var (
-	tuneOnce         sync.Once
-	tuneQueue        chan tuneJob
-	currentMu        sync.Mutex
-	currentWho       int
-	lastMusicStop    time.Time
-	lastMusicStopMu  sync.Mutex
-	disableRequested atomic.Bool
-)
-
-// requestDisableMusic hands settings and UI changes back to the game loop.
-// Tune playback runs in a worker goroutine, while disableMusic touches state
-// owned by the main thread.
-func requestDisableMusic() {
-	disableRequested.Store(true)
-}
-
-func processMusicRequests() {
-	if disableRequested.Swap(false) {
-		disableMusic()
-	}
-}
+// processMusicRequests remains a main-loop hook. Playback failures and song
+// stops must never alter the user's Music mixer preference.
+func processMusicRequests() {}
 
 func disableMusic() {
 	gs.Music = false
@@ -114,55 +91,19 @@ func disableMusic() {
 	}
 }
 
-func startTuneWorker() {
-	tuneQueue = make(chan tuneJob, 128)
-	go func() {
-		for job := range tuneQueue {
-			if audioContext == nil {
-				requestDisableMusic()
-				continue
-			}
-			currentMu.Lock()
-			currentWho = job.who
-			currentMu.Unlock()
-			// Impose a small minimum delay after the last stop to avoid a
-			// late stop request immediately killing a newly started player.
-			const minStartDelay = 80 * time.Millisecond
-			lastMusicStopMu.Lock()
-			since := time.Since(lastMusicStop)
-			lastMusicStopMu.Unlock()
-			if since < minStartDelay {
-				time.Sleep(minStartDelay - since)
-			}
-			if err := Play(audioContext, job.program, job.notes); err != nil {
-				log.Printf("play tune worker: %v", err)
-				if job.debug {
-					consoleMessage("play tune: " + err.Error())
-					chatMessage("play tune: " + err.Error())
-				}
-				requestDisableMusic()
-			}
-			currentMu.Lock()
-			currentWho = 0
-			currentMu.Unlock()
-		}
-	}()
-}
-
 // playClanLordTune decodes a Clan Lord music string and plays it using the
 // music package. The tune may optionally begin with an instrument index.
 // For example: "3 cde" plays on instrument #3. It returns any playback error.
 func playClanLordTune(tune string) error {
 	if audioContext == nil {
-		requestDisableMusic()
 		return fmt.Errorf("audio disabled")
 	}
 	if blockMusic {
 		return fmt.Errorf("music blocked")
 	}
-    if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
-        return fmt.Errorf("music muted")
-    }
+	if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
+		return fmt.Errorf("music muted")
+	}
 
 	// Determine instrument prefix ("<inst> <notes>")
 	inst := defaultInstrument
@@ -181,19 +122,7 @@ func playClanLordTune(tune string) error {
 	}
 	prog := instruments[inst].program
 
-	// Enqueue for sequential playback and return immediately.
-	tuneOnce.Do(startTuneWorker)
-	select {
-	case tuneQueue <- tuneJob{program: prog, notes: ns}:
-	default:
-		// If the queue is full, drop the oldest by draining one then enqueue.
-		// This prevents unbounded growth during bursts.
-		select {
-		case <-tuneQueue:
-		default:
-		}
-		tuneQueue <- tuneJob{program: prog, notes: ns}
-	}
+	enqueueTune(tuneJob{program: prog, notes: ns})
 	return nil
 }
 
@@ -234,13 +163,7 @@ func handleMusicParams(mp MusicParams) {
 			pendingMu.Lock()
 			delete(pendingByID, mp.Who)
 			pendingMu.Unlock()
-			currentMu.Lock()
-			cw := currentWho
-			currentMu.Unlock()
-			if cw == mp.Who {
-				stopAllMusic()
-				clearTuneQueue()
-			}
+			stopMusicFor(mp.Who)
 		} else {
 			// Global stop
 			pendingMu.Lock()
@@ -256,9 +179,9 @@ func handleMusicParams(mp MusicParams) {
 	}
 	// Ignore play requests while muted, matching classic behavior when sound
 	// is off. Still handled /stop above regardless of mute state.
-    if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
-        return
-    }
+	if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
+		return
+	}
 	// Validate basics
 	if mp.Inst < 0 || mp.Inst >= len(instruments) {
 		mp.Inst = defaultInstrument
@@ -374,9 +297,7 @@ func handleMusicParams(mp MusicParams) {
 		// Enqueue jobs sequentially
 		// Clear any queued previous jobs so the synchronized set starts cleanly.
 		clearTuneQueue()
-		for _, job := range jobs {
-			enqueueTune(job)
-		}
+		enqueueTunes(jobs)
 		return
 	}
 	pendingMu.Unlock()
@@ -431,30 +352,43 @@ func makeTuneJob(who, inst, tempo, vol int, notes string, debug bool) tuneJob {
 }
 
 func enqueueTune(job tuneJob) {
-	tuneOnce.Do(startTuneWorker)
-	select {
-	case tuneQueue <- job:
-	default:
-		select {
-		case <-tuneQueue:
-		default:
-		}
-		tuneQueue <- job
-	}
+	enqueueTunes([]tuneJob{job})
 }
 
-// clearTuneQueue drains any queued tunes so newly queued items can take effect
-// immediately after mute/unmute or a stop request.
-func clearTuneQueue() {
-	if tuneQueue == nil {
+// enqueueTunes starts each track on its own renderer. A group waits until every
+// track has rendered its initial five seconds, then releases all players
+// together so /with bards remain synchronized.
+func enqueueTunes(jobs []tuneJob) {
+	if len(jobs) == 0 {
 		return
 	}
-	for {
-		select {
-		case <-tuneQueue:
-			// drained one
-		default:
-			return
-		}
+	start := make(chan struct{})
+	var prepared sync.WaitGroup
+	prepared.Add(len(jobs))
+	for _, job := range jobs {
+		job := job
+		go func() {
+			if audioContext == nil {
+				prepared.Done()
+				log.Printf("play tune: audio disabled")
+				return
+			}
+			if err := playMusic(audioContext, job.program, job.notes, job.who, prepared.Done, start); err != nil {
+				log.Printf("play tune: %v", err)
+				if job.debug {
+					consoleMessage("play tune: " + err.Error())
+					chatMessage("play tune: " + err.Error())
+				}
+			}
+		}()
 	}
+	go func() {
+		prepared.Wait()
+		close(start)
+	}()
+}
+
+// clearTuneQueue remains for message compatibility. Tunes start independently,
+// so there is no serial queue to drain.
+func clearTuneQueue() {
 }

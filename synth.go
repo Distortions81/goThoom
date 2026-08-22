@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -56,9 +57,14 @@ var (
 	sfntCached     *meltysynth.SoundFont
 	synthSettings  *meltysynth.SynthesizerSettings
 
-	musicPlayers   = make(map[*audio.Player]struct{})
+	musicPlayers   = make(map[*audio.Player]musicTrack)
 	musicPlayersMu sync.Mutex
 )
+
+type musicTrack struct {
+	stream *musicStream
+	who    int
+}
 
 // newSynthesizer constructs a meltysynth synthesizer. Tests may override this to
 // inject a mock implementation.
@@ -67,15 +73,26 @@ var newSynthesizer = func(sf *meltysynth.SoundFont, settings *meltysynth.Synthes
 }
 
 func stopAllMusic() {
-	lastMusicStopMu.Lock()
-	lastMusicStop = time.Now()
-	lastMusicStopMu.Unlock()
 	musicPlayersMu.Lock()
-	defer musicPlayersMu.Unlock()
-	for p := range musicPlayers {
+	for p, track := range musicPlayers {
 		_ = p.Close()
+		_ = track.stream.Close()
 		delete(musicPlayers, p)
 	}
+	musicPlayersMu.Unlock()
+}
+
+func stopMusicFor(who int) {
+	musicPlayersMu.Lock()
+	for p, track := range musicPlayers {
+		if track.who != who {
+			continue
+		}
+		_ = p.Close()
+		_ = track.stream.Close()
+		delete(musicPlayers, p)
+	}
+	musicPlayersMu.Unlock()
 }
 
 func setupSynth() {
@@ -108,24 +125,53 @@ func setupSynth() {
 // the raw left and right channel samples. The caller can further process or mix
 // these samples before playback.
 func renderSong(program int, notes []Note) ([]float32, []float32, error) {
+	r, err := newSongRenderer(program, notes)
+	if err != nil {
+		return nil, nil, err
+	}
+	leftAll := make([]float32, 0, r.totalSamples)
+	rightAll := make([]float32, 0, r.totalSamples)
+	for r.remaining() > 0 {
+		left, right, err := r.render(min(block, r.remaining()))
+		if err != nil {
+			return nil, nil, err
+		}
+		leftAll = append(leftAll, left...)
+		rightAll = append(rightAll, right...)
+	}
+	return leftAll, rightAll, nil
+}
+
+// songRenderer keeps the synthesizer and event state for one tune. It permits
+// a song to be rendered in bounded pieces without changing its note timing.
+type songRenderer struct {
+	syn          synthesizer
+	events       []songEvent
+	active       map[int]bool
+	pos          int
+	totalSamples int
+}
+
+type songEvent struct {
+	key, vel   int
+	start, end int
+}
+
+func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	setupSynthOnce.Do(setupSynth)
 	if sfntCached == nil || synthSettings == nil {
-		return nil, nil, errors.New("synth not initialized")
+		return nil, errors.New("synth not initialized")
 	}
 
 	const ch = 0
 	// Build a fresh synth per song to avoid concurrent use of internal state.
 	syn, err := newSynthesizer(sfntCached, synthSettings)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	syn.ProcessMidiMessage(ch, 0xC0, int32(program), 0)
 
-	type event struct {
-		key, vel   int
-		start, end int
-	}
-	var events []event
+	var events []songEvent
 	var maxEnd int
 	for _, n := range notes {
 		durSamples := int((n.Duration.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
@@ -133,7 +179,7 @@ func renderSong(program int, notes []Note) ([]float32, []float32, error) {
 			continue
 		}
 		startSamples := int((n.Start.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
-		ev := event{key: n.Key, vel: n.Velocity, start: startSamples, end: startSamples + durSamples}
+		ev := songEvent{key: n.Key, vel: n.Velocity, start: startSamples, end: startSamples + durSamples}
 		events = append(events, ev)
 		if ev.end > maxEnd {
 			maxEnd = ev.end
@@ -183,51 +229,57 @@ func renderSong(program int, notes []Note) ([]float32, []float32, error) {
 		}
 	}
 
-	// Render extra frames for decay
-	totalSamples := maxEnd + tailSamples
+	return &songRenderer{
+		syn:          syn,
+		events:       events,
+		active:       make(map[int]bool),
+		totalSamples: maxEnd + tailSamples,
+	}, nil
+}
 
-	leftAll := make([]float32, 0, totalSamples)
-	rightAll := make([]float32, 0, totalSamples)
-	active := map[int]bool{}
+func (r *songRenderer) remaining() int { return r.totalSamples - r.pos }
 
-	trigger := func(start, count int) {
-		end := start + count
+// render returns exactly count frames (or the remaining frames, if fewer).
+func (r *songRenderer) render(count int) ([]float32, []float32, error) {
+	if count > r.remaining() {
+		count = r.remaining()
+	}
+	leftAll := make([]float32, 0, count)
+	rightAll := make([]float32, 0, count)
+	for count > 0 {
+		n := block
+		if n > count {
+			n = count
+		}
+		start := r.pos
+		end := start + n
 		// First process all note-offs that land in this block so that a
 		// note retrigger (end and start in same block) can fire correctly.
-		for _, ev := range events {
-			if ev.end >= start && ev.end < end && active[ev.key] {
-				syn.NoteOff(ch, int32(ev.key))
-				active[ev.key] = false
+		for _, ev := range r.events {
+			if ev.end >= start && ev.end < end && r.active[ev.key] {
+				r.syn.NoteOff(0, int32(ev.key))
+				r.active[ev.key] = false
 			}
 		}
 		// Then process note-ons for this block.
-		for _, ev := range events {
-			if ev.start >= start && ev.start < end && !active[ev.key] {
-				syn.NoteOn(ch, int32(ev.key), int32(ev.vel))
-				active[ev.key] = true
+		for _, ev := range r.events {
+			if ev.start >= start && ev.start < end && !r.active[ev.key] {
+				r.syn.NoteOn(0, int32(ev.key), int32(ev.vel))
+				r.active[ev.key] = true
 			}
 		}
-	}
-
-	for pos := 0; pos < totalSamples; pos += block {
-		// Render in fixed-size blocks to avoid triggering edge cases in the
-		// underlying synth (e.g., effects processing relying on block size).
-		n := block
-		if pos+n > totalSamples {
-			n = totalSamples - pos
-		}
-		trigger(pos, n)
 		// Always ask the synth to render a full block, then trim to the
 		// number of remaining samples we actually need to keep timing exact.
 		left := make([]float32, block)
 		right := make([]float32, block)
-		if err := safeRender(syn, left, right); err != nil {
+		if err := safeRender(r.syn, left, right); err != nil {
 			return nil, nil, fmt.Errorf("synth render: %v", err)
 		}
 		leftAll = append(leftAll, left[:n]...)
 		rightAll = append(rightAll, right[:n]...)
+		r.pos += n
+		count -= n
 	}
-
 	return leftAll, rightAll, nil
 }
 
@@ -451,10 +503,143 @@ func mixPCM(leftAll, rightAll []float32) []byte {
 	return pcm
 }
 
-// Play renders the provided notes using the given SoundFont, mixes the entire
-// song, and then plays it through the provided audio context. The function
-// blocks until playback has finished.
+const (
+	musicRenderSeconds = 1
+	musicBufferSeconds = 5
+)
+
+// musicStream exposes rendered PCM to Ebiten as it becomes available. Five
+// one-second chunks are produced before playback starts; after that the
+// renderer stays at most five seconds ahead of the output device.
+type musicStream struct {
+	chunks    chan []byte
+	done      chan struct{}
+	ready     chan struct{}
+	once      sync.Once
+	readyOnce sync.Once
+	data      []byte
+	err       error
+	mu        sync.Mutex
+}
+
+func newMusicStream(program int, notes []Note) (*musicStream, error) {
+	renderer, err := newSongRenderer(program, notes)
+	if err != nil {
+		return nil, err
+	}
+	s := &musicStream{
+		chunks: make(chan []byte, musicBufferSeconds),
+		done:   make(chan struct{}),
+		ready:  make(chan struct{}),
+	}
+	go s.produce(renderer)
+	<-s.ready // render five seconds before the caller starts the player
+	return s, nil
+}
+
+func (s *musicStream) produce(renderer *songRenderer) {
+	defer close(s.chunks)
+	defer s.signalReady()
+	chunkFrames := musicRenderSeconds * sampleRate
+	buffered := 0
+	var dump []byte
+	for renderer.remaining() > 0 {
+		left, right, err := renderer.render(min(chunkFrames, renderer.remaining()))
+		if err != nil {
+			s.mu.Lock()
+			s.err = err
+			s.mu.Unlock()
+			return
+		}
+		if gs.MusicEnhancement {
+			applyMusicReverb(left, right, sampleRate)
+		}
+		pcm := mixPCMChunk(left, right, renderer.remaining() == 0)
+		if dumpMusic {
+			dump = append(dump, pcm...)
+		}
+		select {
+		case s.chunks <- pcm:
+			buffered++
+			if buffered == musicBufferSeconds {
+				s.signalReady()
+			}
+		case <-s.done:
+			return
+		}
+	}
+	if dumpMusic {
+		dumpPCMAsWAV(dump)
+	}
+}
+
+func (s *musicStream) signalReady() {
+	s.readyOnce.Do(func() { close(s.ready) })
+}
+
+// Read blocks only after the initial five-second buffer has been consumed.
+// That gives the render goroutine enough time to keep the audio device fed.
+func (s *musicStream) Read(p []byte) (int, error) {
+	for len(s.data) == 0 {
+		select {
+		case s.data = <-s.chunks:
+			if s.data == nil {
+				s.mu.Lock()
+				err := s.err
+				s.mu.Unlock()
+				if err != nil {
+					return 0, err
+				}
+				return 0, io.EOF
+			}
+		case <-s.done:
+			return 0, io.EOF
+		}
+	}
+	n := copy(p, s.data)
+	s.data = s.data[n:]
+	return n, nil
+}
+
+func (s *musicStream) Close() error {
+	s.once.Do(func() { close(s.done) })
+	return nil
+}
+
+// mixPCMChunk intentionally does not normalize each chunk: independent peak
+// normalization would make one bard's volume jump from second to second.
+func mixPCMChunk(left, right []float32, final bool) []byte {
+	if final {
+		fade := fadeOutSamples
+		if fade > len(left) {
+			fade = len(left)
+		}
+		for i := len(left) - fade; i < len(left); i++ {
+			g := 1 - float32(i-(len(left)-fade))/float32(fade)
+			left[i] *= g
+			right[i] *= g
+		}
+	}
+	pcm := make([]byte, len(left)*4)
+	for i := range left {
+		l := int16(left[i] * 32767)
+		r := int16(right[i] * 32767)
+		binary.LittleEndian.PutUint16(pcm[4*i:], uint16(l))
+		binary.LittleEndian.PutUint16(pcm[4*i+2:], uint16(r))
+	}
+	return pcm
+}
+
+// Play starts an independent, five-second-buffered music stream. Rendering is
+// done in one-second increments, allowing several bards to play together.
 func Play(ctx *audio.Context, program int, notes []Note) error {
+	return playMusic(ctx, program, notes, 0, nil, nil)
+}
+
+// prepared is called after the initial five seconds are rendered. start gates
+// playback so a /with group can begin its independently rendered tracks at the
+// same instant.
+func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared func(), start <-chan struct{}) error {
 
 	if ctx == nil {
 		return errors.New("nil audio context")
@@ -464,20 +649,21 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 		return errors.New("music muted")
 	}
 
-	leftAll, rightAll, err := renderSong(program, notes)
+	stream, err := newMusicStream(program, notes)
 	if err != nil {
+		if prepared != nil {
+			prepared()
+		}
 		return err
 	}
-
-	if gs.MusicEnhancement {
-		applyMusicReverb(leftAll, rightAll, sampleRate)
+	player, err := ctx.NewPlayer(stream)
+	if err != nil {
+		_ = stream.Close()
+		if prepared != nil {
+			prepared()
+		}
+		return err
 	}
-
-	pcm := mixPCM(leftAll, rightAll)
-	if dumpMusic {
-		dumpPCMAsWAV(pcm)
-	}
-	player := ctx.NewPlayerFromBytes(pcm)
 
 	vol := gs.MasterVolume * gs.MusicVolume
 	if gs.Mute || focusMuted {
@@ -486,26 +672,18 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 	player.SetVolume(vol)
 
 	musicPlayersMu.Lock()
-	musicPlayers[player] = struct{}{}
+	musicPlayers[player] = musicTrack{stream: stream, who: who}
 	musicPlayersMu.Unlock()
 
+	if prepared != nil {
+		prepared()
+	}
+	if start != nil {
+		<-start
+	}
 	player.Play()
 
-	// Compute the logical song duration from note events (without long
-	// decay tail), then add a small grace period to avoid clipping endings.
-	// Wait for the audio to finish based on the rendered PCM duration, with
-	// a small grace period for device buffering. This avoids cutting off
-	// lingering releases on guitar/harp-like patches without altering timing.
-	totalFrames := len(pcm) / 4 // 2ch * 16-bit
-	playDur := time.Second * time.Duration(totalFrames) / sampleRate
-	if playDur < 0 {
-		playDur = 0
-	}
-	target := time.Now().Add(playDur + 100*time.Millisecond)
-	for time.Now().Before(target) {
-		if !safeIsPlaying(player) {
-			break
-		}
+	for safeIsPlaying(player) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
@@ -513,6 +691,7 @@ func Play(ctx *audio.Context, program int, notes []Note) error {
 	delete(musicPlayers, player)
 	musicPlayersMu.Unlock()
 
+	_ = stream.Close()
 	return player.Close()
 }
 
