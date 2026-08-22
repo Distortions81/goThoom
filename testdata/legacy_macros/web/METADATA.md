@@ -9,7 +9,7 @@ macro library presentation only; it does not change macro behavior.
 // Version: <version>
 // Tags: <healer/fighter/sharing/sunstone/anything>
 // Desc: <macro description>
-// Author: <author name>
+// Author: <author name/email/discord/etc>
 // License: <license name> (year)
 // Website: <website or author site>
 // Update: <macro update URL>
