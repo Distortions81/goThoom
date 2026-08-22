@@ -1,7 +1,11 @@
+// Metadata
 // Name: Dynamic Sharecads
-// Dynamic Sharecads v1.3.1
-//   By Gorvin
-
+// Version: 1.3.1
+// Tags: healer, sharing
+// Desc: Maintains a useful set of sharecads.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/
+// Update: http://gorvin.50webs.com/macros/dynamicsharecads.txt
 // This is an enhanced, less-spammy version of Sharecads. It takes into
 // consideration the 3 second delay between shares and does not waste time
 // trying to share someone you're already sharing with. If several healers

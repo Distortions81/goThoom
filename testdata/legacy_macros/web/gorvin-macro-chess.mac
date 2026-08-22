@@ -1,6 +1,11 @@
+// Metadata
 // Name: Macro Chess
-//   Macro Chess v1.2
-
+// Version: 1.2
+// Tags: games, social
+// Desc: Play chess with another player in Clan Lord.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/
+// Update: http://gorvin.50webs.com/macros/chessMac.txt
 //   This is a macro to play a Chess game against another player.
 //   In order to play against someone else, they also need to have the macro.
 

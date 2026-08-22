@@ -1,7 +1,11 @@
+// Metadata
 // Name: Directions
-//------------------------------------------------
-// directions.mac
-//------------------------------------------------
+// Version: 1.0
+// Tags: travel, utility
+// Desc: Text commands for common destinations.
+// Author: Kiriel D'Sol; adapted by Inu
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Directions.mac
 // directional macros, Courtesy of Kiriel D'Sol
 // http://www.windsofdawn.org/kiriel/macro.html?macro=didir
 // 20070127-inu: Modded to make generic so one call with a parameter will call appropriate directions

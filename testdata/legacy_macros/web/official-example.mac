@@ -1,4 +1,10 @@
+// Metadata
 // Name: Delta Tao Example Macros
+// Tags: movement, hotkeys, chat
+// Desc: Official examples, including directional movement bindings.
+// Author: Delta Tao example contributors
+// Website: https://www.deltatao.com/clanlord/
+// Update: https://www.deltatao.com/clanlord/macros/example_macros.html
 
 // Clears the text field when you press the 'esc' key
 escape

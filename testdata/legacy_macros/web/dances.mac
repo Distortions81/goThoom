@@ -1,7 +1,10 @@
+// Metadata
 // Name: Dances
-//------------------------------------------------
-// dances.mac
-//------------------------------------------------
+// Tags: social, emotes
+// Desc: Dance commands and help.
+// Author: Inu; Mash by Noivad
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Dances.mac
 "/dc" 
 {
 LABEL dancer

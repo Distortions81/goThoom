@@ -1,9 +1,11 @@
+// Metadata
 // Name: Keys
-//=====================================================
-// keys.mac
-//------------------------------------------------
+// Tags: inventory, utility
+// Desc: Common key bindings.
+// Author: Inu
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Keys.mac
 // HouseKey macros
-//=====================================================
 
 "/keys"
 {

@@ -28,7 +28,7 @@ func TestLegacyMacroWebCorpusParses(t *testing.T) {
 		{name: "clump-scanner.mac"},
 		// The published source has an extra closing brace. The reference C
 		// parser reports it and keeps loading the remaining declarations.
-		{name: "clump-omega-zu.mac", diagnosticLine: 279, diagnosticText: "unexpected closing brace"},
+		{name: "clump-omega-zu.mac", diagnosticLine: 286, diagnosticText: "unexpected closing brace"},
 		{name: "gorvin-dynamicsharecads.mac"},
 		{name: "gorvin-right-clicker.mac"},
 		{name: "gorvin-macro-chess.mac"},

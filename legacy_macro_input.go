@@ -292,6 +292,9 @@ func (runtime *legacyMacroRuntime) triggerClick(event legacyMacroClickEvent, fra
 
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
+	if event.HasButton {
+		runtime.interruptIfEnabledLocked("@env.click_interrupts")
+	}
 	for index, declaration := range runtime.program.Macros {
 		if declaration.Kind != legacyMacroClick || declaration.Key.Modifiers != event.Modifiers || declaration.Key.Button != event.Button {
 			continue
@@ -425,6 +428,77 @@ func legacyMacroWorldClickEvent(info ClickInfo, button, chord int) legacyMacroCl
 	return event
 }
 
+func legacyMacroMouseChord(button int) int {
+	chord := legacyMacroMouseChordFromPressed(
+		ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft),
+		ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight),
+		ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle),
+	)
+	if chord == 0 && button > 0 && button <= 3 {
+		chord = 1 << (button - 1)
+	}
+	return chord
+}
+
+func legacyMacroMouseChordFromPressed(left, right, middle bool) int {
+	chord := 0
+	if left {
+		chord |= 1
+	}
+	if right {
+		chord |= 2
+	}
+	if middle {
+		chord |= 4
+	}
+	return chord
+}
+
+// legacyMacroHandlePlayerModifierClick mirrors the classic client's player
+// actions. It returns true when the modifier consumes the normal click.
+func legacyMacroHandlePlayerModifierClick(name string, modifiers legacyMacroModifiers) bool {
+	if name == "" {
+		return false
+	}
+	switch modifiers & (legacyMacroModCommand | legacyMacroModOption | legacyMacroModControl | legacyMacroModShift) {
+	case legacyMacroModCommand:
+		selectPlayer(name)
+		return true
+	case legacyMacroModOption:
+		legacyMacroInsertPlayerName(name)
+		return true
+	case legacyMacroModControl:
+		label := legacyMacroPlayerGlobalLabel(name)
+		if label >= 0 && label < 5 {
+			label++
+		} else {
+			label = 0
+		}
+		setPlayerLabel(name, label, true)
+		return true
+	case legacyMacroModControl | legacyMacroModShift:
+		label := 6
+		switch legacyMacroPlayerGlobalLabel(name) {
+		case 6:
+			label = 7
+		case 7:
+			label = 0
+		}
+		setPlayerLabel(name, label, true)
+		return true
+	default:
+		return false
+	}
+}
+
+func legacyMacroPlayerGlobalLabel(name string) int {
+	player := getPlayer(name)
+	playersMu.RLock()
+	label := player.GlobalLabel
+	playersMu.RUnlock()
+	return label
+}
+
 func legacyMacroPlayerClickEvent(name string) legacyMacroClickEvent {
 	return legacyMacroClickEvent{
 		Name:      name,
@@ -436,7 +510,7 @@ func legacyMacroPlayerClickEvent(name string) legacyMacroClickEvent {
 }
 
 func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
-	if typingElsewhere || !ebiten.IsFocused() {
+	if !ebiten.IsFocused() {
 		return
 	}
 	runtime := legacyMacroRuntimeSnapshot()
@@ -448,7 +522,17 @@ func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
 		if !ok {
 			continue
 		}
-		started, allowDefault := runtime.triggerKey(name, legacyMacroCurrentModifiers(numpad), frame)
+		modifiers := legacyMacroCurrentModifiers(numpad)
+		if key == ebiten.KeyEscape && modifiers&legacyMacroModControl != 0 {
+			runtime.cancelAll()
+			legacyMacroMarkKeyConsumed(key, name)
+			continue
+		}
+		runtime.interruptIfEnabled("@env.key_interrupts")
+		if typingElsewhere {
+			continue
+		}
+		started, allowDefault := runtime.triggerKey(name, modifiers, frame)
 		if started && !allowDefault {
 			legacyMacroMarkKeyConsumed(key, name)
 		}
@@ -624,6 +708,18 @@ func legacyMacroInsertInputText(text string) {
 	inputActive = true
 	inputMu.Unlock()
 	legacyMacroRefreshInput()
+}
+
+func legacyMacroInsertPlayerName(name string) {
+	var text strings.Builder
+	text.WriteByte(' ')
+	for _, char := range name {
+		if unicode.IsLetter(char) {
+			text.WriteRune(char)
+		}
+	}
+	text.WriteByte(' ')
+	legacyMacroSetInputText(text.String())
 }
 
 func legacyMacroSetInputText(text string) {

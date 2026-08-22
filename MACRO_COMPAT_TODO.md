@@ -20,11 +20,11 @@ scripts, with behavior matching the reference client where practical.
       variables from current game state.
 - [x] Integrate expression/replacement macros with the input bar and key,
       click, and wheel macros with existing input handling.
-- [ ] Add Ctrl-Escape cancellation and key/click interruption behavior.
-- [ ] Add Reload Macros and visible parse/runtime errors.
-- [ ] Track click chords/double-clicks for `@click.chord` and Right-Clicker
+- [x] Add Ctrl-Escape cancellation and key/click interruption behavior.
+- [x] Add Reload Macros and visible parse/runtime errors.
+- [x] Track click chords/double-clicks for `@click.chord` and Right-Clicker
       compatibility.
-- [ ] Implement reference modifier-click player interaction: select, insert
+- [x] Implement reference modifier-click player interaction: select, insert
       name, label cycle, block/ignore cycle.
 - [x] Add a public parser corpus and selected end-to-end compatibility
       fixtures from legacy C-client macros.

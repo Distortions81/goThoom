@@ -1,8 +1,12 @@
+// Metadata
 // Name: Scanner
+// Version: 3.2.5
+// Tags: messaging, sharing, utility
+// Desc: Advanced scanner macros.
+// Author: Scanner.txt contributors
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Scanner.txt
 message "Scanner.txt macro Loaded"
- //------------------------------------------------------------------------------
- // scanner.txt  version 3.2.5 (Array-fied)
- //------------------------------------------------------------------------------
  // Description:  (AKA "A Quick Reply")
  // This macro allows you to quickly reply to anyone who thinks to you directly
  // to you. It also manages think to groups and think to clan actions by default.

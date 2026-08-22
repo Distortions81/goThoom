@@ -115,8 +115,25 @@ embedded in the client. The first time it opens, the bundled sources are copied
 to `Macros/Library/` without overwriting anything. Every `.mac` file in that
 directory then appears in the list, including files you add yourself.
 
-- Add `// Name: My friendly macro name` anywhere on its own comment line to
-  give a macro a display name. Without it, the filename is shown.
+- Optional comment metadata gives macros a friendly presentation. Use this
+  standard at the top of a macro:
+
+  ```text
+  // Metadata
+  // Name: <macro name>
+  // Version: <version>
+  // Tags: <healer/fighter/sharing/sunstone/anything>
+  // Desc: <macro description>
+  // Author: <author name>
+  // License: <license name> (year)
+  // Website: <website or author site>
+  // Update: <macro update URL>
+  ```
+
+  The description appears beside the name when it fits; the **i** button
+  shows every field. Without `Name`, the filename is shown. See
+  [Legacy macro metadata](docs/MacroMetadata.md) for field definitions and
+  parsing behavior.
 - **Global** and selected **Player** checkboxes are saved in
   `Macros/Library/enabled.json`. They tell goThoom which library files to load
   and never rewrite `Macros/Default` or `Macros/<player name>`.

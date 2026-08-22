@@ -14,12 +14,13 @@ import (
 const (
 	legacyMacroLibraryDirName       = "Library"
 	legacyMacroLibrarySelectionName = "enabled.json"
+	legacyMacroLibraryMetadataName  = "METADATA.md"
 )
 
 // legacyMacroLibraryFS contains the public legacy macro corpus shipped with
 // the client. The same source files are parsed by the compatibility tests.
 //
-//go:embed testdata/legacy_macros/web/*.mac
+//go:embed testdata/legacy_macros/web/*.mac testdata/legacy_macros/web/METADATA.md
 var legacyMacroLibraryFS embed.FS
 
 // legacyMacroLibraryBundledEntry holds attribution and description metadata.
@@ -120,8 +121,14 @@ var legacyMacroBundledLibrary = []legacyMacroLibraryBundledEntry{
 type legacyMacroLibraryEntry struct {
 	ID          string
 	Name        string
+	Version     string
 	Path        string
+	Tags        string
 	Description string
+	Author      string
+	License     string
+	Website     string
+	Update      string
 	SourceURL   string
 	Note        string
 	Bundled     bool
@@ -168,6 +175,14 @@ func legacyMacroLibrarySource(entry legacyMacroLibraryBundledEntry) (string, err
 	return string(text), nil
 }
 
+func legacyMacroLibraryMetadataReference() ([]byte, error) {
+	text, err := legacyMacroLibraryFS.ReadFile("testdata/legacy_macros/web/" + legacyMacroLibraryMetadataName)
+	if err != nil {
+		return nil, fmt.Errorf("read bundled macro metadata reference: %w", err)
+	}
+	return text, nil
+}
+
 // legacyMacroLibraryEntries returns every .mac source in Macros/Library. The
 // bundled corpus is first copied there if missing, never overwriting a user
 // file, so the directory is the one editable source of truth.
@@ -203,18 +218,26 @@ func legacyMacroLibraryEntriesLocked() ([]legacyMacroLibraryEntry, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read library macro %q: %w", id, err)
 		}
+		metadata := parseLegacyMacroLibraryMetadata(id, string(text))
 		entry := legacyMacroLibraryEntry{
-			ID:   id,
-			Name: legacyMacroLibraryDisplayName(id, string(text)),
-			Path: path,
+			ID:          id,
+			Name:        metadata.Name,
+			Version:     metadata.Version,
+			Path:        path,
+			Tags:        metadata.Tags,
+			Description: metadata.Description,
+			Author:      metadata.Author,
+			License:     metadata.License,
+			Website:     metadata.Website,
+			Update:      metadata.Update,
 		}
 		if bundled, ok := legacyMacroLibraryBundledEntryByFilename(id); ok && strings.Contains(string(text), "// goThoom bundled macro:") {
 			entry.Bundled = true
-			entry.Description = bundled.Description
+			if entry.Description == "" {
+				entry.Description = bundled.Description
+			}
 			entry.SourceURL = bundled.SourceURL
 			entry.Note = bundled.Note
-		} else {
-			entry.Description = "User macro source."
 		}
 		entries = append(entries, entry)
 	}
@@ -229,11 +252,22 @@ func legacyMacroLibraryEmbeddedEntries() ([]legacyMacroLibraryEntry, error) {
 		if err != nil {
 			return nil, err
 		}
+		metadata := parseLegacyMacroLibraryMetadata(bundled.Filename, text)
+		description := metadata.Description
+		if description == "" {
+			description = bundled.Description
+		}
 		entries = append(entries, legacyMacroLibraryEntry{
 			ID:          bundled.Filename,
-			Name:        legacyMacroLibraryDisplayName(bundled.Filename, text),
+			Name:        metadata.Name,
+			Version:     metadata.Version,
 			Path:        filepath.Join(legacyMacroLibraryPath(), bundled.Filename),
-			Description: bundled.Description,
+			Tags:        metadata.Tags,
+			Description: description,
+			Author:      metadata.Author,
+			License:     metadata.License,
+			Website:     metadata.Website,
+			Update:      metadata.Update,
 			SourceURL:   bundled.SourceURL,
 			Note:        bundled.Note,
 			Bundled:     true,
@@ -275,25 +309,55 @@ func legacyMacroLibraryEntryByIDLocked(id string) (legacyMacroLibraryEntry, bool
 	return legacyMacroLibraryEntry{}, false, nil
 }
 
-// legacyMacroLibraryDisplayName reads the inert source convention used by the
-// UI. A plain filename is intentionally retained as the fallback so a user's
-// existing .mac file needs no migration.
-func legacyMacroLibraryDisplayName(filename, source string) string {
+type legacyMacroLibraryMetadata struct {
+	Name        string
+	Version     string
+	Tags        string
+	Description string
+	Author      string
+	License     string
+	Website     string
+	Update      string
+}
+
+// parseLegacyMacroLibraryMetadata reads inert source comments used only by the
+// library UI. A plain filename is retained as the name fallback so existing
+// user .mac files need no migration.
+func parseLegacyMacroLibraryMetadata(filename, source string) legacyMacroLibraryMetadata {
+	metadata := legacyMacroLibraryMetadata{Name: filepath.Base(filename)}
 	for _, line := range strings.Split(source, "\n") {
 		line = strings.TrimSpace(strings.TrimPrefix(line, "\ufeff"))
 		if !strings.HasPrefix(line, "//") {
 			continue
 		}
 		comment := strings.TrimSpace(strings.TrimPrefix(line, "//"))
-		const namePrefix = "Name:"
-		if len(comment) < len(namePrefix) || !strings.EqualFold(comment[:len(namePrefix)], namePrefix) {
-			continue
-		}
-		if name := strings.TrimSpace(comment[len(namePrefix):]); name != "" {
-			return name
+		for _, field := range []struct {
+			prefix string
+			target *string
+		}{
+			{"Name:", &metadata.Name},
+			{"Version:", &metadata.Version},
+			{"Tags:", &metadata.Tags},
+			{"Desc:", &metadata.Description},
+			{"Author:", &metadata.Author},
+			{"License:", &metadata.License},
+			{"Website:", &metadata.Website},
+			{"Update:", &metadata.Update},
+		} {
+			if len(comment) < len(field.prefix) || !strings.EqualFold(comment[:len(field.prefix)], field.prefix) {
+				continue
+			}
+			if value := strings.TrimSpace(comment[len(field.prefix):]); value != "" {
+				*field.target = value
+			}
+			break
 		}
 	}
-	return filepath.Base(filename)
+	return metadata
+}
+
+func legacyMacroLibraryDisplayName(filename, source string) string {
+	return parseLegacyMacroLibraryMetadata(filename, source).Name
 }
 
 func installLegacyMacroLibrarySourcesLocked() error {
@@ -307,6 +371,34 @@ func installLegacyMacroLibrarySourcesLocked() error {
 		if _, err := saveLegacyMacroLibrarySource(entry); err != nil {
 			return err
 		}
+	}
+	if err := saveLegacyMacroLibraryMetadataReference(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func saveLegacyMacroLibraryMetadataReference() error {
+	text, err := legacyMacroLibraryMetadataReference()
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o644)
+	if os.IsExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("create macro metadata reference %q: %w", path, err)
+	}
+	if _, err := file.Write(text); err != nil {
+		_ = file.Close()
+		_ = os.Remove(path)
+		return fmt.Errorf("write macro metadata reference %q: %w", path, err)
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(path)
+		return fmt.Errorf("close macro metadata reference %q: %w", path, err)
 	}
 	return nil
 }

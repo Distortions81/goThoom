@@ -1,4 +1,10 @@
+// Metadata
 // Name: Macro Tetris
+// Tags: games
+// Desc: Play Tetris in the sidebar.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/
+// Update: http://gorvin.50webs.com/macros/tetrisMac.txt
 
 // Settings:
 set gTetris_start_speed 3 // Starting speed, as a delay of frames (lower numbers are faster).
@@ -747,4 +753,3 @@ or // ###
   setglobal gTetris_block[15] "aaaa"
 end random
 }
-

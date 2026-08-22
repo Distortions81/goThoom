@@ -1,7 +1,10 @@
+// Metadata
 // Name: Sunstone
-//------------------------------------------------
-// sunstone.mac
-//------------------------------------------------
+// Tags: sunstone, chat, utility
+// Desc: Sunstone helper macros.
+// Author: Noivad and Inu
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Sunstone.mac
 // Speed dial section - to send messages to friends quicker
 //
 "/tbeer"  	"/thinkto Beer " @text "\r"

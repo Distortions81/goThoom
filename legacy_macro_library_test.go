@@ -25,8 +25,9 @@ func TestLegacyMacroLibraryEmbeddedCorpusHasDisplayNames(t *testing.T) {
 		if strings.TrimSpace(source) == "" {
 			t.Fatalf("bundled source %q is empty", entry.Filename)
 		}
-		if name := legacyMacroLibraryDisplayName(entry.Filename, source); name == entry.Filename {
-			t.Fatalf("bundled source %q has no // Name: display name", entry.Filename)
+		metadata := parseLegacyMacroLibraryMetadata(entry.Filename, source)
+		if metadata.Name == entry.Filename || metadata.Tags == "" || metadata.Description == "" || metadata.Author == "" || metadata.Website == "" || metadata.Update == "" {
+			t.Fatalf("bundled source %q has incomplete metadata: %#v", entry.Filename, metadata)
 		}
 	}
 }
@@ -42,6 +43,13 @@ func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing
 	}
 	if len(entries) != len(legacyMacroBundledLibrary) {
 		t.Fatalf("initial library entries = %d, want %d", len(entries), len(legacyMacroBundledLibrary))
+	}
+	metadataReference, err := os.ReadFile(filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName))
+	if err != nil {
+		t.Fatalf("read installed metadata reference: %v", err)
+	}
+	if !strings.Contains(string(metadataReference), "// Metadata") {
+		t.Fatalf("installed metadata reference is incomplete: %q", metadataReference)
 	}
 	keys := legacyMacroLibraryEntryForTest(entries, "keys.mac")
 	if keys.Name != "Keys" {
@@ -63,7 +71,7 @@ func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing
 	}
 
 	namedPath := filepath.Join(legacyMacroLibraryPath(), "anything.mac")
-	if err := os.WriteFile(namedPath, []byte("// Name: My Favorite Macro\nf1 \"/wave\\r\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(namedPath, []byte("// Metadata\n// Name: My Favorite Macro\n// Version: 1.2.3\n// Tags: healer, sharing\n// Desc: Keeps the group healthy.\n// Author: Gaia\n// License: MIT (2026)\n// Website: https://example.com/macros\n// Update: favorite-macro.mac\nf1 \"/wave\\r\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	fallbackPath := filepath.Join(legacyMacroLibraryPath(), "no-title.mac")
@@ -75,11 +83,137 @@ func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := legacyMacroLibraryEntryForTest(entries, "anything.mac").Name; got != "My Favorite Macro" {
+	named := legacyMacroLibraryEntryForTest(entries, "anything.mac")
+	if got := named.Name; got != "My Favorite Macro" {
 		t.Fatalf("named source display name = %q", got)
+	}
+	if named.Version != "1.2.3" || named.Tags != "healer, sharing" || named.Description != "Keeps the group healthy." || named.Author != "Gaia" || named.License != "MIT (2026)" || named.Website != "https://example.com/macros" || named.Update != "favorite-macro.mac" {
+		t.Fatalf("named source metadata = %#v", named)
 	}
 	if got := legacyMacroLibraryEntryForTest(entries, "no-title.mac").Name; got != "no-title.mac" {
 		t.Fatalf("fallback source display name = %q", got)
+	}
+}
+
+func TestLegacyMacroLibraryInfoListsCommandsAndHotkeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "details.mac")
+	text := strings.Join([]string{
+		"\"/wave\"",
+		"{",
+		"}",
+		"'brb'",
+		"{",
+		"}",
+		"control-shift-f1",
+		"{",
+		"}",
+		"click2",
+		"{",
+		"}",
+		"wheelup",
+		"{",
+		"}",
+		"helper",
+		"{",
+		"}",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := legacyMacroLibraryInfoText(legacyMacroLibraryEntry{
+		ID:          "details.mac",
+		Path:        path,
+		Version:     "1.2.3",
+		Tags:        "fighter, sunstone",
+		Description: "A useful combat helper.",
+		Author:      "Gorvin",
+		License:     "MIT (2026)",
+		Website:     "https://example.com/macros",
+		Update:      "details.mac",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Commands:",
+		"Description: A useful combat helper.",
+		"Version: 1.2.3",
+		"Tags: fighter, sunstone",
+		"Author: Gorvin",
+		"License: MIT (2026)",
+		"Website: https://example.com/macros",
+		"Update: details.mac",
+		"/wave",
+		"brb (replacement)",
+		"Hotkeys:",
+		"Control-Shift-F1",
+		"Right Click",
+		"Wheel Up",
+	} {
+		if !strings.Contains(info, want) {
+			t.Fatalf("macro info %q does not contain %q", info, want)
+		}
+	}
+	if strings.Contains(info, "\nhelper\n") {
+		t.Fatalf("macro info includes internal helper: %q", info)
+	}
+}
+
+func TestLegacyMacroLibraryRowLabelUsesAvailableSpace(t *testing.T) {
+	if got := legacyMacroLibraryRowLabel("Keys", "Common bindings", 400); got != "Keys — Common bindings" {
+		t.Fatalf("wide row label = %q", got)
+	}
+	got := legacyMacroLibraryRowLabel("Keys", strings.Repeat("description ", 12), 120)
+	if !strings.HasPrefix(got, "Keys — ") || !strings.HasSuffix(got, "...") {
+		t.Fatalf("narrow row label = %q, want abbreviated description", got)
+	}
+}
+
+func TestLegacyMacroLibraryInfoUsesThreeColumns(t *testing.T) {
+	columns := legacyMacroLibraryInfoColumns(legacyMacroLibraryInfo{
+		Metadata: []string{"Description: Useful"},
+		Commands: []string{"/wave"},
+		Hotkeys:  []string{"F1"},
+	})
+	if len(columns.Contents) != 3 {
+		t.Fatalf("info column count = %d, want 3", len(columns.Contents))
+	}
+	for index, want := range []string{"About", "Commands", "Hotkeys"} {
+		column := columns.Contents[index]
+		if len(column.Contents) == 0 || column.Contents[0].Text != want {
+			t.Fatalf("info column %d heading = %#v, want %q", index, column.Contents, want)
+		}
+	}
+}
+
+func TestLegacyMacroLibraryDiagnosticsIncludesParseAndRuntimeErrors(t *testing.T) {
+	legacyMacrosMu.Lock()
+	originalProgram := legacyMacrosProgram
+	originalRuntime := legacyMacrosRuntime
+	legacyMacrosProgram = legacyMacroProgram{Diagnostics: []legacyMacroDiagnostic{{
+		Location: legacyMacroLocation{Path: "parse.mac", Line: 2, Column: 3},
+		Message:  "parse error",
+	}}}
+	legacyMacrosRuntime = &legacyMacroRuntime{diagnostics: []legacyMacroDiagnostic{{
+		Location: legacyMacroLocation{Path: "run.mac", Line: 4, Column: 5},
+		Message:  "runtime error",
+	}}}
+	legacyMacrosMu.Unlock()
+	t.Cleanup(func() {
+		legacyMacrosMu.Lock()
+		legacyMacrosProgram = originalProgram
+		legacyMacrosRuntime = originalRuntime
+		legacyMacrosMu.Unlock()
+	})
+
+	diagnostics := legacyMacroLibraryDiagnostics()
+	if len(diagnostics) != 2 {
+		t.Fatalf("diagnostics = %#v, want parse and runtime errors", diagnostics)
+	}
+	message := strings.Join([]string{diagnostics[0].Error(), diagnostics[1].Error()}, "\n")
+	if !strings.Contains(message, "parse.mac:2:3: parse error") || !strings.Contains(message, "run.mac:4:5: runtime error") {
+		t.Fatalf("diagnostics message = %q", message)
 	}
 }
 

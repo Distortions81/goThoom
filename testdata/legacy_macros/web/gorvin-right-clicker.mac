@@ -1,9 +1,13 @@
+// Metadata
 // Name: Right-Clicker
+// Version: 2.0.1
+// Tags: input, fighter, healer
+// Desc: Calls macros from right-click and wheel actions.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/
+// Update: http://gorvin.50webs.com/macros/RC2.txt
 
-/*****************************************************************************
-*****  The Right-Clicker v2.0.1  *********************************************
-*****         By Gorvin          *********************************************
-******************************************************************************
+/*
 **
 ** Macro Contents:
 ** (1) Documentation

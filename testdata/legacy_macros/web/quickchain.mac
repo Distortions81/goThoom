@@ -1,11 +1,18 @@
+// Metadata
 // Name: Quickchain
+// Version: 3.1
+// Tags: fighter, healer, chaining
+// Desc: Chain-use helper bindings.
+// Author: Noivad
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Quickchain.mac
 //------------------------------------------------
 // quickchain.mac
 //------------------------------------------------
 // Noivad's v3.1 9-18-06
 // Debug helpers Chmee, Xenos, Zaerion
 // NOTE: right-click is not used for actions, instead see AlternateDefault for key assignment of click-action.
-// Use: right-cick on self: 			equips (weapon_of_choice)
+// Use: right-click on self: 			equips (weapon_of_choice)
 //		right-click on fallen exile: 	chains fallen
 //		right-click on chain exile:	pulls exile
 //		right-click on standing exile:	pulls exile + re-equips weapon*
@@ -13,7 +20,7 @@
 // Edit weapon_of_choice text to match your favorite weapon.
 // *If you are chaining and you right-click the ground or a standing or chained 
 // exile exile within 15 seconds after your last chain, the weapon will not be 
-// re-equiped to avoid accidental dechaining. 
+// re-equipped to avoid accidental dechaining.
 
 set quickc 0
 set chainlock 0

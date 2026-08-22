@@ -311,6 +311,164 @@ func TestLegacyMacroRuntimeCoreCommands(t *testing.T) {
 	}
 }
 
+func TestLegacyMacroRuntimeInterrupts(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join([]string{
+			"keyWait",
+			"{",
+			"set @env.key_interrupts true",
+			"pause 10",
+			"message \"key\"",
+			"}",
+			"clickWait",
+			"{",
+			"set @env.click_interrupts true",
+			"pause 10",
+			"message \"click\"",
+			"}",
+			"plainWait",
+			"{",
+			"pause 10",
+			"message \"plain\"",
+			"}",
+		}, "\n"),
+	}})
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{})
+	for _, name := range []string{"keyWait", "clickWait", "plainWait"} {
+		if _, err := runtime.startFunction(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runtime.advance(0)
+
+	if got := runtime.interruptIfEnabled("@env.key_interrupts"); got != 1 {
+		t.Fatalf("key interrupts = %d, want 1", got)
+	}
+	if got := len(runtime.active); got != 2 {
+		t.Fatalf("active macros after key interrupt = %d, want 2", got)
+	}
+	if started, _ := runtime.triggerClick(legacyMacroClickEvent{HasButton: true}, 0); started {
+		t.Fatal("unexpected click macro")
+	}
+	if got := len(runtime.active); got != 1 {
+		t.Fatalf("active macros after world click = %d, want 1", got)
+	}
+
+	if _, err := runtime.startFunction("clickWait"); err != nil {
+		t.Fatal(err)
+	}
+	runtime.advance(0)
+	if started, _ := runtime.triggerClick(legacyMacroClickEvent{}, 0); started {
+		t.Fatal("unexpected player-list click macro")
+	}
+	if got := len(runtime.active); got != 2 {
+		t.Fatalf("player-list click interrupted macros: %d active, want 2", got)
+	}
+	if got := runtime.cancelAll(); got != 2 {
+		t.Fatalf("Ctrl-Escape cancellation count = %d, want 2", got)
+	}
+	if len(runtime.active) != 0 {
+		t.Fatalf("active macros after Ctrl-Escape = %#v", runtime.active)
+	}
+}
+
+func TestLegacyMacroMouseChord(t *testing.T) {
+	if got := legacyMacroMouseChordFromPressed(true, false, false); got != 1 {
+		t.Fatalf("left-click chord = %d, want 1", got)
+	}
+	if got := legacyMacroMouseChordFromPressed(true, true, true); got != 7 {
+		t.Fatalf("three-button chord = %d, want 7", got)
+	}
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: "click2\n{\nmessage @click.chord\n}\n",
+	}})
+	var messages []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		Message: func(message string) { messages = append(messages, message) },
+	})
+	event := legacyMacroClickEvent{Button: 2, Chord: 3, HasButton: true, HasChord: true, OnPlayer: true}
+	if started, _ := runtime.triggerClick(event, 0); !started {
+		t.Fatal("first right click did not trigger")
+	}
+	if started, _ := runtime.triggerClick(event, 1); !started {
+		t.Fatal("second right click did not trigger")
+	}
+	if got, want := messages, []string{"3", "3"}; !equalStrings(got, want) {
+		t.Fatalf("click chord messages = %#v, want %#v", got, want)
+	}
+}
+
+func TestLegacyMacroPlayerModifierClick(t *testing.T) {
+	playersMu.Lock()
+	originalPlayers := players
+	players = make(map[string]*Player)
+	playersMu.Unlock()
+	originalSelected := selectedPlayerName
+	originalDirty := playersDirty
+	originalPersistDirty := playersPersistDirty
+	inputMu.Lock()
+	originalInput := append([]rune(nil), inputText...)
+	originalInputPos := inputPos
+	originalInputActive := inputActive
+	inputMu.Unlock()
+	t.Cleanup(func() {
+		playersMu.Lock()
+		players = originalPlayers
+		playersMu.Unlock()
+		selectedPlayerName = originalSelected
+		playersDirty = originalDirty
+		playersPersistDirty = originalPersistDirty
+		inputMu.Lock()
+		inputText = originalInput
+		inputPos = originalInputPos
+		inputActive = originalInputActive
+		inputMu.Unlock()
+	})
+
+	const name = "Anne-Marie"
+	for want := 1; want <= 5; want++ {
+		if !legacyMacroHandlePlayerModifierClick(name, legacyMacroModControl) {
+			t.Fatal("Control-click was not handled")
+		}
+		if got := getPlayer(name).GlobalLabel; got != want {
+			t.Fatalf("Control-click label = %d, want %d", got, want)
+		}
+	}
+	legacyMacroHandlePlayerModifierClick(name, legacyMacroModControl)
+	if got := getPlayer(name).GlobalLabel; got != 0 {
+		t.Fatalf("label cycle wrapped to %d, want 0", got)
+	}
+
+	legacyMacroHandlePlayerModifierClick(name, legacyMacroModControl|legacyMacroModShift)
+	if got := getPlayer(name).GlobalLabel; got != 6 {
+		t.Fatalf("block cycle = %d, want 6", got)
+	}
+	legacyMacroHandlePlayerModifierClick(name, legacyMacroModControl|legacyMacroModShift)
+	if got := getPlayer(name).GlobalLabel; got != 7 {
+		t.Fatalf("ignore cycle = %d, want 7", got)
+	}
+	legacyMacroHandlePlayerModifierClick(name, legacyMacroModControl|legacyMacroModShift)
+	if got := getPlayer(name).GlobalLabel; got != 0 {
+		t.Fatalf("ignore cycle wrapped to %d, want 0", got)
+	}
+
+	legacyMacroHandlePlayerModifierClick(name, legacyMacroModOption)
+	inputMu.Lock()
+	gotInput := string(inputText)
+	inputMu.Unlock()
+	if gotInput != " AnneMarie " {
+		t.Fatalf("Option-click input = %q, want sanitized player name", gotInput)
+	}
+	legacyMacroHandlePlayerModifierClick(name, legacyMacroModCommand)
+	if selectedPlayerName != name {
+		t.Fatalf("Command-click selected %q, want %q", selectedPlayerName, name)
+	}
+}
+
 func TestLegacyMacroRuntimeSetOperationsAndErrors(t *testing.T) {
 	program := parseLegacyMacroSources([]legacyMacroSource{{
 		Name: "test",

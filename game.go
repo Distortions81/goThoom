@@ -1153,24 +1153,34 @@ func (g *Game) Update() error {
 	}
 	if click && !uiMouseDown && inGame {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonLeft)
-		if started, allowDefault := legacyMacroTriggerClick(legacyMacroWorldClickEvent(info, 1, 1), int64(ackFrame)); started && !allowDefault {
+		event := legacyMacroWorldClickEvent(info, 1, legacyMacroMouseChord(1))
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
 			click = false
 			heldTime = 0
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonLeft, "click")
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+			click = false
+			heldTime = 0
 		}
 	}
 	if rightClick && inGame && !pointInUI(mx, my) {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
-		if started, allowDefault := legacyMacroTriggerClick(legacyMacroWorldClickEvent(info, 2, 1), int64(ackFrame)); started && !allowDefault {
+		event := legacyMacroWorldClickEvent(info, 2, legacyMacroMouseChord(2))
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
 			rightClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+			rightClick = false
 		}
 	}
 	if middleClick && inGame && !pointInUI(mx, my) {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonMiddle)
-		if started, allowDefault := legacyMacroTriggerClick(legacyMacroWorldClickEvent(info, 3, 1), int64(ackFrame)); started && !allowDefault {
+		event := legacyMacroWorldClickEvent(info, 3, legacyMacroMouseChord(3))
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
 			middleClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonMiddle, "click3")
+		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
+			middleClick = false
 		}
 	}
 	// (right-click handling for menus/copy is handled earlier)

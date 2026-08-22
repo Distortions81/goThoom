@@ -224,6 +224,43 @@ func (runtime *legacyMacroRuntime) advance(frame int64) {
 	runtime.active = active
 }
 
+// interruptIfEnabled stops only executions that opt into the named legacy
+// environment interrupt variable. The reference client checks this separately
+// for each active execution, so a macro may choose to remain active.
+func (runtime *legacyMacroRuntime) interruptIfEnabled(name string) int {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return runtime.interruptIfEnabledLocked(name)
+}
+
+func (runtime *legacyMacroRuntime) interruptIfEnabledLocked(name string) int {
+	active := runtime.active[:0]
+	interrupted := 0
+	for _, execution := range runtime.active {
+		value, enabled := runtime.variableLocked(name, execution)
+		if enabled && strings.EqualFold(value, "true") {
+			execution.complete = true
+			interrupted++
+			continue
+		}
+		active = append(active, execution)
+	}
+	runtime.active = active
+	return interrupted
+}
+
+// cancelAll stops every active macro without flushing its buffered output.
+func (runtime *legacyMacroRuntime) cancelAll() int {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	for _, execution := range runtime.active {
+		execution.complete = true
+	}
+	interrupted := len(runtime.active)
+	runtime.active = nil
+	return interrupted
+}
+
 func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacroExecution, frame int64) {
 	if execution.complete {
 		return
