@@ -101,7 +101,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Resizable = false
 	win.AutoSize = true
 	win.SetZone(eui.HZoneCenter, eui.VZoneBottom)
-	win.SetZoneOffset(eui.Point{Y: -100})
+	win.SetZoneOffset(eui.Point{Y: -164})
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
@@ -322,6 +322,10 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Refresh()
 	// Add and open the fully populated window
 	win.AddWindow(false)
+	if gs.MovieWindow.Position.X != 0 || gs.MovieWindow.Position.Y != 0 {
+		win.ClearZone()
+		_ = win.SetPos(eui.Point{X: float32(gs.MovieWindow.Position.X), Y: float32(gs.MovieWindow.Position.Y)})
+	}
 	win.MarkOpen()
 
 	// When the movie controls window is closed, stop playback and return to

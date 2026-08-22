@@ -286,7 +286,7 @@ func initUI() {
 	if !windowsRestored {
 		restoreWindowSettings()
 	}
-	if clmov == "" && pcapPath == "" && !fake && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+	if clmov == "" && pcapPath == "" && !fake && clImages != nil && clSounds != nil && !status.NeedImages && !status.NeedSounds && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
 		openSetupWizard(false)
 	}
 }
@@ -1093,26 +1093,6 @@ func makeMixerWindow() {
 
 	addSpacer()
 
-	panCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 76, Y: 140}}
-	panSpacer, _ := eui.NewText()
-	panSpacer.Size = eui.Point{X: 1, Y: 100}
-	panCol.AddItem(panSpacer)
-	stereoMusicCB, stereoMusicEvents := eui.NewCheckbox()
-	stereoMusicCB.Text = "Stereo Music"
-	stereoMusicCB.Checked = gs.MusicStereoPan
-	stereoMusicCB.Size = eui.Point{X: 76, Y: 24}
-	stereoMusicCB.SetTooltip("Spread simultaneous bard instruments across the stereo field")
-	stereoMusicEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MusicStereoPan = ev.Checked
-			settingsDirty = true
-		}
-	}
-	panCol.AddItem(stereoMusicCB)
-	flow.AddItem(panCol)
-
-	addSpacer()
-
 	ttsMixSlider, ttsMixCB = makeMix(gs.ChatTTSVolume, gs.ChatTTS, "TTS",
 		func(ev eui.UIEvent) {
 			if ev.Type == eui.EventSliderChanged {
@@ -1239,10 +1219,23 @@ func makeMixerWindow() {
 			updateSoundVolume()
 		}
 	}
-	// Make the column 3x standard width so the mixer window grows accordingly
-	muteCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 192, Y: 60}}
+	stereoMusicCB, stereoMusicEvents := eui.NewCheckbox()
+	stereoMusicCB.Text = "Stereo Music"
+	stereoMusicCB.Checked = gs.MusicStereoPan
+	stereoMusicCB.Size = eui.Point{X: 192, Y: 24}
+	stereoMusicCB.SetTooltip("Spread simultaneous bard instruments across the stereo field")
+	stereoMusicEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MusicStereoPan = ev.Checked
+			settingsDirty = true
+		}
+	}
+
+	// Keep the mixer-wide controls together to the right of the channel sliders.
+	muteCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 192, Y: 84}}
 	muteCol.AddItem(mixMuteBtn)
 	muteCol.AddItem(muteUnfocusCB)
+	muteCol.AddItem(stereoMusicCB)
 	flow.AddItem(muteCol)
 
 	mixerWin.AddItem(flow)
@@ -1911,6 +1904,9 @@ func makeDownloadsWindow() {
 				img.DenoiseAmount = gs.DenoiseAmount
 				clImages = img
 				markWorldStateChanged()
+				// Startup prepares the Clan Lord splash after loading CL_Images.
+				// Queue the same game-loop-safe rebuild after a first-run download.
+				classicSplashFilterPending = gs.ShowClanLordSplashImage
 				if measureLoads {
 					dtms := float64(time.Since(imgStart).Nanoseconds()) / 1e6
 					log.Printf("measure: CL_Images archive loaded in %.2fms frame=%d", dtms, frameCounter)
@@ -1952,11 +1948,11 @@ func makeDownloadsWindow() {
 			downloadStatus = nil
 			downloadProgress = nil
 			downloadWin.Close()
-			if setupWizardWin != nil && setupWizardWin.IsOpen() {
-				startSetupWizardPreview()
-			}
 			if name == "" && loginWin != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake {
 				loginWin.MarkOpen()
+			}
+			if clmov == "" && pcapPath == "" && !fake && clImages != nil && clSounds != nil && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+				openSetupWizard(false)
 			}
 		}()
 	}
@@ -3157,7 +3153,7 @@ func makeSettingsWindow() {
 	inputOpenCB.Text = "Input bar always open"
 	inputOpenCB.Size = eui.Point{X: panelWidth, Y: 24}
 	inputOpenCB.Checked = gs.InputBarAlwaysOpen
-	inputOpenCB.SetTooltip("Keep console input active after sending")
+	inputOpenCB.SetTooltip("Leave off for WASD walking and more hotkeys when not chatting")
 	inputOpenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -5068,6 +5064,33 @@ func makeAdvancedSettingsWindow() {
 
 	// Chat & TTS column
 	addSectionLabel(chatCol, "Chat & TTS")
+
+	ttsEnabledCB, ttsEnabledEvents := eui.NewCheckbox()
+	ttsEnabledCB.Text = "Enable chat TTS"
+	ttsEnabledCB.Size = eui.Point{X: columnWidth, Y: 24}
+	ttsEnabledCB.Checked = gs.ChatTTS
+	ttsEnabledCB.SetTooltip("Speak eligible chat messages using the selected TTS voice")
+	ttsEnabledEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		if !ev.Checked {
+			disableTTS()
+			return
+		}
+		gs.ChatTTS = true
+		if ttsMixCB != nil {
+			ttsMixCB.Checked = true
+			ttsMixCB.Dirty = true
+		}
+		if ttsMixSlider != nil {
+			ttsMixSlider.Disabled = false
+			ttsMixSlider.Dirty = true
+		}
+		settingsDirty = true
+		updateSoundVolume()
+	}
+	chatCol.AddItem(ttsEnabledCB)
 
 	tsFormatInput, tsFormatEvents := eui.NewInput()
 	tsFormatInput.Label = "Timestamp format"

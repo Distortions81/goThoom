@@ -54,10 +54,10 @@ func TestPictureFollowingBackgroundIsNotPinned(t *testing.T) {
 		gs.MotionSmoothing = originalSmoothing
 	}()
 
-	if pictureCanPinToMobile(framePicture{Moving: false}, 64, 64) {
-		t.Fatal("picture following the background must not be pinned")
+	if pictureCanPinToMobile(framePicture{Background: true}, 64, 64) {
+		t.Fatal("background picture must not be pinned")
 	}
-	if !pictureCanPinToMobile(framePicture{Moving: true}, 64, 64) {
-		t.Fatal("independently moving picture should still be eligible for pinning")
+	if !pictureCanPinToMobile(framePicture{}, 64, 64) {
+		t.Fatal("non-background picture should be eligible for pinning")
 	}
 }

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	setupWizardPageCount = 8
+	setupWizardPageCount = 9
 	setupWizardTopGap    = 24
 	setupWizardKoFiURL   = "https://ko-fi.com/distortions"
 )
@@ -189,6 +189,8 @@ func rebuildSetupWizard() {
 	case 6:
 		buildSetupLightingPage(root)
 	case 7:
+		buildSetupAudioPage(root)
+	case 8:
 		buildSetupFinishPage(root)
 	}
 
@@ -246,7 +248,7 @@ func buildSetupControlsPage(root *eui.ItemData) {
 	))
 	root.AddItem(setupWizardCheckbox(
 		"Keep the input bar open",
-		"Keeps chat/command input active after sending. Leave it off if you prefer pressing Enter before each message.",
+		"Keeps chat/command input active after sending. Leave it off to use WASD walking and a larger range of hotkeys whenever you are not chatting.",
 		gs.InputBarAlwaysOpen,
 		func(checked bool) {
 			gs.InputBarAlwaysOpen = checked
@@ -405,10 +407,16 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	}))
 	root.AddItem(setupWizardCheckbox("Precache images", "Loads game artwork before play for fewer pauses, using up to about 2 GB of additional RAM.", gs.PrecacheImages, func(checked bool) {
 		gs.PrecacheImages = checked
+		if checked && !assetsPrecached {
+			go precacheAssets()
+		}
 		settingsDirty = true
 	}))
 	root.AddItem(setupWizardCheckbox("Precache sounds", "Loads and prepares game sounds before play for fewer pauses, using roughly 300 MB more RAM.", gs.PrecacheSounds, func(checked bool) {
 		gs.PrecacheSounds = checked
+		if checked && !assetsPrecached {
+			go precacheAssets()
+		}
 		settingsDirty = true
 	}))
 }
@@ -496,6 +504,43 @@ func applySetupWizardGamma() {
 	}
 	clearCaches()
 	settingsDirty = true
+}
+
+func buildSetupAudioPage(root *eui.ItemData) {
+	root.AddItem(setupWizardHeading("Audio and music"))
+	root.AddItem(setupWizardText(
+		"These options improve sound quality at the cost of additional CPU. You can change them later in Settings.",
+		12, 620,
+	))
+	root.AddItem(setupWizardCheckbox(
+		"Enhance sound effects",
+		"Adds stereo width, ambience, and tone polish to in-game sounds.",
+		gs.SoundEnhancement,
+		func(checked bool) {
+			gs.SoundEnhancement = checked
+			settingsDirty = true
+		},
+	))
+	root.AddItem(setupWizardCheckbox(
+		"High quality audio resampling",
+		"Uses Lanczos resampling and dithering for cleaner audio, with higher CPU use.",
+		gs.HighQualityResampling,
+		func(checked bool) {
+			gs.HighQualityResampling = checked
+			setHighQualityResamplingEnabled(checked)
+			clearCaches()
+			settingsDirty = true
+		},
+	))
+	root.AddItem(setupWizardCheckbox(
+		"Enhance music",
+		"Adds space and ambience to background music.",
+		gs.MusicEnhancement,
+		func(checked bool) {
+			gs.MusicEnhancement = checked
+			settingsDirty = true
+		},
+	))
 }
 
 func buildSetupFinishPage(root *eui.ItemData) {
@@ -601,6 +646,12 @@ func completeSetupWizard() {
 	saveSettings()
 	if setupWizardWin != nil {
 		setupWizardWin.Close()
+	}
+	// The preview normally restores Login itself, but it cannot do so when the
+	// preview was unavailable (such as on a fresh install before assets load).
+	// Completing the wizard should always return an offline player to Login.
+	if tcpConn == nil && clmov == "" && pcapPath == "" && !fake && loginWin != nil {
+		loginWin.MarkOpen()
 	}
 	rebuildSettingsAfterSetupWizard()
 }

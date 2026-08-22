@@ -20,3 +20,34 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		}
 	}
 }
+
+func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
+	originalSettings := gs
+	originalDataDir := dataDirPath
+	originalLoaded := settingsLoaded
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() {
+		gs = originalSettings
+		dataDirPath = originalDataDir
+		settingsLoaded = originalLoaded
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	})
+
+	if loadSettings() {
+		t.Fatal("loadSettings() = true without a settings file")
+	}
+	for name, enabled := range map[string]bool{
+		"blend image dithering":        gs.DenoiseImages,
+		"smooth movement":              gs.MotionSmoothing,
+		"character animation blending": gs.BlendMobiles,
+		"world animation blending":     gs.BlendPicts,
+		"shader effects":               gs.ShaderLighting,
+		"sound enhancement":            gs.SoundEnhancement,
+		"high quality resampling":      gs.HighQualityResampling,
+		"music enhancement":            gs.MusicEnhancement,
+	} {
+		if !enabled {
+			t.Errorf("new config has %s disabled", name)
+		}
+	}
+}

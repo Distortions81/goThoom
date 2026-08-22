@@ -1953,7 +1953,7 @@ func pictureDrawsAfterMobileAt(p framePicture, pictH, pictV int16, mobH, mobV in
 }
 
 func pictureCanPinToMobile(p framePicture, width, height int) bool {
-	return gs.ObjectPinning && gs.MotionSmoothing && p.Moving && !p.Background && width <= 500 && height <= 500
+	return gs.ObjectPinning && gs.MotionSmoothing && !p.Background && width <= 500 && height <= 500
 }
 
 // drawPicture renders a single picture sprite.
@@ -1989,9 +1989,8 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 
 	var mobileX, mobileY float64
-	// Only independently moving pictures can be attached to a mobile. A
-	// picture that exactly follows the detected background/camera motion is
-	// already in the right place and must not be pulled toward a nearby mobile.
+	// Background pictures already follow camera motion and must not be pulled
+	// toward a nearby mobile.
 	if pictureCanPinToMobile(p, w, h) {
 		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPicturePositions, alpha); ok {
 			mobileX, mobileY = dx, dy

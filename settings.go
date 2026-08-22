@@ -139,7 +139,7 @@ var gsdef settings = settings{
 	Fullscreen:            false,
 	AlwaysOnTop:           false,
 	MasterVolume:          1.0,
-	GameVolume:            0.6,
+	GameVolume:            0.28260868787765503,
 	MusicVolume:           1.0,
 	Music:                 true,
 	MusicStereoPan:        true,
@@ -155,7 +155,7 @@ var gsdef settings = settings{
 	MaxNightLevel:         100,
 	MessagesToConsole:     false,
 	ChatTTS:               false,
-	ChatTTSVolume:         0.33,
+	ChatTTSVolume:         0.20652173459529877,
 	ChatTTSSpeed:          1.25,
 	ChatTTSVoice:          "en_US-hfc_female-medium",
 	Notifications:         true,
@@ -170,7 +170,7 @@ var gsdef settings = settings{
 	NotifyShares:          true,
 	NotifyFriendOnline:    true,
 	NotifyCopyText:        false,
-	NotificationVolume:    0.6,
+	NotificationVolume:    0.20652173459529877,
 	NotificationBeep:      true,
 	NotificationDuration:  6,
 	ScriptSpamKill:        true,
@@ -198,6 +198,7 @@ var gsdef settings = settings{
 	PlayersWindow:   WindowState{Open: true},
 	MessagesWindow:  WindowState{Open: true},
 	ChatWindow:      WindowState{Open: true},
+	MovieWindow:     WindowState{},
 	WindowZones:     *new(map[string]eui.WindowZoneState),
 
 	ShaderLightStrength: 1.0,
@@ -206,10 +207,10 @@ var gsdef settings = settings{
 	PotatoGPU:              false,
 	BarColorByValue:        false,
 	ThrottleSounds:         true,
-	SoundEnhancement:       false,
+	SoundEnhancement:       true,
 	SoundEnhancementAmount: 1.5,
 	MusicEnhancement:       true,
-	HighQualityResampling:  false,
+	HighQualityResampling:  true,
 	ServerAddress:          defaultServerHostName + ":5010",
 
 	NightEffect:    true,
@@ -369,6 +370,7 @@ type settings struct {
 	PlayersWindow   WindowState
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
+	MovieWindow     WindowState
 	WindowZones     map[string]eui.WindowZoneState
 
 	ShaderLightStrength float64
@@ -429,8 +431,6 @@ func loadSettings() bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		gs = gsdef
-		preset := "Classic"
-		applyQualityPreset(preset)
 		setHighQualityResamplingEnabled(gs.HighQualityResampling)
 		settingsLoaded = false
 		applyServerAddressSetting()
@@ -652,6 +652,9 @@ func syncWindowSettings() bool {
 		gs.ChatWindow.Open = false
 		changed = true
 	}
+	if syncWindow(movieWin, &gs.MovieWindow) {
+		changed = true
+	}
 	zones := eui.SaveWindowZones()
 	if !reflect.DeepEqual(zones, gs.WindowZones) {
 		gs.WindowZones = zones
@@ -676,6 +679,7 @@ func resetSavedWindowSettings() {
 	gs.PlayersWindow = gsdef.PlayersWindow
 	gs.MessagesWindow = gsdef.MessagesWindow
 	gs.ChatWindow = gsdef.ChatWindow
+	gs.MovieWindow = gsdef.MovieWindow
 	gs.WindowZones = make(map[string]eui.WindowZoneState)
 }
 
@@ -707,7 +711,7 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 
 func clampWindowSettings() {
 	sx, sy := eui.ScreenSize()
-	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow}
+	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow, &gs.MovieWindow}
 	for _, st := range states {
 		clampWindowState(st, float64(sx), float64(sy))
 	}

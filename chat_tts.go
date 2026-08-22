@@ -76,9 +76,11 @@ func disableTTS() {
 	updateSoundVolume()
 	if ttsMixCB != nil {
 		ttsMixCB.Checked = false
+		ttsMixCB.Dirty = true
 	}
 	if ttsMixSlider != nil {
 		ttsMixSlider.Disabled = true
+		ttsMixSlider.Dirty = true
 	}
 }
 
