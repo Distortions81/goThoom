@@ -1,35 +1,30 @@
 goThoom 36 adds support for Clan Lord v1497.
 
 New and improved:
-- Added a friendly setup wizard for controls, status bars, bubbles, name tags, graphics, and performance. Its controls reflect your existing settings and changes appear immediately in the live offline preview.
-- Added a live graphics preview to the setup wizard. A short Clan Lord recording loops through the real game renderer so you can see dithering, artwork upscaling, motion smoothing, and shader lighting as you change them if you aren't clanning.
-- Movie recording now starts correctly whether it is armed before connecting or started while already playing. New recordings remain compatible with the existing movie format.
-- Alternate networking mode and timing choices are now remembered between sessions.
-- Added support for both "Mouse4" and "Mouse 4" hotkey spellings, with clearer scripting help for function hotkeys.
+- Added a setup wizard for controls, status bars, bubbles, name tags, graphics, and performance. It includes a live offline graphics preview so you can see changes immediately.
+- Added a built-in legacy macro library, macro editor, and improved support for script function hotkeys.
+- Movie recording can now be started before connecting or while already playing, and recordings remain compatible with the existing movie format.
+- Added Settings → Text Colors for Say, Whisper, Yell, Think, Action, Ponder, Narration, Monster, and System messages.
+- Added dark speech bubbles and name tags, enabled by default.
+- Added searchable Players and Inventory windows, selectable/copyable text in Chat and Console, and optional subtle alternating rows in Chat, Console, Inventory, and Players.
+- Added compact sharing-status icons in the Players window, including one-way and mutual sharing indicators.
+- The Clan Lord window title now includes the active character name.
+
+Defaults and options:
+- Chat and Console timestamps, game notifications, and notification beeps now default to on.
+- Throttle Repeated Sounds defaults to on.
+- Your own name tag is hidden by default, and name-tag frames appear only for players with a label color (cleaner)
+- Window-pinning buttons default to off and can be enabled in Settings.
 
 Fixes:
-- Fixed recorded movies starting without the player, clothing, scenery, or other initial world details.
-- Fixed the scene sliding between the end and beginning when a movie loops.
+- Fixed recorded movies starting without initial player, clothing, scenery, or other world details.
+- Fixed a visible scene jump when a movie loops.
 - Restored copy and paste after the recent library update.
-- Fixed script function hotkeys being sent as hidden server commands instead of running locally.
 - Fixed anonymous thoughts from blocked or ignored players still appearing.
-- Fixed several music playback race conditions.
+- Fixed several music playback race conditions and script function hotkeys being sent as hidden server commands.
 - Newer locally installed Clan Lord data no longer triggers the untested-version warning.
 
 Performance:
 - Reduced rendering allocations and repeated work for smoother play, especially in busy scenes.
-- Made object-pinning lookups about 9.8x faster in dense scenes.
-- Made image dithering cleanup about 12% faster while using about 85% less temporary memory.
-- Reduced unnecessary image decoding, hover checks, and repeated chat-trigger text processing.
-
-For source builds, goThoom now uses Go 1.26.6, Ebitengine 2.9.10, and refreshed dependencies. Automated dependency checks and additional regression tests and benchmarks were also added.
-
-Additional updates:
-- Added an Edit button to open individual legacy macro files in the default editor on supported desktop platforms.
-- Added Settings → Text Colors for separate Say, Whisper, Yell, Think, Action, Ponder, Narration, Monster, and System message colors.
 - Improved motion smoothing for large, semi-transparent moving sprites such as clouds.
-- Throttle Repeated Sounds now defaults to on.
-- Added dark speech bubbles and name tags, enabled by default, with a distinct white-and-gray style for fallen characters.
-- Your own name tag is hidden by default; name-tag frames now appear only for players with a label color.
-- Added compact sharing-status icons to the Players window, including mirrored one-way indicators and a mutual-sharing indicator.
-- Window-pinning buttons are now off by default and can be enabled in Settings.
+- Reduced unnecessary image decoding, hover checks, and repeated chat-trigger text processing.
