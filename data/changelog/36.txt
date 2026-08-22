@@ -1,30 +1,44 @@
 goThoom 36 adds support for Clan Lord v1497.
 
 New and improved:
-- Added a setup wizard for controls, status bars, bubbles, name tags, graphics, and performance. It includes a live offline graphics preview so you can see changes immediately.
-- Added a built-in legacy macro library, macro editor, and improved support for script function hotkeys.
+- Added a setup wizard for controls, status bars, bubbles, name tags, graphics, and performance. It reflects the current settings and applies changes immediately.
+- Added a live offline graphics preview to the setup wizard. A short recording runs through the normal renderer while you compare dithering, upscaling, motion smoothing, and shader lighting.
+- Added a built-in legacy macro library, macro editor, a bundled public macro corpus, MacRoman compatibility support, and improved script-function hotkeys.
 - Movie recording can now be started before connecting or while already playing, and recordings remain compatible with the existing movie format.
 - Added Settings → Text Colors for Say, Whisper, Yell, Think, Action, Ponder, Narration, Monster, and System messages.
 - Added dark speech bubbles and name tags, enabled by default.
 - Added searchable Players and Inventory windows, selectable/copyable text in Chat and Console, and optional subtle alternating rows in Chat, Console, Inventory, and Players.
 - Added compact sharing-status icons in the Players window, including one-way and mutual sharing indicators.
 - The Clan Lord window title now includes the active character name.
+- Alternate networking mode and timing choices are now remembered between sessions.
+- Hotkeys accept both `Mouse4` and `Mouse 4` spellings, with clearer function-hotkey scripting help.
+- Bard songs can now play concurrently instead of serializing one performer after another. `/with` multi-bard parts synchronize after every track has rendered its startup buffer.
+- Music now renders one-second PCM chunks and pre-buffers five seconds before playback, reducing audio starvation without rendering an entire song up front.
 
 Defaults and options:
 - Chat and Console timestamps, game notifications, and notification beeps now default to on.
 - Throttle Repeated Sounds defaults to on.
 - Your own name tag is hidden by default, and name-tag frames appear only for players with a label color (cleaner)
 - Window-pinning buttons default to off and can be enabled in Settings.
+- The Download Files experience and downloads page were refreshed, including platform-specific download links and optional soundfont/TTS downloads.
 
 Fixes:
 - Fixed recorded movies starting without initial player, clothing, scenery, or other world details.
 - Fixed a visible scene jump when a movie loops.
-- Restored copy and paste after the recent library update.
 - Fixed anonymous thoughts from blocked or ignored players still appearing.
 - Fixed several music playback race conditions and script function hotkeys being sent as hidden server commands.
+- Fixed movie playhead dragging so repeated drag events are coalesced and the player seeks to the final position when released.
+- Seeking no longer lets historical `/music` or `/m_interrupt` frames run after replay and silence later music.
+- Stopping a song, a playback error, or a missing audio device no longer turns off the Music mixer setting.
 - Newer locally installed Clan Lord data no longer triggers the untested-version warning.
 
 Performance:
 - Reduced rendering allocations and repeated work for smoother play, especially in busy scenes.
 - Improved motion smoothing for large, semi-transparent moving sprites such as clouds.
 - Reduced unnecessary image decoding, hover checks, and repeated chat-trigger text processing.
+- Made dense-scene object-pinning lookups about 9.8x faster.
+- Made image-dithering cleanup about 12% faster while using about 85% less temporary memory.
+
+Technical changes:
+- The v36 source build baseline is Go 1.26.6 and Ebitengine 2.9.10 (v35 used Go 1.26.3 and Ebitengine 2.9.9). Related Go dependencies were refreshed.
+- Added automated regression coverage and benchmarks for movie playback, music scheduling, rendering, scripts, input, and data compatibility.
