@@ -12,7 +12,6 @@ platforms=(
   "windows:amd64"
   "darwin:arm64"
   "darwin:amd64"
-  "js:wasm"
 )
 
 declare -A FRIENDLY_NAMES=(
@@ -20,50 +19,7 @@ declare -A FRIENDLY_NAMES=(
   ["windows:amd64"]="goThoom-Windows-x86_64"
   ["darwin:arm64"]="goThoom-macOS-AppleSilicon"
   ["darwin:amd64"]="goThoom-macOS-Intel"
-  ["js:wasm"]="goThoom-Web"
 )
-
-build_wasm() {
-  local friendly="${FRIENDLY_NAMES["js:wasm"]}"
-  local pkg_dir="${OUTPUT_DIR}/${friendly}"
-  local wasm_out="${pkg_dir}/gothoom.wasm"
-
-  rm -rf "$pkg_dir"
-  mkdir -p "$pkg_dir"
-
-  env \
-    GOOS=js GOARCH=wasm \
-    CGO_ENABLED=0 \
-    go build \
-      -trimpath \
-      -ldflags "-s -w" \
-      -o "$wasm_out" .
-
-  local goroot
-  goroot="$(go env GOROOT)"
-  local wasm_exec="${goroot}/misc/wasm/wasm_exec.js"
-  if [ ! -f "$wasm_exec" ]; then
-    # Fallback: search within GOROOT for wasm_exec.js in case layout differs.
-    wasm_exec="$(find "$goroot" -type f -name 'wasm_exec.js' 2>/dev/null | head -n1 || true)"
-  fi
-  if [ -z "${wasm_exec:-}" ] || [ ! -f "$wasm_exec" ]; then
-    echo "wasm_exec.js not found in GOROOT ($goroot)." >&2
-    exit 1
-  fi
-  cp "$wasm_exec" "$pkg_dir/"
-
-  # Copy all web assets (index.html, sw.js, headers, etc.) into the bundle
-  local web_dir="${SCRIPT_DIR}/../web"
-  if [ ! -f "$web_dir/index.html" ]; then
-    echo "Missing web/index.html. Please create it before building the WASM bundle." >&2
-    exit 1
-  fi
-  cp -a "$web_dir/." "$pkg_dir/"
-
-  ensure_cmd brotli brotli
-  brotli -f "$wasm_out"
-  echo "WASM bundle ready in ${pkg_dir} (gothoom.wasm.br only)"
-}
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -200,11 +156,6 @@ for platform in "${platforms[@]}"; do
   ZIP_NAME="${FRIENDLY}.zip"
   TAGS=""
   LDFLAGS="-s -w"
-
-  if [ "$GOOS:$GOARCH" = "js:wasm" ]; then
-    build_wasm
-    continue
-  fi
 
   if [ "$GOOS" = "windows" ]; then
     BIN_NAME+=".exe"

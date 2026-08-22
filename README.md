@@ -6,14 +6,11 @@
 
 An open-source (MIT) client for the classic **[Clan Lord](https://www.deltatao.com/clanlord/)** MMORPG
 
-Approximately 43,000 lines of Go code.
+Approximately 67,000 lines of Go code (including tests).
 
-Currently supports Macintosh, Windows and Linux via the [Ebiten](https://ebitengine.org/) library.
+Desktop release builds are available for Windows x86-64, macOS on Apple Silicon and Intel, and Linux x86-64 via [Ebitengine](https://ebitengine.org/). An experimental WebAssembly browser package can be built separately.
 
-Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, Android, iOS, Nintendo Switch, Steam Deck, Xbox, PlayStation 5, Raspberry Pi, Steamworks.
-
-
-[Website Here](https://gothoom.m45sci.xyz/)
+[Website](https://gothoom.m45sci.xyz/)
 
 [Video Overview](https://youtu.be/MrGdcqIl3a4)
 
@@ -26,40 +23,40 @@ Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, An
 
 ## Why I made this
 
-- The windows client is finicky
-- 3 to 5 FPS with LCD popping/strobing effects are very hard to look at... I personally really struggle with motion sickness from it.
+- The Windows client is finicky
+- 3–5 FPS with LCD popping/strobing effects are very hard to look at. I personally really struggle with motion sickness from it.
 - The art assets make heavy use of dithering that looked great on small CRTs but look entirely different (and unpleasant) on modern displays without filtering.
-- The game window not resizeable (547×540) and didn't look good or fit well on most screens even with OS/VM scaling
-- Quicktime MIDI is dead on modern OS X
-- Quicktime for Windows is unsupported past Windows 7 (last updated 2009) and is a real security risk
+- The game window was not resizable (547×540) and didn't look good or fit well on most screens, even with OS/VM scaling
+- QuickTime MIDI is dead on modern macOS
+- QuickTime for Windows is unsupported past Windows 7 (last updated in 2009) and is a real security risk
 - A number of security concerns with the old client
-- All existing (functioning) clients are single-platform and closed-source
+- Other functioning clients are single-platform and closed-source
 - Input schemes are odd or outdated
-- Macros seem to be manitory to keep up. Most available are ancient, difficult to find and require fiddling in a odd macro language
+- Macros seem to be mandatory to keep up. Most available are ancient, difficult to find, and require fiddling in an odd macro language
 
 ## What does goThoom offer?
 
-- Optional Interpolation for smooth movement at any frame-rate with a trade-off of more positional latency (animations and sounds are unaffected)
+- Optional interpolation for smooth movement at any frame rate, with a trade-off of more positional latency (animations and sounds are unaffected)
 - Texture processing that intelligently smooths dithering to restore a more CRT-like look to revive lurking color information and reduce popping/strobing effects when moving
-- Animation frame blending for a far smoother and pleasant experience that helps the existing animations look their best
-- High quality adjustable game window resizing that retains sharpness with very little artifacts
-- High quality audio resampling that is very flattering to the original recordings and more pleasant to the ear
-* Resampling: (1024-Phase 8192-Tap Lanczos Windowed-Sinc),
-* Bit depth conversion: TPDF noise shaping with 257 scaling for the best 8-bit to 16-bit conversion possible
-- `.clmov` recording playback with seeking, so you can jump through Clan Lord captures without replaying them from the start
-- Much higher quality music synthisizer that is more flexible (currently uses a 309MB soundfont file) that is not tied to a dead dependency.
-- Built-in local AI text-to-speech with a large choice of voices available online
-- Text rendering is anti-aliased and uses high quality modern fonts via OpenType and fractional font sizes are supported
-- Many-platform support: Windows, OS X, Linux and others are possible
+- Animation frame blending for a much smoother, more pleasant experience that helps the existing animations look their best
+- High-quality adjustable game window resizing that retains sharpness with very few artifacts
+- High-quality audio processing for the original recordings
+  - Resampling: 1024-phase, 8-tap Lanczos-4 windowed sinc
+  - Bit-depth conversion: TPDF dithering with 257 scaling for 8-bit to 16-bit conversion
+  - Optional game-sound enhancement plus persistent music reverb and stereo placement for simultaneous bard parts
+- `.clmov` recording and playback with seeking, so you can capture sessions and jump through recordings without replaying them from the start
+- A modern music synthesizer using an optional downloadable SoundFont instead of QuickTime MIDI
+- Built-in local Piper text-to-speech with a large choice of voices available online
+- Anti-aliased text rendering with high-quality modern OpenType fonts and fractional font sizes
 - Dark mode, light mode or fun colorful themes (even create your own)
-- Modern APIs: DirectX on Windows, Metal on OS X and Vulkan via Zink on Linux and even supports software rendering.
-* Use of Metal API is important because OpenGL support has been deprecated for ages on OS X and will be stuck at v4.1 and eventually removed.
-- Self-contained portable binary, no installers or external dependencies
-- Open-source and public domain to prevent it becoming unmaintained abandonware
+- Platform-native graphics backends through Ebitengine, including DirectX on Windows and Metal on macOS
+- Portable release archives with no installer; core game data and optional music/TTS files are downloaded separately
+- MIT-licensed open source to help prevent the client from becoming unmaintained abandonware
+- A built-in legacy macro library alongside the Go scripting system
 - Powerful scripting system using a common language, meaning most users will be able to seek support from LLMs.
 - Choices for more modern input schemes like enter-to-talk, WASD and use of non-fkeys
-* Modern laptops often do not support touchpad + keyboard simultaneously (palm rejection)
-* Many modern PCs only have 'media keys' and require you use a function key or mode switch to use. Some only offer touch-screen F-Keys or even no F-Keys at all!
+  - Modern laptops often do not support touchpad + keyboard simultaneously (palm rejection)
+  - Many modern PCs only have media keys and require a function key or mode switch to use F-keys. Some offer only touch-screen F-keys or none at all.
 
 ---
 
@@ -67,7 +64,7 @@ Possible to add support for: FreeBSD, OpenBSD, Chrome, Firefox, Safari, Edge, An
 **Easiest:** grab the latest build from **Releases** on this repo (Windows, macOS, Linux).
 
 ## Quick start
-- On first run, the client **auto-fetches missing game assets** (images, sounds) into `data/`. No manual wrangling.
+- The client **auto-fetches missing or outdated game assets** (images and sounds) into `data/`.
 - A short setup wizard opens on first run and once for each new goThoom release. Every control starts from the user's current setting, and changes are shown immediately in the live offline preview.
 
 ### Optional extras
@@ -82,7 +79,7 @@ Themes live in `themes/palettes` and styles in `themes/styles`. On first run the
 Piper voices are stored in `data/piper/voices`. The client and `build-scripts/download_piper.sh` support voice archives in `.tar.gz` format and automatically extract and remove the archives. If a voice archive isn't available, the program falls back to downloading raw `.onnx` models with matching `.onnx.json` configs.
 
 ### Downloading TTS files and soundfonts
-Use the **Download Files** window to fetch optional resources. The TTS option downloads the Piper binary and English voices for chat speech, while the soundfont enables higher quality music playback. Both boxes are checked by default and can be unchecked to skip their downloads.
+Use the **Download Files** window to fetch optional resources. The TTS option downloads the Piper binary and English voices for chat speech, while the SoundFont enables higher-quality music playback. The SoundFont option starts checked; the larger Piper TTS download is opt-in.
 
 ### Low-end hardware
 Enable **Potato GPU (low VRAM)** in Settings → Graphics if your system or driver only supports textures up to 4096×4096 pixels (for example, Raspberry Pi or very old GPUs). This mode uses smaller textures to avoid driver issues.
@@ -90,13 +87,13 @@ Enable **Potato GPU (low VRAM)** in Settings → Graphics if your system or driv
 ## Using the UI
 
 - Windows: Click the `Windows` toolbar button to toggle common panels: Players, Inventory, Chat, Console, Help, Hotkeys, Shortcuts, Mixer, Settings, and more. Window layout and open/closed state persist between runs.
-- Actions: Use the `Actions` toolbar drop-down for Hotkeys, Shortcuts, Triggers, or Scripts. Dedicated buttons provide quick access to Settings, Help, Snapshot, Mixer, and Exit.
+- Actions: Use the `Actions` toolbar drop-down for Hotkeys, Shortcuts, Triggers, Scripts, or Legacy Macros. Dedicated buttons provide quick access to Settings, Record, Help, Snapshot, Mixer, and Exit.
 - Movement: Left-click to walk, or use WASD/arrow keys (hold Shift to run). An optional "Click-to-Toggle Walk" sets a target with one click.
 - Input bar: Press Enter to type; press Enter again to send. Esc cancels. Up/Down browse history. While typing, Ctrl-V pastes and Ctrl-C copies the whole line. Right-click the input bar for Paste / Copy Line / Clear Line (Paste and Clear switch to typing mode and refresh immediately).
 - Chat/Console: Chat and Console are separate windows by default. Right-click any chat or console line to copy it; the line briefly highlights. You can merge chat into the console in Settings.
 - Inventory: Single-click selects. Double-click equips/unequips; Shift + double-click uses. Right-click an item for a context menu: Equip/Unequip, Examine, Show, Drop, Drop (Mine). If a shortcut is assigned to an item, its key appears like `[Q]` before the name.
 - Players: Single-click selects a player. Right-click a name for Thank, Curse, Anon Thank…, Anon Curse…, Share, Unshare, Info, Pull, or Push. Tags in the list: `>` sharing, `<` sharee, `*` same clan.
-- Mixer: Adjust Main/Game/Music/TTS volumes and enable/disable channels.
+- Mixer: Adjust Main, Game, Music, TTS, and notification volumes; enable or disable channels; mute when unfocused; and toggle stereo music.
 - Quality: Pick a preset, or tweak motion smoothing, denoising, blending.
 - Setup Wizard: Reopen the release tour at any time from Settings. Completing or skipping it records the current goThoom release in `settings.json`, so it returns only after the next upgrade.
 
@@ -195,14 +192,29 @@ Available message types:
      xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
    ```
 2. Install Go 1.26.6 from [go.dev](https://go.dev/dl/).
-3. Download Go modules:
+3. Download and extract the prebuilt dependency bundle from the repository root:
+   ```bash
+   curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
+   tar -xzf gothoom_deps.tar.gz
+   ```
+4. Download Go modules:
    ```bash
    go mod download
    ```
-4. Build the client:
+5. Build the client:
    ```bash
    go build
    ```
+
+### Build the WebAssembly package
+
+WebAssembly is kept separate from the desktop release build:
+
+```bash
+./build-scripts/build_wasm.sh
+```
+
+The browser package is written to `binaries/goThoom-Web/`.
 
 ### Setup wizard graphics preview
 
@@ -216,7 +228,7 @@ A `Dockerfile` provides a reproducible cross-platform build environment.
 ./build-scripts/docker_dev_env.sh
 docker create --name gothoom-build gothoom-build-env
 mkdir -p dist
-docker cp gothoom-build:/out ./dist
+docker cp gothoom-build:/binaries/. ./dist/
 docker rm gothoom-build
 ```
 
