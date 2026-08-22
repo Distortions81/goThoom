@@ -1,0 +1,351 @@
+// Metadata
+// Name: Dances
+// Tags: social, emotes
+// Desc: Dance commands and help.
+// Author: Inu; Mash by Noivad
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Dances.mac
+
+"/dc" 
+{
+LABEL dancer
+	if @text != ""
+		call @text
+	else
+		message "*This lets you dance one of the following:"
+		pause 8
+		message "aki = akimbo,"
+		pause 8
+		message "chik = chicken dance,"
+		pause 8
+		message "mash = noivad's mash (non spammy version),"
+		pause 8
+		message "rm = running man,"
+		pause 8
+		message "shuf = shuffle,"
+		pause 8
+		message "throb = janet jackson 'throb' inspired dance,"
+		pause 8
+		message "vog = madonna 'vogue' inspired dance."
+	end if
+end label
+}
+
+aki
+{
+	"/pose akimbo \r"
+	pause 1
+	"/pose attack left \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose attack right \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose attack south \r"
+	"/pose attack north \r"
+	pause 1
+	"/pose attack north \r"
+	"/pose attack south \r"
+	pause 1
+	"/pose akimbo \r"
+	pause 1
+	"/pose attack right \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose attack left \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose bless \r"
+	pause 5
+	"/pose bow \r"
+	pause 5
+	"/pose sit \r"
+}
+
+chik
+{
+	"/pose stand \r" 
+	"/pose akimbo \r" 
+	"/pose angry \r" 
+	"/pose akimbo \r" 
+	"/pose angry \r" 
+	"/pose akimbo \r" 
+	"/pose angry \r" 
+	"/pose akimbo \r" 
+	"/pose angry \r" 
+	pause 2
+	"/pose bless \r" 
+	"/pose angry \r" 
+	"/pose bless \r" 
+	"/pose angry \r" 
+	"/pose bless \r" 
+	"/pose angry \r" 
+	"/pose bless \r" 
+	"/pose angry \r" 
+
+}
+
+mash		
+{
+	"/action does the Mash!\r"
+	"/pose attack west\r/pose leanleft\r/pose celebrate\r"
+	"/pose akimbo\r"
+	pause 1
+	"/pose leanright\r"
+	"/pose attack\r"
+	"/pose akimbo\r"
+	"/pose celebrate\r"
+	"/pose bless \r"
+	pause 5
+	"/pose bow \r"
+	pause 5
+	"/pose sit \r"
+}
+
+
+rm
+{ 
+	"/pose walkright \r"
+	"/pose attack south west \r"
+	"/pose walkleft \r"
+	"/pose attack south east \r"
+ 	"/pose walkright \r"
+	"/pose attack south west \r"
+	"/pose walkleft \r"
+	"/pose attack south east \r"
+	"/pose attack right \r"
+	"/pose leanright \r"
+	"/pose attack left \r"
+	"/pose leanleft \r"
+	"/pose attack east \r"
+	"/pose walkright \r"
+	"/pose attack west \r"
+	"/pose walkleft \r"
+	"/pose stand \r"
+	"/pose bless \r"
+	pause 5
+	"/pose bow \r"
+	pause 5
+	"/pose sit \r"
+}
+
+shuf
+{
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanleft \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose leanright \r"
+}
+
+throb
+{
+	"/pose salute \r"
+	"/pose stand south \r"
+	"/pose attack west \r"
+	pause 1
+	"/pose salute \r"
+	"/pose stand south \r"
+	"/pose attack east \r"
+	pause 1
+	"/pose leanleft \r"
+	"/pose attack east \r"
+	pause 1
+	"/pose leanright \r"
+	"/pose attack west \r"
+	pause 2
+	"/pose angry \r"
+	pause 1
+	"/pose akimbo \r"
+	pause 1
+	"/pose angry \r"
+	pause 2
+	"/pose kneel \r"
+	pause 1
+	"/pose lie \r"
+	pause 1
+	"/pose kneel \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose akimbo \r"
+	pause 1
+	"/pose angry \r"
+	pause 2
+	"/pose kneel \r"
+	pause 1
+	"/pose lie \r"
+	pause 1
+	"/pose kneel \r"
+	pause 1
+	"/pose angry \r"
+	pause 1
+	"/pose akimbo \r"
+	pause 2
+	"/pose salute \r"
+	"/pose stand south \r"
+	"/pose attack west \r"
+	pause 1
+	"/pose salute \r"
+	"/pose stand south \r"
+	"/pose attack east \r"
+}
+vog
+{
+	"/pose celebrate \r" 
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 1
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 2
+	"/pose celebrate \r" 
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 1
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 2
+	"/pose celebrate \r" 
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 1
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	"/pose bless \r"
+	pause 5
+	"/pose celebrate \r" 
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 1
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 2
+	"/pose celebrate \r" 
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 1
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 2
+	"/pose celebrate \r" 
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	pause 1
+	"/pose leanleft \r" 
+	"/pose leanright \r" 
+	"/pose bless \r"
+	pause 5
+	"/pose bow \r"
+	pause 5
+	"/pose sit \r"
+}

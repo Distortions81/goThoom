@@ -45,7 +45,7 @@ func requestPlayersData() {
 		playersDirty = true
 	}
 
-	if pendingCommand != "" {
+	if !commandQueueIsIdle() {
 		return
 	}
 	if now.Sub(playersLastCmd) < time.Second {
@@ -61,7 +61,9 @@ func requestPlayersData() {
 			return
 		}
 		if !whoRequested {
-			pendingCommand = "/be-who"
+			if !enqueueCommandIfIdle("/be-who") {
+				return
+			}
 			whoLastRequest = now
 			playersLastCmd = now
 			whoRequested = true
@@ -71,7 +73,9 @@ func requestPlayersData() {
 		playersPhase = phaseShare
 		whoRequested = false
 	case phaseShare:
-		pendingCommand = "/be-share"
+		if !enqueueCommandIfIdle("/be-share") {
+			return
+		}
 		playersLastCmd = now
 		playersPhase = phaseInfo
 	case phaseInfo:

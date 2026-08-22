@@ -320,6 +320,14 @@ func handlePlayersContextClick(mx, my int) bool {
 // handlePlayersClick selects a player on single-click. If we later add
 // double-click behavior, we can use lastPlayerClick* similar to inventory.
 func handlePlayersClick(name string) {
+	event := legacyMacroPlayerClickEvent(name)
+	if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+		legacyMacroMarkInputConsumed("click")
+		return
+	}
+	if legacyMacroHandlePlayerModifierClick(name, event.Modifiers) {
+		return
+	}
 	now := time.Now()
 	if name == lastPlayerClickName && now.Sub(lastPlayerClickTime) < 500*time.Millisecond {
 		// Reserved for double-click behavior in the future.

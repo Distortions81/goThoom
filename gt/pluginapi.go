@@ -127,6 +127,7 @@ type Mobile struct {
 type ClickInfo struct {
 	X, Y     int16
 	OnMobile bool
+	OnPlayer bool
 	Mobile   Mobile
 	Button   int // placeholder; real value is an ebiten.MouseButton
 	Ctrl     bool

@@ -1,0 +1,393 @@
+// Metadata
+// Name: Omega Zu
+// Version: 4.1
+// Tags: kudzu, planting, inventory
+// Desc: Advanced macro collection for Zu.
+// Author: Omega Zu contributors
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Omega_Zu
+ /*
+ 
+ This macro not only plants seeds, loads seeds into bags and removes seeds
+ from bags, but you never have to manually equip a bag again.
+ When you run out of seeds in a bag, it automagically changes
+ to the next bag number in your inventory.
+ When it reaches your last bag and you run out of seeds, it switches to the
+ first bag, all without using an error prone scanner. There is no planting
+ delay either. This is the end of all kudzu macros. (Until I make it
+ load one if the current bag is full without using a scanner.)
+ 
+ Here's a quick start for you:
+ by default:
+ f6:		plants a seed from your bag
+ shift-f6:	loads a seed into your bag
+ option-f6:	removes a seed from your bag
+ type: "/setzu ?" for the following instructions:
+ type: "/setzu bag {number}" to set which bag you want to start pulling seeds from
+ type: "/setzu bag ?" to see which bag is to be selected
+ type: "/setzu maxbag {number}" to change the number of kudzu bags you're carrying
+ type: "/setzu maxbag ?" to see what your maximum number of kudzu bags is set to.
+ */
+ 
+ set slot 0
+ set zuinitTextLog ""
+ set bag_number 1
+ set max_bag    1
+ set zuInProgress 0
+ set zlBusy 0
+ set seedC 0
+ set seedCOld 1
+ set packFull 0
+ set max_pass max_bag 	// max_pass and pass control how many times
+ set pass 1
+ set thisBag "sack of kudzu seedlings 1"
+ 
+ /* ***Triggers*** */
+ shift-f6 call zl
+ F6 call zp
+ command-f6 call zuinit
+ "/shuffle" call bag_shuffle
+ 
+ 
+ //***Kudzu Macros. see "/set" command for more info***
+ 
+ 
+ zp //Checks to make sure you have your bag equipped.
+ {
+ if zuInProgress == 2
+ 	goto ENDER
+ else
+ 	setglobal zuInProgress 2
+ 	set myBag "sack of kudzu seedlings "
+ 	set myBag + bag_number
+ 	setglobal seedCOld @my.left_item.word[5].letter[0]
+ 	if @my.left_item != myBag
+ 		if debug > 0
+ 			message @my.left_item " != " myBag " changing bags."
+ 		end if
+ 		"/equip sack of kudzu seedlings " bag_number "\r"
+ 		pause 1
+ 		label SUB1
+ 		"/useitem left\r"
+ 		setglobal seedC @my.left_item.word[5].letter[0]
+ 		call FullPackCheck
+ 		if debug > 1
+ 			message "SUB1"
+ 		end if
+ 
+ 		if packFull == 1
+ 			goto ENDER
+ 		end if
+ 	else
+ 		label SUB2
+ 		"/useitem left\r"
+ 		setglobal seedC @my.left_item.word[5].letter[0]
+ 		call FullPackCheck
+ 		if debug > 0
+ 			message "SUB2"
+ 		end if
+ 		if packFull == 1
+ 			goto ENDER
+ 		end if
+ 	end if
+ 	if seedCOld == 0
+ 	 message "**seedCOld = 0**"
+ 		if bag_number == max_bag
+ 			setglobal bag_number  1
+ 		else
+ 			setglobal bag_number + 1
+ 		end if
+ 		"/equip bag of kudzu seedlings " bag_number "\r"
+ 		pause 1
+ 		label SUB3
+ 		"/useitem left\r"
+ 		call FullPackCheck
+ 		if debug > 0
+ 			message "SUB3"
+ 		end if
+ 		if packFull == 1
+ 			goto ENDER
+ 		end if
+ 	else if seedC == seedCOld //checks ifa seed was planted
+ 		"/equip kudzu seedling\r"
+ 		call FullPackCheck
+ 		if packFull == 1
+ 			goto ENDER
+ 		end if
+ 		pause 1
+ 		label SUB4
+ 		"/useitem left\r"
+ 		call FullPackCheck
+ 		if debug > 0
+ 			message "SUB4"
+ 		end if
+ 		if packFull == 1
+ 			goto ENDER
+ 		end if
+ 	else if seedC == 0
+ 		if bag_number == max_bag
+ 			setglobal bag_number  1
+ 		else
+ 			setglobal bag_number + 1
+ 		end if
+ 		"/equip bag of kudzu seedlings " bag_number "\r"
+ 	else
+ 		goto ENDER
+ 	end if
+ 	setglobal zuInProgress 0
+ end if
+ label ENDER
+ message theMessage
+ setglobal zuInProgress 0
+ }
+ 
+ 
+ 
+ zl
+ {
+ if zlBusy == 1
+ 	goto TerminateSilent   // ensures only one Zu Loader works at a time.
+ end if
+ setglobal max_pass max_bag 		// max_pass and pass control how many times
+ setglobal pass 1          	   //  the bags will swap looking for empty bags.
+ setglobal zlBusy 1
+ setglobal thisBag "sack of kudzu seedlings "
+ setglobal thisBag  + bag_number
+ set ll 0
+ set grace_period 0
+ message "*zu loader started"
+ 
+ label LOADLOOP
+ call bag_check 			//Check if the bag is full,
+ if seedC == 10			//
+ 	call bag_shuffle 	// if it is swap bags.
+ end if
+ 
+ if @my.left_item != thisBag
+ 	"/equip " thisBag "\r"
+ 	pause 1
+ end if
+ 
+ "/selectitem kudzu seedling\r"
+ set seedling @my.selected_item
+ set feedback @env.textLog
+ 
+ if seedling == ""
+ 	goto ENDER
+ else if seedling != ""
+ 	"/useitem left /add\r"
+ else
+ 	goto ENDER
+ end if
+ 
+ if feedback < " * You don't have any kudzu seedlings." //if no seedlings
+ 	set grace_period + 1
+ 	if grace_period > 4
+ 		goto ENDER
+ 	else				//period 3 times.
+ 		message "pass " grace_period "of 3."
+ 	end if
+ else if feedback < "you bag is full"
+ 	call bag_shuffle
+ end if
+ pause 60
+ set ll + 1
+ if ll < 3
+ 	goto LOADLOOP
+ else
+    message "*zu loader stopped"
+    goto TerminateSilent
+ end if
+ 
+ label ENDER
+ message "*zu loader stopped"
+ 
+ label TerminateSilent
+ setglobal zlBusy 0
+ }
+ 
+ 
+ bag_check //checks to see if your bag is full
+ {
+ setglobal seedC @my.left_item.word[5].letter[0]
+ if @my.left_item.word[5].letter[1] != ">"		//tests for a full bag
+ 	setglobal seedC 10
+ end if
+ }
+ 
+ 
+ 
+ bag_shuffle
+ {
+ if pass >= max_pass			//if we've been through all bags
+ 	goto ENDER			// don't execute.
+ 	else if bag_number != max_bag
+ 		setglobal bag_number + 1
+ 	else
+ 		setglobal bag_number 1
+ 	end if
+ 	set pass + 1
+ label ENDER
+ setglobal thisBag "bag of kudzu seedlings "
+ setglobal thisBag  + bag_number
+ if debug == 1
+ 	message "thisBag is " thisBag
+ end if
+ }
+ 
+ 
+ "/zutest"
+ {
+ set loop 0
+ label start
+ if loop != 8
+ 	"/move east walk\r"
+ 	pause 3
+ 	call zp
+ 	set loop + 1
+ 	goto start
+ end if
+ }
+ 
+ zuinit
+ {
+ set myBag "Bag of Kudzu Seedlings "
+ set myBag + bag_number
+ "/selectitem " myBag "\r"
+ pause 1
+ label EXAMINEBAG
+ "/examine\r"
+ pause 1
+ setglobal zuinitTextLog @env.textLog
+ if debug == 1
+ 	if  @env.textLog.word[8] > 0
+ 		setglobal seedC @env.textLog.word[8]
+ 		if seedC == 0
+ 			call bag_increment
+ 		end if
+ 	else if @env.textLog.word[8] == 0
+ 		call bag_increment
+ 	else
+ 		goto EXAMINEBAG
+ 	end if
+ else
+ /*	setglobal slot 0
+ label WORDCHECK
+ 	if slot > zuinitTextLog.num_words
+ 		goto end
+ 	else
+ 		message zuinitTextLog[slot]
+ 		setglobal slot + 1
+ 		goto WORDCHECK
+ 	end if
+ */
+ end if
+ label end
+ }
+ 
+ bag_increment
+ {
+ if bag_number == max_bag
+ 	setglobal bag_number  1
+ else
+ 	setglobal bag_number + 1
+ end if
+ }
+ 
+ option-f6
+ {
+ set myBag "bag of kudzu seedlings"
+ set myBag + bag_number
+ if @my.left_item != myBag
+ 	"/equip bag of kudzu seedlings " bag_number "\r"
+ else
+ 	message "ĽKudzu Ready"
+ end if
+ 	"/useitem left /remove \r"
+ }
+ 
+ //'/setzu' is used to set the bag and maximum number of bags you have on the fly.
+ "/setzu" //non-optimized to add: messageVariable and call InstructionMessages
+ {
+ if @text.word[0] == "?"
+ 	message "*The following variables are available to set using this command:"
+ 	pause 5
+ 	message "bag [?|(number)], maxbag ?|(number)"
+ else if @text.word[0] == "bag"
+ 	if @text.word[1] == "?"
+ 		message "*This variable is used to select a bag number to use for kudzu planting."
+ 		message "the current bag is " bag_number "."
+ 	end if
+ 	if @text.word[1] > 0
+ 	  setglobal bag_number @text.word[1]
+ 	  "/selectitem \"bag of kudzu seedlings <#" bag_number "\"\r"
+ 	  message "the current bag is " bag_number "."
+ 	end if
+ else if @text.word[0] == "maxbag"
+ 		if @text.word[1] == "?"
+ 		message "*This variable is used to set how many kudzu bags you have on you."
+ 		message "the number of kudzu bags is " max_bag "."
+ 	end if
+ 	if @text.word[1] > 0
+ 	  setglobal max_bag @text.word[1]
+ 	  message "you number of kudzu bags is set at " max_bag "."
+ 	end if
+ end if
+ 
+ label ENDER
+ }
+ 
+ "/zuwall"
+ {
+ setglobal thisBag "bag of kudzu seedlings "
+ set thisBag + bag_number
+ if @text > 0
+ 	set zu_number @text
+ else
+ 	set zu_number 10
+ end if
+ label ZuPlantStart
+ if @my.left_item != thisBag
+ 	"/equip " thisBag "\r"
+ end if
+ }
+ 
+ "/gets" call GetSeedCount
+ GetSeedCount
+ {
+ set myBag "bag of kudzu seedlings "
+ set myBag + bag_number
+ message "myBag=" myBag
+ if @my.left_item != myBag
+ 	"/equip " myBag "\r"
+ 	message "equiping: " myBag
+ end if
+ pause 5
+ set seedC @my.left_item.letter[28]
+ if @my.left_item.letter[29] == 0
+ 	set seedC 10
+ end if
+ message "seed count is " seedC
+ 
+ }
+ 
+ FullPackCheck
+ {
+ set checkFullPack @env.textLog
+ if debug == 1
+ 	message "**"  checkFullPack "**"
+ end if
+ if checkFullPack < " * You do not have room in your pack for anything else."
+ 	setglobal packFull 1
+ 	setglobal theMessage "***Your Pack is full! Drop something to plant!***"
+ else if checkFullPack < "You have no 'Kudzu Seedling' to equip."
+ 	setglobal packFull 1
+ 	setglobal theMessage "***Your Pack might be full! No Seed able to be planted.***"
+ else if checkFullPack < "* You don't have anything like that in your bag of kudzu seedlings."
+ 	setglobal packFull 1
+ 	setglobal theMessage "** You are out of Kudzu! **"
+ else
+ 	setglobal packFull 0
+ 	setglobal theMessage ""
+ end if
+ }

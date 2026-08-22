@@ -11,6 +11,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/text/encoding/charmap"
@@ -29,12 +31,122 @@ func simpleEncrypt(data []byte) {
 	}
 }
 
-func encodeMacRoman(s string) []byte {
-	b, err := charmap.Macintosh.NewEncoder().Bytes([]byte(s))
-	if err != nil {
-		return []byte(s)
+// EncodeMacRomanEscaped converts UTF-8 text to the one-byte MacRoman wire
+// format without losing Unicode. Runes outside MacRoman become ASCII Unicode
+// escapes, and literal backslashes are doubled so those escapes are reversible.
+func EncodeMacRomanEscaped(s string) ([]byte, error) {
+	encoded := make([]byte, 0, len(s))
+	for _, char := range s {
+		if char == '\\' {
+			encoded = append(encoded, '\\', '\\')
+			continue
+		}
+		if b, ok := charmap.Macintosh.EncodeRune(char); ok {
+			encoded = append(encoded, b)
+			continue
+		}
+		encoded = appendUnicodeEscape(encoded, char)
 	}
-	return b
+	return encoded, nil
+}
+
+func appendUnicodeEscape(dst []byte, char rune) []byte {
+	const hex = "0123456789ABCDEF"
+	digits := 4
+	dst = append(dst, '\\', 'u')
+	if char > 0xffff {
+		digits = 8
+		dst[len(dst)-1] = 'U'
+	}
+	for shift := (digits - 1) * 4; shift >= 0; shift -= 4 {
+		dst = append(dst, hex[(uint32(char)>>shift)&0xf])
+	}
+	return dst
+}
+
+// DecodeMacRomanEscaped decodes MacRoman bytes, then restores only the exact
+// escape forms emitted by EncodeMacRomanEscaped. Unknown and malformed escapes
+// remain literal.
+func DecodeMacRomanEscaped(b []byte) (string, error) {
+	text := decodeMacRoman(b)
+	var decoded strings.Builder
+	decoded.Grow(len(text))
+	for i := 0; i < len(text); {
+		if text[i] != '\\' {
+			decoded.WriteByte(text[i])
+			i++
+			continue
+		}
+		if i+1 < len(text) && text[i+1] == '\\' {
+			decoded.WriteByte('\\')
+			i += 2
+			continue
+		}
+		if i+1 < len(text) && text[i+1] == 'u' {
+			if char, ok := parseUnicodeEscape(text[i+2:], 4); ok {
+				decoded.WriteRune(char)
+				i += 6
+				continue
+			}
+		}
+		if i+1 < len(text) && text[i+1] == 'U' {
+			if char, ok := parseUnicodeEscape(text[i+2:], 8); ok {
+				decoded.WriteRune(char)
+				i += 10
+				continue
+			}
+		}
+		decoded.WriteByte('\\')
+		i++
+	}
+	return decoded.String(), nil
+}
+
+func parseUnicodeEscape(text string, digits int) (rune, bool) {
+	if len(text) < digits {
+		return 0, false
+	}
+	var value rune
+	for i := 0; i < digits; i++ {
+		var digit rune
+		switch char := text[i]; {
+		case char >= '0' && char <= '9':
+			digit = rune(char - '0')
+		case char >= 'A' && char <= 'F':
+			digit = rune(char-'A') + 10
+		case char >= 'a' && char <= 'f':
+			digit = rune(char-'a') + 10
+		default:
+			return 0, false
+		}
+		value = value<<4 | digit
+	}
+	if value >= 0xd800 && value <= 0xdfff {
+		return 0, false
+	}
+	if value > 0x10ffff {
+		return 0, false
+	}
+	return value, true
+}
+
+func encodeMacRoman(s string) []byte {
+	encoded, _ := EncodeMacRomanEscaped(s)
+	return encoded
+}
+
+func decodeMacRoman(b []byte) string {
+	var decoded strings.Builder
+	decoded.Grow(len(b))
+	for _, char := range b {
+		decoded.WriteRune(charmap.Macintosh.DecodeByte(char))
+	}
+	return decoded.String()
+}
+
+func decodeServerText(b []byte) string {
+	decoded, _ := DecodeMacRomanEscaped(b)
+	return decoded
 }
 
 // utfFold preserves the original string without stripping accents.
@@ -133,20 +245,63 @@ var bucketTimes [5]int64
 var commandNum uint32 = 1
 var pendingCommand string
 var commandQueue []string
+var commandMu sync.Mutex
 var playerName string
 var playerIndex uint8 = 0xff
 
 func enqueueCommand(cmd string) {
-	if cmd != "" {
-		commandQueue = append(commandQueue, cmd)
+	if cmd == "" {
+		return
 	}
+	commandMu.Lock()
+	commandQueue = append(commandQueue, cmd)
+	nextCommandLocked()
+	commandMu.Unlock()
 }
 
 func nextCommand() {
+	commandMu.Lock()
+	nextCommandLocked()
+	commandMu.Unlock()
+}
+
+func nextCommandLocked() {
 	if pendingCommand == "" && len(commandQueue) > 0 {
 		pendingCommand = commandQueue[0]
 		commandQueue = commandQueue[1:]
 	}
+}
+
+func commandQueueIsIdle() bool {
+	commandMu.Lock()
+	defer commandMu.Unlock()
+	return pendingCommand == "" && len(commandQueue) == 0
+}
+
+func enqueueCommandIfIdle(cmd string) bool {
+	if cmd == "" {
+		return false
+	}
+	commandMu.Lock()
+	defer commandMu.Unlock()
+	if pendingCommand != "" || len(commandQueue) != 0 {
+		return false
+	}
+	pendingCommand = cmd
+	return true
+}
+
+func clearCommands() {
+	commandMu.Lock()
+	pendingCommand = ""
+	commandQueue = nil
+	commandMu.Unlock()
+}
+
+func lastCommandFrameSnapshot() int32 {
+	commandMu.Lock()
+	defer commandMu.Unlock()
+	return whoLastCommandFrame
 }
 
 // updateFrameCounters tracks frame statistics and detects dropped frames.

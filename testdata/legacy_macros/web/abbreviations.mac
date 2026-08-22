@@ -1,0 +1,159 @@
+// Metadata
+// Name: Abbreviations
+// Tags: chat, utility
+// Desc: A large collection of text expansions.
+// Author: Noivad and many others
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Abbreviations.mac
+// Keep your abbreviations in this file...
+//
+
+"??"    "/help "    @text "\r"
+"aa"    "/action "  @text "\r"
+"gg"    "/give "    @text "\r"
+"hp"    "/ponder healer pounce! \r"
+"ii"    "/info "    @text "\r"
+"kk"    "/karma "   @text "\r"
+"kp"    "kill please \r"
+"mm"	"/money "   @text "\r"
+"n"		"/narrate " @text "\r"
+"nn"    "/news\r"
+"pp"    "/ponder "  @text "\r"
+"sel"	"/select "  @text "\r"
+"sh"    "/share "   @text "\r"
+"shl"   "/share /lock " @text "\r"
+"tag"	"I tagged it :) \r"
+
+"sl"    
+{ 
+	set sleepToggle 1
+	"/sleep \r"
+}
+
+"th"    "/thank "   @text "\r" 
+"u"		"/use "     @text "\r"
+"ui"    "/useitem " @text "\r"
+"uu"    "/use "     @text "\r"
+"un"    "/unshare " @text "\r"
+"w"     "/who "     @text "\r"
+"wh"    "/whisper " @text "\r"
+'yw'	"you're welcome \r"
+
+// yells
+"/y"	"/yell " @text " \r"
+"yb"	"/yell BS! " @text " \r"
+"ye"	"/yell eek! help! " @text " \r"
+"yf"	"/yell fallens? " @text " \r"
+"yh"    "/yell here! fallen " @text " \r"
+"/yo"   "/yell Chivalry! " @text " \r"
+"yout"  "/yell out " @text "\r"
+"yr"   	"/yell running them " @text "\r"
+"yrt"   "/yell run " @text "\r"
+"ys"	"/yell safe! " @text "\r"
+"yy"    "/yell " @text "\r"
+"yp"
+{
+	random
+	"/yell ping " @text " \r"
+	or
+	"/yell ! " @text " \r"
+	or 
+	"/yell ? " @text " \r"
+	end random
+}
+
+"y?"	"/yell ? \r"
+"y!"	"/yell ! \r"
+
+"/dm"   "/drop /mine \r"
+
+// Replacement Text Strings 
+// 200611-inu: These are from many sources, uppercased to make it easier to type
+//             what you want without these getting in the way.
+
+'AG' 		"astral guardian"
+'BC'     	"Bear Cave"
+'BH'		"BlackHand"
+'BH1'		"BlackHole"
+'bbl'		"Be back later"
+'bbs'		"Be back soon"
+'brb'		"I'll be right back"
+'brt'		"be right there"
+// 'cotg' 		"captain of the guard"
+// 'ex'		"excuse me" // found this interferes with saying ex-wife etc
+'exc '		"excuse me"
+
+// 'dc'		"disconnect"
+'DH'		"DragonHawk"
+'DF' 		"death furie"
+'DK' 		"dark knight"
+'DT'		"Dark Temple"
+'EF'		"East Forest"
+'EFL'		"lower East Field"
+'EFU'		"upper East Field"
+'EP' 		"Ethereal Plane"
+'FD'		"Feral Den"
+'FH'		"Frozen Ham "
+'FN'		"Finegas"
+'FIN'		"Finegas"
+'FW' 		"firewalker"
+'GK'		"good karma"
+'GMV'		"Greymyr Village"
+'GNF'		"Grassy North Field"
+'GS'		"great sword"
+'GV'		"giant vermine"
+'GW' 		"greater wraith"
+'LA'		"Laughing Academy"
+'LP'		"lily pond"
+'LSW'		"large/lesser sand wurm"
+'LV'		"large vermine"
+'MC'		"Maha Cave"
+'MH'		"Marsh Hermit"
+'MP'		"Mid Pass"
+'MR'		"Marsh"
+'MT'		"Maha Tomb"
+'mp'		"my pleasure"
+'mv'		"move!"
+'mw'		"make way"
+'MYR'		"greymyr"
+'NB'		"North Beach"
+'NBC'    	"New Bear Cave"
+'NF'		"north forest"
+'nv'		"nevermind"
+'np'		"no problem"
+'NP'		"North Pass"
+'NWF'		"Northwest Forest"
+'NS'		"new swamp"
+'OC'		"Orga Camp"
+'OC2'		"Orga Camp 2"
+'OC3'		"Orga Camp 3"
+'OC4'		"Orga Camp 4"
+'omw'		"on my way"
+'oow'		"on our way"
+'OV'		"Orga Village"
+'PALI'		"pallidew"
+'PALLI'		"pallidew"
+'POS'		"Puddleby Orthinological Society"
+'PUN'		"Punny"
+'PURG'		"Purgatory"
+'QC'		"Queen\'s Chamber"
+'RC'		"Rocky Cavern"
+'SAR'		"sar'noth"
+'SAV'		"savannah"
+'SB'		"South Beach"
+'SP'		"South Pass"
+'SPRIG'		"spriggin"
+'SS'		"sunstone"
+'SSing'		"sunstoning"
+'SWB'		"southwest beach"
+'TGBG'		"Tree Giant Breeding Ground"
+'thx'		"thanks"
+'TI' 		"Tenebrion's Island"
+'TK' 		"Tenebrion's Keep"
+'ty'		"thank you ^_^"
+//'VEL'		"vel'noth".  //The Veldrek Confict
+"wel"	  	"welcome ^_^  /r"
+'wg'		"willow giant"
+'WG'		"Wisher\'s Gate"
+'XAR'		"xar'noth!"
+'ZOL'		"zol'noth"

@@ -1,0 +1,456 @@
+// Metadata
+// Name: Delta Tao Example Macros
+// Tags: movement, hotkeys, chat
+// Desc: Official examples, including directional movement bindings.
+// Author: Delta Tao example contributors
+// Website: https://www.deltatao.com/clanlord/
+// Update: https://www.deltatao.com/clanlord/macros/example_macros.html
+
+// Clears the text field when you press the 'esc' key
+escape
+{
+    set @env.echo true
+    "\r"
+}
+
+// For quick posing
+option-numpad-1 "/pose kneel\r"
+option-numpad-2 "/pose sit\r"
+option-numpad-3 "/pose kneel\r"
+option-numpad-4 "/pose leanleft\r"
+option-numpad-5 "/pose angry\r"
+option-numpad-6 "/pose leanright\r"
+option-numpad-8 "/pose stand\r"
+option-numpad-7 "/pose akimbo\r"
+option-numpad-9 "/pose bless\r"
+option-numpad-0 "/pose lie\r"
+
+// Directional control
+shift-numpad-1 move walk sw
+shift-numpad-2 move walk s
+shift-numpad-3 move walk se
+shift-numpad-4 move walk w
+shift-numpad-5 move stop
+shift-numpad-6 move walk e
+shift-numpad-7 move walk nw
+shift-numpad-8 move walk n
+shift-numpad-9 move walk ne
+
+// Directional yells
+wnumpad-1 "/yell Southwest\r"
+numpad-2 "/yell South\r"
+numpad-3 "/yell Southeast\r"
+numpad-4 "/yell West\r"
+numpad-5 "/yell Here\r"
+numpad-6 "/yell East\r"
+numpad-7 "/yell Nortwest\r"
+numpad-8 "/yell North\r"
+numpad-9 "/yell Northeast\r"
+numpad-0 "/yell Regroup here.\r"
+
+
+// Sample arithmetic operations
+f8
+{
+    set num 1
+    num "\r"
+    set num + 4
+    num "\r"
+    set num2 6
+    num2 "\r"
+    set num + num2
+    num "\r"
+}
+// emits 1, then 5 (which is 1 + 4), then 11 (5 + 6)
+
+// Toggle debugging on and off with the 'help' key
+help
+{
+    if @env.debug == true
+        setglobal @env.debug false
+    else
+        setglobal @env.debug true
+    end if
+}
+
+// show the "in-game" names of what I'm holding
+"rdy" "/action readies his " @my.right_item " and " @my.left_item ".\r"
+
+// Talk backwards
+option-return
+{
+    set on @text.num_words
+    set on - 1
+    label mark
+    @text.word[on]
+    if on > 0
+        " "
+        set on - 1
+        goto mark
+    end if
+    "\r"
+}
+
+// Use poses to bow.
+// May look silly for some races...
+"bow"
+{
+    "/action bows.\r"
+    "/pose akimbo\r"
+    "/pose kneel\r"
+    pause 2
+    "/pose akimbo\r"
+    "/pose stand\r"
+}
+
+// Use poses to clap; illustrates the "call" instruction
+applaud
+{
+    "/pose bless\r"
+    "/pose akimbo\r"
+}
+
+"clap"
+{
+    "/action applauds.\r"
+    call applaud
+    call applaud
+    call applaud
+    call applaud
+    call applaud
+    call applaud
+    "/pose stand\r"
+}
+
+// Bounce up and down a number of times that you specify
+// Type "bounce 10" or "bounce 4"
+kneebend
+{
+    "/pose kneel\r"
+    "/pose akimbo\r"
+}
+
+"bounce"
+{
+    if @text.num_words == 0
+        set numbounces 3
+    else
+        set numbounces @text.word[0]
+    end if
+    
+    "/action bounces.\r"
+    set i 1
+    
+    label bouncelab
+   call kneebend
+   if i < numbounces
+      set i + 1
+      goto bouncelab
+   end if
+}
+
+// A common part of dances
+"circle"
+{
+    move walk s
+    pause 1
+    move walk sw
+    pause 1
+    move walk w
+    pause 1
+    move walk nw
+    pause 1
+    move walk n
+    pause 1
+    move walk ne
+    pause 1
+    move walk e
+    pause 1
+    move walk se
+    pause 1
+    move walk s
+    pause 1
+    move stop
+}
+
+
+// Simulate being berzerk or drunk
+"drunk"
+{
+    "/action staggers drunkenly.\r"
+    set seed @random
+    set seed % 16
+    set seed + 8
+    set i 0
+    label drunklab
+    set wait @random
+    set wait % 9
+    set wait + 1
+    call randwalk
+    pause wait
+    if i < seed
+        set i + 1
+        goto drunklab
+    end if
+    move stop
+    "/action collapses.\r"
+    "/pose lie\r"
+    "/sleep\r"
+}
+
+randwalk
+{
+    random no-repeat
+        move walk sw
+    or
+        move walk s
+    or
+        move walk se
+    or
+        move walk w
+    or
+        move walk e
+    or
+        move walk nw
+    or
+        move walk n
+    or
+        move walk ne
+    end random
+}
+
+// Share with a list of people; the first ones in the list get priority.
+// Type "shl Lorian Bones Angel Axell Kisa Puffy Magnels"
+"shl"
+{
+    set on @text.word_count
+    set on - 1
+    label mark
+    "/share " @text.word[on] "\r"
+    if on > 0
+    pause 30
+    set on - 1
+    goto mark
+    end if
+}
+
+// Call this macro so you can do something else while waiting for
+// your character to get out of Purgatory.
+// (Note: this is NOT the most efficient way to leave Purgatory!)
+"purg"
+{
+    set @env.key_interrupts true
+    set @env.click_interrupts true
+    label moveLoopStart
+    
+    // Pick your own preferred direction(s) here.
+    move run sw
+    pause 5
+    move run s
+    pause 5
+    goto moveLoopStart
+}
+
+
+// Check the time
+"time"
+{
+    "/action looks at the sky.\r"
+    set saveItem @my.right_item
+    equip "Green Token"
+    "/use\r"
+    equip saveItem
+}
+
+
+// A set of sunstone macros that lets you automatically switch to your sunstone
+// when you want to /thinkto.  It also remembers the last person that you thought
+// to and you can thinkto them again using "tc".
+
+set tt_target ""
+
+// Sunstone
+"tt"
+{
+	set i 1
+	set saveItem @my.left_item
+	setglobal tt_target @text.word[0]
+	equip "Sunstone"	// or whatever variant you own
+	"/thinkto " @text "\r"
+	if saveItem == "Nothing"
+		unequip left
+	else
+		equip saveItem
+	end if
+}
+
+"tc"
+{
+	if tt_target == ""
+		message "Error: no sunstone conversation target"
+	else
+		set saveItem @my.left_item
+		equip "Sunstone"
+		"/thinkto " tt_target " " @text "\r"
+		if saveItem == "Nothing"
+			unequip left
+		else
+			equip saveItem
+		end if
+	end if
+}
+
+
+// An interesting way to give your character some "character" with an accent
+"accent"
+{
+    // replace s with z
+    // replace c with kh
+    // perhaps this exile has an accent or lisp
+    set numword @text.num_words
+    set numword - 1
+    set wordind 0
+    label wordlab
+    set numchar @text.word[wordind].num_letters
+    set numchar - 1
+    set word @text.word[wordind]
+    set charind 0
+    label charlab
+    set mychar word.letter[charind]
+    if mychar == "s"
+        "z"
+    else if mychar == "c"
+        "kh"
+    else
+        mychar
+    end if
+    if charind < numchar
+        set charind + 1
+        goto charlab
+    end if
+    " "
+    if wordind < numword
+        set wordind + 1
+        goto wordlab
+    end if
+    "\r"
+}
+
+
+// The Zouclougeist Alliance dance.
+
+// global flag used for start/stop
+set stopwalk 1
+
+// Macro is triggered by F9 both for start and stop.
+f9
+{
+    set @env.echo false
+    set @env.key_interrupts false
+    
+    if stopwalk == 0
+        // we are already dancing, so /action the end
+        setglobal stopwalk 1
+        "/action performed the Zou dance\r"
+        move stop
+        pause 2
+    else
+        "/action will perform the Zou dance\r"
+        pause 10
+        setglobal stopwalk 0
+        setglobal kroumphctr 0
+
+        label test
+
+        set  kroumphctr + 1
+        if kroumphctr == 5
+            random
+                "/yell Kroumph!\r"
+            or
+                "/yell O My Zou!\r"
+            or
+                "/yell ZA Forever!\r"
+            end random
+            set kroumphctr 0
+        end if
+        
+        if stopwalk == 0
+            move run N
+            pause 1
+            move run NE
+            pause 1
+        end if
+        
+        if stopwalk == 0
+            move run E
+            pause 1
+            move run SE
+            pause 1
+        end if
+        
+        if stopwalk == 0
+            move run S
+            pause 1
+            move run SW
+            pause 1
+        end if
+        
+        if stopwalk == 0
+            move run W
+            pause 1
+            move run NW
+            pause 1
+        end if
+        
+        move stop
+        pause 1
+        "/pose leanleft\r"
+        pause 1
+        "/pose leanright\r"
+        pause 1
+        "/pose stand\r"
+        pause 1
+
+        if stopwalk == 0
+            move run S
+            pause 1
+            move run SW
+            pause 1
+        end if
+        
+        if stopwalk == 0
+            move run W
+            pause 1
+            move run NW
+            pause 1
+        end if
+        
+        if stopwalk == 0
+            move run N
+            pause 1
+            move run NE
+            pause 1
+        end if
+        
+        if stopwalk == 0
+            move run E
+            pause 1
+            move run SE
+            pause 1
+
+            move stop
+            pause 1
+            "/pose leanleft\r"
+            pause 1
+            "/pose leanright\r"
+            pause 1
+            "/pose stand\r"
+            pause 1
+        
+            goto test
+        end if
+        
+        move stop
+        pause 2
+    end if
+}

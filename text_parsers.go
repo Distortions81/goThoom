@@ -558,7 +558,7 @@ func parseMusicCommand(s string, raw []byte) bool {
 		}
 	}
 	if s == "" && len(raw) > 0 {
-		s = strings.TrimSpace(decodeMacRoman(raw))
+		s = strings.TrimSpace(decodeServerText(raw))
 		orig = s
 	}
 	if s == "" {
@@ -758,5 +758,5 @@ func firstTagContent(b []byte, a, b2 byte) string {
 	if j < 0 {
 		return ""
 	}
-	return strings.TrimSpace(decodeMacRoman(rest[:j]))
+	return strings.TrimSpace(decodeServerText(rest[:j]))
 }

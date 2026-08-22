@@ -6,8 +6,6 @@ New and improved:
 - Movie recording now starts correctly whether it is armed before connecting or started while already playing. New recordings remain compatible with the existing movie format.
 - Alternate networking mode and timing choices are now remembered between sessions.
 - Added support for both "Mouse4" and "Mouse 4" hotkey spellings, with clearer scripting help for function hotkeys.
-- New installs now enable fading obscuring artwork, dither blending, smooth movement, character and world animation blending, shader lighting, and sprite gamma correction by default.
-- Launched the new project website at https://gothoom.m45sci.xyz/ and moved game-asset downloads to its dedicated mirror.
 
 Fixes:
 - Fixed recorded movies starting without the player, clothing, scenery, or other initial world details.

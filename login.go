@@ -318,7 +318,7 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 		if i := bytes.IndexByte(msg, 0); i >= 0 {
 			msg = msg[:i]
 		}
-		return "", fmt.Errorf("%s", decodeMacRoman(msg))
+		return "", fmt.Errorf("%s", decodeServerText(msg))
 	}
 	if len(resp) < 28 {
 		return "", fmt.Errorf("short char list resp via %s", target.addr)
@@ -332,7 +332,7 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 		if i <= 0 {
 			break
 		}
-		n := strings.TrimSpace(decodeMacRoman(namesData[:i]))
+		n := strings.TrimSpace(decodeServerText(namesData[:i]))
 		if n != "" {
 			names = append(names, n)
 		}
@@ -636,6 +636,9 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
+	if err := loadLegacyMacrosForCharacter(playerName); err != nil {
+		log.Printf("legacy macros: %v", err)
+	}
 	updateConnectDialog("Login successful!")
 	closeConnectDialog()
 

@@ -36,7 +36,7 @@ func parseBackendInfo(data []byte) {
 	if end < 0 {
 		return
 	}
-	name := strings.TrimSpace(decodeMacRoman(rest[:end]))
+	name := strings.TrimSpace(decodeServerText(rest[:end]))
 	rest = rest[end+3:]
 	// Skip any leading tabs before the race field (stock client does this).
 	for len(rest) > 0 && rest[0] == '\t' {
@@ -50,12 +50,12 @@ func parseBackendInfo(data []byte) {
 	if len(fields) < 3 {
 		return
 	}
-	race := strings.TrimSpace(decodeMacRoman(fields[0]))
-	gender := strings.TrimSpace(decodeMacRoman(fields[1]))
-	class := strings.TrimSpace(decodeMacRoman(fields[2]))
+	race := strings.TrimSpace(decodeServerText(fields[0]))
+	gender := strings.TrimSpace(decodeServerText(fields[1]))
+	class := strings.TrimSpace(decodeServerText(fields[2]))
 	clan := ""
 	if len(fields) > 3 {
-		clan = strings.TrimSpace(decodeMacRoman(fields[3]))
+		clan = strings.TrimSpace(decodeServerText(fields[3]))
 	}
 	playersMu.Lock()
 	p, ok := players[name]
@@ -210,7 +210,7 @@ func parseBackendWho(data []byte) {
 		if end < 0 {
 			break
 		}
-		name := strings.TrimSpace(decodeMacRoman(data[:end]))
+		name := strings.TrimSpace(decodeServerText(data[:end]))
 		// After name, expect: ',' <real-name> ',' <gmlevel> '\t'
 		seg := data[end+3:]
 		tab := bytes.IndexByte(seg, '\t')
@@ -221,7 +221,7 @@ func parseBackendWho(data []byte) {
 		gm := 0
 		if c1 := bytes.IndexByte(meta, ','); c1 >= 0 {
 			if c2 := bytes.IndexByte(meta[c1+1:], ','); c2 >= 0 {
-				gmStr := strings.TrimSpace(decodeMacRoman(meta[c1+1+c2+1:]))
+				gmStr := strings.TrimSpace(decodeServerText(meta[c1+1+c2+1:]))
 				if gmv, err := strconv.Atoi(gmStr); err == nil {
 					gm = gmv
 				}
@@ -294,7 +294,7 @@ func parseNames(data []byte) []string {
 		if end < 0 {
 			break
 		}
-		name := utfFold(strings.TrimSpace(decodeMacRoman(data[:end])))
+		name := utfFold(strings.TrimSpace(decodeServerText(data[:end])))
 		names = append(names, name)
 		data = data[end+3:]
 		for {

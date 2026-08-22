@@ -22,6 +22,7 @@ func chatMessage(msg string) {
 	if wasmPrivacyActive() {
 		return
 	}
+	legacyMacroSetTextLog(msg)
 
 	speaker := chatSpeaker(msg)
 	if speaker != "" {

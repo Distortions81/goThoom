@@ -1,0 +1,742 @@
+// Metadata
+// Name: Scanner
+// Version: 3.2.5
+// Tags: messaging, sharing, utility
+// Desc: Advanced scanner macros.
+// Author: Scanner.txt contributors
+// Website: https://clump.clanlord.net/
+// Update: https://clump.clanlord.net/library/index.php?title=Scanner.txt
+message "Scanner.txt macro Loaded"
+ // Description:  (AKA "A Quick Reply")
+ // This macro allows you to quickly reply to anyone who thinks to you directly
+ // to you. It also manages think to groups and think to clan actions by default.
+ // The addition of arrays means additional scans can be added without writing a
+ // new conditional check for the phrase.
+ // It allows one to auto reply to a boat seller.
+ // Now it also can display trainer rank counts and duvin free in the sidebar.
+ //
+ //The biggest feature is ease of adding things to scan for: now, you can easily add a set of
+ //scanned items and macros to call by numbering them (placeholders 1 is for quick adds/copies
+ // without triggering an error:
+ // "set checkText[#]" "{text to look for}"
+ // "set reaction[#]" "macro to call" //note: must be callable see Macros*
+ //
+ //------------------------------------Usage-------------------------------------
+ // "goscan" to start and "noscan" to stop.
+ // "goscan ?" for instructions on different commands.
+ // "t?" give the current target,
+ // "ts <name> [message]" sets the SSTarget and optionally sends a message
+ // "tc <message>" to think back to the SStarget
+ // "tt <message>" to think to selected player -- added v2.5.4
+ // SCROLL DOWN for Thinkgroup instructions
+ //------------------------------------Setup-------------------------------------
+ // Add "include "scanner.txt" ("scanner.mac" for Windows) and "@login call GoScan" to
+ // your default macro file if you want it to start automatically.
+ //------------------------------------Credit------------------------------------
+ // Reye for the Idea, X for the syntax check and suggestions,
+ // and everyone who direct SSed me to help debug.
+ // Originally Written in BBedit (over 2 decades ago) Maintained in Nova
+ //------------------------------------------------------------------------------
+ 
+ set ssTarget "" //you must keep these variables outside of the functions and macros
+ set myStone "Sungem"  // set this to Sunstone, Suncrystal or Sungem
+ set scanBreak 0		//they need to be global
+ set fitem ""
+ set scanText ""
+ set timeStamps 1    // Set this to zero if you don't use timestamps**
+ set playerName 0
+ set me 0
+ set keepAlive 0
+ set feedback 0 //useful for debug & more spam in your sidebar. Gives you feedback i.e.: "tc target: @player"
+ set pointer 1 // pointer to current scanned phrase
+ set cap 90 //must equal checkText/reaction array total
+ 
+ set checkText[2] 	"thinks to you, "
+ set checkText[3] 	"Captain Barnac says, \"Ah, "
+ set checkText[4] 	"Paul Deckand says, \"Ah, "
+ set checkText[5] 	"Bear Knuckle says, \"Ah, "
+ set checkText[67] 	"Fird Lirden says, \"Ah, "
+ set checkText[69] 	"Nemo says, \"Ah, "
+ set checkText[6] 	"No item named 'bag of kudzu seedlings"
+ set checkText[7]	"* Your bag of kudzu seedlings is full."
+ set checkText[8] 	"* You do not have room in your pack for anything else."
+ set checkText[9] 	"You can't take things out of your pack that quickly."
+ set checkText[10]	"You return to your normal form."
+ set checkText[68] 	@my.name " has fallen to "
+ set checkText[11]	"You assume the shape of "
+ set checkText[12] 	"You cannot possibly use anything in your current condition."
+ set checkText[13]	"¥You are already in your normal form."
+ set checkText[14]	"myThankGroup[thankTarget]"
+ set checkText[15]	"myThankGroup[thankTarget]"
+ set checkText[16]	"pesky"
+ set checkText[17]	"Paula Freshland says, \"Ah, "
+ set checkText[70]	"blood flows down"
+ 
+ set reaction[2]		"ThinkTargetSet"
+ set reaction[3]		"RentBoat"
+ set reaction[4]		"RentBoat"
+ set reaction[5]		"RentBoat"
+ set reaction[67]	"RentBoat"
+ set reaction[69]	"RentBoat"
+ set reaction[6]		"setBagOne"
+ set reaction[7]		"decrementBag"
+ set reaction[8]		"plantSeed"
+ set reaction[9]		"dropOrgaEye"
+ set reaction[10]	"notMorphed"
+ set reaction[68]	"notMorphed"
+ set reaction[11]	"isMorphed"
+ set reaction[12]	"notMorphed"
+ set reaction[13]	"morph"
+ set reaction[14]	"moveUp"
+ set reaction[15]	"placeholder"
+ set reaction[16]	"copyright"
+ set reaction[17]	"RentBoat"
+ set reaction[70]	"bloodpool"
+ 
+ /* ***** Trainer Messages ***** */
+ set checkText[18]	"You have much to learn."
+ set reaction[18] "rankA"
+ rankA message @env.textLog.word[2] ":: 0-9"
+ 
+ set checkText[19]	"It is good to see you."
+ set reaction[19] "rankB"
+ rankB message @env.textLog.word[2] ":: 10Ğ19"
+ 
+ set checkText[20]	"Your persistence is paying off."
+ set reaction[20] "rankC"
+ rankC message @env.textLog.word[2] ":: 20Ğ29"
+ 
+ set checkText[21]	"You are progressing well."
+ set reaction[21] "rankD"
+ rankD message @env.textLog.word[2] ":: 30Ğ39"
+ 
+ 
+ set checkText[22]	"You are a good pupil of mine."
+ set reaction[22] "rankE"
+ rankE message @env.textLog.word[2] ":: 40Ğ49"
+ 
+ 
+ set checkText[23]	"You are one of my better pupils."
+ set reaction[23] "rankF"
+ rankF message @env.textLog.word[2] ":: 50Ğ99"
+ 
+ set checkText[24]	"You keep me on my toes."
+ set reaction[24] "rankG"
+ rankG message @env.textLog.word[2] ":: 100Ğ149"
+ 
+ set checkText[25]	"It is hard to find more to teach you."
+ set reaction[25] "rankH"
+ rankH message @env.textLog.word[2] ":: 150Ğ199"
+ 
+ set checkText[26]	"Teaching you is a challenge."
+ set reaction[26] "rankI"
+ rankI message @env.textLog.word[2] ":: 200Ğ249"
+ 
+ set checkText[27]	"There is not much more I can teach you."
+ set reaction[27] "rankJ"
+ rankJ message @env.textLog.word[2] ":: 250Ğ299"
+ 
+ set checkText[28]	"Teaching you has taught me much."
+ set reaction[28] "rankK"
+ rankK message @env.textLog.word[2] ":: 300Ğ349"
+ 
+ 
+ set checkText[29]	"You have attained tremendous skill."
+ set reaction[29] "rankL"
+ rankL message @env.textLog.word[2] ":: 350Ğ399"
+ 
+ set checkText[30]	"We are nearly equals."
+ set reaction[30] "rankM"
+ rankM message @env.textLog.word[2] ":: 400Ğ449"
+ 
+ set checkText[31]	"You may be proud of your accomplishment."
+ set reaction[31] "rankN"
+ rankN message @env.textLog.word[2] ":: 450Ğ499"
+ 
+ set checkText[32]	"You are becoming a master of our art."
+ set reaction[32] "rank0"
+ rank0 message @env.textLog.word[2] ":: 500Ğ549"
+ 
+ set checkText[60]	"You are becoming a master of your art."
+ set reaction[60] "rank60"
+ rank60 message @env.textLog.word[2] ":: 500Ğ549"
+ 
+ set checkText[33]	"Your dedication is commendable."
+ set reaction[33] "rankP"
+ rankP message @env.textLog.word[2] ":: 550Ğ599"
+ 
+ set checkText[34]	"You show great devotion to your studies."
+ set reaction[34] "rankQ"
+ rankQ message @env.textLog.word[2] ":: 600Ğ649"
+ 
+ set checkText[35]	"You are a credit to our craft."
+ set reaction[35] "rankR"
+ rankR message @env.textLog.word[2] ":: 650Ğ699"
+ 
+ set checkText[36]	"Few indeed are your peers."
+ set reaction[36] "rankS"
+ rankS message @env.textLog.word[2] ":: 700Ğ749"
+ 
+ set checkText[37]	"Your devotion to the craft is exemplary."
+ set reaction[37] "rankT"
+ rankT message @env.textLog.word[2] ":: 750Ğ799"
+ 
+ set checkText[38]	"It is always good to greet a respected colleague."
+ set reaction[38] "rankU"
+ rankU message @env.textLog.word[2] ":: 800Ğ899"
+ 
+ set checkText[39]	"You are truly a grand master."
+ set reaction[39] "rankV"
+ rankV message @env.textLog.word[2] ":: 900Ğ999"
+ 
+ set checkText[40]	"Let us search for more we might learn together."
+ set reaction[40] "rankW"
+ rankW message @env.textLog.word[2] ":: 1000Ğ1250"
+ 
+ set checkText[41]	"Your persistence is an example to us all."
+ set reaction[41] "rankX"
+ rankX message @env.textLog.word[2] ":: 1250Ğ1499"
+ 
+ set checkText[42]	"Your skill astounds me."
+ set reaction[42] "rankY"
+ rankY message @env.textLog.word[2] ":: 1500Ğ1749"
+ 
+ set checkText[43]	"You have progressed further than most."
+ set reaction[43] "rankZ"
+ rankZ message @env.textLog.word[2] ":: 1750Ğ1999"
+ 
+ set checkText[44]	"You are nearly peerless."
+ set reaction[44] "rankAA"
+ rankAA message @env.textLog.word[2] ":: 2000Ğ2249"
+ 
+ set checkText[45]	"You are a model of dedication."
+ set reaction[45] "rankBB"
+ rank2BB message @env.textLog.word[2] ":: 2250Ğ2499"
+ 
+ set checkText[46]	"You have achieved mastery."
+ set reaction[46] "rankCC"
+ rankCC message @env.textLog.word[2] ":: 2500Ğ2749"
+ 
+ set checkText[47]	"You are enlightened."
+ set reaction[47] "rankDD"
+ rankDD message @env.textLog.word[2] ":: 2750Ğ2999"
+ 
+ set checkText[48]	"Your command of our craft is inspiring."
+ set reaction[48] "rankEE"
+ rankEE message @env.textLog.word[2] ":: 3000Ğ3249"
+ 
+ set checkText[49]	"All commend your dedication to our craft."
+ set reaction[49] "rankFF"
+ rankFF message @env.textLog.word[2] ":: 3250Ğ3499"
+ 
+ set checkText[50]	"I marvel at your skill."
+ set reaction[50] "rankGG"
+ rankGG message @env.textLog.word[2] ":: 3500Ğ3749"
+ 
+ 
+ set checkText[51]	"You walk where few have tread."
+ set reaction[51] "rankHH"
+ rankHH message @env.textLog.word[2] ":: 3750Ğ3999"
+ 
+ set checkText[52]	"Few stones are unturned in your path."
+ set reaction[52] "rankII"
+ rankII message @env.textLog.word[2] ":: 4000Ğ4249"
+ 
+ 
+ set checkText[53]	"Your footsteps guide the dedicated."
+ set reaction[53] "rankJJ"
+ rankJJ message @env.textLog.word[2] ":: 4250Ğ4499"
+ 
+ set checkText[54]	"You chart a way through the unknown."
+ set reaction[54] "rankKK"
+ rankKK message @env.textLog.word[2] ":: 4500Ğ4749"
+ 
+ set checkText[55]	"Your path illuminates the wilderness."
+ set reaction[55] "rankLL"
+ rankLL message @env.textLog.word[2] ":: 4750Ğ4999"
+ 
+ set checkText[56]	"????????"
+ set reaction[56] "messunknown"
+ messunknown message @env.textLog.word[2] ":: 5000Ğ"
+ 
+ set checkText[57]	"Your path is ablaze with glory."
+ set reaction[57] "rankMM"
+ rankMM message @env.textLog.word[2] ":: 6000Ğ"
+ 
+ set checkText[58]	"????Ğ????"
+ set reaction[58] "rankunknown"
+ rankunknown message @env.textLog.word[2] ":: You are enlightened beyond measure."
+ 
+ set checkText[59]	"There is nothing I can teach you."
+ set reaction[59] "maxed"
+ maxed message @env.textLog.word[2] ":: MAXED"
+ /* ***** Duvin ***** */
+ set checkText[60] "You have the training to study only the most familiar creatures"
+ set reaction[60] "duvinA"
+ duvinA message "1Ğ2"
+ 
+ 
+ set checkText[61] "You have the training to study familiar creatures"
+ set reaction[61] "duvinB"
+ duvinB message "3-4"
+ 
+ set checkText[62] "You have the training to study more unusual creatures"
+ set reaction[62] "duvinC"
+ duvinC message "5Ğ14"
+ 
+ set checkText[63] "You have the training to study several creatures"
+ set reaction[63] "duvinD"
+ duvinD message "15Ğ24"
+ 
+ set checkText[64] "You have the training to study quite a few creatures"
+ set reaction[64] "duvinE"
+ duvinE message "25Ğ34"
+ 
+ set checkText[65] "You have the training to study many creature"
+ set reaction[65] "duvinF"
+ duvinF message "35Ğ49"
+ 
+ set checkText[66] "You have the training to study a great variety of creatures"
+ set reaction[66] "duvinG"
+ duvinG message "50+"
+ 
+ set checkText[71] "You have become skilled."
+ set reaction[71] "blade1"
+ blade1 "100-149"
+ 
+ set checkText[72] "You have become very skilled."
+ set reaction[72] "blade2"
+ blade2 "150-199"
+ 
+ set checkText[73] "Learning more is a challenge."
+ set reaction[73] "blade3"
+ blade3 "200-249"
+ 
+ set checkText[74] "You have attained great skill."
+ set reaction[74] "blade4"
+ blade4 "250-299"
+ 
+ set checkText[75] "You are becoming an expert."
+ set reaction[75] "blade5"
+ blade5 "300-349"
+ 
+ set checkText[76] "You have attained tremendous skill."
+ set reaction[76] "blade6"
+ blade6 "350-399"
+ 
+ set checkText[77] "You are close to attaining mastery."
+ set reaction[77] "blade7"
+ blade7 "400-449"
+ 
+ set checkText[78] "You may be proud of your accomplishment."
+ set reaction[78] "blade8"
+ blade8 "450-499"
+ 
+ set checkText[79] "You are becoming a master of your art."
+ set reaction[79] "blade9"
+ blade9 "500-549"
+ 
+ set checkText[89] "Your dedication is commendable."
+ set reaction[89] "blade19"
+ blade19 "550-599"
+ 
+ set checkText[90] "You show great devotion to your studies."
+ set reaction[90] "blade20"
+ blade20 "600-649"
+ 
+ set checkText[80] "You are a credit to your craft."
+ set reaction[80] "blade10"
+ blade10 "650-699"
+ 
+ set checkText[81] "Few indeed are your peers."
+ set reaction[81] "blade11"
+ blade11 "700-749"
+ 
+ set checkText[82] "Your devotion to your craft is exemplary."
+ set reaction[82] "blade12"
+ blade12 "750-799"
+ 
+ set checkText[83] "Your expertise is unquestionable."
+ set reaction[83] "blade13"
+ blade13 "800-899"
+ 
+ set checkText[84] "You are truly a grand master."
+ set reaction[84] "blade14"
+ blade14 "900-999"
+ 
+ set checkText[85] "Few if any are your equal."
+ set reaction[85] "blade15"
+ blade15 "1000-1249"
+ 
+ set checkText[86] "Your persistence is an example to us all."
+ set reaction[86] "blade16"
+ blade16 "1250-1499"
+ 
+ set checkText[87] "Your skill astounds me."
+ set reaction[87] "blade17"
+ blade17 "1500-1749"
+ 
+ set checkText[88] "You have progressed further than most."
+ set reaction[88] "blade18"
+ blade18 "1750-1999"
+ 
+ "goscan" call GoScan
+ 
+ GoScan
+ {
+ //message "scanner.txt activated"
+ setglobal scanBreak 0
+ set @env.key_interrupts false //when you start you want it to loop
+ set @env.click_interrupts false //these two lines makes sure it doesn't shut off
+ if @text == ""
+ 	if feedback == 1
+ 		message "¥¥¥Scanner.txt On¥¥¥"
+ 		message "for settings type \"goscan ?\"."
+ 		pause 10
+ 	end if
+ else if @text == "?"
+ 		message "Type \"t?\" to find the target. \"tc <message>\" to send to SStarget. \"tt <text>\" to send to selected player."
+ 		pause 10
+ 		message "Type \"ts <name> [message]\" sets the target and sends them a message if you include one."
+ 		pause 10
+ 		message "Type \"/feedback\" to toggle macro feedback off|on."
+ 		pause 5
+ 		message "OR \"/set feedback <?|1|on|0|off>"
+ 		pause 10
+ 		message "Type \"noscan\" to stop."
+ end if
+ call Scanner
+ label SCANMONITOR
+ if keepAlive == 1
+ 	pause 5
+ 	set keepAlive 0
+ 	pause 50
+ 	goto SCANMONITOR
+ else if keepAlive == 2
+ 	set scanBreak 1
+ else
+ 	pause 100
+ 	setglobal scanBreak 0
+ 	call Scanner
+ 	message "*Scanner recalled"
+ 	goto SCANMONITOR
+ end if
+ }
+ 
+ Scanner
+ {
+ label SCANtop
+ pause 1
+ 
+ if scanBreak == 1
+ 	goto SCANEnder
+ else
+ 	setglobal keepAlive 1
+ 	setglobal scanText @env.textLog
+ 	if scanText.word[0] < "/"
+ 		setglobal timeStamps 3
+ 		setglobal playerName 2
+ 		setglobal me 6
+ 	else
+ 		setglobal timeStamps 1
+ 		setglobal playerName 0
+ 		setglobal me 3
+ 	end if
+ 
+ 	label SCANloop
+ 	if scanText < checkText[pointer]
+ 		if feedback == 1
+ 			message "*index [" pointer "] found"
+ 		end if
+ 		call reaction[pointer]
+ 	else
+ 		setglobal pointer + 1
+ 		if pointer > cap
+ 			goto SCANnext
+ 		else
+ 			goto SCANloop
+ 		end if
+ 	end if
+ end if
+ 
+ label SCANnext
+ setglobal pointer 1
+ pause 1
+ setglobal gtrainerPhrase scanText
+ goto SCANtop
+ 
+ label SCANEnder
+ 	set keepAlive 2
+ if feedback == 1
+ 	message "¥¥Scanner Off¥¥"
+ end if
+ setglobal keepAlive 0
+ }
+ 
+ 
+ "noscan"
+ {
+ setglobal scanBreak 1	//This allows you to stop this macro without stopping other macros
+ }
+ 
+ ThinkTargetSet
+ {
+ 	if ssTarget != scanText.word[playerName] //w/timestamps[2] w/o[0]
+ 		if scanText.word[playerName] != @my.name
+ 			setglobal  ssTarget scanText.word[playerName]
+ 			setglobal feedback 1 //turn on feedback for new target
+ 			pause 5
+ 		end if
+ 	end if
+ 	if feedback == 1 //this controls overall feedback
+ //This if block turns off feedback when the target hasn't changed
+ 		if feedback == 1
+ 			message "tc target: " ssTarget
+ 			setglobal feedback 0
+ 		end if
+ 	end if
+ }
+ 
+ "tt"
+ {
+ if @my.forehead_item != myStone
+ 	setglobal fitem @my.forehead_item
+ 	"/equip " myStone "\r"
+ 	set fromTT 1
+ end if
+ "/thinkto " @selplayer.simple_name " " @text "\r"
+ if modeVerbose == 1
+ 	call ThinkToAction
+ end if
+ 
+ pause 2
+ if fitem != ""
+ 	if fitem != @my.forehead_item
+ 		"\equip " fitem "\r"
+ 	end if
+ end if
+ }
+ 
+ "tc"
+ {
+ if @my.forehead_item != myStone
+ 	setglobal fitem @my.forehead_item
+ 	"/equip " myStone "\r"
+ 	set fromTT 1
+ end if
+ 
+ "/thinkto " ssTarget " " @text "\r" //such simplicity belies all the ugly stuff above
+ if modeVerbose == 1
+ 	call ThinkToAction
+ end if
+ 
+ pause 2
+ if fitem != ""
+ 	if fitem != @my.forehead_item
+ 		"\equip " fitem "\r"
+ 	end if
+ end if
+ }
+ 
+ // ==========================Think Capture Options==========================
+ "t?"	// target who? = Who is the current target? Useful if you have activated
+ {		// silent mode, if you've been afk for a
+ message " tc target: " ssTarget  	// while or if a bug in macro language
+ } 				 				// implementation causes the target to be wrong.
+ 
+ "ts"	//target select = manually change your target and send a
+ {		//message, much like other people's "tt" macro, but this one
+ setglobal ssTarget @text.word[0]	//allows you to switch to tc messaging
+ if feedback == 1
+ message "targeting: " ssTarget
+ end if
+ 
+ if @my.forehead_item != myStone
+ 	setglobal fitem @my.forehead_item
+ 	"/equip " myStone "\r"
+ 	set fromTT 1
+ end if
+ "/thinkto " @text "\r"
+ if modeVerbose == 1
+ 	call ThinkToAction
+ end if
+ 
+ pause 2
+ if fitem != ""
+ 	if fitem != @my.forehead_item
+ 		"\equip " fitem "\r"
+ 	end if
+ end if
+ }
+ 
+ "/feedback" //This toggles the macros between silent mode and message display mode.
+ {	//This is in case you don't want your text log or status area spammed
+ if messageStaus == 1
+ 	setglobal feedback 0
+ else
+ 	setglobal feedback 1
+ 	message "Messages On"
+ end if
+ }
+ "ttc"	"/thinkclan " @text "\r"
+ 
+ /////////////////////////Sungem Additions//////////////////////////////////
+ //
+ // "/sga <name>" will add one person to the thinkgroup. SGA= SunGem Add
+ // "/tga" will add the selected person ot the think group. TGA=Target Group Add
+ // "/sgre <name>" will remove one person from the thinkgroup. SGRE=SunGem REmove
+ // "/sgr" will remove the selected person from the thinkgroup.SGR=SunGem REmove
+ // "/sgam <name1><name> will add multiple people." SGAM= SunGem Add Multiple
+ // "/sgs" will clear your thinkgroup and added everyone you are currently
+ //        sharing with. (This sometimes fails.) SGS=SunGem Set
+ // "/sgc" will clear your entire thinkgroup. SGC= SunGem Clear
+ // "/sgi" inspects your Sungem
+ // "/sgwho" will tell you who is apart of your Thinkgroup.
+ //
+ //////////////////////////Thinking to Groups///////////////////////////////
+ //
+ // "tg <message>" thinks to your thinkgroup.
+ // "ttc <messge>" thinks to your clan
+ //
+ /////////////////////////////////////////////////////////////////////
+ 
+ 
+ "/tga"  "/useitem Sungem /add " @selplayer.simple_name "\r"
+ 
+ "/sgr"  "/useitem sungem /remove " @selplayer.simple_name "\r"
+ 
+ "/sga"  "/useitem Sungem /add " @text "\r"
+ 
+ // SunGem Add Multiple v2 20080214
+ "/sgam"
+ {
+  set num_people @text.num_words
+  set slot 0
+  label addloop
+  if slot < num_people
+ 	"/useitem sungem /add " @text.word[slot] "\r"
+ 	pause 1
+ 	set slot + 1
+ 	goto addloop
+  end if
+  "/useitem " myStone " /who \r"
+ }
+ 
+ "/sgre"  "/useitem sungem /remove " @text "\r"
+ 
+ 
+ "/sgc"   "/useitem sungem /clear \r"
+ "/sgi"  "/useitem sungem /inspect \r"
+ "/sgwho" "/useitem sungem /who \r"
+ 
+ "tg"
+ {
+ if @my.forehead_item != myStone
+ 	setglobal fitem @my.forehead_item
+ 	"/equip " myStone "\r"
+ end if
+ "/thinkgroup " @text "\r"
+ }
+ 
+ 
+ // SunGem Add Shares v2 20080214
+ "/sgs"
+ {
+  "/useitem sungem /clear \r"
+ set shares @my.shares_out
+ message shares
+ set slot 1
+ set num_shares @my.shares_out.num_words
+ 
+  label addloop
+  if slot <= num_shares
+ 		"/useitem Sungem /add " shares.word[slot] "\r"
+ 		pause 1
+ 		set slot + 1
+ 		pause 1
+ 		goto addloop
+  end if
+  "/useitem " myStone " /who \r"
+ label end
+ }
+ 
+ /* ** Internal Reaction Macros** */
+ reaction
+ {
+ call reaction[pointer]
+ }
+ 
+ RentBoat
+ {
+ 	set namePer @my.name
+ 		 set namePer + "."
+ 		if scanText.word[me] == namePer
+ 			"yes\r"
+ 		end if
+ }
+ 
+ setBagOne
+ {
+ 	setglobal bag_number 1
+ 	"/equip bag of kudzu seedlings " bag_number "\r"
+ }
+ 
+ decrementBag
+ {
+ 	setglobal bag_number - 1
+ 	if bag_number < 0
+ 		setglobal bag_number max_bag
+ 	end if
+ }
+ 
+ plantSeed
+ {
+ 	"/equip Kudzu Seedling\r"
+ 	pause 1
+ 	"/usei left\r"
+ 
+ }
+ dropOrgaEye
+ {
+ 	"/selectitem orga eye \r"
+ 	"/drop orga eye \r"
+ 	pause 1
+ }
+ 
+ notMorphed
+ {
+ 	setglobal morphed 0
+ 	if @my.right_item == "Great Sword"
+ 		"/equip " rightItem " \r"
+ 	end if
+ }
+ 
+ isMorphed
+ {
+ 	if scanText < "you assume the shape of"
+ 		setglobal my.right_item rightItem
+ 		"/equip  gossamer \r"
+ 	end if
+ 	setglobal morphed 1
+ }
+ 
+ placeholder
+ {
+ message "placeholder"
+ }
+ 
+ copyright
+ {
+ "/narrate ©1998 Super Chicken\r"
+ }
+ 
+ IncrementThankNumber
+ {
+ setglobal missingTarget 1
+ call moveUp
+ }
+ 
+ bloodpool
+ {
+ message "The Bloodpool Demands MORE Sacrifices!"
+ }

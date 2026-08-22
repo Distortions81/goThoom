@@ -1,0 +1,563 @@
+package main
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"gothoom/eui"
+
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	open "github.com/skratchdot/open-golang/open"
+)
+
+var (
+	legacyMacroLibraryWin     *eui.WindowData
+	legacyMacroLibraryRoot    *eui.ItemData
+	legacyMacroLibraryList    *eui.ItemData
+	legacyMacroLibraryButtons *eui.ItemData
+	legacyMacroLibraryErrors  *eui.ItemData
+)
+
+const (
+	legacyMacroLibraryButtonsHeight = 24
+	legacyMacroLibraryBottomGap     = 8
+)
+
+func makeLegacyMacroLibraryWindow() {
+	if legacyMacroLibraryWin != nil {
+		return
+	}
+	legacyMacroLibraryWin = eui.NewWindow()
+	legacyMacroLibraryWin.Title = "Legacy Macros"
+	legacyMacroLibraryWin.Size = eui.Point{X: 720, Y: 560}
+	legacyMacroLibraryWin.Closable = true
+	legacyMacroLibraryWin.Movable = true
+	legacyMacroLibraryWin.Resizable = true
+	legacyMacroLibraryWin.NoScroll = true
+	legacyMacroLibraryWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
+
+	legacyMacroLibraryRoot = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	legacyMacroLibraryWin.AddItem(legacyMacroLibraryRoot)
+
+	legacyMacroLibraryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+	legacyMacroLibraryRoot.AddItem(legacyMacroLibraryList)
+
+	legacyMacroLibraryButtons = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	openButton, openEvents := eui.NewButton()
+	openButton.Text = "Open Macro Folder"
+	openButton.Size = eui.Point{X: 160, Y: legacyMacroLibraryButtonsHeight}
+	openButton.Disabled = isWASM
+	if isWASM {
+		openButton.SetTooltip("The web build uses its embedded read-only macro library.")
+	}
+	openEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			if err := open.Run(legacyMacroLibraryPath()); err != nil {
+				legacyMacroLibraryReport(fmt.Sprintf("open macro library: %v", err))
+			}
+		}
+	}
+	legacyMacroLibraryButtons.AddItem(openButton)
+	reloadButton, reloadEvents := eui.NewButton()
+	reloadButton.Text = "Reload Macros"
+	reloadButton.Size = eui.Point{X: 120, Y: legacyMacroLibraryButtonsHeight}
+	reloadButton.SetTooltip("Reload the selected macro files now. This restarts their active macro program.")
+	reloadEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			legacyMacroLibraryReload()
+		}
+	}
+	legacyMacroLibraryButtons.AddItem(reloadButton)
+	errorsButton, errorsEvents := eui.NewButton()
+	errorsButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
+	errorsButton.SetTooltip("Show legacy macro parse and runtime errors.")
+	errorsEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			legacyMacroLibraryShowDiagnostics()
+		}
+	}
+	legacyMacroLibraryErrors = errorsButton
+	legacyMacroLibraryButtons.AddItem(errorsButton)
+	legacyMacroLibraryRoot.AddItem(legacyMacroLibraryButtons)
+
+	legacyMacroLibraryWin.OnResize = func() {
+		refreshLegacyMacroLibraryWindow()
+	}
+	legacyMacroLibraryWin.AddWindow(false)
+	refreshLegacyMacroLibraryWindow()
+}
+
+func refreshLegacyMacroLibraryWindow() {
+	if legacyMacroLibraryList == nil {
+		return
+	}
+	legacyMacroLibraryLayout()
+	legacyMacroLibraryList.Contents = legacyMacroLibraryList.Contents[:0]
+
+	character := legacyMacroLibraryCurrentCharacter()
+	entries, err := legacyMacroLibraryEntries()
+	if err != nil {
+		legacyMacroLibraryReport("read macro library: " + err.Error())
+		entries = nil
+	}
+	globalEnabled, err := legacyMacroLibraryEnabledIDs(legacyMacroLibraryGlobal, "")
+	if err != nil {
+		legacyMacroLibraryReport("read global macro selection: " + err.Error())
+		globalEnabled = map[string]bool{}
+	}
+	playerEnabled := map[string]bool{}
+	if character != "" {
+		playerEnabled, err = legacyMacroLibraryEnabledIDs(legacyMacroLibraryPlayer, character)
+		if err != nil {
+			legacyMacroLibraryReport("read player macro selection: " + err.Error())
+			playerEnabled = map[string]bool{}
+		}
+	}
+	legacyMacroLibraryRefreshErrorsButton()
+	detailsWidth := legacyMacroLibraryDetailsWidth()
+
+	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	infoHeader, _ := eui.NewText()
+	infoHeader.Size = eui.Point{X: 24, Y: 24}
+	header.AddItem(infoHeader)
+	name, _ := eui.NewText()
+	name.Text = "Macro"
+	name.FontSize = 12
+	name.Size = eui.Point{X: detailsWidth, Y: 24}
+	header.AddItem(name)
+	global, _ := eui.NewText()
+	global.Text = "Global"
+	global.FontSize = 12
+	global.Size = eui.Point{X: 110, Y: 24}
+	header.AddItem(global)
+	player, _ := eui.NewText()
+	if character == "" {
+		player.Text = "Player"
+	} else {
+		player.Text = character
+	}
+	player.FontSize = 12
+	player.Size = eui.Point{X: 150, Y: 24}
+	header.AddItem(player)
+	legacyMacroLibraryList.AddItem(header)
+	if len(entries) == 0 {
+		empty, _ := eui.NewText()
+		empty.Text = "No .mac files found in Macros/Library."
+		empty.FontSize = 12
+		empty.Size = eui.Point{X: 650, Y: 24}
+		legacyMacroLibraryList.AddItem(empty)
+	}
+
+	for index, entry := range entries {
+		entry := entry
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+		row.Size = eui.Point{X: legacyMacroLibraryList.Size.X, Y: 28}
+		if index%2 != 0 {
+			row.Filled = true
+			row.Color = legacyMacroLibraryStripeColor()
+		}
+		infoButton, infoEvents := eui.NewButton()
+		infoButton.Text = "i"
+		infoButton.Size = eui.Point{X: 24, Y: 24}
+		infoButton.SetTooltip("Show this macro's commands and hotkeys.")
+		infoEvents.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventClick {
+				legacyMacroLibraryShowInfo(entry)
+			}
+		}
+		row.AddItem(infoButton)
+		details, _ := eui.NewText()
+		details.Text = legacyMacroLibraryRowLabel(entry.Name, entry.Description, detailsWidth)
+		details.FontSize = 12
+		details.Size = eui.Point{X: detailsWidth, Y: 28}
+		row.AddItem(details)
+
+		globalCheckbox, globalEvents := eui.NewCheckbox()
+		globalCheckbox.Text = "On"
+		globalCheckbox.Checked = globalEnabled[legacyMacroLibraryIDKey(entry.ID)]
+		globalCheckbox.Size = eui.Point{X: 110, Y: 24}
+		globalCheckbox.Disabled = isWASM
+		globalCheckbox.SetTooltip("Enable this source for every character through Macros/Library/enabled.json. The active macro program reloads immediately; Default is not modified.")
+		globalEvents.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventCheckboxChanged {
+				legacyMacroLibrarySetEnabled(entry, legacyMacroLibraryGlobal, "", event.Checked)
+			}
+		}
+		row.AddItem(globalCheckbox)
+
+		playerCheckbox, playerEvents := eui.NewCheckbox()
+		playerCheckbox.Text = "On"
+		playerCheckbox.Checked = playerEnabled[legacyMacroLibraryIDKey(entry.ID)]
+		playerCheckbox.Size = eui.Point{X: 150, Y: 24}
+		playerCheckbox.Disabled = character == "" || isWASM
+		if character == "" {
+			playerCheckbox.SetTooltip("Select a character first.")
+		} else {
+			playerCheckbox.SetTooltip("Enable this source only for " + character + " through Macros/Library/enabled.json. The active macro program reloads immediately.")
+		}
+		playerEvents.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventCheckboxChanged && character != "" {
+				legacyMacroLibrarySetEnabled(entry, legacyMacroLibraryPlayer, character, event.Checked)
+			}
+		}
+		row.AddItem(playerCheckbox)
+		legacyMacroLibraryList.AddItem(row)
+	}
+
+	if legacyMacroLibraryWin != nil {
+		legacyMacroLibraryWin.Refresh()
+	}
+}
+
+// legacyMacroLibraryLayout gives the fixed root and scrollable list explicit
+// sizes. Without this, the root can shrink to its content and clip macro rows.
+func legacyMacroLibraryLayout() {
+	if legacyMacroLibraryWin == nil || legacyMacroLibraryRoot == nil || legacyMacroLibraryList == nil {
+		return
+	}
+	clientW := legacyMacroLibraryWin.GetSize().X
+	clientH := legacyMacroLibraryWin.GetSize().Y - legacyMacroLibraryWin.GetTitleSize()
+	scale := eui.UIScale()
+	if legacyMacroLibraryWin.NoScale {
+		scale = 1
+	}
+	padding := (legacyMacroLibraryWin.Padding + legacyMacroLibraryWin.BorderPad) * scale
+	clientW -= 2 * padding
+	clientH -= 2 * padding
+	if clientW < 0 {
+		clientW = 0
+	}
+	if clientH < 0 {
+		clientH = 0
+	}
+	legacyMacroLibraryRoot.Size = eui.Point{X: clientW, Y: clientH}
+	if legacyMacroLibraryButtons != nil {
+		legacyMacroLibraryButtons.Size = eui.Point{X: clientW, Y: legacyMacroLibraryButtonsHeight}
+	}
+	listHeight := clientH - legacyMacroLibraryButtonsHeight - legacyMacroLibraryBottomGap
+	if listHeight < 24 {
+		listHeight = 24
+	}
+	legacyMacroLibraryList.Size = eui.Point{X: clientW, Y: listHeight}
+}
+
+func legacyMacroLibraryCurrentCharacter() string {
+	return strings.TrimSpace(utfFold(effectiveCharacterName()))
+}
+
+func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMacroLibraryScope, character string, enabled bool) {
+	result, err := setLegacyMacroLibraryEntryEnabled(entry.ID, scope, character, enabled)
+	if err != nil {
+		legacyMacroLibraryReport("update " + entry.Name + ": " + err.Error())
+		refreshLegacyMacroLibraryWindow()
+		return
+	}
+	if !result.Changed {
+		if enabled {
+			legacyMacroLibraryReport(entry.Name + " is already enabled")
+		} else {
+			legacyMacroLibraryReport(entry.Name + " is already disabled")
+		}
+		refreshLegacyMacroLibraryWindow()
+		return
+	}
+	message := entry.Name + " disabled; source kept at " + result.SourcePath
+	if enabled {
+		message = entry.Name + " enabled; selection: " + result.SelectionPath
+	}
+	if err := loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+		message += "; reload failed: " + err.Error()
+	} else {
+		message += "; macros reloaded"
+	}
+	legacyMacroLibraryReport(message)
+	refreshLegacyMacroLibraryWindow()
+}
+
+func legacyMacroLibraryReload() {
+	if err := loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+		legacyMacroLibraryReport("reload macros: " + err.Error())
+	} else {
+		legacyMacroLibraryReport("macros reloaded")
+	}
+	refreshLegacyMacroLibraryWindow()
+}
+
+func legacyMacroLibraryDiagnostics() []legacyMacroDiagnostic {
+	program := legacyMacroProgramSnapshot()
+	diagnostics := append([]legacyMacroDiagnostic(nil), program.Diagnostics...)
+	if runtime := legacyMacroRuntimeSnapshot(); runtime != nil {
+		diagnostics = append(diagnostics, runtime.diagnosticsSnapshot()...)
+	}
+	return diagnostics
+}
+
+func legacyMacroLibraryRefreshErrorsButton() {
+	if legacyMacroLibraryErrors == nil {
+		return
+	}
+	count := len(legacyMacroLibraryDiagnostics())
+	legacyMacroLibraryErrors.Text = fmt.Sprintf("Errors (%d)", count)
+	legacyMacroLibraryErrors.Disabled = count == 0
+}
+
+func legacyMacroLibraryShowDiagnostics() {
+	diagnostics := legacyMacroLibraryDiagnostics()
+	if len(diagnostics) == 0 {
+		return
+	}
+	lines := make([]string, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		lines = append(lines, diagnostic.Error())
+	}
+	showPopup("Legacy Macro Errors", strings.Join(lines, "\n"), []popupButton{{Text: "Close"}})
+}
+
+func legacyMacroLibraryStripeColor() eui.Color {
+	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.Theme != nil {
+		return legacyMacroLibraryWin.Theme.Window.TitleBGColor
+	}
+	return eui.ColorDarkGray
+}
+
+func legacyMacroLibraryShowInfo(entry legacyMacroLibraryEntry) {
+	info, err := collectLegacyMacroLibraryInfo(entry)
+	if err != nil {
+		legacyMacroLibraryReport("read " + entry.Name + ": " + err.Error())
+		return
+	}
+	showPopup("Macro Info: "+entry.Name, "", []popupButton{{Text: "Close"}}, legacyMacroLibraryInfoColumns(info))
+}
+
+type legacyMacroLibraryInfo struct {
+	Metadata []string
+	Commands []string
+	Hotkeys  []string
+}
+
+func collectLegacyMacroLibraryInfo(entry legacyMacroLibraryEntry) (legacyMacroLibraryInfo, error) {
+	var source legacyMacroSource
+	if isWASM && entry.EmbeddedPath != "" {
+		text, err := legacyMacroLibraryFS.ReadFile(entry.EmbeddedPath)
+		if err != nil {
+			return legacyMacroLibraryInfo{}, err
+		}
+		source = legacyMacroSource{Path: entry.EmbeddedPath, Text: decodeLegacyMacroSourceText(text)}
+	} else {
+		var exists bool
+		var err error
+		source, exists, err = readLegacyMacroSource(entry.Path)
+		if err != nil {
+			return legacyMacroLibraryInfo{}, err
+		}
+		if !exists {
+			return legacyMacroLibraryInfo{}, fmt.Errorf("macro file no longer exists")
+		}
+	}
+	source.Name = entry.ID
+	program := parseLegacyMacroSources([]legacyMacroSource{source})
+	info := legacyMacroLibraryInfo{
+		Metadata: make([]string, 0, 7),
+		Commands: make([]string, 0),
+		Hotkeys:  make([]string, 0),
+	}
+	for _, declaration := range program.Macros {
+		switch declaration.Kind {
+		case legacyMacroExpression:
+			info.Commands = append(info.Commands, declaration.Trigger)
+		case legacyMacroReplacement:
+			info.Commands = append(info.Commands, declaration.Trigger+" (replacement)")
+		case legacyMacroKey, legacyMacroClick, legacyMacroWheel:
+			info.Hotkeys = append(info.Hotkeys, legacyMacroLibraryHotkeyName(declaration))
+		}
+	}
+	sort.Strings(info.Commands)
+	sort.Strings(info.Hotkeys)
+	if entry.Description != "" {
+		info.Metadata = append(info.Metadata, "Description: "+entry.Description)
+	}
+	if entry.Version != "" {
+		info.Metadata = append(info.Metadata, "Version: "+entry.Version)
+	}
+	if entry.Tags != "" {
+		info.Metadata = append(info.Metadata, "Tags: "+entry.Tags)
+	}
+	if entry.Author != "" {
+		info.Metadata = append(info.Metadata, "Author: "+entry.Author)
+	}
+	if entry.License != "" {
+		info.Metadata = append(info.Metadata, "License: "+entry.License)
+	}
+	if entry.Website != "" {
+		info.Metadata = append(info.Metadata, "Website: "+entry.Website)
+	}
+	if entry.Update != "" {
+		info.Metadata = append(info.Metadata, "Update: "+entry.Update)
+	}
+	return info, nil
+}
+
+func legacyMacroLibraryInfoText(entry legacyMacroLibraryEntry) (string, error) {
+	info, err := collectLegacyMacroLibraryInfo(entry)
+	if err != nil {
+		return "", err
+	}
+	sections := make([]string, 0, 3)
+	if len(info.Metadata) > 0 {
+		sections = append(sections, strings.Join(info.Metadata, "\n"))
+	}
+	if len(info.Commands) > 0 {
+		sections = append(sections, "Commands:\n"+strings.Join(info.Commands, "\n"))
+	}
+	if len(info.Hotkeys) > 0 {
+		sections = append(sections, "Hotkeys:\n"+strings.Join(info.Hotkeys, "\n"))
+	}
+	if len(sections) == 0 {
+		return "This macro has no command or hotkey triggers.", nil
+	}
+	return strings.Join(sections, "\n\n"), nil
+}
+
+func legacyMacroLibraryInfoColumns(info legacyMacroLibraryInfo) *eui.ItemData {
+	const columnWidth = 230
+	const columnHeight = 260
+	columns := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	columns.Size = eui.Point{X: columnWidth * 3, Y: columnHeight}
+	columns.AddItem(legacyMacroLibraryInfoColumn("About", info.Metadata, columnWidth, columnHeight))
+	columns.AddItem(legacyMacroLibraryInfoColumn("Commands", info.Commands, columnWidth, columnHeight))
+	columns.AddItem(legacyMacroLibraryInfoColumn("Hotkeys", info.Hotkeys, columnWidth, columnHeight))
+	return columns
+}
+
+func legacyMacroLibraryInfoColumn(title string, lines []string, width, height float32) *eui.ItemData {
+	column := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+	column.Size = eui.Point{X: width, Y: height}
+	heading, _ := eui.NewText()
+	heading.Text = title
+	heading.FontSize = 12
+	heading.Size = eui.Point{X: width - eui.ScrollbarWidth(), Y: 24}
+	column.AddItem(heading)
+	if len(lines) == 0 {
+		lines = []string{"None"}
+	}
+	lines = legacyMacroLibraryWrapInfoLines(lines, width-eui.ScrollbarWidth())
+	content, _ := eui.NewText()
+	content.Text = strings.Join(lines, "\n")
+	content.FontSize = 12
+	content.Size = eui.Point{X: width - eui.ScrollbarWidth(), Y: float32(len(lines)) * 18}
+	column.AddItem(content)
+	return column
+}
+
+func legacyMacroLibraryWrapInfoLines(lines []string, width float32) []string {
+	face := legacyMacroLibraryRowFace()
+	wrapped := make([]string, 0, len(lines))
+	for _, line := range lines {
+		_, chunks := wrapText(line, face, float64(width*eui.UIScale()))
+		wrapped = append(wrapped, chunks...)
+	}
+	return wrapped
+}
+
+func legacyMacroLibraryDetailsWidth() float32 {
+	if legacyMacroLibraryList == nil {
+		return 366
+	}
+	width := legacyMacroLibraryList.Size.X - eui.ScrollbarWidth() - 24 - 110 - 150
+	if width < 100 {
+		return 100
+	}
+	return width
+}
+
+func legacyMacroLibraryRowLabel(name, description string, width float32) string {
+	description = strings.TrimSpace(description)
+	if description == "" {
+		return name
+	}
+	face := legacyMacroLibraryRowFace()
+	maxWidth := float64(width * eui.UIScale())
+	prefix := name + " — "
+	if measureWidth(prefix+"...", face) > maxWidth {
+		return name
+	}
+	if measureWidth(prefix+description, face) <= maxWidth {
+		return prefix + description
+	}
+	var shortened strings.Builder
+	for _, char := range description {
+		candidate := shortened.String() + string(char)
+		if measureWidth(prefix+candidate+"...", face) > maxWidth {
+			break
+		}
+		shortened.WriteRune(char)
+	}
+	if shortened.Len() == 0 {
+		return name
+	}
+	return prefix + shortened.String() + "..."
+}
+
+func legacyMacroLibraryRowFace() text.Face {
+	size := float64(12*eui.UIScale() + 2)
+	if source := eui.FontSource(); source != nil {
+		return &text.GoTextFace{Source: source, Size: size}
+	}
+	return &text.GoTextFace{Size: size}
+}
+
+func legacyMacroLibraryHotkeyName(declaration legacyMacroDeclaration) string {
+	parts := make([]string, 0, 3)
+	if declaration.Key.Modifiers&legacyMacroModCommand != 0 {
+		parts = append(parts, "Command")
+	}
+	if declaration.Key.Modifiers&legacyMacroModControl != 0 {
+		parts = append(parts, "Control")
+	}
+	if declaration.Key.Modifiers&legacyMacroModNumpad != 0 {
+		parts = append(parts, "Numpad")
+	}
+	if declaration.Key.Modifiers&legacyMacroModOption != 0 {
+		parts = append(parts, "Option")
+	}
+	if declaration.Key.Modifiers&legacyMacroModShift != 0 {
+		parts = append(parts, "Shift")
+	}
+
+	name := declaration.Key.Name
+	switch declaration.Kind {
+	case legacyMacroClick:
+		switch declaration.Key.Button {
+		case 1:
+			name = "Click"
+		case 2:
+			name = "Right Click"
+		case 3:
+			name = "Middle Click"
+		default:
+			name = fmt.Sprintf("Click %d", declaration.Key.Button)
+		}
+	case legacyMacroWheel:
+		switch name {
+		case "wheelup":
+			name = "Wheel Up"
+		case "wheeldown":
+			name = "Wheel Down"
+		case "wheelleft":
+			name = "Wheel Left"
+		case "wheelright":
+			name = "Wheel Right"
+		}
+	}
+	if len(name) == 1 || strings.HasPrefix(name, "f") {
+		name = strings.ToUpper(name)
+	}
+	parts = append(parts, name)
+	return strings.Join(parts, "-")
+}
+
+func legacyMacroLibraryReport(message string) {
+	consoleMessage("legacy macros: " + message)
+	showNotification(message)
+}

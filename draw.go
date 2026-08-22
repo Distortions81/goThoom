@@ -859,7 +859,7 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 		}
 		raw := append([]byte(nil), data[:nidx]...)
 		raw = stripBEPPTags(raw)
-		name = strings.TrimSpace(decodeMacRoman(raw))
+		name = strings.TrimSpace(decodeServerText(raw))
 		data = data[nidx+1:]
 	}
 	switch base {
@@ -1035,7 +1035,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		d.PictID = binary.BigEndian.Uint16(data[p+2:])
 		p += 4
 		if idx := bytes.IndexByte(data[p:], 0); idx >= 0 {
-			d.Name = utfFold(decodeMacRoman(data[p : p+idx]))
+			d.Name = utfFold(decodeServerText(data[p : p+idx]))
 			p += idx + 1
 			if d.Name == playerName {
 				playerIndex = d.Index

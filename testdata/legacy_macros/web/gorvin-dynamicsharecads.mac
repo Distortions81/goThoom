@@ -1,0 +1,411 @@
+// Metadata
+// Name: Dynamic Sharecads
+// Version: 1.3.1
+// Tags: healer, sharing
+// Desc: Maintains a useful set of sharecads.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/
+// Update: http://gorvin.50webs.com/macros/dynamicsharecads.txt
+// This is an enhanced, less-spammy version of Sharecads. It takes into
+// consideration the 3 second delay between shares and does not waste time
+// trying to share someone you're already sharing with. If several healers
+// are cadding you at once, it will try to maintain shares with the most
+// recent 5 who have healed you (or less depending on if any shares are
+// locked).  Additionally, this will also result in the macro attempting to
+// reshare with any healers that have cadded you very recently (and thus are
+// potentially still healing you) if sharing another healer has caused them
+// to be unshared.
+
+// Use "/shcads" to turn on or off.
+
+
+
+// If the macro appears to be causing you to lag at times, set this variable
+// to 1.  Doing so will cause messages to be displayed after each detected
+// healing and share list message, but will improve the speed at which the
+// macro is able to run.  Keeping this set to 0 should not have any impact
+// on most machines.
+set gShare_messages 0
+
+
+
+set gShare_on 0
+
+set gShare[0] ""
+set gShare[1] ""
+set gShare[2] ""
+set gShare[3] ""
+set gShare[4] ""
+
+set gShareCad[0] ""
+set gShareCad[1] ""
+set gShareCad[2] ""
+set gShareCad[3] ""
+set gShareCad[4] ""
+
+set gShareIgnore[0] 1
+set gShareIgnore[1] 1
+set gShareIgnore[2] 1
+set gShareIgnore[3] 1
+set gShareIgnore[4] 1
+
+set gShare_erase 60
+
+"/shcads"
+{
+if gShare_on == 1
+	setglobal gShare_on 0
+else
+	setglobal gShare_on 1
+	setglobal gShare[0] ""
+	setglobal gShare[1] ""
+	setglobal gShare[2] ""
+	setglobal gShare[3] ""
+	setglobal gShare[4] ""
+	setglobal gShareCad[0] ""
+	setglobal gShareCad[1] ""
+	setglobal gShareCad[2] ""
+	setglobal gShareCad[3] ""
+	setglobal gShareCad[4] ""
+	setglobal gShareIgnore[0] 1
+	setglobal gShareIgnore[1] 1
+	setglobal gShareIgnore[2] 1
+	setglobal gShareIgnore[3] 1
+	setglobal gShareIgnore[4] 1
+	message "* Sharecads is now on."
+	if @env.textLog.word[0] > 0
+		set share_ts 2
+	else
+		set share_ts 0
+	end if
+	set share_init 0
+	set share_free 5
+	set share_delay 0
+	set share_erase 0
+	set share_check 0
+	set share_type_old 0
+	label SHARECADS
+		if gShare_on == 1
+			set share_word share_ts
+			set share_msg @env.textLog
+			set share_type 0
+			if share_msg.word[share_word] == "You"
+				if share_msg >= "You are sharing experiences with"
+					set share_word + 5
+					// If message printings are disabled and the last message was also a 
+					// share message, compare signature of current message with the last.
+					if gShare_messages == 0
+						set share_type 1
+						if share_type_old == 1
+							set share_sig_word share_word
+							call "fShare_signature"
+							if share_same == 0
+								call "fShare_update"
+							end if
+						else
+							set share_sig share_msg
+							call "fShare_update"
+						end if
+					else
+						call "fShare_update"
+					end if
+					set share_init 1
+				end if
+			else if share_msg.word[share_word] >= "You"
+				if share_msg >= "You sense healing energy from"
+					set share_word + 5
+					set share_same 0
+					// If message printings are disabled and the last message was also a 
+					// healing message, compare signature of current message with the last.
+					if gShare_messages == 0
+						set share_type 2
+						if share_type_old == 2
+							set share_sig_word share_word
+							call "fShare_signature"
+						else
+							set share_sig share_msg
+						end if
+					end if
+					if share_same == 0
+						call "fShare_get_who"
+						set share_ignore 0
+						call "fShare_push"
+						set share_check 1
+						if gShare_messages == 1
+							message "Healing detected."
+						end if
+					end if
+				end if
+			end if
+			set share_type_old share_type
+			if share_erase > 0
+				set share_erase - 1
+				if share_erase == 0
+					setglobal gShare_which 0
+					label SHAREFLUSH
+						if gShare_which < 5
+							setglobal gShareCad[gShare_which] ""
+							setglobal gShare_which + 1
+							goto "SHAREFLUSH"
+						end if
+				end if
+			end if
+			if share_delay > 0
+				set share_delay - 1
+			else if share_check == 1
+				call "fShare_check"
+				if share_check == 1
+					set share_erase gShare_erase
+					set share_delay 14
+					"/share " share_who "\r"
+					setglobal gShare_which 5
+					setglobal gShare_which - share_free
+					set share_bump share_who
+					label SHAREADJ
+						if gShare_which < 5
+							set share_temp gShare[gShare_which]
+							setglobal gShare[gShare_which] share_bump
+							set share_bump share_temp
+							setglobal gShare_which + 1
+							goto "SHAREADJ"
+						end if
+				end if
+			end if
+			pause 1
+			goto "SHARECADS"
+		end if
+		message "* Sharecads is now off."
+end if
+}
+
+
+
+// Compares current text log message signature with the last to see if they're the same.
+// Args:
+//   share_msg - current text log message.
+//   share_sig_word - word in text log message that signature begins at.
+//   share_sig - previous text log message.
+//   share_ts - time stamp offset.
+// Returns:
+//   share_same - 1 if signatures are the same.
+//   share_sig - signature of current message.
+fShare_signature
+{
+set share_same 0
+// If time stamps are off, we can directly compare the messages.
+if share_ts == 0
+	if share_sig == share_msg
+		set share_same 1
+	end if
+else
+	label SHARESIGCHECK
+		// Loop until we've reached the end of one of the signatures or we've found
+		// a difference between them.
+		if share_sig.word[share_sig_word] == ""
+			if share_msg.word[share_sig_word] == ""
+				// We've gone through each word in both signatures, and they're the same.
+				set share_same 1
+			end if
+		else if share_sig.word[share_sig_word] == share_msg.word[share_sig_word]
+			set share_sig_word + 1
+			goto "SHARESIGCHECK"
+		end if
+end if
+// If the messages were different, we need to copy over the new signature.
+if share_same == 0
+	set share_sig share_msg
+end if
+}
+
+
+
+// Checks if need to share cadder.
+// Returns:
+//   share_check - 1 if need to share.
+//   share_who - who to share if need to.
+fShare_check
+{
+set share_check 0
+setglobal gShare_which share_free
+label SHARECHECK
+	// Go through as many cadders in list as have non-locked shares.
+	if gShare_which > 0
+		setglobal gShare_which - 1
+		set share_who gShareCad[gShare_which]
+		if share_who != ""
+			if gShareIgnore[gShare_which] == 0
+				set share_shares 0
+				// See if already sharing with this cadder.
+				label SHARECHECKSH
+				if share_shares < 5
+					if share_who != gShare[share_shares]
+						set share_shares + 1
+						goto "SHARECHECKSH"
+					// If already sharing with this cadder, do not share.
+					end if
+				// If not already sharing with this cadder, share.
+				else
+					set share_check 1
+					goto "SHARECHECKOUT"
+				end if
+			end if
+		end if
+		goto "SHARECHECK"
+	end if
+label SHARECHECKOUT
+}
+
+
+
+// Pushes name into recent cadders list.
+// Args:
+//   share_new - name to bump
+fShare_push
+{
+setglobal gShare_which 0
+set share_lock 5
+set share_lock - share_free
+// Check if this cadder is already a locked share.
+label SHARELOCK
+	if gShare_which < share_lock
+		// If is locked share, do not add to cadder list.
+		if share_new == gShare[gShare_which]
+			goto "SHAREPUSHOUT"
+		else
+			setglobal gShare_which + 1
+			goto "SHARELOCK"
+		end if
+	end if
+set share_erase gShare_erase
+setglobal gShare_which 0
+set share_bump share_new
+label SHAREPUSH
+	set share_temp gShareCad[gShare_which]
+	set share_tempp gShareIgnore[gShare_which]
+	setglobal gShareCad[gShare_which] share_bump
+	setglobal gShareIgnore[gShare_which] share_ignore
+	set share_bump share_temp
+	set share_ignore share_tempp
+	setglobal gShare_which + 1
+	if share_bump == share_new
+	else if share_bump == ""
+	else if gShare_which < share_free
+		goto "SHAREPUSH"
+	end if
+label SHAREPUSHOUT
+setglobal gShare_which share_free
+label SHAREREM
+	if gShare_which < 5
+		setglobal gShareCad[gShare_which] ""
+		setglobal gShare_which + 1
+		goto "SHAREREM"
+	end if
+}
+
+
+
+// Updates list of current shares.
+// Args:
+//   share_msg - @env.textLog message to get info from.
+//   share_word - word where names begin at.
+fShare_update
+{
+set share_prev[0] gShare[0]
+set share_prev[1] gShare[1]
+set share_prev[2] gShare[2]
+set share_prev[3] gShare[3]
+set share_prev[4] gShare[4]
+setglobal gShare_who 0
+set share_free 5
+label SHAREUPDATE
+	if share_msg.word[share_word] != ""
+		call "fShare_get_who"
+		// Check if not expected share.
+		if share_lock == 0
+			if share_init == 1
+				set share_shares 0
+				// Check if was already in list.
+				label SHAREALREADY
+					if share_shares < 5
+						if share_prev[share_shares] != ""
+							// If was already in list, not unexpected.
+							if share_new == share_prev[share_shares]
+								goto "SHARECONT"
+							else
+								set share_shares + 1
+								goto "SHAREALREADY"
+							end if
+						end if
+					end if
+				// If were not expecting share, bump onto cadders list
+				// so it does not accidentally get bumped off.
+				set share_delay 14
+				set share_ignore 1
+				call "fShare_push"
+			end if
+		end if
+		label SHARECONT
+		setglobal gShare[gShare_who] share_new
+		setglobal gShare_who + 1
+		goto "SHAREUPDATE"
+	end if
+label SHAREERASE
+	if gShare_who < 5
+		setglobal gShare[gShare_who] ""
+		setglobal gShare_who + 1
+		goto "SHAREERASE"
+	end if
+if gShare_messages == 1
+	message "Share list updated."
+end if
+}
+
+
+
+// Fetches a name from text string.
+// Args:
+//   share_msg - @env.textLog message to get info from.
+//   share_word - word where name begin at.
+// Returns:
+//   share_new - new name.
+//   share_lock - 1 if from share list and locked.
+fShare_get_who
+{
+set share_lock 0
+set share_new ""
+label SHAREWHO
+	if share_msg.word[share_word] == ""
+	else if share_msg.word[share_word] == "and"
+		set share_word + 1
+		if share_new == ""
+			goto "SHAREWHO"
+		end if
+	else if share_msg.word[share_word] >= "(*)"
+		set share_lock 1
+		set share_free - 1
+		set share_word + 1
+	else if share_msg.word[share_word] >= ","
+		set share_letters share_msg.word[share_word]
+		set share_which 0
+		label SHAREL
+			set share_letter share_letters.letter[share_which]
+			if share_letter == ","
+			else if share_letter == "."
+			else if share_letter == " "
+			else if share_letter == ""
+			else
+				set share_new + share_letter
+				set share_which + 1
+				goto "SHAREL"
+			end if
+		set share_word + 1
+	else if share_msg.word[share_word] >= "."
+		set share_letters share_msg.word[share_word]
+		set share_which 0
+		goto "SHAREL"
+	else
+		set share_new + share_msg.word[share_word]
+		set share_word + 1
+		goto "SHAREWHO"
+	end if		
+}

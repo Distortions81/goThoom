@@ -108,6 +108,34 @@ Tip: The input bar auto-expands as you type and has a context menu for quick pas
 goThoom can load optional scripts at startup using [yaegi](https://github.com/traefik/yaegi), a Go interpreter.
 Place `.go` files inside the `scripts/` directory.
 
+### Legacy `.mac` macros
+
+Open **Actions → Legacy Macros** to browse the public legacy macro library
+embedded in the client. The first time it opens, the bundled sources are copied
+to `Macros/Library/` without overwriting anything. Every `.mac` file in that
+directory then appears in the list, including files you add yourself.
+
+- Optional comment metadata gives macros a friendly name, description, and
+  tags. Tags are separated with commas. Copy the simple template and real
+  example in [METADATA.md](testdata/legacy_macros/web/METADATA.md). The same
+  guide is installed as `Macros/Library/METADATA.md`.
+- **Global** and selected **Player** checkboxes are saved in
+  `Macros/Library/enabled.json`. They tell goThoom which library files to load
+  and never rewrite `Macros/Default` or `Macros/<player name>`.
+
+Changing a checkbox reloads the active macro program immediately. After
+editing a `.mac` file, use **Reload Macros** in the Legacy Macros window.
+The **i** button shows each bundled macro's author and source links. Remaining
+compatibility work is tracked in `MACRO_COMPAT_TODO.md`.
+
+Legacy macro files and server messages use MacRoman, while goThoom keeps normal
+text as Unicode internally. See
+[Legacy text compatibility](docs/LegacyTextCompatibility.md) for the Unicode
+escape format, examples, and round-trip behavior.
+
+Very old `undo` key bindings need a different key on modern keyboards. Mouse
+buttons beyond the five reported by the client cannot trigger a macro.
+
 ### Testing server messages
 
 Use the `/testhooks` command to inject fake server messages for debugging or

@@ -36,7 +36,7 @@ func queueInfoRequest(name string) {
 // maybeEnqueueInfo sets pendingCommand to "/be-info <name>" when throttled and
 // a name is queued. Returns true if it queued a command.
 func maybeEnqueueInfo() bool {
-	if pendingCommand != "" {
+	if !commandQueueIsIdle() {
 		return false
 	}
 	if time.Since(lastInfoSent) < infoCooldown {
@@ -45,7 +45,9 @@ func maybeEnqueueInfo() bool {
 	infoQueueMu.Lock()
 	defer infoQueueMu.Unlock()
 	for name := range infoQueue {
-		pendingCommand = "/be-info " + name
+		if !enqueueCommandIfIdle("/be-info " + name) {
+			return false
+		}
 		delete(infoQueue, name)
 		lastInfoSent = time.Now()
 		return true

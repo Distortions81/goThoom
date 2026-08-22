@@ -33,18 +33,18 @@ func maybeEnqueueWho() bool {
 		return false
 	}
 	// Only if there have been no commands in the last 30 frames.
-	if whoLastCommandFrame >= 0 {
-		if (ackFrame - whoLastCommandFrame) < 30 {
+	lastCommandFrame := lastCommandFrameSnapshot()
+	if lastCommandFrame >= 0 {
+		if (ackFrame - lastCommandFrame) < 30 {
 			return false
 		}
 	}
 	if time.Since(whoLastRequest) < whoCooldown {
 		return false
 	}
-	if pendingCommand != "" {
+	if !enqueueCommandIfIdle("/be-who") {
 		return false
 	}
-	pendingCommand = "/be-who"
 	whoLastRequest = time.Now()
 	return true
 }
