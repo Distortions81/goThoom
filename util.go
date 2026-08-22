@@ -33,14 +33,10 @@ func simpleEncrypt(data []byte) {
 
 // EncodeMacRomanEscaped converts UTF-8 text to the one-byte MacRoman wire
 // format without losing Unicode. Runes outside MacRoman become ASCII Unicode
-// escapes, and literal backslashes are doubled so those escapes are reversible.
+// escapes. Literal backslashes are sent unchanged.
 func EncodeMacRomanEscaped(s string) ([]byte, error) {
 	encoded := make([]byte, 0, len(s))
 	for _, char := range s {
-		if char == '\\' {
-			encoded = append(encoded, '\\', '\\')
-			continue
-		}
 		if b, ok := charmap.Macintosh.EncodeRune(char); ok {
 			encoded = append(encoded, b)
 			continue

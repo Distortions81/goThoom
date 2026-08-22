@@ -16,6 +16,10 @@ var (
 )
 
 func chatMessage(msg string) {
+	chatMessageTyped(msg, messageTextTypeSystem)
+}
+
+func chatMessageTyped(msg, messageType string) {
 	if msg == "" {
 		return
 	}
@@ -37,7 +41,7 @@ func chatMessage(msg string) {
 
 	tagged := chatHasPlayerTag(msg)
 
-	chatLog.Add(msg)
+	chatLog.AddTyped(msg, messageType)
 	appendChatLog(msg)
 
 	updateChatWindow()
@@ -69,6 +73,14 @@ func getChatMessages() []string {
 		format = "3:04PM"
 	}
 	return chatLog.Entries(format, gs.ChatTimestamps)
+}
+
+func getChatMessageEntries() ([]string, []string) {
+	format := gs.TimestampFormat
+	if format == "" {
+		format = "3:04PM"
+	}
+	return chatLog.EntriesWithTypes(format, gs.ChatTimestamps)
 }
 
 func isSelfChatMessage(msg string) bool {

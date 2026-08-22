@@ -8,6 +8,10 @@ const (
 var consoleLog = messageLog{max: maxMessages}
 
 func consoleMessage(msg string) {
+	consoleMessageTyped(msg, messageTextTypeSystem)
+}
+
+func consoleMessageTyped(msg, messageType string) {
 	if msg == "" {
 		return
 	}
@@ -19,7 +23,7 @@ func consoleMessage(msg string) {
 		showNotification(msg)
 		playSound([]uint16{sndTink})
 	}
-	consoleLog.Add(msg)
+	consoleLog.AddTyped(msg, messageType)
 	appendConsoleLog(msg)
 
 	updateConsoleWindow()
@@ -33,4 +37,12 @@ func getConsoleMessages() []string {
 		format = "3:04PM"
 	}
 	return consoleLog.Entries(format, gs.ConsoleTimestamps)
+}
+
+func getConsoleMessageEntries() ([]string, []string) {
+	format := gs.TimestampFormat
+	if format == "" {
+		format = "3:04PM"
+	}
+	return consoleLog.EntriesWithTypes(format, gs.ConsoleTimestamps)
 }

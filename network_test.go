@@ -176,7 +176,7 @@ func TestSendPlayerInputEncodesCommandAndChatAsMacRoman(t *testing.T) {
 		want []byte
 	}{
 		{name: "chat", text: "café ☺", want: append([]byte{'c', 'a', 'f', 0x8e, ' '}, []byte(`\u263A`)...)},
-		{name: "command", text: "/think Méme 🚀 \\u263A", want: append([]byte{'/', 't', 'h', 'i', 'n', 'k', ' ', 'M', 0x8e, 'm', 'e', ' '}, []byte(`\U0001F680 \\u263A`)...)},
+		{name: "command", text: "/think Méme 🚀 \\u263A", want: append([]byte{'/', 't', 'h', 'i', 'n', 'k', ' ', 'M', 0x8e, 'm', 'e', ' '}, []byte(`\U0001F680 \u263A`)...)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

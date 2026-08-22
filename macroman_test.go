@@ -6,7 +6,7 @@ import (
 )
 
 func TestMacRomanEscapedRoundTrip(t *testing.T) {
-	want := "Méme ☺ 🚀 literal \\u263A and \\U0001F680 slash \\"
+	want := "Méme ☺ 🚀 unknown \\q and slash \\"
 	encoded, err := EncodeMacRomanEscaped(want)
 	if err != nil {
 		t.Fatal(err)
@@ -25,7 +25,7 @@ func TestEncodeMacRomanEscapedUsesMacRomanAndUnicodeEscapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := append([]byte{'c', 'a', 'f', 0x8e, ' '}, []byte(`e\u0301 \u263A \U0001F680 literal \\u263A`)...)
+	want := append([]byte{'c', 'a', 'f', 0x8e, ' '}, []byte(`e\u0301 \u263A \U0001F680 literal \u263A`)...)
 	if !bytes.Equal(got, want) {
 		t.Fatalf("encoded bytes = % x, want % x", got, want)
 	}

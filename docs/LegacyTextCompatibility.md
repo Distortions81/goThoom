@@ -16,9 +16,9 @@ escapes instead:
 | `☺` | `\u263A` |
 | `🚀` | `\U0001F680` |
 
-A literal backslash is doubled. For example, text containing the literal
-characters `\u263A` is sent as `\\u263A`. This prevents it from being mistaken
-for the smiley escape when it comes back.
+Literal backslashes are sent unchanged. Unknown or malformed sequences such as
+`\q` remain literal text. A literal sequence that exactly matches `\uXXXX` or
+`\UXXXXXXXX` is interpreted as a Unicode escape when received.
 
 This keeps every wire message valid MacRoman without losing Unicode. A client
 that understands these escapes restores the original text. An older client
@@ -28,7 +28,7 @@ will display the readable escape instead of mojibake.
 
 goThoom first decodes the MacRoman bytes, then recognizes only these forms:
 
-- `\\` becomes one literal backslash.
+- `\\` from older clients becomes one literal backslash.
 - `\uXXXX` becomes one Unicode character using four hexadecimal digits.
 - `\UXXXXXXXX` becomes one Unicode character using eight hexadecimal digits.
 

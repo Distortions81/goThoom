@@ -3231,6 +3231,18 @@ func makeSettingsWindow() {
 	}
 	left.AddItem(notifBtn)
 
+	textColorsBtn, textColorsEvents := eui.NewButton()
+	textColorsBtn.Text = "Text Colors"
+	textColorsBtn.Size = eui.Point{X: panelWidth, Y: 24}
+	textColorsBtn.SetTooltip("Choose a color for each chat and message type")
+	textColorsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeTextColorsWindow()
+			textColorsWin.ToggleNear(ev.Item)
+		}
+	}
+	left.AddItem(textColorsBtn)
+
 	label, _ = eui.NewText()
 	label.Text = "\nStatus Bar Options:"
 	label.FontSize = 15
@@ -3635,6 +3647,7 @@ func makeSettingsWindow() {
 // resetAllSettings restores gs to defaults, reapplies, and refreshes windows.
 func resetAllSettings() {
 	gs = gsdef
+	ensureMessageTextColors()
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
 	clampWindowSettings()
 	applySettings()
@@ -3662,6 +3675,11 @@ func resetAllSettings() {
 	if advancedWin != nil {
 		advancedWin.Close()
 		advancedWin = nil
+	}
+	if textColorsWin != nil {
+		textColorsWin.Close()
+		textColorsWin = nil
+		textColorWheels = nil
 	}
 
 	// Recreate windows according to default settings.

@@ -1762,10 +1762,11 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 					}
 				}
 			}
+			messageType := messageTextTypeForBubble(bubbleType)
 			if gs.MessagesToConsole || !isChatBubble(bubbleType) {
-				consoleMessage(msg)
+				consoleMessageTyped(msg, messageType)
 			} else {
-				chatMessage(msg)
+				chatMessageTyped(msg, messageType)
 			}
 		}
 		stateData = stateData[p+end+1:]

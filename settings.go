@@ -308,6 +308,7 @@ type settings struct {
 	Theme                 string
 	Style                 string
 	MessagesToConsole     bool
+	MessageTextColors     map[string]eui.Color
 	ChatTTS               bool
 	ChatTTSVolume         float64
 	ChatTTSSpeed          float64
@@ -482,6 +483,7 @@ func loadSettings() bool {
 	if gs.ChatTTSBlocklist == nil {
 		gs.ChatTTSBlocklist = append([]string(nil), gsdef.ChatTTSBlocklist...)
 	}
+	ensureMessageTextColors()
 
 	if gs.JoystickBindings == nil {
 		gs.JoystickBindings = make(map[string]ebiten.GamepadButton)

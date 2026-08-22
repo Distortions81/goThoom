@@ -119,7 +119,7 @@ func refreshLegacyMacroLibraryWindow() {
 
 	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	infoHeader, _ := eui.NewText()
-	infoHeader.Size = eui.Point{X: 24, Y: 24}
+	infoHeader.Size = eui.Point{X: 68, Y: 24}
 	header.AddItem(infoHeader)
 	name, _ := eui.NewText()
 	name.Text = "Macro"
@@ -167,6 +167,22 @@ func refreshLegacyMacroLibraryWindow() {
 			}
 		}
 		row.AddItem(infoButton)
+		editButton, editEvents := eui.NewButton()
+		editButton.Text = "Edit"
+		editButton.Size = eui.Point{X: 44, Y: 24}
+		editButton.Disabled = isWASM
+		editButton.SetTooltip("Open this macro file in its default editor.")
+		if isWASM {
+			editButton.SetTooltip("The web build uses its embedded read-only macro library.")
+		}
+		editEvents.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventClick {
+				if err := open.Run(entry.Path); err != nil {
+					legacyMacroLibraryReport(fmt.Sprintf("edit %s: %v", entry.Name, err))
+				}
+			}
+		}
+		row.AddItem(editButton)
 		details, _ := eui.NewText()
 		details.Text = legacyMacroLibraryRowLabel(entry.Name, entry.Description, detailsWidth)
 		details.FontSize = 12
@@ -464,7 +480,7 @@ func legacyMacroLibraryDetailsWidth() float32 {
 	if legacyMacroLibraryList == nil {
 		return 366
 	}
-	width := legacyMacroLibraryList.Size.X - eui.ScrollbarWidth() - 24 - 110 - 150
+	width := legacyMacroLibraryList.Size.X - eui.ScrollbarWidth() - 68 - 110 - 150
 	if width < 100 {
 		return 100
 	}

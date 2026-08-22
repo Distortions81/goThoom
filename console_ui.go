@@ -26,7 +26,7 @@ func updateConsoleWindow() {
 	}
 	scrollit := messagesFlow.ScrollAtBottom()
 
-	msgs := getConsoleMessages()
+	msgs, types := getConsoleMessageEntries()
 	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil)
 	searchTextWindow(consoleWin, messagesFlow, consoleWin.SearchText)
 	if inputFlow != nil && len(inputFlow.Contents) > 0 {
@@ -35,6 +35,13 @@ func updateConsoleWindow() {
 		inputItem.CursorPos = wrappedCursorPos(inputItem.Text, inputPos)
 	}
 	if messagesFlow != nil {
+		for i, messageType := range types {
+			if i >= len(messagesFlow.Contents) {
+				break
+			}
+			messagesFlow.Contents[i].TextColor = messageTextColor(messageType)
+			messagesFlow.Contents[i].ForceTextColor = true
+		}
 		// Scroll to bottom on new text; clamp occurs on Refresh.
 		if scrollit {
 			messagesFlow.Scroll.Y = 1e9
