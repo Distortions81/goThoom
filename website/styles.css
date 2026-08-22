@@ -303,6 +303,7 @@ footer p { margin: 0; text-align: center; }
 .download-hero h1 { margin-bottom: 25px; font: 600 clamp(3.7rem, 7vw, 6.3rem)/.88 Georgia, serif; letter-spacing: -.06em; }
 .download-hero h1 em { color: transparent; background: linear-gradient(110deg, #f5fbf9 4%, var(--mint) 50%, var(--blue) 95%); background-clip: text; -webkit-background-clip: text; font-weight: inherit; }
 .download-hero .lede { margin-bottom: 0; }
+.download-actions { margin-top: 30px; }
 .release-stamp { display: flex; gap: 15px; align-items: flex-start; margin-bottom: 6px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.025); }
 .release-stamp > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .release-stamp small { color: var(--muted); font-size: .67rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
