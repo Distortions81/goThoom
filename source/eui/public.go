@@ -9,6 +9,13 @@ import (
 // Windows returns the list of active windows.
 func Windows() []*WindowData { return windows }
 
+// PointerPressWindow returns the window under the current pointer press. It
+// remains available for the duration of the press even if that window closes.
+func PointerPressWindow() *WindowData { return downWin }
+
+// PointerPressHandled reports whether EUI handled the pointer press this frame.
+func PointerPressHandled() bool { return pointerPressHandled }
+
 // WindowTiling reports whether window tiling is enabled.
 func WindowTiling() bool { return windowTiling }
 

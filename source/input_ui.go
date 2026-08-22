@@ -4,6 +4,13 @@ import (
 	"gothoom/eui"
 )
 
+// uiOwnsPointerPress preserves ownership of a press after EUI changes the
+// layout, such as when the press closes a window. The playable portion of the
+// game window remains transparent to world input.
+func uiOwnsPointerPress(overUI bool, pressWin *eui.WindowData, handled bool) bool {
+	return overUI || handled || (pressWin != nil && pressWin != gameWin)
+}
+
 // pointInUI reports whether the given screen coordinate lies within any EUI window or overlay.
 func pointInUI(x, y int) bool {
 	fx, fy := float32(x), float32(y)

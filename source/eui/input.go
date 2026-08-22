@@ -22,7 +22,8 @@ var (
 	dragFlow   *itemData
 	activeItem *itemData
 
-	downWin *windowData
+	downWin             *windowData
+	pointerPressHandled bool
 
 	activeSearch     *windowData
 	selectedTextItem *itemData
@@ -40,6 +41,7 @@ var (
 // Programs embedding the UI can call this from their Ebiten Update handler.
 func Update() error {
 	checkThemeStyleMods()
+	pointerPressHandled = false
 
 	shiftPressed := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
 	ShiftPressed = shiftPressed
@@ -128,6 +130,7 @@ func Update() error {
 
 	// First, give active context menus a chance to handle the click/hover.
 	if handleContextMenus(mpos, click) {
+		pointerPressHandled = click
 		// If a context menu handled the interaction, avoid passing the click to windows.
 		// Still continue with cursor updates and general housekeeping below.
 		click = false
@@ -176,6 +179,7 @@ func Update() error {
 			}
 
 			if click && dragPart == PART_NONE && downWin == win {
+				pointerPressHandled = true
 				if part == PART_CLOSE {
 					win.Close()
 					break
@@ -337,6 +341,9 @@ func Update() error {
 		win.Hovered = false
 		if !handled {
 			handled = win.clickWindowItems(mpos, click)
+		}
+		if click && handled {
+			pointerPressHandled = true
 		}
 		if win.Hovered != prevWinHovered {
 			win.markDirty()

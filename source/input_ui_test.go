@@ -19,6 +19,26 @@ func TestPointInUIOverlay(t *testing.T) {
 	}
 }
 
+func TestUIOwnsPointerPressAfterWindowCloses(t *testing.T) {
+	oldGameWin := gameWin
+	defer func() { gameWin = oldGameWin }()
+
+	gameWin = eui.NewWindow()
+	closedWin := eui.NewWindow()
+	closedWin.MarkOpen()
+	closedWin.Close()
+
+	if !uiOwnsPointerPress(false, closedWin, false) {
+		t.Fatalf("a press begun on a UI window should remain owned after it closes")
+	}
+	if uiOwnsPointerPress(false, gameWin, false) {
+		t.Fatalf("the playable game window should pass an unhandled press to the world")
+	}
+	if !uiOwnsPointerPress(false, gameWin, true) {
+		t.Fatalf("an EUI-handled press should not pass through the game window")
+	}
+}
+
 func TestPointInGameWindow(t *testing.T) {
 	gameWin = eui.NewWindow()
 	gameWin.MarkOpen()

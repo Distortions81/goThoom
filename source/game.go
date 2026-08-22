@@ -1116,7 +1116,8 @@ func (g *Game) Update() error {
 	baseX := int16(float64(mx-worldOriginX)/worldScale - float64(fieldCenterX))
 	baseY := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
 	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
-	click := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || joyClick1
+	mouseClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	click := mouseClick || joyClick1
 	rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2
 	middleClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle) || joyClick3
 
@@ -1137,7 +1138,11 @@ func (g *Game) Update() error {
 	inputMu.Lock()
 	prev := latestInput
 	inputMu.Unlock()
-	if click && pointInUI(mx, my) {
+	uiOwnsClick := pointInUI(mx, my)
+	if mouseClick {
+		uiOwnsClick = uiOwnsPointerPress(uiOwnsClick, eui.PointerPressWindow(), eui.PointerPressHandled())
+	}
+	if click && uiOwnsClick {
 		uiMouseDown = true
 	}
 	if uiMouseDown {
