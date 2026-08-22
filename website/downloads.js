@@ -13,6 +13,9 @@
   const version = document.querySelector("#release-version");
   const date = document.querySelector("#release-date");
   const checksums = document.querySelector("#checksums-link");
+  const releaseNotes = document.querySelector("#release-notes");
+  const releaseNotesContent = document.querySelector("#release-notes-content");
+  const releaseNotesLink = document.querySelector("#release-notes-link");
 
   function detectedPlatform() {
     const value = `${navigator.userAgent} ${navigator.platform || ""}`.toLowerCase();
@@ -65,6 +68,15 @@
     return article;
   }
 
+  function renderReleaseNotes(release) {
+    const notes = release.body?.trim();
+    if (!notes) return;
+
+    releaseNotesContent.textContent = notes;
+    releaseNotesLink.href = release.html_url || RELEASES_URL;
+    releaseNotes.hidden = false;
+  }
+
   async function loadRelease() {
     try {
       const response = await fetch(API_URL, { headers: { Accept: "application/vnd.github+json" } });
@@ -77,6 +89,7 @@
       date.textContent = release.published_at
         ? `Published ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(release.published_at))}`
         : "Available now";
+      renderReleaseNotes(release);
 
       grid.replaceChildren(...platforms.map((platform) =>
         renderCard(platform, findAssets(assets, platform), platform.key === detected)

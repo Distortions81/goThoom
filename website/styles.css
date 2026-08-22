@@ -342,6 +342,12 @@ footer p { margin: 0; text-align: center; }
 .release-error[hidden] { display: none; }
 .release-error span { color: var(--muted); font-size: .86rem; }
 .release-error a { margin-top: 8px; color: var(--blue); font-size: .8rem; font-weight: 750; text-decoration: none; }
+.release-notes { margin-top: 82px; }
+.release-notes[hidden] { display: none; }
+.release-notes-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 28px; }
+.release-notes-heading .eyebrow { margin-bottom: 14px; }
+.release-notes-heading h2 { margin: 0; font: 600 clamp(2.2rem, 4vw, 3.4rem)/1 Georgia, serif; letter-spacing: -.045em; }
+.release-notes-content { max-height: 42rem; padding: 30px; overflow: auto; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.025); color: var(--muted); font-size: .88rem; line-height: 1.65; white-space: pre-wrap; }
 .skeleton { border-radius: 8px; background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.09), rgba(255,255,255,.04)); background-size: 240% 100%; animation: shimmer 1.5s infinite; }
 .icon-skeleton { width: 58px; height: 58px; margin-bottom: auto; border-radius: 15px; }
 .line-wide { width: 65%; height: 22px; margin-bottom: 13px; }
@@ -374,6 +380,7 @@ footer p { margin: 0; text-align: center; }
   .download-grid { grid-template-columns: 1fr; }
   .download-card { min-height: 290px; }
   .install-notes { grid-template-columns: 1fr; gap: 20px; }
+  .release-notes-heading { align-items: start; flex-direction: column; }
 }
 
 @media (max-width: 620px) {
@@ -412,6 +419,8 @@ footer p { margin: 0; text-align: center; }
   .download-card { min-height: 310px; padding: 24px; }
   .release-tools { align-items: stretch; flex-direction: column; }
   .release-tools .button { width: 100%; }
+  .release-notes { margin-top: 64px; }
+  .release-notes-content { padding: 22px; }
   .install-notes { padding: 80px 0 95px; }
 }
 
