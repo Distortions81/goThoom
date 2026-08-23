@@ -18,8 +18,10 @@ import (
 )
 
 var (
-	loginCancel context.CancelFunc
-	loginMu     sync.Mutex
+	loginCancel          context.CancelFunc
+	loginInProgress      bool
+	demoLookupInProgress bool
+	loginMu              sync.Mutex
 )
 
 type serverTarget struct {
@@ -179,6 +181,16 @@ const CL_SoundsFile = "CL_Sounds"
 
 // fetchRandomDemoCharacter retrieves the server's demo characters and returns one at random.
 func fetchRandomDemoCharacter(clVersion int) (string, error) {
+	for {
+		name, err := fetchRandomDemoCharacterOnce(clVersion)
+		if errors.Is(err, errRetryLogin) {
+			continue
+		}
+		return name, err
+	}
+}
+
+func fetchRandomDemoCharacterOnce(clVersion int) (string, error) {
 	imagesVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_ImagesFile))
 	imagesMissing := false
 	if err != nil {
@@ -281,35 +293,54 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 	}
 	challenge := msg[16 : 16+16]
 
-	answer, err := answerChallenge("demo", challenge)
-	if err != nil {
-		return "", fmt.Errorf("hash via %s: %w", target.addr, err)
-	}
 	const kMsgCharList = 14
 	accountBytes := encodeMacRoman("demo")
-	packet := make([]byte, 16+len(accountBytes)+1+len(answer))
-	binary.BigEndian.PutUint16(packet[0:2], kMsgCharList)
-	binary.BigEndian.PutUint16(packet[2:4], 0)
-	binary.BigEndian.PutUint32(packet[4:8], encodeFullVersion(sendVersionLocal))
-	binary.BigEndian.PutUint32(packet[8:12], imagesVersion)
-	binary.BigEndian.PutUint32(packet[12:16], soundsVersion)
-	copy(packet[16:], accountBytes)
-	packet[16+len(accountBytes)] = 0
-	copy(packet[17+len(accountBytes):], answer)
-	simpleEncrypt(packet[16:])
-	if err := sendTCPMessage(tcpConn, packet); err != nil {
-		return "", fmt.Errorf("send character list via %s: %w", target.addr, err)
-	}
+	var resp []byte
+	for {
+		answer, err := answerChallenge("demo", challenge)
+		if err != nil {
+			return "", fmt.Errorf("hash via %s: %w", target.addr, err)
+		}
+		packet := make([]byte, 16+len(accountBytes)+1+len(answer))
+		binary.BigEndian.PutUint16(packet[0:2], kMsgCharList)
+		binary.BigEndian.PutUint16(packet[2:4], 0)
+		binary.BigEndian.PutUint32(packet[4:8], encodeFullVersion(sendVersionLocal))
+		binary.BigEndian.PutUint32(packet[8:12], imagesVersion)
+		binary.BigEndian.PutUint32(packet[12:16], soundsVersion)
+		copy(packet[16:], accountBytes)
+		packet[16+len(accountBytes)] = 0
+		copy(packet[17+len(accountBytes):], answer)
+		simpleEncrypt(packet[16:])
+		if err := sendTCPMessage(tcpConn, packet); err != nil {
+			return "", fmt.Errorf("send character list via %s: %w", target.addr, err)
+		}
 
-	resp, err := readTCPMessage(tcpConn)
-	if err != nil {
-		return "", fmt.Errorf("read character list via %s: %w", target.addr, err)
-	}
-	if len(resp) < 16 {
-		return "", fmt.Errorf("short char list resp via %s", target.addr)
-	}
-	if binary.BigEndian.Uint16(resp[:2]) != kMsgCharList {
-		return "", fmt.Errorf("unexpected tag %d via %s", binary.BigEndian.Uint16(resp[:2]), target.addr)
+		resp, err = readTCPMessage(tcpConn)
+		if err != nil {
+			return "", fmt.Errorf("read character list via %s: %w", target.addr, err)
+		}
+		if len(resp) < 16 {
+			return "", fmt.Errorf("short char list resp via %s", target.addr)
+		}
+		tag := binary.BigEndian.Uint16(resp[:2])
+		result := int16(binary.BigEndian.Uint16(resp[2:4]))
+		if result == -30972 || result == -30973 {
+			if _, err := autoUpdate(resp, dataDirPath); err != nil {
+				return "", fmt.Errorf("update demo data: %w", err)
+			}
+			return "", errRetryLogin
+		}
+		if tag == kMsgChallenge {
+			if len(resp) < 32 {
+				return "", fmt.Errorf("short repeated challenge via %s", target.addr)
+			}
+			challenge = resp[16:32]
+			continue
+		}
+		if tag != kMsgCharList {
+			return "", fmt.Errorf("unexpected tag %d via %s", tag, target.addr)
+		}
+		break
 	}
 	result := int16(binary.BigEndian.Uint16(resp[2:4]))
 	simpleEncrypt(resp[16:])

@@ -2420,6 +2420,13 @@ func startLogin() {
 		showPrecachePopup(startLogin)
 		return
 	}
+	loginMu.Lock()
+	if loginInProgress || tcpConn != nil {
+		loginMu.Unlock()
+		return
+	}
+	loginInProgress = true
+	loginMu.Unlock()
 	if status.Version > clVersion {
 		clVersion = status.Version
 	}
@@ -2431,10 +2438,19 @@ func startLogin() {
 		loginMu.Lock()
 		loginCancel = cancel
 		loginMu.Unlock()
-		if err := login(ctx, clVersion); err != nil {
+		err := login(ctx, clVersion)
+		loginMu.Lock()
+		loginCancel = nil
+		loginInProgress = false
+		connected := tcpConn != nil
+		loginMu.Unlock()
+		if err != nil {
 			closeConnectDialog()
 			logError("login: %v", err)
 			pass = ""
+			if connected {
+				return
+			}
 			// Bring login forward first so the popup stays on top
 			loginWin.MarkOpen()
 			updateCharacterButtons()
@@ -2606,10 +2622,29 @@ func makeLoginWindow() {
 	demoBtn.Size = eui.Point{X: charWinWidth, Y: 24}
 	demoEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
+			loginMu.Lock()
+			if demoLookupInProgress || loginInProgress || tcpConn != nil {
+				loginMu.Unlock()
+				return
+			}
+			demoLookupInProgress = true
+			loginMu.Unlock()
+			// Hide the button while the character lookup is in flight so a
+			// second click cannot start a competing login attempt.
+			loginWin.Close()
+			showConnectDialog("Finding an available demo character...")
 			go func() {
 				n, err := fetchRandomDemoCharacter(clVersion)
 				if err != nil {
+					loginMu.Lock()
+					demoLookupInProgress = false
+					connected := tcpConn != nil || loginInProgress
+					loginMu.Unlock()
+					closeConnectDialog()
 					logError("demo: %v", err)
+					if connected {
+						return
+					}
 					loginWin.MarkOpen()
 					makeErrorWindow("Error: Demo: " + err.Error())
 					return
@@ -2617,6 +2652,9 @@ func makeLoginWindow() {
 				name = n
 				passHash = ""
 				pass = "demo"
+				loginMu.Lock()
+				demoLookupInProgress = false
+				loginMu.Unlock()
 				startLogin()
 			}()
 		}
