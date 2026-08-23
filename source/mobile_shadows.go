@@ -22,6 +22,7 @@ const (
 	contactShadowWidth     = 0.78
 	contactShadowHeight    = 0.24
 	contactShadowTexSize   = 64
+	characterShadowPadding = 1
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -52,6 +53,7 @@ var (
 	}
 	detailedCharacterShadowMask *ebiten.Image
 	contactShadowTexture        *ebiten.Image
+	characterShadowTextureCache = make(map[*ebiten.Image]characterShadowTexture)
 )
 
 type characterShadowKind uint8
@@ -65,6 +67,7 @@ const (
 type characterShadowTexture struct {
 	image       *ebiten.Image
 	contentSize int
+	padding     int
 	footY       float64
 }
 
@@ -296,11 +299,23 @@ func characterShadowTextureFor(img *ebiten.Image) characterShadowTexture {
 	if img == nil {
 		return characterShadowTexture{}
 	}
-	return characterShadowTexture{
-		image:       img,
-		contentSize: img.Bounds().Dx(),
-		footY:       float64(img.Bounds().Dy()),
+	if texture, ok := characterShadowTextureCache[img]; ok {
+		return texture
 	}
+	bounds := img.Bounds()
+	padded := newImage(bounds.Dx()+characterShadowPadding*2, bounds.Dy()+characterShadowPadding*2)
+	op := acquireDrawOpts()
+	op.GeoM.Translate(characterShadowPadding, characterShadowPadding)
+	padded.DrawImage(img, op)
+	releaseDrawOpts(op)
+	texture := characterShadowTexture{
+		image:       padded,
+		contentSize: bounds.Dx(),
+		padding:     characterShadowPadding,
+		footY:       float64(bounds.Dy() + characterShadowPadding),
+	}
+	characterShadowTextureCache[img] = texture
+	return texture
 }
 
 func clearCharacterShadowCache() {
@@ -312,6 +327,10 @@ func clearCharacterShadowCache() {
 		contactShadowTexture.Deallocate()
 		contactShadowTexture = nil
 	}
+	for _, texture := range characterShadowTextureCache {
+		texture.image.Deallocate()
+	}
+	characterShadowTextureCache = make(map[*ebiten.Image]characterShadowTexture)
 }
 
 func drawCharacterShadow(screen *ebiten.Image, texture characterShadowTexture, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {
@@ -341,7 +360,7 @@ func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTextu
 	img := texture.image
 	drawSize := texture.contentSize
 	if upright {
-		geo := uprightShadowGeoMWithFoot(drawSize, 0, texture.footY, size, x, y, projection)
+		geo := uprightShadowGeoMWithFoot(drawSize, texture.padding, texture.footY, size, x, y, projection)
 		drawUprightShadowTexture(screen, texture, geo, alpha, blend)
 		return
 	}
@@ -354,7 +373,8 @@ func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTextu
 	op.Blend = blend
 	op.ColorScale.Scale(0, 0, 0, alpha)
 	op.GeoM.Scale(baseScale, baseScale)
-	op.GeoM.Translate(float64(x)-target/2+projection.dropOffsetX, float64(y)-target/2+projection.dropOffsetY)
+	padding := float64(texture.padding) * baseScale
+	op.GeoM.Translate(float64(x)-target/2-padding+projection.dropOffsetX, float64(y)-target/2-padding+projection.dropOffsetY)
 
 	screen.DrawImage(img, op)
 	releaseDrawOpts(op)

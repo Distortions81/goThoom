@@ -1636,6 +1636,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	if gs.ShaderLighting {
 		frameLights = frameLights[:0]
 		frameDarks = frameDarks[:0]
+		frameLightCasters = frameLightCasters[:0]
 	}
 
 	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
@@ -1774,6 +1775,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
+		addMobileLightCaster(float64(x), float64(y), size, mobileOccluderWidth(curKey, img))
 		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image

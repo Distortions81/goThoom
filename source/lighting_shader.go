@@ -5,25 +5,35 @@ import (
 	"image"
 	"math"
 	"os"
+	"sort"
 
 	"gothoom/climg"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const maxLights = 128
+const (
+	maxLights       = 128
+	maxLightShadows = 32
+)
 
 //go:embed data/shaders/light.kage
 var lightShaderSrc []byte
 
 var (
-	lightingShader *ebiten.Shader
-	lightingTmp    *ebiten.Image
-	frameLights    []lightSource
-	frameDarks     []darkSource
+	lightingShader           *ebiten.Shader
+	lightingTmp              *ebiten.Image
+	frameLights              []lightSource
+	frameDarks               []darkSource
+	frameLightCasters        []lightCaster
+	frameLightShadows        []lightShadow
+	mobileOccluderWidthCache = make(map[mobileKey]float32)
 	// Reused shader data to avoid per-frame allocations
 	lposX, lposY, lradius, lr, lg, lb, lint [maxLights]float32
 	dposX, dposY, dradius, da, dint, dplane [maxLights]float32
+	slightX, slightY, slightRadius          [maxLightShadows]float32
+	slightR, slightG, slightB, slightInt    [maxLightShadows]float32
+	scasterX, scasterY, scasterRadius       [maxLightShadows]float32
 	lightingUniforms                        map[string]any
 	lightingOp                              ebiten.DrawRectShaderOptions
 )
@@ -55,25 +65,36 @@ func init() {
 	}
 	// Initialize reusable uniforms and options
 	lightingUniforms = map[string]any{
-		"LightCount":     0,
-		"DarkCount":      0,
-		"LightPosX":      lposX[:],
-		"LightPosY":      lposY[:],
-		"LightRadius":    lradius[:],
-		"LightR":         lr[:],
-		"LightG":         lg[:],
-		"LightB":         lb[:],
-		"LightIntensity": lint[:],
-		"DarkPosX":       dposX[:],
-		"DarkPosY":       dposY[:],
-		"DarkRadius":     dradius[:],
-		"DarkAlpha":      da[:],
-		"DarkIntensity":  dint[:],
-		"DarkPlane":      dplane[:],
-		"LightStrength":  float32(1),
-		"GlowStrength":   float32(1),
-		"NightFactor":    float32(0),
-		"MaxLightPlane":  float32(32767),
+		"LightCount":           0,
+		"DarkCount":            0,
+		"LightPosX":            lposX[:],
+		"LightPosY":            lposY[:],
+		"LightRadius":          lradius[:],
+		"LightR":               lr[:],
+		"LightG":               lg[:],
+		"LightB":               lb[:],
+		"LightIntensity":       lint[:],
+		"DarkPosX":             dposX[:],
+		"DarkPosY":             dposY[:],
+		"DarkRadius":           dradius[:],
+		"DarkAlpha":            da[:],
+		"DarkIntensity":        dint[:],
+		"DarkPlane":            dplane[:],
+		"ShadowCount":          0,
+		"ShadowLightX":         slightX[:],
+		"ShadowLightY":         slightY[:],
+		"ShadowLightRadius":    slightRadius[:],
+		"ShadowLightR":         slightR[:],
+		"ShadowLightG":         slightG[:],
+		"ShadowLightB":         slightB[:],
+		"ShadowLightIntensity": slightInt[:],
+		"ShadowCasterX":        scasterX[:],
+		"ShadowCasterY":        scasterY[:],
+		"ShadowCasterRadius":   scasterRadius[:],
+		"LightStrength":        float32(1),
+		"GlowStrength":         float32(1),
+		"NightFactor":          float32(0),
+		"MaxLightPlane":        float32(32767),
 	}
 	lightingOp = ebiten.DrawRectShaderOptions{}
 	lightingOp.Uniforms = lightingUniforms
@@ -124,6 +145,20 @@ type darkSource struct {
 	AgeFrames float32
 }
 
+type lightCaster struct {
+	X, Y                 float32
+	Radius               float32
+	LightExclusionRadius float32
+}
+
+type lightShadow struct {
+	LightX, LightY, LightRadius float32
+	LightR, LightG, LightB      float32
+	LightIntensity              float32
+	CasterX, CasterY            float32
+	CasterRadius                float32
+}
+
 func ensureLightingTmp(w, h int) {
 	if lightingTmp == nil || lightingTmp.Bounds().Dx() != w || lightingTmp.Bounds().Dy() != h {
 		// Allocate the intermediate image, respecting potato mode for unmanaged images.
@@ -139,10 +174,12 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	// Use already-interpolated positions and smooth attributes
 	il := interpolateLights(lights, t)
 	id := interpolateDarks(darks, t)
+	frameLightShadows = buildLightShadows(il, frameLightCasters, frameLightShadows[:0])
 
 	// Update counts
 	lightingUniforms["LightCount"] = len(il)
 	lightingUniforms["DarkCount"] = len(id)
+	lightingUniforms["ShadowCount"] = len(frameLightShadows)
 
 	// Fill light arrays
 	for i := 0; i < len(il) && i < maxLights; i++ {
@@ -176,6 +213,19 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 		} else {
 			dint[i] = ds.Intensity
 		}
+	}
+	for i := 0; i < len(frameLightShadows); i++ {
+		shadow := frameLightShadows[i]
+		slightX[i] = shadow.LightX
+		slightY[i] = shadow.LightY
+		slightRadius[i] = shadow.LightRadius
+		slightR[i] = shadow.LightR
+		slightG[i] = shadow.LightG
+		slightB[i] = shadow.LightB
+		slightInt[i] = shadow.LightIntensity
+		scasterX[i] = shadow.CasterX
+		scasterY[i] = shadow.CasterY
+		scasterRadius[i] = shadow.CasterRadius
 	}
 
 	// Scalars
@@ -350,6 +400,126 @@ func lightIntersectsViewport(x, y float32, radius float32, bounds image.Rectangl
 		x-radius <= float32(bounds.Max.X) &&
 		y+radius >= float32(bounds.Min.Y) &&
 		y-radius <= float32(bounds.Max.Y)
+}
+
+func addMobileLightCaster(x, y float64, size int, widthFraction float32) {
+	if !gs.ShaderLighting || size <= 0 || widthFraction <= 0 {
+		return
+	}
+	scaledSize := float32(float64(size) * gs.GameScale)
+	radius := scaledSize * widthFraction / 2
+	minimumRadius := scaledSize * 0.10
+	maximumRadius := scaledSize * 0.28
+	if radius < minimumRadius {
+		radius = minimumRadius
+	} else if radius > maximumRadius {
+		radius = maximumRadius
+	}
+	frameLightCasters = append(frameLightCasters, lightCaster{
+		X:                    float32(x),
+		Y:                    float32(y) + scaledSize*0.35,
+		Radius:               radius,
+		LightExclusionRadius: scaledSize * 0.60,
+	})
+}
+
+func mobileOccluderWidth(key mobileKey, img *ebiten.Image) float32 {
+	if img == nil || img.Bounds().Empty() {
+		return 0
+	}
+	imageMu.Lock()
+	width, ok := mobileOccluderWidthCache[key]
+	imageMu.Unlock()
+	if ok {
+		return width
+	}
+
+	bounds := img.Bounds()
+	pixels := make([]byte, 4*bounds.Dx()*bounds.Dy())
+	img.ReadPixels(pixels)
+	median := medianOccupiedRowWidth(pixels, bounds.Dx(), bounds.Dy())
+	width = float32(median) / float32(bounds.Dx())
+	imageMu.Lock()
+	mobileOccluderWidthCache[key] = width
+	imageMu.Unlock()
+	return width
+}
+
+func medianOccupiedRowWidth(pixels []byte, width, height int) int {
+	if width <= 0 || height <= 0 || len(pixels) < width*height*4 {
+		return 0
+	}
+	rowWidths := make([]int, 0, height)
+	for y := 0; y < height; y++ {
+		count := 0
+		rowStart := y * width * 4
+		for x := 0; x < width; x++ {
+			if pixels[rowStart+x*4+3] > 16 {
+				count++
+			}
+		}
+		if count > 0 {
+			rowWidths = append(rowWidths, count)
+		}
+	}
+	if len(rowWidths) == 0 {
+		return 0
+	}
+	sort.Ints(rowWidths)
+	middle := len(rowWidths) / 2
+	if len(rowWidths)%2 == 0 {
+		return (rowWidths[middle-1] + rowWidths[middle]) / 2
+	}
+	return rowWidths[middle]
+}
+
+func buildLightShadows(lights []lightSource, casters []lightCaster, dst []lightShadow) []lightShadow {
+	for _, light := range lights {
+		effectiveRadius := light.Radius * float32(lightRadiusScale)
+		for _, caster := range casters {
+			distanceSquared := dist2(light.X, light.Y, caster.X, caster.Y)
+			minimumDistance := caster.Radius * 1.25
+			if caster.LightExclusionRadius > minimumDistance {
+				minimumDistance = caster.LightExclusionRadius
+			}
+			if distanceSquared <= minimumDistance*minimumDistance || distanceSquared >= effectiveRadius*effectiveRadius {
+				continue
+			}
+			shadow := lightShadow{
+				LightX:         light.X,
+				LightY:         light.Y,
+				LightRadius:    effectiveRadius,
+				LightR:         light.R,
+				LightG:         light.G,
+				LightB:         light.B,
+				LightIntensity: light.Intensity,
+				CasterX:        caster.X,
+				CasterY:        caster.Y,
+				CasterRadius:   caster.Radius,
+			}
+			if len(dst) < maxLightShadows {
+				dst = append(dst, shadow)
+				continue
+			}
+			// Prefer the interactions nearest to their lights when a crowded
+			// scene exceeds the shader's fixed shadow budget.
+			worst := 0
+			worstRatio := float32(0)
+			for i := range dst {
+				d := dist2(dst[i].LightX, dst[i].LightY, dst[i].CasterX, dst[i].CasterY)
+				ratio := d / (dst[i].LightRadius * dst[i].LightRadius)
+				if ratio > worstRatio {
+					worst = i
+					worstRatio = ratio
+				}
+			}
+			candidateRatio := distanceSquared / (effectiveRadius * effectiveRadius)
+			if candidateRatio < worstRatio {
+				dst[worst] = shadow
+			}
+		}
+	}
+	return dst
 }
 
 func mixLightFlicker(value uint64) uint64 {

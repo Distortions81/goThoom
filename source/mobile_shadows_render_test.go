@@ -40,13 +40,18 @@ func TestRenderCharacterShadowImages(t *testing.T) {
 
 	originalSettings := gs
 	originalImages := clImages
+	originalNight := gNight
 	gs.GameScale = 1
 	gs.DetailedCharacterShadows = true
+	gs.ShaderLighting = true
+	gs.ShaderLightStrength = 1
+	gs.ShaderGlowStrength = 1
 	clImages = images
 	t.Cleanup(func() {
 		clearCaches()
 		clImages = originalImages
 		gs = originalSettings
+		gNight = originalNight
 	})
 
 	game := &shadowRenderGame{outputDir: outputDir}
@@ -106,6 +111,9 @@ func (g *shadowRenderGame) renderImages() error {
 	if err := g.renderContactShadows(); err != nil {
 		return err
 	}
+	if err := g.renderPointLightShadow(); err != nil {
+		return err
+	}
 	for _, character := range shadowTestCharacters {
 		if err := g.renderWalkCycle(character.name, character.pictID); err != nil {
 			return err
@@ -145,6 +153,30 @@ func (g *shadowRenderGame) renderImages() error {
 		}
 	}
 	return nil
+}
+
+func (g *shadowRenderGame) renderPointLightShadow() error {
+	canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
+	visibleSprite := loadMobileFrame(447, 0, nil)
+	if visibleSprite == nil {
+		return fmt.Errorf("load point-light-shadow mobile")
+	}
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op.GeoM.Scale(float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dx()), float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dy()))
+	op.GeoM.Translate(400-shadowTestDrawSize/2, 420-shadowTestDrawSize/2)
+	canvas.DrawImage(visibleSprite, op)
+
+	gNight = NightInfo{Level: 75}
+	nightAlphaInited = false
+	havePrev = false
+	prevLights = nil
+	prevDarks = nil
+	frameLightCasters = frameLightCasters[:0]
+	addMobileLightCaster(400, 420, shadowTestDrawSize, mobileOccluderWidth(makeMobileKey(447, 0, nil), visibleSprite))
+	lights := []lightSource{{X: 260, Y: 420, Radius: 230, R: 1, G: 0.62, B: 0.25, Intensity: 1}}
+	darks := []darkSource{{X: 400, Y: 400, Radius: 1000, Alpha: 0.75, Intensity: 1}}
+	applyLightingShader(canvas, lights, darks, 1)
+	return writeShadowTestPNG(filepath.Join(g.outputDir, "shadow_point_light.png"), canvas)
 }
 
 func (g *shadowRenderGame) renderContactShadows() error {

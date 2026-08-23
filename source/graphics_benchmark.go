@@ -109,26 +109,54 @@ func runGraphicsBenchmark() (graphicsBenchmarkResult, error) {
 		darkX[i], darkY[i] = lightingWidth/2, lightingHeight/2
 		darkRadius[i], darkAlpha[i], darkIntensity[i] = 700, 0.15, 1
 	}
+	shadowLightX := make([]float32, maxLightShadows)
+	shadowLightY := make([]float32, maxLightShadows)
+	shadowLightRadius := make([]float32, maxLightShadows)
+	shadowLightR := make([]float32, maxLightShadows)
+	shadowLightG := make([]float32, maxLightShadows)
+	shadowLightB := make([]float32, maxLightShadows)
+	shadowLightIntensity := make([]float32, maxLightShadows)
+	shadowCasterX := make([]float32, maxLightShadows)
+	shadowCasterY := make([]float32, maxLightShadows)
+	shadowCasterRadius := make([]float32, maxLightShadows)
+	for i := 0; i < 12; i++ {
+		shadowLightX[i], shadowLightY[i] = lightX[i], lightY[i]
+		shadowLightRadius[i] = lightRadius[i]
+		shadowLightR[i], shadowLightG[i], shadowLightB[i] = lightR[i], lightG[i], lightB[i]
+		shadowLightIntensity[i] = 1
+		shadowCasterX[i], shadowCasterY[i], shadowCasterRadius[i] = lightX[i]+60, lightY[i], 10
+	}
 	lightOp := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
-		"LightCount":     12,
-		"DarkCount":      5,
-		"LightPosX":      lightX,
-		"LightPosY":      lightY,
-		"LightRadius":    lightRadius,
-		"LightR":         lightR,
-		"LightG":         lightG,
-		"LightB":         lightB,
-		"LightIntensity": lightIntensity,
-		"DarkPosX":       darkX,
-		"DarkPosY":       darkY,
-		"DarkRadius":     darkRadius,
-		"DarkAlpha":      darkAlpha,
-		"DarkIntensity":  darkIntensity,
-		"DarkPlane":      darkPlane,
-		"LightStrength":  float32(1),
-		"GlowStrength":   float32(1),
-		"NightFactor":    float32(0.75),
-		"MaxLightPlane":  float32(32767),
+		"LightCount":           12,
+		"DarkCount":            5,
+		"LightPosX":            lightX,
+		"LightPosY":            lightY,
+		"LightRadius":          lightRadius,
+		"LightR":               lightR,
+		"LightG":               lightG,
+		"LightB":               lightB,
+		"LightIntensity":       lightIntensity,
+		"DarkPosX":             darkX,
+		"DarkPosY":             darkY,
+		"DarkRadius":           darkRadius,
+		"DarkAlpha":            darkAlpha,
+		"DarkIntensity":        darkIntensity,
+		"DarkPlane":            darkPlane,
+		"ShadowCount":          12,
+		"ShadowLightX":         shadowLightX,
+		"ShadowLightY":         shadowLightY,
+		"ShadowLightRadius":    shadowLightRadius,
+		"ShadowLightR":         shadowLightR,
+		"ShadowLightG":         shadowLightG,
+		"ShadowLightB":         shadowLightB,
+		"ShadowLightIntensity": shadowLightIntensity,
+		"ShadowCasterX":        shadowCasterX,
+		"ShadowCasterY":        shadowCasterY,
+		"ShadowCasterRadius":   shadowCasterRadius,
+		"LightStrength":        float32(1),
+		"GlowStrength":         float32(1),
+		"NightFactor":          float32(0.75),
+		"MaxLightPlane":        float32(32767),
 	}}
 	lightOp.Images[0] = lightingSource
 	sentinel := lightingOutput.SubImage(image.Rect(0, 0, 1, 1)).(*ebiten.Image)

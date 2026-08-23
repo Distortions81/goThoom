@@ -1,6 +1,7 @@
 package main
 
 const MaxLights = 128
+const MaxLightShadows = 32
 // Lights restore detail more aggressively near sources but never exceed base.
 const BaseLightScale = 4
 // Darkening strength per dark source; tuned to avoid over-darkening at low night levels
@@ -25,6 +26,17 @@ var (
     DarkAlpha [MaxLights]float
     DarkIntensity [MaxLights]float
     DarkPlane [MaxLights]float
+    ShadowCount int
+    ShadowLightX [MaxLightShadows]float
+    ShadowLightY [MaxLightShadows]float
+    ShadowLightRadius [MaxLightShadows]float
+    ShadowLightR [MaxLightShadows]float
+    ShadowLightG [MaxLightShadows]float
+    ShadowLightB [MaxLightShadows]float
+    ShadowLightIntensity [MaxLightShadows]float
+    ShadowCasterX [MaxLightShadows]float
+    ShadowCasterY [MaxLightShadows]float
+    ShadowCasterRadius [MaxLightShadows]float
     LightStrength float
     GlowStrength float
     NightFactor float
@@ -85,6 +97,50 @@ func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
             sumCraw += w * rgb
         }
     }
+
+    // Remove only the contribution from the light that a character blocks.
+    // Each soft cone starts at the character and widens away from its source.
+    blockedW := 0.0
+    blockedC := vec3(0.0, 0.0, 0.0)
+    blockedCraw := vec3(0.0, 0.0, 0.0)
+    blockedHalo := vec3(0.0, 0.0, 0.0)
+    for i := 0; i < MaxLightShadows; i++ {
+        if i < ShadowCount {
+            toCaster := vec2(ShadowCasterX[i] - ShadowLightX[i], ShadowCasterY[i] - ShadowLightY[i])
+            lightDistance := max(length(toCaster), 1.0)
+            axis := toCaster / lightDistance
+            behind := vec2(pos.x - ShadowCasterX[i], pos.y - ShadowCasterY[i])
+            along := dot(behind, axis)
+            if along > 0.0 {
+                halfWidth := ShadowCasterRadius[i] * (1.0 + along/lightDistance)
+                perpendicular := abs(behind.x*axis.y - behind.y*axis.x)
+                edgeStart := halfWidth * 0.65
+                cone := 1.0 - smoothstep(edgeStart, halfWidth, perpendicular)
+
+                dx := pos.x - ShadowLightX[i]
+                dy := pos.y - ShadowLightY[i]
+                nd := sqrt(dx*dx + dy*dy) / ShadowLightRadius[i]
+                f := 1.0 / (1.0 + nd*nd)
+                f = f * f
+                w := clamp(BaseLightScale*LightStrength*f, 0.0, 10.0) * ShadowLightIntensity[i] * cone
+                rgb := vec3(ShadowLightR[i], ShadowLightG[i], ShadowLightB[i])
+                lum := max(dot(rgb, lumW), 0.001)
+                eqRGB := mix(rgb, rgb/lum, chromaEQ)
+                blockedW += w
+                blockedC += w * eqRGB
+                blockedCraw += w * rgb
+
+                haloRadius := max(ShadowLightRadius[i] * HaloRadiusFrac, 1.0)
+                haloDistance := sqrt(dx*dx + dy*dy) / haloRadius
+                haloFalloff := 1.0 / (1.0 + haloDistance*haloDistance)
+                haloFalloff = haloFalloff * haloFalloff * haloFalloff
+                blockedHalo += ShadowLightIntensity[i] * haloFalloff * rgb * cone
+            }
+        }
+    }
+    sumW = max(sumW - blockedW, 0.0)
+    sumC = max(sumC - blockedC, vec3(0.0, 0.0, 0.0))
+    sumCraw = max(sumCraw - blockedCraw, vec3(0.0, 0.0, 0.0))
 
     // Tone map reveal to [0, 1) with a Reinhard-like curve
     reveal := sumW / (1.0 + sumW)
@@ -149,6 +205,8 @@ func Fragment(pos vec4, texCoord vec2, color vec4) vec4 {
     }
     // Tone-map halo and add with small strength
     halo = halo / (1.0 + halo)
+    blockedHalo = blockedHalo / (1.0 + blockedHalo)
+    halo = max(halo - blockedHalo, vec3(0.0, 0.0, 0.0))
     finalRGB = clamp(finalRGB + BaseHaloStrength*GlowStrength*halo, 0.0, 1.0)
 
     // Darkness on a lighting plane above every active light is composited

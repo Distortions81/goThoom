@@ -107,14 +107,19 @@ func TestClearCharacterShadowCache(t *testing.T) {
 	}
 }
 
-func TestCharacterShadowUsesOriginalFrameWithoutFiltering(t *testing.T) {
+func TestCharacterShadowAddsFilteringGutter(t *testing.T) {
+	clearCharacterShadowCache()
+	t.Cleanup(clearCharacterShadowCache)
 	sprite := ebiten.NewImage(8, 8)
 	texture := characterShadowTextureFor(sprite)
-	if texture.image != sprite {
-		t.Fatal("character shadow did not use the original frame")
+	if texture.image == sprite || texture.image.Bounds().Dx() != 10 || texture.image.Bounds().Dy() != 10 {
+		t.Fatal("character shadow did not add a one-pixel gutter")
 	}
-	if texture.contentSize != 8 || texture.footY != 8 {
+	if texture.contentSize != 8 || texture.padding != 1 || texture.footY != 9 {
 		t.Fatalf("character shadow metadata = %+v", texture)
+	}
+	if cached := characterShadowTextureFor(sprite); cached.image != texture.image {
+		t.Fatal("character shadow gutter was not cached")
 	}
 }
 
