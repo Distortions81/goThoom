@@ -186,7 +186,7 @@ func TestStateSnapshotRoundTrip(t *testing.T) {
 			{PictID: 200, H: 40, V: -50},
 		},
 	}
-	mr.AddStateSnapshot(snapshot, 1497)
+	mr.AddStateSnapshot(snapshot, 1497, movieNightState{})
 	frame := []byte{0, 2, 0, 0}
 	if err := mr.WriteFrame(frame, 0); err != nil {
 		t.Fatalf("WriteFrame: %v", err)
@@ -202,7 +202,7 @@ func TestStateSnapshotRoundTrip(t *testing.T) {
 	if len(frames) != 1 {
 		t.Fatalf("frames = %d, want 1", len(frames))
 	}
-	if got := frames[0].flags; got != flagMobileData|flagPictureTable {
+	if got := frames[0].flags; got != flagGameState|flagMobileData|flagPictureTable {
 		t.Fatalf("snapshot flags = %#x", got)
 	}
 	if !bytes.Equal(frames[0].data, frame) {
@@ -228,6 +228,38 @@ func TestStateSnapshotRoundTrip(t *testing.T) {
 	}
 	if npc := got.descriptors[9]; npc.Name != "Trainer" || npc.PictID != 822 {
 		t.Fatalf("descriptor-only entry not restored: %+v", npc)
+	}
+}
+
+func TestNightSnapshotRoundTrip(t *testing.T) {
+	originalNight := captureMovieNightState()
+	t.Cleanup(func() { restoreMovieNightState(originalNight) })
+
+	tmp := filepath.Join(t.TempDir(), "night-snapshot.clMov")
+	mr, err := newMovieRecorder(tmp, 1497, 0)
+	if err != nil {
+		t.Fatalf("newMovieRecorder: %v", err)
+	}
+	want := movieNightState{baseLevel: 72, azimuth: 135, cloudy: true}
+	mr.AddStateSnapshot(drawState{}, 1497, want)
+	if err := mr.WriteFrame([]byte{0, 2, 0, 0}, 0); err != nil {
+		t.Fatalf("WriteFrame: %v", err)
+	}
+	if err := mr.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	restoreMovieNightState(movieNightState{})
+	frames, err := parseMovie(tmp, 1497)
+	if err != nil {
+		t.Fatalf("parseMovie: %v", err)
+	}
+	if len(frames) != 1 || frames[0].flags&flagGameState == 0 {
+		t.Fatalf("night snapshot frame = %+v", frames)
+	}
+	got := captureMovieNightState()
+	if got.baseLevel != want.baseLevel || got.azimuth != want.azimuth || got.cloudy != want.cloudy {
+		t.Fatalf("night snapshot = (%d, %d, %t), want (%d, %d, %t)", got.baseLevel, got.azimuth, got.cloudy, want.baseLevel, want.azimuth, want.cloudy)
 	}
 }
 
@@ -289,7 +321,7 @@ func TestCloseFlushesSnapshotWithoutAnotherFrame(t *testing.T) {
 		mobiles: map[uint8]frameMobile{
 			2: {Index: 2, H: 25, V: 50},
 		},
-	}, 1497)
+	}, 1497, movieNightState{})
 	if err := mr.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
 	}

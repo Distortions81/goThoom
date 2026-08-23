@@ -1443,7 +1443,7 @@ func startRecording() {
 	stateMu.Lock()
 	snapshot := cloneDrawState(state)
 	stateMu.Unlock()
-	mr.AddStateSnapshot(snapshot, uint16(clVersion))
+	mr.AddStateSnapshot(snapshot, uint16(clVersion), captureMovieNightState())
 	recorder = mr
 	consoleMessage(fmt.Sprintf("recording to %s", filepath.Base(recordPath)))
 	updateRecordButton()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
 	"sort"
 	"sync"
@@ -245,9 +246,15 @@ func encodeMobileTableSnapshot(s drawState, version uint16) []byte {
 	return buf
 }
 
-func (m *movieRecorder) AddStateSnapshot(s drawState, version uint16) {
+func (m *movieRecorder) AddStateSnapshot(s drawState, version uint16, night movieNightState) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	cloudy := 0
+	if night.cloudy {
+		cloudy = 1
+	}
+	payload := []byte(fmt.Sprintf("/nt %d /sa %d /cl %d\x00", night.baseLevel, night.azimuth, cloudy))
+	m.addBlockLocked(gameStateBlock(0, 0, 0, len(payload), len(payload), len(payload), payload), flagGameState)
 	m.addBlockLocked(encodeMobileTableSnapshot(s, version), flagMobileData)
 	m.addBlockLocked(encodePictureTableSnapshot(s.pictures), flagPictureTable)
 }
