@@ -11,7 +11,9 @@ import (
 
 func clearCaches() {
 	clearCharacterShadowCache()
+	clearThoughtBubbleMask()
 
+	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
 	imageCache = make(map[imageKey]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
@@ -33,6 +35,7 @@ func clearCaches() {
 	if clImages != nil {
 		clImages.ClearCache()
 	}
+	imageCacheLifecycleMu.Unlock()
 	if clSounds != nil {
 		clSounds.ClearCache()
 	}

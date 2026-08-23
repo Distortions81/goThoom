@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image/color"
 	"math"
 	"testing"
 
@@ -16,8 +17,8 @@ func TestChooseUprightShadowPose(t *testing.T) {
 		casts   bool
 	}{
 		{name: "east facing east sun", state: 0, azimuth: 0, want: 24, casts: true},
-		{name: "stabilizes subpose", state: 3, azimuth: 0, want: 24, casts: true},
-		{name: "stabilizes another facing", state: 11, azimuth: 0, want: 0, casts: true},
+		{name: "preserves subpose", state: 3, azimuth: 0, want: 27, casts: true},
+		{name: "preserves another facing subpose", state: 11, azimuth: 0, want: 3, casts: true},
 		{name: "rounds sun direction", state: 0, azimuth: 21, want: 24, casts: true},
 		{name: "next sun direction", state: 0, azimuth: 22, want: 28, casts: true},
 		{name: "wraps negative azimuth", state: 0, azimuth: -1, want: 24, casts: true},
@@ -35,16 +36,16 @@ func TestChooseUprightShadowPose(t *testing.T) {
 	}
 }
 
-func TestUprightShadowPoseStableAcrossWalkCycle(t *testing.T) {
+func TestUprightShadowPoseMatchesWalkCycle(t *testing.T) {
 	for facing := uint8(0); facing < 8; facing++ {
 		first, casts := chooseUprightShadowPose(facing*4, 73)
 		if !casts {
 			t.Fatalf("facing %d did not cast", facing)
 		}
-		for subpose := uint8(1); subpose < 4; subpose++ {
+		for subpose := uint8(0); subpose < 4; subpose++ {
 			got, casts := chooseUprightShadowPose(facing*4+subpose, 73)
-			if !casts || got != first {
-				t.Fatalf("facing %d subpose %d = (%d, %v), want (%d, true)", facing, subpose, got, casts, first)
+			if !casts || got/4 != first/4 || got%4 != subpose {
+				t.Fatalf("facing %d subpose %d = (%d, %v), want facing %d subpose %d", facing, subpose, got, casts, first/4, subpose)
 			}
 		}
 	}
@@ -145,7 +146,7 @@ func TestCharacterShadowUpscaleFactor(t *testing.T) {
 
 func TestClearCharacterShadowCache(t *testing.T) {
 	detailedCharacterShadowMask = ebiten.NewImage(8, 8)
-	key := characterShadowTextureKey{mobileKey: makeMobileKey(22, 0, nil)}
+	key := characterShadowTextureKey{id: 22, state: 0}
 	characterShadowTextures[key] = characterShadowTexture{image: ebiten.NewImage(8, 8), contentSize: 4, padding: 2}
 	clearCharacterShadowCache()
 	if detailedCharacterShadowMask != nil {
@@ -153,6 +154,33 @@ func TestClearCharacterShadowCache(t *testing.T) {
 	}
 	if len(characterShadowTextures) != 0 {
 		t.Fatal("character shadow texture cache was not cleared")
+	}
+}
+
+func TestCharacterShadowFootYUsesOpaqueSilhouette(t *testing.T) {
+	pixels := make([]byte, 8*8*4)
+	pixels[(1*8+2)*4+3] = 0xff
+	if got := characterShadowFootYFromPixels(pixels, 8, 8, 3, 4); got != 10 {
+		t.Fatalf("silhouette foot Y = %v, want 10", got)
+	}
+}
+
+func TestCharacterShadowCacheSharesPaletteIndependentSilhouette(t *testing.T) {
+	originalSettings := gs
+	gs.GameScale = 1
+	gs.PotatoGPU = false
+	clearCharacterShadowCache()
+	t.Cleanup(func() {
+		clearCharacterShadowCache()
+		gs = originalSettings
+	})
+
+	sprite := ebiten.NewImage(8, 8)
+	sprite.Fill(color.White)
+	first := characterShadowTextureForWithOpaqueBottom(makeMobileKey(447, 0, []byte{1, 2, 3}), sprite, 8, 8)
+	second := characterShadowTextureForWithOpaqueBottom(makeMobileKey(447, 0, []byte{9, 8, 7}), sprite, 8, 8)
+	if first.image != second.image {
+		t.Fatal("palette-only change created a duplicate shadow texture")
 	}
 }
 
@@ -168,8 +196,8 @@ func TestCharacterShadowTextureCacheReusesShaderResult(t *testing.T) {
 
 	sprite := ebiten.NewImage(8, 8)
 	key := makeMobileKey(447, 0, nil)
-	first := characterShadowTextureFor(key, sprite)
-	second := characterShadowTextureFor(key, sprite)
+	first := characterShadowTextureForWithOpaqueBottom(key, sprite, 8, 8)
+	second := characterShadowTextureForWithOpaqueBottom(key, sprite, 8, 8)
 	if first.image != second.image {
 		t.Fatal("character shadow shader result was not reused")
 	}
@@ -178,12 +206,25 @@ func TestCharacterShadowTextureCacheReusesShaderResult(t *testing.T) {
 	}
 
 	gs.PotatoGPU = true
-	potato := characterShadowTextureFor(key, sprite)
+	potato := characterShadowTextureFor(key, sprite, 8)
 	if potato.image != sprite {
 		t.Fatal("potato mode did not bypass the filtered shadow texture")
 	}
 	if potato.padding != 0 || potato.contentSize != 8 {
 		t.Fatalf("potato shadow metadata = %+v", potato)
+	}
+}
+
+func TestUprightShadowOpaqueFootStaysAttached(t *testing.T) {
+	originalScale := gs.GameScale
+	gs.GameScale = 1
+	t.Cleanup(func() { gs.GameScale = originalScale })
+
+	projection := newCharacterShadowProjection(90)
+	geo := uprightShadowGeoMWithFoot(20, 6, 21, 20, 100, 100, projection)
+	footX, footY := geo.Apply(16, 21)
+	if math.Abs(footX-100) > 1e-9 || math.Abs(footY-105) > 1e-9 {
+		t.Fatalf("opaque foot anchor = (%v, %v), want (100, 105)", footX, footY)
 	}
 }
 

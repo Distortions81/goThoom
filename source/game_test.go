@@ -74,6 +74,18 @@ func TestWorldDrawInfoSubtractsTitleHeight(t *testing.T) {
 	}
 }
 
+func TestSpeechBubbleScaleDoesNotFollowSupersamplingDefault(t *testing.T) {
+	if got := speechBubbleWindowScale(3); got != 1 {
+		t.Fatalf("3x physical scale got bubble scale %v, want 1", got)
+	}
+	if got := speechBubbleWindowScale(4); math.Abs(got-4.0/3.0) > 1e-9 {
+		t.Fatalf("4x physical scale got bubble scale %v, want %v", got, 4.0/3.0)
+	}
+	if got := speechBubbleWindowScale(0); got != 1 {
+		t.Fatalf("invalid physical scale got bubble scale %v, want 1", got)
+	}
+}
+
 func TestUpdateGameImageSizeKeepsVisibleImageExactWhenShrinking(t *testing.T) {
 	oldGameWin := gameWin
 	oldGameImageItem := gameImageItem

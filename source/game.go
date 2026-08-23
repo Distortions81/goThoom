@@ -1562,10 +1562,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if finalScale <= 0 {
 			finalScale = 1
 		}
-		windowScale := finalScale / gsdef.GameScale
-		if windowScale <= 0 {
-			windowScale = 1
-		}
+		windowScale := speechBubbleWindowScale(finalScale)
 		gs.GameScale = finalScale
 		if !viewRect.Empty() {
 			worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
@@ -2411,6 +2408,18 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			drawGenericBar()
 		}
 	}
+}
+
+const speechBubbleReferenceScale = 3.0
+
+// speechBubbleWindowScale follows the physical world size without depending
+// on the default supersampling setting. Changing the artwork render default
+// must not silently resize chat text for existing configurations.
+func speechBubbleWindowScale(finalScale float64) float64 {
+	if finalScale <= 0 {
+		return 1
+	}
+	return finalScale / speechBubbleReferenceScale
 }
 
 // drawSpeechBubbles renders speech bubbles at native resolution.

@@ -16,9 +16,9 @@ func TestPictureLightGeometry(t *testing.T) {
 		width, height  int
 		wantRadius     float32
 	}{
-		{name: "default radius", width: 40, height: 20, wantRadius: 60},
+		{name: "default radius", width: 40, height: 20, wantRadius: 40},
 		{name: "explicit radius", metadataRadius: 50, width: 40, height: 20, wantRadius: 50},
-		{name: "minimum radius", metadataRadius: 5, width: 40, height: 20, wantRadius: 30},
+		{name: "small explicit radius", metadataRadius: 5, width: 40, height: 20, wantRadius: 5},
 		{name: "darkcaster radius", metadataRadius: 50, flags: dark, width: 40, height: 20, wantRadius: 200},
 		{name: "default darkcaster radius", flags: dark, width: 40, height: 20, wantRadius: 240},
 	}
@@ -43,12 +43,12 @@ func TestMobileLightGeometry(t *testing.T) {
 		wantRadius     float32
 		wantIntensity  float32
 	}{
-		{name: "default radius", size: 20, wantRadius: 40, wantIntensity: 1},
+		{name: "default radius", size: 20, wantRadius: 20, wantIntensity: 1},
 		{name: "explicit radius", metadataRadius: 30, size: 20, wantRadius: 30, wantIntensity: 1},
-		{name: "minimum radius", metadataRadius: 5, size: 20, wantRadius: 20, wantIntensity: 1},
+		{name: "small explicit radius", metadataRadius: 5, size: 20, wantRadius: 5, wantIntensity: 1},
 		{name: "darkcaster radius", metadataRadius: 30, flags: dark, size: 20, wantRadius: 120, wantIntensity: 1},
-		{name: "dead emitter", metadataRadius: 60, size: 20, state: poseDead, wantRadius: 30, wantIntensity: 0.5},
-		{name: "dead minimum", metadataRadius: 10, size: 20, state: poseDead, wantRadius: 20, wantIntensity: 0.5},
+		{name: "dead emitter", metadataRadius: 60, size: 20, state: poseDead, wantRadius: 60, wantIntensity: 1},
+		{name: "dead small radius", metadataRadius: 10, size: 20, state: poseDead, wantRadius: 10, wantIntensity: 1},
 		{name: "dead darkcaster", metadataRadius: 30, flags: dark, size: 20, state: poseDead, wantRadius: 60, wantIntensity: 0.5},
 	}
 	for _, tt := range tests {

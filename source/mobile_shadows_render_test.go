@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 
 	"gothoom/climg"
@@ -98,6 +100,9 @@ func (g *shadowRenderGame) Layout(_, _ int) (int, int) {
 }
 
 func (g *shadowRenderGame) renderImages() error {
+	if err := verifyCharacterShadowCacheDeterminism(); err != nil {
+		return err
+	}
 	for _, character := range shadowTestCharacters {
 		visibleSprite := loadMobileFrame(character.pictID, 0, nil)
 		if visibleSprite == nil {
@@ -112,7 +117,7 @@ func (g *shadowRenderGame) renderImages() error {
 			if shadowSprite == nil {
 				return fmt.Errorf("load shadow mobile pict %d state %d", character.pictID, shadowState)
 			}
-			shadowTexture := characterShadowTextureFor(makeMobileKey(character.pictID, shadowState, nil), shadowSprite)
+			shadowTexture := characterShadowTextureFor(makeMobileKey(character.pictID, shadowState, nil), shadowSprite, shadowTestDrawSize)
 
 			projection := newCharacterShadowProjection(azimuth)
 			canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
@@ -131,6 +136,45 @@ func (g *shadowRenderGame) renderImages() error {
 			if err := writeShadowTestPNG(filepath.Join(g.outputDir, name), canvas); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func verifyCharacterShadowCacheDeterminism() error {
+	const pictID uint16 = 447
+	const state uint8 = 0
+	var reference []byte
+	for attempt := 0; attempt < 6; attempt++ {
+		clearCaches()
+		start := make(chan struct{})
+		var loaders sync.WaitGroup
+		for worker := 0; worker < 4; worker++ {
+			loaders.Add(1)
+			go func() {
+				defer loaders.Done()
+				<-start
+				loadSheet(pictID, nil, true)
+			}()
+		}
+		close(start)
+		// Exercise the production failure case: quality settings can clear
+		// caches while background precache workers are decoding sheets.
+		clearCaches()
+		loaders.Wait()
+		sprite := loadMobileFrame(pictID, state, nil)
+		if sprite == nil {
+			return fmt.Errorf("load deterministic shadow mobile pict %d", pictID)
+		}
+		texture := characterShadowTextureFor(makeMobileKey(pictID, state, nil), sprite, mobileSize(pictID))
+		pixels := make([]byte, 4*texture.image.Bounds().Dx()*texture.image.Bounds().Dy())
+		texture.image.ReadPixels(pixels)
+		if attempt == 0 {
+			reference = pixels
+			continue
+		}
+		if !bytes.Equal(reference, pixels) {
+			return fmt.Errorf("character shadow changed after cache clear on attempt %d", attempt+1)
 		}
 	}
 	return nil

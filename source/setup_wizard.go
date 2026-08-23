@@ -39,6 +39,8 @@ var (
 	setupWizardPreviewBubble bool
 	setupWizardPreviewVer    uint16
 	setupWizardPreviewRev    int32
+
+	setupWizardGraphicsRecommendation string
 )
 
 func shouldShowSetupWizard(configLoaded bool, completedVersion, currentVersion int) bool {
@@ -50,6 +52,7 @@ func openSetupWizard(force bool) {
 		return
 	}
 	setupWizardPage = 0
+	setupWizardGraphicsRecommendation = ""
 	if setupWizardWin == nil {
 		setupWizardWin = eui.NewWindow()
 		setupWizardWin.Closable = false
@@ -365,6 +368,49 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	))
 	root.AddItem(setupWizardText("Watch the movie behind this window while changing these options; it uses the real game renderer at your current game-window scale.", 10, 620))
 
+	graphicsTest, graphicsTestEvents := eui.NewButton()
+	graphicsTest.Text = "Test Graphics Performance"
+	graphicsTest.Size = eui.Point{X: 240, Y: 24}
+	graphicsTest.Disabled = isWASM
+	graphicsTest.SetTooltip("Runs seven synchronized samples of lighting, artwork upscaling, and character-shadow filtering, then recommends a quality mode")
+	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
+	graphicsRecommendation.Size.Y = 24
+	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		result, err := runGraphicsBenchmark()
+		if err != nil {
+			showPopup("Graphics Performance Test", err.Error(), []popupButton{{Text: "OK"}})
+			return
+		}
+		setupWizardGraphicsRecommendation = graphicsBenchmarkRecommendedLabel(result)
+		graphicsRecommendation.Text = setupWizardGraphicsRecommendation
+		graphicsRecommendation.Dirty = true
+		if setupWizardWin != nil {
+			setupWizardWin.Refresh()
+		}
+		message := fmt.Sprintf("Median synchronized workload: %.1f ms\nSlowest sample: %.1f ms\n\nFull quality is recommended for this system.", float64(result.Median.Microseconds())/1000, float64(result.Slowest.Microseconds())/1000)
+		if result.RecommendLowVRAM {
+			message = fmt.Sprintf("Median synchronized workload: %.1f ms\nSlowest sample: %.1f ms\n\nThe iGPU / Low-VRAM mode is recommended for smoother rendering. This test measures performance rather than relying on the GPU model name.", float64(result.Median.Microseconds())/1000, float64(result.Slowest.Microseconds())/1000)
+		}
+		recommendedPreset := graphicsBenchmarkRecommendedPreset(result)
+		recommendedLabel := graphicsBenchmarkRecommendedLabel(result)
+		buttons := []popupButton{
+			{Text: "Keep Current"},
+			{Text: recommendedLabel, Width: 220, Action: func() {
+				applyQualityPreset(recommendedPreset)
+				rebuildSetupWizard()
+			}},
+		}
+		showPopup("Graphics Performance Test", message, buttons)
+	}
+	graphicsTestRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	graphicsTestRow.Size = eui.Point{X: 620, Y: 28}
+	graphicsTestRow.AddItem(graphicsTest)
+	graphicsTestRow.AddItem(graphicsRecommendation)
+	root.AddItem(graphicsTestRow)
+
 	root.AddItem(setupWizardSlider("Upscale game amount", "Renders the game at 1x to 4x resolution. Higher values improve sharpness on high-resolution displays but use more GPU.", 1, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
 		previousUpscale := gs.SpriteUpscale
 		gs.GameScale = math.Round(float64(value))
@@ -381,12 +427,12 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 
 	root.AddItem(setupWizardCheckbox(
 		"Blend image dithering",
-		"Blends nearby, similar palette colors to recover shades that dithering suggested on older displays.",
+		"Smooths irregular nearby palette colors while preserving pixel-art edges, lines, and isolated details.",
 		gs.DenoiseImages,
 		func(checked bool) {
 			gs.DenoiseImages = checked
 			if clImages != nil {
-				clImages.Denoise = checked
+				clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 			}
 			if denoiseCB != nil {
 				denoiseCB.Checked = checked
@@ -395,23 +441,27 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 			markQualityCustom()
 		},
 	))
-	root.AddItem(setupWizardCheckbox(
-		"Artwork upscale filter",
-		"Uses scale-aware filtering when sprites are enlarged. Turn it off if you prefer harder pixel edges.",
-		gs.SpriteUpscaleFilter,
-		func(checked bool) {
-			if checked {
-				setArtworkUpscaleMode(artworkUpscaleUltraSmooth)
-			} else {
-				setArtworkUpscaleMode(artworkUpscaleOff)
-			}
-			if upscaleModeDD != nil {
-				upscaleModeDD.Selected = artworkUpscaleMode()
-			}
-			clearCaches()
-			markQualityCustom()
-		},
-	))
+	upscaleStyle, upscaleEvents := eui.NewDropdown()
+	upscaleStyle.Label = "Artwork upscale style"
+	upscaleStyle.Options = artworkUpscaleModeNames
+	upscaleStyle.Selected = artworkUpscaleMode()
+	upscaleStyle.Size = eui.Point{X: 320, Y: 24}
+	upscaleStyle.SetTooltip("Off keeps raw pixels; Crisp through Smooth progressively reconstruct diagonal edges; Ultra Smooth uses softer anti-aliased-style edge blending")
+	upscaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < artworkUpscaleOff || ev.Index > artworkUpscaleUltraSmooth {
+			return
+		}
+		if artworkUpscaleMode() == ev.Index {
+			return
+		}
+		setArtworkUpscaleMode(ev.Index)
+		if upscaleModeDD != nil {
+			upscaleModeDD.Selected = artworkUpscaleMode()
+		}
+		clearCaches()
+		markQualityCustom()
+	}
+	root.AddItem(upscaleStyle)
 	root.AddItem(setupWizardCheckbox("VSync", "Limits presentation to the monitor refresh rate to prevent tearing. Turning it off can improve speed on some systems.", gs.VSync, func(checked bool) {
 		gs.VSync = checked
 		ebiten.SetVsyncEnabled(checked)

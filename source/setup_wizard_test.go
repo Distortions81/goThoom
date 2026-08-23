@@ -2,7 +2,10 @@ package main
 
 import (
 	"net"
+	"slices"
 	"testing"
+
+	"gothoom/eui"
 )
 
 func TestShouldShowSetupWizard(t *testing.T) {
@@ -25,6 +28,81 @@ func TestShouldShowSetupWizard(t *testing.T) {
 				t.Fatalf("shouldShowSetupWizard() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSetupWizardIncludesArtworkUpscaleStyles(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	setArtworkUpscaleMode(artworkUpscaleSmooth)
+
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupGraphicsPage(root)
+	for _, item := range root.Contents {
+		if item.Label != "Artwork upscale style" {
+			continue
+		}
+		if item.ItemType != eui.ITEM_DROPDOWN {
+			t.Fatalf("artwork upscale control type = %v, want dropdown", item.ItemType)
+		}
+		if !slices.Equal(item.Options, artworkUpscaleModeNames) {
+			t.Fatalf("artwork upscale options = %v, want %v", item.Options, artworkUpscaleModeNames)
+		}
+		if item.Selected != artworkUpscaleSmooth {
+			t.Fatalf("selected artwork upscale mode = %d, want Smooth", item.Selected)
+		}
+		return
+	}
+	t.Fatal("setup wizard has no artwork upscale style dropdown")
+}
+
+func TestSetupWizardOffersBlendImageDithering(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.DenoiseImages = false
+
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupGraphicsPage(root)
+	for _, group := range root.Contents {
+		for _, item := range group.Contents {
+			if item.Text != "Blend image dithering" {
+				continue
+			}
+			if item.ItemType != eui.ITEM_CHECKBOX {
+				t.Fatalf("blend image dithering control type = %v, want checkbox", item.ItemType)
+			}
+			if item.Checked {
+				t.Fatal("blend image dithering should reflect its default-off setting")
+			}
+			return
+		}
+	}
+	t.Fatal("setup wizard has no Blend image dithering option")
+}
+
+func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
+	initFont()
+	originalRecommendation := setupWizardGraphicsRecommendation
+	setupWizardGraphicsRecommendation = "Full Quality (Recommended)"
+	t.Cleanup(func() { setupWizardGraphicsRecommendation = originalRecommendation })
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupGraphicsPage(root)
+	foundButton := false
+	foundRecommendation := false
+	for _, group := range root.Contents {
+		for _, item := range append([]*eui.ItemData{group}, group.Contents...) {
+			if item.Text == "Test Graphics Performance" && item.ItemType == eui.ITEM_BUTTON {
+				foundButton = true
+			}
+			if item.Text == "Full Quality (Recommended)" {
+				foundRecommendation = true
+			}
+		}
+	}
+	if !foundButton || !foundRecommendation {
+		t.Fatalf("graphics test button=%v recommendation=%v", foundButton, foundRecommendation)
 	}
 }
 

@@ -41,10 +41,14 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	})
 
 	gs = gsdef
+	gs.DenoiseImages = true
 	applyQualityPreset("iGPU / Low-VRAM (Potato GPU)")
 
-	if !gs.DenoiseImages || !gs.MotionSmoothing {
-		t.Error("iGPU / Low-VRAM preset should retain CPU-side graphics improvements")
+	if !gs.DenoiseImages {
+		t.Error("iGPU / Low-VRAM preset changed the independent dither setting")
+	}
+	if !gs.MotionSmoothing {
+		t.Error("iGPU / Low-VRAM preset should retain motion smoothing")
 	}
 	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
 		t.Error("iGPU / Low-VRAM preset enabled a GPU-intensive graphics effect")
@@ -66,11 +70,33 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	}
 
 	applyQualityPreset("High")
+	if !gs.DenoiseImages {
+		t.Error("High preset changed the independent dither setting")
+	}
 	if gs.PotatoGPU {
 		t.Error("High preset retained low-VRAM mode")
 	}
 	if preset := detectQualityPreset(); preset != 4 {
 		t.Errorf("detectQualityPreset()=%d after High, want 4", preset)
+	}
+}
+
+func TestQualityPresetDetectionIgnoresDitherSetting(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() {
+		gs = originalSettings
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	})
+
+	gs = gsdef
+	applyQualityPreset("High")
+	gs.DenoiseImages = false
+	if preset := detectQualityPreset(); preset != 4 {
+		t.Fatalf("detectQualityPreset()=%d with dithering off, want High", preset)
+	}
+	gs.DenoiseImages = true
+	if preset := detectQualityPreset(); preset != 4 {
+		t.Fatalf("detectQualityPreset()=%d with dithering on, want High", preset)
 	}
 }
 

@@ -16,6 +16,12 @@ import (
 var whiteImage *ebiten.Image
 var blackImage *ebiten.Image
 var grayImage *ebiten.Image
+var thoughtBubbleCompositeMask *ebiten.Image
+
+var thoughtBubbleMaskBlend = ebiten.Blend{
+	BlendOperationRGB:   ebiten.BlendOperationMax,
+	BlendOperationAlpha: ebiten.BlendOperationMax,
+}
 
 func init() {
 	whiteImage = newImage(1, 1)
@@ -303,16 +309,25 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 
 	fillColor := color.RGBA64{R: uint16(bgR), G: uint16(bgG), B: uint16(bgB), A: uint16(bgA)}
 	borderColor := color.RGBA64{R: uint16(bdR), G: uint16(bdG), B: uint16(bdB), A: uint16(bdA)}
+	backgroundTarget := screen
+	backgroundBlend := ebiten.Blend{}
+	compositeThought := bubbleType == kBubbleThought || bubbleType == kBubblePonder
+	if compositeThought {
+		backgroundTarget = thoughtBubbleMask(screen)
+		backgroundTarget.Clear()
+		fillColor = color.RGBA64{R: 0xffff, G: 0xffff, B: 0xffff, A: 0xffff}
+		backgroundBlend = thoughtBubbleMaskBlend
+	}
 
 	if bubbleType != kBubblePonder {
-		fillOp := &vector.DrawPathOptions{AntiAlias: true}
+		fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
 		fillOp.ColorScale.ScaleWithColor(fillColor)
-		vector.FillPath(screen, &body, nil, fillOp)
+		vector.FillPath(backgroundTarget, &body, nil, fillOp)
 	}
 	if !far && !noArrow {
-		tailOp := &vector.DrawPathOptions{AntiAlias: true}
+		tailOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
 		tailOp.ColorScale.ScaleWithColor(fillColor)
-		vector.FillPath(screen, &tail, nil, tailOp)
+		vector.FillPath(backgroundTarget, &tail, nil, tailOp)
 	}
 	if bubbleType != kBubblePonder {
 		var outline vector.Path
@@ -339,7 +354,11 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		drawOutline.ColorScale.ScaleWithColor(borderColor)
 		vector.StrokePath(screen, &outline, strokeOp, drawOutline)
 	} else {
-		drawPonderWaves(screen, left+offsetX, top+offsetY, right+offsetX, bottom+offsetY, bgCol, s)
+		drawPonderWaves(backgroundTarget, left+offsetX, top+offsetY, right+offsetX, bottom+offsetY, fillColor, s, backgroundBlend)
+	}
+
+	if compositeThought {
+		compositeThoughtBubbleBackground(screen, backgroundTarget, bgCol)
 	}
 
 	if bubbleType == kBubbleYell {
@@ -570,7 +589,7 @@ func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, s
 	corner(left+radius, bottom-radius, 0.5*math.Pi, math.Pi)
 }
 
-func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col color.Color, bubbleScale float64) {
+func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col color.Color, bubbleScale float64, blend ebiten.Blend) {
 	colR, colG, colB, colA := col.RGBA()
 	waveColor := color.RGBA64{R: uint16(colR), G: uint16(colG), B: uint16(colB), A: uint16(colA)}
 	if bubbleScale <= 0 {
@@ -591,6 +610,7 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 	body.Close()
 	bodyOp := &vector.DrawPathOptions{
 		AntiAlias: true,
+		Blend:     blend,
 	}
 	bodyOp.ColorScale.ScaleWithColor(waveColor)
 	vector.FillPath(screen, &body, nil, bodyOp)
@@ -602,7 +622,7 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 	angleStep := float64(step / corner)
 
 	draw := func(cx, cy float32) {
-		drawBubbleCircle(screen, cx, cy, r, waveColor)
+		drawBubbleCircle(screen, cx, cy, r, waveColor, blend)
 	}
 
 	// top edge
@@ -664,7 +684,7 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 }
 
 // drawBubbleCircle draws a filled circle used by the wavy ponder bubble edges.
-func drawBubbleCircle(screen *ebiten.Image, cx, cy, radius float32, col color.RGBA64) {
+func drawBubbleCircle(screen *ebiten.Image, cx, cy, radius float32, col color.RGBA64, blend ebiten.Blend) {
 	if col.A == 0 {
 		return
 	}
@@ -674,7 +694,32 @@ func drawBubbleCircle(screen *ebiten.Image, cx, cy, radius float32, col color.RG
 	p.Close()
 	drawOp := &vector.DrawPathOptions{
 		AntiAlias: true,
+		Blend:     blend,
 	}
 	drawOp.ColorScale.ScaleWithColor(col)
 	vector.FillPath(screen, &p, nil, drawOp)
+}
+
+func thoughtBubbleMask(screen *ebiten.Image) *ebiten.Image {
+	bounds := screen.Bounds()
+	if thoughtBubbleCompositeMask == nil || thoughtBubbleCompositeMask.Bounds().Dx() != bounds.Dx() || thoughtBubbleCompositeMask.Bounds().Dy() != bounds.Dy() {
+		if thoughtBubbleCompositeMask != nil {
+			thoughtBubbleCompositeMask.Deallocate()
+		}
+		thoughtBubbleCompositeMask = newImage(bounds.Dx(), bounds.Dy())
+	}
+	return thoughtBubbleCompositeMask
+}
+
+func compositeThoughtBubbleBackground(screen, mask *ebiten.Image, background color.Color) {
+	op := &ebiten.DrawImageOptions{}
+	op.ColorScale.ScaleWithColor(background)
+	screen.DrawImage(mask, op)
+}
+
+func clearThoughtBubbleMask() {
+	if thoughtBubbleCompositeMask != nil {
+		thoughtBubbleCompositeMask.Deallocate()
+		thoughtBubbleCompositeMask = nil
+	}
 }

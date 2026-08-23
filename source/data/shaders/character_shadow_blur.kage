@@ -24,19 +24,28 @@ func opacityAt(y float) float {
 
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	radius := softnessAt(srcPos.y)
+	if radius < 0.01 {
+		alpha := imageSrc0At(srcPos).a
+		if ApplyGradient > 0.5 {
+			alpha *= opacityAt(srcPos.y)
+		}
+		return vec4(0, 0, 0, alpha)
+	}
 	alpha := 0.0
 	weight := 0.0
+	// Radius is the visual support radius. Using half of it as sigma gives a
+	// continuous falloff without the hard sample-count jumps of a box blur.
+	variance := max(radius*radius*0.25, 0.01)
 	for i := -MaxShadowBlurRadius; i <= MaxShadowBlurRadius; i++ {
 		distance := abs(float(i))
-		if distance <= radius {
-			pos := srcPos + Direction*float(i)
-			sampleAlpha := imageSrc0At(pos).a
-			if ApplyGradient > 0.5 {
-				sampleAlpha *= opacityAt(pos.y)
-			}
-			alpha += sampleAlpha
-			weight += 1
+		pos := srcPos + Direction*float(i)
+		sampleAlpha := imageSrc0At(pos).a
+		if ApplyGradient > 0.5 {
+			sampleAlpha *= opacityAt(pos.y)
 		}
+		sampleWeight := exp(-0.5*distance*distance/variance)
+		alpha += sampleAlpha*sampleWeight
+		weight += sampleWeight
 	}
 	if weight > 0 {
 		alpha /= weight

@@ -16,7 +16,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const SETTINGS_VERSION = 3
+const SETTINGS_VERSION = 4
 
 type BarPlacement int
 
@@ -30,6 +30,17 @@ const (
 var gs settings = gsdef
 
 var gammaOptions = []float64{1.8, 2.0, 2.2, 2.4}
+
+var defaultPrecacheSounds, defaultPrecacheImages = precacheDefaults(systemMemoryBytes(), isWASM)
+
+const gibibyte = uint64(1024 * 1024 * 1024)
+
+func precacheDefaults(totalMemory uint64, wasm bool) (sounds, images bool) {
+	if wasm || totalMemory == 0 {
+		return false, false
+	}
+	return totalMemory >= 4*gibibyte, totalMemory >= 8*gibibyte
+}
 
 // settingsLoaded reports whether settings were successfully loaded from disk.
 var settingsLoaded bool
@@ -89,12 +100,12 @@ var gsdef settings = settings{
 	MiddleClickMoveWindow:   false,
 	InputBarAlwaysOpen:      false,
 	KBWalkSpeed:             0.25,
-	MainFontSize:            8,
-	BubbleFontSize:          15,
+	MainFontSize:            6,
+	BubbleFontSize:          20,
 	ConsoleFontSize:         12,
-	ChatFontSize:            14,
-	InventoryFontSize:       18,
-	PlayersFontSize:         18,
+	ChatFontSize:            12,
+	InventoryFontSize:       12,
+	PlayersFontSize:         12,
 	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
 	BubbleBaseLife:          2,
@@ -131,9 +142,9 @@ var gsdef settings = settings{
 	MobileBlendAmount:     0.25,
 	MobileBlendFrames:     10,
 	PictBlendFrames:       10,
-	DenoiseImages:         true,
-	DenoiseSharpness:      4,
-	DenoiseAmount:         0.33,
+	DenoiseImages:         false,
+	DenoiseSharpness:      10,
+	DenoiseAmount:         0.35,
 	ShowFPS:               true,
 	UIScale:               1.0,
 	Fullscreen:            false,
@@ -145,8 +156,8 @@ var gsdef settings = settings{
 	MusicStereoPan:        false,
 	GameSound:             true,
 	Mute:                  false,
-	GameScale:             3.0,
-	SpriteUpscale:         3,
+	GameScale:             4.0,
+	SpriteUpscale:         4,
 	SpriteUpscaleFilter:   true,
 	SpriteUpscaleMode:     artworkUpscaleUltraSmooth,
 	SpriteGammaCorrection: true,
@@ -226,8 +237,8 @@ var gsdef settings = settings{
 
 	// Advanced and runtime defaults.
 	VSync:             true,
-	PrecacheSounds:    false,
-	PrecacheImages:    false,
+	PrecacheSounds:    defaultPrecacheSounds,
+	PrecacheImages:    defaultPrecacheImages,
 	smoothMoving:      false,
 	recordAssetStats:  false,
 	AltNetMode:        true,
@@ -423,14 +434,14 @@ var (
 )
 
 type WindowPoint struct {
-	X float64
-	Y float64
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type WindowState struct {
-	Open     bool
-	Position WindowPoint
-	Size     WindowPoint
+	Open     bool        `json:"open"`
+	Position WindowPoint `json:"position"`
+	Size     WindowPoint `json:"size"`
 }
 
 const settingsFile = "settings.json"
@@ -447,22 +458,42 @@ func loadSettings() bool {
 		return false
 	}
 
-	type settingsFile struct {
+	type legacySettingsFile struct {
 		settings
 		Enabledscripts    map[string]any `json:"Enabledscripts"`
 		LegacySoundReverb *bool          `json:"SoundReverb"`
 		LegacyMusicReverb *bool          `json:"MusicReverb"`
 	}
 
-	tmp := settingsFile{settings: gsdef}
-	if err := json.Unmarshal(data, &tmp); err != nil {
+	version, modern, err := settingsDocumentVersion(data)
+	if err != nil {
 		gs = gsdef
 		setHighQualityResamplingEnabled(gs.HighQualityResampling)
 		settingsLoaded = false
 		return false
 	}
 
-	if tmp.settings.Version == SETTINGS_VERSION {
+	var enabledScripts map[string]any
+	migrated := false
+	switch {
+	case modern && version == SETTINGS_VERSION:
+		loaded, err := unmarshalSettingsDocument(data, gsdef)
+		if err != nil {
+			gs = gsdef
+			setHighQualityResamplingEnabled(gs.HighQualityResampling)
+			settingsLoaded = false
+			return false
+		}
+		gs = loaded
+		enabledScripts = gs.Enabledscripts
+	case !modern && version > 0 && version < SETTINGS_VERSION:
+		tmp := legacySettingsFile{settings: gsdef}
+		if err := json.Unmarshal(data, &tmp); err != nil {
+			gs = gsdef
+			setHighQualityResamplingEnabled(gs.HighQualityResampling)
+			settingsLoaded = false
+			return false
+		}
 		if tmp.LegacySoundReverb != nil {
 			tmp.settings.SoundEnhancement = *tmp.LegacySoundReverb
 		}
@@ -470,20 +501,10 @@ func loadSettings() bool {
 			tmp.settings.MusicEnhancement = *tmp.LegacyMusicReverb
 		}
 		gs = tmp.settings
-		setHighQualityResamplingEnabled(gs.HighQualityResampling)
-		// Normalize and retain whatever was in the file; migrate into runtime scope map.
-		gs.Enabledscripts = make(map[string]any)
-		for k, v := range tmp.Enabledscripts {
-			gs.Enabledscripts[k] = v
-			s := scopeFromSettingValue(v)
-			if !s.empty() {
-				scriptMu.Lock()
-				scriptEnabledFor[k] = s
-				scriptMu.Unlock()
-			}
-		}
-		settingsLoaded = true
-	} else {
+		gs.Version = SETTINGS_VERSION
+		enabledScripts = tmp.Enabledscripts
+		migrated = true
+	default:
 		gs = gsdef
 		preset := "High"
 		if isWASM {
@@ -494,6 +515,23 @@ func loadSettings() bool {
 		settingsLoaded = false
 		applyServerAddressSetting()
 		return false
+	}
+
+	setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	// Normalize and retain whatever was in the file; migrate into runtime scope map.
+	gs.Enabledscripts = make(map[string]any)
+	for k, v := range enabledScripts {
+		gs.Enabledscripts[k] = v
+		s := scopeFromSettingValue(v)
+		if !s.empty() {
+			scriptMu.Lock()
+			scriptEnabledFor[k] = s
+			scriptMu.Unlock()
+		}
+	}
+	settingsLoaded = true
+	if migrated {
+		settingsDirty = true
 	}
 
 	if gs.Enabledscripts == nil {
@@ -596,9 +634,7 @@ func applySettings() {
 	eui.SetPotatoMode(gs.PotatoGPU)
 	climg.SetPotatoMode(gs.PotatoGPU)
 	if clImages != nil {
-		clImages.Denoise = gs.DenoiseImages
-		clImages.DenoiseSharpness = gs.DenoiseSharpness
-		clImages.DenoiseAmount = gs.DenoiseAmount
+		clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 	}
 	ebiten.SetVsyncEnabled(gs.VSync)
@@ -636,17 +672,21 @@ func saveSettings() {
 	}
 	scriptMu.RUnlock()
 
-	data, err := json.MarshalIndent(gs, "", "  ")
+	data, err := marshalSettingsDocument(gs)
 	if err != nil {
 		logError("save settings: %v", err)
 		return
 	}
+	data = append(data, '\n')
 	path := filepath.Join(dataDirPath, settingsFile)
 	if err := os.WriteFile(path+".tmp", data, 0644); err != nil {
 		logError("save settings: %v", err)
+		return
 	}
 
-	os.Rename(path+".tmp", path)
+	if err := os.Rename(path+".tmp", path); err != nil {
+		logError("save settings: %v", err)
+	}
 }
 
 func syncWindowSettings() bool {
@@ -804,7 +844,6 @@ func restoreWindowsAfterScale() {
 }
 
 type qualityPreset struct {
-	DenoiseImages          bool
 	MotionSmoothing        bool
 	BlendMobiles           bool
 	BlendPicts             bool
@@ -819,7 +858,6 @@ type qualityPreset struct {
 
 var (
 	potatoGPUPreset = qualityPreset{
-		DenoiseImages:          true,
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             false,
@@ -832,7 +870,6 @@ var (
 		MusicEnhancement:       false,
 	}
 	classicPreset = qualityPreset{
-		DenoiseImages:          false,
 		MotionSmoothing:        false,
 		BlendMobiles:           false,
 		BlendPicts:             false,
@@ -845,7 +882,6 @@ var (
 		MusicEnhancement:       false,
 	}
 	lowPreset = qualityPreset{
-		DenoiseImages:          false,
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             false,
@@ -858,7 +894,6 @@ var (
 		MusicEnhancement:       false,
 	}
 	mediumPreset = qualityPreset{
-		DenoiseImages:          true,
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             true,
@@ -871,7 +906,6 @@ var (
 		MusicEnhancement:       true,
 	}
 	highPreset = qualityPreset{
-		DenoiseImages:          true,
 		MotionSmoothing:        true,
 		BlendMobiles:           true,
 		BlendPicts:             true,
@@ -902,7 +936,6 @@ func applyQualityPreset(name string) {
 		return
 	}
 
-	gs.DenoiseImages = p.DenoiseImages
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
@@ -920,9 +953,6 @@ func applyQualityPreset(name string) {
 	gs.MusicEnhancement = p.MusicEnhancement
 	gs.SpriteUpscale = spriteUpscaleFactor()
 
-	if denoiseCB != nil {
-		denoiseCB.Checked = gs.DenoiseImages
-	}
 	if motionCB != nil {
 		motionCB.Checked = gs.MotionSmoothing
 	}
@@ -978,8 +1008,7 @@ func applyQualityPreset(name string) {
 }
 
 func matchesPreset(p qualityPreset) bool {
-	if gs.DenoiseImages != p.DenoiseImages ||
-		gs.MotionSmoothing != p.MotionSmoothing ||
+	if gs.MotionSmoothing != p.MotionSmoothing ||
 		gs.BlendMobiles != p.BlendMobiles ||
 		gs.BlendPicts != p.BlendPicts ||
 		gs.PotatoGPU != p.PotatoGPU ||

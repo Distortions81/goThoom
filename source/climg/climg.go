@@ -52,6 +52,7 @@ type CLImages struct {
 	Denoise          bool
 	DenoiseSharpness float64
 	DenoiseAmount    float64
+	processingMu     sync.RWMutex
 	gammaMu          sync.RWMutex
 	gammaEnabled     bool
 	spriteGamma      float64
@@ -677,8 +678,11 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		pix[off+3] = a
 	}
 
-	if c.Denoise {
-		denoiseImage(img, c.DenoiseSharpness, c.DenoiseAmount)
+	c.processingMu.RLock()
+	denoise, denoiseSharpness, denoiseAmount := c.Denoise, c.DenoiseSharpness, c.DenoiseAmount
+	c.processingMu.RUnlock()
+	if denoise {
+		denoiseImage(img, denoiseSharpness, denoiseAmount)
 	}
 
 	eimg := newImageFromImage(img)
@@ -686,6 +690,16 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	c.cache[key] = eimg
 	c.mu.Unlock()
 	return eimg
+}
+
+// SetDenoise configures decoded-artwork filtering without racing background
+// precache workers that may be decoding another image at the same time.
+func (c *CLImages) SetDenoise(enabled bool, sharpness, amount float64) {
+	c.processingMu.Lock()
+	c.Denoise = enabled
+	c.DenoiseSharpness = sharpness
+	c.DenoiseAmount = amount
+	c.processingMu.Unlock()
 }
 
 // NumFrames returns the number of animation frames for the given image ID.

@@ -194,9 +194,7 @@ func main() {
 		logError("failed to load CL_Images: %v", err)
 		// Do not exit; allow UI to open download window.
 	} else {
-		clImages.Denoise = gs.DenoiseImages
-		clImages.DenoiseSharpness = gs.DenoiseSharpness
-		clImages.DenoiseAmount = gs.DenoiseAmount
+		clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 		if measureLoads {
 			dtms := float64(time.Since(imgStart).Nanoseconds()) / 1e6

@@ -299,38 +299,47 @@ type lightGeometry struct {
 
 func pictureLightGeometry(metadataRadius uint16, flags uint32, width, height int) lightGeometry {
 	radius := float32(metadataRadius)
-	combinedSize := width + height
-	if radius == 0 {
-		radius = float32(combinedSize)
-	}
 	if flags&climg.PictDefFlagLightDarkcaster != 0 {
+		combinedSize := width + height
+		if radius == 0 {
+			radius = float32(combinedSize)
+		}
 		radius *= 4
-	}
-	minimum := float32(combinedSize) / 2
-	if radius < minimum {
-		radius = minimum
+		minimum := float32(combinedSize) / 2
+		if radius < minimum {
+			radius = minimum
+		}
+	} else if radius == 0 {
+		// Use the pre-classic-tuning fallback for emitted light. Enlarging this
+		// to the combined sprite dimensions makes nearby artwork look blurred.
+		radius = float32(width)
 	}
 	return lightGeometry{radius: radius, intensity: 1}
 }
 
 func mobileLightGeometry(metadataRadius uint16, flags uint32, size int, state uint8) lightGeometry {
 	radius := float32(metadataRadius)
-	if radius == 0 {
-		radius = float32(size * 2)
-	}
 	if flags&climg.PictDefFlagLightDarkcaster != 0 {
+		if radius == 0 {
+			radius = float32(size * 2)
+		}
 		radius *= 4
+		intensity := float32(1)
+		if state == poseDead {
+			radius /= 2
+			intensity = 0.5
+		}
+		minimum := float32(size)
+		if radius < minimum {
+			radius = minimum
+		}
+		return lightGeometry{radius: radius, intensity: intensity}
 	}
-	intensity := float32(1)
-	if state == poseDead {
-		radius /= 2
-		intensity = 0.5
+	if radius == 0 {
+		// Before the classic-radius pass, mobile emitters used their sprite size.
+		radius = float32(size)
 	}
-	minimum := float32(size)
-	if radius < minimum {
-		radius = minimum
-	}
-	return lightGeometry{radius: radius, intensity: intensity}
+	return lightGeometry{radius: radius, intensity: 1}
 }
 
 func lightIntersectsViewport(x, y float32, radius float32, bounds image.Rectangle) bool {

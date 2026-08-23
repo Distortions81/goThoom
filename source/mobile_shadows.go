@@ -18,9 +18,8 @@ const (
 	minimumShadowContrast  = 0.70
 	normalShadowOpacity    = 0.75
 	detailedCoreOpacity    = 0.75
-	// Treat distance from the contact edge in source pixels. Using fixed rates
-	// avoids remapping the whole shadow when animation frames have different
-	// cropped heights.
+	// Treat distance from the visible contact edge in logical character pixels.
+	// This keeps differently padded and scaled sprite sheets visually consistent.
 	characterShadowSoftnessPerPixel = 1.0 / 16.0
 	characterShadowMaxSoftness      = 3.0
 	characterShadowFadePerPixel     = 0.65 / 48.0
@@ -64,14 +63,17 @@ var (
 )
 
 type characterShadowTextureKey struct {
-	mobileKey
+	id      uint16
+	state   uint8
 	upscale uint8
+	size    uint16
 }
 
 type characterShadowTexture struct {
 	image       *ebiten.Image
 	contentSize int
 	padding     int
+	footY       float64
 }
 
 func init() {
@@ -101,13 +103,12 @@ func normalizeShadowAzimuth(azimuth int) int {
 func chooseUprightShadowPose(state uint8, azimuth int) (uint8, bool) {
 	if state < poseDead {
 		facing := int(state) / 4
+		subpose := int(state) & 3
 		sunDirection := (normalizeShadowAzimuth(azimuth) + 23) / 45
 		shadowFacing := (facing + sunDirection + 6) & 7
-		// Use one canonical frame for each facing. Feeding walk-cycle frames into
-		// the blur changes the silhouette area and contact edge every animation
-		// tick, which makes an otherwise fixed shadow pulse in darkness and
-		// softness.
-		return uint8(shadowFacing * 4), true
+		// Rotate the silhouette relative to the sun while keeping its walk-cycle
+		// frame matched to the visible character.
+		return uint8(shadowFacing*4 + subpose), true
 	}
 	if state == poseDead || state == poseLie {
 		return 0, false
@@ -210,12 +211,11 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		if img == nil {
 			continue
 		}
-		shadowTexture := characterShadowTextureFor(key, img)
-
 		size := mobileSize(desc.PictID)
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
+		shadowTexture := characterShadowTextureFor(key, img, size)
 		x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
 		drawCharacterShadow(shadowTarget, shadowTexture, size, x, y, shadowAlpha, projection, upright, shadowBlend)
 	}
@@ -231,17 +231,29 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 func characterShadowMask(screen *ebiten.Image) *ebiten.Image {
 	bounds := screen.Bounds()
 	if detailedCharacterShadowMask == nil || detailedCharacterShadowMask.Bounds().Dx() != bounds.Dx() || detailedCharacterShadowMask.Bounds().Dy() != bounds.Dy() {
+		if detailedCharacterShadowMask != nil {
+			detailedCharacterShadowMask.Deallocate()
+		}
 		detailedCharacterShadowMask = ebiten.NewImage(bounds.Dx(), bounds.Dy())
 	}
 	return detailedCharacterShadowMask
 }
 
-func characterShadowTextureFor(key mobileKey, img *ebiten.Image) characterShadowTexture {
+func characterShadowTextureFor(key mobileKey, img *ebiten.Image, size int) characterShadowTexture {
+	return characterShadowTextureForWithOpaqueBottom(key, img, size, -1)
+}
+
+// characterShadowTextureForWithOpaqueBottom accepts a source-pixel edge for
+// tests. Production passes -1 and reads the cached sprite once on a cache miss.
+func characterShadowTextureForWithOpaqueBottom(key mobileKey, img *ebiten.Image, size, opaqueBottom int) characterShadowTexture {
 	if gs.PotatoGPU {
-		return characterShadowTexture{image: img, contentSize: img.Bounds().Dx()}
+		return characterShadowTexture{image: img, contentSize: img.Bounds().Dx(), footY: float64(img.Bounds().Dy())}
 	}
 	upscale := characterShadowUpscaleFactor()
-	cacheKey := characterShadowTextureKey{mobileKey: key, upscale: uint8(upscale)}
+	// Custom palette colors do not change the silhouette alpha. Sharing these
+	// textures prevents identical shadows from being processed and cached once
+	// per player palette.
+	cacheKey := characterShadowTextureKey{id: key.id, state: key.state, upscale: uint8(upscale), size: uint16(size)}
 	characterShadowCacheMu.Lock()
 	if cached, ok := characterShadowTextures[cacheKey]; ok {
 		characterShadowCacheMu.Unlock()
@@ -260,7 +272,14 @@ func characterShadowTextureFor(key mobileKey, img *ebiten.Image) characterShadow
 		shadowSource.DrawImage(img, upscaleOp)
 	}
 
-	padding := int(math.Ceil(characterShadowMaxSoftness * float64(upscale)))
+	logicalPixelsPerTexel := float64(size) / float64(contentSize)
+	padding := int(math.Ceil(characterShadowMaxSoftness / logicalPixelsPerTexel))
+	var footY float32
+	if opaqueBottom < 0 {
+		footY = characterShadowFootY(img, upscale, padding)
+	} else {
+		footY = float32(padding + opaqueBottom*upscale)
+	}
 	textureW := contentSize + 2*padding
 	textureH := contentHeight + 2*padding
 	padded := ebiten.NewImage(textureW, textureH)
@@ -274,10 +293,10 @@ func characterShadowTextureFor(key mobileKey, img *ebiten.Image) characterShadow
 	uniforms := map[string]any{
 		"Direction":        []float32{1, 0},
 		"SoftnessPerPixel": float32(characterShadowSoftnessPerPixel),
-		"RadiusLimit":      float32(characterShadowMaxSoftness * float64(upscale)),
-		"FadePerPixel":     float32(characterShadowFadePerPixel / float64(upscale)),
+		"RadiusLimit":      float32(characterShadowMaxSoftness / logicalPixelsPerTexel),
+		"FadePerPixel":     float32(characterShadowFadePerPixel * logicalPixelsPerTexel),
 		"MinimumOpacity":   float32(characterShadowMinimumOpacity),
-		"FootY":            float32(padding + contentHeight - 1),
+		"FootY":            footY,
 		"ApplyGradient":    float32(1),
 	}
 	op := &ebiten.DrawRectShaderOptions{Uniforms: uniforms}
@@ -297,6 +316,7 @@ func characterShadowTextureFor(key mobileKey, img *ebiten.Image) characterShadow
 		image:       blurred,
 		contentSize: contentSize,
 		padding:     padding,
+		footY:       float64(footY),
 	}
 	characterShadowCacheMu.Lock()
 	if cached, ok := characterShadowTextures[cacheKey]; ok {
@@ -307,6 +327,35 @@ func characterShadowTextureFor(key mobileKey, img *ebiten.Image) characterShadow
 	characterShadowTextures[cacheKey] = texture
 	characterShadowCacheMu.Unlock()
 	return texture
+}
+
+// characterShadowFootY anchors treatment to the silhouette rather than the
+// bottom of its square sprite cell. Facings and poses can have different
+// transparent padding even though their logical size is identical.
+func characterShadowFootY(img *ebiten.Image, upscale, padding int) float32 {
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	if w <= 0 || h <= 0 || upscale < 1 {
+		return float32(padding)
+	}
+	pixels := make([]byte, w*h*4)
+	img.ReadPixels(pixels)
+	return characterShadowFootYFromPixels(pixels, w, h, upscale, padding)
+}
+
+func characterShadowFootYFromPixels(pixels []byte, w, h, upscale, padding int) float32 {
+	bottom := -1
+	for y := h - 1; y >= 0 && bottom < 0; y-- {
+		for x := 0; x < w; x++ {
+			if pixels[(y*w+x)*4+3] != 0 {
+				bottom = y
+				break
+			}
+		}
+	}
+	if bottom < 0 {
+		bottom = h - 1
+	}
+	return float32(padding + (bottom+1)*upscale)
 }
 
 func characterShadowTreatmentAtDistance(distance float64) (softness, opacity float64) {
@@ -360,7 +409,7 @@ func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTextu
 	img := texture.image
 	drawSize := texture.contentSize
 	if upright {
-		geo := uprightShadowGeoMWithPadding(drawSize, texture.padding, size, x, y, projection)
+		geo := uprightShadowGeoMWithFoot(drawSize, texture.padding, texture.footY, size, x, y, projection)
 		drawUprightShadowTexture(screen, texture, geo, alpha, blend)
 		return
 	}
@@ -405,16 +454,21 @@ func uprightShadowGeoM(drawSize, size, x, y int, projection characterShadowProje
 }
 
 func uprightShadowGeoMWithPadding(drawSize, padding, size, x, y int, projection characterShadowProjection) ebiten.GeoM {
+	return uprightShadowGeoMWithFoot(drawSize, padding, float64(padding+drawSize), size, x, y, projection)
+}
+
+func uprightShadowGeoMWithFoot(drawSize, padding int, footY float64, size, x, y int, projection characterShadowProjection) ebiten.GeoM {
 	target := float64(roundToInt(float64(size) * gs.GameScale))
 	baseScale := target / float64(drawSize)
+	contentFootY := footY - float64(padding)
+	screenFootY := float64(y) - target/2 + contentFootY*baseScale
 
 	var geo ebiten.GeoM
-	geo.Translate(-float64(padding), -float64(padding))
-	geo.Translate(-float64(drawSize)/2, -float64(drawSize))
+	geo.Translate(-float64(padding)-float64(drawSize)/2, -footY)
 	// The classic OpenGL path swaps the left and right shadow vertices before
 	// rotating the quad.
 	geo.Scale(-baseScale, baseScale*projection.length)
 	geo.Rotate(-(projection.angle + math.Pi/2))
-	geo.Translate(float64(x), float64(y)+target/2)
+	geo.Translate(float64(x), screenFootY)
 	return geo
 }

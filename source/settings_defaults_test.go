@@ -10,7 +10,6 @@ import (
 func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	defaults := map[string]bool{
 		"fade obscuring pictures":      gsdef.FadeObscuringPictures,
-		"blend image dithering":        gsdef.DenoiseImages,
 		"smooth movement":              gsdef.MotionSmoothing,
 		"character animation blending": gsdef.BlendMobiles,
 		"world animation blending":     gsdef.BlendPicts,
@@ -28,11 +27,36 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 			t.Errorf("%s should be enabled by default", name)
 		}
 	}
+	if gsdef.DenoiseImages {
+		t.Error("blend image dithering should be disabled by default")
+	}
+	if gsdef.DenoiseSharpness != 10 || gsdef.DenoiseAmount != 0.35 {
+		t.Errorf("de-dither defaults = sharpness %v, strength %v; want 10 and 0.35", gsdef.DenoiseSharpness, gsdef.DenoiseAmount)
+	}
 }
 
 func TestArtworkUpscaleDefaults(t *testing.T) {
-	if gsdef.GameScale != 3 || gsdef.SpriteUpscale != 3 || gsdef.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
-		t.Fatalf("default artwork upscale = (%v, %d, %d), want 3x Ultra Smooth", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
+	if gsdef.GameScale != 4 || gsdef.SpriteUpscale != 4 || gsdef.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
+		t.Fatalf("default artwork upscale = (%v, %d, %d), want 4x Ultra Smooth", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
+	}
+}
+
+func TestFontSizeDefaults(t *testing.T) {
+	want := map[string]struct {
+		got  float64
+		want float64
+	}{
+		"name":         {gsdef.MainFontSize, 6},
+		"chat bubble":  {gsdef.BubbleFontSize, 20},
+		"console":      {gsdef.ConsoleFontSize, 12},
+		"chat window":  {gsdef.ChatFontSize, 12},
+		"inventory":    {gsdef.InventoryFontSize, 12},
+		"players list": {gsdef.PlayersFontSize, 12},
+	}
+	for name, size := range want {
+		if size.got != size.want {
+			t.Errorf("default %s font size = %v, want %v", name, size.got, size.want)
+		}
 	}
 }
 
@@ -70,7 +94,6 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		t.Fatal("loadSettings() = true without a settings file")
 	}
 	for name, enabled := range map[string]bool{
-		"blend image dithering":        gs.DenoiseImages,
 		"smooth movement":              gs.MotionSmoothing,
 		"character animation blending": gs.BlendMobiles,
 		"world animation blending":     gs.BlendPicts,
@@ -86,6 +109,12 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		if !enabled {
 			t.Errorf("new config has %s disabled", name)
 		}
+	}
+	if gs.DenoiseImages {
+		t.Error("new config has blend image dithering enabled")
+	}
+	if gs.DenoiseSharpness != 10 || gs.DenoiseAmount != 0.35 {
+		t.Errorf("new config de-dither defaults = sharpness %v, strength %v; want 10 and 0.35", gs.DenoiseSharpness, gs.DenoiseAmount)
 	}
 }
 
@@ -103,7 +132,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 		setHighQualityResamplingEnabled(gs.HighQualityResampling)
 	})
 
-	data := []byte(fmt.Sprintf(`{"Version":%d}`, SETTINGS_VERSION))
+	data := []byte(fmt.Sprintf(`{"version":%d}`, SETTINGS_VERSION))
 	if err := os.WriteFile(filepath.Join(dataDirPath, settingsFile), data, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -124,8 +153,8 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	if !gs.DetailedCharacterShadows {
 		t.Error("settings without DetailedCharacterShadows should default it on")
 	}
-	if gs.GameScale != 3 || gs.SpriteUpscale != 3 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
-		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (3, 3, true, Ultra Smooth)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
+	if gs.GameScale != 4 || gs.SpriteUpscale != 4 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
+		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (4, 4, true, Ultra Smooth)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
 	}
 	if !gs.FlameLightFlicker {
 		t.Error("settings without FlameLightFlicker should default it on")

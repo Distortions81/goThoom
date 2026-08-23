@@ -88,8 +88,12 @@ var (
 	// scaledMobileCache stores pixel-art upscaled mobile frames.
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
 
-	imageMu  sync.Mutex
-	clImages *climg.CLImages
+	imageMu sync.Mutex
+	// imageCacheLifecycleMu allows image loads to remain concurrent while
+	// preventing a cache clear from deallocating a sheet between its decode and
+	// insertion into the application caches.
+	imageCacheLifecycleMu sync.RWMutex
+	clImages              *climg.CLImages
 
 	dumpImgOnce   sync.Once
 	dumpImgMu     sync.Mutex
@@ -152,6 +156,8 @@ func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 	if id == 0xffff {
 		return nil
 	}
+	imageCacheLifecycleMu.RLock()
+	defer imageCacheLifecycleMu.RUnlock()
 	key := makeSheetKey(id, colors, forceTransparent)
 	imageMu.Lock()
 	if img, ok := sheetCache[key]; ok {

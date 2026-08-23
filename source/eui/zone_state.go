@@ -2,14 +2,14 @@ package eui
 
 // WindowZone represents a saved window zone.
 type WindowZone struct {
-	H HZone
-	V VZone
+	H HZone `json:"h"`
+	V VZone `json:"v"`
 }
 
 // WindowZoneState captures whether a window is zoned and its zone.
 type WindowZoneState struct {
-	Zoned bool
-	Zone  WindowZone
+	Zoned bool       `json:"zoned"`
+	Zone  WindowZone `json:"zone"`
 }
 
 // SaveWindowZones returns a table of window titles to their zone state.

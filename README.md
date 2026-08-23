@@ -97,6 +97,12 @@ Enable **Potato GPU (low VRAM)** in Settings → Graphics if your system or driv
 - Quality: Pick a preset, or tweak motion smoothing, denoising, blending.
 - Setup Wizard: Reopen the release tour at any time from Settings. Completing or skipping it records the current goThoom release in `settings.json`, so it returns only after the next upgrade.
 
+### Settings file
+
+`data/settings.json` uses schema version 4. Settings are grouped into plainly named sections such as `controls`, `interface`, `rendering`, `audio`, `notifications`, and `windows`, with lower-case snake-case option names. Choices that were previously numeric are readable strings; for example, `rendering.artwork_upscale_style` accepts `off`, `crisp`, `balanced`, `smooth`, or `ultra_smooth`.
+
+The client loads older flat settings files (versions 1 through 3), preserves their values, and rewrites them in the categorized version 4 format on the next automatic settings save.
+
 Tip: The input bar auto-expands as you type and has a context menu for quick paste/copy/clear.
 
 ---
