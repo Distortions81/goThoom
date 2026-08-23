@@ -400,9 +400,13 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		"Uses scale-aware filtering when sprites are enlarged. Turn it off if you prefer harder pixel edges.",
 		gs.SpriteUpscaleFilter,
 		func(checked bool) {
-			gs.SpriteUpscaleFilter = checked
-			if upscaleFilterCB != nil {
-				upscaleFilterCB.Checked = checked
+			if checked {
+				setArtworkUpscaleMode(artworkUpscaleUltraSmooth)
+			} else {
+				setArtworkUpscaleMode(artworkUpscaleOff)
+			}
+			if upscaleModeDD != nil {
+				upscaleModeDD.Selected = artworkUpscaleMode()
 			}
 			clearCaches()
 			markQualityCustom()

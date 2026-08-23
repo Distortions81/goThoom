@@ -120,6 +120,10 @@ func pictureMotionInterpolationEnabled(p framePicture) bool {
 	return gs.smoothMoving || pictureCloudMotionEnabled(p)
 }
 
+func pictureMotionBlockedAtEdge(p framePicture, cloudMotion bool) bool {
+	return !cloudMotion && pictureOnEdge(p)
+}
+
 // pictureExcludedFromShift keeps independently drifting pictures from
 // influencing the shared camera-motion estimate.
 func pictureExcludedFromShift(p framePicture) bool {
@@ -1414,7 +1418,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			newPics[i].PrevH = owner.H
 			newPics[i].PrevV = owner.V
 		}
-		if moving && pictureOnEdge(newPics[i]) {
+		if moving && pictureMotionBlockedAtEdge(newPics[i], cloudMotion) {
 			moving = false
 		}
 		if moving && pictureMotionInterpolationEnabled(newPics[i]) {

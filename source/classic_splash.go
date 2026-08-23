@@ -70,21 +70,20 @@ func prepareClassicSplash() {
 	flat.DrawImage(src, op)
 
 	// 2) Scale 2x, using the pixel-art upscaler when enabled for consistency.
-	useFilter := gs.SpriteUpscaleFilter && gameHasStarted()
-	if gs.SpriteUpscaleFilter && !useFilter {
+	useFilter := artworkUpscaleEnabled() && gameHasStarted()
+	if artworkUpscaleEnabled() && !useFilter {
 		classicSplashFilterPending = true
 	}
 	var scaled *ebiten.Image
 	if useFilter {
-		rgba := ebitenImageToRGBA(flat)
-		scaled = newImageFromImage(scale2xRGBA(rgba))
+		scaled = upscaleSpriteImage(flat, 2)
 		classicSplashFilterPending = false
 	} else {
 		scaled = newImage(r.Dx()*2, r.Dy()*2)
 		sop := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: false}
 		sop.GeoM.Scale(2, 2)
 		scaled.DrawImage(flat, sop)
-		if !gs.SpriteUpscaleFilter {
+		if !artworkUpscaleEnabled() {
 			classicSplashFilterPending = false
 		}
 	}

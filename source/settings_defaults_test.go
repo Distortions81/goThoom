@@ -18,6 +18,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"flame light flicker":          gsdef.FlameLightFlicker,
 		"character shadows":            gsdef.CharacterShadows,
 		"detailed character shadows":   gsdef.DetailedCharacterShadows,
+		"artwork upscale filter":       gsdef.SpriteUpscaleFilter,
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
 		"throttle sounds":              gsdef.ThrottleSounds,
 		"alternate row backgrounds":    gsdef.AlternateRowBackgrounds,
@@ -26,6 +27,12 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		if !enabled {
 			t.Errorf("%s should be enabled by default", name)
 		}
+	}
+}
+
+func TestArtworkUpscaleDefaults(t *testing.T) {
+	if gsdef.GameScale != 3 || gsdef.SpriteUpscale != 3 || gsdef.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
+		t.Fatalf("default artwork upscale = (%v, %d, %d), want 3x Ultra Smooth", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
 	}
 }
 
@@ -71,6 +78,7 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		"flame light flicker":          gs.FlameLightFlicker,
 		"character shadows":            gs.CharacterShadows,
 		"detailed character shadows":   gs.DetailedCharacterShadows,
+		"artwork upscale filter":       gs.SpriteUpscaleFilter,
 		"sound enhancement":            gs.SoundEnhancement,
 		"high quality resampling":      gs.HighQualityResampling,
 		"music enhancement":            gs.MusicEnhancement,
@@ -102,6 +110,10 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 
 	gs.CharacterShadows = false
 	gs.DetailedCharacterShadows = false
+	gs.GameScale = 1
+	gs.SpriteUpscale = 1
+	gs.SpriteUpscaleFilter = false
+	gs.SpriteUpscaleMode = artworkUpscaleOff
 	gs.FlameLightFlicker = false
 	if !loadSettings() {
 		t.Fatal("loadSettings() = false for current-version settings")
@@ -111,6 +123,9 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 	if !gs.DetailedCharacterShadows {
 		t.Error("settings without DetailedCharacterShadows should default it on")
+	}
+	if gs.GameScale != 3 || gs.SpriteUpscale != 3 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
+		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (3, 3, true, Ultra Smooth)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
 	}
 	if !gs.FlameLightFlicker {
 		t.Error("settings without FlameLightFlicker should default it on")

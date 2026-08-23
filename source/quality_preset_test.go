@@ -41,22 +41,25 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	})
 
 	gs = gsdef
-	applyQualityPreset("Potato GPU / iGPU")
+	applyQualityPreset("iGPU / Low-VRAM (Potato GPU)")
 
 	if !gs.DenoiseImages || !gs.MotionSmoothing {
-		t.Error("Potato GPU / iGPU preset should retain CPU-side graphics improvements")
+		t.Error("iGPU / Low-VRAM preset should retain CPU-side graphics improvements")
 	}
-	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting || gs.SpriteUpscaleFilter {
-		t.Error("Potato GPU / iGPU preset enabled a GPU-intensive graphics effect")
+	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
+		t.Error("iGPU / Low-VRAM preset enabled a GPU-intensive graphics effect")
+	}
+	if !gs.SpriteUpscaleFilter {
+		t.Error("iGPU / Low-VRAM preset should retain sharp sprite upscaling")
 	}
 	if !gs.PotatoGPU {
-		t.Error("Potato GPU / iGPU preset did not enable low-VRAM mode")
+		t.Error("iGPU / Low-VRAM preset did not enable low-VRAM mode")
 	}
 	if gs.HighQualityResampling {
-		t.Error("Potato GPU / iGPU preset enabled high-quality resampling")
+		t.Error("iGPU / Low-VRAM preset enabled high-quality resampling")
 	}
 	if gs.SoundEnhancement || gs.SoundEnhancementAmount != 1.0 || gs.MusicEnhancement {
-		t.Error("Potato GPU / iGPU preset enabled sound or music enhancement")
+		t.Error("iGPU / Low-VRAM preset enabled sound or music enhancement")
 	}
 	if preset := detectQualityPreset(); preset != 0 {
 		t.Errorf("detectQualityPreset()=%d, want 0", preset)
@@ -68,5 +71,27 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	}
 	if preset := detectQualityPreset(); preset != 4 {
 		t.Errorf("detectQualityPreset()=%d after High, want 4", preset)
+	}
+}
+
+func TestApplySettingsDisablesExpensiveGPUOptionsInPotatoMode(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() {
+		gs = originalSettings
+		applySettings()
+	})
+
+	gs.PotatoGPU = true
+	gs.BlendMobiles = true
+	gs.BlendPicts = true
+	gs.ShaderLighting = true
+	gs.SpriteUpscaleFilter = true
+	applySettings()
+
+	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
+		t.Fatal("potato mode retained an expensive GPU option")
+	}
+	if !gs.SpriteUpscaleFilter {
+		t.Fatal("potato mode disabled the sharp 2x sprite upscaler")
 	}
 }

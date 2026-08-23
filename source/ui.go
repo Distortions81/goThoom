@@ -132,7 +132,7 @@ var (
 	animCB             *eui.ItemData
 	pictBlendCB        *eui.ItemData
 	shaderLightingCB   *eui.ItemData
-	upscaleFilterCB    *eui.ItemData
+	upscaleModeDD      *eui.ItemData
 	throttleSoundCB    *eui.ItemData
 	soundEnhanceCB     *eui.ItemData
 	soundEnhanceSlider *eui.ItemData
@@ -3147,7 +3147,7 @@ func makeSettingsWindow() {
 	left.AddItem(label)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
-	qualityPresetDD.Options = []string{"Potato GPU / iGPU", "Classic", "Low", "Medium", "High", "Custom"}
+	qualityPresetDD.Options = []string{"iGPU / Low-VRAM (Potato GPU)", "Classic", "Low", "Medium", "High", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.FontSize = 12
@@ -3155,7 +3155,7 @@ func makeSettingsWindow() {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
 			case 0:
-				applyQualityPreset("Potato GPU / iGPU")
+				applyQualityPreset("iGPU / Low-VRAM (Potato GPU)")
 			case 1:
 				applyQualityPreset("Classic")
 			case 2:
@@ -4249,16 +4249,17 @@ func makeQualityWindow() {
 	}
 	left.AddItem(renderScale)
 
-	uCB, upscaleFilterEvents := eui.NewCheckbox()
-	upscaleFilterCB = uCB
-	upscaleFilterCB.Text = "Artwork upscale filter"
-	upscaleFilterCB.Size = eui.Point{X: width, Y: 24}
-	upscaleFilterCB.Checked = gs.SpriteUpscaleFilter
-	upscaleFilterCB.SetTooltip("Toggle scale-aware filtering when enlarging sprites")
-	upscaleFilterEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			if gs.SpriteUpscaleFilter != ev.Checked {
-				gs.SpriteUpscaleFilter = ev.Checked
+	uDD, upscaleModeEvents := eui.NewDropdown()
+	upscaleModeDD = uDD
+	upscaleModeDD.Label = "Artwork upscale style"
+	upscaleModeDD.Options = artworkUpscaleModeNames
+	upscaleModeDD.Selected = artworkUpscaleMode()
+	upscaleModeDD.Size = eui.Point{X: width, Y: 24}
+	upscaleModeDD.SetTooltip("Off keeps raw pixels; Crisp through Smooth progressively reconstruct diagonal edges; Ultra Smooth uses softer anti-aliased-style edge blending")
+	upscaleModeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= artworkUpscaleOff && ev.Index <= artworkUpscaleUltraSmooth {
+			if artworkUpscaleMode() != ev.Index {
+				setArtworkUpscaleMode(ev.Index)
 				clearCaches()
 				settingsDirty = true
 				if gameWin != nil {
@@ -4267,7 +4268,7 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	left.AddItem(upscaleFilterCB)
+	left.AddItem(upscaleModeDD)
 
 	ppCB, pixelPerfectEvents := eui.NewCheckbox()
 	pixelPerfectCB := ppCB
@@ -4361,19 +4362,36 @@ func makeQualityWindow() {
 	}
 	left.AddItem(precacheImageCB)
 
+	var detailedShadowsCB *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
-	potatoCB.Text = "Potato GPU (low VRAM)"
-	potatoCB.SetTooltip("Work-around for GPUs that only support 4096x4096 size sprites")
+	potatoCB.Text = "iGPU / Low-VRAM (Potato GPU)"
+	potatoCB.SetTooltip("Reduce GPU and VRAM use by bypassing shader shadows and expensive effects while limiting sharp sprite upscaling to 2x")
 	potatoCB.Size = eui.Point{X: width, Y: 24}
 	potatoCB.Checked = gs.PotatoGPU
 	potatoEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.PotatoGPU = ev.Checked
 			applySettings()
-			if ev.Checked {
-				clearCaches()
+			if upscaleModeDD != nil {
+				upscaleModeDD.Selected = artworkUpscaleMode()
 			}
+			if animCB != nil {
+				animCB.Checked = gs.BlendMobiles
+				animCB.Disabled = ev.Checked
+			}
+			if pictBlendCB != nil {
+				pictBlendCB.Checked = gs.BlendPicts
+				pictBlendCB.Disabled = ev.Checked
+			}
+			if shaderLightingCB != nil {
+				shaderLightingCB.Checked = gs.ShaderLighting
+				shaderLightingCB.Disabled = ev.Checked
+			}
+			if detailedShadowsCB != nil {
+				detailedShadowsCB.Disabled = ev.Checked || !gs.CharacterShadows
+			}
+			clearCaches()
 			settingsDirty = true
 			if qualityPresetDD != nil {
 				qualityPresetDD.Selected = detectQualityPreset()
@@ -4396,7 +4414,6 @@ func makeQualityWindow() {
 	}
 	left.AddItem(vsyncCB)
 
-	var detailedShadowsCB *eui.ItemData
 	characterShadowsCB, characterShadowsEvents := eui.NewCheckbox()
 	characterShadowsCB.Text = "Character Shadows"
 	characterShadowsCB.Size = eui.Point{X: width, Y: 24}
@@ -4406,7 +4423,7 @@ func makeQualityWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.CharacterShadows = ev.Checked
 			if detailedShadowsCB != nil {
-				detailedShadowsCB.Disabled = !ev.Checked
+				detailedShadowsCB.Disabled = !ev.Checked || gs.PotatoGPU
 			}
 			settingsDirty = true
 		}
@@ -4417,7 +4434,7 @@ func makeQualityWindow() {
 	detailedShadowsCB.Text = "Accurate Character Shadows"
 	detailedShadowsCB.Size = eui.Point{X: width, Y: 24}
 	detailedShadowsCB.Checked = gs.DetailedCharacterShadows
-	detailedShadowsCB.Disabled = !gs.CharacterShadows
+	detailedShadowsCB.Disabled = !gs.CharacterShadows || gs.PotatoGPU
 	detailedShadowsCB.SetTooltip("Prevent overlapping character shadows from becoming excessively dark")
 	detailedShadowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4433,6 +4450,7 @@ func makeQualityWindow() {
 	shaderQualityCB.Text = "Shader Lighting Effects"
 	shaderQualityCB.Size = eui.Point{X: width, Y: 24}
 	shaderQualityCB.Checked = gs.ShaderLighting
+	shaderQualityCB.Disabled = gs.PotatoGPU
 	shaderQualityCB.SetTooltip("Enable shader-based lighting (enabled by the High preset)")
 	shaderQualityEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4760,6 +4778,7 @@ func makeQualityWindow() {
 	animCB.Text = "Mobile Animation Blending"
 	animCB.Size = eui.Point{X: width, Y: 24}
 	animCB.Checked = gs.BlendMobiles
+	animCB.Disabled = gs.PotatoGPU
 	animCB.SetTooltip("Gives appearance of more frames of animation at cost of latency.")
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4775,6 +4794,7 @@ func makeQualityWindow() {
 	pictBlendCB.Text = "World Animation Blending"
 	pictBlendCB.Size = eui.Point{X: width, Y: 24}
 	pictBlendCB.Checked = gs.BlendPicts
+	pictBlendCB.Disabled = gs.PotatoGPU
 	pictBlendCB.SetTooltip("Gives appearance of more frames of animation for water, grass, etc")
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {

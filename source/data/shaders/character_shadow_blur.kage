@@ -1,0 +1,45 @@
+//kage:unit pixels
+
+package main
+
+const MaxShadowBlurRadius = 12
+
+var Direction vec2
+var SoftnessPerPixel float
+var RadiusLimit float
+var FadePerPixel float
+var MinimumOpacity float
+var FootY float
+var ApplyGradient float
+
+func softnessAt(y float) float {
+	distanceFromFoot := max(FootY-y, 0)
+	return min(distanceFromFoot*SoftnessPerPixel, RadiusLimit)
+}
+
+func opacityAt(y float) float {
+	distanceFromFoot := max(FootY-y, 0)
+	return max(1-distanceFromFoot*FadePerPixel, MinimumOpacity)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	radius := softnessAt(srcPos.y)
+	alpha := 0.0
+	weight := 0.0
+	for i := -MaxShadowBlurRadius; i <= MaxShadowBlurRadius; i++ {
+		distance := abs(float(i))
+		if distance <= radius {
+			pos := srcPos + Direction*float(i)
+			sampleAlpha := imageSrc0At(pos).a
+			if ApplyGradient > 0.5 {
+				sampleAlpha *= opacityAt(pos.y)
+			}
+			alpha += sampleAlpha
+			weight += 1
+		}
+	}
+	if weight > 0 {
+		alpha /= weight
+	}
+	return vec4(0, 0, 0, alpha)
+}

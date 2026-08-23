@@ -1,0 +1,83 @@
+//kage:unit pixels
+
+package main
+
+// Scale is an integer from 2 to 4. Image 0 is already nearest-neighbor
+// expanded to the destination size so all shader images match the draw rect.
+var Scale float
+var CornerReach float
+var BlendStrength float
+
+func sourcePixel(cell vec2) vec4 {
+	origin := imageSrc0Origin()
+	size := imageSrc0Size()
+	pos := origin + (cell+vec2(0.5))*Scale
+	pos = clamp(pos, origin+vec2(0.5), origin+size-vec2(0.5))
+	return imageSrc0At(pos)
+}
+
+func straightRGB(c vec4) vec3 {
+	return c.rgb / max(c.a, 1.0/255.0)
+}
+
+// Weighted luma/chroma distance keeps small palette ramps together while
+// treating transparency as a strong edge.
+func colorDistance(a, b vec4) float {
+	if a.a < 1.0/255.0 && b.a < 1.0/255.0 {
+		return 0
+	}
+	ar := straightRGB(a)
+	br := straightRGB(b)
+	d := abs(ar - br)
+	luma := dot(d, vec3(0.299, 0.587, 0.114))
+	chroma := max(d.r, max(d.g, d.b)) - min(d.r, min(d.g, d.b))
+	return abs(a.a-b.a)*1.5 + luma*0.75 + chroma*0.25
+}
+
+func blendSimilar(a, b vec4) bool {
+	return colorDistance(a, b) < 0.16
+}
+
+func edgeDifferent(a, b vec4) bool {
+	return colorDistance(a, b) > 0.07
+}
+
+func cornerWeight(local, corner vec2) float {
+	d := abs(local - corner)
+	return clamp(CornerReach-2.0*(d.x+d.y), 0, 1)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	origin := imageSrc0Origin()
+	scaledPos := srcPos - origin
+	cell := floor(scaledPos / Scale)
+	local := fract(scaledPos / Scale)
+
+	top := sourcePixel(cell + vec2(0, -1))
+	left := sourcePixel(cell + vec2(-1, 0))
+	center := sourcePixel(cell)
+	right := sourcePixel(cell + vec2(1, 0))
+	bottom := sourcePixel(cell + vec2(0, 1))
+
+	if !edgeDifferent(top, bottom) || !edgeDifferent(left, right) {
+		return center
+	}
+
+	target := center
+	weight := 0.0
+	if local.x < 0.5 && local.y < 0.5 && blendSimilar(left, top) {
+		target = (left + top) * 0.5
+		weight = cornerWeight(local, vec2(0, 0))
+	} else if local.x >= 0.5 && local.y < 0.5 && blendSimilar(top, right) {
+		target = (top + right) * 0.5
+		weight = cornerWeight(local, vec2(1, 0))
+	} else if local.x < 0.5 && local.y >= 0.5 && blendSimilar(left, bottom) {
+		target = (left + bottom) * 0.5
+		weight = cornerWeight(local, vec2(0, 1))
+	} else if local.x >= 0.5 && local.y >= 0.5 && blendSimilar(bottom, right) {
+		target = (bottom + right) * 0.5
+		weight = cornerWeight(local, vec2(1, 1))
+	}
+
+	return mix(center, target, weight*BlendStrength)
+}

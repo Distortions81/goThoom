@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/csv"
 	"fmt"
 	"image"
@@ -58,11 +59,13 @@ type pictBlendKey struct {
 type scaledImageKey struct {
 	imageKey
 	scale uint8
+	mode  uint8
 }
 
 type scaledMobileKey struct {
 	mobileKey
 	scale uint8
+	mode  uint8
 }
 
 var (
@@ -92,7 +95,20 @@ var (
 	dumpImgMu     sync.Mutex
 	dumpedImgIDs  = make(map[uint16]struct{})
 	imgMetaWriter *csv.Writer
+
+	spriteUpscaleShader *ebiten.Shader
 )
+
+//go:embed data/shaders/sprite_upscale.kage
+var spriteUpscaleShaderSource []byte
+
+func init() {
+	var err error
+	spriteUpscaleShader, err = ebiten.NewShader(spriteUpscaleShaderSource)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func makeSheetKey(id uint16, colors []byte, forceTransparent bool) sheetKey {
 	var k sheetKey
@@ -346,42 +362,107 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 	return img
 }
 
-func ebitenImageToRGBA(img *ebiten.Image) *image.RGBA {
-	b := img.Bounds()
-	w, h := b.Dx(), b.Dy()
-	rgba := image.NewRGBA(image.Rect(0, 0, w, h))
-	if w == 0 || h == 0 {
-		return rgba
-	}
-	img.ReadPixels(rgba.Pix)
-	return rgba
-}
-
 func upscaleSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
 	if factor <= 1 || img == nil {
 		return img
 	}
-	src := ebitenImageToRGBA(img)
-	var scaled *image.RGBA
-	switch factor {
-	case 2:
-		scaled = scale2xRGBA(src)
-	case 3:
-		scaled = scale3xRGBA(src)
-	case 4:
-		scaled = scale4xRGBA(src)
-	default:
+	if factor > 4 {
 		return img
 	}
-	return newImageFromImage(scaled)
+	w, h := img.Bounds().Dx()*factor, img.Bounds().Dy()*factor
+	nearest := newImage(w, h)
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+	op.GeoM.Scale(float64(factor), float64(factor))
+	nearest.DrawImage(img, op)
+
+	scaled := newImage(w, h)
+	shaderOp := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
+		"Scale":         float32(factor),
+		"CornerReach":   artworkUpscaleCornerReach(),
+		"BlendStrength": artworkUpscaleBlendStrength(),
+	}}
+	shaderOp.Images[0] = nearest
+	scaled.DrawRectShader(w, h, spriteUpscaleShader, shaderOp)
+	nearest.Deallocate()
+	return scaled
+}
+
+const (
+	artworkUpscaleOff = iota
+	artworkUpscaleCrisp
+	artworkUpscaleBalanced
+	artworkUpscaleSmooth
+	artworkUpscaleUltraSmooth
+)
+
+var artworkUpscaleModeNames = []string{"Off", "Crisp", "Balanced", "Smooth", "Ultra Smooth"}
+
+func artworkUpscaleMode() int {
+	if !gs.SpriteUpscaleFilter {
+		return artworkUpscaleOff
+	}
+	if gs.SpriteUpscaleMode < artworkUpscaleCrisp || gs.SpriteUpscaleMode > artworkUpscaleUltraSmooth {
+		return artworkUpscaleUltraSmooth
+	}
+	return gs.SpriteUpscaleMode
+}
+
+func setArtworkUpscaleMode(mode int) {
+	if mode < artworkUpscaleOff || mode > artworkUpscaleUltraSmooth {
+		mode = artworkUpscaleUltraSmooth
+	}
+	gs.SpriteUpscaleMode = mode
+	gs.SpriteUpscaleFilter = mode != artworkUpscaleOff
+}
+
+func artworkUpscaleEnabled() bool {
+	return artworkUpscaleMode() != artworkUpscaleOff
+}
+
+func artworkUpscaleCornerReach() float32 {
+	switch artworkUpscaleMode() {
+	case artworkUpscaleOff:
+		return 0
+	case artworkUpscaleCrisp:
+		return 1.35
+	case artworkUpscaleSmooth, artworkUpscaleUltraSmooth:
+		return 2.75
+	default:
+		return 1.65
+	}
+}
+
+func artworkUpscaleBlendStrength() float32 {
+	switch artworkUpscaleMode() {
+	case artworkUpscaleOff:
+		return 0
+	case artworkUpscaleCrisp:
+		return 0.65
+	case artworkUpscaleSmooth:
+		return 1
+	case artworkUpscaleUltraSmooth:
+		// Keep reconstructed boundary pixels partially covered for an
+		// anti-aliased look without sampling outside the sprite.
+		return 0.82
+	default:
+		return 0.8
+	}
+}
+
+func artworkUpscaleFactor() int {
+	factor := spriteUpscaleFactor()
+	if gs.PotatoGPU && factor > 2 {
+		return 2
+	}
+	return factor
 }
 
 func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Image {
-	factor := spriteUpscaleFactor()
-	if factor <= 1 || img == nil || !gs.SpriteUpscaleFilter {
+	factor := artworkUpscaleFactor()
+	if factor <= 1 || img == nil || !artworkUpscaleEnabled() {
 		return img
 	}
-	key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor)}
+	key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(artworkUpscaleMode())}
 	imageMu.Lock()
 	if cached, ok := scaledImageCache[key]; ok {
 		imageMu.Unlock()
@@ -396,11 +477,11 @@ func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Imag
 }
 
 func getScaledMobileFrame(key mobileKey, img *ebiten.Image) *ebiten.Image {
-	factor := spriteUpscaleFactor()
-	if factor <= 1 || img == nil || !gs.SpriteUpscaleFilter {
+	factor := artworkUpscaleFactor()
+	if factor <= 1 || img == nil || !artworkUpscaleEnabled() {
 		return img
 	}
-	sKey := scaledMobileKey{mobileKey: key, scale: uint8(factor)}
+	sKey := scaledMobileKey{mobileKey: key, scale: uint8(factor), mode: uint8(artworkUpscaleMode())}
 	imageMu.Lock()
 	if cached, ok := scaledMobileCache[sKey]; ok {
 		imageMu.Unlock()

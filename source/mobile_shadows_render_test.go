@@ -11,11 +11,13 @@ import (
 	"runtime"
 	"testing"
 
+	"gothoom/climg"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // TestRenderCharacterShadowImages is an opt-in visual diagnostic. It uses the
-// production shadow transform and blend path with a fixed, recognizable sprite.
+// production shadow transform and blend path with real CL_Images mobiles.
 func TestRenderCharacterShadowImages(t *testing.T) {
 	if os.Getenv("GOTHOOM_RENDER_SHADOW_TESTS") == "" {
 		t.Skip("set GOTHOOM_RENDER_SHADOW_TESTS=1 to render shadow diagnostics")
@@ -29,11 +31,21 @@ func TestRenderCharacterShadowImages(t *testing.T) {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	images, err := climg.Load(filepath.Join(filepath.Dir(sourceFile), "data", "CL_Images"))
+	if err != nil {
+		t.Fatalf("load CL_Images: %v", err)
+	}
 
 	originalSettings := gs
+	originalImages := clImages
 	gs.GameScale = 1
-	gs.DetailedCharacterShadows = false
-	t.Cleanup(func() { gs = originalSettings })
+	gs.DetailedCharacterShadows = true
+	clImages = images
+	t.Cleanup(func() {
+		clearCaches()
+		clImages = originalImages
+		gs = originalSettings
+	})
 
 	game := &shadowRenderGame{outputDir: outputDir}
 	if err := ebiten.RunGame(game); err != nil {
@@ -48,12 +60,20 @@ func TestRenderCharacterShadowImages(t *testing.T) {
 }
 
 const (
-	shadowTestCanvasSize = 640
-	shadowTestSpriteSize = 48
-	shadowTestDrawSize   = 32
+	shadowTestCanvasSize = 800
+	shadowTestDrawSize   = 48
 	shadowTestCenterX    = shadowTestCanvasSize / 2
 	shadowTestCenterY    = shadowTestCanvasSize / 2
 )
+
+var shadowTestCharacters = []struct {
+	name   string
+	pictID uint16
+}{
+	{name: "neutral", pictID: 22},
+	{name: "male", pictID: 447},
+	{name: "female", pictID: 456},
+}
 
 type shadowRenderGame struct {
 	outputDir string
@@ -78,39 +98,61 @@ func (g *shadowRenderGame) Layout(_, _ int) (int, int) {
 }
 
 func (g *shadowRenderGame) renderImages() error {
-	sprite := ebiten.NewImageFromImage(shadowTestSprite(shadowTestSpriteSize))
-	for _, azimuth := range []int{0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330} {
-		projection := newCharacterShadowProjection(azimuth)
-		canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
-		drawCharacterShadow(canvas, sprite, shadowTestDrawSize, shadowTestCenterX, shadowTestCenterY, 0.75, projection, true, shadowDarkenBlend)
+	for _, character := range shadowTestCharacters {
+		visibleSprite := loadMobileFrame(character.pictID, 0, nil)
+		if visibleSprite == nil {
+			return fmt.Errorf("load visible mobile pict %d", character.pictID)
+		}
+		for _, azimuth := range []int{0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330} {
+			shadowState, casts := chooseUprightShadowPose(0, azimuth)
+			if !casts {
+				continue
+			}
+			shadowSprite := loadMobileFrame(character.pictID, shadowState, nil)
+			if shadowSprite == nil {
+				return fmt.Errorf("load shadow mobile pict %d state %d", character.pictID, shadowState)
+			}
+			shadowTexture := characterShadowTextureFor(makeMobileKey(character.pictID, shadowState, nil), shadowSprite)
 
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterLinear
-		op.GeoM.Scale(float64(shadowTestDrawSize)/shadowTestSpriteSize, float64(shadowTestDrawSize)/shadowTestSpriteSize)
-		op.GeoM.Translate(shadowTestCenterX-shadowTestDrawSize/2, shadowTestCenterY-shadowTestDrawSize/2)
-		canvas.DrawImage(sprite, op)
+			projection := newCharacterShadowProjection(azimuth)
+			canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
+			mask := ebiten.NewImage(shadowTestCanvasSize, shadowTestCanvasSize)
+			drawCharacterShadow(mask, shadowTexture, shadowTestDrawSize, shadowTestCenterX, shadowTestCenterY, 0.75, projection, true, shadowMaskBlend)
+			maskOp := &ebiten.DrawImageOptions{Blend: shadowDarkenBlend}
+			canvas.DrawImage(mask, maskOp)
 
-		name := fmt.Sprintf("shadow_sa_%03d_elev_%02.0f_len_%.2f.png", azimuth, characterShadowSunHeight(azimuth), projection.length)
-		file, err := os.Create(filepath.Join(g.outputDir, name))
-		if err != nil {
-			return err
-		}
-		pixels := make([]byte, 4*shadowTestCanvasSize*shadowTestCanvasSize)
-		canvas.ReadPixels(pixels)
-		result := &image.RGBA{
-			Pix:    pixels,
-			Stride: 4 * shadowTestCanvasSize,
-			Rect:   image.Rect(0, 0, shadowTestCanvasSize, shadowTestCanvasSize),
-		}
-		if err := png.Encode(file, result); err != nil {
-			file.Close()
-			return err
-		}
-		if err := file.Close(); err != nil {
-			return err
+			op := &ebiten.DrawImageOptions{}
+			op.Filter = ebiten.FilterLinear
+			op.GeoM.Scale(float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dx()), float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dy()))
+			op.GeoM.Translate(shadowTestCenterX-shadowTestDrawSize/2, shadowTestCenterY-shadowTestDrawSize/2)
+			canvas.DrawImage(visibleSprite, op)
+
+			name := fmt.Sprintf("shadow_%s_%d_sa_%03d_elev_%02.0f_len_%.2f.png", character.name, character.pictID, azimuth, characterShadowSunHeight(azimuth), projection.length)
+			if err := writeShadowTestPNG(filepath.Join(g.outputDir, name), canvas); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func writeShadowTestPNG(path string, canvas *ebiten.Image) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	pixels := make([]byte, 4*shadowTestCanvasSize*shadowTestCanvasSize)
+	canvas.ReadPixels(pixels)
+	result := &image.RGBA{
+		Pix:    pixels,
+		Stride: 4 * shadowTestCanvasSize,
+		Rect:   image.Rect(0, 0, shadowTestCanvasSize, shadowTestCanvasSize),
+	}
+	if err := png.Encode(file, result); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 func shadowTestBackground(size int) image.Image {
@@ -120,24 +162,6 @@ func shadowTestBackground(size int) image.Image {
 		for x := 0; x < size; x++ {
 			if x%32 == 0 || y%32 == 0 {
 				img.SetRGBA(x, y, color.RGBA{R: 156, G: 148, B: 124, A: 255})
-			}
-		}
-	}
-	return img
-}
-
-func shadowTestSprite(size int) image.Image {
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	fill := color.RGBA{R: 80, G: 120, B: 210, A: 255}
-	draw.Draw(img, image.Rect(18, 13, 30, 35), &image.Uniform{C: fill}, image.Point{}, draw.Src)
-	draw.Draw(img, image.Rect(11, 18, 37, 24), &image.Uniform{C: fill}, image.Point{}, draw.Src)
-	draw.Draw(img, image.Rect(16, 34, 22, 48), &image.Uniform{C: fill}, image.Point{}, draw.Src)
-	draw.Draw(img, image.Rect(26, 34, 32, 48), &image.Uniform{C: fill}, image.Point{}, draw.Src)
-	for y := 3; y < 16; y++ {
-		for x := 17; x < 31; x++ {
-			dx, dy := x-24, y-9
-			if dx*dx+dy*dy <= 49 {
-				img.SetRGBA(x, y, fill)
 			}
 		}
 	}

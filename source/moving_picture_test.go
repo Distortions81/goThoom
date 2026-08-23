@@ -54,6 +54,42 @@ func TestPictureMotionInterpolationEnabledForLargeSprites(t *testing.T) {
 	}
 }
 
+func TestMostlyOffscreenCloudKeepsMotion(t *testing.T) {
+	originalImages := clImages
+	originalSemiTransparent := pictureSemiTransparent
+	originalPictureSize := pictureSize
+	t.Cleanup(func() {
+		clImages = originalImages
+		pictureSemiTransparent = originalSemiTransparent
+		pictureSize = originalPictureSize
+	})
+
+	const width, height = 256, 128
+	clImages = mockCLImages(width, height)
+	pictureSize = func(uint16) (int, int) { return width, height }
+	pictureSemiTransparent = func(uint16) bool { return true }
+
+	// Leave only 20% of the cloud inside the left edge of the field.
+	cloud := framePicture{
+		PictID: 1,
+		Plane:  1,
+		H:      int16(-fieldCenterX - width*3/10),
+	}
+	if !pictureOnEdge(cloud) {
+		t.Fatal("test cloud was not mostly offscreen")
+	}
+	cloudMotion := pictureCloudMotionEnabled(cloud)
+	if !cloudMotion {
+		t.Fatal("mostly offscreen cloud was not detected")
+	}
+	if pictureMotionBlockedAtEdge(cloud, cloudMotion) {
+		t.Fatal("mostly offscreen cloud motion was blocked by the edge rule")
+	}
+	if !pictureMotionBlockedAtEdge(cloud, false) {
+		t.Fatal("ordinary mostly offscreen picture should still be blocked")
+	}
+}
+
 func TestMatchPicturePositionsAvoidsGreedyDuplicateSwap(t *testing.T) {
 	prev := []framePicture{
 		{PictID: 9, H: 0, V: 0},

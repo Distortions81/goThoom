@@ -10,6 +10,8 @@ import (
 )
 
 func clearCaches() {
+	clearCharacterShadowCache()
+
 	imageMu.Lock()
 	imageCache = make(map[imageKey]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
@@ -34,6 +36,12 @@ func clearCaches() {
 	if clSounds != nil {
 		clSounds.ClearCache()
 	}
+
+	// Image-backed UI rows reference textures owned by the caches above. Rebuild
+	// them after a cache clear instead of leaving stale images in EUI until the
+	// corresponding window is resized.
+	inventoryDirty = true
+	playersDirty = true
 }
 
 var assetsPrecached = false

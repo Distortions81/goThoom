@@ -145,9 +145,10 @@ var gsdef settings = settings{
 	MusicStereoPan:        false,
 	GameSound:             true,
 	Mute:                  false,
-	GameScale:             2.0,
-	SpriteUpscale:         2,
-	SpriteUpscaleFilter:   false,
+	GameScale:             3.0,
+	SpriteUpscale:         3,
+	SpriteUpscaleFilter:   true,
+	SpriteUpscaleMode:     artworkUpscaleUltraSmooth,
 	SpriteGammaCorrection: true,
 	SpriteGamma:           1.8,
 	MonitorGamma:          2.2,
@@ -313,6 +314,7 @@ type settings struct {
 	GameScale             float64
 	SpriteUpscale         int
 	SpriteUpscaleFilter   bool
+	SpriteUpscaleMode     int
 	SpriteGammaCorrection bool
 	SpriteGamma           float64
 	MonitorGamma          float64
@@ -520,6 +522,7 @@ func loadSettings() bool {
 	if gs.DenoiseSharpness < 0 || gs.DenoiseSharpness > 20 {
 		gs.DenoiseSharpness = gsdef.DenoiseSharpness
 	}
+	setArtworkUpscaleMode(artworkUpscaleMode())
 	if gs.AltNetDelay < 0 || gs.AltNetDelay > 190 {
 		gs.AltNetDelay = gsdef.AltNetDelay
 	}
@@ -580,6 +583,11 @@ func applyServerAddressSetting() {
 }
 
 func applySettings() {
+	if gs.PotatoGPU {
+		gs.BlendMobiles = false
+		gs.BlendPicts = false
+		gs.ShaderLighting = false
+	}
 	eui.SetWindowTiling(gs.WindowTiling)
 	eui.SetWindowSnapping(gs.WindowSnapping)
 	eui.SetWindowPinning(gs.WindowPinning)
@@ -817,7 +825,7 @@ var (
 		BlendPicts:             false,
 		PotatoGPU:              true,
 		ShaderLighting:         false,
-		SpriteUpscaleFilter:    false,
+		SpriteUpscaleFilter:    true,
 		HighQualityResampling:  false,
 		SoundEnhancement:       false,
 		SoundEnhancementAmount: 1.0,
@@ -880,7 +888,7 @@ var (
 func applyQualityPreset(name string) {
 	var p qualityPreset
 	switch name {
-	case "Potato GPU / iGPU":
+	case "iGPU / Low-VRAM (Potato GPU)":
 		p = potatoGPUPreset
 	case "Classic":
 		p = classicPreset
@@ -900,7 +908,11 @@ func applyQualityPreset(name string) {
 	gs.BlendPicts = p.BlendPicts
 	gs.PotatoGPU = p.PotatoGPU
 	gs.ShaderLighting = p.ShaderLighting
-	gs.SpriteUpscaleFilter = p.SpriteUpscaleFilter
+	if p.SpriteUpscaleFilter {
+		setArtworkUpscaleMode(artworkUpscaleUltraSmooth)
+	} else {
+		setArtworkUpscaleMode(artworkUpscaleOff)
+	}
 	gs.HighQualityResampling = p.HighQualityResampling
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
 	gs.SoundEnhancement = p.SoundEnhancement
@@ -916,18 +928,21 @@ func applyQualityPreset(name string) {
 	}
 	if animCB != nil {
 		animCB.Checked = gs.BlendMobiles
+		animCB.Disabled = gs.PotatoGPU
 	}
 	if pictBlendCB != nil {
 		pictBlendCB.Checked = gs.BlendPicts
+		pictBlendCB.Disabled = gs.PotatoGPU
 	}
 	if potatoCB != nil {
 		potatoCB.Checked = gs.PotatoGPU
 	}
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
+		shaderLightingCB.Disabled = gs.PotatoGPU
 	}
-	if upscaleFilterCB != nil {
-		upscaleFilterCB.Checked = gs.SpriteUpscaleFilter
+	if upscaleModeDD != nil {
+		upscaleModeDD.Selected = artworkUpscaleMode()
 	}
 	if soundEnhanceCB != nil {
 		soundEnhanceCB.Checked = gs.SoundEnhancement

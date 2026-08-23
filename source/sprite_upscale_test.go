@@ -1,195 +1,110 @@
 package main
 
 import (
-	"bytes"
 	"image"
 	"image/color"
 	"testing"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
-func TestScale2xRGBAProducesExpectedEdges(t *testing.T) {
-	src := image.NewRGBA(image.Rect(0, 0, 3, 3))
-	blue := color.RGBA{0, 0, 255, 255}
-	red := color.RGBA{255, 0, 0, 255}
-	green := color.RGBA{0, 255, 0, 255}
-	white := color.RGBA{255, 255, 255, 255}
+func TestArtworkUpscaleCappedInPotatoMode(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
 
-	src.SetRGBA(1, 0, blue)  // B
-	src.SetRGBA(0, 1, blue)  // D
-	src.SetRGBA(1, 1, white) // E
-	src.SetRGBA(2, 1, red)   // F
-	src.SetRGBA(1, 2, green) // H
-
-	dst := scale2xRGBA(src)
-	if dst.Bounds().Dx() != 6 || dst.Bounds().Dy() != 6 {
-		t.Fatalf("unexpected size: %v", dst.Bounds())
+	gs.SpriteUpscaleFilter = true
+	gs.SpriteUpscaleMode = artworkUpscaleBalanced
+	gs.GameScale = 4
+	gs.PotatoGPU = false
+	if !artworkUpscaleEnabled() || artworkUpscaleFactor() != 4 {
+		t.Fatal("artwork upscale should use the full render scale normally")
 	}
-
-	// Center pixel block starts at (2,2) in the scaled image.
-	topLeft := dst.RGBAAt(2, 2)
-	if topLeft != blue {
-		t.Fatalf("expected top-left pixel to match left/top neighbor, got %#v", topLeft)
+	gs.PotatoGPU = true
+	if !artworkUpscaleEnabled() || artworkUpscaleFactor() != 2 {
+		t.Fatal("potato mode should retain artwork upscaling capped at 2x")
 	}
-	topRight := dst.RGBAAt(3, 2)
-	if topRight != white {
-		t.Fatalf("expected top-right pixel to stay center color, got %#v", topRight)
+	gs.SpriteUpscaleFilter = false
+	if artworkUpscaleEnabled() {
+		t.Fatal("disabled artwork upscale should remain disabled in potato mode")
 	}
 }
 
-func TestScale3xRGBAProducesExpectedEdges(t *testing.T) {
-	src := image.NewRGBA(image.Rect(0, 0, 3, 3))
-	blue := color.RGBA{0, 0, 255, 255}
-	red := color.RGBA{200, 0, 0, 255}
-	green := color.RGBA{0, 255, 0, 255}
-	white := color.RGBA{255, 255, 255, 255}
-	black := color.RGBA{0, 0, 0, 255}
+func TestArtworkUpscaleStyles(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
 
-	src.SetRGBA(1, 0, red)   // B
-	src.SetRGBA(0, 1, blue)  // D
-	src.SetRGBA(1, 1, white) // E
-	src.SetRGBA(2, 1, red)   // F
-	src.SetRGBA(1, 2, green) // H
-	src.SetRGBA(2, 2, black) // I
-
-	dst := scale3xRGBA(src)
-	if dst.Bounds().Dx() != 9 || dst.Bounds().Dy() != 9 {
-		t.Fatalf("unexpected size: %v", dst.Bounds())
+	tests := []struct {
+		mode     int
+		enabled  bool
+		reach    float32
+		strength float32
+	}{
+		{mode: artworkUpscaleOff, enabled: false, reach: 0, strength: 0},
+		{mode: artworkUpscaleCrisp, enabled: true, reach: 1.35, strength: 0.65},
+		{mode: artworkUpscaleBalanced, enabled: true, reach: 1.65, strength: 0.8},
+		{mode: artworkUpscaleSmooth, enabled: true, reach: 2.75, strength: 1},
+		{mode: artworkUpscaleUltraSmooth, enabled: true, reach: 2.75, strength: 0.82},
 	}
-
-	// Center block origin at (3,3). Verify E2 (top-right) and E5 (middle-right).
-	topRight := dst.RGBAAt(5, 3)
-	if topRight != red {
-		t.Fatalf("expected top-right pixel to adopt right neighbor, got %#v", topRight)
-	}
-	middleRight := dst.RGBAAt(5, 4)
-	if middleRight != red {
-		t.Fatalf("expected middle-right pixel to adopt right neighbor, got %#v", middleRight)
-	}
-}
-
-func TestScale4xRGBAChainsTwoScale2xPasses(t *testing.T) {
-	src := image.NewRGBA(image.Rect(0, 0, 3, 3))
-	blue := color.RGBA{0, 0, 255, 255}
-	red := color.RGBA{255, 0, 0, 255}
-	green := color.RGBA{0, 255, 0, 255}
-	white := color.RGBA{255, 255, 255, 255}
-
-	src.SetRGBA(1, 0, blue)
-	src.SetRGBA(0, 1, blue)
-	src.SetRGBA(1, 1, white)
-	src.SetRGBA(2, 1, red)
-	src.SetRGBA(1, 2, green)
-
-	dst := scale4xRGBA(src)
-	if dst.Bounds().Dx() != 12 || dst.Bounds().Dy() != 12 {
-		t.Fatalf("unexpected size: %v", dst.Bounds())
-	}
-
-	expected := scale2xRGBA(scale2xRGBA(src))
-	if !dst.Bounds().Eq(expected.Bounds()) {
-		t.Fatalf("expected bounds %v, got %v", expected.Bounds(), dst.Bounds())
-	}
-	if !bytes.Equal(dst.Pix, expected.Pix) {
-		t.Fatalf("4x upscale should match two chained 2x passes")
-	}
-
-	center := dst.RGBAAt(6, 6)
-	if center != white {
-		t.Fatalf("expected center pixel to remain white, got %#v", center)
-	}
-}
-
-func TestSpriteUpscaleColorSimilarityThresholds(t *testing.T) {
-	base := rgbaPixel{r: 120, g: 100, b: 90, a: 255}
-	slight := rgbaPixel{r: 121, g: 101, b: 89, a: 255}
-	if !similarColor(base, slight) {
-		t.Fatalf("expected colours within threshold to be similar")
-	}
-
-	brightnessShift := rgbaPixel{r: 180, g: 160, b: 150, a: 255}
-	if similarColor(base, brightnessShift) {
-		t.Fatalf("expected large brightness change to exceed threshold")
-	}
-
-	hueShift := rgbaPixel{r: 90, g: 170, b: 100, a: 255}
-	if similarColor(base, hueShift) {
-		t.Fatalf("expected large hue change to exceed threshold")
-	}
-
-	saturationShift := rgbaPixel{r: 120, g: 120, b: 120, a: 255}
-	if similarColor(base, saturationShift) {
-		t.Fatalf("expected large saturation change to exceed threshold")
-	}
-
-	alphaChange := rgbaPixel{r: 120, g: 100, b: 90, a: 200}
-	if similarColor(base, alphaChange) {
-		t.Fatalf("pixels with different alpha should not be similar")
-	}
-
-	transparentA := rgbaPixel{r: 10, g: 10, b: 10, a: 0}
-	transparentB := rgbaPixel{r: 200, g: 200, b: 200, a: 0}
-	if !similarColor(transparentA, transparentB) {
-		t.Fatalf("fully transparent pixels should be treated as similar")
-	}
-}
-
-func TestScale2xRGBAIsolatedPixelSmoothing(t *testing.T) {
-	src := image.NewRGBA(image.Rect(0, 0, 3, 3))
-	white := color.RGBA{255, 255, 255, 255}
-	src.SetRGBA(1, 1, white)
-
-	dst := scale2xRGBA(src)
-	if dst.Bounds().Dx() != 6 || dst.Bounds().Dy() != 6 {
-		t.Fatalf("unexpected size: %v", dst.Bounds())
-	}
-
-	corner := dst.RGBAAt(2, 2)
-	if corner.A >= white.A {
-		t.Fatalf("expected softened alpha below source alpha, got %d", corner.A)
-	}
-	if corner.A < 180 {
-		t.Fatalf("expected softened alpha to stay visible, got %d", corner.A)
-	}
-	if corner.R != corner.G || corner.G != corner.B {
-		t.Fatalf("expected greyscale smoothing, got %#v", corner)
-	}
-
-	other := []color.RGBA{
-		dst.RGBAAt(3, 2),
-		dst.RGBAAt(2, 3),
-		dst.RGBAAt(3, 3),
-	}
-	for idx, pix := range other {
-		if pix != corner {
-			t.Fatalf("expected symmetrical smoothing, mismatch at index %d: %#v vs %#v", idx, pix, corner)
+	for _, tt := range tests {
+		setArtworkUpscaleMode(tt.mode)
+		if artworkUpscaleEnabled() != tt.enabled {
+			t.Errorf("mode %d enabled = %v, want %v", tt.mode, artworkUpscaleEnabled(), tt.enabled)
+		}
+		if got := artworkUpscaleCornerReach(); got != tt.reach {
+			t.Errorf("mode %d corner reach = %v, want %v", tt.mode, got, tt.reach)
+		}
+		if got := artworkUpscaleBlendStrength(); got != tt.strength {
+			t.Errorf("mode %d blend strength = %v, want %v", tt.mode, got, tt.strength)
 		}
 	}
 }
 
-func TestApplyUpscaleAntialiasSmoothsEdges(t *testing.T) {
-	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
-	black := color.RGBA{0, 0, 0, 255}
-	white := color.RGBA{255, 255, 255, 255}
-	for y := 0; y < 3; y++ {
-		for x := 0; x < 3; x++ {
-			img.SetRGBA(x, y, black)
-		}
-	}
-	img.SetRGBA(1, 0, white)
-	img.SetRGBA(1, 2, white)
-	aa := applyUpscaleAntialias(img)
+func TestKageArtworkUpscaleCreatesRequestedResolution(t *testing.T) {
+	originalSettings := gs
+	gs.PotatoGPU = false
+	t.Cleanup(func() { gs = originalSettings })
 
-	if aa == nil {
-		t.Fatalf("expected anti-aliased image, got nil")
+	src := ebiten.NewImage(3, 5)
+	src.Fill(color.RGBA{R: 255, A: 255})
+	for factor := 2; factor <= 4; factor++ {
+		scaled := upscaleSpriteImage(src, factor)
+		if got, want := scaled.Bounds().Size(), image.Pt(3*factor, 5*factor); got != want {
+			t.Fatalf("%dx shader upscale size = %v, want %v", factor, got, want)
+		}
+		scaled.Deallocate()
 	}
-	center := aa.RGBAAt(1, 1)
-	if center.R <= 40 {
-		t.Fatalf("expected center pixel to blend towards neighbours, got %#v", center)
+}
+
+func TestKageMobileUpscaleCacheReusesTexture(t *testing.T) {
+	originalSettings := gs
+	gs.GameScale = 2
+	gs.PotatoGPU = false
+	gs.SpriteUpscaleFilter = true
+	gs.SpriteUpscaleMode = artworkUpscaleBalanced
+	imageMu.Lock()
+	originalCache := scaledMobileCache
+	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
+	imageMu.Unlock()
+	t.Cleanup(func() {
+		imageMu.Lock()
+		scaledMobileCache = originalCache
+		imageMu.Unlock()
+		gs = originalSettings
+	})
+
+	src := ebiten.NewImage(4, 4)
+	key := makeMobileKey(447, 0, nil)
+	first := getScaledMobileFrame(key, src)
+	second := getScaledMobileFrame(key, src)
+	if first != second {
+		t.Fatal("Kage-upscaled mobile texture was not reused")
 	}
-	if aa.RGBAAt(1, 0) != white {
-		t.Fatalf("expected top pixel to remain white")
+	if got := first.Bounds().Size(); got != image.Pt(8, 8) {
+		t.Fatalf("cached Kage texture size = %v, want 8x8", got)
 	}
-	if aa.RGBAAt(0, 1) != black {
-		t.Fatalf("expected adjacent black pixel to remain black")
+	setArtworkUpscaleMode(artworkUpscaleSmooth)
+	smooth := getScaledMobileFrame(key, src)
+	if smooth == first {
+		t.Fatal("smooth mode reused the balanced cached texture")
 	}
 }
