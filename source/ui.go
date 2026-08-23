@@ -4362,11 +4362,11 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(precacheImageCB)
 
-	var detailedShadowsCB *eui.ItemData
+	var detailedShadowsCB, shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "iGPU / Low-VRAM (Potato GPU)"
-	potatoCB.SetTooltip("Reduce GPU and VRAM use by bypassing shader shadows and expensive effects while limiting sharp sprite upscaling to 2x")
+	potatoCB.SetTooltip("Reduce GPU and VRAM use by bypassing detailed shadow compositing and expensive effects while limiting sharp sprite upscaling to 2x")
 	potatoCB.Size = eui.Point{X: width, Y: 24}
 	potatoCB.Checked = gs.PotatoGPU
 	potatoEvents.Handle = func(ev eui.UIEvent) {
@@ -4422,6 +4422,9 @@ func makeQualityWindow() {
 	characterShadowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.CharacterShadows = ev.Checked
+			if shadowDarknessSlider != nil {
+				shadowDarknessSlider.Disabled = !ev.Checked
+			}
 			if detailedShadowsCB != nil {
 				detailedShadowsCB.Disabled = !ev.Checked || gs.PotatoGPU
 			}
@@ -4429,6 +4432,23 @@ func makeQualityWindow() {
 		}
 	}
 	shadowSection.AddItem(characterShadowsCB)
+
+	shadowDarknessSlider, shadowDarknessEvents := eui.NewSlider()
+	shadowDarknessSlider.Label = "Character Shadow Darkness"
+	shadowDarknessSlider.MinValue = 1
+	shadowDarknessSlider.MaxValue = 200
+	shadowDarknessSlider.IntOnly = true
+	shadowDarknessSlider.Value = float32(gs.CharacterShadowDarkness * 100)
+	shadowDarknessSlider.Size = eui.Point{X: width - 10, Y: 24}
+	shadowDarknessSlider.Disabled = !gs.CharacterShadows
+	shadowDarknessSlider.SetTooltip("Adjust character shadows from barely visible (1%) to very dark (200%)")
+	shadowDarknessEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.CharacterShadowDarkness = float64(ev.Value / 100)
+			settingsDirty = true
+		}
+	}
+	shadowSection.AddItem(shadowDarknessSlider)
 
 	detailedShadowsCB, detailedShadowsEvents := eui.NewCheckbox()
 	detailedShadowsCB.Text = "Accurate Character Shadows"

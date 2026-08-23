@@ -40,14 +40,14 @@ func graphicsBenchmarkRecommendedLabel(result graphicsBenchmarkResult) string {
 	return "Full Quality (Recommended)"
 }
 
-// runGraphicsBenchmark measures synchronized work from the same lighting,
-// artwork-upscale, and character-shadow shaders used by the client. It must be
+// runGraphicsBenchmark measures synchronized work from the same lighting and
+// artwork-upscale shaders used by the client. It must be
 // called from Ebitengine's main goroutine after the game has started.
 func runGraphicsBenchmark() (graphicsBenchmarkResult, error) {
 	if isWASM {
 		return graphicsBenchmarkResult{}, fmt.Errorf("the graphics test is unavailable in browser builds")
 	}
-	if lightingShader == nil || spriteUpscaleShader == nil || characterShadowBlurShader == nil {
+	if lightingShader == nil || spriteUpscaleShader == nil {
 		return graphicsBenchmarkResult{}, fmt.Errorf("graphics shaders are not ready")
 	}
 
@@ -78,21 +78,6 @@ func runGraphicsBenchmark() (graphicsBenchmarkResult, error) {
 		"BlendStrength": float32(0.82),
 	}}
 	upscaleOp.Images[0] = nearest
-
-	shadowHorizontal := ebiten.NewImage(512, 512)
-	defer shadowHorizontal.Deallocate()
-	shadowOutput := ebiten.NewImage(512, 512)
-	defer shadowOutput.Deallocate()
-	shadowUniforms := map[string]any{
-		"Direction":        []float32{1, 0},
-		"SoftnessPerPixel": float32(characterShadowSoftnessPerPixel),
-		"RadiusLimit":      float32(12),
-		"FadePerPixel":     float32(characterShadowFadePerPixel / 4),
-		"MinimumOpacity":   float32(characterShadowMinimumOpacity),
-		"FootY":            float32(512),
-		"ApplyGradient":    float32(1),
-	}
-	shadowOp := &ebiten.DrawRectShaderOptions{Uniforms: shadowUniforms}
 
 	const lightingWidth, lightingHeight = 960, 640
 	lightingSource := ebiten.NewImage(lightingWidth, lightingHeight)
@@ -152,15 +137,6 @@ func runGraphicsBenchmark() (graphicsBenchmarkResult, error) {
 	pass := func() time.Duration {
 		start := time.Now()
 		upscaled.DrawRectShader(512, 512, spriteUpscaleShader, upscaleOp)
-
-		shadowOp.Images[0] = nearest
-		shadowHorizontal.DrawRectShader(512, 512, characterShadowBlurShader, shadowOp)
-		shadowUniforms["Direction"] = []float32{0, 1}
-		shadowUniforms["ApplyGradient"] = float32(0)
-		shadowOp.Images[0] = shadowHorizontal
-		shadowOutput.DrawRectShader(512, 512, characterShadowBlurShader, shadowOp)
-		shadowUniforms["Direction"] = []float32{1, 0}
-		shadowUniforms["ApplyGradient"] = float32(1)
 
 		lightingOutput.DrawRectShader(lightingWidth, lightingHeight, lightingShader, lightOp)
 		sentinel.ReadPixels(pixel)

@@ -100,10 +100,13 @@ func (g *shadowRenderGame) Layout(_, _ int) (int, int) {
 }
 
 func (g *shadowRenderGame) renderImages() error {
-	if err := verifyCharacterShadowCacheDeterminism(); err != nil {
+	if err := verifyCharacterShadowSourceDeterminism(); err != nil {
 		return err
 	}
 	for _, character := range shadowTestCharacters {
+		if err := g.renderWalkCycle(character.name, character.pictID); err != nil {
+			return err
+		}
 		visibleSprite := loadMobileFrame(character.pictID, 0, nil)
 		if visibleSprite == nil {
 			return fmt.Errorf("load visible mobile pict %d", character.pictID)
@@ -117,7 +120,7 @@ func (g *shadowRenderGame) renderImages() error {
 			if shadowSprite == nil {
 				return fmt.Errorf("load shadow mobile pict %d state %d", character.pictID, shadowState)
 			}
-			shadowTexture := characterShadowTextureFor(makeMobileKey(character.pictID, shadowState, nil), shadowSprite, shadowTestDrawSize)
+			shadowTexture := characterShadowTextureFor(shadowSprite)
 
 			projection := newCharacterShadowProjection(azimuth)
 			canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
@@ -141,7 +144,35 @@ func (g *shadowRenderGame) renderImages() error {
 	return nil
 }
 
-func verifyCharacterShadowCacheDeterminism() error {
+func (g *shadowRenderGame) renderWalkCycle(name string, pictID uint16) error {
+	const azimuth = 90
+	canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
+	for visibleState := uint8(0); visibleState < 4; visibleState++ {
+		visibleSprite := loadMobileFrame(pictID, visibleState, nil)
+		shadowState, casts := chooseUprightShadowPose(visibleState, azimuth)
+		if visibleSprite == nil || !casts {
+			return fmt.Errorf("load walk-cycle mobile pict %d state %d", pictID, visibleState)
+		}
+		shadowSprite := loadMobileFrame(pictID, shadowState, nil)
+		if shadowSprite == nil {
+			return fmt.Errorf("load walk-cycle shadow pict %d state %d", pictID, shadowState)
+		}
+		shadowTexture := characterShadowTextureFor(shadowSprite)
+		x := 100 + int(visibleState)*200
+		y := 440
+		mask := ebiten.NewImage(shadowTestCanvasSize, shadowTestCanvasSize)
+		drawCharacterShadow(mask, shadowTexture, shadowTestDrawSize, x, y, 0.75, newCharacterShadowProjection(azimuth), true, shadowMaskBlend)
+		canvas.DrawImage(mask, &ebiten.DrawImageOptions{Blend: shadowDarkenBlend})
+
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+		op.GeoM.Scale(float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dx()), float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dy()))
+		op.GeoM.Translate(float64(x-shadowTestDrawSize/2), float64(y-shadowTestDrawSize/2))
+		canvas.DrawImage(visibleSprite, op)
+	}
+	return writeShadowTestPNG(filepath.Join(g.outputDir, fmt.Sprintf("shadow_%s_%d_walk_cycle.png", name, pictID)), canvas)
+}
+
+func verifyCharacterShadowSourceDeterminism() error {
 	const pictID uint16 = 447
 	const state uint8 = 0
 	var reference []byte
@@ -166,7 +197,7 @@ func verifyCharacterShadowCacheDeterminism() error {
 		if sprite == nil {
 			return fmt.Errorf("load deterministic shadow mobile pict %d", pictID)
 		}
-		texture := characterShadowTextureFor(makeMobileKey(pictID, state, nil), sprite, mobileSize(pictID))
+		texture := characterShadowTextureFor(sprite)
 		pixels := make([]byte, 4*texture.image.Bounds().Dx()*texture.image.Bounds().Dy())
 		texture.image.ReadPixels(pixels)
 		if attempt == 0 {

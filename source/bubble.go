@@ -18,6 +18,18 @@ var blackImage *ebiten.Image
 var grayImage *ebiten.Image
 var thoughtBubbleCompositeMask *ebiten.Image
 
+var bubbleAnimationEpoch = time.Now()
+
+const ponderBubbleAnimationSpeed = 4.0
+
+func ponderBubblePhase(elapsed time.Duration) float64 {
+	return elapsed.Seconds() * ponderBubbleAnimationSpeed
+}
+
+func ponderWaveOffset(phase, spatialPhase float64, radius float32) float32 {
+	return float32(math.Sin(phase+spatialPhase)) * radius * 0.3
+}
+
 var thoughtBubbleMaskBlend = ebiten.Blend{
 	BlendOperationRGB:   ebiten.BlendOperationMax,
 	BlendOperationAlpha: ebiten.BlendOperationMax,
@@ -266,11 +278,11 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	body.Close()
 
 	var tail vector.Path
+	ponderPhase := ponderBubblePhase(time.Since(bubbleAnimationEpoch))
 	if !far && !noArrow {
 		if bubbleType == kBubblePonder {
 			r1 := float32(tailHalf)
-			phase := float64(time.Now().UnixNano()) / float64(time.Second)
-			offset1 := r1 * 0.3 * float32(math.Sin(phase))
+			offset1 := r1 * 0.3 * float32(math.Sin(ponderPhase))
 			cx1 := float32(baseX) + fx
 			// Bias ponder tail circles closer to the mobile so the origin is
 			// easier to see. Space the first (largest) circle at ~20% of the
@@ -285,7 +297,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 			tail.Arc(cx1, cy1, r1, 0, 2*math.Pi, vector.Clockwise)
 			tail.Close()
 			rMid := r1 * 0.6
-			offsetMid := rMid * 0.5 * float32(math.Sin(phase+math.Pi/4))
+			offsetMid := rMid * 0.5 * float32(math.Sin(ponderPhase+math.Pi/4))
 			cxMid := float32(baseX+tailX)/2 + fx
 			// Place the middle circle at ~65% down the path toward the tail.
 			cyMid := float32(bottom) + dist*0.65 - offsetMid + fy
@@ -293,7 +305,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 			tail.Arc(cxMid, cyMid, rMid, 0, 2*math.Pi, vector.Clockwise)
 			tail.Close()
 			r2 := float32(tailHalf) / 2
-			offset2 := r2 * 0.6 * float32(math.Sin(phase+math.Pi/2))
+			offset2 := r2 * 0.6 * float32(math.Sin(ponderPhase+math.Pi/2))
 			cx2 := float32(tailX) + fx
 			cy2 := float32(tailY) - offset2 + fy
 			tail.MoveTo(cx2+r2, cy2)
@@ -354,7 +366,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		drawOutline.ColorScale.ScaleWithColor(borderColor)
 		vector.StrokePath(screen, &outline, strokeOp, drawOutline)
 	} else {
-		drawPonderWaves(backgroundTarget, left+offsetX, top+offsetY, right+offsetX, bottom+offsetY, fillColor, s, backgroundBlend)
+		drawPonderWaves(backgroundTarget, left+offsetX, top+offsetY, right+offsetX, bottom+offsetY, fillColor, s, ponderPhase, backgroundBlend)
 	}
 
 	if compositeThought {
@@ -589,7 +601,7 @@ func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, s
 	corner(left+radius, bottom-radius, 0.5*math.Pi, math.Pi)
 }
 
-func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col color.Color, bubbleScale float64, blend ebiten.Blend) {
+func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col color.Color, bubbleScale, phase float64, blend ebiten.Blend) {
 	colR, colG, colB, colA := col.RGBA()
 	waveColor := color.RGBA64{R: uint16(colR), G: uint16(colG), B: uint16(colB), A: uint16(colA)}
 	if bubbleScale <= 0 {
@@ -617,7 +629,6 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 
 	r := float32(6) * s
 	step := r * 1.2
-	phase := float64(time.Now().UnixNano()) / float64(time.Second)
 	corner := float32(10) * s
 	angleStep := float64(step / corner)
 
@@ -627,7 +638,7 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 
 	// top edge
 	for x := float32(left) + corner; x <= float32(right)-corner; x += step {
-		offset := float32(math.Sin(phase+float64(x-float32(left))*0.1)) * r * 0.3
+		offset := ponderWaveOffset(phase, float64(x-float32(left))*0.1, r)
 		draw(x, float32(top)+offset)
 	}
 	// top-right corner
@@ -636,12 +647,12 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 		cy := float32(top) + corner + float32(math.Sin(a))*corner
 		nx := float32(math.Cos(a))
 		ny := float32(math.Sin(a))
-		offset := float32(math.Sin(phase+a)) * r * 0.3
+		offset := ponderWaveOffset(phase, a, r)
 		draw(cx+offset*nx, cy+offset*ny)
 	}
 	// right edge
 	for y := float32(top) + corner; y <= float32(bottom)-corner; y += step {
-		offset := float32(math.Sin(phase+float64(y-float32(top))*0.1)) * r * 0.3
+		offset := ponderWaveOffset(phase, float64(y-float32(top))*0.1, r)
 		draw(float32(right)+offset, y)
 	}
 	// bottom-right corner
@@ -650,12 +661,12 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 		cy := float32(bottom) - corner + float32(math.Sin(a))*corner
 		nx := float32(math.Cos(a))
 		ny := float32(math.Sin(a))
-		offset := float32(math.Sin(phase+a)) * r * 0.3
+		offset := ponderWaveOffset(phase, a, r)
 		draw(cx+offset*nx, cy+offset*ny)
 	}
 	// bottom edge
 	for x := float32(right) - corner; x >= float32(left)+corner; x -= step {
-		offset := float32(math.Sin(phase+float64(x-float32(left))*0.1)) * r * 0.3
+		offset := ponderWaveOffset(phase, float64(x-float32(left))*0.1, r)
 		draw(x, float32(bottom)+offset)
 	}
 	// bottom-left corner
@@ -664,12 +675,12 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 		cy := float32(bottom) - corner + float32(math.Sin(a))*corner
 		nx := float32(math.Cos(a))
 		ny := float32(math.Sin(a))
-		offset := float32(math.Sin(phase+a)) * r * 0.3
+		offset := ponderWaveOffset(phase, a, r)
 		draw(cx+offset*nx, cy+offset*ny)
 	}
 	// left edge
 	for y := float32(bottom) - corner; y >= float32(top)+corner; y -= step {
-		offset := float32(math.Sin(phase+float64(y-float32(top))*0.1)) * r * 0.3
+		offset := ponderWaveOffset(phase, float64(y-float32(top))*0.1, r)
 		draw(float32(left)+offset, y)
 	}
 	// top-left corner
@@ -678,7 +689,7 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 		cy := float32(top) + corner + float32(math.Sin(a))*corner
 		nx := float32(math.Cos(a))
 		ny := float32(math.Sin(a))
-		offset := float32(math.Sin(phase+a)) * r * 0.3
+		offset := ponderWaveOffset(phase, a, r)
 		draw(cx+offset*nx, cy+offset*ny)
 	}
 }

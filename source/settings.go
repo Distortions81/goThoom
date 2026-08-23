@@ -230,6 +230,7 @@ var gsdef settings = settings{
 	NightEffect:              true,
 	ShaderLighting:           true,
 	CharacterShadows:         true,
+	CharacterShadowDarkness:  1.0,
 	DetailedCharacterShadows: true,
 
 	// Window behavior
@@ -420,6 +421,7 @@ type settings struct {
 	NightEffect              bool
 	ShaderLighting           bool
 	CharacterShadows         bool
+	CharacterShadowDarkness  float64
 	DetailedCharacterShadows bool
 
 	// Window behavior
@@ -585,6 +587,9 @@ func loadSettings() bool {
 	}
 	if gs.FlameFlickerStrength < 0 || gs.FlameFlickerStrength > 2 {
 		gs.FlameFlickerStrength = gsdef.FlameFlickerStrength
+	}
+	if gs.CharacterShadowDarkness < 0.01 || gs.CharacterShadowDarkness > 2 {
+		gs.CharacterShadowDarkness = gsdef.CharacterShadowDarkness
 	}
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)

@@ -64,6 +64,9 @@ func TestDetailedCharacterShadowsDefaultOn(t *testing.T) {
 	if !gsdef.DetailedCharacterShadows {
 		t.Error("detailed character shadows should be enabled by default")
 	}
+	if gsdef.CharacterShadowDarkness != 1 {
+		t.Errorf("default character shadow darkness = %v, want 1", gsdef.CharacterShadowDarkness)
+	}
 }
 
 func TestFlameFlickerStrengthDefault(t *testing.T) {

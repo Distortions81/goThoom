@@ -1,7 +1,9 @@
 package main
 
 import (
+	"math"
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -23,5 +25,14 @@ func TestThoughtBubbleMaskUsesMaximumAlpha(t *testing.T) {
 	}
 	if thoughtBubbleMaskBlend.BlendOperationAlpha != ebiten.BlendOperationMax {
 		t.Fatal("thought-bubble mask does not combine alpha coverage by maximum")
+	}
+}
+
+func TestPonderBubbleAnimationAdvances(t *testing.T) {
+	if got := ponderBubblePhase(250 * time.Millisecond); math.Abs(got-1) > 1e-9 {
+		t.Fatalf("ponder animation phase after 250ms = %v, want 1", got)
+	}
+	if first, next := ponderWaveOffset(0, 0, 6), ponderWaveOffset(math.Pi/2, 0, 6); first == next {
+		t.Fatalf("ponder wave offset did not change between phases: %v", first)
 	}
 }

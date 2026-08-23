@@ -372,7 +372,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTest.Text = "Test Graphics Performance"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Runs seven synchronized samples of lighting, artwork upscaling, and character-shadow filtering, then recommends a quality mode")
+	graphicsTest.SetTooltip("Runs seven synchronized samples of lighting and artwork upscaling, then recommends a quality mode")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {

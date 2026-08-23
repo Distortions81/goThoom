@@ -3,7 +3,8 @@ goThoom 37 changes since test36.
 New and improved:
 - Added Character Shadows, enabled by default. Upright characters cast sun-directed projected shadows while creatures, boats, and prone characters use inexpensive drop shadows.
 - Added Accurate Character Shadows, enabled by default. Overlapping character shadows are combined before darkening the scene so crowded groups do not become excessively dark.
-- Character shadows now use cached GPU-filtered textures with a per-pixel softness and opacity gradient: darkest and sharpest at the feet, softer and lighter toward the projected head.
+- Added a Character Shadow Darkness slider ranging from barely visible to very dark, with the existing appearance as its default.
+- Character shadows use each matching animation frame's original alpha directly, with no blur, softness gradient, opacity gradient, or per-frame normalization.
 - Character shadow direction, mirroring, length, and low-sun behavior follow the classic client's projection model.
 - Light and dark casters now respect their lighting-plane metadata while retaining the single-pass shader path.
 - Added support for `kPictDefFlagOnlyAttackPosesLit`, `kPictDefFlagLightFlicker`, and random-animation picture definitions.
@@ -28,11 +29,13 @@ Defaults and options:
 - When Stereo Music is enabled, bard parts are spread across a maximum 40% stereo field instead of 70%.
 
 Fixes:
-- Stabilized character-shadow attachment, brightness, and softness across players and animation frames by using the visible foot edge, logical character-pixel distances, and continuous blur sampling; shadows now follow the matching character walk-cycle frame.
+- Restored clearly visible ponder-bubble animation after compositing its overlapping shapes into a single-opacity mask.
+- Stabilized character-shadow attachment and treatment across players and animation frames by using the same fixed logical cell and ground edge as character rendering; shadows follow the matching walk-cycle frame without moving their treatment field.
+- Character shadows use the exact current walk-cycle frame without animation crossfading, avoiding intermediate alpha textures that made their darkness pulse while walking or idle.
 - Kept speech-bubble text independent of the artwork supersampling scale and adjusted the default interface font sizes for clearer bubbles and more compact lists and names.
 - New installations now enable sound precaching with at least 4 GiB of system RAM and artwork precaching with at least 8 GiB; both remain off by default in browsers or when memory cannot be detected.
-- Added a repeatable setup-wizard graphics benchmark using the real lighting, artwork-upscale, and character-shadow shaders. Its result dialog clearly labels and can apply the recommended Full Quality or iGPU / Low-VRAM preset, and the sustained low-FPS warning now offers the complete low-resource preset.
-- Synchronized image-cache invalidation with background precaching so quality changes cannot repopulate caches with images being cleared, which previously made rebuilt character-shadow gradients and softness appear random.
+- Added a repeatable setup-wizard graphics benchmark using the real lighting and artwork-upscale shaders. Its result dialog clearly labels and can apply the recommended Full Quality or iGPU / Low-VRAM preset, and the sustained low-FPS warning now offers the complete low-resource preset.
+- Synchronized image-cache invalidation with background precaching so quality changes cannot repopulate caches with images being cleared.
 - Restored the compact pre-tuning radius for emitted light glows so nearby artwork stays clear instead of looking broadly blurred.
 - Expanded dark-caster coverage, reduced dead dark-caster intensity, and stopped fully off-screen lighting sources from consuming shader capacity.
 - Fixed mostly-offscreen clouds losing motion smoothing; ordinary edge objects still use the conservative edge rule.
@@ -51,5 +54,5 @@ Fixes:
 Technical changes:
 - Moved the Go module and runtime source tree under `source/`; repository-level build scripts and documentation were updated for the new layout.
 - Published release builds no longer run for ordinary pushes, and the WebAssembly build is maintained as a separate explicit build script.
-- Artwork-upscale caches now distinguish each selected style, character shadows are cached per sprite and scale, and both caches are cleared when relevant quality settings change.
+- Artwork-upscale caches now distinguish each selected style and are cleared when relevant quality settings change.
 - Added regression coverage for settings migration, lighting flags and planes, random animations, character shadows, artwork upscaling, thought-bubble compositing, cache refreshes, music streaming and stopping, scrollbar sizing, UI click ownership, and legacy macro text selection.
