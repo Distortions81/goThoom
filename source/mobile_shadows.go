@@ -23,6 +23,7 @@ const (
 	contactShadowHeight    = 0.24
 	contactShadowTexSize   = 64
 	characterShadowPadding = 1
+	lyingShadowOffset      = 2.0
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -101,6 +102,10 @@ func chooseUprightShadowPose(state uint8, azimuth int) (uint8, bool) {
 		return 0, false
 	}
 	return state, true
+}
+
+func isLyingShadowState(state uint8) bool {
+	return state == poseDead || state == poseLie
 }
 
 func characterShadowSunHeight(azimuth int) float64 {
@@ -193,6 +198,9 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 			continue
 		}
 		state := mobile.State
+		if isLyingShadowState(state) {
+			continue
+		}
 		upright := clImages.Flags(uint32(desc.PictID))&climg.PictDefFlagUprightShadow != 0
 		if upright {
 			var casts bool
@@ -202,10 +210,12 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 			}
 		}
 
-		img := loadMobileFrame(desc.PictID, state, playerColorsForDescriptor(desc))
+		colors := playerColorsForDescriptor(desc)
+		img := loadMobileFrame(desc.PictID, state, colors)
 		if img == nil {
 			continue
 		}
+		img = getScaledMobileFrame(makeMobileKey(desc.PictID, state, colors), img)
 		size := mobileSize(desc.PictID)
 		if size == 0 {
 			size = img.Bounds().Dx()
@@ -223,6 +233,45 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	}
 }
 
+func drawMobileImmediateShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, shadowAlpha float32, kind characterShadowKind) {
+	if kind == characterShadowNone {
+		return
+	}
+	if isLyingShadowState(mobile.State) {
+		drawMobileDropShadow(screen, ox, oy, mobile, descMap, prevMobiles, shiftX, shiftY, alpha, maxDist, shadowAlpha)
+		return
+	}
+	if kind == characterShadowContact {
+		drawMobileContactShadow(screen, ox, oy, mobile, descMap, prevMobiles, shiftX, shiftY, alpha, maxDist, shadowAlpha)
+	}
+}
+
+func drawMobileDropShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, shadowAlpha float32) {
+	desc, ok := descMap[mobile.Index]
+	if !ok {
+		return
+	}
+	colors := playerColorsForDescriptor(desc)
+	img := loadMobileFrame(desc.PictID, mobile.State, colors)
+	if img == nil {
+		return
+	}
+	key := makeMobileKey(desc.PictID, mobile.State, colors)
+	img = getScaledMobileFrame(key, img)
+	size := mobileSize(desc.PictID)
+	if size <= 0 {
+		size = img.Bounds().Dx()
+	}
+	texture := characterShadowTextureFor(img)
+	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
+	projection := characterShadowProjection{
+		dropOffsetX: lyingShadowOffset * gs.GameScale,
+		dropOffsetY: lyingShadowOffset * gs.GameScale,
+		contrast:    1,
+	}
+	drawCharacterShadow(screen, texture, size, x, y, shadowAlpha, projection, false, shadowDarkenBlend)
+}
+
 func drawMobileContactShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, shadowAlpha float32) {
 	if clImages == nil {
 		return
@@ -235,8 +284,19 @@ func drawMobileContactShadow(screen *ebiten.Image, ox, oy int, mobile frameMobil
 	if size <= 0 {
 		return
 	}
+	colors := playerColorsForDescriptor(desc)
+	img := loadMobileFrame(desc.PictID, mobile.State, colors)
+	if img == nil {
+		return
+	}
+	key := makeMobileKey(desc.PictID, mobile.State, colors)
+	img = getScaledMobileFrame(key, img)
+	metrics := mobileSpriteMetricsFor(key, img)
 	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
-	drawContactShadow(screen, size, x, y, shadowAlpha, shadowDarkenBlend)
+	if contactShadowNearOtherLight(mobile.Index, float32(x), float32(y)) {
+		return
+	}
+	drawContactShadow(screen, size, x, y, metrics.footFraction, shadowAlpha, shadowDarkenBlend)
 }
 
 func contactShadowImage() *ebiten.Image {
@@ -261,7 +321,7 @@ func contactShadowImage() *ebiten.Image {
 	return contactShadowTexture
 }
 
-func drawContactShadow(screen *ebiten.Image, size, x, y int, alpha float32, blend ebiten.Blend) {
+func drawContactShadow(screen *ebiten.Image, size, x, y int, footFraction, alpha float32, blend ebiten.Blend) {
 	img := contactShadowImage()
 	if img == nil || size <= 0 {
 		return
@@ -279,7 +339,8 @@ func drawContactShadow(screen *ebiten.Image, size, x, y int, alpha float32, blen
 	op.Blend = blend
 	op.ColorScale.Scale(0, 0, 0, drawAlpha)
 	op.GeoM.Scale(width/float64(img.Bounds().Dx()), height/float64(img.Bounds().Dy()))
-	op.GeoM.Translate(float64(x)-width/2, float64(y)+target/2-height/2)
+	footY := float64(y) - target/2 + target*float64(footFraction)
+	op.GeoM.Translate(float64(x)-width/2, footY-height/2)
 	screen.DrawImage(img, op)
 	releaseDrawOpts(op)
 }
@@ -303,6 +364,9 @@ func characterShadowTextureFor(img *ebiten.Image) characterShadowTexture {
 		return texture
 	}
 	bounds := img.Bounds()
+	pixels := make([]byte, 4*bounds.Dx()*bounds.Dy())
+	img.ReadPixels(pixels)
+	footY := opaqueFootY(pixels, bounds.Dx(), bounds.Dy())
 	padded := newImage(bounds.Dx()+characterShadowPadding*2, bounds.Dy()+characterShadowPadding*2)
 	op := acquireDrawOpts()
 	op.GeoM.Translate(characterShadowPadding, characterShadowPadding)
@@ -312,7 +376,7 @@ func characterShadowTextureFor(img *ebiten.Image) characterShadowTexture {
 		image:       padded,
 		contentSize: bounds.Dx(),
 		padding:     characterShadowPadding,
-		footY:       float64(bounds.Dy() + characterShadowPadding),
+		footY:       float64(footY + characterShadowPadding),
 	}
 	characterShadowTextureCache[img] = texture
 	return texture

@@ -39,6 +39,7 @@ var (
 	setupWizardPreviewBubble bool
 	setupWizardPreviewVer    uint16
 	setupWizardPreviewRev    int32
+	setupWizardPreviewNight  movieNightState
 
 	setupWizardGraphicsRecommendation string
 )
@@ -52,6 +53,8 @@ func openSetupWizard(force bool) {
 		return
 	}
 	setupWizardPage = 0
+	setupWizardScenePage = -1
+	setupWizardSceneStarted = time.Time{}
 	setupWizardGraphicsRecommendation = ""
 	if setupWizardWin == nil {
 		setupWizardWin = eui.NewWindow()
@@ -80,10 +83,12 @@ func startSetupWizardPreview() {
 	}
 	previousVersion := movieVersion
 	previousRevision := movieRevision
+	previousNight := captureMovieNightState()
 	frames, err := parseMovieZipBytes(setupWizardMovieZip, clVersion)
 	if err != nil || len(frames) == 0 {
 		movieVersion = previousVersion
 		movieRevision = previousRevision
+		restoreMovieNightState(previousNight)
 		if err != nil {
 			logError("setup wizard movie: %v", err)
 		}
@@ -99,8 +104,10 @@ func startSetupWizardPreview() {
 	setupWizardPreviewBubble = blockBubbles
 	setupWizardPreviewVer = previousVersion
 	setupWizardPreviewRev = previousRevision
+	setupWizardPreviewNight = previousNight
 	setupWizardPreviewActive = true
-	blockBubbles = true
+	// The synthetic visibility scene supplies its own deterministic bubble.
+	blockBubbles = false
 	drawStateEncrypted = false
 	playerName = extractMoviePlayerName(frames)
 	if loginWin != nil {
@@ -146,6 +153,7 @@ func stopSetupWizardPreview() {
 	drawStateEncrypted = setupWizardPreviewCrypt
 	movieVersion = setupWizardPreviewVer
 	movieRevision = setupWizardPreviewRev
+	restoreMovieNightState(setupWizardPreviewNight)
 	setupWizardPreview = nil
 	setupWizardPreviewCancel = nil
 	setupWizardPreviewDone = nil
@@ -175,6 +183,7 @@ func rebuildSetupWizard() {
 	if setupWizardPage >= setupWizardPageCount {
 		setupWizardPage = setupWizardPageCount - 1
 	}
+	selectSetupWizardSceneForPage(setupWizardPage)
 	setupWizardWin.Scroll = eui.Point{}
 
 	setupWizardWin.Title = fmt.Sprintf("goThoom %d Setup", appVersion)
@@ -533,6 +542,21 @@ func buildSetupLightingPage(root *eui.ItemData) {
 		"Shader lighting adds smoother night darkening, colored light, and compact glow around light sources. It looks richer, but uses more GPU than classic lighting.",
 		11, 620,
 	))
+	preview, previewEvents := eui.NewDropdown()
+	preview.Label = "Preview scene"
+	preview.Options = []string{"Daylight shadows", "Indoor contact shadows", "Night glow and light cones"}
+	preview.Selected = int(setupWizardSceneModeValue)
+	if preview.Selected < int(setupWizardSceneDay) || preview.Selected > int(setupWizardSceneNight) {
+		preview.Selected = int(setupWizardSceneNight)
+	}
+	preview.Size = eui.Point{X: 320, Y: 24}
+	preview.SetTooltip("Switch the test room between the lighting conditions these controls affect")
+	previewEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(setupWizardSceneDay) && ev.Index <= int(setupWizardSceneNight) {
+			setupWizardSceneModeValue = setupWizardSceneMode(ev.Index)
+		}
+	}
+	root.AddItem(preview)
 
 	root.AddItem(setupWizardCheckbox(
 		"Shader lighting effects",
@@ -552,6 +576,22 @@ func buildSetupLightingPage(root *eui.ItemData) {
 			markQualityCustom()
 		},
 	))
+	root.AddItem(setupWizardSlider("Light strength", "Adjust the direct illumination from lamps and other light sources in the night scene.", 1, 200, float32(gs.ShaderLightStrength*100), true, func(value float32) {
+		gs.ShaderLightStrength = float64(value / 100)
+		markQualityCustom()
+	}))
+	root.AddItem(setupWizardSlider("Glow strength", "Adjust the soft halo around light sources in the night scene.", 1, 200, float32(gs.ShaderGlowStrength*100), true, func(value float32) {
+		gs.ShaderGlowStrength = float64(value / 100)
+		markQualityCustom()
+	}))
+	root.AddItem(setupWizardCheckbox("Character shadows", "Show projected daylight shadows and compact indoor contact shadows.", gs.CharacterShadows, func(checked bool) {
+		gs.CharacterShadows = checked
+		markQualityCustom()
+	}))
+	root.AddItem(setupWizardSlider("Character shadow darkness", "Adjust both projected and contact shadow strength while switching between preview scenes.", 1, 200, float32(gs.CharacterShadowDarkness*100), true, func(value float32) {
+		gs.CharacterShadowDarkness = float64(value / 100)
+		settingsDirty = true
+	}))
 	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Compensates classic Macintosh artwork for a modern display. Disable it if the artwork looks washed out or too dark.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked
 		applySetupWizardGamma()

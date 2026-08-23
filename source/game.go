@@ -32,7 +32,51 @@ const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
 const defaultHandPictID = 6
 const initialWindowW, initialWindowH = 1920, 1080
 
+const (
+	nameTagHoverHold = 750 * time.Millisecond
+	nameTagHoverFade = 1250 * time.Millisecond
+)
+
+type nameTagHoverReveal struct {
+	name        string
+	lastHovered time.Time
+}
+
+var (
+	nameTagHoverRevealMu sync.Mutex
+	nameTagHoverReveals  = make(map[uint8]nameTagHoverReveal)
+)
+
 var uiMouseDown bool
+
+func clearNameTagHoverReveals() {
+	nameTagHoverRevealMu.Lock()
+	clearMap(nameTagHoverReveals)
+	nameTagHoverRevealMu.Unlock()
+}
+
+func nameTagHoverAlpha(index uint8, name string, hovered bool, now time.Time) float32 {
+	nameTagHoverRevealMu.Lock()
+	defer nameTagHoverRevealMu.Unlock()
+	if hovered {
+		nameTagHoverReveals[index] = nameTagHoverReveal{name: name, lastHovered: now}
+		return 1
+	}
+	reveal, ok := nameTagHoverReveals[index]
+	if !ok || reveal.name != name {
+		return 0
+	}
+	elapsed := now.Sub(reveal.lastHovered)
+	if elapsed <= nameTagHoverHold {
+		return 1
+	}
+	if elapsed >= nameTagHoverHold+nameTagHoverFade {
+		delete(nameTagHoverReveals, index)
+		return 0
+	}
+	progress := float32(elapsed-nameTagHoverHold) / float32(nameTagHoverFade)
+	return 1 - ease(progress)
+}
 
 // worldRT is the offscreen render target for the game world. It stays at an
 // integer multiple of the native field size and is composited into the window.
@@ -1488,6 +1532,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 	} else {
 		captureDrawSnapshot(&g.drawSnapshot)
+		if setupWizardPreviewActive {
+			prepareSetupWizardSceneSnapshot(&g.drawSnapshot, now)
+		}
 		snap = g.drawSnapshot
 		var mobileFade, pictFade float32
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
@@ -1505,6 +1552,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if gs.ShaderLighting {
 			// Apply lighting on the active subimage only
 			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
+		}
+		if setupWizardPreviewActive {
+			drawSetupWizardSceneLabel(worldView, float64(offIntScale))
 		}
 		drawStatusBars(worldView, 0, 0, snap, alpha)
 		gs.GameScale = prev
@@ -1638,6 +1688,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		frameDarks = frameDarks[:0]
 		frameLightCasters = frameLightCasters[:0]
 	}
+	frameContactShadowLights = frameContactShadowLights[:0]
 
 	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
 	descMap := snap.descriptors
@@ -1649,6 +1700,10 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	posPics := snap.picsPos
 	live := snap.liveMobs
 	dead := snap.deadMobs
+	shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
+	if !gs.hideMobiles && shadowKind == characterShadowContact {
+		collectContactShadowLights(ox, oy, snap, alpha)
+	}
 
 	for _, p := range negPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
@@ -1659,14 +1714,11 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 		}
 	} else {
-		shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
 		if shadowKind == characterShadowDirectional {
 			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit)
 		}
 		for _, m := range dead {
-			if shadowKind == characterShadowContact {
-				drawMobileContactShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha)
-			}
+			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
 			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
@@ -1685,9 +1737,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
-					if shadowKind == characterShadowContact {
-						drawMobileContactShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha)
-					}
+					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
 					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
@@ -1702,6 +1752,40 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	for _, p := range posPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 	}
+}
+
+func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {
+	if clImages == nil {
+		return
+	}
+	for _, mobile := range snap.mobiles {
+		desc, ok := snap.descriptors[mobile.Index]
+		if !ok {
+			continue
+		}
+		size := mobileSize(desc.PictID)
+		if size <= 0 {
+			continue
+		}
+		x, y := mobileScreenPosition(ox, oy, mobile, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, maxMobileInterpPixels*(snap.dropped+1))
+		addMobileContactShadowLight(uint32(desc.PictID), mobile.State, mobile.Index, float64(x), float64(y), size)
+	}
+	collectPictures := func(pictures []framePicture) {
+		for _, picture := range pictures {
+			if gs.hideMoving && picture.Moving {
+				continue
+			}
+			w, h := clImages.Size(uint32(picture.PictID))
+			if frames := clImages.NumFrames(uint32(picture.PictID)); frames > 1 {
+				h /= frames
+			}
+			x, y := pictureScreenPosition(ox, oy, picture, alpha, snap.mobiles, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, w, h)
+			addPictureContactShadowLight(uint32(picture.PictID), float64(x), float64(y), w, h)
+		}
+	}
+	collectPictures(snap.picsNeg)
+	collectPictures(snap.picsZero)
+	collectPictures(snap.picsPos)
 }
 
 func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) (int, int) {
@@ -1775,7 +1859,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		addMobileLightCaster(float64(x), float64(y), size, mobileOccluderWidth(curKey, img))
+		addMobileLightCaster(float64(x), float64(y), size, mobileSpriteMetricsFor(curKey, img))
 		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
@@ -1982,17 +2066,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	if gs.hideMoving && p.Moving {
 		return
 	}
-	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
-	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p) {
-		if int(p.PrevH) == int(p.H)-shiftX && int(p.PrevV) == int(p.V)-shiftY {
-			//
-		} else {
-			offX = 0
-			offY = 0
-		}
-	}
-
 	frame := 0
 	prevFrame := 0
 	if clImages != nil {
@@ -2011,21 +2084,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 
-	var mobileX, mobileY float64
-	// Only independently moving, non-background pictures can be attached to a
-	// mobile. Ground sprites may not always be explicitly marked Background.
-	if pictureCanPinToMobile(p, w, h) {
-		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPicturePositions, alpha); ok {
-			mobileX, mobileY = dx, dy
-			offX = 0
-			offY = 0
-		}
-	}
-
-	x := roundToInt(((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale)
-	y := roundToInt(((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale)
-	x += ox
-	y += oy
+	x, y := pictureScreenPosition(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h)
 
 	addPictureLightSource(uint32(p.PictID), p.H, p.V, float64(x), float64(y), w, h, logicalFrame, alpha, screen.Bounds())
 
@@ -2194,6 +2253,32 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 }
 
+func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (int, int) {
+	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
+	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
+	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p) {
+		if int(p.PrevH) != int(p.H)-shiftX || int(p.PrevV) != int(p.V)-shiftY {
+			offX = 0
+			offY = 0
+		}
+	}
+
+	var mobileX, mobileY float64
+	// Only independently moving, non-background pictures can be attached to a
+	// mobile. Ground sprites may not always be explicitly marked Background.
+	if pictureCanPinToMobile(p, width, height) {
+		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPicturePositions, alpha); ok {
+			mobileX, mobileY = dx, dy
+			offX = 0
+			offY = 0
+		}
+	}
+
+	x := roundToInt(((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale)
+	y := roundToInt(((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale)
+	return x + ox, y + oy
+}
+
 func pictureAnimationInstanceKey(h, v int16) uint64 {
 	return uint64(uint16(h))<<16 | uint64(uint16(v))
 }
@@ -2320,13 +2405,13 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			return
 		}
 		showName := d.Name != ""
+		nameRevealAlpha := float32(1)
 		if showName && gs.NameTagsOnHoverOnly {
 			lastHoverMu.Lock()
 			hovered := lastHover.OnMobile && lastHover.Mobile.Index == m.Index
 			lastHoverMu.Unlock()
-			if !hovered {
-				showName = false
-			}
+			nameRevealAlpha = nameTagHoverAlpha(m.Index, d.Name, hovered, time.Now())
+			showName = nameRevealAlpha > 0
 		}
 		nameAlpha := uint8(gs.NameBgOpacity*255 + 0.5)
 		size := mobileSize(d.PictID)
@@ -2368,12 +2453,13 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 			}
 			playersMu.RUnlock()
-			if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == nameAlpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors && m.nameTagKey.Style == style && m.nameTagKey.Dead == dead {
+			if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == nameAlpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors && m.nameTagKey.Type == d.Type && m.nameTagKey.HealthOptions == nameHealthOptionsKey() && m.nameTagKey.Style == style && m.nameTagKey.Dead == dead {
 				top := y + int(offset)
 				left := x - int(float64(m.nameTagW)/2)
 				op := acquireDrawOpts()
 				op.Filter = ebiten.FilterNearest
 				op.DisableMipmaps = true
+				op.ColorScale.ScaleAlpha(nameRevealAlpha)
 				op.GeoM.Translate(float64(left), float64(top))
 				screen.DrawImage(m.nameTag, op)
 				releaseDrawOpts(op)
@@ -2392,7 +2478,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				if frameClr.A > 0 {
 					frameClr.A = nameAlpha
 				}
-				img, iw, ih := buildNameTagImage(d.Name, m.Colors, nameAlpha, style, dead, frameClr)
+				img, iw, ih := buildNameTagImage(d.Name, m.Colors, d.Type, nameAlpha, style, dead, frameClr)
 				if img != nil {
 					// Update shared cache so next frames reuse this image.
 					stateMu.Lock()
@@ -2400,7 +2486,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 						sm.nameTag = img
 						sm.nameTagW = iw
 						sm.nameTagH = ih
-						sm.nameTagKey = nameTagKey{Text: d.Name, Colors: m.Colors, Opacity: nameAlpha, FontGen: fontGen, Style: style, Dead: dead}
+						sm.nameTagKey = nameTagKey{Text: d.Name, Colors: m.Colors, Type: d.Type, HealthOptions: nameHealthOptionsKey(), Opacity: nameAlpha, FontGen: fontGen, Style: style, Dead: dead}
 						state.mobiles[m.Index] = sm
 					}
 					stateMu.Unlock()
@@ -2410,6 +2496,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 					op := acquireDrawOpts()
 					op.Filter = ebiten.FilterNearest
 					op.DisableMipmaps = true
+					op.ColorScale.ScaleAlpha(nameRevealAlpha)
 					op.GeoM.Translate(float64(left), float64(top))
 					screen.DrawImage(img, op)
 					releaseDrawOpts(op)

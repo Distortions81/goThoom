@@ -6,6 +6,29 @@ import (
 	"gothoom/eui"
 )
 
+func TestDefaultWindowLayoutMatchesReferenceDesktop(t *testing.T) {
+	if gsdef.WindowWidth != 2409 || gsdef.WindowHeight != 1404 {
+		t.Fatalf("default application size = %dx%d", gsdef.WindowWidth, gsdef.WindowHeight)
+	}
+	tests := []struct {
+		name string
+		got  WindowState
+		want WindowState
+	}{
+		{name: "game", got: gsdef.GameWindow, want: WindowState{Open: true, Position: WindowPoint{X: 457.5}, Size: WindowPoint{X: 1398, Y: 1404}}},
+		{name: "inventory", got: gsdef.InventoryWindow, want: WindowState{Open: true, Position: WindowPoint{Y: 87}, Size: WindowPoint{X: 455, Y: 858}}},
+		{name: "players", got: gsdef.PlayersWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1860}, Size: WindowPoint{X: 549, Y: 932}}},
+		{name: "messages", got: gsdef.MessagesWindow, want: WindowState{Open: true, Position: WindowPoint{Y: 947}, Size: WindowPoint{X: 455, Y: 454}}},
+		{name: "chat", got: gsdef.ChatWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1861, Y: 936}, Size: WindowPoint{X: 546, Y: 467}}},
+		{name: "movie", got: gsdef.MovieWindow, want: WindowState{Position: WindowPoint{X: 619}, Size: WindowPoint{X: 1076, Y: 96}}},
+	}
+	for _, test := range tests {
+		if test.got != test.want {
+			t.Errorf("%s default = %+v, want %+v", test.name, test.got, test.want)
+		}
+	}
+}
+
 func TestResetSavedWindowSettings(t *testing.T) {
 	original := gs
 	defer func() { gs = original }()

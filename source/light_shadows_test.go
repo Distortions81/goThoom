@@ -16,11 +16,20 @@ func TestMedianOccupiedRowWidthIgnoresWideArmRows(t *testing.T) {
 	}
 }
 
+func TestOpaqueFootYIgnoresTransparentBottomRows(t *testing.T) {
+	const width, height = 4, 6
+	pixels := make([]byte, width*height*4)
+	pixels[(3*width+2)*4+3] = 255
+	if got := opaqueFootY(pixels, width, height); got != 4 {
+		t.Fatalf("opaqueFootY() = %d, want bottom of occupied row 4", got)
+	}
+}
+
 func TestBuildLightShadowsUsesNearbyCasters(t *testing.T) {
 	lights := []lightSource{{X: 100, Y: 100, Radius: 80, R: 1, G: 0.5, B: 0.25, Intensity: 1}}
 	casters := []lightCaster{
 		{X: 140, Y: 100, Radius: 10},
-		{X: 400, Y: 100, Radius: 10},
+		{X: 600, Y: 100, Radius: 10},
 		{X: 102, Y: 100, Radius: 10},
 	}
 
@@ -34,6 +43,43 @@ func TestBuildLightShadowsUsesNearbyCasters(t *testing.T) {
 	}
 	if shadow.LightRadius != 100 {
 		t.Fatalf("effective light radius = %v, want 100", shadow.LightRadius)
+	}
+}
+
+func TestContactShadowNearOtherLightExcludesOwner(t *testing.T) {
+	original := frameContactShadowLights
+	t.Cleanup(func() { frameContactShadowLights = original })
+
+	frameContactShadowLights = []contactShadowLight{
+		{X: 100, Y: 100, Radius: 50, OwnerIndex: 7, HasOwner: true},
+	}
+	if contactShadowNearOtherLight(7, 100, 100) {
+		t.Fatal("a character's own light suppressed its contact shadow")
+	}
+
+	frameContactShadowLights = append(frameContactShadowLights, contactShadowLight{X: 120, Y: 100, Radius: 30})
+	if !contactShadowNearOtherLight(7, 100, 100) {
+		t.Fatal("nearby scenery light did not suppress the contact shadow")
+	}
+	if contactShadowNearOtherLight(7, 200, 100) {
+		t.Fatal("distant light suppressed the contact shadow")
+	}
+
+	frameContactShadowLights = []contactShadowLight{
+		{X: 100, Y: 100, Radius: 50, OwnerIndex: 8, HasOwner: true},
+	}
+	if !contactShadowNearOtherLight(7, 100, 100) {
+		t.Fatal("another character's light did not suppress the contact shadow")
+	}
+}
+
+func TestBuildLightShadowsIncludesGlowTail(t *testing.T) {
+	lights := []lightSource{{X: 0, Y: 0, Radius: 80, Intensity: 1}}
+	// The shader radius is 100 after scaling. This caster is outside that
+	// nominal radius but still within the visible inverse-square glow tail.
+	casters := []lightCaster{{X: 300, Y: 0, Radius: 6}}
+	if shadows := buildLightShadows(lights, casters, nil); len(shadows) != 1 {
+		t.Fatalf("glow-tail caster produced %d cone shadows, want one", len(shadows))
 	}
 }
 

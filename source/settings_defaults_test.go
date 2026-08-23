@@ -60,6 +60,18 @@ func TestFontSizeDefaults(t *testing.T) {
 	}
 }
 
+func TestNameHealthBarDefaultsAbove(t *testing.T) {
+	if !gsdef.NameHealthBarModern || !gsdef.NameHealthBarAbove || gsdef.NameHealthBarThickness != 3 {
+		t.Fatalf("name health bar defaults = modern %v, above %v, thickness %d", gsdef.NameHealthBarModern, gsdef.NameHealthBarAbove, gsdef.NameHealthBarThickness)
+	}
+}
+
+func TestOwnNameTagVisibleByDefault(t *testing.T) {
+	if gsdef.HideSelfNameTag {
+		t.Fatal("own name tag should be visible by default")
+	}
+}
+
 func TestDetailedCharacterShadowsDefaultOn(t *testing.T) {
 	if !gsdef.DetailedCharacterShadows {
 		t.Error("detailed character shadows should be enabled by default")

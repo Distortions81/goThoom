@@ -25,6 +25,10 @@ func mobileNameColors(code uint8) (text, bg, frame color.RGBA) {
 	if gs.DarkBubblesAndNames {
 		return color.RGBA{0xff, 0xff, 0xff, 0xff}, color.RGBA{0x10, 0x10, 0x10, 0xff}, color.RGBA{0x00, 0x00, 0x00, 0xff}
 	}
+	return classicMobileNameColors(code)
+}
+
+func classicMobileNameColors(code uint8) (text, bg, frame color.RGBA) {
 	b := int((code >> 4) & 0x0f)
 	if b >= len(nameBackColors) {
 		b = 0
@@ -34,4 +38,15 @@ func mobileNameColors(code uint8) (text, bg, frame color.RGBA) {
 		t = 0
 	}
 	return nameTextColors[t], nameBackColors[b], color.RGBA{0, 0, 0, 0xff}
+}
+
+func mobileHealthBarColor(code, descriptorType uint8) (color.RGBA, bool) {
+	if descriptorType != kDescPlayer {
+		return color.RGBA{}, false
+	}
+	back := int((code >> 4) & 0x0f)
+	if back <= kColorCodeBackWhite || back > kColorCodeBackBlack {
+		return color.RGBA{}, false
+	}
+	return nameBackColors[back], true
 }

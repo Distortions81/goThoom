@@ -92,7 +92,10 @@ func loadPlayersPersist() {
 		applyPlayerLabel(pr)
 		pr.Bard = p.Bard
 		pr.SameClan = p.SameClan
-		pr.beWho = p.BeWho
+		// Presence is session state. Saved records start offline until the
+		// server confirms them in the next /be-who enumeration.
+		pr.beWho = false
+		pr.Offline = true
 		pr.Seen = p.Seen
 		pr.FellWhere = p.FellWhere
 		if p.FellTime != 0 {

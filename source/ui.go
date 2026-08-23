@@ -3462,6 +3462,65 @@ func makeSettingsWindow() {
 	}
 	nameSection.AddItem(nameBorderCB)
 
+	healthBarStyleDD, healthBarStyleEvents := eui.NewDropdown()
+	healthBarStyleDD.Label = "Player Health Display"
+	healthBarStyleDD.Options = []string{"Modern bar", "Classic name color"}
+	healthBarStyleDD.Selected = 0
+	if !gs.NameHealthBarModern {
+		healthBarStyleDD.Selected = 1
+	}
+	healthBarStyleDD.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	healthBarStyleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+
+			gs.NameHealthBarModern = ev.Index == 0
+			killNameTagCache()
+			settingsDirty = true
+		}
+	}
+	nameSection.AddItem(healthBarStyleDD)
+
+	healthBarPositionDD, healthBarPositionEvents := eui.NewDropdown()
+	healthBarPositionDD.Label = "Modern Bar Position"
+	healthBarPositionDD.Options = []string{"Above name", "Below name"}
+	healthBarPositionDD.Selected = 0
+	if !gs.NameHealthBarAbove {
+		healthBarPositionDD.Selected = 1
+	}
+	healthBarPositionDD.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	healthBarPositionEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+
+			gs.NameHealthBarAbove = ev.Index == 0
+			killNameTagCache()
+			settingsDirty = true
+		}
+	}
+	nameSection.AddItem(healthBarPositionDD)
+
+	healthBarThicknessSlider, healthBarThicknessEvents := eui.NewSlider()
+	healthBarThicknessSlider.Label = "Modern Bar Thickness"
+	healthBarThicknessSlider.MinValue = 1
+	healthBarThicknessSlider.MaxValue = 8
+	healthBarThicknessSlider.IntOnly = true
+	healthBarThicknessSlider.Value = float32(gs.NameHealthBarThickness)
+	healthBarThicknessSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	healthBarThicknessEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+
+			gs.NameHealthBarThickness = int(ev.Value)
+			killNameTagCache()
+			settingsDirty = true
+		}
+	}
+	nameSection.AddItem(healthBarThicknessSlider)
+
 	hideSelfNameCB, hideSelfNameEvents := eui.NewCheckbox()
 	hideSelfNameCB.Text = "Hide My Name Tag"
 	hideSelfNameCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
@@ -3491,6 +3550,7 @@ func makeSettingsWindow() {
 			defer SettingsLock.Unlock()
 
 			gs.NameTagsOnHoverOnly = ev.Checked
+			clearNameTagHoverReveals()
 			settingsDirty = true
 		}
 	}
@@ -3846,15 +3906,12 @@ func resetAllSettings() {
 // resetWindows restores the default window layout without changing other settings.
 func resetWindows() {
 	resetSavedWindowSettings()
+	clampWindowSettings()
 	eui.LoadWindowZones(gs.WindowZones)
 
 	if gameWin != nil {
 		gameWin.ClearZone()
-		_ = gameWin.SetPos(eui.Point{})
-		w, h := eui.ScreenSize()
-		if w > 0 && h > 0 {
-			_ = gameWin.SetSize(eui.Point{X: float32(w), Y: float32(h)})
-		}
+		applyWindowState(gameWin, &gs.GameWindow)
 		gameWin.MarkOpen()
 	}
 

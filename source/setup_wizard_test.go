@@ -4,6 +4,7 @@ import (
 	"net"
 	"slices"
 	"testing"
+	"time"
 
 	"gothoom/eui"
 )
@@ -28,6 +29,67 @@ func TestShouldShowSetupWizard(t *testing.T) {
 				t.Fatalf("shouldShowSetupWizard() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
+	previousPage := setupWizardScenePage
+	previousMode := setupWizardSceneModeValue
+	t.Cleanup(func() {
+		setupWizardScenePage = previousPage
+		setupWizardSceneModeValue = previousMode
+	})
+	for _, test := range []struct {
+		page int
+		want setupWizardSceneMode
+	}{
+		{page: 3, want: setupWizardSceneIndoor},
+		{page: 4, want: setupWizardSceneDay},
+		{page: 5, want: setupWizardSceneMotion},
+		{page: 6, want: setupWizardSceneNight},
+	} {
+		setupWizardScenePage = -1
+		selectSetupWizardSceneForPage(test.page)
+		if setupWizardSceneModeValue != test.want {
+			t.Fatalf("page %d scene = %d, want %d", test.page, setupWizardSceneModeValue, test.want)
+		}
+	}
+}
+
+func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
+	previousStart := setupWizardSceneStarted
+	previousMode := setupWizardSceneModeValue
+	previousPage := setupWizardPage
+	originalNight := captureMovieNightState()
+	t.Cleanup(func() {
+		setupWizardSceneStarted = previousStart
+		setupWizardSceneModeValue = previousMode
+		setupWizardPage = previousPage
+		restoreMovieNightState(originalNight)
+	})
+	setupWizardSceneModeValue = setupWizardSceneMotion
+	setupWizardPage = 3
+	setupWizardSceneStarted = time.Unix(1000, 0)
+	var snap drawSnapshot
+	prepareSetupWizardSceneSnapshot(&snap, setupWizardSceneStarted.Add(500*time.Millisecond))
+	if len(snap.mobiles) < 3 || len(snap.prevMobiles) != len(snap.mobiles) {
+		t.Fatalf("synthetic mobiles=%d previous=%d", len(snap.mobiles), len(snap.prevMobiles))
+	}
+	if len(snap.picsNeg)+len(snap.picsZero)+len(snap.picsPos) < 10 {
+		t.Fatal("synthetic scene has too little scenery")
+	}
+	var walker frameMobile
+	for _, mobile := range snap.mobiles {
+		if mobile.Index == 1 {
+			walker = mobile
+			break
+		}
+	}
+	if walker.H == snap.prevMobiles[1].H {
+		t.Fatal("synthetic walking character did not move between updates")
+	}
+	if len(snap.bubbles) != 1 {
+		t.Fatal("visibility scene has no deterministic speech bubble")
 	}
 }
 

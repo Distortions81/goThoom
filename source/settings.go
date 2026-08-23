@@ -113,8 +113,11 @@ var gsdef settings = settings{
 	BubbleScale:             2.0,
 	NameBgOpacity:           0.8,
 	DarkBubblesAndNames:     true,
+	NameHealthBarModern:     true,
+	NameHealthBarAbove:      true,
+	NameHealthBarThickness:  3,
 	NameTagLabelColors:      true,
-	HideSelfNameTag:         true,
+	HideSelfNameTag:         false,
 	NameTagsOnHoverOnly:     false,
 	BarOpacity:              0.66,
 	ObscuringPictureOpacity: 0.66,
@@ -205,13 +208,39 @@ var gsdef settings = settings{
 	JoystickWalkDeadzone:   0.1,
 	JoystickCursorDeadzone: 0.1,
 
-	GameWindow:      WindowState{Open: true},
-	InventoryWindow: WindowState{Open: true},
-	PlayersWindow:   WindowState{Open: true},
-	MessagesWindow:  WindowState{Open: true},
-	ChatWindow:      WindowState{Open: true},
-	MovieWindow:     WindowState{},
-	WindowZones:     *new(map[string]eui.WindowZoneState),
+	WindowWidth:  2409,
+	WindowHeight: 1404,
+	GameWindow: WindowState{
+		Open:     true,
+		Position: WindowPoint{X: 457.5, Y: 0},
+		Size:     WindowPoint{X: 1398, Y: 1404},
+	},
+	InventoryWindow: WindowState{
+		Open:     true,
+		Position: WindowPoint{X: 0, Y: 87},
+		Size:     WindowPoint{X: 455, Y: 858},
+	},
+	PlayersWindow: WindowState{
+		Open:     true,
+		Position: WindowPoint{X: 1860, Y: 0},
+		Size:     WindowPoint{X: 549, Y: 932},
+	},
+	MessagesWindow: WindowState{
+		Open:     true,
+		Position: WindowPoint{X: 0, Y: 947},
+		Size:     WindowPoint{X: 455, Y: 454},
+	},
+	ChatWindow: WindowState{
+		Open:     true,
+		Position: WindowPoint{X: 1861, Y: 936},
+		Size:     WindowPoint{X: 546, Y: 467},
+	},
+	MovieWindow: WindowState{
+		Open:     false,
+		Position: WindowPoint{X: 619, Y: 0},
+		Size:     WindowPoint{X: 1076, Y: 96},
+	},
+	WindowZones: *new(map[string]eui.WindowZoneState),
 
 	ShaderLightStrength:  1.0,
 	ShaderGlowStrength:   1.0,
@@ -274,11 +303,14 @@ type settings struct {
 	BubbleBaseLife          float64
 	BubbleLifePerWord       float64
 	// BubbleScale scales bubble visuals (not font). Range 1.0–8.0.
-	BubbleScale         float64
-	NameBgOpacity       float64
-	DarkBubblesAndNames bool
-	NameTagLabelColors  bool
-	HideSelfNameTag     bool
+	BubbleScale            float64
+	NameBgOpacity          float64
+	DarkBubblesAndNames    bool
+	NameHealthBarModern    bool
+	NameHealthBarAbove     bool
+	NameHealthBarThickness int
+	NameTagLabelColors     bool
+	HideSelfNameTag        bool
 	// NameTagsOnHoverOnly hides name tags unless the cursor is over a mobile.
 	NameTagsOnHoverOnly     bool
 	BarOpacity              float64
@@ -590,6 +622,9 @@ func loadSettings() bool {
 	}
 	if gs.CharacterShadowDarkness < 0.01 || gs.CharacterShadowDarkness > 2 {
 		gs.CharacterShadowDarkness = gsdef.CharacterShadowDarkness
+	}
+	if gs.NameHealthBarThickness < 1 || gs.NameHealthBarThickness > 8 {
+		gs.NameHealthBarThickness = gsdef.NameHealthBarThickness
 	}
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)

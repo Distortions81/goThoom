@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"reflect"
 	"testing"
+	"time"
 	"unsafe"
 
 	"gothoom/climg"
@@ -199,5 +200,52 @@ func BenchmarkHandleDrawStateNoEncryption(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		handleDrawState(packet, true)
+	}
+}
+
+func TestMobileHealthBarColorUsesPlayerHealthBackground(t *testing.T) {
+	redCode := uint8(kColorCodeBackRed << 4)
+	got, ok := mobileHealthBarColor(redCode, kDescPlayer)
+	if !ok || got != nameBackColors[kColorCodeBackRed] {
+		t.Fatalf("red player health bar = (%v, %v)", got, ok)
+	}
+	if _, ok := mobileHealthBarColor(redCode, kDescMonster); ok {
+		t.Fatal("monster name produced a player health bar")
+	}
+	if _, ok := mobileHealthBarColor(uint8(kColorCodeBackWhite<<4), kDescPlayer); ok {
+		t.Fatal("full-health player produced a health bar")
+	}
+	if _, ok := mobileHealthBarColor(uint8(kColorCodeBackBlue<<4), kDescPlayer); ok {
+		t.Fatal("blue player name produced a health bar")
+	}
+}
+
+func TestNameHealthBarOffsets(t *testing.T) {
+	nameY, barY := nameHealthBarOffsets(14, 2, true)
+	if nameY != 2 || barY != 0 {
+		t.Fatalf("above offsets = (%d, %d), want (2, 0)", nameY, barY)
+	}
+	nameY, barY = nameHealthBarOffsets(14, 2, false)
+	if nameY != 0 || barY != 14 {
+		t.Fatalf("below offsets = (%d, %d), want (0, 14)", nameY, barY)
+	}
+}
+
+func TestNameTagHoverHoldAndFade(t *testing.T) {
+	clearNameTagHoverReveals()
+	t.Cleanup(clearNameTagHoverReveals)
+	start := time.Unix(100, 0)
+	if got := nameTagHoverAlpha(7, "Bob", true, start); got != 1 {
+		t.Fatalf("hover alpha = %v, want 1", got)
+	}
+	if got := nameTagHoverAlpha(7, "Bob", false, start.Add(nameTagHoverHold)); got != 1 {
+		t.Fatalf("hold alpha = %v, want 1", got)
+	}
+	mid := start.Add(nameTagHoverHold + nameTagHoverFade/2)
+	if got := nameTagHoverAlpha(7, "Bob", false, mid); got != 0.5 {
+		t.Fatalf("mid-fade alpha = %v, want 0.5", got)
+	}
+	if got := nameTagHoverAlpha(7, "Bob", false, start.Add(nameTagHoverHold+nameTagHoverFade)); got != 0 {
+		t.Fatalf("finished alpha = %v, want 0", got)
 	}
 }

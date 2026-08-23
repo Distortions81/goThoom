@@ -35,6 +35,15 @@ func TestChooseUprightShadowPose(t *testing.T) {
 	}
 }
 
+func TestLyingShadowStates(t *testing.T) {
+	if !isLyingShadowState(poseDead) || !isLyingShadowState(poseLie) {
+		t.Fatal("dead and lying poses should use drop shadows")
+	}
+	if isLyingShadowState(0) || isLyingShadowState(40) {
+		t.Fatal("upright poses should not use drop shadows")
+	}
+}
+
 func TestUprightShadowPoseMatchesWalkCycle(t *testing.T) {
 	for facing := uint8(0); facing < 8; facing++ {
 		first, casts := chooseUprightShadowPose(facing*4, 73)
@@ -104,22 +113,6 @@ func TestClearCharacterShadowCache(t *testing.T) {
 	clearCharacterShadowCache()
 	if detailedCharacterShadowMask != nil {
 		t.Fatal("character shadow mask was not cleared")
-	}
-}
-
-func TestCharacterShadowAddsFilteringGutter(t *testing.T) {
-	clearCharacterShadowCache()
-	t.Cleanup(clearCharacterShadowCache)
-	sprite := ebiten.NewImage(8, 8)
-	texture := characterShadowTextureFor(sprite)
-	if texture.image == sprite || texture.image.Bounds().Dx() != 10 || texture.image.Bounds().Dy() != 10 {
-		t.Fatal("character shadow did not add a one-pixel gutter")
-	}
-	if texture.contentSize != 8 || texture.padding != 1 || texture.footY != 9 {
-		t.Fatalf("character shadow metadata = %+v", texture)
-	}
-	if cached := characterShadowTextureFor(sprite); cached.image != texture.image {
-		t.Fatal("character shadow gutter was not cached")
 	}
 }
 

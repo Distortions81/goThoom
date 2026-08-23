@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	maxLights       = 128
-	maxLightShadows = 32
+	maxLights             = 128
+	maxLightShadows       = 32
+	lightShadowReachScale = 4.0
 )
 
 //go:embed data/shaders/light.kage
@@ -27,7 +28,8 @@ var (
 	frameDarks               []darkSource
 	frameLightCasters        []lightCaster
 	frameLightShadows        []lightShadow
-	mobileOccluderWidthCache = make(map[mobileKey]float32)
+	frameContactShadowLights []contactShadowLight
+	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
 	// Reused shader data to avoid per-frame allocations
 	lposX, lposY, lradius, lr, lg, lb, lint [maxLights]float32
 	dposX, dposY, dradius, da, dint, dplane [maxLights]float32
@@ -149,6 +151,13 @@ type lightCaster struct {
 	X, Y                 float32
 	Radius               float32
 	LightExclusionRadius float32
+}
+
+type contactShadowLight struct {
+	X, Y       float32
+	Radius     float32
+	OwnerIndex uint8
+	HasOwner   bool
 }
 
 type lightShadow struct {
@@ -402,7 +411,13 @@ func lightIntersectsViewport(x, y float32, radius float32, bounds image.Rectangl
 		y-radius <= float32(bounds.Max.Y)
 }
 
-func addMobileLightCaster(x, y float64, size int, widthFraction float32) {
+type mobileSpriteMetrics struct {
+	widthFraction float32
+	footFraction  float32
+}
+
+func addMobileLightCaster(x, y float64, size int, metrics mobileSpriteMetrics) {
+	widthFraction := metrics.widthFraction
 	if !gs.ShaderLighting || size <= 0 || widthFraction <= 0 {
 		return
 	}
@@ -417,32 +432,50 @@ func addMobileLightCaster(x, y float64, size int, widthFraction float32) {
 	}
 	frameLightCasters = append(frameLightCasters, lightCaster{
 		X:                    float32(x),
-		Y:                    float32(y) + scaledSize*0.35,
+		Y:                    float32(y) - scaledSize/2 + scaledSize*metrics.footFraction,
 		Radius:               radius,
 		LightExclusionRadius: scaledSize * 0.60,
 	})
 }
 
-func mobileOccluderWidth(key mobileKey, img *ebiten.Image) float32 {
+func mobileSpriteMetricsFor(key mobileKey, img *ebiten.Image) mobileSpriteMetrics {
 	if img == nil || img.Bounds().Empty() {
-		return 0
+		return mobileSpriteMetrics{}
 	}
 	imageMu.Lock()
-	width, ok := mobileOccluderWidthCache[key]
+	metrics, ok := mobileSpriteMetricsCache[key]
 	imageMu.Unlock()
 	if ok {
-		return width
+		return metrics
 	}
 
 	bounds := img.Bounds()
 	pixels := make([]byte, 4*bounds.Dx()*bounds.Dy())
 	img.ReadPixels(pixels)
 	median := medianOccupiedRowWidth(pixels, bounds.Dx(), bounds.Dy())
-	width = float32(median) / float32(bounds.Dx())
+	metrics = mobileSpriteMetrics{
+		widthFraction: float32(median) / float32(bounds.Dx()),
+		footFraction:  float32(opaqueFootY(pixels, bounds.Dx(), bounds.Dy())) / float32(bounds.Dy()),
+	}
 	imageMu.Lock()
-	mobileOccluderWidthCache[key] = width
+	mobileSpriteMetricsCache[key] = metrics
 	imageMu.Unlock()
-	return width
+	return metrics
+}
+
+func opaqueFootY(pixels []byte, width, height int) int {
+	if width <= 0 || height <= 0 || len(pixels) < width*height*4 {
+		return height
+	}
+	for y := height - 1; y >= 0; y-- {
+		rowStart := y * width * 4
+		for x := 0; x < width; x++ {
+			if pixels[rowStart+x*4+3] > 16 {
+				return y + 1
+			}
+		}
+	}
+	return height
 }
 
 func medianOccupiedRowWidth(pixels []byte, width, height int) int {
@@ -476,13 +509,14 @@ func medianOccupiedRowWidth(pixels []byte, width, height int) int {
 func buildLightShadows(lights []lightSource, casters []lightCaster, dst []lightShadow) []lightShadow {
 	for _, light := range lights {
 		effectiveRadius := light.Radius * float32(lightRadiusScale)
+		shadowReach := effectiveRadius * float32(lightShadowReachScale)
 		for _, caster := range casters {
 			distanceSquared := dist2(light.X, light.Y, caster.X, caster.Y)
 			minimumDistance := caster.Radius * 1.25
 			if caster.LightExclusionRadius > minimumDistance {
 				minimumDistance = caster.LightExclusionRadius
 			}
-			if distanceSquared <= minimumDistance*minimumDistance || distanceSquared >= effectiveRadius*effectiveRadius {
+			if distanceSquared <= minimumDistance*minimumDistance || distanceSquared >= shadowReach*shadowReach {
 				continue
 			}
 			shadow := lightShadow{
@@ -497,27 +531,18 @@ func buildLightShadows(lights []lightSource, casters []lightCaster, dst []lightS
 				CasterY:        caster.Y,
 				CasterRadius:   caster.Radius,
 			}
-			if len(dst) < maxLightShadows {
-				dst = append(dst, shadow)
-				continue
-			}
-			// Prefer the interactions nearest to their lights when a crowded
-			// scene exceeds the shader's fixed shadow budget.
-			worst := 0
-			worstRatio := float32(0)
-			for i := range dst {
-				d := dist2(dst[i].LightX, dst[i].LightY, dst[i].CasterX, dst[i].CasterY)
-				ratio := d / (dst[i].LightRadius * dst[i].LightRadius)
-				if ratio > worstRatio {
-					worst = i
-					worstRatio = ratio
-				}
-			}
-			candidateRatio := distanceSquared / (effectiveRadius * effectiveRadius)
-			if candidateRatio < worstRatio {
-				dst[worst] = shadow
-			}
+			dst = append(dst, shadow)
 		}
+	}
+	if len(dst) > maxLightShadows {
+		// Prefer the interactions deepest inside their light's glow when a
+		// crowded scene exceeds the shader's fixed shadow budget.
+		sort.Slice(dst, func(i, j int) bool {
+			di := dist2(dst[i].LightX, dst[i].LightY, dst[i].CasterX, dst[i].CasterY)
+			dj := dist2(dst[j].LightX, dst[j].LightY, dst[j].CasterX, dst[j].CasterY)
+			return di/(dst[i].LightRadius*dst[i].LightRadius) < dj/(dst[j].LightRadius*dst[j].LightRadius)
+		})
+		dst = dst[:maxLightShadows]
 	}
 	return dst
 }
@@ -598,6 +623,28 @@ func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size,
 	addLightSource(pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
 }
 
+func addMobileContactShadowLight(pictID uint32, state, index uint8, x, y float64, size int) {
+	if !gs.ShaderLighting || clImages == nil {
+		return
+	}
+	flags := clImages.Flags(pictID)
+	if flags&climg.PictDefFlagEmitsLight == 0 || flags&climg.PictDefFlagLightDarkcaster != 0 || !mobileLightEnabled(flags, state) {
+		return
+	}
+	li, ok := clImages.Lighting(pictID)
+	if !ok {
+		return
+	}
+	geometry := mobileLightGeometry(li.Radius, flags, size, state)
+	frameContactShadowLights = append(frameContactShadowLights, contactShadowLight{
+		X:          float32(x),
+		Y:          float32(y),
+		Radius:     geometry.radius * float32(gs.GameScale*lightRadiusScale),
+		OwnerIndex: index,
+		HasOwner:   true,
+	})
+}
+
 func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !gs.ShaderLighting || clImages == nil {
 		return
@@ -613,6 +660,38 @@ func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, heigh
 	instanceKey := uint64(uint16(h))<<16 | uint64(uint16(v))
 	geometry := pictureLightGeometry(li.Radius, flags, width, height)
 	addLightSource(pictID, flags, li, geometry, instanceKey, x, y, logicalFrame, interpolation, bounds)
+}
+
+func addPictureContactShadowLight(pictID uint32, x, y float64, width, height int) {
+	if !gs.ShaderLighting || clImages == nil {
+		return
+	}
+	flags := clImages.Flags(pictID)
+	if flags&climg.PictDefFlagEmitsLight == 0 || flags&climg.PictDefFlagLightDarkcaster != 0 {
+		return
+	}
+	li, ok := clImages.Lighting(pictID)
+	if !ok {
+		return
+	}
+	geometry := pictureLightGeometry(li.Radius, flags, width, height)
+	frameContactShadowLights = append(frameContactShadowLights, contactShadowLight{
+		X:      float32(x),
+		Y:      float32(y),
+		Radius: geometry.radius * float32(gs.GameScale*lightRadiusScale),
+	})
+}
+
+func contactShadowNearOtherLight(index uint8, x, y float32) bool {
+	for _, light := range frameContactShadowLights {
+		if light.HasOwner && light.OwnerIndex == index {
+			continue
+		}
+		if dist2(x, y, light.X, light.Y) <= light.Radius*light.Radius {
+			return true
+		}
+	}
+	return false
 }
 
 func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeometry, instanceKey uint64, x, y float64, logicalFrame int, interpolation float64, bounds image.Rectangle) {

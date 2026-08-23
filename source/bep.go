@@ -60,7 +60,7 @@ func parseBackendInfo(data []byte) {
 	playersMu.Lock()
 	p, ok := players[name]
 	if !ok {
-		p = &Player{Name: name}
+		p = &Player{Name: name, Offline: true}
 		players[name] = p
 	}
 	p.Race = race
@@ -68,7 +68,6 @@ func parseBackendInfo(data []byte) {
 	p.Class = class
 	p.clan = clan
 	p.LastSeen = time.Now()
-	p.Offline = false
 	p.Seen = true
 	changedNames := make([]string, 0, 1)
 	if playerName != "" {
@@ -152,6 +151,7 @@ func parseBackendShare(data []byte) {
 		p.Seen = true
 		p.Sharee = true
 		p.LastSeen = time.Now()
+		p.Offline = false
 		playerCopy := *p
 		playersMu.Unlock()
 		if changed {
@@ -181,6 +181,7 @@ func parseBackendShare(data []byte) {
 		p.Seen = true
 		p.Sharing = true
 		p.LastSeen = time.Now()
+		p.Offline = false
 		playerCopy := *p
 		playersMu.Unlock()
 		if changed {
@@ -197,7 +198,7 @@ func parseBackendShare(data []byte) {
 // parseBackendWho parses "be-wh" messages listing players.
 func parseBackendWho(data []byte) {
 	if !whoActive {
-		clearBeWhoFlags()
+		beginBeWhoScan()
 	}
 	batchCount := 0
 	newCount := 0

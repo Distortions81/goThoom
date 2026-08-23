@@ -19,6 +19,9 @@ New and improved:
 - Added an iGPU / Low-VRAM (Potato GPU) quality preset and clarified its name and purpose.
 - The demo-character login flow now handles required data updates and repeated server challenges automatically.
 - Legacy macros now receive the real input-box selection through `@textsel` while editing or invoking a macro.
+- Added a synthetic offline Setup Wizard scene with characters and scenery tailored to preview daytime, nighttime, indoor, glow, shadow, animation-blending, and motion-smoothing settings.
+- Added Modern and Classic player-health name displays. Modern uses a configurable fixed-width color bar above or below the name; Classic restores the original colored name background.
+- The Players window now reports the classic online/offline state instead of estimating how long ago a character was seen.
 
 Defaults and options:
 - Flame-style light flicker, Character Shadows, Accurate Character Shadows, and artwork upscaling default to on.
@@ -27,6 +30,8 @@ Defaults and options:
 - iGPU / Low-VRAM mode bypasses costly shader lighting, detailed shadow compositing, animation blending, and other expensive effects, while retaining sharp artwork upscaling at up to 2x.
 - Stereo Music now defaults to off.
 - When Stereo Music is enabled, bard parts are spread across a maximum 40% stereo field instead of 70%.
+- Modern player-health bars default above the name at three pixels thick, remain hidden at full health, and the player's own name tag is visible by default.
+- Updated the default application and panel geometry to the current desktop layout; resetting window positions restores it while still clamping safely on smaller screens.
 
 Fixes:
 - Restored clearly visible ponder-bubble animation after compositing its overlapping shapes into a single-opacity mask.
@@ -50,6 +55,11 @@ Fixes:
 - Fixed streamed music chunk boundaries so synthesizer render blocks are kept intact, reducing audible seams between chunks.
 - Music rendering now continues filling its bounded playback queue while a song is playing, after the initial five-second buffer is ready.
 - Scoped music-stop commands now close only the matching performer or group stream without disabling the Music mixer setting.
+- Character shadows now use the same upscaled sprite source as character rendering. Fallen and lying characters receive a small attached drop shadow instead of an upright sun projection.
+- Character and contact-shadow anchors now follow the opaque foot of each sprite, preventing large creatures from appearing to hover above their shadows.
+- Contact shadows are suppressed inside another character's or scenery light while ignoring a character's own emitted light.
+- Local-light cone cutouts now consider characters throughout the visible glow tail, select up to 32 closest interactions, and ignore lights centered directly on their owner.
+- Hover-only name tags remain visible briefly after the cursor leaves, then fade smoothly before returning to the compact health indicator.
 
 Technical changes:
 - Moved the Go module and runtime source tree under `source/`; repository-level build scripts and documentation were updated for the new layout.

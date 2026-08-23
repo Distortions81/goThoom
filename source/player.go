@@ -177,10 +177,13 @@ func notifyPlayerHandlers(p Player) {
 	}
 }
 
-func clearBeWhoFlags() {
+// beginBeWhoScan makes the server's new /be-who enumeration authoritative.
+// Entries returned by the scan are marked online again by parseBackendWho.
+func beginBeWhoScan() {
 	playersMu.Lock()
 	for _, p := range players {
 		p.beWho = false
+		p.Offline = true
 	}
 	playersMu.Unlock()
 }

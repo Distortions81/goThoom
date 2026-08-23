@@ -167,13 +167,10 @@ func updatePlayersWindow() {
 
 	// Gather current players and filter to non-NPCs with names.
 	ps := getPlayers()
-	// Sort: online (recently seen and not explicitly offline) first,
-	// then by label/color group, then by name.
+	// Sort online players first, then by label/color group and name.
 	sort.Slice(ps, func(i, j int) bool {
-		staleI := time.Since(ps[i].LastSeen) > 5*time.Minute
-		staleJ := time.Since(ps[j].LastSeen) > 5*time.Minute
-		offI := ps[i].Offline || staleI
-		offJ := ps[j].Offline || staleJ
+		offI := ps[i].Offline
+		offJ := ps[j].Offline
 		if offI != offJ {
 			return !offI && offJ
 		}
@@ -207,7 +204,7 @@ func updatePlayersWindow() {
 			shareeCount++
 		}
 		exiles = append(exiles, p)
-		if !(p.Offline || time.Since(p.LastSeen) > 5*time.Minute) {
+		if !p.Offline {
 			onlineCount++
 		}
 	}
@@ -263,7 +260,7 @@ func updatePlayersWindow() {
 	var selectedRow *eui.ItemData
 
 	for rowIndex, p := range exiles {
-		offline := p.Offline || time.Since(p.LastSeen) > 5*time.Minute
+		offline := p.Offline
 		name := p.Name
 		if sameRealClan(p.clan, myClan) {
 			name += " *"

@@ -172,7 +172,8 @@ func (g *shadowRenderGame) renderPointLightShadow() error {
 	prevLights = nil
 	prevDarks = nil
 	frameLightCasters = frameLightCasters[:0]
-	addMobileLightCaster(400, 420, shadowTestDrawSize, mobileOccluderWidth(makeMobileKey(447, 0, nil), visibleSprite))
+	metrics := mobileSpriteMetricsFor(makeMobileKey(447, 0, nil), visibleSprite)
+	addMobileLightCaster(400, 420, shadowTestDrawSize, metrics)
 	lights := []lightSource{{X: 260, Y: 420, Radius: 230, R: 1, G: 0.62, B: 0.25, Intensity: 1}}
 	darks := []darkSource{{X: 400, Y: 400, Radius: 1000, Alpha: 0.75, Intensity: 1}}
 	applyLightingShader(canvas, lights, darks, 1)
@@ -189,7 +190,8 @@ func (g *shadowRenderGame) renderContactShadows() error {
 		if visibleSprite == nil {
 			return fmt.Errorf("load contact-shadow mobile pict %d", character.pictID)
 		}
-		drawContactShadow(canvas, shadowTestDrawSize, x, y, contactShadowOpacity, shadowDarkenBlend)
+		metrics := mobileSpriteMetricsFor(makeMobileKey(character.pictID, 0, nil), visibleSprite)
+		drawContactShadow(canvas, shadowTestDrawSize, x, y, metrics.footFraction, contactShadowOpacity, shadowDarkenBlend)
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterLinear
 		op.GeoM.Scale(float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dx()), float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dy()))

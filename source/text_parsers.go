@@ -434,20 +434,25 @@ func parsePresenceText(raw []byte, s string) bool {
 		var labelChanged bool
 		changed := false
 		playersMu.Lock()
-		if p, ok := players[name]; ok {
-			p.LastSeen = time.Now()
-			p.Offline = false
-			if label >= 0 {
-				if p.GlobalLabel != label {
-					p.GlobalLabel = label
-					applyPlayerLabel(p)
-					labelChanged = true
-				}
-			}
-			friend = p.Friend
-			playerCopy = *p
-			changed = true
+		p, ok := players[name]
+		if !ok {
+			p = &Player{Name: name}
+			players[name] = p
+			playersPersistDirty = true
 		}
+		p.LastSeen = time.Now()
+		p.Offline = false
+		p.Seen = true
+		if label >= 0 {
+			if p.GlobalLabel != label {
+				p.GlobalLabel = label
+				applyPlayerLabel(p)
+				labelChanged = true
+			}
+		}
+		friend = p.Friend
+		playerCopy = *p
+		changed = true
 		playersMu.Unlock()
 		if labelChanged {
 			killNameTagCacheFor(name)
