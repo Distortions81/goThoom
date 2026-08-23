@@ -71,6 +71,10 @@ const (
 	pictDefBlendMask       = 0x0003
 	pictDefCustomColors    = 0x2000
 	pictDefFlagNoChecksum  = 0x0400
+
+	// PictDefFlagRandomAnimation selects a random animation-table entry for
+	// each picture instance instead of advancing every instance in lockstep.
+	PictDefFlagRandomAnimation = 0x0004
 )
 
 func Load(path string) (*CLImages, error) {
@@ -750,6 +754,14 @@ func (c *CLImages) SetGammaCorrection(enabled bool, spriteGamma, monitorGamma fl
 // FrameIndex returns the picture frame for the given global animation counter.
 // If no animation is defined for the image, it returns 0.
 func (c *CLImages) FrameIndex(id uint32, counter int) int {
+	return c.FrameIndexForInstance(id, counter, 0)
+}
+
+// FrameIndexForInstance returns the picture frame for an animation counter and
+// picture instance. Pictures marked for random animation use instanceKey to
+// keep separate copies from animating in lockstep while remaining stable for
+// repeated draws of the same logical frame.
+func (c *CLImages) FrameIndexForInstance(id uint32, counter int, instanceKey uint64) int {
 	if counter < 0 {
 		return 0
 	}
@@ -759,6 +771,10 @@ func (c *CLImages) FrameIndex(id uint32, counter int) int {
 	}
 	if ref.numAnims > 0 {
 		af := counter % int(ref.numAnims)
+		if ref.flags&PictDefFlagRandomAnimation != 0 {
+			seed := uint64(id)<<32 ^ instanceKey ^ uint64(counter)*0x9e3779b97f4a7c15
+			af = int(mixAnimationSeed(seed) % uint64(ref.numAnims))
+		}
 		pf := int(ref.animFrameTable[af])
 		if pf >= 0 && pf < int(ref.numFrames) {
 			return pf
@@ -766,6 +782,13 @@ func (c *CLImages) FrameIndex(id uint32, counter int) int {
 		return 0
 	}
 	return counter % int(ref.numFrames)
+}
+
+func mixAnimationSeed(value uint64) uint64 {
+	value += 0x9e3779b97f4a7c15
+	value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9
+	value = (value ^ (value >> 27)) * 0x94d049bb133111eb
+	return value ^ (value >> 31)
 }
 
 // Size returns the width and height of the image with the given ID.

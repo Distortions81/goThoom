@@ -810,6 +810,18 @@ type qualityPreset struct {
 }
 
 var (
+	potatoGPUPreset = qualityPreset{
+		DenoiseImages:          true,
+		MotionSmoothing:        true,
+		BlendMobiles:           false,
+		BlendPicts:             false,
+		ShaderLighting:         false,
+		SpriteUpscaleFilter:    false,
+		HighQualityResampling:  false,
+		SoundEnhancement:       false,
+		SoundEnhancementAmount: 1.0,
+		MusicEnhancement:       false,
+	}
 	classicPreset = qualityPreset{
 		DenoiseImages:          false,
 		MotionSmoothing:        false,
@@ -863,6 +875,8 @@ var (
 func applyQualityPreset(name string) {
 	var p qualityPreset
 	switch name {
+	case "Potato GPU / iGPU":
+		p = potatoGPUPreset
 	case "Classic":
 		p = classicPreset
 	case "Low":
@@ -961,15 +975,17 @@ func matchesPreset(p qualityPreset) bool {
 
 func detectQualityPreset() int {
 	switch {
-	case matchesPreset(classicPreset):
+	case matchesPreset(potatoGPUPreset):
 		return 0
-	case matchesPreset(lowPreset):
+	case matchesPreset(classicPreset):
 		return 1
+	case matchesPreset(lowPreset):
+		return 2
 	case matchesPreset(mediumPreset):
-		return 2
-	case matchesPreset(highPreset):
 		return 3
+	case matchesPreset(highPreset):
+		return 4
 	default:
-		return 2
+		return 5
 	}
 }

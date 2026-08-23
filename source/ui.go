@@ -3109,7 +3109,7 @@ func makeSettingsWindow() {
 	left.AddItem(label)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
-	qualityPresetDD.Options = []string{"Classic", "Low", "Medium", "High", "Custom"}
+	qualityPresetDD.Options = []string{"Potato GPU / iGPU", "Classic", "Low", "Medium", "High", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.FontSize = 12
@@ -3117,12 +3117,14 @@ func makeSettingsWindow() {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
 			case 0:
-				applyQualityPreset("Classic")
+				applyQualityPreset("Potato GPU / iGPU")
 			case 1:
-				applyQualityPreset("Low")
+				applyQualityPreset("Classic")
 			case 2:
-				applyQualityPreset("Medium")
+				applyQualityPreset("Low")
 			case 3:
+				applyQualityPreset("Medium")
+			case 4:
 				applyQualityPreset("High")
 			}
 			qualityPresetDD.Selected = detectQualityPreset()
@@ -4393,7 +4395,7 @@ func makeQualityWindow() {
 	shaderQualityCB.Text = "Shader Lighting Effects"
 	shaderQualityCB.Size = eui.Point{X: width, Y: 24}
 	shaderQualityCB.Checked = gs.ShaderLighting
-	shaderQualityCB.SetTooltip("Enable shader-based lighting (disabled in Low/Ultra-Low presets)")
+	shaderQualityCB.SetTooltip("Enable shader-based lighting (enabled by the High preset)")
 	shaderQualityEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ShaderLighting = ev.Checked

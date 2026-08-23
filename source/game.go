@@ -1988,8 +1988,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	frame := 0
 	prevFrame := 0
 	if clImages != nil {
-		frame = clImages.FrameIndex(uint32(p.PictID), frameCounter)
-		prevFrame = clImages.FrameIndex(uint32(p.PictID), frameCounter-1)
+		instanceKey := pictureAnimationInstanceKey(p.H, p.V)
+		prevInstanceKey := pictureAnimationInstanceKey(p.PrevH, p.PrevV)
+		frame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, instanceKey)
+		prevFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, prevInstanceKey)
 	}
 	plane := p.Plane
 
@@ -2182,6 +2184,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			releaseTextDrawOpts(opTxt)
 		}
 	}
+}
+
+func pictureAnimationInstanceKey(h, v int16) uint64 {
+	return uint64(uint16(h))<<16 | uint64(uint16(v))
 }
 
 // pictureMobileOffset returns the interpolated offset for a picture that
