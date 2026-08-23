@@ -800,7 +800,7 @@ type qualityPreset struct {
 	MotionSmoothing        bool
 	BlendMobiles           bool
 	BlendPicts             bool
-	NoCaching              bool
+	PotatoGPU              bool
 	ShaderLighting         bool
 	SpriteUpscaleFilter    bool
 	HighQualityResampling  bool
@@ -815,6 +815,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             false,
+		PotatoGPU:              true,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -827,6 +828,7 @@ var (
 		MotionSmoothing:        false,
 		BlendMobiles:           false,
 		BlendPicts:             false,
+		PotatoGPU:              false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -839,6 +841,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             false,
+		PotatoGPU:              false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -851,6 +854,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             true,
+		PotatoGPU:              false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -863,6 +867,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           true,
 		BlendPicts:             true,
+		PotatoGPU:              false,
 		ShaderLighting:         true,
 		SpriteUpscaleFilter:    true,
 		HighQualityResampling:  true,
@@ -893,6 +898,7 @@ func applyQualityPreset(name string) {
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
+	gs.PotatoGPU = p.PotatoGPU
 	gs.ShaderLighting = p.ShaderLighting
 	gs.SpriteUpscaleFilter = p.SpriteUpscaleFilter
 	gs.HighQualityResampling = p.HighQualityResampling
@@ -913,6 +919,9 @@ func applyQualityPreset(name string) {
 	}
 	if pictBlendCB != nil {
 		pictBlendCB.Checked = gs.BlendPicts
+	}
+	if potatoCB != nil {
+		potatoCB.Checked = gs.PotatoGPU
 	}
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
@@ -958,6 +967,7 @@ func matchesPreset(p qualityPreset) bool {
 		gs.MotionSmoothing != p.MotionSmoothing ||
 		gs.BlendMobiles != p.BlendMobiles ||
 		gs.BlendPicts != p.BlendPicts ||
+		gs.PotatoGPU != p.PotatoGPU ||
 		gs.ShaderLighting != p.ShaderLighting ||
 		gs.SpriteUpscaleFilter != p.SpriteUpscaleFilter ||
 		gs.HighQualityResampling != p.HighQualityResampling ||

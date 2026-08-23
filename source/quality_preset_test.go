@@ -49,6 +49,9 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting || gs.SpriteUpscaleFilter {
 		t.Error("Potato GPU / iGPU preset enabled a GPU-intensive graphics effect")
 	}
+	if !gs.PotatoGPU {
+		t.Error("Potato GPU / iGPU preset did not enable low-VRAM mode")
+	}
 	if gs.HighQualityResampling {
 		t.Error("Potato GPU / iGPU preset enabled high-quality resampling")
 	}
@@ -57,5 +60,13 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	}
 	if preset := detectQualityPreset(); preset != 0 {
 		t.Errorf("detectQualityPreset()=%d, want 0", preset)
+	}
+
+	applyQualityPreset("High")
+	if gs.PotatoGPU {
+		t.Error("High preset retained low-VRAM mode")
+	}
+	if preset := detectQualityPreset(); preset != 4 {
+		t.Errorf("detectQualityPreset()=%d after High, want 4", preset)
 	}
 }
