@@ -104,8 +104,8 @@ var gsdef settings = settings{
 	BubbleFontSize:          20,
 	ConsoleFontSize:         12,
 	ChatFontSize:            12,
-	InventoryFontSize:       12,
-	PlayersFontSize:         12,
+	InventoryFontSize:       14,
+	PlayersFontSize:         14,
 	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
 	BubbleBaseLife:          2,
@@ -230,7 +230,7 @@ var gsdef settings = settings{
 	NightEffect:              true,
 	ShaderLighting:           true,
 	CharacterShadows:         true,
-	CharacterShadowDarkness:  1.0,
+	CharacterShadowDarkness:  1.8,
 	DetailedCharacterShadows: true,
 
 	// Window behavior

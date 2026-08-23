@@ -50,8 +50,8 @@ func TestFontSizeDefaults(t *testing.T) {
 		"chat bubble":  {gsdef.BubbleFontSize, 20},
 		"console":      {gsdef.ConsoleFontSize, 12},
 		"chat window":  {gsdef.ChatFontSize, 12},
-		"inventory":    {gsdef.InventoryFontSize, 12},
-		"players list": {gsdef.PlayersFontSize, 12},
+		"inventory":    {gsdef.InventoryFontSize, 14},
+		"players list": {gsdef.PlayersFontSize, 14},
 	}
 	for name, size := range want {
 		if size.got != size.want {
@@ -64,8 +64,8 @@ func TestDetailedCharacterShadowsDefaultOn(t *testing.T) {
 	if !gsdef.DetailedCharacterShadows {
 		t.Error("detailed character shadows should be enabled by default")
 	}
-	if gsdef.CharacterShadowDarkness != 1 {
-		t.Errorf("default character shadow darkness = %v, want 1", gsdef.CharacterShadowDarkness)
+	if gsdef.CharacterShadowDarkness != 1.8 {
+		t.Errorf("default character shadow darkness = %v, want 1.8", gsdef.CharacterShadowDarkness)
 	}
 }
 
