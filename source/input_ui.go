@@ -8,7 +8,15 @@ import (
 // layout, such as when the press closes a window. The playable portion of the
 // game window remains transparent to world input.
 func uiOwnsPointerPress(overUI bool, pressWin *eui.WindowData, handled bool) bool {
-	return overUI || handled || (pressWin != nil && pressWin != gameWin)
+	if overUI {
+		return true
+	}
+	if pressWin != nil {
+		// EUI reports the game image itself as handled. The playable part of
+		// this window must still pass presses through for walking.
+		return pressWin != gameWin
+	}
+	return handled
 }
 
 // pointInUI reports whether the given screen coordinate lies within any EUI window or overlay.

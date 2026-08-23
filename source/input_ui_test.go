@@ -34,8 +34,14 @@ func TestUIOwnsPointerPressAfterWindowCloses(t *testing.T) {
 	if uiOwnsPointerPress(false, gameWin, false) {
 		t.Fatalf("the playable game window should pass an unhandled press to the world")
 	}
-	if !uiOwnsPointerPress(false, gameWin, true) {
-		t.Fatalf("an EUI-handled press should not pass through the game window")
+	if uiOwnsPointerPress(false, gameWin, true) {
+		t.Fatalf("the game image's handled press should still pass through to the world")
+	}
+	if !uiOwnsPointerPress(true, gameWin, true) {
+		t.Fatalf("an overlay item in the game window should retain the press")
+	}
+	if !uiOwnsPointerPress(false, nil, true) {
+		t.Fatalf("a handled press without a window should remain owned by EUI")
 	}
 }
 
