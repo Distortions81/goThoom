@@ -1,6 +1,8 @@
 package main
 
 import (
+	"image"
+	"image/color"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -16,6 +18,10 @@ const (
 	minimumShadowContrast  = 0.70
 	normalShadowOpacity    = 0.75
 	detailedCoreOpacity    = 0.75
+	contactShadowOpacity   = 0.55
+	contactShadowWidth     = 0.78
+	contactShadowHeight    = 0.24
+	contactShadowTexSize   = 64
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -45,6 +51,15 @@ var (
 		Blend:  shadowDarkenBlend,
 	}
 	detailedCharacterShadowMask *ebiten.Image
+	contactShadowTexture        *ebiten.Image
+)
+
+type characterShadowKind uint8
+
+const (
+	characterShadowNone characterShadowKind = iota
+	characterShadowDirectional
+	characterShadowContact
 )
 
 type characterShadowTexture struct {
@@ -128,25 +143,35 @@ func newCharacterShadowProjection(azimuth int) characterShadowProjection {
 }
 
 func currentCharacterShadowState() (float32, int, bool) {
+	alpha, azimuth, kind := currentCharacterShadowRenderState()
+	return alpha, azimuth, kind != characterShadowNone
+}
+
+func currentCharacterShadowRenderState() (float32, int, characterShadowKind) {
 	if !gs.CharacterShadows || gs.MaxNightLevel == 0 {
-		return 0, 0, false
+		return 0, 0, characterShadowNone
 	}
 	gNight.mu.Lock()
 	level := gNight.Shadows
 	azimuth := gNight.Azimuth
+	cloudy := gNight.Cloudy
+	flags := gNight.Flags
 	gNight.mu.Unlock()
+	if cloudy || flags&kLightNoShadows != 0 {
+		return contactShadowOpacity, normalizeShadowAzimuth(azimuth), characterShadowContact
+	}
 	if level <= 0 {
-		return 0, 0, false
+		return 0, 0, characterShadowNone
 	}
 	if level > 100 {
 		level = 100
 	}
-	return float32(level) / 100, normalizeShadowAzimuth(azimuth), true
+	return float32(level) / 100, normalizeShadowAzimuth(azimuth), characterShadowDirectional
 }
 
 func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) {
-	shadowAlpha, azimuth, ok := currentCharacterShadowState()
-	if !ok || clImages == nil {
+	shadowAlpha, azimuth, kind := currentCharacterShadowRenderState()
+	if kind != characterShadowDirectional || clImages == nil {
 		return
 	}
 	projection := newCharacterShadowProjection(azimuth)
@@ -195,6 +220,67 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	}
 }
 
+func drawMobileContactShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, shadowAlpha float32) {
+	if clImages == nil {
+		return
+	}
+	desc, ok := descMap[mobile.Index]
+	if !ok {
+		return
+	}
+	size := mobileSize(desc.PictID)
+	if size <= 0 {
+		return
+	}
+	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
+	drawContactShadow(screen, size, x, y, shadowAlpha, shadowDarkenBlend)
+}
+
+func contactShadowImage() *ebiten.Image {
+	if contactShadowTexture != nil {
+		return contactShadowTexture
+	}
+	img := image.NewNRGBA(image.Rect(0, 0, contactShadowTexSize, contactShadowTexSize))
+	center := float64(contactShadowTexSize-1) / 2
+	for y := 0; y < contactShadowTexSize; y++ {
+		for x := 0; x < contactShadowTexSize; x++ {
+			dx := (float64(x) - center) / center
+			dy := (float64(y) - center) / center
+			radiusSquared := dx*dx + dy*dy
+			if radiusSquared >= 1 {
+				continue
+			}
+			softness := 1 - radiusSquared
+			img.SetNRGBA(x, y, color.NRGBA{A: uint8(255 * softness)})
+		}
+	}
+	contactShadowTexture = newImageFromImage(img)
+	return contactShadowTexture
+}
+
+func drawContactShadow(screen *ebiten.Image, size, x, y int, alpha float32, blend ebiten.Blend) {
+	img := contactShadowImage()
+	if img == nil || size <= 0 {
+		return
+	}
+	target := float64(roundToInt(float64(size) * gs.GameScale))
+	width := target * contactShadowWidth
+	height := target * contactShadowHeight
+	if width < 1 || height < 1 {
+		return
+	}
+	drawAlpha := characterShadowDrawAlpha(alpha, characterShadowProjection{contrast: 1})
+	op := acquireDrawOpts()
+	op.Filter = ebiten.FilterLinear
+	op.DisableMipmaps = true
+	op.Blend = blend
+	op.ColorScale.Scale(0, 0, 0, drawAlpha)
+	op.GeoM.Scale(width/float64(img.Bounds().Dx()), height/float64(img.Bounds().Dy()))
+	op.GeoM.Translate(float64(x)-width/2, float64(y)+target/2-height/2)
+	screen.DrawImage(img, op)
+	releaseDrawOpts(op)
+}
+
 func characterShadowMask(screen *ebiten.Image) *ebiten.Image {
 	bounds := screen.Bounds()
 	if detailedCharacterShadowMask == nil || detailedCharacterShadowMask.Bounds().Dx() != bounds.Dx() || detailedCharacterShadowMask.Bounds().Dy() != bounds.Dy() {
@@ -221,6 +307,10 @@ func clearCharacterShadowCache() {
 	if detailedCharacterShadowMask != nil {
 		detailedCharacterShadowMask.Deallocate()
 		detailedCharacterShadowMask = nil
+	}
+	if contactShadowTexture != nil {
+		contactShadowTexture.Deallocate()
+		contactShadowTexture = nil
 	}
 }
 

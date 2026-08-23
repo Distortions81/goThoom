@@ -236,3 +236,32 @@ func TestCurrentCharacterShadowState(t *testing.T) {
 		t.Error("zero area shadow level should disable shadows")
 	}
 }
+
+func TestCharacterShadowRenderStateUsesContactShadowsWithoutSun(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() {
+		gs = originalSettings
+		gNight = NightInfo{}
+	})
+
+	gs.CharacterShadows = true
+	gs.MaxNightLevel = 100
+
+	gNight = NightInfo{Shadows: 25, Azimuth: 90, Cloudy: true}
+	alpha, _, kind := currentCharacterShadowRenderState()
+	if kind != characterShadowContact || alpha != contactShadowOpacity {
+		t.Fatalf("cloudy shadow state = (%v, %v), want contact opacity %v", alpha, kind, contactShadowOpacity)
+	}
+
+	gNight = NightInfo{Shadows: 0, Azimuth: 90, Flags: kLightNoShadows}
+	alpha, _, kind = currentCharacterShadowRenderState()
+	if kind != characterShadowContact || alpha != contactShadowOpacity {
+		t.Fatalf("indoor shadow state = (%v, %v), want contact opacity %v", alpha, kind, contactShadowOpacity)
+	}
+
+	gNight = NightInfo{Shadows: 50, Azimuth: 90}
+	alpha, _, kind = currentCharacterShadowRenderState()
+	if kind != characterShadowDirectional || alpha != 0.5 {
+		t.Fatalf("clear shadow state = (%v, %v), want directional opacity 0.5", alpha, kind)
+	}
+}

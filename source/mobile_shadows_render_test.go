@@ -103,6 +103,9 @@ func (g *shadowRenderGame) renderImages() error {
 	if err := verifyCharacterShadowSourceDeterminism(); err != nil {
 		return err
 	}
+	if err := g.renderContactShadows(); err != nil {
+		return err
+	}
 	for _, character := range shadowTestCharacters {
 		if err := g.renderWalkCycle(character.name, character.pictID); err != nil {
 			return err
@@ -142,6 +145,26 @@ func (g *shadowRenderGame) renderImages() error {
 		}
 	}
 	return nil
+}
+
+func (g *shadowRenderGame) renderContactShadows() error {
+	canvas := ebiten.NewImageFromImage(shadowTestBackground(shadowTestCanvasSize))
+	spacing := shadowTestCanvasSize / (len(shadowTestCharacters) + 1)
+	for i, character := range shadowTestCharacters {
+		x := spacing * (i + 1)
+		y := shadowTestCenterY
+		visibleSprite := loadMobileFrame(character.pictID, 0, nil)
+		if visibleSprite == nil {
+			return fmt.Errorf("load contact-shadow mobile pict %d", character.pictID)
+		}
+		drawContactShadow(canvas, shadowTestDrawSize, x, y, contactShadowOpacity, shadowDarkenBlend)
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterLinear
+		op.GeoM.Scale(float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dx()), float64(shadowTestDrawSize)/float64(visibleSprite.Bounds().Dy()))
+		op.GeoM.Translate(float64(x-shadowTestDrawSize/2), float64(y-shadowTestDrawSize/2))
+		canvas.DrawImage(visibleSprite, op)
+	}
+	return writeShadowTestPNG(filepath.Join(g.outputDir, "shadow_contact.png"), canvas)
 }
 
 func (g *shadowRenderGame) renderWalkCycle(name string, pictID uint16) error {
