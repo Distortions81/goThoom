@@ -139,52 +139,6 @@ func vZoneCoord(z VZone, height int) float32 {
 	}
 }
 
-func nearestHZone(x, w float32, width int) HZone {
-	zones := []HZone{HZoneLeft, HZoneLeftCenter, HZoneCenterLeft, HZoneCenter, HZoneCenterRight, HZoneRightCenter, HZoneRight}
-	closest := zones[0]
-	min := float32(math.MaxFloat32)
-	positions := []float32{x, x + w/2, x + w}
-	for _, z := range zones {
-		zx := hZoneCoord(z, width)
-		for _, px := range positions {
-			diff := float32(math.Abs(float64(px - zx)))
-			if diff < min {
-				min = diff
-				closest = z
-			}
-		}
-	}
-	return closest
-}
-
-func nearestVZone(y, h float32, height int) VZone {
-	zones := []VZone{VZoneTop, VZoneTopMiddle, VZoneMiddleTop, VZoneCenter, VZoneMiddleBottom, VZoneBottomMiddle, VZoneBottom}
-	closest := zones[0]
-	min := float32(math.MaxFloat32)
-	positions := []float32{y, y + h/2, y + h}
-	for _, z := range zones {
-		zy := vZoneCoord(z, height)
-		for _, py := range positions {
-			diff := float32(math.Abs(float64(py - zy)))
-			if diff < min {
-				min = diff
-				closest = z
-			}
-		}
-	}
-	return closest
-}
-
-func (win *windowData) PinToClosestZone() {
-	pos := win.getPosition()
-	size := win.Size
-	sw := int(float32(screenWidth) / uiScale)
-	sh := int(float32(screenHeight) / uiScale)
-	h := nearestHZone(pos.X, size.X, sw)
-	v := nearestVZone(pos.Y, size.Y, sh)
-	win.SetZone(h, v)
-}
-
 // snapToCorner assigns a zone when a window is dragged close to a screen
 // corner. It returns true if a zone was applied.
 func snapToCorner(win *windowData) bool {
@@ -399,56 +353,4 @@ func snapResize(win *windowData, part dragType) bool {
 		win.clampToScreen()
 	}
 	return snapped
-}
-
-// preventOverlap adjusts the window position to avoid overlapping other windows
-// when window tiling is enabled.
-func preventOverlap(win *windowData) {
-	if !windowTiling {
-		return
-	}
-	const maxIterations = 100
-	visited := map[point]bool{}
-	for i := 0; i < maxIterations; i++ {
-		if visited[win.Position] {
-			break
-		}
-		visited[win.Position] = true
-		winRect := win.getWinRect()
-		moved := false
-		for _, other := range windows {
-			if other == win || !other.Open {
-				continue
-			}
-			otherRect := other.getWinRect()
-			inter := intersectRect(winRect, otherRect)
-			if inter.X1 > inter.X0 && inter.Y1 > inter.Y0 {
-				dx := inter.X1 - inter.X0
-				dy := inter.Y1 - inter.Y0
-				oldPos := win.Position
-				if dx < dy {
-					if winRect.X0 < otherRect.X0 {
-						win.Position.X -= dx
-					} else {
-						win.Position.X += dx
-					}
-				} else {
-					if winRect.Y0 < otherRect.Y0 {
-						win.Position.Y -= dy
-					} else {
-						win.Position.Y += dy
-					}
-				}
-				win.clampToScreen()
-				if win.Position == oldPos {
-					return
-				}
-				moved = true
-				break
-			}
-		}
-		if !moved {
-			break
-		}
-	}
 }

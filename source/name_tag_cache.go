@@ -34,9 +34,9 @@ func nameTagFrameColor(name string, opacity uint8) color.RGBA {
 }
 
 func makeNameTagKey(name string, colors, descriptorType, opacity, style uint8, dead bool) nameTagKey {
-	// Modern dark tags do not derive their text surface from the health color
-	// or descriptor type; the health bar is composed separately at draw time.
-	if gs.NameHealthBarModern && gs.DarkBubblesAndNames {
+	// Modern tags do not derive their text surface from the health color or
+	// descriptor type; the health bar is composed separately at draw time.
+	if gs.NameHealthBarModern {
 		colors = 0
 		descriptorType = 0
 	}

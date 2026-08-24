@@ -18,7 +18,6 @@ import (
 const shadowAlphaDivisor = 16
 
 var dumpDone bool
-var zoneIndicatorWin *windowData
 var renderNow time.Time
 
 var dropdownReuse []openDropdown
@@ -65,7 +64,6 @@ func Draw(screen *ebiten.Image) {
 	renderNow = time.Now()
 	defer func() { renderNow = time.Time{} }()
 
-	zoneIndicatorWin = nil
 	dropdowns := dropdownReuse[:0]
 	if cap(dropdowns) < len(windows) {
 		dropdowns = make([]openDropdown, 0, len(windows))
@@ -84,14 +82,6 @@ func Draw(screen *ebiten.Image) {
 			win.Dirty = true
 		}
 		win.Draw(screen, &dropdowns)
-	}
-
-	if showPinLocations && dragPart == PART_BAR && dragWin != nil {
-		zoneIndicatorWin = dragWin
-	}
-
-	if showPinLocations && zoneIndicatorWin != nil {
-		drawZoneOverlay(screen, zoneIndicatorWin)
 	}
 
 	screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
@@ -130,37 +120,6 @@ func Draw(screen *ebiten.Image) {
 		}
 		dumpDone = true
 		os.Exit(0)
-	}
-}
-
-func drawZoneOverlay(screen *ebiten.Image, win *windowData) {
-	size := float32(20) * uiScale
-	fillet := size / 4
-	dark := color.NRGBA{R: 0x40, G: 0x40, B: 0x40, A: 64}
-	red := color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 64}
-
-	pos := win.getPosition()
-	winSize := win.GetSize()
-	hSel := nearestHZone(pos.X, winSize.X, screenWidth)
-	vSel := nearestVZone(pos.Y, winSize.Y, screenHeight)
-
-	for h := HZoneLeft; h <= HZoneRight; h++ {
-		for v := VZoneTop; v <= VZoneBottom; v++ {
-			x := hZoneCoord(h, screenWidth)
-			y := vZoneCoord(v, screenHeight)
-			col := dark
-			if h == hSel && v == vSel {
-				col = red
-			}
-			rr := roundRect{
-				Size:     point{X: size, Y: size},
-				Position: point{X: x - size/2, Y: y - size/2},
-				Fillet:   fillet,
-				Filled:   true,
-				Color:    Color{R: col.R, G: col.G, B: col.B, A: col.A},
-			}
-			drawRoundRect(screen, &rr)
-		}
 	}
 }
 
@@ -466,33 +425,6 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			r := (sr.X1 - sr.X0) / 4
 			vector.StrokeCircle(screen, cx, cy, r, uiScale, color.ToRGBA(), true)
 			strokeLine(screen, cx+r/2, cy+r/2, sr.X1-uiScale*2, sr.Y1-uiScale*2, uiScale, color, true)
-			buttonsWidth += (win.GetTitleSize())
-		}
-
-		// Pin icon
-		if windowPinning {
-			pr := win.pinRect()
-			color := win.Theme.Window.TitleColor
-			if win.zone == nil {
-				if c, ok := namedColors["disabled"]; ok {
-					color = c
-				} else {
-					color = ColorVeryDarkGray
-				}
-			}
-			if win.HoverPin {
-				color = win.Theme.Window.HoverTitleColor
-				win.HoverPin = false
-			}
-			radius := win.GetTitleSize() / 6
-			cx := pr.X0 + (pr.X1-pr.X0)/2
-			cy := pr.Y0 + (pr.Y1-pr.Y0)/2
-			vector.FillCircle(screen, cx, cy-radius/2, radius, color, true)
-			if win.zone != nil {
-				strokeLine(screen, cx, cy-radius/2, cx, pr.Y1-radius/3, uiScale, color, true)
-			} else {
-				strokeLine(screen, cx, cy-radius/2, cx+radius, pr.Y1-radius/3, uiScale, color, true)
-			}
 			buttonsWidth += (win.GetTitleSize())
 		}
 

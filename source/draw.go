@@ -695,15 +695,9 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 	if name == "" {
 		return nil, 0, 0
 	}
-	textClr, bgClr, _ := mobileNameColors(colorCode)
-	if !gs.NameHealthBarModern && descriptorType == kDescPlayer {
-		textClr, bgClr, _ = classicMobileNameColors(colorCode)
-	}
+	textClr, bgClr, _ := mobileNameColors(colorCode, descriptorType)
 	if dead {
 		textClr = color.RGBA{0x90, 0x90, 0x90, 0xff}
-		if gs.DarkBubblesAndNames && gs.NameHealthBarModern {
-			bgClr = color.RGBA{0xff, 0xff, 0xff, 0xff}
-		}
 	}
 	face := mainFont
 	switch style {
@@ -754,6 +748,9 @@ func nameHealthBarOffsets(nameHeight, barHeight int, above bool) (nameY, barY in
 
 func nameHealthOptionsKey() uint16 {
 	if gs.NameHealthBarModern {
+		if gs.DarkBubblesAndNames {
+			return 3
+		}
 		return 1
 	}
 	return 0
@@ -1639,6 +1636,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			}
 		}
 	}
+	markPlayersOnScreen(mobiles, state.descriptors, time.Now())
 
 	previousMobiles := state.mobiles
 	nextMobiles := state.mobileScratch

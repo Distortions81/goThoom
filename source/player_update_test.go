@@ -21,6 +21,60 @@ func TestUpdatePlayerAppearanceUnmarksDead(t *testing.T) {
 	if p.Dead || p.FellWhere != "" || p.KillerName != "" || !p.FellTime.IsZero() {
 		t.Fatalf("expected Bob to be marked alive, got %#v", p)
 	}
+	if p.LastOnScreen.IsZero() {
+		t.Fatal("visible player did not record an on-screen timestamp")
+	}
+}
+
+func TestPlayerGroupUsesTwoMinuteOnScreenWindow(t *testing.T) {
+	now := time.Unix(1000, 0)
+	recent := Player{Name: "Recent", LastOnScreen: now.Add(-recentPlayerWindow + time.Second)}
+	if got := playerGroup(recent, now, true); got != playerGroupRecent {
+		t.Fatalf("recent player group = %v", got)
+	}
+	if got := playerGroup(recent, now, false); got != playerGroupOnline {
+		t.Fatalf("recent player with section disabled = %v", got)
+	}
+
+	expired := Player{Name: "Expired", LastOnScreen: now.Add(-recentPlayerWindow)}
+	if got := playerGroup(expired, now, true); got != playerGroupOnline {
+		t.Fatalf("expired player group = %v", got)
+	}
+
+	offline := recent
+	offline.Offline = true
+	if got := playerGroup(offline, now, true); got != playerGroupOffline {
+		t.Fatalf("offline recent player group = %v", got)
+	}
+}
+
+func TestMarkPlayersOnScreenTracksCurrentSnellWithoutConstantRefresh(t *testing.T) {
+	originalPlayers := players
+	originalDirty := playersDirty
+	defer func() {
+		players = originalPlayers
+		playersDirty = originalDirty
+	}()
+
+	now := time.Unix(2000, 0)
+	players = map[string]*Player{"Bob": {Name: "Bob", Offline: true}}
+	mobiles := []frameMobile{{Index: 7}}
+	descriptors := map[uint8]frameDescriptor{7: {Index: 7, Name: "Bob"}}
+
+	playersDirty = false
+	markPlayersOnScreen(mobiles, descriptors, now)
+	if players["Bob"].Offline || players["Bob"].LastOnScreen != now || !playersDirty {
+		t.Fatalf("first snell observation was not recorded: player=%+v dirty=%v", players["Bob"], playersDirty)
+	}
+
+	playersDirty = false
+	markPlayersOnScreen(mobiles, descriptors, now.Add(time.Second))
+	if playersDirty {
+		t.Fatal("continuous presence dirtied the Players list")
+	}
+	if got := players["Bob"].LastOnScreen; got != now.Add(time.Second) {
+		t.Fatalf("continuous presence timestamp = %v", got)
+	}
 }
 
 func TestUpdatePlayerAppearancePublishesPaletteChangesAndRemoval(t *testing.T) {

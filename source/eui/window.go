@@ -44,10 +44,6 @@ func (target *windowData) AddWindow(toBack bool) {
 		}
 		windows = append(windows[:idx], append([]*windowData{target}, windows[idx:]...)...)
 	}
-	if windowTiling && target.Open {
-		target.clampToScreen()
-		preventOverlap(target)
-	}
 }
 
 // deallocate releases cached render images for the window and its items.
@@ -93,6 +89,11 @@ func NewWindow() *windowData {
 		currentTheme = baseTheme
 	}
 	newWindow := currentTheme.Window
+	// Window background colors are theme values unless the caller explicitly
+	// overrides them. Leaving the copied values here freezes the palette that
+	// was active when the window was created.
+	newWindow.BGColor = Color{}
+	newWindow.TitleBGColor = Color{}
 	// Default: windows can be maximized if desired by the app
 	newWindow.Maximizable = false
 	newWindow.Theme = currentTheme
@@ -379,7 +380,7 @@ func (target *windowData) Close() {
 // positioned adjacent to the anchor while trying to avoid overlapping the
 // anchor's parent window when possible and clamping to screen bounds.
 func (target *windowData) MarkOpenNear(anchor *itemData) {
-	// Respect explicit zone pinning: if a window has a zone, open it at
+	// Respect explicit zone placement: if a window has a zone, open it at
 	// the zone rather than near the anchor.
 	if target.zone != nil {
 		target.MarkOpen()
@@ -398,7 +399,7 @@ func (target *windowData) ToggleNear(anchor *itemData) {
 		target.Close()
 		return
 	}
-	// Respect zone pinning if set.
+	// Respect zone placement if set.
 	if target.zone != nil {
 		target.MarkOpen()
 	} else {

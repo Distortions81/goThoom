@@ -16,37 +16,11 @@ func PointerPressWindow() *WindowData { return downWin }
 // PointerPressHandled reports whether EUI handled the pointer press this frame.
 func PointerPressHandled() bool { return pointerPressHandled }
 
-// WindowTiling reports whether window tiling is enabled.
-func WindowTiling() bool { return windowTiling }
-
-// SetWindowTiling enables or disables window tiling.
-func SetWindowTiling(enabled bool) { windowTiling = enabled }
-
 // WindowSnapping reports whether window snapping is enabled.
 func WindowSnapping() bool { return windowSnapping }
 
 // SetWindowSnapping enables or disables window snapping.
 func SetWindowSnapping(enabled bool) { windowSnapping = enabled }
-
-// WindowPinning reports whether title-bar pin buttons are enabled.
-func WindowPinning() bool { return windowPinning }
-
-// SetWindowPinning enables title-bar buttons for pinning windows to layout zones.
-func SetWindowPinning(enabled bool) {
-	if windowPinning == enabled {
-		return
-	}
-	windowPinning = enabled
-	for _, win := range windows {
-		win.markDirty()
-	}
-}
-
-// ShowPinLocations reports whether pin-to zone indicators are shown while dragging windows.
-func ShowPinLocations() bool { return showPinLocations }
-
-// SetShowPinLocations enables or disables pin-to zone indicators while dragging windows.
-func SetShowPinLocations(enabled bool) { showPinLocations = enabled }
 
 // MiddleClickMove reports whether middle-click window dragging is enabled.
 func MiddleClickMove() bool { return middleClickMove }

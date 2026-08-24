@@ -491,33 +491,6 @@ type musicPart struct {
 	notes   []Note
 }
 
-const maxMusicPan = 0.40
-
-// musicPan distributes a group evenly across a conservative stereo field.
-// A single part is centered; two parts use -40% and +40%.
-func musicPan(index, count int) float32 {
-	if count <= 1 {
-		return 0
-	}
-	return -maxMusicPan + (2*maxMusicPan*float32(index))/float32(count-1)
-}
-
-// applyMusicPan preserves the centered level and attenuates only the far
-// channel. This avoids boosting multi-bard mixes into clipping.
-func applyMusicPan(left, right []float32, pan float32) {
-	if pan < 0 {
-		gain := 1 + pan
-		for i := range right {
-			right[i] *= gain
-		}
-	} else if pan > 0 {
-		gain := 1 - pan
-		for i := range left {
-			left[i] *= gain
-		}
-	}
-}
-
 // newMixedMusicStream renders all parts into one PCM stream. This avoids
 // relying on simultaneous audio-backend players for /with bard groups.
 func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
@@ -557,7 +530,7 @@ func (s *musicStream) produceMixed(renderers []*songRenderer) {
 	for pos := 0; pos < s.totalFrames; {
 		frames := min(chunkFrames, s.totalFrames-pos)
 		left, right := make([]float32, frames), make([]float32, frames)
-		for i, renderer := range renderers {
+		for _, renderer := range renderers {
 			if renderer.remaining() == 0 {
 				continue
 			}
@@ -567,9 +540,6 @@ func (s *musicStream) produceMixed(renderers []*songRenderer) {
 				s.err = err
 				s.mu.Unlock()
 				return
-			}
-			if gs.MusicStereoPan {
-				applyMusicPan(partLeft, partRight, musicPan(i, len(renderers)))
 			}
 			for i := range partLeft {
 				left[i] += partLeft[i]

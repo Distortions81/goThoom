@@ -770,6 +770,11 @@ func (g *Game) Update() error {
 		inventoryDirty = false
 	}
 
+	if !nextRecentPlayersExpiry.IsZero() && !now.Before(nextRecentPlayersExpiry) {
+		playersDirty = true
+		nextRecentPlayersExpiry = time.Time{}
+	}
+
 	if playersDirty {
 		updatePlayersWindow()
 		playersDirty = false
@@ -2570,22 +2575,26 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 			}
 			if img != nil {
+				tagScale := relativeNameTagScale(gs.GameScale, mainFontRasterScale)
+				scaledWidth := max(1, roundToInt(float64(iw)*tagScale))
+				scaledHeight := max(1, roundToInt(float64(ih)*tagScale))
 				top := y + int(offset)
-				left := x - int(float64(iw)/2)
+				left := x - scaledWidth/2
 				barHeight := 0
 				barClr, showHealthBar := mobileHealthBarColor(m.Colors, d.Type)
 				if gs.NameHealthBarModern && showHealthBar {
-					barHeight = gs.NameHealthBarThickness
+					barHeight = max(1, roundToInt(float64(gs.NameHealthBarThickness)*tagScale))
 				}
-				nameY, barY := nameHealthBarOffsets(ih, barHeight, gs.NameHealthBarAbove)
+				nameY, barY := nameHealthBarOffsets(scaledHeight, barHeight, gs.NameHealthBarAbove)
 				if barHeight > 0 {
 					barClr.A = uint8(float32(barClr.A) * nameRevealAlpha)
-					vector.FillRect(screen, float32(left+1), float32(top+barY), float32(iw-2), float32(barHeight), barClr, false)
+					vector.FillRect(screen, float32(left+1), float32(top+barY), float32(max(1, scaledWidth-2)), float32(barHeight), barClr, false)
 				}
 				op := acquireDrawOpts()
-				op.Filter = ebiten.FilterNearest
+				op.Filter = ebiten.FilterLinear
 				op.DisableMipmaps = true
 				op.ColorScale.ScaleAlpha(nameRevealAlpha)
+				op.GeoM.Scale(tagScale, tagScale)
 				op.GeoM.Translate(float64(left), float64(top+nameY))
 				screen.DrawImage(img, op)
 				releaseDrawOpts(op)
@@ -2594,6 +2603,13 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			drawGenericBar()
 		}
 	}
+}
+
+func relativeNameTagScale(worldScale, fontRasterScale float64) float64 {
+	if worldScale <= 0 || fontRasterScale <= 0 {
+		return 1
+	}
+	return worldScale / fontRasterScale
 }
 
 const speechBubbleReferenceScale = 3.0
@@ -2908,8 +2924,12 @@ func equippedItemPicts() (uint16, uint16) {
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	scaledW, scaledH := eui.Layout(outsideWidth, outsideHeight)
 
-	if uiReady && !windowsRestored {
-		restoreWindowsAfterScale()
+	if uiReady {
+		if !windowsRestored {
+			restoreWindowsAfterScale()
+		} else if gs.AutoResizeWindows && managedWindowLayoutChanged() {
+			applyManagedWindowLayout()
+		}
 	}
 
 	if outsideWidth > 512 && outsideHeight > 384 {

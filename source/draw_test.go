@@ -33,6 +33,18 @@ func TestReuseCachedNameTagFromPreviousFrame(t *testing.T) {
 	}
 }
 
+func TestRelativeNameTagScaleFollowsDisplayedPlayerScale(t *testing.T) {
+	if got := relativeNameTagScale(2, 4); got != 0.5 {
+		t.Fatalf("relativeNameTagScale(2, 4) = %v, want 0.5", got)
+	}
+	if got := relativeNameTagScale(4, 2); got != 2 {
+		t.Fatalf("relativeNameTagScale(4, 2) = %v, want 2", got)
+	}
+	if got := relativeNameTagScale(0, 4); got != 1 {
+		t.Fatalf("relativeNameTagScale(0, 4) = %v, want 1", got)
+	}
+}
+
 func TestReuseCachedNameTagFromSharedCache(t *testing.T) {
 	clearSharedNameTagCache()
 	t.Cleanup(clearSharedNameTagCache)
@@ -59,7 +71,7 @@ func TestReuseCachedNameTagFromSharedCache(t *testing.T) {
 	}
 }
 
-func TestModernDarkNameTagKeyIgnoresSeparateHealthBarColor(t *testing.T) {
+func TestModernNameTagKeyIgnoresSeparateHealthBarColor(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	gs.NameHealthBarModern = true
@@ -70,12 +82,48 @@ func TestModernDarkNameTagKeyIgnoresSeparateHealthBarColor(t *testing.T) {
 	if green != red {
 		t.Fatal("modern dark name-tag surface key changed with separately drawn health color")
 	}
+	dark := green
 
 	gs.DarkBubblesAndNames = false
 	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
 	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
+	if green != red {
+		t.Fatal("modern light name-tag surface key changed with separately drawn health color")
+	}
+	if green == dark {
+		t.Fatal("modern light and dark name tags shared a cache key")
+	}
+
+	gs.NameHealthBarModern = false
+	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
+	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
 	if green == red {
-		t.Fatal("classic-colored name-tag surface key ignored its background color")
+		t.Fatal("classic name-tag surface key ignored its background color")
+	}
+}
+
+func TestModernNameColorsAreIndependentFromHealth(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.NameHealthBarModern = true
+
+	gs.DarkBubblesAndNames = false
+	lightText, lightBG, _ := mobileNameColors(uint8(kColorCodeBackRed<<4), kDescPlayer)
+	if lightText != (color.RGBA{A: 0xff}) || lightBG != (color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}) {
+		t.Fatalf("modern light name colors = text %v, background %v", lightText, lightBG)
+	}
+
+	gs.DarkBubblesAndNames = true
+	darkText, darkBG, _ := mobileNameColors(uint8(kColorCodeBackRed<<4), kDescPlayer)
+	if darkText != (color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}) || darkBG != (color.RGBA{R: 0x10, G: 0x10, B: 0x10, A: 0xff}) {
+		t.Fatalf("modern dark name colors = text %v, background %v", darkText, darkBG)
+	}
+
+	gs.NameHealthBarModern = false
+	classicText, classicBG, _ := mobileNameColors(uint8(kColorCodeBackRed<<4), kDescPlayer)
+	wantText, wantBG, _ := classicMobileNameColors(uint8(kColorCodeBackRed << 4))
+	if classicText != wantText || classicBG != wantBG {
+		t.Fatalf("classic player name colors = text %v, background %v", classicText, classicBG)
 	}
 }
 

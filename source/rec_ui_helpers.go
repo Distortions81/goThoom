@@ -17,5 +17,5 @@ func updateRecordButton() {
 	}
 	// Force re-render of the button and toolbar window
 	recordBtn.Dirty = true
-	hudWin.Refresh()
+	refreshToolbar()
 }

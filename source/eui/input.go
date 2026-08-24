@@ -112,9 +112,6 @@ func Update() error {
 			selectedTextItem.selecting = false
 			selectedTextItem.markDirty()
 		}
-		if dragPart == PART_BAR && dragWin != nil {
-			preventOverlap(dragWin)
-		}
 		dragPart = PART_NONE
 		dragWin = nil
 		dragFlow = nil
@@ -175,7 +172,7 @@ func Update() error {
 					c = ebiten.CursorShapeNWSEResize
 				case PART_TOP_RIGHT, PART_BOTTOM_LEFT:
 					c = ebiten.CursorShapeNESWResize
-				case PART_SCROLL_V, PART_SCROLL_H, PART_PIN, PART_SEARCH:
+				case PART_SCROLL_V, PART_SCROLL_H, PART_SEARCH:
 					c = ebiten.CursorShapePointer
 				}
 			}
@@ -206,16 +203,6 @@ func Update() error {
 						}
 						win.markDirty()
 					}
-					break
-				}
-				if part == PART_PIN {
-					if win.zone != nil {
-						win.ClearZone()
-						win.clampToScreen()
-					} else {
-						win.PinToClosestZone()
-					}
-					win.markDirty()
 					break
 				}
 				dragPart = part
@@ -312,9 +299,6 @@ func Update() error {
 					if !snapped && snapToWindow(win) {
 						win.clampToScreen()
 					}
-				}
-				if dragPart != PART_BAR {
-					preventOverlap(win)
 				}
 				break
 			}

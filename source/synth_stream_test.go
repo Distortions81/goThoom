@@ -31,30 +31,6 @@ func TestMusicReverbCarriesAcrossChunks(t *testing.T) {
 	}
 }
 
-func TestMusicPanDistribution(t *testing.T) {
-	if got := musicPan(0, 1); got != 0 {
-		t.Fatalf("solo pan = %v, want 0", got)
-	}
-	if got := musicPan(0, 2); got != -maxMusicPan {
-		t.Fatalf("first duet pan = %v, want %v", got, -maxMusicPan)
-	}
-	if got := musicPan(1, 2); got != maxMusicPan {
-		t.Fatalf("second duet pan = %v, want %v", got, maxMusicPan)
-	}
-	if got := musicPan(1, 3); got != 0 {
-		t.Fatalf("middle trio pan = %v, want 0", got)
-	}
-	if got := musicPan(1, 4); math.Abs(float64(got+maxMusicPan/3)) > 1e-6 {
-		t.Fatalf("second quartet pan = %v, want %v", got, -maxMusicPan/3)
-	}
-	if got := musicPan(2, 5); got != 0 {
-		t.Fatalf("middle quintet pan = %v, want 0", got)
-	}
-	if got := musicPan(99, 100); math.Abs(float64(got-maxMusicPan)) > 1e-6 {
-		t.Fatalf("last large-group pan = %v, want %v", got, maxMusicPan)
-	}
-}
-
 type bufferedStreamSynth struct{}
 
 func (*bufferedStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}

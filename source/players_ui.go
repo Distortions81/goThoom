@@ -23,9 +23,43 @@ var playersWin *eui.WindowData
 var playersList *eui.ItemData
 var playersDirty bool
 var playersRowRefs = map[*eui.ItemData]string{}
+var playersGroupHeaders = map[*eui.ItemData]bool{}
+var nextRecentPlayersExpiry time.Time
 var selectedPlayerName string
 var lastPlayerClickName string
 var lastPlayerClickTime time.Time
+
+type playerListGroup int
+
+const (
+	playerGroupRecent playerListGroup = iota
+	playerGroupOnline
+	playerGroupOffline
+)
+
+func playerGroup(p Player, now time.Time, showRecent bool) playerListGroup {
+	if p.Offline {
+		return playerGroupOffline
+	}
+	if showRecent && !p.LastOnScreen.IsZero() {
+		age := now.Sub(p.LastOnScreen)
+		if age >= 0 && age < recentPlayerWindow {
+			return playerGroupRecent
+		}
+	}
+	return playerGroupOnline
+}
+
+func playerGroupTitle(group playerListGroup) string {
+	switch group {
+	case playerGroupRecent:
+		return "Recently On Screen"
+	case playerGroupOnline:
+		return "Online"
+	default:
+		return "Offline"
+	}
+}
 
 //go:embed data/icons/share-out.png
 var shareOutPNG []byte
@@ -91,9 +125,16 @@ func searchPlayersWindow(query string) {
 	total := len(playersList.Contents)
 	marks := make([]float32, 0)
 	accent := eui.AccentColor()
+	playerIndex := 0
 	for i, row := range playersList.Contents {
+		if playersGroupHeaders[row] {
+			row.Focused = false
+			continue
+		}
 		row.Focused = false
 		name := playersRowRefs[row]
+		alternate := playerIndex%2 == 1
+		playerIndex++
 		if q != "" && strings.Contains(strings.ToLower(name), q) {
 			row.Filled = true
 			row.Color = accent
@@ -102,7 +143,7 @@ func searchPlayersWindow(query string) {
 			}
 			continue
 		}
-		row.Filled = gs.AlternateRowBackgrounds && i%2 == 1
+		row.Filled = gs.AlternateRowBackgrounds && alternate
 		if row.Filled {
 			row.Color = alternateRowColor()
 		} else {
@@ -167,12 +208,13 @@ func updatePlayersWindow() {
 
 	// Gather current players and filter to non-NPCs with names.
 	ps := getPlayers()
-	// Sort online players first, then by label/color group and name.
+	now := time.Now()
+	// Sort by section, then by label/color group and name.
 	sort.Slice(ps, func(i, j int) bool {
-		offI := ps[i].Offline
-		offJ := ps[j].Offline
-		if offI != offJ {
-			return !offI && offJ
+		groupI := playerGroup(ps[i], now, gs.ShowRecentPlayers)
+		groupJ := playerGroup(ps[j], now, gs.ShowRecentPlayers)
+		if groupI != groupJ {
+			return groupI < groupJ
 		}
 		// Same online/offline status: sort by label group.
 		li := ps[i].FriendLabel
@@ -191,6 +233,7 @@ func updatePlayersWindow() {
 		return ps[i].Name < ps[j].Name
 	})
 	exiles := make([]Player, 0, len(ps))
+	var groupCounts [3]int
 	shareCount, shareeCount := 0, 0
 	onlineCount := 0
 	for _, p := range ps {
@@ -204,6 +247,7 @@ func updatePlayersWindow() {
 			shareeCount++
 		}
 		exiles = append(exiles, p)
+		groupCounts[playerGroup(p, now, gs.ShowRecentPlayers)]++
 		if !p.Offline {
 			onlineCount++
 		}
@@ -257,9 +301,32 @@ func updatePlayersWindow() {
 	// Layout per row: [avatar (or default/blank)] [profession (or blank)] [name]
 	playersList.Contents = nil
 	playersRowRefs = map[*eui.ItemData]string{}
+	playersGroupHeaders = map[*eui.ItemData]bool{}
+	nextRecentPlayersExpiry = time.Time{}
 	var selectedRow *eui.ItemData
 
-	for rowIndex, p := range exiles {
+	rowIndex := 0
+	lastGroup := playerListGroup(-1)
+	for _, p := range exiles {
+		group := playerGroup(p, now, gs.ShowRecentPlayers)
+		if group != lastGroup {
+			header, _ := eui.NewText()
+			header.Text = fmt.Sprintf("%s (%d)", playerGroupTitle(group), groupCounts[group])
+			header.FontSize = float32(fontSize)
+			header.Face = mainFontBold
+			header.TextColor = accent
+			header.ForceTextColor = true
+			header.Size = eui.Point{X: clientWAvail, Y: rowUnits + 4}
+			playersList.AddItem(header)
+			playersGroupHeaders[header] = true
+			lastGroup = group
+		}
+		if group == playerGroupRecent {
+			expires := p.LastOnScreen.Add(recentPlayerWindow)
+			if nextRecentPlayersExpiry.IsZero() || expires.Before(nextRecentPlayersExpiry) {
+				nextRecentPlayersExpiry = expires
+			}
+		}
 		offline := p.Offline
 		name := p.Name
 		if sameRealClan(p.clan, myClan) {
@@ -399,15 +466,23 @@ func updatePlayersWindow() {
 		row.Size.Y = rowUnits
 		playersList.AddItem(row)
 		playersRowRefs[row] = p.Name
+		rowIndex++
 	}
 
 	// Size flows to client area like other text windows.
+	var extraH float32
 	if playersList.Parent != nil {
 		playersList.Parent.Size.X = clientWAvail
 		playersList.Parent.Size.Y = clientHAvail
+		for _, item := range playersList.Parent.Contents {
+			if item != playersList {
+				item.Size.X = clientWAvail
+				extraH += item.Size.Y
+			}
+		}
 	}
 	playersList.Size.X = clientWAvail
-	playersList.Size.Y = clientHAvail
+	playersList.Size.Y = max(0, clientHAvail-extraH)
 	playersList.Scroll = prevScroll
 	searchPlayersWindow(playersWin.SearchText)
 	if selectedRow != nil {

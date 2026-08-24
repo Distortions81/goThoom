@@ -9,14 +9,12 @@ import (
 	"gothoom/eui"
 
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
-	"github.com/pkg/browser"
 )
 
 const (
-	setupWizardPageCount             = 9
+	setupWizardPageCount             = 8
 	setupWizardGraphicsBenchmarkPage = 1
 	setupWizardTopGap                = 24
-	setupWizardKoFiURL               = "https://ko-fi.com/distortions"
 )
 
 var (
@@ -137,20 +135,18 @@ func rebuildSetupWizard() {
 	case 0:
 		buildSetupWelcomePage(root)
 	case 1:
-		buildSetupControlsPage(root)
-	case 2:
-		buildSetupStatusPage(root)
-	case 3:
-		buildSetupVisibilityPage(root)
-	case 4:
 		buildSetupGraphicsPage(root)
-	case 5:
+	case 2:
+		buildSetupInterfacePage(root)
+	case 3:
+		buildSetupControlsPage(root)
+	case 4:
 		buildSetupMotionPage(root)
-	case 6:
+	case 5:
 		buildSetupLightingPage(root)
-	case 7:
+	case 6:
 		buildSetupAudioPage(root)
-	case 8:
+	case 7:
 		buildSetupFinishPage(root)
 	}
 
@@ -186,7 +182,7 @@ func buildSetupWelcomePage(root *eui.ItemData) {
 		12, 620,
 	))
 	root.AddItem(setupWizardText(
-		"We will review controls, interface visibility, graphics, and performance. You can skip at any point.",
+		"We will review graphics, interface layout, controls, motion, lighting, and audio. You can skip at any point.",
 		12, 620,
 	))
 }
@@ -240,9 +236,33 @@ func buildSetupControlsPage(root *eui.ItemData) {
 	))
 }
 
-func buildSetupStatusPage(root *eui.ItemData) {
-	root.AddItem(setupWizardHeading("Status bars"))
-	root.AddItem(setupWizardText("Choose where health, spirit, and balance appear and how strongly they stand out over the game.", 11, 620))
+func buildSetupInterfacePage(root *eui.ItemData) {
+	root.AddItem(setupWizardHeading("Interface and readability"))
+	root.AddItem(setupWizardText("Set up the main layout and the information drawn over the game. Detailed sizing, opacity, and window controls remain in Settings.", 11, 620))
+
+	toolbar, toolbarEvents := eui.NewDropdown()
+	toolbar.Label = "Toolbar placement"
+	toolbar.Options = []string{"Inside Inventory", "Inside Players", "Floating Window"}
+	toolbar.Selected = int(gs.ToolbarPlacement)
+	toolbar.Size = eui.Point{X: 320, Y: 24}
+	toolbarEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index <= int(ToolbarFloating) {
+			placeToolbar(ToolbarPlacement(ev.Index), true)
+		}
+	}
+	root.AddItem(toolbar)
+	root.AddItem(setupWizardCheckbox("Show toolbar info bar", "Show FPS, packet loss, ping, and jitter below the toolbar when it is docked.", gs.ToolbarInfoBar, func(checked bool) {
+		gs.ToolbarInfoBar = checked
+		placeToolbar(gs.ToolbarPlacement, true)
+	}))
+
+	root.AddItem(setupWizardCheckbox("Auto-resize window layout", "Scale window positions and resizable windows when the main window changes size.", gs.AutoResizeWindows, func(checked bool) {
+		gs.AutoResizeWindows = checked
+		if checked {
+			applyManagedWindowLayout()
+		}
+		settingsDirty = true
+	}))
 
 	placement, events := eui.NewDropdown()
 	placement.Label = "Status bar placement"
@@ -257,69 +277,33 @@ func buildSetupStatusPage(root *eui.ItemData) {
 	}
 	root.AddItem(placement)
 
-	root.AddItem(setupWizardCheckbox(
-		"Color bars by value",
-		"Gradually changes bar color as a value rises or falls, making low health and spirit easier to notice.",
-		gs.BarColorByValue,
-		func(checked bool) {
-			gs.BarColorByValue = checked
+	healthDisplay, healthDisplayEvents := eui.NewDropdown()
+	healthDisplay.Label = "Player health display"
+	healthDisplay.Options = []string{"Color bar", "Classic name color"}
+	if !gs.NameHealthBarModern {
+		healthDisplay.Selected = 1
+	}
+	healthDisplay.Size = eui.Point{X: 320, Y: 24}
+	healthDisplayEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
+			gs.NameHealthBarModern = ev.Index == 0
+			killNameTagCache()
 			settingsDirty = true
-		},
-	))
-	root.AddItem(setupWizardSlider("Status bar opacity", "Lower values keep more of the world visible behind the bars.", 0.1, 1, float32(gs.BarOpacity), false, func(value float32) {
-		gs.BarOpacity = float64(value)
-		settingsDirty = true
-	}))
-}
+		}
+	}
+	root.AddItem(healthDisplay)
 
-func buildSetupVisibilityPage(root *eui.ItemData) {
-	root.AddItem(setupWizardHeading("Bubbles, names, and visibility"))
-	root.AddItem(setupWizardCheckbox("Speech bubbles", "Show spoken text over characters as well as in chat.", gs.SpeechBubbles, func(checked bool) {
-		gs.SpeechBubbles = checked
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Animated chat bubbles", "Animate ponder, yell, and monster bubble effects.", gs.AnimatedChatBubbles, func(checked bool) {
-		gs.AnimatedChatBubbles = checked
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardSlider("Bubble opacity", "Adjust how strongly speech bubbles cover the world.", 0, 1, float32(gs.BubbleOpacity), false, func(value float32) {
-		gs.BubbleOpacity = float64(value)
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardSlider("Bubble scale", "Changes bubble size without changing the chat-window font.", 1, 8, float32(gs.BubbleScale), false, func(value float32) {
-		gs.BubbleScale = float64(value)
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Dark bubbles and names", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
+	root.AddItem(setupWizardCheckbox("Dark mode names/bubbles", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
 		gs.DarkBubblesAndNames = checked
 		killNameTagCache()
 		settingsDirty = true
 	}))
-	root.AddItem(setupWizardCheckbox("Hide my name tag", "Do not show a name tag over your own character.", gs.HideSelfNameTag, func(checked bool) {
-		gs.HideSelfNameTag = checked
-		killNameTagCache()
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Name tags only on hover", "Hide character names until the pointer is over that character.", gs.NameTagsOnHoverOnly, func(checked bool) {
-		gs.NameTagsOnHoverOnly = checked
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Name-tag label colors", "Use saved player label colors around name tags.", gs.NameTagLabelColors, func(checked bool) {
-		gs.NameTagLabelColors = checked
-		killNameTagCache()
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardSlider("Name background opacity", "Controls the dark backing behind character names.", 0, 1, float32(gs.NameBgOpacity), false, func(value float32) {
-		gs.NameBgOpacity = float64(value)
-		killNameTagCache()
+	root.AddItem(setupWizardCheckbox("Speech bubbles", "Show spoken text over characters as well as in chat.", gs.SpeechBubbles, func(checked bool) {
+		gs.SpeechBubbles = checked
 		settingsDirty = true
 	}))
 	root.AddItem(setupWizardCheckbox("Fade obscuring objects", "Fade foreground artwork when it covers a character.", gs.FadeObscuringPictures, func(checked bool) {
 		gs.FadeObscuringPictures = checked
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardSlider("Obscuring-object opacity", "Sets how transparent a faded foreground object becomes.", 0, 1, float32(gs.ObscuringPictureOpacity), false, func(value float32) {
-		gs.ObscuringPictureOpacity = float64(value)
 		settingsDirty = true
 	}))
 }
@@ -332,7 +316,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		initFont()
 		settingsDirty = true
 	}
-	root.AddItem(setupWizardHeading("Graphics and comfort"))
+	root.AddItem(setupWizardHeading("Graphics and performance"))
 	root.AddItem(setupWizardText(
 		"Your current graphics choices are selected below. Adjust only what you want while watching the real renderer behind this window.",
 		11, 620,
@@ -380,13 +364,6 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		rebuildSetupWizard()
 	}
 	root.AddItem(graphicsMode)
-
-	windowShadows := setupWizardCheckbox("Window shadows", "Draw shadows behind interface windows and menus.", gs.WindowShadows, func(checked bool) {
-		gs.WindowShadows = checked
-		eui.SetWindowShadows(gs.WindowShadows)
-		settingsDirty = true
-	})
-	root.AddItem(windowShadows)
 
 	root.AddItem(setupWizardSlider("Upscale game amount", "Renders the game at 2x to 4x resolution. Higher values improve sharpness on high-resolution displays but use more GPU.", 2, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
 		previousUpscale := gs.SpriteUpscale
@@ -446,13 +423,6 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	})
 	setSetupWizardDisabled(wizardVSync, setupWizardVSyncBypass)
 	root.AddItem(wizardVSync)
-	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Loads and prepares game sounds before play for fewer pauses, using roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
-		gs.PrecacheSounds = checked
-		if checked && !soundsPrecached {
-			go precacheSounds()
-		}
-		settingsDirty = true
-	}))
 }
 
 func updateSetupWizardGraphicsDetection() {
@@ -523,8 +493,8 @@ func igpuGraphicsPresetApplied() bool {
 }
 
 func buildSetupMotionPage(root *eui.ItemData) {
-	root.AddItem(setupWizardHeading("Motion smoothing"))
-	root.AddItem(setupWizardText("Position smoothing moves the camera and characters smoothly between server updates. Animation blending is optional, requires position smoothing, and controls how sprite frames transition.", 11, 620))
+	root.AddItem(setupWizardHeading("Motion and animation"))
+	root.AddItem(setupWizardText("Smooth movement reduces visible stepping between server updates. Animation blending softens sprite-frame changes and can use more GPU.", 11, 620))
 	var frameBlendOptions []*eui.ItemData
 	root.AddItem(setupWizardCheckbox("Smooth movement positions", "Interpolates only camera and character positions between server frames.", gs.MotionSmoothing, func(checked bool) {
 		gs.MotionSmoothing = checked
@@ -536,10 +506,6 @@ func buildSetupMotionPage(root *eui.ItemData) {
 			setupWizardWin.Refresh()
 		}
 	}))
-	animationHeading := setupWizardText("Animation blending", 14, 600)
-	animationHeading.Position.X = 20
-	applyBoldFace(animationHeading)
-	root.AddItem(animationHeading)
 	addFrameBlendOption := func(option *eui.ItemData) {
 		option = setupWizardSubOption(option)
 		setSetupWizardDisabled(option, !gs.MotionSmoothing)
@@ -551,18 +517,10 @@ func buildSetupMotionPage(root *eui.ItemData) {
 		clearCaches()
 		markQualityCustom()
 	}))
-	addFrameBlendOption(setupWizardSlider("Character blend amount", "Higher values blend more strongly but retain the prior frame longer.", 0.1, 1, float32(gs.MobileBlendAmount), false, func(value float32) {
-		gs.MobileBlendAmount = float64(value)
-		settingsDirty = true
-	}))
 	addFrameBlendOption(setupWizardCheckbox("World animation blending", "Blends animated water, grass, and other world artwork.", gs.BlendPicts, func(checked bool) {
 		gs.BlendPicts = checked
 		clearCaches()
 		markQualityCustom()
-	}))
-	addFrameBlendOption(setupWizardSlider("World blend amount", "Controls how strongly world animation frames blend together.", 0.1, 1, float32(gs.BlendAmount), false, func(value float32) {
-		gs.BlendAmount = float64(value)
-		settingsDirty = true
 	}))
 }
 
@@ -606,28 +564,14 @@ func buildSetupLightingPage(root *eui.ItemData) {
 			markQualityCustom()
 		},
 	))
-	root.AddItem(setupWizardSlider("Light strength", "Adjust the direct illumination from lamps and other light sources in the night scene.", 1, 200, float32(gs.ShaderLightStrength*100), true, func(value float32) {
-		gs.ShaderLightStrength = float64(value / 100)
-		markQualityCustom()
-	}))
-	root.AddItem(setupWizardSlider("Glow strength", "Adjust the soft halo around light sources in the night scene.", 1, 200, float32(gs.ShaderGlowStrength*100), true, func(value float32) {
-		gs.ShaderGlowStrength = float64(value / 100)
-		markQualityCustom()
-	}))
 	root.AddItem(setupWizardCheckbox("Character shadows", "Show projected daylight shadows and compact indoor contact shadows.", gs.CharacterShadows, func(checked bool) {
 		gs.CharacterShadows = checked
 		markQualityCustom()
-	}))
-	root.AddItem(setupWizardSlider("Character shadow darkness", "Adjust both projected and contact shadow strength while switching between preview scenes.", 1, 200, float32(gs.CharacterShadowDarkness*100), true, func(value float32) {
-		gs.CharacterShadowDarkness = float64(value / 100)
-		settingsDirty = true
 	}))
 	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Compensates classic Macintosh artwork for a modern display. Disable it if the artwork looks washed out or too dark.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked
 		applySetupWizardGamma()
 	}))
-	root.AddItem(setupWizardGammaSlider("Original artwork gamma", "Clan Lord artwork was authored around Macintosh gamma 1.8.", &gs.SpriteGamma))
-	root.AddItem(setupWizardGammaSlider("Monitor gamma", "Most modern displays use gamma 2.2; some use 2.4.", &gs.MonitorGamma))
 }
 
 func applySetupWizardGamma() {
@@ -641,7 +585,7 @@ func applySetupWizardGamma() {
 func buildSetupAudioPage(root *eui.ItemData) {
 	root.AddItem(setupWizardHeading("Audio and music"))
 	root.AddItem(setupWizardText(
-		"These options improve sound quality at the cost of additional CPU. You can change them later in Settings.",
+		"Choose audio enhancements and whether to spend extra memory preparing sounds before play. Detailed volume controls remain in Settings.",
 		12, 620,
 	))
 	root.AddItem(setupWizardCheckbox(
@@ -673,6 +617,13 @@ func buildSetupAudioPage(root *eui.ItemData) {
 			settingsDirty = true
 		},
 	))
+	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Prepare game sounds before play to avoid first-use pauses. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
+		gs.PrecacheSounds = checked
+		if checked && !soundsPrecached {
+			go precacheSounds()
+		}
+		settingsDirty = true
+	}))
 }
 
 func buildSetupFinishPage(root *eui.ItemData) {
@@ -683,11 +634,12 @@ func buildSetupFinishPage(root *eui.ItemData) {
 		movement = "click-to-toggle"
 	}
 	root.AddItem(setupWizardText(fmt.Sprintf(
-		"Movement: %s\nGame rendering: %.0fx\nDithering blend: %s\nSmooth motion: %s",
+		"Movement: %s\nGame rendering: %.0fx\nToolbar: %s\nSmooth motion: %s\nEnhanced lighting: %s",
 		movement,
 		gs.GameScale,
-		onOff(gs.DenoiseImages),
+		setupWizardToolbarPlacementName(gs.ToolbarPlacement),
 		onOff(gs.MotionSmoothing),
+		onOff(gs.ShaderLighting),
 	), 12, 620))
 	root.AddItem(setupWizardText(
 		"Finish saves these choices and records this goThoom release as reviewed. Reopen this tour any time with the Setup Wizard button in Settings; the full Settings and Quality windows contain the finer controls.",
@@ -698,16 +650,6 @@ func buildSetupFinishPage(root *eui.ItemData) {
 func setupWizardNavigation() *eui.ItemData {
 	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Alignment: eui.ALIGN_RIGHT}
 	row.Size = eui.Point{X: 620, Y: 30}
-
-	fund, fundEvents := eui.NewButton()
-	fund.Text = "Fund development on Ko-fi"
-	fund.Size = eui.Point{X: 185, Y: 24}
-	fundEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			browser.OpenURL(setupWizardKoFiURL)
-		}
-	}
-	row.AddItem(fund)
 
 	if setupWizardPage > 0 {
 		back, backEvents := eui.NewButton()
@@ -728,7 +670,7 @@ func setupWizardNavigation() *eui.ItemData {
 	}
 
 	skip, skipEvents := eui.NewButton()
-	skip.Text = "Skip"
+	skip.Text = "Skip Tour"
 	skip.Size = eui.Point{X: 150, Y: 24}
 	skipEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -740,7 +682,7 @@ func setupWizardNavigation() *eui.ItemData {
 	next, nextEvents := eui.NewButton()
 	next.Size = eui.Point{X: 100, Y: 24}
 	if setupWizardPage == 0 {
-		next.Text = "Setup Wizard"
+		next.Text = "Start"
 		next.Size.X = 130
 		next.Color = eui.ColorDarkOrange
 		next.HoverColor = eui.ColorOrange
@@ -920,30 +862,6 @@ func setSetupWizardDisabled(item *eui.ItemData, disabled bool) {
 	}
 }
 
-func setupWizardGammaSlider(label, explanation string, target *float64) *eui.ItemData {
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	flow.Size = eui.Point{X: 620, Y: 10}
-	slider, events := eui.NewSlider()
-	slider.Label = label
-	slider.MinValue = float32(gammaOptions[0])
-	slider.MaxValue = float32(gammaOptions[len(gammaOptions)-1])
-	slider.Value = float32(*target)
-	slider.Size = eui.Point{X: 600, Y: 24}
-	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			*target = normalizeGamma(float64(ev.Value), *target)
-			ev.Item.Value = float32(*target)
-			ev.Item.Dirty = true
-			applySetupWizardGamma()
-		}
-	}
-	flow.AddItem(slider)
-	description := setupWizardText(explanation, 10, 590)
-	description.Position.X = 20
-	flow.AddItem(description)
-	return flow
-}
-
 func setupWizardHeading(title string) *eui.ItemData {
 	heading := setupWizardText(title, 18, 620)
 	applyBoldFace(heading)
@@ -977,4 +895,15 @@ func onOff(enabled bool) string {
 		return "on"
 	}
 	return "off"
+}
+
+func setupWizardToolbarPlacementName(placement ToolbarPlacement) string {
+	switch placement {
+	case ToolbarInPlayers:
+		return "inside Players"
+	case ToolbarFloating:
+		return "floating window"
+	default:
+		return "inside Inventory"
+	}
 }

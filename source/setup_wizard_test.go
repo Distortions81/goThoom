@@ -54,6 +54,9 @@ func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 }
 
 func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
+	if setupWizardPageCount != 8 {
+		t.Fatalf("setup wizard pages = %d, want 8", setupWizardPageCount)
+	}
 	if shouldStartSetupWizardGraphicsDetection(0, false, false) {
 		t.Fatal("graphics detection starts on the first page")
 	}
@@ -65,6 +68,48 @@ func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
 	}
 	if shouldStartSetupWizardGraphicsDetection(1, false, true) {
 		t.Fatal("graphics detection restarts after completion")
+	}
+}
+
+func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
+	initFont()
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupInterfacePage(root)
+
+	wantLabels := map[string]bool{
+		"Toolbar placement":     false,
+		"Status bar placement":  false,
+		"Player health display": false,
+	}
+	wantChecks := map[string]bool{
+		"Auto-resize window layout": false,
+		"Dark mode names/bubbles":   false,
+		"Speech bubbles":            false,
+		"Fade obscuring objects":    false,
+		"Show toolbar info bar":     false,
+	}
+	var visit func(*eui.ItemData)
+	visit = func(item *eui.ItemData) {
+		if _, ok := wantLabels[item.Label]; ok {
+			wantLabels[item.Label] = true
+		}
+		if _, ok := wantChecks[item.Text]; ok {
+			wantChecks[item.Text] = true
+		}
+		for _, child := range item.Contents {
+			visit(child)
+		}
+	}
+	visit(root)
+	for label, found := range wantLabels {
+		if !found {
+			t.Errorf("interface page missing %q dropdown", label)
+		}
+	}
+	for label, found := range wantChecks {
+		if !found {
+			t.Errorf("interface page missing %q checkbox", label)
+		}
 	}
 }
 
@@ -122,16 +167,25 @@ func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
 		page int
 		want setupWizardSceneMode
 	}{
-		{page: 3, want: setupWizardSceneIndoor},
-		{page: 4, want: setupWizardSceneDay},
-		{page: 5, want: setupWizardSceneMotion},
-		{page: 6, want: setupWizardSceneNight},
+		{page: 2, want: setupWizardSceneIndoor},
+		{page: 3, want: setupWizardSceneDay},
+		{page: 4, want: setupWizardSceneMotion},
+		{page: 5, want: setupWizardSceneNight},
 	} {
 		setupWizardScenePage = -1
 		selectSetupWizardSceneForPage(test.page)
 		if setupWizardSceneModeValue != test.want {
 			t.Fatalf("page %d scene = %d, want %d", test.page, setupWizardSceneModeValue, test.want)
 		}
+	}
+}
+
+func TestSetupWizardInterfaceSceneHasRelevantLabel(t *testing.T) {
+	if got := setupWizardSceneLabel(2, setupWizardSceneIndoor); got != "NAMES + BUBBLES + VISIBILITY" {
+		t.Fatalf("interface preview label = %q", got)
+	}
+	if got := setupWizardSceneLabel(5, setupWizardSceneIndoor); got != setupWizardSceneName(setupWizardSceneIndoor) {
+		t.Fatalf("lighting preview label = %q", got)
 	}
 }
 
@@ -147,7 +201,7 @@ func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
 		restoreMovieNightState(originalNight)
 	})
 	setupWizardSceneModeValue = setupWizardSceneMotion
-	setupWizardPage = 3
+	setupWizardPage = 2
 	setupWizardSceneStarted = time.Unix(1000, 0)
 	var snap drawSnapshot
 	prepareSetupWizardSceneSnapshot(&snap, setupWizardSceneStarted.Add(500*time.Millisecond))

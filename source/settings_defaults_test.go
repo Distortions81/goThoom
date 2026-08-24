@@ -74,6 +74,12 @@ func TestOwnNameTagVisibleByDefault(t *testing.T) {
 	}
 }
 
+func TestInputBarDefaultsOpen(t *testing.T) {
+	if !gsdef.InputBarAlwaysOpen {
+		t.Fatal("input bar should be open by default")
+	}
+}
+
 func TestDetailedCharacterShadowsDefaultOn(t *testing.T) {
 	if !gsdef.DetailedCharacterShadows {
 		t.Error("detailed character shadows should be enabled by default")
@@ -89,9 +95,9 @@ func TestFlameFlickerStrengthDefault(t *testing.T) {
 	}
 }
 
-func TestStereoMusicDefaultOff(t *testing.T) {
-	if gsdef.MusicStereoPan {
-		t.Error("stereo music should be opt-in")
+func TestRecentPlayersGroupDefaultOn(t *testing.T) {
+	if !gsdef.ShowRecentPlayers {
+		t.Error("recently on-screen player group should default on")
 	}
 }
 

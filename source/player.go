@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const recentPlayerWindow = 2 * time.Minute
+
 // Player holds minimal information extracted from BEP messages and descriptors.
 type Player struct {
 	Name        string
@@ -36,7 +38,9 @@ type Player struct {
 	Seen        bool // true if player has been observed
 	// Presence tracking
 	LastSeen time.Time // last time we observed any activity/info for this player
-	Offline  bool      // explicitly observed as offline/logged off
+	// LastOnScreen tracks visible mobile descriptors and is not persisted.
+	LastOnScreen time.Time
+	Offline      bool // explicitly observed as offline/logged off
 }
 
 type playerHandler struct {
@@ -91,7 +95,9 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	}
 	p.IsNPC = false
 	// Seeing a player on screen implies they are present now.
-	p.LastSeen = time.Now()
+	now := time.Now()
+	p.LastSeen = now
+	p.LastOnScreen = now
 	p.Offline = false
 	if p.Dead {
 		p.Dead = false
@@ -135,6 +141,38 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 				break
 			}
 		}
+	}
+}
+
+// markPlayersOnScreen refreshes recency from the mobiles currently present on
+// the snell. It dirties the Players list only when a player enters the recent
+// group or is restored from an offline state.
+func markPlayersOnScreen(mobiles []frameMobile, descriptors map[uint8]frameDescriptor, now time.Time) {
+	changed := false
+	playersMu.Lock()
+	for _, mobile := range mobiles {
+		d, ok := descriptors[mobile.Index]
+		if !ok || d.Type == kDescNPC || d.Name == "" {
+			continue
+		}
+		p, ok := players[d.Name]
+		if !ok {
+			p = &Player{Name: d.Name}
+			players[d.Name] = p
+			changed = true
+		}
+		age := now.Sub(p.LastOnScreen)
+		wasRecent := !p.Offline && !p.LastOnScreen.IsZero() && age >= 0 && age < recentPlayerWindow
+		if !wasRecent || p.Offline {
+			changed = true
+		}
+		p.LastSeen = now
+		p.LastOnScreen = now
+		p.Offline = false
+	}
+	playersMu.Unlock()
+	if changed {
+		playersDirty = true
 	}
 }
 

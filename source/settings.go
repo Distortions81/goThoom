@@ -5,7 +5,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -27,6 +26,14 @@ const (
 	BarPlacementUpperRight
 )
 
+type ToolbarPlacement int
+
+const (
+	ToolbarInInventory ToolbarPlacement = iota
+	ToolbarInPlayers
+	ToolbarFloating
+)
+
 var gs settings = gsdef
 
 var gammaOptions = []float64{1.8, 2.0, 2.2, 2.4}
@@ -45,9 +52,9 @@ func precacheSoundsDefault(totalMemory uint64, wasm bool) bool {
 // settingsLoaded reports whether settings were successfully loaded from disk.
 var settingsLoaded bool
 
-// windowsRestored tracks whether window positions have been restored for the
-// current UI scale. Initialization defers restoration until the first layout
-// provides a final screen size.
+// windowsRestored tracks whether window geometry has been restored.
+// Initialization defers restoration until the first layout provides a final
+// screen size.
 var windowsRestored bool
 
 func spriteUpscaleFactorFromScale(scale float64) int {
@@ -98,7 +105,7 @@ var gsdef settings = settings{
 	LastCharacter:           "",
 	ClickToToggle:           false,
 	MiddleClickMoveWindow:   false,
-	InputBarAlwaysOpen:      false,
+	InputBarAlwaysOpen:      true,
 	KBWalkSpeed:             0.25,
 	MainFontSize:            8,
 	BubbleFontSize:          20,
@@ -106,6 +113,7 @@ var gsdef settings = settings{
 	ChatFontSize:            12,
 	InventoryFontSize:       14,
 	PlayersFontSize:         14,
+	ShowRecentPlayers:       true,
 	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
 	BubbleBaseLife:          2,
@@ -157,7 +165,6 @@ var gsdef settings = settings{
 	GameVolume:            0.28260868787765503,
 	MusicVolume:           1.0,
 	Music:                 true,
-	MusicStereoPan:        false,
 	GameSound:             true,
 	Mute:                  false,
 	GameScale:             4.0,
@@ -198,11 +205,11 @@ var gsdef settings = settings{
 	TimestampFormat:       "3:04PM",
 	LastUpdateCheck:       time.Time{},
 	NotifiedVersion:       0,
-	WindowTiling:          false,
 	WindowSnapping:        false,
-	WindowPinning:         false,
-	ShowPinToLocations:    false,
 	WindowShadows:         true,
+	AutoResizeWindows:     true,
+	ToolbarPlacement:      ToolbarInInventory,
+	ToolbarInfoBar:        true,
 
 	JoystickEnabled:        false,
 	JoystickWalkStick:      0,
@@ -214,36 +221,36 @@ var gsdef settings = settings{
 	WindowHeight: 1404,
 	GameWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 468, Y: 0},
-		Size:     WindowPoint{X: 936, Y: 948},
+		Position: WindowPoint{X: 438.0 / 1858.0},
+		Size:     WindowPoint{X: 936.0 / 1858.0, Y: 1},
 	},
 	InventoryWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 0, Y: 87},
-		Size:     WindowPoint{X: 438, Y: 444},
+		Position: WindowPoint{},
+		Size:     WindowPoint{X: 438.0 / 1858.0, Y: 444.0 / 861.0},
 	},
 	PlayersWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 1436, Y: 0},
-		Size:     WindowPoint{X: 484, Y: 526},
+		Position: WindowPoint{X: 1374.0 / 1858.0},
+		Size:     WindowPoint{X: 484.0 / 1858.0, Y: 526.0 / 946.0},
 	},
 	MessagesWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 1, Y: 534},
-		Size:     WindowPoint{X: 438, Y: 417},
+		Position: WindowPoint{Y: 444.0 / 861.0},
+		Size:     WindowPoint{X: 438.0 / 1858.0, Y: 417.0 / 861.0},
 	},
 	ChatWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 1429, Y: 529},
-		Size:     WindowPoint{X: 489, Y: 420},
+		Position: WindowPoint{X: 1374.0 / 1858.0, Y: 526.0 / 946.0},
+		Size:     WindowPoint{X: 484.0 / 1858.0, Y: 420.0 / 946.0},
 	},
 	MovieWindow: WindowState{
 		Open:     false,
-		Position: WindowPoint{X: 350, Y: 117},
-		Size:     WindowPoint{X: 1076, Y: 96},
+		Position: WindowPoint{X: 350.0 / 1858.0, Y: 117.0 / 948.0},
 	},
-	WindowZones: *new(map[string]eui.WindowZoneState),
-
+	ToolbarWindow: WindowState{
+		Open: true,
+	},
 	ShaderLightStrength:  1.0,
 	ShaderGlowStrength:   1.0,
 	FlameLightFlicker:    true,
@@ -299,6 +306,7 @@ type settings struct {
 	ChatFontSize            float64
 	InventoryFontSize       float64
 	PlayersFontSize         float64
+	ShowRecentPlayers       bool
 	AlternateRowBackgrounds bool
 	BubbleOpacity           float64
 	BubbleBaseLife          float64
@@ -354,7 +362,6 @@ type settings struct {
 	GameVolume            float64
 	MusicVolume           float64
 	Music                 bool
-	MusicStereoPan        bool
 	GameSound             bool
 	Mute                  bool
 	GameScale             float64
@@ -402,11 +409,11 @@ type settings struct {
 	TimestampFormat       string
 	LastUpdateCheck       time.Time
 	NotifiedVersion       int
-	WindowTiling          bool
 	WindowSnapping        bool
-	WindowPinning         bool
-	ShowPinToLocations    bool
 	WindowShadows         bool
+	AutoResizeWindows     bool
+	ToolbarPlacement      ToolbarPlacement
+	ToolbarInfoBar        bool
 
 	JoystickEnabled        bool
 	JoystickBindings       map[string]ebiten.GamepadButton
@@ -424,7 +431,7 @@ type settings struct {
 	MessagesWindow  WindowState
 	ChatWindow      WindowState
 	MovieWindow     WindowState
-	WindowZones     map[string]eui.WindowZoneState
+	ToolbarWindow   WindowState
 
 	ShaderLightStrength  float64
 	ShaderGlowStrength   float64
@@ -475,9 +482,15 @@ type WindowPoint struct {
 }
 
 type WindowState struct {
-	Open     bool        `json:"open"`
+	Open bool `json:"open"`
+	// Position and resizable window Size are fractions of the UI screen.
+	// Fixed-size windows ignore Size and retain their content-defined size.
 	Position WindowPoint `json:"position"`
 	Size     WindowPoint `json:"size"`
+
+	runtimePosition WindowPoint
+	runtimeSize     WindowPoint
+	runtimeApplied  bool
 }
 
 const settingsFile = "settings.json"
@@ -637,6 +650,14 @@ func loadSettings() bool {
 	}
 
 	gs.SpriteUpscale = spriteUpscaleFactor()
+	if gs.ToolbarPlacement < ToolbarInInventory || gs.ToolbarPlacement > ToolbarFloating {
+		gs.ToolbarPlacement = gsdef.ToolbarPlacement
+		settingsDirty = true
+	}
+	if !normalizedWindowSettingsValid() {
+		resetSavedWindowSettings()
+		settingsDirty = true
+	}
 
 	if gs.WindowWidth > 0 && gs.WindowHeight > 0 {
 		eui.SetScreenSize(gs.WindowWidth, gs.WindowHeight)
@@ -671,10 +692,7 @@ func applyVSyncSetting() {
 }
 
 func applySettings() {
-	eui.SetWindowTiling(gs.WindowTiling)
 	eui.SetWindowSnapping(gs.WindowSnapping)
-	eui.SetWindowPinning(gs.WindowPinning)
-	eui.SetShowPinLocations(gs.ShowPinToLocations)
 	eui.SetMiddleClickMove(gs.MiddleClickMoveWindow)
 	eui.SetPotatoMode(gs.PotatoGPU)
 	eui.SetWindowShadows(gs.WindowShadows)
@@ -760,10 +778,10 @@ func syncWindowSettings() bool {
 	if syncWindow(movieWin, &gs.MovieWindow) {
 		changed = true
 	}
-	zones := eui.SaveWindowZones()
-	if !reflect.DeepEqual(zones, gs.WindowZones) {
-		gs.WindowZones = zones
-		changed = true
+	if gs.ToolbarPlacement == ToolbarFloating {
+		if syncWindow(hudWin, &gs.ToolbarWindow) {
+			changed = true
+		}
 	}
 	w, h := ebiten.WindowSize()
 	if w > 0 && h > 0 {
@@ -785,7 +803,9 @@ func resetSavedWindowSettings() {
 	gs.MessagesWindow = gsdef.MessagesWindow
 	gs.ChatWindow = gsdef.ChatWindow
 	gs.MovieWindow = gsdef.MovieWindow
-	gs.WindowZones = make(map[string]eui.WindowZoneState)
+	gs.ToolbarWindow = gsdef.ToolbarWindow
+	gs.ToolbarPlacement = gsdef.ToolbarPlacement
+	gs.ToolbarInfoBar = gsdef.ToolbarInfoBar
 }
 
 func syncWindow(win *eui.WindowData, state *WindowState) bool {
@@ -801,81 +821,148 @@ func syncWindow(win *eui.WindowData, state *WindowState) bool {
 		state.Open = win.IsOpen()
 		changed = true
 	}
-	pos := WindowPoint{X: float64(win.Position.X), Y: float64(win.Position.Y)}
-	if state.Position != pos {
-		state.Position = pos
-		changed = true
+	pos := windowPoint(win.GetPos())
+	size := windowPoint(win.GetSize())
+	if !state.runtimeApplied || !windowPointsNear(pos, state.runtimePosition) || !windowPointsNear(size, state.runtimeSize) {
+		sx, sy := eui.ScreenSize()
+		if sx > 0 && sy > 0 {
+			normalizedPos := WindowPoint{X: pos.X / float64(sx), Y: pos.Y / float64(sy)}
+			if state.Position != normalizedPos {
+				state.Position = normalizedPos
+				changed = true
+			}
+			if win.Resizable {
+				normalizedSize := WindowPoint{X: size.X / float64(sx), Y: size.Y / float64(sy)}
+				if state.Size != normalizedSize {
+					state.Size = normalizedSize
+					changed = true
+				}
+			}
+			clampWindowState(state)
+		}
 	}
-	size := WindowPoint{X: float64(win.Size.X), Y: float64(win.Size.Y)}
-	if state.Size != size {
-		state.Size = size
-		changed = true
-	}
+	state.runtimePosition = pos
+	state.runtimeSize = size
+	state.runtimeApplied = true
 	return changed
 }
 
 func clampWindowSettings() {
-	sx, sy := eui.ScreenSize()
-	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow, &gs.MovieWindow}
+	states := []*WindowState{&gs.GameWindow, &gs.InventoryWindow, &gs.PlayersWindow, &gs.MessagesWindow, &gs.ChatWindow, &gs.MovieWindow, &gs.ToolbarWindow}
 	for _, st := range states {
-		clampWindowState(st, float64(sx), float64(sy))
+		clampWindowState(st)
 	}
 }
 
-func clampWindowState(st *WindowState, sx, sy float64) {
-	if st.Size.X < eui.MinWindowSize || st.Size.Y < eui.MinWindowSize {
-		st.Position = WindowPoint{}
-		st.Size = WindowPoint{}
-		return
-	}
-	if st.Size.X > sx {
-		st.Size.X = sx
-	}
-	if st.Size.Y > sy {
-		st.Size.Y = sy
-	}
-	maxX := sx - st.Size.X
-	maxY := sy - st.Size.Y
-	if st.Position.X < 0 {
-		st.Position.X = 0
-	} else if st.Position.X > maxX {
-		st.Position.X = maxX
-	}
-	if st.Position.Y < 0 {
-		st.Position.Y = 0
-	} else if st.Position.Y > maxY {
-		st.Position.Y = maxY
-	}
+func clampWindowState(st *WindowState) {
+	st.Position.X = math.Min(math.Max(st.Position.X, 0), 1)
+	st.Position.Y = math.Min(math.Max(st.Position.Y, 0), 1)
+	st.Size.X = math.Min(math.Max(st.Size.X, 0), 1)
+	st.Size.Y = math.Min(math.Max(st.Size.Y, 0), 1)
 }
 
 func applyWindowState(win *eui.WindowData, st *WindowState) {
 	if win == nil || st == nil {
 		return
 	}
-	if st.Size.X >= eui.MinWindowSize && st.Size.Y >= eui.MinWindowSize {
-		_ = win.SetSize(eui.Point{X: float32(st.Size.X), Y: float32(st.Size.Y)})
+	sx, sy := eui.ScreenSize()
+	if sx <= 0 || sy <= 0 {
+		return
 	}
-	if st.Position.X != 0 || st.Position.Y != 0 {
-		_ = win.SetPos(eui.Point{X: float32(st.Position.X), Y: float32(st.Position.Y)})
+	win.ClearZone()
+	if win.Resizable && st.Size.X > 0 && st.Size.Y > 0 {
+		_ = win.SetSize(eui.Point{X: float32(st.Size.X * float64(sx)), Y: float32(st.Size.Y * float64(sy))})
 	}
+	_ = win.SetPos(eui.Point{X: float32(st.Position.X * float64(sx)), Y: float32(st.Position.Y * float64(sy))})
+	captureWindowRuntime(win, st)
 	if st.Open {
 		win.MarkOpen()
 	}
 }
 
-func restoreWindowSettings() {
-	eui.LoadWindowZones(gs.WindowZones)
-	// Login has no persisted geometry and should start in the true screen
-	// center even when an older saved zone table says it was unpinned.
-	centerLoginWindow()
-	applyWindowState(gameWin, &gs.GameWindow)
-	if gameWin != nil {
-		gameWin.MarkOpen()
+func windowPoint(p eui.Point) WindowPoint {
+	return WindowPoint{X: float64(p.X), Y: float64(p.Y)}
+}
+
+func windowPointsNear(a, b WindowPoint) bool {
+	return math.Abs(a.X-b.X) <= 0.5 && math.Abs(a.Y-b.Y) <= 0.5
+}
+
+func captureWindowRuntime(win *eui.WindowData, st *WindowState) {
+	st.runtimePosition = windowPoint(win.GetPos())
+	st.runtimeSize = windowPoint(win.GetSize())
+	st.runtimeApplied = true
+}
+
+func normalizedWindowStateValid(st WindowState, resizable bool) bool {
+	if st.Position.X < 0 || st.Position.X > 1 || st.Position.Y < 0 || st.Position.Y > 1 {
+		return false
 	}
+	if !resizable {
+		return true
+	}
+	return st.Size.X > 0 && st.Size.X <= 1 && st.Size.Y > 0 && st.Size.Y <= 1
+}
+
+func normalizedWindowSettingsValid() bool {
+	return normalizedWindowStateValid(gs.GameWindow, true) &&
+		normalizedWindowStateValid(gs.InventoryWindow, true) &&
+		normalizedWindowStateValid(gs.PlayersWindow, true) &&
+		normalizedWindowStateValid(gs.MessagesWindow, true) &&
+		normalizedWindowStateValid(gs.ChatWindow, true) &&
+		normalizedWindowStateValid(gs.MovieWindow, false) &&
+		normalizedWindowStateValid(gs.ToolbarWindow, false)
+}
+
+var (
+	windowLayoutScreenWidth  int
+	windowLayoutScreenHeight int
+	windowLayoutUIScale      float32
+)
+
+func applyManagedWindowLayout() {
+	applyWindowState(gameWin, &gs.GameWindow)
 	applyWindowState(inventoryWin, &gs.InventoryWindow)
 	applyWindowState(playersWin, &gs.PlayersWindow)
 	applyWindowState(consoleWin, &gs.MessagesWindow)
 	applyWindowState(chatWin, &gs.ChatWindow)
+	applyWindowState(movieWin, &gs.MovieWindow)
+	applyWindowState(hudWin, &gs.ToolbarWindow)
+	managed := []struct {
+		win   *eui.WindowData
+		state *WindowState
+	}{
+		{gameWin, &gs.GameWindow},
+		{inventoryWin, &gs.InventoryWindow},
+		{playersWin, &gs.PlayersWindow},
+		{consoleWin, &gs.MessagesWindow},
+		{chatWin, &gs.ChatWindow},
+		{movieWin, &gs.MovieWindow},
+		{hudWin, &gs.ToolbarWindow},
+	}
+	for _, item := range managed {
+		if item.win != nil {
+			captureWindowRuntime(item.win, item.state)
+		}
+	}
+
+	windowLayoutScreenWidth, windowLayoutScreenHeight = eui.ScreenSize()
+	windowLayoutUIScale = eui.UIScale()
+}
+
+func managedWindowLayoutChanged() bool {
+	sx, sy := eui.ScreenSize()
+	return sx != windowLayoutScreenWidth || sy != windowLayoutScreenHeight || eui.UIScale() != windowLayoutUIScale
+}
+
+func restoreWindowSettings() {
+	// Login has no persisted geometry and should start in the true screen
+	// center even when an older saved zone table says it was unpinned.
+	centerLoginWindow()
+	applyManagedWindowLayout()
+	if gameWin != nil {
+		gameWin.MarkOpen()
+	}
 	if hudWin != nil {
 		hudWin.MarkOpen()
 	}

@@ -31,11 +31,11 @@ func selectSetupWizardSceneForPage(page int) {
 	}
 	setupWizardScenePage = page
 	switch page {
-	case 3:
+	case 2:
 		setupWizardSceneModeValue = setupWizardSceneIndoor
-	case 5:
+	case 4:
 		setupWizardSceneModeValue = setupWizardSceneMotion
-	case 6:
+	case 5:
 		setupWizardSceneModeValue = setupWizardSceneNight
 	default:
 		setupWizardSceneModeValue = setupWizardSceneDay
@@ -53,6 +53,13 @@ func setupWizardSceneName(mode setupWizardSceneMode) string {
 	default:
 		return "DAYLIGHT CHARACTER SHADOWS"
 	}
+}
+
+func setupWizardSceneLabel(page int, mode setupWizardSceneMode) string {
+	if page == 2 {
+		return "NAMES + BUBBLES + VISIBILITY"
+	}
+	return setupWizardSceneName(mode)
 }
 
 func applySetupWizardSceneLighting(mode setupWizardSceneMode) {
@@ -209,9 +216,9 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.lightingFlags = 0
 	snap.logicalFrame = int(step + 1)
 	snap.bubbles = snap.bubbles[:0]
-	if setupWizardPage == 3 {
+	if setupWizardPage == 2 {
 		snap.bubbles = append(snap.bubbles, bubble{
-			Index: 2, Text: "Adjust bubbles and visibility here", Type: kBubbleNormal,
+			Index: 2, Text: "Preview names and bubbles here", Type: kBubbleNormal,
 			CreatedFrame: snap.logicalFrame, LifeFrames: 100000,
 		})
 	}
@@ -227,7 +234,7 @@ func drawSetupWizardSceneLabel(dst *ebiten.Image, scale float64) {
 	if dst == nil || scale <= 0 {
 		return
 	}
-	label := setupWizardSceneName(setupWizardSceneModeValue)
+	label := setupWizardSceneLabel(setupWizardPage, setupWizardSceneModeValue)
 	const x, y = 285, 20
 	origin := dst.Bounds().Min
 	w, _ := text.Measure(label, mainFontBold, 0)

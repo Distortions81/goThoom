@@ -70,9 +70,10 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "ChatFontSize", category: settingsInterface, name: "chat_font_size"},
 	{field: "InventoryFontSize", category: settingsInterface, name: "inventory_font_size"},
 	{field: "PlayersFontSize", category: settingsInterface, name: "players_font_size"},
+	{field: "ShowRecentPlayers", category: settingsInterface, name: "show_recent_players"},
 	{field: "AlternateRowBackgrounds", category: settingsInterface, name: "alternate_row_backgrounds"},
 	{field: "NameBgOpacity", category: settingsInterface, name: "name_background_opacity"},
-	{field: "DarkBubblesAndNames", category: settingsInterface, name: "dark_bubbles_and_names"},
+	{field: "DarkBubblesAndNames", category: settingsInterface, name: "dark_mode_names_and_bubbles"},
 	{field: "NameHealthBarModern", category: settingsInterface, name: "name_health_bar_modern"},
 	{field: "NameHealthBarAbove", category: settingsInterface, name: "name_health_bar_above"},
 	{field: "NameHealthBarThickness", category: settingsInterface, name: "name_health_bar_thickness"},
@@ -144,7 +145,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "GameVolume", category: settingsAudio, name: "sound_volume"},
 	{field: "MusicVolume", category: settingsAudio, name: "music_volume"},
 	{field: "Music", category: settingsAudio, name: "music_enabled"},
-	{field: "MusicStereoPan", category: settingsAudio, name: "stereo_music"},
 	{field: "GameSound", category: settingsAudio, name: "sound_enabled"},
 	{field: "Mute", category: settingsAudio, name: "muted"},
 	{field: "MuteWhenUnfocused", category: settingsAudio, name: "mute_when_unfocused"},
@@ -201,11 +201,11 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "MessagesWindow", category: settingsWindows, name: "messages"},
 	{field: "ChatWindow", category: settingsWindows, name: "chat"},
 	{field: "MovieWindow", category: settingsWindows, name: "movie"},
-	{field: "WindowZones", category: settingsWindows, name: "saved_zones"},
-	{field: "WindowTiling", category: settingsWindows, name: "tiling"},
+	{field: "ToolbarWindow", category: settingsWindows, name: "toolbar"},
+	{field: "ToolbarPlacement", category: settingsWindows, name: "toolbar_placement"},
+	{field: "ToolbarInfoBar", category: settingsWindows, name: "show_toolbar_info_bar"},
+	{field: "AutoResizeWindows", category: settingsWindows, name: "auto_resize"},
 	{field: "WindowSnapping", category: settingsWindows, name: "snapping"},
-	{field: "WindowPinning", category: settingsWindows, name: "pinning"},
-	{field: "ShowPinToLocations", category: settingsWindows, name: "show_pin_locations"},
 
 	{field: "Enabledscripts", category: settingsScripts, name: "enabled"},
 	{field: "ScriptSpamKill", category: settingsScripts, name: "stop_spamming_scripts"},
@@ -324,6 +324,9 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 	value := reflect.ValueOf(&result).Elem()
 	for _, entry := range settingsSchema {
 		raw, ok := doc.category(entry.category)[entry.name]
+		if !ok && entry.field == "DarkBubblesAndNames" {
+			raw, ok = doc.Interface["dark_bubbles_and_names"]
+		}
 		if !ok {
 			continue
 		}

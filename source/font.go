@@ -25,6 +25,7 @@ var notoSansBoldItalic []byte
 var mainFont, mainFontBold, mainFontItalic, mainFontBoldItalic, bubbleFont, bubbleFontRegular text.Face
 var monoFaceSource *text.GoTextFaceSource
 var fontGen uint32
+var mainFontRasterScale = 1.0
 
 func initFont() {
 	fontGen++
@@ -35,9 +36,13 @@ func initFont() {
 		log.Fatalf("failed to parse font: %v", err)
 	}
 	eui.SetFontSource(regular)
+	mainFontRasterScale = gs.GameScale
+	if mainFontRasterScale <= 0 {
+		mainFontRasterScale = 1
+	}
 	mainFont = &text.GoTextFace{
 		Source: regular,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   gs.MainFontSize * mainFontRasterScale,
 	}
 
 	bold, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBold))
@@ -46,7 +51,7 @@ func initFont() {
 	}
 	mainFontBold = &text.GoTextFace{
 		Source: bold,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   gs.MainFontSize * mainFontRasterScale,
 	}
 	eui.SetBoldFontSource(bold)
 
@@ -56,7 +61,7 @@ func initFont() {
 	}
 	mainFontItalic = &text.GoTextFace{
 		Source: italic,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   gs.MainFontSize * mainFontRasterScale,
 	}
 
 	boldItalic, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansBoldItalic))
@@ -65,7 +70,7 @@ func initFont() {
 	}
 	mainFontBoldItalic = &text.GoTextFace{
 		Source: boldItalic,
-		Size:   gs.MainFontSize * gs.GameScale,
+		Size:   gs.MainFontSize * mainFontRasterScale,
 	}
 
 	//Bubble

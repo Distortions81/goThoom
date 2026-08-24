@@ -37,17 +37,8 @@ var (
 	// CacheCheck shows render counts for windows and items when enabled.
 	CacheCheck bool
 
-	// windowTiling prevents windows from overlapping when enabled.
-	windowTiling bool = true
-
 	// windowSnapping snaps windows to screen edges or other windows when enabled.
 	windowSnapping bool = true
-
-	// windowPinning enables title-bar buttons for pinning windows to layout zones.
-	windowPinning bool
-
-	// showPinLocations enables drawing pin-to zone indicators while dragging windows.
-	showPinLocations bool
 
 	// middleClickMove enables moving windows with the middle mouse button when enabled.
 	middleClickMove bool

@@ -75,15 +75,41 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"artwork_upscale_style": "crisp"`,
 		`"status_bar_placement": "upper_right"`,
 		`"alternate_network_delay_ms": 37`,
+		`"dark_mode_names_and_bubbles"`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("v4 settings missing %s", expected)
 		}
 	}
-	for _, legacy := range []string{`"Version"`, `"SpriteUpscale"`, `"BlendPicts"`} {
+	for _, legacy := range []string{`"Version"`, `"SpriteUpscale"`, `"BlendPicts"`, `"dark_bubbles_and_names"`} {
 		if strings.Contains(text, legacy) {
 			t.Errorf("v4 settings retained legacy key %s", legacy)
 		}
+	}
+}
+
+func TestSettingsV4ReadsOldDarkNamesKey(t *testing.T) {
+	data, err := marshalSettingsDocument(gsdef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc settingsDocument
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	delete(doc.Interface, "dark_mode_names_and_bubbles")
+	doc.Interface["dark_bubbles_and_names"] = json.RawMessage("false")
+	data, err = json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := unmarshalSettingsDocument(data, gsdef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.DarkBubblesAndNames {
+		t.Fatal("old dark_bubbles_and_names setting was not preserved")
 	}
 }
 

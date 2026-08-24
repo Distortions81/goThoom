@@ -1,31 +1,144 @@
 package main
 
 import (
+	"math"
 	"testing"
 
 	"gothoom/eui"
 )
 
-func TestDefaultWindowLayoutMatchesReferenceDesktop(t *testing.T) {
+func near(a, b float64) bool {
+	return math.Abs(a-b) < 1e-9
+}
+
+func TestDefaultWindowLayoutIsNormalizedAndGapless(t *testing.T) {
 	if gsdef.WindowWidth != 2409 || gsdef.WindowHeight != 1404 {
 		t.Fatalf("default application size = %dx%d", gsdef.WindowWidth, gsdef.WindowHeight)
 	}
-	tests := []struct {
-		name string
-		got  WindowState
-		want WindowState
-	}{
-		{name: "game", got: gsdef.GameWindow, want: WindowState{Open: true, Position: WindowPoint{X: 468}, Size: WindowPoint{X: 936, Y: 948}}},
-		{name: "inventory", got: gsdef.InventoryWindow, want: WindowState{Open: true, Position: WindowPoint{Y: 87}, Size: WindowPoint{X: 438, Y: 444}}},
-		{name: "players", got: gsdef.PlayersWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1436}, Size: WindowPoint{X: 484, Y: 526}}},
-		{name: "messages", got: gsdef.MessagesWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1, Y: 534}, Size: WindowPoint{X: 438, Y: 417}}},
-		{name: "chat", got: gsdef.ChatWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1429, Y: 529}, Size: WindowPoint{X: 489, Y: 420}}},
-		{name: "movie", got: gsdef.MovieWindow, want: WindowState{Position: WindowPoint{X: 350, Y: 117}, Size: WindowPoint{X: 1076, Y: 96}}},
+	if !normalizedWindowStateValid(gsdef.GameWindow, true) ||
+		!normalizedWindowStateValid(gsdef.InventoryWindow, true) ||
+		!normalizedWindowStateValid(gsdef.PlayersWindow, true) ||
+		!normalizedWindowStateValid(gsdef.MessagesWindow, true) ||
+		!normalizedWindowStateValid(gsdef.ChatWindow, true) ||
+		!normalizedWindowStateValid(gsdef.ToolbarWindow, false) {
+		t.Fatal("default resizable window layout is not normalized")
 	}
-	for _, test := range tests {
-		if test.got != test.want {
-			t.Errorf("%s default = %+v, want %+v", test.name, test.got, test.want)
-		}
+	if gsdef.ToolbarPlacement != ToolbarInInventory {
+		t.Fatalf("default toolbar placement = %v, want inventory", gsdef.ToolbarPlacement)
+	}
+	if !gsdef.ToolbarInfoBar {
+		t.Fatal("toolbar info bar should default on")
+	}
+	if !gsdef.AutoResizeWindows {
+		t.Fatal("window layout auto-resize should default on")
+	}
+
+	leftEdge := gsdef.InventoryWindow.Position.X + gsdef.InventoryWindow.Size.X
+	gameEdge := gsdef.GameWindow.Position.X + gsdef.GameWindow.Size.X
+	rightEdge := gsdef.PlayersWindow.Position.X + gsdef.PlayersWindow.Size.X
+	if !near(leftEdge, gsdef.GameWindow.Position.X) ||
+		!near(gameEdge, gsdef.PlayersWindow.Position.X) ||
+		!near(rightEdge, 1) {
+		t.Fatalf("column edges are not gapless: left=%v game=%v right=%v", leftEdge, gameEdge, rightEdge)
+	}
+
+	leftBottom := gsdef.InventoryWindow.Position.Y + gsdef.InventoryWindow.Size.Y
+	messageBottom := gsdef.MessagesWindow.Position.Y + gsdef.MessagesWindow.Size.Y
+	rightTopBottom := gsdef.PlayersWindow.Position.Y + gsdef.PlayersWindow.Size.Y
+	chatBottom := gsdef.ChatWindow.Position.Y + gsdef.ChatWindow.Size.Y
+	if !near(leftBottom, gsdef.MessagesWindow.Position.Y) || !near(messageBottom, 1) ||
+		!near(rightTopBottom, gsdef.ChatWindow.Position.Y) || !near(chatBottom, 1) {
+		t.Fatalf("row edges are not gapless: inventory=%v messages=%v players=%v chat=%v", leftBottom, messageBottom, rightTopBottom, chatBottom)
+	}
+}
+
+func TestAbsoluteWindowSettingsAreRejected(t *testing.T) {
+	original := gs
+	defer func() { gs = original }()
+
+	gs = gsdef
+	gs.GameWindow.Position.X = 468
+	gs.GameWindow.Size = WindowPoint{X: 936, Y: 948}
+	if normalizedWindowSettingsValid() {
+		t.Fatal("absolute window settings were accepted as normalized")
+	}
+}
+
+func TestApplyWindowStateScalesResizableWindow(t *testing.T) {
+	originalScale := eui.UIScale()
+	originalW, originalH := eui.ScreenSize()
+	defer func() {
+		eui.SetUIScale(originalScale)
+		eui.SetScreenSize(originalW, originalH)
+	}()
+
+	eui.SetUIScale(1)
+	eui.SetScreenSize(1000, 800)
+	win := eui.NewWindow()
+	win.Resizable = true
+	state := WindowState{Position: WindowPoint{X: 0.2, Y: 0.25}, Size: WindowPoint{X: 0.4, Y: 0.5}}
+	applyWindowState(win, &state)
+	if got := win.GetPos(); got != (eui.Point{X: 200, Y: 200}) {
+		t.Fatalf("initial position = %+v", got)
+	}
+	if got := win.GetSize(); got != (eui.Point{X: 400, Y: 400}) {
+		t.Fatalf("initial size = %+v", got)
+	}
+
+	eui.SetScreenSize(500, 400)
+	applyWindowState(win, &state)
+	if got := win.GetPos(); got != (eui.Point{X: 100, Y: 100}) {
+		t.Fatalf("scaled position = %+v", got)
+	}
+	if got := win.GetSize(); got != (eui.Point{X: 200, Y: 200}) {
+		t.Fatalf("scaled size = %+v", got)
+	}
+	if syncWindow(win, &state) {
+		t.Fatal("applying a scaled layout changed the saved fractions")
+	}
+	if state.Position != (WindowPoint{X: 0.2, Y: 0.25}) || state.Size != (WindowPoint{X: 0.4, Y: 0.5}) {
+		t.Fatalf("saved fractions drifted: position=%+v size=%+v", state.Position, state.Size)
+	}
+
+	eui.SetScreenSize(1000, 800)
+	applyWindowState(win, &state)
+	if got := win.GetPos(); got != (eui.Point{X: 200, Y: 200}) {
+		t.Fatalf("restored position = %+v", got)
+	}
+	if got := win.GetSize(); got != (eui.Point{X: 400, Y: 400}) {
+		t.Fatalf("restored size = %+v", got)
+	}
+}
+
+func TestApplyWindowStateDoesNotResizeFixedWindow(t *testing.T) {
+	originalScale := eui.UIScale()
+	originalW, originalH := eui.ScreenSize()
+	defer func() {
+		eui.SetUIScale(originalScale)
+		eui.SetScreenSize(originalW, originalH)
+	}()
+
+	eui.SetUIScale(1)
+	eui.SetScreenSize(1000, 800)
+	win := eui.NewWindow()
+	win.Resizable = false
+	win.Size = eui.Point{X: 300, Y: 100}
+	state := WindowState{Position: WindowPoint{X: 0.5, Y: 0.25}, Size: WindowPoint{X: 0.9, Y: 0.9}}
+	applyWindowState(win, &state)
+	if got := win.GetSize(); got != (eui.Point{X: 300, Y: 100}) {
+		t.Fatalf("fixed window size changed to %+v", got)
+	}
+	if got := win.GetPos(); got != (eui.Point{X: 500, Y: 200}) {
+		t.Fatalf("fixed window position = %+v", got)
+	}
+
+	eui.SetScreenSize(600, 400)
+	applyWindowState(win, &state)
+	if got := win.GetSize(); got != (eui.Point{X: 300, Y: 100}) {
+		t.Fatalf("fixed window size changed after screen resize to %+v", got)
+	}
+	if got := win.GetPos(); got != (eui.Point{X: 300, Y: 100}) {
+		t.Fatalf("scaled fixed window position = %+v", got)
 	}
 }
 
@@ -33,22 +146,28 @@ func TestResetSavedWindowSettings(t *testing.T) {
 	original := gs
 	defer func() { gs = original }()
 
-	gs.GameWindow = WindowState{Open: false, Position: WindowPoint{X: 5, Y: 6}, Size: WindowPoint{X: 7, Y: 8}}
+	gs.GameWindow = WindowState{Open: false, Position: WindowPoint{X: 0.1, Y: 0.2}, Size: WindowPoint{X: 0.3, Y: 0.4}}
 	gs.InventoryWindow = WindowState{Open: false}
 	gs.PlayersWindow = WindowState{Open: false}
 	gs.MessagesWindow = WindowState{Open: false}
 	gs.ChatWindow = WindowState{Open: false}
-	gs.MovieWindow = WindowState{Open: true, Position: WindowPoint{X: 9, Y: 10}, Size: WindowPoint{X: 11, Y: 12}}
-	gs.WindowZones = map[string]eui.WindowZoneState{"Settings": {Zoned: true}}
+	gs.MovieWindow = WindowState{Open: true, Position: WindowPoint{X: 0.5, Y: 0.6}}
+	gs.ToolbarWindow = WindowState{Open: false, Position: WindowPoint{X: 0.7, Y: 0.8}}
+	gs.ToolbarPlacement = ToolbarFloating
+	gs.ToolbarInfoBar = false
 
 	resetSavedWindowSettings()
 
 	if gs.GameWindow != gsdef.GameWindow || gs.InventoryWindow != gsdef.InventoryWindow ||
 		gs.PlayersWindow != gsdef.PlayersWindow || gs.MessagesWindow != gsdef.MessagesWindow ||
-		gs.ChatWindow != gsdef.ChatWindow || gs.MovieWindow != gsdef.MovieWindow {
+		gs.ChatWindow != gsdef.ChatWindow || gs.MovieWindow != gsdef.MovieWindow ||
+		gs.ToolbarWindow != gsdef.ToolbarWindow {
 		t.Fatal("window states were not restored to defaults")
 	}
-	if len(gs.WindowZones) != 0 {
-		t.Fatalf("window zones = %#v, want empty", gs.WindowZones)
+	if gs.ToolbarPlacement != ToolbarInInventory {
+		t.Fatalf("toolbar placement = %v, want inventory", gs.ToolbarPlacement)
+	}
+	if !gs.ToolbarInfoBar {
+		t.Fatal("toolbar info bar was not restored to its default")
 	}
 }

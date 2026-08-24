@@ -312,36 +312,6 @@ func (win *windowData) xRect() rect {
 	}
 }
 
-func (win *windowData) pinRect() rect {
-	if !windowPinning || win.TitleHeight <= 0 {
-		return rect{}
-	}
-
-	var xpad float32 = win.Border * win.scale()
-	size := win.GetTitleSize()
-	pos := win.GetPos()
-	x1 := pos.X + win.GetSize().X - xpad
-	x0 := x1 - size
-	if win.Closable {
-		x1 -= size
-		x0 -= size
-	}
-	if win.Maximizable {
-		x1 -= size
-		x0 -= size
-	}
-	if win.Searchable {
-		x1 -= size
-		x0 -= size
-	}
-	return rect{
-		X0: x0,
-		Y0: pos.Y + xpad,
-		X1: x1,
-		Y1: pos.Y + size - xpad,
-	}
-}
-
 func (win *windowData) maxRect() rect {
 	if win.TitleHeight <= 0 || !win.Maximizable {
 		return rect{}
@@ -439,7 +409,7 @@ func (win *windowData) dragbarRect() rect {
 	}
 	pos := win.GetPos()
 	right := pos.X + win.GetSize().X
-	for _, control := range []rect{win.xRect(), win.maxRect(), win.searchRect(), win.pinRect()} {
+	for _, control := range []rect{win.xRect(), win.maxRect(), win.searchRect()} {
 		if control.X0 > pos.X && control.X0 < right {
 			right = control.X0
 		}
@@ -783,10 +753,6 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 		if win.Searchable && win.searchRect().containsPoint(mpos) {
 			win.HoverSearch = true
 			return PART_SEARCH
-		}
-		if win.pinRect().containsPoint(mpos) {
-			win.HoverPin = true
-			return PART_PIN
 		}
 		if win.Movable && win.dragbarRect().containsPoint(mpos) {
 			win.HoverDragbar = true

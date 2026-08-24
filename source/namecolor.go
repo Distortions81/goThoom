@@ -21,11 +21,14 @@ var nameTextColors = []color.RGBA{
 	{0x00, 0x00, 0xc0, 0xff}, // blue
 }
 
-func mobileNameColors(code uint8) (text, bg, frame color.RGBA) {
+func mobileNameColors(code, descriptorType uint8) (text, bg, frame color.RGBA) {
+	if !gs.NameHealthBarModern && descriptorType == kDescPlayer {
+		return classicMobileNameColors(code)
+	}
 	if gs.DarkBubblesAndNames {
 		return color.RGBA{0xff, 0xff, 0xff, 0xff}, color.RGBA{0x10, 0x10, 0x10, 0xff}, color.RGBA{0x00, 0x00, 0x00, 0xff}
 	}
-	return classicMobileNameColors(code)
+	return color.RGBA{0x00, 0x00, 0x00, 0xff}, color.RGBA{0xff, 0xff, 0xff, 0xff}, color.RGBA{0x00, 0x00, 0x00, 0xff}
 }
 
 func classicMobileNameColors(code uint8) (text, bg, frame color.RGBA) {

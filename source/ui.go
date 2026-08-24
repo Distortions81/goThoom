@@ -119,6 +119,9 @@ var windowsChatCB *eui.ItemData
 var windowsConsoleCB *eui.ItemData
 var windowsHelpCB *eui.ItemData
 var hudWin *eui.WindowData
+var toolbarRoot *eui.ItemData
+var toolbarStatsText *eui.ItemData
+var toolbarStatsOnce sync.Once
 var rightHandImg *eui.ItemData
 var leftHandImg *eui.ItemData
 var shaderWarnWin *eui.WindowData
@@ -1249,24 +1252,29 @@ func makeMixerWindow() {
 }
 
 func makeToolbar() {
-	if hudWin != nil {
+	if toolbarRoot != nil {
 		return
 	}
+	placeToolbar(gs.ToolbarPlacement, false)
+	toolbarStatsOnce.Do(func() {
+		go func() {
+			for {
+				time.Sleep(5 * time.Second)
+				updateToolbarStats()
+			}
+		}()
+	})
+}
+
+func buildToolbarRoot(docked bool) *eui.ItemData {
 	var toolFontSize float32 = 12
 	var buttonHeight float32 = 18
 	var buttonWidth float32 = 80
+	if docked {
+		buttonWidth = 68
+	}
 
-	hudWin = eui.NewWindow()
-	hudWin.Title = "Toolbar"
-	hudWin.Closable = false
-	hudWin.Resizable = false
-	hudWin.AutoSize = false
-	hudWin.Size = eui.Point{X: buttonWidth * 5.5, Y: 85}
-	hudWin.Movable = true
-	hudWin.NoScroll = true
-	hudWin.SetZone(eui.HZoneLeft, eui.VZoneTop)
-
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	controls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	hands := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	leftHandImg, _ = eui.NewImageItem(32, 32)
 	leftHandImg.Margin = 2
@@ -1274,24 +1282,112 @@ func makeToolbar() {
 	rightHandImg.Margin = 2
 	hands.AddItem(leftHandImg)
 	hands.AddItem(rightHandImg)
-	flow.AddItem(hands)
-	flow.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
+	controls.AddItem(hands)
+	controls.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
 
-	hudWin.AddItem(flow)
-	hudWin.AddWindow(false)
-	updateHandsWindow()
-	// Ensure record button reflects current state (playback/armed/recording)
-	updateRecordButton()
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	root.AddItem(controls)
+	toolbarStatsText = nil
+	if docked && gs.ToolbarInfoBar {
+		root.Size.Y = buttonHeight*2 + 22
+		toolbarStatsText, _ = eui.NewText()
+		toolbarStatsText.FontSize = 10
+		toolbarStatsText.Size = eui.Point{X: buttonWidth * 5, Y: 18}
+		root.AddItem(toolbarStatsText)
+	} else {
+		root.Size.Y = buttonHeight * 2
+	}
+	updateToolbarStats()
+	return root
+}
 
-	go func() {
-		for {
-			time.Sleep(time.Second * 5)
-			hudWin.Title = fmt.Sprintf("Toolbar - FPS: %4.0f Loss: %0.0f%% Ping: %-3v Jit: %-3v",
-				ebiten.ActualFPS(), droppedPercent(), netLatency.Milliseconds(), netJitter.Milliseconds())
-			hudWin.Refresh()
-
+func placeToolbar(placement ToolbarPlacement, dirty bool) {
+	if placement < ToolbarInInventory || placement > ToolbarFloating {
+		placement = ToolbarInInventory
+	}
+	var oldHost *eui.WindowData
+	if toolbarRoot != nil {
+		oldHost = toolbarRoot.ParentWindow
+		if toolbarRoot.Parent != nil {
+			toolbarRoot.Parent.RemoveItem(toolbarRoot)
+		} else if hudWin != nil {
+			hudWin.RemoveItem(toolbarRoot)
 		}
-	}()
+	}
+	if hudWin != nil {
+		hudWin.RemoveWindow()
+		hudWin = nil
+	}
+	if oldHost == inventoryWin {
+		updateInventoryWindow()
+		inventoryWin.Refresh()
+	} else if oldHost == playersWin {
+		updatePlayersWindow()
+		playersWin.Refresh()
+	}
+
+	gs.ToolbarPlacement = placement
+	toolbarRoot = buildToolbarRoot(placement != ToolbarFloating)
+	switch placement {
+	case ToolbarInInventory:
+		if inventoryList != nil && inventoryList.Parent != nil {
+			inventoryList.Parent.PrependItem(toolbarRoot)
+			updateInventoryWindow()
+			inventoryWin.Refresh()
+		}
+	case ToolbarInPlayers:
+		if playersList != nil && playersList.Parent != nil {
+			playersList.Parent.PrependItem(toolbarRoot)
+			updatePlayersWindow()
+			playersWin.Refresh()
+		}
+	case ToolbarFloating:
+		hudWin = eui.NewWindow()
+		hudWin.Title = "Toolbar"
+		hudWin.Closable = false
+		hudWin.Resizable = false
+		hudWin.AutoSize = false
+		hudWin.Size = eui.Point{X: 440, Y: 85}
+		hudWin.Movable = true
+		hudWin.NoScroll = true
+		hudWin.AddItem(toolbarRoot)
+		hudWin.AddWindow(false)
+		applyWindowState(hudWin, &gs.ToolbarWindow)
+		hudWin.MarkOpen()
+	}
+
+	updateToolbarStats()
+	updateHandsWindow()
+	updateRecordButton()
+	if dirty {
+		settingsDirty = true
+	}
+}
+
+func updateToolbarStats() {
+	if gs.ToolbarPlacement == ToolbarFloating && hudWin != nil {
+		hudWin.Title = fmt.Sprintf("Toolbar - FPS: %4.0f Loss: %0.0f%% Ping: %s Jit: %s",
+			ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(netLatency), formatToolbarLatency(netJitter))
+		hudWin.Refresh()
+		return
+	}
+	if toolbarStatsText == nil {
+		return
+	}
+	toolbarStatsText.Text = fmt.Sprintf("FPS %4.0f   Loss %0.0f%%   Ping %s   Jit %s",
+		ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(netLatency), formatToolbarLatency(netJitter))
+	toolbarStatsText.Dirty = true
+	refreshToolbar()
+}
+
+func formatToolbarLatency(duration time.Duration) string {
+	return fmt.Sprintf("%.1fms", float64(duration)/float64(time.Millisecond))
+}
+
+func refreshToolbar() {
+	if toolbarRoot != nil && toolbarRoot.ParentWindow != nil {
+		toolbarRoot.ParentWindow.Refresh()
+	}
 }
 
 var (
@@ -1369,9 +1465,7 @@ func updateHandsWindow() {
 		leftHandImg.Size = eui.Point{X: float32(leftImg.Bounds().Dx()), Y: float32(leftImg.Bounds().Dy())}
 		leftHandImg.Dirty = true
 	}
-	if hudWin != nil {
-		hudWin.Refresh()
-	}
+	refreshToolbar()
 }
 
 func confirmExitSession() {
@@ -2956,35 +3050,46 @@ func makeSettingsWindow() {
 	}
 	windowSection.AddItem(resetWindowsBtn)
 
-	/*
-				tilingCB, tilingEvents := eui.NewCheckbox()
-				tilingCB.Text = "Tiling window mode (buggy)"
-				tilingCB.Size = eui.Point{X: panelWidth, Y: 24}
-				tilingCB.Checked = gs.WindowTiling
-				tilingCB.SetTooltip("Prevent windows from overlapping")
-				tilingEvents.Handle = func(ev eui.UIEvent) {
-					if ev.Type == eui.EventCheckboxChanged {
-						gs.WindowTiling = ev.Checked
-						eui.SetWindowTiling(ev.Checked)
-						settingsDirty = true
-					}
-				}
-				right.AddItem(tilingCB)
+	autoResizeCB, autoResizeEvents := eui.NewCheckbox()
+	autoResizeCB.Text = "Auto-resize window layout"
+	autoResizeCB.Size = eui.Point{X: panelWidth, Y: 24}
+	autoResizeCB.Checked = gs.AutoResizeWindows
+	autoResizeCB.SetTooltip("Scale window positions and resizable window sizes with the application window")
+	autoResizeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AutoResizeWindows = ev.Checked
+			if gs.AutoResizeWindows {
+				applyManagedWindowLayout()
+			}
+			settingsDirty = true
+		}
+	}
+	windowSection.AddItem(autoResizeCB)
 
-		               snapCB, snapEvents := eui.NewCheckbox()
-		               snapCB.Text = "Window snapping"
-		               snapCB.Size = eui.Point{X: panelWidth, Y: 24}
-		               snapCB.Checked = gs.WindowSnapping
-		               snapCB.SetTooltip("Snap windows to edges and others")
-				snapEvents.Handle = func(ev eui.UIEvent) {
-					if ev.Type == eui.EventCheckboxChanged {
-						gs.WindowSnapping = ev.Checked
-						eui.SetWindowSnapping(ev.Checked)
-						settingsDirty = true
-					}
-				}
-				right.AddItem(snapCB)
-	*/
+	toolbarPlacementDD, toolbarPlacementEvents := eui.NewDropdown()
+	toolbarPlacementDD.Label = "Toolbar Placement"
+	toolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players", "Floating Window"}
+	toolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
+	toolbarPlacementDD.Size = eui.Point{X: panelWidth, Y: 24}
+	toolbarPlacementEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			placeToolbar(ToolbarPlacement(ev.Index), true)
+		}
+	}
+	windowSection.AddItem(toolbarPlacementDD)
+
+	toolbarInfoCB, toolbarInfoEvents := eui.NewCheckbox()
+	toolbarInfoCB.Text = "Show Toolbar Info Bar"
+	toolbarInfoCB.Size = eui.Point{X: panelWidth, Y: 24}
+	toolbarInfoCB.Checked = gs.ToolbarInfoBar
+	toolbarInfoCB.SetTooltip("Show FPS, packet loss, ping, and jitter below a docked toolbar")
+	toolbarInfoEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ToolbarInfoBar = ev.Checked
+			placeToolbar(gs.ToolbarPlacement, true)
+		}
+	}
+	windowSection.AddItem(toolbarInfoCB)
 
 	if showUIScale {
 		// Screen size settings in-place (moved from separate window)
@@ -3407,7 +3512,7 @@ func makeSettingsWindow() {
 	nameSection.AddItem(nameBgSlider)
 
 	darkBubblesAndNamesCB, darkBubblesAndNamesEvents := eui.NewCheckbox()
-	darkBubblesAndNamesCB.Text = "Dark Bubbles and Names"
+	darkBubblesAndNamesCB.Text = "Dark Mode Names/Bubbles"
 	darkBubblesAndNamesCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
 	darkBubblesAndNamesCB.Checked = gs.DarkBubblesAndNames
 	darkBubblesAndNamesCB.SetTooltip("Use dark backgrounds with light text for speech bubbles and name tags")
@@ -3442,7 +3547,7 @@ func makeSettingsWindow() {
 
 	healthBarStyleDD, healthBarStyleEvents := eui.NewDropdown()
 	healthBarStyleDD.Label = "Player Health Display"
-	healthBarStyleDD.Options = []string{"Modern bar", "Classic name color"}
+	healthBarStyleDD.Options = []string{"Color bar", "Classic name color"}
 	healthBarStyleDD.Selected = 0
 	if !gs.NameHealthBarModern {
 		healthBarStyleDD.Selected = 1
@@ -3461,7 +3566,7 @@ func makeSettingsWindow() {
 	nameSection.AddItem(healthBarStyleDD)
 
 	healthBarPositionDD, healthBarPositionEvents := eui.NewDropdown()
-	healthBarPositionDD.Label = "Modern Bar Position"
+	healthBarPositionDD.Label = "Color Bar Position"
 	healthBarPositionDD.Options = []string{"Above name", "Below name"}
 	healthBarPositionDD.Selected = 0
 	if !gs.NameHealthBarAbove {
@@ -3712,6 +3817,19 @@ func makeSettingsWindow() {
 	}
 	textSizeSection.AddItem(plFontSlider)
 
+	recentPlayersCB, recentPlayersEvents := eui.NewCheckbox()
+	recentPlayersCB.Text = "Show recently on-screen group"
+	recentPlayersCB.Size = eui.Point{X: panelWidth, Y: 24}
+	recentPlayersCB.Checked = gs.ShowRecentPlayers
+	recentPlayersEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ShowRecentPlayers = ev.Checked
+			playersDirty = true
+			settingsDirty = true
+		}
+	}
+	textSizeSection.AddItem(recentPlayersCB)
+
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
 	consoleFontSlider.Label = "Console Font Size"
 	consoleFontSlider.MinValue = 4
@@ -3844,6 +3962,7 @@ func resetAllSettings() {
 	if gs.ChatWindow.Open {
 		_ = makeChatWindow()
 	}
+	placeToolbar(gs.ToolbarPlacement, false)
 
 	restoreWindowSettings()
 
@@ -3886,11 +4005,8 @@ func resetAllSettings() {
 func resetWindows() {
 	resetSavedWindowSettings()
 	clampWindowSettings()
-	eui.LoadWindowZones(gs.WindowZones)
 
 	if gameWin != nil {
-		gameWin.ClearZone()
-		applyWindowState(gameWin, &gs.GameWindow)
 		gameWin.MarkOpen()
 	}
 
@@ -3909,18 +4025,8 @@ func resetWindows() {
 	makePlayersWindow()
 	makeConsoleWindow()
 	_ = makeChatWindow()
-	if inventoryWin != nil && gs.InventoryWindow.Open {
-		inventoryWin.MarkOpen()
-	}
-	if playersWin != nil && gs.PlayersWindow.Open {
-		playersWin.MarkOpen()
-	}
-	if consoleWin != nil && gs.MessagesWindow.Open {
-		consoleWin.MarkOpen()
-	}
-	if chatWin != nil && gs.ChatWindow.Open {
-		chatWin.MarkOpen()
-	}
+	placeToolbar(gs.ToolbarPlacement, false)
+	applyManagedWindowLayout()
 	windowsRestored = true
 
 	// Save the newly-created default geometry and zones immediately.
@@ -4207,14 +4313,6 @@ func makeQualityWindow() {
 	qualityWin.Movable = true
 	qualityWin.SetRefreshInterval(100 * time.Millisecond)
 	qualityWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	if qualityWin.Theme != nil {
-		bg := qualityWin.Theme.Window.BGColor
-		bg.A = 0xff
-		qualityWin.BGColor = bg
-		titleBG := qualityWin.Theme.Window.TitleBGColor
-		titleBG.A = 0xff
-		qualityWin.TitleBGColor = titleBG
-	}
 	// Keep expensive rendering features separate from visual treatment controls.
 	var panelWidth float32 = 270
 	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
@@ -6016,13 +6114,6 @@ func makePlayersWindow() {
 	playersWin, playersList, _ = makeTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)
 	playersWin.Searchable = true
 	playersWin.OnSearch = searchPlayersWindow
-	// Restore saved geometry if present, otherwise keep defaults from helper.
-	if gs.PlayersWindow.Size.X > 0 && gs.PlayersWindow.Size.Y > 0 {
-		playersWin.Size = eui.Point{X: float32(gs.PlayersWindow.Size.X), Y: float32(gs.PlayersWindow.Size.Y)}
-	}
-	if gs.PlayersWindow.Position.X != 0 || gs.PlayersWindow.Position.Y != 0 {
-		playersWin.Position = eui.Point{X: float32(gs.PlayersWindow.Position.X), Y: float32(gs.PlayersWindow.Position.Y)}
-	}
 	// Refresh contents on resize so word-wrapping and row sizing stay correct.
 	playersWin.OnResize = func() { updatePlayersWindow() }
 	updatePlayersWindow()
