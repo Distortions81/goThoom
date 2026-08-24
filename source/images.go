@@ -437,7 +437,14 @@ func artworkUpscaleBlendStrength() float32 {
 }
 
 func artworkUpscaleFactor() int {
-	return spriteUpscaleFactor()
+	factor := gs.SpriteUpscale
+	if factor < 1 {
+		factor = 1
+	}
+	if factor > 4 {
+		factor = 4
+	}
+	return factor
 }
 
 func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Image {

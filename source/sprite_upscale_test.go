@@ -15,6 +15,7 @@ func TestArtworkUpscaleIsIndependentOfPotatoMode(t *testing.T) {
 	gs.SpriteUpscaleFilter = true
 	gs.SpriteUpscaleMode = artworkUpscaleBalanced
 	gs.GameScale = 4
+	gs.SpriteUpscale = 4
 	gs.PotatoGPU = false
 	if !artworkUpscaleEnabled() || artworkUpscaleFactor() != 4 {
 		t.Fatal("artwork upscale should use the full render scale normally")
@@ -78,6 +79,7 @@ func TestKageArtworkUpscaleCreatesRequestedResolution(t *testing.T) {
 func TestKageMobileUpscaleCacheReusesTexture(t *testing.T) {
 	originalSettings := gs
 	gs.GameScale = 2
+	gs.SpriteUpscale = 2
 	gs.PotatoGPU = false
 	gs.SpriteUpscaleFilter = true
 	gs.SpriteUpscaleMode = artworkUpscaleBalanced

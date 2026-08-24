@@ -26,15 +26,6 @@ func takeScreenshot() {
 			}
 		}
 	}
-	if shot == nil && worldRT != nil {
-		rect := worldRTUsedRect
-		if !rect.Empty() {
-			rect = rect.Intersect(worldRT.Bounds())
-			if !rect.Empty() {
-				shot = worldRT.SubImage(rect)
-			}
-		}
-	}
 	if shot == nil {
 		return
 	}

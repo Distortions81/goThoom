@@ -78,17 +78,8 @@ func nameTagHoverAlpha(index uint8, name string, hovered bool, now time.Time) fl
 	return 1 - ease(progress)
 }
 
-// worldRT is the offscreen render target for the game world. It stays at an
-// integer multiple of the native field size and is composited into the window.
-var worldRT *ebiten.Image
-
-// worldRTUsedRect tracks the active portion of worldRT used for the latest
-// frame, and worldViewRect tracks the region of gameImage that displays the
-// composited world.
-var (
-	worldRTUsedRect image.Rectangle
-	worldViewRect   image.Rectangle
-)
+// worldViewRect tracks the region of gameImage occupied by the rendered world.
+var worldViewRect image.Rectangle
 
 // gameImageItem is the UI image item inside the game window that displays
 // the rendered world. gameImage is the current visible view, while
@@ -117,20 +108,6 @@ func updateDimmedScreenBG() {
 		G: uint8(uint16(c.G) / 2),
 		B: uint8(uint16(c.B) / 2),
 		A: 255,
-	}
-}
-
-func ensureWorldRT(w, h int) {
-	if w < 1 {
-		w = 1
-	}
-	if h < 1 {
-		h = 1
-	}
-	// Grow-only allocation to avoid churn during interactive resize.
-	// We will draw using a subimage matching the requested w,h.
-	if worldRT == nil || worldRT.Bounds().Dx() < w || worldRT.Bounds().Dy() < h {
-		worldRT = ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
 	}
 }
 
@@ -185,7 +162,12 @@ func updateGameImageSize() {
 	gameImageItem.Position = eui.Point{X: 2 / s, Y: 2 / s}
 }
 
-// In-world rendering uses integer scaling (nearest) only.
+func worldArtworkFilter() ebiten.Filter {
+	if gs.PixelArtScaling {
+		return ebiten.FilterNearest
+	}
+	return ebiten.FilterLinear
+}
 
 // acquireDrawOpts returns a DrawImageOptions from the shared pool initialized
 // with nearest filtering and mipmaps disabled. Call releaseDrawOpts when done.
@@ -1397,47 +1379,27 @@ func worldDrawInfo() (int, int, float64) {
 		return gx, gy, gs.GameScale
 	}
 
-	// Match Draw() scaling rules.
-	const maxSuperSampleScale = 4
-	worldW, worldH := gameAreaSizeX, gameAreaSizeY
-
-	// Slider-desired scale.
-	desired := int(math.Round(gs.GameScale))
-	if desired < 1 {
-		desired = 1
-	}
-	if desired > 10 {
-		desired = 10
-	}
-
-	// Use the slider-selected scale directly for the offscreen render target.
-	offIntScale := desired
-	if offIntScale > maxSuperSampleScale {
-		offIntScale = maxSuperSampleScale
-	}
-	if offIntScale < 1 {
-		offIntScale = 1
-	}
-
-	offW := worldW * offIntScale
-	offH := worldH * offIntScale
-
-	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
-
-	drawW := float64(offW) * scaleDown
-	drawH := float64(offH) * scaleDown
-	tx := (float64(bufW) - drawW) / 2
-	ty := (float64(bufH) - drawH) / 2
+	viewRect, scale := fittedWorldView(bufW, bufH)
 
 	// Add the 2px inner margin to the window origin to reach the game image.
-	originX := gx + 2 + int(math.Round(tx))
-	originY := gy + 2 + int(math.Round(ty))
-	// Effective world scale on screen in pixels per world unit.
-	effScale := float64(offIntScale) * scaleDown
-	if effScale <= 0 {
-		effScale = 1.0
+	originX := gx + 2 + viewRect.Min.X
+	originY := gy + 2 + viewRect.Min.Y
+	return originX, originY, scale
+}
+
+func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
+	if bufW < 1 || bufH < 1 {
+		return image.Rectangle{}, 1
 	}
-	return originX, originY, effScale
+	scale := math.Min(float64(bufW)/float64(gameAreaSizeX), float64(bufH)/float64(gameAreaSizeY))
+	if scale <= 0 {
+		scale = 1
+	}
+	w := max(1, roundToInt(float64(gameAreaSizeX)*scale))
+	h := max(1, roundToInt(float64(gameAreaSizeY)*scale))
+	left := (bufW - w) / 2
+	top := (bufH - h) / 2
+	return image.Rect(left, top, left+w, top+h), scale
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -1486,53 +1448,24 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if gameImage == nil {
 		// UI not ready yet
 		worldViewRect = image.Rectangle{}
-		worldRTUsedRect = image.Rectangle{}
 		eui.Draw(screen)
 		return
 	}
 
-	// Determine offscreen render scale and composite scale.
-	// A user-selected render scale (gs.GameScale) in 1x..10x acts as a
-	// supersample factor. The window is always filled using linear filtering.
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
 	gameImage.Fill(color.Black)
-	const maxSuperSampleScale = 4
-	worldW, worldH := gameAreaSizeX, gameAreaSizeY
+	viewRect, renderScale := fittedWorldView(bufW, bufH)
+	worldViewRect = viewRect
+	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
 
-	// Clamp desired render scale from settings (treat as integer steps)
-	desired := int(math.Round(gs.GameScale))
-	if desired < 1 {
-		desired = 1
-	}
-	if desired > 10 {
-		desired = 10
-	}
-	// Use the slider-selected scale directly for offscreen rendering
-	offIntScale := desired
-	if offIntScale > maxSuperSampleScale {
-		offIntScale = maxSuperSampleScale
-	}
-	if offIntScale < 1 {
-		offIntScale = 1
-	}
-
-	// Prepare variable-sized offscreen target (supersampled)
-	offW := worldW * offIntScale
-	offH := worldH * offIntScale
-	ensureWorldRT(offW, offH)
-	worldRect := image.Rect(0, 0, offW, offH)
-	worldRTUsedRect = worldRect
-	worldView := worldRT.SubImage(worldRect).(*ebiten.Image)
-	worldView.Fill(color.Black)
-
-	// Render splash or live frame into worldRT using the offscreen scale
+	// Render the world directly at its final game-window resolution.
 	var snap drawSnapshot
 	var alpha float64
 	var haveSnap bool
 	if !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
 		prev := gs.GameScale
-		gs.GameScale = float64(offIntScale)
+		gs.GameScale = renderScale
 		drawSplash(worldView, 0, 0)
 		gs.GameScale = prev
 	} else {
@@ -1544,11 +1477,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		var mobileFade, pictFade float32
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		prev := gs.GameScale
-		gs.GameScale = float64(offIntScale)
+		gs.GameScale = renderScale
 		drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
 		if gs.ShaderLighting {
 			// Use shader-based night darkening with inverse-square falloff.
-			addNightDarkSources(offW, offH, float32(alpha))
+			addNightDarkSources(viewRect.Dx(), viewRect.Dy(), float32(alpha))
 		} else {
 			// Classic overlay path when shader is off.
 			//drawNightAmbient(worldView, 0, 0)
@@ -1559,58 +1492,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
 		}
 		if setupWizardPreviewActive {
-			drawSetupWizardSceneLabel(worldView, float64(offIntScale))
+			drawSetupWizardSceneLabel(worldView, renderScale)
 		}
 		drawStatusBars(worldView, 0, 0, snap, alpha)
 		gs.GameScale = prev
 		haveSnap = true
 	}
 
-	// Composite worldRT into the gameImage buffer: scale/center
-	// Keep this simple: the offscreen world is rendered at integer scale
-	// (nearest) and the final composite to the resizable window uses linear.
-	scaleDown := math.Min(float64(bufW)/float64(offW), float64(bufH)/float64(offH))
-	sx, sy := scaleDown, scaleDown
-	drawW := float64(offW) * sx
-	drawH := float64(offH) * sy
-	tx := (float64(bufW) - drawW) / 2
-	ty := (float64(bufH) - drawH) / 2
-	op := acquireDrawOpts()
-	if gs.PixelArtScaling {
-		op.Filter = ebiten.FilterNearest
-	} else {
-		op.Filter = ebiten.FilterLinear
-	}
-	op.GeoM.Scale(sx, sy)
-	op.GeoM.Translate(tx, ty)
-	gameImage.DrawImage(worldView, op)
-	releaseDrawOpts(op)
-	left := roundToInt(tx)
-	top := roundToInt(ty)
-	right := left + roundToInt(drawW)
-	bottom := top + roundToInt(drawH)
-	if left < 0 {
-		left = 0
-	}
-	if top < 0 {
-		top = 0
-	}
-	if right > bufW {
-		right = bufW
-	}
-	if bottom > bufH {
-		bottom = bufH
-	}
-	viewRect := image.Rect(left, top, right, bottom).Intersect(gameImage.Bounds())
-	if viewRect.Empty() {
-		worldViewRect = image.Rectangle{}
-	} else {
-		worldViewRect = viewRect
-	}
 	var finalScale float64
 	if haveSnap {
 		prev := gs.GameScale
-		finalScale = float64(offIntScale) * scaleDown
+		finalScale = renderScale
 		if finalScale <= 0 {
 			finalScale = worldScale
 		}
@@ -1905,7 +1797,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		}
 		scaled := float64(drawSize) * scale
 		op := acquireDrawOpts()
-		op.Filter = ebiten.FilterNearest
+		op.Filter = worldArtworkFilter()
 		op.DisableMipmaps = true
 		op.GeoM.Scale(scale, scale)
 		tx := float64(x) - scaled/2
@@ -2296,9 +2188,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 
-	x, y := pictureScreenPosition(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h)
+	fx, fy := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h)
+	x, y := roundToInt(fx), roundToInt(fy)
 
-	addPictureLightSource(uint32(p.PictID), p.H, p.V, float64(x), float64(y), w, h, logicalFrame, alpha, screen.Bounds())
+	addPictureLightSource(uint32(p.PictID), p.H, p.V, fx, fy, w, h, logicalFrame, alpha, screen.Bounds())
 
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)
@@ -2345,8 +2238,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if src != nil {
 			drawW, drawH = src.Bounds().Dx(), src.Bounds().Dy()
 		}
-		targetW := float64(roundToInt(float64(w) * gs.GameScale))
-		targetH := float64(roundToInt(float64(h) * gs.GameScale))
+		left, right := scaledSpriteSpan(fx, w, gs.GameScale)
+		top, bottom := scaledSpriteSpan(fy, h, gs.GameScale)
+		targetW := float64(right - left)
+		targetH := float64(bottom - top)
 		if targetW <= 0 && drawW > 0 {
 			targetW = float64(drawW)
 		}
@@ -2361,15 +2256,11 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if drawH > 0 {
 			sy = targetH / float64(drawH)
 		}
-		scaledW := float64(drawW) * sx
-		scaledH := float64(drawH) * sy
 		op := acquireDrawOpts()
-		op.Filter = ebiten.FilterNearest
+		op.Filter = worldArtworkFilter()
 		op.DisableMipmaps = true
 		op.GeoM.Scale(sx, sy)
-		tx := float64(x) - scaledW/2
-		ty := float64(y) - scaledH/2
-		op.GeoM.Translate(tx, ty)
+		op.GeoM.Translate(float64(left), float64(top))
 		if gs.pictAgainDebug && p.Again {
 			op.ColorScale.Scale(0, 0, 1, 1)
 		} else if src == img && gs.smoothingDebug && p.Moving {
@@ -2438,6 +2329,11 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 }
 
 func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (int, int) {
+	x, y := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, width, height)
+	return roundToInt(x), roundToInt(y)
+}
+
+func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (float64, float64) {
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
 	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p) {
@@ -2458,9 +2354,14 @@ func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []
 		}
 	}
 
-	x := roundToInt(((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale)
-	y := roundToInt(((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale)
-	return x + ox, y + oy
+	x := ((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale
+	y := ((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale
+	return x + float64(ox), y + float64(oy)
+}
+
+func scaledSpriteSpan(center float64, size int, scale float64) (int, int) {
+	half := float64(size) * scale / 2
+	return roundToInt(center - half), roundToInt(center + half)
 }
 
 func pictureAnimationInstanceKey(h, v int16) uint64 {
