@@ -17,6 +17,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"flame light flicker":          gsdef.FlameLightFlicker,
 		"character shadows":            gsdef.CharacterShadows,
 		"detailed character shadows":   gsdef.DetailedCharacterShadows,
+		"mobiles receive sun shadows":  gsdef.MobilesReceiveSunShadows,
 		"artwork upscale filter":       gsdef.SpriteUpscaleFilter,
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
 		"throttle sounds":              gsdef.ThrottleSounds,
@@ -162,6 +163,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 
 	gs.CharacterShadows = false
 	gs.DetailedCharacterShadows = false
+	gs.MobilesReceiveSunShadows = false
 	gs.GameScale = 1
 	gs.SpriteUpscale = 1
 	gs.SpriteUpscaleFilter = false
@@ -175,6 +177,9 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 	if !gs.DetailedCharacterShadows {
 		t.Error("settings without DetailedCharacterShadows should default it on")
+	}
+	if !gs.MobilesReceiveSunShadows {
+		t.Error("settings without MobilesReceiveSunShadows should default it on")
 	}
 	if gs.GameScale != 4 || gs.SpriteUpscale != 4 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
 		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (4, 4, true, Ultra Smooth)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)

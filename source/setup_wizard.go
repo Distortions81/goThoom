@@ -564,10 +564,18 @@ func buildSetupLightingPage(root *eui.ItemData) {
 			markQualityCustom()
 		},
 	))
+	var mobileSunShadowsOption *eui.ItemData
 	root.AddItem(setupWizardCheckbox("Character shadows", "Show projected daylight shadows and compact indoor contact shadows.", gs.CharacterShadows, func(checked bool) {
 		gs.CharacterShadows = checked
+		setSetupWizardDisabled(mobileSunShadowsOption, !checked)
 		markQualityCustom()
 	}))
+	mobileSunShadowsOption = setupWizardSubOption(setupWizardCheckbox("Mobiles receive sun shadows", "Darken characters and creatures standing in another mobile's projected daylight shadow.", gs.MobilesReceiveSunShadows, func(checked bool) {
+		gs.MobilesReceiveSunShadows = checked
+		settingsDirty = true
+	}))
+	setSetupWizardDisabled(mobileSunShadowsOption, !gs.CharacterShadows)
+	root.AddItem(mobileSunShadowsOption)
 	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Compensates classic Macintosh artwork for a modern display. Disable it if the artwork looks washed out or too dark.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked
 		applySetupWizardGamma()

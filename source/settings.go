@@ -270,6 +270,7 @@ var gsdef settings = settings{
 	CharacterShadows:         true,
 	CharacterShadowDarkness:  1.8,
 	DetailedCharacterShadows: true,
+	MobilesReceiveSunShadows: true,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,
@@ -464,6 +465,7 @@ type settings struct {
 	CharacterShadows         bool
 	CharacterShadowDarkness  float64
 	DetailedCharacterShadows bool
+	MobilesReceiveSunShadows bool
 
 	// Window behavior
 	ShowClanLordSplashImage bool

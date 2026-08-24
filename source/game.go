@@ -1608,6 +1608,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	posPics := snap.picsPos
 	live := snap.liveMobs
 	dead := snap.deadMobs
+	var mobileSunShade [256]float32
 	shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
 	if !gs.hideMobiles && shadowKind == characterShadowContact {
 		collectContactShadowLights(ox, oy, snap, alpha)
@@ -1623,11 +1624,11 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		}
 	} else {
 		if shadowKind == characterShadowDirectional {
-			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit)
+			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, &mobileSunShade)
 		}
 		for _, m := range dead {
 			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index])
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
 		i, j := 0, 0
@@ -1646,7 +1647,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
 					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index])
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
 				i++
@@ -1728,7 +1729,7 @@ func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frame
 // When a mobile lacks history but the world shifts, a pseudo-previous position
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32) {
 	x, y := mobileScreenPosition(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
@@ -1808,6 +1809,10 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		op := acquireDrawOpts()
 		op.Filter = worldArtworkFilter()
 		op.DisableMipmaps = true
+		if sunShade > 0 {
+			brightness := 1 - sunShade
+			op.ColorScale.Scale(brightness, brightness, brightness, 1)
+		}
 		op.GeoM.Scale(scale, scale)
 		tx := float64(x) - scaled/2
 		ty := float64(y) - scaled/2
@@ -1974,6 +1979,10 @@ func pictureMobileBoundsOverlap(pictH, pictV int16, pictW, pictHeight int, mob f
 		picT < mobT+mobSize && mobT < picT+pictHeight
 }
 
+func pictureEligibleForObscuring(p framePicture) bool {
+	return p.Plane >= 0 && !pictureSemiTransparent(p.PictID)
+}
+
 const obscuringBlockSize = 128
 
 type obscuringBlockKey struct {
@@ -2103,7 +2112,7 @@ func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descM
 		p := &pictures[i]
 		p.obscuredPrev = false
 		p.obscuredNow = false
-		if p.Plane <= 0 || clImages.IsSemiTransparent(uint32(p.PictID)) {
+		if !pictureEligibleForObscuring(*p) {
 			continue
 		}
 		width, height := clImages.Size(uint32(p.PictID))

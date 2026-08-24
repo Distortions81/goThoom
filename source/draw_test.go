@@ -140,6 +140,23 @@ func TestPictureObscuringFadeUsesCachedUpdateStates(t *testing.T) {
 	}
 }
 
+func TestPictureEligibleForObscuringIncludesPlaneZero(t *testing.T) {
+	original := pictureSemiTransparent
+	pictureSemiTransparent = func(uint16) bool { return false }
+	t.Cleanup(func() { pictureSemiTransparent = original })
+
+	if !pictureEligibleForObscuring(framePicture{PictID: 1, Plane: 0}) {
+		t.Fatal("plane-zero foreground picture was excluded from mobile occlusion")
+	}
+	if pictureEligibleForObscuring(framePicture{PictID: 1, Plane: -1}) {
+		t.Fatal("negative-plane background picture was included in mobile occlusion")
+	}
+	pictureSemiTransparent = func(uint16) bool { return true }
+	if pictureEligibleForObscuring(framePicture{PictID: 1, Plane: 1}) {
+		t.Fatal("semi-transparent picture was included in mobile occlusion")
+	}
+}
+
 func mockCLImages(w, h int) *climg.CLImages {
 	imgs := &climg.CLImages{}
 	v := reflect.ValueOf(imgs).Elem()

@@ -4322,10 +4322,12 @@ func makeQualityWindow() {
 	center.Size = eui.Point{X: panelWidth, Y: 10}
 
 	artworkSection := newConfigurationSection("Artwork Scaling", width)
+	occlusionSection := newConfigurationSection("Foreground Occlusion", width)
 	performanceSection := newConfigurationSection("GPU & Performance", width)
 	gammaSection := newConfigurationSection("Sprite Gamma", width)
 	denoiseSection := newConfigurationSection("Dither Cleanup", width)
 	left.AddItem(artworkSection)
+	left.AddItem(occlusionSection)
 	left.AddItem(performanceSection)
 	left.AddItem(gammaSection)
 	left.AddItem(denoiseSection)
@@ -4419,6 +4421,33 @@ func makeQualityWindow() {
 	}
 	artworkSection.AddItem(pixelPerfectCB)
 
+	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
+	fadePicsCB.Text = "Fade objects obscuring mobiles"
+	fadePicsCB.Size = eui.Point{X: width, Y: 24}
+	fadePicsCB.Checked = gs.FadeObscuringPictures
+	fadePicsCB.SetTooltip("Fade foreground artwork when it covers a character or creature")
+	fadePicsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.FadeObscuringPictures = ev.Checked
+			settingsDirty = true
+		}
+	}
+	occlusionSection.AddItem(fadePicsCB)
+
+	obscureSlider, obscureEvents := eui.NewSlider()
+	obscureSlider.Label = "Obscuring Object Opacity"
+	obscureSlider.MinValue = 0.25
+	obscureSlider.MaxValue = 0.7
+	obscureSlider.Value = float32(gs.ObscuringPictureOpacity)
+	obscureSlider.Size = eui.Point{X: width - 10, Y: 24}
+	obscureEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.ObscuringPictureOpacity = float64(ev.Value)
+			settingsDirty = true
+		}
+	}
+	occlusionSection.AddItem(obscureSlider)
+
 	/*
 		                                showFPSCB, showFPSEvents := eui.NewCheckbox()
 		                                showFPSCB.Text = "Show FPS + UPS"
@@ -4463,7 +4492,7 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(precacheSoundCB)
 
-	var detailedShadowsCB, shadowDarknessSlider *eui.ItemData
+	var detailedShadowsCB, mobileSunShadowsCB, shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "Potato GPU (Low VRAM)"
@@ -4523,6 +4552,9 @@ func makeQualityWindow() {
 			if detailedShadowsCB != nil {
 				detailedShadowsCB.Disabled = !ev.Checked
 			}
+			if mobileSunShadowsCB != nil {
+				mobileSunShadowsCB.Disabled = !ev.Checked
+			}
 			settingsDirty = true
 		}
 	}
@@ -4558,6 +4590,20 @@ func makeQualityWindow() {
 		}
 	}
 	shadowSection.AddItem(detailedShadowsCB)
+
+	mobileSunShadowsCB, mobileSunShadowsEvents := eui.NewCheckbox()
+	mobileSunShadowsCB.Text = "Mobiles Receive Sun Shadows"
+	mobileSunShadowsCB.Size = eui.Point{X: width, Y: 24}
+	mobileSunShadowsCB.Checked = gs.MobilesReceiveSunShadows
+	mobileSunShadowsCB.Disabled = !gs.CharacterShadows
+	mobileSunShadowsCB.SetTooltip("Darken characters and creatures standing in another mobile's projected sun shadow")
+	mobileSunShadowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MobilesReceiveSunShadows = ev.Checked
+			settingsDirty = true
+		}
+	}
+	shadowSection.AddItem(mobileSunShadowsCB)
 
 	// Shader lighting toggle in the Quality window
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()
@@ -5199,34 +5245,6 @@ func makeAdvancedSettingsWindow() {
 		}
 	}
 	interfaceCol.AddItem(joystickBtn)
-
-	addSectionLabel(interfaceCol, "Visual Tweaks")
-
-	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
-	fadePicsCB.Text = "Fade objects obscuring mobiles"
-	fadePicsCB.Size = eui.Point{X: columnWidth, Y: 24}
-	fadePicsCB.Checked = gs.FadeObscuringPictures
-	fadePicsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.FadeObscuringPictures = ev.Checked
-			settingsDirty = true
-		}
-	}
-	interfaceCol.AddItem(fadePicsCB)
-
-	obscureSlider, obscureEvents := eui.NewSlider()
-	obscureSlider.Label = "Obscuring object opacity"
-	obscureSlider.MinValue = 0.25
-	obscureSlider.MaxValue = 0.7
-	obscureSlider.Value = float32(gs.ObscuringPictureOpacity)
-	obscureSlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
-	obscureEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.ObscuringPictureOpacity = float64(ev.Value)
-			settingsDirty = true
-		}
-	}
-	interfaceCol.AddItem(obscureSlider)
 
 	// Chat & TTS column
 	addSectionLabel(chatCol, "Chat & TTS")
