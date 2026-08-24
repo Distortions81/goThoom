@@ -270,17 +270,18 @@ sleeping the test process:
 - [x] Scanner: typed server messages and several independent subscriptions.
 - [x] Long-running timer: cancellation and cleanup during reload.
 
-## Current implementation order
+## Completed implementation phases
 
-1. Finish deleting internal v1 compatibility code and tests.
-2. Convert and test the proof scripts without real-time sleeps. Use them to
-   simplify the public API before declaring its surface finished.
-3. Establish one canonical API definition and generate or verify runtime
-   exports, editor stubs, and reference documentation from it.
-4. Ship editor setup and a clear Validate action for ordinary script authors.
-5. Add deterministic event simulation, reload coverage, and example checks to
-   the normal test suite.
-6. Document the final surface and declare scripting API version 2.
+1. [x] Deleted internal v1 compatibility code and tests.
+2. [x] Converted and tested the proof scripts without real-time sleeps, using
+   them to simplify the public API before declaring its surface finished.
+3. [x] Established one canonical API definition that generates or verifies
+   runtime exports, editor stubs, and reference documentation.
+4. [x] Shipped editor setup and a clear Validate action for ordinary script
+   authors.
+5. [x] Added deterministic event simulation, reload coverage, and example
+   checks to the normal test suite.
+6. [x] Documented the final surface and declared scripting API version 2.
 
 ## Definition of done
 
