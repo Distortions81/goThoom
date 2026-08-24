@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -77,9 +78,23 @@ func checkScriptSourceRequirements(source []byte) error {
 }
 
 func validateScriptFile(owner, path string) error {
-	source, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read script: %w", err)
+	scriptMu.RLock()
+	info, packaged := scriptPackages[owner]
+	scriptMu.RUnlock()
+	var source []byte
+	if packaged && info.path == path {
+		source = append([]byte(nil), info.src...)
+	} else {
+		root, openErr := os.OpenRoot(filepath.Dir(path))
+		if openErr != nil {
+			return fmt.Errorf("open script folder: %w", openErr)
+		}
+		defer root.Close()
+		var readErr error
+		source, readErr = root.ReadFile(filepath.Base(path))
+		if readErr != nil {
+			return fmt.Errorf("read script: %w", readErr)
+		}
 	}
 	prepared, err := prepareScriptSource(owner, source, restrictedStdlib())
 	if err == nil {

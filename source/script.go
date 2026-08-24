@@ -115,6 +115,8 @@ var basescriptExports = interp.Exports{
 		"ChoiceOption":        reflect.ValueOf((*scriptapi.ChoiceOption)(nil)),
 		"KeyBindingOption":    reflect.ValueOf((*scriptapi.KeyBindingOption)(nil)),
 		"ItemOption":          reflect.ValueOf((*scriptapi.ItemOption)(nil)),
+		"ToolbarButton":       reflect.ValueOf((*scriptapi.ToolbarButton)(nil)),
+		"ToolbarOptions":      reflect.ValueOf((*scriptapi.ToolbarOptions)(nil)),
 		"ScopeGlobal":         reflect.ValueOf(scriptapi.ScopeGlobal),
 		"ScopeCharacter":      reflect.ValueOf(scriptapi.ScopeCharacter),
 		"Mobile":              reflect.ValueOf((*Mobile)(nil)),
@@ -160,6 +162,7 @@ type scriptCandidate struct {
 	bindings    []string
 	conflicts   []string
 	eventQueue  *scriptEventQueue
+	assets      *scriptAssetSource
 	terminating bool
 }
 
@@ -1077,6 +1080,14 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			}
 			return Subscription{}
 		})
+		m["AddToolbar"] = reflect.ValueOf(func(options scriptapi.ToolbarOptions) Subscription {
+			if candidate.claimToolbar(options) {
+				return subscribe(func() scriptRegistrationHandle {
+					return scriptRegisterToolbar(owner, options, candidate.assets)
+				})
+			}
+			return Subscription{}
+		})
 		m["Command"] = reflect.ValueOf(func(name string, handler func(string)) Subscription {
 			if candidate.claimCommand(name, handler) {
 				return subscribe(func() scriptRegistrationHandle { return scriptRegisterCommand(owner, name, handler) })
@@ -1601,6 +1612,7 @@ var (
 	scriptDisabled               = map[string]bool{}
 	scriptEnabledFor             = map[string]scriptScope{}
 	scriptPaths                  = map[string]string{}
+	scriptPackages               = map[string]scriptInfo{}
 	scriptTerminators            = map[string]func(){}
 	scriptStructuredChatHandlers []structuredChatHandler
 	scriptServerMessageHandlers  []serverMessageHandler
@@ -1926,10 +1938,14 @@ type preparedScript struct {
 }
 
 func compileScriptSource(owner string, src []byte, restricted interp.Exports) (*preparedScript, error) {
+	return compileScriptSourceWithAssets(owner, src, restricted, nil)
+}
+
+func compileScriptSourceWithAssets(owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource) (*preparedScript, error) {
 	if err := checkScriptSourceRequirements(src); err != nil {
 		return nil, err
 	}
-	candidate := &scriptCandidate{}
+	candidate := &scriptCandidate{assets: assets}
 	diagnostics := &scriptDiagnostics{}
 	i := interp.New(interp.Options{Stderr: diagnostics})
 	if len(restricted) > 0 {
@@ -1985,7 +2001,11 @@ func disposePreparedScript(prepared *preparedScript) {
 }
 
 func prepareScriptSource(owner string, src []byte, restricted interp.Exports) (*preparedScript, error) {
-	prepared, err := compileScriptSource(owner, src, restricted)
+	return prepareScriptSourceWithAssets(owner, src, restricted, nil)
+}
+
+func prepareScriptSourceWithAssets(owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource) (*preparedScript, error) {
+	prepared, err := compileScriptSourceWithAssets(owner, src, restricted, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -2207,8 +2227,12 @@ func activatePreparedScript(owner string, prepared *preparedScript) {
 }
 
 func loadscriptSource(owner, name, path string, src []byte, restricted interp.Exports) bool {
+	return loadscriptPackageSource(owner, name, path, src, restricted, nil, sha256.Sum256(src))
+}
+
+func loadscriptPackageSource(owner, name, path string, src []byte, restricted interp.Exports, assets *scriptAssetSource, fingerprint [sha256.Size]byte) bool {
 	wasRunning := scriptIsRunning(owner)
-	prepared, err := prepareScriptSource(owner, src, restricted)
+	prepared, err := prepareScriptSourceWithAssets(owner, src, restricted, assets)
 	if err == nil {
 		err = scriptCandidateConflict(owner, prepared.candidate)
 		if err != nil {
@@ -2236,7 +2260,7 @@ func loadscriptSource(owner, name, path string, src []byte, restricted interp.Ex
 	if scriptActiveSourceHashes == nil {
 		scriptActiveSourceHashes = map[string][sha256.Size]byte{}
 	}
-	scriptActiveSourceHashes[owner] = sha256.Sum256(src)
+	scriptActiveSourceHashes[owner] = fingerprint
 	scriptMu.Unlock()
 	log.Printf("loaded script %s", path)
 	consoleMessage("[script] loaded: " + name)
@@ -2271,19 +2295,15 @@ func stripGoBuildDirectives(src []byte) []byte {
 
 func enablescript(owner string) {
 	scriptMu.RLock()
-	path := scriptPaths[owner]
-	name := scriptDisplayNames[owner]
+	info, ok := scriptPackages[owner]
 	scriptMu.RUnlock()
-	if path == "" {
+	if !ok {
+		info, ok = scanscripts(scriptSearchDirs(), nil)[owner]
+	}
+	if !ok {
 		return
 	}
-	src, err := os.ReadFile(path)
-	if err != nil {
-		log.Printf("read script %s: %v", path, err)
-		consoleMessage("[script] read error for " + path + ": " + err.Error())
-		return
-	}
-	loadscriptSource(owner, name, path, src, restrictedStdlib())
+	loadscriptPackageSource(owner, info.name, info.path, info.src, restrictedStdlib(), info.assets, info.fingerprint)
 	settingsDirty = true
 	saveSettings()
 	refreshscriptsWindow()
@@ -3280,32 +3300,13 @@ type scriptFileState struct {
 func snapshotScriptFiles(scriptDirs []string) map[string]scriptFileState {
 	snapshot := map[string]scriptFileState{}
 	for _, dir := range scriptDirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if e.IsDir() || !isUserScriptFile(e.Name()) {
-				continue
-			}
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			filePath := filepath.Join(dir, e.Name())
-			data, err := os.ReadFile(filePath)
-			if err != nil {
-				continue
-			}
-			snapshot[filePath] = scriptFileState{
-				size:    info.Size(),
-				modTime: info.ModTime().UnixNano(),
-				sum:     sha256.Sum256(data),
+		for _, script := range discoverScriptPackages(dir) {
+			snapshot[script.containerPath] = scriptFileState{
+				size: script.size, modTime: script.modTime, sum: script.fingerprint,
 			}
 		}
 	}
 	return snapshot
-
 }
 
 func isUserScriptFile(name string) bool {
@@ -3332,10 +3333,13 @@ type scriptInfo struct {
 	subCategory string
 	description string
 	path        string
+	container   string
 	src         []byte
 	invalid     bool
 	err         string
 	apiVer      int
+	assets      *scriptAssetSource
+	fingerprint [sha256.Size]byte
 }
 
 func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]scriptInfo {
@@ -3350,25 +3354,14 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 	seenNames := map[string]bool{}
 	seenIDs := map[string]bool{}
 	for _, dir := range scriptDirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				log.Printf("read script dir %s: %v", dir, err)
+		for _, script := range discoverScriptPackages(dir) {
+			path := script.sourcePath
+			if path == "" {
+				path = script.containerPath
 			}
-			continue
-		}
-		for _, e := range entries {
-			if e.IsDir() || !isUserScriptFile(e.Name()) {
-				continue
-			}
-			path := filepath.Join(dir, e.Name())
-			src, err := os.ReadFile(path)
-			if err != nil {
-				log.Printf("read script %s: %v", path, err)
-				continue
-			}
+			src := script.source
 			nameMatch := nameRE.FindSubmatch(src)
-			base := strings.TrimSuffix(e.Name(), ".go")
+			base := script.fallbackName
 			id := normalizeScriptID(base)
 			if match := idRE.FindSubmatch(src); len(match) >= 2 {
 				explicitID := strings.TrimSpace(string(match[1]))
@@ -3397,8 +3390,11 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 			if match := authorRE.FindSubmatch(src); len(match) >= 2 {
 				author = strings.TrimSpace(string(match[1]))
 			}
-			invalid := false
+			invalid := script.err != nil
 			invalidReason := ""
+			if script.err != nil {
+				invalidReason = script.err.Error()
+			}
 			if id == "" {
 				invalid = true
 				invalidReason = "scriptID must contain only letters, numbers, dashes, and underscores"
@@ -3450,10 +3446,13 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 				subCategory: subCategory,
 				description: description,
 				path:        path,
+				container:   script.containerPath,
 				src:         src,
 				invalid:     invalid,
 				err:         invalidReason,
 				apiVer:      apiVer,
+				assets:      script.assets,
+				fingerprint: script.fingerprint,
 			}
 		}
 	}
@@ -3519,6 +3518,7 @@ func rescanScripts(scriptDirs []string) {
 	scriptCategories = make(map[string]string, len(scanned))
 	scriptSubCategories = make(map[string]string, len(scanned))
 	scriptDescriptions = make(map[string]string, len(scanned))
+	scriptPackages = make(map[string]scriptInfo, len(scanned))
 	scriptAPIVersions = make(map[string]int, len(scanned))
 	scriptInvalid = make(map[string]bool, len(scanned))
 	scriptDisabled = make(map[string]bool, len(scanned))
@@ -3526,6 +3526,7 @@ func rescanScripts(scriptDirs []string) {
 	newReloadFailed := make(map[string]bool, len(scanned))
 	newEnabled := map[string]scriptScope{}
 	for o, info := range scanned {
+		scriptPackages[o] = info
 		scriptDisplayNames[o] = info.name
 		scriptPaths[o] = info.path
 		scriptAuthors[o] = info.author
@@ -3564,7 +3565,7 @@ func rescanScripts(scriptDirs []string) {
 		shouldEnable := newEnabled[o].enablesFor(effChar)
 		scriptDisabled[o] = !oldRunning[o]
 		activeHash, hasActiveHash := scriptActiveSourceHashes[o]
-		if oldRunning[o] && shouldEnable && (!hasActiveHash || activeHash != sha256.Sum256(info.src)) {
+		if oldRunning[o] && shouldEnable && (!hasActiveHash || activeHash != info.fingerprint) {
 			reloadOwners = append(reloadOwners, o)
 		}
 	}
@@ -3580,7 +3581,7 @@ func rescanScripts(scriptDirs []string) {
 	sort.Strings(reloadOwners)
 	for _, owner := range reloadOwners {
 		info := scanned[owner]
-		loadscriptSource(owner, info.name, info.path, info.src, restrictedStdlib())
+		loadscriptPackageSource(owner, info.name, info.path, info.src, restrictedStdlib(), info.assets, info.fingerprint)
 	}
 	applyEnabledScripts()
 	refreshscriptsWindow()
@@ -3613,6 +3614,12 @@ func loadScripts() {
 	})
 
 	scriptNames = make(map[string]bool, len(scanned))
+	scriptMu.Lock()
+	scriptPackages = make(map[string]scriptInfo, len(scanned))
+	for owner, info := range scanned {
+		scriptPackages[owner] = info
+	}
+	scriptMu.Unlock()
 	owners := make([]string, 0, len(scanned))
 	for owner := range scanned {
 		owners = append(owners, owner)
@@ -3654,7 +3661,7 @@ func loadScripts() {
 		}
 		scriptMu.Unlock()
 		if !disabled {
-			loadscriptSource(o, info.name, info.path, info.src, restrictedStdlib())
+			loadscriptPackageSource(o, info.name, info.path, info.src, restrictedStdlib(), info.assets, info.fingerprint)
 		}
 	}
 	refreshHotkeysList()

@@ -112,6 +112,37 @@ Tip: The input bar auto-expands as you type and has a context menu for quick pas
 goThoom can load optional scripts at startup using [yaegi](https://github.com/traefik/yaegi), a Go interpreter.
 Place `.go` files inside the `scripts/` directory.
 
+Scripts may also be packaged as a folder or ZIP. A package must contain exactly
+one `.go` file at its root and may contain assets in subdirectories. ZIP files
+are read directly without extraction. Asset paths are always relative to the
+package root; absolute paths, parent-directory traversal, and links escaping a
+folder package are rejected.
+
+```text
+scripts/
+├── simple.go
+├── healer-tools/
+│   ├── main.go
+│   └── icons/heal.png
+└── rangery.zip
+    ├── main.go
+    └── icons/shield.png
+```
+
+Folder and ZIP scripts can add icon buttons to the client toolbar. The icon is
+a jailed package-relative PNG path; goThoom loads it, and the optional key uses
+the same binding syntax as `gt2.Bind`.
+
+```go
+gt2.AddToolbar(gt2.ToolbarOptions{
+	Label: "Rangery",
+	Buttons: []gt2.ToolbarButton{{
+		Label: "Shield", Icon: "icons/shield.png", Key: "F3",
+		OnClick: useShieldstone,
+	}},
+})
+```
+
 ### Legacy `.mac` macros
 
 Open **Actions → Legacy Macros** to browse the public legacy macro library

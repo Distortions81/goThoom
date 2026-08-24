@@ -75,8 +75,13 @@ func installBundledScript(dir, filename string) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("create scripts folder: %w", err)
 	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return "", fmt.Errorf("open scripts folder: %w", err)
+	}
+	defer root.Close()
 	destination := filepath.Join(dir, filename)
-	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	file, err := root.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if os.IsExist(err) {
 			return "", fmt.Errorf("%s already exists; it was not changed: %w", filename, os.ErrExist)
@@ -86,7 +91,7 @@ func installBundledScript(dir, filename string) (string, error) {
 	remove := true
 	defer func() {
 		if remove {
-			_ = os.Remove(destination)
+			_ = root.Remove(filename)
 		}
 	}()
 	if _, err := file.Write(source); err != nil {

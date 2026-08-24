@@ -976,6 +976,10 @@ func refreshscriptDetails() {
 	description := scriptDescriptions[owner]
 	apiVersion := scriptAPIVersions[owner]
 	path := scriptPaths[owner]
+	openPath := path
+	if info, ok := scriptPackages[owner]; ok && info.assets != nil && info.assets.zipped {
+		openPath = info.container
+	}
 	disabled := scriptDisabled[owner]
 	invalid := scriptInvalid[owner]
 	errorText := scriptErrors[owner]
@@ -1059,13 +1063,13 @@ func refreshscriptDetails() {
 	button("Copy Error", errorText == "", func() {
 		_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(errorText))
 	})
-	button("Open File", path == "", func() {
-		if err := open.Run(path); err != nil {
+	button("Open File", openPath == "", func() {
+		if err := open.Run(openPath); err != nil {
 			consoleMessage("[script] open file: " + err.Error())
 		}
 	})
-	button("Open Folder", path == "", func() {
-		if err := open.Run(filepath.Dir(path)); err != nil {
+	button("Open Folder", openPath == "", func() {
+		if err := open.Run(filepath.Dir(openPath)); err != nil {
 			consoleMessage("[script] open folder: " + err.Error())
 		}
 	})
@@ -1671,15 +1675,20 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
 	root.AddItem(controls)
+	scriptRows := buildScriptToolbarRows()
+	for _, row := range scriptRows {
+		root.AddItem(row)
+	}
+	scriptToolbarHeight := float32(len(scriptRows)) * 32
 	toolbarStatsText = nil
 	if docked && gs.ToolbarInfoBar {
-		root.Size.Y = buttonHeight*2 + 22
+		root.Size.Y = buttonHeight*2 + 22 + scriptToolbarHeight
 		toolbarStatsText, _ = eui.NewText()
 		toolbarStatsText.FontSize = 10
 		toolbarStatsText.Size = eui.Point{X: buttonWidth * 5, Y: 18}
 		root.AddItem(toolbarStatsText)
 	} else {
-		root.Size.Y = buttonHeight * 2
+		root.Size.Y = buttonHeight*2 + scriptToolbarHeight
 	}
 	updateToolbarStats()
 	return root
@@ -1731,7 +1740,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 		hudWin.Closable = false
 		hudWin.Resizable = false
 		hudWin.AutoSize = false
-		hudWin.Size = eui.Point{X: 440, Y: 85}
+		hudWin.Size = eui.Point{X: 440, Y: 49 + toolbarRoot.Size.Y}
 		hudWin.Movable = true
 		hudWin.NoScroll = true
 		hudWin.AddItem(toolbarRoot)

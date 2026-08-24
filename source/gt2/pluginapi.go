@@ -53,6 +53,21 @@ func (InputEvent) Continues() bool { return true }
 
 func Bind(combo string, handler func(InputEvent)) Subscription { return Subscription{} }
 
+// Toolbars
+type ToolbarButton struct {
+	Label, Tooltip, Icon, Key string
+	OnClick                   func()
+}
+
+type ToolbarOptions struct {
+	Label   string
+	Buttons []ToolbarButton
+}
+
+// AddToolbar adds a row to the client toolbar. Icon paths are relative to the
+// root of a folder or ZIP script and are loaded by goThoom.
+func AddToolbar(options ToolbarOptions) Subscription { return Subscription{} }
+
 // Shortcuts
 func AddShortcut(short, full string) {}
 

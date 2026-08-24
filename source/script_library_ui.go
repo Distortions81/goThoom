@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -61,8 +60,7 @@ func refreshScriptLibraryWindow() {
 		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 		row.Size = eui.Point{X: 640, Y: 42}
 		path := filepath.Join(userScriptsDir(), entry.Filename)
-		_, statErr := os.Stat(path)
-		installed := statErr == nil
+		installed := scriptRootFileExists(userScriptsDir(), entry.Filename)
 
 		install, installEvents := eui.NewButton()
 		install.Text = "Install"

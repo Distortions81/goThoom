@@ -30,6 +30,14 @@ func installScriptEditorSupport(scriptsDir string) error {
 	if scriptsDir == "" {
 		return nil
 	}
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
+		return fmt.Errorf("create scripts folder: %w", err)
+	}
+	root, err := os.OpenRoot(scriptsDir)
+	if err != nil {
+		return fmt.Errorf("open scripts folder: %w", err)
+	}
+	defer root.Close()
 	files := []struct {
 		path string
 		data []byte
@@ -44,12 +52,12 @@ func installScriptEditorSupport(scriptsDir string) error {
 		}{path: filepath.FromSlash(embedded.path), data: embedded.data})
 	}
 	for _, file := range files {
-		destination := filepath.Join(scriptsDir, file.path)
-		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		relative := filepath.Clean(file.path)
+		if err := root.MkdirAll(filepath.Dir(relative), 0o755); err != nil {
 			return fmt.Errorf("create script editor support folder: %w", err)
 		}
-		if err := os.WriteFile(destination, file.data, 0o644); err != nil {
-			return fmt.Errorf("write script editor support file %s: %w", destination, err)
+		if err := root.WriteFile(relative, file.data, 0o644); err != nil {
+			return fmt.Errorf("write script editor support file %s: %w", filepath.Join(scriptsDir, relative), err)
 		}
 	}
 	return nil
