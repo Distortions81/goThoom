@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -165,13 +165,47 @@ type picturePositionMatch struct {
 	distance int
 }
 
+type picturePositionScratch struct {
+	candidates []picturePositionMatch
+	matches    []int
+	used       []bool
+}
+
+var picturePositionScratchPool = sync.Pool{
+	New: func() any { return new(picturePositionScratch) },
+}
+
+func acquirePicturePositionScratch(currentCount, previousCount int) *picturePositionScratch {
+	scratch := picturePositionScratchPool.Get().(*picturePositionScratch)
+	scratch.candidates = scratch.candidates[:0]
+	if cap(scratch.matches) < currentCount {
+		scratch.matches = make([]int, currentCount)
+	} else {
+		scratch.matches = scratch.matches[:currentCount]
+	}
+	for i := range scratch.matches {
+		scratch.matches[i] = -1
+	}
+	if cap(scratch.used) < previousCount {
+		scratch.used = make([]bool, previousCount)
+	} else {
+		scratch.used = scratch.used[:previousCount]
+		clear(scratch.used)
+	}
+	return scratch
+}
+
+func releasePicturePositionScratch(scratch *picturePositionScratch) {
+	picturePositionScratchPool.Put(scratch)
+}
+
 // matchPicturePositions pairs each current picture with at most one previous
 // picture of the same ID. Matching is global and camera-adjusted, rather than
 // depending on draw order, so identical nearby sprites cannot steal one
 // another's previous location.
-func matchPicturePositions(prev, cur []framePicture, shiftX, shiftY, max int, again int) map[int]int {
+func matchPicturePositions(prev, cur []framePicture, shiftX, shiftY, max int, again int) *picturePositionScratch {
+	scratch := acquirePicturePositionScratch(len(cur), len(prev))
 	maxDistance := max * max
-	candidates := make([]picturePositionMatch, 0)
 	for current := again; current < len(cur); current++ {
 		for previous := range prev {
 			if prev[previous].Again || prev[previous].PictID != cur[current].PictID {
@@ -181,32 +215,40 @@ func matchPicturePositions(prev, cur []framePicture, shiftX, shiftY, max int, ag
 			dv := int(cur[current].V) - int(prev[previous].V) - shiftY
 			distance := dh*dh + dv*dv
 			if distance <= maxDistance {
-				candidates = append(candidates, picturePositionMatch{current, previous, distance})
+				scratch.candidates = append(scratch.candidates, picturePositionMatch{current, previous, distance})
 			}
 		}
 	}
-	sort.Slice(candidates, func(i, j int) bool {
-		if candidates[i].distance != candidates[j].distance {
-			return candidates[i].distance < candidates[j].distance
+	slices.SortFunc(scratch.candidates, func(a, b picturePositionMatch) int {
+		if a.distance != b.distance {
+			return cmpInt(a.distance, b.distance)
 		}
-		if candidates[i].current != candidates[j].current {
-			return candidates[i].current < candidates[j].current
+		if a.current != b.current {
+			return cmpInt(a.current, b.current)
 		}
-		return candidates[i].previous < candidates[j].previous
+		return cmpInt(a.previous, b.previous)
 	})
-	matches := make(map[int]int)
-	used := make(map[int]struct{})
-	for _, candidate := range candidates {
-		if _, alreadyMatched := matches[candidate.current]; alreadyMatched {
+	for _, candidate := range scratch.candidates {
+		if scratch.matches[candidate.current] >= 0 {
 			continue
 		}
-		if _, alreadyUsed := used[candidate.previous]; alreadyUsed {
+		if scratch.used[candidate.previous] {
 			continue
 		}
-		matches[candidate.current] = candidate.previous
-		used[candidate.previous] = struct{}{}
+		scratch.matches[candidate.current] = candidate.previous
+		scratch.used[candidate.previous] = true
 	}
-	return matches
+	return scratch
+}
+
+func cmpInt(a, b int) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
 }
 
 func newPictureShiftScratch() *pictureShiftScratch {
@@ -245,11 +287,12 @@ var pictureShiftScratchPool = sync.Pool{
 }
 
 type drawParseScratch struct {
-	descriptors   []frameDescriptor
-	pictures      []framePicture
-	mobiles       []frameMobile
-	bubbles       []bubble
-	mobilePresent map[uint8]struct{}
+	descriptors         []frameDescriptor
+	pictures            []framePicture
+	mobiles             []frameMobile
+	bubbles             []bubble
+	pictureShiftIndices []int
+	mobilePresent       map[uint8]struct{}
 }
 
 func clearMap[K comparable, V any](m map[K]V) {
@@ -269,6 +312,7 @@ func (s *drawParseScratch) reset() {
 	s.pictures = s.pictures[:0]
 	s.mobiles = s.mobiles[:0]
 	s.bubbles = s.bubbles[:0]
+	s.pictureShiftIndices = s.pictureShiftIndices[:0]
 	if s.mobilePresent == nil {
 		s.mobilePresent = make(map[uint8]struct{})
 	} else {
@@ -298,32 +342,32 @@ func releaseDrawParseScratch(scratch *drawParseScratch) {
 }
 
 func sortPictures(pics []framePicture) {
-	sort.Slice(pics, func(i, j int) bool {
-		if pics[i].Plane != pics[j].Plane {
-			return pics[i].Plane < pics[j].Plane
+	slices.SortFunc(pics, func(a, b framePicture) int {
+		if a.Plane != b.Plane {
+			return cmpInt(a.Plane, b.Plane)
 		}
-		if pics[i].V == pics[j].V {
-			return pics[i].H < pics[j].H
+		if a.V != b.V {
+			return cmpInt(int(a.V), int(b.V))
 		}
-		return pics[i].V < pics[j].V
+		return cmpInt(int(a.H), int(b.H))
 	})
 }
 
 func sortMobiles(mobs []frameMobile) {
-	sort.Slice(mobs, func(i, j int) bool {
-		if mobs[i].V == mobs[j].V {
-			return mobs[i].H < mobs[j].H
+	slices.SortFunc(mobs, func(a, b frameMobile) int {
+		if a.V != b.V {
+			return cmpInt(int(a.V), int(b.V))
 		}
-		return mobs[i].V < mobs[j].V
+		return cmpInt(int(a.H), int(b.H))
 	})
 }
 
 func sortMobilesNameTags(mobs []frameMobile) {
-	sort.Slice(mobs, func(i, j int) bool {
-		if mobs[i].H == mobs[j].H {
-			return mobs[i].V < mobs[j].V
+	slices.SortFunc(mobs, func(a, b frameMobile) int {
+		if a.H != b.H {
+			return cmpInt(int(b.H), int(a.H))
 		}
-		return mobs[i].H > mobs[j].H
+		return cmpInt(int(a.V), int(b.V))
 	})
 }
 
@@ -395,14 +439,14 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	}
 
 	// Sort to help Ebiten batch identical draw operations.
-	sort.Slice(snap, func(i, j int) bool {
-		if snap[i].kind != snap[j].kind {
-			return snap[i].kind < snap[j].kind
+	slices.SortFunc(snap, func(a, b overlayOp) int {
+		if a.kind != b.kind {
+			return cmpInt(a.kind, b.kind)
 		}
-		if snap[i].kind == 2 {
-			return snap[i].id < snap[j].id
+		if a.kind == 2 {
+			return cmpInt(int(a.id), int(b.id))
 		}
-		return false
+		return 0
 	})
 
 	var rects rectBatch
@@ -721,9 +765,14 @@ func nameHealthOptionsKey() uint16 {
 // winning movement. The boolean result is false when no majority offset is
 // found. max sets the maximum allowed pixel delta for the returned shift.
 func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
+	return pictureShiftInto(prev, cur, max, nil)
+}
+
+func pictureShiftInto(prev, cur []framePicture, max int, idxs []int) (int, int, []int, bool) {
+	idxs = idxs[:0]
 	if len(prev) == 0 || len(cur) == 0 {
 		//logDebug("pictureShift: no data prev=%d cur=%d", len(prev), len(cur))
-		return 0, 0, nil, false
+		return 0, 0, idxs, false
 	}
 
 	scratch := pictureShiftScratchPool.Get().(*pictureShiftScratch)
@@ -801,7 +850,7 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	}
 	if total == 0 {
 		logDebug("pictureShift: no matching pairs")
-		return 0, 0, nil, false
+		return 0, 0, idxs, false
 	}
 
 	best := [2]int{}
@@ -830,11 +879,11 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	//logDebug("pictureShift: counts=%v best=%v count=%d total=%d", counts, best, bestCount, total)
 	if !usedSecond && bestCount*2 <= total {
 		logDebug("pictureShift: no majority best=%d total=%d", bestCount, total)
-		return 0, 0, nil, false
+		return 0, 0, idxs, false
 	}
 	if best[0]*best[0]+best[1]*best[1] > max*max {
 		logDebug("pictureShift: motion too large (%d,%d)", best[0], best[1])
-		return 0, 0, nil, false
+		return 0, 0, idxs, false
 	}
 
 	// Collect candidate background indices for the winning motion.
@@ -843,7 +892,6 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	// maxWeight (100k) are clamped so a single large background doesn't
 	// dominate motion detection.
 	const minBackgroundPixels = 900
-	idxs := make([]int, 0, len(idxMap[best]))
 	for idx := range idxMap[best] {
 		if idx >= 0 && idx < len(cur) {
 			// Use cached counts when possible; fall back to a fresh query.
@@ -1133,6 +1181,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	pics := scratch.pictures[:0]
 	mobiles := scratch.mobiles[:0]
 	bubbles := scratch.bubbles[:0]
+	shiftIndices := scratch.pictureShiftIndices[:0]
 	present := scratch.mobilePresent
 	if present == nil {
 		present = make(map[uint8]struct{})
@@ -1145,6 +1194,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		scratch.pictures = pics[:0]
 		scratch.mobiles = mobiles[:0]
 		scratch.bubbles = bubbles[:0]
+		scratch.pictureShiftIndices = shiftIndices[:0]
 		clearMap(present)
 		releaseDrawParseScratch(scratch)
 	}()
@@ -1382,7 +1432,8 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		newPics[i].Again = false
 	}
 	maxInterp := maxInterpPixels * (extra + 1)
-	dx, dy, bgIdxs, ok := pictureShift(prevPics, newPics, maxInterp)
+	dx, dy, bgIdxs, ok := pictureShiftInto(prevPics, newPics, maxInterp, shiftIndices)
+	shiftIndices = bgIdxs
 	if gs.MotionSmoothing && !seekingMov {
 		if gs.smoothMoving {
 			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
@@ -1422,7 +1473,8 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	for i := range prevPics {
 		prevPics[i].Owned = false
 	}
-	positionMatches := matchPicturePositions(prevPics, newPics, state.picShiftX, state.picShiftY, maxInterp, again)
+	positionScratch := matchPicturePositions(prevPics, newPics, state.picShiftX, state.picShiftY, maxInterp, again)
+	positionMatches := positionScratch.matches
 	for i := range newPics {
 		cloudMotion := pictureCloudMotionEnabled(newPics[i])
 		if _, skip := skipPictShift[newPics[i].PictID]; skip {
@@ -1442,7 +1494,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		if i < again {
 			moving = false
 			owner = &prevPics[i]
-		} else if j, ok := positionMatches[i]; ok {
+		} else if j := positionMatches[i]; j >= 0 {
 			pp := &prevPics[j]
 			if int(pp.H)+state.picShiftX == int(newPics[i].H) &&
 				int(pp.V)+state.picShiftY == int(newPics[i].V) {
@@ -1461,7 +1513,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			moving = false
 		}
 		if moving && pictureMotionInterpolationEnabled(newPics[i]) {
-			if j, ok := positionMatches[i]; ok {
+			if j := positionMatches[i]; j >= 0 {
 				previous := &prevPics[j]
 				newPics[i].PrevH = previous.H
 				newPics[i].PrevV = previous.V
@@ -1473,6 +1525,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		newPics[i].Moving = moving
 		newPics[i].Background = false
 	}
+	releasePicturePositionScratch(positionScratch)
 	for _, idx := range bgIdxs {
 		if idx >= 0 && idx < len(newPics) {
 			newPics[idx].Moving = false

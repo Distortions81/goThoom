@@ -99,11 +99,12 @@ func TestMatchPicturePositionsAvoidsGreedyDuplicateSwap(t *testing.T) {
 		{PictID: 9, H: 12, V: 0},
 		{PictID: 9, H: 10, V: 0},
 	}
-	matches := matchPicturePositions(prev, cur, 10, 0, maxInterpPixels, 0)
-	if got := matches[0]; got != 1 {
+	scratch := matchPicturePositions(prev, cur, 10, 0, maxInterpPixels, 0)
+	defer releasePicturePositionScratch(scratch)
+	if got := scratch.matches[0]; got != 1 {
 		t.Fatalf("first current picture matched previous %d, want 1", got)
 	}
-	if got := matches[1]; got != 0 {
+	if got := scratch.matches[1]; got != 0 {
 		t.Fatalf("second current picture matched previous %d, want 0", got)
 	}
 }

@@ -130,7 +130,9 @@ The iGPU preset already disables audio enhancement and high-quality resampling.
   opaque positive-plane pictures in overlapping blocks. Bounding boxes and draw
   order reject candidates before the existing quarter-resolution alpha-mask
   test. The 105-picture/49-mobile benchmark fell from 214.9us to 30.7us while
-  retaining pixel-mask accuracy.
+  retaining pixel-mask accuracy. Pooled block-map scratch storage and typed
+  mask-cache keys subsequently reduced the warmed path to 21.1us with zero
+  allocations.
 - Keep render-time work limited to interpolation of the cached previous and
   current opacity states.
 
@@ -139,6 +141,11 @@ The iGPU preset already disables audio enhancement and high-quality resampling.
 - Completed: reset picture-shift indexes only for IDs used by the previous
   update instead of every historical picture ID. A 60-second tour benchmark
   improved from 918.7ms to 549.9ms per 31,908-packet pass, a 40.1% reduction.
+- Completed: pool picture-position matching slices, replace reflection-backed
+  render sorts with generic sorts, retain the render-cache picture sort buffer,
+  and reuse picture-shift result storage. Together with allocation-free
+  obscuring, the warmed tour now runs at 298.3ms with 37.8MB and 217,712
+  allocations per pass.
 - Investigate publishing immutable render snapshots once per game update
   instead of copying stable maps and slices every rendered frame.
 - Reuse bounded buffers for parsing and sorted render partitions.

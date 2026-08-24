@@ -309,12 +309,13 @@ type drawState struct {
 
 	// Prepared render caches populated only when a new game state arrives.
 	// These avoid per-frame sorting and partitioning work in Draw.
-	picsNeg  []framePicture
-	picsZero []framePicture
-	picsPos  []framePicture
-	liveMobs []frameMobile
-	deadMobs []frameMobile
-	nameMobs []frameMobile
+	sortedPics []framePicture
+	picsNeg    []framePicture
+	picsZero   []framePicture
+	picsPos    []framePicture
+	liveMobs   []frameMobile
+	deadMobs   []frameMobile
+	nameMobs   []frameMobile
 }
 
 var (
@@ -380,12 +381,12 @@ func prepareRenderCacheLocked() {
 	// Pictures: sort once, then partition by plane while preserving order.
 	// Work on a copy to avoid reordering the canonical state.pictures slice
 	// used by picture-shift and interpolation processing.
-	tmp := append([]framePicture(nil), state.pictures...)
-	sortPictures(tmp)
+	state.sortedPics = append(state.sortedPics[:0], state.pictures...)
+	sortPictures(state.sortedPics)
 	state.picsNeg = state.picsNeg[:0]
 	state.picsZero = state.picsZero[:0]
 	state.picsPos = state.picsPos[:0]
-	for _, p := range tmp {
+	for _, p := range state.sortedPics {
 		switch {
 		case p.Plane < 0:
 			state.picsNeg = append(state.picsNeg, p)
@@ -2078,6 +2079,71 @@ type obscuringBlockKey struct {
 	y int
 }
 
+type obscuringMobileCandidate struct {
+	current    frameMobile
+	previous   frameMobile
+	descriptor frameDescriptor
+	size       int
+}
+
+type pictureObscuringScratch struct {
+	candidates     []obscuringMobileCandidate
+	currentBlocks  map[obscuringBlockKey][]int
+	previousBlocks map[obscuringBlockKey][]int
+	currentUsed    []obscuringBlockKey
+	previousUsed   []obscuringBlockKey
+	seen           []uint32
+	visit          uint32
+}
+
+func newPictureObscuringScratch() *pictureObscuringScratch {
+	return &pictureObscuringScratch{
+		currentBlocks:  make(map[obscuringBlockKey][]int),
+		previousBlocks: make(map[obscuringBlockKey][]int),
+	}
+}
+
+func (s *pictureObscuringScratch) reset() {
+	s.candidates = s.candidates[:0]
+	for _, key := range s.currentUsed {
+		s.currentBlocks[key] = s.currentBlocks[key][:0]
+	}
+	for _, key := range s.previousUsed {
+		s.previousBlocks[key] = s.previousBlocks[key][:0]
+	}
+	s.currentUsed = s.currentUsed[:0]
+	s.previousUsed = s.previousUsed[:0]
+}
+
+func (s *pictureObscuringScratch) addBlock(blocks map[obscuringBlockKey][]int, used *[]obscuringBlockKey, key obscuringBlockKey, candidateIndex int) {
+	entries := blocks[key]
+	if len(entries) == 0 {
+		*used = append(*used, key)
+	}
+	blocks[key] = append(entries, candidateIndex)
+}
+
+func (s *pictureObscuringScratch) prepareSeen(count int) {
+	if cap(s.seen) < count {
+		s.seen = make([]uint32, count)
+	} else {
+		s.seen = s.seen[:count]
+	}
+}
+
+func (s *pictureObscuringScratch) nextVisit() uint32 {
+	s.visit++
+	if s.visit == 0 {
+		clear(s.seen[:cap(s.seen)])
+		s.visit = 1
+	}
+	return s.visit
+}
+
+var pictureObscuringScratchPool = sync.Pool{
+	New: func() any { return newPictureObscuringScratch() },
+}
+
 func obscuringBlockCoordinate(v int) int {
 	if v < 0 {
 		return -((-v + obscuringBlockSize - 1) / obscuringBlockSize)
@@ -2096,15 +2162,10 @@ func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descM
 	if clImages == nil {
 		return
 	}
-	type candidate struct {
-		current    frameMobile
-		previous   frameMobile
-		descriptor frameDescriptor
-		size       int
-	}
-	candidates := make([]candidate, 0, len(mobiles))
-	currentBlocks := make(map[obscuringBlockKey][]int)
-	previousBlocks := make(map[obscuringBlockKey][]int)
+	scratch := pictureObscuringScratchPool.Get().(*pictureObscuringScratch)
+	scratch.reset()
+	defer pictureObscuringScratchPool.Put(scratch)
+
 	for _, m := range mobiles {
 		d, ok := descMap[m.Index]
 		if !ok {
@@ -2118,25 +2179,24 @@ func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descM
 		if pm, ok := prevMobiles[m.Index]; ok {
 			previous = pm
 		}
-		candidateIndex := len(candidates)
-		candidates = append(candidates, candidate{current: m, previous: previous, descriptor: d, size: size})
+		candidateIndex := len(scratch.candidates)
+		scratch.candidates = append(scratch.candidates, obscuringMobileCandidate{current: m, previous: previous, descriptor: d, size: size})
 		minX, maxX, minY, maxY := obscuringBlockRange(m.H, m.V, size, size)
 		for blockY := minY; blockY <= maxY; blockY++ {
 			for blockX := minX; blockX <= maxX; blockX++ {
 				key := obscuringBlockKey{blockX, blockY}
-				currentBlocks[key] = append(currentBlocks[key], candidateIndex)
+				scratch.addBlock(scratch.currentBlocks, &scratch.currentUsed, key, candidateIndex)
 			}
 		}
 		minX, maxX, minY, maxY = obscuringBlockRange(previous.H, previous.V, size, size)
 		for blockY := minY; blockY <= maxY; blockY++ {
 			for blockX := minX; blockX <= maxX; blockX++ {
 				key := obscuringBlockKey{blockX, blockY}
-				previousBlocks[key] = append(previousBlocks[key], candidateIndex)
+				scratch.addBlock(scratch.previousBlocks, &scratch.previousUsed, key, candidateIndex)
 			}
 		}
 	}
-	seenCandidates := make([]uint32, len(candidates))
-	var visit uint32
+	scratch.prepareSeen(len(scratch.candidates))
 	for i := range pictures {
 		p := &pictures[i]
 		p.obscuredPrev = false
@@ -2154,15 +2214,15 @@ func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descM
 		frame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
 		previousFrame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, pictureAnimationInstanceKey(p.PrevH, p.PrevV))
 		prevMinX, prevMaxX, prevMinY, prevMaxY := obscuringBlockRange(p.PrevH, p.PrevV, width, height)
-		visit++
+		visit := scratch.nextVisit()
 		for blockY := prevMinY; blockY <= prevMaxY && !p.obscuredPrev; blockY++ {
 			for blockX := prevMinX; blockX <= prevMaxX && !p.obscuredPrev; blockX++ {
-				for _, candidateIndex := range previousBlocks[obscuringBlockKey{blockX, blockY}] {
-					if seenCandidates[candidateIndex] == visit {
+				for _, candidateIndex := range scratch.previousBlocks[obscuringBlockKey{blockX, blockY}] {
+					if scratch.seen[candidateIndex] == visit {
 						continue
 					}
-					seenCandidates[candidateIndex] = visit
-					c := candidates[candidateIndex]
+					scratch.seen[candidateIndex] = visit
+					c := scratch.candidates[candidateIndex]
 					if pictureDrawsAfterMobileAt(*p, p.PrevH, p.PrevV, c.previous.H, c.previous.V, c.descriptor.Plane) &&
 						pictureMobileBoundsOverlap(p.PrevH, p.PrevV, width, height, c.previous, c.size) {
 						p.obscuredPrev = pictureObscuresMobileAt(p.PictID, previousFrame, p.PrevH, p.PrevV, c.previous, c.descriptor)
@@ -2174,15 +2234,15 @@ func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descM
 			}
 		}
 		currentMinX, currentMaxX, currentMinY, currentMaxY := obscuringBlockRange(p.H, p.V, width, height)
-		visit++
+		visit = scratch.nextVisit()
 		for blockY := currentMinY; blockY <= currentMaxY && !p.obscuredNow; blockY++ {
 			for blockX := currentMinX; blockX <= currentMaxX && !p.obscuredNow; blockX++ {
-				for _, candidateIndex := range currentBlocks[obscuringBlockKey{blockX, blockY}] {
-					if seenCandidates[candidateIndex] == visit {
+				for _, candidateIndex := range scratch.currentBlocks[obscuringBlockKey{blockX, blockY}] {
+					if scratch.seen[candidateIndex] == visit {
 						continue
 					}
-					seenCandidates[candidateIndex] = visit
-					c := candidates[candidateIndex]
+					scratch.seen[candidateIndex] = visit
+					c := scratch.candidates[candidateIndex]
 					if pictureDrawsAfterMobileAt(*p, p.H, p.V, c.current.H, c.current.V, c.descriptor.Plane) &&
 						pictureMobileBoundsOverlap(p.H, p.V, width, height, c.current, c.size) {
 						p.obscuredNow = pictureObscuresMobileAt(p.PictID, frame, p.H, p.V, c.current, c.descriptor)

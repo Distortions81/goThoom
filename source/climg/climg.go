@@ -47,7 +47,7 @@ type CLImages struct {
 	items            map[uint32]*ClientItem
 	cache            map[string]*ebiten.Image
 	lightInfos       map[uint32]LightInfo
-	masks            map[string]*AlphaMask
+	masks            map[alphaMaskKey]*AlphaMask
 	mu               sync.Mutex
 	Denoise          bool
 	DenoiseSharpness float64

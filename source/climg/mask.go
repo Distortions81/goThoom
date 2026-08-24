@@ -3,7 +3,6 @@ package climg
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"log"
 )
@@ -16,6 +15,11 @@ type AlphaMask struct {
 	W     int
 	H     int
 	Bits  []uint64
+}
+
+type alphaMaskKey struct {
+	id               uint32
+	forceTransparent bool
 }
 
 // Opaque reports whether the mask has an opaque pixel at the given mask
@@ -32,7 +36,7 @@ func (m *AlphaMask) Opaque(x, y int) bool {
 // image ID without reading from GPU caches. When forceTransparent is true,
 // palette index 0 is treated as fully transparent regardless of sprite flags.
 func (c *CLImages) AlphaMaskQuarter(id uint32, forceTransparent bool) *AlphaMask {
-	key := fmt.Sprintf("%d-%t", id, forceTransparent)
+	key := alphaMaskKey{id: id, forceTransparent: forceTransparent}
 	c.mu.Lock()
 	if m, ok := c.masks[key]; ok {
 		c.mu.Unlock()
@@ -162,7 +166,7 @@ func (c *CLImages) AlphaMaskQuarter(id uint32, forceTransparent bool) *AlphaMask
 	m := &AlphaMask{OrigW: width, OrigH: height, W: qW, H: qH, Bits: bits}
 	c.mu.Lock()
 	if c.masks == nil {
-		c.masks = make(map[string]*AlphaMask)
+		c.masks = make(map[alphaMaskKey]*AlphaMask)
 	}
 	c.masks[key] = m
 	c.mu.Unlock()
