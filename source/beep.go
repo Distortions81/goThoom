@@ -1,9 +1,26 @@
 package main
 
 import (
+	_ "embed"
+	"encoding/binary"
 	"sync"
 	"time"
 )
+
+//go:embed data/audio/notification_default.wav
+var notificationDefaultWAV []byte
+
+//go:embed data/audio/notification_mention.wav
+var notificationMentionWAV []byte
+
+//go:embed data/audio/notification_fallen.wav
+var notificationFallenWAV []byte
+
+//go:embed data/audio/notification_recovered.wav
+var notificationRecoveredWAV []byte
+
+//go:embed data/audio/notification_online.wav
+var notificationOnlineWAV []byte
 
 type beepSpec struct {
 	program int
@@ -29,6 +46,10 @@ func playBeep(program, key int) {
 	beepMu.Lock()
 	pcm, ok := beepCache[spec]
 	beepMu.Unlock()
+	if !ok {
+		pcm = embeddedBeepPCM(program, key)
+		ok = len(pcm) > 0
+	}
 	if !ok {
 		notes := []Note{{Key: key, Velocity: 120, Start: 0, Duration: 200 * time.Millisecond}}
 		left, right, err := renderSong(program, notes)
@@ -80,16 +101,19 @@ func playHarpNotes(keys ...int) {
 		return
 	}
 
-	notes := make([]Note, len(keys))
-	dur := 150 * time.Millisecond
-	for i, k := range keys {
-		notes[i] = Note{Key: k, Velocity: 120, Start: time.Duration(i) * dur, Duration: dur}
+	pcm := embeddedHarpPCM(keys)
+	if len(pcm) == 0 {
+		notes := make([]Note, len(keys))
+		dur := 150 * time.Millisecond
+		for i, k := range keys {
+			notes[i] = Note{Key: k, Velocity: 120, Start: time.Duration(i) * dur, Duration: dur}
+		}
+		left, right, err := renderSong(46, notes)
+		if err != nil {
+			return
+		}
+		pcm = mixPCM(left, right)
 	}
-	left, right, err := renderSong(46, notes)
-	if err != nil {
-		return
-	}
-	pcm := mixPCM(left, right)
 	p := audioContext.NewPlayerFromBytes(pcm)
 	vol := gs.MasterVolume * gs.NotificationVolume
 	if gs.Mute || focusMuted {
@@ -117,4 +141,39 @@ func playHarpNotes(keys ...int) {
 	soundMu.Lock()
 	delete(reservedSoundPlayers, p)
 	soundMu.Unlock()
+}
+
+func embeddedBeepPCM(program, key int) []byte {
+	switch {
+	case program == 46 && key == 60:
+		return wavPCMData(notificationDefaultWAV)
+	case program == 0 && key == 84:
+		return wavPCMData(notificationMentionWAV)
+	default:
+		return nil
+	}
+}
+
+func embeddedHarpPCM(keys []int) []byte {
+	switch {
+	case len(keys) == 3 && keys[0] == 72 && keys[1] == 69 && keys[2] == 65:
+		return wavPCMData(notificationFallenWAV)
+	case len(keys) == 3 && keys[0] == 60 && keys[1] == 64 && keys[2] == 67:
+		return wavPCMData(notificationRecoveredWAV)
+	case len(keys) == 2 && keys[0] == 84 && keys[1] == 84:
+		return wavPCMData(notificationOnlineWAV)
+	default:
+		return nil
+	}
+}
+
+func wavPCMData(wav []byte) []byte {
+	if len(wav) < 44 || string(wav[:4]) != "RIFF" || string(wav[8:12]) != "WAVE" || string(wav[36:40]) != "data" {
+		return nil
+	}
+	size := int(binary.LittleEndian.Uint32(wav[40:44]))
+	if size < 0 || size > len(wav)-44 {
+		return nil
+	}
+	return wav[44 : 44+size]
 }

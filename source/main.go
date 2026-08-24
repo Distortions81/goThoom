@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -84,8 +85,11 @@ func main() {
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
 	flag.BoolVar(&showUIScale, "uiscale", false, "show UI scaling options")
 	genPGO := flag.Bool("pgo", false, "create default.pgo from -clmov (or test.clMov) at 30 fps")
+	pgoWarmup := flag.Duration("pgoWarmup", 0, "unprofiled warmup duration used with -pgo")
+	pgoWarmupMovie := flag.Bool("pgoWarmupMovie", false, "play one complete movie pass before profiling with -pgo")
 	pgoDuration := flag.Duration("pgoDuration", 5*time.Minute, "CPU profiling duration used with -pgo")
 	pgoOutput := flag.String("pgoOutput", "default.pgo", "CPU profile output path used with -pgo")
+	pgoHeapOutput := flag.String("pgoHeapOutput", "", "heap profile output written after -pgo completes")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
 	flag.Parse()
 
@@ -194,8 +198,8 @@ func main() {
 		// Do not exit; allow UI to open download window.
 	}
 
-	if gs.PrecacheSounds || gs.PrecacheImages {
-		go precacheAssets()
+	if gs.PrecacheSounds {
+		go precacheSounds()
 	}
 
 	go func() {
@@ -234,6 +238,10 @@ func main() {
 			mp := newMoviePlayer(frames, clMovFPS, cancel)
 			if *genPGO {
 				mp.repeat = true
+				if *pgoWarmupMovie {
+					movieDuration := time.Duration(len(frames)) * time.Second / time.Duration(mp.fps)
+					log.Printf("PGO warmup: playing one complete movie pass (%d frames, %s)", len(frames), movieDuration.Round(time.Second))
+				}
 			}
 			if isWASM {
 				mp.repeat = true
@@ -242,25 +250,48 @@ func main() {
 			}
 			mp.makePlaybackWindow()
 
-			if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
-				for !assetsPrecached {
+			if gs.PrecacheSounds && !soundsPrecached {
+				for !soundsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}
 			}
 			if *genPGO {
-				f, err := os.Create(*pgoOutput)
-				if err != nil {
-					log.Fatalf("create CPU profile: %v", err)
-				}
-				if err := pprof.StartCPUProfile(f); err != nil {
-					f.Close()
-					log.Fatalf("start CPU profile: %v", err)
-				}
 				go func() {
+					if *pgoWarmupMovie {
+						select {
+						case <-mp.looped:
+						case <-ctx.Done():
+							return
+						}
+					} else if *pgoWarmup > 0 {
+						time.Sleep(*pgoWarmup)
+					}
+					f, err := os.Create(*pgoOutput)
+					if err != nil {
+						log.Fatalf("create CPU profile: %v", err)
+					}
+					if err := pprof.StartCPUProfile(f); err != nil {
+						f.Close()
+						log.Fatalf("start CPU profile: %v", err)
+					}
 					time.Sleep(*pgoDuration)
 					pprof.StopCPUProfile()
 					if err := f.Close(); err != nil {
 						log.Printf("close CPU profile: %v", err)
+					}
+					if *pgoHeapOutput != "" {
+						runtime.GC()
+						heapFile, err := os.Create(*pgoHeapOutput)
+						if err != nil {
+							log.Printf("create heap profile: %v", err)
+						} else {
+							if err := pprof.WriteHeapProfile(heapFile); err != nil {
+								log.Printf("write heap profile: %v", err)
+							}
+							if err := heapFile.Close(); err != nil {
+								log.Printf("close heap profile: %v", err)
+							}
+						}
 					}
 					cancel()
 				}()
@@ -273,8 +304,8 @@ func main() {
 
 		if pcapPath != "" {
 			drawStateEncrypted = false
-			if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
-				for !assetsPrecached {
+			if gs.PrecacheSounds && !soundsPrecached {
+				for !soundsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}
 			}
@@ -291,8 +322,8 @@ func main() {
 
 		if fake {
 			drawStateEncrypted = false
-			if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
-				for !assetsPrecached {
+			if gs.PrecacheSounds && !soundsPrecached {
+				for !soundsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}
 			}

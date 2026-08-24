@@ -34,6 +34,7 @@ Text Logs/
 gothoom_deps.tar.gz
 spellcheck_words.txt
 *.wav
+!source/data/audio/*.wav
 .gocache-local/
 source/data/Movies/*.clMov
 go/mod/cache/

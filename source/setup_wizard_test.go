@@ -53,6 +53,21 @@ func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 	}
 }
 
+func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
+	if shouldStartSetupWizardGraphicsDetection(0, false, false) {
+		t.Fatal("graphics detection starts on the first page")
+	}
+	if !shouldStartSetupWizardGraphicsDetection(1, false, false) {
+		t.Fatal("graphics detection does not start on the second page")
+	}
+	if shouldStartSetupWizardGraphicsDetection(1, true, false) {
+		t.Fatal("graphics detection restarts while pending")
+	}
+	if shouldStartSetupWizardGraphicsDetection(1, false, true) {
+		t.Fatal("graphics detection restarts after completion")
+	}
+}
+
 func TestStartSetupWizardGraphicsDetectionResetsFiveSecondSample(t *testing.T) {
 	originalSettings := gs
 	originalPending := setupWizardGraphicsPending
@@ -372,7 +387,6 @@ func TestSetupAndNetworkSettingsPersist(t *testing.T) {
 	gs.AltNetMode = false
 	gs.AltNetDelay = 42
 	gs.VSync = false
-	gs.PrecacheImages = true
 	gs.PrecacheSounds = true
 	saveSettings()
 
@@ -392,7 +406,7 @@ func TestSetupAndNetworkSettingsPersist(t *testing.T) {
 	if gs.VSync {
 		t.Error("VSync = true, want false")
 	}
-	if !gs.PrecacheImages || !gs.PrecacheSounds {
-		t.Errorf("precache settings = images:%v sounds:%v, want both true", gs.PrecacheImages, gs.PrecacheSounds)
+	if !gs.PrecacheSounds {
+		t.Error("PrecacheSounds = false, want true")
 	}
 }

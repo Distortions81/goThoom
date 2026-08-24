@@ -21,6 +21,9 @@ type tourPerformanceFixture struct {
 	obscuringScene  drawState
 	longestBubble   string
 	drawPacketCount int
+	movieVersion    uint16
+	movieRevision   int32
+	playerName      string
 }
 
 var (
@@ -44,23 +47,33 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 	t.Helper()
 	originalSettings := gs
 	originalImages := clImages
+	originalPlayingMovie := playingMovie
 	originalMovieMode := movieMode
 	originalEncrypted := drawStateEncrypted
+	originalBlockSound := blockSound
+	originalBlockTTS := blockTTS
+	originalBlockMusic := blockMusic
 	originalState := cloneCurrentDrawState()
 	originalInitialState := cloneInitialDrawState()
 	originalMovieVersion := movieVersion
 	originalMovieRevision := movieRevision
+	originalPlayerName := playerName
 	originalFrameCounter := frameCounter
 	originalMovieDropped := movieDropped
 	defer func() {
 		gs = originalSettings
 		clImages = originalImages
+		playingMovie = originalPlayingMovie
 		movieMode = originalMovieMode
 		drawStateEncrypted = originalEncrypted
+		blockSound = originalBlockSound
+		blockTTS = originalBlockTTS
+		blockMusic = originalBlockMusic
 		restoreDrawState(originalState)
 		restoreInitialDrawState(originalInitialState)
 		movieVersion = originalMovieVersion
 		movieRevision = originalMovieRevision
+		playerName = originalPlayerName
 		frameCounter = originalFrameCounter
 		movieDropped = originalMovieDropped
 		initFont()
@@ -77,18 +90,26 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 
 	gs = gsdef
 	clImages = images
+	playingMovie = true
 	movieMode = true
 	drawStateEncrypted = false
+	blockSound = true
+	blockTTS = true
+	blockMusic = true
 	initFont()
 	frames, err := parseMovie(movieFixturePath(t, performanceTourFixture), clVersion)
 	if err != nil {
 		return tourPerformanceFixture{}, fmt.Errorf("parse movie: %w", err)
 	}
+	playerName = extractMoviePlayerName(frames)
 
 	fixture := tourPerformanceFixture{
-		images:       images,
-		initialScene: cloneDrawState(initialState),
-		frameData:    make([][]byte, 0, len(frames)),
+		images:        images,
+		initialScene:  cloneDrawState(initialState),
+		frameData:     make([][]byte, 0, len(frames)),
+		movieVersion:  movieVersion,
+		movieRevision: movieRevision,
+		playerName:    playerName,
 	}
 	bestSceneScore := -1
 	bestObscuringScore := -1
@@ -156,22 +177,43 @@ func installTourBenchmarkGlobals(b *testing.B, fixture *tourPerformanceFixture) 
 	b.Helper()
 	originalSettings := gs
 	originalImages := clImages
+	originalPlayingMovie := playingMovie
 	originalMovieMode := movieMode
 	originalEncrypted := drawStateEncrypted
+	originalBlockSound := blockSound
+	originalBlockTTS := blockTTS
+	originalBlockMusic := blockMusic
+	originalMovieVersion := movieVersion
+	originalMovieRevision := movieRevision
+	originalPlayerName := playerName
 	originalState := cloneCurrentDrawState()
 	originalFrameCounter := frameCounter
 	originalMovieDropped := movieDropped
 
 	gs = gsdef
 	clImages = fixture.images
+	playingMovie = true
 	movieMode = true
 	drawStateEncrypted = false
+	blockSound = true
+	blockTTS = true
+	blockMusic = true
+	movieVersion = fixture.movieVersion
+	movieRevision = fixture.movieRevision
+	playerName = fixture.playerName
 	initFont()
 	b.Cleanup(func() {
 		gs = originalSettings
 		clImages = originalImages
+		playingMovie = originalPlayingMovie
 		movieMode = originalMovieMode
 		drawStateEncrypted = originalEncrypted
+		blockSound = originalBlockSound
+		blockTTS = originalBlockTTS
+		blockMusic = originalBlockMusic
+		movieVersion = originalMovieVersion
+		movieRevision = originalMovieRevision
+		playerName = originalPlayerName
 		restoreDrawState(originalState)
 		frameCounter = originalFrameCounter
 		movieDropped = originalMovieDropped

@@ -1,11 +1,10 @@
 package clsnd
 
 import (
-    "encoding/binary"
-    "fmt"
-    "log"
-    "os"
-    "sync"
+	"encoding/binary"
+	"fmt"
+	"log"
+	"os"
 )
 
 type entry struct {
@@ -25,8 +24,6 @@ type Sound struct {
 type CLSounds struct {
 	data  []byte
 	index map[uint32]entry
-	cache map[uint32]*Sound
-	mu    sync.Mutex
 }
 
 const (
@@ -37,57 +34,50 @@ const (
 
 // Load parses the CL_Sounds keyfile located at path.
 func Load(path string) (*CLSounds, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        log.Printf("CL_Sounds file missing.")
-        return nil, err
-    }
-    return LoadBytes(data)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("CL_Sounds file missing.")
+		return nil, err
+	}
+	return LoadBytes(data)
 }
 
 // LoadBytes parses the CL_Sounds keyfile from an in-memory byte slice.
 func LoadBytes(data []byte) (*CLSounds, error) {
-    if len(data) < 12 {
-        log.Printf("CL_Sounds may be corrupt.")
-        return nil, fmt.Errorf("short file")
-    }
-    if binary.BigEndian.Uint16(data[:2]) != 0xffff {
-        log.Printf("CL_Sounds invalid.")
-        return nil, fmt.Errorf("bad header")
-    }
-    r := data[2:]
-    entryCount := binary.BigEndian.Uint32(r[:4])
-    r = r[4+4+2:] // skip pad1, pad2
+	if len(data) < 12 {
+		log.Printf("CL_Sounds may be corrupt.")
+		return nil, fmt.Errorf("short file")
+	}
+	if binary.BigEndian.Uint16(data[:2]) != 0xffff {
+		log.Printf("CL_Sounds invalid.")
+		return nil, fmt.Errorf("bad header")
+	}
+	r := data[2:]
+	entryCount := binary.BigEndian.Uint32(r[:4])
+	r = r[4+4+2:] // skip pad1, pad2
 
-    idx := make(map[uint32]entry, entryCount)
-    for i := uint32(0); i < entryCount; i++ {
-        if len(r) < 16 {
-            log.Printf("CL_Sounds may be corrupt.")
-            return nil, fmt.Errorf("truncated table")
-        }
-        off := binary.BigEndian.Uint32(r[0:4])
-        size := binary.BigEndian.Uint32(r[4:8])
-        typ := binary.BigEndian.Uint32(r[8:12])
-        id := binary.BigEndian.Uint32(r[12:16])
-        if typ == typeSound {
-            idx[id] = entry{offset: off, size: size}
-        }
-        r = r[16:]
-    }
-    return &CLSounds{data: data, index: idx, cache: make(map[uint32]*Sound)}, nil
+	idx := make(map[uint32]entry, entryCount)
+	for i := uint32(0); i < entryCount; i++ {
+		if len(r) < 16 {
+			log.Printf("CL_Sounds may be corrupt.")
+			return nil, fmt.Errorf("truncated table")
+		}
+		off := binary.BigEndian.Uint32(r[0:4])
+		size := binary.BigEndian.Uint32(r[4:8])
+		typ := binary.BigEndian.Uint32(r[8:12])
+		id := binary.BigEndian.Uint32(r[12:16])
+		if typ == typeSound {
+			idx[id] = entry{offset: off, size: size}
+		}
+		r = r[16:]
+	}
+	return &CLSounds{data: data, index: idx}, nil
 }
 
-// Get returns the decoded sound for the given id. The sound data is loaded
-// on demand and cached for subsequent calls. If the id exists but the sound
-// data cannot be decoded an error is returned.
+// Get returns the decoded sound for the given id. The caller owns caching the
+// final playback data, so uncompressed samples continue to reference the
+// immutable archive instead of being copied and retained twice.
 func (c *CLSounds) Get(id uint32) (*Sound, error) {
-	c.mu.Lock()
-	if s, ok := c.cache[id]; ok {
-		c.mu.Unlock()
-		return s, nil
-	}
-	c.mu.Unlock()
-
 	e, ok := c.index[id]
 	if !ok {
 		return nil, nil
@@ -100,21 +90,7 @@ func (c *CLSounds) Get(id uint32) (*Sound, error) {
 	if !ok || hdrOff+22 > len(sndData) {
 		return nil, fmt.Errorf("missing sound header")
 	}
-	s, err := decodeHeader(sndData, hdrOff, id)
-	if err != nil {
-		return nil, err
-	}
-	c.mu.Lock()
-	c.cache[id] = s
-	c.mu.Unlock()
-	return s, nil
-}
-
-// ClearCache discards all decoded sound data.
-func (c *CLSounds) ClearCache() {
-	c.mu.Lock()
-	c.cache = make(map[uint32]*Sound)
-	c.mu.Unlock()
+	return decodeHeader(sndData, hdrOff, id)
 }
 
 // IDs returns all sound identifiers present in the archive.
@@ -177,7 +153,7 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			length = len(data) - start
 		}
 		s := &Sound{
-			Data:       append([]byte(nil), data[start:start+length]...),
+			Data:       data[start : start+length],
 			SampleRate: rate,
 			Channels:   1,
 			Bits:       8,
@@ -218,7 +194,7 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 				length = len(data) - start
 			}
 			s := &Sound{
-				Data:       append([]byte(nil), data[start:start+length]...),
+				Data:       data[start : start+length],
 				SampleRate: rate,
 				Channels:   chans,
 				Bits:       bits,
@@ -308,7 +284,7 @@ func decodeHeader(data []byte, hdr int, id uint32) (*Sound, error) {
 			length = len(data) - start
 		}
 		s := &Sound{
-			Data:       append([]byte(nil), data[start:start+length]...),
+			Data:       data[start : start+length],
 			SampleRate: rate,
 			Channels:   chans,
 			Bits:       bits,

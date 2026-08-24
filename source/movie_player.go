@@ -85,6 +85,7 @@ type moviePlayer struct {
 	repeat  bool
 	ticker  *time.Ticker
 	cancel  context.CancelFunc
+	looped  chan struct{}
 	// resetOnNextDraw removes interpolation history after the first complete
 	// draw at movie start or after looping back to frame zero.
 	resetOnNextDraw bool
@@ -125,6 +126,7 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 		resetOnNextDraw: true,
 		ticker:          time.NewTicker(time.Second / time.Duration(fps)),
 		cancel:          cancel,
+		looped:          make(chan struct{}, 1),
 		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState), night: captureMovieNightState()}},
 	}
 }
@@ -459,6 +461,7 @@ func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		if p.repeat {
 			p.seek(0)
+			p.signalLooped()
 			if p.cur >= len(p.frames) {
 				p.playing = false
 				playingMovie = false
@@ -501,6 +504,7 @@ func (p *moviePlayer) step() {
 	if p.cur >= len(p.frames) {
 		if p.repeat {
 			p.seek(0)
+			p.signalLooped()
 		} else {
 			p.playing = false
 			playingMovie = false
@@ -508,6 +512,13 @@ func (p *moviePlayer) step() {
 		}
 	}
 	p.updateUI()
+}
+
+func (p *moviePlayer) signalLooped() {
+	select {
+	case p.looped <- struct{}{}:
+	default:
+	}
 }
 
 func (p *moviePlayer) updateUI() {

@@ -1055,47 +1055,48 @@ func loadSound(id uint16) []byte {
 	// Decode the sound data into 16-bit samples.
 	var samples []int16
 	useHighQuality := highQualityResampling
+	data := s.Data
 	switch s.Bits {
 	case 8:
 		if useHighQuality {
 			if s.Channels > 1 {
-				frames := len(s.Data) / int(s.Channels)
+				frames := len(data) / int(s.Channels)
 				mono := make([]byte, frames)
 				for i := 0; i < frames; i++ {
-					mono[i] = s.Data[i*int(s.Channels)]
+					mono[i] = data[i*int(s.Channels)]
 				}
 				samples = u8ToS16TPDF(mono, 0xC0FFEE)
 			} else {
-				samples = u8ToS16TPDF(s.Data, 0xC0FFEE)
+				samples = u8ToS16TPDF(data, 0xC0FFEE)
 			}
 		} else {
 			if s.Channels > 1 {
-				frames := len(s.Data) / int(s.Channels)
+				frames := len(data) / int(s.Channels)
 				mono := make([]byte, frames)
 				for i := 0; i < frames; i++ {
-					mono[i] = s.Data[i*int(s.Channels)]
+					mono[i] = data[i*int(s.Channels)]
 				}
 				samples = u8ToS16Fast(mono)
 			} else {
-				samples = u8ToS16Fast(s.Data)
+				samples = u8ToS16Fast(data)
 			}
 		}
 	case 16:
-		if len(s.Data)%2 != 0 {
-			s.Data = append(s.Data, 0x00)
+		if len(data)%2 != 0 {
+			data = append(append([]byte(nil), data...), 0x00)
 		}
 		if s.Channels > 1 {
 			frameSize := int(s.Channels) * 2
-			frames := len(s.Data) / frameSize
+			frames := len(data) / frameSize
 			samples = make([]int16, frames)
 			for i := 0; i < frames; i++ {
 				off := i * frameSize
-				samples[i] = int16(binary.BigEndian.Uint16(s.Data[off : off+2]))
+				samples[i] = int16(binary.BigEndian.Uint16(data[off : off+2]))
 			}
 		} else {
-			samples = make([]int16, len(s.Data)/2)
+			samples = make([]int16, len(data)/2)
 			for i := 0; i < len(samples); i++ {
-				samples[i] = int16(binary.BigEndian.Uint16(s.Data[2*i : 2*i+2]))
+				samples[i] = int16(binary.BigEndian.Uint16(data[2*i : 2*i+2]))
 			}
 		}
 	default:

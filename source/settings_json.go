@@ -181,7 +181,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "PowerSaveFPS", category: settingsPerformance, name: "power_save_fps"},
 	{field: "PotatoGPU", category: settingsPerformance, name: "integrated_or_low_memory_gpu_mode"},
 	{field: "PrecacheSounds", category: settingsPerformance, name: "precache_sounds"},
-	{field: "PrecacheImages", category: settingsPerformance, name: "precache_artwork"},
 	{field: "PromptDisableShaders", category: settingsPerformance, name: "prompt_to_disable_slow_shaders"},
 
 	{field: "PromptOnSaveRecording", category: settingsRecording, name: "prompt_when_saving"},

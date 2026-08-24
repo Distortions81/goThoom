@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	setupWizardPageCount = 9
-	setupWizardTopGap    = 24
-	setupWizardKoFiURL   = "https://ko-fi.com/distortions"
+	setupWizardPageCount             = 9
+	setupWizardGraphicsBenchmarkPage = 1
+	setupWizardTopGap                = 24
+	setupWizardKoFiURL               = "https://ko-fi.com/distortions"
 )
 
 var (
@@ -56,7 +57,6 @@ func openSetupWizard(force bool) {
 	setupWizardGraphicsFPSSum = 0
 	setupWizardGraphicsFPSCount = 0
 	setupWizardVSyncBypass = false
-	startSetupWizardGraphicsDetection()
 	if setupWizardWin == nil {
 		setupWizardWin = eui.NewWindow()
 		setupWizardWin.Closable = false
@@ -120,6 +120,9 @@ func rebuildSetupWizard() {
 	if setupWizardPage >= setupWizardPageCount {
 		setupWizardPage = setupWizardPageCount - 1
 	}
+	if shouldStartSetupWizardGraphicsDetection(setupWizardPage, setupWizardGraphicsPending, setupWizardGraphicsTested) {
+		startSetupWizardGraphicsDetection()
+	}
 	selectSetupWizardSceneForPage(setupWizardPage)
 	setupWizardWin.Scroll = eui.Point{}
 
@@ -166,6 +169,10 @@ func rebuildSetupWizard() {
 	}
 	setupWizardRoot = root
 	setupWizardWin.Refresh()
+}
+
+func shouldStartSetupWizardGraphicsDetection(page int, pending, tested bool) bool {
+	return page == setupWizardGraphicsBenchmarkPage && !pending && !tested
 }
 
 func buildSetupWelcomePage(root *eui.ItemData) {
@@ -439,17 +446,10 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	})
 	setSetupWizardDisabled(wizardVSync, setupWizardVSyncBypass)
 	root.AddItem(wizardVSync)
-	root.AddItem(setupWizardRecommendedCheckbox("Precache images", "Loads game artwork before play for fewer pauses, using up to about 2 GB of additional RAM.", gs.PrecacheImages, defaultPrecacheImages, func(checked bool) {
-		gs.PrecacheImages = checked
-		if checked && !assetsPrecached {
-			go precacheAssets()
-		}
-		settingsDirty = true
-	}))
 	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Loads and prepares game sounds before play for fewer pauses, using roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
 		gs.PrecacheSounds = checked
-		if checked && !assetsPrecached {
-			go precacheAssets()
+		if checked && !soundsPrecached {
+			go precacheSounds()
 		}
 		settingsDirty = true
 	}))

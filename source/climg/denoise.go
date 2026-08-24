@@ -266,16 +266,18 @@ func sobelColorEdge(img *image.RGBA, x, y int) (edgeX, edgeY, strength float64) 
 		}
 	}
 	const sobelScale = 1.0 / (4 * 255)
+	var strengthSquared float64
 	for channel := range 3 {
 		x := gx[channel] * sobelScale
 		y := gy[channel] * sobelScale
-		magnitude := math.Hypot(x, y)
-		if magnitude > strength {
+		magnitudeSquared := x*x + y*y
+		if magnitudeSquared > strengthSquared {
 			edgeX = x
 			edgeY = y
-			strength = magnitude
+			strengthSquared = magnitudeSquared
 		}
 	}
+	strength = math.Sqrt(strengthSquared)
 	return edgeX, edgeY, strength
 }
 

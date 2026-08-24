@@ -157,7 +157,6 @@ var (
 	musicEnhanceCB     *eui.ItemData
 	resampleAudioCB    *eui.ItemData
 	precacheSoundCB    *eui.ItemData
-	precacheImageCB    *eui.ItemData
 	noCacheCB          *eui.ItemData
 	potatoCB           *eui.ItemData
 	windowShadowsCB    *eui.ItemData
@@ -2359,24 +2358,15 @@ func makePasswordWindow() {
 	passWin.AddWindow(false)
 }
 
-func showPrecachePopup(onDone func()) {
+func showSoundPrecachePopup(onDone func()) {
 	if precacheWin != nil {
 		go func() {
-			for !assetsPrecached {
+			for !soundsPrecached {
 				time.Sleep(100 * time.Millisecond)
 			}
 			onDone()
 		}()
 		return
-	}
-	var msg string
-	switch {
-	case gs.PrecacheImages && gs.PrecacheSounds:
-		msg = "Preloading images and sounds..."
-	case gs.PrecacheImages:
-		msg = "Preloading images..."
-	case gs.PrecacheSounds:
-		msg = "Preloading sounds..."
 	}
 	pb, _ := eui.NewProgressBar()
 	pb.Size = eui.Point{X: 300, Y: 14}
@@ -2384,8 +2374,8 @@ func showPrecachePopup(onDone func()) {
 	pb.MaxValue = 1
 	pb.Value = 0
 	eui.SetProgressIndeterminate(pb, true)
-	precacheWin = showPopup("Preloading", msg, nil, pb)
-	precacheProgress = func(done, total int) {
+	precacheWin = showPopup("Preloading", "Preloading sounds...", nil, pb)
+	soundPrecacheProgress = func(done, total int) {
 		if total > 0 {
 			eui.SetProgressIndeterminate(pb, false)
 			pb.MinValue = 0
@@ -2400,19 +2390,19 @@ func showPrecachePopup(onDone func()) {
 		}
 	}
 	go func(win *eui.WindowData) {
-		for !assetsPrecached {
+		for !soundsPrecached {
 			time.Sleep(100 * time.Millisecond)
 		}
 		win.Close()
 		precacheWin = nil
-		precacheProgress = nil
+		soundPrecacheProgress = nil
 		onDone()
 	}(precacheWin)
 }
 
 func startLogin() {
-	if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
-		showPrecachePopup(startLogin)
+	if gs.PrecacheSounds && !soundsPrecached {
+		showSoundPrecachePopup(startLogin)
 		return
 	}
 	loginMu.Lock()
@@ -2708,8 +2698,8 @@ func makeLoginWindow() {
 				mp := newMoviePlayer(frames, clMovFPS, cancel)
 				mp.makePlaybackWindow()
 				run := func() { go mp.run(ctx) }
-				if (gs.PrecacheSounds || gs.PrecacheImages) && !assetsPrecached {
-					showPrecachePopup(run)
+				if gs.PrecacheSounds && !soundsPrecached {
+					showSoundPrecachePopup(run)
 				} else {
 					run()
 				}
@@ -4359,7 +4349,7 @@ func makeQualityWindow() {
 				if noCacheCB != nil {
 					noCacheCB.Checked = false
 				}
-				go precacheAssets()
+				go precacheSounds()
 			}
 			settingsDirty = true
 			if qualityWin != nil {
@@ -4374,35 +4364,6 @@ func makeQualityWindow() {
 		}
 	}
 	performanceSection.AddItem(precacheSoundCB)
-
-	piCB, precacheImageEvents := eui.NewCheckbox()
-	precacheImageCB = piCB
-	precacheImageCB.Text = "Precache Images"
-	precacheImageCB.Size = eui.Point{X: width, Y: 24}
-	precacheImageCB.Checked = gs.PrecacheImages
-	precacheImageCB.SetTooltip("Load and pre-process all images, more RAM but runs smoother (<2GB)")
-	precacheImageEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.PrecacheImages = ev.Checked
-			if ev.Checked {
-				if noCacheCB != nil {
-					noCacheCB.Checked = false
-				}
-				go precacheAssets()
-			}
-			settingsDirty = true
-			if qualityWin != nil {
-				qualityWin.Refresh()
-			}
-			if graphicsWin != nil {
-				graphicsWin.Refresh()
-			}
-			if debugWin != nil {
-				debugWin.Refresh()
-			}
-		}
-	}
-	performanceSection.AddItem(precacheImageCB)
 
 	var detailedShadowsCB, shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()

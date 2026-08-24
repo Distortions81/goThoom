@@ -31,15 +31,15 @@ var gs settings = gsdef
 
 var gammaOptions = []float64{1.8, 2.0, 2.2, 2.4}
 
-var defaultPrecacheSounds, defaultPrecacheImages = precacheDefaults(systemMemoryBytes(), isWASM)
+var defaultPrecacheSounds = precacheSoundsDefault(systemMemoryBytes(), isWASM)
 
 const gibibyte = uint64(1024 * 1024 * 1024)
 
-func precacheDefaults(totalMemory uint64, wasm bool) (sounds, images bool) {
+func precacheSoundsDefault(totalMemory uint64, wasm bool) bool {
 	if wasm || totalMemory == 0 {
-		return false, false
+		return false
 	}
-	return totalMemory >= 4*gibibyte, totalMemory >= 8*gibibyte
+	return totalMemory >= 4*gibibyte
 }
 
 // settingsLoaded reports whether settings were successfully loaded from disk.
@@ -270,7 +270,6 @@ var gsdef settings = settings{
 	// Advanced and runtime defaults.
 	VSync:             true,
 	PrecacheSounds:    defaultPrecacheSounds,
-	PrecacheImages:    defaultPrecacheImages,
 	smoothMoving:      false,
 	recordAssetStats:  false,
 	AltNetMode:        true,
@@ -434,7 +433,6 @@ type settings struct {
 
 	PotatoGPU              bool
 	PrecacheSounds         bool
-	PrecacheImages         bool
 	Enabledscripts         map[string]any
 	BarColorByValue        bool
 	ThrottleSounds         bool
