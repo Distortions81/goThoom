@@ -1,0 +1,29 @@
+// Metadata
+// Name: Click Pull and Push
+// Tags: input, rescue, utility
+// Desc: Shift-clicks to pull or push players, or pull a critter from the ground.
+// Author: Magnic
+// Website: https://github.com/maxtraxv3/Macros
+// Update: https://github.com/maxtraxv3/Macros/blob/main/Pull%20macro.txt
+
+//pull
+shift-click
+{
+$any_click
+if @click.name != ""
+	"/pull " @click.simple_name " \r"
+		"/whisper excuse me " @click.name " \r"
+else
+	"/pull /critter\r"
+end if
+}
+
+//push
+shift-click2
+{
+$any_click
+if @click.name != ""
+	"/push " @click.simple_name " \r"
+		"/whisper excuse me " @click.name " \r"
+end if
+}

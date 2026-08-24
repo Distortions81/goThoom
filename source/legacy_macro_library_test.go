@@ -11,8 +11,8 @@ import (
 )
 
 func TestLegacyMacroLibraryEmbeddedCorpusHasDisplayNames(t *testing.T) {
-	if len(legacyMacroBundledLibrary) != 13 {
-		t.Fatalf("bundled entries = %d, want 13", len(legacyMacroBundledLibrary))
+	if len(legacyMacroBundledLibrary) != 28 {
+		t.Fatalf("bundled entries = %d, want 28", len(legacyMacroBundledLibrary))
 	}
 	for _, entry := range legacyMacroBundledLibrary {
 		if entry.Filename == "" || entry.SourceURL == "" || entry.EmbeddedPath == "" {

@@ -29,8 +29,23 @@ func TestLegacyMacroWebCorpusParses(t *testing.T) {
 		// The published source has an extra closing brace. The reference C
 		// parser reports it and keeps loading the remaining declarations.
 		{name: "clump-omega-zu.mac", diagnosticLine: 286, diagnosticText: "unexpected closing brace"},
+		{name: "clump-dice-roll.mac"},
+		{name: "clump-bard-instruments.mac"},
+		{name: "clump-rangery.mac"},
+		{name: "fastfeet-language-macros.mac"},
+		{name: "magnic-pull-push.mac"},
+		{name: "magnic-pet-summoning.mac"},
 		{name: "gorvin-dynamicsharecads.mac"},
+		{name: "gorvin-kudzu-lord.mac"},
+		{name: "gorvin-coin-lord.mac"},
+		{name: "gorvin-last-hit-counter.mac"},
+		{name: "gorvin-ite-boost-timer.mac"},
 		{name: "gorvin-right-clicker.mac"},
+		{name: "gorvin-right-clicker-template.mac"},
+		{name: "gorvin-right-clicker-champion.mac"},
+		{name: "gorvin-right-clicker-ranger.mac"},
+		{name: "gorvin-right-clicker-asklepian.mac"},
+		{name: "gorvin-right-clicker-ctf.mac"},
 		{name: "gorvin-macro-chess.mac"},
 		{name: "gorvin-macro-tetris.mac"},
 	}
@@ -428,6 +443,284 @@ func TestLegacyMacroWebCorpusRightClickerUsesConstructedVariables(t *testing.T) 
 		t.Fatalf("runtime diagnostics = %#v", diagnostics)
 	}
 	runtime.cancelAll()
+}
+
+func TestLegacyMacroWebCorpusAdditionalGorvinCommands(t *testing.T) {
+	tests := []struct {
+		fixture string
+		input   string
+		want    []string
+	}{
+		{
+			fixture: "gorvin-kudzu-lord.mac",
+			input:   "/zutrans",
+			want: []string{
+				"/zutrans <amount> from <bag/pack/sack> <#> to <bag/pack/sack> <#> - Transfers seeds from one container to another.",
+				"Example: \"/zutrans 5 from bag 3 to pack 1\" to transfer 5 seeds from bag #3 to pack #1.",
+			},
+		},
+		{
+			fixture: "gorvin-ite-boost-timer.mac",
+			input:   "/boost",
+			want:    []string{"* You must have an earth mineral equipped to boost."},
+		},
+		{
+			fixture: "gorvin-right-clicker-ctf.mac",
+			input:   "/ctf ?",
+			want:    []string{"* Right-click after selecting a Sub-Subclass to initialize controls."},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.fixture, func(t *testing.T) {
+			program := legacyMacroWebFixtureProgram(t, test.fixture)
+			var messages []string
+			runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+				Message: func(message string) { messages = append(messages, message) },
+			})
+			if !runtime.triggerExpression(test.input, 0) {
+				t.Fatalf("%q did not start", test.input)
+			}
+			for frame := int64(0); frame <= 8; frame++ {
+				runtime.advance(frame)
+			}
+			if !equalStrings(messages, test.want) {
+				t.Fatalf("messages = %#v, want %#v", messages, test.want)
+			}
+			if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+				t.Fatalf("runtime diagnostics = %#v", diagnostics)
+			}
+		})
+	}
+
+	coinProgram := legacyMacroWebFixtureProgram(t, "gorvin-coin-lord.mac")
+	var coinMessages []string
+	coinRuntime := newLegacyMacroRuntimeWithHooks(coinProgram, legacyMacroRuntimeHooks{
+		Message: func(message string) { coinMessages = append(coinMessages, message) },
+	})
+	if !coinRuntime.triggerExpression("/cw ?", 0) {
+		t.Fatal("/cw ? did not start")
+	}
+	coinRuntime.advance(0)
+	if len(coinMessages) != 9 || coinMessages[0] != "* ----------------- *" || coinMessages[len(coinMessages)-1] != "* ----------------- *" {
+		t.Fatalf("coin help messages = %#v", coinMessages)
+	}
+	if diagnostics := coinRuntime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+		t.Fatalf("coin runtime diagnostics = %#v", diagnostics)
+	}
+
+	lastProgram := legacyMacroWebFixtureProgram(t, "gorvin-last-hit-counter.mac")
+	var lastMessages []string
+	lastRuntime := newLegacyMacroRuntimeWithHooks(lastProgram, legacyMacroRuntimeHooks{
+		Message: func(message string) { lastMessages = append(lastMessages, message) },
+	})
+	if !lastRuntime.triggerExpression("/lastcount", 0) {
+		t.Fatal("/lastcount did not start")
+	}
+	lastRuntime.advance(0)
+	if got, want := lastMessages, []string{
+		"* Now counting kills on:Haremau Kitten",
+		"Use /lasts+ and /lasts- to manually adjust kill counts if needed.",
+	}; !equalStrings(got, want) {
+		t.Fatalf("last-counter messages = %#v, want %#v", got, want)
+	}
+	if diagnostics := lastRuntime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+		t.Fatalf("last-counter runtime diagnostics = %#v", diagnostics)
+	}
+	lastRuntime.cancelAll()
+}
+
+func TestLegacyMacroWebCorpusRightClickerAddOnSetups(t *testing.T) {
+	tests := []struct {
+		fixture  string
+		function string
+		message  string
+		global   string
+		want     string
+	}{
+		{
+			fixture:  "gorvin-right-clicker-template.mac",
+			function: "RC_template",
+			message:  "* Using <INSERT SET NAME HERE> right-click settings.",
+			global:   "grc_init",
+			want:     "1",
+		},
+		{
+			fixture:  "gorvin-right-clicker-champion.mac",
+			function: "RC_champion_setup",
+			message:  "* Using Champion right-click settings.",
+			global:   "grc_double_right_click_ground",
+			want:     "RC_swap_ite",
+		},
+		{
+			fixture:  "gorvin-right-clicker-ranger.mac",
+			function: "RC_ranger_setup",
+			message:  "* Using Ranger right-click settings.",
+			global:   "grc_double_right_click_self",
+			want:     "RC_morph",
+		},
+		{
+			fixture:  "gorvin-right-clicker-asklepian.mac",
+			function: "RC_asklepian_setup",
+			message:  "* Using Asklepian right-click settings.",
+			global:   "grc_right_click_player",
+			want:     "RC_cad",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.fixture, func(t *testing.T) {
+			program := legacyMacroWebFixtureProgram(t, test.fixture)
+			var messages []string
+			runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+				Message: func(message string) { messages = append(messages, message) },
+			})
+			execution, err := runtime.startFunction(test.function)
+			if err != nil {
+				t.Fatal(err)
+			}
+			runtime.advance(0)
+			if !execution.complete || execution.diagnostic != nil {
+				t.Fatalf("execution = %#v, want successful completion", execution)
+			}
+			if got, want := messages, []string{test.message}; !equalStrings(got, want) {
+				t.Fatalf("messages = %#v, want %#v", got, want)
+			}
+			if got := runtime.globalsSnapshot()[test.global]; got != test.want {
+				t.Fatalf("%s = %q, want %q", test.global, got, test.want)
+			}
+			if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+				t.Fatalf("runtime diagnostics = %#v", diagnostics)
+			}
+		})
+	}
+}
+
+func TestLegacyMacroWebCorpusCommunityCommands(t *testing.T) {
+	tests := []struct {
+		fixture    string
+		input      string
+		state      map[string]string
+		frames     int64
+		want       []string
+		globalName string
+		globalWant string
+	}{
+		{
+			fixture: "clump-dice-roll.mac",
+			input:   "/roll 2d10",
+			state:   map[string]string{"@my.left_item": "Short Sword"},
+			frames:  8,
+			want:    []string{"/equip pouchofdice", "/useitem left 2d10", "/equip Short Sword"},
+		},
+		{
+			fixture: "clump-bard-instruments.mac",
+			input:   "/add Pine Flute",
+			state:   map[string]string{"@my.left_item": "Short Sword"},
+			frames:  15,
+			want:    []string{"/equip instrument case", "/useitem instrument case /add Pine Flute", "/equip Short Sword"},
+		},
+		{
+			fixture: "clump-rangery.mac",
+			input:   "/judge Bear",
+			want:    []string{"/useitem belt /judge Bear"},
+		},
+		{
+			fixture:    "fastfeet-language-macros.mac",
+			input:      "/sylvan Greetings",
+			frames:     4,
+			want:       []string{"/speak sylvan", "Greetings"},
+			globalName: "current_lang",
+			globalWant: "sylvan",
+		},
+		{
+			fixture: "magnic-pet-summoning.mac",
+			input:   "/cp Nimbus",
+			state:   map[string]string{"@my.right_item": "Short Sword"},
+			frames:  20,
+			want: []string{
+				"/bag /remove /exact shadow bell",
+				"/equip shadow bell",
+				"/use Nimbus",
+				"/equip Short Sword",
+				"/selectitem Shadow bell",
+				"/bag /add",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.fixture, func(t *testing.T) {
+			program := legacyMacroWebFixtureProgram(t, test.fixture)
+			var sent []string
+			runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+				SendText: func(text string) { sent = append(sent, text) },
+				ResolveState: func(name string) (string, bool) {
+					value, ok := test.state[name]
+					return value, ok
+				},
+			})
+			if !runtime.triggerExpression(test.input, 0) {
+				t.Fatalf("%q did not start", test.input)
+			}
+			for frame := int64(0); frame <= test.frames; frame++ {
+				runtime.advance(frame)
+			}
+			if !equalStrings(sent, test.want) {
+				t.Fatalf("sent = %#v, want %#v", sent, test.want)
+			}
+			if test.globalName != "" {
+				if got := runtime.globalsSnapshot()[test.globalName]; got != test.globalWant {
+					t.Fatalf("%s = %q, want %q", test.globalName, got, test.globalWant)
+				}
+			}
+			if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+				t.Fatalf("runtime diagnostics = %#v", diagnostics)
+			}
+		})
+	}
+}
+
+func TestLegacyMacroWebCorpusMagnicShiftClick(t *testing.T) {
+	program := legacyMacroWebFixtureProgram(t, "magnic-pull-push.mac")
+	var sent []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		SendText: func(text string) { sent = append(sent, text) },
+	})
+	event := legacyMacroClickEvent{
+		Name:      "Bob Jones",
+		HasName:   true,
+		OnPlayer:  true,
+		Button:    1,
+		Chord:     1,
+		HasButton: true,
+		HasChord:  true,
+		Modifiers: legacyMacroModShift,
+	}
+	if started, _ := runtime.triggerClick(event, 0); !started {
+		t.Fatal("Shift-click pull did not start")
+	}
+	for frame := int64(0); frame <= 2; frame++ {
+		runtime.advance(frame)
+	}
+	event.Button = 2
+	if started, _ := runtime.triggerClick(event, 3); !started {
+		t.Fatal("Shift-right-click push did not start")
+	}
+	for frame := int64(3); frame <= 5; frame++ {
+		runtime.advance(frame)
+	}
+	if got, want := sent, []string{
+		"/pull BobJones ",
+		"/whisper excuse me Bob Jones ",
+		"/push BobJones ",
+		"/whisper excuse me Bob Jones ",
+	}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
+	}
+	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+		t.Fatalf("runtime diagnostics = %#v", diagnostics)
+	}
 }
 
 func TestLegacyMacroMovePlayerQueuesReferenceInput(t *testing.T) {

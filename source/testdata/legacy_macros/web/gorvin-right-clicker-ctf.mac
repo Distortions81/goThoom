@@ -1,0 +1,315 @@
+// Metadata
+// Name: Right-Clicker - CTF Set
+// Tags: input, ctf
+// Desc: Capture the Flag add-on for Right-Clicker; use /ctf.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/macros/index.html
+// Update: http://gorvin.50webs.com/macros/RC2CTF.txt
+/*****************************************************************************
+The Right-Clicker - CTF Set
+Typing /ctf will change your right-click settings to use CTF macros.
+Right-click after picking a Sub-Subclass and whenever you change your
+  Sub-Subclass to initialize the settings for that class.
+Right-clicking when you are outside the CTF area will cause your original
+  right-click settings to be restored.
+Type "ttt [message]" to send a message to your team.
+Type "ttg [message]" to send a message to the entire game.
+*****************************************************************************/
+
+set gRC_ctf_on 0
+set gRC_ctf_help[0] ""
+set gRC_ctf_help[1] ""
+set gRC_ctf_help[2] ""
+set gRC_ctf_help[3] ""
+set gRC_ctf_help[4] ""
+
+setglobal gRC_old_right "Nothing"
+setglobal gRC_old_left "Nothing"
+setglobal gRC_old_torso "Nothing"
+setglobal gRC_old_legs "Nothing"
+setglobal gRC_old_neck "Nothing"
+
+"/ctf"
+{
+if @text == "?"
+	call "RC_ctf_help"
+else if gRC_ctf_on == 0
+	setglobal gRC_ctf_on 1
+	call "RC_ctf_setup"
+	call "RC_ctf_help"
+else
+	setglobal gRC_ctf_on 0
+	call "RC_ctf_revert_settings"
+end if
+}
+
+"ttt"
+{
+"/use /team " @text "\r"
+}
+
+"ttg"
+{
+"/use /game " @text "\r"
+}
+
+
+RC_ctf_help
+{
+if gRC_ctf_help[0] == ""
+	message "* Right-click after selecting a Sub-Subclass to initialize controls."
+else
+	message "----------------------"
+	message gRC_ctf_help[0]
+	if gRC_ctf_help[1] != ""
+		message gRC_ctf_help[1]
+	end if
+	if gRC_ctf_help[2] != ""
+		message gRC_ctf_help[2]
+	end if
+	if gRC_ctf_help[3] != ""
+		message gRC_ctf_help[3]
+	end if
+	if gRC_ctf_help[4] != ""
+		message gRC_ctf_help[4]
+	end if
+	message "----------------------"
+end if
+}
+
+
+RC_ctf_revert_settings
+{
+message "* Restoring original right-click settings."
+
+if gRC_old_right != "Nothing"
+  "/equip " gRC_old_right "\r"
+end if
+if gRC_old_left != "Nothing"
+  "/equip " gRC_old_left "\r"
+end if
+if gRC_old_torso != "Nothing"
+  "/equip " gRC_old_torso "\r"
+end if
+if gRC_old_legs != "Nothing"
+  "/equip " gRC_old_legs "\r"
+end if
+if gRC_old_neck != "Nothing"
+  "/equip " gRC_old_neck "\r"
+end if
+
+call gRC_setup
+}
+
+
+RC_ctf_setup
+{
+setglobal gRC_ctf_help[0] ""
+setglobal gRC_ctf_help[1] ""
+setglobal gRC_ctf_help[2] ""
+setglobal gRC_ctf_help[3] ""
+setglobal gRC_ctf_help[4] ""
+
+setglobal gRC_old_right @my.right_item
+setglobal gRC_old_left @my.left_item
+setglobal gRC_old_torso @my.torso_item
+setglobal gRC_old_legs @my.legs_item
+setglobal gRC_old_neck @my.neck_item
+
+message "* Using CTF right-click settings."
+
+setglobal gRC_init 1	// Lets the Right-Clicker know that settings have been initialized.  Don't change this.
+
+setglobal gRC_item "rapid slapping fish"		// This set's special ITEM.
+setglobal gRC_item_slot "right"		// The SLOT this item is equipped in (right, left, neck, finger, or forehead).
+
+// Actions without special item equipped:
+setglobal gRC_right_click_ground "RC_ctf_update"		// Action called on SINGLE right-click on GROUND.
+setglobal gRC_double_right_click_ground "0"		// Action called on DOUBLE right-click on GROUND.
+
+setglobal gRC_right_click_player "RC_ctf_update"		// Action called on SINGLE right-click on ANOTHER PLAYER.
+setglobal gRC_double_right_click_player "0"		// Action called on DOUBLE right-click on ANOTHER PLAYER.
+
+setglobal gRC_right_click_self "RC_ctf_update"		// Action called on SINGLE right-click on YOURSELF.
+setglobal gRC_double_right_click_self "0"		// Action called on DOUBLE right-click on YOURSELF.
+
+setglobal gRC_wheel_up "RC_ctf_update"		// Action called on WHEEL ticks UP.
+setglobal gRC_wheel_up_cooldown 1		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down "RC_ctf_update"		// Action called on WHEEL ticks DOWN.
+setglobal gRC_wheel_down_cooldown 1		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+// Actions with special ITEM equipped:
+setglobal gRC_right_click_ground_with_item "RC_ctf_update"	// Action called on SINGLE right-click on GROUND with special ITEM equipped.
+setglobal gRC_double_right_click_ground_with_item "0"	// Action called on DOUBLE right-click on GROUND with special ITEM equipped.
+
+setglobal gRC_right_click_player_with_item "RC_ctf_update"	// Action called on SINGLE right-click on ANOTHER PLAYER with special ITEM equipped.
+setglobal gRC_double_right_click_player_with_item "0"	// Action called on DOUBLE right-click on ANOTHER PLAYER with special ITEM equipped.
+
+setglobal gRC_right_click_self_with_item "RC_ctf_update"	// Action called on SINGLE right-click on YOURSELF with special ITEM equipped.
+setglobal gRC_double_right_click_self_with_item "0"	// Action called on DOUBLE right-click on YOURSELF with special ITEM equipped.
+
+setglobal gRC_wheel_up_with_item "RC_ctf_update"	// Action called on WHEEL ticks UP with special ITEM equipped.
+setglobal gRC_wheel_up_with_item_cooldown 1	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down_with_item "RC_ctf_update"	// Action called on WHEEL ticks DOWN with special ITEM equipped.
+setglobal gRC_wheel_down_with_item_cooldown 1	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+}
+
+
+// Inputs:
+// RC_ctf_item - Item used by the Sub-Subclass.
+// RC_ctf_click - Single right-click action.
+// RC_ctf_double_click - Double right-click action.
+// RC_ctf_wheel_up - Mouse wheel up action.
+// RC_ctf_wheel_down - Mouse wheel down action.
+RC_ctf_change_settings
+{
+setglobal gRC_item RC_ctf_item		// This set's special ITEM.
+
+setglobal gRC_right_click_ground_with_item RC_ctf_click	// Action called on SINGLE right-click on GROUND with special ITEM equipped.
+setglobal gRC_double_right_click_ground_with_item RC_ctf_double_click	// Action called on DOUBLE right-click on GROUND with special ITEM equipped.
+
+setglobal gRC_right_click_player_with_item RC_ctf_click	// Action called on SINGLE right-click on ANOTHER PLAYER with special ITEM equipped.
+setglobal gRC_double_right_click_player_with_item RC_ctf_double_click	// Action called on DOUBLE right-click on ANOTHER PLAYER with special ITEM equipped.
+
+setglobal gRC_right_click_self_with_item RC_ctf_click	// Action called on SINGLE right-click on YOURSELF with special ITEM equipped.
+setglobal gRC_double_right_click_self_with_item RC_ctf_double_click	// Action called on DOUBLE right-click on YOURSELF with special ITEM equipped.
+
+setglobal gRC_wheel_up_with_item RC_ctf_wheel_up	// Action called on WHEEL ticks UP with special ITEM equipped.
+
+setglobal gRC_wheel_down_with_item RC_ctf_wheel_down	// Action called on WHEEL ticks DOWN with special ITEM equipped.
+}
+
+
+RC_ctf_update
+{
+if @my.right_item == "wand of fireballs"
+	setglobal gRC_ctf_help[0] "* Mystic settings:"
+	setglobal gRC_ctf_help[1] "Right-click to fling a fireball."
+	setglobal gRC_ctf_help[2] "Mouse wheel to slow time around you."
+	setglobal gRC_ctf_help[3] ""
+	setglobal gRC_ctf_help[4] ""
+	
+	set RC_ctf_item "wand of fireballs"
+	
+	set RC_ctf_click "/use\r"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "/use /slow\r"
+	set RC_ctf_wheel_down "/use /slow\r"
+	
+else if @my.right_item == "healing stick of death"
+	setglobal gRC_ctf_help[0] "* Paladin settings:"
+	setglobal gRC_ctf_help[1] "Right-click to heal the nearest person."
+	setglobal gRC_ctf_help[2] "Double Right-click to heal the person closest to your cursors current position."
+	setglobal gRC_ctf_help[3] "Mouse wheel down to stop healing your current target."
+	setglobal gRC_ctf_help[4] "Mouse wheel up when your AwesomeBar is full to quickly heal any damage done to you or your target for a limited time."
+
+	set RC_ctf_item "healing stick of death"
+
+	set RC_ctf_click "/use\r"
+	set RC_ctf_double_click "/use /target\r"
+
+	set RC_ctf_wheel_up "/use /awe\r"
+	set RC_ctf_wheel_down "/use /cancel\r"
+	
+else if @my.right_item == "flaming gerbil"
+	setglobal gRC_ctf_help[0] "* Pyromancer settings:"
+	setglobal gRC_ctf_help[1] "Right-click to use your Hadouken."
+	setglobal gRC_ctf_help[2] "Mouse wheel to engulf all enemies near you in flame."
+	setglobal gRC_ctf_help[3] ""
+	setglobal gRC_ctf_help[4] ""
+
+	set RC_ctf_item "flaming gerbil"
+
+	set RC_ctf_click "/use\r"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "/use /fire\r"
+	set RC_ctf_wheel_down "/use /fire\r"
+	
+else if @my.right_item == "pretty flowers"
+	setglobal gRC_ctf_help[0] "* Sylvan Scout settings:"
+	setglobal gRC_ctf_help[1] "Right-click to toss a slowing swallow at your enemy. (Your crossbow is just for show.)"
+	setglobal gRC_ctf_help[2] ""
+	setglobal gRC_ctf_help[3] ""
+	setglobal gRC_ctf_help[4] ""
+
+	set RC_ctf_item "pretty flowers"
+
+	set RC_ctf_click "/use\r"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "0"
+	set RC_ctf_wheel_down "0"
+	
+else if @my.right_item == "power trowel"
+	setglobal gRC_ctf_help[0] "* Fengineer settings:"
+	setglobal gRC_ctf_help[1] "Right-click to lay a landmine. You can only have one placed at a time."
+	setglobal gRC_ctf_help[2] "Mouse wheel down to build a wall. You can build up to 4 at a time."
+	setglobal gRC_ctf_help[3] "Mouse wheel up to build a healing fountain. You can only have one built at a time."
+	setglobal gRC_ctf_help[4] ""
+
+	set RC_ctf_item "power trowel"
+
+	set RC_ctf_click "/use\r"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "/use /heal\r"
+	set RC_ctf_wheel_down "/use /wall\r"
+	
+else if @my.right_item == "butter knife"
+	setglobal gRC_ctf_help[0] "* Darshak Spy settings:"
+	setglobal gRC_ctf_help[1] "Right-click to become invisible."
+	setglobal gRC_ctf_help[2] "Mouse wheel to disguise as a random enemy"
+	setglobal gRC_ctf_help[3] ""
+	setglobal gRC_ctf_help[4] ""
+
+	set RC_ctf_item "butter knife"
+
+	set RC_ctf_click "/use\r"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "/use /disguise\r"
+	set RC_ctf_wheel_down "/use /disguise\r"
+	
+else if @my.right_item == "rapid slapping fish"
+	setglobal gRC_ctf_help[0] "* Yorbot/Roleplayer settings:"
+	setglobal gRC_ctf_help[1] "No activatable abilities."
+	setglobal gRC_ctf_help[2] ""
+	setglobal gRC_ctf_help[3] ""
+	setglobal gRC_ctf_help[4] ""
+
+	set RC_ctf_item "rapid slapping fish"
+
+	set RC_ctf_click "0"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "0"
+	set RC_ctf_wheel_down "0"
+	
+else if @my.right_item == "shover shovel"
+	setglobal gRC_ctf_help[0] "* Pusher Gorvbot settings:"
+	setglobal gRC_ctf_help[1] "No activatable abilities."
+	setglobal gRC_ctf_help[2] ""
+	setglobal gRC_ctf_help[3] ""
+	setglobal gRC_ctf_help[4] ""
+
+	set RC_ctf_item "shover shovel"
+
+	set RC_ctf_click "0"
+	set RC_ctf_double_click "0"
+
+	set RC_ctf_wheel_up "0"
+	set RC_ctf_wheel_down "0"
+	
+else
+	setglobal gRC_ctf_on 0
+	call "RC_ctf_revert_settings"
+	goto "EXITFUNC"
+end if
+call "RC_ctf_change_settings"
+call "RC_ctf_help"
+label EXITFUNC
+}

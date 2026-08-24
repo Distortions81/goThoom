@@ -1,0 +1,819 @@
+// Metadata
+// Name: Coin Lord
+// Tags: hunting, statistics
+// Desc: Tracks coins, skinners, and beasts during a hunt.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/macros/index.html
+// Update: http://gorvin.50webs.com/macros/coinlord.txt
+
+// Global initializations. (Do NOT change)
+set gCW_on 0
+set gCW_init 0
+set gCW_stamps 0
+set gCW_types 0
+set gCW_skinners 0
+
+// Default settings. Change these if you want.
+set gCW_divider "* ----------------- *" // Message marking the beginning and ending of data displays.
+set gCW_time_unit "H" // Time unit average coin data is displayed in when /cwdata is used. "H" for per hour, "M" for per minute, "S" for per second.
+set gCW_beast_verbose 1 // Verbose beast data mode. If set to 1, /cwbeast will display longer data messages on each monster. If 0, shorter.
+set gCW_skinner_verbose 1 // Verbose skinner data mode. If set to 1, /cwinfo will display longer data messages on each skinner. If 0, shorter.
+set gCW_main_verbose 1 // If set to 1, data will be reported to you after each skin made. If you turn this off, the macro will be more likely to fail to pick up messages.
+
+// /cw - Starts or stops Coin Lord, which collects data on furs skinned.
+"/cw"
+{
+if @text.letter[0] == "?"
+  message gCW_divider
+  message "   /cw - Starts or stops Coin Lord, which collects data on furs skinned."
+  message "   /cwnew - Resets Coin Lord's data."
+  message "   /cwdata - Displays data on coins earned."
+  message "   /cwinfo <skinner name> - Displays data on specified skinner. Partial names are accepted, but are case-sensitive. If no name is specified, data on all skinners is displayed."
+  message "   /cwbeast <monster name> - Displays data on specified monster. Partial names are accepted, but are case-sensitive. If no name is specified, data on all beasts is displayed."
+  message "   /cwmsg <skinning message> - If the macro fails to pick up a skinning message, copy and paste it (without the timestamp) to this command to have it repeated."
+  message "   /<command> ? - Gives more detailed help for that command."
+  message gCW_divider
+else if gCW_on == 0
+  setglobal gCW_on 1
+  if gCW_init == 0
+    message "* Coin Lord has been activated. Use \"/cw ?\" for list of commands."
+  else
+    message "* Coin Lord is resuming."
+  end if
+  if gCW_init == 0
+    call "fCW_init"
+  else if gCW_stamps != 0
+
+    set inCW_time @env.textLog.word[1]
+    call "fCW_get_time"
+    setglobal gCW_start outCW_time
+  end if
+  call "fCW_main"
+else
+  setglobal gCW_on 0
+  message "* Coin Lord is pausing."
+  if gCW_stamps != 0
+    setglobal gCW_stop_msg @env.textLog.word[1]
+    set inCW_time @env.textLog.word[1]
+    call "fCW_get_time"
+    setglobal gCW_stop outCW_time
+    set cw_seconds outCW_time
+    set cw_seconds - gCW_start
+    if cw_seconds < 0
+      set cw_seconds + 86400
+    end if
+    setglobal gCW_time + cw_seconds
+  end if
+end if
+}
+
+// /cwnew - Resets Coin Lord's data.
+"/cwnew"
+{
+if @text.letter[0] == "?"
+  message "   /cwnew - Resets Coin Lord's data."
+else
+  call "fCW_init"
+  if gCW_on == 0
+    setglobal gCW_on 1
+    message "* Coin Lord has been activated. Use \"/cw ?\" for list of commands."
+    call "fCW_main"
+  end if
+end if
+}
+
+// /cwdata - Displays data on coins earned.
+// /cwdata <H/M/S> - Changes whether data will be displayed in average coins earned per
+//    hour, minute, or second.
+"/cwdata"
+{
+message gCW_divider
+if @text.letter[0] == "?"
+  message "   /cwdata - Displays data on coins earned."
+  message "   /cwdata <H/M/S> - Changes whether data will be displayed in average coins earned per hour, minute, or second."
+else if gCW_init == 1
+  if @text.letter[0] == "h"
+    setglobal gCW_time_unit "H"
+  else if @text.letter[0] == "m"
+    setglobal gCW_time_unit "M"
+  else if @text.letter[0] == "s"
+    setglobal gCW_time_unit "S"
+  end if
+  call "fCW_report"
+else
+  message "* Coin Lord has not been started yet. Use /cw to start."
+end if
+message gCW_divider
+}
+
+// /cwinfo - Displays data on all skinners you've been hunting with since macro started.
+// /cwinfo <skinner name> - Displays data on specified skinner. Partial names are accepted, but are case-sensitive.
+// /cwinfo /format - Toggles data format: verbose or short.
+"/cwinfo"
+{
+message gCW_divider
+if @text.word[0] == "/format"
+  if gCW_skinner_verbose == 0
+    setglobal gCW_skinner_verbose 1
+    message "* Skinner data will now be displayed in verbose format."
+  else
+    setglobal gCW_skinner_verbose 0
+    message "* Skinner data will now be displayed in shorter format."
+  end if
+else if @text.letter[0] == "?"
+  message "   /cwinfo - Displays data on all skinners you've been hunting with since macro started."
+  message "   /cwinfo <skinner name> - Displays data on specified skinner. Partial names are accepted, but are case-sensitive."
+  message "   /cwinfo /format - Toggles data format: verbose or short."
+else
+  set inCW_index 0
+  label CWDATAP
+    if inCW_index <= gCW_skinners
+      if @text != ""
+        if gCW_who[inCW_index] >= @text
+        else if inCW_index == 0
+          if @my.name >= @text
+          else
+            set inCW_index + 1
+            goto "CWDATAP"
+          end if
+        else
+          set inCW_index + 1
+          goto "CWDATAP"
+        end if
+      end if
+      message "---------"
+      call "fCW_skinner_data"
+      set inCW_index + 1
+      goto "CWDATAP"
+    end if
+    message "---------"
+end if
+message gCW_divider
+}
+
+// /cwbeast - Displays data on all beasts skinned since macro started.
+// /cwbeast <monster name> - Displays data on specified monster. Partial names are accepted, but are case-sensitive.
+// /cwbeast /format - Toggles data format: verbose or short.
+"/cwbeast"
+{
+message gCW_divider
+if @text.word[0] == "/format"
+  if gCW_beast_verbose == 0
+    setglobal gCW_beast_verbose 1
+    message "* Beast data will now be displayed in verbose format."
+  else
+    setglobal gCW_beast_verbose 0
+    message "* Beast data will now be displayed in shorter format."
+  end if
+else if @text.letter[0] == "?"
+  message "   /cwbeast - Displays data on all beasts skinned since macro started."
+  message "   /cwbeast <monster name> - Displays data on specified monster. Partial names are accepted, but are case-sensitive."
+  message "   /cwbeast /format - Toggles data format: verbose or short."
+else
+  set inCW_index 1
+  label CWDATABE
+    if inCW_index <= gCW_types
+      if gCW_name[inCW_index] == @text
+      else
+        set inCW_index + 1
+        goto "CWDATABE"
+      end if
+      message "---------"
+      call "fCW_beast_data"
+      set inCW_index + 1
+      goto "CWDATABOUT"
+    end if
+  set inCW_index 1
+  label CWDATAB
+    if inCW_index <= gCW_types
+      if @text != ""
+        if gCW_name[inCW_index] >= @text
+        else
+          set inCW_index + 1
+          goto "CWDATAB"
+        end if
+      end if
+      message "---------"
+      call "fCW_beast_data"
+      set inCW_index + 1
+      goto "CWDATAB"
+    end if
+  label CWDATABOUT
+  message "---------"
+end if
+message gCW_divider
+}
+
+"/cwmsg"
+{
+if @text == "?"
+  message "   /cwmsg <skinning message> - If the macro fails to pick up a skinning message, copy and paste it (without the timestamp) to this command to have it repeated."
+else
+  message @text
+end if
+}
+
+
+
+fCW_init
+{
+message "* New data started."
+
+setglobal gCW_init 1
+if @env.textLog.word[0] >= 0
+  setglobal gCW_stamps 2
+  setglobal gCW_start_msg @env.textLog.word[1]
+  set inCW_time @env.textLog.word[1]
+  call "fCW_get_time"
+  setglobal gCW_start outCW_time
+else
+  setglobal gCW_stamps 0
+  message "* Time stamps appear to be off. Coin Lord will still work, but will not be able to tell you average coins earned per hour. If you wish to have access to this data, please turn time stamps on and then use /cwnew to reset the macro."
+end if
+setglobal gCW_time 0
+setglobal gCW_stop 0
+setglobal gCW_stop_msg ""
+setglobal gCW_types 0
+setglobal gCW_skinners 0
+setglobal gCW_high_what ""
+setglobal gCW_temp 0
+set inCW_beast ""
+call "fCW_init_beast"
+setglobal gCW_temp 0
+set inCW_person "You"
+call "fCW_init_skinner"
+}
+
+fCW_main
+{
+label CWMAIN
+pause 1
+if gCW_on == 1
+  set cw_msg @env.textLog
+  if cw_msg.word[gCW_stamps] == "*"
+    if cw_msg >= "recover the"
+    else if cw_msg >= "recovers the"
+    else
+      goto "CWMAIN"
+    end if
+    if cw_msg >= "fur, worth"
+      label CWGOT
+      set inCW_index gCW_stamps
+      set cw_name ""
+      label CWNAME
+        set inCW_index + 1
+        if cw_msg.word[inCW_index] >= "recover"
+          set inCW_index + 2
+          set inCW_msg cw_msg
+          call "fCW_msg"
+          setglobal gCW_killed[0] + 1
+          setglobal gCW_generated[0] + outCW_generated
+          setglobal gCW_earned[0] + outCW_earned
+          if outCW_generated > gCW_high[0]
+            setglobal gCW_high[0] outCW_generated
+            setglobal gCW_high_who[0] cw_name
+            setglobal gCW_high_what outCW_beast
+          end if
+          set inCW_person cw_name
+          call "fCW_find_skinner"
+          setglobal gCW_temp outCW_index
+          if outCW_index > gCW_skinners
+            setglobal gCW_skinners + 1
+            call "fCW_init_skinner"
+          end if
+          setglobal gCW_skins[gCW_temp] + 1
+          setglobal gCW_made[gCW_temp] + outCW_generated
+          setglobal gCW_given[gCW_temp] + outCW_earned
+          if outCW_generated > gCW_highest[gCW_temp]
+            setglobal gCW_highest[gCW_temp] outCW_generated
+            setglobal gCW_what[gCW_temp] outCW_beast
+          end if
+          set inCW_beast outCW_beast
+          call "fCW_find_beast"
+          setglobal gCW_temp outCW_index
+          if outCW_index > gCW_types
+            setglobal gCW_types + 1
+            call "fCW_init_beast"
+          end if
+          setglobal gCW_killed[gCW_temp] + 1
+          setglobal gCW_generated[gCW_temp] + outCW_generated
+          setglobal gCW_earned[gCW_temp] + outCW_earned
+          if cw_name == "You"
+            setglobal gCW_killed_self[gCW_temp] + 1
+            setglobal gCW_self_gen[gCW_temp] + outCW_generated
+            if outCW_generated > gCW_high_self[gCW_temp]
+              setglobal gCW_high_self[gCW_temp] outCW_generated
+            end if
+          end if
+          if outCW_generated > gCW_high[gCW_temp]
+            setglobal gCW_high[gCW_temp] outCW_generated
+            setglobal gCW_high_who[gCW_temp] cw_name
+          end if
+          set inCW_msg "Avg: "
+          set inCW_total gCW_generated[gCW_temp]
+          set inCW_divisor gCW_killed[gCW_temp]
+          set inCW_per 1
+          set inCW_fixedpt 100
+          call "fCW_average"
+          
+          set cw_name gCW_name[gCW_temp]
+          if cw_name.num_words > 1
+            set cw_msg ""
+            set inCW_index 0
+            label CWABBREV
+              if inCW_index < cw_name.num_words
+                set inCW_msg cw_name.word[inCW_index]
+                set cw_msg + inCW_msg.letter[0]
+                set inCW_index + 1
+                goto "CWABBREV"
+              end if
+          else
+            set cw_msg cw_name    
+          end if
+
+          message cw_msg "- Skins:" gCW_killed[gCW_temp] "Coins:" gCW_generated[gCW_temp] outCW_msg
+        else if cw_msg.word[inCW_index] != ""
+          if cw_name != ""
+            set cw_name + " "
+          end if
+          set cw_name + cw_msg.word[inCW_index]
+          goto "CWNAME"
+        end if
+    else if cw_msg >= "mandibles, worth"
+      goto "CWGOT"
+    end if
+  end if
+  goto "CWMAIN"
+end if
+}
+
+// gCW_temp
+// inCW_beast
+fCW_init_beast
+{
+setglobal gCW_name[gCW_temp] inCW_beast
+setglobal gCW_killed[gCW_temp] 0
+setglobal gCW_killed_self[gCW_temp] 0
+setglobal gCW_generated[gCW_temp] 0
+setglobal gCW_self_gen[gCW_temp] 0
+setglobal gCW_earned[gCW_temp] 0
+setglobal gCW_high[gCW_temp] 0
+setglobal gCW_high_who[gCW_temp] ""
+setglobal gCW_high_self[gCW_temp] 0
+}
+
+// gCW_temp
+// inCW_person
+fCW_init_skinner
+{
+setglobal gCW_who[gCW_temp] inCW_person
+setglobal gCW_skins[gCW_temp] 0
+setglobal gCW_made[gCW_temp] 0
+setglobal gCW_given[gCW_temp] 0
+setglobal gCW_highest[gCW_temp] 0
+setglobal gCW_what[gCW_temp] ""
+}
+
+// inCW_beast
+// outCW_index
+fCW_find_beast
+{
+set outCW_index 1
+label CWFINDB
+if outCW_index <= gCW_types
+  if inCW_beast != gCW_name[outCW_index]
+    set outCW_index + 1
+    goto "CWFINDB"
+  end if  
+end if
+}
+
+// inCW_person
+// outCW_index
+fCW_find_skinner
+{
+set outCW_index 0
+label CWFINDP
+if outCW_index <= gCW_skinners
+  if inCW_person != gCW_who[outCW_index]
+    set outCW_index + 1
+    goto "CWFINDP"
+  end if
+end if
+}
+
+// inCW_time
+// outCW_time
+fCW_get_time
+{
+set cw_hours inCW_time.letter[0]
+if inCW_time.letter[1] != ":"
+  set cw_hours 10
+  set cw_hours + inCW_time.letter[1]
+  if cw_hours == 12
+    set cw_hours 0
+  end if
+  set cw_minutes inCW_time.letter[3]
+  set cw_minutes * 10
+  set cw_minutes + inCW_time.letter[4]
+  set cw_seconds inCW_time.letter[6]
+  set cw_seconds * 10
+  set cw_seconds + inCW_time.letter[7]
+  if inCW_time.letter[8] == "p"
+    set cw_hours + 12
+  end if
+else
+  set cw_minutes inCW_time.letter[2]
+  set cw_minutes * 10
+  set cw_minutes + inCW_time.letter[3]
+  set cw_seconds inCW_time.letter[5]
+  set cw_seconds * 10
+  set cw_seconds + inCW_time.letter[6]
+  if inCW_time.letter[7] == "p"
+    set cw_hours + 12
+  end if
+end if
+set cw_minutes * 60
+set cw_hours * 3600
+set outCW_time cw_seconds
+set outCW_time + cw_minutes
+set outCW_time + cw_hours
+}
+
+// inCW_msg
+// inCW_index
+// outCW_generated
+// outCW_earned
+// outCW_beast
+fCW_msg
+{
+set outCW_beast ""
+label CWMSG
+if inCW_msg.word[inCW_index] != "fur,"
+  if inCW_msg.word[inCW_index] != "mandibles,"
+    if inCW_msg.word[inCW_index] != ""
+      if outCW_beast != ""
+        set outCW_beast + " "
+      end if
+      set outCW_beast + inCW_msg.word[inCW_index]
+      set inCW_index + 1
+      goto "CWMSG"
+    end if
+  end if
+end if
+set inCW_index + 2
+set outCW_generated 0
+set outCW_generated + inCW_msg.word[inCW_index]
+set outCW_earned 0
+if inCW_msg >= "Your share is"
+  set inCW_index + 4
+  if inCW_msg.word[inCW_index] >= 0
+    if inCW_msg.word[inCW_index] != ""
+      set outCW_earned + inCW_msg.word[inCW_index]
+    end if
+  end if
+end if
+}
+
+// inCW_index
+fCW_beast_data
+{
+set cw_msg gCW_name[inCW_index]
+set cw_msg + ":"
+message cw_msg
+if gCW_beast_verbose == 1
+  set inCW_msg "("
+  set inCW_num gCW_killed[inCW_index]
+  set inCW_total gCW_killed[0]
+  call "fCW_percent"
+  set outCW_msg + " of total skins)"
+  message "   Number skinned:" gCW_killed[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_killed_self[inCW_index]
+  set inCW_total gCW_killed[inCW_index]
+  call "fCW_percent"
+  set outCW_msg + " of this type)"
+  message "   Number skinned by you:" gCW_killed_self[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_generated[inCW_index]
+  set inCW_total gCW_generated[0]
+  call "fCW_percent"
+  set outCW_msg + " of total coins)"
+  message "   Coins produced:" gCW_generated[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_earned[inCW_index]
+  set inCW_total gCW_earned[0]
+  call "fCW_percent"
+  set outCW_msg + " of total share)"
+  message "   Your share of these coins:" gCW_earned[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_self_gen[inCW_index]
+  set inCW_total gCW_generated[inCW_index]
+  call "fCW_percent"
+  set outCW_msg + " of total from this type)"
+  message "   Coins produced from your skins:" gCW_self_gen[inCW_index] outCW_msg
+  if gCW_high_who[inCW_index] == "You"
+    message "   Best skin:" gCW_high[inCW_index] "coins by" @my.name
+  else
+    message "   Best skin:" gCW_high[inCW_index] "coins by" gCW_high_who[inCW_index]
+    if gCW_high_self[inCW_index] != 0
+      message "   Best skin by you:" gCW_high_self[inCW_index] "coins."
+    end if
+  end if
+  set inCW_msg "skin: "
+  set inCW_total gCW_generated[inCW_index]
+  set inCW_divisor gCW_killed[inCW_index]
+  set inCW_per 1
+  set inCW_fixedpt 100
+  call "fCW_average"
+  message "   Average value per" outCW_msg "coins."
+else
+  set inCW_msg "("
+  set inCW_num gCW_killed[inCW_index]
+  set inCW_total gCW_killed[0]
+  call "fCW_percent"
+  set outCW_msg + ")"
+  message "   Skins:" gCW_killed_self[inCW_index] "yours," gCW_killed[inCW_index] "group." outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_generated[inCW_index]
+  set inCW_total gCW_generated[0]
+  call "fCW_percent"
+  set outCW_msg + ")"
+  message "   Coins:" gCW_earned[inCW_index] "earned," gCW_self_gen[inCW_index] "from you," gCW_generated[inCW_index] "from group." outCW_msg
+  if gCW_high_who[inCW_index] == "You"
+    message "   Best:" gCW_high[inCW_index] "by" @my.name
+  else
+    if gCW_high_self[inCW_index] != 0
+      message "   Best:" gCW_high[inCW_index] "by" gCW_high_who[inCW_index] "-" gCW_high_self[inCW_index] "by you."
+    else
+      message "   Best:" gCW_high[inCW_index] "by" gCW_high_who[inCW_index]
+    end if
+  end if
+  set inCW_msg "Average: "
+  set inCW_total gCW_generated[inCW_index]
+  set inCW_divisor gCW_killed[inCW_index]
+  set inCW_per 1
+  set inCW_fixedpt 100
+  call "fCW_average"
+  message "  " outCW_msg
+end if
+}
+
+// inCW_index
+fCW_skinner_data
+{
+if gCW_who[inCW_index] == "You"
+  set cw_msg @my.name
+else
+  set cw_msg gCW_who[inCW_index]
+end if
+set cw_msg + ":"
+message cw_msg
+if gCW_skinner_verbose == 1
+  set inCW_msg "("
+  set inCW_num gCW_skins[inCW_index]
+  set inCW_total gCW_killed[0]
+  call "fCW_percent"
+  set outCW_msg + " of total skins)"
+  message "   Furs skinned:" gCW_skins[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_made[inCW_index]
+  set inCW_total gCW_generated[0]
+  call "fCW_percent"
+  set outCW_msg + " of total coins)"
+  message "   Coins produced:" gCW_made[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_given[inCW_index]
+  set inCW_total gCW_earned[0]
+  call "fCW_percent"
+  set outCW_msg + " of total share)"
+  message "   Your share of those coins:" gCW_given[inCW_index] outCW_msg
+  if gCW_what[inCW_index] != ""
+    message "   Best skin:" gCW_what[inCW_index] "for" gCW_highest[inCW_index] "coins."
+  end if
+  set inCW_msg "skin: "
+  set inCW_total gCW_made[inCW_index]
+  set inCW_divisor gCW_skins[inCW_index]
+  set inCW_per 1
+  set inCW_fixedpt 100
+  call "fCW_average"
+  message "   Average value per" outCW_msg "coins."
+else
+  set inCW_msg "("
+  set inCW_num gCW_skins[inCW_index]
+  set inCW_total gCW_killed[0]
+  call "fCW_percent"
+  set outCW_msg + ")"
+  message "   Skinned:" gCW_skins[inCW_index] outCW_msg
+  set inCW_msg "("
+  set inCW_num gCW_made[inCW_index]
+  set inCW_total gCW_generated[0]
+  call "fCW_percent"
+  set outCW_msg + ")"
+  message "   Coins:" gCW_given[inCW_index] "yours," gCW_made[inCW_index] "group." outCW_msg
+  if gCW_what[inCW_index] != ""
+    message "   Best:" gCW_what[inCW_index] "for" gCW_highest[inCW_index]
+  end if
+  set inCW_msg "Average skin: "
+  set inCW_total gCW_made[inCW_index]
+  set inCW_divisor gCW_skins[inCW_index]
+  set inCW_per 1
+  set inCW_fixedpt 100
+  call "fCW_average"
+  message "  " outCW_msg
+end if
+}
+
+fCW_report
+{
+if gCW_stamps != 0
+  if gCW_on == 1
+    message " Data taken from" gCW_start_msg "to" @env.textLog.word[1]
+    set inCW_time @env.textLog.word[1]
+    call "fCW_get_time"
+    set cw_seconds outCW_time
+    set cw_seconds - gCW_start
+    if cw_seconds < 0
+      set cw_seconds + 86400
+    end if
+    set inCW_time cw_seconds
+    set inCW_time + gCW_time
+    set inCW_divisor inCW_time
+  else
+    message " Data taken from" gCW_start_msg "to" gCW_stop_msg
+    set inCW_time gCW_time
+    set inCW_divisor gCW_time
+  end if
+
+  call "fCW_parse"
+  message " Total active time:" outCW_hours "hr" outCW_minutes "min" outCW_seconds "sec."
+  
+  message " Total skins:" gCW_killed[0]
+  if gCW_killed[0] != gCW_skins[0]
+    message " Total skinned by you:" gCW_skins[0]
+  end if
+  
+  if gCW_time_unit == "M"
+    set cw_msg " per minute"
+    set inCW_per 60
+    set inCW_fixedpt 100
+  else if gCW_time_unit == "S"
+    set cw_msg " per second"
+    set inCW_per 1
+    set inCW_fixedpt 1000
+  else
+    set cw_msg " per hour"
+    set inCW_per 3600
+    set inCW_fixedpt 100
+  end if
+  
+  message " Total coins made by group:" gCW_generated[0]
+  set inCW_msg " ("
+  set inCW_total gCW_generated[0]
+  call "fCW_average"
+  set outCW_msg + cw_msg
+  set outCW_msg + ")"
+  message outCW_msg
+  
+  message " Amount made from your skins:" gCW_made[0]
+  set inCW_msg " ("
+  set inCW_total gCW_made[0]
+  call "fCW_average"
+  set outCW_msg + cw_msg
+  set outCW_msg + ", "
+  set inCW_msg outCW_msg
+  set inCW_num gCW_made[0]
+  set inCW_total gCW_generated[0]
+  call "fCW_percent"
+  set outCW_msg + " of total)"
+  message outCW_msg
+  
+  message " Your share of coins earned:" gCW_earned[0]
+  set inCW_msg " ("
+  set inCW_total gCW_earned[0]
+  call "fCW_average"
+  set outCW_msg + cw_msg
+  set outCW_msg + ", "
+  set inCW_msg outCW_msg
+  set inCW_num gCW_earned[0]
+  set inCW_total gCW_generated[0]
+  call "fCW_percent"
+  set outCW_msg + " of total)"
+  message outCW_msg
+  
+  if gCW_high_what != ""
+    if gCW_high_who[0] == "You"
+      message " Best skin:" gCW_high_what "for" gCW_high[0] "coins by" @my.name
+    else
+      message " Best skin:" gCW_high_what "for" gCW_high[0] "coins by" gCW_high_who[0]
+      if gCW_what[0] != ""
+        message " Best skin by you:" gCW_what[0] "for" gCW_highest[0] "coins."
+      end if
+    end if
+  end if
+  set inCW_msg "skin: "
+  set inCW_total gCW_generated[0]
+  set inCW_divisor gCW_killed[0]
+  set inCW_per 1
+  set inCW_fixedpt 100
+  call "fCW_average"
+  message " Average value per" outCW_msg "coins."
+else
+  message " Total skins:" gCW_killed[0]
+  if gCW_killed[0] != gCW_skins[0]
+    message " Total skinned by you:" gCW_skins[0]
+  end if
+  message " Total coins made by group:" gCW_earned[0]
+  message " Amount made from your skins:" gCW_generated[0]
+  message " Your share of coins earned:" gCW_made[0]
+  if gCW_high_what != ""
+    if gCW_high_who[0] == "You"
+      message " Best skin:" gCW_high_what "for" gCW_high[0] "coins by" @my.name
+    else
+      message " Best skin:" gCW_high_what "for" gCW_high[0] "coins by" gCW_high_who[0]
+      if gCW_what[0] != ""
+        message " Best skin by you:" gCW_what[0] "for" gCW_highest[0] "coins."
+      end if
+    end if
+  end if
+  set inCW_msg "skin: "
+  set inCW_total gCW_generated[0]
+  set inCW_divisor gCW_killed[0]
+  set inCW_per 1
+  set inCW_fixedpt 100
+  call "fCW_average"
+  message " Average value per" outCW_msg "coins."
+end if
+}
+
+// inCW_msg
+// inCW_num
+// inCW_total
+// outCW_msg
+fCW_percent
+{
+if inCW_total == 0
+  set inCW_total 1
+end if
+set inCW_num * 100
+set cw_coins inCW_num
+set cw_coins / inCW_total
+set outCW_msg inCW_msg
+set outCW_msg + cw_coins
+set outCW_msg + "."
+set cw_coins inCW_num
+set cw_coins * 10
+set cw_coins / inCW_total
+set cw_coins % 10
+set outCW_msg + cw_coins
+set outCW_msg + "%"
+}
+
+
+// inCW_time
+// outCW_hours
+// outCW_minutes
+// outCW_seconds
+fCW_parse
+{
+set outCW_hours inCW_time
+set outCW_hours / 3600
+set inCW_time % 3600
+set outCW_minutes inCW_time
+set outCW_minutes / 60
+set outCW_seconds inCW_time
+set outCW_seconds % 60
+}
+
+// inCW_msg
+// inCW_total
+// inCW_divisor
+// inCW_per
+// inCW_fixedpt
+// outCW_msg
+fCW_average
+{
+if inCW_divisor == 0
+  set inCW_divisor 1
+end if
+set inCW_total * inCW_per
+set cw_coins inCW_total
+set cw_coins / inCW_divisor
+set outCW_msg inCW_msg
+set outCW_msg + cw_coins
+set cw_coins inCW_total
+set cw_coins % inCW_divisor
+set cw_coins * inCW_fixedpt
+set cw_coins / inCW_divisor
+set cw_num inCW_fixedpt
+set outCW_msg + "."
+label CWAVG
+  set cw_num / 10
+  if cw_coins < cw_num
+    if cw_num > 1
+      set outCW_msg + 0
+      goto "CWAVG"
+    end if
+  end if
+set outCW_msg + cw_coins
+}

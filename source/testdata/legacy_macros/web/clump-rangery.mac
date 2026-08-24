@@ -1,0 +1,114 @@
+// Metadata
+// Name: Rangery
+// Tags: ranger, combat, equipment
+// Desc: Ranger helpers for Shieldstone, Heartwood, reflection, judging, and Belt abilities.
+// Author: Noivad
+// Website: https://clump.clanlord.net/library/index.php?title=Rangery
+// Update: https://clump.clanlord.net/library/index.php?title=Rangery
+
+//Rangery by Noivad
+f3 call toggleShieldstone //modify this to your chosen hotkey
+shift-f3 call UnShieldstone //modify this to your chosen hotkey
+
+f4 call Heartwood //modify these to your chosen hotkey/etc
+wheelup call Heartwood //works with trackpads that support 2 finger touch up
+
+wheeldown call Heartslow //works with trackpads that support 2 finger touch down
+
+f6 call reflectionshort //modify this to your chosen hotkey
+
+set shso 0
+
+ toggleShieldstone //v1.1
+{
+	if @my.finger_item == "Shieldstone" //skips equip phase if true
+	     goto ON
+	end if
+
+	label equip
+	"/equip shieldstone\r"
+
+	label ON
+	"/useitem shieldstone\r"
+	pause 1
+
+	label CHECK //Checks for Shieldstone failures …
+	if @env.textLog >= "Your Shieldstone goes inert"
+	     pause 6
+	     goto equip //…if so equips backup (if you have 1)
+	end if
+}
+
+UnShieldstone
+{
+"/unequip finger\r"
+setglobal shso 0
+}
+
+Heartwood
+{
+if @my.left_item != "Heartwood Charm"
+	"/equip heartwood\r"
+end if
+"/useitem left\r"
+}
+
+Heartslow
+{
+	"/useitem heartwood charm /slow\r"
+}
+ 
+"/judge" call judge
+
+judge
+{
+"/useitem belt /judge " @text "\r"
+}
+
+"/reflect" call reflectionshort 
+"\reflect" call reflectionshort 
+"/reflection" call reflection
+"\reflection" call reflection
+
+reflectionshort
+{
+"/use /reflect\r" 
+}
+reflection
+{
+	call equipBelt
+	"/useitem belt /reflect\r"
+}
+
+"/study"
+{
+	"/use /study \r"
+}
+
+"/be"
+{
+"/usei belt /befriend\r"
+"/pose bless\r"
+}
+
+"/con"
+{
+"/usei belt /control\r"
+"/pose sal\r"
+}
+
+"/dis"
+{
+"Dismissing in 3 seconds\r"
+pause 15
+"/pose surprised\r"
+"/useitem belt /dismiss\r"
+}
+
+"/unm" call unmorph
+
+unmorph
+{
+	"/useitem /belt /return\r"
+}
+
