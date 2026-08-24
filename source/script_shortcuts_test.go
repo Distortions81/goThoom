@@ -10,12 +10,13 @@ import (
 )
 
 // Test that a single macro expands input text and matches case-insensitively.
-func TestscriptAddShortcutExpandsInput(t *testing.T) {
+func TestScriptAddShortcutExpandsInput(t *testing.T) {
 	// Reset shared state.
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
 	inputHandlersMu = sync.RWMutex{}
 	scriptInputHandlers = nil
+	startScriptEventQueue("tester")
 
 	scriptAddShortcut("tester", "pp", "/ponder ")
 
@@ -37,11 +38,12 @@ func TestscriptAddShortcutExpandsInput(t *testing.T) {
 }
 
 // Test that multiple macros can be registered at once.
-func TestscriptAddShortcuts(t *testing.T) {
+func TestScriptAddShortcuts(t *testing.T) {
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
 	inputHandlersMu = sync.RWMutex{}
 	scriptInputHandlers = nil
+	startScriptEventQueue("bulk")
 
 	scriptAddShortcuts("bulk", map[string]string{"pp": "/ponder ", "hi": "/hello "})
 
@@ -55,13 +57,14 @@ func TestscriptAddShortcuts(t *testing.T) {
 
 // Test that calling scriptAddMacro multiple times for the same script
 // installs only one input handler while all macros still expand.
-func TestscriptAddShortcutSingleHandler(t *testing.T) {
+func TestScriptAddShortcutSingleHandler(t *testing.T) {
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
 	inputHandlersMu = sync.RWMutex{}
 	scriptInputHandlers = nil
 
 	owner := "dup"
+	startScriptEventQueue(owner)
 	scriptAddShortcut(owner, "pp", "/ponder ")
 	scriptAddShortcut(owner, "hi", "/hello ")
 
@@ -83,7 +86,7 @@ func TestscriptAddShortcutSingleHandler(t *testing.T) {
 }
 
 // Test that disabling a script removes any macros it registered.
-func TestscriptRemoveShortcutsOnDisable(t *testing.T) {
+func TestScriptRemoveShortcutsOnDisable(t *testing.T) {
 	// Reset shared state.
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
@@ -106,6 +109,7 @@ func TestscriptRemoveShortcutsOnDisable(t *testing.T) {
 	consoleLog = messageLog{max: maxMessages}
 
 	owner := "plug"
+	startScriptEventQueue(owner)
 	scriptAddShortcut(owner, "pp", "/ponder ")
 	if got, want := runInputHandlers("pp hello"), "/ponder hello"; got != want {
 		t.Fatalf("macro not added: got %q, want %q", got, want)

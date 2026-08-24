@@ -37,8 +37,6 @@ func TestMotionSmoothingFailure(t *testing.T) {
 }
 
 func TestPictureShiftWithStaticPictures(t *testing.T) {
-	gs.NoCaching = false
-
 	prev := []framePicture{
 		{PictID: 1, H: 0, V: 0},
 		{PictID: 2, H: 10, V: 10},

@@ -20,16 +20,37 @@ strings, time, unicode/utf8.
 Common API calls:
 - gt.Print(msg) – write a message to the in-game console.
 - gt.ShowNotification(msg) – pop up a notification on screen.
-- gt.RegisterCommand(name, handler) – define a local slash command.
-- gt.Run("/thing") – send a command immediately (alias of RunCommand).
-- gt.Cmd("/thing") – enqueue a command for the next tick (alias of EnqueueCommand).
+- gt.Command(name, handler) – define a local slash command.
+- gt.RegisterCommand is the compatibility name for Command.
+- gt.Send("/thing") – preferred FIFO command operation with per-script throttling.
+- gt.Run, gt.Cmd, gt.RunCommand, and gt.EnqueueCommand are compatibility aliases.
+- gt.WaitTicks(n) and gt.Wait(duration) pause only the current script task and
+  are cancelled when the script stops or reloads. SleepTicks is an alias.
+- gt.Repeat(interval, fn) runs a serialized callback repeatedly and returns a
+  Timer whose Stop method is safe to call more than once.
+- gt.WithEquipment(name, task) temporarily equips an item and restores the
+  equipment that previously occupied its slot when the task returns or panics.
+- gt.WaitForInventory and gt.WaitForEquipment wait for declarative item state
+  with a timeout and are cancelled on script stop or reload.
 - gt.AddHotkey(combo, "/thing") – bind a combo to a slash command.
 - gt.Key(combo, func()) – bind a combo directly to a no-argument function.
 - gt.AddHotkeyFn(combo, func(HotkeyEvent)) – bind a combo directly to a
   function that receives the combo, its parts, and its trigger key.
+- gt.Bind(combo, func(InputEvent)) – preferred unified key, mouse, modifier,
+  chord, and wheel binding API.
 - gt.AddShortcut("yy", "/yell ") – expand a short prefix in the input.
 - gt.AddShortcuts(map[string]string) – register many shortcuts at once.
 - gt.RegisterInputHandler(handler) – inspect/change chat text before sending.
+- gt.OnChat(filter, func(ChatEvent)) – receive parsed speaker, message, raw text,
+  and chat kind flags.
+- gt.OnServerMessage(filter, func(ServerMessageEvent)) – receive unformatted
+  server console text and its message type.
+- gt.OnLogin, gt.OnLogout, gt.OnCharacterChange, and gt.OnStop receive lifecycle
+  events with character transitions and stop reasons.
+- gt.OnChange(kind, func(ChangeEvent)) receives structured inventory, equipment,
+  selection, vitals, world, and location changes. Use the gt.Change* constants.
+- Preferred registration calls return an optional Subscription. Call Remove()
+  to unregister it; scripts may ignore the return value.
 - gt.PlayerName() – name of your current character.
 - gt.Players() – slice of known players with basic info.
 - gt.Inventory() – slice of inventory items.

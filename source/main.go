@@ -63,6 +63,7 @@ var (
 )
 
 func main() {
+	defer shutdownScripts()
 	// Ensure any active recording is finalized on exit.
 	defer func() {
 		if recorder != nil {
@@ -234,6 +235,8 @@ func main() {
 			}
 			updateGameWindowTitle()
 			applyEnabledScripts()
+			scriptSessionLogin(playerName)
+			defer scriptSessionLogout(playerName)
 
 			mp := newMoviePlayer(frames, clMovFPS, cancel)
 			if *genPGO {
@@ -336,6 +339,16 @@ func main() {
 	cancel()
 
 	<-ctx.Done()
+}
+
+func shutdownScripts() {
+	stopAllscripts()
+	savescriptStores()
+}
+
+func exitApplication(code int) {
+	shutdownScripts()
+	os.Exit(code)
 }
 
 func waitForMovieAssets(ctx context.Context) bool {

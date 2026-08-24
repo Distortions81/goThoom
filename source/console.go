@@ -31,6 +31,15 @@ func consoleMessageTyped(msg, messageType string) {
 	runConsoleTriggers(msg)
 }
 
+func serverConsoleMessage(msg string) {
+	serverConsoleMessageTyped(msg, messageTextTypeSystem)
+}
+
+func serverConsoleMessageTyped(msg, messageType string) {
+	consoleMessageTyped(msg, messageType)
+	runServerMessageHandlers(ServerMessageEvent{Message: msg, Type: messageType})
+}
+
 func getConsoleMessages() []string {
 	format := gs.TimestampFormat
 	if format == "" {

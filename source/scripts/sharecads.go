@@ -22,7 +22,7 @@ var (
 func Init() {
 	gt.RegisterCommand("shcads", scToggleCmd)
 	gt.Chat("You sense healing energy from ", handleSharecads)
-	gt.AddHotkeyFn("Shift-S", scToggleHotkey)
+	gt.Bind("Shift-S", scToggleHotkey)
 }
 
 func scToggleCmd(args string) {
@@ -34,7 +34,7 @@ func scToggleCmd(args string) {
 	}
 }
 
-func scToggleHotkey(e gt.HotkeyEvent) { scToggleCmd("") }
+func scToggleHotkey(gt.InputEvent) { scToggleCmd("") }
 
 // handleSharecads watches for healing energy messages and shares back once.
 func handleSharecads(msg string) {

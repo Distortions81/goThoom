@@ -21,7 +21,8 @@ var (
 	// shortcuts safely.
 	shortcutMu sync.RWMutex
 	// shortcutMaps keeps shortcuts separate for each script by name.
-	shortcutMaps = map[string]map[string]string{}
+	shortcutMaps          = map[string]map[string]string{}
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
 )
 
 const (
@@ -40,7 +41,7 @@ func addShortcut(owner, short, full string) {
 	if m == nil {
 		m = map[string]string{}
 		shortcutMaps[owner] = m
-		scriptRegisterInputHandler(owner, func(txt string) string {
+		inputRegistration := scriptRegisterInputHandler(owner, func(txt string) string {
 			shortcutMu.RLock()
 			local := shortcutMaps[owner]
 			shortcutMu.RUnlock()
@@ -57,6 +58,18 @@ func addShortcut(owner, short, full string) {
 			}
 			return txt
 		})
+		var registration scriptRegistrationHandle
+		registration = registerScriptResource(owner, func() {
+			removeScriptInputHandlerByHandle(inputRegistration)
+			shortcutMu.Lock()
+			if shortcutRegistrations[owner] == registration {
+				delete(shortcutMaps, owner)
+				delete(shortcutRegistrations, owner)
+			}
+			shortcutMu.Unlock()
+			refreshShortcutsList()
+		})
+		shortcutRegistrations[owner] = registration
 	}
 	m[short] = full
 	shortcutMu.Unlock()
@@ -93,8 +106,13 @@ func scriptAddShortcuts(owner string, shortcuts map[string]string) {
 // It is typically called when a script is disabled or unloaded so that any
 // previously registered shortcut prefixes no longer expand.
 func scriptRemoveShortcuts(owner string) {
+	shortcutMu.RLock()
+	registration := shortcutRegistrations[owner]
+	shortcutMu.RUnlock()
+	registration.release()
 	shortcutMu.Lock()
 	delete(shortcutMaps, owner)
+	delete(shortcutRegistrations, owner)
 	shortcutMu.Unlock()
 	refreshShortcutsList()
 	name := scriptDisplayNames[owner]

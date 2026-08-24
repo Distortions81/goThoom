@@ -730,7 +730,6 @@ func refreshscriptsWindow() {
 						enabled := !scriptDisabled[owner]
 						scriptMu.RUnlock()
 						if enabled {
-							disablescript(owner, "reloaded")
 							enablescript(owner)
 						}
 					}
@@ -909,7 +908,7 @@ func refreshscriptDebug() {
 
 func openscriptConfigWindow(owner string) {
 	scriptConfigMu.RLock()
-	entries := scriptConfigEntries[owner]
+	entries := append([]scriptConfigEntry(nil), scriptConfigEntries[owner]...)
 	scriptConfigMu.RUnlock()
 	if len(entries) == 0 {
 		return
@@ -940,23 +939,82 @@ func openscriptConfigWindow(owner string) {
 		row.AddItem(lbl)
 
 		switch ce.Type {
-		case "int-slider", "float-slider":
-			s, _ := eui.NewSlider()
+		case "int", "float":
+			s, events := eui.NewSlider()
 			s.MinValue = 0
 			s.MaxValue = 100
+			if ce.Type == "int" {
+				s.IntOnly = true
+				if value, ok := ce.Value.(int); ok {
+					s.Value = float32(value)
+				}
+			} else if value, ok := ce.Value.(float64); ok {
+				s.Value = float32(value)
+			}
 			s.Size = eui.Point{X: 120, Y: 24}
+			key := ce.Key
+			typ := ce.Type
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type != eui.EventSliderChanged {
+					return
+				}
+				if typ == "int" {
+					scriptSetConfigValue(owner, key, int(ev.Value))
+				} else {
+					scriptSetConfigValue(owner, key, float64(ev.Value))
+				}
+			}
 			row.AddItem(s)
-		case "check-box":
-			cb, _ := eui.NewCheckbox()
+		case "bool":
+			cb, events := eui.NewCheckbox()
+			cb.Checked, _ = ce.Value.(bool)
 			cb.Size = eui.Point{X: 24, Y: 24}
+			key := ce.Key
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventCheckboxChanged {
+					scriptSetConfigValue(owner, key, ev.Checked)
+				}
+			}
 			row.AddItem(cb)
-		case "text-box":
-			inp, _ := eui.NewInput()
+		case "string":
+			inp, events := eui.NewInput()
+			inp.Text, _ = ce.Value.(string)
 			inp.Size = eui.Point{X: 120, Y: 24}
+			key := ce.Key
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventInputChanged {
+					scriptSetConfigValue(owner, key, ev.Text)
+				}
+			}
 			row.AddItem(inp)
-		case "item-selector":
-			dd, _ := eui.NewDropdown()
+		case "item":
+			dd, events := eui.NewDropdown()
+			current, _ := ce.Value.(string)
+			seen := map[string]bool{}
+			if current != "" {
+				dd.Options = append(dd.Options, current)
+				seen[current] = true
+			}
+			for _, item := range getInventory() {
+				if item.Name != "" && !seen[item.Name] {
+					dd.Options = append(dd.Options, item.Name)
+					seen[item.Name] = true
+				}
+			}
+			sort.Strings(dd.Options)
+			for i, option := range dd.Options {
+				if option == current {
+					dd.Selected = i
+					break
+				}
+			}
 			dd.Size = eui.Point{X: 120, Y: 24}
+			key := ce.Key
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(ev.Item.Options) {
+					scriptSetConfigValue(owner, key, ev.Item.Options[ev.Index])
+				}
+			}
 			row.AddItem(dd)
 		default:
 			t, _ := eui.NewText()
@@ -4172,7 +4230,7 @@ func confirmQuit() {
 			{Text: "Quit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				saveCharacters()
 				saveSettings()
-				os.Exit(0)
+				exitApplication(0)
 			}},
 		},
 	)

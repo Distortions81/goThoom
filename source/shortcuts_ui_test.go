@@ -49,7 +49,7 @@ func TestShortcutsWindowListsShortcuts(t *testing.T) {
 }
 
 // Test that removing macros refreshes the window and clears the list.
-func TestscriptRemoveShortcutsRefresh(t *testing.T) {
+func TestScriptRemoveShortcutsRefresh(t *testing.T) {
 	// Reset state and ensure cleanup after the test.
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}

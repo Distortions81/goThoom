@@ -1,5 +1,3 @@
-//go:build script
-
 package main
 
 import (
@@ -7,18 +5,11 @@ import (
 	"time"
 )
 
-const scriptName = "APIFull"
-const scriptAuthor = "Test"
-const scriptCategory = "Tests"
-const scriptAPIVersion = 1
-
 func Init() {
-	// Console and notifications
 	gt.Print("apifull:init")
 	gt.ShowNotification("notif1")
 	gt.Notify("notif2")
 
-	// Shortcuts and input
 	gt.AddShortcut("yy", "/yell ")
 	gt.AddShortcuts(map[string]string{"gg": "/give "})
 	gt.RegisterInputHandler(func(s string) string {
@@ -29,14 +20,17 @@ func Init() {
 	})
 	gt.SetInputText("in_text")
 
-	// Commands and hotkeys
 	gt.RegisterCommand("apit_cmd", func(args string) { gt.Save("last_args", args) })
 	gt.AddHotkey("Ctrl-U", "/wave")
 	gt.RemoveHotkey("Ctrl-U")
 	gt.Key("Ctrl-Alt-F", func() { gt.Save("hkf", "ok") })
-	gt.AddConfig("optA", "string")
+	configValue := gt.AddConfig("Enabled", "bool", false, func(value any) {
+		if enabled, ok := value.(bool); ok && enabled {
+			gt.Save("config_callback", "yes")
+		}
+	})
+	gt.StorageSet("config_default", configValue)
 
-	// World overlay and geometry
 	gt.OverlayClear()
 	gt.OverlayRect(1, 2, 3, 4, 5, 6, 7, 8)
 	gt.OverlayText(2, 3, "txt", 10, 11, 12, 13)
@@ -48,7 +42,8 @@ func Init() {
 	gt.StorageSet("img_w", iw)
 	gt.StorageSet("img_h", ih)
 
-	// Player/world info
+	gt.StorageSet("cl_version", gt.CLVersion)
+	gt.StorageSet("player_field", gt.Player{}.Offline)
 	gt.StorageSet("me", gt.Me())
 	gt.StorageSet("players_len", len(gt.Players()))
 	inv := gt.Inventory()
@@ -56,7 +51,6 @@ func Init() {
 	gt.StorageSet("has_shield", gt.HasItem("Shield"))
 	gt.StorageSet("is_equipped", gt.IsEquipped("Shield"))
 
-	// Input state
 	gt.StorageSet("key_a", gt.KeyJustPressed("A"))
 	gt.StorageSet("mouse_right", gt.MouseJustPressed("right"))
 	dx, dy := gt.MouseWheel()
@@ -65,10 +59,9 @@ func Init() {
 	lc := gt.LastClick()
 	gt.StorageSet("click_x", int(lc.X))
 	gt.StorageSet("click_y", int(lc.Y))
-	gt.StorageSet("click_btn", lc.Button)
+	gt.StorageSet("click_btn", int(lc.Button))
 	gt.StorageSet("click_onmobile", lc.OnMobile)
 
-	// String helpers
 	gt.StorageSet("eq_ic", gt.IgnoreCase("AbC", "aBc"))
 	gt.StorageSet("starts", gt.StartsWith("hello", "he"))
 	gt.StorageSet("ends", gt.EndsWith("hello", "lo"))
@@ -83,7 +76,6 @@ func Init() {
 	gt.StorageSet("repl", gt.Replace("piper", "pi", "ha"))
 	gt.StorageSet("split", gt.Split("x|y|z", "|"))
 
-	// Timers
 	gt.After(10, func() { gt.Save("after", "yes") })
 	gt.AfterDur(15*time.Millisecond, func() { gt.Save("afterdur", "yes") })
 	gt.Every(10, func() {
@@ -110,12 +102,14 @@ func Init() {
 			gt.Save("everydur", "3")
 		}
 	})
+	repeat := gt.Repeat(time.Hour, func() { gt.Save("repeat_should_not_run", "yes") })
+	repeat.Stop()
 	go func() {
-		gt.SleepTicks(2)
+		gt.WaitTicks(2)
+		gt.Wait(time.Millisecond)
 		gt.Save("slept", "yes")
 	}()
 
-	// Triggers
 	gt.Chat("ping", func(msg string) { gt.Save("chat_any", "1") })
 	gt.PlayerChat("ping", func(msg string) { gt.Save("chat_player", "1") })
 	gt.NPCChat("ping", func(msg string) { gt.Save("chat_npc", "1") })
@@ -126,23 +120,17 @@ func Init() {
 	gt.PlayerChatFrom("Hero", "ping", func(msg string) { gt.Save("chat_pfrom", "1") })
 	gt.OtherChatFrom("Other", "ping", func(msg string) { gt.Save("chat_ofrom", "1") })
 	gt.Console("ready", func(msg string) { gt.Save("cons_new", "1") })
-	// Use ConsoleMsg for console trigger with message parameter
-	gt.ConsoleMsg("legacy", func(msg string) { gt.Save("cons_old", "1") })
-	gt.RegisterTriggers("any", []string{"bb"}, func(msg string) { gt.Save("legacy_trig", "1") })
-	// Single chat trigger: name "unit", phrase "ping"
-	gt.RegisterTrigger("unit", "ping", func() { gt.Save("sing_trig", "1") })
+	gt.RegisterConsoleTriggers([]string{"legacy"}, func() { gt.Save("cons_old", "1") })
+	gt.RegisterTriggers("", []string{"bb"}, func(msg string) { gt.Save("legacy_trig", "1") })
+	gt.RegisterTrigger("unit", "test", func() { gt.Save("sing_trig", "1") })
 	gt.RegisterChatHandler(func(msg string) { gt.Save("allchat", msg) })
 	gt.RegisterPlayerHandler(func(p gt.Player) { gt.Save("player_seen", p.Name) })
 
-	// Commands
 	gt.Run("/think hi")
 	gt.Cmd("/say hi")
 	gt.RunCommand("/shout ok")
 	gt.EnqueueCommand("/pose ok")
-
-	// Sound (no assert)
+	gt.Send("/ponder preferred")
 	gt.PlaySound([]uint16{1})
-
-	// Mark ready at the end
 	gt.Save("started", "yes")
 }

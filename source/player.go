@@ -44,8 +44,10 @@ type Player struct {
 }
 
 type playerHandler struct {
-	owner string
-	fn    func(Player)
+	owner        string
+	fn           func(Player)
+	queue        *scriptEventQueue
+	registration scriptRegistrationHandle
 }
 
 var (
@@ -221,7 +223,7 @@ func notifyPlayerHandlers(p Player) {
 	}
 	for _, h := range plug {
 		scriptLogEvent(h.owner, "PlayerHandler", p.Name)
-		go h.fn(p)
+		queueScriptCallbackOn(h.queue, h.owner, "PlayerHandler", func() { h.fn(p) })
 	}
 }
 

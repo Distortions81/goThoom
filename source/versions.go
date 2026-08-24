@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -170,7 +169,7 @@ func checkForNewVersion() {
 					{Text: "Cancel"},
 					{Text: "Download", Action: func() {
 						browser.OpenURL("https://github.com/Distortions81/goThoom/releases")
-						os.Exit(0)
+						exitApplication(0)
 					}},
 				},
 			)

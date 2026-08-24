@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -61,7 +62,32 @@ func scriptStorageGet(owner, key string) any {
 	return ps.data[key]
 }
 
-func scriptStorageSet(owner, key string, value any) {
+func scriptStorageSet(owner, key string, value any) bool {
+	if err := validateScriptStorageValue(value); err != nil {
+		reportScriptStorageError(owner, key, err)
+		return false
+	}
+	setScriptStorageValue(owner, key, value)
+	return true
+}
+
+func validateScriptStorageValue(value any) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("JSON encoding panic: %v", recovered)
+		}
+	}()
+	_, err = json.Marshal(value)
+	return err
+}
+
+func reportScriptStorageError(owner, key string, err error) {
+	msg := fmt.Sprintf("[script:%s] cannot store %q: %v", owner, key, err)
+	log.Print(msg)
+	dispatchScriptControl(func() { consoleMessage(msg) })
+}
+
+func setScriptStorageValue(owner, key string, value any) {
 	ps := getscriptStore(owner)
 	ps.mu.Lock()
 	if old, ok := ps.data[key]; !ok || !reflect.DeepEqual(old, value) {
@@ -96,28 +122,43 @@ func savescriptStores() {
 	}
 	scriptStoreMu.Unlock()
 	for _, ps := range stores {
-		ps.mu.Lock()
-		if !ps.dirty {
-			ps.mu.Unlock()
-			continue
-		}
-		data, err := json.MarshalIndent(ps.data, "", "  ")
-		if err != nil {
-			ps.mu.Unlock()
-			log.Printf("save script storage %s: %v", ps.path, err)
-			continue
-		}
-		ps.dirty = false
-		path := ps.path
-		ps.mu.Unlock()
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			log.Printf("save script storage %s: %v", path, err)
-			continue
-		}
-		if err := os.WriteFile(path, data, 0o644); err != nil {
-			log.Printf("save script storage %s: %v", path, err)
-		}
+		savescriptStore(ps)
 	}
+}
+
+func flushscriptStore(owner string) {
+	if isWASM {
+		return
+	}
+	scriptStoreMu.Lock()
+	store := scriptStores[owner]
+	scriptStoreMu.Unlock()
+	if store != nil {
+		savescriptStore(store)
+	}
+}
+
+func savescriptStore(store *scriptStore) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if !store.dirty {
+		return
+	}
+	data, err := json.MarshalIndent(store.data, "", "  ")
+	if err != nil {
+		log.Printf("save script storage %s: %v", store.path, err)
+		return
+	}
+	path := store.path
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		log.Printf("save script storage %s: %v", path, err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		log.Printf("save script storage %s: %v", path, err)
+		return
+	}
+	store.dirty = false
 }
 
 func init() {

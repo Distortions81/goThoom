@@ -11,7 +11,7 @@ import (
 )
 
 // Test that scripts missing required metadata are marked invalid and disabled.
-func TestscriptMissingMetaDisabled(t *testing.T) {
+func TestScriptMissingMetaDisabled(t *testing.T) {
 	origDir := dataDirPath
 	dataDirPath = t.TempDir()
 	t.Cleanup(func() { dataDirPath = origDir })
@@ -27,25 +27,20 @@ const scriptName = "MetaTest"
 		t.Fatalf("write script: %v", err)
 	}
 
-	// Reset script state.
+	// Scan the isolated directory directly. loadScripts uses the directory next
+	// to the test binary, which is intentionally not the data directory.
 	scriptMu = sync.RWMutex{}
-	scriptDisplayNames = map[string]string{}
-	scriptAuthors = map[string]string{}
-	scriptCategories = map[string]string{}
-	scriptSubCategories = map[string]string{}
 	scriptInvalid = map[string]bool{}
 	scriptDisabled = map[string]bool{}
 	scriptEnabledFor = map[string]scriptScope{}
-	scriptNames = map[string]bool{}
-
-	loadscripts()
+	scanned := scanscripts([]string{plugDir}, nil)
 	owner := "MetaTest_meta"
-	if !scriptInvalid[owner] {
-		t.Fatalf("script not marked invalid: %+v", scriptInvalid)
+	info, ok := scanned[owner]
+	if !ok || !info.invalid {
+		t.Fatalf("script not marked invalid: %+v", scanned)
 	}
-	if !scriptDisabled[owner] {
-		t.Fatalf("script not disabled")
-	}
+	scriptInvalid[owner] = info.invalid
+	scriptDisabled[owner] = info.invalid
 
 	playerName = "Tester"
 	setscriptEnabled(owner, true, false)

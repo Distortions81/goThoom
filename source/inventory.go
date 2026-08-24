@@ -227,12 +227,15 @@ func equipInventoryItem(id uint16, idx int, equip bool) {
 // equipInventoryItem to mirror the server's behavior. idx is the server-
 // provided 0-based index for template items or -1 otherwise.
 func queueEquipCommand(id uint16, idx int) {
-	if idx >= 0 {
-		enqueueCommand(fmt.Sprintf("/equip %d %d", id, idx+1))
-	} else {
-		enqueueCommand(fmt.Sprintf("/equip %d", id))
-	}
+	enqueueCommand(formatEquipCommand(id, idx))
 	nextCommand()
+}
+
+func formatEquipCommand(id uint16, idx int) string {
+	if idx >= 0 {
+		return fmt.Sprintf("/equip %d %d", id, idx+1)
+	}
+	return fmt.Sprintf("/equip %d", id)
 }
 
 // toggleInventoryEquipAt equips or unequips a specific item index. When idx is

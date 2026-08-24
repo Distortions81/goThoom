@@ -20,16 +20,16 @@ var armorCondition string
 func Init() {
 	gt.RegisterCommand("ironarmortoggle", ironArmorToggleCmd)
 	gt.RegisterCommand("examinearmor", examineArmorCmd)
-	gt.AddHotkeyFn("Ctrl-F10", ironArmorToggleHotkey)
-	gt.AddHotkeyFn("Ctrl-F11", examineArmorHotkey)
+	gt.Bind("Ctrl-F10", ironArmorToggleHotkey)
+	gt.Bind("Ctrl-F11", examineArmorHotkey)
 	gt.RegisterChatHandler(armorChat)
 }
 
-func ironArmorToggleCmd(args string)         { ironArmorToggler() }
-func examineArmorCmd(args string)            { examineArmor() }
-func ironArmorToggleHotkey(e gt.HotkeyEvent) { ironArmorToggler() }
-func examineArmorHotkey(e gt.HotkeyEvent)    { examineArmor() }
-func armorChat(msg string)                   { armorCondition = msg }
+func ironArmorToggleCmd(args string)      { ironArmorToggler() }
+func examineArmorCmd(args string)         { examineArmor() }
+func ironArmorToggleHotkey(gt.InputEvent) { ironArmorToggler() }
+func examineArmorHotkey(gt.InputEvent)    { examineArmor() }
+func armorChat(msg string)                { armorCondition = msg }
 
 func hasEquipped(name string) bool {
 	for _, it := range gt.EquippedItems() {

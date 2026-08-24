@@ -15,7 +15,7 @@ const scriptAPIVersion = 1
 // Init subscribes to mouse click hotkeys rather than polling.
 func Init() {
 	// RightClick: heal others, self-heal with moonstone
-	gt.AddHotkeyFn("RightClick", func(e gt.HotkeyEvent) {
+	gt.Bind("RightClick", func(e gt.InputEvent) {
 		c := gt.LastClick()
 		if !c.OnMobile {
 			return
@@ -32,7 +32,7 @@ func Init() {
 	})
 
 	// MiddleClick: reverse behavior from RightClick
-	gt.AddHotkeyFn("MiddleClick", func(e gt.HotkeyEvent) {
+	gt.Bind("MiddleClick", func(e gt.InputEvent) {
 		c := gt.LastClick()
 		if !c.OnMobile {
 			return

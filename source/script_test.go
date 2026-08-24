@@ -1,11 +1,27 @@
 package main
 
 import (
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestScriptPrintAlwaysWritesToConsole(t *testing.T) {
+	withoutConsoleTimestamps(t)
+	origDebug := gs.scriptOutputDebug
+	gs.scriptOutputDebug = false
+	t.Cleanup(func() { gs.scriptOutputDebug = origDebug })
+	consoleLog = messageLog{max: maxMessages}
+
+	scriptConsole("visible script message")
+
+	msgs := getConsoleMessages()
+	if len(msgs) != 1 || msgs[0] != "visible script message" {
+		t.Fatalf("script print output = %v", msgs)
+	}
+}
 
 // Test that script equip command skips already equipped items.
 func TestScriptEquipAlreadyEquipped(t *testing.T) {
@@ -33,6 +49,95 @@ func getQueuedCommands() []string {
 	return cmds
 }
 
+func TestScriptCommandAliasesShareFIFOAndThrottle(t *testing.T) {
+	origSpamKill := gs.ScriptSpamKill
+	gs.ScriptSpamKill = true
+	t.Cleanup(func() { gs.ScriptSpamKill = origSpamKill })
+
+	const owner = "command_alias_test"
+	scriptMu = sync.RWMutex{}
+	scriptDisabled = map[string]bool{owner: false}
+	scriptSendHistory = map[string][]time.Time{}
+	clearCommands()
+	t.Cleanup(clearCommands)
+
+	scriptRunCommand(owner, " /one ")
+	scriptEnqueueCommand(owner, "/two")
+	scriptCommand(owner, "/three")
+
+	if got, want := getQueuedCommands(), []string{"/one", "/two", "/three"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("command order = %v, want %v", got, want)
+	}
+	if got := len(scriptSendHistory[owner]); got != 3 {
+		t.Fatalf("throttle history count = %d, want 3", got)
+	}
+	scriptCommand(owner, "   ")
+	if got := len(scriptSendHistory[owner]); got != 3 {
+		t.Fatalf("empty command consumed throttle budget: %d", got)
+	}
+}
+
+func TestScriptCommandRejectionsAreVisible(t *testing.T) {
+	withoutConsoleTimestamps(t)
+	const owner = "command_rejection_test"
+	resetScriptCallbackTestState(t, owner)
+	resetInventory()
+
+	scriptCommand(owner, "   ")
+	scriptEquipByName(owner, "missing item")
+	now := time.Now()
+	scriptSendHistory[owner] = make([]time.Time, 30)
+	for i := range scriptSendHistory[owner] {
+		scriptSendHistory[owner][i] = now
+	}
+	scriptCommand(owner, "/too-many")
+
+	messages := strings.Join(getConsoleMessages(), "\n")
+	for _, want := range []string{
+		"command rejected: empty command",
+		"equip target not found: missing item",
+		"command rejected: rate limit exceeded",
+	} {
+		if !strings.Contains(messages, want) {
+			t.Fatalf("missing visible error %q in %s", want, messages)
+		}
+	}
+}
+
+func TestScriptWithEquipmentRestoresAfterPanic(t *testing.T) {
+	const owner = "equipment_task_test"
+	resetScriptCallbackTestState(t, owner)
+	resetInventory()
+	clearCommands()
+	t.Cleanup(func() {
+		resetInventory()
+		clearCommands()
+	})
+	addInventoryItem(10, -1, "Training Sword", true)
+	addInventoryItem(20, -1, "Lucky Die", false)
+
+	func() {
+		defer func() { _ = recover() }()
+		scriptWithEquipment(owner, "Lucky Die", func() {
+			scriptCommand(owner, "/roll")
+			panic("task failed")
+		})
+	}()
+
+	items := getInventory()
+	for _, item := range items {
+		if item.ID == 20 && item.Equipped {
+			t.Fatal("temporary equipment remained equipped after panic")
+		}
+		if item.ID == 10 && !item.Equipped {
+			t.Fatal("previous equipment was not restored")
+		}
+	}
+	if got, want := getQueuedCommands(), []string{"/equip 20", "/roll", "/unequip 20"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("equipment task commands = %v, want %v", got, want)
+	}
+}
+
 func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
 	origHotkeys := hotkeys
 	origFns := scriptHotkeyFns
@@ -52,7 +157,7 @@ func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
 	}()
 
 	hotkeys = nil
-	scriptHotkeyFns = map[string]map[string]func(HotkeyEvent){}
+	scriptHotkeyFns = map[string]map[string]func(InputEvent) bool{}
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptDisabled = map[string]bool{}
@@ -69,7 +174,7 @@ func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
 	if !ok || fn == nil {
 		t.Fatal("Key did not register a function hotkey")
 	}
-	fn(HotkeyEvent{Combo: "F4", Parts: []string{"F4"}, Trigger: "F4"})
+	fn(InputEvent{Chord: "F4", Key: "F4"})
 	if !ran {
 		t.Fatal("Key hotkey did not invoke its handler")
 	}
@@ -206,6 +311,7 @@ func TestScriptTriggers(t *testing.T) {
 	scriptDisabled = map[string]bool{}
 	scriptInvalid = map[string]bool{}
 	scriptEnabledFor = map[string]scriptScope{}
+	startScriptEventQueue("test")
 	triggered := false
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -255,21 +361,15 @@ func TestScriptRemoveTriggersOnDisable(t *testing.T) {
 
 // Test that disabling a script removes its input and player handlers.
 func TestDisablescriptRemovesHandlers(t *testing.T) {
-	scriptInputHandlers = []inputHandler{
-		{owner: "plug", fn: func(s string) string { return s }},
-		{owner: "other", fn: func(s string) string { return s }},
-	}
-	scriptPlayerHandlers = []playerHandler{
-		{owner: "plug", fn: func(Player) {}},
-		{owner: "other", fn: func(Player) {}},
-	}
+	scriptInputHandlers = nil
+	scriptPlayerHandlers = nil
 	inputHandlersMu = sync.RWMutex{}
 	playerHandlersMu = sync.RWMutex{}
 	scriptTriggers = map[string][]triggerHandler{}
 	scriptConsoleTriggers = map[string][]triggerHandler{}
 	triggerHandlersMu = sync.RWMutex{}
 	scriptMu = sync.RWMutex{}
-	scriptDisabled = map[string]bool{}
+	scriptDisabled = map[string]bool{"plug": false, "other": false}
 	scriptInvalid = map[string]bool{}
 	scriptEnabledFor = map[string]scriptScope{}
 	scriptDisplayNames = map[string]string{"plug": "Plug"}
@@ -281,6 +381,14 @@ func TestDisablescriptRemovesHandlers(t *testing.T) {
 	origDir := dataDirPath
 	dataDirPath = t.TempDir()
 	t.Cleanup(func() { dataDirPath = origDir })
+	scriptEventMu = sync.Mutex{}
+	scriptEventQueues = map[string]*scriptEventQueue{}
+	startScriptEventQueue("plug")
+	startScriptEventQueue("other")
+	scriptRegisterInputHandler("plug", func(s string) string { return s })
+	scriptRegisterInputHandler("other", func(s string) string { return s })
+	scriptRegisterPlayerHandler("plug", func(Player) {})
+	scriptRegisterPlayerHandler("other", func(Player) {})
 
 	disablescript("plug", "test")
 

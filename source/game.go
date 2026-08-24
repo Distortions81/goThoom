@@ -684,6 +684,8 @@ func (g *Game) Update() error {
 	once.Do(func() {
 		initGame()
 	})
+	refreshScriptInputSnapshot()
+	drainScriptDispatcher()
 	processMusicRequests()
 
 	if classicSplashFilterPending && gs.ShowClanLordSplashImage {
@@ -699,6 +701,7 @@ func (g *Game) Update() error {
 	updateSetupWizardGraphicsDetection()
 	// Advance script tick waiters once per frame
 	scriptAdvanceTick()
+	pollScriptChangeEvents()
 	advanceLegacyMacros(int64(ackFrame))
 	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.IsOpen() {
 		legacyMacroLibraryRefreshErrorsButton()
@@ -724,6 +727,8 @@ func (g *Game) Update() error {
 	hx := int16(float64(mx-worldOriginX)/worldScale - float64(fieldCenterX))
 	hy := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
 	updateWorldHover(hx, hy)
+	updateHotkeyRecording()
+	consumedScriptInput := checkHotkeys()
 
 	joyClick1, joyClick2, joyClick3 := false, false, false
 	if gs.JoystickEnabled && selectedJoystick >= 0 && selectedJoystick < len(joystickIDs) {
@@ -739,7 +744,8 @@ func (g *Game) Update() error {
 		}
 	}
 
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2 {
+	if (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) &&
+		!scriptInputConsumesButton(consumedScriptInput, "RightClick") {
 		// Input bar menu takes precedence when right-clicking on input.
 		if !handleConsoleInputContext(mx, my) {
 			// Try players list first, then inventory, then chat/console copy.
@@ -827,7 +833,8 @@ func (g *Game) Update() error {
 	}
 	if inputActive {
 		ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
-		if newChars := ebiten.AppendInputChars(nil); len(newChars) > 0 && !legacyMacroSuppressesTypedInput() {
+		if newChars := ebiten.AppendInputChars(nil); len(newChars) > 0 &&
+			!legacyMacroSuppressesTypedInput() && !scriptInputConsumesText(consumedScriptInput) {
 			if inputPos < 0 {
 				inputPos = 0
 			}
@@ -851,7 +858,7 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if ctrl && !legacyMacroKeyConsumed(ebiten.KeyV) && inpututil.IsKeyJustPressed(ebiten.KeyV) {
+		if ctrl && !legacyMacroKeyConsumed(ebiten.KeyV) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyV) && inpututil.IsKeyJustPressed(ebiten.KeyV) {
 			if txt, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(txt) > 0 {
 				runes := []rune(string(txt))
 				inputText = append(inputText[:inputPos], append(runes, inputText[inputPos:]...)...)
@@ -860,22 +867,22 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if ctrl && !legacyMacroKeyConsumed(ebiten.KeyC) && inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		if ctrl && !legacyMacroKeyConsumed(ebiten.KeyC) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyC) && inpututil.IsKeyJustPressed(ebiten.KeyC) {
 			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(string(inputText)))
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowLeft) && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+		if !legacyMacroKeyConsumed(ebiten.KeyArrowLeft) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowLeft) && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
 			if inputPos > 0 {
 				inputPos--
 				changedInput = true
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowRight) && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
+		if !legacyMacroKeyConsumed(ebiten.KeyArrowRight) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowRight) && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
 			if inputPos < len(inputText) {
 				inputPos++
 				changedInput = true
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowUp) && inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+		if !legacyMacroKeyConsumed(ebiten.KeyArrowUp) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowUp) && inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			if len(inputHistory) > 0 {
 				if historyPos > 0 {
 					historyPos--
@@ -888,7 +895,7 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowDown) && inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+		if !legacyMacroKeyConsumed(ebiten.KeyArrowDown) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowDown) && inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
 			if len(inputHistory) > 0 {
 				if historyPos < len(inputHistory)-1 {
 					historyPos++
@@ -905,7 +912,8 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		if len(inputText) > 0 && !legacyMacroKeyConsumed(ebiten.KeyBackspace) && now.Sub(lastBackpace) > time.Millisecond*keyRepeatRate {
+		if len(inputText) > 0 && !legacyMacroKeyConsumed(ebiten.KeyBackspace) &&
+			!scriptInputConsumesKey(consumedScriptInput, ebiten.KeyBackspace) && now.Sub(lastBackpace) > time.Millisecond*keyRepeatRate {
 			if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 				if inputPos > 0 {
 					lastBackpace = now
@@ -924,7 +932,7 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		if !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			if !ctrl {
 				if updated, pos, handled := legacyMacroTriggerReplacement(string(inputText), inputPos); handled {
 					inputText = []rune(updated)
@@ -993,7 +1001,7 @@ func (g *Game) Update() error {
 									if !scriptDisabled[owner] {
 										consoleMessage("> " + txt)
 										scriptLogEvent(owner, "Command", args)
-										go handler(args)
+										handler(args)
 									} else {
 										// Disabled script commands should fall through so the
 										// server still receives the user's input.
@@ -1022,7 +1030,7 @@ func (g *Game) Update() error {
 			changedInput = true
 			textChanged = true
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyEscape) && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		if !legacyMacroKeyConsumed(ebiten.KeyEscape) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEscape) && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			inputActive = false
 			inputText = inputText[:0]
 			inputPos = 0
@@ -1031,7 +1039,7 @@ func (g *Game) Update() error {
 			textChanged = true
 		}
 	} else if !typingElsewhere {
-		if !legacyMacroKeyConsumed(ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		if !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			inputActive = true
 			inputText = inputText[:0]
 			inputPos = 0
@@ -1062,20 +1070,20 @@ func (g *Game) Update() error {
 	var keyWalk bool
 	if focused && !inputActive && !typingElsewhere {
 		dx, dy := 0, 0
-		if (ebiten.IsKeyPressed(ebiten.KeyArrowLeft) && !legacyMacroKeyConsumed(ebiten.KeyArrowLeft)) ||
-			(ebiten.IsKeyPressed(ebiten.KeyA) && !legacyMacroKeyConsumed(ebiten.KeyA)) {
+		if (ebiten.IsKeyPressed(ebiten.KeyArrowLeft) && !legacyMacroKeyConsumed(ebiten.KeyArrowLeft) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowLeft)) ||
+			(ebiten.IsKeyPressed(ebiten.KeyA) && !legacyMacroKeyConsumed(ebiten.KeyA) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyA)) {
 			dx--
 		}
-		if (ebiten.IsKeyPressed(ebiten.KeyArrowRight) && !legacyMacroKeyConsumed(ebiten.KeyArrowRight)) ||
-			(ebiten.IsKeyPressed(ebiten.KeyD) && !legacyMacroKeyConsumed(ebiten.KeyD)) {
+		if (ebiten.IsKeyPressed(ebiten.KeyArrowRight) && !legacyMacroKeyConsumed(ebiten.KeyArrowRight) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowRight)) ||
+			(ebiten.IsKeyPressed(ebiten.KeyD) && !legacyMacroKeyConsumed(ebiten.KeyD) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyD)) {
 			dx++
 		}
-		if (ebiten.IsKeyPressed(ebiten.KeyArrowUp) && !legacyMacroKeyConsumed(ebiten.KeyArrowUp)) ||
-			(ebiten.IsKeyPressed(ebiten.KeyW) && !legacyMacroKeyConsumed(ebiten.KeyW)) {
+		if (ebiten.IsKeyPressed(ebiten.KeyArrowUp) && !legacyMacroKeyConsumed(ebiten.KeyArrowUp) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowUp)) ||
+			(ebiten.IsKeyPressed(ebiten.KeyW) && !legacyMacroKeyConsumed(ebiten.KeyW) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyW)) {
 			dy--
 		}
-		if (ebiten.IsKeyPressed(ebiten.KeyArrowDown) && !legacyMacroKeyConsumed(ebiten.KeyArrowDown)) ||
-			(ebiten.IsKeyPressed(ebiten.KeyS) && !legacyMacroKeyConsumed(ebiten.KeyS)) {
+		if (ebiten.IsKeyPressed(ebiten.KeyArrowDown) && !legacyMacroKeyConsumed(ebiten.KeyArrowDown) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowDown)) ||
+			(ebiten.IsKeyPressed(ebiten.KeyS) && !legacyMacroKeyConsumed(ebiten.KeyS) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyS)) {
 			dy++
 		}
 		if dx != 0 || dy != 0 {
@@ -1140,7 +1148,7 @@ func (g *Game) Update() error {
 	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) {
 		wheelX, wheelY := ebiten.Wheel()
 		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
-		if wheelName != "" {
+		if wheelName != "" && !scriptInputConsumesButton(consumedScriptInput, scriptWheelButtonName(wheelX, wheelY)) {
 			if started, allowDefault := legacyMacroTriggerWheel(wheelName, wheelModifiers, int64(ackFrame)); started && !allowDefault {
 				legacyMacroMarkInputConsumed(wheelName)
 			}
@@ -1150,10 +1158,10 @@ func (g *Game) Update() error {
 	baseX := int16(float64(mx-worldOriginX)/worldScale - float64(fieldCenterX))
 	baseY := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
 	heldTime := inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft)
-	mouseClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	mouseClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && !scriptInputConsumesButton(consumedScriptInput, "LeftClick")
 	click := mouseClick || joyClick1
-	rightClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2
-	middleClick := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle) || joyClick3
+	rightClick := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) && !scriptInputConsumesButton(consumedScriptInput, "RightClick")
+	middleClick := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle) || joyClick3) && !scriptInputConsumesButton(consumedScriptInput, "MiddleClick")
 
 	inWindow := pointInAppScreen(mx, my)
 	if !focused {
@@ -1227,7 +1235,8 @@ func (g *Game) Update() error {
 		{button: ebiten.MouseButton3, name: "click4", number: 4},
 		{button: ebiten.MouseButton4, name: "click5", number: 5},
 	} {
-		if !focused || !inWindow || !inGame || pointInUI(mx, my) || !inpututil.IsMouseButtonJustPressed(extra.button) {
+		if !focused || !inWindow || !inGame || pointInUI(mx, my) ||
+			scriptInputConsumesButton(consumedScriptInput, mouseButtonName(extra.button)) || !inpututil.IsMouseButtonJustPressed(extra.button) {
 			continue
 		}
 		info := handleWorldClick(baseX, baseY, extra.button)
@@ -1297,9 +1306,6 @@ func (g *Game) Update() error {
 			lowFPSSince = time.Time{}
 		}
 	}
-
-	updateHotkeyRecording()
-	checkHotkeys()
 
 	return nil
 }
@@ -3010,7 +3016,7 @@ func initGame() {
 
 	close(gameStarted)
 	go loadSpellcheck()
-	go loadScripts()
+	loadScripts()
 }
 
 func makeGameWindow() {
