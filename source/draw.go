@@ -36,6 +36,8 @@ type framePicture struct {
 	Background   bool
 	Owned        bool
 	Again        bool
+	obscuredPrev bool
+	obscuredNow  bool
 }
 
 type frameMobile struct {
@@ -60,6 +62,18 @@ type nameTagKey struct {
 	FontGen       uint32
 	Style         uint8
 	Dead          bool
+}
+
+func reuseCachedNameTag(m *frameMobile, previous map[uint8]frameMobile, key nameTagKey) bool {
+	prev, ok := previous[m.Index]
+	if !ok || prev.nameTag == nil || prev.nameTagKey != key {
+		return false
+	}
+	m.nameTag = prev.nameTag
+	m.nameTagW = prev.nameTagW
+	m.nameTagH = prev.nameTagH
+	m.nameTagKey = prev.nameTagKey
+	return true
 }
 
 const (
@@ -1580,11 +1594,8 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		}
 	}
 
-	if state.mobiles == nil {
-		state.mobiles = make(map[uint8]frameMobile)
-	} else {
-		clearMap(state.mobiles)
-	}
+	previousMobiles := state.mobiles
+	state.mobiles = make(map[uint8]frameMobile, len(mobiles))
 	for _, m := range mobiles {
 		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
 			style := styleRegular
@@ -1610,12 +1621,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				Style:         style,
 				Dead:          dead,
 			}
-			if prev, ok := state.mobiles[m.Index]; ok && prev.nameTag != nil && prev.nameTagKey == key {
-				m.nameTag = prev.nameTag
-				m.nameTagW = prev.nameTagW
-				m.nameTagH = prev.nameTagH
-				m.nameTagKey = prev.nameTagKey
-			} else {
+			if !reuseCachedNameTag(&m, previousMobiles, key) {
 				frame := color.RGBA{}
 				if gs.NameTagLabelColors {
 					playersMu.RLock()
@@ -1636,6 +1642,9 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			}
 		}
 		state.mobiles[m.Index] = m
+	}
+	if gs.FadeObscuringPictures {
+		cachePictureObscuring(state.pictures, mobiles, state.descriptors, state.prevMobiles, state.logicalFrame)
 	}
 	// Populate prevMobiles only when pictureShift succeeds so interpolation of
 	// mobiles and pinned effects is skipped on failure.

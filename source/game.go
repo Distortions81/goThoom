@@ -1526,7 +1526,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	var snap drawSnapshot
 	var alpha float64
 	var haveSnap bool
-	if clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
+	if !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
 		prev := gs.GameScale
 		gs.GameScale = float64(offIntScale)
 		drawSplash(worldView, 0, 0)
@@ -2059,6 +2059,53 @@ func pictureDrawsAfterMobileAt(p framePicture, pictH, pictV int16, mobH, mobV in
 	return int(mobH) <= int(pictH)
 }
 
+func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, logicalFrame int) {
+	if clImages == nil {
+		return
+	}
+	for i := range pictures {
+		p := &pictures[i]
+		p.obscuredPrev = false
+		p.obscuredNow = false
+		if clImages.IsSemiTransparent(uint32(p.PictID)) {
+			continue
+		}
+		frame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
+		prevFrame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, pictureAnimationInstanceKey(p.PrevH, p.PrevV))
+		for _, m := range mobiles {
+			d, ok := descMap[m.Index]
+			if !ok {
+				continue
+			}
+			prevMob := m
+			if pm, ok := prevMobiles[m.Index]; ok {
+				prevMob = pm
+			}
+			if !p.obscuredPrev && pictureDrawsAfterMobileAt(*p, p.PrevH, p.PrevV, prevMob.H, prevMob.V, d.Plane) {
+				p.obscuredPrev = pictureObscuresMobileAt(p.PictID, prevFrame, p.PrevH, p.PrevV, prevMob, d)
+			}
+			if !p.obscuredNow && pictureDrawsAfterMobileAt(*p, p.H, p.V, m.H, m.V, d.Plane) {
+				p.obscuredNow = pictureObscuresMobileAt(p.PictID, frame, p.H, p.V, m, d)
+			}
+			if p.obscuredPrev && p.obscuredNow {
+				break
+			}
+		}
+	}
+}
+
+func pictureObscuringFadeAlpha(obscuredPrev, obscuredNow bool, opacity, fade float32) float32 {
+	prevAlpha := float32(1)
+	if obscuredPrev {
+		prevAlpha = opacity
+	}
+	targetAlpha := float32(1)
+	if obscuredNow {
+		targetAlpha = opacity
+	}
+	return prevAlpha + (targetAlpha-prevAlpha)*fade
+}
+
 func pictureCanPinToMobile(p framePicture, width, height int) bool {
 	return gs.ObjectPinning && gs.MotionSmoothing && p.Moving && !p.Background && width <= 500 && height <= 500
 }
@@ -2093,36 +2140,8 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)
 	fadeAlpha := float32(1.0)
-	if gs.FadeObscuringPictures && w > 0 && h > 0 && clImages != nil && !clImages.IsSemiTransparent(uint32(p.PictID)) {
-		for _, m := range mobiles {
-			d, ok := descMap[m.Index]
-			if !ok {
-				continue
-			}
-			prevMob := m
-			if pm, ok := prevMobiles[m.Index]; ok {
-				prevMob = pm
-			}
-			prevDrawAfter := pictureDrawsAfterMobileAt(p, p.PrevH, p.PrevV, prevMob.H, prevMob.V, d.Plane)
-			currDrawAfter := pictureDrawsAfterMobileAt(p, p.H, p.V, m.H, m.V, d.Plane)
-			if !prevDrawAfter && !currDrawAfter {
-				continue
-			}
-			prevObscure := pictureObscuresMobileAt(p.PictID, prevFrame, p.PrevH, p.PrevV, prevMob, d)
-			currObscure := pictureObscuresMobileAt(p.PictID, frame, p.H, p.V, m, d)
-			prevAlpha := float32(1.0)
-			if prevObscure && prevDrawAfter {
-				prevAlpha = float32(gs.ObscuringPictureOpacity)
-			}
-			targetAlpha := float32(1.0)
-			if currObscure && currDrawAfter {
-				targetAlpha = float32(gs.ObscuringPictureOpacity)
-			}
-			mobFade := prevAlpha + (targetAlpha-prevAlpha)*fade
-			if mobFade < fadeAlpha {
-				fadeAlpha = mobFade
-			}
-		}
+	if gs.FadeObscuringPictures {
+		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
 	}
 	var prevImg *ebiten.Image
 	if pictureFrameBlendingEnabled() && clImages != nil {

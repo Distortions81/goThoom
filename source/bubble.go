@@ -20,10 +20,38 @@ var thoughtBubbleCompositeMask *ebiten.Image
 
 var bubbleAnimationEpoch = time.Now()
 
+type bubbleFaceCacheKey struct {
+	face  text.Face
+	scale float64
+}
+
+type bubbleTextLayoutCacheKey struct {
+	text     string
+	face     text.Face
+	maxWidth int
+}
+
+type bubbleTextLayout struct {
+	width int
+	lines []string
+}
+
+var scaledBubbleFaceCache = make(map[bubbleFaceCacheKey]text.Face)
+var bubbleTextLayoutCache = make(map[bubbleTextLayoutCacheKey]bubbleTextLayout)
+
+const maxBubbleTextLayouts = 512
+
 const ponderBubbleAnimationSpeed = 4.0
 
 func ponderBubblePhase(elapsed time.Duration) float64 {
 	return elapsed.Seconds() * ponderBubbleAnimationSpeed
+}
+
+func bubbleAnimationPhase(speed float64) float64 {
+	if !gs.AnimatedChatBubbles {
+		return 0
+	}
+	return time.Since(bubbleAnimationEpoch).Seconds() * speed
 }
 
 func ponderWaveOffset(phase, spatialPhase float64, radius float32) float32 {
@@ -162,12 +190,36 @@ func scaledBubbleFace(face text.Face, scale float64) text.Face {
 	if math.Abs(scale-1) < 1e-9 {
 		return face
 	}
+	key := bubbleFaceCacheKey{face: face, scale: scale}
+	if cached := scaledBubbleFaceCache[key]; cached != nil {
+		return cached
+	}
 	if gf, ok := face.(*text.GoTextFace); ok {
 		scaled := *gf
 		scaled.Size = gf.Size * scale
-		return &scaled
+		cached := text.Face(&scaled)
+		scaledBubbleFaceCache[key] = cached
+		return cached
 	}
 	return face
+}
+
+func cachedBubbleTextLayout(txt string, face text.Face, maxWidth int) (int, []string) {
+	key := bubbleTextLayoutCacheKey{text: txt, face: face, maxWidth: maxWidth}
+	if cached, ok := bubbleTextLayoutCache[key]; ok {
+		return cached.width, cached.lines
+	}
+	width, lines := wrapText(txt, face, float64(maxWidth))
+	if len(bubbleTextLayoutCache) >= maxBubbleTextLayouts {
+		clear(bubbleTextLayoutCache)
+	}
+	bubbleTextLayoutCache[key] = bubbleTextLayout{width: width, lines: lines}
+	return width, lines
+}
+
+func clearBubbleTextCaches() {
+	clear(scaledBubbleFaceCache)
+	clear(bubbleTextLayoutCache)
 }
 
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
@@ -236,11 +288,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 			font = bubbleFont
 		}
 	}
-	available := float64(maxLineWidth)
-	if available < 1 {
-		available = 1
-	}
-	baseWidth, lines := wrapText(txt, font, available)
+	baseWidth, lines := cachedBubbleTextLayout(txt, font, maxLineWidth)
 	width := int(math.Ceil(float64(baseWidth)))
 	width += 2 * pad
 	metrics := font.Metrics()
@@ -278,7 +326,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	body.Close()
 
 	var tail vector.Path
-	ponderPhase := ponderBubblePhase(time.Since(bubbleAnimationEpoch))
+	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
 	if !far && !noArrow {
 		if bubbleType == kBubblePonder {
 			r1 := float32(tailHalf)
@@ -408,7 +456,7 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size float32, col color.Color, bottomGapStart, bottomGapEnd float32) {
 	bdR, bdG, bdB, bdA := col.RGBA()
 	step := size
-	phase := float64(time.Now().UnixNano()) / float64(time.Second) * 4
+	phase := bubbleAnimationPhase(4)
 	spikeBase := size + size*0.3*float32(math.Sin(phase))
 
 	drawOp := &vector.DrawPathOptions{AntiAlias: true}
@@ -506,7 +554,7 @@ func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size flo
 func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size float32, col color.Color, bottomGapStart, bottomGapEnd float32) {
 	bdR, bdG, bdB, bdA := col.RGBA()
 	step := size / 2
-	phase := float64(time.Now().UnixNano()) / float64(time.Second)
+	phase := bubbleAnimationPhase(1)
 
 	drawOp := &vector.DrawPathOptions{AntiAlias: true}
 	drawOp.ColorScale.Scale(float32(bdR)/0xffff, float32(bdG)/0xffff, float32(bdB)/0xffff, float32(bdA)/0xffff)

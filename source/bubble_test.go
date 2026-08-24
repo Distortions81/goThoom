@@ -36,3 +36,13 @@ func TestPonderBubbleAnimationAdvances(t *testing.T) {
 		t.Fatalf("ponder wave offset did not change between phases: %v", first)
 	}
 }
+
+func TestBubbleAnimationCanBeDisabled(t *testing.T) {
+	original := gs.AnimatedChatBubbles
+	t.Cleanup(func() { gs.AnimatedChatBubbles = original })
+
+	gs.AnimatedChatBubbles = false
+	if phase := bubbleAnimationPhase(4); phase != 0 {
+		t.Fatalf("disabled bubble animation phase = %v, want 0", phase)
+	}
+}

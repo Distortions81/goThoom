@@ -8,7 +8,40 @@ import (
 	"unsafe"
 
 	"gothoom/climg"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
+
+func TestReuseCachedNameTagFromPreviousFrame(t *testing.T) {
+	key := nameTagKey{Text: "Busy", FontGen: 7}
+	image := new(ebiten.Image)
+	previous := map[uint8]frameMobile{
+		3: {Index: 3, nameTag: image, nameTagW: 42, nameTagH: 12, nameTagKey: key},
+	}
+	mobile := frameMobile{Index: 3}
+	if !reuseCachedNameTag(&mobile, previous, key) {
+		t.Fatal("matching previous-frame name tag was not reused")
+	}
+	if mobile.nameTag != image || mobile.nameTagW != 42 || mobile.nameTagH != 12 || mobile.nameTagKey != key {
+		t.Fatal("previous-frame name tag cache was not copied completely")
+	}
+	if reuseCachedNameTag(&mobile, previous, nameTagKey{Text: "Changed", FontGen: 7}) {
+		t.Fatal("name tag with a changed key was reused")
+	}
+}
+
+func TestPictureObscuringFadeUsesCachedUpdateStates(t *testing.T) {
+	const opacity = float32(0.4)
+	if got := pictureObscuringFadeAlpha(false, true, opacity, 0.25); got != 0.85 {
+		t.Fatalf("fade into obscuring = %v, want 0.85", got)
+	}
+	if got := pictureObscuringFadeAlpha(true, false, opacity, 0.25); got != 0.55 {
+		t.Fatalf("fade out of obscuring = %v, want 0.55", got)
+	}
+	if got := pictureObscuringFadeAlpha(true, true, opacity, 0.75); got != opacity {
+		t.Fatalf("steady obscuring = %v, want %v", got, opacity)
+	}
+}
 
 func mockCLImages(w, h int) *climg.CLImages {
 	imgs := &climg.CLImages{}

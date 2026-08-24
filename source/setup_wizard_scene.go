@@ -72,14 +72,13 @@ func applySetupWizardSceneLighting(mode setupWizardSceneMode) {
 	restoreMovieNightState(night)
 }
 
-func setupWizardWalkPosition(step int64) (int16, bool) {
+func setupWizardWalkPosition(step int64) int16 {
 	const halfCycle = int64(10)
 	phase := step % (halfCycle * 2)
-	movingRight := phase < halfCycle
-	if !movingRight {
+	if phase >= halfCycle {
 		phase = halfCycle*2 - phase
 	}
-	return int16(-180 + phase*16), movingRight
+	return int16(-180 + phase*16)
 }
 
 func setupWizardScenePicture(id uint16, h, v int16) framePicture {
@@ -127,7 +126,7 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	descriptors := []frameDescriptor{
 		{Index: 1, Type: 1, PictID: 447, Name: "Motion", Plane: 0},
 		{Index: 2, Type: 1, PictID: 456, Name: "Shadows", Plane: 0},
-		{Index: 3, Type: 3, PictID: 565, Name: "Creature", Plane: 0},
+		{Index: 3, Type: kDescPlayer, PictID: 565, Name: "Creature", Plane: 0},
 	}
 	for _, descriptor := range descriptors {
 		if clImages != nil {
@@ -137,21 +136,19 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 		snap.prevDescs[descriptor.Index] = descriptor
 	}
 
-	prevH, prevRight := setupWizardWalkPosition(step)
-	curH, curRight := setupWizardWalkPosition(step + 1)
-	prevFacing, curFacing := uint8(16), uint8(16)
-	if prevRight {
-		prevFacing = 0
+	prevH := setupWizardWalkPosition(step)
+	curH := setupWizardWalkPosition(step + 1)
+	facing := uint8(16)
+	if curH > prevH {
+		facing = 0
 	}
-	if curRight {
-		curFacing = 0
-	}
-	prevWalker := frameMobile{Index: 1, State: prevFacing + uint8(step%4), H: prevH, V: 45}
-	curWalker := frameMobile{Index: 1, State: curFacing + uint8((step+1)%4), H: curH, V: 45}
-	prevCompanion := frameMobile{Index: 2, State: 8 + uint8(step%4), H: 70, V: 100}
-	curCompanion := frameMobile{Index: 2, State: 8 + uint8((step+1)%4), H: 70, V: 100}
-	prevCreature := frameMobile{Index: 3, State: uint8(step % 4), H: 180, V: -70}
-	curCreature := frameMobile{Index: 3, State: uint8((step + 1) % 4), H: 180, V: -70}
+	lowHealth := uint8(kColorCodeBackRed << 4)
+	prevWalker := frameMobile{Index: 1, State: facing + uint8(step%4), H: prevH, V: 45}
+	curWalker := frameMobile{Index: 1, State: facing + uint8((step+1)%4), H: curH, V: 45}
+	prevCompanion := frameMobile{Index: 2, State: 8 + uint8(step%4), H: 70, V: 100, Colors: lowHealth}
+	curCompanion := frameMobile{Index: 2, State: 8 + uint8((step+1)%4), H: 70, V: 100, Colors: lowHealth}
+	prevCreature := frameMobile{Index: 3, State: uint8(step % 4), H: 180, V: -70, Colors: lowHealth}
+	curCreature := frameMobile{Index: 3, State: uint8((step + 1) % 4), H: 180, V: -70, Colors: lowHealth}
 	snap.prevMobiles[1] = prevWalker
 	snap.prevMobiles[2] = prevCompanion
 	snap.prevMobiles[3] = prevCreature

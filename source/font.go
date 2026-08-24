@@ -28,6 +28,7 @@ var fontGen uint32
 
 func initFont() {
 	fontGen++
+	clearBubbleTextCaches()
 	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)
@@ -71,8 +72,8 @@ func initFont() {
 		Source: bold,
 		Size:   gs.BubbleFontSize,
 	}
-    bubbleFontRegular = &text.GoTextFace{
-        Source: regular,
-        Size:   gs.BubbleFontSize,
-    }
+	bubbleFontRegular = &text.GoTextFace{
+		Source: regular,
+		Size:   gs.BubbleFontSize,
+	}
 }

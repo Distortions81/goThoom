@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	_ "embed"
 	"fmt"
 	"math"
 	"strings"
@@ -20,29 +18,23 @@ const (
 	setupWizardKoFiURL   = "https://ko-fi.com/distortions"
 )
 
-//go:embed data/setup-wizard/Distortions__2026-08-21-17-35-52.clMov.zip
-var setupWizardMovieZip []byte
-
 var (
 	setupWizardWin  *eui.WindowData
 	setupWizardRoot *eui.ItemData
 	setupWizardPage int
 
-	setupWizardPreview       *moviePlayer
-	setupWizardPreviewCancel context.CancelFunc
-	setupWizardPreviewDone   chan struct{}
 	setupWizardPreviewActive bool
 	setupWizardPreviewLogin  bool
-	setupWizardPreviewPlayer string
 	setupWizardPreviewCrypt  bool
 	setupWizardPreviewBubble bool
-	setupWizardPreviewVer    uint16
-	setupWizardPreviewRev    int32
 	setupWizardPreviewNight  movieNightState
 
 	setupWizardGraphicsRecommendation string
 	setupWizardGraphicsTested         bool
 	setupWizardGraphicsPending        bool
+	setupWizardGraphicsStarted        time.Time
+	setupWizardGraphicsFPSSum         float64
+	setupWizardGraphicsFPSCount       int
 	setupWizardVSyncBypass            bool
 )
 
@@ -60,7 +52,11 @@ func openSetupWizard(force bool) {
 	setupWizardGraphicsRecommendation = ""
 	setupWizardGraphicsTested = false
 	setupWizardGraphicsPending = false
-	setupWizardVSyncBypass = true
+	setupWizardGraphicsStarted = time.Time{}
+	setupWizardGraphicsFPSSum = 0
+	setupWizardGraphicsFPSCount = 0
+	setupWizardVSyncBypass = false
+	startSetupWizardGraphicsDetection()
 	if setupWizardWin == nil {
 		setupWizardWin = eui.NewWindow()
 		setupWizardWin.Closable = false
@@ -84,49 +80,20 @@ func openSetupWizard(force bool) {
 }
 
 func startSetupWizardPreview() {
-	if setupWizardPreviewActive || tcpConn != nil || clmov != "" || playingMovie || pcapPath != "" || fake || clImages == nil || gameCtx == nil {
+	if setupWizardPreviewActive || tcpConn != nil || clmov != "" || playingMovie || pcapPath != "" || fake || clImages == nil {
 		return
 	}
-	previousVersion := movieVersion
-	previousRevision := movieRevision
-	previousNight := captureMovieNightState()
-	frames, err := parseMovieZipBytes(setupWizardMovieZip, clVersion)
-	if err != nil || len(frames) == 0 {
-		movieVersion = previousVersion
-		movieRevision = previousRevision
-		restoreMovieNightState(previousNight)
-		if err != nil {
-			logError("setup wizard movie: %v", err)
-		}
-		return
-	}
-
-	previewCtx, cancel := context.WithCancel(gameCtx)
-	setupWizardPreviewCancel = cancel
-	setupWizardPreviewDone = make(chan struct{})
 	setupWizardPreviewLogin = loginWin != nil && loginWin.IsOpen()
-	setupWizardPreviewPlayer = playerName
 	setupWizardPreviewCrypt = drawStateEncrypted
 	setupWizardPreviewBubble = blockBubbles
-	setupWizardPreviewVer = previousVersion
-	setupWizardPreviewRev = previousRevision
-	setupWizardPreviewNight = previousNight
+	setupWizardPreviewNight = captureMovieNightState()
 	setupWizardPreviewActive = true
 	// The synthetic visibility scene supplies its own deterministic bubble.
 	blockBubbles = false
 	drawStateEncrypted = false
-	playerName = extractMoviePlayerName(frames)
 	if loginWin != nil {
 		loginWin.Close()
 	}
-
-	mp := newMoviePlayer(frames, clMovFPS, cancel)
-	mp.repeat = true
-	setupWizardPreview = mp
-	go func() {
-		mp.run(previewCtx)
-		close(setupWizardPreviewDone)
-	}()
 }
 
 func stopSetupWizardPreview() {
@@ -134,45 +101,9 @@ func stopSetupWizardPreview() {
 		return
 	}
 	setupWizardPreviewActive = false
-	if setupWizardPreview != nil {
-		setupWizardPreview.playing = false
-		if setupWizardPreview.ticker != nil {
-			setupWizardPreview.ticker.Stop()
-		}
-	}
-	if setupWizardPreviewCancel != nil {
-		setupWizardPreviewCancel()
-	}
-	if setupWizardPreviewDone != nil {
-		select {
-		case <-setupWizardPreviewDone:
-		case <-time.After(250 * time.Millisecond):
-		}
-	}
-	stopAllSounds()
-	stopAllTTS()
-	stopAllMusic()
-	playingMovie = false
-	movieMode = false
 	blockBubbles = setupWizardPreviewBubble
-	playerName = setupWizardPreviewPlayer
 	drawStateEncrypted = setupWizardPreviewCrypt
-	movieVersion = setupWizardPreviewVer
-	movieRevision = setupWizardPreviewRev
 	restoreMovieNightState(setupWizardPreviewNight)
-	setupWizardPreview = nil
-	setupWizardPreviewCancel = nil
-	setupWizardPreviewDone = nil
-	resetDrawState()
-	// Movie messages can populate the Players window. Restore its persisted
-	// contents without allowing preview-only names to be saved.
-	playersMu.Lock()
-	players = make(map[string]*Player)
-	playersMu.Unlock()
-	loadPlayersPersist()
-	updatePlayersWindow()
-	playersPersistDirty = false
-	playersDirty = false
 	updateRecordButton()
 	if setupWizardPreviewLogin && loginWin != nil {
 		loginWin.MarkOpen()
@@ -221,6 +152,13 @@ func rebuildSetupWizard() {
 	}
 
 	root.AddItem(setupWizardNavigation())
+	if setupWizardGraphicsPending {
+		setSetupWizardDisabled(root, true)
+		detail := setupWizardText("Testing Full Quality with the running game for five seconds. The wizard will unlock when detection finishes.", 11, 620)
+		heading := setupWizardHeading("Auto-adjusting performance…")
+		root.PrependItem(detail)
+		root.PrependItem(heading)
+	}
 	if setupWizardRoot == nil {
 		setupWizardWin.AddItem(root)
 	} else {
@@ -333,6 +271,10 @@ func buildSetupVisibilityPage(root *eui.ItemData) {
 		gs.SpeechBubbles = checked
 		settingsDirty = true
 	}))
+	root.AddItem(setupWizardCheckbox("Animated chat bubbles", "Animate ponder, yell, and monster bubble effects.", gs.AnimatedChatBubbles, func(checked bool) {
+		gs.AnimatedChatBubbles = checked
+		settingsDirty = true
+	}))
 	root.AddItem(setupWizardSlider("Bubble opacity", "Adjust how strongly speech bubbles cover the world.", 0, 1, float32(gs.BubbleOpacity), false, func(value float32) {
 		gs.BubbleOpacity = float64(value)
 		settingsDirty = true
@@ -383,10 +325,6 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		initFont()
 		settingsDirty = true
 	}
-	if !setupWizardGraphicsTested && !isWASM {
-		setupWizardGraphicsPending = true
-	}
-
 	root.AddItem(setupWizardHeading("Graphics and comfort"))
 	root.AddItem(setupWizardText(
 		"Your current graphics choices are selected below. Adjust only what you want while watching the real renderer behind this window.",
@@ -398,19 +336,14 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTest.Text = "Rerun Graphics Detection"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Runs seven synchronized samples and applies Full Quality or the iGPU graphics preset using an 80 FPS cutoff")
+	graphicsTest.SetTooltip("Applies Full Quality, observes the real game frame rate for five seconds, then uses the iGPU preset below 80 FPS")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
 		}
-		result, err := runGraphicsBenchmark()
-		if err != nil {
-			showPopup("Graphics Performance Test", err.Error(), []popupButton{{Text: "OK"}})
-			return
-		}
-		applySetupWizardGraphicsRecommendation(result)
+		startSetupWizardGraphicsDetection()
 		rebuildSetupWizard()
 	}
 	graphicsTestRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
@@ -499,7 +432,11 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		markQualityCustom()
 	}
 	root.AddItem(upscaleStyle)
-	wizardVSync := setupWizardCheckbox("VSync", "VSync is temporarily off during setup so graphics detection can measure uncapped performance. Your saved VSync setting is restored afterward.", false, nil)
+	wizardVSync := setupWizardCheckbox("VSync", "VSync is temporarily bypassed only during the five-second graphics benchmark. Your saved setting applies normally afterward.", effectiveVSyncEnabled(), func(checked bool) {
+		gs.VSync = checked
+		applyVSyncSetting()
+		settingsDirty = true
+	})
 	setSetupWizardDisabled(wizardVSync, setupWizardVSyncBypass)
 	root.AddItem(wizardVSync)
 	root.AddItem(setupWizardRecommendedCheckbox("Precache images", "Loads game artwork before play for fewer pauses, using up to about 2 GB of additional RAM.", gs.PrecacheImages, defaultPrecacheImages, func(checked bool) {
@@ -522,26 +459,66 @@ func updateSetupWizardGraphicsDetection() {
 	if !setupWizardGraphicsPending {
 		return
 	}
+	now := time.Now()
+	if setupWizardGraphicsStarted.IsZero() {
+		setupWizardGraphicsStarted = now
+		return
+	}
+	// Give the preview and uncapped presentation a second to settle, then
+	// observe the complete renderer for the remaining four seconds.
+	if now.Sub(setupWizardGraphicsStarted) >= time.Second {
+		result, err := runGraphicsBenchmark()
+		if err == nil {
+			setupWizardGraphicsFPSSum += result.ActualFPS
+			setupWizardGraphicsFPSCount++
+		}
+	}
+	if now.Sub(setupWizardGraphicsStarted) < 5*time.Second {
+		return
+	}
+
 	setupWizardGraphicsPending = false
 	setupWizardGraphicsTested = true
-	result, err := runGraphicsBenchmark()
-	if err != nil {
+	if setupWizardGraphicsFPSCount == 0 {
 		setupWizardGraphicsRecommendation = "Detection failed"
 	} else {
-		applySetupWizardGraphicsRecommendation(result)
+		fps := setupWizardGraphicsFPSSum / float64(setupWizardGraphicsFPSCount)
+		applySetupWizardGraphicsRecommendation(graphicsBenchmarkResult{
+			ActualFPS:     fps,
+			RecommendIGPU: recommendIGPUGraphics(fps),
+		})
 	}
+	setupWizardVSyncBypass = false
+	applyVSyncSetting()
 	rebuildSetupWizard()
 }
 
+func startSetupWizardGraphicsDetection() {
+	if isWASM {
+		return
+	}
+	// Always measure the same workload. Testing whatever preset happened to
+	// be active would make results incomparable and could hide a slow GPU.
+	applyQualityPreset("Full Graphics")
+	setupWizardVSyncBypass = true
+	applyVSyncSetting()
+	setupWizardGraphicsPending = true
+	setupWizardGraphicsTested = false
+	setupWizardGraphicsStarted = time.Time{}
+	setupWizardGraphicsFPSSum = 0
+	setupWizardGraphicsFPSCount = 0
+	setupWizardGraphicsRecommendation = ""
+}
+
 func applySetupWizardGraphicsRecommendation(result graphicsBenchmarkResult) {
-	setupWizardGraphicsRecommendation = fmt.Sprintf("%s (%.1f ms median)", graphicsBenchmarkRecommendedLabel(result), float64(result.Median.Microseconds())/1000)
+	setupWizardGraphicsRecommendation = fmt.Sprintf("%s (%.0f FPS)", graphicsBenchmarkRecommendedLabel(result), result.ActualFPS)
 	applyQualityPreset(graphicsBenchmarkRecommendedPreset(result))
 }
 
 func igpuGraphicsPresetApplied() bool {
 	return gs.MotionSmoothing && !gs.BlendMobiles && !gs.BlendPicts && !gs.ShaderLighting &&
 		gs.GameScale == 2 && !gs.DenoiseImages &&
-		!gs.WindowShadows &&
+		!gs.WindowShadows && !gs.CharacterShadows && !gs.AnimatedChatBubbles &&
 		artworkUpscaleMode() == artworkUpscaleBalanced
 }
 
@@ -934,8 +911,12 @@ func setupWizardSubOption(item *eui.ItemData) *eui.ItemData {
 }
 
 func setSetupWizardDisabled(item *eui.ItemData, disabled bool) {
+	if item == nil {
+		return
+	}
+	item.Disabled = disabled
 	for _, child := range item.Contents {
-		child.Disabled = disabled
+		setSetupWizardDisabled(child, disabled)
 	}
 }
 

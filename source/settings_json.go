@@ -91,6 +91,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "WindowShadows", category: settingsInterface, name: "window_shadows"},
 
 	{field: "SpeechBubbles", category: settingsSpeechBubbles, name: "enabled"},
+	{field: "AnimatedChatBubbles", category: settingsSpeechBubbles, name: "animated"},
 	{field: "BubbleOpacity", category: settingsSpeechBubbles, name: "opacity"},
 	{field: "BubbleBaseLife", category: settingsSpeechBubbles, name: "base_lifetime_seconds"},
 	{field: "BubbleLifePerWord", category: settingsSpeechBubbles, name: "seconds_per_word"},

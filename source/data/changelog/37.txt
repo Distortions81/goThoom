@@ -27,11 +27,15 @@ Defaults and options:
 - Flame-style light flicker, Character Shadows, Accurate Character Shadows, and artwork upscaling default to on.
 - The default game artwork scale is now 4x and the default upscale style is Ultra Smooth.
 - Blend Image Dithering now defaults to off with Sharpness 10 and Strength 35, remains available in the Setup Wizard and Quality Settings, and is no longer changed by quality presets.
-- The iGPU preset uses 2x Balanced artwork upscaling and smooth movement while shader lighting, animation blending, window shadows, audio enhancement, music enhancement, and high-quality resampling are off. It preserves character-shadow, accurate-shadow, and Potato GPU settings.
+- Animated Chat Bubbles default to on and can be disabled in the Setup Wizard or Bubble Settings.
+- The iGPU preset uses 2x Balanced artwork upscaling and smooth movement while shader lighting, animation blending, character shadows, animated chat bubbles, window shadows, audio enhancement, music enhancement, and high-quality resampling are off. It preserves the Accurate Character Shadows and Potato GPU settings.
 - The setup wizard shows a bold live FPS counter in the top-right of the game window.
 - The setup wizard uses 2x as the minimum game upscale amount.
-- The setup wizard temporarily bypasses VSync without changing the saved setting, allowing uncapped performance measurement, and recommends the iGPU preset below 80 FPS.
+- The setup wizard bypasses VSync only during its five-second benchmark without changing the saved setting, then restores normal VSync behavior and recommends the iGPU preset when real FPS is below 80.
 - Settings, Quality, and setup-wizard UI invalidations are coalesced on a 100 ms timer so rapid control changes do not continuously rebuild their large window caches.
+- Speech bubbles reuse scaled font faces and wrapped text layouts instead of rebuilding their glyph-atlas inputs every rendered frame.
+- Name-tag images now carry over correctly between game updates instead of being rebuilt for every named character on every frame.
+- Fade-obscuring overlap checks now run once per actual game update; rendered frames only interpolate the cached previous and current results.
 - Stereo Music now defaults to off.
 - When Stereo Music is enabled, bard parts are spread across a maximum 40% stereo field instead of 70%.
 - Modern player-health bars default above the name at three pixels thick, remain hidden at full health, and the player's own name tag is visible by default.
@@ -43,7 +47,11 @@ Fixes:
 - Character shadows use the exact current walk-cycle frame without animation crossfading, avoiding intermediate alpha textures that made their darkness pulse while walking or idle.
 - Kept speech-bubble text independent of the artwork supersampling scale and adjusted the default interface font sizes for clearer bubbles and more compact lists and names.
 - New installations now enable sound precaching with at least 4 GiB of system RAM and artwork precaching with at least 8 GiB; both remain off by default in browsers or when memory cannot be detected.
-- Added a repeatable setup-wizard graphics benchmark using the real lighting and artwork-upscale shaders. It automatically applies the recommended Full Quality or iGPU graphics preset, and the sustained low-FPS warning offers the iGPU preset.
+- Added repeatable setup-wizard graphics detection based on the complete renderer's real FPS. It automatically applies the recommended Full Quality or iGPU graphics preset, and the sustained low-FPS warning offers the iGPU preset.
+- At startup and when detection is rerun, the wizard applies Full Quality, greys out its controls, and observes the already-running preview for five seconds before keeping Full Quality or switching to iGPU.
+- Removed the hidden embedded-movie playback beneath the wizard's synthetic preview; the synthetic scene now runs directly from the normal renderer and clock.
+- The wizard preview now includes a low-health NPC and creature, and its walking NPC changes facing on the same tick that its travel direction reverses.
+- Removed the Object Effect Pinning checkbox from the Quality UI while retaining the underlying setting and behavior.
 - Synchronized image-cache invalidation with background precaching so quality changes cannot repopulate caches with images being cleared.
 - Restored the compact pre-tuning radius for emitted light glows so nearby artwork stays clear instead of looking broadly blurred.
 - Expanded dark-caster coverage, reduced dead dark-caster intensity, and stopped fully off-screen lighting sources from consuming shader capacity.
@@ -69,4 +77,5 @@ Technical changes:
 - Moved the Go module and runtime source tree under `source/`; repository-level build scripts and documentation were updated for the new layout.
 - Published release builds no longer run for ordinary pushes, and the WebAssembly build is maintained as a separate explicit build script.
 - Artwork-upscale caches now distinguish each selected style and are cleared when relevant quality settings change.
+- The default PGO profile now uses the busy `tour-2025.08.02.clMov.zip` scene, and PGO capture supports configurable input, duration, output, and repeating playback after assets are ready.
 - Added regression coverage for settings migration, lighting flags and planes, random animations, character shadows, artwork upscaling, thought-bubble compositing, cache refreshes, music streaming and stopping, scrollbar sizing, UI click ownership, and legacy macro text selection.

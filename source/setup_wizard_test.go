@@ -53,6 +53,49 @@ func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 	}
 }
 
+func TestStartSetupWizardGraphicsDetectionResetsFiveSecondSample(t *testing.T) {
+	originalSettings := gs
+	originalPending := setupWizardGraphicsPending
+	originalTested := setupWizardGraphicsTested
+	originalStarted := setupWizardGraphicsStarted
+	originalSum := setupWizardGraphicsFPSSum
+	originalCount := setupWizardGraphicsFPSCount
+	originalRecommendation := setupWizardGraphicsRecommendation
+	originalBypass := setupWizardVSyncBypass
+	t.Cleanup(func() {
+		gs = originalSettings
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+		setupWizardVSyncBypass = originalBypass
+		applyVSyncSetting()
+		setupWizardGraphicsPending = originalPending
+		setupWizardGraphicsTested = originalTested
+		setupWizardGraphicsStarted = originalStarted
+		setupWizardGraphicsFPSSum = originalSum
+		setupWizardGraphicsFPSCount = originalCount
+		setupWizardGraphicsRecommendation = originalRecommendation
+	})
+
+	setupWizardGraphicsTested = true
+	setupWizardGraphicsStarted = time.Now()
+	setupWizardGraphicsFPSSum = 400
+	setupWizardGraphicsFPSCount = 10
+	setupWizardGraphicsRecommendation = "old result"
+	startSetupWizardGraphicsDetection()
+
+	if !setupWizardGraphicsPending || setupWizardGraphicsTested || !setupWizardGraphicsStarted.IsZero() {
+		t.Fatal("graphics detection did not restart in its pending state")
+	}
+	if setupWizardGraphicsFPSSum != 0 || setupWizardGraphicsFPSCount != 0 || setupWizardGraphicsRecommendation != "" {
+		t.Fatal("graphics detection retained samples from the previous run")
+	}
+	if !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || !gs.AnimatedChatBubbles || artworkUpscaleMode() != artworkUpscaleUltraSmooth {
+		t.Fatal("graphics detection did not apply Full Quality before sampling")
+	}
+	if !setupWizardVSyncBypass {
+		t.Fatal("graphics detection did not bypass VSync while sampling")
+	}
+}
+
 func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
 	previousPage := setupWizardScenePage
 	previousMode := setupWizardSceneModeValue
@@ -111,6 +154,52 @@ func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
 	}
 	if len(snap.bubbles) != 1 {
 		t.Fatal("visibility scene has no deterministic speech bubble")
+	}
+	lowHealth := uint8(kColorCodeBackRed << 4)
+	colors := make(map[uint8]uint8, len(snap.mobiles))
+	for _, mobile := range snap.mobiles {
+		colors[mobile.Index] = mobile.Colors
+	}
+	if colors[2] != lowHealth || colors[3] != lowHealth {
+		t.Fatal("synthetic companion and creature are not visibly low on health")
+	}
+	if _, visible := mobileHealthBarColor(colors[3], snap.descriptors[3].Type); !visible {
+		t.Fatal("synthetic creature's low-health bar is not visible with modern health bars")
+	}
+}
+
+func TestSetupWizardWalkerFacesCurrentTravelDirection(t *testing.T) {
+	previousStart := setupWizardSceneStarted
+	originalNight := captureMovieNightState()
+	t.Cleanup(func() {
+		setupWizardSceneStarted = previousStart
+		restoreMovieNightState(originalNight)
+	})
+	const interval = 420 * time.Millisecond
+	setupWizardSceneStarted = time.Unix(1000, 0)
+
+	for _, test := range []struct {
+		step       int
+		facesRight bool
+	}{
+		{step: 9, facesRight: true},
+		{step: 10, facesRight: false},
+	} {
+		var snap drawSnapshot
+		prepareSetupWizardSceneSnapshot(&snap, setupWizardSceneStarted.Add(time.Duration(test.step)*interval))
+		var walker frameMobile
+		for _, mobile := range snap.mobiles {
+			if mobile.Index == 1 {
+				walker = mobile
+				break
+			}
+		}
+		previous := snap.prevMobiles[walker.Index]
+		movingRight := walker.H > previous.H
+		facingRight := walker.State < 16 && previous.State < 16
+		if movingRight != test.facesRight || facingRight != movingRight {
+			t.Fatalf("step %d movement right=%v facing right=%v", test.step, movingRight, facingRight)
+		}
 	}
 }
 
@@ -230,26 +319,6 @@ func TestSetupWizardPrecacheRecommendationPill(t *testing.T) {
 	notRecommended := setupWizardRecommendedCheckbox("Precache images", "description", false, false, nil)
 	if len(notRecommended.Contents) < 1 || len(notRecommended.Contents[0].Contents) != 0 {
 		t.Fatal("non-recommended checkbox displayed a recommendation pill")
-	}
-}
-
-func TestSetupWizardMovieHasCompatibleSnapshot(t *testing.T) {
-	previousRevision := movieRevision
-	t.Cleanup(func() {
-		movieRevision = previousRevision
-		resetDrawState()
-	})
-
-	frames, err := parseMovieZipBytes(setupWizardMovieZip, clVersion)
-	if err != nil {
-		t.Fatalf("parse setup wizard movie: %v", err)
-	}
-	if len(frames) == 0 {
-		t.Fatal("setup wizard movie contains no frames")
-	}
-	want := uint16(flagMobileData | flagPictureTable)
-	if frames[0].flags&want != want {
-		t.Fatalf("first frame flags = %#04x, want mobile and picture snapshots (%#04x)", frames[0].flags, want)
 	}
 }
 

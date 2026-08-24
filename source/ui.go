@@ -4780,20 +4780,6 @@ func makeQualityWindow() {
 	}
 	motionSection.AddItem(motionCB)
 
-	// Object pinning: make small effect sprites follow mobiles smoothly
-	pinCB, pinEvents := eui.NewCheckbox()
-	pinCB.Text = "Object Effect Pinning"
-	pinCB.Size = eui.Point{X: width, Y: 24}
-	pinCB.Checked = gs.ObjectPinning
-	pinCB.SetTooltip("Objects or effects on mobiles are motion smoothed")
-	pinEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ObjectPinning = ev.Checked
-			settingsDirty = true
-		}
-	}
-	motionSection.AddItem(pinCB)
-
 	/*
 		nsCB, noSmoothEvents := eui.NewCheckbox()
 		noSmoothCB = nsCB
@@ -5599,6 +5585,19 @@ func makeBubbleWindow() {
 		}
 	}
 	displaySection.AddItem(bubblesQuickCB)
+
+	animatedBubblesCB, animatedBubblesEvents := eui.NewCheckbox()
+	animatedBubblesCB.Text = "Animated Chat Bubbles"
+	animatedBubblesCB.Size = eui.Point{X: width, Y: 24}
+	animatedBubblesCB.Checked = gs.AnimatedChatBubbles
+	animatedBubblesCB.SetTooltip("Animate ponder, yell, and monster bubble effects")
+	animatedBubblesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AnimatedChatBubbles = ev.Checked
+			settingsDirty = true
+		}
+	}
+	displaySection.AddItem(animatedBubblesCB)
 
 	addBubbleCB := func(section *eui.ItemData, label string, val *bool) {
 		cb, events := eui.NewCheckbox()

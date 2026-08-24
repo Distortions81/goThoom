@@ -228,7 +228,7 @@ The browser package is written to `binaries/goThoom-Web/`.
 
 ### Setup wizard graphics preview
 
-While the setup wizard is open offline, a short embedded Clan Lord recording loops behind it through the normal movie player and game renderer. Changes to dithering, artwork upscaling, motion smoothing, and shader lighting are therefore demonstrated through the same paths as regular play. Speech bubbles remain suppressed so the artwork stays easy to compare.
+While the setup wizard is open offline, a synthetic scene runs directly through the normal game renderer. It demonstrates daytime, nighttime, indoor, glow, shadow, animation-blending, motion-smoothing, health, and speech-bubble settings without playing a hidden movie. Graphics detection temporarily bypasses VSync and observes the complete renderer for five seconds before recommending Full Quality or the iGPU preset.
 
 ### Build with Docker (cross compile capable)
 

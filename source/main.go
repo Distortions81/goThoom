@@ -85,7 +85,9 @@ func main() {
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
 	flag.BoolVar(&showUIScale, "uiscale", false, "show UI scaling options")
 	flag.BoolVar(&measureLoads, "measure", false, "report asset load times and metadata (sounds/images)")
-	genPGO := flag.Bool("pgo", false, "create default.pgo using test.clMov at 30 fps for 30s")
+	genPGO := flag.Bool("pgo", false, "create default.pgo from -clmov (or test.clMov) at 30 fps")
+	pgoDuration := flag.Duration("pgoDuration", 5*time.Minute, "CPU profiling duration used with -pgo")
+	pgoOutput := flag.String("pgoOutput", "default.pgo", "CPU profile output path used with -pgo")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
 	flag.Parse()
 
@@ -126,7 +128,10 @@ func main() {
 	}
 
 	if *genPGO {
-		clmov = filepath.Join("clmovFiles", "test.clMov.zip")
+		if clmov == "" {
+			clmov = filepath.Join("clmovFiles", "test.clMov.zip")
+		}
+		clMovFPS = 30
 	}
 
 	loadSettings()
@@ -162,24 +167,6 @@ func main() {
 	defer saveStats()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), shutdownSignals()...)
-	if *genPGO {
-		f, err := os.Create("default.pgo")
-		if err != nil {
-			log.Fatalf("create default.pgo: %v", err)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatalf("start CPU profile: %v", err)
-		}
-		defer func() {
-			pprof.StopCPUProfile()
-			f.Close()
-		}()
-		go func() {
-			time.Sleep(300 * time.Second)
-			cancel()
-		}()
-	}
-
 	if !isWASM {
 		initDiscordRPC(ctx)
 	}
@@ -256,6 +243,9 @@ func main() {
 			applyEnabledScripts()
 
 			mp := newMoviePlayer(frames, clMovFPS, cancel)
+			if *genPGO {
+				mp.repeat = true
+			}
 			if isWASM {
 				mp.repeat = true
 				gs.PowerSaveAlways = false
@@ -267,6 +257,24 @@ func main() {
 				for !assetsPrecached {
 					time.Sleep(time.Millisecond * 100)
 				}
+			}
+			if *genPGO {
+				f, err := os.Create(*pgoOutput)
+				if err != nil {
+					log.Fatalf("create CPU profile: %v", err)
+				}
+				if err := pprof.StartCPUProfile(f); err != nil {
+					f.Close()
+					log.Fatalf("start CPU profile: %v", err)
+				}
+				go func() {
+					time.Sleep(*pgoDuration)
+					pprof.StopCPUProfile()
+					if err := f.Close(); err != nil {
+						log.Printf("close CPU profile: %v", err)
+					}
+					cancel()
+				}()
 			}
 			go mp.run(ctx)
 

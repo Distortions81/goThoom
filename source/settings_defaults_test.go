@@ -22,6 +22,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"throttle sounds":              gsdef.ThrottleSounds,
 		"alternate row backgrounds":    gsdef.AlternateRowBackgrounds,
 		"window shadows":               gsdef.WindowShadows,
+		"animated chat bubbles":        gsdef.AnimatedChatBubbles,
 	}
 	for name, enabled := range defaults {
 		if !enabled {

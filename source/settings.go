@@ -123,6 +123,7 @@ var gsdef settings = settings{
 	ObscuringPictureOpacity: 0.66,
 	FadeObscuringPictures:   true,
 	SpeechBubbles:           true,
+	AnimatedChatBubbles:     true,
 	BubbleNormal:            true,
 	BubbleWhisper:           true,
 	BubbleYell:              true,
@@ -318,6 +319,7 @@ type settings struct {
 	ObscuringPictureOpacity float64
 	FadeObscuringPictures   bool
 	SpeechBubbles           bool
+	AnimatedChatBubbles     bool
 	BubbleNormal            bool
 	BubbleWhisper           bool
 	BubbleYell              bool
@@ -960,6 +962,8 @@ func applyQualityPreset(name string) {
 		gs.GameScale = 2
 		gs.DenoiseImages = false
 		gs.WindowShadows = false
+		gs.CharacterShadows = false
+		gs.AnimatedChatBubbles = false
 	case "Full Graphics":
 		p = currentAudioQualityPreset()
 		p.MotionSmoothing = true
@@ -970,6 +974,7 @@ func applyQualityPreset(name string) {
 		gs.WindowShadows = true
 		gs.CharacterShadows = true
 		gs.DetailedCharacterShadows = true
+		gs.AnimatedChatBubbles = true
 	case "Classic":
 		p = classicPreset
 	case "Low":

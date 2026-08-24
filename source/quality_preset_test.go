@@ -65,6 +65,7 @@ func TestIGPUGraphicsPresetUsesLowCostGraphicsAndAudio(t *testing.T) {
 	gs.MusicEnhancement = true
 	gs.GameScale = 4
 	gs.DenoiseImages = true
+	gs.AnimatedChatBubbles = true
 	applyQualityPreset("iGPU Graphics")
 
 	if gs.PotatoGPU {
@@ -76,8 +77,14 @@ func TestIGPUGraphicsPresetUsesLowCostGraphicsAndAudio(t *testing.T) {
 	if !gs.SpriteUpscaleFilter || artworkUpscaleMode() != artworkUpscaleBalanced {
 		t.Fatal("iGPU graphics preset did not select Balanced artwork upscaling")
 	}
-	if !gs.CharacterShadows || !gs.DetailedCharacterShadows {
-		t.Fatal("iGPU graphics preset changed character shadow settings")
+	if gs.CharacterShadows {
+		t.Fatal("iGPU graphics preset retained character shadows")
+	}
+	if !gs.DetailedCharacterShadows {
+		t.Fatal("iGPU graphics preset changed the accurate shadows preference")
+	}
+	if gs.AnimatedChatBubbles {
+		t.Fatal("iGPU graphics preset retained animated chat bubbles")
 	}
 	if gs.GameScale != 2 || gs.DenoiseImages {
 		t.Fatal("iGPU graphics preset does not match the current artwork scale and denoise settings")
