@@ -1,5 +1,3 @@
-//go:build integration
-
 package main
 
 import (
@@ -9,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	scriptapi "gt2"
 )
 
 func TestRescanReloadsEnabledScript(t *testing.T) {
@@ -39,25 +39,23 @@ func TestRescanReloadsEnabledScript(t *testing.T) {
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
 	scriptActiveSourceHashes = map[string][32]byte{}
-	scriptTimers = map[string][]*time.Timer{}
-	scriptTickerStops = map[string][]chan struct{}{}
+	scriptRepeats = map[string][]*scriptRepeatRegistration{}
 	scriptTickWaiters = map[string][]*tickWaiter{}
+	scriptStateWaiters = map[string][]*scriptStateWaiter{}
+	scriptStopping = map[string]bool{}
+	scriptDispatchMu = sync.Mutex{}
+	scriptDispatchQueue = nil
+	scriptEventMu = sync.Mutex{}
+	scriptEventQueues = map[string]*scriptEventQueue{}
 
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
-	triggerHandlersMu = sync.RWMutex{}
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
 	chatHandlersMu = sync.RWMutex{}
-	scriptChatHandlers = nil
 	scriptStructuredChatHandlers = nil
 	scriptServerMessageHandlers = nil
 	scriptLifecycleHandlers = nil
 	scriptChangeHandlers = nil
-	playerHandlersMu = sync.RWMutex{}
-	scriptPlayerHandlers = nil
 	scriptHotkeyFnMu = sync.RWMutex{}
 	scriptHotkeyFns = map[string]map[string]func(InputEvent) bool{}
 	hotkeysMu = sync.RWMutex{}
@@ -74,36 +72,51 @@ func TestRescanReloadsEnabledScript(t *testing.T) {
 	writeVersion := func(version string) {
 		t.Helper()
 		src := `package main
-import "gt"
+import (
+	"time"
+	"gt2"
+)
 const scriptName = "Refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 func Init() {
-	gt.RegisterCommand("refresh_cmd", func(args string) { gt.Store("command_version", "` + version + `") })
-	gt.AddHotkey("Ctrl-R", "/wave")
-	gt.Store("loaded_version", "` + version + `")
+	gt2.Command("refresh_cmd", func(args string) { gt2.Store("command_version", "` + version + `") })
+	gt2.Bind("Ctrl-R", func(event gt2.InputEvent) { gt2.Store("input_version", "` + version + `") })
+	gt2.OnChat(gt2.ChatFilter{Contains: "reload"}, func(event gt2.ChatEvent) { gt2.Store("chat_version", "` + version + `") })
+	gt2.OnServerMessage(gt2.ServerMessageFilter{Type: "system"}, func(event gt2.ServerMessage) { gt2.Store("server_version", "` + version + `") })
+	gt2.OnChange(gt2.ChangeInventory, func(event gt2.ChangeEvent) { gt2.Store("inventory_version", "` + version + `") })
+	gt2.OnLogin(func(event gt2.LifecycleEvent) { gt2.Store("login_version", "` + version + `") })
+	gt2.Repeat(time.Hour, func() { gt2.Store("timer_version", "` + version + `") })
+	gt2.Store("loaded_version", "` + version + `")
 }
 func Terminate() {
-	gt.Store("terminated_version", "` + version + `")
+	gt2.Store("terminated_version", "` + version + `")
+	gt2.Store("termination_count", gt2.LoadInteger("termination_count", 0)+1)
 }
 `
 		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 			t.Fatalf("write script: %v", err)
 		}
 	}
-	waitFor := func(cond func() bool) bool {
-		deadline := time.Now().Add(time.Second)
-		for time.Now().Before(deadline) {
-			if cond() {
-				return true
-			}
-			time.Sleep(5 * time.Millisecond)
-		}
-		return cond()
-	}
-
 	const owner = "refresh"
+	assertSingleRegistrationSet := func() {
+		t.Helper()
+		scriptMu.RLock()
+		commands, repeats := len(scriptCommands), len(scriptRepeats[owner])
+		scriptMu.RUnlock()
+		hotkeysMu.RLock()
+		bindingCount := len(hotkeys)
+		hotkeysMu.RUnlock()
+		chatHandlersMu.RLock()
+		chatCount, serverCount := len(scriptStructuredChatHandlers), len(scriptServerMessageHandlers)
+		lifecycleCount, changeCount := len(scriptLifecycleHandlers), len(scriptChangeHandlers)
+		chatHandlersMu.RUnlock()
+		if commands != 1 || bindingCount != 1 || chatCount != 1 || serverCount != 1 || lifecycleCount != 1 || changeCount != 1 || repeats != 1 {
+			t.Fatalf("registration counts = command:%d input:%d chat:%d server:%d lifecycle:%d change:%d timer:%d",
+				commands, bindingCount, chatCount, serverCount, lifecycleCount, changeCount, repeats)
+		}
+	}
 	readStoredValues := func() map[string]any {
 		t.Helper()
 		data, err := os.ReadFile(scriptStoragePath(owner))
@@ -119,9 +132,10 @@ func Terminate() {
 	scriptEnabledFor[owner] = scriptScope{All: true}
 	writeVersion("one")
 	rescanScripts([]string{dir})
-	if !waitFor(func() bool { return scriptStorageGet(owner, "loaded_version") == "one" }) {
+	if scriptStorageGet(owner, "loaded_version") != "one" {
 		t.Fatalf("initial script did not load")
 	}
+	assertSingleRegistrationSet()
 	rescanScripts([]string{dir})
 	if got := scriptStorageGet(owner, "terminated_version"); got != nil {
 		t.Fatalf("unchanged script was restarted: %v", got)
@@ -143,11 +157,15 @@ func Terminate() {
 
 	writeVersion("two")
 	rescanScripts([]string{dir})
-	if !waitFor(func() bool { return scriptStorageGet(owner, "loaded_version") == "two" }) {
+	if scriptStorageGet(owner, "loaded_version") != "two" {
 		t.Fatalf("enabled script was not reloaded")
 	}
+	assertSingleRegistrationSet()
 	if got := scriptStorageGet(owner, "terminated_version"); got != "one" {
 		t.Fatalf("old script was not terminated exactly once: %v", got)
+	}
+	if got := scriptStorageGet(owner, "termination_count"); got != 1 {
+		t.Fatalf("old script termination count = %v, want 1", got)
 	}
 	persisted := readStoredValues()
 	if persisted["loaded_version"] != "two" || persisted["terminated_version"] != "one" {
@@ -166,18 +184,32 @@ func Terminate() {
 	if handler == nil {
 		t.Fatal("replacement command was not registered")
 	}
-	handler("")
-	if !waitFor(func() bool { return scriptStorageGet(owner, "command_version") == "two" }) {
-		t.Fatalf("old command callback remained active: %v", scriptStorageGet(owner, "command_version"))
+	sim := scriptEventSimulator{owner: owner}
+	sim.command(t, "refresh_cmd", "")
+	if got := scriptStorageGet(owner, "command_version"); got != "two" {
+		t.Fatalf("old command callback remained active: %v", got)
+	}
+	if !sim.input(t, makeScriptInputEvent("Ctrl-R")) {
+		t.Fatal("reload test input unexpectedly consumed")
+	}
+	sim.chat(t, "Guide says, reload now")
+	sim.serverMessage(t, scriptServerMessage("system", "ready"))
+	sim.inventory(t, []InventoryItem{{Name: "Dagger"}})
+	sim.login(t, "Hero")
+	sim.timers(t)
+	for _, key := range []string{"input_version", "chat_version", "server_version", "inventory_version", "login_version", "timer_version"} {
+		if got := scriptStorageGet(owner, key); got != "two" {
+			t.Fatalf("%s = %v, want replacement version two", key, got)
+		}
 	}
 
 	brokenSource := `package main
-import "gt"
+import "gt2"
 const scriptName = "Refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
-const scriptAPIVersion = 1
-func Init() { gt.Store("loaded_version", "compile-broken")
+const scriptAPIVersion = 2
+func Init() { gt2.Store("loaded_version", "compile-broken")
 `
 	if err := os.WriteFile(path, []byte(brokenSource), 0o644); err != nil {
 		t.Fatalf("write malformed script: %v", err)
@@ -189,6 +221,7 @@ func Init() { gt.Store("loaded_version", "compile-broken")
 	if !scriptIsRunning(owner) {
 		t.Fatal("compile failure stopped the last working script")
 	}
+	assertSingleRegistrationSet()
 	handler = scriptCommands["refresh_cmd"]
 	handler("")
 	if got := scriptStorageGet(owner, "command_version"); got != "two" {
@@ -196,14 +229,14 @@ func Init() { gt.Store("loaded_version", "compile-broken")
 	}
 
 	panicSource := `package main
-import "gt"
+import "gt2"
 const scriptName = "Refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 func Init() {
-	gt.Store("loaded_version", "panic-broken")
-	gt.RegisterCommand("refresh_cmd", func(args string) { gt.Store("command_version", "panic-broken") })
+	gt2.Store("loaded_version", "panic-broken")
+	gt2.Command("refresh_cmd", func(args string) { gt2.Store("command_version", "panic-broken") })
 	panic("boom")
 }
 `
@@ -220,6 +253,7 @@ func Init() {
 	if !scriptIsRunning(owner) {
 		t.Fatal("Init panic stopped the last working script")
 	}
+	assertSingleRegistrationSet()
 	handler = scriptCommands["refresh_cmd"]
 	handler("")
 	if got := scriptStorageGet(owner, "command_version"); got != "two" {
@@ -230,7 +264,7 @@ func Init() {
 const scriptName = "Refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 func Init() { for {} }
 `
 	if err := os.WriteFile(path, []byte(timeoutSource), 0o644); err != nil {
@@ -246,6 +280,7 @@ func Init() { for {} }
 	if !scriptIsRunning(owner) {
 		t.Fatal("Init timeout stopped the last working script")
 	}
+	assertSingleRegistrationSet()
 	if got := scriptStorageGet(owner, "terminated_version"); got != "one" {
 		t.Fatalf("Init timeout terminated the working script: %v", got)
 	}
@@ -257,21 +292,27 @@ func Init() { for {} }
 
 	writeVersion("three")
 	rescanScripts([]string{dir})
-	if !waitFor(func() bool { return scriptStorageGet(owner, "loaded_version") == "three" }) {
+	if scriptStorageGet(owner, "loaded_version") != "three" {
 		t.Fatal("valid script did not replace failed candidates")
 	}
+	assertSingleRegistrationSet()
 	if got := scriptStorageGet(owner, "terminated_version"); got != "two" {
 		t.Fatalf("working script termination count/order is wrong: %v", got)
 	}
-	handler = scriptCommands["refresh_cmd"]
-	handler("")
-	if !waitFor(func() bool { return scriptStorageGet(owner, "command_version") == "three" }) {
-		got := scriptStorageGet(owner, "command_version")
+	if got := scriptStorageGet(owner, "termination_count"); got != 2 {
+		t.Fatalf("replacement termination count = %v, want 2", got)
+	}
+	sim.command(t, "refresh_cmd", "")
+	if got := scriptStorageGet(owner, "command_version"); got != "three" {
 		t.Fatalf("final replacement callback is not active: %v", got)
 	}
 	shutdownScripts()
 	persisted = readStoredValues()
-	if persisted["command_version"] != "three" || persisted["terminated_version"] != "three" {
+	if persisted["command_version"] != "three" || persisted["terminated_version"] != "three" || persisted["termination_count"] != float64(3) {
 		t.Fatalf("shutdown storage was not flushed: %v", persisted)
 	}
+}
+
+func scriptServerMessage(messageType, message string) scriptapi.ServerMessage {
+	return scriptapi.ServerMessage{Type: messageType, Message: message}
 }

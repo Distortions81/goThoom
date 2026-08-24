@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -18,13 +17,13 @@ import (
 	"sync"
 	"time"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 )
 
-const scriptAPICurrentVersion = 1
+const scriptAPICurrentVersion = 2
 
 type scriptScope struct {
 	All   bool
@@ -60,12 +59,11 @@ func (s *scriptScope) removeChar(name string) {
 
 func (s scriptScope) empty() bool { return !s.All && len(s.Chars) == 0 }
 
-// Expose the script API under both a short and a module-qualified path so
-// Yaegi can resolve imports regardless of how the script refers to it.
+// Expose the script API at its single documented import path.
 var basescriptExports = interp.Exports{
-	// Short path used by simple script scripts: import "gt"
+	// Short path used by simple script scripts: import "gt2"
 	// Yaegi expects keys as "importPath/pkgName".
-	"gt/gt": {
+	"gt2/gt2": {
 		"ShowNotification":    reflect.ValueOf(scriptShowNotification),
 		"CLVersion":           reflect.ValueOf(&clVersion).Elem(),
 		"Self":                reflect.ValueOf(scriptSelf),
@@ -93,9 +91,6 @@ var basescriptExports = interp.Exports{
 		"PlaySound":           reflect.ValueOf(scriptPlaySound),
 		"InputText":           reflect.ValueOf(scriptInputText),
 		"SetInputText":        reflect.ValueOf(scriptSetInputText),
-		"KeyJustPressed":      reflect.ValueOf(scriptKeyJustPressed),
-		"MouseJustPressed":    reflect.ValueOf(scriptMouseJustPressed),
-		"MouseWheel":          reflect.ValueOf(scriptMouseWheel),
 		"LastClick":           reflect.ValueOf(scriptLastClick),
 		"Hover":               reflect.ValueOf(scriptHover),
 		"SelectedPlayer":      reflect.ValueOf(scriptSelectedPlayer),
@@ -131,19 +126,6 @@ var basescriptExports = interp.Exports{
 		"Equipped":            reflect.ValueOf(scriptEquipped),
 		"HasItem":             reflect.ValueOf(scriptHasItem),
 		"IsEquipped":          reflect.ValueOf(scriptIsEquipped),
-		"IgnoreCase":          reflect.ValueOf(scriptIgnoreCase),
-		"StartsWith":          reflect.ValueOf(scriptStartsWith),
-		"EndsWith":            reflect.ValueOf(scriptEndsWith),
-		"Includes":            reflect.ValueOf(scriptIncludes),
-		"Lower":               reflect.ValueOf(scriptLower),
-		"Upper":               reflect.ValueOf(scriptUpper),
-		"Trim":                reflect.ValueOf(scriptTrim),
-		"TrimStart":           reflect.ValueOf(scriptTrimStart),
-		"TrimEnd":             reflect.ValueOf(scriptTrimEnd),
-		"Words":               reflect.ValueOf(scriptWords),
-		"Join":                reflect.ValueOf(scriptJoin),
-		"Replace":             reflect.ValueOf(scriptReplace),
-		"Split":               reflect.ValueOf(scriptSplit),
 		// Chat trigger flags
 		"ChatAny":              reflect.ValueOf(ChatAny),
 		"ChatPlayer":           reflect.ValueOf(ChatPlayer),
@@ -151,6 +133,13 @@ var basescriptExports = interp.Exports{
 		"ChatCreature":         reflect.ValueOf(ChatCreature),
 		"ChatSelf":             reflect.ValueOf(ChatSelf),
 		"ChatOther":            reflect.ValueOf(ChatOther),
+		"ChatTypeSay":          reflect.ValueOf(ChatTypeSay),
+		"ChatTypeYell":         reflect.ValueOf(ChatTypeYell),
+		"ChatTypeWhisper":      reflect.ValueOf(ChatTypeWhisper),
+		"ChatTypeAsk":          reflect.ValueOf(ChatTypeAsk),
+		"ChatTypeExclaim":      reflect.ValueOf(ChatTypeExclaim),
+		"ChatTypeThinkTo":      reflect.ValueOf(ChatTypeThinkTo),
+		"ChatTypeEmote":        reflect.ValueOf(ChatTypeEmote),
 		"ChangeInventory":      reflect.ValueOf(ChangeInventory),
 		"ChangeEquipment":      reflect.ValueOf(ChangeEquipment),
 		"ChangeSelectedPlayer": reflect.ValueOf(ChangeSelectedPlayer),
@@ -1054,13 +1043,20 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			stage(func() { subscription.attach(register()) })
 			return subscription
 		}
-		// Prefer string-based APIs; keep ID variants for power users
-		m["Equip"] = reflect.ValueOf(func(name string) { stage(func() { scriptEquipByName(owner, name) }) })
-		m["Unequip"] = reflect.ValueOf(func(name string) { stage(func() { scriptUnequipByName(owner, name) }) })
-		m["EquipPartial"] = reflect.ValueOf(func(name string) { stage(func() { scriptEquipPartial(owner, name) }) })
-		m["UnequipPartial"] = reflect.ValueOf(func(name string) { stage(func() { scriptUnequipPartial(owner, name) }) })
-		m["EquipById"] = reflect.ValueOf(func(id uint16) { stage(func() { scriptEquip(owner, id) }) })
-		m["UnequipById"] = reflect.ValueOf(func(id uint16) { stage(func() { scriptUnequip(owner, id) }) })
+		m["Equip"] = reflect.ValueOf(func(name string) {
+			if candidate.runtimeEventQueue(owner) != nil {
+				scriptEquipByName(owner, name)
+				return
+			}
+			stage(func() { scriptEquipByName(owner, name) })
+		})
+		m["Unequip"] = reflect.ValueOf(func(name string) {
+			if candidate.runtimeEventQueue(owner) != nil {
+				scriptUnequipByName(owner, name)
+				return
+			}
+			stage(func() { scriptUnequipByName(owner, name) })
+		})
 		m["WithEquipment"] = reflect.ValueOf(func(name string, task func()) {
 			if task == nil {
 				return
@@ -1075,22 +1071,11 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 				})
 			})
 		})
-		m["AddHotkey"] = reflect.ValueOf(func(combo, command string) {
-			if candidate.claimBinding(combo, command) {
-				stage(func() { scriptAddHotkey(owner, combo, command) })
-			}
-		})
 		m["Bind"] = reflect.ValueOf(func(combo string, handler func(InputEvent)) Subscription {
 			if candidate.claimBinding(combo, handler) {
 				return subscribe(func() scriptRegistrationHandle { return scriptAddHotkeyFn(owner, combo, handler) })
 			}
 			return Subscription{}
-		})
-		m["RemoveHotkey"] = reflect.ValueOf(func(combo string) { stage(func() { scriptRemoveHotkey(owner, combo) }) })
-		m["RegisterCommand"] = reflect.ValueOf(func(name string, handler scriptCommandHandler) {
-			if candidate.claimCommand(name, handler) {
-				stage(func() { scriptRegisterCommand(owner, name, handler) })
-			}
 		})
 		m["Command"] = reflect.ValueOf(func(name string, handler func(string)) Subscription {
 			if candidate.claimCommand(name, handler) {
@@ -1101,35 +1086,20 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["AddShortcut"] = reflect.ValueOf(func(short, full string) {
 			stage(func() { scriptAddShortcut(owner, short, full) })
 		})
-		m["AddShortcuts"] = reflect.ValueOf(func(shortcuts map[string]string) {
-			copyOfShortcuts := make(map[string]string, len(shortcuts))
-			for short, full := range shortcuts {
-				copyOfShortcuts[short] = full
-			}
-			stage(func() { scriptAddShortcuts(owner, copyOfShortcuts) })
-		})
-		// Chat/Console (simple, no slices)
-		// Simple DSL aliases
 		m["Print"] = reflect.ValueOf(func(msg string) { stage(func() { scriptConsole(msg) }) })
 		m["ShowNotification"] = reflect.ValueOf(func(msg string) { stage(func() { scriptShowNotification(msg) }) })
-		m["Notify"] = reflect.ValueOf(func(msg string) { stage(func() { scriptShowNotification(msg) }) })
 		m["PlaySound"] = reflect.ValueOf(func(ids []uint16) {
 			copyOfIDs := append([]uint16(nil), ids...)
 			stage(func() { scriptPlaySound(copyOfIDs) })
 		})
-		m["Cmd"] = reflect.ValueOf(func(text string) {
-			text = strings.TrimSpace(text)
-			stage(func() { scriptCommand(owner, text) })
-		})
 		m["Send"] = reflect.ValueOf(func(text string) {
 			text = strings.TrimSpace(text)
+			if candidate.runtimeEventQueue(owner) != nil {
+				scriptCommand(owner, text)
+				return
+			}
 			stage(func() { scriptCommand(owner, text) })
 		})
-		m["Run"] = reflect.ValueOf(func(text string) {
-			text = strings.TrimSpace(text)
-			stage(func() { scriptCommand(owner, text) })
-		})
-		m["Has"] = reflect.ValueOf(func(name string) bool { return scriptHasItem(name) })
 		m["Store"] = reflect.ValueOf(func(key string, value any) { candidate.setStorage(owner, key, value) })
 		m["LoadString"] = reflect.ValueOf(func(key, fallback string) string {
 			return scriptStoredString(candidate.getStorage(owner, key), fallback)
@@ -1150,7 +1120,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["DeleteStored"] = reflect.ValueOf(func(key string) { candidate.deleteStorage(owner, key) })
 		m["MigrateStorage"] = reflect.ValueOf(func(version int, migrate func(int)) {
 			if version < 1 {
-				panic("gt.MigrateStorage version must be at least 1")
+				panic("gt2.MigrateStorage version must be at least 1")
 			}
 			storedVersion := scriptStoredInteger(candidate.getStorage(owner, scriptStorageVersionKey), 0)
 			if storedVersion > version {
@@ -1160,23 +1130,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 				return
 			}
 			if migrate == nil {
-				panic("gt.MigrateStorage needs a migration function")
+				panic("gt2.MigrateStorage needs a migration function")
 			}
 			migrate(storedVersion)
 			candidate.setStorage(owner, scriptStorageVersionKey, version)
 		})
-		m["Input"] = reflect.ValueOf(scriptInputText)
-		m["SetInput"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputText(text) }) })
 		m["SetInputText"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputText(text) }) })
-		// (Removed explicit Thank/Curse/Share/Unshare helpers to avoid duplicating
-		// in-game commands; authors can use Cmd("/thank ...") etc.)
-		// No-slice chat/console helpers (one call per phrase)
-		m["Chat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterChat(owner, "", []string{p}, ChatAny, handler) })
-			}
-		})
 		m["OnChat"] = reflect.ValueOf(func(filter ChatFilter, handler func(ChatEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle { return scriptRegisterStructuredChat(owner, filter, handler) })
 		})
@@ -1200,70 +1159,6 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["OnChange"] = reflect.ValueOf(func(kind string, handler func(ChangeEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle { return scriptRegisterChange(owner, kind, handler) })
 		})
-		m["PlayerChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterChat(owner, "", []string{p}, ChatPlayer, handler) })
-			}
-		})
-		m["NPCChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterChat(owner, "", []string{p}, ChatNPC, handler) })
-			}
-		})
-		m["CreatureChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterChat(owner, "", []string{p}, ChatCreature, handler) })
-			}
-		})
-		m["SelfChat"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterChat(owner, "", []string{p}, ChatSelf, handler) })
-			}
-		})
-		m["OtherChat"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
-			n := strings.TrimSpace(name)
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterChat(owner, n, []string{p}, ChatOther, handler) })
-			}
-		})
-		m["ChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
-			n := strings.TrimSpace(name)
-			p := strings.TrimSpace(phrase)
-			if n != "" && p != "" {
-				stage(func() { scriptRegisterChat(owner, n, []string{p}, ChatAny, handler) })
-			}
-		})
-		m["PlayerChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
-			n := strings.TrimSpace(name)
-			p := strings.TrimSpace(phrase)
-			if n != "" && p != "" {
-				stage(func() { scriptRegisterChat(owner, n, []string{p}, ChatPlayer, handler) })
-			}
-		})
-		m["OtherChatFrom"] = reflect.ValueOf(func(name, phrase string, handler func(string)) {
-			n := strings.TrimSpace(name)
-			p := strings.TrimSpace(phrase)
-			if n != "" && p != "" {
-				stage(func() { scriptRegisterChat(owner, n, []string{p}, ChatOther, handler) })
-			}
-		})
-		m["ConsoleMsg"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterConsole(owner, []string{p}, handler) })
-			}
-		})
-		// Sleep for game ticks (blocks current goroutine only)
-		m["SleepTicks"] = reflect.ValueOf(func(ticks int) {
-			if eventQueue := candidate.runtimeEventQueue(owner); eventQueue != nil {
-				scriptSleepTicks(owner, eventQueue, ticks)
-			}
-		})
 		m["WaitTicks"] = reflect.ValueOf(func(ticks int) {
 			if eventQueue := candidate.runtimeEventQueue(owner); eventQueue != nil {
 				scriptSleepTicks(owner, eventQueue, ticks)
@@ -1279,44 +1174,6 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["WaitForEquipment"] = reflect.ValueOf(func(name string, equipped bool, timeout time.Duration) bool {
 			return waitForScriptInventory(owner, candidate.runtimeEventQueue(owner), name, equipped, true, timeout)
-		})
-		// Simpler alias: Console("text", fn)
-		m["Console"] = reflect.ValueOf(func(phrase string, handler func(string)) {
-			p := strings.TrimSpace(phrase)
-			if p != "" {
-				stage(func() { scriptRegisterConsole(owner, []string{p}, handler) })
-			}
-		})
-		// Back-compat registrations matching gt stubs
-		m["RegisterTriggers"] = reflect.ValueOf(func(name string, phrases []string, fn func(string)) {
-			if fn == nil || len(phrases) == 0 {
-				return
-			}
-			copyOfPhrases := append([]string(nil), phrases...)
-			stage(func() { scriptRegisterChat(owner, name, copyOfPhrases, ChatAny, fn) })
-		})
-		m["RegisterConsoleTriggers"] = reflect.ValueOf(func(phrases []string, fn func()) {
-			if fn == nil || len(phrases) == 0 {
-				return
-			}
-			copyOfPhrases := append([]string(nil), phrases...)
-			stage(func() { scriptRegisterConsoleTriggers(owner, copyOfPhrases, fn) })
-		})
-		m["RegisterTrigger"] = reflect.ValueOf(func(name, phrase string, fn func()) {
-			p := strings.TrimSpace(phrase)
-			if p == "" || fn == nil {
-				return
-			}
-			stage(func() { scriptRegisterChat(owner, name, []string{p}, ChatAny, func(string) { fn() }) })
-		})
-		m["RegisterPlayerHandler"] = reflect.ValueOf(func(fn func(scriptapi.Player)) {
-			stage(func() { scriptRegisterPlayerHandler(owner, fn) })
-		})
-		m["RegisterInputHandler"] = reflect.ValueOf(func(fn func(string) string) {
-			stage(func() { scriptRegisterInputHandler(owner, fn) })
-		})
-		m["RegisterChatHandler"] = reflect.ValueOf(func(fn func(string)) {
-			stage(func() { scriptRegisterChatHandler(owner, fn) })
 		})
 		// Simple world overlay drawing (top-left origin, world units)
 		m["OverlayClear"] = reflect.ValueOf(func() { stage(func() { scriptOverlayClear(owner) }) })
@@ -1337,8 +1194,6 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			w, h := clImages.Size(uint32(id))
 			return w, h
 		})
-		m["RunCommand"] = reflect.ValueOf(func(cmd string) { stage(func() { scriptCommand(owner, cmd) }) })
-		m["EnqueueCommand"] = reflect.ValueOf(func(cmd string) { stage(func() { scriptCommand(owner, cmd) }) })
 		m["Bool"] = reflect.ValueOf(func(option scriptapi.BoolOption) bool {
 			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "bool", option.Default, option.OnChange, option.Validate, nil, 0, 0, 0)
 			if !ok {
@@ -1396,49 +1251,6 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			return entry.Value.(string)
 		})
 
-		// Timers
-		m["After"] = reflect.ValueOf(func(ms int, fn func()) {
-			if fn == nil || ms <= 0 {
-				return
-			}
-			stage(func() {
-				eventQueue := currentScriptEventQueue(owner)
-				t := time.AfterFunc(time.Duration(ms)*time.Millisecond, func() {
-					queueScriptCallbackOn(eventQueue, owner, "After", fn)
-				})
-				scriptMu.Lock()
-				scriptTimers[owner] = append(scriptTimers[owner], t)
-				scriptMu.Unlock()
-			})
-		})
-		m["AfterDur"] = reflect.ValueOf(func(d time.Duration, fn func()) {
-			if fn == nil || d <= 0 {
-				return
-			}
-			stage(func() {
-				eventQueue := currentScriptEventQueue(owner)
-				t := time.AfterFunc(d, func() { queueScriptCallbackOn(eventQueue, owner, "AfterDur", fn) })
-				scriptMu.Lock()
-				scriptTimers[owner] = append(scriptTimers[owner], t)
-				scriptMu.Unlock()
-			})
-		})
-		m["Every"] = reflect.ValueOf(func(ms int, fn func()) {
-			if fn == nil || ms <= 0 {
-				return
-			}
-			stage(func() {
-				startScriptRepeat(owner, currentScriptEventQueue(owner), time.Duration(ms)*time.Millisecond, "Every", fn)
-			})
-		})
-		m["EveryDur"] = reflect.ValueOf(func(d time.Duration, fn func()) {
-			if fn == nil || d <= 0 {
-				return
-			}
-			stage(func() {
-				startScriptRepeat(owner, currentScriptEventQueue(owner), d, "EveryDur", fn)
-			})
-		})
 		m["Repeat"] = reflect.ValueOf(func(interval time.Duration, fn func()) Timer {
 			timer := newScriptTimer()
 			if fn == nil || interval <= 0 {
@@ -1449,14 +1261,6 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 				timer.attach(startScriptRepeat(owner, currentScriptEventQueue(owner), interval, "Repeat", fn))
 			})
 			return timer
-		})
-
-		// Key binding to a function. Keep this simple form alongside
-		// AddHotkeyFn for scripts that do not need the event details.
-		m["Key"] = reflect.ValueOf(func(combo string, handler func()) {
-			if candidate.claimBinding(combo, handler) {
-				stage(func() { scriptAddKey(owner, combo, handler) })
-			}
 		})
 		ex[pkg] = m
 	}
@@ -1489,8 +1293,9 @@ func scriptSearchDirs() []string {
 	return []string{dir}
 }
 
-// ensureScriptsDir creates the scripts directory next to the executable and
-// populates it with the embedded scripts if it is missing.
+// ensureScriptsDir creates the user-owned scripts directory and installs the
+// managed gt2 editor workspace. Bundled examples stay embedded until the user
+// explicitly installs one from the library.
 func ensureScriptsDir() {
 	if isWASM {
 		return
@@ -1500,84 +1305,14 @@ func ensureScriptsDir() {
 		return
 	}
 	dir := filepath.Join(filepath.Dir(exe), "scripts")
-	if _, err := os.Stat(dir); err == nil {
-		return
-	} else if !os.IsNotExist(err) {
-		log.Printf("check scripts dir: %v", err)
-		return
-	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		log.Printf("create scripts dir: %v", err)
 		return
 	}
-	entries, err := scriptScripts.ReadDir("scripts")
-	if err != nil {
-		log.Printf("read embedded scripts: %v", err)
-		return
-	}
-	for _, e := range entries {
-		if e.IsDir() || strings.HasSuffix(e.Name(), "_test.go") {
-			continue
-		}
-		data, err := scriptScripts.ReadFile(path.Join("scripts", e.Name()))
-		if err != nil {
-			log.Printf("read embedded %s: %v", e.Name(), err)
-			continue
-		}
-		dst := filepath.Join(dir, e.Name())
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			log.Printf("write %s: %v", dst, err)
-		}
+	if err := installScriptEditorSupport(dir); err != nil {
+		log.Printf("install script editor support: %v", err)
 	}
 }
-
-// ensureDefaultScripts creates the user scripts directory and populates it
-// with example scripts when it is empty.
-func ensureDefaultScripts() {
-	if isWASM {
-		return
-	}
-	dir := userScriptsDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		log.Printf("create scripts dir: %v", err)
-		return
-	}
-	// Check if directory already has any .go script files
-	hasGo := false
-	if entries, err := os.ReadDir(dir); err == nil {
-		for _, e := range entries {
-			if !e.IsDir() {
-				hasGo = true
-				break
-			}
-		}
-	}
-	if hasGo {
-		return
-	}
-	// Write example script files
-	files := []string{
-		"default_shortcuts.go",
-		"README.txt",
-		"numpad_poser.go",
-	}
-	for _, src := range files {
-		sPath := path.Join("scripts", src)
-		data, err := scriptScripts.ReadFile(sPath)
-		if err != nil {
-			log.Printf("read embedded %s: %v", sPath, err)
-			continue
-		}
-		base := filepath.Base(sPath)
-		dst := filepath.Join(dir, base)
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
-			log.Printf("write %s: %v", dst, err)
-			continue
-		}
-	}
-}
-
-// ensurescriptAPI removed: the editor stub now ships in scripts/gt.
 
 var scriptAllowedPkgs = []string{
 	"bytes/bytes",
@@ -1659,73 +1394,6 @@ func scriptIsDisabled(owner string) bool {
 	disabled := scriptDisabled[owner]
 	scriptMu.RUnlock()
 	return disabled
-}
-
-// scriptAddKey registers a simple function hotkey without routing it through
-// the server-command queue.
-func scriptAddKey(owner, combo string, handler func()) {
-	c := strings.TrimSpace(combo)
-	if c == "" || handler == nil {
-		return
-	}
-	scriptAddHotkeyFn(owner, c, func(InputEvent) { handler() })
-}
-
-func scriptAddHotkey(owner, combo, command string) {
-	if scriptIsDisabled(owner) {
-		return
-	}
-	combo = strings.TrimSpace(combo)
-	if combo == "" {
-		return
-	}
-	if bindingOwner, conflict := scriptBindingConflict(owner, combo); conflict {
-		reportScriptBindingConflict(combo, bindingOwner)
-		return
-	}
-	// Default script hotkeys to enabled on first add; users can disable them
-	// in the Hotkeys window. Persisted preferences still override this.
-	hk := Hotkey{Name: command, Combo: combo, Commands: []HotkeyCommand{{Command: command}}, Script: owner, Disabled: false}
-	scriptHotkeyMu.RLock()
-	if m := scriptHotkeyEnabled[owner]; m != nil {
-		if enabled, known := m[combo]; known {
-			hk.Disabled = !enabled
-		}
-	}
-	scriptHotkeyMu.RUnlock()
-	hotkeysMu.Lock()
-	for _, existing := range hotkeys {
-		if existing.Script == owner && existing.Combo == combo {
-			hotkeysMu.Unlock()
-			return
-		}
-	}
-	var registration scriptRegistrationHandle
-	registration = registerScriptResource(owner, func() {
-		removeScriptHotkeyByHandle(registration)
-	})
-	hk.registration = registration
-	hotkeys = append(hotkeys, hk)
-	hotkeysMu.Unlock()
-	scriptHotkeyMu.Lock()
-	stateMap := scriptHotkeyEnabled[owner]
-	if stateMap == nil {
-		stateMap = map[string]bool{}
-		scriptHotkeyEnabled[owner] = stateMap
-	}
-	stateMap[combo] = !hk.Disabled
-	scriptHotkeyMu.Unlock()
-	refreshHotkeysList()
-	saveHotkeys()
-	name := scriptDisplayNames[owner]
-	if name == "" {
-		name = owner
-	}
-	msg := fmt.Sprintf("[script:%s] hotkey added: %s -> %s", name, combo, command)
-	if gs.scriptOutputDebug {
-		consoleMessage(msg)
-	}
-	log.Print(msg)
 }
 
 // InputEvent describes a triggered key, mouse, modifier, chord, or wheel binding.
@@ -1859,15 +1527,7 @@ func scriptAddHotkeyFn(owner, combo string, handler func(InputEvent)) scriptRegi
 	scriptHotkeyMu.Unlock()
 	refreshHotkeysList()
 	saveHotkeys()
-	name := scriptDisplayNames[owner]
-	if name == "" {
-		name = owner
-	}
-	msg := fmt.Sprintf("[script:%s] hotkey added: %s -> <function>", name, combo)
-	if gs.scriptOutputDebug {
-		consoleMessage(msg)
-	}
-	log.Print(msg)
+	scriptLogEvent(owner, "Registered binding", combo)
 	return registration
 }
 
@@ -1890,30 +1550,6 @@ func reportScriptBindingConflict(combo, owner string) {
 
 // script command registries.
 type scriptCommandHandler func(args string)
-
-type triggerHandler struct {
-	owner        string
-	name         string
-	flags        int
-	fn           func(string)
-	queue        *scriptEventQueue
-	registration scriptRegistrationHandle
-}
-
-type inputHandler struct {
-	owner        string
-	fn           func(string) string
-	queue        *scriptEventQueue
-	registration scriptRegistrationHandle
-}
-
-// chatHandler holds a script-owned handler for all chat messages.
-type chatHandler struct {
-	owner        string
-	fn           func(string)
-	queue        *scriptEventQueue
-	registration scriptRegistrationHandle
-}
 
 type structuredChatHandler struct {
 	owner        string
@@ -1948,44 +1584,36 @@ type scriptChangeHandler struct {
 }
 
 var (
-	scriptCommands           = map[string]scriptCommandHandler{}
-	scriptMu                 sync.RWMutex
-	scriptNames              = map[string]bool{}
-	scriptDisplayNames       = map[string]string{}
-	scriptAuthors            = map[string]string{}
-	scriptCategories         = map[string]string{}
-	scriptSubCategories      = map[string]string{}
-	scriptDescriptions       = map[string]string{}
-	scriptAPIVersions        = map[string]int{}
-	scriptErrors             = map[string]string{}
-	scriptReloadFailed       = map[string]bool{}
-	scriptActiveSourceHashes = map[string][sha256.Size]byte{}
-	scriptInvalid            = map[string]bool{}
-	scriptDisabled           = map[string]bool{}
-	scriptEnabledFor         = map[string]scriptScope{}
-	scriptPaths              = map[string]string{}
-	scriptTerminators        = map[string]func(){}
-	scriptTriggers           = map[string][]triggerHandler{}
-	scriptConsoleTriggers    = map[string][]triggerHandler{}
-	triggerHandlersMu        sync.RWMutex
-	// Handlers that receive every chat message (no phrase filtering)
-	scriptChatHandlers           []chatHandler
+	scriptCommands               = map[string]scriptCommandHandler{}
+	scriptMu                     sync.RWMutex
+	scriptNames                  = map[string]bool{}
+	scriptDisplayNames           = map[string]string{}
+	scriptAuthors                = map[string]string{}
+	scriptCategories             = map[string]string{}
+	scriptSubCategories          = map[string]string{}
+	scriptDescriptions           = map[string]string{}
+	scriptAPIVersions            = map[string]int{}
+	scriptErrors                 = map[string]string{}
+	scriptValidationResults      = map[string]string{}
+	scriptReloadFailed           = map[string]bool{}
+	scriptActiveSourceHashes     = map[string][sha256.Size]byte{}
+	scriptInvalid                = map[string]bool{}
+	scriptDisabled               = map[string]bool{}
+	scriptEnabledFor             = map[string]scriptScope{}
+	scriptPaths                  = map[string]string{}
+	scriptTerminators            = map[string]func(){}
 	scriptStructuredChatHandlers []structuredChatHandler
 	scriptServerMessageHandlers  []serverMessageHandler
 	scriptLifecycleHandlers      []scriptLifecycleHandler
 	scriptChangeHandlers         []scriptChangeHandler
 	chatHandlersMu               sync.RWMutex
-	scriptInputHandlers          []inputHandler
-	inputHandlersMu              sync.RWMutex
 	scriptCommandOwners          = map[string]string{}
 	scriptSendHistory            = map[string][]time.Time{}
 	scriptFileSnapshot           map[string]scriptFileState
 	scriptModCheck               time.Time
-	// timers per script owner
-	scriptTimers      = map[string][]*time.Timer{}
-	scriptTickerStops = map[string][]chan struct{}{}
-	scriptTickWaiters = map[string][]*tickWaiter{}
-	scriptStopping    = map[string]bool{}
+	scriptRepeats                = map[string][]*scriptRepeatRegistration{}
+	scriptTickWaiters            = map[string][]*tickWaiter{}
+	scriptStopping               = map[string]bool{}
 
 	// Per-script world overlay draw operations.
 	scriptOverlayOps = map[string][]overlayOp{}
@@ -2008,6 +1636,13 @@ type overlayOp struct {
 type tickWaiter struct {
 	remain int
 	done   chan struct{}
+}
+
+type scriptRepeatRegistration struct {
+	stop       chan struct{}
+	eventQueue *scriptEventQueue
+	event      string
+	callback   func()
 }
 
 type scriptStateWaiter struct {
@@ -2137,13 +1772,13 @@ func startScriptRepeat(owner string, eventQueue *scriptEventQueue, interval time
 	if eventQueue == nil || interval <= 0 || fn == nil {
 		return nil
 	}
-	stop := make(chan struct{})
+	repeat := &scriptRepeatRegistration{stop: make(chan struct{}), eventQueue: eventQueue, event: event, callback: fn}
 	scriptMu.Lock()
 	if scriptDisabled[owner] {
 		scriptMu.Unlock()
 		return nil
 	}
-	scriptTickerStops[owner] = append(scriptTickerStops[owner], stop)
+	scriptRepeats[owner] = append(scriptRepeats[owner], repeat)
 	scriptMu.Unlock()
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -2151,31 +1786,31 @@ func startScriptRepeat(owner string, eventQueue *scriptEventQueue, interval time
 		for {
 			select {
 			case <-ticker.C:
-				queueScriptCallbackOn(eventQueue, owner, event, fn)
-			case <-stop:
+				queueScriptCallbackOn(repeat.eventQueue, owner, repeat.event, repeat.callback)
+			case <-repeat.stop:
 				return
 			}
 		}
 	}()
-	return func() { stopScriptRepeat(owner, stop) }
+	return func() { stopScriptRepeat(owner, repeat) }
 }
 
-func stopScriptRepeat(owner string, stop chan struct{}) {
-	if stop == nil {
+func stopScriptRepeat(owner string, repeat *scriptRepeatRegistration) {
+	if repeat == nil {
 		return
 	}
 	scriptMu.Lock()
-	list := scriptTickerStops[owner]
+	list := scriptRepeats[owner]
 	for i, candidate := range list {
-		if candidate != stop {
+		if candidate != repeat {
 			continue
 		}
-		close(stop)
+		close(repeat.stop)
 		list = append(list[:i], list[i+1:]...)
 		if len(list) == 0 {
-			delete(scriptTickerStops, owner)
+			delete(scriptRepeats, owner)
 		} else {
-			scriptTickerStops[owner] = list
+			scriptRepeats[owner] = list
 		}
 		break
 	}
@@ -2256,13 +1891,11 @@ func scriptRegisterCommand(owner, name string, handler scriptCommandHandler) scr
 		}
 		scriptMu.Unlock()
 	})
-	consoleMessage("[script] command registered: /" + key)
-	log.Printf("[script] command registered: /%s", key)
+	scriptLogEvent(owner, "Registered command", "/"+key)
 	return registration
 }
 
-// scriptCommand is the single path for script-generated server commands. All
-// public command aliases use the same FIFO queue and per-script throttle.
+// scriptCommand is the single path for script-generated server commands.
 func scriptCommand(owner, cmd string) bool {
 	if scriptIsDisabled(owner) {
 		return false
@@ -2284,16 +1917,6 @@ func reportScriptCommandError(owner, message string) {
 	consoleMessage("[script:" + scriptDisplayName(owner) + "] " + message)
 }
 
-// These wrappers remain for internal compatibility. They intentionally have
-// identical ordering and throttling semantics.
-func scriptRunCommand(owner, cmd string) {
-	scriptCommand(owner, cmd)
-}
-
-func scriptEnqueueCommand(owner, cmd string) {
-	scriptCommand(owner, cmd)
-}
-
 type preparedScript struct {
 	candidate   *scriptCandidate
 	initialize  func()
@@ -2303,6 +1926,9 @@ type preparedScript struct {
 }
 
 func compileScriptSource(owner string, src []byte, restricted interp.Exports) (*preparedScript, error) {
+	if err := checkScriptSourceRequirements(src); err != nil {
+		return nil, err
+	}
 	candidate := &scriptCandidate{}
 	diagnostics := &scriptDiagnostics{}
 	i := interp.New(interp.Options{Stderr: diagnostics})
@@ -2322,11 +1948,17 @@ func compileScriptSource(owner string, src []byte, restricted interp.Exports) (*
 			prepared.terminate = func() { candidate.callTerminate(fn) }
 		}
 	}
-	if v, err := i.Eval("Init"); err == nil {
-		if fn, ok := v.Interface().(func()); ok {
-			prepared.initialize = fn
-		}
+	v, err := i.Eval("Init")
+	if err != nil {
+		disposePreparedScript(prepared)
+		return nil, fmt.Errorf("missing required func Init()")
 	}
+	fn, ok := v.Interface().(func())
+	if !ok {
+		disposePreparedScript(prepared)
+		return nil, fmt.Errorf("Init must have the signature func Init()")
+	}
+	prepared.initialize = fn
 	return prepared, nil
 }
 
@@ -2431,6 +2063,9 @@ func formatScriptError(path string, err error) string {
 	message := err.Error()
 	if path != "" {
 		message = strings.ReplaceAll(message, "_.go:", path+":")
+		if !strings.Contains(message, path) {
+			message = path + ": " + message
+		}
 	}
 	return message
 }
@@ -2729,28 +2364,19 @@ func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) 
 		scriptConfigWin = nil
 		scriptConfigOwner = ""
 	}
-	refreshTriggersList()
 	// Clear overlay ops
 	overlayMu.Lock()
 	delete(scriptOverlayOps, owner)
 	overlayMu.Unlock()
-	// Stop any timers/tickers and tick waiters for this script
+	// Stop repeating timers and tick waiters for this script.
 	scriptMu.Lock()
-	if list := scriptTimers[owner]; len(list) > 0 {
-		for _, t := range list {
-			if t != nil {
-				t.Stop()
+	if repeats := scriptRepeats[owner]; len(repeats) > 0 {
+		for _, repeat := range repeats {
+			if repeat != nil && repeat.stop != nil {
+				close(repeat.stop)
 			}
 		}
-		delete(scriptTimers, owner)
-	}
-	if stops := scriptTickerStops[owner]; len(stops) > 0 {
-		for _, ch := range stops {
-			if ch != nil {
-				close(ch)
-			}
-		}
-		delete(scriptTickerStops, owner)
+		delete(scriptRepeats, owner)
 	}
 	if waits := scriptTickWaiters[owner]; len(waits) > 0 {
 		for _, w := range waits {
@@ -2899,24 +2525,16 @@ func setscriptEnabled(owner string, char, all bool) {
 func clearscriptScope(owner string) {
 	scriptMu.Lock()
 	delete(scriptEnabledFor, owner)
+	// Stop repeating timers for this script.
+	if repeats := scriptRepeats[owner]; len(repeats) > 0 {
+		for _, repeat := range repeats {
+			if repeat != nil && repeat.stop != nil {
+				close(repeat.stop)
+			}
+		}
+		delete(scriptRepeats, owner)
+	}
 	scriptMu.Unlock()
-	// Stop scheduled timers/tickers for this script
-	if list := scriptTimers[owner]; len(list) > 0 {
-		for _, t := range list {
-			if t != nil {
-				t.Stop()
-			}
-		}
-		delete(scriptTimers, owner)
-	}
-	if stops := scriptTickerStops[owner]; len(stops) > 0 {
-		for _, ch := range stops {
-			if ch != nil {
-				close(ch)
-			}
-		}
-		delete(scriptTickerStops, owner)
-	}
 	applyEnabledScripts()
 	saveSettings()
 	refreshscriptsWindow()
@@ -2948,36 +2566,6 @@ func scriptSetInputText(text string) {
 	inputActive = true
 	inputPos = len(inputText)
 	inputMu.Unlock()
-}
-
-func scriptEquip(owner string, id uint16) {
-	items := getInventory()
-	idx := -1
-	found := false
-	for _, it := range items {
-		if it.ID != id {
-			continue
-		}
-		found = true
-		if it.Equipped {
-			name := it.Name
-			if name == "" {
-				name = fmt.Sprintf("%d", id)
-			}
-			consoleMessage(name + " already equipped, skipping")
-			return
-		}
-		if idx < 0 {
-			idx = it.IDIndex
-		}
-	}
-	if !found {
-		reportScriptCommandError(owner, fmt.Sprintf("equip target not found: id %d", id))
-		return
-	}
-	if scriptCommand(owner, formatEquipCommand(id, idx)) {
-		equipInventoryItem(id, idx, true)
-	}
 }
 
 // scriptEquipByName equips the first inventory item whose name matches the
@@ -3021,80 +2609,6 @@ func scriptEquipByName(owner, name string) {
 	if scriptCommand(owner, formatEquipCommand(id, idx)) {
 		equipInventoryItem(id, idx, true)
 	}
-}
-
-func scriptUnequip(owner string, id uint16) {
-	items := getInventory()
-	equipped := false
-	for _, it := range items {
-		if it.ID == id && it.Equipped {
-			equipped = true
-			break
-		}
-	}
-	if !equipped {
-		reportScriptCommandError(owner, fmt.Sprintf("unequip target not equipped: id %d", id))
-		return
-	}
-	if scriptCommand(owner, fmt.Sprintf("/unequip %d", id)) {
-		equipInventoryItem(id, -1, false)
-	}
-}
-
-// scriptEquipPartial equips the first item whose name contains the pattern
-// (case-insensitive). If a matching item is already equipped, it skips.
-func scriptEquipPartial(owner, pattern string) {
-	p := strings.ToLower(strings.TrimSpace(pattern))
-	if p == "" {
-		reportScriptCommandError(owner, "equip target not found: empty name")
-		return
-	}
-	items := getInventory()
-	var id uint16
-	idx := -1
-	found := false
-	// If any matching item is already equipped, skip as redundant.
-	for _, it := range items {
-		if strings.Contains(strings.ToLower(it.Name), p) && it.Equipped {
-			consoleMessage(it.Name + " already equipped, skipping")
-			return
-		}
-	}
-	for _, it := range items {
-		if strings.Contains(strings.ToLower(it.Name), p) {
-			id = it.ID
-			idx = it.IDIndex
-			found = true
-			break
-		}
-	}
-	if !found {
-		reportScriptCommandError(owner, "equip target not found: "+pattern)
-		return
-	}
-	if scriptCommand(owner, formatEquipCommand(id, idx)) {
-		equipInventoryItem(id, idx, true)
-	}
-}
-
-// scriptUnequipPartial unequips any equipped item whose name contains the
-// provided pattern (case-insensitive).
-func scriptUnequipPartial(owner, pattern string) {
-	p := strings.ToLower(strings.TrimSpace(pattern))
-	if p == "" {
-		reportScriptCommandError(owner, "unequip target not found: empty name")
-		return
-	}
-	items := getInventory()
-	for _, it := range items {
-		if it.Equipped && strings.Contains(strings.ToLower(it.Name), p) {
-			if scriptCommand(owner, fmt.Sprintf("/unequip %d", it.ID)) {
-				equipInventoryItem(it.ID, -1, false)
-			}
-			return
-		}
-	}
-	reportScriptCommandError(owner, "unequip target not equipped: "+pattern)
 }
 
 // scriptUnequipByName unequips an item by name (case-insensitive). If multiple
@@ -3208,30 +2722,6 @@ func scriptWithEquipment(owner, name string, task func()) {
 	task()
 }
 
-func scriptRegisterInputHandler(owner string, fn func(string) string) scriptRegistrationHandle {
-	if scriptIsDisabled(owner) || fn == nil {
-		return scriptRegistrationHandle{}
-	}
-	var registration scriptRegistrationHandle
-	registration = registerScriptResource(owner, func() {
-		removeScriptInputHandlerByHandle(registration)
-	})
-	inputHandlersMu.Lock()
-	scriptInputHandlers = append(scriptInputHandlers, inputHandler{owner: owner, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
-	inputHandlersMu.Unlock()
-	return registration
-}
-
-func removeScriptInputHandlerByHandle(registration scriptRegistrationHandle) {
-	inputHandlersMu.Lock()
-	for i := len(scriptInputHandlers) - 1; i >= 0; i-- {
-		if scriptInputHandlers[i].registration == registration {
-			scriptInputHandlers = append(scriptInputHandlers[:i], scriptInputHandlers[i+1:]...)
-		}
-	}
-	inputHandlersMu.Unlock()
-}
-
 // Chat trigger kinds for filtering messages by source.
 const (
 	ChatAny      = 1 << iota // match any chat message
@@ -3242,11 +2732,22 @@ const (
 	ChatOther                // message not from yourself
 )
 
+const (
+	ChatTypeSay     = "say"
+	ChatTypeYell    = "yell"
+	ChatTypeWhisper = "whisper"
+	ChatTypeAsk     = "ask"
+	ChatTypeExclaim = "exclaim"
+	ChatTypeThinkTo = "think-to"
+	ChatTypeEmote   = "emote"
+)
+
 // ChatFilter selects structured chat events. Zero values match all chat.
 type ChatFilter struct {
 	Contains string
 	Speaker  string
 	Kinds    int
+	Type     string
 }
 
 // ChatEvent contains parsed chat data while retaining the original line.
@@ -3255,6 +2756,7 @@ type ChatEvent struct {
 	Message string
 	Raw     string
 	Kinds   int
+	Type    string
 }
 
 type ServerMessageFilter struct {
@@ -3349,132 +2851,6 @@ func clearScriptLatestServerMessage() {
 	scriptLatestServerMessageSequence = 0
 	scriptHasLatestServerMessage = false
 	scriptLatestServerMessageMu.Unlock()
-}
-
-// scriptRegisterChat registers a chat trigger with optional name and kind flags.
-func scriptRegisterChat(owner, name string, phrases []string, flags int, fn func(string)) {
-	if scriptIsDisabled(owner) || fn == nil {
-		return
-	}
-	var registration scriptRegistrationHandle
-	registration = registerScriptResource(owner, func() {
-		triggerHandlersMu.Lock()
-		for phrase, handlers := range scriptTriggers {
-			kept := handlers[:0]
-			for _, handler := range handlers {
-				if handler.registration != registration {
-					kept = append(kept, handler)
-				}
-			}
-			if len(kept) == 0 {
-				delete(scriptTriggers, phrase)
-			} else {
-				scriptTriggers[phrase] = kept
-			}
-		}
-		triggerHandlersMu.Unlock()
-	})
-	triggerHandlersMu.Lock()
-	name = strings.ToLower(name)
-	for _, p := range phrases {
-		if p == "" {
-			continue
-		}
-		p = strings.ToLower(p)
-		scriptTriggers[p] = append(scriptTriggers[p], triggerHandler{owner: owner, name: name, flags: flags, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
-	}
-	triggerHandlersMu.Unlock()
-	refreshTriggersList()
-}
-
-// Back-compat wrapper for older API without flags.
-func scriptRegisterTriggers(owner, name string, phrases []string, fn func()) {
-	if fn == nil {
-		return
-	}
-	scriptRegisterChat(owner, name, phrases, ChatAny, func(string) { fn() })
-}
-
-// New console registration with message parameter
-func scriptRegisterConsole(owner string, phrases []string, fn func(string)) {
-	if scriptIsDisabled(owner) || fn == nil {
-		return
-	}
-	var registration scriptRegistrationHandle
-	registration = registerScriptResource(owner, func() {
-		triggerHandlersMu.Lock()
-		for phrase, handlers := range scriptConsoleTriggers {
-			kept := handlers[:0]
-			for _, handler := range handlers {
-				if handler.registration != registration {
-					kept = append(kept, handler)
-				}
-			}
-			if len(kept) == 0 {
-				delete(scriptConsoleTriggers, phrase)
-			} else {
-				scriptConsoleTriggers[phrase] = kept
-			}
-		}
-		triggerHandlersMu.Unlock()
-	})
-	triggerHandlersMu.Lock()
-	for _, p := range phrases {
-		if p == "" {
-			continue
-		}
-		p = strings.ToLower(p)
-		scriptConsoleTriggers[p] = append(scriptConsoleTriggers[p], triggerHandler{owner: owner, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
-	}
-	triggerHandlersMu.Unlock()
-	refreshTriggersList()
-}
-
-// Back-compat: old console registration without msg parameter
-func scriptRegisterConsoleTriggers(owner string, phrases []string, fn func()) {
-	if fn == nil {
-		return
-	}
-	scriptRegisterConsole(owner, phrases, func(string) { fn() })
-}
-
-func scriptRegisterPlayerHandler(owner string, fn func(scriptapi.Player)) {
-	if scriptIsDisabled(owner) || fn == nil {
-		return
-	}
-	var registration scriptRegistrationHandle
-	registration = registerScriptResource(owner, func() {
-		playerHandlersMu.Lock()
-		for i := len(scriptPlayerHandlers) - 1; i >= 0; i-- {
-			if scriptPlayerHandlers[i].registration == registration {
-				scriptPlayerHandlers = append(scriptPlayerHandlers[:i], scriptPlayerHandlers[i+1:]...)
-			}
-		}
-		playerHandlersMu.Unlock()
-	})
-	playerHandlersMu.Lock()
-	scriptPlayerHandlers = append(scriptPlayerHandlers, scriptPlayerHandler{owner: owner, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
-	playerHandlersMu.Unlock()
-}
-
-// scriptRegisterChatHandler registers a callback invoked for every chat message.
-func scriptRegisterChatHandler(owner string, fn func(string)) {
-	if scriptIsDisabled(owner) || fn == nil {
-		return
-	}
-	var registration scriptRegistrationHandle
-	registration = registerScriptResource(owner, func() {
-		chatHandlersMu.Lock()
-		for i := len(scriptChatHandlers) - 1; i >= 0; i-- {
-			if scriptChatHandlers[i].registration == registration {
-				scriptChatHandlers = append(scriptChatHandlers[:i], scriptChatHandlers[i+1:]...)
-			}
-		}
-		chatHandlersMu.Unlock()
-	})
-	chatHandlersMu.Lock()
-	scriptChatHandlers = append(scriptChatHandlers, chatHandler{owner: owner, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
-	chatHandlersMu.Unlock()
 }
 
 func scriptRegisterStructuredChat(owner string, filter ChatFilter, fn func(ChatEvent)) scriptRegistrationHandle {
@@ -3726,61 +3102,11 @@ func runScriptStopHandlers(owner, reason string) {
 	}
 }
 
-func runInputHandlers(txt string) string {
-	inputHandlersMu.RLock()
-	handlers := append([]inputHandler{}, scriptInputHandlers...)
-	inputHandlersMu.RUnlock()
-	for _, h := range handlers {
-		if h.fn != nil {
-			scriptLogEvent(h.owner, "InputHandler", txt)
-			next := txt
-			if queueScriptCallbackWaitOn(h.queue, h.owner, "InputHandler", func() { next = h.fn(txt) }) {
-				txt = next
-			}
-		}
-	}
-	return txt
-}
-
-func runChatTriggers(msg string) {
-	triggerHandlersMu.RLock()
+func dispatchScriptChat(msg string) {
 	event := classifyScriptChat(msg)
-	speaker := event.Speaker
-	msgLower := strings.ToLower(msg)
-	speakerLower := strings.ToLower(speaker)
-	msgFlags := event.Kinds
-	for phrase, hs := range scriptTriggers {
-		if strings.Contains(msgLower, phrase) {
-			for _, h := range hs {
-				if h.name != "" && h.name != speakerLower {
-					continue
-				}
-				f := h.flags
-				if f == 0 {
-					f = ChatAny
-				}
-				if (f & msgFlags) != 0 {
-					owner := h.owner
-					fn := h.fn
-					scriptLogEvent(owner, "ChatTrigger", fmt.Sprintf("%q %q", phrase, msg))
-					queueScriptCallbackOn(h.queue, owner, "ChatTrigger", func() { fn(msg) })
-				}
-			}
-		}
-	}
-	triggerHandlersMu.RUnlock()
-
-	// Dispatch all-chat handlers (no phrase filtering).
 	chatHandlersMu.RLock()
-	handlers := append([]chatHandler{}, scriptChatHandlers...)
 	structuredHandlers := append([]structuredChatHandler{}, scriptStructuredChatHandlers...)
 	chatHandlersMu.RUnlock()
-	for _, h := range handlers {
-		if h.fn != nil {
-			scriptLogEvent(h.owner, "ChatHandler", msg)
-			queueScriptCallbackOn(h.queue, h.owner, "ChatHandler", func() { h.fn(msg) })
-		}
-	}
 	for _, h := range structuredHandlers {
 		if h.fn == nil || !scriptChatFilterMatches(h.filter, event) {
 			continue
@@ -3793,7 +3119,7 @@ func runChatTriggers(msg string) {
 
 func classifyScriptChat(msg string) ChatEvent {
 	speaker := chatSpeaker(msg)
-	event := ChatEvent{Speaker: speaker, Message: scriptChatMessage(msg, speaker), Raw: msg, Kinds: ChatAny}
+	event := ChatEvent{Speaker: speaker, Message: scriptChatMessage(msg, speaker), Raw: msg, Kinds: ChatAny, Type: scriptChatType(msg)}
 	if strings.EqualFold(speaker, playerName) && playerName != "" {
 		event.Kinds |= ChatSelf
 	} else {
@@ -3818,6 +3144,26 @@ func classifyScriptChat(msg string) ChatEvent {
 	return event
 }
 
+func scriptChatType(raw string) string {
+	message := strings.ToLower(strings.TrimSpace(raw))
+	if strings.HasPrefix(message, "(") {
+		return ChatTypeEmote
+	}
+	for _, typedSeparator := range []struct{ separator, eventType string }{
+		{" thinks to you", ChatTypeThinkTo},
+		{" whispers", ChatTypeWhisper},
+		{" exclaims", ChatTypeExclaim},
+		{" yells", ChatTypeYell},
+		{" asks", ChatTypeAsk},
+		{" says", ChatTypeSay},
+	} {
+		if strings.Contains(message, typedSeparator.separator) {
+			return typedSeparator.eventType
+		}
+	}
+	return ""
+}
+
 func scriptChatMessage(raw, speaker string) string {
 	message := strings.TrimSpace(raw)
 	if strings.HasPrefix(message, "(") {
@@ -3826,7 +3172,7 @@ func scriptChatMessage(raw, speaker string) string {
 		}
 	}
 	lower := strings.ToLower(message)
-	for _, separator := range []string{" says", " yells", " whispers", " asks", " exclaims"} {
+	for _, separator := range []string{" says", " yells", " whispers", " asks", " exclaims", " thinks to you"} {
 		if index := strings.Index(lower, separator); index > 0 {
 			return strings.TrimSpace(strings.TrimLeft(message[index+len(separator):], ",: "))
 		}
@@ -3838,6 +3184,9 @@ func scriptChatMessage(raw, speaker string) string {
 }
 
 func scriptChatFilterMatches(filter ChatFilter, event ChatEvent) bool {
+	if filter.Type != "" && !strings.EqualFold(strings.TrimSpace(filter.Type), event.Type) {
+		return false
+	}
 	if filter.Speaker != "" && !strings.EqualFold(strings.TrimSpace(filter.Speaker), event.Speaker) {
 		return false
 	}
@@ -3882,22 +3231,6 @@ func isNPCDescriptor(name string) bool {
 	}
 	stateMu.Unlock()
 	return false
-}
-
-func runConsoleTriggers(msg string) {
-	triggerHandlersMu.RLock()
-	msgLower := strings.ToLower(msg)
-	for phrase, hs := range scriptConsoleTriggers {
-		if strings.Contains(msgLower, phrase) {
-			for _, h := range hs {
-				scriptLogEvent(h.owner, "ConsoleTrigger", fmt.Sprintf("%q %q", phrase, msg))
-				fn := h.fn
-				owner := h.owner
-				queueScriptCallbackOn(h.queue, owner, "ConsoleTrigger", func() { fn(msg) })
-			}
-		}
-	}
-	triggerHandlersMu.RUnlock()
 }
 
 func scriptPlaySound(ids []uint16) {
@@ -4274,7 +3607,6 @@ func loadScripts() {
 		return
 	}
 	ensureScriptsDir()
-	ensureDefaultScripts()
 	scanned := scanscripts(scriptSearchDirs(), func(name, path string) {
 		log.Printf("script %s duplicate name %s", path, name)
 		consoleMessage("[script] duplicate name: " + name)

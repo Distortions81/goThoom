@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	scriptapi "gt"
+	scriptapi "gt2"
 	"sort"
 	"strings"
 	"sync"

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 )
 
 func registerScriptConfigTestOption(t *testing.T, owner, key, label, help, scope, typ string, defaultValue, callback, validate any, choices []string, min, max, step float64) any {

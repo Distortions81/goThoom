@@ -39,8 +39,7 @@ func TestDuplicateCommandsAndBindingsAreRejectedBeforeActivation(t *testing.T) {
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
-	scriptTimers = map[string][]*time.Timer{}
-	scriptTickerStops = map[string][]chan struct{}{}
+	scriptRepeats = map[string][]*scriptRepeatRegistration{}
 	scriptTickWaiters = map[string][]*tickWaiter{}
 	hotkeysMu = sync.RWMutex{}
 	hotkeys = nil
@@ -56,11 +55,11 @@ func TestDuplicateCommandsAndBindingsAreRejectedBeforeActivation(t *testing.T) {
 	writeScript := func(file, name, initBody string) {
 		t.Helper()
 		src := `package main
-import "gt"
+import "gt2"
 const scriptName = "` + name + `"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 func Init() {
 ` + initBody + `
 }
@@ -71,15 +70,15 @@ func Init() {
 	}
 
 	writeScript("gamma.go", "Gamma", `
-	gt.Key("Shift-Ctrl-F3", func() {})
-	gt.Store("started", "gamma")`)
+	gt2.Bind("Shift-Ctrl-F3", func(gt2.InputEvent) {})
+	gt2.Store("started", "gamma")`)
 	writeScript("beta.go", "Beta", `
-	gt.RegisterCommand("shared", func(string) {})
-	gt.Store("started", "beta")`)
+	gt2.Command("shared", func(string) {})
+	gt2.Store("started", "beta")`)
 	writeScript("alpha.go", "Alpha", `
-	gt.RegisterCommand("shared", func(string) {})
-	gt.Key("Control-Shift-F3", func() {})
-	gt.Store("started", "alpha")`)
+	gt2.Command("shared", func(string) {})
+	gt2.Bind("Control-Shift-F3", func(gt2.InputEvent) {})
+	gt2.Store("started", "alpha")`)
 
 	for _, owner := range []string{"gamma", "beta", "alpha"} {
 		scriptEnabledFor[owner] = scriptScope{All: true}

@@ -2,18 +2,19 @@
 
 package main
 
-import "gt"
+import "gt2"
 
 // script metadata
 const scriptName = "Creature Aliases"
+const scriptID = "creature-aliases"
 const scriptAuthor = "Examples"
 const scriptCategory = "Fun"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 // Init registers a bunch of chat shortcuts so typing
 // "abo" automatically expands to the full creature name.
 func Init() {
-	gt.AddShortcuts(map[string]string{
+	aliases := map[string]string{
 		"abo":   "Abominable Snow Yorilla",
 		"asy":   "Abominable Snow Yorilla",
 		"ag":    "Agronox",
@@ -81,5 +82,8 @@ func Init() {
 		"uty":   "Utsanna Tawny Yorilla",
 		"va":    "Violène Arachne",
 		"ws":    "Wild Stallion",
-	})
+	}
+	for short, full := range aliases {
+		gt2.AddShortcut(short, full)
+	}
 }

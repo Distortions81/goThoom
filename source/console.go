@@ -1,6 +1,6 @@
 package main
 
-import scriptapi "gt"
+import scriptapi "gt2"
 
 const (
 	maxMessages = 1000
@@ -29,8 +29,6 @@ func consoleMessageTyped(msg, messageType string) {
 	appendConsoleLog(msg)
 
 	updateConsoleWindow()
-
-	runConsoleTriggers(msg)
 }
 
 func serverConsoleMessage(msg string) {

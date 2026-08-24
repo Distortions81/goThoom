@@ -203,10 +203,6 @@ func scriptHotkeys(owner string) []Hotkey {
 	return list
 }
 
-func scriptRemoveHotkey(owner, combo string) {
-	removeScriptHotkeyRegistration(owner, combo, false)
-}
-
 func removeScriptHotkeyRegistration(owner, combo string, preserveState bool) {
 	hotkeysMu.RLock()
 	var registrations []scriptRegistrationHandle
@@ -1028,11 +1024,6 @@ func checkHotkeys() InputEvent {
 					if strings.HasPrefix(strings.ToLower(cmd), "/equip") {
 						if hotkeyEquipAlreadyEquipped(cmd) {
 							continue
-						}
-					}
-					if cmd != "" {
-						if gs.scriptOutputDebug {
-							consoleMessage("> " + cmd)
 						}
 					}
 					enqueueCommand(cmd)

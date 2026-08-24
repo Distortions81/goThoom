@@ -1,7 +1,8 @@
 # Go Scripting Redesign
 
-Goal: make Go scripts as quick to write and reason about as legacy macros,
-while keeping Go's types, editor support, and ability to build larger tools.
+Goal: make Go scripts clear and approachable for nontechnical users while
+keeping Go's types, editor support, and ability to build larger tools. Legacy
+macros are a usability benchmark, not an API or compatibility constraint.
 
 This is Go scripting 2.0. The previous scripting API was broken and scarcely
 used, so compatibility is not a goal. Remove or break old behavior whenever it
@@ -14,6 +15,8 @@ makes the final system clearer, smaller, or easier to use.
   represents a genuinely different capability, not as an alias or convenience
   spelling.
 - Do not spend time on a v1 compatibility or deprecation layer.
+- Do not load v1 and v2 side by side or rewrite user scripts automatically.
+  A removed API should fail clearly so the author can update the script once.
 - Bundled scripts are part of the 2.0 product and must use the canonical API.
 - Go already gives advanced authors general programming tools. Add lower-level
   game access only as a deliberate, coherent API rather than accumulating
@@ -21,7 +24,7 @@ makes the final system clearer, smaller, or easier to use.
 
 ## Design rules
 
-- A useful script should need only `package main`, `import "gt"`, and `Init()`.
+- A useful script should need only `package main`, `import "gt2"`, and `Init()`.
 - The filename is the default script name. Author, category, and description
   are optional metadata, not requirements for loading a local script.
 - Script callbacks run in a predictable order. Users should not need to know
@@ -32,7 +35,7 @@ makes the final system clearer, smaller, or easier to use.
   the normal API intentionally does not cover.
 - Errors are visible in the Scripts window with the filename and source line.
 - Reloading is atomic: a broken edit must not stop the last working version.
-- Every public runtime symbol must exist in the `gt` editor package and API
+- Every public runtime symbol must exist in the `gt2` editor package and API
   tests. The runtime, stubs, and documentation cannot drift independently.
 - Script-owned commands, bindings, events, timers, overlays, and settings must
   all disappear when the script stops or reloads.
@@ -60,15 +63,15 @@ regression tests before the API grows.
 - [x] Fix script hotkey persistence. The JSON loader's `script` field is
   unexported, disabled states are not preserved, and reload recreates bindings
   as enabled.
-- [x] Make `gt.Print` always print. It currently becomes silent unless the
+- [x] Make `gt2.Print` always print. It currently becomes silent unless the
   global script-output debug setting is enabled, despite being the documented
   way for a script to communicate with its user.
-- [x] Replace the placeholder configuration system. `gt.AddConfig` records only
+- [x] Replace the placeholder configuration system. `gt2.AddConfig` records only
   a name and type; its widgets have no values, callbacks, defaults, or
   persistence.
 - [x] Stop shipping/scanning `scripts/api_test.go` as a user script. Test-only
   sources must not be embedded into the user-facing script directory.
-- [x] Make the `gt` editor package match runtime types and functions. Examples
+- [x] Make the `gt2` editor package match runtime types and functions. Examples
   of current drift include the reduced `Player` stub, the unusable lowercase
   `clVersion`, the unused `Stats` type, and the click button type mismatch.
 - [x] Flush dirty script storage on script stop, reload, and application exit;
@@ -112,27 +115,27 @@ Keep `Init()` and make metadata optional. A basic script should look like:
 ```go
 package main
 
-import "gt"
+import "gt2"
 
 func Init() {
-	gt.Command("hello", func(args string) {
-		gt.Print("Hello " + args)
+	gt2.Command("hello", func(args string) {
+		gt2.Print("Hello " + args)
 	})
 
-	gt.Bind("Shift-H", func(event gt.InputEvent) {
-		gt.Send("/think Hello!")
+	gt2.Bind("Shift-H", func(event gt2.InputEvent) {
+		gt2.Send("/think Hello!")
 	})
 }
 ```
 
 ### Core registration
 
-- [x] Add `gt.Command(name, func(args string))` as the command API.
-- [x] Add `gt.Bind(combo, func(InputEvent))` for keys, clicks, mouse chords,
+- [x] Add `gt2.Command(name, func(args string))` as the command API.
+- [x] Add `gt2.Bind(combo, func(InputEvent))` for keys, clicks, mouse chords,
   modifiers, and wheel input through one API.
-- [x] Add `gt.OnChat(filter, func(ChatEvent))` with structured speaker and
+- [x] Add `gt2.OnChat(filter, func(ChatEvent))` with structured speaker and
   message data.
-- [x] Add `gt.OnServerMessage(filter, func(ServerMessage))` so scripts do
+- [x] Add `gt2.OnServerMessage(filter, func(ServerMessage))` so scripts do
   not have to reverse-engineer formatted console text.
 - [x] Add lifecycle events for login, logout, character change, and script
   stop.
@@ -143,12 +146,12 @@ func Init() {
 
 ### Commands and sequences
 
-- [x] Add one `gt.Send(command)` operation with ordered, rate-limited
+- [x] Add one `gt2.Send(command)` operation with ordered, rate-limited
   delivery.
-- [x] Add `gt.WaitTicks(n)` and `gt.Wait(duration)` that suspend only the
+- [x] Add `gt2.WaitTicks(n)` and `gt2.Wait(duration)` that suspend only the
   current script task and are cancelled on reload.
-- [x] Add `gt.Repeat(interval, func())` returning a stoppable timer.
-- [ ] Remove old timing and command aliases. Keep only `Send`, `Wait`,
+- [x] Add `gt2.Repeat(interval, func())` returning a stoppable timer.
+- [x] Remove old timing and command aliases. Keep only `Send`, `Wait`,
   `WaitTicks`, and `Repeat`, whose names represent distinct operations.
 - [x] Add a safe equipment helper that restores the prior slot after a task,
   covering the common dice, bard, pet, and weapon-swap patterns.
@@ -169,10 +172,10 @@ func Init() {
 
 ### Read-only game state
 
-- [x] Add `gt.Self()` returning a snapshot with name, health, spirit, balance,
+- [x] Add `gt2.Self()` returning a snapshot with name, health, spirit, balance,
   location, and equipped slots; remove the old string-name aliases.
 - [x] Expose immutable `Player`, `Mobile`, `Item`, `Click`, and `World`
-  snapshots from a real public `gt` package rather than reflecting main-package
+  snapshots from a real public `gt2` package rather than reflecting main-package
   implementation structs.
 - [x] Add exact and case-insensitive item lookup, partial lookup, all matching
   instances, equipped-slot lookup, and stable per-instance identity.
@@ -219,61 +222,64 @@ func Init() {
 
 ## 2.0 cleanup and cutover
 
-- [ ] Migrate every bundled script to the canonical 2.0 API before finalizing
+- [x] Migrate every bundled script to the canonical 2.0 API before finalizing
   the public surface.
-- [ ] Remove public v1 aliases and redundant entry points, including old
+- [x] Remove public v1 aliases and redundant entry points, including old
   command, timing, hotkey, chat-trigger, input-text, inventory, and storage
   spellings.
-- [ ] Remove raw polling APIs where a structured subscription or snapshot is
+- [x] Remove raw polling APIs where a structured subscription or snapshot is
   the normal solution.
-- [ ] Remove internal compatibility wrappers and tests that exist only to
+- [x] Remove internal compatibility wrappers and tests that exist only to
   preserve the abandoned API.
+- [x] Use `gt2` as the only package/import name so old and new scripts cannot
+  be confused; do not retain a `gt` import alias.
 - [x] Never rewrite user scripts automatically. Example installation is
   explicit and refuses to replace an existing file.
-- [ ] Set and document the finished scripting API as version 2 after the
+- [x] Set and document the finished scripting API as version 2 after the
   surface and bundled examples are settled.
 
 ## Editor and validation tooling
 
-- [ ] Create one canonical API definition used to generate or verify runtime
-  exports, `gt` editor stubs, and the API reference.
-- [ ] Ship the `gt` editor module and workspace configuration beside user
-  scripts so `import "gt"` resolves without manual setup.
-- [ ] Add a Validate action that compiles a script without activating it.
-- [ ] Make the validator report unsupported imports and API-version problems
+- [x] Create one canonical API definition used to generate or verify runtime
+  exports, `gt2` editor stubs, and the API reference.
+- [x] Ship the `gt2` editor module and workspace configuration beside user
+  scripts so `import "gt2"` resolves without manual setup.
+- [x] Add a Validate action that compiles a script without activating it.
+- [x] Make the validator report unsupported imports and API-version problems
   clearly.
-- [ ] Move critical Yaegi smoke tests into the normal `go test ./...` suite.
-- [ ] Add a contract test that fails when runtime exports and `gt` stubs differ.
-- [ ] Add deterministic event simulation for command, key/click, chat, server
+- [x] Move critical Yaegi smoke tests into the normal `go test ./...` suite.
+- [x] Add a contract test that fails when runtime exports and `gt2` stubs differ.
+- [x] Add deterministic event simulation for command, key/click, chat, server
   message, inventory, login, and timer handlers.
-- [ ] Add reload tests proving that old registrations disappear exactly once
+- [x] Add reload tests proving that old registrations disappear exactly once
   and failed replacements leave the old script running.
-- [ ] Run examples through both Yaegi and the editor stub type checker.
+- [x] Run examples through both Yaegi and the editor stub type checker.
 
 ## Proof scripts
 
 The new API is not ready until these can be written simply and tested without
 sleeping the test process:
 
-- [ ] Dice roll: command arguments, temporary equipment, wait, and restore.
-- [ ] Bard instrument case: multi-step inventory changes with timeouts.
-- [ ] Shift-click pull/push: structured click context and pass-through control.
-- [ ] Quick reply: structured speaker data rather than parsing displayed chat.
-- [ ] Rangery: keys, wheel input, player state, and equipment actions.
-- [ ] Coin/last-hit counter: server events, counters, configuration, and
+- [x] Dice roll: command arguments, temporary equipment, wait, and restore.
+- [x] Bard instrument case: multi-step inventory changes with timeouts.
+- [x] Shift-click pull/push: structured click context and pass-through control.
+- [x] Quick reply: structured speaker data rather than parsing displayed chat.
+- [x] Rangery: keys, wheel input, player state, and equipment actions.
+- [x] Coin/last-hit counter: server events, counters, configuration, and
   persistent per-character state.
-- [ ] Scanner: typed server messages and several independent subscriptions.
-- [ ] Long-running timer: cancellation and cleanup during reload.
+- [x] Scanner: typed server messages and several independent subscriptions.
+- [x] Long-running timer: cancellation and cleanup during reload.
 
-## Suggested implementation order
+## Current implementation order
 
-1. Finish the Scripts window, optional example library, and clear runtime
-   diagnostics.
-2. Migrate bundled scripts, then delete every redundant public and internal
-   compatibility API.
-3. Establish one canonical API definition and ship matching editor support.
-4. Add validation and deterministic event simulation to the normal test suite.
-5. Convert and test the proof scripts without real-time sleeps.
+1. Finish deleting internal v1 compatibility code and tests.
+2. Convert and test the proof scripts without real-time sleeps. Use them to
+   simplify the public API before declaring its surface finished.
+3. Establish one canonical API definition and generate or verify runtime
+   exports, editor stubs, and reference documentation from it.
+4. Ship editor setup and a clear Validate action for ordinary script authors.
+5. Add deterministic event simulation, reload coverage, and example checks to
+   the normal test suite.
 6. Document the final surface and declare scripting API version 2.
 
 ## Definition of done
@@ -287,7 +293,7 @@ sleeping the test process:
 - Disabling or reloading a script leaves no commands, callbacks, timers,
   overlays, settings controls, or goroutines behind.
 - Script hotkey and configuration choices survive reload and restart.
-- `gt.Print` is always visible, and failures are never silently discarded.
+- `gt2.Print` is always visible, and failures are never silently discarded.
 - Runtime exports, editor stubs, reference documentation, and examples agree.
 - Each normal action has one documented public API; no v1 aliases remain.
 - The normal test suite exercises script loading, core API calls, events,

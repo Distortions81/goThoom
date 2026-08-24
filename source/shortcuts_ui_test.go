@@ -81,7 +81,7 @@ func TestScriptRemoveShortcutsRefresh(t *testing.T) {
 	// Clear dirty flag so we can detect refresh.
 	shortcutsWin.Dirty = false
 
-	scriptRemoveShortcuts("tester")
+	shortcutRegistrations["tester"].release()
 	if len(shortcutsList.Contents) != 0 {
 		t.Fatalf("shortcuts list not cleared: %d", len(shortcutsList.Contents))
 	}

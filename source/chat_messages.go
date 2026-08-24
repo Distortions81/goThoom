@@ -64,7 +64,7 @@ func chatMessageTyped(msg, messageType string) {
 		})
 	}
 
-	runChatTriggers(msg)
+	dispatchScriptChat(msg)
 }
 
 func getChatMessages() []string {
@@ -121,7 +121,7 @@ func chatSpeaker(msg string) string {
 		m = strings.TrimPrefix(m, "(")
 	}
 	lower := strings.ToLower(m)
-	for _, sep := range []string{" says", " yells", " whispers", " asks", " exclaims"} {
+	for _, sep := range []string{" says", " yells", " whispers", " asks", " exclaims", " thinks to you"} {
 		if idx := strings.Index(lower, sep); idx > 0 {
 			return utfFold(strings.TrimSpace(m[:idx]))
 		}

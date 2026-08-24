@@ -4,7 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

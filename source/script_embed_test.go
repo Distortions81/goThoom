@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -23,7 +26,7 @@ func TestUserScriptSourcesExcludeTestFiles(t *testing.T) {
 const scriptName = "Visible"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 `
 	for _, name := range []string{"visible.go", "hidden_test.go"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(valid), 0o644); err != nil {
@@ -36,5 +39,57 @@ const scriptAPIVersion = 1
 	}
 	if _, ok := scanned["visible"]; !ok {
 		t.Fatalf("visible script missing: %v", scanned)
+	}
+}
+
+func TestBundledScriptsCompileWithYaegi(t *testing.T) {
+	entries, err := scriptLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		entry := entry
+		t.Run(entry.Filename, func(t *testing.T) {
+			source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join("scripts", entry.Filename)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			prepared, err := compileScriptSource(entry.ID, source, restrictedStdlib())
+			if err != nil {
+				t.Fatalf("compile bundled script: %v", err)
+			}
+			disposePreparedScript(prepared)
+		})
+	}
+}
+
+func TestBundledScriptsTypeCheckWithEditorStub(t *testing.T) {
+	entries, err := scriptLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := installScriptEditorSupport(dir); err != nil {
+		t.Fatal(err)
+	}
+	for index, entry := range entries {
+		source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join("scripts", entry.Filename)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exampleDir := filepath.Join(dir, "examples", fmt.Sprintf("%02d", index))
+		if err := os.MkdirAll(exampleDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(exampleDir, "script.go"), source, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	command := exec.Command(filepath.Join(runtime.GOROOT(), "bin", "go"), "test", "-tags", "script", "./...")
+	command.Dir = dir
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("bundled scripts do not type-check with the installed gt2 editor stub: %v\n%s", err, output)
 	}
 }

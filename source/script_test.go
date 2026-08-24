@@ -6,15 +6,10 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	scriptapi "gt"
 )
 
 func TestScriptPrintAlwaysWritesToConsole(t *testing.T) {
 	withoutConsoleTimestamps(t)
-	origDebug := gs.scriptOutputDebug
-	gs.scriptOutputDebug = false
-	t.Cleanup(func() { gs.scriptOutputDebug = origDebug })
 	consoleLog = messageLog{max: maxMessages}
 
 	scriptConsole("visible script message")
@@ -25,6 +20,43 @@ func TestScriptPrintAlwaysWritesToConsole(t *testing.T) {
 	}
 }
 
+func TestScriptRegistrationUsesDebugTraceNotConsole(t *testing.T) {
+	withoutConsoleTimestamps(t)
+	originalDebug := gs.scriptEventDebug
+	gs.scriptEventDebug = true
+	t.Cleanup(func() { gs.scriptEventDebug = originalDebug })
+	consoleLog = messageLog{max: maxMessages}
+	scriptDebugMu.Lock()
+	scriptDebugLines = nil
+	scriptDebugMu.Unlock()
+
+	const owner = "registration-trace-test"
+	const command = "registration_trace_test"
+	scriptMu.Lock()
+	scriptDisabled[owner] = false
+	delete(scriptCommands, command)
+	delete(scriptCommandOwners, command)
+	scriptMu.Unlock()
+	t.Cleanup(func() {
+		scriptMu.Lock()
+		delete(scriptDisabled, owner)
+		delete(scriptCommands, command)
+		delete(scriptCommandOwners, command)
+		scriptMu.Unlock()
+	})
+
+	scriptRegisterCommand(owner, command, func(string) {})
+	if messages := getConsoleMessages(); len(messages) != 0 {
+		t.Fatalf("registration leaked into console: %v", messages)
+	}
+	scriptDebugMu.Lock()
+	lines := append([]string(nil), scriptDebugLines...)
+	scriptDebugMu.Unlock()
+	if len(lines) != 1 || !strings.Contains(lines[0], "Registered command: /"+command) {
+		t.Fatalf("registration debug trace = %v", lines)
+	}
+}
+
 // Test that script equip command skips already equipped items.
 func TestScriptEquipAlreadyEquipped(t *testing.T) {
 	withoutConsoleTimestamps(t)
@@ -32,7 +64,7 @@ func TestScriptEquipAlreadyEquipped(t *testing.T) {
 	addInventoryItem(200, -1, "Shield", true)
 	consoleLog = messageLog{max: maxMessages}
 	pendingCommand = ""
-	scriptEquip("tester", 200)
+	scriptEquipByName("tester", "Shield")
 	msgs := getConsoleMessages()
 	if len(msgs) == 0 || msgs[len(msgs)-1] != "Shield already equipped, skipping" {
 		t.Fatalf("unexpected console messages %v", msgs)
@@ -51,20 +83,20 @@ func getQueuedCommands() []string {
 	return cmds
 }
 
-func TestScriptCommandAliasesShareFIFOAndThrottle(t *testing.T) {
+func TestScriptSendUsesFIFOAndThrottle(t *testing.T) {
 	origSpamKill := gs.ScriptSpamKill
 	gs.ScriptSpamKill = true
 	t.Cleanup(func() { gs.ScriptSpamKill = origSpamKill })
 
-	const owner = "command_alias_test"
+	const owner = "command_send_test"
 	scriptMu = sync.RWMutex{}
 	scriptDisabled = map[string]bool{owner: false}
 	scriptSendHistory = map[string][]time.Time{}
 	clearCommands()
 	t.Cleanup(clearCommands)
 
-	scriptRunCommand(owner, " /one ")
-	scriptEnqueueCommand(owner, "/two")
+	scriptCommand(owner, " /one ")
+	scriptCommand(owner, "/two")
 	scriptCommand(owner, "/three")
 
 	if got, want := getQueuedCommands(), []string{"/one", "/two", "/three"}; !reflect.DeepEqual(got, want) {
@@ -140,7 +172,7 @@ func TestScriptWithEquipmentRestoresAfterPanic(t *testing.T) {
 	}
 }
 
-func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
+func TestScriptBindRegistersFunctionHotkey(t *testing.T) {
 	origHotkeys := hotkeys
 	origFns := scriptHotkeyFns
 	origCommands := scriptCommands
@@ -167,18 +199,18 @@ func TestScriptKeyRegistersFunctionHotkey(t *testing.T) {
 	dataDirPath = t.TempDir()
 
 	ran := false
-	scriptAddKey("test", "F4", func() { ran = true })
+	scriptAddHotkeyFn("test", "F4", func(InputEvent) { ran = true })
 
 	if _, ok := scriptCommands["__hk_f4"]; ok {
-		t.Fatal("Key registered a server-command handler")
+		t.Fatal("Bind registered a server-command handler")
 	}
 	fn, ok := scriptGetHotkeyFn("test", "F4")
 	if !ok || fn == nil {
-		t.Fatal("Key did not register a function hotkey")
+		t.Fatal("Bind did not register a function hotkey")
 	}
 	fn(InputEvent{Chord: "F4", Key: "F4"})
 	if !ran {
-		t.Fatal("Key hotkey did not invoke its handler")
+		t.Fatal("Bind hotkey did not invoke its handler")
 	}
 }
 
@@ -215,13 +247,13 @@ func TestScriptRegisterAndDisableCommand(t *testing.T) {
 		t.Fatalf("unexpected console messages %v", msgs)
 	}
 
-	// Disable script and ensure scriptRunCommand does nothing.
+	// Disable script and ensure Send does nothing.
 	scriptDisabled[owner] = true
 	consoleLog = messageLog{max: maxMessages}
 	commandQueue = nil
 	pendingCommand = ""
 
-	scriptRunCommand(owner, "/wave")
+	scriptCommand(owner, "/wave")
 
 	if msgs := getConsoleMessages(); len(msgs) != 0 {
 		t.Fatalf("console output when script disabled: %v", msgs)
@@ -302,102 +334,5 @@ func TestScriptRegisterCommandConflict(t *testing.T) {
 	}
 	if !ran {
 		t.Fatalf("original handler overwritten")
-	}
-}
-
-// Test that trigger handlers registered by scripts receive messages.
-func TestScriptTriggers(t *testing.T) {
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
-	triggerHandlersMu = sync.RWMutex{}
-	scriptDisabled = map[string]bool{}
-	scriptInvalid = map[string]bool{}
-	scriptEnabledFor = map[string]scriptScope{}
-	startScriptEventQueue("test")
-	triggered := false
-	var wg sync.WaitGroup
-	wg.Add(1)
-	scriptRegisterTriggers("test", "", []string{"hello"}, func() {
-		triggered = true
-		wg.Done()
-	})
-	runChatTriggers("say hello")
-	wg.Wait()
-	triggerHandlersMu.Lock()
-	delete(scriptTriggers, "hello")
-	triggerHandlersMu.Unlock()
-	if !triggered {
-		t.Fatalf("handler did not run")
-	}
-}
-
-// Test that disabling a script removes any trigger handlers it registered.
-func TestScriptRemoveTriggersOnDisable(t *testing.T) {
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
-	triggerHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
-	inputHandlersMu = sync.RWMutex{}
-	scriptMu = sync.RWMutex{}
-	scriptDisabled = map[string]bool{}
-	scriptInvalid = map[string]bool{}
-	scriptEnabledFor = map[string]scriptScope{}
-	scriptDisplayNames = map[string]string{}
-	scriptCategories = map[string]string{}
-	scriptSubCategories = map[string]string{}
-	scriptTerminators = map[string]func(){}
-	scriptCommandOwners = map[string]string{}
-	scriptCommands = map[string]scriptCommandHandler{}
-	scriptSendHistory = map[string][]time.Time{}
-
-	ran := false
-	scriptRegisterTriggers("plug", "", []string{"hi"}, func() { ran = true })
-	scriptRegisterConsoleTriggers("plug", []string{"hi"}, func() { ran = true })
-	disablescript("plug", "test")
-	runChatTriggers("hi there")
-	runConsoleTriggers("hi there")
-	if ran {
-		t.Fatalf("trigger ran after script disabled")
-	}
-}
-
-// Test that disabling a script removes its input and player handlers.
-func TestDisablescriptRemovesHandlers(t *testing.T) {
-	scriptInputHandlers = nil
-	scriptPlayerHandlers = nil
-	inputHandlersMu = sync.RWMutex{}
-	playerHandlersMu = sync.RWMutex{}
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
-	triggerHandlersMu = sync.RWMutex{}
-	scriptMu = sync.RWMutex{}
-	scriptDisabled = map[string]bool{"plug": false, "other": false}
-	scriptInvalid = map[string]bool{}
-	scriptEnabledFor = map[string]scriptScope{}
-	scriptDisplayNames = map[string]string{"plug": "Plug"}
-	scriptTerminators = map[string]func(){}
-	scriptCommandOwners = map[string]string{}
-	scriptCommands = map[string]scriptCommandHandler{}
-	scriptSendHistory = map[string][]time.Time{}
-	consoleLog = messageLog{max: maxMessages}
-	origDir := dataDirPath
-	dataDirPath = t.TempDir()
-	t.Cleanup(func() { dataDirPath = origDir })
-	scriptEventMu = sync.Mutex{}
-	scriptEventQueues = map[string]*scriptEventQueue{}
-	startScriptEventQueue("plug")
-	startScriptEventQueue("other")
-	scriptRegisterInputHandler("plug", func(s string) string { return s })
-	scriptRegisterInputHandler("other", func(s string) string { return s })
-	scriptRegisterPlayerHandler("plug", func(scriptapi.Player) {})
-	scriptRegisterPlayerHandler("other", func(scriptapi.Player) {})
-
-	disablescript("plug", "test")
-
-	if len(scriptInputHandlers) != 1 || scriptInputHandlers[0].owner != "other" {
-		t.Fatalf("input handlers not cleaned up: %+v", scriptInputHandlers)
-	}
-	if len(scriptPlayerHandlers) != 1 || scriptPlayerHandlers[0].owner != "other" {
-		t.Fatalf("player handlers not cleaned up: %+v", scriptPlayerHandlers)
 	}
 }

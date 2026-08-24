@@ -6,29 +6,31 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 
-	"gt"
+	"gt2"
 )
 
 const scriptAuthor = "Examples"
+const scriptID = "dice-roll"
 const scriptCategory = "Fun"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 const scriptName = "Dice Roller"
 
 // Init registers the /roll command.
 func Init() {
-	gt.RegisterCommand("roll", roll)
+	gt2.Command("roll", roll)
 }
 
 func roll(args string) {
-	args = gt.Trim(gt.Lower(args))
+	args = strings.TrimSpace(strings.ToLower(args))
 	if args == "" {
-		gt.Print("usage: /roll NdM, e.g. /roll 2d6")
+		gt2.Print("usage: /roll NdM, e.g. /roll 2d6")
 		return
 	}
-	parts := gt.Split(args, "d")
+	parts := strings.Split(args, "d")
 	if len(parts) != 2 {
-		gt.Print("usage: /roll NdM, e.g. /roll 2d6")
+		gt2.Print("usage: /roll NdM, e.g. /roll 2d6")
 		return
 	}
 	n := 1
@@ -37,18 +39,8 @@ func roll(args string) {
 	}
 	sides, _ := strconv.Atoi(parts[1])
 	if n <= 0 || sides <= 0 {
-		gt.Print("invalid dice")
+		gt2.Print("invalid dice")
 		return
-	}
-
-	// Try to equip a dice item if present so others see it.
-	for _, it := range gt.Inventory() {
-		if gt.Includes(gt.Lower(it.Name), "dice") {
-			if !it.Equipped {
-				gt.Equip(it.Name)
-			}
-			break
-		}
 	}
 
 	rolls := make([]string, n)
@@ -58,5 +50,15 @@ func roll(args string) {
 		rolls[i] = strconv.Itoa(r)
 		total += r
 	}
-	gt.Run(fmt.Sprintf("/me rolls %s: %s (total %d)", args, gt.Join(rolls, " "), total))
+	message := fmt.Sprintf("/me rolls %s: %s (total %d)", args, strings.Join(rolls, " "), total)
+	send := func() {
+		// Give the equipped dice one game tick to become visible before rolling.
+		gt2.WaitTicks(1)
+		gt2.Send(message)
+	}
+	if dice := gt2.SearchItems("dice"); len(dice) > 0 {
+		gt2.WithEquipment(dice[0].Name, send)
+		return
+	}
+	send()
 }

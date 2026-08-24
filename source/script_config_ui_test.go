@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"gothoom/eui"
-	scriptapi "gt"
+	scriptapi "gt2"
 )
 
 func TestScriptConfigWindowUsesCurrentValuesAndCallbacks(t *testing.T) {

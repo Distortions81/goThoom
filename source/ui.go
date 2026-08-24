@@ -291,7 +291,6 @@ func initUI() {
 	makePlayersWindow()
 	makeShortcutsWindow()
 	makeHotkeysWindow()
-	makeTriggersWindow()
 	makeJoystickWindow()
 	makescriptsWindow()
 	makeMixerWindow()
@@ -349,7 +348,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	actionsBtn, actionsEvents := eui.NewButton()
 	actionsBtn.Text = "Actions"
-	actionsBtn.SetTooltip("Hotkeys, Shortcuts, Triggers, Scripts, Legacy Macros")
+	actionsBtn.SetTooltip("Hotkeys, Shortcuts, Scripts, Legacy Macros")
 	actionsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	actionsBtn.FontSize = toolFontSize
 	actionsEvents.Handle = func(ev eui.UIEvent) {
@@ -360,7 +359,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 		options := []string{
 			"Hotkeys",
 			"Shortcuts",
-			"Triggers",
 			"Scripts",
 			"Legacy Macros",
 			"Saved Data",
@@ -373,16 +371,13 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 				refreshShortcutsList()
 				shortcutsWin.ToggleNear(actionsBtn)
 			case 2:
-				refreshTriggersList()
-				triggersWin.ToggleNear(actionsBtn)
-			case 3:
 				refreshscriptsWindow()
 				scriptsWin.ToggleNear(actionsBtn)
-			case 4:
+			case 3:
 				makeLegacyMacroLibraryWindow()
 				refreshLegacyMacroLibraryWindow()
 				legacyMacroLibraryWin.ToggleNear(actionsBtn)
-			case 5:
+			case 4:
 				makeSavedDataWindow()
 				savedDataWin.ToggleNear(actionsBtn)
 			}
@@ -557,6 +552,17 @@ func makescriptsWindow() {
 	}
 	buttonsBottom.AddItem(newBtn)
 
+	libraryBtn, libraryEvents := eui.NewButton()
+	libraryBtn.Text = "Examples"
+	libraryBtn.SetTooltip("Browse optional bundled example scripts")
+	libraryBtn.Size = eui.Point{X: 80, Y: 24}
+	libraryEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			openScriptLibraryWindow()
+		}
+	}
+	buttonsBottom.AddItem(libraryBtn)
+
 	openBtn, oh := eui.NewButton()
 	openBtn.Text = "Open scripts folder"
 	// Label already clear; no tooltip.
@@ -605,31 +611,31 @@ type newScriptTemplate struct {
 var newScriptTemplates = []newScriptTemplate{
 	{
 		name: "Command", filename: "my_command", description: "Adds a /hello command.",
-		imports: `import "gt"`,
+		imports: `import "gt2"`,
 		body: `func Init() {
-	gt.Command("hello", func(args string) {
-		gt.Print("Hello " + args)
+	gt2.Command("hello", func(args string) {
+		gt2.Print("Hello " + args)
 	})
 }
 `,
 	},
 	{
 		name: "Hotkey / Click", filename: "my_click", description: "Handles Shift-click and consumes it.",
-		imports: `import "gt"`,
+		imports: `import "gt2"`,
 		body: `func Init() {
-	gt.Bind("Shift-LeftClick", func(event gt.InputEvent) {
+	gt2.Bind("Shift-LeftClick", func(event gt2.InputEvent) {
 		event.Consume()
-		gt.Print("Shift-clicked")
+		gt2.Print("Shift-clicked")
 	})
 }
 `,
 	},
 	{
 		name: "Chat Event", filename: "my_chat_event", description: "Responds when chat contains hello.",
-		imports: `import "gt"`,
+		imports: `import "gt2"`,
 		body: `func Init() {
-	gt.OnChat(gt.ChatFilter{Contains: "hello"}, func(event gt.ChatEvent) {
-		gt.Print(event.Speaker + " said: " + event.Message)
+	gt2.OnChat(gt2.ChatFilter{Contains: "hello"}, func(event gt2.ChatEvent) {
+		gt2.Print(event.Speaker + " said: " + event.Message)
 	})
 }
 `,
@@ -637,15 +643,15 @@ var newScriptTemplates = []newScriptTemplate{
 	{
 		name: "Equipment Sequence", filename: "my_equipment_sequence", description: "Temporarily equips an item while running actions.",
 		imports: `import (
-	"gt"
+	"gt2"
 	"time"
 )`,
 		body: `func Init() {
-	gt.Command("sequence", func(string) {
-		gt.WithEquipment("item name", func() {
-			gt.Send("/action")
-			gt.Wait(time.Second)
-			gt.Send("/action")
+	gt2.Command("sequence", func(string) {
+		gt2.WithEquipment("item name", func() {
+			gt2.Send("/action")
+			gt2.Wait(time.Second)
+			gt2.Send("/action")
 		})
 	})
 }
@@ -728,7 +734,8 @@ func createScriptFromTemplate(dir string, template newScriptTemplate) (string, e
 		source := "package main\n\n" + template.imports + "\n\n" +
 			"const scriptID = \"" + normalizeScriptID(base) + "\"\n" +
 			"const scriptName = \"" + displayName + "\"\n" +
-			"const scriptDescription = \"" + template.description + "\"\n\n" + template.body
+			"const scriptDescription = \"" + template.description + "\"\n" +
+			"const scriptAPIVersion = 2\n\n" + template.body
 		if _, err := file.WriteString(source); err != nil {
 			_ = file.Close()
 			_ = os.Remove(path)
@@ -972,6 +979,7 @@ func refreshscriptDetails() {
 	disabled := scriptDisabled[owner]
 	invalid := scriptInvalid[owner]
 	errorText := scriptErrors[owner]
+	validationResult := scriptValidationResults[owner]
 	reloadFailed := scriptReloadFailed[owner]
 	scriptMu.RUnlock()
 
@@ -1000,6 +1008,7 @@ func refreshscriptDetails() {
 	line("Category: " + catLabel)
 	line("Status: " + status)
 	line("Error: " + valueOrNone(errorText))
+	line("Validation: " + valueOrNone(validationResult))
 
 	commands, bindings, events, timers, settings := scriptRegistrationSummary(owner)
 	addScriptDetailList(line, "Commands", commands)
@@ -1034,31 +1043,6 @@ func refreshscriptDetails() {
 		}
 	}
 
-	triggerHandlersMu.RLock()
-	var triggers []string
-	for phrase, hs := range scriptTriggers {
-		for _, h := range hs {
-			if h.owner == owner {
-				triggers = append(triggers, phrase)
-				break
-			}
-		}
-	}
-	triggerHandlersMu.RUnlock()
-	if len(triggers) == 0 {
-		line("Triggers: none")
-	} else {
-		line("Triggers:")
-		sort.Strings(triggers)
-		for _, t := range triggers {
-			txt, _ := eui.NewText()
-			txt.Text = "  " + t
-			txt.FontSize = 12
-			txt.Size = infoSize
-			scriptDetails.AddItem(txt)
-		}
-	}
-
 	actions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	button := func(label string, disabled bool, action func()) {
 		item, events := eui.NewButton()
@@ -1084,6 +1068,19 @@ func refreshscriptDetails() {
 		if err := open.Run(filepath.Dir(path)); err != nil {
 			consoleMessage("[script] open folder: " + err.Error())
 		}
+	})
+	button("Validate", path == "", func() {
+		result := "Passed"
+		if err := validateScriptFile(owner, path); err != nil {
+			result = err.Error()
+			consoleMessage("[script] validation failed: " + result)
+		} else {
+			consoleMessage("[script] validation passed: " + name)
+		}
+		scriptMu.Lock()
+		scriptValidationResults[owner] = result
+		scriptMu.Unlock()
+		refreshscriptDetails()
 	})
 	button("Reload", disabled || invalid, func() { enablescript(owner) })
 	button("Stop", disabled, func() { clearscriptScope(owner) })
@@ -1132,7 +1129,7 @@ func scriptRegistrationSummary(owner string) (commands, bindings, events []strin
 			commands = append(commands, "/"+command)
 		}
 	}
-	timers = len(scriptTimers[owner]) + len(scriptTickerStops[owner])
+	timers = len(scriptRepeats[owner])
 	scriptMu.RUnlock()
 
 	hotkeysMu.RLock()
@@ -6173,18 +6170,6 @@ func makeDebugWindow() {
 		}
 	}
 	diagnosticsSection.AddItem(pictIDCB)
-
-	scriptOutCB, scriptOutEvents := eui.NewCheckbox()
-	scriptOutCB.Text = "Always show script output"
-	scriptOutCB.Size = eui.Point{X: width, Y: 24}
-	scriptOutCB.Checked = gs.scriptOutputDebug
-	scriptOutEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.scriptOutputDebug = ev.Checked
-			settingsDirty = true
-		}
-	}
-	diagnosticsSection.AddItem(scriptOutCB)
 
 	// Add a small "Reload" button beside the shader checkbox for hot-reload.
 	reloadBtn, reloadEv := eui.NewButton()

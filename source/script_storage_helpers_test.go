@@ -63,7 +63,7 @@ func TestMigrateStorageRunsOnceAndStagesVersion(t *testing.T) {
 	const owner = "migration-test"
 	setScriptStorageValue(owner, scriptStorageVersionKey, 1)
 	candidate := &scriptCandidate{}
-	exports := exportsForScriptCandidate(owner, candidate)["gt/gt"]
+	exports := exportsForScriptCandidate(owner, candidate)["gt2/gt2"]
 	migrate := exports["MigrateStorage"].Interface().(func(int, func(int)))
 	store := exports["Store"].Interface().(func(string, any))
 	calls := 0

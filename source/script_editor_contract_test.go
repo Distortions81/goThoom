@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -13,18 +16,39 @@ import (
 	"testing"
 	"unicode"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 )
 
 func TestScriptEditorPackageMatchesRuntimeSurface(t *testing.T) {
+	if scriptAPICurrentVersion != 2 {
+		t.Fatalf("script API version = %d, want 2", scriptAPICurrentVersion)
+	}
+	if _, exists := basescriptExports["gt/gt"]; exists {
+		t.Fatal("old gt import path is still exported")
+	}
 	fileSet := token.NewFileSet()
 	_, thisFile, _, _ := runtime.Caller(0)
-	file, err := parser.ParseFile(fileSet, filepath.Join(filepath.Dir(thisFile), "gt", "pluginapi.go"), nil, 0)
+	contractDir := filepath.Join(filepath.Dir(thisFile), "gt2")
+	contractPath := filepath.Join(contractDir, "pluginapi.go")
+	contractSource, err := os.ReadFile(contractPath)
 	if err != nil {
-		t.Fatalf("parse gt editor package: %v", err)
+		t.Fatalf("read canonical gt2 contract: %v", err)
+	}
+	file, err := parser.ParseFile(fileSet, contractPath, contractSource, 0)
+	if err != nil {
+		t.Fatalf("parse gt2 editor package: %v", err)
+	}
+	reference, err := os.ReadFile(filepath.Join(contractDir, "API_REFERENCE.md"))
+	if err != nil {
+		t.Fatalf("read generated gt2 API reference: %v", err)
+	}
+	contractHash := sha256.Sum256(contractSource)
+	hashMarker := fmt.Sprintf("Source SHA-256: `%x`", contractHash)
+	if !bytes.Contains(reference, []byte(hashMarker)) {
+		t.Fatal("gt2 API reference is stale; run go generate in source/gt2")
 	}
 	editorNames := editorTopLevelNames(file)
-	runtimeSymbols := exportsForscript("contract")["gt/gt"]
+	runtimeSymbols := exportsForscript("contract")["gt2/gt2"]
 	runtimeNames := map[string]bool{}
 	for name := range runtimeSymbols {
 		if exportedScriptName(name) {
@@ -42,8 +66,23 @@ func TestScriptEditorPackageMatchesRuntimeSurface(t *testing.T) {
 	}
 	for _, name := range []string{"Player", "Item", "Mobile", "Click", "World"} {
 		typ := runtimeSymbols[name].Type()
-		if typ.Kind() != reflect.Pointer || typ.Elem().PkgPath() != "gt" {
-			t.Errorf("runtime %s is %v from %q, want public gt type", name, typ, typ.Elem().PkgPath())
+		if typ.Kind() != reflect.Pointer || typ.Elem().PkgPath() != "gt2" {
+			t.Errorf("runtime %s is %v from %q, want public gt2 type", name, typ, typ.Elem().PkgPath())
+		}
+	}
+	removed := []string{
+		"AddHotkey", "AddShortcuts", "After", "AfterDur", "Chat", "ChatFrom", "Cmd", "Console", "ConsoleMsg",
+		"CreatureChat", "EnqueueCommand", "EquipById", "EquipPartial", "Every", "EveryDur", "Has", "Input",
+		"Key", "KeyJustPressed", "MouseJustPressed", "MouseWheel", "Notify", "NPCChat", "OtherChat", "OtherChatFrom",
+		"PlayerChat", "PlayerChatFrom", "RegisterChatHandler", "RegisterCommand", "RegisterConsoleTriggers",
+		"RegisterInputHandler", "RegisterPlayerHandler", "RegisterTrigger", "RegisterTriggers", "RemoveHotkey", "Run",
+		"RunCommand", "SelfChat", "SetInput", "SleepTicks", "UnequipById", "UnequipPartial",
+		"IgnoreCase", "StartsWith", "EndsWith", "Includes", "Lower", "Upper", "Trim", "TrimStart", "TrimEnd",
+		"Words", "Join", "Replace", "Split",
+	}
+	for _, name := range removed {
+		if runtimeNames[name] || editorNames[name] {
+			t.Errorf("removed v1 symbol %s is still public", name)
 		}
 	}
 
@@ -120,12 +159,12 @@ func editorStructFields(t *testing.T, fileSet *token.FileSet, file *ast.File, na
 			}
 			structure, ok := typeSpec.Type.(*ast.StructType)
 			if !ok {
-				t.Fatalf("gt.%s is not a struct", name)
+				t.Fatalf("gt2.%s is not a struct", name)
 			}
 			for _, field := range structure.Fields.List {
 				var formatted bytes.Buffer
 				if err := format.Node(&formatted, fileSet, field.Type); err != nil {
-					t.Fatalf("format gt.%s field: %v", name, err)
+					t.Fatalf("format gt2.%s field: %v", name, err)
 				}
 				fieldType := normalizeContractType(formatted.String())
 				for _, fieldName := range field.Names {
@@ -137,7 +176,7 @@ func editorStructFields(t *testing.T, fileSet *token.FileSet, file *ast.File, na
 			return fields
 		}
 	}
-	t.Fatalf("gt.%s not found", name)
+	t.Fatalf("gt2.%s not found", name)
 	return nil
 }
 
@@ -155,5 +194,5 @@ func runtimeStructFields(typ reflect.Type) map[string]string {
 func normalizeContractType(value string) string {
 	value = strings.ReplaceAll(value, "byte", "uint8")
 	value = strings.ReplaceAll(value, "main.", "")
-	return strings.ReplaceAll(value, "gt.", "")
+	return strings.ReplaceAll(value, "gt2.", "")
 }

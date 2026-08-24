@@ -2,7 +2,7 @@
 
 package main
 
-import "gt"
+import "gt2"
 
 // Default Shortcuts – type short codes that expand into full commands.
 //
@@ -11,7 +11,8 @@ import "gt"
 // - If the full command ends with a space, you can continue typing arguments.
 // - You can add or remove entries in the list below; each line is "short": "full".
 
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
+const scriptID = "default-shortcuts"
 const scriptName = "Default Shortcuts"
 const scriptAuthor = "Distortions"
 const scriptCategory = "Quality Of Life"
@@ -39,6 +40,7 @@ func Init() {
 		"wh": "/whisper ",
 		"yy": "/yell ",
 	}
-	// Register them in a single call.
-	gt.AddShortcuts(shortcuts)
+	for short, full := range shortcuts {
+		gt2.AddShortcut(short, full)
+	}
 }

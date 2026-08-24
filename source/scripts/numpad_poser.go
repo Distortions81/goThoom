@@ -2,7 +2,7 @@
 
 package main
 
-import "gt"
+import "gt2"
 
 // Numpad Poser – hit keypad numbers to strike poses quickly.
 //
@@ -12,29 +12,30 @@ import "gt"
 //
 // script metadata
 const scriptName = "Numpad Poser"
+const scriptID = "numpad-poser"
 const scriptAuthor = "Examples"
 const scriptCategory = "Fun"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 // Init binds each number key on the keypad to a fun pose.
 func Init() {
-	gt.Bind("Numpad1", npPose1)
-	gt.Bind("Numpad2", npPose2)
-	gt.Bind("Numpad3", npPose3)
-	gt.Bind("Numpad4", npPose4)
-	gt.Bind("Numpad5", npPose5)
-	gt.Bind("Numpad6", npPose6)
-	gt.Bind("Numpad7", npPose7)
-	gt.Bind("Numpad8", npPose8)
-	gt.Bind("Numpad9", npPose9)
+	gt2.Bind("Numpad1", npPose1)
+	gt2.Bind("Numpad2", npPose2)
+	gt2.Bind("Numpad3", npPose3)
+	gt2.Bind("Numpad4", npPose4)
+	gt2.Bind("Numpad5", npPose5)
+	gt2.Bind("Numpad6", npPose6)
+	gt2.Bind("Numpad7", npPose7)
+	gt2.Bind("Numpad8", npPose8)
+	gt2.Bind("Numpad9", npPose9)
 }
 
-func npPose1(gt.InputEvent) { gt.Send("/pose leanleft") }
-func npPose2(gt.InputEvent) { gt.Send("/pose akimbo") }
-func npPose3(gt.InputEvent) { gt.Send("/pose leanright") }
-func npPose4(gt.InputEvent) { gt.Send("/pose kneel") }
-func npPose5(gt.InputEvent) { gt.Send("/pose sit") }
-func npPose6(gt.InputEvent) { gt.Send("/pose angry") }
-func npPose7(gt.InputEvent) { gt.Send("/pose lie") }
-func npPose8(gt.InputEvent) { gt.Send("/pose seated") }
-func npPose9(gt.InputEvent) { gt.Send("/pose celebrate") }
+func npPose1(gt2.InputEvent) { gt2.Send("/pose leanleft") }
+func npPose2(gt2.InputEvent) { gt2.Send("/pose akimbo") }
+func npPose3(gt2.InputEvent) { gt2.Send("/pose leanright") }
+func npPose4(gt2.InputEvent) { gt2.Send("/pose kneel") }
+func npPose5(gt2.InputEvent) { gt2.Send("/pose sit") }
+func npPose6(gt2.InputEvent) { gt2.Send("/pose angry") }
+func npPose7(gt2.InputEvent) { gt2.Send("/pose lie") }
+func npPose8(gt2.InputEvent) { gt2.Send("/pose seated") }
+func npPose9(gt2.InputEvent) { gt2.Send("/pose celebrate") }

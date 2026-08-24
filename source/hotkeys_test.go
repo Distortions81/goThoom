@@ -433,7 +433,7 @@ func TestScriptHotkeyStatePersisted(t *testing.T) {
 	defer func() { dataDirPath = origDir }()
 
 	// Add script hotkey and enable it.
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 	if len(hotkeys) != 1 {
 		t.Fatalf("expected one script hotkey")
 	}
@@ -463,7 +463,7 @@ func TestScriptHotkeyStatePersisted(t *testing.T) {
 		t.Fatalf("expected enabled state, got disabled")
 	}
 
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 	found := false
 	hotkeysMu.RLock()
 	for _, hk := range hotkeys {
@@ -488,7 +488,7 @@ func TestScriptHotkeyDisabledStatePersisted(t *testing.T) {
 	dataDirPath = dir
 	t.Cleanup(func() { dataDirPath = origDir })
 
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 	hotkeysMu.Lock()
 	hotkeys[0].Disabled = true
 	hotkeysMu.Unlock()
@@ -511,7 +511,7 @@ func TestScriptHotkeyDisabledStatePersisted(t *testing.T) {
 		t.Fatalf("disabled state was not loaded: known=%v enabled=%v", known, enabled)
 	}
 
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 	if len(hotkeys) != 1 || !hotkeys[0].Disabled {
 		t.Fatalf("disabled state was not applied when script recreated binding: %+v", hotkeys)
 	}
@@ -554,7 +554,9 @@ func TestScriptRemoveHotkeyClearsState(t *testing.T) {
 
 	makeHotkeysWindow()
 
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	queue := startScriptEventQueue("plug")
+	t.Cleanup(func() { queue.stop() })
+	registration := scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 
 	hotkeysMu.RLock()
 	if len(hotkeys) != 1 {
@@ -569,7 +571,7 @@ func TestScriptRemoveHotkeyClearsState(t *testing.T) {
 		t.Fatalf("expected hotkey list to have script header and row before removal, got %d", len(hotkeysList.Contents))
 	}
 
-	scriptRemoveHotkey("plug", "Ctrl-P")
+	registration.release()
 
 	hotkeysMu.RLock()
 	for _, hk := range hotkeys {

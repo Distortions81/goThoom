@@ -2,7 +2,7 @@
 
 package main
 
-import "gt"
+import "gt2"
 
 // Quick Reply – reply to the last exile who "thinks to you".
 //
@@ -12,33 +12,32 @@ import "gt"
 
 // script metadata
 var scriptName = "Quick Reply"
+
+const scriptID = "quick-reply"
+
 var scriptAuthor = "Examples"
 var scriptCategory = "Quality Of Life"
 
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 var lastThinker string // remembers who last thought to us
 
 // Init watches chat for "thinks to you" messages and adds /r.
 func Init() {
-	gt.Chat("thinks to you", quickReplyWatch)
-	gt.RegisterCommand("r", quickReplyCmd)
+	gt2.OnChat(gt2.ChatFilter{Type: gt2.ChatTypeThinkTo}, quickReplyWatch)
+	gt2.Command("r", quickReplyCmd)
 }
 
-func quickReplyWatch(msg string) {
-	lower := gt.Lower(msg)
-	if gt.Includes(lower, "thinks to you") {
-		words := gt.Words(msg)
-		if len(words) > 0 {
-			lastThinker = words[0]
-		}
+func quickReplyWatch(event gt2.ChatEvent) {
+	if event.Speaker != "" {
+		lastThinker = event.Speaker
 	}
 }
 
 func quickReplyCmd(args string) {
 	if lastThinker == "" {
-		gt.Print("No one to reply to yet.")
+		gt2.Print("No one to reply to yet.")
 		return
 	}
-	gt.Run("/thinkto " + lastThinker + " " + args)
+	gt2.Send("/thinkto " + lastThinker + " " + args)
 }

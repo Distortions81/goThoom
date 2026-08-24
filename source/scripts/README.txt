@@ -1,4 +1,4 @@
-goThoom Scripts
+goThoom Scripting API 2
 
 This folder contains example script files for goThoom.
 
@@ -13,86 +13,81 @@ Getting Started
 - Place .go files in the scripts/ directory next to the game.
 - Hotkeys added by scripts appear in a "script Hotkeys" section of the hotkeys window where you can enable or disable them.
 
+Editor Support
+- goThoom maintains go.mod, go.work, and the gt2/ folder here so editors can
+  resolve import "gt2" without setup. These support files are refreshed by the
+  client; your .go script files are never rewritten.
+- gt2/API_REFERENCE.md is generated from the same API contract used by the
+  client and editor stubs.
+
 Run the client with `go run .` or the built binary and any scripts in this folder load automatically.
 
 API
-The interpreter allows only these packages: gt, bytes, encoding/json,
+The interpreter allows only these packages: gt2, bytes, encoding/json,
 errors, fmt, math, math/big, math/rand, regexp, sort, strconv,
 strings, time, unicode/utf8.
 
 Common API calls:
-- gt.Print(msg) – write a message to the in-game console.
-- gt.ShowNotification(msg) – pop up a notification on screen.
-- gt.Command(name, handler) – define a local slash command.
-- gt.RegisterCommand is the compatibility name for Command.
-- gt.Send("/thing") – preferred FIFO command operation with per-script throttling.
-- gt.Run, gt.Cmd, gt.RunCommand, and gt.EnqueueCommand are compatibility aliases.
-- gt.WaitTicks(n) and gt.Wait(duration) pause only the current script task and
-  are cancelled when the script stops or reloads. SleepTicks is an alias.
-- gt.Repeat(interval, fn) runs a serialized callback repeatedly and returns a
+- gt2.Print(msg) – write a message to the in-game console.
+- gt2.ShowNotification(msg) – pop up a notification on screen.
+- gt2.Command(name, handler) – define a local slash command.
+- gt2.Send("/thing") – send an ordered, rate-limited game command.
+- gt2.WaitTicks(n) and gt2.Wait(duration) pause only the current script task and
+  are cancelled when the script stops or reloads.
+- gt2.Repeat(interval, fn) runs a serialized callback repeatedly and returns a
   Timer whose Stop method is safe to call more than once.
-- gt.WithEquipment(name, task) temporarily equips an item and restores the
+- gt2.WithEquipment(name, task) temporarily equips an item and restores the
   equipment that previously occupied its slot when the task returns or panics.
-- gt.WaitForInventory and gt.WaitForEquipment wait for declarative item state
+- gt2.WaitForInventory and gt2.WaitForEquipment wait for declarative item state
   with a timeout and are cancelled on script stop or reload.
-- gt.AddHotkey(combo, "/thing") – bind a combo to a slash command.
-- gt.Key(combo, func()) – bind a combo directly to a no-argument function.
-- gt.AddHotkeyFn(combo, func(HotkeyEvent)) – bind a combo directly to a
-  function that receives the combo, its parts, and its trigger key.
-- gt.Bind(combo, func(InputEvent)) – preferred unified key, mouse, modifier,
+- gt2.Bind(combo, func(InputEvent)) – unified key, mouse, modifier,
   chord, and wheel binding API.
-- gt.AddShortcut("yy", "/yell ") – expand a short prefix in the input.
-- gt.AddShortcuts(map[string]string) – register many shortcuts at once.
-- gt.RegisterInputHandler(handler) – inspect/change chat text before sending.
-- gt.OnChat(filter, func(ChatEvent)) – receive parsed speaker, message, raw text,
+- gt2.AddShortcut("yy", "/yell ") – expand a short prefix in the input.
+- gt2.OnChat(filter, func(ChatEvent)) – receive parsed speaker, message, raw text,
   and chat kind flags.
-- gt.OnServerMessage(filter, func(ServerMessageEvent)) – receive unformatted
+- gt2.OnServerMessage(filter, func(ServerMessage)) – receive unformatted
   server console text and its message type.
-- gt.OnLogin, gt.OnLogout, gt.OnCharacterChange, and gt.OnStop receive lifecycle
+- gt2.OnLogin, gt2.OnLogout, gt2.OnCharacterChange, and gt2.OnStop receive lifecycle
   events with character transitions and stop reasons.
-- gt.OnChange(kind, func(ChangeEvent)) receives structured inventory, equipment,
-  selection, vitals, world, and location changes. Use the gt.Change* constants.
-- Preferred registration calls return an optional Subscription. Call Remove()
+- gt2.OnChange(kind, func(ChangeEvent)) receives structured inventory, equipment,
+  selection, vitals, world, and location changes. Use the gt2.Change* constants.
+- Registration calls return an optional Subscription. Call Remove()
   to unregister it; scripts may ignore the return value.
-- gt.PlayerName() – name of your current character.
-- gt.Players() – slice of known players with basic info.
-- gt.Inventory() – slice of inventory items.
-- gt.EquippedItems() – list of currently equipped items.
-- gt.HasItem(name) – whether your inventory has an item by name.
-- gt.IsEquipped(name) – whether an item by name is equipped.
-- gt.MouseWheel() – get scroll wheel movement since last frame.
-- gt.KeyJustPressed(name) – check keyboard keys.
-- gt.SetInputText(txt) and gt.InputText() – set or read the chat input box.
-- Simple text helpers: gt.Lower, gt.Upper, gt.IgnoreCase, gt.StartsWith,
-  gt.EndsWith, gt.Includes, gt.Trim, gt.TrimStart, gt.TrimEnd,
-  gt.Words, gt.Join, gt.Replace, gt.Split.
+- gt2.Self() – current character vitals, location, and equipment snapshot.
+- gt2.Players() – slice of known players with basic info.
+- gt2.Inventory() – slice of inventory items.
+- gt2.EquippedItems() – list of currently equipped items.
+- gt2.HasItem(name) – whether your inventory has an item by name.
+- gt2.IsEquipped(name) – whether an item by name is equipped.
+- gt2.SetInputText(txt) and gt2.InputText() – set or read the chat input box.
+- Use Go's standard `strings` package for text matching, splitting, and case
+  conversion.
 
 Function Anatomy
 A minimal script typically looks like this:
 
     //go:build script
     package main
-    import "gt"
+    import "gt2"
     const scriptID = "my-script"
     const scriptName = "My Script"
     const scriptAuthor = "You"
     const scriptCategory = "Utilities"
-    const scriptAPIVersion = 1
+    const scriptAPIVersion = 2
 
     func Init() {
         // Add a local command you can type as "/hello".
-        gt.RegisterCommand("hello", helloCmd)
-        // Bind a hotkey to a named function.
-        gt.Key("Ctrl-H", helloHotkey)
+		gt2.Command("hello", helloCmd)
+		gt2.Bind("Ctrl-H", helloHotkey)
     }
 
     func helloCmd(args string) {
-        gt.Print("Hello, " + args)
+        gt2.Print("Hello, " + args)
     }
 
-    gt.Bind("Ctrl-H", func(event gt.InputEvent) {
-        gt.Send("/think Hello!")
-    })
+    func helloHotkey(event gt2.InputEvent) {
+        gt2.Send("/think Hello!")
+    }
 
 Where to put files:
 - Place .go files in the scripts/ directory next to the game.
@@ -120,33 +115,33 @@ script and remains safe to keep for as long as needed. Call the API again when
 you want newer state. Editing a returned value or slice changes only your
 script's copy; it cannot change the client or another script.
 
-    me := gt.Self()
-    hovered := gt.Hover()
-    selectedPlayer, hasPlayer := gt.SelectedPlayer()
-    selectedItem, hasItem := gt.SelectedItem()
-    world := gt.CurrentWorld()
+    me := gt2.Self()
+    hovered := gt2.Hover()
+    selectedPlayer, hasPlayer := gt2.SelectedPlayer()
+    selectedItem, hasItem := gt2.SelectedItem()
+    world := gt2.CurrentWorld()
 
-`gt.Self()` includes current and maximum health, spirit, and balance, the
+`gt2.Self()` includes current and maximum health, spirit, and balance, the
 current location, and equipped items. Each item has a stable InstanceID and a
-readable Slot such as gt.SlotRightHand. Use gt.FindItem for a normal
-case-insensitive exact lookup, gt.FindItemExact when capitalization matters,
-gt.FindItems for every exact match, gt.SearchItems for partial matches, and
-gt.Equipped for a slot lookup.
+readable Slot such as gt2.SlotRightHand. Use gt2.FindItem for a normal
+case-insensitive exact lookup, gt2.FindItemExact when capitalization matters,
+gt2.FindItems for every exact match, gt2.SearchItems for partial matches, and
+gt2.Equipped for a slot lookup.
 
-`gt.LatestServerMessage()` returns the newest structured server message, its
+`gt2.LatestServerMessage()` returns the newest structured server message, its
 type, arrival time, and increasing sequence number. The second return value is
 false until a message has arrived in the current session.
 
 Storage
 
-Use gt.Store and the typed gt.Load* functions for data private to your script.
+Use gt2.Store and the typed gt2.Load* functions for data private to your script.
 When the stored shape changes, increase one version number and migrate before
 reading the data:
 
-    gt.MigrateStorage(2, func(fromVersion int) {
+    gt2.MigrateStorage(2, func(fromVersion int) {
         if fromVersion < 2 {
-            gt.Store("new-key", gt.LoadString("old-key", ""))
-            gt.DeleteStored("old-key")
+            gt2.Store("new-key", gt2.LoadString("old-key", ""))
+            gt2.DeleteStored("old-key")
         }
     })
 

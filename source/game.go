@@ -684,7 +684,6 @@ func (g *Game) Update() error {
 	once.Do(func() {
 		initGame()
 	})
-	refreshScriptInputSnapshot()
 	drainScriptDispatcher()
 	processMusicRequests()
 
@@ -956,7 +955,7 @@ func (g *Game) Update() error {
 				historyPos = len(inputHistory)
 				legacyMacroTriggerExpression(orig, int64(ackFrame))
 			} else {
-				txt := runInputHandlers(orig)
+				txt := expandShortcut(orig)
 				txt = strings.TrimSpace(txt)
 				if txt == "" {
 					// If handlers removed the text, fall back to the user's

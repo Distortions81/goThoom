@@ -3,16 +3,17 @@
 package main
 
 import (
-	"gt"
+	"gt2"
 	"math/rand"
 	"time"
 )
 
 // script metadata
 const scriptName = "Prevent Idle"
+const scriptID = "prevent-idle"
 const scriptAuthor = "Examples"
 const scriptCategory = "Quality Of Life"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 const maxKeepAlive = 6 // 5 * 6 = 30min
 
@@ -24,11 +25,11 @@ var (
 func Init() {
 	// Seed RNG once for random command selection.
 	rand.Seed(time.Now().UnixNano())
-	gt.ConsoleMsg("You have been idle for too long.", onIdleWarning)
+	gt2.OnServerMessage(gt2.ServerMessageFilter{Contains: "You have been idle for too long."}, onIdleWarning)
 	lastKeepalive = time.Now()
 }
 
-func onIdleWarning(msg string) {
+func onIdleWarning(gt2.ServerMessage) {
 	if time.Since(lastKeepalive) < time.Minute*4 {
 		//Too soon, something is wrong
 		return
@@ -52,7 +53,7 @@ func randomIdleCommand() {
 		return
 	}
 	rn := rand.Intn(n)
-	gt.Run(idleCommands[rn])
+	gt2.Send(idleCommands[rn])
 }
 
 var idleCommands = []string{

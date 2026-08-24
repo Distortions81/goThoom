@@ -2,43 +2,57 @@
 
 package main
 
-import "gt"
+import (
+	"strings"
+	"time"
+
+	"gt2"
+)
 
 // script metadata
 const scriptName = "Bard Macros"
+const scriptID = "bard"
 const scriptAuthor = "Examples"
 const scriptCategory = "Profession"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 // Init sets up our commands and hotkeys.
 func Init() {
 	// /playsong <instrument> <notes>
-	gt.RegisterCommand("playsong", playSongCmd)
+	gt2.Command("playsong", playSongCmd)
 
 	// A handy hotkey that plays a simple tune directly.
-	gt.Key("Shift-B", playSongHotkey)
+	gt2.Bind("Shift-B", playSongHotkey)
 }
 
 func playSongCmd(args string) {
 	// Split the arguments into words.
-	parts := gt.Words(args)
+	parts := strings.Fields(args)
 	if len(parts) < 2 {
 		// Need an instrument and at least one note.
 		return
 	}
 	inst := parts[0]
-	notes := gt.Join(parts[1:], " ")
+	notes := strings.Join(parts[1:], " ")
 
-	// Pull the instrument from our case, play the notes,
-	// then put it back where we found it.
-	gt.Run("/equip instrument case")
-	gt.Run("/useitem instrument case /remove " + inst)
-	gt.Run("/equip " + inst)
-	gt.Run("/useitem " + inst + " " + notes)
-	gt.Run("/useitem instrument case /add " + inst)
+	// Each wait reacts to an inventory update; there is no polling loop.
+	gt2.WithEquipment("instrument case", func() {
+		gt2.Send("/useitem instrument case /remove " + inst)
+		if !gt2.WaitForInventory(inst, true, 2*time.Second) {
+			gt2.Print("The instrument case did not produce " + inst + ".")
+			return
+		}
+		gt2.WithEquipment(inst, func() {
+			gt2.Send("/useitem " + inst + " " + notes)
+		})
+		gt2.Send("/useitem instrument case /add " + inst)
+		if !gt2.WaitForInventory(inst, false, 2*time.Second) {
+			gt2.Print(inst + " did not return to the instrument case.")
+		}
+	})
 }
 
-func playSongHotkey() {
+func playSongHotkey(gt2.InputEvent) {
 	// Example: play a short riff on pine_flute.
 	playSongCmd("pine_flute cfedcgdec")
 }

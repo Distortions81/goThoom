@@ -6,7 +6,7 @@ import (
 	"sync"
 	"unicode"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 )
 
 const scriptConfigStoragePrefix = "__config__:"

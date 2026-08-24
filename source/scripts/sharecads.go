@@ -3,15 +3,17 @@
 package main
 
 import (
-	"gt"
+	"gt2"
+	"strings"
 	"time"
 )
 
 // script metadata
 const scriptName = "Sharecads"
+const scriptID = "sharecads"
 const scriptAuthor = "Examples"
 const scriptCategory = "Quality Of Life"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 var (
 	scOn    bool
@@ -20,32 +22,33 @@ var (
 
 // Init toggles the feature with /shcads or Shift+S.
 func Init() {
-	gt.RegisterCommand("shcads", scToggleCmd)
-	gt.Chat("You sense healing energy from ", handleSharecads)
-	gt.Bind("Shift-S", scToggleHotkey)
+	gt2.Command("shcads", scToggleCmd)
+	gt2.OnChat(gt2.ChatFilter{Contains: "You sense healing energy from "}, handleSharecads)
+	gt2.Bind("Shift-S", scToggleHotkey)
 }
 
 func scToggleCmd(args string) {
 	scOn = !scOn
 	if scOn {
-		gt.Print("* Sharecads enabled")
+		gt2.Print("* Sharecads enabled")
 	} else {
-		gt.Print("* Sharecads disabled")
+		gt2.Print("* Sharecads disabled")
 	}
 }
 
-func scToggleHotkey(gt.InputEvent) { scToggleCmd("") }
+func scToggleHotkey(gt2.InputEvent) { scToggleCmd("") }
 
 // handleSharecads watches for healing energy messages and shares back once.
-func handleSharecads(msg string) {
+func handleSharecads(event gt2.ChatEvent) {
 	if !scOn {
 		return
 	}
 	const prefix = "You sense healing energy from "
-	if !gt.StartsWith(msg, prefix) {
+	msg := event.Raw
+	if !strings.HasPrefix(msg, prefix) {
 		return
 	}
-	name := gt.TrimEnd(gt.TrimStart(msg, prefix), ".")
+	name := strings.TrimSuffix(strings.TrimPrefix(msg, prefix), ".")
 	now := time.Now()
 	if t, ok := scShare[name]; ok && now.Sub(t) < 3*time.Second {
 		return
@@ -64,5 +67,5 @@ func handleSharecads(msg string) {
 		}
 	}
 	scShare[name] = now
-	gt.Cmd("/share " + name)
+	gt2.Send("/share " + name)
 }

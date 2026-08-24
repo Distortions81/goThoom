@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 )
 
 func TestLatestServerMessageSnapshot(t *testing.T) {

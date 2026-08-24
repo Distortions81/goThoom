@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	scriptapi "gt"
+	scriptapi "gt2"
 )
 
 func resetScriptCallbackTestState(t *testing.T, owner string) {
@@ -25,8 +25,7 @@ func resetScriptCallbackTestState(t *testing.T, owner string) {
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
-	scriptTimers = map[string][]*time.Timer{}
-	scriptTickerStops = map[string][]chan struct{}{}
+	scriptRepeats = map[string][]*scriptRepeatRegistration{}
 	scriptTickWaiters = map[string][]*tickWaiter{}
 	scriptStateWaiters = map[string][]*scriptStateWaiter{}
 	scriptStopping = map[string]bool{}
@@ -40,19 +39,11 @@ func resetScriptCallbackTestState(t *testing.T, owner string) {
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
 	shortcutRegistrations = map[string]scriptRegistrationHandle{}
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
-	triggerHandlersMu = sync.RWMutex{}
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
 	chatHandlersMu = sync.RWMutex{}
-	scriptChatHandlers = nil
 	scriptStructuredChatHandlers = nil
 	scriptServerMessageHandlers = nil
 	scriptLifecycleHandlers = nil
 	scriptChangeHandlers = nil
-	playerHandlersMu = sync.RWMutex{}
-	scriptPlayerHandlers = nil
 	overlayMu = sync.RWMutex{}
 	scriptOverlayOps = map[string][]overlayOp{}
 	scriptConfigMu = sync.RWMutex{}
@@ -237,15 +228,11 @@ func TestScriptCallbackPanicDisablesAndCleansOwner(t *testing.T) {
 	scriptRegisterCommand(owner, "owned", func(string) {})
 	scriptAddHotkeyFn(owner, "Ctrl-P", func(InputEvent) {})
 	scriptAddShortcut(owner, "p", "/ponder")
-	scriptRegisterInputHandler(owner, func(text string) string { return text })
-	scriptRegisterChat(owner, "", []string{"owned"}, ChatAny, func(string) {})
-	scriptRegisterConsole(owner, []string{"owned"}, func(string) {})
-	scriptRegisterChatHandler(owner, func(string) {})
-	scriptRegisterPlayerHandler(owner, func(scriptapi.Player) {})
-	timer := time.AfterFunc(time.Hour, func() {})
-	scriptTimers[owner] = []*time.Timer{timer}
+	scriptRegisterStructuredChat(owner, ChatFilter{Contains: "owned"}, func(ChatEvent) {})
+	scriptRegisterServerMessage(owner, ServerMessageFilter{Contains: "owned"}, func(scriptapi.ServerMessage) {})
+	scriptRegisterChange(owner, ChangeSelectedPlayer, func(ChangeEvent) {})
 	stop := make(chan struct{})
-	scriptTickerStops[owner] = []chan struct{}{stop}
+	scriptRepeats[owner] = []*scriptRepeatRegistration{{stop: stop}}
 	scriptOverlayOps[owner] = []overlayOp{{kind: 0}}
 	scriptRegisterConfig(owner, scriptConfigEntry{Key: "owned", Type: "bool", Value: true})
 
@@ -265,16 +252,13 @@ func TestScriptCallbackPanicDisablesAndCleansOwner(t *testing.T) {
 	if len(scriptHotkeys(owner)) != 0 || len(scriptHotkeyFns[owner]) != 0 {
 		t.Fatal("owned hotkey was not removed")
 	}
-	if len(shortcutMaps[owner]) != 0 || len(scriptInputHandlers) != 0 {
+	if len(shortcutMaps[owner]) != 0 {
 		t.Fatal("owned input bindings were not removed")
 	}
-	if len(scriptTriggers) != 0 || len(scriptConsoleTriggers) != 0 || len(scriptChatHandlers) != 0 || len(scriptPlayerHandlers) != 0 {
+	if len(scriptStructuredChatHandlers) != 0 || len(scriptServerMessageHandlers) != 0 || len(scriptChangeHandlers) != 0 {
 		t.Fatal("owned event handlers were not removed")
 	}
-	if _, ok := scriptTimers[owner]; ok {
-		t.Fatal("owned timers were not removed")
-	}
-	if _, ok := scriptTickerStops[owner]; ok {
+	if _, ok := scriptRepeats[owner]; ok {
 		t.Fatal("owned repeating timers were not removed")
 	}
 	select {
@@ -291,21 +275,9 @@ func TestScriptCallbackPanicDisablesAndCleansOwner(t *testing.T) {
 	}
 }
 
-func TestInputAndConfigCallbackPanicsUseOwnedGuard(t *testing.T) {
+func TestConfigCallbackPanicUsesOwnedGuard(t *testing.T) {
 	withoutConsoleTimestamps(t)
 	const owner = "callback_test"
-
-	t.Run("input", func(t *testing.T) {
-		resetScriptCallbackTestState(t, owner)
-		scriptInputHandlers = []inputHandler{{owner: owner, fn: func(string) string { panic("input boom") }}}
-		if got := runInputHandlers("original"); got != "original" {
-			t.Fatalf("input changed after callback panic: %q", got)
-		}
-		drainScriptDispatcher()
-		if !scriptIsDisabled(owner) {
-			t.Fatal("input callback panic did not disable owner")
-		}
-	})
 
 	t.Run("config", func(t *testing.T) {
 		resetScriptCallbackTestState(t, owner)
@@ -352,7 +324,7 @@ func TestActiveScriptAPIMutationsUseDispatcher(t *testing.T) {
 	const owner = "callback_test"
 	resetScriptCallbackTestState(t, owner)
 	candidate := &scriptCandidate{active: true, eventQueue: currentScriptEventQueue(owner)}
-	exports := exportsForScriptCandidate(owner, candidate)["gt/gt"]
+	exports := exportsForScriptCandidate(owner, candidate)["gt2/gt2"]
 	printFn := exports["Print"].Interface().(func(string))
 	printFn("queued output")
 	if messages := getConsoleMessages(); len(messages) != 0 {
@@ -449,12 +421,10 @@ func TestDisableCancelsScriptWaitsTimersAndRepeatingWork(t *testing.T) {
 	resetScriptCallbackTestState(t, owner)
 	eventQueue := currentScriptEventQueue(owner)
 	candidate := &scriptCandidate{active: true, eventQueue: eventQueue}
-	exports := exportsForScriptCandidate(owner, candidate)["gt/gt"]
-	after := exports["After"].Interface().(func(int, func()))
-	every := exports["Every"].Interface().(func(int, func()))
+	exports := exportsForScriptCandidate(owner, candidate)["gt2/gt2"]
+	repeat := exports["Repeat"].Interface().(func(time.Duration, func()) Timer)
 	fired := make(chan string, 4)
-	after(80, func() { fired <- "after" })
-	every(80, func() { fired <- "every" })
+	repeat(80*time.Millisecond, func() { fired <- "repeat" })
 	drainScriptDispatcher()
 
 	waitReturned := make(chan struct{})
@@ -720,9 +690,9 @@ func TestInterpretedCallbackPanicReportsScriptEventAndSource(t *testing.T) {
 	scriptMu.Unlock()
 	consoleLog = messageLog{max: maxMessages}
 	source := []byte(`package main
-import "gt"
+import "gt2"
 func Init() {
-	gt.RegisterCommand("explode", func(string) {
+	gt2.Command("explode", func(string) {
 		panic("kaboom")
 	})
 }
@@ -755,13 +725,13 @@ func TestScriptLifecycleStagesCommitAndDisposeExplicitly(t *testing.T) {
 	scriptDisabled[owner] = true
 	scriptMu.Unlock()
 	source := []byte(`package main
-import "gt"
+import "gt2"
 func Init() {
-	gt.RegisterCommand("lifecycle", func(string) {})
-	gt.Store("initialized", "yes")
+	gt2.Command("lifecycle", func(string) {})
+	gt2.Store("initialized", "yes")
 }
 func Terminate() {
-	gt.Store("terminated", "yes")
+	gt2.Store("terminated", "yes")
 }
 `)
 

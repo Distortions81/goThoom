@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -41,35 +41,19 @@ func addShortcut(owner, short, full string) {
 	if m == nil {
 		m = map[string]string{}
 		shortcutMaps[owner] = m
-		inputRegistration := scriptRegisterInputHandler(owner, func(txt string) string {
-			shortcutMu.RLock()
-			local := shortcutMaps[owner]
-			shortcutMu.RUnlock()
-			lower := strings.ToLower(txt)
-			for k, v := range local {
-				if strings.HasPrefix(lower, k) {
-					if len(lower) == len(k) {
-						return v
-					}
-					if len(lower) > len(k) && lower[len(k)] == ' ' {
-						return v + txt[len(k)+1:]
-					}
+		if owner != "user" && owner != "global" {
+			var registration scriptRegistrationHandle
+			registration = registerScriptResource(owner, func() {
+				shortcutMu.Lock()
+				if shortcutRegistrations[owner] == registration {
+					delete(shortcutMaps, owner)
+					delete(shortcutRegistrations, owner)
 				}
-			}
-			return txt
-		})
-		var registration scriptRegistrationHandle
-		registration = registerScriptResource(owner, func() {
-			removeScriptInputHandlerByHandle(inputRegistration)
-			shortcutMu.Lock()
-			if shortcutRegistrations[owner] == registration {
-				delete(shortcutMaps, owner)
-				delete(shortcutRegistrations, owner)
-			}
-			shortcutMu.Unlock()
-			refreshShortcutsList()
-		})
-		shortcutRegistrations[owner] = registration
+				shortcutMu.Unlock()
+				refreshShortcutsList()
+			})
+			shortcutRegistrations[owner] = registration
+		}
 	}
 	m[short] = full
 	shortcutMu.Unlock()
@@ -81,49 +65,45 @@ func scriptAddShortcut(owner, short, full string) {
 		return
 	}
 	addShortcut(owner, short, full)
-	name := scriptDisplayNames[owner]
-	if name == "" {
-		name = owner
-	}
-	msg := fmt.Sprintf("[script:%s] shortcut added: %s -> %s", name, short, full)
-	if gs.scriptOutputDebug {
-		consoleMessage(msg)
-	}
-	log.Print(msg)
+	scriptLogEvent(owner, "Registered shortcut", fmt.Sprintf("%s -> %s", short, full))
 }
 
-// scriptAddShortcuts registers many shortcuts at once for the given script.
-func scriptAddShortcuts(owner string, shortcuts map[string]string) {
-	if scriptIsDisabled(owner) {
-		return
-	}
-	for k, v := range shortcuts {
-		scriptAddShortcut(owner, k, v)
-	}
-}
-
-// scriptRemoveShortcuts deletes all shortcuts registered by the specified script.
-// It is typically called when a script is disabled or unloaded so that any
-// previously registered shortcut prefixes no longer expand.
-func scriptRemoveShortcuts(owner string) {
+// expandShortcut replaces one leading shortcut before input is sent. User
+// shortcuts take precedence over global shortcuts, followed by script owners
+// in name order, so duplicate prefixes always resolve the same way.
+func expandShortcut(text string) string {
 	shortcutMu.RLock()
-	registration := shortcutRegistrations[owner]
+	owners := make([]string, 0, len(shortcutMaps))
+	for owner := range shortcutMaps {
+		if owner != "user" && owner != "global" {
+			owners = append(owners, owner)
+		}
+	}
+	sort.Strings(owners)
+	owners = append([]string{"user", "global"}, owners...)
+	maps := make([]map[string]string, 0, len(owners))
+	for _, owner := range owners {
+		local := shortcutMaps[owner]
+		copyOfLocal := make(map[string]string, len(local))
+		for short, full := range local {
+			copyOfLocal[short] = full
+		}
+		maps = append(maps, copyOfLocal)
+	}
 	shortcutMu.RUnlock()
-	registration.release()
-	shortcutMu.Lock()
-	delete(shortcutMaps, owner)
-	delete(shortcutRegistrations, owner)
-	shortcutMu.Unlock()
-	refreshShortcutsList()
-	name := scriptDisplayNames[owner]
-	if name == "" {
-		name = owner
+
+	lower := strings.ToLower(text)
+	for _, shortcuts := range maps {
+		for short, full := range shortcuts {
+			if lower == short {
+				return full
+			}
+			if strings.HasPrefix(lower, short+" ") {
+				return full + text[len(short)+1:]
+			}
+		}
 	}
-	msg := fmt.Sprintf("[script:%s] shortcuts removed", name)
-	if gs.scriptOutputDebug {
-		consoleMessage(msg)
-	}
-	log.Print(msg)
+	return text
 }
 
 func removeShortcut(owner, short string) {
