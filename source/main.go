@@ -59,7 +59,6 @@ var (
 	musicDebug   bool
 	experimental bool
 	showUIScale  bool
-	measureLoads bool
 )
 
 func main() {
@@ -84,7 +83,6 @@ func main() {
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
 	flag.BoolVar(&showUIScale, "uiscale", false, "show UI scaling options")
-	flag.BoolVar(&measureLoads, "measure", false, "report asset load times and metadata (sounds/images)")
 	genPGO := flag.Bool("pgo", false, "create default.pgo from -clmov (or test.clMov) at 30 fps")
 	pgoDuration := flag.Duration("pgoDuration", 5*time.Minute, "CPU profiling duration used with -pgo")
 	pgoOutput := flag.String("pgoOutput", "default.pgo", "CPU profile output path used with -pgo")
@@ -171,7 +169,6 @@ func main() {
 		initDiscordRPC(ctx)
 	}
 
-	imgStart := time.Now()
 	if isWASM && len(wasmCLImagesData) > 0 {
 		clImages, err = climg.LoadBytes(wasmCLImagesData)
 	} else {
@@ -183,15 +180,10 @@ func main() {
 	} else {
 		clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
-		if measureLoads {
-			dtms := float64(time.Since(imgStart).Nanoseconds()) / 1e6
-			log.Printf("measure: CL_Images archive loaded in %.2fms frame=%d", dtms, frameCounter)
-		}
 		// Build/restore the splash image according to settings.
 		prepareClassicSplash()
 	}
 
-	sndStart := time.Now()
 	if isWASM && len(wasmCLSoundsData) > 0 {
 		clSounds, err = clsnd.LoadBytes(wasmCLSoundsData)
 	} else {
@@ -200,9 +192,6 @@ func main() {
 	if err != nil {
 		logError("failed to load CL_Sounds: %v", err)
 		// Do not exit; allow UI to open download window.
-	} else if measureLoads {
-		dtms := float64(time.Since(sndStart).Nanoseconds()) / 1e6
-		log.Printf("measure: CL_Sounds archive loaded in %.2fms frame=%d", dtms, frameCounter)
 	}
 
 	if gs.PrecacheSounds || gs.PrecacheImages {

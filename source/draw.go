@@ -1422,7 +1422,13 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	if again > len(prevPics) {
 		again = len(prevPics)
 	}
-	newPics := make([]framePicture, again+pictCount)
+	newPicCount := again + pictCount
+	newPics := state.prevPictures
+	if cap(newPics) < newPicCount {
+		newPics = make([]framePicture, newPicCount)
+	} else {
+		newPics = newPics[:newPicCount]
+	}
 	copy(newPics, prevPics[:again])
 	copy(newPics[again:], pics)
 	for i := 0; i < again && i < len(newPics); i++ {
@@ -1456,9 +1462,14 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	if !ok {
 		prevPics = nil
 		again = 0
-		newPics = append([]framePicture(nil), pics...)
-		state.prevDescs = nil
-		state.prevMobiles = nil
+		if cap(newPics) < len(pics) {
+			newPics = make([]framePicture, len(pics))
+		} else {
+			newPics = newPics[:len(pics)]
+		}
+		copy(newPics, pics)
+		clearMap(state.prevDescs)
+		clearMap(state.prevMobiles)
 		state.prevPictures = nil
 		state.prevTime = time.Time{}
 		state.curTime = time.Time{}
@@ -1585,20 +1596,10 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	}
 
 	// Save previous pictures for pinning/interpolation decisions
-	state.prevPictures = append([]framePicture(nil), prevPics...)
+	state.prevPictures = prevPics
 	state.pictures = newPics
 
 	needPrev := gs.MotionSmoothing && !seekingMov && ok
-	if needPrev {
-		if state.prevMobiles == nil {
-			state.prevMobiles = make(map[uint8]frameMobile, len(state.mobiles))
-		} else {
-			clearMap(state.prevMobiles)
-		}
-		for idx, m := range state.mobiles {
-			state.prevMobiles[idx] = m
-		}
-	}
 	needAnimUpdate := gs.MotionSmoothing && ok && !seekingMov
 	if needAnimUpdate {
 		// Use the latest measured server interval; do not reuse the previous
@@ -1639,7 +1640,12 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	}
 
 	previousMobiles := state.mobiles
-	state.mobiles = make(map[uint8]frameMobile, len(mobiles))
+	nextMobiles := state.mobileScratch
+	if nextMobiles == nil {
+		nextMobiles = make(map[uint8]frameMobile, len(mobiles))
+	} else {
+		clearMap(nextMobiles)
+	}
 	for _, m := range mobiles {
 		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
 			style := styleRegular
@@ -1665,7 +1671,14 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				m.nameTagKey = key
 			}
 		}
-		state.mobiles[m.Index] = m
+		nextMobiles[m.Index] = m
+	}
+	state.mobiles = nextMobiles
+	if needPrev {
+		state.mobileScratch = state.prevMobiles
+		state.prevMobiles = previousMobiles
+	} else {
+		state.mobileScratch = previousMobiles
 	}
 	if gs.FadeObscuringPictures {
 		cachePictureObscuring(state.pictures, mobiles, state.descriptors, state.prevMobiles, state.logicalFrame)

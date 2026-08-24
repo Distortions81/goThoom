@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -1895,7 +1894,6 @@ func makeDownloadsWindow() {
 				downloadWin.Refresh()
 				return
 			}
-			imgStart := time.Now()
 			var img *climg.CLImages
 			var err error
 			if isWASM && len(wasmCLImagesData) > 0 {
@@ -1914,10 +1912,6 @@ func makeDownloadsWindow() {
 				// Startup prepares the Clan Lord splash after loading CL_Images.
 				// Queue the same game-loop-safe rebuild after a first-run download.
 				classicSplashFilterPending = gs.ShowClanLordSplashImage
-				if measureLoads {
-					dtms := float64(time.Since(imgStart).Nanoseconds()) / 1e6
-					log.Printf("measure: CL_Images archive loaded in %.2fms frame=%d", dtms, frameCounter)
-				}
 				// Refresh windows that depend on CL_Images now that
 				// the archive is available so icons appear without
 				// requiring a manual resize.
@@ -1925,7 +1919,6 @@ func makeDownloadsWindow() {
 				playersDirty = true
 			}
 
-			sndStart := time.Now()
 			if isWASM && len(wasmCLSoundsData) > 0 {
 				clSounds, err = clsnd.LoadBytes(wasmCLSoundsData)
 			} else {
@@ -1935,9 +1928,6 @@ func makeDownloadsWindow() {
 				logError("failed to load CL_Sounds: %v", err)
 				handleDownloadAssetError(flow, statusText, pb, startDownload, &startedDownload, "Failed to load CL_Sounds")
 				return
-			} else if measureLoads {
-				dtms := float64(time.Since(sndStart).Nanoseconds()) / 1e6
-				log.Printf("measure: CL_Sounds archive loaded in %.2fms frame=%d", dtms, frameCounter)
 			}
 			if s, err := checkDataFiles(clVersion); err == nil {
 				dlMutex.Lock()

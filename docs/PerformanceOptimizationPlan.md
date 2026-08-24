@@ -82,8 +82,8 @@ execution cost.
 
 Add a repeatable performance report that records:
 
-- CPU time for update, draw-state parsing, scene drawing, lighting, shadows,
-  bubbles, UI, and audio.
+- Per-function CPU time and call paths from the standard PGO/pprof capture;
+  avoid manual wall-clock instrumentation around individual functions.
 - Average FPS and p50, p95, and p99 frame times.
 - Allocation counts and steady-state texture-atlas growth.
 - Visible picture, mobile, bubble, light, dark, and shadow counts.
@@ -146,6 +146,10 @@ The iGPU preset already disables audio enhancement and high-quality resampling.
   and reuse picture-shift result storage. Together with allocation-free
   obscuring, the warmed tour now runs at 298.3ms with 37.8MB and 217,712
   allocations per pass.
+- Completed: rotate the current/previous picture slices and mobile maps instead
+  of allocating and copying them on every update, and retain cleared
+  interpolation maps across discontinuities. The warmed tour now runs at
+  287.6ms with 12.7MB and 194,358 allocations per pass.
 - Investigate publishing immutable render snapshots once per game update
   instead of copying stable maps and slices every rendered frame.
 - Reuse bounded buffers for parsing and sorted render partitions.
@@ -324,7 +328,8 @@ iGPU differences must be documented and tested separately.
 
 ## Recommended implementation order
 
-1. Add CPU-stage, frame-time, draw, GPU-pass, and target-switch instrumentation.
+1. Use PGO/pprof for CPU attribution, and add only frame-time, draw, GPU-pass,
+   and target-switch instrumentation that the CPU profile cannot provide.
 2. Reuse audio enhancement scratch buffers and cached coefficients.
 3. Completed: add spatial indexing and metadata caching to picture obscuring.
 4. Cache static bubble surfaces and tight bubble masks.

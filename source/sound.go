@@ -12,7 +12,6 @@ import (
 	"slices"
 	"strconv"
 	"sync"
-	"time"
 
 	math32 "github.com/chewxy/math32"
 	"github.com/hajimehoshi/ebiten/v2/audio"
@@ -1035,10 +1034,6 @@ func loadSound(id uint16) []byte {
 	}
 
 	//logDebug("loadSound(%d) fetching from archive", id)
-	var t0 time.Time
-	if measureLoads {
-		t0 = time.Now()
-	}
 	s, err := c.Get(uint32(id))
 	if s == nil {
 		if err != nil {
@@ -1135,10 +1130,6 @@ func loadSound(id uint16) []byte {
 	pcmCache[id] = pcm
 	soundMu.Unlock()
 	//logDebug("loadSound(%d) cached %d bytes", id, len(pcm))
-	if measureLoads && !t0.IsZero() {
-		dtms := float64(time.Since(t0).Nanoseconds()) / 1e6
-		log.Printf("measure: sound id=%d rate=%dHz bits=%d ch=%d load=%.2fms frame=%d", id, s.SampleRate, s.Bits, s.Channels, dtms, frameCounter)
-	}
 	return pcm
 }
 
