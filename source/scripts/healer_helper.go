@@ -20,7 +20,7 @@ func Init() {
 		if !c.OnMobile {
 			return
 		}
-		if gt.IgnoreCase(c.Mobile.Name, gt.PlayerName()) {
+		if gt.IgnoreCase(c.Mobile.Name, gt.Self().Name) {
 			// Right-click self: use moonstone on self slot 10
 			equipItem("moonstone")
 			gt.Run("/use 10")
@@ -37,7 +37,7 @@ func Init() {
 		if !c.OnMobile {
 			return
 		}
-		if gt.IgnoreCase(c.Mobile.Name, gt.PlayerName()) {
+		if gt.IgnoreCase(c.Mobile.Name, gt.Self().Name) {
 			// Middle-click self: asklepean self-use
 			equipItem("asklepean")
 			gt.Run("/use")

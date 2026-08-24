@@ -23,6 +23,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/hajimehoshi/ebiten/v2"
 	open "github.com/skratchdot/open-golang/open"
+	clipboard "golang.design/x/clipboard"
 
 	"gothoom/climg"
 	"gothoom/clsnd"
@@ -105,6 +106,7 @@ var addCharPassWarn *eui.ItemData
 var addCharPassPrev string
 var windowsWin *eui.WindowData
 var scriptsWin *eui.WindowData
+var newScriptWin *eui.WindowData
 var scriptsList *eui.ItemData
 var scriptDetails *eui.ItemData
 var selectedscript string
@@ -544,6 +546,17 @@ func makescriptsWindow() {
 	}
 	buttonsBottom.AddItem(refreshBtn)
 
+	newBtn, newEvents := eui.NewButton()
+	newBtn.Text = "New Script"
+	newBtn.SetTooltip("Create a small example script and open it for editing")
+	newBtn.Size = eui.Point{X: 90, Y: 24}
+	newEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			openNewScriptWindow()
+		}
+	}
+	buttonsBottom.AddItem(newBtn)
+
 	openBtn, oh := eui.NewButton()
 	openBtn.Text = "Open scripts folder"
 	// Label already clear; no tooltip.
@@ -581,6 +594,154 @@ func makescriptsWindow() {
 	refreshscriptsWindow()
 }
 
+type newScriptTemplate struct {
+	name        string
+	filename    string
+	description string
+	imports     string
+	body        string
+}
+
+var newScriptTemplates = []newScriptTemplate{
+	{
+		name: "Command", filename: "my_command", description: "Adds a /hello command.",
+		imports: `import "gt"`,
+		body: `func Init() {
+	gt.Command("hello", func(args string) {
+		gt.Print("Hello " + args)
+	})
+}
+`,
+	},
+	{
+		name: "Hotkey / Click", filename: "my_click", description: "Handles Shift-click and consumes it.",
+		imports: `import "gt"`,
+		body: `func Init() {
+	gt.Bind("Shift-LeftClick", func(event gt.InputEvent) {
+		event.Consume()
+		gt.Print("Shift-clicked")
+	})
+}
+`,
+	},
+	{
+		name: "Chat Event", filename: "my_chat_event", description: "Responds when chat contains hello.",
+		imports: `import "gt"`,
+		body: `func Init() {
+	gt.OnChat(gt.ChatFilter{Contains: "hello"}, func(event gt.ChatEvent) {
+		gt.Print(event.Speaker + " said: " + event.Message)
+	})
+}
+`,
+	},
+	{
+		name: "Equipment Sequence", filename: "my_equipment_sequence", description: "Temporarily equips an item while running actions.",
+		imports: `import (
+	"gt"
+	"time"
+)`,
+		body: `func Init() {
+	gt.Command("sequence", func(string) {
+		gt.WithEquipment("item name", func() {
+			gt.Send("/action")
+			gt.Wait(time.Second)
+			gt.Send("/action")
+		})
+	})
+}
+`,
+	},
+}
+
+func openNewScriptWindow() {
+	if newScriptWin != nil {
+		newScriptWin.MarkOpen()
+		return
+	}
+	newScriptWin = eui.NewWindow()
+	newScriptWin.Title = "New Script"
+	newScriptWin.Closable = true
+	newScriptWin.Resizable = false
+	newScriptWin.AutoSize = true
+	newScriptWin.Movable = true
+	newScriptWin.OnClose = func() { newScriptWin = nil }
+	newScriptWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	newScriptWin.AddItem(root)
+	intro, _ := eui.NewText()
+	intro.Text = "Choose a starting point:"
+	intro.Size = eui.Point{X: 360, Y: 24}
+	root.AddItem(intro)
+	for _, template := range newScriptTemplates {
+		template := template
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		button, events := eui.NewButton()
+		button.Text = template.name
+		button.Size = eui.Point{X: 140, Y: 24}
+		events.Handle = func(event eui.UIEvent) {
+			if event.Type != eui.EventClick {
+				return
+			}
+			path, err := createScriptFromTemplate(userScriptsDir(), template)
+			if err != nil {
+				consoleMessage("[script] create: " + err.Error())
+				return
+			}
+			rescanscripts()
+			if err := open.Run(path); err != nil {
+				consoleMessage("[script] open file: " + err.Error())
+			}
+			newScriptWin.Close()
+			newScriptWin = nil
+		}
+		row.AddItem(button)
+		description, _ := eui.NewText()
+		description.Text = template.description
+		description.Size = eui.Point{X: 320, Y: 24}
+		row.AddItem(description)
+		root.AddItem(row)
+	}
+	newScriptWin.AddWindow(false)
+}
+
+func createScriptFromTemplate(dir string, template newScriptTemplate) (string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	for number := 1; ; number++ {
+		base := template.filename
+		if number > 1 {
+			base += "_" + strconv.Itoa(number)
+		}
+		path := filepath.Join(dir, base+".go")
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if os.IsExist(err) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		displayName := template.name
+		if number > 1 {
+			displayName += " " + strconv.Itoa(number)
+		}
+		source := "package main\n\n" + template.imports + "\n\n" +
+			"const scriptID = \"" + normalizeScriptID(base) + "\"\n" +
+			"const scriptName = \"" + displayName + "\"\n" +
+			"const scriptDescription = \"" + template.description + "\"\n\n" + template.body
+		if _, err := file.WriteString(source); err != nil {
+			_ = file.Close()
+			_ = os.Remove(path)
+			return "", err
+		}
+		if err := file.Close(); err != nil {
+			_ = os.Remove(path)
+			return "", err
+		}
+		return path, nil
+	}
+}
+
 func refreshscriptsWindow() {
 	if scriptsList == nil {
 		return
@@ -608,21 +769,27 @@ func refreshscriptsWindow() {
 	scriptsList.AddItem(legend)
 
 	type entry struct {
-		owner   string
-		name    string
-		cat     string
-		sub     string
-		invalid bool
+		owner        string
+		name         string
+		cat          string
+		sub          string
+		invalid      bool
+		disabled     bool
+		errorText    string
+		reloadFailed bool
 	}
 	scriptMu.RLock()
 	cats := make(map[string][]entry)
 	for o, n := range scriptDisplayNames {
 		cats[scriptCategories[o]] = append(cats[scriptCategories[o]], entry{
-			owner:   o,
-			name:    n,
-			cat:     scriptCategories[o],
-			sub:     scriptSubCategories[o],
-			invalid: scriptInvalid[o],
+			owner:        o,
+			name:         n,
+			cat:          scriptCategories[o],
+			sub:          scriptSubCategories[o],
+			invalid:      scriptInvalid[o],
+			disabled:     scriptDisabled[o],
+			errorText:    scriptErrors[o],
+			reloadFailed: scriptReloadFailed[o],
 		})
 	}
 	scriptMu.RUnlock()
@@ -668,6 +835,7 @@ func refreshscriptsWindow() {
 			if e.sub != "" {
 				label += " [" + e.sub + "]"
 			}
+			label += " — " + scriptStatusLabel(e.disabled, e.invalid, e.errorText, e.reloadFailed)
 			owner := e.owner
 			scriptMu.RLock()
 			scope := scriptEnabledFor[owner]
@@ -798,16 +966,16 @@ func refreshscriptDetails() {
 	author := scriptAuthors[owner]
 	cat := scriptCategories[owner]
 	sub := scriptSubCategories[owner]
+	description := scriptDescriptions[owner]
+	apiVersion := scriptAPIVersions[owner]
+	path := scriptPaths[owner]
 	disabled := scriptDisabled[owner]
 	invalid := scriptInvalid[owner]
+	errorText := scriptErrors[owner]
+	reloadFailed := scriptReloadFailed[owner]
 	scriptMu.RUnlock()
 
-	status := "Enabled"
-	if invalid {
-		status = "Invalid"
-	} else if disabled {
-		status = "Disabled"
-	}
+	status := scriptStatusLabel(disabled, invalid, errorText, reloadFailed)
 
 	line := func(s string) {
 		item, _ := eui.NewText()
@@ -819,6 +987,9 @@ func refreshscriptDetails() {
 
 	line("Name: " + name)
 	line("Author: " + author)
+	line("Path: " + path)
+	line("Description: " + valueOrNone(description))
+	line("API version: " + strconv.Itoa(apiVersion))
 	catLabel := cat
 	if sub != "" {
 		if catLabel != "" {
@@ -828,11 +999,18 @@ func refreshscriptDetails() {
 	}
 	line("Category: " + catLabel)
 	line("Status: " + status)
-	errText := "None"
-	if invalid {
-		errText = "Invalid script"
+	line("Error: " + valueOrNone(errorText))
+
+	commands, bindings, events, timers, settings := scriptRegistrationSummary(owner)
+	addScriptDetailList(line, "Commands", commands)
+	addScriptDetailList(line, "Bindings", bindings)
+	addScriptDetailList(line, "Events", events)
+	if timers == 0 {
+		line("Timers: none")
+	} else {
+		line("Timers: " + strconv.Itoa(timers))
 	}
-	line("Errors: " + errText)
+	addScriptDetailList(line, "Settings", settings)
 
 	shortcutMu.RLock()
 	m := shortcutMaps[owner]
@@ -881,9 +1059,123 @@ func refreshscriptDetails() {
 		}
 	}
 
+	actions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	button := func(label string, disabled bool, action func()) {
+		item, events := eui.NewButton()
+		item.Text = label
+		item.Size = eui.Point{X: 84, Y: 24}
+		item.Disabled = disabled
+		events.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventClick && !item.Disabled {
+				action()
+			}
+		}
+		actions.AddItem(item)
+	}
+	button("Copy Error", errorText == "", func() {
+		_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(errorText))
+	})
+	button("Open File", path == "", func() {
+		if err := open.Run(path); err != nil {
+			consoleMessage("[script] open file: " + err.Error())
+		}
+	})
+	button("Open Folder", path == "", func() {
+		if err := open.Run(filepath.Dir(path)); err != nil {
+			consoleMessage("[script] open folder: " + err.Error())
+		}
+	})
+	button("Reload", disabled || invalid, func() { enablescript(owner) })
+	button("Stop", disabled, func() { clearscriptScope(owner) })
+	scriptDetails.AddItem(actions)
+
 	if scriptsWin != nil {
 		scriptsWin.Refresh()
 	}
+}
+
+func valueOrNone(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "none"
+	}
+	return value
+}
+
+func scriptStatusLabel(disabled, invalid bool, errorText string, reloadFailed bool) string {
+	if reloadFailed && !disabled {
+		return "Reload Failed (old version still running)"
+	}
+	if errorText != "" && disabled {
+		return "Stopped After Error"
+	}
+	if invalid {
+		return "Stopped After Error"
+	}
+	if disabled {
+		return "Disabled"
+	}
+	return "Running"
+}
+
+func addScriptDetailList(line func(string), label string, values []string) {
+	if len(values) == 0 {
+		line(label + ": none")
+		return
+	}
+	line(label + ": " + strings.Join(values, ", "))
+}
+
+func scriptRegistrationSummary(owner string) (commands, bindings, events []string, timers int, settings []string) {
+	scriptMu.RLock()
+	for command, commandOwner := range scriptCommandOwners {
+		if commandOwner == owner {
+			commands = append(commands, "/"+command)
+		}
+	}
+	timers = len(scriptTimers[owner]) + len(scriptTickerStops[owner])
+	scriptMu.RUnlock()
+
+	hotkeysMu.RLock()
+	for _, hotkey := range hotkeys {
+		if hotkey.Script == owner {
+			bindings = append(bindings, hotkey.Combo)
+		}
+	}
+	hotkeysMu.RUnlock()
+
+	chatHandlersMu.RLock()
+	for _, handler := range scriptStructuredChatHandlers {
+		if handler.owner == owner {
+			events = append(events, "chat")
+		}
+	}
+	for _, handler := range scriptServerMessageHandlers {
+		if handler.owner == owner {
+			events = append(events, "server message")
+		}
+	}
+	for _, handler := range scriptLifecycleHandlers {
+		if handler.owner == owner {
+			events = append(events, handler.kind)
+		}
+	}
+	for _, handler := range scriptChangeHandlers {
+		if handler.owner == owner {
+			events = append(events, "change: "+handler.kind)
+		}
+	}
+	chatHandlersMu.RUnlock()
+
+	scriptConfigMu.RLock()
+	for _, entry := range scriptConfigEntries[owner] {
+		settings = append(settings, entry.Label+" ("+entry.Key+")")
+	}
+	scriptConfigMu.RUnlock()
+	sort.Strings(commands)
+	sort.Strings(bindings)
+	sort.Strings(events)
+	sort.Strings(settings)
+	return commands, bindings, events, timers, settings
 }
 
 func refreshscriptDebug() {
@@ -933,7 +1225,10 @@ func openscriptConfigWindow(owner string) {
 	for _, ce := range entries {
 		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 		lbl, _ := eui.NewText()
-		lbl.Text = ce.Name
+		lbl.Text = ce.Label
+		if ce.Help != "" {
+			lbl.SetTooltip(ce.Help)
+		}
 		lbl.FontSize = 12
 		lbl.Size = eui.Point{X: 120, Y: 24}
 		row.AddItem(lbl)
@@ -941,8 +1236,13 @@ func openscriptConfigWindow(owner string) {
 		switch ce.Type {
 		case "int", "float":
 			s, events := eui.NewSlider()
-			s.MinValue = 0
-			s.MaxValue = 100
+			if ce.Max > ce.Min {
+				s.MinValue = float32(ce.Min)
+				s.MaxValue = float32(ce.Max)
+			} else {
+				s.MinValue = 0
+				s.MaxValue = 100
+			}
 			if ce.Type == "int" {
 				s.IntOnly = true
 				if value, ok := ce.Value.(int); ok {
@@ -958,10 +1258,14 @@ func openscriptConfigWindow(owner string) {
 				if ev.Type != eui.EventSliderChanged {
 					return
 				}
+				value := float64(ev.Value)
+				if ce.Step > 0 {
+					value = math.Round(value/ce.Step) * ce.Step
+				}
 				if typ == "int" {
-					scriptSetConfigValue(owner, key, int(ev.Value))
+					scriptSetConfigValue(owner, key, int(value))
 				} else {
-					scriptSetConfigValue(owner, key, float64(ev.Value))
+					scriptSetConfigValue(owner, key, value)
 				}
 			}
 			row.AddItem(s)
@@ -976,7 +1280,7 @@ func openscriptConfigWindow(owner string) {
 				}
 			}
 			row.AddItem(cb)
-		case "string":
+		case "text", "key":
 			inp, events := eui.NewInput()
 			inp.Text, _ = ce.Value.(string)
 			inp.Size = eui.Point{X: 120, Y: 24}
@@ -987,6 +1291,24 @@ func openscriptConfigWindow(owner string) {
 				}
 			}
 			row.AddItem(inp)
+		case "choice":
+			dd, events := eui.NewDropdown()
+			dd.Options = append([]string(nil), ce.Choices...)
+			current, _ := ce.Value.(string)
+			for i, option := range dd.Options {
+				if option == current {
+					dd.Selected = i
+					break
+				}
+			}
+			dd.Size = eui.Point{X: 120, Y: 24}
+			key := ce.Key
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(ev.Item.Options) {
+					scriptSetConfigValue(owner, key, ev.Item.Options[ev.Index])
+				}
+			}
+			row.AddItem(dd)
 		case "item":
 			dd, events := eui.NewDropdown()
 			current, _ := ce.Value.(string)
@@ -1024,6 +1346,13 @@ func openscriptConfigWindow(owner string) {
 			row.AddItem(t)
 		}
 		root.AddItem(row)
+		if ce.Help != "" {
+			help, _ := eui.NewText()
+			help.Text = ce.Help
+			help.FontSize = 10
+			help.Size = eui.Point{X: 240, Y: 18}
+			root.AddItem(help)
+		}
 	}
 
 	scriptConfigWin.AddWindow(false)

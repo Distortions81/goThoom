@@ -72,47 +72,47 @@ func Init() {
 
 	writeScript("gamma.go", "Gamma", `
 	gt.Key("Shift-Ctrl-F3", func() {})
-	gt.Save("started", "gamma")`)
+	gt.Store("started", "gamma")`)
 	writeScript("beta.go", "Beta", `
 	gt.RegisterCommand("shared", func(string) {})
-	gt.Save("started", "beta")`)
+	gt.Store("started", "beta")`)
 	writeScript("alpha.go", "Alpha", `
 	gt.RegisterCommand("shared", func(string) {})
 	gt.Key("Control-Shift-F3", func() {})
-	gt.Save("started", "alpha")`)
+	gt.Store("started", "alpha")`)
 
-	for _, owner := range []string{"Gamma_gamma", "Beta_beta", "Alpha_alpha"} {
+	for _, owner := range []string{"gamma", "beta", "alpha"} {
 		scriptEnabledFor[owner] = scriptScope{All: true}
 	}
 	rescanScripts([]string{dir})
 
-	if got := scriptCommandOwners["shared"]; got != "Alpha_alpha" {
-		t.Fatalf("deterministic command owner = %q, want Alpha_alpha", got)
+	if got := scriptCommandOwners["shared"]; got != "alpha" {
+		t.Fatalf("deterministic command owner = %q, want alpha", got)
 	}
-	if !scriptIsRunning("Alpha_alpha") || scriptIsRunning("Beta_beta") || scriptIsRunning("Gamma_gamma") {
-		t.Fatalf("running states: alpha=%v beta=%v gamma=%v", scriptIsRunning("Alpha_alpha"), scriptIsRunning("Beta_beta"), scriptIsRunning("Gamma_gamma"))
+	if !scriptIsRunning("alpha") || scriptIsRunning("beta") || scriptIsRunning("gamma") {
+		t.Fatalf("running states: alpha=%v beta=%v gamma=%v", scriptIsRunning("alpha"), scriptIsRunning("beta"), scriptIsRunning("gamma"))
 	}
-	if got := scriptStorageGet("Alpha_alpha", "started"); got != "alpha" {
+	if got := scriptStorageGet("alpha", "started"); got != "alpha" {
 		t.Fatalf("winning script did not activate: %v", got)
 	}
-	if got := scriptStorageGet("Beta_beta", "started"); got != nil {
+	if got := scriptStorageGet("beta", "started"); got != nil {
 		t.Fatalf("duplicate-command script activated staged storage: %v", got)
 	}
-	if got := scriptStorageGet("Gamma_gamma", "started"); got != nil {
+	if got := scriptStorageGet("gamma", "started"); got != nil {
 		t.Fatalf("duplicate-binding script activated staged storage: %v", got)
 	}
 	hotkeysMu.RLock()
-	if len(hotkeys) != 1 || hotkeys[0].Script != "Alpha_alpha" {
+	if len(hotkeys) != 1 || hotkeys[0].Script != "alpha" {
 		hotkeysMu.RUnlock()
 		t.Fatalf("binding winner was not deterministic: %+v", hotkeys)
 	}
 	hotkeysMu.RUnlock()
 
 	messages := strings.Join(getConsoleMessages(), "\n")
-	if !strings.Contains(messages, "duplicate command /shared already owned by Alpha_alpha") {
+	if !strings.Contains(messages, "duplicate command /shared already owned by alpha") {
 		t.Fatalf("missing command conflict report: %s", messages)
 	}
-	if !strings.Contains(messages, "duplicate binding Shift-Ctrl-F3 already owned by Alpha_alpha") {
+	if !strings.Contains(messages, "duplicate binding Shift-Ctrl-F3 already owned by alpha") {
 		t.Fatalf("missing binding conflict report: %s", messages)
 	}
 }

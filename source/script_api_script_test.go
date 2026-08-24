@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	scriptapi "gt"
 )
 
 func scriptAPIFixturePath(name string) string {
@@ -139,7 +141,7 @@ func TestScriptAPISmoke(t *testing.T) {
 	if got := scriptStorageGet(owner, "structured_message"); got != "structured hello" {
 		t.Fatalf("structured message = %v", got)
 	}
-	runServerMessageHandlers(ServerMessageEvent{Message: "structured server hello", Type: messageTextTypeSystem})
+	runServerMessageHandlers(scriptapi.ServerMessage{Message: "structured server hello", Type: messageTextTypeSystem})
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "server_message") != nil }, time.Second); !ok {
 		t.Fatal("structured server-message handler did not run")
 	}
@@ -254,6 +256,13 @@ func TestScriptAPIFull(t *testing.T) {
 	if got := scriptStorageGet(owner, "config_default"); got != false {
 		t.Fatalf("config default = %v, want false", got)
 	}
+	if scriptStorageGet(owner, "loaded_string") != "hello" || scriptStorageGet(owner, "loaded_bool") != true ||
+		scriptStorageGet(owner, "loaded_integer") != 7 || scriptStorageGet(owner, "loaded_decimal") != 2.5 {
+		t.Fatalf("typed storage reads failed: %v/%v/%v/%v", scriptStorageGet(owner, "loaded_string"), scriptStorageGet(owner, "loaded_bool"), scriptStorageGet(owner, "loaded_integer"), scriptStorageGet(owner, "loaded_decimal"))
+	}
+	if scriptStorageGet(owner, "loaded_json_ok") != true || scriptStorageGet(owner, "loaded_json_name") != "state" || scriptStorageGet(owner, "loaded_json_count") != 3 {
+		t.Fatalf("JSON storage read failed: %v/%v/%v", scriptStorageGet(owner, "loaded_json_ok"), scriptStorageGet(owner, "loaded_json_name"), scriptStorageGet(owner, "loaded_json_count"))
+	}
 	if !scriptSetConfigValue(owner, "enabled", true) {
 		t.Fatal("script config was not registered")
 	}
@@ -338,7 +347,7 @@ func TestScriptAPIFull(t *testing.T) {
 	if scriptStorageGet(owner, "wheel_dx") != float64(0) || scriptStorageGet(owner, "wheel_dy") != float64(0) {
 		t.Fatalf("wheel non-zero: %v,%v", scriptStorageGet(owner, "wheel_dx"), scriptStorageGet(owner, "wheel_dy"))
 	}
-	if scriptStorageGet(owner, "click_x") != int(10) || scriptStorageGet(owner, "click_y") != int(20) || scriptStorageGet(owner, "click_btn") != 2 {
+	if scriptStorageGet(owner, "click_x") != int(10) || scriptStorageGet(owner, "click_y") != int(20) || scriptStorageGet(owner, "click_btn") != "RightClick" {
 		t.Fatalf("last click mismatch: x=%v y=%v b=%v", scriptStorageGet(owner, "click_x"), scriptStorageGet(owner, "click_y"), scriptStorageGet(owner, "click_btn"))
 	}
 

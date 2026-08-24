@@ -4,19 +4,37 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"unicode"
+
+	scriptapi "gt"
 )
 
 const scriptConfigStoragePrefix = "__config__:"
 
 type scriptConfigEntry struct {
-	Name         string
+	Label        string
+	Help         string
 	Key          string
 	Type         string
+	Scope        string
 	Default      any
 	Value        any
 	Callback     any
+	Validate     any
+	Choices      []string
+	Min          float64
+	Max          float64
+	Step         float64
 	queue        *scriptEventQueue
 	registration scriptRegistrationHandle
+}
+
+func scriptConfigStorageKey(entry scriptConfigEntry) string {
+	key := scriptConfigStoragePrefix + entry.Scope + ":"
+	if entry.Scope == scriptapi.ScopeCharacter {
+		key += strings.ToLower(strings.TrimSpace(playerName)) + ":"
+	}
+	return key + entry.Key
 }
 
 var (
@@ -24,80 +42,65 @@ var (
 	scriptConfigEntries = map[string][]scriptConfigEntry{}
 )
 
-func scriptAddConfig(owner, name, typ string, args ...any) any {
-	entry, ok := makeScriptConfigEntry(owner, name, typ, args...)
-	if !ok {
-		return nil
-	}
-	scriptRegisterConfig(owner, entry)
-	return entry.Value
-}
-
-func makeScriptConfigEntry(owner, name, typ string, args ...any) (scriptConfigEntry, bool) {
-	name = strings.TrimSpace(name)
-	typ = normalizeScriptConfigType(typ)
-	if name == "" || typ == "" {
+func makeTypedScriptConfigEntry(owner, key, label, help, scope, typ string, defaultValue, callback, validate any, choices []string, min, max, step float64) (scriptConfigEntry, bool) {
+	key = strings.TrimSpace(key)
+	label = strings.TrimSpace(label)
+	help = strings.TrimSpace(help)
+	if !validScriptOptionKey(key) {
+		reportScriptCommandError(owner, "invalid setting key: "+key)
 		return scriptConfigEntry{}, false
 	}
-	key := strings.ToLower(strings.Join(strings.Fields(name), "_"))
-	defaultValue := scriptConfigZeroValue(typ)
-	var callback any
-	if len(args) > 0 {
-		if isScriptConfigCallback(args[0]) {
-			callback = args[0]
-		} else if value, ok := coerceScriptConfigValue(typ, args[0]); ok {
-			defaultValue = value
+	if label == "" {
+		label = key
+	}
+	if scope == "" {
+		scope = scriptapi.ScopeGlobal
+	}
+	if scope != scriptapi.ScopeGlobal && scope != scriptapi.ScopeCharacter {
+		reportScriptCommandError(owner, "invalid setting scope: "+scope)
+		return scriptConfigEntry{}, false
+	}
+	callback = nonNilScriptOptionFunc(callback)
+	validate = nonNilScriptOptionFunc(validate)
+	entry := scriptConfigEntry{
+		Key: key, Label: label, Help: help, Type: typ, Scope: scope,
+		Default: defaultValue, Value: defaultValue, Callback: callback, Validate: validate,
+		Choices: append([]string(nil), choices...), Min: min, Max: max, Step: step,
+	}
+	if !scriptConfigValueValid(entry, defaultValue) {
+		reportScriptCommandError(owner, "invalid default for setting "+key)
+		return scriptConfigEntry{}, false
+	}
+	if stored := scriptStorageGet(owner, scriptConfigStorageKey(entry)); stored != nil {
+		if converted, ok := coerceScriptConfigValue(typ, stored); ok && scriptConfigValueValid(entry, converted) {
+			entry.Value = converted
 		}
 	}
-	if len(args) > 1 && isScriptConfigCallback(args[1]) {
-		callback = args[1]
-	}
-	value := defaultValue
-	if stored := scriptStorageGet(owner, scriptConfigStoragePrefix+key); stored != nil {
-		if converted, ok := coerceScriptConfigValue(typ, stored); ok {
-			value = converted
-		}
-	}
-	return scriptConfigEntry{
-		Name:     name,
-		Key:      key,
-		Type:     typ,
-		Default:  defaultValue,
-		Value:    value,
-		Callback: callback,
-	}, true
+	return entry, true
 }
 
-func normalizeScriptConfigType(typ string) string {
-	switch strings.ToLower(strings.TrimSpace(typ)) {
-	case "bool", "boolean", "check-box", "checkbox":
-		return "bool"
-	case "int", "integer", "int-slider":
-		return "int"
-	case "float", "decimal", "float-slider":
-		return "float"
-	case "string", "text", "text-box":
-		return "string"
-	case "item", "item-selector":
-		return "item"
-	default:
-		return ""
-	}
-}
-
-func scriptConfigZeroValue(typ string) any {
-	switch typ {
-	case "bool":
-		return false
-	case "int":
-		return 0
-	case "float":
-		return float64(0)
-	case "string", "item":
-		return ""
-	default:
+func nonNilScriptOptionFunc(fn any) any {
+	if fn == nil {
 		return nil
 	}
+	value := reflect.ValueOf(fn)
+	if value.Kind() == reflect.Func && value.IsNil() {
+		return nil
+	}
+	return fn
+}
+
+func validScriptOptionKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for index, char := range key {
+		if unicode.IsLetter(char) || char == '_' || char == '-' || index > 0 && unicode.IsDigit(char) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func coerceScriptConfigValue(typ string, value any) (any, bool) {
@@ -133,15 +136,75 @@ func coerceScriptConfigValue(typ string, value any) (any, bool) {
 		case int64:
 			return float64(v), true
 		}
-	case "string", "item":
+	case "text", "choice", "key", "item":
 		v, ok := value.(string)
 		return v, ok
 	}
 	return nil, false
 }
 
-func isScriptConfigCallback(callback any) bool {
-	return callback != nil && reflect.TypeOf(callback).Kind() == reflect.Func
+func scriptConfigValueValid(entry scriptConfigEntry, value any) bool {
+	switch entry.Type {
+	case "int":
+		v, ok := value.(int)
+		if !ok || entry.Max > entry.Min && (float64(v) < entry.Min || float64(v) > entry.Max) {
+			return false
+		}
+	case "float":
+		v, ok := value.(float64)
+		if !ok || entry.Max > entry.Min && (v < entry.Min || v > entry.Max) {
+			return false
+		}
+	case "choice":
+		v, ok := value.(string)
+		if !ok {
+			return false
+		}
+		found := false
+		for _, choice := range entry.Choices {
+			if v == choice {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	case "key":
+		v, ok := value.(string)
+		if !ok || !validScriptBindingText(v) {
+			return false
+		}
+	}
+	if entry.Validate == nil {
+		return true
+	}
+	fn := reflect.ValueOf(entry.Validate)
+	if fn.Kind() != reflect.Func || fn.Type().NumIn() != 1 || fn.Type().NumOut() != 1 || fn.Type().Out(0).Kind() != reflect.Bool {
+		return false
+	}
+	arg := reflect.ValueOf(value)
+	want := fn.Type().In(0)
+	if !arg.IsValid() || !arg.Type().AssignableTo(want) {
+		if !arg.IsValid() || !arg.Type().ConvertibleTo(want) {
+			return false
+		}
+		arg = arg.Convert(want)
+	}
+	return fn.Call([]reflect.Value{arg})[0].Bool()
+}
+
+func validScriptBindingText(combo string) bool {
+	parts := strings.Split(strings.TrimSpace(combo), "-")
+	if len(parts) == 0 {
+		return false
+	}
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			return false
+		}
+	}
+	return !isInputModifierName(parts[len(parts)-1])
 }
 
 func scriptRegisterConfig(owner string, entry scriptConfigEntry) {
@@ -182,29 +245,46 @@ func scriptRegisterConfig(owner string, entry scriptConfigEntry) {
 }
 
 func scriptSetConfigValue(owner, key string, value any) bool {
-	scriptConfigMu.Lock()
-	entries := scriptConfigEntries[owner]
-	for i := range entries {
-		if entries[i].Key != key {
-			continue
+	scriptConfigMu.RLock()
+	var entry scriptConfigEntry
+	found := false
+	for _, candidate := range scriptConfigEntries[owner] {
+		if candidate.Key == key {
+			entry, found = candidate, true
+			break
 		}
-		converted, ok := coerceScriptConfigValue(entries[i].Type, value)
-		if !ok {
-			scriptConfigMu.Unlock()
-			return false
-		}
-		entries[i].Value = converted
-		callback := entries[i].Callback
-		callbackQueue := entries[i].queue
-		scriptConfigEntries[owner] = entries
-		scriptConfigMu.Unlock()
-		scriptStorageSet(owner, scriptConfigStoragePrefix+key, converted)
-		savescriptStores()
-		invokeScriptConfigCallback(owner, key, callbackQueue, callback, converted)
+	}
+	scriptConfigMu.RUnlock()
+	if !found {
+		return false
+	}
+	converted, ok := coerceScriptConfigValue(entry.Type, value)
+	if !ok {
+		return false
+	}
+	valid := false
+	if !queueScriptCallbackWaitOn(entry.queue, owner, "Validate setting "+key, func() {
+		valid = scriptConfigValueValid(entry, converted)
+	}) || !valid {
+		return false
+	}
+	if reflect.DeepEqual(entry.Value, converted) {
 		return true
 	}
+	scriptConfigMu.Lock()
+	entries := scriptConfigEntries[owner]
+	for index := range entries {
+		if entries[index].Key == key {
+			entries[index].Value = converted
+			scriptConfigEntries[owner] = entries
+			break
+		}
+	}
 	scriptConfigMu.Unlock()
-	return false
+	scriptStorageSet(owner, scriptConfigStorageKey(entry), converted)
+	savescriptStores()
+	invokeScriptConfigCallback(owner, key, entry.queue, entry.Callback, converted)
+	return true
 }
 
 func invokeScriptConfigCallback(owner, key string, eventQueue *scriptEventQueue, callback, value any) {

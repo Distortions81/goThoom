@@ -750,25 +750,41 @@ func detectCombo() string {
 
 func comboFromKey(k ebiten.Key) string {
 	mods := currentMods()
+	shifted := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
+	alternate := ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight)
 	name := scriptKeyName(k, inpututil.AppendJustPressedKeys(nil), ebiten.AppendInputChars(nil),
-		ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight) ||
-			ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight))
+		shifted, alternate)
 	mods = append(mods, name)
 	return strings.Join(mods, "-")
 }
 
-func scriptKeyName(key ebiten.Key, pressed []ebiten.Key, typed []rune, textModifier bool) string {
-	if textModifier && len(pressed) == 1 && len(typed) == 1 && unicode.IsPrint(typed[0]) && !unicode.IsSpace(typed[0]) {
+func scriptKeyName(key ebiten.Key, pressed []ebiten.Key, typed []rune, shifted, alternate bool) string {
+	if (shifted || alternate) && len(pressed) == 1 && len(typed) == 1 && unicode.IsPrint(typed[0]) && !unicode.IsSpace(typed[0]) {
 		return string(typed[0])
 	}
+	if shifted {
+		if key >= ebiten.KeyDigit0 && key <= ebiten.KeyDigit9 {
+			return string(")!@#$%^&*("[key-ebiten.KeyDigit0])
+		}
+		shiftedNames := map[ebiten.Key]string{
+			ebiten.KeyMinus:         "_",
+			ebiten.KeyEqual:         "+",
+			ebiten.KeyBracketLeft:   "{",
+			ebiten.KeyBracketRight:  "}",
+			ebiten.KeyBackslash:     "|",
+			ebiten.KeyIntlBackslash: "|",
+			ebiten.KeySemicolon:     ":",
+			ebiten.KeyQuote:         "\"",
+			ebiten.KeyBackquote:     "~",
+			ebiten.KeyComma:         "<",
+			ebiten.KeyPeriod:        ">",
+			ebiten.KeySlash:         "?",
+		}
+		if name := shiftedNames[key]; name != "" {
+			return name
+		}
+	}
 	return key.String()
-}
-
-func comboFromMouse(b ebiten.MouseButton) string {
-	mods := currentMods()
-	name := mouseButtonName(b)
-	mods = append(mods, name)
-	return strings.Join(mods, "-")
 }
 
 func comboFromWheel(dir string) string {
@@ -830,7 +846,8 @@ func isModifier(k ebiten.Key) bool {
 	switch k {
 	case ebiten.KeyShift, ebiten.KeyShiftLeft, ebiten.KeyShiftRight,
 		ebiten.KeyControl, ebiten.KeyControlLeft, ebiten.KeyControlRight,
-		ebiten.KeyAlt, ebiten.KeyAltLeft, ebiten.KeyAltRight:
+		ebiten.KeyAlt, ebiten.KeyAltLeft, ebiten.KeyAltRight,
+		ebiten.KeyMeta, ebiten.KeyMetaLeft, ebiten.KeyMetaRight:
 		return true
 	}
 	return false
@@ -1055,7 +1072,7 @@ func makeScriptInputEvent(combo string) InputEvent {
 		}
 	}
 	lowerTrigger := strings.ToLower(trigger)
-	if strings.HasSuffix(lowerTrigger, "click") || strings.HasPrefix(lowerTrigger, "wheel") || strings.HasPrefix(lowerTrigger, "mouse ") {
+	if strings.HasSuffix(lowerTrigger, "click") || strings.HasPrefix(lowerTrigger, "wheel") || strings.HasPrefix(lowerTrigger, "mouse") {
 		event.Button = trigger
 		for i := len(parts) - 2; i >= 0; i-- {
 			part := parts[i]
@@ -1194,8 +1211,8 @@ func sameCombo(a, b string) bool {
 			return map[string]bool{}, ""
 		}
 		trig = strings.ToLower(parts[len(parts)-1])
-		// Mouse buttons above Middle are emitted as "Mouse 4", but scripts
-		// have also historically used the compact "Mouse4" spelling.
+		// Be forgiving about spaces in manually entered mouse names while the
+		// recorder and documentation always produce the compact spelling.
 		if strings.HasPrefix(trig, "mouse") {
 			if n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(trig, "mouse"))); err == nil {
 				trig = fmt.Sprintf("mouse%d", n)
@@ -1210,6 +1227,8 @@ func sameCombo(a, b string) bool {
 				mods["alt"] = true
 			case "shift", "shiftleft", "shiftright":
 				mods["shift"] = true
+			case "meta", "metaleft", "metaright", "command", "cmd":
+				mods["meta"] = true
 			default:
 				// Treat any unknown modifier token as-is to be strict
 				if p != "" {

@@ -46,7 +46,7 @@ func TestScriptStorageSetGetDelete(t *testing.T) {
 	}
 
 	path := scriptStoragePath(owner)
-	sum := sha256.Sum256([]byte("Plug:Auth"))
+	sum := sha256.Sum256([]byte(owner))
 	wantFile := hex.EncodeToString(sum[:]) + ".json"
 	if filepath.Base(path) != wantFile {
 		t.Fatalf("path %s does not match hash %s", filepath.Base(path), wantFile)

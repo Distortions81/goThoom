@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	scriptapi "gt"
 )
 
 func resetScriptCallbackTestState(t *testing.T, owner string) {
@@ -239,7 +241,7 @@ func TestScriptCallbackPanicDisablesAndCleansOwner(t *testing.T) {
 	scriptRegisterChat(owner, "", []string{"owned"}, ChatAny, func(string) {})
 	scriptRegisterConsole(owner, []string{"owned"}, func(string) {})
 	scriptRegisterChatHandler(owner, func(string) {})
-	scriptRegisterPlayerHandler(owner, func(Player) {})
+	scriptRegisterPlayerHandler(owner, func(scriptapi.Player) {})
 	timer := time.AfterFunc(time.Hour, func() {})
 	scriptTimers[owner] = []*time.Timer{timer}
 	stop := make(chan struct{})
@@ -756,10 +758,10 @@ func TestScriptLifecycleStagesCommitAndDisposeExplicitly(t *testing.T) {
 import "gt"
 func Init() {
 	gt.RegisterCommand("lifecycle", func(string) {})
-	gt.Save("initialized", "yes")
+	gt.Store("initialized", "yes")
 }
 func Terminate() {
-	gt.Save("terminated", "yes")
+	gt.Store("terminated", "yes")
 }
 `)
 

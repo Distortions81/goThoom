@@ -46,7 +46,7 @@ func ledgerFind(args string) {
 	gt.Run("/equip trainingledger")
 	fields := gt.Words(args)
 	// (trimmed debug output)
-	playerName := gt.PlayerName()
+	playerName := gt.Self().Name
 	category := ""
 	if len(fields) > 0 {
 		category = gt.Lower(fields[0])

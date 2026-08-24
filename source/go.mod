@@ -4,6 +4,10 @@ go 1.26.6
 
 require github.com/hajimehoshi/ebiten/v2 v2.9.10
 
+require gt v0.0.0
+
+replace gt => ./gt
+
 require (
 	github.com/chewxy/math32 v1.11.2
 	github.com/dustin/go-humanize v1.0.1

@@ -38,6 +38,7 @@ func TestRescanReloadsEnabledScript(t *testing.T) {
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
+	scriptActiveSourceHashes = map[string][32]byte{}
 	scriptTimers = map[string][]*time.Timer{}
 	scriptTickerStops = map[string][]chan struct{}{}
 	scriptTickWaiters = map[string][]*tickWaiter{}
@@ -79,12 +80,12 @@ const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 1
 func Init() {
-	gt.RegisterCommand("refresh_cmd", func(args string) { gt.Save("command_version", "` + version + `") })
+	gt.RegisterCommand("refresh_cmd", func(args string) { gt.Store("command_version", "` + version + `") })
 	gt.AddHotkey("Ctrl-R", "/wave")
-	gt.Save("loaded_version", "` + version + `")
+	gt.Store("loaded_version", "` + version + `")
 }
 func Terminate() {
-	gt.Save("terminated_version", "` + version + `")
+	gt.Store("terminated_version", "` + version + `")
 }
 `
 		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
@@ -102,7 +103,7 @@ func Terminate() {
 		return cond()
 	}
 
-	const owner = "Refresh_refresh"
+	const owner = "refresh"
 	readStoredValues := func() map[string]any {
 		t.Helper()
 		data, err := os.ReadFile(scriptStoragePath(owner))
@@ -120,6 +121,10 @@ func Terminate() {
 	rescanScripts([]string{dir})
 	if !waitFor(func() bool { return scriptStorageGet(owner, "loaded_version") == "one" }) {
 		t.Fatalf("initial script did not load")
+	}
+	rescanScripts([]string{dir})
+	if got := scriptStorageGet(owner, "terminated_version"); got != nil {
+		t.Fatalf("unchanged script was restarted: %v", got)
 	}
 	if got := readStoredValues()["loaded_version"]; got != "one" {
 		t.Fatalf("initialization storage was not flushed: %v", got)
@@ -172,7 +177,7 @@ const scriptName = "Refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 1
-func Init() { gt.Save("loaded_version", "compile-broken")
+func Init() { gt.Store("loaded_version", "compile-broken")
 `
 	if err := os.WriteFile(path, []byte(brokenSource), 0o644); err != nil {
 		t.Fatalf("write malformed script: %v", err)
@@ -197,8 +202,8 @@ const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 1
 func Init() {
-	gt.Save("loaded_version", "panic-broken")
-	gt.RegisterCommand("refresh_cmd", func(args string) { gt.Save("command_version", "panic-broken") })
+	gt.Store("loaded_version", "panic-broken")
+	gt.RegisterCommand("refresh_cmd", func(args string) { gt.Store("command_version", "panic-broken") })
 	panic("boom")
 }
 `

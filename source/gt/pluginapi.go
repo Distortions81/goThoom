@@ -4,11 +4,7 @@
 
 package gt
 
-import (
-	"time"
-
-	"github.com/hajimehoshi/ebiten/v2"
-)
+import "time"
 
 // Version and client info
 var CLVersion int
@@ -72,20 +68,76 @@ func Key(combo string, handler func())                         {}
 func AddShortcut(short, full string)   {}
 func AddShortcuts(m map[string]string) {}
 
-// AddConfig registers a configurable value. The optional arguments are a
-// default value and a one-argument change callback. It returns the persisted
-// value, or the default when no saved value exists.
-func AddConfig(name, typ string, args ...any) any { return nil }
+const (
+	ScopeGlobal    = "global"
+	ScopeCharacter = "character"
+)
 
-// Storage (per-script persistent key/value)
-func StorageGet(key string) any        { return nil }
-func StorageSet(key string, value any) {}
-func StorageDelete(key string)         {}
+type BoolOption struct {
+	Key, Label, Help, Scope string
+	Default                 bool
+	Validate                func(bool) bool
+	OnChange                func(bool)
+}
 
-// Convenience string-only helpers
-func Save(key, value string) {}
-func Load(key string) string { return "" }
-func Delete(key string)      {}
+type IntegerOption struct {
+	Key, Label, Help, Scope string
+	Default, Min, Max, Step int
+	Validate                func(int) bool
+	OnChange                func(int)
+}
+
+type DecimalOption struct {
+	Key, Label, Help, Scope string
+	Default, Min, Max, Step float64
+	Validate                func(float64) bool
+	OnChange                func(float64)
+}
+
+type TextOption struct {
+	Key, Label, Help, Scope string
+	Default                 string
+	Validate                func(string) bool
+	OnChange                func(string)
+}
+
+type ChoiceOption struct {
+	Key, Label, Help, Scope string
+	Default                 string
+	Choices                 []string
+	OnChange                func(string)
+}
+
+type KeyBindingOption struct {
+	Key, Label, Help, Scope string
+	Default                 string
+	OnChange                func(string)
+}
+
+type ItemOption struct {
+	Key, Label, Help, Scope string
+	Default                 string
+	OnChange                func(string)
+}
+
+func Bool(option BoolOption) bool               { return option.Default }
+func Integer(option IntegerOption) int          { return option.Default }
+func Decimal(option DecimalOption) float64      { return option.Default }
+func Text(option TextOption) string             { return option.Default }
+func Choice(option ChoiceOption) string         { return option.Default }
+func KeyBinding(option KeyBindingOption) string { return option.Default }
+func ItemSelector(option ItemOption) string     { return option.Default }
+
+// Storage is private to the script that calls it.
+func Store(key string, value any)                               {}
+func LoadString(key, fallback string) string                    { return fallback }
+func LoadBool(key string, fallback bool) bool                   { return fallback }
+func LoadInteger(key string, fallback int) int                  { return fallback }
+func LoadDecimal(key string, fallback float64) float64          { return fallback }
+func LoadStrings(key string, fallback []string) []string        { return fallback }
+func LoadJSON(key string, target any) bool                      { return false }
+func DeleteStored(key string)                                   {}
+func MigrateStorage(version int, migrate func(fromVersion int)) {}
 
 // Input box helpers
 func InputText() string        { return "" }
@@ -124,27 +176,64 @@ type Player struct {
 	Offline      bool
 }
 
-func PlayerName() string { return "" }
-func Me() string         { return PlayerName() }
-func Players() []Player  { return nil }
-
-// Inventory
-type InventoryItem struct {
-	ID       uint16
-	Name     string
-	Base     string
-	Extra    string
-	Equipped bool
-	Index    int
-	IDIndex  int
-	Quantity int
+type Character struct {
+	Name       string
+	Health     int
+	HealthMax  int
+	Spirit     int
+	SpiritMax  int
+	Balance    int
+	BalanceMax int
+	Location   string
+	Equipment  []Item
 }
 
-func Inventory() []InventoryItem     { return nil }
-func EquippedItems() []InventoryItem { return nil }
-func HasItem(name string) bool       { return false }
-func IsEquipped(name string) bool    { return false }
-func Has(name string) bool           { return HasItem(name) }
+func Self() Character   { return Character{} }
+func Players() []Player { return nil }
+
+// Inventory
+type Item struct {
+	InstanceID uint64
+	ID         uint16
+	Name       string
+	Base       string
+	Extra      string
+	Equipped   bool
+	Index      int
+	IDIndex    int
+	Quantity   int
+	Slot       string
+}
+
+const (
+	SlotForehead  = "forehead"
+	SlotNeck      = "neck"
+	SlotShoulder  = "shoulder"
+	SlotArms      = "arms"
+	SlotGloves    = "gloves"
+	SlotFinger    = "finger"
+	SlotCoat      = "coat"
+	SlotCloak     = "cloak"
+	SlotTorso     = "torso"
+	SlotWaist     = "waist"
+	SlotLegs      = "legs"
+	SlotFeet      = "feet"
+	SlotRightHand = "right-hand"
+	SlotLeftHand  = "left-hand"
+	SlotBothHands = "both-hands"
+	SlotHead      = "head"
+)
+
+func Inventory() []Item                      { return nil }
+func EquippedItems() []Item                  { return nil }
+func FindItemExact(name string) (Item, bool) { return Item{}, false }
+func FindItem(name string) (Item, bool)      { return Item{}, false }
+func FindItems(name string) []Item           { return nil }
+func SearchItems(text string) []Item         { return nil }
+func Equipped(slot string) (Item, bool)      { return Item{}, false }
+func HasItem(name string) bool               { return false }
+func IsEquipped(name string) bool            { return false }
+func Has(name string) bool                   { return HasItem(name) }
 
 // Equip equips an item by name (case-insensitive).
 func Equip(name string) {}
@@ -186,19 +275,36 @@ type Mobile struct {
 	H, V   int16
 	PictID uint16
 	Colors uint8
+	Player bool
 }
-type ClickInfo struct {
+
+type Click struct {
 	X, Y     int16
 	OnMobile bool
 	OnPlayer bool
 	Mobile   Mobile
-	Button   ebiten.MouseButton
+	Button   string
 	Ctrl     bool
 	Alt      bool
 	Shift    bool
+	Meta     bool
 }
 
-func LastClick() ClickInfo { return ClickInfo{} }
+func LastClick() Click { return Click{} }
+func Hover() Click     { return Click{} }
+
+func SelectedPlayer() (Player, bool) { return Player{}, false }
+func SelectedItem() (Item, bool)     { return Item{}, false }
+
+type World struct {
+	Width      int
+	Height     int
+	Location   string
+	Generation uint64
+	Mobiles    []Mobile
+}
+
+func CurrentWorld() World { return World{} }
 
 // Chat trigger kinds
 const (
@@ -230,14 +336,18 @@ type ServerMessageFilter struct {
 	Type     string
 }
 
-type ServerMessageEvent struct {
-	Message string
-	Type    string
+type ServerMessage struct {
+	Message    string
+	Type       string
+	Sequence   uint64
+	ReceivedAt time.Time
 }
 
-func OnServerMessage(filter ServerMessageFilter, handler func(ServerMessageEvent)) Subscription {
+func OnServerMessage(filter ServerMessageFilter, handler func(ServerMessage)) Subscription {
 	return Subscription{}
 }
+
+func LatestServerMessage() (ServerMessage, bool) { return ServerMessage{}, false }
 
 type LifecycleEvent struct {
 	Type              string
@@ -263,10 +373,10 @@ const (
 
 type ChangeEvent struct {
 	Type            string
-	Inventory       []InventoryItem
-	Equipment       []InventoryItem
+	Inventory       []Item
+	Equipment       []Item
 	SelectedPlayer  string
-	SelectedItem    InventoryItem
+	SelectedItem    Item
 	HasSelectedItem bool
 	Health          int
 	HealthMax       int

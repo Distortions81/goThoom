@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"unicode"
+
+	scriptapi "gt"
 )
 
 func TestScriptEditorPackageMatchesRuntimeSurface(t *testing.T) {
@@ -38,15 +40,22 @@ func TestScriptEditorPackageMatchesRuntimeSurface(t *testing.T) {
 	if _, ok := runtimeSymbols["clVersion"]; ok {
 		t.Fatal("unusable lowercase clVersion is still exported")
 	}
+	for _, name := range []string{"Player", "Item", "Mobile", "Click", "World"} {
+		typ := runtimeSymbols[name].Type()
+		if typ.Kind() != reflect.Pointer || typ.Elem().PkgPath() != "gt" {
+			t.Errorf("runtime %s is %v from %q, want public gt type", name, typ, typ.Elem().PkgPath())
+		}
+	}
 
 	for _, contract := range []struct {
 		name string
 		typ  reflect.Type
 	}{
-		{name: "Player", typ: reflect.TypeOf(Player{})},
-		{name: "InventoryItem", typ: reflect.TypeOf(InventoryItem{})},
-		{name: "Mobile", typ: reflect.TypeOf(Mobile{})},
-		{name: "ClickInfo", typ: reflect.TypeOf(ClickInfo{})},
+		{name: "Player", typ: reflect.TypeOf(scriptapi.Player{})},
+		{name: "Item", typ: reflect.TypeOf(scriptapi.Item{})},
+		{name: "Mobile", typ: reflect.TypeOf(scriptapi.Mobile{})},
+		{name: "Click", typ: reflect.TypeOf(scriptapi.Click{})},
+		{name: "World", typ: reflect.TypeOf(scriptapi.World{})},
 	} {
 		editorFields := editorStructFields(t, fileSet, file, contract.name)
 		runtimeFields := runtimeStructFields(contract.typ)
@@ -145,5 +154,6 @@ func runtimeStructFields(typ reflect.Type) map[string]string {
 
 func normalizeContractType(value string) string {
 	value = strings.ReplaceAll(value, "byte", "uint8")
-	return strings.ReplaceAll(value, "main.", "")
+	value = strings.ReplaceAll(value, "main.", "")
+	return strings.ReplaceAll(value, "gt.", "")
 }

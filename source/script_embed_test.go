@@ -34,7 +34,7 @@ const scriptAPIVersion = 1
 	if len(scanned) != 1 {
 		t.Fatalf("scanned scripts = %v, want only visible.go", scanned)
 	}
-	if _, ok := scanned["Visible_visible"]; !ok {
+	if _, ok := scanned["visible"]; !ok {
 		t.Fatalf("visible script missing: %v", scanned)
 	}
 }

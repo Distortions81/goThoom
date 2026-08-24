@@ -6,7 +6,10 @@ Getting Started
 - Copy or edit any of the example .go files to get started.
 - Start each file with `//go:build script`.
 - Each script must define an Init() function. The client discovers and calls this function after loading the file.
-- Each script must define a unique scriptName, scriptAuthor and scriptCategory string. Changing Name or Author will make the script unable to access old saved data!
+- Give each script a permanent, unique `scriptID`. The filename is used when
+  scriptID is omitted, so set one before sharing or renaming a script.
+- scriptName, scriptAuthor, scriptCategory, and scriptAPIVersion are optional
+  display metadata. Changing them never changes the script's saved data.
 - Place .go files in the scripts/ directory next to the game.
 - Hotkeys added by scripts appear in a "script Hotkeys" section of the hotkeys window where you can enable or disable them.
 
@@ -70,6 +73,7 @@ A minimal script typically looks like this:
     //go:build script
     package main
     import "gt"
+    const scriptID = "my-script"
     const scriptName = "My Script"
     const scriptAuthor = "You"
     const scriptCategory = "Utilities"
@@ -86,11 +90,9 @@ A minimal script typically looks like this:
         gt.Print("Hello, " + args)
     }
 
-    func helloHotkey() {
-        gt.Run("/think Hello!")
-    }
-    // Or use AddHotkeyFn when you need the full HotkeyEvent:
-    // gt.AddHotkeyFn("Ctrl-H", func(e gt.HotkeyEvent) { helloHotkey() })
+    gt.Bind("Ctrl-H", func(event gt.InputEvent) {
+        gt.Send("/think Hello!")
+    })
 
 Where to put files:
 - Place .go files in the scripts/ directory next to the game.
@@ -99,15 +101,58 @@ Key and Mouse Names
 Hotkeys and input functions refer to keys and mouse buttons by specific names.
 Combine modifiers with - like Ctrl-Shift-A. Names are case-insensitive.
 
-Modifiers: Ctrl, Alt, Shift
+Modifiers: Meta, Ctrl, Alt, Shift
 
-Mouse buttons for hotkeys: LeftClick, RightClick, MiddleClick, Mouse3,
-Mouse4, … (`Mouse 3` and `Mouse 4` are also accepted.)
+Mouse buttons for bindings: LeftClick, MiddleClick, RightClick, Mouse4, Mouse5
 
 Mouse buttons for MousePressed and MouseJustPressed: right, middle,
 mouse1, mouse2, mouse3, …
 
 Mouse wheel: WheelUp, WheelDown, WheelLeft, WheelRight
+
+Bindings pass through to the game normally. Call event.Consume() when the
+matching key, click, or wheel action should not also reach the game.
+
+State Snapshots
+
+State APIs return detached snapshots. A snapshot never changes underneath your
+script and remains safe to keep for as long as needed. Call the API again when
+you want newer state. Editing a returned value or slice changes only your
+script's copy; it cannot change the client or another script.
+
+    me := gt.Self()
+    hovered := gt.Hover()
+    selectedPlayer, hasPlayer := gt.SelectedPlayer()
+    selectedItem, hasItem := gt.SelectedItem()
+    world := gt.CurrentWorld()
+
+`gt.Self()` includes current and maximum health, spirit, and balance, the
+current location, and equipped items. Each item has a stable InstanceID and a
+readable Slot such as gt.SlotRightHand. Use gt.FindItem for a normal
+case-insensitive exact lookup, gt.FindItemExact when capitalization matters,
+gt.FindItems for every exact match, gt.SearchItems for partial matches, and
+gt.Equipped for a slot lookup.
+
+`gt.LatestServerMessage()` returns the newest structured server message, its
+type, arrival time, and increasing sequence number. The second return value is
+false until a message has arrived in the current session.
+
+Storage
+
+Use gt.Store and the typed gt.Load* functions for data private to your script.
+When the stored shape changes, increase one version number and migrate before
+reading the data:
+
+    gt.MigrateStorage(2, func(fromVersion int) {
+        if fromVersion < 2 {
+            gt.Store("new-key", gt.LoadString("old-key", ""))
+            gt.DeleteStored("old-key")
+        }
+    })
+
+The migration runs once after a successful load. A failed reload leaves the
+previous script and data version untouched. Data is written atomically when a
+script starts, reloads, stops, and when the client exits.
 
 Key names:
 

@@ -154,52 +154,52 @@ func Init() {
 - [x] Include key/button, modifiers, chord, screen/world position, clicked
   mobile, player name, simple name, and whether normal input may continue.
 - [x] Let handlers explicitly consume or pass through an input event.
-- [ ] Support the same printable keys, mouse buttons, wheel directions, and
+- [x] Support the same printable keys, mouse buttons, wheel directions, and
   modifier combinations as the legacy macro runtime.
-- [ ] Add hover and current-selection queries without requiring scripts to poll
+- [x] Add hover and current-selection queries without requiring scripts to poll
   every frame.
 
 ### Read-only game state
 
-- [ ] Add `gt.Self()` returning a snapshot with name, health, spirit, balance,
-  location, and equipped slots. Keep `gt.Me()` as the old string alias.
-- [ ] Expose immutable `Player`, `Mobile`, `Item`, `Click`, and `World`
+- [x] Add `gt.Self()` returning a snapshot with name, health, spirit, balance,
+  location, and equipped slots; remove the old string-name aliases.
+- [x] Expose immutable `Player`, `Mobile`, `Item`, `Click`, and `World`
   snapshots from a real public `gt` package rather than reflecting main-package
   implementation structs.
-- [ ] Add exact and case-insensitive item lookup, partial lookup, all matching
+- [x] Add exact and case-insensitive item lookup, partial lookup, all matching
   instances, equipped-slot lookup, and stable per-instance identity.
-- [ ] Expose the selected player and selected inventory item.
-- [ ] Expose the latest typed server message data needed by legacy-style
+- [x] Expose the selected player and selected inventory item.
+- [x] Expose the latest typed server message data needed by legacy-style
   scanners without requiring formatted-text parsing.
-- [ ] Document snapshot lifetime and make it impossible for scripts to mutate
+- [x] Document snapshot lifetime and make it impossible for scripts to mutate
   client-owned state accidentally.
 
 ## Settings and storage
 
-- [ ] Replace stringly typed `AddConfig(name, type)` with typed options:
+- [x] Replace stringly typed `AddConfig(name, type)` with typed options:
   boolean, integer, decimal, text, choice, key binding, and item selector.
-- [ ] Give each option a stable key, label, help text, default, current value,
+- [x] Give each option a stable key, label, help text, default, current value,
   validation, and optional change callback.
-- [ ] Persist settings automatically and show them in a functional Configure
+- [x] Persist settings automatically and show them in a functional Configure
   window.
-- [ ] Support global and per-character option scopes.
-- [ ] Add typed storage helpers for string, bool, integer, decimal, string
+- [x] Support global and per-character option scopes.
+- [x] Add typed storage helpers for string, bool, integer, decimal, string
   slices, and JSON-safe structs.
-- [ ] Use an explicit stable script ID for storage. Display name and author
+- [x] Use an explicit stable script ID for storage. Display name and author
   edits must not orphan saved data.
-- [ ] Add a storage schema version and a migration hook.
-- [ ] Make writes crash-safe and flush at lifecycle boundaries.
+- [x] Add a storage schema version and a migration hook.
+- [x] Make writes crash-safe and flush at lifecycle boundaries.
 
 ## Scripts window and authoring experience
 
-- [ ] Show the exact load/runtime error and source line instead of only
+- [x] Show the exact load/runtime error and source line instead of only
   `Invalid script`.
-- [ ] Show script path, description, API version, commands, bindings, events,
+- [x] Show script path, description, API version, commands, bindings, events,
   timers, and settings in the details panel.
-- [ ] Add Copy Error, Open File, Open Folder, Reload, and Stop actions.
-- [ ] Keep Refresh, but make it rescan and atomically reload changed enabled
+- [x] Add Copy Error, Open File, Open Folder, Reload, and Stop actions.
+- [x] Keep Refresh, but make it rescan and atomically reload changed enabled
   scripts.
-- [ ] Add a New Script action with tiny templates for command, hotkey/click,
+- [x] Add a New Script action with tiny templates for command, hotkey/click,
   chat event, and equipment sequence scripts.
 - [ ] Treat bundled examples as an opt-in library, similar to Legacy Macros,
   instead of copying every embedded source into the live scripts directory.

@@ -32,7 +32,7 @@ func Init() {
 
 func sendYes(msg string) {
 	// Only respond when our name appears in the message, because we will overhear other people buying boats
-	me := gt.PlayerName()
+	me := gt.Self().Name
 	if me == "" || !gt.Includes(gt.Lower(msg), gt.Lower(me)) {
 		return
 	}

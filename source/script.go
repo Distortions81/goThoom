@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	scriptapi "gt"
+
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 )
@@ -66,11 +68,28 @@ var basescriptExports = interp.Exports{
 	"gt/gt": {
 		"ShowNotification":    reflect.ValueOf(scriptShowNotification),
 		"CLVersion":           reflect.ValueOf(&clVersion).Elem(),
-		"PlayerName":          reflect.ValueOf(scriptPlayerName),
+		"Self":                reflect.ValueOf(scriptSelf),
 		"Players":             reflect.ValueOf(scriptPlayers),
 		"Inventory":           reflect.ValueOf(scriptInventory),
-		"InventoryItem":       reflect.ValueOf((*InventoryItem)(nil)),
-		"Player":              reflect.ValueOf((*Player)(nil)),
+		"Item":                reflect.ValueOf((*scriptapi.Item)(nil)),
+		"SlotForehead":        reflect.ValueOf(scriptapi.SlotForehead),
+		"SlotNeck":            reflect.ValueOf(scriptapi.SlotNeck),
+		"SlotShoulder":        reflect.ValueOf(scriptapi.SlotShoulder),
+		"SlotArms":            reflect.ValueOf(scriptapi.SlotArms),
+		"SlotGloves":          reflect.ValueOf(scriptapi.SlotGloves),
+		"SlotFinger":          reflect.ValueOf(scriptapi.SlotFinger),
+		"SlotCoat":            reflect.ValueOf(scriptapi.SlotCoat),
+		"SlotCloak":           reflect.ValueOf(scriptapi.SlotCloak),
+		"SlotTorso":           reflect.ValueOf(scriptapi.SlotTorso),
+		"SlotWaist":           reflect.ValueOf(scriptapi.SlotWaist),
+		"SlotLegs":            reflect.ValueOf(scriptapi.SlotLegs),
+		"SlotFeet":            reflect.ValueOf(scriptapi.SlotFeet),
+		"SlotRightHand":       reflect.ValueOf(scriptapi.SlotRightHand),
+		"SlotLeftHand":        reflect.ValueOf(scriptapi.SlotLeftHand),
+		"SlotBothHands":       reflect.ValueOf(scriptapi.SlotBothHands),
+		"SlotHead":            reflect.ValueOf(scriptapi.SlotHead),
+		"Player":              reflect.ValueOf((*scriptapi.Player)(nil)),
+		"Character":           reflect.ValueOf((*scriptapi.Character)(nil)),
 		"PlaySound":           reflect.ValueOf(scriptPlaySound),
 		"InputText":           reflect.ValueOf(scriptInputText),
 		"SetInputText":        reflect.ValueOf(scriptSetInputText),
@@ -78,18 +97,38 @@ var basescriptExports = interp.Exports{
 		"MouseJustPressed":    reflect.ValueOf(scriptMouseJustPressed),
 		"MouseWheel":          reflect.ValueOf(scriptMouseWheel),
 		"LastClick":           reflect.ValueOf(scriptLastClick),
-		"ClickInfo":           reflect.ValueOf((*ClickInfo)(nil)),
+		"Hover":               reflect.ValueOf(scriptHover),
+		"SelectedPlayer":      reflect.ValueOf(scriptSelectedPlayer),
+		"SelectedItem":        reflect.ValueOf(scriptSelectedItem),
+		"CurrentWorld":        reflect.ValueOf(scriptCurrentWorld),
+		"Click":               reflect.ValueOf((*scriptapi.Click)(nil)),
+		"World":               reflect.ValueOf((*scriptapi.World)(nil)),
 		"InputEvent":          reflect.ValueOf((*InputEvent)(nil)),
 		"ChatFilter":          reflect.ValueOf((*ChatFilter)(nil)),
 		"ChatEvent":           reflect.ValueOf((*ChatEvent)(nil)),
 		"ServerMessageFilter": reflect.ValueOf((*ServerMessageFilter)(nil)),
-		"ServerMessageEvent":  reflect.ValueOf((*ServerMessageEvent)(nil)),
+		"ServerMessage":       reflect.ValueOf((*scriptapi.ServerMessage)(nil)),
+		"LatestServerMessage": reflect.ValueOf(scriptLatestServerMessage),
 		"LifecycleEvent":      reflect.ValueOf((*LifecycleEvent)(nil)),
 		"ChangeEvent":         reflect.ValueOf((*ChangeEvent)(nil)),
 		"Subscription":        reflect.ValueOf((*Subscription)(nil)),
 		"Timer":               reflect.ValueOf((*Timer)(nil)),
+		"BoolOption":          reflect.ValueOf((*scriptapi.BoolOption)(nil)),
+		"IntegerOption":       reflect.ValueOf((*scriptapi.IntegerOption)(nil)),
+		"DecimalOption":       reflect.ValueOf((*scriptapi.DecimalOption)(nil)),
+		"TextOption":          reflect.ValueOf((*scriptapi.TextOption)(nil)),
+		"ChoiceOption":        reflect.ValueOf((*scriptapi.ChoiceOption)(nil)),
+		"KeyBindingOption":    reflect.ValueOf((*scriptapi.KeyBindingOption)(nil)),
+		"ItemOption":          reflect.ValueOf((*scriptapi.ItemOption)(nil)),
+		"ScopeGlobal":         reflect.ValueOf(scriptapi.ScopeGlobal),
+		"ScopeCharacter":      reflect.ValueOf(scriptapi.ScopeCharacter),
 		"Mobile":              reflect.ValueOf((*Mobile)(nil)),
 		"EquippedItems":       reflect.ValueOf(scriptEquippedItems),
+		"FindItemExact":       reflect.ValueOf(scriptFindItemExact),
+		"FindItem":            reflect.ValueOf(scriptFindItem),
+		"FindItems":           reflect.ValueOf(scriptFindItems),
+		"SearchItems":         reflect.ValueOf(scriptSearchItems),
+		"Equipped":            reflect.ValueOf(scriptEquipped),
 		"HasItem":             reflect.ValueOf(scriptHasItem),
 		"IsEquipped":          reflect.ValueOf(scriptIsEquipped),
 		"IgnoreCase":          reflect.ValueOf(scriptIgnoreCase),
@@ -1090,16 +1129,42 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			text = strings.TrimSpace(text)
 			stage(func() { scriptCommand(owner, text) })
 		})
-		m["Me"] = reflect.ValueOf(scriptPlayerName)
 		m["Has"] = reflect.ValueOf(func(name string) bool { return scriptHasItem(name) })
-		m["Save"] = reflect.ValueOf(func(key, value string) { candidate.setStorage(owner, key, value) })
-		m["Load"] = reflect.ValueOf(func(key string) string {
-			if v, ok := candidate.getStorage(owner, key).(string); ok {
-				return v
-			}
-			return ""
+		m["Store"] = reflect.ValueOf(func(key string, value any) { candidate.setStorage(owner, key, value) })
+		m["LoadString"] = reflect.ValueOf(func(key, fallback string) string {
+			return scriptStoredString(candidate.getStorage(owner, key), fallback)
 		})
-		m["Delete"] = reflect.ValueOf(func(key string) { candidate.deleteStorage(owner, key) })
+		m["LoadBool"] = reflect.ValueOf(func(key string, fallback bool) bool {
+			return scriptStoredBool(candidate.getStorage(owner, key), fallback)
+		})
+		m["LoadInteger"] = reflect.ValueOf(func(key string, fallback int) int {
+			return scriptStoredInteger(candidate.getStorage(owner, key), fallback)
+		})
+		m["LoadDecimal"] = reflect.ValueOf(func(key string, fallback float64) float64 {
+			return scriptStoredDecimal(candidate.getStorage(owner, key), fallback)
+		})
+		m["LoadStrings"] = reflect.ValueOf(func(key string, fallback []string) []string {
+			return scriptStoredStrings(candidate.getStorage(owner, key), fallback)
+		})
+		m["LoadJSON"] = reflect.ValueOf(func(key string, target any) bool { return scriptStoredJSON(candidate.getStorage(owner, key), target) })
+		m["DeleteStored"] = reflect.ValueOf(func(key string) { candidate.deleteStorage(owner, key) })
+		m["MigrateStorage"] = reflect.ValueOf(func(version int, migrate func(int)) {
+			if version < 1 {
+				panic("gt.MigrateStorage version must be at least 1")
+			}
+			storedVersion := scriptStoredInteger(candidate.getStorage(owner, scriptStorageVersionKey), 0)
+			if storedVersion > version {
+				panic(fmt.Sprintf("stored data version %d is newer than this script's version %d", storedVersion, version))
+			}
+			if storedVersion == version {
+				return
+			}
+			if migrate == nil {
+				panic("gt.MigrateStorage needs a migration function")
+			}
+			migrate(storedVersion)
+			candidate.setStorage(owner, scriptStorageVersionKey, version)
+		})
 		m["Input"] = reflect.ValueOf(scriptInputText)
 		m["SetInput"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputText(text) }) })
 		m["SetInputText"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputText(text) }) })
@@ -1115,7 +1180,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["OnChat"] = reflect.ValueOf(func(filter ChatFilter, handler func(ChatEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle { return scriptRegisterStructuredChat(owner, filter, handler) })
 		})
-		m["OnServerMessage"] = reflect.ValueOf(func(filter ServerMessageFilter, handler func(ServerMessageEvent)) Subscription {
+		m["OnServerMessage"] = reflect.ValueOf(func(filter ServerMessageFilter, handler func(scriptapi.ServerMessage)) Subscription {
 			return subscribe(func() scriptRegistrationHandle { return scriptRegisterServerMessage(owner, filter, handler) })
 		})
 		m["OnLogin"] = reflect.ValueOf(func(handler func(LifecycleEvent)) Subscription {
@@ -1244,7 +1309,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			}
 			stage(func() { scriptRegisterChat(owner, name, []string{p}, ChatAny, func(string) { fn() }) })
 		})
-		m["RegisterPlayerHandler"] = reflect.ValueOf(func(fn func(Player)) {
+		m["RegisterPlayerHandler"] = reflect.ValueOf(func(fn func(scriptapi.Player)) {
 			stage(func() { scriptRegisterPlayerHandler(owner, fn) })
 		})
 		m["RegisterInputHandler"] = reflect.ValueOf(func(fn func(string) string) {
@@ -1274,16 +1339,61 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["RunCommand"] = reflect.ValueOf(func(cmd string) { stage(func() { scriptCommand(owner, cmd) }) })
 		m["EnqueueCommand"] = reflect.ValueOf(func(cmd string) { stage(func() { scriptCommand(owner, cmd) }) })
-		m["StorageGet"] = reflect.ValueOf(func(key string) any { return candidate.getStorage(owner, key) })
-		m["StorageSet"] = reflect.ValueOf(func(key string, value any) { candidate.setStorage(owner, key, value) })
-		m["StorageDelete"] = reflect.ValueOf(func(key string) { candidate.deleteStorage(owner, key) })
-		m["AddConfig"] = reflect.ValueOf(func(name, typ string, args ...any) any {
-			entry, ok := makeScriptConfigEntry(owner, name, typ, args...)
+		m["Bool"] = reflect.ValueOf(func(option scriptapi.BoolOption) bool {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "bool", option.Default, option.OnChange, option.Validate, nil, 0, 0, 0)
 			if !ok {
-				return nil
+				return option.Default
 			}
 			stage(func() { scriptRegisterConfig(owner, entry) })
-			return entry.Value
+			return entry.Value.(bool)
+		})
+		m["Integer"] = reflect.ValueOf(func(option scriptapi.IntegerOption) int {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "int", option.Default, option.OnChange, option.Validate, nil, float64(option.Min), float64(option.Max), float64(option.Step))
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(int)
+		})
+		m["Decimal"] = reflect.ValueOf(func(option scriptapi.DecimalOption) float64 {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "float", option.Default, option.OnChange, option.Validate, nil, option.Min, option.Max, option.Step)
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(float64)
+		})
+		m["Text"] = reflect.ValueOf(func(option scriptapi.TextOption) string {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "text", option.Default, option.OnChange, option.Validate, nil, 0, 0, 0)
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(string)
+		})
+		m["Choice"] = reflect.ValueOf(func(option scriptapi.ChoiceOption) string {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "choice", option.Default, option.OnChange, nil, option.Choices, 0, 0, 0)
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(string)
+		})
+		m["KeyBinding"] = reflect.ValueOf(func(option scriptapi.KeyBindingOption) string {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "key", option.Default, option.OnChange, nil, nil, 0, 0, 0)
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(string)
+		})
+		m["ItemSelector"] = reflect.ValueOf(func(option scriptapi.ItemOption) string {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "item", option.Default, option.OnChange, nil, nil, 0, 0, 0)
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(string)
 		})
 
 		// Timers
@@ -1816,7 +1926,7 @@ type structuredChatHandler struct {
 type serverMessageHandler struct {
 	owner        string
 	filter       ServerMessageFilter
-	fn           func(ServerMessageEvent)
+	fn           func(scriptapi.ServerMessage)
 	queue        *scriptEventQueue
 	registration scriptRegistrationHandle
 }
@@ -1838,21 +1948,26 @@ type scriptChangeHandler struct {
 }
 
 var (
-	scriptCommands        = map[string]scriptCommandHandler{}
-	scriptMu              sync.RWMutex
-	scriptNames           = map[string]bool{}
-	scriptDisplayNames    = map[string]string{}
-	scriptAuthors         = map[string]string{}
-	scriptCategories      = map[string]string{}
-	scriptSubCategories   = map[string]string{}
-	scriptInvalid         = map[string]bool{}
-	scriptDisabled        = map[string]bool{}
-	scriptEnabledFor      = map[string]scriptScope{}
-	scriptPaths           = map[string]string{}
-	scriptTerminators     = map[string]func(){}
-	scriptTriggers        = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
-	triggerHandlersMu     sync.RWMutex
+	scriptCommands           = map[string]scriptCommandHandler{}
+	scriptMu                 sync.RWMutex
+	scriptNames              = map[string]bool{}
+	scriptDisplayNames       = map[string]string{}
+	scriptAuthors            = map[string]string{}
+	scriptCategories         = map[string]string{}
+	scriptSubCategories      = map[string]string{}
+	scriptDescriptions       = map[string]string{}
+	scriptAPIVersions        = map[string]int{}
+	scriptErrors             = map[string]string{}
+	scriptReloadFailed       = map[string]bool{}
+	scriptActiveSourceHashes = map[string][sha256.Size]byte{}
+	scriptInvalid            = map[string]bool{}
+	scriptDisabled           = map[string]bool{}
+	scriptEnabledFor         = map[string]scriptScope{}
+	scriptPaths              = map[string]string{}
+	scriptTerminators        = map[string]func(){}
+	scriptTriggers           = map[string][]triggerHandler{}
+	scriptConsoleTriggers    = map[string][]triggerHandler{}
+	triggerHandlersMu        sync.RWMutex
 	// Handlers that receive every chat message (no phrase filtering)
 	scriptChatHandlers           []chatHandler
 	scriptStructuredChatHandlers []structuredChatHandler
@@ -2309,6 +2424,24 @@ func scriptDisplayName(owner string) string {
 	return name
 }
 
+func formatScriptError(path string, err error) string {
+	if err == nil {
+		return ""
+	}
+	message := err.Error()
+	if path != "" {
+		message = strings.ReplaceAll(message, "_.go:", path+":")
+	}
+	return message
+}
+
+func recordScriptError(owner, message string, reloadFailed bool) {
+	scriptMu.Lock()
+	scriptErrors[owner] = message
+	scriptReloadFailed[owner] = reloadFailed
+	scriptMu.Unlock()
+}
+
 func handleScriptCallbackPanic(owner, event string, recovered any, location string) {
 	name := scriptDisplayName(owner)
 	where := ""
@@ -2316,6 +2449,18 @@ func handleScriptCallbackPanic(owner, event string, recovered any, location stri
 		where = " at " + location
 	}
 	msg := fmt.Sprintf("[script:%s] %s callback panic%s: %v", name, event, where, recovered)
+	scriptMu.RLock()
+	path := scriptPaths[owner]
+	scriptMu.RUnlock()
+	errorLocation := location
+	if path != "" && location != "" {
+		errorLocation = path + ":" + location
+	}
+	errorWhere := ""
+	if errorLocation != "" {
+		errorWhere = " at " + errorLocation
+	}
+	recordScriptError(owner, fmt.Sprintf("%s callback panic%s: %v", event, errorWhere, recovered), false)
 	log.Print(msg)
 	scriptMu.Lock()
 	stopping := scriptStopping[owner]
@@ -2343,6 +2488,7 @@ func handleScriptExecutionLimit(owner, event string, budgetLimited bool) {
 		reason = "execution budget"
 	}
 	msg := fmt.Sprintf("[script:%s] %s callback exceeded the %s", owner, event, limitName)
+	recordScriptError(owner, msg, false)
 	log.Print(msg)
 	scriptMu.Lock()
 	alreadyDisabled := scriptDisabled[owner]
@@ -2413,6 +2559,8 @@ func scriptIsRunning(owner string) bool {
 func activatePreparedScript(owner string, prepared *preparedScript) {
 	scriptMu.Lock()
 	scriptDisabled[owner] = false
+	delete(scriptErrors, owner)
+	delete(scriptReloadFailed, owner)
 	if prepared.terminate != nil {
 		scriptTerminators[owner] = prepared.terminate
 	}
@@ -2434,11 +2582,13 @@ func loadscriptSource(owner, name, path string, src []byte, restricted interp.Ex
 	}
 	if err != nil {
 		log.Printf("script %s: %v", path, err)
+		message := formatScriptError(path, err)
+		recordScriptError(owner, message, wasRunning)
 		if wasRunning {
-			consoleMessage("[script] reload error for " + path + ": " + err.Error())
+			consoleMessage("[script] reload error for " + path + ": " + message)
 			refreshscriptsWindow()
 		} else {
-			consoleMessage("[script] load error for " + path + ": " + err.Error())
+			consoleMessage("[script] load error for " + path + ": " + message)
 			disablescript(owner, "load error")
 		}
 		return false
@@ -2447,6 +2597,12 @@ func loadscriptSource(owner, name, path string, src []byte, restricted interp.Ex
 		disablescript(owner, "reloaded")
 	}
 	activatePreparedScript(owner, prepared)
+	scriptMu.Lock()
+	if scriptActiveSourceHashes == nil {
+		scriptActiveSourceHashes = map[string][sha256.Size]byte{}
+	}
+	scriptActiveSourceHashes[owner] = sha256.Sum256(src)
+	scriptMu.Unlock()
 	log.Printf("loaded script %s", path)
 	consoleMessage("[script] loaded: " + name)
 	return true
@@ -2766,14 +2922,12 @@ func clearscriptScope(owner string) {
 	refreshscriptsWindow()
 }
 
-func scriptPlayerName() string {
-	return playerName
-}
-
-func scriptPlayers() []Player {
+func scriptPlayers() []scriptapi.Player {
 	ps := getPlayers()
-	out := make([]Player, len(ps))
-	copy(out, ps)
+	out := make([]scriptapi.Player, len(ps))
+	for index, player := range ps {
+		out[index] = scriptPlayerSnapshot(player)
+	}
 	return out
 }
 
@@ -3108,11 +3262,6 @@ type ServerMessageFilter struct {
 	Type     string
 }
 
-type ServerMessageEvent struct {
-	Message string
-	Type    string
-}
-
 const (
 	lifecycleLogin           = "login"
 	lifecycleLogout          = "logout"
@@ -3180,6 +3329,27 @@ var (
 	scriptSessionCharacter string
 	scriptSessionActive    bool
 )
+
+var (
+	scriptLatestServerMessageMu       sync.RWMutex
+	scriptLatestServerMessageSnapshot scriptapi.ServerMessage
+	scriptLatestServerMessageSequence uint64
+	scriptHasLatestServerMessage      bool
+)
+
+func scriptLatestServerMessage() (scriptapi.ServerMessage, bool) {
+	scriptLatestServerMessageMu.RLock()
+	defer scriptLatestServerMessageMu.RUnlock()
+	return scriptLatestServerMessageSnapshot, scriptHasLatestServerMessage
+}
+
+func clearScriptLatestServerMessage() {
+	scriptLatestServerMessageMu.Lock()
+	scriptLatestServerMessageSnapshot = scriptapi.ServerMessage{}
+	scriptLatestServerMessageSequence = 0
+	scriptHasLatestServerMessage = false
+	scriptLatestServerMessageMu.Unlock()
+}
 
 // scriptRegisterChat registers a chat trigger with optional name and kind flags.
 func scriptRegisterChat(owner, name string, phrases []string, flags int, fn func(string)) {
@@ -3268,7 +3438,7 @@ func scriptRegisterConsoleTriggers(owner string, phrases []string, fn func()) {
 	scriptRegisterConsole(owner, phrases, func(string) { fn() })
 }
 
-func scriptRegisterPlayerHandler(owner string, fn func(Player)) {
+func scriptRegisterPlayerHandler(owner string, fn func(scriptapi.Player)) {
 	if scriptIsDisabled(owner) || fn == nil {
 		return
 	}
@@ -3283,7 +3453,7 @@ func scriptRegisterPlayerHandler(owner string, fn func(Player)) {
 		playerHandlersMu.Unlock()
 	})
 	playerHandlersMu.Lock()
-	scriptPlayerHandlers = append(scriptPlayerHandlers, playerHandler{owner: owner, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
+	scriptPlayerHandlers = append(scriptPlayerHandlers, scriptPlayerHandler{owner: owner, fn: fn, queue: currentScriptEventQueue(owner), registration: registration})
 	playerHandlersMu.Unlock()
 }
 
@@ -3329,7 +3499,7 @@ func scriptRegisterStructuredChat(owner string, filter ChatFilter, fn func(ChatE
 	return registration
 }
 
-func scriptRegisterServerMessage(owner string, filter ServerMessageFilter, fn func(ServerMessageEvent)) scriptRegistrationHandle {
+func scriptRegisterServerMessage(owner string, filter ServerMessageFilter, fn func(scriptapi.ServerMessage)) scriptRegistrationHandle {
 	if scriptIsDisabled(owner) || fn == nil {
 		return scriptRegistrationHandle{}
 	}
@@ -3515,6 +3685,7 @@ func dispatchScriptLifecycle(event LifecycleEvent) {
 
 func scriptSessionLogin(character string) {
 	character = strings.TrimSpace(character)
+	clearScriptLatestServerMessage()
 	scriptSessionMu.Lock()
 	previous := scriptSessionCharacter
 	changed := previous != "" && !strings.EqualFold(previous, character)
@@ -3538,6 +3709,7 @@ func scriptSessionLogout(character string) {
 	}
 	scriptSessionActive = false
 	scriptSessionMu.Unlock()
+	clearScriptLatestServerMessage()
 	dispatchScriptLifecycle(LifecycleEvent{Type: lifecycleLogout, Character: character})
 }
 
@@ -3675,7 +3847,14 @@ func scriptChatFilterMatches(filter ChatFilter, event ChatEvent) bool {
 	return filter.Kinds == 0 || filter.Kinds&event.Kinds != 0
 }
 
-func runServerMessageHandlers(event ServerMessageEvent) {
+func runServerMessageHandlers(event scriptapi.ServerMessage) {
+	scriptLatestServerMessageMu.Lock()
+	scriptLatestServerMessageSequence++
+	event.Sequence = scriptLatestServerMessageSequence
+	event.ReceivedAt = time.Now()
+	scriptLatestServerMessageSnapshot = event
+	scriptHasLatestServerMessage = true
+	scriptLatestServerMessageMu.Unlock()
 	chatHandlersMu.RLock()
 	handlers := append([]serverMessageHandler{}, scriptServerMessageHandlers...)
 	chatHandlersMu.RUnlock()
@@ -3813,24 +3992,30 @@ func sameScriptFileSnapshot(a, b map[string]scriptFileState) bool {
 }
 
 type scriptInfo struct {
+	id          string
 	name        string
 	author      string
 	category    string
 	subCategory string
+	description string
 	path        string
 	src         []byte
 	invalid     bool
+	err         string
 	apiVer      int
 }
 
 func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]scriptInfo {
+	idRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptID\s*=\s*"([^"]+)"`)
 	nameRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptName\s*=\s*"([^"]+)"`)
 	authorRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptAuthor\s*=\s*"([^"]+)"`)
 	categoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptCategory\s*=\s*"([^"]+)"`)
 	subCategoryRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptSubCategory\s*=\s*"([^"]+)"`)
+	descriptionRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptDescription\s*=\s*"([^"]+)"`)
 	apiVerRE := regexp.MustCompile(`(?m)^\s*(?:var|const)\s+scriptAPIVersion\s*=\s*([0-9]+)\s*$`)
 	scripts := map[string]scriptInfo{}
 	seenNames := map[string]bool{}
+	seenIDs := map[string]bool{}
 	for _, dir := range scriptDirs {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -3851,6 +4036,16 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 			}
 			nameMatch := nameRE.FindSubmatch(src)
 			base := strings.TrimSuffix(e.Name(), ".go")
+			id := normalizeScriptID(base)
+			if match := idRE.FindSubmatch(src); len(match) >= 2 {
+				explicitID := strings.TrimSpace(string(match[1]))
+				if normalizeScriptID(explicitID) != strings.ToLower(explicitID) {
+					consoleMessage("[script] invalid scriptID: " + path)
+					id = ""
+				} else {
+					id = strings.ToLower(explicitID)
+				}
+			}
 			name := base
 			if len(nameMatch) >= 2 {
 				name = strings.TrimSpace(string(nameMatch[1]))
@@ -3870,36 +4065,35 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 				author = strings.TrimSpace(string(match[1]))
 			}
 			invalid := false
-			apiVer := 0
-			if len(nameMatch) < 2 || name == "" || invalidscriptValue(name) {
-				if len(nameMatch) < 2 || name == "" {
-					consoleMessage("[script] missing name: " + path)
-					name = base
-				} else {
-					consoleMessage("[script] invalid name: " + path)
-				}
+			invalidReason := ""
+			if id == "" {
 				invalid = true
+				invalidReason = "scriptID must contain only letters, numbers, dashes, and underscores"
 			}
-			if author == "" || invalidscriptValue(author) {
-				if author == "" {
-					consoleMessage("[script] missing author: " + path)
-				} else {
-					consoleMessage("[script] invalid author: " + path)
-				}
+			apiVer := scriptAPICurrentVersion
+			if len(nameMatch) >= 2 && (name == "" || invalidscriptValue(name)) {
+				consoleMessage("[script] invalid name: " + path)
 				invalid = true
+				invalidReason = "scriptName cannot be empty and must be plain text"
 			}
-			if category == "" || invalidscriptValue(category) {
-				if category == "" {
-					consoleMessage("[script] missing category: " + path)
-				} else {
-					consoleMessage("[script] invalid category: " + path)
-				}
+			if author != "" && invalidscriptValue(author) {
+				consoleMessage("[script] invalid author: " + path)
 				invalid = true
+				invalidReason = "scriptAuthor must be plain text"
+			}
+			if category != "" && invalidscriptValue(category) {
+				consoleMessage("[script] invalid category: " + path)
+				invalid = true
+				invalidReason = "scriptCategory must be plain text"
 			}
 			if m := apiVerRE.FindSubmatch(src); len(m) >= 2 {
 				if n, err := strconv.Atoi(strings.TrimSpace(string(m[1]))); err == nil {
 					apiVer = n
 				}
+			}
+			description := ""
+			if match := descriptionRE.FindSubmatch(src); len(match) >= 2 {
+				description = strings.TrimSpace(string(match[1]))
 			}
 			lower := strings.ToLower(name)
 			if seenNames[lower] {
@@ -3909,20 +4103,51 @@ func scanscripts(scriptDirs []string, dup func(name, path string)) map[string]sc
 				continue
 			}
 			seenNames[lower] = true
-			owner := name + "_" + base
+			if seenIDs[id] {
+				consoleMessage("[script] duplicate scriptID: " + id)
+				continue
+			}
+			seenIDs[id] = true
+			owner := id
 			scripts[owner] = scriptInfo{
+				id:          id,
 				name:        name,
 				author:      author,
 				category:    category,
 				subCategory: subCategory,
+				description: description,
 				path:        path,
 				src:         src,
 				invalid:     invalid,
+				err:         invalidReason,
 				apiVer:      apiVer,
 			}
 		}
 	}
 	return scripts
+}
+
+func normalizeScriptID(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	var result strings.Builder
+	lastDash := false
+	for _, char := range value {
+		valid := char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '_'
+		if valid {
+			result.WriteRune(char)
+			lastDash = false
+			continue
+		}
+		if char == '-' || char == ' ' || char == '.' {
+			if result.Len() > 0 && !lastDash {
+				result.WriteByte('-')
+				lastDash = true
+			}
+			continue
+		}
+		return ""
+	}
+	return strings.Trim(result.String(), "-")
 }
 
 func rescanscripts() {
@@ -3947,6 +4172,9 @@ func rescanScripts(scriptDirs []string) {
 	for o := range oldOwners {
 		if _, ok := scanned[o]; !ok {
 			disablescript(o, "removed")
+			scriptMu.Lock()
+			delete(scriptActiveSourceHashes, o)
+			scriptMu.Unlock()
 		}
 	}
 
@@ -3957,8 +4185,12 @@ func rescanScripts(scriptDirs []string) {
 	scriptAuthors = make(map[string]string, len(scanned))
 	scriptCategories = make(map[string]string, len(scanned))
 	scriptSubCategories = make(map[string]string, len(scanned))
+	scriptDescriptions = make(map[string]string, len(scanned))
+	scriptAPIVersions = make(map[string]int, len(scanned))
 	scriptInvalid = make(map[string]bool, len(scanned))
 	scriptDisabled = make(map[string]bool, len(scanned))
+	newErrors := make(map[string]string, len(scanned))
+	newReloadFailed := make(map[string]bool, len(scanned))
 	newEnabled := map[string]scriptScope{}
 	for o, info := range scanned {
 		scriptDisplayNames[o] = info.name
@@ -3966,6 +4198,12 @@ func rescanScripts(scriptDirs []string) {
 		scriptAuthors[o] = info.author
 		scriptCategories[o] = info.category
 		scriptSubCategories[o] = info.subCategory
+		scriptDescriptions[o] = info.description
+		scriptAPIVersions[o] = info.apiVer
+		if message := scriptErrors[o]; message != "" {
+			newErrors[o] = message
+			newReloadFailed[o] = scriptReloadFailed[o]
+		}
 		if en, ok := scriptEnabledFor[o]; ok {
 			newEnabled[o] = en
 		} else if gs.Enabledscripts != nil {
@@ -3975,6 +4213,12 @@ func rescanScripts(scriptDirs []string) {
 		}
 		// Require a matching script API version
 		invalid := info.invalid || info.apiVer != scriptAPICurrentVersion
+		if info.err != "" {
+			newErrors[o] = formatScriptError(info.path, fmt.Errorf("%s", info.err))
+		}
+		if info.apiVer != scriptAPICurrentVersion {
+			newErrors[o] = fmt.Sprintf("%s: unsupported script API version %d; this client supports version %d", info.path, info.apiVer, scriptAPICurrentVersion)
+		}
 		scriptInvalid[o] = invalid
 		if invalid {
 			scriptDisabled[o] = !oldRunning[o]
@@ -3986,11 +4230,14 @@ func rescanScripts(scriptDirs []string) {
 		}
 		shouldEnable := newEnabled[o].enablesFor(effChar)
 		scriptDisabled[o] = !oldRunning[o]
-		if oldRunning[o] && shouldEnable {
+		activeHash, hasActiveHash := scriptActiveSourceHashes[o]
+		if oldRunning[o] && shouldEnable && (!hasActiveHash || activeHash != sha256.Sum256(info.src)) {
 			reloadOwners = append(reloadOwners, o)
 		}
 	}
 	scriptEnabledFor = newEnabled
+	scriptErrors = newErrors
+	scriptReloadFailed = newReloadFailed
 	scriptNames = make(map[string]bool, len(scanned))
 	for _, info := range scanned {
 		scriptNames[strings.ToLower(info.name)] = true
@@ -4058,6 +4305,8 @@ func loadScripts() {
 		scriptDisplayNames[o] = info.name
 		scriptCategories[o] = info.category
 		scriptSubCategories[o] = info.subCategory
+		scriptDescriptions[o] = info.description
+		scriptAPIVersions[o] = info.apiVer
 		scriptPaths[o] = info.path
 		if !s.empty() {
 			scriptEnabledFor[o] = s
@@ -4065,6 +4314,12 @@ func loadScripts() {
 		scriptAuthors[o] = info.author
 		scriptInvalid[o] = invalid
 		scriptDisabled[o] = disabled
+		if info.err != "" {
+			scriptErrors[o] = formatScriptError(info.path, fmt.Errorf("%s", info.err))
+		}
+		if info.apiVer != scriptAPICurrentVersion {
+			scriptErrors[o] = fmt.Sprintf("%s: unsupported script API version %d; this client supports version %d", info.path, info.apiVer, scriptAPICurrentVersion)
+		}
 		scriptMu.Unlock()
 		if !disabled {
 			loadscriptSource(o, info.name, info.path, info.src, restrictedStdlib())

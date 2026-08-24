@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	scriptapi "gt"
 )
 
 func TestScriptPrintAlwaysWritesToConsole(t *testing.T) {
@@ -387,8 +389,8 @@ func TestDisablescriptRemovesHandlers(t *testing.T) {
 	startScriptEventQueue("other")
 	scriptRegisterInputHandler("plug", func(s string) string { return s })
 	scriptRegisterInputHandler("other", func(s string) string { return s })
-	scriptRegisterPlayerHandler("plug", func(Player) {})
-	scriptRegisterPlayerHandler("other", func(Player) {})
+	scriptRegisterPlayerHandler("plug", func(scriptapi.Player) {})
+	scriptRegisterPlayerHandler("other", func(scriptapi.Player) {})
 
 	disablescript("plug", "test")
 
