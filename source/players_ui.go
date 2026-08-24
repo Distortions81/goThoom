@@ -556,20 +556,21 @@ func updatePlayersWindow() {
 
 func makePlayerGroupHeader(group string, count int, width, rowUnits float32, fontSize float64, editable bool) *eui.ItemData {
 	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-	header.Size = eui.Point{X: width, Y: rowUnits + 4}
+	contentWidth := max(0, width-eui.ScrollbarWidth())
+	header.Size = eui.Point{X: contentWidth, Y: rowUnits + 4}
 	label, _ := eui.NewText()
 	label.Text = fmt.Sprintf("%s (%d)", group, count)
 	label.FontSize = float32(fontSize)
 	label.Face = mainFontBold
 	label.TextColor = eui.AccentColor()
 	label.ForceTextColor = true
-	label.Size = eui.Point{X: width, Y: rowUnits + 4}
+	label.Size = eui.Point{X: max(0, contentWidth-label.Position.X), Y: rowUnits + 4}
 	header.AddItem(label)
 	if editable {
 		button, events := eui.NewButton()
 		button.Text = "Edit"
 		button.Size = eui.Point{X: 52, Y: rowUnits + 2}
-		label.Size.X = max(0, width-button.Size.X)
+		label.Size.X = max(0, contentWidth-label.Position.X-button.Position.X-button.Size.X)
 		name := group
 		events.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventClick {

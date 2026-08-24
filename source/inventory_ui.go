@@ -611,16 +611,17 @@ func (s *inventoryRenderState) groupHeader(group string, count int) *eui.ItemDat
 	if title == "" {
 		title = "Ungrouped"
 	}
-	header.Size = eui.Point{X: s.clientWAvail, Y: s.rowUnits + 4}
+	contentWidth := max(0, s.clientWAvail-eui.ScrollbarWidth())
+	header.Size = eui.Point{X: contentWidth, Y: s.rowUnits + 4}
 	if len(header.Contents) > 0 {
 		label := header.Contents[0]
 		label.Text = fmt.Sprintf("%s (%d)", title, count)
 		label.FontSize = float32(s.fontSize)
-		label.Size = eui.Point{X: s.clientWAvail, Y: s.rowUnits + 4}
+		label.Size = eui.Point{X: max(0, contentWidth-label.Position.X), Y: s.rowUnits + 4}
 		if len(header.Contents) > 1 {
 			button := header.Contents[1]
 			button.Size = eui.Point{X: 52, Y: s.rowUnits + 2}
-			label.Size.X = max(0, s.clientWAvail-button.Size.X)
+			label.Size.X = max(0, contentWidth-label.Position.X-button.Position.X-button.Size.X)
 		}
 	}
 	return header

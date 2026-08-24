@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"gothoom/eui"
+)
 
 func TestListTitles(t *testing.T) {
 	if got, want := playersWindowTitle(4, 2, 1), "Players   Online: 4   Shared: 2   Sharing: 1"; got != want {
@@ -34,5 +38,20 @@ func TestPlayerSharingIndicator(t *testing.T) {
 	}
 	if got, want := playerSharingTooltip(Player{Sharing: true}), "This player shares to you"; got != want {
 		t.Errorf("playerSharingTooltip() = %q, want %q", got, want)
+	}
+}
+
+func TestPlayerGroupEditButtonReservesScrollbarSpace(t *testing.T) {
+	const width float32 = 240
+	header := makePlayerGroupHeader("Hunting Party", 3, width, 20, 12, true)
+	if len(header.Contents) != 2 {
+		t.Fatalf("group header has %d children, want label and edit button", len(header.Contents))
+	}
+	wantWidth := width - eui.ScrollbarWidth()
+	if header.Size.X != wantWidth {
+		t.Fatalf("group header width = %v, want %v", header.Size.X, wantWidth)
+	}
+	if got := header.Contents[0].Size.X + header.Contents[1].Size.X; got > wantWidth {
+		t.Fatalf("label and edit button width = %v, exceeds available %v", got, wantWidth)
 	}
 }

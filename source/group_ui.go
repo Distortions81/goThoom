@@ -65,9 +65,10 @@ func showEditPlayerGroupWindow(group string) {
 					continue
 				}
 				entry := groupEditorEntry{key: playerCustomGroupKey(player.Name), label: player.Name}
-				if strings.EqualFold(gs.PlayerGroups.group(entry.key), group) {
+				assigned := gs.PlayerGroups.group(entry.key)
+				if strings.EqualFold(assigned, group) {
 					members = append(members, entry)
-				} else if !player.Offline {
+				} else if assigned == "" && !player.Offline {
 					available = append(available, entry)
 				}
 			}
@@ -237,9 +238,10 @@ func showEditInventoryGroupWindow(group string) {
 			}
 			for id, name := range byID {
 				entry := groupEditorEntry{key: inventoryCustomGroupKey(id), label: name}
-				if strings.EqualFold(gs.InventoryGroups.group(entry.key), group) {
+				assigned := gs.InventoryGroups.group(entry.key)
+				if strings.EqualFold(assigned, group) {
 					members = append(members, entry)
-				} else {
+				} else if assigned == "" {
 					available = append(available, entry)
 				}
 			}
