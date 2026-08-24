@@ -70,6 +70,10 @@ func Draw(screen *ebiten.Image) {
 		if !win.Open {
 			continue
 		}
+		if win.refreshPending && (win.lastRefresh.IsZero() || time.Since(win.lastRefresh) >= win.refreshInterval) {
+			win.refreshPending = false
+			win.Dirty = true
+		}
 		// If a window contains an indeterminate progress bar, force a repaint
 		// so the barber-pole animation advances even without data events.
 		if !win.Dirty && win.HasIndeterminate {
@@ -279,6 +283,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		win.drawBorder(win.Render)
 		win.Position = origPos
 		win.Dirty = false
+		win.lastRefresh = time.Now()
 	} else {
 		win.collectDropdowns(dropdowns)
 	}
@@ -320,7 +325,7 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 	if win.NoBGColor {
 		return
 	}
-	if win.ShadowSize > 0 && win.ShadowColor.A > 0 {
+	if windowShadows && win.ShadowSize > 0 && win.ShadowColor.A > 0 {
 		rr := roundRect{
 			Size:     win.GetSize(),
 			Position: win.getPosition(),
@@ -1845,7 +1850,7 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 	face := itemFace(item, textSize)
 	loo := text.LayoutOptions{PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
 
-	if item.ShadowSize > 0 && item.ShadowColor.A > 0 {
+	if windowShadows && item.ShadowSize > 0 && item.ShadowColor.A > 0 {
 		rr := roundRect{
 			Size:     point{X: drawRect.X1 - drawRect.X0, Y: drawRect.Y1 - drawRect.Y0},
 			Position: point{X: drawRect.X0, Y: drawRect.Y0},

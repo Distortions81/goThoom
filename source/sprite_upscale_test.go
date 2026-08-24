@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-func TestArtworkUpscaleCappedInPotatoMode(t *testing.T) {
+func TestArtworkUpscaleIsIndependentOfPotatoMode(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 
@@ -20,12 +20,12 @@ func TestArtworkUpscaleCappedInPotatoMode(t *testing.T) {
 		t.Fatal("artwork upscale should use the full render scale normally")
 	}
 	gs.PotatoGPU = true
-	if !artworkUpscaleEnabled() || artworkUpscaleFactor() != 2 {
-		t.Fatal("potato mode should retain artwork upscaling capped at 2x")
+	if !artworkUpscaleEnabled() || artworkUpscaleFactor() != 4 {
+		t.Fatal("Potato GPU should not change artwork upscaling")
 	}
 	gs.SpriteUpscaleFilter = false
 	if artworkUpscaleEnabled() {
-		t.Fatal("disabled artwork upscale should remain disabled in potato mode")
+		t.Fatal("disabled artwork upscale should remain disabled")
 	}
 }
 

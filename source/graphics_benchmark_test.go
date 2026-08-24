@@ -9,22 +9,28 @@ import (
 )
 
 func TestGraphicsBenchmarkRecommendation(t *testing.T) {
-	if recommendLowVRAMMode(graphicsBenchmarkLimit - time.Nanosecond) {
-		t.Fatal("benchmark below the limit recommended Low-VRAM mode")
+	if graphicsBenchmarkLimit != 12500*time.Microsecond {
+		t.Fatalf("benchmark limit = %v, want the 80 FPS frame budget", graphicsBenchmarkLimit)
 	}
-	if !recommendLowVRAMMode(graphicsBenchmarkLimit) {
-		t.Fatal("benchmark at the limit did not recommend Low-VRAM mode")
+	if recommendIGPUGraphics(graphicsBenchmarkLimit - time.Nanosecond) {
+		t.Fatal("benchmark below the limit recommended iGPU graphics")
 	}
-	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{}); got != "High" {
-		t.Fatalf("fast benchmark preset = %q, want High", got)
+	if recommendIGPUGraphics(graphicsBenchmarkLimit) {
+		t.Fatal("benchmark at exactly 80 FPS recommended iGPU graphics")
 	}
-	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{RecommendLowVRAM: true}); got != "iGPU / Low-VRAM (Potato GPU)" {
-		t.Fatalf("slow benchmark preset = %q, want Low-VRAM", got)
+	if !recommendIGPUGraphics(graphicsBenchmarkLimit + time.Nanosecond) {
+		t.Fatal("benchmark below 80 FPS did not recommend iGPU graphics")
+	}
+	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{}); got != "Full Graphics" {
+		t.Fatalf("fast benchmark preset = %q, want Full Graphics", got)
+	}
+	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{RecommendIGPU: true}); got != "iGPU Graphics" {
+		t.Fatalf("slow benchmark preset = %q, want iGPU Graphics", got)
 	}
 	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{}); got != "Full Quality (Recommended)" {
 		t.Fatalf("fast benchmark label = %q", got)
 	}
-	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{RecommendLowVRAM: true}); got != "Low-VRAM (Recommended)" {
+	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{RecommendIGPU: true}); got != "iGPU Graphics (Recommended)" {
 		t.Fatalf("slow benchmark label = %q", got)
 	}
 }
@@ -43,7 +49,7 @@ func TestRunGraphicsBenchmark(t *testing.T) {
 	if game.result.Median <= 0 || game.result.Slowest < game.result.Median {
 		t.Fatalf("invalid graphics benchmark result: %+v", game.result)
 	}
-	t.Logf("graphics benchmark median=%v slowest=%v low-vram=%v", game.result.Median, game.result.Slowest, game.result.RecommendLowVRAM)
+	t.Logf("graphics benchmark median=%v slowest=%v igpu=%v", game.result.Median, game.result.Slowest, game.result.RecommendIGPU)
 }
 
 type graphicsBenchmarkGame struct {

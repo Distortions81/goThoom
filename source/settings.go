@@ -100,7 +100,7 @@ var gsdef settings = settings{
 	MiddleClickMoveWindow:   false,
 	InputBarAlwaysOpen:      false,
 	KBWalkSpeed:             0.25,
-	MainFontSize:            6,
+	MainFontSize:            8,
 	BubbleFontSize:          20,
 	ConsoleFontSize:         12,
 	ChatFontSize:            12,
@@ -201,6 +201,7 @@ var gsdef settings = settings{
 	WindowSnapping:        false,
 	WindowPinning:         false,
 	ShowPinToLocations:    false,
+	WindowShadows:         true,
 
 	JoystickEnabled:        false,
 	JoystickWalkStick:      0,
@@ -212,32 +213,32 @@ var gsdef settings = settings{
 	WindowHeight: 1404,
 	GameWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 457.5, Y: 0},
-		Size:     WindowPoint{X: 1398, Y: 1404},
+		Position: WindowPoint{X: 468, Y: 0},
+		Size:     WindowPoint{X: 936, Y: 948},
 	},
 	InventoryWindow: WindowState{
 		Open:     true,
 		Position: WindowPoint{X: 0, Y: 87},
-		Size:     WindowPoint{X: 455, Y: 858},
+		Size:     WindowPoint{X: 438, Y: 444},
 	},
 	PlayersWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 1860, Y: 0},
-		Size:     WindowPoint{X: 549, Y: 932},
+		Position: WindowPoint{X: 1436, Y: 0},
+		Size:     WindowPoint{X: 484, Y: 526},
 	},
 	MessagesWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 0, Y: 947},
-		Size:     WindowPoint{X: 455, Y: 454},
+		Position: WindowPoint{X: 1, Y: 534},
+		Size:     WindowPoint{X: 438, Y: 417},
 	},
 	ChatWindow: WindowState{
 		Open:     true,
-		Position: WindowPoint{X: 1861, Y: 936},
-		Size:     WindowPoint{X: 546, Y: 467},
+		Position: WindowPoint{X: 1429, Y: 529},
+		Size:     WindowPoint{X: 489, Y: 420},
 	},
 	MovieWindow: WindowState{
 		Open:     false,
-		Position: WindowPoint{X: 619, Y: 0},
+		Position: WindowPoint{X: 350, Y: 117},
 		Size:     WindowPoint{X: 1076, Y: 96},
 	},
 	WindowZones: *new(map[string]eui.WindowZoneState),
@@ -404,6 +405,7 @@ type settings struct {
 	WindowSnapping        bool
 	WindowPinning         bool
 	ShowPinToLocations    bool
+	WindowShadows         bool
 
 	JoystickEnabled        bool
 	JoystickBindings       map[string]ebiten.GamepadButton
@@ -660,24 +662,28 @@ func applyServerAddressSetting() {
 	host = addr
 }
 
+func effectiveVSyncEnabled() bool {
+	return gs.VSync && !setupWizardVSyncBypass
+}
+
+func applyVSyncSetting() {
+	ebiten.SetVsyncEnabled(effectiveVSyncEnabled())
+}
+
 func applySettings() {
-	if gs.PotatoGPU {
-		gs.BlendMobiles = false
-		gs.BlendPicts = false
-		gs.ShaderLighting = false
-	}
 	eui.SetWindowTiling(gs.WindowTiling)
 	eui.SetWindowSnapping(gs.WindowSnapping)
 	eui.SetWindowPinning(gs.WindowPinning)
 	eui.SetShowPinLocations(gs.ShowPinToLocations)
 	eui.SetMiddleClickMove(gs.MiddleClickMoveWindow)
 	eui.SetPotatoMode(gs.PotatoGPU)
+	eui.SetWindowShadows(gs.WindowShadows)
 	climg.SetPotatoMode(gs.PotatoGPU)
 	if clImages != nil {
 		clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 	}
-	ebiten.SetVsyncEnabled(gs.VSync)
+	applyVSyncSetting()
 	ebiten.SetFullscreen(gs.Fullscreen)
 	ebiten.SetWindowFloating(gs.Fullscreen || gs.AlwaysOnTop)
 	initFont()
@@ -859,6 +865,9 @@ func applyWindowState(win *eui.WindowData, st *WindowState) {
 
 func restoreWindowSettings() {
 	eui.LoadWindowZones(gs.WindowZones)
+	// Login has no persisted geometry and should start in the true screen
+	// center even when an older saved zone table says it was unpinned.
+	centerLoginWindow()
 	applyWindowState(gameWin, &gs.GameWindow)
 	if gameWin != nil {
 		gameWin.MarkOpen()
@@ -887,7 +896,6 @@ type qualityPreset struct {
 	MotionSmoothing        bool
 	BlendMobiles           bool
 	BlendPicts             bool
-	PotatoGPU              bool
 	ShaderLighting         bool
 	SpriteUpscaleFilter    bool
 	HighQualityResampling  bool
@@ -897,23 +905,10 @@ type qualityPreset struct {
 }
 
 var (
-	potatoGPUPreset = qualityPreset{
-		MotionSmoothing:        true,
-		BlendMobiles:           false,
-		BlendPicts:             false,
-		PotatoGPU:              true,
-		ShaderLighting:         false,
-		SpriteUpscaleFilter:    true,
-		HighQualityResampling:  false,
-		SoundEnhancement:       false,
-		SoundEnhancementAmount: 1.0,
-		MusicEnhancement:       false,
-	}
 	classicPreset = qualityPreset{
 		MotionSmoothing:        false,
 		BlendMobiles:           false,
 		BlendPicts:             false,
-		PotatoGPU:              false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -925,7 +920,6 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             false,
-		PotatoGPU:              false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -937,7 +931,6 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             true,
-		PotatoGPU:              false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -949,7 +942,6 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           true,
 		BlendPicts:             true,
-		PotatoGPU:              false,
 		ShaderLighting:         true,
 		SpriteUpscaleFilter:    true,
 		HighQualityResampling:  true,
@@ -962,8 +954,22 @@ var (
 func applyQualityPreset(name string) {
 	var p qualityPreset
 	switch name {
-	case "iGPU / Low-VRAM (Potato GPU)":
-		p = potatoGPUPreset
+	case "iGPU Graphics":
+		p.MotionSmoothing = true
+		p.SoundEnhancementAmount = 1
+		gs.GameScale = 2
+		gs.DenoiseImages = false
+		gs.WindowShadows = false
+	case "Full Graphics":
+		p = currentAudioQualityPreset()
+		p.MotionSmoothing = true
+		p.BlendMobiles = true
+		p.BlendPicts = true
+		p.ShaderLighting = true
+		p.SpriteUpscaleFilter = true
+		gs.WindowShadows = true
+		gs.CharacterShadows = true
+		gs.DetailedCharacterShadows = true
 	case "Classic":
 		p = classicPreset
 	case "Low":
@@ -979,9 +985,10 @@ func applyQualityPreset(name string) {
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
-	gs.PotatoGPU = p.PotatoGPU
 	gs.ShaderLighting = p.ShaderLighting
-	if p.SpriteUpscaleFilter {
+	if name == "iGPU Graphics" {
+		setArtworkUpscaleMode(artworkUpscaleBalanced)
+	} else if p.SpriteUpscaleFilter {
 		setArtworkUpscaleMode(artworkUpscaleUltraSmooth)
 	} else {
 		setArtworkUpscaleMode(artworkUpscaleOff)
@@ -998,28 +1005,24 @@ func applyQualityPreset(name string) {
 	}
 	if animCB != nil {
 		animCB.Checked = gs.BlendMobiles
-		animCB.Disabled = gs.PotatoGPU
 	}
 	if pictBlendCB != nil {
 		pictBlendCB.Checked = gs.BlendPicts
-		pictBlendCB.Disabled = gs.PotatoGPU
 	}
 	if potatoCB != nil {
 		potatoCB.Checked = gs.PotatoGPU
 	}
+	if windowShadowsCB != nil {
+		windowShadowsCB.Checked = gs.WindowShadows
+	}
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
-		shaderLightingCB.Disabled = gs.PotatoGPU
 	}
 	if upscaleModeDD != nil {
 		upscaleModeDD.Selected = artworkUpscaleMode()
 	}
 	if soundEnhanceCB != nil {
 		soundEnhanceCB.Checked = gs.SoundEnhancement
-	}
-	if soundEnhanceSlider != nil {
-		soundEnhanceSlider.Value = float32(gs.SoundEnhancementAmount)
-		soundEnhanceSlider.Disabled = !gs.SoundEnhancement
 	}
 	if resampleAudioCB != nil {
 		resampleAudioCB.Checked = gs.HighQualityResampling
@@ -1047,11 +1050,19 @@ func applyQualityPreset(name string) {
 	}
 }
 
+func currentAudioQualityPreset() qualityPreset {
+	return qualityPreset{
+		HighQualityResampling:  gs.HighQualityResampling,
+		SoundEnhancement:       gs.SoundEnhancement,
+		SoundEnhancementAmount: gs.SoundEnhancementAmount,
+		MusicEnhancement:       gs.MusicEnhancement,
+	}
+}
+
 func matchesPreset(p qualityPreset) bool {
 	if gs.MotionSmoothing != p.MotionSmoothing ||
 		gs.BlendMobiles != p.BlendMobiles ||
 		gs.BlendPicts != p.BlendPicts ||
-		gs.PotatoGPU != p.PotatoGPU ||
 		gs.ShaderLighting != p.ShaderLighting ||
 		gs.SpriteUpscaleFilter != p.SpriteUpscaleFilter ||
 		gs.HighQualityResampling != p.HighQualityResampling ||
@@ -1069,7 +1080,7 @@ func matchesPreset(p qualityPreset) bool {
 
 func detectQualityPreset() int {
 	switch {
-	case matchesPreset(potatoGPUPreset):
+	case igpuGraphicsPresetApplied():
 		return 0
 	case matchesPreset(classicPreset):
 		return 1

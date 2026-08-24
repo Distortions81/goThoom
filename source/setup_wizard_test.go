@@ -32,6 +32,27 @@ func TestShouldShowSetupWizard(t *testing.T) {
 	}
 }
 
+func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
+	originalSettings := gs
+	originalBypass := setupWizardVSyncBypass
+	t.Cleanup(func() {
+		gs = originalSettings
+		setupWizardVSyncBypass = originalBypass
+	})
+	gs.VSync = true
+	setupWizardVSyncBypass = false
+	if !effectiveVSyncEnabled() {
+		t.Fatal("VSync should follow the saved setting outside the wizard")
+	}
+	setupWizardVSyncBypass = true
+	if effectiveVSyncEnabled() {
+		t.Fatal("wizard did not bypass VSync")
+	}
+	if !gs.VSync {
+		t.Fatal("wizard bypass changed the saved VSync setting")
+	}
+}
+
 func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
 	previousPage := setupWizardScenePage
 	previousMode := setupWizardSceneModeValue
@@ -153,18 +174,62 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 	buildSetupGraphicsPage(root)
 	foundButton := false
 	foundRecommendation := false
+	foundModeChoice := false
 	for _, group := range root.Contents {
 		for _, item := range append([]*eui.ItemData{group}, group.Contents...) {
-			if item.Text == "Test Graphics Performance" && item.ItemType == eui.ITEM_BUTTON {
+			if item.Text == "Rerun Graphics Detection" && item.ItemType == eui.ITEM_BUTTON {
 				foundButton = true
 			}
 			if item.Text == "Full Quality (Recommended)" {
 				foundRecommendation = true
 			}
+			if item.Label == "Graphics performance mode" && slices.Equal(item.Options, []string{"iGPU Graphics", "Full Quality"}) {
+				foundModeChoice = true
+			}
 		}
 	}
-	if !foundButton || !foundRecommendation {
-		t.Fatalf("graphics test button=%v recommendation=%v", foundButton, foundRecommendation)
+	if !foundButton || !foundRecommendation || !foundModeChoice {
+		t.Fatalf("graphics test button=%v recommendation=%v mode choice=%v", foundButton, foundRecommendation, foundModeChoice)
+	}
+}
+
+func TestSetupWizardUsesTwoAsMinimumGameUpscale(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.GameScale = 1
+
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupGraphicsPage(root)
+	if gs.GameScale != 2 {
+		t.Fatalf("wizard game scale = %v, want minimum 2", gs.GameScale)
+	}
+	for _, group := range root.Contents {
+		for _, item := range group.Contents {
+			if item.Label == "Upscale game amount" {
+				if item.MinValue != 2 || item.Value != 2 {
+					t.Fatalf("upscale slider min/value = %v/%v, want 2/2", item.MinValue, item.Value)
+				}
+				return
+			}
+		}
+	}
+	t.Fatal("setup wizard has no game upscale slider")
+}
+
+func TestSetupWizardPrecacheRecommendationPill(t *testing.T) {
+	initFont()
+	recommended := setupWizardRecommendedCheckbox("Precache images", "description", false, true, nil)
+	if len(recommended.Contents) < 1 || len(recommended.Contents[0].Contents) != 2 {
+		t.Fatalf("recommended checkbox layout = %#v", recommended.Contents)
+	}
+	if pill := recommended.Contents[0].Contents[1]; pill.Text != "  Recommended" || !pill.Filled {
+		t.Fatalf("recommendation pill = %#v", pill)
+	}
+
+	notRecommended := setupWizardRecommendedCheckbox("Precache images", "description", false, false, nil)
+	if len(notRecommended.Contents) < 1 || len(notRecommended.Contents[0].Contents) != 0 {
+		t.Fatal("non-recommended checkbox displayed a recommendation pill")
 	}
 }
 

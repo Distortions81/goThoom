@@ -18,9 +18,9 @@ func (c Color) RGBA() (r, g, b, a uint32) {
 func (c Color) ToRGBA() color.RGBA { return color.RGBA(c) }
 
 type windowData struct {
-    Title    string
-    Position point
-    Size     point
+	Title    string
+	Position point
+	Size     point
 
 	zone *windowZone
 
@@ -70,12 +70,19 @@ type windowData struct {
 	Render *ebiten.Image
 	Dirty  bool
 
-    // Drop shadow styling
-    ShadowSize  float32
-    ShadowColor Color
+	// refreshInterval coalesces repeated invalidations for large, mostly
+	// static windows. The first change is immediate; further changes within
+	// the interval are rendered together.
+	refreshInterval time.Duration
+	lastRefresh     time.Time
+	refreshPending  bool
 
-    // RenderCount tracks how often the window has been drawn.
-    RenderCount int
+	// Drop shadow styling
+	ShadowSize  float32
+	ShadowColor Color
+
+	// RenderCount tracks how often the window has been drawn.
+	RenderCount int
 
 	// SearchText holds the current text in the window's search box.
 	SearchText string
@@ -97,13 +104,13 @@ type windowData struct {
 	// titlebar maximize button. If unset, a default Maximize() is performed.
 	OnMaximize func()
 
-    // OnSearch is an optional callback invoked on every change of the search
-    // text when the search box is active.
-    OnSearch func(string)
+	// OnSearch is an optional callback invoked on every change of the search
+	// text when the search box is active.
+	OnSearch func(string)
 
-    // Opacity controls the overall window opacity when composited to the
-    // screen. Range [0,1], where 1 is fully opaque. Defaults to 1.
-    Opacity float32
+	// Opacity controls the overall window opacity when composited to the
+	// screen. Range [0,1], where 1 is fully opaque. Defaults to 1.
+	Opacity float32
 }
 
 type itemData struct {
@@ -216,12 +223,12 @@ type itemData struct {
 
 	// Indeterminate indicates that the widget should render an animated
 	// barber-pole style progress when exact value is unknown.
-    Indeterminate bool
+	Indeterminate bool
 
-    // Slider drag tracking
-    dragStart     point
-    dragStartInit bool
-    dragStartValue float32
+	// Slider drag tracking
+	dragStart      point
+	dragStartInit  bool
+	dragStartValue float32
 }
 
 type roundRect struct {

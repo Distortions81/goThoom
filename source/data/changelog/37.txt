@@ -16,7 +16,7 @@ New and improved:
 - Blend Image Dithering now uses color-aware Sobel edge protection with palette smoothing for both regular and irregular dithering, preserving hard and diagonal edges, one-pixel lines, corners, isolated details, and transparency boundaries.
 - Settings, Quality, Advanced, Notification, Bubble, and Debug configuration windows now use clearer named sections and spacing so related controls are easier to find.
 - Settings files now use categorized version 4 JSON with readable lower-case option names. Existing version 1-3 settings migrate automatically without losing values.
-- Added an iGPU / Low-VRAM (Potato GPU) quality preset and clarified its name and purpose.
+- Restored Potato GPU as an off-by-default advanced option that only enables unmanaged textures for constrained devices such as Raspberry Pi; it stays out of the wizard and is independent of graphics quality.
 - The demo-character login flow now handles required data updates and repeated server challenges automatically.
 - Legacy macros now receive the real input-box selection through `@textsel` while editing or invoking a macro.
 - Added a synthetic offline Setup Wizard scene with characters and scenery tailored to preview daytime, nighttime, indoor, glow, shadow, animation-blending, and motion-smoothing settings.
@@ -27,7 +27,11 @@ Defaults and options:
 - Flame-style light flicker, Character Shadows, Accurate Character Shadows, and artwork upscaling default to on.
 - The default game artwork scale is now 4x and the default upscale style is Ultra Smooth.
 - Blend Image Dithering now defaults to off with Sharpness 10 and Strength 35, remains available in the Setup Wizard and Quality Settings, and is no longer changed by quality presets.
-- iGPU / Low-VRAM mode bypasses costly shader lighting, detailed shadow compositing, animation blending, and other expensive effects, while retaining sharp artwork upscaling at up to 2x.
+- The iGPU preset uses 2x Balanced artwork upscaling and smooth movement while shader lighting, animation blending, window shadows, audio enhancement, music enhancement, and high-quality resampling are off. It preserves character-shadow, accurate-shadow, and Potato GPU settings.
+- The setup wizard shows a bold live FPS counter in the top-right of the game window.
+- The setup wizard uses 2x as the minimum game upscale amount.
+- The setup wizard temporarily bypasses VSync without changing the saved setting, allowing uncapped performance measurement, and recommends the iGPU preset below 80 FPS.
+- Settings, Quality, and setup-wizard UI invalidations are coalesced on a 100 ms timer so rapid control changes do not continuously rebuild their large window caches.
 - Stereo Music now defaults to off.
 - When Stereo Music is enabled, bard parts are spread across a maximum 40% stereo field instead of 70%.
 - Modern player-health bars default above the name at three pixels thick, remain hidden at full health, and the player's own name tag is visible by default.
@@ -39,7 +43,7 @@ Fixes:
 - Character shadows use the exact current walk-cycle frame without animation crossfading, avoiding intermediate alpha textures that made their darkness pulse while walking or idle.
 - Kept speech-bubble text independent of the artwork supersampling scale and adjusted the default interface font sizes for clearer bubbles and more compact lists and names.
 - New installations now enable sound precaching with at least 4 GiB of system RAM and artwork precaching with at least 8 GiB; both remain off by default in browsers or when memory cannot be detected.
-- Added a repeatable setup-wizard graphics benchmark using the real lighting and artwork-upscale shaders. Its result dialog clearly labels and can apply the recommended Full Quality or iGPU / Low-VRAM preset, and the sustained low-FPS warning now offers the complete low-resource preset.
+- Added a repeatable setup-wizard graphics benchmark using the real lighting and artwork-upscale shaders. It automatically applies the recommended Full Quality or iGPU graphics preset, and the sustained low-FPS warning offers the iGPU preset.
 - Synchronized image-cache invalidation with background precaching so quality changes cannot repopulate caches with images being cleared.
 - Restored the compact pre-tuning radius for emitted light glows so nearby artwork stays clear instead of looking broadly blurred.
 - Expanded dark-caster coverage, reduced dead dark-caster intensity, and stopped fully off-screen lighting sources from consuming shader capacity.

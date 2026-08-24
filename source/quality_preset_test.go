@@ -33,7 +33,7 @@ func TestQualityPresetPersisted(t *testing.T) {
 	}
 }
 
-func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
+func TestPotatoGPUIsIndependentOfQualityPresets(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() {
 		gs = originalSettings
@@ -41,43 +41,52 @@ func TestPotatoGPUQualityPresetUsesCurrentSettings(t *testing.T) {
 	})
 
 	gs = gsdef
-	gs.DenoiseImages = true
-	applyQualityPreset("iGPU / Low-VRAM (Potato GPU)")
-
-	if !gs.DenoiseImages {
-		t.Error("iGPU / Low-VRAM preset changed the independent dither setting")
-	}
-	if !gs.MotionSmoothing {
-		t.Error("iGPU / Low-VRAM preset should retain motion smoothing")
-	}
-	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
-		t.Error("iGPU / Low-VRAM preset enabled a GPU-intensive graphics effect")
-	}
-	if !gs.SpriteUpscaleFilter {
-		t.Error("iGPU / Low-VRAM preset should retain sharp sprite upscaling")
-	}
-	if !gs.PotatoGPU {
-		t.Error("iGPU / Low-VRAM preset did not enable low-VRAM mode")
-	}
-	if gs.HighQualityResampling {
-		t.Error("iGPU / Low-VRAM preset enabled high-quality resampling")
-	}
-	if gs.SoundEnhancement || gs.SoundEnhancementAmount != 1.0 || gs.MusicEnhancement {
-		t.Error("iGPU / Low-VRAM preset enabled sound or music enhancement")
-	}
-	if preset := detectQualityPreset(); preset != 0 {
-		t.Errorf("detectQualityPreset()=%d, want 0", preset)
-	}
-
+	gs.PotatoGPU = true
 	applyQualityPreset("High")
-	if !gs.DenoiseImages {
-		t.Error("High preset changed the independent dither setting")
-	}
-	if gs.PotatoGPU {
-		t.Error("High preset retained low-VRAM mode")
+	if !gs.PotatoGPU {
+		t.Error("High preset changed the independent Potato GPU setting")
 	}
 	if preset := detectQualityPreset(); preset != 4 {
 		t.Errorf("detectQualityPreset()=%d after High, want 4", preset)
+	}
+}
+
+func TestIGPUGraphicsPresetUsesLowCostGraphicsAndAudio(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() {
+		gs = originalSettings
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	})
+
+	gs = gsdef
+	gs.HighQualityResampling = true
+	gs.SoundEnhancement = true
+	gs.SoundEnhancementAmount = 1.75
+	gs.MusicEnhancement = true
+	gs.GameScale = 4
+	gs.DenoiseImages = true
+	applyQualityPreset("iGPU Graphics")
+
+	if gs.PotatoGPU {
+		t.Fatal("iGPU graphics preset enabled Potato GPU mode")
+	}
+	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
+		t.Fatal("iGPU graphics preset retained an expensive graphics effect")
+	}
+	if !gs.SpriteUpscaleFilter || artworkUpscaleMode() != artworkUpscaleBalanced {
+		t.Fatal("iGPU graphics preset did not select Balanced artwork upscaling")
+	}
+	if !gs.CharacterShadows || !gs.DetailedCharacterShadows {
+		t.Fatal("iGPU graphics preset changed character shadow settings")
+	}
+	if gs.GameScale != 2 || gs.DenoiseImages {
+		t.Fatal("iGPU graphics preset does not match the current artwork scale and denoise settings")
+	}
+	if gs.HighQualityResampling || gs.SoundEnhancement || gs.SoundEnhancementAmount != 1 || gs.MusicEnhancement {
+		t.Fatal("iGPU graphics preset retained audio enhancement or high-quality resampling")
+	}
+	if gs.WindowShadows {
+		t.Fatal("iGPU graphics preset retained window shadows")
 	}
 }
 
@@ -100,7 +109,7 @@ func TestQualityPresetDetectionIgnoresDitherSetting(t *testing.T) {
 	}
 }
 
-func TestApplySettingsDisablesExpensiveGPUOptionsInPotatoMode(t *testing.T) {
+func TestApplySettingsDoesNotChangeGraphicsOptionsInPotatoMode(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() {
 		gs = originalSettings
@@ -112,12 +121,15 @@ func TestApplySettingsDisablesExpensiveGPUOptionsInPotatoMode(t *testing.T) {
 	gs.BlendPicts = true
 	gs.ShaderLighting = true
 	gs.SpriteUpscaleFilter = true
+	gs.WindowShadows = true
+	gs.CharacterShadows = true
+	gs.DetailedCharacterShadows = true
 	applySettings()
 
-	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
-		t.Fatal("potato mode retained an expensive GPU option")
+	if !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting {
+		t.Fatal("Potato GPU changed graphics quality options")
 	}
-	if !gs.SpriteUpscaleFilter {
-		t.Fatal("potato mode disabled the sharp 2x sprite upscaler")
+	if !gs.SpriteUpscaleFilter || !gs.WindowShadows || !gs.CharacterShadows || !gs.DetailedCharacterShadows {
+		t.Fatal("Potato GPU changed upscale or shadow options")
 	}
 }

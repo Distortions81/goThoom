@@ -8,6 +8,7 @@ import (
 )
 
 var potatoMode bool
+var windowShadows = true
 
 // SetPotatoMode toggles creation of unmanaged ebiten images.
 func SetPotatoMode(v bool) {
@@ -17,6 +18,17 @@ func SetPotatoMode(v bool) {
 	potatoMode = v
 	whiteImage = newImage(3, 3)
 	whiteImage.Fill(color.White)
+}
+
+// SetWindowShadows controls drop shadows for windows and dropdown menus.
+func SetWindowShadows(v bool) {
+	if windowShadows == v {
+		return
+	}
+	windowShadows = v
+	for _, win := range windows {
+		win.Dirty = true
+	}
 }
 
 func newImage(w, h int) *ebiten.Image {

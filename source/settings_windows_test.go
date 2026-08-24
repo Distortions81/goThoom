@@ -15,12 +15,12 @@ func TestDefaultWindowLayoutMatchesReferenceDesktop(t *testing.T) {
 		got  WindowState
 		want WindowState
 	}{
-		{name: "game", got: gsdef.GameWindow, want: WindowState{Open: true, Position: WindowPoint{X: 457.5}, Size: WindowPoint{X: 1398, Y: 1404}}},
-		{name: "inventory", got: gsdef.InventoryWindow, want: WindowState{Open: true, Position: WindowPoint{Y: 87}, Size: WindowPoint{X: 455, Y: 858}}},
-		{name: "players", got: gsdef.PlayersWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1860}, Size: WindowPoint{X: 549, Y: 932}}},
-		{name: "messages", got: gsdef.MessagesWindow, want: WindowState{Open: true, Position: WindowPoint{Y: 947}, Size: WindowPoint{X: 455, Y: 454}}},
-		{name: "chat", got: gsdef.ChatWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1861, Y: 936}, Size: WindowPoint{X: 546, Y: 467}}},
-		{name: "movie", got: gsdef.MovieWindow, want: WindowState{Position: WindowPoint{X: 619}, Size: WindowPoint{X: 1076, Y: 96}}},
+		{name: "game", got: gsdef.GameWindow, want: WindowState{Open: true, Position: WindowPoint{X: 468}, Size: WindowPoint{X: 936, Y: 948}}},
+		{name: "inventory", got: gsdef.InventoryWindow, want: WindowState{Open: true, Position: WindowPoint{Y: 87}, Size: WindowPoint{X: 438, Y: 444}}},
+		{name: "players", got: gsdef.PlayersWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1436}, Size: WindowPoint{X: 484, Y: 526}}},
+		{name: "messages", got: gsdef.MessagesWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1, Y: 534}, Size: WindowPoint{X: 438, Y: 417}}},
+		{name: "chat", got: gsdef.ChatWindow, want: WindowState{Open: true, Position: WindowPoint{X: 1429, Y: 529}, Size: WindowPoint{X: 489, Y: 420}}},
+		{name: "movie", got: gsdef.MovieWindow, want: WindowState{Position: WindowPoint{X: 350, Y: 117}, Size: WindowPoint{X: 1076, Y: 96}}},
 	}
 	for _, test := range tests {
 		if test.got != test.want {

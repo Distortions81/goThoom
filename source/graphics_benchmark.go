@@ -13,29 +13,29 @@ import (
 const (
 	graphicsBenchmarkWarmups = 2
 	graphicsBenchmarkSamples = 7
-	graphicsBenchmarkLimit   = 25 * time.Millisecond
+	graphicsBenchmarkLimit   = time.Second / 80
 )
 
 type graphicsBenchmarkResult struct {
-	Median           time.Duration
-	Slowest          time.Duration
-	RecommendLowVRAM bool
+	Median        time.Duration
+	Slowest       time.Duration
+	RecommendIGPU bool
 }
 
-func recommendLowVRAMMode(median time.Duration) bool {
-	return median >= graphicsBenchmarkLimit
+func recommendIGPUGraphics(median time.Duration) bool {
+	return median > graphicsBenchmarkLimit
 }
 
 func graphicsBenchmarkRecommendedPreset(result graphicsBenchmarkResult) string {
-	if result.RecommendLowVRAM {
-		return "iGPU / Low-VRAM (Potato GPU)"
+	if result.RecommendIGPU {
+		return "iGPU Graphics"
 	}
-	return "High"
+	return "Full Graphics"
 }
 
 func graphicsBenchmarkRecommendedLabel(result graphicsBenchmarkResult) string {
-	if result.RecommendLowVRAM {
-		return "Low-VRAM (Recommended)"
+	if result.RecommendIGPU {
+		return "iGPU Graphics (Recommended)"
 	}
 	return "Full Quality (Recommended)"
 }
@@ -181,8 +181,8 @@ func runGraphicsBenchmark() (graphicsBenchmarkResult, error) {
 	sort.Slice(samples, func(i, j int) bool { return samples[i] < samples[j] })
 	median := samples[len(samples)/2]
 	return graphicsBenchmarkResult{
-		Median:           median,
-		Slowest:          samples[len(samples)-1],
-		RecommendLowVRAM: recommendLowVRAMMode(median),
+		Median:        median,
+		Slowest:       samples[len(samples)-1],
+		RecommendIGPU: recommendIGPUGraphics(median),
 	}, nil
 }

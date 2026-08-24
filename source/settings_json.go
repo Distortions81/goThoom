@@ -88,6 +88,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "Theme", category: settingsInterface, name: "color_theme"},
 	{field: "Style", category: settingsInterface, name: "style_theme"},
 	{field: "ShowClanLordSplashImage", category: settingsInterface, name: "show_clan_lord_splash"},
+	{field: "WindowShadows", category: settingsInterface, name: "window_shadows"},
 
 	{field: "SpeechBubbles", category: settingsSpeechBubbles, name: "enabled"},
 	{field: "BubbleOpacity", category: settingsSpeechBubbles, name: "opacity"},

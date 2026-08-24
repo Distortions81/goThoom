@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"time"
 
@@ -237,6 +238,30 @@ func drawSetupWizardSceneLabel(dst *ebiten.Image, scale float64) {
 	op := acquireTextDrawOpts()
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(float64(x)*scale, float64(y)*scale)
+	text.Draw(dst, label, mainFontBold, op)
+	releaseTextDrawOpts(op)
+}
+
+func drawSetupWizardFPS(dst *ebiten.Image) {
+	if dst == nil || mainFontBold == nil || setupWizardWin == nil || !setupWizardWin.IsOpen() {
+		return
+	}
+	label := fmt.Sprintf("%.0f FPS", ebiten.ActualFPS())
+	w, _ := text.Measure(label, mainFontBold, 0)
+	x := float64(dst.Bounds().Dx()) - w - 8
+	if x < 4 {
+		x = 4
+	}
+	const y = 6
+
+	shadow := acquireTextDrawOpts()
+	shadow.GeoM.Translate(x+1, y+1)
+	shadow.ColorScale.Scale(0, 0, 0, 0.85)
+	text.Draw(dst, label, mainFontBold, shadow)
+	releaseTextDrawOpts(shadow)
+
+	op := acquireTextDrawOpts()
+	op.GeoM.Translate(x, y)
 	text.Draw(dst, label, mainFontBold, op)
 	releaseTextDrawOpts(op)
 }

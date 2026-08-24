@@ -155,13 +155,13 @@ var (
 	upscaleModeDD      *eui.ItemData
 	throttleSoundCB    *eui.ItemData
 	soundEnhanceCB     *eui.ItemData
-	soundEnhanceSlider *eui.ItemData
 	musicEnhanceCB     *eui.ItemData
 	resampleAudioCB    *eui.ItemData
 	precacheSoundCB    *eui.ItemData
 	precacheImageCB    *eui.ItemData
 	noCacheCB          *eui.ItemData
 	potatoCB           *eui.ItemData
+	windowShadowsCB    *eui.ItemData
 	volumeSlider       *eui.ItemData
 	muteBtn            *eui.ItemData
 	mixerWin           *eui.WindowData
@@ -1241,23 +1241,10 @@ func makeMixerWindow() {
 			updateSoundVolume()
 		}
 	}
-	stereoMusicCB, stereoMusicEvents := eui.NewCheckbox()
-	stereoMusicCB.Text = "Stereo Music"
-	stereoMusicCB.Checked = gs.MusicStereoPan
-	stereoMusicCB.Size = eui.Point{X: 192, Y: 24}
-	stereoMusicCB.SetTooltip("Spread simultaneous bard instruments across the stereo field")
-	stereoMusicEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MusicStereoPan = ev.Checked
-			settingsDirty = true
-		}
-	}
-
 	// Keep the mixer-wide controls together to the right of the channel sliders.
-	muteCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 192, Y: 84}}
+	muteCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 192, Y: 60}}
 	muteCol.AddItem(mixMuteBtn)
 	muteCol.AddItem(muteUnfocusCB)
-	muteCol.AddItem(stereoMusicCB)
 	flow.AddItem(muteCol)
 
 	mixerWin.AddItem(flow)
@@ -2571,7 +2558,7 @@ func makeLoginWindow() {
 	loginWin.Opacity = 0.9
 	// Increase title font size for "Login" by 2pt
 	loginWin.SetTitleSize(loginWin.GetRawTitleSize() + 2)
-	loginWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
+	centerLoginWindow()
 	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	// Characters list lives in its own flow and is scrollable.
 	// Use a fixed height so the window doesn't grow unbounded.
@@ -2812,6 +2799,12 @@ func makeLoginWindow() {
 	loginWin.AddWindow(false)
 }
 
+func centerLoginWindow() {
+	if loginWin != nil {
+		loginWin.SetZone(eui.HZoneCenter, eui.VZoneCenter)
+	}
+}
+
 func makeChangelogWindow() {
 	if changelogWin == nil {
 		changelogWin, changelogList, _ = makeTextWindow("Changelog", eui.HZoneCenter, eui.VZoneMiddleTop, false)
@@ -2925,14 +2918,18 @@ func makeSettingsWindow() {
 	settingsWin.Resizable = false
 	settingsWin.AutoSize = true
 	settingsWin.Movable = true
+	settingsWin.SetRefreshInterval(100 * time.Millisecond)
 
-	// Split settings into three panes, then keep related controls in named sections.
+	// Use four balanced panes so the window fits comfortably on a 1920x1080
+	// desktop without making the user scroll through one overly tall column.
 	var panelWidth float32 = 270
 	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	left := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	left.Size = eui.Point{X: panelWidth, Y: 10}
-	center := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	center.Size = eui.Point{X: panelWidth, Y: 10}
+	centerLeft := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	centerLeft.Size = eui.Point{X: panelWidth, Y: 10}
+	centerRight := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	centerRight.Size = eui.Point{X: panelWidth, Y: 10}
 	right := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	right.Size = eui.Point{X: panelWidth, Y: 10}
 
@@ -2948,23 +2945,24 @@ func makeSettingsWindow() {
 	gettingStartedSection := newConfigurationSection("Getting Started", panelWidth)
 	textSizeSection := newConfigurationSection("Text Sizes", panelWidth)
 	chatSection := newConfigurationSection("Chat & Messages", panelWidth)
-	notificationsSection := newConfigurationSection("Notifications", panelWidth)
-	ttsSection := newConfigurationSection("Text to Speech", panelWidth)
-	center.AddItem(gettingStartedSection)
-	center.AddItem(textSizeSection)
-	center.AddItem(chatSection)
-	center.AddItem(notificationsSection)
-	center.AddItem(ttsSection)
+	centerLeft.AddItem(gettingStartedSection)
+	centerLeft.AddItem(textSizeSection)
+	centerLeft.AddItem(chatSection)
 
 	statusSection := newConfigurationSection("Status Bars", panelWidth)
 	visibilitySection := newConfigurationSection("World Visibility", panelWidth)
 	nameSection := newConfigurationSection("Character Names", panelWidth)
+	centerRight.AddItem(statusSection)
+	centerRight.AddItem(visibilitySection)
+	centerRight.AddItem(nameSection)
+
 	bubbleSection := newConfigurationSection("Speech Bubbles", panelWidth)
+	notificationsSection := newConfigurationSection("Notifications", panelWidth)
+	ttsSection := newConfigurationSection("Text to Speech", panelWidth)
 	moreSection := newConfigurationSection("More Settings", panelWidth)
-	right.AddItem(statusSection)
-	right.AddItem(visibilitySection)
-	right.AddItem(nameSection)
 	right.AddItem(bubbleSection)
+	right.AddItem(notificationsSection)
+	right.AddItem(ttsSection)
 	right.AddItem(moreSection)
 
 	resetWindowsBtn, resetWindowsEvents := eui.NewButton()
@@ -3175,7 +3173,7 @@ func makeSettingsWindow() {
 	controlsSection.AddItem(toggle)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
-	qualityPresetDD.Options = []string{"iGPU / Low-VRAM (Potato GPU)", "Classic", "Low", "Medium", "High", "Custom"}
+	qualityPresetDD.Options = []string{"iGPU Graphics", "Classic", "Low", "Medium", "High", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.FontSize = 12
@@ -3183,7 +3181,7 @@ func makeSettingsWindow() {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
 			case 0:
-				applyQualityPreset("iGPU / Low-VRAM (Potato GPU)")
+				applyQualityPreset("iGPU Graphics")
 			case 1:
 				applyQualityPreset("Classic")
 			case 2:
@@ -3808,7 +3806,8 @@ func makeSettingsWindow() {
 	ttsSection.AddItem(ttsSpeedSlider)
 
 	outer.AddItem(left)
-	outer.AddItem(center)
+	outer.AddItem(centerLeft)
+	outer.AddItem(centerRight)
 	outer.AddItem(right)
 	settingsWin.AddItem(outer)
 	settingsWin.AddWindow(false)
@@ -4111,7 +4110,7 @@ func showShaderDisablePrompt() {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	msg, _ := eui.NewText()
-	msg.Text = "FPS has been under 50 for a while. The iGPU / Low-VRAM mode may provide smoother rendering."
+	msg.Text = "FPS has been under 50 for a while. The iGPU graphics preset may provide smoother rendering."
 	msg.FontSize = 12
 	msg.Size = eui.Point{X: 600, Y: 36}
 	flow.AddItem(msg)
@@ -4141,7 +4140,7 @@ func showShaderDisablePrompt() {
 	btnRow.AddItem(cancelBtn)
 
 	disableBtn, disableEv := eui.NewButton()
-	disableBtn.Text = "Use Low-VRAM"
+	disableBtn.Text = "Use iGPU Preset"
 	disableBtn.Size = eui.Point{X: 140, Y: 24}
 	disableEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
@@ -4150,7 +4149,7 @@ func showShaderDisablePrompt() {
 		if shaderWarnDontShowCB != nil && shaderWarnDontShowCB.Checked {
 			gs.PromptDisableShaders = false
 		}
-		applyQualityPreset("iGPU / Low-VRAM (Potato GPU)")
+		applyQualityPreset("iGPU Graphics")
 		saveSettings()
 		shaderWarnWin.Close()
 	}
@@ -4226,6 +4225,7 @@ func makeQualityWindow() {
 	qualityWin.Resizable = false
 	qualityWin.AutoSize = true
 	qualityWin.Movable = true
+	qualityWin.SetRefreshInterval(100 * time.Millisecond)
 	qualityWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 	if qualityWin.Theme != nil {
 		bg := qualityWin.Theme.Window.BGColor
@@ -4235,11 +4235,6 @@ func makeQualityWindow() {
 		titleBG.A = 0xff
 		qualityWin.TitleBGColor = titleBG
 	}
-	// Render directly each frame so tall layouts do not reuse partially stale
-	// cached backing images, which were causing the window background to fade
-	// to a semi-transparent look below the first few rows.
-	qualityWin.NoCache = true
-
 	// Keep expensive rendering features separate from visual treatment controls.
 	var panelWidth float32 = 270
 	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
@@ -4422,37 +4417,16 @@ func makeQualityWindow() {
 	var detailedShadowsCB, shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
-	potatoCB.Text = "iGPU / Low-VRAM (Potato GPU)"
-	potatoCB.SetTooltip("Reduce GPU and VRAM use by bypassing detailed shadow compositing and expensive effects while limiting sharp sprite upscaling to 2x")
+	potatoCB.Text = "Potato GPU (Low VRAM)"
+	potatoCB.SetTooltip("Use unmanaged textures for very old computers or single-board computers such as Raspberry Pi; leave off unless needed")
 	potatoCB.Size = eui.Point{X: width, Y: 24}
 	potatoCB.Checked = gs.PotatoGPU
 	potatoEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.PotatoGPU = ev.Checked
 			applySettings()
-			if upscaleModeDD != nil {
-				upscaleModeDD.Selected = artworkUpscaleMode()
-			}
-			if animCB != nil {
-				animCB.Checked = gs.BlendMobiles
-				animCB.Disabled = ev.Checked
-			}
-			if pictBlendCB != nil {
-				pictBlendCB.Checked = gs.BlendPicts
-				pictBlendCB.Disabled = ev.Checked
-			}
-			if shaderLightingCB != nil {
-				shaderLightingCB.Checked = gs.ShaderLighting
-				shaderLightingCB.Disabled = ev.Checked
-			}
-			if detailedShadowsCB != nil {
-				detailedShadowsCB.Disabled = ev.Checked || !gs.CharacterShadows
-			}
 			clearCaches()
 			settingsDirty = true
-			if qualityPresetDD != nil {
-				qualityPresetDD.Selected = detectQualityPreset()
-			}
 		}
 	}
 	performanceSection.AddItem(potatoCB)
@@ -4465,11 +4439,26 @@ func makeQualityWindow() {
 	vsyncEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.VSync = ev.Checked
-			ebiten.SetVsyncEnabled(gs.VSync)
+			applyVSyncSetting()
 			settingsDirty = true
 		}
 	}
 	performanceSection.AddItem(vsyncCB)
+
+	wsCB, windowShadowsEvents := eui.NewCheckbox()
+	windowShadowsCB = wsCB
+	windowShadowsCB.Text = "Window Shadows"
+	windowShadowsCB.Size = eui.Point{X: width, Y: 24}
+	windowShadowsCB.Checked = gs.WindowShadows
+	windowShadowsCB.SetTooltip("Draw shadows behind interface windows and menus")
+	windowShadowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.WindowShadows = ev.Checked
+			eui.SetWindowShadows(gs.WindowShadows)
+			settingsDirty = true
+		}
+	}
+	shadowSection.AddItem(windowShadowsCB)
 
 	characterShadowsCB, characterShadowsEvents := eui.NewCheckbox()
 	characterShadowsCB.Text = "Character Shadows"
@@ -4483,7 +4472,7 @@ func makeQualityWindow() {
 				shadowDarknessSlider.Disabled = !ev.Checked
 			}
 			if detailedShadowsCB != nil {
-				detailedShadowsCB.Disabled = !ev.Checked || gs.PotatoGPU
+				detailedShadowsCB.Disabled = !ev.Checked
 			}
 			settingsDirty = true
 		}
@@ -4511,7 +4500,7 @@ func makeQualityWindow() {
 	detailedShadowsCB.Text = "Accurate Character Shadows"
 	detailedShadowsCB.Size = eui.Point{X: width, Y: 24}
 	detailedShadowsCB.Checked = gs.DetailedCharacterShadows
-	detailedShadowsCB.Disabled = !gs.CharacterShadows || gs.PotatoGPU
+	detailedShadowsCB.Disabled = !gs.CharacterShadows
 	detailedShadowsCB.SetTooltip("Prevent overlapping character shadows from becoming excessively dark")
 	detailedShadowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4527,7 +4516,6 @@ func makeQualityWindow() {
 	shaderQualityCB.Text = "Shader Lighting Effects"
 	shaderQualityCB.Size = eui.Point{X: width, Y: 24}
 	shaderQualityCB.Checked = gs.ShaderLighting
-	shaderQualityCB.Disabled = gs.PotatoGPU
 	shaderQualityCB.SetTooltip("Enable shader-based lighting (enabled by the High preset)")
 	shaderQualityEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4827,7 +4815,6 @@ func makeQualityWindow() {
 	animCB.Text = "Mobile Animation Blending"
 	animCB.Size = eui.Point{X: width, Y: 24}
 	animCB.Checked = gs.BlendMobiles
-	animCB.Disabled = gs.PotatoGPU
 	animCB.SetTooltip("Gives appearance of more frames of animation at cost of latency.")
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4843,7 +4830,6 @@ func makeQualityWindow() {
 	pictBlendCB.Text = "World Animation Blending"
 	pictBlendCB.Size = eui.Point{X: width, Y: 24}
 	pictBlendCB.Checked = gs.BlendPicts
-	pictBlendCB.Disabled = gs.PotatoGPU
 	pictBlendCB.SetTooltip("Gives appearance of more frames of animation for water, grass, etc")
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -5119,20 +5105,6 @@ func makeAdvancedSettingsWindow() {
 	// Interface column
 	addSectionLabel(interfaceCol, "Interface")
 
-	splashCB, splashEvents := eui.NewCheckbox()
-	splashCB.Text = "Show Clan Lord splash image"
-	splashCB.Size = eui.Point{X: columnWidth, Y: 24}
-	splashCB.Checked = gs.ShowClanLordSplashImage
-	splashCB.SetTooltip("Use CL_Images picture #4 for the splash screen")
-	splashEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ShowClanLordSplashImage = ev.Checked
-			settingsDirty = true
-			prepareClassicSplash()
-		}
-	}
-	interfaceCol.AddItem(splashCB)
-
 	alwaysTopCB, alwaysTopEvents := eui.NewCheckbox()
 	alwaysTopCB.Text = "Always on top"
 	alwaysTopCB.Size = eui.Point{X: columnWidth, Y: 24}
@@ -5164,38 +5136,6 @@ func makeAdvancedSettingsWindow() {
 		}
 	}
 	interfaceCol.AddItem(midMove)
-
-	windowPinCB, windowPinEvents := eui.NewCheckbox()
-	windowPinCB.Text = "Window pinning"
-	windowPinCB.Size = eui.Point{X: columnWidth, Y: 24}
-	windowPinCB.Checked = gs.WindowPinning
-	windowPinCB.SetTooltip("Show title-bar buttons for pinning windows to layout locations")
-	windowPinEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.WindowPinning = ev.Checked
-			SettingsLock.Unlock()
-			eui.SetWindowPinning(ev.Checked)
-			settingsDirty = true
-		}
-	}
-	interfaceCol.AddItem(windowPinCB)
-
-	pinLocCB, pinLocEvents := eui.NewCheckbox()
-	pinLocCB.Text = "Show pin-to locations"
-	pinLocCB.Size = eui.Point{X: columnWidth, Y: 24}
-	pinLocCB.Checked = gs.ShowPinToLocations
-	pinLocCB.SetTooltip("Show pin affordances on floating windows")
-	pinLocEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.ShowPinToLocations = ev.Checked
-			SettingsLock.Unlock()
-			eui.SetShowPinLocations(ev.Checked)
-			settingsDirty = true
-		}
-	}
-	interfaceCol.AddItem(pinLocCB)
 
 	keySpeedSlider, keySpeedEvents := eui.NewSlider()
 	keySpeedSlider.Label = "Keyboard Walk Speed"
@@ -5426,31 +5366,13 @@ func makeAdvancedSettingsWindow() {
 	enhancementCB.Size = eui.Point{X: columnWidth, Y: 24}
 	enhancementCB.Checked = gs.SoundEnhancement
 	enhancementCB.SetTooltip("Stereo width, ambience, and tone polish for in-game sounds")
-	enhancementStrengthSlider, enhancementStrengthEvents := eui.NewSlider()
-	soundEnhanceSlider = enhancementStrengthSlider
-	enhancementStrengthSlider.Label = "Enhancement Strength"
-	enhancementStrengthSlider.MinValue = 0.1
-	enhancementStrengthSlider.MaxValue = 10
-	enhancementStrengthSlider.Value = float32(gs.SoundEnhancementAmount)
-	enhancementStrengthSlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
-	enhancementStrengthSlider.Disabled = !gs.SoundEnhancement
-	enhancementStrengthSlider.SetTooltip("0.1 is subtle, 10 is very pronounced")
 	enhancementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.SoundEnhancement = ev.Checked
-			enhancementStrengthSlider.Disabled = !ev.Checked
 			settingsDirty = true
 		}
 	}
 	chatCol.AddItem(enhancementCB)
-
-	enhancementStrengthEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.SoundEnhancementAmount = clampSoundEnhancementAmount(float64(ev.Value))
-			settingsDirty = true
-		}
-	}
-	chatCol.AddItem(enhancementStrengthSlider)
 
 	resampleCB, resampleEvents := eui.NewCheckbox()
 	resampleAudioCB = resampleCB

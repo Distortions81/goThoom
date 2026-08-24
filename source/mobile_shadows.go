@@ -185,7 +185,7 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	projection := newCharacterShadowProjection(azimuth)
 	shadowTarget := screen
 	shadowBlend := shadowDarkenBlend
-	useMask := gs.DetailedCharacterShadows && !gs.PotatoGPU
+	useMask := gs.DetailedCharacterShadows
 	if useMask {
 		shadowTarget = characterShadowMask(screen)
 		shadowTarget.Clear()

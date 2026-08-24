@@ -21,6 +21,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
 		"throttle sounds":              gsdef.ThrottleSounds,
 		"alternate row backgrounds":    gsdef.AlternateRowBackgrounds,
+		"window shadows":               gsdef.WindowShadows,
 	}
 	for name, enabled := range defaults {
 		if !enabled {
@@ -46,7 +47,7 @@ func TestFontSizeDefaults(t *testing.T) {
 		got  float64
 		want float64
 	}{
-		"name":         {gsdef.MainFontSize, 6},
+		"name":         {gsdef.MainFontSize, 8},
 		"chat bubble":  {gsdef.BubbleFontSize, 20},
 		"console":      {gsdef.ConsoleFontSize, 12},
 		"chat window":  {gsdef.ChatFontSize, 12},

@@ -2,6 +2,7 @@ package eui
 
 import (
 	"log"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -320,6 +321,24 @@ func (target *windowData) MarkOpen() {
 		WindowStateChanged()
 	}
 
+}
+
+// SetRefreshInterval coalesces repeated redraw requests for this window.
+// A zero interval keeps the default immediate refresh behavior.
+func (target *windowData) SetRefreshInterval(interval time.Duration) {
+	if interval < 0 {
+		interval = 0
+	}
+	target.refreshInterval = interval
+	if interval == 0 && target.refreshPending {
+		target.refreshPending = false
+		target.Dirty = true
+	}
+}
+
+// RefreshInterval reports the window's redraw-coalescing interval.
+func (target *windowData) RefreshInterval() time.Duration {
+	return target.refreshInterval
 }
 
 // Refresh marks the window and its children dirty so they are redrawn and

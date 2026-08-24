@@ -56,4 +56,4 @@ Extras
 
 Low-end Hardware
 ----------------
-If your device or driver only supports textures up to 4096x4096 pixels (such as a Raspberry Pi), enable "Potato GPU (low VRAM)" under Settings → Graphics to use smaller textures.
+For very old computers or single-board computers such as Raspberry Pi, "Potato GPU (Low VRAM)" under Quality Settings can use unmanaged textures. It defaults off; enable it only if needed.

@@ -10,7 +10,6 @@ import (
 
 	"gothoom/eui"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/pkg/browser"
 )
@@ -42,6 +41,9 @@ var (
 	setupWizardPreviewNight  movieNightState
 
 	setupWizardGraphicsRecommendation string
+	setupWizardGraphicsTested         bool
+	setupWizardGraphicsPending        bool
+	setupWizardVSyncBypass            bool
 )
 
 func shouldShowSetupWizard(configLoaded bool, completedVersion, currentVersion int) bool {
@@ -56,12 +58,16 @@ func openSetupWizard(force bool) {
 	setupWizardScenePage = -1
 	setupWizardSceneStarted = time.Time{}
 	setupWizardGraphicsRecommendation = ""
+	setupWizardGraphicsTested = false
+	setupWizardGraphicsPending = false
+	setupWizardVSyncBypass = true
 	if setupWizardWin == nil {
 		setupWizardWin = eui.NewWindow()
 		setupWizardWin.Closable = false
 		setupWizardWin.Resizable = false
 		setupWizardWin.AutoSize = true
 		setupWizardWin.Movable = true
+		setupWizardWin.SetRefreshInterval(100 * time.Millisecond)
 		setupWizardWin.Padding = 10
 		setupWizardWin.BorderPad = 4
 		setupWizardWin.SetZone(eui.HZoneLeft, eui.VZoneTop)
@@ -370,6 +376,17 @@ func buildSetupVisibilityPage(root *eui.ItemData) {
 }
 
 func buildSetupGraphicsPage(root *eui.ItemData) {
+	if gs.GameScale < 2 {
+		gs.GameScale = 2
+		gs.SpriteUpscale = spriteUpscaleFactor()
+		clearCaches()
+		initFont()
+		settingsDirty = true
+	}
+	if !setupWizardGraphicsTested && !isWASM {
+		setupWizardGraphicsPending = true
+	}
+
 	root.AddItem(setupWizardHeading("Graphics and comfort"))
 	root.AddItem(setupWizardText(
 		"Your current graphics choices are selected below. Adjust only what you want while watching the real renderer behind this window.",
@@ -378,10 +395,10 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	root.AddItem(setupWizardText("Watch the movie behind this window while changing these options; it uses the real game renderer at your current game-window scale.", 10, 620))
 
 	graphicsTest, graphicsTestEvents := eui.NewButton()
-	graphicsTest.Text = "Test Graphics Performance"
+	graphicsTest.Text = "Rerun Graphics Detection"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Runs seven synchronized samples of lighting and artwork upscaling, then recommends a quality mode")
+	graphicsTest.SetTooltip("Runs seven synchronized samples and applies Full Quality or the iGPU graphics preset using an 80 FPS cutoff")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
@@ -393,26 +410,8 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 			showPopup("Graphics Performance Test", err.Error(), []popupButton{{Text: "OK"}})
 			return
 		}
-		setupWizardGraphicsRecommendation = graphicsBenchmarkRecommendedLabel(result)
-		graphicsRecommendation.Text = setupWizardGraphicsRecommendation
-		graphicsRecommendation.Dirty = true
-		if setupWizardWin != nil {
-			setupWizardWin.Refresh()
-		}
-		message := fmt.Sprintf("Median synchronized workload: %.1f ms\nSlowest sample: %.1f ms\n\nFull quality is recommended for this system.", float64(result.Median.Microseconds())/1000, float64(result.Slowest.Microseconds())/1000)
-		if result.RecommendLowVRAM {
-			message = fmt.Sprintf("Median synchronized workload: %.1f ms\nSlowest sample: %.1f ms\n\nThe iGPU / Low-VRAM mode is recommended for smoother rendering. This test measures performance rather than relying on the GPU model name.", float64(result.Median.Microseconds())/1000, float64(result.Slowest.Microseconds())/1000)
-		}
-		recommendedPreset := graphicsBenchmarkRecommendedPreset(result)
-		recommendedLabel := graphicsBenchmarkRecommendedLabel(result)
-		buttons := []popupButton{
-			{Text: "Keep Current"},
-			{Text: recommendedLabel, Width: 220, Action: func() {
-				applyQualityPreset(recommendedPreset)
-				rebuildSetupWizard()
-			}},
-		}
-		showPopup("Graphics Performance Test", message, buttons)
+		applySetupWizardGraphicsRecommendation(result)
+		rebuildSetupWizard()
 	}
 	graphicsTestRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	graphicsTestRow.Size = eui.Point{X: 620, Y: 28}
@@ -420,7 +419,36 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTestRow.AddItem(graphicsRecommendation)
 	root.AddItem(graphicsTestRow)
 
-	root.AddItem(setupWizardSlider("Upscale game amount", "Renders the game at 1x to 4x resolution. Higher values improve sharpness on high-resolution displays but use more GPU.", 1, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
+	graphicsMode, graphicsModeEvents := eui.NewDropdown()
+	graphicsMode.Label = "Graphics performance mode"
+	graphicsMode.Options = []string{"iGPU Graphics", "Full Quality"}
+	graphicsMode.Selected = 1
+	if igpuGraphicsPresetApplied() {
+		graphicsMode.Selected = 0
+	}
+	graphicsMode.Size = eui.Point{X: 320, Y: 24}
+	graphicsMode.SetTooltip("Choose either mode manually; rerunning detection selects one using the measured 80 FPS cutoff")
+	graphicsModeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index > 1 {
+			return
+		}
+		preset := "Full Graphics"
+		if ev.Index == 0 {
+			preset = "iGPU Graphics"
+		}
+		applyQualityPreset(preset)
+		rebuildSetupWizard()
+	}
+	root.AddItem(graphicsMode)
+
+	windowShadows := setupWizardCheckbox("Window shadows", "Draw shadows behind interface windows and menus.", gs.WindowShadows, func(checked bool) {
+		gs.WindowShadows = checked
+		eui.SetWindowShadows(gs.WindowShadows)
+		settingsDirty = true
+	})
+	root.AddItem(windowShadows)
+
+	root.AddItem(setupWizardSlider("Upscale game amount", "Renders the game at 2x to 4x resolution. Higher values improve sharpness on high-resolution displays but use more GPU.", 2, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
 		previousUpscale := gs.SpriteUpscale
 		gs.GameScale = math.Round(float64(value))
 		gs.SpriteUpscale = spriteUpscaleFactor()
@@ -471,25 +499,50 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		markQualityCustom()
 	}
 	root.AddItem(upscaleStyle)
-	root.AddItem(setupWizardCheckbox("VSync", "Limits presentation to the monitor refresh rate to prevent tearing. Turning it off can improve speed on some systems.", gs.VSync, func(checked bool) {
-		gs.VSync = checked
-		ebiten.SetVsyncEnabled(checked)
-		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Precache images", "Loads game artwork before play for fewer pauses, using up to about 2 GB of additional RAM.", gs.PrecacheImages, func(checked bool) {
+	wizardVSync := setupWizardCheckbox("VSync", "VSync is temporarily off during setup so graphics detection can measure uncapped performance. Your saved VSync setting is restored afterward.", false, nil)
+	setSetupWizardDisabled(wizardVSync, setupWizardVSyncBypass)
+	root.AddItem(wizardVSync)
+	root.AddItem(setupWizardRecommendedCheckbox("Precache images", "Loads game artwork before play for fewer pauses, using up to about 2 GB of additional RAM.", gs.PrecacheImages, defaultPrecacheImages, func(checked bool) {
 		gs.PrecacheImages = checked
 		if checked && !assetsPrecached {
 			go precacheAssets()
 		}
 		settingsDirty = true
 	}))
-	root.AddItem(setupWizardCheckbox("Precache sounds", "Loads and prepares game sounds before play for fewer pauses, using roughly 300 MB more RAM.", gs.PrecacheSounds, func(checked bool) {
+	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Loads and prepares game sounds before play for fewer pauses, using roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
 		gs.PrecacheSounds = checked
 		if checked && !assetsPrecached {
 			go precacheAssets()
 		}
 		settingsDirty = true
 	}))
+}
+
+func updateSetupWizardGraphicsDetection() {
+	if !setupWizardGraphicsPending {
+		return
+	}
+	setupWizardGraphicsPending = false
+	setupWizardGraphicsTested = true
+	result, err := runGraphicsBenchmark()
+	if err != nil {
+		setupWizardGraphicsRecommendation = "Detection failed"
+	} else {
+		applySetupWizardGraphicsRecommendation(result)
+	}
+	rebuildSetupWizard()
+}
+
+func applySetupWizardGraphicsRecommendation(result graphicsBenchmarkResult) {
+	setupWizardGraphicsRecommendation = fmt.Sprintf("%s (%.1f ms median)", graphicsBenchmarkRecommendedLabel(result), float64(result.Median.Microseconds())/1000)
+	applyQualityPreset(graphicsBenchmarkRecommendedPreset(result))
+}
+
+func igpuGraphicsPresetApplied() bool {
+	return gs.MotionSmoothing && !gs.BlendMobiles && !gs.BlendPicts && !gs.ShaderLighting &&
+		gs.GameScale == 2 && !gs.DenoiseImages &&
+		!gs.WindowShadows &&
+		artworkUpscaleMode() == artworkUpscaleBalanced
 }
 
 func buildSetupMotionPage(root *eui.ItemData) {
@@ -749,6 +802,8 @@ func completeSetupWizard() {
 	if setupWizardWin != nil {
 		setupWizardWin.Close()
 	}
+	setupWizardVSyncBypass = false
+	applyVSyncSetting()
 	// The preview normally restores Login itself, but it cannot do so when the
 	// preview was unavailable (such as on a fresh install before assets load).
 	// Completing the wizard should always return an offline player to Login.
@@ -814,6 +869,32 @@ func setupWizardCheckbox(label, explanation string, checked bool, changed func(b
 	description := setupWizardText(explanation, 10, 590)
 	description.Position.X = 20
 	flow.AddItem(description)
+	return flow
+}
+
+func setupWizardRecommendedCheckbox(label, explanation string, checked, recommended bool, changed func(bool)) *eui.ItemData {
+	flow := setupWizardCheckbox(label, explanation, checked, changed)
+	if !recommended || len(flow.Contents) == 0 {
+		return flow
+	}
+
+	checkbox := flow.Contents[0]
+	flow.RemoveItem(checkbox)
+	checkbox.Size.X = 480
+	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	row.Size = eui.Point{X: 610, Y: 24}
+	row.AddItem(checkbox)
+
+	pill := setupWizardText("  Recommended", 9, 104)
+	pill.Size.Y = 20
+	pill.Position.Y = 2
+	pill.Filled = true
+	pill.Fillet = 10
+	pill.Color = eui.ColorDarkGreen
+	pill.TextColor = eui.ColorWhite
+	pill.ForceTextColor = true
+	row.AddItem(pill)
+	flow.PrependItem(row)
 	return flow
 }
 

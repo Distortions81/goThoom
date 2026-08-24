@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -1179,9 +1180,14 @@ func (item *itemData) updateTooltipBounds() {
 }
 
 func (win *windowData) markDirty() {
-	if win != nil {
-		win.Dirty = true
+	if win == nil {
+		return
 	}
+	if win.refreshInterval > 0 && win.Render != nil && !win.lastRefresh.IsZero() && time.Since(win.lastRefresh) < win.refreshInterval {
+		win.refreshPending = true
+		return
+	}
+	win.Dirty = true
 }
 
 func (item *itemData) markDirty() {

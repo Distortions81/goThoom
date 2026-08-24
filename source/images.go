@@ -456,11 +456,7 @@ func artworkUpscaleBlendStrength() float32 {
 }
 
 func artworkUpscaleFactor() int {
-	factor := spriteUpscaleFactor()
-	if gs.PotatoGPU && factor > 2 {
-		return 2
-	}
-	return factor
+	return spriteUpscaleFactor()
 }
 
 func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Image {

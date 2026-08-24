@@ -712,6 +712,7 @@ func (g *Game) Update() error {
 	}
 	legacyMacroBeginInputFrame()
 	eui.Update() //We really need this to return eaten clicks
+	updateSetupWizardGraphicsDetection()
 	// Advance script tick waiters once per frame
 	scriptAdvanceTick()
 	advanceLegacyMacros(int64(ackFrame))
@@ -1624,6 +1625,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		gs.GameScale = prev
 	}
+	drawSetupWizardFPS(gameImage)
 
 	// Finally, draw UI (which includes the game window image)
 	eui.Draw(screen)
@@ -2862,7 +2864,7 @@ func runGame(ctx context.Context) {
 
 func initGame() {
 	ebiten.SetWindowTitle("goThoom Client")
-	ebiten.SetVsyncEnabled(gs.VSync)
+	applyVSyncSetting()
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
