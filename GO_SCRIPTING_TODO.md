@@ -3,17 +3,21 @@
 Goal: make Go scripts as quick to write and reason about as legacy macros,
 while keeping Go's types, editor support, and ability to build larger tools.
 
-This is a redesign of the scripting experience, not a promise to preserve the
-current API exactly. Existing scripts should continue to work through a small
-compatibility layer while bundled scripts move to the new API.
+This is Go scripting 2.0. The previous scripting API was broken and scarcely
+used, so compatibility is not a goal. Remove or break old behavior whenever it
+makes the final system clearer, smaller, or easier to use.
 
-## DESIGN NOTES
+## Product direction
 
-Don't waste time with legacy support, break/remove anything needed to get to end goal of new better scripting system.
-In general lets avoid multiple way to do things unless there is a good reason.
-I would go for maximum clarity and ease of use for non-tech users, break/remove anything needed to make this amazing.
-It's golang not a macro, so power users will be able to do whatever they like... I think for them we make eventual goal of a dedicated simple API that has direct access to whatever they like.
-The old system was broken and not really used so yeah I would treat this as golang scripts 2.0.
+- Optimize first for clarity and ease of use by nontechnical script authors.
+- Provide one obvious way to perform an action. Keep a second API only when it
+  represents a genuinely different capability, not as an alias or convenience
+  spelling.
+- Do not spend time on a v1 compatibility or deprecation layer.
+- Bundled scripts are part of the 2.0 product and must use the canonical API.
+- Go already gives advanced authors general programming tools. Add lower-level
+  game access only as a deliberate, coherent API rather than accumulating
+  overlapping helpers.
 
 ## Design rules
 
@@ -24,7 +28,8 @@ The old system was broken and not really used so yeah I would treat this as gola
   about goroutines, locks, or the renderer's thread rules.
 - Waiting must be as simple and safe as legacy `pause`, without blocking the
   game.
-- Common tasks use short APIs; lower-level APIs remain available when needed.
+- Common tasks use short APIs. A lower-level API exists only for capabilities
+  the normal API intentionally does not cover.
 - Errors are visible in the Scripts window with the filename and source line.
 - Reloading is atomic: a broken edit must not stop the last working version.
 - Every public runtime symbol must exist in the `gt` editor package and API
@@ -33,6 +38,8 @@ The old system was broken and not really used so yeah I would treat this as gola
   all disappear when the script stops or reloads.
 - Keep the first version small. Add an abstraction only when real scripts need
   it.
+- Delete redundant public symbols as soon as bundled scripts and tests no
+  longer need them.
 
 ## Confirmed problems to fix first
 
@@ -98,7 +105,7 @@ regression tests before the API grows.
 - [x] Return visible errors when a command is rejected, rate-limited, or cannot
   find its target instead of silently doing nothing.
 
-## Simple v2 API
+## Go scripting 2.0 API
 
 Keep `Init()` and make metadata optional. A basic script should look like:
 
@@ -120,12 +127,12 @@ func Init() {
 
 ### Core registration
 
-- [x] Add `gt.Command(name, func(args string))` as the preferred command API.
+- [x] Add `gt.Command(name, func(args string))` as the command API.
 - [x] Add `gt.Bind(combo, func(InputEvent))` for keys, clicks, mouse chords,
   modifiers, and wheel input through one API.
 - [x] Add `gt.OnChat(filter, func(ChatEvent))` with structured speaker and
   message data.
-- [x] Add `gt.OnServerMessage(filter, func(ServerMessageEvent))` so scripts do
+- [x] Add `gt.OnServerMessage(filter, func(ServerMessage))` so scripts do
   not have to reverse-engineer formatted console text.
 - [x] Add lifecycle events for login, logout, character change, and script
   stop.
@@ -136,12 +143,13 @@ func Init() {
 
 ### Commands and sequences
 
-- [x] Add one preferred `gt.Send(command)` operation with ordered, rate-limited
+- [x] Add one `gt.Send(command)` operation with ordered, rate-limited
   delivery.
 - [x] Add `gt.WaitTicks(n)` and `gt.Wait(duration)` that suspend only the
   current script task and are cancelled on reload.
 - [x] Add `gt.Repeat(interval, func())` returning a stoppable timer.
-- [x] Keep the old timing and command names as compatibility aliases.
+- [ ] Remove old timing and command aliases. Keep only `Send`, `Wait`,
+  `WaitTicks`, and `Repeat`, whose names represent distinct operations.
 - [x] Add a safe equipment helper that restores the prior slot after a task,
   covering the common dice, bard, pet, and weapon-swap patterns.
 - [x] Allow a sequence to wait for an inventory/equipment state change with a
@@ -154,8 +162,8 @@ func Init() {
 - [x] Include key/button, modifiers, chord, screen/world position, clicked
   mobile, player name, simple name, and whether normal input may continue.
 - [x] Let handlers explicitly consume or pass through an input event.
-- [x] Support the same printable keys, mouse buttons, wheel directions, and
-  modifier combinations as the legacy macro runtime.
+- [x] Cover printable keys, mouse buttons, wheel directions, and modifier
+  combinations through `Bind`.
 - [x] Add hover and current-selection queries without requiring scripts to poll
   every frame.
 
@@ -169,8 +177,8 @@ func Init() {
 - [x] Add exact and case-insensitive item lookup, partial lookup, all matching
   instances, equipped-slot lookup, and stable per-instance identity.
 - [x] Expose the selected player and selected inventory item.
-- [x] Expose the latest typed server message data needed by legacy-style
-  scanners without requiring formatted-text parsing.
+- [x] Expose the latest typed server message data needed by scanners without
+  requiring formatted-text parsing.
 - [x] Document snapshot lifetime and make it impossible for scripts to mutate
   client-owned state accidentally.
 
@@ -185,8 +193,8 @@ func Init() {
 - [x] Support global and per-character option scopes.
 - [x] Add typed storage helpers for string, bool, integer, decimal, string
   slices, and JSON-safe structs.
-- [x] Use an explicit stable script ID for storage. Display name and author
-  edits must not orphan saved data.
+- [x] Use a stable script ID for storage, with the filename as a convenient
+  default for local drafts. Display metadata edits must not orphan saved data.
 - [x] Add a storage schema version and a migration hook.
 - [x] Make writes crash-safe and flush at lifecycle boundaries.
 
@@ -201,13 +209,29 @@ func Init() {
   scripts.
 - [x] Add a New Script action with tiny templates for command, hotkey/click,
   chat event, and equipment sequence scripts.
-- [ ] Treat bundled examples as an opt-in library, similar to Legacy Macros,
+- [x] Treat bundled examples as an opt-in library, similar to Legacy Macros,
   instead of copying every embedded source into the live scripts directory.
-- [ ] Never overwrite a locally edited script when bundled examples update.
-- [ ] Clearly distinguish Disabled, Running, Reload Failed (old version still
+- [x] Never overwrite a locally edited script when bundled examples update.
+- [x] Clearly distinguish Disabled, Running, Reload Failed (old version still
   running), and Stopped After Error.
-- [ ] Put ordinary script messages in the console and reserve debug logging for
+- [x] Put ordinary script messages in the console and reserve debug logging for
   registration/event traces.
+
+## 2.0 cleanup and cutover
+
+- [ ] Migrate every bundled script to the canonical 2.0 API before finalizing
+  the public surface.
+- [ ] Remove public v1 aliases and redundant entry points, including old
+  command, timing, hotkey, chat-trigger, input-text, inventory, and storage
+  spellings.
+- [ ] Remove raw polling APIs where a structured subscription or snapshot is
+  the normal solution.
+- [ ] Remove internal compatibility wrappers and tests that exist only to
+  preserve the abandoned API.
+- [x] Never rewrite user scripts automatically. Example installation is
+  explicit and refuses to replace an existing file.
+- [ ] Set and document the finished scripting API as version 2 after the
+  surface and bundled examples are settled.
 
 ## Editor and validation tooling
 
@@ -241,34 +265,23 @@ sleeping the test process:
 - [ ] Scanner: typed server messages and several independent subscriptions.
 - [ ] Long-running timer: cancellation and cleanup during reload.
 
-## Compatibility and migration
-
-- [ ] Freeze and document API v1 behavior before introducing v2.
-- [ ] Keep v1 symbols as adapters where they can be supported safely.
-- [ ] Emit one clear deprecation message per script, not one per call.
-- [ ] Migrate bundled scripts first and use the migration to refine the API.
-- [ ] Provide a short v1-to-v2 mapping guide.
-- [ ] Do not modify user scripts automatically.
-- [ ] Do not change a script's storage identity without an explicit migration.
-
 ## Suggested implementation order
 
-1. Repair the integration tests and add API/stub contract coverage.
-2. Fix reload, cleanup, hotkey persistence, output, and storage flushing.
-3. Introduce the serialized per-script dispatcher and atomic lifecycle.
-4. Define the minimal v2 surface: `Command`, `Bind`, `Send`, `WaitTicks`,
-   structured events, and read-only state.
-5. Implement typed settings and storage.
-6. Rebuild the Scripts window around validation, errors, configuration, and
-   atomic reload.
-7. Convert the proof scripts, then document and freeze API v2.
+1. Finish the Scripts window, optional example library, and clear runtime
+   diagnostics.
+2. Migrate bundled scripts, then delete every redundant public and internal
+   compatibility API.
+3. Establish one canonical API definition and ship matching editor support.
+4. Add validation and deterministic event simulation to the normal test suite.
+5. Convert and test the proof scripts without real-time sleeps.
+6. Document the final surface and declare scripting API version 2.
 
 ## Definition of done
 
 - A new user can create a working command or click script from the UI without
   knowing repository layout, build tags, Yaegi, goroutines, or JSON files.
 - Dice roll, Bard instruments, Rangery, quick reply, and a counter/scanner are
-  shorter or clearer than their legacy equivalents.
+  short, readable examples for nontechnical authors.
 - Saving a valid edit reloads it; saving a broken edit reports the line and
   leaves the prior version running.
 - Disabling or reloading a script leaves no commands, callbacks, timers,
@@ -276,5 +289,6 @@ sleeping the test process:
 - Script hotkey and configuration choices survive reload and restart.
 - `gt.Print` is always visible, and failures are never silently discarded.
 - Runtime exports, editor stubs, reference documentation, and examples agree.
+- Each normal action has one documented public API; no v1 aliases remain.
 - The normal test suite exercises script loading, core API calls, events,
   cleanup, reload failure, and persistence.
