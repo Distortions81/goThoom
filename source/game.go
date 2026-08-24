@@ -1402,6 +1402,10 @@ func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
 	return image.Rect(left, top, left+w, top+h), scale
 }
 
+func localImageBounds(bounds image.Rectangle) image.Rectangle {
+	return image.Rect(0, 0, bounds.Dx(), bounds.Dy())
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	now := time.Now()
 	drawFrameNow = now
@@ -1759,7 +1763,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			size = img.Bounds().Dx()
 		}
 		addMobileLightCaster(float64(x), float64(y), size, mobileSpriteMetricsFor(curKey, img))
-		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, screen.Bounds())
+		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, localImageBounds(screen.Bounds()))
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
@@ -2190,8 +2194,12 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	fx, fy := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h)
 	x, y := roundToInt(fx), roundToInt(fy)
-
-	addPictureLightSource(uint32(p.PictID), p.H, p.V, fx, fy, w, h, logicalFrame, alpha, screen.Bounds())
+	filter := worldArtworkFilter()
+	left, right := filteredSpriteSpan(fx, w, gs.GameScale, filter)
+	top, bottom := filteredSpriteSpan(fy, h, gs.GameScale, filter)
+	lightX := (left + right) / 2
+	lightY := (top + bottom) / 2
+	addPictureLightSource(uint32(p.PictID), p.H, p.V, lightX, lightY, w, h, logicalFrame, alpha, localImageBounds(screen.Bounds()))
 
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)
@@ -2238,10 +2246,8 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if src != nil {
 			drawW, drawH = src.Bounds().Dx(), src.Bounds().Dy()
 		}
-		left, right := scaledSpriteSpan(fx, w, gs.GameScale)
-		top, bottom := scaledSpriteSpan(fy, h, gs.GameScale)
-		targetW := float64(right - left)
-		targetH := float64(bottom - top)
+		targetW := right - left
+		targetH := bottom - top
 		if targetW <= 0 && drawW > 0 {
 			targetW = float64(drawW)
 		}
@@ -2257,10 +2263,10 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			sy = targetH / float64(drawH)
 		}
 		op := acquireDrawOpts()
-		op.Filter = worldArtworkFilter()
+		op.Filter = filter
 		op.DisableMipmaps = true
 		op.GeoM.Scale(sx, sy)
-		op.GeoM.Translate(float64(left), float64(top))
+		op.GeoM.Translate(left, top)
 		if gs.pictAgainDebug && p.Again {
 			op.ColorScale.Scale(0, 0, 1, 1)
 		} else if src == img && gs.smoothingDebug && p.Moving {
@@ -2362,6 +2368,14 @@ func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobil
 func scaledSpriteSpan(center float64, size int, scale float64) (int, int) {
 	half := float64(size) * scale / 2
 	return roundToInt(center - half), roundToInt(center + half)
+}
+
+func filteredSpriteSpan(center float64, size int, scale float64, filter ebiten.Filter) (float64, float64) {
+	start, end := scaledSpriteSpan(center, size, scale)
+	if filter == ebiten.FilterLinear {
+		return float64(start) - 0.5, float64(end) + 0.5
+	}
+	return float64(start), float64(end)
 }
 
 func pictureAnimationInstanceKey(h, v int16) uint64 {

@@ -1,10 +1,19 @@
 package main
 
 import (
+	"image"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+func TestLocalImageBoundsRemovesSubimageOffset(t *testing.T) {
+	got := localImageBounds(image.Rect(17, 83, 657, 563))
+	want := image.Rect(0, 0, 640, 480)
+	if got != want {
+		t.Fatalf("local image bounds = %v, want %v", got, want)
+	}
+}
 
 func TestWorldArtworkFilterFollowsPixelArtSetting(t *testing.T) {
 	original := gs.PixelArtScaling
@@ -33,5 +42,20 @@ func TestScaledSpriteSpanKeepsSharedTileEdgesClosed(t *testing.T) {
 				t.Fatalf("scale %.3f offset %.2f produced a tile gap: left right=%d, right left=%d", scale, offset, leftRight, rightLeft)
 			}
 		}
+	}
+}
+
+func TestLinearFilteredTileSpansOverlapAtSharedEdges(t *testing.T) {
+	const scale = 1.37
+	_, leftRight := filteredSpriteSpan(84*scale, 32, scale, ebiten.FilterLinear)
+	rightLeft, _ := filteredSpriteSpan(116*scale, 32, scale, ebiten.FilterLinear)
+	if overlap := leftRight - rightLeft; overlap != 1 {
+		t.Fatalf("linear tile overlap = %v pixels, want 1", overlap)
+	}
+
+	_, nearestRight := filteredSpriteSpan(84*scale, 32, scale, ebiten.FilterNearest)
+	nearestLeft, _ := filteredSpriteSpan(116*scale, 32, scale, ebiten.FilterNearest)
+	if nearestRight != nearestLeft {
+		t.Fatalf("nearest tile edges = %v and %v, want a shared edge", nearestRight, nearestLeft)
 	}
 }

@@ -191,10 +191,12 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	lightingUniforms["ShadowCount"] = len(frameLightShadows)
 
 	// Fill light arrays
+	dstOriginX := float32(dst.Bounds().Min.X)
+	dstOriginY := float32(dst.Bounds().Min.Y)
 	for i := 0; i < len(il) && i < maxLights; i++ {
 		ls := il[i]
-		lposX[i] = ls.X
-		lposY[i] = ls.Y
+		lposX[i] = ls.X + dstOriginX
+		lposY[i] = ls.Y + dstOriginY
 		lradius[i] = ls.Radius * float32(lightRadiusScale)
 		lr[i] = ls.R
 		lg[i] = ls.G
@@ -210,8 +212,8 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	// Fill dark arrays
 	for i := 0; i < len(id) && i < maxLights; i++ {
 		ds := id[i]
-		dposX[i] = ds.X
-		dposY[i] = ds.Y
+		dposX[i] = ds.X + dstOriginX
+		dposY[i] = ds.Y + dstOriginY
 		dradius[i] = ds.Radius * float32(darkRadiusScale)
 		da[i] = ds.Alpha
 		dplane[i] = float32(ds.Plane)
@@ -225,15 +227,15 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	}
 	for i := 0; i < len(frameLightShadows); i++ {
 		shadow := frameLightShadows[i]
-		slightX[i] = shadow.LightX
-		slightY[i] = shadow.LightY
+		slightX[i] = shadow.LightX + dstOriginX
+		slightY[i] = shadow.LightY + dstOriginY
 		slightRadius[i] = shadow.LightRadius
 		slightR[i] = shadow.LightR
 		slightG[i] = shadow.LightG
 		slightB[i] = shadow.LightB
 		slightInt[i] = shadow.LightIntensity
-		scasterX[i] = shadow.CasterX
-		scasterY[i] = shadow.CasterY
+		scasterX[i] = shadow.CasterX + dstOriginX
+		scasterY[i] = shadow.CasterY + dstOriginY
 		scasterRadius[i] = shadow.CasterRadius
 	}
 
