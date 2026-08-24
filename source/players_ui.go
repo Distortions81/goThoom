@@ -531,20 +531,8 @@ func updatePlayersWindow() {
 		rowIndex++
 	}
 
-	// Size flows to client area like other text windows.
-	var extraH float32
-	if playersList.Parent != nil {
-		playersList.Parent.Size.X = clientWAvail
-		playersList.Parent.Size.Y = clientHAvail
-		for _, item := range playersList.Parent.Contents {
-			if item != playersList {
-				item.Size.X = clientWAvail
-				extraH += item.Size.Y
-			}
-		}
-	}
-	playersList.Size.X = clientWAvail
-	playersList.Size.Y = max(0, clientHAvail-extraH)
+	// Size the list below any docked toolbar rows.
+	sizeTextWindowList(playersList, clientWAvail, clientHAvail)
 	playersList.Scroll = prevScroll
 	searchPlayersWindow(playersWin.SearchText)
 	if selectedRow != nil {

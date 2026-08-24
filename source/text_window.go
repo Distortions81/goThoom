@@ -55,6 +55,29 @@ func makeTextWindow(title string, hz eui.HZone, vz eui.VZone, withInput bool) (*
 	return win, list, input
 }
 
+// sizeTextWindowList fits a scrolling list below any fixed sibling rows, such
+// as the docked toolbar. Those rows occupy part of the window's client area and
+// must not be included in the list's viewport height.
+func sizeTextWindowList(list *eui.ItemData, clientW, clientH float32) {
+	if list == nil {
+		return
+	}
+	extraH := float32(0)
+	if list.Parent != nil {
+		list.Parent.Size.X = clientW
+		list.Parent.Size.Y = clientH
+		for _, item := range list.Parent.Contents {
+			if item == list {
+				continue
+			}
+			item.Size.X = clientW
+			extraH += item.Size.Y
+		}
+	}
+	list.Size.X = clientW
+	list.Size.Y = max(0, clientH-extraH)
+}
+
 // newTextWindow wraps makeTextWindow and assigns a resize handler that
 // invokes the provided update callback.
 func newTextWindow(name string, hz eui.HZone, vz eui.VZone, hasInput bool, update func()) (*eui.WindowData, *eui.ItemData, *eui.ItemData) {

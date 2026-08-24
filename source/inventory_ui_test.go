@@ -236,3 +236,21 @@ func TestInventoryIconUpdateMarksWindowDirty(t *testing.T) {
 		t.Fatalf("inventory window was not marked dirty")
 	}
 }
+
+func TestSizeTextWindowListSubtractsDockedRows(t *testing.T) {
+	parent := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	toolbar := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	toolbar.Size = eui.Point{X: 300, Y: 60}
+	list := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true, Scrollable: true}
+	parent.AddItem(toolbar)
+	parent.AddItem(list)
+
+	sizeTextWindowList(list, 300, 200)
+
+	if got, want := list.Size.Y, float32(140); got != want {
+		t.Fatalf("list height = %v, want %v after docked rows", got, want)
+	}
+	if got, want := list.Size.X, float32(300); got != want {
+		t.Fatalf("list width = %v, want %v", got, want)
+	}
+}

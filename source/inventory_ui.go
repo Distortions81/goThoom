@@ -235,12 +235,7 @@ func updateInventoryWindow() {
 	}
 
 	if inventoryWin != nil {
-		if inventoryList.Parent != nil {
-			inventoryList.Parent.Size.X = clientWAvail
-			inventoryList.Parent.Size.Y = clientHAvail
-		}
-		inventoryList.Size.X = clientWAvail
-		inventoryList.Size.Y = clientHAvail
+		sizeTextWindowList(inventoryList, clientWAvail, clientHAvail)
 		inventoryList.Scroll = prevScroll
 		searchInventoryWindow(inventoryWin.SearchText)
 	}
