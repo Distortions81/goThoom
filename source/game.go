@@ -1439,10 +1439,14 @@ func worldDrawInfo() (int, int, float64) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	now := time.Now()
+	drawFrameNow = now
+	defer func() { drawFrameNow = time.Time{} }()
+
 	// Power-save throttling: measure draw duration and sleep remaining time
 	// to achieve the requested FPS when active.
 	if gs.PowerSaveAlways || (!ebiten.IsFocused() && gs.PowerSaveBackground) {
-		frameStart := time.Now()
+		frameStart := now
 		fps := gs.PowerSaveFPS
 		if fps < 1 {
 			fps = 1
@@ -1458,8 +1462,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}()
 	}
 	worldOriginX, worldOriginY, worldScale = worldDrawInfo()
-	// Cache now for the whole draw to reduce time.Now overhead.
-	now := time.Now()
 
 	//Reduce render load while seeking clMov
 	if seekingMov {
@@ -1647,6 +1649,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 var lastSeekPrev time.Time
+var drawFrameNow time.Time
 
 func drawRecPlayBadge(dst *ebiten.Image) {
 	// Only show when actively recording/armed or playing back.
@@ -1656,7 +1659,7 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 		return
 	}
 	// Pulse alpha between ~0.5 and 1.0
-	t := float64(time.Now().UnixNano()) / 1e9
+	t := float64(drawFrameNow.UnixNano()) / 1e9
 	s := 0.5 + 0.5*math.Sin(t*2*math.Pi/1.6)
 	alpha := 0.6 + 0.4*s
 	var base color.RGBA
@@ -2530,7 +2533,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			lastHoverMu.Lock()
 			hovered := lastHover.OnMobile && lastHover.Mobile.Index == m.Index
 			lastHoverMu.Unlock()
-			nameRevealAlpha = nameTagHoverAlpha(m.Index, d.Name, hovered, time.Now())
+			nameRevealAlpha = nameTagHoverAlpha(m.Index, d.Name, hovered, drawFrameNow)
 			showName = nameRevealAlpha > 0
 		}
 		nameAlpha := uint8(gs.NameBgOpacity*255 + 0.5)
@@ -2573,32 +2576,10 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 			}
 			playersMu.RUnlock()
-			if m.nameTag != nil && m.nameTagKey.FontGen == fontGen && m.nameTagKey.Opacity == nameAlpha && m.nameTagKey.Text == d.Name && m.nameTagKey.Colors == m.Colors && m.nameTagKey.Type == d.Type && m.nameTagKey.HealthOptions == nameHealthOptionsKey() && m.nameTagKey.Style == style && m.nameTagKey.Dead == dead {
-				top := y + int(offset)
-				left := x - int(float64(m.nameTagW)/2)
-				op := acquireDrawOpts()
-				op.Filter = ebiten.FilterNearest
-				op.DisableMipmaps = true
-				op.ColorScale.ScaleAlpha(nameRevealAlpha)
-				op.GeoM.Translate(float64(left), float64(top))
-				screen.DrawImage(m.nameTag, op)
-				releaseDrawOpts(op)
-			} else {
-				// Rebuild the cached name tag image on mismatch to avoid per-frame vector draws.
-				// Respect label color frames if enabled.
-				frameClr := color.RGBA{}
-				if gs.NameTagLabelColors {
-					playersMu.RLock()
-					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
-						lc := labelColors[p.FriendLabel-1]
-						frameClr = color.RGBA{lc.R, lc.G, lc.B, 0xff}
-					}
-					playersMu.RUnlock()
-				}
-				if frameClr.A > 0 {
-					frameClr.A = nameAlpha
-				}
-				img, iw, ih := buildNameTagImage(d.Name, m.Colors, d.Type, nameAlpha, style, dead, frameClr)
+			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead)
+			img, iw, ih := m.nameTag, m.nameTagW, m.nameTagH
+			if img == nil || m.nameTagKey != key {
+				img, iw, ih = sharedNameTagImage(key)
 				if img != nil {
 					// Update shared cache so next frames reuse this image.
 					stateMu.Lock()
@@ -2606,21 +2587,32 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 						sm.nameTag = img
 						sm.nameTagW = iw
 						sm.nameTagH = ih
-						sm.nameTagKey = nameTagKey{Text: d.Name, Colors: m.Colors, Type: d.Type, HealthOptions: nameHealthOptionsKey(), Opacity: nameAlpha, FontGen: fontGen, Style: style, Dead: dead}
+						sm.nameTagKey = key
 						state.mobiles[m.Index] = sm
 					}
 					stateMu.Unlock()
-
-					top := y + int(offset)
-					left := x - int(float64(iw)/2)
-					op := acquireDrawOpts()
-					op.Filter = ebiten.FilterNearest
-					op.DisableMipmaps = true
-					op.ColorScale.ScaleAlpha(nameRevealAlpha)
-					op.GeoM.Translate(float64(left), float64(top))
-					screen.DrawImage(img, op)
-					releaseDrawOpts(op)
 				}
+			}
+			if img != nil {
+				top := y + int(offset)
+				left := x - int(float64(iw)/2)
+				barHeight := 0
+				barClr, showHealthBar := mobileHealthBarColor(m.Colors, d.Type)
+				if gs.NameHealthBarModern && showHealthBar {
+					barHeight = gs.NameHealthBarThickness
+				}
+				nameY, barY := nameHealthBarOffsets(ih, barHeight, gs.NameHealthBarAbove)
+				if barHeight > 0 {
+					barClr.A = uint8(float32(barClr.A) * nameRevealAlpha)
+					vector.FillRect(screen, float32(left+1), float32(top+barY), float32(iw-2), float32(barHeight), barClr, false)
+				}
+				op := acquireDrawOpts()
+				op.Filter = ebiten.FilterNearest
+				op.DisableMipmaps = true
+				op.ColorScale.ScaleAlpha(nameRevealAlpha)
+				op.GeoM.Translate(float64(left), float64(top+nameY))
+				screen.DrawImage(img, op)
+				releaseDrawOpts(op)
 			}
 		} else {
 			drawGenericBar()

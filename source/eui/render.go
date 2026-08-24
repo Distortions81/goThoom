@@ -19,6 +19,7 @@ const shadowAlphaDivisor = 16
 
 var dumpDone bool
 var zoneIndicatorWin *windowData
+var renderNow time.Time
 
 var dropdownReuse []openDropdown
 
@@ -61,6 +62,9 @@ func itemFace(item *itemData, size float32) text.Face {
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
+	renderNow = time.Now()
+	defer func() { renderNow = time.Time{} }()
+
 	zoneIndicatorWin = nil
 	dropdowns := dropdownReuse[:0]
 	if cap(dropdowns) < len(windows) {
@@ -70,7 +74,7 @@ func Draw(screen *ebiten.Image) {
 		if !win.Open {
 			continue
 		}
-		if win.refreshPending && (win.lastRefresh.IsZero() || time.Since(win.lastRefresh) >= win.refreshInterval) {
+		if win.refreshPending && (win.lastRefresh.IsZero() || renderNow.Sub(win.lastRefresh) >= win.refreshInterval) {
 			win.refreshPending = false
 			win.Dirty = true
 		}
@@ -283,7 +287,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		win.drawBorder(win.Render)
 		win.Position = origPos
 		win.Dirty = false
-		win.lastRefresh = time.Now()
+		win.lastRefresh = renderNow
 	} else {
 		win.collectDropdowns(dropdowns)
 	}
@@ -812,7 +816,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				w = float32(defaultTabWidth) * uiScale
 			}
 			col := style.Color
-			if time.Since(tab.Clicked) < clickFlash {
+			if renderNow.Sub(tab.Clicked) < clickFlash {
 				col = style.ClickColor
 			} else if i == item.ActiveTab {
 				if !item.ActiveOutline {
@@ -1196,7 +1200,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			subImg.DrawImage(item.Image, sop)
 		} else {
 			itemColor := style.Color
-			if time.Since(item.Clicked) < clickFlash {
+			if renderNow.Sub(item.Clicked) < clickFlash {
 				itemColor = style.ClickColor
 			} else if item.Hovered {
 				itemColor = style.HoverColor
@@ -1722,7 +1726,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		if item.Indeterminate {
 			// Barber pole: animate diagonal stripes moving to the right
 			stripeW := float32(8) * uiScale
-			offsetAnim := float32((time.Now().UnixNano()/int64(time.Millisecond))%1000) / 1000.0 * stripeW * 2
+			offsetAnim := float32((renderNow.UnixNano()/int64(time.Millisecond))%1000) / 1000.0 * stripeW * 2
 			bg := style.HoverColor.ToRGBA()
 			// Fill base with hover color
 			drawRoundRect(subImg, &roundRect{Size: track, Position: offset, Fillet: item.Fillet, Filled: true, Color: Color(bg)})

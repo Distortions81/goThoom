@@ -29,6 +29,7 @@ var fontGen uint32
 func initFont() {
 	fontGen++
 	clearBubbleTextCaches()
+	clearSharedNameTagCache()
 	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"image/color"
 	"reflect"
 	"testing"
 	"time"
@@ -13,6 +14,8 @@ import (
 )
 
 func TestReuseCachedNameTagFromPreviousFrame(t *testing.T) {
+	clearSharedNameTagCache()
+	t.Cleanup(clearSharedNameTagCache)
 	key := nameTagKey{Text: "Busy", FontGen: 7}
 	image := new(ebiten.Image)
 	previous := map[uint8]frameMobile{
@@ -27,6 +30,52 @@ func TestReuseCachedNameTagFromPreviousFrame(t *testing.T) {
 	}
 	if reuseCachedNameTag(&mobile, previous, nameTagKey{Text: "Changed", FontGen: 7}) {
 		t.Fatal("name tag with a changed key was reused")
+	}
+}
+
+func TestReuseCachedNameTagFromSharedCache(t *testing.T) {
+	clearSharedNameTagCache()
+	t.Cleanup(clearSharedNameTagCache)
+	key := nameTagKey{Text: "Returning", FontGen: 9, FrameColor: color.RGBA{R: 12, G: 34, B: 56, A: 200}}
+	image := new(ebiten.Image)
+	sharedNameTagCache[key] = cachedNameTagImage{image: image, width: 48, height: 14}
+
+	mobile := frameMobile{Index: 7}
+	if !reuseCachedNameTag(&mobile, nil, key) {
+		t.Fatal("shared name tag was not reused")
+	}
+	if mobile.nameTag != image || mobile.nameTagW != 48 || mobile.nameTagH != 14 || mobile.nameTagKey != key {
+		t.Fatal("shared name tag cache was not copied completely")
+	}
+	changedFrame := key
+	changedFrame.FrameColor.R++
+	if reuseCachedNameTag(&frameMobile{Index: 7}, nil, changedFrame) {
+		t.Fatal("name tag with a changed frame color was reused")
+	}
+
+	clearSharedNameTagCacheFor(key.Text)
+	if reuseCachedNameTag(&frameMobile{Index: 7}, nil, key) {
+		t.Fatal("name-specific cache clear retained the shared name tag")
+	}
+}
+
+func TestModernDarkNameTagKeyIgnoresSeparateHealthBarColor(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.NameHealthBarModern = true
+	gs.DarkBubblesAndNames = true
+
+	green := makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
+	red := makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
+	if green != red {
+		t.Fatal("modern dark name-tag surface key changed with separately drawn health color")
+	}
+
+	gs.DarkBubblesAndNames = false
+	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
+	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
+	if green == red {
+		t.Fatal("classic-colored name-tag surface key ignored its background color")
 	}
 }
 

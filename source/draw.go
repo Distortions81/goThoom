@@ -62,18 +62,19 @@ type nameTagKey struct {
 	FontGen       uint32
 	Style         uint8
 	Dead          bool
+	FrameColor    color.RGBA
 }
 
 func reuseCachedNameTag(m *frameMobile, previous map[uint8]frameMobile, key nameTagKey) bool {
 	prev, ok := previous[m.Index]
-	if !ok || prev.nameTag == nil || prev.nameTagKey != key {
-		return false
+	if ok && prev.nameTag != nil && prev.nameTagKey == key {
+		m.nameTag = prev.nameTag
+		m.nameTagW = prev.nameTagW
+		m.nameTagH = prev.nameTagH
+		m.nameTagKey = prev.nameTagKey
+		return true
 	}
-	m.nameTag = prev.nameTag
-	m.nameTagW = prev.nameTagW
-	m.nameTagH = prev.nameTagH
-	m.nameTagKey = prev.nameTagKey
-	return true
+	return reuseSharedNameTag(m, key)
 }
 
 const (
@@ -650,7 +651,6 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 		return nil, 0, 0
 	}
 	textClr, bgClr, _ := mobileNameColors(colorCode)
-	barClr, showHealthBar := mobileHealthBarColor(colorCode, descriptorType)
 	if !gs.NameHealthBarModern && descriptorType == kDescPlayer {
 		textClr, bgClr, _ = classicMobileNameColors(colorCode)
 	}
@@ -675,16 +675,10 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 	if iw <= 0 || ih <= 0 {
 		iw, ih = 1, 1
 	}
-	barHeight := 0
-	if gs.NameHealthBarModern && showHealthBar {
-		barHeight = gs.NameHealthBarThickness
-	}
-	nameY, barY := nameHealthBarOffsets(ih, barHeight, gs.NameHealthBarAbove)
-	img := newImage(iw+5, ih+barHeight)
+	img := newImage(iw+5, ih)
 	// Fill background
 	op := acquireDrawOpts()
 	op.GeoM.Scale(float64(iw+5), float64(ih))
-	op.GeoM.Translate(0, float64(nameY))
 	op.ColorScale.ScaleWithColor(bgClr)
 	op.ColorScale.ScaleAlpha(float32(opacity) / 255)
 	img.DrawImage(whiteImage, op)
@@ -693,21 +687,17 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 		// Border aligned to the filled background.
 		width := float32(iw + 5)
 		height := float32(ih)
-		nameTop := float32(nameY)
-		vector.FillRect(img, 0, nameTop, width, 1, frameClr, false)
-		vector.FillRect(img, 0, nameTop+height-1, width, 1, frameClr, false)
-		vector.FillRect(img, 0, nameTop, 1, height, frameClr, false)
-		vector.FillRect(img, width-1, nameTop, 1, height, frameClr, false)
-	}
-	if barHeight > 0 {
-		vector.FillRect(img, 1, float32(barY), float32(iw+3), float32(barHeight), barClr, false)
+		vector.FillRect(img, 0, 0, width, 1, frameClr, false)
+		vector.FillRect(img, 0, height-1, width, 1, frameClr, false)
+		vector.FillRect(img, 0, 0, 1, height, frameClr, false)
+		vector.FillRect(img, width-1, 0, 1, height, frameClr, false)
 	}
 	// Text
 	opTxt := &text.DrawOptions{}
-	opTxt.GeoM.Translate(2, float64(nameY+2))
+	opTxt.GeoM.Translate(2, 2)
 	opTxt.ColorScale.ScaleWithColor(textClr)
 	text.Draw(img, name, face, opTxt)
-	return img, iw + 5, ih + barHeight
+	return img, iw + 5, ih
 }
 
 func nameHealthBarOffsets(nameHeight, barHeight int, above bool) (nameY, barY int) {
@@ -718,14 +708,10 @@ func nameHealthBarOffsets(nameHeight, barHeight int, above bool) (nameY, barY in
 }
 
 func nameHealthOptionsKey() uint16 {
-	key := uint16(gs.NameHealthBarThickness & 0x0f)
 	if gs.NameHealthBarModern {
-		key |= 1 << 4
+		return 1
 	}
-	if gs.NameHealthBarAbove {
-		key |= 1 << 5
-	}
-	return key
+	return 0
 }
 
 // pictureShift returns the (dx, dy) movement that most on-screen pictures agree on
@@ -1616,30 +1602,10 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				}
 			}
 			playersMu.RUnlock()
-			key := nameTagKey{
-				Text:          d.Name,
-				Colors:        m.Colors,
-				Type:          d.Type,
-				HealthOptions: nameHealthOptionsKey(),
-				Opacity:       uint8(gs.NameBgOpacity*255 + 0.5),
-				FontGen:       fontGen,
-				Style:         style,
-				Dead:          dead,
-			}
+			opacity := uint8(gs.NameBgOpacity*255 + 0.5)
+			key := makeNameTagKey(d.Name, m.Colors, d.Type, opacity, style, dead)
 			if !reuseCachedNameTag(&m, previousMobiles, key) {
-				frame := color.RGBA{}
-				if gs.NameTagLabelColors {
-					playersMu.RLock()
-					if p, ok := players[d.Name]; ok && p.FriendLabel > 0 && p.FriendLabel <= len(labelColors) {
-						lc := labelColors[p.FriendLabel-1]
-						frame = color.RGBA{lc.R, lc.G, lc.B, 0xff}
-					}
-					playersMu.RUnlock()
-				}
-				if frame.A > 0 {
-					frame.A = uint8(gs.NameBgOpacity*255 + 0.5)
-				}
-				img, iw, ih := buildNameTagImage(d.Name, m.Colors, d.Type, uint8(gs.NameBgOpacity*255+0.5), style, dead, frame)
+				img, iw, ih := sharedNameTagImage(key)
 				m.nameTag = img
 				m.nameTagW = iw
 				m.nameTagH = ih

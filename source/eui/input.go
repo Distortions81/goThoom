@@ -27,6 +27,7 @@ var (
 
 	activeSearch     *windowData
 	selectedTextItem *itemData
+	updateNow        time.Time
 
 	inputBuf []rune
 )
@@ -40,6 +41,7 @@ var (
 // Update processes input and updates window state.
 // Programs embedding the UI can call this from their Ebiten Update handler.
 func Update() error {
+	updateNow = time.Now()
 	checkThemeStyleMods()
 	pointerPressHandled = false
 
@@ -592,7 +594,7 @@ func Update() error {
 				btn := activeWindow.DefaultButton
 				if !btn.Disabled && !btn.Invisible {
 					activeItem = btn
-					btn.Clicked = time.Now()
+					btn.Clicked = updateNow
 					if btn.Handler != nil {
 						btn.Handler.Emit(UIEvent{Item: btn, Type: EventClick})
 					}
@@ -681,7 +683,7 @@ func Update() error {
 
 	for _, win := range windows {
 		if win.Open {
-			clearExpiredClicks(win.Contents)
+			clearExpiredClicksAt(win.Contents, updateNow)
 		}
 	}
 
@@ -746,7 +748,7 @@ func (item *itemData) clickFlows(mpos point, click bool) bool {
 				hoveredItem = tab
 				if click {
 					activeItem = tab
-					tab.Clicked = time.Now()
+					tab.Clicked = updateNow
 					item.ActiveTab = i
 				}
 				return true
@@ -800,7 +802,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 
 	if click {
 		activeItem = item
-		item.Clicked = time.Now()
+		item.Clicked = updateNow
 		if (item.ItemType == ITEM_TEXT || item.ItemType == ITEM_INPUT) && item.SelectableText {
 			idx := item.cursorIndexAt(mpos)
 			item.SelectStart = idx
@@ -1078,20 +1080,20 @@ func subUncheckRadio(list []*itemData, group string, except *itemData) {
 	}
 }
 
-func clearExpiredClicks(list []*itemData) {
+func clearExpiredClicksAt(list []*itemData, now time.Time) {
 	for _, it := range list {
-		if !it.Clicked.IsZero() && time.Since(it.Clicked) >= clickFlash {
+		if !it.Clicked.IsZero() && now.Sub(it.Clicked) >= clickFlash {
 			it.Clicked = time.Time{}
 			it.markDirty()
 		}
 		for _, tab := range it.Tabs {
-			if !tab.Clicked.IsZero() && time.Since(tab.Clicked) >= clickFlash {
+			if !tab.Clicked.IsZero() && now.Sub(tab.Clicked) >= clickFlash {
 				tab.Clicked = time.Time{}
 				tab.markDirty()
 			}
-			clearExpiredClicks(tab.Contents)
+			clearExpiredClicksAt(tab.Contents, now)
 		}
-		clearExpiredClicks(it.Contents)
+		clearExpiredClicksAt(it.Contents, now)
 	}
 }
 

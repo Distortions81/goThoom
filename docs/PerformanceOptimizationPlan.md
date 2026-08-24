@@ -146,6 +146,12 @@ The iGPU preset already disables audio enhancement and high-quality resampling.
 
 ### Chat and text
 
+- Completed: cache rendered name-tag images globally by every visual input,
+  including friend-label frame color, and reuse them across mobile indexes and
+  disappear/reappear cycles. The 31,908-packet tour improved from 378.0ms to
+  309.8ms per pass; allocations fell from 100.2MB/661,867 objects to
+  67.6MB/450,949 objects. Modern health bars are composed separately so health
+  color changes reuse the same cached text surface.
 - Incrementally wrap newly appended chat text rather than remeasuring unchanged
   content.
 - Cache text layouts using bounded caches that are cleared when font or scale
