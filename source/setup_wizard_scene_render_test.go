@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
@@ -75,6 +76,11 @@ func (g *setupWizardSceneRenderGame) Update() error {
 }
 
 func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
+	if err := verifyLightingCoordinates(); err != nil {
+		g.err = err
+		g.rendered = true
+		return
+	}
 	initFont()
 	for _, mode := range []setupWizardSceneMode{setupWizardSceneDay, setupWizardSceneIndoor, setupWizardSceneNight, setupWizardSceneMotion} {
 		setupWizardSceneModeValue = mode
@@ -93,9 +99,6 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		canvas := backing.SubImage(image.Rect(offsetX, offsetY, offsetX+gameAreaSizeX, offsetY+gameAreaSizeY)).(*ebiten.Image)
 		canvas.Fill(color.RGBA{R: 28, G: 32, B: 38, A: 255})
 		nightAlphaInited = false
-		havePrev = false
-		prevLights = nil
-		prevDarks = nil
 		drawScene(canvas, 0, 0, snap, alpha, mobileFade, pictFade)
 		if gs.ShaderLighting {
 			addNightDarkSources(canvas.Bounds(), float32(alpha))
@@ -110,6 +113,52 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		}
 	}
 	g.rendered = true
+}
+
+func verifyLightingCoordinates() error {
+	render := func(offsetX, offsetY, lightX, lightY int, interpolation float32) []byte {
+		const width, height = 128, 96
+		backing := ebiten.NewImage(width+offsetX, height+offsetY)
+		bounds := image.Rect(offsetX, offsetY, offsetX+width, offsetY+height)
+		canvas := backing.SubImage(bounds).(*ebiten.Image)
+		canvas.Fill(color.RGBA{R: 32, G: 40, B: 48, A: 255})
+
+		frameLightCasters = frameLightCasters[:0]
+		applyLightingShader(canvas, []lightSource{{
+			X:         float32(bounds.Min.X + lightX),
+			Y:         float32(bounds.Min.Y + lightY),
+			Radius:    36,
+			R:         1,
+			G:         0.5,
+			B:         0.2,
+			Intensity: 1,
+		}}, nil, interpolation)
+
+		pixels := make([]byte, 4*width*height)
+		canvas.ReadPixels(pixels)
+		return pixels
+	}
+
+	zeroOrigin := render(0, 0, 43, 37, 1)
+	offsetOrigin := render(37, 29, 43, 37, 1)
+	if !bytes.Equal(zeroOrigin, offsetOrigin) {
+		return fmt.Errorf("lighting changed when only the destination subimage origin changed")
+	}
+
+	render(0, 0, 24, 48, 1)
+	moved := render(0, 0, 104, 48, 0)
+	brightest := 0
+	for i := 4; i < len(moved); i += 4 {
+		if int(moved[i])+int(moved[i+1])+int(moved[i+2]) > int(moved[brightest])+int(moved[brightest+1])+int(moved[brightest+2]) {
+			brightest = i
+		}
+	}
+	pixel := brightest / 4
+	brightestX, brightestY := pixel%128, pixel/128
+	if brightestX < 96 || brightestX > 112 || brightestY < 40 || brightestY > 56 {
+		return fmt.Errorf("moving light remained near a stale position: brightest pixel is (%d, %d)", brightestX, brightestY)
+	}
+	return nil
 }
 
 func (g *setupWizardSceneRenderGame) Layout(_, _ int) (int, int) {

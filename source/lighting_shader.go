@@ -53,14 +53,6 @@ const (
 	shaderNightStrength = 0.96
 )
 
-// Growth factors for new lights/darks and shrink for fading items
-const (
-	newLightStartRadiusFactor = 0.001 // start at 10% of target radius
-	newDarkStartRadiusFactor  = 0.001 // start at 10% of target radius
-	fadeEndRadiusFactor       = 0.001 // shrink to 10% radius by fade end
-	radiusGrowFrames          = 5.0   // grow to full radius over N game frames
-)
-
 func init() {
 	if err := ReloadLightingShader(); err != nil {
 		panic(err)
@@ -184,9 +176,10 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	ensureLightingTmp(w, h)
 	lightingTmp.DrawImage(dst, nil)
 
-	// Use already-interpolated positions and smooth attributes
-	il := interpolateLights(lights, t)
-	id := interpolateDarks(darks, t)
+	// Scene positions and flicker are already interpolated. Use only this draw's
+	// sources so stale positions cannot feed back and accumulate across frames.
+	il := lights[:min(len(lights), maxLights)]
+	id := darks[:min(len(darks), maxLights)]
 	frameLightShadows = buildLightShadows(il, frameLightCasters, frameLightShadows[:0])
 
 	// Update counts
@@ -194,8 +187,8 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	lightingUniforms["DarkCount"] = len(id)
 	lightingUniforms["ShadowCount"] = len(frameLightShadows)
 
-	// Fragment positions are local to the shader rectangle. Light and dark
-	// sources are stored in the destination image's coordinate space.
+	// Shader distance calculations use source-pixel coordinates, which are local
+	// to the temporary image. Sources are stored in destination-image coordinates.
 	dstBounds := dst.Bounds()
 	for i := 0; i < len(il) && i < maxLights; i++ {
 		ls := il[i]
@@ -745,13 +738,6 @@ func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeom
 	}
 }
 
-// Previous frame lighting state for temporal blending
-var (
-	prevLights []lightSource
-	prevDarks  []darkSource
-	havePrev   bool
-)
-
 // smoothstep easing for temporal interpolation
 func ease(t float32) float32 {
 	if t <= 0 {
@@ -765,208 +751,9 @@ func ease(t float32) float32 {
 
 func lerpf(a, b, t float32) float32 { return a + (b-a)*t }
 
-// Faster drop for items that are removed: starts dimming immediately.
-func fadeOut(u float32) float32 {
-	x := 1 - u
-	return x * x // quadratic falloff
-}
-
 // squared distance
 func dist2(ax, ay, bx, by float32) float32 {
 	dx := ax - bx
 	dy := ay - by
 	return dx*dx + dy*dy
-}
-
-// interpolateLights blends current lights with previous for smoother fades.
-func interpolateLights(curr []lightSource, t float32) []lightSource {
-	if len(curr) == 0 && !havePrev {
-		return curr
-	}
-	u := ease(t)
-	// If we have no previous, start small radius and grow during first interval.
-	if !havePrev {
-		out := make([]lightSource, min(len(curr), maxLights))
-		for i := 0; i < len(out); i++ {
-			out[i] = curr[i]
-			out[i].Intensity = 1
-			// start small and grow to desired radius over the interval
-			out[i].Radius = lerpf(curr[i].Radius*newLightStartRadiusFactor, curr[i].Radius, u)
-		}
-		// store prev for next frame (persist grown radius)
-		prevLights = cloneLights(out)
-		havePrev = true
-		return out
-	}
-
-	// Track matches
-	matchedPrev := make([]bool, len(prevLights))
-	out := make([]lightSource, 0, min(len(curr)+len(prevLights), maxLights))
-
-	// Greedy nearest match by position
-	for _, c := range curr {
-		best := -1
-		bestD2 := float32(1e12)
-		// position threshold scales with radius
-		thresh := c.Radius * 0.6
-		if thresh < 12 {
-			thresh = 12
-		} else if thresh > 96 {
-			thresh = 96
-		}
-		thresh2 := thresh * thresh
-		for j, p := range prevLights {
-			if matchedPrev[j] {
-				continue
-			}
-			d2 := dist2(c.X, c.Y, p.X, p.Y)
-			if d2 <= thresh2 && d2 < bestD2 {
-				bestD2 = d2
-				best = j
-			}
-		}
-		if best >= 0 {
-			p := prevLights[best]
-			matchedPrev[best] = true
-			// Positions already interpolated elsewhere; use current.
-			o := c
-			// Blend color/radius non-linearly
-			o.R = lerpf(p.R, c.R, u)
-			o.G = lerpf(p.G, c.G, u)
-			o.B = lerpf(p.B, c.B, u)
-			o.Radius = lerpf(p.Radius, c.Radius, u)
-			o.Intensity = 1
-			out = append(out, o)
-		} else {
-			// New light: start small radius and grow
-			o := c
-			o.Intensity = 1
-			o.Radius = lerpf(c.Radius*newLightStartRadiusFactor, c.Radius, u)
-			out = append(out, o)
-		}
-		if len(out) >= maxLights {
-			break
-		}
-	}
-	// Unmatched previous lights: fade out
-	if len(out) < maxLights {
-		for j, p := range prevLights {
-			if matchedPrev[j] {
-				continue
-			}
-			o := p
-			o.Intensity = fadeOut(u)
-			// shrink radius as it fades out
-			o.Radius = lerpf(p.Radius, p.Radius*fadeEndRadiusFactor, u)
-			out = append(out, o)
-			if len(out) >= maxLights {
-				break
-			}
-		}
-	}
-
-	// store blended result as previous for next frame
-	prevLights = cloneLights(out)
-	havePrev = true
-	return out
-}
-
-func interpolateDarks(curr []darkSource, t float32) []darkSource {
-	if len(curr) == 0 && !havePrev {
-		return curr
-	}
-	u := ease(t)
-	if !havePrev {
-		out := make([]darkSource, min(len(curr), maxLights))
-		for i := 0; i < len(out); i++ {
-			out[i] = curr[i]
-			out[i].Intensity = 1
-			out[i].Radius = lerpf(curr[i].Radius*newDarkStartRadiusFactor, curr[i].Radius, u)
-		}
-		prevDarks = cloneDarks(out)
-		havePrev = true
-		return out
-	}
-	matchedPrev := make([]bool, len(prevDarks))
-	out := make([]darkSource, 0, min(len(curr)+len(prevDarks), maxLights))
-	for _, c := range curr {
-		best := -1
-		bestD2 := float32(1e12)
-		thresh := c.Radius * 0.6
-		if thresh < 16 {
-			thresh = 16
-		} else if thresh > 128 {
-			thresh = 128
-		}
-		thresh2 := thresh * thresh
-		for j, p := range prevDarks {
-			if matchedPrev[j] {
-				continue
-			}
-			d2 := dist2(c.X, c.Y, p.X, p.Y)
-			if d2 <= thresh2 && d2 < bestD2 {
-				bestD2 = d2
-				best = j
-			}
-		}
-		if best >= 0 {
-			p := prevDarks[best]
-			matchedPrev[best] = true
-			o := c
-			o.Alpha = lerpf(p.Alpha, c.Alpha, u)
-			o.Radius = lerpf(p.Radius, c.Radius, u)
-			o.Intensity = 1
-			out = append(out, o)
-		} else {
-			o := c
-			o.Intensity = 1
-			o.Radius = lerpf(c.Radius*newDarkStartRadiusFactor, c.Radius, u)
-			out = append(out, o)
-		}
-		if len(out) >= maxLights {
-			break
-		}
-	}
-	if len(out) < maxLights {
-		for j, p := range prevDarks {
-			if matchedPrev[j] {
-				continue
-			}
-			o := p
-			o.Intensity = fadeOut(u)
-			o.Radius = lerpf(p.Radius, p.Radius*fadeEndRadiusFactor, u)
-			out = append(out, o)
-			if len(out) >= maxLights {
-				break
-			}
-		}
-	}
-	prevDarks = cloneDarks(out)
-	havePrev = true
-	return out
-}
-
-func cloneLights(in []lightSource) []lightSource {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]lightSource, len(in))
-	copy(out, in)
-	// stored prev state should be full intensity values
-	for i := range out {
-		out[i].Intensity = 1
-	}
-	return out
-}
-
-func cloneDarks(in []darkSource) []darkSource {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make([]darkSource, len(in))
-	copy(out, in)
-	for i := range out {
-		out[i].Intensity = 1
-	}
-	return out
 }

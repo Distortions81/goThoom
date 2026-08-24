@@ -168,9 +168,6 @@ func (g *shadowRenderGame) renderPointLightShadow() error {
 
 	gNight = NightInfo{Level: 75}
 	nightAlphaInited = false
-	havePrev = false
-	prevLights = nil
-	prevDarks = nil
 	frameLightCasters = frameLightCasters[:0]
 	metrics := mobileSpriteMetricsFor(makeMobileKey(447, 0, nil), visibleSprite)
 	addMobileLightCaster(400, 420, shadowTestDrawSize, metrics)
