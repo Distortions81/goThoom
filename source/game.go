@@ -2059,36 +2059,135 @@ func pictureDrawsAfterMobileAt(p framePicture, pictH, pictV int16, mobH, mobV in
 	return int(mobH) <= int(pictH)
 }
 
+func pictureMobileBoundsOverlap(pictH, pictV int16, pictW, pictHeight int, mob frameMobile, mobSize int) bool {
+	picL := int(pictH) - pictW/2
+	picT := int(pictV) - pictHeight/2
+	mobL := int(mob.H) - mobSize/2
+	mobT := int(mob.V) - mobSize/2
+	return picL < mobL+mobSize && mobL < picL+pictW &&
+		picT < mobT+mobSize && mobT < picT+pictHeight
+}
+
+const obscuringBlockSize = 128
+
+type obscuringBlockKey struct {
+	x int
+	y int
+}
+
+func obscuringBlockCoordinate(v int) int {
+	if v < 0 {
+		return -((-v + obscuringBlockSize - 1) / obscuringBlockSize)
+	}
+	return v / obscuringBlockSize
+}
+
+func obscuringBlockRange(h, v int16, width, height int) (minX, maxX, minY, maxY int) {
+	left := int(h) - width/2
+	top := int(v) - height/2
+	return obscuringBlockCoordinate(left), obscuringBlockCoordinate(left + width),
+		obscuringBlockCoordinate(top), obscuringBlockCoordinate(top + height)
+}
+
 func cachePictureObscuring(pictures []framePicture, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, logicalFrame int) {
 	if clImages == nil {
 		return
 	}
+	type candidate struct {
+		current    frameMobile
+		previous   frameMobile
+		descriptor frameDescriptor
+		size       int
+	}
+	candidates := make([]candidate, 0, len(mobiles))
+	currentBlocks := make(map[obscuringBlockKey][]int)
+	previousBlocks := make(map[obscuringBlockKey][]int)
+	for _, m := range mobiles {
+		d, ok := descMap[m.Index]
+		if !ok {
+			continue
+		}
+		size := mobileSize(d.PictID)
+		if size <= 0 {
+			continue
+		}
+		previous := m
+		if pm, ok := prevMobiles[m.Index]; ok {
+			previous = pm
+		}
+		candidateIndex := len(candidates)
+		candidates = append(candidates, candidate{current: m, previous: previous, descriptor: d, size: size})
+		minX, maxX, minY, maxY := obscuringBlockRange(m.H, m.V, size, size)
+		for blockY := minY; blockY <= maxY; blockY++ {
+			for blockX := minX; blockX <= maxX; blockX++ {
+				key := obscuringBlockKey{blockX, blockY}
+				currentBlocks[key] = append(currentBlocks[key], candidateIndex)
+			}
+		}
+		minX, maxX, minY, maxY = obscuringBlockRange(previous.H, previous.V, size, size)
+		for blockY := minY; blockY <= maxY; blockY++ {
+			for blockX := minX; blockX <= maxX; blockX++ {
+				key := obscuringBlockKey{blockX, blockY}
+				previousBlocks[key] = append(previousBlocks[key], candidateIndex)
+			}
+		}
+	}
+	seenCandidates := make([]uint32, len(candidates))
+	var visit uint32
 	for i := range pictures {
 		p := &pictures[i]
 		p.obscuredPrev = false
 		p.obscuredNow = false
-		if clImages.IsSemiTransparent(uint32(p.PictID)) {
+		if p.Plane <= 0 || clImages.IsSemiTransparent(uint32(p.PictID)) {
 			continue
 		}
+		width, height := clImages.Size(uint32(p.PictID))
+		if width <= 0 || height <= 0 {
+			continue
+		}
+		if frames := clImages.NumFrames(uint32(p.PictID)); frames > 1 {
+			height /= frames
+		}
 		frame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
-		prevFrame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, pictureAnimationInstanceKey(p.PrevH, p.PrevV))
-		for _, m := range mobiles {
-			d, ok := descMap[m.Index]
-			if !ok {
-				continue
+		previousFrame := clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, pictureAnimationInstanceKey(p.PrevH, p.PrevV))
+		prevMinX, prevMaxX, prevMinY, prevMaxY := obscuringBlockRange(p.PrevH, p.PrevV, width, height)
+		visit++
+		for blockY := prevMinY; blockY <= prevMaxY && !p.obscuredPrev; blockY++ {
+			for blockX := prevMinX; blockX <= prevMaxX && !p.obscuredPrev; blockX++ {
+				for _, candidateIndex := range previousBlocks[obscuringBlockKey{blockX, blockY}] {
+					if seenCandidates[candidateIndex] == visit {
+						continue
+					}
+					seenCandidates[candidateIndex] = visit
+					c := candidates[candidateIndex]
+					if pictureDrawsAfterMobileAt(*p, p.PrevH, p.PrevV, c.previous.H, c.previous.V, c.descriptor.Plane) &&
+						pictureMobileBoundsOverlap(p.PrevH, p.PrevV, width, height, c.previous, c.size) {
+						p.obscuredPrev = pictureObscuresMobileAt(p.PictID, previousFrame, p.PrevH, p.PrevV, c.previous, c.descriptor)
+						if p.obscuredPrev {
+							break
+						}
+					}
+				}
 			}
-			prevMob := m
-			if pm, ok := prevMobiles[m.Index]; ok {
-				prevMob = pm
-			}
-			if !p.obscuredPrev && pictureDrawsAfterMobileAt(*p, p.PrevH, p.PrevV, prevMob.H, prevMob.V, d.Plane) {
-				p.obscuredPrev = pictureObscuresMobileAt(p.PictID, prevFrame, p.PrevH, p.PrevV, prevMob, d)
-			}
-			if !p.obscuredNow && pictureDrawsAfterMobileAt(*p, p.H, p.V, m.H, m.V, d.Plane) {
-				p.obscuredNow = pictureObscuresMobileAt(p.PictID, frame, p.H, p.V, m, d)
-			}
-			if p.obscuredPrev && p.obscuredNow {
-				break
+		}
+		currentMinX, currentMaxX, currentMinY, currentMaxY := obscuringBlockRange(p.H, p.V, width, height)
+		visit++
+		for blockY := currentMinY; blockY <= currentMaxY && !p.obscuredNow; blockY++ {
+			for blockX := currentMinX; blockX <= currentMaxX && !p.obscuredNow; blockX++ {
+				for _, candidateIndex := range currentBlocks[obscuringBlockKey{blockX, blockY}] {
+					if seenCandidates[candidateIndex] == visit {
+						continue
+					}
+					seenCandidates[candidateIndex] = visit
+					c := candidates[candidateIndex]
+					if pictureDrawsAfterMobileAt(*p, p.H, p.V, c.current.H, c.current.V, c.descriptor.Plane) &&
+						pictureMobileBoundsOverlap(p.H, p.V, width, height, c.current, c.size) {
+						p.obscuredNow = pictureObscuresMobileAt(p.PictID, frame, p.H, p.V, c.current, c.descriptor)
+						if p.obscuredNow {
+							break
+						}
+					}
+				}
 			}
 		}
 	}

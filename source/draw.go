@@ -153,6 +153,7 @@ type pictureShiftScratch struct {
 	counts     map[[2]int]int
 	idxMap     map[[2]int]map[int]struct{}
 	curIdx     map[uint16][]int
+	curIDs     []uint16
 	pixelCache map[uint16]int
 	idxSetPool []map[int]struct{}
 }
@@ -227,9 +228,10 @@ func (s *pictureShiftScratch) reset() {
 		s.idxSetPool = append(s.idxSetPool, inner)
 		delete(s.idxMap, key)
 	}
-	for k, v := range s.curIdx {
-		s.curIdx[k] = v[:0]
+	for _, id := range s.curIDs {
+		s.curIdx[id] = s.curIdx[id][:0]
 	}
+	s.curIDs = s.curIDs[:0]
 	for k := range s.pixelCache {
 		delete(s.pixelCache, k)
 	}
@@ -756,6 +758,9 @@ func pictureShift(prev, cur []framePicture, max int) (int, int, []int, bool) {
 	for i, c := range cur {
 		if pictureExcludedFromShift(c) {
 			continue
+		}
+		if len(curIdx[c.PictID]) == 0 {
+			scratch.curIDs = append(scratch.curIDs, c.PictID)
 		}
 		curIdx[c.PictID] = append(curIdx[c.PictID], i)
 	}

@@ -5,6 +5,7 @@ go 1.26.6
 require github.com/hajimehoshi/ebiten/v2 v2.9.10
 
 require (
+	github.com/chewxy/math32 v1.11.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/f1monkey/spellchecker v1.3.0
 	github.com/gen2brain/beeep v0.11.2
@@ -17,6 +18,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac
 	github.com/thiagokokada/dark-mode-go v0.0.2
+	github.com/tphakala/simd v1.9.0
 	github.com/traefik/yaegi v0.16.1
 	golang.design/x/clipboard v0.9.0
 	golang.org/x/image v0.45.0

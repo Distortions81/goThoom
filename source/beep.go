@@ -11,7 +11,7 @@ type beepSpec struct {
 }
 
 var (
-    beepMu    sync.Mutex
+	beepMu    sync.Mutex
 	beepCache = make(map[beepSpec][]byte)
 )
 
@@ -21,7 +21,7 @@ var focusMuted bool
 // playBeep renders and plays a short note using the given program and key.
 // The note is cached after the first render.
 func playBeep(program, key int) {
-    if gs.Mute || focusMuted || !gs.GameSound || audioContext == nil {
+	if gs.Mute || focusMuted || !gs.GameSound || audioContext == nil {
 		return
 	}
 
@@ -43,18 +43,13 @@ func playBeep(program, key int) {
 
 	p := audioContext.NewPlayerFromBytes(pcm)
 	vol := gs.MasterVolume * gs.NotificationVolume
-    if gs.Mute || focusMuted {
+	if gs.Mute || focusMuted {
 		vol = 0
 	}
 	p.SetVolume(vol)
 
 	soundMu.Lock()
-	for sp := range soundPlayers {
-		if !sp.IsPlaying() {
-			sp.Close()
-			delete(soundPlayers, sp)
-		}
-	}
+	pruneStoppedSoundPlayersLocked()
 	if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 		soundMu.Unlock()
 		logDebug("playBeep too many sound players (%d)", len(soundPlayers))
@@ -62,6 +57,7 @@ func playBeep(program, key int) {
 		return
 	}
 	soundPlayers[p] = struct{}{}
+	reservedSoundPlayers[p] = struct{}{}
 	soundMu.Unlock()
 
 	notifPlayersMu.Lock()
@@ -69,12 +65,15 @@ func playBeep(program, key int) {
 	notifPlayersMu.Unlock()
 
 	p.Play()
+	soundMu.Lock()
+	delete(reservedSoundPlayers, p)
+	soundMu.Unlock()
 }
 
 // playHarpNotes renders and plays a short harp sequence using the provided
 // MIDI key values. Notes are spaced evenly.
 func playHarpNotes(keys ...int) {
-    if gs.Mute || focusMuted || !gs.GameSound || audioContext == nil {
+	if gs.Mute || focusMuted || !gs.GameSound || audioContext == nil {
 		return
 	}
 	if len(keys) == 0 {
@@ -93,18 +92,13 @@ func playHarpNotes(keys ...int) {
 	pcm := mixPCM(left, right)
 	p := audioContext.NewPlayerFromBytes(pcm)
 	vol := gs.MasterVolume * gs.NotificationVolume
-    if gs.Mute || focusMuted {
+	if gs.Mute || focusMuted {
 		vol = 0
 	}
 	p.SetVolume(vol)
 
 	soundMu.Lock()
-	for sp := range soundPlayers {
-		if !sp.IsPlaying() {
-			sp.Close()
-			delete(soundPlayers, sp)
-		}
-	}
+	pruneStoppedSoundPlayersLocked()
 	if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 		soundMu.Unlock()
 		logDebug("playHarpNotes too many sound players (%d)", len(soundPlayers))
@@ -112,6 +106,7 @@ func playHarpNotes(keys ...int) {
 		return
 	}
 	soundPlayers[p] = struct{}{}
+	reservedSoundPlayers[p] = struct{}{}
 	soundMu.Unlock()
 
 	notifPlayersMu.Lock()
@@ -119,4 +114,7 @@ func playHarpNotes(keys ...int) {
 	notifPlayersMu.Unlock()
 
 	p.Play()
+	soundMu.Lock()
+	delete(reservedSoundPlayers, p)
+	soundMu.Unlock()
 }

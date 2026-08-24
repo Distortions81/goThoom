@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func movieFixturePath(t *testing.T, name string) string {
+func movieFixturePath(t testing.TB, name string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -27,7 +27,7 @@ func movieFixturePath(t *testing.T, name string) string {
 	return ""
 }
 
-func readMovieFixture(t *testing.T, name string) []byte {
+func readMovieFixture(t testing.TB, name string) []byte {
 	t.Helper()
 	path := movieFixturePath(t, name)
 	if !strings.HasSuffix(path, ".zip") {

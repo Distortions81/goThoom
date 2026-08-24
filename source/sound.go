@@ -9,29 +9,50 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
 
+	math32 "github.com/chewxy/math32"
 	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/tphakala/simd/f32"
 
 	"gothoom/clsnd"
 )
 
 const (
-	maxSounds = 64
-	dbPad     = -3
+	maxSounds             = 64
+	maxCachedSoundPlayers = 64
+	dbPad                 = -3
 )
+
+type soundPlaybackKey struct {
+	ids               string
+	context           *audio.Context
+	enhancementAmount uint64
+	enhanced          bool
+	highQuality       bool
+}
+
+type soundPlaybackCacheEntry struct {
+	pcm     []byte
+	players []*audio.Player
+}
 
 var (
 	soundMu  sync.Mutex
 	clSounds *clsnd.CLSounds
 	pcmCache = make(map[uint16][]byte)
 
-	audioContext   *audio.Context
-	soundPlayers   = make(map[*audio.Player]struct{})
-	notifPlayers   = make(map[*audio.Player]struct{})
-	notifPlayersMu sync.Mutex
+	audioContext          *audio.Context
+	soundPlayers          = make(map[*audio.Player]struct{})
+	soundPlayerCache      = make(map[soundPlaybackKey]*soundPlaybackCacheEntry)
+	cachedSoundPlayers    = make(map[*audio.Player]struct{})
+	reservedSoundPlayers  = make(map[*audio.Player]struct{})
+	soundPlayerCacheCount int
+	notifPlayers          = make(map[*audio.Player]struct{})
+	notifPlayersMu        sync.Mutex
 
 	sndDumpOnce   sync.Once
 	sndDumpMu     sync.Mutex
@@ -49,13 +70,132 @@ func setHighQualityResamplingEnabled(enabled bool) {
 	highQualityResampling = enabled
 }
 
+func soundPlaybackCacheKey(ids []uint16, context *audio.Context, enhanced bool, enhancementAmount float64, highQuality bool) soundPlaybackKey {
+	ids = append([]uint16(nil), ids...)
+	slices.Sort(ids)
+	encoded := make([]byte, len(ids)*2)
+	for i, id := range ids {
+		binary.LittleEndian.PutUint16(encoded[i*2:], id)
+	}
+	return soundPlaybackKey{
+		ids:               string(encoded),
+		context:           context,
+		enhancementAmount: math.Float64bits(enhancementAmount),
+		enhanced:          enhanced,
+		highQuality:       highQuality,
+	}
+}
+
+func pruneStoppedSoundPlayersLocked() {
+	for player := range soundPlayers {
+		if _, reserved := reservedSoundPlayers[player]; reserved {
+			continue
+		}
+		if player.IsPlaying() {
+			continue
+		}
+		delete(soundPlayers, player)
+		if _, cached := cachedSoundPlayers[player]; !cached {
+			_ = player.Close()
+		}
+	}
+}
+
+// acquireSoundPlaybackPlayer reuses an idle player for the same rendered PCM,
+// or creates another player when the sound overlaps itself. When pcm is nil,
+// found reports whether the rendered sound was already cached.
+func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte) (player *audio.Player, found bool) {
+	soundMu.Lock()
+	defer soundMu.Unlock()
+	pruneStoppedSoundPlayersLocked()
+
+	entry, found := soundPlayerCache[key]
+	if !found {
+		if pcm == nil {
+			return nil, false
+		}
+		entry = &soundPlaybackCacheEntry{pcm: pcm}
+		soundPlayerCache[key] = entry
+	}
+
+	if maxSounds > 0 && len(soundPlayers) >= maxSounds {
+		return nil, true
+	}
+	for i := 0; i < len(entry.players); {
+		player := entry.players[i]
+		if player.IsPlaying() {
+			i++
+			continue
+		}
+		if err := player.Rewind(); err != nil {
+			delete(cachedSoundPlayers, player)
+			delete(soundPlayers, player)
+			_ = player.Close()
+			soundPlayerCacheCount--
+			copy(entry.players[i:], entry.players[i+1:])
+			entry.players[len(entry.players)-1] = nil
+			entry.players = entry.players[:len(entry.players)-1]
+			continue
+		}
+		soundPlayers[player] = struct{}{}
+		reservedSoundPlayers[player] = struct{}{}
+		return player, true
+	}
+	if soundPlayerCacheCount >= maxCachedSoundPlayers {
+		return newUncachedSoundPlayerLocked(key.context, entry.pcm), true
+	}
+	player = key.context.NewPlayerFromBytes(entry.pcm)
+	entry.players = append(entry.players, player)
+	cachedSoundPlayers[player] = struct{}{}
+	soundPlayerCacheCount++
+	soundPlayers[player] = struct{}{}
+	reservedSoundPlayers[player] = struct{}{}
+	return player, true
+}
+
+func newUncachedSoundPlayerLocked(context *audio.Context, pcm []byte) *audio.Player {
+	if maxSounds > 0 && len(soundPlayers) >= maxSounds {
+		return nil
+	}
+	player := context.NewPlayerFromBytes(pcm)
+	soundPlayers[player] = struct{}{}
+	reservedSoundPlayers[player] = struct{}{}
+	return player
+}
+
+func playGameSoundPlayer(player *audio.Player) {
+	if player == nil {
+		return
+	}
+	volume := gs.MasterVolume * gs.GameVolume
+	if gs.Mute || focusMuted {
+		volume = 0
+	}
+	player.SetVolume(volume)
+	player.Play()
+	soundMu.Lock()
+	delete(reservedSoundPlayers, player)
+	soundMu.Unlock()
+}
+
 // stopAllSounds halts and disposes all currently playing audio players.
 func stopAllSounds() {
 	soundMu.Lock()
-	for sp := range soundPlayers {
-		_ = sp.Close()
-		delete(soundPlayers, sp)
+	closed := make(map[*audio.Player]struct{}, len(cachedSoundPlayers))
+	for player := range cachedSoundPlayers {
+		_ = player.Close()
+		closed[player] = struct{}{}
 	}
+	for player := range soundPlayers {
+		if _, ok := closed[player]; !ok {
+			_ = player.Close()
+		}
+	}
+	soundPlayers = make(map[*audio.Player]struct{})
+	soundPlayerCache = make(map[soundPlaybackKey]*soundPlaybackCacheEntry)
+	cachedSoundPlayers = make(map[*audio.Player]struct{})
+	reservedSoundPlayers = make(map[*audio.Player]struct{})
+	soundPlayerCacheCount = 0
 	soundMu.Unlock()
 
 	notifPlayersMu.Lock()
@@ -79,8 +219,14 @@ func playSound(ids []uint16) {
 	if len(ids) == 0 || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
+	ids = append([]uint16(nil), ids...)
 	useEnhancement := gs.SoundEnhancement
-	go func(ids []uint16, enableEnhancement bool) {
+	useHighQuality := gs.HighQualityResampling
+	enhancementAmount := clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
+	if !useEnhancement {
+		enhancementAmount = 0
+	}
+	go func(ids []uint16, enableEnhancement bool, enhancementAmount float64, highQuality bool) {
 		if gs.Mute || focusMuted || !gs.GameSound {
 			return
 		}
@@ -91,6 +237,12 @@ func playSound(ids []uint16) {
 		}
 		if audioContext == nil {
 			logDebug("playSound no audio context")
+			return
+		}
+		context := audioContext
+		cacheKey := soundPlaybackCacheKey(ids, context, enableEnhancement, enhancementAmount, highQuality)
+		if player, found := acquireSoundPlaybackPlayer(cacheKey, nil); found {
+			playGameSoundPlayer(player)
 			return
 		}
 
@@ -184,7 +336,7 @@ func playSound(ids []uint16) {
 		var right []int32
 
 		if enableReverb {
-			applyGameSoundReverb(mixed)
+			applyGameSoundReverb(mixed, enhancementAmount)
 		}
 
 		if enableEnhancement {
@@ -264,36 +416,16 @@ func playSound(ids []uint16) {
 		}
 		wg.Wait()
 
-		p := audioContext.NewPlayerFromBytes(out)
-		vol := gs.MasterVolume * gs.GameVolume
-		if gs.Mute || focusMuted {
-			vol = 0
-		}
-		p.SetVolume(vol)
-
-		soundMu.Lock()
-		for sp := range soundPlayers {
-			if !sp.IsPlaying() {
-				sp.Close()
-				delete(soundPlayers, sp)
-			}
-		}
-		if maxSounds > 0 && len(soundPlayers) >= maxSounds {
-			soundMu.Unlock()
-			logDebug("playSound too many sound players (%d)", len(soundPlayers))
-			p.Close()
-			return
-		}
-		soundPlayers[p] = struct{}{}
-		soundMu.Unlock()
-
-		//logDebug("playSound playing")
-		p.Play()
-	}(ids, useEnhancement)
+		player, _ := acquireSoundPlaybackPlayer(cacheKey, out)
+		playGameSoundPlayer(player)
+	}(ids, useEnhancement, enhancementAmount, useHighQuality)
 }
 
 // initSoundContext initializes the global audio context.
 func initSoundContext() {
+	if audioContext != nil {
+		stopAllSounds()
+	}
 	rate := sampleRate
 	audioContext = audio.NewContext(rate)
 }
@@ -388,8 +520,16 @@ func updateSoundVolume() {
 	if len(stopped) > 0 {
 		soundMu.Lock()
 		for _, sp := range stopped {
+			if _, reserved := reservedSoundPlayers[sp]; reserved {
+				continue
+			}
+			if sp.IsPlaying() {
+				continue
+			}
 			delete(soundPlayers, sp)
-			sp.Close()
+			if _, cached := cachedSoundPlayers[sp]; !cached {
+				_ = sp.Close()
+			}
 		}
 		soundMu.Unlock()
 	}
@@ -529,7 +669,7 @@ func applyFadeInOut(samples []int16, rate int) {
 // distance, so the processing uses short delays, controlled feedback, and a
 // gentle roll-off of the high end. The work is done on 32-bit intermediate
 // samples so the later normalization still fits the 16-bit output range.
-func applyGameSoundReverb(samples []int32) {
+func applyGameSoundReverb(samples []int32, enhancementAmount float64) {
 	if len(samples) == 0 {
 		return
 	}
@@ -544,33 +684,26 @@ func applyGameSoundReverb(samples []int32) {
 		return
 	}
 
-	floatSamples := make([]float64, len(samples))
+	floatSamples := make([]float32, len(samples))
 	for i, v := range samples {
-		floatSamples[i] = float64(v)
+		floatSamples[i] = float32(v)
 	}
 
 	ambienceA := buildMicroAmbience(floatSamples, rate, 0)
-	offsetSamples := int(math.Round(float64(rate) * 0.0025))
+	offsetSamples := int(math32.Round(float32(rate) * 0.0025))
 	ambienceB := buildMicroAmbience(floatSamples, rate, offsetSamples)
 
-	wetBuffer := make([]float64, len(floatSamples))
-	for i := range wetBuffer {
-		var wet float64
-		if i < len(ambienceA) {
-			wet += ambienceA[i]
-		}
-		if i < len(ambienceB) {
-			wet += ambienceB[i]
-		}
-		wetBuffer[i] = wet
+	for i := range ambienceA {
+		ambienceA[i] += ambienceB[i]
 	}
+	wetBuffer := ambienceA
 
-	if shelf := newHighShelf(float64(rate), 3800, -2); shelf != nil {
+	if shelf := newHighShelf(float32(rate), 3800, -2); shelf != nil {
 		applyBiquad(wetBuffer, shelf)
 	}
 
-	amount := clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
-	mixScale := math.Sqrt(amount)
+	amount := float32(clampSoundEnhancementAmount(enhancementAmount))
+	mixScale := math32.Sqrt(amount)
 
 	delayFeedback := 0.42 * mixScale
 	if delayFeedback > 0.9 {
@@ -614,19 +747,19 @@ func applyGameSoundReverb(samples []int32) {
 	} else if scatterFeedback < 0 {
 		scatterFeedback = 0
 	}
-	const maxInt32 = float64(1<<31 - 1)
-	const minInt32 = -float64(1 << 31)
+	const maxInt32 = float32(1<<31 - 1)
+	const minInt32 = -float32(1 << 31)
 
-	scatterDelay := int(math.Round(float64(rate) * 0.03))
-	var scatter []float64
+	scatterDelay := int(math32.Round(float32(rate) * 0.03))
+	var scatter []float32
 	if scatterDelay > 0 && scatterMix > 0 {
-		scatter = make([]float64, scatterDelay)
+		scatter = make([]float32, scatterDelay)
 	}
 
 	scatterIdx := 0
-	var wetState float64
+	var wetState float32
 	for i, dry := range floatSamples {
-		wet := 0.0
+		var wet float32
 		if combMix > 0 && i < len(wetBuffer) {
 			wet += wetBuffer[i] * combMix
 		}
@@ -650,7 +783,7 @@ func applyGameSoundReverb(samples []int32) {
 		floatSamples[i] = val
 	}
 
-	applySaturation(floatSamples, 1.15, 0.2)
+	applySaturation(floatSamples, ambienceB, 1.15, 0.2)
 
 	for i, v := range floatSamples {
 		if v > maxInt32 {
@@ -658,27 +791,27 @@ func applyGameSoundReverb(samples []int32) {
 		} else if v < minInt32 {
 			v = minInt32
 		}
-		samples[i] = int32(math.Round(v))
+		samples[i] = int32(math32.Round(v))
 	}
 }
 
 type microComb struct {
-	buf   []float64
+	buf   []float32
 	idx   int
-	fb    float64
-	state float64
+	fb    float32
+	state float32
 }
 
-func buildMicroAmbience(input []float64, rate int, offsetSamples int) []float64 {
+func buildMicroAmbience(input []float32, rate int, offsetSamples int) []float32 {
 	n := len(input)
-	out := make([]float64, n)
+	out := make([]float32, n)
 	if n == 0 || rate <= 0 {
 		return out
 	}
 
 	taps := []struct {
-		seconds  float64
-		feedback float64
+		seconds  float32
+		feedback float32
 	}{
 		{seconds: 0.021, feedback: 0.18},
 		{seconds: 0.033, feedback: 0.15},
@@ -690,7 +823,7 @@ func buildMicroAmbience(input []float64, rate int, offsetSamples int) []float64 
 
 	combs := make([]microComb, 0, len(taps))
 	for i, tap := range taps {
-		delay := int(math.Round(tap.seconds * float64(rate)))
+		delay := int(math32.Round(tap.seconds * float32(rate)))
 		if offsetSamples != 0 && i%2 == 1 {
 			delay += offsetSamples
 		}
@@ -698,7 +831,7 @@ func buildMicroAmbience(input []float64, rate int, offsetSamples int) []float64 
 			continue
 		}
 		combs = append(combs, microComb{
-			buf: make([]float64, delay),
+			buf: make([]float32, delay),
 			fb:  tap.feedback,
 		})
 	}
@@ -706,10 +839,10 @@ func buildMicroAmbience(input []float64, rate int, offsetSamples int) []float64 
 		return out
 	}
 
-	invCount := 1 / float64(len(combs))
+	invCount := 1 / float32(len(combs))
 	for i := 0; i < n; i++ {
 		in := input[i]
-		wet := 0.0
+		var wet float32
 		for j := range combs {
 			c := &combs[j]
 			delayed := c.buf[c.idx]
@@ -726,12 +859,12 @@ func buildMicroAmbience(input []float64, rate int, offsetSamples int) []float64 
 	return out
 }
 
-func lowpassCoefficient(rate int, cutoff float64) float64 {
+func lowpassCoefficient(rate int, cutoff float32) float32 {
 	if rate <= 0 || cutoff <= 0 {
 		return 0
 	}
-	rc := 1.0 / (2 * math.Pi * cutoff)
-	dt := 1.0 / float64(rate)
+	rc := 1.0 / (2 * math32.Pi * cutoff)
+	dt := 1.0 / float32(rate)
 	alpha := dt / (rc + dt)
 	if alpha < 0 {
 		return 0
@@ -742,7 +875,7 @@ func lowpassCoefficient(rate int, cutoff float64) float64 {
 	return alpha
 }
 
-func applySlapDelay(samples []float64, rate int, delaySec, feedback, mix float64) {
+func applySlapDelay(samples []float32, rate int, delaySec, feedback, mix float32) {
 	if rate <= 0 || len(samples) == 0 || delaySec <= 0 || mix <= 0 {
 		return
 	}
@@ -754,15 +887,15 @@ func applySlapDelay(samples []float64, rate int, delaySec, feedback, mix float64
 	} else if feedback > 0.95 {
 		feedback = 0.95
 	}
-	delay := int(math.Round(delaySec * float64(rate)))
+	delay := int(math32.Round(delaySec * float32(rate)))
 	if delay < 1 {
 		delay = 1
 	}
-	buf := make([]float64, delay)
+	buf := make([]float32, delay)
 	coef := lowpassCoefficient(rate, 7000)
 	dryMix := 1 - mix
 	idx := 0
-	var state float64
+	var state float32
 	for i := range samples {
 		input := samples[i]
 		delayed := buf[idx]
@@ -778,12 +911,12 @@ func applySlapDelay(samples []float64, rate int, delaySec, feedback, mix float64
 }
 
 type biquad struct {
-	b0, b1, b2 float64
-	a1, a2     float64
-	z1, z2     float64
+	b0, b1, b2 float32
+	a1, a2     float32
+	z1, z2     float32
 }
 
-func newBiquad(b0, b1, b2, a0, a1, a2 float64) *biquad {
+func newBiquad(b0, b1, b2, a0, a1, a2 float32) *biquad {
 	if a0 == 0 {
 		return nil
 	}
@@ -797,7 +930,7 @@ func newBiquad(b0, b1, b2, a0, a1, a2 float64) *biquad {
 	}
 }
 
-func (b *biquad) Process(x float64) float64 {
+func (b *biquad) Process(x float32) float32 {
 	if b == nil {
 		return x
 	}
@@ -807,7 +940,7 @@ func (b *biquad) Process(x float64) float64 {
 	return y
 }
 
-func applyBiquad(samples []float64, b *biquad) {
+func applyBiquad(samples []float32, b *biquad) {
 	if b == nil {
 		return
 	}
@@ -816,7 +949,7 @@ func applyBiquad(samples []float64, b *biquad) {
 	}
 }
 
-func newHighShelf(fs, freq, gainDB float64) *biquad {
+func newHighShelf(fs, freq, gainDB float32) *biquad {
 	if fs <= 0 || freq <= 0 {
 		return nil
 	}
@@ -826,12 +959,11 @@ func newHighShelf(fs, freq, gainDB float64) *biquad {
 			freq = fs / 4
 		}
 	}
-	A := math.Pow(10, gainDB/40)
-	w0 := 2 * math.Pi * freq / fs
-	sinW0 := math.Sin(w0)
-	cosW0 := math.Cos(w0)
-	alpha := sinW0 / math.Sqrt2
-	sqrtA := math.Sqrt(A)
+	A := math32.Pow(10, gainDB/40)
+	w0 := 2 * math32.Pi * freq / fs
+	sinW0, cosW0 := math32.Sincos(w0)
+	alpha := sinW0 / math32.Sqrt2
+	sqrtA := math32.Sqrt(A)
 	beta := 2 * sqrtA * alpha
 
 	b0 := A * ((A + 1) + (A-1)*cosW0 + beta)
@@ -844,8 +976,11 @@ func newHighShelf(fs, freq, gainDB float64) *biquad {
 	return newBiquad(b0, b1, b2, a0, a1, a2)
 }
 
-func applySaturation(samples []float64, drive, mix float64) {
+func applySaturation(samples, scratch []float32, drive, mix float32) {
 	if drive <= 0 || len(samples) == 0 {
+		return
+	}
+	if len(scratch) < len(samples) {
 		return
 	}
 	if mix < 0 {
@@ -856,14 +991,18 @@ func applySaturation(samples []float64, drive, mix float64) {
 	const toFloat = 1.0 / 32768.0
 	const fromFloat = 32768.0
 	dryMix := 1 - mix
-	norm := math.Tanh(drive)
+	norm := math32.Tanh(drive)
 	if norm == 0 {
 		norm = 1
 	}
 	for i, x := range samples {
+		scratch[i] = x * toFloat * drive
+	}
+	f32.Tanh(scratch[:len(samples)], scratch[:len(samples)])
+	for i, x := range samples {
 		xf := x * toFloat
-		sat := math.Tanh(xf*drive) / norm
-		samples[i] = ((dryMix * xf) + (mix * sat)) * fromFloat
+		sat := scratch[i] / norm
+		samples[i] = (dryMix*xf + mix*sat) * fromFloat
 	}
 }
 
