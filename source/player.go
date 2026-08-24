@@ -94,10 +94,11 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 		p.Colors = append([]byte(nil), colors...)
 	}
 	p.IsNPC = false
-	// Seeing a player on screen implies they are present now.
+	// A descriptor confirms presence, but not that the mobile is actually in
+	// the viewport. markPlayersOnScreen records LastOnScreen after positions
+	// are available.
 	now := time.Now()
 	p.LastSeen = now
-	p.LastOnScreen = now
 	p.Offline = false
 	if p.Dead {
 		p.Dead = false
@@ -144,15 +145,24 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	}
 }
 
-// markPlayersOnScreen refreshes recency from the mobiles currently present on
-// the snell. It dirties the Players list only when a player enters the recent
-// group or is restored from an offline state.
+func mobileActuallyVisible(mobile frameMobile, desc frameDescriptor) bool {
+	if mobile.Persist {
+		return false
+	}
+	half := mobileSizeFunc(desc.PictID) / 2
+	return int(mobile.H)+half >= -fieldCenterX && int(mobile.H)-half <= fieldCenterX &&
+		int(mobile.V)+half >= -fieldCenterY && int(mobile.V)-half <= fieldCenterY
+}
+
+// markPlayersOnScreen refreshes recency only for mobiles whose sprites really
+// overlap the viewport. Other descriptors may be present elsewhere on the
+// snell and still count as online without entering the recent group.
 func markPlayersOnScreen(mobiles []frameMobile, descriptors map[uint8]frameDescriptor, now time.Time) {
 	changed := false
 	playersMu.Lock()
 	for _, mobile := range mobiles {
 		d, ok := descriptors[mobile.Index]
-		if !ok || d.Type == kDescNPC || d.Name == "" {
+		if !ok || d.Type == kDescNPC || d.Name == "" || !mobileActuallyVisible(mobile, d) {
 			continue
 		}
 		p, ok := players[d.Name]

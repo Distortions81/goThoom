@@ -118,6 +118,51 @@ func TestInventoryWindowIncrementalUpdates(t *testing.T) {
 	}
 }
 
+func TestInventoryWindowCountsStackedSlotsAndUnderlinesEquippedItems(t *testing.T) {
+	resetInventory()
+	originalImages := clImages
+	originalWindow := inventoryWin
+	originalList := inventoryList
+	originalRender := invRender
+	originalGroups := gs.InventoryGroups
+	t.Cleanup(func() {
+		clImages = originalImages
+		inventoryWin = originalWindow
+		inventoryList = originalList
+		invRender = originalRender
+		gs.InventoryGroups = originalGroups
+	})
+
+	gs.InventoryGroups = customGroups{}
+	clImages = testCLImages(map[uint32]*climg.ClientItem{
+		100: {Name: "stone", Slot: kItemSlotNotWearable},
+		200: {Name: "shirt", Slot: kItemSlotTorso},
+	})
+	inventoryWin = nil
+	inventoryList = nil
+	invRender = inventoryRenderState{}
+	makeInventoryWindow()
+	addInventoryItem(100, -1, "stone", false)
+	addInventoryItem(100, -1, "stone", false)
+	addInventoryItem(200, -1, "shirt", true)
+	updateInventoryWindow()
+
+	if got, want := inventoryWin.Title, "Inventory   Slots: 3/32"; got != want {
+		t.Fatalf("inventory title = %q, want %q", got, want)
+	}
+	shirt := findInventoryTestRow(t, "Shirt")
+	var underlined bool
+	for _, child := range shirt.Contents {
+		if len(child.Underlines) > 0 {
+			underlined = true
+			break
+		}
+	}
+	if !underlined {
+		t.Fatal("equipped inventory item was not underlined")
+	}
+}
+
 func findInventoryTestRow(t *testing.T, name string) *eui.ItemData {
 	t.Helper()
 	for _, row := range inventoryList.Contents {

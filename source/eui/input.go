@@ -1618,11 +1618,12 @@ func handleContextMenus(mpos point, click bool) bool {
 				if click {
 					cm.Selected = idx
 					cm.Open = false
+					// Close the selected menu before invoking its callback so the
+					// callback can open a follow-up menu without it being discarded.
+					CloseContextMenus()
 					if cm.OnSelect != nil {
 						cm.OnSelect(idx)
 					}
-					// Close all context menus on selection.
-					CloseContextMenus()
 				} else {
 					if idx != cm.HoverIndex {
 						cm.HoverIndex = idx

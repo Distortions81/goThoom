@@ -81,6 +81,7 @@ func rebuildInventoryIndices() {
 
 func addInventoryItem(id uint16, idx int, name string, equip bool) {
 	inventoryMu.Lock()
+	target := -1
 	if idx >= 0 {
 		// Template item with explicit per-ID index; insert a new entry and renumber
 		// existing items of the same ID whose IDIndex >= idx.
@@ -91,7 +92,8 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 		}
 		// Append as a distinct instance; keep display order by placing at end
 		disp := fmt.Sprintf("%s <#%d>", name, idx+1)
-		item := InventoryItem{ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: len(inventoryItems), IDIndex: idx, Quantity: 1}
+		target = len(inventoryItems)
+		item := InventoryItem{ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
 		inventoryItems = append(inventoryItems, item)
 	} else {
 		// Legacy/non-template: coalesce by ID only when normalized names match.
@@ -99,6 +101,7 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 		normName := normalizeInventoryName(name)
 		for i := range inventoryItems {
 			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex < 0 && normalizeInventoryName(inventoryItems[i].Name) == normName {
+				target = i
 				inventoryItems[i].Quantity++
 				if equip {
 					inventoryItems[i].Equipped = true
@@ -108,7 +111,8 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 			}
 		}
 		if !found {
-			item := InventoryItem{ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: len(inventoryItems), IDIndex: -1, Quantity: 1}
+			target = len(inventoryItems)
+			item := InventoryItem{ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
 			inventoryItems = append(inventoryItems, item)
 		}
 	}
@@ -118,7 +122,7 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 	if equip && clImages != nil {
 		slot := clImages.ItemSlot(uint32(id))
 		for i := range inventoryItems {
-			if inventoryItems[i].Equipped && (inventoryItems[i].ID != id || i != idx) {
+			if i != target && inventoryItems[i].Equipped {
 				if clImages.ItemSlot(uint32(inventoryItems[i].ID)) == slot {
 					inventoryItems[i].Equipped = false
 				}

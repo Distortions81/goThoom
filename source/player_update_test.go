@@ -21,8 +21,8 @@ func TestUpdatePlayerAppearanceUnmarksDead(t *testing.T) {
 	if p.Dead || p.FellWhere != "" || p.KillerName != "" || !p.FellTime.IsZero() {
 		t.Fatalf("expected Bob to be marked alive, got %#v", p)
 	}
-	if p.LastOnScreen.IsZero() {
-		t.Fatal("visible player did not record an on-screen timestamp")
+	if !p.LastOnScreen.IsZero() {
+		t.Fatal("descriptor-only appearance incorrectly recorded an on-screen timestamp")
 	}
 }
 
@@ -51,10 +51,13 @@ func TestPlayerGroupUsesTwoMinuteOnScreenWindow(t *testing.T) {
 func TestMarkPlayersOnScreenTracksCurrentSnellWithoutConstantRefresh(t *testing.T) {
 	originalPlayers := players
 	originalDirty := playersDirty
+	originalMobileSize := mobileSizeFunc
 	defer func() {
 		players = originalPlayers
 		playersDirty = originalDirty
+		mobileSizeFunc = originalMobileSize
 	}()
+	mobileSizeFunc = func(uint16) int { return 20 }
 
 	now := time.Unix(2000, 0)
 	players = map[string]*Player{"Bob": {Name: "Bob", Offline: true}}
@@ -74,6 +77,43 @@ func TestMarkPlayersOnScreenTracksCurrentSnellWithoutConstantRefresh(t *testing.
 	}
 	if got := players["Bob"].LastOnScreen; got != now.Add(time.Second) {
 		t.Fatalf("continuous presence timestamp = %v", got)
+	}
+}
+
+func TestMarkPlayersOnScreenExcludesOffscreenAndPersistedMobiles(t *testing.T) {
+	originalPlayers := players
+	originalDirty := playersDirty
+	originalMobileSize := mobileSizeFunc
+	defer func() {
+		players = originalPlayers
+		playersDirty = originalDirty
+		mobileSizeFunc = originalMobileSize
+	}()
+	mobileSizeFunc = func(uint16) int { return 20 }
+
+	now := time.Unix(3000, 0)
+	players = map[string]*Player{
+		"Visible":   {Name: "Visible"},
+		"Offscreen": {Name: "Offscreen"},
+		"Persisted": {Name: "Persisted"},
+	}
+	mobiles := []frameMobile{
+		{Index: 1, H: 0, V: 0},
+		{Index: 2, H: int16(fieldCenterX + 20), V: 0},
+		{Index: 3, H: 0, V: 0, Persist: true},
+	}
+	descriptors := map[uint8]frameDescriptor{
+		1: {Index: 1, Type: kDescPlayer, PictID: 1, Name: "Visible"},
+		2: {Index: 2, Type: kDescPlayer, PictID: 1, Name: "Offscreen"},
+		3: {Index: 3, Type: kDescPlayer, PictID: 1, Name: "Persisted"},
+	}
+	markPlayersOnScreen(mobiles, descriptors, now)
+
+	if players["Visible"].LastOnScreen != now {
+		t.Fatal("visible mobile was not recorded")
+	}
+	if !players["Offscreen"].LastOnScreen.IsZero() || !players["Persisted"].LastOnScreen.IsZero() {
+		t.Fatalf("non-visible mobiles recorded: offscreen=%v persisted=%v", players["Offscreen"].LastOnScreen, players["Persisted"].LastOnScreen)
 	}
 }
 

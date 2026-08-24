@@ -25,6 +25,9 @@ const inventoryMaxSlots = 32
 
 func inventoryWindowTitle(used int) string {
 	free := inventoryMaxSlots - used
+	if free <= 0 {
+		return fmt.Sprintf("Inventory   Slots: %d/%d (pack full)", used, inventoryMaxSlots)
+	}
 	if free <= 5 {
 		return fmt.Sprintf("Inventory   Slots: %d/%d (%d free)", used, inventoryMaxSlots, free)
 	}
@@ -52,6 +55,7 @@ type inventoryRow struct {
 
 type inventoryRenderState struct {
 	rows         map[invGroupKey]*inventoryRow
+	headers      map[string]*eui.ItemData
 	order        []invGroupKey
 	spacer       *eui.ItemData
 	fontSize     int
@@ -82,6 +86,8 @@ type inventoryRowData struct {
 	slotWidth float32
 	icon      *ebiten.Image
 	iconName  string
+	group     string
+	equipped  bool
 }
 
 var selectedInvID uint16
@@ -149,11 +155,13 @@ func updateInventoryWindow() {
 	prevScroll := inventoryList.Scroll
 
 	items := getInventory()
+	usedSlots := 0
 	counts := make(map[invGroupKey]int)
 	first := make(map[invGroupKey]InventoryItem)
 	anyEquipped := make(map[invGroupKey]bool)
 	order := make([]invGroupKey, 0, len(items))
 	for _, it := range items {
+		usedSlots += it.Quantity
 		key := invGroupKey{id: it.ID, name: it.Name}
 		if it.IDIndex >= 0 {
 			key.idx = it.IDIndex
@@ -172,6 +180,11 @@ func updateInventoryWindow() {
 	sort.SliceStable(order, func(i, j int) bool {
 		ai := order[i]
 		aj := order[j]
+		groupI := inventoryDisplayGroup(ai.id)
+		groupJ := inventoryDisplayGroup(aj.id)
+		if groupI != groupJ {
+			return inventoryDisplayGroupOrder(groupI) < inventoryDisplayGroupOrder(groupJ)
+		}
 		nameI := officialName(ai, first[ai])
 		nameJ := officialName(aj, first[aj])
 		if nameI != nameJ {
@@ -213,7 +226,7 @@ func updateInventoryWindow() {
 		row.rowIndex = rowIndex
 		rows = append(rows, row)
 	}
-	inventoryWin.Title = inventoryWindowTitle(len(order))
+	inventoryWin.Title = inventoryWindowTitle(usedSlots)
 
 	if geometryChanged {
 		invRender.rebuild(rows)
@@ -380,7 +393,25 @@ func (s *inventoryRenderState) makeRowData(key invGroupKey, it InventoryItem, qt
 		slotWidth: slotWidth,
 		icon:      icon,
 		iconName:  iconName,
+		group:     inventoryDisplayGroup(id),
+		equipped:  equipped,
 	}
+}
+
+func inventoryDisplayGroup(id uint16) string {
+	if group := gs.InventoryGroups.group(inventoryCustomGroupKey(id)); group != "" {
+		return group
+	}
+	return ""
+}
+
+func inventoryDisplayGroupOrder(group string) int {
+	for i, name := range gs.InventoryGroups.Names {
+		if strings.EqualFold(name, group) {
+			return i
+		}
+	}
+	return len(gs.InventoryGroups.Names)
 }
 
 func (s *inventoryRenderState) ensureSpacer() {
@@ -454,6 +485,10 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.label.Size.X = avail
 		row.label.Size.Y = s.rowUnits
 		row.label.UpdateText(data.label)
+		row.label.Underlines = nil
+		if data.equipped {
+			row.label.Underlines = []eui.TextSpan{{Start: 0, End: len([]rune(data.label))}}
+		}
 	}
 
 	if data.slotText != "" {
@@ -496,16 +531,20 @@ func (s *inventoryRenderState) rebuild(data []inventoryRowData) {
 	inventoryList.Contents = nil
 	inventoryRowRefs = make(map[*eui.ItemData]invRef, len(data))
 	s.rows = make(map[invGroupKey]*inventoryRow, len(data))
+	s.headers = make(map[string]*eui.ItemData)
 	s.order = make([]invGroupKey, 0, len(data))
+	rowItems := make([]*inventoryRow, 0, len(data))
 	for _, d := range data {
 		row := s.createRow(d)
 		s.rows[d.key] = row
 		s.order = append(s.order, d.key)
-		inventoryList.AddItem(row.row)
+		rowItems = append(rowItems, row)
 		inventoryRowRefs[row.row] = invRef{id: row.id, idx: row.idx, global: row.global}
 	}
 	s.ensureSpacer()
-	inventoryList.AddItem(s.spacer)
+	for _, item := range s.groupedContents(data, rowItems) {
+		inventoryList.AddItem(item)
+	}
 }
 
 func (s *inventoryRenderState) update(data []inventoryRowData) {
@@ -530,17 +569,96 @@ func (s *inventoryRenderState) update(data []inventoryRowData) {
 	s.order = nextOrder
 
 	s.ensureSpacer()
-	desired := make([]*eui.ItemData, 0, len(rowItems)+1)
-	for _, row := range rowItems {
-		desired = append(desired, row.row)
-	}
-	desired = append(desired, s.spacer)
+	desired := s.groupedContents(data, rowItems)
 	s.reconcileContents(desired)
 
 	inventoryRowRefs = make(map[*eui.ItemData]invRef, len(rowItems))
 	for _, row := range rowItems {
 		inventoryRowRefs[row.row] = invRef{id: row.id, idx: row.idx, global: row.global}
 	}
+}
+
+func (s *inventoryRenderState) groupHeader(group string, count int) *eui.ItemData {
+	if s.headers == nil {
+		s.headers = make(map[string]*eui.ItemData)
+	}
+	key := group
+	if key == "" {
+		key = "\x00"
+	}
+	header := s.headers[key]
+	if header == nil {
+		header = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+		label, _ := eui.NewText()
+		label.Face = mainFontBold
+		label.TextColor = eui.AccentColor()
+		label.ForceTextColor = true
+		header.AddItem(label)
+		if group != "" {
+			button, events := eui.NewButton()
+			button.Text = "Edit"
+			name := group
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventClick {
+					showEditInventoryGroupWindow(name)
+				}
+			}
+			header.AddItem(button)
+		}
+		s.headers[key] = header
+	}
+	title := group
+	if title == "" {
+		title = "Ungrouped"
+	}
+	header.Size = eui.Point{X: s.clientWAvail, Y: s.rowUnits + 4}
+	if len(header.Contents) > 0 {
+		label := header.Contents[0]
+		label.Text = fmt.Sprintf("%s (%d)", title, count)
+		label.FontSize = float32(s.fontSize)
+		label.Size = eui.Point{X: s.clientWAvail, Y: s.rowUnits + 4}
+		if len(header.Contents) > 1 {
+			button := header.Contents[1]
+			button.Size = eui.Point{X: 52, Y: s.rowUnits + 2}
+			label.Size.X = max(0, s.clientWAvail-button.Size.X)
+		}
+	}
+	return header
+}
+
+func (s *inventoryRenderState) groupedContents(data []inventoryRowData, rows []*inventoryRow) []*eui.ItemData {
+	if len(gs.InventoryGroups.Names) == 0 {
+		desired := make([]*eui.ItemData, 0, len(rows)+1)
+		for _, row := range rows {
+			desired = append(desired, row.row)
+		}
+		desired = append(desired, s.spacer)
+		return desired
+	}
+	counts := make(map[string]int)
+	for _, d := range data {
+		counts[d.group]++
+	}
+	desired := make([]*eui.ItemData, 0, len(rows)+len(gs.InventoryGroups.Names)+2)
+	for _, group := range gs.InventoryGroups.Names {
+		header := s.groupHeader(group, counts[group])
+		desired = append(desired, header)
+		for i, d := range data {
+			if strings.EqualFold(d.group, group) {
+				desired = append(desired, rows[i].row)
+			}
+		}
+	}
+	if counts[""] > 0 {
+		desired = append(desired, s.groupHeader("", counts[""]))
+		for i, d := range data {
+			if d.group == "" {
+				desired = append(desired, rows[i].row)
+			}
+		}
+	}
+	desired = append(desired, s.spacer)
+	return desired
 }
 
 func (s *inventoryRenderState) reconcileContents(desired []*eui.ItemData) {
@@ -726,6 +844,11 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 	}
 	// Always offer Examine when we know the item's name.
 	if examineName != "" {
+		options = append(options, "Use")
+		actions = append(actions, func() {
+			enqueueCommand(fmt.Sprintf("/useitem %d", ref.id))
+			nextCommand()
+		})
 		options = append(options, "Examine")
 		actions = append(actions, func() {
 			// Ensure the item is selected before examining
@@ -743,6 +866,13 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 		})
 	}
 	// Offer Drop options: plain and Mine-protected.
+	options = append(options, "Add to group…")
+	actions = append(actions, func() {
+		showCustomGroupPicker(&gs.InventoryGroups, inventoryCustomGroupKey(ref.id), "Item", pos, func() {
+			inventoryDirty = true
+			updateInventoryWindow()
+		})
+	})
 	options = append(options, "Drop")
 	actions = append(actions, func() {
 		enqueueCommand("/drop")

@@ -71,6 +71,8 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "InventoryFontSize", category: settingsInterface, name: "inventory_font_size"},
 	{field: "PlayersFontSize", category: settingsInterface, name: "players_font_size"},
 	{field: "ShowRecentPlayers", category: settingsInterface, name: "show_recent_players"},
+	{field: "PlayerGroups", category: settingsInterface, name: "player_groups"},
+	{field: "InventoryGroups", category: settingsInterface, name: "inventory_groups"},
 	{field: "AlternateRowBackgrounds", category: settingsInterface, name: "alternate_row_backgrounds"},
 	{field: "NameBgOpacity", category: settingsInterface, name: "name_background_opacity"},
 	{field: "DarkBubblesAndNames", category: settingsInterface, name: "dark_mode_names_and_bubbles"},

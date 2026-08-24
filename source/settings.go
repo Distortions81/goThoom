@@ -308,6 +308,8 @@ type settings struct {
 	InventoryFontSize       float64
 	PlayersFontSize         float64
 	ShowRecentPlayers       bool
+	PlayerGroups            customGroups
+	InventoryGroups         customGroups
 	AlternateRowBackgrounds bool
 	BubbleOpacity           float64
 	BubbleBaseLife          float64

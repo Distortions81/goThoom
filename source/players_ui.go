@@ -37,6 +37,35 @@ const (
 	playerGroupOffline
 )
 
+const visiblePlayerGroupRadius = 180
+
+func nearbyVisiblePlayerGroupKeys() []string {
+	stateMu.Lock()
+	defer stateMu.Unlock()
+	self, ok := state.mobiles[playerIndex]
+	if !ok {
+		return nil
+	}
+	radiusSquared := visiblePlayerGroupRadius * visiblePlayerGroupRadius
+	keys := make([]string, 0)
+	for index, mobile := range state.mobiles {
+		if index == playerIndex || mobile.Persist {
+			continue
+		}
+		desc, ok := state.descriptors[index]
+		if !ok || desc.Type == kDescNPC || desc.Name == "" || !mobileActuallyVisible(mobile, desc) {
+			continue
+		}
+		dx := int(mobile.H) - int(self.H)
+		dy := int(mobile.V) - int(self.V)
+		if dx*dx+dy*dy <= radiusSquared {
+			keys = append(keys, playerCustomGroupKey(desc.Name))
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func playerGroup(p Player, now time.Time, showRecent bool) playerListGroup {
 	if p.Offline {
 		return playerGroupOffline
@@ -59,6 +88,36 @@ func playerGroupTitle(group playerListGroup) string {
 	default:
 		return "Offline"
 	}
+}
+
+func playerDisplayGroup(p Player, now time.Time) string {
+	if group := gs.PlayerGroups.group(playerCustomGroupKey(p.Name)); group != "" {
+		return "custom:" + group
+	}
+	return fmt.Sprintf("auto:%d", playerGroup(p, now, gs.ShowRecentPlayers))
+}
+
+func playerDisplayGroupTitle(group string) string {
+	if strings.HasPrefix(group, "custom:") {
+		return strings.TrimPrefix(group, "custom:")
+	}
+	var automatic int
+	fmt.Sscanf(group, "auto:%d", &automatic)
+	return playerGroupTitle(playerListGroup(automatic))
+}
+
+func playerDisplayGroupOrder(group string) int {
+	if strings.HasPrefix(group, "custom:") {
+		name := strings.TrimPrefix(group, "custom:")
+		for i, candidate := range gs.PlayerGroups.Names {
+			if strings.EqualFold(candidate, name) {
+				return i
+			}
+		}
+	}
+	var automatic int
+	fmt.Sscanf(group, "auto:%d", &automatic)
+	return len(gs.PlayerGroups.Names) + automatic
 }
 
 //go:embed data/icons/share-out.png
@@ -211,10 +270,10 @@ func updatePlayersWindow() {
 	now := time.Now()
 	// Sort by section, then by label/color group and name.
 	sort.Slice(ps, func(i, j int) bool {
-		groupI := playerGroup(ps[i], now, gs.ShowRecentPlayers)
-		groupJ := playerGroup(ps[j], now, gs.ShowRecentPlayers)
+		groupI := playerDisplayGroup(ps[i], now)
+		groupJ := playerDisplayGroup(ps[j], now)
 		if groupI != groupJ {
-			return groupI < groupJ
+			return playerDisplayGroupOrder(groupI) < playerDisplayGroupOrder(groupJ)
 		}
 		// Same online/offline status: sort by label group.
 		li := ps[i].FriendLabel
@@ -233,7 +292,7 @@ func updatePlayersWindow() {
 		return ps[i].Name < ps[j].Name
 	})
 	exiles := make([]Player, 0, len(ps))
-	var groupCounts [3]int
+	groupCounts := make(map[string]int)
 	shareCount, shareeCount := 0, 0
 	onlineCount := 0
 	for _, p := range ps {
@@ -247,7 +306,7 @@ func updatePlayersWindow() {
 			shareeCount++
 		}
 		exiles = append(exiles, p)
-		groupCounts[playerGroup(p, now, gs.ShowRecentPlayers)]++
+		groupCounts[playerDisplayGroup(p, now)]++
 		if !p.Offline {
 			onlineCount++
 		}
@@ -306,22 +365,25 @@ func updatePlayersWindow() {
 	var selectedRow *eui.ItemData
 
 	rowIndex := 0
-	lastGroup := playerListGroup(-1)
+	lastGroup := ""
+	for _, customGroup := range gs.PlayerGroups.Names {
+		if groupCounts["custom:"+customGroup] != 0 {
+			continue
+		}
+		header := makePlayerGroupHeader(customGroup, 0, clientWAvail, rowUnits, fontSize, true)
+		playersList.AddItem(header)
+		playersGroupHeaders[header] = true
+	}
 	for _, p := range exiles {
-		group := playerGroup(p, now, gs.ShowRecentPlayers)
+		group := playerDisplayGroup(p, now)
 		if group != lastGroup {
-			header, _ := eui.NewText()
-			header.Text = fmt.Sprintf("%s (%d)", playerGroupTitle(group), groupCounts[group])
-			header.FontSize = float32(fontSize)
-			header.Face = mainFontBold
-			header.TextColor = accent
-			header.ForceTextColor = true
-			header.Size = eui.Point{X: clientWAvail, Y: rowUnits + 4}
+			custom := strings.HasPrefix(group, "custom:")
+			header := makePlayerGroupHeader(playerDisplayGroupTitle(group), groupCounts[group], clientWAvail, rowUnits, fontSize, custom)
 			playersList.AddItem(header)
 			playersGroupHeaders[header] = true
 			lastGroup = group
 		}
-		if group == playerGroupRecent {
+		if group == fmt.Sprintf("auto:%d", playerGroupRecent) {
 			expires := p.LastOnScreen.Add(recentPlayerWindow)
 			if nextRecentPlayersExpiry.IsZero() || expires.Before(nextRecentPlayersExpiry) {
 				nextRecentPlayersExpiry = expires
@@ -490,6 +552,33 @@ func updatePlayersWindow() {
 		selectedRow.Color = accent
 	}
 	playersWin.Refresh()
+}
+
+func makePlayerGroupHeader(group string, count int, width, rowUnits float32, fontSize float64, editable bool) *eui.ItemData {
+	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	header.Size = eui.Point{X: width, Y: rowUnits + 4}
+	label, _ := eui.NewText()
+	label.Text = fmt.Sprintf("%s (%d)", group, count)
+	label.FontSize = float32(fontSize)
+	label.Face = mainFontBold
+	label.TextColor = eui.AccentColor()
+	label.ForceTextColor = true
+	label.Size = eui.Point{X: width, Y: rowUnits + 4}
+	header.AddItem(label)
+	if editable {
+		button, events := eui.NewButton()
+		button.Text = "Edit"
+		button.Size = eui.Point{X: 52, Y: rowUnits + 2}
+		label.Size.X = max(0, width-button.Size.X)
+		name := group
+		events.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventClick {
+				showEditPlayerGroupWindow(name)
+			}
+		}
+		header.AddItem(button)
+	}
+	return header
 }
 
 // handlePlayersContextClick opens a context menu for the player row under the
@@ -661,8 +750,12 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	}
 
 	if displayName != "" {
-		options = append(options, "Label")
+		options = append(options, "Add to group…")
 		n := displayName
+		actions = append(actions, func() {
+			showCustomGroupPicker(&gs.PlayerGroups, playerCustomGroupKey(n), "Player", pos, func() { playersDirty = true })
+		})
+		options = append(options, "Label")
 		actions = append(actions, func() { showLabelMenu(n, pos, false) })
 		options = append(options, "Label (Global)")
 		actions = append(actions, func() { showLabelMenu(n, pos, true) })

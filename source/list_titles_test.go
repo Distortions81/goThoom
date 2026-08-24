@@ -12,6 +12,9 @@ func TestListTitles(t *testing.T) {
 	if got, want := inventoryWindowTitle(20), "Inventory   Slots: 20/32"; got != want {
 		t.Fatalf("inventoryWindowTitle() = %q, want %q", got, want)
 	}
+	if got, want := inventoryWindowTitle(32), "Inventory   Slots: 32/32 (pack full)"; got != want {
+		t.Fatalf("inventoryWindowTitle() = %q, want %q", got, want)
+	}
 }
 
 func TestPlayerSharingIndicator(t *testing.T) {
