@@ -42,6 +42,9 @@ The `build-scripts` directory provides helper scripts for development.
 `build-scripts/setup_dev_env.sh` bootstraps a development environment.
 Run these scripts from the repository root.
 
+`build-scripts/update_screenshot.sh` updates the README and website screenshot.
+It requires `cwebp`, available in the Debian/Ubuntu `webp` package.
+
 ## Adding Dependencies
 - Document any required system packages here.
 - Update `build-scripts/build_dep_bundle.sh` if additional data files need to

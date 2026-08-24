@@ -216,6 +216,17 @@ Available message types:
 The complete Go module lives in `source/`, including the client, shared
 packages, scripts, assets, and tests.
 
+### Update the project screenshot
+
+After adding a screenshot to `dev-screenshots/`, update both this README and
+the website copy with:
+
+```bash
+./build-scripts/update_screenshot.sh dev-screenshots/Screenshot.png
+```
+
+The helper requires `cwebp`, provided by the `webp` package.
+
 ### Build the WebAssembly package
 
 WebAssembly is kept separate from the desktop release build:
