@@ -437,6 +437,7 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	if len(snap) == 0 {
 		return
 	}
+	origin := worldView.Bounds().Min
 
 	// Sort to help Ebiten batch identical draw operations.
 	slices.SortFunc(snap, func(a, b overlayOp) int {
@@ -455,8 +456,8 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 		case 0: // rect
 			if op.w > 0 && op.h > 0 {
 				rects.Add(
-					float32(float64(op.x)*scale),
-					float32(float64(op.y)*scale),
+					float32(float64(origin.X)+float64(op.x)*scale),
+					float32(float64(origin.Y)+float64(op.y)*scale),
 					float32(float64(op.w)*scale),
 					float32(float64(op.h)*scale),
 					color.RGBA{op.r, op.g, op.b, op.a},
@@ -465,7 +466,7 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 		case 1: // text
 			if op.text != "" {
 				opts := &text.DrawOptions{}
-				opts.GeoM.Translate(float64(op.x)*scale, float64(op.y)*scale)
+				opts.GeoM.Translate(float64(origin.X)+float64(op.x)*scale, float64(origin.Y)+float64(op.y)*scale)
 				// Use mainFont (native scale), color with RGBA
 				opts.ColorScale.ScaleWithColor(color.RGBA{op.r, op.g, op.b, op.a})
 				text.Draw(worldView, op.text, mainFont, opts)
@@ -475,7 +476,7 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 				di := acquireDrawOpts()
 				di.Filter = ebiten.FilterLinear
 				di.GeoM.Scale(scale, scale)
-				di.GeoM.Translate(float64(op.x)*scale, float64(op.y)*scale)
+				di.GeoM.Translate(float64(origin.X)+float64(op.x)*scale, float64(origin.Y)+float64(op.y)*scale)
 				worldView.DrawImage(img, di)
 				releaseDrawOpts(di)
 			}

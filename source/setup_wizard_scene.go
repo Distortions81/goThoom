@@ -229,12 +229,13 @@ func drawSetupWizardSceneLabel(dst *ebiten.Image, scale float64) {
 	}
 	label := setupWizardSceneName(setupWizardSceneModeValue)
 	const x, y = 285, 20
+	origin := dst.Bounds().Min
 	w, _ := text.Measure(label, mainFontBold, 0)
 	pad := 8 * scale
-	vector.FillRect(dst, float32(float64(x)*scale-pad), float32(float64(y)*scale-pad/2), float32(w+pad*2), float32(22*scale), color.RGBA{R: 15, G: 18, B: 24, A: 205}, false)
+	vector.FillRect(dst, float32(float64(origin.X)+float64(x)*scale-pad), float32(float64(origin.Y)+float64(y)*scale-pad/2), float32(w+pad*2), float32(22*scale), color.RGBA{R: 15, G: 18, B: 24, A: 205}, false)
 	op := acquireTextDrawOpts()
 	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x)*scale, float64(y)*scale)
+	op.GeoM.Translate(float64(origin.X)+float64(x)*scale, float64(origin.Y)+float64(y)*scale)
 	text.Draw(dst, label, mainFontBold, op)
 	releaseTextDrawOpts(op)
 }

@@ -175,6 +175,10 @@ func ensureLightingTmp(w, h int) {
 	}
 }
 
+func localLightingPosition(x, y float32, bounds image.Rectangle) (float32, float32) {
+	return x - float32(bounds.Min.X), y - float32(bounds.Min.Y)
+}
+
 func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSource, t float32) {
 	w, h := dst.Bounds().Dx(), dst.Bounds().Dy()
 	ensureLightingTmp(w, h)
@@ -190,13 +194,12 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	lightingUniforms["DarkCount"] = len(id)
 	lightingUniforms["ShadowCount"] = len(frameLightShadows)
 
-	// Fill light arrays
-	dstOriginX := float32(dst.Bounds().Min.X)
-	dstOriginY := float32(dst.Bounds().Min.Y)
+	// Fragment positions are local to the shader rectangle. Light and dark
+	// sources are stored in the destination image's coordinate space.
+	dstBounds := dst.Bounds()
 	for i := 0; i < len(il) && i < maxLights; i++ {
 		ls := il[i]
-		lposX[i] = ls.X + dstOriginX
-		lposY[i] = ls.Y + dstOriginY
+		lposX[i], lposY[i] = localLightingPosition(ls.X, ls.Y, dstBounds)
 		lradius[i] = ls.Radius * float32(lightRadiusScale)
 		lr[i] = ls.R
 		lg[i] = ls.G
@@ -212,8 +215,7 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	// Fill dark arrays
 	for i := 0; i < len(id) && i < maxLights; i++ {
 		ds := id[i]
-		dposX[i] = ds.X + dstOriginX
-		dposY[i] = ds.Y + dstOriginY
+		dposX[i], dposY[i] = localLightingPosition(ds.X, ds.Y, dstBounds)
 		dradius[i] = ds.Radius * float32(darkRadiusScale)
 		da[i] = ds.Alpha
 		dplane[i] = float32(ds.Plane)
@@ -227,15 +229,13 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	}
 	for i := 0; i < len(frameLightShadows); i++ {
 		shadow := frameLightShadows[i]
-		slightX[i] = shadow.LightX + dstOriginX
-		slightY[i] = shadow.LightY + dstOriginY
+		slightX[i], slightY[i] = localLightingPosition(shadow.LightX, shadow.LightY, dstBounds)
 		slightRadius[i] = shadow.LightRadius
 		slightR[i] = shadow.LightR
 		slightG[i] = shadow.LightG
 		slightB[i] = shadow.LightB
 		slightInt[i] = shadow.LightIntensity
-		scasterX[i] = shadow.CasterX + dstOriginX
-		scasterY[i] = shadow.CasterY + dstOriginY
+		scasterX[i], scasterY[i] = localLightingPosition(shadow.CasterX, shadow.CasterY, dstBounds)
 		scasterRadius[i] = shadow.CasterRadius
 	}
 
@@ -262,6 +262,8 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 
 	// Bind source and draw
 	lightingOp.Images[0] = lightingTmp
+	lightingOp.GeoM.Reset()
+	lightingOp.GeoM.Translate(float64(dstBounds.Min.X), float64(dstBounds.Min.Y))
 	dst.DrawRectShader(w, h, lightingShader, &lightingOp)
 }
 
@@ -299,7 +301,7 @@ var (
 	nightCurTarget   float32
 )
 
-func addNightDarkSources(w, h int, t float32) {
+func addNightDarkSources(bounds image.Rectangle, t float32) {
 	lvl := currentNightLevel()
 	if lvl <= 0 {
 		return
@@ -331,16 +333,28 @@ func addNightDarkSources(w, h int, t float32) {
 	}
 	// Use four corner dark sources with shared alpha to bias edges darker.
 	// Radius based on screen diagonal yields gentle center falloff.
+	w, h := bounds.Dx(), bounds.Dy()
 	diag := float32(math.Hypot(float64(w), float64(h)))
 	// Center dark: provide near-total ambient darkening across the scene.
 	centerRadius := diag * 1.5
 	centerAlpha := alpha * 1.0
-	frameDarks = append(frameDarks, darkSource{X: float32(w) / 2, Y: float32(h) / 2, Radius: centerRadius, Alpha: centerAlpha, Intensity: 1})
+	frameDarks = append(frameDarks, darkSource{
+		X:         float32(bounds.Min.X+bounds.Max.X) / 2,
+		Y:         float32(bounds.Min.Y+bounds.Max.Y) / 2,
+		Radius:    centerRadius,
+		Alpha:     centerAlpha,
+		Intensity: 1,
+	})
 
 	// Corner vignettes: minimal edge emphasis
 	cornerRadius := diag * 1.1
 	cornerAlpha := alpha * 0.02 / 4
-	corners := [][2]float32{{0, 0}, {float32(w), 0}, {0, float32(h)}, {float32(w), float32(h)}}
+	corners := [][2]float32{
+		{float32(bounds.Min.X), float32(bounds.Min.Y)},
+		{float32(bounds.Max.X), float32(bounds.Min.Y)},
+		{float32(bounds.Min.X), float32(bounds.Max.Y)},
+		{float32(bounds.Max.X), float32(bounds.Max.Y)},
+	}
 	for _, c := range corners {
 		frameDarks = append(frameDarks, darkSource{X: c[0], Y: c[1], Radius: cornerRadius, Alpha: cornerAlpha, Intensity: 1})
 	}

@@ -203,6 +203,8 @@ func init() {
 }
 
 func drawNightOverlay(screen *ebiten.Image, ox, oy int) {
+	ox += screen.Bounds().Min.X
+	oy += screen.Bounds().Min.Y
 	gNight.mu.Lock()
 	lvl := gNight.Level
 	flags := gNight.Flags

@@ -7,11 +7,10 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-func TestLocalImageBoundsRemovesSubimageOffset(t *testing.T) {
-	got := localImageBounds(image.Rect(17, 83, 657, 563))
-	want := image.Rect(0, 0, 640, 480)
-	if got != want {
-		t.Fatalf("local image bounds = %v, want %v", got, want)
+func TestLocalLightingPositionRemovesSubimageOrigin(t *testing.T) {
+	x, y := localLightingPosition(117, 83, image.Rect(37, 29, 584, 569))
+	if x != 80 || y != 54 {
+		t.Fatalf("local lighting position = (%v, %v), want (80, 54)", x, y)
 	}
 }
 

@@ -1402,10 +1402,6 @@ func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
 	return image.Rect(left, top, left+w, top+h), scale
 }
 
-func localImageBounds(bounds image.Rectangle) image.Rectangle {
-	return image.Rect(0, 0, bounds.Dx(), bounds.Dy())
-}
-
 func (g *Game) Draw(screen *ebiten.Image) {
 	now := time.Now()
 	drawFrameNow = now
@@ -1485,7 +1481,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
 		if gs.ShaderLighting {
 			// Use shader-based night darkening with inverse-square falloff.
-			addNightDarkSources(viewRect.Dx(), viewRect.Dy(), float32(alpha))
+			addNightDarkSources(worldView.Bounds(), float32(alpha))
 		} else {
 			// Classic overlay path when shader is off.
 			//drawNightAmbient(worldView, 0, 0)
@@ -1571,14 +1567,15 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 	}
 	col := color.RGBA{R: base.R, G: base.G, B: base.B, A: uint8(alpha * 255)}
 	// Position near top-left
+	origin := dst.Bounds().Min
 	pad := float32(6)
-	cx := float32(10)
-	cy := float32(10)
+	cx := float32(origin.X + 10)
+	cy := float32(origin.Y + 10)
 	r := float32(6)
 	vector.FillCircle(dst, cx+pad, cy+pad, r, col, false)
 	// Text to the right
 	op := acquireTextDrawOpts()
-	op.GeoM.Translate(float64(2*pad+r*2), float64(4+pad))
+	op.GeoM.Translate(float64(origin.X)+float64(2*pad+r*2), float64(origin.Y)+float64(4+pad))
 	op.ColorScale.Scale(1, 1, 1, float32(alpha))
 	text.Draw(dst, label, mainFontBold, op)
 	releaseTextDrawOpts(op)
@@ -1586,6 +1583,9 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
+	// Ebitengine subimages retain their parent-space bounds.
+	ox += screen.Bounds().Min.X
+	oy += screen.Bounds().Min.Y
 	if gs.ShaderLighting {
 		frameLights = frameLights[:0]
 		frameDarks = frameDarks[:0]
@@ -1763,7 +1763,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			size = img.Bounds().Dx()
 		}
 		addMobileLightCaster(float64(x), float64(y), size, mobileSpriteMetricsFor(curKey, img))
-		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, localImageBounds(screen.Bounds()))
+		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
@@ -2199,7 +2199,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	top, bottom := filteredSpriteSpan(fy, h, gs.GameScale, filter)
 	lightX := (left + right) / 2
 	lightY := (top + bottom) / 2
-	addPictureLightSource(uint32(p.PictID), p.H, p.V, lightX, lightY, w, h, logicalFrame, alpha, localImageBounds(screen.Bounds()))
+	addPictureLightSource(uint32(p.PictID), p.H, p.V, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
 
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)
@@ -2497,8 +2497,8 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			}
 		}
 	}
-	x := roundToInt((h + float64(fieldCenterX)) * gs.GameScale)
-	y := roundToInt((v + float64(fieldCenterY)) * gs.GameScale)
+	x := screen.Bounds().Min.X + roundToInt((h+float64(fieldCenterX))*gs.GameScale)
+	y := screen.Bounds().Min.Y + roundToInt((v+float64(fieldCenterY))*gs.GameScale)
 	if d, ok := snap.descriptors[m.Index]; ok {
 		if gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName) {
 			return
@@ -2691,8 +2691,8 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 				}
 			}
 		}
-		x := roundToInt((hpos + float64(fieldCenterX)) * gs.GameScale)
-		y := roundToInt((vpos + float64(fieldCenterY)) * gs.GameScale)
+		x := screen.Bounds().Min.X + roundToInt((hpos+float64(fieldCenterX))*gs.GameScale)
+		y := screen.Bounds().Min.Y + roundToInt((vpos+float64(fieldCenterY))*gs.GameScale)
 		if !b.Far {
 			if d, ok := descMap[b.Index]; ok {
 				if size := mobileSize(d.PictID); size > 0 {
@@ -2717,6 +2717,9 @@ func lerpBar(prev, cur int, alpha float64) int {
 
 // drawStatusBars renders health, balance and spirit bars.
 func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64) {
+	bounds := screen.Bounds()
+	ox += bounds.Min.X
+	oy += bounds.Min.Y
 	drawRect := func(x, y, w, h int, clr color.RGBA) {
 		op := acquireDrawOpts()
 		op.Filter = ebiten.FilterNearest
@@ -2762,12 +2765,10 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 		dy = 0
 	}
 
-	screenW := screen.Bounds().Dx()
-	screenH := screen.Bounds().Dy()
-	minX := -ox
-	minY := -oy
-	maxX := screenW - ox - barWidth - 2*dx
-	maxY := screenH - oy - barHeight - 2*dy
+	minX := bounds.Min.X - ox
+	minY := bounds.Min.Y - oy
+	maxX := bounds.Max.X - ox - barWidth - 2*dx
+	maxY := bounds.Max.Y - oy - barHeight - 2*dy
 	if x < minX {
 		x = minX
 	} else if x > maxX {

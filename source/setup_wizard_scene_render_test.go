@@ -87,7 +87,10 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		var snap drawSnapshot
 		prepareSetupWizardSceneSnapshot(&snap, now)
 		alpha, mobileFade, pictFade := computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
-		canvas := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+		// Production renders into a non-zero-origin subimage of the game buffer.
+		const offsetX, offsetY = 37, 29
+		backing := ebiten.NewImage(gameAreaSizeX+offsetX, gameAreaSizeY+offsetY)
+		canvas := backing.SubImage(image.Rect(offsetX, offsetY, offsetX+gameAreaSizeX, offsetY+gameAreaSizeY)).(*ebiten.Image)
 		canvas.Fill(color.RGBA{R: 28, G: 32, B: 38, A: 255})
 		nightAlphaInited = false
 		havePrev = false
@@ -95,7 +98,7 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		prevDarks = nil
 		drawScene(canvas, 0, 0, snap, alpha, mobileFade, pictFade)
 		if gs.ShaderLighting {
-			addNightDarkSources(gameAreaSizeX, gameAreaSizeY, float32(alpha))
+			addNightDarkSources(canvas.Bounds(), float32(alpha))
 			applyLightingShader(canvas, frameLights, frameDarks, float32(alpha))
 		}
 		drawSetupWizardSceneLabel(canvas, 1)
