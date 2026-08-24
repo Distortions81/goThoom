@@ -6,6 +6,8 @@ New and improved:
 - Added a Character Shadow Darkness slider ranging from barely visible to very dark, with the existing appearance as its default.
 - Character shadows use each matching animation frame's original alpha directly, with no blur, softness gradient, opacity gradient, or per-frame normalization.
 - Character shadow direction, mirroring, length, and low-sun behavior follow the classic client's projection model.
+- Added Mobiles Receive Sun Shadows, enabled by default. Characters and creatures are darkened according to how much they stand inside another mobile's projected daylight shadow, using spatial blocks to limit overlap checks.
+- Shadows from newly arrived viewport-edge mobiles fade in; shadows appear immediately when a scene change is detected.
 - Light and dark casters now respect their lighting-plane metadata while retaining the single-pass shader path.
 - Added support for `kPictDefFlagOnlyAttackPosesLit`, `kPictDefFlagLightFlicker`, and random-animation picture definitions.
 - Random-animation scenery instances now select stable independent frames instead of animating every copy in lockstep.
@@ -20,8 +22,13 @@ New and improved:
 - The demo-character login flow now handles required data updates and repeated server challenges automatically.
 - Legacy macros now receive the real input-box selection through `@textsel` while editing or invoking a macro.
 - Added a synthetic offline Setup Wizard scene with characters and scenery tailored to preview daytime, nighttime, indoor, glow, shadow, animation-blending, and motion-smoothing settings.
+- Reorganized and shortened the Setup Wizard so graphics detection begins on its second page instead of delaying the welcome page.
 - Added Modern and Classic player-health name displays. Modern uses a configurable fixed-width color bar above or below the name; Classic restores the original colored name background.
-- The Players window now reports the classic online/offline state instead of estimating how long ago a character was seen.
+- Renamed the bubble appearance option to Dark Mode Names/Bubbles. Modern health bars now work with either light or dark name backgrounds instead of forcing health-colored bubbles.
+- The Players window now separates Recently On Screen, Online, and Offline players. Recently On Screen means the player's sprite actually overlapped the viewport within the last two minutes and can be disabled in Settings.
+- Added custom groups to the Players and Inventory windows. Entries can be assigned from their right-click menu, and each group has an editor for adding, removing, or deleting members; player groups can also add nearby visible players at once.
+- Brought the Inventory window closer to classic-client behavior with accurate occupied-slot counts, pack-full/free-slot status, item quantities, equipped-item emphasis, and a Use action in the context menu.
+- The toolbar can now be docked at the top of Inventory or Players without scrolling over their content, or kept as its original free-floating title-bar window. Docked toolbars can show an optional FPS, loss, ping, and jitter info bar.
 
 Defaults and options:
 - Flame-style light flicker, Character Shadows, Accurate Character Shadows, and artwork upscaling default to on.
@@ -36,23 +43,27 @@ Defaults and options:
 - Speech bubbles reuse scaled font faces and wrapped text layouts instead of rebuilding their glyph-atlas inputs every rendered frame.
 - Name-tag images now carry over correctly between game updates instead of being rebuilt for every named character on every frame.
 - Fade-obscuring overlap checks now run once per actual game update; rendered frames only interpolate the cached previous and current results.
-- Stereo Music now defaults to off.
-- When Stereo Music is enabled, bard parts are spread across a maximum 40% stereo field instead of 70%.
+- Keep the Input Bar Open now defaults to on.
+- The toolbar defaults to Inventory with its info bar enabled; ping and jitter are shown with one decimal place.
 - Modern player-health bars default above the name at three pixels thick, remain hidden at full health, and the player's own name tag is visible by default.
-- Updated the default application and panel geometry to the current desktop layout; resetting window positions restores it while still clamping safely on smaller screens.
+- Window positions and resizable-window sizes are now stored relative to the main window. Auto-resize Window Layout defaults to on so the layout scales with the application, while fixed-size windows keep their content-defined size.
+- Updated the default application and panel geometry to a gapless layout that includes the toolbar, and centered the login window automatically.
 
 Fixes:
 - Restored clearly visible ponder-bubble animation after compositing its overlapping shapes into a single-opacity mask.
 - Stabilized character-shadow attachment and treatment across players and animation frames by using the same fixed logical cell and ground edge as character rendering; shadows follow the matching walk-cycle frame without moving their treatment field.
 - Character shadows use the exact current walk-cycle frame without animation crossfading, avoiding intermediate alpha textures that made their darkness pulse while walking or idle.
-- Kept speech-bubble text independent of the artwork supersampling scale and adjusted the default interface font sizes for clearer bubbles and more compact lists and names.
-- New installations now enable sound precaching with at least 4 GiB of system RAM and artwork precaching with at least 8 GiB; both remain off by default in browsers or when memory cannot be detected.
+- Kept speech-bubble text independent of the artwork scale and made player-name rasterization follow the actual render scale so names retain the intended relative size as the game window changes.
+- New installations enable sound precaching with at least 4 GiB of system RAM; it remains off by default in browsers or when memory cannot be detected.
 - Added repeatable setup-wizard graphics detection based on the complete renderer's real FPS. It automatically applies the recommended Full Quality or iGPU graphics preset, and the sustained low-FPS warning offers the iGPU preset.
 - At startup and when detection is rerun, the wizard applies Full Quality, greys out its controls, and observes the already-running preview for five seconds before keeping Full Quality or switching to iGPU.
 - Removed the hidden embedded-movie playback beneath the wizard's synthetic preview; the synthetic scene now runs directly from the normal renderer and clock.
 - The wizard preview now includes a low-health NPC and creature, and its walking NPC changes facing on the same tick that its travel direction reverses.
 - Removed the Object Effect Pinning checkbox from the Quality UI while retaining the underlying setting and behavior.
-- Synchronized image-cache invalidation with background precaching so quality changes cannot repopulate caches with images being cleared.
+- Removed artwork precaching and its setting after profiling showed it did not provide enough benefit.
+- Embedded pre-rendered WAV data for the common notification sounds, avoiding synthesizer work on their first use while retaining render-and-cache fallback for uncommon sounds.
+- Rendering now draws the world directly at the game window's final resolution, and shader lighting no longer feeds interpolated light positions back across rendered frames. This prevents cumulative drift that could move lights away from their players.
+- Window background and title colors now follow theme changes immediately instead of retaining the palette from when each window was created.
 - Restored the compact pre-tuning radius for emitted light glows so nearby artwork stays clear instead of looking broadly blurred.
 - Expanded dark-caster coverage, reduced dead dark-caster intensity, and stopped fully off-screen lighting sources from consuming shader capacity.
 - Fixed mostly-offscreen clouds losing motion smoothing; ordinary edge objects still use the conservative edge rule.
@@ -71,11 +82,14 @@ Fixes:
 - Character and contact-shadow anchors now follow the opaque foot of each sprite, preventing large creatures from appearing to hover above their shadows.
 - Contact shadows are suppressed inside another character's or scenery light while ignoring a character's own emitted light.
 - Local-light cone cutouts now consider characters throughout the visible glow tail, select up to 32 closest interactions, and ignore lights centered directly on their owner.
+- Moved Fade Objects Obscuring Mobiles and its opacity control from Advanced to Quality, and fixed the feature for foreground objects on lighting plane zero.
 - Hover-only name tags remain visible briefly after the cursor leaves, then fade smoothly before returning to the compact health indicator.
+- Fixed adding an already-equipped inventory item incorrectly toggling the existing item to unequipped.
 
 Technical changes:
 - Moved the Go module and runtime source tree under `source/`; repository-level build scripts and documentation were updated for the new layout.
 - Published release builds no longer run for ordinary pushes, and the WebAssembly build is maintained as a separate explicit build script.
 - Artwork-upscale caches now distinguish each selected style and are cleared when relevant quality settings change.
 - The default PGO profile now uses the busy `tour-2025.08.02.clMov.zip` scene, and PGO capture supports configurable input, duration, output, and repeating playback after assets are ready.
-- Added regression coverage for settings migration, lighting flags and planes, random animations, character shadows, artwork upscaling, thought-bubble compositing, cache refreshes, music streaming and stopping, scrollbar sizing, UI click ownership, and legacy macro text selection.
+- Removed the old window tiling, window pinning, pin-location, zone persistence, and Stereo Music settings and code.
+- Added regression coverage for settings migration, lighting flags and planes, random animations, character and mobile sun shadows, artwork upscaling, direct-resolution rendering, custom groups, inventory behavior, normalized window layout, theme refreshes, thought-bubble compositing, cache refreshes, music streaming and stopping, scrollbar sizing, UI click ownership, and legacy macro text selection.
