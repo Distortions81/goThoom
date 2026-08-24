@@ -2102,7 +2102,7 @@ func optionalDownloadSelections(soundfontCB, ttsCB *eui.ItemData) (soundfont, tt
 const charWinWidth = 500
 
 func updateCharacterButtons() {
-	if loginWin == nil || !loginWin.IsOpen() {
+	if loginWin == nil {
 		return
 	}
 	if charactersList == nil {
