@@ -5058,6 +5058,19 @@ func makeQualityWindow() {
 	}
 	lightingSection.AddItem(shaderQualityCB)
 
+	replacementEffectsCB, replacementEffectsEvents := eui.NewCheckbox()
+	replacementEffectsCB.Text = "Replacement Effects"
+	replacementEffectsCB.Size = eui.Point{X: width, Y: 24}
+	replacementEffectsCB.Checked = gs.ReplacementEffects
+	replacementEffectsCB.SetTooltip("Replace selected legacy magic sprites with procedural shader effects")
+	replacementEffectsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ReplacementEffects = ev.Checked
+			settingsDirty = true
+		}
+	}
+	lightingSection.AddItem(replacementEffectsCB)
+
 	flameCB, flameEvents := eui.NewCheckbox()
 	flameFlickerCB = flameCB
 	flameFlickerCB.Text = "Flame Light Flicker"

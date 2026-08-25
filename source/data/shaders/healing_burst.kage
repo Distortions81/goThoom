@@ -1,0 +1,42 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	// A self-contained cyan healing burst: a breathing core, two segmented
+	// outward rings, and a slower rotating halo of sparks.
+	p := srcPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	r := length(p)
+	// Kage exposes the one-argument atan form. The signed denominator gives a
+	// stable angular pattern without relying on an atan2 builtin.
+	angle := atan(p.y / (p.x + 0.0001))
+	t := Phase * 0.18
+
+	innerRadius := 0.16 + fract(t)*0.14
+	outerRadius := 0.34 + fract(t+0.5)*0.20
+	innerRing := band(r, innerRadius, 0.018)
+	outerRing := band(r, outerRadius, 0.014)
+	innerSegments := max(0, sin(angle*9.0-t*12.0)-0.18) * 1.22
+	outerSegments := max(0, sin(angle*13.0+t*9.0)-0.46) * 1.85
+
+	core := max(0, 1-r*8.0)
+	sparkRadius := 0.43 + sin(angle*5.0+t*8.0)*0.035
+	sparks := band(r, sparkRadius, 0.010) * max(0, sin(angle*7.0-t*14.0)-0.55) * 2.25
+	intensity := min(1, core*0.75 + innerRing*innerSegments + outerRing*outerSegments + sparks)
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	color := mix(vec3(0.02, 0.34, 1.0), vec3(0.25, 1.0, 1.0), min(1, intensity*1.4))
+	a := intensity * Alpha
+	return vec4(color*a, a)
+}

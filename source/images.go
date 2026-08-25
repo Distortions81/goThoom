@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -188,14 +189,16 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 	if isWASM {
 		return
 	}
-	if assetDumpMode() {
-		return
-	}
 	// png.Encode reads the Ebiten image pixels. Initial asset loading happens
 	// before RunGame, when Ebiten deliberately rejects ReadPixels, so keep the
 	// sheet alive and export it after the first game update has initialized the
 	// graphics context.
 	if !gameHasStarted() {
+		// dump-all mode iterates the complete archive from Game.Update after the
+		// graphics context is ready, so there is nothing to defer here.
+		if assetDumpMode() {
+			return
+		}
 		go func() {
 			<-gameStarted
 			dumpImageSheet(id, sheet)
@@ -233,8 +236,16 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 		frameImg := sheet.SubImage(image.Rect(1, y, 1+innerWidth, y+h)).(*ebiten.Image)
 		fn := filepath.Join("dump", "img", fmt.Sprintf("%d_%d.png", id, f))
 		if file, err := os.Create(fn); err == nil {
-			png.Encode(file, frameImg)
+			img := frameImg
+			if imgDumpScale > 1 {
+				mode, _ := imageDumpUpscaleMode(imgDumpScaleType)
+				img = upscaleSpriteImageWithMode(frameImg, imgDumpScale, mode)
+			}
+			png.Encode(file, img)
 			file.Close()
+			if img != frameImg {
+				img.Deallocate()
+			}
 		}
 	}
 
@@ -364,6 +375,10 @@ func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
 }
 
 func upscaleSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
+	return upscaleSpriteImageWithMode(img, factor, artworkUpscaleMode())
+}
+
+func upscaleSpriteImageWithMode(img *ebiten.Image, factor, mode int) *ebiten.Image {
 	if factor <= 1 || img == nil {
 		return img
 	}
@@ -375,12 +390,15 @@ func upscaleSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op.GeoM.Scale(float64(factor), float64(factor))
 	nearest.DrawImage(img, op)
+	if mode == artworkUpscaleOff {
+		return nearest
+	}
 
 	scaled := newImage(w, h)
 	shaderOp := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
 		"Scale":         float32(factor),
-		"CornerReach":   artworkUpscaleCornerReach(),
-		"BlendStrength": artworkUpscaleBlendStrength(),
+		"CornerReach":   artworkUpscaleCornerReachForMode(mode),
+		"BlendStrength": artworkUpscaleBlendStrengthForMode(mode),
 	}}
 	shaderOp.Images[0] = nearest
 	scaled.DrawRectShader(w, h, spriteUpscaleShader, shaderOp)
@@ -421,7 +439,11 @@ func artworkUpscaleEnabled() bool {
 }
 
 func artworkUpscaleCornerReach() float32 {
-	switch artworkUpscaleMode() {
+	return artworkUpscaleCornerReachForMode(artworkUpscaleMode())
+}
+
+func artworkUpscaleCornerReachForMode(mode int) float32 {
+	switch mode {
 	case artworkUpscaleOff:
 		return 0
 	case artworkUpscaleCrisp:
@@ -434,7 +456,11 @@ func artworkUpscaleCornerReach() float32 {
 }
 
 func artworkUpscaleBlendStrength() float32 {
-	switch artworkUpscaleMode() {
+	return artworkUpscaleBlendStrengthForMode(artworkUpscaleMode())
+}
+
+func artworkUpscaleBlendStrengthForMode(mode int) float32 {
+	switch mode {
 	case artworkUpscaleOff:
 		return 0
 	case artworkUpscaleCrisp:
@@ -447,6 +473,23 @@ func artworkUpscaleBlendStrength() float32 {
 		return 0.82
 	default:
 		return 0.8
+	}
+}
+
+func imageDumpUpscaleMode(name string) (int, bool) {
+	switch strings.ToLower(name) {
+	case "nearest":
+		return artworkUpscaleOff, true
+	case "crisp":
+		return artworkUpscaleCrisp, true
+	case "balanced":
+		return artworkUpscaleBalanced, true
+	case "smooth":
+		return artworkUpscaleSmooth, true
+	case "ultra-smooth":
+		return artworkUpscaleUltraSmooth, true
+	default:
+		return artworkUpscaleOff, false
 	}
 }
 

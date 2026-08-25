@@ -2223,13 +2223,16 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	lightX := (left + right) / 2
 	lightY := (top + bottom) / 2
 	addPictureLightSource(uint32(p.PictID), p.H, p.V, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
-
-	img := loadImageFrame(p.PictID, frame)
-	img = getScaledPictureFrame(p.PictID, frame, img)
 	fadeAlpha := float32(1.0)
 	if gs.FadeObscuringPictures {
 		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
 	}
+	if drawReplacementPictureEffect(screen, p.PictID, left, top, right-left, bottom-top, fadeAlpha) {
+		return
+	}
+
+	img := loadImageFrame(p.PictID, frame)
+	img = getScaledPictureFrame(p.PictID, frame, img)
 	var prevImg *ebiten.Image
 	if pictureFrameBlendingEnabled() && clImages != nil {
 		if prevFrame != frame {

@@ -135,6 +135,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "MaxNightLevel", category: settingsRendering, name: "maximum_night_darkness"},
 	{field: "NightEffect", category: settingsRendering, name: "night_effect"},
 	{field: "ShaderLighting", category: settingsRendering, name: "shader_lighting"},
+	{field: "ReplacementEffects", category: settingsRendering, name: "replacement_effects"},
 	{field: "ShaderLightStrength", category: settingsRendering, name: "light_strength"},
 	{field: "ShaderGlowStrength", category: settingsRendering, name: "glow_strength"},
 	{field: "FlameLightFlicker", category: settingsRendering, name: "flame_light_flicker"},

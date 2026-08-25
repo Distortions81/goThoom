@@ -36,17 +36,18 @@ func exportImages() {
 	}
 	ids := clImages.IDs()
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	log.Printf("Exporting %d images to dump/img...", len(ids))
-	for _, id := range ids {
+	log.Printf("Exporting images: 0/%d (0%%) to dump/img...", len(ids))
+	for n, id := range ids {
 		if id > 0xffff {
 			log.Printf("Skipping image %d: ID exceeds the client range.", id)
-			continue
-		}
-		if sheet := clImages.Get(id, nil, false); sheet != nil {
+		} else if sheet := clImages.Get(id, nil, false); sheet != nil {
 			dumpImageSheet(uint16(id), sheet)
 		}
+		if exportProgressDue(n+1, len(ids)) {
+			log.Printf("Exporting images: %d/%d (%d%%)", n+1, len(ids), exportPercent(n+1, len(ids)))
+		}
 	}
-	log.Print("Image export complete.")
+	log.Printf("Image export complete: %d images.", len(ids))
 }
 
 func exportSounds() {
@@ -56,13 +57,27 @@ func exportSounds() {
 	}
 	ids := clSounds.IDs()
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	log.Printf("Exporting %d sounds to dump/snd...", len(ids))
-	for _, id := range ids {
+	log.Printf("Exporting sounds: 0/%d (0%%) to dump/snd...", len(ids))
+	for n, id := range ids {
 		if id > 0xffff {
 			log.Printf("Skipping sound %d: ID exceeds the client range.", id)
-			continue
+		} else {
+			loadSound(uint16(id))
 		}
-		loadSound(uint16(id))
+		if exportProgressDue(n+1, len(ids)) {
+			log.Printf("Exporting sounds: %d/%d (%d%%)", n+1, len(ids), exportPercent(n+1, len(ids)))
+		}
 	}
-	log.Print("Sound export complete.")
+	log.Printf("Sound export complete: %d sounds.", len(ids))
+}
+
+func exportProgressDue(done, total int) bool {
+	return done == total || done%100 == 0
+}
+
+func exportPercent(done, total int) int {
+	if total == 0 {
+		return 100
+	}
+	return done * 100 / total
 }

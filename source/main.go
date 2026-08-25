@@ -55,6 +55,8 @@ var (
 	blockMusic        bool
 	dumpMusic         bool
 	imgDump           bool
+	imgDumpScale      int
+	imgDumpScaleType  string
 	sndDump           bool
 	dumpBEPPTags      bool
 	musicDebug        bool
@@ -81,6 +83,8 @@ func main() {
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
 	flag.BoolVar(&dumpMusic, "dumpMusic", false, "write played music as a .wav file")
 	flag.BoolVar(&imgDump, "imgDump", false, "export all images to dump/img as PNG and exit")
+	flag.IntVar(&imgDumpScale, "imgDumpScale", 1, "scale exported images by 1, 2, 3, or 4")
+	flag.StringVar(&imgDumpScaleType, "imgDumpScaleType", "nearest", "image export upscale type: nearest, crisp, balanced, smooth, or ultra-smooth")
 	flag.BoolVar(&sndDump, "sndDump", false, "export all sounds to dump/snd as WAV and exit")
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
@@ -95,6 +99,12 @@ func main() {
 	pgoHeapOutput := flag.String("pgoHeapOutput", "", "heap profile output written after -pgo completes")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
 	flag.Parse()
+	if imgDumpScale < 1 || imgDumpScale > 4 {
+		log.Fatalf("imgDumpScale must be between 1 and 4, got %d", imgDumpScale)
+	}
+	if _, ok := imageDumpUpscaleMode(imgDumpScaleType); !ok {
+		log.Fatalf("imgDumpScaleType must be nearest, crisp, balanced, smooth, or ultra-smooth, got %q", imgDumpScaleType)
+	}
 
 	// Classic timing and parser are always enabled; flags removed.
 
