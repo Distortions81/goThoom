@@ -47,6 +47,13 @@ ensure_spellcheck_dict() {
   fi
 }
 
+copy_user_guides() {
+  local package_dir="$1"
+  mkdir -p "$package_dir/scripts" "$package_dir/data/Macros/Library"
+  cp "$ROOT_DIR/source/scripts/README.md" "$package_dir/scripts/README.md"
+  cp "$ROOT_DIR/source/data/Macros/README.md" "$package_dir/data/Macros/Library/README.md"
+}
+
 install_linux_deps() {
   if [ "${GOTHOOM_SKIP_SYSTEM_DEPS:-0}" = "1" ]; then
     echo "Using preinstalled Linux build dependencies."
@@ -154,6 +161,7 @@ MSG
 # Ensure zip is available for packaging on Ubuntu systems
 ensure_cmd zip
 ensure_spellcheck_dict
+bash "${SCRIPT_DIR}/build_script_template.sh" "${OUTPUT_DIR}/goThoom-Script-Template.zip"
 
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
@@ -312,6 +320,8 @@ EOF
   else
     mv "${OUTPUT_DIR}/${BIN_NAME}" "$PKG_DIR/"
   fi
+
+  copy_user_guides "$PKG_DIR"
 
   if [ "$GOOS" = "linux" ]; then
     ensure_cmd convert imagemagick

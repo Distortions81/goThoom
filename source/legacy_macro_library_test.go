@@ -109,6 +109,13 @@ func TestLegacyMacroLibraryDiscoversNameConventionAndFilenameFallback(t *testing
 	if !strings.Contains(string(metadataReference), "// Metadata") {
 		t.Fatalf("installed metadata reference is incomplete: %q", metadataReference)
 	}
+	guide, err := os.ReadFile(filepath.Join(legacyMacroLibraryPath(), legacyMacroGuideName))
+	if err != nil {
+		t.Fatalf("read installed macro guide: %v", err)
+	}
+	if !strings.Contains(string(guide), "Using legacy macros in goThoom") {
+		t.Fatalf("installed macro guide is incomplete: %q", guide)
+	}
 	if err := os.WriteFile(filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName), []byte("old guide"), 0o644); err != nil {
 		t.Fatal(err)
 	}

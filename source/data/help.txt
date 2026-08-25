@@ -1,7 +1,6 @@
 Movement
 --------
 - Left-click to walk toward the cursor. With "Click-to-Toggle Walk" enabled, one click sets a walk target.
-- Use WASD or arrow keys; hold Shift to run.
 
 Communication
 -------------
@@ -51,7 +50,6 @@ Other Windows
 Extras
 ------
 - Custom background: place `background.png` in the `data/` directory.
-- Custom splash image (pre-login): place `splash.png` in `data/`.
 - Music test: `/play <instrument-number> <notes>` (e.g., `/play 10 cdefg`).
 
 Low-end Hardware

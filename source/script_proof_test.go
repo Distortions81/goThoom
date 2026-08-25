@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	scriptapi "gt2"
 )
@@ -277,11 +278,56 @@ func TestServerScannerProof(t *testing.T) {
 
 func TestLongRunningTimerReloadProof(t *testing.T) {
 	const owner = "daily_reminder_proof"
+	originalPlayerName := playerName
+	playerName = "Hero"
+	t.Cleanup(func() { playerName = originalPlayerName })
+
 	sim := activateBundledProofScript(t, owner, "daily_reminder.go")
+	today := time.Now().Format("2006-01-02")
+	const heroDateKey = "last-reminder-date:hero"
+	const heroCountKey = "reminder-count:hero"
+	const otherDateKey = "last-reminder-date:other"
+	const otherCountKey = "reminder-count:other"
+	if got := scriptStorageGet(owner, heroDateKey); got != today {
+		t.Fatalf("initial reminder date = %v, want %q", got, today)
+	}
+	if got := scriptStorageGet(owner, heroCountKey); got != nil {
+		t.Fatalf("new reminder fired immediately: count=%v", got)
+	}
+
+	// Pretend the app was last run on an earlier day. The next timer check
+	// should catch up once, then remain quiet for the rest of today.
+	scriptStorageSet(owner, heroDateKey, "2000-01-01")
 	sim.timers(t)
-	if got := scriptStorageGet(owner, "reminder-count"); got != 1 {
+	if got := scriptStoredInteger(scriptStorageGet(owner, heroCountKey), 0); got != 1 {
 		t.Fatalf("initial reminder count = %v, want 1", got)
 	}
+	if got := scriptStorageGet(owner, heroDateKey); got != today {
+		t.Fatalf("updated reminder date = %v, want %q", got, today)
+	}
+	sim.timers(t)
+	if got := scriptStoredInteger(scriptStorageGet(owner, heroCountKey), 0); got != 1 {
+		t.Fatalf("reminder repeated on the same day: count=%v", got)
+	}
+
+	// Storage is per script, not automatically per character. Logging in as a
+	// second character must select independent keys within the shared store.
+	sim.login(t, "Other")
+	if got := scriptStorageGet(owner, otherDateKey); got != today {
+		t.Fatalf("second character reminder date = %v, want %q", got, today)
+	}
+	if got := scriptStorageGet(owner, otherCountKey); got != nil {
+		t.Fatalf("second character inherited reminder count: %v", got)
+	}
+	scriptStorageSet(owner, otherDateKey, "2000-01-01")
+	sim.timers(t)
+	if got := scriptStoredInteger(scriptStorageGet(owner, otherCountKey), 0); got != 1 {
+		t.Fatalf("second character reminder count = %v, want 1", got)
+	}
+	if got := scriptStoredInteger(scriptStorageGet(owner, heroCountKey), 0); got != 1 {
+		t.Fatalf("second character changed first character count: %v", got)
+	}
+	sim.login(t, "Hero")
 
 	scriptMu.RLock()
 	oldRepeats := append([]*scriptRepeatRegistration(nil), scriptRepeats[owner]...)
@@ -289,6 +335,10 @@ func TestLongRunningTimerReloadProof(t *testing.T) {
 	if len(oldRepeats) != 1 {
 		t.Fatalf("initial timer registrations = %d, want 1", len(oldRepeats))
 	}
+	flushscriptStore(owner)
+	scriptStoreMu.Lock()
+	delete(scriptStores, owner)
+	scriptStoreMu.Unlock()
 	source, err := scriptScripts.ReadFile("scripts/daily_reminder.go")
 	if err != nil {
 		t.Fatal(err)
@@ -307,9 +357,19 @@ func TestLongRunningTimerReloadProof(t *testing.T) {
 	if len(newRepeats) != 1 || newRepeats[0] == oldRepeats[0] {
 		t.Fatalf("timer registrations after reload = %+v", newRepeats)
 	}
+	if got := scriptStoredInteger(scriptStorageGet(owner, heroCountKey), 0); got != 1 {
+		t.Fatalf("reload lost persisted reminder count: %v", got)
+	}
+	if got := scriptStorageGet(owner, heroDateKey); got != today {
+		t.Fatalf("reload lost persisted reminder date: %v", got)
+	}
+	if got := scriptStoredInteger(scriptStorageGet(owner, otherCountKey), 0); got != 1 {
+		t.Fatalf("reload lost second character reminder count: %v", got)
+	}
 
+	scriptStorageSet(owner, heroDateKey, "2000-01-01")
 	sim.timers(t)
-	if got := scriptStorageGet(owner, "reminder-count"); got != 2 {
+	if got := scriptStoredInteger(scriptStorageGet(owner, heroCountKey), 0); got != 2 {
 		t.Fatalf("replacement reminder count = %v, want 2", got)
 	}
 	disablescript(owner, "test timer cleanup")

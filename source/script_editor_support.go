@@ -38,10 +38,15 @@ func installScriptEditorSupport(scriptsDir string) error {
 		return fmt.Errorf("open scripts folder: %w", err)
 	}
 	defer root.Close()
+	guide, err := scriptScripts.ReadFile("scripts/README.md")
+	if err != nil {
+		return fmt.Errorf("read embedded scripting guide: %w", err)
+	}
 	files := []struct {
 		path string
 		data []byte
 	}{
+		{path: "README.md", data: guide},
 		{path: "go.mod", data: []byte(scriptWorkspaceModule)},
 		{path: "go.work", data: []byte(scriptWorkspaceFile)},
 	}

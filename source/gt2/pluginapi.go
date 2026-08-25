@@ -131,7 +131,9 @@ func Choice(option ChoiceOption) string         { return option.Default }
 func KeyBinding(option KeyBindingOption) string { return option.Default }
 func ItemSelector(option ItemOption) string     { return option.Default }
 
-// Storage is private to the script that calls it.
+// Storage is private to the script that calls it, but shared by every
+// character using that script. Include the current character in the key when
+// data should be character-specific.
 func Store(key string, value any)                               {}
 func LoadString(key, fallback string) string                    { return fallback }
 func LoadBool(key string, fallback bool) bool                   { return fallback }

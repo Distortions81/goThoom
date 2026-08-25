@@ -1,136 +1,87 @@
 # AGENTS
 
-This repo includes a Go client under `source/`. To build or run the Go program you need Go version 1.26.6 from the official Go distribution; avoid the system `golang-go` package.
-Do not increment JSON versions in GT_Players.json or settings.json or characters.json. They will be done manually if needed.
-Any functions or variables or types exposed to the scripts need to also be put empty stubs into gt2 so the linters do not complain for users.
-Also I prefer to-the-point and simple solutions. We'll get complex if it is needed but I prefer to not over complicate things. "Keep it simple stupid"
-Try to avoid completely over-thinking your replies and feel free to stop and ask questions rather than making an assumption.
+## Working rules
 
-## Installing dependencies
+- Read this file and `README.md` when starting a new session.
+- Keep solutions simple and focused. Ask before making a consequential
+  assumption.
+- Do not create branches or push without explicit permission.
+- Preserve unrelated user changes in a dirty worktree.
+- Do not increment versions in `GT_Players.json`, `settings.json`, or
+  `characters.json`; those are updated manually.
 
-1. Install required system packages (if missing):
-   ```bash
-   sudo apt-get install -y build-essential libgl1-mesa-dev libglu1-mesa-dev \
-     xorg-dev libxrandr-dev libasound2-dev libgtk-3-dev xdg-utils
-   ```
-2. Install Go 1.26.6:
-   ```bash
-   curl -LO https://go.dev/dl/go1.26.6.linux-amd64.tar.gz
-   sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz
-   export PATH="/usr/local/go/bin:$PATH"
-   ```
-3. **Always** download and extract the prebuilt dependency bundle:
-   ```bash
-   curl -LO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
-   tar -C source -xzf gothoom_deps.tar.gz
-   ```
-   The archive, produced by `build-scripts/build_dep_bundle.sh`, contains
-   resource files used by the client. Extracting it avoids fetching them
-   individually.
+## Project layout
 
-4. Fetch Go module dependencies:
-   ```bash
-   cd source
-   go mod download
-   ```
+- The Go module and client are under `source/` (`module gothoom`).
+- Use Go 1.26.6 from the official Go distribution. Do not use the system
+  `golang-go` package.
+- Running the desktop client requires a display. Use Xvfb in a headless
+  environment.
 
+## Clean setup
 
+Always extract the prebuilt resource bundle before building from a clean
+checkout:
 
-The `build-scripts` directory provides helper scripts for development.
-`build-scripts/build_dep_bundle.sh` regenerates the dependency bundle,
-`build-scripts/build_binaries.sh` compiles release binaries, and
-`build-scripts/setup_dev_env.sh` bootstraps a development environment.
-Run these scripts from the repository root.
+```sh
+curl -fsSLO https://m45sci.xyz/u/dist/goThoom/gothoom_deps.tar.gz
+tar -C source -xzf gothoom_deps.tar.gz
+./build-scripts/setup_dev_env.sh
+```
 
-`build-scripts/update_screenshot.sh` updates the README and website screenshot.
-It requires `cwebp`, available in the Debian/Ubuntu `webp` package.
+`setup_dev_env.sh` installs the Debian/Ubuntu build dependencies, installs the
+required Go version, starts Xvfb when needed, and runs the standard checks.
 
-## Adding Dependencies
-- Document any required system packages here.
-- Update `build-scripts/build_dep_bundle.sh` if additional data files need to
-  be bundled and regenerate the archive with the script.
-- After updates, regenerate the archive by running `build-scripts/build_dep_bundle.sh` from the repo root and re-share `gothoom_deps.tar.gz`.
+If a change adds system or bundled-data dependencies, update the setup process,
+regenerate the resource archive, and re-share `gothoom_deps.tar.gz`.
 
-## Build steps
-1. Navigate to the Go module:
-   ```bash
-   cd source
-   ```
-2. Compile the program:
-   ```bash
-   go build
-   ```
-   This produces the executable `gothoom` in `source/`.
-3. You can also run the program directly with:
-   ```bash
-   go run .
-   ```
-The module path is `gothoom`; the complete Go module is located in `source/`.
+## Validation
 
-## Quick Commands Reference
+Run focused tests while working, then normally finish with:
 
-Click and drag to move. Type \HELP <COMMAND>. The commands are: \ACTION, \AFFILIATIONS, \ANONCURSE, \ANONTHANK, \BAG, \BOOT, \BUG, \BUY, \CURSE, \DEPART, \DROP, \EQUIP, \EXAMINE, \GIVE, \HELP, \INFO, \KARMA, \MONEY, \NAME, \NARRATE, \NEWS, \OPTIONS, \PONDER, \POSE, \PRAY, \PULL, \PUSH, \REPORT, \SELL, \SHARE, \SHOW, \SKY, \SLEEP, \SPEAK, \STATUS, \SWEAR, \THANK, \THINK, \THINKCLAN, \THINKGROUP, \THINKTO, \TIP, \UNEQUIP, \UNSHARE, \USE, \USEITEM, \WHISPER, \WHO, \WHOCLAN, \YELL
+```sh
+cd source
+go test ./...
+```
 
-Running the client without a display (i.e. no `$DISPLAY` variable) will exit
-with an X11 initialization error.
+Use `go build` for a normal client compile. Also run `git diff --check` before
+handoff. Validate release or cross-platform changes with the relevant build
+script rather than assuming a normal Linux build covers them.
 
-## Ebitengine 2.9 notes
+## Script API
 
-- We target Ebitengine 2.9.x; the release notes live at
-  <https://ebitengine.org/en/documents/2.9.html>.
-- Prefer the new `vector.Fill*`, `vector.StrokePath`, and `vector.Path.Add*`
-  helpers instead of manually appending vertices.
-- Replace the old resample helpers with the new
-  `audio.ResampleReader{,F32}` helpers when touching audio code.
+- Any function, type, variable, constant, or method exposed to scripts must
+  also exist as an editor stub in `source/gt2/pluginapi.go`.
+- After changing that contract, run:
 
-### Deprecated Ebiten calls to avoid
+  ```sh
+  cd source/gt2
+  go generate ./...
+  ```
 
-The older removal list still applies:
+  Keep the regenerated API reference and editor-support data with the change.
+- `gt2.Store` data is private to a script but shared across its characters.
+  Character-specific data must include the normalized current character in its
+  keys and should be read only after the character is known.
+- `gt2.Repeat` and `gt2.Wait` are session-only. Persist dates or due times when
+  scheduled work must survive reloads or app restarts.
 
-- `op.ColorM.Scale`
-- `op.ColorM.Translate`
-- `op.ColorM.Rotate`
-- `op.ColorM.ChangeHSV`
-- `ebiten.UncappedTPS`
-- `ebiten.CurrentFPS`
-- `ebiten.CurrentTPS`
-- `ebiten.DeviceScaleFactor`
-- `ebiten.GamepadAxis`
-- `ebiten.GamepadAxisNum`
-- `ebiten.GamepadButtonNum`
-- `ebiten.InputChars`
-- `ebiten.IsScreenFilterEnabled`
-- `ebiten.IsScreenTransparent`
-- `ebiten.IsWindowResizable`
-- `ebiten.MaxTPS`
-- `ebiten.ScheduleFrame`
-- `ebiten.ScreenSizeInFullscreen`
-- `ebiten.SetFPSMode`
-- `ebiten.SetInitFocused`
-- `ebiten.SetMaxTPS`
-- `ebiten.SetScreenFilterEnabled`
-- `ebiten.SetScreenTransparent`
-- `ebiten.SetWindowResizable`
-- `ebiten.GamepadIDs`
-- `(*ebiten.Image).Dispose`
-- `(*ebiten.Image).ReplacePixels`
-- `(*ebiten.Image).Size`
-- `(*ebiten.Shader).Dispose`
-- `ebiten.TouchIDs`
+## Useful build helpers
 
-New 2.9-specific deprecations to avoid introducing:
+Run helpers from the repository root:
 
-- `ebiten.FillRule`
-- `ebiten.DrawTrianglesOptions.AntiAlias`
-- `ebiten.DrawTrianglesOptions.FillRule`
-- `ebiten.DrawTrianglesShaderOptions.AntiAlias`
-- `ebiten.DrawTrianglesShaderOptions.FillRule`
-- `colorm.DrawTrianglesOptions.AntiAlias`
-- `colorm.DrawTrianglesOptions.FillRule`
-- `audio.Resample`
-- `audio.ResampleF32`
-- `text/v2.GoTextFace.Script`
-- `vector.Path.AppendVerticesAndIndicesForFilling`
-- `vector.Path.AppendVerticesAndIndicesForStroke`
-- `vector.DrawFilledCircle`
-- `vector.DrawFilledRect`
+- `build-scripts/build_binaries.sh`: container/release cross-platform builds.
+- `build-scripts/build_binaries_local.sh`: local cross-platform builds.
+- `build-scripts/build_script_template.sh`: VS Code script template ZIP.
+- `build-scripts/build_wasm.sh`: separate WebAssembly package.
+- `build-scripts/update_screenshot.sh`: README and website screenshots; needs
+  `cwebp` from the Debian/Ubuntu `webp` package.
+
+## Ebitengine
+
+- Target Ebitengine 2.9.x and do not introduce APIs deprecated in that release.
+- Prefer `vector.Fill*`, `vector.StrokePath`, and `vector.Path.Add*` helpers.
+- Use `audio.ResampleReader` or `audio.ResampleReaderF32`, not the deprecated
+  `audio.Resample` helpers.
+- Consult the [Ebitengine 2.9 release notes](https://ebitengine.org/en/documents/2.9.html)
+  when touching rendering, input, window, gamepad, text, or audio APIs.

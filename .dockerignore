@@ -8,6 +8,7 @@ website
 **/*.log
 **/*.pcapng
 **/settings.json
+!script-template/.vscode/settings.json
 **/characters.json
 **/GT_Players.json
 **/Players.xml

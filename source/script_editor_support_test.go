@@ -19,7 +19,7 @@ func TestInstallScriptEditorSupportResolvesGT2(t *testing.T) {
 	if err := installScriptEditorSupport(dir); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"go.mod", "go.work", "gt2/go.mod", "gt2/pluginapi.go", "gt2/API_REFERENCE.md"} {
+	for _, name := range []string{"README.md", "go.mod", "go.work", "gt2/go.mod", "gt2/pluginapi.go", "gt2/API_REFERENCE.md"} {
 		if info, err := os.Stat(filepath.Join(dir, filepath.FromSlash(name))); err != nil || info.IsDir() {
 			t.Errorf("installed support file %s: info=%v err=%v", name, info, err)
 		}
@@ -55,6 +55,13 @@ func TestInstallScriptEditorSupportRefreshesManagedFiles(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "package gt2") || strings.Contains(string(data), "stale") {
 		t.Fatalf("managed editor stub was not refreshed: %q", data)
+	}
+	guide, err := os.ReadFile(filepath.Join(dir, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(guide), "Using and writing goThoom scripts") {
+		t.Fatalf("scripting guide was not installed: %q", guide)
 	}
 }
 

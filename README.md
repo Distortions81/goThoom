@@ -37,7 +37,7 @@ for your computer.
 
 ## Using goThoom
 
-- **Movement:** Left-click to walk, or use WASD/arrow keys. Hold Shift to run.
+- **Movement:** Left-click in the game view to walk toward the cursor.
 - **Chat:** Press Enter to start typing and Enter again to send. Escape cancels;
   Up and Down browse message history.
 - **Windows:** Use the **Windows** toolbar menu to open Players, Inventory,
@@ -63,7 +63,7 @@ Open **Download Files** in the client to install optional extras:
 
 You can also customize goThoom without modifying the program:
 
-- Place `background.png` or `splash.png` in `data/` to replace those images.
+- Place `background.png` in `data/` to use a custom background.
 - Put custom color palettes in `themes/palettes/` and styles in
   `themes/styles/`. Example files and format documentation are created for you.
 - Enable **Potato GPU (low VRAM)** in Settings → Graphics on devices with small
@@ -90,8 +90,12 @@ package. Bundled examples are available from the Scripts window and are never
 installed over an existing file.
 
 Script-author documentation lives in
-[source/scripts/README.txt](source/scripts/README.txt), with the complete API in
+[source/scripts/README.md](source/scripts/README.md), with the complete API in
 [source/gt2/API_REFERENCE.md](source/gt2/API_REFERENCE.md).
+
+For VS Code completion and type checking, download
+[`goThoom-Script-Template.zip`](https://github.com/Distortions81/goThoom/releases/latest/download/goThoom-Script-Template.zip)
+from the latest release.
 
 ## License
 
