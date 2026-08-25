@@ -2,14 +2,21 @@
 
 package main
 
-import "gt"
+import (
+	"strings"
+
+	"gt2"
+)
 
 // script metadata
 var scriptName = "Rank Decoder"
+
+const scriptID = "rank-decoder"
+
 var scriptAuthor = "Examples"
 var scriptCategory = "Tools"
 
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 // rankMessages maps trainer phrases to their numerical rank ranges.
 var rankMessages = map[string]string{
@@ -72,18 +79,13 @@ var rankMessages = map[string]string{
 }
 
 func Init() {
-	// Register a chat trigger for each known trainer phrase.
-	// Passing an empty phrase to gt.Chat is a no-op, so we must
-	// explicitly register each phrase we care about.
-	for phrase := range rankMessages {
-		gt.Chat(phrase, rankDecodeChat)
-	}
+	gt2.OnChat(gt2.ChatFilter{}, rankDecodeChat)
 }
 
-func rankDecodeChat(msg string) {
+func rankDecodeChat(event gt2.ChatEvent) {
 	for phrase, rank := range rankMessages {
-		if gt.Includes(msg, phrase) {
-			gt.ShowNotification("Rank " + rank)
+		if strings.Contains(event.Raw, phrase) {
+			gt2.ShowNotification("Rank " + rank)
 			break
 		}
 	}

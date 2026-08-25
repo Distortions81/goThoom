@@ -5,12 +5,13 @@ package main
 import (
 	"time"
 
-	"gt"
+	"gt2"
 )
 
 const scriptAuthor = "Examples"
+const scriptID = "dance"
 const scriptCategory = "Fun"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 const scriptName = "Dance Macros"
 
 // How to use:
@@ -19,18 +20,19 @@ const scriptName = "Dance Macros"
 //   - Safe to spam; it just sends a few /pose commands with short pauses.
 func Init() {
 	// Allow typing /dance to trigger it.
-	gt.RegisterCommand("dance", danceCmd)
+	gt2.Command("dance", danceCmd)
 	// Press Shift+D to start dancing (simpler key binding).
-	gt.Key("Shift-D", runDance)
+	gt2.Bind("Shift-D", danceHotkey)
 }
 
-func danceCmd(args string) { runDance() }
+func danceCmd(args string)       { runDance() }
+func danceHotkey(gt2.InputEvent) { runDance() }
 
 func runDance() {
 	// A tiny routine of poses played in sequence.
 	poses := []string{"celebrate", "leanleft", "leanright", "celebrate"}
 	for _, p := range poses {
-		gt.Run("/pose " + p)
-		time.Sleep(250 * time.Millisecond)
+		gt2.Send("/pose " + p)
+		gt2.Wait(250 * time.Millisecond)
 	}
 }

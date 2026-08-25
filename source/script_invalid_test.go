@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-// Test that scripts missing required metadata are marked invalid and disabled.
-func TestscriptMissingMetaDisabled(t *testing.T) {
+// Metadata is optional for local scripts; the filename supplies name and ID.
+func TestScriptMetadataIsOptional(t *testing.T) {
 	origDir := dataDirPath
 	dataDirPath = t.TempDir()
 	t.Cleanup(func() { dataDirPath = origDir })
@@ -21,38 +21,33 @@ func TestscriptMissingMetaDisabled(t *testing.T) {
 		t.Fatalf("mkdir scripts: %v", err)
 	}
 	src := `package main
-const scriptName = "MetaTest"
+func Init() {}
 `
 	if err := os.WriteFile(filepath.Join(plugDir, "meta.go"), []byte(src), 0o644); err != nil {
 		t.Fatalf("write script: %v", err)
 	}
 
-	// Reset script state.
+	// Scan the isolated directory directly. loadScripts uses the directory next
+	// to the test binary, which is intentionally not the data directory.
 	scriptMu = sync.RWMutex{}
-	scriptDisplayNames = map[string]string{}
-	scriptAuthors = map[string]string{}
-	scriptCategories = map[string]string{}
-	scriptSubCategories = map[string]string{}
 	scriptInvalid = map[string]bool{}
 	scriptDisabled = map[string]bool{}
 	scriptEnabledFor = map[string]scriptScope{}
-	scriptNames = map[string]bool{}
-
-	loadscripts()
-	owner := "MetaTest_meta"
-	if !scriptInvalid[owner] {
-		t.Fatalf("script not marked invalid: %+v", scriptInvalid)
+	scanned := scanscripts([]string{plugDir}, nil)
+	owner := "meta"
+	info, ok := scanned[owner]
+	if !ok || info.invalid || info.name != "meta" || info.id != "meta" || info.apiVer != scriptAPICurrentVersion {
+		t.Fatalf("simple script metadata = %+v", scanned)
 	}
-	if !scriptDisabled[owner] {
-		t.Fatalf("script not disabled")
-	}
+	scriptInvalid[owner] = info.invalid
+	scriptDisabled[owner] = info.invalid
 
 	playerName = "Tester"
 	setscriptEnabled(owner, true, false)
-	if s, ok := scriptEnabledFor[owner]; ok && !s.empty() {
-		t.Fatalf("invalid script unexpectedly enabled: %+v", s)
+	if s, ok := scriptEnabledFor[owner]; !ok || s.empty() {
+		t.Fatalf("valid simple script was not enabled: %+v", s)
 	}
-	if !scriptDisabled[owner] {
-		t.Fatalf("invalid script became enabled")
+	if scriptDisabled[owner] {
+		t.Fatal("valid simple script remained disabled")
 	}
 }

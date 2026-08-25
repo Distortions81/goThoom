@@ -1124,28 +1124,39 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 
 	} else if item.ItemType == ITEM_BUTTON {
 
+		itemColor := style.Color
+		if renderNow.Sub(item.Clicked) < clickFlash {
+			itemColor = style.ClickColor
+		} else if item.Hovered {
+			itemColor = style.HoverColor
+		}
+		if item.Filled {
+			drawRoundRect(subImg, &roundRect{
+				Size:     maxSize,
+				Position: offset,
+				Fillet:   item.Fillet,
+				Filled:   true,
+				Color:    itemColor,
+			})
+		}
 		if item.Image != nil {
 			sop := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
-			sop.GeoM.Scale(float64(maxSize.X)/float64(item.Image.Bounds().Dx()),
-				float64(maxSize.Y)/float64(item.Image.Bounds().Dy()))
-			sop.GeoM.Translate(float64(offset.X), float64(offset.Y))
+			imageWidth := float64(item.Image.Bounds().Dx())
+			imageHeight := float64(item.Image.Bounds().Dy())
+			availableWidth := float64(maxSize.X - 6*uiScale)
+			availableHeight := float64(maxSize.Y - 6*uiScale)
+			scale := float64(0)
+			if imageWidth > 0 && imageHeight > 0 {
+				scale = math.Min(availableWidth/imageWidth, availableHeight/imageHeight)
+			}
+			if scale > 0 {
+				sop.GeoM.Scale(scale, scale)
+				sop.GeoM.Translate(
+					float64(offset.X)+(float64(maxSize.X)-imageWidth*scale)/2,
+					float64(offset.Y)+(float64(maxSize.Y)-imageHeight*scale)/2,
+				)
+			}
 			subImg.DrawImage(item.Image, sop)
-		} else {
-			itemColor := style.Color
-			if renderNow.Sub(item.Clicked) < clickFlash {
-				itemColor = style.ClickColor
-			} else if item.Hovered {
-				itemColor = style.HoverColor
-			}
-			if item.Filled {
-				drawRoundRect(subImg, &roundRect{
-					Size:     maxSize,
-					Position: offset,
-					Fillet:   item.Fillet,
-					Filled:   true,
-					Color:    itemColor,
-				})
-			}
 		}
 
 		textSize := (item.FontSize * uiScale) + 2

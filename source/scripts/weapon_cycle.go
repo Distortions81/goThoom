@@ -2,27 +2,33 @@
 
 package main
 
-import "gt"
+import (
+	"strings"
+
+	"gt2"
+)
 
 // script metadata
 const scriptName = "Weapon Cycle"
+const scriptID = "weapon-cycle"
 const scriptAuthor = "Examples"
 const scriptCategory = "Equipment"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 var cycleItems = []string{"Axe", "Short Sword", "Dagger", "Chocolate"}
 
 // Init binds F3 to cycle through weapons.
 func Init() {
-	gt.RegisterCommand("cycleweapon", cycleWeaponCmd)
-	gt.Key("F3", cycleWeapon)
+	gt2.Command("cycleweapon", cycleWeaponCmd)
+	gt2.Bind("F3", cycleWeaponHotkey)
 }
 
-func cycleWeaponCmd(args string) { cycleWeapon() }
+func cycleWeaponCmd(args string)       { cycleWeapon() }
+func cycleWeaponHotkey(gt2.InputEvent) { cycleWeapon() }
 
 // cycleWeapon equips the next item in cycleItems.
 func cycleWeapon() {
-	inv := gt.Inventory()
+	inv := gt2.Inventory()
 	current := ""
 	for _, it := range inv {
 		if it.Equipped {
@@ -32,11 +38,11 @@ func cycleWeapon() {
 	}
 	next := cycleItems[0]
 	for i, name := range cycleItems {
-		if gt.IgnoreCase(current, name) {
+		if strings.EqualFold(current, name) {
 			next = cycleItems[(i+1)%len(cycleItems)]
 			break
 		}
 	}
 	// Equip by name using the simplified API
-	gt.Equip(next)
+	gt2.Equip(next)
 }

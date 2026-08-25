@@ -276,20 +276,19 @@ var gsdef settings = settings{
 	ShowClanLordSplashImage: true,
 
 	// Advanced and runtime defaults.
-	VSync:             true,
-	PrecacheSounds:    defaultPrecacheSounds,
-	smoothMoving:      false,
-	recordAssetStats:  false,
-	AltNetMode:        true,
-	AltNetDelay:       100,
-	hideMobiles:       false,
-	imgPlanesDebug:    false,
-	smoothingDebug:    false,
-	pictAgainDebug:    false,
-	pictIDDebug:       false,
-	scriptOutputDebug: false,
-	scriptEventDebug:  false,
-	forceNightLevel:   -1,
+	VSync:            true,
+	PrecacheSounds:   defaultPrecacheSounds,
+	smoothMoving:     false,
+	recordAssetStats: false,
+	AltNetMode:       true,
+	AltNetDelay:      100,
+	hideMobiles:      false,
+	imgPlanesDebug:   false,
+	smoothingDebug:   false,
+	pictAgainDebug:   false,
+	pictIDDebug:      false,
+	scriptEventDebug: false,
+	forceNightLevel:  -1,
 }
 
 type settings struct {
@@ -455,7 +454,6 @@ type settings struct {
 	smoothingDebug           bool
 	pictAgainDebug           bool
 	pictIDDebug              bool
-	scriptOutputDebug        bool
 	scriptEventDebug         bool
 	AltNetMode               bool
 	AltNetDelay              int

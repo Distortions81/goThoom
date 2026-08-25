@@ -15,6 +15,7 @@ import (
 const (
 	legacyMacroLibraryDirName       = "Library"
 	legacyMacroLibrarySelectionName = "enabled.json"
+	legacyMacroGuideName            = "README.md"
 	legacyMacroLibraryMetadataName  = "METADATA.md"
 	legacyMacroLibraryManifestName  = ".bundled-hashes.json"
 )
@@ -22,7 +23,7 @@ const (
 // legacyMacroLibraryFS contains the public legacy macro corpus shipped with
 // the client. The same source files are parsed by the compatibility tests.
 //
-//go:embed testdata/legacy_macros/web/*.mac testdata/legacy_macros/web/METADATA.md
+//go:embed data/Macros/README.md testdata/legacy_macros/web/*.mac testdata/legacy_macros/web/METADATA.md
 var legacyMacroLibraryFS embed.FS
 
 // legacyMacroLibraryBundledEntry holds attribution and description metadata.
@@ -276,6 +277,14 @@ func legacyMacroLibraryMetadataReference() ([]byte, error) {
 	return text, nil
 }
 
+func legacyMacroGuideReference() ([]byte, error) {
+	text, err := legacyMacroLibraryFS.ReadFile("data/Macros/" + legacyMacroGuideName)
+	if err != nil {
+		return nil, fmt.Errorf("read bundled macro guide: %w", err)
+	}
+	return text, nil
+}
+
 // legacyMacroLibraryEntries returns every .mac source in Macros/Library. The
 // bundled corpus is first copied there if missing, never overwriting a user
 // file, so the directory is the one editable source of truth.
@@ -490,6 +499,9 @@ func installLegacyMacroLibrarySourcesLocked() error {
 	if err := saveLegacyMacroLibraryMetadataReference(); err != nil {
 		return err
 	}
+	if err := saveLegacyMacroGuideReference(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -521,6 +533,18 @@ func saveLegacyMacroLibraryMetadataReference() error {
 	// so documentation fixes reach existing installs without touching .mac files.
 	if err := legacyMacroAtomicWriteFile(path, text, 0o644); err != nil {
 		return fmt.Errorf("write macro metadata reference %q: %w", path, err)
+	}
+	return nil
+}
+
+func saveLegacyMacroGuideReference() error {
+	text, err := legacyMacroGuideReference()
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(legacyMacroLibraryPath(), legacyMacroGuideName)
+	if err := legacyMacroAtomicWriteFile(path, text, 0o644); err != nil {
+		return fmt.Errorf("write macro guide %q: %w", path, err)
 	}
 	return nil
 }

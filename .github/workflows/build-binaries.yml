@@ -26,21 +26,21 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || inputs.release_tag || github.ref }}
 
-      - name: Build release Docker image
-        run: |
-          docker build \
-            --progress=plain \
-            --build-arg GO_VERSION=1.26.6 \
-            -t gothoom-build-env \
-            .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-      - name: Extract release artifacts
+      - name: Build release Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: artifacts
+          build-args: GO_VERSION=1.26.6
+          cache-from: type=gha,scope=gothoom-release
+          cache-to: type=gha,mode=max,scope=gothoom-release
+          outputs: type=local,dest=dist
+
+      - name: Prepare release artifacts
         run: |
-          rm -rf dist
-          mkdir -p dist
-          container_id="$(docker create gothoom-build-env)"
-          docker cp "$container_id:/binaries/." dist/
-          docker rm "$container_id"
           find dist -maxdepth 1 -type f -name '*.zip' -print | sort
           test -n "$(find dist -maxdepth 1 -type f -name '*.zip' -print -quit)"
           (

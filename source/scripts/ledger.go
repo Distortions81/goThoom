@@ -3,16 +3,18 @@
 package main
 
 import (
+	"strings"
 	"time"
 
-	"gt"
+	"gt2"
 )
 
 // script metadata
 const scriptName = "Ledger Actions"
+const scriptID = "ledger"
 const scriptAuthor = "Examples"
 const scriptCategory = "Tools"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 var fighters = []string{
 	"Angilsa", "Aktur", "Atkia", "Atkus", "Balthus", "Bodrus", "Darkus",
@@ -37,53 +39,53 @@ var others = []string{
 const pauseDuration = 3 * time.Second
 
 func Init() {
-	gt.RegisterCommand("ledgerfind", ledgerFind)
-	gt.RegisterCommand("ledgerlanguage", ledgerLanguage)
+	gt2.Command("ledgerfind", ledgerFind)
+	gt2.Command("ledgerlanguage", ledgerLanguage)
 }
 
 func ledgerFind(args string) {
-	gt.Print("ledger: find trainers")
-	gt.Run("/equip trainingledger")
-	fields := gt.Words(args)
+	gt2.Print("ledger: find trainers")
+	gt2.Send("/equip trainingledger")
+	fields := strings.Fields(args)
 	// (trimmed debug output)
-	playerName := gt.PlayerName()
+	playerName := gt2.Self().Name
 	category := ""
 	if len(fields) > 0 {
-		category = gt.Lower(fields[0])
+		category = strings.ToLower(fields[0])
 	}
 	if len(fields) > 1 {
 		playerName = fields[1]
 	}
 	if category == "healer" || category == "all" {
 		for _, h := range healers {
-			gt.Run("/use " + h + " /judge " + playerName)
-			time.Sleep(pauseDuration)
+			gt2.Send("/use " + h + " /judge " + playerName)
+			gt2.Wait(pauseDuration)
 		}
 	}
 	if category == "fighter" || category == "all" {
 		for _, f := range fighters {
-			gt.Run("/use " + f + " /judge " + playerName)
-			time.Sleep(pauseDuration)
+			gt2.Send("/use " + f + " /judge " + playerName)
+			gt2.Wait(pauseDuration)
 		}
 	}
 	if category == "other" || category == "all" {
 		for _, o := range others {
-			gt.Run("/use " + o + " /judge " + playerName)
-			time.Sleep(pauseDuration)
+			gt2.Send("/use " + o + " /judge " + playerName)
+			gt2.Wait(pauseDuration)
 		}
 	}
 }
 
 func ledgerLanguage(args string) {
-	gt.Print("ledger: judge language")
-	gt.Run("/equip trainingledger")
-	fields := gt.Words(args)
+	gt2.Print("ledger: judge language")
+	gt2.Send("/equip trainingledger")
+	fields := strings.Fields(args)
 	if len(fields) == 0 {
 		return
 	}
 	playerName := fields[0]
-	gt.Run("/use babellelyrn /judge " + playerName)
+	gt2.Send("/use babellelyrn /judge " + playerName)
 	if len(fields) > 1 {
-		gt.Run("/use babellelyrn /judge " + fields[1])
+		gt2.Send("/use babellelyrn /judge " + fields[1])
 	}
 }

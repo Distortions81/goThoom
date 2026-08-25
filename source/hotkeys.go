@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"gothoom/eui"
 
@@ -25,11 +26,12 @@ type HotkeyCommand struct {
 }
 
 type Hotkey struct {
-	Name     string          `json:"name,omitempty"`
-	Combo    string          `json:"combo"`
-	Commands []HotkeyCommand `json:"commands"`
-	Script   string          `json:"script,omitempty"`
-	Disabled bool            `json:"disabled,omitempty"`
+	Name         string          `json:"name,omitempty"`
+	Combo        string          `json:"combo"`
+	Commands     []HotkeyCommand `json:"commands"`
+	Script       string          `json:"script,omitempty"`
+	Disabled     bool            `json:"disabled,omitempty"`
+	registration scriptRegistrationHandle
 }
 
 var (
@@ -71,9 +73,9 @@ func loadHotkeys() {
 			Commands []HotkeyCommand `json:"commands"`
 			Command  string          `json:"command"`
 			Text     string          `json:"text,omitempty"`
-			script   string
-			Disabled *bool `json:"disabled,omitempty"`
-			Enabled  *bool `json:"enabled,omitempty"`
+			Script   string          `json:"script,omitempty"`
+			Disabled *bool           `json:"disabled,omitempty"`
+			Enabled  *bool           `json:"enabled,omitempty"`
 		}
 		var raw []hotkeyJSON
 		if err := json.Unmarshal(data, &raw); err != nil {
@@ -81,21 +83,19 @@ func loadHotkeys() {
 			return
 		}
 		for _, r := range raw {
-			if r.script != "" {
-				m := scriptHotkeyEnabled[r.script]
+			if r.Script != "" {
+				m := scriptHotkeyEnabled[r.Script]
 				if m == nil {
 					m = map[string]bool{}
-					scriptHotkeyEnabled[r.script] = m
+					scriptHotkeyEnabled[r.Script] = m
 				}
-				enabled := false
+				enabled := true
 				if r.Enabled != nil {
 					enabled = *r.Enabled
 				} else if r.Disabled != nil {
 					enabled = !*r.Disabled
 				}
-				if enabled {
-					m[r.Combo] = true
-				}
+				m[r.Combo] = enabled
 				continue
 			}
 			disabled := false
@@ -158,37 +158,28 @@ func saveHotkeys() {
 	snap := append([]Hotkey(nil), hotkeys...)
 	hotkeysMu.RUnlock()
 	type scriptState struct {
-		Script  string `json:"script,omitempty"`
+		Script  string `json:"script"`
 		Combo   string `json:"combo"`
-		Enabled bool   `json:"enabled,omitempty"`
+		Enabled bool   `json:"enabled"`
 	}
 
 	var out []any
 	scriptHotkeyMu.Lock()
 	for _, hk := range snap {
 		if hk.Script != "" {
-			if hk.Disabled {
-				if m := scriptHotkeyEnabled[hk.Script]; m != nil {
-					delete(m, hk.Combo)
-					if len(m) == 0 {
-						delete(scriptHotkeyEnabled, hk.Script)
-					}
-				}
-			} else {
-				m := scriptHotkeyEnabled[hk.Script]
-				if m == nil {
-					m = map[string]bool{}
-					scriptHotkeyEnabled[hk.Script] = m
-				}
-				m[hk.Combo] = true
+			m := scriptHotkeyEnabled[hk.Script]
+			if m == nil {
+				m = map[string]bool{}
+				scriptHotkeyEnabled[hk.Script] = m
 			}
+			m[hk.Combo] = !hk.Disabled
 			continue
 		}
 		out = append(out, hk)
 	}
 	for plug, m := range scriptHotkeyEnabled {
-		for combo := range m {
-			out = append(out, scriptState{Script: plug, Combo: combo, Enabled: true})
+		for combo, enabled := range m {
+			out = append(out, scriptState{Script: plug, Combo: combo, Enabled: enabled})
 		}
 	}
 	scriptHotkeyMu.Unlock()
@@ -212,7 +203,18 @@ func scriptHotkeys(owner string) []Hotkey {
 	return list
 }
 
-func scriptRemoveHotkey(owner, combo string) {
+func removeScriptHotkeyRegistration(owner, combo string, preserveState bool) {
+	hotkeysMu.RLock()
+	var registrations []scriptRegistrationHandle
+	for _, hk := range hotkeys {
+		if hk.Script == owner && hk.Combo == combo && hk.registration.valid() {
+			registrations = append(registrations, hk.registration)
+		}
+	}
+	hotkeysMu.RUnlock()
+	for _, registration := range registrations {
+		registration.release()
+	}
 	hotkeysMu.Lock()
 	for i := 0; i < len(hotkeys); i++ {
 		hk := hotkeys[i]
@@ -222,14 +224,42 @@ func scriptRemoveHotkey(owner, combo string) {
 		}
 	}
 	hotkeysMu.Unlock()
-	scriptHotkeyMu.Lock()
-	if m := scriptHotkeyEnabled[owner]; m != nil {
-		delete(m, combo)
-		if len(m) == 0 {
-			delete(scriptHotkeyEnabled, owner)
+	if !preserveState {
+		scriptHotkeyMu.Lock()
+		if m := scriptHotkeyEnabled[owner]; m != nil {
+			delete(m, combo)
+			if len(m) == 0 {
+				delete(scriptHotkeyEnabled, owner)
+			}
+		}
+		scriptHotkeyMu.Unlock()
+	}
+	refreshHotkeysList()
+	saveHotkeys()
+}
+
+func removeScriptHotkeyByHandle(registration scriptRegistrationHandle) {
+	var owner, combo string
+	hotkeysMu.Lock()
+	for i := len(hotkeys) - 1; i >= 0; i-- {
+		if hotkeys[i].registration == registration {
+			owner = hotkeys[i].Script
+			combo = hotkeys[i].Combo
+			hotkeys = append(hotkeys[:i], hotkeys[i+1:]...)
 		}
 	}
-	scriptHotkeyMu.Unlock()
+	hotkeysMu.Unlock()
+	if owner == "" {
+		return
+	}
+	scriptHotkeyFnMu.Lock()
+	if m := scriptHotkeyFns[owner]; m != nil {
+		delete(m, combo)
+		if len(m) == 0 {
+			delete(scriptHotkeyFns, owner)
+		}
+	}
+	scriptHotkeyFnMu.Unlock()
 	refreshHotkeysList()
 	saveHotkeys()
 }
@@ -367,21 +397,12 @@ func refreshHotkeysList() {
 				hotkeysMu.Unlock()
 				if hk.Script != "" {
 					scriptHotkeyMu.Lock()
-					if hk.Disabled {
-						if m := scriptHotkeyEnabled[hk.Script]; m != nil {
-							delete(m, hk.Combo)
-							if len(m) == 0 {
-								delete(scriptHotkeyEnabled, hk.Script)
-							}
-						}
-					} else {
-						m := scriptHotkeyEnabled[hk.Script]
-						if m == nil {
-							m = map[string]bool{}
-							scriptHotkeyEnabled[hk.Script] = m
-						}
-						m[hk.Combo] = true
+					m := scriptHotkeyEnabled[hk.Script]
+					if m == nil {
+						m = map[string]bool{}
+						scriptHotkeyEnabled[hk.Script] = m
 					}
+					m[hk.Combo] = !hk.Disabled
 					scriptHotkeyMu.Unlock()
 				}
 				saveHotkeys()
@@ -696,16 +717,10 @@ func finishRecording() {
 }
 
 func detectCombo() string {
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		if combo := comboFromMouseWithKey(ebiten.MouseButtonLeft); combo != "" {
-			return combo
+	for button := ebiten.MouseButton(0); button <= ebiten.MouseButtonMax; button++ {
+		if inpututil.IsMouseButtonJustPressed(button) {
+			return comboFromMouseWithKey(button)
 		}
-	}
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
-		return comboFromMouse(ebiten.MouseButtonRight)
-	}
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle) {
-		return comboFromMouse(ebiten.MouseButtonMiddle)
 	}
 	wx, wy := ebiten.Wheel()
 	if wy > 0 {
@@ -731,15 +746,41 @@ func detectCombo() string {
 
 func comboFromKey(k ebiten.Key) string {
 	mods := currentMods()
-	mods = append(mods, k.String())
+	shifted := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
+	alternate := ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight)
+	name := scriptKeyName(k, inpututil.AppendJustPressedKeys(nil), ebiten.AppendInputChars(nil),
+		shifted, alternate)
+	mods = append(mods, name)
 	return strings.Join(mods, "-")
 }
 
-func comboFromMouse(b ebiten.MouseButton) string {
-	mods := currentMods()
-	name := mouseButtonName(b)
-	mods = append(mods, name)
-	return strings.Join(mods, "-")
+func scriptKeyName(key ebiten.Key, pressed []ebiten.Key, typed []rune, shifted, alternate bool) string {
+	if (shifted || alternate) && len(pressed) == 1 && len(typed) == 1 && unicode.IsPrint(typed[0]) && !unicode.IsSpace(typed[0]) {
+		return string(typed[0])
+	}
+	if shifted {
+		if key >= ebiten.KeyDigit0 && key <= ebiten.KeyDigit9 {
+			return string(")!@#$%^&*("[key-ebiten.KeyDigit0])
+		}
+		shiftedNames := map[ebiten.Key]string{
+			ebiten.KeyMinus:         "_",
+			ebiten.KeyEqual:         "+",
+			ebiten.KeyBracketLeft:   "{",
+			ebiten.KeyBracketRight:  "}",
+			ebiten.KeyBackslash:     "|",
+			ebiten.KeyIntlBackslash: "|",
+			ebiten.KeySemicolon:     ":",
+			ebiten.KeyQuote:         "\"",
+			ebiten.KeyBackquote:     "~",
+			ebiten.KeyComma:         "<",
+			ebiten.KeyPeriod:        ">",
+			ebiten.KeySlash:         "?",
+		}
+		if name := shiftedNames[key]; name != "" {
+			return name
+		}
+	}
+	return key.String()
 }
 
 func comboFromWheel(dir string) string {
@@ -759,9 +800,6 @@ func comboFromMouseWithKey(b ebiten.MouseButton) string {
 		keyPart = k.String()
 		break
 	}
-	if keyPart == "" && len(mods) == 0 {
-		return ""
-	}
 	if keyPart != "" {
 		mods = append(mods, keyPart)
 	}
@@ -772,6 +810,9 @@ func comboFromMouseWithKey(b ebiten.MouseButton) string {
 
 func currentMods() []string {
 	mods := []string{}
+	if ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight) {
+		mods = append(mods, "Meta")
+	}
 	if ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight) {
 		mods = append(mods, "Ctrl")
 	}
@@ -793,7 +834,7 @@ func mouseButtonName(b ebiten.MouseButton) string {
 	case ebiten.MouseButtonMiddle:
 		return "MiddleClick"
 	default:
-		return fmt.Sprintf("Mouse %d", b)
+		return fmt.Sprintf("Mouse%d", int(b)+1)
 	}
 }
 
@@ -801,7 +842,8 @@ func isModifier(k ebiten.Key) bool {
 	switch k {
 	case ebiten.KeyShift, ebiten.KeyShiftLeft, ebiten.KeyShiftRight,
 		ebiten.KeyControl, ebiten.KeyControlLeft, ebiten.KeyControlRight,
-		ebiten.KeyAlt, ebiten.KeyAltLeft, ebiten.KeyAltRight:
+		ebiten.KeyAlt, ebiten.KeyAltLeft, ebiten.KeyAltRight,
+		ebiten.KeyMeta, ebiten.KeyMetaLeft, ebiten.KeyMetaRight:
 		return true
 	}
 	return false
@@ -927,36 +969,23 @@ func hotkeyEquipAlreadyEquipped(cmd string) bool {
 	return false
 }
 
-func checkHotkeys() {
+func checkHotkeys() InputEvent {
 	if recording {
-		return
+		return InputEvent{}
 	}
 	typing := typingInUI()
 	// Detect any just-pressed combo first.
 	if combo := detectCombo(); combo != "" {
 		if legacyMacroHotkeySuppressed(combo) {
-			return
+			return InputEvent{}
 		}
-		// If the console/input or another UI text field is active, allow
-		// only non-text triggers (e.g., function keys, arrows, mouse, wheel).
-		// This keeps typing unaffected while still letting F12, etc. work.
-		if inputActive || typing {
+		// Bindings work while the game input bar is active. They pass through
+		// by default, so ordinary typing is unchanged unless a handler calls
+		// Consume. Other UI text fields keep printable keys for themselves.
+		if typing {
 			parts := strings.Split(combo, "-")
-			trig := ""
-			if len(parts) > 0 {
-				trig = parts[len(parts)-1]
-			}
-			block := false
-			if inputActive && gs.InputBarAlwaysOpen && !typing {
-				block = shouldBlockComboWhenAlwaysOpen(parts)
-			} else if len([]rune(trig)) == 1 {
-				// Treat single-character triggers (e.g., "c", "1") as text keys
-				// and ignore them while typing. Everything else (e.g., "F12",
-				// "ArrowUp", "RightClick", "WheelUp") is allowed.
-				block = true
-			}
-			if block {
-				return
+			if shouldBlockPrintableCombo(parts) {
+				return InputEvent{}
 			}
 		}
 		hotkeysMu.RLock()
@@ -968,13 +997,10 @@ func checkHotkeys() {
 				if hk.Script != "" {
 					if fn, ok := scriptGetHotkeyFn(hk.Script, hk.Combo); ok && fn != nil {
 						scriptLogEvent(hk.Script, "Hotkey", combo)
-						parts := strings.Split(combo, "-")
-						trig := ""
-						if len(parts) > 0 {
-							trig = parts[len(parts)-1]
+						ev := makeScriptInputEvent(combo)
+						if !fn(ev) {
+							return ev
 						}
-						ev := HotkeyEvent{Combo: combo, Parts: parts, Trigger: trig}
-						go fn(ev)
 					}
 				}
 				for _, c := range hk.Commands {
@@ -993,16 +1019,11 @@ func checkHotkeys() {
 					var ok bool
 					cmd, ok = applyHotkeyVars(cmd)
 					if !ok {
-						return
+						return InputEvent{}
 					}
 					if strings.HasPrefix(strings.ToLower(cmd), "/equip") {
 						if hotkeyEquipAlreadyEquipped(cmd) {
 							continue
-						}
-					}
-					if cmd != "" {
-						if gs.scriptOutputDebug {
-							consoleMessage("> " + cmd)
 						}
 					}
 					enqueueCommand(cmd)
@@ -1012,10 +1033,112 @@ func checkHotkeys() {
 			}
 		}
 	}
-
+	return InputEvent{}
 }
 
-func shouldBlockComboWhenAlwaysOpen(parts []string) bool {
+func makeScriptInputEvent(combo string) InputEvent {
+	parts := strings.Split(combo, "-")
+	trigger := ""
+	if len(parts) > 0 {
+		trigger = parts[len(parts)-1]
+	}
+	event := InputEvent{
+		Chord:    combo,
+		decision: &inputEventDecision{continueInput: true},
+	}
+	for _, part := range parts {
+		switch strings.ToLower(part) {
+		case "ctrl", "control":
+			event.Ctrl = true
+			event.Modifiers = append(event.Modifiers, "Ctrl")
+		case "alt":
+			event.Alt = true
+			event.Modifiers = append(event.Modifiers, "Alt")
+		case "shift":
+			event.Shift = true
+			event.Modifiers = append(event.Modifiers, "Shift")
+		case "meta", "command", "cmd":
+			event.Meta = true
+			event.Modifiers = append(event.Modifiers, "Meta")
+		}
+	}
+	lowerTrigger := strings.ToLower(trigger)
+	if strings.HasSuffix(lowerTrigger, "click") || strings.HasPrefix(lowerTrigger, "wheel") || strings.HasPrefix(lowerTrigger, "mouse") {
+		event.Button = trigger
+		for i := len(parts) - 2; i >= 0; i-- {
+			part := parts[i]
+			if !isInputModifierName(part) {
+				event.Key = part
+				break
+			}
+		}
+	} else {
+		event.Key = trigger
+	}
+	event.ScreenX, event.ScreenY = eui.PointerPosition()
+	scale := worldScale
+	if scale <= 0 {
+		scale = 1
+	}
+	event.WorldX = int16(float64(event.ScreenX-worldOriginX)/scale - float64(fieldCenterX))
+	event.WorldY = int16(float64(event.ScreenY-worldOriginY)/scale - float64(fieldCenterY))
+	info := worldInfoAt(event.WorldX, event.WorldY)
+	event.OnMobile = info.OnMobile
+	event.Mobile = info.Mobile
+	if info.OnPlayer {
+		event.PlayerName = info.Mobile.Name
+		event.SimpleName = scriptSimpleName(info.Mobile.Name)
+	}
+	return event
+}
+
+func scriptInputConsumesKey(event InputEvent, key ebiten.Key) bool {
+	return !event.Continues() && event.Button == "" && strings.EqualFold(event.Key, key.String())
+}
+
+func scriptInputConsumesText(event InputEvent) bool {
+	return !event.Continues() && event.Button == "" && event.Key != ""
+}
+
+func scriptInputConsumesButton(event InputEvent, button string) bool {
+	return button != "" && !event.Continues() && strings.EqualFold(event.Button, button)
+}
+
+func scriptWheelButtonName(x, y float64) string {
+	switch {
+	case y > 0:
+		return "WheelUp"
+	case y < 0:
+		return "WheelDown"
+	case x > 0:
+		return "WheelRight"
+	case x < 0:
+		return "WheelLeft"
+	default:
+		return ""
+	}
+}
+
+func isInputModifierName(name string) bool {
+	switch strings.ToLower(name) {
+	case "ctrl", "control", "alt", "shift", "meta", "command", "cmd":
+		return true
+	default:
+		return false
+	}
+}
+
+func scriptSimpleName(name string) string {
+	var simple strings.Builder
+	for _, char := range name {
+		if unicode.IsLetter(char) || unicode.IsDigit(char) {
+			simple.WriteRune(char)
+		}
+	}
+	return simple.String()
+}
+
+func shouldBlockPrintableCombo(parts []string) bool {
 	if len(parts) == 0 {
 		return false
 	}
@@ -1029,7 +1152,7 @@ func shouldBlockComboWhenAlwaysOpen(parts []string) bool {
 func comboHasModifier(parts []string) bool {
 	for _, part := range parts {
 		switch strings.ToLower(part) {
-		case "ctrl", "control", "alt", "shift":
+		case "ctrl", "control", "alt", "shift", "meta", "command", "cmd":
 			return true
 		}
 	}
@@ -1043,11 +1166,8 @@ func isTypingTrigger(trig string) bool {
 	if trig == "space" || trig == "enter" {
 		return true
 	}
-	if len(trig) == 1 {
-		b := trig[0]
-		if (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9') {
-			return true
-		}
+	if chars := []rune(trig); len(chars) == 1 && unicode.IsPrint(chars[0]) {
+		return true
 	}
 	if strings.HasPrefix(trig, "digit") {
 		suffix := trig[len("digit"):]
@@ -1082,8 +1202,8 @@ func sameCombo(a, b string) bool {
 			return map[string]bool{}, ""
 		}
 		trig = strings.ToLower(parts[len(parts)-1])
-		// Mouse buttons above Middle are emitted as "Mouse 4", but scripts
-		// have also historically used the compact "Mouse4" spelling.
+		// Be forgiving about spaces in manually entered mouse names while the
+		// recorder and documentation always produce the compact spelling.
 		if strings.HasPrefix(trig, "mouse") {
 			if n, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(trig, "mouse"))); err == nil {
 				trig = fmt.Sprintf("mouse%d", n)
@@ -1098,6 +1218,8 @@ func sameCombo(a, b string) bool {
 				mods["alt"] = true
 			case "shift", "shiftleft", "shiftright":
 				mods["shift"] = true
+			case "meta", "metaleft", "metaright", "command", "cmd":
+				mods["meta"] = true
 			default:
 				// Treat any unknown modifier token as-is to be strict
 				if p != "" {

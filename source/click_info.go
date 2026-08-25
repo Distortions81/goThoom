@@ -4,17 +4,12 @@ import (
 	"sync"
 	"sync/atomic"
 
+	scriptapi "gt2"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Mobile represents basic info about a mobile clicked in the world.
-type Mobile struct {
-	Index  uint8
-	Name   string
-	H, V   int16
-	PictID uint16
-	Colors uint8
-}
+type Mobile = scriptapi.Mobile
 
 // ClickInfo describes the last click in the game world.
 type ClickInfo struct {
@@ -27,6 +22,7 @@ type ClickInfo struct {
 	Ctrl   bool
 	Alt    bool
 	Shift  bool
+	Meta   bool
 }
 
 var (
@@ -74,6 +70,7 @@ func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 					V:      m.V,
 					PictID: d.PictID,
 					Colors: m.Colors,
+					Player: d.Type == kDescPlayer,
 				}
 				break
 			}
@@ -97,6 +94,8 @@ func handleWorldClick(x, y int16, b ebiten.MouseButton) ClickInfo {
 			info.Alt = true
 		case "Shift":
 			info.Shift = true
+		case "Meta":
+			info.Meta = true
 		}
 	}
 	info.Button = b

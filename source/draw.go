@@ -1950,7 +1950,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			}
 			messageType := messageTextTypeForBubble(bubbleType)
 			if gs.MessagesToConsole || !isChatBubble(bubbleType) {
-				consoleMessageTyped(msg, messageType)
+				serverConsoleMessageTyped(msg, messageType)
 			} else {
 				chatMessageTyped(msg, messageType)
 			}

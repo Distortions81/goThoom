@@ -3,58 +3,58 @@
 package main
 
 import (
-	"gt"
+	"gt2"
+	"strings"
 )
 
 // script metadata
 const scriptName = "Healer Helper"
+const scriptID = "healer-helper"
 const scriptAuthor = "Examples"
 const scriptCategory = "Profession"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 // Init subscribes to mouse click hotkeys rather than polling.
 func Init() {
 	// RightClick: heal others, self-heal with moonstone
-	gt.AddHotkeyFn("RightClick", func(e gt.HotkeyEvent) {
-		c := gt.LastClick()
-		if !c.OnMobile {
+	gt2.Bind("RightClick", func(e gt2.InputEvent) {
+		if !e.OnMobile {
 			return
 		}
-		if gt.IgnoreCase(c.Mobile.Name, gt.PlayerName()) {
+		if strings.EqualFold(e.Mobile.Name, gt2.Self().Name) {
 			// Right-click self: use moonstone on self slot 10
 			equipItem("moonstone")
-			gt.Run("/use 10")
+			gt2.Send("/use 10")
 		} else {
 			// Right-click other: use asklepean on target
 			equipItem("asklepean")
-			gt.Run("/use " + c.Mobile.Name)
+			gt2.Send("/use " + e.Mobile.Name)
 		}
 	})
 
 	// MiddleClick: reverse behavior from RightClick
-	gt.AddHotkeyFn("MiddleClick", func(e gt.HotkeyEvent) {
-		c := gt.LastClick()
-		if !c.OnMobile {
+	gt2.Bind("MiddleClick", func(e gt2.InputEvent) {
+		if !e.OnMobile {
 			return
 		}
-		if gt.IgnoreCase(c.Mobile.Name, gt.PlayerName()) {
+		if strings.EqualFold(e.Mobile.Name, gt2.Self().Name) {
 			// Middle-click self: asklepean self-use
 			equipItem("asklepean")
-			gt.Run("/use")
+			gt2.Send("/use")
 		} else {
 			// Middle-click other: moonstone to slot 10
 			equipItem("moonstone")
-			gt.Run("/use 10")
+			gt2.Send("/use 10")
 		}
 	})
 }
 
 // equipItem equips the moonstone if it isn't already in hand.
 func equipItem(name string) {
-	for _, it := range gt.Inventory() {
-		if gt.IgnoreCase(it.Name, name) {
+	for _, it := range gt2.Inventory() {
+		if strings.EqualFold(it.Name, name) {
 			if !it.Equipped {
-				gt.Equip(it.Name)
+				gt2.Equip(it.Name)
 			}
 			return
 		}

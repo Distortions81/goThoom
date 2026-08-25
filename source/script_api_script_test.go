@@ -1,19 +1,24 @@
-//go:build integration
-// +build integration
-
 package main
 
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	scriptapi "gt2"
 )
 
+func scriptAPIFixturePath(name string) string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "testdata", "scripts", name)
+}
+
 // TestScriptAPISmoke loads a simple script script (via Yaegi) that uses the
-// gt API and verifies side effects through the existing script machinery.
+// gt2 API and verifies side effects through the existing script machinery.
 func TestScriptAPISmoke(t *testing.T) {
 	// Isolate script storage and related files
 	origDir := dataDirPath
@@ -36,18 +41,17 @@ func TestScriptAPISmoke(t *testing.T) {
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
 	scriptHotkeyFnMu = sync.RWMutex{}
-	scriptHotkeyFns = map[string]map[string]func(HotkeyEvent){}
+	scriptHotkeyFns = map[string]map[string]func(InputEvent) bool{}
 
-	// Reset shortcuts and triggers/handlers
+	// Reset shortcuts and handlers
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	triggerHandlersMu = sync.RWMutex{}
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
 	chatHandlersMu = sync.RWMutex{}
-	scriptChatHandlers = nil
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
+	scriptStructuredChatHandlers = nil
+	scriptServerMessageHandlers = nil
+	scriptLifecycleHandlers = nil
+	scriptChangeHandlers = nil
 
 	// Owner metadata required for storage hashing, messages, etc.
 	const owner = "apitest_owner"
@@ -55,7 +59,7 @@ func TestScriptAPISmoke(t *testing.T) {
 	scriptAuthors[owner] = "Test"
 
 	// Load the script script source and execute
-	srcPath := filepath.Join("script_tests", "api_smoke.go")
+	srcPath := scriptAPIFixturePath("api_smoke.go")
 	src, err := os.ReadFile(srcPath)
 	if err != nil {
 		t.Fatalf("read script: %v", err)
@@ -95,25 +99,50 @@ func TestScriptAPISmoke(t *testing.T) {
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "last_args") == "X" }, time.Second); !ok {
 		t.Fatalf("command did not persist args; got %v", scriptStorageGet(owner, "last_args"))
 	}
+	if scriptCommands["removed_cmd"] != nil {
+		t.Fatal("subscription removed before activation left its command registered")
+	}
 
 	// 3) Function hotkey present and triggers
 	if fn, ok := scriptGetHotkeyFn(owner, "Ctrl-Alt-T"); !ok || fn == nil {
 		t.Fatalf("hotkey function not registered")
 	} else {
-		fn(HotkeyEvent{Combo: "Ctrl-Alt-T", Parts: []string{"Ctrl", "Alt", "T"}, Trigger: "T"})
+		if fn(makeScriptInputEvent("Ctrl-Alt-T")) {
+			t.Fatal("binding ignored event.Consume")
+		}
 		if ok := waitFor(func() bool { return scriptStorageGet(owner, "hotkey") == "triggered" }, time.Second); !ok {
 			t.Fatalf("hotkey did not run; got %v", scriptStorageGet(owner, "hotkey"))
+		}
+		if got := scriptStorageGet(owner, "hotkey_combo"); got != "Ctrl-Alt-T" {
+			t.Fatalf("binding event combo = %v", got)
 		}
 	}
 
 	// 4) Chat trigger fires
-	runChatTriggers("ping now")
+	dispatchScriptChat("Hero says, ping now")
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "chat") == "ping" }, time.Second); !ok {
 		t.Fatalf("chat trigger did not fire; got %v", scriptStorageGet(owner, "chat"))
 	}
+	dispatchScriptChat("Hero says, structured hello")
+	if ok := waitFor(func() bool { return scriptStorageGet(owner, "structured_message") != nil }, time.Second); !ok {
+		t.Fatal("structured chat handler did not run")
+	}
+	if got := scriptStorageGet(owner, "structured_speaker"); got != "Hero" {
+		t.Fatalf("structured speaker = %v", got)
+	}
+	if got := scriptStorageGet(owner, "structured_message"); got != "structured hello" {
+		t.Fatalf("structured message = %v", got)
+	}
+	runServerMessageHandlers(scriptapi.ServerMessage{Message: "structured server hello", Type: messageTextTypeSystem})
+	if ok := waitFor(func() bool { return scriptStorageGet(owner, "server_message") != nil }, time.Second); !ok {
+		t.Fatal("structured server-message handler did not run")
+	}
+	if got := scriptStorageGet(owner, "server_type"); got != messageTextTypeSystem {
+		t.Fatalf("server message type = %v", got)
+	}
 
-	// 5) Console trigger fires
-	runConsoleTriggers("all ready here")
+	// 5) Structured server-message trigger fires
+	runServerMessageHandlers(scriptapi.ServerMessage{Message: "all ready here", Type: messageTextTypeSystem})
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "console") == "ready" }, time.Second); !ok {
 		t.Fatalf("console trigger did not fire; got %v", scriptStorageGet(owner, "console"))
 	}
@@ -124,7 +153,7 @@ func TestScriptAPISmoke(t *testing.T) {
 	}
 }
 
-// TestScriptAPIFull exercises most of the gt API via a script script.
+// TestScriptAPIFull exercises most of the gt2 API via a script script.
 func TestScriptAPIFull(t *testing.T) {
 	// Isolate data dir
 	origDir := dataDirPath
@@ -132,10 +161,7 @@ func TestScriptAPIFull(t *testing.T) {
 	t.Cleanup(func() { dataDirPath = origDir })
 
 	// Enable console output from scripts for Print()
-	gs.scriptOutputDebug = true
-
-	// Preload some environment: world size, last click, player name/players, inventory
-	gameAreaSizeX, gameAreaSizeY = 320, 200
+	// Preload some environment: last click, player name/players, inventory
 	lastClickMu.Lock()
 	lastClick = ClickInfo{X: 10, Y: 20, Button: 2, OnMobile: false}
 	lastClickMu.Unlock()
@@ -168,20 +194,18 @@ func TestScriptAPIFull(t *testing.T) {
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
 	scriptHotkeyFnMu = sync.RWMutex{}
-	scriptHotkeyFns = map[string]map[string]func(HotkeyEvent){}
+	scriptHotkeyFns = map[string]map[string]func(InputEvent) bool{}
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	triggerHandlersMu = sync.RWMutex{}
-	scriptTriggers = map[string][]triggerHandler{}
-	scriptConsoleTriggers = map[string][]triggerHandler{}
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
 	chatHandlersMu = sync.RWMutex{}
-	scriptChatHandlers = nil
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
+	scriptStructuredChatHandlers = nil
+	scriptServerMessageHandlers = nil
+	scriptLifecycleHandlers = nil
+	scriptChangeHandlers = nil
 	overlayMu = sync.RWMutex{}
 	scriptOverlayOps = map[string][]overlayOp{}
-	scriptTimers = map[string][]*time.Timer{}
-	scriptTickerStops = map[string][]chan struct{}{}
+	scriptRepeats = map[string][]*scriptRepeatRegistration{}
 	scriptTickWaiters = map[string][]*tickWaiter{}
 
 	// Owner and metadata
@@ -190,7 +214,7 @@ func TestScriptAPIFull(t *testing.T) {
 	scriptAuthors[owner] = "Test"
 
 	// Load the script
-	srcPath := filepath.Join("script_tests", "api_full.go")
+	srcPath := scriptAPIFixturePath("api_full.go")
 	src, err := os.ReadFile(srcPath)
 	if err != nil {
 		t.Fatalf("read script: %v", err)
@@ -213,6 +237,22 @@ func TestScriptAPIFull(t *testing.T) {
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "started") == "yes" }, 2*time.Second); !ok {
 		t.Fatalf("script did not start")
 	}
+	if got := scriptStorageGet(owner, "config_default"); got != false {
+		t.Fatalf("config default = %v, want false", got)
+	}
+	if scriptStorageGet(owner, "loaded_string") != "hello" || scriptStorageGet(owner, "loaded_bool") != true ||
+		scriptStorageGet(owner, "loaded_integer") != 7 || scriptStorageGet(owner, "loaded_decimal") != 2.5 {
+		t.Fatalf("typed storage reads failed: %v/%v/%v/%v", scriptStorageGet(owner, "loaded_string"), scriptStorageGet(owner, "loaded_bool"), scriptStorageGet(owner, "loaded_integer"), scriptStorageGet(owner, "loaded_decimal"))
+	}
+	if scriptStorageGet(owner, "loaded_json_ok") != true || scriptStorageGet(owner, "loaded_json_name") != "state" || scriptStorageGet(owner, "loaded_json_count") != 3 {
+		t.Fatalf("JSON storage read failed: %v/%v/%v", scriptStorageGet(owner, "loaded_json_ok"), scriptStorageGet(owner, "loaded_json_name"), scriptStorageGet(owner, "loaded_json_count"))
+	}
+	if !scriptSetConfigValue(owner, "enabled", true) {
+		t.Fatal("script config was not registered")
+	}
+	if ok := waitFor(func() bool { return scriptStorageGet(owner, "config_callback") == "yes" }, time.Second); !ok {
+		t.Fatalf("script config callback did not run")
+	}
 
 	// Console output includes the debug print message
 	if msgs := getConsoleMessages(); len(msgs) == 0 || !strings.Contains(strings.Join(msgs, "\n"), "apifull:init") {
@@ -222,10 +262,6 @@ func TestScriptAPIFull(t *testing.T) {
 	// Input/shortcuts
 	if got := scriptInputText(); got != "in_text" {
 		t.Fatalf("input %q want %q", got, "in_text")
-	}
-	out := runInputHandlers("foo test")
-	if out != "bar test" {
-		t.Fatalf("input handler: %q", out)
 	}
 	shortcutMu.RLock()
 	if m := shortcutMaps[owner]; m == nil || m["yy"] != "/yell " || m["gg"] != "/give " {
@@ -241,7 +277,7 @@ func TestScriptAPIFull(t *testing.T) {
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "last_args") == "ARG" }, time.Second); !ok {
 		t.Fatalf("cmd handler failed")
 	}
-	// Run/Cmd/RunCommand/EnqueueCommand effects
+	// Send effect
 	cmds := getQueuedCommands()
 	if len(cmds) == 0 {
 		t.Fatalf("no commands queued: %v", cmds)
@@ -256,7 +292,7 @@ func TestScriptAPIFull(t *testing.T) {
 	}
 
 	// World size and image size
-	if scriptStorageGet(owner, "world_w") != 320 || scriptStorageGet(owner, "world_h") != 200 {
+	if scriptStorageGet(owner, "world_w") != gameAreaSizeX || scriptStorageGet(owner, "world_h") != gameAreaSizeY {
 		t.Fatalf("world size wrong: %v,%v", scriptStorageGet(owner, "world_w"), scriptStorageGet(owner, "world_h"))
 	}
 	// Image size likely 0,0 without resources
@@ -268,6 +304,12 @@ func TestScriptAPIFull(t *testing.T) {
 	if scriptStorageGet(owner, "me") != "Hero" {
 		t.Fatalf("me wrong: %v", scriptStorageGet(owner, "me"))
 	}
+	if scriptStorageGet(owner, "cl_version") != clVersion {
+		t.Fatalf("CLVersion wrong: %v", scriptStorageGet(owner, "cl_version"))
+	}
+	if scriptStorageGet(owner, "player_field") != false {
+		t.Fatalf("expanded Player field unavailable: %v", scriptStorageGet(owner, "player_field"))
+	}
 	if v, ok := scriptStorageGet(owner, "players_len").(int); !ok || v != 3 {
 		t.Fatalf("players_len wrong: %v", scriptStorageGet(owner, "players_len"))
 	}
@@ -278,114 +320,48 @@ func TestScriptAPIFull(t *testing.T) {
 		t.Fatalf("has/is equip wrong: %v/%v", scriptStorageGet(owner, "has_shield"), scriptStorageGet(owner, "is_equipped"))
 	}
 
-	// Input state from last click and key/mouse
-	if scriptStorageGet(owner, "key_a") != false || scriptStorageGet(owner, "mouse_right") != false {
-		t.Fatalf("key/mouse unexpected true")
-	}
-	if scriptStorageGet(owner, "wheel_dx") != float64(0) || scriptStorageGet(owner, "wheel_dy") != float64(0) {
-		t.Fatalf("wheel non-zero: %v,%v", scriptStorageGet(owner, "wheel_dx"), scriptStorageGet(owner, "wheel_dy"))
-	}
-	if scriptStorageGet(owner, "click_x") != int(10) || scriptStorageGet(owner, "click_y") != int(20) || scriptStorageGet(owner, "click_btn") != 2 {
+	// Last-click snapshot
+	if scriptStorageGet(owner, "click_x") != int(10) || scriptStorageGet(owner, "click_y") != int(20) || scriptStorageGet(owner, "click_btn") != "RightClick" {
 		t.Fatalf("last click mismatch: x=%v y=%v b=%v", scriptStorageGet(owner, "click_x"), scriptStorageGet(owner, "click_y"), scriptStorageGet(owner, "click_btn"))
 	}
 
-	// String helpers
-	mustTrue := []string{"eq_ic", "starts", "ends", "incl"}
-	for _, k := range mustTrue {
-		if scriptStorageGet(owner, k) != true {
-			t.Fatalf("%s not true", k)
-		}
-	}
-	if scriptStorageGet(owner, "lower") != "hello" || scriptStorageGet(owner, "upper") != "HELLO" || scriptStorageGet(owner, "trim") != "hi" || scriptStorageGet(owner, "trim_s") != "hi" || scriptStorageGet(owner, "trim_e") != "hi" {
-		t.Fatalf("string helpers wrong")
-	}
-	if v, ok := scriptStorageGet(owner, "words").([]string); ok {
-		if len(v) != 3 {
-			t.Fatalf("words len: %v", v)
-		}
-	}
-	// Yaegi may produce []any for slices; tolerate either
-	if v, ok := scriptStorageGet(owner, "split").([]string); ok {
-		if len(v) != 3 {
-			t.Fatalf("split len: %v", v)
-		}
-	} else if v2, ok2 := scriptStorageGet(owner, "split").([]any); ok2 {
-		if len(v2) != 3 {
-			t.Fatalf("split len: %v", v2)
-		}
-	}
-	if scriptStorageGet(owner, "join") != "a,b,c" || scriptStorageGet(owner, "repl") != "haper" {
-		t.Fatalf("join/repl wrong: %v/%v", scriptStorageGet(owner, "join"), scriptStorageGet(owner, "repl"))
-	}
-
-	// Timers
-	if ok := waitFor(func() bool { return scriptStorageGet(owner, "after") == "yes" }, time.Second); !ok {
-		t.Fatalf("after not fired")
-	}
-	if ok := waitFor(func() bool { return scriptStorageGet(owner, "afterdur") == "yes" }, time.Second); !ok {
-		t.Fatalf("afterdur not fired")
-	}
-	// Advance ticks for SleepTicks goroutine
+	// Advance ticks for WaitTicks
 	scriptAdvanceTick()
 	scriptAdvanceTick()
 	if ok := waitFor(func() bool { return scriptStorageGet(owner, "slept") == "yes" }, time.Second); !ok {
 		t.Fatalf("sleep ticks not completed")
 	}
-	if ok := waitFor(func() bool { v := scriptStorageGet(owner, "every"); return v == "2" || v == "3" }, time.Second); !ok {
-		t.Fatalf("every not ticking: %v", scriptStorageGet(owner, "every"))
-	}
-	if ok := waitFor(func() bool { v := scriptStorageGet(owner, "everydur"); return v == "2" || v == "3" }, time.Second); !ok {
-		t.Fatalf("everydur not ticking: %v", scriptStorageGet(owner, "everydur"))
-	}
 
-	// Triggers
-	runChatTriggers("Hero says, ping")   // Self and Player (self)
-	runChatTriggers("Other says, ping")  // Other and Player (other)
-	runChatTriggers("Goblin says, ping") // NPC
-	runChatTriggers("Unknown ping")      // Creature
-	runConsoleTriggers("system ready")
-	runConsoleTriggers("legacy mode")
-	runChatTriggers("bb now")
-	runChatTriggers("unit test")
-
+	// Structured events
+	dispatchScriptChat("Goblin says, ping")
+	runServerMessageHandlers(scriptapi.ServerMessage{Message: "system ready", Type: messageTextTypeSystem})
+	dispatchScriptChange(ChangeEvent{Type: ChangeInventory})
 	if ok := waitFor(func() bool {
-		return scriptStorageGet(owner, "chat_any") == "1" &&
-			scriptStorageGet(owner, "chat_player") == "1" &&
-			scriptStorageGet(owner, "chat_npc") == "1" &&
-			scriptStorageGet(owner, "chat_creature") == "1" &&
-			scriptStorageGet(owner, "chat_self") == "1" &&
-			scriptStorageGet(owner, "chat_other") == "1" &&
-			scriptStorageGet(owner, "chat_from") == "1" &&
-			scriptStorageGet(owner, "chat_pfrom") == "1" &&
-			scriptStorageGet(owner, "chat_ofrom") == "1" &&
-			scriptStorageGet(owner, "cons_new") == "1" &&
-			scriptStorageGet(owner, "cons_old") == "1" &&
-			scriptStorageGet(owner, "legacy_trig") == "1" &&
-			scriptStorageGet(owner, "sing_trig") == "1" &&
-			scriptStorageGet(owner, "allchat") != ""
+		return scriptStorageGet(owner, "chat_message") == "ping" &&
+			scriptStorageGet(owner, "chat_npc") == true &&
+			scriptStorageGet(owner, "server_type") == messageTextTypeSystem &&
+			scriptStorageGet(owner, "inventory_changed") == true
 	}, time.Second); !ok {
-		t.Fatalf("triggers not all fired")
+		t.Fatalf("structured events failed: chat=%v npc=%v server=%v inventory=%v",
+			scriptStorageGet(owner, "chat_message"), scriptStorageGet(owner, "chat_npc"),
+			scriptStorageGet(owner, "server_type"), scriptStorageGet(owner, "inventory_changed"))
 	}
 
-	// Player handler
-	notifyPlayerHandlers(Player{Name: "Tester"})
-	if ok := waitFor(func() bool { return scriptStorageGet(owner, "player_seen") == "Tester" }, time.Second); !ok {
-		t.Fatalf("player handler not fired")
-	}
-
-	// Hotkeys: the Key-based hotkey should exist; the added/removed Ctrl-U should not
+	// Bind registration is visible and callable.
 	list := scriptHotkeys(owner)
-	foundKey := false
-	foundCtrlU := false
+	foundBinding := false
 	for _, hk := range list {
 		if hk.Combo == "Ctrl-Alt-F" {
-			foundKey = true
-		}
-		if hk.Combo == "Ctrl-U" {
-			foundCtrlU = true
+			foundBinding = true
 		}
 	}
-	if !foundKey || foundCtrlU {
+	if !foundBinding {
 		t.Fatalf("hotkeys list not as expected: %+v", list)
+	}
+	if binding, ok := scriptGetHotkeyFn(owner, "Ctrl-Alt-F"); !ok || binding(makeScriptInputEvent("Ctrl-Alt-F")) {
+		t.Fatal("binding missing or did not consume input")
+	}
+	if ok := waitFor(func() bool { return scriptStorageGet(owner, "hkf") == "ok" }, time.Second); !ok {
+		t.Fatal("binding callback did not run")
 	}
 }

@@ -3,28 +3,31 @@
 package main
 
 import (
-	"gt"
+	"gt2"
+	"strings"
 	"time"
 )
 
 // script metadata
 const scriptName = "Chain Swap"
+const scriptID = "chain-swap"
 const scriptAuthor = "Examples"
 const scriptCategory = "Equipment"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 var savedName string
 var lastSwap time.Time
 
 // Init wires up our command and mouse-wheel hotkeys.
 func Init() {
-	gt.RegisterCommand("swapchain", swapChainCmd)
+	gt2.Command("swapchain", swapChainCmd)
 	// Bind wheel to a simple function handler.
-	gt.Key("WheelUp", swapChain)
-	gt.Key("WheelDown", swapChain)
+	gt2.Bind("WheelUp", swapChainHotkey)
+	gt2.Bind("WheelDown", swapChainHotkey)
 }
 
-func swapChainCmd(args string) { swapChain() }
+func swapChainCmd(args string)       { swapChain() }
+func swapChainHotkey(gt2.InputEvent) { swapChain() }
 
 // swapChain toggles between a chain weapon and whatever was equipped before.
 func swapChain() {
@@ -36,11 +39,11 @@ func swapChain() {
 
 	var chainName string
 	var equippedName string
-	for _, it := range gt.Inventory() {
-		if gt.IgnoreCase(it.Name, "chain") {
+	for _, it := range gt2.Inventory() {
+		if strings.EqualFold(it.Name, "chain") {
 			chainName = it.Name
 		}
-		if it.Equipped && !gt.IgnoreCase(it.Name, "chain") {
+		if it.Equipped && !strings.EqualFold(it.Name, "chain") {
 			equippedName = it.Name
 		}
 	}
@@ -51,9 +54,9 @@ func swapChain() {
 	if equippedName != "" {
 		// Remember what we unequipped so we can switch back later.
 		savedName = equippedName
-		gt.Equip(chainName)
+		gt2.Equip(chainName)
 	} else if savedName != "" {
 		// Chain already equipped, so swap back.
-		gt.Equip(savedName)
+		gt2.Equip(savedName)
 	}
 }

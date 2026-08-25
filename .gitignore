@@ -6,6 +6,7 @@ gothoom.exe
 *.ico
 *.log
 settings.json
+!script-template/.vscode/settings.json
 characters.json
 binaries/*.zip
 cpu.svg

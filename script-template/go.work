@@ -1,0 +1,7 @@
+// Managed by goThoom for script editor support.
+go 1.26.6
+
+use (
+	.
+	./gt2
+)

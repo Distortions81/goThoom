@@ -148,6 +148,11 @@ func decodeBEPP(data []byte) string {
 	}
 
 	switch prefix {
+	case "lo":
+		setScriptLocation(text)
+		if text != "" {
+			return text
+		}
 	case "th":
 		if text != "" {
 			return "think: " + text
@@ -417,7 +422,7 @@ func handleInfoText(data []byte) {
 		}
 		if line[0] == 0xC2 {
 			if txt := decodeBEPP(line); txt != "" {
-				consoleMessage(txt)
+				serverConsoleMessage(txt)
 			}
 			continue
 		}
@@ -425,12 +430,12 @@ func handleInfoText(data []byte) {
 			messageType := messageTextTypeForBubble(bubbleType)
 			if isChatBubble(bubbleType) {
 				if gs.MessagesToConsole {
-					consoleMessageTyped(txt, messageType)
+					serverConsoleMessageTyped(txt, messageType)
 				} else {
 					chatMessageTyped(txt, messageType)
 				}
 			} else {
-				consoleMessageTyped(txt, messageType)
+				serverConsoleMessageTyped(txt, messageType)
 			}
 			continue
 		}
@@ -457,6 +462,6 @@ func handleInfoText(data []byte) {
 		if strings.HasPrefix(s, "/") {
 			continue
 		}
-		consoleMessage(s)
+		serverConsoleMessage(s)
 	}
 }

@@ -10,85 +10,78 @@ import (
 )
 
 // Test that a single macro expands input text and matches case-insensitively.
-func TestscriptAddShortcutExpandsInput(t *testing.T) {
+func TestScriptAddShortcutExpandsInput(t *testing.T) {
 	// Reset shared state.
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
+	startScriptEventQueue("tester")
 
 	scriptAddShortcut("tester", "pp", "/ponder ")
 
-	if got, want := runInputHandlers("pp"), "/ponder "; got != want {
+	if got, want := expandShortcut("pp"), "/ponder "; got != want {
 		t.Fatalf("bare macro failed: got %q, want %q", got, want)
 	}
 
-	if got, want := runInputHandlers("pp hello"), "/ponder hello"; got != want {
+	if got, want := expandShortcut("pp hello"), "/ponder hello"; got != want {
 		t.Fatalf("lowercase macro with space failed: got %q, want %q", got, want)
 	}
 
-	if got, want := runInputHandlers("PP Hello"), "/ponder Hello"; got != want {
+	if got, want := expandShortcut("PP Hello"), "/ponder Hello"; got != want {
 		t.Fatalf("uppercase macro failed: got %q, want %q", got, want)
 	}
 
-	if got, want := runInputHandlers("pphi"), "pphi"; got != want {
+	if got, want := expandShortcut("pphi"), "pphi"; got != want {
 		t.Fatalf("macro should not expand within word: got %q, want %q", got, want)
 	}
 }
 
-// Test that multiple macros can be registered at once.
-func TestscriptAddShortcuts(t *testing.T) {
+// Test that multiple shortcuts can be registered with the canonical one-at-a-time API.
+func TestScriptAddMultipleShortcuts(t *testing.T) {
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
+	startScriptEventQueue("bulk")
 
-	scriptAddShortcuts("bulk", map[string]string{"pp": "/ponder ", "hi": "/hello "})
+	scriptAddShortcut("bulk", "pp", "/ponder ")
+	scriptAddShortcut("bulk", "hi", "/hello ")
 
-	if got, want := runInputHandlers("pp there"), "/ponder there"; got != want {
+	if got, want := expandShortcut("pp there"), "/ponder there"; got != want {
 		t.Fatalf("pp macro failed: got %q, want %q", got, want)
 	}
-	if got, want := runInputHandlers("hi you"), "/hello you"; got != want {
+	if got, want := expandShortcut("hi you"), "/hello you"; got != want {
 		t.Fatalf("hi macro failed: got %q, want %q", got, want)
 	}
 }
 
-// Test that calling scriptAddMacro multiple times for the same script
-// installs only one input handler while all macros still expand.
-func TestscriptAddShortcutSingleHandler(t *testing.T) {
+// Test that multiple shortcuts for one script share one cleanup registration.
+func TestScriptAddShortcutSingleRegistration(t *testing.T) {
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
 
 	owner := "dup"
+	startScriptEventQueue(owner)
 	scriptAddShortcut(owner, "pp", "/ponder ")
 	scriptAddShortcut(owner, "hi", "/hello ")
 
-	handlers := 0
-	for _, h := range scriptInputHandlers {
-		if h.owner == owner {
-			handlers++
-		}
+	if registration := shortcutRegistrations[owner]; registration.id == 0 {
+		t.Fatal("script shortcuts have no cleanup registration")
 	}
-	if handlers != 1 {
-		t.Fatalf("unexpected handler count: %d", handlers)
-	}
-	if got, want := runInputHandlers("pp there"), "/ponder there"; got != want {
+	if got, want := expandShortcut("pp there"), "/ponder there"; got != want {
 		t.Fatalf("pp macro failed: got %q, want %q", got, want)
 	}
-	if got, want := runInputHandlers("hi you"), "/hello you"; got != want {
+	if got, want := expandShortcut("hi you"), "/hello you"; got != want {
 		t.Fatalf("hi macro failed: got %q, want %q", got, want)
 	}
 }
 
 // Test that disabling a script removes any macros it registered.
-func TestscriptRemoveShortcutsOnDisable(t *testing.T) {
+func TestScriptRemoveShortcutsOnDisable(t *testing.T) {
 	// Reset shared state.
 	shortcutMu = sync.RWMutex{}
 	shortcutMaps = map[string]map[string]string{}
-	inputHandlersMu = sync.RWMutex{}
-	scriptInputHandlers = nil
+	shortcutRegistrations = map[string]scriptRegistrationHandle{}
 	scriptMu = sync.RWMutex{}
 	scriptDisabled = map[string]bool{}
 	scriptInvalid = map[string]bool{}
@@ -106,14 +99,15 @@ func TestscriptRemoveShortcutsOnDisable(t *testing.T) {
 	consoleLog = messageLog{max: maxMessages}
 
 	owner := "plug"
+	startScriptEventQueue(owner)
 	scriptAddShortcut(owner, "pp", "/ponder ")
-	if got, want := runInputHandlers("pp hello"), "/ponder hello"; got != want {
+	if got, want := expandShortcut("pp hello"), "/ponder hello"; got != want {
 		t.Fatalf("macro not added: got %q, want %q", got, want)
 	}
 
 	disablescript(owner, "testing")
 
-	if got, want := runInputHandlers("pp hello"), "pp hello"; got != want {
+	if got, want := expandShortcut("pp hello"), "pp hello"; got != want {
 		t.Fatalf("macro not removed: got %q, want %q", got, want)
 	}
 }

@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Check goThoom script",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "test",
+        "-tags",
+        "script",
+        "./..."
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$go"
+    }
+  ]
+}

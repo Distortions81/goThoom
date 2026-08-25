@@ -43,17 +43,11 @@ type Player struct {
 	Offline      bool // explicitly observed as offline/logged off
 }
 
-type playerHandler struct {
-	owner string
-	fn    func(Player)
-}
-
 var (
-	players              = make(map[string]*Player)
-	playersMu            sync.RWMutex
-	playerHandlers       []func(Player)
-	playerHandlersMu     sync.RWMutex
-	scriptPlayerHandlers []playerHandler
+	players          = make(map[string]*Player)
+	playersMu        sync.RWMutex
+	playerHandlers   []func(Player)
+	playerHandlersMu sync.RWMutex
 )
 
 func getPlayer(name string) *Player {
@@ -214,14 +208,9 @@ func playerColorsForDescriptor(d frameDescriptor) []byte {
 func notifyPlayerHandlers(p Player) {
 	playerHandlersMu.RLock()
 	base := append([]func(Player){}, playerHandlers...)
-	plug := append([]playerHandler{}, scriptPlayerHandlers...)
 	playerHandlersMu.RUnlock()
 	for _, fn := range base {
 		go fn(p)
-	}
-	for _, h := range plug {
-		scriptLogEvent(h.owner, "PlayerHandler", p.Name)
-		go h.fn(p)
 	}
 }
 

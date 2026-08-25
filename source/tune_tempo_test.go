@@ -10,8 +10,7 @@ import (
 
 func TestInlineTempoIncrease(t *testing.T) {
 	// Start at 120 BPM, then +60 -> 180 BPM
-	pt := parseClanLordTuneWithTempo("c @+60 c", 120)
-	ns := eventsToNotes(pt, instruments[0], 100)
+	ns := classicNotesFromTune("c @+60 c", instruments[0], 120, 100)
 	if len(ns) != 2 {
 		t.Fatalf("expected 2 notes, got %d", len(ns))
 	}
@@ -31,8 +30,7 @@ func TestInlineTempoIncrease(t *testing.T) {
 
 func TestInlineTempoAbsolute(t *testing.T) {
 	// Set absolute tempo to 60 BPM mid-song
-	pt := parseClanLordTuneWithTempo("c @60 c", 120)
-	ns := eventsToNotes(pt, instruments[0], 100)
+	ns := classicNotesFromTune("c @60 c", instruments[0], 120, 100)
 	if len(ns) != 2 {
 		t.Fatalf("expected 2 notes, got %d", len(ns))
 	}
@@ -48,8 +46,7 @@ func TestInlineTempoAbsolute(t *testing.T) {
 
 func TestInlineTempoResetDefault(t *testing.T) {
 	// @ with no value resets to 120 BPM per parser logic
-	pt := parseClanLordTuneWithTempo("@60 c @ c", 200)
-	ns := eventsToNotes(pt, instruments[0], 100)
+	ns := classicNotesFromTune("@60 c @ c", instruments[0], 200, 100)
 	if len(ns) != 2 {
 		t.Fatalf("expected 2 notes, got %d", len(ns))
 	}

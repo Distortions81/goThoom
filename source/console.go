@@ -1,5 +1,7 @@
 package main
 
+import scriptapi "gt2"
+
 const (
 	maxMessages = 1000
 	sndTink     = 58 // notification sound
@@ -27,8 +29,15 @@ func consoleMessageTyped(msg, messageType string) {
 	appendConsoleLog(msg)
 
 	updateConsoleWindow()
+}
 
-	runConsoleTriggers(msg)
+func serverConsoleMessage(msg string) {
+	serverConsoleMessageTyped(msg, messageTextTypeSystem)
+}
+
+func serverConsoleMessageTyped(msg, messageType string) {
+	consoleMessageTyped(msg, messageType)
+	runServerMessageHandlers(scriptapi.ServerMessage{Message: msg, Type: messageType})
 }
 
 func getConsoleMessages() []string {

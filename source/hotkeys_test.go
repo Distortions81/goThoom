@@ -330,6 +330,34 @@ func TestApplyHotkeyVarsHovered(t *testing.T) {
 	}
 }
 
+func TestScriptInputEventConsumeAndPass(t *testing.T) {
+	event := InputEvent{decision: &inputEventDecision{continueInput: true}}
+	if !event.Continues() {
+		t.Fatal("new input event should pass through by default")
+	}
+	event.Consume()
+	if event.Continues() {
+		t.Fatal("Consume did not stop normal input")
+	}
+	event.Pass()
+	if !event.Continues() {
+		t.Fatal("Pass did not restore normal input")
+	}
+}
+
+func TestMakeScriptInputEvent(t *testing.T) {
+	event := makeScriptInputEvent("Ctrl-Shift-K-RightClick")
+	if event.Chord != "Ctrl-Shift-K-RightClick" || event.Key != "K" || event.Button != "RightClick" {
+		t.Fatalf("unexpected input event: %+v", event)
+	}
+	if !event.Ctrl || !event.Shift || event.Alt || len(event.Modifiers) != 2 {
+		t.Fatalf("unexpected modifiers: %+v", event)
+	}
+	if !event.Continues() {
+		t.Fatal("input event should pass through by default")
+	}
+}
+
 // Test that commands referencing @right.clicked don't fire without a target.
 func TestApplyHotkeyVarsNoClicked(t *testing.T) {
 	lastClickByButtonMu.Lock()
@@ -366,7 +394,7 @@ func TestHotkeyEquipAlreadyEquipped(t *testing.T) {
 }
 
 // Test that script hotkeys are rendered with a valid font size.
-func TestscriptHotkeysFontSize(t *testing.T) {
+func TestScriptHotkeysFontSize(t *testing.T) {
 	hotkeys = []Hotkey{{Combo: "Ctrl-P", Script: "plug", Commands: []HotkeyCommand{{Command: "say hi"}}}}
 	hotkeysWin = nil
 	hotkeysList = nil
@@ -396,7 +424,7 @@ func TestscriptHotkeysFontSize(t *testing.T) {
 
 // Test that enabling a script hotkey persists only its state and not the
 // command details.
-func TestscriptHotkeyStatePersisted(t *testing.T) {
+func TestScriptHotkeyStatePersisted(t *testing.T) {
 	hotkeys = nil
 	scriptHotkeyEnabled = map[string]map[string]bool{}
 	dir := t.TempDir()
@@ -405,7 +433,7 @@ func TestscriptHotkeyStatePersisted(t *testing.T) {
 	defer func() { dataDirPath = origDir }()
 
 	// Add script hotkey and enable it.
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 	if len(hotkeys) != 1 {
 		t.Fatalf("expected one script hotkey")
 	}
@@ -435,7 +463,7 @@ func TestscriptHotkeyStatePersisted(t *testing.T) {
 		t.Fatalf("expected enabled state, got disabled")
 	}
 
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 	found := false
 	hotkeysMu.RLock()
 	for _, hk := range hotkeys {
@@ -452,8 +480,45 @@ func TestscriptHotkeyStatePersisted(t *testing.T) {
 	}
 }
 
+func TestScriptHotkeyDisabledStatePersisted(t *testing.T) {
+	hotkeys = nil
+	scriptHotkeyEnabled = map[string]map[string]bool{}
+	dir := t.TempDir()
+	origDir := dataDirPath
+	dataDirPath = dir
+	t.Cleanup(func() { dataDirPath = origDir })
+
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
+	hotkeysMu.Lock()
+	hotkeys[0].Disabled = true
+	hotkeysMu.Unlock()
+	scriptHotkeyEnabled["plug"]["Ctrl-P"] = false
+	saveHotkeys()
+
+	data, err := os.ReadFile(filepath.Join(dir, hotkeysFile))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(data), `"script": "plug"`) || !strings.Contains(string(data), `"enabled": false`) {
+		t.Fatalf("disabled script hotkey state not serialized: %s", data)
+	}
+
+	hotkeys = nil
+	scriptHotkeyEnabled = map[string]map[string]bool{}
+	loadHotkeys()
+	enabled, known := scriptHotkeyEnabled["plug"]["Ctrl-P"]
+	if !known || enabled {
+		t.Fatalf("disabled state was not loaded: known=%v enabled=%v", known, enabled)
+	}
+
+	scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
+	if len(hotkeys) != 1 || !hotkeys[0].Disabled {
+		t.Fatalf("disabled state was not applied when script recreated binding: %+v", hotkeys)
+	}
+}
+
 // Test that removing a script hotkey clears it from all state and UI.
-func TestscriptRemoveHotkeyClearsState(t *testing.T) {
+func TestScriptRemoveHotkeyClearsState(t *testing.T) {
 	origHotkeys := hotkeys
 	hotkeys = nil
 	t.Cleanup(func() { hotkeys = origHotkeys })
@@ -489,7 +554,9 @@ func TestscriptRemoveHotkeyClearsState(t *testing.T) {
 
 	makeHotkeysWindow()
 
-	scriptAddHotkey("plug", "Ctrl-P", "say hi")
+	queue := startScriptEventQueue("plug")
+	t.Cleanup(func() { queue.stop() })
+	registration := scriptAddHotkeyFn("plug", "Ctrl-P", func(InputEvent) {})
 
 	hotkeysMu.RLock()
 	if len(hotkeys) != 1 {
@@ -504,7 +571,7 @@ func TestscriptRemoveHotkeyClearsState(t *testing.T) {
 		t.Fatalf("expected hotkey list to have script header and row before removal, got %d", len(hotkeysList.Contents))
 	}
 
-	scriptRemoveHotkey("plug", "Ctrl-P")
+	registration.release()
 
 	hotkeysMu.RLock()
 	for _, hk := range hotkeys {

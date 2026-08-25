@@ -2,27 +2,16 @@ package main
 
 import (
 	"fmt"
+	scriptapi "gt2"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/text/cases"
 )
 
-type InventoryItem struct {
-	ID   uint16
-	Name string
-	// Base is the official base name without any custom/index suffix.
-	Base string
-	// Extra is the per-instance extra data if present:
-	// - Template items: custom text after the index (e.g. "Sea What").
-	// - Legacy items: custom text inside angle brackets (e.g. color name).
-	Extra    string
-	Equipped bool
-	Index    int // display order (global)
-	IDIndex  int // per-ID index used by server (0-based)
-	Quantity int
-}
+type InventoryItem = scriptapi.Item
 
 // inventoryKey uniquely identifies an inventory item when storing custom names.
 //
@@ -35,9 +24,10 @@ type inventoryKey struct {
 }
 
 var (
-	inventoryMu    sync.RWMutex
-	inventoryItems []InventoryItem
-	inventoryNames = make(map[inventoryKey]string)
+	inventoryMu               sync.RWMutex
+	inventoryItems            []InventoryItem
+	inventoryNames            = make(map[inventoryKey]string)
+	inventoryInstanceSequence atomic.Uint64
 )
 
 var invFoldCaser = cases.Fold()
@@ -57,6 +47,7 @@ func resetInventory() {
 	inventoryMu.Lock()
 	inventoryItems = inventoryItems[:0]
 	inventoryNames = make(map[inventoryKey]string)
+	inventoryInstanceSequence.Store(0)
 	inventoryMu.Unlock()
 	inventoryDirty = true
 }
@@ -93,7 +84,7 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 		// Append as a distinct instance; keep display order by placing at end
 		disp := fmt.Sprintf("%s <#%d>", name, idx+1)
 		target = len(inventoryItems)
-		item := InventoryItem{ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
+		item := InventoryItem{InstanceID: inventoryInstanceSequence.Add(1), ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
 		inventoryItems = append(inventoryItems, item)
 	} else {
 		// Legacy/non-template: coalesce by ID only when normalized names match.
@@ -112,7 +103,7 @@ func addInventoryItem(id uint16, idx int, name string, equip bool) {
 		}
 		if !found {
 			target = len(inventoryItems)
-			item := InventoryItem{ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
+			item := InventoryItem{InstanceID: inventoryInstanceSequence.Add(1), ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
 			inventoryItems = append(inventoryItems, item)
 		}
 	}
@@ -227,12 +218,15 @@ func equipInventoryItem(id uint16, idx int, equip bool) {
 // equipInventoryItem to mirror the server's behavior. idx is the server-
 // provided 0-based index for template items or -1 otherwise.
 func queueEquipCommand(id uint16, idx int) {
-	if idx >= 0 {
-		enqueueCommand(fmt.Sprintf("/equip %d %d", id, idx+1))
-	} else {
-		enqueueCommand(fmt.Sprintf("/equip %d", id))
-	}
+	enqueueCommand(formatEquipCommand(id, idx))
 	nextCommand()
+}
+
+func formatEquipCommand(id uint16, idx int) string {
+	if idx >= 0 {
+		return fmt.Sprintf("/equip %d %d", id, idx+1)
+	}
+	return fmt.Sprintf("/equip %d", id)
 }
 
 // toggleInventoryEquipAt equips or unequips a specific item index. When idx is
@@ -356,6 +350,14 @@ func getInventory() []InventoryItem {
 	defer inventoryMu.RUnlock()
 	out := make([]InventoryItem, len(inventoryItems))
 	copy(out, inventoryItems)
+	if clImages != nil {
+		for index := range out {
+			slot := clImages.ItemSlot(uint32(out[index].ID))
+			if slot >= kItemSlotFirstReal && slot <= kItemSlotLastReal {
+				out[index].Slot = scriptItemSlotName(slot)
+			}
+		}
+	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Equipped != out[j].Equipped {
 			return out[i].Equipped && !out[j].Equipped
@@ -363,6 +365,21 @@ func getInventory() []InventoryItem {
 		return out[i].Index < out[j].Index
 	})
 	return out
+}
+
+func scriptItemSlotName(slot int) string {
+	names := [...]string{
+		kItemSlotForehead: "forehead", kItemSlotNeck: "neck", kItemSlotShoulder: "shoulder",
+		kItemSlotArms: "arms", kItemSlotGloves: "gloves", kItemSlotFinger: "finger",
+		kItemSlotCoat: "coat", kItemSlotCloak: "cloak", kItemSlotTorso: "torso",
+		kItemSlotWaist: "waist", kItemSlotLegs: "legs", kItemSlotFeet: "feet",
+		kItemSlotRightHand: "right-hand", kItemSlotLeftHand: "left-hand",
+		kItemSlotBothHands: "both-hands", kItemSlotHead: "head",
+	}
+	if slot < 0 || slot >= len(names) {
+		return ""
+	}
+	return names[slot]
 }
 
 // inventoryItemByIndex returns the InventoryItem at the given index.
@@ -376,17 +393,25 @@ func inventoryItemByIndex(idx int) (InventoryItem, bool) {
 }
 
 func setFullInventory(ids []uint16, equipped []bool) {
-	oldNames := make(map[inventoryKey]string)
-	inventoryMu.RLock()
-	for k, v := range inventoryNames {
-		oldNames[k] = v
-	}
-	inventoryMu.RUnlock()
-
 	type groupKey struct {
 		id   uint16
 		name string
 	}
+	oldNames := make(map[inventoryKey]string)
+	oldTemplateIDs := make(map[inventoryKey]uint64)
+	oldGroupIDs := make(map[groupKey]uint64)
+	inventoryMu.RLock()
+	for k, v := range inventoryNames {
+		oldNames[k] = v
+	}
+	for _, item := range inventoryItems {
+		if item.IDIndex >= 0 {
+			oldTemplateIDs[inventoryKey{ID: item.ID, IDIndex: int16(item.IDIndex)}] = item.InstanceID
+		} else {
+			oldGroupIDs[groupKey{id: item.ID, name: normalizeInventoryName(item.Name)}] = item.InstanceID
+		}
+	}
+	inventoryMu.RUnlock()
 
 	grouped := make([]InventoryItem, 0, len(ids))
 	groupPos := make(map[groupKey]int)
@@ -439,7 +464,11 @@ func setFullInventory(ids []uint16, equipped []bool) {
 			} else {
 				disp = fmt.Sprintf("%s <#%d>", base, idx+1)
 			}
-			item := InventoryItem{ID: id, Name: disp, Base: base, Extra: strings.TrimSpace(name), Equipped: equip, Index: len(grouped), IDIndex: idx, Quantity: 1}
+			instanceID := oldTemplateIDs[inventoryKey{ID: id, IDIndex: int16(idx)}]
+			if instanceID == 0 {
+				instanceID = inventoryInstanceSequence.Add(1)
+			}
+			item := InventoryItem{InstanceID: instanceID, ID: id, Name: disp, Base: base, Extra: strings.TrimSpace(name), Equipped: equip, Index: len(grouped), IDIndex: idx, Quantity: 1}
 			grouped = append(grouped, item)
 			if name != "" {
 				newNames[inventoryKey{ID: id, IDIndex: int16(idx)}] = name
@@ -465,7 +494,11 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		if strings.TrimSpace(name) != "" && normalizeInventoryName(name) != normalizeInventoryName(base) {
 			legacyExtra = strings.TrimSpace(name)
 		}
-		item := InventoryItem{ID: id, Name: disp, Base: base, Extra: legacyExtra, Equipped: equip, Index: len(grouped), IDIndex: -1, Quantity: 1}
+		instanceID := oldGroupIDs[gk]
+		if instanceID == 0 {
+			instanceID = inventoryInstanceSequence.Add(1)
+		}
+		item := InventoryItem{InstanceID: instanceID, ID: id, Name: disp, Base: base, Extra: legacyExtra, Equipped: equip, Index: len(grouped), IDIndex: -1, Quantity: 1}
 		grouped = append(grouped, item)
 		groupPos[gk] = len(grouped) - 1
 		if name != "" {

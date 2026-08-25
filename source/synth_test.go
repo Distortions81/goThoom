@@ -94,9 +94,8 @@ func TestPlayOverlappingNotes(t *testing.T) {
 }
 
 func TestEventsToNotesChordStart(t *testing.T) {
-	pt := parseClanLordTune("[ce]d")
-	inst := instrument{program: 0, octave: 0, chord: 100, melody: 100}
-	notes := eventsToNotes(pt, inst, 100)
+	inst := instruments[0]
+	notes := classicNotesFromTune("[ce]d", inst, 120, 100)
 	if len(notes) != 3 {
 		t.Fatalf("expected 3 notes, got %d", len(notes))
 	}
@@ -122,9 +121,8 @@ func TestPCMBufferDuration(t *testing.T) {
 	sfntCached = &meltysynth.SoundFont{}
 	synthSettings = meltysynth.NewSynthesizerSettings(sampleRate)
 
-	pt := parseClanLordTuneWithTempo("cd", 120)
-	inst := instrument{program: 0, octave: 0, chord: 100, melody: 100}
-	notes := eventsToNotes(pt, inst, 100)
+	inst := instruments[0]
+	notes := classicNotesFromTune("cd", inst, 120, 100)
 
 	left, right, err := renderSong(0, notes)
 	if err != nil {

@@ -47,7 +47,18 @@ ensure_spellcheck_dict() {
   fi
 }
 
+copy_user_guides() {
+  local package_dir="$1"
+  mkdir -p "$package_dir/scripts" "$package_dir/data/Macros/Library"
+  cp "$ROOT_DIR/source/scripts/README.md" "$package_dir/scripts/README.md"
+  cp "$ROOT_DIR/source/data/Macros/README.md" "$package_dir/data/Macros/Library/README.md"
+}
+
 install_linux_deps() {
+  if [ "${GOTHOOM_SKIP_SYSTEM_DEPS:-0}" = "1" ]; then
+    echo "Using preinstalled Linux build dependencies."
+    return
+  fi
   echo "Installing Linux build dependencies..."
   sudo apt-get update -qq
   sudo apt-get install -y git cmake ninja-build clang llvm lldb \
@@ -150,6 +161,7 @@ MSG
 # Ensure zip is available for packaging on Ubuntu systems
 ensure_cmd zip
 ensure_spellcheck_dict
+bash "${SCRIPT_DIR}/build_script_template.sh" "${OUTPUT_DIR}/goThoom-Script-Template.zip"
 
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
@@ -284,8 +296,7 @@ EOF
 
     if command -v rcodesign >/dev/null 2>&1; then
       echo "Ad-hoc signing ${APP_NAME}.app with rcodesign..."
-      rcodesign sign "$APP_DIR" || echo "rcodesign sign failed, continuing" >&2
-      rcodesign verify --verbose "$APP_DIR/Contents/MacOS/gothoom" || echo "rcodesign verify failed, continuing" >&2
+      rcodesign -C /dev/null sign "$APP_DIR" || echo "rcodesign sign failed, continuing" >&2
     elif command -v codesign >/dev/null 2>&1; then
       echo "Codesigning ${APP_NAME}.app..."
       MAC_ENTITLEMENTS="${MAC_ENTITLEMENTS:-${SCRIPT_DIR}/goThoom.entitlements}"
@@ -309,6 +320,8 @@ EOF
   else
     mv "${OUTPUT_DIR}/${BIN_NAME}" "$PKG_DIR/"
   fi
+
+  copy_user_guides "$PKG_DIR"
 
   if [ "$GOOS" = "linux" ]; then
     ensure_cmd convert imagemagick

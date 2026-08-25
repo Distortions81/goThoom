@@ -3,9 +3,10 @@
 package main
 
 import (
+	"strings"
 	"time"
 
-	"gt"
+	"gt2"
 )
 
 // "Yes Boats" – automatically whisper "yes" when a ferryman offers a ride.
@@ -16,9 +17,10 @@ import (
 // - It replies only once every few seconds so it won’t spam.
 
 const scriptName = "Yes Boats"
+const scriptID = "yes-boats"
 const scriptAuthor = "Example"
 const scriptCategory = "Quality Of Life"
-const scriptAPIVersion = 1
+const scriptAPIVersion = 2
 
 var (
 	lastYes     time.Time         // last time we replied
@@ -27,13 +29,13 @@ var (
 
 func Init() {
 	// React when an NPC message contains this phrase (case‑insensitive).
-	gt.NPCChat("my fine boats", sendYes)
+	gt2.OnChat(gt2.ChatFilter{Contains: "my fine boats", Kinds: gt2.ChatNPC}, sendYes)
 }
 
-func sendYes(msg string) {
+func sendYes(event gt2.ChatEvent) {
 	// Only respond when our name appears in the message, because we will overhear other people buying boats
-	me := gt.PlayerName()
-	if me == "" || !gt.Includes(gt.Lower(msg), gt.Lower(me)) {
+	me := gt2.Self().Name
+	if me == "" || !strings.Contains(strings.ToLower(event.Raw), strings.ToLower(me)) {
 		return
 	}
 	now := time.Now()
@@ -42,5 +44,5 @@ func sendYes(msg string) {
 		return
 	}
 	lastYes = now
-	gt.Run("/whisper yes")
+	gt2.Send("/whisper yes")
 }
