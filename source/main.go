@@ -46,20 +46,21 @@ var (
 	pass     string
 	passHash string
 
-	clmov        string
-	pcapPath     string
-	fake         bool
-	blockSound   bool
-	blockBubbles bool
-	blockTTS     bool
-	blockMusic   bool
-	dumpMusic    bool
-	imgDump      bool
-	sndDump      bool
-	dumpBEPPTags bool
-	musicDebug   bool
-	experimental bool
-	showUIScale  bool
+	clmov             string
+	pcapPath          string
+	fake              bool
+	blockSound        bool
+	blockBubbles      bool
+	blockTTS          bool
+	blockMusic        bool
+	dumpMusic         bool
+	imgDump           bool
+	sndDump           bool
+	dumpBEPPTags      bool
+	musicDebug        bool
+	experimental      bool
+	showUIScale       bool
+	brandSpriteOutput string
 )
 
 func main() {
@@ -85,6 +86,7 @@ func main() {
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
 	flag.BoolVar(&showUIScale, "uiscale", false, "show UI scaling options")
+	flag.StringVar(&brandSpriteOutput, "exportBrandSprite", "", "render the goThoom brand character to a transparent PNG and exit")
 	genPGO := flag.Bool("pgo", false, "create default.pgo from -clmov (or test.clMov) at 30 fps")
 	pgoWarmup := flag.Duration("pgoWarmup", 0, "unprofiled warmup duration used with -pgo")
 	pgoWarmupMovie := flag.Bool("pgoWarmupMovie", false, "play one complete movie pass before profiling with -pgo")
@@ -187,6 +189,16 @@ func main() {
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 		// Build/restore the splash image according to settings.
 		prepareClassicSplash()
+	}
+	if brandSpriteOutput != "" {
+		if clImages == nil {
+			log.Fatal("export brand sprite: CL_Images is not available")
+		}
+		if err := exportBrandSprite(brandSpriteOutput); err != nil {
+			log.Fatalf("export brand sprite: %v", err)
+		}
+		log.Printf("exported brand sprite to %s", brandSpriteOutput)
+		return
 	}
 
 	if isWASM && len(wasmCLSoundsData) > 0 {
