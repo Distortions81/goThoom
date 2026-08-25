@@ -29,7 +29,6 @@ import (
 const keyRepeatRate = 32
 const gameAreaSizeX, gameAreaSizeY = 547, 540
 const fieldCenterX, fieldCenterY = gameAreaSizeX / 2, gameAreaSizeY / 2
-const defaultHandPictID = 6
 const initialWindowW, initialWindowH = 1920, 1080
 
 const (
@@ -771,7 +770,7 @@ func (g *Game) Update() error {
 
 	if inventoryDirty {
 		updateInventoryWindow()
-		updateHandsWindow()
+		updateToolbarHands()
 		inventoryDirty = false
 	}
 
@@ -1416,6 +1415,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	now := time.Now()
 	drawFrameNow = now
 	defer func() { drawFrameNow = time.Time{} }()
+	loadToolbarHands()
 
 	// Power-save throttling: measure draw duration and sleep remaining time
 	// to achieve the requested FPS when active.

@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
+	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"math"
 	"os"
 	"path/filepath"
@@ -124,10 +128,19 @@ var hudWin *eui.WindowData
 var toolbarRoot *eui.ItemData
 var toolbarStatsText *eui.ItemData
 var toolbarStatsOnce sync.Once
-var rightHandImg *eui.ItemData
-var leftHandImg *eui.ItemData
 var shaderWarnWin *eui.WindowData
 var shaderWarnDontShowCB *eui.ItemData
+
+//go:embed data/images/hands.png
+var toolbarHandsPNG []byte
+
+var (
+	toolbarHandsOnce  sync.Once
+	toolbarHandsSrc   image.Image
+	toolbarHandsImage *ebiten.Image
+	leftHandImg       *eui.ItemData
+	rightHandImg      *eui.ItemData
+)
 
 var (
 	sheetCacheLabel        *eui.ItemData
@@ -1663,14 +1676,15 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	}
 
 	controls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	hands := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	leftHandImg, _ = eui.NewImageItem(32, 32)
-	leftHandImg.Margin = 2
-	rightHandImg, _ = eui.NewImageItem(32, 32)
-	rightHandImg.Margin = 2
-	hands.AddItem(leftHandImg)
-	hands.AddItem(rightHandImg)
-	controls.AddItem(hands)
+	if hands := toolbarHandsSource(); hands != nil {
+		w, h := hands.Bounds().Dx(), hands.Bounds().Dy()
+		handsRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		leftHandImg, _ = eui.NewImageItem(w/2, h)
+		rightHandImg, _ = eui.NewImageItem(w-w/2, h)
+		handsRow.AddItem(leftHandImg)
+		handsRow.AddItem(rightHandImg)
+		controls.AddItem(handsRow)
+	}
 	controls.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
 
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
@@ -1679,16 +1693,20 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	for _, row := range scriptRows {
 		root.AddItem(row)
 	}
+	toolbarHeight := buttonHeight * 2
+	if hands := toolbarHandsSource(); hands != nil {
+		toolbarHeight = float32(hands.Bounds().Dy())
+	}
 	scriptToolbarHeight := float32(len(scriptRows)) * 32
 	toolbarStatsText = nil
 	if docked && gs.ToolbarInfoBar {
-		root.Size.Y = buttonHeight*2 + 22 + scriptToolbarHeight
+		root.Size.Y = toolbarHeight + 22 + scriptToolbarHeight
 		toolbarStatsText, _ = eui.NewText()
 		toolbarStatsText.FontSize = 10
 		toolbarStatsText.Size = eui.Point{X: buttonWidth * 5, Y: 18}
 		root.AddItem(toolbarStatsText)
 	} else {
-		root.Size.Y = buttonHeight*2 + scriptToolbarHeight
+		root.Size.Y = toolbarHeight + scriptToolbarHeight
 	}
 	updateToolbarStats()
 	return root
@@ -1750,7 +1768,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	}
 
 	updateToolbarStats()
-	updateHandsWindow()
+	updateToolbarHands()
 	updateRecordButton()
 	if dirty {
 		settingsDirty = true
@@ -1783,6 +1801,31 @@ func refreshToolbar() {
 	}
 }
 
+func toolbarHandsSource() image.Image {
+	toolbarHandsOnce.Do(func() {
+		img, err := png.Decode(bytes.NewReader(toolbarHandsPNG))
+		if err != nil {
+			logError("decode embedded toolbar hands: %v", err)
+			return
+		}
+		toolbarHandsSrc = img
+	})
+	return toolbarHandsSrc
+}
+
+// loadToolbarHands defers the Ebitengine image creation until Draw, when the
+// graphics context is active. initUI runs before RunGame and cannot upload
+// pixel data yet.
+func loadToolbarHands() {
+	if toolbarHandsImage != nil || leftHandImg == nil || rightHandImg == nil {
+		return
+	}
+	if hands := toolbarHandsSource(); hands != nil {
+		toolbarHandsImage = newImageFromImage(hands)
+		updateToolbarHands()
+	}
+}
+
 var (
 	overlayHandOpts = &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, DisableMipmaps: true}
 	overlayItemOpts = &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, DisableMipmaps: true}
@@ -1795,69 +1838,53 @@ func overlayItemOnHand(hand, item *ebiten.Image) *ebiten.Image {
 	if item == nil {
 		return hand
 	}
-	w := hand.Bounds().Dx()
-	h := hand.Bounds().Dy()
-	iw, ih := item.Bounds().Dx(), item.Bounds().Dy()
-	if iw > w {
-		w = iw
-	}
-	if ih > h {
-		h = ih
-	}
+	w := max(hand.Bounds().Dx(), item.Bounds().Dx())
+	h := max(hand.Bounds().Dy(), item.Bounds().Dy())
 	out := newImage(w, h)
-	offX := (w - hand.Bounds().Dx()) / 2
-	offY := (h - hand.Bounds().Dy()) / 2
 	opHand := overlayHandOpts
 	opHand.ColorScale.Reset()
 	opHand.ColorScale.ScaleAlpha(0.5)
 	opHand.GeoM.Reset()
-	opHand.GeoM.Translate(float64(offX), float64(offY))
+	opHand.GeoM.Translate(float64((w-hand.Bounds().Dx())/2), float64((h-hand.Bounds().Dy())/2))
 	out.DrawImage(hand, opHand)
-	offX = (w - iw) / 2
-	offY = (h - ih) / 2
 	opItem := overlayItemOpts
 	opItem.ColorScale.Reset()
 	opItem.GeoM.Reset()
-	opItem.GeoM.Translate(float64(offX), float64(offY))
+	opItem.GeoM.Translate(float64((w-item.Bounds().Dx())/2), float64((h-item.Bounds().Dy())/2))
 	out.DrawImage(item, opItem)
 	return out
 }
 
-func updateHandsWindow() {
-	if rightHandImg == nil || leftHandImg == nil {
+// updateToolbarHands keeps the original held-item treatment: each item is
+// centered over its hand and the left-hand item is mirrored. Only the hand
+// background comes from the embedded two-hand PNG.
+func updateToolbarHands() {
+	if toolbarHandsImage == nil || leftHandImg == nil || rightHandImg == nil {
 		return
 	}
-	baseHand := loadImage(defaultHandPictID)
-	if baseHand == nil {
-		return
-	}
+	bounds := toolbarHandsImage.Bounds()
+	middle := bounds.Dx() / 2
+	leftHand := toolbarHandsImage.SubImage(image.Rect(0, 0, middle, bounds.Dy())).(*ebiten.Image)
+	rightHand := toolbarHandsImage.SubImage(image.Rect(middle, 0, bounds.Dx(), bounds.Dy())).(*ebiten.Image)
 	rightID, leftID := equippedItemPicts()
-
-	rightImg := baseHand
+	rightImage := rightHand
 	if rightID != 0 {
 		if item := loadImage(rightID); item != nil {
-			rightImg = overlayItemOnHand(baseHand, item)
+			rightImage = overlayItemOnHand(rightHand, item)
 		}
 	}
-
-	leftHand := mirrorImage(baseHand)
-	leftImg := leftHand
+	leftImage := leftHand
 	if leftID != 0 {
 		if item := loadImage(leftID); item != nil {
-			leftImg = overlayItemOnHand(leftHand, mirrorImage(item))
+			leftImage = overlayItemOnHand(leftHand, mirrorImage(item))
 		}
 	}
-
-	if rightImg != nil {
-		rightHandImg.Image = rightImg
-		rightHandImg.Size = eui.Point{X: float32(rightImg.Bounds().Dx()), Y: float32(rightImg.Bounds().Dy())}
-		rightHandImg.Dirty = true
-	}
-	if leftImg != nil {
-		leftHandImg.Image = leftImg
-		leftHandImg.Size = eui.Point{X: float32(leftImg.Bounds().Dx()), Y: float32(leftImg.Bounds().Dy())}
-		leftHandImg.Dirty = true
-	}
+	leftHandImg.Image = leftImage
+	leftHandImg.Size = eui.Point{X: float32(leftImage.Bounds().Dx()), Y: float32(leftImage.Bounds().Dy())}
+	leftHandImg.Dirty = true
+	rightHandImg.Image = rightImage
+	rightHandImg.Size = eui.Point{X: float32(rightImage.Bounds().Dx()), Y: float32(rightImage.Bounds().Dy())}
+	rightHandImg.Dirty = true
 	refreshToolbar()
 }
 
