@@ -11,7 +11,7 @@ import (
 )
 
 func TestUserScriptSourcesExcludeTestFiles(t *testing.T) {
-	entries, err := scriptScripts.ReadDir("scripts")
+	entries, err := scriptScripts.ReadDir(bundledScriptDir)
 	if err != nil {
 		t.Fatalf("read embedded scripts: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestBundledScriptsCompileWithYaegi(t *testing.T) {
 	for _, entry := range entries {
 		entry := entry
 		t.Run(entry.Filename, func(t *testing.T) {
-			source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join("scripts", entry.Filename)))
+			source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join(bundledScriptDir, entry.Filename)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -73,7 +73,7 @@ func TestBundledScriptsTypeCheckWithEditorStub(t *testing.T) {
 		t.Fatal(err)
 	}
 	for index, entry := range entries {
-		source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join("scripts", entry.Filename)))
+		source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join(bundledScriptDir, entry.Filename)))
 		if err != nil {
 			t.Fatal(err)
 		}

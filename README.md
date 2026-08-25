@@ -90,7 +90,7 @@ package. Bundled examples are available from the Scripts window and are never
 installed over an existing file.
 
 Script-author documentation lives in
-[source/scripts/README.md](source/scripts/README.md), with the complete API in
+[source/script_library/README.md](source/script_library/README.md), with the complete API in
 [source/gt2/API_REFERENCE.md](source/gt2/API_REFERENCE.md).
 
 For VS Code completion and type checking, download

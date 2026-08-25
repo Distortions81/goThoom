@@ -1278,7 +1278,10 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 	return ex
 }
 
-//go:embed scripts
+// script_library contains immutable examples. scripts/ is a separate Go module
+// created for users' editor support and cannot be embedded by this module.
+//
+//go:embed script_library
 var scriptScripts embed.FS
 
 // userScriptsDir returns the preferred location for user-editable scripts.

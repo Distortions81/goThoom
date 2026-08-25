@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const bundledScriptDir = "script_library"
+
 type scriptLibraryEntry struct {
 	ID          string
 	Name        string
@@ -19,7 +21,7 @@ type scriptLibraryEntry struct {
 }
 
 func scriptLibraryEntries() ([]scriptLibraryEntry, error) {
-	files, err := scriptScripts.ReadDir("scripts")
+	files, err := scriptScripts.ReadDir(bundledScriptDir)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +30,7 @@ func scriptLibraryEntries() ([]scriptLibraryEntry, error) {
 		if file.IsDir() || !isUserScriptFile(file.Name()) {
 			continue
 		}
-		source, err := scriptScripts.ReadFile(path.Join("scripts", file.Name()))
+		source, err := scriptScripts.ReadFile(path.Join(bundledScriptDir, file.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("read bundled script %s: %w", file.Name(), err)
 		}
@@ -68,7 +70,7 @@ func installBundledScript(dir, filename string) (string, error) {
 	if filepath.Base(filename) != filename || !isUserScriptFile(filename) {
 		return "", fmt.Errorf("invalid bundled script name %q", filename)
 	}
-	source, err := scriptScripts.ReadFile(path.Join("scripts", filename))
+	source, err := scriptScripts.ReadFile(path.Join(bundledScriptDir, filename))
 	if err != nil {
 		return "", fmt.Errorf("read bundled script %q: %w", filename, err)
 	}

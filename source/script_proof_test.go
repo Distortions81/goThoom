@@ -12,7 +12,7 @@ import (
 func activateBundledProofScript(t *testing.T, owner, filename string) scriptEventSimulator {
 	t.Helper()
 	resetScriptCallbackTestState(t, owner)
-	source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join("scripts", filename)))
+	source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join(bundledScriptDir, filename)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ func TestLongRunningTimerReloadProof(t *testing.T) {
 	scriptStoreMu.Lock()
 	delete(scriptStores, owner)
 	scriptStoreMu.Unlock()
-	source, err := scriptScripts.ReadFile("scripts/daily_reminder.go")
+	source, err := scriptScripts.ReadFile(filepath.ToSlash(filepath.Join(bundledScriptDir, "daily_reminder.go")))
 	if err != nil {
 		t.Fatal(err)
 	}
