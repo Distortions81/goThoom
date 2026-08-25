@@ -188,6 +188,20 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 	if isWASM {
 		return
 	}
+	if assetDumpMode() {
+		return
+	}
+	// png.Encode reads the Ebiten image pixels. Initial asset loading happens
+	// before RunGame, when Ebiten deliberately rejects ReadPixels, so keep the
+	// sheet alive and export it after the first game update has initialized the
+	// graphics context.
+	if !gameHasStarted() {
+		go func() {
+			<-gameStarted
+			dumpImageSheet(id, sheet)
+		}()
+		return
+	}
 	dumpImgOnce.Do(func() {
 		os.MkdirAll(filepath.Join("dump", "img"), 0755)
 		if f, err := os.Create(filepath.Join("dump", "img", "metadata.csv")); err == nil {

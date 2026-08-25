@@ -80,8 +80,8 @@ func main() {
 	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
 	flag.BoolVar(&dumpMusic, "dumpMusic", false, "write played music as a .wav file")
-	flag.BoolVar(&imgDump, "imgDump", false, "dump images to dump/img as PNG")
-	flag.BoolVar(&sndDump, "sndDump", false, "dump sounds to dump/snd as WAV")
+	flag.BoolVar(&imgDump, "imgDump", false, "export all images to dump/img as PNG and exit")
+	flag.BoolVar(&sndDump, "sndDump", false, "export all sounds to dump/snd as WAV and exit")
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
@@ -216,6 +216,15 @@ func main() {
 	}
 
 	go func() {
+		if assetDumpMode() {
+			select {
+			case <-assetDumpComplete:
+				cancel()
+			case <-ctx.Done():
+			}
+			return
+		}
+
 		if clmovPath != "" || (isWASM && len(wasmMovieZipData) > 0) {
 			if isWASM {
 				enterWasmPrivacyMode()

@@ -683,6 +683,10 @@ func (g *Game) Update() error {
 	once.Do(func() {
 		initGame()
 	})
+	if assetDumpMode() {
+		assetDumpOnce.Do(exportAssets)
+		return nil
+	}
 	drainScriptDispatcher()
 	processMusicRequests()
 
