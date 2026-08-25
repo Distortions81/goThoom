@@ -1,0 +1,222 @@
+// goThoom bundled macro: gorvin-last-hit-counter.mac
+// Source: http://gorvin.50webs.com/macros/LastCounter.txt
+// Original authors retain copyright.
+
+// Metadata
+// Name: Last-Hit Counter
+// Tags: hunting, counter
+// Desc: Counts last hits and stores the total on a named item.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/macros/index.html
+// Update: http://gorvin.50webs.com/macros/LastCounter.txt
+
+set gLasts_creature "Haremau Kitten"
+set gLasts_item "shirt <#1"
+
+// Starts/stops a loop tracking kills on a specific creature.
+// Kill count is stored in a /name-able item.
+// Set the variable gLasts_creature to the name of the creature to count.
+// Set the variable gLasts_item to the name of the item to store the count on.
+"/lastcount"
+{
+call "fCounter_run"
+}
+
+// Adjust lasts count by +1.
+"/lasts+"
+{
+set label_item gLasts_item
+if @text.word[0] >= 0
+  set label_adjust @text.word[0]
+else
+  set label_adjust 1
+end if
+call "fLabel_adjust"
+}
+
+// Adjusts lasts count by -1.
+"/lasts-"
+{
+set label_item gLasts_item
+if @text.word[0] >= 0
+  set label_adjust @text.word[0]
+  set label_adjust * -1
+else
+  set label_adjust -1
+end if
+call "fLabel_adjust"
+}
+
+fCounter_run
+{
+if gLasts_on == 1
+  message "Aborting macro..."
+  setglobal gLasts_on 0
+  goto "RETURN"
+end if
+
+setglobal gLasts_on 1
+
+message "* Now counting kills on:" gLasts_creature
+message "Use /lasts+ and /lasts- to manually adjust kill counts if needed."
+if @env.textLog.word[0] > 0
+  set textlog_begin 2
+else
+  set textlog_begin 0
+end if
+
+set creature_name_msg gLasts_creature
+set creature_name_msg + "."
+set creature_name_plural gLasts_creature
+set creature_name_plural + "s"
+label COUNTER_LOOP
+  if gLasts_on != 1
+    message "* No longer counting kills on:" gLasts_creature
+    goto "RETURN"
+  end if
+  
+  set msg @env.textLog
+  if msg.word[textlog_begin] == "You"
+    // Determine if the current textlog message is a kill message.
+    set is_valid_msg 0
+    if msg >= "You slaughtered"
+      set is_valid_msg 1
+    else if msg >= "You helped slaughter"
+      set is_valid_msg 1
+    else if msg >= "You dispatched"
+      set is_valid_msg 1
+    else if msg >= "You helped dispatch"
+      set is_valid_msg 1
+    else if msg >= "You killed"
+      set is_valid_msg 1
+    else if msg >= "You helped kill"
+      set is_valid_msg 1
+    else if msg >= "You vanquished"
+      set is_valid_msg 1
+    else if msg >= "You helped vanquish"
+      set is_valid_msg 1
+    end if
+    
+    if is_valid_msg == 1
+      // Determine if the tracked creature was killed.
+      if msg >= creature_name_msg
+        set is_valid_msg 0
+        
+        // Make sure we aren't doing something retarded like counting Large Vermine as Vermine.
+        set msg_word msg.num_words
+        set msg_word - creature_name_msg.num_words
+        set msg_word - 1
+        set msg_word msg.word[msg_word]
+        if msg_word == "a"
+          set is_valid_msg 1
+        else if msg_word == "an"
+          set is_valid_msg 1
+        else if msg_word == "the"
+          set is_valid_msg 1
+        end if
+        
+        if is_valid_msg == 1
+          // Increment counter.
+          set label_item gLasts_item
+          set label_adjust 1
+          call "fLabel_adjust"
+          if label_count != ""
+            message label_count creature_name_plural "counted."
+          end if
+        end if
+      end if
+    end if
+  end if
+  pause 1
+  goto "COUNTER_LOOP"
+label RETURN
+}
+
+// Adjusts a counter stored in an item's label.
+// Before calling this function, set the following variables:
+//  label_item - Name of item the counter is stored in (must be /name-able).
+//  label_adjust - Amount to adjust the counter by.
+// The function sets label_count to the new counter value.
+fLabel_adjust
+{
+set label_count ""
+// Select the item if it is not already selected.
+set old_selected @my.selected_item
+if old_selected >= label_item
+  // Item is already selected.
+  set old_selected "-"
+else
+  "/selectitem \"" label_item "\"\r"
+end if
+set item_name @my.selected_item
+if item_name >= label_item
+else
+  message "* Could not find item in inventory:" label_item
+  goto "RETURN"
+end if
+
+// Find where the item's label begins.
+set item_word 0
+label FIND_LABEL
+  if item_word >= item_name.num_words
+    message "* Item cannot be labeled:" item_name
+    goto "RETURN"
+  else if item_name.word[item_word] >= "<#"
+    // Label found.
+    set item_word + 1
+  else
+    set item_word + 1
+    goto "FIND_LABEL"
+  end if
+
+// Get the current lasts count from the item label.
+if item_name.word[item_word] >= 0
+  set label_count item_name.word[item_word]
+  set item_word + 1
+else if item_name.word[item_word] < 0
+  set label_count item_name.word[item_word]
+  set item_word + 1
+else
+  set label_count 0
+end if
+// Adjust count.
+set label_count + label_adjust
+
+// Determine the item's current label.
+set item_label ""
+set item_last_word_idx item_name.num_words
+set item_last_word_idx - 1
+label COMPOSE_LABEL
+  if item_word == item_last_word_idx
+    // Add in the last word of the label minus the '>' at the end.
+    set item_label + " "
+    set item_last_word item_name.word[item_last_word_idx]
+    set item_last_letter_idx item_last_word.num_letters
+    set item_last_letter_idx - 1
+    set item_letter 0
+    label COMPOSE_LAST_WORD
+      if item_letter < item_last_letter_idx
+        set item_label + item_last_word.letter[item_letter]
+        set item_letter + 1
+        goto "COMPOSE_LAST_WORD"
+      end if
+  else if item_word < item_name.num_words
+    set item_label + " "
+    set item_label + item_name.word[item_word]
+    set item_word + 1
+    goto "COMPOSE_LABEL"
+  end if
+
+// Update item label with the new count.
+"/name " label_count item_label "\r"
+
+label RETURN
+// Reselect the item that was previously selected.
+if old_selected == "-"
+  // Do nothing.
+else if old_selected == "Nothing"
+  "/selectitem\r"
+else
+  "/selectitem \"" old_selected "\"\r"
+end if
+}

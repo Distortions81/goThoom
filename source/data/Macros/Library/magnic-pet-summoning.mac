@@ -1,0 +1,59 @@
+// goThoom bundled macro: magnic-pet-summoning.mac
+// Source: https://github.com/maxtraxv3/Macros/blob/main/PET_SUMMONING_WITH_BAG.txt
+// Original authors retain copyright.
+
+// Metadata
+// Name: Pet Summoning with Bag
+// Tags: pets, inventory, utility
+// Desc: Retrieves a shadow bell, summons a named preset pet, then stores the bell.
+// Author: Hashak and Magnic
+// Website: https://github.com/maxtraxv3/Macros
+// Update: https://github.com/maxtraxv3/Macros/blob/main/PET_SUMMONING_WITH_BAG.txt
+
+//to use /cp <petsname>
+//or /callpet <petsname>
+//or /callpet 1 or 2 if setglobal pet1 and pet2 are added in each healers macro
+
+//add this to your healers macro
+//setglobal pet1 "PETNAMEHERE"
+//setglobal pet2 "PETNAMEHERE"
+
+//PET SUMMONING WITH BAG//
+//modified Hashaks macro by Magnic//
+
+"/callpet" call pulloutpet
+"/cp" call pulloutpet
+
+pulloutpet
+{
+	set myRight ""
+    "/bag /remove /exact shadow bell\r"
+    pause 3
+	if @my.right_item != ""
+		set myRight @my.right_item
+			goto summon
+	else
+		goto summon
+	end if
+	label summon
+    "/equip shadow bell\r"
+	if @text.word[0] == "1"
+		if pet1 != ""
+			"/use " pet1 "\r"
+		end if
+	else if @text.word[0] == "2"
+		if pet2 != ""
+			"/use " pet2 "\r"
+		end if
+	else
+		"/use " @text.word[0] "\r"
+	end if
+	pause 3
+	if myRight != ""
+		"/equip " myRight "\r"
+	end if
+    pause 3
+    "/selectitem Shadow bell\r"
+    pause 3
+    "/bag /add\r"
+}

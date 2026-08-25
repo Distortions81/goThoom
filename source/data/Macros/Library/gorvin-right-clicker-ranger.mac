@@ -1,0 +1,123 @@
+// goThoom bundled macro: gorvin-right-clicker-ranger.mac
+// Source: http://gorvin.50webs.com/macros/RC2Ranger.txt
+// Original authors retain copyright.
+
+// Metadata
+// Name: Right-Clicker - Ranger Set
+// Tags: input, ranger
+// Desc: Ranger settings for Right-Clicker; set gRC_setup to RC_ranger_setup.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/macros/index.html
+// Update: http://gorvin.50webs.com/macros/RC2Ranger.txt
+/*****************************************************************************
+Ranger Right-Clicker settings:
+  Double right-click on the ground to use your Heartwood Charm.
+  Right-click on another player to pull them.
+  Double right-click on yourself to morph or unmorph.
+  Spin your mouse wheel up to equip/use a chain.
+  Spin your mouse wheel down to disarm or rearm.
+
+You must edit the variable gRC_morph below to set the morph that will be used.
+You can either edit the variable here in this macro file, or copy and paste it
+into your Ranger character's macro file.
+*****************************************************************************/
+
+// Set this to the morph that will be used when you double right-click on yourself.
+setglobal gRC_morph "Haremau Kitten"
+
+RC_ranger_setup
+{
+message "* Using Ranger right-click settings."
+
+setglobal gRC_init 1	// Lets the Right-Clicker know that settings have been initialized.  Don't change this.
+
+setglobal gRC_item "chain"		// This set's special ITEM.
+setglobal gRC_item_slot "right"		// The SLOT this item is equipped in (right, left, neck, finger, or forehead).
+
+// Actions without special item equipped:
+setglobal gRC_right_click_ground "0"		// Action called on SINGLE right-click on GROUND.
+setglobal gRC_double_right_click_ground "RC_use_heartwood"		// Action called on DOUBLE right-click on GROUND.
+
+setglobal gRC_right_click_player "RC_pull"		// Action called on SINGLE right-click on ANOTHER PLAYER.
+setglobal gRC_double_right_click_player "0"		// Action called on DOUBLE right-click on ANOTHER PLAYER.
+
+setglobal gRC_right_click_self "0"		// Action called on SINGLE right-click on YOURSELF.
+setglobal gRC_double_right_click_self "RC_morph"		// Action called on DOUBLE right-click on YOURSELF.
+
+setglobal gRC_wheel_up "RC_use_chain"		// Action called on WHEEL ticks UP.
+setglobal gRC_wheel_up_cooldown 0		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down "RC_toggle_disarm"		// Action called on WHEEL ticks DOWN.
+setglobal gRC_wheel_down_cooldown 1		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+// Actions with special ITEM equipped:
+setglobal gRC_right_click_ground_with_item "0"	// Action called on SINGLE right-click on GROUND with special ITEM equipped.
+setglobal gRC_double_right_click_ground_with_item "RC_use_heartwood"	// Action called on DOUBLE right-click on GROUND with special ITEM equipped.
+
+setglobal gRC_right_click_player_with_item "RC_pull"	// Action called on SINGLE right-click on ANOTHER PLAYER with special ITEM equipped.
+setglobal gRC_double_right_click_player_with_item "0"	// Action called on DOUBLE right-click on ANOTHER PLAYER with special ITEM equipped.
+
+setglobal gRC_right_click_self_with_item "0"	// Action called on SINGLE right-click on YOURSELF with special ITEM equipped.
+setglobal gRC_double_right_click_self_with_item "RC_morph"	// Action called on DOUBLE right-click on YOURSELF with special ITEM equipped.
+
+setglobal gRC_wheel_up_with_item "/useitem chain\r"	// Action called on WHEEL ticks UP with special ITEM equipped.
+setglobal gRC_wheel_up_with_item_cooldown 0	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down_with_item "RC_rearm"	// Action called on WHEEL ticks DOWN with special ITEM equipped.
+setglobal gRC_wheel_down_with_item_cooldown 1	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+}
+
+
+
+setglobal gRC_morphed 0
+RC_morph
+{
+if gRC_morphed == 0
+	message "Morphing into" gRC_morph "..."
+	"/useitem beltofthewild /shape \"" gRC_morph "\"\r"
+	setglobal gRC_morphed 1
+	set morph_fallen_msg @my.name
+	set morph_fallen_msg + " has fallen"
+	goto "MORPHLOOP"
+else
+	setglobal gRC_morphed 0
+	"/useitem beltofthewild /return\r"
+	pause 1
+	if @env.textLog >= "You are already in your normal form"
+		message "Morphing into" gRC_morph "..."
+		"/useitem beltofthewild /shape \"" gRC_morph "\"\r"
+		setglobal gRC_morphed 1
+		set morph_fallen_msg @my.name
+		set morph_fallen_msg + " has fallen"
+		goto "MORPHLOOP"
+	end if
+	goto "RETURN"
+end if
+
+label MORPHLOOP
+if gRC_morphed == 1
+	set morph_msg @env.textLog
+	if morph_msg >= "You return to your normal form."
+		setglobal gRC_morphed 0
+		goto "RETURN"
+	else if morph_msg >= morph_fallen_msg
+		setglobal gRC_morphed 0
+		goto "RETURN"
+	else
+		pause 1
+		goto "MORPHLOOP"
+	end if
+end if
+label RETURN
+}
+
+
+
+RC_use_heartwood
+{
+if @my.left_item != "heartwood charm"
+	"/equip heartwoodcharm\r"
+end if
+"/useitem heartwoodcharm\r"
+}
+

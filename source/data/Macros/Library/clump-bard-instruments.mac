@@ -1,0 +1,49 @@
+// goThoom bundled macro: clump-bard-instruments.mac
+// Source: https://clump.clanlord.net/library/index.php?title=Bard_Macros
+// Original authors retain copyright.
+
+// Metadata
+// Name: Bard Instrument Case
+// Tags: bard, inventory, music
+// Desc: Adds, removes, and stores instruments while restoring the prior item.
+// Author: CLUMP contributors
+// Website: https://clump.clanlord.net/library/index.php?title=Bard_Macros
+// Update: https://clump.clanlord.net/library/index.php?title=Bard_Macros
+
+/* ********* Instrument Case Uses ********* */
+"/remove" call REMOVE
+
+REMOVE
+{
+setglobal lSave @my.left_item
+"/equip instrument case\r"
+"/useitem instrument case /remove " @text "\r"
+pause 10
+"/equip " lSave "\r"
+"/equip " @text "\r"
+}
+
+"/add" call ADD
+
+ADD
+{
+setglobal lSave @my.left_item
+"/equip instrument case\r"
+"/useitem instrument case /add " @text "\r"
+pause 10
+"/equip " lSave "\r"
+}
+
+"/store" call STORE //Stores what instrument is in your hand
+
+STORE
+{
+if @my.left_item != "instrument case"
+	setglobal lSave @my.left_item
+	"/equip instrument case\r"
+	"/useitem instrument case /add " @my.right_item "\r"
+	pause 10
+	"/equip " lSave "\r"
+end if
+}
+

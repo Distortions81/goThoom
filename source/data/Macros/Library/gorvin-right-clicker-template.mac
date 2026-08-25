@@ -1,0 +1,68 @@
+// goThoom bundled macro: gorvin-right-clicker-template.mac
+// Source: http://gorvin.50webs.com/macros/RC2Template.txt
+// Original authors retain copyright.
+
+// Metadata
+// Name: Right-Clicker - Template
+// Tags: input, template
+// Desc: Requires Right-Clicker; copy and customize RC_template.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/macros/index.html
+// Update: http://gorvin.50webs.com/macros/RC2Template.txt
+/*****************************************************************************
+Assign one of the following to each right-click and mouse wheel action:
+  "0" - No action will be performed.
+  Slash commands - Normal in-game slash commands, like "/equip chain".
+  Macro functions - Any callable macro can be used.
+
+After configuring the right-click settings, copy the following line to the
+macro file of each character that will be using these right-click settings,
+just below the other include lines:
+  include "[MACRO FILE NAME]"
+  setglobal gRC_setup "RC_template"
+Replace "RC_template" (both in the variable above and in the macro name below)
+with a unique name to distinguish this set from others.  Replace [MACRO FILE
+NAME] with the name that this file is saved as.
+*****************************************************************************/
+
+RC_template
+{
+message "* Using <INSERT SET NAME HERE> right-click settings."
+
+setglobal gRC_init 1	// Lets the Right-Clicker know that settings have been initialized.  Don't change this.
+
+setglobal gRC_item ""		// This set's special ITEM.
+setglobal gRC_item_slot "right"		// The SLOT this item is equipped in (right, left, neck, finger, shoulders, selected, etc).
+
+// Actions without special item equipped:
+setglobal gRC_right_click_ground "0"		// Action called on SINGLE right-click on GROUND.
+setglobal gRC_double_right_click_ground "0"		// Action called on DOUBLE right-click on GROUND.
+
+setglobal gRC_right_click_player "0"		// Action called on SINGLE right-click on ANOTHER PLAYER.
+setglobal gRC_double_right_click_player "0"		// Action called on DOUBLE right-click on ANOTHER PLAYER.
+
+setglobal gRC_right_click_self "0"		// Action called on SINGLE right-click on YOURSELF.
+setglobal gRC_double_right_click_self "0"		// Action called on DOUBLE right-click on YOURSELF.
+
+setglobal gRC_wheel_up "0"		// Action called on WHEEL ticks UP.
+setglobal gRC_wheel_up_cooldown 0		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down "0"		// Action called on WHEEL ticks DOWN.
+setglobal gRC_wheel_down_cooldown 1		// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+// Actions with special ITEM equipped:
+setglobal gRC_right_click_ground_with_item "0"	// Action called on SINGLE right-click on GROUND with special ITEM equipped.
+setglobal gRC_double_right_click_ground_with_item "0"	// Action called on DOUBLE right-click on GROUND with special ITEM equipped.
+
+setglobal gRC_right_click_player_with_item "0"	// Action called on SINGLE right-click on ANOTHER PLAYER with special ITEM equipped.
+setglobal gRC_double_right_click_player_with_item "0"	// Action called on DOUBLE right-click on ANOTHER PLAYER with special ITEM equipped.
+
+setglobal gRC_right_click_self_with_item "0"	// Action called on SINGLE right-click on YOURSELF with special ITEM equipped.
+setglobal gRC_double_right_click_self_with_item "0"	// Action called on DOUBLE right-click on YOURSELF with special ITEM equipped.
+
+setglobal gRC_wheel_up_with_item "0"	// Action called on WHEEL ticks UP with special ITEM equipped.
+setglobal gRC_wheel_up_with_item_cooldown 0	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+
+setglobal gRC_wheel_down_with_item "0"	// Action called on WHEEL ticks DOWN with special ITEM equipped.
+setglobal gRC_wheel_down_with_item_cooldown 1	// Set this to 1 to have this action have a COOLDOWN (cannot call more than once per spin of the wheel).
+}

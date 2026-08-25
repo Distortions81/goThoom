@@ -1,15 +1,1 @@
-{
-  "global": [
-    "abbreviations.mac",
-    "dances.mac",
-    "directions.mac",
-    "keys.mac",
-    "official-example.mac",
-    "sunstone.mac"
-  ],
-  "players": {
-    "Distortions": [
-      "gorvin-right-clicker.mac"
-    ]
-  }
-}
+{}

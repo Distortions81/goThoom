@@ -1,0 +1,34 @@
+// goThoom bundled macro: clump-dice-roll.mac
+// Source: https://clump.clanlord.net/library/index.php?title=DiceRoll
+// Original authors retain copyright.
+
+// Metadata
+// Name: Dice Roll
+// Tags: social, games, utility
+// Desc: Rolls XdY dice and restores the previously equipped left-hand item.
+// Author: CLUMP contributors
+// Website: https://clump.clanlord.net/library/index.php?title=DiceRoll
+// Update: https://clump.clanlord.net/library/index.php?title=DiceRoll
+
+//==================roll macro=========================
+// type "/roll <number of dice>d<size of dice>" to use
+"/roll"
+{
+if rollInProgress == 1
+	goto end
+else
+	set rollInProgress 1
+	set litem @my.left_item
+	if @my.left_item != "pouch of dice"
+		"/equip pouchofdice\r"
+	end if
+	pause 1
+	"/useitem left " @text "\r"
+	pause 3
+	if litem != "pouch of dice"
+		"/equip " litem "\r"
+	end if
+	set rollInProgress 0
+end if
+label end
+}

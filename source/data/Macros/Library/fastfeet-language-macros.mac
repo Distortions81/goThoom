@@ -1,0 +1,184 @@
+// goThoom bundled macro: fastfeet-language-macros.mac
+// Source: https://fastfeet.bzui.net/macros/language_macros.txt
+// Original authors retain copyright.
+
+// Metadata
+// Name: Language Macros
+// Tags: chat, language, roleplay
+// Desc: Switches languages and optionally speaks one line before switching back.
+// Author: Phineas and Magnels
+// Website: https://fastfeet.bzui.net/macros/
+// Update: https://fastfeet.bzui.net/macros/language_macros.txt
+
+// -- Phineas
+// Speak dwarven.
+// The language_flag tells us if we're speaking dwarven.
+// If language_flag == 0, then we are NOT speaking dwarven.
+//      We'll want to \speak dwarven, and set the language_flag to 1 (now speaking dwarven).
+// If language_flag == 1, then we ARE speaking dwarven.
+//      We'll want to \speak common, and clear the language_flag to 0 (now speaking common).
+
+setglobal language_flag 0
+
+// The above setglobal goes at the top of the macro.
+
+f15
+{
+        if language_flag == 0
+                "\speak dwarven\r"
+                setglobal language_flag 1
+                goto f15_label
+// We're done here; exit out!
+
+         else if language_flag == 1
+                "\speak common\r"
+                setglobal language_flag 0
+
+label f15_label
+        end if
+}
+
+
+// **************************************************
+
+
+// --Magnels
+// Language macros
+
+set current_lang "common"
+
+"/speak" call speak
+"\speak" call speak
+
+speak
+{
+   "/speak " @text "\r"
+   setglobal current_lang @text
+}
+
+"/sylvan" call sylvan
+"\sylvan" call sylvan
+"/halfling" call halfling
+"\halfling" call halfling
+"/people" call people
+"\people" call people
+"/dwarf" call dwarf
+"\dwarf" call dwarf
+"/ghorak" call ghorak
+"\ghorak" call ghorak
+"/thoom" call thoom
+"\thoom" call thoom
+"/common" call common
+"\common" call common
+
+sylvan
+{
+   "/speak sylvan\r"
+   setglobal current_lang "sylvan"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+halfling
+{
+   "/speak halfling\r"
+   setglobal current_lang " halfling"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+people
+{
+   "/speak people\r"
+   setglobal current_lang "people"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+dwarf
+{
+   "/speak dwarf\r"
+   setglobal current_lang "dwarf"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+ghorak
+{
+   "/speak ghorak\r"
+   setglobal current_lang "ghorak"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+thoom
+{
+   "/speak thoom\r"
+   setglobal current_lang "thoom"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+common
+{
+   "/speak common\r"
+   setglobal current_lang "common"
+   if @text != ""
+      @text "\r"
+   end if
+}
+
+"sps"
+{
+   "/speak sylvan\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}
+
+"sph"
+{
+   "/speak halfling\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}
+
+"spp"
+{
+   "/speak people\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}
+
+"spd"
+{
+   "/speak dwarf\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}
+
+"spt"
+{
+   "/speak thoom\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}
+
+"spg"
+{
+   "/speak ghorak\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}
+
+"spc"
+{
+   "/speak common\r"
+   @text "\r"
+   "/speak " current_lang "\r"
+}

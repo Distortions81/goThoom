@@ -1,0 +1,127 @@
+// goThoom bundled macro: gorvin-ite-boost-timer.mac
+// Source: http://gorvin.50webs.com/macros/iteboost.txt
+// Original authors retain copyright.
+
+// Metadata
+// Name: Ite Boost Timer
+// Tags: fighter, timer
+// Desc: Activates an earth-mineral boost and displays its remaining time.
+// Author: Gorvin
+// Website: http://gorvin.50webs.com/macros/index.html
+// Update: http://gorvin.50webs.com/macros/iteboost.txt
+
+set gBoost_client "pc"		// Set to "mac" if using Mac client or "pc" if using Windows client.
+set gBoost_bar_filled "*"	// Char indicating the filled portion of the boost bar.
+set gBoost_bar_empty "_"	// Char indicating the empty portion of the boost bar.
+set gBoost_bar_length 10	// Length of the boost bar.
+set gBoost_bar_start 10		// How low the bar needs to be before it starts being displayed.
+
+"/boost"
+{
+call "ite_boost_macro"
+}
+
+ite_boost_macro
+{
+if @my.shoulders_item == "Atkite Pauldron"
+   "/useitem shoulder\r"
+else if @my.shoulders_item == "Darkite Pauldron"
+   "/useitem shoulder\r"
+else if @my.shoulders_item == "Balthite Pauldron"
+   "/useitem shoulder\r"
+else if @my.shoulders_item == "Dethite Pauldron"
+   "/useitem shoulder\r"
+else
+   message "* You must have an earth mineral equipped to boost."
+   goto "BOOSTEND"
+end if
+if gBoost_client == "mac"
+   pause 1
+end if
+if @env.textLog >= "You do not have enough Earthpower stored to focus"
+   message "Boost failed."
+   goto "BOOSTEND"
+end if
+set boost_duration 76
+
+setglobal gBoost_time boost_duration
+setglobal gBoost_units gBoost_bar_start
+setglobal gBoost_units - 1
+setglobal gBoost_nextmsg boost_duration
+setglobal gBoost_nextmsg * gBoost_units
+setglobal gBoost_nextmsg / gBoost_bar_length
+
+setglobal gBoost_msg_found 0
+setglobal gBoost_msg_attempts 0
+setglobal gBoost_msg_wait 0
+if gBoost_on != 1
+   setglobal gBoost_on 1
+   label BOOSTLOOP
+   if gBoost_time > 0
+      if @env.textLog >= "You focus your Earthpower on your "
+        setglobal gBoost_msg_found 1
+        
+        setglobal gBoost_time boost_duration
+        setglobal gBoost_units gBoost_bar_start
+        setglobal gBoost_nextmsg boost_duration
+        setglobal gBoost_nextmsg * gBoost_units
+        setglobal gBoost_nextmsg / gBoost_bar_length
+      else if @env.textLog >= "You continue to focus your Earthpower on your "
+        setglobal gBoost_msg_found 1
+        
+        setglobal gBoost_time boost_duration
+        setglobal gBoost_units gBoost_bar_start
+        setglobal gBoost_nextmsg boost_duration
+        setglobal gBoost_nextmsg * gBoost_units
+        setglobal gBoost_nextmsg / gBoost_bar_length
+      else if gBoost_msg_found == 0
+        setglobal gBoost_msg_wait + 1
+        if gBoost_msg_wait >= 3
+          setglobal gBoost_msg_wait 0
+          setglobal gBoost_msg_attempts + 1
+          if gBoost_msg_attempts <= 4
+            "/useitem shoulder\r"
+            if gBoost_client != "mac"
+              goto "BOOSTLOOP"
+            end if
+          else
+            setglobal gBoost_msg_found -1
+          end if
+        end if
+      end if
+      
+      if gBoost_time <= gBoost_nextmsg
+         set boost_msg "Boost: ["
+         set boost_msg_units gBoost_units
+         // Add in the filled portion of the boost bar.
+         label BOOSTUNITS
+         if boost_msg_units > 0
+            set boost_msg + gBoost_bar_filled
+            set boost_msg_units - 1
+            goto "BOOSTUNITS"
+         end if
+         set boost_msg_units gBoost_bar_length
+         set boost_msg_units - gBoost_units
+         // Add in the empty portion of the boost bar.
+         label BOOSTEMPTY
+         if boost_msg_units > 0
+            set boost_msg + gBoost_bar_empty
+            set boost_msg_units - 1
+            goto "BOOSTEMPTY"
+         end if
+         set boost_msg + "]"
+         message boost_msg
+         // Set the point of the next boost bar update.
+         setglobal gBoost_units - 1
+         setglobal gBoost_nextmsg boost_duration
+         setglobal gBoost_nextmsg * gBoost_units
+         setglobal gBoost_nextmsg / gBoost_bar_length
+      end if
+      setglobal gBoost_time - 1
+      pause 1
+      goto "BOOSTLOOP"
+   end if
+   setglobal gBoost_on 0
+end if
+label BOOSTEND
+}
