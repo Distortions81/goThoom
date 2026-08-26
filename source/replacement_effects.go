@@ -83,6 +83,7 @@ var coinRewardShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
 var replacementEffectsPreview bool
 var replacementEffectsPreviewMask *ebiten.Image
+var replacementEffectsPreviewCoinMask *ebiten.Image
 var replacementEffectsShadersReady bool
 var replacementEffectsShaderInitAttempted bool
 var replacementEffectsShaderInitAfter time.Time
@@ -104,6 +105,7 @@ type replacementEffectDraw struct {
 	pictID                   uint16
 	kind                     replacementEffectKind
 	left, top, width, height float64
+	contentWidth, contentHeight float64
 	alpha                    float32
 	frame                    int
 	coinDigits               [4]float32
@@ -294,6 +296,10 @@ func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
 	}
 }
 
+func replacementEffectNeedsOverscan(kind replacementEffectKind) bool {
+	return kind == replacementEffectCoinReward || replacementEffectTeleportTheme(kind) >= 0
+}
+
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
 // while deferring the visual to a full-bright pass after scene lighting.
 func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanceKey uint64, left, top, width, height float64, alpha float32, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) bool {
@@ -361,12 +367,20 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 		// added digit grows the coin instead of cramming more glyphs into the
 		// original single-denomination sprite size.
 		minimumSize := 56 + 28*float64(max(0, effect.coinDigitCount-1))
-		size := math.Max(minimumSize, math.Max(groupWidth+22, groupHeight+18))
-		effect.left, effect.top = centerX-size/2, centerY-size/2
-		effect.width, effect.height = size, size
+		contentSize := 0.75 * math.Max(minimumSize, math.Max(groupWidth+22, groupHeight+18))
+		canvasPadding := contentSize * 0.35
+		effect.contentWidth, effect.contentHeight = contentSize, contentSize
+		effect.width, effect.height = contentSize+2*canvasPadding, contentSize+2*canvasPadding
+		effect.left, effect.top = centerX-effect.width/2, centerY-effect.height/2
 	} else {
 		effect.left, effect.top = left, top
 		effect.width, effect.height = width, height
+		effect.contentWidth, effect.contentHeight = width, height
+		if replacementEffectNeedsOverscan(kind) {
+			padding := 0.35 * math.Max(width, height)
+			effect.left, effect.top = left-padding, top-padding
+			effect.width, effect.height = width+2*padding, height+2*padding
+		}
 	}
 	effect.alpha = alpha
 	effect.frame = frame
@@ -492,10 +506,10 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			// The legacy reward picture can be obscured or dimmed by its target.
 			// A payout marker needs to remain readable above the world; only its
 			// own exit fade should affect opacity.
-			visualAlpha = energy
+			visualAlpha = 0.80 * energy
 		}
-		// Keep the rectangle identical to the alpha-mask texture. The shader
-		// performs the visual wind-up scale around its own center.
+		// Keep the rectangle identical to the alpha-mask texture. Coin rewards
+		// reserve an oversized canvas so their stars can extend beyond the face.
 		w, h := int(math.Ceil(effect.width)), int(math.Ceil(effect.height))
 		if w <= 0 || h <= 0 {
 			continue
@@ -507,18 +521,22 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			phase = float32(now.Sub(effect.started).Seconds())
 		}
 		shader := replacementEffectShader(effect.kind)
+		contentW, contentH := effect.contentWidth, effect.contentHeight
+		if contentW <= 0 || contentH <= 0 {
+			contentW, contentH = effect.width, effect.height
+		}
 		hasMask := float32(0)
-		if effect.hasMask {
+		if effect.hasMask && effect.kind != replacementEffectCoinReward {
 			hasMask = 1
 		}
 		// Light the mobile itself in a separate additive pass. This preserves
 		// the original sprite detail while lifting its opaque pixels out of the
 		// dusk-darkened scene with the burst's blue light.
-		if effect.hasMask {
+		if effect.hasMask && effect.kind != replacementEffectCoinReward {
 			lightOp := &ebiten.DrawRectShaderOptions{
 				Blend: ebiten.BlendLighter,
 				Uniforms: map[string]any{
-					"Size":            []float32{float32(w), float32(h)},
+					"Size":            []float32{float32(contentW), float32(contentH)},
 					"Phase":           phase,
 					"Alpha":           visualAlpha,
 					"Energy":          energy,
@@ -528,6 +546,7 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			}
 			if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
 				lightOp.Uniforms["TeleportTheme"] = theme
+				lightOp.Uniforms["CanvasSize"] = []float32{float32(w), float32(h)}
 			}
 			if effect.kind == replacementEffectCoinReward {
 				lightOp.Uniforms["CoinValue"] = float32(effect.frame % 10)
@@ -539,7 +558,7 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			screen.DrawRectShader(w, h, shader, lightOp)
 		}
 		op := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
-			"Size":            []float32{float32(w), float32(h)},
+			"Size":            []float32{float32(contentW), float32(contentH)},
 			"Phase":           phase,
 			"Alpha":           visualAlpha,
 			"Energy":          energy,
@@ -548,11 +567,13 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		}}
 		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
 			op.Uniforms["TeleportTheme"] = theme
+			op.Uniforms["CanvasSize"] = []float32{float32(w), float32(h)}
 		}
 		if effect.kind == replacementEffectCoinReward {
 			op.Uniforms["CoinValue"] = float32(effect.frame % 10)
 			op.Uniforms["CoinDigits"] = effect.coinDigits[:]
 			op.Uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
+			op.Uniforms["CanvasSize"] = []float32{float32(w), float32(h)}
 		}
 		op.Images[0] = effect.mask
 		op.GeoM.Translate(effect.left, effect.top)
@@ -612,6 +633,13 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		replacementEffectsPreviewMask = ebiten.NewImage(effectW, effectH)
 	}
+	coinCanvasW, coinCanvasH := roundToInt(float64(effectW)*1.70), roundToInt(float64(effectH)*1.70)
+	if replacementEffectsPreviewCoinMask == nil || replacementEffectsPreviewCoinMask.Bounds().Dx() != coinCanvasW || replacementEffectsPreviewCoinMask.Bounds().Dy() != coinCanvasH {
+		if replacementEffectsPreviewCoinMask != nil {
+			replacementEffectsPreviewCoinMask.Deallocate()
+		}
+		replacementEffectsPreviewCoinMask = ebiten.NewImage(coinCanvasW, coinCanvasH)
+	}
 	elapsed := time.Since(replacementEffectsStarted).Seconds()
 	for i, preview := range replacementEffectsPreviews {
 		col, row := i%columns, i/columns
@@ -621,6 +649,9 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		if replacementEffectIsOneShot(preview.kind) {
 			phase = float32(math.Mod(elapsed+float64(i)*0.23, 1.35))
 		}
+		drawW, drawH := effectW, effectH
+		drawLeft, drawTop := left, top
+		mask := replacementEffectsPreviewMask
 		op := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
 			"Size":            []float32{float32(effectW), float32(effectH)},
 			"Phase":           phase,
@@ -632,14 +663,21 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
 			op.Uniforms["TeleportTheme"] = theme
 		}
+		if replacementEffectNeedsOverscan(preview.kind) {
+			drawW, drawH = coinCanvasW, coinCanvasH
+			drawLeft -= float64(drawW-effectW) / 2
+			drawTop -= float64(drawH-effectH) / 2
+			mask = replacementEffectsPreviewCoinMask
+			op.Uniforms["CanvasSize"] = []float32{float32(drawW), float32(drawH)}
+		}
 		if preview.kind == replacementEffectCoinReward {
 			op.Uniforms["CoinValue"] = preview.coinDigits[0]
 			op.Uniforms["CoinDigits"] = preview.coinDigits[:]
 			op.Uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
 		}
-		op.Images[0] = replacementEffectsPreviewMask
-		op.GeoM.Translate(left, top)
-		screen.DrawRectShader(effectW, effectH, replacementEffectShader(preview.kind), op)
+		op.Images[0] = mask
+		op.GeoM.Translate(drawLeft, drawTop)
+		screen.DrawRectShader(drawW, drawH, replacementEffectShader(preview.kind), op)
 
 		labelOpts := acquireTextDrawOpts()
 		labelOpts.GeoM.Translate(float64(bounds.Min.X)+float64(col)*cellW+8, float64(bounds.Min.Y)+float64(row)*cellH+8)

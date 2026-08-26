@@ -3,6 +3,7 @@
 package main
 
 var Size vec2
+var CanvasSize vec2
 var Phase float
 var Alpha float
 var Energy float
@@ -60,7 +61,7 @@ func glint(value float) float {
 
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
-	p := localPos/Size - vec2(0.5, 0.5)
+	p := (localPos-CanvasSize*0.5)/Size
 	p.x *= Size.x / Size.y
 	t := Phase
 	count := max(1, floor(CoinDigitCount + 0.5))
@@ -96,8 +97,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// coin unmistakably metallic even at its original tiny sprite size.
 	flash := max(0, 1-(abs(coinP.x)*1.8+abs(coinP.y)*0.42)*2.3) * glint(t*10.0)
 	flash += max(0, 1-(abs(coinP.x)*0.42+abs(coinP.y)*1.8)*2.3) * glint(t*10.0)
-	starC := max(0, 1-(abs(coinP.x+0.30)+abs(coinP.y-0.20))*6.5) * glint(t*13.0+0.8)
-	starD := max(0, 1-(abs(coinP.x-0.27)+abs(coinP.y+0.17))*7.0) * glint(t*15.0+2.4)
+	starC := max(0, 1-(abs(coinP.x+0.24)+abs(coinP.y-0.16))*8.0) * glint(t*13.0+0.8)
+	starD := max(0, 1-(abs(coinP.x-0.22)+abs(coinP.y+0.14))*8.5) * glint(t*15.0+2.4)
 
 	q := coinP * 0.60
 	glyphQ := q

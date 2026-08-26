@@ -3,6 +3,7 @@
 package main
 
 var Size vec2
+var CanvasSize vec2
 var Phase float
 var Alpha float
 var Energy float
@@ -36,7 +37,7 @@ func teleportColor(v float) vec3 {
 
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
-	p := localPos/Size - vec2(0.5, 0.5)
+	p := (localPos-CanvasSize*0.5)/Size
 	p.x *= Size.x / Size.y
 	t := Phase
 	life := max(0, 1-t*0.60)

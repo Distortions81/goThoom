@@ -23,6 +23,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	p := localPos/Size - vec2(0.5, 0.5)
 	p.x *= Size.x / Size.y
+	// Leave an overscan margin for the collapsing glow at the effect boundary.
+	p *= 1.14
 	t := Phase
 	// The spell's remaining energy contracts into the character, then dies.
 	life := max(0, 1-t*0.82)

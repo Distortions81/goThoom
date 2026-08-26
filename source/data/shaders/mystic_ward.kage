@@ -34,6 +34,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	p := localPos/Size - vec2(0.5, 0.5)
 	p.x *= Size.x / Size.y
+	// Leave an overscan margin for embers and glow at the effect boundary.
+	p *= 1.14
 	r := length(p)
 	angle := polarAngle(p)
 	// Phase is the effect's age, not a global clock: every protection burst
