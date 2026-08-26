@@ -787,9 +787,10 @@ func parseMusicCommand(s string, raw []byte) bool {
 	return true
 }
 
-// parseInterruptCommand handles server-issued interrupt commands that should
-// immediately stop any in-flight music playback and clear pending tunes. The
-// classic client uses a special "/m_interrupt" directive for this purpose.
+// parseInterruptCommand handles the server command that cancels active legacy
+// macros. It must not stop bard music that is already playing; concert movies
+// can send /m_interrupt immediately after a song starts while the classic
+// client lets that song continue.
 // Returns true if handled and output should be suppressed.
 func parseInterruptCommand(s string) bool {
 	ss := strings.TrimSpace(s)
@@ -806,14 +807,11 @@ func parseInterruptCommand(s string) bool {
 	// Only act on a standalone interrupt directive, not arbitrary substrings.
 	if ss == "/m_interrupt" || strings.HasPrefix(ss, "/m_interrupt ") {
 		// Seeking replays old interrupt frames only to rebuild visual state.
-		// They must not cancel music or macros that start once seeking has
-		// completed.
+		// They must not cancel macros that start once seeking has completed.
 		if blockMusic {
 			return true
 		}
 		cancelLegacyMacros()
-		stopAllMusic()
-		clearTuneQueue()
 		return true
 	}
 	return false

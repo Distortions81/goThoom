@@ -120,6 +120,54 @@ func TestScopedMusicStopOnlySignalsMatchingBard(t *testing.T) {
 	}
 }
 
+func TestConcertMacroInterruptDoesNotStopSecondSong(t *testing.T) {
+	frames, err := parseMovie(movieFixturePath(t, "concert1.clMov"), baseVersion)
+	if err != nil {
+		t.Fatalf("parseMovie: %v", err)
+	}
+
+	var songFrame, interruptFrame int32 = -1, -1
+	for _, frame := range frames {
+		if frame.index < 1300 || frame.index > 1400 {
+			continue
+		}
+		if bytes.Contains(frame.data, []byte("/music/")) && !bytes.Contains(frame.data, []byte("/M/")) {
+			songFrame = frame.index
+		}
+		if bytes.Contains(frame.data, []byte("/m_interrupt")) {
+			interruptFrame = frame.index
+		}
+	}
+	if songFrame < 0 || interruptFrame < 0 {
+		t.Fatalf("second concert song sequence not found: song frame %d, interrupt frame %d", songFrame, interruptFrame)
+	}
+	if got := interruptFrame - songFrame; got != 11 {
+		t.Fatalf("frames from second song start to macro interrupt = %d, want 11", got)
+	}
+
+	stream := &musicStream{done: make(chan struct{})}
+	musicPlayersMu.Lock()
+	originalPlayers := musicPlayers
+	musicPlayers = map[*audio.Player]musicTrack{
+		nil: {stream: stream, whos: map[int]struct{}{226123172: {}}},
+	}
+	musicPlayersMu.Unlock()
+	t.Cleanup(func() {
+		musicPlayersMu.Lock()
+		musicPlayers = originalPlayers
+		musicPlayersMu.Unlock()
+	})
+
+	if !parseInterruptCommand("/m_interrupt") {
+		t.Fatal("concert macro interrupt was not handled")
+	}
+	select {
+	case <-stream.done:
+		t.Fatal("concert macro interrupt stopped the second song")
+	default:
+	}
+}
+
 func TestVolumeRefreshKeepsPrebufferedMusicPlayer(t *testing.T) {
 	p, err := audioContext.NewPlayer(bytes.NewReader([]byte{0, 0, 0, 0}))
 	if err != nil {
