@@ -1,0 +1,69 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var SpriteLightOnly float
+
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
+func ember(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	t := Phase
+	// The spell's remaining energy contracts into the character, then dies.
+	life := max(0, 1-t*0.82)
+	contract := max(0, 0.42-t*0.31)
+
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := imageSrc0At(srcPos).a
+		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		flicker := 0.45 + 0.55*ember(t*13.0+p.x*19.0-p.y*11.0)
+		light := max(0, body*(0.04+0.10*flicker)+edge*0.11) * life * Alpha
+		color := mix(vec3(0.72, 0.05, 0.002), vec3(1.0, 0.55, 0.08), flicker)
+		return vec4(color*light, light)
+	}
+
+	// Five uneven streams curl inward at different rates. They begin scattered
+	// through the old sprite's extent and collapse into a brief final spark.
+	streamA := vec2(cos(t*5.2+0.4)*contract, sin(t*5.2+0.4)*contract)
+	streamB := vec2(cos(-t*4.1+1.9)*(contract*0.82), sin(-t*4.1+1.9)*(contract*0.82))
+	streamC := vec2(cos(t*6.3+3.5)*(contract*1.10), sin(t*6.3+3.5)*(contract*0.72))
+	streamD := vec2(cos(-t*3.4+4.8)*(contract*0.65), sin(-t*3.4+4.8)*(contract*1.12))
+	streamE := vec2(cos(t*7.1+5.7)*(contract*0.94), sin(t*7.1+5.7)*(contract*0.58))
+	a := band(length(p-streamA), 0.020, 0.018) * ember(p.x*29.0+p.y*17.0-t*18.0)
+	b := band(length(p-streamB), 0.016, 0.015) * ember(p.x*37.0-p.y*23.0+t*21.0)
+	c := band(length(p-streamC), 0.014, 0.013) * ember(p.x*43.0+p.y*31.0-t*25.0)
+	d := band(length(p-streamD), 0.012, 0.012) * ember(p.x*51.0-p.y*29.0+t*28.0)
+	e := band(length(p-streamE), 0.010, 0.011) * ember(p.x*59.0+p.y*37.0-t*32.0)
+	ash := max(0, 1-length(vec2(p.x*1.15, p.y))*3.4-t*2.5) * ember(p.x*25.0-p.y*19.0+t*15.0)
+	finalSpark := max(0, 1-length(p)*9.0-(t-0.55)*3.5) * max(0, 1-t*1.15)
+	intensity := min(1, (a*1.35+b*1.15+c+d*0.85+e*0.72+ash*0.22+finalSpark*0.55)*life)
+
+	if HasMask > 0.5 {
+		body := imageSrc0At(srcPos).a
+		intensity *= 1.0-body*0.55
+	}
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+	color := mix(vec3(0.62, 0.025, 0.001), vec3(1.0, 0.66, 0.12), min(1, intensity*1.7))
+	alpha := min(1, intensity*2.4) * Alpha
+	return vec4(color*alpha, alpha)
+}

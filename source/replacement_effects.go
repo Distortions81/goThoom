@@ -18,14 +18,22 @@ var mysticWardPictIDs = map[uint16]struct{}{
 	1286: {},
 }
 
+var mysticFadePictIDs = map[uint16]struct{}{
+	445: {},
+}
+
 //go:embed data/shaders/healing_burst.kage
 var healingBurstShaderSource []byte
 
 //go:embed data/shaders/mystic_ward.kage
 var mysticWardShaderSource []byte
 
+//go:embed data/shaders/mystic_fade.kage
+var mysticFadeShaderSource []byte
+
 var healingBurstShader *ebiten.Shader
 var mysticWardShader *ebiten.Shader
+var mysticFadeShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
 
 type replacementEffectKind uint8
@@ -33,6 +41,7 @@ type replacementEffectKind uint8
 const (
 	replacementEffectHealing replacementEffectKind = iota + 1
 	replacementEffectMysticWard
+	replacementEffectMysticFade
 )
 
 type replacementEffectDraw struct {
@@ -82,8 +91,17 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	fadeSource := mysticFadeShaderSource
+	if b, err := os.ReadFile("data/shaders/mystic_fade.kage"); err == nil {
+		fadeSource = b
+	}
+	fadeShader, err := ebiten.NewShader(fadeSource)
+	if err != nil {
+		return err
+	}
 	healingBurstShader = healingShader
 	mysticWardShader = wardShader
+	mysticFadeShader = fadeShader
 	return nil
 }
 
@@ -109,6 +127,9 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 	if _, ok := mysticWardPictIDs[id]; ok {
 		return replacementEffectMysticWard, true
 	}
+	if _, ok := mysticFadePictIDs[id]; ok {
+		return replacementEffectMysticFade, true
+	}
 	return 0, false
 }
 
@@ -116,7 +137,14 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectMysticWard {
 		return mysticWardShader
 	}
+	if kind == replacementEffectMysticFade {
+		return mysticFadeShader
+	}
 	return healingBurstShader
+}
+
+func replacementEffectIsOneShot(kind replacementEffectKind) bool {
+	return kind == replacementEffectMysticWard || kind == replacementEffectMysticFade
 }
 
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
@@ -237,9 +265,9 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			continue
 		}
 		phase := float32(time.Since(replacementEffectsStarted).Seconds())
-		if effect.kind == replacementEffectMysticWard {
-			// The ward is a one-shot burst, so its particle sequence starts when
-			// this sprite appears instead of inheriting the global shader phase.
+		if replacementEffectIsOneShot(effect.kind) {
+			// One-shot effects start their particle sequence when this sprite
+			// appears instead of inheriting the global shader phase.
 			phase = float32(now.Sub(effect.started).Seconds())
 		}
 		shader := replacementEffectShader(effect.kind)
