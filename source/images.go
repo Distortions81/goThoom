@@ -106,12 +106,14 @@ var (
 //go:embed data/shaders/sprite_upscale.kage
 var spriteUpscaleShaderSource []byte
 
-func init() {
-	var err error
-	spriteUpscaleShader, err = ebiten.NewShader(spriteUpscaleShaderSource)
+// ReloadSpriteUpscaleShader recompiles the artwork-upscale shader.
+func ReloadSpriteUpscaleShader() error {
+	shader, err := ebiten.NewShader(spriteUpscaleShaderSource)
 	if err != nil {
-		panic(err)
+		return err
 	}
+	spriteUpscaleShader = shader
+	return nil
 }
 
 func makeSheetKey(id uint16, colors []byte, forceTransparent bool) sheetKey {
@@ -399,7 +401,7 @@ func upscaleSpriteImageWithMode(img *ebiten.Image, factor, mode int) *ebiten.Ima
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	op.GeoM.Scale(float64(factor), float64(factor))
 	nearest.DrawImage(img, op)
-	if mode == artworkUpscaleOff {
+	if mode == artworkUpscaleOff || spriteUpscaleShader == nil {
 		return nearest
 	}
 

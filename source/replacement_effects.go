@@ -86,7 +86,7 @@ var replacementEffectsPreviewMask *ebiten.Image
 var replacementEffectsPreviewCoinMask *ebiten.Image
 var replacementEffectsShadersReady bool
 var replacementEffectsShaderInitAttempted bool
-var replacementEffectsShaderInitAfter time.Time
+var replacementEffectsShaderInitIndex int
 
 type replacementEffectKind uint8
 
@@ -136,51 +136,27 @@ const (
 // ReloadReplacementEffectsShader recompiles the replacement-effects shader
 // from disk. The embedded source keeps release builds self-contained.
 func ReloadReplacementEffectsShader() error {
-	healingSource := healingBurstShaderSource
-	if b, err := os.ReadFile("data/shaders/healing_burst.kage"); err == nil {
-		healingSource = b
-	}
-	healingShader, err := ebiten.NewShader(healingSource)
+	healingShader, err := compileReplacementEffectShader("healing_burst.kage", healingBurstShaderSource)
 	if err != nil {
 		return err
 	}
-	wardSource := mysticWardShaderSource
-	if b, err := os.ReadFile("data/shaders/mystic_ward.kage"); err == nil {
-		wardSource = b
-	}
-	wardShader, err := ebiten.NewShader(wardSource)
+	wardShader, err := compileReplacementEffectShader("mystic_ward.kage", mysticWardShaderSource)
 	if err != nil {
 		return err
 	}
-	fadeSource := mysticFadeShaderSource
-	if b, err := os.ReadFile("data/shaders/mystic_fade.kage"); err == nil {
-		fadeSource = b
-	}
-	fadeShader, err := ebiten.NewShader(fadeSource)
+	fadeShader, err := compileReplacementEffectShader("mystic_fade.kage", mysticFadeShaderSource)
 	if err != nil {
 		return err
 	}
-	teleportSource := teleportBurstShaderSource
-	if b, err := os.ReadFile("data/shaders/teleport_burst.kage"); err == nil {
-		teleportSource = b
-	}
-	teleportShader, err := ebiten.NewShader(teleportSource)
+	teleportShader, err := compileReplacementEffectShader("teleport_burst.kage", teleportBurstShaderSource)
 	if err != nil {
 		return err
 	}
-	stoneSource := stoneFormShaderSource
-	if b, err := os.ReadFile("data/shaders/stone_form.kage"); err == nil {
-		stoneSource = b
-	}
-	stoneShader, err := ebiten.NewShader(stoneSource)
+	stoneShader, err := compileReplacementEffectShader("stone_form.kage", stoneFormShaderSource)
 	if err != nil {
 		return err
 	}
-	coinSource := coinRewardShaderSource
-	if b, err := os.ReadFile("data/shaders/coin_reward.kage"); err == nil {
-		coinSource = b
-	}
-	coinShader, err := ebiten.NewShader(coinSource)
+	coinShader, err := compileReplacementEffectShader("coin_reward.kage", coinRewardShaderSource)
 	if err != nil {
 		return err
 	}
@@ -191,30 +167,78 @@ func ReloadReplacementEffectsShader() error {
 	stoneFormShader = stoneShader
 	coinRewardShader = coinShader
 	replacementEffectsShadersReady = true
+	replacementEffectsShaderInitAttempted = true
+	replacementEffectsShaderInitIndex = replacementEffectsShaderCount
 	return nil
 }
 
-// initializeReplacementEffectsAfterMenu delays the optional shader work until
-// the menu has had time to settle, instead of blocking package startup or a
-// draw pass while windows are being composed.
-func initializeReplacementEffectsAfterMenu(now time.Time) {
-	if !uiReady {
-		return
+const replacementEffectsShaderCount = 6
+
+func compileReplacementEffectShader(name string, embedded []byte) (*ebiten.Shader, error) {
+	source := embedded
+	if b, err := os.ReadFile("data/shaders/" + name); err == nil {
+		source = b
 	}
-	if replacementEffectsShaderInitAfter.IsZero() {
-		replacementEffectsShaderInitAfter = now.Add(750 * time.Millisecond)
-		return
-	}
+	return ebiten.NewShader(source)
+}
+
+// loadNextReplacementEffectShader compiles one shader so the event loop can
+// present a frame between each expensive Kage compilation.
+func loadNextReplacementEffectShader() error {
 	if replacementEffectsShadersReady || replacementEffectsShaderInitAttempted {
-		return
+		return nil
 	}
-	if now.Before(replacementEffectsShaderInitAfter) {
-		return
+
+	var (
+		shader *ebiten.Shader
+		err    error
+	)
+	switch replacementEffectsShaderInitIndex {
+	case 0:
+		shader, err = compileReplacementEffectShader("healing_burst.kage", healingBurstShaderSource)
+		if err == nil {
+			healingBurstShader = shader
+		}
+	case 1:
+		shader, err = compileReplacementEffectShader("mystic_ward.kage", mysticWardShaderSource)
+		if err == nil {
+			mysticWardShader = shader
+		}
+	case 2:
+		shader, err = compileReplacementEffectShader("mystic_fade.kage", mysticFadeShaderSource)
+		if err == nil {
+			mysticFadeShader = shader
+		}
+	case 3:
+		shader, err = compileReplacementEffectShader("teleport_burst.kage", teleportBurstShaderSource)
+		if err == nil {
+			teleportBurstShader = shader
+		}
+	case 4:
+		shader, err = compileReplacementEffectShader("stone_form.kage", stoneFormShaderSource)
+		if err == nil {
+			stoneFormShader = shader
+		}
+	case 5:
+		shader, err = compileReplacementEffectShader("coin_reward.kage", coinRewardShaderSource)
+		if err == nil {
+			coinRewardShader = shader
+		}
+	default:
+		replacementEffectsShadersReady = true
+		replacementEffectsShaderInitAttempted = true
+		return nil
 	}
-	replacementEffectsShaderInitAttempted = true
-	if err := ReloadReplacementEffectsShader(); err != nil {
-		logError("replacement shader initialization failed: %v", err)
+	if err != nil {
+		replacementEffectsShaderInitAttempted = true
+		return err
 	}
+	replacementEffectsShaderInitIndex++
+	if replacementEffectsShaderInitIndex == replacementEffectsShaderCount {
+		replacementEffectsShadersReady = true
+		replacementEffectsShaderInitAttempted = true
+	}
+	return nil
 }
 
 func beginReplacementEffects() {

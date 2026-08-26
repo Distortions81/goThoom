@@ -692,10 +692,10 @@ func (g *Game) Update() error {
 		return errors.New("shutdown")
 	default:
 	}
-	once.Do(func() {
-		initGame()
-	})
-	initializeReplacementEffectsAfterMenu(now)
+	if updateStartupLoading() {
+		return nil
+	}
+	drainMainThreadDispatcher()
 	if assetDumpMode() {
 		assetDumpOnce.Do(exportAssets)
 		return nil
@@ -1448,6 +1448,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	now := time.Now()
 	drawFrameNow = now
 	defer func() { drawFrameNow = time.Time{} }()
+	defer deferredShaderFrameDrawn()
+	if shouldDrawStartupLoadingScreen() {
+		drawStartupLoadingScreen(screen, startupLoadingLabel())
+		return
+	}
 	loadToolbarHands()
 
 	// Power-save throttling: measure draw duration and sleep remaining time
@@ -1523,7 +1528,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		prev := gs.GameScale
 		gs.GameScale = renderScale
 		drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
-		if gs.ShaderLighting {
+		if gs.ShaderLighting && lightingShader != nil {
 			// Use shader-based night darkening with inverse-square falloff.
 			addNightDarkSources(worldView.Bounds(), float32(alpha))
 		} else {
@@ -1531,14 +1536,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			//drawNightAmbient(worldView, 0, 0)
 			drawNightOverlay(worldView, 0, 0)
 		}
-		if gs.ShaderLighting {
+		if gs.ShaderLighting && lightingShader != nil {
 			// Apply lighting on the active subimage only
 			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
 		}
 		drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
-		if setupWizardPreviewActive {
-			drawSetupWizardSceneLabel(worldView, renderScale)
-		}
 		drawStatusBars(worldView, 0, 0, snap, alpha)
 		gs.GameScale = prev
 		haveSnap = true
@@ -3097,9 +3099,7 @@ func initGame() {
 	updateDimmedScreenBG()
 	updateCharacterButtons()
 
-	close(gameStarted)
 	go loadSpellcheck()
-	loadScripts()
 }
 
 func makeGameWindow() {

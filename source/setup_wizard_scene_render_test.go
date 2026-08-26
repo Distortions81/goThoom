@@ -104,7 +104,6 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 			addNightDarkSources(canvas.Bounds(), float32(alpha))
 			applyLightingShader(canvas, frameLights, frameDarks, float32(alpha))
 		}
-		drawSetupWizardSceneLabel(canvas, 1)
 		drawSpeechBubbles(canvas, snap, alpha, 1)
 		name := fmt.Sprintf("setup_wizard_%d_%s.png", mode, setupWizardSceneName(mode))
 		if err := writeSetupWizardScenePNG(filepath.Join(g.outputDir, name), canvas); err != nil {

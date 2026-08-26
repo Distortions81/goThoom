@@ -2445,48 +2445,48 @@ func makeDownloadsWindow() {
 				logError("failed to load CL_Images: %v", err)
 				handleDownloadAssetError(flow, statusText, pb, startDownload, &startedDownload, "Failed to load CL_Images")
 				return
-			} else {
-				img.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
-				clImages = img
-				markWorldStateChanged()
-				// Startup prepares the Clan Lord splash after loading CL_Images.
-				// Queue the same game-loop-safe rebuild after a first-run download.
-				classicSplashFilterPending = gs.ShowClanLordSplashImage
-				// Refresh windows that depend on CL_Images now that
-				// the archive is available so icons appear without
-				// requiring a manual resize.
-				inventoryDirty = true
-				playersDirty = true
 			}
 
-			clSounds, err = loadCLSoundsArchive()
+			sounds, err := loadCLSoundsArchive()
 			if err != nil {
 				logError("failed to load CL_Sounds: %v", err)
 				handleDownloadAssetError(flow, statusText, pb, startDownload, &startedDownload, "Failed to load CL_Sounds")
 				return
 			}
-			if s, err := checkDataFiles(clVersion); err == nil {
-				dlMutex.Lock()
-				status = s
-				dlMutex.Unlock()
-			}
-			if name == "" && loginWin != nil {
-				// Force reselect from LastCharacter if available
-				passHash = ""
-				pass = ""
-				updateCharacterButtons()
-				loginWin.Refresh()
-			}
-			// Clear the callback to avoid stray updates after closing.
-			downloadStatus = nil
-			downloadProgress = nil
-			downloadWin.Close()
-			if name == "" && loginWin != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake {
-				loginWin.MarkOpen()
-			}
-			if clmov == "" && pcapPath == "" && !fake && clImages != nil && clSounds != nil && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
-				openSetupWizard(false)
-			}
+			refreshedStatus, statusErr := checkDataFiles(clVersion)
+			dispatchMainThread(func() {
+				img.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
+				img.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
+				clImages = img
+				clSounds = sounds
+				// Login and the setup preview may already have requested artwork while
+				// no archive was available. Drop every derived entry before either UI
+				// renders from the newly installed archive.
+				clearCaches()
+				if gs.PrecacheSounds && !startupLoader.precacheRun {
+					startupLoader.precacheRun = true
+					go precacheSounds()
+				}
+				markWorldStateChanged()
+				// Startup prepares the Clan Lord splash after loading CL_Images.
+				// Queue the same game-loop-safe rebuild after a first-run download.
+				classicSplashFilterPending = gs.ShowClanLordSplashImage
+				inventoryDirty = true
+				playersDirty = true
+				if statusErr == nil {
+					dlMutex.Lock()
+					status = refreshedStatus
+					dlMutex.Unlock()
+				}
+				refreshLoginAfterAssetsAvailable()
+				// Clear the callback to avoid stray updates after closing.
+				downloadStatus = nil
+				downloadProgress = nil
+				downloadWin.Close()
+				if clmov == "" && pcapPath == "" && !fake && clImages != nil && clSounds != nil && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+					openSetupWizard(false)
+				}
+			})
 		}()
 	}
 
@@ -2543,6 +2543,25 @@ func optionalDownloadSelections(soundfontCB, ttsCB *eui.ItemData) (soundfont, tt
 }
 
 const charWinWidth = 500
+
+func refreshLoginAfterAssetsAvailable() {
+	if loginWin == nil {
+		return
+	}
+	if name == "" {
+		// Force reselect from LastCharacter if available.
+		passHash = ""
+		pass = ""
+	}
+	// Archive installation and wizard quality changes can invalidate the image
+	// items created while Login is hidden. Always rebuild, even when a saved
+	// character was already selected.
+	updateCharacterButtons()
+	loginWin.Refresh()
+	if tcpConn == nil && clmov == "" && !playingMovie && pcapPath == "" && !fake {
+		loginWin.MarkOpen()
+	}
+}
 
 func updateCharacterButtons() {
 	if loginWin == nil {

@@ -164,8 +164,6 @@ func main() {
 		log.Printf("decode icon: %v", err)
 	}
 
-	var err error
-
 	loadCharacters()
 	initSoundContext()
 
@@ -186,21 +184,21 @@ func main() {
 		initDiscordRPC(ctx)
 	}
 
-	if isWASM && len(wasmCLImagesData) > 0 {
-		clImages, err = climg.LoadBytes(wasmCLImagesData)
-	} else {
-		clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
-	}
-	if err != nil {
-		logError("failed to load CL_Images: %v", err)
-		// Do not exit; allow UI to open download window.
-	} else {
+	if brandSpriteOutput != "" {
+		var err error
+		if isWASM && len(wasmCLImagesData) > 0 {
+			clImages, err = climg.LoadBytes(wasmCLImagesData)
+		} else {
+			clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
+		}
+		if err != nil {
+			log.Fatalf("export brand sprite: load CL_Images: %v", err)
+		}
 		clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
-		// Build/restore the splash image according to settings.
-		prepareClassicSplash()
-	}
-	if brandSpriteOutput != "" {
+		if err := ReloadSpriteUpscaleShader(); err != nil {
+			log.Fatalf("export brand sprite: compile upscale shader: %v", err)
+		}
 		if clImages == nil {
 			log.Fatal("export brand sprite: CL_Images is not available")
 		}
@@ -209,16 +207,6 @@ func main() {
 		}
 		log.Printf("exported brand sprite to %s", brandSpriteOutput)
 		return
-	}
-
-	clSounds, err = loadCLSoundsArchive()
-	if err != nil {
-		logError("failed to load CL_Sounds: %v", err)
-		// Do not exit; allow UI to open download window.
-	}
-
-	if gs.PrecacheSounds {
-		go precacheSounds()
 	}
 
 	go func() {

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"gothoom/climg"
 	"gothoom/eui"
 )
 
@@ -180,15 +181,6 @@ func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
 	}
 }
 
-func TestSetupWizardInterfaceSceneHasRelevantLabel(t *testing.T) {
-	if got := setupWizardSceneLabel(2, setupWizardSceneIndoor); got != "NAMES + BUBBLES + VISIBILITY" {
-		t.Fatalf("interface preview label = %q", got)
-	}
-	if got := setupWizardSceneLabel(5, setupWizardSceneIndoor); got != setupWizardSceneName(setupWizardSceneIndoor) {
-		t.Fatalf("lighting preview label = %q", got)
-	}
-}
-
 func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
 	previousStart := setupWizardSceneStarted
 	previousMode := setupWizardSceneModeValue
@@ -210,6 +202,13 @@ func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
 	}
 	if len(snap.picsNeg)+len(snap.picsZero)+len(snap.picsPos) < 10 {
 		t.Fatal("synthetic scene has too little scenery")
+	}
+	for _, pictures := range [][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
+		for _, picture := range pictures {
+			if picture.Moving {
+				t.Fatalf("synthetic scene still contains independently moving picture %d", picture.PictID)
+			}
+		}
 	}
 	var walker frameMobile
 	for _, mobile := range snap.mobiles {
@@ -462,5 +461,74 @@ func TestSetupAndNetworkSettingsPersist(t *testing.T) {
 	}
 	if !gs.PrecacheSounds {
 		t.Error("PrecacheSounds = false, want true")
+	}
+}
+
+func TestRefreshLoginAfterAssetsAvailableRebuildsSelectedCharacterRows(t *testing.T) {
+	initFont()
+	originalWindow := loginWin
+	originalList := charactersList
+	originalCharacters := characters
+	originalName := name
+	originalPassHash := passHash
+	originalPass := pass
+	originalLastCharacter := gs.LastCharacter
+	originalConn := tcpConn
+	originalMovie := playingMovie
+	originalCLMov := clmov
+	originalPCAP := pcapPath
+	originalFake := fake
+	originalImages := clImages
+	loginWin = nil
+	charactersList = nil
+	clImages = nil
+	characters = []Character{{Name: "Alice"}}
+	name = "Alice"
+	passHash = ""
+	pass = ""
+	gs.LastCharacter = ""
+	tcpConn = nil
+	playingMovie = false
+	clmov = ""
+	pcapPath = ""
+	fake = false
+	t.Cleanup(func() {
+		if loginWin != nil {
+			loginWin.RemoveWindow()
+		}
+		loginWin = originalWindow
+		charactersList = originalList
+		characters = originalCharacters
+		name = originalName
+		passHash = originalPassHash
+		pass = originalPass
+		gs.LastCharacter = originalLastCharacter
+		tcpConn = originalConn
+		playingMovie = originalMovie
+		clmov = originalCLMov
+		pcapPath = originalPCAP
+		fake = originalFake
+		clImages = originalImages
+	})
+
+	makeLoginWindow()
+	updateCharacterButtons()
+	if len(charactersList.Contents) != 1 {
+		t.Fatalf("character rows = %d, want 1", len(charactersList.Contents))
+	}
+	originalRow := charactersList.Contents[0]
+
+	// Simulate the archive becoming available after Login was built during a
+	// first-run launch with no assets.
+	clImages = &climg.CLImages{}
+	refreshLoginAfterAssetsAvailable()
+	if len(charactersList.Contents) != 1 {
+		t.Fatalf("refreshed character rows = %d, want 1", len(charactersList.Contents))
+	}
+	if charactersList.Contents[0] == originalRow {
+		t.Fatal("login character row was not rebuilt")
+	}
+	if !loginWin.IsOpen() {
+		t.Fatal("login window was not restored after assets became available")
 	}
 }

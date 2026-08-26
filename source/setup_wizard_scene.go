@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 type setupWizardSceneMode uint8
@@ -53,13 +51,6 @@ func setupWizardSceneName(mode setupWizardSceneMode) string {
 	default:
 		return "DAYLIGHT CHARACTER SHADOWS"
 	}
-}
-
-func setupWizardSceneLabel(page int, mode setupWizardSceneMode) string {
-	if page == 2 {
-		return "NAMES + BUBBLES + VISIBILITY"
-	}
-	return setupWizardSceneName(mode)
 }
 
 func applySetupWizardSceneLighting(mode setupWizardSceneMode) {
@@ -187,12 +178,6 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 		setupWizardScenePicture(330, 220, 55),
 		setupWizardScenePicture(425, 115, 80),
 	}
-	// A small independently moving world sprite makes positional smoothing
-	// visible separately from the walking character.
-	moving := setupWizardScenePicture(6872, int16(-80+(step+1)%8*10), 190)
-	moving.PrevH = int16(-80 + step%8*10)
-	moving.Moving = true
-	pictures = append(pictures, moving)
 	sortPictures(pictures)
 	snap.picsNeg = snap.picsNeg[:0]
 	snap.picsZero = snap.picsZero[:0]
@@ -228,23 +213,6 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.prevHP, snap.prevHPMax = snap.hp, snap.hpMax
 	snap.prevSP, snap.prevSPMax = snap.sp, snap.spMax
 	snap.prevBalance, snap.prevBalanceMax = snap.balance, snap.balanceMax
-}
-
-func drawSetupWizardSceneLabel(dst *ebiten.Image, scale float64) {
-	if dst == nil || scale <= 0 {
-		return
-	}
-	label := setupWizardSceneLabel(setupWizardPage, setupWizardSceneModeValue)
-	const x, y = 285, 20
-	origin := dst.Bounds().Min
-	w, _ := text.Measure(label, mainFontBold, 0)
-	pad := 8 * scale
-	vector.FillRect(dst, float32(float64(origin.X)+float64(x)*scale-pad), float32(float64(origin.Y)+float64(y)*scale-pad/2), float32(w+pad*2), float32(22*scale), color.RGBA{R: 15, G: 18, B: 24, A: 205}, false)
-	op := acquireTextDrawOpts()
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(origin.X)+float64(x)*scale, float64(origin.Y)+float64(y)*scale)
-	text.Draw(dst, label, mainFontBold, op)
-	releaseTextDrawOpts(op)
 }
 
 func drawSetupWizardFPS(dst *ebiten.Image) {

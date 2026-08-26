@@ -731,13 +731,11 @@ func completeSetupWizard() {
 	}
 	setupWizardVSyncBypass = false
 	applyVSyncSetting()
-	// The preview normally restores Login itself, but it cannot do so when the
-	// preview was unavailable (such as on a fresh install before assets load).
-	// Completing the wizard should always return an offline player to Login.
-	if tcpConn == nil && clmov == "" && pcapPath == "" && !fake && loginWin != nil {
-		loginWin.MarkOpen()
-	}
 	rebuildSettingsAfterSetupWizard()
+	// The preview normally restores Login itself, but it cannot do so when the
+	// preview was unavailable. Rebuild cached character images and always return
+	// an offline player to Login, including the first-run download path.
+	refreshLoginAfterAssetsAvailable()
 }
 
 func rebuildSettingsAfterSetupWizard() {

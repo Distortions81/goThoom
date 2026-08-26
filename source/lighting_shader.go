@@ -54,9 +54,6 @@ const (
 )
 
 func init() {
-	if err := ReloadLightingShader(); err != nil {
-		panic(err)
-	}
 	// Initialize reusable uniforms and options
 	lightingUniforms = map[string]any{
 		"LightCount":           0,
@@ -172,6 +169,9 @@ func localLightingPosition(x, y float32, bounds image.Rectangle) (float32, float
 }
 
 func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSource, t float32) {
+	if lightingShader == nil {
+		return
+	}
 	w, h := dst.Bounds().Dx(), dst.Bounds().Dy()
 	ensureLightingTmp(w, h)
 	lightingTmp.DrawImage(dst, nil)

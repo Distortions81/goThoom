@@ -670,6 +670,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
 	scriptSessionLogin(playerName)
 	defer scriptSessionLogout(playerName)
+	updateConnectDialog("Loading macros...")
 	if err := loadLegacyMacrosForCharacter(playerName); err != nil {
 		log.Printf("legacy macros: %v", err)
 	}
