@@ -103,7 +103,6 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	glyphQ := q
 	if count == 2.0 {
 		glyphQ *= 1.25
-		glyphQ.x += 0.030
 	} else if count == 3.0 {
 		glyphQ *= 1.55
 		glyphQ.x += 0.060
@@ -114,8 +113,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	numeral := digitSegments(glyphQ, floor(CoinDigits.x+0.5))
 	outline := digitOutline(glyphQ, floor(CoinDigits.x+0.5))
 	if count == 2.0 {
-		numeral = max(digitSegments(glyphQ+vec2(0.18, 0), floor(CoinDigits.x+0.5)), digitSegments(glyphQ-vec2(0.18, 0), floor(CoinDigits.y+0.5)))
-		outline = max(digitOutline(glyphQ+vec2(0.18, 0), floor(CoinDigits.x+0.5)), digitOutline(glyphQ-vec2(0.18, 0), floor(CoinDigits.y+0.5)))
+		numeral = max(digitSegments(glyphQ+vec2(0.145, 0), floor(CoinDigits.x+0.5)), digitSegments(glyphQ-vec2(0.145, 0), floor(CoinDigits.y+0.5)))
+		outline = max(digitOutline(glyphQ+vec2(0.145, 0), floor(CoinDigits.x+0.5)), digitOutline(glyphQ-vec2(0.145, 0), floor(CoinDigits.y+0.5)))
 	} else if count == 3.0 {
 		numeral = max(digitSegments(glyphQ+vec2(0.21, 0), floor(CoinDigits.x+0.5)), max(digitSegments(glyphQ, floor(CoinDigits.y+0.5)), digitSegments(glyphQ-vec2(0.21, 0), floor(CoinDigits.z+0.5))))
 		outline = max(digitOutline(glyphQ+vec2(0.21, 0), floor(CoinDigits.x+0.5)), max(digitOutline(glyphQ, floor(CoinDigits.y+0.5)), digitOutline(glyphQ-vec2(0.21, 0), floor(CoinDigits.z+0.5))))

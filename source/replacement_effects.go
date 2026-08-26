@@ -124,6 +124,7 @@ type replacementEffectDraw struct {
 }
 
 var replacementEffectDraws = make(map[uint64]replacementEffectDraw)
+var replacementEffectNextKey uint64
 
 const (
 	replacementEffectFadeIn  = 180 * time.Millisecond
@@ -310,12 +311,17 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	// 1759 and 1760 are two legacy representations of the same healing
 	// family. Prefer the pinned mobile identity so movement does not restart
 	// the effect; unpinned effects fall back to their world position.
-	key := instanceKey
-	if key != 0 {
-		key |= uint64(kind) << 56
+	var key uint64
+	if kind == replacementEffectCoinReward {
+		key = replacementCoinClusterKey(left, top, width, height, now)
 	} else {
-		key = uint64(uint16(h))<<16 | uint64(uint16(v))
-		key |= uint64(kind) << 48
+		key = instanceKey
+		if key != 0 {
+			key |= uint64(kind) << 56
+		} else {
+			key = uint64(uint16(h))<<16 | uint64(uint16(v))
+			key |= uint64(kind) << 48
+		}
 	}
 	effect, ok := replacementEffectDraws[key]
 	if !ok || now.Sub(effect.lastSeen) > replacementEffectFadeOut {
@@ -354,7 +360,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 		// Give multi-digit payouts enough face area for the full number: each
 		// added digit grows the coin instead of cramming more glyphs into the
 		// original single-denomination sprite size.
-		minimumSize := 56 + 20*float64(max(0, effect.coinDigitCount-1))
+		minimumSize := 56 + 28*float64(max(0, effect.coinDigitCount-1))
 		size := math.Max(minimumSize, math.Max(groupWidth+22, groupHeight+18))
 		effect.left, effect.top = centerX-size/2, centerY-size/2
 		effect.width, effect.height = size, size
@@ -366,7 +372,10 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	effect.frame = frame
 	effect.lastSeen = now
 	effect.seen = true
-	effect.hasMobileAnchor = instanceKey != 0
+	// Coin rewards can appear in open world space as well as over a mobile.
+	// Keep their native group position stable instead of letting a transient
+	// nearest-mobile choice split or move the digits between updates.
+	effect.hasMobileAnchor = kind != replacementEffectCoinReward && instanceKey != 0
 	if effect.hasMobileAnchor {
 		effect.mobileIndex = uint8(instanceKey)
 		effect.mobileOffsetX = effect.left - mobileX
@@ -375,6 +384,32 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	updateReplacementEffectMask(&effect, mobileImg, mobileX, mobileY, mobileSize)
 	replacementEffectDraws[key] = effect
 	return true
+}
+
+// replacementCoinClusterKey keeps a reward together while its legacy digit
+// sprites wobble slightly between updates. The distance is measured after the
+// normal world transform so it naturally follows game scaling.
+func replacementCoinClusterKey(left, top, width, height float64, now time.Time) uint64 {
+	cx, cy := left+width/2, top+height/2
+	radius := math.Max(24, 24*gs.GameScale)
+	bestKey := uint64(0)
+	bestDistance := radius * radius
+	for key, effect := range replacementEffectDraws {
+		if effect.kind != replacementEffectCoinReward || now.Sub(effect.lastSeen) > replacementEffectFadeOut {
+			continue
+		}
+		ex, ey := effect.coinGroupLeft+(effect.coinGroupRight-effect.coinGroupLeft)/2, effect.coinGroupTop+(effect.coinGroupBottom-effect.coinGroupTop)/2
+		dx, dy := cx-ex, cy-ey
+		distance := dx*dx + dy*dy
+		if distance <= bestDistance {
+			bestKey, bestDistance = key, distance
+		}
+	}
+	if bestKey != 0 {
+		return bestKey
+	}
+	replacementEffectNextKey++
+	return uint64(replacementEffectCoinReward)<<56 | replacementEffectNextKey
 }
 
 func updateReplacementEffectMask(effect *replacementEffectDraw, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) {
