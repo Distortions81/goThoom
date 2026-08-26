@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	setupWizardPageCount             = 8
+	setupWizardPageCount             = 9
 	setupWizardGraphicsBenchmarkPage = 1
 	setupWizardTopGap                = 24
 )
@@ -143,10 +143,12 @@ func rebuildSetupWizard() {
 	case 4:
 		buildSetupMotionPage(root)
 	case 5:
-		buildSetupLightingPage(root)
+		buildSetupShadowsPage(root)
 	case 6:
-		buildSetupAudioPage(root)
+		buildSetupNightLightingPage(root)
 	case 7:
+		buildSetupAudioPage(root)
+	case 8:
 		buildSetupFinishPage(root)
 	}
 
@@ -182,7 +184,7 @@ func buildSetupWelcomePage(root *eui.ItemData) {
 		12, 620,
 	))
 	root.AddItem(setupWizardText(
-		"We will review graphics, interface layout, controls, motion, lighting, and audio. You can skip at any point.",
+		"We will review graphics, interface layout, controls, motion, shadows, night lighting, and audio. You can skip at any point.",
 		12, 620,
 	))
 }
@@ -524,61 +526,116 @@ func buildSetupMotionPage(root *eui.ItemData) {
 	}))
 }
 
-func buildSetupLightingPage(root *eui.ItemData) {
-	root.AddItem(setupWizardHeading("Lighting and gamma"))
+func buildSetupShadowsPage(root *eui.ItemData) {
+	root.AddItem(setupWizardHeading("Daylight and character shadows"))
 	root.AddItem(setupWizardText(
-		"Shader lighting adds smoother night darkening, colored light, and compact glow around light sources. It looks richer, but uses more GPU than classic lighting.",
+		"Use the daylight riverbank to compare character shadows, including the guide shading the nearby apprentice.",
 		11, 620,
 	))
-	preview, previewEvents := eui.NewDropdown()
-	preview.Label = "Preview scene"
-	preview.Options = []string{"Daylight shadows", "Indoor contact shadows", "Night glow and light cones"}
-	preview.Selected = int(setupWizardSceneModeValue)
-	if preview.Selected < int(setupWizardSceneDay) || preview.Selected > int(setupWizardSceneNight) {
-		preview.Selected = int(setupWizardSceneNight)
-	}
-	preview.Size = eui.Point{X: 320, Y: 24}
-	preview.SetTooltip("Change test-room lighting.")
-	previewEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(setupWizardSceneDay) && ev.Index <= int(setupWizardSceneNight) {
-			setupWizardSceneModeValue = setupWizardSceneMode(ev.Index)
-		}
-	}
-	root.AddItem(preview)
 
-	root.AddItem(setupWizardCheckbox(
-		"Shader lighting effects",
-		"Enable the enhanced lighting path. Light and glow strength remain adjustable later in Quality settings.",
-		gs.ShaderLighting,
-		func(checked bool) {
-			gs.ShaderLighting = checked
-			if shaderLightingCB != nil {
-				shaderLightingCB.Checked = checked
-			}
-			if shaderLightSlider != nil {
-				shaderLightSlider.Disabled = !checked
-			}
-			if shaderGlowSlider != nil {
-				shaderGlowSlider.Disabled = !checked
-			}
-			markQualityCustom()
-		},
-	))
-	var mobileSunShadowsOption *eui.ItemData
-	root.AddItem(setupWizardCheckbox("Character shadows", "Show projected daylight shadows and compact indoor contact shadows.", gs.CharacterShadows, func(checked bool) {
+	var shadowOptions []*eui.ItemData
+	root.AddItem(setupWizardCheckbox("Character shadows", "Show shadows beneath characters and creatures.", gs.CharacterShadows, func(checked bool) {
 		gs.CharacterShadows = checked
-		setSetupWizardDisabled(mobileSunShadowsOption, !checked)
+		for _, option := range shadowOptions {
+			setSetupWizardDisabled(option, !checked)
+		}
 		markQualityCustom()
+		if setupWizardWin != nil {
+			setupWizardWin.Refresh()
+		}
 	}))
-	mobileSunShadowsOption = setupWizardSubOption(setupWizardCheckbox("Mobiles receive sun shadows", "Darken characters and creatures standing in another mobile's projected daylight shadow.", gs.MobilesReceiveSunShadows, func(checked bool) {
+	addShadowOption := func(option *eui.ItemData) {
+		option = setupWizardSubOption(option)
+		setSetupWizardDisabled(option, !gs.CharacterShadows)
+		shadowOptions = append(shadowOptions, option)
+		root.AddItem(option)
+	}
+	addShadowOption(setupWizardCheckbox("Accurate character shadows", "Keep overlapping shadows from becoming too dark.", gs.DetailedCharacterShadows, func(checked bool) {
+		gs.DetailedCharacterShadows = checked
+		settingsDirty = true
+	}))
+	addShadowOption(setupWizardCheckbox("Mobiles receive sun shadows", "Darken a mobile standing in another mobile's shadow.", gs.MobilesReceiveSunShadows, func(checked bool) {
 		gs.MobilesReceiveSunShadows = checked
 		settingsDirty = true
 	}))
-	setSetupWizardDisabled(mobileSunShadowsOption, !gs.CharacterShadows)
-	root.AddItem(mobileSunShadowsOption)
-	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Compensates classic Macintosh artwork for a modern display. Disable it if the artwork looks washed out or too dark.", gs.SpriteGammaCorrection, func(checked bool) {
+	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Adjust classic artwork for modern displays.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked
+		if gammaCorrectionCB != nil {
+			gammaCorrectionCB.Checked = checked
+		}
 		applySetupWizardGamma()
+	}))
+}
+
+func buildSetupNightLightingPage(root *eui.ItemData) {
+	root.AddItem(setupWizardHeading("Night lighting"))
+	root.AddItem(setupWizardText(
+		"This preview stays at full night so darkness, lantern light, glow, and flicker can be compared directly.",
+		11, 620,
+	))
+
+	root.AddItem(setupWizardSlider("Maximum night darkness", "Limit how dark the world may become.", 0, 100, float32(gs.MaxNightLevel), true, func(value float32) {
+		gs.MaxNightLevel = int(value)
+		settingsDirty = true
+	}))
+
+	var shaderOptions []*eui.ItemData
+	root.AddItem(setupWizardCheckbox("Shader lighting effects", "Use colored lights, glow, and light cones.", gs.ShaderLighting, func(checked bool) {
+		gs.ShaderLighting = checked
+		for _, option := range shaderOptions {
+			setSetupWizardDisabled(option, !checked)
+		}
+		if shaderLightingCB != nil {
+			shaderLightingCB.Checked = checked
+		}
+		if shaderLightSlider != nil {
+			shaderLightSlider.Disabled = !checked
+		}
+		if shaderGlowSlider != nil {
+			shaderGlowSlider.Disabled = !checked
+		}
+		if flameFlickerCB != nil {
+			flameFlickerCB.Disabled = !checked
+		}
+		if flameFlickerSlider != nil {
+			flameFlickerSlider.Disabled = !checked || !gs.FlameLightFlicker
+		}
+		markQualityCustom()
+		if setupWizardWin != nil {
+			setupWizardWin.Refresh()
+		}
+	}))
+	addShaderOption := func(option *eui.ItemData) {
+		option = setupWizardSubOption(option)
+		setSetupWizardDisabled(option, !gs.ShaderLighting)
+		shaderOptions = append(shaderOptions, option)
+		root.AddItem(option)
+	}
+	addShaderOption(setupWizardSlider("Light strength", "Set lantern and colored-light intensity.", 0, 200, float32(gs.ShaderLightStrength*100), true, func(value float32) {
+		gs.ShaderLightStrength = float64(value / 100)
+		if shaderLightSlider != nil {
+			shaderLightSlider.Value = value
+			shaderLightSlider.Dirty = true
+		}
+		settingsDirty = true
+	}))
+	addShaderOption(setupWizardSlider("Glow strength", "Set the halo around light sources.", 0, 200, float32(gs.ShaderGlowStrength*100), true, func(value float32) {
+		gs.ShaderGlowStrength = float64(value / 100)
+		if shaderGlowSlider != nil {
+			shaderGlowSlider.Value = value
+			shaderGlowSlider.Dirty = true
+		}
+		settingsDirty = true
+	}))
+	addShaderOption(setupWizardCheckbox("Flame light flicker", "Animate lantern-light intensity.", gs.FlameLightFlicker, func(checked bool) {
+		gs.FlameLightFlicker = checked
+		if flameFlickerCB != nil {
+			flameFlickerCB.Checked = checked
+		}
+		if flameFlickerSlider != nil {
+			flameFlickerSlider.Disabled = !checked || !gs.ShaderLighting
+		}
+		settingsDirty = true
 	}))
 }
 
@@ -642,11 +699,12 @@ func buildSetupFinishPage(root *eui.ItemData) {
 		movement = "click-to-toggle"
 	}
 	root.AddItem(setupWizardText(fmt.Sprintf(
-		"Movement: %s\nGame rendering: %.0fx\nToolbar: %s\nSmooth motion: %s\nEnhanced lighting: %s",
+		"Movement: %s\nGame rendering: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader lighting: %s",
 		movement,
 		gs.GameScale,
 		setupWizardToolbarPlacementName(gs.ToolbarPlacement),
 		onOff(gs.MotionSmoothing),
+		gs.MaxNightLevel,
 		onOff(gs.ShaderLighting),
 	), 12, 620))
 	root.AddItem(setupWizardText(

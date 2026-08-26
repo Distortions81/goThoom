@@ -1,0 +1,36 @@
+goThoom 39 changes since test38-preview.
+
+New and improved:
+- Added optional procedural Replacement Effects for healing, mystic wards and fading, gold/blue/prismatic teleports, stone form, and grouped coin rewards. Effects remain anchored to their source mobile or world position and use overscan where the animation extends beyond the original artwork.
+- Expanded the bundled legacy macro library with community utilities for bard instruments, dice, rangery, coin and kudzu tracking, boost timers, right-click actions, pet summoning, and pull/push controls. Bundled-source updates preserve locally edited macros.
+- Added a Keybindings window that lists only bindings that can currently fire from enabled, running scripts and macros. Macro information now lists that macro's active keybindings as well.
+- Added a Keyboard/Mouse Test window with a standard 104-key layout, function keys, navigation cluster, pressed-key text, mouse buttons, and wheel-direction detection.
+- Reworked the Setup Wizard preview into a cohesive animated Puddleby riverbank built from Clan Lord artwork, with water, bridge, lanterns, characters, speech bubbles, mobile-on-mobile shadows, and a traveler that demonstrates fading obscuring objects.
+- Split daylight shadows and nighttime lighting into separate Setup Wizard steps. The full-night step provides live controls for maximum darkness, shader lighting, light strength, glow strength, and flame flicker.
+- Added a centered, scalable startup loading display that reports CL_Images, CL_Sounds, shader, image-dump, and sound-dump progress while allowing the first frame to appear promptly.
+- Improved tooltip contrast and made tooltip text brief, wrapped, rectangular, and safely truncated with an ellipsis.
+- Updated application and website branding, including transparent logo backgrounds and embedded toolbar-hand artwork.
+
+Legacy macro compatibility:
+- Matched the classic client's block nesting and scanner behavior, including separated `end if` handling and long-running counter scanners.
+- Matched classic one-stage value expansion: undefined unquoted literals are preserved, assignments do not recursively dereference variables, and dynamic assignment targets resolve at the correct stage.
+- `@my.selected_item` now returns `Nothing` when no item is selected.
+- `@env.textlog` now includes classic display timestamps, and numeric comparisons accept numeric prefixes as the original client does.
+- Implemented the runtime behavior of `@env.debug` and `@env.unfriendly`, including classic-style cooperative time slicing and the Allow Continuous Macros setting.
+- Server `/m_interrupt` messages now stop active legacy macros, and macro-generated local commands such as `/play` and script-registered commands use the local dispatcher.
+- Preserved classic argument separator spaces, allowed punctuation in replacement triggers, and resolved nested includes from the main Macros directory.
+- Added classic function-key spelling compatibility and made legacy binding resolution honor enabled macros, macro load order, and overrides.
+- Improved source-located macro diagnostics, made error text selectable for copying, and stopped enable/disable changes from unnecessarily scrolling or rebuilding the macro list.
+- Per-user macro selections are no longer tracked as bundled library data.
+
+Fixes:
+- Fixed first-run CL_Sounds loading by resolving the newly downloaded archive from the active data directory.
+- Refreshing assets after first-run downloads now rebuilds image caches, wizard animations, login character artwork, and profession icons without requiring a restart or manual cache reset.
+- Deferred optional shader compilation across startup frames and reported its progress instead of blocking the first visible draw.
+- Restored the classic client's default playfield background color and applies sprite gamma correction when enabled.
+- Fixed missing-glyph squares and clipped labels in the keyboard tester, including the navigation keys and no-bindings message.
+- Fixed the legacy macro enable checkbox unexpectedly scrolling its list and improved macro-library layout and diagnostics.
+- Hardened streamed music startup and shutdown behavior to avoid stale-player and concurrent-close failures.
+
+Technical changes:
+- Added focused regression coverage for classic macro expansion, timestamps, interrupts, time slicing, local commands, function keys, active keybinding precedence, keyboard/mouse diagnostics, first-run asset refresh, deferred shader loading, and the Setup Wizard's shadow, obscuring, and nighttime demonstrations.

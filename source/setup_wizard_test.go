@@ -55,8 +55,8 @@ func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 }
 
 func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
-	if setupWizardPageCount != 8 {
-		t.Fatalf("setup wizard pages = %d, want 8", setupWizardPageCount)
+	if setupWizardPageCount != 9 {
+		t.Fatalf("setup wizard pages = %d, want 9", setupWizardPageCount)
 	}
 	if shouldStartSetupWizardGraphicsDetection(0, false, false) {
 		t.Fatal("graphics detection starts on the first page")
@@ -171,13 +171,85 @@ func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
 		{page: 2, want: setupWizardSceneIndoor},
 		{page: 3, want: setupWizardSceneDay},
 		{page: 4, want: setupWizardSceneMotion},
-		{page: 5, want: setupWizardSceneNight},
+		{page: 5, want: setupWizardSceneDay},
+		{page: 6, want: setupWizardSceneNight},
 	} {
 		setupWizardScenePage = -1
 		selectSetupWizardSceneForPage(test.page)
 		if setupWizardSceneModeValue != test.want {
 			t.Fatalf("page %d scene = %d, want %d", test.page, setupWizardSceneModeValue, test.want)
 		}
+	}
+}
+
+func TestSetupWizardSeparatesDaylightAndNightControls(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs = gsdef
+
+	shadows := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupShadowsPage(shadows)
+	night := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupNightLightingPage(night)
+
+	shadowChecks := map[string]bool{
+		"Character shadows":           false,
+		"Accurate character shadows":  false,
+		"Mobiles receive sun shadows": false,
+	}
+	nightChecks := map[string]bool{
+		"Shader lighting effects": false,
+		"Flame light flicker":     false,
+	}
+	nightSliders := map[string]bool{
+		"Maximum night darkness": false,
+		"Light strength":         false,
+		"Glow strength":          false,
+	}
+	var visit func(*eui.ItemData, map[string]bool, map[string]bool)
+	visit = func(item *eui.ItemData, checks, sliders map[string]bool) {
+		if _, ok := checks[item.Text]; ok && item.ItemType == eui.ITEM_CHECKBOX {
+			checks[item.Text] = true
+		}
+		if _, ok := sliders[item.Label]; ok && item.ItemType == eui.ITEM_SLIDER {
+			sliders[item.Label] = true
+		}
+		for _, child := range item.Contents {
+			visit(child, checks, sliders)
+		}
+	}
+	visit(shadows, shadowChecks, map[string]bool{})
+	visit(night, nightChecks, nightSliders)
+	shadowHasShader := false
+	var findShader func(*eui.ItemData)
+	findShader = func(item *eui.ItemData) {
+		if item.Text == "Shader lighting effects" {
+			shadowHasShader = true
+		}
+		for _, child := range item.Contents {
+			findShader(child)
+		}
+	}
+	findShader(shadows)
+
+	for label, found := range shadowChecks {
+		if !found {
+			t.Errorf("daylight page missing %q", label)
+		}
+	}
+	for label, found := range nightChecks {
+		if !found {
+			t.Errorf("night page missing %q", label)
+		}
+	}
+	for label, found := range nightSliders {
+		if !found {
+			t.Errorf("night page missing %q", label)
+		}
+	}
+	if shadowHasShader {
+		t.Fatal("daylight page still contains night shader controls")
 	}
 }
 
@@ -228,11 +300,11 @@ func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
 	for _, mobile := range snap.mobiles {
 		colors[mobile.Index] = mobile.Colors
 	}
-	if colors[2] != lowHealth || colors[3] != lowHealth {
-		t.Fatal("synthetic companion and creature are not visibly low on health")
+	if colors[3] != lowHealth || colors[4] != lowHealth {
+		t.Fatal("synthetic companion and apprentice are not visibly low on health")
 	}
 	if _, visible := mobileHealthBarColor(colors[3], snap.descriptors[3].Type); !visible {
-		t.Fatal("synthetic creature's low-health bar is not visible with modern health bars")
+		t.Fatal("synthetic companion's low-health bar is not visible with modern health bars")
 	}
 }
 
@@ -250,8 +322,8 @@ func TestSetupWizardWalkerFacesCurrentTravelDirection(t *testing.T) {
 		step       int
 		facesRight bool
 	}{
-		{step: 9, facesRight: true},
-		{step: 10, facesRight: false},
+		{step: 17, facesRight: true},
+		{step: 18, facesRight: false},
 	} {
 		var snap drawSnapshot
 		prepareSetupWizardSceneSnapshot(&snap, setupWizardSceneStarted.Add(time.Duration(test.step)*interval))

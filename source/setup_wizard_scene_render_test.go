@@ -41,6 +41,7 @@ func TestRenderSetupWizardSyntheticScenes(t *testing.T) {
 	gs.GameScale = 1
 	gs.CharacterShadows = true
 	gs.DetailedCharacterShadows = true
+	gs.MobilesReceiveSunShadows = true
 	gs.ShaderLighting = true
 	gs.ShaderLightStrength = 1
 	gs.ShaderGlowStrength = 1
@@ -76,6 +77,13 @@ func (g *setupWizardSceneRenderGame) Update() error {
 }
 
 func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
+	if lightingShader == nil {
+		if err := ReloadLightingShader(); err != nil {
+			g.err = fmt.Errorf("compile lighting shader: %w", err)
+			g.rendered = true
+			return
+		}
+	}
 	if err := verifyLightingCoordinates(); err != nil {
 		g.err = err
 		g.rendered = true
@@ -85,13 +93,31 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 	for _, mode := range []setupWizardSceneMode{setupWizardSceneDay, setupWizardSceneIndoor, setupWizardSceneNight, setupWizardSceneMotion} {
 		setupWizardSceneModeValue = mode
 		setupWizardPage = 5
-		if mode == setupWizardSceneIndoor {
+		switch mode {
+		case setupWizardSceneIndoor:
 			setupWizardPage = 2
+		case setupWizardSceneNight:
+			setupWizardPage = 6
+		case setupWizardSceneMotion:
+			setupWizardPage = 4
 		}
 		setupWizardSceneStarted = time.Unix(1000, 0)
 		now := setupWizardSceneStarted.Add(650 * time.Millisecond)
 		var snap drawSnapshot
 		prepareSetupWizardSceneSnapshot(&snap, now)
+		if mode == setupWizardSceneDay && !setupWizardSceneHasObscuringPicture(snap) {
+			g.err = fmt.Errorf("daylight scene has no foreground picture obscuring the moving traveler")
+			break
+		}
+		if mode == setupWizardSceneDay {
+			var shade [256]float32
+			probe := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels, &shade)
+			if shade[4] <= 0 {
+				g.err = fmt.Errorf("daylight scene does not cast the guide's shadow onto the apprentice")
+				break
+			}
+		}
 		alpha, mobileFade, pictFade := computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		// Production renders into a non-zero-origin subimage of the game buffer.
 		const offsetX, offsetY = 37, 29
@@ -112,6 +138,17 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		}
 	}
 	g.rendered = true
+}
+
+func setupWizardSceneHasObscuringPicture(snap drawSnapshot) bool {
+	for _, pictures := range [][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
+		for _, picture := range pictures {
+			if picture.obscuredPrev || picture.obscuredNow {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func verifyLightingCoordinates() error {

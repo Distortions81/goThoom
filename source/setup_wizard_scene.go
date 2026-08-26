@@ -33,7 +33,7 @@ func selectSetupWizardSceneForPage(page int) {
 		setupWizardSceneModeValue = setupWizardSceneIndoor
 	case 4:
 		setupWizardSceneModeValue = setupWizardSceneMotion
-	case 5:
+	case 6:
 		setupWizardSceneModeValue = setupWizardSceneNight
 	default:
 		setupWizardSceneModeValue = setupWizardSceneDay
@@ -43,7 +43,7 @@ func selectSetupWizardSceneForPage(page int) {
 func setupWizardSceneName(mode setupWizardSceneMode) string {
 	switch mode {
 	case setupWizardSceneIndoor:
-		return "INDOOR CONTACT SHADOWS"
+		return "OVERCAST CONTACT SHADOWS"
 	case setupWizardSceneNight:
 		return "NIGHT GLOW + LIGHT CONES"
 	case setupWizardSceneMotion:
@@ -56,14 +56,14 @@ func setupWizardSceneName(mode setupWizardSceneMode) string {
 func applySetupWizardSceneLighting(mode setupWizardSceneMode) {
 	night := movieNightState{azimuth: 60, oldAzimuth: 60, redshift: 1}
 	switch mode {
-	case setupWizardSceneIndoor, setupWizardSceneMotion:
+	case setupWizardSceneIndoor:
 		night.azimuth = 90
 		night.oldAzimuth = 90
 		night.cloudy = true
 		night.shadows = 25
 	case setupWizardSceneNight:
-		night.baseLevel = 78
-		night.level = 78
+		night.baseLevel = 100
+		night.level = 100
 	default:
 		night.shadows = 50
 	}
@@ -71,12 +71,12 @@ func applySetupWizardSceneLighting(mode setupWizardSceneMode) {
 }
 
 func setupWizardWalkPosition(step int64) int16 {
-	const halfCycle = int64(10)
+	const halfCycle = int64(18)
 	phase := step % (halfCycle * 2)
 	if phase >= halfCycle {
 		phase = halfCycle*2 - phase
 	}
-	return int16(-180 + phase*16)
+	return int16(-220 + phase*22)
 }
 
 func setupWizardScenePicture(id uint16, h, v int16) framePicture {
@@ -122,9 +122,10 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.prevPictureIndexValid = false
 
 	descriptors := []frameDescriptor{
-		{Index: 1, Type: 1, PictID: 447, Name: "Motion", Plane: 0},
-		{Index: 2, Type: 1, PictID: 456, Name: "Shadows", Plane: 0},
-		{Index: 3, Type: kDescPlayer, PictID: 565, Name: "Creature", Plane: 0},
+		{Index: 1, Type: kDescPlayer, PictID: 447, Name: "Traveler", Plane: 0},
+		{Index: 2, Type: kDescPlayer, PictID: 456, Name: "Guide", Plane: 0},
+		{Index: 3, Type: kDescPlayer, PictID: 565, Name: "Companion", Plane: 0},
+		{Index: 4, Type: kDescPlayer, PictID: 447, Name: "Apprentice", Plane: 0},
 	}
 	for _, descriptor := range descriptors {
 		if clImages != nil {
@@ -141,43 +142,54 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 		facing = 0
 	}
 	lowHealth := uint8(kColorCodeBackRed << 4)
-	prevWalker := frameMobile{Index: 1, State: facing + uint8(step%4), H: prevH, V: 45}
-	curWalker := frameMobile{Index: 1, State: facing + uint8((step+1)%4), H: curH, V: 45}
-	prevCompanion := frameMobile{Index: 2, State: 8 + uint8(step%4), H: 70, V: 100, Colors: lowHealth}
-	curCompanion := frameMobile{Index: 2, State: 8 + uint8((step+1)%4), H: 70, V: 100, Colors: lowHealth}
-	prevCreature := frameMobile{Index: 3, State: uint8(step % 4), H: 180, V: -70, Colors: lowHealth}
-	curCreature := frameMobile{Index: 3, State: uint8((step + 1) % 4), H: 180, V: -70, Colors: lowHealth}
+	prevWalker := frameMobile{Index: 1, State: facing + uint8(step%4), H: prevH, V: 105}
+	curWalker := frameMobile{Index: 1, State: facing + uint8((step+1)%4), H: curH, V: 105}
+	prevGuide := frameMobile{Index: 2, State: 8 + uint8(step%4), H: 35, V: 20}
+	curGuide := frameMobile{Index: 2, State: 8 + uint8((step+1)%4), H: 35, V: 20}
+	prevCompanion := frameMobile{Index: 3, State: uint8(step % 4), H: -100, V: 28, Colors: lowHealth}
+	curCompanion := frameMobile{Index: 3, State: uint8((step + 1) % 4), H: -100, V: 28, Colors: lowHealth}
+	prevApprentice := frameMobile{Index: 4, State: 8 + uint8(step%4), H: 10, V: 48, Colors: lowHealth}
+	curApprentice := frameMobile{Index: 4, State: 8 + uint8((step+1)%4), H: 10, V: 48, Colors: lowHealth}
 	snap.prevMobiles[1] = prevWalker
-	snap.prevMobiles[2] = prevCompanion
-	snap.prevMobiles[3] = prevCreature
-	snap.mobiles = append(snap.mobiles[:0], curWalker, curCompanion, curCreature)
+	snap.prevMobiles[2] = prevGuide
+	snap.prevMobiles[3] = prevCompanion
+	snap.prevMobiles[4] = prevApprentice
+	snap.mobiles = append(snap.mobiles[:0], curWalker, curGuide, curCompanion, curApprentice)
 	sortMobiles(snap.mobiles)
 	snap.liveMobs = append(snap.liveMobs[:0], snap.mobiles...)
 	snap.deadMobs = snap.deadMobs[:0]
 
-	// Tile and decorate the visible right side of the world. These are real
-	// CL_Images assets, including two animated, light-emitting fixtures.
+	// Build a single riverside scene from real CL_Images artwork found in the
+	// bundled movies. Animated water and grounded lanterns exercise world-frame
+	// blending and shader lighting without looking like disconnected effects.
 	pictures := []framePicture{
-		setupWizardScenePicture(282, -300, -270),
-		setupWizardScenePicture(282, -100, -270),
-		setupWizardScenePicture(282, 100, -270),
-		setupWizardScenePicture(282, -300, -70),
-		setupWizardScenePicture(282, -100, -70),
-		setupWizardScenePicture(282, 100, -70),
-		setupWizardScenePicture(282, -300, 130),
-		setupWizardScenePicture(282, -100, 130),
-		setupWizardScenePicture(282, 100, 130),
-		setupWizardScenePicture(203, -245, -145),
-		setupWizardScenePicture(3574, 145, -15),
-		setupWizardScenePicture(4117, -160, 205),
-		setupWizardScenePicture(4116, 160, 220),
-		setupWizardScenePicture(679, -35, -45),
-		setupWizardScenePicture(1889, -245, 5),
-		setupWizardScenePicture(1888, -60, -25),
-		setupWizardScenePicture(1890, 155, 5),
-		setupWizardScenePicture(330, 220, 55),
-		setupWizardScenePicture(425, 115, 80),
+		setupWizardScenePicture(4928, -200, -200),
+		setupWizardScenePicture(4928, 200, -200),
+		setupWizardScenePicture(4928, -200, 200),
+		setupWizardScenePicture(4928, 200, 200),
+		setupWizardScenePicture(5120, -190, -245),
+		setupWizardScenePicture(5121, 190, -245),
+		setupWizardScenePicture(4622, -190, -30),
+		setupWizardScenePicture(4621, 190, -25),
+		setupWizardScenePicture(873, -220, -15),
+		setupWizardScenePicture(873, 220, 0),
+		setupWizardScenePicture(1491, 0, -170),
+		setupWizardScenePicture(2271, 0, -62),
+		setupWizardScenePicture(4086, -205, -105),
+		setupWizardScenePicture(5095, 110, -92),
+		setupWizardScenePicture(5094, -100, -82),
+		setupWizardScenePicture(3574, -105, 165),
+		setupWizardScenePicture(3582, -220, 165),
+		setupWizardScenePicture(5118, -170, 195),
+		setupWizardScenePicture(5115, -180, 125),
+		setupWizardScenePicture(5114, 195, -25),
+		setupWizardScenePicture(5116, 155, 165),
+		setupWizardScenePicture(4615, 105, 25),
+		setupWizardScenePicture(1925, -48, -55),
+		setupWizardScenePicture(1925, 48, -55),
 	}
+	logicalFrame := int(step + 1)
+	cachePictureObscuring(pictures, snap.mobiles, snap.descriptors, snap.prevMobiles, logicalFrame)
 	sortPictures(pictures)
 	snap.picsNeg = snap.picsNeg[:0]
 	snap.picsZero = snap.picsZero[:0]
@@ -199,11 +211,11 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.picShiftY = 0
 	snap.dropped = 0
 	snap.lightingFlags = 0
-	snap.logicalFrame = int(step + 1)
+	snap.logicalFrame = logicalFrame
 	snap.bubbles = snap.bubbles[:0]
 	if setupWizardPage == 2 {
 		snap.bubbles = append(snap.bubbles, bubble{
-			Index: 2, Text: "Preview names and bubbles here", Type: kBubbleNormal,
+			Index: 2, Text: "Welcome to Puddleby!", Type: kBubbleNormal,
 			CreatedFrame: snap.logicalFrame, LifeFrames: 100000,
 		})
 	}
