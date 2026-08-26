@@ -156,6 +156,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "SoundEnhancement", category: settingsAudio, name: "sound_enhancement"},
 	{field: "SoundEnhancementAmount", category: settingsAudio, name: "sound_enhancement_amount"},
 	{field: "MusicEnhancement", category: settingsAudio, name: "music_enhancement"},
+	{field: "MusicEnhancementAmount", category: settingsAudio, name: "music_enhancement_amount"},
 	{field: "HighQualityResampling", category: settingsAudio, name: "high_quality_resampling"},
 
 	{field: "MessagesToConsole", category: settingsChat, name: "copy_bubble_messages_to_messages_window"},

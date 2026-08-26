@@ -367,16 +367,19 @@ func newMusicReverbChannel(rate int, taps []musicReverbTap, diffusers []musicAll
 	return r
 }
 
-func (r *musicReverb) Process(left, right []float32) {
-	r.left.process(left)
-	r.right.process(right)
+func (r *musicReverb) Process(left, right []float32, amount float64) {
+	amount = clampMusicEnhancementAmount(amount)
+	r.left.process(left, amount)
+	r.right.process(right, amount)
 }
 
-func (r *musicReverbChannel) process(samples []float32) {
+func (r *musicReverbChannel) process(samples []float32, amount float64) {
 	if len(r.combs) == 0 {
 		return
 	}
-	const damping, wetMix, dryMix, wetLowpass = 0.35, 0.34, 0.66, 0.25
+	const damping, baseWetMix, wetLowpass = 0.35, 0.34, 0.25
+	wetMix := baseWetMix * amount
+	dryMix := 1 - wetMix
 	for i := range samples {
 		dry, input := float64(samples[i]), float64(samples[i])
 		if len(r.preDelay) > 0 {
@@ -414,7 +417,7 @@ func (r *musicReverbChannel) process(samples []float32) {
 
 // applyMusicReverb is retained for one-shot callers. Streaming music uses a
 // persistent musicReverb instance instead.
-func applyMusicReverb(left, right []float32, rate int) { newMusicReverb(rate).Process(left, right) }
+func applyMusicReverb(left, right []float32, rate int) { newMusicReverb(rate).Process(left, right, 1) }
 
 // mixPCM normalizes the provided samples and returns interleaved 16-bit PCM
 // data suitable for audio playback.
@@ -542,7 +545,7 @@ func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
 		producerDone: make(chan struct{}),
 		totalFrames:  maxFrames,
 	}
-	go s.produceMixed(renderers, gs.MusicEnhancement)
+	go s.produceMixed(renderers, gs.MusicEnhancement, gs.MusicEnhancementAmount)
 	<-s.ready // render five seconds before the caller starts the player
 	if err := s.renderError(); err != nil {
 		_ = s.Close()
@@ -552,7 +555,7 @@ func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
 	return s, nil
 }
 
-func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool) {
+func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool, enhancementAmount float64) {
 	defer close(s.producerDone)
 	defer close(s.chunks)
 	defer s.signalReady()
@@ -581,7 +584,7 @@ func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool) 
 			if reverb == nil {
 				reverb = newMusicReverb(sampleRate)
 			}
-			reverb.Process(left, right)
+			reverb.Process(left, right, enhancementAmount)
 		}
 		pos += frames
 		pcm := mixPCMChunk(left, right, pos == s.totalFrames)
@@ -849,7 +852,7 @@ func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared 
 	if gs.Mute || focusMuted {
 		vol = 0
 	}
-	player.SetVolume(vol)
+	player.SetVolume(effectiveAudioVolume(vol))
 
 	musicPlayersMu.Lock()
 	trackWhos := make(map[int]struct{}, len(whos))

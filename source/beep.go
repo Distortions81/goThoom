@@ -67,7 +67,7 @@ func playBeep(program, key int) {
 	if gs.Mute || focusMuted {
 		vol = 0
 	}
-	p.SetVolume(vol)
+	p.SetVolume(effectiveAudioVolume(vol))
 
 	soundMu.Lock()
 	pruneStoppedSoundPlayersLocked()
@@ -119,7 +119,7 @@ func playHarpNotes(keys ...int) {
 	if gs.Mute || focusMuted {
 		vol = 0
 	}
-	p.SetVolume(vol)
+	p.SetVolume(effectiveAudioVolume(vol))
 
 	soundMu.Lock()
 	pruneStoppedSoundPlayersLocked()

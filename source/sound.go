@@ -61,6 +61,18 @@ var (
 	highQualityResampling bool
 )
 
+// muteAudioOutputForTests is set by TestMain. Keeping the audio context alive
+// lets tests exercise player lifecycle code without sending any samples to the
+// host audio device.
+var muteAudioOutputForTests bool
+
+func effectiveAudioVolume(volume float64) float64 {
+	if muteAudioOutputForTests {
+		return 0
+	}
+	return volume
+}
+
 func loadCLSoundsArchive() (*clsnd.CLSounds, error) {
 	if isWASM && len(wasmCLSoundsData) > 0 {
 		return clsnd.LoadBytes(wasmCLSoundsData)
@@ -177,7 +189,7 @@ func playGameSoundPlayer(player *audio.Player) {
 	if gs.Mute || focusMuted {
 		volume = 0
 	}
-	player.SetVolume(volume)
+	player.SetVolume(effectiveAudioVolume(volume))
 	player.Play()
 	soundMu.Lock()
 	delete(reservedSoundPlayers, player)
@@ -487,9 +499,9 @@ func updateSoundVolume() {
 	for _, sp := range players {
 		if sp.IsPlaying() {
 			if _, ok := notif[sp]; ok {
-				sp.SetVolume(notifVol)
+				sp.SetVolume(effectiveAudioVolume(notifVol))
 			} else {
-				sp.SetVolume(gameVol)
+				sp.SetVolume(effectiveAudioVolume(gameVol))
 			}
 		} else {
 			stopped = append(stopped, sp)
@@ -502,7 +514,7 @@ func updateSoundVolume() {
 	ttsStopped := make([]*audio.Player, 0)
 	for _, p := range tts {
 		if p.IsPlaying() {
-			p.SetVolume(ttsVol)
+			p.SetVolume(effectiveAudioVolume(ttsVol))
 		} else {
 			ttsStopped = append(ttsStopped, p)
 		}
@@ -514,7 +526,7 @@ func updateSoundVolume() {
 		// is released. IsPlaying is therefore false while it is validly waiting
 		// to start; closing it here silences every bard in that group. The music
 		// playback goroutine owns its lifecycle and removes it on completion.
-		p.SetVolume(musicVol)
+		p.SetVolume(effectiveAudioVolume(musicVol))
 	}
 	musicPlayersMu.Unlock()
 

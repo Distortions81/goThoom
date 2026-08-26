@@ -23,3 +23,17 @@ func TestSoundPlaybackCacheKeyCanonicalizesSoundIDs(t *testing.T) {
 		t.Fatal("cache key ignored resampling quality")
 	}
 }
+
+func TestEffectiveAudioVolumeCanMuteTestOutput(t *testing.T) {
+	original := muteAudioOutputForTests
+	t.Cleanup(func() { muteAudioOutputForTests = original })
+
+	muteAudioOutputForTests = true
+	if got := effectiveAudioVolume(0.75); got != 0 {
+		t.Fatalf("muted audio volume = %v, want 0", got)
+	}
+	muteAudioOutputForTests = false
+	if got := effectiveAudioVolume(0.75); got != 0.75 {
+		t.Fatalf("normal audio volume = %v, want 0.75", got)
+	}
+}

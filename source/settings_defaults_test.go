@@ -96,6 +96,24 @@ func TestFlameFlickerStrengthDefault(t *testing.T) {
 	}
 }
 
+func TestMusicEnhancementAmountDefaultAndClamp(t *testing.T) {
+	if gsdef.MusicEnhancementAmount != 1 {
+		t.Fatalf("music enhancement default = %v, want 1", gsdef.MusicEnhancementAmount)
+	}
+	for _, test := range []struct {
+		value float64
+		want  float64
+	}{
+		{value: -1, want: 0.1},
+		{value: 0.7, want: 0.7},
+		{value: 3, want: 2},
+	} {
+		if got := clampMusicEnhancementAmount(test.value); got != test.want {
+			t.Errorf("clampMusicEnhancementAmount(%v) = %v, want %v", test.value, got, test.want)
+		}
+	}
+}
+
 func TestRecentPlayersGroupDefaultOn(t *testing.T) {
 	if !gsdef.ShowRecentPlayers {
 		t.Error("recently on-screen player group should default on")

@@ -82,6 +82,19 @@ func clampSoundEnhancementAmount(v float64) float64 {
 	return v
 }
 
+// clampMusicEnhancementAmount keeps the bard-music ambience control within a
+// useful range. A value of 1 preserves the original enhanced mix; lower values
+// are subtler and 2 is deliberately pronounced without overwhelming the tune.
+func clampMusicEnhancementAmount(v float64) float64 {
+	if v < 0.1 {
+		return 0.1
+	}
+	if v > 2 {
+		return 2
+	}
+	return v
+}
+
 func normalizeGamma(v, fallback float64) float64 {
 	if math.IsNaN(v) || v <= 0 {
 		return fallback
@@ -264,6 +277,7 @@ var gsdef settings = settings{
 	SoundEnhancement:       true,
 	SoundEnhancementAmount: 1.5,
 	MusicEnhancement:       true,
+	MusicEnhancementAmount: 1.0,
 	HighQualityResampling:  true,
 	ServerAddress:          defaultServerHostName + ":5010",
 
@@ -452,6 +466,7 @@ type settings struct {
 	SoundEnhancement       bool
 	SoundEnhancementAmount float64
 	MusicEnhancement       bool
+	MusicEnhancementAmount float64
 	HighQualityResampling  bool
 
 	imgPlanesDebug           bool
@@ -649,6 +664,7 @@ func loadSettings() bool {
 	}
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
+	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(gs.MusicEnhancementAmount)
 
 	// Clamp BubbleScale to 1.0–8.0
 	if gs.BubbleScale < 1.0 || gs.BubbleScale > 8.0 {
@@ -998,6 +1014,7 @@ type qualityPreset struct {
 	SoundEnhancement       bool
 	SoundEnhancementAmount float64
 	MusicEnhancement       bool
+	MusicEnhancementAmount float64
 }
 
 var (
@@ -1011,6 +1028,7 @@ var (
 		SoundEnhancement:       false,
 		SoundEnhancementAmount: 1.0,
 		MusicEnhancement:       false,
+		MusicEnhancementAmount: 1.0,
 	}
 	lowPreset = qualityPreset{
 		MotionSmoothing:        true,
@@ -1022,6 +1040,7 @@ var (
 		SoundEnhancement:       false,
 		SoundEnhancementAmount: 1.0,
 		MusicEnhancement:       false,
+		MusicEnhancementAmount: 1.0,
 	}
 	mediumPreset = qualityPreset{
 		MotionSmoothing:        true,
@@ -1033,6 +1052,7 @@ var (
 		SoundEnhancement:       false,
 		SoundEnhancementAmount: 1.0,
 		MusicEnhancement:       true,
+		MusicEnhancementAmount: 1.0,
 	}
 	highPreset = qualityPreset{
 		MotionSmoothing:        true,
@@ -1044,6 +1064,7 @@ var (
 		SoundEnhancement:       true,
 		SoundEnhancementAmount: 1.25,
 		MusicEnhancement:       true,
+		MusicEnhancementAmount: 1.0,
 	}
 )
 
@@ -1053,6 +1074,7 @@ func applyQualityPreset(name string) {
 	case "iGPU Graphics":
 		p.MotionSmoothing = true
 		p.SoundEnhancementAmount = 1
+		p.MusicEnhancementAmount = 1
 		gs.GameScale = 2
 		gs.DenoiseImages = false
 		gs.WindowShadows = false
@@ -1097,6 +1119,7 @@ func applyQualityPreset(name string) {
 	gs.SoundEnhancement = p.SoundEnhancement
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(p.SoundEnhancementAmount)
 	gs.MusicEnhancement = p.MusicEnhancement
+	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(p.MusicEnhancementAmount)
 	gs.SpriteUpscale = spriteUpscaleFactor()
 
 	if motionCB != nil {
@@ -1129,6 +1152,7 @@ func applyQualityPreset(name string) {
 	if musicEnhanceCB != nil {
 		musicEnhanceCB.Checked = gs.MusicEnhancement
 	}
+	refreshMixerEnhancementControls()
 	applySettings()
 	clearCaches()
 	settingsDirty = true
@@ -1155,6 +1179,7 @@ func currentAudioQualityPreset() qualityPreset {
 		SoundEnhancement:       gs.SoundEnhancement,
 		SoundEnhancementAmount: gs.SoundEnhancementAmount,
 		MusicEnhancement:       gs.MusicEnhancement,
+		MusicEnhancementAmount: gs.MusicEnhancementAmount,
 	}
 }
 
@@ -1173,6 +1198,9 @@ func matchesPreset(p qualityPreset) bool {
 		if math.Abs(gs.SoundEnhancementAmount-p.SoundEnhancementAmount) > 0.05 {
 			return false
 		}
+	}
+	if p.MusicEnhancement && math.Abs(gs.MusicEnhancementAmount-p.MusicEnhancementAmount) > 0.05 {
+		return false
 	}
 	return true
 }

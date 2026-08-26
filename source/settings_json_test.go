@@ -52,6 +52,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.SpriteUpscaleFilter = true
 	want.BarPlacement = BarPlacementUpperRight
 	want.MasterVolume = 0.42
+	want.MusicEnhancementAmount = 1.73
 	want.AltNetMode = false
 	want.AltNetDelay = 37
 	want.Enabledscripts = map[string]any{"hello": "all"}
@@ -78,6 +79,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"alternate_network_delay_ms": 37`,
 		`"dark_mode_names_and_bubbles"`,
 		`"allow_continuous_legacy_macros": true`,
+		`"music_enhancement_amount": 1.73`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("v4 settings missing %s", expected)

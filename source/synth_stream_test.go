@@ -22,16 +22,29 @@ func TestMusicReverbCarriesAcrossChunks(t *testing.T) {
 	split := append([]float32(nil), whole...)
 
 	onePass := newMusicReverb(sampleRate)
-	onePass.Process(whole, append([]float32(nil), whole...))
+	onePass.Process(whole, append([]float32(nil), whole...), 1)
 
 	chunked := newMusicReverb(sampleRate)
-	chunked.Process(split[:1024], append([]float32(nil), split[:1024]...))
-	chunked.Process(split[1024:], append([]float32(nil), split[1024:]...))
+	chunked.Process(split[:1024], append([]float32(nil), split[:1024]...), 1)
+	chunked.Process(split[1024:], append([]float32(nil), split[1024:]...), 1)
 
 	for i := range whole {
 		if math.Abs(float64(whole[i]-split[i])) > 1e-6 {
 			t.Fatalf("chunk boundary changed reverb at sample %d", i)
 		}
+	}
+}
+
+func TestMusicReverbAmountControlsDryWetMix(t *testing.T) {
+	lowAmount := make([]float32, 256)
+	highAmount := make([]float32, 256)
+	lowAmount[0], highAmount[0] = 1, 1
+
+	newMusicReverb(sampleRate).Process(lowAmount, append([]float32(nil), lowAmount...), 0.1)
+	newMusicReverb(sampleRate).Process(highAmount, append([]float32(nil), highAmount...), 2)
+
+	if lowAmount[0] <= highAmount[0] {
+		t.Fatalf("reverb first sample low=%v high=%v, want lower dry level at stronger ambience", lowAmount[0], highAmount[0])
 	}
 }
 

@@ -183,6 +183,10 @@ var (
 	musicMixSlider     *eui.ItemData
 	ttsMixSlider       *eui.ItemData
 	notifMixSlider     *eui.ItemData
+	soundEnhanceMixCB  *eui.ItemData
+	soundEnhanceSlider *eui.ItemData
+	musicEnhanceMixCB  *eui.ItemData
+	musicEnhanceSlider *eui.ItemData
 	mixMuteBtn         *eui.ItemData
 	musicMixCB         *eui.ItemData
 	ttsMixCB           *eui.ItemData
@@ -473,7 +477,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	row2.AddItem(exitSessBtn)
 
 	mixBtn, mixEvents := eui.NewButton()
-	mixBtn.Text = "Mixer"
+	mixBtn.Text = "Audio"
 	mixBtn.SetTooltip("Open audio mixer")
 	mixBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	mixBtn.FontSize = toolFontSize
@@ -1376,6 +1380,29 @@ func openscriptConfigWindow(owner string) {
 	scriptConfigOwner = owner
 }
 
+// refreshMixerEnhancementControls keeps the mixer in sync when an audio
+// quality preset or the detailed Settings window changes these values.
+func refreshMixerEnhancementControls() {
+	if soundEnhanceMixCB != nil {
+		soundEnhanceMixCB.Checked = gs.SoundEnhancement
+		soundEnhanceMixCB.Dirty = true
+	}
+	if soundEnhanceSlider != nil {
+		soundEnhanceSlider.Value = float32(clampSoundEnhancementAmount(gs.SoundEnhancementAmount))
+		soundEnhanceSlider.Disabled = !gs.SoundEnhancement
+		soundEnhanceSlider.Dirty = true
+	}
+	if musicEnhanceMixCB != nil {
+		musicEnhanceMixCB.Checked = gs.MusicEnhancement
+		musicEnhanceMixCB.Dirty = true
+	}
+	if musicEnhanceSlider != nil {
+		musicEnhanceSlider.Value = float32(clampMusicEnhancementAmount(gs.MusicEnhancementAmount))
+		musicEnhanceSlider.Disabled = !gs.MusicEnhancement
+		musicEnhanceSlider.Dirty = true
+	}
+}
+
 func makeMixerWindow() {
 	if mixerWin != nil {
 		return
@@ -1575,7 +1602,92 @@ func makeMixerWindow() {
 			}
 		})
 
-	addSpacer()
+	addBigSpacer()
+
+	// Enhancement controls stay in the mixer because they change how new sound
+	// effects and bard tunes are rendered, just as the channel controls change
+	// their level. The sliders preserve the existing default mix at 1.00.
+	enhanceCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 180, Y: 140}}
+	soundEnhanceMixCB, soundEnhanceEvents := eui.NewCheckbox()
+	soundEnhanceMixCB.Text = "Enhance sound effects"
+	soundEnhanceMixCB.Size = eui.Point{X: 180, Y: 24}
+	soundEnhanceMixCB.SetTooltip("Add ambience to newly played game sound effects.")
+	soundEnhanceEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		gs.SoundEnhancement = ev.Checked
+		if soundEnhanceCB != nil {
+			soundEnhanceCB.Checked = ev.Checked
+			soundEnhanceCB.Dirty = true
+		}
+		refreshMixerEnhancementControls()
+		settingsDirty = true
+	}
+	enhanceCol.AddItem(soundEnhanceMixCB)
+
+	var soundEnhanceSliderEvents *eui.EventHandler
+	soundEnhanceSlider, soundEnhanceSliderEvents = eui.NewSlider()
+	soundEnhanceSlider.MinValue = 0.1
+	soundEnhanceSlider.MaxValue = 10
+	soundEnhanceSlider.Value = float32(clampSoundEnhancementAmount(gs.SoundEnhancementAmount))
+	soundEnhanceSlider.Size = eui.Point{X: 180, Y: 24}
+	soundEnhanceSlider.SetTooltip("Sound effect enhancement strength. 1.00 is the normal enhanced mix.")
+	soundEnhanceSliderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventSliderChanged {
+			return
+		}
+		amount := math.Round(float64(ev.Value)*100) / 100
+		gs.SoundEnhancementAmount = clampSoundEnhancementAmount(amount)
+		if ev.Item.Value != float32(gs.SoundEnhancementAmount) {
+			ev.Item.Value = float32(gs.SoundEnhancementAmount)
+			ev.Item.Dirty = true
+		}
+		settingsDirty = true
+	}
+	enhanceCol.AddItem(soundEnhanceSlider)
+
+	musicEnhanceMixCB, musicEnhanceEvents := eui.NewCheckbox()
+	musicEnhanceMixCB.Text = "Enhance bard music"
+	musicEnhanceMixCB.Size = eui.Point{X: 180, Y: 24}
+	musicEnhanceMixCB.SetTooltip("Add ambience to newly started bard music.")
+	musicEnhanceEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		gs.MusicEnhancement = ev.Checked
+		if musicEnhanceCB != nil {
+			musicEnhanceCB.Checked = ev.Checked
+			musicEnhanceCB.Dirty = true
+		}
+		refreshMixerEnhancementControls()
+		settingsDirty = true
+	}
+	enhanceCol.AddItem(musicEnhanceMixCB)
+
+	var musicEnhanceSliderEvents *eui.EventHandler
+	musicEnhanceSlider, musicEnhanceSliderEvents = eui.NewSlider()
+	musicEnhanceSlider.MinValue = 0.1
+	musicEnhanceSlider.MaxValue = 2
+	musicEnhanceSlider.Value = float32(clampMusicEnhancementAmount(gs.MusicEnhancementAmount))
+	musicEnhanceSlider.Size = eui.Point{X: 180, Y: 24}
+	musicEnhanceSlider.SetTooltip("Bard music ambience strength. 1.00 matches the prior enhanced sound.")
+	musicEnhanceSliderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventSliderChanged {
+			return
+		}
+		amount := math.Round(float64(ev.Value)*100) / 100
+		gs.MusicEnhancementAmount = clampMusicEnhancementAmount(amount)
+		if ev.Item.Value != float32(gs.MusicEnhancementAmount) {
+			ev.Item.Value = float32(gs.MusicEnhancementAmount)
+			ev.Item.Dirty = true
+		}
+		settingsDirty = true
+	}
+	enhanceCol.AddItem(musicEnhanceSlider)
+	flow.AddItem(enhanceCol)
+
+	addBigSpacer()
 
 	var mixMuteEvents *eui.EventHandler
 	mixMuteBtn, mixMuteEvents = eui.NewButton()
@@ -1652,6 +1764,7 @@ func makeMixerWindow() {
 	muteCol.AddItem(muteUnfocusCB)
 	flow.AddItem(muteCol)
 
+	refreshMixerEnhancementControls()
 	mixerWin.AddItem(flow)
 }
 
@@ -5898,6 +6011,7 @@ func makeAdvancedSettingsWindow() {
 	enhancementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.SoundEnhancement = ev.Checked
+			refreshMixerEnhancementControls()
 			settingsDirty = true
 		}
 	}
@@ -5928,6 +6042,7 @@ func makeAdvancedSettingsWindow() {
 	musicEnhancementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MusicEnhancement = ev.Checked
+			refreshMixerEnhancementControls()
 			settingsDirty = true
 		}
 	}

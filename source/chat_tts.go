@@ -196,7 +196,7 @@ func playChatTTS(ctx context.Context, text string) {
 	if gs.Mute || focusMuted {
 		vol = 0
 	}
-	p.SetVolume(vol)
+	p.SetVolume(effectiveAudioVolume(vol))
 	p.Play()
 	for p.IsPlaying() {
 		select {
