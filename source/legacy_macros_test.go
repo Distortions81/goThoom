@@ -769,13 +769,17 @@ func TestLegacyMacroStringComparisonsUseSubstringDirection(t *testing.T) {
 		want                    bool
 	}{
 		{left: "please kill the rat", comparison: "<", right: "kill", want: true},
-		{left: "please kill the rat", comparison: "<=", right: "kill", want: true},
 		{left: "kill", comparison: ">", right: "please kill the rat", want: true},
-		{left: "kill", comparison: ">=", right: "please kill the rat", want: true},
-		{left: "kill", comparison: "<", right: "kill", want: true},
+		{left: "please kill the rat", comparison: ">=", right: "kill", want: true},
+		{left: "kill", comparison: "<=", right: "please kill the rat", want: true},
+		{left: "kill", comparison: "<", right: "kill", want: false},
 		{left: "kill", comparison: "<=", right: "kill", want: true},
-		{left: "kill", comparison: ">", right: "kill", want: true},
+		{left: "kill", comparison: ">", right: "kill", want: false},
 		{left: "kill", comparison: ">=", right: "kill", want: true},
+		{left: "kill", comparison: ">=", right: "please kill the rat", want: false},
+		{left: "please kill the rat", comparison: "<=", right: "kill", want: false},
+		{left: "Kill", comparison: "==", right: "kill", want: true},
+		{left: "Kill the rat", comparison: ">=", right: "kill", want: false},
 	}
 	for _, test := range tests {
 		got, err := legacyMacroCompare(test.left, test.comparison, test.right)
@@ -855,7 +859,7 @@ func TestLegacyMacroRuntimeRandomNoRepeat(t *testing.T) {
 	}
 }
 
-func TestLegacyMacroRuntimeStopsRunawayGoto(t *testing.T) {
+func TestLegacyMacroRuntimeTimeSlicesBusyGoto(t *testing.T) {
 	program := parseLegacyMacroSources([]legacyMacroSource{{
 		Name: "test",
 		Path: filepath.Join(t.TempDir(), "test"),
@@ -872,14 +876,13 @@ func TestLegacyMacroRuntimeStopsRunawayGoto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for frame := 0; frame < 200 && !execution.complete; frame++ {
+	for frame := 0; frame < 200; frame++ {
 		runtime.advance(int64(frame))
 	}
-
-	if !execution.complete || execution.diagnostic == nil ||
-		!strings.Contains(execution.diagnostic.Message, "execution limit") {
-		t.Fatalf("execution = %#v, want execution-limit error", execution)
+	if execution.complete || execution.diagnostic != nil {
+		t.Fatalf("execution = %#v, want time-sliced busy loop to remain active", execution)
 	}
+	runtime.cancelAll()
 }
 
 func TestLegacyMacroRuntimeAllowsLongRunningYieldingLoop(t *testing.T) {
@@ -900,11 +903,113 @@ func TestLegacyMacroRuntimeAllowsLongRunningYieldingLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for frame := int64(0); frame <= legacyMacroMaxStepsPerExecution+10; frame++ {
+	for frame := int64(0); frame < 200; frame++ {
 		runtime.advance(frame)
 	}
 	if execution.complete || execution.diagnostic != nil {
 		t.Fatalf("yielding execution = %#v, want it to remain active", execution)
+	}
+	runtime.cancelAll()
+}
+
+func TestLegacyMacroRuntimeBusyScannerObservesLaterEquipment(t *testing.T) {
+	lines := []string{
+		"set htest 0",
+		"run",
+		"{",
+		"label top",
+	}
+	for range 80 {
+		lines = append(lines,
+			"if @env.textlog >= \"message that is not present\"",
+			"message \"wrong branch\"",
+			"end if",
+		)
+	}
+	lines = append(lines,
+		"if htest == 0",
+		"if @my.right_item == \"Moonstone\"",
+		"\"/useitem moonstone\\r\"",
+		"end if",
+		"end if",
+		"goto top",
+		"}",
+	)
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join(lines, "\n"),
+	}})
+	rightItem := "Nothing"
+	var sent []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		SendText: func(text string) { sent = append(sent, text) },
+		ResolveState: func(name string) (string, bool) {
+			switch name {
+			case "@env.textlog":
+				return "unrelated text", true
+			case "@my.right_item":
+				return rightItem, true
+			default:
+				return "", false
+			}
+		},
+	})
+	execution, err := runtime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for frame := int64(0); frame < 200; frame++ {
+		runtime.advance(frame)
+	}
+	if execution.complete || execution.diagnostic != nil {
+		t.Fatalf("scanner execution = %#v, want it to remain active", execution)
+	}
+
+	rightItem = "Moonstone"
+	for frame := int64(200); frame < 220 && len(sent) == 0; frame++ {
+		runtime.advance(frame)
+	}
+	if got, want := sent, []string{"/useitem moonstone"}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
+	}
+	runtime.cancelAll()
+}
+
+func TestLegacyMacroRuntimeInclusiveSubstringTradeMatch(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join([]string{
+			"run",
+			"{",
+			"set logck @env.textlog",
+			"if logck >= \"To accept, \\BUY 0\"",
+			"\"/buy 0 Trader\\r\"",
+			"end if",
+			"}",
+		}, "\n"),
+	}})
+	var sent []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		SendText: func(text string) { sent = append(sent, text) },
+		ResolveState: func(name string) (string, bool) {
+			if name == "@env.textlog" {
+				return "To accept, \\BUY 0 from Trader", true
+			}
+			return "", false
+		},
+	})
+	execution, err := runtime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.advance(0)
+	if got, want := sent, []string{"/buy 0 Trader"}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
+	}
+	if execution.diagnostic != nil {
+		t.Fatalf("execution diagnostic = %#v", execution.diagnostic)
 	}
 }
 

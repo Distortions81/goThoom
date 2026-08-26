@@ -373,6 +373,39 @@ func TestLegacyMacroWebCorpusLongRunningGamesAndSharecads(t *testing.T) {
 	tetrisRuntime.cancelAll()
 }
 
+func TestLegacyMacroWebCorpusSharecadsSharesDetectedHealer(t *testing.T) {
+	program := legacyMacroWebFixtureProgram(t, "gorvin-dynamicsharecads.mac")
+	textLog := "Welcome."
+	var sent []string
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+		SendText: func(text string) { sent = append(sent, text) },
+		ResolveState: func(name string) (string, bool) {
+			if name == "@env.textlog" {
+				return textLog, true
+			}
+			return "", false
+		},
+	})
+	if !runtime.triggerExpression("/shcads", 0) {
+		t.Fatal("/shcads did not start")
+	}
+
+	// The classic client retains the leading MacRoman bullet on healing
+	// messages in @env.textLog. Dynamic Sharecads deliberately uses >= so the
+	// first word can contain that marker while still matching "You".
+	textLog = "•You sense healing energy from Bob."
+	for frame := int64(1); frame <= 40 && len(sent) == 0; frame++ {
+		runtime.advance(frame)
+	}
+	if got, want := sent, []string{"/share Bob"}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
+	}
+	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+		t.Fatalf("runtime diagnostics = %#v", diagnostics)
+	}
+	runtime.cancelAll()
+}
+
 func TestLegacyMacroWebCorpusChessHelp(t *testing.T) {
 	program := legacyMacroWebFixtureProgram(t, "gorvin-macro-chess.mac")
 	var messages []string
