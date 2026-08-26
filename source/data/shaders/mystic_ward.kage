@@ -1,0 +1,80 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var SpriteLightOnly float
+
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
+func spark(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func polarAngle(p vec2) float {
+	angle := atan(p.y / (abs(p.x) + 0.0001))
+	if p.x < 0 {
+		if p.y >= 0 {
+			return 3.14159265 - angle
+		}
+		return -3.14159265 - angle
+	}
+	return angle
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	r := length(p)
+	angle := polarAngle(p)
+	t := Phase * 1.8
+
+	// A gold ward softly lights the protected character without obscuring it.
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := imageSrc0At(srcPos).a
+		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		pulse := 0.55 + 0.45*sin(t*2.1-angle*2.0)
+		light := max(0, body*(0.12+0.16*pulse)+edge*0.18) * Alpha
+		color := mix(vec3(0.95, 0.18, 0.01), vec3(1.0, 0.80, 0.20), pulse)
+		return vec4(color*light, light)
+	}
+
+	// Nested rotating runic rings, an ember halo, and four guardian sparks.
+	outer := band(r, 0.43+sin(t*0.8)*0.012, 0.018)
+	outer *= 0.35 + 0.65*spark(angle*8.0-t*1.9)
+	inner := band(r, 0.24, 0.013) * (0.28 + 0.72*spark(angle*6.0+t*2.4))
+	seal := band(r, 0.33, 0.009) * (0.20 + 0.80*spark(angle*12.0-t*1.2))
+	guardA := band(r, 0.43, 0.030) * spark(angle*4.0+t*2.3)
+	guardB := band(r, 0.34, 0.020) * spark(angle*4.0-t*2.0+1.7)
+	embers := band(r, 0.13+0.09*sin(t*1.4+angle*3.0), 0.025) * spark(angle*15.0+t*5.0)
+	core := max(0, 1-r*5.6) * (0.20 + 0.12*sin(t*3.1))
+	aura := max(0, 1-r*1.8) * 0.12
+	intensity := min(1, outer+inner+seal+guardA*0.9+guardB*0.75+embers*0.7+core+aura)
+
+	if HasMask > 0.5 {
+		body := imageSrc0At(srcPos).a
+		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		depth := 0.48 + 0.52*sin(angle*2.0-r*15.0-t*1.4)
+		intensity *= mix(1.0, 0.28+0.65*depth, body)
+		intensity += max(0, edge)*0.22
+	}
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+
+	color := mix(vec3(0.95, 0.10, 0.005), vec3(1.0, 0.86, 0.28), min(1, intensity*1.8))
+	a := min(1, intensity*2.0) * Alpha
+	return vec4(color*a, a)
+}

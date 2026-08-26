@@ -1509,7 +1509,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			// Apply lighting on the active subimage only
 			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
 		}
-		drawReplacementEffects(worldView)
+		drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
 		if setupWizardPreviewActive {
 			drawSetupWizardSceneLabel(worldView, renderScale)
 		}
@@ -2391,19 +2391,19 @@ func replacementEffectPlayerMask(ox, oy int, p framePicture, mobiles []frameMobi
 	}
 	mobile := mobiles[best]
 	desc := descMap[mobile.Index]
+	instanceKey := uint64(1)<<63 | uint64(mobile.Index)
+	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
+	scaledSize := float64(roundToInt(float64(mobileSize(desc.PictID)) * gs.GameScale))
+	if scaledSize <= 0 {
+		return nil, float64(x), float64(y), 0, instanceKey
+	}
 	colors := playerColorsForDescriptor(desc)
 	img := loadMobileFrame(desc.PictID, mobile.State, colors)
 	img = getScaledMobileFrame(makeMobileKey(desc.PictID, mobile.State, colors), img)
 	if img == nil {
-		return nil, 0, 0, 0, 0
+		return nil, float64(x), float64(y), scaledSize, instanceKey
 	}
-	size := mobileSize(desc.PictID)
-	if size <= 0 {
-		return nil, 0, 0, 0, 0
-	}
-	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
-	instanceKey := uint64(1)<<63 | uint64(mobile.Index)
-	return img, float64(x), float64(y), float64(roundToInt(float64(size) * gs.GameScale)), instanceKey
+	return img, float64(x), float64(y), scaledSize, instanceKey
 }
 
 func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (int, int) {

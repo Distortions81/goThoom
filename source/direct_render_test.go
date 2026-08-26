@@ -34,6 +34,25 @@ func TestWorldArtworkFilterFollowsPixelArtSetting(t *testing.T) {
 	}
 }
 
+func TestReplacementEffectKinds(t *testing.T) {
+	tests := []struct {
+		pictID uint16
+		want   replacementEffectKind
+		ok     bool
+	}{
+		{1759, replacementEffectHealing, true},
+		{1760, replacementEffectHealing, true},
+		{1286, replacementEffectMysticWard, true},
+		{1, 0, false},
+	}
+	for _, test := range tests {
+		got, ok := replacementEffectKindForPict(test.pictID)
+		if got != test.want || ok != test.ok {
+			t.Errorf("replacementEffectKindForPict(%d) = (%d, %v), want (%d, %v)", test.pictID, got, ok, test.want, test.ok)
+		}
+	}
+}
+
 func TestScaledSpriteSpanKeepsSharedTileEdgesClosed(t *testing.T) {
 	for _, scale := range []float64{0.73, 1, 1.1, 4.0 / 3.0, 1.75, 2.5} {
 		for _, offset := range []float64{-127.4, 0, 0.37, 91.8} {
