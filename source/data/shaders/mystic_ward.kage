@@ -36,7 +36,9 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	p.x *= Size.x / Size.y
 	r := length(p)
 	angle := polarAngle(p)
-	t := Phase * 1.8
+	// Phase is the effect's age, not a global clock: every protection burst
+	// begins at its own center and dissipates naturally.
+	t := Phase
 
 	// A gold ward softly lights the protected character without obscuring it.
 	if SpriteLightOnly > 0.5 {
@@ -45,28 +47,38 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		}
 		body := imageSrc0At(srcPos).a
 		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
-		pulse := 0.55 + 0.45*sin(t*2.1-angle*2.0)
-		light := max(0, body*(0.12+0.16*pulse)+edge*0.18) * Alpha
+		pulse := 0.55 + 0.45*sin(t*9.0-angle*2.0)
+		light := max(0, body*(0.14+0.22*pulse)+edge*0.24) * max(0, 1-t*0.60) * Alpha
 		color := mix(vec3(0.95, 0.18, 0.01), vec3(1.0, 0.80, 0.20), pulse)
 		return vec4(color*light, light)
 	}
 
-	// Nested rotating runic rings, an ember halo, and four guardian sparks.
-	outer := band(r, 0.43+sin(t*0.8)*0.012, 0.018)
-	outer *= 0.35 + 0.65*spark(angle*8.0-t*1.9)
-	inner := band(r, 0.24, 0.013) * (0.28 + 0.72*spark(angle*6.0+t*2.4))
-	seal := band(r, 0.33, 0.009) * (0.20 + 0.80*spark(angle*12.0-t*1.2))
-	guardA := band(r, 0.43, 0.030) * spark(angle*4.0+t*2.3)
-	guardB := band(r, 0.34, 0.020) * spark(angle*4.0-t*2.0+1.7)
-	embers := band(r, 0.13+0.09*sin(t*1.4+angle*3.0), 0.025) * spark(angle*15.0+t*5.0)
-	core := max(0, 1-r*5.6) * (0.20 + 0.12*sin(t*3.1))
-	aura := max(0, 1-r*1.8) * 0.12
-	intensity := min(1, outer+inner+seal+guardA*0.9+guardB*0.75+embers*0.7+core+aura)
+	// An irregular, upward-biased poof of embers. Each swarm has its own
+	// drifting center so it reads as a cloud of sparks rather than a line.
+	life := max(0, 1-t*0.72)
+	clusterA := vec2(-0.10+sin(t*4.1)*0.055, 0.08-t*0.27)
+	clusterB := vec2(0.11+sin(t*3.3+1.4)*0.070, 0.10-t*0.20)
+	clusterC := vec2(sin(t*5.2+2.1)*0.095, -0.02-t*0.33)
+	emberA := band(length(p-clusterA), 0.022+t*0.045, 0.032) * spark(angle*13.0-t*9.0)
+	emberB := band(length(p-clusterB), 0.018+t*0.038, 0.027) * spark(angle*19.0+t*12.0+1.4)
+	emberC := band(length(p-clusterC), 0.014+t*0.032, 0.023) * spark(angle*27.0-t*14.0+2.7)
+	// A fourth, short-lived spray gives the first frame a fuller magical pop.
+	clusterD := vec2(-0.02+sin(t*7.0)*0.15, 0.04-t*0.15)
+	emberD := band(length(p-clusterD), 0.010+t*0.050, 0.020) * spark(angle*31.0+t*16.0)
+	clusterE := vec2(-0.18+sin(t*5.6+0.8)*0.060, 0.12-t*0.18)
+	clusterF := vec2(0.19+sin(t*6.4+2.9)*0.055, 0.07-t*0.24)
+	emberE := band(length(p-clusterE), 0.008+t*0.040, 0.016) * spark(angle*37.0-t*18.0+0.6)
+	emberF := band(length(p-clusterF), 0.006+t*0.038, 0.014) * spark(angle*41.0+t*20.0+2.3)
+	// Fine cinders fill the gaps between the larger sprays without forming a ring.
+	cinders := max(0, 1-r*2.5-t*1.45) * spark(angle*47.0+r*31.0-t*22.0)
+	burst := max(0, 1-r*4.2-t*1.8) * (0.56+0.34*spark(angle*9.0+t*7.0))
+	smoke := max(0, 1-length(vec2(p.x*1.15, p.y+t*0.18))*1.75) * 0.22
+	intensity := min(1, (emberA*1.85+emberB*1.45+emberC*1.15+emberD+emberE*0.92+emberF*0.85+cinders*0.48+burst+smoke)*life)
 
 	if HasMask > 0.5 {
 		body := imageSrc0At(srcPos).a
 		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
-		depth := 0.48 + 0.52*sin(angle*2.0-r*15.0-t*1.4)
+		depth := 0.48 + 0.52*sin(angle*2.0-r*15.0-t*4.0)
 		intensity *= mix(1.0, 0.28+0.65*depth, body)
 		intensity += max(0, edge)*0.22
 	}
@@ -74,7 +86,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		return vec4(0, 0, 0, 0)
 	}
 
-	color := mix(vec3(0.95, 0.10, 0.005), vec3(1.0, 0.86, 0.28), min(1, intensity*1.8))
-	a := min(1, intensity*2.0) * Alpha
+	color := mix(vec3(1.0, 0.075, 0.002), vec3(1.0, 0.90, 0.34), min(1, intensity*1.65))
+	a := min(1, intensity*2.7) * Alpha
 	return vec4(color*a, a)
 }

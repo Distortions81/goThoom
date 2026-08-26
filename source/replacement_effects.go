@@ -237,6 +237,11 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			continue
 		}
 		phase := float32(time.Since(replacementEffectsStarted).Seconds())
+		if effect.kind == replacementEffectMysticWard {
+			// The ward is a one-shot burst, so its particle sequence starts when
+			// this sprite appears instead of inheriting the global shader phase.
+			phase = float32(now.Sub(effect.started).Seconds())
+		}
 		shader := replacementEffectShader(effect.kind)
 		hasMask := float32(0)
 		if effect.hasMask {
