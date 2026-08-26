@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	legacyMacroMaxStepsPerTick = 64
-	legacyMacroMaxCallDepth    = 32
-	legacyMacroMaxHistory      = 256
+	legacyMacroMaxStepsPerTick      = 64
+	legacyMacroMaxStepsPerExecution = 10000
+	legacyMacroMaxCallDepth         = 32
+	legacyMacroMaxHistory           = 256
 )
 
 type legacyMacroRuntimeHooks struct {
@@ -58,6 +59,8 @@ type legacyMacroRuntime struct {
 	randoms   map[legacyMacroInstruction]int
 	active    []*legacyMacroExecution
 
+	allowContinuous bool
+
 	sent        []string
 	messages    []string
 	diagnostics []legacyMacroDiagnostic
@@ -77,6 +80,7 @@ type legacyMacroExecution struct {
 	waitUntil  int64
 	complete   bool
 	diagnostic *legacyMacroDiagnostic
+	steps      int
 }
 
 type legacyMacroCallFrame struct {
@@ -107,13 +111,15 @@ const (
 )
 
 func newLegacyMacroRuntime(program legacyMacroProgram) *legacyMacroRuntime {
-	return newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
 		SendText:   legacyMacroQueueText,
 		InsertText: legacyMacroInsertInputText,
 		SetText:    legacyMacroSetInputText,
 		Message:    consoleMessage,
 		Move:       legacyMacroMovePlayer,
 	})
+	runtime.allowContinuous = gs.LegacyMacroContinuous
+	return runtime
 }
 
 func newLegacyMacroRuntimeWithHooks(program legacyMacroProgram, hooks legacyMacroRuntimeHooks) *legacyMacroRuntime {
@@ -137,6 +143,15 @@ func newLegacyMacroRuntimeWithHooks(program legacyMacroProgram, hooks legacyMacr
 		}
 	}
 	return runtime
+}
+
+func (runtime *legacyMacroRuntime) setAllowContinuous(enabled bool) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	runtime.allowContinuous = enabled
+	for _, execution := range runtime.active {
+		execution.steps = 0
+	}
 }
 
 func legacyMacroQueueText(text string) {
@@ -270,8 +285,8 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 	execution.waitUntil = 0
 
 	// The classic client yields a busy macro after a short time slice but does
-	// not impose a lifetime instruction limit. Continuous goto scanners are a
-	// supported legacy pattern, so this per-tick slice is the runaway safeguard.
+	// not impose an instruction limit. This per-tick slice always keeps the game
+	// responsive; the optional limit below is an additional goThoom safeguard.
 	for step := 0; step < legacyMacroMaxStepsPerTick; step++ {
 		if returnAt := strings.IndexByte(execution.buffer, '\r'); returnAt >= 0 {
 			if execution.kind == legacyMacroReplacement {
@@ -281,8 +296,10 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 			}
 			runtime.sendTextLocked(execution, execution.buffer[:returnAt])
 			execution.buffer = execution.buffer[returnAt+1:]
-			// A return yields for one macro frame in the reference client.
+			// A return yields for one macro frame in the reference client. It is
+			// also a safe point for resetting the runaway-loop budget.
 			execution.waitUntil = frame + 1
+			execution.steps = 0
 			return
 		}
 
@@ -304,6 +321,13 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 		line := runtime.program.Macros[current.declaration].Body[lineIndex]
 		current.nextLine++
 		execution.lastLine = line
+		if !runtime.allowContinuous {
+			execution.steps++
+			if execution.steps > legacyMacroMaxStepsPerExecution {
+				runtime.failExecutionLocked(execution, line, "execution limit exceeded; enable Allow continuous macros in the Legacy Macros window for intentional loops")
+				return
+			}
+		}
 		runtime.executeLineLocked(execution, currentFrame, lineIndex, line, frame)
 		if execution.complete || execution.waitUntil > frame {
 			return
@@ -363,6 +387,7 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 		}
 		if frames > 0 {
 			execution.waitUntil = frame + int64(frames)
+			execution.steps = 0
 		}
 	case strings.EqualFold(first.Text, "set"):
 		if err := runtime.setVariableLocked(line, execution, false); err != nil {

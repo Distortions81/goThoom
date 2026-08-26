@@ -859,7 +859,34 @@ func TestLegacyMacroRuntimeRandomNoRepeat(t *testing.T) {
 	}
 }
 
-func TestLegacyMacroRuntimeTimeSlicesBusyGoto(t *testing.T) {
+func TestLegacyMacroRuntimeContinuousModeTimeSlicesBusyGoto(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "test",
+		Path: filepath.Join(t.TempDir(), "test"),
+		Text: strings.Join([]string{
+			"run",
+			"{",
+			"label again",
+			"goto again",
+			"}",
+		}, "\n"),
+	}})
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{})
+	runtime.allowContinuous = true
+	execution, err := runtime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for frame := 0; frame < 200; frame++ {
+		runtime.advance(int64(frame))
+	}
+	if execution.complete || execution.diagnostic != nil {
+		t.Fatalf("execution = %#v, want time-sliced busy loop to remain active", execution)
+	}
+	runtime.cancelAll()
+}
+
+func TestLegacyMacroRuntimeStopsBusyGotoAtInstructionLimit(t *testing.T) {
 	program := parseLegacyMacroSources([]legacyMacroSource{{
 		Name: "test",
 		Path: filepath.Join(t.TempDir(), "test"),
@@ -876,13 +903,28 @@ func TestLegacyMacroRuntimeTimeSlicesBusyGoto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for frame := 0; frame < 200; frame++ {
+	for frame := 0; frame < 200 && !execution.complete; frame++ {
 		runtime.advance(int64(frame))
 	}
-	if execution.complete || execution.diagnostic != nil {
-		t.Fatalf("execution = %#v, want time-sliced busy loop to remain active", execution)
+	if !execution.complete || execution.diagnostic == nil {
+		t.Fatalf("execution = %#v, want instruction-limit error", execution)
 	}
-	runtime.cancelAll()
+	if !strings.Contains(execution.diagnostic.Message, "Allow continuous macros") {
+		t.Fatalf("diagnostic = %q, want option guidance", execution.diagnostic.Message)
+	}
+}
+
+func TestNewLegacyMacroRuntimeUsesContinuousMacroSetting(t *testing.T) {
+	original := gs.LegacyMacroContinuous
+	t.Cleanup(func() { gs.LegacyMacroContinuous = original })
+
+	for _, enabled := range []bool{false, true} {
+		gs.LegacyMacroContinuous = enabled
+		runtime := newLegacyMacroRuntime(legacyMacroProgram{})
+		if runtime.allowContinuous != enabled {
+			t.Fatalf("allowContinuous = %t, want %t", runtime.allowContinuous, enabled)
+		}
+	}
 }
 
 func TestLegacyMacroRuntimeAllowsLongRunningYieldingLoop(t *testing.T) {
@@ -955,6 +997,7 @@ func TestLegacyMacroRuntimeBusyScannerObservesLaterEquipment(t *testing.T) {
 			}
 		},
 	})
+	runtime.allowContinuous = true
 	execution, err := runtime.startFunction("run")
 	if err != nil {
 		t.Fatal(err)

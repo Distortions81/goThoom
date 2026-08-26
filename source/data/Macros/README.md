@@ -25,11 +25,16 @@ The **Errors** button shows file names, line numbers, parse errors, and runtime
 errors. Disabling a macro removes it from the active program without deleting
 the file.
 
+Enable **Allow continuous macros** for an intentional loop that keeps scanning
+without pausing or producing output. When this is off, goThoom stops that loop
+after 10,000 instructions. The classic client instead time-slices busy macros
+without imposing an instruction cap.
+
 ## Add a downloaded macro
 
 1. In the Legacy Macros window, choose **Open Macro Folder**.
 2. Put the `.mac` file in the `Library` folder.
-3. Return to goThoom and reopen the window or choose **Reload Macros**.
+3. Return to goThoom and choose **Refresh List**.
 4. Enable the new entry globally or for one character.
 
 goThoom never overwrites files you add or edit. Bundled files are refreshed

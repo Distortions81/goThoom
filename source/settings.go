@@ -198,6 +198,7 @@ var gsdef settings = settings{
 	NotificationBeep:      true,
 	NotificationDuration:  6,
 	ScriptSpamKill:        true,
+	LegacyMacroContinuous: false,
 	PromptOnSaveRecording: true,
 	AutoRecord:            false,
 	PromptDisableShaders:  true,
@@ -405,6 +406,7 @@ type settings struct {
 	NotificationBeep      bool
 	NotificationDuration  float64
 	ScriptSpamKill        bool
+	LegacyMacroContinuous bool
 	PromptOnSaveRecording bool
 	AutoRecord            bool
 	PromptDisableShaders  bool
@@ -706,6 +708,9 @@ func applySettings() {
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 	}
 	applyVSyncSetting()
+	if runtime := legacyMacroRuntimeSnapshot(); runtime != nil {
+		runtime.setAllowContinuous(gs.LegacyMacroContinuous)
+	}
 	ebiten.SetFullscreen(gs.Fullscreen)
 	ebiten.SetWindowFloating(gs.Fullscreen || gs.AlwaysOnTop)
 	initFont()

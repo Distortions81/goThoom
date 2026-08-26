@@ -12,16 +12,18 @@ import (
 )
 
 var (
-	legacyMacroLibraryWin     *eui.WindowData
-	legacyMacroLibraryRoot    *eui.ItemData
-	legacyMacroLibraryList    *eui.ItemData
-	legacyMacroLibraryButtons *eui.ItemData
-	legacyMacroLibraryErrors  *eui.ItemData
+	legacyMacroLibraryWin        *eui.WindowData
+	legacyMacroLibraryRoot       *eui.ItemData
+	legacyMacroLibraryList       *eui.ItemData
+	legacyMacroLibraryButtons    *eui.ItemData
+	legacyMacroLibraryErrors     *eui.ItemData
+	legacyMacroLibraryContinuous *eui.ItemData
 )
 
 const (
 	legacyMacroLibraryButtonsHeight = 24
 	legacyMacroLibraryBottomGap     = 8
+	legacyMacroContinuousLabel      = "Allow continuous macros"
 )
 
 func makeLegacyMacroLibraryWindow() {
@@ -59,17 +61,44 @@ func makeLegacyMacroLibraryWindow() {
 		}
 	}
 	legacyMacroLibraryButtons.AddItem(openButton)
+	refreshButton, refreshEvents := eui.NewButton()
+	refreshButton.Text = "Refresh List"
+	refreshButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
+	refreshButton.Disabled = isWASM
+	refreshButton.SetTooltip("Rescan Macros/Library for added, removed, or renamed .mac files. Active macros are not restarted.")
+	if isWASM {
+		refreshButton.SetTooltip("The web build uses a fixed embedded macro list.")
+	}
+	refreshEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			refreshLegacyMacroLibraryWindow()
+		}
+	}
+	legacyMacroLibraryButtons.AddItem(refreshButton)
 	reloadButton, reloadEvents := eui.NewButton()
 	reloadButton.Text = "Reload Macros"
 	reloadButton.Size = eui.Point{X: 120, Y: legacyMacroLibraryButtonsHeight}
-	reloadButton.SetTooltip("Reload the selected macro files now. This restarts their active macro program.")
+	reloadButton.SetTooltip("Reload enabled macro files and restart the active macro program. Use this after editing an enabled macro.")
 	reloadEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
 			legacyMacroLibraryReload()
 		}
 	}
 	legacyMacroLibraryButtons.AddItem(reloadButton)
+	continuousCheckbox, continuousEvents := eui.NewCheckbox()
+	continuousCheckbox.Text = legacyMacroContinuousLabel
+	continuousCheckbox.Size = eui.Point{X: 200, Y: legacyMacroLibraryButtonsHeight}
+	continuousCheckbox.Checked = gs.LegacyMacroContinuous
+	continuousCheckbox.SetTooltip("Allow a legacy macro to keep looping without pause or output. When off, goThoom stops it after 10,000 instructions as runaway-loop protection. The classic client has no instruction cap; it only time-slices busy macros so the game can continue updating. Changing this restarts the active macro program.")
+	continuousEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventCheckboxChanged {
+			legacyMacroLibrarySetAllowContinuous(event.Checked)
+		}
+	}
+	legacyMacroLibraryContinuous = continuousCheckbox
+	legacyMacroLibraryButtons.AddItem(continuousCheckbox)
 	errorsButton, errorsEvents := eui.NewButton()
+	errorsButton.Text = "Errors (0)"
 	errorsButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
 	errorsButton.SetTooltip("Show legacy macro parse and runtime errors.")
 	errorsEvents.Handle = func(event eui.UIEvent) {
@@ -115,6 +144,9 @@ func refreshLegacyMacroLibraryWindow() {
 		}
 	}
 	legacyMacroLibraryRefreshErrorsButton()
+	if legacyMacroLibraryContinuous != nil {
+		legacyMacroLibraryContinuous.Checked = gs.LegacyMacroContinuous
+	}
 	detailsWidth := legacyMacroLibraryDetailsWidth()
 
 	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
@@ -297,6 +329,25 @@ func legacyMacroLibraryReload() {
 	} else {
 		legacyMacroLibraryReport("macros reloaded")
 	}
+	refreshLegacyMacroLibraryWindow()
+}
+
+func legacyMacroLibrarySetAllowContinuous(enabled bool) {
+	SettingsLock.Lock()
+	gs.LegacyMacroContinuous = enabled
+	settingsDirty = true
+	SettingsLock.Unlock()
+
+	message := "continuous macros disabled; 10,000-instruction runaway-loop protection enabled"
+	if enabled {
+		message = "continuous macros enabled; classic time-slicing active"
+	}
+	if err := loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+		message += "; reload failed: " + err.Error()
+	} else {
+		message += "; macros reloaded"
+	}
+	legacyMacroLibraryReport(message)
 	refreshLegacyMacroLibraryWindow()
 }
 

@@ -74,8 +74,11 @@ You can also customize goThoom without modifying the program:
 ### Legacy macros
 
 Open **Actions → Legacy Macros** to browse the bundled macro library. Enable a
-macro globally or for a selected character, then use **Reload Macros** after
-editing it. Your own `.mac` files can be added to `Macros/Library/`.
+macro globally or for a selected character. Use **Refresh List** after adding,
+removing, or renaming files, and **Reload Macros** after editing an enabled
+macro. Your own `.mac` files can be added to `Macros/Library/`. Enable
+**Allow continuous macros** for classic macros that intentionally loop without
+pausing or producing output.
 
 Macro metadata and examples are documented in
 [METADATA.md](source/testdata/legacy_macros/web/METADATA.md). Legacy text

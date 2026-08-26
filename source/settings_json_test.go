@@ -55,6 +55,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.AltNetMode = false
 	want.AltNetDelay = 37
 	want.Enabledscripts = map[string]any{"hello": "all"}
+	want.LegacyMacroContinuous = true
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -76,6 +77,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"status_bar_placement": "upper_right"`,
 		`"alternate_network_delay_ms": 37`,
 		`"dark_mode_names_and_bubbles"`,
+		`"allow_continuous_legacy_macros": true`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("v4 settings missing %s", expected)

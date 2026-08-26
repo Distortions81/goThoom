@@ -213,6 +213,7 @@ var settingsSchema = []settingsSchemaEntry{
 
 	{field: "Enabledscripts", category: settingsScripts, name: "enabled"},
 	{field: "ScriptSpamKill", category: settingsScripts, name: "stop_spamming_scripts"},
+	{field: "LegacyMacroContinuous", category: settingsScripts, name: "allow_continuous_legacy_macros"},
 
 	{field: "LastUpdateCheck", category: settingsUpdates, name: "last_check"},
 	{field: "NotifiedVersion", category: settingsUpdates, name: "last_notified_version"},
