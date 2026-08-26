@@ -93,9 +93,10 @@ type mobileSunShadowCaster struct {
 }
 
 type mobileSunShadowReceiver struct {
-	index        uint8
-	footX, footY float64
-	radius       float64
+	index                 uint8
+	footX, footY          float64
+	radius                float64 // fallback for older callers and tests
+	halfWidth, halfHeight float64
 }
 
 var (
@@ -338,7 +339,14 @@ func mobileSunShadowReceiverFor(index uint8, texture characterShadowTexture, siz
 		baseScale := target / float64(texture.contentSize)
 		footY = float64(y) - target/2 + (texture.footY-float64(texture.padding))*baseScale
 	}
-	return mobileSunShadowReceiver{index: index, footX: float64(x), footY: footY, radius: target * 0.16}
+	return mobileSunShadowReceiver{
+		index:      index,
+		footX:      float64(x),
+		footY:      footY,
+		radius:     target * 0.14,
+		halfWidth:  target * 0.14,
+		halfHeight: target * 0.06,
+	}
 }
 
 func mobileSunShadowQuad(texture characterShadowTexture, size, x, y int, projection characterShadowProjection, upright bool) [4]shadowPoint {
@@ -369,24 +377,33 @@ func mobileSunShadowAmount(receiver mobileSunShadowReceiver, casters []mobileSun
 	if receiver.radius <= 0 {
 		return 0
 	}
-	offsets := [...]shadowPoint{
-		{0, 0}, {-1, 0}, {1, 0}, {0, -0.55}, {0, 0.55},
-		{-0.7, -0.4}, {0.7, -0.4}, {0.7, 0.4}, {-0.7, 0.4},
+	halfWidth, halfHeight := receiver.halfWidth, receiver.halfHeight
+	if halfWidth <= 0 {
+		halfWidth = receiver.radius
 	}
+	if halfHeight <= 0 {
+		halfHeight = receiver.radius
+	}
+	// Sample the receiver's expected ground-contact bounds against the exact
+	// projected shadow quad. A small regular grid gives stable partial coverage
+	// without the generous corners of the old circular hitbox.
+	offsets := [...]float64{-1, -0.5, 0, 0.5, 1}
 	coveredStrength := float32(0)
-	for _, offset := range offsets {
-		point := shadowPoint{receiver.footX + offset.x*receiver.radius, receiver.footY + offset.y*receiver.radius}
-		key := obscuringBlockKey{obscuringBlockCoordinate(int(math.Floor(point.x))), obscuringBlockCoordinate(int(math.Floor(point.y)))}
-		pointStrength := float32(0)
-		for _, casterIndex := range blocks[key] {
-			caster := casters[casterIndex]
-			if caster.index != receiver.index && caster.strength > pointStrength && pointInShadowQuad(point, caster.quad) {
-				pointStrength = caster.strength
+	for _, oy := range offsets {
+		for _, ox := range offsets {
+			point := shadowPoint{receiver.footX + ox*halfWidth, receiver.footY + oy*halfHeight}
+			key := obscuringBlockKey{obscuringBlockCoordinate(int(math.Floor(point.x))), obscuringBlockCoordinate(int(math.Floor(point.y)))}
+			pointStrength := float32(0)
+			for _, casterIndex := range blocks[key] {
+				caster := casters[casterIndex]
+				if caster.index != receiver.index && caster.strength > pointStrength && pointInShadowQuad(point, caster.quad) {
+					pointStrength = caster.strength
+				}
 			}
+			coveredStrength += pointStrength
 		}
-		coveredStrength += pointStrength
 	}
-	shade := coveredStrength / float32(len(offsets)) * mobileSunShadeScale
+	shade := coveredStrength / float32(len(offsets)*len(offsets)) * mobileSunShadeScale
 	if shade > maximumMobileSunShade {
 		shade = maximumMobileSunShade
 	}

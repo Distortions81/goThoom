@@ -15,9 +15,10 @@ func TestLocalLightingPositionRemovesSubimageOrigin(t *testing.T) {
 }
 
 func TestWorldArtworkFilterFollowsPixelArtSetting(t *testing.T) {
-	original := gs.PixelArtScaling
-	t.Cleanup(func() { gs.PixelArtScaling = original })
+	original := gs
+	t.Cleanup(func() { gs = original })
 
+	setArtworkUpscaleMode(artworkUpscaleBalanced)
 	gs.PixelArtScaling = true
 	if got := worldArtworkFilter(); got != ebiten.FilterNearest {
 		t.Fatalf("pixel-art filter = %v, want nearest", got)
@@ -25,6 +26,11 @@ func TestWorldArtworkFilterFollowsPixelArtSetting(t *testing.T) {
 	gs.PixelArtScaling = false
 	if got := worldArtworkFilter(); got != ebiten.FilterLinear {
 		t.Fatalf("smooth filter = %v, want linear", got)
+	}
+
+	setArtworkUpscaleMode(artworkUpscaleOff)
+	if got := worldArtworkFilter(); got != ebiten.FilterNearest {
+		t.Fatalf("disabled scaler filter = %v, want nearest", got)
 	}
 }
 

@@ -162,7 +162,11 @@ func updateGameImageSize() {
 }
 
 func worldArtworkFilter() ebiten.Filter {
-	if gs.PixelArtScaling {
+	// With the artwork scaler off, preserve hard pixel edges rather than
+	// falling back to linear filtering. The scaler's other modes provide their
+	// own reconstructed image, where Pixel Art Scaling still controls the final
+	// sampling choice.
+	if !artworkUpscaleEnabled() || gs.PixelArtScaling {
 		return ebiten.FilterNearest
 	}
 	return ebiten.FilterLinear
@@ -1505,6 +1509,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			// Apply lighting on the active subimage only
 			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
 		}
+		drawReplacementEffects(worldView)
 		if setupWizardPreviewActive {
 			drawSetupWizardSceneLabel(worldView, renderScale)
 		}
@@ -1606,6 +1611,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		frameLightCasters = frameLightCasters[:0]
 	}
 	frameContactShadowLights = frameContactShadowLights[:0]
+	beginReplacementEffects()
 
 	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
 	descMap := snap.descriptors
@@ -2197,14 +2203,6 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	if gs.hideMoving && p.Moving {
 		return
 	}
-	frame := 0
-	prevFrame := 0
-	if clImages != nil {
-		instanceKey := pictureAnimationInstanceKey(p.H, p.V)
-		prevInstanceKey := pictureAnimationInstanceKey(p.PrevH, p.PrevV)
-		frame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, instanceKey)
-		prevFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, prevInstanceKey)
-	}
 	plane := p.Plane
 
 	w, h := 0, 0
@@ -2227,8 +2225,18 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	if gs.FadeObscuringPictures {
 		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
 	}
-	if drawReplacementPictureEffect(screen, p.PictID, left, top, right-left, bottom-top, fadeAlpha) {
+	mobileImg, mobileX, mobileY, mobileTargetSize, effectInstanceKey := replacementEffectPlayerMask(ox, oy, p, mobiles, descMap, prevMobiles, shiftX, shiftY, alpha)
+	if queueReplacementPictureEffect(p.PictID, p.H, p.V, effectInstanceKey, left, top, right-left, bottom-top, fadeAlpha, mobileImg, mobileX, mobileY, mobileTargetSize) {
 		return
+	}
+
+	frame := 0
+	prevFrame := 0
+	if clImages != nil {
+		instanceKey := pictureAnimationInstanceKey(p.H, p.V)
+		prevInstanceKey := pictureAnimationInstanceKey(p.PrevH, p.PrevV)
+		frame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, instanceKey)
+		prevFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, prevInstanceKey)
 	}
 
 	img := loadImageFrame(p.PictID, frame)
@@ -2358,6 +2366,44 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			releaseTextDrawOpts(opTxt)
 		}
 	}
+}
+
+func replacementEffectPlayerMask(ox, oy int, p framePicture, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64) (*ebiten.Image, float64, float64, float64, uint64) {
+	if !replacementEffectReplacesPict(p.PictID) {
+		return nil, 0, 0, 0, 0
+	}
+	best := -1
+	bestDist := 65 * 65
+	for i, mobile := range mobiles {
+		desc, ok := descMap[mobile.Index]
+		if !ok || desc.Type == kDescNPC {
+			continue
+		}
+		dh := int(p.H) - int(mobile.H)
+		dv := int(p.V) - int(mobile.V)
+		dist := dh*dh + dv*dv
+		if dist < bestDist {
+			best, bestDist = i, dist
+		}
+	}
+	if best < 0 {
+		return nil, 0, 0, 0, 0
+	}
+	mobile := mobiles[best]
+	desc := descMap[mobile.Index]
+	colors := playerColorsForDescriptor(desc)
+	img := loadMobileFrame(desc.PictID, mobile.State, colors)
+	img = getScaledMobileFrame(makeMobileKey(desc.PictID, mobile.State, colors), img)
+	if img == nil {
+		return nil, 0, 0, 0, 0
+	}
+	size := mobileSize(desc.PictID)
+	if size <= 0 {
+		return nil, 0, 0, 0, 0
+	}
+	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
+	instanceKey := uint64(1)<<63 | uint64(mobile.Index)
+	return img, float64(x), float64(y), float64(roundToInt(float64(size) * gs.GameScale)), instanceKey
 }
 
 func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (int, int) {

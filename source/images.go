@@ -156,6 +156,9 @@ func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 	if id == 0xffff {
 		return nil
 	}
+	if replacementEffectReplacesPict(id) {
+		return nil
+	}
 	imageCacheLifecycleMu.RLock()
 	defer imageCacheLifecycleMu.RUnlock()
 	key := makeSheetKey(id, colors, forceTransparent)
@@ -280,6 +283,9 @@ func loadImage(id uint16) *ebiten.Image {
 // loadImageFrame retrieves a specific animation frame for the specified picture
 // ID. Frames are cached individually after the first load.
 func loadImageFrame(id uint16, frame int) *ebiten.Image {
+	if replacementEffectReplacesPict(id) {
+		return nil
+	}
 	origKey := makeImageKey(id, frame)
 	imageMu.Lock()
 	if img, ok := imageCache[origKey]; ok {
@@ -325,6 +331,9 @@ func loadImageFrame(id uint16, frame int) *ebiten.Image {
 // the state value provided by the server. The optional colors slice allows
 // caller-supplied palette overrides to be cached separately.
 func loadMobileFrame(id uint16, state uint8, colors []byte) *ebiten.Image {
+	if replacementEffectReplacesPict(id) {
+		return nil
+	}
 	baseKey := makeMobileKey(id, 0, colors)
 	key := baseKey
 	key.state = state

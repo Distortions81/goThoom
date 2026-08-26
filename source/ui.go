@@ -6224,13 +6224,15 @@ func makeDebugWindow() {
 	reloadBtn, reloadEv := eui.NewButton()
 	reloadBtn.Text = "Reload Shaders"
 	reloadBtn.Size = eui.Point{X: 160, Y: 24}
-	reloadBtn.SetTooltip("Recompile the lighting shader from data/shaders/light.kage")
+	reloadBtn.SetTooltip("Recompile lighting and replacement-effect shaders from data/shaders")
 	reloadEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if err := ReloadLightingShader(); err != nil {
 				consoleMessage("Shader reload failed:" + err.Error())
+			} else if err := ReloadReplacementEffectsShader(); err != nil {
+				consoleMessage("Shader reload failed:" + err.Error())
 			} else {
-				consoleMessage("Shader reloaded.")
+				consoleMessage("Shaders reloaded.")
 			}
 		}
 	}
