@@ -1,12 +1,30 @@
 package main
 
 import (
+	"image/color"
 	"math"
 	"testing"
 	"time"
 
+	"gothoom/climg"
 	"gothoom/eui"
 )
+
+func TestPlayfieldBackgroundColorUsesGammaCorrection(t *testing.T) {
+	oldImages := clImages
+	images := &climg.CLImages{}
+	clImages = images
+	t.Cleanup(func() { clImages = oldImages })
+
+	if got, want := playfieldBackgroundColor(), (color.RGBA{R: 0x88, G: 0x88, B: 0x88, A: 0xff}); got != want {
+		t.Fatalf("uncorrected background got %v, want %v", got, want)
+	}
+
+	images.SetGammaCorrection(true, 1.8, 2.2)
+	if got, want := playfieldBackgroundColor(), (color.RGBA{R: 0x98, G: 0x98, B: 0x98, A: 0xff}); got != want {
+		t.Fatalf("corrected background got %v, want %v", got, want)
+	}
+}
 
 func TestStopWalkIfOutside(t *testing.T) {
 	old := gs.ClickToToggle

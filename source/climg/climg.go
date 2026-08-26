@@ -765,6 +765,20 @@ func (c *CLImages) SetGammaCorrection(enabled bool, spriteGamma, monitorGamma fl
 	c.gammaMu.Unlock()
 }
 
+// GammaCorrectChannel applies the configured sprite gamma correction to one
+// color channel. Non-sprite drawing can use this to match decoded artwork.
+func (c *CLImages) GammaCorrectChannel(value uint8) uint8 {
+	if c == nil {
+		return value
+	}
+	c.gammaMu.RLock()
+	defer c.gammaMu.RUnlock()
+	if !c.gammaEnabled || len(c.gammaLUT) != 256 {
+		return value
+	}
+	return c.gammaLUT[value]
+}
+
 // FrameIndex returns the picture frame for the given global animation counter.
 // If no animation is defined for the image, it returns 0.
 func (c *CLImages) FrameIndex(id uint32, counter int) int {

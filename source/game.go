@@ -48,6 +48,14 @@ var (
 
 var uiMouseDown bool
 
+func playfieldBackgroundColor() color.RGBA {
+	shade := uint8(0x88)
+	if clImages != nil {
+		shade = clImages.GammaCorrectChannel(shade)
+	}
+	return color.RGBA{R: shade, G: shade, B: shade, A: 0xff}
+}
+
 func clearNameTagHoverReveals() {
 	nameTagHoverRevealMu.Lock()
 	clearMap(nameTagHoverReveals)
@@ -1489,7 +1497,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
-	gameImage.Fill(color.Black)
+	// Classic clears uncovered areas of the playfield to 0x8888 gray.
+	gameImage.Fill(playfieldBackgroundColor())
 	viewRect, renderScale := fittedWorldView(bufW, bufH)
 	worldViewRect = viewRect
 	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
