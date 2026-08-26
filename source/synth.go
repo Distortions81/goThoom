@@ -74,23 +74,19 @@ var newSynthesizer = func(sf *meltysynth.SoundFont, settings *meltysynth.Synthes
 
 func stopAllMusic() {
 	musicPlayersMu.Lock()
-	for p, track := range musicPlayers {
-		_ = p.Close()
+	for _, track := range musicPlayers {
 		_ = track.stream.Close()
-		delete(musicPlayers, p)
 	}
 	musicPlayersMu.Unlock()
 }
 
 func stopMusicFor(who int) {
 	musicPlayersMu.Lock()
-	for p, track := range musicPlayers {
+	for _, track := range musicPlayers {
 		if _, ok := track.whos[who]; !ok {
 			continue
 		}
-		_ = p.Close()
 		_ = track.stream.Close()
-		delete(musicPlayers, p)
 	}
 	musicPlayersMu.Unlock()
 }
@@ -109,6 +105,7 @@ func setupSynth() {
 	rs := bytes.NewReader(sfData)
 	sfnt, err := meltysynth.NewSoundFont(rs)
 	if err != nil {
+		log.Printf("load soundfont: %v", err)
 		return
 	}
 	settings := meltysynth.NewSynthesizerSettings(sampleRate)
@@ -172,7 +169,6 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	syn.ProcessMidiMessage(ch, 0xC0, int32(program), 0)
 
 	var events []songEvent
-	var maxEnd int
 	for _, n := range notes {
 		durSamples := int((n.Duration.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
 		if durSamples <= 0 {
@@ -181,9 +177,10 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 		startSamples := int((n.Start.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
 		ev := songEvent{key: n.Key, vel: n.Velocity, start: startSamples, end: startSamples + durSamples}
 		events = append(events, ev)
-		if ev.end > maxEnd {
-			maxEnd = ev.end
-		}
+	}
+	startsByKey := make(map[int][]int)
+	for i, ev := range events {
+		startsByKey[ev.key] = append(startsByKey[ev.key], i)
 	}
 	// Optional per-program release extension to avoid abrupt cuts on plucked
 	// instruments without affecting scheduling. Extend ends slightly but never
@@ -197,11 +194,6 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 		extraRelease = int(0.300 * sampleRate) // ~300ms
 	}
 	if extraRelease > 0 && len(events) > 0 {
-		// Build per-key indices of starts
-		startsByKey := make(map[int][]int)
-		for i, ev := range events {
-			startsByKey[ev.key] = append(startsByKey[ev.key], i)
-		}
 		for _, idxs := range startsByKey {
 			// For each occurrence of this key, extend end up to next start-1
 			for j, idx := range idxs {
@@ -220,11 +212,29 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 				}
 			}
 		}
-		// Recompute maxEnd
-		maxEnd = 0
-		for _, ev := range events {
-			if ev.end > maxEnd {
-				maxEnd = ev.end
+	}
+
+	// Rendering advances the synth in fixed blocks. Round note-offs toward the
+	// next block so a note is never released early merely because its end lands
+	// between two render boundaries.
+	maxEnd := 0
+	for _, idxs := range startsByKey {
+		for j, idx := range idxs {
+			originalEnd := events[idx].end
+			if remainder := events[idx].end % block; remainder != 0 {
+				events[idx].end += block - remainder
+			}
+			// Preserve an existing same-key retrigger in the containing block.
+			// Rounding its preceding note past this start would suppress the
+			// retrigger entirely because the synth still considers the key active.
+			if j+1 < len(idxs) {
+				nextStart := events[idxs[j+1]].start
+				if originalEnd <= nextStart && events[idx].end > nextStart {
+					events[idx].end = nextStart
+				}
+			}
+			if events[idx].end > maxEnd {
+				maxEnd = events[idx].end
 			}
 		}
 	}
@@ -288,6 +298,11 @@ func (r *songRenderer) render(count int) ([]float32, []float32, error) {
 // returned as an error so callers can fail gracefully instead of crashing the
 // entire client.
 func safeRender(s synthesizer, left, right []float32) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("synth panic: %v", recovered)
+		}
+	}()
 	s.Render(left, right)
 	return nil
 }
@@ -458,8 +473,13 @@ func mixPCM(leftAll, rightAll []float32) []byte {
 }
 
 const (
-	musicRenderSeconds = 1
-	musicBufferSeconds = 5
+	musicRenderSeconds       = 1
+	musicBufferSeconds       = 5
+	musicPlayerBuffer        = 2 * time.Second
+	musicPlaybackPoll        = 50 * time.Millisecond
+	musicPlaybackResumeEvery = 250 * time.Millisecond
+	musicPlaybackStall       = 10 * time.Second
+	musicPlaybackEndSlop     = 2 * musicPlaybackPoll
 	// Keep intermediate stream chunks aligned to the synthesizer's render
 	// block. Rendering a partial block advances meltysynth through the entire
 	// block, so discarding its unused tail would create a seam before the next
@@ -471,15 +491,20 @@ const (
 // block-aligned chunks (approximately five seconds) are produced before
 // playback starts; after that the renderer keeps the queue full.
 type musicStream struct {
-	chunks      chan []byte
-	done        chan struct{}
-	ready       chan struct{}
-	totalFrames int
-	once        sync.Once
-	readyOnce   sync.Once
-	data        []byte
-	err         error
-	mu          sync.Mutex
+	chunks       chan []byte
+	done         chan struct{}
+	ready        chan struct{}
+	exhausted    chan struct{}
+	producerDone chan struct{}
+	totalFrames  int
+	once         sync.Once
+	readyOnce    sync.Once
+	exhaustOnce  sync.Once
+	data         []byte
+	err          error
+	mu           sync.Mutex
+	lifecycleMu  sync.Mutex
+	closed       bool
 }
 
 func newMusicStream(program int, notes []Note) (*musicStream, error) {
@@ -510,17 +535,25 @@ func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
 		}
 	}
 	s := &musicStream{
-		chunks:      make(chan []byte, musicBufferSeconds),
-		done:        make(chan struct{}),
-		ready:       make(chan struct{}),
-		totalFrames: maxFrames,
+		chunks:       make(chan []byte, musicBufferSeconds),
+		done:         make(chan struct{}),
+		ready:        make(chan struct{}),
+		exhausted:    make(chan struct{}),
+		producerDone: make(chan struct{}),
+		totalFrames:  maxFrames,
 	}
-	go s.produceMixed(renderers)
+	go s.produceMixed(renderers, gs.MusicEnhancement)
 	<-s.ready // render five seconds before the caller starts the player
+	if err := s.renderError(); err != nil {
+		_ = s.Close()
+		s.waitForProducer()
+		return nil, fmt.Errorf("pre-render music: %w", err)
+	}
 	return s, nil
 }
 
-func (s *musicStream) produceMixed(renderers []*songRenderer) {
+func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool) {
+	defer close(s.producerDone)
 	defer close(s.chunks)
 	defer s.signalReady()
 	chunkFrames := musicChunkFrames
@@ -536,9 +569,7 @@ func (s *musicStream) produceMixed(renderers []*songRenderer) {
 			}
 			partLeft, partRight, err := renderer.render(min(frames, renderer.remaining()))
 			if err != nil {
-				s.mu.Lock()
-				s.err = err
-				s.mu.Unlock()
+				s.setRenderError(err)
 				return
 			}
 			for i := range partLeft {
@@ -546,7 +577,7 @@ func (s *musicStream) produceMixed(renderers []*songRenderer) {
 				right[i] += partRight[i]
 			}
 		}
-		if gs.MusicEnhancement {
+		if enhancement {
 			if reverb == nil {
 				reverb = newMusicReverb(sampleRate)
 			}
@@ -576,33 +607,95 @@ func (s *musicStream) signalReady() {
 	s.readyOnce.Do(func() { close(s.ready) })
 }
 
-// Read blocks only after the initial five-second buffer has been consumed.
-// That gives the render goroutine enough time to keep the audio device fed.
+func (s *musicStream) signalExhausted() {
+	if s.exhausted != nil {
+		s.exhaustOnce.Do(func() { close(s.exhausted) })
+	}
+}
+
+func (s *musicStream) isExhausted() bool {
+	if s.exhausted == nil {
+		return false
+	}
+	select {
+	case <-s.exhausted:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *musicStream) setRenderError(err error) {
+	s.mu.Lock()
+	s.err = err
+	s.mu.Unlock()
+}
+
+func (s *musicStream) renderError() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.err
+}
+
+// Read fills the player's request across as many rendered chunks as needed.
+// The producer blocks when its five-chunk queue is full and resumes as soon as
+// this consumes data, keeping both the render queue and player buffer topped up.
 func (s *musicStream) Read(p []byte) (int, error) {
-	for len(s.data) == 0 {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	n := 0
+	for n < len(p) {
+		if len(s.data) > 0 {
+			copied := copy(p[n:], s.data)
+			s.data = s.data[copied:]
+			n += copied
+			continue
+		}
+
 		select {
-		case s.data = <-s.chunks:
-			if s.data == nil {
-				s.mu.Lock()
-				err := s.err
-				s.mu.Unlock()
-				if err != nil {
-					return 0, err
-				}
-				return 0, io.EOF
+		case data, ok := <-s.chunks:
+			if !ok {
+				s.signalExhausted()
+				// Keep renderer failures out of the shared audio backend. The
+				// playback owner observes renderError and reports it separately.
+				return n, io.EOF
 			}
+			s.data = data
 		case <-s.done:
-			return 0, io.EOF
+			return n, io.EOF
 		}
 	}
-	n := copy(p, s.data)
-	s.data = s.data[n:]
 	return n, nil
 }
 
 func (s *musicStream) Close() error {
+	s.lifecycleMu.Lock()
+	s.closed = true
 	s.once.Do(func() { close(s.done) })
+	s.lifecycleMu.Unlock()
 	return nil
+}
+
+func (s *musicStream) waitForProducer() {
+	if s.producerDone != nil {
+		<-s.producerDone
+	}
+}
+
+func (s *musicStream) playIfOpen(player musicPlaybackPlayer) bool {
+	s.lifecycleMu.Lock()
+	open := !s.closed
+	s.lifecycleMu.Unlock()
+	if !open {
+		return false
+	}
+	// The playback owner is the only goroutine that closes player. A stop may
+	// close the stream after the check, but Play then observes clean EOF rather
+	// than racing a concurrent Player.Close call.
+	player.Play()
+	return true
 }
 
 // mixPCMChunk intentionally does not normalize each chunk: independent peak
@@ -642,6 +735,88 @@ func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared 
 	return playMusicGroup(ctx, []musicPart{{program: program, notes: notes}}, []int{who}, prepared, start)
 }
 
+type musicPlaybackPlayer interface {
+	Play()
+	IsPlaying() bool
+	Position() time.Duration
+}
+
+type musicPlaybackMonitor struct {
+	duration     time.Duration
+	lastPosition time.Duration
+	lastProgress time.Time
+	lastResume   time.Time
+	seenPlaying  bool
+}
+
+func newMusicPlaybackMonitor(now time.Time, duration time.Duration) *musicPlaybackMonitor {
+	return &musicPlaybackMonitor{duration: duration, lastProgress: now}
+}
+
+// update decides whether playback is complete, needs a resume attempt, or has
+// remained stopped long enough to report an error. Wall-clock song duration is
+// deliberately not a completion signal: device buffers and audio suspension
+// can leave valid PCM unplayed after that much real time has elapsed.
+func (monitor *musicPlaybackMonitor) update(now time.Time, playing bool, position time.Duration, exhausted bool, renderErr error) (complete, resume bool, err error) {
+	if position < 0 {
+		position = 0
+	}
+	if position > monitor.lastPosition {
+		monitor.lastPosition = position
+		monitor.lastProgress = now
+	}
+	if playing {
+		if !monitor.seenPlaying {
+			monitor.lastProgress = now
+		}
+		monitor.seenPlaying = true
+		return false, false, nil
+	}
+	if exhausted && renderErr != nil {
+		return false, false, fmt.Errorf("music rendering stopped: %w", renderErr)
+	}
+	if exhausted && position+musicPlaybackEndSlop >= monitor.duration {
+		return true, false, nil
+	}
+	if now.Sub(monitor.lastProgress) >= musicPlaybackStall {
+		return false, false, fmt.Errorf("music player stopped at %s of %s", position.Round(time.Millisecond), monitor.duration.Round(time.Millisecond))
+	}
+	if monitor.lastResume.IsZero() || now.Sub(monitor.lastResume) >= musicPlaybackResumeEvery {
+		monitor.lastResume = now
+		return false, true, nil
+	}
+	return false, false, nil
+}
+
+func waitForMusicPlayback(player musicPlaybackPlayer, stream *musicStream, duration time.Duration) error {
+	monitor := newMusicPlaybackMonitor(time.Now(), duration)
+	ticker := time.NewTicker(musicPlaybackPoll)
+	defer ticker.Stop()
+	recoveryLogged := false
+
+	for {
+		select {
+		case <-stream.done:
+			return nil
+		case now := <-ticker.C:
+			complete, resume, err := monitor.update(now, player.IsPlaying(), player.Position(), stream.isExhausted(), stream.renderError())
+			if err != nil {
+				return err
+			}
+			if complete {
+				return nil
+			}
+			if resume {
+				if monitor.seenPlaying && !recoveryLogged {
+					log.Printf("music player stopped before its buffered audio ended; attempting to resume")
+					recoveryLogged = true
+				}
+				stream.playIfOpen(player)
+			}
+		}
+	}
+}
+
 func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}) error {
 
 	if ctx == nil {
@@ -662,11 +837,13 @@ func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared 
 	player, err := ctx.NewPlayer(stream)
 	if err != nil {
 		_ = stream.Close()
+		stream.waitForProducer()
 		if prepared != nil {
 			prepared()
 		}
 		return err
 	}
+	player.SetBufferSize(musicPlayerBuffer)
 
 	vol := gs.MasterVolume * gs.MusicVolume
 	if gs.Mute || focusMuted {
@@ -681,45 +858,29 @@ func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared 
 	}
 	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos}
 	musicPlayersMu.Unlock()
+	defer func() {
+		_ = stream.Close()
+		stream.waitForProducer()
+		musicPlayersMu.Lock()
+		delete(musicPlayers, player)
+		musicPlayersMu.Unlock()
+		_ = player.Close()
+	}()
 
 	if prepared != nil {
 		prepared()
 	}
 	if start != nil {
-		<-start
-	}
-	player.Play()
-
-	// Oto can report IsPlaying false briefly before its first audio callback.
-	// Keep the stream alive for its rendered duration instead of treating that
-	// transient state as an ended song.
-	playDuration := time.Duration(stream.totalFrames) * time.Second / sampleRate
-	timer := time.NewTimer(playDuration + 100*time.Millisecond)
-	select {
-	case <-timer.C:
-	case <-stream.done:
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
+		select {
+		case <-start:
+		case <-stream.done:
+			return nil
 		}
 	}
+	stream.playIfOpen(player)
 
-	musicPlayersMu.Lock()
-	delete(musicPlayers, player)
-	musicPlayersMu.Unlock()
-
-	_ = stream.Close()
-	// A scoped or global music stop can close the player before this owner
-	// goroutine wakes on stream.done. Closing twice is expected in that case.
-	_ = player.Close()
-	return nil
-}
-
-// safeIsPlaying checks IsPlaying and recovers if the player has been closed.
-func safeIsPlaying(p *audio.Player) (ok bool) {
-	return p.IsPlaying()
+	playDuration := time.Duration(stream.totalFrames) * time.Second / sampleRate
+	return waitForMusicPlayback(player, stream, playDuration)
 }
 
 // dumpPCMAsWAV writes the provided 16-bit stereo PCM data to a WAV file when

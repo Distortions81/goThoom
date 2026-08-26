@@ -475,13 +475,6 @@ func updateSoundVolume() {
 	}
 	ttsPlayersMu.Unlock()
 
-	musicPlayersMu.Lock()
-	music := make([]*audio.Player, 0, len(musicPlayers))
-	for p := range musicPlayers {
-		music = append(music, p)
-	}
-	musicPlayersMu.Unlock()
-
 	stopped := make([]*audio.Player, 0)
 	notifStopped := make([]*audio.Player, 0)
 	for _, sp := range players {
@@ -508,13 +501,15 @@ func updateSoundVolume() {
 		}
 	}
 
-	for _, p := range music {
+	musicPlayersMu.Lock()
+	for p := range musicPlayers {
 		// A music player is registered before its five-second prebuffered group
 		// is released. IsPlaying is therefore false while it is validly waiting
 		// to start; closing it here silences every bard in that group. The music
 		// playback goroutine owns its lifecycle and removes it on completion.
 		p.SetVolume(musicVol)
 	}
+	musicPlayersMu.Unlock()
 
 	if len(stopped) > 0 {
 		soundMu.Lock()

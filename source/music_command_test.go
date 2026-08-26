@@ -74,7 +74,7 @@ func TestMusicCommandWho(t *testing.T) {
 	}
 }
 
-func TestScopedMusicStopOnlyClosesMatchingBard(t *testing.T) {
+func TestScopedMusicStopOnlySignalsMatchingBard(t *testing.T) {
 	first, err := audioContext.NewPlayer(bytes.NewReader([]byte{0, 0, 0, 0}))
 	if err != nil {
 		t.Fatalf("first player: %v", err)
@@ -88,11 +88,13 @@ func TestScopedMusicStopOnlyClosesMatchingBard(t *testing.T) {
 		return &musicStream{done: make(chan struct{})}
 	}
 
+	firstStream := newStream()
+	secondStream := newStream()
 	musicPlayersMu.Lock()
 	originalPlayers := musicPlayers
 	musicPlayers = map[*audio.Player]musicTrack{
-		first:  {stream: newStream(), whos: map[int]struct{}{123: {}}},
-		second: {stream: newStream(), whos: map[int]struct{}{456: {}}},
+		first:  {stream: firstStream, whos: map[int]struct{}{123: {}}},
+		second: {stream: secondStream, whos: map[int]struct{}{456: {}}},
 	}
 	musicPlayersMu.Unlock()
 	t.Cleanup(func() {
@@ -106,11 +108,15 @@ func TestScopedMusicStopOnlyClosesMatchingBard(t *testing.T) {
 	if !parseMusicCommand("/music/W123/S", nil) {
 		t.Fatal("scoped stop command was not handled")
 	}
-	if err := first.Close(); err == nil {
-		t.Fatal("matching bard player remained open")
+	select {
+	case <-firstStream.done:
+	default:
+		t.Fatal("matching bard stream was not stopped")
 	}
-	if err := second.Close(); err != nil {
-		t.Fatalf("unrelated bard player was closed: %v", err)
+	select {
+	case <-secondStream.done:
+		t.Fatal("unrelated bard stream was stopped")
+	default:
 	}
 }
 

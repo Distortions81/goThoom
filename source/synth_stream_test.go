@@ -2,9 +2,13 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
+	"io"
 	"math"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -37,6 +41,28 @@ func (*bufferedStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}
 func (*bufferedStreamSynth) NoteOn(int32, int32, int32)                    {}
 func (*bufferedStreamSynth) NoteOff(int32, int32)                          {}
 func (*bufferedStreamSynth) Render(left, right []float32)                  {}
+
+type panickingStreamSynth struct{}
+
+func (*panickingStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}
+func (*panickingStreamSynth) NoteOn(int32, int32, int32)                    {}
+func (*panickingStreamSynth) NoteOff(int32, int32)                          {}
+func (*panickingStreamSynth) Render([]float32, []float32)                   { panic("render failed") }
+
+type timingStreamSynth struct {
+	rendered int
+	noteOns  []int
+	noteOffs []int
+}
+
+func (*timingStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}
+func (s *timingStreamSynth) NoteOn(int32, int32, int32) {
+	s.noteOns = append(s.noteOns, s.rendered)
+}
+func (s *timingStreamSynth) NoteOff(int32, int32) {
+	s.noteOffs = append(s.noteOffs, s.rendered)
+}
+func (s *timingStreamSynth) Render(left, _ []float32) { s.rendered += len(left) }
 
 type sequentialStreamSynth struct{ next int }
 
@@ -73,6 +99,164 @@ func TestMusicChunksPreserveSynthContinuity(t *testing.T) {
 	}
 }
 
+func TestSafeRenderConvertsSynthPanicToError(t *testing.T) {
+	err := safeRender(&panickingStreamSynth{}, make([]float32, block), make([]float32, block))
+	if err == nil || !strings.Contains(err.Error(), "render failed") {
+		t.Fatalf("safeRender error = %v, want recovered panic", err)
+	}
+}
+
+func TestMusicStreamReadFillsAcrossBufferedChunks(t *testing.T) {
+	stream := &musicStream{
+		chunks: make(chan []byte, 2),
+		done:   make(chan struct{}),
+	}
+	stream.chunks <- []byte{1, 2}
+	stream.chunks <- []byte{3, 4}
+	close(stream.chunks)
+
+	buf := make([]byte, 4)
+	n, err := stream.Read(buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if n != len(buf) || !slices.Equal(buf, []byte{1, 2, 3, 4}) {
+		t.Fatalf("Read = %d, %v; want 4, [1 2 3 4]", n, buf)
+	}
+}
+
+func TestMusicStreamRenderErrorBecomesCleanEOF(t *testing.T) {
+	stream := &musicStream{
+		chunks:    make(chan []byte),
+		done:      make(chan struct{}),
+		exhausted: make(chan struct{}),
+	}
+	stream.setRenderError(errors.New("render failed"))
+	close(stream.chunks)
+
+	if n, err := stream.Read(make([]byte, 4)); n != 0 || !errors.Is(err, io.EOF) {
+		t.Fatalf("Read = %d, %v; want clean EOF", n, err)
+	}
+	if !stream.isExhausted() {
+		t.Fatal("stream did not record exhaustion")
+	}
+	if err := stream.renderError(); err == nil || err.Error() != "render failed" {
+		t.Fatalf("renderError = %v", err)
+	}
+}
+
+func TestMusicPlaybackMonitorDoesNotFinishFromWallClock(t *testing.T) {
+	started := time.Unix(1, 0)
+	monitor := newMusicPlaybackMonitor(started, 10*time.Second)
+	complete, resume, err := monitor.update(started.Add(time.Hour), true, 5*time.Second, true, nil)
+	if err != nil || complete || resume {
+		t.Fatalf("update = complete:%t resume:%t err:%v, want active playback", complete, resume, err)
+	}
+}
+
+func TestMusicPlaybackMonitorResumesBeforeBufferedEnd(t *testing.T) {
+	started := time.Unix(1, 0)
+	monitor := newMusicPlaybackMonitor(started, 10*time.Second)
+	monitor.update(started.Add(time.Second), true, time.Second, false, nil)
+	complete, resume, err := monitor.update(started.Add(2*time.Second), false, time.Second, true, nil)
+	if err != nil || complete || !resume {
+		t.Fatalf("update = complete:%t resume:%t err:%v, want resume", complete, resume, err)
+	}
+}
+
+func TestMusicPlaybackMonitorFinishesAfterBufferedEnd(t *testing.T) {
+	started := time.Unix(1, 0)
+	monitor := newMusicPlaybackMonitor(started, 10*time.Second)
+	complete, resume, err := monitor.update(started.Add(10*time.Second), false, 10*time.Second, true, nil)
+	if err != nil || !complete || resume {
+		t.Fatalf("update = complete:%t resume:%t err:%v, want complete", complete, resume, err)
+	}
+}
+
+func TestMusicPlaybackMonitorResetsStallAfterDelayedStart(t *testing.T) {
+	started := time.Unix(1, 0)
+	monitor := newMusicPlaybackMonitor(started, 10*time.Second)
+	monitor.update(started.Add(9*time.Second), false, 0, false, nil)
+	monitor.update(started.Add(11*time.Second), true, 0, false, nil)
+	complete, _, err := monitor.update(started.Add(12*time.Second), false, 0, false, nil)
+	if err != nil || complete {
+		t.Fatalf("update = complete:%t err:%v, want recovery window after delayed start", complete, err)
+	}
+}
+
+func TestMusicNoteOffRoundsToLaterRenderBoundary(t *testing.T) {
+	origSynth := newSynthesizer
+	origFont := sfntCached
+	origSettings := synthSettings
+	t.Cleanup(func() {
+		newSynthesizer = origSynth
+		setupSynthOnce = sync.Once{}
+		sfntCached = origFont
+		synthSettings = origSettings
+	})
+
+	timing := &timingStreamSynth{}
+	newSynthesizer = func(*meltysynth.SoundFont, *meltysynth.SynthesizerSettings) (synthesizer, error) {
+		return timing, nil
+	}
+	setupSynthOnce = sync.Once{}
+	sfntCached = &meltysynth.SoundFont{}
+	synthSettings = meltysynth.NewSynthesizerSettings(sampleRate)
+
+	originalEnd := block + block/2
+	duration := time.Duration(originalEnd) * time.Second / sampleRate
+	renderer, err := newSongRenderer(0, []Note{{Key: 60, Velocity: 100, Duration: duration}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := renderer.events[0].end; got < originalEnd || got%block != 0 {
+		t.Fatalf("aligned note end = %d, want a render boundary at or after %d", got, originalEnd)
+	}
+	if _, _, err := renderer.render(renderer.totalSamples); err != nil {
+		t.Fatal(err)
+	}
+	if len(timing.noteOffs) != 1 || timing.noteOffs[0] < originalEnd {
+		t.Fatalf("note offs = %v, want no release before sample %d", timing.noteOffs, originalEnd)
+	}
+}
+
+func TestMusicNoteOffRoundingPreservesSameKeyRetrigger(t *testing.T) {
+	origSynth := newSynthesizer
+	origFont := sfntCached
+	origSettings := synthSettings
+	t.Cleanup(func() {
+		newSynthesizer = origSynth
+		setupSynthOnce = sync.Once{}
+		sfntCached = origFont
+		synthSettings = origSettings
+	})
+
+	timing := &timingStreamSynth{}
+	newSynthesizer = func(*meltysynth.SoundFont, *meltysynth.SynthesizerSettings) (synthesizer, error) {
+		return timing, nil
+	}
+	setupSynthOnce = sync.Once{}
+	sfntCached = &meltysynth.SoundFont{}
+	synthSettings = meltysynth.NewSynthesizerSettings(sampleRate)
+
+	toDuration := func(samples int) time.Duration {
+		return time.Duration((int64(samples)*int64(time.Second) + sampleRate/2) / sampleRate)
+	}
+	renderer, err := newSongRenderer(25, []Note{
+		{Key: 60, Velocity: 100, Duration: toDuration(block + block/2)},
+		{Key: 60, Velocity: 100, Start: toDuration(block + 3*block/4), Duration: toDuration(block)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := renderer.render(renderer.totalSamples); err != nil {
+		t.Fatal(err)
+	}
+	if len(timing.noteOns) != 2 {
+		t.Fatalf("note ons = %v, want both same-key notes retriggered", timing.noteOns)
+	}
+}
+
 func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	origSynth := newSynthesizer
 	origFont := sfntCached
@@ -98,7 +282,10 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newMusicStream: %v", err)
 	}
-	defer stream.Close()
+	defer func() {
+		_ = stream.Close()
+		stream.waitForProducer()
+	}()
 
 	buf := make([]byte, musicChunkFrames*4)
 	for i := 0; i < musicBufferSeconds; i++ {
@@ -137,7 +324,10 @@ func TestMusicStreamRefillsConsumedChunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newMusicStream: %v", err)
 	}
-	defer stream.Close()
+	defer func() {
+		_ = stream.Close()
+		stream.waitForProducer()
+	}()
 
 	buf := make([]byte, musicChunkFrames*4)
 	if n, err := stream.Read(buf); err != nil || n != len(buf) {
@@ -175,7 +365,10 @@ func TestMusicStreamProducesAudiblePCM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newMusicStream: %v", err)
 	}
-	defer stream.Close()
+	defer func() {
+		_ = stream.Close()
+		stream.waitForProducer()
+	}()
 
 	pcm := make([]byte, musicChunkFrames*4)
 	if n, err := stream.Read(pcm); err != nil || n != len(pcm) {
