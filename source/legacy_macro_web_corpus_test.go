@@ -3,7 +3,6 @@ package main
 import (
 	"embed"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -428,7 +427,7 @@ func TestLegacyMacroWebCorpusChessHelp(t *testing.T) {
 	}
 }
 
-func TestLegacyMacroWebCorpusRightClickerUsesClassicSingleStageExpansion(t *testing.T) {
+func TestLegacyMacroWebCorpusRightClickerUsesClassicAssignmentExpansion(t *testing.T) {
 	program := legacyMacroWebFixtureProgram(t, "gorvin-right-clicker.mac")
 	var sent, messages []string
 	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
@@ -467,14 +466,13 @@ func TestLegacyMacroWebCorpusRightClickerUsesClassicSingleStageExpansion(t *test
 	for frame := int64(1); frame <= 8; frame++ {
 		runtime.advance(frame)
 	}
-	if len(sent) != 0 {
-		t.Fatalf("sent = %#v, want no recursively dereferenced action", sent)
+	if got, want := sent, []string{"/pull BobJones"}; !equalStrings(got, want) {
+		t.Fatalf("sent = %#v, want %#v", got, want)
 	}
-	if len(messages) != 1 || messages[0] != "* Using Fighter right-click settings." {
+	if got, want := messages, []string{"* Using Fighter right-click settings.", "Click timer started."}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v", messages)
 	}
-	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 1 ||
-		!strings.Contains(diagnostics[0].Message, `function "gRC_right_click_player" is not defined`) {
+	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
 		t.Fatalf("runtime diagnostics = %#v", diagnostics)
 	}
 	runtime.cancelAll()

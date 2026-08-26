@@ -4542,6 +4542,7 @@ func showPopup(title, message string, buttons []popupButton, extras ...*eui.Item
 		txt, _ := eui.NewText()
 		txt.Text = wrapped
 		txt.FontSize = 12
+		txt.SelectableText = true
 		// Slight width fudge to avoid right-edge clipping from rounding
 		fudgeUnits := float32(2.0 / float64(uiScale))
 		txt.Size = eui.Point{X: float32(innerPx/float64(uiScale)) + fudgeUnits, Y: heightUnits}

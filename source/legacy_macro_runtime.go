@@ -824,7 +824,7 @@ func (runtime *legacyMacroRuntime) setVariableLocked(line legacyMacroLine, execu
 		for _, token := range line.Tokens[2:] {
 			value.WriteString(runtime.expandValueTokenLocked(token, execution))
 		}
-		target[name] = value.String()
+		target[name] = runtime.expandAssignedValueLocked(value.String(), execution, global)
 		return nil
 	}
 
@@ -837,8 +837,23 @@ func (runtime *legacyMacroRuntime) setVariableLocked(line legacyMacroLine, execu
 	if err != nil {
 		return err
 	}
-	target[name] = result
+	target[name] = runtime.expandAssignedValueLocked(result, execution, global)
 	return nil
+}
+
+// The classic runtime expands command parameters once, then SetVariable runs
+// CopyExpression again before storing the result. This second, non-recursive
+// lookup is what lets macros construct a variable name through repeated set +
+// operations and retrieve its value on the final assignment.
+func (runtime *legacyMacroRuntime) expandAssignedValueLocked(value string, execution *legacyMacroExecution, global bool) string {
+	lookupExecution := execution
+	if global {
+		lookupExecution = nil
+	}
+	if expanded, ok := runtime.expandedVariableLocked(value, lookupExecution); ok {
+		return expanded
+	}
+	return value
 }
 
 func legacyMacroSetOperation(operation string) bool {

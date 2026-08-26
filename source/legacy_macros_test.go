@@ -1273,14 +1273,14 @@ func TestLegacyMacroRuntimeDynamicIndexesAndTextExpansion(t *testing.T) {
 	if got, want := sent, []string{"/say lmissing"}; !equalStrings(got, want) {
 		t.Fatalf("sent = %#v, want %#v", got, want)
 	}
-	if got, want := messages, []string{"indirect:  answer", "status: ready", "picked:  one missing", "2 / 4"}; !equalStrings(got, want) {
+	if got, want := messages, []string{"indirect:  ready", "status: ready", "picked:  one missing", "2 / 4"}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v, want %#v", got, want)
 	}
 	runtime.advance(1)
 	if !execution.complete || execution.diagnostic != nil {
 		t.Fatalf("execution = %#v, want successful completion", execution)
 	}
-	if got, want := messages, []string{"indirect:  answer", "status: ready", "picked:  one missing", "2 / 4", "helper  changed"}; !equalStrings(got, want) {
+	if got, want := messages, []string{"indirect:  ready", "status: ready", "picked:  one missing", "2 / 4", "helper  changed"}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v, want %#v", got, want)
 	}
 	if got := runtime.globalsSnapshot()["table[1]"]; got != "changed" {
