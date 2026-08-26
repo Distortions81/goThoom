@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -204,7 +205,7 @@ func TestLegacyMacroWebCorpusKeysAndQuickchainHelp(t *testing.T) {
 	if !quickchainRuntime.triggerExpression("testqchain", 0) {
 		t.Fatal("testqchain did not start")
 	}
-	if got, want := quickchainMessages, []string{"chainlock10"}; !equalStrings(got, want) {
+	if got, want := quickchainMessages, []string{"chainlock 10"}; !equalStrings(got, want) {
 		t.Fatalf("quickchain messages = %#v, want %#v", got, want)
 	}
 	if diagnostics := quickchainRuntime.diagnosticsSnapshot(); len(diagnostics) != 0 {
@@ -427,7 +428,7 @@ func TestLegacyMacroWebCorpusChessHelp(t *testing.T) {
 	}
 }
 
-func TestLegacyMacroWebCorpusRightClickerUsesConstructedVariables(t *testing.T) {
+func TestLegacyMacroWebCorpusRightClickerUsesClassicSingleStageExpansion(t *testing.T) {
 	program := legacyMacroWebFixtureProgram(t, "gorvin-right-clicker.mac")
 	var sent, messages []string
 	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{
@@ -466,13 +467,14 @@ func TestLegacyMacroWebCorpusRightClickerUsesConstructedVariables(t *testing.T) 
 	for frame := int64(1); frame <= 8; frame++ {
 		runtime.advance(frame)
 	}
-	if got, want := sent, []string{"/pull BobJones"}; !equalStrings(got, want) {
-		t.Fatalf("sent = %#v, want %#v", got, want)
+	if len(sent) != 0 {
+		t.Fatalf("sent = %#v, want no recursively dereferenced action", sent)
 	}
-	if len(messages) < 2 || messages[0] != "* Using Fighter right-click settings." || messages[1] != "Click timer started." {
+	if len(messages) != 1 || messages[0] != "* Using Fighter right-click settings." {
 		t.Fatalf("messages = %#v", messages)
 	}
-	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 0 {
+	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) != 1 ||
+		!strings.Contains(diagnostics[0].Message, `function "gRC_right_click_player" is not defined`) {
 		t.Fatalf("runtime diagnostics = %#v", diagnostics)
 	}
 	runtime.cancelAll()
@@ -552,7 +554,7 @@ func TestLegacyMacroWebCorpusAdditionalGorvinCommands(t *testing.T) {
 	}
 	lastRuntime.advance(0)
 	if got, want := lastMessages, []string{
-		"* Now counting kills on:Haremau Kitten",
+		"* Now counting kills on: Haremau Kitten",
 		"Use /lasts+ and /lasts- to manually adjust kill counts if needed.",
 	}; !equalStrings(got, want) {
 		t.Fatalf("last-counter messages = %#v, want %#v", got, want)

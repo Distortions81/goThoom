@@ -433,7 +433,7 @@ func (runtime *legacyMacroRuntime) triggerReplacementWithSelection(text string, 
 }
 
 func legacyMacroReplacementBreak(char rune) bool {
-	return !unicode.IsLetter(char) && !unicode.IsDigit(char)
+	return char == ' ' || char == '\t' || char == '\r' || char == '\n'
 }
 
 func legacyMacroTriggerExpression(text string, frame int64) bool {

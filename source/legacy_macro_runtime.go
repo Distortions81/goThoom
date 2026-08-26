@@ -6,13 +6,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
-	legacyMacroMaxStepsPerTick      = 64
 	legacyMacroMaxStepsPerExecution = 10000
 	legacyMacroMaxCallDepth         = 32
 	legacyMacroMaxHistory           = 256
+	legacyMacroFriendlyTimeSlice    = 5 * time.Millisecond
 )
 
 type legacyMacroRuntimeHooks struct {
@@ -24,6 +25,7 @@ type legacyMacroRuntimeHooks struct {
 	Complete     func(*legacyMacroExecution)
 	RandomInt    func(int) int
 	ResolveState func(string) (string, bool)
+	Now          func() time.Time
 }
 
 // legacyMacroMove is the native movement command accepted by the reference
@@ -158,8 +160,10 @@ func legacyMacroQueueText(text string) {
 	if text == "" {
 		return
 	}
+	if dispatchLocalCommand(text) {
+		return
+	}
 	enqueueCommand(text)
-	nextCommand()
 }
 
 func (runtime *legacyMacroRuntime) startFunction(name string) (*legacyMacroExecution, error) {
@@ -284,10 +288,14 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 	}
 	execution.waitUntil = 0
 
-	// The classic client yields a busy macro after a short time slice but does
-	// not impose an instruction limit. This per-tick slice always keeps the game
-	// responsive; the optional limit below is an additional goThoom safeguard.
-	for step := 0; step < legacyMacroMaxStepsPerTick; step++ {
+	// Friendly macros yield after the same short, time-based slice used by the
+	// classic client. @env.unfriendly deliberately disables that yield.
+	sliceStarted := runtime.nowLocked()
+	for step := 0; ; step++ {
+		if step > 0 && step%64 == 0 && !runtime.boolVariableLocked("@env.unfriendly", execution) &&
+			runtime.nowLocked().Sub(sliceStarted) > legacyMacroFriendlyTimeSlice {
+			return
+		}
 		if returnAt := strings.IndexByte(execution.buffer, '\r'); returnAt >= 0 {
 			if execution.kind == legacyMacroReplacement {
 				execution.buffer = execution.buffer[:returnAt]
@@ -329,6 +337,7 @@ func (runtime *legacyMacroRuntime) advanceExecutionLocked(execution *legacyMacro
 			}
 		}
 		runtime.executeLineLocked(execution, currentFrame, lineIndex, line, frame)
+		runtime.debugLineLocked(execution, line)
 		if execution.complete || execution.waitUntil > frame {
 			return
 		}
@@ -380,8 +389,8 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 			runtime.failExecutionLocked(execution, line, "pause requires one frame count")
 			return
 		}
-		frames, err := strconv.Atoi(runtime.expandTokenLocked(line.Tokens[1], execution))
-		if err != nil {
+		frames, ok := legacyMacroStringToInt(runtime.expandTokenLocked(line.Tokens[1], execution))
+		if !ok {
 			runtime.failExecutionLocked(execution, line, "pause frame count must be a number")
 			return
 		}
@@ -414,11 +423,11 @@ func (runtime *legacyMacroRuntime) executeLineLocked(execution *legacyMacroExecu
 		}
 		execution.frames = append(execution.frames, legacyMacroCallFrame{declaration: index, elseIfLine: -1})
 	case strings.EqualFold(first.Text, "message"), strings.EqualFold(first.Text, "msg"):
-		var message strings.Builder
+		arguments := make([]string, 0, len(line.Tokens)-1)
 		for _, token := range line.Tokens[1:] {
-			message.WriteString(runtime.expandTextTokenLocked(token, execution))
+			arguments = append(arguments, runtime.expandTextTokenLocked(token, execution))
 		}
-		runtime.messageLocked(message.String())
+		runtime.messageLocked(strings.Join(arguments, " "))
 	case strings.EqualFold(first.Text, "equip"), strings.EqualFold(first.Text, "unequip"):
 		if len(line.Tokens) < 2 {
 			runtime.failExecutionLocked(execution, line, first.Text+" requires an item or slot")
@@ -646,9 +655,9 @@ func (runtime *legacyMacroRuntime) randomIntLocked(limit int) int {
 }
 
 func legacyMacroCompare(left, comparison, right string) (bool, error) {
-	leftNumber, leftErr := strconv.Atoi(left)
-	rightNumber, rightErr := strconv.Atoi(right)
-	if leftErr == nil && rightErr == nil {
+	leftNumber, leftIsNumber := legacyMacroStringToInt(left)
+	rightNumber, rightIsNumber := legacyMacroStringToInt(right)
+	if leftIsNumber && rightIsNumber {
 		switch comparison {
 		case ">":
 			return leftNumber > rightNumber, nil
@@ -842,10 +851,8 @@ func legacyMacroSetOperation(operation string) bool {
 }
 
 func legacyMacroOperate(left, operation, right string) (string, error) {
-	leftNumber, leftErr := strconv.Atoi(left)
-	rightNumber, rightErr := strconv.Atoi(right)
-	leftIsNumber := leftErr == nil
-	rightIsNumber := rightErr == nil
+	leftNumber, leftIsNumber := legacyMacroStringToInt(left)
+	rightNumber, rightIsNumber := legacyMacroStringToInt(right)
 
 	switch operation {
 	case "+":
@@ -904,54 +911,18 @@ func (runtime *legacyMacroRuntime) expandTokenLocked(token legacyMacroToken, exe
 }
 
 func (runtime *legacyMacroRuntime) expandTextTokenLocked(token legacyMacroToken, execution *legacyMacroExecution) string {
-	if token.Quote != 0 {
-		return token.Text
-	}
-	value, _ := runtime.expandedVariableLocked(token.Text, execution)
-	return value
+	return runtime.expandTokenLocked(token, execution)
 }
 
 func (runtime *legacyMacroRuntime) expandValueTokenLocked(token legacyMacroToken, execution *legacyMacroExecution) string {
-	if token.Quote != 0 {
-		return token.Text
-	}
-	if value, ok := runtime.expandedVariableLocked(token.Text, execution); ok {
-		return value
-	}
-	if _, err := strconv.Atoi(token.Text); err == nil || strings.EqualFold(token.Text, "true") || strings.EqualFold(token.Text, "false") {
-		return token.Text
-	}
-	return ""
+	return runtime.expandTokenLocked(token, execution)
 }
 
-// expandedVariableLocked follows values that name another variable. Several
-// established macros construct names such as "@my.right_item" or
-// "gRC_right_click_player" at runtime and then read through them.
+// expandedVariableLocked performs the single lookup used by CopyExpression in
+// the classic client. A value that happens to name another variable is data;
+// it is not recursively dereferenced.
 func (runtime *legacyMacroRuntime) expandedVariableLocked(name string, execution *legacyMacroExecution) (string, bool) {
-	value, ok := runtime.variableLocked(name, execution)
-	if !ok {
-		return "", false
-	}
-	if strings.HasPrefix(legacyMacroReadVariableName(name), "@") {
-		return value, true
-	}
-	seen := map[string]bool{strings.ToLower(name): true}
-	for depth := 0; depth < legacyMacroMaxCallDepth; depth++ {
-		key := strings.ToLower(value)
-		if seen[key] {
-			break
-		}
-		next, exists := runtime.variableLocked(value, execution)
-		if !exists {
-			break
-		}
-		seen[key] = true
-		value = next
-		if strings.HasPrefix(legacyMacroReadVariableName(key), "@") {
-			break
-		}
-	}
-	return value, true
+	return runtime.variableLocked(name, execution)
 }
 
 func (runtime *legacyMacroRuntime) variableLocked(name string, execution *legacyMacroExecution) (string, bool) {
@@ -999,8 +970,8 @@ func (runtime *legacyMacroRuntime) expandIndexedNameLocked(name string, executio
 		close := open + 1 + closeOffset
 		expanded.WriteString(name[:open+1])
 		indexName := strings.TrimSpace(name[open+1 : close])
-		if _, err := strconv.Atoi(indexName); err == nil {
-			expanded.WriteString(indexName)
+		if index, ok := legacyMacroStringToInt(indexName); ok {
+			expanded.WriteString(strconv.Itoa(index))
 		} else {
 			index, ok := runtime.variableLockedDepth(indexName, execution, depth+1)
 			if !ok {
@@ -1011,6 +982,57 @@ func (runtime *legacyMacroRuntime) expandIndexedNameLocked(name string, executio
 		expanded.WriteByte(']')
 		name = name[close+1:]
 	}
+}
+
+func legacyMacroStringToInt(value string) (int, bool) {
+	value = strings.TrimLeft(value, " \t\r\n\v\f")
+	if value == "" {
+		return 0, false
+	}
+	end := 0
+	if value[0] == '+' || value[0] == '-' {
+		end++
+	}
+	digitStart := end
+	for end < len(value) && value[end] >= '0' && value[end] <= '9' {
+		end++
+	}
+	if end == digitStart {
+		return 0, false
+	}
+	number, err := strconv.Atoi(value[:end])
+	return number, err == nil
+}
+
+func (runtime *legacyMacroRuntime) boolVariableLocked(name string, execution *legacyMacroExecution) bool {
+	value, ok := runtime.variableLocked(name, execution)
+	return ok && strings.EqualFold(value, "true")
+}
+
+func (runtime *legacyMacroRuntime) debugLineLocked(execution *legacyMacroExecution, line legacyMacroLine) {
+	if execution.complete || len(line.Tokens) == 0 || !runtime.boolVariableLocked("@env.debug", execution) {
+		return
+	}
+	first := line.Tokens[0]
+	if first.Quote != 0 || strings.EqualFold(first.Text, "message") || strings.EqualFold(first.Text, "msg") {
+		return
+	}
+	arguments := make([]string, 0, len(line.Tokens))
+	for index, token := range line.Tokens {
+		if index == 1 && (strings.EqualFold(first.Text, "set") || strings.EqualFold(first.Text, "setglobal")) {
+			arguments = append(arguments, token.Text)
+			continue
+		}
+		arguments = append(arguments, runtime.expandTokenLocked(token, execution))
+	}
+	runtime.messageLocked("• MACRO " + strings.Join(arguments, " "))
+}
+
+func (runtime *legacyMacroRuntime) nowLocked() time.Time {
+	if runtime.hooks.Now != nil {
+		return runtime.hooks.Now()
+	}
+	return time.Now()
 }
 
 func (runtime *legacyMacroRuntime) variableBaseLocked(name string, execution *legacyMacroExecution) (string, bool) {
@@ -1141,4 +1163,12 @@ func advanceLegacyMacros(frame int64) {
 	if runtime != nil {
 		runtime.advance(frame)
 	}
+}
+
+func cancelLegacyMacros() int {
+	runtime := legacyMacroRuntimeSnapshot()
+	if runtime == nil {
+		return 0
+	}
+	return runtime.cancelAll()
 }

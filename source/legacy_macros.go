@@ -502,7 +502,7 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 					})
 					continue
 				}
-				includePath, err := legacyMacroIncludePath(line.Source.Path, tokens[1].Text)
+				includePath, err := legacyMacroIncludePath(tokens[1].Text)
 				if err != nil {
 					program.Diagnostics = append(program.Diagnostics, legacyMacroDiagnostic{
 						Location: tokenLocation(line, tokens[1]),
@@ -543,7 +543,7 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 	return program
 }
 
-func legacyMacroIncludePath(includingPath, includeName string) (string, error) {
+func legacyMacroIncludePath(includeName string) (string, error) {
 	if filepath.IsAbs(includeName) {
 		return "", fmt.Errorf("included macro file %q must be relative", includeName)
 	}
@@ -551,7 +551,7 @@ func legacyMacroIncludePath(includingPath, includeName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve macro directory: %w", err)
 	}
-	candidate, err := filepath.Abs(filepath.Join(filepath.Dir(includingPath), includeName))
+	candidate, err := filepath.Abs(filepath.Join(base, includeName))
 	if err != nil {
 		return "", fmt.Errorf("resolve included macro file %q: %w", includeName, err)
 	}

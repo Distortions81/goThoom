@@ -806,10 +806,12 @@ func parseInterruptCommand(s string) bool {
 	// Only act on a standalone interrupt directive, not arbitrary substrings.
 	if ss == "/m_interrupt" || strings.HasPrefix(ss, "/m_interrupt ") {
 		// Seeking replays old interrupt frames only to rebuild visual state.
-		// They must not cancel music that starts once seeking has completed.
+		// They must not cancel music or macros that start once seeking has
+		// completed.
 		if blockMusic {
 			return true
 		}
+		cancelLegacyMacros()
 		stopAllMusic()
 		clearTuneQueue()
 		return true

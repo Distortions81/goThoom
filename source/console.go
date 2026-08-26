@@ -20,7 +20,7 @@ func consoleMessageTyped(msg, messageType string) {
 	if wasmPrivacyActive() {
 		return
 	}
-	legacyMacroSetTextLog(msg)
+	legacyMacroSetDisplayedTextLog(msg, gs.ConsoleTimestamps)
 	if msg == "You have been idle for too long." {
 		showNotification(msg)
 		playSound([]uint16{sndTink})

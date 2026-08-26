@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 )
 
@@ -77,9 +79,31 @@ var legacyMacroTextLog struct {
 }
 
 func legacyMacroSetTextLog(text string) {
+	legacyMacroSetDisplayedTextLog(text, false)
+}
+
+func legacyMacroSetDisplayedTextLog(text string, timestamps bool) {
+	if timestamps {
+		text = legacyMacroTimestampedTextLog(text, time.Now())
+	}
 	legacyMacroTextLog.Lock()
 	legacyMacroTextLog.text = text
 	legacyMacroTextLog.Unlock()
+}
+
+func legacyMacroTimestampedTextLog(text string, now time.Time) string {
+	hour := now.Hour()
+	ampm := byte('a')
+	if hour >= 12 {
+		ampm = 'p'
+	}
+	hour %= 12
+	if hour == 0 {
+		hour = 12
+	}
+	return fmt.Sprintf("%d/%d/%.2d %d:%.2d:%.2d%c %s",
+		int(now.Month()), now.Day(), now.Year()%100,
+		hour, now.Minute(), now.Second(), ampm, text)
 }
 
 func legacyMacroTextLogValue() string {
@@ -151,14 +175,14 @@ func legacyMacroEquippedItemName(slot int) string {
 
 func legacyMacroSelectedItemName() string {
 	if selectedInvID == 0 {
-		return ""
+		return "Nothing"
 	}
 	for _, item := range getInventory() {
 		if item.ID == selectedInvID && item.IDIndex == selectedInvIdx {
 			return item.Name
 		}
 	}
-	return ""
+	return "Nothing"
 }
 
 func legacyMacroShares(outbound bool) string {
@@ -263,8 +287,8 @@ func legacyMacroApplyTextTrailers(value, trailers string) string {
 			if end < len(".word[") {
 				return value
 			}
-			index, err := strconv.Atoi(strings.TrimSpace(trailers[len(".word["):end]))
-			if err != nil {
+			index, ok := legacyMacroStringToInt(strings.TrimSpace(trailers[len(".word["):end]))
+			if !ok {
 				return value
 			}
 			words := strings.Fields(value)
@@ -279,8 +303,8 @@ func legacyMacroApplyTextTrailers(value, trailers string) string {
 			if end < len(".letter[") {
 				return value
 			}
-			index, err := strconv.Atoi(strings.TrimSpace(trailers[len(".letter["):end]))
-			if err != nil {
+			index, ok := legacyMacroStringToInt(strings.TrimSpace(trailers[len(".letter["):end]))
+			if !ok {
 				return value
 			}
 			letters := []rune(value)

@@ -972,57 +972,8 @@ func (g *Game) Update() error {
 					txt = strings.TrimSpace(orig)
 				}
 				if txt != "" {
-					if strings.HasPrefix(txt, "/play ") {
-						tune := strings.TrimSpace(txt[len("/play "):])
-						if musicDebug {
-							msg := "/play " + tune
-							consoleMessage(msg)
-							chatMessage(msg)
-							log.Print(msg)
-						}
-						go func() {
-							if err := playClanLordTune(tune); err != nil {
-								log.Printf("play tune: %v", err)
-								if musicDebug {
-									consoleMessage("play tune: " + err.Error())
-									chatMessage("play tune: " + err.Error())
-								}
-							}
-						}()
-					} else {
-						// Try built-in or script-registered commands first
-						if strings.HasPrefix(txt, "/") {
-							lower := strings.ToLower(txt)
-							if strings.HasPrefix(lower, "/testhooks") {
-								consoleMessage("> " + txt)
-								arg := strings.TrimSpace(txt[len("/testhooks"):])
-								testScriptHooks(arg)
-							} else {
-								parts := strings.SplitN(strings.TrimPrefix(txt, "/"), " ", 2)
-								name := strings.ToLower(parts[0])
-								args := ""
-								if len(parts) > 1 {
-									args = parts[1]
-								}
-								if handler, ok := scriptCommands[name]; ok && handler != nil {
-									owner := scriptCommandOwners[name]
-									if !scriptDisabled[owner] {
-										consoleMessage("> " + txt)
-										scriptLogEvent(owner, "Command", args)
-										handler(args)
-									} else {
-										// Disabled script commands should fall through so the
-										// server still receives the user's input.
-										enqueueCommand(txt)
-									}
-								} else {
-									enqueueCommand(txt)
-								}
-							}
-						} else {
-							enqueueCommand(txt)
-						}
-						// consoleMessage("> " + txt)
+					if !dispatchLocalCommand(txt) {
+						enqueueCommand(txt)
 					}
 					inputHistory = append(inputHistory, txt)
 				}
@@ -1316,6 +1267,61 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+// dispatchLocalCommand runs commands owned by the client. It is shared by
+// typed input and legacy macro output so both paths have identical behavior.
+// The return value reports whether the command was consumed locally.
+func dispatchLocalCommand(txt string) bool {
+	if strings.HasPrefix(txt, "/play ") {
+		tune := strings.TrimSpace(txt[len("/play "):])
+		if musicDebug {
+			msg := "/play " + tune
+			consoleMessage(msg)
+			chatMessage(msg)
+			log.Print(msg)
+		}
+		go func() {
+			if err := playClanLordTune(tune); err != nil {
+				log.Printf("play tune: %v", err)
+				if musicDebug {
+					consoleMessage("play tune: " + err.Error())
+					chatMessage("play tune: " + err.Error())
+				}
+			}
+		}()
+		return true
+	}
+	if !strings.HasPrefix(txt, "/") {
+		return false
+	}
+
+	lower := strings.ToLower(txt)
+	if strings.HasPrefix(lower, "/testhooks") {
+		consoleMessage("> " + txt)
+		arg := strings.TrimSpace(txt[len("/testhooks"):])
+		testScriptHooks(arg)
+		return true
+	}
+
+	parts := strings.SplitN(strings.TrimPrefix(txt, "/"), " ", 2)
+	name := strings.ToLower(parts[0])
+	args := ""
+	if len(parts) > 1 {
+		args = parts[1]
+	}
+	handler, ok := scriptCommands[name]
+	if !ok || handler == nil {
+		return false
+	}
+	owner := scriptCommandOwners[name]
+	if scriptDisabled[owner] {
+		return false
+	}
+	consoleMessage("> " + txt)
+	scriptLogEvent(owner, "Command", args)
+	handler(args)
+	return true
 }
 
 func stopWalkIfOutside(click, inGame bool) {

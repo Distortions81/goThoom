@@ -26,7 +26,7 @@ func chatMessageTyped(msg, messageType string) {
 	if wasmPrivacyActive() {
 		return
 	}
-	legacyMacroSetTextLog(msg)
+	legacyMacroSetDisplayedTextLog(msg, gs.ChatTimestamps)
 
 	speaker := chatSpeaker(msg)
 	if speaker != "" {

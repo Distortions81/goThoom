@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -115,7 +116,10 @@ func TestLegacyMacroParserCommentsEscapesAndIncludes(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "Gaia"), []byte(root), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "nested", "extra"), []byte("// ignored\nf1 \"/wave\\r\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "nested", "extra"), []byte("// ignored\ninclude \"base\"\nf1 \"/wave\\r\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "base"), []byte("f2 \"/bow\\r\"\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -126,11 +130,181 @@ func TestLegacyMacroParserCommentsEscapesAndIncludes(t *testing.T) {
 	if len(program.Diagnostics) != 0 {
 		t.Fatalf("unexpected diagnostics: %#v", program.Diagnostics)
 	}
-	if len(program.Files) != 2 || program.Files[1].Name != "nested/extra" {
+	if len(program.Files) != 3 || program.Files[1].Name != "nested/extra" || program.Files[2].Name != "base" {
 		t.Fatalf("files = %#v", program.Files)
 	}
-	if len(program.Lines) != 1 || program.Lines[0].Tokens[1].Text != "/wave\r" {
+	if len(program.Lines) != 2 || program.Lines[0].Tokens[1].Text != "/bow\r" || program.Lines[1].Tokens[1].Text != "/wave\r" {
 		t.Fatalf("lines = %#v", program.Lines)
+	}
+}
+
+func TestLegacyMacroNumericPrefixesMatchClassic(t *testing.T) {
+	for _, test := range []struct {
+		value string
+		want  int
+		ok    bool
+	}{
+		{value: "12:34:56p", want: 12, ok: true},
+		{value: " -7 trailing", want: -7, ok: true},
+		{value: "+3", want: 3, ok: true},
+		{value: "timestamp", ok: false},
+	} {
+		got, ok := legacyMacroStringToInt(test.value)
+		if got != test.want || ok != test.ok {
+			t.Errorf("legacyMacroStringToInt(%q) = (%d, %t), want (%d, %t)", test.value, got, ok, test.want, test.ok)
+		}
+	}
+	if matched, err := legacyMacroCompare("12:34:56p message", ">", "9"); err != nil || !matched {
+		t.Fatalf("numeric-prefix comparison = (%t, %v), want (true, nil)", matched, err)
+	}
+}
+
+func TestLegacyMacroTextLogClassicTimestamp(t *testing.T) {
+	now := time.Date(2026, time.August, 26, 0, 5, 9, 0, time.Local)
+	if got, want := legacyMacroTimestampedTextLog("healing message", now), "8/26/26 12:05:09a healing message"; got != want {
+		t.Fatalf("timestamped text log = %q, want %q", got, want)
+	}
+}
+
+func TestLegacyMacroSelectedItemDefaultsToNothing(t *testing.T) {
+	originalID, originalIndex := selectedInvID, selectedInvIdx
+	selectedInvID = 0
+	selectedInvIdx = 0
+	t.Cleanup(func() {
+		selectedInvID = originalID
+		selectedInvIdx = originalIndex
+	})
+	if got := legacyMacroSelectedItemName(); got != "Nothing" {
+		t.Fatalf("selected item = %q, want Nothing", got)
+	}
+}
+
+func TestLegacyMacroDebugAndUnfriendlyRuntimeBehavior(t *testing.T) {
+	debugProgram := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "debug",
+		Path: filepath.Join(t.TempDir(), "debug"),
+		Text: strings.Join([]string{
+			"run",
+			"{",
+			"set @env.debug true",
+			"set value Moonstone",
+			"message value",
+			"}",
+		}, "\n"),
+	}})
+	var messages []string
+	debugRuntime := newLegacyMacroRuntimeWithHooks(debugProgram, legacyMacroRuntimeHooks{
+		Message: func(message string) { messages = append(messages, message) },
+	})
+	execution, err := debugRuntime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	debugRuntime.advance(0)
+	if !execution.complete || execution.diagnostic != nil {
+		t.Fatalf("debug execution = %#v", execution)
+	}
+	if got, want := messages, []string{"• MACRO set @env.debug true", "• MACRO set value Moonstone", "Moonstone"}; !equalStrings(got, want) {
+		t.Fatalf("debug messages = %#v, want %#v", got, want)
+	}
+
+	makeSliceProgram := func(unfriendly bool) legacyMacroProgram {
+		lines := []string{"run", "{"}
+		if unfriendly {
+			lines = append(lines, "set @env.unfriendly true")
+		}
+		for range 130 {
+			lines = append(lines, `"x"`)
+		}
+		lines = append(lines, "}")
+		return parseLegacyMacroSources([]legacyMacroSource{{
+			Name: "slice",
+			Path: filepath.Join(t.TempDir(), "slice"),
+			Text: strings.Join(lines, "\n"),
+		}})
+	}
+	clock := func() func() time.Time {
+		calls := 0
+		return func() time.Time {
+			result := time.Unix(0, 0).Add(time.Duration(calls) * 6 * time.Millisecond)
+			calls++
+			return result
+		}
+	}
+	friendlyRuntime := newLegacyMacroRuntimeWithHooks(makeSliceProgram(false), legacyMacroRuntimeHooks{Now: clock()})
+	friendly, err := friendlyRuntime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	friendlyRuntime.advance(0)
+	if friendly.complete {
+		t.Fatal("friendly macro ignored its time slice")
+	}
+
+	unfriendlyRuntime := newLegacyMacroRuntimeWithHooks(makeSliceProgram(true), legacyMacroRuntimeHooks{Now: clock()})
+	unfriendly, err := unfriendlyRuntime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unfriendlyRuntime.advance(0)
+	if !unfriendly.complete || unfriendly.diagnostic != nil {
+		t.Fatalf("unfriendly execution = %#v, want completion without a friendly time slice", unfriendly)
+	}
+}
+
+func TestLegacyMacroOutputUsesLocalCommandDispatcher(t *testing.T) {
+	originalCommands := scriptCommands
+	originalOwners := scriptCommandOwners
+	originalDisabled := scriptDisabled
+	scriptCommands = map[string]scriptCommandHandler{}
+	scriptCommandOwners = map[string]string{}
+	scriptDisabled = map[string]bool{}
+	t.Cleanup(func() {
+		scriptCommands = originalCommands
+		scriptCommandOwners = originalOwners
+		scriptDisabled = originalDisabled
+	})
+
+	var got string
+	scriptCommands["compat"] = func(args string) { got = args }
+	scriptCommandOwners["compat"] = "test"
+	legacyMacroQueueText("/compat hello world")
+	if got != "hello world" {
+		t.Fatalf("local macro command args = %q, want hello world", got)
+	}
+}
+
+func TestServerMacroInterruptCancelsActiveLegacyMacros(t *testing.T) {
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Name: "interrupt",
+		Path: filepath.Join(t.TempDir(), "interrupt"),
+		Text: "run\n{\npause 100\n}\n",
+	}})
+	runtime := newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{})
+	execution, err := runtime.startFunction("run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.advance(0)
+
+	legacyMacrosMu.Lock()
+	originalRuntime := legacyMacrosRuntime
+	legacyMacrosRuntime = runtime
+	legacyMacrosMu.Unlock()
+	originalBlockMusic := blockMusic
+	blockMusic = false
+	t.Cleanup(func() {
+		legacyMacrosMu.Lock()
+		legacyMacrosRuntime = originalRuntime
+		legacyMacrosMu.Unlock()
+		blockMusic = originalBlockMusic
+	})
+
+	if !parseInterruptCommand("/m_interrupt") {
+		t.Fatal("server macro interrupt was not handled")
+	}
+	if !execution.complete || len(runtime.active) != 0 {
+		t.Fatalf("execution after interrupt = %#v, active = %d", execution, len(runtime.active))
 	}
 }
 
@@ -380,7 +554,7 @@ func TestLegacyMacroRuntimeCoreCommands(t *testing.T) {
 	if got, want := sent, []string{"/say friend"}; !equalStrings(got, want) {
 		t.Fatalf("first send = %#v, want %#v", got, want)
 	}
-	if got, want := messages, []string{"hello world"}; !equalStrings(got, want) {
+	if got, want := messages, []string{"hello  world"}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v, want %#v", got, want)
 	}
 	if execution.complete {
@@ -811,7 +985,7 @@ func TestLegacyMacroObsoleteMessageAndClickAliases(t *testing.T) {
 	if started, _ := runtime.triggerClick(event, 0); !started {
 		t.Fatal("right click did not trigger")
 	}
-	if got, want := messages, []string{"clicked AnneMarie"}; !equalStrings(got, want) {
+	if got, want := messages, []string{"clicked  AnneMarie"}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v, want %#v", got, want)
 	}
 }
@@ -1096,17 +1270,17 @@ func TestLegacyMacroRuntimeDynamicIndexesAndTextExpansion(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.advance(0)
-	if got, want := sent, []string{"/say l"}; !equalStrings(got, want) {
+	if got, want := sent, []string{"/say lmissing"}; !equalStrings(got, want) {
 		t.Fatalf("sent = %#v, want %#v", got, want)
 	}
-	if got, want := messages, []string{"indirect: ready", "status: ready", "picked: one", "2/4"}; !equalStrings(got, want) {
+	if got, want := messages, []string{"indirect:  answer", "status: ready", "picked:  one missing", "2 / 4"}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v, want %#v", got, want)
 	}
 	runtime.advance(1)
 	if !execution.complete || execution.diagnostic != nil {
 		t.Fatalf("execution = %#v, want successful completion", execution)
 	}
-	if got, want := messages, []string{"indirect: ready", "status: ready", "picked: one", "2/4", "helper changed"}; !equalStrings(got, want) {
+	if got, want := messages, []string{"indirect:  answer", "status: ready", "picked:  one missing", "2 / 4", "helper  changed"}; !equalStrings(got, want) {
 		t.Fatalf("messages = %#v, want %#v", got, want)
 	}
 	if got := runtime.globalsSnapshot()["table[1]"]; got != "changed" {
@@ -1355,6 +1529,7 @@ func TestLegacyMacroReplacementExpansion(t *testing.T) {
 		Path: filepath.Join(t.TempDir(), "test"),
 		Text: strings.Join([]string{
 			"'brb' \"be right back\"",
+			"'can\\'t' \"cannot\"",
 			"'drop'",
 			"{",
 			"}",
@@ -1374,8 +1549,12 @@ func TestLegacyMacroReplacementExpansion(t *testing.T) {
 		t.Fatalf("brb replacement = (%q, %d, %t)", updated, cursor, handled)
 	}
 	updated, cursor, handled = runtime.triggerReplacement("say (brb", len([]rune("say (brb")))
-	if !handled || updated != "say (be right back" || cursor != len([]rune(updated)) {
-		t.Fatalf("punctuation replacement = (%q, %d, %t)", updated, cursor, handled)
+	if handled || updated != "say (brb" || cursor != len([]rune(updated)) {
+		t.Fatalf("punctuation boundary replacement = (%q, %d, %t)", updated, cursor, handled)
+	}
+	updated, cursor, handled = runtime.triggerReplacement("say can't", len([]rune("say can't")))
+	if !handled || updated != "say cannot" || cursor != len([]rune(updated)) {
+		t.Fatalf("punctuation trigger replacement = (%q, %d, %t)", updated, cursor, handled)
 	}
 	updated, cursor, handled = runtime.triggerReplacement("say drop", len([]rune("say drop")))
 	if !handled || updated != "say" || cursor != len([]rune("say")) {
