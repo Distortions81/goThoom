@@ -1775,6 +1775,30 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	}
 }
 
+// ensureToolbarAccessible prevents a docked toolbar from disappearing with the
+// window that contains it. This also repairs a saved layout whose host window
+// was closed when the client last exited.
+func ensureToolbarAccessible() {
+	if toolbarRoot == nil {
+		return
+	}
+
+	var host *eui.WindowData
+	switch gs.ToolbarPlacement {
+	case ToolbarInInventory:
+		host = inventoryWin
+	case ToolbarInPlayers:
+		host = playersWin
+	default:
+		return
+	}
+	if host == nil || host.IsOpen() {
+		return
+	}
+
+	placeToolbar(ToolbarFloating, true)
+}
+
 func updateToolbarStats() {
 	if gs.ToolbarPlacement == ToolbarFloating && hudWin != nil {
 		hudWin.Title = fmt.Sprintf("Toolbar - FPS: %4.0f Loss: %0.0f%% Ping: %s Jit: %s",
@@ -6240,6 +6264,17 @@ func makeDebugWindow() {
 	shaderRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	shaderRow.AddItem(reloadBtn)
 	shaderSection.AddItem(shaderRow)
+
+	previewEffectsBtn, previewEffectsEvents := eui.NewButton()
+	previewEffectsBtn.Text = "Toggle Effects Preview"
+	previewEffectsBtn.Size = eui.Point{X: width, Y: 24}
+	previewEffectsBtn.SetTooltip("Shows every replacement effect together in the game view")
+	previewEffectsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			replacementEffectsPreview = !replacementEffectsPreview
+		}
+	}
+	shaderSection.AddItem(previewEffectsBtn)
 
 	// Force Night dropdown in Debug: Auto/Day/25/50/75/100
 	forceNightDD, forceNightEv := eui.NewDropdown()

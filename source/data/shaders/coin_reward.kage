@@ -1,0 +1,142 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var SpriteLightOnly float
+var CoinValue float
+var CoinDigits vec4
+var CoinDigitCount float
+
+func hseg(p vec2, y float) float {
+	return max(0, 1-abs(p.y-y)/0.030) * max(0, 1-abs(p.x)/0.092)
+}
+
+func vseg(p vec2, x, y float) float {
+	return max(0, 1-abs(p.x-x)/0.030) * max(0, 1-abs(p.y-y)/0.082)
+}
+
+func hsegOutline(p vec2, y float) float {
+	return max(0, 1-abs(p.y-y)/0.038) * max(0, 1-abs(p.x)/0.096)
+}
+
+func vsegOutline(p vec2, x, y float) float {
+	return max(0, 1-abs(p.x-x)/0.038) * max(0, 1-abs(p.y-y)/0.086)
+}
+
+func digitSegments(p vec2, digit float) float {
+	a, b, c, d, e, f, g := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+	if digit != 1.0 && digit != 4.0 { a = hseg(p, -0.100) }
+	if digit != 5.0 && digit != 6.0 { b = vseg(p, 0.070, -0.050) }
+	if digit != 2.0 { c = vseg(p, 0.070, 0.050) }
+	if digit != 1.0 && digit != 4.0 && digit != 7.0 { d = hseg(p, 0.100) }
+	if digit == 0.0 || digit == 2.0 || digit == 6.0 || digit == 8.0 { e = vseg(p, -0.070, 0.050) }
+	if digit != 1.0 && digit != 2.0 && digit != 3.0 && digit != 7.0 { f = vseg(p, -0.070, -0.050) }
+	if digit == 2.0 || digit == 3.0 || digit == 4.0 || digit == 5.0 || digit == 6.0 || digit == 8.0 || digit == 9.0 { g = hseg(p, 0.0) }
+	return min(1, a+b+c+d+e+f+g)
+}
+
+func digitOutline(p vec2, digit float) float {
+	a, b, c, d, e, f, g := 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+	if digit != 1.0 && digit != 4.0 { a = hsegOutline(p, -0.100) }
+	if digit != 5.0 && digit != 6.0 { b = vsegOutline(p, 0.070, -0.050) }
+	if digit != 2.0 { c = vsegOutline(p, 0.070, 0.050) }
+	if digit != 1.0 && digit != 4.0 && digit != 7.0 { d = hsegOutline(p, 0.100) }
+	if digit == 0.0 || digit == 2.0 || digit == 6.0 || digit == 8.0 { e = vsegOutline(p, -0.070, 0.050) }
+	if digit != 1.0 && digit != 2.0 && digit != 3.0 && digit != 7.0 { f = vsegOutline(p, -0.070, -0.050) }
+	if digit == 2.0 || digit == 3.0 || digit == 4.0 || digit == 5.0 || digit == 6.0 || digit == 8.0 || digit == 9.0 { g = hsegOutline(p, 0.0) }
+	return min(1, a+b+c+d+e+f+g)
+}
+
+func glint(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	t := Phase
+	count := max(1, floor(CoinDigitCount + 0.5))
+	// Unlike magic animations, the source frame is a stable denomination.
+	// Keep the coin present for as long as its picture is present.
+	life := 1.0
+
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := imageSrc0At(srcPos).a
+		light := body*(0.020+0.035*glint(t*14.0)) * life * Alpha
+		return vec4(vec3(1.0, 0.67, 0.08)*light, light)
+	}
+
+	// Every source frame is a denomination, so render exactly one centered coin
+	// and use a seven-segment numeral for its 0-9 value.
+	// A small width oscillation and traveling highlight give the coin a metallic
+	// turn without moving its denomination away from the reward position.
+	tilt := 0.88 + 0.12*sin(t*5.0)
+	coinAspect := 1.0 + 0.24*(count-1.0)
+	coinP := vec2(p.x/(tilt*coinAspect), p.y)
+	d := length(coinP)
+	disc := max(0, 1-d/0.420)
+	rim := max(0, 1-abs(d-0.345)/0.030)
+	innerRim := max(0, 1-abs(d-0.265)/0.014)
+	shine := disc * max(0, 1-abs(coinP.x+coinP.y*0.62+sin(t*4.0)*0.13)/0.026)
+	star := max(0, 1-(abs(coinP.x+0.115)+abs(coinP.y+0.115))*8.0) * glint(t*18.0)
+	starB := max(0, 1-(abs(coinP.x-0.145)+abs(coinP.y-0.070))*9.0) * glint(t*16.0+1.9)
+	goldGlow := max(0, 1-d/0.56) * 0.20 * (0.45+0.55*glint(t*8.0))
+	// A short, bright payout flash and two offset four-point stars make the
+	// coin unmistakably metallic even at its original tiny sprite size.
+	flash := max(0, 1-(abs(coinP.x)*1.8+abs(coinP.y)*0.42)*2.3) * glint(t*10.0)
+	flash += max(0, 1-(abs(coinP.x)*0.42+abs(coinP.y)*1.8)*2.3) * glint(t*10.0)
+	starC := max(0, 1-(abs(coinP.x+0.30)+abs(coinP.y-0.20))*6.5) * glint(t*13.0+0.8)
+	starD := max(0, 1-(abs(coinP.x-0.27)+abs(coinP.y+0.17))*7.0) * glint(t*15.0+2.4)
+
+	q := coinP * 0.60
+	glyphQ := q
+	if count == 2.0 {
+		glyphQ *= 1.25
+		glyphQ.x += 0.030
+	} else if count == 3.0 {
+		glyphQ *= 1.55
+		glyphQ.x += 0.060
+	} else if count >= 4.0 {
+		glyphQ *= 1.90
+		glyphQ.x += 0.075
+	}
+	numeral := digitSegments(glyphQ, floor(CoinDigits.x+0.5))
+	outline := digitOutline(glyphQ, floor(CoinDigits.x+0.5))
+	if count == 2.0 {
+		numeral = max(digitSegments(glyphQ+vec2(0.18, 0), floor(CoinDigits.x+0.5)), digitSegments(glyphQ-vec2(0.18, 0), floor(CoinDigits.y+0.5)))
+		outline = max(digitOutline(glyphQ+vec2(0.18, 0), floor(CoinDigits.x+0.5)), digitOutline(glyphQ-vec2(0.18, 0), floor(CoinDigits.y+0.5)))
+	} else if count == 3.0 {
+		numeral = max(digitSegments(glyphQ+vec2(0.21, 0), floor(CoinDigits.x+0.5)), max(digitSegments(glyphQ, floor(CoinDigits.y+0.5)), digitSegments(glyphQ-vec2(0.21, 0), floor(CoinDigits.z+0.5))))
+		outline = max(digitOutline(glyphQ+vec2(0.21, 0), floor(CoinDigits.x+0.5)), max(digitOutline(glyphQ, floor(CoinDigits.y+0.5)), digitOutline(glyphQ-vec2(0.21, 0), floor(CoinDigits.z+0.5))))
+	} else if count >= 4.0 {
+		numeral = max(digitSegments(glyphQ+vec2(0.21, 0), floor(CoinDigits.x+0.5)), max(digitSegments(glyphQ+vec2(0.07, 0), floor(CoinDigits.y+0.5)), max(digitSegments(glyphQ-vec2(0.07, 0), floor(CoinDigits.z+0.5)), digitSegments(glyphQ-vec2(0.21, 0), floor(CoinDigits.w+0.5)))))
+		outline = max(digitOutline(glyphQ+vec2(0.21, 0), floor(CoinDigits.x+0.5)), max(digitOutline(glyphQ+vec2(0.07, 0), floor(CoinDigits.y+0.5)), max(digitOutline(glyphQ-vec2(0.07, 0), floor(CoinDigits.z+0.5)), digitOutline(glyphQ-vec2(0.21, 0), floor(CoinDigits.w+0.5)))))
+	}
+	intensity := min(1, (disc*0.94+rim*1.55+innerRim*0.70+shine*1.45+star*1.25+starB+starC*1.10+starD+flash*0.80+goldGlow+numeral)*life)
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+	// The denomination is deliberately composited last and fully opaque. At
+	// the original 28x36 size, no glow or reflection may wash it out.
+	if numeral > 0.12 {
+		return vec4(0, 0, 0, Alpha)
+	}
+	if outline > 0.12 {
+		return vec4(vec3(1.0, 0.83, 0.12)*Alpha, Alpha)
+	}
+	base := mix(vec3(0.74, 0.15, 0.002), vec3(1.0, 0.91, 0.22), min(1, disc+rim*0.65+shine*0.25))
+	color := base
+	alpha := min(1, intensity*2.2) * Alpha
+	return vec4(color*alpha, alpha)
+}

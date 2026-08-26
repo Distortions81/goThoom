@@ -1,0 +1,64 @@
+//kage:unit pixels
+
+package main
+
+var Size vec2
+var Phase float
+var Alpha float
+var Energy float
+var HasMask float
+var SpriteLightOnly float
+
+func band(value, center, width float) float {
+	return max(0, 1-abs(value-center)/width)
+}
+
+func chip(value float) float {
+	v := max(0, sin(value))
+	v *= v
+	return v * v
+}
+
+func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
+	localPos := srcPos - imageSrc0Origin()
+	p := localPos/Size - vec2(0.5, 0.5)
+	p.x *= Size.x / Size.y
+	t := Phase * 1.45
+
+	if SpriteLightOnly > 0.5 {
+		if HasMask <= 0.5 {
+			return vec4(0, 0, 0, 0)
+		}
+		body := imageSrc0At(srcPos).a
+		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		pulse := 0.45 + 0.55*chip(t*5.0+p.y*9.0)
+		light := max(0, body*(0.025+0.045*pulse)+edge*0.16) * Alpha
+		return vec4(vec3(0.95, 0.025, 0.012)*light, light)
+	}
+
+	// Red, square-cut fragments hold in a restless defensive shell around the
+	// immobilized target, echoing the original stone-form sprite's blocky haze.
+	shell := length(vec2(p.x*0.92, p.y*1.12))
+	blockA := band(shell, 0.32, 0.050) * chip(p.x*38.0+p.y*29.0+t*7.0)
+	blockB := band(shell, 0.43, 0.040) * chip(p.x*53.0-p.y*41.0-t*9.0+1.4)
+	blockC := band(shell, 0.24, 0.034) * chip(p.x*67.0+p.y*47.0+t*11.0+2.8)
+	// A slow, uneven pressure wave makes the red haze feel solid and held.
+	pressure := max(0, 1-shell*1.85) * (0.05+0.07*chip(p.x*17.0-p.y*13.0+t*4.0))
+	cracks := band(abs(p.x)+abs(p.y)*0.55, 0.27, 0.028) * chip(p.x*31.0-p.y*37.0-t*6.0)
+	intensity := min(1, blockA*1.30+blockB+blockC*0.82+pressure+cracks*0.52)
+
+	if HasMask > 0.5 {
+		body := imageSrc0At(srcPos).a
+		right := imageSrc0At(srcPos+vec2(2, 0)).a
+		up := imageSrc0At(srcPos+vec2(0, -2)).a
+		edge := max(0, max(right, up)-body)
+		intensity *= 1.0-body*0.72
+		intensity += edge*0.30
+	}
+	if intensity <= 0 {
+		return vec4(0, 0, 0, 0)
+	}
+	color := mix(vec3(0.42, 0.004, 0.003), vec3(1.0, 0.16, 0.045), min(1, intensity*1.6))
+	a := min(1, intensity*2.1) * Alpha
+	return vec4(color*a, a)
+}

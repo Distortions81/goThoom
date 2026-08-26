@@ -80,6 +80,7 @@ func main() {
 	flag.StringVar(&pcapPath, "pcap", "", "replay network frames from a .pcap/.pcapng file")
 	flag.BoolVar(&fake, "fake", false, "simulate server messages without connecting")
 	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
+	flag.BoolVar(&replacementEffectsPreview, "effectsPreview", false, "open the replacement-effects shader preview gallery")
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
 	flag.BoolVar(&dumpMusic, "dumpMusic", false, "write played music as a .wav file")
 	flag.BoolVar(&imgDump, "imgDump", false, "export all images to dump/img as PNG and exit")

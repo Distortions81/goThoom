@@ -2,11 +2,14 @@ package main
 
 import (
 	_ "embed"
+	"image/color"
 	"math"
 	"os"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 var healingBurstPictIDs = map[uint16]struct{}{
@@ -22,6 +25,37 @@ var mysticFadePictIDs = map[uint16]struct{}{
 	445: {},
 }
 
+var teleportGoldPictIDs = map[uint16]struct{}{
+	2976: {},
+}
+
+var teleportBluePictIDs = map[uint16]struct{}{
+	2977: {},
+}
+
+var teleportPrismaticPictIDs = map[uint16]struct{}{
+	2978: {},
+}
+
+var stoneFormPictIDs = map[uint16]struct{}{
+	3125: {},
+}
+
+// Coin rewards are individual denomination sprites, not animation frames.
+// 1842 is 0, 1843 is 1, through 1851 for 9.
+var coinRewardPictIDs = map[uint16]int{
+	1842: 0,
+	1843: 1,
+	1844: 2,
+	1845: 3,
+	1846: 4,
+	1847: 5,
+	1848: 6,
+	1849: 7,
+	1850: 8,
+	1851: 9,
+}
+
 //go:embed data/shaders/healing_burst.kage
 var healingBurstShaderSource []byte
 
@@ -31,10 +65,27 @@ var mysticWardShaderSource []byte
 //go:embed data/shaders/mystic_fade.kage
 var mysticFadeShaderSource []byte
 
+//go:embed data/shaders/teleport_burst.kage
+var teleportBurstShaderSource []byte
+
+//go:embed data/shaders/stone_form.kage
+var stoneFormShaderSource []byte
+
+//go:embed data/shaders/coin_reward.kage
+var coinRewardShaderSource []byte
+
 var healingBurstShader *ebiten.Shader
 var mysticWardShader *ebiten.Shader
 var mysticFadeShader *ebiten.Shader
+var teleportBurstShader *ebiten.Shader
+var stoneFormShader *ebiten.Shader
+var coinRewardShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
+var replacementEffectsPreview bool
+var replacementEffectsPreviewMask *ebiten.Image
+var replacementEffectsShadersReady bool
+var replacementEffectsShaderInitAttempted bool
+var replacementEffectsShaderInitAfter time.Time
 
 type replacementEffectKind uint8
 
@@ -42,6 +93,11 @@ const (
 	replacementEffectHealing replacementEffectKind = iota + 1
 	replacementEffectMysticWard
 	replacementEffectMysticFade
+	replacementEffectTeleportGold
+	replacementEffectTeleportBlue
+	replacementEffectTeleportPrismatic
+	replacementEffectStoneForm
+	replacementEffectCoinReward
 )
 
 type replacementEffectDraw struct {
@@ -49,6 +105,14 @@ type replacementEffectDraw struct {
 	kind                     replacementEffectKind
 	left, top, width, height float64
 	alpha                    float32
+	frame                    int
+	coinDigits               [4]float32
+	coinDigitX               [4]float64
+	coinDigitCount           int
+	coinGroupLeft             float64
+	coinGroupTop              float64
+	coinGroupRight            float64
+	coinGroupBottom           float64
 	started, lastSeen        time.Time
 	seen                     bool
 	mobileIndex              uint8
@@ -65,12 +129,6 @@ const (
 	replacementEffectFadeIn  = 180 * time.Millisecond
 	replacementEffectFadeOut = 280 * time.Millisecond
 )
-
-func init() {
-	if err := ReloadReplacementEffectsShader(); err != nil {
-		panic(err)
-	}
-}
 
 // ReloadReplacementEffectsShader recompiles the replacement-effects shader
 // from disk. The embedded source keeps release builds self-contained.
@@ -99,10 +157,61 @@ func ReloadReplacementEffectsShader() error {
 	if err != nil {
 		return err
 	}
+	teleportSource := teleportBurstShaderSource
+	if b, err := os.ReadFile("data/shaders/teleport_burst.kage"); err == nil {
+		teleportSource = b
+	}
+	teleportShader, err := ebiten.NewShader(teleportSource)
+	if err != nil {
+		return err
+	}
+	stoneSource := stoneFormShaderSource
+	if b, err := os.ReadFile("data/shaders/stone_form.kage"); err == nil {
+		stoneSource = b
+	}
+	stoneShader, err := ebiten.NewShader(stoneSource)
+	if err != nil {
+		return err
+	}
+	coinSource := coinRewardShaderSource
+	if b, err := os.ReadFile("data/shaders/coin_reward.kage"); err == nil {
+		coinSource = b
+	}
+	coinShader, err := ebiten.NewShader(coinSource)
+	if err != nil {
+		return err
+	}
 	healingBurstShader = healingShader
 	mysticWardShader = wardShader
 	mysticFadeShader = fadeShader
+	teleportBurstShader = teleportShader
+	stoneFormShader = stoneShader
+	coinRewardShader = coinShader
+	replacementEffectsShadersReady = true
 	return nil
+}
+
+// initializeReplacementEffectsAfterMenu delays the optional shader work until
+// the menu has had time to settle, instead of blocking package startup or a
+// draw pass while windows are being composed.
+func initializeReplacementEffectsAfterMenu(now time.Time) {
+	if !uiReady {
+		return
+	}
+	if replacementEffectsShaderInitAfter.IsZero() {
+		replacementEffectsShaderInitAfter = now.Add(750 * time.Millisecond)
+		return
+	}
+	if replacementEffectsShadersReady || replacementEffectsShaderInitAttempted {
+		return
+	}
+	if now.Before(replacementEffectsShaderInitAfter) {
+		return
+	}
+	replacementEffectsShaderInitAttempted = true
+	if err := ReloadReplacementEffectsShader(); err != nil {
+		logError("replacement shader initialization failed: %v", err)
+	}
 }
 
 func beginReplacementEffects() {
@@ -113,7 +222,7 @@ func beginReplacementEffects() {
 }
 
 func replacementEffectReplacesPict(id uint16) bool {
-	if !gs.ReplacementEffects {
+	if !replacementEffectsShadersReady || !gs.ReplacementEffects {
 		return false
 	}
 	_, ok := replacementEffectKindForPict(id)
@@ -130,6 +239,21 @@ func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
 	if _, ok := mysticFadePictIDs[id]; ok {
 		return replacementEffectMysticFade, true
 	}
+	if _, ok := teleportGoldPictIDs[id]; ok {
+		return replacementEffectTeleportGold, true
+	}
+	if _, ok := teleportBluePictIDs[id]; ok {
+		return replacementEffectTeleportBlue, true
+	}
+	if _, ok := teleportPrismaticPictIDs[id]; ok {
+		return replacementEffectTeleportPrismatic, true
+	}
+	if _, ok := stoneFormPictIDs[id]; ok {
+		return replacementEffectStoneForm, true
+	}
+	if _, ok := coinRewardPictIDs[id]; ok {
+		return replacementEffectCoinReward, true
+	}
 	return 0, false
 }
 
@@ -140,20 +264,45 @@ func replacementEffectShader(kind replacementEffectKind) *ebiten.Shader {
 	if kind == replacementEffectMysticFade {
 		return mysticFadeShader
 	}
+	if replacementEffectTeleportTheme(kind) >= 0 {
+		return teleportBurstShader
+	}
+	if kind == replacementEffectStoneForm {
+		return stoneFormShader
+	}
+	if kind == replacementEffectCoinReward {
+		return coinRewardShader
+	}
 	return healingBurstShader
 }
 
 func replacementEffectIsOneShot(kind replacementEffectKind) bool {
-	return kind == replacementEffectMysticWard || kind == replacementEffectMysticFade
+	return kind == replacementEffectMysticWard || kind == replacementEffectMysticFade || replacementEffectTeleportTheme(kind) >= 0
+}
+
+func replacementEffectTeleportTheme(kind replacementEffectKind) float32 {
+	switch kind {
+	case replacementEffectTeleportGold:
+		return 0
+	case replacementEffectTeleportBlue:
+		return 1
+	case replacementEffectTeleportPrismatic:
+		return 2
+	default:
+		return -1
+	}
 }
 
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
 // while deferring the visual to a full-bright pass after scene lighting.
-func queueReplacementPictureEffect(pictID uint16, h, v int16, instanceKey uint64, left, top, width, height float64, alpha float32, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) bool {
+func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanceKey uint64, left, top, width, height float64, alpha float32, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) bool {
 	if !replacementEffectReplacesPict(pictID) || width <= 0 || height <= 0 {
 		return false
 	}
 	kind, _ := replacementEffectKindForPict(pictID)
+	if kind == replacementEffectCoinReward {
+		frame = coinRewardPictIDs[pictID]
+	}
 	now := drawFrameNow
 	if now.IsZero() {
 		now = time.Now()
@@ -172,16 +321,56 @@ func queueReplacementPictureEffect(pictID uint16, h, v int16, instanceKey uint64
 	if !ok || now.Sub(effect.lastSeen) > replacementEffectFadeOut {
 		effect = replacementEffectDraw{pictID: pictID, kind: kind, started: now}
 	}
-	effect.left, effect.top = left, top
-	effect.width, effect.height = width, height
+	if kind == replacementEffectCoinReward {
+		if !effect.seen {
+			effect.coinDigitCount = 0
+			effect.coinGroupLeft, effect.coinGroupTop = left, top
+			effect.coinGroupRight, effect.coinGroupBottom = left+width, top+height
+		} else {
+			effect.coinGroupLeft = math.Min(effect.coinGroupLeft, left)
+			effect.coinGroupTop = math.Min(effect.coinGroupTop, top)
+			effect.coinGroupRight = math.Max(effect.coinGroupRight, left+width)
+			effect.coinGroupBottom = math.Max(effect.coinGroupBottom, top+height)
+		}
+		if effect.coinDigitCount < len(effect.coinDigits) {
+			i := effect.coinDigitCount
+			effect.coinDigits[i] = float32(frame)
+			effect.coinDigitX[i] = left + width/2
+			effect.coinDigitCount++
+			// The legacy sprites are laid out left-to-right. Preserve that order
+			// while combining them into one readable reward number.
+			for i > 0 && effect.coinDigitX[i] < effect.coinDigitX[i-1] {
+				effect.coinDigits[i], effect.coinDigits[i-1] = effect.coinDigits[i-1], effect.coinDigits[i]
+				effect.coinDigitX[i], effect.coinDigitX[i-1] = effect.coinDigitX[i-1], effect.coinDigitX[i]
+				i--
+			}
+		}
+		// Center a generous round coin on the original sprite group, rather
+		// than pinning three tiny, independently fading replacements.
+		groupWidth := effect.coinGroupRight - effect.coinGroupLeft
+		groupHeight := effect.coinGroupBottom - effect.coinGroupTop
+		centerX := effect.coinGroupLeft + groupWidth/2
+		centerY := effect.coinGroupTop + groupHeight/2
+		// Give multi-digit payouts enough face area for the full number: each
+		// added digit grows the coin instead of cramming more glyphs into the
+		// original single-denomination sprite size.
+		minimumSize := 56 + 20*float64(max(0, effect.coinDigitCount-1))
+		size := math.Max(minimumSize, math.Max(groupWidth+22, groupHeight+18))
+		effect.left, effect.top = centerX-size/2, centerY-size/2
+		effect.width, effect.height = size, size
+	} else {
+		effect.left, effect.top = left, top
+		effect.width, effect.height = width, height
+	}
 	effect.alpha = alpha
+	effect.frame = frame
 	effect.lastSeen = now
 	effect.seen = true
 	effect.hasMobileAnchor = instanceKey != 0
 	if effect.hasMobileAnchor {
 		effect.mobileIndex = uint8(instanceKey)
-		effect.mobileOffsetX = left - mobileX
-		effect.mobileOffsetY = top - mobileY
+		effect.mobileOffsetX = effect.left - mobileX
+		effect.mobileOffsetY = effect.top - mobileY
 	}
 	updateReplacementEffectMask(&effect, mobileImg, mobileX, mobileY, mobileSize)
 	replacementEffectDraws[key] = effect
@@ -242,6 +431,11 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 			}
 		}
 		fadeIn := replacementEffectEase(float32(now.Sub(effect.started)) / float32(replacementEffectFadeIn))
+		if effect.kind == replacementEffectCoinReward {
+			// Reward digits may exist for only one server update. Draw them at
+			// full strength immediately; the normal fade-out still softens exit.
+			fadeIn = 1
+		}
 		fadeOut := float32(1)
 		if !effect.seen {
 			age := now.Sub(effect.lastSeen)
@@ -257,6 +451,13 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		energy := fadeIn * fadeOut
 		if energy <= 0 {
 			continue
+		}
+		visualAlpha := effect.alpha * energy
+		if effect.kind == replacementEffectCoinReward {
+			// The legacy reward picture can be obscured or dimmed by its target.
+			// A payout marker needs to remain readable above the world; only its
+			// own exit fade should affect opacity.
+			visualAlpha = energy
 		}
 		// Keep the rectangle identical to the alpha-mask texture. The shader
 		// performs the visual wind-up scale around its own center.
@@ -284,11 +485,19 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 				Uniforms: map[string]any{
 					"Size":            []float32{float32(w), float32(h)},
 					"Phase":           phase,
-					"Alpha":           effect.alpha * energy,
+					"Alpha":           visualAlpha,
 					"Energy":          energy,
 					"HasMask":         hasMask,
 					"SpriteLightOnly": float32(1),
 				},
+			}
+			if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
+				lightOp.Uniforms["TeleportTheme"] = theme
+			}
+			if effect.kind == replacementEffectCoinReward {
+				lightOp.Uniforms["CoinValue"] = float32(effect.frame % 10)
+				lightOp.Uniforms["CoinDigits"] = effect.coinDigits[:]
+				lightOp.Uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
 			}
 			lightOp.Images[0] = effect.mask
 			lightOp.GeoM.Translate(effect.left, effect.top)
@@ -297,11 +506,19 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		op := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
 			"Size":            []float32{float32(w), float32(h)},
 			"Phase":           phase,
-			"Alpha":           effect.alpha * energy,
+			"Alpha":           visualAlpha,
 			"Energy":          energy,
 			"HasMask":         hasMask,
 			"SpriteLightOnly": float32(0),
 		}}
+		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
+			op.Uniforms["TeleportTheme"] = theme
+		}
+		if effect.kind == replacementEffectCoinReward {
+			op.Uniforms["CoinValue"] = float32(effect.frame % 10)
+			op.Uniforms["CoinDigits"] = effect.coinDigits[:]
+			op.Uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
+		}
 		op.Images[0] = effect.mask
 		op.GeoM.Translate(effect.left, effect.top)
 		screen.DrawRectShader(w, h, shader, op)
@@ -316,4 +533,83 @@ func replacementEffectEase(t float32) float32 {
 		return 1
 	}
 	return t * t * (3 - 2*t)
+}
+
+type replacementEffectPreview struct {
+	kind           replacementEffectKind
+	label          string
+	coinDigits     [4]float32
+	coinDigitCount int
+}
+
+var replacementEffectsPreviews = []replacementEffectPreview{
+	{kind: replacementEffectHealing, label: "Healing"},
+	{kind: replacementEffectMysticWard, label: "Mystic Ward"},
+	{kind: replacementEffectMysticFade, label: "Ward Fading"},
+	{kind: replacementEffectTeleportGold, label: "Gold Teleport"},
+	{kind: replacementEffectTeleportBlue, label: "Blue Teleport"},
+	{kind: replacementEffectTeleportPrismatic, label: "Prismatic Teleport"},
+	{kind: replacementEffectStoneForm, label: "Stone Form"},
+	{kind: replacementEffectCoinReward, label: "Coin 123", coinDigits: [4]float32{1, 2, 3}, coinDigitCount: 3},
+}
+
+// drawReplacementEffectsPreview renders the actual effect shaders in a
+// looping gallery, so visual tuning does not require finding a movie event.
+func drawReplacementEffectsPreview(screen *ebiten.Image) {
+	if !replacementEffectsShadersReady {
+		return
+	}
+	bounds := screen.Bounds()
+	if bounds.Dx() < 240 || bounds.Dy() < 180 {
+		return
+	}
+	vector.FillRect(screen, float32(bounds.Min.X), float32(bounds.Min.Y), float32(bounds.Dx()), float32(bounds.Dy()), color.Black, false)
+
+	const columns = 3
+	cellW := float64(bounds.Dx()) / columns
+	rows := (len(replacementEffectsPreviews) + columns - 1) / columns
+	cellH := float64(bounds.Dy()) / float64(rows)
+	effectW := max(56, roundToInt(cellW*0.68))
+	effectH := max(56, roundToInt(cellH*0.66))
+	if replacementEffectsPreviewMask == nil || replacementEffectsPreviewMask.Bounds().Dx() != effectW || replacementEffectsPreviewMask.Bounds().Dy() != effectH {
+		if replacementEffectsPreviewMask != nil {
+			replacementEffectsPreviewMask.Deallocate()
+		}
+		replacementEffectsPreviewMask = ebiten.NewImage(effectW, effectH)
+	}
+	elapsed := time.Since(replacementEffectsStarted).Seconds()
+	for i, preview := range replacementEffectsPreviews {
+		col, row := i%columns, i/columns
+		left := float64(bounds.Min.X) + float64(col)*cellW + (cellW-float64(effectW))/2
+		top := float64(bounds.Min.Y) + float64(row)*cellH + 28
+		phase := float32(elapsed)
+		if replacementEffectIsOneShot(preview.kind) {
+			phase = float32(math.Mod(elapsed+float64(i)*0.23, 1.35))
+		}
+		op := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
+			"Size":            []float32{float32(effectW), float32(effectH)},
+			"Phase":           phase,
+			"Alpha":           float32(1),
+			"Energy":          float32(1),
+			"HasMask":         float32(0),
+			"SpriteLightOnly": float32(0),
+		}}
+		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
+			op.Uniforms["TeleportTheme"] = theme
+		}
+		if preview.kind == replacementEffectCoinReward {
+			op.Uniforms["CoinValue"] = preview.coinDigits[0]
+			op.Uniforms["CoinDigits"] = preview.coinDigits[:]
+			op.Uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
+		}
+		op.Images[0] = replacementEffectsPreviewMask
+		op.GeoM.Translate(left, top)
+		screen.DrawRectShader(effectW, effectH, replacementEffectShader(preview.kind), op)
+
+		labelOpts := acquireTextDrawOpts()
+		labelOpts.GeoM.Translate(float64(bounds.Min.X)+float64(col)*cellW+8, float64(bounds.Min.Y)+float64(row)*cellH+8)
+		labelOpts.ColorScale.ScaleWithColor(color.RGBA{R: 224, G: 234, B: 255, A: 255})
+		text.Draw(screen, preview.label, mainFont, labelOpts)
+		releaseTextDrawOpts(labelOpts)
+	}
 }

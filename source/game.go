@@ -687,6 +687,7 @@ func (g *Game) Update() error {
 	once.Do(func() {
 		initGame()
 	})
+	initializeReplacementEffectsAfterMenu(now)
 	if assetDumpMode() {
 		assetDumpOnce.Do(exportAssets)
 		return nil
@@ -704,6 +705,7 @@ func (g *Game) Update() error {
 	}
 	legacyMacroBeginInputFrame()
 	eui.Update() //We really need this to return eaten clicks
+	ensureToolbarAccessible()
 	updateSetupWizardGraphicsDetection()
 	// Advance script tick waiters once per frame
 	scriptAdvanceTick()
@@ -1517,6 +1519,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 		haveSnap = true
 	}
+	if replacementEffectsPreview {
+		drawReplacementEffectsPreview(worldView)
+	}
 
 	var finalScale float64
 	if haveSnap {
@@ -2225,17 +2230,19 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	if gs.FadeObscuringPictures {
 		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
 	}
+	effectFrame := 0
+	if clImages != nil {
+		effectFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
+	}
 	mobileImg, mobileX, mobileY, mobileTargetSize, effectInstanceKey := replacementEffectPlayerMask(ox, oy, p, mobiles, descMap, prevMobiles, shiftX, shiftY, alpha)
-	if queueReplacementPictureEffect(p.PictID, p.H, p.V, effectInstanceKey, left, top, right-left, bottom-top, fadeAlpha, mobileImg, mobileX, mobileY, mobileTargetSize) {
+	if queueReplacementPictureEffect(p.PictID, effectFrame, p.H, p.V, effectInstanceKey, left, top, right-left, bottom-top, fadeAlpha, mobileImg, mobileX, mobileY, mobileTargetSize) {
 		return
 	}
 
-	frame := 0
+	frame := effectFrame
 	prevFrame := 0
 	if clImages != nil {
-		instanceKey := pictureAnimationInstanceKey(p.H, p.V)
 		prevInstanceKey := pictureAnimationInstanceKey(p.PrevH, p.PrevV)
-		frame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, instanceKey)
 		prevFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame-1, prevInstanceKey)
 	}
 
