@@ -56,19 +56,19 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// An irregular, upward-biased poof of embers. Each swarm has its own
 	// drifting center so it reads as a cloud of sparks rather than a line.
 	life := max(0, 1-t*0.72)
-	clusterA := vec2(-0.10+sin(t*4.1)*0.055, 0.08-t*0.27)
-	clusterB := vec2(0.11+sin(t*3.3+1.4)*0.070, 0.10-t*0.20)
-	clusterC := vec2(sin(t*5.2+2.1)*0.095, -0.02-t*0.33)
-	emberA := band(length(p-clusterA), 0.022+t*0.045, 0.032) * spark(angle*13.0-t*9.0)
-	emberB := band(length(p-clusterB), 0.018+t*0.038, 0.027) * spark(angle*19.0+t*12.0+1.4)
-	emberC := band(length(p-clusterC), 0.014+t*0.032, 0.023) * spark(angle*27.0-t*14.0+2.7)
+	clusterA := vec2(cos(t*4.2+0.3)*(0.08+t*0.12)-0.10, sin(t*4.2+0.3)*(0.05+t*0.07)+0.09-t*0.26)
+	clusterB := vec2(cos(-t*3.5+2.0)*(0.10+t*0.10)+0.12, sin(-t*3.5+2.0)*(0.06+t*0.08)+0.10-t*0.21)
+	clusterC := vec2(cos(t*5.1+4.1)*(0.06+t*0.16), sin(t*5.1+4.1)*(0.04+t*0.10)-0.02-t*0.32)
+	emberA := band(length(p-clusterA), 0.018+t*0.040, 0.024) * spark(angle*13.0-t*9.0)
+	emberB := band(length(p-clusterB), 0.015+t*0.035, 0.021) * spark(angle*19.0+t*12.0+1.4)
+	emberC := band(length(p-clusterC), 0.012+t*0.030, 0.018) * spark(angle*27.0-t*14.0+2.7)
 	// A fourth, short-lived spray gives the first frame a fuller magical pop.
-	clusterD := vec2(-0.02+sin(t*7.0)*0.15, 0.04-t*0.15)
-	emberD := band(length(p-clusterD), 0.010+t*0.050, 0.020) * spark(angle*31.0+t*16.0)
-	clusterE := vec2(-0.18+sin(t*5.6+0.8)*0.060, 0.12-t*0.18)
-	clusterF := vec2(0.19+sin(t*6.4+2.9)*0.055, 0.07-t*0.24)
-	emberE := band(length(p-clusterE), 0.008+t*0.040, 0.016) * spark(angle*37.0-t*18.0+0.6)
-	emberF := band(length(p-clusterF), 0.006+t*0.038, 0.014) * spark(angle*41.0+t*20.0+2.3)
+	clusterD := vec2(cos(-t*6.3+1.0)*(0.04+t*0.17)-0.02, sin(-t*6.3+1.0)*(0.03+t*0.11)+0.04-t*0.15)
+	emberD := band(length(p-clusterD), 0.009+t*0.046, 0.016) * spark(angle*31.0+t*16.0)
+	clusterE := vec2(cos(t*4.7+3.4)*(0.05+t*0.14)-0.18, sin(t*4.7+3.4)*(0.04+t*0.09)+0.12-t*0.18)
+	clusterF := vec2(cos(-t*5.4+5.0)*(0.05+t*0.13)+0.19, sin(-t*5.4+5.0)*(0.04+t*0.09)+0.07-t*0.24)
+	emberE := band(length(p-clusterE), 0.007+t*0.037, 0.013) * spark(angle*37.0-t*18.0+0.6)
+	emberF := band(length(p-clusterF), 0.006+t*0.035, 0.012) * spark(angle*41.0+t*20.0+2.3)
 	// Fine cinders fill the gaps between the larger sprays without forming a ring.
 	cinders := max(0, 1-r*2.5-t*1.45) * spark(angle*47.0+r*31.0-t*22.0)
 	burst := max(0, 1-r*4.2-t*1.8) * (0.56+0.34*spark(angle*9.0+t*7.0))
@@ -86,7 +86,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		return vec4(0, 0, 0, 0)
 	}
 
-	color := mix(vec3(1.0, 0.075, 0.002), vec3(1.0, 0.90, 0.34), min(1, intensity*1.65))
-	a := min(1, intensity*2.7) * Alpha
+	color := mix(vec3(1.0, 0.095, 0.003), vec3(1.0, 0.94, 0.40), min(1, intensity*1.65))
+	a := min(1, intensity*3.05) * Alpha
 	return vec4(color*a, a)
 }
