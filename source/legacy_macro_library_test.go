@@ -85,8 +85,8 @@ func TestLegacyMacroLibraryEmbeddedInfoUsesEmbeddedSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(info.Commands) == 0 || len(info.Hotkeys) == 0 {
-		t.Fatalf("embedded info = %#v, want commands and hotkeys", info)
+	if len(info.Commands) == 0 || len(info.Keybindings) == 0 {
+		t.Fatalf("embedded info = %#v, want commands and keybindings", info)
 	}
 }
 
@@ -267,7 +267,7 @@ func TestLegacyMacroLibraryRecoversDamagedManifestWithoutOverwritingMacros(t *te
 	}
 }
 
-func TestLegacyMacroLibraryInfoListsCommandsAndHotkeys(t *testing.T) {
+func TestLegacyMacroLibraryInfoListsCommandsAndKeybindings(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "details.mac")
 	text := strings.Join([]string{
 		"\"/wave\"",
@@ -279,7 +279,13 @@ func TestLegacyMacroLibraryInfoListsCommandsAndHotkeys(t *testing.T) {
 		"control-shift-f1",
 		"{",
 		"}",
+		"control-shift-f1",
+		"{",
+		"}",
 		"click2",
+		"{",
+		"}",
+		"click6",
 		"{",
 		"}",
 		"wheelup",
@@ -318,7 +324,7 @@ func TestLegacyMacroLibraryInfoListsCommandsAndHotkeys(t *testing.T) {
 		"Update: details.mac",
 		"/wave",
 		"brb (replacement)",
-		"Hotkeys:",
+		"Keybindings:",
 		"Control-Shift-F1",
 		"Right Click",
 		"Wheel Up",
@@ -329,6 +335,9 @@ func TestLegacyMacroLibraryInfoListsCommandsAndHotkeys(t *testing.T) {
 	}
 	if strings.Contains(info, "\nhelper\n") {
 		t.Fatalf("macro info includes internal helper: %q", info)
+	}
+	if strings.Count(info, "Control-Shift-F1") != 1 || strings.Contains(info, "Click 6") {
+		t.Fatalf("macro info includes a shadowed or unsupported keybinding: %q", info)
 	}
 }
 
@@ -344,14 +353,14 @@ func TestLegacyMacroLibraryRowLabelUsesAvailableSpace(t *testing.T) {
 
 func TestLegacyMacroLibraryInfoUsesThreeColumns(t *testing.T) {
 	columns := legacyMacroLibraryInfoColumns(legacyMacroLibraryInfo{
-		Metadata: []string{"Description: Useful"},
-		Commands: []string{"/wave"},
-		Hotkeys:  []string{"F1"},
+		Metadata:    []string{"Description: Useful"},
+		Commands:    []string{"/wave"},
+		Keybindings: []string{"F1"},
 	})
 	if len(columns.Contents) != 3 {
 		t.Fatalf("info column count = %d, want 3", len(columns.Contents))
 	}
-	for index, want := range []string{"About", "Commands", "Hotkeys"} {
+	for index, want := range []string{"About", "Commands", "Keybindings"} {
 		column := columns.Contents[index]
 		if len(column.Contents) == 0 || column.Contents[0].Text != want {
 			t.Fatalf("info column %d heading = %#v, want %q", index, column.Contents, want)

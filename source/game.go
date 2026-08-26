@@ -704,6 +704,8 @@ func (g *Game) Update() error {
 		inputFlow.Contents[0].Focused = false
 	}
 	legacyMacroBeginInputFrame()
+	keyboardTestBeginInputFrame()
+	eui.SetKeyboardInputCaptured(keyboardTestFrameActive)
 	eui.Update() //We really need this to return eaten clicks
 	ensureToolbarAccessible()
 	updateSetupWizardGraphicsDetection()
@@ -721,6 +723,7 @@ func (g *Game) Update() error {
 		plain := strings.ReplaceAll(item.Text, "\n", "")
 		inputText = []rune(plain)
 	}
+	updateKeyboardTest()
 	legacyMacroPollKeyboard(int64(ackFrame), typingElsewhere)
 	checkForScriptEdit()
 	updateNotifications()
@@ -752,7 +755,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	if (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) &&
+	if !keyboardTestSuppressingInput() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) &&
 		!scriptInputConsumesButton(consumedScriptInput, "RightClick") {
 		// Input bar menu takes precedence when right-clicking on input.
 		if !handleConsoleInputContext(mx, my) {
@@ -1104,7 +1107,7 @@ func (g *Game) Update() error {
 		}
 	}
 	inGame := pointInGameWindow(mx, my)
-	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) {
+	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) && !keyboardTestSuppressingInput() {
 		wheelX, wheelY := ebiten.Wheel()
 		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
 		if wheelName != "" && !scriptInputConsumesButton(consumedScriptInput, scriptWheelButtonName(wheelX, wheelY)) {
@@ -1129,6 +1132,12 @@ func (g *Game) Update() error {
 		}
 	}
 	if !focused || !inWindow {
+		click = false
+		rightClick = false
+		middleClick = false
+		heldTime = 0
+	}
+	if keyboardTestSuppressingInput() {
 		click = false
 		rightClick = false
 		middleClick = false
@@ -1194,7 +1203,7 @@ func (g *Game) Update() error {
 		{button: ebiten.MouseButton3, name: "click4", number: 4},
 		{button: ebiten.MouseButton4, name: "click5", number: 5},
 	} {
-		if !focused || !inWindow || !inGame || pointInUI(mx, my) ||
+		if keyboardTestSuppressingInput() || !focused || !inWindow || !inGame || pointInUI(mx, my) ||
 			scriptInputConsumesButton(consumedScriptInput, mouseButtonName(extra.button)) || !inpututil.IsMouseButtonJustPressed(extra.button) {
 			continue
 		}

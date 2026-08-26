@@ -327,7 +327,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTest.Text = "Rerun Graphics Detection"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Applies Full Quality, observes the real game frame rate for five seconds, then uses the iGPU preset below 80 FPS")
+	graphicsTest.SetTooltip("Measure FPS and choose a preset.")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
@@ -351,7 +351,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		graphicsMode.Selected = 0
 	}
 	graphicsMode.Size = eui.Point{X: 320, Y: 24}
-	graphicsMode.SetTooltip("Choose either mode manually; rerunning detection selects one using the measured 80 FPS cutoff")
+	graphicsMode.SetTooltip("Choose the graphics mode.")
 	graphicsModeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index > 1 {
 			return
@@ -400,7 +400,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	upscaleStyle.Options = artworkUpscaleModeNames
 	upscaleStyle.Selected = artworkUpscaleMode()
 	upscaleStyle.Size = eui.Point{X: 320, Y: 24}
-	upscaleStyle.SetTooltip("Off keeps raw pixels; Crisp through Smooth progressively reconstruct diagonal edges; Ultra Smooth uses softer anti-aliased-style edge blending")
+	upscaleStyle.SetTooltip("Choose edge smoothing.")
 	upscaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < artworkUpscaleOff || ev.Index > artworkUpscaleUltraSmooth {
 			return
@@ -538,7 +538,7 @@ func buildSetupLightingPage(root *eui.ItemData) {
 		preview.Selected = int(setupWizardSceneNight)
 	}
 	preview.Size = eui.Point{X: 320, Y: 24}
-	preview.SetTooltip("Switch the test room between the lighting conditions these controls affect")
+	preview.SetTooltip("Change test-room lighting.")
 	previewEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(setupWizardSceneDay) && ev.Index <= int(setupWizardSceneNight) {
 			setupWizardSceneModeValue = setupWizardSceneMode(ev.Index)

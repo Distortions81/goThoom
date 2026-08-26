@@ -20,7 +20,6 @@ import (
 	"unicode/utf8"
 
 	"gothoom/climg"
-	"gothoom/clsnd"
 	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -212,11 +211,7 @@ func main() {
 		return
 	}
 
-	if isWASM && len(wasmCLSoundsData) > 0 {
-		clSounds, err = clsnd.LoadBytes(wasmCLSoundsData)
-	} else {
-		clSounds, err = clsnd.Load(filepath.Join(dataDirPath, CL_SoundsFile))
-	}
+	clSounds, err = loadCLSoundsArchive()
 	if err != nil {
 		logError("failed to load CL_Sounds: %v", err)
 		// Do not exit; allow UI to open download window.

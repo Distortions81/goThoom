@@ -117,20 +117,21 @@ type itemData struct {
 	Parent       *itemData
 	ParentWindow *windowData
 	// Name is used when the item is part of a tabbed flow
-	Name      string
-	Text      string
-	Label     string
-	Tooltip   string
-	tooltipW  float32 // cached tooltip text width
-	tooltipH  float32 // cached tooltip text height
-	Position  point
-	Size      point
-	Alignment alignType
-	PinTo     pinType
-	FontSize  float32
-	Face      text.Face
-	LineSpace float32 //Multiplier, 1.0 = no gap between lines
-	ItemType  itemTypeData
+	Name       string
+	Text       string
+	Label      string
+	Tooltip    string
+	tooltipRaw string
+	tooltipW   float32 // cached tooltip text width
+	tooltipH   float32 // cached tooltip text height
+	Position   point
+	Size       point
+	Alignment  alignType
+	PinTo      pinType
+	FontSize   float32
+	Face       text.Face
+	LineSpace  float32 //Multiplier, 1.0 = no gap between lines
+	ItemType   itemTypeData
 
 	Value      float32
 	MinValue   float32

@@ -51,7 +51,7 @@ func makeLegacyMacroLibraryWindow() {
 	openButton.Size = eui.Point{X: 160, Y: legacyMacroLibraryButtonsHeight}
 	openButton.Disabled = isWASM
 	if isWASM {
-		openButton.SetTooltip("The web build uses its embedded read-only macro library.")
+		openButton.SetTooltip("Embedded library is read-only.")
 	}
 	openEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
@@ -65,9 +65,9 @@ func makeLegacyMacroLibraryWindow() {
 	refreshButton.Text = "Refresh List"
 	refreshButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
 	refreshButton.Disabled = isWASM
-	refreshButton.SetTooltip("Rescan Macros/Library for added, removed, or renamed .mac files. Active macros are not restarted.")
+	refreshButton.SetTooltip("Rescan the macro library.")
 	if isWASM {
-		refreshButton.SetTooltip("The web build uses a fixed embedded macro list.")
+		refreshButton.SetTooltip("Embedded macro list is fixed.")
 	}
 	refreshEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
@@ -78,7 +78,7 @@ func makeLegacyMacroLibraryWindow() {
 	reloadButton, reloadEvents := eui.NewButton()
 	reloadButton.Text = "Reload Macros"
 	reloadButton.Size = eui.Point{X: 120, Y: legacyMacroLibraryButtonsHeight}
-	reloadButton.SetTooltip("Reload enabled macro files and restart the active macro program. Use this after editing an enabled macro.")
+	reloadButton.SetTooltip("Reload enabled macros.")
 	reloadEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
 			legacyMacroLibraryReload()
@@ -89,7 +89,7 @@ func makeLegacyMacroLibraryWindow() {
 	continuousCheckbox.Text = legacyMacroContinuousLabel
 	continuousCheckbox.Size = eui.Point{X: 200, Y: legacyMacroLibraryButtonsHeight}
 	continuousCheckbox.Checked = gs.LegacyMacroContinuous
-	continuousCheckbox.SetTooltip("Allow a legacy macro to keep looping without pause or output. When off, goThoom stops it after 10,000 instructions as runaway-loop protection. The classic client has no instruction cap; it only time-slices busy macros so the game can continue updating. Changing this restarts the active macro program.")
+	continuousCheckbox.SetTooltip("Allow continuous macro loops.")
 	continuousEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventCheckboxChanged {
 			legacyMacroLibrarySetAllowContinuous(event.Checked)
@@ -98,9 +98,9 @@ func makeLegacyMacroLibraryWindow() {
 	legacyMacroLibraryContinuous = continuousCheckbox
 	legacyMacroLibraryButtons.AddItem(continuousCheckbox)
 	errorsButton, errorsEvents := eui.NewButton()
-	errorsButton.Text = "Errors (0)"
+	errorsButton.Text = "No Errors"
 	errorsButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
-	errorsButton.SetTooltip("Show legacy macro parse and runtime errors.")
+	errorsButton.SetTooltip("Show macro errors.")
 	errorsEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
 			legacyMacroLibraryShowDiagnostics()
@@ -192,7 +192,7 @@ func refreshLegacyMacroLibraryWindow() {
 		infoButton, infoEvents := eui.NewButton()
 		infoButton.Text = "i"
 		infoButton.Size = eui.Point{X: 24, Y: 24}
-		infoButton.SetTooltip("Show this macro's commands and hotkeys.")
+		infoButton.SetTooltip("Show commands and keybindings.")
 		infoEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick {
 				legacyMacroLibraryShowInfo(entry)
@@ -203,9 +203,9 @@ func refreshLegacyMacroLibraryWindow() {
 		editButton.Text = "Edit"
 		editButton.Size = eui.Point{X: 44, Y: 24}
 		editButton.Disabled = isWASM
-		editButton.SetTooltip("Open this macro file in its default editor.")
+		editButton.SetTooltip("Open this macro file.")
 		if isWASM {
-			editButton.SetTooltip("The web build uses its embedded read-only macro library.")
+			editButton.SetTooltip("Embedded library is read-only.")
 		}
 		editEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick {
@@ -226,10 +226,10 @@ func refreshLegacyMacroLibraryWindow() {
 		globalCheckbox.Checked = globalEnabled[legacyMacroLibraryIDKey(entry.ID)]
 		globalCheckbox.Size = eui.Point{X: 110, Y: 24}
 		globalCheckbox.Disabled = isWASM
-		globalCheckbox.SetTooltip("Enable this source for every character through Macros/Library/enabled.json. The active macro program reloads immediately; Default is not modified.")
+		globalCheckbox.SetTooltip("Enable for every character.")
 		globalEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventCheckboxChanged {
-				legacyMacroLibrarySetEnabled(entry, legacyMacroLibraryGlobal, "", event.Checked)
+				legacyMacroLibrarySetEnabled(entry, legacyMacroLibraryGlobal, "", event.Checked, globalCheckbox)
 			}
 		}
 		row.AddItem(globalCheckbox)
@@ -242,11 +242,11 @@ func refreshLegacyMacroLibraryWindow() {
 		if character == "" {
 			playerCheckbox.SetTooltip("Select a character first.")
 		} else {
-			playerCheckbox.SetTooltip("Enable this source only for " + character + " through Macros/Library/enabled.json. The active macro program reloads immediately.")
+			playerCheckbox.SetTooltip("Enable for " + character + ".")
 		}
 		playerEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventCheckboxChanged && character != "" {
-				legacyMacroLibrarySetEnabled(entry, legacyMacroLibraryPlayer, character, event.Checked)
+				legacyMacroLibrarySetEnabled(entry, legacyMacroLibraryPlayer, character, event.Checked, playerCheckbox)
 			}
 		}
 		row.AddItem(playerCheckbox)
@@ -294,11 +294,15 @@ func legacyMacroLibraryCurrentCharacter() string {
 	return strings.TrimSpace(utfFold(effectiveCharacterName()))
 }
 
-func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMacroLibraryScope, character string, enabled bool) {
+func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMacroLibraryScope, character string, enabled bool, checkbox *eui.ItemData) {
 	result, err := setLegacyMacroLibraryEntryEnabled(entry.ID, scope, character, enabled)
 	if err != nil {
+		if checkbox != nil {
+			checkbox.Checked = !enabled
+			checkbox.Dirty = true
+		}
 		legacyMacroLibraryReport("update " + entry.Name + ": " + err.Error())
-		refreshLegacyMacroLibraryWindow()
+		legacyMacroLibraryRefreshStatus()
 		return
 	}
 	if !result.Changed {
@@ -307,7 +311,7 @@ func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMac
 		} else {
 			legacyMacroLibraryReport(entry.Name + " is already disabled")
 		}
-		refreshLegacyMacroLibraryWindow()
+		legacyMacroLibraryRefreshStatus()
 		return
 	}
 	message := entry.Name + " disabled; source kept at " + result.SourcePath
@@ -320,7 +324,7 @@ func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMac
 		message += "; macros reloaded"
 	}
 	legacyMacroLibraryReport(message)
-	refreshLegacyMacroLibraryWindow()
+	legacyMacroLibraryRefreshStatus()
 }
 
 func legacyMacroLibraryReload() {
@@ -348,7 +352,7 @@ func legacyMacroLibrarySetAllowContinuous(enabled bool) {
 		message += "; macros reloaded"
 	}
 	legacyMacroLibraryReport(message)
-	refreshLegacyMacroLibraryWindow()
+	legacyMacroLibraryRefreshStatus()
 }
 
 func legacyMacroLibraryDiagnostics() []legacyMacroDiagnostic {
@@ -365,13 +369,27 @@ func legacyMacroLibraryRefreshErrorsButton() {
 		return
 	}
 	count := len(legacyMacroLibraryDiagnostics())
-	legacyMacroLibraryErrors.Text = fmt.Sprintf("Errors (%d)", count)
-	legacyMacroLibraryErrors.Disabled = count == 0
+	text := "No Errors"
+	if count == 0 {
+		text = "No Errors"
+	} else {
+		text = fmt.Sprintf("Errors (%d)", count)
+	}
+	legacyMacroLibraryErrors.UpdateText(text)
+	legacyMacroLibraryErrors.Disabled = false
+}
+
+func legacyMacroLibraryRefreshStatus() {
+	legacyMacroLibraryRefreshErrorsButton()
+	if legacyMacroLibraryWin != nil {
+		legacyMacroLibraryWin.Refresh()
+	}
 }
 
 func legacyMacroLibraryShowDiagnostics() {
 	diagnostics := legacyMacroLibraryDiagnostics()
 	if len(diagnostics) == 0 {
+		legacyMacroLibraryReport("no errors")
 		return
 	}
 	lines := make([]string, 0, len(diagnostics))
@@ -398,9 +416,9 @@ func legacyMacroLibraryShowInfo(entry legacyMacroLibraryEntry) {
 }
 
 type legacyMacroLibraryInfo struct {
-	Metadata []string
-	Commands []string
-	Hotkeys  []string
+	Metadata    []string
+	Commands    []string
+	Keybindings []string
 }
 
 func collectLegacyMacroLibraryInfo(entry legacyMacroLibraryEntry) (legacyMacroLibraryInfo, error) {
@@ -425,10 +443,11 @@ func collectLegacyMacroLibraryInfo(entry legacyMacroLibraryEntry) (legacyMacroLi
 	source.Name = entry.ID
 	program := parseLegacyMacroSources([]legacyMacroSource{source})
 	info := legacyMacroLibraryInfo{
-		Metadata: make([]string, 0, 7),
-		Commands: make([]string, 0),
-		Hotkeys:  make([]string, 0),
+		Metadata:    make([]string, 0, 7),
+		Commands:    make([]string, 0),
+		Keybindings: make([]string, 0),
 	}
+	var activeBindings []legacyMacroDeclaration
 	for _, declaration := range program.Macros {
 		switch declaration.Kind {
 		case legacyMacroExpression:
@@ -436,11 +455,14 @@ func collectLegacyMacroLibraryInfo(entry legacyMacroLibraryEntry) (legacyMacroLi
 		case legacyMacroReplacement:
 			info.Commands = append(info.Commands, declaration.Trigger+" (replacement)")
 		case legacyMacroKey, legacyMacroClick, legacyMacroWheel:
-			info.Hotkeys = append(info.Hotkeys, legacyMacroLibraryHotkeyName(declaration))
+			if legacyMacroBindingCanFire(declaration, activeBindings) {
+				activeBindings = append(activeBindings, declaration)
+				info.Keybindings = append(info.Keybindings, legacyMacroLibraryKeybindingName(declaration))
+			}
 		}
 	}
 	sort.Strings(info.Commands)
-	sort.Strings(info.Hotkeys)
+	sort.Strings(info.Keybindings)
 	if entry.Description != "" {
 		info.Metadata = append(info.Metadata, "Description: "+entry.Description)
 	}
@@ -477,11 +499,11 @@ func legacyMacroLibraryInfoText(entry legacyMacroLibraryEntry) (string, error) {
 	if len(info.Commands) > 0 {
 		sections = append(sections, "Commands:\n"+strings.Join(info.Commands, "\n"))
 	}
-	if len(info.Hotkeys) > 0 {
-		sections = append(sections, "Hotkeys:\n"+strings.Join(info.Hotkeys, "\n"))
+	if len(info.Keybindings) > 0 {
+		sections = append(sections, "Keybindings:\n"+strings.Join(info.Keybindings, "\n"))
 	}
 	if len(sections) == 0 {
-		return "This macro has no command or hotkey triggers.", nil
+		return "This macro has no command or keybinding triggers.", nil
 	}
 	return strings.Join(sections, "\n\n"), nil
 }
@@ -493,7 +515,7 @@ func legacyMacroLibraryInfoColumns(info legacyMacroLibraryInfo) *eui.ItemData {
 	columns.Size = eui.Point{X: columnWidth * 3, Y: columnHeight}
 	columns.AddItem(legacyMacroLibraryInfoColumn("About", info.Metadata, columnWidth, columnHeight))
 	columns.AddItem(legacyMacroLibraryInfoColumn("Commands", info.Commands, columnWidth, columnHeight))
-	columns.AddItem(legacyMacroLibraryInfoColumn("Hotkeys", info.Hotkeys, columnWidth, columnHeight))
+	columns.AddItem(legacyMacroLibraryInfoColumn("Keybindings", info.Keybindings, columnWidth, columnHeight))
 	return columns
 }
 
@@ -574,7 +596,7 @@ func legacyMacroLibraryRowFace() text.Face {
 	return &text.GoTextFace{Size: size}
 }
 
-func legacyMacroLibraryHotkeyName(declaration legacyMacroDeclaration) string {
+func legacyMacroLibraryKeybindingName(declaration legacyMacroDeclaration) string {
 	parts := make([]string, 0, 3)
 	if declaration.Key.Modifiers&legacyMacroModCommand != 0 {
 		parts = append(parts, "Command")

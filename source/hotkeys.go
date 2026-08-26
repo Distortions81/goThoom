@@ -428,6 +428,7 @@ func refreshHotkeysList() {
 	if hotkeysWin != nil {
 		hotkeysWin.Refresh()
 	}
+	refreshKeybindingsList()
 }
 
 func confirmRemoveHotkey(idx int) {
@@ -970,7 +971,7 @@ func hotkeyEquipAlreadyEquipped(cmd string) bool {
 }
 
 func checkHotkeys() InputEvent {
-	if recording {
+	if recording || keyboardTestSuppressingInput() {
 		return InputEvent{}
 	}
 	typing := typingInUI()

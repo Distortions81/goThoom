@@ -182,7 +182,7 @@ func showDualGroupEditor(title, availableTitle, memberTitle string, entries func
 		quickButton, quickEvents := eui.NewButton()
 		quickButton.Text = quickLabel
 		quickButton.Size = eui.Point{X: 180, Y: 26}
-		quickButton.SetTooltip("Add nearby visible players from the current snell")
+		quickButton.SetTooltip("Add nearby players.")
 		quickEvents.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventClick {
 				quickAdd()

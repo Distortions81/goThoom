@@ -61,6 +61,13 @@ var (
 	highQualityResampling bool
 )
 
+func loadCLSoundsArchive() (*clsnd.CLSounds, error) {
+	if isWASM && len(wasmCLSoundsData) > 0 {
+		return clsnd.LoadBytes(wasmCLSoundsData)
+	}
+	return clsnd.Load(filepath.Join(dataDirPath, CL_SoundsFile))
+}
+
 func init() {
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
 }

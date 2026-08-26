@@ -164,6 +164,7 @@ func loadLegacyMacrosForCharacter(character string) error {
 	legacyMacrosProgram = program
 	legacyMacrosRuntime = runtime
 	legacyMacrosMu.Unlock()
+	refreshKeybindingsList()
 	if err := program.err(); err != nil {
 		return err
 	}

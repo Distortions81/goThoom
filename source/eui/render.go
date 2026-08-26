@@ -145,15 +145,7 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 		x = float32(screenWidth) - width
 	}
 
-	style := item.themeStyle()
-	bg := color.RGBA{0, 0, 0, 200}
-	fg := color.RGBA{255, 255, 255, 255}
-	border := color.RGBA{255, 255, 255, 255}
-	if style != nil {
-		bg = style.HoverColor.ToRGBA()
-		fg = style.TextColor.ToRGBA()
-		border = style.OutlineColor.ToRGBA()
-	}
+	bg, fg, border := tooltipColors()
 
 	drawFilledRect(screen, x, y, width, height, bg, true)
 	strokeRect(screen, x, y, width, height, 1, border, true)
@@ -163,6 +155,10 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 	top := &text.DrawOptions{DrawImageOptions: dop}
 	top.ColorScale.ScaleWithColor(fg)
 	text.Draw(screen, item.Tooltip, face, top)
+}
+
+func tooltipColors() (background, foreground, border color.RGBA) {
+	return color.RGBA{16, 18, 22, 255}, color.RGBA{255, 255, 255, 255}, color.RGBA{208, 212, 220, 255}
 }
 
 func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {

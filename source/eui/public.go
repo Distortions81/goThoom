@@ -28,6 +28,10 @@ func MiddleClickMove() bool { return middleClickMove }
 // SetMiddleClickMove enables or disables dragging windows with the middle mouse button.
 func SetMiddleClickMove(enabled bool) { middleClickMove = enabled }
 
+// SetKeyboardInputCaptured pauses EUI keyboard actions while leaving pointer
+// and window controls active.
+func SetKeyboardInputCaptured(captured bool) { keyboardInputCaptured = captured }
+
 // SetScreenSize sets the current screen size used for layout calculations.
 func SetScreenSize(w, h int) {
 	screenWidth = w

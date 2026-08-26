@@ -353,7 +353,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	stopSeek, stopSeekEv := eui.NewButton()
 	stopSeek.Text = "Stop Seek"
-	stopSeek.SetTooltip("Stop rebuilding the movie at the current seek position")
+	stopSeek.SetTooltip("Stop seeking.")
 	stopSeek.Size = eui.Point{X: 100, Y: 24}
 	stopSeekEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

@@ -1123,9 +1123,14 @@ func (item *itemData) GetTextPtr() *string {
 	return &item.Text
 }
 
-// SetTooltip assigns tooltip text and caches its measured size.
+const (
+	tooltipMaxRunes = 96
+	tooltipMaxWidth = 260
+)
+
+// SetTooltip assigns compact, wrapped tooltip text and caches its measured size.
 func (item *itemData) SetTooltip(tip string) {
-	item.Tooltip = tip
+	item.tooltipRaw = truncateTooltip(tip)
 	item.updateTooltipBounds()
 }
 
@@ -1134,15 +1139,79 @@ func (item *itemData) updateTooltipBounds() {
 	if item == nil {
 		return
 	}
-	if item.Tooltip == "" {
+	if item.tooltipRaw == "" {
+		item.Tooltip = ""
 		item.tooltipW, item.tooltipH = 0, 0
 		return
 	}
 	faceSize := float32(12) * uiScale
 	face := textFace(faceSize)
+	item.Tooltip = wrapTooltip(item.tooltipRaw, face, tooltipMaxWidth*float64(uiScale))
 	w, h := text.Measure(item.Tooltip, face, 0)
 	item.tooltipW = float32(w)
 	item.tooltipH = float32(h)
+}
+
+func truncateTooltip(tip string) string {
+	tip = strings.Join(strings.Fields(tip), " ")
+	runes := []rune(tip)
+	if len(runes) <= tooltipMaxRunes {
+		return tip
+	}
+	const suffix = " ..."
+	limit := tooltipMaxRunes - len([]rune(suffix))
+	short := strings.TrimSpace(string(runes[:limit]))
+	if split := strings.LastIndexByte(short, ' '); split >= limit/2 {
+		short = strings.TrimSpace(short[:split])
+	}
+	return short + suffix
+}
+
+func wrapTooltip(tip string, face text.Face, maxWidth float64) string {
+	words := strings.Fields(tip)
+	if len(words) == 0 || maxWidth <= 0 {
+		return ""
+	}
+	lines := make([]string, 0, 3)
+	line := ""
+	for _, word := range words {
+		candidate := word
+		if line != "" {
+			candidate = line + " " + word
+		}
+		if width, _ := text.Measure(candidate, face, 0); width <= maxWidth {
+			line = candidate
+			continue
+		}
+		if line != "" {
+			lines = append(lines, line)
+			line = ""
+		}
+		for len(word) > 0 {
+			chunk, rest := tooltipWordChunk(word, face, maxWidth)
+			if rest == "" {
+				line = chunk
+				break
+			}
+			lines = append(lines, chunk)
+			word = rest
+		}
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func tooltipWordChunk(word string, face text.Face, maxWidth float64) (chunk, rest string) {
+	runes := []rune(word)
+	for end := len(runes); end > 0; end-- {
+		candidate := string(runes[:end])
+		if width, _ := text.Measure(candidate, face, 0); width <= maxWidth || end == 1 {
+			return candidate, string(runes[end:])
+		}
+	}
+	return word, ""
 }
 
 func (win *windowData) markDirty() {

@@ -30,6 +30,8 @@ var (
 	updateNow        time.Time
 
 	inputBuf []rune
+
+	keyboardInputCaptured bool
 )
 
 var (
@@ -51,14 +53,14 @@ func Update() error {
 	CtrlPressed = ctrlPressed
 	altPressed := ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight)
 	metaPressed := ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight)
-	if inpututil.IsKeyJustPressed(ebiten.KeyCapsLock) {
+	if !keyboardInputCaptured && inpututil.IsKeyJustPressed(ebiten.KeyCapsLock) {
 		if CapsLockToggleHandler != nil {
 			CapsLockToggleHandler()
 		}
 	}
 	_ = altPressed
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyGraveAccent) && shiftPressed {
+	if !keyboardInputCaptured && inpututil.IsKeyJustPressed(ebiten.KeyGraveAccent) && shiftPressed {
 		_ = DumpTree()
 	}
 
@@ -125,7 +127,10 @@ func Update() error {
 	delta := pointSub(mpos, mposOld)
 	c := ebiten.CursorShapeDefault
 
-	chars := ebiten.AppendInputChars(inputBuf[:0])
+	var chars []rune
+	if !keyboardInputCaptured {
+		chars = ebiten.AppendInputChars(inputBuf[:0])
+	}
 
 	// First, give active context menus a chance to handle the click/hover.
 	if handleContextMenus(mpos, click) {
@@ -374,13 +379,13 @@ func Update() error {
 		cursorShape = c
 	}
 
-	if (ctrlPressed || metaPressed) && inpututil.IsKeyJustPressed(ebiten.KeyC) && selectedTextItem != nil {
+	if !keyboardInputCaptured && (ctrlPressed || metaPressed) && inpututil.IsKeyJustPressed(ebiten.KeyC) && selectedTextItem != nil {
 		if selected := selectedTextItem.SelectedText(); selected != "" {
 			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(selected))
 		}
 	}
 
-	if focusedItem != nil {
+	if focusedItem != nil && !keyboardInputCaptured {
 		for _, r := range chars {
 			if r >= 32 && r != 127 && r != '\r' && r != '\n' {
 				if focusedItem.HideText {
@@ -545,7 +550,10 @@ func Update() error {
 		}
 	}
 
-	if activeSearch != nil {
+	if keyboardInputCaptured {
+		// Keep pointer-driven window controls active, but reserve all keyboard
+		// input for the caller while it is showing a keyboard tester.
+	} else if activeSearch != nil {
 		for _, r := range chars {
 			if r >= 32 && r != 127 && r != '\r' && r != '\n' {
 				if len([]rune(activeSearch.SearchText)) < 64 {
