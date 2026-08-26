@@ -114,6 +114,21 @@ func TestMusicEnhancementAmountDefaultAndClamp(t *testing.T) {
 	}
 }
 
+func TestUIScalePreferenceClamp(t *testing.T) {
+	for _, test := range []struct {
+		value float64
+		want  float64
+	}{
+		{value: 0, want: 0.75},
+		{value: 1.25, want: 1.25},
+		{value: 5, want: 4},
+	} {
+		if got := clampUIScalePreference(test.value); got != test.want {
+			t.Errorf("clampUIScalePreference(%v) = %v, want %v", test.value, got, test.want)
+		}
+	}
+}
+
 func TestRecentPlayersGroupDefaultOn(t *testing.T) {
 	if !gsdef.ShowRecentPlayers {
 		t.Error("recently on-screen player group should default on")

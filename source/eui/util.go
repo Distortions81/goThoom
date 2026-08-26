@@ -943,12 +943,17 @@ func (win *windowData) SetTitleSize(size float32) {
 }
 
 func SetUIScale(scale float32) {
-	// Clamp to a sane, supported range so very small or large
-	// values don't break hit testing or rendering.
+	// Clamp to a sane, supported range so very small or large values don't
+	// break hit testing or rendering. The effective limit is higher than the
+	// user preference limit so a 4x preference can still work on a 2x Retina
+	// display.
 	if scale < 0.5 {
 		scale = 0.5
-	} else if scale > 4.0 {
-		scale = 4.0
+	} else if scale > 8.0 {
+		scale = 8.0
+	}
+	if uiScale == scale {
+		return
 	}
 	uiScale = scale
 	for _, win := range windows {
@@ -965,6 +970,27 @@ func SetUIScale(scale float32) {
 	updateAllTooltipBounds()
 	markAllDirty()
 }
+
+// SetUserUIScale sets the user's preferred UI scale. The effective scale also
+// includes the active display's device scale factor, keeping controls and text
+// physically readable on Retina and other HiDPI displays.
+func SetUserUIScale(scale float32) {
+	if scale < 0.5 {
+		scale = 0.5
+	} else if scale > 4.0 {
+		scale = 4.0
+	}
+	userUIScale = scale
+	deviceScale := float32(1)
+	if AutoHiDPI {
+		deviceScale = float32(lastDeviceScale)
+	}
+	SetUIScale(userUIScale * deviceScale)
+}
+
+// UserUIScale reports the cross-display UI preference before automatic HiDPI
+// scaling is applied.
+func UserUIScale() float32 { return userUIScale }
 
 func UIScale() float32 { return uiScale }
 
@@ -984,6 +1010,21 @@ func (win *windowData) GetTitleSize() float32 {
 func (win *windowData) GetSize() Point {
 	s := win.scale()
 	return Point{X: win.Size.X * s, Y: win.Size.Y * s}
+}
+
+// RequiresScroll reports whether the window content exceeds its visible area.
+// It is useful to callers that need to guarantee a fixed settings layout fits
+// without introducing a scrollbar.
+func (win *windowData) RequiresScroll() (horizontal, vertical bool) {
+	if win.NoScroll {
+		return false, false
+	}
+	req := win.contentBounds()
+	avail := point{
+		X: win.GetSize().X - 2*win.BorderPad,
+		Y: win.GetSize().Y - win.GetTitleSize() - 2*win.BorderPad,
+	}
+	return req.X > avail.X, req.Y > avail.Y
 }
 
 func (win *windowData) GetPos() Point {
@@ -1425,6 +1466,11 @@ func (win *windowData) contentBounds() point {
 }
 
 func (win *windowData) updateAutoSize() {
+	// Resolve nested flows before measuring them. In particular, a UI-scale
+	// change can leave a flow with its previous dimensions until it is laid out
+	// again; measuring that stale size made an auto-sized window one layout pass
+	// too short and caused an unnecessary scrollbar.
+	win.resizeFlows()
 	req := win.contentBounds()
 	pad := (win.Padding + win.BorderPad) * win.scale()
 
@@ -1445,6 +1491,16 @@ func (win *windowData) updateAutoSize() {
 	s := win.scale()
 	win.Size = point{X: size.X / s, Y: size.Y / s}
 	win.resizeFlows()
+
+	// A parent flow can grow after it receives its final width. Re-measure once
+	// so the window tracks that resolved content rather than leaving a stray
+	// scroll range after increasing UI scale.
+	resolved := win.contentBounds()
+	resolvedY := resolved.Y + win.GetTitleSize() + 2*pad
+	if resolvedY > size.Y && resolvedY <= float32(screenHeight) {
+		win.Size.Y = resolvedY / s
+		win.resizeFlows()
+	}
 	win.clampToScreen()
 }
 

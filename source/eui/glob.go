@@ -19,6 +19,7 @@ var (
 	focusedItem         *itemData
 	hoveredItem         *itemData
 	uiScale             float32 = 1.0
+	userUIScale         float32 = 1.0
 	currentTheme        *Theme
 	currentThemeName    string = "AccentDark"
 	clickFlash                 = time.Millisecond * 100
@@ -84,6 +85,12 @@ func Layout(outsideWidth, outsideHeight int) (int, int) {
 
 	scaledW := int(float64(outsideWidth) * scale)
 	scaledH := int(float64(outsideHeight) * scale)
+	// outsideWidth/outsideHeight are in display-independent points. The game
+	// renders at the physical framebuffer size, so the UI must use the same
+	// device factor or it becomes physically tiny on Retina and other HiDPI
+	// displays. userUIScale remains the user's cross-display preference.
+	SetUIScale(userUIScale * float32(scale))
+
 	if scaledW != screenWidth || scaledH != screenHeight {
 		SetScreenSize(scaledW, scaledH)
 	}

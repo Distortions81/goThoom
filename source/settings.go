@@ -95,6 +95,16 @@ func clampMusicEnhancementAmount(v float64) float64 {
 	return v
 }
 
+func clampUIScalePreference(v float64) float64 {
+	if v < 0.75 {
+		return 0.75
+	}
+	if v > 4 {
+		return 4
+	}
+	return v
+}
+
 func normalizeGamma(v, fallback float64) float64 {
 	if math.IsNaN(v) || v <= 0 {
 		return fallback
@@ -665,6 +675,7 @@ func loadSettings() bool {
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
 	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(gs.MusicEnhancementAmount)
+	gs.UIScale = clampUIScalePreference(gs.UIScale)
 
 	// Clamp BubbleScale to 1.0–8.0
 	if gs.BubbleScale < 1.0 || gs.BubbleScale > 8.0 {

@@ -286,7 +286,7 @@ func initUI() {
 	// Load persisted user/global shortcuts before showing UI or handling input
 	loadShortcuts()
 
-	eui.SetUIScale(float32(gs.UIScale))
+	eui.SetUserUIScale(float32(gs.UIScale))
 
 	makeGameWindow()
 	makeDownloadsWindow()
@@ -3623,7 +3623,6 @@ func makeSettingsWindow() {
 			confirmResetWindows()
 		}
 	}
-	windowSection.AddItem(resetWindowsBtn)
 
 	autoResizeCB, autoResizeEvents := eui.NewCheckbox()
 	autoResizeCB.Text = "Auto-resize window layout"
@@ -3666,40 +3665,40 @@ func makeSettingsWindow() {
 	}
 	windowSection.AddItem(toolbarInfoCB)
 
-	if showUIScale {
-		// Screen size settings in-place (moved from separate window)
-		uiScaleSlider, uiScaleEvents := eui.NewSlider()
-		uiScaleSlider.Label = "UI Scaling"
-		uiScaleSlider.MinValue = 0.75
-		uiScaleSlider.MaxValue = 4
-		uiScaleSlider.Value = float32(gs.UIScale)
-		pendingUIScale := gs.UIScale
-		uiScaleEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventSliderChanged {
-				pendingUIScale = float64(ev.Value)
-			}
+	// UI scale is always available: users need a direct recovery path if a
+	// display's DPI report is unusual. Retina/HiDPI scaling is applied on top
+	// of this preference automatically.
+	uiScaleSlider, uiScaleEvents := eui.NewSlider()
+	uiScaleSlider.Label = "UI Scale"
+	uiScaleSlider.MinValue = 0.75
+	uiScaleSlider.MaxValue = 4
+	uiScaleSlider.Value = float32(gs.UIScale)
+	uiScaleSlider.SetTooltip("Base UI size. Retina and other HiDPI displays are scaled automatically.")
+	pendingUIScale := gs.UIScale
+	uiScaleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			pendingUIScale = float64(ev.Value)
 		}
-
-		uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
-		uiScaleApplyBtn.Text = "Apply"
-		uiScaleApplyBtn.Size = eui.Point{X: 48, Y: 24}
-		uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				gs.UIScale = pendingUIScale
-				eui.SetUIScale(float32(gs.UIScale))
-				updateGameWindowSize()
-				settingsDirty = true
-			}
-		}
-
-		// Place the slider and button on the same row
-		uiScaleRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-		// Fit slider to remaining width in the row
-		uiScaleSlider.Size = eui.Point{X: panelWidth - uiScaleApplyBtn.Size.X - 10, Y: 24}
-		uiScaleRow.AddItem(uiScaleSlider)
-		uiScaleRow.AddItem(uiScaleApplyBtn)
-		windowSection.AddItem(uiScaleRow)
 	}
+
+	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
+	uiScaleApplyBtn.Text = "Apply"
+	uiScaleApplyBtn.Size = eui.Point{X: 48, Y: 24}
+	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			gs.UIScale = pendingUIScale
+			eui.SetUserUIScale(float32(gs.UIScale))
+			updateGameWindowSize()
+			settingsDirty = true
+		}
+	}
+
+	// Place the slider and button on the same row.
+	uiScaleRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	uiScaleSlider.Size = eui.Point{X: panelWidth - uiScaleApplyBtn.Size.X - 10, Y: 24}
+	uiScaleRow.AddItem(uiScaleSlider)
+	uiScaleRow.AddItem(uiScaleApplyBtn)
+	windowSection.AddItem(uiScaleRow)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen (F12)"
@@ -4303,6 +4302,10 @@ func makeSettingsWindow() {
 		}
 	}
 	moreSection.AddItem(advancedBtn)
+	// Keep the Window & Display pane balanced: the UI Scale row belongs there,
+	// while layout recovery is an infrequent action that fits naturally with
+	// the other additional tools.
+	moreSection.AddItem(resetWindowsBtn)
 
 	setupBtn, setupEvents := eui.NewButton()
 	setupBtn.Text = "Setup Wizard"
