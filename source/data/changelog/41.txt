@@ -1,0 +1,10 @@
+goThoom 41 changes since test40.
+
+New and improved:
+- Updated the README and website screenshots to show the tiled workspace at the new default window size.
+
+Fixes:
+- Fixed a major performance regression caused by querying the display DPI during every window resize update. DPI detection is now strictly throttled, and UI windows are relaid out only when the effective scale actually changes.
+
+Technical changes:
+- Added regression coverage for the DPI polling interval.
