@@ -289,8 +289,8 @@ var gsdef settings = settings{
 	JoystickWalkDeadzone:   0.1,
 	JoystickCursorDeadzone: 0.1,
 
-	WindowWidth:  1280,
-	WindowHeight: 720,
+	WindowWidth:  1920,
+	WindowHeight: 1080,
 	GameWindow: WindowState{
 		Open:     true,
 		Position: WindowPoint{X: 438.0 / 1858.0},
