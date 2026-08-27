@@ -1,6 +1,9 @@
 package eui
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestUserUIScaleIncludesDeviceScale(t *testing.T) {
 	originalScale := uiScale
@@ -29,5 +32,20 @@ func TestUserUIScaleIncludesDeviceScale(t *testing.T) {
 	SetUserUIScale(4)
 	if got := UIScale(); got != 8 {
 		t.Fatalf("Retina effective UI scale at maximum user preference = %v, want 8", got)
+	}
+}
+
+func TestDeviceScaleCheckIsThrottled(t *testing.T) {
+	originalLastCheck := lastScaleCheck
+	t.Cleanup(func() { lastScaleCheck = originalLastCheck })
+
+	checkedAt := time.Now()
+	lastScaleCheck = checkedAt
+
+	if deviceScaleCheckDue(checkedAt.Add(scaleCheckInterval - time.Nanosecond)) {
+		t.Fatal("device scale check became due before the interval elapsed")
+	}
+	if !deviceScaleCheckDue(checkedAt.Add(scaleCheckInterval)) {
+		t.Fatal("device scale check not due after the interval elapsed")
 	}
 }

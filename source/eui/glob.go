@@ -52,8 +52,6 @@ var (
 	AutoHiDPI          bool    = true
 	lastDeviceScale    float64 = 1.0
 	lastScaleCheck     time.Time
-	lastOutsideW       int
-	lastOutsideH       int
 	scaleCheckInterval = time.Second
 
 	// WindowStateChanged is an optional callback fired when any window
@@ -67,6 +65,10 @@ func init() {
 
 // constants moved to const.go
 
+func deviceScaleCheckDue(now time.Time) bool {
+	return now.Sub(lastScaleCheck) >= scaleCheckInterval
+}
+
 // Layout reports the dimensions for the game's screen.
 // Pass Ebiten's outside size values to this from your Layout function.
 func Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -74,14 +76,12 @@ func Layout(outsideWidth, outsideHeight int) (int, int) {
 	if AutoHiDPI {
 		scale = lastDeviceScale
 		now := time.Now()
-		if outsideWidth != lastOutsideW || outsideHeight != lastOutsideH || now.Sub(lastScaleCheck) >= scaleCheckInterval {
+		if deviceScaleCheckDue(now) {
 			scale = ebiten.Monitor().DeviceScaleFactor()
 			lastDeviceScale = scale
 			lastScaleCheck = now
 		}
 	}
-	lastOutsideW = outsideWidth
-	lastOutsideH = outsideHeight
 
 	scaledW := int(float64(outsideWidth) * scale)
 	scaledH := int(float64(outsideHeight) * scale)
@@ -89,7 +89,10 @@ func Layout(outsideWidth, outsideHeight int) (int, int) {
 	// renders at the physical framebuffer size, so the UI must use the same
 	// device factor or it becomes physically tiny on Retina and other HiDPI
 	// displays. userUIScale remains the user's cross-display preference.
-	SetUIScale(userUIScale * float32(scale))
+	effectiveScale := userUIScale * float32(scale)
+	if effectiveScale != uiScale {
+		SetUIScale(effectiveScale)
+	}
 
 	if scaledW != screenWidth || scaledH != screenHeight {
 		SetScreenSize(scaledW, scaledH)
