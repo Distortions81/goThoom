@@ -234,7 +234,7 @@ var gsdef settings = settings{
 	MonitorGamma:          2.2,
 	BarPlacement:          BarPlacementBottom,
 	MaxNightLevel:         100,
-	MessagesToConsole:     false,
+	MessagesToConsole:     true,
 	ChatTTS:               false,
 	ChatTTSVolume:         0.20652173459529877,
 	ChatTTSSpeed:          1.25,
@@ -922,6 +922,7 @@ func resetSavedWindowSettings() {
 	gs.TiledInventoryLeft = gsdef.TiledInventoryLeft
 	gs.TiledConsoleLeft = gsdef.TiledConsoleLeft
 	gs.TiledGameLeft = gsdef.TiledGameLeft
+	gs.MessagesToConsole = gsdef.MessagesToConsole
 	gs.ToolbarPlacement = gsdef.ToolbarPlacement
 	gs.ToolbarInfoBar = gsdef.ToolbarInfoBar
 }
@@ -1104,7 +1105,15 @@ func prepareTiledWorkspaceWindowChrome() {
 				if item.win.GetRawTitleSize() > 0 {
 					gameWindowFreeformTitleHeight = item.win.GetRawTitleSize()
 				}
+				if item.win.Padding > 0 {
+					gameWindowFreeformPadding = item.win.Padding
+				}
+				if item.win.Margin > 0 {
+					gameWindowFreeformMargin = item.win.Margin
+				}
 				item.win.TitleHeight = 0
+				item.win.Padding = 0
+				item.win.Margin = 0
 			}
 			item.win.SetDocked(true)
 			item.win.Closable = false
@@ -1116,6 +1125,8 @@ func prepareTiledWorkspaceWindowChrome() {
 		item.win.SetDocked(false)
 		if item.game && gameWindowFreeformTitleHeight > 0 {
 			item.win.TitleHeight = gameWindowFreeformTitleHeight
+			item.win.Padding = gameWindowFreeformPadding
+			item.win.Margin = gameWindowFreeformMargin
 		}
 		item.win.Resizable = true
 		item.win.Closable = !item.game

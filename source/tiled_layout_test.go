@@ -29,8 +29,9 @@ func TestCenteredTiledLayoutUsesCurrentThreeColumnWorkspace(t *testing.T) {
 	assertWindowRect(t, gs.PlayersWindow, 1-gs.TiledRightWidth, 0, gs.TiledRightWidth, 0.70)
 	assertWindowRect(t, gs.MessagesWindow, 0, 0.70, gs.TiledLeftWidth, 0.30)
 	assertWindowRect(t, gs.ChatWindow, 1-gs.TiledRightWidth, 0.70, gs.TiledRightWidth, 0.30)
-	if gamePixels := gs.GameWindow.Size.X * 1920; math.Abs(gamePixels-1080) > 1e-9 {
-		t.Fatalf("game pane width = %v pixels, want square 1080", gamePixels)
+	wantGamePixels := float64(1080*gameAreaSizeX) / float64(gameAreaSizeY)
+	if gamePixels := gs.GameWindow.Size.X * 1920; math.Abs(gamePixels-wantGamePixels) > 1e-9 {
+		t.Fatalf("game pane width = %v pixels, want aspect-matched %v", gamePixels, wantGamePixels)
 	}
 }
 
@@ -38,6 +39,8 @@ func TestTiledGameWindowHidesAndRestoresTitleBar(t *testing.T) {
 	originalGS := gs
 	originalGameWin := gameWin
 	originalTitleHeight := gameWindowFreeformTitleHeight
+	originalPadding := gameWindowFreeformPadding
+	originalMargin := gameWindowFreeformMargin
 	t.Cleanup(func() {
 		if gameWin != nil && gameWin != originalGameWin {
 			gameWin.RemoveWindow()
@@ -45,22 +48,34 @@ func TestTiledGameWindowHidesAndRestoresTitleBar(t *testing.T) {
 		gs = originalGS
 		gameWin = originalGameWin
 		gameWindowFreeformTitleHeight = originalTitleHeight
+		gameWindowFreeformPadding = originalPadding
+		gameWindowFreeformMargin = originalMargin
 	})
 
 	gameWin = eui.NewWindow()
 	defaultTitleHeight := gameWin.GetRawTitleSize()
+	defaultPadding := gameWin.Padding
+	defaultMargin := gameWin.Margin
 	gameWindowFreeformTitleHeight = defaultTitleHeight
+	gameWindowFreeformPadding = defaultPadding
+	gameWindowFreeformMargin = defaultMargin
 	gs = gsdef
 	gs.TiledWindows = true
 	prepareTiledWorkspaceWindowChrome()
 	if gameWin.GetRawTitleSize() != 0 {
 		t.Fatalf("tiled game title height = %v, want 0", gameWin.GetRawTitleSize())
 	}
+	if gameWin.Padding != 0 || gameWin.Margin != 0 {
+		t.Fatalf("tiled game spacing = padding %v margin %v, want zero", gameWin.Padding, gameWin.Margin)
+	}
 
 	gs.TiledWindows = false
 	prepareTiledWorkspaceWindowChrome()
 	if gameWin.GetRawTitleSize() != defaultTitleHeight {
 		t.Fatalf("freeform game title height = %v, want %v", gameWin.GetRawTitleSize(), defaultTitleHeight)
+	}
+	if gameWin.Padding != defaultPadding || gameWin.Margin != defaultMargin {
+		t.Fatalf("freeform game spacing = padding %v margin %v, want %v and %v", gameWin.Padding, gameWin.Margin, defaultPadding, defaultMargin)
 	}
 }
 

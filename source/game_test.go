@@ -66,12 +66,15 @@ func TestContinueHeldWalk(t *testing.T) {
 func TestWorldDrawInfoSubtractsTitleHeight(t *testing.T) {
 	oldGameWin := gameWin
 	oldScale := gs.GameScale
+	oldTiledWindows := gs.TiledWindows
 	defer func() {
 		gameWin = oldGameWin
 		gs.GameScale = oldScale
+		gs.TiledWindows = oldTiledWindows
 	}()
 
 	gs.GameScale = 1
+	gs.TiledWindows = false
 	gameWin = eui.NewWindow()
 	gameWin.NoScale = true
 	gameWin.Position = eui.Point{}
@@ -110,15 +113,18 @@ func TestUpdateGameImageSizeKeepsVisibleImageExactWhenShrinking(t *testing.T) {
 	oldGameImage := gameImage
 	oldGameImageBacking := gameImageBacking
 	oldScale := eui.UIScale()
+	oldTiledWindows := gs.TiledWindows
 	defer func() {
 		gameWin = oldGameWin
 		gameImageItem = oldGameImageItem
 		gameImage = oldGameImage
 		gameImageBacking = oldGameImageBacking
 		eui.SetUIScale(oldScale)
+		gs.TiledWindows = oldTiledWindows
 	}()
 
 	eui.SetUIScale(1)
+	gs.TiledWindows = false
 	gameImageItem = nil
 	gameImage = nil
 	gameImageBacking = nil
@@ -190,6 +196,40 @@ func TestTiledGameResizeKeepsManagedWindowSize(t *testing.T) {
 
 	if got, want := gameWin.GetSize(), (eui.Point{X: 600, Y: 800}); got != want {
 		t.Fatalf("tiled game window size got %v, want %v", got, want)
+	}
+}
+
+func TestTiledGameImageFillsEveryManagedPixel(t *testing.T) {
+	oldGameWin := gameWin
+	oldGameImageItem := gameImageItem
+	oldGameImage := gameImage
+	oldGameImageBacking := gameImageBacking
+	oldTiledWindows := gs.TiledWindows
+	defer func() {
+		gameWin = oldGameWin
+		gameImageItem = oldGameImageItem
+		gameImage = oldGameImage
+		gameImageBacking = oldGameImageBacking
+		gs.TiledWindows = oldTiledWindows
+	}()
+
+	gameImageItem = nil
+	gameImage = nil
+	gameImageBacking = nil
+	gs.TiledWindows = true
+	gameWin = eui.NewWindow()
+	gameWin.NoScale = true
+	gameWin.Padding = 0
+	gameWin.TitleHeight = 0
+	gameWin.Size = eui.Point{X: 601, Y: 799}
+
+	updateGameImageSize()
+
+	if got := gameImage.Bounds().Size(); got.X != 601 || got.Y != 799 {
+		t.Fatalf("tiled game image size = %v, want 601x799", got)
+	}
+	if got := gameImageItem.Position; got != (eui.Point{}) {
+		t.Fatalf("tiled game image position = %v, want zero", got)
 	}
 }
 

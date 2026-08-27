@@ -32,6 +32,12 @@ func TestDefaultWindowLayoutIsNormalizedAndGapless(t *testing.T) {
 	if !gsdef.TiledKeepGameLarge {
 		t.Fatal("tiled game window should default to its largest size")
 	}
+	if !gsdef.TiledInventoryLeft || !gsdef.TiledConsoleLeft {
+		t.Fatalf("default tiled sides = inventory left %t, console left %t; want both left", gsdef.TiledInventoryLeft, gsdef.TiledConsoleLeft)
+	}
+	if !gsdef.MessagesToConsole {
+		t.Fatal("chat and console should be combined by default")
+	}
 	if !gsdef.AutoResizeWindows {
 		t.Fatal("window layout auto-resize should default on")
 	}
@@ -159,6 +165,9 @@ func TestResetSavedWindowSettings(t *testing.T) {
 	gs.ToolbarPlacement = ToolbarFloating
 	gs.ToolbarInfoBar = true
 	gs.TiledKeepGameLarge = false
+	gs.TiledInventoryLeft = false
+	gs.TiledConsoleLeft = false
+	gs.MessagesToConsole = false
 
 	resetSavedWindowSettings()
 
@@ -176,5 +185,8 @@ func TestResetSavedWindowSettings(t *testing.T) {
 	}
 	if !gs.TiledKeepGameLarge {
 		t.Fatal("large tiled game mode was not restored to its default")
+	}
+	if !gs.TiledInventoryLeft || !gs.TiledConsoleLeft || !gs.MessagesToConsole {
+		t.Fatalf("default tiled arrangement was not restored: inventory left %t, console left %t, combined %t", gs.TiledInventoryLeft, gs.TiledConsoleLeft, gs.MessagesToConsole)
 	}
 }

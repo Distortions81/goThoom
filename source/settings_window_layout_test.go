@@ -46,3 +46,47 @@ func TestSettingsWindowFitsCurrentScreenLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestCombineMessagesControlLivesInTiledLayoutWindow(t *testing.T) {
+	initFont()
+	originalSettingsWin := settingsWin
+	originalTileLayoutWin := tileLayoutWin
+	originalCombineControl := settingsCombineMessagesCB
+	settingsWin = nil
+	tileLayoutWin = nil
+	settingsCombineMessagesCB = nil
+	t.Cleanup(func() {
+		if settingsWin != nil {
+			settingsWin.RemoveWindow()
+		}
+		if tileLayoutWin != nil {
+			tileLayoutWin.RemoveWindow()
+		}
+		settingsWin = originalSettingsWin
+		tileLayoutWin = originalTileLayoutWin
+		settingsCombineMessagesCB = originalCombineControl
+	})
+
+	makeSettingsWindow()
+	makeTileLayoutWindow()
+
+	containsText := func(root *eui.WindowData, want string) bool {
+		var visit func(items []*eui.ItemData) bool
+		visit = func(items []*eui.ItemData) bool {
+			for _, item := range items {
+				if item.Text == want || visit(item.Contents) {
+					return true
+				}
+			}
+			return false
+		}
+		return visit(root.Contents)
+	}
+
+	if containsText(settingsWin, "Combine chat + console") {
+		t.Fatal("combine chat control remains in the general Settings window")
+	}
+	if !containsText(tileLayoutWin, "Combine chat + console") {
+		t.Fatal("combine chat control is missing from the tiled layout window")
+	}
+}

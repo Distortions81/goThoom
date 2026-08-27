@@ -127,12 +127,22 @@ func updateGameImageSize() {
 	size := gameWin.GetSize()
 	pad := float64(2 * gameWin.Padding)
 	title := float64(gameWin.GetTitleSize())
+	pixelW := int(size.X) &^ 1
+	pixelH := int(size.Y) &^ 1
+	edgeInset := 2
+	if gs.TiledWindows {
+		// A tiled playfield has no standalone window frame, so its image should
+		// occupy every assigned pixel. Rounding also avoids dropping the final
+		// row or column when a normalized tile lands on an odd pixel boundary.
+		pixelW = int(math.Round(float64(size.X)))
+		pixelH = int(math.Round(float64(size.Y)))
+		edgeInset = 0
+	}
 	// Inner content size (exclude titlebar and inside padding)
-	cw := int(float64(int(size.X)&^1) - pad)
-	ch := int(float64(int(size.Y)&^1) - pad - title)
-	// Leave a 2px margin on all sides for window edges
-	w := cw - 4
-	h := ch - 4
+	cw := int(float64(pixelW) - pad)
+	ch := int(float64(pixelH) - pad - title)
+	w := cw - 2*edgeInset
+	h := ch - 2*edgeInset
 	if w <= 0 || h <= 0 {
 		return
 	}
@@ -144,7 +154,7 @@ func updateGameImageSize() {
 		gameImage = img
 		gameImageItem.Image = gameImage
 		gameImageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
-		gameImageItem.Position = eui.Point{X: 2 / s, Y: 2 / s}
+		gameImageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset) / s}
 		gameWin.AddItem(gameImageItem)
 		return
 	}
@@ -166,7 +176,7 @@ func updateGameImageSize() {
 	gameImageItem.Image = gameImage
 	// Always update the item size/position even if we reuse a larger backing image.
 	gameImageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
-	gameImageItem.Position = eui.Point{X: 2 / s, Y: 2 / s}
+	gameImageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset) / s}
 }
 
 func worldArtworkFilter() ebiten.Filter {
@@ -235,6 +245,8 @@ var (
 // GameWin_cl.cp and Public_cl.h (Layout.layoFieldBox).
 var gameWin *eui.WindowData
 var gameWindowFreeformTitleHeight float32
+var gameWindowFreeformPadding float32
+var gameWindowFreeformMargin float32
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var qualityWin *eui.WindowData
@@ -1413,11 +1425,18 @@ func worldDrawInfo() (int, int, float64) {
 	size := gameWin.GetSize()
 	pad := float64(2 * gameWin.Padding)
 	title := float64(gameWin.GetTitleSize())
-	cw := int(float64(int(size.X)&^1) - pad)         // content width
-	ch := int(float64(int(size.Y)&^1) - pad - title) // content height
-	// Leave a 2px margin on all sides (matches gameImageItem.Position and sizing).
-	bufW := cw - 4
-	bufH := ch - 4
+	pixelW := int(size.X) &^ 1
+	pixelH := int(size.Y) &^ 1
+	edgeInset := 2
+	if gs.TiledWindows {
+		pixelW = int(math.Round(float64(size.X)))
+		pixelH = int(math.Round(float64(size.Y)))
+		edgeInset = 0
+	}
+	cw := int(float64(pixelW) - pad)         // content width
+	ch := int(float64(pixelH) - pad - title) // content height
+	bufW := cw - 2*edgeInset
+	bufH := ch - 2*edgeInset
 	if bufW <= 0 || bufH <= 0 {
 		if gs.GameScale <= 0 {
 			return gx, gy, 1.0
@@ -1427,9 +1446,8 @@ func worldDrawInfo() (int, int, float64) {
 
 	viewRect, scale := fittedWorldView(bufW, bufH)
 
-	// Add the 2px inner margin to the window origin to reach the game image.
-	originX := gx + 2 + viewRect.Min.X
-	originY := gy + 2 + viewRect.Min.Y
+	originX := gx + edgeInset + viewRect.Min.X
+	originY := gy + edgeInset + viewRect.Min.Y
 	return originX, originY, scale
 }
 
@@ -3112,6 +3130,8 @@ func makeGameWindow() {
 	}
 	gameWin = eui.NewWindow()
 	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
+	gameWindowFreeformPadding = gameWin.Padding
+	gameWindowFreeformMargin = gameWin.Margin
 	updateGameWindowTitle()
 	gameWin.Closable = false
 	gameWin.Resizable = !gs.TiledWindows

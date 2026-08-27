@@ -123,8 +123,9 @@ func moveFixedCenteredGame(desiredLeft, extent float64) {
 }
 
 // maximizeCenteredGameForWorkspace gives the full-height game pane the width
-// of the largest square that fits between the two required side columns. Any
-// extra horizontal room is shared evenly unless the toolbar's host needs more.
+// of the classic 547x540 playfield aspect ratio, bounded by the two required
+// side columns. Any extra horizontal room is shared evenly unless the
+// toolbar's host needs more.
 func maximizeCenteredGameForWorkspace(width, height int, toolbarMinimum float64) {
 	if width <= 0 || height <= 0 {
 		return
@@ -132,7 +133,8 @@ func maximizeCenteredGameForWorkspace(width, height int, toolbarMinimum float64)
 
 	leftMinimum, rightMinimum := centeredSideMinimums(toolbarMinimum)
 
-	gameWidth := math.Min(float64(height)/float64(width), 1-leftMinimum-rightMinimum)
+	idealGameWidth := float64(height) * float64(gameAreaSizeX) / float64(gameAreaSizeY) / float64(width)
+	gameWidth := math.Min(idealGameWidth, 1-leftMinimum-rightMinimum)
 	gameWidth = math.Max(gameWidth, 0.30)
 	remaining := 1 - gameWidth
 	travel := math.Max(0, remaining-leftMinimum-rightMinimum)

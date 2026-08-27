@@ -14,13 +14,24 @@ UI Navigation
 -------------
 - Click the "Windows" button on the toolbar to open or close UI windows.
 - Click the "Actions" button on the toolbar for hotkeys, shortcuts, or scripts.
+- Click the "Audio" button to open the Mixer.
 - Mouse wheel scrolls lists and text windows.
 - Window positions, sizes, and open/closed state persist between runs.
 - Sliders: hold Shift to snap to integers; hold Ctrl for fine adjustment at 1/8 speed.
+- UI Scale is available under Settings → Window & Display. Automatic HiDPI scaling follows the display scale.
+
+Tiled Window Mode
+-----------------
+- Tiled window mode is enabled by default. The Game fills the center, Inventory is on the left, and Players is on the right.
+- Chat and Console output are combined in the Console by default. The Console uses the lower-left tile; if separated, Chat uses the lower-right tile.
+- Drag a visible divider to resize adjacent tiles. With "Keep game window large" enabled, dragging either side of the Game moves the fixed-size Game pane and both dividers together.
+- Open Settings → Window & Display → Tiled Layout to choose the layout, swap Inventory and Players, swap Console and Chat, combine their output, or choose which side holds the Game in the alternate layout.
+- The toolbar stays inside Inventory or Players in tiled mode. Utility windows outside the main tile set remain normal movable windows.
+- Turn off "Tiled window mode" in Settings to return the main windows to freeform movement and resizing.
 
 Chat & Console
 --------------
-- Chat and Console are separate windows. If "Messages to Console" is enabled, chat merges into the Console.
+- Chat and Console are combined by default. Change "Combine chat + console" in the Tiled Layout window to show separate tiles.
 - The input bar auto-expands as you type. Use the right-click menu for paste, copy, or clear.
 - Messages with `@<your name>` or `@<profession>` highlight in blue and play a tink sound.
 
@@ -44,8 +55,8 @@ Other Windows
 - Hotkeys: configure built-in and script hotkeys.
 - Shortcuts: define text expansions for the input bar.
 - Triggers: view script trigger phrases.
-- Mixer: adjust overall, game, music, and TTS volumes; toggle channels.
-- Settings/Quality: tweak visuals (motion smoothing, blending), sound, notifications, and presets.
+- Audio/Mixer: adjust overall, game, music, TTS, and notification volumes; toggle channels and audio enhancement.
+- Settings/Quality: tweak the window layout, UI scale, visuals, sound, notifications, and presets.
 
 Extras
 ------

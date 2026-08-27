@@ -3927,19 +3927,6 @@ func makeSettingsWindow() {
 	}
 	controlsSection.AddItem(inputOpenCB)
 
-	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox()
-	settingsCombineMessagesCB = bubbleMsgCB
-	bubbleMsgCB.Text = "Combine chat + console"
-	bubbleMsgCB.Size = eui.Point{X: panelWidth, Y: 24}
-	bubbleMsgCB.Checked = gs.MessagesToConsole
-	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MessagesToConsole = ev.Checked
-			applyTiledWorkspaceLayout()
-		}
-	}
-	chatSection.AddItem(bubbleMsgCB)
-
 	chatTSCB, chatTSEvents := eui.NewCheckbox()
 	chatTSCB.Text = "Chat timestamps"
 	chatTSCB.Size = eui.Point{X: panelWidth, Y: 24}
@@ -5697,6 +5684,20 @@ func makeTileLayoutWindow() {
 		}
 	}
 	workspace.AddItem(keepGameLargeCB)
+
+	combineMessagesCB, combineMessagesEvents := eui.NewCheckbox()
+	settingsCombineMessagesCB = combineMessagesCB
+	combineMessagesCB.Text = "Combine chat + console"
+	combineMessagesCB.Size = eui.Point{X: width, Y: 24}
+	combineMessagesCB.Checked = gs.MessagesToConsole
+	combineMessagesCB.SetTooltip("Show chat and console output together in the Console tile, and hide the separate Chat tile.")
+	combineMessagesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MessagesToConsole = ev.Checked
+			applyTiledWorkspaceLayout()
+		}
+	}
+	workspace.AddItem(combineMessagesCB)
 
 	layoutDD, layoutEvents := eui.NewDropdown()
 	layoutDD.Label = "Layout"
