@@ -1,0 +1,25 @@
+goThoom 40 preview changes since test39.
+
+New and improved:
+- Added tiled window mode, enabled by default, for the Game, Inventory, Players, Console, and Chat windows. Clear draggable dividers resize the workspace while utility windows remain ordinary floating windows.
+- Added centered and side-game tiled layouts with controls to swap Inventory and Players, swap Console and Chat, combine Chat into Console, choose the alternate Game side, and keep the Game pane as large as possible.
+- The default tiled arrangement places Inventory on the left and Players on the right, with combined Chat and Console output in the lower-left Console tile. The separate Chat placement remains on the right when combination is disabled.
+- The tiled Game pane now hides standalone window chrome, fills every assigned pixel, and uses the classic 547x540 playfield ratio without leaving a gray strip.
+- Added display-aware HiDPI scaling so Retina and other high-density displays use their reported scale factor. The manual UI Scale remains available as an additional preference.
+- Updated scaled text-window sizing so Chat and Console retain their input bars, Settings avoids unnecessary scrollbars, and player names do not grow with the general UI scale.
+- Added sound-effect and bard-music enhancement toggles and strength sliders to the Mixer. Their settings persist across restarts.
+- Renamed the toolbar Mixer button to Audio and updated the in-game Help for the new tiled workspace, scaling, and audio controls.
+- Compact movie playback controls now use smaller Pause and Reset buttons, put Stop Seek in the former Repeat position, and show UPS as a compact four-digit value.
+- Changed the fresh-install application window size to 1280x720. Existing saved window sizes are preserved.
+
+Fixes:
+- Kept active bard music playing when the server interrupts a client macro; only an explicit scoped music stop ends the matching performance.
+- Fixed multiline tooltips drawing their lines on top of one another.
+- Fixed divider resize cursors being overwritten by the main game cursor logic.
+- Removed standalone move, resize, close, and outer-border affordances from windows managed by tiled mode.
+- Fixed the docked toolbar reserving more space than its visible content and prevented tiled panes from becoming too narrow for it.
+- Fixed Chat and Console input controls being clipped at scaled UI sizes.
+- Muted application audio during automated tests so test runs do not play notification sounds.
+
+Technical changes:
+- Added regression coverage for tiled layout geometry, splitter persistence and hit areas, window chrome, cursor ownership, toolbar minimums, combined Chat/Console behavior, HiDPI sizing, mixer persistence, text-window inputs, tooltip layout, compact playback controls, and tiled Game pixel coverage.
