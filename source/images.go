@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -448,16 +449,45 @@ func upscaleTransientSpriteImageWithMode(img *ebiten.Image, factor, mode int) *e
 	return upscaleSpriteImageWithModeAndLifetime(img, factor, mode, false)
 }
 
-func upscaleCachedSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
-	if img == nil {
-		return nil
-	}
-	source := readImageRGBA(img)
-	return upscaleCachedSpriteRegionCPU(source, source.Bounds(), factor, artworkUpscaleMode())
+func newCachedSpriteImageFromRGBA(source *image.RGBA) *ebiten.Image {
+	// Cached upscales are stable atlas residents. Unlike transient exports,
+	// blend intermediates, and reusable scratch, they are managed unless Potato
+	// GPU mode requires standalone textures for the 4096x4096 hardware limit.
+	return newManagedImageFromImage(source)
 }
 
-func upscaleCachedSpriteRegionCPU(source *image.RGBA, sourceRect image.Rectangle, factor, mode int) *ebiten.Image {
-	return newManagedImageFromImage(upscaleSpriteRegionCPU(source, sourceRect, factor, mode))
+type spriteUpscaleRegion struct {
+	source *image.RGBA
+	rect   image.Rectangle
+}
+
+// upscaleSpriteRegionsCPU uses every reported CPU when a first-use batch has
+// enough independent frames or poses. Only the pure CPU work runs in workers;
+// callers upload the finished RGBA images to Ebitengine sequentially.
+func upscaleSpriteRegionsCPU(regions []spriteUpscaleRegion, factor, mode int) []*image.RGBA {
+	results := make([]*image.RGBA, len(regions))
+	if len(regions) == 0 {
+		return results
+	}
+	workerCount := min(runtime.NumCPU(), len(regions))
+	jobs := make(chan int)
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer workers.Done()
+			for index := range jobs {
+				region := regions[index]
+				results[index] = upscaleSpriteRegionCPU(region.source, region.rect, factor, mode)
+			}
+		}()
+	}
+	for index := range regions {
+		jobs <- index
+	}
+	close(jobs)
+	workers.Wait()
+	return results
 }
 
 type upscaleRGBA struct {
@@ -492,14 +522,35 @@ func absFloat32(v float32) float32 {
 	return v
 }
 
+func minFloat32(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxFloat32(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func clampFloat32(v, low, high float32) float32 {
+	return minFloat32(high, maxFloat32(low, v))
+}
+
 func upscaleColorDistance(a, b upscaleRGBA) float32 {
-	aa := max(a.a, 1)
-	ba := max(b.a, 1)
+	if a.a < 1 && b.a < 1 {
+		return 0
+	}
+	aa := maxFloat32(a.a, 1)
+	ba := maxFloat32(b.a, 1)
 	dr := absFloat32(a.r/aa - b.r/ba)
 	dg := absFloat32(a.g/aa - b.g/ba)
 	db := absFloat32(a.b/aa - b.b/ba)
 	luma := dr*0.299 + dg*0.587 + db*0.114
-	chroma := max(dr, max(dg, db)) - min(dr, min(dg, db))
+	chroma := maxFloat32(dr, maxFloat32(dg, db)) - minFloat32(dr, minFloat32(dg, db))
 	return absFloat32(a.a-b.a)/255*1.5 + luma*0.75 + chroma*0.25
 }
 
@@ -557,16 +608,16 @@ func upscaleSpriteRegionCPU(source *image.RGBA, sourceRect image.Rectangle, fact
 					switch {
 					case localX < 0.5 && localY < 0.5 && topLeft:
 						target = averageUpscaleColor(left, top)
-						weight = max(0, min(1, reach-2*(localX+localY)))
+						weight = clampFloat32(reach-2*(localX+localY), 0, 1)
 					case localX >= 0.5 && localY < 0.5 && topRight:
 						target = averageUpscaleColor(top, right)
-						weight = max(0, min(1, reach-2*((1-localX)+localY)))
+						weight = clampFloat32(reach-2*((1-localX)+localY), 0, 1)
 					case localX < 0.5 && localY >= 0.5 && bottomLeft:
 						target = averageUpscaleColor(left, bottom)
-						weight = max(0, min(1, reach-2*(localX+(1-localY))))
+						weight = clampFloat32(reach-2*(localX+(1-localY)), 0, 1)
 					case localX >= 0.5 && localY >= 0.5 && bottomRight:
 						target = averageUpscaleColor(bottom, right)
-						weight = max(0, min(1, reach-2*((1-localX)+(1-localY))))
+						weight = clampFloat32(reach-2*((1-localX)+(1-localY)), 0, 1)
 					}
 					result := mixUpscaleColor(center, target, weight*strength)
 					dx := (sx-sourceRect.Min.X)*factor + ox
@@ -749,9 +800,14 @@ type pendingScaledPictureFrame struct {
 }
 
 // cacheScaledPictureFrames upscales every frame for an animated picture as
-// one first-use batch. The outputs remain separate standalone textures, so
-// frame boundaries and rendering behavior are unchanged.
+// one first-use CPU batch. The outputs remain separate managed images, so
+// frame boundaries and rendering behavior are unchanged while the images can
+// share Ebitengine's atlas.
 func cacheScaledPictureFrames(id uint16, requestedFrame, frameCount, factor, mode int, requestedImage *ebiten.Image) bool {
+	return cacheScaledPictureFramesWithReader(id, requestedFrame, frameCount, factor, mode, requestedImage, readImageRGBA)
+}
+
+func cacheScaledPictureFramesWithReader(id uint16, requestedFrame, frameCount, factor, mode int, requestedImage *ebiten.Image, readPixels func(*ebiten.Image) *image.RGBA) bool {
 	if frameCount < 1 {
 		frameCount = 1
 	}
@@ -784,18 +840,52 @@ func cacheScaledPictureFrames(id uint16, requestedFrame, frameCount, factor, mod
 		return true
 	}
 
-	pending := make([]pendingScaledPictureFrame, 0, len(missing))
+	// The production source is one vertical sheet. Read it back once, then
+	// process all of its missing frames on the CPU without repeatedly touching
+	// the graphics driver. Tests and replacement sources can fall back to their
+	// already-cropped frame images.
+	var sheetPixels *image.RGBA
+	frameWidth, frameHeight := 0, 0
+	if clImages != nil {
+		if sheet := loadSheet(id, nil, false); sheet != nil {
+			frameWidth = sheet.Bounds().Dx() - 2
+			innerHeight := sheet.Bounds().Dy() - 2
+			if frameWidth > 0 && innerHeight >= frameCount && innerHeight%frameCount == 0 {
+				frameHeight = innerHeight / frameCount
+				sheetPixels = readPixels(sheet)
+			}
+		}
+	}
+
+	pendingKeys := make([]scaledImageKey, 0, len(missing))
+	regions := make([]spriteUpscaleRegion, 0, len(missing))
 	for _, frame := range missing {
-		source := loadImageFrame(id, frame)
-		if source == nil && frame == requestedFrame {
-			source = requestedImage
+		if sheetPixels != nil {
+			y := 1 + frame*frameHeight
+			pendingKeys = append(pendingKeys, scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)})
+			regions = append(regions, spriteUpscaleRegion{
+				source: sheetPixels,
+				rect:   image.Rect(1, y, 1+frameWidth, y+frameHeight),
+			})
+		} else {
+			source := loadImageFrame(id, frame)
+			if source == nil && frame == requestedFrame {
+				source = requestedImage
+			}
+			if source != nil {
+				sourcePixels := readPixels(source)
+				pendingKeys = append(pendingKeys, scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)})
+				regions = append(regions, spriteUpscaleRegion{source: sourcePixels, rect: sourcePixels.Bounds()})
+			}
 		}
-		if source == nil {
-			continue
-		}
+	}
+
+	upscaled := upscaleSpriteRegionsCPU(regions, factor, mode)
+	pending := make([]pendingScaledPictureFrame, 0, len(upscaled))
+	for index, pixels := range upscaled {
 		pending = append(pending, pendingScaledPictureFrame{
-			key:   scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)},
-			image: upscaleSpriteImageWithModeAndLifetime(source, factor, mode, false),
+			key:   pendingKeys[index],
+			image: newCachedSpriteImageFromRGBA(pixels),
 		})
 	}
 
@@ -867,9 +957,13 @@ type pendingScaledMobileFrame struct {
 }
 
 // cacheScaledMobileFrames upscales every valid pose already exposed by the
-// source sheet for one exact color palette. It never generates other palette
-// variants speculatively.
+// source sheet for one exact color palette as one CPU batch. It never
+// generates other palette variants speculatively.
 func cacheScaledMobileFrames(requestedKey mobileKey, factor, mode int, requestedImage *ebiten.Image) bool {
+	return cacheScaledMobileFramesWithReader(requestedKey, factor, mode, requestedImage, readImageRGBA)
+}
+
+func cacheScaledMobileFramesWithReader(requestedKey mobileKey, factor, mode int, requestedImage *ebiten.Image, readPixels func(*ebiten.Image) *image.RGBA) bool {
 	baseKey := requestedKey
 	baseKey.state = 0
 	batchKey := scaledMobileBatchKey{mobileKey: baseKey, scale: uint8(factor), mode: uint8(mode)}
@@ -928,11 +1022,47 @@ func cacheScaledMobileFrames(requestedKey mobileKey, factor, mode int, requested
 		return true
 	}
 
-	pending := make([]pendingScaledMobileFrame, 0, len(pendingSources))
+	// Mobile poses occupy a 16-column sheet. Read the exact observed palette
+	// once, then isolate pose boundaries in CPU memory so neighboring poses do
+	// not influence the upscale filter.
+	var sheetPixels *image.RGBA
+	innerSize := 0
+	if clImages != nil {
+		colors := baseKey.colors[:int(baseKey.colorsLen)]
+		if sheet := loadSheet(baseKey.id, colors, true); sheet != nil {
+			innerSize = (sheet.Bounds().Dx() - 2) / 16
+			if innerSize > 0 {
+				sheetPixels = readPixels(sheet)
+			}
+		}
+	}
+
+	pendingKeys := make([]scaledMobileKey, 0, len(pendingSources))
+	regions := make([]spriteUpscaleRegion, 0, len(pendingSources))
 	for _, source := range pendingSources {
+		if sheetPixels != nil {
+			column := int(source.key.state & 0x0f)
+			row := int(source.key.state >> 4)
+			x := 1 + column*innerSize
+			y := 1 + row*innerSize
+			sourceRect := image.Rect(x, y, x+innerSize, y+innerSize)
+			if sourceRect.In(sheetPixels.Bounds()) {
+				pendingKeys = append(pendingKeys, scaledMobileKey{mobileKey: source.key, scale: uint8(factor), mode: uint8(mode)})
+				regions = append(regions, spriteUpscaleRegion{source: sheetPixels, rect: sourceRect})
+			}
+		} else {
+			sourcePixels := readPixels(source.image)
+			pendingKeys = append(pendingKeys, scaledMobileKey{mobileKey: source.key, scale: uint8(factor), mode: uint8(mode)})
+			regions = append(regions, spriteUpscaleRegion{source: sourcePixels, rect: sourcePixels.Bounds()})
+		}
+	}
+
+	upscaled := upscaleSpriteRegionsCPU(regions, factor, mode)
+	pending := make([]pendingScaledMobileFrame, 0, len(upscaled))
+	for index, pixels := range upscaled {
 		pending = append(pending, pendingScaledMobileFrame{
-			key:   scaledMobileKey{mobileKey: source.key, scale: uint8(factor), mode: uint8(mode)},
-			image: upscaleSpriteImageWithModeAndLifetime(source.image, factor, mode, false),
+			key:   pendingKeys[index],
+			image: newCachedSpriteImageFromRGBA(pixels),
 		})
 	}
 

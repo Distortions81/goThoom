@@ -56,6 +56,10 @@ func isolateSourceFrameCaches(t *testing.T) {
 	})
 }
 
+func transparentSpritePixels(img *ebiten.Image) *image.RGBA {
+	return image.NewRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
+}
+
 func TestArtworkUpscaleIsIndependentOfPotatoMode(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
@@ -184,7 +188,7 @@ func TestReusableUpscaleScratchGrowsWithoutShrinking(t *testing.T) {
 	}
 }
 
-func TestKageMobileUpscaleCacheReusesTexture(t *testing.T) {
+func TestCPUMobileUpscaleCacheReusesTexture(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	isolateScaledArtworkCaches(t)
@@ -196,18 +200,68 @@ func TestKageMobileUpscaleCacheReusesTexture(t *testing.T) {
 
 	src := ebiten.NewImage(4, 4)
 	key := makeMobileKey(447, 0, nil)
+	if !cacheScaledMobileFramesWithReader(key, 2, artworkUpscaleBalanced, src, transparentSpritePixels) {
+		t.Fatal("balanced mobile batch was invalidated while being built")
+	}
 	first := getScaledMobileFrame(key, src)
 	second := getScaledMobileFrame(key, src)
 	if first != second {
-		t.Fatal("Kage-upscaled mobile texture was not reused")
+		t.Fatal("CPU-upscaled mobile texture was not reused")
 	}
 	if got := first.Bounds().Size(); got != image.Pt(8, 8) {
-		t.Fatalf("cached Kage texture size = %v, want 8x8", got)
+		t.Fatalf("cached CPU texture size = %v, want 8x8", got)
 	}
 	setArtworkUpscaleMode(artworkUpscaleSmooth)
+	if !cacheScaledMobileFramesWithReader(key, 2, artworkUpscaleSmooth, src, transparentSpritePixels) {
+		t.Fatal("smooth mobile batch was invalidated while being built")
+	}
 	smooth := getScaledMobileFrame(key, src)
 	if smooth == first {
 		t.Fatal("smooth mode reused the balanced cached texture")
+	}
+}
+
+func TestCPUArtworkUpscaleReplicatesPixelsWhenFilteringIsOff(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 4, 3))
+	source.SetRGBA(1, 1, color.RGBA{R: 255, A: 255})
+	source.SetRGBA(2, 1, color.RGBA{B: 255, A: 255})
+
+	const factor = 3
+	scaled := upscaleSpriteRegionCPU(source, image.Rect(1, 1, 3, 2), factor, artworkUpscaleOff)
+	if got := scaled.Bounds().Size(); got != image.Pt(6, 3) {
+		t.Fatalf("CPU upscale size = %v, want 6x3", got)
+	}
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 6; x++ {
+			want := color.RGBA{R: 255, A: 255}
+			if x >= 3 {
+				want = color.RGBA{B: 255, A: 255}
+			}
+			if got := scaled.RGBAAt(x, y); got != want {
+				t.Fatalf("CPU upscale pixel (%d,%d) = %#v, want %#v", x, y, got, want)
+			}
+		}
+	}
+}
+
+func TestCPUArtworkUpscaleBlendsDetectedCorner(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	black := color.RGBA{A: 255}
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 3; x++ {
+			source.SetRGBA(x, y, black)
+		}
+	}
+	source.SetRGBA(1, 0, white)
+	source.SetRGBA(0, 1, white)
+
+	scaled := upscaleSpriteRegionCPU(source, source.Bounds(), 4, artworkUpscaleBalanced)
+	if got, want := scaled.RGBAAt(4, 4), (color.RGBA{R: 204, G: 204, B: 204, A: 255}); got != want {
+		t.Fatalf("CPU upscale corner pixel = %#v, want %#v", got, want)
+	}
+	if got := scaled.RGBAAt(7, 7); got != black {
+		t.Fatalf("CPU upscale opposite pixel = %#v, want center color %#v", got, black)
 	}
 }
 
@@ -226,7 +280,7 @@ func TestAnimatedPictureUpscaleCachesEveryFrameOnFirstUse(t *testing.T) {
 	requested := imageCache[makeImageKey(id, 0)]
 	imageMu.Unlock()
 
-	if !cacheScaledPictureFrames(id, 0, frameCount, factor, artworkUpscaleBalanced, requested) {
+	if !cacheScaledPictureFramesWithReader(id, 0, frameCount, factor, artworkUpscaleBalanced, requested, transparentSpritePixels) {
 		t.Fatal("picture frame batch was invalidated while being built")
 	}
 	imageMu.Lock()
@@ -263,7 +317,7 @@ func TestMobileUpscaleCachesAllPosesForOnlyObservedColors(t *testing.T) {
 	requested := mobileCache[requestedKey]
 	imageMu.Unlock()
 
-	if !cacheScaledMobileFrames(requestedKey, factor, artworkUpscaleBalanced, requested) {
+	if !cacheScaledMobileFramesWithReader(requestedKey, factor, artworkUpscaleBalanced, requested, transparentSpritePixels) {
 		t.Fatal("mobile pose batch was invalidated while being built")
 	}
 	imageMu.Lock()
@@ -295,6 +349,9 @@ func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
 
 	src := ebiten.NewImage(4, 4)
 	key := makeMobileKey(447, 0, nil)
+	if !cacheScaledMobileFramesWithReader(key, 4, artworkUpscaleBalanced, src, transparentSpritePixels) {
+		t.Fatal("4x mobile batch was invalidated while being built")
+	}
 	large := getScaledMobileFrame(key, src)
 	if got := large.Bounds().Size(); got != image.Pt(16, 16) {
 		t.Fatalf("initial cached texture size = %v, want 16x16", got)
@@ -304,6 +361,9 @@ func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
 	imageMu.Unlock()
 
 	gs.GameScale = 1
+	if !cacheScaledMobileFramesWithReader(key, 2, artworkUpscaleBalanced, src, transparentSpritePixels) {
+		t.Fatal("2x mobile batch was invalidated while being built")
+	}
 	small := getScaledMobileFrame(key, src)
 	if got := small.Bounds().Size(); got != image.Pt(8, 8) {
 		t.Fatalf("screen-capped cached texture size = %v, want 8x8", got)
