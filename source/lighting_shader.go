@@ -494,7 +494,7 @@ type mobileSpriteMetrics struct {
 
 func addMobileLightCaster(x, y float64, size int, metrics mobileSpriteMetrics) {
 	widthFraction := metrics.widthFraction
-	if !gs.ShaderLighting || size <= 0 || widthFraction <= 0 {
+	if !shaderLightingEnabled() || size <= 0 || widthFraction <= 0 {
 		return
 	}
 	scaledSize := float32(float64(size) * gs.GameScale)
@@ -690,7 +690,7 @@ func flameLightFlicker(flags uint32, pictID uint32, instanceKey uint64, logicalF
 }
 
 func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size, logicalFrame int, interpolation float64, bounds image.Rectangle) {
-	if !gs.ShaderLighting || clImages == nil {
+	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)
@@ -710,7 +710,7 @@ func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size,
 }
 
 func addMobileContactShadowLight(pictID uint32, state, index uint8, x, y float64, size int) {
-	if !gs.ShaderLighting || clImages == nil {
+	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)
@@ -732,7 +732,7 @@ func addMobileContactShadowLight(pictID uint32, state, index uint8, x, y float64
 }
 
 func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
-	if !gs.ShaderLighting || clImages == nil {
+	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)
@@ -749,7 +749,7 @@ func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, heigh
 }
 
 func addPictureContactShadowLight(pictID uint32, x, y float64, width, height int) {
-	if !gs.ShaderLighting || clImages == nil {
+	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
 	flags := clImages.Flags(pictID)

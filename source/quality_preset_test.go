@@ -3,9 +3,14 @@ package main
 import "testing"
 
 func TestQualityPresetPersisted(t *testing.T) {
+	originalSettings := gs
 	origDir := dataDirPath
 	dataDirPath = t.TempDir()
-	t.Cleanup(func() { dataDirPath = origDir })
+	t.Cleanup(func() {
+		gs = originalSettings
+		dataDirPath = origDir
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	})
 
 	gs = gsdef
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
@@ -18,6 +23,9 @@ func TestQualityPresetPersisted(t *testing.T) {
 
 	if gs.ShaderLighting {
 		t.Errorf("ShaderLighting loaded as true, want false")
+	}
+	if gs.ShadersEnabled {
+		t.Errorf("ShadersEnabled loaded as true, want false")
 	}
 	if gs.HighQualityResampling {
 		t.Errorf("HighQualityResampling loaded as true, want false")
@@ -71,7 +79,7 @@ func TestIGPUGraphicsPresetUsesLowCostGraphicsAndAudio(t *testing.T) {
 	if gs.PotatoGPU {
 		t.Fatal("iGPU graphics preset enabled Potato GPU mode")
 	}
-	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting {
+	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting || !gs.ShadersEnabled {
 		t.Fatal("iGPU graphics preset retained an expensive graphics effect")
 	}
 	if !gs.SpriteUpscaleFilter || artworkUpscaleMode() != artworkUpscaleBalanced {
@@ -79,9 +87,6 @@ func TestIGPUGraphicsPresetUsesLowCostGraphicsAndAudio(t *testing.T) {
 	}
 	if gs.CharacterShadows {
 		t.Fatal("iGPU graphics preset retained character shadows")
-	}
-	if !gs.DetailedCharacterShadows {
-		t.Fatal("iGPU graphics preset changed the accurate shadows preference")
 	}
 	if gs.AnimatedChatBubbles {
 		t.Fatal("iGPU graphics preset retained animated chat bubbles")
@@ -124,19 +129,19 @@ func TestApplySettingsDoesNotChangeGraphicsOptionsInPotatoMode(t *testing.T) {
 	})
 
 	gs.PotatoGPU = true
+	gs.ShadersEnabled = true
 	gs.BlendMobiles = true
 	gs.BlendPicts = true
 	gs.ShaderLighting = true
 	gs.SpriteUpscaleFilter = true
 	gs.WindowShadows = true
 	gs.CharacterShadows = true
-	gs.DetailedCharacterShadows = true
 	applySettings()
 
-	if !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting {
+	if !gs.ShadersEnabled || !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting {
 		t.Fatal("Potato GPU changed graphics quality options")
 	}
-	if !gs.SpriteUpscaleFilter || !gs.WindowShadows || !gs.CharacterShadows || !gs.DetailedCharacterShadows {
+	if !gs.SpriteUpscaleFilter || !gs.WindowShadows || !gs.CharacterShadows {
 		t.Fatal("Potato GPU changed upscale or shadow options")
 	}
 }

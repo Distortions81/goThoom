@@ -323,6 +323,10 @@ func loadNextReplacementEffectShader() error {
 }
 
 func beginReplacementEffects() {
+	if !replacementEffectsEnabled() {
+		clear(replacementEffectDraws)
+		return
+	}
 	for key, effect := range replacementEffectDraws {
 		effect.seen = false
 		replacementEffectDraws[key] = effect
@@ -330,7 +334,7 @@ func beginReplacementEffects() {
 }
 
 func replacementEffectReplacesPict(id uint16) bool {
-	if !replacementEffectsShadersReady || !gs.ReplacementEffects {
+	if !replacementEffectsShadersReady || !replacementEffectsEnabled() {
 		return false
 	}
 	_, ok := replacementEffectKindForPict(id)
@@ -556,6 +560,9 @@ func updateReplacementEffectMask(effect *replacementEffectDraw, mobileImg *ebite
 }
 
 func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64) {
+	if !replacementEffectsEnabled() {
+		return
+	}
 	now := drawFrameNow
 	if now.IsZero() {
 		now = time.Now()
@@ -686,7 +693,7 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 // drawReplacementEffectsPreview renders the actual effect shaders in a
 // looping gallery, so visual tuning does not require finding a movie event.
 func drawReplacementEffectsPreview(screen *ebiten.Image) {
-	if !replacementEffectsShadersReady {
+	if !replacementEffectsShadersReady || !gs.ShadersEnabled {
 		return
 	}
 	bounds := screen.Bounds()

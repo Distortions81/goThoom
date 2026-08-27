@@ -367,7 +367,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 
 	factor := screenCappedArtworkUpscaleFactor()
 	mode := artworkUpscaleMode()
-	needUpscale := mode != artworkUpscaleOff
+	needUpscale := artworkUpscaleEnabled()
 	imageMu.Lock()
 	if needUpscale {
 		ensureScaledArtworkCacheFactorLocked(factor)
@@ -991,7 +991,7 @@ func setArtworkUpscaleMode(mode int) {
 }
 
 func artworkUpscaleEnabled() bool {
-	return artworkUpscaleMode() != artworkUpscaleOff
+	return gs.ShadersEnabled && artworkUpscaleMode() != artworkUpscaleOff
 }
 
 func artworkUpscaleCornerReach() float32 {

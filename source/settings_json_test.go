@@ -88,6 +88,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
 		`"batch_room_artwork_loading": false`,
+		`"shaders_enabled": true`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("v4 settings missing %s", expected)

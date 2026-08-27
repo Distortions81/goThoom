@@ -99,6 +99,63 @@ func newConfigurationSection(title string, width float32) *eui.ItemData {
 	return section
 }
 
+func newConfigurationSubheading(title string, width float32) *eui.ItemData {
+	heading, _ := eui.NewText()
+	heading.Text = title
+	heading.FontSize = 12
+	heading.Size = eui.Point{X: width, Y: 24}
+	applyBoldFace(heading)
+	return heading
+}
+
+func refreshShaderEffectControls() {
+	masterDisabled := !gs.ShadersEnabled
+	if shadersEnabledCB != nil {
+		shadersEnabledCB.Checked = gs.ShadersEnabled
+	}
+	if upscaleModeDD != nil {
+		upscaleModeDD.Selected = artworkUpscaleMode()
+		upscaleModeDD.Disabled = masterDisabled
+	}
+	if shaderLightingCB != nil {
+		shaderLightingCB.Checked = gs.ShaderLighting
+		shaderLightingCB.Disabled = masterDisabled
+	}
+	lightingDisabled := masterDisabled || !gs.ShaderLighting
+	if shaderLightSlider != nil {
+		shaderLightSlider.Disabled = lightingDisabled
+	}
+	if shaderGlowSlider != nil {
+		shaderGlowSlider.Disabled = lightingDisabled
+	}
+	if flameFlickerCB != nil {
+		flameFlickerCB.Checked = gs.FlameLightFlicker
+		flameFlickerCB.Disabled = lightingDisabled
+	}
+	if flameFlickerSlider != nil {
+		flameFlickerSlider.Disabled = lightingDisabled || !gs.FlameLightFlicker
+	}
+	if replacementEffectsCB != nil {
+		replacementEffectsCB.Checked = gs.ReplacementEffects
+		replacementEffectsCB.Disabled = masterDisabled
+	}
+	frameBlendDisabled := masterDisabled || !gs.MotionSmoothing
+	if animCB != nil {
+		animCB.Checked = gs.BlendMobiles
+		animCB.Disabled = frameBlendDisabled
+	}
+	if pictBlendCB != nil {
+		pictBlendCB.Checked = gs.BlendPicts
+		pictBlendCB.Disabled = frameBlendDisabled
+	}
+	if mobileBlendSlider != nil {
+		mobileBlendSlider.Disabled = frameBlendDisabled || !gs.BlendMobiles
+	}
+	if worldBlendSlider != nil {
+		worldBlendSlider.Disabled = frameBlendDisabled || !gs.BlendPicts
+	}
+}
+
 var changelogList *eui.ItemData
 var changelogPrevBtn *eui.ItemData
 var changelogNextBtn *eui.ItemData
@@ -153,44 +210,48 @@ var (
 	soundCacheLabel        *eui.ItemData
 	totalCacheLabel        *eui.ItemData
 
-	recordBtn          *eui.ItemData
-	recordPath         string
-	qualityPresetDD    *eui.ItemData
-	shaderLightSlider  *eui.ItemData
-	shaderGlowSlider   *eui.ItemData
-	flameFlickerCB     *eui.ItemData
-	flameFlickerSlider *eui.ItemData
-	gammaCorrectionCB  *eui.ItemData
-	spriteGammaSlider  *eui.ItemData
-	monitorGammaSlider *eui.ItemData
-	denoiseCB          *eui.ItemData
-	motionCB           *eui.ItemData
-	animCB             *eui.ItemData
-	pictBlendCB        *eui.ItemData
-	shaderLightingCB   *eui.ItemData
-	upscaleModeDD      *eui.ItemData
-	throttleSoundCB    *eui.ItemData
-	soundEnhanceCB     *eui.ItemData
-	musicEnhanceCB     *eui.ItemData
-	resampleAudioCB    *eui.ItemData
-	precacheSoundCB    *eui.ItemData
-	noCacheCB          *eui.ItemData
-	potatoCB           *eui.ItemData
-	windowShadowsCB    *eui.ItemData
-	volumeSlider       *eui.ItemData
-	muteBtn            *eui.ItemData
-	mixerWin           *eui.WindowData
-	gameMixSlider      *eui.ItemData
-	musicMixSlider     *eui.ItemData
-	ttsMixSlider       *eui.ItemData
-	notifMixSlider     *eui.ItemData
-	soundEnhanceMixCB  *eui.ItemData
-	soundEnhanceSlider *eui.ItemData
-	musicEnhanceMixCB  *eui.ItemData
-	musicEnhanceSlider *eui.ItemData
-	mixMuteBtn         *eui.ItemData
-	musicMixCB         *eui.ItemData
-	ttsMixCB           *eui.ItemData
+	recordBtn            *eui.ItemData
+	recordPath           string
+	qualityPresetDD      *eui.ItemData
+	shaderLightSlider    *eui.ItemData
+	shaderGlowSlider     *eui.ItemData
+	flameFlickerCB       *eui.ItemData
+	flameFlickerSlider   *eui.ItemData
+	gammaCorrectionCB    *eui.ItemData
+	spriteGammaSlider    *eui.ItemData
+	monitorGammaSlider   *eui.ItemData
+	denoiseCB            *eui.ItemData
+	motionCB             *eui.ItemData
+	animCB               *eui.ItemData
+	pictBlendCB          *eui.ItemData
+	shadersEnabledCB     *eui.ItemData
+	shaderLightingCB     *eui.ItemData
+	upscaleModeDD        *eui.ItemData
+	replacementEffectsCB *eui.ItemData
+	mobileBlendSlider    *eui.ItemData
+	worldBlendSlider     *eui.ItemData
+	throttleSoundCB      *eui.ItemData
+	soundEnhanceCB       *eui.ItemData
+	musicEnhanceCB       *eui.ItemData
+	resampleAudioCB      *eui.ItemData
+	precacheSoundCB      *eui.ItemData
+	noCacheCB            *eui.ItemData
+	potatoCB             *eui.ItemData
+	windowShadowsCB      *eui.ItemData
+	volumeSlider         *eui.ItemData
+	muteBtn              *eui.ItemData
+	mixerWin             *eui.WindowData
+	gameMixSlider        *eui.ItemData
+	musicMixSlider       *eui.ItemData
+	ttsMixSlider         *eui.ItemData
+	notifMixSlider       *eui.ItemData
+	soundEnhanceMixCB    *eui.ItemData
+	soundEnhanceSlider   *eui.ItemData
+	musicEnhanceMixCB    *eui.ItemData
+	musicEnhanceSlider   *eui.ItemData
+	mixMuteBtn           *eui.ItemData
+	musicMixCB           *eui.ItemData
+	ttsMixCB             *eui.ItemData
 )
 
 var ttsTestPhrase = "The quick brown fox jumps over the lazy dog"
@@ -4541,6 +4602,7 @@ func resetAllSettings() {
 		graphicsWin.Refresh()
 	}
 	if qualityWin != nil {
+		refreshShaderEffectControls()
 		qualityWin.Refresh()
 	}
 	if bubbleWin != nil {
@@ -4889,13 +4951,36 @@ func makeQualityWindow() {
 	left.AddItem(denoiseSection)
 
 	shadowSection := newConfigurationSection("Shadows", width)
-	lightingSection := newConfigurationSection("Lighting", width)
 	motionSection := newConfigurationSection("Motion Smoothing", width)
-	animationSection := newConfigurationSection("Animation Blending", width)
+	shaderSection := newConfigurationSection("Shader Effects", width)
 	center.AddItem(shadowSection)
-	center.AddItem(lightingSection)
 	center.AddItem(motionSection)
-	center.AddItem(animationSection)
+	center.AddItem(shaderSection)
+
+	masterShaders, masterShaderEvents := eui.NewCheckbox()
+	shadersEnabledCB = masterShaders
+	shadersEnabledCB.Text = "Enable Shader Effects"
+	shadersEnabledCB.Size = eui.Point{X: width, Y: 24}
+	shadersEnabledCB.Checked = gs.ShadersEnabled
+	shadersEnabledCB.SetTooltip("Enable custom shader effects. Individual choices are preserved while disabled.")
+	masterShaderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		gs.ShadersEnabled = ev.Checked
+		settingsDirty = true
+		refreshShaderEffectControls()
+		if qualityPresetDD != nil {
+			qualityPresetDD.Selected = detectQualityPreset()
+		}
+		if gameWin != nil {
+			gameWin.Refresh()
+		}
+		if debugWin != nil {
+			debugWin.Refresh()
+		}
+	}
+	shaderSection.AddItem(shadersEnabledCB)
 
 	renderScale, renderScaleEvents := eui.NewSlider()
 	renderScale.Label = "Max Upscale"
@@ -4956,7 +5041,8 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	artworkSection.AddItem(upscaleModeDD)
+	shaderSection.AddItem(newConfigurationSubheading("Artwork Upscaling", width))
+	shaderSection.AddItem(upscaleModeDD)
 
 	ppCB, pixelPerfectEvents := eui.NewCheckbox()
 	pixelPerfectCB := ppCB
@@ -5061,7 +5147,7 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(batchArtworkCB)
 
-	var detailedShadowsCB, shadowDarknessSlider *eui.ItemData
+	var shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "Potato GPU (Low VRAM)"
@@ -5118,9 +5204,6 @@ func makeQualityWindow() {
 			if shadowDarknessSlider != nil {
 				shadowDarknessSlider.Disabled = !ev.Checked
 			}
-			if detailedShadowsCB != nil {
-				detailedShadowsCB.Disabled = !ev.Checked
-			}
 			settingsDirty = true
 		}
 	}
@@ -5143,21 +5226,7 @@ func makeQualityWindow() {
 	}
 	shadowSection.AddItem(shadowDarknessSlider)
 
-	detailedShadowsCB, detailedShadowsEvents := eui.NewCheckbox()
-	detailedShadowsCB.Text = "Accurate Character Shadows"
-	detailedShadowsCB.Size = eui.Point{X: width, Y: 24}
-	detailedShadowsCB.Checked = gs.DetailedCharacterShadows
-	detailedShadowsCB.Disabled = !gs.CharacterShadows
-	detailedShadowsCB.SetTooltip("Limit overlapping shadow darkness.")
-	detailedShadowsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.DetailedCharacterShadows = ev.Checked
-			settingsDirty = true
-		}
-	}
-	shadowSection.AddItem(detailedShadowsCB)
-
-	// Shader lighting toggle in the Quality window
+	shaderSection.AddItem(newConfigurationSubheading("Lighting", width))
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()
 	shaderLightingCB = shaderQualityCB
 	shaderQualityCB.Text = "Shader Lighting Effects"
@@ -5171,55 +5240,30 @@ func makeQualityWindow() {
 			if qualityPresetDD != nil {
 				qualityPresetDD.Selected = detectQualityPreset()
 			}
-			if shaderLightSlider != nil {
-				shaderLightSlider.Disabled = !ev.Checked
-			}
-			if shaderGlowSlider != nil {
-				shaderGlowSlider.Disabled = !ev.Checked
-			}
-			if flameFlickerCB != nil {
-				flameFlickerCB.Disabled = !ev.Checked
-			}
-			if flameFlickerSlider != nil {
-				flameFlickerSlider.Disabled = !ev.Checked || !gs.FlameLightFlicker
-			}
+			refreshShaderEffectControls()
 			if debugWin != nil {
 				debugWin.Refresh()
 			}
 		}
 	}
-	lightingSection.AddItem(shaderQualityCB)
-
-	replacementEffectsCB, replacementEffectsEvents := eui.NewCheckbox()
-	replacementEffectsCB.Text = "Replacement Effects"
-	replacementEffectsCB.Size = eui.Point{X: width, Y: 24}
-	replacementEffectsCB.Checked = gs.ReplacementEffects
-	replacementEffectsCB.SetTooltip("Use procedural magic effects.")
-	replacementEffectsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ReplacementEffects = ev.Checked
-			settingsDirty = true
-		}
-	}
-	lightingSection.AddItem(replacementEffectsCB)
+	shaderSection.AddItem(shaderQualityCB)
 
 	flameCB, flameEvents := eui.NewCheckbox()
 	flameFlickerCB = flameCB
 	flameFlickerCB.Text = "Flame Light Flicker"
 	flameFlickerCB.Size = eui.Point{X: width, Y: 24}
 	flameFlickerCB.Checked = gs.FlameLightFlicker
-	flameFlickerCB.Disabled = !gs.ShaderLighting
 	flameFlickerCB.SetTooltip("Animate flame lights.")
 	flameEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.FlameLightFlicker = ev.Checked
 			if flameFlickerSlider != nil {
-				flameFlickerSlider.Disabled = !ev.Checked || !gs.ShaderLighting
+				refreshShaderEffectControls()
 			}
 			settingsDirty = true
 		}
 	}
-	lightingSection.AddItem(flameFlickerCB)
+	shaderSection.AddItem(flameFlickerCB)
 
 	flameSlider, flameSliderEvents := eui.NewSlider()
 	flameFlickerSlider = flameSlider
@@ -5229,7 +5273,6 @@ func makeQualityWindow() {
 	flameFlickerSlider.IntOnly = true
 	flameFlickerSlider.Value = float32(gs.FlameFlickerStrength * 100)
 	flameFlickerSlider.Size = eui.Point{X: width - 10, Y: 24}
-	flameFlickerSlider.Disabled = !gs.ShaderLighting || !gs.FlameLightFlicker
 	flameFlickerSlider.SetTooltip("Set flame animation strength.")
 	flameSliderEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
@@ -5237,7 +5280,7 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	lightingSection.AddItem(flameFlickerSlider)
+	shaderSection.AddItem(flameFlickerSlider)
 
 	sLS, shaderLightEvents := eui.NewSlider()
 	shaderLightSlider = sLS
@@ -5247,7 +5290,6 @@ func makeQualityWindow() {
 	shaderLightSlider.IntOnly = true
 	shaderLightSlider.Value = float32(gs.ShaderLightStrength * 100)
 	shaderLightSlider.Size = eui.Point{X: width - 10, Y: 24}
-	shaderLightSlider.Disabled = !gs.ShaderLighting
 	shaderLightSlider.SetTooltip("Adjust intensity of shader lighting")
 	shaderLightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
@@ -5258,7 +5300,7 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	lightingSection.AddItem(shaderLightSlider)
+	shaderSection.AddItem(shaderLightSlider)
 
 	sGS, shaderGlowEvents := eui.NewSlider()
 	shaderGlowSlider = sGS
@@ -5268,7 +5310,6 @@ func makeQualityWindow() {
 	shaderGlowSlider.IntOnly = true
 	shaderGlowSlider.Value = float32(gs.ShaderGlowStrength * 100)
 	shaderGlowSlider.Size = eui.Point{X: width - 10, Y: 24}
-	shaderGlowSlider.Disabled = !gs.ShaderLighting
 	shaderGlowSlider.SetTooltip("Adjust strength of glow halos")
 	shaderGlowEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
@@ -5279,7 +5320,22 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	lightingSection.AddItem(shaderGlowSlider)
+	shaderSection.AddItem(shaderGlowSlider)
+
+	shaderSection.AddItem(newConfigurationSubheading("Magic Effects", width))
+	replacementCB, replacementEffectsEvents := eui.NewCheckbox()
+	replacementEffectsCB = replacementCB
+	replacementEffectsCB.Text = "Replacement Effects"
+	replacementEffectsCB.Size = eui.Point{X: width, Y: 24}
+	replacementEffectsCB.Checked = gs.ReplacementEffects
+	replacementEffectsCB.SetTooltip("Use procedural magic effects.")
+	replacementEffectsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ReplacementEffects = ev.Checked
+			settingsDirty = true
+		}
+	}
+	shaderSection.AddItem(replacementEffectsCB)
 
 	gcCB, gammaEvents := eui.NewCheckbox()
 	gammaCorrectionCB = gcCB
@@ -5435,6 +5491,7 @@ func makeQualityWindow() {
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MotionSmoothing = ev.Checked
+			refreshShaderEffectControls()
 			settingsDirty = true
 		}
 	}
@@ -5456,6 +5513,7 @@ func makeQualityWindow() {
 		motionSection.AddItem(noSmoothCB)
 	*/
 
+	shaderSection.AddItem(newConfigurationSubheading("Frame Blending", width))
 	aCB, animEvents := eui.NewCheckbox()
 	animCB = aCB
 	animCB.Text = "Mobile Animation Blending"
@@ -5465,10 +5523,11 @@ func makeQualityWindow() {
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
+			refreshShaderEffectControls()
 			settingsDirty = true
 		}
 	}
-	animationSection.AddItem(animCB)
+	shaderSection.AddItem(animCB)
 
 	pCB, pictBlendEvents := eui.NewCheckbox()
 	pictBlendCB = pCB
@@ -5479,12 +5538,14 @@ func makeQualityWindow() {
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
+			refreshShaderEffectControls()
 			settingsDirty = true
 		}
 	}
-	animationSection.AddItem(pictBlendCB)
+	shaderSection.AddItem(pictBlendCB)
 
-	mobileBlendSlider, mobileBlendEvents := eui.NewSlider()
+	mobileSlider, mobileBlendEvents := eui.NewSlider()
+	mobileBlendSlider = mobileSlider
 	mobileBlendSlider.Label = "Mobile Animation Blend Duration"
 	mobileBlendSlider.MinValue = 0.1
 	mobileBlendSlider.MaxValue = 1.0
@@ -5497,22 +5558,25 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	animationSection.AddItem(mobileBlendSlider)
+	shaderSection.AddItem(mobileBlendSlider)
 
-	blendSlider, blendEvents := eui.NewSlider()
-	blendSlider.Label = "World Animation Blend Duration"
-	blendSlider.MinValue = 0.1
-	blendSlider.MaxValue = 1.0
-	blendSlider.Value = float32(gs.BlendAmount)
-	blendSlider.Size = eui.Point{X: width - 10, Y: 24}
-	blendSlider.SetTooltip("Set how much of the animation interval is spent blending frames.")
+	worldSlider, blendEvents := eui.NewSlider()
+	worldBlendSlider = worldSlider
+	worldBlendSlider.Label = "World Animation Blend Duration"
+	worldBlendSlider.MinValue = 0.1
+	worldBlendSlider.MaxValue = 1.0
+	worldBlendSlider.Value = float32(gs.BlendAmount)
+	worldBlendSlider.Size = eui.Point{X: width - 10, Y: 24}
+	worldBlendSlider.SetTooltip("Set how much of the animation interval is spent blending frames.")
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BlendAmount = float64(ev.Value)
 			settingsDirty = true
 		}
 	}
-	animationSection.AddItem(blendSlider)
+	shaderSection.AddItem(worldBlendSlider)
+
+	refreshShaderEffectControls()
 
 	outer.AddItem(left)
 	outer.AddItem(center)

@@ -616,11 +616,11 @@ func cloneDrawState(src drawState) drawState {
 }
 
 func mobileFrameBlendingEnabled() bool {
-	return gs.MotionSmoothing && gs.BlendMobiles
+	return gs.ShadersEnabled && gs.MotionSmoothing && gs.BlendMobiles
 }
 
 func pictureFrameBlendingEnabled() bool {
-	return gs.MotionSmoothing && gs.BlendPicts
+	return gs.ShadersEnabled && gs.MotionSmoothing && gs.BlendPicts
 }
 
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
@@ -1289,7 +1289,7 @@ func (g *Game) Update() error {
 	// Warn about poor performance and suggest disabling shaders.
 	// Suppress this while intentionally lowering FPS due to power saving
 	// (background/unfocused or always-on power save).
-	if tcpConn != nil && gs.ShaderLighting && gs.PromptDisableShaders && !shaderWarnShown {
+	if tcpConn != nil && perFrameShaderEffectsEnabled() && gs.PromptDisableShaders && !shaderWarnShown {
 		powerSaving := gs.PowerSaveAlways || (!ebiten.IsFocused() && gs.PowerSaveBackground)
 		if !powerSaving && ebiten.ActualFPS() < 50 {
 			if lowFPSSince.IsZero() {
@@ -1553,9 +1553,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		prev := gs.GameScale
 		gs.GameScale = renderScale
-		useLighting := gs.ShaderLighting && lightingShader != nil
+		useLighting := shaderLightingEnabled() && lightingShader != nil
 		_, _, shadowKind := currentCharacterShadowRenderState()
-		useDetailedShadows := lightingShader != nil && !gs.hideMobiles && gs.DetailedCharacterShadows && shadowKind == characterShadowDirectional
+		useDetailedShadows := lightingShader != nil && !gs.hideMobiles && characterShadowCompositeEnabled() && shadowKind == characterShadowDirectional
 		useComposite := useLighting || useDetailedShadows
 		sceneTarget := worldView
 		if useComposite {
@@ -1693,7 +1693,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
-	if gs.ShaderLighting {
+	if shaderLightingEnabled() {
 		frameLights = frameLights[:0]
 		frameDarks = frameDarks[:0]
 		frameLightCasters = frameLightCasters[:0]

@@ -9,19 +9,19 @@ import (
 
 func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	defaults := map[string]bool{
-		"fade obscuring pictures":     gsdef.FadeObscuringPictures,
-		"smooth movement":             gsdef.MotionSmoothing,
-		"world animation blending":    gsdef.BlendPicts,
-		"shader lighting":             gsdef.ShaderLighting,
-		"flame light flicker":         gsdef.FlameLightFlicker,
-		"character shadows":           gsdef.CharacterShadows,
-		"detailed character shadows":  gsdef.DetailedCharacterShadows,
-		"artwork upscale filter":      gsdef.SpriteUpscaleFilter,
-		"sprite gamma correction":     gsdef.SpriteGammaCorrection,
-		"throttle sounds":             gsdef.ThrottleSounds,
-		"alternate row backgrounds":   gsdef.AlternateRowBackgrounds,
-		"window shadows":              gsdef.WindowShadows,
-		"animated chat bubbles":       gsdef.AnimatedChatBubbles,
+		"fade obscuring pictures":   gsdef.FadeObscuringPictures,
+		"smooth movement":           gsdef.MotionSmoothing,
+		"world animation blending":  gsdef.BlendPicts,
+		"shader master":             gsdef.ShadersEnabled,
+		"shader lighting":           gsdef.ShaderLighting,
+		"flame light flicker":       gsdef.FlameLightFlicker,
+		"character shadows":         gsdef.CharacterShadows,
+		"artwork upscale filter":    gsdef.SpriteUpscaleFilter,
+		"sprite gamma correction":   gsdef.SpriteGammaCorrection,
+		"throttle sounds":           gsdef.ThrottleSounds,
+		"alternate row backgrounds": gsdef.AlternateRowBackgrounds,
+		"window shadows":            gsdef.WindowShadows,
+		"animated chat bubbles":     gsdef.AnimatedChatBubbles,
 	}
 	for name, enabled := range defaults {
 		if !enabled {
@@ -82,10 +82,7 @@ func TestInputBarDefaultsOpen(t *testing.T) {
 	}
 }
 
-func TestDetailedCharacterShadowsDefaultOn(t *testing.T) {
-	if !gsdef.DetailedCharacterShadows {
-		t.Error("detailed character shadows should be enabled by default")
-	}
+func TestCharacterShadowDarknessDefault(t *testing.T) {
 	if gsdef.CharacterShadowDarkness != 1.8 {
 		t.Errorf("default character shadow darkness = %v, want 1.8", gsdef.CharacterShadowDarkness)
 	}
@@ -152,16 +149,16 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		t.Fatal("loadSettings() = true without a settings file")
 	}
 	for name, enabled := range map[string]bool{
-		"smooth movement":            gs.MotionSmoothing,
-		"world animation blending":   gs.BlendPicts,
-		"shader effects":             gs.ShaderLighting,
-		"flame light flicker":        gs.FlameLightFlicker,
-		"character shadows":          gs.CharacterShadows,
-		"detailed character shadows": gs.DetailedCharacterShadows,
-		"artwork upscale filter":     gs.SpriteUpscaleFilter,
-		"sound enhancement":          gs.SoundEnhancement,
-		"high quality resampling":    gs.HighQualityResampling,
-		"music enhancement":          gs.MusicEnhancement,
+		"smooth movement":          gs.MotionSmoothing,
+		"world animation blending": gs.BlendPicts,
+		"shader effects":           gs.ShadersEnabled,
+		"shader lighting":          gs.ShaderLighting,
+		"flame light flicker":      gs.FlameLightFlicker,
+		"character shadows":        gs.CharacterShadows,
+		"artwork upscale filter":   gs.SpriteUpscaleFilter,
+		"sound enhancement":        gs.SoundEnhancement,
+		"high quality resampling":  gs.HighQualityResampling,
+		"music enhancement":        gs.MusicEnhancement,
 	} {
 		if !enabled {
 			t.Errorf("new config has %s disabled", name)
@@ -198,7 +195,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 
 	gs.CharacterShadows = false
-	gs.DetailedCharacterShadows = false
+	gs.ShadersEnabled = false
 	gs.BlendMobiles = true
 	gs.GameScale = 1
 	gs.SpriteUpscale = 1
@@ -211,8 +208,8 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	if !gs.CharacterShadows {
 		t.Error("settings without CharacterShadows should default it on")
 	}
-	if !gs.DetailedCharacterShadows {
-		t.Error("settings without DetailedCharacterShadows should default it on")
+	if !gs.ShadersEnabled {
+		t.Error("settings without ShadersEnabled should default it on")
 	}
 	if gs.BlendMobiles {
 		t.Error("settings without BlendMobiles should default it off")

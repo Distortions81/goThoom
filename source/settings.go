@@ -337,11 +337,11 @@ var gsdef settings = settings{
 	HighQualityResampling:  true,
 	ServerAddress:          defaultServerHostName + ":5010",
 
-	NightEffect:              true,
-	ShaderLighting:           true,
-	CharacterShadows:         true,
-	CharacterShadowDarkness:  1.8,
-	DetailedCharacterShadows: true,
+	NightEffect:             true,
+	ShadersEnabled:          true,
+	ShaderLighting:          true,
+	CharacterShadows:        true,
+	CharacterShadowDarkness: 1.8,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,
@@ -540,21 +540,21 @@ type settings struct {
 	MusicEnhancementAmount float64
 	HighQualityResampling  bool
 
-	imgPlanesDebug           bool
-	smoothingDebug           bool
-	pictAgainDebug           bool
-	pictIDDebug              bool
-	scriptEventDebug         bool
-	AltNetMode               bool
-	AltNetDelay              int
-	ServerAddress            string
-	hideMoving               bool
-	hideMobiles              bool
-	NightEffect              bool
-	ShaderLighting           bool
-	CharacterShadows         bool
-	CharacterShadowDarkness  float64
-	DetailedCharacterShadows bool
+	imgPlanesDebug          bool
+	smoothingDebug          bool
+	pictAgainDebug          bool
+	pictIDDebug             bool
+	scriptEventDebug        bool
+	AltNetMode              bool
+	AltNetDelay             int
+	ServerAddress           string
+	hideMoving              bool
+	hideMobiles             bool
+	NightEffect             bool
+	ShadersEnabled          bool
+	ShaderLighting          bool
+	CharacterShadows        bool
+	CharacterShadowDarkness float64
 
 	// Window behavior
 	ShowClanLordSplashImage bool
@@ -1305,6 +1305,7 @@ type qualityPreset struct {
 	MotionSmoothing        bool
 	BlendMobiles           bool
 	BlendPicts             bool
+	ShadersEnabled         bool
 	ShaderLighting         bool
 	SpriteUpscaleFilter    bool
 	HighQualityResampling  bool
@@ -1319,6 +1320,7 @@ var (
 		MotionSmoothing:        false,
 		BlendMobiles:           false,
 		BlendPicts:             false,
+		ShadersEnabled:         false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -1331,6 +1333,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             false,
+		ShadersEnabled:         false,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -1343,6 +1346,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           false,
 		BlendPicts:             true,
+		ShadersEnabled:         true,
 		ShaderLighting:         false,
 		SpriteUpscaleFilter:    false,
 		HighQualityResampling:  false,
@@ -1355,6 +1359,7 @@ var (
 		MotionSmoothing:        true,
 		BlendMobiles:           true,
 		BlendPicts:             true,
+		ShadersEnabled:         true,
 		ShaderLighting:         true,
 		SpriteUpscaleFilter:    true,
 		HighQualityResampling:  true,
@@ -1369,6 +1374,7 @@ func applyQualityPreset(name string) {
 	var p qualityPreset
 	switch name {
 	case "iGPU Graphics":
+		p.ShadersEnabled = true
 		p.MotionSmoothing = true
 		p.SoundEnhancementAmount = 1
 		p.MusicEnhancementAmount = 1
@@ -1382,11 +1388,11 @@ func applyQualityPreset(name string) {
 		p.MotionSmoothing = true
 		p.BlendMobiles = true
 		p.BlendPicts = true
+		p.ShadersEnabled = true
 		p.ShaderLighting = true
 		p.SpriteUpscaleFilter = true
 		gs.WindowShadows = true
 		gs.CharacterShadows = true
-		gs.DetailedCharacterShadows = true
 		gs.AnimatedChatBubbles = true
 	case "Classic":
 		p = classicPreset
@@ -1403,6 +1409,7 @@ func applyQualityPreset(name string) {
 	gs.MotionSmoothing = p.MotionSmoothing
 	gs.BlendMobiles = p.BlendMobiles
 	gs.BlendPicts = p.BlendPicts
+	gs.ShadersEnabled = p.ShadersEnabled
 	gs.ShaderLighting = p.ShaderLighting
 	if name == "iGPU Graphics" {
 		setArtworkUpscaleMode(artworkUpscaleBalanced)
@@ -1437,6 +1444,7 @@ func applyQualityPreset(name string) {
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
 	}
+	refreshShaderEffectControls()
 	if upscaleModeDD != nil {
 		upscaleModeDD.Selected = artworkUpscaleMode()
 	}
@@ -1462,12 +1470,6 @@ func applyQualityPreset(name string) {
 	if debugWin != nil {
 		debugWin.Refresh()
 	}
-	if shaderLightSlider != nil {
-		shaderLightSlider.Disabled = !gs.ShaderLighting
-	}
-	if shaderGlowSlider != nil {
-		shaderGlowSlider.Disabled = !gs.ShaderLighting
-	}
 }
 
 func currentAudioQualityPreset() qualityPreset {
@@ -1484,6 +1486,7 @@ func matchesPreset(p qualityPreset) bool {
 	if gs.MotionSmoothing != p.MotionSmoothing ||
 		gs.BlendMobiles != p.BlendMobiles ||
 		gs.BlendPicts != p.BlendPicts ||
+		gs.ShadersEnabled != p.ShadersEnabled ||
 		gs.ShaderLighting != p.ShaderLighting ||
 		gs.SpriteUpscaleFilter != p.SpriteUpscaleFilter ||
 		gs.HighQualityResampling != p.HighQualityResampling ||

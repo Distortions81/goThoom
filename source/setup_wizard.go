@@ -397,11 +397,23 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 			markQualityCustom()
 		},
 	))
+	root.AddItem(setupWizardCheckbox(
+		"Enable shader effects",
+		"Master switch for artwork upscaling, frame blending, lighting, accurate shadow compositing, and procedural effects.",
+		gs.ShadersEnabled,
+		func(checked bool) {
+			gs.ShadersEnabled = checked
+			refreshShaderEffectControls()
+			markQualityCustom()
+			rebuildSetupWizard()
+		},
+	))
 	upscaleStyle, upscaleEvents := eui.NewDropdown()
 	upscaleStyle.Label = "Artwork upscale style"
 	upscaleStyle.Options = artworkUpscaleModeNames
 	upscaleStyle.Selected = artworkUpscaleMode()
 	upscaleStyle.Size = eui.Point{X: 320, Y: 24}
+	upscaleStyle.Disabled = !gs.ShadersEnabled
 	upscaleStyle.SetTooltip("Choose edge smoothing.")
 	upscaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < artworkUpscaleOff || ev.Index > artworkUpscaleUltraSmooth {
@@ -488,7 +500,7 @@ func applySetupWizardGraphicsRecommendation(result graphicsBenchmarkResult) {
 }
 
 func igpuGraphicsPresetApplied() bool {
-	return gs.MotionSmoothing && !gs.BlendMobiles && !gs.BlendPicts && !gs.ShaderLighting &&
+	return gs.ShadersEnabled && gs.MotionSmoothing && !gs.BlendMobiles && !gs.BlendPicts && !gs.ShaderLighting &&
 		gs.GameScale == 2 && !gs.DenoiseImages &&
 		!gs.WindowShadows && !gs.CharacterShadows && !gs.AnimatedChatBubbles &&
 		artworkUpscaleMode() == artworkUpscaleBalanced
@@ -501,7 +513,7 @@ func buildSetupMotionPage(root *eui.ItemData) {
 	root.AddItem(setupWizardCheckbox("Smooth movement positions", "Interpolates only camera and character positions between server frames.", gs.MotionSmoothing, func(checked bool) {
 		gs.MotionSmoothing = checked
 		for _, option := range frameBlendOptions {
-			setSetupWizardDisabled(option, !checked)
+			setSetupWizardDisabled(option, !checked || !gs.ShadersEnabled)
 		}
 		markQualityCustom()
 		if setupWizardWin != nil {
@@ -510,7 +522,7 @@ func buildSetupMotionPage(root *eui.ItemData) {
 	}))
 	addFrameBlendOption := func(option *eui.ItemData) {
 		option = setupWizardSubOption(option)
-		setSetupWizardDisabled(option, !gs.MotionSmoothing)
+		setSetupWizardDisabled(option, !gs.MotionSmoothing || !gs.ShadersEnabled)
 		frameBlendOptions = append(frameBlendOptions, option)
 		root.AddItem(option)
 	}
@@ -533,26 +545,12 @@ func buildSetupShadowsPage(root *eui.ItemData) {
 		11, 620,
 	))
 
-	var shadowOptions []*eui.ItemData
 	root.AddItem(setupWizardCheckbox("Character shadows", "Show shadows beneath characters and creatures.", gs.CharacterShadows, func(checked bool) {
 		gs.CharacterShadows = checked
-		for _, option := range shadowOptions {
-			setSetupWizardDisabled(option, !checked)
-		}
 		markQualityCustom()
 		if setupWizardWin != nil {
 			setupWizardWin.Refresh()
 		}
-	}))
-	addShadowOption := func(option *eui.ItemData) {
-		option = setupWizardSubOption(option)
-		setSetupWizardDisabled(option, !gs.CharacterShadows)
-		shadowOptions = append(shadowOptions, option)
-		root.AddItem(option)
-	}
-	addShadowOption(setupWizardCheckbox("Accurate character shadows", "Keep overlapping shadows from becoming too dark.", gs.DetailedCharacterShadows, func(checked bool) {
-		gs.DetailedCharacterShadows = checked
-		settingsDirty = true
 	}))
 	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Adjust classic artwork for modern displays.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked
@@ -576,34 +574,36 @@ func buildSetupNightLightingPage(root *eui.ItemData) {
 	}))
 
 	var shaderOptions []*eui.ItemData
-	root.AddItem(setupWizardCheckbox("Shader lighting effects", "Use colored lights, glow, and light cones.", gs.ShaderLighting, func(checked bool) {
+	shaderLighting := setupWizardCheckbox("Shader lighting effects", "Use colored lights, glow, and light cones.", gs.ShaderLighting, func(checked bool) {
 		gs.ShaderLighting = checked
 		for _, option := range shaderOptions {
-			setSetupWizardDisabled(option, !checked)
+			setSetupWizardDisabled(option, !checked || !gs.ShadersEnabled)
 		}
 		if shaderLightingCB != nil {
 			shaderLightingCB.Checked = checked
 		}
 		if shaderLightSlider != nil {
-			shaderLightSlider.Disabled = !checked
+			shaderLightSlider.Disabled = !checked || !gs.ShadersEnabled
 		}
 		if shaderGlowSlider != nil {
-			shaderGlowSlider.Disabled = !checked
+			shaderGlowSlider.Disabled = !checked || !gs.ShadersEnabled
 		}
 		if flameFlickerCB != nil {
-			flameFlickerCB.Disabled = !checked
+			flameFlickerCB.Disabled = !checked || !gs.ShadersEnabled
 		}
 		if flameFlickerSlider != nil {
-			flameFlickerSlider.Disabled = !checked || !gs.FlameLightFlicker
+			flameFlickerSlider.Disabled = !checked || !gs.FlameLightFlicker || !gs.ShadersEnabled
 		}
 		markQualityCustom()
 		if setupWizardWin != nil {
 			setupWizardWin.Refresh()
 		}
-	}))
+	})
+	setSetupWizardDisabled(shaderLighting, !gs.ShadersEnabled)
+	root.AddItem(shaderLighting)
 	addShaderOption := func(option *eui.ItemData) {
 		option = setupWizardSubOption(option)
-		setSetupWizardDisabled(option, !gs.ShaderLighting)
+		setSetupWizardDisabled(option, !gs.ShadersEnabled || !gs.ShaderLighting)
 		shaderOptions = append(shaderOptions, option)
 		root.AddItem(option)
 	}
@@ -629,7 +629,7 @@ func buildSetupNightLightingPage(root *eui.ItemData) {
 			flameFlickerCB.Checked = checked
 		}
 		if flameFlickerSlider != nil {
-			flameFlickerSlider.Disabled = !checked || !gs.ShaderLighting
+			flameFlickerSlider.Disabled = !checked || !gs.ShaderLighting || !gs.ShadersEnabled
 		}
 		settingsDirty = true
 	}))
@@ -695,12 +695,13 @@ func buildSetupFinishPage(root *eui.ItemData) {
 		movement = "click-to-toggle"
 	}
 	root.AddItem(setupWizardText(fmt.Sprintf(
-		"Movement: %s\nMax upscale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader lighting: %s",
+		"Movement: %s\nMax upscale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader effects: %s\nShader lighting: %s",
 		movement,
 		gs.GameScale,
 		setupWizardToolbarPlacementName(gs.ToolbarPlacement),
 		onOff(gs.MotionSmoothing),
 		gs.MaxNightLevel,
+		onOff(gs.ShadersEnabled),
 		onOff(gs.ShaderLighting),
 	), 12, 620))
 	root.AddItem(setupWizardText(

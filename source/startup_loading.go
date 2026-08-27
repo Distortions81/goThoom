@@ -49,7 +49,7 @@ func startupShaderPending() bool {
 }
 
 func optionalEffectsShaderPending() bool {
-	return gs.ReplacementEffects && replacementEffectsShaderInitializationPending()
+	return replacementEffectsEnabled() && replacementEffectsShaderInitializationPending()
 }
 
 func updateStartupShaders() {

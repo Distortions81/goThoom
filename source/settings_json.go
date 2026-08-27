@@ -132,6 +132,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "FadeObscuringPictures", category: settingsRendering, name: "fade_obscuring_artwork"},
 	{field: "MaxNightLevel", category: settingsRendering, name: "maximum_night_darkness"},
 	{field: "NightEffect", category: settingsRendering, name: "night_effect"},
+	{field: "ShadersEnabled", category: settingsRendering, name: "shaders_enabled"},
 	{field: "ShaderLighting", category: settingsRendering, name: "shader_lighting"},
 	{field: "ReplacementEffects", category: settingsRendering, name: "replacement_effects"},
 	{field: "ShaderLightStrength", category: settingsRendering, name: "light_strength"},
@@ -140,7 +141,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "FlameFlickerStrength", category: settingsRendering, name: "flame_flicker_strength"},
 	{field: "CharacterShadows", category: settingsRendering, name: "character_shadows"},
 	{field: "CharacterShadowDarkness", category: settingsRendering, name: "character_shadow_darkness"},
-	{field: "DetailedCharacterShadows", category: settingsRendering, name: "realistic_character_shadows"},
 
 	{field: "MasterVolume", category: settingsAudio, name: "master_volume"},
 	{field: "GameVolume", category: settingsAudio, name: "sound_volume"},

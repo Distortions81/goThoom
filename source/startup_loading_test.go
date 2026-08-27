@@ -32,6 +32,7 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 	startupShaderLoader.lightingAttempted = false
 	startupShaderLoader.upscaleAttempted = false
 	gs.ShaderLighting = false
+	gs.ShadersEnabled = true
 	gs.SpriteUpscaleFilter = false
 	gs.SpriteUpscaleMode = artworkUpscaleOff
 	gs.ReplacementEffects = false

@@ -42,7 +42,7 @@ func TestRenderCharacterShadowImages(t *testing.T) {
 	originalImages := clImages
 	originalNight := gNight
 	gs.GameScale = 1
-	gs.DetailedCharacterShadows = true
+	gs.ShadersEnabled = true
 	gs.ShaderLighting = true
 	gs.ShaderLightStrength = 1
 	gs.ShaderGlowStrength = 1

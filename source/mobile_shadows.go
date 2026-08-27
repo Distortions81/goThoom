@@ -203,7 +203,7 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		return
 	}
 	projection := newCharacterShadowProjection(azimuth)
-	useMask := gs.DetailedCharacterShadows && lightingShader != nil
+	useMask := characterShadowCompositeEnabled() && lightingShader != nil
 
 	for _, mobile := range mobiles {
 		desc, ok := descMap[mobile.Index]
@@ -518,7 +518,7 @@ func drawCharacterShadow(screen *ebiten.Image, texture characterShadowTexture, s
 
 func characterShadowDrawAlpha(alpha float32, projection characterShadowProjection) float32 {
 	shadowAlpha := alpha * projection.contrast
-	if gs.DetailedCharacterShadows {
+	if characterShadowCompositeEnabled() {
 		shadowAlpha *= detailedCoreOpacity
 	} else {
 		shadowAlpha *= normalShadowOpacity

@@ -194,8 +194,7 @@ func TestSetupWizardSeparatesDaylightAndNightControls(t *testing.T) {
 	buildSetupNightLightingPage(night)
 
 	shadowChecks := map[string]bool{
-		"Character shadows":          false,
-		"Accurate character shadows": false,
+		"Character shadows": false,
 	}
 	nightChecks := map[string]bool{
 		"Shader lighting effects": false,
@@ -221,10 +220,14 @@ func TestSetupWizardSeparatesDaylightAndNightControls(t *testing.T) {
 	visit(shadows, shadowChecks, map[string]bool{})
 	visit(night, nightChecks, nightSliders)
 	shadowHasShader := false
+	shadowHasAccurateToggle := false
 	var findShader func(*eui.ItemData)
 	findShader = func(item *eui.ItemData) {
 		if item.Text == "Shader lighting effects" {
 			shadowHasShader = true
+		}
+		if item.Text == "Accurate character shadows" {
+			shadowHasAccurateToggle = true
 		}
 		for _, child := range item.Contents {
 			findShader(child)
@@ -249,6 +252,9 @@ func TestSetupWizardSeparatesDaylightAndNightControls(t *testing.T) {
 	}
 	if shadowHasShader {
 		t.Fatal("daylight page still contains night shader controls")
+	}
+	if shadowHasAccurateToggle {
+		t.Fatal("daylight page still exposes the always-on accurate shadow composite")
 	}
 }
 
@@ -366,6 +372,51 @@ func TestSetupWizardIncludesArtworkUpscaleStyles(t *testing.T) {
 		return
 	}
 	t.Fatal("setup wizard has no artwork upscale style dropdown")
+}
+
+func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs = gsdef
+	gs.ShadersEnabled = false
+
+	graphics := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupGraphicsPage(graphics)
+	motion := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupMotionPage(motion)
+	shadows := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupShadowsPage(shadows)
+	night := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupNightLightingPage(night)
+
+	wantDisabled := map[string]bool{
+		"Artwork upscale style":        false,
+		"Character animation blending": false,
+		"World animation blending":     false,
+		"Shader lighting effects":      false,
+	}
+	var visit func(*eui.ItemData)
+	visit = func(item *eui.ItemData) {
+		name := item.Text
+		if name == "" {
+			name = item.Label
+		}
+		if _, ok := wantDisabled[name]; ok && item.Disabled {
+			wantDisabled[name] = true
+		}
+		for _, child := range item.Contents {
+			visit(child)
+		}
+	}
+	for _, page := range []*eui.ItemData{graphics, motion, shadows, night} {
+		visit(page)
+	}
+	for name, disabled := range wantDisabled {
+		if !disabled {
+			t.Errorf("setup wizard shader control %q was not greyed out", name)
+		}
+	}
 }
 
 func TestSetupWizardOffersBlendImageDithering(t *testing.T) {

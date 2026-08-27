@@ -40,7 +40,7 @@ func TestRenderSetupWizardSyntheticScenes(t *testing.T) {
 	originalPage := setupWizardPage
 	gs.GameScale = 1
 	gs.CharacterShadows = true
-	gs.DetailedCharacterShadows = true
+	gs.ShadersEnabled = true
 	gs.ShaderLighting = true
 	gs.ShaderLightStrength = 1
 	gs.ShaderGlowStrength = 1
@@ -124,7 +124,7 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		canvas.Fill(color.RGBA{R: 28, G: 32, B: 38, A: 255})
 		nightAlphaInited = false
 		drawScene(canvas, 0, 0, snap, alpha, mobileFade, pictFade)
-		if gs.ShaderLighting {
+		if shaderLightingEnabled() {
 			addNightDarkSources(canvas.Bounds(), float32(alpha))
 			applyLightingShader(canvas, frameLights, frameDarks, float32(alpha))
 		}
