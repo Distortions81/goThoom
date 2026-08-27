@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -72,5 +73,26 @@ func TestMovieUPSValueIsFourDigits(t *testing.T) {
 		if got := movieUPSValue(test.ups); got != test.want {
 			t.Errorf("movieUPSValue(%d) = %q, want %q", test.ups, got, test.want)
 		}
+	}
+}
+
+func TestMovieCheckpointsStaySortedAcrossBackwardSeek(t *testing.T) {
+	p := &moviePlayer{checkpoints: []movieCheckpoint{{idx: 0}, {idx: 300}, {idx: 600}, {idx: 900}}}
+
+	p.addCheckpoint(movieCheckpoint{idx: 450})
+	p.addCheckpoint(movieCheckpoint{idx: 300, night: movieNightState{level: 7}})
+
+	got := make([]int, len(p.checkpoints))
+	for i, cp := range p.checkpoints {
+		got[i] = cp.idx
+	}
+	if want := []int{0, 300, 450, 600, 900}; !slices.Equal(got, want) {
+		t.Fatalf("checkpoint indexes = %v, want %v", got, want)
+	}
+	if p.checkpoints[1].night.level != 7 {
+		t.Fatal("checkpoint at an existing frame was not replaced")
+	}
+	if got := p.checkpointAtOrBefore(850).idx; got != 600 {
+		t.Fatalf("checkpointAtOrBefore(850) = %d, want 600", got)
 	}
 }

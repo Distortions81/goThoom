@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -87,6 +88,7 @@ var replacementEffectsPreviewCoinMask *ebiten.Image
 var replacementEffectsShadersReady bool
 var replacementEffectsShaderInitAttempted bool
 var replacementEffectsShaderInitIndex int
+var replacementEffectsShaderInitMu sync.Mutex
 
 type replacementEffectKind uint8
 
@@ -102,27 +104,27 @@ const (
 )
 
 type replacementEffectDraw struct {
-	pictID                   uint16
-	kind                     replacementEffectKind
-	left, top, width, height float64
+	pictID                      uint16
+	kind                        replacementEffectKind
+	left, top, width, height    float64
 	contentWidth, contentHeight float64
-	alpha                    float32
-	frame                    int
-	coinDigits               [4]float32
-	coinDigitX               [4]float64
-	coinDigitCount           int
-	coinGroupLeft             float64
-	coinGroupTop              float64
-	coinGroupRight            float64
-	coinGroupBottom           float64
-	started, lastSeen        time.Time
-	seen                     bool
-	mobileIndex              uint8
-	hasMobileAnchor          bool
-	mobileOffsetX            float64
-	mobileOffsetY            float64
-	mask                     *ebiten.Image
-	hasMask                  bool
+	alpha                       float32
+	frame                       int
+	coinDigits                  [4]float32
+	coinDigitX                  [4]float64
+	coinDigitCount              int
+	coinGroupLeft               float64
+	coinGroupTop                float64
+	coinGroupRight              float64
+	coinGroupBottom             float64
+	started, lastSeen           time.Time
+	seen                        bool
+	mobileIndex                 uint8
+	hasMobileAnchor             bool
+	mobileOffsetX               float64
+	mobileOffsetY               float64
+	mask                        *ebiten.Image
+	hasMask                     bool
 }
 
 var replacementEffectDraws = make(map[uint64]replacementEffectDraw)
@@ -136,27 +138,30 @@ const (
 // ReloadReplacementEffectsShader recompiles the replacement-effects shader
 // from disk. The embedded source keeps release builds self-contained.
 func ReloadReplacementEffectsShader() error {
-	healingShader, err := compileReplacementEffectShader("healing_burst.kage", healingBurstShaderSource)
+	replacementEffectsShaderInitMu.Lock()
+	defer replacementEffectsShaderInitMu.Unlock()
+
+	healingShader, err := compileReplacementEffectShaderForInit("healing_burst.kage", healingBurstShaderSource)
 	if err != nil {
 		return err
 	}
-	wardShader, err := compileReplacementEffectShader("mystic_ward.kage", mysticWardShaderSource)
+	wardShader, err := compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 	if err != nil {
 		return err
 	}
-	fadeShader, err := compileReplacementEffectShader("mystic_fade.kage", mysticFadeShaderSource)
+	fadeShader, err := compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 	if err != nil {
 		return err
 	}
-	teleportShader, err := compileReplacementEffectShader("teleport_burst.kage", teleportBurstShaderSource)
+	teleportShader, err := compileReplacementEffectShaderForInit("teleport_burst.kage", teleportBurstShaderSource)
 	if err != nil {
 		return err
 	}
-	stoneShader, err := compileReplacementEffectShader("stone_form.kage", stoneFormShaderSource)
+	stoneShader, err := compileReplacementEffectShaderForInit("stone_form.kage", stoneFormShaderSource)
 	if err != nil {
 		return err
 	}
-	coinShader, err := compileReplacementEffectShader("coin_reward.kage", coinRewardShaderSource)
+	coinShader, err := compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 	if err != nil {
 		return err
 	}
@@ -182,9 +187,20 @@ func compileReplacementEffectShader(name string, embedded []byte) (*ebiten.Shade
 	return ebiten.NewShader(source)
 }
 
+var compileReplacementEffectShaderForInit = compileReplacementEffectShader
+
+func replacementEffectsShaderInitializationPending() bool {
+	replacementEffectsShaderInitMu.Lock()
+	defer replacementEffectsShaderInitMu.Unlock()
+	return !replacementEffectsShadersReady && !replacementEffectsShaderInitAttempted
+}
+
 // loadNextReplacementEffectShader compiles one shader so the event loop can
 // present a frame between each expensive Kage compilation.
 func loadNextReplacementEffectShader() error {
+	replacementEffectsShaderInitMu.Lock()
+	defer replacementEffectsShaderInitMu.Unlock()
+
 	if replacementEffectsShadersReady || replacementEffectsShaderInitAttempted {
 		return nil
 	}
@@ -195,32 +211,32 @@ func loadNextReplacementEffectShader() error {
 	)
 	switch replacementEffectsShaderInitIndex {
 	case 0:
-		shader, err = compileReplacementEffectShader("healing_burst.kage", healingBurstShaderSource)
+		shader, err = compileReplacementEffectShaderForInit("healing_burst.kage", healingBurstShaderSource)
 		if err == nil {
 			healingBurstShader = shader
 		}
 	case 1:
-		shader, err = compileReplacementEffectShader("mystic_ward.kage", mysticWardShaderSource)
+		shader, err = compileReplacementEffectShaderForInit("mystic_ward.kage", mysticWardShaderSource)
 		if err == nil {
 			mysticWardShader = shader
 		}
 	case 2:
-		shader, err = compileReplacementEffectShader("mystic_fade.kage", mysticFadeShaderSource)
+		shader, err = compileReplacementEffectShaderForInit("mystic_fade.kage", mysticFadeShaderSource)
 		if err == nil {
 			mysticFadeShader = shader
 		}
 	case 3:
-		shader, err = compileReplacementEffectShader("teleport_burst.kage", teleportBurstShaderSource)
+		shader, err = compileReplacementEffectShaderForInit("teleport_burst.kage", teleportBurstShaderSource)
 		if err == nil {
 			teleportBurstShader = shader
 		}
 	case 4:
-		shader, err = compileReplacementEffectShader("stone_form.kage", stoneFormShaderSource)
+		shader, err = compileReplacementEffectShaderForInit("stone_form.kage", stoneFormShaderSource)
 		if err == nil {
 			stoneFormShader = shader
 		}
 	case 5:
-		shader, err = compileReplacementEffectShader("coin_reward.kage", coinRewardShaderSource)
+		shader, err = compileReplacementEffectShaderForInit("coin_reward.kage", coinRewardShaderSource)
 		if err == nil {
 			coinRewardShader = shader
 		}

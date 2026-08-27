@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -105,6 +106,35 @@ type moviePlayer struct {
 	totalLabel *eui.ItemData
 	fpsLabel   *eui.ItemData
 	playButton *eui.ItemData
+}
+
+// checkpointAtOrBefore returns the closest cached state that does not pass
+// idx. checkpoints is kept sorted by addCheckpoint, so seek work is bounded by
+// the distance from that checkpoint rather than by the order of earlier seeks.
+func (p *moviePlayer) checkpointAtOrBefore(idx int) movieCheckpoint {
+	i := sort.Search(len(p.checkpoints), func(i int) bool {
+		return p.checkpoints[i].idx > idx
+	})
+	if i == 0 {
+		return p.checkpoints[0]
+	}
+	return p.checkpoints[i-1]
+}
+
+// addCheckpoint inserts or replaces a checkpoint while preserving frame
+// order. Seeking backward must not leave a low-frame checkpoint at the end of
+// the slice, since subsequent forward seeks need the nearest cached state.
+func (p *moviePlayer) addCheckpoint(cp movieCheckpoint) {
+	i := sort.Search(len(p.checkpoints), func(i int) bool {
+		return p.checkpoints[i].idx >= cp.idx
+	})
+	if i < len(p.checkpoints) && p.checkpoints[i].idx == cp.idx {
+		p.checkpoints[i] = cp
+		return
+	}
+	p.checkpoints = append(p.checkpoints, movieCheckpoint{})
+	copy(p.checkpoints[i+1:], p.checkpoints[i:])
+	p.checkpoints[i] = cp
 }
 
 func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *moviePlayer {
@@ -470,7 +500,7 @@ func (p *moviePlayer) step() {
 		stateMu.Lock()
 		cp := movieCheckpoint{idx: p.cur, state: cloneDrawState(state), night: night}
 		stateMu.Unlock()
-		p.checkpoints = append(p.checkpoints, cp)
+		p.addCheckpoint(cp)
 	}
 	if p.cur >= len(p.frames) {
 		if p.repeat {
@@ -704,13 +734,7 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	wasPlaying := p.playing
 	p.playing = false
 
-	cp := p.checkpoints[0]
-	for i := len(p.checkpoints) - 1; i >= 0; i-- {
-		if p.checkpoints[i].idx <= idx {
-			cp = p.checkpoints[i]
-			break
-		}
-	}
+	cp := p.checkpointAtOrBefore(idx)
 
 	stateMu.Lock()
 	state = cloneDrawState(cp.state)
@@ -738,24 +762,18 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 		}
 		maybeDecodeMessage(m.data)
 		if frameCounter%checkpointInterval == 0 {
-			last := p.checkpoints[len(p.checkpoints)-1]
-			if last.idx != frameCounter {
-				night := captureMovieNightState()
-				stateMu.Lock()
-				snap := movieCheckpoint{idx: frameCounter, state: cloneDrawState(state), night: night}
-				stateMu.Unlock()
-				p.checkpoints = append(p.checkpoints, snap)
-			}
+			night := captureMovieNightState()
+			stateMu.Lock()
+			snap := movieCheckpoint{idx: frameCounter, state: cloneDrawState(state), night: night}
+			stateMu.Unlock()
+			p.addCheckpoint(snap)
 		}
 	}
-	last := p.checkpoints[len(p.checkpoints)-1]
-	if last.idx != idx {
-		night := captureMovieNightState()
-		stateMu.Lock()
-		snap := movieCheckpoint{idx: idx, state: cloneDrawState(state), night: night}
-		stateMu.Unlock()
-		p.checkpoints = append(p.checkpoints, snap)
-	}
+	night := captureMovieNightState()
+	stateMu.Lock()
+	snap := movieCheckpoint{idx: idx, state: cloneDrawState(state), night: night}
+	stateMu.Unlock()
+	p.addCheckpoint(snap)
 	p.cur = idx
 	setInterpFPS(p.fps)
 	resetInterpolation()

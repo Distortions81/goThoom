@@ -146,7 +146,7 @@ func TestScriptPackageRejectsMultipleGoFilesAndUnsafeZipEntries(t *testing.T) {
 	}
 }
 
-func TestScriptPackageSnapshotIncludesAssetChanges(t *testing.T) {
+func TestScriptPackageFingerprintIncludesAssetChanges(t *testing.T) {
 	scriptsDir := t.TempDir()
 	packageDir := filepath.Join(scriptsDir, "toolbar")
 	if err := os.MkdirAll(packageDir, 0o755); err != nil {
@@ -159,13 +159,19 @@ func TestScriptPackageSnapshotIncludesAssetChanges(t *testing.T) {
 	if err := os.WriteFile(iconPath, []byte("first"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	before := snapshotScriptFiles([]string{scriptsDir})
+	before := discoverScriptPackages(scriptsDir)
+	if len(before) != 1 {
+		t.Fatalf("before asset edit = %+v", before)
+	}
 	if err := os.WriteFile(iconPath, []byte("second"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	after := snapshotScriptFiles([]string{scriptsDir})
-	if sameScriptFileSnapshot(before, after) {
-		t.Fatal("asset edit did not change the script package snapshot")
+	after := discoverScriptPackages(scriptsDir)
+	if len(after) != 1 {
+		t.Fatalf("after asset edit = %+v", after)
+	}
+	if before[0].fingerprint == after[0].fingerprint {
+		t.Fatal("asset edit did not change the script package fingerprint")
 	}
 }
 

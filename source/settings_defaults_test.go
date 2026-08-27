@@ -39,8 +39,8 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 }
 
 func TestArtworkUpscaleDefaults(t *testing.T) {
-	if gsdef.GameScale != 4 || gsdef.SpriteUpscale != 4 || gsdef.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
-		t.Fatalf("default artwork upscale = (%v, %d, %d), want 4x Ultra Smooth", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
+	if gsdef.GameScale != 2 || gsdef.SpriteUpscale != 2 || gsdef.SpriteUpscaleMode != artworkUpscaleBalanced {
+		t.Fatalf("default artwork upscale = (%v, %d, %d), want 2x Balanced", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
 	}
 }
 
@@ -214,8 +214,8 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	if !gs.MobilesReceiveSunShadows {
 		t.Error("settings without MobilesReceiveSunShadows should default it on")
 	}
-	if gs.GameScale != 4 || gs.SpriteUpscale != 4 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleUltraSmooth {
-		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (4, 4, true, Ultra Smooth)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
+	if gs.GameScale != 2 || gs.SpriteUpscale != 2 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleBalanced {
+		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (2, 2, true, Balanced)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
 	}
 	if !gs.FlameLightFlicker {
 		t.Error("settings without FlameLightFlicker should default it on")

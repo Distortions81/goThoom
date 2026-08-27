@@ -32,56 +32,49 @@ var startupLoader = struct {
 
 var gameStartedOnce sync.Once
 
-var deferredShaderLoader = struct {
+var startupShaderLoader = struct {
 	lastCompileFrame  uint64
 	lightingAttempted bool
 	upscaleAttempted  bool
 }{}
 
-func spriteUpscaleShaderNeeded() bool {
-	if artworkUpscaleEnabled() {
+func startupShaderPending() bool {
+	if lightingShader == nil && !startupShaderLoader.lightingAttempted {
 		return true
 	}
-	if !imgDump || imgDumpScale <= 1 {
-		return false
+	if spriteUpscaleShader == nil && !startupShaderLoader.upscaleAttempted {
+		return true
 	}
-	mode, ok := imageDumpUpscaleMode(imgDumpScaleType)
-	return ok && mode != artworkUpscaleOff
+	return optionalEffectsShaderPending()
 }
 
-func deferredShaderPending() bool {
-	if gs.ShaderLighting && lightingShader == nil && !deferredShaderLoader.lightingAttempted {
-		return true
-	}
-	if spriteUpscaleShaderNeeded() && spriteUpscaleShader == nil && !deferredShaderLoader.upscaleAttempted {
-		return true
-	}
-	return gs.ReplacementEffects && !replacementEffectsShadersReady && !replacementEffectsShaderInitAttempted
+func optionalEffectsShaderPending() bool {
+	return gs.ReplacementEffects && replacementEffectsShaderInitializationPending()
 }
 
-func updateDeferredShaders() {
+func updateStartupShaders() {
 	if !uiReady {
 		return
 	}
-	if !deferredShaderPending() {
+	if !startupShaderPending() {
 		return
 	}
 	// Never compile before the window has presented at least one frame, and
 	// never compile two shaders without a Draw between them.
-	if startupLoader.drawnFrames == 0 || deferredShaderLoader.lastCompileFrame == startupLoader.drawnFrames {
+	if startupLoader.drawnFrames == 0 || startupShaderLoader.lastCompileFrame == startupLoader.drawnFrames {
 		return
 	}
-	deferredShaderLoader.lastCompileFrame = startupLoader.drawnFrames
+	startupShaderLoader.lastCompileFrame = startupLoader.drawnFrames
 
 	var err error
 	switch {
-	case gs.ShaderLighting && lightingShader == nil && !deferredShaderLoader.lightingAttempted:
-		deferredShaderLoader.lightingAttempted = true
+	case lightingShader == nil && !startupShaderLoader.lightingAttempted:
+		startupShaderLoader.lightingAttempted = true
 		err = ReloadLightingShader()
-	case spriteUpscaleShaderNeeded() && spriteUpscaleShader == nil && !deferredShaderLoader.upscaleAttempted:
-		deferredShaderLoader.upscaleAttempted = true
+	case spriteUpscaleShader == nil && !startupShaderLoader.upscaleAttempted:
+		startupShaderLoader.upscaleAttempted = true
 		err = ReloadSpriteUpscaleShader()
-	case gs.ReplacementEffects && !replacementEffectsShadersReady && !replacementEffectsShaderInitAttempted:
+	case optionalEffectsShaderPending():
 		err = loadNextReplacementEffectShader()
 	}
 	if err != nil {
@@ -91,15 +84,15 @@ func updateDeferredShaders() {
 
 // updateStartupLoading performs at most one blocking startup task for each
 // frame that reached Draw. This gets a useful window on screen before reading
-// the large archives or compiling any optional Kage shader.
+// the large archives or compiling the core Kage shaders.
 func updateStartupLoading() bool {
 	if startupLoader.complete {
-		// Optional shaders enabled later are compiled on demand without hiding
-		// the already-running UI.
-		updateDeferredShaders()
+		// Replacement effects remain optional and may be enabled after startup.
+		if optionalEffectsShaderPending() {
+			updateStartupShaders()
+		}
 		return false
 	}
-
 	if startupLoader.stage < startupLoadCoreDone {
 		if startupLoader.drawnFrames == 0 || startupLoader.lastWorkFrame == startupLoader.drawnFrames {
 			return true
@@ -116,13 +109,13 @@ func updateStartupLoading() bool {
 			loadScripts()
 		}
 		startupLoader.stage++
-		if startupLoader.stage < startupLoadCoreDone || deferredShaderPending() {
+		if startupLoader.stage < startupLoadCoreDone || startupShaderPending() {
 			return true
 		}
 	}
 
-	updateDeferredShaders()
-	if deferredShaderPending() {
+	updateStartupShaders()
+	if startupShaderPending() {
 		return true
 	}
 	startupLoader.complete = true
@@ -163,7 +156,7 @@ func loadStartupSounds() {
 	}
 }
 
-func deferredShaderFrameDrawn() {
+func shaderCompilationFrameDrawn() {
 	startupLoader.drawnFrames++
 }
 
@@ -171,7 +164,7 @@ func shouldDrawStartupLoadingScreen() bool {
 	if startupLoader.complete {
 		return false
 	}
-	return startupLoader.stage < startupLoadCoreDone || deferredShaderPending()
+	return startupLoader.stage < startupLoadCoreDone || startupShaderPending()
 }
 
 func startupLoadingLabel() string {

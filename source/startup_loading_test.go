@@ -6,60 +6,46 @@ import (
 	"testing"
 )
 
-func TestDeferredShadersOnlyLoadWhenEnabled(t *testing.T) {
+func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 	originalSettings := gs
-	originalLoader := deferredShaderLoader
+	originalLoader := startupShaderLoader
 	originalLighting := lightingShader
 	originalUpscale := spriteUpscaleShader
 	originalReplacementReady := replacementEffectsShadersReady
 	originalReplacementAttempted := replacementEffectsShaderInitAttempted
-	originalImageDump := imgDump
-	originalImageDumpScale := imgDumpScale
 	defer func() {
 		gs = originalSettings
-		deferredShaderLoader = originalLoader
+		startupShaderLoader = originalLoader
 		lightingShader = originalLighting
 		spriteUpscaleShader = originalUpscale
 		replacementEffectsShadersReady = originalReplacementReady
 		replacementEffectsShaderInitAttempted = originalReplacementAttempted
-		imgDump = originalImageDump
-		imgDumpScale = originalImageDumpScale
 	}()
 
 	lightingShader = nil
 	spriteUpscaleShader = nil
 	replacementEffectsShadersReady = false
 	replacementEffectsShaderInitAttempted = false
-	deferredShaderLoader.lightingAttempted = false
-	deferredShaderLoader.upscaleAttempted = false
-	imgDump = false
-	imgDumpScale = 1
+	startupShaderLoader.lightingAttempted = false
+	startupShaderLoader.upscaleAttempted = false
 	gs.ShaderLighting = false
 	gs.SpriteUpscaleFilter = false
 	gs.SpriteUpscaleMode = artworkUpscaleOff
 	gs.ReplacementEffects = false
 
-	if deferredShaderPending() {
-		t.Fatal("disabled optional shaders were scheduled")
+	if !startupShaderPending() {
+		t.Fatal("disabled preset should still schedule core shader compilation during startup")
 	}
 
-	gs.ShaderLighting = true
-	if !deferredShaderPending() {
-		t.Fatal("enabled lighting shader was not scheduled")
+	startupShaderLoader.lightingAttempted = true
+	startupShaderLoader.upscaleAttempted = true
+	if startupShaderPending() {
+		t.Fatal("disabled replacement effects should not extend startup loading")
 	}
-	gs.ShaderLighting = false
-
-	gs.SpriteUpscaleFilter = true
-	gs.SpriteUpscaleMode = artworkUpscaleBalanced
-	if !deferredShaderPending() {
-		t.Fatal("enabled artwork-upscale shader was not scheduled")
-	}
-	gs.SpriteUpscaleFilter = false
-	gs.SpriteUpscaleMode = artworkUpscaleOff
 
 	gs.ReplacementEffects = true
-	if !deferredShaderPending() {
-		t.Fatal("enabled replacement-effect shaders were not scheduled")
+	if !startupShaderPending() {
+		t.Fatal("enabled replacement effects should be scheduled")
 	}
 }
 

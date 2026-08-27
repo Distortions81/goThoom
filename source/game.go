@@ -746,7 +746,6 @@ func (g *Game) Update() error {
 	}
 	updateKeyboardTest()
 	legacyMacroPollKeyboard(int64(ackFrame), typingElsewhere)
-	checkForScriptEdit()
 	updateNotifications()
 	updateThinkMessages()
 	// Throttle player maintenance to reduce idle CPU (every ~250ms)
@@ -1470,7 +1469,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	now := time.Now()
 	drawFrameNow = now
 	defer func() { drawFrameNow = time.Time{} }()
-	defer deferredShaderFrameDrawn()
+	defer shaderCompilationFrameDrawn()
 	if shouldDrawStartupLoadingScreen() {
 		drawStartupLoadingScreen(screen, startupLoadingLabel())
 		return

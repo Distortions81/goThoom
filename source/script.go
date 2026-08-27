@@ -1624,8 +1624,6 @@ var (
 	chatHandlersMu               sync.RWMutex
 	scriptCommandOwners          = map[string]string{}
 	scriptSendHistory            = map[string][]time.Time{}
-	scriptFileSnapshot           map[string]scriptFileState
-	scriptModCheck               time.Time
 	scriptRepeats                = map[string][]*scriptRepeatRegistration{}
 	scriptTickWaiters            = map[string][]*tickWaiter{}
 	scriptStopping               = map[string]bool{}
@@ -3294,38 +3292,8 @@ func scriptOverlayImage(owner string, id uint16, x, y int) {
 	overlayMu.Unlock()
 }
 
-type scriptFileState struct {
-	size    int64
-	modTime int64
-	sum     [sha256.Size]byte
-}
-
-func snapshotScriptFiles(scriptDirs []string) map[string]scriptFileState {
-	snapshot := map[string]scriptFileState{}
-	for _, dir := range scriptDirs {
-		for _, script := range discoverScriptPackages(dir) {
-			snapshot[script.containerPath] = scriptFileState{
-				size: script.size, modTime: script.modTime, sum: script.fingerprint,
-			}
-		}
-	}
-	return snapshot
-}
-
 func isUserScriptFile(name string) bool {
 	return strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go")
-}
-
-func sameScriptFileSnapshot(a, b map[string]scriptFileState) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for filePath, state := range a {
-		if other, ok := b[filePath]; !ok || other != state {
-			return false
-		}
-	}
-	return true
 }
 
 type scriptInfo struct {
@@ -3591,21 +3559,6 @@ func rescanScripts(scriptDirs []string) {
 	settingsDirty = true
 }
 
-func checkForScriptEdit() {
-	if isWASM {
-		return
-	}
-	if time.Since(scriptModCheck) < 500*time.Millisecond {
-		return
-	}
-	scriptModCheck = time.Now()
-	current := snapshotScriptFiles(scriptSearchDirs())
-	if !sameScriptFileSnapshot(scriptFileSnapshot, current) {
-		scriptFileSnapshot = current
-		rescanscripts()
-	}
-}
-
 func loadScripts() {
 	if isWASM {
 		return
@@ -3669,7 +3622,6 @@ func loadScripts() {
 	}
 	refreshHotkeysList()
 	refreshscriptsWindow()
-	scriptFileSnapshot = snapshotScriptFiles(scriptSearchDirs())
 }
 
 // scopeFromSettingValue converts a settings value into a scriptScope.
