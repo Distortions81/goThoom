@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	maxLights             = 128
-	maxLightShadows       = 32
-	lightShadowReachScale = 4.0
+	maxLights        = 128
+	maxLightShadows  = 32
+	lightCutoffStart = 3.0
+	lightCutoffEnd   = 4.0
 )
 
 //go:embed data/shaders/light.kage
@@ -31,15 +32,16 @@ var (
 	frameContactShadowLights []contactShadowLight
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
 	// Reused shader data to avoid per-frame allocations
-	lposX, lposY, lradius, lr, lg, lb, lint [maxLights]float32
-	dposX, dposY, dradius, da, dint, dplane [maxLights]float32
-	slightX, slightY, slightRadius          [maxLightShadows]float32
-	slightR, slightG, slightB, slightInt    [maxLightShadows]float32
-	scasterX, scasterY, scasterRadius       [maxLightShadows]float32
-	characterShadowMin, characterShadowMax  [2]float32
-	lightingUniforms                        map[string]any
-	lightingOp                              ebiten.DrawTrianglesShaderOptions
-	lightingIndices                         = []uint16{0, 1, 2, 1, 2, 3}
+	lposX, lposY, linvRadiusSquared, lr, lg, lb, lint [maxLights]float32
+	dposX, dposY, dinvRadiusSquared, da, dint, dplane [maxLights]float32
+	slightX, slightY, slightInvRadiusSquared          [maxLightShadows]float32
+	slightR, slightG, slightB, slightInt              [maxLightShadows]float32
+	scasterX, scasterY, scasterRadius                 [maxLightShadows]float32
+	shadowAxisX, shadowAxisY, shadowInvDistance       [maxLightShadows]float32
+	characterShadowMin, characterShadowMax            [2]float32
+	lightingUniforms                                  map[string]any
+	lightingOp                                        ebiten.DrawTrianglesShaderOptions
+	lightingIndices                                   = []uint16{0, 1, 2, 1, 2, 3}
 )
 
 // Global multipliers to make lights/darks reach farther on screen.
@@ -58,39 +60,42 @@ const (
 func init() {
 	// Initialize reusable uniforms and options
 	lightingUniforms = map[string]any{
-		"LightCount":             0,
-		"DarkCount":              0,
-		"LightPosX":              lposX[:],
-		"LightPosY":              lposY[:],
-		"LightRadius":            lradius[:],
-		"LightR":                 lr[:],
-		"LightG":                 lg[:],
-		"LightB":                 lb[:],
-		"LightIntensity":         lint[:],
-		"DarkPosX":               dposX[:],
-		"DarkPosY":               dposY[:],
-		"DarkRadius":             dradius[:],
-		"DarkAlpha":              da[:],
-		"DarkIntensity":          dint[:],
-		"DarkPlane":              dplane[:],
-		"ShadowCount":            0,
-		"ShadowLightX":           slightX[:],
-		"ShadowLightY":           slightY[:],
-		"ShadowLightRadius":      slightRadius[:],
-		"ShadowLightR":           slightR[:],
-		"ShadowLightG":           slightG[:],
-		"ShadowLightB":           slightB[:],
-		"ShadowLightIntensity":   slightInt[:],
-		"ShadowCasterX":          scasterX[:],
-		"ShadowCasterY":          scasterY[:],
-		"ShadowCasterRadius":     scasterRadius[:],
-		"LightStrength":          float32(1),
-		"GlowStrength":           float32(1),
-		"NightFactor":            float32(0),
-		"MaxLightPlane":          float32(32767),
-		"HasCharacterShadowMask": float32(0),
-		"CharacterShadowMin":     characterShadowMin[:],
-		"CharacterShadowMax":     characterShadowMax[:],
+		"LightCount":                  0,
+		"DarkCount":                   0,
+		"LightPosX":                   lposX[:],
+		"LightPosY":                   lposY[:],
+		"LightInvRadiusSquared":       linvRadiusSquared[:],
+		"LightR":                      lr[:],
+		"LightG":                      lg[:],
+		"LightB":                      lb[:],
+		"LightIntensity":              lint[:],
+		"DarkPosX":                    dposX[:],
+		"DarkPosY":                    dposY[:],
+		"DarkInvRadiusSquared":        dinvRadiusSquared[:],
+		"DarkAlpha":                   da[:],
+		"DarkIntensity":               dint[:],
+		"DarkPlane":                   dplane[:],
+		"ShadowCount":                 0,
+		"ShadowLightX":                slightX[:],
+		"ShadowLightY":                slightY[:],
+		"ShadowLightInvRadiusSquared": slightInvRadiusSquared[:],
+		"ShadowLightR":                slightR[:],
+		"ShadowLightG":                slightG[:],
+		"ShadowLightB":                slightB[:],
+		"ShadowLightIntensity":        slightInt[:],
+		"ShadowCasterX":               scasterX[:],
+		"ShadowCasterY":               scasterY[:],
+		"ShadowCasterRadius":          scasterRadius[:],
+		"ShadowAxisX":                 shadowAxisX[:],
+		"ShadowAxisY":                 shadowAxisY[:],
+		"ShadowInvDistance":           shadowInvDistance[:],
+		"LightStrength":               float32(1),
+		"GlowStrength":                float32(1),
+		"NightFactor":                 float32(0),
+		"MaxLightPlane":               float32(32767),
+		"HasCharacterShadowMask":      float32(0),
+		"CharacterShadowMin":          characterShadowMin[:],
+		"CharacterShadowMax":          characterShadowMax[:],
 	}
 	lightingOp = ebiten.DrawTrianglesShaderOptions{}
 	lightingOp.Uniforms = lightingUniforms
@@ -212,7 +217,8 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	for i := 0; i < len(il) && i < maxLights; i++ {
 		ls := il[i]
 		lposX[i], lposY[i] = localLightingPosition(ls.X, ls.Y, dstBounds)
-		lradius[i] = ls.Radius * float32(lightRadiusScale)
+		effectiveRadius := ls.Radius * float32(lightRadiusScale)
+		linvRadiusSquared[i] = 1 / (effectiveRadius * effectiveRadius)
 		lr[i] = ls.R
 		lg[i] = ls.G
 		lb[i] = ls.B
@@ -228,7 +234,8 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	for i := 0; i < len(id) && i < maxLights; i++ {
 		ds := id[i]
 		dposX[i], dposY[i] = localLightingPosition(ds.X, ds.Y, dstBounds)
-		dradius[i] = ds.Radius * float32(darkRadiusScale)
+		effectiveRadius := ds.Radius * float32(darkRadiusScale)
+		dinvRadiusSquared[i] = 1 / (effectiveRadius * effectiveRadius)
 		da[i] = ds.Alpha
 		dplane[i] = float32(ds.Plane)
 		if ds.Intensity <= 0 {
@@ -242,13 +249,22 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	for i := 0; i < len(frameLightShadows); i++ {
 		shadow := frameLightShadows[i]
 		slightX[i], slightY[i] = localLightingPosition(shadow.LightX, shadow.LightY, dstBounds)
-		slightRadius[i] = shadow.LightRadius
+		slightInvRadiusSquared[i] = 1 / (shadow.LightRadius * shadow.LightRadius)
 		slightR[i] = shadow.LightR
 		slightG[i] = shadow.LightG
 		slightB[i] = shadow.LightB
 		slightInt[i] = shadow.LightIntensity
 		scasterX[i], scasterY[i] = localLightingPosition(shadow.CasterX, shadow.CasterY, dstBounds)
 		scasterRadius[i] = shadow.CasterRadius
+		dx := shadow.CasterX - shadow.LightX
+		dy := shadow.CasterY - shadow.LightY
+		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+		if distance < 1 {
+			distance = 1
+		}
+		shadowAxisX[i] = dx / distance
+		shadowAxisY[i] = dy / distance
+		shadowInvDistance[i] = 1 / distance
 	}
 
 	// Scalars
@@ -452,10 +468,23 @@ func lightIntersectsViewport(x, y float32, radius float32, bounds image.Rectangl
 	if radius <= 0 || bounds.Empty() {
 		return false
 	}
-	return x+radius >= float32(bounds.Min.X) &&
-		x-radius <= float32(bounds.Max.X) &&
-		y+radius >= float32(bounds.Min.Y) &&
-		y-radius <= float32(bounds.Max.Y)
+	nearestX := x
+	if nearestX < float32(bounds.Min.X) {
+		nearestX = float32(bounds.Min.X)
+	} else if nearestX > float32(bounds.Max.X) {
+		nearestX = float32(bounds.Max.X)
+	}
+	nearestY := y
+	if nearestY < float32(bounds.Min.Y) {
+		nearestY = float32(bounds.Min.Y)
+	} else if nearestY > float32(bounds.Max.Y) {
+		nearestY = float32(bounds.Max.Y)
+	}
+	return dist2(x, y, nearestX, nearestY) <= radius*radius
+}
+
+func lightInfluenceRadius(radius float32) float32 {
+	return radius * float32(lightRadiusScale*lightCutoffEnd)
 }
 
 type mobileSpriteMetrics struct {
@@ -566,7 +595,7 @@ func medianOccupiedRowWidth(pixels []byte, width, height int) int {
 func buildLightShadows(lights []lightSource, casters []lightCaster, dst []lightShadow) []lightShadow {
 	for _, light := range lights {
 		effectiveRadius := light.Radius * float32(lightRadiusScale)
-		shadowReach := effectiveRadius * float32(lightShadowReachScale)
+		shadowReach := effectiveRadius * float32(lightCutoffEnd)
 		for _, caster := range casters {
 			distanceSquared := dist2(light.X, light.Y, caster.X, caster.Y)
 			minimumDistance := caster.Radius * 1.25
@@ -773,7 +802,7 @@ func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeom
 		}
 	} else {
 		radius *= flame.radius
-		if !lightIntersectsViewport(cx, cy, radius, bounds) {
+		if !lightIntersectsViewport(cx, cy, lightInfluenceRadius(radius), bounds) {
 			return
 		}
 		if len(frameLights) < maxLights {

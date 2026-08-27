@@ -194,9 +194,8 @@ func TestSetupWizardSeparatesDaylightAndNightControls(t *testing.T) {
 	buildSetupNightLightingPage(night)
 
 	shadowChecks := map[string]bool{
-		"Character shadows":           false,
-		"Accurate character shadows":  false,
-		"Mobiles receive sun shadows": false,
+		"Character shadows":          false,
+		"Accurate character shadows": false,
 	}
 	nightChecks := map[string]bool{
 		"Shader lighting effects": false,

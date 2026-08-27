@@ -83,6 +83,15 @@ func TestBuildLightShadowsIncludesGlowTail(t *testing.T) {
 	}
 }
 
+func TestBuildLightShadowsStopsAtLightCutoff(t *testing.T) {
+	lights := []lightSource{{X: 0, Y: 0, Radius: 80, Intensity: 1}}
+	// Effective radius is 100 and the shader reaches zero at 4x that radius.
+	casters := []lightCaster{{X: 400, Y: 0, Radius: 6}}
+	if shadows := buildLightShadows(lights, casters, nil); len(shadows) != 0 {
+		t.Fatalf("cutoff caster produced %d cone shadows, want none", len(shadows))
+	}
+}
+
 func TestBuildLightShadowsIgnoresCharacterCenteredLights(t *testing.T) {
 	lights := []lightSource{{X: 100, Y: 100, Radius: 80, Intensity: 1}}
 	casters := []lightCaster{{X: 100, Y: 116, Radius: 6, LightExclusionRadius: 29}}

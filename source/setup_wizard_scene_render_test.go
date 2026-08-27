@@ -41,7 +41,6 @@ func TestRenderSetupWizardSyntheticScenes(t *testing.T) {
 	gs.GameScale = 1
 	gs.CharacterShadows = true
 	gs.DetailedCharacterShadows = true
-	gs.MobilesReceiveSunShadows = true
 	gs.ShaderLighting = true
 	gs.ShaderLightStrength = 1
 	gs.ShaderGlowStrength = 1
@@ -110,11 +109,10 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 			break
 		}
 		if mode == setupWizardSceneDay {
-			var shade [256]float32
 			probe := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
-			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels, &shade)
-			if shade[4] <= 0 {
-				g.err = fmt.Errorf("daylight scene does not cast the guide's shadow onto the apprentice")
+			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels)
+			if frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
+				g.err = fmt.Errorf("daylight scene did not produce a detailed shadow mask")
 				break
 			}
 		}

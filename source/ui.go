@@ -5061,7 +5061,7 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(batchArtworkCB)
 
-	var detailedShadowsCB, mobileSunShadowsCB, shadowDarknessSlider *eui.ItemData
+	var detailedShadowsCB, shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "Potato GPU (Low VRAM)"
@@ -5121,9 +5121,6 @@ func makeQualityWindow() {
 			if detailedShadowsCB != nil {
 				detailedShadowsCB.Disabled = !ev.Checked
 			}
-			if mobileSunShadowsCB != nil {
-				mobileSunShadowsCB.Disabled = !ev.Checked
-			}
 			settingsDirty = true
 		}
 	}
@@ -5159,20 +5156,6 @@ func makeQualityWindow() {
 		}
 	}
 	shadowSection.AddItem(detailedShadowsCB)
-
-	mobileSunShadowsCB, mobileSunShadowsEvents := eui.NewCheckbox()
-	mobileSunShadowsCB.Text = "Mobiles Receive Sun Shadows"
-	mobileSunShadowsCB.Size = eui.Point{X: width, Y: 24}
-	mobileSunShadowsCB.Checked = gs.MobilesReceiveSunShadows
-	mobileSunShadowsCB.Disabled = !gs.CharacterShadows
-	mobileSunShadowsCB.SetTooltip("Darken mobiles in projected shadows.")
-	mobileSunShadowsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MobilesReceiveSunShadows = ev.Checked
-			settingsDirty = true
-		}
-	}
-	shadowSection.AddItem(mobileSunShadowsCB)
 
 	// Shader lighting toggle in the Quality window
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()

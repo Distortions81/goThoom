@@ -1711,7 +1711,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	posPics := snap.picsPos
 	live := snap.liveMobs
 	dead := snap.deadMobs
-	var mobileSunShade [256]float32
 	shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
 	if !gs.hideMobiles && shadowKind == characterShadowContact {
 		collectContactShadowLights(ox, oy, snap, alpha)
@@ -1727,11 +1726,11 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		}
 	} else {
 		if shadowKind == characterShadowDirectional {
-			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, &mobileSunShade)
+			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit)
 		}
 		for _, m := range dead {
 			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index])
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
 		i, j := 0, 0
@@ -1750,7 +1749,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
 					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index])
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
 				i++
@@ -1861,7 +1860,7 @@ func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frame
 // When a mobile lacks history but the world shifts, a pseudo-previous position
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int) {
 	x, y := mobileScreenPosition(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
@@ -1922,15 +1921,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scaled := float64(drawSize) * scale
 		tx := float64(x) - scaled/2
 		ty := float64(y) - scaled/2
-		brightness := float32(1)
-		if sunShade > 0 {
-			brightness = 1 - sunShade
-		}
 		drawn := false
 		if blend {
 			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
 				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: fade,
-				Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
+				Red: 1, Green: 1, Blue: 1, Alpha: 1,
 				Linear: worldArtworkFilter() == ebiten.FilterLinear,
 			})
 		}
@@ -1941,9 +1936,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			op := acquireDrawOpts()
 			op.Filter = worldArtworkFilter()
 			op.DisableMipmaps = true
-			if brightness < 1 {
-				op.ColorScale.Scale(brightness, brightness, brightness, 1)
-			}
 			op.GeoM.Scale(scale, scale)
 			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(src, op)

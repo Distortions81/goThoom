@@ -554,10 +554,6 @@ func buildSetupShadowsPage(root *eui.ItemData) {
 		gs.DetailedCharacterShadows = checked
 		settingsDirty = true
 	}))
-	addShadowOption(setupWizardCheckbox("Mobiles receive sun shadows", "Darken a mobile standing in another mobile's shadow.", gs.MobilesReceiveSunShadows, func(checked bool) {
-		gs.MobilesReceiveSunShadows = checked
-		settingsDirty = true
-	}))
 	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Adjust classic artwork for modern displays.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked
 		if gammaCorrectionCB != nil {

@@ -23,8 +23,6 @@ const (
 	contactShadowHeight    = 0.24
 	contactShadowTexSize   = 64
 	lyingShadowOffset      = 2.0
-	mobileSunShadeScale    = 0.65
-	maximumMobileSunShade  = 0.75
 )
 
 // shadowDarkenBlend directly attenuates the scene beneath the silhouette while
@@ -98,26 +96,6 @@ type characterShadowDraw struct {
 type shadowPoint struct {
 	x, y float64
 }
-
-type mobileSunShadowCaster struct {
-	index    uint8
-	quad     [4]shadowPoint
-	strength float32
-}
-
-type mobileSunShadowReceiver struct {
-	index                 uint8
-	footX, footY          float64
-	radius                float64 // fallback for older callers and tests
-	halfWidth, halfHeight float64
-}
-
-var (
-	frameMobileSunShadowCasters   []mobileSunShadowCaster
-	frameMobileSunShadowReceivers []mobileSunShadowReceiver
-	frameMobileSunShadowBlocks    = make(map[obscuringBlockKey][]int)
-	frameMobileSunShadowUsed      []obscuringBlockKey
-)
 
 func normalizeShadowAzimuth(azimuth int) int {
 	azimuth %= 360
@@ -216,7 +194,7 @@ func currentCharacterShadowRenderState() (float32, int, characterShadowKind) {
 	return float32(level) / 100, normalizeShadowAzimuth(azimuth), characterShadowDirectional
 }
 
-func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, mobileShade *[256]float32) {
+func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) {
 	frameDetailedShadowMask = nil
 	frameDetailedShadowBounds = image.Rectangle{}
 	frameCharacterShadowDraws = frameCharacterShadowDraws[:0]
@@ -225,9 +203,6 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		return
 	}
 	projection := newCharacterShadowProjection(azimuth)
-	frameMobileSunShadowCasters = frameMobileSunShadowCasters[:0]
-	frameMobileSunShadowReceivers = frameMobileSunShadowReceivers[:0]
-	resetMobileSunShadowBlocks()
 	useMask := gs.DetailedCharacterShadows && lightingShader != nil
 
 	for _, mobile := range mobiles {
@@ -249,7 +224,6 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		key := makeMobileKey(desc.PictID, state, colors)
 		texture := characterShadowTextureForMobile(key, img)
 		x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
-		frameMobileSunShadowReceivers = append(frameMobileSunShadowReceivers, mobileSunShadowReceiverFor(mobile.Index, texture, size, x, y))
 		if isLyingShadowState(state) {
 			continue
 		}
@@ -269,25 +243,12 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 			texture = characterShadowTextureForMobile(key, img)
 		}
 		casterAlpha := shadowAlpha * mobileSunShadowAppearance(mobile, desc, prevMobiles, alpha)
-		casterIndex := len(frameMobileSunShadowCasters)
 		quad := mobileSunShadowQuad(texture, size, x, y, projection, upright)
-		frameMobileSunShadowCasters = append(frameMobileSunShadowCasters, mobileSunShadowCaster{
-			index:    mobile.Index,
-			quad:     quad,
-			strength: characterShadowDrawAlpha(casterAlpha, projection),
-		})
-		addMobileSunShadowBlocks(casterIndex, frameMobileSunShadowCasters[casterIndex].quad)
 		frameCharacterShadowDraws = append(frameCharacterShadowDraws, characterShadowDraw{
 			texture: texture, size: size, x: x, y: y, alpha: casterAlpha,
 			projection: projection, upright: upright, quad: quad,
 		})
 	}
-	if gs.MobilesReceiveSunShadows && mobileShade != nil {
-		for _, receiver := range frameMobileSunShadowReceivers {
-			mobileShade[receiver.index] = mobileSunShadowAmount(receiver, frameMobileSunShadowCasters, frameMobileSunShadowBlocks)
-		}
-	}
-
 	if !useMask {
 		for _, command := range frameCharacterShadowDraws {
 			drawCharacterShadow(screen, command.texture, command.size, command.x, command.y, command.alpha, command.projection, command.upright, shadowDarkenBlend)
@@ -361,55 +322,6 @@ func mobileSunShadowAppearance(mobile frameMobile, desc frameDescriptor, prevMob
 	return float32(alpha)
 }
 
-func resetMobileSunShadowBlocks() {
-	for _, key := range frameMobileSunShadowUsed {
-		frameMobileSunShadowBlocks[key] = frameMobileSunShadowBlocks[key][:0]
-	}
-	frameMobileSunShadowUsed = frameMobileSunShadowUsed[:0]
-}
-
-func addMobileSunShadowBlocks(casterIndex int, quad [4]shadowPoint) {
-	minX, maxX := quad[0].x, quad[0].x
-	minY, maxY := quad[0].y, quad[0].y
-	for _, point := range quad[1:] {
-		minX = math.Min(minX, point.x)
-		maxX = math.Max(maxX, point.x)
-		minY = math.Min(minY, point.y)
-		maxY = math.Max(maxY, point.y)
-	}
-	minBlockX := obscuringBlockCoordinate(int(math.Floor(minX)))
-	maxBlockX := obscuringBlockCoordinate(int(math.Ceil(maxX)))
-	minBlockY := obscuringBlockCoordinate(int(math.Floor(minY)))
-	maxBlockY := obscuringBlockCoordinate(int(math.Ceil(maxY)))
-	for blockY := minBlockY; blockY <= maxBlockY; blockY++ {
-		for blockX := minBlockX; blockX <= maxBlockX; blockX++ {
-			key := obscuringBlockKey{blockX, blockY}
-			entries := frameMobileSunShadowBlocks[key]
-			if len(entries) == 0 {
-				frameMobileSunShadowUsed = append(frameMobileSunShadowUsed, key)
-			}
-			frameMobileSunShadowBlocks[key] = append(entries, casterIndex)
-		}
-	}
-}
-
-func mobileSunShadowReceiverFor(index uint8, texture characterShadowTexture, size, x, y int) mobileSunShadowReceiver {
-	target := float64(roundToInt(float64(size) * gs.GameScale))
-	footY := float64(y) + target*0.45
-	if texture.contentSize > 0 {
-		baseScale := target / float64(texture.contentSize)
-		footY = float64(y) - target/2 + (texture.footY-float64(texture.padding))*baseScale
-	}
-	return mobileSunShadowReceiver{
-		index:      index,
-		footX:      float64(x),
-		footY:      footY,
-		radius:     target * 0.14,
-		halfWidth:  target * 0.14,
-		halfHeight: target * 0.06,
-	}
-}
-
 func mobileSunShadowQuad(texture characterShadowTexture, size, x, y int, projection characterShadowProjection, upright bool) [4]shadowPoint {
 	if upright {
 		geo := uprightShadowGeoMWithFoot(texture.contentSize, texture.padding, texture.footY, size, x, y, projection)
@@ -432,54 +344,6 @@ func transformedShadowQuad(geo ebiten.GeoM, width, height float64) [4]shadowPoin
 	x2, y2 := geo.Apply(width, height)
 	x3, y3 := geo.Apply(0, height)
 	return [4]shadowPoint{{x0, y0}, {x1, y1}, {x2, y2}, {x3, y3}}
-}
-
-func mobileSunShadowAmount(receiver mobileSunShadowReceiver, casters []mobileSunShadowCaster, blocks map[obscuringBlockKey][]int) float32 {
-	if receiver.radius <= 0 {
-		return 0
-	}
-	halfWidth, halfHeight := receiver.halfWidth, receiver.halfHeight
-	if halfWidth <= 0 {
-		halfWidth = receiver.radius
-	}
-	if halfHeight <= 0 {
-		halfHeight = receiver.radius
-	}
-	// Sample the receiver's expected ground-contact bounds against the exact
-	// projected shadow quad. A small regular grid gives stable partial coverage
-	// without the generous corners of the old circular hitbox.
-	offsets := [...]float64{-1, -0.5, 0, 0.5, 1}
-	coveredStrength := float32(0)
-	for _, oy := range offsets {
-		for _, ox := range offsets {
-			point := shadowPoint{receiver.footX + ox*halfWidth, receiver.footY + oy*halfHeight}
-			key := obscuringBlockKey{obscuringBlockCoordinate(int(math.Floor(point.x))), obscuringBlockCoordinate(int(math.Floor(point.y)))}
-			pointStrength := float32(0)
-			for _, casterIndex := range blocks[key] {
-				caster := casters[casterIndex]
-				if caster.index != receiver.index && caster.strength > pointStrength && pointInShadowQuad(point, caster.quad) {
-					pointStrength = caster.strength
-				}
-			}
-			coveredStrength += pointStrength
-		}
-	}
-	shade := coveredStrength / float32(len(offsets)*len(offsets)) * mobileSunShadeScale
-	if shade > maximumMobileSunShade {
-		shade = maximumMobileSunShade
-	}
-	return shade
-}
-
-func pointInShadowQuad(point shadowPoint, quad [4]shadowPoint) bool {
-	inside := false
-	for i, j := 0, len(quad)-1; i < len(quad); j, i = i, i+1 {
-		a, b := quad[i], quad[j]
-		if (a.y > point.y) != (b.y > point.y) && point.x < (b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x {
-			inside = !inside
-		}
-	}
-	return inside
 }
 
 func drawMobileImmediateShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, shadowAlpha float32, kind characterShadowKind) {

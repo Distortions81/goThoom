@@ -73,6 +73,8 @@ func TestLightIntersectsViewport(t *testing.T) {
 		{name: "left", x: -1, y: 60, r: 10, want: false},
 		{name: "touching bottom", x: 50, y: 130, r: 10, want: true},
 		{name: "bottom", x: 50, y: 131, r: 10, want: false},
+		{name: "corner bounding box only", x: 0, y: 10, r: 14, want: false},
+		{name: "corner circle overlap", x: 0, y: 10, r: 15, want: true},
 		{name: "zero radius", x: 50, y: 60, r: 0, want: false},
 	}
 	for _, tt := range tests {
@@ -81,6 +83,14 @@ func TestLightIntersectsViewport(t *testing.T) {
 				t.Fatalf("lightIntersectsViewport(%v, %v, %v) = %v, want %v", tt.x, tt.y, tt.r, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestLightInfluenceRadiusMatchesSmoothCutoff(t *testing.T) {
+	const radius = float32(20)
+	want := radius * float32(lightRadiusScale*lightCutoffEnd)
+	if got := lightInfluenceRadius(radius); got != want {
+		t.Fatalf("lightInfluenceRadius(%v) = %v, want %v", radius, got, want)
 	}
 }
 
