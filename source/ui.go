@@ -4952,12 +4952,12 @@ func makeQualityWindow() {
 	center.AddItem(animationSection)
 
 	renderScale, renderScaleEvents := eui.NewSlider()
-	renderScale.Label = "Upscale game amount (sharpness)"
-	renderScale.MinValue = 1
+	renderScale.Label = "Max Upscale"
+	renderScale.MinValue = 2
 	renderScale.MaxValue = 4
 	renderScale.IntOnly = true
-	if gs.GameScale < 1 {
-		gs.GameScale = 1
+	if gs.GameScale < 2 {
+		gs.GameScale = 2
 	}
 	if gs.GameScale > 4 {
 		gs.GameScale = 4
@@ -4965,16 +4965,16 @@ func makeQualityWindow() {
 
 	renderScale.Value = float32(math.Round(gs.GameScale))
 	renderScale.Size = eui.Point{X: width - 10, Y: 24}
-	renderScale.SetTooltip("Set game render resolution.")
+	renderScale.SetTooltip("Set the maximum artwork upscale. Actual texture resolution is capped to twice its fitted on-screen size.")
 	renderScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			prevUpscale := gs.SpriteUpscale
 			v := math.Round(float64(ev.Value))
-			if v < 1 {
-				v = 1
+			if v < 2 {
+				v = 2
 			}
-			if v > 10 {
-				v = 10
+			if v > 4 {
+				v = 4
 			}
 			gs.GameScale = v
 			gs.SpriteUpscale = spriteUpscaleFactor()

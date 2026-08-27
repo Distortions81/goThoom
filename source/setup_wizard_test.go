@@ -422,7 +422,7 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 	}
 }
 
-func TestSetupWizardUsesTwoAsMinimumGameUpscale(t *testing.T) {
+func TestSetupWizardUsesTwoAsMinimumMaxUpscale(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
@@ -435,7 +435,7 @@ func TestSetupWizardUsesTwoAsMinimumGameUpscale(t *testing.T) {
 	}
 	for _, group := range root.Contents {
 		for _, item := range group.Contents {
-			if item.Label == "Upscale game amount" {
+			if item.Label == "Max Upscale" {
 				if item.MinValue != 2 || item.Value != 2 {
 					t.Fatalf("upscale slider min/value = %v/%v, want 2/2", item.MinValue, item.Value)
 				}

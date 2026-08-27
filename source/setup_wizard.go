@@ -367,7 +367,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	}
 	root.AddItem(graphicsMode)
 
-	root.AddItem(setupWizardSlider("Upscale game amount", "Renders the game at 2x to 4x resolution. Higher values improve sharpness on high-resolution displays but use more GPU.", 2, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
+	root.AddItem(setupWizardSlider("Max Upscale", "Sets the maximum artwork upscale from 2x to 4x. Actual texture resolution is capped to twice its fitted on-screen size.", 2, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
 		previousUpscale := gs.SpriteUpscale
 		gs.GameScale = math.Round(float64(value))
 		gs.SpriteUpscale = spriteUpscaleFactor()
@@ -699,7 +699,7 @@ func buildSetupFinishPage(root *eui.ItemData) {
 		movement = "click-to-toggle"
 	}
 	root.AddItem(setupWizardText(fmt.Sprintf(
-		"Movement: %s\nGame rendering: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader lighting: %s",
+		"Movement: %s\nMax upscale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader lighting: %s",
 		movement,
 		gs.GameScale,
 		setupWizardToolbarPlacementName(gs.ToolbarPlacement),

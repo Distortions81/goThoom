@@ -9,21 +9,20 @@ import (
 
 func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	defaults := map[string]bool{
-		"fade obscuring pictures":      gsdef.FadeObscuringPictures,
-		"smooth movement":              gsdef.MotionSmoothing,
-		"character animation blending": gsdef.BlendMobiles,
-		"world animation blending":     gsdef.BlendPicts,
-		"shader lighting":              gsdef.ShaderLighting,
-		"flame light flicker":          gsdef.FlameLightFlicker,
-		"character shadows":            gsdef.CharacterShadows,
-		"detailed character shadows":   gsdef.DetailedCharacterShadows,
-		"mobiles receive sun shadows":  gsdef.MobilesReceiveSunShadows,
-		"artwork upscale filter":       gsdef.SpriteUpscaleFilter,
-		"sprite gamma correction":      gsdef.SpriteGammaCorrection,
-		"throttle sounds":              gsdef.ThrottleSounds,
-		"alternate row backgrounds":    gsdef.AlternateRowBackgrounds,
-		"window shadows":               gsdef.WindowShadows,
-		"animated chat bubbles":        gsdef.AnimatedChatBubbles,
+		"fade obscuring pictures":     gsdef.FadeObscuringPictures,
+		"smooth movement":             gsdef.MotionSmoothing,
+		"world animation blending":    gsdef.BlendPicts,
+		"shader lighting":             gsdef.ShaderLighting,
+		"flame light flicker":         gsdef.FlameLightFlicker,
+		"character shadows":           gsdef.CharacterShadows,
+		"detailed character shadows":  gsdef.DetailedCharacterShadows,
+		"mobiles receive sun shadows": gsdef.MobilesReceiveSunShadows,
+		"artwork upscale filter":      gsdef.SpriteUpscaleFilter,
+		"sprite gamma correction":     gsdef.SpriteGammaCorrection,
+		"throttle sounds":             gsdef.ThrottleSounds,
+		"alternate row backgrounds":   gsdef.AlternateRowBackgrounds,
+		"window shadows":              gsdef.WindowShadows,
+		"animated chat bubbles":       gsdef.AnimatedChatBubbles,
 	}
 	for name, enabled := range defaults {
 		if !enabled {
@@ -33,14 +32,17 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	if gsdef.DenoiseImages {
 		t.Error("blend image dithering should be disabled by default")
 	}
+	if gsdef.BlendMobiles {
+		t.Error("character animation blending should be disabled by default")
+	}
 	if gsdef.DenoiseSharpness != 10 || gsdef.DenoiseAmount != 0.35 {
 		t.Errorf("de-dither defaults = sharpness %v, strength %v; want 10 and 0.35", gsdef.DenoiseSharpness, gsdef.DenoiseAmount)
 	}
 }
 
 func TestArtworkUpscaleDefaults(t *testing.T) {
-	if gsdef.GameScale != 2 || gsdef.SpriteUpscale != 2 || gsdef.SpriteUpscaleMode != artworkUpscaleBalanced {
-		t.Fatalf("default artwork upscale = (%v, %d, %d), want 2x Balanced", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
+	if gsdef.GameScale != 4 || gsdef.SpriteUpscale != 4 || gsdef.SpriteUpscaleMode != artworkUpscaleBalanced {
+		t.Fatalf("default artwork upscale = (%v, %d, %d), want 4x Balanced", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
 	}
 }
 
@@ -151,17 +153,16 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		t.Fatal("loadSettings() = true without a settings file")
 	}
 	for name, enabled := range map[string]bool{
-		"smooth movement":              gs.MotionSmoothing,
-		"character animation blending": gs.BlendMobiles,
-		"world animation blending":     gs.BlendPicts,
-		"shader effects":               gs.ShaderLighting,
-		"flame light flicker":          gs.FlameLightFlicker,
-		"character shadows":            gs.CharacterShadows,
-		"detailed character shadows":   gs.DetailedCharacterShadows,
-		"artwork upscale filter":       gs.SpriteUpscaleFilter,
-		"sound enhancement":            gs.SoundEnhancement,
-		"high quality resampling":      gs.HighQualityResampling,
-		"music enhancement":            gs.MusicEnhancement,
+		"smooth movement":            gs.MotionSmoothing,
+		"world animation blending":   gs.BlendPicts,
+		"shader effects":             gs.ShaderLighting,
+		"flame light flicker":        gs.FlameLightFlicker,
+		"character shadows":          gs.CharacterShadows,
+		"detailed character shadows": gs.DetailedCharacterShadows,
+		"artwork upscale filter":     gs.SpriteUpscaleFilter,
+		"sound enhancement":          gs.SoundEnhancement,
+		"high quality resampling":    gs.HighQualityResampling,
+		"music enhancement":          gs.MusicEnhancement,
 	} {
 		if !enabled {
 			t.Errorf("new config has %s disabled", name)
@@ -169,6 +170,9 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 	}
 	if gs.DenoiseImages {
 		t.Error("new config has blend image dithering enabled")
+	}
+	if gs.BlendMobiles {
+		t.Error("new config has character animation blending enabled")
 	}
 	if gs.DenoiseSharpness != 10 || gs.DenoiseAmount != 0.35 {
 		t.Errorf("new config de-dither defaults = sharpness %v, strength %v; want 10 and 0.35", gs.DenoiseSharpness, gs.DenoiseAmount)
@@ -197,6 +201,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	gs.CharacterShadows = false
 	gs.DetailedCharacterShadows = false
 	gs.MobilesReceiveSunShadows = false
+	gs.BlendMobiles = true
 	gs.GameScale = 1
 	gs.SpriteUpscale = 1
 	gs.SpriteUpscaleFilter = false
@@ -214,8 +219,11 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	if !gs.MobilesReceiveSunShadows {
 		t.Error("settings without MobilesReceiveSunShadows should default it on")
 	}
-	if gs.GameScale != 2 || gs.SpriteUpscale != 2 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleBalanced {
-		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (2, 2, true, Balanced)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
+	if gs.BlendMobiles {
+		t.Error("settings without BlendMobiles should default it off")
+	}
+	if gs.GameScale != 4 || gs.SpriteUpscale != 4 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleBalanced {
+		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (4, 4, true, Balanced)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
 	}
 	if !gs.FlameLightFlicker {
 		t.Error("settings without FlameLightFlicker should default it on")

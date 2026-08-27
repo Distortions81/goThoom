@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/png"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -68,6 +69,18 @@ type scaledMobileKey struct {
 	mode  uint8
 }
 
+type scaledPictureBatchKey struct {
+	id    uint16
+	scale uint8
+	mode  uint8
+}
+
+type scaledMobileBatchKey struct {
+	mobileKey
+	scale uint8
+	mode  uint8
+}
+
 var (
 	// imageCache holds cropped animation frames keyed by picture ID and
 	// frame index.
@@ -87,6 +100,13 @@ var (
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	// scaledMobileCache stores pixel-art upscaled mobile frames.
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
+	// Completed batch keys avoid rescanning every animation frame or mobile pose
+	// on every draw after its first-use upscale batch finishes.
+	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})
+	scaledMobileBatches  = make(map[scaledMobileBatchKey]struct{})
+	// scaledCacheFactor is the fitted-screen factor represented by all scaled
+	// and blended artwork caches. A threshold change replaces these caches.
+	scaledCacheFactor uint8
 
 	imageMu sync.Mutex
 	// imageCacheLifecycleMu allows image loads to remain concurrent while
@@ -428,6 +448,10 @@ func upscaleTransientSpriteImageWithMode(img *ebiten.Image, factor, mode int) *e
 	return upscaleSpriteImageWithModeAndLifetime(img, factor, mode, false)
 }
 
+func upscaleCachedSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
+	return upscaleSpriteImageWithModeAndLifetime(img, factor, artworkUpscaleMode(), false)
+}
+
 func upscaleSpriteImageWithModeAndLifetime(img *ebiten.Image, factor, mode int, managed bool) *ebiten.Image {
 	if factor <= 1 || img == nil {
 		return img
@@ -556,8 +580,8 @@ func imageDumpUpscaleMode(name string) (int, bool) {
 
 func artworkUpscaleFactor() int {
 	factor := gs.SpriteUpscale
-	if factor < 1 {
-		factor = 1
+	if factor < 2 {
+		factor = 2
 	}
 	if factor > 4 {
 		factor = 4
@@ -565,42 +589,278 @@ func artworkUpscaleFactor() int {
 	return factor
 }
 
-func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Image {
+// screenCappedArtworkUpscaleFactor limits cached texture resolution to twice
+// the sprite's actual fitted size on screen, with a 2x minimum. During
+// direct-resolution drawing, gs.GameScale is the fitted window scale rather
+// than the configured scale that originally populated SpriteUpscale.
+func screenCappedArtworkUpscaleFactor() int {
 	factor := artworkUpscaleFactor()
-	if factor <= 1 || img == nil || !artworkUpscaleEnabled() {
+	maxFactor := int(math.Floor(gs.GameScale*2 + 1e-9))
+	if maxFactor < 2 {
+		maxFactor = 2
+	}
+	if factor > maxFactor {
+		factor = maxFactor
+	}
+	return factor
+}
+
+func ensureScaledArtworkCacheFactorLocked(factor int) {
+	if scaledCacheFactor != 0 && scaledCacheFactor != uint8(factor) {
+		clearScaledArtworkCachesLocked()
+	}
+	scaledCacheFactor = uint8(factor)
+}
+
+type pendingScaledPictureFrame struct {
+	key   scaledImageKey
+	image *ebiten.Image
+}
+
+// cacheScaledPictureFrames upscales every frame for an animated picture as
+// one first-use batch. The outputs remain separate standalone textures, so
+// frame boundaries and rendering behavior are unchanged.
+func cacheScaledPictureFrames(id uint16, requestedFrame, frameCount, factor, mode int, requestedImage *ebiten.Image) bool {
+	if frameCount < 1 {
+		frameCount = 1
+	}
+	requestedFrame %= frameCount
+	if requestedFrame < 0 {
+		requestedFrame += frameCount
+	}
+
+	batchKey := scaledPictureBatchKey{id: id, scale: uint8(factor), mode: uint8(mode)}
+	imageMu.Lock()
+	ensureScaledArtworkCacheFactorLocked(factor)
+	if _, ok := scaledPictureBatches[batchKey]; ok {
+		imageMu.Unlock()
+		return true
+	}
+	missing := make([]int, 0, frameCount)
+	for frame := 0; frame < frameCount; frame++ {
+		key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)}
+		if _, ok := scaledImageCache[key]; !ok {
+			missing = append(missing, frame)
+		}
+	}
+	imageMu.Unlock()
+	if len(missing) == 0 {
+		imageMu.Lock()
+		if scaledCacheFactor == uint8(factor) {
+			scaledPictureBatches[batchKey] = struct{}{}
+		}
+		imageMu.Unlock()
+		return true
+	}
+
+	pending := make([]pendingScaledPictureFrame, 0, len(missing))
+	for _, frame := range missing {
+		source := loadImageFrame(id, frame)
+		if source == nil && frame == requestedFrame {
+			source = requestedImage
+		}
+		if source == nil {
+			continue
+		}
+		pending = append(pending, pendingScaledPictureFrame{
+			key:   scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)},
+			image: upscaleSpriteImageWithModeAndLifetime(source, factor, mode, false),
+		})
+	}
+
+	imageMu.Lock()
+	if scaledCacheFactor != uint8(factor) {
+		imageMu.Unlock()
+		for _, frame := range pending {
+			frame.image.Deallocate()
+		}
+		return false
+	}
+	for _, frame := range pending {
+		if _, ok := scaledImageCache[frame.key]; ok {
+			frame.image.Deallocate()
+			continue
+		}
+		scaledImageCache[frame.key] = frame.image
+	}
+	complete := true
+	for frame := 0; frame < frameCount; frame++ {
+		key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)}
+		if _, ok := scaledImageCache[key]; !ok {
+			complete = false
+			break
+		}
+	}
+	if complete {
+		scaledPictureBatches[batchKey] = struct{}{}
+	}
+	imageMu.Unlock()
+	return true
+}
+
+func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Image {
+	if img == nil || !artworkUpscaleEnabled() {
 		return img
 	}
-	key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(artworkUpscaleMode())}
-	imageMu.Lock()
-	if cached, ok := scaledImageCache[key]; ok {
+	for {
+		factor := screenCappedArtworkUpscaleFactor()
+		mode := artworkUpscaleMode()
+		frameCount := 1
+		if clImages != nil {
+			frameCount = clImages.NumFrames(uint32(id))
+		}
+		if frameCount < 1 {
+			frameCount = 1
+		}
+		frame %= frameCount
+		if frame < 0 {
+			frame += frameCount
+		}
+		if !cacheScaledPictureFrames(id, frame, frameCount, factor, mode, img) {
+			continue
+		}
+		key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: uint8(factor), mode: uint8(mode)}
+		imageMu.Lock()
+		scaled := scaledImageCache[key]
 		imageMu.Unlock()
-		return cached
+		if scaled == nil {
+			return img
+		}
+		return scaled
+	}
+}
+
+type pendingScaledMobileFrame struct {
+	key   scaledMobileKey
+	image *ebiten.Image
+}
+
+// cacheScaledMobileFrames upscales every valid pose already exposed by the
+// source sheet for one exact color palette. It never generates other palette
+// variants speculatively.
+func cacheScaledMobileFrames(requestedKey mobileKey, factor, mode int, requestedImage *ebiten.Image) bool {
+	baseKey := requestedKey
+	baseKey.state = 0
+	batchKey := scaledMobileBatchKey{mobileKey: baseKey, scale: uint8(factor), mode: uint8(mode)}
+	imageMu.Lock()
+	ensureScaledArtworkCacheFactorLocked(factor)
+	if _, ok := scaledMobileBatches[batchKey]; ok {
+		imageMu.Unlock()
+		return true
+	}
+	pendingSources := make([]struct {
+		key   mobileKey
+		image *ebiten.Image
+	}, 0, 256)
+	sourceCount := 0
+	for state := 0; state < 256; state++ {
+		key := baseKey
+		key.state = uint8(state)
+		source, ok := mobileCache[key]
+		if !ok || source == nil {
+			continue
+		}
+		sourceCount++
+		scaledKey := scaledMobileKey{mobileKey: key, scale: uint8(factor), mode: uint8(mode)}
+		if _, ok := scaledMobileCache[scaledKey]; !ok {
+			pendingSources = append(pendingSources, struct {
+				key   mobileKey
+				image *ebiten.Image
+			}{key: key, image: source})
+		}
+	}
+	requestedScaledKey := scaledMobileKey{mobileKey: requestedKey, scale: uint8(factor), mode: uint8(mode)}
+	if _, ok := scaledMobileCache[requestedScaledKey]; !ok {
+		foundRequested := false
+		for _, source := range pendingSources {
+			if source.key == requestedKey {
+				foundRequested = true
+				break
+			}
+		}
+		if !foundRequested && requestedImage != nil {
+			pendingSources = append(pendingSources, struct {
+				key   mobileKey
+				image *ebiten.Image
+			}{key: requestedKey, image: requestedImage})
+		}
 	}
 	imageMu.Unlock()
-	scaled := upscaleSpriteImage(img, factor)
+	if len(pendingSources) == 0 {
+		if sourceCount > 0 {
+			imageMu.Lock()
+			if scaledCacheFactor == uint8(factor) {
+				scaledMobileBatches[batchKey] = struct{}{}
+			}
+			imageMu.Unlock()
+		}
+		return true
+	}
+
+	pending := make([]pendingScaledMobileFrame, 0, len(pendingSources))
+	for _, source := range pendingSources {
+		pending = append(pending, pendingScaledMobileFrame{
+			key:   scaledMobileKey{mobileKey: source.key, scale: uint8(factor), mode: uint8(mode)},
+			image: upscaleSpriteImageWithModeAndLifetime(source.image, factor, mode, false),
+		})
+	}
+
 	imageMu.Lock()
-	scaledImageCache[key] = scaled
+	if scaledCacheFactor != uint8(factor) {
+		imageMu.Unlock()
+		for _, frame := range pending {
+			frame.image.Deallocate()
+		}
+		return false
+	}
+	for _, frame := range pending {
+		if _, ok := scaledMobileCache[frame.key]; ok {
+			frame.image.Deallocate()
+			continue
+		}
+		scaledMobileCache[frame.key] = frame.image
+	}
+	complete := false
+	for state := 0; state < 256; state++ {
+		key := baseKey
+		key.state = uint8(state)
+		source, ok := mobileCache[key]
+		if !ok || source == nil {
+			continue
+		}
+		complete = true
+		scaledKey := scaledMobileKey{mobileKey: key, scale: uint8(factor), mode: uint8(mode)}
+		if _, ok := scaledMobileCache[scaledKey]; !ok {
+			complete = false
+			break
+		}
+	}
+	if complete {
+		scaledMobileBatches[batchKey] = struct{}{}
+	}
 	imageMu.Unlock()
-	return scaled
+	return true
 }
 
 func getScaledMobileFrame(key mobileKey, img *ebiten.Image) *ebiten.Image {
-	factor := artworkUpscaleFactor()
-	if factor <= 1 || img == nil || !artworkUpscaleEnabled() {
+	if img == nil || !artworkUpscaleEnabled() {
 		return img
 	}
-	sKey := scaledMobileKey{mobileKey: key, scale: uint8(factor), mode: uint8(artworkUpscaleMode())}
-	imageMu.Lock()
-	if cached, ok := scaledMobileCache[sKey]; ok {
+	for {
+		factor := screenCappedArtworkUpscaleFactor()
+		mode := artworkUpscaleMode()
+		if !cacheScaledMobileFrames(key, factor, mode, img) {
+			continue
+		}
+		scaledKey := scaledMobileKey{mobileKey: key, scale: uint8(factor), mode: uint8(mode)}
+		imageMu.Lock()
+		scaled := scaledMobileCache[scaledKey]
 		imageMu.Unlock()
-		return cached
+		if scaled == nil {
+			return img
+		}
+		return scaled
 	}
-	imageMu.Unlock()
-	scaled := upscaleSpriteImage(img, factor)
-	imageMu.Lock()
-	scaledMobileCache[sKey] = scaled
-	imageMu.Unlock()
-	return scaled
 }
 
 // mobileSize returns the dimension of a single mobile frame for the given
@@ -632,7 +892,7 @@ func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, tota
 	if s := prevImg.Bounds().Dx(); s > size {
 		size = s
 	}
-	blended := newManagedImage(size, size)
+	blended := newUnmanagedImage(size, size)
 	alpha := float32(step) / float32(total)
 	offPrev := (size - prevImg.Bounds().Dx()) / 2
 	op1 := acquireDrawOpts()
@@ -690,7 +950,7 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 	if h2 > h {
 		h = h2
 	}
-	blended := newManagedImage(w, h)
+	blended := newUnmanagedImage(w, h)
 	alpha := float32(step) / float32(total)
 	offPrevX := (w - w1) / 2
 	offPrevY := (h - h1) / 2

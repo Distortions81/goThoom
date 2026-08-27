@@ -70,8 +70,8 @@ var windowsRestored bool
 
 func spriteUpscaleFactorFromScale(scale float64) int {
 	factor := int(math.Round(scale))
-	if factor < 1 {
-		factor = 1
+	if factor < 2 {
+		factor = 2
 	}
 	if factor > 4 {
 		factor = 4
@@ -205,7 +205,7 @@ var gsdef settings = settings{
 
 	MotionSmoothing:       true,
 	ObjectPinning:         true,
-	BlendMobiles:          true,
+	BlendMobiles:          false,
 	BlendPicts:            true,
 	BlendAmount:           1.0,
 	MobileBlendAmount:     0.25,
@@ -224,8 +224,8 @@ var gsdef settings = settings{
 	Music:                 true,
 	GameSound:             true,
 	Mute:                  false,
-	GameScale:             2.0,
-	SpriteUpscale:         2,
+	GameScale:             4.0,
+	SpriteUpscale:         4,
 	SpriteUpscaleFilter:   true,
 	SpriteUpscaleMode:     artworkUpscaleBalanced,
 	ReplacementEffects:    false,

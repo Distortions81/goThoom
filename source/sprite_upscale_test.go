@@ -8,6 +8,54 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+func isolateScaledArtworkCaches(t *testing.T) {
+	t.Helper()
+	imageMu.Lock()
+	originalImageCache := scaledImageCache
+	originalMobileCache := scaledMobileCache
+	originalMobileBlendCache := mobileBlendCache
+	originalPictBlendCache := pictBlendCache
+	originalPictureBatches := scaledPictureBatches
+	originalMobileBatches := scaledMobileBatches
+	originalFactor := scaledCacheFactor
+	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
+	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
+	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
+	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
+	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})
+	scaledMobileBatches = make(map[scaledMobileBatchKey]struct{})
+	scaledCacheFactor = 0
+	imageMu.Unlock()
+	t.Cleanup(func() {
+		imageMu.Lock()
+		clearScaledArtworkCachesLocked()
+		scaledImageCache = originalImageCache
+		scaledMobileCache = originalMobileCache
+		mobileBlendCache = originalMobileBlendCache
+		pictBlendCache = originalPictBlendCache
+		scaledPictureBatches = originalPictureBatches
+		scaledMobileBatches = originalMobileBatches
+		scaledCacheFactor = originalFactor
+		imageMu.Unlock()
+	})
+}
+
+func isolateSourceFrameCaches(t *testing.T) {
+	t.Helper()
+	imageMu.Lock()
+	originalImageCache := imageCache
+	originalMobileCache := mobileCache
+	imageCache = make(map[imageKey]*ebiten.Image)
+	mobileCache = make(map[mobileKey]*ebiten.Image)
+	imageMu.Unlock()
+	t.Cleanup(func() {
+		imageMu.Lock()
+		imageCache = originalImageCache
+		mobileCache = originalMobileCache
+		imageMu.Unlock()
+	})
+}
+
 func TestArtworkUpscaleIsIndependentOfPotatoMode(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
@@ -27,6 +75,46 @@ func TestArtworkUpscaleIsIndependentOfPotatoMode(t *testing.T) {
 	gs.SpriteUpscaleFilter = false
 	if artworkUpscaleEnabled() {
 		t.Fatal("disabled artwork upscale should remain disabled")
+	}
+}
+
+func TestArtworkUpscaleFactorIsCappedToTwiceScreenScale(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+
+	gs.SpriteUpscale = 4
+	tests := []struct {
+		scale float64
+		want  int
+	}{
+		{scale: 0.5, want: 2},
+		{scale: 1, want: 2},
+		{scale: 1.49, want: 2},
+		{scale: 1.5, want: 3},
+		{scale: 1.99, want: 3},
+		{scale: 2, want: 4},
+		{scale: 4, want: 4},
+	}
+	for _, test := range tests {
+		gs.GameScale = test.scale
+		if got := screenCappedArtworkUpscaleFactor(); got != test.want {
+			t.Errorf("screen scale %.2f capped factor = %d, want %d", test.scale, got, test.want)
+		}
+	}
+
+	gs.SpriteUpscale = 2
+	gs.GameScale = 4
+	if got := screenCappedArtworkUpscaleFactor(); got != 2 {
+		t.Fatalf("screen cap raised configured 2x upscale to %dx", got)
+	}
+
+	gs.SpriteUpscale = 1
+	gs.GameScale = 0.5
+	if got := screenCappedArtworkUpscaleFactor(); got != 2 {
+		t.Fatalf("enabled artwork upscale fell below 2x: got %dx", got)
+	}
+	if got := spriteUpscaleFactorFromScale(1); got != 2 {
+		t.Fatalf("1x render scale derived a %dx artwork upscale, want 2x", got)
 	}
 }
 
@@ -98,21 +186,13 @@ func TestReusableUpscaleScratchGrowsWithoutShrinking(t *testing.T) {
 
 func TestKageMobileUpscaleCacheReusesTexture(t *testing.T) {
 	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	isolateScaledArtworkCaches(t)
 	gs.GameScale = 2
 	gs.SpriteUpscale = 2
 	gs.PotatoGPU = false
 	gs.SpriteUpscaleFilter = true
 	gs.SpriteUpscaleMode = artworkUpscaleBalanced
-	imageMu.Lock()
-	originalCache := scaledMobileCache
-	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
-	imageMu.Unlock()
-	t.Cleanup(func() {
-		imageMu.Lock()
-		scaledMobileCache = originalCache
-		imageMu.Unlock()
-		gs = originalSettings
-	})
 
 	src := ebiten.NewImage(4, 4)
 	key := makeMobileKey(447, 0, nil)
@@ -128,5 +208,121 @@ func TestKageMobileUpscaleCacheReusesTexture(t *testing.T) {
 	smooth := getScaledMobileFrame(key, src)
 	if smooth == first {
 		t.Fatal("smooth mode reused the balanced cached texture")
+	}
+}
+
+func TestAnimatedPictureUpscaleCachesEveryFrameOnFirstUse(t *testing.T) {
+	isolateScaledArtworkCaches(t)
+	isolateSourceFrameCaches(t)
+	const (
+		id         = 900
+		frameCount = 3
+		factor     = 2
+	)
+	imageMu.Lock()
+	for frame := 0; frame < frameCount; frame++ {
+		imageCache[makeImageKey(id, frame)] = ebiten.NewImage(3, 5)
+	}
+	requested := imageCache[makeImageKey(id, 0)]
+	imageMu.Unlock()
+
+	if !cacheScaledPictureFrames(id, 0, frameCount, factor, artworkUpscaleBalanced, requested) {
+		t.Fatal("picture frame batch was invalidated while being built")
+	}
+	imageMu.Lock()
+	defer imageMu.Unlock()
+	if len(scaledImageCache) != frameCount {
+		t.Fatalf("scaled picture cache has %d frames, want %d", len(scaledImageCache), frameCount)
+	}
+	if len(scaledPictureBatches) != 1 {
+		t.Errorf("completed picture batches = %d, want 1", len(scaledPictureBatches))
+	}
+	for frame := 0; frame < frameCount; frame++ {
+		key := scaledImageKey{imageKey: makeImageKey(id, frame), scale: factor, mode: artworkUpscaleBalanced}
+		if got := scaledImageCache[key].Bounds().Size(); got != image.Pt(6, 10) {
+			t.Errorf("scaled picture frame %d size = %v, want 6x10", frame, got)
+		}
+	}
+}
+
+func TestMobileUpscaleCachesAllPosesForOnlyObservedColors(t *testing.T) {
+	isolateScaledArtworkCaches(t)
+	isolateSourceFrameCaches(t)
+	const (
+		id     = 901
+		factor = 2
+	)
+	observedColors := []byte{1, 2, 3}
+	otherColors := []byte{4, 5, 6}
+	imageMu.Lock()
+	for state := uint8(0); state < 3; state++ {
+		mobileCache[makeMobileKey(id, state, observedColors)] = ebiten.NewImage(4, 4)
+	}
+	mobileCache[makeMobileKey(id, 0, otherColors)] = ebiten.NewImage(4, 4)
+	requestedKey := makeMobileKey(id, 1, observedColors)
+	requested := mobileCache[requestedKey]
+	imageMu.Unlock()
+
+	if !cacheScaledMobileFrames(requestedKey, factor, artworkUpscaleBalanced, requested) {
+		t.Fatal("mobile pose batch was invalidated while being built")
+	}
+	imageMu.Lock()
+	defer imageMu.Unlock()
+	if len(scaledMobileCache) != 3 {
+		t.Fatalf("scaled mobile cache has %d poses, want 3", len(scaledMobileCache))
+	}
+	if len(scaledMobileBatches) != 1 {
+		t.Errorf("completed mobile batches = %d, want 1", len(scaledMobileBatches))
+	}
+	for key, scaled := range scaledMobileCache {
+		if key.colors != requestedKey.colors || key.colorsLen != requestedKey.colorsLen {
+			t.Errorf("upscaled unobserved color variant: %#v", key.mobileKey)
+		}
+		if got := scaled.Bounds().Size(); got != image.Pt(8, 8) {
+			t.Errorf("scaled mobile pose %d size = %v, want 8x8", key.state, got)
+		}
+	}
+}
+
+func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	isolateScaledArtworkCaches(t)
+	gs.SpriteUpscale = 4
+	gs.SpriteUpscaleFilter = true
+	gs.SpriteUpscaleMode = artworkUpscaleBalanced
+	gs.GameScale = 2
+
+	src := ebiten.NewImage(4, 4)
+	key := makeMobileKey(447, 0, nil)
+	large := getScaledMobileFrame(key, src)
+	if got := large.Bounds().Size(); got != image.Pt(16, 16) {
+		t.Fatalf("initial cached texture size = %v, want 16x16", got)
+	}
+	imageMu.Lock()
+	mobileBlendCache[mobileBlendKey{from: key, to: key, step: 1, total: 2}] = newUnmanagedImage(16, 16)
+	imageMu.Unlock()
+
+	gs.GameScale = 1
+	small := getScaledMobileFrame(key, src)
+	if got := small.Bounds().Size(); got != image.Pt(8, 8) {
+		t.Fatalf("screen-capped cached texture size = %v, want 8x8", got)
+	}
+
+	imageMu.Lock()
+	defer imageMu.Unlock()
+	if scaledCacheFactor != 2 {
+		t.Errorf("cached artwork factor = %d, want 2", scaledCacheFactor)
+	}
+	if len(scaledMobileCache) != 1 {
+		t.Errorf("scaled mobile cache has %d entries after cap change, want 1", len(scaledMobileCache))
+	}
+	if len(mobileBlendCache) != 0 {
+		t.Errorf("mobile blend cache retained %d oversized entries", len(mobileBlendCache))
+	}
+	for cacheKey := range scaledMobileCache {
+		if cacheKey.scale != 2 {
+			t.Errorf("scaled mobile cache retained %dx entry after cap change", cacheKey.scale)
+		}
 	}
 }

@@ -15,33 +15,11 @@ func clearCaches() {
 
 	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
-	for _, img := range scaledImageCache {
-		if img != nil {
-			img.Deallocate()
-		}
-	}
-	for _, img := range scaledMobileCache {
-		if img != nil {
-			img.Deallocate()
-		}
-	}
-	for _, img := range mobileBlendCache {
-		if img != nil {
-			img.Deallocate()
-		}
-	}
-	for _, img := range pictBlendCache {
-		if img != nil {
-			img.Deallocate()
-		}
-	}
+	clearScaledArtworkCachesLocked()
+	scaledCacheFactor = 0
 	imageCache = make(map[imageKey]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
 	mobileCache = make(map[mobileKey]*ebiten.Image)
-	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
-	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
-	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
-	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
 	imageMu.Unlock()
 
@@ -62,6 +40,35 @@ func clearCaches() {
 	// corresponding window is resized.
 	inventoryDirty = true
 	playersDirty = true
+}
+
+func clearScaledArtworkCachesLocked() {
+	for _, img := range scaledImageCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	for _, img := range scaledMobileCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	for _, img := range mobileBlendCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	for _, img := range pictBlendCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
+	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
+	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
+	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
+	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})
+	scaledMobileBatches = make(map[scaledMobileBatchKey]struct{})
 }
 
 var soundsPrecached = false
