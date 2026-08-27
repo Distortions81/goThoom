@@ -12,6 +12,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -1552,23 +1553,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		prev := gs.GameScale
 		gs.GameScale = renderScale
-		drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
-		if gs.ShaderLighting && lightingShader != nil {
+		roomArtworkLoading := drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
+		if !roomArtworkLoading && gs.ShaderLighting && lightingShader != nil {
 			// Use shader-based night darkening with inverse-square falloff.
 			addNightDarkSources(worldView.Bounds(), float32(alpha))
-		} else {
+		} else if !roomArtworkLoading {
 			// Classic overlay path when shader is off.
 			//drawNightAmbient(worldView, 0, 0)
 			drawNightOverlay(worldView, 0, 0)
 		}
-		if gs.ShaderLighting && lightingShader != nil {
+		if !roomArtworkLoading && gs.ShaderLighting && lightingShader != nil {
 			// Apply lighting on the active subimage only
 			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
 		}
-		drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
-		drawStatusBars(worldView, 0, 0, snap, alpha)
+		if !roomArtworkLoading {
+			drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
+			drawStatusBars(worldView, 0, 0, snap, alpha)
+		}
 		gs.GameScale = prev
-		haveSnap = true
+		haveSnap = !roomArtworkLoading
 	}
 	if replacementEffectsPreview {
 		drawReplacementEffectsPreview(worldView)
@@ -1657,8 +1660,24 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 }
 
 // drawScene renders all world objects for the current frame.
-func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
-	prepareSceneArtwork(snap)
+func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) bool {
+	preparedSheets := 0
+	if gs.BatchArtworkLoading {
+		preparedSheets = prepareSceneArtwork(snap)
+	}
+	if preparedSheets > 1 {
+		// Artwork preparation creates large temporary RGBA pose and upscale
+		// buffers. Collect them during the deliberate loading hitch instead of
+		// letting the next automatic GC stretch recovery across visible frames.
+		runtime.GC()
+		if tcpConn != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive {
+			// Submit the complete upload batch in a dedicated frame. The following
+			// frame can present the room after Ebitengine has finished this frame's
+			// managed-atlas work.
+			drawStartupLoadingScreen(screen, "Loading room artwork...")
+			return true
+		}
+	}
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
@@ -1733,9 +1752,10 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	for _, p := range posPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 	}
+	return false
 }
 
-func prepareSceneArtwork(snap drawSnapshot) {
+func prepareSceneArtwork(snap drawSnapshot) int {
 	keys := make([]sheetKey, 0, len(snap.picsNeg)+len(snap.picsZero)+len(snap.picsPos)+len(snap.mobiles)*2)
 	addPictures := func(pictures []framePicture) {
 		for _, picture := range pictures {
@@ -1760,7 +1780,7 @@ func prepareSceneArtwork(snap drawSnapshot) {
 			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
 		}
 	}
-	prepareArtworkSheets(keys)
+	return prepareArtworkSheets(keys)
 }
 
 func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {

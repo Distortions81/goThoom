@@ -327,6 +327,7 @@ var gsdef settings = settings{
 	FlameFlickerStrength: 1.0,
 
 	PotatoGPU:              false,
+	BatchArtworkLoading:    true,
 	BarColorByValue:        false,
 	ThrottleSounds:         true,
 	SoundEnhancement:       true,
@@ -529,6 +530,7 @@ type settings struct {
 	FlameFlickerStrength float64
 
 	PotatoGPU              bool
+	BatchArtworkLoading    bool
 	PrecacheSounds         bool
 	Enabledscripts         map[string]any
 	BarColorByValue        bool

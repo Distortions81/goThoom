@@ -43,6 +43,12 @@ func TestSettingsV4SchemaCoversPersistedFields(t *testing.T) {
 	}
 }
 
+func TestBatchArtworkLoadingDefaultsOn(t *testing.T) {
+	if !gsdef.BatchArtworkLoading {
+		t.Fatal("room artwork batching must default on")
+	}
+}
+
 func TestSettingsV4RoundTrip(t *testing.T) {
 	want := gsdef
 	want.LastCharacter = "Agratis"
@@ -57,6 +63,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.AltNetDelay = 37
 	want.Enabledscripts = map[string]any{"hello": "all"}
 	want.LegacyMacroContinuous = true
+	want.BatchArtworkLoading = false
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -80,6 +87,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"dark_mode_names_and_bubbles"`,
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
+		`"batch_room_artwork_loading": false`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("v4 settings missing %s", expected)

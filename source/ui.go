@@ -5048,6 +5048,19 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(precacheSoundCB)
 
+	batchArtworkCB, batchArtworkEvents := eui.NewCheckbox()
+	batchArtworkCB.Text = "Batch room artwork loading"
+	batchArtworkCB.Size = eui.Point{X: width, Y: 24}
+	batchArtworkCB.Checked = gs.BatchArtworkLoading
+	batchArtworkCB.SetTooltip("Load and clean up all missing room artwork in one pause instead of spreading first-use work across frames.")
+	batchArtworkEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.BatchArtworkLoading = ev.Checked
+			settingsDirty = true
+		}
+	}
+	performanceSection.AddItem(batchArtworkCB)
+
 	var detailedShadowsCB, mobileSunShadowsCB, shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB

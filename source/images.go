@@ -356,9 +356,9 @@ func markArtworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) {
 // every independent frame or pose through the same global CPU worker queue.
 // Ebitengine images are created only after the batch finishes, on the caller's
 // render goroutine.
-func prepareArtworkSheets(keys []sheetKey) {
+func prepareArtworkSheets(keys []sheetKey) int {
 	if clImages == nil || len(keys) == 0 {
-		return
+		return 0
 	}
 	imageCacheLifecycleMu.RLock()
 	defer imageCacheLifecycleMu.RUnlock()
@@ -395,7 +395,7 @@ func prepareArtworkSheets(keys []sheetKey) {
 	}
 	imageMu.Unlock()
 	if len(work) == 0 {
-		return
+		return 0
 	}
 
 	decodeJobs := make([]func(), len(work))
@@ -502,6 +502,7 @@ func prepareArtworkSheets(keys []sheetKey) {
 		imageMu.Unlock()
 		prepared.pixels = nil
 	}
+	return len(work)
 }
 
 // loadSheet retrieves the processed full sprite sheet for the specified ID.
