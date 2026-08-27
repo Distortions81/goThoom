@@ -53,18 +53,6 @@ func clearScaledArtworkCachesLocked() {
 			img.Deallocate()
 		}
 	}
-	for _, img := range mobileBlendCache {
-		if img != nil {
-			img.Deallocate()
-		}
-	}
-	for _, img := range pictBlendCache {
-		if img != nil {
-			img.Deallocate()
-		}
-	}
-	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
-	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
 	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})

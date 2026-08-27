@@ -1658,6 +1658,7 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
+	prepareSceneArtwork(snap)
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
@@ -1732,6 +1733,34 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	for _, p := range posPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 	}
+}
+
+func prepareSceneArtwork(snap drawSnapshot) {
+	keys := make([]sheetKey, 0, len(snap.picsNeg)+len(snap.picsZero)+len(snap.picsPos)+len(snap.mobiles)*2)
+	addPictures := func(pictures []framePicture) {
+		for _, picture := range pictures {
+			keys = append(keys, makeSheetKey(picture.PictID, nil, false))
+		}
+	}
+	addPictures(snap.picsNeg)
+	addPictures(snap.picsZero)
+	addPictures(snap.picsPos)
+	for _, mobile := range snap.mobiles {
+		if descriptor, ok := snap.descriptors[mobile.Index]; ok {
+			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
+		}
+		if !mobileFrameBlendingEnabled() {
+			continue
+		}
+		if _, ok := snap.prevMobiles[mobile.Index]; ok {
+			descriptor := snap.descriptors[mobile.Index]
+			if previousDescriptor, ok := snap.prevDescs[mobile.Index]; ok {
+				descriptor = previousDescriptor
+			}
+			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
+		}
+	}
+	prepareArtworkSheets(keys)
 }
 
 func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {
@@ -1818,8 +1847,6 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	img = getScaledMobileFrame(curKey, img)
 	var prevImg *ebiten.Image
 	var prevColors []byte
-	var prevPict uint16
-	var prevState uint8
 	if mobileFrameBlendingEnabled() {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			pd := descMap[m.Index]
@@ -1828,9 +1855,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			}
 			prevColors = playerColorsForDescriptor(pd)
 			prevImg = loadMobileFrame(pd.PictID, pm.State, prevColors)
-			prevPict = pd.PictID
-			prevState = pm.State
-			prevKey := makeMobileKey(prevPict, prevState, prevColors)
+			prevKey := makeMobileKey(pd.PictID, pm.State, prevColors)
 			prevImg = getScaledMobileFrame(prevKey, prevImg)
 		}
 	}
@@ -1844,6 +1869,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
+		blendFade := fade
 		if blend {
 			steps := gs.MobileBlendFrames
 			idx := int(fade * float32(steps))
@@ -1853,13 +1879,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			if idx >= steps {
 				idx = steps - 1
 			}
-			prevKey := makeMobileKey(prevPict, prevState, prevColors)
-			if b := mobileBlendFrame(prevKey, curKey, prevImg, img, idx, steps); b != nil {
-				src = b
-				drawSize = b.Bounds().Dx()
-			} else {
-				src = img
-			}
+			blendFade = float32(idx) / float32(steps)
+			drawSize = max(prevImg.Bounds().Dx(), img.Bounds().Dx())
 		} else if mobileFrameBlendingEnabled() && prevImg != nil {
 			if fade <= 0 {
 				src = prevImg
@@ -1877,19 +1898,35 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			scale = target / float64(drawSize)
 		}
 		scaled := float64(drawSize) * scale
-		op := acquireDrawOpts()
-		op.Filter = worldArtworkFilter()
-		op.DisableMipmaps = true
-		if sunShade > 0 {
-			brightness := 1 - sunShade
-			op.ColorScale.Scale(brightness, brightness, brightness, 1)
-		}
-		op.GeoM.Scale(scale, scale)
 		tx := float64(x) - scaled/2
 		ty := float64(y) - scaled/2
-		op.GeoM.Translate(tx, ty)
-		screen.DrawImage(src, op)
-		releaseDrawOpts(op)
+		brightness := float32(1)
+		if sunShade > 0 {
+			brightness = 1 - sunShade
+		}
+		drawn := false
+		if blend {
+			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
+				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: blendFade,
+				Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
+				Linear: worldArtworkFilter() == ebiten.FilterLinear,
+			})
+		}
+		if !drawn {
+			if src == nil {
+				src = img
+			}
+			op := acquireDrawOpts()
+			op.Filter = worldArtworkFilter()
+			op.DisableMipmaps = true
+			if brightness < 1 {
+				op.ColorScale.Scale(brightness, brightness, brightness, 1)
+			}
+			op.GeoM.Scale(scale, scale)
+			op.GeoM.Translate(tx, ty)
+			screen.DrawImage(src, op)
+			releaseDrawOpts(op)
+		}
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
@@ -2311,6 +2348,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		drawW, drawH := w, h
 		blend := pictureFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
+		blendFade := fade
 		if blend {
 			steps := gs.PictBlendFrames
 			idx := int(fade * float32(steps))
@@ -2320,12 +2358,9 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			if idx >= steps {
 				idx = steps - 1
 			}
-			if b := pictBlendFrame(p.PictID, prevFrame, frame, prevImg, img, idx, steps); b != nil {
-				src = b
-			} else {
-				src = img
-				blend = false
-			}
+			blendFade = float32(idx) / float32(steps)
+			drawW = max(prevImg.Bounds().Dx(), img.Bounds().Dx())
+			drawH = max(prevImg.Bounds().Dy(), img.Bounds().Dy())
 		} else if pictureFrameBlendingEnabled() && prevImg != nil {
 			if fade <= 0 {
 				src = prevImg
@@ -2354,21 +2389,33 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		if drawH > 0 {
 			sy = targetH / float64(drawH)
 		}
-		op := acquireDrawOpts()
-		op.Filter = filter
-		op.DisableMipmaps = true
-		op.GeoM.Scale(sx, sy)
-		op.GeoM.Translate(left, top)
+		red, green, blue := float32(1), float32(1), float32(1)
 		if gs.pictAgainDebug && p.Again {
-			op.ColorScale.Scale(0, 0, 1, 1)
+			red, green, blue = 0, 0, 1
 		} else if src == img && gs.smoothingDebug && p.Moving {
-			op.ColorScale.Scale(1, 0, 0, 1)
+			red, green, blue = 1, 0, 0
 		}
-		if fadeAlpha < 1 {
-			op.ColorScale.ScaleAlpha(fadeAlpha)
+		drawn := false
+		if blend {
+			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
+				Left: left, Top: top, ScaleX: sx, ScaleY: sy, Fade: blendFade,
+				Red: red, Green: green, Blue: blue, Alpha: fadeAlpha,
+				Linear: filter == ebiten.FilterLinear,
+			})
 		}
-		screen.DrawImage(src, op)
-		releaseDrawOpts(op)
+		if !drawn {
+			if src == nil {
+				src = img
+			}
+			op := acquireDrawOpts()
+			op.Filter = filter
+			op.DisableMipmaps = true
+			op.GeoM.Scale(sx, sy)
+			op.GeoM.Translate(left, top)
+			op.ColorScale.Scale(red, green, blue, fadeAlpha)
+			screen.DrawImage(src, op)
+			releaseDrawOpts(op)
+		}
 
 		if gs.pictIDDebug {
 			metrics := mainFont.Metrics()

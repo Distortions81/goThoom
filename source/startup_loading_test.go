@@ -11,6 +11,7 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 	originalLoader := startupShaderLoader
 	originalLighting := lightingShader
 	originalUpscale := spriteUpscaleShader
+	originalFrameBlend := frameBlendShader
 	originalReplacementReady := replacementEffectsShadersReady
 	originalReplacementAttempted := replacementEffectsShaderInitAttempted
 	defer func() {
@@ -18,12 +19,14 @@ func TestStartupShadersLoadRegardlessOfPreset(t *testing.T) {
 		startupShaderLoader = originalLoader
 		lightingShader = originalLighting
 		spriteUpscaleShader = originalUpscale
+		frameBlendShader = originalFrameBlend
 		replacementEffectsShadersReady = originalReplacementReady
 		replacementEffectsShaderInitAttempted = originalReplacementAttempted
 	}()
 
 	lightingShader = nil
 	spriteUpscaleShader = nil
+	frameBlendShader = nil
 	replacementEffectsShadersReady = false
 	replacementEffectsShaderInitAttempted = false
 	startupShaderLoader.lightingAttempted = false

@@ -32,6 +32,13 @@ func DenoiseRGBA(img *image.RGBA, sharpness, maxPercent float64) {
 	denoiseImage(img, sharpness, maxPercent)
 }
 
+// DenoiseRGBASerial applies denoise without starting another worker group.
+// It is intended for callers that already distribute independent images over
+// a shared worker pool.
+func DenoiseRGBASerial(img *image.RGBA, sharpness, maxPercent float64) {
+	denoiseImageWithWorkers(img, sharpness, maxPercent, 1)
+}
+
 const (
 	denoiseRowsPerWorker = 4
 	maxDenoiseWorkers    = 16

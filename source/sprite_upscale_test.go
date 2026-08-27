@@ -13,15 +13,11 @@ func isolateScaledArtworkCaches(t *testing.T) {
 	imageMu.Lock()
 	originalImageCache := scaledImageCache
 	originalMobileCache := scaledMobileCache
-	originalMobileBlendCache := mobileBlendCache
-	originalPictBlendCache := pictBlendCache
 	originalPictureBatches := scaledPictureBatches
 	originalMobileBatches := scaledMobileBatches
 	originalFactor := scaledCacheFactor
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
-	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
-	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
 	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})
 	scaledMobileBatches = make(map[scaledMobileBatchKey]struct{})
 	scaledCacheFactor = 0
@@ -31,8 +27,6 @@ func isolateScaledArtworkCaches(t *testing.T) {
 		clearScaledArtworkCachesLocked()
 		scaledImageCache = originalImageCache
 		scaledMobileCache = originalMobileCache
-		mobileBlendCache = originalMobileBlendCache
-		pictBlendCache = originalPictBlendCache
 		scaledPictureBatches = originalPictureBatches
 		scaledMobileBatches = originalMobileBatches
 		scaledCacheFactor = originalFactor
@@ -356,10 +350,6 @@ func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
 	if got := large.Bounds().Size(); got != image.Pt(16, 16) {
 		t.Fatalf("initial cached texture size = %v, want 16x16", got)
 	}
-	imageMu.Lock()
-	mobileBlendCache[mobileBlendKey{from: key, to: key, step: 1, total: 2}] = newUnmanagedImage(16, 16)
-	imageMu.Unlock()
-
 	gs.GameScale = 1
 	if !cacheScaledMobileFramesWithReader(key, 2, artworkUpscaleBalanced, src, transparentSpritePixels) {
 		t.Fatal("2x mobile batch was invalidated while being built")
@@ -376,9 +366,6 @@ func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
 	}
 	if len(scaledMobileCache) != 1 {
 		t.Errorf("scaled mobile cache has %d entries after cap change, want 1", len(scaledMobileCache))
-	}
-	if len(mobileBlendCache) != 0 {
-		t.Errorf("mobile blend cache retained %d oversized entries", len(mobileBlendCache))
 	}
 	for cacheKey := range scaledMobileCache {
 		if cacheKey.scale != 2 {

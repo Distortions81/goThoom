@@ -43,21 +43,6 @@ type mobileKey struct {
 	colors    [maxColors]byte
 }
 
-type mobileBlendKey struct {
-	from  mobileKey
-	to    mobileKey
-	step  uint8
-	total uint8
-}
-
-type pictBlendKey struct {
-	id    uint16
-	from  uint16
-	to    uint16
-	step  uint8
-	total uint8
-}
-
 type scaledImageKey struct {
 	imageKey
 	scale uint8
@@ -93,10 +78,6 @@ var (
 	// mobileCache caches individual mobile frames keyed by picture ID,
 	// state, and color overrides.
 	mobileCache = make(map[mobileKey]*ebiten.Image)
-	// mobileBlendCache stores pre-rendered blended mobile frames.
-	mobileBlendCache = make(map[mobileBlendKey]*ebiten.Image)
-	// pictBlendCache stores pre-rendered blended picture frames.
-	pictBlendCache = make(map[pictBlendKey]*ebiten.Image)
 	// scaledImageCache stores pixel-art upscaled world picture frames.
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	// scaledMobileCache stores pixel-art upscaled mobile frames.
@@ -122,9 +103,152 @@ var (
 	imgMetaWriter *csv.Writer
 
 	spriteUpscaleShader    *ebiten.Shader
+	frameBlendShader       *ebiten.Shader
 	spriteUpscaleScratchMu sync.Mutex
 	spriteUpscaleScratch   reusableUpscaleScratch
+
+	artworkWorkerOnce sync.Once
+	artworkWorkerJobs chan func()
 )
+
+const maxArtworkWorkers = 16
+
+func runArtworkJobs(jobs []func()) {
+	if len(jobs) == 0 {
+		return
+	}
+	artworkWorkerOnce.Do(func() {
+		// Bound simultaneous 4x output buffers while still using enough cores for
+		// room-wide batches of independent scenery and mobile poses.
+		workerCount := min(max(1, runtime.GOMAXPROCS(0)), maxArtworkWorkers)
+		artworkWorkerJobs = make(chan func(), workerCount*2)
+		for range workerCount {
+			go func() {
+				for job := range artworkWorkerJobs {
+					job()
+				}
+			}()
+		}
+	})
+	var workers sync.WaitGroup
+	workers.Add(len(jobs))
+	for _, job := range jobs {
+		job := job
+		artworkWorkerJobs <- func() {
+			defer workers.Done()
+			job()
+		}
+	}
+	workers.Wait()
+}
+
+type preparedArtworkRegion struct {
+	index  int
+	rect   image.Rectangle
+	base   *image.RGBA
+	scaled *image.RGBA
+}
+
+type preparedArtworkSheet struct {
+	key       sheetKey
+	pixels    *image.RGBA
+	regions   []preparedArtworkRegion
+	needBase  bool
+	needScale bool
+	factor    int
+	mode      int
+}
+
+func sheetKeyColors(key sheetKey) []byte {
+	if key.colorsLen == 0 {
+		return nil
+	}
+	colors := make([]byte, int(key.colorsLen))
+	copy(colors, key.colors[:int(key.colorsLen)])
+	return colors
+}
+
+func artworkRegionRects(key sheetKey, pixels *image.RGBA) []image.Rectangle {
+	if pixels == nil || pixels.Bounds().Dx() <= 2 || pixels.Bounds().Dy() <= 2 {
+		return nil
+	}
+	if key.forceTransparent {
+		size := (pixels.Bounds().Dx() - 2) / 16
+		if size < 1 {
+			return nil
+		}
+		regions := make([]image.Rectangle, 0, 256)
+		for row := 0; row < 16; row++ {
+			for column := 0; column < 16; column++ {
+				x := 1 + column*size
+				y := 1 + row*size
+				r := image.Rect(x, y, x+size, y+size)
+				if r.In(pixels.Bounds()) {
+					regions = append(regions, r)
+				}
+			}
+		}
+		return regions
+	}
+	frames := 1
+	if clImages != nil {
+		frames = max(1, clImages.NumFrames(uint32(key.id)))
+	}
+	height := (pixels.Bounds().Dy() - 2) / frames
+	width := pixels.Bounds().Dx() - 2
+	if width < 1 || height < 1 {
+		return nil
+	}
+	regions := make([]image.Rectangle, 0, frames)
+	for frame := 0; frame < frames; frame++ {
+		y := 1 + frame*height
+		regions = append(regions, image.Rect(1, y, 1+width, y+height))
+	}
+	return regions
+}
+
+func copyArtworkRegion(source *image.RGBA, sourceRect image.Rectangle) (*image.RGBA, bool) {
+	sourceRect = sourceRect.Intersect(source.Bounds())
+	if sourceRect.Empty() {
+		return nil, false
+	}
+	visible := false
+
+scan:
+	for y := 0; y < sourceRect.Dy(); y++ {
+		sourceOffset := source.PixOffset(sourceRect.Min.X, sourceRect.Min.Y+y)
+		row := source.Pix[sourceOffset : sourceOffset+sourceRect.Dx()*4]
+		for offset := 3; offset < len(row); offset += 4 {
+			if row[offset] != 0 {
+				visible = true
+				break scan
+			}
+		}
+	}
+	if !visible {
+		return nil, false
+	}
+	destination := image.NewRGBA(image.Rect(0, 0, sourceRect.Dx(), sourceRect.Dy()))
+	for y := 0; y < sourceRect.Dy(); y++ {
+		sourceOffset := source.PixOffset(sourceRect.Min.X, sourceRect.Min.Y+y)
+		destinationOffset := destination.PixOffset(0, y)
+		copy(destination.Pix[destinationOffset:destinationOffset+sourceRect.Dx()*4], source.Pix[sourceOffset:sourceOffset+sourceRect.Dx()*4])
+	}
+	return destination, visible
+}
+
+func pasteArtworkRegion(destination *image.RGBA, destinationRect image.Rectangle, source *image.RGBA) {
+	if destination == nil || source == nil {
+		return
+	}
+	width := min(destinationRect.Dx(), source.Bounds().Dx())
+	height := min(destinationRect.Dy(), source.Bounds().Dy())
+	for y := 0; y < height; y++ {
+		destinationOffset := destination.PixOffset(destinationRect.Min.X, destinationRect.Min.Y+y)
+		sourceOffset := source.PixOffset(source.Bounds().Min.X, source.Bounds().Min.Y+y)
+		copy(destination.Pix[destinationOffset:destinationOffset+width*4], source.Pix[sourceOffset:sourceOffset+width*4])
+	}
+}
 
 // reusableUpscaleScratch owns the standalone nearest-neighbor staging texture
 // used by the upscale shader. It only grows, so normal sprite cache misses do
@@ -156,13 +280,22 @@ func (s *reusableUpscaleScratch) deallocate() {
 //go:embed data/shaders/sprite_upscale.kage
 var spriteUpscaleShaderSource []byte
 
+//go:embed data/shaders/frame_blend.kage
+var frameBlendShaderSource []byte
+
 // ReloadSpriteUpscaleShader recompiles the artwork-upscale shader.
 func ReloadSpriteUpscaleShader() error {
-	shader, err := ebiten.NewShader(spriteUpscaleShaderSource)
+	upscale, err := ebiten.NewShader(spriteUpscaleShaderSource)
 	if err != nil {
 		return err
 	}
-	spriteUpscaleShader = shader
+	blend, err := ebiten.NewShader(frameBlendShaderSource)
+	if err != nil {
+		upscale.Deallocate()
+		return err
+	}
+	spriteUpscaleShader = upscale
+	frameBlendShader = blend
 	return nil
 }
 
@@ -200,44 +333,194 @@ func makeMobileKey(id uint16, state uint8, colors []byte) mobileKey {
 	return k
 }
 
-// loadSheet retrieves the full sprite sheet for the specified picture ID.
-// The forceTransparent flag forces palette index 0 to be fully transparent
-// regardless of the pictDef flags. Mobile sprites require this behavior
-// since the original client always treats index 0 as transparent for them.
-func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
-	if id == 0xffff {
-		return nil
+func artworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) bool {
+	if key.forceTransparent {
+		baseKey := makeMobileKey(key.id, 0, key.colors[:int(key.colorsLen)])
+		_, ok := scaledMobileBatches[scaledMobileBatchKey{mobileKey: baseKey, scale: uint8(factor), mode: uint8(mode)}]
+		return ok
 	}
-	if replacementEffectReplacesPict(id) {
-		return nil
+	_, ok := scaledPictureBatches[scaledPictureBatchKey{id: key.id, scale: uint8(factor), mode: uint8(mode)}]
+	return ok
+}
+
+func markArtworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) {
+	if key.forceTransparent {
+		baseKey := makeMobileKey(key.id, 0, key.colors[:int(key.colorsLen)])
+		scaledMobileBatches[scaledMobileBatchKey{mobileKey: baseKey, scale: uint8(factor), mode: uint8(mode)}] = struct{}{}
+		return
+	}
+	scaledPictureBatches[scaledPictureBatchKey{id: key.id, scale: uint8(factor), mode: uint8(mode)}] = struct{}{}
+}
+
+// prepareArtworkSheets decodes all requested sheets in parallel, then sends
+// every independent frame or pose through the same global CPU worker queue.
+// Ebitengine images are created only after the batch finishes, on the caller's
+// render goroutine.
+func prepareArtworkSheets(keys []sheetKey) {
+	if clImages == nil || len(keys) == 0 {
+		return
 	}
 	imageCacheLifecycleMu.RLock()
 	defer imageCacheLifecycleMu.RUnlock()
-	key := makeSheetKey(id, colors, forceTransparent)
+
+	factor := screenCappedArtworkUpscaleFactor()
+	mode := artworkUpscaleMode()
+	needUpscale := mode != artworkUpscaleOff
 	imageMu.Lock()
-	if img, ok := sheetCache[key]; ok {
-		imageMu.Unlock()
-		return img
+	if needUpscale {
+		ensureScaledArtworkCacheFactorLocked(factor)
+	}
+	seen := make(map[sheetKey]struct{}, len(keys))
+	work := make([]preparedArtworkSheet, 0, len(keys))
+	for _, key := range keys {
+		if key.id == 0xffff || replacementEffectReplacesPict(key.id) {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		_, haveBase := sheetCache[key]
+		haveScale := !needUpscale || artworkSheetBatchCompleteLocked(key, factor, mode)
+		if haveBase && haveScale {
+			continue
+		}
+		work = append(work, preparedArtworkSheet{
+			key:       key,
+			needBase:  !haveBase,
+			needScale: needUpscale && !haveScale,
+			factor:    factor,
+			mode:      mode,
+		})
 	}
 	imageMu.Unlock()
-
-	if clImages != nil {
-		if img := clImages.Get(uint32(id), colors, forceTransparent); img != nil {
-			statImageLoaded(id)
-			if imgDump && colors == nil && !forceTransparent {
-				dumpImageSheet(id, img)
-			}
-			imageMu.Lock()
-			sheetCache[key] = img
-			imageMu.Unlock()
-			return img
-		}
-		log.Printf("missing image %d", id)
-	} else {
-		log.Printf("CL_Images not loaded when requesting image %d", id)
+	if len(work) == 0 {
+		return
 	}
 
-	return nil
+	decodeJobs := make([]func(), len(work))
+	for index := range work {
+		index := index
+		decodeJobs[index] = func() {
+			key := work[index].key
+			work[index].pixels = clImages.DecodeRGBA(uint32(key.id), sheetKeyColors(key), key.forceTransparent)
+		}
+	}
+	runArtworkJobs(decodeJobs)
+
+	denoise := gs.DenoiseImages
+	sharpness := gs.DenoiseSharpness
+	amount := gs.DenoiseAmount
+	regionJobs := make([]func(), 0)
+	for sheetIndex := range work {
+		if work[sheetIndex].pixels == nil {
+			continue
+		}
+		rects := artworkRegionRects(work[sheetIndex].key, work[sheetIndex].pixels)
+		work[sheetIndex].regions = make([]preparedArtworkRegion, len(rects))
+		for regionIndex, rect := range rects {
+			work[sheetIndex].regions[regionIndex] = preparedArtworkRegion{index: regionIndex, rect: rect}
+			if !denoise && !work[sheetIndex].needScale {
+				continue
+			}
+			sheetIndex, regionIndex := sheetIndex, regionIndex
+			regionJobs = append(regionJobs, func() {
+				region := &work[sheetIndex].regions[regionIndex]
+				base, visible := copyArtworkRegion(work[sheetIndex].pixels, region.rect)
+				if !visible {
+					return
+				}
+				if denoise {
+					climg.DenoiseRGBASerial(base, sharpness, amount)
+					region.base = base
+				}
+				if work[sheetIndex].needScale {
+					region.scaled = upscaleSpriteRegionCPU(base, base.Bounds(), work[sheetIndex].factor, work[sheetIndex].mode)
+				}
+			})
+		}
+	}
+	runArtworkJobs(regionJobs)
+
+	for sheetIndex := range work {
+		prepared := &work[sheetIndex]
+		if prepared.pixels == nil {
+			continue
+		}
+		if denoise {
+			for index := range prepared.regions {
+				pasteArtworkRegion(prepared.pixels, prepared.regions[index].rect, prepared.regions[index].base)
+				prepared.regions[index].base = nil
+			}
+		}
+		var sheet *ebiten.Image
+		if prepared.needBase {
+			sheet = newManagedImageFromImage(prepared.pixels)
+			imageMu.Lock()
+			if existing := sheetCache[prepared.key]; existing != nil {
+				sheet.Deallocate()
+				sheet = existing
+			} else {
+				sheetCache[prepared.key] = sheet
+			}
+			imageMu.Unlock()
+			statImageLoaded(prepared.key.id)
+			if imgDump && prepared.key.colorsLen == 0 && !prepared.key.forceTransparent {
+				dumpImageSheet(prepared.key.id, sheet)
+			}
+		}
+		if !prepared.needScale {
+			prepared.pixels = nil
+			continue
+		}
+		imageMu.Lock()
+		if scaledCacheFactor != uint8(prepared.factor) {
+			imageMu.Unlock()
+			prepared.pixels = nil
+			continue
+		}
+		for index := range prepared.regions {
+			region := &prepared.regions[index]
+			if region.scaled == nil {
+				continue
+			}
+			if prepared.key.forceTransparent {
+				mobileKey := makeMobileKey(prepared.key.id, uint8(region.index), prepared.key.colors[:int(prepared.key.colorsLen)])
+				key := scaledMobileKey{mobileKey: mobileKey, scale: uint8(prepared.factor), mode: uint8(prepared.mode)}
+				if _, exists := scaledMobileCache[key]; !exists {
+					scaledMobileCache[key] = newCachedSpriteImageFromRGBA(region.scaled)
+				}
+			} else {
+				key := scaledImageKey{imageKey: makeImageKey(prepared.key.id, region.index), scale: uint8(prepared.factor), mode: uint8(prepared.mode)}
+				if _, exists := scaledImageCache[key]; !exists {
+					scaledImageCache[key] = newCachedSpriteImageFromRGBA(region.scaled)
+				}
+			}
+			region.scaled = nil
+		}
+		markArtworkSheetBatchCompleteLocked(prepared.key, prepared.factor, prepared.mode)
+		imageMu.Unlock()
+		prepared.pixels = nil
+	}
+}
+
+// loadSheet retrieves the processed full sprite sheet for the specified ID.
+func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
+	key := makeSheetKey(id, colors, forceTransparent)
+	imageMu.Lock()
+	img := sheetCache[key]
+	imageMu.Unlock()
+	if img != nil {
+		return img
+	}
+	prepareArtworkSheets([]sheetKey{key})
+	imageMu.Lock()
+	img = sheetCache[key]
+	imageMu.Unlock()
+	if img == nil && clImages != nil && id != 0xffff && !replacementEffectReplacesPict(id) {
+		log.Printf("missing image %d", id)
+	}
+	return img
 }
 
 func dumpImageSheet(id uint16, sheet *ebiten.Image) {
@@ -461,32 +744,19 @@ type spriteUpscaleRegion struct {
 	rect   image.Rectangle
 }
 
-// upscaleSpriteRegionsCPU uses every reported CPU when a first-use batch has
-// enough independent frames or poses. Only the pure CPU work runs in workers;
-// callers upload the finished RGBA images to Ebitengine sequentially.
+// upscaleSpriteRegionsCPU sends independent regions through the shared artwork
+// workers. Callers upload the finished RGBA images sequentially.
 func upscaleSpriteRegionsCPU(regions []spriteUpscaleRegion, factor, mode int) []*image.RGBA {
 	results := make([]*image.RGBA, len(regions))
-	if len(regions) == 0 {
-		return results
-	}
-	workerCount := min(runtime.NumCPU(), len(regions))
-	jobs := make(chan int)
-	var workers sync.WaitGroup
-	workers.Add(workerCount)
-	for range workerCount {
-		go func() {
-			defer workers.Done()
-			for index := range jobs {
-				region := regions[index]
-				results[index] = upscaleSpriteRegionCPU(region.source, region.rect, factor, mode)
-			}
-		}()
-	}
+	jobs := make([]func(), len(regions))
 	for index := range regions {
-		jobs <- index
+		index := index
+		jobs[index] = func() {
+			region := regions[index]
+			results[index] = upscaleSpriteRegionCPU(region.source, region.rect, factor, mode)
+		}
 	}
-	close(jobs)
-	workers.Wait()
+	runArtworkJobs(jobs)
 	return results
 }
 
@@ -804,7 +1074,14 @@ type pendingScaledPictureFrame struct {
 // frame boundaries and rendering behavior are unchanged while the images can
 // share Ebitengine's atlas.
 func cacheScaledPictureFrames(id uint16, requestedFrame, frameCount, factor, mode int, requestedImage *ebiten.Image) bool {
-	return cacheScaledPictureFramesWithReader(id, requestedFrame, frameCount, factor, mode, requestedImage, readImageRGBA)
+	if clImages == nil {
+		return cacheScaledPictureFramesWithReader(id, requestedFrame, frameCount, factor, mode, requestedImage, readImageRGBA)
+	}
+	prepareArtworkSheets([]sheetKey{makeSheetKey(id, nil, false)})
+	imageMu.Lock()
+	complete := artworkSheetBatchCompleteLocked(makeSheetKey(id, nil, false), factor, mode)
+	imageMu.Unlock()
+	return complete
 }
 
 func cacheScaledPictureFramesWithReader(id uint16, requestedFrame, frameCount, factor, mode int, requestedImage *ebiten.Image, readPixels func(*ebiten.Image) *image.RGBA) bool {
@@ -960,7 +1237,16 @@ type pendingScaledMobileFrame struct {
 // source sheet for one exact color palette as one CPU batch. It never
 // generates other palette variants speculatively.
 func cacheScaledMobileFrames(requestedKey mobileKey, factor, mode int, requestedImage *ebiten.Image) bool {
-	return cacheScaledMobileFramesWithReader(requestedKey, factor, mode, requestedImage, readImageRGBA)
+	if clImages == nil {
+		return cacheScaledMobileFramesWithReader(requestedKey, factor, mode, requestedImage, readImageRGBA)
+	}
+	colors := requestedKey.colors[:int(requestedKey.colorsLen)]
+	key := makeSheetKey(requestedKey.id, colors, true)
+	prepareArtworkSheets([]sheetKey{key})
+	imageMu.Lock()
+	complete := artworkSheetBatchCompleteLocked(key, factor, mode)
+	imageMu.Unlock()
+	return complete
 }
 
 func cacheScaledMobileFramesWithReader(requestedKey mobileKey, factor, mode int, requestedImage *ebiten.Image, readPixels func(*ebiten.Image) *image.RGBA) bool {
@@ -1137,118 +1423,6 @@ func mobileSize(id uint16) int {
 	return w / 16
 }
 
-func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
-	if prevImg == nil || img == nil {
-		return nil
-	}
-	k := mobileBlendKey{from: from, to: to, step: uint8(step), total: uint8(total)}
-	imageMu.Lock()
-	if b, ok := mobileBlendCache[k]; ok {
-		imageMu.Unlock()
-		return b
-	}
-	imageMu.Unlock()
-
-	size := img.Bounds().Dx()
-	if s := prevImg.Bounds().Dx(); s > size {
-		size = s
-	}
-	blended := newUnmanagedImage(size, size)
-	alpha := float32(step) / float32(total)
-	offPrev := (size - prevImg.Bounds().Dx()) / 2
-	op1 := acquireDrawOpts()
-	op1.ColorScale.Reset()
-	op1.ColorScale.ScaleAlpha(1 - alpha)
-	op1.Blend = ebiten.BlendCopy
-	op1.GeoM.Reset()
-	op1.GeoM.Translate(float64(offPrev), float64(offPrev))
-	blended.DrawImage(prevImg, op1)
-	op1.ColorScale.Reset()
-	op1.GeoM.Reset()
-	op1.Filter = 0
-	op1.DisableMipmaps = false
-	op1.Blend = ebiten.BlendSourceOver
-	releaseDrawOpts(op1)
-	offCur := (size - img.Bounds().Dx()) / 2
-	op2 := acquireDrawOpts()
-	op2.ColorScale.Reset()
-	op2.ColorScale.ScaleAlpha(alpha)
-	op2.Blend = ebiten.BlendLighter
-	op2.GeoM.Reset()
-	op2.GeoM.Translate(float64(offCur), float64(offCur))
-	blended.DrawImage(img, op2)
-	op2.ColorScale.Reset()
-	op2.GeoM.Reset()
-	op2.Filter = 0
-	op2.DisableMipmaps = false
-	op2.Blend = ebiten.BlendSourceOver
-	releaseDrawOpts(op2)
-	imageMu.Lock()
-	mobileBlendCache[k] = blended
-	imageMu.Unlock()
-	return blended
-}
-
-func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Image, step, total int) *ebiten.Image {
-	if prevImg == nil || img == nil {
-		return nil
-	}
-	k := pictBlendKey{id: id, from: uint16(fromFrame), to: uint16(toFrame), step: uint8(step), total: uint8(total)}
-	imageMu.Lock()
-	if b, ok := pictBlendCache[k]; ok {
-		imageMu.Unlock()
-		return b
-	}
-	imageMu.Unlock()
-
-	w1, h1 := prevImg.Bounds().Dx(), prevImg.Bounds().Dy()
-	w2, h2 := img.Bounds().Dx(), img.Bounds().Dy()
-	w := w1
-	if w2 > w {
-		w = w2
-	}
-	h := h1
-	if h2 > h {
-		h = h2
-	}
-	blended := newUnmanagedImage(w, h)
-	alpha := float32(step) / float32(total)
-	offPrevX := (w - w1) / 2
-	offPrevY := (h - h1) / 2
-	op1 := acquireDrawOpts()
-	op1.ColorScale.Reset()
-	op1.ColorScale.ScaleAlpha(1 - alpha)
-	op1.Blend = ebiten.BlendCopy
-	op1.GeoM.Reset()
-	op1.GeoM.Translate(float64(offPrevX), float64(offPrevY))
-	blended.DrawImage(prevImg, op1)
-	op1.ColorScale.Reset()
-	op1.GeoM.Reset()
-	op1.Filter = 0
-	op1.DisableMipmaps = false
-	op1.Blend = ebiten.BlendSourceOver
-	releaseDrawOpts(op1)
-	offCurX := (w - w2) / 2
-	offCurY := (h - h2) / 2
-	op2 := acquireDrawOpts()
-	op2.ColorScale.Reset()
-	op2.ColorScale.ScaleAlpha(alpha)
-	op2.Blend = ebiten.BlendLighter
-	op2.GeoM.Reset()
-	op2.GeoM.Translate(float64(offCurX), float64(offCurY))
-	blended.DrawImage(img, op2)
-	op2.ColorScale.Reset()
-	op2.GeoM.Reset()
-	op2.Filter = 0
-	op2.DisableMipmaps = false
-	op2.Blend = ebiten.BlendSourceOver
-	releaseDrawOpts(op2)
-	imageMu.Lock()
-	pictBlendCache[k] = blended
-	imageMu.Unlock()
-	return blended
-}
-
 type imageCacheStatsData struct {
 	sheetCount        int
 	sheetBytes        int
@@ -1260,10 +1434,6 @@ type imageCacheStatsData struct {
 	mobileBytes       int
 	scaledMobileCount int
 	scaledMobileBytes int
-	mobileBlendCount  int
-	mobileBlendBytes  int
-	pictBlendCount    int
-	pictBlendBytes    int
 }
 
 // imageCacheStats returns the counts and approximate memory usage in bytes for
@@ -1306,20 +1476,6 @@ func imageCacheStats() imageCacheStatsData {
 			stats.scaledMobileCount++
 			b := img.Bounds()
 			stats.scaledMobileBytes += b.Dx() * b.Dy() * 4
-		}
-	}
-	for _, img := range mobileBlendCache {
-		if img != nil {
-			stats.mobileBlendCount++
-			b := img.Bounds()
-			stats.mobileBlendBytes += b.Dx() * b.Dy() * 4
-		}
-	}
-	for _, img := range pictBlendCache {
-		if img != nil {
-			stats.pictBlendCount++
-			b := img.Bounds()
-			stats.pictBlendBytes += b.Dx() * b.Dy() * 4
 		}
 	}
 	return stats

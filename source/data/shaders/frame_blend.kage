@@ -1,0 +1,44 @@
+//kage:unit pixels
+
+package main
+
+func samplePrevious(pos vec2, linear bool) vec4 {
+	if !linear {
+		return imageSrc0At(pos)
+	}
+	delta := vec2(abs(dfdx(pos.x)), abs(dfdy(pos.y)))
+	delta = min(delta, vec2(1))
+	p0 := pos - delta/2
+	p1 := pos + delta/2
+	c0 := imageSrc0At(p0)
+	c1 := imageSrc0At(vec2(p1.x, p0.y))
+	c2 := imageSrc0At(vec2(p0.x, p1.y))
+	c3 := imageSrc0At(p1)
+	rate := clamp(fract(p1)/delta, 0, 1)
+	return mix(mix(c0, c1, rate.x), mix(c2, c3, rate.x), rate.y)
+}
+
+func sampleCurrent(pos vec2, linear bool) vec4 {
+	if !linear {
+		return imageSrc1At(pos)
+	}
+	delta := vec2(abs(dfdx(pos.x)), abs(dfdy(pos.y)))
+	delta = min(delta, vec2(1))
+	p0 := pos - delta/2
+	p1 := pos + delta/2
+	c0 := imageSrc1At(p0)
+	c1 := imageSrc1At(vec2(p1.x, p0.y))
+	c2 := imageSrc1At(vec2(p0.x, p1.y))
+	c3 := imageSrc1At(p1)
+	rate := clamp(fract(p1)/delta, 0, 1)
+	return mix(mix(c0, c1, rate.x), mix(c2, c3, rate.x), rate.y)
+}
+
+// custom contains fade, previous-to-current X/Y offset, and the linear-filter flag.
+func Fragment(_ vec4, srcPos vec2, color vec4, custom vec4) vec4 {
+	// imageSrc1At accepts positions in image 0's coordinate space and applies
+	// image 1's atlas origin internally.
+	currentPos := srcPos + custom.yz
+	linear := custom.w >= 0.5
+	return mix(samplePrevious(srcPos, linear), sampleCurrent(currentPos, linear), custom.x) * color
+}

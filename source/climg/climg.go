@@ -527,6 +527,30 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 	}
 	c.mu.Unlock()
 
+	img := c.DecodeRGBA(id, custom, forceTransparent)
+	if img == nil {
+		return nil
+	}
+	c.processingMu.RLock()
+	denoise, denoiseSharpness, denoiseAmount := c.Denoise, c.DenoiseSharpness, c.DenoiseAmount
+	c.processingMu.RUnlock()
+	if denoise {
+		denoiseImage(img, denoiseSharpness, denoiseAmount)
+	}
+
+	eimg := newManagedImageFromImage(img)
+	c.mu.Lock()
+	c.cache[key] = eimg
+	c.mu.Unlock()
+	return eimg
+}
+
+// DecodeRGBA expands one indexed CL_Images sheet into premultiplied high-color
+// pixels without applying denoise or creating a GPU image. Callers that process
+// individual frames or mobile poses can therefore do all CPU work before the
+// first Ebitengine upload.
+func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *image.RGBA {
+
 	ref := c.idrefs[id]
 	if ref == nil {
 		return nil
@@ -678,18 +702,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		pix[off+3] = a
 	}
 
-	c.processingMu.RLock()
-	denoise, denoiseSharpness, denoiseAmount := c.Denoise, c.DenoiseSharpness, c.DenoiseAmount
-	c.processingMu.RUnlock()
-	if denoise {
-		denoiseImage(img, denoiseSharpness, denoiseAmount)
-	}
-
-	eimg := newManagedImageFromImage(img)
-	c.mu.Lock()
-	c.cache[key] = eimg
-	c.mu.Unlock()
-	return eimg
+	return img
 }
 
 // SetDenoise configures decoded-artwork filtering without racing background
