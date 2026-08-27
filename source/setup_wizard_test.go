@@ -83,11 +83,11 @@ func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
 		"Player health display": false,
 	}
 	wantChecks := map[string]bool{
-		"Auto-resize window layout": false,
-		"Dark mode names/bubbles":   false,
-		"Speech bubbles":            false,
-		"Fade obscuring objects":    false,
-		"Show toolbar info bar":     false,
+		"Tiled window mode":       false,
+		"Dark mode names/bubbles": false,
+		"Speech bubbles":          false,
+		"Fade obscuring objects":  false,
+		"Show toolbar info bar":   false,
 	}
 	var visit func(*eui.ItemData)
 	visit = func(item *eui.ItemData) {

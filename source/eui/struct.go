@@ -40,10 +40,13 @@ type windowData struct {
 	searchOpen, AutoSize bool
 
 	// Scroll position and behavior
-	Scroll          point
-	NoScroll        bool
-	NoScale         bool
-	NoBGColor       bool
+	Scroll    point
+	NoScroll  bool
+	NoScale   bool
+	NoBGColor bool
+	// Docked marks a pane whose position and size are owned by a tiled
+	// workspace. Docked panes do not expose standalone move/resize hit areas.
+	Docked          bool
 	AlwaysDrawFirst bool
 	NoCache         bool
 

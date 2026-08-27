@@ -34,6 +34,17 @@ const (
 	ToolbarFloating
 )
 
+// TiledLayout selects one of the managed workspace arrangements.
+type TiledLayout int
+
+const (
+	// TiledLayoutCenter keeps the game view between two side columns.
+	TiledLayoutCenter TiledLayout = iota
+	// TiledLayoutSide places the game view on one side and the other panels on
+	// the opposite side.
+	TiledLayoutSide
+)
+
 var gs settings = gsdef
 
 var gammaOptions = []float64{1.8, 2.0, 2.2, 2.4}
@@ -103,6 +114,29 @@ func clampUIScalePreference(v float64) float64 {
 		return 4
 	}
 	return v
+}
+
+func clampTiledPaneFraction(v float64) float64 {
+	if v < 0.15 {
+		return 0.15
+	}
+	if v > 0.60 {
+		return 0.60
+	}
+	return v
+}
+
+func clampTiledLayoutSettings() {
+	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutSide {
+		gs.TiledLayout = gsdef.TiledLayout
+	}
+	gs.TiledLeftBottom = clampTiledPaneFraction(gs.TiledLeftBottom)
+	gs.TiledRightBottom = clampTiledPaneFraction(gs.TiledRightBottom)
+	gs.TiledGamePosition = math.Min(math.Max(gs.TiledGamePosition, -1), 1)
+	gs.TiledLeftWidth = math.Min(math.Max(gs.TiledLeftWidth, 0.15), 0.55)
+	gs.TiledRightWidth = math.Min(math.Max(gs.TiledRightWidth, 0.15), 0.55)
+	gs.TiledSideGameWidth = math.Min(math.Max(gs.TiledSideGameWidth, 0.35), 0.80)
+	gs.TiledSideTopSplit = math.Min(math.Max(gs.TiledSideTopSplit, 0.15), 0.85)
 }
 
 func normalizeGamma(v, fallback float64) float64 {
@@ -233,8 +267,21 @@ var gsdef settings = settings{
 	WindowSnapping:        false,
 	WindowShadows:         true,
 	AutoResizeWindows:     true,
+	TiledWindows:          true,
+	TiledLayout:           TiledLayoutCenter,
+	TiledKeepGameLarge:    true,
+	TiledGamePosition:     0,
+	TiledLeftBottom:       0.30,
+	TiledRightBottom:      0.30,
+	TiledLeftWidth:        0.235,
+	TiledRightWidth:       0.260,
+	TiledSideGameWidth:    0.60,
+	TiledSideTopSplit:     0.50,
+	TiledInventoryLeft:    true,
+	TiledConsoleLeft:      true,
+	TiledGameLeft:         true,
 	ToolbarPlacement:      ToolbarInInventory,
-	ToolbarInfoBar:        true,
+	ToolbarInfoBar:        false,
 
 	JoystickEnabled:        false,
 	JoystickWalkStick:      0,
@@ -442,8 +489,25 @@ type settings struct {
 	WindowSnapping        bool
 	WindowShadows         bool
 	AutoResizeWindows     bool
-	ToolbarPlacement      ToolbarPlacement
-	ToolbarInfoBar        bool
+	TiledWindows          bool
+	TiledLayout           TiledLayout
+	TiledKeepGameLarge    bool
+	// TiledGamePosition places the fixed-width centered game pane between the
+	// side-column limits: -1 is far left, 0 centered, and 1 far right.
+	TiledGamePosition float64
+	// TiledLeftBottom and TiledRightBottom are the bottom-pane fractions for
+	// the left and right columns in the centered layout.
+	TiledLeftBottom    float64
+	TiledRightBottom   float64
+	TiledLeftWidth     float64
+	TiledRightWidth    float64
+	TiledSideGameWidth float64
+	TiledSideTopSplit  float64
+	TiledInventoryLeft bool
+	TiledConsoleLeft   bool
+	TiledGameLeft      bool
+	ToolbarPlacement   ToolbarPlacement
+	ToolbarInfoBar     bool
 
 	JoystickEnabled        bool
 	JoystickBindings       map[string]ebiten.GamepadButton
@@ -676,6 +740,7 @@ func loadSettings() bool {
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
 	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(gs.MusicEnhancementAmount)
 	gs.UIScale = clampUIScalePreference(gs.UIScale)
+	clampTiledLayoutSettings()
 
 	// Clamp BubbleScale to 1.0–8.0
 	if gs.BubbleScale < 1.0 || gs.BubbleScale > 8.0 {
@@ -685,6 +750,10 @@ func loadSettings() bool {
 	gs.SpriteUpscale = spriteUpscaleFactor()
 	if gs.ToolbarPlacement < ToolbarInInventory || gs.ToolbarPlacement > ToolbarFloating {
 		gs.ToolbarPlacement = gsdef.ToolbarPlacement
+		settingsDirty = true
+	}
+	if gs.TiledWindows && gs.ToolbarPlacement == ToolbarFloating {
+		gs.ToolbarPlacement = ToolbarInInventory
 		settingsDirty = true
 	}
 	if !normalizedWindowSettingsValid() {
@@ -840,6 +909,19 @@ func resetSavedWindowSettings() {
 	gs.ChatWindow = gsdef.ChatWindow
 	gs.MovieWindow = gsdef.MovieWindow
 	gs.ToolbarWindow = gsdef.ToolbarWindow
+	gs.TiledWindows = gsdef.TiledWindows
+	gs.TiledLayout = gsdef.TiledLayout
+	gs.TiledKeepGameLarge = gsdef.TiledKeepGameLarge
+	gs.TiledGamePosition = gsdef.TiledGamePosition
+	gs.TiledLeftBottom = gsdef.TiledLeftBottom
+	gs.TiledRightBottom = gsdef.TiledRightBottom
+	gs.TiledLeftWidth = gsdef.TiledLeftWidth
+	gs.TiledRightWidth = gsdef.TiledRightWidth
+	gs.TiledSideGameWidth = gsdef.TiledSideGameWidth
+	gs.TiledSideTopSplit = gsdef.TiledSideTopSplit
+	gs.TiledInventoryLeft = gsdef.TiledInventoryLeft
+	gs.TiledConsoleLeft = gsdef.TiledConsoleLeft
+	gs.TiledGameLeft = gsdef.TiledGameLeft
 	gs.ToolbarPlacement = gsdef.ToolbarPlacement
 	gs.ToolbarInfoBar = gsdef.ToolbarInfoBar
 }
@@ -957,6 +1039,11 @@ var (
 )
 
 func applyManagedWindowLayout() {
+	applyTiledWindowStates()
+	if gs.TiledWindows && gs.MessagesToConsole && chatWin != nil && chatWin.IsOpen() {
+		chatWin.Close()
+	}
+	prepareTiledWorkspaceWindowChrome()
 	applyWindowState(gameWin, &gs.GameWindow)
 	applyWindowState(inventoryWin, &gs.InventoryWindow)
 	applyWindowState(playersWin, &gs.PlayersWindow)
@@ -981,9 +1068,201 @@ func applyManagedWindowLayout() {
 			captureWindowRuntime(item.win, item.state)
 		}
 	}
+	finishTiledWorkspaceWindowChrome()
+	configureTiledWorkspaceDividers()
 
 	windowLayoutScreenWidth, windowLayoutScreenHeight = eui.ScreenSize()
 	windowLayoutUIScale = eui.UIScale()
+}
+
+func tiledWorkspaceWindows() []struct {
+	win  *eui.WindowData
+	game bool
+} {
+	return []struct {
+		win  *eui.WindowData
+		game bool
+	}{
+		{gameWin, true},
+		{inventoryWin, false},
+		{playersWin, false},
+		{consoleWin, false},
+		{chatWin, false},
+	}
+}
+
+// prepareTiledWorkspaceWindowChrome temporarily enables resizing while a
+// managed layout is being applied. The resize affordance is removed again by
+// finishTiledWorkspaceWindowChrome once every tile is in place.
+func prepareTiledWorkspaceWindowChrome() {
+	for _, item := range tiledWorkspaceWindows() {
+		if item.win == nil {
+			continue
+		}
+		if gs.TiledWindows {
+			if item.game {
+				if item.win.GetRawTitleSize() > 0 {
+					gameWindowFreeformTitleHeight = item.win.GetRawTitleSize()
+				}
+				item.win.TitleHeight = 0
+			}
+			item.win.SetDocked(true)
+			item.win.Closable = false
+			item.win.Maximizable = false
+			item.win.Movable = false
+			item.win.Resizable = true
+			continue
+		}
+		item.win.SetDocked(false)
+		if item.game && gameWindowFreeformTitleHeight > 0 {
+			item.win.TitleHeight = gameWindowFreeformTitleHeight
+		}
+		item.win.Resizable = true
+		item.win.Closable = !item.game
+		item.win.Movable = true
+		if item.game {
+			item.win.Maximizable = true
+		}
+	}
+}
+
+func finishTiledWorkspaceWindowChrome() {
+	if !gs.TiledWindows {
+		return
+	}
+	for _, item := range tiledWorkspaceWindows() {
+		if item.win == nil {
+			continue
+		}
+		item.win.Resizable = false
+		item.win.SetDocked(true)
+		item.win.Closable = false
+		item.win.Maximizable = false
+		item.win.Movable = false
+	}
+}
+
+func tiledWindowState(state *WindowState, x, y, width, height float64) {
+	state.Position = WindowPoint{X: x, Y: y}
+	state.Size = WindowPoint{X: width, Y: height}
+	clampWindowState(state)
+}
+
+// applyTiledWindowStates derives the persisted geometry from the selected
+// workspace. The normal window-state path continues to handle freeform mode.
+func applyTiledWindowStates() {
+	if !gs.TiledWindows {
+		return
+	}
+	clampTiledLayoutSettings()
+	if width, height := eui.ScreenSize(); width > 0 && height > 0 {
+		toolbarMinimum := 0.0
+		if gs.ToolbarPlacement != ToolbarFloating {
+			toolbarMinimum = dockedToolbarMinimumWidth * float64(eui.UIScale()) / float64(width)
+		}
+		if gs.TiledLayout == TiledLayoutCenter && gs.TiledKeepGameLarge {
+			maximizeCenteredGameForWorkspace(width, height, toolbarMinimum)
+		}
+		clampTiledLayoutForToolbar(toolbarMinimum)
+	}
+	gs.GameWindow.Open = true
+	gs.InventoryWindow.Open = true
+	gs.PlayersWindow.Open = true
+	gs.MessagesWindow.Open = true
+	gs.ChatWindow.Open = !gs.MessagesToConsole
+	if gs.TiledLayout == TiledLayoutSide {
+		// The side-game arrangement reserves one bottom pane for combined
+		// messages, matching its two-panel upper workspace.
+		gs.MessagesToConsole = true
+		gs.ChatWindow.Open = false
+		applySideTiledWindowStates()
+		return
+	}
+	applyCenteredTiledWindowStates()
+}
+
+func applyCenteredTiledWindowStates() {
+	leftWidth := gs.TiledLeftWidth
+	rightWidth := gs.TiledRightWidth
+	gameWidth := 1 - leftWidth - rightWidth
+	leftBottom := gs.TiledLeftBottom
+	rightBottom := gs.TiledRightBottom
+
+	if gs.MessagesToConsole {
+		// Chat output is folded into Console. The Chat tile disappears, the
+		// game remains full-height, and only the side containing Console keeps
+		// a bottom pane.
+		leftTop := 1.0
+		rightTop := 1.0
+		if gs.TiledConsoleLeft {
+			leftTop = 1 - leftBottom
+		} else {
+			rightTop = 1 - rightBottom
+		}
+		tiledWindowState(&gs.GameWindow, leftWidth, 0, gameWidth, 1)
+		if gs.TiledInventoryLeft {
+			tiledWindowState(&gs.InventoryWindow, 0, 0, leftWidth, leftTop)
+			tiledWindowState(&gs.PlayersWindow, leftWidth+gameWidth, 0, rightWidth, rightTop)
+		} else {
+			tiledWindowState(&gs.PlayersWindow, 0, 0, leftWidth, leftTop)
+			tiledWindowState(&gs.InventoryWindow, leftWidth+gameWidth, 0, rightWidth, rightTop)
+		}
+		if gs.TiledConsoleLeft {
+			tiledWindowState(&gs.MessagesWindow, 0, leftTop, leftWidth, leftBottom)
+		} else {
+			tiledWindowState(&gs.MessagesWindow, leftWidth+gameWidth, rightTop, rightWidth, rightBottom)
+		}
+		gs.ChatWindow.Open = false
+		return
+	}
+
+	tiledWindowState(&gs.GameWindow, leftWidth, 0, gameWidth, 1)
+	if gs.TiledInventoryLeft {
+		tiledWindowState(&gs.InventoryWindow, 0, 0, leftWidth, 1-leftBottom)
+		tiledWindowState(&gs.PlayersWindow, leftWidth+gameWidth, 0, rightWidth, 1-rightBottom)
+	} else {
+		tiledWindowState(&gs.PlayersWindow, 0, 0, leftWidth, 1-leftBottom)
+		tiledWindowState(&gs.InventoryWindow, leftWidth+gameWidth, 0, rightWidth, 1-rightBottom)
+	}
+	if gs.TiledConsoleLeft {
+		tiledWindowState(&gs.MessagesWindow, 0, 1-leftBottom, leftWidth, leftBottom)
+		tiledWindowState(&gs.ChatWindow, leftWidth+gameWidth, 1-rightBottom, rightWidth, rightBottom)
+	} else {
+		tiledWindowState(&gs.ChatWindow, 0, 1-leftBottom, leftWidth, leftBottom)
+		tiledWindowState(&gs.MessagesWindow, leftWidth+gameWidth, 1-rightBottom, rightWidth, rightBottom)
+	}
+}
+
+func applySideTiledWindowStates() {
+	bottom := gs.TiledRightBottom
+	top := 1 - bottom
+	gameWidth := gs.TiledSideGameWidth
+	panelWidth := 1 - gameWidth
+	panelX := gameWidth
+	gameX := 0.0
+	if !gs.TiledGameLeft {
+		gameX = panelWidth
+		panelX = 0
+	}
+	tiledWindowState(&gs.GameWindow, gameX, 0, gameWidth, 1)
+	firstWidth := panelWidth * gs.TiledSideTopSplit
+	secondWidth := panelWidth - firstWidth
+	if gs.TiledInventoryLeft {
+		tiledWindowState(&gs.InventoryWindow, panelX, 0, firstWidth, top)
+		tiledWindowState(&gs.PlayersWindow, panelX+firstWidth, 0, secondWidth, top)
+	} else {
+		tiledWindowState(&gs.PlayersWindow, panelX, 0, firstWidth, top)
+		tiledWindowState(&gs.InventoryWindow, panelX+firstWidth, 0, secondWidth, top)
+	}
+	if gs.MessagesToConsole {
+		tiledWindowState(&gs.MessagesWindow, panelX, top, panelWidth, bottom)
+		gs.ChatWindow.Open = false
+		return
+	}
+	// Keep both message windows available when the user has not chosen the
+	// combined-message mode; each gets half of the bottom panel.
+	tiledWindowState(&gs.MessagesWindow, panelX, top, panelWidth/2, bottom)
+	tiledWindowState(&gs.ChatWindow, panelX+panelWidth/2, top, panelWidth/2, bottom)
 }
 
 func managedWindowLayoutChanged() bool {

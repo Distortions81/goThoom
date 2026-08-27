@@ -100,12 +100,11 @@ type moviePlayer struct {
 
 	checkpoints []movieCheckpoint
 
-	slider       *eui.ItemData
-	curLabel     *eui.ItemData
-	totalLabel   *eui.ItemData
-	fpsLabel     *eui.ItemData
-	playButton   *eui.ItemData
-	repeatButton *eui.ItemData
+	slider     *eui.ItemData
+	curLabel   *eui.ItemData
+	totalLabel *eui.ItemData
+	fpsLabel   *eui.ItemData
+	playButton *eui.ItemData
 }
 
 func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *moviePlayer {
@@ -155,7 +154,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	p.curLabel, _ = eui.NewText()
 	p.curLabel.Text = "0s"
-	p.curLabel.Size = eui.Point{X: 60, Y: 24}
+	p.curLabel.Size = eui.Point{X: 55, Y: 24}
 	p.curLabel.FontSize = 10
 	tFlow.AddItem(p.curLabel)
 
@@ -164,7 +163,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider, events = eui.NewSlider()
 	p.slider.MinValue = 0
 	p.slider.MaxValue = max
-	p.slider.Size = eui.Point{X: 650, Y: 24}
+	p.slider.Size = eui.Point{X: 600, Y: 24}
 	p.slider.IntOnly = true
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
@@ -177,7 +176,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	totalDur = totalDur.Round(time.Second)
 	p.totalLabel, _ = eui.NewText()
 	p.totalLabel.Text = durafmt.Parse(totalDur).LimitFirstN(2).Format(shortUnits)
-	p.totalLabel.Size = eui.Point{X: 60, Y: 24}
+	p.totalLabel.Size = eui.Point{X: 55, Y: 24}
 	p.totalLabel.FontSize = 10
 	tFlow.AddItem(p.totalLabel)
 
@@ -211,7 +210,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	play, playEv := eui.NewButton()
 	play.Text = "Play/Pause"
 	play.SetTooltip("Toggle playback")
-	play.Size = eui.Point{X: 140, Y: 24}
+	play.Size = eui.Point{X: 80, Y: 24}
 	p.playButton = play
 	changePlayButton(p, p.playButton)
 	playEv.Handle = func(ev eui.UIEvent) {
@@ -226,19 +225,16 @@ func (p *moviePlayer) makePlaybackWindow() {
 	}
 	bFlow.AddItem(play)
 
-	repeatBtn, repeatEv := eui.NewButton()
-	repeatBtn.Text = "repeat"
-	repeatBtn.SetTooltip("Loop playback when the movie ends")
-	repeatBtn.Size = eui.Point{X: 80, Y: 24}
-	p.repeatButton = repeatBtn
-	changeRepeatButton(p, p.repeatButton)
-	repeatEv.Handle = func(ev eui.UIEvent) {
+	stopSeek, stopSeekEv := eui.NewButton()
+	stopSeek.Text = "Stop Seek"
+	stopSeek.SetTooltip("Stop seeking")
+	stopSeek.Size = eui.Point{X: 80, Y: 24}
+	stopSeekEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			p.repeat = !p.repeat
-			changeRepeatButton(p, p.repeatButton)
+			p.stopSeek()
 		}
 	}
-	bFlow.AddItem(repeatBtn)
+	bFlow.AddItem(stopSeek)
 
 	forwardb, fwdbEv := eui.NewButton()
 	forwardb.Text = ">>"
@@ -264,7 +260,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	spacer, _ := eui.NewText()
 	spacer.Text = ""
-	spacer.Size = eui.Point{X: 40, Y: 24}
+	spacer.Size = eui.Point{X: 20, Y: 24}
 	bFlow.AddItem(spacer)
 
 	half, halfEv := eui.NewButton()
@@ -292,7 +288,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	reset, resetEv := eui.NewButton()
 	reset.Text = "RESET"
 	reset.SetTooltip("Reset playback speed")
-	reset.Size = eui.Point{X: 140, Y: 24}
+	reset.Size = eui.Point{X: 80, Y: 24}
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(p.baseFPS)
@@ -340,10 +336,10 @@ func (p *moviePlayer) makePlaybackWindow() {
 	}
 	bFlow.AddItem(exitBtn)
 
-	buf := fmt.Sprintf("%v fps", p.fps)
 	fpsInfo, _ := eui.NewText()
-	fpsInfo.Text = buf
-	fpsInfo.Size = eui.Point{X: 100, Y: 24}
+	fpsInfo.Text = movieUPSValue(p.fps)
+	fpsInfo.SetTooltip("Playback updates per second")
+	fpsInfo.Size = eui.Point{X: 50, Y: 24}
 	fpsInfo.FontSize = 15
 	fpsInfo.Alignment = eui.ALIGN_CENTER
 	p.fpsLabel = fpsInfo
@@ -351,16 +347,6 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	flow.AddItem(bFlow)
 
-	stopSeek, stopSeekEv := eui.NewButton()
-	stopSeek.Text = "Stop Seek"
-	stopSeek.SetTooltip("Stop seeking.")
-	stopSeek.Size = eui.Point{X: 100, Y: 24}
-	stopSeekEv.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			p.stopSeek()
-		}
-	}
-	bFlow.AddItem(stopSeek)
 	win.AddItem(flow)
 
 	// Recompute window dimensions now that all controls are present
@@ -415,18 +401,6 @@ func changePlayButton(p *moviePlayer, play *eui.ItemData) {
 	} else {
 		play.Text = "Play"
 	}
-}
-
-func changeRepeatButton(p *moviePlayer, repeat *eui.ItemData) {
-	if repeat == nil {
-		return
-	}
-	if p.repeat {
-		repeat.Text = "no repeat"
-	} else {
-		repeat.Text = "repeat"
-	}
-	repeat.Dirty = true
 }
 
 func (p *moviePlayer) run(ctx context.Context) {
@@ -539,17 +513,22 @@ func (p *moviePlayer) updateUI() {
 	}
 
 	if p.fpsLabel != nil {
-		p.fpsLabel.Text = fmt.Sprintf("UPS: %v", p.fps)
+		p.fpsLabel.Text = movieUPSValue(p.fps)
 		p.fpsLabel.Dirty = true
 	}
 
 	if p.playButton != nil {
 		changePlayButton(p, p.playButton)
 	}
+}
 
-	if p.repeatButton != nil {
-		changeRepeatButton(p, p.repeatButton)
+func movieUPSValue(ups int) string {
+	if ups < 0 {
+		ups = 0
+	} else if ups > 9999 {
+		ups = 9999
 	}
+	return fmt.Sprintf("%04d", ups)
 }
 
 func (p *moviePlayer) setCurrentTimeLabel(idx int) {
@@ -645,6 +624,8 @@ func (p *moviePlayer) stopSeek() {
 func (p *moviePlayer) setFPS(fps int) {
 	if fps < 1 {
 		fps = 1
+	} else if fps > 9999 {
+		fps = 9999
 	}
 	p.fps = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))

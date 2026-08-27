@@ -45,4 +45,11 @@ func TestTooltipTextIsTruncatedAndWrapped(t *testing.T) {
 			t.Fatalf("line width %f exceeds %d: %q", width, tooltipMaxWidth, line)
 		}
 	}
+
+	spacing := tooltipLineSpacing(face)
+	_, multiHeight := text.Measure(wrapped, face, spacing)
+	_, singleHeight := text.Measure(strings.Split(wrapped, "\n")[0], face, spacing)
+	if multiHeight <= singleHeight {
+		t.Fatalf("multiline tooltip height = %f, want greater than one-line height %f", multiHeight, singleHeight)
+	}
 }

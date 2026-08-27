@@ -156,6 +156,43 @@ func TestUpdateGameImageSizeKeepsVisibleImageExactWhenShrinking(t *testing.T) {
 	}
 }
 
+func TestTiledGameResizeKeepsManagedWindowSize(t *testing.T) {
+	oldGameWin := gameWin
+	oldGameImageItem := gameImageItem
+	oldGameImage := gameImage
+	oldGameImageBacking := gameImageBacking
+	oldTiledWindows := gs.TiledWindows
+	oldInAspectResize := inAspectResize
+	defer func() {
+		gameWin = oldGameWin
+		gameImageItem = oldGameImageItem
+		gameImage = oldGameImage
+		gameImageBacking = oldGameImageBacking
+		gs.TiledWindows = oldTiledWindows
+		inAspectResize = oldInAspectResize
+	}()
+
+	gameImageItem = nil
+	gameImage = nil
+	gameImageBacking = nil
+	inAspectResize = false
+	gs.TiledWindows = true
+	gameWin = eui.NewWindow()
+	gameWin.NoScale = true
+	gameWin.Padding = 0
+	gameWin.Border = 0
+	gameWin.BorderPad = 0
+	gameWin.Margin = 0
+	gameWin.TitleHeight = 0
+	gameWin.Size = eui.Point{X: 600, Y: 800}
+
+	onGameWindowResize()
+
+	if got, want := gameWin.GetSize(), (eui.Point{X: 600, Y: 800}); got != want {
+		t.Fatalf("tiled game window size got %v, want %v", got, want)
+	}
+}
+
 func TestAltNetDelay(t *testing.T) {
 	full := 100 * time.Millisecond
 	var start time.Time

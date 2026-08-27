@@ -26,8 +26,11 @@ func TestDefaultWindowLayoutIsNormalizedAndGapless(t *testing.T) {
 	if gsdef.ToolbarPlacement != ToolbarInInventory {
 		t.Fatalf("default toolbar placement = %v, want inventory", gsdef.ToolbarPlacement)
 	}
-	if !gsdef.ToolbarInfoBar {
-		t.Fatal("toolbar info bar should default on")
+	if gsdef.ToolbarInfoBar {
+		t.Fatal("toolbar info bar should default off")
+	}
+	if !gsdef.TiledKeepGameLarge {
+		t.Fatal("tiled game window should default to its largest size")
 	}
 	if !gsdef.AutoResizeWindows {
 		t.Fatal("window layout auto-resize should default on")
@@ -154,7 +157,8 @@ func TestResetSavedWindowSettings(t *testing.T) {
 	gs.MovieWindow = WindowState{Open: true, Position: WindowPoint{X: 0.5, Y: 0.6}}
 	gs.ToolbarWindow = WindowState{Open: false, Position: WindowPoint{X: 0.7, Y: 0.8}}
 	gs.ToolbarPlacement = ToolbarFloating
-	gs.ToolbarInfoBar = false
+	gs.ToolbarInfoBar = true
+	gs.TiledKeepGameLarge = false
 
 	resetSavedWindowSettings()
 
@@ -167,7 +171,10 @@ func TestResetSavedWindowSettings(t *testing.T) {
 	if gs.ToolbarPlacement != ToolbarInInventory {
 		t.Fatalf("toolbar placement = %v, want inventory", gs.ToolbarPlacement)
 	}
-	if !gs.ToolbarInfoBar {
-		t.Fatal("toolbar info bar was not restored to its default")
+	if gs.ToolbarInfoBar {
+		t.Fatal("toolbar info bar was not restored to its off default")
+	}
+	if !gs.TiledKeepGameLarge {
+		t.Fatal("large tiled game mode was not restored to its default")
 	}
 }

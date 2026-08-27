@@ -30,6 +30,9 @@ var (
 	updateNow        time.Time
 
 	inputBuf []rune
+	// inputWindowOrder is reused each frame to mirror the workspace draw
+	// layers without allocating.
+	inputWindowOrder []*windowData
 
 	keyboardInputCaptured bool
 )
@@ -69,13 +72,13 @@ func Update() error {
 
 	mx, my := PointerPosition()
 	mpos := point{X: float32(mx), Y: float32(my)}
+	orderedWindows := windowsFrontToBack()
 
 	click := pointerJustPressed()
 	midClick := middleClickMove && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
 	if click || midClick {
 		downWin = nil
-		for i := len(windows) - 1; i >= 0; i-- {
-			win := windows[i]
+		for _, win := range orderedWindows {
 			if !win.Open {
 				continue
 			}
@@ -126,6 +129,15 @@ func Update() error {
 
 	delta := pointSub(mpos, mposOld)
 	c := ebiten.CursorShapeDefault
+	if dividerHandled, dividerCursor := updateTileDividerInput(mpos, click); dividerCursor != ebiten.CursorShapeDefault {
+		c = dividerCursor
+		if dividerHandled {
+			pointerPressHandled = true
+			click = false
+			midClick = false
+			downWin = nil
+		}
+	}
 
 	var chars []rune
 	if !keyboardInputCaptured {
@@ -141,8 +153,7 @@ func Update() error {
 	}
 
 	//Check all windows
-	for i := len(windows) - 1; i >= 0; i-- {
-		win := windows[i]
+	for _, win := range orderedWindows {
 		if !win.Open {
 			continue
 		}
@@ -637,8 +648,7 @@ func Update() error {
 	mposOld = mpos
 
 	if wheelDelta.X != 0 || wheelDelta.Y != 0 {
-		for i := len(windows) - 1; i >= 0; i-- {
-			win := windows[i]
+		for _, win := range orderedWindows {
 			if !win.Open {
 				continue
 			}
@@ -680,6 +690,21 @@ func Update() error {
 	}
 
 	return nil
+}
+
+func windowsFrontToBack() []*windowData {
+	inputWindowOrder = inputWindowOrder[:0]
+	for i := len(windows) - 1; i >= 0; i-- {
+		if !windows[i].Docked {
+			inputWindowOrder = append(inputWindowOrder, windows[i])
+		}
+	}
+	for i := len(windows) - 1; i >= 0; i-- {
+		if windows[i].Docked {
+			inputWindowOrder = append(inputWindowOrder, windows[i])
+		}
+	}
+	return inputWindowOrder
 }
 
 func (win *windowData) clickWindowItems(mpos point, click bool) bool {

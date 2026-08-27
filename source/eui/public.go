@@ -3,6 +3,7 @@ package eui
 import (
 	"bytes"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
@@ -15,6 +16,11 @@ func PointerPressWindow() *WindowData { return downWin }
 
 // PointerPressHandled reports whether EUI handled the pointer press this frame.
 func PointerPressHandled() bool { return pointerPressHandled }
+
+// PointerCursorClaimed reports whether EUI selected a non-default cursor for
+// the current frame. Callers that also manage the system cursor should not
+// overwrite it while this is true.
+func PointerCursorClaimed() bool { return cursorShape != ebiten.CursorShapeDefault }
 
 // WindowSnapping reports whether window snapping is enabled.
 func WindowSnapping() bool { return windowSnapping }

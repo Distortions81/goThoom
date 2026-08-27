@@ -58,3 +58,19 @@ func TestResetInterpolationClearsPositionHistory(t *testing.T) {
 		t.Fatal("status interpolation history was not reset to current values")
 	}
 }
+
+func TestMovieUPSValueIsFourDigits(t *testing.T) {
+	for _, test := range []struct {
+		ups  int
+		want string
+	}{
+		{ups: 1, want: "0001"},
+		{ups: 30, want: "0030"},
+		{ups: 9999, want: "9999"},
+		{ups: 12000, want: "9999"},
+	} {
+		if got := movieUPSValue(test.ups); got != test.want {
+			t.Errorf("movieUPSValue(%d) = %q, want %q", test.ups, got, test.want)
+		}
+	}
+}

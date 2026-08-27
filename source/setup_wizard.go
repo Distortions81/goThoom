@@ -244,11 +244,14 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 
 	toolbar, toolbarEvents := eui.NewDropdown()
 	toolbar.Label = "Toolbar placement"
-	toolbar.Options = []string{"Inside Inventory", "Inside Players", "Floating Window"}
+	toolbar.Options = []string{"Inside Inventory", "Inside Players"}
+	if !gs.TiledWindows {
+		toolbar.Options = append(toolbar.Options, "Floating Window")
+	}
 	toolbar.Selected = int(gs.ToolbarPlacement)
 	toolbar.Size = eui.Point{X: 320, Y: 24}
 	toolbarEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index <= int(ToolbarFloating) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index < len(toolbar.Options) {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
 		}
 	}
@@ -258,12 +261,9 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 		placeToolbar(gs.ToolbarPlacement, true)
 	}))
 
-	root.AddItem(setupWizardCheckbox("Auto-resize window layout", "Scale window positions and resizable windows when the main window changes size.", gs.AutoResizeWindows, func(checked bool) {
-		gs.AutoResizeWindows = checked
-		if checked {
-			applyManagedWindowLayout()
-		}
-		settingsDirty = true
+	root.AddItem(setupWizardCheckbox("Tiled window mode", "Arrange the main windows as one tiled workspace.", gs.TiledWindows, func(checked bool) {
+		gs.TiledWindows = checked
+		applyTiledWorkspaceLayout()
 	}))
 
 	placement, events := eui.NewDropdown()

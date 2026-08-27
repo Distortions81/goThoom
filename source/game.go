@@ -234,6 +234,7 @@ var (
 // classic client field box (547×540) defined in old_mac_client/client/source/
 // GameWin_cl.cp and Public_cl.h (Layout.layoFieldBox).
 var gameWin *eui.WindowData
+var gameWindowFreeformTitleHeight float32
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var qualityWin *eui.WindowData
@@ -1247,11 +1248,14 @@ func (g *Game) Update() error {
 		walk = false
 	}
 
-	/* Change Cursor */
-	if walk && !keyWalk {
-		ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
-	} else {
-		ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+	/* Change Cursor. EUI runs earlier in this frame, so preserve any cursor it
+	selected for a divider, window edge, link, or text control. */
+	if !eui.PointerCursorClaimed() {
+		if walk && !keyWalk {
+			ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
+		} else {
+			ebiten.SetCursorShape(ebiten.CursorShapeDefault)
+		}
 	}
 
 	// If the pointer is outside the game window and we're not walking,
@@ -3027,7 +3031,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	if uiReady {
 		if !windowsRestored {
 			restoreWindowsAfterScale()
-		} else if gs.AutoResizeWindows && managedWindowLayoutChanged() {
+		} else if (gs.TiledWindows || gs.AutoResizeWindows) && managedWindowLayoutChanged() {
 			applyManagedWindowLayout()
 		}
 	}
@@ -3107,9 +3111,10 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = eui.NewWindow()
+	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
 	updateGameWindowTitle()
 	gameWin.Closable = false
-	gameWin.Resizable = true
+	gameWin.Resizable = !gs.TiledWindows
 	gameWin.NoBGColor = true
 	gameWin.Movable = true
 	gameWin.NoScroll = true
@@ -3122,7 +3127,7 @@ func makeGameWindow() {
 	gameWin.Size = eui.Point{X: 8000, Y: 8000}
 	gameWin.OnResize = func() { onGameWindowResize() }
 	// Titlebar maximize button controlled by settings (now default on)
-	gameWin.Maximizable = true
+	gameWin.Maximizable = !gs.TiledWindows
 	// Keep same horizontal center on maximize
 	gameWin.OnMaximize = func() {
 		if gameWin == nil {
@@ -3176,6 +3181,15 @@ func onGameWindowResize() {
 	}
 	if inAspectResize {
 		updateGameImageSize()
+		return
+	}
+	// The tiled layout owns the outer window geometry. Constraining that
+	// rectangle to the playfield aspect ratio shrinks the managed tile and
+	// leaves an unused strip (most noticeably with the titlebar hidden).
+	// Keep the assigned tile intact and fit the rendered game within it.
+	if gs.TiledWindows {
+		updateGameImageSize()
+		layoutNotifications()
 		return
 	}
 

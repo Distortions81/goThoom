@@ -713,13 +713,22 @@ func dropdownOpenRect(item *itemData, offset point) (rect, int) {
 func (win *windowData) getWindowPart(mpos point, click bool) dragType {
 	s := win.scale()
 	mpos = point{X: mpos.X * s, Y: mpos.Y * s}
+	if win.Docked {
+		// Docked panes retain title-bar search and content scrollbars, but the
+		// workspace owns their move, resize, close, and maximize interactions.
+		if win.TitleHeight > 0 && win.getTitleRect().containsPoint(mpos) && win.Searchable && win.searchRect().containsPoint(mpos) {
+			win.HoverSearch = true
+			return PART_SEARCH
+		}
+		return win.getScrollbarPart(mpos)
+	}
 	if part := win.getTitlebarPart(mpos); part != PART_NONE {
 		return part
 	}
 	if part := win.getResizePart(mpos); part != PART_NONE {
 		return part
 	}
-	if !win.Resizable {
+	if !win.Resizable && win.Movable {
 		ct := cornerTolerance * s
 		winRect := win.getWinRect()
 		inCorner := func(x0, y0 float32) bool {
@@ -730,6 +739,16 @@ func (win *windowData) getWindowPart(mpos point, click bool) dragType {
 		}
 	}
 	return win.getScrollbarPart(mpos)
+}
+
+// SetDocked switches a window between standalone and workspace-owned input
+// and rendering behavior.
+func (win *windowData) SetDocked(docked bool) {
+	if win.Docked == docked {
+		return
+	}
+	win.Docked = docked
+	win.Dirty = true
 }
 
 func (win *windowData) getTitlebarPart(mpos point) dragType {
@@ -1188,9 +1207,14 @@ func (item *itemData) updateTooltipBounds() {
 	faceSize := float32(12) * uiScale
 	face := textFace(faceSize)
 	item.Tooltip = wrapTooltip(item.tooltipRaw, face, tooltipMaxWidth*float64(uiScale))
-	w, h := text.Measure(item.Tooltip, face, 0)
+	w, h := text.Measure(item.Tooltip, face, tooltipLineSpacing(face))
 	item.tooltipW = float32(w)
 	item.tooltipH = float32(h)
+}
+
+func tooltipLineSpacing(face text.Face) float64 {
+	metrics := face.Metrics()
+	return math.Ceil(metrics.HAscent + metrics.HDescent + 2*float64(uiScale))
 }
 
 func truncateTooltip(tip string) string {

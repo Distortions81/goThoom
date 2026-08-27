@@ -48,6 +48,9 @@ var downloadWin *eui.WindowData
 var precacheWin *eui.WindowData
 var charactersList *eui.ItemData
 var advancedWin *eui.WindowData
+var tileLayoutWin *eui.WindowData
+var settingsToolbarPlacementDD *eui.ItemData
+var settingsCombineMessagesCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
 var addCharWin *eui.WindowData
@@ -152,7 +155,6 @@ var (
 	totalCacheLabel        *eui.ItemData
 
 	recordBtn          *eui.ItemData
-	recordStatus       *eui.ItemData
 	recordPath         string
 	qualityPresetDD    *eui.ItemData
 	shaderLightSlider  *eui.ItemData
@@ -508,13 +510,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	*/
 
 	// Removed toolbar volume slider and mute button (use Mixer instead)
-
-	recordStatus, _ = eui.NewText()
-	recordStatus.Text = ""
-	recordStatus.Size = eui.Point{X: 80, Y: buttonHeight}
-	recordStatus.FontSize = toolFontSize
-	recordStatus.Color = eui.ColorRed
-	row2.AddItem(recordStatus)
 
 	menu.AddItem(row1)
 	menu.AddItem(row2)
@@ -1608,7 +1603,8 @@ func makeMixerWindow() {
 	// effects and bard tunes are rendered, just as the channel controls change
 	// their level. The sliders preserve the existing default mix at 1.00.
 	enhanceCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 180, Y: 140}}
-	soundEnhanceMixCB, soundEnhanceEvents := eui.NewCheckbox()
+	var soundEnhanceEvents *eui.EventHandler
+	soundEnhanceMixCB, soundEnhanceEvents = eui.NewCheckbox()
 	soundEnhanceMixCB.Text = "Enhance sound effects"
 	soundEnhanceMixCB.Size = eui.Point{X: 180, Y: 24}
 	soundEnhanceMixCB.SetTooltip("Add ambience to newly played game sound effects.")
@@ -1647,7 +1643,8 @@ func makeMixerWindow() {
 	}
 	enhanceCol.AddItem(soundEnhanceSlider)
 
-	musicEnhanceMixCB, musicEnhanceEvents := eui.NewCheckbox()
+	var musicEnhanceEvents *eui.EventHandler
+	musicEnhanceMixCB, musicEnhanceEvents = eui.NewCheckbox()
 	musicEnhanceMixCB.Text = "Enhance bard music"
 	musicEnhanceMixCB.Size = eui.Point{X: 180, Y: 24}
 	musicEnhanceMixCB.SetTooltip("Add ambience to newly started bard music.")
@@ -1832,6 +1829,9 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	if placement < ToolbarInInventory || placement > ToolbarFloating {
 		placement = ToolbarInInventory
 	}
+	if gs.TiledWindows && placement == ToolbarFloating {
+		placement = ToolbarInInventory
+	}
 	var oldHost *eui.WindowData
 	if toolbarRoot != nil {
 		oldHost = toolbarRoot.ParentWindow
@@ -1854,6 +1854,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	}
 
 	gs.ToolbarPlacement = placement
+	refreshToolbarPlacementControl()
 	toolbarRoot = buildToolbarRoot(placement != ToolbarFloating)
 	switch placement {
 	case ToolbarInInventory:
@@ -1888,6 +1889,21 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	updateRecordButton()
 	if dirty {
 		settingsDirty = true
+	}
+}
+
+func refreshToolbarPlacementControl() {
+	if settingsToolbarPlacementDD == nil {
+		return
+	}
+	settingsToolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players"}
+	if !gs.TiledWindows {
+		settingsToolbarPlacementDD.Options = append(settingsToolbarPlacementDD.Options, "Floating Window")
+	}
+	settingsToolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
+	settingsToolbarPlacementDD.Dirty = true
+	if settingsWin != nil {
+		settingsWin.Refresh()
 	}
 }
 
@@ -3624,25 +3640,37 @@ func makeSettingsWindow() {
 		}
 	}
 
-	autoResizeCB, autoResizeEvents := eui.NewCheckbox()
-	autoResizeCB.Text = "Auto-resize window layout"
-	autoResizeCB.Size = eui.Point{X: panelWidth, Y: 24}
-	autoResizeCB.Checked = gs.AutoResizeWindows
-	autoResizeCB.SetTooltip("Scale layouts with the app window.")
-	autoResizeEvents.Handle = func(ev eui.UIEvent) {
+	tiledModeCB, tiledModeEvents := eui.NewCheckbox()
+	tiledModeCB.Text = "Tiled window mode"
+	tiledModeCB.Size = eui.Point{X: panelWidth, Y: 24}
+	tiledModeCB.Checked = gs.TiledWindows
+	tiledModeCB.SetTooltip("Arrange the Game, Inventory, Players, Console, and Chat windows as one tiled workspace.")
+	tiledModeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.AutoResizeWindows = ev.Checked
-			if gs.AutoResizeWindows {
-				applyManagedWindowLayout()
-			}
-			settingsDirty = true
+			gs.TiledWindows = ev.Checked
+			applyTiledWorkspaceLayout()
 		}
 	}
-	windowSection.AddItem(autoResizeCB)
+	windowSection.AddItem(tiledModeCB)
+
+	tiledLayoutBtn, tiledLayoutEvents := eui.NewButton()
+	tiledLayoutBtn.Text = "Tiled Layout"
+	tiledLayoutBtn.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
+	tiledLayoutBtn.SetTooltip("Arrange the main windows as a tiled workspace.")
+	tiledLayoutEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeTileLayoutWindow()
+			tileLayoutWin.ToggleNear(ev.Item)
+		}
+	}
 
 	toolbarPlacementDD, toolbarPlacementEvents := eui.NewDropdown()
+	settingsToolbarPlacementDD = toolbarPlacementDD
 	toolbarPlacementDD.Label = "Toolbar Placement"
-	toolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players", "Floating Window"}
+	toolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players"}
+	if !gs.TiledWindows {
+		toolbarPlacementDD.Options = append(toolbarPlacementDD.Options, "Floating Window")
+	}
 	toolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
 	toolbarPlacementDD.Size = eui.Point{X: panelWidth, Y: 24}
 	toolbarPlacementEvents.Handle = func(ev eui.UIEvent) {
@@ -3653,8 +3681,8 @@ func makeSettingsWindow() {
 	windowSection.AddItem(toolbarPlacementDD)
 
 	toolbarInfoCB, toolbarInfoEvents := eui.NewCheckbox()
-	toolbarInfoCB.Text = "Show Toolbar Info Bar"
-	toolbarInfoCB.Size = eui.Point{X: panelWidth, Y: 24}
+	toolbarInfoCB.Text = "Toolbar Info"
+	toolbarInfoCB.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
 	toolbarInfoCB.Checked = gs.ToolbarInfoBar
 	toolbarInfoCB.SetTooltip("Show network and performance stats.")
 	toolbarInfoEvents.Handle = func(ev eui.UIEvent) {
@@ -3663,7 +3691,10 @@ func makeSettingsWindow() {
 			placeToolbar(gs.ToolbarPlacement, true)
 		}
 	}
-	windowSection.AddItem(toolbarInfoCB)
+	layoutToolsRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	layoutToolsRow.AddItem(tiledLayoutBtn)
+	layoutToolsRow.AddItem(toolbarInfoCB)
+	windowSection.AddItem(layoutToolsRow)
 
 	// UI scale is always available: users need a direct recovery path if a
 	// display's DPI report is unusual. Retina/HiDPI scaling is applied on top
@@ -3897,21 +3928,14 @@ func makeSettingsWindow() {
 	controlsSection.AddItem(inputOpenCB)
 
 	bubbleMsgCB, bubbleMsgEvents := eui.NewCheckbox()
+	settingsCombineMessagesCB = bubbleMsgCB
 	bubbleMsgCB.Text = "Combine chat + console"
 	bubbleMsgCB.Size = eui.Point{X: panelWidth, Y: 24}
 	bubbleMsgCB.Checked = gs.MessagesToConsole
 	bubbleMsgEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			defer SettingsLock.Unlock()
-
 			gs.MessagesToConsole = ev.Checked
-			settingsDirty = true
-			if ev.Checked {
-				if chatWin != nil {
-					chatWin.Close()
-				}
-			}
+			applyTiledWorkspaceLayout()
 		}
 	}
 	chatSection.AddItem(bubbleMsgCB)
@@ -4302,6 +4326,7 @@ func makeSettingsWindow() {
 		}
 	}
 	moreSection.AddItem(advancedBtn)
+
 	// Keep the Window & Display pane balanced: the UI Scale row belongs there,
 	// while layout recovery is an infrequent action that fits naturally with
 	// the other additional tools.
@@ -5579,6 +5604,160 @@ func makeQualityWindow() {
 	outer.AddItem(center)
 	qualityWin.AddItem(outer)
 	qualityWin.AddWindow(false)
+}
+
+func applyTiledWorkspaceLayout() {
+	clampTiledLayoutSettings()
+	if gs.TiledWindows && gs.ToolbarPlacement == ToolbarFloating {
+		placeToolbar(ToolbarInInventory, true)
+	}
+	refreshToolbarPlacementControl()
+	if gs.TiledWindows && gs.TiledLayout == TiledLayoutSide && !gs.MessagesToConsole {
+		// The alternate workspace has one shared messages pane beneath its
+		// top lists, so selecting it also combines chat and console output.
+		gs.MessagesToConsole = true
+	}
+	if settingsCombineMessagesCB != nil {
+		settingsCombineMessagesCB.Checked = gs.MessagesToConsole
+		settingsCombineMessagesCB.Dirty = true
+		if settingsWin != nil {
+			settingsWin.Refresh()
+		}
+	}
+	if gs.MessagesToConsole {
+		if chatWin != nil {
+			chatWin.Close()
+		}
+		gs.ChatWindow.Open = false
+	} else {
+		gs.ChatWindow.Open = true
+		if chatWin == nil {
+			_ = makeChatWindow()
+		} else {
+			chatWin.MarkOpen()
+		}
+	}
+	applyManagedWindowLayout()
+	if inventoryWin != nil {
+		updateInventoryWindow()
+	}
+	if playersWin != nil {
+		updatePlayersWindow()
+	}
+	if consoleWin != nil {
+		updateConsoleWindow()
+	}
+	if chatWin != nil {
+		updateChatWindow()
+	}
+	settingsDirty = true
+}
+
+func makeTileLayoutWindow() {
+	if tileLayoutWin != nil {
+		return
+	}
+	const width float32 = 310
+	tileLayoutWin = eui.NewWindow()
+	tileLayoutWin.Title = "Tiled Window Layout"
+	tileLayoutWin.Closable = true
+	tileLayoutWin.Resizable = false
+	tileLayoutWin.AutoSize = true
+	tileLayoutWin.Movable = true
+	tileLayoutWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	workspace := newConfigurationSection("Workspace", width)
+	arrangement := newConfigurationSection("Arrangement", width)
+	flow.AddItem(workspace)
+	flow.AddItem(arrangement)
+
+	tiledCB, tiledEvents := eui.NewCheckbox()
+	tiledCB.Text = "Use tiled window layout"
+	tiledCB.Size = eui.Point{X: width, Y: 24}
+	tiledCB.Checked = gs.TiledWindows
+	tiledCB.SetTooltip("Keep the main windows aligned as a workspace. Turn this off for freeform windows.")
+	tiledEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.TiledWindows = ev.Checked
+			applyTiledWorkspaceLayout()
+		}
+	}
+	workspace.AddItem(tiledCB)
+
+	keepGameLargeCB, keepGameLargeEvents := eui.NewCheckbox()
+	keepGameLargeCB.Text = "Keep game window large"
+	keepGameLargeCB.Size = eui.Point{X: width, Y: 24}
+	keepGameLargeCB.Checked = gs.TiledKeepGameLarge
+	keepGameLargeCB.SetTooltip("Keep the centered game pane at its largest square size. Drag either vertical divider to move it left or right.")
+	keepGameLargeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.TiledKeepGameLarge = ev.Checked
+			applyTiledWorkspaceLayout()
+		}
+	}
+	workspace.AddItem(keepGameLargeCB)
+
+	layoutDD, layoutEvents := eui.NewDropdown()
+	layoutDD.Label = "Layout"
+	layoutDD.Options = []string{"Game centered", "Game on a side"}
+	layoutDD.Selected = int(gs.TiledLayout)
+	layoutDD.Size = eui.Point{X: width, Y: 24}
+	layoutEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			gs.TiledLayout = TiledLayout(ev.Index)
+			applyTiledWorkspaceLayout()
+		}
+	}
+	arrangement.AddItem(layoutDD)
+
+	topDD, topEvents := eui.NewDropdown()
+	topDD.Label = "Inventory / Players"
+	topDD.Options = []string{"Inventory left, Players right", "Players left, Inventory right"}
+	if !gs.TiledInventoryLeft {
+		topDD.Selected = 1
+	}
+	topDD.Size = eui.Point{X: width, Y: 24}
+	topEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			gs.TiledInventoryLeft = ev.Index == 0
+			applyTiledWorkspaceLayout()
+		}
+	}
+	arrangement.AddItem(topDD)
+
+	bottomDD, bottomEvents := eui.NewDropdown()
+	bottomDD.Label = "Console / Chat"
+	bottomDD.Options = []string{"Console left, Chat right", "Chat left, Console right"}
+	if !gs.TiledConsoleLeft {
+		bottomDD.Selected = 1
+	}
+	bottomDD.Size = eui.Point{X: width, Y: 24}
+	bottomEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			gs.TiledConsoleLeft = ev.Index == 0
+			applyTiledWorkspaceLayout()
+		}
+	}
+	arrangement.AddItem(bottomDD)
+
+	gameSideDD, gameSideEvents := eui.NewDropdown()
+	gameSideDD.Label = "Alternate game side"
+	gameSideDD.Options = []string{"Game left", "Game right"}
+	if !gs.TiledGameLeft {
+		gameSideDD.Selected = 1
+	}
+	gameSideDD.Size = eui.Point{X: width, Y: 24}
+	gameSideEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			gs.TiledGameLeft = ev.Index == 0
+			applyTiledWorkspaceLayout()
+		}
+	}
+	arrangement.AddItem(gameSideDD)
+
+	tileLayoutWin.AddItem(flow)
+	tileLayoutWin.AddWindow(false)
 }
 
 func makeNotificationsWindow() {

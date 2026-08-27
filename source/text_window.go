@@ -62,6 +62,12 @@ func sizeTextWindowList(list *eui.ItemData, clientW, clientH float32) {
 	if list == nil {
 		return
 	}
+	scale := eui.UIScale()
+	if scale <= 0 {
+		scale = 1
+	}
+	clientW /= scale
+	clientH /= scale
 	extraH := float32(0)
 	if list.Parent != nil {
 		list.Parent.Size.X = clientW
@@ -121,6 +127,9 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	// Compute a row height from actual font metrics (ascent+descent) to
 	// avoid clipping at large sizes. Convert pixels to item units.
 	ui := eui.UIScale()
+	if ui <= 0 {
+		ui = 1
+	}
 	// Match the render-time face size used by EUI text items
 	// (EUI renders with size = fontSize*ui + 2). Using the same value here
 	// ensures wrap measurements align with what actually gets drawn.
@@ -149,6 +158,9 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	}
 	// Use the effective content width in pixels for wrapping.
 	wrapWidthPx := float64(contentW - 3*pad)
+	contentWUnits := contentW / ui
+	clientWUnits := clientWAvail / ui
+	clientHUnits := clientHAvail / ui
 
 	for i, msg := range msgs {
 		// Word-wrap the message to the available width.
@@ -165,7 +177,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			}
 			list.Contents[i].Face = face
 			list.Contents[i].Size.Y = rowUnits * float32(linesN)
-			list.Contents[i].Size.X = contentW
+			list.Contents[i].Size.X = contentWUnits
 			list.Contents[i].SelectableText = true
 			list.Contents[i].Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
 			list.Contents[i].Color = alternateRowColor()
@@ -175,7 +187,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			t.Text = wrapped
 			t.FontSize = float32(fontSize)
 			t.Face = face
-			t.Size = eui.Point{X: contentW, Y: rowUnits * float32(linesN)}
+			t.Size = eui.Point{X: contentWUnits, Y: rowUnits * float32(linesN)}
 			t.SelectableText = true
 			t.Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
 			t.Color = alternateRowColor()
@@ -211,7 +223,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			inLinesN = 1
 		}
 		inputContentH := rowUnits * float32(inLinesN)
-		maxInputH := clientHAvail / 2
+		maxInputH := clientHUnits / 2
 		if inputContentH > maxInputH {
 			input.Size.Y = maxInputH
 			input.Scrollable = true
@@ -219,13 +231,13 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			input.Size.Y = inputContentH
 			input.Scrollable = false
 		}
-		input.Size.X = contentW
+		input.Size.X = contentWUnits
 		if len(input.Contents) == 0 {
 			t, _ := eui.NewText()
 			t.Text = wrappedIn
 			t.FontSize = float32(fontSize)
 			t.Face = face
-			t.Size = eui.Point{X: contentW, Y: inputContentH}
+			t.Size = eui.Point{X: contentWUnits, Y: inputContentH}
 			t.Filled = true
 			t.SelectableText = inputActive
 			t.Underlines = miss
@@ -236,7 +248,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 				input.Contents[0].FontSize = float32(fontSize)
 			}
 			input.Contents[0].Face = face
-			input.Contents[0].Size.X = contentW
+			input.Contents[0].Size.X = contentWUnits
 			input.Contents[0].Size.Y = inputContentH
 			input.Contents[0].SelectableText = inputActive
 			input.Contents[0].Underlines = miss
@@ -256,20 +268,20 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	// Size the flow to the client area, and the list to fill above any bottom items and optional input.
 	var extraH float32
 	if list.Parent != nil {
-		list.Parent.Size.X = clientWAvail
-		list.Parent.Size.Y = clientHAvail
+		list.Parent.Size.X = clientWUnits
+		list.Parent.Size.Y = clientHUnits
 		for _, c := range list.Parent.Contents {
 			if c != list && c != input {
-				c.Size.X = clientWAvail
+				c.Size.X = clientWUnits
 				extraH += c.Size.Y
 			}
 		}
 	}
-	list.Size.X = clientWAvail
+	list.Size.X = clientWUnits
 	if input != nil {
-		list.Size.Y = clientHAvail - input.Size.Y - extraH
+		list.Size.Y = max(0, clientHUnits-input.Size.Y-extraH)
 	} else {
-		list.Size.Y = clientHAvail - extraH
+		list.Size.Y = max(0, clientHUnits-extraH)
 	}
 	// Do not refresh here unconditionally; callers decide when to refresh.
 }

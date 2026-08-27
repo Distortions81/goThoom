@@ -68,9 +68,9 @@ func Draw(screen *ebiten.Image) {
 	if cap(dropdowns) < len(windows) {
 		dropdowns = make([]openDropdown, 0, len(windows))
 	}
-	for _, win := range windows {
+	drawWindow := func(win *windowData) {
 		if !win.Open {
-			continue
+			return
 		}
 		if win.refreshPending && (win.lastRefresh.IsZero() || renderNow.Sub(win.lastRefresh) >= win.refreshInterval) {
 			win.refreshPending = false
@@ -82,6 +82,20 @@ func Draw(screen *ebiten.Image) {
 			win.Dirty = true
 		}
 		win.Draw(screen, &dropdowns)
+	}
+	// Docked panes form the workspace's base layer. Draw its gutters over the
+	// panes, then draw standalone utility windows so they remain ordinary
+	// floating windows above the workspace.
+	for _, win := range windows {
+		if win.Docked {
+			drawWindow(win)
+		}
+	}
+	drawTileDividers(screen)
+	for _, win := range windows {
+		if !win.Docked {
+			drawWindow(win)
+		}
 	}
 
 	screenClip := rect{X0: 0, Y0: 0, X1: float32(screenWidth), Y1: float32(screenHeight)}
@@ -152,7 +166,12 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 
 	dop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	dop.GeoM.Translate(float64(x+pad), float64(y+pad))
-	top := &text.DrawOptions{DrawImageOptions: dop}
+	top := &text.DrawOptions{
+		DrawImageOptions: dop,
+		LayoutOptions: text.LayoutOptions{
+			LineSpacing: tooltipLineSpacing(face),
+		},
+	}
 	top.ColorScale.ScaleWithColor(fg)
 	text.Draw(screen, item.Tooltip, face, top)
 }
@@ -284,7 +303,7 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 	if win.NoBGColor {
 		return
 	}
-	if windowShadows && win.ShadowSize > 0 && win.ShadowColor.A > 0 {
+	if !win.Docked && windowShadows && win.ShadowSize > 0 && win.ShadowColor.A > 0 {
 		rr := roundRect{
 			Size:     win.GetSize(),
 			Position: win.getPosition(),
@@ -300,10 +319,14 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 		X1: win.getPosition().X + win.GetSize().X - win.BorderPad*win.scale(),
 		Y1: win.getPosition().Y + win.GetSize().Y - win.BorderPad*win.scale(),
 	}
+	fillet := win.Fillet
+	if win.Docked {
+		fillet = 0
+	}
 	drawRoundRect(screen, &roundRect{
 		Size:     point{X: r.X1 - r.X0, Y: r.Y1 - r.Y0},
 		Position: point{X: r.X0, Y: r.Y0},
-		Fillet:   win.Fillet,
+		Fillet:   fillet,
 		Filled:   true,
 		Color:    win.backgroundColor(),
 	})
@@ -476,8 +499,10 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 }
 
 func (win *windowData) drawBorder(screen *ebiten.Image) {
-	//Draw borders
-	if win.Outlined && win.Border > 0 {
+	// Tiled workspaces draw their boundaries through TileDividers. Outlining
+	// each docked pane would also stroke the outside edge of the screen and
+	// double-draw shared pane edges.
+	if win.drawsStandaloneOutline() {
 		FrameColor := win.Theme.Window.BorderColor
 		if activeWindow == win {
 			FrameColor = win.Theme.Window.ActiveColor
@@ -486,9 +511,13 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 		}
 		drawWindowOutline(screen, win.getPosition(), win.GetSize(), win.Fillet, win.Border, FrameColor)
 	}
-	if win.Resizable {
+	if win.Resizable && !win.Docked {
 		win.drawResizeThumb(screen)
 	}
+}
+
+func (win *windowData) drawsStandaloneOutline() bool {
+	return !win.Docked && win.Outlined && win.Border > 0
 }
 
 func drawWindowOutline(screen *ebiten.Image, pos, size point, fillet, border float32, col Color) {
