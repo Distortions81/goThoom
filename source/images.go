@@ -449,7 +449,138 @@ func upscaleTransientSpriteImageWithMode(img *ebiten.Image, factor, mode int) *e
 }
 
 func upscaleCachedSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
-	return upscaleSpriteImageWithModeAndLifetime(img, factor, artworkUpscaleMode(), false)
+	if img == nil {
+		return nil
+	}
+	source := readImageRGBA(img)
+	return upscaleCachedSpriteRegionCPU(source, source.Bounds(), factor, artworkUpscaleMode())
+}
+
+func upscaleCachedSpriteRegionCPU(source *image.RGBA, sourceRect image.Rectangle, factor, mode int) *ebiten.Image {
+	return newManagedImageFromImage(upscaleSpriteRegionCPU(source, sourceRect, factor, mode))
+}
+
+type upscaleRGBA struct {
+	r float32
+	g float32
+	b float32
+	a float32
+}
+
+func readImageRGBA(img *ebiten.Image) *image.RGBA {
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	pixels := make([]byte, w*h*4)
+	img.ReadPixels(pixels)
+	return &image.RGBA{Pix: pixels, Stride: w * 4, Rect: image.Rect(0, 0, w, h)}
+}
+
+func rgbaPixelAt(img *image.RGBA, x, y int) upscaleRGBA {
+	offset := img.PixOffset(x, y)
+	return upscaleRGBA{
+		r: float32(img.Pix[offset]),
+		g: float32(img.Pix[offset+1]),
+		b: float32(img.Pix[offset+2]),
+		a: float32(img.Pix[offset+3]),
+	}
+}
+
+func absFloat32(v float32) float32 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+func upscaleColorDistance(a, b upscaleRGBA) float32 {
+	aa := max(a.a, 1)
+	ba := max(b.a, 1)
+	dr := absFloat32(a.r/aa - b.r/ba)
+	dg := absFloat32(a.g/aa - b.g/ba)
+	db := absFloat32(a.b/aa - b.b/ba)
+	luma := dr*0.299 + dg*0.587 + db*0.114
+	chroma := max(dr, max(dg, db)) - min(dr, min(dg, db))
+	return absFloat32(a.a-b.a)/255*1.5 + luma*0.75 + chroma*0.25
+}
+
+func mixUpscaleColor(a, b upscaleRGBA, amount float32) upscaleRGBA {
+	return upscaleRGBA{
+		r: a.r + (b.r-a.r)*amount,
+		g: a.g + (b.g-a.g)*amount,
+		b: a.b + (b.b-a.b)*amount,
+		a: a.a + (b.a-a.a)*amount,
+	}
+}
+
+func averageUpscaleColor(a, b upscaleRGBA) upscaleRGBA {
+	return upscaleRGBA{
+		r: (a.r + b.r) * 0.5,
+		g: (a.g + b.g) * 0.5,
+		b: (a.b + b.b) * 0.5,
+		a: (a.a + b.a) * 0.5,
+	}
+}
+
+func upscaleByte(v float32) byte {
+	return byte(min(255, max(0, int(v+0.5))))
+}
+
+// upscaleSpriteRegionCPU is the CPU equivalent of sprite_upscale.kage. It
+// operates on one frame or pose so neighbor sampling remains clamped to that
+// frame's boundaries.
+func upscaleSpriteRegionCPU(source *image.RGBA, sourceRect image.Rectangle, factor, mode int) *image.RGBA {
+	sourceRect = sourceRect.Intersect(source.Bounds())
+	if sourceRect.Empty() || factor < 1 {
+		return image.NewRGBA(image.Rectangle{})
+	}
+	destination := image.NewRGBA(image.Rect(0, 0, sourceRect.Dx()*factor, sourceRect.Dy()*factor))
+	reach := artworkUpscaleCornerReachForMode(mode)
+	strength := artworkUpscaleBlendStrengthForMode(mode)
+	for sy := sourceRect.Min.Y; sy < sourceRect.Max.Y; sy++ {
+		for sx := sourceRect.Min.X; sx < sourceRect.Max.X; sx++ {
+			center := rgbaPixelAt(source, sx, sy)
+			top := rgbaPixelAt(source, sx, max(sourceRect.Min.Y, sy-1))
+			left := rgbaPixelAt(source, max(sourceRect.Min.X, sx-1), sy)
+			right := rgbaPixelAt(source, min(sourceRect.Max.X-1, sx+1), sy)
+			bottom := rgbaPixelAt(source, sx, min(sourceRect.Max.Y-1, sy+1))
+			edgeCrosses := upscaleColorDistance(top, bottom) > 0.07 && upscaleColorDistance(left, right) > 0.07
+			topLeft := edgeCrosses && upscaleColorDistance(left, top) < 0.16
+			topRight := edgeCrosses && upscaleColorDistance(top, right) < 0.16
+			bottomLeft := edgeCrosses && upscaleColorDistance(left, bottom) < 0.16
+			bottomRight := edgeCrosses && upscaleColorDistance(bottom, right) < 0.16
+			for oy := 0; oy < factor; oy++ {
+				localY := (float32(oy) + 0.5) / float32(factor)
+				for ox := 0; ox < factor; ox++ {
+					localX := (float32(ox) + 0.5) / float32(factor)
+					target := center
+					weight := float32(0)
+					switch {
+					case localX < 0.5 && localY < 0.5 && topLeft:
+						target = averageUpscaleColor(left, top)
+						weight = max(0, min(1, reach-2*(localX+localY)))
+					case localX >= 0.5 && localY < 0.5 && topRight:
+						target = averageUpscaleColor(top, right)
+						weight = max(0, min(1, reach-2*((1-localX)+localY)))
+					case localX < 0.5 && localY >= 0.5 && bottomLeft:
+						target = averageUpscaleColor(left, bottom)
+						weight = max(0, min(1, reach-2*(localX+(1-localY))))
+					case localX >= 0.5 && localY >= 0.5 && bottomRight:
+						target = averageUpscaleColor(bottom, right)
+						weight = max(0, min(1, reach-2*((1-localX)+(1-localY))))
+					}
+					result := mixUpscaleColor(center, target, weight*strength)
+					dx := (sx-sourceRect.Min.X)*factor + ox
+					dy := (sy-sourceRect.Min.Y)*factor + oy
+					offset := destination.PixOffset(dx, dy)
+					destination.Pix[offset] = upscaleByte(result.r)
+					destination.Pix[offset+1] = upscaleByte(result.g)
+					destination.Pix[offset+2] = upscaleByte(result.b)
+					destination.Pix[offset+3] = upscaleByte(result.a)
+				}
+			}
+		}
+	}
+	return destination
 }
 
 func upscaleSpriteImageWithModeAndLifetime(img *ebiten.Image, factor, mode int, managed bool) *ebiten.Image {
