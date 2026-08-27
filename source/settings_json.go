@@ -134,6 +134,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "NightEffect", category: settingsRendering, name: "night_effect"},
 	{field: "ShadersEnabled", category: settingsRendering, name: "shaders_enabled"},
 	{field: "ShaderLighting", category: settingsRendering, name: "shader_lighting"},
+	{field: "MobileLightConeShadows", category: settingsRendering, name: "mobile_light_cone_shadows"},
 	{field: "ReplacementEffects", category: settingsRendering, name: "replacement_effects"},
 	{field: "ShaderLightStrength", category: settingsRendering, name: "light_strength"},
 	{field: "ShaderGlowStrength", category: settingsRendering, name: "glow_strength"},
@@ -183,6 +184,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "PowerSaveFPS", category: settingsPerformance, name: "power_save_fps"},
 	{field: "PotatoGPU", category: settingsPerformance, name: "integrated_or_low_memory_gpu_mode"},
 	{field: "BatchArtworkLoading", category: settingsPerformance, name: "batch_room_artwork_loading"},
+	{field: "AssetActivityIndicators", category: settingsPerformance, name: "show_asset_activity_indicators"},
 	{field: "PrecacheSounds", category: settingsPerformance, name: "precache_sounds"},
 	{field: "PromptDisableShaders", category: settingsPerformance, name: "prompt_to_disable_slow_shaders"},
 

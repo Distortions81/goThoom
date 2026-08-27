@@ -432,6 +432,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 	if len(work) == 0 {
 		return 0
 	}
+	noteClientActivity(clientActivityData)
 
 	decodeJobs := make([]func(), len(work))
 	for index := range work {

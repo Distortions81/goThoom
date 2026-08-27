@@ -15,6 +15,12 @@ type frameBlendDrawOptions struct {
 	Linear         bool
 }
 
+// premultipliedDrawColor converts a straight-alpha tint into the format used
+// by Ebitengine's sprite ColorScale and our frame-blend shader output.
+func premultipliedDrawColor(red, green, blue, alpha float32) (float32, float32, float32, float32) {
+	return red * alpha, green * alpha, blue * alpha, alpha
+}
+
 func drawFrameBlend(destination, previous, current *ebiten.Image, options frameBlendDrawOptions) bool {
 	if destination == nil || previous == nil || current == nil || frameBlendShader == nil {
 		return false
@@ -54,11 +60,12 @@ func drawFrameBlend(destination, previous, current *ebiten.Image, options frameB
 		{DstX: left, DstY: bottom, SrcX: sourceLeft, SrcY: sourceBottom},
 		{DstX: right, DstY: bottom, SrcX: sourceRight, SrcY: sourceBottom},
 	}
+	red, green, blue, alpha := premultipliedDrawColor(options.Red, options.Green, options.Blue, options.Alpha)
 	for index := range vertices {
-		vertices[index].ColorR = options.Red
-		vertices[index].ColorG = options.Green
-		vertices[index].ColorB = options.Blue
-		vertices[index].ColorA = options.Alpha
+		vertices[index].ColorR = red
+		vertices[index].ColorG = green
+		vertices[index].ColorB = blue
+		vertices[index].ColorA = alpha
 		vertices[index].Custom0 = custom[0]
 		vertices[index].Custom1 = custom[1]
 		vertices[index].Custom2 = custom[2]

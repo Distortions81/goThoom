@@ -53,6 +53,11 @@ func loadCharacters() {
 				continue
 			}
 			c.passHash = unscrambleHash(c.Name, c.Key)
+			if decoded, err := hex.DecodeString(c.passHash); err != nil || len(decoded) != 16 {
+				c.passHash = ""
+				c.Key = ""
+			}
+			c.DontRemember = c.passHash == ""
 			if charList.Version >= 2 && c.ColorsHex != "" {
 				if b, ok := decodeHex(c.ColorsHex); ok && len(b) > 0 {
 					cnt := int(b[0])
@@ -76,10 +81,15 @@ func saveCharacters() {
 	}
 	var persisted []Character
 	for i := range characters {
-		if characters[i].DontRemember || strings.HasPrefix(characters[i].Name, agratisPrefix) {
+		if strings.HasPrefix(characters[i].Name, agratisPrefix) {
 			continue
 		}
-		characters[i].Key = scrambleHash(characters[i].Name, characters[i].passHash)
+		if characters[i].DontRemember {
+			characters[i].passHash = ""
+			characters[i].Key = ""
+		} else {
+			characters[i].Key = scrambleHash(characters[i].Name, characters[i].passHash)
+		}
 		if len(characters[i].Colors) > 0 {
 			buf := make([]byte, 1+len(characters[i].Colors))
 			if len(characters[i].Colors) > 255 {

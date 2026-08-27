@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"math"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -13,6 +14,7 @@ type cachedNameTagImage struct {
 }
 
 const maxSharedNameTags = 4096
+const nameTagRasterScaleUnits = 64
 
 var (
 	sharedNameTagMu    sync.RWMutex
@@ -33,13 +35,30 @@ func nameTagFrameColor(name string, opacity uint8) color.RGBA {
 	return color.RGBA{R: lc.R, G: lc.G, B: lc.B, A: opacity}
 }
 
-func makeNameTagKey(name string, colors, descriptorType, opacity, style uint8, dead bool) nameTagKey {
+func quantizedNameTagRasterScale(scale float64) (uint16, float64) {
+	if math.IsNaN(scale) || math.IsInf(scale, 0) || scale <= 0 {
+		scale = 1
+	}
+	units := int(math.Round(scale * nameTagRasterScaleUnits))
+	units = min(max(units, 1), math.MaxUint16)
+	return uint16(units), float64(units) / nameTagRasterScaleUnits
+}
+
+func nameTagRasterScaleFromKey(key uint16) float64 {
+	if key == 0 {
+		return 1
+	}
+	return float64(key) / nameTagRasterScaleUnits
+}
+
+func makeNameTagKey(name string, colors, descriptorType, opacity, style uint8, dead bool, rasterScale float64) nameTagKey {
 	// Modern tags do not derive their text surface from the health color or
 	// descriptor type; the health bar is composed separately at draw time.
 	if gs.NameHealthBarModern {
 		colors = 0
 		descriptorType = 0
 	}
+	rasterScaleKey, _ := quantizedNameTagRasterScale(rasterScale)
 	return nameTagKey{
 		Text:          name,
 		Colors:        colors,
@@ -47,6 +66,7 @@ func makeNameTagKey(name string, colors, descriptorType, opacity, style uint8, d
 		HealthOptions: nameHealthOptionsKey(),
 		Opacity:       opacity,
 		FontGen:       fontGen,
+		RasterScale:   rasterScaleKey,
 		Style:         style,
 		Dead:          dead,
 		FrameColor:    nameTagFrameColor(name, opacity),
@@ -73,7 +93,8 @@ func sharedNameTagImage(key nameTagKey) (*ebiten.Image, int, int) {
 	if cached, ok := sharedNameTagCache[key]; ok {
 		return cached.image, cached.width, cached.height
 	}
-	img, width, height := buildNameTagImage(key.Text, key.Colors, key.Type, key.Opacity, key.Style, key.Dead, key.FrameColor)
+	rasterScale := nameTagRasterScaleFromKey(key.RasterScale)
+	img, width, height := buildNameTagImage(key.Text, key.Colors, key.Type, key.Opacity, key.Style, key.Dead, key.FrameColor, rasterScale)
 	if img != nil {
 		if len(sharedNameTagCache) >= maxSharedNameTags {
 			clear(sharedNameTagCache)

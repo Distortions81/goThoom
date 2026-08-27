@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"image/color"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -45,6 +46,25 @@ func TestRelativeNameTagScaleFollowsDisplayedPlayerScale(t *testing.T) {
 	}
 }
 
+func TestNameTagCacheSeparatesNativeRasterScales(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.NameHealthBarModern = true
+
+	low := makeNameTagKey("Native", 0, kDescPlayer, 200, styleRegular, false, 2)
+	high := makeNameTagKey("Native", 0, kDescPlayer, 200, styleRegular, false, 3.5)
+	if low == high {
+		t.Fatal("name tags at different display scales shared a cache key")
+	}
+	if got := nameTagRasterScaleFromKey(high.RasterScale); got != 3.5 {
+		t.Fatalf("decoded raster scale = %v, want 3.5", got)
+	}
+	key, scale := quantizedNameTagRasterScale(2.333)
+	if key == 0 || math.Abs(scale-2.333) > 1.0/(2*nameTagRasterScaleUnits) {
+		t.Fatalf("quantized raster scale = key %d scale %v", key, scale)
+	}
+}
+
 func TestReuseCachedNameTagFromSharedCache(t *testing.T) {
 	clearSharedNameTagCache()
 	t.Cleanup(clearSharedNameTagCache)
@@ -77,16 +97,16 @@ func TestModernNameTagKeyIgnoresSeparateHealthBarColor(t *testing.T) {
 	gs.NameHealthBarModern = true
 	gs.DarkBubblesAndNames = true
 
-	green := makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
-	red := makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
+	green := makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false, 1)
+	red := makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false, 1)
 	if green != red {
 		t.Fatal("modern dark name-tag surface key changed with separately drawn health color")
 	}
 	dark := green
 
 	gs.DarkBubblesAndNames = false
-	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
-	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
+	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false, 1)
+	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false, 1)
 	if green != red {
 		t.Fatal("modern light name-tag surface key changed with separately drawn health color")
 	}
@@ -95,8 +115,8 @@ func TestModernNameTagKeyIgnoresSeparateHealthBarColor(t *testing.T) {
 	}
 
 	gs.NameHealthBarModern = false
-	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false)
-	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false)
+	green = makeNameTagKey("Healthy", uint8(kColorCodeBackGreen<<4), kDescPlayer, 200, styleRegular, false, 1)
+	red = makeNameTagKey("Healthy", uint8(kColorCodeBackRed<<4), kDescPlayer, 200, styleRegular, false, 1)
 	if green == red {
 		t.Fatal("classic name-tag surface key ignored its background color")
 	}

@@ -58,6 +58,21 @@ func (g *frameBlendRenderGame) Draw(_ *ebiten.Image) {
 	} else if err := checkFrameBlendPixel(pixels, 4, 1, 0, color.RGBA{R: 191, B: 64, A: 255}); err != nil {
 		g.err = err
 	}
+	if g.err == nil {
+		fadedDestination := ebiten.NewImage(4, 2)
+		if !drawFrameBlend(fadedDestination, previous, current, frameBlendDrawOptions{
+			ScaleX: 1, ScaleY: 1, Fade: 0.25,
+			Red: 1, Green: 1, Blue: 1, Alpha: 0.4,
+		}) {
+			g.err = fmt.Errorf("faded frame blend draw was not available")
+		} else {
+			fadedPixels := make([]byte, 4*4*2)
+			fadedDestination.ReadPixels(fadedPixels)
+			if err := checkFrameBlendPixel(fadedPixels, 4, 1, 0, color.RGBA{R: 77, B: 26, A: 102}); err != nil {
+				g.err = fmt.Errorf("faded %w", err)
+			}
+		}
+	}
 	g.rendered = true
 }
 

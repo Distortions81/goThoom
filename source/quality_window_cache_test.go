@@ -47,10 +47,11 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 		t.Fatal("shader master is missing or disabled")
 	}
 	for name, control := range map[string]*eui.ItemData{
-		"lighting":        shaderLightingCB,
-		"magic effects":   replacementEffectsCB,
-		"mobile blending": animCB,
-		"world blending":  pictBlendCB,
+		"lighting":                  shaderLightingCB,
+		"mobile light-cone shadows": mobileLightConeShadowsCB,
+		"magic effects":             replacementEffectsCB,
+		"mobile blending":           animCB,
+		"world blending":            pictBlendCB,
 	} {
 		if control == nil || !control.Disabled {
 			t.Errorf("%s control was not greyed out by the shader master", name)
@@ -104,7 +105,7 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 	if shaderSection == nil {
 		t.Fatal("quality window is missing the Shader Effects group")
 	}
-	for _, control := range []*eui.ItemData{shaderLightingCB, replacementEffectsCB, animCB, pictBlendCB} {
+	for _, control := range []*eui.ItemData{shaderLightingCB, mobileLightConeShadowsCB, replacementEffectsCB, animCB, pictBlendCB} {
 		if !contains(shaderSection, control) {
 			t.Errorf("shader-backed control %q is outside the Shader Effects group", control.Text+control.Label)
 		}

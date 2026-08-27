@@ -32,6 +32,17 @@ type serverTarget struct {
 
 var errRetryLogin = errors.New("retry login")
 
+type loginResultError struct {
+	result int16
+}
+
+func (e *loginResultError) Error() string {
+	if name, ok := errorNames[e.result]; ok {
+		return fmt.Sprintf("login failed: %s (%d)", name, e.result)
+	}
+	return fmt.Sprintf("login failed: %d", e.result)
+}
+
 func serverTargets(addr string) []serverTarget {
 	primary := serverTarget{addr: addr, display: addr}
 	fallbackAddr, ok := fallbackAddress(addr)
@@ -158,19 +169,8 @@ func handleDisconnect() {
 	clmov = ""
 	pcapPath = ""
 	pass = ""
-	if name != "" {
-		for i := range characters {
-			if characters[i].Name == name {
-				if passHash == "" && (!characters[i].DontRemember || characters[i].passHash != "") {
-					characters[i].passHash = ""
-					characters[i].DontRemember = true
-					characters[i].Key = ""
-					saveCharacters()
-				}
-				break
-			}
-		}
-	}
+	passHash = ""
+	discardStagedPassword()
 	consoleMessage("Disconnected from server.")
 	loginWin.MarkOpen()
 	updateCharacterButtons()
@@ -433,6 +433,10 @@ outer:
 			if errors.Is(err, errRetryLogin) {
 				continue outer
 			}
+			var resultErr *loginResultError
+			if errors.As(err, &resultErr) {
+				return err
+			}
 			lastErr = err
 			if i < len(targets)-1 {
 				next := targets[i+1]
@@ -653,19 +657,16 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	if result != 0 {
-		if result == -30987 {
-			passHash = ""
-			setCharacterPassHash(name, "", false)
+		if isBadPasswordResult(result) {
+			rejectPassword(name)
 		}
 		tcp.Close()
 		tcp = nil
 		udp.Close()
 		udp = nil
-		if name, ok := errorNames[result]; ok {
-			return fmt.Errorf("login failed: %s (%d)", name, result)
-		}
-		return fmt.Errorf("login failed: %d", result)
+		return &loginResultError{result: result}
 	}
+	commitStagedPassword(name)
 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
 	scriptSessionLogin(playerName)

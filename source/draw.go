@@ -60,6 +60,7 @@ type nameTagKey struct {
 	HealthOptions uint16
 	Opacity       uint8
 	FontGen       uint32
+	RasterScale   uint16
 	Style         uint8
 	Dead          bool
 	FrameColor    color.RGBA
@@ -691,7 +692,7 @@ func mobileOnEdge(m frameMobile, d frameDescriptor) bool {
 // buildNameTagImage creates a cached image for a mobile name tag using the
 // current font and settings. Returns the image and its width/height in pixels.
 // A non-zero frameClr draws the optional player-label frame.
-func buildNameTagImage(name string, colorCode, descriptorType, opacity, style uint8, dead bool, frameClr color.RGBA) (*ebiten.Image, int, int) {
+func buildNameTagImage(name string, colorCode, descriptorType, opacity, style uint8, dead bool, frameClr color.RGBA, rasterScale float64) (*ebiten.Image, int, int) {
 	if name == "" {
 		return nil, 0, 0
 	}
@@ -707,6 +708,13 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 		face = mainFontItalic
 	case styleBoldItalic:
 		face = mainFontBoldItalic
+	}
+	if scale := relativeNameTagScale(rasterScale, mainFontRasterScale); math.Abs(scale-1) >= 1e-9 {
+		if base, ok := face.(*text.GoTextFace); ok {
+			scaled := *base
+			scaled.Size = base.Size * scale
+			face = &scaled
+		}
 	}
 	w, h := text.Measure(name, face, 0)
 	iw := int(math.Ceil(w))
@@ -1661,7 +1669,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			}
 			playersMu.RUnlock()
 			opacity := uint8(gs.NameBgOpacity*255 + 0.5)
-			key := makeNameTagKey(d.Name, m.Colors, d.Type, opacity, style, dead)
+			key := makeNameTagKey(d.Name, m.Colors, d.Type, opacity, style, dead, mainFontRasterScale)
 			if !reuseCachedNameTag(&m, previousMobiles, key) {
 				img, iw, ih := sharedNameTagImage(key)
 				m.nameTag = img

@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestScrambleHashBlank(t *testing.T) {
 	if s := scrambleHash("name", ""); s != "" {
@@ -36,8 +41,12 @@ func TestScrambleHashRoundTrip(t *testing.T) {
 func TestSaveLoadCharactersAppearanceProfession(t *testing.T) {
 	dir := t.TempDir()
 	orig := dataDirPath
+	origCharacters := characters
 	dataDirPath = dir
-	defer func() { dataDirPath = orig }()
+	defer func() {
+		dataDirPath = orig
+		characters = origCharacters
+	}()
 
 	characters = []Character{{Name: "Hero", PictID: 123, Colors: []byte{1, 2, 3}, Profession: "fighter"}}
 	saveCharacters()
@@ -56,6 +65,77 @@ func TestSaveLoadCharactersAppearanceProfession(t *testing.T) {
 	}
 	if len(c.Colors) != 3 || c.Colors[0] != 1 || c.Colors[1] != 2 || c.Colors[2] != 3 {
 		t.Fatalf("unexpected colors: %v", c.Colors)
+	}
+}
+
+func TestSaveLoadCharacterWithoutRememberingPassword(t *testing.T) {
+	dir := t.TempDir()
+	origDir := dataDirPath
+	origCharacters := characters
+	dataDirPath = dir
+	t.Cleanup(func() {
+		dataDirPath = origDir
+		characters = origCharacters
+	})
+
+	characters = []Character{{
+		Name:         "Hero",
+		passHash:     "0123456789abcdef0123456789abcdef",
+		Key:          "stale-key",
+		DontRemember: true,
+		PictID:       123,
+		Profession:   "fighter",
+	}}
+	saveCharacters()
+
+	data, err := os.ReadFile(filepath.Join(dir, charsFilePath))
+	if err != nil {
+		t.Fatalf("read characters: %v", err)
+	}
+	var saved charactersFile
+	if err := json.Unmarshal(data, &saved); err != nil {
+		t.Fatalf("decode characters: %v", err)
+	}
+	if len(saved.Characters) != 1 {
+		t.Fatalf("saved characters = %d, want 1", len(saved.Characters))
+	}
+	if saved.Characters[0].Key != "" {
+		t.Fatalf("saved password key = %q, want empty", saved.Characters[0].Key)
+	}
+
+	characters = nil
+	loadCharacters()
+	if len(characters) != 1 {
+		t.Fatalf("loaded characters = %d, want 1", len(characters))
+	}
+	if characters[0].passHash != "" || !characters[0].DontRemember {
+		t.Fatalf("loaded password state = hash %q, dontRemember %v", characters[0].passHash, characters[0].DontRemember)
+	}
+	if characters[0].PictID != 123 || characters[0].Profession != "fighter" {
+		t.Fatalf("character metadata was not preserved: %+v", characters[0])
+	}
+}
+
+func TestLoadCharacterRejectsInvalidSavedPasswordHash(t *testing.T) {
+	dir := t.TempDir()
+	origDir := dataDirPath
+	origCharacters := characters
+	dataDirPath = dir
+	t.Cleanup(func() {
+		dataDirPath = origDir
+		characters = origCharacters
+	})
+
+	data := []byte(`{"version":2,"characters":[{"name":"Hero","key":"not-a-valid-hash"}]}`)
+	if err := os.WriteFile(filepath.Join(dir, charsFilePath), data, 0o644); err != nil {
+		t.Fatalf("write characters: %v", err)
+	}
+	loadCharacters()
+	if len(characters) != 1 {
+		t.Fatalf("loaded characters = %d, want 1", len(characters))
+	}
+	if characters[0].passHash != "" || characters[0].Key != "" || !characters[0].DontRemember {
+		t.Fatalf("invalid password hash was retained: %+v", characters[0])
 	}
 }
 

@@ -61,3 +61,10 @@ func TestFrameBlendFadeUsesElapsedTime(t *testing.T) {
 		t.Errorf("picture fade = %v, want 0.25", pictureFade)
 	}
 }
+
+func TestObscuringPictureOpacityPremultipliesColor(t *testing.T) {
+	red, green, blue, alpha := premultipliedDrawColor(1, 0.5, 0.25, 0.4)
+	if red != 0.4 || green != 0.2 || blue != 0.1 || alpha != 0.4 {
+		t.Fatalf("premultiplied color = (%v, %v, %v, %v), want (0.4, 0.2, 0.1, 0.4)", red, green, blue, alpha)
+	}
+}

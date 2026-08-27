@@ -46,6 +46,33 @@ func TestBuildLightShadowsUsesNearbyCasters(t *testing.T) {
 	}
 }
 
+func TestMobileLightConeShadowSettingGatesCasters(t *testing.T) {
+	originalSettings := gs
+	originalCasters := frameLightCasters
+	t.Cleanup(func() {
+		gs = originalSettings
+		frameLightCasters = originalCasters
+	})
+
+	gs.ShadersEnabled = true
+	gs.ShaderLighting = true
+	gs.GameScale = 2
+	frameLightCasters = nil
+	metrics := mobileSpriteMetrics{widthFraction: 0.5, footFraction: 0.9}
+
+	gs.MobileLightConeShadows = false
+	addMobileLightCaster(100, 100, 40, metrics)
+	if len(frameLightCasters) != 0 {
+		t.Fatal("disabled mobile light-cone shadows registered a caster")
+	}
+
+	gs.MobileLightConeShadows = true
+	addMobileLightCaster(100, 100, 40, metrics)
+	if len(frameLightCasters) != 1 {
+		t.Fatalf("enabled mobile light-cone shadows registered %d casters, want 1", len(frameLightCasters))
+	}
+}
+
 func TestContactShadowNearOtherLightExcludesOwner(t *testing.T) {
 	original := frameContactShadowLights
 	t.Cleanup(func() { frameContactShadowLights = original })

@@ -1576,44 +1576,47 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		snap = g.drawSnapshot
 		var mobileFade, pictFade float32
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
-		prev := gs.GameScale
-		gs.GameScale = renderScale
-		useLighting := shaderLightingEnabled() && lightingShader != nil
-		useComposite := useLighting && sceneMayNeedLighting(snap)
-		sceneTarget := worldView
-		if useComposite {
-			fillOutsideWorldView(gameImage, viewRect, playfieldBackgroundColor())
-			sceneTarget = ensureLightingTmp(worldView.Bounds())
-			sceneTarget.Fill(playfieldBackgroundColor())
+		if prepareSceneArtworkFrame(snap) {
+			// Keep the last completed world frame visible while Ebitengine submits
+			// the prepared upload batch. A small indicator communicates the pause
+			// without replacing normal play with a flashing loading screen.
+			noteClientActivity(clientActivityGPU)
 		} else {
-			gameImage.Fill(playfieldBackgroundColor())
-		}
-		roomArtworkLoading := drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
-		if !roomArtworkLoading && useLighting {
-			// Use shader-based night darkening with inverse-square falloff.
-			addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
-		} else if !roomArtworkLoading {
-			// Classic overlay path when shader is off.
-			//drawNightAmbient(worldView, 0, 0)
-			drawNightOverlay(sceneTarget, 0, 0)
-		}
-		if roomArtworkLoading && sceneTarget != worldView {
-			worldView.DrawImage(sceneTarget, nil)
-		} else if !roomArtworkLoading && useComposite {
-			applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
-		} else if !roomArtworkLoading && useLighting && (len(frameLights) != 0 || len(frameDarks) != 0) {
-			// Conservative fallback if a newly supported light source was not
-			// recognized by sceneMayNeedLighting.
-			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
-		} else if !roomArtworkLoading {
-			applyDetailedCharacterShadow(worldView)
-		}
-		if !roomArtworkLoading {
+			prev := gs.GameScale
+			gs.GameScale = renderScale
+			useLighting := shaderLightingEnabled() && lightingShader != nil
+			useComposite := useLighting && sceneMayNeedLighting(snap)
+			sceneTarget := worldView
+			if useComposite {
+				fillOutsideWorldView(gameImage, viewRect, playfieldBackgroundColor())
+				sceneTarget = ensureLightingTmp(worldView.Bounds())
+				sceneTarget.Fill(playfieldBackgroundColor())
+			} else {
+				gameImage.Fill(playfieldBackgroundColor())
+			}
+			drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
+			if useLighting {
+				// Use shader-based night darkening with inverse-square falloff.
+				addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
+			} else {
+				// Classic overlay path when shader is off.
+				//drawNightAmbient(worldView, 0, 0)
+				drawNightOverlay(sceneTarget, 0, 0)
+			}
+			if useComposite {
+				applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
+			} else if useLighting && (len(frameLights) != 0 || len(frameDarks) != 0) {
+				// Conservative fallback if a newly supported light source was not
+				// recognized by sceneMayNeedLighting.
+				applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
+			} else {
+				applyDetailedCharacterShadow(worldView)
+			}
 			drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
 			drawStatusBars(worldView, 0, 0, snap, alpha)
+			gs.GameScale = prev
+			haveSnap = true
 		}
-		gs.GameScale = prev
-		haveSnap = !roomArtworkLoading
 	}
 	if replacementEffectsPreview {
 		drawReplacementEffectsPreview(worldView)
@@ -1642,6 +1645,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 	}
 	drawSetupWizardFPS(gameImage)
+	drawClientActivityIndicators(worldView, takeClientActivity())
 
 	// Finally, draw UI (which includes the game window image)
 	eui.Draw(screen)
@@ -1701,27 +1705,25 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 	releaseTextDrawOpts(op)
 }
 
+func prepareSceneArtworkFrame(snap drawSnapshot) bool {
+	if !gs.BatchArtworkLoading {
+		return false
+	}
+	preparedSheets := prepareSceneArtwork(snap)
+	if preparedSheets <= 1 {
+		return false
+	}
+	// Artwork preparation creates large temporary RGBA pose and upscale
+	// buffers. Collect them during the deliberate loading hitch instead of
+	// letting the next automatic GC stretch recovery across visible frames.
+	runtime.GC()
+	return tcpConn != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive
+}
+
 // drawScene renders all world objects for the current frame.
-func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) bool {
+func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
 	frameDetailedShadowMask = nil
 	frameDetailedShadowBounds = image.Rectangle{}
-	preparedSheets := 0
-	if gs.BatchArtworkLoading {
-		preparedSheets = prepareSceneArtwork(snap)
-	}
-	if preparedSheets > 1 {
-		// Artwork preparation creates large temporary RGBA pose and upscale
-		// buffers. Collect them during the deliberate loading hitch instead of
-		// letting the next automatic GC stretch recovery across visible frames.
-		runtime.GC()
-		if tcpConn != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive {
-			// Submit the complete upload batch in a dedicated frame. The following
-			// frame can present the room after Ebitengine has finished this frame's
-			// managed-atlas work.
-			drawStartupLoadingScreen(screen, "Loading room artwork...")
-			return true
-		}
-	}
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
@@ -1795,7 +1797,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	for _, p := range posPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
 	}
-	return false
 }
 
 type sceneArtworkRequestCache struct {
@@ -2516,12 +2517,13 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			if src == nil {
 				src = img
 			}
+			red, green, blue, drawAlpha := premultipliedDrawColor(red, green, blue, fadeAlpha)
 			op := acquireDrawOpts()
 			op.Filter = filter
 			op.DisableMipmaps = true
 			op.GeoM.Scale(sx, sy)
 			op.GeoM.Translate(left, top)
-			op.ColorScale.Scale(red, green, blue, fadeAlpha)
+			op.ColorScale.Scale(red, green, blue, drawAlpha)
 			screen.DrawImage(src, op)
 			releaseDrawOpts(op)
 		}
@@ -2764,8 +2766,8 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 }
 
 // drawMobileNameTag renders the name tag and color bar for a single mobile.
-// It respects motion smoothing and the native name tag setting based on the
-// current gs.GameScale.
+// It respects motion smoothing and rasterizes name tags at the final display
+// scale so cached text is drawn 1:1 rather than resampled with the artwork.
 func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, alpha float64) {
 	if wasmPrivacyActive() {
 		return
@@ -2838,7 +2840,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 			}
 			playersMu.RUnlock()
-			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead)
+			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead, gs.GameScale)
 			img, iw, ih := m.nameTag, m.nameTagW, m.nameTagH
 			if img == nil || m.nameTagKey != key {
 				img, iw, ih = sharedNameTagImage(key)
@@ -2856,15 +2858,14 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 			}
 			if img != nil {
-				tagScale := relativeNameTagScale(gs.GameScale, mainFontRasterScale)
-				scaledWidth := max(1, roundToInt(float64(iw)*tagScale))
-				scaledHeight := max(1, roundToInt(float64(ih)*tagScale))
+				scaledWidth := max(1, iw)
+				scaledHeight := max(1, ih)
 				top := y + int(offset)
 				left := x - scaledWidth/2
 				barHeight := 0
 				barClr, showHealthBar := mobileHealthBarColor(m.Colors, d.Type)
 				if gs.NameHealthBarModern && showHealthBar {
-					barHeight = max(1, roundToInt(float64(gs.NameHealthBarThickness)*tagScale))
+					barHeight = max(1, gs.NameHealthBarThickness)
 				}
 				nameY, barY := nameHealthBarOffsets(scaledHeight, barHeight, gs.NameHealthBarAbove)
 				if barHeight > 0 {
@@ -2872,10 +2873,9 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 					vector.FillRect(screen, float32(left+1), float32(top+barY), float32(max(1, scaledWidth-2)), float32(barHeight), barClr, false)
 				}
 				op := acquireDrawOpts()
-				op.Filter = ebiten.FilterLinear
+				op.Filter = ebiten.FilterNearest
 				op.DisableMipmaps = true
 				op.ColorScale.ScaleAlpha(nameRevealAlpha)
-				op.GeoM.Scale(tagScale, tagScale)
 				op.GeoM.Translate(float64(left), float64(top+nameY))
 				screen.DrawImage(img, op)
 				releaseDrawOpts(op)

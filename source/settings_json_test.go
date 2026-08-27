@@ -49,6 +49,18 @@ func TestBatchArtworkLoadingDefaultsOn(t *testing.T) {
 	}
 }
 
+func TestAssetActivityIndicatorsDefaultOff(t *testing.T) {
+	if gsdef.AssetActivityIndicators {
+		t.Fatal("asset activity indicators must default off")
+	}
+}
+
+func TestMobileLightConeShadowsDefaultOff(t *testing.T) {
+	if gsdef.MobileLightConeShadows {
+		t.Fatal("mobile light-cone shadows must default off")
+	}
+}
+
 func TestSettingsV4RoundTrip(t *testing.T) {
 	want := gsdef
 	want.LastCharacter = "Agratis"
@@ -64,6 +76,8 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.Enabledscripts = map[string]any{"hello": "all"}
 	want.LegacyMacroContinuous = true
 	want.BatchArtworkLoading = false
+	want.AssetActivityIndicators = true
+	want.MobileLightConeShadows = true
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -88,6 +102,8 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
 		`"batch_room_artwork_loading": false`,
+		`"show_asset_activity_indicators": true`,
+		`"mobile_light_cone_shadows": true`,
 		`"shaders_enabled": true`,
 	} {
 		if !strings.Contains(text, expected) {

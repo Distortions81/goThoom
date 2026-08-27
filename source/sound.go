@@ -1171,6 +1171,7 @@ func loadSoundForPlayback(id uint16, outputRate int, highQuality bool) (pcm []by
 		logDebug("loadSound(%d) CL sounds not loaded", id)
 		return nil
 	}
+	noteClientActivity(clientActivityAudio)
 
 	//logDebug("loadSound(%d) fetching from archive", id)
 	s, err := c.Get(uint32(id))

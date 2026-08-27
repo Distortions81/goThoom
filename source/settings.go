@@ -326,20 +326,22 @@ var gsdef settings = settings{
 	FlameLightFlicker:    true,
 	FlameFlickerStrength: 1.0,
 
-	PotatoGPU:              false,
-	BatchArtworkLoading:    true,
-	BarColorByValue:        false,
-	ThrottleSounds:         true,
-	SoundEnhancement:       true,
-	SoundEnhancementAmount: 1.5,
-	MusicEnhancement:       true,
-	MusicEnhancementAmount: 1.0,
-	HighQualityResampling:  true,
-	ServerAddress:          defaultServerHostName + ":5010",
+	PotatoGPU:               false,
+	BatchArtworkLoading:     true,
+	AssetActivityIndicators: false,
+	BarColorByValue:         false,
+	ThrottleSounds:          true,
+	SoundEnhancement:        true,
+	SoundEnhancementAmount:  1.5,
+	MusicEnhancement:        true,
+	MusicEnhancementAmount:  1.0,
+	HighQualityResampling:   true,
+	ServerAddress:           defaultServerHostName + ":5010",
 
 	NightEffect:             true,
 	ShadersEnabled:          true,
 	ShaderLighting:          true,
+	MobileLightConeShadows:  false,
 	CharacterShadows:        true,
 	CharacterShadowDarkness: 1.8,
 
@@ -528,17 +530,18 @@ type settings struct {
 	FlameLightFlicker    bool
 	FlameFlickerStrength float64
 
-	PotatoGPU              bool
-	BatchArtworkLoading    bool
-	PrecacheSounds         bool
-	Enabledscripts         map[string]any
-	BarColorByValue        bool
-	ThrottleSounds         bool
-	SoundEnhancement       bool
-	SoundEnhancementAmount float64
-	MusicEnhancement       bool
-	MusicEnhancementAmount float64
-	HighQualityResampling  bool
+	PotatoGPU               bool
+	BatchArtworkLoading     bool
+	AssetActivityIndicators bool
+	PrecacheSounds          bool
+	Enabledscripts          map[string]any
+	BarColorByValue         bool
+	ThrottleSounds          bool
+	SoundEnhancement        bool
+	SoundEnhancementAmount  float64
+	MusicEnhancement        bool
+	MusicEnhancementAmount  float64
+	HighQualityResampling   bool
 
 	imgPlanesDebug          bool
 	smoothingDebug          bool
@@ -553,6 +556,7 @@ type settings struct {
 	NightEffect             bool
 	ShadersEnabled          bool
 	ShaderLighting          bool
+	MobileLightConeShadows  bool
 	CharacterShadows        bool
 	CharacterShadowDarkness float64
 
@@ -790,6 +794,7 @@ func applyVSyncSetting() {
 }
 
 func applySettings() {
+	setClientActivityIndicatorsEnabled(gs.AssetActivityIndicators)
 	eui.SetWindowSnapping(gs.WindowSnapping)
 	eui.SetMiddleClickMove(gs.MiddleClickMoveWindow)
 	eui.SetPotatoMode(gs.PotatoGPU)

@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
 	_ "embed"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"image"
@@ -122,6 +120,10 @@ func refreshShaderEffectControls() {
 		shaderLightingCB.Disabled = masterDisabled
 	}
 	lightingDisabled := masterDisabled || !gs.ShaderLighting
+	if mobileLightConeShadowsCB != nil {
+		mobileLightConeShadowsCB.Checked = gs.MobileLightConeShadows
+		mobileLightConeShadowsCB.Disabled = lightingDisabled
+	}
 	if shaderLightSlider != nil {
 		shaderLightSlider.Disabled = lightingDisabled
 	}
@@ -210,48 +212,49 @@ var (
 	soundCacheLabel        *eui.ItemData
 	totalCacheLabel        *eui.ItemData
 
-	recordBtn            *eui.ItemData
-	recordPath           string
-	qualityPresetDD      *eui.ItemData
-	shaderLightSlider    *eui.ItemData
-	shaderGlowSlider     *eui.ItemData
-	flameFlickerCB       *eui.ItemData
-	flameFlickerSlider   *eui.ItemData
-	gammaCorrectionCB    *eui.ItemData
-	spriteGammaSlider    *eui.ItemData
-	monitorGammaSlider   *eui.ItemData
-	denoiseCB            *eui.ItemData
-	motionCB             *eui.ItemData
-	animCB               *eui.ItemData
-	pictBlendCB          *eui.ItemData
-	shadersEnabledCB     *eui.ItemData
-	shaderLightingCB     *eui.ItemData
-	upscaleModeDD        *eui.ItemData
-	replacementEffectsCB *eui.ItemData
-	mobileBlendSlider    *eui.ItemData
-	worldBlendSlider     *eui.ItemData
-	throttleSoundCB      *eui.ItemData
-	soundEnhanceCB       *eui.ItemData
-	musicEnhanceCB       *eui.ItemData
-	resampleAudioCB      *eui.ItemData
-	precacheSoundCB      *eui.ItemData
-	noCacheCB            *eui.ItemData
-	potatoCB             *eui.ItemData
-	windowShadowsCB      *eui.ItemData
-	volumeSlider         *eui.ItemData
-	muteBtn              *eui.ItemData
-	mixerWin             *eui.WindowData
-	gameMixSlider        *eui.ItemData
-	musicMixSlider       *eui.ItemData
-	ttsMixSlider         *eui.ItemData
-	notifMixSlider       *eui.ItemData
-	soundEnhanceMixCB    *eui.ItemData
-	soundEnhanceSlider   *eui.ItemData
-	musicEnhanceMixCB    *eui.ItemData
-	musicEnhanceSlider   *eui.ItemData
-	mixMuteBtn           *eui.ItemData
-	musicMixCB           *eui.ItemData
-	ttsMixCB             *eui.ItemData
+	recordBtn                *eui.ItemData
+	recordPath               string
+	qualityPresetDD          *eui.ItemData
+	shaderLightSlider        *eui.ItemData
+	shaderGlowSlider         *eui.ItemData
+	flameFlickerCB           *eui.ItemData
+	flameFlickerSlider       *eui.ItemData
+	gammaCorrectionCB        *eui.ItemData
+	spriteGammaSlider        *eui.ItemData
+	monitorGammaSlider       *eui.ItemData
+	denoiseCB                *eui.ItemData
+	motionCB                 *eui.ItemData
+	animCB                   *eui.ItemData
+	pictBlendCB              *eui.ItemData
+	shadersEnabledCB         *eui.ItemData
+	shaderLightingCB         *eui.ItemData
+	mobileLightConeShadowsCB *eui.ItemData
+	upscaleModeDD            *eui.ItemData
+	replacementEffectsCB     *eui.ItemData
+	mobileBlendSlider        *eui.ItemData
+	worldBlendSlider         *eui.ItemData
+	throttleSoundCB          *eui.ItemData
+	soundEnhanceCB           *eui.ItemData
+	musicEnhanceCB           *eui.ItemData
+	resampleAudioCB          *eui.ItemData
+	precacheSoundCB          *eui.ItemData
+	noCacheCB                *eui.ItemData
+	potatoCB                 *eui.ItemData
+	windowShadowsCB          *eui.ItemData
+	volumeSlider             *eui.ItemData
+	muteBtn                  *eui.ItemData
+	mixerWin                 *eui.WindowData
+	gameMixSlider            *eui.ItemData
+	musicMixSlider           *eui.ItemData
+	ttsMixSlider             *eui.ItemData
+	notifMixSlider           *eui.ItemData
+	soundEnhanceMixCB        *eui.ItemData
+	soundEnhanceSlider       *eui.ItemData
+	musicEnhanceMixCB        *eui.ItemData
+	musicEnhanceSlider       *eui.ItemData
+	mixMuteBtn               *eui.ItemData
+	musicMixCB               *eui.ItemData
+	ttsMixCB                 *eui.ItemData
 )
 
 var ttsTestPhrase = "The quick brown fox jumps over the lazy dog"
@@ -2784,6 +2787,9 @@ func updateCharacterButtons() {
 				if c.Name == gs.LastCharacter {
 					name = c.Name
 					passHash = c.passHash
+					if stagedHash, ok := stagedPasswordHash(c.Name); ok {
+						passHash = stagedHash
+					}
 					pass = ""
 					break
 				}
@@ -2792,6 +2798,9 @@ func updateCharacterButtons() {
 		if name == "" && len(characters) == 1 {
 			name = characters[0].Name
 			passHash = characters[0].passHash
+			if stagedHash, ok := stagedPasswordHash(characters[0].Name); ok {
+				passHash = stagedHash
+			}
 			pass = ""
 		}
 	}
@@ -2858,15 +2867,20 @@ func updateCharacterButtons() {
 			radio.FontSize = 20
 			radio.Checked = name == c.Name
 			nameCopy := c.Name
-			hashCopy := c.passHash
+			savedHashCopy := c.passHash
+			hashCopy := savedHashCopy
+			if stagedHash, ok := stagedPasswordHash(c.Name); ok {
+				hashCopy = stagedHash
+			}
 			if name == c.Name {
-				passHash = c.passHash
+				passHash = hashCopy
 				pass = ""
 			}
 			radioEvents.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventRadioSelected {
+					discardStagedPassword()
 					name = nameCopy
-					passHash = hashCopy
+					passHash = savedHashCopy
 					pass = ""
 					gs.LastCharacter = nameCopy
 					saveSettings()
@@ -2958,32 +2972,35 @@ func makeAddCharacterWindow() {
 	addCharWin.DefaultButton = addBtn
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			h := md5.Sum([]byte(addCharPass))
-			hash := hex.EncodeToString(h[:])
-			if !addCharRemember {
-				hash = ""
+			characterName := strings.TrimSpace(addCharName)
+			if characterName == "" {
+				makeErrorWindow("Error: Add Character: character name is empty")
+				return
+			}
+			if addCharPass == "" {
+				makeErrorWindow("Error: Add Character: password is empty")
+				return
 			}
 			// Check for existing character names case-insensitively
 			exists := false
 			for i := range characters {
-				if strings.EqualFold(characters[i].Name, addCharName) {
+				if strings.EqualFold(characters[i].Name, characterName) {
 					// Preserve canonical case from the stored character
-					addCharName = characters[i].Name
-					characters[i].passHash = hash
-					characters[i].DontRemember = !addCharRemember
+					characterName = characters[i].Name
 					exists = true
 					break
 				}
 			}
 			if !exists {
-				characters = append(characters, Character{Name: addCharName, passHash: hash, DontRemember: !addCharRemember})
+				characters = append(characters, Character{Name: characterName, DontRemember: true})
 			}
 			saveCharacters()
+			hash := stagePasswordUpdate(characterName, addCharPass, addCharRemember)
 			// Update selection to the newly added character
-			name = addCharName
+			name = characterName
 			passHash = hash
 			pass = ""
-			gs.LastCharacter = addCharName
+			gs.LastCharacter = characterName
 			saveSettings()
 			// Ensure the login window is open before updating its contents
 			if loginWin != nil {
@@ -2996,16 +3013,12 @@ func makeAddCharacterWindow() {
 			}
 			// Clear the add-character inputs for good UX on repeat adds
 			addCharName = ""
-			addCharPass = ""
+			clearPasswordInput(addCharPassInput, &addCharPass)
 			addCharPassPrev = ""
 			clearCapsWarnings()
 			if addCharNameInput != nil {
 				addCharNameInput.Text = ""
 				addCharNameInput.Dirty = true
-			}
-			if addCharPassInput != nil {
-				addCharPassInput.Text = ""
-				addCharPassInput.Dirty = true
 			}
 			// Return user to login (already open above)
 			addCharWin.Close()
@@ -3018,6 +3031,7 @@ func makeAddCharacterWindow() {
 	cancelBtn.Size = eui.Point{X: 200, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
+			clearPasswordInput(addCharPassInput, &addCharPass)
 			addCharWin.Close()
 			loginWin.MarkOpen()
 		}
@@ -3079,7 +3093,7 @@ func makePasswordWindow() {
 	cancelBtn.Size = eui.Point{X: 96, Y: 24}
 	cancelEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			pass = ""
+			clearPasswordInput(passInput, &pass)
 			passPrev = ""
 			clearCapsWarnings()
 			passWin.Close()
@@ -3097,17 +3111,10 @@ func makePasswordWindow() {
 				return
 			}
 			if name != "" {
-				if passRemember {
-					h := md5.Sum([]byte(pass))
-					hash := hex.EncodeToString(h[:])
-					passHash = hash
-					setCharacterPassHash(name, hash, true)
-					pass = ""
-				} else {
-					passHash = ""
-					setCharacterPassHash(name, "", false)
-				}
+				passHash = stagePasswordUpdate(name, pass, passRemember)
 			}
+			clearPasswordInput(passInput, &pass)
+			passPrev = ""
 			passWin.Close()
 			startLogin()
 		}
@@ -3148,7 +3155,9 @@ func startLogin() {
 		if err != nil {
 			closeConnectDialog()
 			logError("login: %v", err)
-			pass = ""
+			discardStagedPassword()
+			clearPasswordInput(passInput, &pass)
+			passHash = ""
 			if connected {
 				return
 			}
@@ -3302,11 +3311,8 @@ func makeLoginWindow() {
 					passRememberCB.Checked = passRemember
 					passRememberCB.Dirty = true
 				}
-				pass = ""
-				if passInput != nil {
-					passInput.Text = ""
-					passInput.Dirty = true
-				}
+				clearPasswordInput(passInput, &pass)
+				passPrev = ""
 				passWin.MarkOpenNear(ev.Item)
 				return
 			}
@@ -3367,7 +3373,7 @@ func makeLoginWindow() {
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharName = ""
-			addCharPass = ""
+			clearPasswordInput(addCharPassInput, &addCharPass)
 			addCharPassPrev = ""
 			clearCapsWarnings()
 			addCharRemember = true
@@ -4896,11 +4902,12 @@ func confirmRemoveCharacter(c Character) {
 	row.AddItem(avItem)
 
 	showPopup(
-		"Remove Password",
-		fmt.Sprintf("Are you sure you want to remove saved password for %s?", c.Name),
+		"Remove Character",
+		fmt.Sprintf("Are you sure you want to remove %s?", c.Name),
 		[]popupButton{
 			{Text: "Cancel"},
-			{Text: "Yes, remove it", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+			{Text: "Remove Character", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+				discardStagedPassword()
 				removeCharacter(c.Name)
 				if name == c.Name {
 					name = ""
@@ -5146,6 +5153,20 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(batchArtworkCB)
 
+	activityIndicatorsCB, activityIndicatorEvents := eui.NewCheckbox()
+	activityIndicatorsCB.Text = "Show asset activity dots"
+	activityIndicatorsCB.Size = eui.Point{X: width, Y: 24}
+	activityIndicatorsCB.Checked = gs.AssetActivityIndicators
+	activityIndicatorsCB.SetTooltip("Show green artwork/data, amber audio, and red GPU activity dots in the lower-right of the game view.")
+	activityIndicatorEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AssetActivityIndicators = ev.Checked
+			setClientActivityIndicatorsEnabled(ev.Checked)
+			settingsDirty = true
+		}
+	}
+	performanceSection.AddItem(activityIndicatorsCB)
+
 	var shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
@@ -5246,6 +5267,20 @@ func makeQualityWindow() {
 		}
 	}
 	shaderSection.AddItem(shaderQualityCB)
+
+	mobileConeCB, mobileConeEvents := eui.NewCheckbox()
+	mobileLightConeShadowsCB = mobileConeCB
+	mobileConeCB.Text = "Mobile light-cone shadows"
+	mobileConeCB.Size = eui.Point{X: width, Y: 24}
+	mobileConeCB.Checked = gs.MobileLightConeShadows
+	mobileConeCB.SetTooltip("Let mobiles cast experimental soft cone shadows from nearby shader lights.")
+	mobileConeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MobileLightConeShadows = ev.Checked
+			settingsDirty = true
+		}
+	}
+	shaderSection.AddItem(mobileConeCB)
 
 	flameCB, flameEvents := eui.NewCheckbox()
 	flameFlickerCB = flameCB

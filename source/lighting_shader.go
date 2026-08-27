@@ -599,7 +599,7 @@ type mobileSpriteMetrics struct {
 
 func addMobileLightCaster(x, y float64, size int, metrics mobileSpriteMetrics) {
 	widthFraction := metrics.widthFraction
-	if !shaderLightingEnabled() || size <= 0 || widthFraction <= 0 {
+	if !shaderLightingEnabled() || !gs.MobileLightConeShadows || size <= 0 || widthFraction <= 0 {
 		return
 	}
 	scaledSize := float32(float64(size) * gs.GameScale)
