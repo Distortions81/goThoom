@@ -1,0 +1,20 @@
+//kage:unit pixels
+
+package main
+
+// Fragment applies only the additional darkness needed to advance from the
+// previously composited maximum shadow opacity to the new maximum. This keeps
+// overlapping layered shadows from multiplying while allowing each shadow to
+// be submitted at its caster's painter-order position.
+func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
+	base := imageSrc0At(texCoord)
+	previous := imageSrc1At(texCoord).a
+	incoming := imageSrc2At(texCoord).a
+	combined := max(previous, incoming)
+	remaining := 1.0 - previous
+	factor := 1.0
+	if remaining > 0.0001 {
+		factor = clamp((1.0-combined)/remaining, 0.0, 1.0)
+	}
+	return vec4(base.rgb*factor, base.a)
+}

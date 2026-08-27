@@ -214,11 +214,24 @@ func selectLightingShaderVariant(lightCount, darkCount, shadowCount int) *lighti
 // Falls back to the embedded shader source if reading from disk fails.
 func ReloadLightingShader() error {
 	// Try to reload from the source file for live iteration
+	source := lightShaderSrc
 	if b, err := os.ReadFile("data/shaders/light.kage"); err == nil {
-		return installLightingShaderVariants(b)
+		source = b
 	}
-	// Fallback: use embedded shader source
-	return installLightingShaderVariants(lightShaderSrc)
+	shadowComposite, err := ebiten.NewShader(layeredShadowCompositeShaderSource)
+	if err != nil {
+		return fmt.Errorf("compile layered character shadow composite: %w", err)
+	}
+	if err := installLightingShaderVariants(source); err != nil {
+		shadowComposite.Deallocate()
+		return err
+	}
+	previous := layeredShadowCompositeShader
+	layeredShadowCompositeShader = shadowComposite
+	if previous != nil {
+		previous.Deallocate()
+	}
+	return nil
 }
 
 type lightSource struct {

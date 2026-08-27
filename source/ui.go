@@ -124,6 +124,10 @@ func refreshShaderEffectControls() {
 		mobileLightConeShadowsCB.Checked = gs.MobileLightConeShadows
 		mobileLightConeShadowsCB.Disabled = lightingDisabled
 	}
+	if fasterCharacterShadowsCB != nil {
+		fasterCharacterShadowsCB.Checked = gs.FasterCharacterShadows
+		fasterCharacterShadowsCB.Disabled = masterDisabled || !gs.CharacterShadows
+	}
 	if shaderLightSlider != nil {
 		shaderLightSlider.Disabled = lightingDisabled
 	}
@@ -229,6 +233,7 @@ var (
 	shadersEnabledCB         *eui.ItemData
 	shaderLightingCB         *eui.ItemData
 	mobileLightConeShadowsCB *eui.ItemData
+	fasterCharacterShadowsCB *eui.ItemData
 	upscaleModeDD            *eui.ItemData
 	replacementEffectsCB     *eui.ItemData
 	mobileBlendSlider        *eui.ItemData
@@ -5224,6 +5229,7 @@ func makeQualityWindow() {
 			if shadowDarknessSlider != nil {
 				shadowDarknessSlider.Disabled = !ev.Checked
 			}
+			refreshShaderEffectControls()
 			settingsDirty = true
 		}
 	}
@@ -5245,6 +5251,21 @@ func makeQualityWindow() {
 		}
 	}
 	shadowSection.AddItem(shadowDarknessSlider)
+
+	fasterShadowCB, fasterShadowEvents := eui.NewCheckbox()
+	fasterCharacterShadowsCB = fasterShadowCB
+	fasterShadowCB.Text = "Faster Character Shadows"
+	fasterShadowCB.Size = eui.Point{X: width, Y: 24}
+	fasterShadowCB.Checked = gs.FasterCharacterShadows
+	fasterShadowCB.Disabled = !gs.ShadersEnabled || !gs.CharacterShadows
+	fasterShadowCB.SetTooltip("Batch directional shadows into one cheaper pass. This can shade foreground artwork that should cover a shadow.")
+	fasterShadowEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.FasterCharacterShadows = ev.Checked
+			settingsDirty = true
+		}
+	}
+	shadowSection.AddItem(fasterShadowCB)
 
 	shaderSection.AddItem(newConfigurationSubheading("Lighting", width))
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()

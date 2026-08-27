@@ -111,6 +111,9 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		if mode == setupWizardSceneDay {
 			probe := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
 			probe.Fill(color.RGBA{R: 120, G: 130, B: 140, A: 255})
+			// Exercise the opt-in batched path separately. The production draw
+			// below keeps the default draw-order-correct layered path.
+			gs.FasterCharacterShadows = true
 			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels)
 			if frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
 				g.err = fmt.Errorf("daylight scene did not produce a detailed shadow mask")
@@ -125,6 +128,7 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 				g.err = fmt.Errorf("cropped detailed shadow pass did not darken the scene")
 				break
 			}
+			gs.FasterCharacterShadows = false
 		}
 		alpha, mobileFade, pictFade := computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		// Production renders into a non-zero-origin subimage of the game buffer.

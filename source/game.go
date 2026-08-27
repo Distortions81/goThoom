@@ -1724,6 +1724,7 @@ func prepareSceneArtworkFrame(snap drawSnapshot) bool {
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
 	frameDetailedShadowMask = nil
 	frameDetailedShadowBounds = image.Rectangle{}
+	resetLayeredCharacterShadows()
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
@@ -1763,6 +1764,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit)
 		}
 		for _, m := range dead {
+			drawLayeredCharacterShadow(screen, m.Index)
 			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
 			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 			drawMobileNameTag(screen, snap, m, alpha)
@@ -1782,6 +1784,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 			}
 			if mV < pV || (mV == pV && mH <= pH) {
 				if live[i].State != poseDead {
+					drawLayeredCharacterShadow(screen, live[i].Index)
 					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
 					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
 					drawMobileNameTag(screen, snap, live[i], alpha)
@@ -2029,11 +2032,15 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		ty := float64(y) - scaled/2
 		drawn := false
 		if blend {
-			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
+			blendOptions := frameBlendDrawOptions{
 				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: fade,
 				Red: 1, Green: 1, Blue: 1, Alpha: 1,
 				Linear: worldArtworkFilter() == ebiten.FilterLinear,
-			})
+			}
+			drawn = drawFrameBlend(screen, prevImg, img, blendOptions)
+			if drawn {
+				clearLayeredShadowCoverageFrameBlend(prevImg, img, blendOptions)
+			}
 		}
 		if !drawn {
 			if src == nil {
@@ -2045,6 +2052,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			op.GeoM.Scale(scale, scale)
 			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(src, op)
+			clearLayeredShadowCoverageImage(src, op)
 			releaseDrawOpts(op)
 		}
 		if gs.imgPlanesDebug {
@@ -2060,6 +2068,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	} else {
 		// Fallback marker when image missing; no per-frame bounds check.
 		vector.FillRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
+		clearLayeredShadowCoverageRect(float64(x)-3*gs.GameScale, float64(y)-3*gs.GameScale, 6*gs.GameScale, 6*gs.GameScale)
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
@@ -2507,11 +2516,15 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 		drawn := false
 		if blend {
-			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
+			blendOptions := frameBlendDrawOptions{
 				Left: left, Top: top, ScaleX: sx, ScaleY: sy, Fade: fade,
 				Red: red, Green: green, Blue: blue, Alpha: fadeAlpha,
 				Linear: filter == ebiten.FilterLinear,
-			})
+			}
+			drawn = drawFrameBlend(screen, prevImg, img, blendOptions)
+			if drawn {
+				clearLayeredShadowCoverageFrameBlend(prevImg, img, blendOptions)
+			}
 		}
 		if !drawn {
 			if src == nil {
@@ -2525,6 +2538,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			op.GeoM.Translate(left, top)
 			op.ColorScale.Scale(red, green, blue, drawAlpha)
 			screen.DrawImage(src, op)
+			clearLayeredShadowCoverageImage(src, op)
 			releaseDrawOpts(op)
 		}
 
@@ -2559,6 +2573,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			clr = color.RGBA{0, 0, 0xff, 0xff}
 		}
 		vector.FillRect(screen, float32(float64(x)-2*gs.GameScale), float32(float64(y)-2*gs.GameScale), float32(4*gs.GameScale), float32(4*gs.GameScale), clr, false)
+		clearLayeredShadowCoverageRect(float64(x)-2*gs.GameScale, float64(y)-2*gs.GameScale, 4*gs.GameScale, 4*gs.GameScale)
 		if gs.pictIDDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%d", p.PictID)

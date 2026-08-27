@@ -61,6 +61,12 @@ func TestMobileLightConeShadowsDefaultOff(t *testing.T) {
 	}
 }
 
+func TestFasterCharacterShadowsDefaultOff(t *testing.T) {
+	if gsdef.FasterCharacterShadows {
+		t.Fatal("draw-order-correct character shadows must be the default")
+	}
+}
+
 func TestSettingsV4RoundTrip(t *testing.T) {
 	want := gsdef
 	want.LastCharacter = "Agratis"
@@ -78,6 +84,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.BatchArtworkLoading = false
 	want.AssetActivityIndicators = true
 	want.MobileLightConeShadows = true
+	want.FasterCharacterShadows = true
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -104,6 +111,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"batch_room_artwork_loading": false`,
 		`"show_asset_activity_indicators": true`,
 		`"mobile_light_cone_shadows": true`,
+		`"faster_character_shadows": true`,
 		`"shaders_enabled": true`,
 	} {
 		if !strings.Contains(text, expected) {

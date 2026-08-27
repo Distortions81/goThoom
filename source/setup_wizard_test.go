@@ -149,7 +149,7 @@ func TestStartSetupWizardGraphicsDetectionResetsFiveSecondSample(t *testing.T) {
 	if setupWizardGraphicsFPSSum != 0 || setupWizardGraphicsFPSCount != 0 || setupWizardGraphicsRecommendation != "" {
 		t.Fatal("graphics detection retained samples from the previous run")
 	}
-	if !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || !gs.AnimatedChatBubbles || artworkUpscaleMode() != artworkUpscaleUltraSmooth {
+	if !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || gs.FasterCharacterShadows || !gs.AnimatedChatBubbles || artworkUpscaleMode() != artworkUpscaleUltraSmooth {
 		t.Fatal("graphics detection did not apply Full Quality before sampling")
 	}
 	if !setupWizardVSyncBypass {

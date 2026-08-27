@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"image"
 	"image/color"
 	"math"
@@ -44,6 +45,15 @@ var shadowMaskBlend = ebiten.Blend{
 	BlendOperationAlpha: ebiten.BlendOperationMax,
 }
 
+var shadowCoverageClearBlend = ebiten.Blend{
+	BlendFactorSourceRGB:        ebiten.BlendFactorZero,
+	BlendFactorSourceAlpha:      ebiten.BlendFactorZero,
+	BlendFactorDestinationRGB:   ebiten.BlendFactorOneMinusSourceAlpha,
+	BlendFactorDestinationAlpha: ebiten.BlendFactorOneMinusSourceAlpha,
+	BlendOperationRGB:           ebiten.BlendOperationAdd,
+	BlendOperationAlpha:         ebiten.BlendOperationAdd,
+}
+
 var (
 	uprightShadowVertices = [4]ebiten.Vertex{}
 	uprightShadowIndices  = [6]uint16{0, 1, 2, 1, 3, 2}
@@ -53,12 +63,24 @@ var (
 		DisableMipmaps: true,
 		Blend:          shadowDarkenBlend,
 	}
-	detailedCharacterShadowMask *ebiten.Image
-	frameDetailedShadowMask     *ebiten.Image
-	frameDetailedShadowBounds   image.Rectangle
-	contactShadowTexture        *ebiten.Image
-	frameCharacterShadowDraws   []characterShadowDraw
+	detailedCharacterShadowMask       *ebiten.Image
+	frameDetailedShadowMask           *ebiten.Image
+	frameDetailedShadowBounds         image.Rectangle
+	contactShadowTexture              *ebiten.Image
+	frameCharacterShadowDraws         []characterShadowDraw
+	frameLayeredShadowDraws           [256]characterShadowDraw
+	frameLayeredShadowReady           [256]bool
+	layeredShadowCompositeShader      *ebiten.Shader
+	layeredShadowCoverage             *ebiten.Image
+	layeredShadowIncoming             *ebiten.Image
+	layeredShadowPrevious             *ebiten.Image
+	layeredShadowScene                *ebiten.Image
+	layeredShadowOrigin               image.Point
+	frameLayeredShadowCompositeActive bool
 )
+
+//go:embed data/shaders/character_shadow_composite.kage
+var layeredShadowCompositeShaderSource []byte
 
 type characterShadowKind uint8
 
@@ -198,12 +220,17 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	frameDetailedShadowMask = nil
 	frameDetailedShadowBounds = image.Rectangle{}
 	frameCharacterShadowDraws = frameCharacterShadowDraws[:0]
+	resetLayeredCharacterShadows()
 	shadowAlpha, azimuth, kind := currentCharacterShadowRenderState()
 	if kind != characterShadowDirectional || clImages == nil {
 		return
 	}
 	projection := newCharacterShadowProjection(azimuth)
-	useMask := characterShadowCompositeEnabled() && lightingShader != nil
+	useLayered := layeredCharacterShadowsEnabled() && layeredShadowCompositeShader != nil
+	useMask := !useLayered && characterShadowCompositeEnabled() && lightingShader != nil
+	if useLayered {
+		beginLayeredCharacterShadowComposite(screen.Bounds())
+	}
 
 	for _, mobile := range mobiles {
 		desc, ok := descMap[mobile.Index]
@@ -244,10 +271,18 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		}
 		casterAlpha := shadowAlpha * mobileSunShadowAppearance(mobile, desc, prevMobiles, alpha)
 		quad := mobileSunShadowQuad(texture, size, x, y, projection, upright)
-		frameCharacterShadowDraws = append(frameCharacterShadowDraws, characterShadowDraw{
+		command := characterShadowDraw{
 			texture: texture, size: size, x: x, y: y, alpha: casterAlpha,
 			projection: projection, upright: upright, quad: quad,
-		})
+		}
+		if useLayered {
+			queueLayeredCharacterShadow(mobile.Index, command)
+		} else {
+			frameCharacterShadowDraws = append(frameCharacterShadowDraws, command)
+		}
+	}
+	if useLayered {
+		return
 	}
 	if !useMask {
 		for _, command := range frameCharacterShadowDraws {
@@ -283,6 +318,160 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	}
 	frameDetailedShadowMask = shadowTarget
 	frameDetailedShadowBounds = activeBounds
+}
+
+func resetLayeredCharacterShadows() {
+	clear(frameLayeredShadowDraws[:])
+	clear(frameLayeredShadowReady[:])
+	frameLayeredShadowCompositeActive = false
+}
+
+func beginLayeredCharacterShadowComposite(bounds image.Rectangle) {
+	if bounds.Empty() {
+		return
+	}
+	layeredShadowOrigin = bounds.Min
+	layeredShadowCoverage = ensureCharacterShadowImage(layeredShadowCoverage, bounds.Size())
+	layeredShadowCoverage.SubImage(image.Rectangle{Max: bounds.Size()}).(*ebiten.Image).Clear()
+	frameLayeredShadowCompositeActive = true
+}
+
+func ensureCharacterShadowImage(current *ebiten.Image, size image.Point) *ebiten.Image {
+	if size.X < 1 || size.Y < 1 {
+		return current
+	}
+	if current != nil && current.Bounds().Dx() >= size.X && current.Bounds().Dy() >= size.Y {
+		return current
+	}
+	width, height := size.X, size.Y
+	if current != nil {
+		width = max(width, current.Bounds().Dx())
+		height = max(height, current.Bounds().Dy())
+		current.Deallocate()
+	}
+	return newUnmanagedImage(width, height)
+}
+
+func queueLayeredCharacterShadow(index uint8, command characterShadowDraw) {
+	frameLayeredShadowDraws[index] = command
+	frameLayeredShadowReady[index] = true
+}
+
+func takeLayeredCharacterShadow(index uint8) (characterShadowDraw, bool) {
+	if !frameLayeredShadowReady[index] {
+		return characterShadowDraw{}, false
+	}
+	frameLayeredShadowReady[index] = false
+	command := frameLayeredShadowDraws[index]
+	frameLayeredShadowDraws[index] = characterShadowDraw{}
+	return command, true
+}
+
+// drawLayeredCharacterShadow draws a prepared directional shadow immediately
+// before its caster. Later scenery and mobiles can then cover it naturally,
+// matching the scene's painter order.
+func drawLayeredCharacterShadow(screen *ebiten.Image, index uint8) {
+	if screen == nil {
+		return
+	}
+	command, ok := takeLayeredCharacterShadow(index)
+	if !ok {
+		return
+	}
+	compositeLayeredCharacterShadow(screen, command)
+}
+
+func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShadowDraw) {
+	if !frameLayeredShadowCompositeActive || layeredShadowCompositeShader == nil || layeredShadowCoverage == nil {
+		drawCharacterShadow(screen, command.texture, command.size, command.x, command.y, command.alpha, command.projection, command.upright, shadowDarkenBlend)
+		return
+	}
+	bounds := shadowQuadBounds(command.quad).Intersect(screen.Bounds())
+	if bounds.Empty() {
+		return
+	}
+	size := bounds.Size()
+	layeredShadowIncoming = ensureCharacterShadowImage(layeredShadowIncoming, size)
+	layeredShadowPrevious = ensureCharacterShadowImage(layeredShadowPrevious, size)
+	layeredShadowScene = ensureCharacterShadowImage(layeredShadowScene, size)
+	incoming := layeredShadowIncoming.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
+	previous := layeredShadowPrevious.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
+	scene := layeredShadowScene.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
+	incoming.Clear()
+	previous.Clear()
+	scene.Clear()
+
+	drawCharacterShadow(incoming, command.texture, command.size, command.x-bounds.Min.X, command.y-bounds.Min.Y, command.alpha, command.projection, command.upright, shadowMaskBlend)
+	scene.DrawImage(screen.SubImage(bounds).(*ebiten.Image), nil)
+	coverageRect := bounds.Sub(layeredShadowOrigin)
+	coverageSource := layeredShadowCoverage.SubImage(coverageRect).(*ebiten.Image)
+	previous.DrawImage(coverageSource, nil)
+
+	shaderOp := &ebiten.DrawRectShaderOptions{}
+	shaderOp.Images[0] = scene
+	shaderOp.Images[1] = previous
+	shaderOp.Images[2] = incoming
+	shaderOp.Blend = ebiten.BlendCopy
+	shaderOp.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
+	screen.DrawRectShader(size.X, size.Y, layeredShadowCompositeShader, shaderOp)
+
+	updateOp := &ebiten.DrawImageOptions{Blend: shadowMaskBlend}
+	updateOp.GeoM.Translate(float64(coverageRect.Min.X), float64(coverageRect.Min.Y))
+	layeredShadowCoverage.DrawImage(incoming, updateOp)
+}
+
+// clearLayeredShadowCoverageImage removes previous shadow coverage where a new
+// receiver was painted. A later caster can then shadow that newly visible
+// artwork without multiplying darkness on the still-visible surroundings.
+func clearLayeredShadowCoverageImage(source *ebiten.Image, drawOp *ebiten.DrawImageOptions) {
+	if !frameLayeredShadowCompositeActive || layeredShadowCoverage == nil || source == nil || drawOp == nil {
+		return
+	}
+	op := *drawOp
+	op.Blend = shadowCoverageClearBlend
+	op.GeoM.Translate(float64(-layeredShadowOrigin.X), float64(-layeredShadowOrigin.Y))
+	layeredShadowCoverage.DrawImage(source, &op)
+}
+
+func clearLayeredShadowCoverageFrameBlend(previous, current *ebiten.Image, options frameBlendDrawOptions) {
+	if !frameLayeredShadowCompositeActive || previous == nil || current == nil {
+		return
+	}
+	previousBounds := previous.Bounds()
+	currentBounds := current.Bounds()
+	width := max(previousBounds.Dx(), currentBounds.Dx())
+	height := max(previousBounds.Dy(), currentBounds.Dy())
+	for _, frame := range []struct {
+		image  *ebiten.Image
+		bounds image.Rectangle
+	}{
+		{image: previous, bounds: previousBounds},
+		{image: current, bounds: currentBounds},
+	} {
+		offsetX := float64(width-frame.bounds.Dx()) / 2
+		offsetY := float64(height-frame.bounds.Dy()) / 2
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+		if options.Linear {
+			op.Filter = ebiten.FilterLinear
+		}
+		op.DisableMipmaps = true
+		op.GeoM.Scale(options.ScaleX, options.ScaleY)
+		op.GeoM.Translate(options.Left+offsetX*options.ScaleX, options.Top+offsetY*options.ScaleY)
+		op.ColorScale.Scale(1, 1, 1, options.Alpha)
+		clearLayeredShadowCoverageImage(frame.image, op)
+	}
+}
+
+func clearLayeredShadowCoverageRect(x, y, width, height float64) {
+	if !frameLayeredShadowCompositeActive || whiteImage == nil || width <= 0 || height <= 0 {
+		return
+	}
+	bounds := whiteImage.Bounds()
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(width/float64(bounds.Dx()), height/float64(bounds.Dy()))
+	op.GeoM.Translate(x, y)
+	clearLayeredShadowCoverageImage(whiteImage, op)
 }
 
 func applyDetailedCharacterShadow(dst *ebiten.Image) {
@@ -512,6 +701,7 @@ func characterShadowTextureForMobile(key mobileKey, img *ebiten.Image) character
 }
 
 func clearCharacterShadowCache() {
+	resetLayeredCharacterShadows()
 	if detailedCharacterShadowMask != nil {
 		detailedCharacterShadowMask.Deallocate()
 		detailedCharacterShadowMask = nil
@@ -520,6 +710,15 @@ func clearCharacterShadowCache() {
 		contactShadowTexture.Deallocate()
 		contactShadowTexture = nil
 	}
+	for _, target := range []*ebiten.Image{layeredShadowCoverage, layeredShadowIncoming, layeredShadowPrevious, layeredShadowScene} {
+		if target != nil {
+			target.Deallocate()
+		}
+	}
+	layeredShadowCoverage = nil
+	layeredShadowIncoming = nil
+	layeredShadowPrevious = nil
+	layeredShadowScene = nil
 }
 
 func drawCharacterShadow(screen *ebiten.Image, texture characterShadowTexture, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {

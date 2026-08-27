@@ -343,6 +343,7 @@ var gsdef settings = settings{
 	ShaderLighting:          true,
 	MobileLightConeShadows:  false,
 	CharacterShadows:        true,
+	FasterCharacterShadows:  false,
 	CharacterShadowDarkness: 1.8,
 
 	// Window behavior
@@ -558,6 +559,7 @@ type settings struct {
 	ShaderLighting          bool
 	MobileLightConeShadows  bool
 	CharacterShadows        bool
+	FasterCharacterShadows  bool
 	CharacterShadowDarkness float64
 
 	// Window behavior
@@ -1387,6 +1389,7 @@ func applyQualityPreset(name string) {
 		gs.DenoiseImages = false
 		gs.WindowShadows = false
 		gs.CharacterShadows = false
+		gs.FasterCharacterShadows = true
 		gs.AnimatedChatBubbles = false
 	case "Full Graphics":
 		p = currentAudioQualityPreset()
@@ -1398,6 +1401,7 @@ func applyQualityPreset(name string) {
 		p.SpriteUpscaleFilter = true
 		gs.WindowShadows = true
 		gs.CharacterShadows = true
+		gs.FasterCharacterShadows = false
 		gs.AnimatedChatBubbles = true
 	case "Classic":
 		p = classicPreset

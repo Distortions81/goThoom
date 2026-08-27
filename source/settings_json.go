@@ -141,6 +141,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "FlameLightFlicker", category: settingsRendering, name: "flame_light_flicker"},
 	{field: "FlameFlickerStrength", category: settingsRendering, name: "flame_flicker_strength"},
 	{field: "CharacterShadows", category: settingsRendering, name: "character_shadows"},
+	{field: "FasterCharacterShadows", category: settingsRendering, name: "faster_character_shadows"},
 	{field: "CharacterShadowDarkness", category: settingsRendering, name: "character_shadow_darkness"},
 
 	{field: "MasterVolume", category: settingsAudio, name: "master_volume"},

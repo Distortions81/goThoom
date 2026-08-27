@@ -110,9 +110,35 @@ func TestLowSunShadowsHaveSofterContrast(t *testing.T) {
 
 func TestClearCharacterShadowCache(t *testing.T) {
 	detailedCharacterShadowMask = ebiten.NewImage(8, 8)
+	layeredShadowCoverage = ebiten.NewImage(8, 8)
+	layeredShadowIncoming = ebiten.NewImage(8, 8)
+	layeredShadowPrevious = ebiten.NewImage(8, 8)
+	layeredShadowScene = ebiten.NewImage(8, 8)
+	frameLayeredShadowCompositeActive = true
 	clearCharacterShadowCache()
 	if detailedCharacterShadowMask != nil {
 		t.Fatal("character shadow mask was not cleared")
+	}
+	if layeredShadowCoverage != nil || layeredShadowIncoming != nil || layeredShadowPrevious != nil || layeredShadowScene != nil || frameLayeredShadowCompositeActive {
+		t.Fatal("layered character shadow composite was not cleared")
+	}
+}
+
+func TestLayeredCharacterShadowCommandsFollowTheirCaster(t *testing.T) {
+	resetLayeredCharacterShadows()
+	t.Cleanup(resetLayeredCharacterShadows)
+
+	want := characterShadowDraw{size: 37, x: 12, y: 24, alpha: 0.6}
+	queueLayeredCharacterShadow(9, want)
+	if _, ok := takeLayeredCharacterShadow(8); ok {
+		t.Fatal("a different mobile consumed the prepared shadow")
+	}
+	got, ok := takeLayeredCharacterShadow(9)
+	if !ok || got.size != want.size || got.x != want.x || got.y != want.y || got.alpha != want.alpha {
+		t.Fatalf("prepared shadow = (%+v, %v), want (%+v, true)", got, ok, want)
+	}
+	if _, ok := takeLayeredCharacterShadow(9); ok {
+		t.Fatal("the same layered shadow was drawn more than once")
 	}
 }
 

@@ -49,6 +49,7 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 	for name, control := range map[string]*eui.ItemData{
 		"lighting":                  shaderLightingCB,
 		"mobile light-cone shadows": mobileLightConeShadowsCB,
+		"faster character shadows":  fasterCharacterShadowsCB,
 		"magic effects":             replacementEffectsCB,
 		"mobile blending":           animCB,
 		"world blending":            pictBlendCB,
@@ -116,5 +117,9 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 	artworkSection := findSection("Artwork Scaling", upscaleModeDD)
 	if artworkSection == nil {
 		t.Fatal("quality window is missing artwork upscaling from Artwork Scaling")
+	}
+	shadowSection := findSection("Shadows", fasterCharacterShadowsCB)
+	if shadowSection == nil {
+		t.Fatal("quality window is missing Faster Character Shadows from Shadows")
 	}
 }
