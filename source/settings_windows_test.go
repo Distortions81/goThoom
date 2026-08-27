@@ -12,7 +12,7 @@ func near(a, b float64) bool {
 }
 
 func TestDefaultWindowLayoutIsNormalizedAndGapless(t *testing.T) {
-	if gsdef.WindowWidth != 2409 || gsdef.WindowHeight != 1404 {
+	if gsdef.WindowWidth != 1280 || gsdef.WindowHeight != 720 {
 		t.Fatalf("default application size = %dx%d", gsdef.WindowWidth, gsdef.WindowHeight)
 	}
 	if !normalizedWindowStateValid(gsdef.GameWindow, true) ||
