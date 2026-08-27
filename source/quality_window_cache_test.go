@@ -47,11 +47,10 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 		t.Fatal("shader master is missing or disabled")
 	}
 	for name, control := range map[string]*eui.ItemData{
-		"artwork upscaling": upscaleModeDD,
-		"lighting":          shaderLightingCB,
-		"magic effects":     replacementEffectsCB,
-		"mobile blending":   animCB,
-		"world blending":    pictBlendCB,
+		"lighting":        shaderLightingCB,
+		"magic effects":   replacementEffectsCB,
+		"mobile blending": animCB,
+		"world blending":  pictBlendCB,
 	} {
 		if control == nil || !control.Disabled {
 			t.Errorf("%s control was not greyed out by the shader master", name)
@@ -59,6 +58,9 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 	}
 	if motionCB == nil || motionCB.Disabled {
 		t.Fatal("CPU motion smoothing was incorrectly disabled with shaders")
+	}
+	if upscaleModeDD == nil || upscaleModeDD.Disabled {
+		t.Fatal("CPU artwork upscaling was incorrectly disabled with shaders")
 	}
 
 	contains := func(root *eui.ItemData, target *eui.ItemData) bool {
@@ -76,31 +78,42 @@ func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 		}
 		return visit(root)
 	}
-	var shaderSection *eui.ItemData
-	var findSection func(*eui.ItemData)
-	findSection = func(item *eui.ItemData) {
-		if shaderSection != nil {
-			return
-		}
-		for _, child := range item.Contents {
-			if child.Text == "Shader Effects" && contains(item, shadersEnabledCB) {
-				shaderSection = item
+	findSection := func(title string, target *eui.ItemData) *eui.ItemData {
+		var found *eui.ItemData
+		var visit func(*eui.ItemData)
+		visit = func(item *eui.ItemData) {
+			if found != nil {
 				return
 			}
+			for _, child := range item.Contents {
+				if child.Text == title && contains(item, target) {
+					found = item
+					return
+				}
+			}
+			for _, child := range item.Contents {
+				visit(child)
+			}
 		}
-		for _, child := range item.Contents {
-			findSection(child)
+		for _, item := range qualityWin.Contents {
+			visit(item)
 		}
+		return found
 	}
-	for _, item := range qualityWin.Contents {
-		findSection(item)
-	}
+	shaderSection := findSection("Shader Effects", shadersEnabledCB)
 	if shaderSection == nil {
 		t.Fatal("quality window is missing the Shader Effects group")
 	}
-	for _, control := range []*eui.ItemData{upscaleModeDD, shaderLightingCB, replacementEffectsCB, animCB, pictBlendCB} {
+	for _, control := range []*eui.ItemData{shaderLightingCB, replacementEffectsCB, animCB, pictBlendCB} {
 		if !contains(shaderSection, control) {
 			t.Errorf("shader-backed control %q is outside the Shader Effects group", control.Text+control.Label)
 		}
+	}
+	if contains(shaderSection, upscaleModeDD) {
+		t.Fatal("CPU artwork upscaling is still inside the Shader Effects group")
+	}
+	artworkSection := findSection("Artwork Scaling", upscaleModeDD)
+	if artworkSection == nil {
+		t.Fatal("quality window is missing artwork upscaling from Artwork Scaling")
 	}
 }

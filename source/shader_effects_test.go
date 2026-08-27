@@ -24,10 +24,13 @@ func TestShaderMasterDisablesEveryShaderGroupWithoutChangingPreferences(t *testi
 
 	gs.ShadersEnabled = false
 	if mobileFrameBlendingEnabled() || pictureFrameBlendingEnabled() ||
-		artworkUpscaleEnabled() || shaderLightingEnabled() ||
+		shaderLightingEnabled() ||
 		characterShadowCompositeEnabled() || replacementEffectsEnabled() ||
 		perFrameShaderEffectsEnabled() {
 		t.Fatal("the shader master left a shader group active")
+	}
+	if !artworkUpscaleEnabled() {
+		t.Fatal("the shader master disabled CPU artwork upscaling")
 	}
 	if !gs.BlendMobiles || !gs.BlendPicts || !gs.SpriteUpscaleFilter ||
 		!gs.ShaderLighting || !gs.ReplacementEffects {

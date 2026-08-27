@@ -391,11 +391,11 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 	buildSetupNightLightingPage(night)
 
 	wantDisabled := map[string]bool{
-		"Artwork upscale style":        false,
 		"Character animation blending": false,
 		"World animation blending":     false,
 		"Shader lighting effects":      false,
 	}
+	foundUpscale := false
 	var visit func(*eui.ItemData)
 	visit = func(item *eui.ItemData) {
 		name := item.Text
@@ -404,6 +404,12 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 		}
 		if _, ok := wantDisabled[name]; ok && item.Disabled {
 			wantDisabled[name] = true
+		}
+		if name == "Artwork upscale style" {
+			foundUpscale = true
+			if item.Disabled {
+				t.Error("CPU artwork upscaling was greyed out by the shader master")
+			}
 		}
 		for _, child := range item.Contents {
 			visit(child)
@@ -416,6 +422,9 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 		if !disabled {
 			t.Errorf("setup wizard shader control %q was not greyed out", name)
 		}
+	}
+	if !foundUpscale {
+		t.Error("setup wizard is missing the artwork upscale control")
 	}
 }
 

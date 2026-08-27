@@ -399,7 +399,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	))
 	root.AddItem(setupWizardCheckbox(
 		"Enable shader effects",
-		"Master switch for artwork upscaling, frame blending, lighting, accurate shadow compositing, and procedural effects.",
+		"Master switch for frame blending, lighting, accurate shadow compositing, and procedural effects.",
 		gs.ShadersEnabled,
 		func(checked bool) {
 			gs.ShadersEnabled = checked
@@ -413,7 +413,6 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	upscaleStyle.Options = artworkUpscaleModeNames
 	upscaleStyle.Selected = artworkUpscaleMode()
 	upscaleStyle.Size = eui.Point{X: 320, Y: 24}
-	upscaleStyle.Disabled = !gs.ShadersEnabled
 	upscaleStyle.SetTooltip("Choose edge smoothing.")
 	upscaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < artworkUpscaleOff || ev.Index > artworkUpscaleUltraSmooth {

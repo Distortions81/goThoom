@@ -41,6 +41,7 @@ func clearCaches() {
 		clImages.ClearCache()
 	}
 	imageCacheLifecycleMu.Unlock()
+	artworkCacheGeneration.Add(1)
 	// Image-backed UI rows reference textures owned by the caches above. Rebuild
 	// them after a cache clear instead of leaving stale images in EUI until the
 	// corresponding window is resized.
@@ -66,8 +67,9 @@ func clearScaledArtworkCachesLocked() {
 }
 
 var (
-	soundsPrecached      atomic.Bool
-	soundPrecacheRunning atomic.Bool
+	artworkCacheGeneration atomic.Uint64
+	soundsPrecached        atomic.Bool
+	soundPrecacheRunning   atomic.Bool
 )
 
 func precacheSounds() {

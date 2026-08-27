@@ -115,7 +115,7 @@ func refreshShaderEffectControls() {
 	}
 	if upscaleModeDD != nil {
 		upscaleModeDD.Selected = artworkUpscaleMode()
-		upscaleModeDD.Disabled = masterDisabled
+		upscaleModeDD.Disabled = false
 	}
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
@@ -5041,8 +5041,7 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	shaderSection.AddItem(newConfigurationSubheading("Artwork Upscaling", width))
-	shaderSection.AddItem(upscaleModeDD)
+	artworkSection.AddItem(upscaleModeDD)
 
 	ppCB, pixelPerfectEvents := eui.NewCheckbox()
 	pixelPerfectCB := ppCB

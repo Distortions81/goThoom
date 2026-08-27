@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	_ "embed"
+	"fmt"
 	"image"
 	"math"
 	"os"
@@ -24,6 +26,7 @@ var lightShaderSrc []byte
 
 var (
 	lightingShader           *ebiten.Shader
+	lightingShaderVariants   []lightingShaderVariant
 	lightingTmp              *ebiten.Image
 	frameLights              []lightSource
 	frameDarks               []darkSource
@@ -39,10 +42,23 @@ var (
 	scasterX, scasterY, scasterRadius                 [maxLightShadows]float32
 	shadowAxisX, shadowAxisY, shadowInvDistance       [maxLightShadows]float32
 	characterShadowMin, characterShadowMax            [2]float32
-	lightingUniforms                                  map[string]any
-	lightingOp                                        ebiten.DrawTrianglesShaderOptions
 	lightingIndices                                   = []uint16{0, 1, 2, 1, 2, 3}
 )
+
+type lightingShaderVariant struct {
+	maxLights  int
+	maxShadows int
+	shader     *ebiten.Shader
+	uniforms   map[string]any
+	op         ebiten.DrawTrianglesShaderOptions
+}
+
+var sceneLightingScan struct {
+	worldGeneration uint64
+	archive         *climg.CLImages
+	hasEmitters     bool
+	valid           bool
+}
 
 // Global multipliers to make lights/darks reach farther on screen.
 const (
@@ -57,38 +73,37 @@ const (
 	shaderNightStrength = 0.96
 )
 
-func init() {
-	// Initialize reusable uniforms and options
-	lightingUniforms = map[string]any{
+func newLightingShaderVariant(shader *ebiten.Shader, lightLimit, shadowLimit int) lightingShaderVariant {
+	uniforms := map[string]any{
 		"LightCount":                  0,
 		"DarkCount":                   0,
-		"LightPosX":                   lposX[:],
-		"LightPosY":                   lposY[:],
-		"LightInvRadiusSquared":       linvRadiusSquared[:],
-		"LightR":                      lr[:],
-		"LightG":                      lg[:],
-		"LightB":                      lb[:],
-		"LightIntensity":              lint[:],
-		"DarkPosX":                    dposX[:],
-		"DarkPosY":                    dposY[:],
-		"DarkInvRadiusSquared":        dinvRadiusSquared[:],
-		"DarkAlpha":                   da[:],
-		"DarkIntensity":               dint[:],
-		"DarkPlane":                   dplane[:],
+		"LightPosX":                   lposX[:lightLimit],
+		"LightPosY":                   lposY[:lightLimit],
+		"LightInvRadiusSquared":       linvRadiusSquared[:lightLimit],
+		"LightR":                      lr[:lightLimit],
+		"LightG":                      lg[:lightLimit],
+		"LightB":                      lb[:lightLimit],
+		"LightIntensity":              lint[:lightLimit],
+		"DarkPosX":                    dposX[:lightLimit],
+		"DarkPosY":                    dposY[:lightLimit],
+		"DarkInvRadiusSquared":        dinvRadiusSquared[:lightLimit],
+		"DarkAlpha":                   da[:lightLimit],
+		"DarkIntensity":               dint[:lightLimit],
+		"DarkPlane":                   dplane[:lightLimit],
 		"ShadowCount":                 0,
-		"ShadowLightX":                slightX[:],
-		"ShadowLightY":                slightY[:],
-		"ShadowLightInvRadiusSquared": slightInvRadiusSquared[:],
-		"ShadowLightR":                slightR[:],
-		"ShadowLightG":                slightG[:],
-		"ShadowLightB":                slightB[:],
-		"ShadowLightIntensity":        slightInt[:],
-		"ShadowCasterX":               scasterX[:],
-		"ShadowCasterY":               scasterY[:],
-		"ShadowCasterRadius":          scasterRadius[:],
-		"ShadowAxisX":                 shadowAxisX[:],
-		"ShadowAxisY":                 shadowAxisY[:],
-		"ShadowInvDistance":           shadowInvDistance[:],
+		"ShadowLightX":                slightX[:shadowLimit],
+		"ShadowLightY":                slightY[:shadowLimit],
+		"ShadowLightInvRadiusSquared": slightInvRadiusSquared[:shadowLimit],
+		"ShadowLightR":                slightR[:shadowLimit],
+		"ShadowLightG":                slightG[:shadowLimit],
+		"ShadowLightB":                slightB[:shadowLimit],
+		"ShadowLightIntensity":        slightInt[:shadowLimit],
+		"ShadowCasterX":               scasterX[:shadowLimit],
+		"ShadowCasterY":               scasterY[:shadowLimit],
+		"ShadowCasterRadius":          scasterRadius[:shadowLimit],
+		"ShadowAxisX":                 shadowAxisX[:shadowLimit],
+		"ShadowAxisY":                 shadowAxisY[:shadowLimit],
+		"ShadowInvDistance":           shadowInvDistance[:shadowLimit],
 		"LightStrength":               float32(1),
 		"GlowStrength":                float32(1),
 		"NightFactor":                 float32(0),
@@ -97,8 +112,102 @@ func init() {
 		"CharacterShadowMin":          characterShadowMin[:],
 		"CharacterShadowMax":          characterShadowMax[:],
 	}
-	lightingOp = ebiten.DrawTrianglesShaderOptions{}
-	lightingOp.Uniforms = lightingUniforms
+	return lightingShaderVariant{
+		maxLights: lightLimit, maxShadows: shadowLimit, shader: shader, uniforms: uniforms,
+		op: ebiten.DrawTrianglesShaderOptions{Uniforms: uniforms},
+	}
+}
+
+func compileLightingShaderVariants(source []byte) ([]lightingShaderVariant, error) {
+	if !bytes.Contains(source, []byte("const MaxLights = 128")) || !bytes.Contains(source, []byte("const MaxLightShadows = 32")) {
+		return nil, fmt.Errorf("lighting shader capacity constants are missing")
+	}
+	tiers := [...]struct{ lights, shadows int }{{8, 8}, {32, 16}, {64, 32}, {128, 32}}
+	variants := make([]lightingShaderVariant, 0, len(tiers))
+	for _, tier := range tiers {
+		variantSource := bytes.Replace(source, []byte("const MaxLights = 128"), []byte(fmt.Sprintf("const MaxLights = %d", tier.lights)), 1)
+		variantSource = bytes.Replace(variantSource, []byte("const MaxLightShadows = 32"), []byte(fmt.Sprintf("const MaxLightShadows = %d", tier.shadows)), 1)
+		shader, err := ebiten.NewShader(variantSource)
+		if err != nil {
+			for _, variant := range variants {
+				variant.shader.Deallocate()
+			}
+			return nil, fmt.Errorf("compile %d-light/%d-shadow variant: %w", tier.lights, tier.shadows, err)
+		}
+		variants = append(variants, newLightingShaderVariant(shader, tier.lights, tier.shadows))
+	}
+	return variants, nil
+}
+
+func sceneMayNeedLighting(snap drawSnapshot) bool {
+	if clImages == nil || !shaderLightingEnabled() {
+		return false
+	}
+	if currentNightLevel() > 0 {
+		return true
+	}
+	if snap.worldGeneration != 0 && sceneLightingScan.valid &&
+		sceneLightingScan.worldGeneration == snap.worldGeneration &&
+		sceneLightingScan.archive == clImages {
+		return sceneLightingScan.hasEmitters
+	}
+	hasEmitters := false
+	for _, pictures := range [...][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
+		for _, picture := range pictures {
+			if clImages.Flags(uint32(picture.PictID))&climg.PictDefFlagEmitsLight != 0 {
+				hasEmitters = true
+				break
+			}
+		}
+		if hasEmitters {
+			break
+		}
+	}
+	if !hasEmitters {
+		for _, mobile := range snap.mobiles {
+			descriptor, ok := snap.descriptors[mobile.Index]
+			if !ok {
+				continue
+			}
+			flags := clImages.Flags(uint32(descriptor.PictID))
+			if flags&climg.PictDefFlagEmitsLight != 0 && mobileLightEnabled(flags, mobile.State) {
+				hasEmitters = true
+				break
+			}
+		}
+	}
+	if snap.worldGeneration != 0 {
+		sceneLightingScan.worldGeneration = snap.worldGeneration
+		sceneLightingScan.archive = clImages
+		sceneLightingScan.hasEmitters = hasEmitters
+		sceneLightingScan.valid = true
+	}
+	return hasEmitters
+}
+
+func installLightingShaderVariants(source []byte) error {
+	variants, err := compileLightingShaderVariants(source)
+	if err != nil {
+		return err
+	}
+	previous := lightingShaderVariants
+	lightingShaderVariants = variants
+	lightingShader = variants[len(variants)-1].shader
+	for _, variant := range previous {
+		variant.shader.Deallocate()
+	}
+	return nil
+}
+
+func selectLightingShaderVariant(lightCount, darkCount, shadowCount int) *lightingShaderVariant {
+	neededLights := max(lightCount, darkCount)
+	for index := range lightingShaderVariants {
+		variant := &lightingShaderVariants[index]
+		if neededLights <= variant.maxLights && shadowCount <= variant.maxShadows {
+			return variant
+		}
+	}
+	return nil
 }
 
 // ReloadLightingShader recompiles the lighting shader from disk and swaps it in.
@@ -106,20 +215,10 @@ func init() {
 func ReloadLightingShader() error {
 	// Try to reload from the source file for live iteration
 	if b, err := os.ReadFile("data/shaders/light.kage"); err == nil {
-		if sh, err2 := ebiten.NewShader(b); err2 == nil {
-			lightingShader = sh
-			return nil
-		} else {
-			return err2
-		}
+		return installLightingShaderVariants(b)
 	}
 	// Fallback: use embedded shader source
-	sh, err := ebiten.NewShader(lightShaderSrc)
-	if err != nil {
-		return err
-	}
-	lightingShader = sh
-	return nil
+	return installLightingShaderVariants(lightShaderSrc)
 }
 
 type lightSource struct {
@@ -205,11 +304,17 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	il := lights[:min(len(lights), maxLights)]
 	id := darks[:min(len(darks), maxLights)]
 	frameLightShadows = buildLightShadows(il, frameLightCasters, frameLightShadows[:0])
+	variant := selectLightingShaderVariant(len(il), len(id), len(frameLightShadows))
+	if variant == nil {
+		return
+	}
+	uniforms := variant.uniforms
+	op := &variant.op
 
 	// Update counts
-	lightingUniforms["LightCount"] = len(il)
-	lightingUniforms["DarkCount"] = len(id)
-	lightingUniforms["ShadowCount"] = len(frameLightShadows)
+	uniforms["LightCount"] = len(il)
+	uniforms["DarkCount"] = len(id)
+	uniforms["ShadowCount"] = len(frameLightShadows)
 
 	// Shader distance calculations use source-pixel coordinates, which are local
 	// to the temporary image. Sources are stored in destination-image coordinates.
@@ -268,9 +373,9 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	}
 
 	// Scalars
-	lightingUniforms["LightStrength"] = float32(gs.ShaderLightStrength)
-	lightingUniforms["GlowStrength"] = float32(gs.ShaderGlowStrength)
-	lightingUniforms["MaxLightPlane"] = highestLightPlane(il)
+	uniforms["LightStrength"] = float32(gs.ShaderLightStrength)
+	uniforms["GlowStrength"] = float32(gs.ShaderGlowStrength)
+	uniforms["MaxLightPlane"] = highestLightPlane(il)
 
 	// Smoothed night factor (0..1)
 	nightFactor := float32(0)
@@ -288,21 +393,21 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		lvl := currentNightLevel()
 		nightFactor = float32(lvl) / 100
 	}
-	lightingUniforms["NightFactor"] = nightFactor
-	lightingUniforms["HasCharacterShadowMask"] = float32(0)
-	lightingOp.Images[1] = whiteImage
+	uniforms["NightFactor"] = nightFactor
+	uniforms["HasCharacterShadowMask"] = float32(0)
+	op.Images[1] = whiteImage
 	if frameDetailedShadowMask != nil && !frameDetailedShadowBounds.Empty() {
 		characterShadowMin[0] = float32(frameDetailedShadowBounds.Min.X - dstBounds.Min.X)
 		characterShadowMin[1] = float32(frameDetailedShadowBounds.Min.Y - dstBounds.Min.Y)
 		characterShadowMax[0] = float32(frameDetailedShadowBounds.Max.X - dstBounds.Min.X)
 		characterShadowMax[1] = float32(frameDetailedShadowBounds.Max.Y - dstBounds.Min.Y)
-		lightingUniforms["HasCharacterShadowMask"] = float32(1)
-		lightingOp.Images[1] = frameDetailedShadowMask
+		uniforms["HasCharacterShadowMask"] = float32(1)
+		op.Images[1] = frameDetailedShadowMask
 	}
 
 	// Bind the full scene and the grow-only cropped shadow target. Pixel-unit
 	// triangle shaders permit differently sized sources, unlike DrawRectShader.
-	lightingOp.Images[0] = source
+	op.Images[0] = source
 	left, top := float32(dstBounds.Min.X), float32(dstBounds.Min.Y)
 	right, bottom := left+float32(w), top+float32(h)
 	vertices := [...]ebiten.Vertex{
@@ -311,7 +416,7 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		{DstX: left, DstY: bottom, SrcX: left, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{DstX: right, DstY: bottom, SrcX: right, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 	}
-	dst.DrawTrianglesShader(vertices[:], lightingIndices, lightingShader, &lightingOp)
+	dst.DrawTrianglesShader(vertices[:], lightingIndices, variant.shader, op)
 }
 
 func highestLightPlane(lights []lightSource) float32 {

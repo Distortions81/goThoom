@@ -58,6 +58,30 @@ func TestTransparentMobilePosesAreDetectedBeforeProcessing(t *testing.T) {
 	}
 }
 
+func TestArtworkRGBAPoolReusesExactSize(t *testing.T) {
+	artworkRGBAPoolMu.Lock()
+	originalPool := artworkRGBAPool
+	originalPixels := artworkRGBAPixels
+	artworkRGBAPool = make(map[image.Point][]*image.RGBA)
+	artworkRGBAPixels = 0
+	artworkRGBAPoolMu.Unlock()
+	t.Cleanup(func() {
+		artworkRGBAPoolMu.Lock()
+		artworkRGBAPool = originalPool
+		artworkRGBAPixels = originalPixels
+		artworkRGBAPoolMu.Unlock()
+	})
+
+	first := acquireArtworkRGBA(image.Rect(0, 0, 17, 23))
+	firstPixel := &first.Pix[0]
+	releaseArtworkRGBA(first)
+	second := acquireArtworkRGBA(image.Rect(0, 0, 17, 23))
+	if &second.Pix[0] != firstPixel {
+		t.Fatal("artwork RGBA pool did not reuse an exact-size buffer")
+	}
+	releaseArtworkRGBA(second)
+}
+
 func TestFrameBlendShaderCompiles(t *testing.T) {
 	shader, err := ebiten.NewShader(frameBlendShaderSource)
 	if err != nil {
@@ -91,6 +115,13 @@ func BenchmarkArtworkPoseBatch(b *testing.B) {
 		climg.DenoiseRGBASerial(pose, 10, 0.35)
 		return upscaleSpriteRegionCPU(pose, pose.Bounds(), factor, artworkUpscaleBalanced)
 	}
+	processPooled := func() *image.RGBA {
+		pose, _ := copyArtworkRegion(source, source.Bounds())
+		climg.DenoiseRGBASerial(pose, 10, 0.35)
+		scaled := upscaleSpriteRegionCPUWithAllocator(pose, pose.Bounds(), factor, artworkUpscaleBalanced, acquireArtworkRGBA)
+		releaseArtworkRGBA(pose)
+		return scaled
+	}
 	b.SetBytes(poseCount * poseSize * poseSize * 4)
 	b.Run("Serial", func(b *testing.B) {
 		for range b.N {
@@ -109,6 +140,20 @@ func BenchmarkArtworkPoseBatch(b *testing.B) {
 				jobs[index] = func() { results[index] = process() }
 			}
 			runArtworkJobs(jobs)
+		}
+	})
+	b.Run("SharedWorkersPooled", func(b *testing.B) {
+		for range b.N {
+			results := make([]*image.RGBA, poseCount)
+			jobs := make([]func(), poseCount)
+			for index := range jobs {
+				index := index
+				jobs[index] = func() { results[index] = processPooled() }
+			}
+			runArtworkJobs(jobs)
+			for _, result := range results {
+				releaseArtworkRGBA(result)
+			}
 		}
 	})
 }

@@ -110,9 +110,19 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		}
 		if mode == setupWizardSceneDay {
 			probe := ebiten.NewImage(gameAreaSizeX, gameAreaSizeY)
+			probe.Fill(color.RGBA{R: 120, G: 130, B: 140, A: 255})
 			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels)
 			if frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
 				g.err = fmt.Errorf("daylight scene did not produce a detailed shadow mask")
+				break
+			}
+			before := make([]byte, 4*gameAreaSizeX*gameAreaSizeY)
+			probe.ReadPixels(before)
+			applyDetailedCharacterShadow(probe)
+			after := make([]byte, len(before))
+			probe.ReadPixels(after)
+			if bytes.Equal(before, after) {
+				g.err = fmt.Errorf("cropped detailed shadow pass did not darken the scene")
 				break
 			}
 		}
@@ -125,8 +135,12 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		nightAlphaInited = false
 		drawScene(canvas, 0, 0, snap, alpha, mobileFade, pictFade)
 		if shaderLightingEnabled() {
-			addNightDarkSources(canvas.Bounds(), float32(alpha))
-			applyLightingShader(canvas, frameLights, frameDarks, float32(alpha))
+			if sceneMayNeedLighting(snap) {
+				addNightDarkSources(canvas.Bounds(), float32(alpha))
+				applyLightingShader(canvas, frameLights, frameDarks, float32(alpha))
+			} else {
+				applyDetailedCharacterShadow(canvas)
+			}
 		}
 		drawSpeechBubbles(canvas, snap, alpha, 1)
 		name := fmt.Sprintf("setup_wizard_%d_%s.png", mode, setupWizardSceneName(mode))

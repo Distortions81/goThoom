@@ -36,10 +36,29 @@ type bubbleTextLayout struct {
 	lines []string
 }
 
+type bubbleTextImageCacheKey struct {
+	text       string
+	face       text.Face
+	maxWidth   int
+	lineHeight int
+	r, g, b, a uint32
+}
+
+type bubbleTextImageCacheEntry struct {
+	image    *ebiten.Image
+	bytes    int
+	lastUsed uint64
+}
+
 var scaledBubbleFaceCache = make(map[bubbleFaceCacheKey]text.Face)
 var bubbleTextLayoutCache = make(map[bubbleTextLayoutCacheKey]bubbleTextLayout)
+var bubbleTextImageCache = make(map[bubbleTextImageCacheKey]*bubbleTextImageCacheEntry)
+var bubbleTextImageBytes int
+var bubbleTextUseCounter uint64
 
 const maxBubbleTextLayouts = 512
+const bubbleTextImageMargin = 1
+const maxBubbleTextImageBytes = 32 << 20
 
 const ponderBubbleAnimationSpeed = 4.0
 
@@ -220,6 +239,70 @@ func cachedBubbleTextLayout(txt string, face text.Face, maxWidth int) (int, []st
 func clearBubbleTextCaches() {
 	clear(scaledBubbleFaceCache)
 	clear(bubbleTextLayoutCache)
+	for _, entry := range bubbleTextImageCache {
+		entry.image.Deallocate()
+	}
+	clear(bubbleTextImageCache)
+	bubbleTextImageBytes = 0
+	bubbleTextUseCounter = 0
+}
+
+func evictOldestBubbleTextImage() bool {
+	var oldestKey bubbleTextImageCacheKey
+	var oldest *bubbleTextImageCacheEntry
+	for key, entry := range bubbleTextImageCache {
+		if oldest == nil || entry.lastUsed < oldest.lastUsed {
+			oldestKey = key
+			oldest = entry
+		}
+	}
+	if oldest == nil {
+		return false
+	}
+	// Do not explicitly deallocate here: an older cached label might already be
+	// queued as a source in this Draw. Dropping the reference lets Ebitengine's
+	// deferred cleanup release it safely after submitted work completes.
+	bubbleTextImageBytes -= oldest.bytes
+	delete(bubbleTextImageCache, oldestKey)
+	return true
+}
+
+func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeight int, lines []string, textCol color.Color) *ebiten.Image {
+	r, g, b, a := textCol.RGBA()
+	key := bubbleTextImageCacheKey{
+		text: txt, face: face, maxWidth: maxWidth, lineHeight: lineHeight,
+		r: r, g: g, b: b, a: a,
+	}
+	bubbleTextUseCounter++
+	if cached := bubbleTextImageCache[key]; cached != nil {
+		cached.lastUsed = bubbleTextUseCounter
+		return cached.image
+	}
+	height := lineHeight * len(lines)
+	if width < 1 || height < 1 {
+		return nil
+	}
+	imageWidth := width + 2*bubbleTextImageMargin
+	imageHeight := height + 2*bubbleTextImageMargin
+	imageBytes := imageWidth * imageHeight * 4
+	if imageBytes > maxBubbleTextImageBytes {
+		return nil
+	}
+	for len(bubbleTextImageCache) >= maxBubbleTextLayouts || bubbleTextImageBytes+imageBytes > maxBubbleTextImageBytes {
+		if !evictOldestBubbleTextImage() {
+			return nil
+		}
+	}
+	img := newManagedImage(imageWidth, imageHeight)
+	for index, line := range lines {
+		op := &text.DrawOptions{}
+		op.GeoM.Translate(bubbleTextImageMargin, float64(bubbleTextImageMargin+index*lineHeight))
+		op.ColorScale.ScaleWithColor(textCol)
+		text.Draw(img, line, face, op)
+	}
+	bubbleTextImageCache[key] = &bubbleTextImageCacheEntry{image: img, bytes: imageBytes, lastUsed: bubbleTextUseCounter}
+	bubbleTextImageBytes += imageBytes
+	return img
 }
 
 // drawBubble renders a text bubble anchored so that (x, y) corresponds to the
@@ -439,11 +522,17 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 
 	textTop := top + pad + offsetY
 	textLeft := left + pad + offsetX
-	for i, line := range lines {
-		op := &text.DrawOptions{}
-		op.GeoM.Translate(float64(textLeft), float64(textTop+i*lineHeight))
-		op.ColorScale.ScaleWithColor(textCol)
-		text.Draw(screen, line, font, op)
+	if textImage := cachedBubbleTextImage(txt, font, maxLineWidth, baseWidth, lineHeight, lines, textCol); textImage != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(textLeft-bubbleTextImageMargin), float64(textTop-bubbleTextImageMargin))
+		screen.DrawImage(textImage, op)
+	} else {
+		for i, line := range lines {
+			op := &text.DrawOptions{}
+			op.GeoM.Translate(float64(textLeft), float64(textTop+i*lineHeight))
+			op.ColorScale.ScaleWithColor(textCol)
+			text.Draw(screen, line, font, op)
+		}
 	}
 }
 

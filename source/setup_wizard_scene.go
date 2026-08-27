@@ -88,6 +88,9 @@ func setupWizardScenePicture(id uint16, h, v int16) framePicture {
 }
 
 func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
+	// The preview is generated locally and can change without a network-world
+	// generation, so force render-side scene caches to compare its actual keys.
+	snap.worldGeneration = 0
 	if setupWizardSceneStarted.IsZero() {
 		setupWizardSceneStarted = now
 	}

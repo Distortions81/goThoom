@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"gothoom/climg"
 	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,6 +56,29 @@ func playfieldBackgroundColor() color.RGBA {
 		shade = clImages.GammaCorrectChannel(shade)
 	}
 	return color.RGBA{R: shade, G: shade, B: shade, A: 0xff}
+}
+
+func fillOutsideWorldView(target *ebiten.Image, worldView image.Rectangle, fill color.Color) {
+	if target == nil {
+		return
+	}
+	bounds := target.Bounds()
+	worldView = worldView.Intersect(bounds)
+	if worldView.Empty() {
+		target.Fill(fill)
+		return
+	}
+	regions := [...]image.Rectangle{
+		image.Rect(bounds.Min.X, bounds.Min.Y, bounds.Max.X, worldView.Min.Y),
+		image.Rect(bounds.Min.X, worldView.Max.Y, bounds.Max.X, bounds.Max.Y),
+		image.Rect(bounds.Min.X, worldView.Min.Y, worldView.Min.X, worldView.Max.Y),
+		image.Rect(worldView.Max.X, worldView.Min.Y, bounds.Max.X, worldView.Max.Y),
+	}
+	for _, region := range regions {
+		if !region.Empty() {
+			target.SubImage(region).(*ebiten.Image).Fill(fill)
+		}
+	}
 }
 
 func clearNameTagHoverReveals() {
@@ -427,6 +451,7 @@ type bubble struct {
 
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
+	worldGeneration             uint64
 	descriptors                 map[uint8]frameDescriptor
 	prevPicturePositions        map[picturePositionKey]struct{}
 	prevPictureIndexGeneration  uint64
@@ -470,8 +495,9 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	} else {
 		clear(snap.descriptors)
 	}
+	generation := worldStateGeneration.Load()
+	snap.worldGeneration = generation
 	if gs.ObjectPinning && gs.MotionSmoothing {
-		generation := worldStateGeneration.Load()
 		if !snap.prevPictureIndexValid || snap.prevPictureIndexGeneration != generation {
 			if snap.prevPicturePositions == nil {
 				snap.prevPicturePositions = make(map[picturePositionKey]struct{}, len(state.prevPictures))
@@ -1528,8 +1554,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
-	// Classic clears uncovered areas of the playfield to 0x8888 gray.
-	gameImage.Fill(playfieldBackgroundColor())
 	viewRect, renderScale := fittedWorldView(bufW, bufH)
 	worldViewRect = viewRect
 	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
@@ -1539,6 +1563,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	var alpha float64
 	var haveSnap bool
 	if !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
+		gameImage.Fill(playfieldBackgroundColor())
 		prev := gs.GameScale
 		gs.GameScale = renderScale
 		drawSplash(worldView, 0, 0)
@@ -1554,13 +1579,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		prev := gs.GameScale
 		gs.GameScale = renderScale
 		useLighting := shaderLightingEnabled() && lightingShader != nil
-		_, _, shadowKind := currentCharacterShadowRenderState()
-		useDetailedShadows := lightingShader != nil && !gs.hideMobiles && characterShadowCompositeEnabled() && shadowKind == characterShadowDirectional
-		useComposite := useLighting || useDetailedShadows
+		useComposite := useLighting && sceneMayNeedLighting(snap)
 		sceneTarget := worldView
 		if useComposite {
+			fillOutsideWorldView(gameImage, viewRect, playfieldBackgroundColor())
 			sceneTarget = ensureLightingTmp(worldView.Bounds())
 			sceneTarget.Fill(playfieldBackgroundColor())
+		} else {
+			gameImage.Fill(playfieldBackgroundColor())
 		}
 		roomArtworkLoading := drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
 		if !roomArtworkLoading && useLighting {
@@ -1575,6 +1601,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			worldView.DrawImage(sceneTarget, nil)
 		} else if !roomArtworkLoading && useComposite {
 			applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
+		} else if !roomArtworkLoading && useLighting && (len(frameLights) != 0 || len(frameDarks) != 0) {
+			// Conservative fallback if a newly supported light source was not
+			// recognized by sceneMayNeedLighting.
+			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
+		} else if !roomArtworkLoading {
+			applyDetailedCharacterShadow(worldView)
 		}
 		if !roomArtworkLoading {
 			drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
@@ -1766,8 +1798,58 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	return false
 }
 
+type sceneArtworkRequestCache struct {
+	sync.Mutex
+	keys            []sheetKey
+	scratch         []sheetKey
+	worldGeneration uint64
+	cacheGeneration uint64
+	upscaleFactor   int
+	upscaleMode     int
+	upscaleEnabled  bool
+	frameBlend      bool
+	archive         *climg.CLImages
+	valid           bool
+}
+
+var sceneArtworkRequests sceneArtworkRequestCache
+
+func equalSheetKeys(a, b []sheetKey) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for index := range a {
+		if a[index] != b[index] {
+			return false
+		}
+	}
+	return true
+}
+
 func prepareSceneArtwork(snap drawSnapshot) int {
-	keys := make([]sheetKey, 0, len(snap.picsNeg)+len(snap.picsZero)+len(snap.picsPos)+len(snap.mobiles)*2)
+	if clImages == nil {
+		return 0
+	}
+	factor := screenCappedArtworkUpscaleFactor()
+	mode := artworkUpscaleMode()
+	upscale := artworkUpscaleEnabled()
+	frameBlend := mobileFrameBlendingEnabled()
+	cacheGeneration := artworkCacheGeneration.Load()
+
+	sceneArtworkRequests.Lock()
+	defer sceneArtworkRequests.Unlock()
+	if sceneArtworkRequests.valid &&
+		sceneArtworkRequests.worldGeneration == snap.worldGeneration &&
+		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
+		sceneArtworkRequests.upscaleFactor == factor &&
+		sceneArtworkRequests.upscaleMode == mode &&
+		sceneArtworkRequests.upscaleEnabled == upscale &&
+		sceneArtworkRequests.frameBlend == frameBlend &&
+		sceneArtworkRequests.archive == clImages {
+		return 0
+	}
+
+	keys := sceneArtworkRequests.scratch[:0]
 	addPictures := func(pictures []framePicture) {
 		for _, picture := range pictures {
 			keys = append(keys, makeSheetKey(picture.PictID, nil, false))
@@ -1780,7 +1862,7 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 		if descriptor, ok := snap.descriptors[mobile.Index]; ok {
 			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
 		}
-		if !mobileFrameBlendingEnabled() {
+		if !frameBlend {
 			continue
 		}
 		if _, ok := snap.prevMobiles[mobile.Index]; ok {
@@ -1791,7 +1873,30 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
 		}
 	}
-	return prepareArtworkSheets(keys)
+	if sceneArtworkRequests.valid &&
+		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
+		sceneArtworkRequests.upscaleFactor == factor &&
+		sceneArtworkRequests.upscaleMode == mode &&
+		sceneArtworkRequests.upscaleEnabled == upscale &&
+		sceneArtworkRequests.frameBlend == frameBlend &&
+		sceneArtworkRequests.archive == clImages &&
+		equalSheetKeys(sceneArtworkRequests.keys, keys) {
+		sceneArtworkRequests.worldGeneration = snap.worldGeneration
+		sceneArtworkRequests.scratch = keys
+		return 0
+	}
+	prepared := prepareArtworkSheets(keys)
+	sceneArtworkRequests.scratch = sceneArtworkRequests.keys[:0]
+	sceneArtworkRequests.keys = keys
+	sceneArtworkRequests.worldGeneration = snap.worldGeneration
+	sceneArtworkRequests.cacheGeneration = cacheGeneration
+	sceneArtworkRequests.upscaleFactor = factor
+	sceneArtworkRequests.upscaleMode = mode
+	sceneArtworkRequests.upscaleEnabled = upscale
+	sceneArtworkRequests.frameBlend = frameBlend
+	sceneArtworkRequests.archive = clImages
+	sceneArtworkRequests.valid = true
+	return prepared
 }
 
 func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {

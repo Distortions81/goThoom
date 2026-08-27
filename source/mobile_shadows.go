@@ -285,6 +285,21 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	frameDetailedShadowBounds = activeBounds
 }
 
+func applyDetailedCharacterShadow(dst *ebiten.Image) {
+	if dst == nil || frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
+		return
+	}
+	bounds := frameDetailedShadowBounds.Intersect(dst.Bounds())
+	if bounds.Empty() {
+		return
+	}
+	sourceRect := image.Rectangle{Max: bounds.Size()}
+	source := frameDetailedShadowMask.SubImage(sourceRect).(*ebiten.Image)
+	op := &ebiten.DrawImageOptions{Blend: shadowDarkenBlend}
+	op.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
+	dst.DrawImage(source, op)
+}
+
 func shadowQuadBounds(quad [4]shadowPoint) image.Rectangle {
 	minX, maxX := quad[0].x, quad[0].x
 	minY, maxY := quad[0].y, quad[0].y

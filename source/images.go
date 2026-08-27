@@ -109,9 +109,44 @@ var (
 
 	artworkWorkerOnce sync.Once
 	artworkWorkerJobs chan func()
+	artworkRGBAPoolMu sync.Mutex
+	artworkRGBAPool   = make(map[image.Point][]*image.RGBA)
+	artworkRGBAPixels int
 )
 
 const maxArtworkWorkers = 16
+const maxArtworkPooledBytes = 64 << 20
+
+func acquireArtworkRGBA(bounds image.Rectangle) *image.RGBA {
+	size := bounds.Size()
+	artworkRGBAPoolMu.Lock()
+	pooled := artworkRGBAPool[size]
+	if len(pooled) != 0 {
+		img := pooled[len(pooled)-1]
+		artworkRGBAPool[size] = pooled[:len(pooled)-1]
+		artworkRGBAPixels -= size.X * size.Y
+		artworkRGBAPoolMu.Unlock()
+		img.Rect = bounds
+		img.Stride = size.X * 4
+		return img
+	}
+	artworkRGBAPoolMu.Unlock()
+	return image.NewRGBA(bounds)
+}
+
+func releaseArtworkRGBA(img *image.RGBA) {
+	if img == nil || img.Bounds().Empty() {
+		return
+	}
+	size := img.Bounds().Size()
+	pixels := size.X * size.Y
+	artworkRGBAPoolMu.Lock()
+	if (artworkRGBAPixels+pixels)*4 <= maxArtworkPooledBytes && len(artworkRGBAPool[size]) < maxArtworkWorkers {
+		artworkRGBAPool[size] = append(artworkRGBAPool[size], img)
+		artworkRGBAPixels += pixels
+	}
+	artworkRGBAPoolMu.Unlock()
+}
 
 func runArtworkJobs(jobs []func()) {
 	if len(jobs) == 0 {
@@ -161,13 +196,11 @@ type preparedArtworkSheet struct {
 	mode      int
 }
 
-func sheetKeyColors(key sheetKey) []byte {
+func sheetKeyColors(key *sheetKey) []byte {
 	if key.colorsLen == 0 {
 		return nil
 	}
-	colors := make([]byte, int(key.colorsLen))
-	copy(colors, key.colors[:int(key.colorsLen)])
-	return colors
+	return key.colors[:int(key.colorsLen)]
 }
 
 func artworkRegionRects(key sheetKey, pixels *image.RGBA) []image.Rectangle {
@@ -230,7 +263,7 @@ scan:
 	if !visible {
 		return nil, false
 	}
-	destination := image.NewRGBA(image.Rect(0, 0, sourceRect.Dx(), sourceRect.Dy()))
+	destination := acquireArtworkRGBA(image.Rect(0, 0, sourceRect.Dx(), sourceRect.Dy()))
 	for y := 0; y < sourceRect.Dy(); y++ {
 		sourceOffset := source.PixOffset(sourceRect.Min.X, sourceRect.Min.Y+y)
 		destinationOffset := destination.PixOffset(0, y)
@@ -404,7 +437,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 	for index := range work {
 		index := index
 		decodeJobs[index] = func() {
-			key := work[index].key
+			key := &work[index].key
 			work[index].pixels = clImages.DecodeRGBA(uint32(key.id), sheetKeyColors(key), key.forceTransparent)
 		}
 	}
@@ -441,7 +474,10 @@ func prepareArtworkSheets(keys []sheetKey) int {
 					region.base = base
 				}
 				if work[sheetIndex].needScale {
-					region.scaled = upscaleSpriteRegionCPU(base, base.Bounds(), work[sheetIndex].factor, work[sheetIndex].mode)
+					region.scaled = upscaleSpriteRegionCPUWithAllocator(base, base.Bounds(), work[sheetIndex].factor, work[sheetIndex].mode, acquireArtworkRGBA)
+				}
+				if !denoise {
+					releaseArtworkRGBA(base)
 				}
 			})
 		}
@@ -456,6 +492,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		if denoise {
 			for index := range prepared.regions {
 				pasteArtworkRegion(prepared.pixels, prepared.regions[index].rect, prepared.regions[index].base)
+				releaseArtworkRGBA(prepared.regions[index].base)
 				prepared.regions[index].base = nil
 			}
 		}
@@ -494,6 +531,10 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		imageMu.Lock()
 		if scaledCacheFactor != uint8(prepared.factor) {
 			imageMu.Unlock()
+			for index := range prepared.regions {
+				releaseArtworkRGBA(prepared.regions[index].scaled)
+				prepared.regions[index].scaled = nil
+			}
 			prepared.pixels = nil
 			continue
 		}
@@ -514,6 +555,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 					scaledImageCache[key] = newCachedSpriteImageFromRGBA(region.scaled)
 				}
 			}
+			releaseArtworkRGBA(region.scaled)
 			region.scaled = nil
 		}
 		markArtworkSheetBatchCompleteLocked(prepared.key, prepared.factor, prepared.mode)
@@ -869,11 +911,15 @@ func upscaleByte(v float32) byte {
 // operates on one frame or pose so neighbor sampling remains clamped to that
 // frame's boundaries.
 func upscaleSpriteRegionCPU(source *image.RGBA, sourceRect image.Rectangle, factor, mode int) *image.RGBA {
+	return upscaleSpriteRegionCPUWithAllocator(source, sourceRect, factor, mode, image.NewRGBA)
+}
+
+func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Rectangle, factor, mode int, allocate func(image.Rectangle) *image.RGBA) *image.RGBA {
 	sourceRect = sourceRect.Intersect(source.Bounds())
 	if sourceRect.Empty() || factor < 1 {
 		return image.NewRGBA(image.Rectangle{})
 	}
-	destination := image.NewRGBA(image.Rect(0, 0, sourceRect.Dx()*factor, sourceRect.Dy()*factor))
+	destination := allocate(image.Rect(0, 0, sourceRect.Dx()*factor, sourceRect.Dy()*factor))
 	reach := artworkUpscaleCornerReachForMode(mode)
 	strength := artworkUpscaleBlendStrengthForMode(mode)
 	for sy := sourceRect.Min.Y; sy < sourceRect.Max.Y; sy++ {
@@ -991,7 +1037,7 @@ func setArtworkUpscaleMode(mode int) {
 }
 
 func artworkUpscaleEnabled() bool {
-	return gs.ShadersEnabled && artworkUpscaleMode() != artworkUpscaleOff
+	return artworkUpscaleMode() != artworkUpscaleOff
 }
 
 func artworkUpscaleCornerReach() float32 {

@@ -7,6 +7,25 @@ import (
 	"gothoom/climg"
 )
 
+func TestLightingShaderCapacityVariantsCompile(t *testing.T) {
+	variants, err := compileLightingShaderVariants(lightShaderSrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for _, variant := range variants {
+			variant.shader.Deallocate()
+		}
+	})
+	wantLights := [...]int{8, 32, 64, 128}
+	wantShadows := [...]int{8, 16, 32, 32}
+	for index, variant := range variants {
+		if variant.maxLights != wantLights[index] || variant.maxShadows != wantShadows[index] {
+			t.Fatalf("variant %d capacity = (%d, %d), want (%d, %d)", index, variant.maxLights, variant.maxShadows, wantLights[index], wantShadows[index])
+		}
+	}
+}
+
 func TestPictureLightGeometry(t *testing.T) {
 	const dark = climg.PictDefFlagLightDarkcaster
 	tests := []struct {
