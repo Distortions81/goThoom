@@ -476,7 +476,7 @@ func updateReplacementEffectMask(effect *replacementEffectDraw, mobileImg *ebite
 		if effect.mask != nil {
 			effect.mask.Deallocate()
 		}
-		effect.mask = newImage(w, h)
+		effect.mask = newUnmanagedImage(w, h)
 	}
 	effect.mask.Clear()
 	// The shader references image slot 0 even when HasMask is false, so Kage
@@ -671,14 +671,14 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		if replacementEffectsPreviewMask != nil {
 			replacementEffectsPreviewMask.Deallocate()
 		}
-		replacementEffectsPreviewMask = ebiten.NewImage(effectW, effectH)
+		replacementEffectsPreviewMask = newUnmanagedImage(effectW, effectH)
 	}
 	coinCanvasW, coinCanvasH := roundToInt(float64(effectW)*1.70), roundToInt(float64(effectH)*1.70)
 	if replacementEffectsPreviewCoinMask == nil || replacementEffectsPreviewCoinMask.Bounds().Dx() != coinCanvasW || replacementEffectsPreviewCoinMask.Bounds().Dy() != coinCanvasH {
 		if replacementEffectsPreviewCoinMask != nil {
 			replacementEffectsPreviewCoinMask.Deallocate()
 		}
-		replacementEffectsPreviewCoinMask = ebiten.NewImage(coinCanvasW, coinCanvasH)
+		replacementEffectsPreviewCoinMask = newUnmanagedImage(coinCanvasW, coinCanvasH)
 	}
 	elapsed := time.Since(replacementEffectsStarted).Seconds()
 	for i, preview := range replacementEffectsPreviews {

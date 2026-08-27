@@ -241,7 +241,7 @@ func NewImageItem(w, h int) (*itemData, *ebiten.Image) {
 		Size:     point{X: float32(w), Y: float32(h)},
 		Theme:    currentTheme,
 	}
-	newItem.Image = newImage(w, h)
+	newItem.Image = newUnmanagedImage(w, h)
 	return &newItem, newItem.Image
 }
 
@@ -255,7 +255,7 @@ func NewImageFastItem(w, h int) (*itemData, *ebiten.Image) {
 		Size:     point{X: float32(w), Y: float32(h)},
 		Theme:    currentTheme,
 	}
-	newItem.Image = newImageFast(w, h)
+	newItem.Image = newUnmanagedImage(w, h)
 	return &newItem, newItem.Image
 }
 

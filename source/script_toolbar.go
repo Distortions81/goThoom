@@ -165,7 +165,7 @@ func loadScriptToolbarIcon(assets *scriptAssetSource, name string) (*ebiten.Imag
 	if err != nil {
 		return nil, fmt.Errorf("decode PNG: %w", err)
 	}
-	return newImageFromImage(decoded), nil
+	return newUnmanagedImageFromImage(decoded), nil
 }
 
 func removeScriptToolbar(owner string, registration *scriptToolbarRegistration) {
@@ -185,6 +185,11 @@ func removeScriptToolbar(owner string, registration *scriptToolbarRegistration) 
 	}
 	scriptToolbarMu.Unlock()
 	refreshScriptToolbars()
+	for _, button := range registration.buttons {
+		if button.image != nil {
+			button.image.Deallocate()
+		}
+	}
 }
 
 func refreshScriptToolbars() {

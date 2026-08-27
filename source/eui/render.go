@@ -180,6 +180,18 @@ func tooltipColors() (background, foreground, border color.RGBA) {
 	return color.RGBA{16, 18, 22, 255}, color.RGBA{255, 255, 255, 255}, color.RGBA{208, 212, 220, 255}
 }
 
+func (win *windowData) reusableRenderTarget(w, h int) *ebiten.Image {
+	if win.Render != nil && win.Render.Bounds().Dx() == w && win.Render.Bounds().Dy() == h {
+		win.Render.Clear()
+		return win.Render
+	}
+	if win.Render != nil {
+		win.Render.Deallocate()
+	}
+	win.Render = newUnmanagedImage(w, h)
+	return win.Render
+}
+
 func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if win.NoCache {
 		// In NoCache mode, if opacity is < 1, render to a temporary offscreen
@@ -210,7 +222,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 
 		// Offscreen render for opacity blending
 		imgW, imgH := renderImageSize(size)
-		tmp := newImage(imgW, imgH)
+		tmp := win.reusableRenderTarget(imgW, imgH)
 		// Draw into tmp in local coords: temporarily zero Position like cached path
 		origPos := win.Position
 		basePos := win.getPosition()
@@ -243,14 +255,10 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		}
 		size := win.GetSize()
 		imgW, imgH := renderImageSize(size)
-		if win.Render == nil || win.Render.Bounds().Dx() != imgW || win.Render.Bounds().Dy() != imgH {
-			if size.X < 1 || size.Y < 1 {
-				return
-			}
-			win.Render = newImage(imgW, imgH)
-		} else {
-			win.Render.Clear()
+		if size.X < 1 || size.Y < 1 {
+			return
 		}
+		win.reusableRenderTarget(imgW, imgH)
 		origPos := win.Position
 		basePos := win.getPosition()
 		win.Position = point{}
@@ -1448,6 +1456,9 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		}
 
 		if item.Image == nil || item.Image.Bounds().Dx() != int(wheelSize) {
+			if item.Image != nil {
+				item.Image.Deallocate()
+			}
 			item.Image = colorWheelImage(int(wheelSize))
 		}
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}

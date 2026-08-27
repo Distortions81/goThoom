@@ -44,7 +44,7 @@ var (
 	// middleClickMove enables moving windows with the middle mouse button when enabled.
 	middleClickMove bool
 
-	whiteImage = newImage(3, 3)
+	whiteImage = newManagedImage(3, 3)
 
 	// AutoHiDPI enables automatic scaling when the device scale factor
 	// changes, keeping the UI size consistent on HiDPI displays. It is

@@ -167,7 +167,11 @@ func updateGameImageSize() {
 		iw, ih = b.Dx(), b.Dy()
 	}
 	if gameImageBacking == nil || iw < w || ih < h {
-		_, gameImageBacking = eui.NewImageFastItem(w, h)
+		_, replacement := eui.NewImageFastItem(w, h)
+		if gameImageBacking != nil {
+			gameImageBacking.Deallocate()
+		}
+		gameImageBacking = replacement
 		if gameWin != nil {
 			gameWin.Dirty = true
 		}

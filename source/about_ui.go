@@ -10,7 +10,6 @@ import (
 
 	"gothoom/eui"
 
-	ebiten "github.com/hajimehoshi/ebiten/v2"
 	"github.com/pkg/browser"
 )
 
@@ -113,8 +112,9 @@ func loadPatreons() {
 		}
 		w := img.Bounds().Dx()
 		h := img.Bounds().Dy()
-		imgItem, _ := eui.NewImageItem(w, h)
-		imgItem.Image = ebiten.NewImageFromImage(img)
+		imgItem, backing := eui.NewImageItem(w, h)
+		backing.Deallocate()
+		imgItem.Image = newManagedImageFromImage(img)
 		imgItem.Size = eui.Point{X: float32(w), Y: float32(h)}
 		imgItem.Fixed = true
 		nameItem, _ := eui.NewText()

@@ -194,10 +194,10 @@ func init() {
 		}
 		// Use the decoded image directly without adding a border to avoid
 		// off-by-one sizing issues.
-		nightImg = newImageFromImage(img)
+		nightImg = newManagedImageFromImage(img)
 	}
 	if blackImg == nil {
-		blackImg = ebiten.NewImage(1, 1)
+		blackImg = newManagedImage(1, 1)
 		blackImg.Fill(color.NRGBA{R: 0, G: 0, B: 0, A: 255})
 	}
 }

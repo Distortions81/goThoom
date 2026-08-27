@@ -26,3 +26,18 @@ func TestRenderImageSizeMatchesRoundedDrawSize(t *testing.T) {
 		t.Fatalf("rounded image size got %dx%d, want 100x40", w, h)
 	}
 }
+
+func TestReusableRenderTargetKeepsSameSizedTexture(t *testing.T) {
+	win := NewWindow()
+	first := win.reusableRenderTarget(120, 80)
+	if first == nil {
+		t.Fatal("initial render target is nil")
+	}
+	if second := win.reusableRenderTarget(120, 80); second != first {
+		t.Fatal("same-sized render target was replaced")
+	}
+	if resized := win.reusableRenderTarget(160, 80); resized == first {
+		t.Fatal("resized render target reused the old texture")
+	}
+	win.deallocate()
+}

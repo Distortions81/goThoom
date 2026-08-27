@@ -64,13 +64,13 @@ var thoughtBubbleMaskBlend = ebiten.Blend{
 }
 
 func init() {
-	whiteImage = newImage(1, 1)
+	whiteImage = newManagedImage(1, 1)
 	whiteImage.Fill(color.White)
 
-	blackImage = newImage(1, 1)
+	blackImage = newManagedImage(1, 1)
 	blackImage.Fill(color.Black)
 
-	grayImage = newImage(1, 1)
+	grayImage = newManagedImage(1, 1)
 	grayImage.Fill(eui.Color{R: 128, G: 128, B: 128})
 }
 
@@ -765,7 +765,7 @@ func thoughtBubbleMask(screen *ebiten.Image) *ebiten.Image {
 		if thoughtBubbleCompositeMask != nil {
 			thoughtBubbleCompositeMask.Deallocate()
 		}
-		thoughtBubbleCompositeMask = newImage(bounds.Dx(), bounds.Dy())
+		thoughtBubbleCompositeMask = newUnmanagedImage(bounds.Dx(), bounds.Dy())
 	}
 	return thoughtBubbleCompositeMask
 }

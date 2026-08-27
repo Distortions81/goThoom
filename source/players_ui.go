@@ -138,13 +138,13 @@ var (
 func playerSharingIcons() (outgoing, incoming, mutual *ebiten.Image) {
 	shareIconOnce.Do(func() {
 		if src, err := png.Decode(bytes.NewReader(shareOutPNG)); err == nil {
-			shareOutIcon = newImageFromImage(src)
-			shareInIcon = mirrorImage(shareOutIcon)
+			shareOutIcon = newManagedImageFromImage(src)
+			shareInIcon = mirrorManagedImage(shareOutIcon)
 		} else {
 			logError("decode outgoing sharing icon: %v", err)
 		}
 		if src, err := png.Decode(bytes.NewReader(shareBothPNG)); err == nil {
-			shareBothIcon = newImageFromImage(src)
+			shareBothIcon = newManagedImageFromImage(src)
 		} else {
 			logError("decode mutual sharing icon: %v", err)
 		}

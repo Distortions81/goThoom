@@ -136,11 +136,13 @@ var shaderWarnDontShowCB *eui.ItemData
 var toolbarHandsPNG []byte
 
 var (
-	toolbarHandsOnce  sync.Once
-	toolbarHandsSrc   image.Image
-	toolbarHandsImage *ebiten.Image
-	leftHandImg       *eui.ItemData
-	rightHandImg      *eui.ItemData
+	toolbarHandsOnce      sync.Once
+	toolbarHandsSrc       image.Image
+	toolbarHandsImage     *ebiten.Image
+	leftHandImg           *eui.ItemData
+	rightHandImg          *eui.ItemData
+	toolbarLeftComposite  *ebiten.Image
+	toolbarRightComposite *ebiten.Image
 )
 
 var (
@@ -1792,8 +1794,13 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	if hands := toolbarHandsSource(); hands != nil {
 		w, h := hands.Bounds().Dx(), hands.Bounds().Dy()
 		handsRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-		leftHandImg, _ = eui.NewImageItem(w/2, h)
-		rightHandImg, _ = eui.NewImageItem(w-w/2, h)
+		var leftBacking, rightBacking *ebiten.Image
+		leftHandImg, leftBacking = eui.NewImageItem(w/2, h)
+		rightHandImg, rightBacking = eui.NewImageItem(w-w/2, h)
+		leftBacking.Deallocate()
+		rightBacking.Deallocate()
+		leftHandImg.Image = nil
+		rightHandImg.Image = nil
 		handsRow.AddItem(leftHandImg)
 		handsRow.AddItem(rightHandImg)
 		controls.AddItem(handsRow)
@@ -1977,7 +1984,7 @@ func loadToolbarHands() {
 		return
 	}
 	if hands := toolbarHandsSource(); hands != nil {
-		toolbarHandsImage = newImageFromImage(hands)
+		toolbarHandsImage = newManagedImageFromImage(hands)
 		updateToolbarHands()
 	}
 }
@@ -1996,7 +2003,7 @@ func overlayItemOnHand(hand, item *ebiten.Image) *ebiten.Image {
 	}
 	w := max(hand.Bounds().Dx(), item.Bounds().Dx())
 	h := max(hand.Bounds().Dy(), item.Bounds().Dy())
-	out := newImage(w, h)
+	out := newUnmanagedImage(w, h)
 	opHand := overlayHandOpts
 	opHand.ColorScale.Reset()
 	opHand.ColorScale.ScaleAlpha(0.5)
@@ -2023,16 +2030,28 @@ func updateToolbarHands() {
 	leftHand := toolbarHandsImage.SubImage(image.Rect(0, 0, middle, bounds.Dy())).(*ebiten.Image)
 	rightHand := toolbarHandsImage.SubImage(image.Rect(middle, 0, bounds.Dx(), bounds.Dy())).(*ebiten.Image)
 	rightID, leftID := equippedItemPicts()
+	if toolbarLeftComposite != nil {
+		toolbarLeftComposite.Deallocate()
+		toolbarLeftComposite = nil
+	}
+	if toolbarRightComposite != nil {
+		toolbarRightComposite.Deallocate()
+		toolbarRightComposite = nil
+	}
 	rightImage := rightHand
 	if rightID != 0 {
 		if item := loadImage(rightID); item != nil {
-			rightImage = overlayItemOnHand(rightHand, item)
+			toolbarRightComposite = overlayItemOnHand(rightHand, item)
+			rightImage = toolbarRightComposite
 		}
 	}
 	leftImage := leftHand
 	if leftID != 0 {
 		if item := loadImage(leftID); item != nil {
-			leftImage = overlayItemOnHand(leftHand, mirrorImage(item))
+			mirrored := mirrorImage(item)
+			toolbarLeftComposite = overlayItemOnHand(leftHand, mirrored)
+			mirrored.Deallocate()
+			leftImage = toolbarLeftComposite
 		}
 	}
 	leftHandImg.Image = leftImage

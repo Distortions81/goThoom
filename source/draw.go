@@ -714,7 +714,7 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 	if iw <= 0 || ih <= 0 {
 		iw, ih = 1, 1
 	}
-	img := newImage(iw+5, ih)
+	img := newUnmanagedImage(iw+5, ih)
 	// Fill background
 	op := acquireDrawOpts()
 	op.GeoM.Scale(float64(iw+5), float64(ih))

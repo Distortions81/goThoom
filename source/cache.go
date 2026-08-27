@@ -15,6 +15,26 @@ func clearCaches() {
 
 	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
+	for _, img := range scaledImageCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	for _, img := range scaledMobileCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	for _, img := range mobileBlendCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
+	for _, img := range pictBlendCache {
+		if img != nil {
+			img.Deallocate()
+		}
+	}
 	imageCache = make(map[imageKey]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
 	mobileCache = make(map[mobileKey]*ebiten.Image)

@@ -685,7 +685,7 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 		denoiseImage(img, denoiseSharpness, denoiseAmount)
 	}
 
-	eimg := newImageFromImage(img)
+	eimg := newManagedImageFromImage(img)
 	c.mu.Lock()
 	c.cache[key] = eimg
 	c.mu.Unlock()

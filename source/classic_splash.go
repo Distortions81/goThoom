@@ -9,6 +9,7 @@ import (
 
 // Keep a handle to the default splash so we can restore it
 var defaultSplashImg *ebiten.Image
+var classicSplashImg *ebiten.Image
 
 // When the sprite upscaler is requested before Ebiten starts (e.g. during
 // initial asset load), defer rebuilding the splash until the game loop runs.
@@ -23,6 +24,16 @@ func gameHasStarted() bool {
 	}
 }
 
+func restoreDefaultSplash() {
+	if classicSplashImg != nil {
+		classicSplashImg.Deallocate()
+		classicSplashImg = nil
+	}
+	if defaultSplashImg != nil {
+		splashImg = defaultSplashImg
+	}
+}
+
 // prepareClassicSplash builds an opaque, 2x-nearest version of CL_Images id 4
 // cropped to the classic field box and assigns it to splashImg if enabled.
 // If disabled or unavailable, restores the default splash image.
@@ -34,9 +45,7 @@ func prepareClassicSplash() {
 
 	if !gs.ShowClanLordSplashImage || clImages == nil {
 		classicSplashFilterPending = false
-		if defaultSplashImg != nil {
-			splashImg = defaultSplashImg
-		}
+		restoreDefaultSplash()
 		return
 	}
 
@@ -44,9 +53,7 @@ func prepareClassicSplash() {
 	src := loadImage(4)
 	if src == nil {
 		classicSplashFilterPending = false
-		if defaultSplashImg != nil {
-			splashImg = defaultSplashImg
-		}
+		restoreDefaultSplash()
 		return
 	}
 
@@ -56,14 +63,13 @@ func prepareClassicSplash() {
 	bounds := src.Bounds()
 	r := image.Rect(cropX, cropY, cropX+cropW, cropY+cropH).Intersect(bounds)
 	if r.Empty() || r.Dx() <= 0 || r.Dy() <= 0 {
-		if defaultSplashImg != nil {
-			splashImg = defaultSplashImg
-		}
+		restoreDefaultSplash()
 		return
 	}
 
 	// 1) Flatten cropped region over white to remove alpha
-	flat := newImage(r.Dx(), r.Dy())
+	flat := newUnmanagedImage(r.Dx(), r.Dy())
+	defer flat.Deallocate()
 	flat.Fill(color.White)
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: false}
 	op.GeoM.Translate(float64(-r.Min.X), float64(-r.Min.Y))
@@ -79,7 +85,7 @@ func prepareClassicSplash() {
 		scaled = upscaleSpriteImage(flat, 2)
 		classicSplashFilterPending = false
 	} else {
-		scaled = newImage(r.Dx()*2, r.Dy()*2)
+		scaled = newManagedImage(r.Dx()*2, r.Dy()*2)
 		sop := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: false}
 		sop.GeoM.Scale(2, 2)
 		scaled.DrawImage(flat, sop)
@@ -89,5 +95,9 @@ func prepareClassicSplash() {
 	}
 
 	// Hand the processed image to the splash drawer
+	if classicSplashImg != nil {
+		classicSplashImg.Deallocate()
+	}
+	classicSplashImg = scaled
 	splashImg = scaled
 }

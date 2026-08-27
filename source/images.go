@@ -100,8 +100,37 @@ var (
 	dumpedImgIDs  = make(map[uint16]struct{})
 	imgMetaWriter *csv.Writer
 
-	spriteUpscaleShader *ebiten.Shader
+	spriteUpscaleShader    *ebiten.Shader
+	spriteUpscaleScratchMu sync.Mutex
+	spriteUpscaleScratch   reusableUpscaleScratch
 )
+
+// reusableUpscaleScratch owns the standalone nearest-neighbor staging texture
+// used by the upscale shader. It only grows, so normal sprite cache misses do
+// not allocate and dispose one GPU texture apiece.
+type reusableUpscaleScratch struct {
+	image *ebiten.Image
+}
+
+func (s *reusableUpscaleScratch) region(w, h int) *ebiten.Image {
+	if s.image == nil || s.image.Bounds().Dx() < w || s.image.Bounds().Dy() < h {
+		newW, newH := w, h
+		if s.image != nil {
+			newW = max(newW, s.image.Bounds().Dx())
+			newH = max(newH, s.image.Bounds().Dy())
+			s.image.Deallocate()
+		}
+		s.image = newUnmanagedImage(newW, newH)
+	}
+	return s.image.SubImage(image.Rect(0, 0, w, h)).(*ebiten.Image)
+}
+
+func (s *reusableUpscaleScratch) deallocate() {
+	if s.image != nil {
+		s.image.Deallocate()
+		s.image = nil
+	}
+}
 
 //go:embed data/shaders/sprite_upscale.kage
 var spriteUpscaleShaderSource []byte
@@ -244,7 +273,7 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 			img := frameImg
 			if imgDumpScale > 1 {
 				mode, _ := imageDumpUpscaleMode(imgDumpScaleType)
-				img = upscaleSpriteImageWithMode(frameImg, imgDumpScale, mode)
+				img = upscaleTransientSpriteImageWithMode(frameImg, imgDumpScale, mode)
 			}
 			png.Encode(file, img)
 			file.Close()
@@ -390,6 +419,16 @@ func upscaleSpriteImage(img *ebiten.Image, factor int) *ebiten.Image {
 }
 
 func upscaleSpriteImageWithMode(img *ebiten.Image, factor, mode int) *ebiten.Image {
+	return upscaleSpriteImageWithModeAndLifetime(img, factor, mode, true)
+}
+
+// upscaleTransientSpriteImageWithMode is for exports and diagnostics whose
+// result is explicitly discarded instead of entering an application cache.
+func upscaleTransientSpriteImageWithMode(img *ebiten.Image, factor, mode int) *ebiten.Image {
+	return upscaleSpriteImageWithModeAndLifetime(img, factor, mode, false)
+}
+
+func upscaleSpriteImageWithModeAndLifetime(img *ebiten.Image, factor, mode int, managed bool) *ebiten.Image {
 	if factor <= 1 || img == nil {
 		return img
 	}
@@ -397,15 +436,27 @@ func upscaleSpriteImageWithMode(img *ebiten.Image, factor, mode int) *ebiten.Ima
 		return img
 	}
 	w, h := img.Bounds().Dx()*factor, img.Bounds().Dy()*factor
-	nearest := newImage(w, h)
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
-	op.GeoM.Scale(float64(factor), float64(factor))
-	nearest.DrawImage(img, op)
+	newOutput := newUnmanagedImage
+	if managed {
+		newOutput = newManagedImage
+	}
 	if mode == artworkUpscaleOff || spriteUpscaleShader == nil {
+		nearest := newOutput(w, h)
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+		op.GeoM.Scale(float64(factor), float64(factor))
+		nearest.DrawImage(img, op)
 		return nearest
 	}
 
-	scaled := newImage(w, h)
+	spriteUpscaleScratchMu.Lock()
+	defer spriteUpscaleScratchMu.Unlock()
+	nearest := spriteUpscaleScratch.region(w, h)
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+	op.Blend = ebiten.BlendCopy
+	op.GeoM.Scale(float64(factor), float64(factor))
+	nearest.DrawImage(img, op)
+
+	scaled := newOutput(w, h)
 	shaderOp := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
 		"Scale":         float32(factor),
 		"CornerReach":   artworkUpscaleCornerReachForMode(mode),
@@ -413,7 +464,6 @@ func upscaleSpriteImageWithMode(img *ebiten.Image, factor, mode int) *ebiten.Ima
 	}}
 	shaderOp.Images[0] = nearest
 	scaled.DrawRectShader(w, h, spriteUpscaleShader, shaderOp)
-	nearest.Deallocate()
 	return scaled
 }
 
@@ -582,7 +632,7 @@ func mobileBlendFrame(from, to mobileKey, prevImg, img *ebiten.Image, step, tota
 	if s := prevImg.Bounds().Dx(); s > size {
 		size = s
 	}
-	blended := newImage(size, size)
+	blended := newManagedImage(size, size)
 	alpha := float32(step) / float32(total)
 	offPrev := (size - prevImg.Bounds().Dx()) / 2
 	op1 := acquireDrawOpts()
@@ -640,7 +690,7 @@ func pictBlendFrame(id uint16, fromFrame, toFrame int, prevImg, img *ebiten.Imag
 	if h2 > h {
 		h = h2
 	}
-	blended := newImage(w, h)
+	blended := newManagedImage(w, h)
 	alpha := float32(step) / float32(total)
 	offPrevX := (w - w1) / 2
 	offPrevY := (h - h1) / 2

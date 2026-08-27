@@ -159,8 +159,10 @@ type lightShadow struct {
 
 func ensureLightingTmp(w, h int) {
 	if lightingTmp == nil || lightingTmp.Bounds().Dx() != w || lightingTmp.Bounds().Dy() != h {
-		// Allocate the intermediate image, respecting potato mode for unmanaged images.
-		lightingTmp = newImage(w, h)
+		if lightingTmp != nil {
+			lightingTmp.Deallocate()
+		}
+		lightingTmp = newUnmanagedImage(w, h)
 	}
 }
 

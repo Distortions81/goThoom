@@ -68,7 +68,7 @@ func (g *brandSpriteExportGame) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	upscaled := upscaleSpriteImage(sprite, brandSpriteScale)
+	upscaled := upscaleTransientSpriteImageWithMode(sprite, brandSpriteScale, artworkUpscaleMode())
 	defer upscaled.Deallocate()
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	iconScale := float64(brandSpriteHeight) / float64(upscaled.Bounds().Dy())

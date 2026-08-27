@@ -505,7 +505,7 @@ func contactShadowImage() *ebiten.Image {
 			img.SetNRGBA(x, y, color.NRGBA{A: uint8(255 * softness)})
 		}
 	}
-	contactShadowTexture = newImageFromImage(img)
+	contactShadowTexture = newManagedImageFromImage(img)
 	return contactShadowTexture
 }
 
@@ -539,7 +539,7 @@ func characterShadowMask(screen *ebiten.Image) *ebiten.Image {
 		if detailedCharacterShadowMask != nil {
 			detailedCharacterShadowMask.Deallocate()
 		}
-		detailedCharacterShadowMask = ebiten.NewImage(bounds.Dx(), bounds.Dy())
+		detailedCharacterShadowMask = newUnmanagedImage(bounds.Dx(), bounds.Dy())
 	}
 	return detailedCharacterShadowMask
 }
@@ -555,7 +555,7 @@ func characterShadowTextureFor(img *ebiten.Image) characterShadowTexture {
 	pixels := make([]byte, 4*bounds.Dx()*bounds.Dy())
 	img.ReadPixels(pixels)
 	footY := opaqueFootY(pixels, bounds.Dx(), bounds.Dy())
-	padded := newImage(bounds.Dx()+characterShadowPadding*2, bounds.Dy()+characterShadowPadding*2)
+	padded := newManagedImage(bounds.Dx()+characterShadowPadding*2, bounds.Dy()+characterShadowPadding*2)
 	op := acquireDrawOpts()
 	op.GeoM.Translate(characterShadowPadding, characterShadowPadding)
 	padded.DrawImage(img, op)

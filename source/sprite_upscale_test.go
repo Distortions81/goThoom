@@ -68,11 +68,31 @@ func TestKageArtworkUpscaleCreatesRequestedResolution(t *testing.T) {
 	src := ebiten.NewImage(3, 5)
 	src.Fill(color.RGBA{R: 255, A: 255})
 	for factor := 2; factor <= 4; factor++ {
-		scaled := upscaleSpriteImage(src, factor)
+		scaled := upscaleTransientSpriteImageWithMode(src, factor, artworkUpscaleMode())
 		if got, want := scaled.Bounds().Size(), image.Pt(3*factor, 5*factor); got != want {
 			t.Fatalf("%dx shader upscale size = %v, want %v", factor, got, want)
 		}
 		scaled.Deallocate()
+	}
+}
+
+func TestReusableUpscaleScratchGrowsWithoutShrinking(t *testing.T) {
+	var scratch reusableUpscaleScratch
+	t.Cleanup(scratch.deallocate)
+
+	first := scratch.region(16, 12)
+	backing := scratch.image
+	if first.Bounds().Size() != image.Pt(16, 12) {
+		t.Fatalf("initial scratch region = %v, want 16x12", first.Bounds().Size())
+	}
+	if smaller := scratch.region(8, 6); scratch.image != backing || smaller.Bounds().Size() != image.Pt(8, 6) {
+		t.Fatalf("smaller scratch request replaced or mis-sized the backing: backing changed=%v size=%v", scratch.image != backing, smaller.Bounds().Size())
+	}
+	if grown := scratch.region(20, 10); scratch.image == backing || grown.Bounds().Size() != image.Pt(20, 10) {
+		t.Fatalf("larger scratch request did not grow correctly: backing changed=%v size=%v", scratch.image != backing, grown.Bounds().Size())
+	}
+	if got := scratch.image.Bounds().Size(); got != image.Pt(20, 12) {
+		t.Fatalf("grown scratch backing = %v, want 20x12", got)
 	}
 }
 

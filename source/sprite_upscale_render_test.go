@@ -104,7 +104,7 @@ func (g *spriteUpscaleRenderGame) renderComparisons() error {
 
 		for i, mode := range []int{artworkUpscaleCrisp, artworkUpscaleBalanced, artworkUpscaleSmooth, artworkUpscaleUltraSmooth} {
 			setArtworkUpscaleMode(mode)
-			upscaled := upscaleSpriteImage(sprite, spriteUpscaleTestZoom)
+			upscaled := upscaleTransientSpriteImageWithMode(sprite, spriteUpscaleTestZoom, artworkUpscaleMode())
 			shaderOp := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			shaderOp.GeoM.Translate(float64(272+i*256), 32)
 			canvas.DrawImage(upscaled, shaderOp)
