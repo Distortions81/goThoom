@@ -158,6 +158,9 @@ func decodeBEPP(data []byte) string {
 			return "think: " + text
 		}
 	case "in":
+		if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
+			queueInfoRequest(name)
+		}
 		if text != "" {
 			return "info: " + text
 		}
@@ -204,7 +207,9 @@ func decodeBEPP(data []byte) string {
 		if text != "" {
 			return text
 		}
-	case "yk", "iv", "hp", "cf", "pn", "ka", "tl":
+	case "dd", "dl", "cf":
+		return ""
+	case "yk", "iv", "hp", "pn", "ka", "tl":
 		// Known simple pass-through prefixes (e.g., iv: item/verb,
 		// ka: karma, tl: text log only)
 		if text != "" {
@@ -351,7 +356,7 @@ func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, bubbl
 	}
 	switch bubbleType {
 	case kBubbleNormal:
-		verb = "says"
+		verb = normalBubbleVerb(text)
 	case kBubbleWhisper:
 		verb = "whispers"
 		if typ&kBubbleNotCommon != 0 && langIdx >= 0 && langIdx < len(languageWhisperVerb) && langIdx != kBubbleCommon {
@@ -379,6 +384,17 @@ func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, bubbl
 		// unknown bubble types return no verb
 	}
 	return verb, text, name, lang, code, bubbleType, target
+}
+
+func normalBubbleVerb(text string) string {
+	text = strings.TrimSpace(text)
+	if strings.HasSuffix(text, "?") {
+		return "asks"
+	}
+	if strings.HasSuffix(text, "!") {
+		return "exclaims"
+	}
+	return "says"
 }
 
 // decodeMessage extracts printable text from a raw server message. It operates

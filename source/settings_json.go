@@ -96,6 +96,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "SpeechBubbles", category: settingsSpeechBubbles, name: "enabled"},
 	{field: "AnimatedChatBubbles", category: settingsSpeechBubbles, name: "animated"},
 	{field: "BubbleOpacity", category: settingsSpeechBubbles, name: "opacity"},
+	{field: "BubbleLifetimeMode", category: settingsSpeechBubbles, name: "lifetime_mode"},
 	{field: "BubbleBaseLife", category: settingsSpeechBubbles, name: "base_lifetime_seconds"},
 	{field: "BubbleLifePerWord", category: settingsSpeechBubbles, name: "seconds_per_word"},
 	{field: "BubbleScale", category: settingsSpeechBubbles, name: "visual_scale"},

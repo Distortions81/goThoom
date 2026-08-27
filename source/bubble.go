@@ -2,6 +2,7 @@ package main
 
 import (
 	"gothoom/eui"
+	"image"
 	"image/color"
 	"math"
 	"time"
@@ -61,6 +62,94 @@ const bubbleTextImageMargin = 1
 const maxBubbleTextImageBytes = 32 << 20
 
 const ponderBubbleAnimationSpeed = 4.0
+
+const (
+	bubblePosNone uint8 = iota
+	bubblePosUpperLeft
+	bubblePosUpperRight
+	bubblePosLowerRight
+	bubblePosLowerLeft
+)
+
+type bubbleMetrics struct {
+	face                      text.Face
+	pad, tailHeight, tailHalf int
+	maxLineWidth, baseWidth   int
+	lines                     []string
+	lineHeight, width, height int
+}
+
+func measureBubble(txt string, typ int, bubbleScale, fontScale float64) bubbleMetrics {
+	if bubbleScale <= 0 {
+		bubbleScale = 0.1
+	}
+	if fontScale <= 0 {
+		fontScale = 0.1
+	}
+	m := bubbleMetrics{}
+	m.pad = max(1, int(math.Round(6*bubbleScale)))
+	m.tailHeight = max(1, int(math.Round(10*bubbleScale)))
+	m.tailHalf = max(1, int(math.Round(6*bubbleScale)))
+	m.maxLineWidth = max(1, int(math.Round(float64(gameAreaSizeX)/4*bubbleScale))-2*m.pad)
+	m.face = bubbleFont
+	if typ&kBubbleTypeMask == kBubbleWhisper {
+		m.face = bubbleFontRegular
+	}
+	m.face = scaledBubbleFace(m.face, fontScale)
+	if m.face == nil {
+		if typ&kBubbleTypeMask == kBubbleWhisper {
+			m.face = bubbleFontRegular
+		} else {
+			m.face = bubbleFont
+		}
+	}
+	m.baseWidth, m.lines = cachedBubbleTextLayout(txt, m.face, m.maxLineWidth)
+	m.width = int(math.Ceil(float64(m.baseWidth))) + 2*m.pad
+	metrics := m.face.Metrics()
+	m.lineHeight = max(1, int(math.Ceil(math.Ceil(metrics.HAscent)+math.Ceil(metrics.HDescent)+math.Ceil(metrics.HLineGap))))
+	m.height = m.lineHeight*len(m.lines) + 2*m.pad
+	return m
+}
+
+func bubbleRectForPlacement(x, y int, m bubbleMetrics, placement uint8, noTail bool) image.Rectangle {
+	if placement == bubblePosNone {
+		bottom := y
+		if !noTail {
+			bottom -= m.tailHeight
+		}
+		left := x - m.width/2
+		return image.Rect(left, bottom-m.height, left+m.width, bottom)
+	}
+	gap := m.tailHeight
+	var left, top int
+	switch placement {
+	case bubblePosUpperLeft:
+		left, top = x-gap-m.width, y-gap-m.height
+	case bubblePosUpperRight:
+		left, top = x+gap, y-gap-m.height
+	case bubblePosLowerRight:
+		left, top = x+gap, y+gap
+	case bubblePosLowerLeft:
+		left, top = x-gap-m.width, y+gap
+	}
+	return image.Rect(left, top, left+m.width, top+m.height)
+}
+
+func clampBubbleRect(rect image.Rectangle, sw, sh int) image.Rectangle {
+	if rect.Min.X < 0 {
+		rect = rect.Add(image.Pt(-rect.Min.X, 0))
+	}
+	if rect.Max.X > sw {
+		rect = rect.Add(image.Pt(sw-rect.Max.X, 0))
+	}
+	if rect.Min.Y < 0 {
+		rect = rect.Add(image.Pt(0, -rect.Min.Y))
+	}
+	if rect.Max.Y > sh {
+		rect = rect.Add(image.Pt(0, sh-rect.Max.Y))
+	}
+	return rect
+}
 
 func ponderBubblePhase(elapsed time.Duration) float64 {
 	return elapsed.Seconds() * ponderBubbleAnimationSpeed
@@ -315,7 +404,7 @@ func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeig
 // customized via borderCol, bgCol, and textCol respectively. fontScale controls
 // the font size so text is rasterized at native resolution for the current
 // window scale.
-func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, noArrow bool, borderCol, bgCol, textCol color.Color, bubbleScale, fontScale float64) {
+func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, noArrow bool, placement uint8, borderCol, bgCol, textCol color.Color, bubbleScale, fontScale float64) {
 	if txt == "" {
 		return
 	}
@@ -340,50 +429,24 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	}
 	// Visual scale for bubbles independent of font size
 	s := bubbleScale
-	pad := int(math.Round(6 * s))
-	if pad < 1 {
-		pad = 1
-	}
-	tailHeight := int(math.Round(10 * s))
-	if tailHeight < 1 {
-		tailHeight = 1
-	}
-	tailHalf := int(math.Round(6 * s))
-	if tailHalf < 1 {
-		tailHalf = 1
-	}
+	m := measureBubble(txt, typ, bubbleScale, fontScale)
+	pad, tailHalf := m.pad, m.tailHalf
 	bubbleType := typ & kBubbleTypeMask
-
-	// Allow wider bubbles with larger scale; preserve font size
-	maxLineWidth := int(math.Round(float64(gameAreaSizeX)/4*s)) - 2*pad
-	if maxLineWidth < 1 {
-		maxLineWidth = 1
-	}
-	font := bubbleFont
-	if bubbleType == kBubbleWhisper {
-		font = bubbleFontRegular
-	}
-	font = scaledBubbleFace(font, fontScale)
-	if font == nil {
-		if bubbleType == kBubbleWhisper {
-			font = bubbleFontRegular
-		} else {
-			font = bubbleFont
-		}
-	}
-	baseWidth, lines := cachedBubbleTextLayout(txt, font, maxLineWidth)
-	width := int(math.Ceil(float64(baseWidth)))
-	width += 2 * pad
-	metrics := font.Metrics()
-	baseLineHeight := math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap)
-	lineHeight := int(math.Ceil(baseLineHeight))
-	if lineHeight < 1 {
-		lineHeight = 1
-	}
-	height := lineHeight*len(lines) + 2*pad
-
-	left, top, right, bottom := adjustBubbleRect(x, y, width, height, tailHeight, sw, sh, far || noArrow)
+	font, maxLineWidth, baseWidth, lines := m.face, m.maxLineWidth, m.baseWidth, m.lines
+	lineHeight, width := m.lineHeight, m.width
+	rect := bubbleRectForPlacement(x, y, m, placement, far || noArrow)
+	rect = clampBubbleRect(rect, sw, sh)
+	left, top, right, bottom := rect.Min.X, rect.Min.Y, rect.Max.X, rect.Max.Y
 	baseX := left + width/2
+	if placement == bubblePosUpperLeft || placement == bubblePosLowerLeft {
+		baseX = right - tailHalf
+	} else if placement != bubblePosNone {
+		baseX = left + tailHalf
+	}
+	attachY := bottom
+	if placement == bubblePosLowerLeft || placement == bubblePosLowerRight {
+		attachY = top
+	}
 
 	bgR, bgG, bgB, bgA := bgCol.RGBA()
 	bdR, bdG, bdB, bdA := borderCol.RGBA()
@@ -415,23 +478,14 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 			r1 := float32(tailHalf)
 			offset1 := r1 * 0.3 * float32(math.Sin(ponderPhase))
 			cx1 := float32(baseX) + fx
-			// Bias ponder tail circles closer to the mobile so the origin is
-			// easier to see. Space the first (largest) circle at ~20% of the
-			// way from the bubble bottom to the tail tip instead of directly
-			// hugging the bubble.
-			dist := float32(tailY - bottom)
-			if dist < 0 {
-				dist = 0
-			}
-			cy1 := float32(bottom) + r1 + dist*0.2 - offset1 + fy
+			cy1 := float32(attachY) + float32(tailY-attachY)*0.25 - offset1 + fy
 			tail.MoveTo(cx1+r1, cy1)
 			tail.Arc(cx1, cy1, r1, 0, 2*math.Pi, vector.Clockwise)
 			tail.Close()
 			rMid := r1 * 0.6
 			offsetMid := rMid * 0.5 * float32(math.Sin(ponderPhase+math.Pi/4))
 			cxMid := float32(baseX+tailX)/2 + fx
-			// Place the middle circle at ~65% down the path toward the tail.
-			cyMid := float32(bottom) + dist*0.65 - offsetMid + fy
+			cyMid := float32(attachY) + float32(tailY-attachY)*0.65 - offsetMid + fy
 			tail.MoveTo(cxMid+rMid, cyMid)
 			tail.Arc(cxMid, cyMid, rMid, 0, 2*math.Pi, vector.Clockwise)
 			tail.Close()
@@ -443,9 +497,9 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 			tail.Arc(cx2, cy2, r2, 0, 2*math.Pi, vector.Clockwise)
 			tail.Close()
 		} else {
-			tail.MoveTo(float32(baseX-tailHalf)+fx, float32(bottom)+fy)
+			tail.MoveTo(float32(baseX-tailHalf)+fx, float32(attachY)+fy)
 			tail.LineTo(float32(tailX)+fx, float32(tailY)+fy)
-			tail.LineTo(float32(baseX+tailHalf)+fx, float32(bottom)+fy)
+			tail.LineTo(float32(baseX+tailHalf)+fx, float32(attachY)+fy)
 			tail.Close()
 		}
 	}
@@ -475,11 +529,16 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	if bubbleType != kBubblePonder {
 		var outline vector.Path
 		outline.MoveTo(float32(left)+radius+fx, float32(top)+fy)
+		if !far && !noArrow && attachY == top {
+			outline.LineTo(float32(baseX-tailHalf)+fx, float32(top)+fy)
+			outline.LineTo(float32(tailX)+fx, float32(tailY)+fy)
+			outline.LineTo(float32(baseX+tailHalf)+fx, float32(top)+fy)
+		}
 		outline.LineTo(float32(right)-radius+fx, float32(top)+fy)
 		outline.Arc(float32(right)-radius+fx, float32(top)+radius+fy, radius, -math.Pi/2, 0, vector.Clockwise)
 		outline.LineTo(float32(right)+fx, float32(bottom)-radius+fy)
 		outline.Arc(float32(right)-radius+fx, float32(bottom)-radius+fy, radius, 0, math.Pi/2, vector.Clockwise)
-		if !far && !noArrow {
+		if !far && !noArrow && attachY == bottom {
 			outline.LineTo(float32(baseX+tailHalf)+fx, float32(bottom)+fy)
 			outline.LineTo(float32(tailX)+fx, float32(tailY)+fy)
 			outline.LineTo(float32(baseX-tailHalf)+fx, float32(bottom)+fy)

@@ -440,6 +440,7 @@ func prepareRenderCacheLocked() {
 // wall-clock timing is applied to keep playback simple.
 type bubble struct {
 	Index        uint8
+	DedupeID     uint16
 	H, V         int16
 	Far          bool
 	NoArrow      bool
@@ -557,13 +558,21 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 				kept = append(kept, b)
 			}
 		}
-		var last [256]int
+		last := make(map[uint16]int, len(kept))
 		for i, b := range kept {
-			last[b.Index] = i + 1
+			key := uint16(b.Index)
+			if b.DedupeID != 0 {
+				key = b.DedupeID
+			}
+			last[key] = i + 1
 		}
 		dedup := kept[:0]
 		for i, b := range kept {
-			if last[b.Index] == i+1 {
+			key := uint16(b.Index)
+			if b.DedupeID != 0 {
+				key = b.DedupeID
+			}
+			if last[key] == i+1 {
 				dedup = append(dedup, b)
 			}
 		}
@@ -2426,6 +2435,14 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		return
 	}
 	plane := p.Plane
+	shadowAlpha := float32(1)
+	if clImages != nil {
+		var draw bool
+		draw, shadowAlpha = explicitShadowPictureAlpha(clImages.Flags(uint32(p.PictID)))
+		if !draw {
+			return
+		}
+	}
 
 	w, h := 0, 0
 	if clImages != nil {
@@ -2447,6 +2464,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	if gs.FadeObscuringPictures {
 		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
 	}
+	fadeAlpha *= shadowAlpha
 	effectFrame := 0
 	if clImages != nil {
 		effectFrame = clImages.FrameIndexForInstance(uint32(p.PictID), logicalFrame, pictureAnimationInstanceKey(p.H, p.V))
@@ -2842,19 +2860,14 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			}
 		}
 		if showName {
-			style := styleRegular
+			sharee := false
 			dead := m.State == poseDead
 			playersMu.RLock()
 			if p, ok := players[d.Name]; ok {
-				if p.Sharing && p.Sharee {
-					style = styleBoldItalic
-				} else if p.Sharing {
-					style = styleBold
-				} else if p.Sharee {
-					style = styleItalic
-				}
+				sharee = p.Sharee
 			}
 			playersMu.RUnlock()
+			style := mobileNameStyle(m.Colors, sharee)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead, gs.GameScale)
 			img, iw, ih := m.nameTag, m.nameTagW, m.nameTagH
 			if img == nil || m.nameTagKey != key {
@@ -2910,6 +2923,87 @@ func relativeNameTagScale(worldScale, fontRasterScale float64) float64 {
 
 const speechBubbleReferenceScale = 3.0
 
+type bubblePlacementHistoryKey struct {
+	index uint16
+	typ   int
+	text  string
+}
+
+var bubblePlacementHistory = make(map[bubblePlacementHistoryKey]uint8)
+
+func chooseBubblePlacement(anchor image.Point, metrics bubbleMetrics, bounds image.Rectangle, mobiles, bubbles []image.Rectangle, facing int, previous uint8) (uint8, image.Rectangle) {
+	candidates := [...]uint8{bubblePosUpperLeft, bubblePosUpperRight, bubblePosLowerLeft, bubblePosLowerRight}
+	bestPos := candidates[0]
+	bestRect := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, bestPos, false)
+	bestScore := math.MinInt
+	for _, pos := range candidates {
+		rect := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, pos, false)
+		score := 0
+		if !rect.In(bounds) {
+			score -= 1000
+		}
+		for _, mobile := range mobiles {
+			if !rect.Intersect(mobile).Empty() {
+				score -= 10
+			}
+		}
+		for _, other := range bubbles {
+			if !rect.Intersect(other).Empty() {
+				score -= 20
+			}
+		}
+		switch facing {
+		case 0: // east
+			if pos == bubblePosUpperLeft || pos == bubblePosLowerLeft {
+				score++
+			}
+		case 1: // southeast
+			if pos == bubblePosUpperLeft {
+				score += 2
+			} else if pos == bubblePosUpperRight || pos == bubblePosLowerLeft {
+				score++
+			}
+		case 2: // south
+			if pos == bubblePosUpperLeft || pos == bubblePosUpperRight {
+				score++
+			}
+		case 3: // southwest
+			if pos == bubblePosUpperRight {
+				score += 2
+			} else if pos == bubblePosUpperLeft || pos == bubblePosLowerRight {
+				score++
+			}
+		case 4: // west
+			if pos == bubblePosUpperRight || pos == bubblePosLowerRight {
+				score++
+			}
+		case 5: // northwest
+			if pos == bubblePosLowerRight {
+				score += 2
+			} else if pos == bubblePosUpperRight || pos == bubblePosLowerLeft {
+				score++
+			}
+		case 6: // north
+			if pos == bubblePosLowerLeft || pos == bubblePosLowerRight {
+				score++
+			}
+		case 7: // northeast
+			if pos == bubblePosLowerLeft {
+				score += 2
+			} else if pos == bubblePosUpperLeft || pos == bubblePosLowerRight {
+				score++
+			}
+		}
+		if pos == previous {
+			score += 3
+		}
+		if score > bestScore {
+			bestScore, bestPos, bestRect = score, pos, rect
+		}
+	}
+	return bestPos, clampBubbleRect(bestRect, bounds.Dx(), bounds.Dy())
+}
+
 // speechBubbleWindowScale follows the physical world size without depending
 // on the default supersampling setting. Changing the artwork render default
 // must not silently resize chat text for existing configurations.
@@ -2941,6 +3035,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 	}
 	descMap := snap.descriptors
 	maxDist := maxMobileInterpPixels * (snap.dropped + 1)
+	occupied := make([]image.Rectangle, 0, len(snap.bubbles))
 	for _, b := range snap.bubbles {
 		bubbleType := b.Type & kBubbleTypeMask
 		typeOK := true
@@ -2980,6 +3075,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		}
 		hpos := float64(b.H)
 		vpos := float64(b.V)
+		facing := 2
 		if !b.Far {
 			var m *frameMobile
 			for i := range snap.mobiles {
@@ -2989,6 +3085,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 				}
 			}
 			if m != nil {
+				facing = int(m.State) / 4
 				hpos = float64(m.H)
 				vpos = float64(m.V)
 				if gs.MotionSmoothing {
@@ -3014,7 +3111,41 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 			}
 		}
 		borderCol, bgCol, textCol := bubbleColors(b.Type)
-		drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, borderCol, bgCol, textCol, bubbleScale, fontScale)
+		placement := bubblePosNone
+		if !b.Far {
+			metrics := measureBubble(b.Text, b.Type, bubbleScale, fontScale)
+			mobileRects := make([]image.Rectangle, 0, len(snap.mobiles)-1)
+			for _, other := range snap.mobiles {
+				if other.Index == b.Index {
+					continue
+				}
+				d := descMap[other.Index]
+				size := mobileSize(d.PictID)
+				if size <= 0 {
+					size = 40
+				}
+				cx := roundToInt((float64(other.H) + float64(fieldCenterX)) * gs.GameScale)
+				cy := roundToInt((float64(other.V) + float64(fieldCenterY)) * gs.GameScale)
+				half := max(1, roundToInt(float64(size)*gs.GameScale/2))
+				mobileRects = append(mobileRects, image.Rect(cx-half, cy-half, cx+half, cy+half))
+			}
+			identity := uint16(b.Index)
+			if b.DedupeID != 0 {
+				identity = b.DedupeID
+			}
+			key := bubblePlacementHistoryKey{index: identity, typ: b.Type, text: b.Text}
+			placement, rect := chooseBubblePlacement(image.Pt(x, y), metrics, image.Rect(0, 0, screen.Bounds().Dx(), screen.Bounds().Dy()), mobileRects, occupied, facing, bubblePlacementHistory[key])
+			bubblePlacementHistory[key] = placement
+			occupied = append(occupied, rect)
+			if len(bubblePlacementHistory) > 512 {
+				clear(bubblePlacementHistory)
+			}
+		} else {
+			metrics := measureBubble(b.Text, b.Type, bubbleScale, fontScale)
+			rect := bubbleRectForPlacement(x, y, metrics, bubblePosNone, true)
+			occupied = append(occupied, clampBubbleRect(rect, screen.Bounds().Dx(), screen.Bounds().Dy()))
+		}
+		drawBubble(screen, b.Text, x, y, b.Type, b.Far, b.NoArrow, placement, borderCol, bgCol, textCol, bubbleScale, fontScale)
 	}
 }
 

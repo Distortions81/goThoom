@@ -173,6 +173,7 @@ var gsdef settings = settings{
 	ShowRecentPlayers:       true,
 	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
+	BubbleLifetimeMode:      BubbleLifetimeModern,
 	BubbleBaseLife:          2,
 	BubbleLifePerWord:       1,
 	BubbleScale:             2.0,
@@ -385,6 +386,7 @@ type settings struct {
 	InventoryGroups         customGroups
 	AlternateRowBackgrounds bool
 	BubbleOpacity           float64
+	BubbleLifetimeMode      string
 	BubbleBaseLife          float64
 	BubbleLifePerWord       float64
 	// BubbleScale scales bubble visuals (not font). Range 1.0–8.0.
@@ -748,6 +750,7 @@ func loadSettings() bool {
 	if gs.BubbleScale < 1.0 || gs.BubbleScale > 8.0 {
 		gs.BubbleScale = gsdef.BubbleScale
 	}
+	gs.BubbleLifetimeMode = normalizeBubbleLifetimeMode(gs.BubbleLifetimeMode)
 
 	gs.SpriteUpscale = spriteUpscaleFactor()
 	if gs.ToolbarPlacement < ToolbarInInventory || gs.ToolbarPlacement > ToolbarFloating {

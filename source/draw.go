@@ -79,13 +79,23 @@ func reuseCachedNameTag(m *frameMobile, previous map[uint8]frameMobile, key name
 }
 
 const (
-	styleRegular uint8 = iota
-	styleBold
-	styleItalic
-	styleBoldItalic
+	styleRegular    uint8 = 0
+	styleBold       uint8 = 1
+	styleItalic     uint8 = 2
+	styleUnderline  uint8 = 4
+	styleBoldItalic       = styleBold | styleItalic
 )
 
+func mobileNameStyle(colors uint8, sharee bool) uint8 {
+	style := colors & (styleBold | styleItalic)
+	if sharee {
+		style |= styleUnderline
+	}
+	return style
+}
+
 const poseDead = 32
+const picturelessDescriptorFallbackPictID uint16 = 537
 const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
@@ -701,7 +711,7 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 		textClr = color.RGBA{0x90, 0x90, 0x90, 0xff}
 	}
 	face := mainFont
-	switch style {
+	switch style & (styleBold | styleItalic) {
 	case styleBold:
 		face = mainFontBold
 	case styleItalic:
@@ -744,6 +754,10 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 	opTxt.GeoM.Translate(2, 2)
 	opTxt.ColorScale.ScaleWithColor(textClr)
 	text.Draw(img, name, face, opTxt)
+	if style&styleUnderline != 0 {
+		underlineY := float32(ih - 1)
+		vector.FillRect(img, 2, underlineY, float32(iw), 1, textClr, false)
+	}
 	return img, iw + 5, ih
 }
 
@@ -936,8 +950,6 @@ var drawStateScratch = struct {
 // render cache. This is useful for fast-forward operations where intermediate
 // frames do not need a fully prepared cache.
 func handleDrawState(m []byte, buildCache bool) {
-	frameCounter++
-
 	if len(m) < 11 { // 2 byte tag + 9 bytes minimum
 		return
 	}
@@ -970,12 +982,32 @@ func handleDrawState(m []byte, buildCache bool) {
 
 	ackCmd := data[0]
 	previousAck := ackFrame
-	ack, resend, err := parseDrawState(data, buildCache)
+	incomingAck := int32(binary.BigEndian.Uint32(data[1:5]))
+	incomingResent := int32(binary.BigEndian.Uint32(data[5:9]))
+	if !movieMode && previousAck != 0 && incomingAck <= previousAck {
+		return
+	}
+
+	frameCounter++
+	processStateData := true
+	nextResend := resendFrame
+	if !movieMode {
+		switch {
+		case resendFrame != 0 && incomingResent == resendFrame:
+			nextResend = 0
+		case resendFrame != 0:
+			processStateData = false
+		case previousAck != 0 && incomingAck != previousAck+1:
+			processStateData = false
+			nextResend = previousAck + 1
+		}
+	}
+	ack, _, err := parseDrawStateWithStateData(data, buildCache, processStateData)
 	if err != nil {
 		logWarn("parseDrawState failed: %v", err)
 		logDebugPacket(fmt.Sprintf("parseDrawState error: %v", err), data)
-		if ackFrame > 0 {
-			resendFrame = ackFrame + 1
+		if previousAck > 0 {
+			resendFrame = previousAck + 1
 		} else {
 			resendFrame = 0
 		}
@@ -985,7 +1017,7 @@ func handleDrawState(m []byte, buildCache bool) {
 		acknowledgeCommand(ackCmd)
 	}
 	ackFrame = ack
-	resendFrame = resend
+	resendFrame = nextResend
 }
 
 // handleInvCmdFull resets and rebuilds the inventory from a full list command.
@@ -1167,6 +1199,10 @@ func parseInventory(data []byte) ([]byte, bool) {
 // When buildCache is false, state is updated without rebuilding the render
 // cache.
 func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
+	return parseDrawStateWithStateData(data, buildCache, true)
+}
+
+func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool) (int32, int32, error) {
 	stage := "header"
 	if len(data) < 9 {
 		return 0, 0, errors.New(stage)
@@ -1231,6 +1267,9 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		d.Index = data[p]
 		d.Type = data[p+1]
 		d.PictID = binary.BigEndian.Uint16(data[p+2:])
+		if d.PictID == 0xffff {
+			d.PictID = picturelessDescriptorFallbackPictID
+		}
 		p += 4
 		if idx := bytes.IndexByte(data[p:], 0); idx >= 0 {
 			d.Name = utfFold(decodeServerText(data[p : p+idx]))
@@ -1660,19 +1699,14 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	}
 	for _, m := range mobiles {
 		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
-			style := styleRegular
+			sharee := false
 			dead := m.State == poseDead
 			playersMu.RLock()
 			if p, ok := players[d.Name]; ok {
-				if p.Sharing && p.Sharee {
-					style = styleBoldItalic
-				} else if p.Sharing {
-					style = styleBold
-				} else if p.Sharee {
-					style = styleItalic
-				}
+				sharee = p.Sharee
 			}
 			playersMu.RUnlock()
+			style := mobileNameStyle(m.Colors, sharee)
 			opacity := uint8(gs.NameBgOpacity*255 + 0.5)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, opacity, style, dead, mainFontRasterScale)
 			if !reuseCachedNameTag(&m, previousMobiles, key) {
@@ -1704,6 +1738,9 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	//ack := state.ackCmd
 	//light := state.lightingFlags
 	stateMu.Unlock()
+	if !processStateData {
+		return ack, resend, nil
+	}
 
 	/*
 	   logDebug("draw state cmd=%d ack=%d resend=%d light=%#x desc=%d pict=%d again=%d mobile=%d state=%d",
@@ -1870,12 +1907,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 				showBubble = typeOK && originOK
 			}
 			if showBubble && !skipRender {
-				words := len(strings.Fields(txt))
-				lifeSeconds := gs.BubbleBaseLife + float64(words)*gs.BubbleLifePerWord
-				life := int(lifeSeconds * float64(1000/framems))
-				if life < 1 {
-					life = 1
-				}
+				life := configuredBubbleLifeFrames(txt)
 				b := bubble{Index: idx, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
 				switch bubbleType {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:

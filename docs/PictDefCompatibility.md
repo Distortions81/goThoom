@@ -88,20 +88,16 @@ Relevant original code:
 
 Current goThoom behavior:
 
-- `NightInfo.Shadows` is calculated, including `kLightNoShadows`, but is not
-  used by world-picture drawing.
-- Shadow pictures are rendered like ordinary pictures regardless of area or
-  night state.
+- `PictDefIsShadow` (`0x1000`) is exposed by `climg` and checked by world-picture
+  drawing.
+- Explicit shadow pictures are skipped at shadow level zero and drawn at 25%
+  alpha when both the raw night level and effective user/server night limit are
+  above 33.
 
 Implementation notes:
 
-- Add exported constants for `PictDefIsShadow` and the other missing flags.
-- In `drawPicture`, skip explicit shadow pictures when the current shadow level
-  is zero.
-- Apply the night alpha override without changing the cached image, because the
-  same asset can be reused under different lighting state.
-- Confirm how the existing user night-limit setting should map to the original
-  effective-night-limit condition.
+- Keep the night alpha override in draw state rather than changing the cached
+  image, because the same asset can be reused under different lighting state.
 
 Tests should cover shadows enabled, `kLightNoShadows`, daylight, and night
 levels on both sides of the 33 threshold.

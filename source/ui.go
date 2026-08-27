@@ -4275,12 +4275,30 @@ func makeSettingsWindow() {
 	}
 	bubbleSection.AddItem(bubbleOpSlider)
 
+	bubbleLifetimeDD, bubbleLifetimeEvents := eui.NewDropdown()
+	bubbleLifetimeDD.Label = "Bubble Lifetime"
+	bubbleLifetimeDD.Options = []string{BubbleLifetimeModern, BubbleLifetimeClassic}
+	bubbleLifetimeDD.Selected = 0
+	if normalizeBubbleLifetimeMode(gs.BubbleLifetimeMode) == BubbleLifetimeClassic {
+		bubbleLifetimeDD.Selected = 1
+	}
+	bubbleLifetimeDD.Size = eui.Point{X: panelWidth, Y: 24}
+	bubbleLifetimeDD.SetTooltip("Classic: fixed 8 seconds. Modern: base seconds plus seconds per word.")
+	bubbleLifetimeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(bubbleLifetimeDD.Options) {
+			gs.BubbleLifetimeMode = bubbleLifetimeDD.Options[ev.Index]
+			settingsDirty = true
+		}
+	}
+	bubbleSection.AddItem(bubbleLifetimeDD)
+
 	bubbleBaseLifeSlider, bubbleBaseLifeEvents := eui.NewSlider()
-	bubbleBaseLifeSlider.Label = "Base Bubble Life (s)"
+	bubbleBaseLifeSlider.Label = "Modern Base Life (s)"
 	bubbleBaseLifeSlider.MinValue = 1
 	bubbleBaseLifeSlider.MaxValue = 5
 	bubbleBaseLifeSlider.Value = float32(gs.BubbleBaseLife)
 	bubbleBaseLifeSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	bubbleBaseLifeSlider.SetTooltip("Modern mode starts with this many seconds (default 2).")
 	bubbleBaseLifeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleBaseLife = float64(ev.Value)
@@ -4291,11 +4309,12 @@ func makeSettingsWindow() {
 
 	// Life added per word in a bubble
 	bubblePerWordSlider, bubblePerWordEvents := eui.NewSlider()
-	bubblePerWordSlider.Label = "Bubble Life per Word (s)"
+	bubblePerWordSlider.Label = "Modern Life per Word (s)"
 	bubblePerWordSlider.MinValue = 0
 	bubblePerWordSlider.MaxValue = 2
 	bubblePerWordSlider.Value = float32(gs.BubbleLifePerWord)
 	bubblePerWordSlider.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	bubblePerWordSlider.SetTooltip("Modern mode adds this many seconds per word (default 1).")
 	bubblePerWordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleLifePerWord = float64(ev.Value)

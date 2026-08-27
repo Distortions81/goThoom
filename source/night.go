@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"gothoom/climg"
 	"image"
 	"image/color"
 	"math"
@@ -141,6 +142,28 @@ func currentNightLevel() int {
 		lvl = 0
 	}
 	return lvl
+}
+
+func explicitShadowPictureAlpha(flags uint32) (bool, float32) {
+	if flags&climg.PictDefIsShadow == 0 {
+		return true, 1
+	}
+	gNight.mu.Lock()
+	shadows := gNight.Shadows
+	rawLevel := gNight.Level
+	lightFlags := gNight.Flags
+	gNight.mu.Unlock()
+	if shadows == 0 {
+		return false, 0
+	}
+	limit := gs.MaxNightLevel
+	if lightFlags&kLightForce100Pct != 0 {
+		limit = 100
+	}
+	if rawLevel > 33 && limit > 33 {
+		return true, 0.25
+	}
+	return true, 1
 }
 
 func parseNightCommand(s string) bool {

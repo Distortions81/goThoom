@@ -401,6 +401,35 @@ const (
 	kBubbleFar       = 0x80
 )
 
+const (
+	BubbleLifetimeClassic = "Classic"
+	BubbleLifetimeModern  = "Modern"
+	classicBubbleLife     = 8.0
+)
+
+func normalizeBubbleLifetimeMode(mode string) string {
+	if strings.EqualFold(strings.TrimSpace(mode), BubbleLifetimeClassic) {
+		return BubbleLifetimeClassic
+	}
+	return BubbleLifetimeModern
+}
+
+func bubbleLifeFrames(text, mode string, baseSeconds, secondsPerWord float64) int {
+	seconds := classicBubbleLife
+	if normalizeBubbleLifetimeMode(mode) == BubbleLifetimeModern {
+		seconds = baseSeconds + float64(len(strings.Fields(text)))*secondsPerWord
+	}
+	life := int(seconds * float64(1000/framems))
+	if life < 1 {
+		return 1
+	}
+	return life
+}
+
+func configuredBubbleLifeFrames(text string) int {
+	return bubbleLifeFrames(text, gs.BubbleLifetimeMode, gs.BubbleBaseLife, gs.BubbleLifePerWord)
+}
+
 func isChatBubble(t int) bool {
 	switch t {
 	case kBubbleNormal, kBubbleWhisper, kBubbleYell, kBubbleThought, kBubblePonder, kBubbleRealAction, kBubblePlayerAction:

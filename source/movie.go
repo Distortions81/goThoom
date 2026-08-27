@@ -254,24 +254,27 @@ func parseGameState(gs []byte, version, revision uint16) {
 
 type mobileTableLayout struct {
 	descSize            int
+	typeOffset          int
+	bubbleTypeOffset    int
 	colorsOffset        int
 	nameOffset          int
 	numColorsOffset     int
 	bubbleCounterOffset int
+	bubbleLocOffset     int
 }
 
 func layoutForMobileTable(version uint16) (mobileTableLayout, bool) {
 	switch {
 	case version > 141: // v142+ (current format)
-		return mobileTableLayout{descSize: 156, colorsOffset: 56, nameOffset: 86, numColorsOffset: 48, bubbleCounterOffset: 28}, true
+		return mobileTableLayout{descSize: 156, typeOffset: 16, bubbleTypeOffset: 20, colorsOffset: 56, nameOffset: 86, numColorsOffset: 48, bubbleCounterOffset: 28, bubbleLocOffset: 52}, true
 	case version > 113: // v114-141
-		return mobileTableLayout{descSize: 150, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24}, true
+		return mobileTableLayout{descSize: 150, typeOffset: 16, bubbleTypeOffset: 20, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24, bubbleLocOffset: 48}, true
 	case version > 105: // v106-113
-		return mobileTableLayout{descSize: 142, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24}, true
+		return mobileTableLayout{descSize: 142, typeOffset: 16, bubbleTypeOffset: 20, colorsOffset: 52, nameOffset: 82, numColorsOffset: 44, bubbleCounterOffset: 24, bubbleLocOffset: 48}, true
 	case version > 97: // v98-105
-		return mobileTableLayout{descSize: 130, colorsOffset: 40, nameOffset: 70, numColorsOffset: 32, bubbleCounterOffset: 24}, true
+		return mobileTableLayout{descSize: 130, typeOffset: 16, bubbleTypeOffset: 20, colorsOffset: 40, nameOffset: 70, numColorsOffset: 32, bubbleCounterOffset: 24, bubbleLocOffset: 36}, true
 	case version >= 80: // v80-97
-		return mobileTableLayout{descSize: 126, colorsOffset: 36, nameOffset: 66, numColorsOffset: 28, bubbleCounterOffset: 20}, true
+		return mobileTableLayout{descSize: 126, typeOffset: 12, bubbleTypeOffset: 16, colorsOffset: 36, nameOffset: 66, numColorsOffset: 28, bubbleCounterOffset: 20, bubbleLocOffset: 32}, true
 	default:
 		return mobileTableLayout{}, false
 	}
@@ -290,6 +293,9 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		logDebug("unsupported mobile table version %d", version)
 		return pos
 	}
+	stateMu.Lock()
+	state.bubbles = state.bubbles[:0]
+	stateMu.Unlock()
 
 	for pos+4 <= len(data) {
 		idx := int32(binary.BigEndian.Uint32(data[pos : pos+4]))
@@ -322,10 +328,10 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		pos += l.descSize
 
 		d := frameDescriptor{Index: uint8(idx)}
-		d.Type = uint8(binary.BigEndian.Uint32(buf[16:20]))
+		d.Type = uint8(binary.BigEndian.Uint32(buf[l.typeOffset : l.typeOffset+4]))
 		pict := binary.BigEndian.Uint32(buf[0:4])
 		if pict == 0xffffffff || uint16(pict) == 0xffff {
-			d.PictID = 0
+			d.PictID = picturelessDescriptorFallbackPictID
 		} else {
 			d.PictID = uint16(pict)
 		}
@@ -351,6 +357,7 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		}
 
 		bubbleCounter := int32(binary.BigEndian.Uint32(buf[l.bubbleCounterOffset : l.bubbleCounterOffset+4]))
+		var restoredBubble *bubble
 		if bubbleCounter != 0 {
 			if pos+2 > len(data) {
 				return len(data)
@@ -360,8 +367,27 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 			if pos+lgt > len(data) {
 				return len(data)
 			}
-			_ = string(data[pos : pos+lgt]) // bubble text, ignored
+			text := decodeServerText(data[pos : pos+lgt])
 			pos += lgt
+			if text != "" && bubbleCounter > 0 {
+				typ := int(int32(binary.BigEndian.Uint32(buf[l.bubbleTypeOffset : l.bubbleTypeOffset+4])))
+				b := bubble{Index: uint8(idx), Text: text, Type: typ, CreatedFrame: frameCounter, LifeFrames: int(bubbleCounter)}
+				switch typ & kBubbleTypeMask {
+				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
+					b.NoArrow = true
+				}
+				if !hasMobile {
+					b.Far = true
+					b.NoArrow = true
+					b.DedupeID = uint16(idx) + 1
+					if idx >= 256 {
+						b.Index = 255
+					}
+					b.H = int16(binary.BigEndian.Uint16(buf[l.bubbleLocOffset : l.bubbleLocOffset+2]))
+					b.V = int16(binary.BigEndian.Uint16(buf[l.bubbleLocOffset+2 : l.bubbleLocOffset+4]))
+				}
+				restoredBubble = &b
+			}
 		}
 
 		stateMu.Lock()
@@ -371,16 +397,23 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 			}
 			state.mobiles[mob.Index] = mob
 		}
-		if state.descriptors == nil {
-			state.descriptors = make(map[uint8]frameDescriptor)
+		if idx < 256 {
+			if state.descriptors == nil {
+				state.descriptors = make(map[uint8]frameDescriptor)
+			}
+			state.descriptors[d.Index] = d
 		}
-		state.descriptors[d.Index] = d
+		if restoredBubble != nil {
+			state.bubbles = append(state.bubbles, *restoredBubble)
+		}
 		stateMu.Unlock()
 
 		// Update the Players list appearance immediately from descriptor data,
 		// mirroring live behavior so movies show avatars right away.
-		updatePlayerAppearance(d.Name, d.PictID, d.Colors, d.Type == kDescNPC)
-		queueInfoRequest(d.Name)
+		if idx < 256 {
+			updatePlayerAppearance(d.Name, d.PictID, d.Colors, d.Type == kDescNPC)
+			queueInfoRequest(d.Name)
+		}
 	}
 	return pos
 }

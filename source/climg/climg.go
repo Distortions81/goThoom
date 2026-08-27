@@ -76,6 +76,9 @@ const (
 	// PictDefFlagRandomAnimation selects a random animation-table entry for
 	// each picture instance instead of advancing every instance in lockstep.
 	PictDefFlagRandomAnimation = 0x0004
+	// PictDefIsShadow marks explicit ground-shadow artwork controlled by the
+	// server's shadow and night levels.
+	PictDefIsShadow = 0x1000
 )
 
 func Load(path string) (*CLImages, error) {
