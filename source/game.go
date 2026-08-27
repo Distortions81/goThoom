@@ -1553,18 +1553,28 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
 		prev := gs.GameScale
 		gs.GameScale = renderScale
-		roomArtworkLoading := drawScene(worldView, 0, 0, snap, alpha, mobileFade, pictFade)
-		if !roomArtworkLoading && gs.ShaderLighting && lightingShader != nil {
+		useLighting := gs.ShaderLighting && lightingShader != nil
+		_, _, shadowKind := currentCharacterShadowRenderState()
+		useDetailedShadows := lightingShader != nil && !gs.hideMobiles && gs.DetailedCharacterShadows && shadowKind == characterShadowDirectional
+		useComposite := useLighting || useDetailedShadows
+		sceneTarget := worldView
+		if useComposite {
+			sceneTarget = ensureLightingTmp(worldView.Bounds())
+			sceneTarget.Fill(playfieldBackgroundColor())
+		}
+		roomArtworkLoading := drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
+		if !roomArtworkLoading && useLighting {
 			// Use shader-based night darkening with inverse-square falloff.
-			addNightDarkSources(worldView.Bounds(), float32(alpha))
+			addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
 		} else if !roomArtworkLoading {
 			// Classic overlay path when shader is off.
 			//drawNightAmbient(worldView, 0, 0)
-			drawNightOverlay(worldView, 0, 0)
+			drawNightOverlay(sceneTarget, 0, 0)
 		}
-		if !roomArtworkLoading && gs.ShaderLighting && lightingShader != nil {
-			// Apply lighting on the active subimage only
-			applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
+		if roomArtworkLoading && sceneTarget != worldView {
+			worldView.DrawImage(sceneTarget, nil)
+		} else if !roomArtworkLoading && useComposite {
+			applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
 		}
 		if !roomArtworkLoading {
 			drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
@@ -1661,6 +1671,8 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) bool {
+	frameDetailedShadowMask = nil
+	frameDetailedShadowBounds = image.Rectangle{}
 	preparedSheets := 0
 	if gs.BatchArtworkLoading {
 		preparedSheets = prepareSceneArtwork(snap)

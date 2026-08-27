@@ -7,7 +7,13 @@ var Phase float
 var Alpha float
 var Energy float
 var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
 var SpriteLightOnly float
+
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
 
 func band(value, center, width float) float {
 	return max(0, 1-abs(value-center)/width)
@@ -34,8 +40,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		if HasMask <= 0.5 {
 			return vec4(0, 0, 0, 0)
 		}
-		body := imageSrc0At(srcPos).a
-		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		body := maskAlpha(localPos)
+		edge := max(maskAlpha(localPos+vec2(2, 0)), maskAlpha(localPos+vec2(0, 2))) - body
 		flicker := 0.45 + 0.55*ember(t*13.0+p.x*19.0-p.y*11.0)
 		light := max(0, body*(0.04+0.10*flicker)+edge*0.11) * life * Alpha
 		color := mix(vec3(0.72, 0.05, 0.002), vec3(1.0, 0.55, 0.08), flicker)
@@ -59,7 +65,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	intensity := min(1, (a*1.35+b*1.15+c+d*0.85+e*0.72+ash*0.22+finalSpark*0.55)*life)
 
 	if HasMask > 0.5 {
-		body := imageSrc0At(srcPos).a
+		body := maskAlpha(localPos)
 		intensity *= 1.0-body*0.55
 	}
 	if intensity <= 0 {

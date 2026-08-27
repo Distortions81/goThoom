@@ -7,6 +7,8 @@ var Phase float
 var Alpha float
 var Energy float
 var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
 var SpriteLightOnly float
 
 func band(value, center, width float) float {
@@ -33,6 +35,10 @@ func polarAngle(p vec2) float {
 	return angle
 }
 
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
+
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// A continuous reinterpretation of the original healing animation: motes
 	// gather at the center, spiral outward, and dissolve into a luminous halo.
@@ -53,11 +59,11 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		if HasMask <= 0.5 {
 			return vec4(0, 0, 0, 0)
 		}
-		body := imageSrc0At(srcPos).a
-		rightAlpha := imageSrc0At(srcPos+vec2(2, 0)).a
-		leftAlpha := imageSrc0At(srcPos+vec2(-2, 0)).a
-		downAlpha := imageSrc0At(srcPos+vec2(0, 2)).a
-		upAlpha := imageSrc0At(srcPos+vec2(0, -2)).a
+		body := maskAlpha(localPos)
+		rightAlpha := maskAlpha(localPos+vec2(2, 0))
+		leftAlpha := maskAlpha(localPos+vec2(-2, 0))
+		downAlpha := maskAlpha(localPos+vec2(0, 2))
+		upAlpha := maskAlpha(localPos+vec2(0, -2))
 		insideAlpha := min(rightAlpha, min(leftAlpha, min(downAlpha, upAlpha)))
 		innerEdge := max(0, body-insideAlpha)
 		arcaneWave := 0.5 + 0.5*sin(t*2.15-p.y*13.0+angle*2.0)
@@ -104,11 +110,11 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	// rotating depth wave lets some motes pass in front while most recede
 	// behind the body, and a soft alpha edge catches extra healing light.
 	if HasMask > 0.5 {
-		body := imageSrc0At(srcPos).a
-		rightAlpha := imageSrc0At(srcPos+vec2(2, 0)).a
-		leftAlpha := imageSrc0At(srcPos+vec2(-2, 0)).a
-		downAlpha := imageSrc0At(srcPos+vec2(0, 2)).a
-		upAlpha := imageSrc0At(srcPos+vec2(0, -2)).a
+		body := maskAlpha(localPos)
+		rightAlpha := maskAlpha(localPos+vec2(2, 0))
+		leftAlpha := maskAlpha(localPos+vec2(-2, 0))
+		downAlpha := maskAlpha(localPos+vec2(0, 2))
+		upAlpha := maskAlpha(localPos+vec2(0, -2))
 		edgeAlpha := max(rightAlpha, max(leftAlpha, max(downAlpha, upAlpha)))
 		edge := max(0, edgeAlpha-body)
 		insideAlpha := min(rightAlpha, min(leftAlpha, min(downAlpha, upAlpha)))

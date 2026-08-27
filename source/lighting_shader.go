@@ -36,8 +36,10 @@ var (
 	slightX, slightY, slightRadius          [maxLightShadows]float32
 	slightR, slightG, slightB, slightInt    [maxLightShadows]float32
 	scasterX, scasterY, scasterRadius       [maxLightShadows]float32
+	characterShadowMin, characterShadowMax  [2]float32
 	lightingUniforms                        map[string]any
-	lightingOp                              ebiten.DrawRectShaderOptions
+	lightingOp                              ebiten.DrawTrianglesShaderOptions
+	lightingIndices                         = []uint16{0, 1, 2, 1, 2, 3}
 )
 
 // Global multipliers to make lights/darks reach farther on screen.
@@ -56,38 +58,41 @@ const (
 func init() {
 	// Initialize reusable uniforms and options
 	lightingUniforms = map[string]any{
-		"LightCount":           0,
-		"DarkCount":            0,
-		"LightPosX":            lposX[:],
-		"LightPosY":            lposY[:],
-		"LightRadius":          lradius[:],
-		"LightR":               lr[:],
-		"LightG":               lg[:],
-		"LightB":               lb[:],
-		"LightIntensity":       lint[:],
-		"DarkPosX":             dposX[:],
-		"DarkPosY":             dposY[:],
-		"DarkRadius":           dradius[:],
-		"DarkAlpha":            da[:],
-		"DarkIntensity":        dint[:],
-		"DarkPlane":            dplane[:],
-		"ShadowCount":          0,
-		"ShadowLightX":         slightX[:],
-		"ShadowLightY":         slightY[:],
-		"ShadowLightRadius":    slightRadius[:],
-		"ShadowLightR":         slightR[:],
-		"ShadowLightG":         slightG[:],
-		"ShadowLightB":         slightB[:],
-		"ShadowLightIntensity": slightInt[:],
-		"ShadowCasterX":        scasterX[:],
-		"ShadowCasterY":        scasterY[:],
-		"ShadowCasterRadius":   scasterRadius[:],
-		"LightStrength":        float32(1),
-		"GlowStrength":         float32(1),
-		"NightFactor":          float32(0),
-		"MaxLightPlane":        float32(32767),
+		"LightCount":             0,
+		"DarkCount":              0,
+		"LightPosX":              lposX[:],
+		"LightPosY":              lposY[:],
+		"LightRadius":            lradius[:],
+		"LightR":                 lr[:],
+		"LightG":                 lg[:],
+		"LightB":                 lb[:],
+		"LightIntensity":         lint[:],
+		"DarkPosX":               dposX[:],
+		"DarkPosY":               dposY[:],
+		"DarkRadius":             dradius[:],
+		"DarkAlpha":              da[:],
+		"DarkIntensity":          dint[:],
+		"DarkPlane":              dplane[:],
+		"ShadowCount":            0,
+		"ShadowLightX":           slightX[:],
+		"ShadowLightY":           slightY[:],
+		"ShadowLightRadius":      slightRadius[:],
+		"ShadowLightR":           slightR[:],
+		"ShadowLightG":           slightG[:],
+		"ShadowLightB":           slightB[:],
+		"ShadowLightIntensity":   slightInt[:],
+		"ShadowCasterX":          scasterX[:],
+		"ShadowCasterY":          scasterY[:],
+		"ShadowCasterRadius":     scasterRadius[:],
+		"LightStrength":          float32(1),
+		"GlowStrength":           float32(1),
+		"NightFactor":            float32(0),
+		"MaxLightPlane":          float32(32767),
+		"HasCharacterShadowMask": float32(0),
+		"CharacterShadowMin":     characterShadowMin[:],
+		"CharacterShadowMax":     characterShadowMax[:],
 	}
-	lightingOp = ebiten.DrawRectShaderOptions{}
+	lightingOp = ebiten.DrawTrianglesShaderOptions{}
 	lightingOp.Uniforms = lightingUniforms
 }
 
@@ -157,13 +162,14 @@ type lightShadow struct {
 	CasterRadius                float32
 }
 
-func ensureLightingTmp(w, h int) {
-	if lightingTmp == nil || lightingTmp.Bounds().Dx() != w || lightingTmp.Bounds().Dy() != h {
+func ensureLightingTmp(bounds image.Rectangle) *ebiten.Image {
+	if lightingTmp == nil || lightingTmp.Bounds() != bounds {
 		if lightingTmp != nil {
 			lightingTmp.Deallocate()
 		}
-		lightingTmp = newUnmanagedImage(w, h)
+		lightingTmp = ebiten.NewImageWithOptions(bounds, &ebiten.NewImageOptions{Unmanaged: true})
 	}
+	return lightingTmp
 }
 
 func localLightingPosition(x, y float32, bounds image.Rectangle) (float32, float32) {
@@ -174,12 +180,23 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 	if lightingShader == nil {
 		return
 	}
-	w, h := dst.Bounds().Dx(), dst.Bounds().Dy()
-	ensureLightingTmp(w, h)
+	ensureLightingTmp(dst.Bounds())
 	lightingTmp.DrawImage(dst, nil)
+	applyWorldComposite(dst, lightingTmp, lights, darks, t, true)
+}
+
+func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks []darkSource, t float32, useLighting bool) {
+	if lightingShader == nil || dst == nil || source == nil {
+		return
+	}
+	w, h := dst.Bounds().Dx(), dst.Bounds().Dy()
 
 	// Scene positions and flicker are already interpolated. Use only this draw's
 	// sources so stale positions cannot feed back and accumulate across frames.
+	if !useLighting {
+		lights = nil
+		darks = nil
+	}
 	il := lights[:min(len(lights), maxLights)]
 	id := darks[:min(len(darks), maxLights)]
 	frameLightShadows = buildLightShadows(il, frameLightCasters, frameLightShadows[:0])
@@ -191,7 +208,7 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 
 	// Shader distance calculations use source-pixel coordinates, which are local
 	// to the temporary image. Sources are stored in destination-image coordinates.
-	dstBounds := dst.Bounds()
+	dstBounds := source.Bounds()
 	for i := 0; i < len(il) && i < maxLights; i++ {
 		ls := il[i]
 		lposX[i], lposY[i] = localLightingPosition(ls.X, ls.Y, dstBounds)
@@ -241,7 +258,9 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 
 	// Smoothed night factor (0..1)
 	nightFactor := float32(0)
-	if nightAlphaInited {
+	if !useLighting {
+		nightFactor = 0
+	} else if nightAlphaInited {
 		nf := lerpf(nightPrevTarget, nightCurTarget, ease(t)) / float32(shaderNightStrength)
 		if nf < 0 {
 			nf = 0
@@ -254,12 +273,29 @@ func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSo
 		nightFactor = float32(lvl) / 100
 	}
 	lightingUniforms["NightFactor"] = nightFactor
+	lightingUniforms["HasCharacterShadowMask"] = float32(0)
+	lightingOp.Images[1] = whiteImage
+	if frameDetailedShadowMask != nil && !frameDetailedShadowBounds.Empty() {
+		characterShadowMin[0] = float32(frameDetailedShadowBounds.Min.X - dstBounds.Min.X)
+		characterShadowMin[1] = float32(frameDetailedShadowBounds.Min.Y - dstBounds.Min.Y)
+		characterShadowMax[0] = float32(frameDetailedShadowBounds.Max.X - dstBounds.Min.X)
+		characterShadowMax[1] = float32(frameDetailedShadowBounds.Max.Y - dstBounds.Min.Y)
+		lightingUniforms["HasCharacterShadowMask"] = float32(1)
+		lightingOp.Images[1] = frameDetailedShadowMask
+	}
 
-	// Bind source and draw
-	lightingOp.Images[0] = lightingTmp
-	lightingOp.GeoM.Reset()
-	lightingOp.GeoM.Translate(float64(dstBounds.Min.X), float64(dstBounds.Min.Y))
-	dst.DrawRectShader(w, h, lightingShader, &lightingOp)
+	// Bind the full scene and the grow-only cropped shadow target. Pixel-unit
+	// triangle shaders permit differently sized sources, unlike DrawRectShader.
+	lightingOp.Images[0] = source
+	left, top := float32(dstBounds.Min.X), float32(dstBounds.Min.Y)
+	right, bottom := left+float32(w), top+float32(h)
+	vertices := [...]ebiten.Vertex{
+		{DstX: left, DstY: top, SrcX: left, SrcY: top, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
+		{DstX: right, DstY: top, SrcX: right, SrcY: top, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
+		{DstX: left, DstY: bottom, SrcX: left, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
+		{DstX: right, DstY: bottom, SrcX: right, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
+	}
+	dst.DrawTrianglesShader(vertices[:], lightingIndices, lightingShader, &lightingOp)
 }
 
 func highestLightPlane(lights []lightSource) float32 {
@@ -460,18 +496,28 @@ func mobileSpriteMetricsFor(key mobileKey, img *ebiten.Image) mobileSpriteMetric
 		return metrics
 	}
 
-	bounds := img.Bounds()
-	pixels := make([]byte, 4*bounds.Dx()*bounds.Dy())
-	img.ReadPixels(pixels)
-	median := medianOccupiedRowWidth(pixels, bounds.Dx(), bounds.Dy())
-	metrics = mobileSpriteMetrics{
-		widthFraction: float32(median) / float32(bounds.Dx()),
-		footFraction:  float32(opaqueFootY(pixels, bounds.Dx(), bounds.Dy())) / float32(bounds.Dy()),
-	}
+	// Production artwork preparation records these values while the pose is
+	// already available as CPU RGBA. A conservative fallback keeps injected or
+	// synthetic images usable without synchronously reading pixels back from the
+	// GPU on the render goroutine.
+	metrics = mobileSpriteMetrics{widthFraction: 0.5, footFraction: 0.9}
 	imageMu.Lock()
 	mobileSpriteMetricsCache[key] = metrics
 	imageMu.Unlock()
 	return metrics
+}
+
+func mobileSpriteMetricsFromRGBA(img *image.RGBA) mobileSpriteMetrics {
+	if img == nil || img.Bounds().Empty() {
+		return mobileSpriteMetrics{widthFraction: 0.5, footFraction: 0.9}
+	}
+	bounds := img.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	median := medianOccupiedRowWidth(img.Pix, width, height)
+	return mobileSpriteMetrics{
+		widthFraction: float32(median) / float32(width),
+		footFraction:  float32(opaqueFootY(img.Pix, width, height)) / float32(height),
+	}
 }
 
 func opaqueFootY(pixels []byte, width, height int) int {

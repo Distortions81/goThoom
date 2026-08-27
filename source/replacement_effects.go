@@ -83,8 +83,6 @@ var stoneFormShader *ebiten.Shader
 var coinRewardShader *ebiten.Shader
 var replacementEffectsStarted = time.Now()
 var replacementEffectsPreview bool
-var replacementEffectsPreviewMask *ebiten.Image
-var replacementEffectsPreviewCoinMask *ebiten.Image
 var replacementEffectsShadersReady bool
 var replacementEffectsShaderInitAttempted bool
 var replacementEffectsShaderInitIndex int
@@ -123,12 +121,79 @@ type replacementEffectDraw struct {
 	hasMobileAnchor             bool
 	mobileOffsetX               float64
 	mobileOffsetY               float64
-	mask                        *ebiten.Image
+	maskImage                   *ebiten.Image
+	maskOffsetX                 float32
+	maskOffsetY                 float32
+	maskInvScale                float32
 	hasMask                     bool
 }
 
 var replacementEffectDraws = make(map[uint64]replacementEffectDraw)
 var replacementEffectNextKey uint64
+
+type replacementEffectShaderState struct {
+	op         ebiten.DrawTrianglesShaderOptions
+	uniforms   map[string]any
+	size       [2]float32
+	canvasSize [2]float32
+	maskOffset [2]float32
+	coinDigits [4]float32
+}
+
+var replacementEffectShaderStates [replacementEffectCoinReward + 1]replacementEffectShaderState
+var replacementEffectShaderIndices = []uint16{0, 1, 2, 1, 2, 3}
+
+func init() {
+	for kind := replacementEffectHealing; kind <= replacementEffectCoinReward; kind++ {
+		state := &replacementEffectShaderStates[kind]
+		state.uniforms = map[string]any{
+			"Size":            state.size[:],
+			"Phase":           float32(0),
+			"Alpha":           float32(0),
+			"Energy":          float32(0),
+			"HasMask":         float32(0),
+			"MaskOffset":      state.maskOffset[:],
+			"MaskInvScale":    float32(1),
+			"SpriteLightOnly": float32(0),
+		}
+		if replacementEffectTeleportTheme(kind) >= 0 {
+			state.uniforms["CanvasSize"] = state.canvasSize[:]
+			state.uniforms["TeleportTheme"] = float32(0)
+		}
+		if kind == replacementEffectCoinReward {
+			state.uniforms["CanvasSize"] = state.canvasSize[:]
+			state.uniforms["CoinValue"] = float32(0)
+			state.uniforms["CoinDigits"] = state.coinDigits[:]
+			state.uniforms["CoinDigitCount"] = float32(0)
+		}
+		state.op.Uniforms = state.uniforms
+	}
+}
+
+func drawReplacementEffectShader(screen *ebiten.Image, left, top float64, width, height int, shader *ebiten.Shader, state *replacementEffectShaderState) {
+	sourceLeft, sourceTop := float32(0), float32(0)
+	if source := state.op.Images[0]; source != nil {
+		sourceLeft = float32(source.Bounds().Min.X)
+		sourceTop = float32(source.Bounds().Min.Y)
+	}
+	right := float32(left) + float32(width)
+	bottom := float32(top) + float32(height)
+	sourceRight := sourceLeft + float32(width)
+	sourceBottom := sourceTop + float32(height)
+	vertices := [...]ebiten.Vertex{
+		{DstX: float32(left), DstY: float32(top), SrcX: sourceLeft, SrcY: sourceTop},
+		{DstX: right, DstY: float32(top), SrcX: sourceRight, SrcY: sourceTop},
+		{DstX: float32(left), DstY: bottom, SrcX: sourceLeft, SrcY: sourceBottom},
+		{DstX: right, DstY: bottom, SrcX: sourceRight, SrcY: sourceBottom},
+	}
+	for index := range vertices {
+		vertices[index].ColorR = 1
+		vertices[index].ColorG = 1
+		vertices[index].ColorB = 1
+		vertices[index].ColorA = 1
+	}
+	screen.DrawTrianglesShader(vertices[:], replacementEffectShaderIndices, shader, &state.op)
+}
 
 const (
 	replacementEffectFadeIn  = 180 * time.Millisecond
@@ -468,19 +533,10 @@ func replacementCoinClusterKey(left, top, width, height float64, now time.Time) 
 
 func updateReplacementEffectMask(effect *replacementEffectDraw, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) {
 	effect.hasMask = false
-	w, h := int(math.Ceil(effect.width)), int(math.Ceil(effect.height))
-	if w <= 0 || h <= 0 {
-		return
-	}
-	if effect.mask == nil || effect.mask.Bounds().Dx() != w || effect.mask.Bounds().Dy() != h {
-		if effect.mask != nil {
-			effect.mask.Deallocate()
-		}
-		effect.mask = newUnmanagedImage(w, h)
-	}
-	effect.mask.Clear()
-	// The shader references image slot 0 even when HasMask is false, so Kage
-	// still requires a bound texture for unmatched or unpinned effects.
+	effect.maskImage = whiteImage
+	effect.maskOffsetX = 0
+	effect.maskOffsetY = 0
+	effect.maskInvScale = 1
 	if mobileImg == nil || mobileSize <= 0 {
 		return
 	}
@@ -488,17 +544,14 @@ func updateReplacementEffectMask(effect *replacementEffectDraw, mobileImg *ebite
 	if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
 		return
 	}
-	op := acquireDrawOpts()
-	op.Filter = worldArtworkFilter()
-	op.DisableMipmaps = true
 	scale := mobileSize / float64(bounds.Dx())
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(
-		mobileX-mobileSize/2-effect.left,
-		mobileY-mobileSize/2-effect.top,
-	)
-	effect.mask.DrawImage(mobileImg, op)
-	releaseDrawOpts(op)
+	if scale <= 0 {
+		return
+	}
+	effect.maskImage = mobileImg
+	effect.maskOffsetX = float32(mobileX - mobileSize/2 - effect.left)
+	effect.maskOffsetY = float32(mobileY - mobileSize/2 - effect.top)
+	effect.maskInvScale = float32(1 / scale)
 	effect.hasMask = true
 }
 
@@ -507,6 +560,7 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 	if now.IsZero() {
 		now = time.Now()
 	}
+	globalPhase := float32(now.Sub(replacementEffectsStarted).Seconds())
 	for key, effect := range replacementEffectDraws {
 		if effect.hasMobileAnchor {
 			for _, mobile := range mobiles {
@@ -529,9 +583,6 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		if !effect.seen {
 			age := now.Sub(effect.lastSeen)
 			if age >= replacementEffectFadeOut {
-				if effect.mask != nil {
-					effect.mask.Deallocate()
-				}
 				delete(replacementEffectDraws, key)
 				continue
 			}
@@ -554,7 +605,7 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		if w <= 0 || h <= 0 {
 			continue
 		}
-		phase := float32(time.Since(replacementEffectsStarted).Seconds())
+		phase := globalPhase
 		if replacementEffectIsOneShot(effect.kind) {
 			// One-shot effects start their particle sequence when this sprite
 			// appears instead of inheriting the global shader phase.
@@ -572,52 +623,35 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 		// Light the mobile itself in a separate additive pass. This preserves
 		// the original sprite detail while lifting its opaque pixels out of the
 		// dusk-darkened scene with the burst's blue light.
-		if effect.hasMask && effect.kind != replacementEffectCoinReward {
-			lightOp := &ebiten.DrawRectShaderOptions{
-				Blend: ebiten.BlendLighter,
-				Uniforms: map[string]any{
-					"Size":            []float32{float32(contentW), float32(contentH)},
-					"Phase":           phase,
-					"Alpha":           visualAlpha,
-					"Energy":          energy,
-					"HasMask":         hasMask,
-					"SpriteLightOnly": float32(1),
-				},
-			}
-			if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
-				lightOp.Uniforms["TeleportTheme"] = theme
-				lightOp.Uniforms["CanvasSize"] = []float32{float32(w), float32(h)}
-			}
-			if effect.kind == replacementEffectCoinReward {
-				lightOp.Uniforms["CoinValue"] = float32(effect.frame % 10)
-				lightOp.Uniforms["CoinDigits"] = effect.coinDigits[:]
-				lightOp.Uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
-			}
-			lightOp.Images[0] = effect.mask
-			lightOp.GeoM.Translate(effect.left, effect.top)
-			screen.DrawRectShader(w, h, shader, lightOp)
-		}
-		op := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
-			"Size":            []float32{float32(contentW), float32(contentH)},
-			"Phase":           phase,
-			"Alpha":           visualAlpha,
-			"Energy":          energy,
-			"HasMask":         hasMask,
-			"SpriteLightOnly": float32(0),
-		}}
+		state := &replacementEffectShaderStates[effect.kind]
+		state.size = [2]float32{float32(contentW), float32(contentH)}
+		state.canvasSize = [2]float32{float32(w), float32(h)}
+		state.maskOffset = [2]float32{effect.maskOffsetX, effect.maskOffsetY}
+		state.coinDigits = effect.coinDigits
+		state.uniforms["Phase"] = phase
+		state.uniforms["Alpha"] = visualAlpha
+		state.uniforms["Energy"] = energy
+		state.uniforms["HasMask"] = hasMask
+		state.uniforms["MaskInvScale"] = effect.maskInvScale
 		if theme := replacementEffectTeleportTheme(effect.kind); theme >= 0 {
-			op.Uniforms["TeleportTheme"] = theme
-			op.Uniforms["CanvasSize"] = []float32{float32(w), float32(h)}
+			state.uniforms["TeleportTheme"] = theme
 		}
 		if effect.kind == replacementEffectCoinReward {
-			op.Uniforms["CoinValue"] = float32(effect.frame % 10)
-			op.Uniforms["CoinDigits"] = effect.coinDigits[:]
-			op.Uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
-			op.Uniforms["CanvasSize"] = []float32{float32(w), float32(h)}
+			state.uniforms["CoinValue"] = float32(effect.frame % 10)
+			state.uniforms["CoinDigitCount"] = float32(effect.coinDigitCount)
 		}
-		op.Images[0] = effect.mask
-		op.GeoM.Translate(effect.left, effect.top)
-		screen.DrawRectShader(w, h, shader, op)
+		state.op.Images[0] = effect.maskImage
+		if state.op.Images[0] == nil {
+			state.op.Images[0] = whiteImage
+		}
+		if effect.hasMask && effect.kind != replacementEffectCoinReward {
+			state.op.Blend = ebiten.BlendLighter
+			state.uniforms["SpriteLightOnly"] = float32(1)
+			drawReplacementEffectShader(screen, effect.left, effect.top, w, h, shader, state)
+		}
+		state.op.Blend = ebiten.Blend{}
+		state.uniforms["SpriteLightOnly"] = float32(0)
+		drawReplacementEffectShader(screen, effect.left, effect.top, w, h, shader, state)
 	}
 }
 
@@ -667,20 +701,12 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 	cellH := float64(bounds.Dy()) / float64(rows)
 	effectW := max(56, roundToInt(cellW*0.68))
 	effectH := max(56, roundToInt(cellH*0.66))
-	if replacementEffectsPreviewMask == nil || replacementEffectsPreviewMask.Bounds().Dx() != effectW || replacementEffectsPreviewMask.Bounds().Dy() != effectH {
-		if replacementEffectsPreviewMask != nil {
-			replacementEffectsPreviewMask.Deallocate()
-		}
-		replacementEffectsPreviewMask = newUnmanagedImage(effectW, effectH)
-	}
 	coinCanvasW, coinCanvasH := roundToInt(float64(effectW)*1.70), roundToInt(float64(effectH)*1.70)
-	if replacementEffectsPreviewCoinMask == nil || replacementEffectsPreviewCoinMask.Bounds().Dx() != coinCanvasW || replacementEffectsPreviewCoinMask.Bounds().Dy() != coinCanvasH {
-		if replacementEffectsPreviewCoinMask != nil {
-			replacementEffectsPreviewCoinMask.Deallocate()
-		}
-		replacementEffectsPreviewCoinMask = newUnmanagedImage(coinCanvasW, coinCanvasH)
+	now := drawFrameNow
+	if now.IsZero() {
+		now = time.Now()
 	}
-	elapsed := time.Since(replacementEffectsStarted).Seconds()
+	elapsed := now.Sub(replacementEffectsStarted).Seconds()
 	for i, preview := range replacementEffectsPreviews {
 		col, row := i%columns, i/columns
 		left := float64(bounds.Min.X) + float64(col)*cellW + (cellW-float64(effectW))/2
@@ -691,33 +717,33 @@ func drawReplacementEffectsPreview(screen *ebiten.Image) {
 		}
 		drawW, drawH := effectW, effectH
 		drawLeft, drawTop := left, top
-		mask := replacementEffectsPreviewMask
-		op := &ebiten.DrawRectShaderOptions{Uniforms: map[string]any{
-			"Size":            []float32{float32(effectW), float32(effectH)},
-			"Phase":           phase,
-			"Alpha":           float32(1),
-			"Energy":          float32(1),
-			"HasMask":         float32(0),
-			"SpriteLightOnly": float32(0),
-		}}
+		state := &replacementEffectShaderStates[preview.kind]
+		state.size = [2]float32{float32(effectW), float32(effectH)}
+		state.canvasSize = [2]float32{float32(effectW), float32(effectH)}
+		state.maskOffset = [2]float32{}
+		state.coinDigits = preview.coinDigits
+		state.uniforms["Phase"] = phase
+		state.uniforms["Alpha"] = float32(1)
+		state.uniforms["Energy"] = float32(1)
+		state.uniforms["HasMask"] = float32(0)
+		state.uniforms["MaskInvScale"] = float32(1)
+		state.uniforms["SpriteLightOnly"] = float32(0)
 		if theme := replacementEffectTeleportTheme(preview.kind); theme >= 0 {
-			op.Uniforms["TeleportTheme"] = theme
+			state.uniforms["TeleportTheme"] = theme
 		}
 		if replacementEffectNeedsOverscan(preview.kind) {
 			drawW, drawH = coinCanvasW, coinCanvasH
 			drawLeft -= float64(drawW-effectW) / 2
 			drawTop -= float64(drawH-effectH) / 2
-			mask = replacementEffectsPreviewCoinMask
-			op.Uniforms["CanvasSize"] = []float32{float32(drawW), float32(drawH)}
+			state.canvasSize = [2]float32{float32(drawW), float32(drawH)}
 		}
 		if preview.kind == replacementEffectCoinReward {
-			op.Uniforms["CoinValue"] = preview.coinDigits[0]
-			op.Uniforms["CoinDigits"] = preview.coinDigits[:]
-			op.Uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
+			state.uniforms["CoinValue"] = preview.coinDigits[0]
+			state.uniforms["CoinDigitCount"] = float32(preview.coinDigitCount)
 		}
-		op.Images[0] = mask
-		op.GeoM.Translate(drawLeft, drawTop)
-		screen.DrawRectShader(drawW, drawH, replacementEffectShader(preview.kind), op)
+		state.op.Blend = ebiten.Blend{}
+		state.op.Images[0] = whiteImage
+		drawReplacementEffectShader(screen, drawLeft, drawTop, drawW, drawH, replacementEffectShader(preview.kind), state)
 
 		labelOpts := acquireTextDrawOpts()
 		labelOpts.GeoM.Translate(float64(bounds.Min.X)+float64(col)*cellW+8, float64(bounds.Min.Y)+float64(row)*cellH+8)

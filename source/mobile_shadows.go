@@ -22,7 +22,6 @@ const (
 	contactShadowWidth     = 0.78
 	contactShadowHeight    = 0.24
 	contactShadowTexSize   = 64
-	characterShadowPadding = 1
 	lyingShadowOffset      = 2.0
 	mobileSunShadeScale    = 0.65
 	maximumMobileSunShade  = 0.75
@@ -51,12 +50,16 @@ var (
 	uprightShadowVertices = [4]ebiten.Vertex{}
 	uprightShadowIndices  = [6]uint16{0, 1, 2, 1, 3, 2}
 	uprightShadowDrawOpts = ebiten.DrawTrianglesOptions{
-		Filter: ebiten.FilterLinear,
-		Blend:  shadowDarkenBlend,
+		Filter:         ebiten.FilterLinear,
+		Address:        ebiten.AddressClampToZero,
+		DisableMipmaps: true,
+		Blend:          shadowDarkenBlend,
 	}
 	detailedCharacterShadowMask *ebiten.Image
+	frameDetailedShadowMask     *ebiten.Image
+	frameDetailedShadowBounds   image.Rectangle
 	contactShadowTexture        *ebiten.Image
-	characterShadowTextureCache = make(map[*ebiten.Image]characterShadowTexture)
+	frameCharacterShadowDraws   []characterShadowDraw
 )
 
 type characterShadowKind uint8
@@ -80,6 +83,16 @@ type characterShadowProjection struct {
 	dropOffsetX float64
 	dropOffsetY float64
 	contrast    float32
+}
+
+type characterShadowDraw struct {
+	texture    characterShadowTexture
+	size       int
+	x, y       int
+	alpha      float32
+	projection characterShadowProjection
+	upright    bool
+	quad       [4]shadowPoint
 }
 
 type shadowPoint struct {
@@ -204,6 +217,9 @@ func currentCharacterShadowRenderState() (float32, int, characterShadowKind) {
 }
 
 func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, mobileShade *[256]float32) {
+	frameDetailedShadowMask = nil
+	frameDetailedShadowBounds = image.Rectangle{}
+	frameCharacterShadowDraws = frameCharacterShadowDraws[:0]
 	shadowAlpha, azimuth, kind := currentCharacterShadowRenderState()
 	if kind != characterShadowDirectional || clImages == nil {
 		return
@@ -212,14 +228,7 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	frameMobileSunShadowCasters = frameMobileSunShadowCasters[:0]
 	frameMobileSunShadowReceivers = frameMobileSunShadowReceivers[:0]
 	resetMobileSunShadowBlocks()
-	shadowTarget := screen
-	shadowBlend := shadowDarkenBlend
-	useMask := gs.DetailedCharacterShadows
-	if useMask {
-		shadowTarget = characterShadowMask(screen)
-		shadowTarget.Clear()
-		shadowBlend = shadowMaskBlend
-	}
+	useMask := gs.DetailedCharacterShadows && lightingShader != nil
 
 	for _, mobile := range mobiles {
 		desc, ok := descMap[mobile.Index]
@@ -237,7 +246,8 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		texture := characterShadowTextureFor(img)
+		key := makeMobileKey(desc.PictID, state, colors)
+		texture := characterShadowTextureForMobile(key, img)
 		x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
 		frameMobileSunShadowReceivers = append(frameMobileSunShadowReceivers, mobileSunShadowReceiverFor(mobile.Index, texture, size, x, y))
 		if isLyingShadowState(state) {
@@ -255,17 +265,22 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 				continue
 			}
 			img = getScaledMobileFrame(makeMobileKey(desc.PictID, state, colors), img)
-			texture = characterShadowTextureFor(img)
+			key.state = state
+			texture = characterShadowTextureForMobile(key, img)
 		}
 		casterAlpha := shadowAlpha * mobileSunShadowAppearance(mobile, desc, prevMobiles, alpha)
 		casterIndex := len(frameMobileSunShadowCasters)
+		quad := mobileSunShadowQuad(texture, size, x, y, projection, upright)
 		frameMobileSunShadowCasters = append(frameMobileSunShadowCasters, mobileSunShadowCaster{
 			index:    mobile.Index,
-			quad:     mobileSunShadowQuad(texture, size, x, y, projection, upright),
+			quad:     quad,
 			strength: characterShadowDrawAlpha(casterAlpha, projection),
 		})
 		addMobileSunShadowBlocks(casterIndex, frameMobileSunShadowCasters[casterIndex].quad)
-		drawCharacterShadow(shadowTarget, texture, size, x, y, casterAlpha, projection, upright, shadowBlend)
+		frameCharacterShadowDraws = append(frameCharacterShadowDraws, characterShadowDraw{
+			texture: texture, size: size, x: x, y: y, alpha: casterAlpha,
+			projection: projection, upright: upright, quad: quad,
+		})
 	}
 	if gs.MobilesReceiveSunShadows && mobileShade != nil {
 		for _, receiver := range frameMobileSunShadowReceivers {
@@ -273,12 +288,58 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		}
 	}
 
-	if useMask {
-		op := acquireDrawOpts()
-		op.Blend = shadowDarkenBlend
-		screen.DrawImage(shadowTarget, op)
-		releaseDrawOpts(op)
+	if !useMask {
+		for _, command := range frameCharacterShadowDraws {
+			drawCharacterShadow(screen, command.texture, command.size, command.x, command.y, command.alpha, command.projection, command.upright, shadowDarkenBlend)
+		}
+		return
 	}
+	if len(frameCharacterShadowDraws) == 0 {
+		return
+	}
+	activeBounds := shadowQuadBounds(frameCharacterShadowDraws[0].quad)
+	for _, command := range frameCharacterShadowDraws[1:] {
+		activeBounds = activeBounds.Union(shadowQuadBounds(command.quad))
+	}
+	activeBounds = activeBounds.Intersect(screen.Bounds())
+	if activeBounds.Empty() {
+		return
+	}
+	shadowTarget := characterShadowMask(activeBounds.Size())
+	shadowTarget.SubImage(image.Rectangle{Max: activeBounds.Size()}).(*ebiten.Image).Clear()
+	for _, command := range frameCharacterShadowDraws {
+		drawCharacterShadow(
+			shadowTarget,
+			command.texture,
+			command.size,
+			command.x-activeBounds.Min.X,
+			command.y-activeBounds.Min.Y,
+			command.alpha,
+			command.projection,
+			command.upright,
+			shadowMaskBlend,
+		)
+	}
+	frameDetailedShadowMask = shadowTarget
+	frameDetailedShadowBounds = activeBounds
+}
+
+func shadowQuadBounds(quad [4]shadowPoint) image.Rectangle {
+	minX, maxX := quad[0].x, quad[0].x
+	minY, maxY := quad[0].y, quad[0].y
+	for _, point := range quad[1:] {
+		minX = math.Min(minX, point.x)
+		maxX = math.Max(maxX, point.x)
+		minY = math.Min(minY, point.y)
+		maxY = math.Max(maxY, point.y)
+	}
+	const filterMargin = 2
+	return image.Rect(
+		int(math.Floor(minX))-filterMargin,
+		int(math.Floor(minY))-filterMargin,
+		int(math.Ceil(maxX))+filterMargin,
+		int(math.Ceil(maxY))+filterMargin,
+	)
 }
 
 // mobileSunShadowAppearance fades only a newly arrived edge caster. An empty
@@ -450,7 +511,7 @@ func drawMobileDropShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, 
 	if size <= 0 {
 		size = img.Bounds().Dx()
 	}
-	texture := characterShadowTextureFor(img)
+	texture := characterShadowTextureForMobile(key, img)
 	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	projection := characterShadowProjection{
 		dropOffsetX: lyingShadowOffset * gs.GameScale,
@@ -533,13 +594,17 @@ func drawContactShadow(screen *ebiten.Image, size, x, y int, footFraction, alpha
 	releaseDrawOpts(op)
 }
 
-func characterShadowMask(screen *ebiten.Image) *ebiten.Image {
-	bounds := screen.Bounds()
-	if detailedCharacterShadowMask == nil || detailedCharacterShadowMask.Bounds().Dx() != bounds.Dx() || detailedCharacterShadowMask.Bounds().Dy() != bounds.Dy() {
+func characterShadowMask(size image.Point) *ebiten.Image {
+	if detailedCharacterShadowMask == nil || detailedCharacterShadowMask.Bounds().Dx() < size.X || detailedCharacterShadowMask.Bounds().Dy() < size.Y {
+		width, height := size.X, size.Y
+		if detailedCharacterShadowMask != nil {
+			width = max(width, detailedCharacterShadowMask.Bounds().Dx())
+			height = max(height, detailedCharacterShadowMask.Bounds().Dy())
+		}
 		if detailedCharacterShadowMask != nil {
 			detailedCharacterShadowMask.Deallocate()
 		}
-		detailedCharacterShadowMask = newUnmanagedImage(bounds.Dx(), bounds.Dy())
+		detailedCharacterShadowMask = newUnmanagedImage(width, height)
 	}
 	return detailedCharacterShadowMask
 }
@@ -548,25 +613,22 @@ func characterShadowTextureFor(img *ebiten.Image) characterShadowTexture {
 	if img == nil {
 		return characterShadowTexture{}
 	}
-	if texture, ok := characterShadowTextureCache[img]; ok {
+	bounds := img.Bounds()
+	return characterShadowTexture{
+		image:       img,
+		contentSize: bounds.Dx(),
+		footY:       float64(bounds.Dy()),
+	}
+
+}
+
+func characterShadowTextureForMobile(key mobileKey, img *ebiten.Image) characterShadowTexture {
+	texture := characterShadowTextureFor(img)
+	if texture.image == nil {
 		return texture
 	}
-	bounds := img.Bounds()
-	pixels := make([]byte, 4*bounds.Dx()*bounds.Dy())
-	img.ReadPixels(pixels)
-	footY := opaqueFootY(pixels, bounds.Dx(), bounds.Dy())
-	padded := newManagedImage(bounds.Dx()+characterShadowPadding*2, bounds.Dy()+characterShadowPadding*2)
-	op := acquireDrawOpts()
-	op.GeoM.Translate(characterShadowPadding, characterShadowPadding)
-	padded.DrawImage(img, op)
-	releaseDrawOpts(op)
-	texture := characterShadowTexture{
-		image:       padded,
-		contentSize: bounds.Dx(),
-		padding:     characterShadowPadding,
-		footY:       float64(footY + characterShadowPadding),
-	}
-	characterShadowTextureCache[img] = texture
+	metrics := mobileSpriteMetricsFor(key, img)
+	texture.footY = float64(texture.image.Bounds().Dy()) * float64(metrics.footFraction)
 	return texture
 }
 
@@ -579,10 +641,6 @@ func clearCharacterShadowCache() {
 		contactShadowTexture.Deallocate()
 		contactShadowTexture = nil
 	}
-	for _, texture := range characterShadowTextureCache {
-		texture.image.Deallocate()
-	}
-	characterShadowTextureCache = make(map[*ebiten.Image]characterShadowTexture)
 }
 
 func drawCharacterShadow(screen *ebiten.Image, texture characterShadowTexture, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {
@@ -609,7 +667,6 @@ func characterShadowDrawAlpha(alpha float32, projection characterShadowProjectio
 }
 
 func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTexture, size, x, y int, alpha float32, projection characterShadowProjection, upright bool, blend ebiten.Blend) {
-	img := texture.image
 	drawSize := texture.contentSize
 	if upright {
 		geo := uprightShadowGeoMWithFoot(drawSize, texture.padding, texture.footY, size, x, y, projection)
@@ -619,17 +676,11 @@ func drawCharacterShadowLayer(screen *ebiten.Image, texture characterShadowTextu
 
 	target := float64(roundToInt(float64(size) * gs.GameScale))
 	baseScale := target / float64(drawSize)
-	op := acquireDrawOpts()
-	op.Filter = ebiten.FilterLinear
-	op.DisableMipmaps = true
-	op.Blend = blend
-	op.ColorScale.Scale(0, 0, 0, alpha)
-	op.GeoM.Scale(baseScale, baseScale)
+	var geo ebiten.GeoM
+	geo.Scale(baseScale, baseScale)
 	padding := float64(texture.padding) * baseScale
-	op.GeoM.Translate(float64(x)-target/2-padding+projection.dropOffsetX, float64(y)-target/2-padding+projection.dropOffsetY)
-
-	screen.DrawImage(img, op)
-	releaseDrawOpts(op)
+	geo.Translate(float64(x)-target/2-padding+projection.dropOffsetX, float64(y)-target/2-padding+projection.dropOffsetY)
+	drawUprightShadowTexture(screen, texture, geo, alpha, blend)
 }
 
 // drawUprightShadowTexture projects the source frame alpha onto the ground.

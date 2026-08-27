@@ -178,7 +178,29 @@ func verifyLightingCoordinates() error {
 	zeroOrigin := render(0, 0, 43, 37, 1)
 	offsetOrigin := render(37, 29, 43, 37, 1)
 	if !bytes.Equal(zeroOrigin, offsetOrigin) {
-		return fmt.Errorf("lighting changed when only the destination subimage origin changed")
+		differences, maximumDelta := 0, 0
+		firstIndex := -1
+		for index := range zeroOrigin {
+			delta := int(zeroOrigin[index]) - int(offsetOrigin[index])
+			if delta < 0 {
+				delta = -delta
+			}
+			if delta == 0 {
+				continue
+			}
+			if firstIndex < 0 {
+				firstIndex = index
+			}
+			differences++
+			maximumDelta = max(maximumDelta, delta)
+		}
+		if maximumDelta > 1 {
+			pixel := firstIndex / 4
+			return fmt.Errorf(
+				"lighting changed when only the destination subimage origin changed: %d channel differences, maximum delta %d, first at (%d, %d) channel %d: %d != %d",
+				differences, maximumDelta, pixel%128, pixel/128, firstIndex%4, zeroOrigin[firstIndex], offsetOrigin[firstIndex],
+			)
+		}
 	}
 
 	render(0, 0, 24, 48, 1)

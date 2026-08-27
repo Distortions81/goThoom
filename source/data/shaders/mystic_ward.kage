@@ -7,6 +7,8 @@ var Phase float
 var Alpha float
 var Energy float
 var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
 var SpriteLightOnly float
 
 func band(value, center, width float) float {
@@ -30,6 +32,10 @@ func polarAngle(p vec2) float {
 	return angle
 }
 
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
+
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	p := localPos/Size - vec2(0.5, 0.5)
@@ -47,8 +53,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		if HasMask <= 0.5 {
 			return vec4(0, 0, 0, 0)
 		}
-		body := imageSrc0At(srcPos).a
-		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		body := maskAlpha(localPos)
+		edge := max(maskAlpha(localPos+vec2(2, 0)), maskAlpha(localPos+vec2(0, 2))) - body
 		pulse := 0.55 + 0.45*sin(t*9.0-angle*2.0)
 		light := max(0, body*(0.14+0.22*pulse)+edge*0.24) * max(0, 1-t*0.60) * Alpha
 		color := mix(vec3(0.95, 0.18, 0.01), vec3(1.0, 0.80, 0.20), pulse)
@@ -78,8 +84,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	intensity := min(1, (emberA*1.85+emberB*1.45+emberC*1.15+emberD+emberE*0.92+emberF*0.85+cinders*0.48+burst+smoke)*life)
 
 	if HasMask > 0.5 {
-		body := imageSrc0At(srcPos).a
-		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		body := maskAlpha(localPos)
+		edge := max(maskAlpha(localPos+vec2(2, 0)), maskAlpha(localPos+vec2(0, 2))) - body
 		depth := 0.48 + 0.52*sin(angle*2.0-r*15.0-t*4.0)
 		intensity *= mix(1.0, 0.28+0.65*depth, body)
 		intensity += max(0, edge)*0.22

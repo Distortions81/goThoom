@@ -143,10 +143,12 @@ func runArtworkJobs(jobs []func()) {
 }
 
 type preparedArtworkRegion struct {
-	index  int
-	rect   image.Rectangle
-	base   *image.RGBA
-	scaled *image.RGBA
+	index      int
+	rect       image.Rectangle
+	base       *image.RGBA
+	scaled     *image.RGBA
+	metrics    mobileSpriteMetrics
+	hasMetrics bool
 }
 
 type preparedArtworkSheet struct {
@@ -420,7 +422,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		work[sheetIndex].regions = make([]preparedArtworkRegion, len(rects))
 		for regionIndex, rect := range rects {
 			work[sheetIndex].regions[regionIndex] = preparedArtworkRegion{index: regionIndex, rect: rect}
-			if !denoise && !work[sheetIndex].needScale {
+			if !denoise && !work[sheetIndex].needScale && !work[sheetIndex].key.forceTransparent {
 				continue
 			}
 			sheetIndex, regionIndex := sheetIndex, regionIndex
@@ -429,6 +431,10 @@ func prepareArtworkSheets(keys []sheetKey) int {
 				base, visible := copyArtworkRegion(work[sheetIndex].pixels, region.rect)
 				if !visible {
 					return
+				}
+				if work[sheetIndex].key.forceTransparent {
+					region.metrics = mobileSpriteMetricsFromRGBA(base)
+					region.hasMetrics = true
 				}
 				if denoise {
 					climg.DenoiseRGBASerial(base, sharpness, amount)
@@ -468,6 +474,18 @@ func prepareArtworkSheets(keys []sheetKey) int {
 			if imgDump && prepared.key.colorsLen == 0 && !prepared.key.forceTransparent {
 				dumpImageSheet(prepared.key.id, sheet)
 			}
+		}
+		if prepared.key.forceTransparent {
+			imageMu.Lock()
+			for index := range prepared.regions {
+				region := &prepared.regions[index]
+				if !region.hasMetrics {
+					continue
+				}
+				key := makeMobileKey(prepared.key.id, uint8(region.index), prepared.key.colors[:int(prepared.key.colorsLen)])
+				mobileSpriteMetricsCache[key] = region.metrics
+			}
+			imageMu.Unlock()
 		}
 		if !prepared.needScale {
 			prepared.pixels = nil

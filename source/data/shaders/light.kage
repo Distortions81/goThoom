@@ -43,6 +43,9 @@ var (
     GlowStrength float
     NightFactor float
     MaxLightPlane float
+    HasCharacterShadowMask float
+    CharacterShadowMin vec2
+    CharacterShadowMax vec2
 )
 
 func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
@@ -51,6 +54,13 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
     // Source images can move within Ebitengine's backing textures. Keep all
     // lighting coordinates local to the source image rather than its backing.
     pixelPos := texCoord - imageSrc0Origin()
+	if HasCharacterShadowMask > 0.5 &&
+		pixelPos.x >= CharacterShadowMin.x && pixelPos.y >= CharacterShadowMin.y &&
+		pixelPos.x < CharacterShadowMax.x && pixelPos.y < CharacterShadowMax.y {
+		shadowPos := imageSrc0Origin() + pixelPos - CharacterShadowMin
+		shadowAlpha := imageSrc1At(shadowPos).a
+		base.rgb *= 1.0-shadowAlpha
+	}
 
     // Accumulate darkening multiplicatively (subtractive only)
     preLightDim := vec3(1.0, 1.0, 1.0)

@@ -8,6 +8,8 @@ var Phase float
 var Alpha float
 var Energy float
 var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
 var SpriteLightOnly float
 var TeleportTheme float
 
@@ -35,6 +37,10 @@ func teleportColor(v float) vec3 {
 	return mix(mix(cyan, magenta, 0.5+0.5*sin(Phase*7.0+v*5.0)), gold, 0.5+0.5*sin(Phase*5.0-v*7.0))
 }
 
+func maskAlpha(localPos vec2) float {
+	return imageSrc0At(imageSrc0Origin()+(localPos-MaskOffset)*MaskInvScale).a
+}
+
 func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	localPos := srcPos - imageSrc0Origin()
 	p := (localPos-CanvasSize*0.5)/Size
@@ -46,8 +52,8 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 		if HasMask <= 0.5 {
 			return vec4(0, 0, 0, 0)
 		}
-		body := imageSrc0At(srcPos).a
-		edge := max(imageSrc0At(srcPos+vec2(2, 0)).a, imageSrc0At(srcPos+vec2(0, 2)).a) - body
+		body := maskAlpha(localPos)
+		edge := max(maskAlpha(localPos+vec2(2, 0)), maskAlpha(localPos+vec2(0, 2))) - body
 		pulse := 0.45 + 0.55*spark(t*12.0+p.y*15.0)
 		light := max(0, body*(0.12+0.19*pulse)+edge*0.20) * life * Alpha
 		color := teleportColor(pulse)
@@ -86,7 +92,7 @@ func Fragment(_ vec4, srcPos vec2, _ vec4) vec4 {
 	intensity := min(1, (bars*1.65+glowBeam+a*2.05+b*1.75+c*1.45+d*1.18+e+embersA*0.82+embersB*0.70+embersC*0.58+flare*1.20)*life)
 
 	if HasMask > 0.5 {
-		body := imageSrc0At(srcPos).a
+		body := maskAlpha(localPos)
 		intensity *= 1.0-body*0.43
 	}
 	if intensity <= 0 {

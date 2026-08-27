@@ -8,6 +8,8 @@ var Phase float
 var Alpha float
 var Energy float
 var HasMask float
+var MaskOffset vec2
+var MaskInvScale float
 var SpriteLightOnly float
 var CoinValue float
 var CoinDigits vec4
