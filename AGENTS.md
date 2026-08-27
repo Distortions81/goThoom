@@ -6,6 +6,8 @@
 - Keep solutions simple and focused. Ask before making a consequential
   assumption.
 - Do not create branches or push without explicit permission.
+- After triggering a GitHub release build, report the workflow link and do not
+  wait for it to finish unless the user explicitly asks.
 - Preserve unrelated user changes in a dirty worktree.
 - Do not increment versions in `GT_Players.json`, `settings.json`, or
   `characters.json`; those are updated manually.
