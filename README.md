@@ -11,7 +11,7 @@ macOS, and Linux.
 · [Website](https://gothoom.m45sci.xyz/)
 · [Video overview](https://youtu.be/MrGdcqIl3a4)
 
-<img src="dev-screenshots/Screenshot_20260824_021446.png" alt="goThoom game client" />
+<img src="dev-screenshots/tiled.png" alt="goThoom game client" />
 
 ## Get started
 

@@ -63,7 +63,7 @@ fi
 awk -v replacement="${readme_path}" '
   {
     line = $0
-    if (line ~ /<img src="dev-screenshots\/[^"]+"\/>/ &&
+    if (line ~ /<img src="dev-screenshots\/[^"]+"/ &&
         match(line, /dev-screenshots\/[^"]+/)) {
       line = substr(line, 1, RSTART - 1) replacement \
         substr(line, RSTART + RLENGTH)
