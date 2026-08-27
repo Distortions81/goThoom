@@ -1,0 +1,21 @@
+large performance increase across rendering, room transitions, animation, and sound processing.
+
+goThoom 42 changes since test41.
+
+New and improved:
+- Moved normal artwork denoise and upscaling to CPU workers that process only occupied picture frames and character poses before uploading finished textures. Character color variants remain cached independently.
+- Added parallel image decompression and room-wide artwork preparation, with batch room loading enabled by default so transitions use one intentional loading pause instead of several seconds of reduced frame rate.
+- Replaced per-frame CPU animation blending with time-based Kage frame blending for smoother motion without generating intermediate sprite textures.
+- Moved requested sound decoding, resampling, enhancement, and reverb preparation off the render path and now uses all available CPUs for batches of sounds.
+- Consolidated lighting, darkness, light shadows, and detailed character shadows into a more efficient composite path. Daylight rooms without active emitters bypass the full-screen lighting pass, while lit rooms automatically select smaller 8, 32, 64, or 128-light shader variants.
+- Grouped actual shader effects under a master switch while preserving each individual preference. CPU artwork upscaling now lives under Artwork Scaling and remains independent of the shader master.
+
+Fixes:
+- Reduced texture-atlas churn by keeping stable cached artwork managed, avoiding repeated source-image mutation, reusing render targets, and eliminating unnecessary full-screen clears and copies.
+- Tightened light influence cutoffs so very wide, barely visible light tails no longer consume fragment work.
+- Kept detailed character shadows enabled and removed the obsolete mobile sun-shadow compatibility setting.
+- Reused bounded pose and upscale buffers, cached scene artwork request sets and bubble text, and avoided spreading room-load garbage collection across visible frames.
+- Reused one render-start timestamp for continuous animation timing instead of repeatedly querying the clock during drawing.
+
+Technical changes:
+- Added focused worker, shader, frame-blend, shadow, sound-pipeline, settings-grouping, cache, benchmark, and headless render coverage for the new paths.
