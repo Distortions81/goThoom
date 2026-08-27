@@ -42,20 +42,20 @@ func TestMixLoadedSoundPlaybackPCMCombinesEverySound(t *testing.T) {
 
 func TestSoundWorkerCountsRemainBounded(t *testing.T) {
 	for _, test := range []struct {
-		gomaxprocs int
-		effects    int
-		precache   int
+		numCPU   int
+		effects  int
+		precache int
 	}{
-		{gomaxprocs: 1, effects: 1, precache: 1},
-		{gomaxprocs: 2, effects: 1, precache: 1},
-		{gomaxprocs: 8, effects: 4, precache: 2},
-		{gomaxprocs: 32, effects: 4, precache: 2},
+		{numCPU: 1, effects: 1, precache: 1},
+		{numCPU: 2, effects: 2, precache: 1},
+		{numCPU: 8, effects: 8, precache: 2},
+		{numCPU: 32, effects: 32, precache: 2},
 	} {
-		if got := soundEffectWorkerCount(test.gomaxprocs); got != test.effects {
-			t.Errorf("effect workers at GOMAXPROCS %d = %d, want %d", test.gomaxprocs, got, test.effects)
+		if got := soundEffectWorkerCount(test.numCPU); got != test.effects {
+			t.Errorf("effect workers at NumCPU %d = %d, want %d", test.numCPU, got, test.effects)
 		}
-		if got := soundPrecacheWorkerCount(test.gomaxprocs); got != test.precache {
-			t.Errorf("precache workers at GOMAXPROCS %d = %d, want %d", test.gomaxprocs, got, test.precache)
+		if got := soundPrecacheWorkerCount(test.numCPU); got != test.precache {
+			t.Errorf("precache workers at GOMAXPROCS %d = %d, want %d", test.numCPU, got, test.precache)
 		}
 	}
 }

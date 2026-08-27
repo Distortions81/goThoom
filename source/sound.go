@@ -24,7 +24,6 @@ const (
 	maxSounds             = 64
 	maxCachedSoundPlayers = 64
 	maxSoundPlaybackCache = 128
-	maxSoundEffectWorkers = 4
 	soundEffectQueueSize  = 128
 	dbPad                 = -3
 )
@@ -346,7 +345,7 @@ func stopAllAudioPlayers() {
 
 func startSoundEffectWorkers() {
 	soundEffectWorkerOnce.Do(func() {
-		workerCount := soundEffectWorkerCount(runtime.GOMAXPROCS(0))
+		workerCount := soundEffectWorkerCount(runtime.NumCPU())
 		soundEffectJobs = make(chan soundPlaybackRequest, soundEffectQueueSize)
 		for range workerCount {
 			go func() {
@@ -358,8 +357,8 @@ func startSoundEffectWorkers() {
 	})
 }
 
-func soundEffectWorkerCount(gomaxprocs int) int {
-	return min(max(1, gomaxprocs-1), maxSoundEffectWorkers)
+func soundEffectWorkerCount(numCPU int) int {
+	return max(1, numCPU)
 }
 
 // playSound queues the provided sound IDs for background decoding, mixing, and
