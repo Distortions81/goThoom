@@ -23,12 +23,16 @@ import (
 const (
 	maxSounds             = 64
 	maxCachedSoundPlayers = 64
+	maxSoundPlaybackCache = 128
+	maxSoundEffectWorkers = 4
+	soundEffectQueueSize  = 128
 	dbPad                 = -3
 )
 
 type soundPlaybackKey struct {
 	ids               string
 	context           *audio.Context
+	sourceGeneration  uint64
 	enhancementAmount uint64
 	enhanced          bool
 	highQuality       bool
@@ -37,21 +41,56 @@ type soundPlaybackKey struct {
 type soundPlaybackCacheEntry struct {
 	pcm     []byte
 	players []*audio.Player
+	lastUse uint64
+}
+
+type soundPlaybackRequest struct {
+	ids               []uint16
+	context           *audio.Context
+	generation        uint64
+	sourceGeneration  uint64
+	enhancementAmount float64
+	volume            float64
+	enhanced          bool
+	highQuality       bool
+}
+
+type soundRenderCall struct {
+	done chan struct{}
+	pcm  []byte
+}
+
+type soundPCMKey struct {
+	id               uint16
+	outputRate       int
+	sourceGeneration uint64
+	highQuality      bool
+}
+
+type soundDecodeCall struct {
+	done       chan struct{}
+	pcm        []byte
+	generation uint64
 }
 
 var (
-	soundMu  sync.Mutex
-	clSounds *clsnd.CLSounds
-	pcmCache = make(map[uint16][]byte)
+	soundMu              sync.Mutex
+	clSounds             *clsnd.CLSounds
+	pcmCache             = make(map[soundPCMKey][]byte)
+	soundDecodeCalls     = make(map[soundPCMKey]*soundDecodeCall)
+	soundCacheGeneration uint64
 
-	audioContext          *audio.Context
-	soundPlayers          = make(map[*audio.Player]struct{})
-	soundPlayerCache      = make(map[soundPlaybackKey]*soundPlaybackCacheEntry)
-	cachedSoundPlayers    = make(map[*audio.Player]struct{})
-	reservedSoundPlayers  = make(map[*audio.Player]struct{})
-	soundPlayerCacheCount int
-	notifPlayers          = make(map[*audio.Player]struct{})
-	notifPlayersMu        sync.Mutex
+	audioContext            *audio.Context
+	soundPlayers            = make(map[*audio.Player]struct{})
+	soundPlayerCache        = make(map[soundPlaybackKey]*soundPlaybackCacheEntry)
+	cachedSoundPlayers      = make(map[*audio.Player]struct{})
+	reservedSoundPlayers    = make(map[*audio.Player]struct{})
+	soundPlayerCacheCount   int
+	soundPlayerCacheUse     uint64
+	soundPlaybackGeneration uint64
+	soundRenderCalls        = make(map[soundPlaybackKey]*soundRenderCall)
+	notifPlayers            = make(map[*audio.Player]struct{})
+	notifPlayersMu          sync.Mutex
 
 	sndDumpOnce   sync.Once
 	sndDumpMu     sync.Mutex
@@ -59,6 +98,9 @@ var (
 	sndMetaWriter *csv.Writer
 
 	highQualityResampling bool
+
+	soundEffectWorkerOnce sync.Once
+	soundEffectJobs       chan soundPlaybackRequest
 )
 
 // muteAudioOutputForTests is set by TestMain. Keeping the audio context alive
@@ -80,12 +122,37 @@ func loadCLSoundsArchive() (*clsnd.CLSounds, error) {
 	return clsnd.Load(filepath.Join(dataDirPath, CL_SoundsFile))
 }
 
+func replaceCLSoundsArchive(sounds *clsnd.CLSounds) {
+	soundMu.Lock()
+	clSounds = sounds
+	pcmCache = make(map[soundPCMKey][]byte)
+	soundCacheGeneration++
+	soundMu.Unlock()
+	soundsPrecached.Store(false)
+}
+
+func currentCLSoundsArchive() *clsnd.CLSounds {
+	soundMu.Lock()
+	sounds := clSounds
+	soundMu.Unlock()
+	return sounds
+}
+
 func init() {
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
 }
 
 func setHighQualityResamplingEnabled(enabled bool) {
+	soundMu.Lock()
 	highQualityResampling = enabled
+	soundMu.Unlock()
+}
+
+func highQualityResamplingEnabled() bool {
+	soundMu.Lock()
+	enabled := highQualityResampling
+	soundMu.Unlock()
+	return enabled
 }
 
 func soundPlaybackCacheKey(ids []uint16, context *audio.Context, enhanced bool, enhancementAmount float64, highQuality bool) soundPlaybackKey {
@@ -119,12 +186,47 @@ func pruneStoppedSoundPlayersLocked() {
 	}
 }
 
+func evictOldestSoundPlaybackLocked() bool {
+	var oldestKey soundPlaybackKey
+	var oldest *soundPlaybackCacheEntry
+	for key, entry := range soundPlayerCache {
+		busy := false
+		for _, player := range entry.players {
+			if _, reserved := reservedSoundPlayers[player]; reserved || player.IsPlaying() {
+				busy = true
+				break
+			}
+		}
+		if busy || (oldest != nil && entry.lastUse >= oldest.lastUse) {
+			continue
+		}
+		oldestKey, oldest = key, entry
+	}
+	if oldest == nil {
+		return false
+	}
+	for _, player := range oldest.players {
+		if _, cached := cachedSoundPlayers[player]; cached {
+			delete(cachedSoundPlayers, player)
+			soundPlayerCacheCount--
+		}
+		delete(soundPlayers, player)
+		delete(reservedSoundPlayers, player)
+		_ = player.Close()
+	}
+	delete(soundPlayerCache, oldestKey)
+	return true
+}
+
 // acquireSoundPlaybackPlayer reuses an idle player for the same rendered PCM,
 // or creates another player when the sound overlaps itself. When pcm is nil,
 // found reports whether the rendered sound was already cached.
-func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte) (player *audio.Player, found bool) {
+func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte, generation, sourceGeneration uint64) (player *audio.Player, found bool) {
 	soundMu.Lock()
 	defer soundMu.Unlock()
+	if generation != soundPlaybackGeneration || sourceGeneration != soundCacheGeneration {
+		return nil, true
+	}
 	pruneStoppedSoundPlayersLocked()
 
 	entry, found := soundPlayerCache[key]
@@ -132,9 +234,14 @@ func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte) (player *audio
 		if pcm == nil {
 			return nil, false
 		}
+		if len(soundPlayerCache) >= maxSoundPlaybackCache && !evictOldestSoundPlaybackLocked() {
+			return newUncachedSoundPlayerLocked(key.context, pcm), true
+		}
 		entry = &soundPlaybackCacheEntry{pcm: pcm}
 		soundPlayerCache[key] = entry
 	}
+	soundPlayerCacheUse++
+	entry.lastUse = soundPlayerCacheUse
 
 	if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 		return nil, true
@@ -181,17 +288,22 @@ func newUncachedSoundPlayerLocked(context *audio.Context, pcm []byte) *audio.Pla
 	return player
 }
 
-func playGameSoundPlayer(player *audio.Player) {
+func playGameSoundPlayer(player *audio.Player, generation, sourceGeneration uint64, volume float64) {
 	if player == nil {
 		return
 	}
-	volume := gs.MasterVolume * gs.GameVolume
-	if gs.Mute || focusMuted {
-		volume = 0
+	soundMu.Lock()
+	if generation != soundPlaybackGeneration || sourceGeneration != soundCacheGeneration {
+		delete(reservedSoundPlayers, player)
+		delete(soundPlayers, player)
+		if _, cached := cachedSoundPlayers[player]; !cached {
+			_ = player.Close()
+		}
+		soundMu.Unlock()
+		return
 	}
 	player.SetVolume(effectiveAudioVolume(volume))
 	player.Play()
-	soundMu.Lock()
 	delete(reservedSoundPlayers, player)
 	soundMu.Unlock()
 }
@@ -199,6 +311,7 @@ func playGameSoundPlayer(player *audio.Player) {
 // stopAllSounds halts and disposes all currently playing audio players.
 func stopAllSounds() {
 	soundMu.Lock()
+	soundPlaybackGeneration++
 	closed := make(map[*audio.Player]struct{}, len(cachedSoundPlayers))
 	for player := range cachedSoundPlayers {
 		_ = player.Close()
@@ -214,6 +327,7 @@ func stopAllSounds() {
 	cachedSoundPlayers = make(map[*audio.Player]struct{})
 	reservedSoundPlayers = make(map[*audio.Player]struct{})
 	soundPlayerCacheCount = 0
+	soundPlayerCacheUse = 0
 	soundMu.Unlock()
 
 	notifPlayersMu.Lock()
@@ -230,222 +344,209 @@ func stopAllAudioPlayers() {
 	stopAllMusic()
 }
 
-// playSound mixes the provided sound IDs and plays the result asynchronously.
-// Each ID is loaded, mixed with simple clipping and then played at the current
-// global volume. The function returns immediately after scheduling playback.
+func startSoundEffectWorkers() {
+	soundEffectWorkerOnce.Do(func() {
+		workerCount := soundEffectWorkerCount(runtime.GOMAXPROCS(0))
+		soundEffectJobs = make(chan soundPlaybackRequest, soundEffectQueueSize)
+		for range workerCount {
+			go func() {
+				for request := range soundEffectJobs {
+					processSoundPlayback(request)
+				}
+			}()
+		}
+	})
+}
+
+func soundEffectWorkerCount(gomaxprocs int) int {
+	return min(max(1, gomaxprocs-1), maxSoundEffectWorkers)
+}
+
+// playSound queues the provided sound IDs for background decoding, mixing, and
+// playback. A full queue drops the effect rather than delaying networking or
+// rendering.
 func playSound(ids []uint16) {
 	if len(ids) == 0 || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
-	ids = append([]uint16(nil), ids...)
-	useEnhancement := gs.SoundEnhancement
-	useHighQuality := gs.HighQualityResampling
-	enhancementAmount := clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
-	if !useEnhancement {
-		enhancementAmount = 0
+	soundMu.Lock()
+	context := audioContext
+	generation := soundPlaybackGeneration
+	sourceGeneration := soundCacheGeneration
+	highQuality := highQualityResampling
+	soundMu.Unlock()
+	if context == nil || blockSound {
+		return
 	}
-	go func(ids []uint16, enableEnhancement bool, enhancementAmount float64, highQuality bool) {
-		if gs.Mute || focusMuted || !gs.GameSound {
-			return
-		}
-		//logDebug("playSound %v called", ids)
-		if blockSound {
-			//logDebug("playSound blocked by blockSound")
-			return
-		}
-		if audioContext == nil {
-			logDebug("playSound no audio context")
-			return
-		}
-		context := audioContext
-		cacheKey := soundPlaybackCacheKey(ids, context, enableEnhancement, enhancementAmount, highQuality)
-		if player, found := acquireSoundPlaybackPlayer(cacheKey, nil); found {
-			playGameSoundPlayer(player)
-			return
-		}
 
-		var valid map[uint16]struct{}
-		soundMu.Lock()
-		c := clSounds
+	enhanced := gs.SoundEnhancement
+	amount := clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
+	if !enhanced {
+		amount = 0
+	}
+	request := soundPlaybackRequest{
+		ids: append([]uint16(nil), ids...), context: context, generation: generation,
+		sourceGeneration: sourceGeneration, enhanced: enhanced, enhancementAmount: amount,
+		highQuality: highQuality, volume: effectiveAudioVolume(gs.MasterVolume * gs.GameVolume),
+	}
+	startSoundEffectWorkers()
+	if !tryQueueSoundEffect(soundEffectJobs, request) {
+		logDebug("dropping sound effect: background queue is full")
+	}
+}
+
+func tryQueueSoundEffect(queue chan<- soundPlaybackRequest, request soundPlaybackRequest) bool {
+	select {
+	case queue <- request:
+		return true
+	default:
+		return false
+	}
+}
+
+func processSoundPlayback(request soundPlaybackRequest) {
+	if !soundPlaybackRequestCurrent(request) {
+		return
+	}
+	key := soundPlaybackCacheKey(request.ids, request.context, request.enhanced, request.enhancementAmount, request.highQuality)
+	key.sourceGeneration = request.sourceGeneration
+	if player, found := acquireSoundPlaybackPlayer(key, nil, request.generation, request.sourceGeneration); found {
+		playGameSoundPlayer(player, request.generation, request.sourceGeneration, request.volume)
+		return
+	}
+	pcm := renderSoundPlaybackPCM(key, request)
+	if len(pcm) == 0 || !soundPlaybackRequestCurrent(request) {
+		return
+	}
+	player, _ := acquireSoundPlaybackPlayer(key, pcm, request.generation, request.sourceGeneration)
+	playGameSoundPlayer(player, request.generation, request.sourceGeneration, request.volume)
+}
+
+func soundPlaybackRequestCurrent(request soundPlaybackRequest) bool {
+	soundMu.Lock()
+	current := request.context == audioContext && request.generation == soundPlaybackGeneration && request.sourceGeneration == soundCacheGeneration
+	soundMu.Unlock()
+	return current
+}
+
+func renderSoundPlaybackPCM(key soundPlaybackKey, request soundPlaybackRequest) []byte {
+	soundMu.Lock()
+	if call := soundRenderCalls[key]; call != nil {
 		soundMu.Unlock()
-		if c != nil {
-			vid := c.IDs()
-			valid = make(map[uint16]struct{}, len(vid))
-			for _, v := range vid {
-				valid[uint16(v)] = struct{}{}
+		<-call.done
+		return call.pcm
+	}
+	call := &soundRenderCall{done: make(chan struct{})}
+	soundRenderCalls[key] = call
+	soundMu.Unlock()
+
+	call.pcm = mixSoundPlaybackPCM(request.ids, request.context.SampleRate(), request.enhanced, request.enhancementAmount, request.highQuality)
+	soundMu.Lock()
+	delete(soundRenderCalls, key)
+	close(call.done)
+	soundMu.Unlock()
+	return call.pcm
+}
+
+func mixSoundPlaybackPCM(ids []uint16, outputRate int, enhanced bool, enhancementAmount float64, highQuality bool) []byte {
+	sounds := make([][]byte, 0, len(ids))
+	for _, id := range ids {
+		pcm := loadSoundForPlayback(id, outputRate, highQuality)
+		if pcm == nil {
+			continue
+		}
+		sounds = append(sounds, pcm)
+	}
+	return mixLoadedSoundPlaybackPCM(sounds, enhanced, enhancementAmount)
+}
+
+func mixLoadedSoundPlaybackPCM(sounds [][]byte, enhanced bool, enhancementAmount float64) []byte {
+	maxSamples := 0
+	for _, pcm := range sounds {
+		if n := len(pcm) / 2; n > maxSamples {
+			maxSamples = n
+		}
+	}
+	if len(sounds) == 0 || maxSamples == 0 {
+		return nil
+	}
+
+	mixed := make([]int32, maxSamples)
+	maxVal := int32(0)
+	for i := range mixed {
+		var sum int32
+		for _, pcm := range sounds {
+			if i < len(pcm)/2 {
+				sum += int32(int16(binary.LittleEndian.Uint16(pcm[2*i:])))
 			}
 		}
+		mixed[i] = sum
+		magnitude := sum
+		if magnitude < 0 {
+			magnitude = -magnitude
+		}
+		if magnitude > maxVal {
+			maxVal = magnitude
+		}
+	}
 
-		sounds := make([][]byte, 0, len(ids))
-		maxSamples := 0
-		for _, id := range ids {
-			if valid != nil {
-				if _, ok := valid[id]; !ok {
-					logDebug("playSound unknown id %d", id)
-					continue
-				}
+	left := mixed
+	var right []int32
+	if enhanced {
+		applyGameSoundReverb(mixed, enhancementAmount)
+		right = append([]int32(nil), mixed...)
+		maxVal = 0
+		for _, value := range mixed {
+			if value < 0 {
+				value = -value
 			}
-			pcm := loadSound(id)
-			if pcm == nil {
-				continue
-			}
-			sounds = append(sounds, pcm)
-			if n := len(pcm) / 2; n > maxSamples {
-				maxSamples = n
-			}
-		}
-		if len(sounds) == 0 {
-			logDebug("playSound no pcm returned")
-			return
-		}
-
-		mixSamples := maxSamples
-		if mixSamples == 0 {
-			return
-		}
-
-		mixed := make([]int32, mixSamples)
-
-		chunks := runtime.NumCPU()
-		if chunks > mixSamples {
-			chunks = mixSamples
-		}
-		if chunks < 1 {
-			chunks = 1
-		}
-		chunkSize := (mixSamples + chunks - 1) / chunks
-
-		var wg sync.WaitGroup
-		maxCh := make(chan int32, chunks)
-
-		for start := 0; start < mixSamples; start += chunkSize {
-			end := start + chunkSize
-			if end > mixSamples {
-				end = mixSamples
-			}
-			wg.Add(1)
-			go func(start, end int) {
-				defer wg.Done()
-				localMax := int32(0)
-				for i := start; i < end; i++ {
-					var sum int32
-					for _, pcm := range sounds {
-						if n := len(pcm) / 2; i < n {
-							sample := int16(binary.LittleEndian.Uint16(pcm[2*i:]))
-							sum += int32(sample)
-						}
-					}
-					mixed[i] = sum
-					if sum < 0 {
-						sum = -sum
-					}
-					if sum > localMax {
-						localMax = sum
-					}
-				}
-				maxCh <- localMax
-			}(start, end)
-		}
-		wg.Wait()
-		close(maxCh)
-
-		enableReverb := enableEnhancement
-		var left []int32
-		var right []int32
-
-		if enableReverb {
-			applyGameSoundReverb(mixed, enhancementAmount)
-		}
-
-		if enableEnhancement {
-			left = make([]int32, len(mixed))
-			copy(left, mixed)
-			right = make([]int32, len(mixed))
-			copy(right, mixed)
-		} else {
-			left = mixed
-		}
-
-		maxVal := int32(0)
-		for v := range maxCh {
-			if !enableEnhancement && v > maxVal {
-				maxVal = v
+			if value > maxVal {
+				maxVal = value
 			}
 		}
-		if enableEnhancement {
-			for i := 0; i < len(left); i++ {
-				v := left[i]
-				if v < 0 {
-					v = -v
-				}
-				if v > maxVal {
-					maxVal = v
-				}
-				if right != nil {
-					vr := right[i]
-					if vr < 0 {
-						vr = -vr
-					}
-					if vr > maxVal {
-						maxVal = vr
-					}
-				}
+	}
+
+	scale := 1 / float64(len(sounds))
+	if maxVal > 0 {
+		scale *= math.Min(1, 32767.0/float64(maxVal))
+	}
+	out := make([]byte, len(left)*4)
+	for i := range left {
+		lv := int32(float64(left[i]) * scale)
+		if lv > 32767 {
+			lv = 32767
+		} else if lv < -32768 {
+			lv = -32768
+		}
+		rv := lv
+		if right != nil {
+			rv = int32(float64(right[i]) * scale)
+			if rv > 32767 {
+				rv = 32767
+			} else if rv < -32768 {
+				rv = -32768
 			}
 		}
-
-		// Apply peak normalization and reduce volume for overlapping sounds
-		scale := 1 / float64(len(sounds))
-		if maxVal > 0 {
-			scale *= math.Min(1, 32767.0/float64(maxVal))
-		}
-
-		out := make([]byte, len(left)*4)
-
-		wg = sync.WaitGroup{}
-		for start := 0; start < len(left); start += chunkSize {
-			end := start + chunkSize
-			if end > len(left) {
-				end = len(left)
-			}
-			wg.Add(1)
-			go func(start, end int) {
-				defer wg.Done()
-				for i := start; i < end; i++ {
-					lv := int32(float64(left[i]) * scale)
-					if lv > 32767 {
-						lv = 32767
-					} else if lv < -32768 {
-						lv = -32768
-					}
-					rv := lv
-					if right != nil {
-						rv = int32(float64(right[i]) * scale)
-						if rv > 32767 {
-							rv = 32767
-						} else if rv < -32768 {
-							rv = -32768
-						}
-					}
-					off := 4 * i
-					binary.LittleEndian.PutUint16(out[off:], uint16(int16(lv)))
-					binary.LittleEndian.PutUint16(out[off+2:], uint16(int16(rv)))
-				}
-			}(start, end)
-		}
-		wg.Wait()
-
-		player, _ := acquireSoundPlaybackPlayer(cacheKey, out)
-		playGameSoundPlayer(player)
-	}(ids, useEnhancement, enhancementAmount, useHighQuality)
+		offset := i * 4
+		binary.LittleEndian.PutUint16(out[offset:], uint16(int16(lv)))
+		binary.LittleEndian.PutUint16(out[offset+2:], uint16(int16(rv)))
+	}
+	return out
 }
 
 // initSoundContext initializes the global audio context.
 func initSoundContext() {
-	if audioContext != nil {
+	soundMu.Lock()
+	haveContext := audioContext != nil
+	soundMu.Unlock()
+	if haveContext {
 		stopAllSounds()
 	}
 	rate := sampleRate
-	audioContext = audio.NewContext(rate)
+	context := audio.NewContext(rate)
+	soundMu.Lock()
+	audioContext = context
+	soundMu.Unlock()
 }
 
 func updateSoundVolume() {
@@ -1024,13 +1125,21 @@ func applySaturation(samples, scratch []float32, drive, mix float32) {
 // opened on first use and individual sounds are parsed lazily.
 func loadSound(id uint16) []byte {
 	//logDebug("loadSound(%d) called", id)
-	if audioContext == nil {
+	soundMu.Lock()
+	context := audioContext
+	highQuality := highQualityResampling
+	soundMu.Unlock()
+	if context == nil {
 		logDebug("loadSound(%d) no audio context", id)
 		return nil
 	}
+	return loadSoundForPlayback(id, context.SampleRate(), highQuality)
+}
 
+func loadSoundForPlayback(id uint16, outputRate int, highQuality bool) (pcm []byte) {
 	soundMu.Lock()
-	if pcm, ok := pcmCache[id]; ok {
+	key := soundPCMKey{id: id, outputRate: outputRate, sourceGeneration: soundCacheGeneration, highQuality: highQuality}
+	if pcm, ok := pcmCache[key]; ok {
 		soundMu.Unlock()
 		if pcm == nil {
 			logDebug("loadSound(%d) cached as missing", id)
@@ -1039,8 +1148,25 @@ func loadSound(id uint16) []byte {
 		}
 		return pcm
 	}
+	if call := soundDecodeCalls[key]; call != nil {
+		soundMu.Unlock()
+		<-call.done
+		return call.pcm
+	}
 	c := clSounds
+	call := &soundDecodeCall{done: make(chan struct{}), generation: soundCacheGeneration}
+	soundDecodeCalls[key] = call
 	soundMu.Unlock()
+	defer func() {
+		soundMu.Lock()
+		call.pcm = pcm
+		if call.generation == soundCacheGeneration {
+			pcmCache[key] = pcm
+		}
+		delete(soundDecodeCalls, key)
+		close(call.done)
+		soundMu.Unlock()
+	}()
 
 	if c == nil {
 		logDebug("loadSound(%d) CL sounds not loaded", id)
@@ -1055,20 +1181,17 @@ func loadSound(id uint16) []byte {
 		} else {
 			logError("missing sound %d", id)
 		}
-		soundMu.Lock()
-		pcmCache[id] = nil
-		soundMu.Unlock()
 		return nil
 	}
 	statSoundLoaded(id)
 	//logDebug("loadSound(%d) loaded %d Hz %d-bit %d bytes", id, s.SampleRate, s.Bits, len(s.Data))
 
 	srcRate := int(s.SampleRate)
-	dstRate := audioContext.SampleRate()
+	dstRate := outputRate
 
 	// Decode the sound data into 16-bit samples.
 	var samples []int16
-	useHighQuality := highQualityResampling
+	useHighQuality := highQuality
 	data := s.Data
 	switch s.Bits {
 	case 8:
@@ -1131,7 +1254,7 @@ func loadSound(id uint16) []byte {
 
 	applyFadeInOut(samples, dstRate)
 
-	pcm := make([]byte, len(samples)*2)
+	pcm = make([]byte, len(samples)*2)
 	for i, v := range samples {
 		pcm[2*i] = byte(v)
 		pcm[2*i+1] = byte(v >> 8)
@@ -1141,9 +1264,6 @@ func loadSound(id uint16) []byte {
 		dumpSound(id, s, pcm, dstRate)
 	}
 
-	soundMu.Lock()
-	pcmCache[id] = pcm
-	soundMu.Unlock()
 	//logDebug("loadSound(%d) cached %d bytes", id, len(pcm))
 	return pcm
 }

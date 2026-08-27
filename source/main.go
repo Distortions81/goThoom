@@ -268,11 +268,6 @@ func main() {
 			}
 			mp.makePlaybackWindow()
 
-			if gs.PrecacheSounds && !soundsPrecached {
-				for !soundsPrecached {
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
 			if *genPGO {
 				go func() {
 					if *pgoWarmupMovie {
@@ -322,11 +317,6 @@ func main() {
 
 		if pcapPath != "" {
 			drawStateEncrypted = false
-			if gs.PrecacheSounds && !soundsPrecached {
-				for !soundsPrecached {
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
 			go func() {
 				if err := replayPCAP(ctx, pcapPath); err != nil {
 					log.Printf("replay PCAP: %v", err)
@@ -340,11 +330,6 @@ func main() {
 
 		if fake {
 			drawStateEncrypted = false
-			if gs.PrecacheSounds && !soundsPrecached {
-				for !soundsPrecached {
-					time.Sleep(time.Millisecond * 100)
-				}
-			}
 			runFakeMode(ctx)
 			<-ctx.Done()
 			return
@@ -381,7 +366,7 @@ func waitForMovieAssets(ctx context.Context) bool {
 		dlMutex.Unlock()
 
 		imagesReady := clImages != nil
-		soundsReady := clSounds != nil
+		soundsReady := currentCLSoundsArchive() != nil
 
 		if imagesReady && soundsReady && !needImages && !needSounds {
 			return true

@@ -497,7 +497,7 @@ func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 			status.NeedSounds = true
 		}
 	}
-	if isWASM && status.NeedSounds && (len(wasmCLSoundsData) > 0 || clSounds != nil) {
+	if isWASM && status.NeedSounds && (len(wasmCLSoundsData) > 0 || currentCLSoundsArchive() != nil) {
 		status.NeedSounds = false
 		if status.SoundVersion < clientVer {
 			status.SoundVersion = clientVer

@@ -51,11 +51,12 @@ func exportImages() {
 }
 
 func exportSounds() {
-	if clSounds == nil {
+	sounds := currentCLSoundsArchive()
+	if sounds == nil {
 		log.Print("Sound export skipped: CL_Sounds is not available.")
 		return
 	}
-	ids := clSounds.IDs()
+	ids := sounds.IDs()
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	log.Printf("Exporting sounds: 0/%d (0%%) to dump/snd...", len(ids))
 	for n, id := range ids {

@@ -3,7 +3,6 @@ package main
 import (
 	"math"
 	"math/bits"
-	"runtime"
 	"sync"
 )
 
@@ -196,48 +195,7 @@ func ResampleLanczosInt16PadDB(src []int16, srcRate, dstRate int, padDB float64)
 		}
 	}
 
-	const threshold = 2048
-	if n < threshold {
-		process(0, n, 0)
-		return dst
-	}
-
-	workers := runtime.NumCPU()
-	if workers > n {
-		workers = n
-	}
-	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
-		start := w * n / workers
-		end := (w + 1) * n / workers
-		phase := step * uint64(start)
-		wg.Add(1)
-		go func(start, end int, phase uint64) {
-			defer wg.Done()
-			for i := start; i < end; i++ {
-				base := int(phase >> 32)
-				fracIdx := int((phase >> (32 - fracBits)) & uint64(phases-1))
-				wts := lzW[fracIdx]
-
-				acc := int64(0)
-				s := src[base+1 : base+1+taps]
-				for j, wt := range wts {
-					acc += int64(wt) * int64(s[j])
-				}
-
-				y := int32((acc*scaleQ15 + (1 << 29)) >> 30)
-				if y > 32767 {
-					y = 32767
-				} else if y < -32768 {
-					y = -32768
-				}
-				dst[i] = int16(y)
-				phase += step
-			}
-		}(start, end, phase)
-	}
-	wg.Wait()
-
+	process(0, n, 0)
 	return dst
 }
 

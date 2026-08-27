@@ -45,7 +45,6 @@ var (
 
 var loginWin *eui.WindowData
 var downloadWin *eui.WindowData
-var precacheWin *eui.WindowData
 var charactersList *eui.ItemData
 var advancedWin *eui.WindowData
 var tileLayoutWin *eui.WindowData
@@ -328,7 +327,7 @@ func initUI() {
 	if !windowsRestored {
 		restoreWindowSettings()
 	}
-	if clmov == "" && pcapPath == "" && !fake && clImages != nil && clSounds != nil && !status.NeedImages && !status.NeedSounds && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+	if clmov == "" && pcapPath == "" && !fake && clImages != nil && currentCLSoundsArchive() != nil && !status.NeedImages && !status.NeedSounds && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
 		openSetupWizard(false)
 	}
 }
@@ -2604,7 +2603,7 @@ func makeDownloadsWindow() {
 				img.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
 				img.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 				clImages = img
-				clSounds = sounds
+				replaceCLSoundsArchive(sounds)
 				// Login and the setup preview may already have requested artwork while
 				// no archive was available. Drop every derived entry before either UI
 				// renders from the newly installed archive.
@@ -2629,7 +2628,7 @@ func makeDownloadsWindow() {
 				downloadStatus = nil
 				downloadProgress = nil
 				downloadWin.Close()
-				if clmov == "" && pcapPath == "" && !fake && clImages != nil && clSounds != nil && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+				if clmov == "" && pcapPath == "" && !fake && clImages != nil && currentCLSoundsArchive() != nil && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
 					openSetupWizard(false)
 				}
 			})
@@ -3060,53 +3059,7 @@ func makePasswordWindow() {
 	passWin.AddWindow(false)
 }
 
-func showSoundPrecachePopup(onDone func()) {
-	if precacheWin != nil {
-		go func() {
-			for !soundsPrecached {
-				time.Sleep(100 * time.Millisecond)
-			}
-			onDone()
-		}()
-		return
-	}
-	pb, _ := eui.NewProgressBar()
-	pb.Size = eui.Point{X: 300, Y: 14}
-	pb.MinValue = 0
-	pb.MaxValue = 1
-	pb.Value = 0
-	eui.SetProgressIndeterminate(pb, true)
-	precacheWin = showPopup("Preloading", "Preloading sounds...", nil, pb)
-	soundPrecacheProgress = func(done, total int) {
-		if total > 0 {
-			eui.SetProgressIndeterminate(pb, false)
-			pb.MinValue = 0
-			pb.MaxValue = float32(total)
-			pb.Value = float32(done)
-		} else {
-			eui.SetProgressIndeterminate(pb, true)
-		}
-		pb.Dirty = true
-		if precacheWin != nil {
-			precacheWin.Refresh()
-		}
-	}
-	go func(win *eui.WindowData) {
-		for !soundsPrecached {
-			time.Sleep(100 * time.Millisecond)
-		}
-		win.Close()
-		precacheWin = nil
-		soundPrecacheProgress = nil
-		onDone()
-	}(precacheWin)
-}
-
 func startLogin() {
-	if gs.PrecacheSounds && !soundsPrecached {
-		showSoundPrecachePopup(startLogin)
-		return
-	}
 	loginMu.Lock()
 	if loginInProgress || tcpConn != nil {
 		loginMu.Unlock()
@@ -3399,12 +3352,7 @@ func makeLoginWindow() {
 				ctx, cancel := context.WithCancel(gameCtx)
 				mp := newMoviePlayer(frames, clMovFPS, cancel)
 				mp.makePlaybackWindow()
-				run := func() { go mp.run(ctx) }
-				if gs.PrecacheSounds && !soundsPrecached {
-					showSoundPrecachePopup(run)
-				} else {
-					run()
-				}
+				go mp.run(ctx)
 			}()
 		}
 	}

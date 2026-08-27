@@ -149,7 +149,7 @@ func loadStartupSounds() {
 		logError("failed to load CL_Sounds: %v", err)
 		return
 	}
-	clSounds = sounds
+	replaceCLSoundsArchive(sounds)
 	if gs.PrecacheSounds && !startupLoader.precacheRun {
 		startupLoader.precacheRun = true
 		go precacheSounds()

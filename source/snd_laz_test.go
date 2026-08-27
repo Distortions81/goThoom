@@ -36,3 +36,17 @@ func absInt(v int16) int16 {
 	}
 	return v
 }
+
+func BenchmarkResampleLanczosInt16PadDB(b *testing.B) {
+	const sourceRate = 11025
+	source := make([]int16, sourceRate)
+	for index := range source {
+		source[index] = int16(index%2000 - 1000)
+	}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(source) * 2))
+	for b.Loop() {
+		output := ResampleLanczosInt16PadDB(source, sourceRate, sampleRate, dbPad)
+		putInt16Buf(output)
+	}
+}

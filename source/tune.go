@@ -362,8 +362,12 @@ func enqueueTunes(jobs []tuneJob) {
 	if len(jobs) == 0 {
 		return
 	}
+	soundMu.Lock()
+	context := audioContext
+	soundMu.Unlock()
+	settings := currentMusicPlaybackSettings()
 	go func() {
-		if audioContext == nil {
+		if context == nil {
 			log.Printf("play tune: audio disabled")
 			return
 		}
@@ -375,7 +379,7 @@ func enqueueTunes(jobs []tuneJob) {
 			whos = append(whos, job.who)
 			debug = debug || job.debug
 		}
-		if err := playMusicGroup(audioContext, parts, whos, nil, nil); err != nil {
+		if err := playMusicGroupWithSettings(context, parts, whos, nil, nil, settings); err != nil {
 			log.Printf("play tune: %v", err)
 			if debug {
 				consoleMessage("play tune: " + err.Error())

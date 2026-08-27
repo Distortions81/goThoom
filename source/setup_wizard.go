@@ -682,9 +682,9 @@ func buildSetupAudioPage(root *eui.ItemData) {
 			settingsDirty = true
 		},
 	))
-	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Prepare game sounds before play to avoid first-use pauses. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
+	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Warm game sounds in the background to reduce first-use delay. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
 		gs.PrecacheSounds = checked
-		if checked && !soundsPrecached {
+		if checked && !soundsPrecached.Load() {
 			go precacheSounds()
 		}
 		settingsDirty = true

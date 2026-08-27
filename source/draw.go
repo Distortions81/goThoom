@@ -1975,7 +1975,6 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 		return ack, resend, errors.New(stage)
 	}
 	var newSounds []uint16
-	var numNewSounds int
 
 	for i := 0; i < soundCount && i < maxSounds; i++ {
 		id := binary.BigEndian.Uint16(stateData[:2])
@@ -2004,18 +2003,7 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 			}
 		}
 
-		//Prevent duplicate sounds
-		if numNewSounds > 0 {
-			for _, item := range newSounds {
-				if item != id {
-					newSounds = append(newSounds, id)
-					numNewSounds++
-					break
-				}
-			}
-		} else {
-			newSounds = []uint16{id}
-		}
+		newSounds = appendUniqueSound(newSounds, id)
 	}
 	playSound(newSounds)
 	prev2Sounds = prevSounds
@@ -2032,3 +2020,12 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 
 var prevSounds []uint16
 var prev2Sounds []uint16
+
+func appendUniqueSound(sounds []uint16, id uint16) []uint16 {
+	for _, existing := range sounds {
+		if existing == id {
+			return sounds
+		}
+	}
+	return append(sounds, id)
+}

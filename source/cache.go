@@ -2,11 +2,11 @@ package main
 
 import (
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/remeh/sizedwaitgroup"
 )
 
 func clearCaches() {
@@ -28,8 +28,14 @@ func clearCaches() {
 	pixelCountMu.Unlock()
 
 	soundMu.Lock()
-	pcmCache = make(map[uint16][]byte)
+	pcmCache = make(map[soundPCMKey][]byte)
+	soundCacheGeneration++
+	restartSoundPrecache := gs.PrecacheSounds && clSounds != nil && audioContext != nil
 	soundMu.Unlock()
+	soundsPrecached.Store(false)
+	if restartSoundPrecache {
+		go precacheSounds()
+	}
 
 	if clImages != nil {
 		clImages.ClearCache()
@@ -59,44 +65,71 @@ func clearScaledArtworkCachesLocked() {
 	scaledMobileBatches = make(map[scaledMobileBatchKey]struct{})
 }
 
-var soundsPrecached = false
-var soundPrecacheProgress func(done, total int)
+var (
+	soundsPrecached      atomic.Bool
+	soundPrecacheRunning atomic.Bool
+)
 
 func precacheSounds() {
-
+	if soundsPrecached.Load() || !soundPrecacheRunning.CompareAndSwap(false, true) {
+		return
+	}
+	defer soundPrecacheRunning.Store(false)
 	for {
-		if clSounds == nil {
-			time.Sleep(time.Millisecond * 100)
-		} else {
-			break
-		}
-	}
-
-	consoleMessage("Precaching game sounds...")
-
-	total := len(clSounds.IDs())
-	if soundPrecacheProgress != nil {
-		soundPrecacheProgress(0, total)
-	}
-
-	var done int32
-	wg := sizedwaitgroup.New(runtime.NumCPU())
-	for _, id := range clSounds.IDs() {
-		wg.Add()
-		go func(id uint32) {
-			loadSound(uint16(id))
-			if soundPrecacheProgress != nil {
-				n := int(atomic.AddInt32(&done, 1))
-				soundPrecacheProgress(n, total)
+		soundMu.Lock()
+		sounds := clSounds
+		context := audioContext
+		highQuality := highQualityResampling
+		cacheGeneration := soundCacheGeneration
+		soundMu.Unlock()
+		if sounds != nil && context != nil {
+			ids := sounds.IDs()
+			precacheSoundIDs(ids, context.SampleRate(), highQuality)
+			soundMu.Lock()
+			current := sounds == clSounds && context == audioContext && highQuality == highQualityResampling && cacheGeneration == soundCacheGeneration
+			soundMu.Unlock()
+			if current {
+				soundsPrecached.Store(true)
+				consoleMessage("All sounds have been loaded.")
+				return
 			}
-			wg.Done()
-		}(id)
+			continue
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
-	wg.Wait()
-	if soundPrecacheProgress != nil {
-		soundPrecacheProgress(total, total)
-	}
-	soundsPrecached = true
+}
 
-	consoleMessage("All sounds have been loaded.")
+func precacheSoundIDs(ids []uint32, outputRate int, highQuality bool) {
+	consoleMessage("Precaching game sounds...")
+	total := len(ids)
+	if total == 0 {
+		return
+	}
+
+	workerCount := soundPrecacheWorkerCount(runtime.GOMAXPROCS(0))
+	jobs := make(chan uint32)
+	completed := make(chan struct{}, total)
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer workers.Done()
+			for id := range jobs {
+				loadSoundForPlayback(uint16(id), outputRate, highQuality)
+				completed <- struct{}{}
+			}
+		}()
+	}
+	for _, id := range ids {
+		jobs <- id
+	}
+	close(jobs)
+	for range total {
+		<-completed
+	}
+	workers.Wait()
+}
+
+func soundPrecacheWorkerCount(gomaxprocs int) int {
+	return min(2, max(1, gomaxprocs-1))
 }

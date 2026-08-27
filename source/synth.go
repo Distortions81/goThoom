@@ -519,9 +519,31 @@ type musicPart struct {
 	notes   []Note
 }
 
+type musicPlaybackSettings struct {
+	enabled           bool
+	volume            float64
+	enhancement       bool
+	enhancementAmount float64
+}
+
+func currentMusicPlaybackSettings() musicPlaybackSettings {
+	enabled := !gs.Mute && !focusMuted && gs.Music && gs.MasterVolume > 0 && gs.MusicVolume > 0
+	return musicPlaybackSettings{
+		enabled:           enabled,
+		volume:            effectiveAudioVolume(gs.MasterVolume * gs.MusicVolume),
+		enhancement:       gs.MusicEnhancement,
+		enhancementAmount: gs.MusicEnhancementAmount,
+	}
+}
+
 // newMixedMusicStream renders all parts into one PCM stream. This avoids
 // relying on simultaneous audio-backend players for /with bard groups.
 func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
+	settings := currentMusicPlaybackSettings()
+	return newMixedMusicStreamWithSettings(parts, settings)
+}
+
+func newMixedMusicStreamWithSettings(parts []musicPart, settings musicPlaybackSettings) (*musicStream, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("empty music group")
 	}
@@ -545,7 +567,7 @@ func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
 		producerDone: make(chan struct{}),
 		totalFrames:  maxFrames,
 	}
-	go s.produceMixed(renderers, gs.MusicEnhancement, gs.MusicEnhancementAmount)
+	go s.produceMixed(renderers, settings.enhancement, settings.enhancementAmount)
 	<-s.ready // render five seconds before the caller starts the player
 	if err := s.renderError(); err != nil {
 		_ = s.Close()
@@ -821,16 +843,20 @@ func waitForMusicPlayback(player musicPlaybackPlayer, stream *musicStream, durat
 }
 
 func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}) error {
+	return playMusicGroupWithSettings(ctx, parts, whos, prepared, start, currentMusicPlaybackSettings())
+}
+
+func playMusicGroupWithSettings(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings) error {
 
 	if ctx == nil {
 		return errors.New("nil audio context")
 	}
 
-	if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
+	if !settings.enabled {
 		return errors.New("music muted")
 	}
 
-	stream, err := newMixedMusicStream(parts)
+	stream, err := newMixedMusicStreamWithSettings(parts, settings)
 	if err != nil {
 		if prepared != nil {
 			prepared()
@@ -848,11 +874,7 @@ func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared 
 	}
 	player.SetBufferSize(musicPlayerBuffer)
 
-	vol := gs.MasterVolume * gs.MusicVolume
-	if gs.Mute || focusMuted {
-		vol = 0
-	}
-	player.SetVolume(effectiveAudioVolume(vol))
+	player.SetVolume(settings.volume)
 
 	musicPlayersMu.Lock()
 	trackWhos := make(map[int]struct{}, len(whos))
