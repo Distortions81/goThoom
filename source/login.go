@@ -379,6 +379,9 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 // It runs the network loops and blocks until the context is canceled.
 func login(ctx context.Context, clVersion int) error {
 	resetDrawState()
+	// Commands are acknowledged only within their originating game session.
+	// Never carry an unacknowledged command across a reconnect.
+	clearCommands()
 	if gs.AutoRecord {
 		recordingMovie = true
 	}

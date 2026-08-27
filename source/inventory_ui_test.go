@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -115,6 +116,46 @@ func TestInventoryWindowIncrementalUpdates(t *testing.T) {
 	}
 	if len(inventoryRowRefs) != 1 {
 		t.Fatalf("expected row refs to contain single entry, got %d", len(inventoryRowRefs))
+	}
+}
+
+func TestToggleInventoryEquipWaitsForServerUpdate(t *testing.T) {
+	resetCommandStateForTest(t, 1)
+	resetInventory()
+	originalImages := clImages
+	t.Cleanup(func() {
+		clImages = originalImages
+		resetInventory()
+	})
+	clImages = testCLImages(map[uint32]*climg.ClientItem{
+		100: {Name: "training sword", Slot: kItemSlotRightHand},
+	})
+	addInventoryItem(100, -1, "training sword", false)
+
+	toggleInventoryEquipAt(100, -1)
+	items := getInventory()
+	if len(items) != 1 || items[0].Equipped {
+		t.Fatalf("equip changed before server update: %+v", items)
+	}
+	if got, want := getQueuedCommands(), []string{"/equip 100"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("equip commands=%v, want %v", got, want)
+	}
+	if _, ok := handleInvCmdOther(kInvCmdEquip, []byte{0, 100}); !ok {
+		t.Fatal("server equip update failed")
+	}
+	if items = getInventory(); len(items) != 1 || !items[0].Equipped {
+		t.Fatalf("server equip update not applied: %+v", items)
+	}
+
+	toggleInventoryEquipAt(100, -1)
+	if items = getInventory(); len(items) != 1 || !items[0].Equipped {
+		t.Fatalf("unequip changed before server update: %+v", items)
+	}
+	if _, ok := handleInvCmdOther(kInvCmdUnequip, []byte{0, 100}); !ok {
+		t.Fatal("server unequip update failed")
+	}
+	if items = getInventory(); len(items) != 1 || items[0].Equipped {
+		t.Fatalf("server unequip update not applied: %+v", items)
 	}
 }
 

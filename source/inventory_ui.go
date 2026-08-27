@@ -827,7 +827,6 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 		options = append(options, "Equip")
 		actions = append(actions, func() {
 			queueEquipCommand(ref.id, ref.idx)
-			equipInventoryItem(ref.id, ref.idx, true)
 		})
 	}
 	if wearable && equipped {
@@ -835,7 +834,6 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 		actions = append(actions, func() {
 			enqueueCommand(fmt.Sprintf("/unequip %d", ref.id))
 			nextCommand()
-			equipInventoryItem(ref.id, -1, false)
 		})
 	}
 	// Always offer Examine when we know the item's name.

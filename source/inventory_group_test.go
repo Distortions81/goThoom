@@ -29,12 +29,27 @@ func TestInventoryGroupNormalizedNames(t *testing.T) {
 }
 
 func TestToggleInventoryEquipAt(t *testing.T) {
+	resetCommandStateForTest(t, 1)
 	resetInventory()
 	addInventoryItem(100, 0, "Ring A", false)
 	addInventoryItem(100, 1, "Ring B", false)
 	toggleInventoryEquipAt(100, 1)
 	items := getInventory()
-	if !items[1].Equipped {
-		t.Fatalf("expected second item equipped")
+	if items[1].Equipped {
+		t.Fatalf("second item equipped before server update")
+	}
+	if _, ok := handleInvCmdOther(kInvCmdEquip|kInvCmdIndex, []byte{0, 100, 2}); !ok {
+		t.Fatal("server equip update failed")
+	}
+	items = getInventory()
+	equipped := false
+	for _, item := range items {
+		if item.IDIndex == 1 {
+			equipped = item.Equipped
+			break
+		}
+	}
+	if !equipped {
+		t.Fatalf("expected second item equipped after server update")
 	}
 }

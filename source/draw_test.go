@@ -343,6 +343,62 @@ func minimalDrawStatePacket() []byte {
 	return m
 }
 
+func TestHandleDrawStateDrivesCommandRetryAndCompletion(t *testing.T) {
+	resetCommandStateForTest(t, 5)
+	origEncrypted := drawStateEncrypted
+	origMovieMode := movieMode
+	origAckFrame := ackFrame
+	origResendFrame := resendFrame
+	origLastAckFrame := lastAckFrame
+	t.Cleanup(func() {
+		drawStateEncrypted = origEncrypted
+		movieMode = origMovieMode
+		ackFrame = origAckFrame
+		resendFrame = origResendFrame
+		lastAckFrame = origLastAckFrame
+		resetDrawState()
+	})
+	drawStateEncrypted = false
+	movieMode = false
+	ackFrame = 0
+	resendFrame = 0
+	lastAckFrame = 0
+	resetDrawState()
+
+	enqueueCommand("/equip 123")
+	first := &bufConn{}
+	if err := sendPlayerInput(first, 0, 0, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := extractCommand(t, first); got != 6 {
+		t.Fatalf("first command number=%d, want 6", got)
+	}
+
+	negativeAck := minimalDrawStatePacket()
+	negativeAck[2] = 5
+	handleDrawState(negativeAck, false)
+	if pendingCommand != "/equip 123" || pendingCommandID != 6 || pendingCommandSent {
+		t.Fatalf("negative ack state = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	}
+
+	retry := &bufConn{}
+	if err := sendPlayerInput(retry, 0, 0, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := extractCommandText(t, retry); got != "/equip 123" {
+		t.Fatalf("retry command=%q", got)
+	}
+
+	positiveAck := minimalDrawStatePacket()
+	positiveAck[2] = 6
+	binary.BigEndian.PutUint32(positiveAck[3:7], 2)
+	binary.BigEndian.PutUint32(positiveAck[7:11], 2)
+	handleDrawState(positiveAck, false)
+	if pendingCommand != "" || pendingCommandID != 0 || pendingCommandSent {
+		t.Fatalf("positive ack state = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	}
+}
+
 func BenchmarkHandleDrawStateNoEncryption(b *testing.B) {
 	origEncrypted := drawStateEncrypted
 	drawStateEncrypted = false

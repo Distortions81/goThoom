@@ -2627,9 +2627,7 @@ func scriptEquipByName(owner, name string) {
 		reportScriptCommandError(owner, "equip target not found: "+name)
 		return
 	}
-	if scriptCommand(owner, formatEquipCommand(id, idx)) {
-		equipInventoryItem(id, idx, true)
-	}
+	scriptCommand(owner, formatEquipCommand(id, idx))
 }
 
 // scriptUnequipByName unequips an item by name (case-insensitive). If multiple
@@ -2662,9 +2660,7 @@ func scriptUnequipByName(owner, name string) {
 		reportScriptCommandError(owner, "unequip target not equipped: "+name)
 		return
 	}
-	if scriptCommand(owner, fmt.Sprintf("/unequip %d", id)) {
-		equipInventoryItem(id, -1, false)
-	}
+	scriptCommand(owner, fmt.Sprintf("/unequip %d", id))
 }
 
 type scriptInventoryKey struct {
@@ -2708,36 +2704,22 @@ func scriptWithEquipment(owner, name string, task func()) {
 			prior[scriptInventoryKey{id: item.ID, idx: item.IDIndex}] = item
 		}
 	}
-	if !target.Equipped {
+	changed := !target.Equipped
+	if changed {
 		if !scriptCommand(owner, formatEquipCommand(target.ID, target.IDIndex)) {
 			return
 		}
-		equipInventoryItem(target.ID, target.IDIndex, true)
 	}
 	defer func() {
-		current := getInventory()
-		for _, item := range current {
-			if !item.Equipped || !inSlot(item) {
-				continue
-			}
-			if _, existed := prior[scriptInventoryKey{id: item.ID, idx: item.IDIndex}]; !existed {
-				if scriptCommand(owner, fmt.Sprintf("/unequip %d", item.ID)) {
-					equipInventoryItem(item.ID, item.IDIndex, false)
-				}
-			}
+		if !changed {
+			return
 		}
-		current = getInventory()
-		for key, item := range prior {
-			equipped := false
-			for _, candidate := range current {
-				if candidate.ID == key.id && candidate.IDIndex == key.idx && candidate.Equipped {
-					equipped = true
-					break
-				}
-			}
-			if !equipped && scriptCommand(owner, formatEquipCommand(item.ID, item.IDIndex)) {
-				equipInventoryItem(item.ID, item.IDIndex, true)
-			}
+		if len(prior) == 0 {
+			scriptCommand(owner, fmt.Sprintf("/unequip %d", target.ID))
+			return
+		}
+		for _, item := range prior {
+			scriptCommand(owner, formatEquipCommand(item.ID, item.IDIndex))
 		}
 	}()
 	task()

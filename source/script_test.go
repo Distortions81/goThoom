@@ -74,6 +74,24 @@ func TestScriptEquipAlreadyEquipped(t *testing.T) {
 	}
 }
 
+func TestScriptEquipWaitsForServerInventoryUpdate(t *testing.T) {
+	const owner = "server_equipment_test"
+	resetScriptCallbackTestState(t, owner)
+	resetCommandStateForTest(t, 1)
+	resetInventory()
+	t.Cleanup(resetInventory)
+	addInventoryItem(200, -1, "Shield", false)
+
+	scriptEquipByName(owner, "Shield")
+	items := getInventory()
+	if len(items) != 1 || items[0].Equipped {
+		t.Fatalf("script equip changed local state before server update: %+v", items)
+	}
+	if got, want := getQueuedCommands(), []string{"/equip 200"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("script equip commands=%v, want %v", got, want)
+	}
+}
+
 // getQueuedCommands returns the pending command followed by any queued commands.
 func getQueuedCommands() []string {
 	cmds := append([]string{}, commandQueue...)

@@ -214,9 +214,9 @@ func equipInventoryItem(id uint16, idx int, equip bool) {
 
 // queueEquipCommand enqueues the server command to equip an item. The server
 // automatically bumps clothing that occupies the same slot, so no explicit
-// /unequip commands are sent here. The local inventory state is adjusted via
-// equipInventoryItem to mirror the server's behavior. idx is the server-
-// provided 0-based index for template items or -1 otherwise.
+// /unequip commands are sent here. idx is the server-provided 0-based index for
+// template items or -1 otherwise. Local state changes only when the server's
+// inventory update arrives.
 func queueEquipCommand(id uint16, idx int) {
 	enqueueCommand(formatEquipCommand(id, idx))
 	nextCommand()
@@ -231,8 +231,8 @@ func formatEquipCommand(id uint16, idx int) string {
 
 // toggleInventoryEquipAt equips or unequips a specific item index. When idx is
 // negative, the first matching item is targeted similar to the legacy
-// behavior. The server is informed via pendingCommand and local inventory state
-// is updated immediately.
+// behavior. The server is informed via pendingCommand; local inventory state
+// remains authoritative to the server response.
 func toggleInventoryEquipAt(id uint16, idx int) {
 	items := getInventory()
 	equip := true
@@ -261,11 +261,9 @@ func toggleInventoryEquipAt(id uint16, idx int) {
 	}
 	if equip {
 		queueEquipCommand(id, idx)
-		equipInventoryItem(id, idx, true)
 	} else {
 		enqueueCommand(fmt.Sprintf("/unequip %d", id))
 		nextCommand()
-		equipInventoryItem(id, -1, false)
 	}
 }
 

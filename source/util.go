@@ -240,6 +240,8 @@ var lostBuckets [5]int
 var bucketTimes [5]int64
 var commandNum uint32 = 1
 var pendingCommand string
+var pendingCommandID uint8
+var pendingCommandSent bool
 var commandQueue []string
 var commandMu sync.Mutex
 var playerName string
@@ -265,7 +267,36 @@ func nextCommandLocked() {
 	if pendingCommand == "" && len(commandQueue) > 0 {
 		pendingCommand = commandQueue[0]
 		commandQueue = commandQueue[1:]
+		pendingCommandID = 0
+		pendingCommandSent = false
 	}
+}
+
+func nextCommandNumberLocked() uint8 {
+	commandNum = (commandNum + 1) & 0xff
+	if commandNum == 0 {
+		commandNum = 1
+	}
+	return uint8(commandNum)
+}
+
+// acknowledgeCommand completes the in-flight command when the server echoes
+// its ID. A different acknowledgement means the server has not seen this
+// command yet, so the same command and ID are made eligible for retransmission.
+func acknowledgeCommand(ack uint8) {
+	commandMu.Lock()
+	defer commandMu.Unlock()
+	if pendingCommand == "" || pendingCommandID == 0 || !pendingCommandSent {
+		return
+	}
+	if pendingCommandID != ack {
+		pendingCommandSent = false
+		return
+	}
+	pendingCommand = ""
+	pendingCommandID = 0
+	pendingCommandSent = false
+	nextCommandLocked()
 }
 
 func commandQueueIsIdle() bool {
@@ -284,12 +315,16 @@ func enqueueCommandIfIdle(cmd string) bool {
 		return false
 	}
 	pendingCommand = cmd
+	pendingCommandID = 0
+	pendingCommandSent = false
 	return true
 }
 
 func clearCommands() {
 	commandMu.Lock()
 	pendingCommand = ""
+	pendingCommandID = 0
+	pendingCommandSent = false
 	commandQueue = nil
 	commandMu.Unlock()
 }

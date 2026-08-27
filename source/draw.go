@@ -968,6 +968,8 @@ func handleDrawState(m []byte, buildCache bool) {
 		defer unlock()
 	}
 
+	ackCmd := data[0]
+	previousAck := ackFrame
 	ack, resend, err := parseDrawState(data, buildCache)
 	if err != nil {
 		logWarn("parseDrawState failed: %v", err)
@@ -978,6 +980,9 @@ func handleDrawState(m []byte, buildCache bool) {
 			resendFrame = 0
 		}
 		return
+	}
+	if !movieMode && ack > previousAck {
+		acknowledgeCommand(ackCmd)
 	}
 	ackFrame = ack
 	resendFrame = resend

@@ -215,15 +215,22 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 
 	commandMu.Lock()
 	nextCommandLocked()
-	cmd := pendingCommand
 	packetCommand := commandNum
-	if cmd != "" {
+	cmd := ""
+	commandID := uint8(0)
+	if pendingCommand != "" {
+		if pendingCommandID == 0 {
+			pendingCommandID = nextCommandNumberLocked()
+		}
+		packetCommand = uint32(pendingCommandID)
+		commandID = pendingCommandID
+	}
+	if pendingCommand != "" && !pendingCommandSent {
+		cmd = pendingCommand
 		// Record last-command frame for who throttling.
 		whoLastCommandFrame = ackFrame
-		pendingCommand = ""
-		nextCommandLocked()
+		pendingCommandSent = true
 	}
-	commandNum++
 	commandMu.Unlock()
 	var cmdBytes []byte
 	if cmd != "" {
@@ -257,10 +264,20 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	latencyMu.Lock()
 	lastInputSent = time.Now()
 	latencyMu.Unlock()
+	var err error
 	if reliable {
-		return sendTCPMessage(connection, packet)
+		err = sendTCPMessage(connection, packet)
+	} else {
+		err = sendUDPMessage(connection, packet)
 	}
-	return sendUDPMessage(connection, packet)
+	if err != nil && cmd != "" {
+		commandMu.Lock()
+		if pendingCommandID == commandID && pendingCommand == cmd {
+			pendingCommandSent = false
+		}
+		commandMu.Unlock()
+	}
+	return err
 }
 
 // pingServer establishes a new TCP connection to the server and returns the
