@@ -1869,17 +1869,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
-		blendFade := fade
 		if blend {
-			steps := gs.MobileBlendFrames
-			idx := int(fade * float32(steps))
-			if idx <= 0 {
-				idx = 1
-			}
-			if idx >= steps {
-				idx = steps - 1
-			}
-			blendFade = float32(idx) / float32(steps)
 			drawSize = max(prevImg.Bounds().Dx(), img.Bounds().Dx())
 		} else if mobileFrameBlendingEnabled() && prevImg != nil {
 			if fade <= 0 {
@@ -1907,7 +1897,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		drawn := false
 		if blend {
 			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
-				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: blendFade,
+				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: fade,
 				Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
 				Linear: worldArtworkFilter() == ebiten.FilterLinear,
 			})
@@ -2348,17 +2338,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		drawW, drawH := w, h
 		blend := pictureFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
-		blendFade := fade
 		if blend {
-			steps := gs.PictBlendFrames
-			idx := int(fade * float32(steps))
-			if idx <= 0 {
-				idx = 1
-			}
-			if idx >= steps {
-				idx = steps - 1
-			}
-			blendFade = float32(idx) / float32(steps)
 			drawW = max(prevImg.Bounds().Dx(), img.Bounds().Dx())
 			drawH = max(prevImg.Bounds().Dy(), img.Bounds().Dy())
 		} else if pictureFrameBlendingEnabled() && prevImg != nil {
@@ -2398,7 +2378,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		drawn := false
 		if blend {
 			drawn = drawFrameBlend(screen, prevImg, img, frameBlendDrawOptions{
-				Left: left, Top: top, ScaleX: sx, ScaleY: sy, Fade: blendFade,
+				Left: left, Top: top, ScaleX: sx, ScaleY: sy, Fade: fade,
 				Red: red, Green: green, Blue: blue, Alpha: fadeAlpha,
 				Linear: filter == ebiten.FilterLinear,
 			})

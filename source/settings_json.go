@@ -120,8 +120,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "BlendPicts", category: settingsRendering, name: "blend_world_animation"},
 	{field: "BlendAmount", category: settingsRendering, name: "world_animation_blend_amount"},
 	{field: "MobileBlendAmount", category: settingsRendering, name: "character_animation_blend_amount"},
-	{field: "MobileBlendFrames", category: settingsRendering, name: "character_animation_blend_frames"},
-	{field: "PictBlendFrames", category: settingsRendering, name: "world_animation_blend_frames"},
 	{field: "DenoiseImages", category: settingsRendering, name: "denoise_dithered_artwork"},
 	{field: "DenoiseSharpness", category: settingsRendering, name: "denoise_sharpness"},
 	{field: "DenoiseAmount", category: settingsRendering, name: "denoise_amount"},

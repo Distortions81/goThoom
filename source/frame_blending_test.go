@@ -37,3 +37,27 @@ func TestFrameBlendingRequiresMotionSmoothing(t *testing.T) {
 		t.Fatal("frame blending not enabled with motion smoothing")
 	}
 }
+
+func TestFrameBlendFadeUsesElapsedTime(t *testing.T) {
+	originalSettings := gs
+	originalSuppress := suppressInterpOnce
+	t.Cleanup(func() {
+		gs = originalSettings
+		suppressInterpOnce = originalSuppress
+	})
+
+	gs.MotionSmoothing = true
+	gs.BlendMobiles = true
+	gs.BlendPicts = true
+	suppressInterpOnce = false
+	previous := time.Unix(0, 0)
+	current := previous.Add(200 * time.Millisecond)
+
+	_, mobileFade, pictureFade := computeInterpolation(previous.Add(50*time.Millisecond), previous, current, 0.5, 1)
+	if mobileFade != 0.5 {
+		t.Errorf("mobile fade = %v, want 0.5", mobileFade)
+	}
+	if pictureFade != 0.25 {
+		t.Errorf("picture fade = %v, want 0.25", pictureFade)
+	}
+}

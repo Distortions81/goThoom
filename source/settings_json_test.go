@@ -90,6 +90,11 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 			t.Errorf("v4 settings retained legacy key %s", legacy)
 		}
 	}
+	for _, obsolete := range []string{`"character_animation_blend_frames"`, `"world_animation_blend_frames"`} {
+		if strings.Contains(text, obsolete) {
+			t.Errorf("v4 settings retained obsolete key %s", obsolete)
+		}
+	}
 }
 
 func TestSettingsV4ReadsOldDarkNamesKey(t *testing.T) {

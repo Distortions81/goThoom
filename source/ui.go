@@ -5541,12 +5541,12 @@ func makeQualityWindow() {
 	animationSection.AddItem(pictBlendCB)
 
 	mobileBlendSlider, mobileBlendEvents := eui.NewSlider()
-	mobileBlendSlider.Label = "Mobile Animation Blend Amount"
+	mobileBlendSlider.Label = "Mobile Animation Blend Duration"
 	mobileBlendSlider.MinValue = 0.1
 	mobileBlendSlider.MaxValue = 1.0
 	mobileBlendSlider.Value = float32(gs.MobileBlendAmount)
 	mobileBlendSlider.Size = eui.Point{X: width - 10, Y: 24}
-	mobileBlendSlider.SetTooltip("Set mobile blending amount.")
+	mobileBlendSlider.SetTooltip("Set how much of the animation interval is spent blending frames.")
 	mobileBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.MobileBlendAmount = float64(ev.Value)
@@ -5556,12 +5556,12 @@ func makeQualityWindow() {
 	animationSection.AddItem(mobileBlendSlider)
 
 	blendSlider, blendEvents := eui.NewSlider()
-	blendSlider.Label = "World Animation Blending Strength"
+	blendSlider.Label = "World Animation Blend Duration"
 	blendSlider.MinValue = 0.1
 	blendSlider.MaxValue = 1.0
 	blendSlider.Value = float32(gs.BlendAmount)
 	blendSlider.Size = eui.Point{X: width - 10, Y: 24}
-	blendSlider.SetTooltip("This looks amazing at max (1.0)")
+	blendSlider.SetTooltip("Set how much of the animation interval is spent blending frames.")
 	blendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BlendAmount = float64(ev.Value)
@@ -5569,38 +5569,6 @@ func makeQualityWindow() {
 		}
 	}
 	animationSection.AddItem(blendSlider)
-
-	mobileFramesSlider, mobileFramesEvents := eui.NewSlider()
-	mobileFramesSlider.Label = "Mobile Animation Blend Frames"
-	mobileFramesSlider.MinValue = 3
-	mobileFramesSlider.MaxValue = 30
-	mobileFramesSlider.Value = float32(gs.MobileBlendFrames)
-	mobileFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
-	mobileFramesSlider.IntOnly = true
-	mobileFramesSlider.SetTooltip("Set mobile blend steps.")
-	mobileFramesEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.MobileBlendFrames = int(ev.Value)
-			settingsDirty = true
-		}
-	}
-	animationSection.AddItem(mobileFramesSlider)
-
-	pictFramesSlider, pictFramesEvents := eui.NewSlider()
-	pictFramesSlider.Label = "World Animation Blend Frames"
-	pictFramesSlider.MinValue = 3
-	pictFramesSlider.MaxValue = 30
-	pictFramesSlider.Value = float32(gs.PictBlendFrames)
-	pictFramesSlider.Size = eui.Point{X: width - 10, Y: 24}
-	pictFramesSlider.IntOnly = true
-	pictFramesSlider.SetTooltip("Set scenery blend steps.")
-	pictFramesEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			gs.PictBlendFrames = int(ev.Value)
-			settingsDirty = true
-		}
-	}
-	animationSection.AddItem(pictFramesSlider)
 
 	outer.AddItem(left)
 	outer.AddItem(center)
