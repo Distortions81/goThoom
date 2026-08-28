@@ -115,7 +115,11 @@
             <p>Use the trash control beside a character to remove it from the local list. This only removes the local entry; it does not delete the Clan Lord account.</p>
 
             <h3>First-run setup wizard</h3>
-            <p>The setup wizard previews layout, controls, graphics, and audio choices. You can run it again later from <strong>Settings → Setup Wizard</strong>; reopening it does not reset everything first. If performance is poor, start with a lower graphics preset and add effects afterward.</p>
+            <p>The setup wizard begins with the built-in defaults and previews layout, controls, graphics, and audio choices. Its graphics check selects Full Quality or iGPU Graphics for the current machine, so graphics after the wizard may differ from the built-in baseline. You can run the wizard again later from <strong>Settings → Setup Wizard</strong>; reopening it starts from your current settings rather than resetting them first.</p>
+            <div class="manual-callout">
+              <strong>The default starting point</strong>
+              <p>On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech, automatic recording, and per-character settings profiles are off.</p>
+            </div>
           </section>
 
           <section id="essentials" class="manual-section">
@@ -129,7 +133,7 @@
               </div>
               <div class="manual-card">
                 <h3>Chat input</h3>
-                <p>Press <kbd>Enter</kbd> to begin typing and <kbd>Enter</kbd> again to send. <kbd>Esc</kbd> cancels. <kbd>↑</kbd> and <kbd>↓</kbd> browse sent-message history.</p>
+                <p>The input bar is active by default: type a message and press <kbd>Enter</kbd> to send it. <kbd>Esc</kbd> cancels and closes the bar; <kbd>Enter</kbd> opens it again. If you turn off <strong>Input bar always open</strong>, press <kbd>Enter</kbd> before typing and again to send. <kbd>↑</kbd> and <kbd>↓</kbd> browse sent-message history.</p>
                 <p>While typing, <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes and <kbd>Ctrl</kbd>+<kbd>C</kbd> copies the entire input line.</p>
               </div>
               <div class="manual-card">
@@ -185,13 +189,13 @@
               </table>
             </div>
 
-            <h3>Tiled layout</h3>
-            <p>Tiled mode keeps the Game, Inventory, Players, Console, and optional Chat windows aligned as a workspace. The centered layout places the game between two side columns; the alternate layout puts the game on one side of a shared panel.</p>
+            <h3>Default tiled layout</h3>
+            <p>Tiled mode is enabled by default. Inventory occupies the upper-left, the combined Chat/Console occupies the lower-left, the Game fills the center, and Players occupies the right side. The toolbar starts inside Inventory. Separating Chat from Console adds Chat to the lower-right; the alternate layout puts the Game on one side of a shared panel.</p>
             <ul>
               <li>Drag a divider to resize neighboring tiles.</li>
               <li>With <strong>Keep game window large</strong>, dragging either side of the centered Game repositions the fixed-size game pane and both dividers together.</li>
               <li>Open <strong>Settings → Window &amp; Display → Tiled Layout</strong> to swap Inventory and Players, choose message placement, combine Chat with Console, or choose the game side.</li>
-              <li>The toolbar can live inside Inventory or Players.</li>
+              <li>The toolbar can be moved from its default home in Inventory to Players.</li>
             </ul>
 
             <h3>Freeform layout</h3>
@@ -204,17 +208,17 @@
           <section id="communication" class="manual-section">
             <p class="manual-kicker">04 · Chat and messages</p>
             <h2>Speak, review, copy, and notice</h2>
-            <p>Chat shows player-facing conversation while Console also carries client information, script output, diagnostics, and—by default—chat messages. Disable <strong>Combine chat + console</strong> in Tiled Layout if you want separate message panes.</p>
+            <p>By default, Chat and Console are combined in the lower-left Console tile. It contains player-facing conversation along with client information, script output, and diagnostics. Disable <strong>Combine chat + console</strong> in Tiled Layout to add a separate Chat pane.</p>
             <ul>
               <li>The input bar grows as the message wraps.</li>
               <li>Right-click a Chat or Console line to copy it; the copied line briefly highlights.</li>
-              <li>Enable timestamps separately for Chat and Console and choose their format in settings.</li>
+              <li>Timestamps are enabled for both Chat and Console by default; each can be disabled separately, and their shared format can be changed in settings.</li>
               <li>Mentions of <code>@your-name</code> or <code>@your-profession</code> are highlighted and can play a distinct sound.</li>
               <li>Message text colors, alternating rows, and font sizes can be customized.</li>
             </ul>
 
             <h3>Speech bubbles</h3>
-            <p><strong>Settings → Message Bubbles</strong> controls whether bubbles appear, how long they last, their scale and opacity, animation, and which message types or sources are shown. Modern lifetime uses a base duration plus time per word; Classic uses a fixed duration.</p>
+            <p>Speech bubbles start enabled, animated, and in Modern lifetime mode for every message type and source. <strong>Settings → Message Bubbles</strong> controls whether bubbles appear, how long they last, their scale and opacity, animation, and which message types or sources are shown. Modern lifetime uses a base duration plus time per word; Classic uses a fixed duration.</p>
 
             <h3>Useful Clan Lord commands</h3>
             <p>Commands begin with <code>/</code> or <code>\</code>. Common examples include <code>/think</code>, <code>/thinkto name message</code>, <code>/who</code>, <code>/info name</code>, <code>/share name</code>, <code>/unshare name</code>, <code>/equip item</code>, and <code>/useitem item</code>. Type <code>/help command</code> for the server’s help for a specific command.</p>
@@ -226,8 +230,8 @@
             <h2>Act without retyping every command</h2>
 
             <h3>Players</h3>
-            <p>The Players window lists nearby or recently seen exiles. Its heading can show online and share summaries. A <code>&gt;</code> marks someone you share with, <code>&lt;</code> marks a sharee, and <code>*</code> marks someone in your clan.</p>
-            <p>Right-click a player for <strong>Thank, Curse, Anon Thank, Anon Curse, Share, Unshare, Info, Pull</strong>, or <strong>Push</strong>. The command palette can also search actions for the selected player. Recently seen players and share icons can be toggled in Settings.</p>
+            <p>The Players window lists nearby exiles and, by default, a group of recently seen exiles. Its heading can show online and share summaries. A <code>&gt;</code> marks someone you share with, <code>&lt;</code> marks a sharee, and <code>*</code> marks someone in your clan.</p>
+            <p>Right-click a player for <strong>Thank, Curse, Anon Thank, Anon Curse, Share, Unshare, Info, Pull</strong>, or <strong>Push</strong>. The command palette can also search actions for the selected player. The recent group can be hidden in Settings; graphical share icons are available there but are off by default.</p>
 
             <h3>Inventory</h3>
             <p>Select an item with one click. Double-click to equip or unequip it; Shift-double-click to use it. The right-click menu offers Equip/Unequip, Examine, Show, Drop, and Drop (Mine). When an inventory item has a hotkey, its key is displayed in brackets before the item name.</p>
@@ -249,7 +253,7 @@
             </div>
 
             <h3>Quality presets</h3>
-            <p>Presets are good starting points, not permanent modes. Pick one that matches the machine, then change individual features. If the FPS display remains low, reduce artwork processing, lighting/shadows, animation blending, or render scale before lowering UI readability.</p>
+            <p>The first-run graphics check chooses Full Quality or iGPU Graphics for the current machine. Presets are starting points, not permanent modes: after one is selected, you can change individual features. If the FPS display remains low, reduce artwork processing, lighting/shadows, animation blending, or render scale before lowering UI readability.</p>
 
             <h3>Per-character profiles</h3>
             <p>Settings are shared globally by default. On the Login screen, select a saved character and enable <strong>Use &lt;character&gt;'s settings profile</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
@@ -267,7 +271,7 @@
             <h2>Hear what matters at the right level</h2>
 
             <h3>Mixer</h3>
-            <p>The <strong>Audio</strong> toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. <strong>Mute when unfocused</strong> is useful when switching to another app.</p>
+            <p>Game sounds and music start enabled, while chat text-to-speech starts disabled. The <strong>Audio</strong> toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. <strong>Mute when unfocused</strong> is optional and off by default.</p>
             <ul>
               <li><strong>Throttle Repeated Sounds</strong> suppresses the same effect when it repeats in adjacent server updates.</li>
               <li><strong>High quality resampling</strong> produces cleaner conversion at a higher CPU cost.</li>
@@ -280,7 +284,7 @@
             <p><strong>Edit TTS corrections</strong> opens the data folder containing the generated substitution file. Add replacements there when a name or game term is consistently pronounced incorrectly.</p>
 
             <h3>Notifications</h3>
-            <p>Notification Settings chooses which events matter—such as falling, recovering, shares, friends coming online, or mentions—and how they are delivered. You can configure on-screen duration, sound, volume, desktop prompts, and whether background mentions notify. Use <strong>Send Test Notification</strong> to verify the result.</p>
+            <p>Game notifications and their sound start enabled for falling, recovering, shares, and friends coming online. Mentions play their own sound; optionally, they can also create a desktop notification while the client is in the background. Notification Settings chooses which events matter and how they are delivered. You can configure on-screen duration, sound, volume, desktop prompts, and whether background mentions notify. Use <strong>Send Test Notification</strong> to verify the result.</p>
           </section>
 
           <section id="automation" class="manual-section">
@@ -316,7 +320,7 @@
 
             <h3>Record</h3>
             <p>Click <strong>Record</strong> while connected to begin, then click it again to finish. If you click it before connecting, recording is armed and begins after login. Recordings are written to <code>data/Movies</code> with the character and timestamp in the name.</p>
-            <p>Settings can auto-record every login session, ask what to do when a recording finishes, and compress a saved movie into ZIP. A recording is finalized when the session or app exits normally.</p>
+            <p>Automatic recording starts off. Settings can auto-record every login session, ask what to do when a recording finishes, and compress a saved movie into ZIP. A recording is finalized when the session or app exits normally.</p>
 
             <h3>Play and seek</h3>
             <p>Disconnect first, return to Login, and choose <strong>Play movie file</strong>. goThoom accepts <code>.clMov</code> files and ZIP packages containing one. Movie playback never begins while a server connection or connection attempt is active.</p>
@@ -363,7 +367,7 @@
               <table>
                 <thead><tr><th>Location</th><th>Purpose</th></tr></thead>
                 <tbody>
-                  <tr><td><code>data/settings.json</code></td><td>Global client settings and defaults used as the base for character profiles.</td></tr>
+                  <tr><td><code>data/settings.json</code></td><td>Your saved global client settings. The current global setup, not the built-in defaults, is copied when a character profile is first enabled.</td></tr>
                   <tr><td><code>data/profiles.json</code></td><td>Opt-in state and saved settings for logins that use a per-character profile.</td></tr>
                   <tr><td><code>data/characters.json</code></td><td>Locally saved character entries and optional remembered login data.</td></tr>
                   <tr><td><code>data/Scripts</code></td><td>Your Go scripts, generated author documentation, and script enablement file.</td></tr>

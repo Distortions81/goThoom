@@ -4,8 +4,9 @@ Movement
 
 Communication
 -------------
-- Press Enter to start typing; press Enter again to send.
-- Press Esc to cancel; Up/Down browse previous messages.
+- The input bar is open by default. Type a message and press Enter to send it.
+- Press Esc to close the input bar; press Enter to open it again. If "Input bar always open" is disabled, press Enter before typing and Enter again to send.
+- Up/Down browse previous messages.
 - While typing: Ctrl-V pastes, Ctrl-C copies the whole line.
 - Right-click the input bar for Paste, Copy Line, or Clear Line. Paste and Clear return you to typing mode.
 - Right-click a chat or console line to copy it; the line briefly highlights.

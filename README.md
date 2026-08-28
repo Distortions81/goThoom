@@ -39,8 +39,8 @@ for your computer.
 ## Using goThoom
 
 - **Movement:** Left-click in the game view to walk toward the cursor.
-- **Chat:** Press Enter to start typing and Enter again to send. Escape cancels;
-  Up and Down browse message history.
+- **Chat:** The input bar is open by default: type and press Enter to send.
+  Escape closes it; Enter reopens it. Up and Down browse message history.
 - **Windows:** Use the **Windows** toolbar menu to open Players, Inventory,
   Chat, Console, Help, Hotkeys, Shortcuts, Mixer, Settings, and other panels.
 - **Inventory:** Click to select, double-click to equip or unequip, and
