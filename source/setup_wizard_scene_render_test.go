@@ -114,7 +114,7 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 			// Exercise the opt-in batched path separately. The production draw
 			// below keeps the default draw-order-correct layered path.
 			gs.FasterCharacterShadows = true
-			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels)
+			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels, nil)
 			if frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
 				g.err = fmt.Errorf("daylight scene did not produce a detailed shadow mask")
 				break

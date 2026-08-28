@@ -5195,7 +5195,7 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(activityIndicatorsCB)
 
-	var shadowDarknessSlider *eui.ItemData
+	var shadowDarknessSlider, mobileSunShadowsCB *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "Potato GPU (Low VRAM)"
@@ -5250,6 +5250,9 @@ func makeQualityWindow() {
 			if shadowDarknessSlider != nil {
 				shadowDarknessSlider.Disabled = !ev.Checked
 			}
+			if mobileSunShadowsCB != nil {
+				mobileSunShadowsCB.Disabled = !ev.Checked
+			}
 			refreshShaderEffectControls()
 			settingsDirty = true
 		}
@@ -5286,6 +5289,20 @@ func makeQualityWindow() {
 		}
 	}
 	shadowSection.AddItem(fasterShadowCB)
+
+	mobileSunShadowsCB, mobileSunShadowsEvents := eui.NewCheckbox()
+	mobileSunShadowsCB.Text = "Characters Receive Sun Shadows"
+	mobileSunShadowsCB.Size = eui.Point{X: width, Y: 24}
+	mobileSunShadowsCB.Checked = gs.MobilesReceiveSunShadows
+	mobileSunShadowsCB.Disabled = !gs.CharacterShadows
+	mobileSunShadowsCB.SetTooltip("Shade characters in proportion to how much another character's projected shadow covers them.")
+	mobileSunShadowsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MobilesReceiveSunShadows = ev.Checked
+			settingsDirty = true
+		}
+	}
+	shadowSection.AddItem(mobileSunShadowsCB)
 
 	shaderSection.AddItem(newConfigurationSubheading("Lighting", width))
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()

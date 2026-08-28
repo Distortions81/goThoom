@@ -146,6 +146,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "CharacterShadows", category: settingsRendering, name: "character_shadows"},
 	{field: "FasterCharacterShadows", category: settingsRendering, name: "faster_character_shadows"},
 	{field: "CharacterShadowDarkness", category: settingsRendering, name: "character_shadow_darkness"},
+	{field: "MobilesReceiveSunShadows", category: settingsRendering, name: "mobiles_receive_sun_shadows"},
 
 	{field: "MasterVolume", category: settingsAudio, name: "master_volume"},
 	{field: "GameVolume", category: settingsAudio, name: "sound_volume"},

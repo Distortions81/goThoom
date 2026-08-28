@@ -712,12 +712,26 @@ func buildSetupShadowsPage(root *eui.ItemData) {
 		11, 620,
 	))
 
+	var shadowOptions []*eui.ItemData
 	root.AddItem(setupWizardCheckbox("Character shadows", "Show shadows beneath characters and creatures.", gs.CharacterShadows, func(checked bool) {
 		gs.CharacterShadows = checked
+		for _, option := range shadowOptions {
+			setSetupWizardDisabled(option, !checked)
+		}
 		markQualityCustom()
 		if setupWizardWin != nil {
 			setupWizardWin.Refresh()
 		}
+	}))
+	addShadowOption := func(option *eui.ItemData) {
+		option = setupWizardSubOption(option)
+		setSetupWizardDisabled(option, !gs.CharacterShadows)
+		shadowOptions = append(shadowOptions, option)
+		root.AddItem(option)
+	}
+	addShadowOption(setupWizardCheckbox("Characters receive sun shadows", "Shade a character according to how much another character's shadow covers them.", gs.MobilesReceiveSunShadows, func(checked bool) {
+		gs.MobilesReceiveSunShadows = checked
+		markQualityCustom()
 	}))
 	root.AddItem(setupWizardCheckbox("Sprite gamma correction", "Adjust classic artwork for modern displays.", gs.SpriteGammaCorrection, func(checked bool) {
 		gs.SpriteGammaCorrection = checked

@@ -340,13 +340,14 @@ var gsdef settings = settings{
 	HighQualityResampling:   true,
 	ServerAddress:           defaultServerHostName + ":5010",
 
-	NightEffect:             true,
-	ShadersEnabled:          true,
-	ShaderLighting:          true,
-	MobileLightConeShadows:  false,
-	CharacterShadows:        true,
-	FasterCharacterShadows:  false,
-	CharacterShadowDarkness: 1.8,
+	NightEffect:              true,
+	ShadersEnabled:           true,
+	ShaderLighting:           true,
+	MobileLightConeShadows:   false,
+	CharacterShadows:         true,
+	FasterCharacterShadows:   false,
+	CharacterShadowDarkness:  1.8,
+	MobilesReceiveSunShadows: true,
 
 	// Window behavior
 	ShowClanLordSplashImage: true,
@@ -548,23 +549,24 @@ type settings struct {
 	MusicEnhancementAmount  float64
 	HighQualityResampling   bool
 
-	imgPlanesDebug          bool
-	smoothingDebug          bool
-	pictAgainDebug          bool
-	pictIDDebug             bool
-	scriptEventDebug        bool
-	AltNetMode              bool
-	AltNetDelay             int
-	ServerAddress           string
-	hideMoving              bool
-	hideMobiles             bool
-	NightEffect             bool
-	ShadersEnabled          bool
-	ShaderLighting          bool
-	MobileLightConeShadows  bool
-	CharacterShadows        bool
-	FasterCharacterShadows  bool
-	CharacterShadowDarkness float64
+	imgPlanesDebug           bool
+	smoothingDebug           bool
+	pictAgainDebug           bool
+	pictIDDebug              bool
+	scriptEventDebug         bool
+	AltNetMode               bool
+	AltNetDelay              int
+	ServerAddress            string
+	hideMoving               bool
+	hideMobiles              bool
+	NightEffect              bool
+	ShadersEnabled           bool
+	ShaderLighting           bool
+	MobileLightConeShadows   bool
+	CharacterShadows         bool
+	FasterCharacterShadows   bool
+	CharacterShadowDarkness  float64
+	MobilesReceiveSunShadows bool
 
 	// Window behavior
 	ShowClanLordSplashImage bool

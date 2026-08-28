@@ -17,6 +17,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"shader lighting":            gsdef.ShaderLighting,
 		"flame light flicker":        gsdef.FlameLightFlicker,
 		"character shadows":          gsdef.CharacterShadows,
+		"characters receive shadows": gsdef.MobilesReceiveSunShadows,
 		"artwork upscale filter":     gsdef.SpriteUpscaleFilter,
 		"sprite gamma correction":    gsdef.SpriteGammaCorrection,
 		"throttle sounds":            gsdef.ThrottleSounds,
@@ -163,6 +164,7 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		"shader lighting":            gs.ShaderLighting,
 		"flame light flicker":        gs.FlameLightFlicker,
 		"character shadows":          gs.CharacterShadows,
+		"characters receive shadows": gs.MobilesReceiveSunShadows,
 		"artwork upscale filter":     gs.SpriteUpscaleFilter,
 		"sound enhancement":          gs.SoundEnhancement,
 		"high quality resampling":    gs.HighQualityResampling,
@@ -203,6 +205,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 
 	gs.CharacterShadows = false
+	gs.MobilesReceiveSunShadows = false
 	gs.ShadersEnabled = false
 	gs.FloatingPointSpriteCoords = false
 	gs.BlendMobiles = true
@@ -216,6 +219,9 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 	if !gs.CharacterShadows {
 		t.Error("settings without CharacterShadows should default it on")
+	}
+	if !gs.MobilesReceiveSunShadows {
+		t.Error("settings without MobilesReceiveSunShadows should default it on")
 	}
 	if !gs.ShadersEnabled {
 		t.Error("settings without ShadersEnabled should default it on")

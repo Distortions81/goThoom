@@ -1755,6 +1755,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	posPics := snap.picsPos
 	live := snap.liveMobs
 	dead := snap.deadMobs
+	var mobileSunShade [256]float32
 	shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
 	if !gs.hideMobiles && shadowKind == characterShadowContact {
 		collectContactShadowLights(ox, oy, snap, alpha)
@@ -1770,12 +1771,12 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		}
 	} else {
 		if shadowKind == characterShadowDirectional {
-			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit)
+			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, &mobileSunShade)
 		}
 		for _, m := range dead {
 			drawLayeredCharacterShadow(screen, m.Index)
 			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index])
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
 		i, j := 0, 0
@@ -1795,7 +1796,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 				if live[i].State != poseDead {
 					drawLayeredCharacterShadow(screen, live[i].Index)
 					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame)
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index])
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
 				i++
@@ -1983,7 +1984,7 @@ func mobileScreenPositionFloat(ox, oy int, m frameMobile, prevMobiles map[uint8]
 // When a mobile lacks history but the world shifts, a pseudo-previous position
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32) {
 	x, y := mobileScreenPositionFloat(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
@@ -2044,11 +2045,15 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		scaled := float64(drawSize) * scale
 		tx := x - scaled/2
 		ty := y - scaled/2
+		brightness := float32(1)
+		if sunShade > 0 {
+			brightness = 1 - sunShade
+		}
 		drawn := false
 		if blend {
 			blendOptions := frameBlendDrawOptions{
 				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: fade,
-				Red: 1, Green: 1, Blue: 1, Alpha: 1,
+				Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
 				Linear: worldArtworkFilter() == ebiten.FilterLinear,
 			}
 			drawn = drawFrameBlend(screen, prevImg, img, blendOptions)
@@ -2063,6 +2068,9 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			op := acquireDrawOpts()
 			op.Filter = worldArtworkFilter()
 			op.DisableMipmaps = true
+			if brightness < 1 {
+				op.ColorScale.Scale(brightness, brightness, brightness, 1)
+			}
 			op.GeoM.Scale(scale, scale)
 			op.GeoM.Translate(tx, ty)
 			screen.DrawImage(src, op)

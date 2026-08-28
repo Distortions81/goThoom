@@ -199,6 +199,56 @@ func TestCharacterShadowDarknessScalesFinalOpacity(t *testing.T) {
 	}
 }
 
+func TestMobileSunShadowAmountUsesSpatialBlocksAndExcludesSelf(t *testing.T) {
+	resetMobileSunShadowBlocks()
+	t.Cleanup(resetMobileSunShadowBlocks)
+
+	casters := []mobileSunShadowCaster{
+		{index: 1, quad: [4]shadowPoint{{0, 0}, {40, 0}, {40, 40}, {0, 40}}, strength: 1},
+		{index: 3, quad: [4]shadowPoint{{256, 0}, {300, 0}, {300, 40}, {256, 40}}, strength: 1},
+	}
+	for i, caster := range casters {
+		addMobileSunShadowBlocks(i, caster.quad)
+	}
+
+	inside := mobileSunShadowReceiver{index: 2, footX: 20, footY: 20, radius: 5}
+	if got := mobileSunShadowAmount(inside, casters, frameMobileSunShadowBlocks); got != mobileSunShadeScale {
+		t.Fatalf("full shadow amount = %v, want %v", got, mobileSunShadeScale)
+	}
+	self := inside
+	self.index = 1
+	if got := mobileSunShadowAmount(self, casters[:1], frameMobileSunShadowBlocks); got != 0 {
+		t.Fatalf("self shadow amount = %v, want 0", got)
+	}
+	outside := mobileSunShadowReceiver{index: 2, footX: 150, footY: 20, radius: 5}
+	if got := mobileSunShadowAmount(outside, casters, frameMobileSunShadowBlocks); got != 0 {
+		t.Fatalf("empty block shadow amount = %v, want 0", got)
+	}
+	partial := mobileSunShadowReceiver{index: 2, footX: 40, footY: 20, radius: 10}
+	if got := mobileSunShadowAmount(partial, casters, frameMobileSunShadowBlocks); got <= 0 || got >= mobileSunShadeScale {
+		t.Fatalf("partial shadow amount = %v, want between 0 and %v", got, mobileSunShadeScale)
+	}
+}
+
+func TestMobileSunShadowAmountUsesStrongestOverlappingCaster(t *testing.T) {
+	resetMobileSunShadowBlocks()
+	t.Cleanup(resetMobileSunShadowBlocks)
+
+	quad := [4]shadowPoint{{0, 0}, {40, 0}, {40, 40}, {0, 40}}
+	casters := []mobileSunShadowCaster{
+		{index: 1, quad: quad, strength: 0.25},
+		{index: 2, quad: quad, strength: 0.75},
+	}
+	for i, caster := range casters {
+		addMobileSunShadowBlocks(i, caster.quad)
+	}
+	receiver := mobileSunShadowReceiver{index: 3, footX: 20, footY: 20, radius: 5}
+	want := float32(0.75 * mobileSunShadeScale)
+	if got := mobileSunShadowAmount(receiver, casters, frameMobileSunShadowBlocks); math.Abs(float64(got-want)) > 1e-6 {
+		t.Fatalf("overlapping shadow amount = %v, want strongest caster %v", got, want)
+	}
+}
+
 func TestMobileSunShadowAppearanceFadesOnlyNewEdgeCasters(t *testing.T) {
 	original := mobileSizeFunc
 	mobileSizeFunc = func(uint16) int { return 20 }
@@ -219,6 +269,26 @@ func TestMobileSunShadowAppearanceFadesOnlyNewEdgeCasters(t *testing.T) {
 	}
 	if got := mobileSunShadowAppearance(edge, desc, nil, 0.25); got != 1 {
 		t.Fatalf("snell-change caster appearance = %v, want 1", got)
+	}
+}
+
+func BenchmarkMobileSunShadowSpatialLookup(b *testing.B) {
+	resetMobileSunShadowBlocks()
+	defer resetMobileSunShadowBlocks()
+	casters := make([]mobileSunShadowCaster, 0, 128)
+	for i := 0; i < 128; i++ {
+		x := float64((i % 16) * 48)
+		y := float64((i / 16) * 48)
+		quad := [4]shadowPoint{{x, y}, {x + 56, y}, {x + 56, y + 56}, {x, y + 56}}
+		casters = append(casters, mobileSunShadowCaster{index: uint8(i), quad: quad, strength: 0.75})
+		addMobileSunShadowBlocks(i, quad)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		caster := casters[i%len(casters)]
+		receiver := mobileSunShadowReceiver{index: 255, footX: caster.quad[0].x + 24, footY: caster.quad[0].y + 24, radius: 10}
+		_ = mobileSunShadowAmount(receiver, casters, frameMobileSunShadowBlocks)
 	}
 }
 
