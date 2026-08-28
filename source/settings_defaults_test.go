@@ -133,6 +133,12 @@ func TestRecentPlayersGroupDefaultOn(t *testing.T) {
 	}
 }
 
+func TestPlayerShareIconsDefaultOff(t *testing.T) {
+	if gsdef.PlayerShareIcons {
+		t.Error("player-list sharing icons should default off")
+	}
+}
+
 func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 	originalSettings := gs
 	originalDataDir := dataDirPath

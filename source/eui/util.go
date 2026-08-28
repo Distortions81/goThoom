@@ -1183,6 +1183,10 @@ func (item *itemData) GetTextPtr() *string {
 	return &item.Text
 }
 
+func itemAcceptsTextEditing(item *itemData) bool {
+	return item != nil && (item.ItemType == ITEM_INPUT || (item.ItemType == ITEM_TEXT && item.EditableText))
+}
+
 const (
 	tooltipMaxRunes = 96
 	tooltipMaxWidth = 260

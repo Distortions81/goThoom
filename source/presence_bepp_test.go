@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // helper to build BEPP line with specified prefix
 func presenceLine(prefix string, msg []byte) []byte {
@@ -53,19 +56,51 @@ func TestDecodeLogoutBEPP(t *testing.T) {
 	}
 }
 
-func TestBeginBeWhoScanMarksExistingPlayersOffline(t *testing.T) {
+func TestBeWhoScanKeepsExistingPresenceUntilCompletion(t *testing.T) {
+	originalWhoActive := whoActive
+	originalWhoScanStarted := whoScanStarted
+	originalPlayersDirty := playersDirty
+	t.Cleanup(func() {
+		whoActive = originalWhoActive
+		whoScanStarted = originalWhoScanStarted
+		playersDirty = originalPlayersDirty
+	})
+
+	oldSeen := time.Now().Add(-time.Minute)
 	players = map[string]*Player{
-		"Alice": {Name: "Alice", beWho: true},
+		"Alice": {Name: "Alice", beWho: true, LastSeen: oldSeen},
 		"Bob":   {Name: "Bob", beWho: true, Offline: true},
 	}
 	beginBeWhoScan()
+	if players["Alice"].Offline {
+		t.Fatal("online player became offline while /be-who pages were pending")
+	}
 	for name, p := range players {
-		if !p.Offline {
-			t.Errorf("%s remained online at start of /be-who scan", name)
-		}
 		if p.beWho {
-			t.Errorf("%s retained stale /be-who membership", name)
+			t.Errorf("%s retained stale staged /be-who membership", name)
 		}
+	}
+
+	considerNextWhoBatch(20)
+	if players["Alice"].Offline || !whoActive {
+		t.Fatal("full /be-who page committed presence before pagination completed")
+	}
+	considerNextWhoBatch(0)
+	if !players["Alice"].Offline || whoActive {
+		t.Fatal("final /be-who page did not commit an omitted player offline")
+	}
+}
+
+func TestBeWhoScanPreservesNewerPresence(t *testing.T) {
+	originalWhoScanStarted := whoScanStarted
+	t.Cleanup(func() { whoScanStarted = originalWhoScanStarted })
+
+	players = map[string]*Player{"Alice": {Name: "Alice", LastSeen: time.Now().Add(-time.Minute)}}
+	beginBeWhoScan()
+	players["Alice"].LastSeen = whoScanStarted.Add(time.Millisecond)
+	finishBeWhoScan()
+	if players["Alice"].Offline {
+		t.Fatal("activity observed during /be-who scan was overwritten at completion")
 	}
 }
 

@@ -193,8 +193,10 @@ type itemData struct {
 	SecretText    string
 	HideText      bool
 	CursorPos     int
-	// SelectableText allows a read-only text item to be drag-selected and copied.
+	// SelectableText allows text to be drag-selected and copied. EditableText is
+	// required separately for ITEM_TEXT values that accept keyboard changes.
 	SelectableText         bool
+	EditableText           bool
 	SelectStart, SelectEnd int
 	selecting              bool
 	// OnURLClick is called when a HTTP(S) URL in a text item is clicked.
@@ -251,8 +253,9 @@ type point struct {
 }
 
 type TextSpan struct {
-	Start int
-	End   int
+	Start          int
+	End            int
+	MatchTextColor bool
 }
 
 type flowType int

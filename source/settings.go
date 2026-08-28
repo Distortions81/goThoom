@@ -171,6 +171,7 @@ var gsdef settings = settings{
 	InventoryFontSize:       14,
 	PlayersFontSize:         14,
 	ShowRecentPlayers:       true,
+	PlayerShareIcons:        false,
 	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
 	BubbleLifetimeMode:      BubbleLifetimeModern,
@@ -382,6 +383,7 @@ type settings struct {
 	InventoryFontSize       float64
 	PlayersFontSize         float64
 	ShowRecentPlayers       bool
+	PlayerShareIcons        bool
 	PlayerGroups            customGroups
 	InventoryGroups         customGroups
 	AlternateRowBackgrounds bool

@@ -157,9 +157,9 @@ func playerSharingIcon(p Player) *ebiten.Image {
 	switch {
 	case p.Sharee && p.Sharing:
 		return mutual
-	case p.Sharee && !p.Sharing:
+	case p.Sharee:
 		return incoming
-	case p.Sharing && !p.Sharee:
+	case p.Sharing:
 		return outgoing
 	default:
 		return nil
@@ -239,6 +239,29 @@ func playerSharingTooltip(p Player) string {
 	default:
 		return ""
 	}
+}
+
+const playerShareIconRightMargin float32 = 8
+
+func playerShareIndicatorReservation(contentWidth float32) float32 {
+	if contentWidth <= 0 {
+		return 0
+	}
+	return contentWidth + playerShareIconRightMargin
+}
+
+func playerListNameStyle(p Player) uint8 {
+	style := styleRegular
+	if p.Sharing {
+		style |= styleBold
+	}
+	if p.SameClan {
+		style |= styleItalic
+	}
+	if p.Sharee {
+		style |= styleUnderline
+	}
+	return style
 }
 
 // defaultMobilePictID returns a fallback CL_Images mobile pict ID for the
@@ -469,39 +492,50 @@ func updatePlayersWindow() {
 		t, _ := eui.NewText()
 		t.Text = name
 		t.FontSize = float32(fontSize)
+		style := playerListNameStyle(p)
 		face := mainFont
-		if p.Sharing && p.Sharee {
+		switch style & (styleBold | styleItalic) {
+		case styleBoldItalic:
 			face = mainFontBoldItalic
-		} else if p.Sharing {
+		case styleBold:
 			face = mainFontBold
-		} else if p.Sharee {
+		case styleItalic:
 			face = mainFontItalic
 		}
 		t.Face = face
+		if style&styleUnderline != 0 {
+			t.Underlines = []eui.TextSpan{{Start: 0, End: len([]rune(p.Name)), MatchTextColor: true}}
+		}
 		if (p.Dead && !strings.EqualFold(p.Name, playerName)) || offline {
 			t.TextColor = eui.ColorVeryDarkGray
 			t.ForceTextColor = true
 		}
-		indicator := playerSharingIndicator(p)
-		shareIcon := playerSharingIcon(p)
-		indicatorWidth := float32(0)
-		if shareIcon != nil {
-			bounds := shareIcon.Bounds()
-			indicatorWidth = rowUnits*float32(bounds.Dx())/float32(bounds.Dy()) + 4
-		} else if indicator != "" {
-			if w, _ := text.Measure("↔", face, 0); w > 0 {
-				indicatorWidth = float32(math.Ceil(w/float64(ui))) + 8
+		indicator := ""
+		var shareIcon *ebiten.Image
+		shareContentWidth := float32(0)
+		if gs.PlayerShareIcons {
+			indicator = playerSharingIndicator(p)
+			shareIcon = playerSharingIcon(p)
+			switch {
+			case shareIcon != nil:
+				bounds := shareIcon.Bounds()
+				shareContentWidth = rowUnits*float32(bounds.Dx())/float32(bounds.Dy()) + 4
+			case indicator != "":
+				if w, _ := text.Measure("↔", face, 0); w > 0 {
+					shareContentWidth = float32(math.Ceil(w/float64(ui))) + 8
+				}
 			}
 		}
+		indicatorWidth := playerShareIndicatorReservation(shareContentWidth)
 		t.Size = eui.Point{X: clientWAvail - float32(iconSize*2) - 8 - indicatorWidth, Y: rowUnits}
 		// Click selects this player.
 		n := p.Name
 		t.Action = func() { handlePlayersClick(n) }
 		row.AddItem(t)
 
-		if indicatorWidth > 0 {
+		if shareContentWidth > 0 {
 			if shareIcon != nil {
-				shareItem, _ := eui.NewImageItem(int(math.Ceil(float64(indicatorWidth))), int(math.Ceil(float64(rowUnits))))
+				shareItem, _ := eui.NewImageItem(int(math.Ceil(float64(shareContentWidth))), int(math.Ceil(float64(rowUnits))))
 				shareItem.Image = shareIcon
 				shareItem.Filled = false
 				shareItem.Border = 0
@@ -514,11 +548,15 @@ func updatePlayersWindow() {
 				shareItem.Text = indicator
 				shareItem.FontSize = float32(fontSize)
 				shareItem.Face = face
-				shareItem.Size = eui.Point{X: indicatorWidth, Y: rowUnits}
+				shareItem.Size = eui.Point{X: shareContentWidth, Y: rowUnits}
 				shareItem.SetTooltip(playerSharingTooltip(p))
 				shareItem.Action = func() { handlePlayersClick(n) }
 				row.AddItem(shareItem)
 			}
+			spacer, _ := eui.NewText()
+			spacer.Fixed = true
+			spacer.Size = eui.Point{X: playerShareIconRightMargin, Y: rowUnits}
+			row.AddItem(spacer)
 		}
 
 		// Also allow clicking the row background to select.

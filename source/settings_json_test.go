@@ -85,6 +85,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.AssetActivityIndicators = true
 	want.MobileLightConeShadows = true
 	want.FasterCharacterShadows = true
+	want.PlayerShareIcons = true
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -112,6 +113,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"show_asset_activity_indicators": true`,
 		`"mobile_light_cone_shadows": true`,
 		`"faster_character_shadows": true`,
+		`"show_player_share_icons": true`,
 		`"shaders_enabled": true`,
 	} {
 		if !strings.Contains(text, expected) {

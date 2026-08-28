@@ -7,6 +7,7 @@ import (
 // Simple manager to coordinate multi-batch /be-who scans and throttle requests.
 var (
 	whoActive           bool
+	whoScanStarted      time.Time
 	whoLastRequest      time.Time
 	whoCooldown               = 1 * time.Second
 	whoLastCommandFrame int32 = -1
@@ -24,6 +25,7 @@ func considerNextWhoBatch(batchCount int) {
 	}
 	// Fewer than 20: end the scan.
 	whoActive = false
+	finishBeWhoScan()
 }
 
 // maybeEnqueueWho sets a pending /be-who when throttled and no other command

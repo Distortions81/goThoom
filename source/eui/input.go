@@ -372,7 +372,7 @@ func Update() error {
 		idx := selectedTextItem.cursorIndexAt(mpos)
 		if idx != selectedTextItem.SelectEnd {
 			selectedTextItem.SelectEnd = idx
-			if selectedTextItem.ItemType == ITEM_INPUT || (selectedTextItem.ItemType == ITEM_TEXT && selectedTextItem.Filled) {
+			if itemAcceptsTextEditing(selectedTextItem) {
 				selectedTextItem.CursorPos = idx
 			}
 			selectedTextItem.markDirty()
@@ -394,6 +394,12 @@ func Update() error {
 		if selected := selectedTextItem.SelectedText(); selected != "" {
 			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(selected))
 		}
+	}
+
+	if focusedItem != nil && !itemAcceptsTextEditing(focusedItem) {
+		focusedItem.Focused = false
+		focusedItem.markDirty()
+		focusedItem = nil
 	}
 
 	if focusedItem != nil && !keyboardInputCaptured {
@@ -826,7 +832,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 			item.SelectEnd = idx
 			item.selecting = true
 			selectedTextItem = item
-			if item.ItemType == ITEM_INPUT || item.Filled {
+			if itemAcceptsTextEditing(item) {
 				focusedItem = item
 				item.CursorPos = idx
 				item.Focused = true
@@ -879,7 +885,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 			if item.Handler != nil {
 				item.Handler.Emit(UIEvent{Item: item, Type: EventRadioSelected, Checked: true})
 			}
-		} else if item.ItemType == ITEM_INPUT || (item.ItemType == ITEM_TEXT && item.Filled) {
+		} else if itemAcceptsTextEditing(item) {
 			focusedItem = item
 			focusedItem.CursorPos = item.cursorIndexAt(mpos)
 			item.Focused = true

@@ -15,3 +15,14 @@ func TestSelectedTextClampsToText(t *testing.T) {
 		t.Fatalf("SelectedText() = %q, want %q", got, want)
 	}
 }
+
+func TestFilledSelectableTextRemainsReadOnly(t *testing.T) {
+	item := &itemData{ItemType: ITEM_TEXT, Filled: true, SelectableText: true}
+	if itemAcceptsTextEditing(item) {
+		t.Fatal("filled read-only text was treated as editable")
+	}
+	item.EditableText = true
+	if !itemAcceptsTextEditing(item) {
+		t.Fatal("explicitly editable text was treated as read-only")
+	}
+}

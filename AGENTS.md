@@ -50,6 +50,38 @@ Use `go build` for a normal client compile. Also run `git diff --check` before
 handoff. Validate release or cross-platform changes with the relevant build
 script rather than assuming a normal Linux build covers them.
 
+## Release workflow
+
+- A release number must exist in both `source/data/versions.json` and
+  `source/data/changelog/<number>.txt` before it is tagged. Keep the versions
+  strictly increasing and use the current Clan Lord version for `CLVersion`.
+- Write the changelog as user-facing release notes covering changes since the
+  previous release. The same file is embedded in the client and published as
+  the GitHub release body.
+- Run the normal validation, commit the release metadata, and push it to
+  `main` before creating the release. Committing and pushing still require the
+  user's explicit permission.
+- Confirm `main` is clean and matches `origin/main`, and confirm the intended
+  tag and release do not already exist. Never reuse or force-move an existing
+  release tag.
+- Create a test release from the exact current commit, using the numbered
+  changelog for its initial notes. For example:
+
+  ```sh
+  release_number=44
+  release_tag="test${release_number}"
+  gh release create "$release_tag" \
+    --target "$(git rev-parse HEAD)" \
+    --title "$release_tag" \
+    --notes-file "source/data/changelog/${release_number}.txt"
+  ```
+
+- `.github/workflows/build-binaries.yml` validates that the numbered changelog
+  exists, synchronizes the GitHub release body from it, builds the archives,
+  and uploads the release assets.
+- After the release event triggers the build, report both the release URL and
+  workflow URL. Do not wait for the workflow to finish unless the user asks.
+
 ## Script API
 
 - Any function, type, variable, constant, or method exposed to scripts must

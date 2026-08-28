@@ -153,10 +153,11 @@ func mobileActuallyVisible(mobile frameMobile, desc frameDescriptor) bool {
 // snell and still count as online without entering the recent group.
 func markPlayersOnScreen(mobiles []frameMobile, descriptors map[uint8]frameDescriptor, now time.Time) {
 	changed := false
+	statusChanged := make([]Player, 0)
 	playersMu.Lock()
 	for _, mobile := range mobiles {
 		d, ok := descriptors[mobile.Index]
-		if !ok || d.Type == kDescNPC || d.Name == "" || !mobileActuallyVisible(mobile, d) {
+		if !ok || d.Type == kDescNPC || d.Name == "" || mobile.Persist {
 			continue
 		}
 		p, ok := players[d.Name]
@@ -164,6 +165,24 @@ func markPlayersOnScreen(mobiles []frameMobile, descriptors map[uint8]frameDescr
 			p = &Player{Name: d.Name}
 			players[d.Name] = p
 			changed = true
+		}
+		// The classic client treats the mobile style bits as server hints that
+		// refresh its Players-list sharing and clan flags. A descriptor with no
+		// custom colors does not carry those hints.
+		if len(d.Colors) != 0 {
+			sharing := mobile.Colors&styleBold != 0
+			sameClan := mobile.Colors&styleItalic != 0
+			if p.Sharing != sharing || p.SameClan != sameClan {
+				p.Sharing = sharing
+				p.SameClan = sameClan
+				playerCopy := *p
+				playerCopy.Colors = append([]byte(nil), p.Colors...)
+				statusChanged = append(statusChanged, playerCopy)
+				changed = true
+			}
+		}
+		if !mobileActuallyVisible(mobile, d) {
+			continue
 		}
 		age := now.Sub(p.LastOnScreen)
 		wasRecent := !p.Offline && !p.LastOnScreen.IsZero() && age >= 0 && age < recentPlayerWindow
@@ -177,6 +196,9 @@ func markPlayersOnScreen(mobiles []frameMobile, descriptors map[uint8]frameDescr
 	playersMu.Unlock()
 	if changed {
 		playersDirty = true
+	}
+	for _, p := range statusChanged {
+		notifyPlayerHandlers(p)
 	}
 }
 
@@ -214,13 +236,39 @@ func notifyPlayerHandlers(p Player) {
 	}
 }
 
-// beginBeWhoScan makes the server's new /be-who enumeration authoritative.
-// Entries returned by the scan are marked online again by parseBackendWho.
+// beginBeWhoScan starts staging a new authoritative /be-who enumeration.
+// Existing presence remains visible while paginated results arrive.
 func beginBeWhoScan() {
+	whoScanStarted = time.Now()
 	playersMu.Lock()
 	for _, p := range players {
 		p.beWho = false
-		p.Offline = true
 	}
 	playersMu.Unlock()
+}
+
+// finishBeWhoScan commits departures after the final page. Presence observed
+// by a login, share, descriptor, or visible mobile after the scan began wins
+// over an omission from the enumeration.
+func finishBeWhoScan() {
+	playersMu.Lock()
+	changed := make([]Player, 0)
+	for _, p := range players {
+		if p.beWho || p.Offline || p.LastSeen.After(whoScanStarted) {
+			continue
+		}
+		p.Offline = true
+		playerCopy := *p
+		playerCopy.Colors = append([]byte(nil), p.Colors...)
+		changed = append(changed, playerCopy)
+	}
+	playersMu.Unlock()
+	whoScanStarted = time.Time{}
+	if len(changed) == 0 {
+		return
+	}
+	playersDirty = true
+	for _, p := range changed {
+		notifyPlayerHandlers(p)
+	}
 }

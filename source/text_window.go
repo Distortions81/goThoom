@@ -240,6 +240,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			t.Size = eui.Point{X: contentWUnits, Y: inputContentH}
 			t.Filled = true
 			t.SelectableText = inputActive
+			t.EditableText = inputActive
 			t.Underlines = miss
 			input.AddItem(t)
 		} else {
@@ -251,6 +252,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			input.Contents[0].Size.X = contentWUnits
 			input.Contents[0].Size.Y = inputContentH
 			input.Contents[0].SelectableText = inputActive
+			input.Contents[0].EditableText = inputActive
 			input.Contents[0].Underlines = miss
 		}
 		if scrollInput {

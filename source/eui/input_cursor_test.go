@@ -29,6 +29,7 @@ func TestCursorIndexAtText(t *testing.T) {
 	uiScale = 1
 	item, _ := NewText()
 	item.Filled = true
+	item.EditableText = true
 	item.DrawRect = rect{X0: 0, Y0: 0, X1: 200, Y1: 40}
 	item.FontSize = 12
 	item.Text = "hello\nworld"

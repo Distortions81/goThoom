@@ -64,10 +64,17 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}
         run: |
           tag="$RELEASE_TAG"
+          version="$(printf '%s\n' "$tag" | sed -nE 's/^[^0-9]*([0-9]+).*$/\1/p')"
+          notes="source/data/changelog/$version.txt"
+          if [ -z "$version" ] || [ ! -s "$notes" ]; then
+            echo "Missing changelog for release tag $tag: $notes" >&2
+            exit 1
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes-file "$notes"
             gh release upload "$tag" dist/*.zip dist/SHA256SUMS.txt --clobber
           else
             gh release create "$tag" dist/*.zip dist/SHA256SUMS.txt \
               --title "$tag" \
-              --notes "Automated goThoom build for $tag"
+              --notes-file "$notes"
           fi

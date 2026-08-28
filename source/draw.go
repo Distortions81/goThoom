@@ -80,8 +80,8 @@ func reuseCachedNameTag(m *frameMobile, previous map[uint8]frameMobile, key name
 
 const (
 	styleRegular    uint8 = 0
-	styleBold       uint8 = 1
-	styleItalic     uint8 = 2
+	styleBold       uint8 = 1 // mobile is sharing with us
+	styleItalic     uint8 = 2 // mobile is in our clan
 	styleUnderline  uint8 = 4
 	styleBoldItalic       = styleBold | styleItalic
 )

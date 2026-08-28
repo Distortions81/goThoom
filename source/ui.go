@@ -4476,6 +4476,19 @@ func makeSettingsWindow() {
 	}
 	textSizeSection.AddItem(recentPlayersCB)
 
+	shareIconsCB, shareIconsEvents := eui.NewCheckbox()
+	shareIconsCB.Text = "Show sharing icons in Players list"
+	shareIconsCB.Size = eui.Point{X: panelWidth, Y: 24}
+	shareIconsCB.Checked = gs.PlayerShareIcons
+	shareIconsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.PlayerShareIcons = ev.Checked
+			playersDirty = true
+			settingsDirty = true
+		}
+	}
+	textSizeSection.AddItem(shareIconsCB)
+
 	consoleFontSlider, consoleFontEvents := eui.NewSlider()
 	consoleFontSlider.Label = "Console Font Size"
 	consoleFontSlider.MinValue = 4

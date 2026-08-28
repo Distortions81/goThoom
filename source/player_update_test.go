@@ -61,13 +61,16 @@ func TestMarkPlayersOnScreenTracksCurrentSnellWithoutConstantRefresh(t *testing.
 
 	now := time.Unix(2000, 0)
 	players = map[string]*Player{"Bob": {Name: "Bob", Offline: true}}
-	mobiles := []frameMobile{{Index: 7}}
-	descriptors := map[uint8]frameDescriptor{7: {Index: 7, Name: "Bob"}}
+	mobiles := []frameMobile{{Index: 7, Colors: styleBoldItalic}}
+	descriptors := map[uint8]frameDescriptor{7: {Index: 7, Name: "Bob", Colors: []byte{1}}}
 
 	playersDirty = false
 	markPlayersOnScreen(mobiles, descriptors, now)
 	if players["Bob"].Offline || players["Bob"].LastOnScreen != now || !playersDirty {
 		t.Fatalf("first snell observation was not recorded: player=%+v dirty=%v", players["Bob"], playersDirty)
+	}
+	if !players["Bob"].Sharing || !players["Bob"].SameClan {
+		t.Fatalf("mobile style hints did not update Players-list flags: %+v", players["Bob"])
 	}
 
 	playersDirty = false
@@ -77,6 +80,32 @@ func TestMarkPlayersOnScreenTracksCurrentSnellWithoutConstantRefresh(t *testing.
 	}
 	if got := players["Bob"].LastOnScreen; got != now.Add(time.Second) {
 		t.Fatalf("continuous presence timestamp = %v", got)
+	}
+}
+
+func TestPlayerListNameStyleMatchesMobileNameStyle(t *testing.T) {
+	p := Player{Sharing: true, SameClan: true, Sharee: true}
+	if got, want := playerListNameStyle(p), styleBoldItalic|styleUnderline; got != want {
+		t.Fatalf("player-list style = %#x, want %#x", got, want)
+	}
+}
+
+func TestMobileWithoutColorDescriptorDoesNotClearPlayerListStyle(t *testing.T) {
+	originalPlayers := players
+	originalDirty := playersDirty
+	defer func() {
+		players = originalPlayers
+		playersDirty = originalDirty
+	}()
+
+	players = map[string]*Player{"Bob": {Name: "Bob", Sharing: true, SameClan: true}}
+	markPlayersOnScreen(
+		[]frameMobile{{Index: 7}},
+		map[uint8]frameDescriptor{7: {Index: 7, Name: "Bob"}},
+		time.Unix(4000, 0),
+	)
+	if !players["Bob"].Sharing || !players["Bob"].SameClan {
+		t.Fatalf("colorless descriptor cleared classic style flags: %+v", players["Bob"])
 	}
 }
 

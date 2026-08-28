@@ -1,0 +1,11 @@
+goThoom 43 changes since test42.
+
+New and improved:
+- Added an optional three-dot activity indicator for GPU, audio, and disk-loading work. It is off by default.
+- Rendered mobile name tags at display-native resolution for clearer text.
+- Added a default-off option for mobile light-cone shadows while the effect is being refined.
+
+Fixes:
+- Corrected login credential staging so password edits and Save Password changes do not leave stale credentials stuck in the login attempt.
+- Removed the full-frame room-artwork loading message that could flash during normal play; the last complete frame remains visible while loading.
+- Fixed faded obscuring sprites becoming brighter by applying opacity correctly to premultiplied colors.

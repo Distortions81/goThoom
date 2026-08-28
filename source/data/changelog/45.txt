@@ -1,0 +1,26 @@
+goThoom 45 changes since test43.
+
+New and improved:
+- Added Classic and Modern speech-bubble lifetime modes. Classic uses the original fixed eight-second delay; Modern uses the configurable base and per-word values.
+- Improved speech-bubble placement so bubbles prefer open quadrants, avoid mobiles and other bubbles, remain inside the playfield, and stay stable between rendered frames.
+- Restored speech bubbles, including off-screen bubbles, while playing movies recorded by compatible classic clients.
+- Added draw-order-aware detailed character shadows so foreground artwork and later mobiles naturally cover shadows. The optional Faster Character Shadows mode retains the previous batched behavior.
+- Matched classic name-tag styling by honoring the server's bold and italic bits and underlining sharees.
+- Matched the classic Players-list rules: bold for players sharing with you, italic for clanmates, and underline for players you share to. Live mobile hints refresh the sharing and clan flags without becoming stale off-screen.
+- Made Player-row sharing icons optional and off by default. When enabled, they retain comfortable spacing from the list's right edge.
+
+Classic client compatibility:
+- Normal speech now uses says, asks, or exclaims according to its terminal punctuation, and BEPP display and player-info messages follow classic routing.
+- Pictureless descriptors use the classic fallback artwork, and explicit shadow pictures obey the server's shadow and night state.
+- Live frame sequencing now rejects stale frames, requests missing state, and waits for recovered state before applying dependent updates.
+- Commands are retained and retried until the server acknowledges them. Inventory and equipment state now remain authoritative to the server response.
+
+Fixes:
+- Fixed zero-night interpolation retaining stale darkness endpoints, which made ordinary lights repeatedly fade a dark cast in and out between game updates.
+- Fixed overlapping detailed character shadows multiplying darkness when their casters and foreground artwork interleave.
+- Fixed the online Players list alternating between partial sets while a paginated `/be-who` refresh was in progress.
+- Fixed selectable Chat, Console, and other message output becoming editable on alternating-background rows. Read-only text can still be selected and copied.
+
+Technical changes:
+- Added focused protocol, command acknowledgement, inventory, movie, bubble, classic rendering, shadow ordering, and night-interpolation regression coverage.
+- Removed the unused sizedwaitgroup dependency and made night render tests copy state without copying a mutex.

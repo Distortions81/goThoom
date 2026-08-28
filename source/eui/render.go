@@ -1649,11 +1649,15 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 				w, _ := text.Measure(word, face, 0)
 				baseY := offset.Y + float32(line)*lineSpacing + float32(metrics.HAscent)
 				y := baseY + 1
+				underlineColor := color.Color(color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})
+				if ul.MatchTextColor {
+					underlineColor = tcolor
+				}
 				vector.StrokeLine(subImg,
 					offset.X+float32(x0), y,
 					offset.X+float32(x0+w), y,
 					1,
-					color.NRGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF}, true)
+					underlineColor, true)
 			}
 		}
 
