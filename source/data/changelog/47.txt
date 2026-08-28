@@ -3,12 +3,22 @@ goThoom 47 changes since test46.
 New and improved:
 - Simplified the Scripts and Legacy Macros windows into resizable lists with compact info controls and stable scrolling while enabling or disabling entries.
 - Added persistent per-player and global script selections, stored alongside the scripts without placing personal settings under version control.
-- Embedded the example scripts so an empty Scripts folder is populated automatically without overwriting existing files.
+- Embedded the example scripts so an empty Scripts folder is populated automatically without overwriting existing scripts.
 - Added an option for characters to receive shadows cast by other characters in direct sunlight.
-- Added a searchable command palette for settings, windows, scripts, player actions, and commands, available from the toolbar or Ctrl+Shift+P.
+- Added a searchable command palette for settings, windows, scripts, player actions, and commands, available from the toolbar or Ctrl-Shift-P.
 - Added `/setting search`, `get`, `set`, and `reset` commands for inspecting and changing settings by name.
 - Added optional per-character profiles for window layout, appearance, rendering, audio, notifications, and related settings; logins use shared global settings by default.
-- Added an extensive online user manual, opened directly from the toolbar Help button.
+- Expanded character management on the Login window with Add, Edit, and Delete controls. Editing can change the password, password saving, and whether settings are kept separate.
+- Added the Free Demo as the final character-list entry with its classic newbie-brown appearance.
+- Improved the startup screen with clearer progress, activity details, cleaner alignment, and a test delay flag for inspecting it.
+- Added an extensive online user manual and a dedicated downloads page with current release notes and access to the complete release history.
+
+Files and upgrades:
+- Windows and Linux now keep settings, characters, scripts, macros, recordings, themes, logs, and downloaded assets in the platform user-data folder instead of beside the application. Existing portable data is copied once without deleting or overwriting the originals.
+- macOS continues using its existing `~/Library/Containers/com.goThoom.client` location.
+- Release ZIPs now contain only the executable or macOS app bundle; writable files and downloaded resources remain outside the application.
+- Extracted applications include the release number in their filename, such as `goThoom-47.exe`, `goThoom-47`, and `goThoom-47.app`.
+- Added an Advanced Settings button to open the active user-data folder, and made migrated or newly added custom themes appear in the theme selectors.
 
 Fixes:
 - Fixed the bundled Rank Decoder script so matching rank messages produce console output and notifications, including when chat bubbles are routed to the Console.
@@ -18,7 +28,11 @@ Fixes:
 - Prevented movie playback from starting while connected to or connecting with the game server.
 - Suppressed notification prompts, desktop notifications, notification beeps, and think-message overlays while seeking through movies.
 - Kept contact shadows visible near character and scenery light sources.
+- Allowed characters to be added without a password so the password can be requested when connecting.
+- Removed unnecessary outer scrollbars from confirmation and error popups, including Confirm Quit.
+- Kept the startup screen on the embedded goThoom artwork even when the Clan Lord splash option or a custom in-game splash is active.
+- Updated the in-client update action to open the goThoom downloads page.
 
 Technical changes:
-- Added regression coverage for script persistence and embedded examples, macro and script window layout, rank-message delivery, character shadow interaction, movie connection isolation, and time-of-day reset behavior.
+- Added regression coverage for script persistence and embedded examples, macro and script window layout, rank-message delivery, character shadow interaction, movie connection isolation, time-of-day reset, login layout and demo behavior, optional passwords, startup progress, popup sizing, data migration, and custom theme discovery.
 - Reorganized ignored build outputs, caches, downloaded resources, user state, logs, and local development files.
