@@ -33,6 +33,8 @@ import (
 
 const cval = 1000
 
+const userManualURL = "https://gothoom.m45sci.xyz/help"
+
 var (
 	TOP_RIGHT = eui.Point{X: cval, Y: 0}
 	TOP_LEFT  = eui.Point{X: 0, Y: 0}
@@ -54,12 +56,15 @@ var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
 var addCharRemember bool
+var addCharProfile bool
+var addCharProfileCB *eui.ItemData
 var passWin *eui.WindowData
 var passInput *eui.ItemData
 var passWarn *eui.ItemData
 var passPrev string
 var passRemember bool
 var passRememberCB *eui.ItemData
+var loginProfileCB *eui.ItemData
 
 var changelogWin *eui.WindowData
 
@@ -515,11 +520,14 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
+	helpBtn.SetTooltip("Open the goThoom user manual in your browser.")
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
 	helpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			toggleHelpWindow(ev.Item)
+			if err := open.Run(userManualURL); err != nil {
+				consoleMessage("open user manual: " + err.Error())
+			}
 		}
 	}
 	row2.AddItem(helpBtn)
@@ -890,10 +898,7 @@ func refreshscriptsWindow() {
 			allCB.Size = checkSize
 			// Consider LastCharacter before login so the per-character
 			// checkbox reflects the saved preference.
-			effChar := playerName
-			if effChar == "" {
-				effChar = gs.LastCharacter
-			}
+			effChar := effectiveCharacterName()
 			label := e.name
 			if e.sub != "" {
 				label += " [" + e.sub + "]"
@@ -2878,8 +2883,7 @@ func updateCharacterButtons() {
 					name = nameCopy
 					passHash = savedHashCopy
 					pass = ""
-					gs.LastCharacter = nameCopy
-					saveSettings()
+					switchCharacterProfile(nameCopy)
 					// Rebuild the list so only the selected radio is checked
 					// across all rows and refresh the login UI immediately.
 					updateCharacterButtons()
@@ -2904,6 +2908,16 @@ func updateCharacterButtons() {
 			row.AddItem(trash)
 			charactersList.AddItem(row)
 		}
+	}
+	if loginProfileCB != nil {
+		loginProfileCB.Disabled = name == ""
+		loginProfileCB.Checked = name != "" && characterProfileEnabled(name)
+		if name == "" {
+			loginProfileCB.Text = "Use per-character settings"
+		} else {
+			loginProfileCB.Text = "Use " + name + "'s settings profile"
+		}
+		loginProfileCB.Dirty = true
 	}
 	// Preserve window position while contents change size
 	// Restore prior scroll position to keep the user's place.
@@ -2962,6 +2976,20 @@ func makeAddCharacterWindow() {
 		}
 	}
 	flow.AddItem(rememberCB)
+
+	profileCB, profileEvents := eui.NewCheckbox()
+	addCharProfileCB = profileCB
+	profileCB.Text = "Use per-character settings"
+	profileCB.SetTooltip("Start this character with independent windows, appearance, audio, notifications, and related settings.")
+	profileCB.Size = eui.Point{X: 200, Y: 24}
+	profileCB.Checked = addCharProfile
+	profileEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			addCharProfile = ev.Checked
+		}
+	}
+	flow.AddItem(profileCB)
+
 	addBtn, addEvents := eui.NewButton()
 	addBtn.Text = "Add"
 	addBtn.Size = eui.Point{X: 200, Y: 24}
@@ -2996,8 +3024,8 @@ func makeAddCharacterWindow() {
 			name = characterName
 			passHash = hash
 			pass = ""
-			gs.LastCharacter = characterName
-			saveSettings()
+			setCharacterProfileEnabled(characterName, addCharProfile)
+			switchCharacterProfile(characterName)
 			// Ensure the login window is open before updating its contents
 			if loginWin != nil {
 				loginWin.MarkOpen()
@@ -3009,6 +3037,7 @@ func makeAddCharacterWindow() {
 			}
 			// Clear the add-character inputs for good UX on repeat adds
 			addCharName = ""
+			addCharProfile = false
 			clearPasswordInput(addCharPassInput, &addCharPass)
 			addCharPassPrev = ""
 			clearCapsWarnings()
@@ -3322,8 +3351,7 @@ func makeLoginWindow() {
 				passWin.MarkOpenNear(ev.Item)
 				return
 			}
-			gs.LastCharacter = name
-			saveSettings()
+			switchCharacterProfile(name)
 			startLogin()
 			updateCharacterButtons()
 		}
@@ -3383,9 +3411,28 @@ func makeLoginWindow() {
 			addCharPassPrev = ""
 			clearCapsWarnings()
 			addCharRemember = true
+			addCharProfile = false
+			if addCharProfileCB != nil {
+				addCharProfileCB.Checked = false
+				addCharProfileCB.Dirty = true
+			}
 			loginWin.Close()
 			addCharWin.MarkOpenNear(ev.Item)
 		}
+	}
+
+	profileCB, profileEvents := eui.NewCheckbox()
+	loginProfileCB = profileCB
+	profileCB.Text = "Use per-character settings"
+	profileCB.SetTooltip("Off uses the same settings for every login. Turn it on for independent windows, appearance, audio, notifications, and related settings.")
+	profileCB.Size = eui.Point{X: charWinWidth, Y: 24}
+	profileCB.Disabled = true
+	profileEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged || name == "" {
+			return
+		}
+		setCharacterProfileEnabled(name, ev.Checked)
+		updateCharacterButtons()
 	}
 
 	openBtn, openEvents := eui.NewButton()
@@ -3486,6 +3533,7 @@ func makeLoginWindow() {
 	label.Size = eui.Point{X: 1, Y: 25}
 	loginFlow.AddItem(label)
 	loginFlow.AddItem(charactersList)
+	loginFlow.AddItem(profileCB)
 	label, _ = eui.NewText()
 	label.Text = ""
 	label.FontSize = 15

@@ -139,6 +139,32 @@ func TestLoadCharacterRejectsInvalidSavedPasswordHash(t *testing.T) {
 	}
 }
 
+func TestRemoveCharacterClearsProfileEnablement(t *testing.T) {
+	originalDir := dataDirPath
+	originalCharacters := characters
+	originalSettings := gs
+	originalProfiles := characterProfiles
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() {
+		dataDirPath = originalDir
+		characters = originalCharacters
+		gs = originalSettings
+		characterProfiles = originalProfiles
+	})
+
+	characters = []Character{{Name: "Hero"}}
+	gs.LastCharacter = "Someone Else"
+	characterProfiles = characterProfilesDocument{
+		Version: characterProfilesVersion,
+		Enabled: map[string]bool{"hero": true},
+	}
+
+	removeCharacter("Hero")
+	if characterProfileEnabled("Hero") {
+		t.Fatal("removed login retained per-character profile enablement")
+	}
+}
+
 func TestBackfillCharactersFromPlayers(t *testing.T) {
 	dir := t.TempDir()
 	origDir := dataDirPath

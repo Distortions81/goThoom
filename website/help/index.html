@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#081019">
+    <meta name="description" content="The complete goThoom user manual: setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+
+    <title>User manual — goThoom</title>
+    <link rel="canonical" href="https://gothoom.m45sci.xyz/help">
+    <link rel="icon" type="image/png" href="../mark.png">
+    <link rel="stylesheet" href="../styles.css">
+
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="goThoom user manual">
+    <meta property="og:description" content="Setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+    <meta property="og:url" content="https://gothoom.m45sci.xyz/help">
+    <meta property="og:image" content="https://gothoom.m45sci.xyz/og.png">
+  </head>
+  <body class="manual-page">
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="goThoom home">
+        <img src="../mark.png" width="42" height="42" alt="">
+        <span>goThoom</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="../index.html#features">Features</a>
+        <a href="../index.html#platforms">Platforms</a>
+        <a href="../downloads.html">Downloads</a>
+        <a href="./" aria-current="page">Help</a>
+        <a href="https://discord.gg/47s254CbZB" target="_blank" rel="noopener noreferrer">Discord</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top" class="manual-main">
+      <section class="manual-hero" aria-labelledby="manual-title">
+        <div>
+          <a class="back-link" href="../index.html"><span aria-hidden="true">←</span> Back to goThoom</a>
+          <p class="eyebrow"><span></span> Player guide and reference</p>
+          <h1 id="manual-title">goThoom<br><em>user manual.</em></h1>
+          <p class="lede">Everything you need to enter the Lands, arrange the client, tune its sound and picture, automate common actions, and solve the usual problems.</p>
+        </div>
+        <aside class="manual-start-card" aria-labelledby="start-card-title">
+          <span class="status-dot" aria-hidden="true"></span>
+          <div>
+            <small id="start-card-title">New here?</small>
+            <strong>Start playing in a few minutes</strong>
+            <ol>
+              <li><a href="#install">Download and unpack goThoom</a></li>
+              <li><a href="#first-launch">Add your character</a></li>
+              <li><a href="#essentials">Learn the essential controls</a></li>
+            </ol>
+          </div>
+        </aside>
+      </section>
+
+      <details class="manual-mobile-toc">
+        <summary>On this page</summary>
+        <nav aria-label="Manual sections on mobile">
+          <a href="#getting-started">Getting started</a>
+          <a href="#essentials">Controls</a>
+          <a href="#interface">Interface &amp; windows</a>
+          <a href="#communication">Chat &amp; messages</a>
+          <a href="#players-inventory">Players &amp; inventory</a>
+          <a href="#settings">Settings &amp; profiles</a>
+          <a href="#audio">Audio &amp; notifications</a>
+          <a href="#automation">Hotkeys, scripts &amp; macros</a>
+          <a href="#movies">Movies &amp; screenshots</a>
+          <a href="#commands">Palette &amp; commands</a>
+          <a href="#files">Files &amp; customization</a>
+          <a href="#troubleshooting">Troubleshooting</a>
+        </nav>
+      </details>
+
+      <div class="manual-layout">
+        <aside class="manual-toc" aria-label="Manual sections">
+          <p>On this page</p>
+          <a href="#getting-started">Getting started</a>
+          <a href="#essentials">Controls</a>
+          <a href="#interface">Interface &amp; windows</a>
+          <a href="#communication">Chat &amp; messages</a>
+          <a href="#players-inventory">Players &amp; inventory</a>
+          <a href="#settings">Settings &amp; profiles</a>
+          <a href="#audio">Audio &amp; notifications</a>
+          <a href="#automation">Hotkeys, scripts &amp; macros</a>
+          <a href="#movies">Movies &amp; screenshots</a>
+          <a href="#commands">Palette &amp; commands</a>
+          <a href="#files">Files &amp; customization</a>
+          <a href="#troubleshooting">Troubleshooting</a>
+          <a class="toc-download" href="../downloads.html">Download goThoom <span aria-hidden="true">→</span></a>
+        </aside>
+
+        <article class="manual-content">
+          <section id="getting-started" class="manual-section">
+            <p class="manual-kicker">01 · Getting started</p>
+            <h2>From download to the Lands</h2>
+            <p>goThoom is a portable desktop client for Windows, macOS, and Linux. It does not use an installer: unpack it somewhere you can keep it, launch it, and allow it to download the current Clan Lord artwork and sounds.</p>
+
+            <h3 id="install">Install goThoom</h3>
+            <ol class="manual-steps">
+              <li><span>01</span><div><strong>Download your platform build</strong><p>Use the <a href="../downloads.html">downloads page</a> and choose the current Windows, macOS, or Linux archive.</p></div></li>
+              <li><span>02</span><div><strong>Extract the whole archive</strong><p>Do not run the executable from inside the ZIP. Keep the program and its accompanying files together.</p></div></li>
+              <li><span>03</span><div><strong>Launch goThoom</strong><p>The client checks its game resources and offers to download missing or outdated files. Keep it open until that process finishes.</p></div></li>
+            </ol>
+
+            <div class="manual-callout">
+              <strong>macOS first launch</strong>
+              <p>If macOS blocks the unsigned app, open System Settings → Privacy &amp; Security and choose to open it. goThoom keeps its writable data in its application container on macOS.</p>
+            </div>
+
+            <h3 id="first-launch">Add and connect a character</h3>
+            <p>In the Login window, select <strong>Add Character</strong>, enter the character name and password, and choose whether to remember the password. Leave <strong>Use per-character settings</strong> off to share the global client setup, or opt in when this login should have independent settings. Select the character and press <strong>Connect</strong>. If a saved character has no remembered password, goThoom asks for it when you connect.</p>
+            <p><strong>Remember Password</strong> is a convenience feature stored in the local client data. It is not an operating-system password vault. Anyone who can read those files should be treated as having access to the saved login.</p>
+            <p>Use the trash control beside a character to remove it from the local list. This only removes the local entry; it does not delete the Clan Lord account.</p>
+
+            <h3>First-run setup wizard</h3>
+            <p>The setup wizard previews layout, controls, graphics, and audio choices. You can run it again later from <strong>Settings → Setup Wizard</strong>; reopening it does not reset everything first. If performance is poor, start with a lower graphics preset and add effects afterward.</p>
+          </section>
+
+          <section id="essentials" class="manual-section">
+            <p class="manual-kicker">02 · Essential controls</p>
+            <h2>The controls you will use constantly</h2>
+            <div class="manual-grid two-up">
+              <div class="manual-card">
+                <h3>Movement</h3>
+                <p>Left-click in the game view to walk toward the pointer. Enable <strong>Click-to-Toggle Walk</strong> if you prefer a click to establish a continuing target instead of holding the button.</p>
+                <p>Keyboard movement can be configured under Controls, including its speed. Gamepad walking and cursor sticks can be configured from <strong>Settings → Gamepad</strong>.</p>
+              </div>
+              <div class="manual-card">
+                <h3>Chat input</h3>
+                <p>Press <kbd>Enter</kbd> to begin typing and <kbd>Enter</kbd> again to send. <kbd>Esc</kbd> cancels. <kbd>↑</kbd> and <kbd>↓</kbd> browse sent-message history.</p>
+                <p>While typing, <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes and <kbd>Ctrl</kbd>+<kbd>C</kbd> copies the entire input line.</p>
+              </div>
+              <div class="manual-card">
+                <h3>Scrolling and windows</h3>
+                <p>Use the mouse wheel over a list or text window. Drag window titles to move freeform windows and drag their edges to resize them. In tiled mode, drag the dividers between panes.</p>
+              </div>
+              <div class="manual-card">
+                <h3>Command palette</h3>
+                <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> or click <strong>Palette</strong>. Type to filter, use <kbd>↑</kbd>/<kbd>↓</kbd>, press <kbd>Enter</kbd> to run, or <kbd>Esc</kbd> to close.</p>
+              </div>
+            </div>
+
+            <h3>Pointer actions at a glance</h3>
+            <div class="manual-table-wrap">
+              <table>
+                <thead><tr><th>Where</th><th>Action</th><th>Result</th></tr></thead>
+                <tbody>
+                  <tr><td>Game</td><td>Left-click</td><td>Walk toward the pointer.</td></tr>
+                  <tr><td>Inventory item</td><td>Single-click</td><td>Select the item.</td></tr>
+                  <tr><td>Inventory item</td><td>Double-click</td><td>Equip or unequip it.</td></tr>
+                  <tr><td>Inventory item</td><td>Shift + double-click</td><td>Use the item.</td></tr>
+                  <tr><td>Inventory item</td><td>Right-click</td><td>Open Equip/Unequip, Examine, Show, and Drop actions.</td></tr>
+                  <tr><td>Player</td><td>Single-click</td><td>Select the player.</td></tr>
+                  <tr><td>Player</td><td>Right-click</td><td>Open common player actions.</td></tr>
+                  <tr><td>Chat/Console line</td><td>Right-click</td><td>Copy that line.</td></tr>
+                  <tr><td>Input bar</td><td>Right-click</td><td>Paste, copy the line, or clear it.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>Sliders</h3>
+            <p>Drag normally for broad adjustments. Hold <kbd>Shift</kbd> to snap to whole numbers, or hold <kbd>Ctrl</kbd> for fine movement at one-eighth speed.</p>
+          </section>
+
+          <section id="interface" class="manual-section">
+            <p class="manual-kicker">03 · Interface and windows</p>
+            <h2>Make the client fit the way you play</h2>
+
+            <h3>The toolbar</h3>
+            <div class="manual-table-wrap">
+              <table>
+                <thead><tr><th>Control</th><th>What it opens or does</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Windows</strong></td><td>Shows or hides Players, Inventory, Chat, Console, and the compact in-client Help window; also resets the layout.</td></tr>
+                  <tr><td><strong>Settings</strong></td><td>Opens the main settings categories.</td></tr>
+                  <tr><td><strong>Actions</strong></td><td>Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data.</td></tr>
+                  <tr><td><strong>Audio</strong></td><td>Opens the live mixer for master, game, music, TTS, notification, and enhancement levels.</td></tr>
+                  <tr><td><strong>Record</strong></td><td>Starts or stops a <code>.clMov</code> session recording. When disconnected, it arms recording for the next connection.</td></tr>
+                  <tr><td><strong>Help</strong></td><td>Opens this full manual in your web browser.</td></tr>
+                  <tr><td><strong>Snapshot</strong></td><td>Saves the visible game view as a PNG in <code>data/Screenshots</code>.</td></tr>
+                  <tr><td><strong>Palette</strong></td><td>Searches settings, windows, scripts, player actions, and commands.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>Tiled layout</h3>
+            <p>Tiled mode keeps the Game, Inventory, Players, Console, and optional Chat windows aligned as a workspace. The centered layout places the game between two side columns; the alternate layout puts the game on one side of a shared panel.</p>
+            <ul>
+              <li>Drag a divider to resize neighboring tiles.</li>
+              <li>With <strong>Keep game window large</strong>, dragging either side of the centered Game repositions the fixed-size game pane and both dividers together.</li>
+              <li>Open <strong>Settings → Window &amp; Display → Tiled Layout</strong> to swap Inventory and Players, choose message placement, combine Chat with Console, or choose the game side.</li>
+              <li>The toolbar can live inside Inventory or Players.</li>
+            </ul>
+
+            <h3>Freeform layout</h3>
+            <p>Turn off <strong>Use tiled window layout</strong> to move and resize the primary windows independently. Window snapping and shadows are optional. goThoom remembers window positions, sizes, and open states. Use <strong>Windows → Reset Windows</strong> if a panel ends up off-screen or the layout becomes awkward.</p>
+
+            <h3>Text, scale, and fullscreen</h3>
+            <p><strong>Settings → Window &amp; Display</strong> controls UI scale, fullscreen, text sizes, and display behavior. Automatic HiDPI scaling follows the monitor scale; the manual UI scale lets you tune it further. Chat, Console, Inventory, Players, names, and bubbles have separate size controls.</p>
+          </section>
+
+          <section id="communication" class="manual-section">
+            <p class="manual-kicker">04 · Chat and messages</p>
+            <h2>Speak, review, copy, and notice</h2>
+            <p>Chat shows player-facing conversation while Console also carries client information, script output, diagnostics, and—by default—chat messages. Disable <strong>Combine chat + console</strong> in Tiled Layout if you want separate message panes.</p>
+            <ul>
+              <li>The input bar grows as the message wraps.</li>
+              <li>Right-click a Chat or Console line to copy it; the copied line briefly highlights.</li>
+              <li>Enable timestamps separately for Chat and Console and choose their format in settings.</li>
+              <li>Mentions of <code>@your-name</code> or <code>@your-profession</code> are highlighted and can play a distinct sound.</li>
+              <li>Message text colors, alternating rows, and font sizes can be customized.</li>
+            </ul>
+
+            <h3>Speech bubbles</h3>
+            <p><strong>Settings → Message Bubbles</strong> controls whether bubbles appear, how long they last, their scale and opacity, animation, and which message types or sources are shown. Modern lifetime uses a base duration plus time per word; Classic uses a fixed duration.</p>
+
+            <h3>Useful Clan Lord commands</h3>
+            <p>Commands begin with <code>/</code> or <code>\</code>. Common examples include <code>/think</code>, <code>/thinkto name message</code>, <code>/who</code>, <code>/info name</code>, <code>/share name</code>, <code>/unshare name</code>, <code>/equip item</code>, and <code>/useitem item</code>. Type <code>/help command</code> for the server’s help for a specific command.</p>
+            <p>For a broader list, see the repository’s <a href="https://github.com/Distortions81/goThoom/blob/main/docs/CommandsHelp.md">Clan Lord command reference</a>.</p>
+          </section>
+
+          <section id="players-inventory" class="manual-section">
+            <p class="manual-kicker">05 · Players and inventory</p>
+            <h2>Act without retyping every command</h2>
+
+            <h3>Players</h3>
+            <p>The Players window lists nearby or recently seen exiles. Its heading can show online and share summaries. A <code>&gt;</code> marks someone you share with, <code>&lt;</code> marks a sharee, and <code>*</code> marks someone in your clan.</p>
+            <p>Right-click a player for <strong>Thank, Curse, Anon Thank, Anon Curse, Share, Unshare, Info, Pull</strong>, or <strong>Push</strong>. The command palette can also search actions for the selected player. Recently seen players and share icons can be toggled in Settings.</p>
+
+            <h3>Inventory</h3>
+            <p>Select an item with one click. Double-click to equip or unequip it; Shift-double-click to use it. The right-click menu offers Equip/Unequip, Examine, Show, Drop, and Drop (Mine). When an inventory item has a hotkey, its key is displayed in brackets before the item name.</p>
+
+            <h3>Selected values in hotkeys</h3>
+            <p>User hotkeys can refer to context values such as <code>@selected.player</code>, <code>@selected.item</code>, <code>@hovered</code>, <code>@right.clicked</code>, <code>@equipped.left</code>, and other equipment slots. This makes reusable commands such as <code>/info @selected.player</code> practical.</p>
+          </section>
+
+          <section id="settings" class="manual-section">
+            <p class="manual-kicker">06 · Settings and profiles</p>
+            <h2>Choose the experience per character</h2>
+            <p>The main Settings window groups everyday controls into Window &amp; Display, Appearance, Controls, Graphics Quality, Chat &amp; Messages, Status Bars, World Visibility, Character Names, Speech Bubbles, Notifications, Text to Speech, and More Settings. Controls that need more room open a dedicated subwindow.</p>
+
+            <div class="manual-grid two-up">
+              <div class="manual-card"><h3>Appearance</h3><p>Choose interface themes, palettes, row styling, status bars, name tags, fonts, and speech bubble behavior.</p></div>
+              <div class="manual-card"><h3>Graphics</h3><p>Adjust artwork scaling, foreground fading, shadows, shader lighting, replacement effects, gamma, dither cleanup, and animation smoothing.</p></div>
+              <div class="manual-card"><h3>Controls</h3><p>Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and gamepad mapping.</p></div>
+              <div class="manual-card"><h3>Performance</h3><p>Control VSync, sound and artwork precaching, activity indicators, background power saving, and the low-VRAM Potato GPU mode.</p></div>
+            </div>
+
+            <h3>Quality presets</h3>
+            <p>Presets are good starting points, not permanent modes. Pick one that matches the machine, then change individual features. If the FPS display remains low, reduce artwork processing, lighting/shadows, animation blending, or render scale before lowering UI readability.</p>
+
+            <h3>Per-character profiles</h3>
+            <p>Settings are shared globally by default. On the Login screen, select a saved character and enable <strong>Use &lt;character&gt;'s settings profile</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
+            <p>Enabling a profile for the first time copies the current global setup. Turning it off immediately returns that login to the shared global setup without deleting its saved profile; turn it on again to restore the character’s prior choices. Changes are saved automatically.</p>
+            <p>The profiles and their opt-in state live in <code>data/profiles.json</code>. Script and macro enablement separately retain their explicit per-player/global selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
+
+            <div class="manual-callout warning">
+              <strong>Reset means reset</strong>
+              <p><strong>Reset All Settings</strong> intentionally restores defaults. If you only need to recover the layout, use <strong>Windows → Reset Windows</strong> instead.</p>
+            </div>
+          </section>
+
+          <section id="audio" class="manual-section">
+            <p class="manual-kicker">07 · Audio, TTS, and notifications</p>
+            <h2>Hear what matters at the right level</h2>
+
+            <h3>Mixer</h3>
+            <p>The <strong>Audio</strong> toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. <strong>Mute when unfocused</strong> is useful when switching to another app.</p>
+            <ul>
+              <li><strong>Throttle Repeated Sounds</strong> suppresses the same effect when it repeats in adjacent server updates.</li>
+              <li><strong>High quality resampling</strong> produces cleaner conversion at a higher CPU cost.</li>
+              <li>Sound-effect and music enhancement add width, ambience, and tonal processing to newly started audio.</li>
+              <li>A downloaded SoundFont improves MIDI-style music playback.</li>
+            </ul>
+
+            <h3>Text to speech</h3>
+            <p>Enable chat TTS, pick an installed Piper voice, and adjust voice speed and volume. Use <strong>Test TTS</strong> before relying on it. <strong>Download Files</strong> installs available Piper components and voices. The client combines nearby messages from the same speaker and limits its pending speech queue.</p>
+            <p><strong>Edit TTS corrections</strong> opens the data folder containing the generated substitution file. Add replacements there when a name or game term is consistently pronounced incorrectly.</p>
+
+            <h3>Notifications</h3>
+            <p>Notification Settings chooses which events matter—such as falling, recovering, shares, friends coming online, or mentions—and how they are delivered. You can configure on-screen duration, sound, volume, desktop prompts, and whether background mentions notify. Use <strong>Send Test Notification</strong> to verify the result.</p>
+          </section>
+
+          <section id="automation" class="manual-section">
+            <p class="manual-kicker">08 · Hotkeys, shortcuts, scripts, and macros</p>
+            <h2>Automate at the level you need</h2>
+
+            <h3>Hotkeys</h3>
+            <p>Open <strong>Actions → Hotkeys</strong> and press <strong>+</strong>. Give the hotkey a name, choose <strong>Record</strong>, press the desired keyboard or mouse combination, and add one or more commands. Script-provided hotkeys appear in the same window and can be individually enabled or disabled.</p>
+            <p>Use <strong>Actions → Keybindings</strong> to inspect active script and legacy-macro bindings in one place. <strong>Test Keyboard/Mouse</strong> shows the input names the client detects and helps diagnose unusual keyboards or mouse buttons.</p>
+
+            <h3>Text shortcuts</h3>
+            <p>Shortcuts expand the first word of an outgoing input line. For example, mapping <code>pp</code> to <code>/ponder </code> turns <code>pp hello</code> into <code>/ponder hello</code>. Shortcuts can be global, character-specific, or provided by a running script.</p>
+
+            <h3>Go scripts</h3>
+            <p>Open <strong>Actions → Scripts</strong>. The <strong>Player</strong> checkbox enables a script only for the selected character; <strong>Global</strong> enables it for every character. These choices are mutually exclusive. The information button shows metadata, validation or runtime errors, and actions available for that package.</p>
+            <ol>
+              <li>Use <strong>Open scripts folder</strong> and add a single <code>.go</code> file, a package folder, or a ZIP package.</li>
+              <li>If the Scripts folder is empty, goThoom seeds it with embedded examples. Existing files are never overwritten.</li>
+              <li>Press <strong>Refresh</strong> to rescan immediately. Enabled scripts normally reload when their files change.</li>
+              <li>If a reload fails, inspect the script’s information panel and Console. The last working copy continues when possible.</li>
+            </ol>
+            <p>Scripts can add commands, hotkeys, shortcuts, notifications, configuration fields, and toolbar controls. They run locally but can issue commands as your character, so read unfamiliar code before enabling it. Use <strong>Actions → Saved Data</strong> to inspect or clear script-owned persistent data.</p>
+            <p>For writing scripts, use the generated <code>README.md</code> and <code>gt2/API_REFERENCE.md</code> in the Scripts folder or read the <a href="https://github.com/Distortions81/goThoom/blob/main/source/script_library/README.md">online scripting guide</a>. The release page also provides a VS Code script template.</p>
+
+            <h3>Legacy macros</h3>
+            <p>Open <strong>Actions → Legacy Macros</strong>. Like scripts, a macro can be enabled for the selected player or globally. Use the information button for its description and diagnostics, <strong>Refresh List</strong> after adding or renaming files, and <strong>Reload Macros</strong> after editing enabled macros.</p>
+            <p>Add personal <code>.mac</code> files to <code>data/Macros/Library</code>. Embedded examples populate an empty library without replacing your work. Leave <strong>Allow continuous macros</strong> off unless a trusted classic macro intentionally loops without pausing or producing output; the default execution limit protects the client from runaway macros.</p>
+          </section>
+
+          <section id="movies" class="manual-section">
+            <p class="manual-kicker">09 · Movies, recording, and screenshots</p>
+            <h2>Capture a session and revisit any moment</h2>
+
+            <h3>Record</h3>
+            <p>Click <strong>Record</strong> while connected to begin, then click it again to finish. If you click it before connecting, recording is armed and begins after login. Recordings are written to <code>data/Movies</code> with the character and timestamp in the name.</p>
+            <p>Settings can auto-record every login session, ask what to do when a recording finishes, and compress a saved movie into ZIP. A recording is finalized when the session or app exits normally.</p>
+
+            <h3>Play and seek</h3>
+            <p>Disconnect first, return to Login, and choose <strong>Play movie file</strong>. goThoom accepts <code>.clMov</code> files and ZIP packages containing one. Movie playback never begins while a server connection or connection attempt is active.</p>
+            <ul>
+              <li>Drag the time slider to seek.</li>
+              <li>Skip backward or forward by 5 or 30 seconds.</li>
+              <li>Pause, resume, halve, double, or fine-tune playback speed.</li>
+              <li>Use <strong>Stop Seek</strong> to cancel a long rebuild.</li>
+              <li>Close Movie Controls or press Exit to return to Login.</li>
+            </ul>
+            <p>During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output.</p>
+
+            <h3>Screenshots</h3>
+            <p><strong>Snapshot</strong> captures only the visible game view—not the surrounding desktop—and writes a PNG to <code>data/Screenshots</code>. Debug Settings can temporarily hide mobiles or moving objects for specialized captures.</p>
+          </section>
+
+          <section id="commands" class="manual-section">
+            <p class="manual-kicker">10 · Palette and settings commands</p>
+            <h2>Reach almost anything from the keyboard</h2>
+
+            <h3>Command palette</h3>
+            <p>The palette searches by action name and descriptive text. It can open windows, jump to settings, enable or configure scripts, run player actions, and insert or execute commands. A selected-player action uses the player currently selected in the Players window.</p>
+
+            <h3>Text access to settings</h3>
+            <p>The local <code>/setting</code> commands let you discover and change settings from the input bar:</p>
+            <pre><code>/setting search shadows
+/setting get rendering.character_shadows
+/setting set rendering.character_shadows true
+/setting reset rendering.character_shadows</code></pre>
+            <p><code>search</code> accepts ordinary words and reports matching setting names. <code>get</code> prints the current value and accepted type. <code>set</code> parses the new value, applies it immediately, and saves it. <code>reset</code> restores that one setting to its default.</p>
+
+            <div class="manual-callout">
+              <strong>Unsure of the exact setting name?</strong>
+              <p>Start with <code>/setting search</code> and a visible label fragment, such as <code>volume</code>, <code>bubbles</code>, <code>tiled</code>, or <code>shadows</code>.</p>
+            </div>
+          </section>
+
+          <section id="files" class="manual-section">
+            <p class="manual-kicker">11 · Files and customization</p>
+            <h2>Know what belongs to you</h2>
+            <p>On Windows and Linux, the writable <code>data</code> folder is beside the goThoom executable. On macOS, it is in the goThoom application container. The safest way to find an editable location is to use the client’s <strong>Open scripts folder</strong> or data-folder controls instead of guessing a path.</p>
+
+            <div class="manual-table-wrap">
+              <table>
+                <thead><tr><th>Location</th><th>Purpose</th></tr></thead>
+                <tbody>
+                  <tr><td><code>data/settings.json</code></td><td>Global client settings and defaults used as the base for character profiles.</td></tr>
+                  <tr><td><code>data/profiles.json</code></td><td>Opt-in state and saved settings for logins that use a per-character profile.</td></tr>
+                  <tr><td><code>data/characters.json</code></td><td>Locally saved character entries and optional remembered login data.</td></tr>
+                  <tr><td><code>data/Scripts</code></td><td>Your Go scripts, generated author documentation, and script enablement file.</td></tr>
+                  <tr><td><code>data/Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>
+                  <tr><td><code>data/scripts/storage</code></td><td>Private persistent values owned by scripts.</td></tr>
+                  <tr><td><code>data/shortcuts</code></td><td>Global and character-specific text shortcuts.</td></tr>
+                  <tr><td><code>data/Movies</code></td><td>Recorded <code>.clMov</code> sessions and optional ZIPs.</td></tr>
+                  <tr><td><code>data/Screenshots</code></td><td>Snapshots captured from the toolbar.</td></tr>
+                  <tr><td><code>data/piper</code></td><td>Local text-to-speech program, voices, and support files.</td></tr>
+                  <tr><td><code>themes/palettes</code> and <code>themes/styles</code></td><td>Custom interface colors and styles, with generated examples and format notes.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>Custom background</h3>
+            <p>Place an image named <code>background.png</code> directly in <code>data</code> to replace the client background. Keep a backup of custom files before replacing or moving the application folder.</p>
+
+            <h3>Backups and upgrades</h3>
+            <p>Your <code>data</code>, <code>themes</code>, scripts, and macros contain the personalized parts worth backing up. When moving to a new portable build, copy your existing user data carefully and never replace newer downloaded game resources with an older bundle unless troubleshooting calls for it.</p>
+          </section>
+
+          <section id="troubleshooting" class="manual-section">
+            <p class="manual-kicker">12 · Troubleshooting</p>
+            <h2>Fast answers to common problems</h2>
+
+            <div class="manual-faq">
+              <details open>
+                <summary>The client cannot connect</summary>
+                <p>Confirm Clan Lord itself is available, then retry. goThoom automatically tries its configured server and a fallback when appropriate. Open Advanced Settings to verify the server address and use <strong>Ping Server</strong>. Firewalls must allow the client’s TCP and UDP traffic.</p>
+              </details>
+              <details>
+                <summary>Artwork or sound is missing</summary>
+                <p>Open <strong>Settings → Download Files</strong> and let resource checking finish. Ensure the client can write to its data folder and that security software has not quarantined the downloaded archives.</p>
+              </details>
+              <details>
+                <summary>A window is missing or off-screen</summary>
+                <p>Open <strong>Windows</strong> and enable the window. If it still cannot be reached, choose <strong>Reset Windows</strong>. This restores layout without resetting unrelated graphics, audio, or control settings.</p>
+              </details>
+              <details>
+                <summary>Scrolling jumps or does not reach the bottom</summary>
+                <p>Resize the window once and retry with the pointer directly over its list. If it persists in the current release, capture the window name, platform, UI scale, and exact steps and report it on GitHub or Discord.</p>
+              </details>
+              <details>
+                <summary>A script does nothing</summary>
+                <p>Open Scripts and confirm the correct Player or Global box is selected. Press Refresh, open the information panel, and read both validation/runtime errors and the Console. Check whether its trigger text, expected message source, or hotkey matches what the game actually produced.</p>
+              </details>
+              <details>
+                <summary>A macro key or script key does not fire</summary>
+                <p>Open <strong>Actions → Keybindings</strong> to see active bindings and their owners. Legacy macros and earlier registrations can shadow a later binding. Use <strong>Test Keyboard/Mouse</strong> to confirm the physical input name.</p>
+              </details>
+              <details>
+                <summary>Performance is poor</summary>
+                <p>Keep the FPS/UPS display visible while testing. Try the iGPU or lower quality preset, reduce shader lighting and shadows, lower artwork processing, and disable animation blending. Use Potato GPU only for limited-VRAM devices; it trades loading smoothness for reduced texture memory.</p>
+              </details>
+              <details>
+                <summary>Audio or TTS is silent</summary>
+                <p>Check master and channel toggles in Audio, focus muting, and the relevant volumes. For TTS, enable Chat TTS, install a Piper voice through Download Files, and press Test TTS. Review Console output for a missing voice or executable.</p>
+              </details>
+              <details>
+                <summary>A movie will not play</summary>
+                <p>Movie playback is intentionally blocked while connected or connecting. Disconnect, return to Login, and choose Play movie file. Supported inputs are <code>.clMov</code> and ZIP files containing a movie.</p>
+              </details>
+            </div>
+
+            <h3>When reporting a bug</h3>
+            <p>Include the goThoom release, operating system, what you expected, what happened, and the smallest repeatable sequence. Screenshots and relevant Console lines help. Do not post passwords, saved credential files, or private chat logs publicly.</p>
+            <div class="manual-actions">
+              <a class="button primary" href="https://github.com/Distortions81/goThoom/issues">Report an issue <span aria-hidden="true">↗</span></a>
+              <a class="button secondary" href="https://discord.gg/47s254CbZB" target="_blank" rel="noopener noreferrer">Ask on Discord <span aria-hidden="true">↗</span></a>
+              <a class="button secondary" href="#top">Back to top <span aria-hidden="true">↑</span></a>
+            </div>
+          </section>
+        </article>
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-brand"><img src="../mark.png" width="36" height="36" alt=""><strong>goThoom</strong></div>
+      <p>Independent open-source client. Clan Lord and its assets are property of Delta Tao Software.</p>
+      <div class="footer-links">
+        <a href="../downloads.html">Downloads</a>
+        <a href="https://discord.gg/47s254CbZB">Discord</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+        <a href="https://github.com/Distortions81/goThoom/blob/main/LICENSE">MIT License</a>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -673,6 +673,8 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	commitStagedPassword(name)
 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
+	profileCharacter := playerName
+	dispatchMainThread(func() { switchCharacterProfile(profileCharacter) })
 	scriptSessionLogin(playerName)
 	defer scriptSessionLogout(playerName)
 	updateConnectDialog("Loading macros...")

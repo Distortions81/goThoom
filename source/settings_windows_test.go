@@ -151,6 +151,24 @@ func TestApplyWindowStateDoesNotResizeFixedWindow(t *testing.T) {
 	}
 }
 
+func TestApplyWindowStateRestoresClosedVisibility(t *testing.T) {
+	originalW, originalH := eui.ScreenSize()
+	t.Cleanup(func() { eui.SetScreenSize(originalW, originalH) })
+	eui.SetScreenSize(1000, 800)
+
+	win := eui.NewWindow()
+	win.AddWindow(true)
+	t.Cleanup(func() { win.RemoveWindow() })
+	if !win.IsOpen() {
+		t.Fatal("test window did not open")
+	}
+
+	applyWindowState(win, &WindowState{Open: false})
+	if win.IsOpen() {
+		t.Fatal("closed profile window remained open")
+	}
+}
+
 func TestResetSavedWindowSettings(t *testing.T) {
 	original := gs
 	defer func() { gs = original }()

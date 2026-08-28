@@ -617,7 +617,7 @@ func setSettingFromText(entry settingsSchemaEntry, raw string) (string, error) {
 	formatted := formatCommandSettingValue(entry, field)
 	SettingsLock.Unlock()
 	if uiReady {
-		rebuildCommandSettingsWindows()
+		rebuildConfigurationWindows()
 	}
 	return formatted, nil
 }
@@ -625,7 +625,7 @@ func setSettingFromText(entry settingsSchemaEntry, raw string) (string, error) {
 // Settings controls store their displayed values in widgets, so refresh alone
 // cannot reflect a change made through a slash command. Rebuild the small
 // configuration windows and preserve which ones were open.
-func rebuildCommandSettingsWindows() {
+func rebuildConfigurationWindows() {
 	rebuild := func(win **eui.WindowData, makeWindow func()) {
 		if *win == nil {
 			return

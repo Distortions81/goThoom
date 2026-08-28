@@ -600,6 +600,7 @@ const settingsFile = "settings.json"
 
 func loadSettings() bool {
 	defer syncTTSBlocklist()
+	defer func() { gs = initializeCharacterProfiles(gs) }()
 	path := filepath.Join(dataDirPath, settingsFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -812,7 +813,7 @@ func saveSettings() {
 		// Skip disk writes in WASM; silently ignore.
 		return
 	}
-	data, err := marshalSettingsDocument(gs)
+	data, err := marshalSettingsDocument(settingsForSave())
 	if err != nil {
 		logError("save settings: %v", err)
 		return
@@ -967,6 +968,8 @@ func applyWindowState(win *eui.WindowData, st *WindowState) {
 	captureWindowRuntime(win, st)
 	if st.Open {
 		win.MarkOpen()
+	} else if win.IsOpen() {
+		win.Close()
 	}
 }
 

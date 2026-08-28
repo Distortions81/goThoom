@@ -7,6 +7,8 @@ New and improved:
 - Added an option for characters to receive shadows cast by other characters in direct sunlight.
 - Added a searchable command palette for settings, windows, scripts, player actions, and commands, available from the toolbar or Ctrl+Shift+P.
 - Added `/setting search`, `get`, `set`, and `reset` commands for inspecting and changing settings by name.
+- Added optional per-character profiles for window layout, appearance, rendering, audio, notifications, and related settings; logins use shared global settings by default.
+- Added an extensive online user manual, opened directly from the toolbar Help button.
 
 Fixes:
 - Fixed the bundled Rank Decoder script so matching rank messages produce console output and notifications, including when chat bubbles are routed to the Console.

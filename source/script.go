@@ -2484,10 +2484,7 @@ func applyEnabledScripts() {
 		}
 		// Enable when set to all, or when the scope includes the active
 		// character. If not logged in, fall back to LastCharacter.
-		effChar := playerName
-		if effChar == "" {
-			effChar = gs.LastCharacter
-		}
+		effChar := effectiveCharacterName()
 		shouldEnable := scope.enablesFor(effChar)
 		if disabled && shouldEnable {
 			enablescript(o)
@@ -2512,19 +2509,13 @@ func setscriptEnabled(owner string, char, all bool) {
 		s.All = true
 		s.Chars = nil
 	} else if char {
-		effChar := playerName
-		if effChar == "" {
-			effChar = gs.LastCharacter
-		}
+		effChar := effectiveCharacterName()
 		if effChar != "" {
 			s.All = false
 			s.addChar(effChar)
 		}
 	} else {
-		effChar := playerName
-		if effChar == "" {
-			effChar = gs.LastCharacter
-		}
+		effChar := effectiveCharacterName()
 		if effChar != "" {
 			s.removeChar(effChar)
 		} else {
@@ -3511,10 +3502,7 @@ func rescanScripts(scriptDirs []string) {
 			scriptDisabled[o] = !oldRunning[o]
 			continue
 		}
-		effChar := playerName
-		if effChar == "" {
-			effChar = gs.LastCharacter
-		}
+		effChar := effectiveCharacterName()
 		shouldEnable := newEnabled[o].enablesFor(effChar)
 		scriptDisabled[o] = !oldRunning[o]
 		activeHash, hasActiveHash := scriptActiveSourceHashes[o]
@@ -3569,10 +3557,7 @@ func loadScripts() {
 		info := scanned[o]
 		scriptNames[strings.ToLower(info.name)] = true
 		s := scriptEnabledFor[o]
-		effChar := playerName
-		if effChar == "" {
-			effChar = gs.LastCharacter
-		}
+		effChar := effectiveCharacterName()
 		invalid := info.invalid || info.apiVer != scriptAPICurrentVersion
 		disabled := invalid || !s.enablesFor(effChar)
 		scriptMu.Lock()

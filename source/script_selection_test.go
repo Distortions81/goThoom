@@ -8,6 +8,32 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+func TestEffectiveCharacterUsesSelectedProfileWhileOffline(t *testing.T) {
+	originalPlayer := playerName
+	originalLast := gs.LastCharacter
+	originalConn := tcpConn
+	originalLogin := loginInProgress
+	t.Cleanup(func() {
+		playerName = originalPlayer
+		gs.LastCharacter = originalLast
+		tcpConn = originalConn
+		loginInProgress = originalLogin
+	})
+
+	playerName = "Previous"
+	gs.LastCharacter = "Selected"
+	tcpConn = nil
+	loginInProgress = false
+	if got := effectiveCharacterName(); got != "Selected" {
+		t.Fatalf("offline effective character = %q, want Selected", got)
+	}
+
+	loginInProgress = true
+	if got := effectiveCharacterName(); got != "Previous" {
+		t.Fatalf("connecting effective character = %q, want Previous", got)
+	}
+}
+
 func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
 	playersMu.Lock()
 	originalPlayers := players

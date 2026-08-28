@@ -9,6 +9,7 @@ macOS, and Linux.
 
 [Download the latest release](https://github.com/Distortions81/goThoom/releases/latest)
 · [Website](https://gothoom.m45sci.xyz/)
+· [User manual](https://gothoom.m45sci.xyz/help)
 · [Video overview](https://youtu.be/MrGdcqIl3a4)
 
 <img src="dev-screenshots/tiled.png" alt="goThoom game client" />
@@ -51,8 +52,9 @@ for your computer.
 - **Audio:** Use the Mixer to control game, music, speech, and notification
   volume independently.
 
-The in-game Help window covers commands and controls in more detail. A command
-reference is also available in [docs/CommandsHelp.md](docs/CommandsHelp.md).
+The toolbar **Help** button opens the full online user manual. A compact guide
+remains available from **Windows → Help**, and a command reference is available
+in [docs/CommandsHelp.md](docs/CommandsHelp.md).
 
 ## Downloads and customization
 
@@ -70,6 +72,13 @@ You can also customize goThoom without modifying the program:
   texture limits, such as Raspberry Pi or older GPUs.
 
 ## Macros and scripts
+
+Settings are global by default. On the Login screen, select a character and
+enable **Use &lt;character&gt;'s settings profile** to give that login an independent
+window layout, appearance, rendering, audio, notifications, and related
+preferences. Character profiles are stored in `data/profiles.json`; the
+existing `enabled.json` files remain the source of truth for explicit
+per-character script and macro selections.
 
 ### Legacy macros
 

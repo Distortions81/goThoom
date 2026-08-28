@@ -32,6 +32,7 @@ source/data/Movies/
 
 # User configuration and state
 settings.json
+profiles.json
 characters.json
 GT_Players.json
 Players.xml

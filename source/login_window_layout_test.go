@@ -11,6 +11,7 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	initFont()
 	originalWindow := loginWin
 	originalList := charactersList
+	originalProfileCB := loginProfileCB
 	originalWidth, originalHeight := eui.ScreenSize()
 	loginWin = nil
 	eui.SetScreenSize(1200, 800)
@@ -20,6 +21,7 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 		}
 		loginWin = originalWindow
 		charactersList = originalList
+		loginProfileCB = originalProfileCB
 		eui.SetScreenSize(originalWidth, originalHeight)
 	})
 
@@ -37,6 +39,7 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	initFont()
 	originalWindow := loginWin
 	originalList := charactersList
+	originalProfileCB := loginProfileCB
 	originalCharacters := characters
 	originalName := name
 	originalPassHash := passHash
@@ -55,6 +58,7 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 		}
 		loginWin = originalWindow
 		charactersList = originalList
+		loginProfileCB = originalProfileCB
 		characters = originalCharacters
 		name = originalName
 		passHash = originalPassHash
@@ -70,5 +74,50 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 
 	if got := len(charactersList.Contents); got != len(characters) {
 		t.Fatalf("hidden login character rows = %d, want %d", got, len(characters))
+	}
+}
+
+func TestLoginProfileToggleFollowsSelectedCharacter(t *testing.T) {
+	initFont()
+	originalWindow := loginWin
+	originalList := charactersList
+	originalProfileCB := loginProfileCB
+	originalCharacters := characters
+	originalProfiles := characterProfiles
+	originalName := name
+	originalLastCharacter := gs.LastCharacter
+	loginWin = nil
+	charactersList = nil
+	loginProfileCB = nil
+	characters = []Character{{Name: "Alice"}, {Name: "Bob"}}
+	characterProfiles = characterProfilesDocument{
+		Version: characterProfilesVersion,
+		Enabled: map[string]bool{"alice": true},
+	}
+	name = "Alice"
+	gs.LastCharacter = "Alice"
+	t.Cleanup(func() {
+		if loginWin != nil {
+			loginWin.RemoveWindow()
+		}
+		loginWin = originalWindow
+		charactersList = originalList
+		loginProfileCB = originalProfileCB
+		characters = originalCharacters
+		characterProfiles = originalProfiles
+		name = originalName
+		gs.LastCharacter = originalLastCharacter
+	})
+
+	makeLoginWindow()
+	updateCharacterButtons()
+	if loginProfileCB == nil || loginProfileCB.Disabled || !loginProfileCB.Checked {
+		t.Fatal("enabled Alice profile was not shown on the Login window")
+	}
+
+	name = "Bob"
+	updateCharacterButtons()
+	if loginProfileCB.Disabled || loginProfileCB.Checked {
+		t.Fatal("Bob should use global settings by default")
 	}
 }
