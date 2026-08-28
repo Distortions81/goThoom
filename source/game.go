@@ -767,7 +767,20 @@ func (g *Game) Update() error {
 	legacyMacroBeginInputFrame()
 	keyboardTestBeginInputFrame()
 	eui.SetKeyboardInputCaptured(keyboardTestFrameActive)
+	paletteOpenAtFrameStart := commandPaletteWin != nil && commandPaletteWin.IsOpen()
 	eui.Update() //We really need this to return eaten clicks
+	paletteShortcut := !keyboardTestFrameActive && commandPaletteShortcutPressed()
+	paletteKeyboardActive := paletteOpenAtFrameStart || commandPaletteWin != nil && commandPaletteWin.IsOpen()
+	if paletteShortcut {
+		toggleCommandPalette()
+		paletteKeyboardActive = true
+	} else if paletteKeyboardActive && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		closeCommandPalette()
+	} else if paletteKeyboardActive && inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+		moveCommandPaletteSelection(1)
+	} else if paletteKeyboardActive && inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+		moveCommandPaletteSelection(-1)
+	}
 	ensureToolbarAccessible()
 	updateSetupWizardGraphicsDetection()
 	// Advance script tick waiters once per frame
@@ -777,8 +790,8 @@ func (g *Game) Update() error {
 	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.IsOpen() {
 		legacyMacroLibraryRefreshErrorsButton()
 	}
-	typingElsewhere := typingInUI()
-	if inputActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
+	typingElsewhere := typingInUI() || paletteKeyboardActive
+	if inputActive && !paletteKeyboardActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
 		item := inputFlow.Contents[0]
 		inputPos = plainCursorPos(item.Text, item.CursorPos)
 		plain := strings.ReplaceAll(item.Text, "\n", "")
@@ -799,7 +812,10 @@ func (g *Game) Update() error {
 	hy := int16(float64(my-worldOriginY)/worldScale - float64(fieldCenterY))
 	updateWorldHover(hx, hy)
 	updateHotkeyRecording()
-	consumedScriptInput := checkHotkeys()
+	consumedScriptInput := InputEvent{}
+	if !paletteKeyboardActive {
+		consumedScriptInput = checkHotkeys()
+	}
 
 	joyClick1, joyClick2, joyClick3 := false, false, false
 	if gs.JoystickEnabled && selectedJoystick >= 0 && selectedJoystick < len(joystickIDs) {
@@ -894,7 +910,7 @@ func (g *Game) Update() error {
 	/* Console input */
 	changedInput := false
 	textChanged := false
-	if typingElsewhere && inputActive {
+	if typingElsewhere && inputActive && !paletteKeyboardActive {
 		inputActive = false
 		inputText = inputText[:0]
 		inputPos = 0
@@ -902,7 +918,7 @@ func (g *Game) Update() error {
 		changedInput = true
 		textChanged = true
 	}
-	if inputActive {
+	if inputActive && !paletteKeyboardActive {
 		ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
 		if newChars := ebiten.AppendInputChars(nil); len(newChars) > 0 &&
 			!legacyMacroSuppressesTypedInput() && !scriptInputConsumesText(consumedScriptInput) {
@@ -1060,7 +1076,7 @@ func (g *Game) Update() error {
 			changedInput = true
 			textChanged = true
 		}
-	} else if !typingElsewhere {
+	} else if !inputActive && !typingElsewhere {
 		if !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			inputActive = true
 			inputText = inputText[:0]
@@ -1369,6 +1385,16 @@ func dispatchLocalCommand(txt string) bool {
 	}
 
 	lower := strings.ToLower(txt)
+	if strings.TrimSpace(lower) == "/palette" {
+		consoleMessage("> " + txt)
+		toggleCommandPalette()
+		return true
+	}
+	if strings.HasPrefix(lower, "/setting ") || strings.TrimSpace(lower) == "/setting" {
+		consoleMessage("> " + txt)
+		executeSettingCommand(strings.TrimSpace(txt[len("/setting"):]))
+		return true
+	}
 	if strings.HasPrefix(lower, "/testhooks") {
 		consoleMessage("> " + txt)
 		arg := strings.TrimSpace(txt[len("/testhooks"):])

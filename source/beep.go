@@ -55,7 +55,7 @@ var focusMuted bool
 // playBeep queues a short note using the given program and key. Notes that are
 // not embedded are rendered and cached by the notification sound worker.
 func playBeep(program, key int) {
-	if gs.Mute || focusMuted || !gs.GameSound {
+	if seekingMov || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
 	queueNotificationSound(notificationSoundRequest{program: program, key: key})
@@ -176,7 +176,7 @@ func notificationSoundRequestCurrent(request notificationSoundRequest) bool {
 // playHarpNotes renders and plays a short harp sequence using the provided
 // MIDI key values. Notes are spaced evenly.
 func playHarpNotes(keys ...int) {
-	if len(keys) == 0 || gs.Mute || focusMuted || !gs.GameSound {
+	if len(keys) == 0 || seekingMov || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
 	queueNotificationSound(notificationSoundRequest{keys: keys})

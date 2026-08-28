@@ -247,6 +247,22 @@ func ClearFocus(it *ItemData) {
 	}
 }
 
+// Focus gives keyboard focus to a text input. It is useful for transient
+// keyboard-driven windows that should be ready for typing as soon as opened.
+func Focus(it *ItemData) {
+	if it == nil || !itemAcceptsTextEditing(it) {
+		return
+	}
+	if focusedItem != nil && focusedItem != it {
+		focusedItem.Focused = false
+		focusedItem.markDirty()
+	}
+	focusedItem = it
+	it.CursorPos = len([]rune(it.Text))
+	it.Focused = true
+	it.markDirty()
+}
+
 // SetActiveSearchForTest sets the active search window for tests.
 // This helper mirrors logic used internally when a window's search box
 // is activated. It exists so external tests can simulate an active

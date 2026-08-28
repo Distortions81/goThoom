@@ -20,7 +20,7 @@ var notifications []*notification
 // enabled. Messages disappear after a timeout or when clicked.
 // Optional note keys can be provided to customize the notification sound.
 func showNotification(msg string, keys ...int) {
-	if isWASM {
+	if isWASM || seekingMov {
 		return
 	}
 	if !gs.Notifications || gameWin == nil {

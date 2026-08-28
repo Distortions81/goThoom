@@ -536,16 +536,17 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row2.AddItem(shotBtn)
 
-	exitSessBtn, exitSessEv := eui.NewButton()
-	exitSessBtn.Text = "Exit"
-	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	exitSessBtn.FontSize = toolFontSize
-	exitSessEv.Handle = func(ev eui.UIEvent) {
+	paletteBtn, paletteEvents := eui.NewButton()
+	paletteBtn.Text = "Palette"
+	paletteBtn.SetTooltip("Search settings, windows, scripts, player actions, and commands (Ctrl+Shift+P).")
+	paletteBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	paletteBtn.FontSize = toolFontSize
+	paletteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			confirmExitSession()
+			toggleCommandPalette()
 		}
 	}
-	row2.AddItem(exitSessBtn)
+	row2.AddItem(paletteBtn)
 
 	mixBtn, mixEvents := eui.NewButton()
 	mixBtn.Text = "Audio"

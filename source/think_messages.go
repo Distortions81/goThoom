@@ -23,7 +23,7 @@ var thinkMessages []*thinkMessage
 // showThinkMessage displays a temporary think message at the top of the screen.
 // msg should already include the sender's name.
 func showThinkMessage(msg string) {
-	if gameWin == nil {
+	if seekingMov || gameWin == nil {
 		return
 	}
 	playSound([]uint16{sndThinkTo})

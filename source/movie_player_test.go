@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"gothoom/eui"
 )
 
 func TestResetInterpolationClearsPositionHistory(t *testing.T) {
@@ -131,5 +133,32 @@ func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
 	}
 	if clmov != "offline.clMov" {
 		t.Fatalf("reserved movie path = %q, want offline.clMov", clmov)
+	}
+}
+
+func TestMovieSeekSuppressesTransientMessageCreation(t *testing.T) {
+	originalSeeking := seekingMov
+	originalSettings := gs
+	originalGameWin := gameWin
+	originalNotifications := notifications
+	originalThinkMessages := thinkMessages
+	t.Cleanup(func() {
+		seekingMov = originalSeeking
+		gs = originalSettings
+		gameWin = originalGameWin
+		notifications = originalNotifications
+		thinkMessages = originalThinkMessages
+	})
+
+	seekingMov = true
+	gs.Notifications = true
+	gameWin = eui.NewWindow()
+	notifications = nil
+	thinkMessages = nil
+	showNotification("replayed movie event")
+	showThinkMessage("Hardia thinks, replayed movie event")
+
+	if len(notifications) != 0 || len(thinkMessages) != 0 || len(gameWin.Contents) != 0 {
+		t.Fatal("movie seek created an in-game notification or think message")
 	}
 }

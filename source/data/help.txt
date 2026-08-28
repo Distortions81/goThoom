@@ -15,6 +15,7 @@ UI Navigation
 - Click the "Windows" button on the toolbar to open or close UI windows.
 - Click the "Actions" button on the toolbar for hotkeys, shortcuts, or scripts.
 - Click the "Audio" button to open the Mixer.
+- Click "Palette" or press Ctrl-Shift-P to search settings, windows, scripts, player actions, and commands. Type to filter, use Up/Down to select, and press Enter to run.
 - Mouse wheel scrolls lists and text windows.
 - Window positions, sizes, and open/closed state persist between runs.
 - Sliders: hold Shift to snap to integers; hold Ctrl for fine adjustment at 1/8 speed.
@@ -62,6 +63,7 @@ Extras
 ------
 - Custom background: place `background.png` in the `data/` directory.
 - Music test: `/play <instrument-number> <notes>` (e.g., `/play 10 cdefg`).
+- Settings commands: `/setting search <text>`, `/setting get <name>`, `/setting set <name> <value>`, and `/setting reset <name>`.
 
 Low-end Hardware
 ----------------
