@@ -3122,9 +3122,19 @@ func makePasswordWindow() {
 	passWin.AddWindow(false)
 }
 
+func reserveMoviePlayback(filename string) bool {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+	if tcpConn != nil || loginInProgress || clmov != "" || playingMovie {
+		return false
+	}
+	clmov = filename
+	return true
+}
+
 func startLogin() {
 	loginMu.Lock()
-	if loginInProgress || tcpConn != nil {
+	if loginInProgress || tcpConn != nil || clmov != "" || playingMovie {
 		loginMu.Unlock()
 		return
 	}
@@ -3396,7 +3406,10 @@ func makeLoginWindow() {
 			if filename == "" {
 				return
 			}
-			clmov = filename
+			if !reserveMoviePlayback(filename) {
+				makeErrorWindow("Disconnect from the server before playing a movie.")
+				return
+			}
 			loginWin.Close()
 			go func() {
 				drawStateEncrypted = false

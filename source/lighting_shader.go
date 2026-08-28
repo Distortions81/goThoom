@@ -32,7 +32,6 @@ var (
 	frameDarks               []darkSource
 	frameLightCasters        []lightCaster
 	frameLightShadows        []lightShadow
-	frameContactShadowLights []contactShadowLight
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
 	// Reused shader data to avoid per-frame allocations
 	lposX, lposY, linvRadiusSquared, lr, lg, lb, lint [maxLights]float32
@@ -262,13 +261,6 @@ type lightCaster struct {
 	X, Y                 float32
 	Radius               float32
 	LightExclusionRadius float32
-}
-
-type contactShadowLight struct {
-	X, Y       float32
-	Radius     float32
-	OwnerIndex uint8
-	HasOwner   bool
 }
 
 type lightShadow struct {
@@ -824,28 +816,6 @@ func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size,
 	addLightSource(pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
 }
 
-func addMobileContactShadowLight(pictID uint32, state, index uint8, x, y float64, size int) {
-	if !shaderLightingEnabled() || clImages == nil {
-		return
-	}
-	flags := clImages.Flags(pictID)
-	if flags&climg.PictDefFlagEmitsLight == 0 || flags&climg.PictDefFlagLightDarkcaster != 0 || !mobileLightEnabled(flags, state) {
-		return
-	}
-	li, ok := clImages.Lighting(pictID)
-	if !ok {
-		return
-	}
-	geometry := mobileLightGeometry(li.Radius, flags, size, state)
-	frameContactShadowLights = append(frameContactShadowLights, contactShadowLight{
-		X:          float32(x),
-		Y:          float32(y),
-		Radius:     geometry.radius * float32(gs.GameScale*lightRadiusScale),
-		OwnerIndex: index,
-		HasOwner:   true,
-	})
-}
-
 func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !shaderLightingEnabled() || clImages == nil {
 		return
@@ -861,38 +831,6 @@ func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, heigh
 	instanceKey := uint64(uint16(h))<<16 | uint64(uint16(v))
 	geometry := pictureLightGeometry(li.Radius, flags, width, height)
 	addLightSource(pictID, flags, li, geometry, instanceKey, x, y, logicalFrame, interpolation, bounds)
-}
-
-func addPictureContactShadowLight(pictID uint32, x, y float64, width, height int) {
-	if !shaderLightingEnabled() || clImages == nil {
-		return
-	}
-	flags := clImages.Flags(pictID)
-	if flags&climg.PictDefFlagEmitsLight == 0 || flags&climg.PictDefFlagLightDarkcaster != 0 {
-		return
-	}
-	li, ok := clImages.Lighting(pictID)
-	if !ok {
-		return
-	}
-	geometry := pictureLightGeometry(li.Radius, flags, width, height)
-	frameContactShadowLights = append(frameContactShadowLights, contactShadowLight{
-		X:      float32(x),
-		Y:      float32(y),
-		Radius: geometry.radius * float32(gs.GameScale*lightRadiusScale),
-	})
-}
-
-func contactShadowNearOtherLight(index uint8, x, y float32) bool {
-	for _, light := range frameContactShadowLights {
-		if light.HasOwner && light.OwnerIndex == index {
-			continue
-		}
-		if dist2(x, y, light.X, light.Y) <= light.Radius*light.Radius {
-			return true
-		}
-	}
-	return false
 }
 
 func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeometry, instanceKey uint64, x, y float64, logicalFrame int, interpolation float64, bounds image.Rectangle) {

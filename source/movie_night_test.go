@@ -125,3 +125,19 @@ func TestMovieSeekRestoresNightProjection(t *testing.T) {
 		t.Fatalf("movie seek retained projection: first=%+v second=%+v", first, second)
 	}
 }
+
+func TestResetNightStateDiscardsSessionTime(t *testing.T) {
+	originalNight := captureMovieNightState()
+	t.Cleanup(func() { restoreMovieNightState(originalNight) })
+
+	restoreMovieNightState(movieNightState{
+		baseLevel: 87, azimuth: -1, cloudy: true, flags: 3,
+		level: 62, shadows: 25, oldAzimuth: -2, redshift: 1.2,
+		startOfTwilight: 1234,
+	})
+	resetNightState()
+
+	if got := captureMovieNightState(); got != (movieNightState{}) {
+		t.Fatalf("night state after reset = %+v, want zero state", got)
+	}
+}

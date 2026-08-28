@@ -35,6 +35,22 @@ type NightInfo struct {
 
 var gNight NightInfo
 
+// resetNightState discards time-of-day information owned by the current live
+// session or movie. A subsequent source must establish its own lighting state.
+func resetNightState() {
+	gNight.mu.Lock()
+	gNight.BaseLevel = 0
+	gNight.Azimuth = 0
+	gNight.Cloudy = false
+	gNight.Flags = 0
+	gNight.Level = 0
+	gNight.Shadows = 0
+	gNight.oldAzimuth = 0
+	gNight.redshift = 0
+	gNight.startOfTwilight = 0
+	gNight.mu.Unlock()
+}
+
 var (
 	nightImg *ebiten.Image
 )

@@ -73,33 +73,6 @@ func TestMobileLightConeShadowSettingGatesCasters(t *testing.T) {
 	}
 }
 
-func TestContactShadowNearOtherLightExcludesOwner(t *testing.T) {
-	original := frameContactShadowLights
-	t.Cleanup(func() { frameContactShadowLights = original })
-
-	frameContactShadowLights = []contactShadowLight{
-		{X: 100, Y: 100, Radius: 50, OwnerIndex: 7, HasOwner: true},
-	}
-	if contactShadowNearOtherLight(7, 100, 100) {
-		t.Fatal("a character's own light suppressed its contact shadow")
-	}
-
-	frameContactShadowLights = append(frameContactShadowLights, contactShadowLight{X: 120, Y: 100, Radius: 30})
-	if !contactShadowNearOtherLight(7, 100, 100) {
-		t.Fatal("nearby scenery light did not suppress the contact shadow")
-	}
-	if contactShadowNearOtherLight(7, 200, 100) {
-		t.Fatal("distant light suppressed the contact shadow")
-	}
-
-	frameContactShadowLights = []contactShadowLight{
-		{X: 100, Y: 100, Radius: 50, OwnerIndex: 8, HasOwner: true},
-	}
-	if !contactShadowNearOtherLight(7, 100, 100) {
-		t.Fatal("another character's light did not suppress the contact shadow")
-	}
-}
-
 func TestBuildLightShadowsIncludesGlowTail(t *testing.T) {
 	lights := []lightSource{{X: 0, Y: 0, Radius: 80, Intensity: 1}}
 	// The shader radius is 100 after scaling. This caster is outside that

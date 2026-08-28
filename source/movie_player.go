@@ -413,6 +413,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 		updatePlayersWindow()
 		playersPersistDirty = false
 		playersDirty = false
+		resetNightState()
 		// Clear the selected movie path and reopen the login window.
 		clmov = ""
 		pcapPath = ""

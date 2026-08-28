@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"slices"
 	"testing"
 	"time"
@@ -94,5 +95,41 @@ func TestMovieCheckpointsStaySortedAcrossBackwardSeek(t *testing.T) {
 	}
 	if got := p.checkpointAtOrBefore(850).idx; got != 600 {
 		t.Fatalf("checkpointAtOrBefore(850) = %d, want 600", got)
+	}
+}
+
+func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	originalConn := tcpConn
+	originalCLMov := clmov
+	originalLoginInProgress := loginInProgress
+	originalPlayingMovie := playingMovie
+	t.Cleanup(func() {
+		tcpConn = originalConn
+		clmov = originalCLMov
+		loginInProgress = originalLoginInProgress
+		playingMovie = originalPlayingMovie
+	})
+
+	tcpConn = client
+	clmov = ""
+	loginInProgress = false
+	playingMovie = false
+	if reserveMoviePlayback("connected.clMov") {
+		t.Fatal("movie playback was reserved while connected to the server")
+	}
+	if clmov != "" {
+		t.Fatalf("movie path changed while connected: %q", clmov)
+	}
+
+	tcpConn = nil
+	if !reserveMoviePlayback("offline.clMov") {
+		t.Fatal("movie playback was rejected while disconnected")
+	}
+	if clmov != "offline.clMov" {
+		t.Fatalf("reserved movie path = %q, want offline.clMov", clmov)
 	}
 }

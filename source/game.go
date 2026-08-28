@@ -1742,7 +1742,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		frameDarks = frameDarks[:0]
 		frameLightCasters = frameLightCasters[:0]
 	}
-	frameContactShadowLights = frameContactShadowLights[:0]
 	beginReplacementEffects()
 
 	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
@@ -1757,9 +1756,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	dead := snap.deadMobs
 	var mobileSunShade [256]float32
 	shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
-	if !gs.hideMobiles && shadowKind == characterShadowContact {
-		collectContactShadowLights(ox, oy, snap, alpha)
-	}
 
 	for _, p := range negPics {
 		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
@@ -1911,40 +1907,6 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 	sceneArtworkRequests.archive = clImages
 	sceneArtworkRequests.valid = true
 	return prepared
-}
-
-func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {
-	if clImages == nil {
-		return
-	}
-	for _, mobile := range snap.mobiles {
-		desc, ok := snap.descriptors[mobile.Index]
-		if !ok {
-			continue
-		}
-		size := mobileSize(desc.PictID)
-		if size <= 0 {
-			continue
-		}
-		x, y := mobileScreenPositionFloat(ox, oy, mobile, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, maxMobileInterpPixels*(snap.dropped+1))
-		addMobileContactShadowLight(uint32(desc.PictID), mobile.State, mobile.Index, x, y, size)
-	}
-	collectPictures := func(pictures []framePicture) {
-		for _, picture := range pictures {
-			if gs.hideMoving && picture.Moving {
-				continue
-			}
-			w, h := clImages.Size(uint32(picture.PictID))
-			if frames := clImages.NumFrames(uint32(picture.PictID)); frames > 1 {
-				h /= frames
-			}
-			x, y := pictureScreenPositionFloat(ox, oy, picture, alpha, snap.mobiles, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, w, h)
-			addPictureContactShadowLight(uint32(picture.PictID), x, y, w, h)
-		}
-	}
-	collectPictures(snap.picsNeg)
-	collectPictures(snap.picsZero)
-	collectPictures(snap.picsPos)
 }
 
 func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) (int, int) {

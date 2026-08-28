@@ -750,9 +750,6 @@ func drawMobileContactShadow(screen *ebiten.Image, ox, oy int, mobile frameMobil
 	img = getScaledMobileFrame(key, img)
 	metrics := mobileSpriteMetricsFor(key, img)
 	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxDist)
-	if contactShadowNearOtherLight(mobile.Index, float32(x), float32(y)) {
-		return
-	}
 	drawContactShadow(screen, size, x, y, metrics.footFraction, shadowAlpha, shadowDarkenBlend)
 }
 

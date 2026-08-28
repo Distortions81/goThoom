@@ -165,6 +165,7 @@ func handleDisconnect() {
 	for i := range bucketTimes {
 		bucketTimes[i] = 0
 	}
+	resetNightState()
 	// Reset session sources so we return to splash state
 	clmov = ""
 	pcapPath = ""
