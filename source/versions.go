@@ -30,6 +30,7 @@ var (
 )
 
 const versionsURL = "https://m45sci.xyz/u/dist/goThoom/versions.json"
+const updateDownloadURL = "https://gothoom.m45sci.xyz/downloads.html"
 
 var uiReady bool
 
@@ -168,7 +169,7 @@ func checkForNewVersion() {
 				[]popupButton{
 					{Text: "Cancel"},
 					{Text: "Download", Action: func() {
-						browser.OpenURL("https://github.com/Distortions81/goThoom/releases")
+						browser.OpenURL(updateDownloadURL)
 						exitApplication(0)
 					}},
 				},

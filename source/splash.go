@@ -17,44 +17,46 @@ import (
 
 var splashPNG []byte
 
+var embeddedSplashImg *ebiten.Image
 var splashImg *ebiten.Image
 var backgroundImg *ebiten.Image
 
 func init() {
-	var selectedSplash image.Image
 	img, _, err := image.Decode(bytes.NewReader(splashPNG))
 	if err != nil {
 		log.Printf("decode splash: %v", err)
 	} else {
-		b := img.Bounds()
-		withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
-		draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
-		selectedSplash = withBorder
+		embeddedSplashImg = newManagedImageFromImage(splashWithBorder(img))
+		splashImg = embeddedSplashImg
 	}
 
 	if f, err := os.Open(filepath.Join("data", "splash.png")); err == nil {
-		defer f.Close()
 		if img, _, err := image.Decode(f); err == nil {
-			b := img.Bounds()
-			withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
-			draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
-			selectedSplash = withBorder
+			if splashImg != nil && splashImg != embeddedSplashImg {
+				splashImg.Deallocate()
+			}
+			splashImg = newManagedImageFromImage(splashWithBorder(img))
 		} else {
 			log.Printf("decode custom splash: %v", err)
 		}
-	}
-	if selectedSplash != nil {
-		splashImg = newManagedImageFromImage(selectedSplash)
+		_ = f.Close()
 	}
 
 	if f, err := os.Open(filepath.Join("data", "background.png")); err == nil {
-		defer f.Close()
 		if img, _, err := image.Decode(f); err == nil {
 			backgroundImg = newManagedImageFromImage(img)
 		} else {
 			log.Printf("decode background: %v", err)
 		}
+		_ = f.Close()
 	}
+}
+
+func splashWithBorder(img image.Image) image.Image {
+	b := img.Bounds()
+	withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
+	draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
+	return withBorder
 }
 
 func drawSplash(screen *ebiten.Image, ox, oy int) {

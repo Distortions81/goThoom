@@ -988,8 +988,8 @@ func TestRefreshLoginAfterAssetsAvailableRebuildsSelectedCharacterRows(t *testin
 
 	makeLoginWindow()
 	updateCharacterButtons()
-	if len(charactersList.Contents) != 1 {
-		t.Fatalf("character rows = %d, want 1", len(charactersList.Contents))
+	if len(charactersList.Contents) != 2 {
+		t.Fatalf("character rows = %d, want Demo Character plus Alice", len(charactersList.Contents))
 	}
 	originalRow := charactersList.Contents[0]
 
@@ -997,8 +997,8 @@ func TestRefreshLoginAfterAssetsAvailableRebuildsSelectedCharacterRows(t *testin
 	// first-run launch with no assets.
 	clImages = &climg.CLImages{}
 	refreshLoginAfterAssetsAvailable()
-	if len(charactersList.Contents) != 1 {
-		t.Fatalf("refreshed character rows = %d, want 1", len(charactersList.Contents))
+	if len(charactersList.Contents) != 2 {
+		t.Fatalf("refreshed character rows = %d, want Demo Character plus Alice", len(charactersList.Contents))
 	}
 	if charactersList.Contents[0] == originalRow {
 		t.Fatal("login character row was not rebuilt")

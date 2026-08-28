@@ -1736,12 +1736,16 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 	}
 
 	if item.Outlined && item.Border > 0 && item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO {
+		outlineColor := item.OutlineColor
+		if outlineColor == (Color{}) {
+			outlineColor = style.OutlineColor
+		}
 		drawRoundRect(subImg, &roundRect{
 			Size:     maxSize,
 			Position: offset,
 			Fillet:   item.Fillet,
 			Filled:   false,
-			Color:    style.OutlineColor,
+			Color:    outlineColor,
 			Border:   item.Border * uiScale,
 		})
 	}

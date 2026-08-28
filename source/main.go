@@ -88,6 +88,7 @@ func main() {
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
+	flag.DurationVar(&startupLoadingDelay, "startupDelay", 0, "minimum time to show each startup step (for example 1s)")
 	// Kept for existing launch scripts; UI Scale is now always in Settings.
 	_ = flag.Bool("uiscale", false, "deprecated: UI scaling options are always shown in Settings")
 	flag.StringVar(&brandSpriteOutput, "exportBrandSprite", "", "render the goThoom brand character to a transparent PNG and exit")

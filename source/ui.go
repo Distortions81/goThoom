@@ -69,6 +69,7 @@ var editCharRememberCB *eui.ItemData
 var editCharProfile bool
 var editCharProfileCB *eui.ItemData
 var editCharBtn *eui.ItemData
+var deleteCharBtn *eui.ItemData
 var passWin *eui.WindowData
 var passInput *eui.ItemData
 var passWarn *eui.ItemData
@@ -2767,7 +2768,42 @@ func optionalDownloadSelections(soundfontCB, ttsCB *eui.ItemData) (soundfont, tt
 	return soundfont, tts
 }
 
-const charWinWidth = 500
+const (
+	charWinWidth          = 500
+	freeDemoCharacterName = "-Demo Character-"
+	freeDemoSelection     = "\x00free-demo"
+)
+
+var newbieBrownColors = []byte{
+	135, 171, 1, 8, 15, 1, 7, 8, 1, 8,
+	15, 8, 15, 7, 1, 43, 1, 43, 36, 108,
+}
+
+type loginCharacterChoice struct {
+	character Character
+	selection string
+	demo      bool
+}
+
+func loginCharacterChoices() []loginCharacterChoice {
+	choices := make([]loginCharacterChoice, 0, len(characters)+1)
+	for _, character := range characters {
+		choices = append(choices, loginCharacterChoice{
+			character: character,
+			selection: character.Name,
+		})
+	}
+	choices = append(choices, loginCharacterChoice{
+		character: Character{
+			Name:   freeDemoCharacterName,
+			PictID: defaultMobilePictID(genderUnknown),
+			Colors: append([]byte(nil), newbieBrownColors...),
+		},
+		selection: freeDemoSelection,
+		demo:      true,
+	})
+	return choices
+}
 
 func refreshLoginAfterAssetsAvailable() {
 	if loginWin == nil {
@@ -2819,115 +2855,99 @@ func updateCharacterButtons() {
 			}
 			pass = ""
 		}
+		if name == "" && len(characters) == 0 {
+			name = freeDemoSelection
+			passHash = ""
+			pass = ""
+		}
 	}
 	for i := range charactersList.Contents {
 		charactersList.Contents[i] = nil
 	}
 	charactersList.Contents = charactersList.Contents[:0]
 
-	if len(characters) == 0 {
-		empty, _ := eui.NewText()
-		empty.Text = "No characters, click add!"
-		empty.FontSize = 14
-		empty.Size = eui.Point{X: charWinWidth, Y: 64}
-		charactersList.AddItem(empty)
-		name = ""
-		passHash = ""
-		pass = ""
-	} else {
-		for _, c := range characters {
-			row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	for _, choice := range loginCharacterChoices() {
+		c := choice.character
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
-			profItem, _ := eui.NewImageItem(48, 48)
-			profItem.Margin = 4
-			profItem.Border = 0
-			profItem.Filled = false
-			if pid := professionPictID(c.Profession); pid != 0 {
-				if img := loadImage(pid); img != nil {
-					profItem.Image = img
-					profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
-				}
+		profItem, _ := eui.NewImageItem(48, 48)
+		profItem.Margin = 4
+		profItem.Border = 0
+		profItem.Filled = false
+		if pid := professionPictID(c.Profession); pid != 0 {
+			if img := loadImage(pid); img != nil {
+				profItem.Image = img
+				profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
 			}
-			row.AddItem(profItem)
+		}
+		row.AddItem(profItem)
 
-			avItem, _ := eui.NewImageItem(48, 48)
-			avItem.Margin = 4
-			avItem.Border = 0
-			avItem.Filled = false
-			var img *ebiten.Image
-			if c.PictID != 0 {
-				if m := loadMobileFrame(c.PictID, 0, c.Colors); m != nil {
+		avItem, _ := eui.NewImageItem(48, 48)
+		avItem.Margin = 4
+		avItem.Border = 0
+		avItem.Filled = false
+		var img *ebiten.Image
+		if c.PictID != 0 {
+			if m := loadMobileFrame(c.PictID, 0, c.Colors); m != nil {
+				img = m
+			} else if im := loadImage(c.PictID); im != nil {
+				img = im
+			}
+		}
+		if img == nil {
+			if gid := defaultMobilePictID(genderUnknown); gid != 0 {
+				if m := loadMobileFrame(gid, 0, nil); m != nil {
 					img = m
-				} else if im := loadImage(c.PictID); im != nil {
+				} else if im := loadImage(gid); im != nil {
 					img = im
 				}
 			}
-			if img == nil {
-				if gid := defaultMobilePictID(genderUnknown); gid != 0 {
-					if m := loadMobileFrame(gid, 0, nil); m != nil {
-						img = m
-					} else if im := loadImage(gid); im != nil {
-						img = im
-					}
-				}
-			}
-			if img != nil {
-				avItem.Image = img
-			}
-			row.AddItem(avItem)
+		}
+		if img != nil {
+			avItem.Image = img
+		}
+		row.AddItem(avItem)
 
-			radio, radioEvents := eui.NewRadio()
-			radio.Text = c.Name
-			radio.RadioGroup = "characters"
-			radio.Size = eui.Point{X: 350, Y: 48}
-			radio.FontSize = 20
-			radio.Checked = name == c.Name
-			nameCopy := c.Name
-			savedHashCopy := c.passHash
-			hashCopy := savedHashCopy
+		radio, radioEvents := eui.NewRadio()
+		radio.Text = c.Name
+		radio.RadioGroup = "characters"
+		radio.Size = eui.Point{X: 374, Y: 48}
+		radio.FontSize = 20
+		radio.Checked = name == choice.selection
+		selectionCopy := choice.selection
+		demoCopy := choice.demo
+		savedHashCopy := c.passHash
+		hashCopy := savedHashCopy
+		if !choice.demo {
 			if stagedHash, ok := stagedPasswordHash(c.Name); ok {
 				hashCopy = stagedHash
 			}
-			if name == c.Name {
-				passHash = hashCopy
-				pass = ""
-			}
-			radioEvents.Handle = func(ev eui.UIEvent) {
-				if ev.Type == eui.EventRadioSelected {
-					discardStagedPassword()
-					name = nameCopy
-					passHash = savedHashCopy
-					pass = ""
-					switchCharacterProfile(nameCopy)
-					// Rebuild the list so only the selected radio is checked
-					// across all rows and refresh the login UI immediately.
-					updateCharacterButtons()
-					if loginWin != nil {
-						loginWin.Refresh()
-					}
-				}
-			}
-			row.AddItem(radio)
-
-			trash, trashEvents := eui.NewButton()
-			trash.Text = "X"
-			trash.Size = eui.Point{X: 24, Y: 24}
-			trash.Color = eui.ColorDarkRed
-			trash.HoverColor = eui.ColorRed
-			cCopy := c
-			trashEvents.Handle = func(ev eui.UIEvent) {
-				if ev.Type == eui.EventClick {
-					confirmRemoveCharacter(cCopy)
-				}
-			}
-			row.AddItem(trash)
-			charactersList.AddItem(row)
 		}
-	}
-	if editCharBtn != nil {
-		_, selected := selectedCharacter(name)
-		editCharBtn.Disabled = !selected
-		editCharBtn.Dirty = true
+		if name == choice.selection {
+			passHash = hashCopy
+			pass = ""
+		}
+		radioEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventRadioSelected {
+				discardStagedPassword()
+				name = selectionCopy
+				passHash = savedHashCopy
+				pass = ""
+				if demoCopy {
+					switchCharacterProfile("")
+				} else {
+					switchCharacterProfile(selectionCopy)
+				}
+				// Rebuild the list so only the selected radio is checked
+				// across all rows and refresh the login UI immediately.
+				updateCharacterButtons()
+				if loginWin != nil {
+					loginWin.Refresh()
+				}
+			}
+		}
+		row.AddItem(radio)
+		charactersList.AddItem(row)
 	}
 	// Preserve window position while contents change size
 	// Restore prior scroll position to keep the user's place.
@@ -2957,7 +2977,7 @@ func makeAddCharacterWindow() {
 	addCharNameInput = nameInput
 	flow.AddItem(nameInput)
 	passInput, passEvents := eui.NewInput()
-	passInput.Label = "Password"
+	passInput.Label = "Password (optional)"
 	passInput.TextPtr = &addCharPass
 	passInput.HideText = true
 	passInput.Size = eui.Point{X: 200, Y: 24}
@@ -3011,10 +3031,6 @@ func makeAddCharacterWindow() {
 				makeErrorWindow("Error: Add Character: character name is empty")
 				return
 			}
-			if addCharPass == "" {
-				makeErrorWindow("Error: Add Character: password is empty")
-				return
-			}
 			// Check for existing character names case-insensitively
 			exists := false
 			for i := range characters {
@@ -3029,7 +3045,7 @@ func makeAddCharacterWindow() {
 				characters = append(characters, Character{Name: characterName, DontRemember: true})
 			}
 			saveCharacters()
-			hash := stagePasswordUpdate(characterName, addCharPass, addCharRemember)
+			hash := stageAddedCharacterPassword(characterName, addCharPass, addCharRemember)
 			// Update selection to the newly added character
 			name = characterName
 			passHash = hash
@@ -3075,6 +3091,19 @@ func makeAddCharacterWindow() {
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
+}
+
+func stageAddedCharacterPassword(characterName, password string, remember bool) string {
+	if password != "" {
+		return stagePasswordUpdate(characterName, password, remember)
+	}
+	if hash, staged := stagedPasswordHash(characterName); staged {
+		return hash
+	}
+	if character, exists := selectedCharacter(characterName); exists {
+		return character.passHash
+	}
+	return ""
 }
 
 func selectedCharacter(characterName string) (Character, bool) {
@@ -3440,6 +3469,42 @@ func closeConnectDialog() {
 	connectStatusText = nil
 }
 
+func startDemoLogin() {
+	loginMu.Lock()
+	if demoLookupInProgress || loginInProgress || tcpConn != nil {
+		loginMu.Unlock()
+		return
+	}
+	demoLookupInProgress = true
+	loginMu.Unlock()
+	loginWin.Close()
+	showConnectDialog("Finding an available demo character...")
+	go func() {
+		n, err := fetchRandomDemoCharacter(clVersion)
+		if err != nil {
+			loginMu.Lock()
+			demoLookupInProgress = false
+			connected := tcpConn != nil || loginInProgress
+			loginMu.Unlock()
+			closeConnectDialog()
+			logError("demo: %v", err)
+			if connected {
+				return
+			}
+			loginWin.MarkOpen()
+			makeErrorWindow("Error: Demo: " + err.Error())
+			return
+		}
+		name = n
+		passHash = ""
+		pass = "demo"
+		loginMu.Lock()
+		demoLookupInProgress = false
+		loginMu.Unlock()
+		startLogin()
+	}()
+}
+
 func makeLoginWindow() {
 	if loginWin != nil {
 		return
@@ -3479,6 +3544,9 @@ func makeLoginWindow() {
 	connBtn.Size = eui.Point{X: charWinWidth, Y: 48}
 	connBtn.Padding = 10
 	connBtn.FontSize = 24
+	connBtn.Outlined = true
+	connBtn.Border = 2
+	connBtn.OutlineColor = eui.ColorGreen
 	loginWin.DefaultButton = connBtn
 	// Keep a handle so we can enable/disable it dynamically.
 	connEvents.Handle = func(ev eui.UIEvent) {
@@ -3486,6 +3554,10 @@ func makeLoginWindow() {
 			if name == "" {
 				// No character selected: instruct the user to pick one first.
 				makeErrorWindow("Please select a character to connect with first.")
+				return
+			}
+			if name == freeDemoSelection {
+				startDemoLogin()
 				return
 			}
 			if passHash == "" && pass == "" {
@@ -3514,53 +3586,10 @@ func makeLoginWindow() {
 		}
 	}
 
-	demoBtn, demoEvents := eui.NewButton()
-	demoBtn.Text = "Try the demo"
-	demoBtn.SetTooltip("Connect with a random demo character")
-	demoBtn.Size = eui.Point{X: charWinWidth, Y: 24}
-	demoEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			loginMu.Lock()
-			if demoLookupInProgress || loginInProgress || tcpConn != nil {
-				loginMu.Unlock()
-				return
-			}
-			demoLookupInProgress = true
-			loginMu.Unlock()
-			// Hide the button while the character lookup is in flight so a
-			// second click cannot start a competing login attempt.
-			loginWin.Close()
-			showConnectDialog("Finding an available demo character...")
-			go func() {
-				n, err := fetchRandomDemoCharacter(clVersion)
-				if err != nil {
-					loginMu.Lock()
-					demoLookupInProgress = false
-					connected := tcpConn != nil || loginInProgress
-					loginMu.Unlock()
-					closeConnectDialog()
-					logError("demo: %v", err)
-					if connected {
-						return
-					}
-					loginWin.MarkOpen()
-					makeErrorWindow("Error: Demo: " + err.Error())
-					return
-				}
-				name = n
-				passHash = ""
-				pass = "demo"
-				loginMu.Lock()
-				demoLookupInProgress = false
-				loginMu.Unlock()
-				startLogin()
-			}()
-		}
-	}
-
 	addBtn, addEvents := eui.NewButton()
-	addBtn.Text = "Add Character"
-	addBtn.Size = eui.Point{X: charWinWidth, Y: 24}
+	addBtn.Text = "Add"
+	addBtn.SetTooltip("Add a saved character")
+	addBtn.Size = eui.Point{X: 164, Y: 24}
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharName = ""
@@ -3580,12 +3609,15 @@ func makeLoginWindow() {
 
 	editBtn, editEvents := eui.NewButton()
 	editCharBtn = editBtn
-	editBtn.Text = "Edit Character"
+	editBtn.Text = "Edit"
 	editBtn.SetTooltip("Change the selected character's password, password saving, or settings profile.")
-	editBtn.Size = eui.Point{X: charWinWidth, Y: 24}
-	editBtn.Disabled = true
+	editBtn.Size = eui.Point{X: 164, Y: 24}
 	editEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
+			return
+		}
+		if _, ok := selectedCharacter(name); !ok {
+			makeErrorWindow("Select a saved character to edit.")
 			return
 		}
 		if editCharWin == nil {
@@ -3599,8 +3631,33 @@ func makeLoginWindow() {
 		editCharWin.MarkOpenNear(ev.Item)
 	}
 
+	deleteBtn, deleteEvents := eui.NewButton()
+	deleteCharBtn = deleteBtn
+	deleteBtn.Text = "Delete"
+	deleteBtn.SetTooltip("Delete the selected saved character")
+	deleteBtn.Size = eui.Point{X: 164, Y: 24}
+	deleteBtn.Color = eui.ColorDarkRed
+	deleteBtn.HoverColor = eui.ColorRed
+	deleteEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		character, ok := selectedCharacter(name)
+		if !ok {
+			makeErrorWindow("Select a saved character to delete.")
+			return
+		}
+		confirmRemoveCharacter(character)
+	}
+
+	characterActions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	characterActions.Size = eui.Point{X: charWinWidth, Y: 24}
+	characterActions.AddItem(addBtn)
+	characterActions.AddItem(editBtn)
+	characterActions.AddItem(deleteBtn)
+
 	openBtn, openEvents := eui.NewButton()
-	openBtn.Text = "Play movie file"
+	openBtn.Text = "Play movie file [clMov]"
 	openBtn.SetTooltip("Open and play a .clmov recording")
 	openBtn.Size = eui.Point{X: charWinWidth, Y: 24}
 	openEvents.Handle = func(ev eui.UIEvent) {
@@ -3650,6 +3707,9 @@ func makeLoginWindow() {
 	quitBttn.FontSize = 24
 	// Double the height of the Quit button
 	quitBttn.Size = eui.Point{X: charWinWidth, Y: 48}
+	quitBttn.Outlined = true
+	quitBttn.Border = 2
+	quitBttn.OutlineColor = eui.ColorRed
 	quitEvn.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			confirmQuit()
@@ -3689,28 +3749,32 @@ func makeLoginWindow() {
 	}
 	verFlow.AddItem(aboutBtn)
 
-	loginFlow.AddItem(connBtn)
-	loginFlow.AddItem(demoBtn)
-	label, _ := eui.NewText()
-	label.Text = ""
-	label.FontSize = 15
-	label.Size = eui.Point{X: 1, Y: 25}
-	loginFlow.AddItem(label)
-	loginFlow.AddItem(charactersList)
-	label, _ = eui.NewText()
-	label.Text = ""
-	label.FontSize = 15
-	label.Size = eui.Point{X: 1, Y: 25}
-	loginFlow.AddItem(label)
-	loginFlow.AddItem(addBtn)
-	loginFlow.AddItem(editBtn)
-	loginFlow.AddItem(openBtn)
-	// Add a small spacer between Play movie file and Quit
-	spacer, _ := eui.NewText()
-	spacer.Text = ""
-	spacer.Size = eui.Point{X: 1, Y: 16}
-	loginFlow.AddItem(spacer)
+	addLoginSpacer := func(height float32) {
+		spacer, _ := eui.NewText()
+		spacer.Size = eui.Point{X: charWinWidth, Y: height}
+		loginFlow.AddItem(spacer)
+	}
+
 	loginFlow.AddItem(quitBttn)
+	addLoginSpacer(8)
+	loginFlow.AddItem(openBtn)
+	addLoginSpacer(10)
+	characterEditLabel, _ := eui.NewText()
+	characterEditLabel.Text = "Edit Characters:"
+	characterEditLabel.FontSize = 15
+	characterEditLabel.Size = eui.Point{X: charWinWidth, Y: 25}
+	loginFlow.AddItem(characterEditLabel)
+	loginFlow.AddItem(characterActions)
+	addLoginSpacer(12)
+	characterListLabel, _ := eui.NewText()
+	characterListLabel.Text = "Character list:"
+	characterListLabel.FontSize = 15
+	characterListLabel.Size = eui.Point{X: charWinWidth, Y: 25}
+	loginFlow.AddItem(characterListLabel)
+	loginFlow.AddItem(charactersList)
+	addLoginSpacer(10)
+	loginFlow.AddItem(connBtn)
+	addLoginSpacer(8)
 	loginFlow.AddItem(verFlow)
 
 	loginWin.AddItem(loginFlow)
@@ -4925,6 +4989,7 @@ func showPopup(title, message string, buttons []popupButton, extras ...*eui.Item
 	win.Resizable = false
 	win.AutoSize = true
 	win.Movable = true
+	win.NoScroll = true
 	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
 	// Add some breathing room so text doesn't hug the border
 	win.Padding = 8
@@ -5152,11 +5217,11 @@ func confirmRemoveCharacter(c Character) {
 	row.AddItem(avItem)
 
 	showPopup(
-		"Remove Character",
-		fmt.Sprintf("Are you sure you want to remove %s?", c.Name),
+		"Delete Character",
+		fmt.Sprintf("Are you sure you want to delete %s?", c.Name),
 		[]popupButton{
 			{Text: "Cancel"},
-			{Text: "Remove Character", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+			{Text: "Delete Character", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				discardStagedPassword()
 				removeCharacter(c.Name)
 				if name == c.Name {

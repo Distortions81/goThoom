@@ -12,6 +12,7 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	originalWindow := loginWin
 	originalList := charactersList
 	originalEditBtn := editCharBtn
+	originalDeleteBtn := deleteCharBtn
 	originalWidth, originalHeight := eui.ScreenSize()
 	loginWin = nil
 	eui.SetScreenSize(1200, 800)
@@ -22,10 +23,32 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 		loginWin = originalWindow
 		charactersList = originalList
 		editCharBtn = originalEditBtn
+		deleteCharBtn = originalDeleteBtn
 		eui.SetScreenSize(originalWidth, originalHeight)
 	})
 
 	makeLoginWindow()
+	if len(loginWin.Contents) != 1 {
+		t.Fatalf("login root items = %d, want 1 flow", len(loginWin.Contents))
+	}
+	items := loginWin.Contents[0].Contents
+	if len(items) != 13 {
+		t.Fatalf("login flow items = %d, want controls, Character list label, and spacers", len(items))
+	}
+	if items[0].Text != "Quit" || items[2].Text != "Play movie file [clMov]" || items[4].Text != "Edit Characters:" || items[7].Text != "Character list:" || items[8] != charactersList || items[10].Text != "Connect" {
+		t.Fatalf("login controls are not ordered Quit, Play movie file, character actions, character list, Connect")
+	}
+	if !items[0].Outlined || items[0].OutlineColor != eui.ColorRed || !items[10].Outlined || items[10].OutlineColor != eui.ColorGreen {
+		t.Fatal("Quit and Connect do not have red and green frames")
+	}
+	actions := items[5].Contents
+	if len(actions) != 3 || actions[0].Text != "Add" || actions[1].Text != "Edit" || actions[2].Text != "Delete" {
+		t.Fatalf("character action row = %#v, want Add, Edit, Delete", actions)
+	}
+	versionRow := items[12].Contents
+	if len(versionRow) != 3 || versionRow[1].Text != "Changelog" || versionRow[2].Text != "About" {
+		t.Fatalf("version row does not end with Changelog and About")
+	}
 	pos := loginWin.GetPos()
 	size := loginWin.GetSize()
 	centerX := pos.X + size.X/2
@@ -40,6 +63,7 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	originalWindow := loginWin
 	originalList := charactersList
 	originalEditBtn := editCharBtn
+	originalDeleteBtn := deleteCharBtn
 	originalCharacters := characters
 	originalName := name
 	originalPassHash := passHash
@@ -59,6 +83,7 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 		loginWin = originalWindow
 		charactersList = originalList
 		editCharBtn = originalEditBtn
+		deleteCharBtn = originalDeleteBtn
 		characters = originalCharacters
 		name = originalName
 		passHash = originalPassHash
@@ -72,8 +97,37 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	}
 	updateCharacterButtons()
 
-	if got := len(charactersList.Contents); got != len(characters) {
-		t.Fatalf("hidden login character rows = %d, want %d", got, len(characters))
+	if got, want := len(charactersList.Contents), len(characters)+1; got != want {
+		t.Fatalf("hidden login character rows = %d, want %d", got, want)
+	}
+}
+
+func TestLoginCharacterChoicesIncludeFreeDemo(t *testing.T) {
+	originalCharacters := characters
+	characters = []Character{{Name: "Alice", Profession: "Fighter", PictID: 123}}
+	t.Cleanup(func() { characters = originalCharacters })
+
+	choices := loginCharacterChoices()
+	if len(choices) != 2 {
+		t.Fatalf("login choices = %d, want 2", len(choices))
+	}
+	if choices[0].character.Name != "Alice" {
+		t.Fatalf("first login choice = %+v, want saved character Alice", choices[0])
+	}
+	demo := choices[len(choices)-1]
+	if !demo.demo || demo.selection != freeDemoSelection || demo.character.Name != freeDemoCharacterName {
+		t.Fatalf("last login choice = %+v, want Demo Character", demo)
+	}
+	if demo.character.Profession != "" || demo.character.PictID != defaultMobilePictID(genderUnknown) {
+		t.Fatalf("demo metadata = %+v, want default portrait and no profession", demo.character)
+	}
+	if len(demo.character.Colors) != len(newbieBrownColors) {
+		t.Fatalf("demo clothing colors = %d, want %d", len(demo.character.Colors), len(newbieBrownColors))
+	}
+	for i := range newbieBrownColors {
+		if demo.character.Colors[i] != newbieBrownColors[i] {
+			t.Fatalf("demo clothing color %d = %d, want %d", i, demo.character.Colors[i], newbieBrownColors[i])
+		}
 	}
 }
 
@@ -82,6 +136,7 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	originalWindow := loginWin
 	originalList := charactersList
 	originalEditBtn := editCharBtn
+	originalDeleteBtn := deleteCharBtn
 	originalCharacters := characters
 	originalProfiles := characterProfiles
 	originalName := name
@@ -92,6 +147,7 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	loginWin = nil
 	charactersList = nil
 	editCharBtn = nil
+	deleteCharBtn = nil
 	characters = []Character{
 		{Name: "Alice", passHash: "0123456789abcdef0123456789abcdef"},
 		{Name: "Bob", DontRemember: true},
@@ -109,6 +165,7 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 		loginWin = originalWindow
 		charactersList = originalList
 		editCharBtn = originalEditBtn
+		deleteCharBtn = originalDeleteBtn
 		characters = originalCharacters
 		characterProfiles = originalProfiles
 		name = originalName
@@ -120,8 +177,8 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 
 	makeLoginWindow()
 	updateCharacterButtons()
-	if editCharBtn == nil || editCharBtn.Disabled {
-		t.Fatal("Edit Character was not enabled for Alice")
+	if editCharBtn == nil || editCharBtn.Disabled || deleteCharBtn == nil || deleteCharBtn.Disabled {
+		t.Fatal("Edit and Delete action buttons were not visible and enabled")
 	}
 	if err := prepareEditCharacter("Alice"); err != nil {
 		t.Fatalf("prepare Alice: %v", err)
@@ -137,5 +194,17 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	}
 	if editCharRemember || editCharProfile {
 		t.Fatal("Bob should default to no saved password and global settings")
+	}
+
+	name = freeDemoSelection
+	updateCharacterButtons()
+	if editCharBtn.Disabled || deleteCharBtn.Disabled {
+		t.Fatal("Edit or Delete disappeared for Demo Character")
+	}
+	if _, ok := selectedCharacter(name); ok {
+		t.Fatal("Demo Character was treated as an editable saved character")
+	}
+	if got := len(charactersList.Contents[len(charactersList.Contents)-1].Contents); got != 3 {
+		t.Fatalf("Demo Character row controls = %d, want profession, portrait, and selector only", got)
 	}
 }

@@ -1038,10 +1038,11 @@ func (win *windowData) RequiresScroll() (horizontal, vertical bool) {
 	if win.NoScroll {
 		return false, false
 	}
+	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
 	avail := point{
-		X: win.GetSize().X - 2*win.BorderPad,
-		Y: win.GetSize().Y - win.GetTitleSize() - 2*win.BorderPad,
+		X: win.GetSize().X - 2*pad,
+		Y: win.GetSize().Y - win.GetTitleSize() - 2*pad,
 	}
 	return req.X > avail.X, req.Y > avail.Y
 }

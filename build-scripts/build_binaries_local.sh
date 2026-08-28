@@ -47,13 +47,6 @@ ensure_spellcheck_dict() {
   fi
 }
 
-copy_user_guides() {
-  local package_dir="$1"
-  mkdir -p "$package_dir/scripts" "$package_dir/data/Macros/Library"
-  cp "$ROOT_DIR/source/scripts/README.md" "$package_dir/scripts/README.md"
-  cp "$ROOT_DIR/source/data/Macros/README.md" "$package_dir/data/Macros/Library/README.md"
-}
-
 install_linux_deps() {
   if [ "${GOTHOOM_SKIP_SYSTEM_DEPS:-0}" = "1" ]; then
     echo "Using preinstalled Linux build dependencies."
@@ -311,37 +304,18 @@ EOF
     rm "${OUTPUT_DIR}/${BIN_NAME}"
   fi
 
-  PKG_DIR="${OUTPUT_DIR}/goThoom"
-  rm -rf "$PKG_DIR"
-  mkdir -p "$PKG_DIR"
-
-  if [ "$GOOS" = "darwin" ]; then
-    mv "$APP_DIR" "$PKG_DIR/"
-  else
-    mv "${OUTPUT_DIR}/${BIN_NAME}" "$PKG_DIR/"
-  fi
-
-  copy_user_guides "$PKG_DIR"
-
-  if [ "$GOOS" = "linux" ]; then
-    ensure_cmd convert imagemagick
-    ICON_DIR="$PKG_DIR/share/icons/hicolor/256x256/apps"
-    DESKTOP_DIR="$PKG_DIR/share/applications"
-    mkdir -p "$ICON_DIR" "$DESKTOP_DIR"
-    convert "$ROOT_DIR/source/logo.png" -resize 256x256 "$ICON_DIR/goThoom.png"
-    cat <<'EOF' >"$DESKTOP_DIR/goThoom.desktop"
-[Desktop Entry]
-Type=Application
-Name=goThoom
-Exec=goThoom
-Icon=goThoom
-Categories=Game;
-EOF
-  fi
   (
     cd "$OUTPUT_DIR"
-    zip -q -r "$ZIP_NAME" "goThoom"
-    rm -rf "goThoom"
+    # zip updates existing archives in place, so remove the old archive first
+    # to ensure deleted package files cannot survive from an earlier build.
+    rm -f "$ZIP_NAME"
+    if [ "$GOOS" = "darwin" ]; then
+      zip -q -r "$ZIP_NAME" "${APP_NAME}.app"
+      rm -rf "${APP_NAME}.app"
+    else
+      zip -q "$ZIP_NAME" "$BIN_NAME"
+      rm -f "$BIN_NAME"
+    fi
   )
 done
 
