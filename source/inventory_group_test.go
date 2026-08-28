@@ -38,7 +38,7 @@ func TestToggleInventoryEquipAt(t *testing.T) {
 	if items[1].Equipped {
 		t.Fatalf("second item equipped before server update")
 	}
-	if _, ok := handleInvCmdOther(kInvCmdEquip|kInvCmdIndex, []byte{0, 100, 2}); !ok {
+	if _, ok := handleInvCmdOther(kInvCmdEquip|kInvCmdIndex, []byte{0, 100, 1}); !ok {
 		t.Fatal("server equip update failed")
 	}
 	items = getInventory()

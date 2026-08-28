@@ -1074,8 +1074,9 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 			logError("inventory: cmd %x missing index", cmd)
 			return nil, false
 		}
-		// Server sends 1-based index; convert to 0-based for local arrays.
-		idx = int(data[0]) - 1
+		// Inventory packet indexes are already zero-based. Keep the wire value
+		// unchanged, matching the classic client; only /equip arguments add one.
+		idx = int(data[0])
 		data = data[1:]
 	}
 	var name string

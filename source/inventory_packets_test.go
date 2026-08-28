@@ -163,10 +163,10 @@ func TestInventoryRenameIndexed(t *testing.T) {
 	inventoryDirty = false
 	data := []byte{
 		byte(kInvCmdMultiple), 4,
+		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 0, 'B', 'a', 'g', 0,
 		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 1, 'B', 'a', 'g', 0,
-		byte(kInvCmdAdd | kInvCmdIndex), 0x00, 0x64, 2, 'B', 'a', 'g', 0,
-		byte(kInvCmdName | kInvCmdIndex), 0x00, 0x64, 1, 'F', 'i', 'r', 's', 't', 0,
-		byte(kInvCmdName | kInvCmdIndex), 0x00, 0x64, 2, 'S', 'e', 'c', 'o', 'n', 'd', 0,
+		byte(kInvCmdName | kInvCmdIndex), 0x00, 0x64, 0, 'F', 'i', 'r', 's', 't', 0,
+		byte(kInvCmdName | kInvCmdIndex), 0x00, 0x64, 1, 'S', 'e', 'c', 'o', 'n', 'd', 0,
 		byte(kInvCmdNone), 0x33,
 	}
 	rest, ok := parseInventory(data)
