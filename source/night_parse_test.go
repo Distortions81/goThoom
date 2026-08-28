@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"image"
+	"testing"
+)
 
 func TestHandleInfoTextParsesNight(t *testing.T) {
 	gNight = NightInfo{}
@@ -42,5 +45,63 @@ func TestNightCommandUpdatesShadowProjection(t *testing.T) {
 
 	if first.angle == second.angle || first.length == second.length {
 		t.Fatalf("parsed sun update did not change projection: first=%+v second=%+v", first, second)
+	}
+}
+
+func TestNightDarkInterpolationSettlesAtZero(t *testing.T) {
+	originalNight := captureMovieNightState()
+	originalForce := gs.forceNightLevel
+	originalMax := gs.MaxNightLevel
+	originalInited := nightAlphaInited
+	originalLastT := nightLastT
+	originalPrev := nightPrevTarget
+	originalCurrent := nightCurTarget
+	originalDarks := frameDarks
+	t.Cleanup(func() {
+		restoreMovieNightState(originalNight)
+		gs.forceNightLevel = originalForce
+		gs.MaxNightLevel = originalMax
+		nightAlphaInited = originalInited
+		nightLastT = originalLastT
+		nightPrevTarget = originalPrev
+		nightCurTarget = originalCurrent
+		frameDarks = originalDarks
+	})
+	gs.forceNightLevel = -1
+	gs.MaxNightLevel = 100
+	nightAlphaInited = false
+	frameDarks = frameDarks[:0]
+
+	gNight.mu.Lock()
+	gNight.BaseLevel = 25
+	gNight.Level = 25
+	gNight.Flags = 0
+	gNight.mu.Unlock()
+	addNightDarkSources(image.Rect(0, 0, 100, 100), 0.5)
+	if nightCurTarget <= 0 {
+		t.Fatal("positive night level did not initialize smoothing")
+	}
+
+	gNight.mu.Lock()
+	gNight.BaseLevel = 0
+	gNight.Level = 0
+	gNight.mu.Unlock()
+	frameDarks = frameDarks[:0]
+	addNightDarkSources(image.Rect(0, 0, 100, 100), 0)
+	if nightCurTarget != 0 || len(frameDarks) == 0 {
+		t.Fatalf("night transition to zero = target %v darks %d, want a one-frame fade", nightCurTarget, len(frameDarks))
+	}
+	frameDarks = frameDarks[:0]
+	addNightDarkSources(image.Rect(0, 0, 100, 100), 1)
+	if len(frameDarks) != 0 {
+		t.Fatalf("night transition still dark at its endpoint: %d sources", len(frameDarks))
+	}
+
+	// Starting the following game update must collapse both endpoints to zero;
+	// otherwise the previous fade repeats from 0 to 100% every update.
+	frameDarks = frameDarks[:0]
+	addNightDarkSources(image.Rect(0, 0, 100, 100), 0)
+	if nightPrevTarget != 0 || nightCurTarget != 0 || len(frameDarks) != 0 {
+		t.Fatalf("zero night repeated stale fade: prev=%v current=%v darks=%d", nightPrevTarget, nightCurTarget, len(frameDarks))
 	}
 }

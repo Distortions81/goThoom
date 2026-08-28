@@ -468,9 +468,6 @@ var (
 
 func addNightDarkSources(bounds image.Rectangle, t float32) {
 	lvl := currentNightLevel()
-	if lvl <= 0 {
-		return
-	}
 	// Convert to [0..1] strength; reuse ambientNightStrength as baseline.
 	// Use a higher strength specifically for shader night so 100% looks dark.
 	// Apply a gamma curve so low night levels are much gentler than high.
