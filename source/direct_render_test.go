@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"math"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -62,9 +63,32 @@ func TestScaledSpriteSpanKeepsSharedTileEdgesClosed(t *testing.T) {
 			rightCenter := (edge + float64(rightSize)/2 + offset) * scale
 			_, leftRight := scaledSpriteSpan(leftCenter, leftSize, scale)
 			rightLeft, _ := scaledSpriteSpan(rightCenter, rightSize, scale)
-			if leftRight != rightLeft {
-				t.Fatalf("scale %.3f offset %.2f produced a tile gap: left right=%d, right left=%d", scale, offset, leftRight, rightLeft)
+			if math.Abs(leftRight-rightLeft) > 1e-9 {
+				t.Fatalf("scale %.3f offset %.2f produced a tile gap: left right=%v, right left=%v", scale, offset, leftRight, rightLeft)
 			}
+		}
+	}
+}
+
+func TestSpriteScreenCoordinateCanPreserveOrFloorFractions(t *testing.T) {
+	original := gs.FloatingPointSpriteCoords
+	t.Cleanup(func() { gs.FloatingPointSpriteCoords = original })
+
+	gs.FloatingPointSpriteCoords = true
+	if got := spriteScreenCoordinate(12.75); got != 12.75 {
+		t.Fatalf("floating-point coordinate = %v, want 12.75", got)
+	}
+
+	gs.FloatingPointSpriteCoords = false
+	for _, test := range []struct {
+		coordinate float64
+		want       float64
+	}{
+		{coordinate: 12.75, want: 12},
+		{coordinate: -12.25, want: -13},
+	} {
+		if got := spriteScreenCoordinate(test.coordinate); got != test.want {
+			t.Errorf("floored coordinate %v = %v, want %v", test.coordinate, got, test.want)
 		}
 	}
 }
@@ -73,13 +97,13 @@ func TestLinearFilteredTileSpansOverlapAtSharedEdges(t *testing.T) {
 	const scale = 1.37
 	_, leftRight := filteredSpriteSpan(84*scale, 32, scale, ebiten.FilterLinear)
 	rightLeft, _ := filteredSpriteSpan(116*scale, 32, scale, ebiten.FilterLinear)
-	if overlap := leftRight - rightLeft; overlap != 1 {
+	if overlap := leftRight - rightLeft; math.Abs(overlap-1) > 1e-9 {
 		t.Fatalf("linear tile overlap = %v pixels, want 1", overlap)
 	}
 
 	_, nearestRight := filteredSpriteSpan(84*scale, 32, scale, ebiten.FilterNearest)
 	nearestLeft, _ := filteredSpriteSpan(116*scale, 32, scale, ebiten.FilterNearest)
-	if nearestRight != nearestLeft {
+	if math.Abs(nearestRight-nearestLeft) > 1e-9 {
 		t.Fatalf("nearest tile edges = %v and %v, want a shared edge", nearestRight, nearestLeft)
 	}
 }

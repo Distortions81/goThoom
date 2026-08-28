@@ -79,6 +79,7 @@ func SetScreenSize(w, h int) {
 		}
 		win.clampToScreen()
 	}
+	updateAllTooltipBounds()
 	if needDirty {
 		markAllDirty()
 	}

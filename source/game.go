@@ -1925,8 +1925,8 @@ func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {
 		if size <= 0 {
 			continue
 		}
-		x, y := mobileScreenPosition(ox, oy, mobile, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, maxMobileInterpPixels*(snap.dropped+1))
-		addMobileContactShadowLight(uint32(desc.PictID), mobile.State, mobile.Index, float64(x), float64(y), size)
+		x, y := mobileScreenPositionFloat(ox, oy, mobile, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, maxMobileInterpPixels*(snap.dropped+1))
+		addMobileContactShadowLight(uint32(desc.PictID), mobile.State, mobile.Index, x, y, size)
 	}
 	collectPictures := func(pictures []framePicture) {
 		for _, picture := range pictures {
@@ -1937,8 +1937,8 @@ func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {
 			if frames := clImages.NumFrames(uint32(picture.PictID)); frames > 1 {
 				h /= frames
 			}
-			x, y := pictureScreenPosition(ox, oy, picture, alpha, snap.mobiles, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, w, h)
-			addPictureContactShadowLight(uint32(picture.PictID), float64(x), float64(y), w, h)
+			x, y := pictureScreenPositionFloat(ox, oy, picture, alpha, snap.mobiles, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, w, h)
+			addPictureContactShadowLight(uint32(picture.PictID), x, y, w, h)
 		}
 	}
 	collectPictures(snap.picsNeg)
@@ -1947,6 +1947,11 @@ func collectContactShadowLights(ox, oy int, snap drawSnapshot, alpha float64) {
 }
 
 func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) (int, int) {
+	x, y := mobileScreenPositionFloat(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
+	return roundToInt(x), roundToInt(y)
+}
+
+func mobileScreenPositionFloat(ox, oy int, m frameMobile, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int) (float64, float64) {
 	h := float64(m.H)
 	v := float64(m.V)
 	if gs.MotionSmoothing {
@@ -1969,9 +1974,9 @@ func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frame
 			}
 		}
 	}
-	x := roundToInt((h+float64(fieldCenterX))*gs.GameScale) + ox
-	y := roundToInt((v+float64(fieldCenterY))*gs.GameScale) + oy
-	return x, y
+	x := (h+float64(fieldCenterX))*gs.GameScale + float64(ox)
+	y := (v+float64(fieldCenterY))*gs.GameScale + float64(oy)
+	return spriteScreenCoordinate(x), spriteScreenCoordinate(y)
 }
 
 // drawMobile renders a single mobile object with optional interpolation and onion skinning.
@@ -1979,7 +1984,7 @@ func mobileScreenPosition(ox, oy int, m frameMobile, prevMobiles map[uint8]frame
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
 func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int) {
-	x, y := mobileScreenPosition(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
+	x, y := mobileScreenPositionFloat(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
 	var d frameDescriptor
@@ -2013,8 +2018,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		addMobileLightCaster(float64(x), float64(y), size, mobileSpriteMetricsFor(curKey, img))
-		addMobileLightSource(uint32(d.PictID), m.State, m.Index, float64(x), float64(y), size, logicalFrame, alpha, screen.Bounds())
+		addMobileLightCaster(x, y, size, mobileSpriteMetricsFor(curKey, img))
+		addMobileLightSource(uint32(d.PictID), m.State, m.Index, x, y, size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
@@ -2037,8 +2042,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			scale = target / float64(drawSize)
 		}
 		scaled := float64(drawSize) * scale
-		tx := float64(x) - scaled/2
-		ty := float64(y) - scaled/2
+		tx := x - scaled/2
+		ty := y - scaled/2
 		drawn := false
 		if blend {
 			blendOptions := frameBlendDrawOptions{
@@ -2067,23 +2072,23 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
-			xPos := x - int(float64(size)*gs.GameScale/2)
+			xPos := x - float64(size)*gs.GameScale/2
 			op := acquireTextDrawOpts()
-			op.GeoM.Translate(float64(xPos), float64(y)-float64(size)*gs.GameScale/2-metrics.HAscent)
+			op.GeoM.Translate(xPos, y-float64(size)*gs.GameScale/2-metrics.HAscent)
 			op.ColorScale.ScaleWithColor(color.RGBA{0, 255, 255, 255})
 			text.Draw(screen, lbl, mainFont, op)
 			releaseTextDrawOpts(op)
 		}
 	} else {
 		// Fallback marker when image missing; no per-frame bounds check.
-		vector.FillRect(screen, float32(float64(x)-3*gs.GameScale), float32(float64(y)-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
-		clearLayeredShadowCoverageRect(float64(x)-3*gs.GameScale, float64(y)-3*gs.GameScale, 6*gs.GameScale, 6*gs.GameScale)
+		vector.FillRect(screen, float32(x-3*gs.GameScale), float32(y-3*gs.GameScale), float32(6*gs.GameScale), float32(6*gs.GameScale), color.RGBA{0xff, 0, 0, 0xff}, false)
+		clearLayeredShadowCoverageRect(x-3*gs.GameScale, y-3*gs.GameScale, 6*gs.GameScale, 6*gs.GameScale)
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
 			lbl := fmt.Sprintf("%dm", plane)
-			xPos := x - int(3*gs.GameScale)
+			xPos := x - 3*gs.GameScale
 			op := acquireTextDrawOpts()
-			op.GeoM.Translate(float64(xPos), float64(y)-3*gs.GameScale-metrics.HAscent)
+			op.GeoM.Translate(xPos, y-3*gs.GameScale-metrics.HAscent)
 			op.ColorScale.ScaleWithColor(color.White)
 			text.Draw(screen, lbl, mainFont, op)
 			releaseTextDrawOpts(op)
@@ -2641,18 +2646,18 @@ func replacementEffectPlayerMask(ox, oy int, p framePicture, mobiles []frameMobi
 	mobile := mobiles[best]
 	desc := descMap[mobile.Index]
 	instanceKey := uint64(1)<<63 | uint64(mobile.Index)
-	x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
+	x, y := mobileScreenPositionFloat(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
 	scaledSize := float64(roundToInt(float64(mobileSize(desc.PictID)) * gs.GameScale))
 	if scaledSize <= 0 {
-		return nil, float64(x), float64(y), 0, instanceKey
+		return nil, x, y, 0, instanceKey
 	}
 	colors := playerColorsForDescriptor(desc)
 	img := loadMobileFrame(desc.PictID, mobile.State, colors)
 	img = getScaledMobileFrame(makeMobileKey(desc.PictID, mobile.State, colors), img)
 	if img == nil {
-		return nil, float64(x), float64(y), scaledSize, instanceKey
+		return nil, x, y, scaledSize, instanceKey
 	}
-	return img, float64(x), float64(y), scaledSize, instanceKey
+	return img, x, y, scaledSize, instanceKey
 }
 
 func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (int, int) {
@@ -2683,20 +2688,27 @@ func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobil
 
 	x := ((float64(p.H) + offX + mobileX) + float64(fieldCenterX)) * gs.GameScale
 	y := ((float64(p.V) + offY + mobileY) + float64(fieldCenterY)) * gs.GameScale
-	return x + float64(ox), y + float64(oy)
+	return spriteScreenCoordinate(x + float64(ox)), spriteScreenCoordinate(y + float64(oy))
 }
 
-func scaledSpriteSpan(center float64, size int, scale float64) (int, int) {
+func spriteScreenCoordinate(coordinate float64) float64 {
+	if gs.FloatingPointSpriteCoords {
+		return coordinate
+	}
+	return math.Floor(coordinate)
+}
+
+func scaledSpriteSpan(center float64, size int, scale float64) (float64, float64) {
 	half := float64(size) * scale / 2
-	return roundToInt(center - half), roundToInt(center + half)
+	return center - half, center + half
 }
 
 func filteredSpriteSpan(center float64, size int, scale float64, filter ebiten.Filter) (float64, float64) {
 	start, end := scaledSpriteSpan(center, size, scale)
 	if filter == ebiten.FilterLinear {
-		return float64(start) - 0.5, float64(end) + 0.5
+		return start - 0.5, end + 0.5
 	}
-	return float64(start), float64(end)
+	return start, end
 }
 
 func pictureAnimationInstanceKey(h, v int16) uint64 {

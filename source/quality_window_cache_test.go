@@ -27,6 +27,38 @@ func TestQualityWindowUsesRenderCache(t *testing.T) {
 	}
 }
 
+func TestQualityWindowUsesThreePanels(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	originalWindow := qualityWin
+	qualityWin = nil
+	gs = gsdef
+	t.Cleanup(func() {
+		if qualityWin != nil {
+			qualityWin.RemoveWindow()
+		}
+		qualityWin = originalWindow
+		gs = originalSettings
+	})
+
+	makeQualityWindow()
+	if len(qualityWin.Contents) != 1 {
+		t.Fatalf("quality window root count = %d, want 1", len(qualityWin.Contents))
+	}
+	outer := qualityWin.Contents[0]
+	if outer.FlowType != eui.FLOW_HORIZONTAL {
+		t.Fatalf("quality window root flow = %v, want horizontal", outer.FlowType)
+	}
+	if len(outer.Contents) != 3 {
+		t.Fatalf("quality window panel count = %d, want 3", len(outer.Contents))
+	}
+	for i, panel := range outer.Contents {
+		if panel.FlowType != eui.FLOW_VERTICAL {
+			t.Errorf("quality window panel %d flow = %v, want vertical", i, panel.FlowType)
+		}
+	}
+}
+
 func TestQualityWindowGroupsAndDisablesShaderEffects(t *testing.T) {
 	initFont()
 	originalSettings := gs

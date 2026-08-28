@@ -26,7 +26,7 @@ func TestTooltipTextIsTruncatedAndWrapped(t *testing.T) {
 	if err := EnsureFontSource(goregular.TTF); err != nil {
 		t.Fatalf("font source: %v", err)
 	}
-	raw := strings.Repeat("tooltip words ", 20)
+	raw := strings.Repeat("tooltip words ", 30)
 	short := truncateTooltip(raw)
 	if len([]rune(short)) > tooltipMaxRunes {
 		t.Fatalf("tooltip has %d runes, max %d", len([]rune(short)), tooltipMaxRunes)
@@ -51,5 +51,31 @@ func TestTooltipTextIsTruncatedAndWrapped(t *testing.T) {
 	_, singleHeight := text.Measure(strings.Split(wrapped, "\n")[0], face, spacing)
 	if multiHeight <= singleHeight {
 		t.Fatalf("multiline tooltip height = %f, want greater than one-line height %f", multiHeight, singleHeight)
+	}
+}
+
+func TestTooltipAllowsDetailedDescriptions(t *testing.T) {
+	raw := strings.TrimSpace(strings.Repeat("useful detailed tooltip text ", 7))
+	if len([]rune(raw)) <= 96 {
+		t.Fatalf("test tooltip is only %d runes; it must exceed the old limit", len([]rune(raw)))
+	}
+	if got := truncateTooltip(raw); got != raw {
+		t.Fatalf("detailed tooltip was truncated:\n got: %q\nwant: %q", got, raw)
+	}
+}
+
+func TestTooltipWrapWidthFitsScreen(t *testing.T) {
+	originalWidth := screenWidth
+	originalScale := uiScale
+	t.Cleanup(func() {
+		screenWidth = originalWidth
+		uiScale = originalScale
+	})
+
+	screenWidth = 240
+	uiScale = 1
+	want := float64(screenWidth - 2*tooltipPadding)
+	if got := tooltipWrapWidth(); got != want {
+		t.Fatalf("tooltip wrap width = %v, want %v", got, want)
 	}
 }

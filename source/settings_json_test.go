@@ -103,6 +103,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	for _, expected := range []string{
 		`"version": 4`,
 		`"speech_bubbles"`,
+		`"floating_point_sprite_coordinates": true`,
 		`"artwork_upscale_style": "crisp"`,
 		`"status_bar_placement": "upper_right"`,
 		`"alternate_network_delay_ms": 37`,

@@ -90,3 +90,56 @@ func TestCombineMessagesControlLivesInTiledLayoutWindow(t *testing.T) {
 		t.Fatal("combine chat control is missing from the tiled layout window")
 	}
 }
+
+func TestAlternateGameSideDisabledForCenteredTiledLayout(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	originalTileLayoutWin := tileLayoutWin
+	originalCombineControl := settingsCombineMessagesCB
+	originalDirty := settingsDirty
+	gs = gsdef
+	gs.TiledWindows = true
+	gs.TiledLayout = TiledLayoutCenter
+	tileLayoutWin = nil
+	settingsCombineMessagesCB = nil
+	t.Cleanup(func() {
+		if tileLayoutWin != nil {
+			tileLayoutWin.RemoveWindow()
+		}
+		gs = originalSettings
+		tileLayoutWin = originalTileLayoutWin
+		settingsCombineMessagesCB = originalCombineControl
+		settingsDirty = originalDirty
+	})
+
+	makeTileLayoutWindow()
+	var layout, gameSide *eui.ItemData
+	var visit func([]*eui.ItemData)
+	visit = func(items []*eui.ItemData) {
+		for _, item := range items {
+			switch item.Label {
+			case "Layout":
+				layout = item
+			case "Alternate game side":
+				gameSide = item
+			}
+			visit(item.Contents)
+		}
+	}
+	visit(tileLayoutWin.Contents)
+	if layout == nil || gameSide == nil {
+		t.Fatal("tiled layout window is missing arrangement controls")
+	}
+	if !gameSide.Disabled {
+		t.Fatal("alternate game side is enabled for the centered layout")
+	}
+
+	layout.Handler.Emit(eui.UIEvent{Item: layout, Type: eui.EventDropdownSelected, Index: int(TiledLayoutSide)})
+	if gameSide.Disabled {
+		t.Fatal("alternate game side remains disabled for the side layout")
+	}
+	layout.Handler.Emit(eui.UIEvent{Item: layout, Type: eui.EventDropdownSelected, Index: int(TiledLayoutCenter)})
+	if !gameSide.Disabled {
+		t.Fatal("alternate game side was not disabled after selecting the centered layout")
+	}
+}

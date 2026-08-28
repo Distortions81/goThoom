@@ -574,9 +574,9 @@ func drawReplacementEffects(screen *ebiten.Image, ox, oy int, mobiles []frameMob
 				if mobile.Index != effect.mobileIndex {
 					continue
 				}
-				x, y := mobileScreenPosition(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
-				effect.left = float64(x) + effect.mobileOffsetX
-				effect.top = float64(y) + effect.mobileOffsetY
+				x, y := mobileScreenPositionFloat(ox, oy, mobile, prevMobiles, shiftX, shiftY, alpha, maxMobileInterpPixels)
+				effect.left = x + effect.mobileOffsetX
+				effect.top = y + effect.mobileOffsetY
 				break
 			}
 		}

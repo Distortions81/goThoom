@@ -9,19 +9,20 @@ import (
 
 func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	defaults := map[string]bool{
-		"fade obscuring pictures":   gsdef.FadeObscuringPictures,
-		"smooth movement":           gsdef.MotionSmoothing,
-		"world animation blending":  gsdef.BlendPicts,
-		"shader master":             gsdef.ShadersEnabled,
-		"shader lighting":           gsdef.ShaderLighting,
-		"flame light flicker":       gsdef.FlameLightFlicker,
-		"character shadows":         gsdef.CharacterShadows,
-		"artwork upscale filter":    gsdef.SpriteUpscaleFilter,
-		"sprite gamma correction":   gsdef.SpriteGammaCorrection,
-		"throttle sounds":           gsdef.ThrottleSounds,
-		"alternate row backgrounds": gsdef.AlternateRowBackgrounds,
-		"window shadows":            gsdef.WindowShadows,
-		"animated chat bubbles":     gsdef.AnimatedChatBubbles,
+		"fade obscuring pictures":    gsdef.FadeObscuringPictures,
+		"smooth movement":            gsdef.MotionSmoothing,
+		"floating-point coordinates": gsdef.FloatingPointSpriteCoords,
+		"world animation blending":   gsdef.BlendPicts,
+		"shader master":              gsdef.ShadersEnabled,
+		"shader lighting":            gsdef.ShaderLighting,
+		"flame light flicker":        gsdef.FlameLightFlicker,
+		"character shadows":          gsdef.CharacterShadows,
+		"artwork upscale filter":     gsdef.SpriteUpscaleFilter,
+		"sprite gamma correction":    gsdef.SpriteGammaCorrection,
+		"throttle sounds":            gsdef.ThrottleSounds,
+		"alternate row backgrounds":  gsdef.AlternateRowBackgrounds,
+		"window shadows":             gsdef.WindowShadows,
+		"animated chat bubbles":      gsdef.AnimatedChatBubbles,
 	}
 	for name, enabled := range defaults {
 		if !enabled {
@@ -155,16 +156,17 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		t.Fatal("loadSettings() = true without a settings file")
 	}
 	for name, enabled := range map[string]bool{
-		"smooth movement":          gs.MotionSmoothing,
-		"world animation blending": gs.BlendPicts,
-		"shader effects":           gs.ShadersEnabled,
-		"shader lighting":          gs.ShaderLighting,
-		"flame light flicker":      gs.FlameLightFlicker,
-		"character shadows":        gs.CharacterShadows,
-		"artwork upscale filter":   gs.SpriteUpscaleFilter,
-		"sound enhancement":        gs.SoundEnhancement,
-		"high quality resampling":  gs.HighQualityResampling,
-		"music enhancement":        gs.MusicEnhancement,
+		"smooth movement":            gs.MotionSmoothing,
+		"floating-point coordinates": gs.FloatingPointSpriteCoords,
+		"world animation blending":   gs.BlendPicts,
+		"shader effects":             gs.ShadersEnabled,
+		"shader lighting":            gs.ShaderLighting,
+		"flame light flicker":        gs.FlameLightFlicker,
+		"character shadows":          gs.CharacterShadows,
+		"artwork upscale filter":     gs.SpriteUpscaleFilter,
+		"sound enhancement":          gs.SoundEnhancement,
+		"high quality resampling":    gs.HighQualityResampling,
+		"music enhancement":          gs.MusicEnhancement,
 	} {
 		if !enabled {
 			t.Errorf("new config has %s disabled", name)
@@ -202,6 +204,7 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 
 	gs.CharacterShadows = false
 	gs.ShadersEnabled = false
+	gs.FloatingPointSpriteCoords = false
 	gs.BlendMobiles = true
 	gs.GameScale = 1
 	gs.SpriteUpscale = 1
@@ -216,6 +219,9 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 	if !gs.ShadersEnabled {
 		t.Error("settings without ShadersEnabled should default it on")
+	}
+	if !gs.FloatingPointSpriteCoords {
+		t.Error("settings without FloatingPointSpriteCoords should default it on")
 	}
 	if gs.BlendMobiles {
 		t.Error("settings without BlendMobiles should default it off")

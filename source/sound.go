@@ -365,6 +365,12 @@ func soundEffectWorkerCount(numCPU int) int {
 // playback. A full queue drops the effect rather than delaying networking or
 // rendering.
 func playSound(ids []uint16) {
+	playSoundWithSettings(ids, gs.SoundEnhancement, gs.SoundEnhancementAmount, highQualityResamplingEnabled())
+}
+
+// playSoundWithSettings queues a sound using explicit processing choices. It
+// is used by audio previews so an A/B test does not alter saved settings.
+func playSoundWithSettings(ids []uint16, enhanced bool, enhancementAmount float64, highQuality bool) {
 	if len(ids) == 0 || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
@@ -372,14 +378,12 @@ func playSound(ids []uint16) {
 	context := audioContext
 	generation := soundPlaybackGeneration
 	sourceGeneration := soundCacheGeneration
-	highQuality := highQualityResampling
 	soundMu.Unlock()
 	if context == nil || blockSound {
 		return
 	}
 
-	enhanced := gs.SoundEnhancement
-	amount := clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
+	amount := clampSoundEnhancementAmount(enhancementAmount)
 	if !enhanced {
 		amount = 0
 	}

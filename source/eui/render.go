@@ -143,7 +143,7 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 	}
 	faceSize := float32(12) * uiScale
 	face := textFace(faceSize)
-	pad := float32(4) * uiScale
+	pad := float32(tooltipPadding) * uiScale
 	width := item.tooltipW + pad*2
 	height := item.tooltipH + pad*2
 
@@ -157,6 +157,9 @@ func drawTooltip(screen *ebiten.Image, item *itemData) {
 	}
 	if x+width > float32(screenWidth) {
 		x = float32(screenWidth) - width
+	}
+	if x < 0 {
+		x = 0
 	}
 
 	bg, fg, border := tooltipColors()

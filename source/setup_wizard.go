@@ -12,9 +12,18 @@ import (
 )
 
 const (
-	setupWizardPageCount             = 9
-	setupWizardGraphicsBenchmarkPage = 1
-	setupWizardTopGap                = 24
+	setupWizardPageCount                     = 9
+	setupWizardGraphicsBenchmarkPage         = 1
+	setupWizardGraphicsWarmup                = 2 * time.Second
+	setupWizardGraphicsDuration              = time.Second
+	setupWizardTopGap                        = 24
+	setupWizardContentWidth          float32 = 620
+	setupWizardTwoPanelWidth         float32 = 780
+	setupWizardPanelWidth            float32 = 380
+	setupWizardPanelGap              float32 = 20
+	// Use the same sample so each comparison changes only the selected audio
+	// processing option.
+	setupWizardAudioTestSound uint16 = 44
 )
 
 var (
@@ -125,10 +134,11 @@ func rebuildSetupWizard() {
 	setupWizardWin.Scroll = eui.Point{}
 
 	setupWizardWin.Title = fmt.Sprintf("goThoom %d Setup", appVersion)
+	pageWidth := setupWizardPageWidth(setupWizardPage)
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	root.Size = eui.Point{X: 620, Y: 10}
+	root.Size = eui.Point{X: pageWidth, Y: 10}
 
-	step := setupWizardText(fmt.Sprintf("Step %d of %d", setupWizardPage+1, setupWizardPageCount), 10, 620)
+	step := setupWizardText(fmt.Sprintf("Step %d of %d", setupWizardPage+1, setupWizardPageCount), 10, pageWidth)
 	root.AddItem(step)
 
 	switch setupWizardPage {
@@ -152,10 +162,10 @@ func rebuildSetupWizard() {
 		buildSetupFinishPage(root)
 	}
 
-	root.AddItem(setupWizardNavigation())
+	root.AddItem(setupWizardNavigation(pageWidth))
 	if setupWizardGraphicsPending {
 		setSetupWizardDisabled(root, true)
-		detail := setupWizardText("Testing Full Quality with the running game for five seconds. The wizard will unlock when detection finishes.", 11, 620)
+		detail := setupWizardText("Testing Full Quality with the running game for one second. The wizard will unlock when detection finishes.", 11, 620)
 		heading := setupWizardHeading("Auto-adjusting performance…")
 		root.PrependItem(detail)
 		root.PrependItem(heading)
@@ -167,6 +177,13 @@ func rebuildSetupWizard() {
 	}
 	setupWizardRoot = root
 	setupWizardWin.Refresh()
+}
+
+func setupWizardPageWidth(page int) float32 {
+	if page == 2 || page == 7 {
+		return setupWizardTwoPanelWidth
+	}
+	return setupWizardContentWidth
 }
 
 func shouldStartSetupWizardGraphicsDetection(page int, pending, tested bool) bool {
@@ -241,6 +258,11 @@ func buildSetupControlsPage(root *eui.ItemData) {
 func buildSetupInterfacePage(root *eui.ItemData) {
 	root.AddItem(setupWizardHeading("Interface and readability"))
 	root.AddItem(setupWizardText("Set up the main layout and the information drawn over the game. Detailed sizing, opacity, and window controls remain in Settings.", 11, 620))
+	root.AddItem(setupWizardUIScaleControl())
+
+	panels, windowPanel, displayPanel := setupWizardTwoPanels()
+	windowPanel.AddItem(setupWizardPanelHeading("Windows and layout"))
+	displayPanel.AddItem(setupWizardPanelHeading("Game display"))
 
 	toolbar, toolbarEvents := eui.NewDropdown()
 	toolbar.Label = "Toolbar placement"
@@ -249,35 +271,40 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 		toolbar.Options = append(toolbar.Options, "Floating Window")
 	}
 	toolbar.Selected = int(gs.ToolbarPlacement)
-	toolbar.Size = eui.Point{X: 320, Y: 24}
+	toolbar.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
+	toolbar.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
 	toolbarEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index < len(toolbar.Options) {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
 		}
 	}
-	root.AddItem(toolbar)
-	root.AddItem(setupWizardCheckbox("Show toolbar info bar", "Show FPS, packet loss, ping, and jitter below the toolbar when it is docked.", gs.ToolbarInfoBar, func(checked bool) {
+	windowPanel.AddItem(toolbar)
+	windowPanel.AddItem(setupWizardCheckboxWidth("Show toolbar info bar", "Show FPS, packet loss, ping, and jitter below the toolbar when it is docked.", gs.ToolbarInfoBar, func(checked bool) {
 		gs.ToolbarInfoBar = checked
 		placeToolbar(gs.ToolbarPlacement, true)
-	}))
+	}, setupWizardPanelWidth))
 
-	root.AddItem(setupWizardCheckbox("Tiled window mode", "Arrange the main windows as one tiled workspace.", gs.TiledWindows, func(checked bool) {
+	windowPanel.AddItem(setupWizardCheckboxWidth("Tiled window mode", "Arrange the main windows as one tiled workspace.", gs.TiledWindows, func(checked bool) {
 		gs.TiledWindows = checked
 		applyTiledWorkspaceLayout()
-	}))
+		rebuildSetupWizard()
+	}, setupWizardPanelWidth))
+	if gs.TiledWindows {
+		buildSetupTiledWindowSettings(windowPanel, setupWizardPanelWidth)
+	}
 
 	placement, events := eui.NewDropdown()
 	placement.Label = "Status bar placement"
 	placement.Options = []string{"Along bottom", "Grouped lower left", "Grouped lower right", "Grouped upper right"}
 	placement.Selected = int(gs.BarPlacement)
-	placement.Size = eui.Point{X: 320, Y: 24}
+	placement.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= int(BarPlacementUpperRight) {
 			gs.BarPlacement = BarPlacement(ev.Index)
 			settingsDirty = true
 		}
 	}
-	root.AddItem(placement)
+	displayPanel.AddItem(placement)
 
 	healthDisplay, healthDisplayEvents := eui.NewDropdown()
 	healthDisplay.Label = "Player health display"
@@ -285,7 +312,8 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 	if !gs.NameHealthBarModern {
 		healthDisplay.Selected = 1
 	}
-	healthDisplay.Size = eui.Point{X: 320, Y: 24}
+	healthDisplay.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
+	healthDisplay.SetTooltip("Color bar keeps names stable; Classic changes name color as health falls.")
 	healthDisplayEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
 			gs.NameHealthBarModern = ev.Index == 0
@@ -293,21 +321,151 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 			settingsDirty = true
 		}
 	}
-	root.AddItem(healthDisplay)
+	displayPanel.AddItem(healthDisplay)
 
-	root.AddItem(setupWizardCheckbox("Dark mode names/bubbles", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
+	displayPanel.AddItem(setupWizardCheckboxWidth("Dark mode names/bubbles", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
 		gs.DarkBubblesAndNames = checked
 		killNameTagCache()
 		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Speech bubbles", "Show spoken text over characters as well as in chat.", gs.SpeechBubbles, func(checked bool) {
+	}, setupWizardPanelWidth))
+	displayPanel.AddItem(setupWizardCheckboxWidth("Speech bubbles", "Show spoken text over characters as well as in chat.", gs.SpeechBubbles, func(checked bool) {
 		gs.SpeechBubbles = checked
 		settingsDirty = true
-	}))
-	root.AddItem(setupWizardCheckbox("Fade obscuring objects", "Fade foreground artwork when it covers a character.", gs.FadeObscuringPictures, func(checked bool) {
+	}, setupWizardPanelWidth))
+	displayPanel.AddItem(setupWizardCheckboxWidth("Fade obscuring objects", "Fade foreground artwork when it covers a character.", gs.FadeObscuringPictures, func(checked bool) {
 		gs.FadeObscuringPictures = checked
 		settingsDirty = true
-	}))
+	}, setupWizardPanelWidth))
+	root.AddItem(panels)
+}
+
+func setupWizardUIScaleControl() *eui.ItemData {
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow.Size = eui.Point{X: 620, Y: 10}
+	pendingScale := clampUIScalePreference(gs.UIScale)
+
+	slider, sliderEvents := eui.NewSlider()
+	slider.Label = "UI scale"
+	slider.MinValue = 0.75
+	slider.MaxValue = 4
+	slider.Value = float32(pendingScale)
+	slider.Size = eui.Point{X: 510, Y: 24}
+	slider.SetTooltip("Base UI size; automatic Retina and HiDPI scaling is applied on top.")
+	sliderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			pendingScale = clampUIScalePreference(float64(ev.Value))
+		}
+	}
+
+	apply, applyEvents := eui.NewButton()
+	apply.Text = "Apply"
+	apply.Size = eui.Point{X: 90, Y: 24}
+	applyEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		gs.UIScale = pendingScale
+		eui.SetUserUIScale(float32(gs.UIScale))
+		updateGameWindowSize()
+		settingsDirty = true
+		rebuildSetupWizard()
+	}
+
+	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	row.Size = eui.Point{X: 610, Y: 44}
+	row.AddItem(slider)
+	row.AddItem(apply)
+	flow.AddItem(row)
+	description := setupWizardText("Adjust the base size of windows, controls, and text, then choose Apply.", 10, 590)
+	description.Position.X = 20
+	flow.AddItem(description)
+	return flow
+}
+
+func buildSetupTiledWindowSettings(root *eui.ItemData, width float32) {
+	heading := setupWizardText("Tiled window settings", 14, width)
+	applyBoldFace(heading)
+	root.AddItem(heading)
+
+	root.AddItem(setupWizardCheckboxWidth("Keep game window large", "Keep the centered game pane at its largest square size.", gs.TiledKeepGameLarge, func(checked bool) {
+		gs.TiledKeepGameLarge = checked
+		applyTiledWorkspaceLayout()
+	}, width))
+	root.AddItem(setupWizardCheckboxWidth("Combine chat + console", "Show chat and console output together in the Console tile, and hide the separate Chat tile.", gs.MessagesToConsole, func(checked bool) {
+		gs.MessagesToConsole = checked
+		applyTiledWorkspaceLayout()
+		rebuildSetupWizard()
+	}, width))
+
+	layout, layoutEvents := eui.NewDropdown()
+	layout.Label = "Layout"
+	layout.Options = []string{"Game centered", "Game on a side"}
+	layout.Selected = int(gs.TiledLayout)
+	layout.Size = eui.Point{X: width - 10, Y: 24}
+	layout.SetTooltip("Centered uses two side columns; side puts the game beside a shared panel.")
+	layoutEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(TiledLayoutCenter) && ev.Index <= int(TiledLayoutSide) {
+			gs.TiledLayout = TiledLayout(ev.Index)
+			applyTiledWorkspaceLayout()
+			rebuildSetupWizard()
+		}
+	}
+	root.AddItem(layout)
+
+	top, topEvents := eui.NewDropdown()
+	top.Label = "Inventory / Players"
+	top.Options = []string{"Inventory left, Players right", "Players left, Inventory right"}
+	if !gs.TiledInventoryLeft {
+		top.Selected = 1
+	}
+	top.Size = eui.Point{X: width - 10, Y: 24}
+	top.SetTooltip("Sets list order in the side columns or the upper shared panel.")
+	topEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
+			gs.TiledInventoryLeft = ev.Index == 0
+			applyTiledWorkspaceLayout()
+		}
+	}
+	root.AddItem(top)
+
+	bottom, bottomEvents := eui.NewDropdown()
+	bottom.Label = "Console / Chat"
+	bottom.Options = []string{"Console left, Chat right", "Chat left, Console right"}
+	bottomTooltip := "Sets message sides in centered layout."
+	if gs.MessagesToConsole {
+		bottom.Label = "Combined chat + console"
+		bottom.Options = []string{"Combined messages left", "Combined messages right"}
+		bottomTooltip = "Chooses which side holds the combined Console and Chat pane."
+	}
+	if !gs.TiledConsoleLeft {
+		bottom.Selected = 1
+	}
+	bottom.Size = eui.Point{X: width - 10, Y: 24}
+	bottom.SetTooltip(bottomTooltip)
+	bottomEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
+			gs.TiledConsoleLeft = ev.Index == 0
+			applyTiledWorkspaceLayout()
+		}
+	}
+	root.AddItem(bottom)
+
+	gameSide, gameSideEvents := eui.NewDropdown()
+	gameSide.Label = "Alternate game side"
+	gameSide.Options = []string{"Game left", "Game right"}
+	if !gs.TiledGameLeft {
+		gameSide.Selected = 1
+	}
+	gameSide.Disabled = gs.TiledLayout != TiledLayoutSide
+	gameSide.Size = eui.Point{X: width - 10, Y: 24}
+	gameSide.SetTooltip("Chooses the game edge for Game on a side; ignored by the centered layout.")
+	gameSideEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
+			gs.TiledGameLeft = ev.Index == 0
+			applyTiledWorkspaceLayout()
+		}
+	}
+	root.AddItem(gameSide)
 }
 
 func buildSetupGraphicsPage(root *eui.ItemData) {
@@ -329,7 +487,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTest.Text = "Rerun Graphics Detection"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Measure FPS and choose a preset.")
+	graphicsTest.SetTooltip("Runs Full Quality for one second, measures FPS, and recommends a mode.")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
@@ -353,7 +511,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		graphicsMode.Selected = 0
 	}
 	graphicsMode.Size = eui.Point{X: 320, Y: 24}
-	graphicsMode.SetTooltip("Choose the graphics mode.")
+	graphicsMode.SetTooltip("iGPU reduces costly effects; Full Quality enables lighting, shadows, and animation.")
 	graphicsModeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index > 1 {
 			return
@@ -413,7 +571,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	upscaleStyle.Options = artworkUpscaleModeNames
 	upscaleStyle.Selected = artworkUpscaleMode()
 	upscaleStyle.Size = eui.Point{X: 320, Y: 24}
-	upscaleStyle.SetTooltip("Choose edge smoothing.")
+	upscaleStyle.SetTooltip("Crisp preserves hard edges; smoother modes blend more neighboring pixels.")
 	upscaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < artworkUpscaleOff || ev.Index > artworkUpscaleUltraSmooth {
 			return
@@ -429,7 +587,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		markQualityCustom()
 	}
 	root.AddItem(upscaleStyle)
-	wizardVSync := setupWizardCheckbox("VSync", "VSync is temporarily bypassed only during the five-second graphics benchmark. Your saved setting applies normally afterward.", effectiveVSyncEnabled(), func(checked bool) {
+	wizardVSync := setupWizardCheckbox("VSync", "VSync is temporarily bypassed only during graphics detection. Your saved setting applies normally afterward.", effectiveVSyncEnabled(), func(checked bool) {
 		gs.VSync = checked
 		applyVSyncSetting()
 		settingsDirty = true
@@ -447,16 +605,15 @@ func updateSetupWizardGraphicsDetection() {
 		setupWizardGraphicsStarted = now
 		return
 	}
-	// Give the preview and uncapped presentation a second to settle, then
-	// observe the complete renderer for the remaining four seconds.
-	if now.Sub(setupWizardGraphicsStarted) >= time.Second {
+	sample, complete := setupWizardGraphicsDetectionTiming(now.Sub(setupWizardGraphicsStarted))
+	if sample {
 		result, err := runGraphicsBenchmark()
 		if err == nil {
 			setupWizardGraphicsFPSSum += result.ActualFPS
 			setupWizardGraphicsFPSCount++
 		}
 	}
-	if now.Sub(setupWizardGraphicsStarted) < 5*time.Second {
+	if !complete {
 		return
 	}
 
@@ -474,6 +631,11 @@ func updateSetupWizardGraphicsDetection() {
 	setupWizardVSyncBypass = false
 	applyVSyncSetting()
 	rebuildSetupWizard()
+}
+
+func setupWizardGraphicsDetectionTiming(elapsed time.Duration) (sample, complete bool) {
+	return elapsed >= setupWizardGraphicsWarmup,
+		elapsed >= setupWizardGraphicsWarmup+setupWizardGraphicsDuration
 }
 
 func startSetupWizardGraphicsDetection() {
@@ -496,6 +658,12 @@ func startSetupWizardGraphicsDetection() {
 func applySetupWizardGraphicsRecommendation(result graphicsBenchmarkResult) {
 	setupWizardGraphicsRecommendation = fmt.Sprintf("%s (%.0f FPS)", graphicsBenchmarkRecommendedLabel(result), result.ActualFPS)
 	applyQualityPreset(graphicsBenchmarkRecommendedPreset(result))
+	// Detection chooses the appropriate performance tier, but these two
+	// subjective rendering choices should still begin at the normal defaults.
+	gs.BlendMobiles = gsdef.BlendMobiles
+	setArtworkUpscaleMode(gsdef.SpriteUpscaleMode)
+	refreshShaderEffectControls()
+	clearCaches()
 }
 
 func igpuGraphicsPresetApplied() bool {
@@ -645,19 +813,39 @@ func applySetupWizardGamma() {
 func buildSetupAudioPage(root *eui.ItemData) {
 	root.AddItem(setupWizardHeading("Audio and music"))
 	root.AddItem(setupWizardText(
-		"Choose audio enhancements and whether to spend extra memory preparing sounds before play. Detailed volume controls remain in Settings.",
+		"Choose audio enhancements and whether to spend extra memory preparing sounds before play. Use Test Off and Test On to compare the same sample without changing your selection. Use Volume for detailed levels.",
 		12, 620,
 	))
-	root.AddItem(setupWizardCheckbox(
+	panels, audioPanel, notificationPanel := setupWizardTwoPanels()
+	audioPanel.AddItem(setupWizardPanelHeading("Audio"))
+	notificationPanel.AddItem(setupWizardPanelHeading("Notifications"))
+
+	volume, volumeEvents := eui.NewButton()
+	volume.Text = "Volume"
+	volume.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 28}
+	volume.SetTooltip("Open the Mixer for master, game, music, speech, and notification levels.")
+	volumeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeMixerWindow()
+			mixerWin.MarkOpenNear(ev.Item)
+		}
+	}
+	audioPanel.AddItem(volume)
+	audioPanel.AddItem(setupWizardAudioOptionWidth(
 		"Enhance sound effects",
 		"Adds stereo width, ambience, and tone polish to in-game sounds.",
 		gs.SoundEnhancement,
 		func(checked bool) {
 			gs.SoundEnhancement = checked
+			refreshMixerEnhancementControls()
 			settingsDirty = true
 		},
+		func(enabled bool) {
+			playSoundWithSettings([]uint16{setupWizardAudioTestSound}, enabled, gs.SoundEnhancementAmount, highQualityResamplingEnabled())
+		},
+		setupWizardPanelWidth,
 	))
-	root.AddItem(setupWizardCheckbox(
+	audioPanel.AddItem(setupWizardAudioOptionWidth(
 		"High quality audio resampling",
 		"Uses Lanczos resampling and dithering for cleaner audio, with higher CPU use.",
 		gs.HighQualityResampling,
@@ -667,23 +855,121 @@ func buildSetupAudioPage(root *eui.ItemData) {
 			clearCaches()
 			settingsDirty = true
 		},
+		func(enabled bool) {
+			playSoundWithSettings([]uint16{setupWizardAudioTestSound}, gs.SoundEnhancement, gs.SoundEnhancementAmount, enabled)
+		},
+		setupWizardPanelWidth,
 	))
-	root.AddItem(setupWizardCheckbox(
-		"Enhance music",
-		"Adds space and ambience to background music.",
+	audioPanel.AddItem(setupWizardAudioOptionWidth(
+		"Enhance bard music",
+		"Adds space and ambience to bard music.",
 		gs.MusicEnhancement,
 		func(checked bool) {
 			gs.MusicEnhancement = checked
+			refreshMixerEnhancementControls()
 			settingsDirty = true
 		},
+		playSetupWizardMusicTest,
+		setupWizardPanelWidth,
 	))
-	root.AddItem(setupWizardRecommendedCheckbox("Precache sounds", "Warm game sounds in the background to reduce first-use delay. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
+	audioPanel.AddItem(setupWizardRecommendedCheckboxWidth("Precache sounds", "Warm game sounds in the background to reduce first-use delay. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
 		gs.PrecacheSounds = checked
 		if checked && !soundsPrecached.Load() {
 			go precacheSounds()
 		}
 		settingsDirty = true
-	}))
+	}, setupWizardPanelWidth))
+
+	notificationPanel.AddItem(setupWizardCheckboxWidth(
+		"Game notifications",
+		"Allow configured game events to appear as in-game or desktop notifications.",
+		gs.Notifications,
+		func(checked bool) {
+			gs.Notifications = checked
+			if !checked {
+				clearNotifications()
+			}
+			settingsDirty = true
+		},
+		setupWizardPanelWidth,
+	))
+	notifications, notificationEvents := eui.NewButton()
+	notifications.Text = "Notification Settings"
+	notifications.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 28}
+	notifications.SetTooltip("Choose event types, background behavior, beep delivery, and display duration.")
+	notificationEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeNotificationsWindow()
+			notificationsWin.MarkOpenNear(ev.Item)
+		}
+	}
+	notificationPanel.AddItem(notifications)
+	root.AddItem(panels)
+}
+
+func setupWizardAudioOption(label, explanation string, checked bool, changed, test func(bool)) *eui.ItemData {
+	return setupWizardAudioOptionWidth(label, explanation, checked, changed, test, setupWizardContentWidth)
+}
+
+func setupWizardAudioOptionWidth(label, explanation string, checked bool, changed, test func(bool), width float32) *eui.ItemData {
+	flow := setupWizardCheckboxWidth(label, explanation, checked, changed, width)
+	if len(flow.Contents) == 0 {
+		return flow
+	}
+
+	checkbox := flow.Contents[0]
+	flow.RemoveItem(checkbox)
+	checkbox.Size.X = width - 180
+	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	row.Size = eui.Point{X: width - 10, Y: 24}
+	row.AddItem(checkbox)
+	for _, choice := range []struct {
+		label   string
+		enabled bool
+	}{
+		{label: "Test Off", enabled: false},
+		{label: "Test On", enabled: true},
+	} {
+		button, events := eui.NewButton()
+		button.Text = choice.label
+		button.Size = eui.Point{X: 76, Y: 24}
+		button.SetTooltip("Preview this option " + onOff(choice.enabled) + " without changing the saved choice.")
+		enabled := choice.enabled
+		events.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventClick && test != nil {
+				test(enabled)
+			}
+		}
+		row.AddItem(button)
+	}
+	flow.PrependItem(row)
+	return flow
+}
+
+func playSetupWizardMusicTest(enhanced bool) {
+	soundMu.Lock()
+	context := audioContext
+	soundMu.Unlock()
+	if context == nil {
+		return
+	}
+
+	const previewWho = -1
+	stopMusicFor(previewWho)
+	settings := currentMusicPlaybackSettings()
+	settings.enhancement = enhanced
+	settings.enhancementAmount = gs.MusicEnhancementAmount
+	notes := []Note{
+		{Key: 60, Velocity: 105, Duration: 350 * time.Millisecond},
+		{Key: 64, Velocity: 105, Start: 350 * time.Millisecond, Duration: 350 * time.Millisecond},
+		{Key: 67, Velocity: 105, Start: 700 * time.Millisecond, Duration: 350 * time.Millisecond},
+		{Key: 72, Velocity: 105, Start: 1050 * time.Millisecond, Duration: 700 * time.Millisecond},
+	}
+	go func() {
+		if err := playMusicGroupWithSettings(context, []musicPart{{program: 46, notes: notes}}, []int{previewWho}, nil, nil, settings); err != nil {
+			logDebug("setup wizard music preview: %v", err)
+		}
+	}()
 }
 
 func buildSetupFinishPage(root *eui.ItemData) {
@@ -709,9 +995,9 @@ func buildSetupFinishPage(root *eui.ItemData) {
 	))
 }
 
-func setupWizardNavigation() *eui.ItemData {
+func setupWizardNavigation(width float32) *eui.ItemData {
 	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Alignment: eui.ALIGN_RIGHT}
-	row.Size = eui.Point{X: 620, Y: 30}
+	row.Size = eui.Point{X: width, Y: 30}
 
 	if setupWizardPage > 0 {
 		back, backEvents := eui.NewButton()
@@ -833,35 +1119,43 @@ func markQualityCustom() {
 }
 
 func setupWizardCheckbox(label, explanation string, checked bool, changed func(bool)) *eui.ItemData {
+	return setupWizardCheckboxWidth(label, explanation, checked, changed, setupWizardContentWidth)
+}
+
+func setupWizardCheckboxWidth(label, explanation string, checked bool, changed func(bool), width float32) *eui.ItemData {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	flow.Size = eui.Point{X: 620, Y: 10}
+	flow.Size = eui.Point{X: width, Y: 10}
 	checkbox, events := eui.NewCheckbox()
 	checkbox.Text = label
 	checkbox.Checked = checked
-	checkbox.Size = eui.Point{X: 610, Y: 24}
+	checkbox.Size = eui.Point{X: width - 10, Y: 24}
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged && changed != nil {
 			changed(ev.Checked)
 		}
 	}
 	flow.AddItem(checkbox)
-	description := setupWizardText(explanation, 10, 590)
+	description := setupWizardText(explanation, 10, width-30)
 	description.Position.X = 20
 	flow.AddItem(description)
 	return flow
 }
 
 func setupWizardRecommendedCheckbox(label, explanation string, checked, recommended bool, changed func(bool)) *eui.ItemData {
-	flow := setupWizardCheckbox(label, explanation, checked, changed)
+	return setupWizardRecommendedCheckboxWidth(label, explanation, checked, recommended, changed, setupWizardContentWidth)
+}
+
+func setupWizardRecommendedCheckboxWidth(label, explanation string, checked, recommended bool, changed func(bool), width float32) *eui.ItemData {
+	flow := setupWizardCheckboxWidth(label, explanation, checked, changed, width)
 	if !recommended || len(flow.Contents) == 0 {
 		return flow
 	}
 
 	checkbox := flow.Contents[0]
 	flow.RemoveItem(checkbox)
-	checkbox.Size.X = 480
+	checkbox.Size.X = width - 140
 	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-	row.Size = eui.Point{X: 610, Y: 24}
+	row.Size = eui.Point{X: width - 10, Y: 24}
 	row.AddItem(checkbox)
 
 	pill := setupWizardText("  Recommended", 9, 104)
@@ -875,6 +1169,25 @@ func setupWizardRecommendedCheckbox(label, explanation string, checked, recommen
 	row.AddItem(pill)
 	flow.PrependItem(row)
 	return flow
+}
+
+func setupWizardTwoPanels() (row, left, right *eui.ItemData) {
+	row = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row.Size = eui.Point{X: setupWizardTwoPanelWidth, Y: 10}
+	left = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	left.Size = eui.Point{X: setupWizardPanelWidth, Y: 10}
+	right = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	right.Size = eui.Point{X: setupWizardPanelWidth, Y: 10}
+	right.Position.X = setupWizardPanelGap
+	row.AddItem(left)
+	row.AddItem(right)
+	return row, left, right
+}
+
+func setupWizardPanelHeading(title string) *eui.ItemData {
+	heading := setupWizardText(title, 14, setupWizardPanelWidth)
+	applyBoldFace(heading)
+	return heading
 }
 
 func setupWizardSlider(label, explanation string, minValue, maxValue, value float32, intOnly bool, changed func(float32)) *eui.ItemData {

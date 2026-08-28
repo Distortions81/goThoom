@@ -422,7 +422,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
-	btn.SetTooltip("Open settings")
 	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	btn.FontSize = toolFontSize
 	setEvents.Handle = func(ev eui.UIEvent) {
@@ -434,7 +433,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	actionsBtn, actionsEvents := eui.NewButton()
 	actionsBtn.Text = "Actions"
-	actionsBtn.SetTooltip("Open action tools.")
+	actionsBtn.SetTooltip("Open hotkeys, shortcuts, keybindings, scripts, macros, and saved data.")
 	actionsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	actionsBtn.FontSize = toolFontSize
 	actionsEvents.Handle = func(ev eui.UIEvent) {
@@ -512,7 +511,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
-	helpBtn.SetTooltip("Open help")
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
 	helpEvents.Handle = func(ev eui.UIEvent) {
@@ -524,7 +522,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	shotBtn, shotEvents := eui.NewButton()
 	shotBtn.Text = "Snapshot"
-	shotBtn.SetTooltip("Save screenshot")
+	shotBtn.SetTooltip("Save the visible game view as a PNG in data/Screenshots.")
 	shotBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	shotBtn.FontSize = toolFontSize
 	shotEvents.Handle = func(ev eui.UIEvent) {
@@ -536,7 +534,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	exitSessBtn, exitSessEv := eui.NewButton()
 	exitSessBtn.Text = "Exit"
-	exitSessBtn.SetTooltip("Exit session")
 	exitSessBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	exitSessBtn.FontSize = toolFontSize
 	exitSessEv.Handle = func(ev eui.UIEvent) {
@@ -548,7 +545,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	mixBtn, mixEvents := eui.NewButton()
 	mixBtn.Text = "Audio"
-	mixBtn.SetTooltip("Open audio mixer")
+	mixBtn.SetTooltip("Adjust game, music, speech, notification, and enhancement levels.")
 	mixBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	mixBtn.FontSize = toolFontSize
 	mixEvents.Handle = func(ev eui.UIEvent) {
@@ -3693,7 +3690,7 @@ func makeSettingsWindow() {
 	tiledLayoutBtn, tiledLayoutEvents := eui.NewButton()
 	tiledLayoutBtn.Text = "Tiled Layout"
 	tiledLayoutBtn.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
-	tiledLayoutBtn.SetTooltip("Arrange the main windows as a tiled workspace.")
+	tiledLayoutBtn.SetTooltip("Open panel ordering, game placement, and combined-message controls.")
 	tiledLayoutEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			makeTileLayoutWindow()
@@ -3710,6 +3707,7 @@ func makeSettingsWindow() {
 	}
 	toolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
 	toolbarPlacementDD.Size = eui.Point{X: panelWidth, Y: 24}
+	toolbarPlacementDD.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
 	toolbarPlacementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
@@ -3884,7 +3882,7 @@ func makeSettingsWindow() {
 	toggle.Text = "Click-to-toggle movement"
 	toggle.Size = eui.Point{X: panelWidth, Y: 24}
 	toggle.Checked = gs.ClickToToggle
-	toggle.SetTooltip("Toggle continuous walking.")
+	toggle.SetTooltip("Click once to keep walking toward the pointer; click again to stop.")
 	toggleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -3904,6 +3902,7 @@ func makeSettingsWindow() {
 	qualityPresetDD.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.FontSize = 12
+	qualityPresetDD.SetTooltip("Apply a coordinated graphics and audio preset; Custom preserves individual choices.")
 	qpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
@@ -3925,7 +3924,7 @@ func makeSettingsWindow() {
 
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Settings"
-	qualityBtn.SetTooltip("Open detailed quality options")
+	qualityBtn.SetTooltip("Tune artwork scaling, shadows, lighting, motion, and GPU costs individually.")
 	qualityBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -4000,7 +3999,6 @@ func makeSettingsWindow() {
 	notifCB.Text = "Game Notifications"
 	notifCB.Size = eui.Point{X: panelWidth, Y: 24}
 	notifCB.Checked = gs.Notifications
-	notifCB.SetTooltip("Show in-game notifications")
 	notifEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -4030,7 +4028,6 @@ func makeSettingsWindow() {
 	textColorsBtn, textColorsEvents := eui.NewButton()
 	textColorsBtn.Text = "Text Colors"
 	textColorsBtn.Size = eui.Point{X: panelWidth, Y: 24}
-	textColorsBtn.SetTooltip("Set message colors.")
 	textColorsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			makeTextColorsWindow()
@@ -4043,7 +4040,6 @@ func makeSettingsWindow() {
 	alternateRowsCB.Text = "Alternate row backgrounds"
 	alternateRowsCB.Size = eui.Point{X: panelWidth, Y: 24}
 	alternateRowsCB.Checked = gs.AlternateRowBackgrounds
-	alternateRowsCB.SetTooltip("Shade alternating list rows.")
 	alternateRowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventCheckboxChanged {
 			return
@@ -4137,7 +4133,7 @@ func makeSettingsWindow() {
 	darkBubblesAndNamesCB.Text = "Dark Mode Names/Bubbles"
 	darkBubblesAndNamesCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
 	darkBubblesAndNamesCB.Checked = gs.DarkBubblesAndNames
-	darkBubblesAndNamesCB.SetTooltip("Use dark bubbles and name tags.")
+	darkBubblesAndNamesCB.SetTooltip("Uses dark backgrounds and light text for speech bubbles and name tags.")
 	darkBubblesAndNamesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -4175,6 +4171,7 @@ func makeSettingsWindow() {
 		healthBarStyleDD.Selected = 1
 	}
 	healthBarStyleDD.Size = eui.Point{X: panelWidth - 10, Y: 24}
+	healthBarStyleDD.SetTooltip("Color bar keeps names stable; Classic changes name color as health falls.")
 	healthBarStyleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			SettingsLock.Lock()
@@ -4230,7 +4227,6 @@ func makeSettingsWindow() {
 	hideSelfNameCB.Text = "Hide My Name Tag"
 	hideSelfNameCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
 	hideSelfNameCB.Checked = gs.HideSelfNameTag
-	hideSelfNameCB.SetTooltip("Hide your own name tag.")
 	hideSelfNameEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -4248,7 +4244,6 @@ func makeSettingsWindow() {
 	nameHoverCB.Text = "Show name-tags only on hover"
 	nameHoverCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
 	nameHoverCB.Checked = gs.NameTagsOnHoverOnly
-	nameHoverCB.SetTooltip("Show name tags on hover.")
 	nameHoverEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -4358,7 +4353,6 @@ func makeSettingsWindow() {
 	advancedBtn, advancedEvents := eui.NewButton()
 	advancedBtn.Text = "Advanced Settings"
 	advancedBtn.Size = eui.Point{X: panelWidth, Y: 24}
-	advancedBtn.SetTooltip("Open additional settings and tools")
 	advancedEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			SettingsLock.Lock()
@@ -4377,7 +4371,7 @@ func makeSettingsWindow() {
 
 	setupBtn, setupEvents := eui.NewButton()
 	setupBtn.Text = "Setup Wizard"
-	setupBtn.SetTooltip("Review controls and graphics.")
+	setupBtn.SetTooltip("Reopen guided graphics, layout, controls, and audio setup without resetting choices.")
 	setupBtn.Size = eui.Point{X: panelWidth, Y: 40}
 	setupBtn.FontSize = 15
 	setupBtn.Color = eui.ColorDarkOrange
@@ -4975,31 +4969,35 @@ func makeQualityWindow() {
 	qualityWin.Movable = true
 	qualityWin.SetRefreshInterval(100 * time.Millisecond)
 	qualityWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	// Keep expensive rendering features separate from visual treatment controls.
+	// Use three short columns so the larger shader group does not make this
+	// window unnecessarily tall.
 	var panelWidth float32 = 270
 	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	left := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	left.Size = eui.Point{X: panelWidth, Y: 10}
 	center := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	center.Size = eui.Point{X: panelWidth, Y: 10}
+	right := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	right.Size = eui.Point{X: panelWidth, Y: 10}
 
 	artworkSection := newConfigurationSection("Artwork Scaling", width)
 	occlusionSection := newConfigurationSection("Foreground Occlusion", width)
 	performanceSection := newConfigurationSection("GPU & Performance", width)
-	gammaSection := newConfigurationSection("Sprite Gamma", width)
-	denoiseSection := newConfigurationSection("Dither Cleanup", width)
 	left.AddItem(artworkSection)
 	left.AddItem(occlusionSection)
 	left.AddItem(performanceSection)
-	left.AddItem(gammaSection)
-	left.AddItem(denoiseSection)
 
 	shadowSection := newConfigurationSection("Shadows", width)
 	motionSection := newConfigurationSection("Motion Smoothing", width)
-	shaderSection := newConfigurationSection("Shader Effects", width)
+	gammaSection := newConfigurationSection("Sprite Gamma", width)
+	denoiseSection := newConfigurationSection("Dither Cleanup", width)
 	center.AddItem(shadowSection)
 	center.AddItem(motionSection)
-	center.AddItem(shaderSection)
+	center.AddItem(gammaSection)
+	center.AddItem(denoiseSection)
+
+	shaderSection := newConfigurationSection("Shader Effects", width)
+	right.AddItem(shaderSection)
 
 	masterShaders, masterShaderEvents := eui.NewCheckbox()
 	shadersEnabledCB = masterShaders
@@ -5040,7 +5038,7 @@ func makeQualityWindow() {
 
 	renderScale.Value = float32(math.Round(gs.GameScale))
 	renderScale.Size = eui.Point{X: width - 10, Y: 24}
-	renderScale.SetTooltip("Set the maximum artwork upscale. Actual texture resolution is capped to twice its fitted on-screen size.")
+	renderScale.SetTooltip("Caps artwork upscale at 2x-4x; fitted textures may use less to avoid wasted GPU memory.")
 	renderScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			prevUpscale := gs.SpriteUpscale
@@ -5072,7 +5070,7 @@ func makeQualityWindow() {
 	upscaleModeDD.Options = artworkUpscaleModeNames
 	upscaleModeDD.Selected = artworkUpscaleMode()
 	upscaleModeDD.Size = eui.Point{X: width, Y: 24}
-	upscaleModeDD.SetTooltip("Choose edge smoothing.")
+	upscaleModeDD.SetTooltip("Crisp preserves hard edges; smoother modes blend more neighboring pixels.")
 	upscaleModeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= artworkUpscaleOff && ev.Index <= artworkUpscaleUltraSmooth {
 			if artworkUpscaleMode() != ev.Index {
@@ -5110,7 +5108,6 @@ func makeQualityWindow() {
 	fadePicsCB.Text = "Fade objects obscuring mobiles"
 	fadePicsCB.Size = eui.Point{X: width, Y: 24}
 	fadePicsCB.Checked = gs.FadeObscuringPictures
-	fadePicsCB.SetTooltip("Fade artwork covering mobiles.")
 	fadePicsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.FadeObscuringPictures = ev.Checked
@@ -5125,6 +5122,7 @@ func makeQualityWindow() {
 	obscureSlider.MaxValue = 0.7
 	obscureSlider.Value = float32(gs.ObscuringPictureOpacity)
 	obscureSlider.Size = eui.Point{X: width - 10, Y: 24}
+	obscureSlider.SetTooltip("Lower values make covering artwork more transparent while it is faded.")
 	obscureEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ObscuringPictureOpacity = float64(ev.Value)
@@ -5153,7 +5151,7 @@ func makeQualityWindow() {
 	precacheSoundCB.Text = "Precache Sounds"
 	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
 	precacheSoundCB.Checked = gs.PrecacheSounds
-	precacheSoundCB.SetTooltip("Preload sounds for smooth playback.")
+	precacheSoundCB.SetTooltip("Uses roughly 300 MB more RAM to avoid first-play sound decoding delays.")
 	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.PrecacheSounds = ev.Checked
@@ -5181,7 +5179,7 @@ func makeQualityWindow() {
 	batchArtworkCB.Text = "Batch room artwork loading"
 	batchArtworkCB.Size = eui.Point{X: width, Y: 24}
 	batchArtworkCB.Checked = gs.BatchArtworkLoading
-	batchArtworkCB.SetTooltip("Load and clean up all missing room artwork in one pause instead of spreading first-use work across frames.")
+	batchArtworkCB.SetTooltip("Load missing room artwork in one pause instead of spreading first-use work across frames.")
 	batchArtworkEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BatchArtworkLoading = ev.Checked
@@ -5194,7 +5192,7 @@ func makeQualityWindow() {
 	activityIndicatorsCB.Text = "Show asset activity dots"
 	activityIndicatorsCB.Size = eui.Point{X: width, Y: 24}
 	activityIndicatorsCB.Checked = gs.AssetActivityIndicators
-	activityIndicatorsCB.SetTooltip("Show green artwork/data, amber audio, and red GPU activity dots in the lower-right of the game view.")
+	activityIndicatorsCB.SetTooltip("Show green data, amber audio, and red GPU activity dots in the game view's lower-right.")
 	activityIndicatorEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.AssetActivityIndicators = ev.Checked
@@ -5208,7 +5206,7 @@ func makeQualityWindow() {
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "Potato GPU (Low VRAM)"
-	potatoCB.SetTooltip("Use low-memory texture handling.")
+	potatoCB.SetTooltip("Trades loading smoothness for lower texture memory use on older GPUs and small devices.")
 	potatoCB.Size = eui.Point{X: width, Y: 24}
 	potatoCB.Checked = gs.PotatoGPU
 	potatoEvents.Handle = func(ev eui.UIEvent) {
@@ -5240,7 +5238,6 @@ func makeQualityWindow() {
 	windowShadowsCB.Text = "Window Shadows"
 	windowShadowsCB.Size = eui.Point{X: width, Y: 24}
 	windowShadowsCB.Checked = gs.WindowShadows
-	windowShadowsCB.SetTooltip("Show interface shadows.")
 	windowShadowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.WindowShadows = ev.Checked
@@ -5254,7 +5251,6 @@ func makeQualityWindow() {
 	characterShadowsCB.Text = "Character Shadows"
 	characterShadowsCB.Size = eui.Point{X: width, Y: 24}
 	characterShadowsCB.Checked = gs.CharacterShadows
-	characterShadowsCB.SetTooltip("Show character shadows.")
 	characterShadowsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.CharacterShadows = ev.Checked
@@ -5275,7 +5271,6 @@ func makeQualityWindow() {
 	shadowDarknessSlider.Value = float32(gs.CharacterShadowDarkness * 100)
 	shadowDarknessSlider.Size = eui.Point{X: width - 10, Y: 24}
 	shadowDarknessSlider.Disabled = !gs.CharacterShadows
-	shadowDarknessSlider.SetTooltip("Set character-shadow darkness.")
 	shadowDarknessEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.CharacterShadowDarkness = float64(ev.Value / 100)
@@ -5290,7 +5285,7 @@ func makeQualityWindow() {
 	fasterShadowCB.Size = eui.Point{X: width, Y: 24}
 	fasterShadowCB.Checked = gs.FasterCharacterShadows
 	fasterShadowCB.Disabled = !gs.ShadersEnabled || !gs.CharacterShadows
-	fasterShadowCB.SetTooltip("Batch directional shadows into one cheaper pass. This can shade foreground artwork that should cover a shadow.")
+	fasterShadowCB.SetTooltip("Uses one cheaper shadow pass, but may shade foreground artwork that should cover a shadow.")
 	fasterShadowEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.FasterCharacterShadows = ev.Checked
@@ -5305,7 +5300,6 @@ func makeQualityWindow() {
 	shaderQualityCB.Text = "Shader Lighting Effects"
 	shaderQualityCB.Size = eui.Point{X: width, Y: 24}
 	shaderQualityCB.Checked = gs.ShaderLighting
-	shaderQualityCB.SetTooltip("Enable shader lighting.")
 	shaderQualityEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ShaderLighting = ev.Checked
@@ -5340,7 +5334,6 @@ func makeQualityWindow() {
 	flameFlickerCB.Text = "Flame Light Flicker"
 	flameFlickerCB.Size = eui.Point{X: width, Y: 24}
 	flameFlickerCB.Checked = gs.FlameLightFlicker
-	flameFlickerCB.SetTooltip("Animate flame lights.")
 	flameEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.FlameLightFlicker = ev.Checked
@@ -5360,7 +5353,6 @@ func makeQualityWindow() {
 	flameFlickerSlider.IntOnly = true
 	flameFlickerSlider.Value = float32(gs.FlameFlickerStrength * 100)
 	flameFlickerSlider.Size = eui.Point{X: width - 10, Y: 24}
-	flameFlickerSlider.SetTooltip("Set flame animation strength.")
 	flameSliderEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.FlameFlickerStrength = float64(ev.Value / 100)
@@ -5377,7 +5369,6 @@ func makeQualityWindow() {
 	shaderLightSlider.IntOnly = true
 	shaderLightSlider.Value = float32(gs.ShaderLightStrength * 100)
 	shaderLightSlider.Size = eui.Point{X: width - 10, Y: 24}
-	shaderLightSlider.SetTooltip("Adjust intensity of shader lighting")
 	shaderLightEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ShaderLightStrength = float64(ev.Value / 100)
@@ -5397,7 +5388,6 @@ func makeQualityWindow() {
 	shaderGlowSlider.IntOnly = true
 	shaderGlowSlider.Value = float32(gs.ShaderGlowStrength * 100)
 	shaderGlowSlider.Size = eui.Point{X: width - 10, Y: 24}
-	shaderGlowSlider.SetTooltip("Adjust strength of glow halos")
 	shaderGlowEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.ShaderGlowStrength = float64(ev.Value / 100)
@@ -5429,7 +5419,7 @@ func makeQualityWindow() {
 	gammaCorrectionCB.Text = "Enable Sprite Gamma Correction"
 	gammaCorrectionCB.Size = eui.Point{X: width, Y: 24}
 	gammaCorrectionCB.Checked = gs.SpriteGammaCorrection
-	gammaCorrectionCB.SetTooltip("Apply sprite gamma correction.")
+	gammaCorrectionCB.SetTooltip("Compensates classic artwork for modern displays; disable if colors look washed out.")
 	gammaEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if gs.SpriteGammaCorrection != ev.Checked {
@@ -5461,7 +5451,7 @@ func makeQualityWindow() {
 	spriteGammaSlider.Value = float32(gs.SpriteGamma)
 	spriteGammaSlider.Size = eui.Point{X: width - 10, Y: 24}
 	spriteGammaSlider.Disabled = !gs.SpriteGammaCorrection
-	spriteGammaSlider.SetTooltip("Set source sprite gamma.")
+	spriteGammaSlider.SetTooltip("Describes how brightness is encoded in the original sprite artwork.")
 	spriteGammaEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			target := normalizeGamma(float64(ev.Value), gs.SpriteGamma)
@@ -5490,7 +5480,7 @@ func makeQualityWindow() {
 	monitorGammaSlider.Value = float32(gs.MonitorGamma)
 	monitorGammaSlider.Size = eui.Point{X: width - 10, Y: 24}
 	monitorGammaSlider.Disabled = !gs.SpriteGammaCorrection
-	monitorGammaSlider.SetTooltip("Set target display gamma.")
+	monitorGammaSlider.SetTooltip("Describes the target display response used when correcting sprite brightness.")
 	monitorGammaEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			target := normalizeGamma(float64(ev.Value), gs.MonitorGamma)
@@ -5556,7 +5546,6 @@ func makeQualityWindow() {
 	denoiseAmtSlider.MaxValue = 50
 	denoiseAmtSlider.Value = float32(gs.DenoiseAmount * 100)
 	denoiseAmtSlider.Size = eui.Point{X: width - 10, Y: 24}
-	denoiseAmtSlider.SetTooltip("How strongly to blend dithered areas")
 	denoiseAmtEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoiseAmount = float64(ev.Value / 100)
@@ -5606,7 +5595,6 @@ func makeQualityWindow() {
 	animCB.Text = "Mobile Animation Blending"
 	animCB.Size = eui.Point{X: width, Y: 24}
 	animCB.Checked = gs.BlendMobiles
-	animCB.SetTooltip("Blend mobile animation frames.")
 	animEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendMobiles = ev.Checked
@@ -5667,6 +5655,7 @@ func makeQualityWindow() {
 
 	outer.AddItem(left)
 	outer.AddItem(center)
+	outer.AddItem(right)
 	qualityWin.AddItem(outer)
 	qualityWin.AddWindow(false)
 }
@@ -5754,7 +5743,7 @@ func makeTileLayoutWindow() {
 	keepGameLargeCB.Text = "Keep game window large"
 	keepGameLargeCB.Size = eui.Point{X: width, Y: 24}
 	keepGameLargeCB.Checked = gs.TiledKeepGameLarge
-	keepGameLargeCB.SetTooltip("Keep the centered game pane at its largest square size. Drag either vertical divider to move it left or right.")
+	keepGameLargeCB.SetTooltip("Keep the centered game pane at its largest square size; drag a divider to reposition it.")
 	keepGameLargeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.TiledKeepGameLarge = ev.Checked
@@ -5777,15 +5766,22 @@ func makeTileLayoutWindow() {
 	}
 	workspace.AddItem(combineMessagesCB)
 
+	var gameSideDD *eui.ItemData
 	layoutDD, layoutEvents := eui.NewDropdown()
 	layoutDD.Label = "Layout"
 	layoutDD.Options = []string{"Game centered", "Game on a side"}
 	layoutDD.Selected = int(gs.TiledLayout)
 	layoutDD.Size = eui.Point{X: width, Y: 24}
+	layoutDD.SetTooltip("Centered uses two side columns; side puts the game beside a shared panel.")
 	layoutEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			gs.TiledLayout = TiledLayout(ev.Index)
 			applyTiledWorkspaceLayout()
+			if gameSideDD != nil {
+				gameSideDD.Disabled = gs.TiledLayout != TiledLayoutSide
+				gameSideDD.Dirty = true
+				tileLayoutWin.Refresh()
+			}
 		}
 	}
 	arrangement.AddItem(layoutDD)
@@ -5797,6 +5793,7 @@ func makeTileLayoutWindow() {
 		topDD.Selected = 1
 	}
 	topDD.Size = eui.Point{X: width, Y: 24}
+	topDD.SetTooltip("Sets list order in the side columns or the upper shared panel.")
 	topEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			gs.TiledInventoryLeft = ev.Index == 0
@@ -5812,6 +5809,7 @@ func makeTileLayoutWindow() {
 		bottomDD.Selected = 1
 	}
 	bottomDD.Size = eui.Point{X: width, Y: 24}
+	bottomDD.SetTooltip("Sets message sides in centered layout; ignored when messages are combined.")
 	bottomEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			gs.TiledConsoleLeft = ev.Index == 0
@@ -5826,7 +5824,9 @@ func makeTileLayoutWindow() {
 	if !gs.TiledGameLeft {
 		gameSideDD.Selected = 1
 	}
+	gameSideDD.Disabled = gs.TiledLayout != TiledLayoutSide
 	gameSideDD.Size = eui.Point{X: width, Y: 24}
+	gameSideDD.SetTooltip("Chooses which edge holds the game when Game on a side is selected.")
 	gameSideEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			gs.TiledGameLeft = ev.Index == 0
@@ -5969,7 +5969,6 @@ func makeAdvancedSettingsWindow() {
 	dlBtn, dlEvents := eui.NewButton()
 	dlBtn.Text = "Download Files"
 	dlBtn.Size = eui.Point{X: columnWidth, Y: 24}
-	dlBtn.SetTooltip("Download missing or optional files")
 	dlEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			SettingsLock.Lock()
@@ -5993,7 +5992,6 @@ func makeAdvancedSettingsWindow() {
 	resetBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	resetBtn.Color = eui.ColorDarkRed
 	resetBtn.HoverColor = eui.ColorRed
-	resetBtn.SetTooltip("Restore defaults and reapply")
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			SettingsLock.Lock()
@@ -6056,7 +6054,6 @@ func makeAdvancedSettingsWindow() {
 	midMove.Text = "Middle-click moves windows"
 	midMove.Size = eui.Point{X: columnWidth, Y: 24}
 	midMove.Checked = gs.MiddleClickMoveWindow
-	midMove.SetTooltip("Middle-drag windows.")
 	midMoveEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -6095,6 +6092,23 @@ func makeAdvancedSettingsWindow() {
 		}
 	}
 	interfaceCol.AddItem(joystickBtn)
+
+	addSectionLabel(interfaceCol, "Rendering")
+
+	coordsCB, coordsEvents := eui.NewCheckbox()
+	coordsCB.Text = "Floating-point sprite coordinates"
+	coordsCB.Size = eui.Point{X: columnWidth, Y: 24}
+	coordsCB.Checked = gs.FloatingPointSpriteCoords
+	coordsCB.SetTooltip("Keeps interpolated sprites at subpixel screen positions for smoother movement. This can cause shimmering on some artwork; turn it off to floor sprites to whole pixels.")
+	coordsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.FloatingPointSpriteCoords = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+	}
+	interfaceCol.AddItem(coordsCB)
 
 	// Chat & TTS column
 	addSectionLabel(chatCol, "Chat & TTS")
@@ -6253,7 +6267,7 @@ func makeAdvancedSettingsWindow() {
 	throttleSoundCB.Text = "Throttle Repeated Sounds"
 	throttleSoundCB.Size = eui.Point{X: columnWidth, Y: 24}
 	throttleSoundCB.Checked = gs.ThrottleSounds
-	throttleSoundCB.SetTooltip("Throttle repeated sounds.")
+	throttleSoundCB.SetTooltip("Suppress the same effect when it repeats in adjacent server updates.")
 	throttleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.ThrottleSounds = ev.Checked
@@ -6268,7 +6282,7 @@ func makeAdvancedSettingsWindow() {
 	enhancementCB.Text = "Audio enhancement for sound effects"
 	enhancementCB.Size = eui.Point{X: columnWidth, Y: 24}
 	enhancementCB.Checked = gs.SoundEnhancement
-	enhancementCB.SetTooltip("Enhance game sound.")
+	enhancementCB.SetTooltip("Adds stereo width, ambience, and tone polish to newly played game sounds.")
 	enhancementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.SoundEnhancement = ev.Checked
@@ -6283,7 +6297,7 @@ func makeAdvancedSettingsWindow() {
 	resampleCB.Text = "High quality resampling"
 	resampleCB.Size = eui.Point{X: columnWidth, Y: 24}
 	resampleCB.Checked = gs.HighQualityResampling
-	resampleCB.SetTooltip("Use high-quality audio resampling.")
+	resampleCB.SetTooltip("Uses Lanczos resampling and dithering for cleaner audio at higher CPU cost.")
 	resampleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.HighQualityResampling = ev.Checked
@@ -6299,7 +6313,7 @@ func makeAdvancedSettingsWindow() {
 	musicEnhancementCB.Text = "Audio enhancement for music"
 	musicEnhancementCB.Size = eui.Point{X: columnWidth, Y: 24}
 	musicEnhancementCB.Checked = gs.MusicEnhancement
-	musicEnhancementCB.SetTooltip("Enhance background music.")
+	musicEnhancementCB.SetTooltip("Adds space and ambience to newly started bard music.")
 	musicEnhancementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MusicEnhancement = ev.Checked
@@ -6496,7 +6510,6 @@ func makeBubbleWindow() {
 	bubblesQuickCB.Text = "Message Bubbles"
 	bubblesQuickCB.Size = eui.Point{X: width, Y: 24}
 	bubblesQuickCB.Checked = gs.SpeechBubbles
-	bubblesQuickCB.SetTooltip("Show speech bubbles in game")
 	bubblesQuickEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.SpeechBubbles = ev.Checked
@@ -6782,7 +6795,6 @@ func makeDebugWindow() {
 	clearCacheBtn, clearCacheEvents := eui.NewButton()
 	clearCacheBtn.Text = "Clear All Caches"
 	clearCacheBtn.Size = eui.Point{X: width, Y: 24}
-	clearCacheBtn.SetTooltip("Clear cached assets")
 	clearCacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			clearCaches()

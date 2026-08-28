@@ -1188,8 +1188,9 @@ func itemAcceptsTextEditing(item *itemData) bool {
 }
 
 const (
-	tooltipMaxRunes = 96
-	tooltipMaxWidth = 260
+	tooltipMaxRunes = 256
+	tooltipMaxWidth = 340
+	tooltipPadding  = 4
 )
 
 // SetTooltip assigns compact, wrapped tooltip text and caches its measured size.
@@ -1210,10 +1211,19 @@ func (item *itemData) updateTooltipBounds() {
 	}
 	faceSize := float32(12) * uiScale
 	face := textFace(faceSize)
-	item.Tooltip = wrapTooltip(item.tooltipRaw, face, tooltipMaxWidth*float64(uiScale))
+	item.Tooltip = wrapTooltip(item.tooltipRaw, face, tooltipWrapWidth())
 	w, h := text.Measure(item.Tooltip, face, tooltipLineSpacing(face))
 	item.tooltipW = float32(w)
 	item.tooltipH = float32(h)
+}
+
+func tooltipWrapWidth() float64 {
+	maxWidth := tooltipMaxWidth * float64(uiScale)
+	available := float64(screenWidth) - 2*tooltipPadding*float64(uiScale)
+	if available < maxWidth {
+		return math.Max(float64(uiScale), available)
+	}
+	return maxWidth
 }
 
 func tooltipLineSpacing(face text.Face) float64 {

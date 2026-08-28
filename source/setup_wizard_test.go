@@ -74,10 +74,14 @@ func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
 
 func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
 	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.TiledWindows = false
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	buildSetupInterfacePage(root)
 
 	wantLabels := map[string]bool{
+		"UI scale":              false,
 		"Toolbar placement":     false,
 		"Status bar placement":  false,
 		"Player health display": false,
@@ -114,7 +118,306 @@ func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
 	}
 }
 
-func TestStartSetupWizardGraphicsDetectionResetsFiveSecondSample(t *testing.T) {
+func TestSetupWizardUsesTwoPanelsForTallPages(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.TiledWindows = true
+
+	for _, test := range []struct {
+		name  string
+		page  int
+		build func(*eui.ItemData)
+	}{
+		{name: "interface", page: 2, build: buildSetupInterfacePage},
+		{name: "audio", page: 7, build: buildSetupAudioPage},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+			test.build(root)
+			var panels *eui.ItemData
+			for _, item := range root.Contents {
+				if item.ItemType == eui.ITEM_FLOW && item.FlowType == eui.FLOW_HORIZONTAL && len(item.Contents) == 2 &&
+					item.Contents[0].FlowType == eui.FLOW_VERTICAL && item.Contents[1].FlowType == eui.FLOW_VERTICAL {
+					panels = item
+					break
+				}
+			}
+			if panels == nil {
+				t.Fatal("wizard page does not contain two side-by-side panels")
+			}
+			if panels.Size.X < setupWizardTwoPanelWidth {
+				t.Fatalf("two-panel width = %.0f, want at least %.0f", panels.Size.X, setupWizardTwoPanelWidth)
+			}
+			if setupWizardPageWidth(test.page) != setupWizardTwoPanelWidth {
+				t.Fatalf("page width = %.0f, want %.0f", setupWizardPageWidth(test.page), setupWizardTwoPanelWidth)
+			}
+		})
+	}
+}
+
+func TestSetupWizardUIScaleUsesLongDetailedSlider(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupInterfacePage(root)
+	var slider, apply *eui.ItemData
+	var visit func(*eui.ItemData)
+	visit = func(item *eui.ItemData) {
+		if item.ItemType == eui.ITEM_SLIDER && item.Label == "UI scale" {
+			slider = item
+		}
+		if item.ItemType == eui.ITEM_BUTTON && item.Text == "Apply" {
+			apply = item
+		}
+		for _, child := range item.Contents {
+			visit(child)
+		}
+	}
+	visit(root)
+	if slider == nil || apply == nil {
+		t.Fatal("interface page is missing the UI scale slider or Apply button")
+	}
+	if slider.Size.X < 500 {
+		t.Fatalf("UI scale slider width = %.0f, want at least 500", slider.Size.X)
+	}
+	if slider.MinValue != 0.75 || slider.MaxValue != 4 {
+		t.Fatalf("UI scale range = %.2f-%.2f, want 0.75-4", slider.MinValue, slider.MaxValue)
+	}
+}
+
+func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.MessagesToConsole = false
+
+	wantLabels := []string{"Layout", "Inventory / Players", "Console / Chat", "Alternate game side"}
+	wantChecks := []string{"Keep game window large", "Combine chat + console"}
+	contains := func(root *eui.ItemData, label string) bool {
+		var visit func(*eui.ItemData) bool
+		visit = func(item *eui.ItemData) bool {
+			if item.Label == label || item.Text == label {
+				return true
+			}
+			for _, child := range item.Contents {
+				if visit(child) {
+					return true
+				}
+			}
+			return false
+		}
+		return visit(root)
+	}
+
+	gs.TiledWindows = false
+	disabled := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupInterfacePage(disabled)
+	for _, name := range append(wantLabels, wantChecks...) {
+		if contains(disabled, name) {
+			t.Errorf("interface page shows tiled setting %q while tiled mode is disabled", name)
+		}
+	}
+
+	gs.TiledWindows = true
+	enabled := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupInterfacePage(enabled)
+	for _, name := range append(wantLabels, wantChecks...) {
+		if !contains(enabled, name) {
+			t.Errorf("interface page is missing tiled setting %q while tiled mode is enabled", name)
+		}
+	}
+}
+
+func TestSetupWizardNamesMessagePlacementForCombinedState(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	gs.TiledWindows = true
+
+	for _, test := range []struct {
+		name     string
+		combined bool
+		label    string
+		options  []string
+	}{
+		{
+			name:    "separate",
+			label:   "Console / Chat",
+			options: []string{"Console left, Chat right", "Chat left, Console right"},
+		},
+		{
+			name:     "combined",
+			combined: true,
+			label:    "Combined chat + console",
+			options:  []string{"Combined messages left", "Combined messages right"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			gs.MessagesToConsole = test.combined
+			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+			buildSetupInterfacePage(root)
+
+			var placement *eui.ItemData
+			var visit func(*eui.ItemData)
+			visit = func(item *eui.ItemData) {
+				if item.ItemType == eui.ITEM_DROPDOWN && item.Label == test.label {
+					placement = item
+					return
+				}
+				for _, child := range item.Contents {
+					visit(child)
+				}
+			}
+			visit(root)
+			if placement == nil {
+				t.Fatalf("wizard is missing the %q placement dropdown", test.label)
+			}
+			if !slices.Equal(placement.Options, test.options) {
+				t.Fatalf("%q options = %v, want %v", test.label, placement.Options, test.options)
+			}
+		})
+	}
+}
+
+func TestSetupWizardAlternateGameSideDisabledForCenteredLayout(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+
+	findGameSide := func(root *eui.ItemData) *eui.ItemData {
+		var found *eui.ItemData
+		var visit func(*eui.ItemData)
+		visit = func(item *eui.ItemData) {
+			if found != nil {
+				return
+			}
+			if item.Label == "Alternate game side" {
+				found = item
+				return
+			}
+			for _, child := range item.Contents {
+				visit(child)
+			}
+		}
+		visit(root)
+		return found
+	}
+
+	gs.TiledWindows = true
+	for _, test := range []struct {
+		name     string
+		layout   TiledLayout
+		disabled bool
+	}{
+		{name: "centered", layout: TiledLayoutCenter, disabled: true},
+		{name: "side", layout: TiledLayoutSide, disabled: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			gs.TiledLayout = test.layout
+			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+			buildSetupInterfacePage(root)
+			gameSide := findGameSide(root)
+			if gameSide == nil {
+				t.Fatal("wizard is missing the alternate game side control")
+			}
+			if gameSide.Disabled != test.disabled {
+				t.Fatalf("alternate game side disabled = %t, want %t", gameSide.Disabled, test.disabled)
+			}
+		})
+	}
+}
+
+func TestSetupWizardAudioChoicesOfferOffAndOnTests(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupAudioPage(root)
+	for _, label := range []string{"Enhance sound effects", "High quality audio resampling", "Enhance bard music"} {
+		var option *eui.ItemData
+		var containsCheckbox func(*eui.ItemData) bool
+		containsCheckbox = func(item *eui.ItemData) bool {
+			if item.ItemType == eui.ITEM_CHECKBOX && item.Text == label {
+				return true
+			}
+			for _, child := range item.Contents {
+				if containsCheckbox(child) {
+					return true
+				}
+			}
+			return false
+		}
+		for _, item := range root.Contents {
+			if containsCheckbox(item) {
+				option = item
+				break
+			}
+		}
+		if option == nil {
+			t.Fatalf("audio page is missing %q", label)
+		}
+
+		buttons := map[string]bool{"Test Off": false, "Test On": false}
+		var visit func(*eui.ItemData)
+		visit = func(item *eui.ItemData) {
+			if item.ItemType == eui.ITEM_BUTTON {
+				if _, ok := buttons[item.Text]; ok {
+					buttons[item.Text] = true
+				}
+			}
+			for _, child := range item.Contents {
+				visit(child)
+			}
+		}
+		visit(option)
+		for button, found := range buttons {
+			if !found {
+				t.Errorf("audio option %q is missing %q", label, button)
+			}
+		}
+	}
+}
+
+func TestSetupWizardAudioComparisonsUseNonNotificationSound(t *testing.T) {
+	if setupWizardAudioTestSound == sndTink {
+		t.Fatal("sound enhancement comparison still uses the notification sound")
+	}
+}
+
+func TestSetupWizardAudioPageLinksMixerAndNotificationSettings(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupAudioPage(root)
+	want := map[string]bool{
+		"Volume":                false,
+		"Game notifications":    false,
+		"Notification Settings": false,
+	}
+	var visit func(*eui.ItemData)
+	visit = func(item *eui.ItemData) {
+		if _, ok := want[item.Text]; ok {
+			want[item.Text] = true
+		}
+		for _, child := range item.Contents {
+			visit(child)
+		}
+	}
+	visit(root)
+	for label, found := range want {
+		if !found {
+			t.Errorf("audio page is missing %q", label)
+		}
+	}
+}
+
+func TestStartSetupWizardGraphicsDetectionResetsSample(t *testing.T) {
 	originalSettings := gs
 	originalPending := setupWizardGraphicsPending
 	originalTested := setupWizardGraphicsTested
@@ -154,6 +457,46 @@ func TestStartSetupWizardGraphicsDetectionResetsFiveSecondSample(t *testing.T) {
 	}
 	if !setupWizardVSyncBypass {
 		t.Fatal("graphics detection did not bypass VSync while sampling")
+	}
+}
+
+func TestSetupWizardGraphicsDetectionTiming(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		elapsed  time.Duration
+		sample   bool
+		complete bool
+	}{
+		{name: "before hidden warmup", elapsed: 2*time.Second - time.Nanosecond},
+		{name: "measurement starts", elapsed: 2 * time.Second, sample: true},
+		{name: "measurement continues", elapsed: 3*time.Second - time.Nanosecond, sample: true},
+		{name: "measurement completes", elapsed: 3 * time.Second, sample: true, complete: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			sample, complete := setupWizardGraphicsDetectionTiming(test.elapsed)
+			if sample != test.sample || complete != test.complete {
+				t.Fatalf("timing at %v = sample %t, complete %t; want %t, %t", test.elapsed, sample, complete, test.sample, test.complete)
+			}
+		})
+	}
+}
+
+func TestSetupWizardGraphicsRecommendationUsesRenderingDefaults(t *testing.T) {
+	originalSettings := gs
+	originalRecommendation := setupWizardGraphicsRecommendation
+	t.Cleanup(func() {
+		gs = originalSettings
+		setupWizardGraphicsRecommendation = originalRecommendation
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	})
+
+	gs = gsdef
+	applySetupWizardGraphicsRecommendation(graphicsBenchmarkResult{ActualFPS: 120})
+	if gs.BlendMobiles {
+		t.Fatal("graphics recommendation enabled character animation blending")
+	}
+	if got := artworkUpscaleMode(); got != artworkUpscaleBalanced {
+		t.Fatalf("graphics recommendation selected artwork upscale mode %d, want Balanced", got)
 	}
 }
 
