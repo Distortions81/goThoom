@@ -17,8 +17,6 @@ Copyright (c) 2025 Carl Frank Otto III.
   https://github.com/hako/durafmt
 - **rich-go** — MIT — Hugo Lageneste  
   https://github.com/hugolgst/rich-go
-- **sizedwaitgroup** — MIT — Rémy Mathieu  
-  https://github.com/remeh/sizedwaitgroup
 - **go-meltysynth** — MIT — Nobuaki Tanaka  
   https://github.com/sinshu/go-meltysynth
 - **dialog** — ISC — sqweek and contributors  

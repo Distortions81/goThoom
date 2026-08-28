@@ -40,7 +40,7 @@ func TestRenderCharacterShadowImages(t *testing.T) {
 
 	originalSettings := gs
 	originalImages := clImages
-	originalNight := gNight
+	originalNight := captureMovieNightState()
 	gs.GameScale = 1
 	gs.ShadersEnabled = true
 	gs.ShaderLighting = true
@@ -51,7 +51,7 @@ func TestRenderCharacterShadowImages(t *testing.T) {
 		clearCaches()
 		clImages = originalImages
 		gs = originalSettings
-		gNight = originalNight
+		restoreMovieNightState(originalNight)
 	})
 
 	game := &shadowRenderGame{outputDir: outputDir}
