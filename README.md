@@ -73,10 +73,10 @@ You can also customize goThoom without modifying the program:
 
 ## Macros and scripts
 
-Settings are global by default. On the Login screen, select a character and
-enable **Use &lt;character&gt;'s settings profile** to give that login an independent
-window layout, appearance, rendering, audio, notifications, and related
-preferences. Character profiles are stored in `data/profiles.json`; the
+Settings are global by default. On the Login screen, select a character, open
+**Edit Character**, and enable **Keep settings separate** to give that login an
+independent window layout, appearance, rendering, audio, notifications, and
+related preferences. Character profiles are stored in `data/profiles.json`; the
 existing `enabled.json` files remain the source of truth for explicit
 per-character script and macro selections.
 

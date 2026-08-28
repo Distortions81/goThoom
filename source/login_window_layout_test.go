@@ -11,7 +11,7 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	initFont()
 	originalWindow := loginWin
 	originalList := charactersList
-	originalProfileCB := loginProfileCB
+	originalEditBtn := editCharBtn
 	originalWidth, originalHeight := eui.ScreenSize()
 	loginWin = nil
 	eui.SetScreenSize(1200, 800)
@@ -21,7 +21,7 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 		}
 		loginWin = originalWindow
 		charactersList = originalList
-		loginProfileCB = originalProfileCB
+		editCharBtn = originalEditBtn
 		eui.SetScreenSize(originalWidth, originalHeight)
 	})
 
@@ -39,7 +39,7 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	initFont()
 	originalWindow := loginWin
 	originalList := charactersList
-	originalProfileCB := loginProfileCB
+	originalEditBtn := editCharBtn
 	originalCharacters := characters
 	originalName := name
 	originalPassHash := passHash
@@ -58,7 +58,7 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 		}
 		loginWin = originalWindow
 		charactersList = originalList
-		loginProfileCB = originalProfileCB
+		editCharBtn = originalEditBtn
 		characters = originalCharacters
 		name = originalName
 		passHash = originalPassHash
@@ -77,19 +77,25 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	}
 }
 
-func TestLoginProfileToggleFollowsSelectedCharacter(t *testing.T) {
+func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	initFont()
 	originalWindow := loginWin
 	originalList := charactersList
-	originalProfileCB := loginProfileCB
+	originalEditBtn := editCharBtn
 	originalCharacters := characters
 	originalProfiles := characterProfiles
 	originalName := name
 	originalLastCharacter := gs.LastCharacter
+	originalEditName := editCharName
+	originalEditRemember := editCharRemember
+	originalEditProfile := editCharProfile
 	loginWin = nil
 	charactersList = nil
-	loginProfileCB = nil
-	characters = []Character{{Name: "Alice"}, {Name: "Bob"}}
+	editCharBtn = nil
+	characters = []Character{
+		{Name: "Alice", passHash: "0123456789abcdef0123456789abcdef"},
+		{Name: "Bob", DontRemember: true},
+	}
 	characterProfiles = characterProfilesDocument{
 		Version: characterProfilesVersion,
 		Enabled: map[string]bool{"alice": true},
@@ -102,22 +108,34 @@ func TestLoginProfileToggleFollowsSelectedCharacter(t *testing.T) {
 		}
 		loginWin = originalWindow
 		charactersList = originalList
-		loginProfileCB = originalProfileCB
+		editCharBtn = originalEditBtn
 		characters = originalCharacters
 		characterProfiles = originalProfiles
 		name = originalName
 		gs.LastCharacter = originalLastCharacter
+		editCharName = originalEditName
+		editCharRemember = originalEditRemember
+		editCharProfile = originalEditProfile
 	})
 
 	makeLoginWindow()
 	updateCharacterButtons()
-	if loginProfileCB == nil || loginProfileCB.Disabled || !loginProfileCB.Checked {
-		t.Fatal("enabled Alice profile was not shown on the Login window")
+	if editCharBtn == nil || editCharBtn.Disabled {
+		t.Fatal("Edit Character was not enabled for Alice")
+	}
+	if err := prepareEditCharacter("Alice"); err != nil {
+		t.Fatalf("prepare Alice: %v", err)
+	}
+	if !editCharRemember || !editCharProfile {
+		t.Fatal("Alice's saved password and profile choices were not shown")
 	}
 
 	name = "Bob"
 	updateCharacterButtons()
-	if loginProfileCB.Disabled || loginProfileCB.Checked {
-		t.Fatal("Bob should use global settings by default")
+	if err := prepareEditCharacter("Bob"); err != nil {
+		t.Fatalf("prepare Bob: %v", err)
+	}
+	if editCharRemember || editCharProfile {
+		t.Fatal("Bob should default to no saved password and global settings")
 	}
 }

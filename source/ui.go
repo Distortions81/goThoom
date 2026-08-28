@@ -58,13 +58,23 @@ var addCharPass string
 var addCharRemember bool
 var addCharProfile bool
 var addCharProfileCB *eui.ItemData
+var editCharWin *eui.WindowData
+var editCharName string
+var editCharPass string
+var editCharPassInput *eui.ItemData
+var editCharPassWarn *eui.ItemData
+var editCharPassPrev string
+var editCharRemember bool
+var editCharRememberCB *eui.ItemData
+var editCharProfile bool
+var editCharProfileCB *eui.ItemData
+var editCharBtn *eui.ItemData
 var passWin *eui.WindowData
 var passInput *eui.ItemData
 var passWarn *eui.ItemData
 var passPrev string
 var passRemember bool
 var passRememberCB *eui.ItemData
-var loginProfileCB *eui.ItemData
 
 var changelogWin *eui.WindowData
 
@@ -290,6 +300,10 @@ func clearCapsWarnings() {
 		passWarn.Text = ""
 		passWarn.Dirty = true
 	}
+	if editCharPassWarn != nil {
+		editCharPassWarn.Text = ""
+		editCharPassWarn.Dirty = true
+	}
 }
 
 func checkCapsWarning(prev *string, curr string, warn *eui.ItemData) {
@@ -371,6 +385,7 @@ func initUI() {
 	makeDownloadsWindow()
 	makeLoginWindow()
 	makeAddCharacterWindow()
+	makeEditCharacterWindow()
 	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
@@ -2909,15 +2924,10 @@ func updateCharacterButtons() {
 			charactersList.AddItem(row)
 		}
 	}
-	if loginProfileCB != nil {
-		loginProfileCB.Disabled = name == ""
-		loginProfileCB.Checked = name != "" && characterProfileEnabled(name)
-		if name == "" {
-			loginProfileCB.Text = "Use per-character settings"
-		} else {
-			loginProfileCB.Text = "Use " + name + "'s settings profile"
-		}
-		loginProfileCB.Dirty = true
+	if editCharBtn != nil {
+		_, selected := selectedCharacter(name)
+		editCharBtn.Disabled = !selected
+		editCharBtn.Dirty = true
 	}
 	// Preserve window position while contents change size
 	// Restore prior scroll position to keep the user's place.
@@ -2979,7 +2989,7 @@ func makeAddCharacterWindow() {
 
 	profileCB, profileEvents := eui.NewCheckbox()
 	addCharProfileCB = profileCB
-	profileCB.Text = "Use per-character settings"
+	profileCB.Text = "Keep settings separate"
 	profileCB.SetTooltip("Start this character with independent windows, appearance, audio, notifications, and related settings.")
 	profileCB.Size = eui.Point{X: 200, Y: 24}
 	profileCB.Checked = addCharProfile
@@ -3065,6 +3075,153 @@ func makeAddCharacterWindow() {
 
 	addCharWin.AddItem(flow)
 	addCharWin.AddWindow(false)
+}
+
+func selectedCharacter(characterName string) (Character, bool) {
+	characterName = strings.TrimSpace(characterName)
+	for i := range characters {
+		if strings.EqualFold(characters[i].Name, characterName) {
+			return characters[i], true
+		}
+	}
+	return Character{}, false
+}
+
+func prepareEditCharacter(characterName string) error {
+	character, ok := selectedCharacter(characterName)
+	if !ok {
+		return errors.New("select a character to edit first")
+	}
+
+	editCharName = character.Name
+	editCharRemember = !character.DontRemember && character.passHash != ""
+	if _, remember, staged := stagedPasswordSettings(character.Name); staged {
+		editCharRemember = remember
+	}
+	editCharProfile = characterProfileEnabled(character.Name)
+	editCharPass = ""
+	editCharPassPrev = ""
+	clearPasswordInput(editCharPassInput, &editCharPass)
+	clearCapsWarnings()
+
+	if editCharWin != nil {
+		editCharWin.Title = "Edit Character: " + character.Name
+	}
+	if editCharRememberCB != nil {
+		editCharRememberCB.Checked = editCharRemember
+		editCharRememberCB.Dirty = true
+	}
+	if editCharProfileCB != nil {
+		editCharProfileCB.Checked = editCharProfile
+		editCharProfileCB.Text = "Keep settings separate"
+		editCharProfileCB.Dirty = true
+	}
+	return nil
+}
+
+func makeEditCharacterWindow() {
+	if editCharWin != nil {
+		return
+	}
+	editCharWin = eui.NewWindow()
+	editCharWin.Title = "Edit Character"
+	editCharWin.Closable = false
+	editCharWin.Resizable = false
+	editCharWin.AutoSize = true
+	editCharWin.Movable = true
+
+	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+
+	input, inputEvents := eui.NewInput()
+	input.Label = "New Password"
+	input.TextPtr = &editCharPass
+	input.HideText = true
+	input.Size = eui.Point{X: 280, Y: 24}
+	input.SetTooltip("Leave blank to keep the current password.")
+	editCharPassInput = input
+	inputEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventInputChanged {
+			checkCapsWarning(&editCharPassPrev, editCharPass, editCharPassWarn)
+		}
+	}
+	flow.AddItem(input)
+
+	editCharPassWarn, _ = eui.NewText()
+	editCharPassWarn.TextColor = eui.NewColor(255, 0, 0, 255)
+	editCharPassWarn.Size = eui.Point{X: 280, Y: 24}
+	editCharPassWarn.FontSize = 12
+	flow.AddItem(editCharPassWarn)
+
+	rememberCB, rememberEvents := eui.NewCheckbox()
+	editCharRememberCB = rememberCB
+	rememberCB.Text = "Save Password"
+	rememberCB.SetTooltip("Store this character's password for future logins.")
+	rememberCB.Size = eui.Point{X: 280, Y: 24}
+	rememberEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			editCharRemember = ev.Checked
+		}
+	}
+	flow.AddItem(rememberCB)
+
+	profileCB, profileEvents := eui.NewCheckbox()
+	editCharProfileCB = profileCB
+	profileCB.Text = "Keep settings separate"
+	profileCB.SetTooltip("Give this character independent windows, appearance, audio, notifications, and related settings.")
+	profileCB.Size = eui.Point{X: 280, Y: 24}
+	profileEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			editCharProfile = ev.Checked
+		}
+	}
+	flow.AddItem(profileCB)
+
+	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	cancelBtn, cancelEvents := eui.NewButton()
+	cancelBtn.Text = "Cancel"
+	cancelBtn.Size = eui.Point{X: 136, Y: 24}
+	cancelEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			clearPasswordInput(editCharPassInput, &editCharPass)
+			editCharPassPrev = ""
+			clearCapsWarnings()
+			editCharWin.Close()
+			loginWin.MarkOpen()
+		}
+	}
+	btnFlow.AddItem(cancelBtn)
+
+	saveBtn, saveEvents := eui.NewButton()
+	saveBtn.Text = "Save"
+	saveBtn.Size = eui.Point{X: 136, Y: 24}
+	editCharWin.DefaultButton = saveBtn
+	saveEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		hash, err := applyCharacterCredentialEdit(editCharName, editCharPass, editCharRemember)
+		if err != nil {
+			makeErrorWindow("Error: Edit Character: " + err.Error())
+			return
+		}
+		setCharacterProfileEnabled(editCharName, editCharProfile)
+		if strings.EqualFold(name, editCharName) {
+			switchCharacterProfile(editCharName)
+			passHash = hash
+			pass = ""
+		}
+		clearPasswordInput(editCharPassInput, &editCharPass)
+		editCharPassPrev = ""
+		clearCapsWarnings()
+		editCharWin.Close()
+		loginWin.MarkOpen()
+		updateCharacterButtons()
+	}
+	btnFlow.AddItem(saveBtn)
+	flow.AddItem(btnFlow)
+
+	editCharWin.AddItem(flow)
+	editCharWin.AddWindow(false)
 }
 
 func makePasswordWindow() {
@@ -3421,18 +3578,25 @@ func makeLoginWindow() {
 		}
 	}
 
-	profileCB, profileEvents := eui.NewCheckbox()
-	loginProfileCB = profileCB
-	profileCB.Text = "Use per-character settings"
-	profileCB.SetTooltip("Off uses the same settings for every login. Turn it on for independent windows, appearance, audio, notifications, and related settings.")
-	profileCB.Size = eui.Point{X: charWinWidth, Y: 24}
-	profileCB.Disabled = true
-	profileEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventCheckboxChanged || name == "" {
+	editBtn, editEvents := eui.NewButton()
+	editCharBtn = editBtn
+	editBtn.Text = "Edit Character"
+	editBtn.SetTooltip("Change the selected character's password, password saving, or settings profile.")
+	editBtn.Size = eui.Point{X: charWinWidth, Y: 24}
+	editBtn.Disabled = true
+	editEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
 			return
 		}
-		setCharacterProfileEnabled(name, ev.Checked)
-		updateCharacterButtons()
+		if editCharWin == nil {
+			makeEditCharacterWindow()
+		}
+		if err := prepareEditCharacter(name); err != nil {
+			makeErrorWindow("Error: Edit Character: " + err.Error())
+			return
+		}
+		loginWin.Close()
+		editCharWin.MarkOpenNear(ev.Item)
 	}
 
 	openBtn, openEvents := eui.NewButton()
@@ -3533,13 +3697,13 @@ func makeLoginWindow() {
 	label.Size = eui.Point{X: 1, Y: 25}
 	loginFlow.AddItem(label)
 	loginFlow.AddItem(charactersList)
-	loginFlow.AddItem(profileCB)
 	label, _ = eui.NewText()
 	label.Text = ""
 	label.FontSize = 15
 	label.Size = eui.Point{X: 1, Y: 25}
 	loginFlow.AddItem(label)
 	loginFlow.AddItem(addBtn)
+	loginFlow.AddItem(editBtn)
 	loginFlow.AddItem(openBtn)
 	// Add a small spacer between Play movie file and Quit
 	spacer, _ := eui.NewText()

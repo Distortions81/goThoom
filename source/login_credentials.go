@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"sync"
 
@@ -44,6 +45,78 @@ func stagedPasswordHash(character string) (string, bool) {
 		return "", false
 	}
 	return stagedPassword.hash, true
+}
+
+func stagedPasswordSettings(character string) (hash string, remember bool, ok bool) {
+	stagedPasswordMu.Lock()
+	defer stagedPasswordMu.Unlock()
+	if stagedPassword == nil || !strings.EqualFold(stagedPassword.character, character) {
+		return "", false, false
+	}
+	return stagedPassword.hash, stagedPassword.remember, true
+}
+
+func updateStagedPasswordRemember(character string, remember bool) (hash string, ok bool) {
+	stagedPasswordMu.Lock()
+	defer stagedPasswordMu.Unlock()
+	if stagedPassword == nil || !strings.EqualFold(stagedPassword.character, character) {
+		return "", false
+	}
+	stagedPassword.remember = remember
+	return stagedPassword.hash, true
+}
+
+func discardStagedPasswordFor(character string) {
+	stagedPasswordMu.Lock()
+	if stagedPassword != nil && strings.EqualFold(stagedPassword.character, character) {
+		stagedPassword = nil
+	}
+	stagedPasswordMu.Unlock()
+}
+
+// applyCharacterCredentialEdit updates the credential selected in the Edit
+// Character window. Replacement passwords remain staged until the server
+// accepts them, so a typo cannot overwrite a known-good saved password.
+func applyCharacterCredentialEdit(character, password string, remember bool) (string, error) {
+	character = strings.TrimSpace(character)
+	characterIndex := -1
+	for i := range characters {
+		if strings.EqualFold(characters[i].Name, character) {
+			characterIndex = i
+			character = characters[i].Name
+			break
+		}
+	}
+	if characterIndex < 0 {
+		return "", errors.New("character is no longer available")
+	}
+
+	if password != "" {
+		if !remember {
+			// Turning saving off is immediate even though the replacement
+			// password remains available for this session's next login.
+			setCharacterPassHash(character, "", false)
+		}
+		return stagePasswordUpdate(character, password, remember), nil
+	}
+
+	if hash, staged := updateStagedPasswordRemember(character, remember); staged {
+		if !remember {
+			setCharacterPassHash(character, "", false)
+		}
+		return hash, nil
+	}
+
+	if remember {
+		if characters[characterIndex].DontRemember || characters[characterIndex].passHash == "" {
+			return "", errors.New("enter a new password before enabling Save Password")
+		}
+		return characters[characterIndex].passHash, nil
+	}
+
+	discardStagedPasswordFor(character)
+	setCharacterPassHash(character, "", false)
+	return "", nil
 }
 
 func takeStagedPassword(character string) (stagedPasswordUpdate, bool) {

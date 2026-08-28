@@ -154,3 +154,74 @@ func TestRememberOffPersistsCharacterAfterSuccessfulLogin(t *testing.T) {
 		t.Fatalf("password was remembered unexpectedly: %+v", characters[0])
 	}
 }
+
+func TestCharacterCredentialEditStagesReplacementUntilLoginSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	origDir := dataDirPath
+	origCharacters := characters
+	dataDirPath = dir
+	const oldHash = "0123456789abcdef0123456789abcdef"
+	characters = []Character{{Name: "Hero", passHash: oldHash}}
+	discardStagedPassword()
+	t.Cleanup(func() {
+		dataDirPath = origDir
+		characters = origCharacters
+		discardStagedPassword()
+	})
+
+	hash, err := applyCharacterCredentialEdit("Hero", "replacement", true)
+	if err != nil {
+		t.Fatalf("edit credential: %v", err)
+	}
+	if hash != hashPassword("replacement") {
+		t.Fatalf("staged hash = %q, want replacement hash", hash)
+	}
+	if characters[0].passHash != oldHash {
+		t.Fatalf("replacement overwrote known-good password before login: %q", characters[0].passHash)
+	}
+	if _, remember, ok := stagedPasswordSettings("Hero"); !ok || !remember {
+		t.Fatal("replacement password was not staged with Save Password enabled")
+	}
+}
+
+func TestCharacterCredentialEditCanForgetSavedPassword(t *testing.T) {
+	dir := t.TempDir()
+	origDir := dataDirPath
+	origCharacters := characters
+	dataDirPath = dir
+	characters = []Character{{Name: "Hero", passHash: "0123456789abcdef0123456789abcdef"}}
+	discardStagedPassword()
+	t.Cleanup(func() {
+		dataDirPath = origDir
+		characters = origCharacters
+		discardStagedPassword()
+	})
+
+	hash, err := applyCharacterCredentialEdit("Hero", "", false)
+	if err != nil {
+		t.Fatalf("forget credential: %v", err)
+	}
+	if hash != "" || characters[0].passHash != "" || !characters[0].DontRemember {
+		t.Fatalf("saved password was not forgotten: hash=%q character=%+v", hash, characters[0])
+	}
+
+	characters = nil
+	loadCharacters()
+	if len(characters) != 1 || characters[0].passHash != "" || !characters[0].DontRemember {
+		t.Fatalf("forgotten password returned after reload: %+v", characters)
+	}
+}
+
+func TestCharacterCredentialEditRequiresPasswordToEnableSaving(t *testing.T) {
+	origCharacters := characters
+	characters = []Character{{Name: "Hero", DontRemember: true}}
+	discardStagedPassword()
+	t.Cleanup(func() {
+		characters = origCharacters
+		discardStagedPassword()
+	})
+
+	if _, err := applyCharacterCredentialEdit("Hero", "", true); err == nil {
+		t.Fatal("enabled Save Password without a password")
+	}
+}

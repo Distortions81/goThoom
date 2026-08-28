@@ -110,7 +110,7 @@
             </div>
 
             <h3 id="first-launch">Add and connect a character</h3>
-            <p>In the Login window, select <strong>Add Character</strong>, enter the character name and password, and choose whether to remember the password. Leave <strong>Use per-character settings</strong> off to share the global client setup, or opt in when this login should have independent settings. Select the character and press <strong>Connect</strong>. If a saved character has no remembered password, goThoom asks for it when you connect.</p>
+            <p>In the Login window, select <strong>Add Character</strong>, enter the character name and password, and choose whether to remember the password. Leave <strong>Keep settings separate</strong> off to share the global client setup, or opt in when this login should have independent settings. To change those choices later, select the character and open <strong>Edit Character</strong>; there you can enter a new password, change <strong>Save Password</strong>, or choose whether it keeps settings separate. Select the character and press <strong>Connect</strong>. If a saved character has no remembered password, goThoom asks for it when you connect.</p>
             <p><strong>Remember Password</strong> is a convenience feature stored in the local client data. It is not an operating-system password vault. Anyone who can read those files should be treated as having access to the saved login.</p>
             <p>Use the trash control beside a character to remove it from the local list. This only removes the local entry; it does not delete the Clan Lord account.</p>
 
@@ -256,7 +256,7 @@
             <p>The first-run graphics check chooses Full Quality or iGPU Graphics for the current machine. Presets are starting points, not permanent modes: after one is selected, you can change individual features. If the FPS display remains low, reduce artwork processing, lighting/shadows, animation blending, or render scale before lowering UI readability.</p>
 
             <h3>Per-character profiles</h3>
-            <p>Settings are shared globally by default. On the Login screen, select a saved character and enable <strong>Use &lt;character&gt;'s settings profile</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
+            <p>Settings are shared globally by default. On the Login screen, select a saved character, open <strong>Edit Character</strong>, and enable <strong>Keep settings separate</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
             <p>Enabling a profile for the first time copies the current global setup. Turning it off immediately returns that login to the shared global setup without deleting its saved profile; turn it on again to restore the character’s prior choices. Changes are saved automatically.</p>
             <p>The profiles and their opt-in state live in <code>data/profiles.json</code>. Script and macro enablement separately retain their explicit per-player/global selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
 
