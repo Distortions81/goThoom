@@ -1,0 +1,19 @@
+goThoom 47 changes since test46.
+
+New and improved:
+- Simplified the Scripts and Legacy Macros windows into resizable lists with compact info controls and stable scrolling while enabling or disabling entries.
+- Added persistent per-player and global script selections, stored alongside the scripts without placing personal settings under version control.
+- Embedded the example scripts so an empty Scripts folder is populated automatically without overwriting existing files.
+- Added an option for characters to receive shadows cast by other characters in direct sunlight.
+
+Fixes:
+- Fixed the bundled Rank Decoder script so matching rank messages produce console output and notifications, including when chat bubbles are routed to the Console.
+- Fixed script and macro checkboxes jumping their lists back to the top or growing the bottom button panel.
+- Fixed saved script selections being cleared during startup or shutdown.
+- Fixed live time-of-day state leaking into movie playback by clearing lighting state on disconnect and movie exit.
+- Prevented movie playback from starting while connected to or connecting with the game server.
+- Kept contact shadows visible near character and scenery light sources.
+
+Technical changes:
+- Added regression coverage for script persistence and embedded examples, macro and script window layout, rank-message delivery, character shadow interaction, movie connection isolation, and time-of-day reset behavior.
+- Reorganized ignored build outputs, caches, downloaded resources, user state, logs, and local development files.
