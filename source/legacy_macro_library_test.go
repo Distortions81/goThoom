@@ -538,35 +538,59 @@ func TestLegacyMacroLibraryRejectsPathLikeIDsAndCharacters(t *testing.T) {
 	}
 }
 
-func TestLegacyMacroLibraryLayoutLeavesRoomForRows(t *testing.T) {
+func TestLegacyMacroLibraryUsesSingleListLayout(t *testing.T) {
+	initFont()
 	originalWin := legacyMacroLibraryWin
 	originalRoot := legacyMacroLibraryRoot
 	originalList := legacyMacroLibraryList
 	originalButtons := legacyMacroLibraryButtons
+	originalErrors := legacyMacroLibraryErrors
+	originalContinuous := legacyMacroLibraryContinuous
+	originalDataDir := dataDirPath
+	originalScale := eui.UIScale()
 	t.Cleanup(func() {
+		if legacyMacroLibraryWin != nil && legacyMacroLibraryWin != originalWin {
+			legacyMacroLibraryWin.RemoveWindow()
+		}
 		legacyMacroLibraryWin = originalWin
 		legacyMacroLibraryRoot = originalRoot
 		legacyMacroLibraryList = originalList
 		legacyMacroLibraryButtons = originalButtons
+		legacyMacroLibraryErrors = originalErrors
+		legacyMacroLibraryContinuous = originalContinuous
+		dataDirPath = originalDataDir
+		eui.SetUIScale(originalScale)
 	})
 
-	legacyMacroLibraryWin = eui.NewWindow()
-	legacyMacroLibraryWin.Size = eui.Point{X: 720, Y: 560}
-	legacyMacroLibraryRoot = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
-	legacyMacroLibraryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
-	legacyMacroLibraryButtons = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	dataDirPath = t.TempDir()
+	legacyMacroLibraryWin = nil
+	legacyMacroLibraryRoot = nil
+	legacyMacroLibraryList = nil
+	legacyMacroLibraryButtons = nil
+	legacyMacroLibraryErrors = nil
+	legacyMacroLibraryContinuous = nil
+	eui.SetUIScale(2)
+	makeLegacyMacroLibraryWindow()
 
-	legacyMacroLibraryLayout()
-	if legacyMacroLibraryRoot.Size.Y <= legacyMacroLibraryList.Size.Y {
-		t.Fatalf("root height = %f, list height = %f", legacyMacroLibraryRoot.Size.Y, legacyMacroLibraryList.Size.Y)
+	if legacyMacroLibraryWin == nil || legacyMacroLibraryWin.AutoSize || !legacyMacroLibraryWin.Resizable || !legacyMacroLibraryWin.NoScroll || legacyMacroLibraryWin.OnResize == nil {
+		t.Fatalf("macro window sizing = auto %v, resizable %v, no-scroll %v", legacyMacroLibraryWin.AutoSize, legacyMacroLibraryWin.Resizable, legacyMacroLibraryWin.NoScroll)
 	}
-	if legacyMacroLibraryList.Size.Y <= 24 {
-		t.Fatalf("list height = %f, want room for rows", legacyMacroLibraryList.Size.Y)
+	if legacyMacroLibraryRoot == nil || legacyMacroLibraryRoot.Scrollable || !legacyMacroLibraryRoot.Fixed {
+		t.Fatalf("macro root layout = %#v, want the fixed resize-aware root", legacyMacroLibraryRoot)
 	}
-	reservedHeight := legacyMacroLibraryRoot.Size.Y - legacyMacroLibraryList.Size.Y
-	const wantReservedHeight = legacyMacroLibraryButtonsHeight + legacyMacroLibraryBottomGap
-	if reservedHeight < wantReservedHeight {
-		t.Fatalf("reserved height = %f, want at least %d", reservedHeight, wantReservedHeight)
+	if len(legacyMacroLibraryRoot.Contents) != 4 {
+		t.Fatalf("macro root sections = %d, want header, list, buttons, and continuous option", len(legacyMacroLibraryRoot.Contents))
+	}
+	if legacyMacroLibraryRoot.Contents[0].FlowType != eui.FLOW_HORIZONTAL {
+		t.Fatalf("macro header layout = %#v, want horizontal columns", legacyMacroLibraryRoot.Contents[0])
+	}
+	if legacyMacroLibraryRoot.Contents[1] != legacyMacroLibraryList || !legacyMacroLibraryList.Scrollable || !legacyMacroLibraryList.Fixed {
+		t.Fatalf("macro list = %#v, want a fixed independently scrolling list", legacyMacroLibraryList)
+	}
+	legacyMacroLibraryList.Scroll.Y = 48
+	refreshLegacyMacroLibraryWindow()
+	if legacyMacroLibraryList.Scroll.Y != 48 {
+		t.Fatalf("macro list scroll after refresh = %v, want 48", legacyMacroLibraryList.Scroll.Y)
 	}
 }
 

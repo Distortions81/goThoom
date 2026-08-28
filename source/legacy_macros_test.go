@@ -166,6 +166,23 @@ func TestLegacyMacroTextLogClassicTimestamp(t *testing.T) {
 	}
 }
 
+func TestLegacyMacroTextLogReceivesConsoleRoutedChat(t *testing.T) {
+	originalSettings := gs
+	originalTextLog := legacyMacroTextLogValue()
+	t.Cleanup(func() {
+		gs = originalSettings
+		legacyMacroSetTextLog(originalTextLog)
+	})
+
+	gs.MessagesToConsole = true
+	gs.ConsoleTimestamps = false
+	want := "Hardia says Hail, Distortions.  You keep me on my toes."
+	displayChatMessageTyped(want, messageTextTypeSay)
+	if got := legacyMacroTextLogValue(); got != want {
+		t.Fatalf("console-routed legacy macro text log = %q, want %q", got, want)
+	}
+}
+
 func TestLegacyMacroSelectedItemDefaultsToNothing(t *testing.T) {
 	originalID, originalIndex := selectedInvID, selectedInvIdx
 	selectedInvID = 0

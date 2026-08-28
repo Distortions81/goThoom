@@ -18,7 +18,6 @@ func TestDuplicateCommandsAndBindingsAreRejectedBeforeActivation(t *testing.T) {
 	origSettings := gs
 	dataDirPath = t.TempDir()
 	playerName = "Tester"
-	gs.Enabledscripts = nil
 	t.Cleanup(func() {
 		dataDirPath = origDataDir
 		playerName = origPlayerName

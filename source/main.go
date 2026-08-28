@@ -342,7 +342,7 @@ func main() {
 }
 
 func shutdownScripts() {
-	stopAllscripts()
+	stopScripts("application shutdown")
 	savescriptStores()
 }
 

@@ -18,6 +18,9 @@ engine; you do not need to compile the client.
 4. Save your changes. goThoom notices file changes and reloads enabled scripts
    automatically. **Refresh** forces a rescan.
 
+The first time `data/Scripts` has no script packages, goThoom copies its
+embedded examples there. Your existing scripts are never replaced.
+
 The Scripts window shows load and runtime errors. If a reload fails, the last
 working copy keeps running when possible.
 

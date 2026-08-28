@@ -174,8 +174,12 @@ var addCharPassPrev string
 var windowsWin *eui.WindowData
 var scriptsWin *eui.WindowData
 var newScriptWin *eui.WindowData
+var scriptsRoot *eui.ItemData
+var scriptsHeader *eui.ItemData
 var scriptsList *eui.ItemData
+var scriptsButtons *eui.ItemData
 var scriptDetails *eui.ItemData
+var scriptInfoWin *eui.WindowData
 var selectedscript string
 var scriptConfigWin *eui.WindowData
 var scriptConfigOwner string
@@ -589,25 +593,42 @@ func makescriptsWindow() {
 	scriptsWin = eui.NewWindow()
 	scriptsWin.Title = "Scripts"
 	scriptsWin.Closable = true
-	scriptsWin.Resizable = false
-	scriptsWin.AutoSize = true
+	scriptsWin.Resizable = true
+	scriptsWin.NoScroll = true
+	scriptsWin.Size = eui.Point{X: scriptsManagerListWidth, Y: 640}
 	scriptsWin.Movable = true
 	scriptsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	scriptsRoot = root
 	scriptsWin.AddItem(root)
 
-	main := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	root.AddItem(main)
+	listHeader := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	scriptsHeader = listHeader
+	for _, column := range []struct {
+		label string
+		width float32
+	}{
+		{label: "", width: scriptsManagerInfoSize},
+		{label: "Player", width: scriptsManagerCheckSize},
+		{label: "Global", width: scriptsManagerCheckSize},
+		{label: "Script", width: scriptsManagerNameWidth},
+	} {
+		text, _ := eui.NewText()
+		text.Text = column.label
+		text.FontSize = 9
+		text.Size = eui.Point{X: column.width, Y: scriptsManagerRowHeight}
+		listHeader.AddItem(text)
+	}
+	root.AddItem(listHeader)
 
-	list := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	list := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+	list.Size = eui.Point{X: scriptsManagerListWidth, Y: scriptsManagerPaneHeight}
 	scriptsList = list
-	main.AddItem(list)
+	root.AddItem(list)
 
-	scriptDetails = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	main.AddItem(scriptDetails)
-
-	buttonsBottom := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	buttonsBottom := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	scriptsButtons = buttonsBottom
 	root.AddItem(buttonsBottom)
 
 	refreshBtn, rh := eui.NewButton()
@@ -621,28 +642,6 @@ func makescriptsWindow() {
 	}
 	buttonsBottom.AddItem(refreshBtn)
 
-	newBtn, newEvents := eui.NewButton()
-	newBtn.Text = "New Script"
-	newBtn.SetTooltip("Create an example script.")
-	newBtn.Size = eui.Point{X: 90, Y: 24}
-	newEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			openNewScriptWindow()
-		}
-	}
-	buttonsBottom.AddItem(newBtn)
-
-	libraryBtn, libraryEvents := eui.NewButton()
-	libraryBtn.Text = "Examples"
-	libraryBtn.SetTooltip("Browse example scripts.")
-	libraryBtn.Size = eui.Point{X: 80, Y: 24}
-	libraryEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			openScriptLibraryWindow()
-		}
-	}
-	buttonsBottom.AddItem(libraryBtn)
-
 	openBtn, oh := eui.NewButton()
 	openBtn.Text = "Open scripts folder"
 	// Label already clear; no tooltip.
@@ -654,31 +653,20 @@ func makescriptsWindow() {
 	}
 	buttonsBottom.AddItem(openBtn)
 
-	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	root.AddItem(debugFlow)
-	debugCB, debugEvents := eui.NewCheckbox()
-	debugCB.Text = "Debug events"
-	debugCB.Size = eui.Point{X: 160, Y: 24}
-	debugCB.Checked = gs.scriptEventDebug
-	debugEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.scriptEventDebug = ev.Checked
-			scriptDebugList.Invisible = !ev.Checked
-			if ev.Checked {
-				refreshscriptDebug()
-			}
-		}
-	}
-	debugFlow.AddItem(debugCB)
-	dbg := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true}
-	dbg.Size = eui.Point{X: 480, Y: 120}
-	dbg.Invisible = !gs.scriptEventDebug
-	scriptDebugList = dbg
-	debugFlow.AddItem(dbg)
-
+	scriptsWin.OnResize = refreshscriptsWindow
 	scriptsWin.AddWindow(false)
 	refreshscriptsWindow()
 }
+
+const (
+	scriptsManagerCheckSize  = 32
+	scriptsManagerInfoSize   = 28
+	scriptsManagerNameWidth  = 400
+	scriptsManagerInfoWidth  = 600
+	scriptsManagerListWidth  = 640
+	scriptsManagerPaneHeight = 420
+	scriptsManagerRowHeight  = 32
+)
 
 type newScriptTemplate struct {
 	name        string
@@ -830,30 +818,15 @@ func createScriptFromTemplate(dir string, template newScriptTemplate) (string, e
 }
 
 func refreshscriptsWindow() {
-	if scriptsList == nil {
+	if scriptsList == nil || scriptsWin == nil {
 		return
 	}
-	checkSize := eui.Point{X: 32, Y: 32}
-	scriptSize := eui.Point{X: 256, Y: 32}
+	savedScroll := scriptsList.Scroll
+	layoutScriptsWindow()
+	checkSize := eui.Point{X: scriptsManagerCheckSize, Y: scriptsManagerRowHeight}
+	scriptSize := eui.Point{X: scriptsManagerNameWidth, Y: scriptsManagerRowHeight}
 
 	scriptsList.Contents = scriptsList.Contents[:0]
-	legend := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	charTxt, _ := eui.NewText()
-	charTxt.Text = "Player"
-	charTxt.FontSize = 9
-	charTxt.Size = checkSize
-	legend.AddItem(charTxt)
-	allTxt, _ := eui.NewText()
-	allTxt.Text = "Global"
-	allTxt.FontSize = 9
-	allTxt.Size = checkSize
-	legend.AddItem(allTxt)
-	plugTxt, _ := eui.NewText()
-	plugTxt.Text = "script"
-	plugTxt.FontSize = 9
-	plugTxt.Size = scriptSize
-	legend.AddItem(plugTxt)
-	scriptsList.AddItem(legend)
 
 	type entry struct {
 		owner        string
@@ -887,8 +860,10 @@ func refreshscriptsWindow() {
 	sort.Strings(catList)
 	for _, cat := range catList {
 		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		infoSpacer := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: scriptsManagerInfoSize, Y: scriptsManagerRowHeight}, Fixed: true}
 		spacer1 := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: checkSize, Fixed: true}
 		spacer2 := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: checkSize, Fixed: true}
+		row.AddItem(infoSpacer)
 		row.AddItem(spacer1)
 		row.AddItem(spacer2)
 		txt, _ := eui.NewText()
@@ -931,11 +906,13 @@ func refreshscriptsWindow() {
 			charCB.Disabled = e.invalid || effChar == ""
 			allCB.Checked = scope.All
 			allCB.Disabled = e.invalid
-			click := func() { selectscript(owner) }
-			if selectedscript == owner {
-				row.Filled = true
-				if scriptsWin != nil && scriptsWin.Theme != nil {
-					row.Color = scriptsWin.Theme.Button.SelectedColor
+			infoBtn, infoEvents := eui.NewButton()
+			infoBtn.Text = "i"
+			infoBtn.Size = eui.Point{X: scriptsManagerInfoSize, Y: 24}
+			infoBtn.SetTooltip("Show script details and actions.")
+			infoEvents.Handle = func(ev eui.UIEvent) {
+				if ev.Type == eui.EventClick {
+					selectscript(owner)
 				}
 			}
 			if !e.invalid {
@@ -963,6 +940,7 @@ func refreshscriptsWindow() {
 					}
 				}
 			}
+			row.AddItem(infoBtn)
 			row.AddItem(charCB)
 			row.AddItem(allCB)
 			nameTxt, _ := eui.NewText()
@@ -970,8 +948,6 @@ func refreshscriptsWindow() {
 			nameTxt.FontSize = 12
 			nameTxt.Size = scriptSize
 			nameTxt.Disabled = e.invalid
-			nameTxt.Action = click
-			row.Action = click
 			row.AddItem(nameTxt)
 
 			if !e.invalid {
@@ -1006,34 +982,51 @@ func refreshscriptsWindow() {
 					row.AddItem(cfgBtn)
 				}
 			}
-			nameTxt, _ = eui.NewText()
-			nameTxt.FontSize = 12
-			nameTxt.Size = eui.Point{X: 10, Y: 24}
-			nameTxt.Disabled = e.invalid
-			nameTxt.Action = click
-			row.Action = click
-			row.AddItem(nameTxt)
-
 			scriptsList.AddItem(row)
 		}
 	}
+	// Adding the first replacement row temporarily makes the list shorter than
+	// its viewport, which causes EUI to clamp its scroll to zero. Restore the
+	// offset after every row is present; Refresh will clamp it only if the final
+	// list is genuinely shorter.
+	scriptsList.Scroll = savedScroll
 	if scriptsWin != nil {
-		refreshscriptDetails()
 		scriptsWin.Refresh()
 	}
 }
 
+func layoutScriptsWindow() {
+	scale := eui.UIScale()
+	if scriptsWin.NoScale {
+		scale = 1
+	}
+	clientW := scriptsWin.GetSize().X/scale - 2*(scriptsWin.Padding+scriptsWin.BorderPad)
+	clientH := (scriptsWin.GetSize().Y-scriptsWin.GetTitleSize())/scale - 2*(scriptsWin.Padding+scriptsWin.BorderPad)
+	clientW = max(0, clientW)
+	clientH = max(0, clientH)
+
+	scriptsRoot.Size = eui.Point{X: clientW, Y: clientH}
+	scriptsHeader.Size = eui.Point{X: clientW, Y: scriptsManagerRowHeight}
+	scriptsButtons.Size = eui.Point{X: clientW, Y: 24}
+	scriptsList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-scriptsManagerRowHeight-24)}
+}
+
 func selectscript(owner string) {
-	if selectedscript == owner {
+	if owner == "" {
 		return
 	}
 	selectedscript = owner
-	refreshscriptsWindow()
+	if scriptInfoWin != nil {
+		scriptInfoWin.Close()
+	}
+	scriptDetails = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+	scriptDetails.Size = eui.Point{X: scriptsManagerInfoWidth, Y: scriptsManagerPaneHeight}
+	refreshscriptDetails()
+	scriptInfoWin = showPopup("Script Info", "", []popupButton{{Text: "Close", Action: func() { scriptInfoWin = nil }}}, scriptDetails)
 }
 
 func refreshscriptDetails() {
-
-	infoSize := eui.Point{X: 256, Y: 24}
+	infoSize := eui.Point{X: scriptsManagerInfoWidth, Y: 24}
 	if scriptDetails == nil {
 		return
 	}
@@ -1170,8 +1163,8 @@ func refreshscriptDetails() {
 	button("Stop", disabled, func() { clearscriptScope(owner) })
 	scriptDetails.AddItem(actions)
 
-	if scriptsWin != nil {
-		scriptsWin.Refresh()
+	if scriptInfoWin != nil {
+		scriptInfoWin.Refresh()
 	}
 }
 
@@ -1274,8 +1267,8 @@ func refreshscriptDebug() {
 		t.Size = eui.Point{X: 400, Y: 16}
 		scriptDebugList.AddItem(t)
 	}
-	if scriptsWin != nil {
-		scriptsWin.Refresh()
+	if debugWin != nil {
+		debugWin.Refresh()
 	}
 }
 
@@ -6582,10 +6575,35 @@ func makeDebugWindow() {
 	sceneSection := newConfigurationSection("Scene Overrides", width)
 	shaderSection := newConfigurationSection("Shader Tools", width)
 	cacheSection := newConfigurationSection("Cache Statistics", width)
+	scriptSection := newConfigurationSection("Script Events", width)
 	debugFlow.AddItem(diagnosticsSection)
 	debugFlow.AddItem(sceneSection)
 	debugFlow.AddItem(shaderSection)
+	debugFlow.AddItem(scriptSection)
 	debugFlow.AddItem(cacheSection)
+
+	debugCB, debugEvents := eui.NewCheckbox()
+	debugCB.Text = "Record script events"
+	debugCB.Size = eui.Point{X: width, Y: 24}
+	debugCB.Checked = gs.scriptEventDebug
+	debugEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.scriptEventDebug = ev.Checked
+			settingsDirty = true
+			scriptDebugList.Invisible = !ev.Checked
+			if ev.Checked {
+				refreshscriptDebug()
+			} else {
+				debugWin.Refresh()
+			}
+		}
+	}
+	scriptSection.AddItem(debugCB)
+
+	scriptDebugList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+	scriptDebugList.Size = eui.Point{X: width, Y: 120}
+	scriptDebugList.Invisible = !gs.scriptEventDebug
+	scriptSection.AddItem(scriptDebugList)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
 	recordStatsCB.Text = "Record Asset Stats"

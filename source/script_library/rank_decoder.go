@@ -44,6 +44,7 @@ var rankMessages = map[string]string{
 	"We are nearly equals.":                             "400-449",
 	"You are close to attaining mastery.":               "400-449",
 	"You may be proud of your accomplishment.":          "450-499",
+	"You are becoming a master of our art.":             "500-549",
 	"You are becoming a master of your art.":            "500-549",
 	"Your dedication is commendable.":                   "550-599",
 	"You show great devotion to your studies.":          "600-649",
@@ -83,10 +84,13 @@ func Init() {
 }
 
 func rankDecodeChat(event gt2.ChatEvent) {
+	message := strings.ToLower(event.Message)
 	for phrase, rank := range rankMessages {
-		if strings.Contains(event.Raw, phrase) {
-			gt2.ShowNotification("Rank " + rank)
-			break
+		if strings.Contains(message, strings.ToLower(phrase)) {
+			result := "Rank " + rank
+			gt2.Print(result)
+			gt2.ShowNotification(result)
+			return
 		}
 	}
 }

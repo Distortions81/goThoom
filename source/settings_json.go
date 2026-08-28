@@ -229,7 +229,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "TiledGameLeft", category: settingsWindows, name: "tiled_game_left"},
 	{field: "WindowSnapping", category: settingsWindows, name: "snapping"},
 
-	{field: "Enabledscripts", category: settingsScripts, name: "enabled"},
 	{field: "ScriptSpamKill", category: settingsScripts, name: "stop_spamming_scripts"},
 	{field: "LegacyMacroContinuous", category: settingsScripts, name: "allow_continuous_legacy_macros"},
 

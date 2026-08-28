@@ -1284,21 +1284,16 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 //go:embed script_library
 var scriptScripts embed.FS
 
-// userScriptsDir returns the preferred location for user-editable scripts.
-// Scripts now live alongside the executable in a top-level "scripts" folder
-// instead of under the data directory.
+// userScriptsDir returns the user-editable scripts folder in the same data
+// hierarchy as legacy macros and script enablement.
 func userScriptsDir() string {
 	if isWASM {
 		return ""
 	}
-	exe, err := os.Executable()
-	if err != nil {
-		return "scripts"
-	}
-	return filepath.Join(filepath.Dir(exe), "scripts")
+	return filepath.Join(dataDirPath, "Scripts")
 }
 
-// scriptSearchDirs returns only the scripts/ folder next to the executable.
+// scriptSearchDirs returns the user scripts folder.
 func scriptSearchDirs() []string {
 	dir := userScriptsDir()
 	if dir == "" {
@@ -1307,24 +1302,23 @@ func scriptSearchDirs() []string {
 	return []string{dir}
 }
 
-// ensureScriptsDir creates the user-owned scripts directory and installs the
-// managed gt2 editor workspace. Bundled examples stay embedded until the user
-// explicitly installs one from the library.
+// ensureScriptsDir creates the user-owned scripts directory, installs the
+// managed gt2 editor workspace, and seeds embedded examples when no script
+// package exists yet.
 func ensureScriptsDir() {
 	if isWASM {
 		return
 	}
-	exe, err := os.Executable()
-	if err != nil {
-		return
-	}
-	dir := filepath.Join(filepath.Dir(exe), "scripts")
+	dir := userScriptsDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		log.Printf("create scripts dir: %v", err)
 		return
 	}
 	if err := installScriptEditorSupport(dir); err != nil {
 		log.Printf("install script editor support: %v", err)
+	}
+	if err := populateBundledScriptsIfEmpty(dir); err != nil {
+		log.Printf("populate example scripts: %v", err)
 	}
 }
 
@@ -2345,7 +2339,7 @@ type deactivatedScript struct {
 func deactivateScript(owner, reason string) deactivatedScript {
 	scriptMu.Lock()
 	scriptDisabled[owner] = true
-	if reason != "disabled for this character" && reason != "reloaded" {
+	if reason != "disabled for this character" && reason != "reloaded" && reason != "application shutdown" {
 		delete(scriptEnabledFor, owner)
 	}
 	term := scriptTerminators[owner]
@@ -2437,12 +2431,20 @@ func disablescript(owner, reason string) {
 	deactivated := deactivateScript(owner, reason)
 	terminateDeactivatedScript(owner, deactivated)
 	disposeScriptResources(owner, reason, deactivated.eventQueue)
+	saveScriptEnablement()
 	scriptMu.Lock()
 	delete(scriptStopping, owner)
 	scriptMu.Unlock()
 }
 
 func stopAllscripts() {
+	stopScripts("stopped by user")
+}
+
+// stopScripts stops running interpreters without changing their selected
+// scopes when the client is shutting down. A user-requested stop still clears
+// scopes through the normal disable path.
+func stopScripts(reason string) {
 	scriptMu.RLock()
 	owners := make([]string, 0, len(scriptDisplayNames))
 	for o := range scriptDisplayNames {
@@ -2453,11 +2455,11 @@ func stopAllscripts() {
 	scriptMu.RUnlock()
 	sort.Strings(owners)
 	for _, o := range owners {
-		disablescript(o, "stopped by user")
+		disablescript(o, reason)
 	}
 	if len(owners) > 0 {
 		clearCommands()
-		consoleMessage("[script] all scripts stopped")
+		consoleMessage("[script] all scripts stopped: " + reason)
 	}
 }
 
@@ -2535,6 +2537,7 @@ func setscriptEnabled(owner string, char, all bool) {
 		scriptEnabledFor[owner] = s
 	}
 	scriptMu.Unlock()
+	saveScriptEnablement()
 	applyEnabledScripts()
 	saveSettings()
 	refreshscriptsWindow()
@@ -2556,6 +2559,7 @@ func clearscriptScope(owner string) {
 		delete(scriptRepeats, owner)
 	}
 	scriptMu.Unlock()
+	saveScriptEnablement()
 	applyEnabledScripts()
 	saveSettings()
 	refreshscriptsWindow()
@@ -3493,10 +3497,6 @@ func rescanScripts(scriptDirs []string) {
 		}
 		if en, ok := scriptEnabledFor[o]; ok {
 			newEnabled[o] = en
-		} else if gs.Enabledscripts != nil {
-			if val, ok := gs.Enabledscripts[o]; ok {
-				newEnabled[o] = scopeFromSettingValue(val)
-			}
 		}
 		// Require a matching script API version
 		invalid := info.invalid || info.apiVer != scriptAPICurrentVersion
@@ -3537,6 +3537,7 @@ func rescanScripts(scriptDirs []string) {
 		loadscriptPackageSource(owner, info.name, info.path, info.src, restrictedStdlib(), info.assets, info.fingerprint)
 	}
 	applyEnabledScripts()
+	saveScriptEnablement()
 	refreshscriptsWindow()
 	settingsDirty = true
 }
@@ -3546,6 +3547,7 @@ func loadScripts() {
 		return
 	}
 	ensureScriptsDir()
+	loadScriptEnablement()
 	scanned := scanscripts(scriptSearchDirs(), func(name, path string) {
 		log.Printf("script %s duplicate name %s", path, name)
 		consoleMessage("[script] duplicate name: " + name)
@@ -3566,12 +3568,7 @@ func loadScripts() {
 	for _, o := range owners {
 		info := scanned[o]
 		scriptNames[strings.ToLower(info.name)] = true
-		s, ok := scriptEnabledFor[o]
-		if !ok && gs.Enabledscripts != nil {
-			if val, ok2 := gs.Enabledscripts[o]; ok2 {
-				s = scopeFromSettingValue(val)
-			}
-		}
+		s := scriptEnabledFor[o]
 		effChar := playerName
 		if effChar == "" {
 			effChar = gs.LastCharacter

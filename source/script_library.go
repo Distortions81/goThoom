@@ -110,3 +110,22 @@ func installBundledScript(dir, filename string) (string, error) {
 	remove = false
 	return destination, nil
 }
+
+// populateBundledScriptsIfEmpty installs the embedded examples only when the
+// folder has no script packages. Managed editor files do not count as user
+// scripts, and no existing script is ever replaced.
+func populateBundledScriptsIfEmpty(dir string) error {
+	if len(discoverScriptPackages(dir)) != 0 {
+		return nil
+	}
+	entries, err := scriptLibraryEntries()
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if _, err := installBundledScript(dir, entry.Filename); err != nil {
+			return err
+		}
+	}
+	return nil
+}

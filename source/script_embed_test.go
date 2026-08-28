@@ -93,3 +93,30 @@ func TestBundledScriptsTypeCheckWithEditorStub(t *testing.T) {
 		t.Fatalf("bundled scripts do not type-check with the installed gt2 editor stub: %v\n%s", err, output)
 	}
 }
+
+func TestPopulateBundledScriptsOnlySeedsEmptyFolder(t *testing.T) {
+	dir := t.TempDir()
+	if err := populateBundledScriptsIfEmpty(dir); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := scriptLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if _, err := os.Stat(filepath.Join(dir, entry.Filename)); err != nil {
+			t.Errorf("seeded script %s: %v", entry.Filename, err)
+		}
+	}
+
+	customDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(customDir, "mine.go"), []byte("package main\nfunc Init() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := populateBundledScriptsIfEmpty(customDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(customDir, entries[0].Filename)); !os.IsNotExist(err) {
+		t.Fatalf("non-empty folder was seeded: %v", err)
+	}
+}

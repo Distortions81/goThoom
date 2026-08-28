@@ -87,10 +87,10 @@ encoding details are in
 
 ### Go scripts
 
-Open **Actions → Scripts** to create, install, configure, validate, reload, or
-stop scripts. Scripts may be a single `.go` file, a folder with assets, or a ZIP
-package. Bundled examples are available from the Scripts window and are never
-installed over an existing file.
+Open **Actions → Scripts** to configure, validate, reload, or stop scripts.
+Scripts may be a single `.go` file, a folder with assets, or a ZIP package. The
+embedded examples are copied to an empty `data/Scripts` folder and never replace
+existing scripts.
 
 Script-author documentation lives in
 [source/script_library/README.md](source/script_library/README.md), with the complete API in

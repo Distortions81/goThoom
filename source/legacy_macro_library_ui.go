@@ -21,9 +21,13 @@ var (
 )
 
 const (
-	legacyMacroLibraryButtonsHeight = 24
-	legacyMacroLibraryBottomGap     = 8
-	legacyMacroContinuousLabel      = "Allow continuous macros"
+	legacyMacroNameWidth       = 360
+	legacyMacroGlobalWidth     = 110
+	legacyMacroPlayerWidth     = 150
+	legacyMacroListWidth       = 720
+	legacyMacroPaneHeight      = 420
+	legacyMacroRowHeight       = 28
+	legacyMacroContinuousLabel = "Allow continuous macros"
 )
 
 func makeLegacyMacroLibraryWindow() {
@@ -32,23 +36,61 @@ func makeLegacyMacroLibraryWindow() {
 	}
 	legacyMacroLibraryWin = eui.NewWindow()
 	legacyMacroLibraryWin.Title = "Legacy Macros"
-	legacyMacroLibraryWin.Size = eui.Point{X: 720, Y: 560}
 	legacyMacroLibraryWin.Closable = true
 	legacyMacroLibraryWin.Movable = true
 	legacyMacroLibraryWin.Resizable = true
 	legacyMacroLibraryWin.NoScroll = true
-	legacyMacroLibraryWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
+	legacyMacroLibraryWin.Size = eui.Point{X: legacyMacroListWidth, Y: 560}
+	legacyMacroLibraryWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
 	legacyMacroLibraryRoot = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
 	legacyMacroLibraryWin.AddItem(legacyMacroLibraryRoot)
 
+	listHeader := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	infoHeader, _ := eui.NewText()
+	infoHeader.Size = eui.Point{X: 68, Y: 24}
+	listHeader.AddItem(infoHeader)
+	nameHeader, _ := eui.NewText()
+	nameHeader.Text = "Macro"
+	nameHeader.FontSize = 12
+	nameHeader.Size = eui.Point{X: legacyMacroNameWidth, Y: 24}
+	listHeader.AddItem(nameHeader)
+	globalHeader, _ := eui.NewText()
+	globalHeader.Text = "Global"
+	globalHeader.FontSize = 12
+	globalHeader.Size = eui.Point{X: legacyMacroGlobalWidth, Y: 24}
+	listHeader.AddItem(globalHeader)
+	playerHeader, _ := eui.NewText()
+	playerHeader.Text = "Player"
+	playerHeader.FontSize = 12
+	playerHeader.Size = eui.Point{X: legacyMacroPlayerWidth, Y: 24}
+	listHeader.AddItem(playerHeader)
+	legacyMacroLibraryRoot.AddItem(listHeader)
 	legacyMacroLibraryList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
+	legacyMacroLibraryList.Size = eui.Point{X: legacyMacroListWidth, Y: legacyMacroPaneHeight}
 	legacyMacroLibraryRoot.AddItem(legacyMacroLibraryList)
 
 	legacyMacroLibraryButtons = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	legacyMacroLibraryRoot.AddItem(legacyMacroLibraryButtons)
+
+	refreshButton, refreshEvents := eui.NewButton()
+	refreshButton.Text = "Refresh"
+	refreshButton.Size = eui.Point{X: 64, Y: 24}
+	refreshButton.Disabled = isWASM
+	refreshButton.SetTooltip("Rescan the macro library.")
+	if isWASM {
+		refreshButton.SetTooltip("Embedded macro list is fixed.")
+	}
+	refreshEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			refreshLegacyMacroLibraryWindow()
+		}
+	}
+	legacyMacroLibraryButtons.AddItem(refreshButton)
+
 	openButton, openEvents := eui.NewButton()
-	openButton.Text = "Open Macro Folder"
-	openButton.Size = eui.Point{X: 160, Y: legacyMacroLibraryButtonsHeight}
+	openButton.Text = "Open Folder"
+	openButton.Size = eui.Point{X: 112, Y: 24}
 	openButton.Disabled = isWASM
 	if isWASM {
 		openButton.SetTooltip("Embedded library is read-only.")
@@ -61,23 +103,10 @@ func makeLegacyMacroLibraryWindow() {
 		}
 	}
 	legacyMacroLibraryButtons.AddItem(openButton)
-	refreshButton, refreshEvents := eui.NewButton()
-	refreshButton.Text = "Refresh List"
-	refreshButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
-	refreshButton.Disabled = isWASM
-	refreshButton.SetTooltip("Rescan the macro library.")
-	if isWASM {
-		refreshButton.SetTooltip("Embedded macro list is fixed.")
-	}
-	refreshEvents.Handle = func(event eui.UIEvent) {
-		if event.Type == eui.EventClick {
-			refreshLegacyMacroLibraryWindow()
-		}
-	}
-	legacyMacroLibraryButtons.AddItem(refreshButton)
+
 	reloadButton, reloadEvents := eui.NewButton()
 	reloadButton.Text = "Reload Macros"
-	reloadButton.Size = eui.Point{X: 120, Y: legacyMacroLibraryButtonsHeight}
+	reloadButton.Size = eui.Point{X: 112, Y: 24}
 	reloadButton.SetTooltip("Reload enabled macros.")
 	reloadEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
@@ -85,21 +114,10 @@ func makeLegacyMacroLibraryWindow() {
 		}
 	}
 	legacyMacroLibraryButtons.AddItem(reloadButton)
-	continuousCheckbox, continuousEvents := eui.NewCheckbox()
-	continuousCheckbox.Text = legacyMacroContinuousLabel
-	continuousCheckbox.Size = eui.Point{X: 200, Y: legacyMacroLibraryButtonsHeight}
-	continuousCheckbox.Checked = gs.LegacyMacroContinuous
-	continuousCheckbox.SetTooltip("Allow continuous macro loops.")
-	continuousEvents.Handle = func(event eui.UIEvent) {
-		if event.Type == eui.EventCheckboxChanged {
-			legacyMacroLibrarySetAllowContinuous(event.Checked)
-		}
-	}
-	legacyMacroLibraryContinuous = continuousCheckbox
-	legacyMacroLibraryButtons.AddItem(continuousCheckbox)
+
 	errorsButton, errorsEvents := eui.NewButton()
 	errorsButton.Text = "No Errors"
-	errorsButton.Size = eui.Point{X: 100, Y: legacyMacroLibraryButtonsHeight}
+	errorsButton.Size = eui.Point{X: 96, Y: 24}
 	errorsButton.SetTooltip("Show macro errors.")
 	errorsEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventClick {
@@ -108,19 +126,30 @@ func makeLegacyMacroLibraryWindow() {
 	}
 	legacyMacroLibraryErrors = errorsButton
 	legacyMacroLibraryButtons.AddItem(errorsButton)
-	legacyMacroLibraryRoot.AddItem(legacyMacroLibraryButtons)
 
-	legacyMacroLibraryWin.OnResize = func() {
-		refreshLegacyMacroLibraryWindow()
+	continuousCheckbox, continuousEvents := eui.NewCheckbox()
+	continuousCheckbox.Text = legacyMacroContinuousLabel
+	continuousCheckbox.Size = eui.Point{X: 200, Y: 24}
+	continuousCheckbox.Checked = gs.LegacyMacroContinuous
+	continuousCheckbox.SetTooltip("Allow continuous macro loops.")
+	continuousEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventCheckboxChanged {
+			legacyMacroLibrarySetAllowContinuous(event.Checked)
+		}
 	}
+	legacyMacroLibraryContinuous = continuousCheckbox
+	legacyMacroLibraryRoot.AddItem(continuousCheckbox)
+
+	legacyMacroLibraryWin.OnResize = refreshLegacyMacroLibraryWindow
 	legacyMacroLibraryWin.AddWindow(false)
 	refreshLegacyMacroLibraryWindow()
 }
 
 func refreshLegacyMacroLibraryWindow() {
-	if legacyMacroLibraryList == nil {
+	if legacyMacroLibraryList == nil || legacyMacroLibraryWin == nil {
 		return
 	}
+	savedScroll := legacyMacroLibraryList.Scroll
 	legacyMacroLibraryLayout()
 	legacyMacroLibraryList.Contents = legacyMacroLibraryList.Contents[:0]
 
@@ -147,44 +176,19 @@ func refreshLegacyMacroLibraryWindow() {
 	if legacyMacroLibraryContinuous != nil {
 		legacyMacroLibraryContinuous.Checked = gs.LegacyMacroContinuous
 	}
-	detailsWidth := legacyMacroLibraryDetailsWidth()
 
-	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-	infoHeader, _ := eui.NewText()
-	infoHeader.Size = eui.Point{X: 68, Y: 24}
-	header.AddItem(infoHeader)
-	name, _ := eui.NewText()
-	name.Text = "Macro"
-	name.FontSize = 12
-	name.Size = eui.Point{X: detailsWidth, Y: 24}
-	header.AddItem(name)
-	global, _ := eui.NewText()
-	global.Text = "Global"
-	global.FontSize = 12
-	global.Size = eui.Point{X: 110, Y: 24}
-	header.AddItem(global)
-	player, _ := eui.NewText()
-	if character == "" {
-		player.Text = "Player"
-	} else {
-		player.Text = character
-	}
-	player.FontSize = 12
-	player.Size = eui.Point{X: 150, Y: 24}
-	header.AddItem(player)
-	legacyMacroLibraryList.AddItem(header)
+	nameSize := eui.Point{X: legacyMacroNameWidth, Y: legacyMacroRowHeight}
 	if len(entries) == 0 {
 		empty, _ := eui.NewText()
 		empty.Text = "No .mac files found in Macros/Library."
 		empty.FontSize = 12
-		empty.Size = eui.Point{X: 650, Y: 24}
+		empty.Size = nameSize
 		legacyMacroLibraryList.AddItem(empty)
 	}
 
 	for index, entry := range entries {
 		entry := entry
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-		row.Size = eui.Point{X: legacyMacroLibraryList.Size.X, Y: 28}
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 		if index%2 != 0 {
 			row.Filled = true
 			row.Color = legacyMacroLibraryStripeColor()
@@ -192,13 +196,14 @@ func refreshLegacyMacroLibraryWindow() {
 		infoButton, infoEvents := eui.NewButton()
 		infoButton.Text = "i"
 		infoButton.Size = eui.Point{X: 24, Y: 24}
-		infoButton.SetTooltip("Show commands and keybindings.")
+		infoButton.SetTooltip("Show macro details, commands, and keybindings.")
 		infoEvents.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick {
 				legacyMacroLibraryShowInfo(entry)
 			}
 		}
 		row.AddItem(infoButton)
+
 		editButton, editEvents := eui.NewButton()
 		editButton.Text = "Edit"
 		editButton.Size = eui.Point{X: 44, Y: 24}
@@ -208,23 +213,24 @@ func refreshLegacyMacroLibraryWindow() {
 			editButton.SetTooltip("Embedded library is read-only.")
 		}
 		editEvents.Handle = func(event eui.UIEvent) {
-			if event.Type == eui.EventClick {
+			if event.Type == eui.EventClick && !editButton.Disabled {
 				if err := open.Run(entry.Path); err != nil {
 					legacyMacroLibraryReport(fmt.Sprintf("edit %s: %v", entry.Name, err))
 				}
 			}
 		}
 		row.AddItem(editButton)
+
 		details, _ := eui.NewText()
-		details.Text = legacyMacroLibraryRowLabel(entry.Name, entry.Description, detailsWidth)
+		details.Text = legacyMacroLibraryRowLabel(entry.Name, entry.Description, legacyMacroNameWidth)
 		details.FontSize = 12
-		details.Size = eui.Point{X: detailsWidth, Y: 28}
+		details.Size = nameSize
 		row.AddItem(details)
 
 		globalCheckbox, globalEvents := eui.NewCheckbox()
 		globalCheckbox.Text = "On"
 		globalCheckbox.Checked = globalEnabled[legacyMacroLibraryIDKey(entry.ID)]
-		globalCheckbox.Size = eui.Point{X: 110, Y: 24}
+		globalCheckbox.Size = eui.Point{X: legacyMacroGlobalWidth, Y: 24}
 		globalCheckbox.Disabled = isWASM
 		globalCheckbox.SetTooltip("Enable for every character.")
 		globalEvents.Handle = func(event eui.UIEvent) {
@@ -237,7 +243,7 @@ func refreshLegacyMacroLibraryWindow() {
 		playerCheckbox, playerEvents := eui.NewCheckbox()
 		playerCheckbox.Text = "On"
 		playerCheckbox.Checked = playerEnabled[legacyMacroLibraryIDKey(entry.ID)]
-		playerCheckbox.Size = eui.Point{X: 150, Y: 24}
+		playerCheckbox.Size = eui.Point{X: legacyMacroPlayerWidth, Y: 24}
 		playerCheckbox.Disabled = character == "" || isWASM
 		if character == "" {
 			playerCheckbox.SetTooltip("Select a character first.")
@@ -252,42 +258,29 @@ func refreshLegacyMacroLibraryWindow() {
 		row.AddItem(playerCheckbox)
 		legacyMacroLibraryList.AddItem(row)
 	}
+	// AddItem clamps an incomplete rebuilt flow to the top. Put the prior
+	// offset back once all macro rows exist; Refresh handles any real shrink.
+	legacyMacroLibraryList.Scroll = savedScroll
 
 	if legacyMacroLibraryWin != nil {
 		legacyMacroLibraryWin.Refresh()
 	}
 }
 
-// legacyMacroLibraryLayout gives the fixed root and scrollable list explicit
-// sizes. Without this, the root can shrink to its content and clip macro rows.
 func legacyMacroLibraryLayout() {
-	if legacyMacroLibraryWin == nil || legacyMacroLibraryRoot == nil || legacyMacroLibraryList == nil {
-		return
-	}
-	clientW := legacyMacroLibraryWin.GetSize().X
-	clientH := legacyMacroLibraryWin.GetSize().Y - legacyMacroLibraryWin.GetTitleSize()
 	scale := eui.UIScale()
 	if legacyMacroLibraryWin.NoScale {
 		scale = 1
 	}
-	padding := (legacyMacroLibraryWin.Padding + legacyMacroLibraryWin.BorderPad) * scale
-	clientW -= 2 * padding
-	clientH -= 2 * padding
-	if clientW < 0 {
-		clientW = 0
-	}
-	if clientH < 0 {
-		clientH = 0
-	}
+	clientW := legacyMacroLibraryWin.GetSize().X/scale - 2*(legacyMacroLibraryWin.Padding+legacyMacroLibraryWin.BorderPad)
+	clientH := (legacyMacroLibraryWin.GetSize().Y-legacyMacroLibraryWin.GetTitleSize())/scale - 2*(legacyMacroLibraryWin.Padding+legacyMacroLibraryWin.BorderPad)
+	clientW = max(0, clientW)
+	clientH = max(0, clientH)
+
 	legacyMacroLibraryRoot.Size = eui.Point{X: clientW, Y: clientH}
-	if legacyMacroLibraryButtons != nil {
-		legacyMacroLibraryButtons.Size = eui.Point{X: clientW, Y: legacyMacroLibraryButtonsHeight}
-	}
-	listHeight := clientH - legacyMacroLibraryButtonsHeight - legacyMacroLibraryBottomGap
-	if listHeight < 24 {
-		listHeight = 24
-	}
-	legacyMacroLibraryList.Size = eui.Point{X: clientW, Y: listHeight}
+	legacyMacroLibraryButtons.Size = eui.Point{X: clientW, Y: 24}
+	legacyMacroLibraryContinuous.Size = eui.Point{X: clientW, Y: 24}
+	legacyMacroLibraryList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-24-24-24)}
 }
 
 func legacyMacroLibraryCurrentCharacter() string {
@@ -547,17 +540,6 @@ func legacyMacroLibraryWrapInfoLines(lines []string, width float32) []string {
 		wrapped = append(wrapped, chunks...)
 	}
 	return wrapped
-}
-
-func legacyMacroLibraryDetailsWidth() float32 {
-	if legacyMacroLibraryList == nil {
-		return 366
-	}
-	width := legacyMacroLibraryList.Size.X - eui.ScrollbarWidth() - 68 - 110 - 150
-	if width < 100 {
-		return 100
-	}
-	return width
 }
 
 func legacyMacroLibraryRowLabel(name, description string, width float32) string {

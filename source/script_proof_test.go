@@ -157,6 +157,22 @@ func TestQuickReplyProof(t *testing.T) {
 	}
 }
 
+func TestRankDecoderProof(t *testing.T) {
+	const owner = "rank_decoder_proof"
+	consoleLog = messageLog{max: maxMessages}
+	originalMessagesToConsole := gs.MessagesToConsole
+	gs.MessagesToConsole = true
+	t.Cleanup(func() { gs.MessagesToConsole = originalMessagesToConsole })
+	sim := activateBundledProofScript(t, owner, "rank_decoder.go")
+	displayChatMessageTyped("Hardia says Hail, Distortions.  You keep me on my toes.", messageTextTypeSay)
+	sim.barrier(t)
+
+	messages := getConsoleMessages()
+	if len(messages) < 2 || !strings.HasSuffix(messages[len(messages)-1], "Rank 100-149") {
+		t.Fatalf("rank decoder output = %v, want Rank 100-149", messages)
+	}
+}
+
 func TestRangeryProof(t *testing.T) {
 	const owner = "rangery_proof"
 	originalSpamKill := gs.ScriptSpamKill

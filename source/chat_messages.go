@@ -19,6 +19,18 @@ func chatMessage(msg string) {
 	chatMessageTyped(msg, messageTextTypeSystem)
 }
 
+// displayChatMessageTyped routes chat to the configured display while always
+// delivering it to script OnChat handlers. Console routing is a presentation
+// choice and must not change the script event stream.
+func displayChatMessageTyped(msg, messageType string) {
+	if gs.MessagesToConsole {
+		serverConsoleMessageTyped(msg, messageType)
+		dispatchScriptChat(msg)
+		return
+	}
+	chatMessageTyped(msg, messageType)
+}
+
 func chatMessageTyped(msg, messageType string) {
 	if msg == "" {
 		return

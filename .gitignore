@@ -27,6 +27,7 @@ music_*.wav
 source/data/*.gz
 source/data/global-hotkeys.json
 source/data/Macros/Library/enabled.json
+source/data/Scripts/
 source/data/piper
 *.icns
 gt.zip

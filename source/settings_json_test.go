@@ -79,7 +79,6 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.MusicEnhancementAmount = 1.73
 	want.AltNetMode = false
 	want.AltNetDelay = 37
-	want.Enabledscripts = map[string]any{"hello": "all"}
 	want.LegacyMacroContinuous = true
 	want.BatchArtworkLoading = false
 	want.AssetActivityIndicators = true

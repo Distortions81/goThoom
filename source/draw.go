@@ -1994,10 +1994,10 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 				}
 			}
 			messageType := messageTextTypeForBubble(bubbleType)
-			if gs.MessagesToConsole || !isChatBubble(bubbleType) {
-				serverConsoleMessageTyped(msg, messageType)
+			if isChatBubble(bubbleType) {
+				displayChatMessageTyped(msg, messageType)
 			} else {
-				chatMessageTyped(msg, messageType)
+				serverConsoleMessageTyped(msg, messageType)
 			}
 		}
 		stateData = stateData[p+end+1:]

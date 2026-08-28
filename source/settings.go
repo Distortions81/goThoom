@@ -5,7 +5,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -541,7 +540,6 @@ type settings struct {
 	BatchArtworkLoading     bool
 	AssetActivityIndicators bool
 	PrecacheSounds          bool
-	Enabledscripts          map[string]any
 	BarColorByValue         bool
 	ThrottleSounds          bool
 	SoundEnhancement        bool
@@ -612,9 +610,8 @@ func loadSettings() bool {
 
 	type legacySettingsFile struct {
 		settings
-		Enabledscripts    map[string]any `json:"Enabledscripts"`
-		LegacySoundReverb *bool          `json:"SoundReverb"`
-		LegacyMusicReverb *bool          `json:"MusicReverb"`
+		LegacySoundReverb *bool `json:"SoundReverb"`
+		LegacyMusicReverb *bool `json:"MusicReverb"`
 	}
 
 	version, modern, err := settingsDocumentVersion(data)
@@ -625,7 +622,6 @@ func loadSettings() bool {
 		return false
 	}
 
-	var enabledScripts map[string]any
 	migrated := false
 	switch {
 	case modern && version == SETTINGS_VERSION:
@@ -637,7 +633,6 @@ func loadSettings() bool {
 			return false
 		}
 		gs = loaded
-		enabledScripts = gs.Enabledscripts
 	case !modern && version > 0 && version < SETTINGS_VERSION:
 		tmp := legacySettingsFile{settings: gsdef}
 		if err := json.Unmarshal(data, &tmp); err != nil {
@@ -654,7 +649,6 @@ func loadSettings() bool {
 		}
 		gs = tmp.settings
 		gs.Version = SETTINGS_VERSION
-		enabledScripts = tmp.Enabledscripts
 		migrated = true
 	default:
 		gs = gsdef
@@ -670,24 +664,9 @@ func loadSettings() bool {
 	}
 
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
-	// Normalize and retain whatever was in the file; migrate into runtime scope map.
-	gs.Enabledscripts = make(map[string]any)
-	for k, v := range enabledScripts {
-		gs.Enabledscripts[k] = v
-		s := scopeFromSettingValue(v)
-		if !s.empty() {
-			scriptMu.Lock()
-			scriptEnabledFor[k] = s
-			scriptMu.Unlock()
-		}
-	}
 	settingsLoaded = true
 	if migrated {
 		settingsDirty = true
-	}
-
-	if gs.Enabledscripts == nil {
-		gs.Enabledscripts = make(map[string]any)
 	}
 
 	if gs.ChatTTSBlocklist == nil {
@@ -831,26 +810,6 @@ func saveSettings() {
 		// Skip disk writes in WASM; silently ignore.
 		return
 	}
-	scriptMu.RLock()
-	// Rebuild the persisted map from the current scope set.
-	gs.Enabledscripts = make(map[string]any, len(scriptEnabledFor))
-	for k, s := range scriptEnabledFor {
-		if s.All {
-			gs.Enabledscripts[k] = "all"
-			continue
-		}
-		if len(s.Chars) > 0 {
-			// Collect and sort for stable output
-			names := make([]string, 0, len(s.Chars))
-			for n := range s.Chars {
-				names = append(names, n)
-			}
-			sort.Strings(names)
-			gs.Enabledscripts[k] = names
-		}
-	}
-	scriptMu.RUnlock()
-
 	data, err := marshalSettingsDocument(gs)
 	if err != nil {
 		logError("save settings: %v", err)

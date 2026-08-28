@@ -445,11 +445,7 @@ func handleInfoText(data []byte) {
 		if _, txt, _, _, _, bubbleType, _ := decodeBubble(line); txt != "" {
 			messageType := messageTextTypeForBubble(bubbleType)
 			if isChatBubble(bubbleType) {
-				if gs.MessagesToConsole {
-					serverConsoleMessageTyped(txt, messageType)
-				} else {
-					chatMessageTyped(txt, messageType)
-				}
+				displayChatMessageTyped(txt, messageType)
 			} else {
 				serverConsoleMessageTyped(txt, messageType)
 			}
