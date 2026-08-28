@@ -8,11 +8,12 @@ import (
 )
 
 var (
-	themeModTime time.Time
-	styleModTime time.Time
-	modCheckTime time.Time
-	themePath    string
-	stylePath    string
+	themeModTime   time.Time
+	styleModTime   time.Time
+	modCheckTime   time.Time
+	themePath      string
+	stylePath      string
+	themeDirectory = "themes"
 	// AutoReload enables automatic reloading of theme and style files
 	// when they are modified on disk, only use this for quickly iterating when designing your own themes.
 	AutoReload bool
@@ -27,7 +28,7 @@ func init() {
 }
 
 func updateThemePath() {
-	themePath = filepath.Join(os.Getenv("PWD"), "themes", "palettes", currentThemeName+".json")
+	themePath = filepath.Join(themeDirectory, "palettes", currentThemeName+".json")
 }
 
 func refreshThemeMod() {
@@ -39,7 +40,7 @@ func refreshThemeMod() {
 }
 
 func updateStylePath() {
-	stylePath = filepath.Join(os.Getenv("PWD"), "themes", "styles", currentStyleName+".json")
+	stylePath = filepath.Join(themeDirectory, "styles", currentStyleName+".json")
 }
 
 func refreshStyleMod() {

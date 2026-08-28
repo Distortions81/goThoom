@@ -117,7 +117,7 @@ func savePlayersPersist() {
 		// Skip persistence in WASM.
 		return
 	}
-	// Ensure data directory exists
+	// Ensure the user data directory exists.
 	_ = os.MkdirAll(dataDirPath, 0o755)
 	playersMu.RLock()
 	list := make([]persistPlayer, 0, len(players))

@@ -3,6 +3,7 @@ package eui
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"os"
 	"path"
@@ -122,8 +123,8 @@ var (
 )
 
 func LoadStyle(name string) error {
-	// Try local filesystem first (relative to executable dir; see paths.go)
-	file := filepath.Join("themes", "styles", name+".json")
+	// Try the user data directory first.
+	file := filepath.Join(themeDirectory, "styles", name+".json")
 	data, err := os.ReadFile(file)
 	if err != nil {
 		// Fallback to embedded styles; embed paths must use forward slashes
@@ -295,21 +296,31 @@ func updateItemStyleTree(items []*itemData, th *Theme) {
 
 // listStyles returns the available style theme names from the themes directory
 func listStyles() ([]string, error) {
-	entries, err := fs.ReadDir(embeddedStyles, "themes/styles")
+	embeddedEntries, err := fs.ReadDir(embeddedStyles, "themes/styles")
 	if err != nil {
-		entries, err = os.ReadDir("themes/styles")
-		if err != nil {
-			return nil, err
+		return nil, err
+	}
+	names := make(map[string]struct{}, len(embeddedEntries))
+	addEntries := func(entries []fs.DirEntry) {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			names[name] = struct{}{}
 		}
 	}
-	names := []string{}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-		names = append(names, name)
+	addEntries(embeddedEntries)
+	localEntries, err := os.ReadDir(filepath.Join(themeDirectory, "styles"))
+	if err == nil {
+		addEntries(localEntries)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
 	}
-	sort.Strings(names)
-	return names, nil
+	result := make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	return result, nil
 }

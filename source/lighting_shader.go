@@ -7,6 +7,7 @@ import (
 	"image"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"gothoom/climg"
@@ -214,7 +215,7 @@ func selectLightingShaderVariant(lightCount, darkCount, shadowCount int) *lighti
 func ReloadLightingShader() error {
 	// Try to reload from the source file for live iteration
 	source := lightShaderSrc
-	if b, err := os.ReadFile("data/shaders/light.kage"); err == nil {
+	if b, err := os.ReadFile(filepath.Join(dataDirPath, "shaders", "light.kage")); err == nil {
 		source = b
 	}
 	shadowComposite, err := ebiten.NewShader(layeredShadowCompositeShaderSource)

@@ -29,8 +29,17 @@ func init() {
 		embeddedSplashImg = newManagedImageFromImage(splashWithBorder(img))
 		splashImg = embeddedSplashImg
 	}
+}
 
-	if f, err := os.Open(filepath.Join("data", "splash.png")); err == nil {
+func splashWithBorder(img image.Image) image.Image {
+	b := img.Bounds()
+	withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
+	draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
+	return withBorder
+}
+
+func loadCustomSplashImages() {
+	if f, err := os.Open(filepath.Join(dataDirPath, "splash.png")); err == nil {
 		if img, _, err := image.Decode(f); err == nil {
 			if splashImg != nil && splashImg != embeddedSplashImg {
 				splashImg.Deallocate()
@@ -42,7 +51,7 @@ func init() {
 		_ = f.Close()
 	}
 
-	if f, err := os.Open(filepath.Join("data", "background.png")); err == nil {
+	if f, err := os.Open(filepath.Join(dataDirPath, "background.png")); err == nil {
 		if img, _, err := image.Decode(f); err == nil {
 			backgroundImg = newManagedImageFromImage(img)
 		} else {
@@ -50,13 +59,6 @@ func init() {
 		}
 		_ = f.Close()
 	}
-}
-
-func splashWithBorder(img image.Image) image.Image {
-	b := img.Bounds()
-	withBorder := image.NewRGBA(image.Rect(0, 0, b.Dx()+2, b.Dy()+2))
-	draw.Draw(withBorder, image.Rect(1, 1, b.Dx()+1, b.Dy()+1), img, b.Min, draw.Src)
-	return withBorder
 }
 
 func drawSplash(screen *ebiten.Image, ox, oy int) {

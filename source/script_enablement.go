@@ -15,7 +15,7 @@ const (
 )
 
 // scriptEnablementSelection is deliberately separate from settings.json and
-// from the executable-adjacent scripts directory. It records which script IDs
+// from the user data directory's Scripts folder. It records which script IDs
 // are enabled globally or for each character.
 type scriptEnablementSelection struct {
 	Global  []string            `json:"global,omitempty"`

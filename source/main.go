@@ -143,6 +143,16 @@ func main() {
 		return
 	}
 
+	migrated, err := initializeUserData()
+	if err != nil {
+		log.Printf("initialize user data: %v", err)
+	}
+	if migrated {
+		log.Printf("copied portable user data to %s; original files were left in place", dataDirPath)
+	}
+	eui.SetUserDataRoot(dataDirPath)
+	loadCustomSplashImages()
+
 	if *genPGO {
 		if clmov == "" {
 			clmov = filepath.Join("clmovFiles", "test.clMov.zip")

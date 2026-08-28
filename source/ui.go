@@ -550,7 +550,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	shotBtn, shotEvents := eui.NewButton()
 	shotBtn.Text = "Snapshot"
-	shotBtn.SetTooltip("Save the visible game view as a PNG in data/Screenshots.")
+	shotBtn.SetTooltip("Save the visible game view as a PNG in the user data folder's Screenshots directory.")
 	shotBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	shotBtn.FontSize = toolFontSize
 	shotEvents.Handle = func(ev eui.UIEvent) {
@@ -6287,6 +6287,19 @@ func makeAdvancedSettingsWindow() {
 		}
 	}
 	toolsCol.AddItem(dlBtn)
+
+	dataFolderBtn, dataFolderEvents := eui.NewButton()
+	dataFolderBtn.Text = "Open User Data Folder"
+	dataFolderBtn.Size = eui.Point{X: columnWidth, Y: 24}
+	dataFolderBtn.SetTooltip("Open the persistent folder containing settings, characters, scripts, recordings, themes, and downloaded assets.")
+	dataFolderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			if err := open.Run(dataDirPath); err != nil {
+				consoleMessage("open user data folder: " + err.Error())
+			}
+		}
+	}
+	toolsCol.AddItem(dataFolderBtn)
 
 	resetBtn, resetEv := eui.NewButton()
 	resetBtn.Text = "Reset All Settings"

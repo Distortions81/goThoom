@@ -95,12 +95,12 @@
           <section id="getting-started" class="manual-section">
             <p class="manual-kicker">01 · Getting started</p>
             <h2>From download to the Lands</h2>
-            <p>goThoom is a portable desktop client for Windows, macOS, and Linux. It does not use an installer: unpack it somewhere you can keep it, launch it, and allow it to download the current Clan Lord artwork and sounds.</p>
+            <p>goThoom is an installer-free desktop client for Windows, macOS, and Linux. Unpack it somewhere you can keep it, launch it, and allow it to download the current Clan Lord artwork and sounds. Writable user data is stored separately so the application can be replaced during an upgrade.</p>
 
             <h3 id="install">Install goThoom</h3>
             <ol class="manual-steps">
               <li><span>01</span><div><strong>Download your platform build</strong><p>Use the <a href="../downloads.html">downloads page</a> and choose the current Windows, macOS, or Linux archive.</p></div></li>
-              <li><span>02</span><div><strong>Extract the whole archive</strong><p>Do not run the executable from inside the ZIP. Keep the program and its accompanying files together.</p></div></li>
+              <li><span>02</span><div><strong>Extract the app</strong><p>Each platform ZIP contains only the executable, or the macOS app bundle. Extract it somewhere you can keep it, then launch it.</p></div></li>
               <li><span>03</span><div><strong>Launch goThoom</strong><p>The client checks its game resources and offers to download missing or outdated files. Keep it open until that process finishes.</p></div></li>
             </ol>
 
@@ -183,7 +183,7 @@
                   <tr><td><strong>Audio</strong></td><td>Opens the live mixer for master, game, music, TTS, notification, and enhancement levels.</td></tr>
                   <tr><td><strong>Record</strong></td><td>Starts or stops a <code>.clMov</code> session recording. When disconnected, it arms recording for the next connection.</td></tr>
                   <tr><td><strong>Help</strong></td><td>Opens this full manual in your web browser.</td></tr>
-                  <tr><td><strong>Snapshot</strong></td><td>Saves the visible game view as a PNG in <code>data/Screenshots</code>.</td></tr>
+                  <tr><td><strong>Snapshot</strong></td><td>Saves the visible game view as a PNG in <code>Screenshots</code> under the user data directory.</td></tr>
                   <tr><td><strong>Palette</strong></td><td>Searches settings, windows, scripts, player actions, and commands.</td></tr>
                 </tbody>
               </table>
@@ -258,7 +258,7 @@
             <h3>Per-character profiles</h3>
             <p>Settings are shared globally by default. On the Login screen, select a saved character, open <strong>Edit Character</strong>, and enable <strong>Keep settings separate</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
             <p>Enabling a profile for the first time copies the current global setup. Turning it off immediately returns that login to the shared global setup without deleting its saved profile; turn it on again to restore the character’s prior choices. Changes are saved automatically.</p>
-            <p>The profiles and their opt-in state live in <code>data/profiles.json</code>. Script and macro enablement separately retain their explicit per-player/global selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
+            <p>The profiles and their opt-in state live in <code>profiles.json</code> in the user data directory. Script and macro enablement separately retain their explicit per-player/global selections in each manager’s <code>enabled.json</code>; those files remain authoritative for which automation is active.</p>
 
             <div class="manual-callout warning">
               <strong>Reset means reset</strong>
@@ -311,7 +311,7 @@
 
             <h3>Legacy macros</h3>
             <p>Open <strong>Actions → Legacy Macros</strong>. Like scripts, a macro can be enabled for the selected player or globally. Use the information button for its description and diagnostics, <strong>Refresh List</strong> after adding or renaming files, and <strong>Reload Macros</strong> after editing enabled macros.</p>
-            <p>Add personal <code>.mac</code> files to <code>data/Macros/Library</code>. Embedded examples populate an empty library without replacing your work. Leave <strong>Allow continuous macros</strong> off unless a trusted classic macro intentionally loops without pausing or producing output; the default execution limit protects the client from runaway macros.</p>
+            <p>Add personal <code>.mac</code> files to <code>Macros/Library</code> in the user data directory. Embedded examples populate an empty library without replacing your work. Leave <strong>Allow continuous macros</strong> off unless a trusted classic macro intentionally loops without pausing or producing output; the default execution limit protects the client from runaway macros.</p>
           </section>
 
           <section id="movies" class="manual-section">
@@ -319,7 +319,7 @@
             <h2>Capture a session and revisit any moment</h2>
 
             <h3>Record</h3>
-            <p>Click <strong>Record</strong> while connected to begin, then click it again to finish. If you click it before connecting, recording is armed and begins after login. Recordings are written to <code>data/Movies</code> with the character and timestamp in the name.</p>
+            <p>Click <strong>Record</strong> while connected to begin, then click it again to finish. If you click it before connecting, recording is armed and begins after login. Recordings are written to <code>Movies</code> under the user data directory, with the character and timestamp in the name.</p>
             <p>Automatic recording starts off. Settings can auto-record every login session, ask what to do when a recording finishes, and compress a saved movie into ZIP. A recording is finalized when the session or app exits normally.</p>
 
             <h3>Play and seek</h3>
@@ -334,7 +334,7 @@
             <p>During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output.</p>
 
             <h3>Screenshots</h3>
-            <p><strong>Snapshot</strong> captures only the visible game view—not the surrounding desktop—and writes a PNG to <code>data/Screenshots</code>. Debug Settings can temporarily hide mobiles or moving objects for specialized captures.</p>
+            <p><strong>Snapshot</strong> captures only the visible game view—not the surrounding desktop—and writes a PNG to <code>Screenshots</code> under the user data directory. Debug Settings can temporarily hide mobiles or moving objects for specialized captures.</p>
           </section>
 
           <section id="commands" class="manual-section">
@@ -361,32 +361,34 @@
           <section id="files" class="manual-section">
             <p class="manual-kicker">11 · Files and customization</p>
             <h2>Know what belongs to you</h2>
-            <p>On Windows and Linux, the writable <code>data</code> folder is beside the goThoom executable. On macOS, it is in the goThoom application container. The safest way to find an editable location is to use the client’s <strong>Open scripts folder</strong> or data-folder controls instead of guessing a path.</p>
+            <p>All persistent files live under one user data directory, separate from the application. Windows uses <code>%LOCALAPPDATA%\goThoom</code>. Linux uses <code>$XDG_DATA_HOME/goThoom</code>, or <code>~/.local/share/goThoom</code> when <code>XDG_DATA_HOME</code> is unset. macOS uses <code>~/Library/Containers/com.goThoom.client</code>. Use <strong>Advanced Settings → Open User Data Folder</strong> to open the active location without guessing.</p>
 
             <div class="manual-table-wrap">
               <table>
                 <thead><tr><th>Location</th><th>Purpose</th></tr></thead>
                 <tbody>
-                  <tr><td><code>data/settings.json</code></td><td>Your saved global client settings. The current global setup, not the built-in defaults, is copied when a character profile is first enabled.</td></tr>
-                  <tr><td><code>data/profiles.json</code></td><td>Opt-in state and saved settings for logins that use a per-character profile.</td></tr>
-                  <tr><td><code>data/characters.json</code></td><td>Locally saved character entries and optional remembered login data.</td></tr>
-                  <tr><td><code>data/Scripts</code></td><td>Your Go scripts, generated author documentation, and script enablement file.</td></tr>
-                  <tr><td><code>data/Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>
-                  <tr><td><code>data/scripts/storage</code></td><td>Private persistent values owned by scripts.</td></tr>
-                  <tr><td><code>data/shortcuts</code></td><td>Global and character-specific text shortcuts.</td></tr>
-                  <tr><td><code>data/Movies</code></td><td>Recorded <code>.clMov</code> sessions and optional ZIPs.</td></tr>
-                  <tr><td><code>data/Screenshots</code></td><td>Snapshots captured from the toolbar.</td></tr>
-                  <tr><td><code>data/piper</code></td><td>Local text-to-speech program, voices, and support files.</td></tr>
+                  <tr><td><code>settings.json</code></td><td>Your saved global client settings. The current global setup, not the built-in defaults, is copied when a character profile is first enabled.</td></tr>
+                  <tr><td><code>profiles.json</code></td><td>Opt-in state and saved settings for logins that use a per-character profile.</td></tr>
+                  <tr><td><code>characters.json</code></td><td>Locally saved character entries and optional remembered login data.</td></tr>
+                  <tr><td><code>Scripts</code></td><td>Your Go scripts, generated author documentation, and script enablement file.</td></tr>
+                  <tr><td><code>Macros/Library</code></td><td>Your legacy <code>.mac</code> files and macro enablement file.</td></tr>
+                  <tr><td><code>scripts/storage</code></td><td>Private persistent values owned by scripts.</td></tr>
+                  <tr><td><code>shortcuts</code></td><td>Global and character-specific text shortcuts.</td></tr>
+                  <tr><td><code>Movies</code></td><td>Recorded <code>.clMov</code> sessions and optional ZIPs.</td></tr>
+                  <tr><td><code>Screenshots</code></td><td>Snapshots captured from the toolbar.</td></tr>
+                  <tr><td><code>piper</code></td><td>Local text-to-speech program, voices, and support files.</td></tr>
+                  <tr><td><code>Text Logs</code> and <code>logs</code></td><td>Saved chat/console history and application diagnostic logs.</td></tr>
                   <tr><td><code>themes/palettes</code> and <code>themes/styles</code></td><td>Custom interface colors and styles, with generated examples and format notes.</td></tr>
                 </tbody>
               </table>
             </div>
 
             <h3>Custom background</h3>
-            <p>Place an image named <code>background.png</code> directly in <code>data</code> to replace the client background. Keep a backup of custom files before replacing or moving the application folder.</p>
+            <p>Place an image named <code>background.png</code> directly in the user data directory to replace the client background.</p>
 
             <h3>Backups and upgrades</h3>
-            <p>Your <code>data</code>, <code>themes</code>, scripts, and macros contain the personalized parts worth backing up. When moving to a new portable build, copy your existing user data carefully and never replace newer downloaded game resources with an older bundle unless troubleshooting calls for it.</p>
+            <p>Replacing the application does not replace the user data directory. On the first launch after upgrading from an older portable Windows or Linux version, goThoom copies existing <code>data</code>, <code>themes</code>, <code>Text Logs</code>, and <code>logs</code> from the application folder into the new location without deleting the originals or overwriting files already present there. Launch that first upgraded version from the existing application folder so it can find the portable data. After migration, future application replacements need no special file handling.</p>
+            <p>The user data directory still contains the personalized files worth backing up. If the old application folder was moved or deleted before migration, manually copy its writable folders into the new user data location.</p>
           </section>
 
           <section id="troubleshooting" class="manual-section">

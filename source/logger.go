@@ -24,15 +24,15 @@ var (
 )
 
 func setupLogging(debug bool) {
-    logDir := "logs"
-    if !isWASM {
-        if err := os.MkdirAll(logDir, 0755); err != nil {
-            log.Printf("could not create log directory: %v", err)
-        }
-    }
+	logDir := filepath.Join(dataDirPath, "logs")
+	if !isWASM {
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			log.Printf("could not create log directory: %v", err)
+		}
+	}
 	ts := time.Now().Format("20060102-150405")
 
-    errorLogPath = filepath.Join(logDir, fmt.Sprintf("error-%s.log", ts))
+	errorLogPath = filepath.Join(logDir, fmt.Sprintf("error-%s.log", ts))
 	errorLogOnce = sync.Once{}
 	errorLogger = log.New(os.Stdout, "", log.LstdFlags)
 	log.SetOutput(errorLogger.Writer())
@@ -41,69 +41,69 @@ func setupLogging(debug bool) {
 }
 
 func logError(format string, v ...interface{}) {
-    if errorLogger != nil {
-        errorLogOnce.Do(func() {
-            if isWASM {
-                // No file backend in WASM; keep stdout only.
-                return
-            }
-            if f, err := os.Create(errorLogPath); err == nil {
-                errorLogger.SetOutput(io.MultiWriter(os.Stdout, f))
-                log.SetOutput(errorLogger.Writer())
-            }
-        })
-        errorLogger.Printf(format, v...)
-    }
+	if errorLogger != nil {
+		errorLogOnce.Do(func() {
+			if isWASM {
+				// No file backend in WASM; keep stdout only.
+				return
+			}
+			if f, err := os.Create(errorLogPath); err == nil {
+				errorLogger.SetOutput(io.MultiWriter(os.Stdout, f))
+				log.SetOutput(errorLogger.Writer())
+			}
+		})
+		errorLogger.Printf(format, v...)
+	}
 	if !silent {
 		consoleMessage(fmt.Sprintf(format, v...))
 	}
 }
 
 func logDebug(format string, v ...interface{}) {
-    if debugLogger != nil {
-        debugLogOnce.Do(func() {
-            if isWASM {
-                return
-            }
-            if f, err := os.Create(debugLogPath); err == nil {
-                debugLogger.SetOutput(io.MultiWriter(os.Stdout, f))
-            }
-        })
-        debugLogger.Printf(format, v...)
-    }
+	if debugLogger != nil {
+		debugLogOnce.Do(func() {
+			if isWASM {
+				return
+			}
+			if f, err := os.Create(debugLogPath); err == nil {
+				debugLogger.SetOutput(io.MultiWriter(os.Stdout, f))
+			}
+		})
+		debugLogger.Printf(format, v...)
+	}
 }
 
 func logWarn(format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	if errorLogger != nil {
-        errorLogOnce.Do(func() {
-            if isWASM {
-                return
-            }
-            if f, err := os.Create(errorLogPath); err == nil {
-                errorLogger.SetOutput(io.MultiWriter(os.Stdout, f))
-                log.SetOutput(errorLogger.Writer())
-            }
-        })
-        errorLogger.Printf("warning: %s", msg)
-    }
+		errorLogOnce.Do(func() {
+			if isWASM {
+				return
+			}
+			if f, err := os.Create(errorLogPath); err == nil {
+				errorLogger.SetOutput(io.MultiWriter(os.Stdout, f))
+				log.SetOutput(errorLogger.Writer())
+			}
+		})
+		errorLogger.Printf("warning: %s", msg)
+	}
 	if !silent {
 		consoleMessage(fmt.Sprintf("warning: %s", msg))
 	}
 }
 
 func logDebugPacket(prefix string, data []byte) {
-    if debugLogger == nil {
-        return
-    }
-    debugLogOnce.Do(func() {
-        if isWASM {
-            return
-        }
-        if f, err := os.Create(debugLogPath); err == nil {
-            debugLogger.SetOutput(io.MultiWriter(os.Stdout, f))
-        }
-    })
+	if debugLogger == nil {
+		return
+	}
+	debugLogOnce.Do(func() {
+		if isWASM {
+			return
+		}
+		if f, err := os.Create(debugLogPath); err == nil {
+			debugLogger.SetOutput(io.MultiWriter(os.Stdout, f))
+		}
+	})
 	n := len(data)
 	dump := data
 	if debugPacketDumpLen > 0 && n > debugPacketDumpLen {
@@ -114,7 +114,7 @@ func logDebugPacket(prefix string, data []byte) {
 
 func setDebugLogging(enabled bool) {
 	if enabled {
-		logDir := "logs"
+		logDir := filepath.Join(dataDirPath, "logs")
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			log.Printf("could not create log directory: %v", err)
 		}

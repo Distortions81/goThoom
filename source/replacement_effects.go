@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -246,7 +247,7 @@ const replacementEffectsShaderCount = 6
 
 func compileReplacementEffectShader(name string, embedded []byte) (*ebiten.Shader, error) {
 	source := embedded
-	if b, err := os.ReadFile("data/shaders/" + name); err == nil {
+	if b, err := os.ReadFile(filepath.Join(dataDirPath, "shaders", name)); err == nil {
 		source = b
 	}
 	return ebiten.NewShader(source)

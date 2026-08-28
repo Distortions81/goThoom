@@ -38,7 +38,7 @@ func restoreDefaultSplash() {
 // cropped to the classic field box and assigns it to splashImg if enabled.
 // If disabled or unavailable, restores the default splash image.
 func prepareClassicSplash() {
-	// Capture the default (embedded or data/splash.png) once.
+	// Capture the default (embedded or user-provided splash.png) once.
 	if defaultSplashImg == nil && splashImg != nil {
 		defaultSplashImg = splashImg
 	}

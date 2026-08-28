@@ -2,6 +2,7 @@ package eui
 
 import (
 	"bytes"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -194,6 +195,21 @@ func ListThemes() ([]string, error) { return listThemes() }
 
 // ListStyles returns the available style theme names.
 func ListStyles() ([]string, error) { return listStyles() }
+
+// SetUserDataRoot places editable themes and generated theme documentation
+// under the application's persistent user data directory.
+func SetUserDataRoot(root string) {
+	if root == "" {
+		themeDirectory = "themes"
+	} else {
+		themeDirectory = filepath.Join(root, "themes")
+	}
+	updateThemePath()
+	updateStylePath()
+	ensureThemeDocs()
+	refreshThemeMod()
+	refreshStyleMod()
+}
 
 // CurrentThemeName returns the active theme name.
 func CurrentThemeName() string { return currentThemeName }

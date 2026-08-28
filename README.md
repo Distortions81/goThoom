@@ -21,9 +21,17 @@ macOS, and Linux.
 2. Extract the archive anywhere you like.
 3. Run goThoom. No installer is required.
 
-Missing or outdated game assets are downloaded automatically into `data/`.
+Missing or outdated game assets are downloaded automatically into the user
+data folder.
 The first-run setup wizard previews graphics changes and recommends settings
 for your computer.
+
+The user data folder is `%LOCALAPPDATA%\goThoom` on Windows,
+`$XDG_DATA_HOME/goThoom` on Linux (normally `~/.local/share/goThoom`), and
+`~/Library/Containers/com.goThoom.client` on macOS. Open it from
+**Advanced Settings → Open User Data Folder**. Upgrading from an older Windows
+or Linux release copies existing portable data there on first launch without
+deleting the original files.
 
 ## Highlights
 
@@ -34,7 +42,7 @@ for your computer.
 - Configurable windows, controls, shortcuts, notifications, and themes.
 - Built-in legacy macro support and an approachable Go scripting system.
 - Native graphics backends, including DirectX on Windows and Metal on macOS.
-- Portable release archives with no installer.
+- Installer-free release archives with persistent user data kept separately.
 
 ## Using goThoom
 
@@ -65,9 +73,10 @@ Open **Download Files** in the client to install optional extras:
 
 You can also customize goThoom without modifying the program:
 
-- Place `background.png` in `data/` to use a custom background.
-- Put custom color palettes in `themes/palettes/` and styles in
-  `themes/styles/`. Example files and format documentation are created for you.
+- Place `background.png` in the user data folder to use a custom background.
+- Put custom color palettes in the user data folder's `themes/palettes/` and
+  styles in `themes/styles/`. Example files and format documentation are
+  created for you.
 - Enable **Potato GPU (low VRAM)** in Settings → Graphics on devices with small
   texture limits, such as Raspberry Pi or older GPUs.
 
@@ -75,10 +84,11 @@ You can also customize goThoom without modifying the program:
 
 Settings are global by default. On the Login screen, select a character, open
 **Edit Character**, and enable **Keep settings separate** to give that login an
-independent window layout, appearance, rendering, audio, notifications, and
-related preferences. Character profiles are stored in `data/profiles.json`; the
-existing `enabled.json` files remain the source of truth for explicit
-per-character script and macro selections.
+independent window layout, appearance, rendering, audio,
+notifications, and related preferences. Character profiles are stored in
+`profiles.json` in the user data folder; the existing `enabled.json` files
+remain the source of truth for explicit per-character script and macro
+selections.
 
 ### Legacy macros
 
@@ -98,8 +108,8 @@ encoding details are in
 
 Open **Actions → Scripts** to configure, validate, reload, or stop scripts.
 Scripts may be a single `.go` file, a folder with assets, or a ZIP package. The
-embedded examples are copied to an empty `data/Scripts` folder and never replace
-existing scripts.
+embedded examples are copied to an empty `Scripts` folder in the user data
+directory and never replace existing scripts.
 
 Script-author documentation lives in
 [source/script_library/README.md](source/script_library/README.md), with the complete API in
