@@ -156,10 +156,20 @@ ensure_cmd zip
 ensure_spellcheck_dict
 bash "${SCRIPT_DIR}/build_script_template.sh" "${OUTPUT_DIR}/goThoom-Script-Template.zip"
 
+APP_VERSION="$(
+  sed -nE 's/^[[:space:]]*"Version":[[:space:]]*([0-9]+),?[[:space:]]*$/\1/p' data/versions.json |
+    sort -n |
+    tail -n 1
+)"
+if [[ ! "$APP_VERSION" =~ ^[0-9]+$ ]]; then
+  echo "Could not determine the app version from source/data/versions.json" >&2
+  exit 1
+fi
+
 for platform in "${platforms[@]}"; do
   IFS=":" read -r GOOS GOARCH <<<"$platform"
   FRIENDLY="${FRIENDLY_NAMES["$GOOS:$GOARCH"]}"
-  BIN_NAME="${FRIENDLY}"
+  BIN_NAME="goThoom-${APP_VERSION}"
   ZIP_NAME="${FRIENDLY}.zip"
   TAGS=""
   LDFLAGS="-s -w"
@@ -252,33 +262,36 @@ for platform in "${platforms[@]}"; do
     rm -f rsrc*.syso
   fi
   if [ "$GOOS" = "darwin" ]; then
-    APP_NAME="gothoom"
+    APP_NAME="goThoom-${APP_VERSION}"
+    MAC_EXECUTABLE="gothoom"
     APP_DIR="${OUTPUT_DIR}/${APP_NAME}.app"
 
     echo "Creating ${APP_NAME}.app bundle..."
     rm -rf "$APP_DIR"
       mkdir -p "$APP_DIR/Contents/MacOS"
-      cp "${OUTPUT_DIR}/${BIN_NAME}" "$APP_DIR/Contents/MacOS/${APP_NAME}"
+      cp "${OUTPUT_DIR}/${BIN_NAME}" "$APP_DIR/Contents/MacOS/${MAC_EXECUTABLE}"
       mkdir -p "$APP_DIR/Contents/Resources"
       ensure_cmd convert imagemagick
       convert "$ROOT_DIR/source/logo.png" -define icon:auto-resize=16,32,64,128,256,512 "$APP_DIR/Contents/Resources/goThoom.icns"
-      cat <<'EOF' >"$APP_DIR/Contents/Info.plist"
+      cat <<EOF >"$APP_DIR/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>gothoom</string>
+  <string>${MAC_EXECUTABLE}</string>
   <key>CFBundleIdentifier</key>
   <string>com.goThoom.client</string>
   <key>CFBundleName</key>
-  <string>gothoom</string>
+  <string>${APP_NAME}</string>
+  <key>CFBundleDisplayName</key>
+  <string>${APP_NAME}</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleVersion</key>
-  <string>1.0</string>
+  <string>${APP_VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleIconFile</key>
     <string>goThoom.icns</string>
     <key>com.apple.security.app-sandbox</key>
