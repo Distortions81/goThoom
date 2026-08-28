@@ -1,0 +1,18 @@
+goThoom 46 changes since test45.
+
+New and improved:
+- Expanded the setup wizard with a detailed UI-scale slider, direct links to the Mixer and Notification Settings, and tiled-workspace choices when tiled windows are enabled.
+- Added side-by-side audio comparisons so sound enhancement, high-quality resampling, and bard-music enhancement can be previewed without changing the saved choices.
+- Reworked the taller wizard pages into two panels and made the Quality Options window use three balanced panels.
+- Added floating-point sprite positioning for smoother movement, enabled by default. It can be disabled under Advanced Settings when particular artwork shows unwanted shimmer.
+- Increased tooltip length and width so settings can explain meaningful tradeoffs while still wrapping to the available screen.
+- Changed the initial graphics choices to Balanced artwork upscaling with character animation blending disabled.
+
+Fixes:
+- Disabled Alternate game side whenever the centered tiled layout is selected, both in the setup wizard and detailed tiled-layout settings.
+- Updated tiled-layout dropdown wording when Chat and Console are combined so the labels match the actual shared pane.
+- Shortened graphics auto-detection to a one-second measurement after a hidden warm-up, avoiding a misleading visible countdown.
+- Standardized music settings on bard-music wording and improved the audio comparison samples.
+
+Technical changes:
+- Added focused regression coverage for wizard layout and controls, tiled-layout dependencies, settings defaults, tooltip wrapping, audio comparisons, and floating-point or floored sprite coordinates.
