@@ -161,6 +161,10 @@ func refreshShaderEffectControls() {
 		replacementEffectsCB.Checked = gs.ReplacementEffects
 		replacementEffectsCB.Disabled = masterDisabled
 	}
+	if smallMovingPicturesCB != nil {
+		smallMovingPicturesCB.Checked = gs.InterpolateSmallMovingPictures
+		smallMovingPicturesCB.Disabled = !gs.MotionSmoothing
+	}
 	frameBlendDisabled := masterDisabled || !gs.MotionSmoothing
 	if animCB != nil {
 		animCB.Checked = gs.BlendMobiles
@@ -248,6 +252,7 @@ var (
 	monitorGammaSlider       *eui.ItemData
 	denoiseCB                *eui.ItemData
 	motionCB                 *eui.ItemData
+	smallMovingPicturesCB    *eui.ItemData
 	animCB                   *eui.ItemData
 	pictBlendCB              *eui.ItemData
 	shadersEnabledCB         *eui.ItemData
@@ -1989,7 +1994,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 		hudWin.Closable = false
 		hudWin.Resizable = false
 		hudWin.AutoSize = false
-		hudWin.Size = eui.Point{X: 440, Y: 49 + toolbarRoot.Size.Y}
+		hudWin.Size = eui.Point{X: float32(dockedToolbarMinimumWidth), Y: 49 + toolbarRoot.Size.Y}
 		hudWin.Movable = true
 		hudWin.NoScroll = true
 		hudWin.AddItem(toolbarRoot)
@@ -5522,19 +5527,6 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(precacheSoundCB)
 
-	batchArtworkCB, batchArtworkEvents := eui.NewCheckbox()
-	batchArtworkCB.Text = "Batch room artwork loading"
-	batchArtworkCB.Size = eui.Point{X: width, Y: 24}
-	batchArtworkCB.Checked = gs.BatchArtworkLoading
-	batchArtworkCB.SetTooltip("Load missing room artwork in one pause instead of spreading first-use work across frames.")
-	batchArtworkEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.BatchArtworkLoading = ev.Checked
-			settingsDirty = true
-		}
-	}
-	performanceSection.AddItem(batchArtworkCB)
-
 	activityIndicatorsCB, activityIndicatorEvents := eui.NewCheckbox()
 	activityIndicatorsCB.Text = "Show asset activity dots"
 	activityIndicatorsCB.Size = eui.Point{X: width, Y: 24}
@@ -5552,8 +5544,8 @@ func makeQualityWindow() {
 	var shadowDarknessSlider, mobileSunShadowsCB *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
-	potatoCB.Text = "Potato GPU (Low VRAM)"
-	potatoCB.SetTooltip("Trades loading smoothness for lower texture memory use on older GPUs and small devices.")
+	potatoCB.Text = "Potato GPU (4096px Limit)"
+	potatoCB.SetTooltip("Use standalone textures instead of a large shared atlas for GPUs limited to 4096x4096 textures. Artwork resolution and upscaling are unchanged.")
 	potatoCB.Size = eui.Point{X: width, Y: 24}
 	potatoCB.Checked = gs.PotatoGPU
 	potatoEvents.Handle = func(ev eui.UIEvent) {
@@ -5937,21 +5929,20 @@ func makeQualityWindow() {
 	}
 	motionSection.AddItem(motionCB)
 
-	/*
-		nsCB, noSmoothEvents := eui.NewCheckbox()
-		noSmoothCB = nsCB
-		noSmoothCB.Text = "Smooth moving objects,glitchy WIP"
-		noSmoothCB.Size = eui.Point{X: width, Y: 24}
-		noSmoothCB.Checked = gs.smoothMoving
-		noSmoothCB.SetTooltip("Smooth non-mobile movement.")
-		noSmoothEvents.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventCheckboxChanged {
-				gs.smoothMoving = ev.Checked
-				settingsDirty = true
-			}
+	smallMovingCB, smallMovingEvents := eui.NewCheckbox()
+	smallMovingPicturesCB = smallMovingCB
+	smallMovingPicturesCB.Text = "Interpolate small moving sprites"
+	smallMovingPicturesCB.Size = eui.Point{X: width, Y: 24}
+	smallMovingPicturesCB.Checked = gs.InterpolateSmallMovingPictures
+	smallMovingPicturesCB.Disabled = !gs.MotionSmoothing
+	smallMovingPicturesCB.SetTooltip("Attempt to smooth independently moving picture sprites up to 32x32 source pixels, such as coins. Requires Smooth Motion.")
+	smallMovingEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.InterpolateSmallMovingPictures = ev.Checked
+			settingsDirty = true
 		}
-		motionSection.AddItem(noSmoothCB)
-	*/
+	}
+	motionSection.AddItem(smallMovingPicturesCB)
 
 	shaderSection.AddItem(newConfigurationSubheading("Frame Blending", width))
 	aCB, animEvents := eui.NewCheckbox()
@@ -6797,6 +6788,19 @@ func makeAdvancedSettingsWindow() {
 	systemCol.AddItem(timingBtn)
 
 	addSectionLabel(systemCol, "Performance")
+
+	batchArtworkCB, batchArtworkEvents := eui.NewCheckbox()
+	batchArtworkCB.Text = "Batch room artwork loading"
+	batchArtworkCB.Size = eui.Point{X: columnWidth, Y: 24}
+	batchArtworkCB.Checked = gs.BatchArtworkLoading
+	batchArtworkCB.SetTooltip("Load missing room artwork in one pause instead of spreading first-use work across frames.")
+	batchArtworkEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.BatchArtworkLoading = ev.Checked
+			settingsDirty = true
+		}
+	}
+	systemCol.AddItem(batchArtworkCB)
 
 	psBGCB, psBGEvents := eui.NewCheckbox()
 	psBGCB.Text = "Power save in background"

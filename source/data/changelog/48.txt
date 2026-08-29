@@ -1,0 +1,23 @@
+goThoom 48 changes since test47.
+
+Networking and classic client compatibility:
+- Reworked live networking to follow the classic client's framing rules. Each UDP datagram now contains exactly one message, while partial TCP headers and payloads remain pending until complete.
+- Live draw-state records can now span multiple server frames, including a split length field or payload, without producing false packet-loss warnings.
+- Structurally valid draw frames are now acknowledged even when an optional logical state record cannot be decoded. The bad record is logged and skipped instead of triggering an unnecessary resend.
+- Reconnects now begin with the classic frame acknowledgement and resend bootstrap, preventing frame requests and loss statistics from leaking across sessions.
+- Serialized TCP and UDP message handling with classic TCP priority so both transports cannot update live session state concurrently.
+- Live frame timing and script tick waits now follow accepted server frames rather than render FPS, keeping script timing stable with VSync disabled or high refresh rates.
+- Ping and jitter now measure the active command acknowledgement path instead of timing whichever UDP packet happened to arrive next. Advanced Settings shows the same active-connection sample instead of opening separate TCP handshakes.
+- Matched the classic 511-byte player-command limit and the 1396-byte maximum framed protocol message size.
+
+Fixes:
+- Fixed indexed inventory packets being treated as one-based, which could select or update the wrong instance of duplicate items.
+- Fixed malformed or length-mismatched UDP datagrams contaminating the next packet; invalid datagrams are now discarded as a whole.
+- Fixed short login challenges and responses being sliced before their required fields were validated.
+- Fixed artificial network-delay waits surviving cancellation and interfering with a later connection.
+- Preserved the measured server frame interval without integer-FPS rounding.
+
+Technical changes:
+- Added a networking compatibility tracker documenting the verified classic protocol invariants and acceptance checks.
+- Added regression coverage for reconnect bootstrap, fragmented and malformed logical state records, exact UDP datagrams, partial TCP streams, command-correlated latency, live frame clocks, command limits, and serialized TCP-priority dispatch.
+- Added focused race-detector coverage for the updated networking and draw-state paths.

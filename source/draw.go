@@ -100,6 +100,7 @@ const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
 const minMovingPicturePixels = 12000
+const maxInterpolatedMovingPictureDimension = 32
 
 // percent of area that must be outside the field to count as "on the edge"
 const edgeOutsidePercent = 70
@@ -131,6 +132,13 @@ var pictureSize = func(id uint16) (int, int) {
 	return clImages.Size(uint32(id))
 }
 
+var pictureVisibleSize = func(id uint16) (int, int) {
+	if clImages == nil {
+		return 0, 0
+	}
+	return clImages.VisibleFrameSize(uint32(id))
+}
+
 // pictureCloudMotionEnabled identifies sprites, such as clouds, that move
 // with the camera but also drift independently. Clouds render after mobiles,
 // so the automatic path requires a positive plane as well as large dimensions
@@ -145,7 +153,14 @@ func pictureCloudMotionEnabled(p framePicture) bool {
 }
 
 func pictureMotionInterpolationEnabled(p framePicture) bool {
-	return gs.smoothMoving || pictureCloudMotionEnabled(p)
+	if pictureCloudMotionEnabled(p) {
+		return true
+	}
+	if !gs.InterpolateSmallMovingPictures {
+		return false
+	}
+	w, h := pictureVisibleSize(p.PictID)
+	return w > 0 && h > 0 && w <= maxInterpolatedMovingPictureDimension && h <= maxInterpolatedMovingPictureDimension
 }
 
 func pictureMotionBlockedAtEdge(p framePicture, cloudMotion bool) bool {
@@ -1536,7 +1551,7 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	dx, dy, bgIdxs, ok := pictureShiftInto(prevPics, newPics, maxInterp, shiftIndices)
 	shiftIndices = bgIdxs
 	if gs.MotionSmoothing && !seekingMov {
-		if gs.smoothMoving {
+		if gs.InterpolateSmallMovingPictures {
 			logDebug("interp pictures again=%d prev=%d cur=%d shift=(%d,%d) ok=%t", again, len(prevPics), len(newPics), dx, dy, ok)
 			if !ok {
 				logDebug("prev pics: %v", picturesSummary(prevPics))

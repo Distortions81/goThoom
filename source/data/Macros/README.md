@@ -33,7 +33,7 @@ without imposing an instruction cap.
 ## Add a downloaded macro
 
 1. In the Legacy Macros window, choose **Open Macro Folder**.
-2. Put the `.mac` file in the `Library` folder.
+2. Put the `.mac` or `.txt` file in the `Library` folder.
 3. Return to goThoom and choose **Refresh List**.
 4. Enable the new entry globally or for one character.
 
@@ -45,7 +45,7 @@ as your character.
 
 ## Write a simple macro
 
-Create a UTF-8 text file ending in `.mac` inside `Macros/Library`. This example
+Create a UTF-8 text file ending in `.mac` or `.txt` inside `Macros/Library`. This example
 adds `hi` as a typed shortcut and binds Ctrl-H:
 
 ```text

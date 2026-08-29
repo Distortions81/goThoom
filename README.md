@@ -66,7 +66,9 @@ current `goThoom.log` and its five rotated backups when reporting a problem.
 
 The toolbar **Help** button opens the full online user manual. A compact guide
 remains available from **Windows → Help**, and a command reference is available
-in [docs/CommandsHelp.md](docs/CommandsHelp.md).
+in [docs/CommandsHelp.md](docs/CommandsHelp.md). Persistent options without a
+dedicated control, automatically managed settings, and session-only controls
+are inventoried in [docs/Settings.md](docs/Settings.md).
 
 ## Downloads and customization
 
@@ -99,7 +101,7 @@ selections.
 Open **Actions → Legacy Macros** to browse the bundled macro library. Enable a
 macro globally or for a selected character. Use **Refresh List** after adding,
 removing, or renaming files, and **Reload Macros** after editing an enabled
-macro. Your own `.mac` files can be added to `Macros/Library/`. Enable
+macro. Your own `.mac` or `.txt` files can be added to `Macros/Library/`. Enable
 **Allow continuous macros** for classic macros that intentionally loop without
 pausing or producing output.
 

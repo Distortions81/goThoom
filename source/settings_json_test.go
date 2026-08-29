@@ -80,6 +80,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.AltNetMode = false
 	want.LegacyMacroContinuous = true
 	want.BatchArtworkLoading = false
+	want.InterpolateSmallMovingPictures = true
 	want.AssetActivityIndicators = true
 	want.MobileLightConeShadows = true
 	want.FasterCharacterShadows = true
@@ -109,6 +110,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
 		`"batch_room_artwork_loading": false`,
+		`"interpolate_small_moving_pictures": true`,
 		`"show_asset_activity_indicators": true`,
 		`"mobile_light_cone_shadows": true`,
 		`"faster_character_shadows": true`,

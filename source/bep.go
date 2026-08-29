@@ -133,6 +133,9 @@ func parseBackendShare(data []byte) {
 		sharerPart = parts[1]
 	}
 	for _, name := range parseNames(shareePart) {
+		if isLocalPlayerName(name) {
+			continue
+		}
 		playersMu.Lock()
 		p, ok := players[name]
 		if !ok {
@@ -163,6 +166,9 @@ func parseBackendShare(data []byte) {
 		notifyPlayerHandlers(playerCopy)
 	}
 	for _, name := range parseNames(sharerPart) {
+		if isLocalPlayerName(name) {
+			continue
+		}
 		playersMu.Lock()
 		p, ok := players[name]
 		if !ok {

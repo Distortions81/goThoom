@@ -180,7 +180,7 @@ func refreshLegacyMacroLibraryWindow() {
 	nameSize := eui.Point{X: legacyMacroNameWidth, Y: legacyMacroRowHeight}
 	if len(entries) == 0 {
 		empty, _ := eui.NewText()
-		empty.Text = "No .mac files found in Macros/Library."
+		empty.Text = "No .mac or .txt files found in Macros/Library."
 		empty.FontSize = 12
 		empty.Size = nameSize
 		legacyMacroLibraryList.AddItem(empty)

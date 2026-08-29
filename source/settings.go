@@ -204,43 +204,44 @@ var gsdef settings = settings{
 	BubbleMonsters:          true,
 	BubbleNarration:         true,
 
-	MotionSmoothing:           true,
-	FloatingPointSpriteCoords: true,
-	ObjectPinning:             true,
-	BlendMobiles:              false,
-	BlendPicts:                true,
-	BlendAmount:               1.0,
-	MobileBlendAmount:         0.25,
-	DenoiseImages:             false,
-	DenoiseSharpness:          10,
-	DenoiseAmount:             0.35,
-	ShowFPS:                   true,
-	UIScale:                   1.0,
-	Fullscreen:                false,
-	AlwaysOnTop:               false,
-	MasterVolume:              1.0,
-	GameVolume:                0.28260868787765503,
-	MusicVolume:               1.0,
-	Music:                     true,
-	GameSound:                 true,
-	Mute:                      false,
-	GameScale:                 4.0,
-	SpriteUpscale:             4,
-	SpriteUpscaleFilter:       true,
-	SpriteUpscaleMode:         artworkUpscaleBalanced,
-	ReplacementEffects:        false,
-	SpriteGammaCorrection:     true,
-	SpriteGamma:               1.8,
-	MonitorGamma:              2.2,
-	BarPlacement:              BarPlacementBottom,
-	MaxNightLevel:             100,
-	MessagesToConsole:         true,
-	ChatTTS:                   false,
-	ChatTTSVolume:             0.20652173459529877,
-	ChatTTSSpeed:              1.25,
-	ChatTTSVoice:              "en_US-hfc_female-medium",
-	Notifications:             true,
-	NotifyWhenBackground:      false,
+	MotionSmoothing:                true,
+	InterpolateSmallMovingPictures: false,
+	FloatingPointSpriteCoords:      true,
+	ObjectPinning:                  true,
+	BlendMobiles:                   false,
+	BlendPicts:                     true,
+	BlendAmount:                    1.0,
+	MobileBlendAmount:              0.25,
+	DenoiseImages:                  false,
+	DenoiseSharpness:               10,
+	DenoiseAmount:                  0.35,
+	ShowFPS:                        true,
+	UIScale:                        1.0,
+	Fullscreen:                     false,
+	AlwaysOnTop:                    false,
+	MasterVolume:                   1.0,
+	GameVolume:                     0.28260868787765503,
+	MusicVolume:                    1.0,
+	Music:                          true,
+	GameSound:                      true,
+	Mute:                           false,
+	GameScale:                      4.0,
+	SpriteUpscale:                  4,
+	SpriteUpscaleFilter:            true,
+	SpriteUpscaleMode:              artworkUpscaleBalanced,
+	ReplacementEffects:             false,
+	SpriteGammaCorrection:          true,
+	SpriteGamma:                    1.8,
+	MonitorGamma:                   2.2,
+	BarPlacement:                   BarPlacementBottom,
+	MaxNightLevel:                  100,
+	MessagesToConsole:              true,
+	ChatTTS:                        false,
+	ChatTTSVolume:                  0.20652173459529877,
+	ChatTTSSpeed:                   1.25,
+	ChatTTSVoice:                   "en_US-hfc_female-medium",
+	Notifications:                  true,
+	NotifyWhenBackground:           false,
 	// Power saving defaults: limit FPS in background
 	PowerSaveBackground:   false,
 	PowerSaveAlways:       false,
@@ -355,7 +356,6 @@ var gsdef settings = settings{
 	// Advanced and runtime defaults.
 	VSync:            true,
 	PrecacheSounds:   defaultPrecacheSounds,
-	smoothMoving:     false,
 	recordAssetStats: false,
 	AltNetMode:       false,
 	hideMobiles:      false,
@@ -421,50 +421,51 @@ type settings struct {
 	BubbleMonsters          bool
 	BubbleNarration         bool
 
-	MotionSmoothing           bool
-	FloatingPointSpriteCoords bool
-	PixelArtScaling           bool
-	ObjectPinning             bool
-	BlendMobiles              bool
-	BlendPicts                bool
-	BlendAmount               float64
-	MobileBlendAmount         float64
-	DenoiseImages             bool
-	DenoiseSharpness          float64
-	DenoiseAmount             float64
-	ShowFPS                   bool
-	UIScale                   float64
-	Fullscreen                bool
-	AlwaysOnTop               bool
-	VSync                     bool
-	MasterVolume              float64
-	GameVolume                float64
-	MusicVolume               float64
-	Music                     bool
-	GameSound                 bool
-	Mute                      bool
-	GameScale                 float64
-	SpriteUpscale             int
-	SpriteUpscaleFilter       bool
-	SpriteUpscaleMode         int
-	ReplacementEffects        bool
-	SpriteGammaCorrection     bool
-	SpriteGamma               float64
-	MonitorGamma              float64
-	BarPlacement              BarPlacement
-	MaxNightLevel             int
-	forceNightLevel           int
-	Theme                     string
-	Style                     string
-	MessagesToConsole         bool
-	MessageTextColors         map[string]eui.Color
-	ChatTTS                   bool
-	ChatTTSVolume             float64
-	ChatTTSSpeed              float64
-	ChatTTSVoice              string
-	ChatTTSBlocklist          []string
-	Notifications             bool
-	NotifyWhenBackground      bool
+	MotionSmoothing                bool
+	InterpolateSmallMovingPictures bool
+	FloatingPointSpriteCoords      bool
+	PixelArtScaling                bool
+	ObjectPinning                  bool
+	BlendMobiles                   bool
+	BlendPicts                     bool
+	BlendAmount                    float64
+	MobileBlendAmount              float64
+	DenoiseImages                  bool
+	DenoiseSharpness               float64
+	DenoiseAmount                  float64
+	ShowFPS                        bool
+	UIScale                        float64
+	Fullscreen                     bool
+	AlwaysOnTop                    bool
+	VSync                          bool
+	MasterVolume                   float64
+	GameVolume                     float64
+	MusicVolume                    float64
+	Music                          bool
+	GameSound                      bool
+	Mute                           bool
+	GameScale                      float64
+	SpriteUpscale                  int
+	SpriteUpscaleFilter            bool
+	SpriteUpscaleMode              int
+	ReplacementEffects             bool
+	SpriteGammaCorrection          bool
+	SpriteGamma                    float64
+	MonitorGamma                   float64
+	BarPlacement                   BarPlacement
+	MaxNightLevel                  int
+	forceNightLevel                int
+	Theme                          string
+	Style                          string
+	MessagesToConsole              bool
+	MessageTextColors              map[string]eui.Color
+	ChatTTS                        bool
+	ChatTTSVolume                  float64
+	ChatTTSSpeed                   float64
+	ChatTTSVoice                   string
+	ChatTTSBlocklist               []string
+	Notifications                  bool
+	NotifyWhenBackground           bool
 	// PowerSaveBackground reduces FPS when window is unfocused.
 	PowerSaveBackground bool
 	// PowerSaveAlways reduces FPS even when focused (e.g., laptops).
@@ -568,7 +569,6 @@ type settings struct {
 
 	// Window behavior
 	ShowClanLordSplashImage bool
-	smoothMoving            bool
 	recordAssetStats        bool
 }
 

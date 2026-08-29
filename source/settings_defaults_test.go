@@ -78,6 +78,12 @@ func TestOwnNameTagVisibleByDefault(t *testing.T) {
 	}
 }
 
+func TestSmallMovingPictureInterpolationDefaultsOff(t *testing.T) {
+	if gsdef.InterpolateSmallMovingPictures {
+		t.Fatal("small moving-picture interpolation should default off")
+	}
+}
+
 func TestInputBarDefaultsOpen(t *testing.T) {
 	if !gsdef.InputBarAlwaysOpen {
 		t.Fatal("input bar should be open by default")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gothoom/eui"
@@ -75,6 +76,7 @@ func restoreMovieNightState(n movieNightState) {
 // playback. Larger intervals reduce memory usage at the cost of slower seek
 // times.
 const checkpointInterval = 300
+const movieSeekFullRenderInterval = 500 * time.Millisecond
 
 // moviePlayer manages clMov playback with basic controls.
 type moviePlayer struct {
@@ -162,6 +164,40 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 
 var seekLock sync.Mutex
 var seekingMov bool
+var movieSeekRenderGeneration atomic.Uint64
+var movieSeekRenderedGeneration atomic.Uint64
+var movieSeekRenderAcknowledged = make(chan struct{}, 1)
+
+func movieSeekFullRenderDue(lastRender, now time.Time) bool {
+	return lastRender.IsZero() || now.Before(lastRender) || now.Sub(lastRender) >= movieSeekFullRenderInterval
+}
+
+func publishMovieSeekRender() uint64 {
+	return movieSeekRenderGeneration.Add(1)
+}
+
+func acknowledgeMovieSeekRender(generation uint64) {
+	movieSeekRenderedGeneration.Store(generation)
+	select {
+	case movieSeekRenderAcknowledged <- struct{}{}:
+	default:
+	}
+}
+
+// waitForMovieSeekRender prevents the seek worker from advancing the shared
+// state while Draw is copying and rendering a published cache. Headless work
+// has no renderer to wait for.
+func waitForMovieSeekRender(generation uint64) {
+	if !uiReady || gameWin == nil {
+		return
+	}
+	for movieSeekRenderedGeneration.Load() < generation {
+		select {
+		case <-movieSeekRenderAcknowledged:
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
 
 // makePlaybackWindow creates the playback control window.
 func (p *moviePlayer) makePlaybackWindow() {
@@ -744,7 +780,10 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	prepareRenderCacheLocked()
 	stateMu.Unlock()
 	restoreMovieNightState(cp.night)
+	firstRender := publishMovieSeekRender()
+	waitForMovieSeekRender(firstRender)
 	frameCounter = cp.idx
+	lastFullRender := time.Now()
 
 	for i := cp.idx; i < idx; i++ {
 		if cancelled != nil && cancelled() {
@@ -754,8 +793,13 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 		m := p.frames[i]
 		movieDropped = updateFrameCounters(m.index)
 		if len(m.data) >= 2 && binary.BigEndian.Uint16(m.data[:2]) == 2 {
-			// Skip render cache preparation for intermediate frames.
-			handleDrawState(m.data, i == idx-1)
+			now := time.Now()
+			buildFullRender := i == idx-1 || movieSeekFullRenderDue(lastFullRender, now)
+			if handleDrawState(m.data, buildFullRender) && buildFullRender {
+				lastFullRender = now
+				generation := publishMovieSeekRender()
+				waitForMovieSeekRender(generation)
+			}
 		} else {
 			// Keep timeline consistent during scrubbing when frames
 			// without draw-state are encountered.
@@ -772,8 +816,13 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	}
 	night := captureMovieNightState()
 	stateMu.Lock()
+	// Cancellation or a run of non-draw frames may end between periodic
+	// publishes. Always leave a complete final cache for the first post-seek
+	// frame rather than exposing the partially rebuilt state.
+	prepareRenderCacheLocked()
 	snap := movieCheckpoint{idx: idx, state: cloneDrawState(state), night: night}
 	stateMu.Unlock()
+	publishMovieSeekRender()
 	p.addCheckpoint(snap)
 	p.cur = idx
 	setInterpFPS(p.fps)

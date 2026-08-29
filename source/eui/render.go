@@ -116,7 +116,7 @@ func Draw(screen *ebiten.Image) {
 		}
 	}
 
-	if hoveredItem != nil && hoveredItem.Tooltip != "" {
+	if shouldDrawTooltip(hoveredItem, dropdowns, contextMenus) {
 		drawTooltip(screen, hoveredItem)
 	}
 	dropdownReuse = dropdowns
@@ -135,6 +135,18 @@ func Draw(screen *ebiten.Image) {
 		dumpDone = true
 		os.Exit(0)
 	}
+}
+
+func shouldDrawTooltip(item *itemData, dropdowns []openDropdown, menus []*itemData) bool {
+	if item == nil || item.Tooltip == "" || len(dropdowns) > 0 {
+		return false
+	}
+	for _, menu := range menus {
+		if menu != nil && menu.Open {
+			return false
+		}
+	}
+	return true
 }
 
 func drawTooltip(screen *ebiten.Image, item *itemData) {

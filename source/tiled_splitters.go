@@ -6,9 +6,10 @@ import (
 	"gothoom/eui"
 )
 
-// dockedToolbarMinimumWidth is the visible two-row toolbar's logical width,
-// including the hand display, button spacing, and host-window padding.
-const dockedToolbarMinimumWidth = 380.0
+// dockedToolbarMinimumWidth is the visible two-row toolbar's logical width:
+// 84 pixels of hand slots, five 68-pixel buttons, and 16 pixels of host-window
+// padding/margin. Keep this aligned with the floating toolbar width.
+const dockedToolbarMinimumWidth = 440.0
 
 type tiledSplitter uint8
 

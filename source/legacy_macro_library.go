@@ -285,7 +285,8 @@ func legacyMacroGuideReference() ([]byte, error) {
 	return text, nil
 }
 
-// legacyMacroLibraryEntries returns every .mac source in Macros/Library. The
+// legacyMacroLibraryEntries returns every .mac and .txt source in
+// Macros/Library. The
 // bundled corpus is first copied there if missing, never overwriting a user
 // file, so the directory is the one editable source of truth.
 func legacyMacroLibraryEntries() ([]legacyMacroLibraryEntry, error) {
@@ -427,7 +428,7 @@ type legacyMacroLibraryMetadata struct {
 
 // parseLegacyMacroLibraryMetadata reads inert source comments used only by the
 // library UI. A plain filename is retained as the name fallback so existing
-// user .mac files need no migration.
+// user macro files need no migration.
 func parseLegacyMacroLibraryMetadata(filename, source string) legacyMacroLibraryMetadata {
 	metadata := legacyMacroLibraryMetadata{Name: filepath.Base(filename)}
 	for _, line := range strings.Split(source, "\n") {
@@ -517,7 +518,7 @@ func legacyMacroLibraryReadManifest() (map[string]string, error) {
 	manifest := make(map[string]string)
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		// The manifest only tracks goThoom's last installed copies. Recovering
-		// from a damaged file is safe: unmatched .mac files remain untouched.
+		// from a damaged file is safe: unmatched macro files remain untouched.
 		return make(map[string]string), nil
 	}
 	return manifest, nil
@@ -530,7 +531,7 @@ func saveLegacyMacroLibraryMetadataReference() error {
 	}
 	path := filepath.Join(legacyMacroLibraryPath(), legacyMacroLibraryMetadataName)
 	// METADATA.md is the generated library guide, not a user macro. Refresh it
-	// so documentation fixes reach existing installs without touching .mac files.
+	// so documentation fixes reach existing installs without touching macro files.
 	if err := legacyMacroAtomicWriteFile(path, text, 0o644); err != nil {
 		return fmt.Errorf("write macro metadata reference %q: %w", path, err)
 	}
@@ -870,10 +871,14 @@ func legacyMacroLibraryCharacter(character string) (string, error) {
 
 func legacyMacroLibraryFileID(id string) (string, error) {
 	id = strings.TrimSpace(id)
-	if id == "" || filepath.Base(id) != id || strings.ContainsAny(id, "/\\") || !strings.EqualFold(filepath.Ext(id), ".mac") {
+	if id == "" || filepath.Base(id) != id || strings.ContainsAny(id, "/\\") || !legacyMacroLibraryExtension(filepath.Ext(id)) {
 		return "", fmt.Errorf("invalid library macro filename %q", id)
 	}
 	return id, nil
+}
+
+func legacyMacroLibraryExtension(extension string) bool {
+	return strings.EqualFold(extension, ".mac") || strings.EqualFold(extension, ".txt")
 }
 
 func legacyMacroLibraryIDKey(id string) string {

@@ -2,30 +2,46 @@ package main
 
 import "testing"
 
-func TestPictureMotionInterpolationEnabledForLargeSprites(t *testing.T) {
-	originalSmoothMoving := gs.smoothMoving
+func TestPictureMotionInterpolationIsLimitedToSmallSpritesAndClouds(t *testing.T) {
+	originalSmallMoving := gs.InterpolateSmallMovingPictures
 	originalSemiTransparent := pictureSemiTransparent
 	originalPictureSize := pictureSize
+	originalPictureVisibleSize := pictureVisibleSize
 	pixelCountMu.Lock()
 	originalCounts := pixelCountCache
 	pixelCountCache = map[uint16]int{1: minMovingPicturePixels - 1, 2: minMovingPicturePixels, 3: minMovingPicturePixels}
 	pixelCountMu.Unlock()
 	t.Cleanup(func() {
-		gs.smoothMoving = originalSmoothMoving
+		gs.InterpolateSmallMovingPictures = originalSmallMoving
 		pictureSemiTransparent = originalSemiTransparent
 		pictureSize = originalPictureSize
+		pictureVisibleSize = originalPictureVisibleSize
 		pixelCountMu.Lock()
 		pixelCountCache = originalCounts
 		pixelCountMu.Unlock()
 	})
 
-	gs.smoothMoving = false
+	gs.InterpolateSmallMovingPictures = false
 	pictureSemiTransparent = func(id uint16) bool { return id == 3 }
 	pictureSize = func(id uint16) (int, int) {
-		if id == 3 {
+		switch id {
+		case 1:
+			return 16, 20
+		case 3:
 			return 256, 128
+		default:
+			return maxInterpolatedMovingPictureDimension + 1, 16
 		}
-		return 32, 32
+	}
+	pictureVisibleSize = func(id uint16) (int, int) {
+		switch id {
+		case 1:
+			return 16, 20
+		case 3:
+			return 22, 18
+		default:
+			return maxInterpolatedMovingPictureDimension + 1, 16
+		}
 	}
 	small := framePicture{PictID: 1, Plane: 1}
 	largeOpaque := framePicture{PictID: 2, Plane: 1}
@@ -48,9 +64,37 @@ func TestPictureMotionInterpolationEnabledForLargeSprites(t *testing.T) {
 	if !pictureExcludedFromShift(cloud) {
 		t.Fatal("large semi-transparent sprite affected camera-motion detection")
 	}
-	gs.smoothMoving = true
+	gs.InterpolateSmallMovingPictures = true
 	if !pictureMotionInterpolationEnabled(small) {
-		t.Fatal("smooth-moving option did not enable interpolation")
+		t.Fatal("small-moving option did not enable a small sprite")
+	}
+	if pictureMotionInterpolationEnabled(largeOpaque) {
+		t.Fatal("small-moving option enabled an oversized sprite")
+	}
+}
+
+func TestPictureMotionInterpolationUsesVisibleFrameSize(t *testing.T) {
+	originalSmallMoving := gs.InterpolateSmallMovingPictures
+	originalPictureVisibleSize := pictureVisibleSize
+	t.Cleanup(func() {
+		gs.InterpolateSmallMovingPictures = originalSmallMoving
+		pictureVisibleSize = originalPictureVisibleSize
+	})
+
+	gs.InterpolateSmallMovingPictures = true
+	pictureVisibleSize = func(id uint16) (int, int) {
+		if id == 1 {
+			// The source canvas can be much larger than the visible coin.
+			return 12, 14
+		}
+		// One animation frame exceeds the small-sprite limit.
+		return 12, maxInterpolatedMovingPictureDimension + 1
+	}
+	if !pictureMotionInterpolationEnabled(framePicture{PictID: 1}) {
+		t.Fatal("transparent canvas padding prevented small-sprite interpolation")
+	}
+	if pictureMotionInterpolationEnabled(framePicture{PictID: 2}) {
+		t.Fatal("oversized visible animation frame enabled small-sprite interpolation")
 	}
 }
 

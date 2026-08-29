@@ -79,6 +79,22 @@ func TestMovieUPSValueIsFourDigits(t *testing.T) {
 	}
 }
 
+func TestMovieSeekFullRenderInterval(t *testing.T) {
+	now := time.Unix(100, 0)
+	if !movieSeekFullRenderDue(time.Time{}, now) {
+		t.Fatal("initial seek render was not due")
+	}
+	if movieSeekFullRenderDue(now.Add(-movieSeekFullRenderInterval+time.Millisecond), now) {
+		t.Fatal("seek render was due before half a second elapsed")
+	}
+	if !movieSeekFullRenderDue(now.Add(-movieSeekFullRenderInterval), now) {
+		t.Fatal("seek render was not due after half a second")
+	}
+	if !movieSeekFullRenderDue(now.Add(time.Millisecond), now) {
+		t.Fatal("seek render did not recover from a future timestamp")
+	}
+}
+
 func TestMovieCheckpointsStaySortedAcrossBackwardSeek(t *testing.T) {
 	p := &moviePlayer{checkpoints: []movieCheckpoint{{idx: 0}, {idx: 300}, {idx: 600}, {idx: 900}}}
 

@@ -322,6 +322,12 @@ func updatePlayersWindow() {
 		if p.Name == "" || p.IsNPC {
 			continue
 		}
+		// Sharing is a relationship with another player. Never display or count
+		// stale/transient sharing flags on the local player's own record.
+		if isLocalPlayerName(p.Name) {
+			p.Sharee = false
+			p.Sharing = false
+		}
 		if p.Sharing {
 			shareCount++
 		}

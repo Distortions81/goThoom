@@ -36,6 +36,10 @@ type dataLocation struct {
 	sizeOnce       sync.Once
 	width          uint16
 	height         uint16
+	visibleSizeMu  sync.Mutex
+	visibleSizeSet bool
+	visibleWidth   uint16
+	visibleHeight  uint16
 }
 
 type CLImages struct {
@@ -704,8 +708,103 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 		pix[off+2] = b
 		pix[off+3] = a
 	}
+	// Normal artwork preparation decodes the unmodified palette first. Record
+	// the per-frame opaque footprint here so callers deciding whether a sprite
+	// is small never have to inspect pixels in the render path.
+	if len(custom) == 0 {
+		c.cacheVisibleFrameSize(ref, img)
+	}
 
 	return img
+}
+
+// VisibleFrameSize returns the largest non-transparent bounding-box width and
+// height found in any one animation frame. Transparent sheet padding and the
+// combined height of vertically stacked animation frames are not included.
+// The result is measured during normal CPU artwork decoding and cached. If the
+// artwork has not been decoded yet, this method performs that work once rather
+// than requiring a GPU readback.
+func (c *CLImages) VisibleFrameSize(id uint32) (int, int) {
+	ref := c.idrefs[id]
+	if ref == nil {
+		return 0, 0
+	}
+	ref.visibleSizeMu.Lock()
+	if ref.visibleSizeSet {
+		w, h := ref.visibleWidth, ref.visibleHeight
+		ref.visibleSizeMu.Unlock()
+		return int(w), int(h)
+	}
+	ref.visibleSizeMu.Unlock()
+
+	// DecodeRGBA records the measurement before returning. More than one
+	// concurrent first request may decode, but only the first result is stored;
+	// subsequent calls are a pair of cached integer reads.
+	if c.DecodeRGBA(id, nil, false) == nil {
+		return 0, 0
+	}
+	ref.visibleSizeMu.Lock()
+	w, h := ref.visibleWidth, ref.visibleHeight
+	ref.visibleSizeMu.Unlock()
+	return int(w), int(h)
+}
+
+func (c *CLImages) cacheVisibleFrameSize(ref *dataLocation, pixels *image.RGBA) {
+	if ref == nil || pixels == nil {
+		return
+	}
+	ref.visibleSizeMu.Lock()
+	defer ref.visibleSizeMu.Unlock()
+	if ref.visibleSizeSet {
+		return
+	}
+	frames := max(1, int(ref.numFrames))
+	w, h := visibleFrameSize(pixels, frames)
+	ref.visibleWidth = uint16(w)
+	ref.visibleHeight = uint16(h)
+	ref.visibleSizeSet = true
+}
+
+func visibleFrameSize(pixels *image.RGBA, frames int) (int, int) {
+	if pixels == nil {
+		return 0, 0
+	}
+	bounds := pixels.Bounds()
+	innerWidth := bounds.Dx() - 2
+	innerHeight := bounds.Dy() - 2
+	frames = max(1, frames)
+	if innerWidth <= 0 || innerHeight < frames {
+		return 0, 0
+	}
+	frameHeight := innerHeight / frames
+	maxWidth, maxHeight := 0, 0
+	for frame := 0; frame < frames; frame++ {
+		frameRect := image.Rect(
+			bounds.Min.X+1,
+			bounds.Min.Y+1+frame*frameHeight,
+			bounds.Min.X+1+innerWidth,
+			bounds.Min.Y+1+(frame+1)*frameHeight,
+		)
+		minX, minY := frameRect.Max.X, frameRect.Max.Y
+		maxX, maxY := frameRect.Min.X, frameRect.Min.Y
+		for y := frameRect.Min.Y; y < frameRect.Max.Y; y++ {
+			row := pixels.Pix[pixels.PixOffset(frameRect.Min.X, y):pixels.PixOffset(frameRect.Max.X, y)]
+			for x, offset := frameRect.Min.X, 3; offset < len(row); x, offset = x+1, offset+4 {
+				if row[offset] == 0 {
+					continue
+				}
+				minX = min(minX, x)
+				minY = min(minY, y)
+				maxX = max(maxX, x+1)
+				maxY = max(maxY, y+1)
+			}
+		}
+		if maxX > minX && maxY > minY {
+			maxWidth = max(maxWidth, maxX-minX)
+			maxHeight = max(maxHeight, maxY-minY)
+		}
+	}
+	return maxWidth, maxHeight
 }
 
 // SetDenoise configures decoded-artwork filtering without racing background

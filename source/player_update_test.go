@@ -109,6 +109,66 @@ func TestMobileWithoutColorDescriptorDoesNotClearPlayerListStyle(t *testing.T) {
 	}
 }
 
+func TestMarkPlayersOnScreenNeverTreatsLocalMobileAsSharing(t *testing.T) {
+	originalPlayers := players
+	originalDirty := playersDirty
+	originalPlayerName := playerName
+	defer func() {
+		players = originalPlayers
+		playersDirty = originalDirty
+		playerName = originalPlayerName
+	}()
+
+	playerName = "Warawonda"
+	players = map[string]*Player{
+		"warawonda": {Name: "warawonda", Sharing: true, Sharee: true},
+	}
+	markPlayersOnScreen(
+		[]frameMobile{{Index: 7, Colors: styleBold}},
+		map[uint8]frameDescriptor{7: {Index: 7, Name: "warawonda", Colors: []byte{1}}},
+		time.Unix(4500, 0),
+	)
+
+	self := players["warawonda"]
+	if self.Sharing || self.Sharee {
+		t.Fatalf("local player retained a self-sharing relationship: %+v", self)
+	}
+}
+
+func TestBackendShareRefreshIgnoresLocalPlayer(t *testing.T) {
+	originalPlayers := players
+	originalDirty := playersDirty
+	originalPlayerName := playerName
+	defer func() {
+		players = originalPlayers
+		playersDirty = originalDirty
+		playerName = originalPlayerName
+	}()
+
+	taggedName := func(name string) []byte {
+		data := []byte{0xC2, 'p', 'n'}
+		data = append(data, name...)
+		return append(data, 0xC2, 'p', 'n')
+	}
+	playerName = "Warawonda"
+	players = map[string]*Player{
+		"Warawonda": {Name: "Warawonda"},
+	}
+	payload := append(taggedName("Warawonda"), '\t')
+	payload = append(payload, taggedName("Warawonda")...)
+	payload = append(payload, []byte(" and ")...)
+	payload = append(payload, taggedName("Bob")...)
+	parseBackendShare(payload)
+
+	self := players["Warawonda"]
+	if self.Sharing || self.Sharee {
+		t.Fatalf("backend refresh created a self-sharing relationship: %+v", self)
+	}
+	if bob := players["Bob"]; bob == nil || !bob.Sharing {
+		t.Fatalf("backend refresh lost real incoming sharer: %+v", bob)
+	}
+}
+
 func TestMarkPlayersOnScreenExcludesOffscreenAndPersistedMobiles(t *testing.T) {
 	originalPlayers := players
 	originalDirty := playersDirty

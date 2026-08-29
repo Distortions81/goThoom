@@ -1706,16 +1706,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	worldOriginX, worldOriginY, worldScale = worldDrawInfo()
 
-	//Reduce render load while seeking clMov
+	// A movie seek publishes only fully prepared scene states. Keep displaying
+	// the last complete frame until the next half-second update is ready.
+	seekRenderGeneration := movieSeekRenderGeneration.Load()
 	if seekingMov {
-		if now.Sub(lastSeekPrev) < time.Millisecond*200 {
+		if seekRenderGeneration == lastSeekRenderGeneration {
 			return
 		}
-		lastSeekPrev = now
-		gameImageItem.Disabled = true
-	} else {
-		gameImageItem.Disabled = false
+		defer acknowledgeMovieSeekRender(seekRenderGeneration)
 	}
+	lastSeekRenderGeneration = seekRenderGeneration
 	if backgroundImg != nil {
 		drawBackground(screen)
 	} else {
@@ -1835,17 +1835,33 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	//}
 
 	if seekingMov {
-		x, y := float64(screen.Bounds().Dx())/2, float64(screen.Bounds().Dy())/2
-		vector.FillRect(screen, float32(x+2), float32(y+2), 90, 40, color.Black, false)
+		const label = "SEEKING..."
+		const horizontalPadding = 10
+		const verticalPadding = 6
+		labelWidth, labelHeight := text.Measure(label, mainFontBold, 0)
+		bounds := screen.Bounds()
+		x := float64(bounds.Min.X) + float64(bounds.Dx())/2
+		y := float64(bounds.Min.Y) + float64(bounds.Dy())/2
+		vector.FillRect(
+			screen,
+			float32(x-labelWidth/2-horizontalPadding),
+			float32(y-labelHeight/2-verticalPadding),
+			float32(labelWidth+horizontalPadding*2),
+			float32(labelHeight+verticalPadding*2),
+			color.Black,
+			false,
+		)
 
 		op := acquireTextDrawOpts()
+		op.LayoutOptions.PrimaryAlign = text.AlignCenter
+		op.LayoutOptions.SecondaryAlign = text.AlignCenter
 		op.GeoM.Translate(x, y)
-		text.Draw(screen, "SEEKING...", mainFontBold, op)
+		text.Draw(screen, label, mainFontBold, op)
 		releaseTextDrawOpts(op)
 	}
 }
 
-var lastSeekPrev time.Time
+var lastSeekRenderGeneration uint64
 var drawFrameNow time.Time
 
 func drawRecPlayBadge(dst *ebiten.Image) {
@@ -2808,7 +2824,7 @@ func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []
 func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (float64, float64) {
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
-	if p.Moving && !gs.smoothMoving && !pictureCloudMotionEnabled(p) {
+	if p.Moving && !pictureMotionInterpolationEnabled(p) {
 		if int(p.PrevH) != int(p.H)-shiftX || int(p.PrevV) != int(p.V)-shiftY {
 			offX = 0
 			offY = 0

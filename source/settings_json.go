@@ -115,6 +115,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "BubbleNarration", category: settingsSpeechBubbles, name: "show_narrator"},
 
 	{field: "MotionSmoothing", category: settingsRendering, name: "smooth_movement"},
+	{field: "InterpolateSmallMovingPictures", category: settingsRendering, name: "interpolate_small_moving_pictures"},
 	{field: "FloatingPointSpriteCoords", category: settingsRendering, name: "floating_point_sprite_coordinates"},
 	{field: "PixelArtScaling", category: settingsRendering, name: "pixel_perfect_scaling"},
 	{field: "ObjectPinning", category: settingsRendering, name: "pin_world_objects"},

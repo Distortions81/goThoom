@@ -79,3 +79,20 @@ func TestTooltipWrapWidthFitsScreen(t *testing.T) {
 		t.Fatalf("tooltip wrap width = %v, want %v", got, want)
 	}
 }
+
+func TestTooltipHiddenWhileMenuIsOpen(t *testing.T) {
+	tooltip := &itemData{Tooltip: "details"}
+
+	if !shouldDrawTooltip(tooltip, nil, nil) {
+		t.Fatal("tooltip should draw when no menu is open")
+	}
+	if shouldDrawTooltip(tooltip, []openDropdown{{}}, nil) {
+		t.Fatal("tooltip should be hidden while a dropdown is open")
+	}
+	if shouldDrawTooltip(tooltip, nil, []*itemData{{Open: true}}) {
+		t.Fatal("tooltip should be hidden while a context menu is open")
+	}
+	if !shouldDrawTooltip(tooltip, nil, []*itemData{{Open: false}}) {
+		t.Fatal("a closed context menu should not hide the tooltip")
+	}
+}

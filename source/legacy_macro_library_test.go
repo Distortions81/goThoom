@@ -495,6 +495,60 @@ func TestLegacyMacroLibrarySelectionsDoNotRewriteMacroRoots(t *testing.T) {
 	}
 }
 
+func TestLegacyMacroLibraryAcceptsTextFiles(t *testing.T) {
+	originalDataDir := dataDirPath
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() { dataDirPath = originalDataDir })
+
+	if _, err := legacyMacroLibraryEntries(); err != nil {
+		t.Fatal(err)
+	}
+	textPath := filepath.Join(legacyMacroLibraryPath(), "downloaded.txt")
+	if err := os.WriteFile(textPath, []byte("// Name: Downloaded Text Macro\nf8 \"/wave\\r\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacyMacroLibraryPath(), "notes.md"), []byte("not a macro"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := legacyMacroLibraryEntries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := legacyMacroLibraryEntryForTest(entries, "downloaded.txt")
+	if entry.Path != textPath || entry.Name != "Downloaded Text Macro" {
+		t.Fatalf("text macro entry = %#v", entry)
+	}
+	for _, candidate := range entries {
+		if candidate.ID == "notes.md" {
+			t.Fatal("non-macro text file appeared in the macro library")
+		}
+	}
+
+	if _, err := setLegacyMacroLibraryEntryEnabled("downloaded.txt", legacyMacroLibraryGlobal, "", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := loadLegacyMacrosForCharacter(""); err != nil {
+		t.Fatal(err)
+	}
+	if !legacyMacroSourcesContain("downloaded.txt") {
+		t.Fatalf("enabled text macro was not loaded: %#v", legacyMacroSourcesSnapshot())
+	}
+}
+
+func TestLegacyMacroLibraryFilenameExtensions(t *testing.T) {
+	for _, filename := range []string{"example.mac", "example.MAC", "example.txt", "example.TXT"} {
+		if got, err := legacyMacroLibraryFileID(filename); err != nil || got != filename {
+			t.Errorf("legacyMacroLibraryFileID(%q) = %q, %v", filename, got, err)
+		}
+	}
+	for _, filename := range []string{"example.md", "example", "../example.txt"} {
+		if _, err := legacyMacroLibraryFileID(filename); err == nil {
+			t.Errorf("legacyMacroLibraryFileID(%q) succeeded", filename)
+		}
+	}
+}
+
 func TestLegacyMacroLibraryMissingSelectionReportsDiagnostic(t *testing.T) {
 	originalDataDir := dataDirPath
 	dataDirPath = t.TempDir()

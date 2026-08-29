@@ -50,6 +50,10 @@ var (
 	playerHandlersMu sync.RWMutex
 )
 
+func isLocalPlayerName(name string) bool {
+	return playerName != "" && strings.EqualFold(name, playerName)
+}
+
 func getPlayer(name string) *Player {
 	playersMu.RLock()
 	p, ok := players[name]
@@ -168,18 +172,29 @@ func markPlayersOnScreen(mobiles []frameMobile, descriptors map[uint8]frameDescr
 		}
 		// The classic client treats the mobile style bits as server hints that
 		// refresh its Players-list sharing and clan flags. A descriptor with no
-		// custom colors does not carry those hints.
+		// custom colors does not carry those hints. The local mobile's bold bit
+		// describes our presentation/state, not somebody sharing to us, so it
+		// must never create a self-sharing relationship.
+		sharing, sharee, sameClan := p.Sharing, p.Sharee, p.SameClan
+		self := isLocalPlayerName(d.Name)
+		if self {
+			sharing = false
+			sharee = false
+		}
 		if len(d.Colors) != 0 {
-			sharing := mobile.Colors&styleBold != 0
-			sameClan := mobile.Colors&styleItalic != 0
-			if p.Sharing != sharing || p.SameClan != sameClan {
-				p.Sharing = sharing
-				p.SameClan = sameClan
-				playerCopy := *p
-				playerCopy.Colors = append([]byte(nil), p.Colors...)
-				statusChanged = append(statusChanged, playerCopy)
-				changed = true
+			if !self {
+				sharing = mobile.Colors&styleBold != 0
 			}
+			sameClan = mobile.Colors&styleItalic != 0
+		}
+		if p.Sharing != sharing || p.Sharee != sharee || p.SameClan != sameClan {
+			p.Sharing = sharing
+			p.Sharee = sharee
+			p.SameClan = sameClan
+			playerCopy := *p
+			playerCopy.Colors = append([]byte(nil), p.Colors...)
+			statusChanged = append(statusChanged, playerCopy)
+			changed = true
 		}
 		if !mobileActuallyVisible(mobile, d) {
 			continue
