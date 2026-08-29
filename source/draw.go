@@ -949,9 +949,9 @@ var drawStateScratch = struct {
 // When buildCache is false, the draw state is parsed without rebuilding the
 // render cache. This is useful for fast-forward operations where intermediate
 // frames do not need a fully prepared cache.
-func handleDrawState(m []byte, buildCache bool) {
+func handleDrawState(m []byte, buildCache bool) bool {
 	if len(m) < 11 { // 2 byte tag + 9 bytes minimum
-		return
+		return false
 	}
 
 	var (
@@ -981,21 +981,20 @@ func handleDrawState(m []byte, buildCache bool) {
 	}
 
 	ackCmd := data[0]
-	previousAck := ackFrame
+	previousAck, currentResend := networkFrameStateSnapshot()
 	incomingAck := int32(binary.BigEndian.Uint32(data[1:5]))
 	incomingResent := int32(binary.BigEndian.Uint32(data[5:9]))
 	if !movieMode && previousAck != 0 && incomingAck <= previousAck {
-		return
+		return false
 	}
 
-	frameCounter++
 	processStateData := true
-	nextResend := resendFrame
+	nextResend := currentResend
 	if !movieMode {
 		switch {
-		case resendFrame != 0 && incomingResent == resendFrame:
+		case currentResend != 0 && incomingResent == currentResend:
 			nextResend = 0
-		case resendFrame != 0:
+		case currentResend != 0:
 			processStateData = false
 		case previousAck != 0 && incomingAck != previousAck+1:
 			processStateData = false
@@ -1007,17 +1006,20 @@ func handleDrawState(m []byte, buildCache bool) {
 		logWarn("parseDrawState failed: %v", err)
 		logDebugPacket(fmt.Sprintf("parseDrawState error: %v", err), data)
 		if previousAck > 0 {
-			resendFrame = previousAck + 1
+			setRequestedResendFrame(previousAck + 1)
 		} else {
-			resendFrame = 0
+			setRequestedResendFrame(0)
 		}
-		return
+		return false
 	}
 	if !movieMode && ack > previousAck {
 		acknowledgeCommand(ackCmd)
 	}
-	ackFrame = ack
-	resendFrame = nextResend
+	setNetworkFrameState(ack, nextResend)
+	if !seekingMov {
+		scriptAdvanceTick()
+	}
+	return true
 }
 
 // handleInvCmdFull resets and rebuilds the inventory from a full list command.
@@ -1439,6 +1441,13 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	// stream. It is valid for this fragment to be empty or to end midway through
 	// either the two-byte record size or its payload.
 	stateFragment := data[p:]
+	if movieMode {
+		frameCounter++
+	} else {
+		// The accepted server acknowledgement is the classic client's live
+		// logical clock. Render FPS and missing packets must not skew it.
+		frameCounter = int(ack)
+	}
 
 	// Count only structurally valid draw-state frames. Advancing loss statistics
 	// before validating the tables lets a malformed packet poison later gap
@@ -1774,7 +1783,9 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		return ack, resend, nil
 	}
 	stateRecords := appendDrawStateDataFragment(stateFragment)
-	for _, stateData := range stateRecords {
+stateRecordLoop:
+	for recordIndex, stateData := range stateRecords {
+		rawStateData := stateData
 		bubbles = bubbles[:0]
 		stateRecordLen := len(stateData)
 
@@ -1789,7 +1800,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		// defensively skip any additional stray C strings until what looks
 		// like a valid bubble count (<= maxBubbles) is encountered.
 		if len(stateData) == 0 {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 		if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
 			if idx > 0 {
@@ -1797,7 +1809,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 			}
 			stateData = stateData[idx+1:]
 		} else {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 		for len(stateData) > 0 {
 			if int(stateData[0]) <= maxBubbles {
@@ -1812,48 +1825,56 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 				continue
 			}
 			// No terminating zero found; give up.
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 
 		stage = "bubble count"
 		if len(stateData) == 0 {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 		bubbleCount := int(stateData[0])
 		stateData = stateData[1:]
 		if bubbleCount > maxBubbles {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 		stage = "bubble"
 		for i := 0; i < bubbleCount && len(stateData) > 0; i++ {
 			off := stateRecordLen - len(stateData)
 			if len(stateData) < 2 {
-				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				logIgnoredDrawStateRecord(recordIndex, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData)), rawStateData)
+				continue stateRecordLoop
 			}
 			idx := stateData[0]
 			typ := int(stateData[1])
 			p := 2
 			if typ&kBubbleNotCommon != 0 {
 				if len(stateData) < p+1 {
-					return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+					logIgnoredDrawStateRecord(recordIndex, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData)), rawStateData)
+					continue stateRecordLoop
 				}
 				p++
 			}
 			var h, v int16
 			if typ&kBubbleFar != 0 {
 				if len(stateData) < p+4 {
-					return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+					logIgnoredDrawStateRecord(recordIndex, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData)), rawStateData)
+					continue stateRecordLoop
 				}
 				h = int16(binary.BigEndian.Uint16(stateData[p:]))
 				v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
 				p += 4
 			}
 			if len(stateData) <= p {
-				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				logIgnoredDrawStateRecord(recordIndex, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData)), rawStateData)
+				continue stateRecordLoop
 			}
 			end := bytes.IndexByte(stateData[p:], 0)
 			if end < 0 {
-				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				logIgnoredDrawStateRecord(recordIndex, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData)), rawStateData)
+				continue stateRecordLoop
 			}
 			bubbleData := stateData[:p+end+1]
 			if verb, txt, bubbleName, lang, code, bubbleType, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
@@ -2047,13 +2068,15 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 
 		stage = "sound count"
 		if len(stateData) < 1 {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 		soundCount := int(stateData[0])
 		stateData = stateData[1:]
 		stage = "sounds"
 		if len(stateData) < soundCount*2 {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 		var newSounds []uint16
 
@@ -2093,11 +2116,17 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		stage = "inventory"
 		rest, ok := parseInventory(stateData)
 		if !ok || len(rest) > 0 {
-			return ack, resend, errors.New(stage)
+			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
+			continue stateRecordLoop
 		}
 	}
 
 	return ack, resend, nil
+}
+
+func logIgnoredDrawStateRecord(index int, err error, data []byte) {
+	logWarn("draw state record %d ignored: %v", index+1, err)
+	logDebugPacket(fmt.Sprintf("draw state record %d error: %v", index+1, err), data)
 }
 
 var prevSounds []uint16

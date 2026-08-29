@@ -633,7 +633,7 @@ func handlePlayersContextClick(mx, my int) bool {
 // double-click behavior, we can use lastPlayerClick* similar to inventory.
 func handlePlayersClick(name string) {
 	event := legacyMacroPlayerClickEvent(name)
-	if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+	if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 		legacyMacroMarkInputConsumed("click")
 		return
 	}

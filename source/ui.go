@@ -2017,9 +2017,10 @@ func ensureToolbarAccessible() {
 }
 
 func updateToolbarStats() {
+	latency, jitter := networkLatencySnapshot()
 	if gs.ToolbarPlacement == ToolbarFloating && hudWin != nil {
 		hudWin.Title = fmt.Sprintf("Toolbar - FPS: %4.0f Loss: %0.0f%% Ping: %s Jit: %s",
-			ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(netLatency), formatToolbarLatency(netJitter))
+			ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(latency), formatToolbarLatency(jitter))
 		hudWin.Refresh()
 		return
 	}
@@ -2027,7 +2028,7 @@ func updateToolbarStats() {
 		return
 	}
 	toolbarStatsText.Text = fmt.Sprintf("FPS %4.0f   Loss %0.0f%%   Ping %s   Jit %s",
-		ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(netLatency), formatToolbarLatency(netJitter))
+		ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(latency), formatToolbarLatency(jitter))
 	toolbarStatsText.Dirty = true
 	refreshToolbar()
 }
@@ -6690,37 +6691,27 @@ func makeAdvancedSettingsWindow() {
 	systemCol.AddItem(pingLabel)
 
 	pingBtn, pingEvents := eui.NewButton()
-	pingBtn.Text = "Ping Server"
+	pingBtn.Text = "Show Network Latency"
 	pingBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	pingEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			SettingsLock.Lock()
+			loginMu.Lock()
 			connected := tcpConn != nil
-			SettingsLock.Unlock()
+			loginMu.Unlock()
 			if !connected {
 				pingLabel.Text = "not connected to server"
 				pingLabel.Dirty = true
 				advancedWin.Refresh()
 				return
 			}
-			pingLabel.Text = "Pinging..."
+			latency, jitter := networkLatencySnapshot()
+			if latency == 0 {
+				pingLabel.Text = "waiting for a command acknowledgement"
+			} else {
+				pingLabel.Text = fmt.Sprintf("Ping: %s  Jitter: %s", formatToolbarLatency(latency), formatToolbarLatency(jitter))
+			}
 			pingLabel.Dirty = true
 			advancedWin.Refresh()
-			go func() {
-				worst := time.Duration(0)
-				for i := 0; i < 5; i++ {
-					rtt := pingServer()
-					if rtt > worst {
-						worst = rtt
-					}
-					if i < 4 {
-						time.Sleep(200 * time.Millisecond)
-					}
-				}
-				pingLabel.Text = fmt.Sprintf("Ping: %d ms", worst.Milliseconds())
-				pingLabel.Dirty = true
-				advancedWin.Refresh()
-			}()
 		}
 	}
 	systemCol.AddItem(pingBtn)

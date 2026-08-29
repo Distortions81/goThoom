@@ -37,7 +37,7 @@ func maybeEnqueueWho() bool {
 	// Only if there have been no commands in the last 30 frames.
 	lastCommandFrame := lastCommandFrameSnapshot()
 	if lastCommandFrame >= 0 {
-		if (ackFrame - lastCommandFrame) < 30 {
+		if (acknowledgedFrameSnapshot() - lastCommandFrame) < 30 {
 			return false
 		}
 	}

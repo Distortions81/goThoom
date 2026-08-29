@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -17,9 +18,24 @@ var tcpConn net.Conn
 // identifiers and player input packets.
 const messageBufferSize = 512
 
+const (
+	minProtocolMessageSize = 2
+	maxProtocolMessageSize = 1396
+	udpReadBufferSize      = 2 + maxProtocolMessageSize + 1
+	maxPlayerCommandBytes  = 511
+)
+
+var errMalformedUDPDatagram = errors.New("malformed UDP datagram")
+
 var messageBufferPool = sync.Pool{
 	New: func() any {
 		return make([]byte, messageBufferSize)
+	},
+}
+
+var udpReadBufferPool = sync.Pool{
+	New: func() any {
+		return make([]byte, udpReadBufferSize)
 	},
 }
 
@@ -104,6 +120,9 @@ func sendClientIdentifiers(connection net.Conn, clVersion, imagesVersion, sounds
 
 // sendTCPMessage writes a length-prefixed message to the TCP connection.
 func sendTCPMessage(connection net.Conn, payload []byte) error {
+	if err := validateProtocolPayload(payload); err != nil {
+		return err
+	}
 	var size [2]byte
 	binary.BigEndian.PutUint16(size[:], uint16(len(payload)))
 	if err := writeAll(connection, size[:]); err != nil {
@@ -120,6 +139,9 @@ func sendTCPMessage(connection net.Conn, payload []byte) error {
 
 // sendUDPMessage writes a length-prefixed message to the UDP connection.
 func sendUDPMessage(connection net.Conn, payload []byte) error {
+	if err := validateProtocolPayload(payload); err != nil {
+		return err
+	}
 	var size [2]byte
 	binary.BigEndian.PutUint16(size[:], uint16(len(payload)))
 	totalLen := 2 + len(payload)
@@ -140,12 +162,23 @@ func sendUDPMessage(connection net.Conn, payload []byte) error {
 	frame[0] = size[0]
 	frame[1] = size[1]
 	copy(frame[2:], payload)
-	if err := writeAll(connection, frame); err != nil {
+	n, err := connection.Write(frame)
+	if err != nil {
 		return err
+	}
+	if n != len(frame) {
+		return io.ErrShortWrite
 	}
 	tag := binary.BigEndian.Uint16(payload[:2])
 	logDebug("send udp tag %d len %d", tag, len(payload))
 	hexDump("send", payload)
+	return nil
+}
+
+func validateProtocolPayload(payload []byte) error {
+	if len(payload) < minProtocolMessageSize || len(payload) > maxProtocolMessageSize {
+		return fmt.Errorf("protocol message size %d outside %d..%d", len(payload), minProtocolMessageSize, maxProtocolMessageSize)
+	}
 	return nil
 }
 
@@ -165,41 +198,35 @@ func writeAll(conn net.Conn, data []byte) error {
 	return nil
 }
 
-// udpBuffer holds leftover datagram data between reads.
-var udpBuffer []byte
-
-// udpReadBuf is a reusable scratch buffer for reading UDP datagrams.
-// Reusing this avoids allocating a new 64KB slice on every read.
-var udpReadBuf = make([]byte, 65535)
-
 // readUDPMessage reads a single length-prefixed message from the UDP
-// connection. Packets may be fragmented across multiple datagrams or multiple
-// messages may be present in a single datagram. Data is accumulated in
-// udpBuffer until a full message is available.
+// connection. Datagram boundaries are protocol boundaries: the declared
+// payload length must exactly match the remainder of this one datagram.
 func readUDPMessage(connection net.Conn) ([]byte, error) {
-	for {
-		if len(udpBuffer) >= 2 {
-			sz := int(binary.BigEndian.Uint16(udpBuffer[:2]))
-			if len(udpBuffer) >= 2+sz {
-				msg := append([]byte(nil), udpBuffer[2:2+sz]...)
-				udpBuffer = udpBuffer[2+sz:]
-				tag := binary.BigEndian.Uint16(msg[:2])
-				logDebug("recv udp tag %d len %d", tag, len(msg))
-				hexDump("recv", msg)
-				return msg, nil
-			}
-		}
-
-		n, err := connection.Read(udpReadBuf)
-		if err != nil {
-			//logError("read udp: %v", err)
-			return nil, err
-		}
-		if n == 0 {
-			return nil, fmt.Errorf("short udp packet")
-		}
-		udpBuffer = append(udpBuffer, udpReadBuf[:n]...)
+	readBuf := udpReadBufferPool.Get().([]byte)
+	n, err := connection.Read(readBuf)
+	if err != nil {
+		udpReadBufferPool.Put(readBuf)
+		return nil, err
 	}
+	defer func() {
+		clear(readBuf[:n])
+		udpReadBufferPool.Put(readBuf)
+	}()
+	if n < 2 {
+		return nil, fmt.Errorf("%w: datagram has %d-byte header", errMalformedUDPDatagram, n)
+	}
+	sz := int(binary.BigEndian.Uint16(readBuf[:2]))
+	if sz < minProtocolMessageSize || sz > maxProtocolMessageSize {
+		return nil, fmt.Errorf("%w: payload size %d outside %d..%d", errMalformedUDPDatagram, sz, minProtocolMessageSize, maxProtocolMessageSize)
+	}
+	if sz != n-2 {
+		return nil, fmt.Errorf("%w: declared payload %d, datagram payload %d", errMalformedUDPDatagram, sz, n-2)
+	}
+	msg := append([]byte(nil), readBuf[2:n]...)
+	tag := binary.BigEndian.Uint16(msg[:2])
+	logDebug("recv udp tag %d len %d", tag, len(msg))
+	hexDump("recv", msg)
+	return msg, nil
 }
 
 // sendPlayerInput sends the provided mouse state to the server. When
@@ -212,6 +239,7 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	if mouseDown {
 		flags = kPIMDownField
 	}
+	inputAck, inputResend := networkFrameStateSnapshot()
 
 	commandMu.Lock()
 	nextCommandLocked()
@@ -228,13 +256,20 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	if pendingCommand != "" && !pendingCommandSent {
 		cmd = pendingCommand
 		// Record last-command frame for who throttling.
-		whoLastCommandFrame = ackFrame
+		whoLastCommandFrame = inputAck
 		pendingCommandSent = true
+		if pendingCommandSentAt.IsZero() {
+			pendingCommandSentAt = time.Now()
+		}
 	}
 	commandMu.Unlock()
 	var cmdBytes []byte
 	if cmd != "" {
 		cmdBytes = encodeMacRoman(cmd)
+		if len(cmdBytes) > maxPlayerCommandBytes {
+			logWarn("player command is %d bytes; truncating to classic %d-byte limit", len(cmdBytes), maxPlayerCommandBytes)
+			cmdBytes = cmdBytes[:maxPlayerCommandBytes]
+		}
 	}
 	packetLen := 20 + len(cmdBytes) + 1
 	usePool := packetLen <= messageBufferSize
@@ -255,15 +290,12 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	binary.BigEndian.PutUint16(packet[2:4], uint16(mouseX))
 	binary.BigEndian.PutUint16(packet[4:6], uint16(mouseY))
 	binary.BigEndian.PutUint16(packet[6:8], flags)
-	binary.BigEndian.PutUint32(packet[8:12], uint32(ackFrame))
-	binary.BigEndian.PutUint32(packet[12:16], uint32(resendFrame))
+	binary.BigEndian.PutUint32(packet[8:12], uint32(inputAck))
+	binary.BigEndian.PutUint32(packet[12:16], uint32(inputResend))
 	binary.BigEndian.PutUint32(packet[16:20], packetCommand)
 	copy(packet[20:], cmdBytes)
 	packet[20+len(cmdBytes)] = 0
-	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", ackFrame, resendFrame, packetCommand, mouseX, mouseY, flags)
-	latencyMu.Lock()
-	lastInputSent = time.Now()
-	latencyMu.Unlock()
+	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", inputAck, inputResend, packetCommand, mouseX, mouseY, flags)
 	var err error
 	if reliable {
 		err = sendTCPMessage(connection, packet)
@@ -274,26 +306,11 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 		commandMu.Lock()
 		if pendingCommandID == commandID && pendingCommand == cmd {
 			pendingCommandSent = false
+			pendingCommandSentAt = time.Time{}
 		}
 		commandMu.Unlock()
 	}
 	return err
-}
-
-// pingServer establishes a new TCP connection to the server and returns the
-// time taken to connect. If the connection fails, it returns 0.
-func pingServer() time.Duration {
-	if tcpConn == nil {
-		return 0
-	}
-	addr := tcpConn.RemoteAddr().String()
-	start := time.Now()
-	c, err := net.DialTimeout("tcp", addr, time.Second)
-	if err != nil {
-		return 0
-	}
-	c.Close()
-	return time.Since(start)
 }
 
 // readTCPMessage reads a single length-prefixed message from the TCP connection.
@@ -303,7 +320,10 @@ func readTCPMessage(connection net.Conn) ([]byte, error) {
 		//logError("read tcp size: %v", err)
 		return nil, err
 	}
-	sz := binary.BigEndian.Uint16(sizeBuf[:])
+	sz := int(binary.BigEndian.Uint16(sizeBuf[:]))
+	if sz < minProtocolMessageSize || sz > maxProtocolMessageSize {
+		return nil, fmt.Errorf("TCP message size %d outside %d..%d", sz, minProtocolMessageSize, maxProtocolMessageSize)
+	}
 	buf := make([]byte, sz)
 	if _, err := io.ReadFull(connection, buf); err != nil {
 		return nil, err
@@ -324,10 +344,9 @@ func processServerMessage(msg []byte) {
 	}
 	tag := binary.BigEndian.Uint16(msg[:2])
 	if tag == 2 {
-		noteFrame()
-		// Advance script tick sleepers on each server frame
-		scriptAdvanceTick()
-		handleDrawState(msg, true)
+		if handleDrawState(msg, true) {
+			noteFrame()
+		}
 		return
 	}
 	if txt := decodeMessage(msg); txt != "" {

@@ -304,7 +304,6 @@ var (
 	frameMu         sync.Mutex
 	netLatency      time.Duration
 	netJitter       time.Duration
-	lastInputSent   time.Time
 	latencyMu       sync.Mutex
 	lowFPSSince     time.Time
 	shaderWarnShown bool
@@ -397,6 +396,61 @@ func resetDrawState() {
 	stateMu.Lock()
 	initialState = cloneDrawState(state)
 	stateMu.Unlock()
+}
+
+// resetLiveNetworkSession clears state that must never cross a successful
+// login boundary. The resend value mirrors the classic client's bootstrap
+// marker and is sent in the first player-input packet of the new session.
+func resetLiveNetworkSession() {
+	resetDrawState()
+	clearCommands()
+
+	setNetworkFrameState(0, -1)
+	resetFrameStatistics()
+
+	inputMu.Lock()
+	inputQueue = nil
+	keyStopFrames = 0
+	inputMu.Unlock()
+
+	for {
+		select {
+		case <-frameCh:
+		default:
+			goto frameChannelDrained
+		}
+	}
+
+frameChannelDrained:
+	latencyMu.Lock()
+	netLatency = 0
+	netJitter = 0
+	latencyMu.Unlock()
+}
+
+func recordNetworkLatencySample(rtt time.Duration) {
+	if rtt < 0 {
+		return
+	}
+	latencyMu.Lock()
+	defer latencyMu.Unlock()
+	if netLatency == 0 {
+		netLatency = rtt
+		netJitter = 0
+		return
+	}
+	diff := rtt - netLatency
+	if diff < 0 {
+		diff = -diff
+	}
+	netJitter = (netJitter*7 + diff) / 8
+	netLatency = (netLatency*7 + rtt) / 8
+}
+
+func networkLatencySnapshot() (time.Duration, time.Duration) {
+	latencyMu.Lock()
+	defer latencyMu.Unlock()
+	return netLatency, netJitter
 }
 
 // prepareRenderCacheLocked populates render-ready, sorted/partitioned slices.
@@ -788,10 +842,8 @@ func (g *Game) Update() error {
 	}
 	ensureToolbarAccessible()
 	updateSetupWizardGraphicsDetection()
-	// Advance script tick waiters once per frame
-	scriptAdvanceTick()
 	pollScriptChangeEvents()
-	advanceLegacyMacros(int64(ackFrame))
+	advanceLegacyMacros(int64(acknowledgedFrameSnapshot()))
 	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.IsOpen() {
 		legacyMacroLibraryRefreshErrorsButton()
 	}
@@ -803,7 +855,7 @@ func (g *Game) Update() error {
 		inputText = []rune(plain)
 	}
 	updateKeyboardTest()
-	legacyMacroPollKeyboard(int64(ackFrame), typingElsewhere)
+	legacyMacroPollKeyboard(int64(acknowledgedFrameSnapshot()), typingElsewhere)
 	updateNotifications()
 	updateThinkMessages()
 	// Throttle player maintenance to reduce idle CPU (every ~250ms)
@@ -1046,7 +1098,7 @@ func (g *Game) Update() error {
 				inputText = inputText[:0]
 				inputPos = 0
 				historyPos = len(inputHistory)
-				legacyMacroTriggerExpression(orig, int64(ackFrame))
+				legacyMacroTriggerExpression(orig, int64(acknowledgedFrameSnapshot()))
 			} else {
 				txt := expandShortcut(orig)
 				txt = strings.TrimSpace(txt)
@@ -1192,7 +1244,7 @@ func (g *Game) Update() error {
 		wheelX, wheelY := ebiten.Wheel()
 		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
 		if wheelName != "" && !scriptInputConsumesButton(consumedScriptInput, scriptWheelButtonName(wheelX, wheelY)) {
-			if started, allowDefault := legacyMacroTriggerWheel(wheelName, wheelModifiers, int64(ackFrame)); started && !allowDefault {
+			if started, allowDefault := legacyMacroTriggerWheel(wheelName, wheelModifiers, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 				legacyMacroMarkInputConsumed(wheelName)
 			}
 		}
@@ -1247,7 +1299,7 @@ func (g *Game) Update() error {
 	if click && !uiMouseDown && inGame {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonLeft)
 		event := legacyMacroWorldClickEvent(info, 1, legacyMacroMouseChord(1))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 			click = false
 			heldTime = 0
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonLeft, "click")
@@ -1259,7 +1311,7 @@ func (g *Game) Update() error {
 	if rightClick && inGame && !pointInUI(mx, my) {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
 		event := legacyMacroWorldClickEvent(info, 2, legacyMacroMouseChord(2))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 			rightClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
 		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
@@ -1269,7 +1321,7 @@ func (g *Game) Update() error {
 	if middleClick && inGame && !pointInUI(mx, my) {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonMiddle)
 		event := legacyMacroWorldClickEvent(info, 3, legacyMacroMouseChord(3))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 			middleClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonMiddle, "click3")
 		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
@@ -1290,7 +1342,7 @@ func (g *Game) Update() error {
 		}
 		info := handleWorldClick(baseX, baseY, extra.button)
 		event := legacyMacroWorldClickEvent(info, extra.number, legacyMacroMouseChord(extra.number))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(ackFrame)); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 			legacyMacroMarkMouseConsumed(extra.button, extra.name)
 		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
 			legacyMacroMarkMouseConsumed(extra.button, extra.name)
@@ -3585,11 +3637,7 @@ func noteFrame() {
 				}
 			}
 			if modeMS > 0 {
-				fps := (1000.0 / float64(modeMS))
-				if fps < 1 {
-					fps = 1
-				}
-				frameInterval = time.Second / time.Duration(fps)
+				frameInterval = time.Duration(modeMS) * time.Millisecond
 			}
 		}
 	}
@@ -3635,7 +3683,18 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 			delay, rs := altNetDelay(frameCount, rampStart, time.Now(), time.Duration(gs.AltNetDelay)*time.Millisecond)
 			rampStart = rs
 			if delay > 0 {
-				time.Sleep(delay)
+				timer := time.NewTimer(delay)
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					if !timer.Stop() {
+						select {
+						case <-timer.C:
+						default:
+						}
+					}
+					return
+				}
 			}
 		}
 		frameMu.Lock()
@@ -3683,82 +3742,93 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 	}
 }
 
-func udpReadLoop(ctx context.Context, conn net.Conn) {
+func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- []byte) {
 	for {
-		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-			return
-		}
 		m, err := readUDPMessage(conn)
 		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					continue
-				}
+			if errors.Is(err, errMalformedUDPDatagram) {
+				logWarn("discarding UDP datagram: %v", err)
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 			handleDisconnect()
 			return
 		}
-		alreadyProcessed := recordIncomingMovieMessage(m)
-		latencyMu.Lock()
-		if !lastInputSent.IsZero() {
-			rtt := time.Since(lastInputSent)
-			if netLatency == 0 {
-				netLatency = rtt
-				netJitter = 0
-			} else {
-				diff := rtt - netLatency
-				if diff < 0 {
-					diff = -diff
-				}
-				netJitter = (netJitter*7 + diff) / 8
-				netLatency = (netLatency*7 + rtt) / 8
-			}
-			lastInputSent = time.Time{}
-		}
-		latencyMu.Unlock()
-		if !alreadyProcessed {
-			processServerMessage(m)
+		select {
+		case messages <- m:
+		case <-ctx.Done():
+			return
 		}
 	}
 }
 
-func tcpReadLoop(ctx context.Context, conn net.Conn) {
-loop:
+func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- []byte) {
 	for {
-		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-			break
-		}
 		m, err := readTCPMessage(conn)
 		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				select {
-				case <-ctx.Done():
-					break loop
-				default:
-					continue
-				}
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
 			handleDisconnect()
-			break
+			return
 		}
-		if !recordIncomingMovieMessage(m) {
-			processServerMessage(m)
+		select {
+		case messages <- m:
+		case <-ctx.Done():
+			return
 		}
-		// Allow maintenance queues to issue commands even when the
-		// player isn't moving; this keeps /be-info and /be-who flowing
-		// during idle periods on live connections.
-		if commandQueueIsIdle() {
-			if !maybeEnqueueInfo() {
-				_ = maybeEnqueueWho()
-			}
+	}
+}
+
+func dispatchIncomingServerMessage(m []byte, reliable bool) {
+	if !recordIncomingMovieMessage(m) {
+		processServerMessage(m)
+	}
+	if reliable && commandQueueIsIdle() {
+		// Allow maintenance queues to issue commands even when the player is
+		// not moving; this keeps /be-info and /be-who flowing during idle
+		// periods on live connections.
+		if !maybeEnqueueInfo() {
+			_ = maybeEnqueueWho()
+		}
+	}
+}
+
+// serverMessageDispatchLoop is the sole live caller of the protocol decoder.
+// The classic client drains TCP before UDP, so check the reliable queue first
+// whenever both transports have pending data.
+func serverMessageDispatchLoop(ctx context.Context, tcpMessages, udpMessages <-chan []byte) {
+	serverMessageDispatchLoopWithHandler(ctx, tcpMessages, udpMessages, dispatchIncomingServerMessage)
+}
+
+func serverMessageDispatchLoopWithHandler(
+	ctx context.Context,
+	tcpMessages, udpMessages <-chan []byte,
+	handle func([]byte, bool),
+) {
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case m := <-tcpMessages:
+			handle(m, true)
+			continue
+		default:
 		}
 		select {
 		case <-ctx.Done():
-			break loop
-		default:
+			return
+		case m := <-tcpMessages:
+			handle(m, true)
+		case m := <-udpMessages:
+			handle(m, false)
 		}
 	}
 }

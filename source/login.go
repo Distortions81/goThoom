@@ -152,19 +152,7 @@ func handleDisconnect() {
 	if recorder != nil {
 		stopRecording()
 	}
-	// Reset frame/loss counters so a new session starts fresh.
-	lastAckFrame = 0
-	numFrames = 0
-	lostFrames = 0
-	for i := range frameBuckets {
-		frameBuckets[i] = 0
-	}
-	for i := range lostBuckets {
-		lostBuckets[i] = 0
-	}
-	for i := range bucketTimes {
-		bucketTimes[i] = 0
-	}
+	resetFrameStatistics()
 	resetNightState()
 	// Reset session sources so we return to splash state
 	clmov = ""
@@ -280,7 +268,7 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 	if err != nil {
 		return "", fmt.Errorf("read challenge via %s: %w", target.addr, err)
 	}
-	if len(msg) < 16 {
+	if len(msg) < 32 {
 		return "", fmt.Errorf("short challenge message via %s", target.addr)
 	}
 	const kMsgChallenge = 18
@@ -379,10 +367,7 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 // login connects to the server and performs the login handshake.
 // It runs the network loops and blocks until the context is canceled.
 func login(ctx context.Context, clVersion int) error {
-	resetDrawState()
-	// Commands are acknowledged only within their originating game session.
-	// Never carry an unacknowledged command across a reconnect.
-	clearCommands()
+	resetLiveNetworkSession()
 	if gs.AutoRecord {
 		recordingMovie = true
 	}
@@ -544,7 +529,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		udp = nil
 		return fmt.Errorf("read challenge via %s: %w", target.addr, err)
 	}
-	if len(msg) < 16 {
+	if len(msg) < 32 {
 		tcp.Close()
 		tcp = nil
 		udp.Close()
@@ -628,6 +613,13 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 			udp = nil
 			return fmt.Errorf("read login response via %s: %w", target.addr, err)
 		}
+		if len(resp) < 4 {
+			tcp.Close()
+			tcp = nil
+			udp.Close()
+			udp = nil
+			return fmt.Errorf("short login response via %s", target.addr)
+		}
 		resTag := binary.BigEndian.Uint16(resp[:2])
 		const kMsgLogOnResp = 13
 		if resTag == kMsgLogOnResp {
@@ -640,7 +632,14 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 			break
 		}
 		if resTag == kMsgChallenge {
-			challenge = resp[16 : 16+16]
+			if len(resp) < 32 {
+				tcp.Close()
+				tcp = nil
+				udp.Close()
+				udp = nil
+				return fmt.Errorf("short repeated challenge via %s", target.addr)
+			}
+			challenge = resp[16:32]
 			continue
 		}
 		tcp.Close()
@@ -720,9 +719,27 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("clear udp deadline %s: %w", target.addr, err)
 	}
 
-	go sendInputLoop(ctx, udp, tcp)
-	go udpReadLoop(ctx, udp)
-	go tcpReadLoop(ctx, tcp)
+	tcpMessages := make(chan []byte, 16)
+	udpMessages := make(chan []byte, 16)
+	dispatchDone := make(chan struct{})
+	var networkLoops sync.WaitGroup
+	go func() {
+		serverMessageDispatchLoop(ctx, tcpMessages, udpMessages)
+		close(dispatchDone)
+	}()
+	networkLoops.Add(3)
+	go func() {
+		defer networkLoops.Done()
+		sendInputLoop(ctx, udp, tcp)
+	}()
+	go func() {
+		defer networkLoops.Done()
+		udpReadLoop(ctx, udp, udpMessages)
+	}()
+	go func() {
+		defer networkLoops.Done()
+		tcpReadLoop(ctx, tcp, tcpMessages)
+	}()
 
 	<-ctx.Done()
 	if tcp != nil {
@@ -735,5 +752,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	if udp != nil {
 		udp.Close()
 	}
+	<-dispatchDone
+	networkLoops.Wait()
 	return nil
 }

@@ -232,20 +232,48 @@ var doDebug bool
 var silent bool
 var ackFrame int32
 var resendFrame int32
+var frameStateMu sync.RWMutex
 var lastAckFrame int32
 var numFrames int
 var lostFrames int
 var frameBuckets [5]int
 var lostBuckets [5]int
 var bucketTimes [5]int64
+var frameStatsMu sync.Mutex
 var commandNum uint32 = 1
 var pendingCommand string
 var pendingCommandID uint8
 var pendingCommandSent bool
+var pendingCommandSentAt time.Time
 var commandQueue []string
 var commandMu sync.Mutex
 var playerName string
 var playerIndex uint8 = 0xff
+
+func networkFrameStateSnapshot() (int32, int32) {
+	frameStateMu.RLock()
+	defer frameStateMu.RUnlock()
+	return ackFrame, resendFrame
+}
+
+func acknowledgedFrameSnapshot() int32 {
+	frameStateMu.RLock()
+	defer frameStateMu.RUnlock()
+	return ackFrame
+}
+
+func setNetworkFrameState(ack, resend int32) {
+	frameStateMu.Lock()
+	ackFrame = ack
+	resendFrame = resend
+	frameStateMu.Unlock()
+}
+
+func setRequestedResendFrame(resend int32) {
+	frameStateMu.Lock()
+	resendFrame = resend
+	frameStateMu.Unlock()
+}
 
 func enqueueCommand(cmd string) {
 	if cmd == "" {
@@ -269,6 +297,7 @@ func nextCommandLocked() {
 		commandQueue = commandQueue[1:]
 		pendingCommandID = 0
 		pendingCommandSent = false
+		pendingCommandSentAt = time.Time{}
 	}
 }
 
@@ -285,18 +314,25 @@ func nextCommandNumberLocked() uint8 {
 // command yet, so the same command and ID are made eligible for retransmission.
 func acknowledgeCommand(ack uint8) {
 	commandMu.Lock()
-	defer commandMu.Unlock()
-	if pendingCommand == "" || pendingCommandID == 0 || !pendingCommandSent {
+	if pendingCommand == "" || pendingCommandID == 0 {
+		commandMu.Unlock()
 		return
 	}
 	if pendingCommandID != ack {
 		pendingCommandSent = false
+		commandMu.Unlock()
 		return
 	}
+	sentAt := pendingCommandSentAt
 	pendingCommand = ""
 	pendingCommandID = 0
 	pendingCommandSent = false
+	pendingCommandSentAt = time.Time{}
 	nextCommandLocked()
+	commandMu.Unlock()
+	if !sentAt.IsZero() {
+		recordNetworkLatencySample(time.Since(sentAt))
+	}
 }
 
 func commandQueueIsIdle() bool {
@@ -317,6 +353,7 @@ func enqueueCommandIfIdle(cmd string) bool {
 	pendingCommand = cmd
 	pendingCommandID = 0
 	pendingCommandSent = false
+	pendingCommandSentAt = time.Time{}
 	return true
 }
 
@@ -325,8 +362,23 @@ func clearCommands() {
 	pendingCommand = ""
 	pendingCommandID = 0
 	pendingCommandSent = false
+	pendingCommandSentAt = time.Time{}
 	commandQueue = nil
+	whoLastCommandFrame = -1
 	commandMu.Unlock()
+}
+
+func resetFrameStatistics() {
+	frameStatsMu.Lock()
+	defer frameStatsMu.Unlock()
+	lastAckFrame = 0
+	numFrames = 0
+	lostFrames = 0
+	for i := range frameBuckets {
+		frameBuckets[i] = 0
+		lostBuckets[i] = 0
+		bucketTimes[i] = 0
+	}
 }
 
 func lastCommandFrameSnapshot() int32 {
@@ -339,6 +391,8 @@ func lastCommandFrameSnapshot() int32 {
 // It returns the number of frames missing between the previous and
 // current acknowledgement numbers.
 func updateFrameCounters(newFrame int32) int {
+	frameStatsMu.Lock()
+	defer frameStatsMu.Unlock()
 	now := time.Now().Unix()
 	idx := int(now % 5)
 	if bucketTimes[idx] != now {
@@ -368,6 +422,8 @@ func updateFrameCounters(newFrame int32) int {
 }
 
 func droppedPercent() float64 {
+	frameStatsMu.Lock()
+	defer frameStatsMu.Unlock()
 	now := time.Now().Unix()
 	total := 0
 	lost := 0

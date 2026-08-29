@@ -279,6 +279,23 @@ func TestLiveStateFragmentProcessesMultipleCompleteRecords(t *testing.T) {
 	}
 }
 
+func TestBadLogicalStateRecordDoesNotBlockFollowingRecord(t *testing.T) {
+	prepareLiveStateFragmentTest(t)
+	bad := []byte{0, 1, 'x'} // one-byte payload without the required C string terminator
+	good := classicStateRecordForTest("after bad record")
+	fragment := append(append([]byte(nil), bad...), good...)
+
+	if !handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "after bad record", fragment), false) {
+		t.Fatal("bad logical record rejected its structurally valid frame")
+	}
+	stateMu.Lock()
+	bubbles := append([]bubble(nil), state.bubbles...)
+	stateMu.Unlock()
+	if len(bubbles) != 1 || bubbles[0].Text != "after bad record" {
+		t.Fatalf("following logical record was not decoded: %#v", bubbles)
+	}
+}
+
 func TestPendingStateFragmentSurvivesDrawStateClone(t *testing.T) {
 	original := drawState{stateDataStream: []byte{0, 12, 1, 2, 3}}
 	cloned := cloneDrawState(original)
@@ -343,6 +360,9 @@ func TestLiveFrameOrderingAndStateRecovery(t *testing.T) {
 	if ackFrame != 3 || resendFrame != 2 {
 		t.Fatalf("gap frame ack=%d resend=%d, want 3/2", ackFrame, resendFrame)
 	}
+	if frameCounter != 3 {
+		t.Fatalf("live frame clock = %d, want server acknowledgement 3", frameCounter)
+	}
 	stateMu.Lock()
 	if len(state.bubbles) != 1 || state.bubbles[0].Text != "first" {
 		got := append([]bubble(nil), state.bubbles...)
@@ -354,6 +374,9 @@ func TestLiveFrameOrderingAndStateRecovery(t *testing.T) {
 	handleDrawState(liveDrawPacketForTest(4, 2, "recovered"), false)
 	if ackFrame != 4 || resendFrame != 0 {
 		t.Fatalf("recovery frame ack=%d resend=%d, want 4/0", ackFrame, resendFrame)
+	}
+	if frameCounter != 4 {
+		t.Fatalf("recovered live frame clock = %d, want 4", frameCounter)
 	}
 	stateMu.Lock()
 	lastBubble := state.bubbles[len(state.bubbles)-1]
