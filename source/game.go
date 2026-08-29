@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -297,16 +298,19 @@ var gameStarted = make(chan struct{})
 const framems = 200
 
 var (
-	frameCh         = make(chan struct{}, 1)
-	lastFrameTime   time.Time
-	frameInterval   = framems * time.Millisecond
-	intervalHist    = map[int]int{}
-	frameMu         sync.Mutex
-	netLatency      time.Duration
-	netJitter       time.Duration
-	latencyMu       sync.Mutex
-	lowFPSSince     time.Time
-	shaderWarnShown bool
+	frameCh          = make(chan struct{}, 1)
+	lastFrameTime    time.Time
+	frameInterval    = framems * time.Millisecond
+	intervalHist     = map[int]int{}
+	frameMu          sync.Mutex
+	netLatency       time.Duration
+	netJitter        time.Duration
+	netJitterSamples [64]time.Duration
+	netJitterCount   int
+	netJitterNext    int
+	latencyMu        sync.Mutex
+	lowFPSSince      time.Time
+	shaderWarnShown  bool
 )
 
 var (
@@ -425,7 +429,25 @@ frameChannelDrained:
 	latencyMu.Lock()
 	netLatency = 0
 	netJitter = 0
+	netJitterCount = 0
+	netJitterNext = 0
 	latencyMu.Unlock()
+}
+
+// p99Duration returns the 99th percentile of a small, unsorted duration
+// sample. With fewer than 100 samples this deliberately selects the worst
+// observation, which is the conservative choice while the estimate warms up.
+func p99Duration(samples []time.Duration) time.Duration {
+	if len(samples) == 0 {
+		return 0
+	}
+	ordered := append([]time.Duration(nil), samples...)
+	slices.Sort(ordered)
+	index := (99*len(ordered)+99)/100 - 1
+	if index >= len(ordered) {
+		index = len(ordered) - 1
+	}
+	return ordered[index]
 }
 
 func recordNetworkLatencySample(rtt time.Duration) {
@@ -443,7 +465,12 @@ func recordNetworkLatencySample(rtt time.Duration) {
 	if diff < 0 {
 		diff = -diff
 	}
-	netJitter = (netJitter*7 + diff) / 8
+	netJitterSamples[netJitterNext] = diff
+	netJitterNext = (netJitterNext + 1) % len(netJitterSamples)
+	if netJitterCount < len(netJitterSamples) {
+		netJitterCount++
+	}
+	netJitter = p99Duration(netJitterSamples[:netJitterCount])
 	netLatency = (netLatency*7 + rtt) / 8
 }
 
@@ -782,6 +809,8 @@ var lastFocused bool
 var suppressInterpOnce bool
 
 func (g *Game) Update() error {
+	updateStarted := time.Now()
+	defer func() { recordGameLoopWork(time.Since(updateStarted)) }()
 	// Background behaviors: mute and slow render when unfocused
 	focused := ebiten.IsFocused()
 	if focused != lastFocused {
@@ -909,6 +938,7 @@ func (g *Game) Update() error {
 			lastDebugStatsUpdate = now
 		}
 	}
+	updateStatsWindow(now)
 
 	if joystickWin != nil && joystickWin.IsOpen() {
 		updateJoystickWindow()
@@ -1589,7 +1619,14 @@ func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	now := time.Now()
+	drawStarted := time.Now()
+	drawWorkRecorded := false
+	defer func() {
+		if !drawWorkRecorded {
+			recordGameLoopWork(time.Since(drawStarted))
+		}
+	}()
+	now := drawStarted
 	drawFrameNow = now
 	defer func() { drawFrameNow = time.Time{} }()
 	defer shaderCompilationFrameDrawn()
@@ -1612,7 +1649,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		target := time.Second / time.Duration(fps)
 		defer func() {
-			if elapsed := time.Since(frameStart); elapsed < target {
+			elapsed := time.Since(frameStart)
+			recordGameLoopWork(elapsed)
+			drawWorkRecorded = true
+			if elapsed < target {
 				time.Sleep(target - elapsed)
 			}
 		}()
@@ -3649,39 +3689,46 @@ func noteFrame() {
 	}
 }
 
-// altNetDelay calculates the current artificial network delay.
-// It stays at 0 for the first two frames after login and then ramps
-// linearly to the target over three seconds.
-func altNetDelay(frame int, start time.Time, now time.Time, target time.Duration) (time.Duration, time.Time) {
-	if frame <= 2 || target <= 0 {
-		return 0, start
+// networkAdjustmentDelay keeps the configured post-frame offset when reply
+// timing is unknown. Once a command acknowledgement has measured a server
+// round trip, it shortens that offset as needed so the next input has time to
+// reach the server before its next frame. The jitter term is a rolling p99 of
+// observed reply-time deviation, making the estimate conservative without a
+// fixed timing margin.
+func networkAdjustmentDelay(frameInterval, replyTime, jitter time.Duration, offsetMS int) time.Duration {
+	if offsetMS <= 0 {
+		return 0
 	}
-	if start.IsZero() {
-		start = now
+	delay := time.Duration(offsetMS) * time.Millisecond
+	if frameInterval <= 0 || replyTime <= 0 {
+		return delay
 	}
-	elapsed := now.Sub(start)
-	if elapsed >= 3*time.Second {
-		return target, start
+	latestSafeSend := frameInterval - replyTime - jitter
+	if latestSafeSend <= 0 {
+		return 0
 	}
-	return time.Duration(float64(target) * elapsed.Seconds() / 3.0), start
+	if delay > latestSafeSend {
+		return latestSafeSend
+	}
+	return delay
 }
 
 func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 	// nextReliable determines when to send the next keep-alive packet via
 	// the reliable channel to preserve NAT mappings.
 	var nextReliable time.Time
-	var rampStart time.Time
-	var frameCount int
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-frameCh:
 		}
-		frameCount++
 		if gs.AltNetMode {
-			delay, rs := altNetDelay(frameCount, rampStart, time.Now(), time.Duration(gs.AltNetDelay)*time.Millisecond)
-			rampStart = rs
+			frameMu.Lock()
+			interval := frameInterval
+			frameMu.Unlock()
+			replyTime, jitter := networkLatencySnapshot()
+			delay := networkAdjustmentDelay(interval, replyTime, jitter, gs.AltNetDelay)
 			if delay > 0 {
 				timer := time.NewTimer(delay)
 				select {

@@ -106,7 +106,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"floating_point_sprite_coordinates": true`,
 		`"artwork_upscale_style": "crisp"`,
 		`"status_bar_placement": "upper_right"`,
-		`"alternate_network_delay_ms": 37`,
+		`"predictive_network_adjustment_offset_ms": 37`,
 		`"dark_mode_names_and_bubbles"`,
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
@@ -122,7 +122,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 			t.Errorf("v4 settings missing %s", expected)
 		}
 	}
-	for _, legacy := range []string{`"Version"`, `"SpriteUpscale"`, `"BlendPicts"`, `"dark_bubbles_and_names"`} {
+	for _, legacy := range []string{`"Version"`, `"SpriteUpscale"`, `"BlendPicts"`, `"dark_bubbles_and_names"`, `"alternate_network_enabled"`, `"alternate_network_delay_ms"`} {
 		if strings.Contains(text, legacy) {
 			t.Errorf("v4 settings retained legacy key %s", legacy)
 		}
@@ -131,6 +131,33 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		if strings.Contains(text, obsolete) {
 			t.Errorf("v4 settings retained obsolete key %s", obsolete)
 		}
+	}
+}
+
+func TestSettingsV4ReadsAlternateNetworkKeys(t *testing.T) {
+	data, err := marshalSettingsDocument(gsdef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc settingsDocument
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	delete(doc.General, "predictive_network_adjustment_enabled")
+	delete(doc.General, "predictive_network_adjustment_offset_ms")
+	doc.General["alternate_network_enabled"] = json.RawMessage("true")
+	doc.General["alternate_network_delay_ms"] = json.RawMessage("73")
+	data, err = json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := unmarshalSettingsDocument(data, gsdef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.AltNetMode || got.AltNetDelay != 73 {
+		t.Fatalf("legacy alternate network settings = %v/%d, want true/73", got.AltNetMode, got.AltNetDelay)
 	}
 }
 

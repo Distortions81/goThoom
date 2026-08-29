@@ -439,6 +439,30 @@ func droppedPercent() float64 {
 	return float64(lost) * 100 / float64(total)
 }
 
+// packetLossSnapshot reports the recent rolling loss percentage alongside the
+// whole-session loss percentage and counts. The recent value covers the same
+// five-second window used by the toolbar.
+func packetLossSnapshot() (recent, session float64, received, lost int) {
+	frameStatsMu.Lock()
+	defer frameStatsMu.Unlock()
+	now := time.Now().Unix()
+	recentTotal, recentLost := 0, 0
+	for i := range frameBuckets {
+		if now-bucketTimes[i] < 5 {
+			recentTotal += frameBuckets[i]
+			recentLost += lostBuckets[i]
+		}
+	}
+	if recentTotal > 0 {
+		recent = float64(recentLost) * 100 / float64(recentTotal)
+	}
+	received, lost = numFrames, lostFrames
+	if total := received + lost; total > 0 {
+		session = float64(lost) * 100 / float64(total)
+	}
+	return recent, session, received, lost
+}
+
 const (
 	kBubbleNormal = iota
 	kBubbleWhisper

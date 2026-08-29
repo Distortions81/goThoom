@@ -357,7 +357,7 @@ var gsdef settings = settings{
 	PrecacheSounds:   defaultPrecacheSounds,
 	smoothMoving:     false,
 	recordAssetStats: false,
-	AltNetMode:       true,
+	AltNetMode:       false,
 	AltNetDelay:      100,
 	hideMobiles:      false,
 	imgPlanesDebug:   false,

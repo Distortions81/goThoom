@@ -233,28 +233,42 @@ func TestTiledGameImageFillsEveryManagedPixel(t *testing.T) {
 	}
 }
 
-func TestAltNetDelay(t *testing.T) {
-	full := 100 * time.Millisecond
-	var start time.Time
+func TestNetworkAdjustmentDelay(t *testing.T) {
+	const frame = 200 * time.Millisecond
 
-	if d, s := altNetDelay(1, start, time.Now(), full); d != 0 || !s.IsZero() {
-		t.Fatalf("frame 1 got delay %v start %v", d, s)
+	tests := []struct {
+		name              string
+		replyTime, jitter time.Duration
+		offset            int
+		want              time.Duration
+	}{
+		{name: "disabled offset", offset: 0, want: 0},
+		{name: "no reply measurement keeps offset", offset: 100, want: 100 * time.Millisecond},
+		{name: "room before next frame keeps offset", replyTime: 40 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 100, want: 100 * time.Millisecond},
+		{name: "reply time advances send", replyTime: 100 * time.Millisecond, jitter: 20 * time.Millisecond, offset: 100, want: 80 * time.Millisecond},
+		{name: "late reply sends immediately", replyTime: 190 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 100, want: 0},
 	}
-
-	now := time.Now()
-	if d, s := altNetDelay(3, start, now, full); d != 0 || s.IsZero() {
-		t.Fatalf("frame 3 got delay %v start %v", d, s)
-	} else {
-		start = s
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := networkAdjustmentDelay(frame, tt.replyTime, tt.jitter, tt.offset); got != tt.want {
+				t.Fatalf("networkAdjustmentDelay() = %v, want %v", got, tt.want)
+			}
+		})
 	}
+}
 
-	half := start.Add(1500 * time.Millisecond)
-	if d, _ := altNetDelay(4, start, half, full); d < 49*time.Millisecond || d > 51*time.Millisecond {
-		t.Fatalf("half ramp got %v", d)
+func TestP99Duration(t *testing.T) {
+	if got := p99Duration(nil); got != 0 {
+		t.Fatalf("p99Duration(nil) = %v, want 0", got)
 	}
-
-	end := start.Add(3 * time.Second)
-	if d, _ := altNetDelay(10, start, end, full); d != full {
-		t.Fatalf("end ramp got %v want %v", d, full)
+	if got := p99Duration([]time.Duration{2 * time.Millisecond, 7 * time.Millisecond, time.Millisecond}); got != 7*time.Millisecond {
+		t.Fatalf("p99Duration() = %v, want 7ms while the sample window is warming up", got)
+	}
+	samples := make([]time.Duration, 100)
+	for i := range samples {
+		samples[i] = time.Duration(i+1) * time.Millisecond
+	}
+	if got := p99Duration(samples); got != 99*time.Millisecond {
+		t.Fatalf("p99Duration() = %v, want 99ms", got)
 	}
 }

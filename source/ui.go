@@ -584,6 +584,34 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(mixBtn)
 
+	statsBtn, statsEvents := eui.NewButton()
+	statsBtn.Text = "Stats"
+	statsBtn.SetTooltip("Show live network, frame-rate, and cache statistics.")
+	statsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	statsBtn.FontSize = toolFontSize
+	statsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeStatsWindow()
+			statsWin.ToggleNear(ev.Item)
+			lastStatsRender = time.Time{}
+			updateStatsWindow(time.Now())
+		}
+	}
+	row1.AddItem(statsBtn)
+
+	exitBtn, exitEvents := eui.NewButton()
+	exitBtn.Text = "Logout"
+	exitBtn.SetTooltip("Disconnect and return to the login screen.")
+	exitBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	exitBtn.FontSize = toolFontSize
+	exitBtn.Color = eui.ColorDarkRed
+	exitEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmExitSession()
+		}
+	}
+	row2.AddItem(exitBtn)
+
 	/*
 	   stopBtn, stopEvents := eui.NewButton()
 	   stopBtn.Text = "Stop scripts"
@@ -6641,10 +6669,10 @@ func makeAdvancedSettingsWindow() {
 	addSectionLabel(systemCol, "Network")
 
 	altNetCB, altNetEvents := eui.NewCheckbox()
-	altNetCB.Text = "Alt Networking"
+	altNetCB.Text = "Predictive Network Adjustment (PNA)"
 	altNetCB.Size = eui.Point{X: columnWidth, Y: 24}
 	altNetCB.Checked = gs.AltNetMode
-	altNetCB.SetTooltip("Delay input after server packets.")
+	altNetCB.SetTooltip("Uses reply time and p99 jitter to send input before the next server frame. Leave off for original network timing.")
 	altNetEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.AltNetMode = ev.Checked
@@ -6654,7 +6682,7 @@ func makeAdvancedSettingsWindow() {
 	systemCol.AddItem(altNetCB)
 
 	netDelaySlider, netDelayEvents := eui.NewSlider()
-	netDelaySlider.Label = "Net Delay (ms)"
+	netDelaySlider.Label = "PNA offset (ms)"
 	netDelaySlider.MinValue = 0
 	netDelaySlider.MaxValue = 190
 	netDelaySlider.Value = float32(gs.AltNetDelay)
