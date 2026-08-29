@@ -45,35 +45,37 @@ var (
 )
 
 var (
-	statsWin          *eui.WindowData
-	statsReplyMetric  statsMetric
-	statsJitterMetric statsMetric
-	statsRecentLoss   statsMetric
-	statsSessionLoss  statsMetric
-	statsNetworkText  *eui.ItemData
-	statsFPSMetric    statsMetric
-	statsUpdateMetric statsMetric
-	statsCPUMetric    statsMetric
-	statsRateText     *eui.ItemData
-	statsArtwork      statsMetric
-	statsSounds       statsMetric
-	statsCacheTotal   statsMetric
-	statsGPUMemory    statsMetric
-	statsMemoryText   *eui.ItemData
-	statsNetworkGraph *eui.ItemData
-	statsRateGraph    *eui.ItemData
-	statsCacheGraph   *eui.ItemData
-	statsNetworkImage *ebiten.Image
-	statsRateImage    *ebiten.Image
-	statsCacheImage   *ebiten.Image
-	statsHistory      [statsHistorySize]liveStatsSample
-	statsHistoryCount int
-	statsHistoryNext  int
-	lastStatsSample   time.Time
-	lastStatsRender   time.Time
-	gameWorkMu        sync.Mutex
-	gameWorkBuckets   [5]time.Duration
-	gameWorkTimes     [5]int64
+	statsWin            *eui.WindowData
+	statsReplyMetric    statsMetric
+	statsJitterMetric   statsMetric
+	statsRecentLoss     statsMetric
+	statsSessionLoss    statsMetric
+	statsPNACheckbox    *eui.ItemData
+	advancedPNACheckbox *eui.ItemData
+	statsNetworkText    *eui.ItemData
+	statsFPSMetric      statsMetric
+	statsUpdateMetric   statsMetric
+	statsCPUMetric      statsMetric
+	statsRateText       *eui.ItemData
+	statsArtwork        statsMetric
+	statsSounds         statsMetric
+	statsCacheTotal     statsMetric
+	statsGPUMemory      statsMetric
+	statsMemoryText     *eui.ItemData
+	statsNetworkGraph   *eui.ItemData
+	statsRateGraph      *eui.ItemData
+	statsCacheGraph     *eui.ItemData
+	statsNetworkImage   *ebiten.Image
+	statsRateImage      *ebiten.Image
+	statsCacheImage     *ebiten.Image
+	statsHistory        [statsHistorySize]liveStatsSample
+	statsHistoryCount   int
+	statsHistoryNext    int
+	lastStatsSample     time.Time
+	lastStatsRender     time.Time
+	gameWorkMu          sync.Mutex
+	gameWorkBuckets     [5]time.Duration
+	gameWorkTimes       [5]int64
 )
 
 // recordGameLoopWork tracks time spent in this client's Update and Draw
@@ -179,6 +181,25 @@ func setStatsMetric(metric statsMetric, value string) {
 	metric.value.Dirty = true
 }
 
+func setPNAEnabled(enabled bool) {
+	gs.AltNetMode = enabled
+	for _, checkbox := range []*eui.ItemData{statsPNACheckbox, advancedPNACheckbox} {
+		if checkbox != nil && checkbox.Checked != enabled {
+			checkbox.Checked = enabled
+			checkbox.Dirty = true
+		}
+	}
+	settingsDirty = true
+}
+
+func clearStatsHistory() {
+	statsHistory = [statsHistorySize]liveStatsSample{}
+	statsHistoryCount = 0
+	statsHistoryNext = 0
+	lastStatsSample = time.Time{}
+	lastStatsRender = time.Time{}
+}
+
 func makeStatsWindow() {
 	if statsWin != nil {
 		return
@@ -194,6 +215,32 @@ func makeStatsWindow() {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	networkSection := newConfigurationSection("Network", width)
+	networkControls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	networkControls.Size = eui.Point{X: width, Y: 24}
+	statsPNACheckbox, pnaEvents := eui.NewCheckbox()
+	statsPNACheckbox.Text = "Enable Predictive Network Adjustment (PNA)"
+	statsPNACheckbox.Size = eui.Point{X: width - 92, Y: 24}
+	statsPNACheckbox.Checked = gs.AltNetMode
+	statsPNACheckbox.SetTooltip("Send input early using reply time, p99 jitter, and a small safety margin.")
+	pnaEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			setPNAEnabled(ev.Checked)
+		}
+	}
+	networkControls.AddItem(statsPNACheckbox)
+	clearButton, clearEvents := eui.NewButton()
+	clearButton.Text = "Clear Stats"
+	clearButton.Size = eui.Point{X: 92, Y: 24}
+	clearButton.FontSize = 10
+	clearButton.SetTooltip("Clear the five-minute graph history. Session packet totals and PNA measurements are unchanged.")
+	clearEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			clearStatsHistory()
+			updateStatsWindow(time.Now())
+		}
+	}
+	networkControls.AddItem(clearButton)
+	networkSection.AddItem(networkControls)
 	networkMetrics, metrics := newStatsMetricRow(width, "REPLY TIME", "P99 JITTER", "RECENT LOSS", "SESSION LOSS")
 	statsReplyMetric, statsJitterMetric, statsRecentLoss, statsSessionLoss = metrics[0], metrics[1], metrics[2], metrics[3]
 	networkSection.AddItem(networkMetrics)
@@ -226,8 +273,25 @@ func makeStatsWindow() {
 	cacheMetrics, metrics := newStatsMetricRow(width, "ARTWORK CACHE", "SOUND CACHE", "TOTAL CACHE", "GPU TEXTURES")
 	statsArtwork, statsSounds, statsCacheTotal, statsGPUMemory = metrics[0], metrics[1], metrics[2], metrics[3]
 	cacheSection.AddItem(cacheMetrics)
-	statsMemoryText = newStatsDetail(width, 20, 10)
-	cacheSection.AddItem(statsMemoryText)
+	memoryControls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	memoryControls.Size = eui.Point{X: width, Y: 24}
+	statsMemoryText = newStatsDetail(width-104, 24, 10)
+	memoryControls.AddItem(statsMemoryText)
+	clearCachesButton, clearCachesEvents := eui.NewButton()
+	clearCachesButton.Text = "Clear Caches"
+	clearCachesButton.Size = eui.Point{X: 104, Y: 24}
+	clearCachesButton.FontSize = 10
+	clearCachesButton.SetTooltip("Clear decoded artwork and sound caches. Enabled precaching may begin filling them again immediately.")
+	clearCachesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			clearCaches()
+			lastStatsSample = time.Time{}
+			lastStatsRender = time.Time{}
+			updateStatsWindow(time.Now())
+		}
+	}
+	memoryControls.AddItem(clearCachesButton)
+	cacheSection.AddItem(memoryControls)
 	cacheSection.AddItem(newStatsLegend(width,
 		statsLegendEntry{label: "Total cache memory", color: statsCacheMemoryColor},
 		statsLegendEntry{label: "GPU textures", color: statsGPUMemoryColor},
@@ -365,6 +429,10 @@ func updateStatsWindow(now time.Time) {
 		advance = 0
 	}
 	recentLoss, sessionLoss, received, lost := packetLossSnapshot()
+	if statsPNACheckbox != nil && statsPNACheckbox.Checked != gs.AltNetMode {
+		statsPNACheckbox.Checked = gs.AltNetMode
+		statsPNACheckbox.Dirty = true
+	}
 	setStatsMetric(statsReplyMetric, formatToolbarLatency(reply))
 	setStatsMetric(statsJitterMetric, formatToolbarLatency(jitter))
 	setStatsMetric(statsRecentLoss, fmt.Sprintf("%.1f%%", recentLoss))
@@ -374,8 +442,8 @@ func updateStatsWindow(now time.Time) {
 		if gs.AltNetMode {
 			timing = fmt.Sprintf("send in %s, %s early", formatToolbarLatency(adjustment), formatToolbarLatency(advance))
 		}
-		statsNetworkText.Text = fmt.Sprintf("PNA %s   |   Offset %s   |   %s\nPackets: %d received, %d lost",
-			mode, formatToolbarLatency(configuredOffset), timing, received, lost)
+		statsNetworkText.Text = fmt.Sprintf("PNA %s   |   Offset %s   |   Safety %s   |   %s\nPackets: %d received, %d lost",
+			mode, formatToolbarLatency(configuredOffset), formatToolbarLatency(networkAdjustmentSafetyMargin), timing, received, lost)
 		statsNetworkText.Dirty = true
 	}
 	drawStatsGraph(statsNetworkImage, replies, jitters, statsReplyColor, statsJitterColor)

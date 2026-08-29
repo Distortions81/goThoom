@@ -3378,6 +3378,10 @@ func reserveMoviePlayback(filename string) bool {
 }
 
 func startLogin() {
+	startLoginWithDemoCandidates(nil)
+}
+
+func startLoginWithDemoCandidates(demoCandidates []string) {
 	loginMu.Lock()
 	if loginInProgress || tcpConn != nil || clmov != "" || playingMovie {
 		loginMu.Unlock()
@@ -3396,7 +3400,7 @@ func startLogin() {
 		loginMu.Lock()
 		loginCancel = cancel
 		loginMu.Unlock()
-		err := login(ctx, clVersion)
+		err := loginWithDemoCandidates(ctx, clVersion, demoCandidates)
 		loginMu.Lock()
 		loginCancel = nil
 		loginInProgress = false
@@ -3408,6 +3412,12 @@ func startLogin() {
 			discardStagedPassword()
 			clearPasswordInput(passInput, &pass)
 			passHash = ""
+			if len(demoCandidates) > 0 {
+				loginMu.Lock()
+				demoLoginActive = false
+				loginMu.Unlock()
+				name = freeDemoSelection
+			}
 			if connected {
 				return
 			}
@@ -3509,7 +3519,7 @@ func startDemoLogin() {
 	loginWin.Close()
 	showConnectDialog("Finding an available demo character...")
 	go func() {
-		n, err := fetchRandomDemoCharacter(clVersion)
+		demoCandidates, err := fetchDemoCharacters(clVersion)
 		if err != nil {
 			loginMu.Lock()
 			demoLookupInProgress = false
@@ -3524,13 +3534,11 @@ func startDemoLogin() {
 			makeErrorWindow("Error: Demo: " + err.Error())
 			return
 		}
-		name = n
-		passHash = ""
-		pass = "demo"
 		loginMu.Lock()
 		demoLookupInProgress = false
+		demoLoginActive = true
 		loginMu.Unlock()
-		startLogin()
+		startLoginWithDemoCandidates(demoCandidates)
 	}()
 }
 
@@ -6669,14 +6677,14 @@ func makeAdvancedSettingsWindow() {
 	addSectionLabel(systemCol, "Network")
 
 	altNetCB, altNetEvents := eui.NewCheckbox()
+	advancedPNACheckbox = altNetCB
 	altNetCB.Text = "Predictive Network Adjustment (PNA)"
 	altNetCB.Size = eui.Point{X: columnWidth, Y: 24}
 	altNetCB.Checked = gs.AltNetMode
 	altNetCB.SetTooltip("Uses reply time and p99 jitter to send input before the next server frame. Leave off for original network timing.")
 	altNetEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.AltNetMode = ev.Checked
-			settingsDirty = true
+			setPNAEnabled(ev.Checked)
 		}
 	}
 	systemCol.AddItem(altNetCB)

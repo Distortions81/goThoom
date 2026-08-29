@@ -297,6 +297,8 @@ var gameStarted = make(chan struct{})
 
 const framems = 200
 
+const networkAdjustmentSafetyMargin = 5 * time.Millisecond
+
 var (
 	frameCh          = make(chan struct{}, 1)
 	lastFrameTime    time.Time
@@ -3692,9 +3694,8 @@ func noteFrame() {
 // networkAdjustmentDelay keeps the configured post-frame offset when reply
 // timing is unknown. Once a command acknowledgement has measured a server
 // round trip, it shortens that offset as needed so the next input has time to
-// reach the server before its next frame. The jitter term is a rolling p99 of
-// observed reply-time deviation, making the estimate conservative without a
-// fixed timing margin.
+// reach the server before its next frame. The estimate includes both a rolling
+// p99 of observed reply-time deviation and a small fixed safety margin.
 func networkAdjustmentDelay(frameInterval, replyTime, jitter time.Duration, offsetMS int) time.Duration {
 	if offsetMS <= 0 {
 		return 0
@@ -3703,7 +3704,7 @@ func networkAdjustmentDelay(frameInterval, replyTime, jitter time.Duration, offs
 	if frameInterval <= 0 || replyTime <= 0 {
 		return delay
 	}
-	latestSafeSend := frameInterval - replyTime - jitter
+	latestSafeSend := frameInterval - replyTime - jitter - networkAdjustmentSafetyMargin
 	if latestSafeSend <= 0 {
 		return 0
 	}

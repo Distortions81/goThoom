@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -15,14 +16,20 @@ import (
 // fakeServer emulates the minimal Clan Lord server behavior needed
 // for testing the auto-update login flow.
 type fakeServer struct {
-	ln    net.Listener
-	udp   *net.UDPConn
-	port  int
-	mu    sync.Mutex
-	tries int
+	ln         net.Listener
+	udp        *net.UDPConn
+	port       int
+	mu         sync.Mutex
+	tries      int
+	results    []int16
+	loginNames []string
 }
 
 func newFakeServer(t *testing.T) *fakeServer {
+	return newFakeServerWithResults(t, -30972, 0)
+}
+
+func newFakeServerWithResults(t *testing.T, results ...int16) *fakeServer {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -37,9 +44,15 @@ func newFakeServer(t *testing.T) *fakeServer {
 	if err != nil {
 		t.Fatalf("listen udp: %v", err)
 	}
-	fs := &fakeServer{ln: ln, udp: udpConn, port: port}
+	fs := &fakeServer{ln: ln, udp: udpConn, port: port, results: append([]int16(nil), results...)}
 	go fs.serve()
 	return fs
+}
+
+func (s *fakeServer) attemptedLoginNames() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.loginNames...)
 }
 
 func (s *fakeServer) addr() string { return fmt.Sprintf("127.0.0.1:%d", s.port) }
@@ -93,13 +106,27 @@ func (s *fakeServer) handle(conn net.Conn, attempt int) {
 		return
 	}
 	sz = binary.BigEndian.Uint16(szBuf[:])
-	if _, err := io.CopyN(io.Discard, conn, int64(sz)); err != nil {
+	request := make([]byte, sz)
+	if _, err := io.ReadFull(conn, request); err != nil {
 		return
 	}
-	res := int16(-30972)
-	if attempt > 1 {
-		res = 0
+	if len(request) > 16 {
+		simpleEncrypt(request[16:])
+		nameBytes := request[16:]
+		if end := bytes.IndexByte(nameBytes, 0); end >= 0 {
+			nameBytes = nameBytes[:end]
+		}
+		s.mu.Lock()
+		s.loginNames = append(s.loginNames, decodeServerText(nameBytes))
+		s.mu.Unlock()
 	}
+	s.mu.Lock()
+	res := int16(0)
+	if len(s.results) > 0 {
+		resultIndex := min(attempt-1, len(s.results)-1)
+		res = s.results[resultIndex]
+	}
+	s.mu.Unlock()
 	base := []byte("https://example.com\x00")
 	resp := make([]byte, 16+len(base))
 	binary.BigEndian.PutUint16(resp[0:2], 13)

@@ -245,7 +245,8 @@ func TestNetworkAdjustmentDelay(t *testing.T) {
 		{name: "disabled offset", offset: 0, want: 0},
 		{name: "no reply measurement keeps offset", offset: 100, want: 100 * time.Millisecond},
 		{name: "room before next frame keeps offset", replyTime: 40 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 100, want: 100 * time.Millisecond},
-		{name: "reply time advances send", replyTime: 100 * time.Millisecond, jitter: 20 * time.Millisecond, offset: 100, want: 80 * time.Millisecond},
+		{name: "safety margin caps late offset", replyTime: 40 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 190, want: 145 * time.Millisecond},
+		{name: "reply time and safety margin advance send", replyTime: 100 * time.Millisecond, jitter: 20 * time.Millisecond, offset: 100, want: 75 * time.Millisecond},
 		{name: "late reply sends immediately", replyTime: 190 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 100, want: 0},
 	}
 	for _, tt := range tests {

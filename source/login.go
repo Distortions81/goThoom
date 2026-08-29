@@ -21,6 +21,7 @@ var (
 	loginCancel          context.CancelFunc
 	loginInProgress      bool
 	demoLookupInProgress bool
+	demoLoginActive      bool
 	loginMu              sync.Mutex
 )
 
@@ -30,11 +31,16 @@ type serverTarget struct {
 	fallback bool
 }
 
-var errRetryLogin = errors.New("retry login")
+var (
+	errRetryLogin    = errors.New("retry login")
+	errDemoSlotsUsed = errors.New("Sorry, all demo slots seem to be used.")
+)
 
 type loginResultError struct {
 	result int16
 }
+
+const loginResultCharacterAlreadyOnline int16 = -30981
 
 func (e *loginResultError) Error() string {
 	if name, ok := errorNames[e.result]; ok {
@@ -146,6 +152,8 @@ func handleDisconnect() {
 	}
 	cancel := loginCancel
 	loginCancel = nil
+	wasDemo := demoLoginActive
+	demoLoginActive = false
 	loginMu.Unlock()
 
 	cancel()
@@ -159,6 +167,9 @@ func handleDisconnect() {
 	pcapPath = ""
 	pass = ""
 	passHash = ""
+	if wasDemo {
+		name = freeDemoSelection
+	}
 	discardStagedPassword()
 	consoleMessage("Disconnected from server.")
 	loginWin.MarkOpen()
@@ -168,18 +179,59 @@ func handleDisconnect() {
 const CL_ImagesFile = "CL_Images"
 const CL_SoundsFile = "CL_Sounds"
 
-// fetchRandomDemoCharacter retrieves the server's demo characters and returns one at random.
-func fetchRandomDemoCharacter(clVersion int) (string, error) {
+// fetchDemoCharacters retrieves the server's demo characters in randomized
+// order so login can try each candidate until it finds one that is offline.
+func fetchDemoCharacters(clVersion int) ([]string, error) {
 	for {
-		name, err := fetchRandomDemoCharacterOnce(clVersion)
+		names, err := fetchDemoCharactersOnce(clVersion)
 		if errors.Is(err, errRetryLogin) {
 			continue
 		}
-		return name, err
+		return names, err
 	}
 }
 
-func fetchRandomDemoCharacterOnce(clVersion int) (string, error) {
+func setDemoLoginCandidate(candidate string) {
+	name = candidate
+	passHash = ""
+	pass = "demo"
+}
+
+func nextDemoCandidateIndex(err error, current, count int) (int, bool) {
+	var resultErr *loginResultError
+	if !errors.As(err, &resultErr) || resultErr.result != loginResultCharacterAlreadyOnline {
+		return current, false
+	}
+	next := current + 1
+	return next, next < count
+}
+
+func parseDemoCharacterNames(data []byte) []string {
+	if len(data) < 12 {
+		return nil
+	}
+	namesData := data[12:]
+	var names []string
+	seenNames := make(map[string]struct{})
+	for len(namesData) > 0 {
+		i := bytes.IndexByte(namesData, 0)
+		if i <= 0 {
+			break
+		}
+		n := strings.TrimSpace(decodeServerText(namesData[:i]))
+		if n != "" {
+			key := strings.ToLower(n)
+			if _, seen := seenNames[key]; !seen {
+				seenNames[key] = struct{}{}
+				names = append(names, n)
+			}
+		}
+		namesData = namesData[i+1:]
+	}
+	return names
+}
+
+func fetchDemoCharactersOnce(clVersion int) ([]string, error) {
 	imagesVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_ImagesFile))
 	imagesMissing := false
 	if err != nil {
@@ -219,9 +271,9 @@ func fetchRandomDemoCharacterOnce(clVersion int) (string, error) {
 	targets := serverTargets(host)
 	var lastErr error
 	for i, target := range targets {
-		name, err := fetchDemoFromTarget(target, sendVersion, imagesVersion, soundsVersion)
+		names, err := fetchDemoFromTarget(target, sendVersion, imagesVersion, soundsVersion)
 		if err == nil {
-			return name, nil
+			return names, nil
 		}
 		lastErr = err
 		if i < len(targets)-1 {
@@ -232,48 +284,48 @@ func fetchRandomDemoCharacterOnce(clVersion int) (string, error) {
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no server targets available")
 	}
-	return "", lastErr
+	return nil, lastErr
 }
 
-func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, soundsVersion uint32) (string, error) {
+func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, soundsVersion uint32) ([]string, error) {
 	tcpConn, err := dialServer("tcp", target)
 	if err != nil {
-		return "", fmt.Errorf("tcp connect %s: %w", target.addr, err)
+		return nil, fmt.Errorf("tcp connect %s: %w", target.addr, err)
 	}
 	defer tcpConn.Close()
 
 	udpConn, err := dialServer("udp", target)
 	if err != nil {
-		return "", fmt.Errorf("udp connect %s: %w", target.addr, err)
+		return nil, fmt.Errorf("udp connect %s: %w", target.addr, err)
 	}
 	defer udpConn.Close()
 
 	var idBuf [4]byte
 	if _, err := io.ReadFull(tcpConn, idBuf[:]); err != nil {
-		return "", fmt.Errorf("read id via %s: %w", target.addr, err)
+		return nil, fmt.Errorf("read id via %s: %w", target.addr, err)
 	}
 	handshake := append([]byte{0xff, 0xff}, idBuf[:]...)
 	if _, err := udpConn.Write(handshake); err != nil {
-		return "", fmt.Errorf("send handshake via %s: %w", target.addr, err)
+		return nil, fmt.Errorf("send handshake via %s: %w", target.addr, err)
 	}
 	var confirm [2]byte
 	if _, err := io.ReadFull(tcpConn, confirm[:]); err != nil {
-		return "", fmt.Errorf("confirm handshake via %s: %w", target.addr, err)
+		return nil, fmt.Errorf("confirm handshake via %s: %w", target.addr, err)
 	}
 	if err := sendClientIdentifiers(tcpConn, encodeFullVersion(sendVersion), imagesVersion, soundsVersion); err != nil {
-		return "", fmt.Errorf("send identifiers via %s: %w", target.addr, err)
+		return nil, fmt.Errorf("send identifiers via %s: %w", target.addr, err)
 	}
 
 	msg, err := readTCPMessage(tcpConn)
 	if err != nil {
-		return "", fmt.Errorf("read challenge via %s: %w", target.addr, err)
+		return nil, fmt.Errorf("read challenge via %s: %w", target.addr, err)
 	}
 	if len(msg) < 32 {
-		return "", fmt.Errorf("short challenge message via %s", target.addr)
+		return nil, fmt.Errorf("short challenge message via %s", target.addr)
 	}
 	const kMsgChallenge = 18
 	if binary.BigEndian.Uint16(msg[:2]) != kMsgChallenge {
-		return "", fmt.Errorf("unexpected msg tag %d via %s", binary.BigEndian.Uint16(msg[:2]), target.addr)
+		return nil, fmt.Errorf("unexpected msg tag %d via %s", binary.BigEndian.Uint16(msg[:2]), target.addr)
 	}
 	serverVersion := int(binary.BigEndian.Uint32(msg[4:8]) >> 8)
 	sendVersionLocal := sendVersion
@@ -288,7 +340,7 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 	for {
 		answer, err := answerChallenge("demo", challenge)
 		if err != nil {
-			return "", fmt.Errorf("hash via %s: %w", target.addr, err)
+			return nil, fmt.Errorf("hash via %s: %w", target.addr, err)
 		}
 		packet := make([]byte, 16+len(accountBytes)+1+len(answer))
 		binary.BigEndian.PutUint16(packet[0:2], kMsgCharList)
@@ -301,33 +353,33 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 		copy(packet[17+len(accountBytes):], answer)
 		simpleEncrypt(packet[16:])
 		if err := sendTCPMessage(tcpConn, packet); err != nil {
-			return "", fmt.Errorf("send character list via %s: %w", target.addr, err)
+			return nil, fmt.Errorf("send character list via %s: %w", target.addr, err)
 		}
 
 		resp, err = readTCPMessage(tcpConn)
 		if err != nil {
-			return "", fmt.Errorf("read character list via %s: %w", target.addr, err)
+			return nil, fmt.Errorf("read character list via %s: %w", target.addr, err)
 		}
 		if len(resp) < 16 {
-			return "", fmt.Errorf("short char list resp via %s", target.addr)
+			return nil, fmt.Errorf("short char list resp via %s", target.addr)
 		}
 		tag := binary.BigEndian.Uint16(resp[:2])
 		result := int16(binary.BigEndian.Uint16(resp[2:4]))
 		if result == -30972 || result == -30973 {
 			if _, err := autoUpdate(resp, dataDirPath); err != nil {
-				return "", fmt.Errorf("update demo data: %w", err)
+				return nil, fmt.Errorf("update demo data: %w", err)
 			}
-			return "", errRetryLogin
+			return nil, errRetryLogin
 		}
 		if tag == kMsgChallenge {
 			if len(resp) < 32 {
-				return "", fmt.Errorf("short repeated challenge via %s", target.addr)
+				return nil, fmt.Errorf("short repeated challenge via %s", target.addr)
 			}
 			challenge = resp[16:32]
 			continue
 		}
 		if tag != kMsgCharList {
-			return "", fmt.Errorf("unexpected tag %d via %s", tag, target.addr)
+			return nil, fmt.Errorf("unexpected tag %d via %s", tag, target.addr)
 		}
 		break
 	}
@@ -338,40 +390,38 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 		if i := bytes.IndexByte(msg, 0); i >= 0 {
 			msg = msg[:i]
 		}
-		return "", fmt.Errorf("%s", decodeServerText(msg))
+		return nil, fmt.Errorf("%s", decodeServerText(msg))
 	}
 	if len(resp) < 28 {
-		return "", fmt.Errorf("short char list resp via %s", target.addr)
+		return nil, fmt.Errorf("short char list resp via %s", target.addr)
 	}
 
-	data := resp[16:]
-	namesData := data[12:]
-	var names []string
-	for len(namesData) > 0 {
-		i := bytes.IndexByte(namesData, 0)
-		if i <= 0 {
-			break
-		}
-		n := strings.TrimSpace(decodeServerText(namesData[:i]))
-		if n != "" {
-			names = append(names, n)
-		}
-		namesData = namesData[i+1:]
-	}
+	names := parseDemoCharacterNames(resp[16:])
 	if len(names) == 0 {
-		return "", fmt.Errorf("no demo characters returned via %s", target.addr)
+		return nil, fmt.Errorf("no demo characters returned via %s", target.addr)
 	}
-	return names[rand.Intn(len(names))], nil
+	rand.Shuffle(len(names), func(i, j int) {
+		names[i], names[j] = names[j], names[i]
+	})
+	return names, nil
 }
 
 // login connects to the server and performs the login handshake.
 // It runs the network loops and blocks until the context is canceled.
 func login(ctx context.Context, clVersion int) error {
+	return loginWithDemoCandidates(ctx, clVersion, nil)
+}
+
+func loginWithDemoCandidates(ctx context.Context, clVersion int, demoCandidates []string) error {
 	resetLiveNetworkSession()
 	if gs.AutoRecord {
 		recordingMovie = true
 	}
 	go setupSynthOnce.Do(setupSynth)
+	demoCandidateIndex := 0
+	if len(demoCandidates) > 0 {
+		setDemoLoginCandidate(demoCandidates[0])
+	}
 outer:
 	for {
 		imagesVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_ImagesFile))
@@ -424,6 +474,17 @@ outer:
 			}
 			var resultErr *loginResultError
 			if errors.As(err, &resultErr) {
+				if next, ok := nextDemoCandidateIndex(err, demoCandidateIndex, len(demoCandidates)); ok {
+					previous := name
+					demoCandidateIndex = next
+					setDemoLoginCandidate(demoCandidates[demoCandidateIndex])
+					updateConnectDialog(fmt.Sprintf("%s is in use; trying %s...", previous, name))
+					logDebug("demo character %s is online; trying %s", previous, name)
+					continue outer
+				}
+				if resultErr.result == loginResultCharacterAlreadyOnline && len(demoCandidates) > 0 {
+					return errDemoSlotsUsed
+				}
 				return err
 			}
 			lastErr = err
