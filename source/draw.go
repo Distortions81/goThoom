@@ -950,6 +950,10 @@ var drawStateScratch = struct {
 // render cache. This is useful for fast-forward operations where intermediate
 // frames do not need a fully prepared cache.
 func handleDrawState(m []byte, buildCache bool) bool {
+	return handleDrawStateAt(m, buildCache, time.Now())
+}
+
+func handleDrawStateAt(m []byte, buildCache bool, receivedAt time.Time) bool {
 	if len(m) < 11 { // 2 byte tag + 9 bytes minimum
 		return false
 	}
@@ -1013,7 +1017,7 @@ func handleDrawState(m []byte, buildCache bool) bool {
 		return false
 	}
 	if !movieMode && ack > previousAck {
-		acknowledgeCommand(ackCmd)
+		acknowledgeCommandAt(ackCmd, ack, receivedAt)
 	}
 	setNetworkFrameState(ack, nextResend)
 	if !seekingMov {

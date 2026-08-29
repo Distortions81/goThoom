@@ -358,7 +358,6 @@ var gsdef settings = settings{
 	smoothMoving:     false,
 	recordAssetStats: false,
 	AltNetMode:       false,
-	AltNetDelay:      100,
 	hideMobiles:      false,
 	imgPlanesDebug:   false,
 	smoothingDebug:   false,
@@ -555,7 +554,6 @@ type settings struct {
 	pictIDDebug              bool
 	scriptEventDebug         bool
 	AltNetMode               bool
-	AltNetDelay              int
 	ServerAddress            string
 	hideMoving               bool
 	hideMobiles              bool
@@ -695,10 +693,6 @@ func loadSettings() bool {
 		gs.DenoiseSharpness = gsdef.DenoiseSharpness
 	}
 	setArtworkUpscaleMode(artworkUpscaleMode())
-	if gs.AltNetDelay < 0 || gs.AltNetDelay > 190 {
-		gs.AltNetDelay = gsdef.AltNetDelay
-	}
-
 	gs.SpriteGamma = normalizeGamma(gs.SpriteGamma, gsdef.SpriteGamma)
 	gs.MonitorGamma = normalizeGamma(gs.MonitorGamma, gsdef.MonitorGamma)
 

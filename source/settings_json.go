@@ -57,7 +57,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "LastCharacter", category: settingsGeneral, name: "last_character"},
 	{field: "ServerAddress", category: settingsGeneral, name: "server_address"},
 	{field: "AltNetMode", category: settingsGeneral, name: "predictive_network_adjustment_enabled"},
-	{field: "AltNetDelay", category: settingsGeneral, name: "predictive_network_adjustment_offset_ms"},
 
 	{field: "ClickToToggle", category: settingsControls, name: "click_to_toggle"},
 	{field: "MiddleClickMoveWindow", category: settingsControls, name: "middle_click_moves_window"},
@@ -351,8 +350,6 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 			switch entry.field {
 			case "AltNetMode":
 				raw, ok = doc.General["alternate_network_enabled"]
-			case "AltNetDelay":
-				raw, ok = doc.General["alternate_network_delay_ms"]
 			}
 		}
 		if !ok && entry.field == "DarkBubblesAndNames" {

@@ -78,7 +78,6 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.MasterVolume = 0.42
 	want.MusicEnhancementAmount = 1.73
 	want.AltNetMode = false
-	want.AltNetDelay = 37
 	want.LegacyMacroContinuous = true
 	want.BatchArtworkLoading = false
 	want.AssetActivityIndicators = true
@@ -106,7 +105,6 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"floating_point_sprite_coordinates": true`,
 		`"artwork_upscale_style": "crisp"`,
 		`"status_bar_placement": "upper_right"`,
-		`"predictive_network_adjustment_offset_ms": 37`,
 		`"dark_mode_names_and_bubbles"`,
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
@@ -122,7 +120,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 			t.Errorf("v4 settings missing %s", expected)
 		}
 	}
-	for _, legacy := range []string{`"Version"`, `"SpriteUpscale"`, `"BlendPicts"`, `"dark_bubbles_and_names"`, `"alternate_network_enabled"`, `"alternate_network_delay_ms"`} {
+	for _, legacy := range []string{`"Version"`, `"SpriteUpscale"`, `"BlendPicts"`, `"dark_bubbles_and_names"`, `"alternate_network_enabled"`, `"alternate_network_delay_ms"`, `"AltNetDelay"`} {
 		if strings.Contains(text, legacy) {
 			t.Errorf("v4 settings retained legacy key %s", legacy)
 		}
@@ -134,7 +132,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	}
 }
 
-func TestSettingsV4ReadsAlternateNetworkKeys(t *testing.T) {
+func TestSettingsV4ReadsLegacyAlternateNetworkEnabledKey(t *testing.T) {
 	data, err := marshalSettingsDocument(gsdef)
 	if err != nil {
 		t.Fatal(err)
@@ -144,9 +142,7 @@ func TestSettingsV4ReadsAlternateNetworkKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	delete(doc.General, "predictive_network_adjustment_enabled")
-	delete(doc.General, "predictive_network_adjustment_offset_ms")
 	doc.General["alternate_network_enabled"] = json.RawMessage("true")
-	doc.General["alternate_network_delay_ms"] = json.RawMessage("73")
 	data, err = json.Marshal(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -156,8 +152,8 @@ func TestSettingsV4ReadsAlternateNetworkKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.AltNetMode || got.AltNetDelay != 73 {
-		t.Fatalf("legacy alternate network settings = %v/%d, want true/73", got.AltNetMode, got.AltNetDelay)
+	if !got.AltNetMode {
+		t.Fatal("legacy alternate network enabled setting was not read")
 	}
 }
 
@@ -226,7 +222,7 @@ func TestSettingsV3MigratesToV4(t *testing.T) {
 	if gs.Version != SETTINGS_VERSION || gs.LastCharacter != "Migrated Hero" || gs.GameScale != 2 || gs.SpriteUpscaleMode != artworkUpscaleSmooth {
 		t.Fatalf("migrated settings = version:%d character:%q scale:%v mode:%d", gs.Version, gs.LastCharacter, gs.GameScale, gs.SpriteUpscaleMode)
 	}
-	if gs.BarPlacement != BarPlacementLowerRight || gs.MasterVolume != 0.4 || gs.AltNetMode || gs.AltNetDelay != 44 {
+	if gs.BarPlacement != BarPlacementLowerRight || gs.MasterVolume != 0.4 || gs.AltNetMode {
 		t.Fatalf("legacy values were not preserved: %+v", gs)
 	}
 	if !settingsDirty {

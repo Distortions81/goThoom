@@ -64,6 +64,7 @@ var (
 )
 
 func main() {
+	defer closeDiagnosticsLog()
 	defer shutdownScripts()
 	// Ensure any active recording is finalized on exit.
 	defer func() {
@@ -71,6 +72,7 @@ func main() {
 			stopRecording()
 		}
 	}()
+	defer logMainPanic()
 	dumpTune := flag.String("dumpTune", "", "dump parsed note timings for the given tune string and exit")
 	dumpTempo := flag.Int("dumpTempo", 120, "tempo for -dumpTune (BPM)")
 	dumpInst := flag.Int("dumpInst", defaultInstrument, "instrument index for -dumpTune")
@@ -144,6 +146,7 @@ func main() {
 	}
 
 	migrated, err := initializeUserData()
+	setupLogging(doDebug)
 	if err != nil {
 		log.Printf("initialize user data: %v", err)
 	}
@@ -179,7 +182,6 @@ func main() {
 	initSoundContext()
 
 	applySettings()
-	setupLogging(doDebug)
 	go versionCheckLoop()
 
 	clmovPath := ""

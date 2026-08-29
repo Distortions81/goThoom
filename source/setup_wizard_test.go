@@ -913,7 +913,6 @@ func TestSetupAndNetworkSettingsPersist(t *testing.T) {
 	gs = gsdef
 	gs.SetupWizardVersion = 36
 	gs.AltNetMode = false
-	gs.AltNetDelay = 42
 	gs.VSync = false
 	gs.PrecacheSounds = true
 	saveSettings()
@@ -927,9 +926,6 @@ func TestSetupAndNetworkSettingsPersist(t *testing.T) {
 	}
 	if gs.AltNetMode {
 		t.Error("AltNetMode = true, want false")
-	}
-	if gs.AltNetDelay != 42 {
-		t.Errorf("AltNetDelay = %d, want 42", gs.AltNetDelay)
 	}
 	if gs.VSync {
 		t.Error("VSync = true, want false")

@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gothoom/climg"
@@ -297,23 +298,61 @@ var gameStarted = make(chan struct{})
 
 const framems = 200
 
-const networkAdjustmentSafetyMargin = 5 * time.Millisecond
+const defaultNetworkAdjustmentSafetyPercent = 10
+const pnaTimingWindow = time.Minute
+
+const (
+	pnaMaxRecentPacketLossPercent = 0.5
+	pnaRecoveryPacketLossPercent  = 0.1
+	pnaFallbackCooldown           = 5 * time.Second
+	pnaTimingWarmupSamples        = 5
+	pnaFeedbackHold               = 30 * time.Second
+	pnaBoundaryProbeInterval      = 5 * time.Minute
+	pnaSuccessesBeforeLater       = 3
+)
+
+type timedDurationSample struct {
+	at    time.Time
+	value time.Duration
+}
+
+type pnaFallbackState struct {
+	activeUntil time.Time
+	reason      string
+}
+
+type pnaControllerState struct {
+	initialized       bool
+	lead              time.Duration
+	learnedLeadFloor  time.Duration
+	nextBoundaryProbe time.Time
+	holdUntil         time.Time
+	consecutiveHits   int
+}
 
 var (
-	frameCh          = make(chan struct{}, 1)
-	lastFrameTime    time.Time
-	frameInterval    = framems * time.Millisecond
-	intervalHist     = map[int]int{}
-	frameMu          sync.Mutex
-	netLatency       time.Duration
-	netJitter        time.Duration
-	netJitterSamples [64]time.Duration
-	netJitterCount   int
-	netJitterNext    int
-	latencyMu        sync.Mutex
-	lowFPSSince      time.Time
-	shaderWarnShown  bool
+	frameCh                        = make(chan struct{}, 1)
+	lastFrameTime                  time.Time
+	frameInterval                  = framems * time.Millisecond
+	lastTimingFrame                int32
+	frameTimingSamples             []timedDurationSample
+	serverFrameJitter              time.Duration
+	serverUpdatesPerSecond         float64
+	frameMu                        sync.Mutex
+	commandReplyTime               time.Duration
+	commandReplyMu                 sync.Mutex
+	networkAdjustmentSafetyPercent atomic.Int64
+	pnaControllerMu                sync.Mutex
+	pnaController                  pnaControllerState
+	pnaFallbackMu                  sync.Mutex
+	pnaFallback                    pnaFallbackState
+	lowFPSSince                    time.Time
+	shaderWarnShown                bool
 )
+
+func init() {
+	networkAdjustmentSafetyPercent.Store(defaultNetworkAdjustmentSafetyPercent)
+}
 
 var (
 	worldOriginX int
@@ -390,13 +429,16 @@ func resetDrawState() {
 	resetInterpolation()
 
 	frameCounter = 0
-	frameInterval = framems * time.Millisecond
 
 	// Clear frame timing history so new sessions start fresh without
 	// inherited intervals from previous connections.
 	frameMu.Lock()
 	lastFrameTime = time.Time{}
-	intervalHist = map[int]int{}
+	frameInterval = framems * time.Millisecond
+	lastTimingFrame = 0
+	frameTimingSamples = nil
+	serverFrameJitter = 0
+	serverUpdatesPerSecond = 0
 	frameMu.Unlock()
 
 	stateMu.Lock()
@@ -428,58 +470,61 @@ func resetLiveNetworkSession() {
 	}
 
 frameChannelDrained:
-	latencyMu.Lock()
-	netLatency = 0
-	netJitter = 0
-	netJitterCount = 0
-	netJitterNext = 0
-	latencyMu.Unlock()
+	commandReplyMu.Lock()
+	commandReplyTime = 0
+	commandReplyMu.Unlock()
+	resetPNAController()
+	resetPNAFallback()
 }
 
-// p99Duration returns the 99th percentile of a small, unsorted duration
-// sample. With fewer than 100 samples this deliberately selects the worst
+// p95Duration returns the 95th percentile of a small, unsorted duration
+// sample. With fewer than 20 samples this deliberately selects the worst
 // observation, which is the conservative choice while the estimate warms up.
-func p99Duration(samples []time.Duration) time.Duration {
+func p95Duration(samples []time.Duration) time.Duration {
 	if len(samples) == 0 {
 		return 0
 	}
 	ordered := append([]time.Duration(nil), samples...)
 	slices.Sort(ordered)
-	index := (99*len(ordered)+99)/100 - 1
+	index := (95*len(ordered)+99)/100 - 1
 	if index >= len(ordered) {
 		index = len(ordered) - 1
 	}
 	return ordered[index]
 }
 
-func recordNetworkLatencySample(rtt time.Duration) {
-	if rtt < 0 {
-		return
+func retainRecentTimingSamples(samples []timedDurationSample, now time.Time) []timedDurationSample {
+	cutoff := now.Add(-pnaTimingWindow)
+	first := 0
+	for first < len(samples) && samples[first].at.Before(cutoff) {
+		first++
 	}
-	latencyMu.Lock()
-	defer latencyMu.Unlock()
-	if netLatency == 0 {
-		netLatency = rtt
-		netJitter = 0
-		return
+	if first == 0 {
+		return samples
 	}
-	diff := rtt - netLatency
-	if diff < 0 {
-		diff = -diff
-	}
-	netJitterSamples[netJitterNext] = diff
-	netJitterNext = (netJitterNext + 1) % len(netJitterSamples)
-	if netJitterCount < len(netJitterSamples) {
-		netJitterCount++
-	}
-	netJitter = p99Duration(netJitterSamples[:netJitterCount])
-	netLatency = (netLatency*7 + rtt) / 8
+	copy(samples, samples[first:])
+	return samples[:len(samples)-first]
 }
 
-func networkLatencySnapshot() (time.Duration, time.Duration) {
-	latencyMu.Lock()
-	defer latencyMu.Unlock()
-	return netLatency, netJitter
+func recordCommandReplySample(reply time.Duration) {
+	if reply < 0 {
+		return
+	}
+	commandReplyMu.Lock()
+	commandReplyTime = reply
+	commandReplyMu.Unlock()
+}
+
+// networkTimingSnapshot returns the latest command acknowledgement time and
+// independent p95 server-frame jitter. The command value is not a ping/RTT.
+func networkTimingSnapshot() (time.Duration, time.Duration) {
+	commandReplyMu.Lock()
+	reply := commandReplyTime
+	commandReplyMu.Unlock()
+	frameMu.Lock()
+	jitter := serverFrameJitter
+	frameMu.Unlock()
+	return reply, jitter
 }
 
 // prepareRenderCacheLocked populates render-ready, sorted/partitioned slices.
@@ -3661,57 +3706,362 @@ func onGameWindowResize() {
 	layoutNotifications()
 }
 
-func noteFrame() {
-	if playingMovie {
-		return
-	}
-	now := time.Now()
+// recordServerFrameTiming updates the independent server-cadence estimate.
+// It returns true only when frame advances, so duplicate or reordered draw
+// states cannot move the phase origin or wake the input scheduler.
+func recordServerFrameTiming(frame int32, now time.Time) bool {
 	frameMu.Lock()
+	defer frameMu.Unlock()
+
+	if !lastFrameTime.IsZero() && frame <= lastTimingFrame {
+		return false
+	}
 	if !lastFrameTime.IsZero() {
-		dt := now.Sub(lastFrameTime)
-		ms := int(dt.Round(10*time.Millisecond) / time.Millisecond)
-		if ms > 0 {
-			intervalHist[ms]++
-			var modeMS, modeCount int
-			for v, c := range intervalHist {
-				if c > modeCount {
-					modeMS, modeCount = v, c
+		if now.Before(lastFrameTime) {
+			// TCP is deliberately dispatched before UDP. Preserve a monotonic
+			// phase origin if that cross-channel priority exposes an older
+			// socket timestamp for a newer acknowledged frame.
+			now = lastFrameTime
+		}
+		gap := frame - lastTimingFrame
+		sample := now.Sub(lastFrameTime) / time.Duration(gap)
+		if sample > 0 {
+			frameTimingSamples = append(frameTimingSamples, timedDurationSample{at: now, value: sample})
+			frameTimingSamples = retainRecentTimingSamples(frameTimingSamples, now)
+			intervals := make([]time.Duration, len(frameTimingSamples))
+			for i, timingSample := range frameTimingSamples {
+				intervals[i] = timingSample.value
+			}
+			slices.Sort(intervals)
+			median := intervals[len(intervals)/2]
+			deviations := make([]time.Duration, len(intervals))
+			for i, interval := range intervals {
+				deviation := interval - median
+				if deviation < 0 {
+					deviation = -deviation
 				}
+				deviations[i] = deviation
 			}
-			if modeMS > 0 {
-				frameInterval = time.Duration(modeMS) * time.Millisecond
-			}
+			frameInterval = median
+			serverFrameJitter = p95Duration(deviations)
+			serverUpdatesPerSecond = float64(time.Second) / float64(frameInterval)
 		}
 	}
 	lastFrameTime = now
-	frameMu.Unlock()
+	lastTimingFrame = frame
+	return true
+}
+
+func noteFrameAt(frame int32, now time.Time) {
+	if playingMovie {
+		return
+	}
+	if !recordServerFrameTiming(frame, now) {
+		return
+	}
 	select {
 	case frameCh <- struct{}{}:
 	default:
 	}
 }
 
-// networkAdjustmentDelay keeps the configured post-frame offset when reply
-// timing is unknown. Once a command acknowledgement has measured a server
-// round trip, it shortens that offset as needed so the next input has time to
-// reach the server before its next frame. The estimate includes both a rolling
-// p99 of observed reply-time deviation and a small fixed safety margin.
-func networkAdjustmentDelay(frameInterval, replyTime, jitter time.Duration, offsetMS int) time.Duration {
-	if offsetMS <= 0 {
+func networkAdjustmentSafetyMargin(frameInterval time.Duration) time.Duration {
+	if frameInterval <= 0 {
 		return 0
 	}
-	delay := time.Duration(offsetMS) * time.Millisecond
-	if frameInterval <= 0 || replyTime <= 0 {
-		return delay
+	return (frameInterval * time.Duration(networkAdjustmentSafetyPercent.Load())) / 100
+}
+
+func pnaBaseLead(frameInterval, jitter time.Duration) time.Duration {
+	lead := networkAdjustmentSafetyMargin(frameInterval) + jitter
+	if lead < time.Millisecond {
+		lead = time.Millisecond
 	}
-	latestSafeSend := frameInterval - replyTime - jitter - networkAdjustmentSafetyMargin
-	if latestSafeSend <= 0 {
-		return 0
+	if lead >= frameInterval {
+		lead = frameInterval
 	}
-	if delay > latestSafeSend {
-		return latestSafeSend
+	return lead
+}
+
+func clampPNALead(lead, minimum, frameInterval time.Duration) time.Duration {
+	if lead < minimum {
+		lead = minimum
 	}
-	return delay
+	maximum := frameInterval - time.Millisecond
+	if maximum < minimum {
+		maximum = minimum
+	}
+	if lead > maximum {
+		lead = maximum
+	}
+	return lead
+}
+
+func minDuration(a, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func pnaLeadSnapshot(frameInterval, jitter time.Duration) time.Duration {
+	minimum := pnaBaseLead(frameInterval, jitter)
+	pnaControllerMu.Lock()
+	defer pnaControllerMu.Unlock()
+	if pnaController.learnedLeadFloor > 0 {
+		pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, minimum, frameInterval)
+	}
+	minimum = max(minimum, pnaController.learnedLeadFloor)
+	if !pnaController.initialized {
+		pnaController.initialized = true
+		pnaController.lead = max(minimum, frameInterval/4)
+	}
+	pnaController.lead = clampPNALead(pnaController.lead, minimum, frameInterval)
+	return pnaController.lead
+}
+
+func pnaScheduleSnapshot() (frameTime time.Time, interval, jitter, phase, lead time.Duration, ready bool) {
+	frameMu.Lock()
+	frameTime = lastFrameTime
+	interval = frameInterval
+	jitter = serverFrameJitter
+	ready = len(frameTimingSamples) >= pnaTimingWarmupSamples
+	frameMu.Unlock()
+	if !ready || frameTime.IsZero() || interval <= 0 {
+		return frameTime, interval, jitter, 0, 0, false
+	}
+	lead = pnaLeadSnapshot(interval, jitter)
+	phase = interval - lead
+	if phase < 0 {
+		phase = 0
+	}
+	return frameTime, interval, jitter, phase, lead, true
+}
+
+func resetPNAController() {
+	pnaControllerMu.Lock()
+	pnaController = pnaControllerState{}
+	pnaControllerMu.Unlock()
+}
+
+func pnaCommandSendTiming(now time.Time) (phase, interval time.Duration, predictive bool) {
+	frameMu.Lock()
+	last := lastFrameTime
+	interval = frameInterval
+	ready := len(frameTimingSamples) >= pnaTimingWarmupSamples
+	frameMu.Unlock()
+	if last.IsZero() || now.Before(last) {
+		return 0, interval, false
+	}
+	phase = now.Sub(last)
+	if phase > interval {
+		phase = interval
+	}
+	if !gs.AltNetMode || !ready {
+		return phase, interval, false
+	}
+	recentLoss, _, _, _ := packetLossSnapshot()
+	predictive, _ = pnaTimingStatus(recentLoss, now)
+	return phase, interval, predictive
+}
+
+func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sentFrame, acknowledgedFrame int32, now time.Time) {
+	if !gs.AltNetMode || reply <= 0 || sentInterval <= 0 || sentPhase < 0 || sentPhase > sentInterval || acknowledgedFrame <= sentFrame {
+		return
+	}
+	recentLoss, _, _, _ := packetLossSnapshot()
+	if usePNA, _ := pnaTimingStatus(recentLoss, now); !usePNA {
+		return
+	}
+	frameMu.Lock()
+	jitter := serverFrameJitter
+	frameMu.Unlock()
+	baseMinimum := pnaBaseLead(sentInterval, jitter)
+	ackFrames := acknowledgedFrame - sentFrame
+
+	pnaControllerMu.Lock()
+	defer pnaControllerMu.Unlock()
+	if pnaController.learnedLeadFloor > 0 {
+		pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, baseMinimum, sentInterval)
+	}
+	minimum := max(baseMinimum, pnaController.learnedLeadFloor)
+	if !pnaController.initialized {
+		pnaController.initialized = true
+		pnaController.lead = max(minimum, sentInterval/4)
+	}
+	if ackFrames > 1 {
+		// Missing the next server frame costs a full update. Move earlier and
+		// remember that correction as a session floor: repeatedly probing back
+		// across a known-late boundary creates a rhythmic full-frame latency
+		// spike.
+		step := max(sentInterval/8, jitter)
+		pnaController.lead += step
+		pnaController.lead = clampPNALead(pnaController.lead, baseMinimum, sentInterval)
+		pnaController.learnedLeadFloor = max(pnaController.learnedLeadFloor, pnaController.lead)
+		pnaController.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
+		pnaController.holdUntil = now.Add(pnaFeedbackHold)
+		pnaController.consecutiveHits = 0
+		log.Printf("PNA learned late boundary: reply=%s skipped_frames=%d lead_floor=%s interval=%s",
+			reply.Round(time.Millisecond), ackFrames-1, pnaController.learnedLeadFloor.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
+	} else if reply < baseMinimum {
+		// The acknowledgement arrived with less than the requested headroom.
+		// Increase the lead without waiting for a full missed frame.
+		step := minDuration(baseMinimum-reply, sentInterval/10)
+		pnaController.lead += step
+		pnaController.holdUntil = now.Add(pnaFeedbackHold)
+		pnaController.consecutiveHits = 0
+	} else {
+		if now.Before(pnaController.holdUntil) {
+			pnaController.consecutiveHits = 0
+			pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+			return
+		}
+		if pnaController.learnedLeadFloor > 0 {
+			// The latest full-frame miss established a boundary for this session.
+			// Re-test it only occasionally and by a much smaller step than normal
+			// convergence, so a changed floor can be discovered without restoring
+			// the old rhythmic missed-frame spike.
+			pnaController.consecutiveHits = 0
+			if now.Before(pnaController.nextBoundaryProbe) {
+				pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+				return
+			}
+			pnaController.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
+			deadband := max(2*time.Millisecond, jitter/4)
+			if reply > baseMinimum+deadband {
+				step := minDuration((reply-baseMinimum)/8, sentInterval/40)
+				if step > 0 {
+					pnaController.learnedLeadFloor -= step
+					pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, baseMinimum, sentInterval)
+					pnaController.lead = pnaController.learnedLeadFloor
+					log.Printf("PNA cautiously probing learned boundary: step=%s lead=%s interval=%s",
+						step.Round(time.Millisecond), pnaController.lead.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
+				}
+				return
+			}
+			pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+			return
+		}
+		pnaController.consecutiveHits++
+		deadband := max(2*time.Millisecond, jitter/4)
+		if pnaController.consecutiveHits >= pnaSuccessesBeforeLater &&
+			reply > minimum+deadband {
+			// Move later by only a fraction of the measured excess. Reply time
+			// changes as a consequence of this control output, so bounded steps
+			// keep the loop from amplifying its own feedback.
+			step := minDuration((reply-minimum)/4, sentInterval/20)
+			pnaController.lead -= step
+			pnaController.consecutiveHits = 0
+		}
+	}
+	pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+}
+
+// pnaFallbackReason pauses PNA only for meaningful recent packet loss. Reply
+// time and jitter are timing feedback for PNA itself, not reasons to disable it.
+func pnaFallbackReason(recentLoss float64) string {
+	if recentLoss > pnaMaxRecentPacketLossPercent {
+		return "recent packet loss"
+	}
+	return ""
+}
+
+func pnaRecoveryReady(recentLoss float64) bool {
+	return recentLoss <= pnaRecoveryPacketLossPercent
+}
+
+// pnaTimingStatus applies a cooldown and lower recovery thresholds to prevent
+// PNA from flapping between predictive and immediate networking near a limit.
+func pnaTimingStatus(recentLoss float64, now time.Time) (usePNA bool, reason string) {
+	pnaFallbackMu.Lock()
+	defer pnaFallbackMu.Unlock()
+
+	if reason := pnaFallbackReason(recentLoss); reason != "" {
+		pnaFallback.activeUntil = now.Add(pnaFallbackCooldown)
+		pnaFallback.reason = reason
+		return false, reason
+	}
+	if pnaFallback.activeUntil.IsZero() {
+		return true, ""
+	}
+	if now.Before(pnaFallback.activeUntil) {
+		return false, "cooldown after " + pnaFallback.reason
+	}
+	if !pnaRecoveryReady(recentLoss) {
+		return false, "waiting for packet loss to clear"
+	}
+	pnaFallback = pnaFallbackState{}
+	return true, ""
+}
+
+func pnaFallbackExplanation(reason string, recentLoss float64) string {
+	switch reason {
+	case "recent packet loss":
+		return fmt.Sprintf("loss %.1f%% > %.1f%%; using original timing", recentLoss, pnaMaxRecentPacketLossPercent)
+	case "cooldown after recent packet loss":
+		return "loss cleared; holding original timing during cooldown"
+	case "waiting for packet loss to clear":
+		return "waiting for loss to fall below the recovery limit"
+	default:
+		return reason
+	}
+}
+
+func resetPNAFallback() {
+	pnaFallbackMu.Lock()
+	pnaFallback = pnaFallbackState{}
+	pnaFallbackMu.Unlock()
+}
+
+func waitForPNASend(ctx context.Context) bool {
+	for {
+		if !gs.AltNetMode {
+			return true
+		}
+		recentLoss, _, _, _ := packetLossSnapshot()
+		if usePNA, _ := pnaTimingStatus(recentLoss, time.Now()); !usePNA {
+			return true
+		}
+		frameTime, _, _, phase, _, ready := pnaScheduleSnapshot()
+		if !ready || phase <= 0 {
+			return true
+		}
+		wait := time.Until(frameTime.Add(phase))
+		if wait <= 0 {
+			return true
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-timer.C:
+			frameMu.Lock()
+			latestFrameTime := lastFrameTime
+			frameMu.Unlock()
+			if latestFrameTime.After(frameTime) {
+				// A new frame raced the timer. Its phase is now authoritative;
+				// do not emit an extra input at the old frame boundary.
+				continue
+			}
+			return true
+		case <-frameCh:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			// The server frame arrived before the predicted send point. Treat
+			// it as the new phase origin rather than sending on the stale cycle.
+			continue
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return false
+		}
+	}
 }
 
 func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
@@ -3724,26 +4074,8 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 			return
 		case <-frameCh:
 		}
-		if gs.AltNetMode {
-			frameMu.Lock()
-			interval := frameInterval
-			frameMu.Unlock()
-			replyTime, jitter := networkLatencySnapshot()
-			delay := networkAdjustmentDelay(interval, replyTime, jitter, gs.AltNetDelay)
-			if delay > 0 {
-				timer := time.NewTimer(delay)
-				select {
-				case <-timer.C:
-				case <-ctx.Done():
-					if !timer.Stop() {
-						select {
-						case <-timer.C:
-						default:
-						}
-					}
-					return
-				}
-			}
+		if !waitForPNASend(ctx) {
+			return
 		}
 		frameMu.Lock()
 		last := lastFrameTime
@@ -3790,9 +4122,14 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 	}
 }
 
-func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- []byte) {
+type incomingServerMessage struct {
+	data       []byte
+	receivedAt time.Time
+}
+
+func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingServerMessage) {
 	for {
-		m, err := readUDPMessage(conn)
+		m, receivedAt, err := readUDPMessageAt(conn)
 		if err != nil {
 			if errors.Is(err, errMalformedUDPDatagram) {
 				logWarn("discarding UDP datagram: %v", err)
@@ -3807,16 +4144,16 @@ func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- []byte) {
 			return
 		}
 		select {
-		case messages <- m:
+		case messages <- incomingServerMessage{data: m, receivedAt: receivedAt}:
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- []byte) {
+func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingServerMessage) {
 	for {
-		m, err := readTCPMessage(conn)
+		m, receivedAt, err := readTCPMessageAt(conn)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -3827,16 +4164,16 @@ func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- []byte) {
 			return
 		}
 		select {
-		case messages <- m:
+		case messages <- incomingServerMessage{data: m, receivedAt: receivedAt}:
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func dispatchIncomingServerMessage(m []byte, reliable bool) {
-	if !recordIncomingMovieMessage(m) {
-		processServerMessage(m)
+func dispatchIncomingServerMessage(m incomingServerMessage, reliable bool) {
+	if !recordIncomingMovieMessageAt(m.data, m.receivedAt) {
+		processServerMessageAt(m.data, m.receivedAt)
 	}
 	if reliable && commandQueueIsIdle() {
 		// Allow maintenance queues to issue commands even when the player is
@@ -3851,14 +4188,14 @@ func dispatchIncomingServerMessage(m []byte, reliable bool) {
 // serverMessageDispatchLoop is the sole live caller of the protocol decoder.
 // The classic client drains TCP before UDP, so check the reliable queue first
 // whenever both transports have pending data.
-func serverMessageDispatchLoop(ctx context.Context, tcpMessages, udpMessages <-chan []byte) {
+func serverMessageDispatchLoop(ctx context.Context, tcpMessages, udpMessages <-chan incomingServerMessage) {
 	serverMessageDispatchLoopWithHandler(ctx, tcpMessages, udpMessages, dispatchIncomingServerMessage)
 }
 
 func serverMessageDispatchLoopWithHandler(
 	ctx context.Context,
-	tcpMessages, udpMessages <-chan []byte,
-	handle func([]byte, bool),
+	tcpMessages, udpMessages <-chan incomingServerMessage,
+	handle func(incomingServerMessage, bool),
 ) {
 	for {
 		if ctx.Err() != nil {
@@ -3912,6 +4249,10 @@ func frameFlags(m []byte) uint16 {
 // recordIncomingMovieMessage is shared by TCP and UDP so both transports use
 // the same existing clMov state-block encoding.
 func recordIncomingMovieMessage(m []byte) bool {
+	return recordIncomingMovieMessageAt(m, time.Now())
+}
+
+func recordIncomingMovieMessageAt(m []byte, receivedAt time.Time) bool {
 	if len(m) < 2 {
 		return false
 	}
@@ -3919,7 +4260,7 @@ func recordIncomingMovieMessage(m []byte) bool {
 	if recorder == nil && recordingMovie && tag == 2 {
 		// Apply the first complete draw before taking the initial snapshot.
 		// This avoids an empty baseline when recording was armed pre-login.
-		processServerMessage(m)
+		processServerMessageAt(m, receivedAt)
 		startRecording()
 		if recorder != nil {
 			recordingMovie = false

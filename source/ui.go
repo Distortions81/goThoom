@@ -1930,6 +1930,7 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 		toolbarStatsText, _ = eui.NewText()
 		toolbarStatsText.FontSize = 10
 		toolbarStatsText.Size = eui.Point{X: buttonWidth * 5, Y: 18}
+		toolbarStatsText.SetTooltip("cmd is the latest command reply; fjit is 60-second p95 server-frame jitter; PNA lead is time before the next expected frame.")
 		root.AddItem(toolbarStatsText)
 	} else {
 		root.Size.Y = toolbarHeight + scriptToolbarHeight
@@ -2045,24 +2046,49 @@ func ensureToolbarAccessible() {
 }
 
 func updateToolbarStats() {
-	latency, jitter := networkLatencySnapshot()
+	reply, jitter := networkTimingSnapshot()
+	recentLoss, _, _, _ := packetLossSnapshot()
+	frameMu.Lock()
+	updatesPerSecond := serverUpdatesPerSecond
+	frameMu.Unlock()
+	var lead time.Duration
+	var timingReady bool
+	if gs.AltNetMode {
+		_, _, _, _, lead, timingReady = pnaScheduleSnapshot()
+	}
+	pnaStatus := formatToolbarPNAStatus(gs.AltNetMode, updatesPerSecond, lead, timingReady, recentLoss)
 	if gs.ToolbarPlacement == ToolbarFloating && hudWin != nil {
-		hudWin.Title = fmt.Sprintf("Toolbar - FPS: %4.0f Loss: %0.0f%% Ping: %s Jit: %s",
-			ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(latency), formatToolbarLatency(jitter))
+		hudWin.Title = fmt.Sprintf("Toolbar - %0.0ffps %.1f%%loss cmd%s fjit%s %s",
+			ebiten.ActualFPS(), recentLoss, formatToolbarLatency(reply), formatToolbarLatency(jitter), pnaStatus)
 		hudWin.Refresh()
 		return
 	}
 	if toolbarStatsText == nil {
 		return
 	}
-	toolbarStatsText.Text = fmt.Sprintf("FPS %4.0f   Loss %0.0f%%   Ping %s   Jit %s",
-		ebiten.ActualFPS(), droppedPercent(), formatToolbarLatency(latency), formatToolbarLatency(jitter))
+	toolbarStatsText.Text = fmt.Sprintf("%0.0ffps %.1f%%loss cmd%s fjit%s %s",
+		ebiten.ActualFPS(), recentLoss, formatToolbarLatency(reply), formatToolbarLatency(jitter), pnaStatus)
 	toolbarStatsText.Dirty = true
 	refreshToolbar()
 }
 
 func formatToolbarLatency(duration time.Duration) string {
 	return fmt.Sprintf("%.1fms", float64(duration)/float64(time.Millisecond))
+}
+
+// formatToolbarPNAStatus keeps the live PNA state short enough for the docked
+// toolbar. Lead is the target time before the next expected server frame.
+func formatToolbarPNAStatus(enabled bool, updatesPerSecond float64, lead time.Duration, timingReady bool, recentLoss float64) string {
+	if !enabled {
+		return "PNA off"
+	}
+	if usePNA, _ := pnaTimingStatus(recentLoss, time.Now()); !usePNA {
+		return "PNA paused"
+	}
+	if updatesPerSecond <= 0 || !timingReady || lead <= 0 {
+		return "PNA learning"
+	}
+	return fmt.Sprintf("PNA lead%dms@%.0fHz", lead.Round(time.Millisecond)/time.Millisecond, updatesPerSecond)
 }
 
 func refreshToolbar() {
@@ -6338,6 +6364,24 @@ func makeAdvancedSettingsWindow() {
 	}
 	toolsCol.AddItem(dataFolderBtn)
 
+	diagnosticsFolderBtn, diagnosticsFolderEvents := eui.NewButton()
+	diagnosticsFolderBtn.Text = "Open Diagnostics Folder"
+	diagnosticsFolderBtn.Size = eui.Point{X: columnWidth, Y: 24}
+	diagnosticsFolderBtn.SetTooltip("Open the folder containing the current and rotated diagnostic logs for bug reports.")
+	diagnosticsFolderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			path := diagnosticsLogDir()
+			if err := os.MkdirAll(path, 0o755); err != nil {
+				logError("create diagnostics folder: %v", err)
+				return
+			}
+			if err := open.Run(path); err != nil {
+				logError("open diagnostics folder: %v", err)
+			}
+		}
+	}
+	toolsCol.AddItem(diagnosticsFolderBtn)
+
 	resetBtn, resetEv := eui.NewButton()
 	resetBtn.Text = "Reset All Settings"
 	resetBtn.Size = eui.Point{X: columnWidth, Y: 24}
@@ -6681,7 +6725,7 @@ func makeAdvancedSettingsWindow() {
 	altNetCB.Text = "Predictive Network Adjustment (PNA)"
 	altNetCB.Size = eui.Point{X: columnWidth, Y: 24}
 	altNetCB.Checked = gs.AltNetMode
-	altNetCB.SetTooltip("Uses reply time and p99 jitter to send input before the next server frame. Leave off for original network timing.")
+	altNetCB.SetTooltip("Learns the server frame phase and sends fresh input shortly before its next processing window. Packet loss temporarily restores original timing.")
 	altNetEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			setPNAEnabled(ev.Checked)
@@ -6689,19 +6733,19 @@ func makeAdvancedSettingsWindow() {
 	}
 	systemCol.AddItem(altNetCB)
 
-	netDelaySlider, netDelayEvents := eui.NewSlider()
-	netDelaySlider.Label = "PNA offset (ms)"
-	netDelaySlider.MinValue = 0
-	netDelaySlider.MaxValue = 190
-	netDelaySlider.Value = float32(gs.AltNetDelay)
-	netDelaySlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
-	netDelayEvents.Handle = func(ev eui.UIEvent) {
+	pnaSafetySlider, pnaSafetyEvents := eui.NewSlider()
+	pnaSafetySlider.Label = "PNA safety (%)"
+	pnaSafetySlider.MinValue = 0
+	pnaSafetySlider.MaxValue = 50
+	pnaSafetySlider.Value = float32(networkAdjustmentSafetyPercent.Load())
+	pnaSafetySlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
+	pnaSafetySlider.SetTooltip("Minimum lead as a percentage of one server frame, with frame jitter added separately. Session-only; resets to 10% when goThoom starts.")
+	pnaSafetyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
-			gs.AltNetDelay = int(ev.Value)
-			settingsDirty = true
+			networkAdjustmentSafetyPercent.Store(int64(ev.Value))
 		}
 	}
-	systemCol.AddItem(netDelaySlider)
+	systemCol.AddItem(pnaSafetySlider)
 
 	serverInput, serverEvents := eui.NewInput()
 	serverInput.Label = "Server address"
@@ -6720,37 +6764,37 @@ func makeAdvancedSettingsWindow() {
 	}
 	systemCol.AddItem(serverInput)
 
-	pingLabel, _ := eui.NewText()
-	pingLabel.Text = ""
-	pingLabel.Size = eui.Point{X: columnWidth, Y: 24}
-	pingLabel.FontSize = 10
-	systemCol.AddItem(pingLabel)
+	timingLabel, _ := eui.NewText()
+	timingLabel.Text = ""
+	timingLabel.Size = eui.Point{X: columnWidth, Y: 24}
+	timingLabel.FontSize = 10
+	systemCol.AddItem(timingLabel)
 
-	pingBtn, pingEvents := eui.NewButton()
-	pingBtn.Text = "Show Network Latency"
-	pingBtn.Size = eui.Point{X: columnWidth, Y: 24}
-	pingEvents.Handle = func(ev eui.UIEvent) {
+	timingBtn, timingEvents := eui.NewButton()
+	timingBtn.Text = "Show Network Timing"
+	timingBtn.Size = eui.Point{X: columnWidth, Y: 24}
+	timingEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			loginMu.Lock()
 			connected := tcpConn != nil
 			loginMu.Unlock()
 			if !connected {
-				pingLabel.Text = "not connected to server"
-				pingLabel.Dirty = true
+				timingLabel.Text = "not connected to server"
+				timingLabel.Dirty = true
 				advancedWin.Refresh()
 				return
 			}
-			latency, jitter := networkLatencySnapshot()
-			if latency == 0 {
-				pingLabel.Text = "waiting for a command acknowledgement"
+			reply, jitter := networkTimingSnapshot()
+			if reply == 0 {
+				timingLabel.Text = fmt.Sprintf("Cmd reply: waiting   Frame p95: %s", formatToolbarLatency(jitter))
 			} else {
-				pingLabel.Text = fmt.Sprintf("Ping: %s  Jitter: %s", formatToolbarLatency(latency), formatToolbarLatency(jitter))
+				timingLabel.Text = fmt.Sprintf("Cmd reply: %s   Frame p95: %s", formatToolbarLatency(reply), formatToolbarLatency(jitter))
 			}
-			pingLabel.Dirty = true
+			timingLabel.Dirty = true
 			advancedWin.Refresh()
 		}
 	}
-	systemCol.AddItem(pingBtn)
+	systemCol.AddItem(timingBtn)
 
 	addSectionLabel(systemCol, "Performance")
 

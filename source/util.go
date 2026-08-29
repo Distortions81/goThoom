@@ -245,6 +245,10 @@ var pendingCommand string
 var pendingCommandID uint8
 var pendingCommandSent bool
 var pendingCommandSentAt time.Time
+var pendingCommandSentFrame int32
+var pendingCommandSentPhase time.Duration
+var pendingCommandSentInterval time.Duration
+var pendingCommandSentPredictively bool
 var commandQueue []string
 var commandMu sync.Mutex
 var playerName string
@@ -297,8 +301,16 @@ func nextCommandLocked() {
 		commandQueue = commandQueue[1:]
 		pendingCommandID = 0
 		pendingCommandSent = false
-		pendingCommandSentAt = time.Time{}
+		resetPendingCommandTimingLocked()
 	}
+}
+
+func resetPendingCommandTimingLocked() {
+	pendingCommandSentAt = time.Time{}
+	pendingCommandSentFrame = 0
+	pendingCommandSentPhase = 0
+	pendingCommandSentInterval = 0
+	pendingCommandSentPredictively = false
 }
 
 func nextCommandNumberLocked() uint8 {
@@ -312,7 +324,11 @@ func nextCommandNumberLocked() uint8 {
 // acknowledgeCommand completes the in-flight command when the server echoes
 // its ID. A different acknowledgement means the server has not seen this
 // command yet, so the same command and ID are made eligible for retransmission.
-func acknowledgeCommand(ack uint8) {
+func acknowledgeCommand(ack uint8, acknowledgedFrame int32) {
+	acknowledgeCommandAt(ack, acknowledgedFrame, time.Now())
+}
+
+func acknowledgeCommandAt(ack uint8, acknowledgedFrame int32, acknowledgedAt time.Time) {
 	commandMu.Lock()
 	if pendingCommand == "" || pendingCommandID == 0 {
 		commandMu.Unlock()
@@ -324,14 +340,25 @@ func acknowledgeCommand(ack uint8) {
 		return
 	}
 	sentAt := pendingCommandSentAt
+	sentFrame := pendingCommandSentFrame
+	sentPhase := pendingCommandSentPhase
+	sentInterval := pendingCommandSentInterval
+	sentPredictively := pendingCommandSentPredictively
 	pendingCommand = ""
 	pendingCommandID = 0
 	pendingCommandSent = false
-	pendingCommandSentAt = time.Time{}
+	resetPendingCommandTimingLocked()
 	nextCommandLocked()
 	commandMu.Unlock()
 	if !sentAt.IsZero() {
-		recordNetworkLatencySample(time.Since(sentAt))
+		if acknowledgedAt.IsZero() {
+			acknowledgedAt = time.Now()
+		}
+		reply := acknowledgedAt.Sub(sentAt)
+		recordCommandReplySample(reply)
+		if sentPredictively {
+			recordPNACommandFeedback(reply, sentPhase, sentInterval, sentFrame, acknowledgedFrame, acknowledgedAt)
+		}
 	}
 }
 
@@ -353,7 +380,7 @@ func enqueueCommandIfIdle(cmd string) bool {
 	pendingCommand = cmd
 	pendingCommandID = 0
 	pendingCommandSent = false
-	pendingCommandSentAt = time.Time{}
+	resetPendingCommandTimingLocked()
 	return true
 }
 
@@ -362,7 +389,7 @@ func clearCommands() {
 	pendingCommand = ""
 	pendingCommandID = 0
 	pendingCommandSent = false
-	pendingCommandSentAt = time.Time{}
+	resetPendingCommandTimingLocked()
 	commandQueue = nil
 	whoLastCommandFrame = -1
 	commandMu.Unlock()

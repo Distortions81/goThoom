@@ -202,31 +202,37 @@ func writeAll(conn net.Conn, data []byte) error {
 // connection. Datagram boundaries are protocol boundaries: the declared
 // payload length must exactly match the remainder of this one datagram.
 func readUDPMessage(connection net.Conn) ([]byte, error) {
+	msg, _, err := readUDPMessageAt(connection)
+	return msg, err
+}
+
+func readUDPMessageAt(connection net.Conn) ([]byte, time.Time, error) {
 	readBuf := udpReadBufferPool.Get().([]byte)
 	n, err := connection.Read(readBuf)
 	if err != nil {
 		udpReadBufferPool.Put(readBuf)
-		return nil, err
+		return nil, time.Time{}, err
 	}
+	receivedAt := time.Now()
 	defer func() {
 		clear(readBuf[:n])
 		udpReadBufferPool.Put(readBuf)
 	}()
 	if n < 2 {
-		return nil, fmt.Errorf("%w: datagram has %d-byte header", errMalformedUDPDatagram, n)
+		return nil, receivedAt, fmt.Errorf("%w: datagram has %d-byte header", errMalformedUDPDatagram, n)
 	}
 	sz := int(binary.BigEndian.Uint16(readBuf[:2]))
 	if sz < minProtocolMessageSize || sz > maxProtocolMessageSize {
-		return nil, fmt.Errorf("%w: payload size %d outside %d..%d", errMalformedUDPDatagram, sz, minProtocolMessageSize, maxProtocolMessageSize)
+		return nil, receivedAt, fmt.Errorf("%w: payload size %d outside %d..%d", errMalformedUDPDatagram, sz, minProtocolMessageSize, maxProtocolMessageSize)
 	}
 	if sz != n-2 {
-		return nil, fmt.Errorf("%w: declared payload %d, datagram payload %d", errMalformedUDPDatagram, sz, n-2)
+		return nil, receivedAt, fmt.Errorf("%w: declared payload %d, datagram payload %d", errMalformedUDPDatagram, sz, n-2)
 	}
 	msg := append([]byte(nil), readBuf[2:n]...)
 	tag := binary.BigEndian.Uint16(msg[:2])
 	logDebug("recv udp tag %d len %d", tag, len(msg))
 	hexDump("recv", msg)
-	return msg, nil
+	return msg, receivedAt, nil
 }
 
 // sendPlayerInput sends the provided mouse state to the server. When
@@ -246,6 +252,7 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	packetCommand := commandNum
 	cmd := ""
 	commandID := uint8(0)
+	recordCommandTiming := false
 	if pendingCommand != "" {
 		if pendingCommandID == 0 {
 			pendingCommandID = nextCommandNumberLocked()
@@ -258,9 +265,7 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 		// Record last-command frame for who throttling.
 		whoLastCommandFrame = inputAck
 		pendingCommandSent = true
-		if pendingCommandSentAt.IsZero() {
-			pendingCommandSentAt = time.Now()
-		}
+		recordCommandTiming = pendingCommandSentAt.IsZero()
 	}
 	commandMu.Unlock()
 	var cmdBytes []byte
@@ -296,6 +301,19 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	copy(packet[20:], cmdBytes)
 	packet[20+len(cmdBytes)] = 0
 	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", inputAck, inputResend, packetCommand, mouseX, mouseY, flags)
+	if recordCommandTiming {
+		sentAt := time.Now()
+		sentPhase, sentInterval, sentPredictively := pnaCommandSendTiming(sentAt)
+		commandMu.Lock()
+		if pendingCommandID == commandID && pendingCommand == cmd && pendingCommandSent && pendingCommandSentAt.IsZero() {
+			pendingCommandSentAt = sentAt
+			pendingCommandSentFrame = inputAck
+			pendingCommandSentPhase = sentPhase
+			pendingCommandSentInterval = sentInterval
+			pendingCommandSentPredictively = sentPredictively
+		}
+		commandMu.Unlock()
+	}
 	var err error
 	if reliable {
 		err = sendTCPMessage(connection, packet)
@@ -306,7 +324,7 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 		commandMu.Lock()
 		if pendingCommandID == commandID && pendingCommand == cmd {
 			pendingCommandSent = false
-			pendingCommandSentAt = time.Time{}
+			resetPendingCommandTimingLocked()
 		}
 		commandMu.Unlock()
 	}
@@ -315,37 +333,50 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 
 // readTCPMessage reads a single length-prefixed message from the TCP connection.
 func readTCPMessage(connection net.Conn) ([]byte, error) {
+	msg, _, err := readTCPMessageAt(connection)
+	return msg, err
+}
+
+func readTCPMessageAt(connection net.Conn) ([]byte, time.Time, error) {
 	var sizeBuf [2]byte
 	if _, err := io.ReadFull(connection, sizeBuf[:]); err != nil {
 		//logError("read tcp size: %v", err)
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	sz := int(binary.BigEndian.Uint16(sizeBuf[:]))
 	if sz < minProtocolMessageSize || sz > maxProtocolMessageSize {
-		return nil, fmt.Errorf("TCP message size %d outside %d..%d", sz, minProtocolMessageSize, maxProtocolMessageSize)
+		return nil, time.Time{}, fmt.Errorf("TCP message size %d outside %d..%d", sz, minProtocolMessageSize, maxProtocolMessageSize)
 	}
 	buf := make([]byte, sz)
 	if _, err := io.ReadFull(connection, buf); err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
+	receivedAt := time.Now()
 	tag := binary.BigEndian.Uint16(buf[:2])
 	logDebug("recv tcp tag %d len %d", tag, len(buf))
 	hexDump("recv", buf)
-	return buf, nil
+	return buf, receivedAt, nil
 }
 
-// processServerMessage handles a raw server message by inspecting its tag and
-// routing it appropriately. Draw state messages (tag 2) are forwarded to
-// handleDrawState after noting a frame. All other messages are decoded and any
-// resulting text is logged to the in-game console.
+// processServerMessage handles messages without a captured socket-arrival
+// timestamp, including playback and tests.
 func processServerMessage(msg []byte) {
+	processServerMessageAt(msg, time.Now())
+}
+
+// processServerMessageAt keeps live draw-state phase measurements anchored to
+// socket arrival rather than to the end of client-side decoding and cache work.
+func processServerMessageAt(msg []byte, receivedAt time.Time) {
 	if len(msg) < 2 {
 		return
 	}
+	if receivedAt.IsZero() {
+		receivedAt = time.Now()
+	}
 	tag := binary.BigEndian.Uint16(msg[:2])
 	if tag == 2 {
-		if handleDrawState(msg, true) {
-			noteFrame()
+		if handleDrawStateAt(msg, true, receivedAt) {
+			noteFrameAt(acknowledgedFrameSnapshot(), receivedAt)
 		}
 		return
 	}

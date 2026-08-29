@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"log"
-	"sync"
 	"testing"
 )
 
@@ -134,7 +133,6 @@ func TestParseInventoryMidstreamD(t *testing.T) {
 	inventoryDirty = false
 	var buf bytes.Buffer
 	errorLogger = log.New(&buf, "", 0)
-	errorLogOnce = sync.Once{}
 	silent = true
 	data := []byte{
 		byte(kInvCmdMultiple), 3, byte(kInvCmdAdd | kInvCmdIndex),

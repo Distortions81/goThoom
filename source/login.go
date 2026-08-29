@@ -780,8 +780,8 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("clear udp deadline %s: %w", target.addr, err)
 	}
 
-	tcpMessages := make(chan []byte, 16)
-	udpMessages := make(chan []byte, 16)
+	tcpMessages := make(chan incomingServerMessage, 16)
+	udpMessages := make(chan incomingServerMessage, 16)
 	dispatchDone := make(chan struct{})
 	var networkLoops sync.WaitGroup
 	go func() {

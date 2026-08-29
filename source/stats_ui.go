@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"gothoom/eui"
@@ -17,7 +19,14 @@ const (
 	statsSampleInterval  = 500 * time.Millisecond
 	statsHistoryDuration = 5 * time.Minute
 	statsHistorySize     = int(statsHistoryDuration / statsSampleInterval)
+	statsGraphHeight     = 62
+	statsScaleWidth      = 110
 )
+
+type statsGraphScale struct {
+	minimumMaximum float64
+	unit           string
+}
 
 type liveStatsSample struct {
 	fps, updateRate float64
@@ -45,37 +54,44 @@ var (
 )
 
 var (
-	statsWin            *eui.WindowData
-	statsReplyMetric    statsMetric
-	statsJitterMetric   statsMetric
-	statsRecentLoss     statsMetric
-	statsSessionLoss    statsMetric
-	statsPNACheckbox    *eui.ItemData
-	advancedPNACheckbox *eui.ItemData
-	statsNetworkText    *eui.ItemData
-	statsFPSMetric      statsMetric
-	statsUpdateMetric   statsMetric
-	statsCPUMetric      statsMetric
-	statsRateText       *eui.ItemData
-	statsArtwork        statsMetric
-	statsSounds         statsMetric
-	statsCacheTotal     statsMetric
-	statsGPUMemory      statsMetric
-	statsMemoryText     *eui.ItemData
-	statsNetworkGraph   *eui.ItemData
-	statsRateGraph      *eui.ItemData
-	statsCacheGraph     *eui.ItemData
-	statsNetworkImage   *ebiten.Image
-	statsRateImage      *ebiten.Image
-	statsCacheImage     *ebiten.Image
-	statsHistory        [statsHistorySize]liveStatsSample
-	statsHistoryCount   int
-	statsHistoryNext    int
-	lastStatsSample     time.Time
-	lastStatsRender     time.Time
-	gameWorkMu          sync.Mutex
-	gameWorkBuckets     [5]time.Duration
-	gameWorkTimes       [5]int64
+	statsWin               *eui.WindowData
+	statsReplyMetric       statsMetric
+	statsJitterMetric      statsMetric
+	statsRecentLoss        statsMetric
+	statsSessionLoss       statsMetric
+	statsPNACheckbox       *eui.ItemData
+	advancedPNACheckbox    *eui.ItemData
+	statsNetworkText       *eui.ItemData
+	statsPNAAlert          *eui.ItemData
+	statsFPSMetric         statsMetric
+	statsUpdateMetric      statsMetric
+	statsCPUMetric         statsMetric
+	statsRateText          *eui.ItemData
+	statsArtwork           statsMetric
+	statsSounds            statsMetric
+	statsCacheTotal        statsMetric
+	statsGPUMemory         statsMetric
+	statsMemoryText        *eui.ItemData
+	statsNetworkGraph      *eui.ItemData
+	statsRateGraph         *eui.ItemData
+	statsCacheGraph        *eui.ItemData
+	statsNetworkUpperScale *eui.ItemData
+	statsNetworkLowerScale *eui.ItemData
+	statsRateUpperScale    *eui.ItemData
+	statsRateLowerScale    *eui.ItemData
+	statsCacheUpperScale   *eui.ItemData
+	statsCacheLowerScale   *eui.ItemData
+	statsNetworkImage      *ebiten.Image
+	statsRateImage         *ebiten.Image
+	statsCacheImage        *ebiten.Image
+	statsHistory           [statsHistorySize]liveStatsSample
+	statsHistoryCount      int
+	statsHistoryNext       int
+	lastStatsSample        time.Time
+	lastStatsRender        time.Time
+	gameWorkMu             sync.Mutex
+	gameWorkBuckets        [5]time.Duration
+	gameWorkTimes          [5]int64
 )
 
 // recordGameLoopWork tracks time spent in this client's Update and Draw
@@ -173,6 +189,39 @@ func newStatsLegend(width float32, entries ...statsLegendEntry) *eui.ItemData {
 	return legend
 }
 
+func newStatsGraphHeader(width float32, entries ...statsLegendEntry) (*eui.ItemData, *eui.ItemData) {
+	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	header.Size = eui.Point{X: width, Y: 18}
+	header.AddItem(newStatsLegend(width-statsScaleWidth, entries...))
+	scaleSlot, scale := newStatsScaleSlot(entries[0].color)
+	header.AddItem(scaleSlot)
+	return header, scale
+}
+
+func newStatsGraphFooter(width float32, tint color.Color) (*eui.ItemData, *eui.ItemData) {
+	footer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	footer.Size = eui.Point{X: width, Y: 18}
+	history := newStatsDetail(width-statsScaleWidth, 18, 8)
+	history.Text = fmt.Sprintf("%.0fm ago  →  now", statsHistoryDuration.Minutes())
+	footer.AddItem(history)
+	scaleSlot, scale := newStatsScaleSlot(tint)
+	footer.AddItem(scaleSlot)
+	return footer, scale
+}
+
+func newStatsScaleSlot(tint color.Color) (*eui.ItemData, *eui.ItemData) {
+	slot := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	slot.Size = eui.Point{X: statsScaleWidth, Y: 18}
+	scale := newStatsDetail(statsScaleWidth, 18, 8)
+	scale.Position = eui.Point{}
+	scale.Text = "Scale --"
+	r, g, b, a := tint.RGBA()
+	scale.TextColor = eui.NewColor(uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8))
+	scale.ForceTextColor = true
+	slot.AddItem(scale)
+	return slot, scale
+}
+
 func setStatsMetric(metric statsMetric, value string) {
 	if metric.value == nil {
 		return
@@ -182,7 +231,12 @@ func setStatsMetric(metric statsMetric, value string) {
 }
 
 func setPNAEnabled(enabled bool) {
+	changed := gs.AltNetMode != enabled
 	gs.AltNetMode = enabled
+	if changed {
+		resetPNAController()
+		resetPNAFallback()
+	}
 	for _, checkbox := range []*eui.ItemData{statsPNACheckbox, advancedPNACheckbox} {
 		if checkbox != nil && checkbox.Checked != enabled {
 			checkbox.Checked = enabled
@@ -221,7 +275,7 @@ func makeStatsWindow() {
 	statsPNACheckbox.Text = "Enable Predictive Network Adjustment (PNA)"
 	statsPNACheckbox.Size = eui.Point{X: width - 92, Y: 24}
 	statsPNACheckbox.Checked = gs.AltNetMode
-	statsPNACheckbox.SetTooltip("Send input early using reply time, p99 jitter, and a small safety margin.")
+	statsPNACheckbox.SetTooltip("Learn the server frame phase and send fresh input shortly before its next processing window. Command replies tune the lead; packet loss pauses PNA.")
 	pnaEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			setPNAEnabled(ev.Checked)
@@ -241,18 +295,27 @@ func makeStatsWindow() {
 	}
 	networkControls.AddItem(clearButton)
 	networkSection.AddItem(networkControls)
-	networkMetrics, metrics := newStatsMetricRow(width, "REPLY TIME", "P99 JITTER", "RECENT LOSS", "SESSION LOSS")
+	networkMetrics, metrics := newStatsMetricRow(width, "CMD REPLY", "FRAME JITTER P95", "RECENT LOSS", "SESSION LOSS")
 	statsReplyMetric, statsJitterMetric, statsRecentLoss, statsSessionLoss = metrics[0], metrics[1], metrics[2], metrics[3]
 	networkSection.AddItem(networkMetrics)
-	statsNetworkText = newStatsDetail(width, 38, 10)
+	statsNetworkText = newStatsDetail(width, 54, 10)
 	statsNetworkText.FontSize = 10
 	networkSection.AddItem(statsNetworkText)
-	networkSection.AddItem(newStatsLegend(width,
-		statsLegendEntry{label: "Reply time", color: statsReplyColor},
-		statsLegendEntry{label: "P99 jitter", color: statsJitterColor},
-	))
-	statsNetworkGraph, statsNetworkImage = eui.NewImageItem(int(width), 76)
+	statsPNAAlert = newStatsDetail(width, 22, 10)
+	statsPNAAlert.Padding = 4
+	statsPNAAlert.ForceTextColor = true
+	networkSection.AddItem(statsPNAAlert)
+	networkGraphHeader, networkScale := newStatsGraphHeader(width,
+		statsLegendEntry{label: "Reply", color: statsReplyColor},
+		statsLegendEntry{label: "Jitter p95", color: statsJitterColor},
+	)
+	statsNetworkUpperScale = networkScale
+	networkSection.AddItem(networkGraphHeader)
+	statsNetworkGraph, statsNetworkImage = eui.NewImageItem(int(width), statsGraphHeight)
 	networkSection.AddItem(statsNetworkGraph)
+	networkGraphFooter, networkLowerScale := newStatsGraphFooter(width, statsJitterColor)
+	statsNetworkLowerScale = networkLowerScale
+	networkSection.AddItem(networkGraphFooter)
 	flow.AddItem(networkSection)
 
 	rateSection := newConfigurationSection("Frame timing", width)
@@ -261,12 +324,17 @@ func makeStatsWindow() {
 	rateSection.AddItem(rateMetrics)
 	statsRateText = newStatsDetail(width, 20, 10)
 	rateSection.AddItem(statsRateText)
-	rateSection.AddItem(newStatsLegend(width,
-		statsLegendEntry{label: "Client FPS", color: statsFPSColor},
-		statsLegendEntry{label: "Server updates", color: statsUpdateColor},
-	))
-	statsRateGraph, statsRateImage = eui.NewImageItem(int(width), 76)
+	rateGraphHeader, rateScale := newStatsGraphHeader(width,
+		statsLegendEntry{label: "FPS", color: statsFPSColor},
+		statsLegendEntry{label: "Server rate", color: statsUpdateColor},
+	)
+	statsRateUpperScale = rateScale
+	rateSection.AddItem(rateGraphHeader)
+	statsRateGraph, statsRateImage = eui.NewImageItem(int(width), statsGraphHeight)
 	rateSection.AddItem(statsRateGraph)
+	rateGraphFooter, rateLowerScale := newStatsGraphFooter(width, statsUpdateColor)
+	statsRateLowerScale = rateLowerScale
+	rateSection.AddItem(rateGraphFooter)
 	flow.AddItem(rateSection)
 
 	cacheSection := newConfigurationSection("Memory Use", width)
@@ -292,12 +360,17 @@ func makeStatsWindow() {
 	}
 	memoryControls.AddItem(clearCachesButton)
 	cacheSection.AddItem(memoryControls)
-	cacheSection.AddItem(newStatsLegend(width,
-		statsLegendEntry{label: "Total cache memory", color: statsCacheMemoryColor},
-		statsLegendEntry{label: "GPU textures", color: statsGPUMemoryColor},
-	))
-	statsCacheGraph, statsCacheImage = eui.NewImageItem(int(width), 76)
+	cacheGraphHeader, cacheScale := newStatsGraphHeader(width,
+		statsLegendEntry{label: "Cache", color: statsCacheMemoryColor},
+		statsLegendEntry{label: "GPU", color: statsGPUMemoryColor},
+	)
+	statsCacheUpperScale = cacheScale
+	cacheSection.AddItem(cacheGraphHeader)
+	statsCacheGraph, statsCacheImage = eui.NewImageItem(int(width), statsGraphHeight)
 	cacheSection.AddItem(statsCacheGraph)
+	cacheGraphFooter, cacheLowerScale := newStatsGraphFooter(width, statsGPUMemoryColor)
+	statsCacheLowerScale = cacheLowerScale
+	cacheSection.AddItem(cacheGraphFooter)
 	flow.AddItem(cacheSection)
 
 	statsWin.AddItem(flow)
@@ -321,47 +394,135 @@ func statsSamples() []liveStatsSample {
 	return samples
 }
 
-func drawStatsGraph(dst *ebiten.Image, upper, lower []float64, upperColor, lowerColor color.Color) {
+func drawStatsGraph(dst *ebiten.Image, upper, lower []float64, upperColor, lowerColor color.Color, upperScale, lowerScale statsGraphScale) (float64, float64) {
+	upperMaximum := statsGraphMaximum(upper, upperScale.minimumMaximum)
+	lowerMaximum := statsGraphMaximum(lower, lowerScale.minimumMaximum)
 	if dst == nil {
-		return
+		return upperMaximum, lowerMaximum
 	}
 	dst.Fill(color.RGBA{R: 19, G: 23, B: 26, A: 255})
 	bounds := dst.Bounds()
 	w, h := float32(bounds.Dx()), float32(bounds.Dy())
-	grid := color.RGBA{R: 74, G: 82, B: 88, A: 150}
-	vector.StrokeLine(dst, 4, h/2, w-4, h/2, 1, grid, false)
-	vector.StrokeLine(dst, 4, h-3, w-4, h-3, 1, grid, false)
-	drawStatsSeries(dst, upper, 4, 4, w-4, h/2-4, upperColor)
-	drawStatsSeries(dst, lower, 4, h/2+4, w-4, h-4, lowerColor)
+	const (
+		outerPadding float32 = 4
+		panelGap     float32 = 6
+	)
+	left, right := outerPadding, w-outerPadding
+	plotTop, plotBottom := outerPadding, h-outerPadding
+	center := (plotTop + plotBottom) / 2
+	upperTop, upperBottom := plotTop, center-panelGap/2
+	lowerTop, lowerBottom := center+panelGap/2, plotBottom
+
+	drawStatsSeries(dst, upper, left, upperTop, right, upperBottom, upperMaximum, statsHistorySize, upperColor)
+	drawStatsSeries(dst, lower, left, lowerTop, right, lowerBottom, lowerMaximum, statsHistorySize, lowerColor)
+	return upperMaximum, lowerMaximum
 }
 
-func drawStatsSeries(dst *ebiten.Image, values []float64, left, top, right, bottom float32, lineColor color.Color) {
-	if dst == nil || len(values) == 0 || right <= left || bottom <= top {
+func statsGraphMaximum(values []float64, minimumMaximum float64) float64 {
+	peak := 0.0
+	for _, value := range values {
+		if !math.IsNaN(value) && !math.IsInf(value, 0) && value > peak {
+			peak = value
+		}
+	}
+	if minimumMaximum > 0 && peak <= minimumMaximum {
+		return minimumMaximum
+	}
+	if peak <= 0 {
+		return 1
+	}
+
+	// Aim for three readable intervals and select a nearby 1/2/2.5/5/10 step.
+	rawStep := peak / 3
+	magnitude := math.Pow(10, math.Floor(math.Log10(rawStep)))
+	fraction := rawStep / magnitude
+	niceFraction := 1.0
+	bestDistance := math.Inf(1)
+	for _, candidate := range []float64{1, 2, 2.5, 5, 10} {
+		if distance := math.Abs(candidate - fraction); distance < bestDistance {
+			niceFraction = candidate
+			bestDistance = distance
+		}
+	}
+	step := niceFraction * magnitude
+	return math.Ceil(peak/step) * step
+}
+
+func formatStatsScaleValue(value float64, unit string) string {
+	switch unit {
+	case "ms":
+		return fmt.Sprintf("%.0fms", value)
+	case "fps":
+		return fmt.Sprintf("%.0ffps", value)
+	case "/s":
+		if value < 10 && value != math.Trunc(value) {
+			return fmt.Sprintf("%.1f/s", value)
+		}
+		return fmt.Sprintf("%.0f/s", value)
+	case "MiB":
+		if value >= 1024 {
+			return fmt.Sprintf("%.1fGiB", value/1024)
+		}
+		if value < 10 && value != math.Trunc(value) {
+			return fmt.Sprintf("%.1fMiB", value)
+		}
+		return fmt.Sprintf("%.0fMiB", value)
+	default:
+		return fmt.Sprintf("%.1f", value)
+	}
+}
+
+func statsGraphScaleText(maximum float64, unit string) string {
+	return "Scale " + formatStatsScaleValue(maximum, unit)
+}
+
+func setStatsGraphScale(item *eui.ItemData, maximum float64, unit string) {
+	if item == nil {
 		return
 	}
-	minValue, maxValue := values[0], values[0]
-	for _, value := range values[1:] {
-		if value < minValue {
-			minValue = value
+	item.Text = statsGraphScaleText(maximum, unit)
+	item.Position.X = 0
+	item.Size.X = statsScaleWidth
+	if source := eui.FontSource(); source != nil && item.Parent != nil {
+		uiScale := eui.UIScale()
+		if uiScale <= 0 {
+			uiScale = 1
 		}
-		if value > maxValue {
-			maxValue = value
+		face := &text.GoTextFace{Source: source, Size: float64(item.FontSize*uiScale + 2)}
+		width, _ := text.Measure(item.Text, face, 0)
+		logicalWidth := float32(math.Ceil(width)) / uiScale
+		if logicalWidth < item.Parent.Size.X {
+			item.Size.X = logicalWidth
+			item.Position.X = item.Parent.Size.X - logicalWidth
 		}
+	}
+	item.Dirty = true
+}
+
+func drawStatsSeries(dst *ebiten.Image, values []float64, left, top, right, bottom float32, maximum float64, capacity int, lineColor color.Color) {
+	if dst == nil || len(values) == 0 || right <= left || bottom <= top || maximum <= 0 || capacity < 2 {
+		return
+	}
+	if len(values) > capacity {
+		values = values[len(values)-capacity:]
 	}
 	valueY := func(value float64) float32 {
-		if maxValue == minValue {
-			return (top + bottom) / 2
+		if value < 0 {
+			value = 0
+		} else if value > maximum {
+			value = maximum
 		}
-		return bottom - float32((value-minValue)/(maxValue-minValue))*(bottom-top)
+		return bottom - float32(value/maximum)*(bottom-top)
 	}
+	step := (right - left) / float32(capacity-1)
+	startX := right - float32(len(values)-1)*step
 	if len(values) == 1 {
-		vector.FillCircle(dst, right, valueY(values[0]), 1.5, lineColor, true)
+		vector.FillCircle(dst, startX, valueY(values[0]), 1.5, lineColor, true)
 		return
 	}
-	step := (right - left) / float32(len(values)-1)
-	previousX, previousY := left, valueY(values[0])
+	previousX, previousY := startX, valueY(values[0])
 	for i, value := range values[1:] {
-		x := left + float32(i+1)*step
+		x := startX + float32(i+1)*step
 		y := valueY(value)
 		vector.StrokeLine(dst, previousX, previousY, x, y, 1.5, lineColor, true)
 		previousX, previousY = x, y
@@ -377,11 +538,12 @@ func updateStatsWindow(now time.Time) {
 	}
 	frameMu.Lock()
 	interval := frameInterval
+	updatesPerSecond := serverUpdatesPerSecond
 	frameMu.Unlock()
 	if interval <= 0 {
 		interval = framems * time.Millisecond
 	}
-	reply, jitter := networkLatencySnapshot()
+	reply, jitter := networkTimingSnapshot()
 	images := imageCacheStats()
 	sounds, soundBytes := soundCacheStats()
 	imageCount := images.sheetCount + images.frameCount + images.scaledFrameCount + images.mobileCount + images.scaledMobileCount
@@ -390,7 +552,7 @@ func updateStatsWindow(now time.Time) {
 	if sampleDue {
 		appendStatsSample(liveStatsSample{
 			fps:         ebiten.ActualFPS(),
-			updateRate:  float64(time.Second) / float64(interval),
+			updateRate:  updatesPerSecond,
 			reply:       reply,
 			jitter:      jitter,
 			cacheMemory: float64(imageBytes+soundBytes) / (1024 * 1024),
@@ -418,17 +580,18 @@ func updateStatsWindow(now time.Time) {
 		gpuMemory[i] = sample.gpuMemory
 	}
 
-	mode := "OFF"
-	if gs.AltNetMode {
-		mode = "ON"
-	}
-	adjustment := networkAdjustmentDelay(interval, reply, jitter, gs.AltNetDelay)
-	configuredOffset := time.Duration(gs.AltNetDelay) * time.Millisecond
-	advance := configuredOffset - adjustment
-	if advance < 0 {
-		advance = 0
-	}
 	recentLoss, sessionLoss, received, lost := packetLossSnapshot()
+	usePNA := true
+	fallbackReason := ""
+	if gs.AltNetMode {
+		usePNA, fallbackReason = pnaTimingStatus(recentLoss, now)
+	}
+	var phase, lead time.Duration
+	var timingReady bool
+	if gs.AltNetMode && usePNA {
+		_, _, _, phase, lead, timingReady = pnaScheduleSnapshot()
+	}
+	safety := networkAdjustmentSafetyMargin(interval)
 	if statsPNACheckbox != nil && statsPNACheckbox.Checked != gs.AltNetMode {
 		statsPNACheckbox.Checked = gs.AltNetMode
 		statsPNACheckbox.Dirty = true
@@ -438,26 +601,59 @@ func updateStatsWindow(now time.Time) {
 	setStatsMetric(statsRecentLoss, fmt.Sprintf("%.1f%%", recentLoss))
 	setStatsMetric(statsSessionLoss, fmt.Sprintf("%.2f%%", sessionLoss))
 	if statsNetworkText != nil {
-		timing := "original network timing"
-		if gs.AltNetMode {
-			timing = fmt.Sprintf("send in %s, %s early", formatToolbarLatency(adjustment), formatToolbarLatency(advance))
+		mode := "OFF"
+		timing := "Original timing"
+		switch {
+		case gs.AltNetMode && !usePNA:
+			mode = "PAUSED"
+		case gs.AltNetMode && !timingReady:
+			mode = "LEARNING"
+			timing = "Original timing while learning"
+		case gs.AltNetMode:
+			mode = "ON"
+			timing = fmt.Sprintf("Send phase %s   |   Lead %s", formatToolbarLatency(phase), formatToolbarLatency(lead))
 		}
-		statsNetworkText.Text = fmt.Sprintf("PNA %s   |   Offset %s   |   Safety %s   |   %s\nPackets: %d received, %d lost",
-			mode, formatToolbarLatency(configuredOffset), formatToolbarLatency(networkAdjustmentSafetyMargin), timing, received, lost)
+		serverTiming := "learning"
+		if updatesPerSecond > 0 {
+			serverTiming = fmt.Sprintf("%.2f/sec (%s)", updatesPerSecond, formatToolbarLatency(interval))
+		}
+		statsNetworkText.Text = fmt.Sprintf("PNA %s   |   Server %s\n%s   |   Safety %d%% (%s)\nPackets: %d received, %d lost",
+			mode, serverTiming, timing, networkAdjustmentSafetyPercent.Load(), formatToolbarLatency(safety), received, lost)
 		statsNetworkText.Dirty = true
 	}
-	drawStatsGraph(statsNetworkImage, replies, jitters, statsReplyColor, statsJitterColor)
+	if statsPNAAlert != nil {
+		statsPNAAlert.Filled = gs.AltNetMode && !usePNA
+		if statsPNAAlert.Filled {
+			statsPNAAlert.Color = eui.NewColor(154, 36, 36, 255)
+			statsPNAAlert.TextColor = eui.NewColor(255, 255, 255, 255)
+			statsPNAAlert.Text = "PNA PAUSED — " + pnaFallbackExplanation(fallbackReason, recentLoss)
+		} else {
+			statsPNAAlert.Text = ""
+		}
+		statsPNAAlert.Dirty = true
+	}
+	networkUpperScale := statsGraphScale{minimumMaximum: 500, unit: "ms"}
+	networkLowerScale := statsGraphScale{minimumMaximum: 500, unit: "ms"}
+	networkUpperMaximum, networkLowerMaximum := drawStatsGraph(statsNetworkImage, replies, jitters, statsReplyColor, statsJitterColor,
+		networkUpperScale, networkLowerScale)
+	setStatsGraphScale(statsNetworkUpperScale, networkUpperMaximum, networkUpperScale.unit)
+	setStatsGraphScale(statsNetworkLowerScale, networkLowerMaximum, networkLowerScale.unit)
 	if statsNetworkGraph != nil {
 		statsNetworkGraph.Dirty = true
 	}
 	setStatsMetric(statsFPSMetric, fmt.Sprintf("%.1f", ebiten.ActualFPS()))
-	setStatsMetric(statsUpdateMetric, fmt.Sprintf("%.2f / sec", float64(time.Second)/float64(interval)))
+	setStatsMetric(statsUpdateMetric, fmt.Sprintf("%.2f / sec", updatesPerSecond))
 	setStatsMetric(statsCPUMetric, fmt.Sprintf("~%.1f%%", gameLoopCPULoad()))
 	if statsRateText != nil {
 		statsRateText.Text = fmt.Sprintf("Server frame interval: %s", interval.Round(time.Millisecond))
 		statsRateText.Dirty = true
 	}
-	drawStatsGraph(statsRateImage, fps, updates, statsFPSColor, statsUpdateColor)
+	rateUpperScale := statsGraphScale{minimumMaximum: 120, unit: "fps"}
+	rateLowerScale := statsGraphScale{minimumMaximum: 10, unit: "/s"}
+	rateUpperMaximum, rateLowerMaximum := drawStatsGraph(statsRateImage, fps, updates, statsFPSColor, statsUpdateColor,
+		rateUpperScale, rateLowerScale)
+	setStatsGraphScale(statsRateUpperScale, rateUpperMaximum, rateUpperScale.unit)
+	setStatsGraphScale(statsRateLowerScale, rateLowerMaximum, rateLowerScale.unit)
 	if statsRateGraph != nil {
 		statsRateGraph.Dirty = true
 	}
@@ -469,7 +665,12 @@ func updateStatsWindow(now time.Time) {
 		statsMemoryText.Text = fmt.Sprintf("Cache entries: %d artwork, %d sounds", imageCount, sounds)
 		statsMemoryText.Dirty = true
 	}
-	drawStatsGraph(statsCacheImage, cacheMemory, gpuMemory, statsCacheMemoryColor, statsGPUMemoryColor)
+	cacheUpperScale := statsGraphScale{minimumMaximum: 4096, unit: "MiB"}
+	cacheLowerScale := statsGraphScale{minimumMaximum: 4096, unit: "MiB"}
+	cacheUpperMaximum, cacheLowerMaximum := drawStatsGraph(statsCacheImage, cacheMemory, gpuMemory, statsCacheMemoryColor, statsGPUMemoryColor,
+		cacheUpperScale, cacheLowerScale)
+	setStatsGraphScale(statsCacheUpperScale, cacheUpperMaximum, cacheUpperScale.unit)
+	setStatsGraphScale(statsCacheLowerScale, cacheLowerMaximum, cacheLowerScale.unit)
 	if statsCacheGraph != nil {
 		statsCacheGraph.Dirty = true
 	}

@@ -13,6 +13,35 @@ func TestStatsHistoryDuration(t *testing.T) {
 	}
 }
 
+func TestStatsGraphMaximumUsesReadableZeroBasedScale(t *testing.T) {
+	tests := []struct {
+		name    string
+		values  []float64
+		minimum float64
+		want    float64
+	}{
+		{name: "network floor", values: []float64{184, 195, 191}, minimum: 500, want: 500},
+		{name: "network expands", values: []float64{510, 640, 720}, minimum: 500, want: 750},
+		{name: "fps floor", values: []float64{58, 59}, minimum: 120, want: 120},
+		{name: "server rate", values: []float64{4.8, 5.1}, minimum: 10, want: 10},
+		{name: "memory floor", values: []float64{256, 768}, minimum: 4096, want: 4096},
+		{name: "empty", minimum: 10, want: 10},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := statsGraphMaximum(test.values, test.minimum); got != test.want {
+				t.Fatalf("statsGraphMaximum(%v, %v) = %v, want %v", test.values, test.minimum, got, test.want)
+			}
+		})
+	}
+}
+
+func TestStatsGraphScaleText(t *testing.T) {
+	if got := statsGraphScaleText(120, "fps"); got != "Scale 120fps" {
+		t.Fatalf("scale text = %q", got)
+	}
+}
+
 func TestStatsHistoryKeepsNewestFiveMinutes(t *testing.T) {
 	originalHistory := statsHistory
 	originalCount := statsHistoryCount
@@ -71,15 +100,34 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 	originalDirty := settingsDirty
 	originalStatsCheckbox := statsPNACheckbox
 	originalAdvancedCheckbox := advancedPNACheckbox
+	pnaControllerMu.Lock()
+	originalController := pnaController
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	originalFallback := pnaFallback
+	pnaFallbackMu.Unlock()
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
 		settingsDirty = originalDirty
 		statsPNACheckbox = originalStatsCheckbox
 		advancedPNACheckbox = originalAdvancedCheckbox
+		pnaControllerMu.Lock()
+		pnaController = originalController
+		pnaControllerMu.Unlock()
+		pnaFallbackMu.Lock()
+		pnaFallback = originalFallback
+		pnaFallbackMu.Unlock()
 	})
 
+	gs.AltNetMode = false
 	statsPNACheckbox = &eui.ItemData{}
 	advancedPNACheckbox = &eui.ItemData{}
+	pnaControllerMu.Lock()
+	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	pnaFallback = pnaFallbackState{activeUntil: time.Now().Add(time.Minute), reason: "recent packet loss"}
+	pnaFallbackMu.Unlock()
 	settingsDirty = false
 	setPNAEnabled(true)
 
@@ -89,5 +137,14 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 	}
 	if !settingsDirty {
 		t.Fatal("enabling PNA did not mark settings dirty")
+	}
+	pnaControllerMu.Lock()
+	controllerReset := pnaController == (pnaControllerState{})
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	fallbackReset := pnaFallback == (pnaFallbackState{})
+	pnaFallbackMu.Unlock()
+	if !controllerReset || !fallbackReset {
+		t.Fatalf("enabling PNA kept stale state: controllerReset=%v fallbackReset=%v", controllerReset, fallbackReset)
 	}
 }

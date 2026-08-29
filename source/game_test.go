@@ -233,43 +233,274 @@ func TestTiledGameImageFillsEveryManagedPixel(t *testing.T) {
 	}
 }
 
-func TestNetworkAdjustmentDelay(t *testing.T) {
-	const frame = 200 * time.Millisecond
+func TestPNAInitialLeadUsesFrameRateJitterAndSafety(t *testing.T) {
+	originalSafety := networkAdjustmentSafetyPercent.Load()
+	networkAdjustmentSafetyPercent.Store(10)
+	resetPNAController()
+	t.Cleanup(func() {
+		networkAdjustmentSafetyPercent.Store(originalSafety)
+		resetPNAController()
+	})
 
+	const interval = 200 * time.Millisecond
+	const jitter = 12 * time.Millisecond
+	if got := networkAdjustmentSafetyMargin(interval); got != 20*time.Millisecond {
+		t.Fatalf("safety margin = %v, want 20ms", got)
+	}
+	if got := pnaBaseLead(interval, jitter); got != 32*time.Millisecond {
+		t.Fatalf("base lead = %v, want 32ms", got)
+	}
+	// The controller begins conservatively at one quarter of a frame, then
+	// command acknowledgements can probe later in bounded steps.
+	if got := pnaLeadSnapshot(interval, jitter); got != 50*time.Millisecond {
+		t.Fatalf("initial lead = %v, want 50ms", got)
+	}
+}
+
+func TestRecordServerFrameTimingTracksCadenceAndIgnoresDuplicates(t *testing.T) {
+	frameMu.Lock()
+	oldLastFrameTime, oldFrameInterval := lastFrameTime, frameInterval
+	oldLastTimingFrame := lastTimingFrame
+	oldTimingSamples := append([]timedDurationSample(nil), frameTimingSamples...)
+	oldJitter, oldRate := serverFrameJitter, serverUpdatesPerSecond
+	lastFrameTime = time.Time{}
+	frameInterval = framems * time.Millisecond
+	lastTimingFrame = 0
+	frameTimingSamples = nil
+	serverFrameJitter = 0
+	serverUpdatesPerSecond = 0
+	frameMu.Unlock()
+	t.Cleanup(func() {
+		frameMu.Lock()
+		lastFrameTime, frameInterval = oldLastFrameTime, oldFrameInterval
+		lastTimingFrame = oldLastTimingFrame
+		frameTimingSamples = oldTimingSamples
+		serverFrameJitter, serverUpdatesPerSecond = oldJitter, oldRate
+		frameMu.Unlock()
+	})
+
+	start := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
+	if !recordServerFrameTiming(100, start) {
+		t.Fatal("first frame was not accepted as the phase origin")
+	}
+	for i := 1; i <= pnaTimingWarmupSamples; i++ {
+		if !recordServerFrameTiming(int32(100+i), start.Add(time.Duration(i)*200*time.Millisecond)) {
+			t.Fatalf("frame %d was not accepted", 100+i)
+		}
+	}
+	// A three-frame gap still represents 200ms server updates, not one 600ms
+	// update. Packet-loss fallback handles the missing datagrams separately.
+	if !recordServerFrameTiming(108, start.Add(1600*time.Millisecond)) {
+		t.Fatal("frame after a sequence gap was not accepted")
+	}
+	if recordServerFrameTiming(108, start.Add(1700*time.Millisecond)) {
+		t.Fatal("duplicate frame changed the timing origin")
+	}
+	if !recordServerFrameTiming(109, start.Add(1500*time.Millisecond)) {
+		t.Fatal("newer cross-channel frame was not accepted")
+	}
+
+	frameMu.Lock()
+	gotInterval, gotJitter, gotRate := frameInterval, serverFrameJitter, serverUpdatesPerSecond
+	gotLastTime, gotLastFrame := lastFrameTime, lastTimingFrame
+	gotSamples := len(frameTimingSamples)
+	frameMu.Unlock()
+	if gotInterval != 200*time.Millisecond || gotJitter != 0 || gotRate != 5 {
+		t.Fatalf("timing estimate = interval %v jitter %v rate %v, want 200ms/0/5", gotInterval, gotJitter, gotRate)
+	}
+	if gotLastTime != start.Add(1600*time.Millisecond) || gotLastFrame != 109 || gotSamples != pnaTimingWarmupSamples+1 {
+		t.Fatalf("phase state = time %v frame %d samples %d", gotLastTime, gotLastFrame, gotSamples)
+	}
+}
+
+func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
+	originalEnabled := gs.AltNetMode
+	originalSafety := networkAdjustmentSafetyPercent.Load()
+	frameMu.Lock()
+	originalJitter := serverFrameJitter
+	serverFrameJitter = 0
+	frameMu.Unlock()
+	frameStatsMu.Lock()
+	originalFrameBuckets, originalLostBuckets, originalBucketTimes := frameBuckets, lostBuckets, bucketTimes
+	frameBuckets, lostBuckets, bucketTimes = [5]int{}, [5]int{}, [5]int64{}
+	frameStatsMu.Unlock()
+	pnaControllerMu.Lock()
+	originalController := pnaController
+	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	originalFallback := pnaFallback
+	pnaFallback = pnaFallbackState{}
+	pnaFallbackMu.Unlock()
+	gs.AltNetMode = true
+	networkAdjustmentSafetyPercent.Store(10)
+	t.Cleanup(func() {
+		gs.AltNetMode = originalEnabled
+		networkAdjustmentSafetyPercent.Store(originalSafety)
+		frameMu.Lock()
+		serverFrameJitter = originalJitter
+		frameMu.Unlock()
+		frameStatsMu.Lock()
+		frameBuckets, lostBuckets, bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
+		frameStatsMu.Unlock()
+		pnaControllerMu.Lock()
+		pnaController = originalController
+		pnaControllerMu.Unlock()
+		pnaFallbackMu.Lock()
+		pnaFallback = originalFallback
+		pnaFallbackMu.Unlock()
+	})
+
+	now := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < pnaSuccessesBeforeLater; i++ {
+		recordPNACommandFeedback(50*time.Millisecond, 150*time.Millisecond, 200*time.Millisecond, 10, 11, now.Add(time.Duration(i)*time.Second))
+	}
+	pnaControllerMu.Lock()
+	laterLead := pnaController.lead
+	pnaControllerMu.Unlock()
+	if laterLead != 42500*time.Microsecond {
+		t.Fatalf("lead after stable next-frame replies = %v, want 42.5ms", laterLead)
+	}
+
+	missTime := now.Add(5 * time.Second)
+	recordPNACommandFeedback(242500*time.Microsecond, 157500*time.Microsecond, 200*time.Millisecond, 11, 13, missTime)
+	pnaControllerMu.Lock()
+	missLead, learnedFloor, holdUntil := pnaController.lead, pnaController.learnedLeadFloor, pnaController.holdUntil
+	pnaControllerMu.Unlock()
+	if missLead != 67500*time.Microsecond || learnedFloor != missLead || holdUntil != missTime.Add(pnaFeedbackHold) {
+		t.Fatalf("miss recovery = lead %v floor %v hold %v, want 67.5ms floor and %v", missLead, learnedFloor, holdUntil, missTime.Add(pnaFeedbackHold))
+	}
+
+	// Successful replies during the hold cannot immediately undo the safer
+	// correction, which prevents the controller from amplifying its own probe.
+	recordPNACommandFeedback(67500*time.Microsecond, 132500*time.Microsecond, 200*time.Millisecond, 13, 14, missTime.Add(time.Second))
+	pnaControllerMu.Lock()
+	heldLead, heldHits := pnaController.lead, pnaController.consecutiveHits
+	pnaControllerMu.Unlock()
+	if heldLead != missLead || heldHits != 0 {
+		t.Fatalf("feedback hold changed controller = lead %v hits %d", heldLead, heldHits)
+	}
+
+	// Once the hold expires, successful replies must not probe later across
+	// the boundary that already caused a full-frame miss.
+	for i := 0; i < pnaSuccessesBeforeLater*3; i++ {
+		recordPNACommandFeedback(100*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 13, 14,
+			holdUntil.Add(time.Duration(i+1)*time.Second))
+	}
+	pnaControllerMu.Lock()
+	afterHoldLead, afterHoldFloor := pnaController.lead, pnaController.learnedLeadFloor
+	pnaControllerMu.Unlock()
+	if afterHoldLead != missLead || afterHoldFloor != missLead {
+		t.Fatalf("post-hold feedback re-crossed learned boundary: lead %v floor %v, want %v", afterHoldLead, afterHoldFloor, missLead)
+	}
+
+	// Once per long cooldown, make one much smaller later probe so a changed
+	// server boundary can eventually be discovered without a short limit cycle.
+	probeTime := missTime.Add(pnaBoundaryProbeInterval)
+	recordPNACommandFeedback(100*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 15, probeTime)
+	pnaControllerMu.Lock()
+	probeLead, probeFloor, nextProbe := pnaController.lead, pnaController.learnedLeadFloor, pnaController.nextBoundaryProbe
+	pnaControllerMu.Unlock()
+	if probeLead != 62500*time.Microsecond || probeFloor != probeLead || nextProbe != probeTime.Add(pnaBoundaryProbeInterval) {
+		t.Fatalf("rare boundary probe = lead %v floor %v next %v", probeLead, probeFloor, nextProbe)
+	}
+	recordPNACommandFeedback(100*time.Millisecond, 137500*time.Microsecond, 200*time.Millisecond, 15, 16, probeTime.Add(time.Second))
+	pnaControllerMu.Lock()
+	heldProbeLead := pnaController.lead
+	pnaControllerMu.Unlock()
+	if heldProbeLead != probeLead {
+		t.Fatalf("boundary probed again before cooldown: lead %v, want %v", heldProbeLead, probeLead)
+	}
+
+	// A miss following a probe moves the floor earlier and restarts cooldown.
+	secondMiss := probeTime.Add(2 * time.Second)
+	recordPNACommandFeedback(250*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 16, secondMiss)
+	pnaControllerMu.Lock()
+	secondLead, secondFloor, secondProbe := pnaController.lead, pnaController.learnedLeadFloor, pnaController.nextBoundaryProbe
+	pnaControllerMu.Unlock()
+	if secondLead != 87500*time.Microsecond || secondFloor != secondLead || secondProbe != secondMiss.Add(pnaBoundaryProbeInterval) {
+		t.Fatalf("second miss did not move learned boundary earlier: lead %v floor %v next %v", secondLead, secondFloor, secondProbe)
+	}
+}
+
+func TestPNAFallbackReason(t *testing.T) {
 	tests := []struct {
-		name              string
-		replyTime, jitter time.Duration
-		offset            int
-		want              time.Duration
+		name string
+		loss float64
+		want string
 	}{
-		{name: "disabled offset", offset: 0, want: 0},
-		{name: "no reply measurement keeps offset", offset: 100, want: 100 * time.Millisecond},
-		{name: "room before next frame keeps offset", replyTime: 40 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 100, want: 100 * time.Millisecond},
-		{name: "safety margin caps late offset", replyTime: 40 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 190, want: 145 * time.Millisecond},
-		{name: "reply time and safety margin advance send", replyTime: 100 * time.Millisecond, jitter: 20 * time.Millisecond, offset: 100, want: 75 * time.Millisecond},
-		{name: "late reply sends immediately", replyTime: 190 * time.Millisecond, jitter: 10 * time.Millisecond, offset: 100, want: 0},
+		{name: "healthy"},
+		{name: "packet loss", loss: 1, want: "recent packet loss"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := networkAdjustmentDelay(frame, tt.replyTime, tt.jitter, tt.offset); got != tt.want {
-				t.Fatalf("networkAdjustmentDelay() = %v, want %v", got, tt.want)
+			if got := pnaFallbackReason(tt.loss); got != tt.want {
+				t.Fatalf("pnaFallbackReason() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestP99Duration(t *testing.T) {
-	if got := p99Duration(nil); got != 0 {
-		t.Fatalf("p99Duration(nil) = %v, want 0", got)
+func TestPNAReplyTimeAndJitterNeverPauseTiming(t *testing.T) {
+	resetPNAFallback()
+	t.Cleanup(resetPNAFallback)
+	if usePNA, reason := pnaTimingStatus(0, time.Now()); !usePNA || reason != "" {
+		t.Fatalf("PNA paused without packet loss: use=%v reason=%q", usePNA, reason)
 	}
-	if got := p99Duration([]time.Duration{2 * time.Millisecond, 7 * time.Millisecond, time.Millisecond}); got != 7*time.Millisecond {
-		t.Fatalf("p99Duration() = %v, want 7ms while the sample window is warming up", got)
+}
+
+func TestPNATimingStatusCooldownAndHysteresis(t *testing.T) {
+	resetPNAFallback()
+	t.Cleanup(resetPNAFallback)
+	now := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
+	if usePNA, reason := pnaTimingStatus(1, now); usePNA || reason != "recent packet loss" {
+		t.Fatalf("loss status = use:%v reason:%q, want immediate fallback", usePNA, reason)
+	}
+	if usePNA, reason := pnaTimingStatus(0, now.Add(4*time.Second)); usePNA || reason != "cooldown after recent packet loss" {
+		t.Fatalf("cooldown status = use:%v reason:%q, want fallback", usePNA, reason)
+	}
+	if usePNA, reason := pnaTimingStatus(0.2, now.Add(6*time.Second)); usePNA || reason != "waiting for packet loss to clear" {
+		t.Fatalf("hysteresis status = use:%v reason:%q, want fallback", usePNA, reason)
+	}
+	if usePNA, reason := pnaTimingStatus(0, now.Add(6*time.Second)); !usePNA || reason != "" {
+		t.Fatalf("recovered status = use:%v reason:%q, want PNA", usePNA, reason)
+	}
+}
+
+func TestNetworkAdjustmentSafetyMargin(t *testing.T) {
+	original := networkAdjustmentSafetyPercent.Load()
+	networkAdjustmentSafetyPercent.Store(10)
+	t.Cleanup(func() { networkAdjustmentSafetyPercent.Store(original) })
+	if got := networkAdjustmentSafetyMargin(200 * time.Millisecond); got != 20*time.Millisecond {
+		t.Fatalf("networkAdjustmentSafetyMargin() = %v, want 20ms", got)
+	}
+}
+
+func TestP95Duration(t *testing.T) {
+	if got := p95Duration(nil); got != 0 {
+		t.Fatalf("p95Duration(nil) = %v, want 0", got)
+	}
+	if got := p95Duration([]time.Duration{2 * time.Millisecond, 7 * time.Millisecond, time.Millisecond}); got != 7*time.Millisecond {
+		t.Fatalf("p95Duration() = %v, want 7ms while the sample window is warming up", got)
 	}
 	samples := make([]time.Duration, 100)
 	for i := range samples {
 		samples[i] = time.Duration(i+1) * time.Millisecond
 	}
-	if got := p99Duration(samples); got != 99*time.Millisecond {
-		t.Fatalf("p99Duration() = %v, want 99ms", got)
+	if got := p95Duration(samples); got != 95*time.Millisecond {
+		t.Fatalf("p95Duration() = %v, want 95ms", got)
+	}
+}
+
+func TestRetainRecentTimingSamples(t *testing.T) {
+	now := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
+	samples := []timedDurationSample{
+		{at: now.Add(-pnaTimingWindow - time.Nanosecond), value: 50 * time.Millisecond},
+		{at: now.Add(-pnaTimingWindow), value: 10 * time.Millisecond},
+		{at: now.Add(-time.Second), value: 5 * time.Millisecond},
+	}
+	got := retainRecentTimingSamples(samples, now)
+	if len(got) != 2 || got[0].value != 10*time.Millisecond || got[1].value != 5*time.Millisecond {
+		t.Fatalf("retainRecentTimingSamples() = %#v, want the two samples from the last minute", got)
 	}
 }

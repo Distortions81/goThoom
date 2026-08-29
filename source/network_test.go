@@ -137,6 +137,10 @@ func resetCommandStateForTest(t testing.TB, number uint32) {
 	oldPendingID := pendingCommandID
 	oldPendingSent := pendingCommandSent
 	oldPendingSentAt := pendingCommandSentAt
+	oldPendingSentFrame := pendingCommandSentFrame
+	oldPendingSentPhase := pendingCommandSentPhase
+	oldPendingSentInterval := pendingCommandSentInterval
+	oldPendingSentPredictively := pendingCommandSentPredictively
 	oldQueue := commandQueue
 	oldWhoLastCommandFrame := whoLastCommandFrame
 	t.Cleanup(func() {
@@ -145,6 +149,10 @@ func resetCommandStateForTest(t testing.TB, number uint32) {
 		pendingCommandID = oldPendingID
 		pendingCommandSent = oldPendingSent
 		pendingCommandSentAt = oldPendingSentAt
+		pendingCommandSentFrame = oldPendingSentFrame
+		pendingCommandSentPhase = oldPendingSentPhase
+		pendingCommandSentInterval = oldPendingSentInterval
+		pendingCommandSentPredictively = oldPendingSentPredictively
 		commandQueue = oldQueue
 		whoLastCommandFrame = oldWhoLastCommandFrame
 	})
@@ -152,7 +160,7 @@ func resetCommandStateForTest(t testing.TB, number uint32) {
 	pendingCommand = ""
 	pendingCommandID = 0
 	pendingCommandSent = false
-	pendingCommandSentAt = time.Time{}
+	resetPendingCommandTimingLocked()
 	commandQueue = nil
 	whoLastCommandFrame = -1
 }
@@ -236,7 +244,7 @@ func TestSendPlayerInputAcknowledgementAdvancesFIFO(t *testing.T) {
 		t.Fatalf("commandQueue before ack: %v", commandQueue)
 	}
 
-	acknowledgeCommand(2)
+	acknowledgeCommand(2, 1)
 	if pendingCommand != "/wave" || pendingCommandID != 0 || pendingCommandSent {
 		t.Fatalf("pending after ack = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
 	}
@@ -266,7 +274,7 @@ func TestSendPlayerInputRetriesSameCommandAfterNegativeAck(t *testing.T) {
 		t.Fatalf("first command number=%d, want 42", got)
 	}
 
-	acknowledgeCommand(41)
+	acknowledgeCommand(41, 1)
 	retry := &bufConn{}
 	if err := sendPlayerInput(retry, 0, 0, false, false); err != nil {
 		t.Fatal(err)
@@ -285,11 +293,11 @@ func TestDelayedMatchingAckCompletesCommandBeforeRetry(t *testing.T) {
 	if err := sendPlayerInput(&bufConn{}, 0, 0, false, false); err != nil {
 		t.Fatal(err)
 	}
-	acknowledgeCommand(41)
+	acknowledgeCommand(41, 1)
 	if pendingCommandSent {
 		t.Fatal("negative acknowledgement did not enable retry")
 	}
-	acknowledgeCommand(42)
+	acknowledgeCommand(42, 1)
 	if pendingCommand != "" || pendingCommandID != 0 || pendingCommandSent {
 		t.Fatalf("delayed matching ack left pending state %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
 	}
@@ -373,16 +381,23 @@ func TestSendPlayerInputTruncatesCommandToClassicLimit(t *testing.T) {
 	}
 }
 
-func TestCommandLatencyRequiresMatchingAcknowledgement(t *testing.T) {
+func TestCommandReplyRequiresMatchingAcknowledgement(t *testing.T) {
 	resetCommandStateForTest(t, 10)
-	latencyMu.Lock()
-	oldLatency, oldJitter := netLatency, netJitter
-	netLatency, netJitter = 0, 0
-	latencyMu.Unlock()
+	commandReplyMu.Lock()
+	oldReply := commandReplyTime
+	commandReplyTime = 0
+	commandReplyMu.Unlock()
+	frameMu.Lock()
+	oldFrameJitter := serverFrameJitter
+	serverFrameJitter = 0
+	frameMu.Unlock()
 	t.Cleanup(func() {
-		latencyMu.Lock()
-		netLatency, netJitter = oldLatency, oldJitter
-		latencyMu.Unlock()
+		commandReplyMu.Lock()
+		commandReplyTime = oldReply
+		commandReplyMu.Unlock()
+		frameMu.Lock()
+		serverFrameJitter = oldFrameJitter
+		frameMu.Unlock()
 	})
 
 	pendingCommand = "/test"
@@ -394,9 +409,9 @@ func TestCommandLatencyRequiresMatchingAcknowledgement(t *testing.T) {
 	pendingCommandSentAt = originalSentAt
 	commandMu.Unlock()
 
-	acknowledgeCommand(10)
-	if latency, jitter := networkLatencySnapshot(); latency != 0 || jitter != 0 {
-		t.Fatalf("unmatched ack recorded latency %v jitter %v", latency, jitter)
+	acknowledgeCommand(10, 1)
+	if reply, jitter := networkTimingSnapshot(); reply != 0 || jitter != 0 {
+		t.Fatalf("unmatched ack recorded reply %v jitter %v", reply, jitter)
 	}
 	if err := sendPlayerInput(&bufConn{}, 0, 0, false, false); err != nil {
 		t.Fatal(err)
@@ -408,10 +423,55 @@ func TestCommandLatencyRequiresMatchingAcknowledgement(t *testing.T) {
 		t.Fatalf("retry replaced first-send timestamp: %v != %v", retrySentAt, originalSentAt)
 	}
 
-	acknowledgeCommand(11)
-	latency, _ := networkLatencySnapshot()
-	if latency < 70*time.Millisecond || latency > 500*time.Millisecond {
-		t.Fatalf("matching ack latency = %v, want approximately 80ms", latency)
+	acknowledgeCommandAt(11, 1, originalSentAt.Add(80*time.Millisecond))
+	reply, _ := networkTimingSnapshot()
+	if reply != 80*time.Millisecond {
+		t.Fatalf("matching ack reply = %v, want socket-arrival interval 80ms", reply)
+	}
+}
+
+func TestWarmupCommandReplyDoesNotTunePNA(t *testing.T) {
+	resetCommandStateForTest(t, 10)
+	originalEnabled := gs.AltNetMode
+	gs.AltNetMode = true
+	commandReplyMu.Lock()
+	originalReply := commandReplyTime
+	commandReplyTime = 0
+	commandReplyMu.Unlock()
+	pnaControllerMu.Lock()
+	originalController := pnaController
+	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond, consecutiveHits: 2}
+	pnaControllerMu.Unlock()
+	t.Cleanup(func() {
+		gs.AltNetMode = originalEnabled
+		commandReplyMu.Lock()
+		commandReplyTime = originalReply
+		commandReplyMu.Unlock()
+		pnaControllerMu.Lock()
+		pnaController = originalController
+		pnaControllerMu.Unlock()
+	})
+
+	sentAt := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
+	pendingCommand = "/test"
+	pendingCommandID = 11
+	pendingCommandSent = true
+	pendingCommandSentAt = sentAt
+	pendingCommandSentFrame = 10
+	pendingCommandSentPhase = 0
+	pendingCommandSentInterval = 200 * time.Millisecond
+	pendingCommandSentPredictively = false
+	acknowledgeCommandAt(11, 11, sentAt.Add(200*time.Millisecond))
+
+	reply, _ := networkTimingSnapshot()
+	if reply != 200*time.Millisecond {
+		t.Fatalf("warmup command reply = %v, want 200ms", reply)
+	}
+	pnaControllerMu.Lock()
+	controller := pnaController
+	pnaControllerMu.Unlock()
+	if controller.lead != 50*time.Millisecond || controller.consecutiveHits != 2 {
+		t.Fatalf("warmup command changed PNA controller: %+v", controller)
 	}
 }
 
@@ -424,9 +484,21 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	oldInputQueue := append([]inputState(nil), inputQueue...)
 	oldKeyStopFrames := keyStopFrames
 	inputMu.Unlock()
-	latencyMu.Lock()
-	oldLatency, oldJitter := netLatency, netJitter
-	latencyMu.Unlock()
+	commandReplyMu.Lock()
+	oldReply := commandReplyTime
+	commandReplyMu.Unlock()
+	frameMu.Lock()
+	oldLastFrameTime, oldFrameInterval, oldFrameJitter := lastFrameTime, frameInterval, serverFrameJitter
+	oldLastTimingFrame := lastTimingFrame
+	oldTimingSamples := append([]timedDurationSample(nil), frameTimingSamples...)
+	oldUpdatesPerSecond := serverUpdatesPerSecond
+	frameMu.Unlock()
+	pnaControllerMu.Lock()
+	oldPNAController := pnaController
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	oldPNAFallback := pnaFallback
+	pnaFallbackMu.Unlock()
 	t.Cleanup(func() {
 		ackFrame, resendFrame = oldAck, oldResend
 		lastAckFrame, numFrames, lostFrames = oldLastAck, oldNumFrames, oldLostFrames
@@ -435,10 +507,21 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 		inputQueue = oldInputQueue
 		keyStopFrames = oldKeyStopFrames
 		inputMu.Unlock()
-		latencyMu.Lock()
-		netLatency, netJitter = oldLatency, oldJitter
-		latencyMu.Unlock()
-		resetDrawState()
+		commandReplyMu.Lock()
+		commandReplyTime = oldReply
+		commandReplyMu.Unlock()
+		frameMu.Lock()
+		lastFrameTime, frameInterval, serverFrameJitter = oldLastFrameTime, oldFrameInterval, oldFrameJitter
+		lastTimingFrame = oldLastTimingFrame
+		frameTimingSamples = oldTimingSamples
+		serverUpdatesPerSecond = oldUpdatesPerSecond
+		frameMu.Unlock()
+		pnaControllerMu.Lock()
+		pnaController = oldPNAController
+		pnaControllerMu.Unlock()
+		pnaFallbackMu.Lock()
+		pnaFallback = oldPNAFallback
+		pnaFallbackMu.Unlock()
 	})
 
 	ackFrame, resendFrame = 42, 43
@@ -447,14 +530,32 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	inputQueue = []inputState{{mouseX: 1}}
 	keyStopFrames = 2
 	inputMu.Unlock()
-	latencyMu.Lock()
-	netLatency, netJitter = 50*time.Millisecond, 10*time.Millisecond
-	latencyMu.Unlock()
+	commandReplyMu.Lock()
+	commandReplyTime = 50 * time.Millisecond
+	commandReplyMu.Unlock()
+	frameMu.Lock()
+	lastFrameTime = time.Now()
+	lastTimingFrame = 42
+	frameInterval = 200 * time.Millisecond
+	frameTimingSamples = []timedDurationSample{{at: time.Now(), value: 200 * time.Millisecond}}
+	serverFrameJitter = 10 * time.Millisecond
+	serverUpdatesPerSecond = 5
+	frameMu.Unlock()
+	pnaControllerMu.Lock()
+	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	pnaFallback = pnaFallbackState{activeUntil: time.Now().Add(time.Minute), reason: "recent packet loss"}
+	pnaFallbackMu.Unlock()
 	commandMu.Lock()
 	pendingCommand = "/test"
 	pendingCommandID = 9
 	pendingCommandSent = true
 	pendingCommandSentAt = time.Now()
+	pendingCommandSentFrame = 42
+	pendingCommandSentPhase = 150 * time.Millisecond
+	pendingCommandSentInterval = 200 * time.Millisecond
+	pendingCommandSentPredictively = true
 	commandMu.Unlock()
 	select {
 	case frameCh <- struct{}{}:
@@ -487,8 +588,25 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	if queued != 0 || stops != 0 {
 		t.Fatalf("input state not reset: queued=%d stops=%d", queued, stops)
 	}
-	if latency, jitter := networkLatencySnapshot(); latency != 0 || jitter != 0 {
-		t.Fatalf("latency state not reset: %v/%v", latency, jitter)
+	if reply, jitter := networkTimingSnapshot(); reply != 0 || jitter != 0 {
+		t.Fatalf("network timing state not reset: %v/%v", reply, jitter)
+	}
+	frameMu.Lock()
+	newLastFrameTime, newUpdatesPerSecond := lastFrameTime, serverUpdatesPerSecond
+	timingSamples := len(frameTimingSamples)
+	newLastTimingFrame := lastTimingFrame
+	frameMu.Unlock()
+	if !newLastFrameTime.IsZero() || newUpdatesPerSecond != 0 || timingSamples != 0 || newLastTimingFrame != 0 {
+		t.Fatalf("PNA measurements survived session reset: frame=%v id=%d rate=%v timingSamples=%d", newLastFrameTime, newLastTimingFrame, newUpdatesPerSecond, timingSamples)
+	}
+	pnaControllerMu.Lock()
+	controllerReset := pnaController == (pnaControllerState{})
+	pnaControllerMu.Unlock()
+	if !controllerReset {
+		t.Fatal("PNA controller survived session reset")
+	}
+	if usePNA, reason := pnaTimingStatus(0, time.Now()); !usePNA || reason != "" {
+		t.Fatalf("new session PNA status = use:%v reason:%q, want immediate-learning mode", usePNA, reason)
 	}
 	select {
 	case <-frameCh:
@@ -617,22 +735,22 @@ func TestSendUDPMessageDoesNotSplitShortWrite(t *testing.T) {
 func TestServerMessageDispatcherSerializesWithTCPPriority(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tcpMessages := make(chan []byte, 2)
-	udpMessages := make(chan []byte, 1)
-	tcpMessages <- []byte("tcp-1")
-	tcpMessages <- []byte("tcp-2")
-	udpMessages <- []byte("udp-1")
+	tcpMessages := make(chan incomingServerMessage, 2)
+	udpMessages := make(chan incomingServerMessage, 1)
+	tcpMessages <- incomingServerMessage{data: []byte("tcp-1")}
+	tcpMessages <- incomingServerMessage{data: []byte("tcp-2")}
+	udpMessages <- incomingServerMessage{data: []byte("udp-1")}
 
 	got := make(chan string, 3)
 	done := make(chan struct{})
 	go func() {
 		count := 0
-		serverMessageDispatchLoopWithHandler(ctx, tcpMessages, udpMessages, func(message []byte, reliable bool) {
+		serverMessageDispatchLoopWithHandler(ctx, tcpMessages, udpMessages, func(message incomingServerMessage, reliable bool) {
 			transport := "udp:"
 			if reliable {
 				transport = "tcp:"
 			}
-			got <- transport + string(message)
+			got <- transport + string(message.data)
 			count++
 			if count == 3 {
 				cancel()
@@ -668,6 +786,10 @@ func BenchmarkSendPlayerInputReliableNoAllocs(b *testing.B) {
 	oldAck := ackFrame
 	oldResend := resendFrame
 	oldSentAt := pendingCommandSentAt
+	oldSentFrame := pendingCommandSentFrame
+	oldSentPhase := pendingCommandSentPhase
+	oldSentInterval := pendingCommandSentInterval
+	oldSentPredictively := pendingCommandSentPredictively
 	defer func() {
 		commandNum = oldCommandNum
 		pendingCommand = oldPending
@@ -677,6 +799,10 @@ func BenchmarkSendPlayerInputReliableNoAllocs(b *testing.B) {
 		ackFrame = oldAck
 		resendFrame = oldResend
 		pendingCommandSentAt = oldSentAt
+		pendingCommandSentFrame = oldSentFrame
+		pendingCommandSentPhase = oldSentPhase
+		pendingCommandSentInterval = oldSentInterval
+		pendingCommandSentPredictively = oldSentPredictively
 	}()
 
 	commandNum = 1
@@ -686,7 +812,7 @@ func BenchmarkSendPlayerInputReliableNoAllocs(b *testing.B) {
 	commandQueue = nil
 	ackFrame = 0
 	resendFrame = 0
-	pendingCommandSentAt = time.Time{}
+	resetPendingCommandTimingLocked()
 
 	conn := &bufConn{}
 	b.ReportAllocs()
@@ -708,6 +834,10 @@ func BenchmarkSendPlayerInputUnreliableNoAllocs(b *testing.B) {
 	oldAck := ackFrame
 	oldResend := resendFrame
 	oldSentAt := pendingCommandSentAt
+	oldSentFrame := pendingCommandSentFrame
+	oldSentPhase := pendingCommandSentPhase
+	oldSentInterval := pendingCommandSentInterval
+	oldSentPredictively := pendingCommandSentPredictively
 	defer func() {
 		commandNum = oldCommandNum
 		pendingCommand = oldPending
@@ -717,6 +847,10 @@ func BenchmarkSendPlayerInputUnreliableNoAllocs(b *testing.B) {
 		ackFrame = oldAck
 		resendFrame = oldResend
 		pendingCommandSentAt = oldSentAt
+		pendingCommandSentFrame = oldSentFrame
+		pendingCommandSentPhase = oldSentPhase
+		pendingCommandSentInterval = oldSentInterval
+		pendingCommandSentPredictively = oldSentPredictively
 	}()
 
 	commandNum = 1
@@ -726,7 +860,7 @@ func BenchmarkSendPlayerInputUnreliableNoAllocs(b *testing.B) {
 	commandQueue = nil
 	ackFrame = 0
 	resendFrame = 0
-	pendingCommandSentAt = time.Time{}
+	resetPendingCommandTimingLocked()
 
 	conn := &bufConn{}
 	b.ReportAllocs()
