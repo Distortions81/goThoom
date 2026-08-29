@@ -632,8 +632,8 @@ func updateStatsWindow(now time.Time) {
 		}
 		statsPNAAlert.Dirty = true
 	}
-	networkUpperScale := statsGraphScale{minimumMaximum: 500, unit: "ms"}
-	networkLowerScale := statsGraphScale{minimumMaximum: 500, unit: "ms"}
+	networkUpperScale := statsGraphScale{minimumMaximum: 250, unit: "ms"}
+	networkLowerScale := statsGraphScale{minimumMaximum: 32, unit: "ms"}
 	networkUpperMaximum, networkLowerMaximum := drawStatsGraph(statsNetworkImage, replies, jitters, statsReplyColor, statsJitterColor,
 		networkUpperScale, networkLowerScale)
 	setStatsGraphScale(statsNetworkUpperScale, networkUpperMaximum, networkUpperScale.unit)
@@ -648,7 +648,7 @@ func updateStatsWindow(now time.Time) {
 		statsRateText.Text = fmt.Sprintf("Server frame interval: %s", interval.Round(time.Millisecond))
 		statsRateText.Dirty = true
 	}
-	rateUpperScale := statsGraphScale{minimumMaximum: 120, unit: "fps"}
+	rateUpperScale := statsGraphScale{minimumMaximum: 65, unit: "fps"}
 	rateLowerScale := statsGraphScale{minimumMaximum: 10, unit: "/s"}
 	rateUpperMaximum, rateLowerMaximum := drawStatsGraph(statsRateImage, fps, updates, statsFPSColor, statsUpdateColor,
 		rateUpperScale, rateLowerScale)
@@ -665,8 +665,8 @@ func updateStatsWindow(now time.Time) {
 		statsMemoryText.Text = fmt.Sprintf("Cache entries: %d artwork, %d sounds", imageCount, sounds)
 		statsMemoryText.Dirty = true
 	}
-	cacheUpperScale := statsGraphScale{minimumMaximum: 4096, unit: "MiB"}
-	cacheLowerScale := statsGraphScale{minimumMaximum: 4096, unit: "MiB"}
+	cacheUpperScale := statsGraphScale{minimumMaximum: 2048, unit: "MiB"}
+	cacheLowerScale := statsGraphScale{minimumMaximum: 2048, unit: "MiB"}
 	cacheUpperMaximum, cacheLowerMaximum := drawStatsGraph(statsCacheImage, cacheMemory, gpuMemory, statsCacheMemoryColor, statsGPUMemoryColor,
 		cacheUpperScale, cacheLowerScale)
 	setStatsGraphScale(statsCacheUpperScale, cacheUpperMaximum, cacheUpperScale.unit)

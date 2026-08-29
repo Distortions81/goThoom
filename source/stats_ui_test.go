@@ -20,11 +20,12 @@ func TestStatsGraphMaximumUsesReadableZeroBasedScale(t *testing.T) {
 		minimum float64
 		want    float64
 	}{
-		{name: "network floor", values: []float64{184, 195, 191}, minimum: 500, want: 500},
-		{name: "network expands", values: []float64{510, 640, 720}, minimum: 500, want: 750},
-		{name: "fps floor", values: []float64{58, 59}, minimum: 120, want: 120},
+		{name: "reply floor", values: []float64{184, 195, 191}, minimum: 250, want: 250},
+		{name: "reply expands", values: []float64{260, 340, 420}, minimum: 250, want: 500},
+		{name: "jitter floor", values: []float64{12, 18}, minimum: 32, want: 32},
+		{name: "fps floor", values: []float64{58, 59}, minimum: 65, want: 65},
 		{name: "server rate", values: []float64{4.8, 5.1}, minimum: 10, want: 10},
-		{name: "memory floor", values: []float64{256, 768}, minimum: 4096, want: 4096},
+		{name: "memory floor", values: []float64{256, 768}, minimum: 2048, want: 2048},
 		{name: "empty", minimum: 10, want: 10},
 	}
 	for _, test := range tests {
