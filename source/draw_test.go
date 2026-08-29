@@ -316,6 +316,9 @@ func TestHandleDrawStateParseErrorDoesNotAdvance(t *testing.T) {
 	if resendFrame != 6 {
 		t.Fatalf("resendFrame = %d, want 6", resendFrame)
 	}
+	if lastAckFrame != 5 {
+		t.Fatalf("loss counter advanced to malformed frame %d, want 5", lastAckFrame)
+	}
 }
 
 func minimalDrawStatePacket() []byte {

@@ -193,6 +193,129 @@ func liveDrawPacketForTest(ack, resent uint32, text string) []byte {
 	return packet
 }
 
+func classicStateRecordForTest(text string) []byte {
+	payload := []byte{0, 1, 1, byte(kBubbleNormal)}
+	payload = append(payload, encodeMacRoman(text)...)
+	payload = append(payload, 0, 0, 0)
+	record := []byte{byte(len(payload) >> 8), byte(len(payload))}
+	return append(record, payload...)
+}
+
+func liveDrawPacketWithStateFragmentForTest(ack, resent uint32, text string, fragment []byte) []byte {
+	body := buildDrawData("Bob", kBubbleNormal, text)
+	fullRecord := classicStateRecordForTest(text)
+	body = append(body[:len(body)-len(fullRecord)], fragment...)
+	binary.BigEndian.PutUint32(body[1:5], ack)
+	binary.BigEndian.PutUint32(body[5:9], resent)
+	packet := make([]byte, len(body)+2)
+	binary.BigEndian.PutUint16(packet[:2], 2)
+	copy(packet[2:], body)
+	return packet
+}
+
+func prepareLiveStateFragmentTest(t *testing.T) {
+	t.Helper()
+	oldAck, oldResend, oldLastAck := ackFrame, resendFrame, lastAckFrame
+	oldFrameCounter, oldMovieMode, oldEncrypted := frameCounter, movieMode, drawStateEncrypted
+	oldSettings, oldPlayers := gs, players
+	t.Cleanup(func() {
+		ackFrame, resendFrame, lastAckFrame = oldAck, oldResend, oldLastAck
+		frameCounter, movieMode, drawStateEncrypted = oldFrameCounter, oldMovieMode, oldEncrypted
+		gs, players = oldSettings, oldPlayers
+		resetDrawState()
+	})
+	resetDrawState()
+	players = map[string]*Player{}
+	gs.SpeechBubbles = true
+	gs.BubbleNormal = true
+	gs.BubbleOtherPlayers = true
+	movieMode, drawStateEncrypted = false, false
+	ackFrame, resendFrame, lastAckFrame, frameCounter = 0, 0, 0, 0
+}
+
+func TestLiveStateRecordCanSpanSizeAndPayloadAcrossFrames(t *testing.T) {
+	prepareLiveStateFragmentTest(t)
+	record := classicStateRecordForTest("fragmented")
+
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "fragmented", record[:1]), false)
+	if ackFrame != 1 || resendFrame != 0 {
+		t.Fatalf("size-high fragment ack=%d resend=%d, want 1/0", ackFrame, resendFrame)
+	}
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(2, 0, "fragmented", record[1:6]), false)
+	stateMu.Lock()
+	bubblesBeforeCompletion := len(state.bubbles)
+	pendingBeforeCompletion := len(state.stateDataStream)
+	stateMu.Unlock()
+	if bubblesBeforeCompletion != 0 || pendingBeforeCompletion != 6 {
+		t.Fatalf("partial state = bubbles %d pending %d, want 0/6", bubblesBeforeCompletion, pendingBeforeCompletion)
+	}
+
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(3, 0, "fragmented", record[6:]), false)
+	stateMu.Lock()
+	bubbles := append([]bubble(nil), state.bubbles...)
+	pending := len(state.stateDataStream)
+	stateMu.Unlock()
+	if ackFrame != 3 || resendFrame != 0 || pending != 0 {
+		t.Fatalf("completed state ack=%d resend=%d pending=%d, want 3/0/0", ackFrame, resendFrame, pending)
+	}
+	if len(bubbles) != 1 || bubbles[0].Text != "fragmented" {
+		t.Fatalf("completed fragmented bubbles = %#v", bubbles)
+	}
+}
+
+func TestLiveStateFragmentProcessesMultipleCompleteRecords(t *testing.T) {
+	prepareLiveStateFragmentTest(t)
+	first := classicStateRecordForTest("first")
+	second := classicStateRecordForTest("second")
+	fragment := append(append([]byte(nil), first...), second...)
+
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "first", fragment), false)
+	stateMu.Lock()
+	bubbles := append([]bubble(nil), state.bubbles...)
+	pending := len(state.stateDataStream)
+	stateMu.Unlock()
+	if pending != 0 || len(bubbles) != 2 || bubbles[0].Text != "first" || bubbles[1].Text != "second" {
+		t.Fatalf("multiple state records = pending %d bubbles %#v", pending, bubbles)
+	}
+}
+
+func TestPendingStateFragmentSurvivesDrawStateClone(t *testing.T) {
+	original := drawState{stateDataStream: []byte{0, 12, 1, 2, 3}}
+	cloned := cloneDrawState(original)
+	if got := cloned.stateDataStream; len(got) != 5 || got[4] != 3 {
+		t.Fatalf("cloned pending state = %v", got)
+	}
+	cloned.stateDataStream[2] = 99
+	if original.stateDataStream[2] != 1 {
+		t.Fatal("cloned pending state aliases the original")
+	}
+}
+
+func TestLiveStateFragmentRecoveryMatchesClassicResendFlow(t *testing.T) {
+	prepareLiveStateFragmentTest(t)
+	record := classicStateRecordForTest("recovered split")
+	split := 7
+
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "recovered split", record[:split]), false)
+	ignored := classicStateRecordForTest("must be ignored")
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(3, 0, "must be ignored", ignored), false)
+	if ackFrame != 3 || resendFrame != 2 {
+		t.Fatalf("gap state ack=%d resend=%d, want 3/2", ackFrame, resendFrame)
+	}
+
+	handleDrawState(liveDrawPacketWithStateFragmentForTest(4, 2, "recovered split", record[split:]), false)
+	stateMu.Lock()
+	bubbles := append([]bubble(nil), state.bubbles...)
+	pending := len(state.stateDataStream)
+	stateMu.Unlock()
+	if ackFrame != 4 || resendFrame != 0 || pending != 0 {
+		t.Fatalf("recovered split ack=%d resend=%d pending=%d, want 4/0/0", ackFrame, resendFrame, pending)
+	}
+	if len(bubbles) != 1 || bubbles[0].Text != "recovered split" {
+		t.Fatalf("recovered split bubbles = %#v", bubbles)
+	}
+}
+
 func TestLiveFrameOrderingAndStateRecovery(t *testing.T) {
 	oldAck, oldResend, oldLastAck := ackFrame, resendFrame, lastAckFrame
 	oldFrameCounter, oldMovieMode, oldEncrypted := frameCounter, movieMode, drawStateEncrypted

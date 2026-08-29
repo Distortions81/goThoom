@@ -342,6 +342,10 @@ type drawState struct {
 	lightingFlags               uint8
 	dropped                     int
 	logicalFrame                int
+	// stateDataStream retains the length-prefixed state-data stream across
+	// draw-state packets. The classic protocol may split either byte of the
+	// size word or the payload itself between frames.
+	stateDataStream []byte
 
 	// Prepared render caches populated only when a new game state arrives.
 	// These avoid per-frame sorting and partitioning work in Draw.
@@ -635,6 +639,7 @@ func cloneDrawState(src drawState) drawState {
 		dropped:        src.dropped,
 		logicalFrame:   src.logicalFrame,
 	}
+	dst.stateDataStream = append([]byte(nil), src.stateDataStream...)
 	for idx, d := range src.descriptors {
 		dst.descriptors[idx] = d
 	}

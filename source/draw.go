@@ -1203,6 +1203,39 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 	return parseDrawStateWithStateData(data, buildCache, true)
 }
 
+// appendDrawStateDataFragment adds the trailing state bytes from one accepted
+// draw-state frame to the persistent length-prefixed stream. A single frame may
+// contain part of a size word, part of a payload, or several complete records.
+// Return copies so decoding can safely take other state locks while the pending
+// stream remains checkpointable as part of drawState.
+func appendDrawStateDataFragment(fragment []byte) [][]byte {
+	if len(fragment) == 0 {
+		return nil
+	}
+
+	stateMu.Lock()
+	state.stateDataStream = append(state.stateDataStream, fragment...)
+	stream := state.stateDataStream
+	consumed := 0
+	var records [][]byte
+	for len(stream)-consumed >= 2 {
+		size := int(binary.BigEndian.Uint16(stream[consumed:]))
+		recordEnd := consumed + 2 + size
+		if recordEnd > len(stream) {
+			break
+		}
+		record := append([]byte(nil), stream[consumed+2:recordEnd]...)
+		records = append(records, record)
+		consumed = recordEnd
+	}
+	if consumed > 0 {
+		remaining := copy(stream, stream[consumed:])
+		state.stateDataStream = stream[:remaining]
+	}
+	stateMu.Unlock()
+	return records
+}
+
 func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool) (int32, int32, error) {
 	stage := "header"
 	if len(data) < 9 {
@@ -1212,16 +1245,6 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	ackCmd := data[0]
 	ack := int32(binary.BigEndian.Uint32(data[1:5]))
 	resend := int32(binary.BigEndian.Uint32(data[5:9]))
-	dropped := 0
-	if movieMode {
-		dropped = movieDropped
-	} else {
-		dropped = updateFrameCounters(ack)
-	}
-	extra := dropped
-	if extra > 2 {
-		extra = 2
-	}
 	p := 9
 
 	scratch := acquireDrawParseScratch()
@@ -1321,7 +1344,6 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	bal := int(data[p+4])
 	balMax := int(data[p+5])
 	lighting := data[p+6]
-	gNight.SetFlags(uint(lighting))
 	p += 7
 
 	stage = "picture count"
@@ -1413,16 +1435,25 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		return ack, resend, errors.New(stage)
 	}
 
-	stage = "state size"
-	if len(data) < p+2 {
-		return ack, resend, errors.New(stage)
+	// Everything after the frame tables belongs to the persistent state-data
+	// stream. It is valid for this fragment to be empty or to end midway through
+	// either the two-byte record size or its payload.
+	stateFragment := data[p:]
+
+	// Count only structurally valid draw-state frames. Advancing loss statistics
+	// before validating the tables lets a malformed packet poison later gap
+	// calculations even though ackFrame correctly remains unchanged.
+	dropped := 0
+	if movieMode {
+		dropped = movieDropped
+	} else {
+		dropped = updateFrameCounters(ack)
 	}
-	stateLen := int(binary.BigEndian.Uint16(data[p:]))
-	p += 2
-	if len(data) < p+stateLen {
-		return ack, resend, errors.New(stage)
+	extra := dropped
+	if extra > 2 {
+		extra = 2
 	}
-	stateData := data[p : p+stateLen]
+	gNight.SetFlags(uint(lighting))
 
 	stateMu.Lock()
 	state.logicalFrame = frameCounter
@@ -1742,323 +1773,328 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	if !processStateData {
 		return ack, resend, nil
 	}
+	stateRecords := appendDrawStateDataFragment(stateFragment)
+	for _, stateData := range stateRecords {
+		bubbles = bubbles[:0]
+		stateRecordLen := len(stateData)
 
-	/*
-	   logDebug("draw state cmd=%d ack=%d resend=%d light=%#x desc=%d pict=%d again=%d mobile=%d state=%d",
-	           ackCmd, ack, resend, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
-	*/
+		/*
+		   logDebug("draw state cmd=%d ack=%d resend=%d light=%#x desc=%d pict=%d again=%d mobile=%d state=%d",
+		           ackCmd, ack, resend, light, len(descs), len(pics), pictAgain, len(mobiles), len(stateData))
+		*/
 
-	stage = "info strings"
-	// Server sends a zero-terminated info-text blob which may contain
-	// multiple CR-separated lines. Consume the first C string, then
-	// defensively skip any additional stray C strings until what looks
-	// like a valid bubble count (<= maxBubbles) is encountered.
-	if len(stateData) == 0 {
-		return ack, resend, errors.New(stage)
-	}
-	if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
-		if idx > 0 {
-			handleInfoText(stateData[:idx])
+		stage = "info strings"
+		// Server sends a zero-terminated info-text blob which may contain
+		// multiple CR-separated lines. Consume the first C string, then
+		// defensively skip any additional stray C strings until what looks
+		// like a valid bubble count (<= maxBubbles) is encountered.
+		if len(stateData) == 0 {
+			return ack, resend, errors.New(stage)
 		}
-		stateData = stateData[idx+1:]
-	} else {
-		return ack, resend, errors.New(stage)
-	}
-	for len(stateData) > 0 {
-		if int(stateData[0]) <= maxBubbles {
-			break
-		}
-		// Treat preceding bytes as another info text C string.
 		if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
 			if idx > 0 {
 				handleInfoText(stateData[:idx])
 			}
 			stateData = stateData[idx+1:]
-			continue
+		} else {
+			return ack, resend, errors.New(stage)
 		}
-		// No terminating zero found; give up.
-		return ack, resend, errors.New(stage)
-	}
+		for len(stateData) > 0 {
+			if int(stateData[0]) <= maxBubbles {
+				break
+			}
+			// Treat preceding bytes as another info text C string.
+			if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
+				if idx > 0 {
+					handleInfoText(stateData[:idx])
+				}
+				stateData = stateData[idx+1:]
+				continue
+			}
+			// No terminating zero found; give up.
+			return ack, resend, errors.New(stage)
+		}
 
-	stage = "bubble count"
-	if len(stateData) == 0 {
-		return ack, resend, errors.New(stage)
-	}
-	bubbleCount := int(stateData[0])
-	stateData = stateData[1:]
-	if bubbleCount > maxBubbles {
-		return ack, resend, errors.New(stage)
-	}
-	stage = "bubble"
-	for i := 0; i < bubbleCount && len(stateData) > 0; i++ {
-		off := len(data) - len(stateData)
-		if len(stateData) < 2 {
-			return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+		stage = "bubble count"
+		if len(stateData) == 0 {
+			return ack, resend, errors.New(stage)
 		}
-		idx := stateData[0]
-		typ := int(stateData[1])
-		p := 2
-		if typ&kBubbleNotCommon != 0 {
-			if len(stateData) < p+1 {
+		bubbleCount := int(stateData[0])
+		stateData = stateData[1:]
+		if bubbleCount > maxBubbles {
+			return ack, resend, errors.New(stage)
+		}
+		stage = "bubble"
+		for i := 0; i < bubbleCount && len(stateData) > 0; i++ {
+			off := stateRecordLen - len(stateData)
+			if len(stateData) < 2 {
 				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 			}
-			p++
-		}
-		var h, v int16
-		if typ&kBubbleFar != 0 {
-			if len(stateData) < p+4 {
+			idx := stateData[0]
+			typ := int(stateData[1])
+			p := 2
+			if typ&kBubbleNotCommon != 0 {
+				if len(stateData) < p+1 {
+					return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				}
+				p++
+			}
+			var h, v int16
+			if typ&kBubbleFar != 0 {
+				if len(stateData) < p+4 {
+					return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+				}
+				h = int16(binary.BigEndian.Uint16(stateData[p:]))
+				v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
+				p += 4
+			}
+			if len(stateData) <= p {
 				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
 			}
-			h = int16(binary.BigEndian.Uint16(stateData[p:]))
-			v = int16(binary.BigEndian.Uint16(stateData[p+2:]))
-			p += 4
-		}
-		if len(stateData) <= p {
-			return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
-		}
-		end := bytes.IndexByte(stateData[p:], 0)
-		if end < 0 {
-			return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
-		}
-		bubbleData := stateData[:p+end+1]
-		if verb, txt, bubbleName, lang, code, bubbleType, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
-			name := bubbleName
-			if target == thinkNone {
-				if bubbleName == ThinkUnknownName {
-					name = "Someone"
-				} else {
-					stateMu.Lock()
-					if d, ok := state.descriptors[idx]; ok {
-						if bubbleName != "" {
-							if d.Name != "" {
-								name = d.Name
+			end := bytes.IndexByte(stateData[p:], 0)
+			if end < 0 {
+				return ack, resend, fmt.Errorf("bubble=%d off=%d len=%d", i, off, len(stateData))
+			}
+			bubbleData := stateData[:p+end+1]
+			if verb, txt, bubbleName, lang, code, bubbleType, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
+				name := bubbleName
+				if target == thinkNone {
+					if bubbleName == ThinkUnknownName {
+						name = "Someone"
+					} else {
+						stateMu.Lock()
+						if d, ok := state.descriptors[idx]; ok {
+							if bubbleName != "" {
+								if d.Name != "" {
+									name = d.Name
+								} else {
+									d.Name = bubbleName
+									name = bubbleName
+								}
 							} else {
-								d.Name = bubbleName
-								name = bubbleName
+								name = d.Name
 							}
-						} else {
-							name = d.Name
+						}
+						stateMu.Unlock()
+					}
+				} else if bubbleName == ThinkUnknownName {
+					name = "Someone"
+				}
+				if verb == "thinks" && idx == playerIndex && bubbleName != "" {
+					stateMu.Lock()
+					for i, d := range state.descriptors {
+						if d.Name == bubbleName {
+							idx = i
+							break
 						}
 					}
 					stateMu.Unlock()
 				}
-			} else if bubbleName == ThinkUnknownName {
-				name = "Someone"
+				filterName := name
+				if bubbleName == ThinkUnknownName {
+					stateMu.Lock()
+					if d, ok := state.descriptors[idx]; ok && d.Name != "" {
+						filterName = d.Name
+					}
+					stateMu.Unlock()
+				}
+				skipRender := false
+				if filterName != "" {
+					playersMu.RLock()
+					if p, ok := players[filterName]; ok && (p.Blocked || p.Ignored) {
+						skipRender = true
+					}
+					playersMu.RUnlock()
+				}
+				showBubble := gs.SpeechBubbles && txt != "" && !blockBubbles && verb != "thinks"
+				if showBubble && !skipRender {
+					typeOK := true
+					switch bubbleType {
+					case kBubbleNormal:
+						typeOK = gs.BubbleNormal
+					case kBubbleWhisper:
+						typeOK = gs.BubbleWhisper
+					case kBubbleYell:
+						typeOK = gs.BubbleYell
+					case kBubbleThought:
+						typeOK = gs.BubbleThought
+					case kBubbleRealAction:
+						typeOK = gs.BubbleRealAction
+					case kBubbleMonster:
+						typeOK = gs.BubbleMonster
+					case kBubblePlayerAction:
+						typeOK = gs.BubblePlayerAction
+					case kBubblePonder:
+						typeOK = gs.BubblePonder
+					case kBubbleNarrate:
+						typeOK = gs.BubbleNarrate
+					}
+					originOK := true
+					switch {
+					case idx == playerIndex:
+						originOK = gs.BubbleSelf
+					case bubbleType == kBubbleMonster:
+						originOK = gs.BubbleMonsters
+					case bubbleType == kBubbleNarrate:
+						originOK = gs.BubbleNarration
+					default:
+						originOK = gs.BubbleOtherPlayers
+					}
+					showBubble = typeOK && originOK
+				}
+				if showBubble && !skipRender {
+					life := configuredBubbleLifeFrames(txt)
+					b := bubble{Index: idx, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
+					switch bubbleType {
+					case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
+						b.NoArrow = true
+					}
+					if typ&kBubbleFar != 0 {
+						b.H, b.V = h, v
+						b.Far = true
+					}
+					bubbles = append(bubbles, b)
+				}
+				var msg string
+				switch {
+				case typ&kBubbleTypeMask == kBubbleNarrate:
+					if name != "" {
+						msg = fmt.Sprintf("(%v): %v", name, txt)
+					} else {
+						msg = txt
+					}
+				case verb == bubbleVerbVerbatim:
+					msg = txt
+				case verb == bubbleVerbParentheses:
+					msg = fmt.Sprintf("(%v)", txt)
+				default:
+					if name != "" {
+						if verb == "thinks" {
+							switch target {
+							case thinkToYou:
+								msg = fmt.Sprintf("%v thinks to you, %v", bubbleName, txt)
+							case thinkToClan:
+								msg = fmt.Sprintf("%v thinks to your clan, %v", bubbleName, txt)
+							case thinkToGroup:
+								msg = fmt.Sprintf("%v thinks to a group, %v", bubbleName, txt)
+							default:
+								msg = fmt.Sprintf("%v thinks, %v", bubbleName, txt)
+							}
+							if !skipRender {
+								showThinkMessage(msg)
+							}
+						} else if typ&kBubbleNotCommon != 0 {
+							langWord := lang
+							lw := strings.ToLower(langWord)
+							if langWord == "" || strings.HasPrefix(lw, "unknown") {
+								langWord = "an unknown language"
+							}
+							if code == kBubbleCodeKnown {
+								if langWord == "Common" {
+									msg = fmt.Sprintf("%v %v %v", name, verb, txt)
+								} else {
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								}
+							} else if typ&kBubbleTypeMask == kBubbleYell {
+								switch code {
+								case kBubbleUnknownShort:
+									msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+								case kBubbleUnknownMedium:
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								case kBubbleUnknownLong:
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								default:
+									msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
+								}
+							} else {
+								var unknown string
+								switch code {
+								case kBubbleUnknownShort:
+									unknown = "something short"
+								case kBubbleUnknownMedium:
+									unknown = "something medium"
+								case kBubbleUnknownLong:
+									unknown = "something long"
+								default:
+									unknown = "something"
+								}
+								msg = fmt.Sprintf("%v %v %v in %v", name, verb, unknown, langWord)
+							}
+						} else {
+							msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
+						}
+					} else {
+						if txt != "" {
+							msg = "* " + txt
+						}
+					}
+				}
+				messageType := messageTextTypeForBubble(bubbleType)
+				if isChatBubble(bubbleType) {
+					displayChatMessageTyped(msg, messageType)
+				} else {
+					serverConsoleMessageTyped(msg, messageType)
+				}
 			}
-			if verb == "thinks" && idx == playerIndex && bubbleName != "" {
-				stateMu.Lock()
-				for i, d := range state.descriptors {
-					if d.Name == bubbleName {
-						idx = i
+			stateData = stateData[p+end+1:]
+		}
+
+		if len(bubbles) > 0 {
+			stateMu.Lock()
+			state.bubbles = append(state.bubbles, bubbles...)
+			stateMu.Unlock()
+		}
+
+		stage = "sound count"
+		if len(stateData) < 1 {
+			return ack, resend, errors.New(stage)
+		}
+		soundCount := int(stateData[0])
+		stateData = stateData[1:]
+		stage = "sounds"
+		if len(stateData) < soundCount*2 {
+			return ack, resend, errors.New(stage)
+		}
+		var newSounds []uint16
+
+		for i := 0; i < soundCount && i < maxSounds; i++ {
+			id := binary.BigEndian.Uint16(stateData[:2])
+			stateData = stateData[2:]
+
+			if gs.ThrottleSounds {
+				var found bool
+				for _, item := range prevSounds {
+					if item == id {
+						found = true
 						break
 					}
 				}
-				stateMu.Unlock()
-			}
-			filterName := name
-			if bubbleName == ThinkUnknownName {
-				stateMu.Lock()
-				if d, ok := state.descriptors[idx]; ok && d.Name != "" {
-					filterName = d.Name
+				if found {
+					continue
 				}
-				stateMu.Unlock()
-			}
-			skipRender := false
-			if filterName != "" {
-				playersMu.RLock()
-				if p, ok := players[filterName]; ok && (p.Blocked || p.Ignored) {
-					skipRender = true
-				}
-				playersMu.RUnlock()
-			}
-			showBubble := gs.SpeechBubbles && txt != "" && !blockBubbles && verb != "thinks"
-			if showBubble && !skipRender {
-				typeOK := true
-				switch bubbleType {
-				case kBubbleNormal:
-					typeOK = gs.BubbleNormal
-				case kBubbleWhisper:
-					typeOK = gs.BubbleWhisper
-				case kBubbleYell:
-					typeOK = gs.BubbleYell
-				case kBubbleThought:
-					typeOK = gs.BubbleThought
-				case kBubbleRealAction:
-					typeOK = gs.BubbleRealAction
-				case kBubbleMonster:
-					typeOK = gs.BubbleMonster
-				case kBubblePlayerAction:
-					typeOK = gs.BubblePlayerAction
-				case kBubblePonder:
-					typeOK = gs.BubblePonder
-				case kBubbleNarrate:
-					typeOK = gs.BubbleNarrate
-				}
-				originOK := true
-				switch {
-				case idx == playerIndex:
-					originOK = gs.BubbleSelf
-				case bubbleType == kBubbleMonster:
-					originOK = gs.BubbleMonsters
-				case bubbleType == kBubbleNarrate:
-					originOK = gs.BubbleNarration
-				default:
-					originOK = gs.BubbleOtherPlayers
-				}
-				showBubble = typeOK && originOK
-			}
-			if showBubble && !skipRender {
-				life := configuredBubbleLifeFrames(txt)
-				b := bubble{Index: idx, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
-				switch bubbleType {
-				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
-					b.NoArrow = true
-				}
-				if typ&kBubbleFar != 0 {
-					b.H, b.V = h, v
-					b.Far = true
-				}
-				bubbles = append(bubbles, b)
-			}
-			var msg string
-			switch {
-			case typ&kBubbleTypeMask == kBubbleNarrate:
-				if name != "" {
-					msg = fmt.Sprintf("(%v): %v", name, txt)
-				} else {
-					msg = txt
-				}
-			case verb == bubbleVerbVerbatim:
-				msg = txt
-			case verb == bubbleVerbParentheses:
-				msg = fmt.Sprintf("(%v)", txt)
-			default:
-				if name != "" {
-					if verb == "thinks" {
-						switch target {
-						case thinkToYou:
-							msg = fmt.Sprintf("%v thinks to you, %v", bubbleName, txt)
-						case thinkToClan:
-							msg = fmt.Sprintf("%v thinks to your clan, %v", bubbleName, txt)
-						case thinkToGroup:
-							msg = fmt.Sprintf("%v thinks to a group, %v", bubbleName, txt)
-						default:
-							msg = fmt.Sprintf("%v thinks, %v", bubbleName, txt)
-						}
-						if !skipRender {
-							showThinkMessage(msg)
-						}
-					} else if typ&kBubbleNotCommon != 0 {
-						langWord := lang
-						lw := strings.ToLower(langWord)
-						if langWord == "" || strings.HasPrefix(lw, "unknown") {
-							langWord = "an unknown language"
-						}
-						if code == kBubbleCodeKnown {
-							if langWord == "Common" {
-								msg = fmt.Sprintf("%v %v %v", name, verb, txt)
-							} else {
-								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
-							}
-						} else if typ&kBubbleTypeMask == kBubbleYell {
-							switch code {
-							case kBubbleUnknownShort:
-								msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
-							case kBubbleUnknownMedium:
-								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
-							case kBubbleUnknownLong:
-								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
-							default:
-								msg = fmt.Sprintf("%v %v in %v, %v", name, verb, langWord, txt)
-							}
-						} else {
-							var unknown string
-							switch code {
-							case kBubbleUnknownShort:
-								unknown = "something short"
-							case kBubbleUnknownMedium:
-								unknown = "something medium"
-							case kBubbleUnknownLong:
-								unknown = "something long"
-							default:
-								unknown = "something"
-							}
-							msg = fmt.Sprintf("%v %v %v in %v", name, verb, unknown, langWord)
-						}
-					} else {
-						msg = fmt.Sprintf("%v %v, %v", name, verb, txt)
-					}
-				} else {
-					if txt != "" {
-						msg = "* " + txt
+
+				for _, item := range prev2Sounds {
+					if item == id {
+						found = true
+						break
 					}
 				}
-			}
-			messageType := messageTextTypeForBubble(bubbleType)
-			if isChatBubble(bubbleType) {
-				displayChatMessageTyped(msg, messageType)
-			} else {
-				serverConsoleMessageTyped(msg, messageType)
-			}
-		}
-		stateData = stateData[p+end+1:]
-	}
-
-	if len(bubbles) > 0 {
-		stateMu.Lock()
-		state.bubbles = append(state.bubbles, bubbles...)
-		stateMu.Unlock()
-	}
-
-	stage = "sound count"
-	if len(stateData) < 1 {
-		return ack, resend, errors.New(stage)
-	}
-	soundCount := int(stateData[0])
-	stateData = stateData[1:]
-	stage = "sounds"
-	if len(stateData) < soundCount*2 {
-		return ack, resend, errors.New(stage)
-	}
-	var newSounds []uint16
-
-	for i := 0; i < soundCount && i < maxSounds; i++ {
-		id := binary.BigEndian.Uint16(stateData[:2])
-		stateData = stateData[2:]
-
-		if gs.ThrottleSounds {
-			var found bool
-			for _, item := range prevSounds {
-				if item == id {
-					found = true
-					break
+				if found {
+					continue
 				}
 			}
-			if found {
-				continue
-			}
 
-			for _, item := range prev2Sounds {
-				if item == id {
-					found = true
-					break
-				}
-			}
-			if found {
-				continue
-			}
+			newSounds = appendUniqueSound(newSounds, id)
 		}
+		playSound(newSounds)
+		prev2Sounds = prevSounds
+		prevSounds = newSounds
 
-		newSounds = appendUniqueSound(newSounds, id)
-	}
-	playSound(newSounds)
-	prev2Sounds = prevSounds
-	prevSounds = newSounds
-
-	stage = "inventory"
-	rest, ok := parseInventory(stateData)
-	if !ok || len(rest) > 0 {
-		return ack, resend, errors.New(stage)
+		stage = "inventory"
+		rest, ok := parseInventory(stateData)
+		if !ok || len(rest) > 0 {
+			return ack, resend, errors.New(stage)
+		}
 	}
 
 	return ack, resend, nil
