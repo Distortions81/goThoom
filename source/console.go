@@ -28,7 +28,7 @@ func consoleMessageTyped(msg, messageType string) {
 	consoleLog.AddTyped(msg, messageType)
 	appendConsoleLog(msg)
 
-	updateConsoleWindow()
+	queueConsoleWindowUpdate()
 }
 
 func serverConsoleMessage(msg string) {

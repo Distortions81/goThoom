@@ -112,7 +112,7 @@ func characterProfileSetting(entry settingsSchemaEntry) bool {
 		return true
 	}
 	switch entry.field {
-	case "MessagesToConsole", "MessageTextColors", "ChatTTS", "ChatTTSVolume", "ChatTTSSpeed", "ChatTTSVoice":
+	case "MessagesToConsole", "MessageTextColors", "MessageTextColorsLight", "OverrideThemeTextColor", "ClassicMessageColors", "ChatTTS", "ChatTTSVolume", "ChatTTSSpeed", "ChatTTSVoice":
 		return true
 	default:
 		return false
@@ -468,6 +468,7 @@ func applyCharacterProfileRuntime() {
 	applyManagedWindowLayout()
 	updateInventoryWindow()
 	updatePlayersWindow()
+	refreshMessageTextWindows()
 	updateConsoleWindow()
 	updateChatWindow()
 	updateDimmedScreenBG()

@@ -165,6 +165,9 @@ var settingsSchema = []settingsSchemaEntry{
 
 	{field: "MessagesToConsole", category: settingsChat, name: "copy_bubble_messages_to_messages_window"},
 	{field: "MessageTextColors", category: settingsChat, name: "message_text_colors"},
+	{field: "MessageTextColorsLight", category: settingsChat, name: "message_text_colors_light"},
+	{field: "OverrideThemeTextColor", category: settingsChat, name: "override_theme_text_color"},
+	{field: "ClassicMessageColors", category: settingsChat, name: "classic_message_colors"},
 	{field: "ChatTTS", category: settingsChat, name: "text_to_speech"},
 	{field: "ChatTTSVolume", category: settingsChat, name: "text_to_speech_volume"},
 	{field: "ChatTTSSpeed", category: settingsChat, name: "text_to_speech_speed"},

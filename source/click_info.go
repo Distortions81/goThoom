@@ -36,13 +36,21 @@ var (
 	lastHover   ClickInfo
 	lastHoverMu sync.Mutex
 
-	worldStateGeneration atomic.Uint64
-	lastHoverGeneration  uint64
-	lastHoverQueryValid  bool
+	worldStateGeneration  atomic.Uint64
+	worldRenderGeneration atomic.Uint64
+	lastHoverGeneration   uint64
+	lastHoverQueryValid   bool
 )
 
 func markWorldStateChanged() {
 	worldStateGeneration.Add(1)
+	markWorldRenderChanged()
+}
+
+// markWorldRenderChanged invalidates the cached world image for visual state
+// that is not part of a server draw-state packet, such as script overlays.
+func markWorldRenderChanged() {
+	worldRenderGeneration.Add(1)
 }
 
 // worldInfoAt returns information about the world location including any
@@ -123,8 +131,13 @@ func updateWorldHover(x, y int16) {
 
 	info, generation := worldInfoAtGeneration(x, y)
 	lastHoverMu.Lock()
+	hoveredMobileChanged := lastHover.OnMobile != info.OnMobile ||
+		(lastHover.OnMobile && info.OnMobile && lastHover.Mobile.Index != info.Mobile.Index)
 	lastHover = info
 	lastHoverGeneration = generation
 	lastHoverQueryValid = true
 	lastHoverMu.Unlock()
+	if gs.NameTagsOnHoverOnly && hoveredMobileChanged {
+		markWorldRenderChanged()
+	}
 }

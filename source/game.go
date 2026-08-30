@@ -869,7 +869,145 @@ func computeInterpolation(now, prevTime, curTime time.Time, mobileRate, pictRate
 }
 
 type Game struct {
-	drawSnapshot drawSnapshot
+	drawSnapshot       drawSnapshot
+	lastWorldRenderKey worldRenderKey
+	worldRenderValid   bool
+}
+
+// worldRenderKey contains the state outside drawState that can change the
+// pixels in gameImage. When motion smoothing is disabled, an identical key
+// means the completed world image can be reused while EUI continues to render
+// normally around it.
+type worldRenderKey struct {
+	worldGeneration   uint64
+	renderGeneration  uint64
+	artworkGeneration uint64
+	width, height     int
+
+	gameScale                                  float64
+	artworkUpscaleMode                         int
+	pixelArtScaling, floatingPointSpriteCoords bool
+	denoiseImages                              bool
+	denoiseSharpness, denoiseAmount            float64
+	spriteGammaCorrection                      bool
+	spriteGamma, monitorGamma                  float64
+	shadersEnabled, shaderLighting             bool
+	replacementEffects, mobileLightConeShadows bool
+	shaderLightStrength, shaderGlowStrength    float64
+	flameLightFlicker                          bool
+	flameFlickerStrength                       float64
+	characterShadows, fasterCharacterShadows   bool
+	characterShadowDarkness                    float64
+	mobilesReceiveSunShadows                   bool
+	nightEffect                                bool
+	maxNightLevel, forceNightLevel             int
+	fadeObscuringPictures                      bool
+	obscuringPictureOpacity                    float64
+	speechBubbles, animatedChatBubbles         bool
+	avoidBubbleOverlap                         bool
+	bubbleNormal, bubbleWhisper, bubbleYell    bool
+	bubbleThought, bubbleRealAction            bool
+	bubbleMonster, bubblePlayerAction          bool
+	bubblePonder, bubbleNarrate                bool
+	bubbleSelf, bubbleOtherPlayers             bool
+	bubbleMonsters, bubbleNarration            bool
+	bubbleOpacity, bubbleScale, bubbleFontSize float64
+	mainFontSize                               float64
+	darkBubblesAndNames                        bool
+	nameBgOpacity                              float64
+	nameHealthBarModern, nameHealthBarAbove    bool
+	nameHealthBarThickness                     int
+	nameTagLabelColors, hideSelfNameTag        bool
+	nameTagsOnHoverOnly                        bool
+	barOpacity                                 float64
+	barPlacement                               BarPlacement
+	barColorByValue                            bool
+	hideMobiles, hideMoving                    bool
+	showFPS, assetActivityIndicators           bool
+	recording, playing                         bool
+	theme, style                               string
+}
+
+func currentWorldRenderKey(width, height int) worldRenderKey {
+	return worldRenderKey{
+		worldGeneration:           worldStateGeneration.Load(),
+		renderGeneration:          worldRenderGeneration.Load(),
+		artworkGeneration:         artworkCacheGeneration.Load(),
+		width:                     width,
+		height:                    height,
+		gameScale:                 gs.GameScale,
+		artworkUpscaleMode:        artworkUpscaleMode(),
+		pixelArtScaling:           gs.PixelArtScaling,
+		floatingPointSpriteCoords: gs.FloatingPointSpriteCoords,
+		denoiseImages:             gs.DenoiseImages,
+		denoiseSharpness:          gs.DenoiseSharpness,
+		denoiseAmount:             gs.DenoiseAmount,
+		spriteGammaCorrection:     gs.SpriteGammaCorrection,
+		spriteGamma:               gs.SpriteGamma,
+		monitorGamma:              gs.MonitorGamma,
+		shadersEnabled:            gs.ShadersEnabled,
+		shaderLighting:            gs.ShaderLighting,
+		replacementEffects:        gs.ReplacementEffects,
+		mobileLightConeShadows:    gs.MobileLightConeShadows,
+		shaderLightStrength:       gs.ShaderLightStrength,
+		shaderGlowStrength:        gs.ShaderGlowStrength,
+		flameLightFlicker:         gs.FlameLightFlicker,
+		flameFlickerStrength:      gs.FlameFlickerStrength,
+		characterShadows:          gs.CharacterShadows,
+		fasterCharacterShadows:    gs.FasterCharacterShadows,
+		characterShadowDarkness:   gs.CharacterShadowDarkness,
+		mobilesReceiveSunShadows:  gs.MobilesReceiveSunShadows,
+		nightEffect:               gs.NightEffect,
+		maxNightLevel:             gs.MaxNightLevel,
+		forceNightLevel:           gs.forceNightLevel,
+		fadeObscuringPictures:     gs.FadeObscuringPictures,
+		obscuringPictureOpacity:   gs.ObscuringPictureOpacity,
+		speechBubbles:             gs.SpeechBubbles,
+		animatedChatBubbles:       gs.AnimatedChatBubbles,
+		avoidBubbleOverlap:        gs.AvoidBubbleOverlap,
+		bubbleNormal:              gs.BubbleNormal,
+		bubbleWhisper:             gs.BubbleWhisper,
+		bubbleYell:                gs.BubbleYell,
+		bubbleThought:             gs.BubbleThought,
+		bubbleRealAction:          gs.BubbleRealAction,
+		bubbleMonster:             gs.BubbleMonster,
+		bubblePlayerAction:        gs.BubblePlayerAction,
+		bubblePonder:              gs.BubblePonder,
+		bubbleNarrate:             gs.BubbleNarrate,
+		bubbleSelf:                gs.BubbleSelf,
+		bubbleOtherPlayers:        gs.BubbleOtherPlayers,
+		bubbleMonsters:            gs.BubbleMonsters,
+		bubbleNarration:           gs.BubbleNarration,
+		bubbleOpacity:             gs.BubbleOpacity,
+		bubbleScale:               gs.BubbleScale,
+		bubbleFontSize:            gs.BubbleFontSize,
+		mainFontSize:              gs.MainFontSize,
+		darkBubblesAndNames:       gs.DarkBubblesAndNames,
+		nameBgOpacity:             gs.NameBgOpacity,
+		nameHealthBarModern:       gs.NameHealthBarModern,
+		nameHealthBarAbove:        gs.NameHealthBarAbove,
+		nameHealthBarThickness:    gs.NameHealthBarThickness,
+		nameTagLabelColors:        gs.NameTagLabelColors,
+		hideSelfNameTag:           gs.HideSelfNameTag,
+		nameTagsOnHoverOnly:       gs.NameTagsOnHoverOnly,
+		barOpacity:                gs.BarOpacity,
+		barPlacement:              gs.BarPlacement,
+		barColorByValue:           gs.BarColorByValue,
+		hideMobiles:               gs.hideMobiles,
+		hideMoving:                gs.hideMoving,
+		showFPS:                   gs.ShowFPS,
+		assetActivityIndicators:   gs.AssetActivityIndicators,
+		recording:                 recorder != nil || recordingMovie,
+		playing:                   playingMovie && !setupWizardPreviewActive,
+		theme:                     gs.Theme,
+		style:                     gs.Style,
+	}
+}
+
+func worldRenderCanBeReused(g *Game, key worldRenderKey) bool {
+	return g != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
+		!bubbleTorture && !replacementEffectsPreview &&
+		g.worldRenderValid && g.lastWorldRenderKey == key
 }
 
 var errApplicationShutdown = errors.New("application shutdown requested")
@@ -1763,17 +1901,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	viewRect, renderScale := fittedWorldView(bufW, bufH)
 	worldViewRect = viewRect
 	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
+	worldKey := currentWorldRenderKey(bufW, bufH)
+	if worldRenderCanBeReused(g, worldKey) {
+		// gameImage already contains the last completed server update. Continue
+		// drawing EUI so text windows, controls, notifications, and other UI can
+		// update without rebuilding the world at the display refresh rate.
+		eui.Draw(screen)
+		return
+	}
 
 	// Render the world directly at its final game-window resolution.
 	var snap drawSnapshot
 	var alpha float64
 	var haveSnap bool
+	worldRendered := false
 	if !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
 		gameImage.Fill(playfieldBackgroundColor())
 		prev := gs.GameScale
 		gs.GameScale = renderScale
 		drawSplash(worldView, 0, 0)
 		gs.GameScale = prev
+		worldRendered = true
 	} else {
 		captureDrawSnapshot(&g.drawSnapshot)
 		if bubbleTorture {
@@ -1829,6 +1977,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 			drawStatusBars(worldView, 0, 0, snap, alpha)
 			haveSnap = true
+			worldRendered = true
 		}
 		gs.GameScale = prevScale
 	}
@@ -1860,6 +2009,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	drawSetupWizardFPS(gameImage)
 	drawClientActivityIndicators(worldView, takeClientActivity())
+	if worldRendered {
+		g.lastWorldRenderKey = worldKey
+		g.worldRenderValid = true
+	}
 
 	// Finally, draw UI (which includes the game window image)
 	eui.Draw(screen)

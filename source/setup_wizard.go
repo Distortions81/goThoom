@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	setupWizardPageCount                     = 9
+	setupWizardPageCount                     = 10
 	setupWizardGraphicsBenchmarkPage         = 1
 	setupWizardGraphicsWarmup                = 2 * time.Second
 	setupWizardGraphicsDuration              = time.Second
@@ -159,13 +159,15 @@ func rebuildSetupWizard() {
 	case 7:
 		buildSetupAudioPage(root)
 	case 8:
+		buildSetupNotificationsPage(root)
+	case 9:
 		buildSetupFinishPage(root)
 	}
 
 	root.AddItem(setupWizardNavigation(pageWidth))
 	if setupWizardGraphicsPending {
 		setSetupWizardDisabled(root, true)
-		detail := setupWizardText("Testing the default graphics with the running game for one second. The wizard will unlock when detection finishes.", 11, 620)
+		detail := setupWizardText("Testing High quality with the running game for one second. The wizard will unlock when detection finishes.", 11, 620)
 		heading := setupWizardHeading("Auto-adjusting performance…")
 		root.PrependItem(detail)
 		root.PrependItem(heading)
@@ -201,7 +203,7 @@ func buildSetupWelcomePage(root *eui.ItemData) {
 		12, 620,
 	))
 	root.AddItem(setupWizardText(
-		"We will review graphics, interface layout, controls, motion, shadows, night lighting, and audio. You can skip at any point.",
+		"We will review graphics, interface layout, controls, motion, shadows, night lighting, audio, and notifications. You can skip at any point.",
 		12, 620,
 	))
 }
@@ -257,7 +259,8 @@ func buildSetupControlsPage(root *eui.ItemData) {
 
 func buildSetupInterfacePage(root *eui.ItemData) {
 	root.AddItem(setupWizardHeading("Interface and readability"))
-	root.AddItem(setupWizardText("Set up the main layout and the information drawn over the game. Detailed sizing, opacity, and window controls remain in Settings.", 11, 620))
+	root.AddItem(setupWizardText("Choose the interface appearance, main layout, and information drawn over the game. Detailed sizing, opacity, and window controls remain in Settings.", 11, 620))
+	root.AddItem(setupWizardThemeStyleSelectors())
 	root.AddItem(setupWizardUIScaleControl())
 
 	panels, windowPanel, displayPanel := setupWizardTwoPanels()
@@ -337,6 +340,75 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 		settingsDirty = true
 	}, setupWizardPanelWidth))
 	root.AddItem(panels)
+}
+
+func setupWizardThemeStyleSelectors() *eui.ItemData {
+	style, styleEvents := eui.NewDropdown()
+	style.Label = "Style theme"
+	if options, err := eui.ListStyles(); err == nil {
+		style.Options = options
+		for i, name := range options {
+			if name == eui.CurrentStyleName() {
+				style.Selected = i
+				break
+			}
+		}
+	}
+	style.Size = eui.Point{X: setupWizardPanelWidth, Y: 24}
+	style.SetTooltip("Changes the shape, borders, and spacing of interface controls.")
+	styleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(style.Options) {
+			return
+		}
+		name := style.Options[ev.Index]
+		if err := eui.LoadStyle(name); err != nil {
+			return
+		}
+		gs.Style = name
+		settingsDirty = true
+		if setupWizardWin != nil {
+			rebuildSetupWizard()
+		}
+	}
+
+	theme, themeEvents := eui.NewDropdown()
+	theme.Label = "Color theme"
+	if options, err := eui.ListThemes(); err == nil {
+		theme.Options = options
+		for i, name := range options {
+			if name == eui.CurrentThemeName() {
+				theme.Selected = i
+				break
+			}
+		}
+	}
+	theme.Size = eui.Point{X: setupWizardPanelWidth, Y: 24}
+	theme.SetTooltip("Changes the interface palette; a theme may also recommend a matching style.")
+	themeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(theme.Options) {
+			return
+		}
+		name := theme.Options[ev.Index]
+		if err := eui.LoadTheme(name); err != nil {
+			return
+		}
+		gs.Theme = name
+		gs.Style = eui.CurrentStyleName()
+		settingsDirty = true
+		updateInventoryWindow()
+		updatePlayersWindow()
+		refreshMessageTextWindows()
+		updateDimmedScreenBG()
+		if setupWizardWin != nil {
+			rebuildSetupWizard()
+		}
+	}
+
+	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	row.Size = eui.Point{X: setupWizardTwoPanelWidth, Y: 34}
+	row.AddItem(theme)
+	row.AddItem(style)
+	return row
 }
 
 func setupWizardUIScaleControl() *eui.ItemData {
@@ -487,7 +559,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTest.Text = "Rerun Graphics Detection"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Runs the default graphics for one second, measures FPS, and recommends a mode.")
+	graphicsTest.SetTooltip("Runs High quality for one second, measures FPS, and recommends a preset.")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
@@ -505,22 +577,15 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 
 	graphicsMode, graphicsModeEvents := eui.NewDropdown()
 	graphicsMode.Label = "Graphics performance mode"
-	graphicsMode.Options = []string{"iGPU Graphics", "Default"}
-	graphicsMode.Selected = 1
-	if igpuGraphicsPresetApplied() {
-		graphicsMode.Selected = 0
-	}
+	graphicsMode.Options = []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}
+	graphicsMode.Selected = detectQualityPreset()
 	graphicsMode.Size = eui.Point{X: 320, Y: 24}
-	graphicsMode.SetTooltip("iGPU reduces costly effects; Default restores the built-in graphics choices.")
+	graphicsMode.SetTooltip("Higher tiers cumulatively add rendering and audio features. Classic Mode remains available later in Settings.")
 	graphicsModeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index > 1 {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= 5 {
 			return
 		}
-		preset := "Default"
-		if ev.Index == 0 {
-			preset = "iGPU Graphics"
-		}
-		applyQualityPreset(preset)
+		applyQualityPreset(ev.Item.Options[ev.Index])
 		rebuildSetupWizard()
 	}
 	root.AddItem(graphicsMode)
@@ -624,8 +689,8 @@ func updateSetupWizardGraphicsDetection() {
 	} else {
 		fps := setupWizardGraphicsFPSSum / float64(setupWizardGraphicsFPSCount)
 		applySetupWizardGraphicsRecommendation(graphicsBenchmarkResult{
-			ActualFPS:     fps,
-			RecommendIGPU: recommendIGPUGraphics(fps),
+			ActualFPS:    fps,
+			RecommendLow: recommendLowQuality(fps),
 		})
 	}
 	setupWizardVSyncBypass = false
@@ -644,7 +709,7 @@ func startSetupWizardGraphicsDetection() {
 	}
 	// Always measure the same workload. Testing whatever preset happened to
 	// be active would make results incomparable and could hide a slow GPU.
-	applyQualityPreset("Default")
+	applyQualityPreset("High")
 	setupWizardVSyncBypass = true
 	applyVSyncSetting()
 	setupWizardGraphicsPending = true
@@ -660,13 +725,6 @@ func applySetupWizardGraphicsRecommendation(result graphicsBenchmarkResult) {
 	applyQualityPreset(graphicsBenchmarkRecommendedPreset(result))
 	refreshShaderEffectControls()
 	clearCaches()
-}
-
-func igpuGraphicsPresetApplied() bool {
-	return gs.ShadersEnabled && gs.MotionSmoothing && !gs.BlendMobiles && !gs.BlendPicts && !gs.ShaderLighting &&
-		gs.GameScale == 2 && !gs.DenoiseImages &&
-		!gs.WindowShadows && !gs.CharacterShadows && !gs.AnimatedChatBubbles &&
-		artworkUpscaleMode() == artworkUpscaleBalanced
 }
 
 func buildSetupMotionPage(root *eui.ItemData) {
@@ -826,9 +884,9 @@ func buildSetupAudioPage(root *eui.ItemData) {
 		"Choose audio enhancements and whether to spend extra memory preparing sounds before play. Use Test Off and Test On to compare the same sample without changing your selection. Use Volume for detailed levels.",
 		12, 620,
 	))
-	panels, audioPanel, notificationPanel := setupWizardTwoPanels()
-	audioPanel.AddItem(setupWizardPanelHeading("Audio"))
-	notificationPanel.AddItem(setupWizardPanelHeading("Notifications"))
+	panels, soundPanel, musicPanel := setupWizardTwoPanels()
+	soundPanel.AddItem(setupWizardPanelHeading("Sound"))
+	musicPanel.AddItem(setupWizardPanelHeading("Music and loading"))
 
 	volume, volumeEvents := eui.NewButton()
 	volume.Text = "Volume"
@@ -840,8 +898,8 @@ func buildSetupAudioPage(root *eui.ItemData) {
 			mixerWin.MarkOpenNear(ev.Item)
 		}
 	}
-	audioPanel.AddItem(volume)
-	audioPanel.AddItem(setupWizardAudioOptionWidth(
+	soundPanel.AddItem(volume)
+	soundPanel.AddItem(setupWizardAudioOptionWidth(
 		"Enhance sound effects",
 		"Adds stereo width, ambience, and tone polish to in-game sounds.",
 		gs.SoundEnhancement,
@@ -855,7 +913,7 @@ func buildSetupAudioPage(root *eui.ItemData) {
 		},
 		setupWizardPanelWidth,
 	))
-	audioPanel.AddItem(setupWizardAudioOptionWidth(
+	soundPanel.AddItem(setupWizardAudioOptionWidth(
 		"High quality audio resampling",
 		"Uses Lanczos resampling and dithering for cleaner audio, with higher CPU use.",
 		gs.HighQualityResampling,
@@ -870,7 +928,7 @@ func buildSetupAudioPage(root *eui.ItemData) {
 		},
 		setupWizardPanelWidth,
 	))
-	audioPanel.AddItem(setupWizardAudioOptionWidth(
+	musicPanel.AddItem(setupWizardAudioOptionWidth(
 		"Enhance bard music",
 		"Adds space and ambience to bard music.",
 		gs.MusicEnhancement,
@@ -882,7 +940,7 @@ func buildSetupAudioPage(root *eui.ItemData) {
 		playSetupWizardMusicTest,
 		setupWizardPanelWidth,
 	))
-	audioPanel.AddItem(setupWizardRecommendedCheckboxWidth("Precache sounds", "Warm game sounds in the background to reduce first-use delay. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
+	musicPanel.AddItem(setupWizardRecommendedCheckboxWidth("Precache sounds", "Warm game sounds in the background to reduce first-use delay. This uses roughly 300 MB more RAM.", gs.PrecacheSounds, defaultPrecacheSounds, func(checked bool) {
 		gs.PrecacheSounds = checked
 		if checked && !soundsPrecached.Load() {
 			go precacheSounds()
@@ -890,7 +948,16 @@ func buildSetupAudioPage(root *eui.ItemData) {
 		settingsDirty = true
 	}, setupWizardPanelWidth))
 
-	notificationPanel.AddItem(setupWizardCheckboxWidth(
+	root.AddItem(panels)
+}
+
+func buildSetupNotificationsPage(root *eui.ItemData) {
+	root.AddItem(setupWizardHeading("Notifications"))
+	root.AddItem(setupWizardText(
+		"Choose whether game events can appear as in-game or desktop notifications. Detailed settings control individual events, background behavior, sounds, and display duration.",
+		12, 620,
+	))
+	root.AddItem(setupWizardCheckbox(
 		"Game notifications",
 		"Allow configured game events to appear as in-game or desktop notifications.",
 		gs.Notifications,
@@ -901,11 +968,10 @@ func buildSetupAudioPage(root *eui.ItemData) {
 			}
 			settingsDirty = true
 		},
-		setupWizardPanelWidth,
 	))
 	notifications, notificationEvents := eui.NewButton()
 	notifications.Text = "Notification Settings"
-	notifications.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 28}
+	notifications.Size = eui.Point{X: 320, Y: 28}
 	notifications.SetTooltip("Choose event types, background behavior, beep delivery, and display duration.")
 	notificationEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -913,8 +979,7 @@ func buildSetupAudioPage(root *eui.ItemData) {
 			notificationsWin.MarkOpenNear(ev.Item)
 		}
 	}
-	notificationPanel.AddItem(notifications)
-	root.AddItem(panels)
+	root.AddItem(notifications)
 }
 
 func setupWizardAudioOption(label, explanation string, checked bool, changed, test func(bool)) *eui.ItemData {

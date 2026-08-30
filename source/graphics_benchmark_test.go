@@ -6,28 +6,28 @@ func TestGraphicsBenchmarkRecommendation(t *testing.T) {
 	if graphicsBenchmarkFPS != 80 {
 		t.Fatalf("FPS limit = %v, want 80", graphicsBenchmarkFPS)
 	}
-	if recommendIGPUGraphics(80) {
-		t.Fatal("exactly 80 FPS recommended iGPU graphics")
+	if recommendLowQuality(80) {
+		t.Fatal("exactly 80 FPS recommended Low quality")
 	}
-	if recommendIGPUGraphics(120) {
-		t.Fatal("120 FPS recommended iGPU graphics")
+	if recommendLowQuality(120) {
+		t.Fatal("120 FPS recommended Low quality")
 	}
-	if !recommendIGPUGraphics(79.9) {
-		t.Fatal("frame rate below 80 FPS did not recommend iGPU graphics")
+	if !recommendLowQuality(79.9) {
+		t.Fatal("frame rate below 80 FPS did not recommend Low quality")
 	}
-	if recommendIGPUGraphics(0) {
-		t.Fatal("unavailable frame rate recommended iGPU graphics")
+	if recommendLowQuality(0) {
+		t.Fatal("unavailable frame rate recommended Low quality")
 	}
-	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{}); got != "Default" {
-		t.Fatalf("fast result preset = %q, want Default", got)
+	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{}); got != "High" {
+		t.Fatalf("fast result preset = %q, want High", got)
 	}
-	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{RecommendIGPU: true}); got != "iGPU Graphics" {
-		t.Fatalf("slow result preset = %q, want iGPU Graphics", got)
+	if got := graphicsBenchmarkRecommendedPreset(graphicsBenchmarkResult{RecommendLow: true}); got != "Low" {
+		t.Fatalf("slow result preset = %q, want Low", got)
 	}
-	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{}); got != "Default (Recommended)" {
+	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{}); got != "High (Recommended)" {
 		t.Fatalf("fast result label = %q", got)
 	}
-	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{RecommendIGPU: true}); got != "iGPU Graphics (Recommended)" {
+	if got := graphicsBenchmarkRecommendedLabel(graphicsBenchmarkResult{RecommendLow: true}); got != "Low (Recommended)" {
 		t.Fatalf("slow result label = %q", got)
 	}
 }

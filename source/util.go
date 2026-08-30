@@ -539,7 +539,7 @@ func configuredBubbleLifeFrames(text string) int {
 
 func isChatBubble(t int) bool {
 	switch t {
-	case kBubbleNormal, kBubbleWhisper, kBubbleYell, kBubbleThought, kBubblePonder, kBubbleRealAction, kBubblePlayerAction:
+	case kBubbleNormal, kBubbleWhisper, kBubbleYell, kBubbleThought, kBubblePonder, kBubbleRealAction, kBubblePlayerAction, kBubbleMonster:
 		return true
 	default:
 		return false

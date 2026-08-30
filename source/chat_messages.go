@@ -56,7 +56,7 @@ func chatMessageTyped(msg, messageType string) {
 	chatLog.AddTyped(msg, messageType)
 	appendChatLog(msg)
 
-	updateChatWindow()
+	queueChatWindowUpdate()
 
 	if tagged && !isSelfChatMessage(msg) {
 		playMentionSound()

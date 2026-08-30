@@ -461,6 +461,9 @@ type settings struct {
 	Style                          string
 	MessagesToConsole              bool
 	MessageTextColors              map[string]eui.Color
+	MessageTextColorsLight         map[string]eui.Color
+	OverrideThemeTextColor         bool
+	ClassicMessageColors           bool
 	ChatTTS                        bool
 	ChatTTSVolume                  float64
 	ChatTTSSpeed                   float64
@@ -655,11 +658,7 @@ func loadSettings() bool {
 		migrated = true
 	default:
 		gs = gsdef
-		preset := "High"
-		if isWASM {
-			preset = "Standard"
-		}
-		applyQualityPreset(preset)
+		applyQualityPreset("High")
 		setHighQualityResamplingEnabled(gs.HighQualityResampling)
 		settingsLoaded = false
 		applyServerAddressSetting()
@@ -1276,144 +1275,123 @@ func restoreWindowsAfterScale() {
 }
 
 type qualityPreset struct {
-	MotionSmoothing        bool
-	BlendMobiles           bool
-	BlendPicts             bool
-	ShadersEnabled         bool
-	ShaderLighting         bool
-	SpriteUpscaleFilter    bool
-	HighQualityResampling  bool
-	SoundEnhancement       bool
-	SoundEnhancementAmount float64
-	MusicEnhancement       bool
-	MusicEnhancementAmount float64
+	gameScale                float64
+	artworkUpscaleMode       int
+	fadeObscuringPictures    bool
+	precacheSounds           bool
+	windowShadows            bool
+	characterShadows         bool
+	shadersEnabled           bool
+	shaderLighting           bool
+	blendPicts               bool
+	mobilesReceiveSunShadows bool
+	musicEnhancement         bool
+	soundEnhancement         bool
+	highQualityResampling    bool
 }
 
 var (
-	classicPreset = qualityPreset{
-		MotionSmoothing:        false,
-		BlendMobiles:           false,
-		BlendPicts:             false,
-		ShadersEnabled:         false,
-		ShaderLighting:         false,
-		SpriteUpscaleFilter:    false,
-		HighQualityResampling:  false,
-		SoundEnhancement:       false,
-		SoundEnhancementAmount: 1.0,
-		MusicEnhancement:       false,
-		MusicEnhancementAmount: 1.0,
+	lowestPreset = qualityPreset{
+		gameScale:          2,
+		artworkUpscaleMode: artworkUpscaleOff,
 	}
 	lowPreset = qualityPreset{
-		MotionSmoothing:        true,
-		BlendMobiles:           false,
-		BlendPicts:             false,
-		ShadersEnabled:         false,
-		ShaderLighting:         false,
-		SpriteUpscaleFilter:    false,
-		HighQualityResampling:  false,
-		SoundEnhancement:       false,
-		SoundEnhancementAmount: 1.0,
-		MusicEnhancement:       false,
-		MusicEnhancementAmount: 1.0,
+		gameScale:          2,
+		artworkUpscaleMode: artworkUpscaleBalanced,
+		characterShadows:   true,
 	}
 	mediumPreset = qualityPreset{
-		MotionSmoothing:        true,
-		BlendMobiles:           false,
-		BlendPicts:             true,
-		ShadersEnabled:         true,
-		ShaderLighting:         false,
-		SpriteUpscaleFilter:    false,
-		HighQualityResampling:  false,
-		SoundEnhancement:       false,
-		SoundEnhancementAmount: 1.0,
-		MusicEnhancement:       true,
-		MusicEnhancementAmount: 1.0,
+		gameScale:          2,
+		artworkUpscaleMode: artworkUpscaleBalanced,
+		precacheSounds:     true,
+		windowShadows:      true,
+		characterShadows:   true,
+		shadersEnabled:     true,
+		shaderLighting:     true,
 	}
 	highPreset = qualityPreset{
-		MotionSmoothing:        true,
-		BlendMobiles:           true,
-		BlendPicts:             true,
-		ShadersEnabled:         true,
-		ShaderLighting:         true,
-		SpriteUpscaleFilter:    true,
-		HighQualityResampling:  true,
-		SoundEnhancement:       true,
-		SoundEnhancementAmount: 1.25,
-		MusicEnhancement:       true,
-		MusicEnhancementAmount: 1.0,
+		gameScale:                3,
+		artworkUpscaleMode:       artworkUpscaleBalanced,
+		fadeObscuringPictures:    true,
+		precacheSounds:           true,
+		windowShadows:            true,
+		characterShadows:         true,
+		shadersEnabled:           true,
+		shaderLighting:           true,
+		blendPicts:               true,
+		mobilesReceiveSunShadows: true,
+		musicEnhancement:         true,
+	}
+	ultraPreset = qualityPreset{
+		gameScale:                4,
+		artworkUpscaleMode:       artworkUpscaleBalanced,
+		fadeObscuringPictures:    true,
+		precacheSounds:           true,
+		windowShadows:            true,
+		characterShadows:         true,
+		shadersEnabled:           true,
+		shaderLighting:           true,
+		blendPicts:               true,
+		mobilesReceiveSunShadows: true,
+		musicEnhancement:         true,
+		soundEnhancement:         true,
+		highQualityResampling:    true,
 	}
 )
 
 func applyQualityPreset(name string) {
-	var p qualityPreset
+	p := lowestPreset
 	switch name {
-	case "iGPU Graphics":
-		p.ShadersEnabled = true
-		p.MotionSmoothing = true
-		p.SoundEnhancementAmount = 1
-		p.MusicEnhancementAmount = 1
-		gs.GameScale = 2
-		gs.DenoiseImages = false
-		gs.WindowShadows = false
-		gs.CharacterShadows = false
-		gs.FasterCharacterShadows = true
-		gs.AnimatedChatBubbles = false
-	case "Default":
-		p = currentAudioQualityPreset()
-		p.MotionSmoothing = gsdef.MotionSmoothing
-		p.BlendMobiles = gsdef.BlendMobiles
-		p.BlendPicts = gsdef.BlendPicts
-		p.ShadersEnabled = gsdef.ShadersEnabled
-		p.ShaderLighting = gsdef.ShaderLighting
-		p.SpriteUpscaleFilter = gsdef.SpriteUpscaleFilter
-		gs.GameScale = gsdef.GameScale
-		gs.DenoiseImages = gsdef.DenoiseImages
-		gs.WindowShadows = gsdef.WindowShadows
-		gs.CharacterShadows = gsdef.CharacterShadows
-		gs.FasterCharacterShadows = gsdef.FasterCharacterShadows
-		gs.AnimatedChatBubbles = gsdef.AnimatedChatBubbles
-	case "Classic":
-		p = classicPreset
+	case "Lowest":
 	case "Low":
 		p = lowPreset
 	case "Medium":
 		p = mediumPreset
 	case "High":
 		p = highPreset
+	case "Ultra":
+		p = ultraPreset
 	default:
 		return
 	}
 
-	gs.MotionSmoothing = p.MotionSmoothing
-	gs.BlendMobiles = p.BlendMobiles
-	gs.BlendPicts = p.BlendPicts
-	gs.ShadersEnabled = p.ShadersEnabled
-	gs.ShaderLighting = p.ShaderLighting
-	if name == "iGPU Graphics" {
-		setArtworkUpscaleMode(artworkUpscaleBalanced)
-	} else if name == "Default" {
-		setArtworkUpscaleMode(gsdef.SpriteUpscaleMode)
-	} else if p.SpriteUpscaleFilter {
-		setArtworkUpscaleMode(artworkUpscaleUltraSmooth)
-	} else {
-		setArtworkUpscaleMode(artworkUpscaleOff)
-	}
-	gs.HighQualityResampling = p.HighQualityResampling
+	gs.GameScale = p.gameScale
+	setArtworkUpscaleMode(p.artworkUpscaleMode)
+	gs.FadeObscuringPictures = p.fadeObscuringPictures
+	gs.PrecacheSounds = p.precacheSounds
+	gs.WindowShadows = p.windowShadows
+	gs.CharacterShadows = p.characterShadows
+	gs.ShadersEnabled = p.shadersEnabled
+	gs.ShaderLighting = p.shaderLighting
+	gs.BlendPicts = p.blendPicts
+	gs.MobilesReceiveSunShadows = p.mobilesReceiveSunShadows
+	gs.MusicEnhancement = p.musicEnhancement
+	gs.SoundEnhancement = p.soundEnhancement
+	gs.HighQualityResampling = p.highQualityResampling
 	setHighQualityResamplingEnabled(gs.HighQualityResampling)
-	gs.SoundEnhancement = p.SoundEnhancement
-	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(p.SoundEnhancementAmount)
-	gs.MusicEnhancement = p.MusicEnhancement
-	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(p.MusicEnhancementAmount)
 	gs.SpriteUpscale = spriteUpscaleFactor()
 
-	if motionCB != nil {
-		motionCB.Checked = gs.MotionSmoothing
-	}
-	if animCB != nil {
-		animCB.Checked = gs.BlendMobiles
-	}
 	if pictBlendCB != nil {
 		pictBlendCB.Checked = gs.BlendPicts
+	}
+	if qualityRenderScaleSlider != nil {
+		qualityRenderScaleSlider.Value = float32(gs.GameScale)
+	}
+	if fadeObscuringCB != nil {
+		fadeObscuringCB.Checked = gs.FadeObscuringPictures
+	}
+	if precacheSoundCB != nil {
+		precacheSoundCB.Checked = gs.PrecacheSounds
+	}
+	if characterShadowsCB != nil {
+		characterShadowsCB.Checked = gs.CharacterShadows
+	}
+	if characterShadowSlider != nil {
+		characterShadowSlider.Disabled = !gs.CharacterShadows
+	}
+	if mobileSunShadowsCB != nil {
+		mobileSunShadowsCB.Checked = gs.MobilesReceiveSunShadows
+		mobileSunShadowsCB.Disabled = !gs.CharacterShadows
 	}
 	if potatoCB != nil {
 		potatoCB.Checked = gs.PotatoGPU
@@ -1452,50 +1430,33 @@ func applyQualityPreset(name string) {
 	}
 }
 
-func currentAudioQualityPreset() qualityPreset {
-	return qualityPreset{
-		HighQualityResampling:  gs.HighQualityResampling,
-		SoundEnhancement:       gs.SoundEnhancement,
-		SoundEnhancementAmount: gs.SoundEnhancementAmount,
-		MusicEnhancement:       gs.MusicEnhancement,
-		MusicEnhancementAmount: gs.MusicEnhancementAmount,
-	}
-}
-
 func matchesPreset(p qualityPreset) bool {
-	if gs.MotionSmoothing != p.MotionSmoothing ||
-		gs.BlendMobiles != p.BlendMobiles ||
-		gs.BlendPicts != p.BlendPicts ||
-		gs.ShadersEnabled != p.ShadersEnabled ||
-		gs.ShaderLighting != p.ShaderLighting ||
-		gs.SpriteUpscaleFilter != p.SpriteUpscaleFilter ||
-		gs.HighQualityResampling != p.HighQualityResampling ||
-		gs.SoundEnhancement != p.SoundEnhancement ||
-		gs.MusicEnhancement != p.MusicEnhancement {
-		return false
-	}
-	if p.SoundEnhancement {
-		if math.Abs(gs.SoundEnhancementAmount-p.SoundEnhancementAmount) > 0.05 {
-			return false
-		}
-	}
-	if p.MusicEnhancement && math.Abs(gs.MusicEnhancementAmount-p.MusicEnhancementAmount) > 0.05 {
-		return false
-	}
-	return true
+	return gs.GameScale == p.gameScale &&
+		artworkUpscaleMode() == p.artworkUpscaleMode &&
+		gs.FadeObscuringPictures == p.fadeObscuringPictures &&
+		gs.PrecacheSounds == p.precacheSounds &&
+		gs.WindowShadows == p.windowShadows &&
+		gs.CharacterShadows == p.characterShadows &&
+		gs.ShadersEnabled == p.shadersEnabled &&
+		gs.ShaderLighting == p.shaderLighting &&
+		gs.BlendPicts == p.blendPicts &&
+		gs.MobilesReceiveSunShadows == p.mobilesReceiveSunShadows &&
+		gs.MusicEnhancement == p.musicEnhancement &&
+		gs.SoundEnhancement == p.soundEnhancement &&
+		gs.HighQualityResampling == p.highQualityResampling
 }
 
 func detectQualityPreset() int {
 	switch {
-	case igpuGraphicsPresetApplied():
+	case matchesPreset(lowestPreset):
 		return 0
-	case matchesPreset(classicPreset):
-		return 1
 	case matchesPreset(lowPreset):
-		return 2
+		return 1
 	case matchesPreset(mediumPreset):
-		return 3
+		return 2
 	case matchesPreset(highPreset):
+		return 3
+	case matchesPreset(ultraPreset):
 		return 4
 	default:
 		return 5

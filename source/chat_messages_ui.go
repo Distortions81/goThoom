@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"gothoom/eui"
@@ -14,6 +15,20 @@ import (
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
 var chatHighlighted *eui.ItemData
+var chatWindowUpdateQueued atomic.Bool
+
+// queueChatWindowUpdate coalesces message-driven refreshes and keeps EUI tree
+// mutations on the game loop. Chat can arrive on a network goroutine while the
+// existing window is being drawn.
+func queueChatWindowUpdate() {
+	if !chatWindowUpdateQueued.CompareAndSwap(false, true) {
+		return
+	}
+	dispatchMainThread(func() {
+		chatWindowUpdateQueued.Store(false)
+		updateChatWindow()
+	})
+}
 
 func updateChatWindow() {
 	if chatWin == nil || !chatWin.IsOpen() {
@@ -28,10 +43,9 @@ func updateChatWindow() {
 	if chatList != nil {
 		for i, msg := range msgs {
 			if i < len(types) {
-				chatList.Contents[i].TextColor = messageTextColor(types[i])
-				chatList.Contents[i].ForceTextColor = true
+				chatList.Contents[i].TextColor, chatList.Contents[i].ForceTextColor = messageTextStyleForMessage(types[i], msg)
 			}
-			if chatHasPlayerTag(msg) {
+			if !gs.ClassicMessageColors && chatHasPlayerTag(msg) {
 				chatList.Contents[i].TextColor = eui.AccentColor()
 				chatList.Contents[i].ForceTextColor = true
 			}
@@ -96,18 +110,20 @@ func handleChatCopyRightClick(mx, my int) bool {
 func scheduleChatUnhighlight(row *eui.ItemData) {
 	go func(target *eui.ItemData) {
 		time.Sleep(1200 * time.Millisecond)
-		if chatHighlighted == target {
-			for i, it := range chatList.Contents {
-				if it == target {
-					restoreAlternateTextRow(it, i)
-					break
+		dispatchMainThread(func() {
+			if chatHighlighted == target {
+				for i, it := range chatList.Contents {
+					if it == target {
+						restoreAlternateTextRow(it, i)
+						break
+					}
 				}
+				target.Focused = false
+				if chatWin != nil {
+					chatWin.Refresh()
+				}
+				chatHighlighted = nil
 			}
-			target.Focused = false
-			if chatWin != nil {
-				chatWin.Refresh()
-			}
-			chatHighlighted = nil
-		}
+		})
 	}(row)
 }

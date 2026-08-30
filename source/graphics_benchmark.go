@@ -9,26 +9,26 @@ import (
 const graphicsBenchmarkFPS = 80.0
 
 type graphicsBenchmarkResult struct {
-	ActualFPS     float64
-	RecommendIGPU bool
+	ActualFPS    float64
+	RecommendLow bool
 }
 
-func recommendIGPUGraphics(actualFPS float64) bool {
+func recommendLowQuality(actualFPS float64) bool {
 	return actualFPS > 0 && actualFPS < graphicsBenchmarkFPS
 }
 
 func graphicsBenchmarkRecommendedPreset(result graphicsBenchmarkResult) string {
-	if result.RecommendIGPU {
-		return "iGPU Graphics"
+	if result.RecommendLow {
+		return "Low"
 	}
-	return "Default"
+	return "High"
 }
 
 func graphicsBenchmarkRecommendedLabel(result graphicsBenchmarkResult) string {
-	if result.RecommendIGPU {
-		return "iGPU Graphics (Recommended)"
+	if result.RecommendLow {
+		return "Low (Recommended)"
 	}
-	return "Default (Recommended)"
+	return "High (Recommended)"
 }
 
 // runGraphicsBenchmark reads the complete renderer's existing FPS measurement.
@@ -42,7 +42,7 @@ func runGraphicsBenchmark() (graphicsBenchmarkResult, error) {
 		return graphicsBenchmarkResult{}, fmt.Errorf("frame-rate measurement is not ready; wait a moment and rerun detection")
 	}
 	return graphicsBenchmarkResult{
-		ActualFPS:     fps,
-		RecommendIGPU: recommendIGPUGraphics(fps),
+		ActualFPS:    fps,
+		RecommendLow: recommendLowQuality(fps),
 	}, nil
 }

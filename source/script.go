@@ -2383,6 +2383,7 @@ func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) 
 	overlayMu.Lock()
 	delete(scriptOverlayOps, owner)
 	overlayMu.Unlock()
+	markWorldRenderChanged()
 	// Stop repeating timers and tick waiters for this script.
 	scriptMu.Lock()
 	if repeats := scriptRepeats[owner]; len(repeats) > 0 {
@@ -3254,6 +3255,7 @@ func scriptOverlayClear(owner string) {
 	overlayMu.Lock()
 	delete(scriptOverlayOps, owner)
 	overlayMu.Unlock()
+	markWorldRenderChanged()
 }
 
 func scriptOverlayRect(owner string, x, y, w, h int, r, g, b, a uint8) {
@@ -3263,6 +3265,7 @@ func scriptOverlayRect(owner string, x, y, w, h int, r, g, b, a uint8) {
 	overlayMu.Lock()
 	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 0, x: x, y: y, w: w, h: h, r: r, g: g, b: b, a: a})
 	overlayMu.Unlock()
+	markWorldRenderChanged()
 }
 
 func scriptOverlayText(owner string, x, y int, txt string, r, g, b, a uint8) {
@@ -3272,6 +3275,7 @@ func scriptOverlayText(owner string, x, y int, txt string, r, g, b, a uint8) {
 	overlayMu.Lock()
 	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 1, x: x, y: y, text: txt, r: r, g: g, b: b, a: a})
 	overlayMu.Unlock()
+	markWorldRenderChanged()
 }
 
 func scriptOverlayImage(owner string, id uint16, x, y int) {
@@ -3281,6 +3285,7 @@ func scriptOverlayImage(owner string, id uint16, x, y int) {
 	overlayMu.Lock()
 	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 2, x: x, y: y, id: id, a: 255, r: 255, g: 255, b: 255})
 	overlayMu.Unlock()
+	markWorldRenderChanged()
 }
 
 func isUserScriptFile(name string) bool {

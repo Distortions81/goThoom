@@ -574,6 +574,7 @@ func applySettingRuntimeEffects(entry settingsSchemaEntry) {
 	case "Theme":
 		updateInventoryWindow()
 		updatePlayersWindow()
+		refreshMessageTextWindows()
 		updateDimmedScreenBG()
 	case "ToolbarPlacement":
 		placeToolbar(gs.ToolbarPlacement, true)

@@ -66,3 +66,41 @@ func TestMainThreadDispatcherWaitsForDrain(t *testing.T) {
 		t.Fatalf("dispatch result = %t, ran = %t; want both true", ok, ran)
 	}
 }
+
+func TestMessageWindowUpdatesAreCoalescedOnMainThread(t *testing.T) {
+	mainThreadDispatchMu.Lock()
+	originalQueue := mainThreadDispatchQueue
+	mainThreadDispatchQueue = nil
+	mainThreadDispatchMu.Unlock()
+	originalChatQueued := chatWindowUpdateQueued.Load()
+	originalConsoleQueued := consoleWindowUpdateQueued.Load()
+	chatWindowUpdateQueued.Store(false)
+	consoleWindowUpdateQueued.Store(false)
+	t.Cleanup(func() {
+		mainThreadDispatchMu.Lock()
+		mainThreadDispatchQueue = originalQueue
+		mainThreadDispatchMu.Unlock()
+		chatWindowUpdateQueued.Store(originalChatQueued)
+		consoleWindowUpdateQueued.Store(originalConsoleQueued)
+	})
+
+	queueChatWindowUpdate()
+	queueChatWindowUpdate()
+	queueConsoleWindowUpdate()
+	queueConsoleWindowUpdate()
+
+	mainThreadDispatchMu.Lock()
+	queued := len(mainThreadDispatchQueue)
+	mainThreadDispatchMu.Unlock()
+	if queued != 2 {
+		t.Fatalf("queued message window updates = %d, want one per window", queued)
+	}
+	if !chatWindowUpdateQueued.Load() || !consoleWindowUpdateQueued.Load() {
+		t.Fatal("message window update was not marked pending before the main-thread drain")
+	}
+
+	drainMainThreadDispatcher()
+	if chatWindowUpdateQueued.Load() || consoleWindowUpdateQueued.Load() {
+		t.Fatal("message window update remained pending after the main-thread drain")
+	}
+}

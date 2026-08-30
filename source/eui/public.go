@@ -237,6 +237,26 @@ func AccentColor() Color {
 	return Color(hsvaToRGBA(accentHue, accentSaturation, accentValue, accentAlpha))
 }
 
+// TextColor returns the active theme's normal text color.
+func TextColor() Color {
+	if currentTheme != nil {
+		return currentTheme.Text.TextColor
+	}
+	return baseTheme.Text.TextColor
+}
+
+// IsLightTheme reports whether the active theme uses a light window background.
+func IsLightTheme() bool {
+	bg := baseTheme.Window.BGColor
+	if currentTheme != nil {
+		bg = currentTheme.Window.BGColor
+	}
+	// ITU-R BT.601 luma is sufficient here and avoids classifying saturated
+	// backgrounds by their unweighted channel sum.
+	luma := 299*int(bg.R) + 587*int(bg.G) + 114*int(bg.B)
+	return luma >= 128000
+}
+
 // SubtleAlternateRowColor returns a low-contrast opaque row color derived
 // from the active window background.
 func SubtleAlternateRowColor() Color {

@@ -464,7 +464,7 @@ outer:
 		targets := serverTargets(host)
 		var lastErr error
 		for i, target := range targets {
-			updateConnectDialog(connectStatusMessage(target))
+			dispatchMainThread(func() { updateConnectDialog(connectStatusMessage(target)) })
 			err := runLoginAttempt(ctx, target, sendVersion, imagesVersion, soundsVersion)
 			if err == nil {
 				return nil
@@ -478,7 +478,8 @@ outer:
 					previous := name
 					demoCandidateIndex = next
 					setDemoLoginCandidate(demoCandidates[demoCandidateIndex])
-					updateConnectDialog(fmt.Sprintf("%s is in use; trying %s...", previous, name))
+					status := fmt.Sprintf("%s is in use; trying %s...", previous, name)
+					dispatchMainThread(func() { updateConnectDialog(status) })
 					logDebug("demo character %s is online; trying %s", previous, name)
 					continue outer
 				}
@@ -490,7 +491,8 @@ outer:
 			lastErr = err
 			if i < len(targets)-1 {
 				next := targets[i+1]
-				updateConnectDialog(retryConnectStatusMessage(target, next, err))
+				status := retryConnectStatusMessage(target, next, err)
+				dispatchMainThread(func() { updateConnectDialog(status) })
 				logWarn("login via %s failed (%v); trying %s", target.display, err, next.display)
 				continue
 			}
@@ -527,7 +529,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("set tcp deadline %s: %w", target.addr, err)
 	}
 
-	updateConnectDialog("TCP connected; opening UDP channel...")
+	dispatchMainThread(func() { updateConnectDialog("TCP connected; opening UDP channel...") })
 	udp, err = dialServer("udp", target)
 	if err != nil {
 		tcp.Close()
@@ -541,7 +543,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("set udp deadline %s: %w", target.addr, err)
 	}
 
-	updateConnectDialog("Waiting for server handshake...")
+	dispatchMainThread(func() { updateConnectDialog("Waiting for server handshake...") })
 	var idBuf [4]byte
 	if _, err := io.ReadFull(tcp, idBuf[:]); err != nil {
 		tcp.Close()
@@ -552,7 +554,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	handshake := append([]byte{0xff, 0xff}, idBuf[:]...)
-	updateConnectDialog("Sending handshake...")
+	dispatchMainThread(func() { updateConnectDialog("Sending handshake...") })
 	if _, err := udp.Write(handshake); err != nil {
 		tcp.Close()
 		tcp = nil
@@ -562,7 +564,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	var confirm [2]byte
-	updateConnectDialog("Confirming handshake...")
+	dispatchMainThread(func() { updateConnectDialog("Confirming handshake...") })
 	if _, err := io.ReadFull(tcp, confirm[:]); err != nil {
 		tcp.Close()
 		tcp = nil
@@ -570,7 +572,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		udp = nil
 		return fmt.Errorf("confirm handshake via %s: %w", target.addr, err)
 	}
-	updateConnectDialog("Identifying client...")
+	dispatchMainThread(func() { updateConnectDialog("Identifying client...") })
 	sendVersionLocal := sendVersion
 	if err := sendClientIdentifiers(tcp, encodeFullVersion(sendVersionLocal), imagesVersion, soundsVersion); err != nil {
 		tcp.Close()
@@ -581,7 +583,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 	logDebug("connected to %v", target.addr)
 
-	updateConnectDialog("Waiting for server challenge...")
+	dispatchMainThread(func() { updateConnectDialog("Waiting for server challenge...") })
 	msg, err := readTCPMessage(tcp)
 	if err != nil {
 		tcp.Close()
@@ -620,14 +622,14 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("character password required")
 	}
 	playerName = utfFold(name)
-	updateGameWindowTitle()
+	dispatchMainThread(updateGameWindowTitle)
 	applyLocalLabels()
 	applyEnabledScripts()
 	loadShortcuts()
 
 	var resp []byte
 	var result int16
-	updateConnectDialog("Authenticating...")
+	dispatchMainThread(func() { updateConnectDialog("Authenticating...") })
 	for {
 		var answer []byte
 		if pass != "" {
@@ -656,7 +658,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		copy(buf[17+len(nameBytes):], answer)
 		simpleEncrypt(buf[16:])
 
-		updateConnectDialog("Sending credentials...")
+		dispatchMainThread(func() { updateConnectDialog("Sending credentials...") })
 		if err := sendTCPMessage(tcp, buf); err != nil {
 			tcp.Close()
 			tcp = nil
@@ -665,7 +667,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 			return fmt.Errorf("send login via %s: %w", target.addr, err)
 		}
 
-		updateConnectDialog("Waiting for login response...")
+		dispatchMainThread(func() { updateConnectDialog("Waiting for login response...") })
 		resp, err = readTCPMessage(tcp)
 		if err != nil {
 			tcp.Close()
@@ -711,7 +713,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	if result == -30972 || result == -30973 {
-		updateConnectDialog("Server requested update; retrying...")
+		dispatchMainThread(func() { updateConnectDialog("Server requested update; retrying...") })
 		_, _ = autoUpdate(resp, dataDirPath)
 		tcp.Close()
 		tcp = nil
@@ -737,16 +739,17 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	dispatchMainThread(func() { switchCharacterProfile(profileCharacter) })
 	scriptSessionLogin(playerName)
 	defer scriptSessionLogout(playerName)
-	updateConnectDialog("Loading macros...")
+	dispatchMainThread(func() { updateConnectDialog("Loading macros...") })
 	if err := loadLegacyMacrosForCharacter(playerName); err != nil {
 		log.Printf("legacy macros: %v", err)
 	}
-	updateConnectDialog("Login successful!")
-	closeConnectDialog()
-
-	shaderWarnShown = false
-	lowFPSSince = time.Time{}
-	shaderWarnWin = nil
+	dispatchMainThread(func() {
+		updateConnectDialog("Login successful!")
+		closeConnectDialog()
+		shaderWarnShown = false
+		lowFPSSince = time.Time{}
+		shaderWarnWin = nil
+	})
 
 	inputMu.Lock()
 	s := latestInput
@@ -789,18 +792,18 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		close(dispatchDone)
 	}()
 	networkLoops.Add(3)
-	go func() {
+	go func(udpConn, tcpConn net.Conn) {
 		defer networkLoops.Done()
-		sendInputLoop(ctx, udp, tcp)
-	}()
-	go func() {
+		sendInputLoop(ctx, udpConn, tcpConn)
+	}(udp, tcp)
+	go func(udpConn net.Conn) {
 		defer networkLoops.Done()
-		udpReadLoop(ctx, udp, udpMessages)
-	}()
-	go func() {
+		udpReadLoop(ctx, udpConn, udpMessages)
+	}(udp)
+	go func(tcpConn net.Conn) {
 		defer networkLoops.Done()
-		tcpReadLoop(ctx, tcp, tcpMessages)
-	}()
+		tcpReadLoop(ctx, tcpConn, tcpMessages)
+	}(tcp)
 
 	<-ctx.Done()
 	if tcp != nil {

@@ -36,12 +36,91 @@ func TestQualityPresetPersisted(t *testing.T) {
 	if gs.MusicEnhancement {
 		t.Errorf("MusicEnhancement loaded as true, want false")
 	}
-	if preset := detectQualityPreset(); preset != 2 {
-		t.Errorf("detectQualityPreset()=%d, want 2", preset)
+	if preset := detectQualityPreset(); preset != 1 {
+		t.Errorf("detectQualityPreset()=%d, want 1", preset)
 	}
 }
 
-func TestPotatoGPUIsIndependentOfQualityPresets(t *testing.T) {
+func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
+	originalSettings := gs
+	t.Cleanup(func() {
+		gs = originalSettings
+		setHighQualityResamplingEnabled(gs.HighQualityResampling)
+	})
+
+	tests := []struct {
+		name   string
+		preset qualityPreset
+		want   qualityPreset
+		index  int
+	}{
+		{
+			name:   "Lowest",
+			preset: lowestPreset,
+			want:   qualityPreset{gameScale: 2, artworkUpscaleMode: artworkUpscaleOff},
+			index:  0,
+		},
+		{
+			name:   "Low",
+			preset: lowPreset,
+			want: qualityPreset{
+				gameScale: 2, artworkUpscaleMode: artworkUpscaleBalanced,
+				characterShadows: true,
+			},
+			index: 1,
+		},
+		{
+			name:   "Medium",
+			preset: mediumPreset,
+			want: qualityPreset{
+				gameScale: 2, artworkUpscaleMode: artworkUpscaleBalanced,
+				precacheSounds: true, windowShadows: true, characterShadows: true,
+				shadersEnabled: true, shaderLighting: true,
+			},
+			index: 2,
+		},
+		{
+			name:   "High",
+			preset: highPreset,
+			want: qualityPreset{
+				gameScale: 3, artworkUpscaleMode: artworkUpscaleBalanced,
+				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
+				characterShadows: true, shadersEnabled: true, shaderLighting: true,
+				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
+			},
+			index: 3,
+		},
+		{
+			name:   "Ultra",
+			preset: ultraPreset,
+			want: qualityPreset{
+				gameScale: 4, artworkUpscaleMode: artworkUpscaleBalanced,
+				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
+				characterShadows: true, shadersEnabled: true, shaderLighting: true,
+				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
+				soundEnhancement: true, highQualityResampling: true,
+			},
+			index: 4,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.preset != test.want {
+				t.Fatalf("%s preset definition = %+v, want %+v", test.name, test.preset, test.want)
+			}
+			gs = gsdef
+			applyQualityPreset(test.name)
+			if !matchesPreset(test.preset) {
+				t.Fatalf("%s preset settings do not match its definition", test.name)
+			}
+			if got := detectQualityPreset(); got != test.index {
+				t.Fatalf("detectQualityPreset()=%d after %s, want %d", got, test.name, test.index)
+			}
+		})
+	}
+}
+
+func TestQualityPresetsPreserveUnrelatedSettings(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() {
 		gs = originalSettings
@@ -50,55 +129,18 @@ func TestPotatoGPUIsIndependentOfQualityPresets(t *testing.T) {
 
 	gs = gsdef
 	gs.PotatoGPU = true
-	applyQualityPreset("High")
-	if !gs.PotatoGPU {
-		t.Error("High preset changed the independent Potato GPU setting")
-	}
-	if preset := detectQualityPreset(); preset != 4 {
-		t.Errorf("detectQualityPreset()=%d after High, want 4", preset)
-	}
-}
-
-func TestIGPUGraphicsPresetUsesLowCostGraphicsAndAudio(t *testing.T) {
-	originalSettings := gs
-	t.Cleanup(func() {
-		gs = originalSettings
-		setHighQualityResamplingEnabled(gs.HighQualityResampling)
-	})
-
-	gs = gsdef
-	gs.HighQualityResampling = true
-	gs.SoundEnhancement = true
-	gs.SoundEnhancementAmount = 1.75
-	gs.MusicEnhancement = true
-	gs.GameScale = 4
 	gs.DenoiseImages = true
-	gs.AnimatedChatBubbles = true
-	applyQualityPreset("iGPU Graphics")
-
-	if gs.PotatoGPU {
-		t.Fatal("iGPU graphics preset enabled Potato GPU mode")
-	}
-	if gs.BlendMobiles || gs.BlendPicts || gs.ShaderLighting || !gs.ShadersEnabled {
-		t.Fatal("iGPU graphics preset retained an expensive graphics effect")
-	}
-	if !gs.SpriteUpscaleFilter || artworkUpscaleMode() != artworkUpscaleBalanced {
-		t.Fatal("iGPU graphics preset did not select Balanced artwork upscaling")
-	}
-	if gs.CharacterShadows {
-		t.Fatal("iGPU graphics preset retained character shadows")
-	}
-	if gs.AnimatedChatBubbles {
-		t.Fatal("iGPU graphics preset retained animated chat bubbles")
-	}
-	if gs.GameScale != 2 || gs.DenoiseImages {
-		t.Fatal("iGPU graphics preset does not match the current artwork scale and denoise settings")
-	}
-	if gs.HighQualityResampling || gs.SoundEnhancement || gs.SoundEnhancementAmount != 1 || gs.MusicEnhancement {
-		t.Fatal("iGPU graphics preset retained audio enhancement or high-quality resampling")
-	}
-	if gs.WindowShadows {
-		t.Fatal("iGPU graphics preset retained window shadows")
+	gs.MotionSmoothing = false
+	gs.BlendMobiles = true
+	gs.FasterCharacterShadows = true
+	gs.AnimatedChatBubbles = false
+	gs.SoundEnhancementAmount = 1.75
+	gs.MusicEnhancementAmount = 1.6
+	applyQualityPreset("High")
+	if !gs.PotatoGPU || !gs.DenoiseImages || gs.MotionSmoothing || !gs.BlendMobiles ||
+		!gs.FasterCharacterShadows || gs.AnimatedChatBubbles ||
+		gs.SoundEnhancementAmount != 1.75 || gs.MusicEnhancementAmount != 1.6 {
+		t.Fatal("quality preset changed a setting outside the preset contract")
 	}
 }
 
@@ -112,11 +154,11 @@ func TestQualityPresetDetectionIgnoresDitherSetting(t *testing.T) {
 	gs = gsdef
 	applyQualityPreset("High")
 	gs.DenoiseImages = false
-	if preset := detectQualityPreset(); preset != 4 {
+	if preset := detectQualityPreset(); preset != 3 {
 		t.Fatalf("detectQualityPreset()=%d with dithering off, want High", preset)
 	}
 	gs.DenoiseImages = true
-	if preset := detectQualityPreset(); preset != 4 {
+	if preset := detectQualityPreset(); preset != 3 {
 		t.Fatalf("detectQualityPreset()=%d with dithering on, want High", preset)
 	}
 }

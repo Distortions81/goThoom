@@ -55,8 +55,8 @@ func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 }
 
 func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
-	if setupWizardPageCount != 9 {
-		t.Fatalf("setup wizard pages = %d, want 9", setupWizardPageCount)
+	if setupWizardPageCount != 10 {
+		t.Fatalf("setup wizard pages = %d, want 10", setupWizardPageCount)
 	}
 	if shouldStartSetupWizardGraphicsDetection(0, false, false) {
 		t.Fatal("graphics detection starts on the first page")
@@ -82,6 +82,8 @@ func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
 
 	wantLabels := map[string]bool{
 		"UI scale":              false,
+		"Color theme":           false,
+		"Style theme":           false,
 		"Toolbar placement":     false,
 		"Status bar placement":  false,
 		"Player health display": false,
@@ -115,6 +117,42 @@ func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
 		if !found {
 			t.Errorf("interface page missing %q checkbox", label)
 		}
+	}
+}
+
+func TestSetupWizardDoesNotOfferClientModePreset(t *testing.T) {
+	initFont()
+	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupWelcomePage(root)
+	for _, item := range root.Contents {
+		if item.Label == "Starting preset" {
+			t.Fatal("welcome page still offers the Classic/Modern preset")
+		}
+	}
+}
+
+func TestSetupWizardThemeAndStyleSelectorsUseCurrentChoices(t *testing.T) {
+	initFont()
+	root := setupWizardThemeStyleSelectors()
+	want := map[string]string{
+		"Color theme": eui.CurrentThemeName(),
+		"Style theme": eui.CurrentStyleName(),
+	}
+	for _, item := range root.Contents {
+		current, ok := want[item.Label]
+		if !ok {
+			continue
+		}
+		if item.Selected < 0 || item.Selected >= len(item.Options) {
+			t.Fatalf("%s selection %d is outside %d options", item.Label, item.Selected, len(item.Options))
+		}
+		if got := item.Options[item.Selected]; got != current {
+			t.Fatalf("%s selection = %q, want %q", item.Label, got, current)
+		}
+		delete(want, item.Label)
+	}
+	for label := range want {
+		t.Errorf("wizard is missing %q", label)
 	}
 }
 
@@ -388,31 +426,48 @@ func TestSetupWizardAudioComparisonsUseNonNotificationSound(t *testing.T) {
 	}
 }
 
-func TestSetupWizardAudioPageLinksMixerAndNotificationSettings(t *testing.T) {
+func TestSetupWizardSeparatesAudioAndNotificationSettings(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	buildSetupAudioPage(root)
-	want := map[string]bool{
-		"Volume":                false,
-		"Game notifications":    false,
-		"Notification Settings": false,
-	}
+	wantAudio := map[string]bool{"Volume": false}
+	notificationLabels := map[string]bool{"Game notifications": false, "Notification Settings": false}
 	var visit func(*eui.ItemData)
 	visit = func(item *eui.ItemData) {
-		if _, ok := want[item.Text]; ok {
-			want[item.Text] = true
+		if _, ok := wantAudio[item.Text]; ok {
+			wantAudio[item.Text] = true
+		}
+		if _, ok := notificationLabels[item.Text]; ok {
+			notificationLabels[item.Text] = true
 		}
 		for _, child := range item.Contents {
 			visit(child)
 		}
 	}
 	visit(root)
-	for label, found := range want {
+	for label, found := range wantAudio {
 		if !found {
 			t.Errorf("audio page is missing %q", label)
+		}
+	}
+	for label, found := range notificationLabels {
+		if found {
+			t.Errorf("audio page unexpectedly includes %q", label)
+		}
+	}
+
+	notificationsRoot := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	buildSetupNotificationsPage(notificationsRoot)
+	for label := range notificationLabels {
+		notificationLabels[label] = false
+	}
+	visit(notificationsRoot)
+	for label, found := range notificationLabels {
+		if !found {
+			t.Errorf("notifications page is missing %q", label)
 		}
 	}
 }
@@ -452,10 +507,10 @@ func TestStartSetupWizardGraphicsDetectionResetsSample(t *testing.T) {
 	if setupWizardGraphicsFPSSum != 0 || setupWizardGraphicsFPSCount != 0 || setupWizardGraphicsRecommendation != "" {
 		t.Fatal("graphics detection retained samples from the previous run")
 	}
-	if gs.BlendMobiles != gsdef.BlendMobiles || gs.BlendPicts != gsdef.BlendPicts || gs.ShaderLighting != gsdef.ShaderLighting ||
-		gs.CharacterShadows != gsdef.CharacterShadows || gs.FasterCharacterShadows != gsdef.FasterCharacterShadows ||
-		gs.AnimatedChatBubbles != gsdef.AnimatedChatBubbles || artworkUpscaleMode() != gsdef.SpriteUpscaleMode {
-		t.Fatal("graphics detection did not apply Default before sampling")
+	if !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || !gs.WindowShadows ||
+		!gs.MobilesReceiveSunShadows || !gs.FadeObscuringPictures || !gs.MusicEnhancement ||
+		gs.GameScale != 3 || artworkUpscaleMode() != artworkUpscaleBalanced {
+		t.Fatal("graphics detection did not apply High before sampling")
 	}
 	if !setupWizardVSyncBypass {
 		t.Fatal("graphics detection did not bypass VSync while sampling")
@@ -802,7 +857,7 @@ func TestSetupWizardOffersBlendImageDithering(t *testing.T) {
 func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 	initFont()
 	originalRecommendation := setupWizardGraphicsRecommendation
-	setupWizardGraphicsRecommendation = "Default (Recommended)"
+	setupWizardGraphicsRecommendation = "High (Recommended)"
 	t.Cleanup(func() { setupWizardGraphicsRecommendation = originalRecommendation })
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	buildSetupGraphicsPage(root)
@@ -814,10 +869,10 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 			if item.Text == "Rerun Graphics Detection" && item.ItemType == eui.ITEM_BUTTON {
 				foundButton = true
 			}
-			if item.Text == "Default (Recommended)" {
+			if item.Text == "High (Recommended)" {
 				foundRecommendation = true
 			}
-			if item.Label == "Graphics performance mode" && slices.Equal(item.Options, []string{"iGPU Graphics", "Default"}) {
+			if item.Label == "Graphics performance mode" && slices.Equal(item.Options, []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}) {
 				foundModeChoice = true
 			}
 		}

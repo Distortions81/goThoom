@@ -243,6 +243,11 @@ var (
 	recordBtn                *eui.ItemData
 	recordPath               string
 	qualityPresetDD          *eui.ItemData
+	qualityRenderScaleSlider *eui.ItemData
+	fadeObscuringCB          *eui.ItemData
+	characterShadowsCB       *eui.ItemData
+	mobileSunShadowsCB       *eui.ItemData
+	characterShadowSlider    *eui.ItemData
 	shaderLightSlider        *eui.ItemData
 	shaderGlowSlider         *eui.ItemData
 	flameFlickerCB           *eui.ItemData
@@ -3438,27 +3443,31 @@ func startLoginWithDemoCandidates(demoCandidates []string) {
 		connected := tcpConn != nil
 		loginMu.Unlock()
 		if err != nil {
-			closeConnectDialog()
 			logError("login: %v", err)
-			discardStagedPassword()
-			clearPasswordInput(passInput, &pass)
-			passHash = ""
 			if len(demoCandidates) > 0 {
 				loginMu.Lock()
 				demoLoginActive = false
 				loginMu.Unlock()
-				name = freeDemoSelection
 			}
-			if connected {
-				return
-			}
-			// Bring login forward first so the popup stays on top
-			loginWin.MarkOpen()
-			updateCharacterButtons()
-			makeErrorWindow("Error: Login: " + err.Error())
+			dispatchMainThread(func() {
+				closeConnectDialog()
+				discardStagedPassword()
+				clearPasswordInput(passInput, &pass)
+				passHash = ""
+				if len(demoCandidates) > 0 {
+					name = freeDemoSelection
+				}
+				if connected {
+					return
+				}
+				// Bring login forward first so the popup stays on top.
+				loginWin.MarkOpen()
+				updateCharacterButtons()
+				makeErrorWindow("Error: Login: " + err.Error())
+			})
 			return
 		}
-		closeConnectDialog()
+		dispatchMainThread(closeConnectDialog)
 	}()
 }
 
@@ -3556,20 +3565,22 @@ func startDemoLogin() {
 			demoLookupInProgress = false
 			connected := tcpConn != nil || loginInProgress
 			loginMu.Unlock()
-			closeConnectDialog()
 			logError("demo: %v", err)
-			if connected {
-				return
-			}
-			loginWin.MarkOpen()
-			makeErrorWindow("Error: Demo: " + err.Error())
+			dispatchMainThread(func() {
+				closeConnectDialog()
+				if connected {
+					return
+				}
+				loginWin.MarkOpen()
+				makeErrorWindow("Error: Demo: " + err.Error())
+			})
 			return
 		}
 		loginMu.Lock()
 		demoLookupInProgress = false
 		demoLoginActive = true
 		loginMu.Unlock()
-		startLoginWithDemoCandidates(demoCandidates)
+		dispatchMainThread(func() { startLoginWithDemoCandidates(demoCandidates) })
 	}()
 }
 
@@ -4204,6 +4215,7 @@ func makeSettingsWindow() {
 				// Theme may change accent mapping; rebuild dependent windows immediately.
 				updateInventoryWindow()
 				updatePlayersWindow()
+				refreshMessageTextWindows()
 				updateDimmedScreenBG()
 				if accentWheel != nil {
 					var ac eui.Color
@@ -4257,24 +4269,24 @@ func makeSettingsWindow() {
 	controlsSection.AddItem(toggle)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
-	qualityPresetDD.Options = []string{"iGPU Graphics", "Classic", "Low", "Medium", "High", "Custom"}
+	qualityPresetDD.Options = []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
 	qualityPresetDD.FontSize = 12
-	qualityPresetDD.SetTooltip("Apply a coordinated graphics and audio preset; Custom preserves individual choices.")
+	qualityPresetDD.SetTooltip("Choose one of five cumulative quality tiers; Custom preserves individual choices.")
 	qpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			switch ev.Index {
 			case 0:
-				applyQualityPreset("iGPU Graphics")
+				applyQualityPreset("Lowest")
 			case 1:
-				applyQualityPreset("Classic")
-			case 2:
 				applyQualityPreset("Low")
-			case 3:
+			case 2:
 				applyQualityPreset("Medium")
-			case 4:
+			case 3:
 				applyQualityPreset("High")
+			case 4:
+				applyQualityPreset("Ultra")
 			}
 			qualityPresetDD.Selected = detectQualityPreset()
 		}
@@ -4969,7 +4981,10 @@ func resetAllSettings() {
 	if textColorsWin != nil {
 		textColorsWin.Close()
 		textColorsWin = nil
-		textColorWheels = nil
+		textColorWheelsDark = nil
+		textColorWheelsLight = nil
+		themeTextColorOverrideCB = nil
+		classicMessageColorsCB = nil
 	}
 
 	// Recreate windows according to default settings.
@@ -5204,7 +5219,7 @@ func confirmQuit() {
 	)
 }
 
-// showShaderDisablePrompt suggests the complete low-resource preset when
+// showShaderDisablePrompt suggests the complete lowest-resource preset when
 // sustained real-world rendering performance is poor.
 func showShaderDisablePrompt() {
 	if shaderWarnWin != nil {
@@ -5222,7 +5237,7 @@ func showShaderDisablePrompt() {
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 
 	msg, _ := eui.NewText()
-	msg.Text = "FPS has been under 50 for a while. The iGPU graphics preset may provide smoother rendering."
+	msg.Text = "FPS has been under 50 for a while. The Lowest quality preset may provide smoother rendering."
 	msg.FontSize = 12
 	msg.Size = eui.Point{X: 600, Y: 36}
 	flow.AddItem(msg)
@@ -5252,7 +5267,7 @@ func showShaderDisablePrompt() {
 	btnRow.AddItem(cancelBtn)
 
 	disableBtn, disableEv := eui.NewButton()
-	disableBtn.Text = "Use iGPU Preset"
+	disableBtn.Text = "Use Lowest Preset"
 	disableBtn.Size = eui.Point{X: 140, Y: 24}
 	disableEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
@@ -5261,7 +5276,7 @@ func showShaderDisablePrompt() {
 		if shaderWarnDontShowCB != nil && shaderWarnDontShowCB.Checked {
 			gs.PromptDisableShaders = false
 		}
-		applyQualityPreset("iGPU Graphics")
+		applyQualityPreset("Lowest")
 		saveSettings()
 		shaderWarnWin.Close()
 	}
@@ -5396,6 +5411,7 @@ func makeQualityWindow() {
 	shaderSection.AddItem(shadersEnabledCB)
 
 	renderScale, renderScaleEvents := eui.NewSlider()
+	qualityRenderScaleSlider = renderScale
 	renderScale.Label = "Max Upscale"
 	renderScale.MinValue = 2
 	renderScale.MaxValue = 4
@@ -5476,6 +5492,7 @@ func makeQualityWindow() {
 	artworkSection.AddItem(pixelPerfectCB)
 
 	fadePicsCB, fadePicsEvents := eui.NewCheckbox()
+	fadeObscuringCB = fadePicsCB
 	fadePicsCB.Text = "Fade objects obscuring mobiles"
 	fadePicsCB.Size = eui.Point{X: width, Y: 24}
 	fadePicsCB.Checked = gs.FadeObscuringPictures
@@ -5560,7 +5577,7 @@ func makeQualityWindow() {
 	}
 	performanceSection.AddItem(activityIndicatorsCB)
 
-	var shadowDarknessSlider, mobileSunShadowsCB *eui.ItemData
+	var shadowDarknessSlider *eui.ItemData
 	pcCB, potatoEvents := eui.NewCheckbox()
 	potatoCB = pcCB
 	potatoCB.Text = "Potato GPU (4096px Limit)"
@@ -5605,7 +5622,8 @@ func makeQualityWindow() {
 	}
 	shadowSection.AddItem(windowShadowsCB)
 
-	characterShadowsCB, characterShadowsEvents := eui.NewCheckbox()
+	characterShadowItem, characterShadowsEvents := eui.NewCheckbox()
+	characterShadowsCB = characterShadowItem
 	characterShadowsCB.Text = "Character Shadows"
 	characterShadowsCB.Size = eui.Point{X: width, Y: 24}
 	characterShadowsCB.Checked = gs.CharacterShadows
@@ -5625,6 +5643,7 @@ func makeQualityWindow() {
 	shadowSection.AddItem(characterShadowsCB)
 
 	shadowDarknessSlider, shadowDarknessEvents := eui.NewSlider()
+	characterShadowSlider = shadowDarknessSlider
 	shadowDarknessSlider.Label = "Character Shadow Darkness"
 	shadowDarknessSlider.MinValue = 1
 	shadowDarknessSlider.MaxValue = 200
@@ -5655,7 +5674,8 @@ func makeQualityWindow() {
 	}
 	shadowSection.AddItem(fasterShadowCB)
 
-	mobileSunShadowsCB, mobileSunShadowsEvents := eui.NewCheckbox()
+	mobileSunShadowItem, mobileSunShadowsEvents := eui.NewCheckbox()
+	mobileSunShadowsCB = mobileSunShadowItem
 	mobileSunShadowsCB.Text = "Characters Receive Sun Shadows"
 	mobileSunShadowsCB.Size = eui.Point{X: width, Y: 24}
 	mobileSunShadowsCB.Checked = gs.MobilesReceiveSunShadows

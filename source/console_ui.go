@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"gothoom/eui"
@@ -15,6 +16,19 @@ var consoleWin *eui.WindowData
 var messagesFlow *eui.ItemData
 var inputFlow *eui.ItemData
 var consoleHighlighted *eui.ItemData
+var consoleWindowUpdateQueued atomic.Bool
+
+// queueConsoleWindowUpdate coalesces message-driven refreshes and keeps EUI
+// tree mutations on the game loop. Console messages may originate outside it.
+func queueConsoleWindowUpdate() {
+	if !consoleWindowUpdateQueued.CompareAndSwap(false, true) {
+		return
+	}
+	dispatchMainThread(func() {
+		consoleWindowUpdateQueued.Store(false)
+		updateConsoleWindow()
+	})
+}
 
 func updateConsoleWindow() {
 	if consoleWin == nil {
@@ -39,8 +53,7 @@ func updateConsoleWindow() {
 			if i >= len(messagesFlow.Contents) {
 				break
 			}
-			messagesFlow.Contents[i].TextColor = messageTextColor(messageType)
-			messagesFlow.Contents[i].ForceTextColor = true
+			messagesFlow.Contents[i].TextColor, messagesFlow.Contents[i].ForceTextColor = messageTextStyleForMessage(messageType, msgs[i])
 		}
 		// Scroll to bottom on new text; clamp occurs on Refresh.
 		if scrollit {
@@ -187,18 +200,20 @@ func handleConsoleCopyRightClick(mx, my int) bool {
 func scheduleConsoleUnhighlight(row *eui.ItemData) {
 	go func(target *eui.ItemData) {
 		time.Sleep(1200 * time.Millisecond)
-		if consoleHighlighted == target {
-			for i, it := range messagesFlow.Contents {
-				if it == target {
-					restoreAlternateTextRow(it, i)
-					break
+		dispatchMainThread(func() {
+			if consoleHighlighted == target {
+				for i, it := range messagesFlow.Contents {
+					if it == target {
+						restoreAlternateTextRow(it, i)
+						break
+					}
 				}
+				target.Focused = false
+				if consoleWin != nil {
+					consoleWin.Refresh()
+				}
+				consoleHighlighted = nil
 			}
-			target.Focused = false
-			if consoleWin != nil {
-				consoleWin.Refresh()
-			}
-			consoleHighlighted = nil
-		}
+		})
 	}(row)
 }
