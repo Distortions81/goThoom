@@ -190,9 +190,12 @@ type itemData struct {
 	WheelColor    Color
 	TextPtr       *string
 	Underlines    []TextSpan
-	SecretText    string
-	HideText      bool
-	CursorPos     int
+	// Prediction is rendered after Text in the disabled text color. It is
+	// display-only and is not included in selection or cursor positions.
+	Prediction string
+	SecretText string
+	HideText   bool
+	CursorPos  int
 	// SelectableText allows text to be drag-selected and copied. EditableText is
 	// required separately for ITEM_TEXT values that accept keyboard changes.
 	SelectableText         bool

@@ -1575,6 +1575,18 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		}
 		top.ColorScale.ScaleWithColor(tcolor)
 		text.Draw(subImg, item.Text, face, top)
+		if item.Prediction != "" {
+			lines := strings.Split(item.Text, "\n")
+			line := len(lines) - 1
+			prefixWidth, _ := text.Measure(lines[line], face, 0)
+			ghostOpts := &text.DrawOptions{LayoutOptions: loo}
+			ghostOpts.GeoM.Translate(
+				float64(offset.X)+prefixWidth,
+				float64(offset.Y)+float64(line)*float64(lineSpacing),
+			)
+			ghostOpts.ColorScale.ScaleWithColor(style.DisabledColor)
+			text.Draw(subImg, item.Prediction, face, ghostOpts)
+		}
 
 		if item.SelectableText && item.SelectStart != item.SelectEnd && len(item.Text) > 0 {
 			selectionColor := style.ClickColor

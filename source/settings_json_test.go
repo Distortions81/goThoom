@@ -86,6 +86,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.FasterCharacterShadows = true
 	want.MobilesReceiveSunShadows = false
 	want.PlayerShareIcons = true
+	want.GroupClanMembers = true
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -116,6 +117,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"faster_character_shadows": true`,
 		`"mobiles_receive_sun_shadows": false`,
 		`"show_player_share_icons": true`,
+		`"group_clan_members": true`,
 		`"shaders_enabled": true`,
 	} {
 		if !strings.Contains(text, expected) {

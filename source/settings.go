@@ -170,6 +170,7 @@ var gsdef settings = settings{
 	InventoryFontSize:       14,
 	PlayersFontSize:         14,
 	ShowRecentPlayers:       true,
+	GroupClanMembers:        false,
 	PlayerShareIcons:        false,
 	AlternateRowBackgrounds: true,
 	BubbleOpacity:           0.8,
@@ -384,6 +385,7 @@ type settings struct {
 	InventoryFontSize       float64
 	PlayersFontSize         float64
 	ShowRecentPlayers       bool
+	GroupClanMembers        bool
 	PlayerShareIcons        bool
 	PlayerGroups            customGroups
 	InventoryGroups         customGroups

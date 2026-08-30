@@ -4852,6 +4852,19 @@ func makeSettingsWindow() {
 	}
 	textSizeSection.AddItem(recentPlayersCB)
 
+	clanPlayersCB, clanPlayersEvents := eui.NewCheckbox()
+	clanPlayersCB.Text = "Group clan members together"
+	clanPlayersCB.Size = eui.Point{X: panelWidth, Y: 24}
+	clanPlayersCB.Checked = gs.GroupClanMembers
+	clanPlayersEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.GroupClanMembers = ev.Checked
+			playersDirty = true
+			settingsDirty = true
+		}
+	}
+	textSizeSection.AddItem(clanPlayersCB)
+
 	shareIconsCB, shareIconsEvents := eui.NewCheckbox()
 	shareIconsCB.Text = "Show sharing icons in Players list"
 	shareIconsCB.Size = eui.Point{X: panelWidth, Y: 24}

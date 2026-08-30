@@ -94,12 +94,18 @@ func playerDisplayGroup(p Player, now time.Time) string {
 	if group := gs.PlayerGroups.group(playerCustomGroupKey(p.Name)); group != "" {
 		return "custom:" + group
 	}
+	if gs.GroupClanMembers && p.SameClan {
+		return "clan"
+	}
 	return fmt.Sprintf("auto:%d", playerGroup(p, now, gs.ShowRecentPlayers))
 }
 
 func playerDisplayGroupTitle(group string) string {
 	if strings.HasPrefix(group, "custom:") {
 		return strings.TrimPrefix(group, "custom:")
+	}
+	if group == "clan" {
+		return "Clan"
 	}
 	var automatic int
 	fmt.Sscanf(group, "auto:%d", &automatic)
@@ -115,9 +121,12 @@ func playerDisplayGroupOrder(group string) int {
 			}
 		}
 	}
+	if group == "clan" {
+		return len(gs.PlayerGroups.Names)
+	}
 	var automatic int
 	fmt.Sscanf(group, "auto:%d", &automatic)
-	return len(gs.PlayerGroups.Names) + automatic
+	return len(gs.PlayerGroups.Names) + 1 + automatic
 }
 
 //go:embed data/icons/share-out.png

@@ -47,6 +47,10 @@ func updateConsoleWindow() {
 		inputItem := inputFlow.Contents[0]
 		inputItem.Focused = inputActive
 		inputItem.CursorPos = wrappedCursorPos(inputItem.Text, inputPos)
+		inputItem.Prediction = ""
+		if inputActive {
+			inputItem.Prediction = currentInputCompletionSuffix(string(inputText), inputPos)
+		}
 	}
 	if messagesFlow != nil {
 		for i, messageType := range types {

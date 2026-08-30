@@ -70,6 +70,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "InventoryFontSize", category: settingsInterface, name: "inventory_font_size"},
 	{field: "PlayersFontSize", category: settingsInterface, name: "players_font_size"},
 	{field: "ShowRecentPlayers", category: settingsInterface, name: "show_recent_players"},
+	{field: "GroupClanMembers", category: settingsInterface, name: "group_clan_members"},
 	{field: "PlayerShareIcons", category: settingsInterface, name: "show_player_share_icons"},
 	{field: "PlayerGroups", category: settingsInterface, name: "player_groups"},
 	{field: "InventoryGroups", category: settingsInterface, name: "inventory_groups"},

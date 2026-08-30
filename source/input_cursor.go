@@ -1,5 +1,7 @@
 package main
 
+import "unicode"
+
 // wrappedCursorPos converts a plain text cursor position to the equivalent
 // index in a wrapped string that may contain newline characters.
 func wrappedCursorPos(text string, plain int) int {
@@ -34,4 +36,32 @@ func plainCursorPos(text string, wrapped int) int {
 		}
 	}
 	return plain
+}
+
+func previousWordBoundary(text []rune, cursor int) int {
+	cursor = max(0, min(cursor, len(text)))
+	for cursor > 0 && unicode.IsSpace(text[cursor-1]) {
+		cursor--
+	}
+	for cursor > 0 && !unicode.IsSpace(text[cursor-1]) {
+		cursor--
+	}
+	return cursor
+}
+
+func nextWordBoundary(text []rune, cursor int) int {
+	cursor = max(0, min(cursor, len(text)))
+	if cursor < len(text) && unicode.IsSpace(text[cursor]) {
+		for cursor < len(text) && unicode.IsSpace(text[cursor]) {
+			cursor++
+		}
+		return cursor
+	}
+	for cursor < len(text) && !unicode.IsSpace(text[cursor]) {
+		cursor++
+	}
+	for cursor < len(text) && unicode.IsSpace(text[cursor]) {
+		cursor++
+	}
+	return cursor
 }

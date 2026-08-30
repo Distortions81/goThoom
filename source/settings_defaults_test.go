@@ -154,6 +154,12 @@ func TestPlayerShareIconsDefaultOff(t *testing.T) {
 	}
 }
 
+func TestPlayerClanGroupDefaultOff(t *testing.T) {
+	if gsdef.GroupClanMembers {
+		t.Error("player-list clan group should default off")
+	}
+}
+
 func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 	originalSettings := gs
 	originalDataDir := dataDirPath

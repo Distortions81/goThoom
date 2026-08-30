@@ -1258,13 +1258,21 @@ func (g *Game) Update() error {
 		}
 		if !legacyMacroKeyConsumed(ebiten.KeyArrowLeft) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowLeft) && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
 			if inputPos > 0 {
-				inputPos--
+				if ctrl {
+					inputPos = previousWordBoundary(inputText, inputPos)
+				} else {
+					inputPos--
+				}
 				changedInput = true
 			}
 		}
 		if !legacyMacroKeyConsumed(ebiten.KeyArrowRight) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowRight) && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
 			if inputPos < len(inputText) {
-				inputPos++
+				if ctrl {
+					inputPos = nextWordBoundary(inputText, inputPos)
+				} else {
+					inputPos++
+				}
 				changedInput = true
 			}
 		}
@@ -1298,21 +1306,38 @@ func (g *Game) Update() error {
 				}
 			}
 		}
+		if !legacyMacroKeyConsumed(ebiten.KeyTab) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyTab) && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+			if suffix := currentInputCompletionSuffix(string(inputText), inputPos); suffix != "" {
+				addition := []rune(suffix)
+				inputText = append(inputText, addition...)
+				inputPos += len(addition)
+				changedInput = true
+				textChanged = true
+			}
+		}
 		if len(inputText) > 0 && !legacyMacroKeyConsumed(ebiten.KeyBackspace) &&
 			!scriptInputConsumesKey(consumedScriptInput, ebiten.KeyBackspace) && now.Sub(lastBackpace) > time.Millisecond*keyRepeatRate {
 			if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 				if inputPos > 0 {
 					lastBackpace = now
-					inputText = append(inputText[:inputPos-1], inputText[inputPos:]...)
-					inputPos--
+					start := inputPos - 1
+					if ctrl {
+						start = previousWordBoundary(inputText, inputPos)
+					}
+					inputText = append(inputText[:start], inputText[inputPos:]...)
+					inputPos = start
 					changedInput = true
 					textChanged = true
 				}
 			} else if d := inpututil.KeyPressDuration(ebiten.KeyBackspace); d > 30 {
 				if inputPos > 0 {
 					lastBackpace = now
-					inputText = append(inputText[:inputPos-1], inputText[inputPos:]...)
-					inputPos--
+					start := inputPos - 1
+					if ctrl {
+						start = previousWordBoundary(inputText, inputPos)
+					}
+					inputText = append(inputText[:start], inputText[inputPos:]...)
+					inputPos = start
 					changedInput = true
 					textChanged = true
 				}

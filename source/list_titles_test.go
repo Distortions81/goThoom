@@ -2,9 +2,31 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"gothoom/eui"
 )
+
+func TestPlayerClanAutomaticGroup(t *testing.T) {
+	original := gs
+	gs = gsdef
+	gs.GroupClanMembers = true
+	t.Cleanup(func() { gs = original })
+
+	clanmate := Player{Name: "Clanmate", SameClan: true}
+	if got := playerDisplayGroup(clanmate, time.Now()); got != "clan" {
+		t.Fatalf("clanmate group = %q, want clan", got)
+	}
+	if got := playerDisplayGroupTitle("clan"); got != "Clan" {
+		t.Fatalf("clan group title = %q, want Clan", got)
+	}
+
+	gs.PlayerGroups.add("Friends")
+	gs.PlayerGroups.assign("clanmate", "Friends")
+	if got := playerDisplayGroup(clanmate, time.Now()); got != "custom:Friends" {
+		t.Fatalf("custom group should take precedence, got %q", got)
+	}
+}
 
 func TestListTitles(t *testing.T) {
 	if got, want := playersWindowTitle(4, 2, 1), "Players   Online: 4   Shared: 2   Sharing: 1"; got != want {
