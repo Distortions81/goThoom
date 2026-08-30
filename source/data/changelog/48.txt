@@ -1,7 +1,7 @@
 goThoom 48 changes since test47.
 
 Networking and Live Stats:
-- Added optional Predictive Network Adjustment (PNA). It learns the server's update phase and sends fresh player input shortly before the next expected processing window, using command replies as feedback without delaying input.
+- Added default-on Predictive Network Adjustment (PNA). It learns the server's update phase and sends fresh player input shortly before the next expected processing window, using command replies as feedback without delaying input.
 - PNA automatically adapts to the measured server update rate, frame jitter, and learned timing boundary. Its adjustable percentage safety margin is session-only; only the PNA on/off choice is saved.
 - Meaningful recent packet loss temporarily returns PNA to normal immediate networking. Recovery uses a cooldown and hysteresis to prevent mode flapping; latency, reply time, and jitter remain timing feedback rather than reasons to pause PNA.
 - Added a Live Stats window with five-minute graphs for command replies, rolling p95 frame jitter, client FPS, server update rate, decoded cache memory, and estimated GPU texture memory. Graphs show compact legends and independent scales with sensible minimum ranges.
@@ -15,13 +15,21 @@ Chat bubbles:
 - Bubble placement now avoids the full visible shape of ponder waves, yell spikes, and growl spikes. All bubble bodies, including action boxes, participate at equal priority so a conflict's movement is shared instead of pushing only one bubble away.
 - Crowded bubbles jointly seek nearby, tightly packed positions with a small gap and retain a comparable clear layout to prevent flapping. They periodically reconsider after about a second, but immediately rearrange when a bubble appears, expires, or develops a new conflict. If normal-size placement is impossible they progressively compact, and if no legal placement remains they wait rather than ever drawing over another bubble. Bubbles displaced far from their speaker include the speaker's name, with hysteresis to keep the label stable.
 - Bubbles near the top edge move below their speaker when necessary rather than folding their pointer inward or covering the mobile.
+- A lone bubble is centered over its speaker when that position is clear, while crowded bubbles still move aside as needed.
 - Bubble text wraps toward a natural 2:1 body shape without adding empty aspect-ratio padding. Oversized messages have a bounded body and reduce their font size when needed.
 - Named bubbles can reconnect to their speaker by name if the server changes that mobile's descriptor index. Ordinary orphaned bubbles hide while their lifetime continues; yells and thoughts can remain at their last location, and unnamed bubbles never attach to a reused index.
 - Modern lifetime sliders are disabled when Classic bubble lifetime is selected.
 
 Rendering, movies, macros, and settings:
-- Added a default-off option to interpolate independently moving sprites whose visible animated artwork is no larger than 35 by 35 pixels and moves no more than 64 pixels between updates, such as coins following a mobile. Transparent padding no longer makes a small sprite appear too large for this test.
+- Added default-on interpolation for independently moving sprites whose visible animated artwork is no larger than 35 by 35 pixels and moves no more than 64 pixels between updates, such as coins following a mobile. Transparent padding no longer makes a small sprite appear too large for this test.
+- Replaced the old graphics modes with cumulative Lowest, Low, Medium, High, and Ultra presets. Each preset resets only the quality settings it owns before adding that tier's scaling, shadows, shaders, lighting, animation blending, precaching, and audio enhancements. Automatic detection now tests High and recommends High or Low from measured performance.
+- Added color-theme and style selectors to the setup wizard, and moved notifications to their own wizard page instead of combining them with audio.
+- Added separate dark- and light-theme chat and console palettes. Ordinary unhighlighted text follows the active theme by default, while an explicit override and an optional classic-client speech palette remain available in Text Colors.
+- When motion smoothing is disabled, the completed world frame is reused until the server, rendering settings, window size, hover target, artwork cache, or a script overlay changes. Chat, Console, notifications, and the rest of the interface continue updating normally.
+- Clarified the optional asset activity dots as green artwork decoding/processing, amber audio decoding, and red GPU artwork uploads.
 - Movie seeking now publishes a complete rendered scene about every half second instead of partial intermediate updates, and always leaves a complete final frame. The SEEKING label background now follows the measured text size.
+- Fixed fitted window scales repeatedly invalidating each other's processed artwork during movies and normal play, which could reduce performance to only a few frames per second.
+- Improved shader lighting alignment and made procedural magic artwork receive the completed night lighting while continuing to cast its own light.
 - Image archive exports can optionally emit only frame 0 of each image while retaining the source animation-frame count in metadata. Static sprites omit the redundant _0 filename suffix.
 - Fixed command-line movie startup so window restoration cannot prematurely close playback and exactly one Movie Controls window is created.
 - Startup no longer waits for the sound archive or user scripts before showing the usable client interface. Sound loading begins in the background after its first frame, scripts follow without extending the startup screen, and startup activity now describes the window-and-control phase explicitly.
@@ -41,8 +49,10 @@ Fixes and classic compatibility:
 - Fixed indexed inventory packets being treated as one-based, which could select or update the wrong instance of duplicate items.
 - Fixed malformed UDP datagrams contaminating the next packet, short login messages being read before validation, and cancelled artificial-delay waits affecting a later connection.
 - Free Demo login now tries the returned demo characters in randomized order when a candidate is already online and reports clearly when every demo slot is occupied.
+- Kept login, Free Demo status, Chat, Console, and delayed text-highlight updates on the game loop, preventing intermittent blank text windows and UI crashes caused by background updates racing the renderer.
+- Kept growls and other monster speech in Chat instead of treating them as Console diagnostics.
 - Fixed the Players window briefly showing the local character as sharing with themself, and prevented stale self-sharing state from affecting the Sharing count.
 - Preserved the measured server frame interval without integer-FPS rounding.
 
 Technical changes:
-- Added a classic-network compatibility tracker and expanded regression coverage for reconnects, fragmented and malformed records, exact UDP datagrams, partial TCP streams, PNA feedback and fallback, live clocks, graph scaling, diagnostic rotation, demo retries, movie seeking, moving-sprite bounds, macros, sharing state, settings layout, and toolbar sizing.
+- Added a classic-network compatibility tracker and expanded regression coverage for reconnects, fragmented and malformed records, exact UDP datagrams, partial TCP streams, PNA feedback and fallback, live clocks, graph scaling, diagnostic rotation, demo retries, login and text-window dispatch, movie seeking, moving-sprite bounds, idle world-frame reuse, theme-aware text colors, quality presets, wizard layout, macros, sharing state, settings layout, and toolbar sizing.
