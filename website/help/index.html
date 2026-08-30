@@ -115,10 +115,10 @@
             <p>Use the trash control beside a character to remove it from the local list. This only removes the local entry; it does not delete the Clan Lord account.</p>
 
             <h3>First-run setup wizard</h3>
-            <p>The setup wizard begins with the built-in defaults and previews layout, controls, graphics, and audio choices. Its graphics check selects Full Quality or iGPU Graphics for the current machine, so graphics after the wizard may differ from the built-in baseline. You can run the wizard again later from <strong>Settings → Setup Wizard</strong>; reopening it starts from your current settings rather than resetting them first.</p>
+            <p>The setup wizard begins with the built-in defaults and previews layout, controls, graphics, and audio choices. Its graphics check selects Default or iGPU Graphics for the current machine. You can run the wizard again later from <strong>Settings → Setup Wizard</strong>; reopening it starts from your current settings rather than resetting them first.</p>
             <div class="manual-callout">
               <strong>The default starting point</strong>
-              <p>On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech, automatic recording, and per-character settings profiles are off.</p>
+              <p>On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Smooth movement, small-moving-sprite interpolation, predictive network adjustment, sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech, automatic recording, and per-character settings profiles are off.</p>
             </div>
           </section>
 
@@ -218,7 +218,7 @@
             </ul>
 
             <h3>Speech bubbles</h3>
-            <p>Speech bubbles start enabled, animated, and in Modern lifetime mode for every message type and source. <strong>Settings → Message Bubbles</strong> controls whether bubbles appear, how long they last, their scale and opacity, animation, and which message types or sources are shown. Modern lifetime uses a base duration plus time per word; Classic uses a fixed duration.</p>
+            <p>Speech bubbles start enabled, animated, and in Modern lifetime mode for every message type and source. A clear bubble is centered above its speaker; near an edge or other bubbles, placement moves as needed while keeping the pointer anchored. <strong>Settings → Message Bubbles</strong> controls whether bubbles appear, how long they last, their scale and opacity, animation, overlap prevention, and which message types or sources are shown. Modern lifetime uses a base duration plus time per word; Classic uses a fixed duration.</p>
 
             <h3>Useful Clan Lord commands</h3>
             <p>Commands begin with <code>/</code> or <code>\</code>. Common examples include <code>/think</code>, <code>/thinkto name message</code>, <code>/who</code>, <code>/info name</code>, <code>/share name</code>, <code>/unshare name</code>, <code>/equip item</code>, and <code>/useitem item</code>. Type <code>/help command</code> for the server’s help for a specific command.</p>
@@ -247,13 +247,13 @@
 
             <div class="manual-grid two-up">
               <div class="manual-card"><h3>Appearance</h3><p>Choose interface themes, palettes, row styling, status bars, name tags, fonts, and speech bubble behavior.</p></div>
-              <div class="manual-card"><h3>Graphics</h3><p>Adjust artwork scaling, foreground fading, shadows, shader lighting, replacement effects, gamma, dither cleanup, and animation smoothing.</p></div>
+              <div class="manual-card"><h3>Graphics</h3><p>Adjust artwork scaling, foreground fading, shadows, shader lighting, replacement effects, gamma, dither cleanup, and animation smoothing. Player illumination and procedural effects participate in the same night-lit world.</p></div>
               <div class="manual-card"><h3>Controls</h3><p>Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and gamepad mapping.</p></div>
-              <div class="manual-card"><h3>Performance</h3><p>Control VSync, sound and artwork precaching, activity indicators, background power saving, and the low-VRAM Potato GPU mode.</p></div>
+              <div class="manual-card"><h3>Performance</h3><p>Control VSync, sound and artwork precaching, activity indicators, background power saving, and the low-VRAM Potato GPU mode. Activity dots mean artwork decoding/processing (green), audio decoding (amber), and GPU artwork upload (red).</p></div>
             </div>
 
             <h3>Quality presets</h3>
-            <p>The first-run graphics check chooses Full Quality or iGPU Graphics for the current machine. Presets are starting points, not permanent modes: after one is selected, you can change individual features. If the FPS display remains low, reduce artwork processing, lighting/shadows, animation blending, or render scale before lowering UI readability.</p>
+            <p>The first-run graphics check chooses Default or iGPU Graphics for the current machine. Default restores the built-in graphics choices; iGPU Graphics reduces costly effects. These are starting points, not permanent modes: after one is selected, you can change individual features. If the FPS display remains low, reduce artwork processing, lighting/shadows, animation blending, or render scale before lowering UI readability.</p>
 
             <h3>Per-character profiles</h3>
             <p>Settings are shared globally by default. On the Login screen, select a saved character, open <strong>Edit Character</strong>, and enable <strong>Keep settings separate</strong> when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences.</p>
@@ -331,7 +331,7 @@
               <li>Use <strong>Stop Seek</strong> to cancel a long rebuild.</li>
               <li>Close Movie Controls or press Exit to return to Login.</li>
             </ul>
-            <p>During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output.</p>
+            <p>Movie artwork is prepared and cached at the scale fitted to the current game view, including in smaller laptop layouts. Missing artwork is recorded after its first failed lookup instead of being retried every frame. During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output.</p>
 
             <h3>Screenshots</h3>
             <p><strong>Snapshot</strong> captures only the visible game view—not the surrounding desktop—and writes a PNG to <code>Screenshots</code> under the user data directory. Debug Settings can temporarily hide mobiles or moving objects for specialized captures.</p>

@@ -80,6 +80,19 @@ func TestMobileLightGeometry(t *testing.T) {
 	}
 }
 
+func TestMobileLightStrength(t *testing.T) {
+	const dark = climg.PictDefFlagLightDarkcaster
+	if got := mobileLightStrength(true, 0); got != classicPlayerLightStrength {
+		t.Fatalf("player light strength = %v, want %v", got, classicPlayerLightStrength)
+	}
+	if got := mobileLightStrength(false, 0); got != 1 {
+		t.Fatalf("non-player light strength = %v, want 1", got)
+	}
+	if got := mobileLightStrength(true, dark); got != 1 {
+		t.Fatalf("player darkcaster strength = %v, want 1", got)
+	}
+}
+
 func TestLightIntersectsViewport(t *testing.T) {
 	bounds := image.Rect(10, 20, 110, 120)
 	tests := []struct {

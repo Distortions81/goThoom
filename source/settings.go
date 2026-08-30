@@ -206,7 +206,7 @@ var gsdef settings = settings{
 	BubbleNarration:         true,
 
 	MotionSmoothing:                true,
-	InterpolateSmallMovingPictures: false,
+	InterpolateSmallMovingPictures: true,
 	FloatingPointSpriteCoords:      true,
 	ObjectPinning:                  true,
 	BlendMobiles:                   false,
@@ -358,7 +358,7 @@ var gsdef settings = settings{
 	VSync:            true,
 	PrecacheSounds:   defaultPrecacheSounds,
 	recordAssetStats: false,
-	AltNetMode:       false,
+	AltNetMode:       true,
 	hideMobiles:      false,
 	imgPlanesDebug:   false,
 	smoothingDebug:   false,
@@ -1358,18 +1358,20 @@ func applyQualityPreset(name string) {
 		gs.CharacterShadows = false
 		gs.FasterCharacterShadows = true
 		gs.AnimatedChatBubbles = false
-	case "Full Graphics":
+	case "Default":
 		p = currentAudioQualityPreset()
-		p.MotionSmoothing = true
-		p.BlendMobiles = true
-		p.BlendPicts = true
-		p.ShadersEnabled = true
-		p.ShaderLighting = true
-		p.SpriteUpscaleFilter = true
-		gs.WindowShadows = true
-		gs.CharacterShadows = true
-		gs.FasterCharacterShadows = false
-		gs.AnimatedChatBubbles = true
+		p.MotionSmoothing = gsdef.MotionSmoothing
+		p.BlendMobiles = gsdef.BlendMobiles
+		p.BlendPicts = gsdef.BlendPicts
+		p.ShadersEnabled = gsdef.ShadersEnabled
+		p.ShaderLighting = gsdef.ShaderLighting
+		p.SpriteUpscaleFilter = gsdef.SpriteUpscaleFilter
+		gs.GameScale = gsdef.GameScale
+		gs.DenoiseImages = gsdef.DenoiseImages
+		gs.WindowShadows = gsdef.WindowShadows
+		gs.CharacterShadows = gsdef.CharacterShadows
+		gs.FasterCharacterShadows = gsdef.FasterCharacterShadows
+		gs.AnimatedChatBubbles = gsdef.AnimatedChatBubbles
 	case "Classic":
 		p = classicPreset
 	case "Low":
@@ -1389,6 +1391,8 @@ func applyQualityPreset(name string) {
 	gs.ShaderLighting = p.ShaderLighting
 	if name == "iGPU Graphics" {
 		setArtworkUpscaleMode(artworkUpscaleBalanced)
+	} else if name == "Default" {
+		setArtworkUpscaleMode(gsdef.SpriteUpscaleMode)
 	} else if p.SpriteUpscaleFilter {
 		setArtworkUpscaleMode(artworkUpscaleUltraSmooth)
 	} else {

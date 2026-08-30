@@ -165,7 +165,7 @@ func rebuildSetupWizard() {
 	root.AddItem(setupWizardNavigation(pageWidth))
 	if setupWizardGraphicsPending {
 		setSetupWizardDisabled(root, true)
-		detail := setupWizardText("Testing Full Quality with the running game for one second. The wizard will unlock when detection finishes.", 11, 620)
+		detail := setupWizardText("Testing the default graphics with the running game for one second. The wizard will unlock when detection finishes.", 11, 620)
 		heading := setupWizardHeading("Auto-adjusting performance…")
 		root.PrependItem(detail)
 		root.PrependItem(heading)
@@ -487,7 +487,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTest.Text = "Rerun Graphics Detection"
 	graphicsTest.Size = eui.Point{X: 240, Y: 24}
 	graphicsTest.Disabled = isWASM
-	graphicsTest.SetTooltip("Runs Full Quality for one second, measures FPS, and recommends a mode.")
+	graphicsTest.SetTooltip("Runs the default graphics for one second, measures FPS, and recommends a mode.")
 	graphicsRecommendation := setupWizardText(setupWizardGraphicsRecommendation, 10, 350)
 	graphicsRecommendation.Size.Y = 24
 	graphicsTestEvents.Handle = func(ev eui.UIEvent) {
@@ -505,18 +505,18 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 
 	graphicsMode, graphicsModeEvents := eui.NewDropdown()
 	graphicsMode.Label = "Graphics performance mode"
-	graphicsMode.Options = []string{"iGPU Graphics", "Full Quality"}
+	graphicsMode.Options = []string{"iGPU Graphics", "Default"}
 	graphicsMode.Selected = 1
 	if igpuGraphicsPresetApplied() {
 		graphicsMode.Selected = 0
 	}
 	graphicsMode.Size = eui.Point{X: 320, Y: 24}
-	graphicsMode.SetTooltip("iGPU reduces costly effects; Full Quality enables lighting, shadows, and animation.")
+	graphicsMode.SetTooltip("iGPU reduces costly effects; Default restores the built-in graphics choices.")
 	graphicsModeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index > 1 {
 			return
 		}
-		preset := "Full Graphics"
+		preset := "Default"
 		if ev.Index == 0 {
 			preset = "iGPU Graphics"
 		}
@@ -644,7 +644,7 @@ func startSetupWizardGraphicsDetection() {
 	}
 	// Always measure the same workload. Testing whatever preset happened to
 	// be active would make results incomparable and could hide a slow GPU.
-	applyQualityPreset("Full Graphics")
+	applyQualityPreset("Default")
 	setupWizardVSyncBypass = true
 	applyVSyncSetting()
 	setupWizardGraphicsPending = true
@@ -658,10 +658,6 @@ func startSetupWizardGraphicsDetection() {
 func applySetupWizardGraphicsRecommendation(result graphicsBenchmarkResult) {
 	setupWizardGraphicsRecommendation = fmt.Sprintf("%s (%.0f FPS)", graphicsBenchmarkRecommendedLabel(result), result.ActualFPS)
 	applyQualityPreset(graphicsBenchmarkRecommendedPreset(result))
-	// Detection chooses the appropriate performance tier, but these two
-	// subjective rendering choices should still begin at the normal defaults.
-	gs.BlendMobiles = gsdef.BlendMobiles
-	setArtworkUpscaleMode(gsdef.SpriteUpscaleMode)
 	refreshShaderEffectControls()
 	clearCaches()
 }

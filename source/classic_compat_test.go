@@ -238,6 +238,20 @@ func TestChooseBubblePlacementAvoidsOccupiedQuadrant(t *testing.T) {
 	}
 }
 
+func TestChooseBubblePlacementCentersClearBubbleAboveSpeaker(t *testing.T) {
+	metrics := bubbleMetrics{width: 40, height: 20, tailHeight: 10}
+	anchor := image.Pt(100, 100)
+
+	pos, rect := chooseBubblePlacement(anchor, anchor, metrics, image.Rect(0, 0, 200, 200), nil, 0, 2, bubblePosUpperLeft)
+	if pos != bubblePosNone {
+		t.Fatalf("placement = %d, want centered %d", pos, bubblePosNone)
+	}
+	want := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, bubblePosNone, false)
+	if rect != want {
+		t.Fatalf("centered bubble = %v, want %v", rect, want)
+	}
+}
+
 func TestChooseBubblePlacementUsesLowerAnchorNearTopEdge(t *testing.T) {
 	metrics := bubbleMetrics{width: 240, height: 60, tailHeight: 10}
 	upperAnchor := image.Pt(100, 20)

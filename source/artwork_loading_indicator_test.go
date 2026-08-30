@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 	"testing"
+
+	"gothoom/climg"
 )
 
 func TestClientActivityIndicatorsUseFixedBottomRightSlots(t *testing.T) {
@@ -48,5 +50,33 @@ func TestClientActivityIndicatorsIgnoreEventsWhenDisabled(t *testing.T) {
 	noteClientActivity(clientActivityGPU)
 	if got := takeClientActivity(); got != clientActivityNone {
 		t.Fatalf("disabled activity = %d, want none", got)
+	}
+}
+
+func TestMissingArtworkSheetIsNotRetriedEveryFrame(t *testing.T) {
+	originalImages, originalSettings := clImages, gs
+	clImages = &climg.CLImages{}
+	setArtworkUpscaleMode(artworkUpscaleOff)
+	clearCaches()
+	setClientActivityIndicatorsEnabled(true)
+	t.Cleanup(func() {
+		setClientActivityIndicatorsEnabled(false)
+		clearCaches()
+		clImages = originalImages
+		gs = originalSettings
+	})
+
+	key := makeSheetKey(65000, nil, true)
+	if got := prepareArtworkSheets([]sheetKey{key}); got != 1 {
+		t.Fatalf("first missing-sheet preparation = %d, want 1", got)
+	}
+	if activity := takeClientActivity(); activity&clientActivityData == 0 {
+		t.Fatal("first missing-sheet lookup did not report artwork activity")
+	}
+	if got := prepareArtworkSheets([]sheetKey{key}); got != 0 {
+		t.Fatalf("cached missing-sheet preparation = %d, want 0", got)
+	}
+	if activity := takeClientActivity(); activity != clientActivityNone {
+		t.Fatalf("cached missing-sheet lookup reported activity %d", activity)
 	}
 }

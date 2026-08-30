@@ -62,8 +62,8 @@ func drawClientActivityIndicators(screen *ebiten.Image, activity clientActivity)
 	if screen == nil || screen.Bounds().Empty() || activity == clientActivityNone {
 		return
 	}
-	// Fixed left-to-right slots: artwork/data, audio, GPU. Multiple dots may
-	// light during the same frame when independent subsystems are active.
+	// Fixed left-to-right slots: artwork processing, audio decoding, GPU upload.
+	// Multiple dots may light during the same frame when independent subsystems are active.
 	for slot, candidate := range [...]clientActivity{clientActivityGPU, clientActivityAudio, clientActivityData} {
 		if activity&candidate == 0 {
 			continue

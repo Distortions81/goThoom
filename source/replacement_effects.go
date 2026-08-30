@@ -411,7 +411,7 @@ func replacementEffectNeedsOverscan(kind replacementEffectKind) bool {
 }
 
 // queueReplacementPictureEffect preserves the legacy effect's world anchor
-// while deferring the visual to a full-bright pass after scene lighting.
+// while deferring the visual to the procedural-effects world pass.
 func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanceKey uint64, left, top, width, height float64, alpha float32, mobileImg *ebiten.Image, mobileX, mobileY, mobileSize float64) bool {
 	if !replacementEffectReplacesPict(pictID) || width <= 0 || height <= 0 {
 		return false

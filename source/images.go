@@ -415,8 +415,9 @@ func prepareArtworkSheets(keys []sheetKey) int {
 			continue
 		}
 		seen[key] = struct{}{}
-		_, haveBase := sheetCache[key]
-		haveScale := !needUpscale || artworkSheetBatchCompleteLocked(key, factor, mode)
+		base, haveBase := sheetCache[key]
+		knownMissing := haveBase && base == nil
+		haveScale := !needUpscale || knownMissing || artworkSheetBatchCompleteLocked(key, factor, mode)
 		if haveBase && haveScale {
 			continue
 		}
@@ -488,6 +489,19 @@ func prepareArtworkSheets(keys []sheetKey) int {
 	for sheetIndex := range work {
 		prepared := &work[sheetIndex]
 		if prepared.pixels == nil {
+			// Cache failed archive lookups too. Movie states are applied repeatedly;
+			// without this sentinel, a missing descriptor sheet is decoded again on
+			// every frame and can reduce playback to a few FPS.
+			firstFailure := false
+			imageMu.Lock()
+			if _, exists := sheetCache[prepared.key]; !exists {
+				sheetCache[prepared.key] = nil
+				firstFailure = true
+			}
+			imageMu.Unlock()
+			if firstFailure {
+				log.Printf("missing image %d", prepared.key.id)
+			}
 			continue
 		}
 		if denoise {
@@ -570,18 +584,15 @@ func prepareArtworkSheets(keys []sheetKey) int {
 func loadSheet(id uint16, colors []byte, forceTransparent bool) *ebiten.Image {
 	key := makeSheetKey(id, colors, forceTransparent)
 	imageMu.Lock()
-	img := sheetCache[key]
+	img, cached := sheetCache[key]
 	imageMu.Unlock()
-	if img != nil {
+	if cached {
 		return img
 	}
 	prepareArtworkSheets([]sheetKey{key})
 	imageMu.Lock()
 	img = sheetCache[key]
 	imageMu.Unlock()
-	if img == nil && clImages != nil && id != 0xffff && !replacementEffectReplacesPict(id) {
-		log.Printf("missing image %d", id)
-	}
 	return img
 }
 

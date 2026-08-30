@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	maxLights        = 128
-	maxLightShadows  = 32
-	lightCutoffStart = 3.0
-	lightCutoffEnd   = 4.0
+	maxLights                  = 128
+	maxLightShadows            = 32
+	lightCutoffStart           = 3.0
+	lightCutoffEnd             = 4.0
+	classicPlayerLightStrength = 2.0
 )
 
 //go:embed data/shaders/light.kage
@@ -522,9 +523,17 @@ func mobileLightEnabled(flags uint32, state uint8) bool {
 	return state < poseDead && state%4 == 3
 }
 
+func mobileLightStrength(player bool, flags uint32) float32 {
+	if player && flags&climg.PictDefFlagLightDarkcaster == 0 {
+		return classicPlayerLightStrength
+	}
+	return 1
+}
+
 type lightGeometry struct {
 	radius    float32
 	intensity float32
+	strength  float32
 }
 
 func pictureLightGeometry(metadataRadius uint16, flags uint32, width, height int) lightGeometry {
@@ -544,7 +553,7 @@ func pictureLightGeometry(metadataRadius uint16, flags uint32, width, height int
 		// to the combined sprite dimensions makes nearby artwork look blurred.
 		radius = float32(width)
 	}
-	return lightGeometry{radius: radius, intensity: 1}
+	return lightGeometry{radius: radius, intensity: 1, strength: 1}
 }
 
 func mobileLightGeometry(metadataRadius uint16, flags uint32, size int, state uint8) lightGeometry {
@@ -563,13 +572,13 @@ func mobileLightGeometry(metadataRadius uint16, flags uint32, size int, state ui
 		if radius < minimum {
 			radius = minimum
 		}
-		return lightGeometry{radius: radius, intensity: intensity}
+		return lightGeometry{radius: radius, intensity: intensity, strength: 1}
 	}
 	if radius == 0 {
 		// Before the classic-radius pass, mobile emitters used their sprite size.
 		radius = float32(size)
 	}
-	return lightGeometry{radius: radius, intensity: 1}
+	return lightGeometry{radius: radius, intensity: 1, strength: 1}
 }
 
 func lightIntersectsViewport(x, y float32, radius float32, bounds image.Rectangle) bool {
@@ -797,7 +806,7 @@ func flameLightFlicker(flags uint32, pictID uint32, instanceKey uint64, logicalF
 	return modulation
 }
 
-func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+func addMobileLightSource(pictID uint32, state, index uint8, player bool, x, y float64, size, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
@@ -814,6 +823,10 @@ func addMobileLightSource(pictID uint32, state, index uint8, x, y float64, size,
 	}
 	const mobileKeyTag = uint64(1) << 63
 	geometry := mobileLightGeometry(li.Radius, flags, size, state)
+	// The Classic client gives every exile a half-white pseudo-torch that,
+	// together with its night ambience, fully lights the exile at the source.
+	// Our darker ambient curve needs a stronger reveal from that same light.
+	geometry.strength = mobileLightStrength(player, flags)
 	addLightSource(pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
 }
 
@@ -864,7 +877,7 @@ func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeom
 			r := float32(li.Color[0]) / 255 * brightness
 			g := float32(li.Color[1]) / 255 * brightness
 			b := float32(li.Color[2]) / 255 * brightness
-			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: 1})
+			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: geometry.strength})
 		}
 	}
 }

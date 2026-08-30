@@ -452,8 +452,10 @@ func TestStartSetupWizardGraphicsDetectionResetsSample(t *testing.T) {
 	if setupWizardGraphicsFPSSum != 0 || setupWizardGraphicsFPSCount != 0 || setupWizardGraphicsRecommendation != "" {
 		t.Fatal("graphics detection retained samples from the previous run")
 	}
-	if !gs.BlendMobiles || !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || gs.FasterCharacterShadows || !gs.AnimatedChatBubbles || artworkUpscaleMode() != artworkUpscaleUltraSmooth {
-		t.Fatal("graphics detection did not apply Full Quality before sampling")
+	if gs.BlendMobiles != gsdef.BlendMobiles || gs.BlendPicts != gsdef.BlendPicts || gs.ShaderLighting != gsdef.ShaderLighting ||
+		gs.CharacterShadows != gsdef.CharacterShadows || gs.FasterCharacterShadows != gsdef.FasterCharacterShadows ||
+		gs.AnimatedChatBubbles != gsdef.AnimatedChatBubbles || artworkUpscaleMode() != gsdef.SpriteUpscaleMode {
+		t.Fatal("graphics detection did not apply Default before sampling")
 	}
 	if !setupWizardVSyncBypass {
 		t.Fatal("graphics detection did not bypass VSync while sampling")
@@ -800,7 +802,7 @@ func TestSetupWizardOffersBlendImageDithering(t *testing.T) {
 func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 	initFont()
 	originalRecommendation := setupWizardGraphicsRecommendation
-	setupWizardGraphicsRecommendation = "Full Quality (Recommended)"
+	setupWizardGraphicsRecommendation = "Default (Recommended)"
 	t.Cleanup(func() { setupWizardGraphicsRecommendation = originalRecommendation })
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	buildSetupGraphicsPage(root)
@@ -812,10 +814,10 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 			if item.Text == "Rerun Graphics Detection" && item.ItemType == eui.ITEM_BUTTON {
 				foundButton = true
 			}
-			if item.Text == "Full Quality (Recommended)" {
+			if item.Text == "Default (Recommended)" {
 				foundRecommendation = true
 			}
-			if item.Label == "Graphics performance mode" && slices.Equal(item.Options, []string{"iGPU Graphics", "Full Quality"}) {
+			if item.Label == "Graphics performance mode" && slices.Equal(item.Options, []string{"iGPU Graphics", "Default"}) {
 				foundModeChoice = true
 			}
 		}

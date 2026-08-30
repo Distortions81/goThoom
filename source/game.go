@@ -1784,14 +1784,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		snap = g.drawSnapshot
 		var mobileFade, pictFade float32
 		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
+		// Preload at the same fitted scale used to draw this window. Using the
+		// configured maximum here made small windows alternate between two upscale
+		// factors, with the preload and draw paths clearing each other's caches.
+		prevScale := gs.GameScale
+		gs.GameScale = renderScale
 		if prepareSceneArtworkFrame(snap) {
 			// Keep the last completed world frame visible while Ebitengine submits
 			// the prepared upload batch. A small indicator communicates the pause
 			// without replacing normal play with a flashing loading screen.
 			noteClientActivity(clientActivityGPU)
 		} else {
-			prev := gs.GameScale
-			gs.GameScale = renderScale
 			useLighting := shaderLightingEnabled() && lightingShader != nil
 			useComposite := useLighting && sceneMayNeedLighting(snap)
 			sceneTarget := worldView
@@ -1803,6 +1806,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				gameImage.Fill(playfieldBackgroundColor())
 			}
 			drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
+			// Classic applies the completed lightmap to magic artwork as part of
+			// the world. Draw procedural replacements into that same world pass so
+			// they darken at night while their registered emitters still cast light.
+			drawReplacementEffects(sceneTarget, sceneTarget.Bounds().Min.X, sceneTarget.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
 			if useLighting {
 				// Use shader-based night darkening with inverse-square falloff.
 				addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
@@ -1820,11 +1827,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			} else {
 				applyDetailedCharacterShadow(worldView)
 			}
-			drawReplacementEffects(worldView, worldView.Bounds().Min.X, worldView.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
 			drawStatusBars(worldView, 0, 0, snap, alpha)
-			gs.GameScale = prev
 			haveSnap = true
 		}
+		gs.GameScale = prevScale
 	}
 	if replacementEffectsPreview {
 		drawReplacementEffectsPreview(worldView)
@@ -2197,7 +2203,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			size = img.Bounds().Dx()
 		}
 		addMobileLightCaster(x, y, size, mobileSpriteMetricsFor(curKey, img))
-		addMobileLightSource(uint32(d.PictID), m.State, m.Index, x, y, size, logicalFrame, alpha, screen.Bounds())
+		addMobileLightSource(uint32(d.PictID), m.State, m.Index, d.Type == kDescPlayer, x, y, size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		drawSize := img.Bounds().Dx()
@@ -3164,6 +3170,20 @@ func bubbleAnchorForPlacement(upperAnchor, lowerAnchor image.Point, placement ui
 }
 
 func chooseBubblePlacement(upperAnchor, lowerAnchor image.Point, metrics bubbleMetrics, bounds image.Rectangle, bubbles []image.Rectangle, collisionMargin, facing int, previous uint8) (uint8, image.Rectangle) {
+	centered := bubbleRectForPlacement(upperAnchor.X, upperAnchor.Y, metrics, bubblePosNone, false)
+	centeredFits := centered.Min.X >= bounds.Min.X && centered.Max.X <= bounds.Max.X &&
+		centered.Min.Y >= bounds.Min.Y && centered.Max.Y <= bounds.Max.Y
+	centeredClear := true
+	for _, other := range bubbles {
+		if !bubbleOverlapRect(centered, collisionMargin).Intersect(other).Empty() {
+			centeredClear = false
+			break
+		}
+	}
+	if centeredFits && centeredClear {
+		return bubblePosNone, centered
+	}
+
 	allCandidates := [...]uint8{bubblePosUpperLeft, bubblePosUpperRight, bubblePosLowerLeft, bubblePosLowerRight}
 	candidates := allCandidates[:2]
 	upperRect := bubbleRectForPlacement(upperAnchor.X, upperAnchor.Y, metrics, bubblePosUpperLeft, false)

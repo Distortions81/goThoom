@@ -79,9 +79,15 @@ func TestOwnNameTagVisibleByDefault(t *testing.T) {
 	}
 }
 
-func TestSmallMovingPictureInterpolationDefaultsOff(t *testing.T) {
-	if gsdef.InterpolateSmallMovingPictures {
-		t.Fatal("small moving-picture interpolation should default off")
+func TestSmallMovingPictureInterpolationDefaultsOn(t *testing.T) {
+	if !gsdef.InterpolateSmallMovingPictures {
+		t.Fatal("small moving-picture interpolation should default on")
+	}
+}
+
+func TestPredictiveNetworkAdjustmentDefaultsOn(t *testing.T) {
+	if !gsdef.AltNetMode {
+		t.Fatal("predictive network adjustment should default on")
 	}
 }
 

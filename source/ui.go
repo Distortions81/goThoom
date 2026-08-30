@@ -5550,7 +5550,7 @@ func makeQualityWindow() {
 	activityIndicatorsCB.Text = "Show asset activity dots"
 	activityIndicatorsCB.Size = eui.Point{X: width, Y: 24}
 	activityIndicatorsCB.Checked = gs.AssetActivityIndicators
-	activityIndicatorsCB.SetTooltip("Show green data, amber audio, and red GPU activity dots in the game view's lower-right.")
+	activityIndicatorsCB.SetTooltip("Show activity dots in the game view's lower-right: green for artwork decoding and processing, amber for audio decoding, and red for GPU artwork uploads.")
 	activityIndicatorEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.AssetActivityIndicators = ev.Checked

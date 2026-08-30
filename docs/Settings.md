@@ -79,7 +79,8 @@ tiled dividers, or **Reset Windows** unless diagnosing a layout problem.
 
 ### Predictive Network Adjustment
 
-Only `general.predictive_network_adjustment_enabled` is persisted. The
+Predictive Network Adjustment is enabled by default, and
+`general.predictive_network_adjustment_enabled` persists that choice. The
 Advanced Settings **PNA safety (%)** slider controls the internal
 `networkAdjustmentSafetyPercent` value. It is deliberately session-only,
 accepts 0–50%, and starts at 10% each time goThoom launches. The learned server

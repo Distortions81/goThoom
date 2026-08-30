@@ -21,14 +21,14 @@ func graphicsBenchmarkRecommendedPreset(result graphicsBenchmarkResult) string {
 	if result.RecommendIGPU {
 		return "iGPU Graphics"
 	}
-	return "Full Graphics"
+	return "Default"
 }
 
 func graphicsBenchmarkRecommendedLabel(result graphicsBenchmarkResult) string {
 	if result.RecommendIGPU {
 		return "iGPU Graphics (Recommended)"
 	}
-	return "Full Quality (Recommended)"
+	return "Default (Recommended)"
 }
 
 // runGraphicsBenchmark reads the complete renderer's existing FPS measurement.
