@@ -1,12 +1,12 @@
 goThoom 48 changes since test47.
 
 Networking and Live Stats:
-- Added default-on Predictive Network Adjustment (PNA). It learns the server's update phase and sends fresh player input shortly before the next expected processing window, using command replies as feedback without delaying input.
-- PNA automatically adapts to the measured server update rate, frame jitter, and learned timing boundary. Its adjustable percentage safety margin is session-only; only the PNA on/off choice is saved.
-- Meaningful recent packet loss temporarily returns PNA to normal immediate networking. Recovery uses a cooldown and hysteresis to prevent mode flapping; latency, reply time, and jitter remain timing feedback rather than reasons to pause PNA.
+- Added default-on Network Latency & Server Phase Timing (NLSPT). It learns the server's update phase and sends fresh player input shortly before the next expected processing window, using command replies as feedback without delaying input.
+- NLSPT automatically adapts to the measured server update rate, frame jitter, and learned timing boundary. Its adjustable percentage safety margin is session-only; only the NLSPT on/off choice is saved.
+- Meaningful recent packet loss temporarily returns NLSPT to normal immediate networking. Recovery uses a cooldown and hysteresis to prevent mode flapping; latency, reply time, and jitter remain timing feedback rather than reasons to pause NLSPT.
 - Added a Live Stats window with five-minute graphs for command replies, rolling p95 frame jitter, client FPS, server update rate, decoded cache memory, and estimated GPU texture memory. Graphs show compact legends and independent scales with sensible minimum ranges.
-- Expanded the optional toolbar statistics with command reply time, 60-second p95 frame jitter, recent loss, and concise PNA learning, paused, or lead status.
-- Added separate recent and whole-session packet-loss figures, server frame interval and rate, PNA phase/lead/safety details, packet totals, and a clear visual warning when PNA is paused.
+- Expanded the optional toolbar statistics with FPS, command reply time, 60-second p95 frame jitter, and recent loss.
+- Added separate recent and whole-session packet-loss figures, server frame interval and rate, NLSPT phase/lead/safety details, packet totals, and a clear visual warning when NLSPT is paused.
 - Added bounded rotating diagnostic logs under the user data folder's Diagnostics directory, including startup details, the first shutdown reason, and crash stacks. Advanced Settings can open the folder containing the current log and five backups.
 
 Chat bubbles:
@@ -47,7 +47,7 @@ Rendering, movies, macros, and settings:
 Fixes and classic compatibility:
 - Reworked live networking to follow classic framing rules: each UDP datagram contains one complete message, while partial TCP headers, payloads, and draw-state records remain pending until complete.
 - Structurally valid draw frames are acknowledged even if an optional logical state record is malformed; the bad record is logged and skipped instead of forcing an unnecessary resend.
-- Reconnects reset frame acknowledgement, resend, timing, packet-loss, and PNA learning state so measurements from one session cannot leak into the next.
+- Reconnects reset frame acknowledgement, resend, timing, packet-loss, and NLSPT learning state so measurements from one session cannot leak into the next.
 - TCP and UDP handling is serialized with classic TCP priority so both transports cannot update live session state concurrently.
 - Live frame timing and script tick waits now follow accepted server frames rather than render FPS, keeping script timing stable with VSync disabled or at high refresh rates.
 - Matched the classic 511-byte player-command limit and 1396-byte maximum framed protocol message size.
@@ -60,4 +60,4 @@ Fixes and classic compatibility:
 - Preserved the measured server frame interval without integer-FPS rounding.
 
 Technical changes:
-- Added a classic-network compatibility tracker and expanded regression coverage for reconnects, fragmented and malformed records, exact UDP datagrams, partial TCP streams, PNA feedback and fallback, live clocks, graph scaling, diagnostic rotation, demo retries, login and text-window dispatch, movie seeking, moving-sprite bounds, idle world-frame reuse, theme-aware text colors, quality presets, wizard layout, macros, sharing state, settings layout, and toolbar sizing.
+- Added a classic-network compatibility tracker and expanded regression coverage for reconnects, fragmented and malformed records, exact UDP datagrams, partial TCP streams, NLSPT feedback and fallback, live clocks, graph scaling, diagnostic rotation, demo retries, login and text-window dispatch, movie seeking, moving-sprite bounds, idle world-frame reuse, theme-aware text colors, quality presets, wizard layout, macros, sharing state, settings layout, and toolbar sizing.

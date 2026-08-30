@@ -16,7 +16,7 @@ The current internal `settings` structure contains 175 exported fields:
 - `Version` is document metadata at the JSON root.
 
 That accounts for every exported field. The same structure also contains nine
-unexported debug/session fields, all listed below. PNA safety is separate atomic
+unexported debug/session fields, all listed below. NLSPT safety is separate atomic
 session state rather than a field in `settings`; it is listed as well.
 
 The safest way to inspect or change a persistent option is with the local
@@ -77,11 +77,11 @@ tiled dividers, or **Reset Windows** unless diagnosing a layout problem.
 
 ## Session-only controls not written to JSON
 
-### Predictive Network Adjustment
+### Network Latency & Server Phase Timing (NLSPT)
 
-Predictive Network Adjustment is enabled by default, and
-`general.predictive_network_adjustment_enabled` persists that choice. The
-Advanced Settings **PNA safety (%)** slider controls the internal
+Network Latency & Server Phase Timing is enabled by default. Its persisted
+setting is `general.nlspt_enabled`. The
+Advanced Settings **NLSPT safety (%)** slider controls the internal
 `networkAdjustmentSafetyPercent` value. It is deliberately session-only,
 accepts 0–50%, and starts at 10% each time goThoom launches. The learned server
 phase, lead, reply timing, RTT floor, jitter/loss samples, fallback state, and

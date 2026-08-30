@@ -118,6 +118,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"mobiles_receive_sun_shadows": false`,
 		`"show_player_share_icons": true`,
 		`"group_clan_members": true`,
+		`"nlspt_enabled": false`,
 		`"shaders_enabled": true`,
 	} {
 		if !strings.Contains(text, expected) {
@@ -145,7 +146,7 @@ func TestSettingsV4ReadsLegacyAlternateNetworkEnabledKey(t *testing.T) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	delete(doc.General, "predictive_network_adjustment_enabled")
+	delete(doc.General, "nlspt_enabled")
 	doc.General["alternate_network_enabled"] = json.RawMessage("true")
 	data, err = json.Marshal(doc)
 	if err != nil {

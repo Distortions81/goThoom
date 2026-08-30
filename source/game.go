@@ -4651,7 +4651,7 @@ func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sent
 		pnaController.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
 		pnaController.holdUntil = now.Add(pnaFeedbackHold)
 		pnaController.consecutiveHits = 0
-		log.Printf("PNA learned late boundary: reply=%s skipped_frames=%d lead_floor=%s interval=%s",
+		log.Printf("NLSPT learned late boundary: reply=%s skipped_frames=%d lead_floor=%s interval=%s",
 			reply.Round(time.Millisecond), ackFrames-1, pnaController.learnedLeadFloor.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
 	} else if reply < baseMinimum {
 		// The acknowledgement arrived with less than the requested headroom.
@@ -4684,7 +4684,7 @@ func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sent
 					pnaController.learnedLeadFloor -= step
 					pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, baseMinimum, sentInterval)
 					pnaController.lead = pnaController.learnedLeadFloor
-					log.Printf("PNA cautiously probing learned boundary: step=%s lead=%s interval=%s",
+					log.Printf("NLSPT cautiously probing learned boundary: step=%s lead=%s interval=%s",
 						step.Round(time.Millisecond), pnaController.lead.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
 				}
 				return
@@ -4707,8 +4707,8 @@ func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sent
 	pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
 }
 
-// pnaFallbackReason pauses PNA only for meaningful recent packet loss. Reply
-// time and jitter are timing feedback for PNA itself, not reasons to disable it.
+// pnaFallbackReason pauses NLSPT only for meaningful recent packet loss. Reply
+// time and jitter are timing feedback for NLSPT itself, not reasons to disable it.
 func pnaFallbackReason(recentLoss float64) string {
 	if recentLoss > pnaMaxRecentPacketLossPercent {
 		return "recent packet loss"
@@ -4721,7 +4721,7 @@ func pnaRecoveryReady(recentLoss float64) bool {
 }
 
 // pnaTimingStatus applies a cooldown and lower recovery thresholds to prevent
-// PNA from flapping between predictive and immediate networking near a limit.
+// NLSPT from flapping between predictive and immediate networking near a limit.
 func pnaTimingStatus(recentLoss float64, now time.Time) (usePNA bool, reason string) {
 	pnaFallbackMu.Lock()
 	defer pnaFallbackMu.Unlock()

@@ -85,9 +85,9 @@ func TestSmallMovingPictureInterpolationDefaultsOn(t *testing.T) {
 	}
 }
 
-func TestPredictiveNetworkAdjustmentDefaultsOn(t *testing.T) {
+func TestNLSPTDefaultsOn(t *testing.T) {
 	if !gsdef.AltNetMode {
-		t.Fatal("predictive network adjustment should default on")
+		t.Fatal("NLSPT should default on")
 	}
 }
 

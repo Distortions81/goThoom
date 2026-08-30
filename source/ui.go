@@ -1940,7 +1940,7 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 		toolbarStatsText, _ = eui.NewText()
 		toolbarStatsText.FontSize = 10
 		toolbarStatsText.Size = eui.Point{X: buttonWidth * 5, Y: 18}
-		toolbarStatsText.SetTooltip("cmd is the latest command reply; fjit is 60-second p95 server-frame jitter; PNA lead is time before the next expected frame.")
+		toolbarStatsText.SetTooltip("loss is recent packet loss; jit is 60-second p95 server-frame jitter; ping is the latest command reply.")
 		root.AddItem(toolbarStatsText)
 	} else {
 		root.Size.Y = toolbarHeight + scriptToolbarHeight
@@ -2058,26 +2058,17 @@ func ensureToolbarAccessible() {
 func updateToolbarStats() {
 	reply, jitter := networkTimingSnapshot()
 	recentLoss, _, _, _ := packetLossSnapshot()
-	frameMu.Lock()
-	updatesPerSecond := serverUpdatesPerSecond
-	frameMu.Unlock()
-	var lead time.Duration
-	var timingReady bool
-	if gs.AltNetMode {
-		_, _, _, _, lead, timingReady = pnaScheduleSnapshot()
-	}
-	pnaStatus := formatToolbarPNAStatus(gs.AltNetMode, updatesPerSecond, lead, timingReady, recentLoss)
 	if gs.ToolbarPlacement == ToolbarFloating && hudWin != nil {
-		hudWin.Title = fmt.Sprintf("Toolbar - %0.0ffps %.1f%%loss cmd%s fjit%s %s",
-			ebiten.ActualFPS(), recentLoss, formatToolbarLatency(reply), formatToolbarLatency(jitter), pnaStatus)
+		hudWin.Title = fmt.Sprintf("Toolbar - fps %.0f, loss %s, jit %s, ping %s",
+			ebiten.ActualFPS(), formatToolbarLoss(recentLoss), formatToolbarLatency(jitter), formatToolbarLatency(reply))
 		hudWin.Refresh()
 		return
 	}
 	if toolbarStatsText == nil {
 		return
 	}
-	toolbarStatsText.Text = fmt.Sprintf("%0.0ffps %.1f%%loss cmd%s fjit%s %s",
-		ebiten.ActualFPS(), recentLoss, formatToolbarLatency(reply), formatToolbarLatency(jitter), pnaStatus)
+	toolbarStatsText.Text = fmt.Sprintf("fps %.0f, loss %s, jit %s, ping %s",
+		ebiten.ActualFPS(), formatToolbarLoss(recentLoss), formatToolbarLatency(jitter), formatToolbarLatency(reply))
 	toolbarStatsText.Dirty = true
 	refreshToolbar()
 }
@@ -2086,19 +2077,11 @@ func formatToolbarLatency(duration time.Duration) string {
 	return fmt.Sprintf("%.1fms", float64(duration)/float64(time.Millisecond))
 }
 
-// formatToolbarPNAStatus keeps the live PNA state short enough for the docked
-// toolbar. Lead is the target time before the next expected server frame.
-func formatToolbarPNAStatus(enabled bool, updatesPerSecond float64, lead time.Duration, timingReady bool, recentLoss float64) string {
-	if !enabled {
-		return "PNA off"
+func formatToolbarLoss(loss float64) string {
+	if loss == 0 {
+		return "0%"
 	}
-	if usePNA, _ := pnaTimingStatus(recentLoss, time.Now()); !usePNA {
-		return "PNA paused"
-	}
-	if updatesPerSecond <= 0 || !timingReady || lead <= 0 {
-		return "PNA learning"
-	}
-	return fmt.Sprintf("PNA lead%dms@%.0fHz", lead.Round(time.Millisecond)/time.Millisecond, updatesPerSecond)
+	return fmt.Sprintf("%.1f%%", loss)
 }
 
 func refreshToolbar() {
@@ -6765,7 +6748,7 @@ func makeAdvancedSettingsWindow() {
 
 	altNetCB, altNetEvents := eui.NewCheckbox()
 	advancedPNACheckbox = altNetCB
-	altNetCB.Text = "Predictive Network Adjustment (PNA)"
+	altNetCB.Text = "Network Latency & Server Phase Timing (NLSPT)"
 	altNetCB.Size = eui.Point{X: columnWidth, Y: 24}
 	altNetCB.Checked = gs.AltNetMode
 	altNetCB.SetTooltip("Learns the server frame phase and sends fresh input shortly before its next processing window. Packet loss temporarily restores original timing.")
@@ -6777,7 +6760,7 @@ func makeAdvancedSettingsWindow() {
 	systemCol.AddItem(altNetCB)
 
 	pnaSafetySlider, pnaSafetyEvents := eui.NewSlider()
-	pnaSafetySlider.Label = "PNA safety (%)"
+	pnaSafetySlider.Label = "NLSPT safety (%)"
 	pnaSafetySlider.MinValue = 0
 	pnaSafetySlider.MaxValue = 50
 	pnaSafetySlider.Value = float32(networkAdjustmentSafetyPercent.Load())

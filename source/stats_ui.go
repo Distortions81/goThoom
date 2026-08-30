@@ -272,10 +272,10 @@ func makeStatsWindow() {
 	networkControls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	networkControls.Size = eui.Point{X: width, Y: 24}
 	statsPNACheckbox, pnaEvents := eui.NewCheckbox()
-	statsPNACheckbox.Text = "Enable Predictive Network Adjustment (PNA)"
+	statsPNACheckbox.Text = "Enable NLSPT"
 	statsPNACheckbox.Size = eui.Point{X: width - 92, Y: 24}
 	statsPNACheckbox.Checked = gs.AltNetMode
-	statsPNACheckbox.SetTooltip("Learn the server frame phase and send fresh input shortly before its next processing window. Command replies tune the lead; packet loss pauses PNA.")
+	statsPNACheckbox.SetTooltip("Network Latency & Server Phase Timing learns the server frame phase and sends fresh input shortly before its next processing window. Command replies tune the lead; packet loss pauses NLSPT.")
 	pnaEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			setPNAEnabled(ev.Checked)
@@ -286,7 +286,7 @@ func makeStatsWindow() {
 	clearButton.Text = "Clear Stats"
 	clearButton.Size = eui.Point{X: 92, Y: 24}
 	clearButton.FontSize = 10
-	clearButton.SetTooltip("Clear the five-minute graph history. Session packet totals and PNA measurements are unchanged.")
+	clearButton.SetTooltip("Clear the five-minute graph history. Session packet totals and NLSPT measurements are unchanged.")
 	clearEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			clearStatsHistory()
@@ -617,7 +617,7 @@ func updateStatsWindow(now time.Time) {
 		if updatesPerSecond > 0 {
 			serverTiming = fmt.Sprintf("%.2f/sec (%s)", updatesPerSecond, formatToolbarLatency(interval))
 		}
-		statsNetworkText.Text = fmt.Sprintf("PNA %s   |   Server %s\n%s   |   Safety %d%% (%s)\nPackets: %d received, %d lost",
+		statsNetworkText.Text = fmt.Sprintf("NLSPT %s   |   Server %s\n%s   |   Safety %d%% (%s)\nPackets: %d received, %d lost",
 			mode, serverTiming, timing, networkAdjustmentSafetyPercent.Load(), formatToolbarLatency(safety), received, lost)
 		statsNetworkText.Dirty = true
 	}
@@ -626,7 +626,7 @@ func updateStatsWindow(now time.Time) {
 		if statsPNAAlert.Filled {
 			statsPNAAlert.Color = eui.NewColor(154, 36, 36, 255)
 			statsPNAAlert.TextColor = eui.NewColor(255, 255, 255, 255)
-			statsPNAAlert.Text = "PNA PAUSED — " + pnaFallbackExplanation(fallbackReason, recentLoss)
+			statsPNAAlert.Text = "NLSPT PAUSED — " + pnaFallbackExplanation(fallbackReason, recentLoss)
 		} else {
 			statsPNAAlert.Text = ""
 		}
