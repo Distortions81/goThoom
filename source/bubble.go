@@ -27,14 +27,16 @@ type bubbleFaceCacheKey struct {
 }
 
 type bubbleTextLayoutCacheKey struct {
-	text     string
-	face     text.Face
-	maxWidth int
+	text            string
+	face            text.Face
+	maxWidth        int
+	lineHeight, pad int
+	balanced        bool
 }
 
 type bubbleTextLayout struct {
-	width int
-	lines []string
+	width, wrapWidth int
+	lines            []string
 }
 
 type bubbleTextImageCacheKey struct {
@@ -62,6 +64,10 @@ const bubbleTextImageMargin = 1
 const maxBubbleTextImageBytes = 32 << 20
 
 const ponderBubbleAnimationSpeed = 4.0
+const bubbleMaxBodyWidthFraction = 0.45
+const bubbleMaxBodyHeightFraction = 0.35
+const bubbleMinimumFitFontSize = 4.0
+const bubbleBodyAspectRatio = 2
 
 const (
 	bubblePosNone uint8 = iota
@@ -79,7 +85,14 @@ type bubbleMetrics struct {
 	lineHeight, width, height int
 }
 
-func measureBubble(txt string, typ int, bubbleScale, fontScale float64) bubbleMetrics {
+func bubbleBodySizeLimit(screenWidth, screenHeight int) image.Point {
+	return image.Pt(
+		max(1, int(math.Round(float64(screenWidth)*bubbleMaxBodyWidthFraction))),
+		max(1, int(math.Round(float64(screenHeight)*bubbleMaxBodyHeightFraction))),
+	)
+}
+
+func measureBubble(txt string, typ int, bubbleScale, fontScale float64, maxBodySize image.Point) bubbleMetrics {
 	if bubbleScale <= 0 {
 		bubbleScale = 0.1
 	}
@@ -90,25 +103,66 @@ func measureBubble(txt string, typ int, bubbleScale, fontScale float64) bubbleMe
 	m.pad = max(1, int(math.Round(6*bubbleScale)))
 	m.tailHeight = max(1, int(math.Round(10*bubbleScale)))
 	m.tailHalf = max(1, int(math.Round(6*bubbleScale)))
-	m.maxLineWidth = max(1, int(math.Round(float64(gameAreaSizeX)/4*bubbleScale))-2*m.pad)
-	m.face = bubbleFont
+	m.maxLineWidth = max(1, maxBodySize.X-2*m.pad)
+	baseFace := bubbleFont
 	if typ&kBubbleTypeMask == kBubbleWhisper {
-		m.face = bubbleFontRegular
+		baseFace = bubbleFontRegular
 	}
-	m.face = scaledBubbleFace(m.face, fontScale)
-	if m.face == nil {
+	if baseFace == nil {
 		if typ&kBubbleTypeMask == kBubbleWhisper {
-			m.face = bubbleFontRegular
+			baseFace = bubbleFontRegular
 		} else {
-			m.face = bubbleFont
+			baseFace = bubbleFont
 		}
 	}
-	m.baseWidth, m.lines = cachedBubbleTextLayout(txt, m.face, m.maxLineWidth)
-	m.width = int(math.Ceil(float64(m.baseWidth))) + 2*m.pad
-	metrics := m.face.Metrics()
-	m.lineHeight = max(1, int(math.Ceil(math.Ceil(metrics.HAscent)+math.Ceil(metrics.HDescent)+math.Ceil(metrics.HLineGap))))
-	m.height = m.lineHeight*len(m.lines) + 2*m.pad
-	return m
+	layoutAtScale := func(scale float64) bubbleMetrics {
+		candidate := m
+		candidate.face = scaledBubbleFace(baseFace, scale)
+		if candidate.face == nil {
+			candidate.face = baseFace
+		}
+		metrics := candidate.face.Metrics()
+		candidate.lineHeight = max(1, int(math.Ceil(math.Ceil(metrics.HAscent)+math.Ceil(metrics.HDescent)+math.Ceil(metrics.HLineGap))))
+		candidate.maxLineWidth, candidate.baseWidth, candidate.lines = cachedBalancedBubbleTextLayout(
+			txt, candidate.face, candidate.maxLineWidth, candidate.lineHeight, candidate.pad,
+		)
+		candidate.width = candidate.baseWidth + 2*candidate.pad
+		candidate.height = candidate.lineHeight*len(candidate.lines) + 2*candidate.pad
+		return candidate
+	}
+	fits := func(candidate bubbleMetrics) bool {
+		return candidate.width <= maxBodySize.X && candidate.height <= maxBodySize.Y
+	}
+
+	preferred := layoutAtScale(fontScale)
+	if fits(preferred) {
+		return preferred
+	}
+
+	minimumScale := fontScale
+	if goFace, ok := baseFace.(*text.GoTextFace); ok && goFace.Size > bubbleMinimumFitFontSize {
+		minimumScale *= bubbleMinimumFitFontSize / goFace.Size
+	}
+	minimum := layoutAtScale(minimumScale)
+	if !fits(minimum) {
+		// Normal server bubbles fit at the configured UI's font-size floor. Retain it for
+		// malformed or newline-heavy text rather than making it illegible.
+		return minimum
+	}
+
+	best := minimum
+	low, high := minimumScale, fontScale
+	for range 10 {
+		mid := (low + high) / 2
+		candidate := layoutAtScale(mid)
+		if fits(candidate) {
+			best = candidate
+			low = mid
+		} else {
+			high = mid
+		}
+	}
+	return best
 }
 
 func bubbleRectForPlacement(x, y int, m bubbleMetrics, placement uint8, noTail bool) image.Rectangle {
@@ -164,6 +218,37 @@ func bubbleAnimationPhase(speed float64) float64 {
 
 func ponderWaveOffset(phase, spatialPhase float64, radius float32) float32 {
 	return float32(math.Sin(phase+spatialPhase)) * radius * 0.3
+}
+
+// bubbleOverlapMargin accounts for decoration drawn outside the measured text
+// body. Keep these in sync with drawSpikes, drawMonsterSpikes, and
+// drawPonderWaves so overlap prevention uses the complete visible footprint.
+func bubbleOverlapMargin(typ int, bubbleScale float64) int {
+	if bubbleScale <= 0 {
+		bubbleScale = 0.1
+	}
+	var extent float64
+	switch typ & kBubbleTypeMask {
+	case kBubblePonder:
+		// Radius 6, with animated center displacement up to 30% of it.
+		extent = 6 * 1.3
+	case kBubbleYell:
+		// Spike size 3, with the strongest pulse reaching 130%.
+		extent = 3 * 1.3
+	case kBubbleMonster:
+		// Growl spikes reach their full configured size of 4.
+		extent = 4
+	default:
+		return 0
+	}
+	return max(1, int(math.Ceil(extent*bubbleScale)))
+}
+
+func bubbleOverlapRect(rect image.Rectangle, margin int) image.Rectangle {
+	if margin <= 0 {
+		return rect
+	}
+	return image.Rect(rect.Min.X-margin, rect.Min.Y-margin, rect.Max.X+margin, rect.Max.Y+margin)
 }
 
 var thoughtBubbleMaskBlend = ebiten.Blend{
@@ -325,6 +410,65 @@ func cachedBubbleTextLayout(txt string, face text.Face, maxWidth int) (int, []st
 	return width, lines
 }
 
+// bubbleAspectDistance measures aspect-ratio error proportionally. This makes
+// ratios on either side of the target comparable: for a 2:1 target, 1:1 and
+// 4:1 are equally far away. A simple absolute difference would prefer the
+// square even though it is proportionally no closer to the requested shape.
+func bubbleAspectDistance(width, height int) float64 {
+	if width <= 0 || height <= 0 {
+		return math.MaxFloat64
+	}
+	ratio := float64(width) / float64(height)
+	target := float64(bubbleBodyAspectRatio)
+	if ratio < target {
+		return target / ratio
+	}
+	return ratio / target
+}
+
+func cachedBalancedBubbleTextLayout(txt string, face text.Face, maxWidth, lineHeight, pad int) (int, int, []string) {
+	key := bubbleTextLayoutCacheKey{
+		text: txt, face: face, maxWidth: maxWidth,
+		lineHeight: lineHeight, pad: pad, balanced: true,
+	}
+	if cached, ok := bubbleTextLayoutCache[key]; ok {
+		return cached.wrapWidth, cached.width, cached.lines
+	}
+
+	// Wrapping determines the body's natural aspect ratio. Sample the useful
+	// width range and retain the layout closest to 2:1; do not pad either axis
+	// merely to manufacture the ratio.
+	step := max(1, maxWidth/64)
+	bestDistance := math.MaxFloat64
+	bestArea := math.MaxInt
+	bestWrapWidth, bestWidth := maxWidth, 0
+	var bestLines []string
+	consider := func(wrapWidth int) {
+		width, lines := wrapText(txt, face, float64(wrapWidth))
+		bodyWidth := width + 2*pad
+		bodyHeight := lineHeight*len(lines) + 2*pad
+		distance := bubbleAspectDistance(bodyWidth, bodyHeight)
+		area := bodyWidth * bodyHeight
+		if distance < bestDistance || distance == bestDistance && area < bestArea {
+			bestDistance = distance
+			bestArea = area
+			bestWrapWidth = wrapWidth
+			bestWidth = width
+			bestLines = lines
+		}
+	}
+	for wrapWidth := step; wrapWidth < maxWidth; wrapWidth += step {
+		consider(wrapWidth)
+	}
+	consider(maxWidth)
+
+	if len(bubbleTextLayoutCache) >= maxBubbleTextLayouts {
+		clear(bubbleTextLayoutCache)
+	}
+	bubbleTextLayoutCache[key] = bubbleTextLayout{width: bestWidth, wrapWidth: bestWrapWidth, lines: bestLines}
+	return bestWrapWidth, bestWidth, bestLines
+}
+
 func clearBubbleTextCaches() {
 	clear(scaledBubbleFaceCache)
 	clear(bubbleTextLayoutCache)
@@ -394,19 +538,43 @@ func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeig
 	return img
 }
 
-// drawBubble renders a text bubble anchored so that (x, y) corresponds to the
-// bottom-center point of the balloon tail. If the bubble would extend past the
-// screen edges it is clamped while leaving the tail anchored at (x, y). If far
-// is true the tail is omitted and (x, y) represents the bottom-center of the
-// bubble itself. The tail can also be skipped explicitly via noArrow. The typ
-// parameter is currently unused but retained for future compatibility with the
-// original bubble images. The colors of the border, background, and text can be
-// customized via borderCol, bgCol, and textCol respectively. fontScale controls
-// the font size so text is rasterized at native resolution for the current
-// window scale.
-func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, noArrow bool, placement uint8, borderCol, bgCol, textCol color.Color, bubbleScale, fontScale float64) {
-	if txt == "" {
-		return
+// bubbleDrawRequest keeps a bubble's measured layout and final placement
+// together so all tails can be drawn before any balloon bodies or text.
+type bubbleDrawRequest struct {
+	txt                       string
+	x, y, typ                 int
+	far, noArrow              bool
+	placement                 uint8
+	bodyOffset                image.Point
+	borderCol, bgCol, textCol color.Color
+	bubbleScale               float64
+	metrics                   bubbleMetrics
+}
+
+type bubbleDrawGeometry struct {
+	request                  bubbleDrawRequest
+	offsetX, offsetY         int
+	tailX, tailY             int
+	left, top, right, bottom int
+	baseX, attachY           int
+	bubbleType               int
+	radius, scale            float32
+	fillColor, borderColor   color.RGBA64
+	noArrow                  bool
+}
+
+func drawBubbleBatch(screen *ebiten.Image, requests []bubbleDrawRequest) {
+	for _, request := range requests {
+		drawBubbleTail(screen, request)
+	}
+	for _, request := range requests {
+		drawBubbleBody(screen, request)
+	}
+}
+
+func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleDrawGeometry, bool) {
+	if screen == nil || request.txt == "" {
+		return bubbleDrawGeometry{}, false
 	}
 	bounds := screen.Bounds()
 	offsetX := bounds.Min.X
@@ -414,98 +582,54 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 	sw := bounds.Dx()
 	sh := bounds.Dy()
 	if sw <= 0 || sh <= 0 {
-		return
+		return bubbleDrawGeometry{}, false
 	}
-	if bubbleScale <= 0 {
-		bubbleScale = 0.1
-	}
-	if fontScale <= 0 {
-		fontScale = 0.1
+	if request.bubbleScale <= 0 {
+		request.bubbleScale = 0.1
 	}
 
-	tailX, tailY := x, y
+	tailX, tailY := request.x, request.y
+	noArrow := request.noArrow
 	if tailX < 0 || tailX >= sw || tailY < 0 || tailY >= sh {
 		noArrow = true
 	}
-	// Visual scale for bubbles independent of font size
-	s := bubbleScale
-	m := measureBubble(txt, typ, bubbleScale, fontScale)
-	pad, tailHalf := m.pad, m.tailHalf
-	bubbleType := typ & kBubbleTypeMask
-	font, maxLineWidth, baseWidth, lines := m.face, m.maxLineWidth, m.baseWidth, m.lines
-	lineHeight, width := m.lineHeight, m.width
-	rect := bubbleRectForPlacement(x, y, m, placement, far || noArrow)
+	m := request.metrics
+	tailHalf := m.tailHalf
+	bubbleType := request.typ & kBubbleTypeMask
+	rect := bubbleRectForPlacement(request.x, request.y, m, request.placement, request.far || noArrow)
 	rect = clampBubbleRect(rect, sw, sh)
+	rect = clampBubbleRect(rect.Add(request.bodyOffset), sw, sh)
 	left, top, right, bottom := rect.Min.X, rect.Min.Y, rect.Max.X, rect.Max.Y
-	baseX := left + width/2
-	if placement == bubblePosUpperLeft || placement == bubblePosLowerLeft {
+	baseX := left + m.width/2
+	if request.placement == bubblePosUpperLeft || request.placement == bubblePosLowerLeft {
 		baseX = right - tailHalf
-	} else if placement != bubblePosNone {
+	} else if request.placement != bubblePosNone {
 		baseX = left + tailHalf
 	}
 	attachY := bottom
-	if placement == bubblePosLowerLeft || placement == bubblePosLowerRight {
+	if request.placement == bubblePosLowerLeft || request.placement == bubblePosLowerRight {
 		attachY = top
 	}
 
-	bgR, bgG, bgB, bgA := bgCol.RGBA()
-	bdR, bdG, bdB, bdA := borderCol.RGBA()
+	bgR, bgG, bgB, bgA := request.bgCol.RGBA()
+	bdR, bdG, bdB, bdA := request.borderCol.RGBA()
 
-	radius := float32(4 * s)
+	s := float32(request.bubbleScale)
+	radius := 4 * s
 	if bubbleType == kBubblePonder {
-		radius = float32(8 * s)
+		radius = 8 * s
 	}
+	return bubbleDrawGeometry{
+		request: request, offsetX: offsetX, offsetY: offsetY,
+		tailX: tailX, tailY: tailY, left: left, top: top, right: right, bottom: bottom,
+		baseX: baseX, attachY: attachY, bubbleType: bubbleType, radius: radius, scale: s,
+		fillColor:   color.RGBA64{R: uint16(bgR), G: uint16(bgG), B: uint16(bgB), A: uint16(bgA)},
+		borderColor: color.RGBA64{R: uint16(bdR), G: uint16(bdG), B: uint16(bdB), A: uint16(bdA)},
+		noArrow:     noArrow,
+	}, true
+}
 
-	fx := float32(offsetX)
-	fy := float32(offsetY)
-
-	var body vector.Path
-	body.MoveTo(float32(left)+radius+fx, float32(top)+fy)
-	body.LineTo(float32(right)-radius+fx, float32(top)+fy)
-	body.Arc(float32(right)-radius+fx, float32(top)+radius+fy, radius, -math.Pi/2, 0, vector.Clockwise)
-	body.LineTo(float32(right)+fx, float32(bottom)-radius+fy)
-	body.Arc(float32(right)-radius+fx, float32(bottom)-radius+fy, radius, 0, math.Pi/2, vector.Clockwise)
-	body.LineTo(float32(left)+radius+fx, float32(bottom)+fy)
-	body.Arc(float32(left)+radius+fx, float32(bottom)-radius+fy, radius, math.Pi/2, math.Pi, vector.Clockwise)
-	body.LineTo(float32(left)+fx, float32(top)+radius+fy)
-	body.Arc(float32(left)+radius+fx, float32(top)+radius+fy, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
-	body.Close()
-
-	var tail vector.Path
-	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
-	if !far && !noArrow {
-		if bubbleType == kBubblePonder {
-			r1 := float32(tailHalf)
-			offset1 := r1 * 0.3 * float32(math.Sin(ponderPhase))
-			cx1 := float32(baseX) + fx
-			cy1 := float32(attachY) + float32(tailY-attachY)*0.25 - offset1 + fy
-			tail.MoveTo(cx1+r1, cy1)
-			tail.Arc(cx1, cy1, r1, 0, 2*math.Pi, vector.Clockwise)
-			tail.Close()
-			rMid := r1 * 0.6
-			offsetMid := rMid * 0.5 * float32(math.Sin(ponderPhase+math.Pi/4))
-			cxMid := float32(baseX+tailX)/2 + fx
-			cyMid := float32(attachY) + float32(tailY-attachY)*0.65 - offsetMid + fy
-			tail.MoveTo(cxMid+rMid, cyMid)
-			tail.Arc(cxMid, cyMid, rMid, 0, 2*math.Pi, vector.Clockwise)
-			tail.Close()
-			r2 := float32(tailHalf) / 2
-			offset2 := r2 * 0.6 * float32(math.Sin(ponderPhase+math.Pi/2))
-			cx2 := float32(tailX) + fx
-			cy2 := float32(tailY) - offset2 + fy
-			tail.MoveTo(cx2+r2, cy2)
-			tail.Arc(cx2, cy2, r2, 0, 2*math.Pi, vector.Clockwise)
-			tail.Close()
-		} else {
-			tail.MoveTo(float32(baseX-tailHalf)+fx, float32(attachY)+fy)
-			tail.LineTo(float32(tailX)+fx, float32(tailY)+fy)
-			tail.LineTo(float32(baseX+tailHalf)+fx, float32(attachY)+fy)
-			tail.Close()
-		}
-	}
-
-	fillColor := color.RGBA64{R: uint16(bgR), G: uint16(bgG), B: uint16(bgB), A: uint16(bgA)}
-	borderColor := color.RGBA64{R: uint16(bdR), G: uint16(bdG), B: uint16(bdB), A: uint16(bdA)}
+func bubbleBackgroundTarget(screen *ebiten.Image, bubbleType int, fillColor color.RGBA64) (*ebiten.Image, color.RGBA64, ebiten.Blend, bool) {
 	backgroundTarget := screen
 	backgroundBlend := ebiten.Blend{}
 	compositeThought := bubbleType == kBubbleThought || bubbleType == kBubblePonder
@@ -515,82 +639,128 @@ func drawBubble(screen *ebiten.Image, txt string, x, y int, typ int, far bool, n
 		fillColor = color.RGBA64{R: 0xffff, G: 0xffff, B: 0xffff, A: 0xffff}
 		backgroundBlend = thoughtBubbleMaskBlend
 	}
+	return backgroundTarget, fillColor, backgroundBlend, compositeThought
+}
 
-	if bubbleType != kBubblePonder {
+// drawBubbleTail draws only the pointer/ponder trail. drawSpeechBubbles calls
+// this for every visible bubble before drawing any balloon body or text.
+func drawBubbleTail(screen *ebiten.Image, request bubbleDrawRequest) {
+	g, ok := prepareBubbleDraw(screen, request)
+	if !ok || g.request.far || g.noArrow {
+		return
+	}
+	fx, fy := float32(g.offsetX), float32(g.offsetY)
+	tailHalf := g.request.metrics.tailHalf
+	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
+	var tail vector.Path
+	if g.bubbleType == kBubblePonder {
+		r1 := float32(tailHalf)
+		offset1 := r1 * 0.3 * float32(math.Sin(ponderPhase))
+		cx1 := float32(g.baseX) + fx
+		cy1 := float32(g.attachY) + float32(g.tailY-g.attachY)*0.25 - offset1 + fy
+		tail.MoveTo(cx1+r1, cy1)
+		tail.Arc(cx1, cy1, r1, 0, 2*math.Pi, vector.Clockwise)
+		tail.Close()
+		rMid := r1 * 0.6
+		offsetMid := rMid * 0.5 * float32(math.Sin(ponderPhase+math.Pi/4))
+		cxMid := float32(g.baseX+g.tailX)/2 + fx
+		cyMid := float32(g.attachY) + float32(g.tailY-g.attachY)*0.65 - offsetMid + fy
+		tail.MoveTo(cxMid+rMid, cyMid)
+		tail.Arc(cxMid, cyMid, rMid, 0, 2*math.Pi, vector.Clockwise)
+		tail.Close()
+		r2 := float32(tailHalf) / 2
+		offset2 := r2 * 0.6 * float32(math.Sin(ponderPhase+math.Pi/2))
+		cx2 := float32(g.tailX) + fx
+		cy2 := float32(g.tailY) - offset2 + fy
+		tail.MoveTo(cx2+r2, cy2)
+		tail.Arc(cx2, cy2, r2, 0, 2*math.Pi, vector.Clockwise)
+		tail.Close()
+	} else {
+		tail.MoveTo(float32(g.baseX-tailHalf)+fx, float32(g.attachY)+fy)
+		tail.LineTo(float32(g.tailX)+fx, float32(g.tailY)+fy)
+		tail.LineTo(float32(g.baseX+tailHalf)+fx, float32(g.attachY)+fy)
+		tail.Close()
+	}
+
+	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor)
+	tailOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
+	tailOp.ColorScale.ScaleWithColor(fillColor)
+	vector.FillPath(backgroundTarget, &tail, nil, tailOp)
+	if g.bubbleType != kBubblePonder {
+		strokeOp := &vector.StrokeOptions{Width: max(1, g.scale)}
+		drawOp := &vector.DrawPathOptions{AntiAlias: true}
+		drawOp.ColorScale.ScaleWithColor(g.borderColor)
+		vector.StrokePath(screen, &tail, strokeOp, drawOp)
+	}
+	if compositeThought {
+		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol)
+	}
+}
+
+// drawBubbleBody draws the balloon and its text after every tail is already
+// behind the complete bubble layer.
+func drawBubbleBody(screen *ebiten.Image, request bubbleDrawRequest) {
+	g, ok := prepareBubbleDraw(screen, request)
+	if !ok {
+		return
+	}
+	fx, fy := float32(g.offsetX), float32(g.offsetY)
+	m := g.request.metrics
+	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
+
+	var body vector.Path
+	body.MoveTo(float32(g.left)+g.radius+fx, float32(g.top)+fy)
+	body.LineTo(float32(g.right)-g.radius+fx, float32(g.top)+fy)
+	body.Arc(float32(g.right)-g.radius+fx, float32(g.top)+g.radius+fy, g.radius, -math.Pi/2, 0, vector.Clockwise)
+	body.LineTo(float32(g.right)+fx, float32(g.bottom)-g.radius+fy)
+	body.Arc(float32(g.right)-g.radius+fx, float32(g.bottom)-g.radius+fy, g.radius, 0, math.Pi/2, vector.Clockwise)
+	body.LineTo(float32(g.left)+g.radius+fx, float32(g.bottom)+fy)
+	body.Arc(float32(g.left)+g.radius+fx, float32(g.bottom)-g.radius+fy, g.radius, math.Pi/2, math.Pi, vector.Clockwise)
+	body.LineTo(float32(g.left)+fx, float32(g.top)+g.radius+fy)
+	body.Arc(float32(g.left)+g.radius+fx, float32(g.top)+g.radius+fy, g.radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
+	body.Close()
+
+	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor)
+
+	if g.bubbleType != kBubblePonder {
 		fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
 		fillOp.ColorScale.ScaleWithColor(fillColor)
 		vector.FillPath(backgroundTarget, &body, nil, fillOp)
 	}
-	if !far && !noArrow {
-		tailOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
-		tailOp.ColorScale.ScaleWithColor(fillColor)
-		vector.FillPath(backgroundTarget, &tail, nil, tailOp)
-	}
-	if bubbleType != kBubblePonder {
-		var outline vector.Path
-		outline.MoveTo(float32(left)+radius+fx, float32(top)+fy)
-		if !far && !noArrow && attachY == top {
-			outline.LineTo(float32(baseX-tailHalf)+fx, float32(top)+fy)
-			outline.LineTo(float32(tailX)+fx, float32(tailY)+fy)
-			outline.LineTo(float32(baseX+tailHalf)+fx, float32(top)+fy)
-		}
-		outline.LineTo(float32(right)-radius+fx, float32(top)+fy)
-		outline.Arc(float32(right)-radius+fx, float32(top)+radius+fy, radius, -math.Pi/2, 0, vector.Clockwise)
-		outline.LineTo(float32(right)+fx, float32(bottom)-radius+fy)
-		outline.Arc(float32(right)-radius+fx, float32(bottom)-radius+fy, radius, 0, math.Pi/2, vector.Clockwise)
-		if !far && !noArrow && attachY == bottom {
-			outline.LineTo(float32(baseX+tailHalf)+fx, float32(bottom)+fy)
-			outline.LineTo(float32(tailX)+fx, float32(tailY)+fy)
-			outline.LineTo(float32(baseX-tailHalf)+fx, float32(bottom)+fy)
-		}
-		outline.LineTo(float32(left)+radius+fx, float32(bottom)+fy)
-		outline.Arc(float32(left)+radius+fx, float32(bottom)-radius+fy, radius, math.Pi/2, math.Pi, vector.Clockwise)
-		outline.LineTo(float32(left)+fx, float32(top)+radius+fy)
-		outline.Arc(float32(left)+radius+fx, float32(top)+radius+fy, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
-		outline.Close()
-
+	if g.bubbleType != kBubblePonder {
 		// Thicken outline a bit with scale
-		strokeW := float32(math.Max(1, s))
+		strokeW := max(1, g.scale)
 		strokeOp := &vector.StrokeOptions{Width: strokeW}
 		drawOutline := &vector.DrawPathOptions{AntiAlias: true}
-		drawOutline.ColorScale.ScaleWithColor(borderColor)
-		vector.StrokePath(screen, &outline, strokeOp, drawOutline)
+		drawOutline.ColorScale.ScaleWithColor(g.borderColor)
+		vector.StrokePath(screen, &body, strokeOp, drawOutline)
 	} else {
-		drawPonderWaves(backgroundTarget, left+offsetX, top+offsetY, right+offsetX, bottom+offsetY, fillColor, s, ponderPhase, backgroundBlend)
+		drawPonderWaves(backgroundTarget, g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, fillColor, float64(g.scale), ponderPhase, backgroundBlend)
 	}
 
 	if compositeThought {
-		compositeThoughtBubbleBackground(screen, backgroundTarget, bgCol)
+		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol)
 	}
 
-	if bubbleType == kBubbleYell {
-		gapStart, gapEnd := float32(-1), float32(-1)
-		if !far && !noArrow {
-			gapStart = float32(baseX-tailHalf) + fx
-			gapEnd = float32(baseX+tailHalf) + fx
-		}
-		drawSpikes(screen, float32(left)+fx, float32(top)+fy, float32(right)+fx, float32(bottom)+fy, radius, 3*float32(s), borderCol, gapStart, gapEnd)
-	} else if bubbleType == kBubbleMonster {
-		gapStart, gapEnd := float32(-1), float32(-1)
-		if !far && !noArrow {
-			gapStart = float32(baseX-tailHalf) + fx
-			gapEnd = float32(baseX+tailHalf) + fx
-		}
-		drawMonsterSpikes(screen, float32(left)+fx, float32(top)+fy, float32(right)+fx, float32(bottom)+fy, radius, 4*float32(s), borderCol, gapStart, gapEnd)
+	if g.bubbleType == kBubbleYell {
+		drawSpikes(screen, float32(g.left)+fx, float32(g.top)+fy, float32(g.right)+fx, float32(g.bottom)+fy, g.radius, 3*g.scale, g.request.borderCol, -1, -1)
+	} else if g.bubbleType == kBubbleMonster {
+		drawMonsterSpikes(screen, float32(g.left)+fx, float32(g.top)+fy, float32(g.right)+fx, float32(g.bottom)+fy, g.radius, 4*g.scale, g.request.borderCol, -1, -1)
 	}
 
-	textTop := top + pad + offsetY
-	textLeft := left + pad + offsetX
-	if textImage := cachedBubbleTextImage(txt, font, maxLineWidth, baseWidth, lineHeight, lines, textCol); textImage != nil {
+	textHeight := m.lineHeight * len(m.lines)
+	textTop := g.top + (m.height-textHeight)/2 + g.offsetY
+	textLeft := g.left + (m.width-m.baseWidth)/2 + g.offsetX
+	if textImage := cachedBubbleTextImage(g.request.txt, m.face, m.maxLineWidth, m.baseWidth, m.lineHeight, m.lines, g.request.textCol); textImage != nil {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(textLeft-bubbleTextImageMargin), float64(textTop-bubbleTextImageMargin))
 		screen.DrawImage(textImage, op)
 	} else {
-		for i, line := range lines {
+		for i, line := range m.lines {
 			op := &text.DrawOptions{}
-			op.GeoM.Translate(float64(textLeft), float64(textTop+i*lineHeight))
-			op.ColorScale.ScaleWithColor(textCol)
-			text.Draw(screen, line, font, op)
+			op.GeoM.Translate(float64(textLeft), float64(textTop+i*m.lineHeight))
+			op.ColorScale.ScaleWithColor(g.request.textCol)
+			text.Draw(screen, line, m.face, op)
 		}
 	}
 }

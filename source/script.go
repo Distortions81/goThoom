@@ -3072,6 +3072,20 @@ func scriptSessionLogin(character string) {
 	dispatchScriptLifecycle(LifecycleEvent{Type: lifecycleLogin, Character: character, PreviousCharacter: previous})
 }
 
+// notifyLoadedScriptsOfCurrentSession supplies the Login event when startup
+// scripts finish after a session (notably command-line movie playback) has
+// already begun. Before deferred script loading there were no handlers to
+// receive the original event.
+func notifyLoadedScriptsOfCurrentSession() {
+	scriptSessionMu.Lock()
+	active := scriptSessionActive
+	character := scriptSessionCharacter
+	scriptSessionMu.Unlock()
+	if active {
+		dispatchScriptLifecycle(LifecycleEvent{Type: lifecycleLogin, Character: character})
+	}
+}
+
 func scriptSessionLogout(character string) {
 	scriptSessionMu.Lock()
 	if !scriptSessionActive {

@@ -190,6 +190,7 @@ var gsdef settings = settings{
 	FadeObscuringPictures:   true,
 	SpeechBubbles:           true,
 	AnimatedChatBubbles:     true,
+	AvoidBubbleOverlap:      true,
 	BubbleNormal:            true,
 	BubbleWhisper:           true,
 	BubbleYell:              true,
@@ -407,6 +408,7 @@ type settings struct {
 	FadeObscuringPictures   bool
 	SpeechBubbles           bool
 	AnimatedChatBubbles     bool
+	AvoidBubbleOverlap      bool
 	BubbleNormal            bool
 	BubbleWhisper           bool
 	BubbleYell              bool

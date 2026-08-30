@@ -37,6 +37,27 @@ func TestPonderBubbleAnimationAdvances(t *testing.T) {
 	}
 }
 
+func TestDecoratedBubbleOverlapMargins(t *testing.T) {
+	const scale = 2.0
+	tests := []struct {
+		name string
+		typ  int
+		want int
+	}{
+		{name: "normal", typ: kBubbleNormal, want: 0},
+		{name: "ponder", typ: kBubblePonder, want: 16},
+		{name: "yell", typ: kBubbleYell, want: 8},
+		{name: "growl", typ: kBubbleMonster, want: 8},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := bubbleOverlapMargin(test.typ, scale); got != test.want {
+				t.Fatalf("bubbleOverlapMargin(%d, %.1f) = %d, want %d", test.typ, scale, got, test.want)
+			}
+		})
+	}
+}
+
 func TestBubbleAnimationCanBeDisabled(t *testing.T) {
 	original := gs.AnimatedChatBubbles
 	t.Cleanup(func() { gs.AnimatedChatBubbles = original })

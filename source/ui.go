@@ -3754,16 +3754,24 @@ func makeLoginWindow() {
 				if err != nil {
 					logError("parse movie: %v", err)
 					clmov = ""
-					loginWin.MarkOpen()
-					makeErrorWindow("Error: Open clMov: " + err.Error())
+					dispatchMainThread(func() {
+						loginWin.MarkOpen()
+						makeErrorWindow("Error: Open clMov: " + err.Error())
+					})
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
-				updateGameWindowTitle()
 				applyEnabledScripts()
 				ctx, cancel := context.WithCancel(gameCtx)
-				mp := newMoviePlayer(frames, clMovFPS, cancel)
-				mp.makePlaybackWindow()
+				var mp *moviePlayer
+				if !dispatchMainThreadAndWait(ctx, func() {
+					updateGameWindowTitle()
+					mp = newMoviePlayer(frames, clMovFPS, cancel)
+					mp.makePlaybackWindow()
+				}) {
+					cancel()
+					return
+				}
 				go mp.run(ctx)
 			}()
 		}
@@ -4621,6 +4629,7 @@ func makeSettingsWindow() {
 	}
 	bubbleSection.AddItem(bubbleOpSlider)
 
+	var refreshBubbleLifetimeControls func()
 	bubbleLifetimeDD, bubbleLifetimeEvents := eui.NewDropdown()
 	bubbleLifetimeDD.Label = "Bubble Lifetime"
 	bubbleLifetimeDD.Options = []string{BubbleLifetimeModern, BubbleLifetimeClassic}
@@ -4633,6 +4642,9 @@ func makeSettingsWindow() {
 	bubbleLifetimeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(bubbleLifetimeDD.Options) {
 			gs.BubbleLifetimeMode = bubbleLifetimeDD.Options[ev.Index]
+			if refreshBubbleLifetimeControls != nil {
+				refreshBubbleLifetimeControls()
+			}
 			settingsDirty = true
 		}
 	}
@@ -4668,6 +4680,13 @@ func makeSettingsWindow() {
 		}
 	}
 	bubbleSection.AddItem(bubblePerWordSlider)
+
+	refreshBubbleLifetimeControls = func() {
+		disabled := normalizeBubbleLifetimeMode(gs.BubbleLifetimeMode) == BubbleLifetimeClassic
+		bubbleBaseLifeSlider.Disabled = disabled
+		bubblePerWordSlider.Disabled = disabled
+	}
+	refreshBubbleLifetimeControls()
 
 	// Bubble visual scale (not font size)
 	bubbleScaleSlider, bubbleScaleEvents := eui.NewSlider()
@@ -5179,7 +5198,7 @@ func confirmQuit() {
 			{Text: "Quit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				saveCharacters()
 				saveSettings()
-				exitApplication(0)
+				exitApplication(0, "user confirmed Quit")
 			}},
 		},
 	)
@@ -5935,7 +5954,7 @@ func makeQualityWindow() {
 	smallMovingPicturesCB.Size = eui.Point{X: width, Y: 24}
 	smallMovingPicturesCB.Checked = gs.InterpolateSmallMovingPictures
 	smallMovingPicturesCB.Disabled = !gs.MotionSmoothing
-	smallMovingPicturesCB.SetTooltip("Attempt to smooth independently moving picture sprites up to 32x32 source pixels, such as coins. Requires Smooth Motion.")
+	smallMovingPicturesCB.SetTooltip("Attempt to smooth independently moving picture sprites whose visible area is up to 35x35 pixels and moves no more than 64 pixels between updates, such as coins. Requires Smooth Motion.")
 	smallMovingEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.InterpolateSmallMovingPictures = ev.Checked
@@ -6919,6 +6938,19 @@ func makeBubbleWindow() {
 		}
 	}
 	displaySection.AddItem(animatedBubblesCB)
+
+	avoidBubbleOverlapCB, avoidBubbleOverlapEvents := eui.NewCheckbox()
+	avoidBubbleOverlapCB.Text = "Prevent Bubble Overlap"
+	avoidBubbleOverlapCB.Size = eui.Point{X: width, Y: 24}
+	avoidBubbleOverlapCB.Checked = gs.AvoidBubbleOverlap
+	avoidBubbleOverlapCB.SetTooltip("Move crowded chat bubbles apart while keeping their arrows anchored to the speaker.")
+	avoidBubbleOverlapEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.AvoidBubbleOverlap = ev.Checked
+			settingsDirty = true
+		}
+	}
+	displaySection.AddItem(avoidBubbleOverlapCB)
 
 	addBubbleCB := func(section *eui.ItemData, label string, val *bool) {
 		cb, events := eui.NewCheckbox()

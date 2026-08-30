@@ -45,22 +45,23 @@ var (
 	pass     string
 	passHash string
 
-	clmov             string
-	pcapPath          string
-	fake              bool
-	blockSound        bool
-	blockBubbles      bool
-	blockTTS          bool
-	blockMusic        bool
-	dumpMusic         bool
-	imgDump           bool
-	imgDumpScale      int
-	imgDumpScaleType  string
-	sndDump           bool
-	dumpBEPPTags      bool
-	musicDebug        bool
-	experimental      bool
-	brandSpriteOutput string
+	clmov              string
+	pcapPath           string
+	fake               bool
+	blockSound         bool
+	blockBubbles       bool
+	blockTTS           bool
+	blockMusic         bool
+	dumpMusic          bool
+	imgDump            bool
+	imgDumpSingleFrame bool
+	imgDumpScale       int
+	imgDumpScaleType   string
+	sndDump            bool
+	dumpBEPPTags       bool
+	musicDebug         bool
+	experimental       bool
+	brandSpriteOutput  string
 )
 
 func main() {
@@ -84,6 +85,7 @@ func main() {
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
 	flag.BoolVar(&dumpMusic, "dumpMusic", false, "write played music as a .wav file")
 	flag.BoolVar(&imgDump, "imgDump", false, "export all images to dump/img as PNG and exit")
+	flag.BoolVar(&imgDumpSingleFrame, "imgDumpSingleFrame", false, "with -imgDump, export only frame 0 of each image")
 	flag.IntVar(&imgDumpScale, "imgDumpScale", 1, "scale exported images by 1, 2, 3, or 4")
 	flag.StringVar(&imgDumpScaleType, "imgDumpScaleType", "nearest", "image export upscale type: nearest, crisp, balanced, smooth, or ultra-smooth")
 	flag.BoolVar(&sndDump, "sndDump", false, "export all sounds to dump/snd as WAV and exit")
@@ -192,7 +194,19 @@ func main() {
 	loadStats()
 	defer saveStats()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), shutdownSignals()...)
+	ctx, cancel := context.WithCancel(context.Background())
+	shutdownSignalCh := make(chan os.Signal, 1)
+	if signals := shutdownSignals(); len(signals) > 0 {
+		signal.Notify(shutdownSignalCh, signals...)
+		defer signal.Stop(shutdownSignalCh)
+		go func() {
+			select {
+			case sig := <-shutdownSignalCh:
+				requestApplicationShutdown(cancel, "operating system signal "+sig.String())
+			case <-ctx.Done():
+			}
+		}()
+	}
 	if !isWASM {
 		initDiscordRPC(ctx)
 	}
@@ -226,7 +240,7 @@ func main() {
 		if assetDumpMode() {
 			select {
 			case <-assetDumpComplete:
-				cancel()
+				requestApplicationShutdown(cancel, "asset export completed")
 			case <-ctx.Done():
 			}
 			return
@@ -239,9 +253,6 @@ func main() {
 			}
 			if !waitForMovieAssets(ctx) {
 				return
-			}
-			if loginWin != nil {
-				loginWin.Close()
 			}
 			drawStateEncrypted = false
 			var (
@@ -261,12 +272,24 @@ func main() {
 			if wasmPrivacyActive() {
 				playerName = ""
 			}
-			updateGameWindowTitle()
 			applyEnabledScripts()
 			scriptSessionLogin(playerName)
 			defer scriptSessionLogout(playerName)
 
-			mp := newMoviePlayer(frames, clMovFPS, cancel)
+			var mp *moviePlayer
+			if !dispatchMainThreadAndWait(ctx, func() {
+				if loginWin != nil {
+					loginWin.Close()
+				}
+				updateGameWindowTitle()
+				movieCancel := func() {
+					requestApplicationShutdown(cancel, "command-line movie controls closed")
+				}
+				mp = newMoviePlayer(frames, clMovFPS, movieCancel)
+				mp.makePlaybackWindow()
+			}) {
+				return
+			}
 			if *genPGO {
 				mp.repeat = true
 				if *pgoWarmupMovie {
@@ -279,7 +302,6 @@ func main() {
 				gs.PowerSaveAlways = false
 				gs.PowerSaveBackground = false
 			}
-			mp.makePlaybackWindow()
 
 			if *genPGO {
 				go func() {
@@ -319,7 +341,7 @@ func main() {
 							}
 						}
 					}
-					cancel()
+					requestApplicationShutdown(cancel, "PGO capture completed")
 				}()
 			}
 			go mp.run(ctx)
@@ -349,7 +371,7 @@ func main() {
 		}
 	}()
 	runGame(ctx)
-	cancel()
+	requestApplicationShutdown(cancel, "game loop ended")
 
 	<-ctx.Done()
 }
@@ -359,8 +381,17 @@ func shutdownScripts() {
 	savescriptStores()
 }
 
-func exitApplication(code int) {
+func requestApplicationShutdown(cancel context.CancelFunc, reason string) {
+	recordShutdownReason(reason)
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func exitApplication(code int, reason string) {
+	recordShutdownReason(reason)
 	shutdownScripts()
+	closeDiagnosticsLog()
 	os.Exit(code)
 }
 
@@ -375,13 +406,13 @@ func waitForMovieAssets(ctx context.Context) bool {
 
 		dlMutex.Lock()
 		needImages := status.NeedImages
-		needSounds := status.NeedSounds
 		dlMutex.Unlock()
 
 		imagesReady := clImages != nil
-		soundsReady := currentCLSoundsArchive() != nil
 
-		if imagesReady && soundsReady && !needImages && !needSounds {
+		// Movie rendering requires artwork. Sound archive loading is deferred
+		// until after the first usable frame and must not hold movie startup.
+		if imagesReady && !needImages {
 			return true
 		}
 

@@ -27,6 +27,23 @@ type frameDescriptor struct {
 	Plane  int
 }
 
+func sameBubbleOwnerDescriptor(a, b frameDescriptor) bool {
+	return a.Type == b.Type &&
+		a.PictID == b.PictID &&
+		a.Name == b.Name &&
+		bytes.Equal(a.Colors, b.Colors)
+}
+
+func discardUnnamedBubblesForDescriptorIndex(bubbles []bubble, index uint8) []bubble {
+	kept := bubbles[:0]
+	for _, b := range bubbles {
+		if b.Index != index || b.OwnerName != "" {
+			kept = append(kept, b)
+		}
+	}
+	return kept
+}
+
 type framePicture struct {
 	PictID       uint16
 	H, V         int16
@@ -100,7 +117,8 @@ const maxInterpPixels = 64
 const maxMobileInterpPixels = 64
 const maxPersistImageSize = 512
 const minMovingPicturePixels = 12000
-const maxInterpolatedMovingPictureDimension = 32
+const maxInterpolatedMovingPictureDimension = 35
+const maxInterpolatedMovingPictureMovement = 64
 
 // percent of area that must be outside the field to count as "on the edge"
 const edgeOutsidePercent = 70
@@ -161,6 +179,12 @@ func pictureMotionInterpolationEnabled(p framePicture) bool {
 	}
 	w, h := pictureVisibleSize(p.PictID)
 	return w > 0 && h > 0 && w <= maxInterpolatedMovingPictureDimension && h <= maxInterpolatedMovingPictureDimension
+}
+
+func smallPictureMotionWithinInterpolationLimit(current, previous framePicture, shiftX, shiftY int) bool {
+	dh := int(current.H) - int(previous.H) - shiftX
+	dv := int(current.V) - int(previous.V) - shiftY
+	return dh*dh+dv*dv <= maxInterpolatedMovingPictureMovement*maxInterpolatedMovingPictureMovement
 }
 
 func pictureMotionBlockedAtEdge(p framePicture, cloudMotion bool) bool {
@@ -1589,6 +1613,12 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		state.descriptors = make(map[uint8]frameDescriptor)
 	}
 	for _, d := range descs {
+		if previous, ok := state.descriptors[d.Index]; ok && !sameBubbleOwnerDescriptor(previous, d) {
+			// Named bubbles can relink if their owner moves to another descriptor
+			// index. Unnamed bubbles cannot be identified safely, so discard them
+			// rather than allowing them to jump to the replacement mobile.
+			state.bubbles = discardUnnamedBubblesForDescriptorIndex(state.bubbles, d.Index)
+		}
 		state.descriptors[d.Index] = d
 	}
 	for i := range prevPics {
@@ -1636,9 +1666,14 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		if moving && pictureMotionInterpolationEnabled(newPics[i]) {
 			if j := positionMatches[i]; j >= 0 {
 				previous := &prevPics[j]
-				newPics[i].PrevH = previous.H
-				newPics[i].PrevV = previous.V
+				// This is still the corresponding prior sprite even when its
+				// independent jump is too large to smooth. Mark it consumed so
+				// the old position is not also carried forward as a stale sprite.
 				previous.Owned = true
+				if cloudMotion || smallPictureMotionWithinInterpolationLimit(newPics[i], *previous, state.picShiftX, state.picShiftY) {
+					newPics[i].PrevH = previous.H
+					newPics[i].PrevV = previous.V
+				}
 			}
 		} else if owner != nil {
 			owner.Owned = true
@@ -1984,7 +2019,7 @@ stateRecordLoop:
 				}
 				if showBubble && !skipRender {
 					life := configuredBubbleLifeFrames(txt)
-					b := bubble{Index: idx, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
+					b := bubble{Index: idx, OwnerName: name, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
 					switch bubbleType {
 					case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 						b.NoArrow = true

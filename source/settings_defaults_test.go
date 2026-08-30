@@ -24,6 +24,7 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"alternate row backgrounds":  gsdef.AlternateRowBackgrounds,
 		"window shadows":             gsdef.WindowShadows,
 		"animated chat bubbles":      gsdef.AnimatedChatBubbles,
+		"bubble overlap prevention":  gsdef.AvoidBubbleOverlap,
 	}
 	for name, enabled := range defaults {
 		if !enabled {

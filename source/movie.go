@@ -371,7 +371,7 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 			pos += lgt
 			if text != "" && bubbleCounter > 0 {
 				typ := int(int32(binary.BigEndian.Uint32(buf[l.bubbleTypeOffset : l.bubbleTypeOffset+4])))
-				b := bubble{Index: uint8(idx), Text: text, Type: typ, CreatedFrame: frameCounter, LifeFrames: int(bubbleCounter)}
+				b := bubble{Index: uint8(idx), OwnerName: d.Name, Text: text, Type: typ, CreatedFrame: frameCounter, LifeFrames: int(bubbleCounter)}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 					b.NoArrow = true

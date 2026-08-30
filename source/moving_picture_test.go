@@ -83,9 +83,12 @@ func TestPictureMotionInterpolationUsesVisibleFrameSize(t *testing.T) {
 
 	gs.InterpolateSmallMovingPictures = true
 	pictureVisibleSize = func(id uint16) (int, int) {
-		if id == 1 {
+		switch id {
+		case 1:
 			// The source canvas can be much larger than the visible coin.
 			return 12, 14
+		case 2:
+			return maxInterpolatedMovingPictureDimension, maxInterpolatedMovingPictureDimension
 		}
 		// One animation frame exceeds the small-sprite limit.
 		return 12, maxInterpolatedMovingPictureDimension + 1
@@ -93,8 +96,27 @@ func TestPictureMotionInterpolationUsesVisibleFrameSize(t *testing.T) {
 	if !pictureMotionInterpolationEnabled(framePicture{PictID: 1}) {
 		t.Fatal("transparent canvas padding prevented small-sprite interpolation")
 	}
-	if pictureMotionInterpolationEnabled(framePicture{PictID: 2}) {
+	if !pictureMotionInterpolationEnabled(framePicture{PictID: 2}) {
+		t.Fatal("sprite at the visible-size limit was not interpolated")
+	}
+	if pictureMotionInterpolationEnabled(framePicture{PictID: 3}) {
 		t.Fatal("oversized visible animation frame enabled small-sprite interpolation")
+	}
+}
+
+func TestSmallPictureMotionInterpolationHasHardMovementLimit(t *testing.T) {
+	previous := framePicture{H: 10, V: 20}
+	if !smallPictureMotionWithinInterpolationLimit(framePicture{H: 74, V: 20}, previous, 0, 0) {
+		t.Fatal("64-pixel movement was rejected")
+	}
+	if smallPictureMotionWithinInterpolationLimit(framePicture{H: 75, V: 20}, previous, 0, 0) {
+		t.Fatal("65-pixel movement was accepted")
+	}
+	if smallPictureMotionWithinInterpolationLimit(framePicture{H: 74, V: 84}, previous, 0, 0) {
+		t.Fatal("diagonal movement beyond 64 pixels was accepted")
+	}
+	if !smallPictureMotionWithinInterpolationLimit(framePicture{H: 84, V: 20}, previous, 10, 0) {
+		t.Fatal("camera-adjusted 64-pixel movement was rejected")
 	}
 }
 

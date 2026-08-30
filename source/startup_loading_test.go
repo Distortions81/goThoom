@@ -68,9 +68,7 @@ func TestStartupLoadingLabels(t *testing.T) {
 		want  string
 	}{
 		{startupLoadImages, "Loading artwork"},
-		{startupLoadSounds, "Loading sounds"},
-		{startupLoadInterface, "Building interface"},
-		{startupLoadScripts, "Loading scripts"},
+		{startupLoadInterface, "Building windows and controls"},
 		{startupLoadCoreDone, "Preparing lighting"},
 	}
 	for _, test := range tests {
@@ -131,7 +129,7 @@ func TestStartupLoadingActivityScrollsToNewestLines(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("visible activity lines = %d, want 3", len(lines))
 	}
-	if lines[0].text != "Scripts loaded" || lines[2].text != "Artwork renderer ready" {
+	if lines[0].text != "Windows and controls ready" || lines[2].text != "Artwork renderer ready" {
 		t.Fatalf("visible activity lines = %#v, want newest three entries", lines)
 	}
 }
@@ -156,15 +154,57 @@ func TestStartupLoadingProgressTracksCompletedSteps(t *testing.T) {
 	if got := startupLoadingProgress(); got != 0 {
 		t.Fatalf("initial progress = %v, want 0", got)
 	}
-	startupLoader.stage = startupLoadSounds
-	if got := startupLoadingProgress(); got != 1.0/6.0 {
-		t.Fatalf("sound-stage progress = %v, want %v", got, 1.0/6.0)
+	startupLoader.stage = startupLoadInterface
+	if got := startupLoadingProgress(); got != 1.0/4.0 {
+		t.Fatalf("interface-stage progress = %v, want %v", got, 1.0/4.0)
 	}
 	startupLoader.stage = startupLoadCoreDone
 	startupShaderLoader.lightingAttempted = true
 	startupShaderLoader.upscaleAttempted = true
 	if got := startupLoadingProgress(); got != 1 {
 		t.Fatalf("completed progress = %v, want 1", got)
+	}
+}
+
+func TestScriptsWaitForFirstUsableFrameInsteadOfStartup(t *testing.T) {
+	originalLoader := startupLoader
+	defer func() { startupLoader = originalLoader }()
+
+	startupLoader.complete = true
+	startupLoader.scriptsLoaded = false
+	startupLoader.readyFrame = 12
+	startupLoader.drawnFrames = 12
+	if postStartupScriptLoadDue() {
+		t.Fatal("scripts were due before the first usable interface frame")
+	}
+	startupLoader.drawnFrames++
+	if !postStartupScriptLoadDue() {
+		t.Fatal("scripts were not due after the first usable interface frame")
+	}
+	startupLoader.scriptsLoaded = true
+	if postStartupScriptLoadDue() {
+		t.Fatal("scripts remained due after loading")
+	}
+}
+
+func TestSoundsWaitForFirstUsableFrameInsteadOfStartup(t *testing.T) {
+	originalLoader := startupLoader
+	defer func() { startupLoader = originalLoader }()
+
+	startupLoader.complete = true
+	startupLoader.soundsStarted = false
+	startupLoader.readyFrame = 12
+	startupLoader.drawnFrames = 12
+	if postStartupSoundLoadDue() {
+		t.Fatal("sounds were due before the first usable interface frame")
+	}
+	startupLoader.drawnFrames++
+	if !postStartupSoundLoadDue() {
+		t.Fatal("sounds were not due after the first usable interface frame")
+	}
+	startupLoader.soundsStarted = true
+	if postStartupSoundLoadDue() {
+		t.Fatal("sounds remained due after loading started")
 	}
 }
 

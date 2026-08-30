@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -418,6 +419,10 @@ func (p *moviePlayer) makePlaybackWindow() {
 	// Recompute window dimensions now that all controls are present
 	win.Refresh()
 	// Add and open the fully populated window
+	// Playback controls must be open regardless of their persisted state. In
+	// particular, startup window restoration must not see a stale closed state
+	// and immediately invoke this window's cancellation callback.
+	gs.MovieWindow.Open = true
 	win.AddWindow(false)
 	applyWindowState(win, &gs.MovieWindow)
 	win.MarkOpen()
@@ -425,6 +430,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	// When the movie controls window is closed, stop playback and return to
 	// the login window so a new movie can be selected.
 	win.OnClose = func() {
+		log.Printf("movie playback stopped: movie controls closed")
 		// Pause and stop ticker
 		p.pause()
 		if p.ticker != nil {

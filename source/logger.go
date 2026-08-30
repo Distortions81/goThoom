@@ -26,11 +26,29 @@ var (
 	diagnosticsMu     sync.Mutex
 	diagnosticsWriter *rotatingLogWriter
 	diagnosticsOutput io.Writer = os.Stdout
+	shutdownReasonMu  sync.Mutex
+	shutdownReason    string
 
 	// debugPacketDumpLen limits how many bytes of a packet payload are logged.
 	// A value of 0 dumps the entire payload.
 	debugPacketDumpLen = 256
 )
+
+// recordShutdownReason keeps the first reason because later cleanup commonly
+// cancels the same context again. The first request is the useful cause.
+func recordShutdownReason(reason string) {
+	if reason == "" {
+		reason = "unspecified"
+	}
+	shutdownReasonMu.Lock()
+	if shutdownReason != "" {
+		shutdownReasonMu.Unlock()
+		return
+	}
+	shutdownReason = reason
+	shutdownReasonMu.Unlock()
+	log.Printf("shutdown reason: %s", reason)
+}
 
 // rotatingLogWriter keeps a bounded current log plus numbered backups. It is
 // safe for the standard logger and the debug logger to share.
@@ -189,6 +207,7 @@ func setupLogging(debugEnabled bool) {
 }
 
 func closeDiagnosticsLog() {
+	recordShutdownReason("normal application return")
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
 
@@ -214,6 +233,7 @@ func closeDiagnosticsLog() {
 // diagnostics log, then preserves the normal crash behavior.
 func logMainPanic() {
 	if recovered := recover(); recovered != nil {
+		recordShutdownReason(fmt.Sprintf("panic: %v", recovered))
 		if errorLogger != nil {
 			errorLogger.Printf("panic: %v\n%s", recovered, debug.Stack())
 		} else {

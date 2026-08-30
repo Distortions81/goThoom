@@ -143,3 +143,53 @@ func TestAlternateGameSideDisabledForCenteredTiledLayout(t *testing.T) {
 		t.Fatal("alternate game side was not disabled after selecting the centered layout")
 	}
 }
+
+func TestClassicBubbleLifetimeDisablesModernSliders(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	originalWindow := settingsWin
+	originalDirty := settingsDirty
+	gs = gsdef
+	gs.BubbleLifetimeMode = BubbleLifetimeClassic
+	settingsWin = nil
+	t.Cleanup(func() {
+		if settingsWin != nil {
+			settingsWin.RemoveWindow()
+		}
+		gs = originalSettings
+		settingsWin = originalWindow
+		settingsDirty = originalDirty
+	})
+
+	makeSettingsWindow()
+	items := make(map[string]*eui.ItemData)
+	var visit func([]*eui.ItemData)
+	visit = func(children []*eui.ItemData) {
+		for _, item := range children {
+			if item.Label != "" {
+				items[item.Label] = item
+			}
+			visit(item.Contents)
+		}
+	}
+	visit(settingsWin.Contents)
+
+	lifetime := items["Bubble Lifetime"]
+	base := items["Modern Base Life (s)"]
+	perWord := items["Modern Life per Word (s)"]
+	if lifetime == nil || base == nil || perWord == nil {
+		t.Fatal("settings window is missing bubble lifetime controls")
+	}
+	if !base.Disabled || !perWord.Disabled {
+		t.Fatal("modern lifetime sliders are enabled in classic mode")
+	}
+
+	lifetime.Handler.Emit(eui.UIEvent{Item: lifetime, Type: eui.EventDropdownSelected, Index: 0})
+	if base.Disabled || perWord.Disabled {
+		t.Fatal("modern lifetime sliders remain disabled after selecting modern mode")
+	}
+	lifetime.Handler.Emit(eui.UIEvent{Item: lifetime, Type: eui.EventDropdownSelected, Index: 1})
+	if !base.Disabled || !perWord.Disabled {
+		t.Fatal("modern lifetime sliders remain enabled after selecting classic mode")
+	}
+}

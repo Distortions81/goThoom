@@ -53,7 +53,7 @@ func runFakeMode(ctx context.Context) {
 		// Helper to append a bubble and show corresponding chat message.
 		emitBubble := func(idx uint8, typ int, name, verb, txt string) {
 			life := configuredBubbleLifeFrames(txt)
-			b := bubble{Index: idx, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
+			b := bubble{Index: idx, OwnerName: name, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
 			switch typ & kBubbleTypeMask {
 			case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 				b.NoArrow = true

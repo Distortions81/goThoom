@@ -170,7 +170,7 @@ func checkForNewVersion() {
 					{Text: "Cancel"},
 					{Text: "Download", Action: func() {
 						browser.OpenURL(updateDownloadURL)
-						exitApplication(0)
+						exitApplication(0, "update download opened")
 					}},
 				},
 			)

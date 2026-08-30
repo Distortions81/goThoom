@@ -20,9 +20,7 @@ type startupLoadStage uint8
 
 const (
 	startupLoadImages startupLoadStage = iota
-	startupLoadSounds
 	startupLoadInterface
-	startupLoadScripts
 	startupLoadCoreDone
 )
 
@@ -33,6 +31,9 @@ var startupLoader = struct {
 	nextWork      time.Time
 	complete      bool
 	precacheRun   bool
+	readyFrame    uint64
+	soundsStarted bool
+	scriptsLoaded bool
 }{}
 
 var startupLoadingDelay time.Duration
@@ -57,6 +58,14 @@ func startupShaderPending() bool {
 
 func optionalEffectsShaderPending() bool {
 	return replacementEffectsEnabled() && replacementEffectsShaderInitializationPending()
+}
+
+func postStartupScriptLoadDue() bool {
+	return startupLoader.complete && !startupLoader.scriptsLoaded && startupLoader.drawnFrames > startupLoader.readyFrame
+}
+
+func postStartupSoundLoadDue() bool {
+	return startupLoader.complete && !startupLoader.soundsStarted && startupLoader.drawnFrames > startupLoader.readyFrame
 }
 
 func updateStartupShaders() {
@@ -94,6 +103,19 @@ func updateStartupShaders() {
 // the large archives or compiling the core Kage shaders.
 func updateStartupLoading() bool {
 	if startupLoader.complete {
+		// Sounds and scripts are deliberately post-startup work. Wait until the
+		// usable interface has been drawn once. Sound archive I/O can run on a
+		// worker; scripts stay on the game thread while that frame remains visible
+		// because script initialization may update client UI registrations.
+		if postStartupSoundLoadDue() {
+			startupLoader.soundsStarted = true
+			loadSoundsAfterStartup()
+		}
+		if postStartupScriptLoadDue() {
+			loadScripts()
+			startupLoader.scriptsLoaded = true
+			notifyLoadedScriptsOfCurrentSession()
+		}
 		// Replacement effects remain optional and may be enabled after startup.
 		if optionalEffectsShaderPending() {
 			updateStartupShaders()
@@ -111,12 +133,8 @@ func updateStartupLoading() bool {
 		switch startupLoader.stage {
 		case startupLoadImages:
 			loadStartupImages()
-		case startupLoadSounds:
-			loadStartupSounds()
 		case startupLoadInterface:
 			once.Do(initGame)
-		case startupLoadScripts:
-			loadScripts()
 		}
 		startupLoader.stage++
 		if startupLoader.stage < startupLoadCoreDone || startupShaderPending() {
@@ -129,6 +147,7 @@ func updateStartupLoading() bool {
 		return true
 	}
 	startupLoader.complete = true
+	startupLoader.readyFrame = startupLoader.drawnFrames
 	gameStartedOnce.Do(func() { close(gameStarted) })
 	return false
 }
@@ -169,17 +188,24 @@ func loadStartupImages() {
 	prepareClassicSplash()
 }
 
-func loadStartupSounds() {
-	sounds, err := loadCLSoundsArchive()
-	if err != nil {
-		logError("failed to load CL_Sounds: %v", err)
-		return
-	}
-	replaceCLSoundsArchive(sounds)
-	if gs.PrecacheSounds && !startupLoader.precacheRun {
-		startupLoader.precacheRun = true
-		go precacheSounds()
-	}
+func loadSoundsAfterStartup() {
+	go func() {
+		sounds, err := loadCLSoundsArchive()
+		if err != nil {
+			logError("failed to load CL_Sounds: %v", err)
+			return
+		}
+		dispatchMainThread(func() {
+			replaceCLSoundsArchive(sounds)
+			if gs.PrecacheSounds && !startupLoader.precacheRun {
+				startupLoader.precacheRun = true
+				go precacheSounds()
+			}
+			if clmov == "" && pcapPath == "" && !fake && clImages != nil && !status.NeedImages && !status.NeedSounds && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+				openSetupWizard(false)
+			}
+		})
+	}()
 }
 
 func shaderCompilationFrameDrawn() {
@@ -197,12 +223,8 @@ func startupLoadingLabel() string {
 	switch startupLoader.stage {
 	case startupLoadImages:
 		return "Loading artwork"
-	case startupLoadSounds:
-		return "Loading sounds"
 	case startupLoadInterface:
-		return "Building interface"
-	case startupLoadScripts:
-		return "Loading scripts"
+		return "Building windows and controls"
 	default:
 		switch {
 		case !startupShaderLoader.lightingAttempted:
@@ -227,9 +249,7 @@ func startupLoadingLogLines() []startupLoadingLine {
 		finished string
 	}{
 		{startupLoadImages, "Reading artwork archive", "Artwork archive ready"},
-		{startupLoadSounds, "Reading sound archive", "Sound archive ready"},
-		{startupLoadInterface, "Building interface", "Interface ready"},
-		{startupLoadScripts, "Loading scripts", "Scripts loaded"},
+		{startupLoadInterface, "Building windows and controls", "Windows and controls ready"},
 	}
 
 	lines := make([]startupLoadingLine, 0, 7)
@@ -276,7 +296,7 @@ func visibleStartupLoadingLogLines(maxLines int) []startupLoadingLine {
 }
 
 func startupLoadingProgress() float64 {
-	total := 6
+	total := int(startupLoadCoreDone) + 2
 	completed := min(int(startupLoader.stage), int(startupLoadCoreDone))
 	if startupShaderLoader.lightingAttempted {
 		completed++

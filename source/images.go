@@ -631,10 +631,11 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 	innerWidth := sheet.Bounds().Dx() - 2
 	h := innerHeight / frames
 
-	for f := 0; f < frames; f++ {
+	framesToDump := imageDumpFrameCount(frames, imgDumpSingleFrame)
+	for f := 0; f < framesToDump; f++ {
 		y := 1 + f*h
 		frameImg := sheet.SubImage(image.Rect(1, y, 1+innerWidth, y+h)).(*ebiten.Image)
-		fn := filepath.Join("dump", "img", fmt.Sprintf("%d_%d.png", id, f))
+		fn := filepath.Join("dump", "img", imageDumpFrameFilename(id, f, frames))
 		if file, err := os.Create(fn); err == nil {
 			img := frameImg
 			if imgDumpScale > 1 {
@@ -669,6 +670,20 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 		})
 		imgMetaWriter.Flush()
 	}
+}
+
+func imageDumpFrameCount(frames int, singleFrame bool) int {
+	if frames <= 0 || singleFrame {
+		return 1
+	}
+	return frames
+}
+
+func imageDumpFrameFilename(id uint16, frame, frames int) string {
+	if frames <= 1 {
+		return fmt.Sprintf("%d.png", id)
+	}
+	return fmt.Sprintf("%d_%d.png", id, frame)
 }
 
 // loadImage retrieves the first frame for the specified picture ID. Images are
