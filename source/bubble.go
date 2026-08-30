@@ -572,6 +572,24 @@ func drawBubbleBatch(screen *ebiten.Image, requests []bubbleDrawRequest) {
 	}
 }
 
+func bubbleDrawRect(bounds image.Rectangle, request bubbleDrawRequest) (image.Rectangle, bool, bool) {
+	if request.txt == "" {
+		return image.Rectangle{}, false, false
+	}
+	sw, sh := bounds.Dx(), bounds.Dy()
+	if sw <= 0 || sh <= 0 {
+		return image.Rectangle{}, false, false
+	}
+	noArrow := request.noArrow
+	if request.x < 0 || request.x >= sw || request.y < 0 || request.y >= sh {
+		noArrow = true
+	}
+	rect := bubbleRectForPlacement(request.x, request.y, request.metrics, request.placement, request.far || noArrow)
+	rect = clampBubbleRect(rect, sw, sh)
+	rect = clampBubbleRect(rect.Add(request.bodyOffset), sw, sh)
+	return rect, noArrow, true
+}
+
 func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleDrawGeometry, bool) {
 	if screen == nil || request.txt == "" {
 		return bubbleDrawGeometry{}, false
@@ -589,16 +607,13 @@ func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleD
 	}
 
 	tailX, tailY := request.x, request.y
-	noArrow := request.noArrow
-	if tailX < 0 || tailX >= sw || tailY < 0 || tailY >= sh {
-		noArrow = true
+	rect, noArrow, ok := bubbleDrawRect(bounds, request)
+	if !ok {
+		return bubbleDrawGeometry{}, false
 	}
 	m := request.metrics
 	tailHalf := m.tailHalf
 	bubbleType := request.typ & kBubbleTypeMask
-	rect := bubbleRectForPlacement(request.x, request.y, m, request.placement, request.far || noArrow)
-	rect = clampBubbleRect(rect, sw, sh)
-	rect = clampBubbleRect(rect.Add(request.bodyOffset), sw, sh)
 	left, top, right, bottom := rect.Min.X, rect.Min.Y, rect.Max.X, rect.Max.Y
 	baseX := left + m.width/2
 	if request.placement == bubblePosUpperLeft || request.placement == bubblePosLowerLeft {

@@ -10,9 +10,10 @@ Networking and Live Stats:
 - Added bounded rotating diagnostic logs under the user data folder's Diagnostics directory, including startup details, the first shutdown reason, and crash stacks. Advanced Settings can open the folder containing the current log and five backups.
 
 Chat bubbles:
+- Added a repeatable chat-bubble torture scene with every bubble style, varied text sizes, a crowded walking cast, screen-edge cases, and continuous camera motion.
 - Added default-on overlap prevention for ordinary speech, whispers, thoughts, ponders, yells, and growls. Bubble tails are drawn beneath all bodies so crowded pointers cannot cover text.
-- Bubble placement now avoids the full visible shape of ponder waves, yell spikes, and growl spikes. Action and narration boxes remain fixed because their position is meaningful, while other bubbles yield to them.
-- Crowded bubbles periodically reconsider their layout and ease smoothly to a new position. Isolated bubbles retain stable placement instead of jumping away and drifting back.
+- Bubble placement now avoids the full visible shape of ponder waves, yell spikes, and growl spikes. All bubble bodies, including action boxes, participate at equal priority so a conflict's movement is shared instead of pushing only one bubble away.
+- Crowded bubbles jointly seek nearby, tightly packed positions with a small gap and retain a comparable clear layout to prevent flapping. They periodically reconsider after about a second, but immediately rearrange when a bubble appears, expires, or develops a new conflict. If normal-size placement is impossible they progressively compact, and if no legal placement remains they wait rather than ever drawing over another bubble. Bubbles displaced far from their speaker include the speaker's name, with hysteresis to keep the label stable.
 - Bubbles near the top edge move below their speaker when necessary rather than folding their pointer inward or covering the mobile.
 - Bubble text wraps toward a natural 2:1 body shape without adding empty aspect-ratio padding. Oversized messages have a bounded body and reduce their font size when needed.
 - Named bubbles can reconnect to their speaker by name if the server changes that mobile's descriptor index. Ordinary orphaned bubbles hide while their lifetime continues; yells and thoughts can remain at their last location, and unnamed bubbles never attach to a reused index.

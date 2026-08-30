@@ -1776,7 +1776,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 	} else {
 		captureDrawSnapshot(&g.drawSnapshot)
-		if setupWizardPreviewActive {
+		if bubbleTorture {
+			prepareBubbleTortureSnapshot(&g.drawSnapshot, now)
+		} else if setupWizardPreviewActive {
 			prepareSetupWizardSceneSnapshot(&g.drawSnapshot, now)
 		}
 		snap = g.drawSnapshot
@@ -3117,9 +3119,12 @@ func relativeNameTagScale(worldScale, fontRasterScale float64) float64 {
 }
 
 const speechBubbleReferenceScale = 3.0
-const bubbleLayoutReflowInterval = 2 * time.Second
+const bubbleLayoutReflowInterval = time.Second
 const bubbleLayoutMotionHalfLife = 80 * time.Millisecond
 const bubbleLayoutMotionSnapAfter = 500 * time.Millisecond
+const bubbleSpeakerNameFarDistance = 72.0
+const bubbleSpeakerNameNearDistance = 48.0
+const bubbleCollisionGap = 2
 
 type bubblePlacementHistoryKey struct {
 	index uint16
@@ -3128,45 +3133,19 @@ type bubblePlacementHistoryKey struct {
 }
 
 type bubblePlacementHistoryEntry struct {
-	placement  uint8
-	offset     image.Point
-	laidOutAt  time.Time
-	renderX    float64
-	renderY    float64
-	rendered   bool
-	renderedAt time.Time
+	placement    uint8
+	offset       image.Point
+	laidOutAt    time.Time
+	renderX      float64
+	renderY      float64
+	rendered     bool
+	renderedAt   time.Time
+	speakerNamed bool
+	sizePercent  int
 }
 
 var bubblePlacementHistory = make(map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry)
-
-func bubbleHasFixedPosition(typ int) bool {
-	switch typ & kBubbleTypeMask {
-	case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
-		return true
-	default:
-		return false
-	}
-}
-
-func bubbleCollisionPriority(typ int) int {
-	if bubbleHasFixedPosition(typ) {
-		return 0
-	}
-	switch typ & kBubbleTypeMask {
-	case kBubblePonder, kBubbleYell, kBubbleMonster:
-		return 1
-	default:
-		return 2
-	}
-}
-
-func bubblesInCollisionOrder(bubbles []bubble) []bubble {
-	ordered := append([]bubble(nil), bubbles...)
-	slices.SortStableFunc(ordered, func(a, b bubble) int {
-		return bubbleCollisionPriority(a.Type) - bubbleCollisionPriority(b.Type)
-	})
-	return ordered
-}
+var bubbleTortureLastOverlapLog time.Time
 
 func bubbleVisibleWithoutOwner(typ int) bool {
 	switch typ & kBubbleTypeMask {
@@ -3278,17 +3257,6 @@ func bubbleLayoutNeedsReflow(lastLayout, now time.Time) bool {
 	return lastLayout.IsZero() || now.Sub(lastLayout) >= bubbleLayoutReflowInterval || now.Before(lastLayout)
 }
 
-func bubbleLayoutHistoryForPass(previous bubblePlacementHistoryEntry, reflow bool) (uint8, image.Point) {
-	offset := previous.offset
-	if reflow {
-		// Periodic reflow should let a displaced body compact again, but its
-		// established side remains stable unless an obstacle or edge forces it
-		// elsewhere. Forgetting both causes isolated bubbles to jump sides.
-		offset = image.Point{}
-	}
-	return previous.placement, offset
-}
-
 func smoothBubbleLayoutCoordinate(current, target float64, elapsed time.Duration) float64 {
 	if elapsed <= 0 {
 		return current
@@ -3307,7 +3275,7 @@ func smoothBubbleLayoutCoordinate(current, target float64, elapsed time.Duration
 // bubbleLayoutRenderOffset eases only the body's layout position relative to
 // its speaker. The speaker's own movement is therefore followed immediately,
 // while collision reflows remain easy for the eye to track.
-func bubbleLayoutRenderOffset(previous bubblePlacementHistoryEntry, targetRect, baseRect, bounds image.Rectangle, reference image.Point, now time.Time) (image.Point, float64, float64) {
+func bubbleLayoutRenderOffset(previous bubblePlacementHistoryEntry, targetRect, baseRect, bounds image.Rectangle, reference image.Point, now time.Time) (image.Point, float64, float64, image.Rectangle) {
 	target := targetRect.Min.Sub(reference)
 	renderX, renderY := float64(target.X), float64(target.Y)
 	if previous.rendered && !now.Before(previous.renderedAt) {
@@ -3320,7 +3288,7 @@ func bubbleLayoutRenderOffset(previous bubblePlacementHistoryEntry, targetRect, 
 	renderRect = clampBubbleRect(renderRect, bounds.Dx(), bounds.Dy())
 	renderX = float64(renderRect.Min.X - reference.X)
 	renderY = float64(renderRect.Min.Y - reference.Y)
-	return renderRect.Min.Sub(baseRect.Min), renderX, renderY
+	return renderRect.Min.Sub(baseRect.Min), renderX, renderY, renderRect
 }
 
 func bubbleRectOverlapArea(rect image.Rectangle, others []image.Rectangle, gap int) (int, int) {
@@ -3337,122 +3305,237 @@ func bubbleRectOverlapArea(rect image.Rectangle, others []image.Rectangle, gap i
 	return area, count
 }
 
-func appendBubbleCoordinate(values []int, value, minValue, maxValue int) []int {
-	value = max(minValue, min(value, maxValue))
-	for _, existing := range values {
-		if existing == value {
-			return values
-		}
+func bubbleRectAnchorDistanceSquared(rect image.Rectangle, anchor image.Point) int {
+	dx, dy := 0, 0
+	if anchor.X < rect.Min.X {
+		dx = rect.Min.X - anchor.X
+	} else if anchor.X > rect.Max.X {
+		dx = anchor.X - rect.Max.X
 	}
-	return append(values, value)
+	if anchor.Y < rect.Min.Y {
+		dy = rect.Min.Y - anchor.Y
+	} else if anchor.Y > rect.Max.Y {
+		dy = anchor.Y - rect.Max.Y
+	}
+	return dx*dx + dy*dy
 }
 
-// resolveBubbleOverlap moves a bubble body farther within its chosen quadrant
-// while leaving the tail tip anchored to the speaker. Candidate coordinates
-// line up just beyond existing bubble edges, so the search can find compact
-// non-overlapping layouts without stepping or drifting between frames.
-func resolveBubbleOverlap(preferred image.Rectangle, anchor image.Point, placement uint8, metrics bubbleMetrics, bounds image.Rectangle, occupied []image.Rectangle, previous image.Point, collisionMargin int) (image.Rectangle, image.Point) {
-	preferred = preferred.Intersect(bounds)
-	if preferred.Empty() || len(occupied) == 0 {
-		return preferred, image.Point{}
+func bubbleNeedsSpeakerName(wasNamed bool, rect image.Rectangle, anchor image.Point, bubbleScale float64) bool {
+	threshold := bubbleSpeakerNameFarDistance * bubbleScale
+	if wasNamed {
+		threshold = bubbleSpeakerNameNearDistance * bubbleScale
+	}
+	threshold = max(threshold, 1)
+	return float64(bubbleRectAnchorDistanceSquared(rect, anchor)) > threshold*threshold
+}
+
+func bubbleTextWithSpeakerName(name, text string) string {
+	if name == "" || text == "" || strings.HasPrefix(text, name+": ") {
+		return text
+	}
+	return name + ": " + text
+}
+
+type jointBubbleLayoutItem struct {
+	rect   image.Rectangle
+	margin int
+}
+
+type preparedSpeechBubble struct {
+	bubble          bubble
+	key             bubblePlacementHistoryKey
+	request         bubbleDrawRequest
+	normalRect      image.Rectangle
+	targetRect      image.Rectangle
+	referenceAnchor image.Point
+	tailAnchor      image.Point
+	speakerName     string
+	historyText     string
+	margin          int
+}
+
+const bubbleJointLayoutIterations = 64
+
+func bubbleLayoutPairFootprints(a, b jointBubbleLayoutItem, gap int) (image.Rectangle, image.Rectangle) {
+	aGap := gap / 2
+	bGap := gap - aGap
+	return bubbleOverlapRect(a.rect, a.margin+aGap), bubbleOverlapRect(b.rect, b.margin+bGap)
+}
+
+func separateBubblePair(a, b *jointBubbleLayoutItem, bounds image.Rectangle) bool {
+	aFoot, bFoot := bubbleLayoutPairFootprints(*a, *b, bubbleCollisionGap)
+	intersection := aFoot.Intersect(bFoot)
+	if intersection.Empty() {
+		return false
+	}
+	type separationAxis struct {
+		horizontal             bool
+		amount                 int
+		aDirection, bDirection int
+		aCapacity, bCapacity   int
+	}
+	axis := func(horizontal bool) separationAxis {
+		option := separationAxis{horizontal: horizontal}
+		if horizontal {
+			option.amount = intersection.Dx()
+			aBeforeB := aFoot.Min.X+aFoot.Max.X <= bFoot.Min.X+bFoot.Max.X
+			if aBeforeB {
+				option.aDirection, option.bDirection = -1, 1
+				option.aCapacity = max(0, a.rect.Min.X-bounds.Min.X)
+				option.bCapacity = max(0, bounds.Max.X-b.rect.Max.X)
+			} else {
+				option.aDirection, option.bDirection = 1, -1
+				option.aCapacity = max(0, bounds.Max.X-a.rect.Max.X)
+				option.bCapacity = max(0, b.rect.Min.X-bounds.Min.X)
+			}
+			return option
+		}
+		option.amount = intersection.Dy()
+		aBeforeB := aFoot.Min.Y+aFoot.Max.Y <= bFoot.Min.Y+bFoot.Max.Y
+		if aBeforeB {
+			option.aDirection, option.bDirection = -1, 1
+			option.aCapacity = max(0, a.rect.Min.Y-bounds.Min.Y)
+			option.bCapacity = max(0, bounds.Max.Y-b.rect.Max.Y)
+		} else {
+			option.aDirection, option.bDirection = 1, -1
+			option.aCapacity = max(0, bounds.Max.Y-a.rect.Max.Y)
+			option.bCapacity = max(0, b.rect.Min.Y-bounds.Min.Y)
+		}
+		return option
+	}
+	xAxis, yAxis := axis(true), axis(false)
+	unresolved := func(option separationAxis) int {
+		return max(0, option.amount-option.aCapacity-option.bCapacity)
+	}
+	chosen := xAxis
+	if xRemaining, yRemaining := unresolved(xAxis), unresolved(yAxis); yRemaining < xRemaining || yRemaining == xRemaining && yAxis.amount < xAxis.amount {
+		chosen = yAxis
 	}
 
-	width, height := preferred.Dx(), preferred.Dy()
-	minX, maxX := bounds.Min.X, bounds.Max.X-width
-	minY, maxY := bounds.Min.Y, bounds.Max.Y-height
-	gap := max(2, metrics.tailHalf)
+	aAmount, bAmount := chosen.aCapacity, chosen.bCapacity
+	if chosen.aCapacity+chosen.bCapacity >= chosen.amount {
+		// Stay as close as possible to an equal split. If an edge constrains one
+		// body, transfer only the unavailable part to the other body.
+		desiredA := (chosen.amount + 1) / 2
+		minimumA := max(0, chosen.amount-chosen.bCapacity)
+		maximumA := min(chosen.amount, chosen.aCapacity)
+		aAmount = max(minimumA, min(desiredA, maximumA))
+		bAmount = chosen.amount - aAmount
+	}
+	aDelta, bDelta := image.Point{}, image.Point{}
+	if chosen.horizontal {
+		aDelta.X = chosen.aDirection * aAmount
+		bDelta.X = chosen.bDirection * bAmount
+	} else {
+		aDelta.Y = chosen.aDirection * aAmount
+		bDelta.Y = chosen.bDirection * bAmount
+	}
+	oldA, oldB := a.rect, b.rect
+	a.rect = clampBubbleRect(oldA.Add(aDelta), bounds.Dx(), bounds.Dy())
+	b.rect = clampBubbleRect(oldB.Add(bDelta), bounds.Dx(), bounds.Dy())
+	return a.rect != oldA || b.rect != oldB
+}
 
-	// Keep the body on the side indicated by the selected placement whenever
-	// that side has enough room for it. Near a screen edge, normal clamping is
-	// allowed to take precedence.
-	switch placement {
-	case bubblePosUpperLeft:
-		if limit := anchor.X - metrics.tailHeight - width; limit >= minX {
-			maxX = min(maxX, limit)
+// separateBubbleLayout gives every body equal weight, sharing the minimum
+// separating movement instead of making the last processed bubble absorb it.
+func separateBubbleLayout(items []jointBubbleLayoutItem, bounds image.Rectangle) {
+	for iteration := range bubbleJointLayoutIterations {
+		changed := false
+		if iteration%2 == 0 {
+			for i := range items {
+				for j := i + 1; j < len(items); j++ {
+					if separateBubblePair(&items[i], &items[j], bounds) {
+						changed = true
+					}
+				}
+			}
+		} else {
+			for i := len(items) - 1; i >= 0; i-- {
+				for j := i - 1; j >= 0; j-- {
+					if separateBubblePair(&items[j], &items[i], bounds) {
+						changed = true
+					}
+				}
+			}
 		}
-		if limit := anchor.Y - metrics.tailHeight - height; limit >= minY {
-			maxY = min(maxY, limit)
-		}
-	case bubblePosUpperRight:
-		if limit := anchor.X + metrics.tailHeight; limit <= maxX {
-			minX = max(minX, limit)
-		}
-		if limit := anchor.Y - metrics.tailHeight - height; limit >= minY {
-			maxY = min(maxY, limit)
-		}
-	case bubblePosLowerLeft:
-		if limit := anchor.X - metrics.tailHeight - width; limit >= minX {
-			maxX = min(maxX, limit)
-		}
-		if limit := anchor.Y + metrics.tailHeight; limit <= maxY {
-			minY = max(minY, limit)
-		}
-	case bubblePosLowerRight:
-		if limit := anchor.X + metrics.tailHeight; limit <= maxX {
-			minX = max(minX, limit)
-		}
-		if limit := anchor.Y + metrics.tailHeight; limit <= maxY {
-			minY = max(minY, limit)
+		if !changed {
+			break
 		}
 	}
-	if minX > maxX || minY > maxY {
-		return preferred, image.Point{}
-	}
+}
 
-	preferredMin := image.Pt(
-		max(minX, min(preferred.Min.X, maxX)),
-		max(minY, min(preferred.Min.Y, maxY)),
-	)
-	if previous == (image.Point{}) {
-		preferredRect := image.Rect(preferredMin.X, preferredMin.Y, preferredMin.X+width, preferredMin.Y+height)
-		if area, _ := bubbleRectOverlapArea(bubbleOverlapRect(preferredRect, collisionMargin), occupied, gap); area == 0 {
-			return preferredRect, preferredRect.Min.Sub(preferred.Min)
-		}
-	}
-	previousMin := preferredMin.Add(previous)
-	previousMin.X = max(minX, min(previousMin.X, maxX))
-	previousMin.Y = max(minY, min(previousMin.Y, maxY))
-	if previous != (image.Point{}) {
-		previousRect := image.Rect(previousMin.X, previousMin.Y, previousMin.X+width, previousMin.Y+height)
-		if area, _ := bubbleRectOverlapArea(bubbleOverlapRect(previousRect, collisionMargin), occupied, gap); area == 0 {
-			return previousRect, previousRect.Min.Sub(preferred.Min)
-		}
-	}
-
-	xs := []int{preferredMin.X}
-	ys := []int{preferredMin.Y}
-	if previous != (image.Point{}) {
-		xs = appendBubbleCoordinate(xs, previousMin.X, minX, maxX)
-		ys = appendBubbleCoordinate(ys, previousMin.Y, minY, maxY)
-	}
-	xs = appendBubbleCoordinate(xs, minX, minX, maxX)
-	xs = appendBubbleCoordinate(xs, maxX, minX, maxX)
-	ys = appendBubbleCoordinate(ys, minY, minY, maxY)
-	ys = appendBubbleCoordinate(ys, maxY, minY, maxY)
-	for _, other := range occupied {
-		xs = appendBubbleCoordinate(xs, other.Min.X-gap-width, minX, maxX)
-		xs = appendBubbleCoordinate(xs, other.Max.X+gap, minX, maxX)
-		ys = appendBubbleCoordinate(ys, other.Min.Y-gap-height, minY, maxY)
-		ys = appendBubbleCoordinate(ys, other.Max.Y+gap, minY, maxY)
-	}
-
-	best := image.Rect(preferredMin.X, preferredMin.Y, preferredMin.X+width, preferredMin.Y+height)
-	bestArea, bestCount := bubbleRectOverlapArea(bubbleOverlapRect(best, collisionMargin), occupied, gap)
-	bestDistance := 0
-	for _, x := range xs {
-		for _, y := range ys {
-			candidate := image.Rect(x, y, x+width, y+height)
-			area, count := bubbleRectOverlapArea(bubbleOverlapRect(candidate, collisionMargin), occupied, gap)
-			dx, dy := x-preferredMin.X, y-preferredMin.Y
-			distance := dx*dx + dy*dy
-			if area < bestArea ||
-				(area == bestArea && count < bestCount) ||
-				(area == bestArea && count == bestCount && distance < bestDistance) {
-				best, bestArea, bestCount, bestDistance = candidate, area, count, distance
+func bubbleLayoutConflictFlags(items []jointBubbleLayoutItem) []bool {
+	conflicts := make([]bool, len(items))
+	for i := range items {
+		for j := i + 1; j < len(items); j++ {
+			// Spacing is a layout preference; a conflict is reserved for visible
+			// footprints that would actually overlap. This avoids shrinking or
+			// relaying text merely because integer placement left a one-pixel gap.
+			aFoot, bFoot := bubbleLayoutPairFootprints(items[i], items[j], 0)
+			if !aFoot.Intersect(bFoot).Empty() {
+				conflicts[i], conflicts[j] = true, true
 			}
 		}
 	}
-	return best, best.Min.Sub(preferred.Min)
+	return conflicts
+}
+
+func bubbleLayoutNeedsSolve(activeCount, rememberedCount int, laidOut []time.Time, prior []jointBubbleLayoutItem, now time.Time, preventOverlap bool) bool {
+	// Membership changes are layout events, regardless of the periodic timer.
+	// A zero timestamp also catches a replacement when the total count happens
+	// to stay the same.
+	if activeCount != rememberedCount {
+		return true
+	}
+	for _, lastLayout := range laidOut {
+		if bubbleLayoutNeedsReflow(lastLayout, now) {
+			return true
+		}
+	}
+	if preventOverlap {
+		for _, conflict := range bubbleLayoutConflictFlags(prior) {
+			if conflict {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func bubbleLayoutMaxAnchorDistance(items []jointBubbleLayoutItem, anchors []image.Point) float64 {
+	maximum := 0.0
+	for i := range items {
+		if i >= len(anchors) {
+			break
+		}
+		distance := math.Sqrt(float64(bubbleRectAnchorDistanceSquared(items[i].rect, anchors[i])))
+		maximum = max(maximum, distance)
+	}
+	return maximum
+}
+
+func keepPriorBubbleLayout(prior, candidate []jointBubbleLayoutItem, anchors []image.Point, improvementThreshold float64) bool {
+	for _, conflict := range bubbleLayoutConflictFlags(prior) {
+		if conflict {
+			return false
+		}
+	}
+	priorMaximum := bubbleLayoutMaxAnchorDistance(prior, anchors)
+	candidateMaximum := bubbleLayoutMaxAnchorDistance(candidate, anchors)
+	return candidateMaximum+improvementThreshold >= priorMaximum
+}
+
+func bubbleCompactPercent(percent int) int {
+	switch {
+	case percent <= 0 || percent >= 100:
+		return 85
+	case percent > 70:
+		return 70
+	case percent > 55:
+		return 55
+	default:
+		return 55
+	}
 }
 
 // speechBubbleWindowScale follows the physical world size without depending
@@ -3486,15 +3569,12 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 	}
 	descMap := snap.descriptors
 	maxDist := maxMobileInterpPixels * (snap.dropped + 1)
-	occupied := make([]image.Rectangle, 0, len(snap.bubbles))
-	drawRequests := make([]bubbleDrawRequest, 0, len(snap.bubbles))
+	bounds := image.Rect(0, 0, screen.Bounds().Dx(), screen.Bounds().Dy())
+	prepared := make([]preparedSpeechBubble, 0, len(snap.bubbles))
 	activeHistory := make(map[bubblePlacementHistoryKey]struct{}, len(snap.bubbles))
 	layoutNow := time.Now()
 	bubbleSizeLimit := bubbleBodySizeLimit(screen.Bounds().Dx(), screen.Bounds().Dy())
-	// The overlap solver is intentionally one-way: later movable bubbles yield
-	// to rectangles already in occupied. Process positional annotations first
-	// so speech moves around actions rather than moving the action itself.
-	for _, b := range bubblesInCollisionOrder(snap.bubbles) {
+	for _, b := range snap.bubbles {
 		bubbleType := b.Type & kBubbleTypeMask
 		bubbleText := b.Text
 		typeOK := true
@@ -3532,6 +3612,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		if !(typeOK && originOK) {
 			continue
 		}
+
 		hpos := float64(b.H)
 		vpos := float64(b.V)
 		facing := 2
@@ -3586,100 +3667,161 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 					lowerAnchor.Y += scaledSize / 2
 				}
 			}
-			x, y = upperAnchor.X, upperAnchor.Y
 		}
 		borderCol, bgCol, textCol := bubbleColors(b.Type)
-		placement := bubblePosNone
-		bodyOffset := image.Point{}
-		renderOffset := image.Point{}
+		speakerName := ""
+		if !b.Far && !ownerMissing {
+			if d, ok := descMap[b.Index]; ok {
+				speakerName = d.Name
+			}
+			if speakerName == "" {
+				speakerName = b.OwnerName
+			}
+		}
+		historyText := bubbleText
 		identity := uint16(b.Index)
 		if b.DedupeID != 0 {
 			identity = b.DedupeID
 		}
-		key := bubblePlacementHistoryKey{index: identity, typ: b.Type, text: bubbleText}
+		key := bubblePlacementHistoryKey{index: identity, typ: b.Type, text: historyText}
 		activeHistory[key] = struct{}{}
 		previous := bubblePlacementHistory[key]
-		fixedPosition := bubbleHasFixedPosition(b.Type)
-		if fixedPosition {
-			// Discard collision offsets remembered before this bubble was known to
-			// be fixed. Actions describe an event at this location and must not
-			// ease away from it or back toward it.
-			previous.offset = image.Point{}
-			previous.rendered = false
+		showSpeakerName := previous.speakerNamed && speakerName != ""
+		if showSpeakerName {
+			bubbleText = bubbleTextWithSpeakerName(speakerName, historyText)
 		}
-		reflow := bubbleLayoutNeedsReflow(previous.laidOutAt, layoutNow)
-		previousPlacement, previousOffset := bubbleLayoutHistoryForPass(previous, reflow)
-		metrics := measureBubble(bubbleText, b.Type, bubbleScale, fontScale, bubbleSizeLimit)
+		sizePercent := previous.sizePercent
+		if sizePercent <= 0 {
+			sizePercent = 100
+		}
+		bodyLimit := image.Pt(max(1, bubbleSizeLimit.X*sizePercent/100), max(1, bubbleSizeLimit.Y*sizePercent/100))
+		metrics := measureBubble(bubbleText, b.Type, bubbleScale, fontScale, bodyLimit)
 		collisionMargin := bubbleOverlapMargin(b.Type, bubbleScale)
+		placement := bubblePosNone
+		tailAnchor := image.Pt(x, y)
 		if !b.Far {
-			bounds := image.Rect(0, 0, screen.Bounds().Dx(), screen.Bounds().Dy())
-			// Only other bubbles participate in collision reflow. Treating every
-			// mobile as an obstacle made placement react to their discrete server
-			// positions, briefly flipping sides as a mobile passed nearby.
-			bubbleObstacles := occupied
-			if !gs.AvoidBubbleOverlap || fixedPosition {
-				bubbleObstacles = nil
-			}
-			placement, rect := chooseBubblePlacement(upperAnchor, lowerAnchor, metrics, bounds, bubbleObstacles, collisionMargin, facing, previousPlacement)
-			baseRect := rect
-			anchor := bubbleAnchorForPlacement(upperAnchor, lowerAnchor, placement)
-			x, y = anchor.X, anchor.Y
-			if gs.AvoidBubbleOverlap && !fixedPosition {
-				if previousPlacement != placement {
-					previousOffset = image.Point{}
-				}
-				rect, bodyOffset = resolveBubbleOverlap(rect, anchor, placement, metrics, bounds, occupied, previousOffset, collisionMargin)
-			}
-			laidOutAt := previous.laidOutAt
-			if reflow {
-				laidOutAt = layoutNow
-			}
-			var renderX, renderY float64
-			renderOffset, renderX, renderY = bubbleLayoutRenderOffset(previous, rect, baseRect, bounds, referenceAnchor, layoutNow)
-			bubblePlacementHistory[key] = bubblePlacementHistoryEntry{
-				placement:  placement,
-				offset:     bodyOffset,
-				laidOutAt:  laidOutAt,
-				renderX:    renderX,
-				renderY:    renderY,
-				rendered:   true,
-				renderedAt: layoutNow,
-			}
-			occupied = append(occupied, bubbleOverlapRect(rect, collisionMargin))
-		} else {
-			rect := bubbleRectForPlacement(x, y, metrics, bubblePosNone, true)
-			bounds := image.Rect(0, 0, screen.Bounds().Dx(), screen.Bounds().Dy())
-			rect = clampBubbleRect(rect, bounds.Dx(), bounds.Dy())
-			baseRect := rect
-			if gs.AvoidBubbleOverlap && !fixedPosition {
-				if previousPlacement != bubblePosNone {
-					previousOffset = image.Point{}
-				}
-				rect, bodyOffset = resolveBubbleOverlap(rect, image.Pt(x, y), bubblePosNone, metrics, bounds, occupied, previousOffset, collisionMargin)
-			}
-			laidOutAt := previous.laidOutAt
-			if reflow {
-				laidOutAt = layoutNow
-			}
-			var renderX, renderY float64
-			renderOffset, renderX, renderY = bubbleLayoutRenderOffset(previous, rect, baseRect, bounds, referenceAnchor, layoutNow)
-			bubblePlacementHistory[key] = bubblePlacementHistoryEntry{
-				placement:  bubblePosNone,
-				offset:     bodyOffset,
-				laidOutAt:  laidOutAt,
-				renderX:    renderX,
-				renderY:    renderY,
-				rendered:   true,
-				renderedAt: layoutNow,
-			}
-			occupied = append(occupied, bubbleOverlapRect(rect, collisionMargin))
+			placement, _ = chooseBubblePlacement(upperAnchor, lowerAnchor, metrics, bounds, nil, collisionMargin, facing, previous.placement)
+			tailAnchor = bubbleAnchorForPlacement(upperAnchor, lowerAnchor, placement)
+			x, y = tailAnchor.X, tailAnchor.Y
 		}
-		drawRequests = append(drawRequests, bubbleDrawRequest{
+		request := bubbleDrawRequest{
 			txt: bubbleText, x: x, y: y, typ: b.Type,
-			far: b.Far, noArrow: b.NoArrow || ownerMissing && bubbleType == kBubbleThought, placement: placement, bodyOffset: renderOffset,
+			far: b.Far, noArrow: b.NoArrow || ownerMissing && bubbleType == kBubbleThought, placement: placement,
 			borderCol: borderCol, bgCol: bgCol, textCol: textCol,
 			bubbleScale: bubbleScale, metrics: metrics,
+		}
+		normalRect, _, drawable := bubbleDrawRect(screen.Bounds(), request)
+		if !drawable {
+			continue
+		}
+		prepared = append(prepared, preparedSpeechBubble{
+			bubble: b, key: key, request: request, normalRect: normalRect,
+			referenceAnchor: referenceAnchor, tailAnchor: tailAnchor,
+			speakerName: speakerName, historyText: historyText, margin: collisionMargin,
 		})
+	}
+
+	priorTargets := make([]jointBubbleLayoutItem, len(prepared))
+	lastLayouts := make([]time.Time, len(prepared))
+	for i := range prepared {
+		previous := bubblePlacementHistory[prepared[i].key]
+		lastLayouts[i] = previous.laidOutAt
+		if previous.placement != prepared[i].request.placement {
+			// Crossing a screen edge can switch a bubble from above its speaker
+			// to below (or back). Treat that as an immediate layout event so an
+			// offset learned for the old side is never reused on the new side.
+			lastLayouts[i] = time.Time{}
+		}
+		prepared[i].targetRect = clampBubbleRect(prepared[i].normalRect.Add(previous.offset), bounds.Dx(), bounds.Dy())
+		priorTargets[i] = jointBubbleLayoutItem{
+			rect: prepared[i].targetRect, margin: prepared[i].margin,
+		}
+	}
+	needsSolve := bubbleLayoutNeedsSolve(
+		len(activeHistory), len(bubblePlacementHistory), lastLayouts,
+		priorTargets, layoutNow, gs.AvoidBubbleOverlap,
+	)
+	if needsSolve {
+		targets := make([]jointBubbleLayoutItem, len(prepared))
+		for i := range prepared {
+			targets[i] = jointBubbleLayoutItem{
+				rect: prepared[i].normalRect, margin: prepared[i].margin,
+			}
+		}
+		if gs.AvoidBubbleOverlap {
+			separateBubbleLayout(targets, bounds)
+			anchors := make([]image.Point, len(prepared))
+			for i := range prepared {
+				anchors[i] = prepared[i].tailAnchor
+			}
+			stabilityThreshold := max(12.0, 12*bubbleScale)
+			if keepPriorBubbleLayout(priorTargets, targets, anchors, stabilityThreshold) {
+				targets = priorTargets
+			}
+		}
+		conflicts := bubbleLayoutConflictFlags(targets)
+		for i := range prepared {
+			prepared[i].targetRect = targets[i].rect
+			history := bubblePlacementHistory[prepared[i].key]
+			history.placement = prepared[i].request.placement
+			history.offset = targets[i].rect.Min.Sub(prepared[i].normalRect.Min)
+			history.laidOutAt = layoutNow
+			currentPercent := history.sizePercent
+			if currentPercent <= 0 {
+				currentPercent = 100
+			}
+			if conflicts[i] && currentPercent > 55 {
+				history.sizePercent = bubbleCompactPercent(currentPercent)
+				history.laidOutAt = time.Time{}
+			}
+			wantName := prepared[i].speakerName != "" && !prepared[i].bubble.Far &&
+				bubbleNeedsSpeakerName(history.speakerNamed, targets[i].rect, prepared[i].tailAnchor, bubbleScale)
+			if wantName != history.speakerNamed {
+				history.speakerNamed = wantName
+				history.laidOutAt = time.Time{}
+			}
+			bubblePlacementHistory[prepared[i].key] = history
+		}
+	}
+
+	renderItems := make([]jointBubbleLayoutItem, len(prepared))
+	for i := range prepared {
+		previous := bubblePlacementHistory[prepared[i].key]
+		offset, _, _, renderedRect := bubbleLayoutRenderOffset(
+			previous, prepared[i].targetRect, prepared[i].normalRect, bounds,
+			prepared[i].referenceAnchor, layoutNow,
+		)
+		prepared[i].request.bodyOffset = offset
+		renderItems[i] = jointBubbleLayoutItem{
+			rect: renderedRect, margin: prepared[i].margin,
+		}
+	}
+	if gs.AvoidBubbleOverlap {
+		separateBubbleLayout(renderItems, bounds)
+	}
+
+	occupied := make([]image.Rectangle, 0, len(prepared))
+	drawRequests := make([]bubbleDrawRequest, 0, len(prepared))
+	for i := range prepared {
+		prepared[i].request.bodyOffset = renderItems[i].rect.Min.Sub(prepared[i].normalRect.Min)
+		renderedRect, _, drawable := bubbleDrawRect(screen.Bounds(), prepared[i].request)
+		if !drawable {
+			continue
+		}
+		history := bubblePlacementHistory[prepared[i].key]
+		history.renderX = float64(renderedRect.Min.X - prepared[i].referenceAnchor.X)
+		history.renderY = float64(renderedRect.Min.Y - prepared[i].referenceAnchor.Y)
+		history.rendered = true
+		history.renderedAt = layoutNow
+		logBubbleTortureOverlap(prepared[i].bubble, prepared[i].request.txt, renderedRect, occupied, prepared[i].margin, layoutNow)
+		if gs.AvoidBubbleOverlap && bubbleOverlapsOccupied(renderedRect, occupied, prepared[i].margin) {
+			history.rendered = false
+			bubblePlacementHistory[prepared[i].key] = history
+			continue
+		}
+		bubblePlacementHistory[prepared[i].key] = history
+		occupied = append(occupied, bubbleOverlapRect(renderedRect, prepared[i].margin))
+		drawRequests = append(drawRequests, prepared[i].request)
 	}
 	drawBubbleBatch(screen, drawRequests)
 	for key := range bubblePlacementHistory {
@@ -3687,6 +3829,23 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 			delete(bubblePlacementHistory, key)
 		}
 	}
+}
+
+func bubbleOverlapsOccupied(rendered image.Rectangle, occupied []image.Rectangle, collisionMargin int) bool {
+	area, _ := bubbleRectOverlapArea(bubbleOverlapRect(rendered, collisionMargin), occupied, 0)
+	return area != 0
+}
+
+func logBubbleTortureOverlap(b bubble, text string, rendered image.Rectangle, occupied []image.Rectangle, collisionMargin int, now time.Time) {
+	if !bubbleTorture || now.Sub(bubbleTortureLastOverlapLog) < time.Second {
+		return
+	}
+	area, count := bubbleRectOverlapArea(bubbleOverlapRect(rendered, collisionMargin), occupied, 0)
+	if area == 0 {
+		return
+	}
+	bubbleTortureLastOverlapLog = now
+	log.Printf("bubble torture overlap: id=%d type=%d rect=%v conflicts=%d area=%d text=%q", b.DedupeID, b.Type&kBubbleTypeMask, rendered, count, area, text)
 }
 
 // lerpBar interpolates status bar values, skipping interpolation when the

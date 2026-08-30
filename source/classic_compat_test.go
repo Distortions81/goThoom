@@ -91,28 +91,6 @@ func TestBubbleAspectDistanceAllowsWiderWrap(t *testing.T) {
 	}
 }
 
-func TestBubbleCollisionOrderKeepsActionsFixedAndPrioritizesDecorations(t *testing.T) {
-	if !bubbleHasFixedPosition(kBubbleRealAction) || !bubbleHasFixedPosition(kBubblePlayerAction) || !bubbleHasFixedPosition(kBubbleNarrate) {
-		t.Fatal("action bubbles are not fixed-position collision obstacles")
-	}
-	if bubbleHasFixedPosition(kBubbleNormal) || bubbleHasFixedPosition(kBubblePonder) {
-		t.Fatal("movable speech bubble was marked fixed-position")
-	}
-
-	ordered := bubblesInCollisionOrder([]bubble{
-		{Type: kBubbleNormal, Text: "normal"},
-		{Type: kBubblePonder, Text: "ponder"},
-		{Type: kBubblePlayerAction, Text: "action"},
-		{Type: kBubbleMonster, Text: "growl"},
-	})
-	want := []int{kBubblePlayerAction, kBubblePonder, kBubbleMonster, kBubbleNormal}
-	for i, typ := range want {
-		if got := ordered[i].Type & kBubbleTypeMask; got != typ {
-			t.Fatalf("collision order[%d] = %d, want %d", i, got, typ)
-		}
-	}
-}
-
 func TestOrphanBubblePolicyAndDescriptorReuse(t *testing.T) {
 	for _, typ := range []int{kBubbleYell, kBubbleThought} {
 		if !bubbleVisibleWithoutOwner(typ) {
@@ -313,7 +291,7 @@ func TestChooseBubblePlacementStaysAboveAwayFromTopEdge(t *testing.T) {
 	}
 }
 
-func TestBubbleLayoutNeedsReflowEveryTwoSeconds(t *testing.T) {
+func TestBubbleLayoutPeriodicReflow(t *testing.T) {
 	now := time.Unix(100, 0)
 	if !bubbleLayoutNeedsReflow(time.Time{}, now) {
 		t.Fatal("new bubble did not request an initial layout")
@@ -329,22 +307,28 @@ func TestBubbleLayoutNeedsReflowEveryTwoSeconds(t *testing.T) {
 	}
 }
 
-func TestBubbleLayoutReflowKeepsSideAndClearsOffset(t *testing.T) {
-	previous := bubblePlacementHistoryEntry{
-		placement: bubblePosUpperRight,
-		offset:    image.Pt(30, -12),
+func TestBubbleLayoutSolveTriggersImmediatelyOnLayoutEvents(t *testing.T) {
+	now := time.Unix(100, 0)
+	recent := []time.Time{now.Add(-100 * time.Millisecond)}
+	clear := []jointBubbleLayoutItem{{rect: image.Rect(20, 20, 80, 50)}}
+	if bubbleLayoutNeedsSolve(1, 1, recent, clear, now, true) {
+		t.Fatal("unchanged clear layout solved again before the periodic check")
 	}
-	placement, offset := bubbleLayoutHistoryForPass(previous, true)
-	if placement != bubblePosUpperRight {
-		t.Fatalf("reflow placement = %d, want stable upper-right %d", placement, bubblePosUpperRight)
+	if !bubbleLayoutNeedsSolve(2, 1, recent, clear, now, true) {
+		t.Fatal("new bubble did not trigger an immediate solve")
 	}
-	if offset != (image.Point{}) {
-		t.Fatalf("reflow offset = %v, want cleared offset", offset)
+	if !bubbleLayoutNeedsSolve(0, 1, nil, nil, now, true) {
+		t.Fatal("expired bubble did not trigger an immediate solve")
 	}
-
-	placement, offset = bubbleLayoutHistoryForPass(previous, false)
-	if placement != previous.placement || offset != previous.offset {
-		t.Fatalf("ordinary layout history = placement %d offset %v, want %d and %v", placement, offset, previous.placement, previous.offset)
+	if !bubbleLayoutNeedsSolve(1, 1, []time.Time{{}}, clear, now, true) {
+		t.Fatal("same-count bubble replacement did not trigger an immediate solve")
+	}
+	overlapping := []jointBubbleLayoutItem{
+		{rect: image.Rect(20, 20, 80, 50)},
+		{rect: image.Rect(60, 20, 120, 50)},
+	}
+	if !bubbleLayoutNeedsSolve(2, 2, []time.Time{recent[0], recent[0]}, overlapping, now, true) {
+		t.Fatal("new collision did not trigger an immediate solve")
 	}
 }
 
@@ -360,77 +344,146 @@ func TestSmoothBubbleLayoutCoordinate(t *testing.T) {
 	}
 }
 
-func TestResolveBubbleOverlapMovesBodyAndKeepsPlacementSide(t *testing.T) {
-	metrics := bubbleMetrics{width: 60, height: 30, tailHeight: 10, tailHalf: 6}
-	anchor := image.Pt(150, 150)
-	bounds := image.Rect(0, 0, 300, 300)
-	preferred := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, bubblePosUpperLeft, false)
-
-	resolved, offset := resolveBubbleOverlap(preferred, anchor, bubblePosUpperLeft, metrics, bounds, []image.Rectangle{preferred}, image.Point{}, 0)
-	if offset == (image.Point{}) {
-		t.Fatal("overlapping bubble body was not moved")
+func TestBubbleDrawRectMatchesResolvedRequest(t *testing.T) {
+	metrics := bubbleMetrics{width: 60, height: 30, tailHeight: 10, tailHalf: 2}
+	request := bubbleDrawRequest{
+		txt: "hello", x: 100, y: 100, placement: bubblePosUpperRight,
+		bodyOffset: image.Pt(18, -7), metrics: metrics,
 	}
-	if !resolved.In(bounds) {
-		t.Fatalf("resolved bubble %v is outside %v", resolved, bounds)
+	got, _, ok := bubbleDrawRect(image.Rect(0, 0, 300, 200), request)
+	if !ok {
+		t.Fatal("resolved draw request was rejected")
 	}
-	if resolved.Max.X > anchor.X-metrics.tailHeight || resolved.Max.Y > anchor.Y-metrics.tailHeight {
-		t.Fatalf("resolved upper-left bubble %v crossed its anchor at %v", resolved, anchor)
+	want := bubbleRectForPlacement(request.x, request.y, metrics, request.placement, false).Add(request.bodyOffset)
+	if got != want {
+		t.Fatalf("draw rectangle = %v, want solver rectangle %v", got, want)
 	}
-	if area, _ := bubbleRectOverlapArea(resolved, []image.Rectangle{preferred}, metrics.tailHalf); area != 0 {
-		t.Fatalf("resolved bubble %v still overlaps preferred bubble %v by %d pixels", resolved, preferred, area)
-	}
-
-	stable, stableOffset := resolveBubbleOverlap(preferred, anchor, bubblePosUpperLeft, metrics, bounds, []image.Rectangle{preferred}, offset, 0)
-	if stable != resolved || stableOffset != offset {
-		t.Fatalf("stable placement = %v offset %v, want %v offset %v", stable, stableOffset, resolved, offset)
+	if !bubbleOverlapsOccupied(got, []image.Rectangle{got}, 0) {
+		t.Fatal("final overlap gate missed the exact rendered rectangle")
 	}
 }
 
-func TestResolveBubbleOverlapLeavesClearBubbleAtPreferredPosition(t *testing.T) {
-	metrics := bubbleMetrics{width: 60, height: 30, tailHeight: 10, tailHalf: 6}
-	anchor := image.Pt(150, 150)
-	bounds := image.Rect(0, 0, 300, 300)
-	preferred := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, bubblePosUpperLeft, false)
-	distant := image.Rect(220, 220, 280, 250)
-
-	resolved, offset := resolveBubbleOverlap(preferred, anchor, bubblePosUpperLeft, metrics, bounds, []image.Rectangle{distant}, image.Point{}, 0)
-	if resolved != preferred || offset != (image.Point{}) {
-		t.Fatalf("clear bubble moved to %v offset %v; want %v with no offset", resolved, offset, preferred)
+func TestJointBubbleLayoutLeavesClearBubblesAtNormalPositions(t *testing.T) {
+	bounds := image.Rect(0, 0, 400, 240)
+	items := []jointBubbleLayoutItem{
+		{rect: image.Rect(30, 30, 90, 60)},
+		{rect: image.Rect(250, 150, 310, 180)},
+	}
+	wantA, wantB := items[0].rect, items[1].rect
+	separateBubbleLayout(items, bounds)
+	if items[0].rect != wantA || items[1].rect != wantB {
+		t.Fatalf("clear bubbles moved from normal positions: %v %v", items[0].rect, items[1].rect)
 	}
 }
 
-func TestResolveBubbleOverlapIncludesDecoratedFootprint(t *testing.T) {
-	metrics := bubbleMetrics{width: 60, height: 30, tailHeight: 10, tailHalf: 6}
-	anchor := image.Pt(150, 150)
-	bounds := image.Rect(0, 0, 300, 300)
-	preferred := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, bubblePosUpperLeft, false)
-	// The body rectangles have eight clear pixels between them, but a ponder,
-	// yell, or growl decoration extending ten pixels would visibly overlap.
-	nearby := image.Rect(preferred.Max.X+8, preferred.Min.Y, preferred.Max.X+68, preferred.Max.Y)
-
-	plain, _ := resolveBubbleOverlap(preferred, anchor, bubblePosUpperLeft, metrics, bounds, []image.Rectangle{nearby}, image.Point{}, 0)
-	if plain != preferred {
-		t.Fatalf("plain body unexpectedly moved from %v to %v", preferred, plain)
+func TestJointBubbleLayoutSharesConflictDisplacement(t *testing.T) {
+	bounds := image.Rect(0, 0, 400, 240)
+	startA := image.Rect(100, 80, 180, 120)
+	startB := image.Rect(150, 80, 230, 120)
+	items := []jointBubbleLayoutItem{
+		{rect: startA},
+		{rect: startB},
 	}
-	decorated, _ := resolveBubbleOverlap(preferred, anchor, bubblePosUpperLeft, metrics, bounds, []image.Rectangle{nearby}, image.Point{}, 10)
-	if decorated == preferred {
-		t.Fatalf("decorated footprint at %v did not move away from %v", preferred, nearby)
+	separateBubbleLayout(items, bounds)
+	if items[0].rect == startA || items[1].rect == startB {
+		t.Fatalf("conflict displacement was not shared: %v %v", items[0].rect, items[1].rect)
+	}
+	if flags := bubbleLayoutConflictFlags(items); flags[0] || flags[1] {
+		t.Fatalf("joint result still overlaps: %v %v", items[0].rect, items[1].rect)
+	}
+	moveA := startA.Min.Sub(items[0].rect.Min)
+	moveB := items[1].rect.Min.Sub(startB.Min)
+	difference := moveA.X - moveB.X
+	if difference < 0 {
+		difference = -difference
+	}
+	if difference > 1 || moveA.Y != 0 || moveB.Y != 0 {
+		t.Fatalf("unequal shared displacement: a=%v b=%v", moveA, moveB)
 	}
 }
 
-func TestResolveBubbleOverlapSeparatesSeveralBubbles(t *testing.T) {
-	metrics := bubbleMetrics{width: 70, height: 34, tailHeight: 10, tailHalf: 6}
-	anchor := image.Pt(180, 180)
-	bounds := image.Rect(0, 0, 360, 360)
-	preferred := bubbleRectForPlacement(anchor.X, anchor.Y, metrics, bubblePosUpperLeft, false)
-	occupied := []image.Rectangle{preferred}
+func TestJointBubbleLayoutTransfersEdgeConstrainedMovement(t *testing.T) {
+	bounds := image.Rect(0, 0, 300, 180)
+	startA := image.Rect(0, 60, 80, 100)
+	startB := image.Rect(60, 60, 140, 100)
+	items := []jointBubbleLayoutItem{{rect: startA}, {rect: startB}}
+	separateBubbleLayout(items, bounds)
+	if items[0].rect != startA {
+		t.Fatalf("edge-constrained bubble moved outside its available half: %v", items[0].rect)
+	}
+	if items[1].rect.Min.X != startA.Max.X+bubbleCollisionGap {
+		t.Fatalf("other bubble moved to %v, want the full separation transferred to x=%d", items[1].rect, startA.Max.X+bubbleCollisionGap)
+	}
+	if flags := bubbleLayoutConflictFlags(items); flags[0] || flags[1] {
+		t.Fatalf("edge-constrained pair still conflicts: %v", items)
+	}
+}
 
-	for i := 0; i < 3; i++ {
-		resolved, _ := resolveBubbleOverlap(preferred, anchor, bubblePosUpperLeft, metrics, bounds, occupied, image.Point{}, 0)
-		if area, _ := bubbleRectOverlapArea(resolved, occupied, metrics.tailHalf); area != 0 {
-			t.Fatalf("bubble %d at %v overlaps prior bubbles by %d pixels", i+2, resolved, area)
+func TestJointBubbleLayoutSeparatesDenseGroup(t *testing.T) {
+	bounds := image.Rect(0, 0, 640, 480)
+	items := make([]jointBubbleLayoutItem, 6)
+	for i := range items {
+		items[i].rect = image.Rect(270, 210, 370, 260)
+	}
+	separateBubbleLayout(items, bounds)
+	for i, conflict := range bubbleLayoutConflictFlags(items) {
+		if conflict {
+			t.Fatalf("dense bubble %d still conflicts after joint solve: %v", i, items)
 		}
-		occupied = append(occupied, resolved)
+	}
+}
+
+func TestBubbleLayoutEpochKeepsOnlyComparableClearLayout(t *testing.T) {
+	anchors := []image.Point{image.Pt(100, 100), image.Pt(300, 100)}
+	candidate := []jointBubbleLayoutItem{
+		{rect: image.Rect(110, 70, 170, 100)},
+		{rect: image.Rect(240, 70, 300, 100)},
+	}
+	comparable := []jointBubbleLayoutItem{
+		{rect: candidate[0].rect.Add(image.Pt(8, 0))},
+		{rect: candidate[1].rect.Add(image.Pt(-8, 0))},
+	}
+	if !keepPriorBubbleLayout(comparable, candidate, anchors, 12) {
+		t.Fatal("comparable clear prior layout was needlessly replaced")
+	}
+	worse := []jointBubbleLayoutItem{
+		{rect: candidate[0].rect.Add(image.Pt(40, 0))},
+		{rect: candidate[1].rect.Add(image.Pt(-40, 0))},
+	}
+	if keepPriorBubbleLayout(worse, candidate, anchors, 12) {
+		t.Fatal("meaningfully worse prior layout was retained")
+	}
+	overlapping := []jointBubbleLayoutItem{
+		{rect: image.Rect(100, 70, 180, 110)},
+		{rect: image.Rect(150, 70, 230, 110)},
+	}
+	if keepPriorBubbleLayout(overlapping, candidate, anchors, 12) {
+		t.Fatal("overlapping prior layout was retained")
+	}
+}
+
+func TestDistantBubbleSpeakerNameUsesHysteresis(t *testing.T) {
+	anchor := image.Pt(100, 100)
+	near := image.Rect(110, 80, 170, 120)
+	middle := image.Rect(160, 80, 220, 120)
+	far := image.Rect(180, 80, 240, 120)
+	if bubbleNeedsSpeakerName(false, near, anchor, 1) {
+		t.Fatal("near bubble requested a speaker name")
+	}
+	if bubbleNeedsSpeakerName(false, middle, anchor, 1) {
+		t.Fatal("middle-distance bubble enabled its speaker name too early")
+	}
+	if !bubbleNeedsSpeakerName(true, middle, anchor, 1) {
+		t.Fatal("middle-distance bubble dropped its existing speaker name without hysteresis")
+	}
+	if !bubbleNeedsSpeakerName(false, far, anchor, 1) {
+		t.Fatal("far bubble did not request a speaker name")
+	}
+	if got := bubbleTextWithSpeakerName("Walker", "Line one"); got != "Walker: Line one" {
+		t.Fatalf("speaker-labelled text = %q", got)
+	}
+	if got := bubbleTextWithSpeakerName("Walker", "Walker: Line one"); got != "Walker: Line one" {
+		t.Fatalf("speaker name was duplicated: %q", got)
 	}
 }
 

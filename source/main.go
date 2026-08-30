@@ -48,6 +48,7 @@ var (
 	clmov              string
 	pcapPath           string
 	fake               bool
+	bubbleTorture      bool
 	blockSound         bool
 	blockBubbles       bool
 	blockTTS           bool
@@ -80,6 +81,7 @@ func main() {
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.StringVar(&pcapPath, "pcap", "", "replay network frames from a .pcap/.pcapng file")
 	flag.BoolVar(&fake, "fake", false, "simulate server messages without connecting")
+	flag.BoolVar(&bubbleTorture, "bubbleTorture", false, "run a moving chat-bubble stress scene without connecting")
 	flag.BoolVar(&doDebug, "debug", false, "verbose/debug logging")
 	flag.BoolVar(&replacementEffectsPreview, "effectsPreview", false, "open the replacement-effects shader preview gallery")
 	flag.BoolVar(&eui.CacheCheck, "cacheCheck", false, "display window and item render counts")
@@ -104,6 +106,9 @@ func main() {
 	pgoHeapOutput := flag.String("pgoHeapOutput", "", "heap profile output written after -pgo completes")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
 	flag.Parse()
+	if bubbleTorture {
+		fake = true
+	}
 	if imgDumpScale < 1 || imgDumpScale > 4 {
 		log.Fatalf("imgDumpScale must be between 1 and 4, got %d", imgDumpScale)
 	}
@@ -365,7 +370,9 @@ func main() {
 
 		if fake {
 			drawStateEncrypted = false
-			runFakeMode(ctx)
+			if !bubbleTorture {
+				runFakeMode(ctx)
+			}
 			<-ctx.Done()
 			return
 		}
