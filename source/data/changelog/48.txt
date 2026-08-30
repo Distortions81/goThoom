@@ -22,7 +22,7 @@ Rendering, movies, macros, and settings:
 - Added a default-off option to interpolate independently moving sprites whose visible animated artwork is no larger than 35 by 35 pixels and moves no more than 64 pixels between updates, such as coins following a mobile. Transparent padding no longer makes a small sprite appear too large for this test.
 - Movie seeking now publishes a complete rendered scene about every half second instead of partial intermediate updates, and always leaves a complete final frame. The SEEKING label background now follows the measured text size.
 - Image archive exports can optionally emit only frame 0 of each image while retaining the source animation-frame count in metadata. Static sprites omit the redundant _0 filename suffix.
-- Fixed an intermittent command-line movie startup race that could close Movie Controls and cleanly shut down the client while startup window state was still being restored.
+- Fixed command-line movie startup so window restoration cannot prematurely close playback and exactly one Movie Controls window is created.
 - Startup no longer waits for the sound archive or user scripts before showing the usable client interface. Sound loading begins in the background after its first frame, scripts follow without extending the startup screen, and startup activity now describes the window-and-control phase explicitly.
 - Legacy Macro Library discovery now accepts both .mac and .txt files.
 - Moved Batch room artwork loading from Quality to Advanced Settings.
