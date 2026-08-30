@@ -580,7 +580,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsMode.Options = []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}
 	graphicsMode.Selected = detectQualityPreset()
 	graphicsMode.Size = eui.Point{X: 320, Y: 24}
-	graphicsMode.SetTooltip("Higher tiers cumulatively add rendering and audio features. Classic Mode remains available later in Settings.")
+	graphicsMode.SetTooltip("Higher tiers cumulatively add rendering and audio features.")
 	graphicsModeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= 5 {
 			return
