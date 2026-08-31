@@ -41,8 +41,8 @@ func TestSettingsWindowFitsCurrentScreenLayout(t *testing.T) {
 		if horizontal, vertical := settingsWin.RequiresScroll(); horizontal || vertical {
 			t.Fatalf("settings window requires scrollbars at %.2fx: horizontal=%t vertical=%t", scale, horizontal, vertical)
 		}
-		if size.X > 1200*scale || size.Y > 720*scale {
-			t.Fatalf("settings window size at %.2fx = %.0fx%.0f, want at most %.0fx%.0f", scale, size.X, size.Y, 1200*scale, 720*scale)
+		if size.X > 1200*scale || size.Y > 730*scale {
+			t.Fatalf("settings window size at %.2fx = %.0fx%.0f, want at most %.0fx%.0f", scale, size.X, size.Y, 1200*scale, 730*scale)
 		}
 	}
 }
@@ -76,6 +76,11 @@ func TestCombineMessagesControlLivesInTiledLayoutWindow(t *testing.T) {
 			for _, item := range items {
 				if item.Text == want || visit(item.Contents) {
 					return true
+				}
+				for _, tab := range item.Tabs {
+					if visit(tab.Contents) {
+						return true
+					}
 				}
 			}
 			return false
@@ -170,6 +175,9 @@ func TestClassicBubbleLifetimeDisablesModernSliders(t *testing.T) {
 				items[item.Label] = item
 			}
 			visit(item.Contents)
+			for _, tab := range item.Tabs {
+				visit(tab.Contents)
+			}
 		}
 	}
 	visit(settingsWin.Contents)

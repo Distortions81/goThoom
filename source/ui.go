@@ -3996,17 +3996,21 @@ func makeSettingsWindow() {
 	settingsWin.Movable = true
 	settingsWin.SetRefreshInterval(100 * time.Millisecond)
 
-	// Use four balanced panes so the window fits comfortably on a 1920x1080
-	// desktop without making the user scroll through one overly tall column.
-	var panelWidth float32 = 270
-	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	left := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	// Keep each category focused in a single, comfortably wide tab. The four
+	// pages retain the balanced section groupings from the previous columns.
+	var panelWidth float32 = 540
+	outer := &eui.ItemData{
+		ItemType:      eui.ITEM_FLOW,
+		FlowType:      eui.FLOW_VERTICAL,
+		ActiveOutline: true,
+	}
+	left := &eui.ItemData{Name: "Display", ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	left.Size = eui.Point{X: panelWidth, Y: 10}
-	centerLeft := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	centerLeft := &eui.ItemData{Name: "Text", ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	centerLeft.Size = eui.Point{X: panelWidth, Y: 10}
-	centerRight := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	centerRight := &eui.ItemData{Name: "World", ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	centerRight.Size = eui.Point{X: panelWidth, Y: 10}
-	right := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	right := &eui.ItemData{Name: "Speech & Alerts", ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	right.Size = eui.Point{X: panelWidth, Y: 10}
 
 	windowSection := newConfigurationSection("Window & Display", panelWidth)
@@ -4036,6 +4040,13 @@ func makeSettingsWindow() {
 	notificationsSection := newConfigurationSection("Notifications", panelWidth)
 	ttsSection := newConfigurationSection("Text to Speech", panelWidth)
 	moreSection := newConfigurationSection("More Settings", panelWidth)
+	// The tab strip already separates the first heading from the window edge.
+	// Drop the otherwise duplicated top spacer on each page.
+	for _, firstSection := range []*eui.ItemData{
+		windowSection, gettingStartedSection, statusSection, bubbleSection,
+	} {
+		firstSection.Contents = firstSection.Contents[1:]
+	}
 	right.AddItem(bubbleSection)
 	right.AddItem(notificationsSection)
 	right.AddItem(ttsSection)
@@ -4966,10 +4977,7 @@ func makeSettingsWindow() {
 	}
 	ttsSection.AddItem(ttsSpeedSlider)
 
-	outer.AddItem(left)
-	outer.AddItem(centerLeft)
-	outer.AddItem(centerRight)
-	outer.AddItem(right)
+	outer.Tabs = []*eui.ItemData{left, centerLeft, centerRight, right}
 	settingsWin.AddItem(outer)
 	settingsWin.AddWindow(false)
 }

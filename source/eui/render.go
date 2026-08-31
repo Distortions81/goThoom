@@ -58,6 +58,34 @@ func itemFace(item *itemData, size float32) text.Face {
 	return textFace(size)
 }
 
+func flowFillColor(item, style *itemData) Color {
+	if item != nil && item.Color != (Color{}) {
+		return item.Color
+	}
+	if style != nil {
+		return style.Color
+	}
+	return Color{}
+}
+
+func tabFontSize(item, style *itemData) float32 {
+	if item != nil && item.FontSize > 0 {
+		return item.FontSize
+	}
+	if style != nil {
+		return style.FontSize
+	}
+	return 0
+}
+
+func tabStripHeight(item, style *itemData) float32 {
+	height := float32(defaultTabHeight) * uiScale
+	if textHeight := tabFontSize(item, style)*uiScale + 4; textHeight > height {
+		height = textHeight
+	}
+	return height
+}
+
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
@@ -740,10 +768,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	}
 
 	if item.Filled || item.Outlined {
-		col := item.Color
-		if col == (Color{}) && style != nil {
-			col = style.SelectedColor
-		}
+		col := flowFillColor(item, style)
 		if item.Filled {
 			drawFilledRect(subImg, offset.X, offset.Y, item.GetSize().X, item.GetSize().Y, col.ToRGBA(), true)
 		}
@@ -781,11 +806,9 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			item.ActiveTab = 0
 		}
 
-		tabHeight := float32(defaultTabHeight) * uiScale
-		if th := item.FontSize*uiScale + 4; th > tabHeight {
-			tabHeight = th
-		}
-		textSize := (item.FontSize * uiScale) + 2
+		fontSize := tabFontSize(item, style)
+		tabHeight := tabStripHeight(item, style)
+		textSize := (fontSize * uiScale) + 2
 		x := offset.X
 		spacing := float32(4) * uiScale
 		for i, tab := range item.Tabs {
@@ -844,7 +867,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			dto := &text.DrawOptions{DrawImageOptions: dop, LayoutOptions: loo}
 			dto.ColorScale.ScaleWithColor(style.TextColor)
 			text.Draw(subImg, tab.Name, face, dto)
-			tab.DrawRect = rect{X0: x, Y0: offset.Y, X1: x + w, Y1: offset.Y + tabHeight}
+			tab.DrawRect = rectAdd(rect{X0: x, Y0: offset.Y, X1: x + w, Y1: offset.Y + tabHeight}, base)
 			x += w + spacing
 		}
 		drawOffset = pointAdd(drawOffset, point{Y: tabHeight})

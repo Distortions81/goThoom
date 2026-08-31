@@ -772,7 +772,16 @@ func (item *itemData) clickFlows(mpos point, click bool) bool {
 				if click {
 					activeItem = tab
 					tab.Clicked = updateNow
-					item.ActiveTab = i
+					if item.ActiveTab != i {
+						item.ActiveTab = i
+						item.Scroll = point{}
+						// Tab contents can have different dimensions. Refreshing here
+						// both lays out the newly active tab and invalidates cached
+						// window rendering so the click is visible immediately.
+						if item.ParentWindow != nil {
+							item.ParentWindow.Refresh()
+						}
+					}
 				}
 				return true
 			}

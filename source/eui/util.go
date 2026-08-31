@@ -1442,22 +1442,25 @@ func (item *itemData) bounds(offset point) rect {
 		}
 		var flowOffset point
 		var subItems []*itemData
+		tabHeight := float32(0)
 		if len(item.Tabs) > 0 {
 			if item.ActiveTab >= len(item.Tabs) {
 				item.ActiveTab = 0
 			}
 			subItems = item.Tabs[item.ActiveTab].Contents
+			tabHeight = tabStripHeight(item, item.themeStyle())
+			r.Y1 = offset.Y + tabHeight
 		} else {
 			subItems = item.Contents
 		}
 		for _, sub := range subItems {
 			var off point
 			if item.FlowType == FLOW_HORIZONTAL {
-				off = pointAdd(offset, point{X: flowOffset.X + sub.getPosition(item.ParentWindow).X, Y: sub.getPosition(item.ParentWindow).Y})
+				off = pointAdd(offset, point{X: flowOffset.X + sub.getPosition(item.ParentWindow).X, Y: tabHeight + sub.getPosition(item.ParentWindow).Y})
 			} else if item.FlowType == FLOW_VERTICAL {
-				off = pointAdd(offset, point{X: sub.getPosition(item.ParentWindow).X, Y: flowOffset.Y + sub.getPosition(item.ParentWindow).Y})
+				off = pointAdd(offset, point{X: sub.getPosition(item.ParentWindow).X, Y: tabHeight + flowOffset.Y + sub.getPosition(item.ParentWindow).Y})
 			} else {
-				off = pointAdd(offset, pointAdd(flowOffset, sub.getPosition(item.ParentWindow)))
+				off = pointAdd(offset, pointAdd(point{X: flowOffset.X, Y: tabHeight + flowOffset.Y}, sub.getPosition(item.ParentWindow)))
 			}
 			sr := sub.bounds(off)
 			r = unionRect(r, sr)
@@ -1545,14 +1548,16 @@ func (win *windowData) updateAutoSize() {
 
 func (item *itemData) contentBounds() point {
 	list := item.Contents
+	tabHeight := float32(0)
 	if len(item.Tabs) > 0 {
 		if item.ActiveTab >= len(item.Tabs) {
 			item.ActiveTab = 0
 		}
 		list = item.Tabs[item.ActiveTab].Contents
+		tabHeight = tabStripHeight(item, item.themeStyle())
 	}
 	if len(list) == 0 {
-		return point{}
+		return point{Y: tabHeight}
 	}
 
 	base := point{}
@@ -1593,9 +1598,9 @@ func (item *itemData) contentBounds() point {
 	}
 
 	if first {
-		return point{}
+		return point{Y: tabHeight}
 	}
-	return point{X: b.X1 - base.X, Y: b.Y1 - base.Y}
+	return point{X: b.X1 - base.X, Y: b.Y1 - base.Y + tabHeight}
 }
 
 func (item *itemData) resizeFlow(parentSize point) {
