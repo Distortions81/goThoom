@@ -59,6 +59,7 @@ The rest of the interface also uses:
 - `notifications`
 - `palette`
 - `person_add`
+- `photo_camera`
 - `power_settings_new`
 - `query_stats`
 - `redo`

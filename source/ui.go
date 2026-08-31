@@ -573,6 +573,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	shotBtn, shotEvents := eui.NewButton()
 	shotBtn.Text = "Snapshot"
+	setMaterialButtonIcon(shotBtn, "photo_camera")
 	shotBtn.SetTooltip("Save the visible game view as a PNG in the user data folder's Screenshots directory.")
 	shotBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	shotBtn.FontSize = toolFontSize
