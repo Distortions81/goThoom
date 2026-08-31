@@ -27,10 +27,13 @@ The rest of the interface also uses:
 
 - `add`
 - `auto_fix_high`
+- `arrow_back`
+- `arrow_forward`
 - `bolt`
 - `bug_report`
 - `check_circle`
 - `chat`
+- `close`
 - `dashboard_customize`
 - `delete`
 - `delete_sweep`
@@ -38,12 +41,14 @@ The rest of the interface also uses:
 - `edit`
 - `error`
 - `fiber_manual_record`
+- `flag`
 - `folder_open`
 - `help`
 - `history`
 - `info`
 - `keyboard`
 - `language`
+- `list_alt`
 - `login`
 - `logout`
 - `map`
@@ -56,14 +61,17 @@ The rest of the interface also uses:
 - `query_stats`
 - `redo`
 - `refresh`
+- `remove`
 - `restart_alt`
 - `save`
 - `search`
 - `settings`
+- `skip_next`
 - `sports_esports`
 - `tune`
 - `undo`
 - `visibility`
+- `visibility_off`
 - `volume_up`
 - `window`
 

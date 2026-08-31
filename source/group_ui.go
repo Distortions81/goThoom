@@ -150,7 +150,8 @@ func showDualGroupEditor(title, availableTitle, memberTitle string, entries func
 		right.Contents = nil
 		for _, entry := range available {
 			button, events := eui.NewButton()
-			button.Text = "+  " + entry.label
+			button.Text = entry.label
+			setMaterialButtonIcon(button, "add")
 			button.Size = eui.Point{X: 300, Y: 24}
 			key := entry.key
 			events.Handle = func(ev eui.UIEvent) {
@@ -163,7 +164,8 @@ func showDualGroupEditor(title, availableTitle, memberTitle string, entries func
 		}
 		for _, entry := range members {
 			button, events := eui.NewButton()
-			button.Text = "−  " + entry.label
+			button.Text = entry.label
+			setMaterialButtonIcon(button, "remove")
 			button.Size = eui.Point{X: 300, Y: 24}
 			key := entry.key
 			events.Handle = func(ev eui.UIEvent) {
@@ -181,6 +183,7 @@ func showDualGroupEditor(title, availableTitle, memberTitle string, entries func
 	if quickAdd != nil && quickLabel != "" {
 		quickButton, quickEvents := eui.NewButton()
 		quickButton.Text = quickLabel
+		setMaterialButtonIcon(quickButton, "add")
 		quickButton.Size = eui.Point{X: 180, Y: 26}
 		quickButton.SetTooltip("Add nearby players.")
 		quickEvents.Handle = func(ev eui.UIEvent) {
@@ -206,6 +209,7 @@ func showDualGroupEditor(title, availableTitle, memberTitle string, entries func
 	buttons.AddItem(deleteButton)
 	closeButton, closeEvents := eui.NewButton()
 	closeButton.Text = "Close"
+	setMaterialButtonIcon(closeButton, "close")
 	closeButton.Size = eui.Point{X: 110, Y: 26}
 	closeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

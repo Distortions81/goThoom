@@ -125,6 +125,7 @@ func makeCommandPaletteWindow() {
 
 	closeBtn, closeEvents := eui.NewButton()
 	closeBtn.Text = "Close"
+	setMaterialButtonIcon(closeBtn, "close")
 	closeBtn.Size = eui.Point{X: 90, Y: 28}
 	closeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

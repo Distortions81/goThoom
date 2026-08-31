@@ -1078,6 +1078,7 @@ func setupWizardNavigation(width float32) *eui.ItemData {
 	if setupWizardPage > 0 {
 		back, backEvents := eui.NewButton()
 		back.Text = "Back"
+		setMaterialButtonIcon(back, "arrow_back")
 		back.Size = eui.Point{X: 90, Y: 24}
 		backEvents.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventClick {
@@ -1095,6 +1096,7 @@ func setupWizardNavigation(width float32) *eui.ItemData {
 
 	skip, skipEvents := eui.NewButton()
 	skip.Text = "Skip Tour"
+	setMaterialButtonIcon(skip, "skip_next")
 	skip.Size = eui.Point{X: 150, Y: 24}
 	skipEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -1107,6 +1109,7 @@ func setupWizardNavigation(width float32) *eui.ItemData {
 	next.Size = eui.Point{X: 100, Y: 24}
 	if setupWizardPage == 0 {
 		next.Text = "Start"
+		setMaterialButtonIcon(next, "auto_fix_high")
 		next.Size.X = 130
 		next.Color = eui.ColorDarkOrange
 		next.HoverColor = eui.ColorOrange
@@ -1114,8 +1117,10 @@ func setupWizardNavigation(width float32) *eui.ItemData {
 		next.ForceTextColor = true
 	} else if setupWizardPage == setupWizardPageCount-1 {
 		next.Text = "Finish"
+		setMaterialButtonIcon(next, "check_circle")
 	} else {
 		next.Text = "Next"
+		setMaterialButtonIcon(next, "arrow_forward")
 	}
 	nextEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {

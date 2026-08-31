@@ -121,6 +121,7 @@ func openShortcutEditor(owner string) {
 	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "OK"
+	setMaterialButtonIcon(okBtn, "check_circle")
 	okBtn.Size = eui.Point{X: 80, Y: 20}
 	okBtn.FontSize = 12
 	okEvents.Handle = func(ev eui.UIEvent) {
@@ -131,6 +132,7 @@ func openShortcutEditor(owner string) {
 	btnRow.AddItem(okBtn)
 	cancelBtn, cancelEvents := eui.NewButton()
 	cancelBtn.Text = "Cancel"
+	setMaterialButtonIcon(cancelBtn, "close")
 	cancelBtn.Size = eui.Point{X: 80, Y: 20}
 	cancelBtn.FontSize = 12
 	cancelEvents.Handle = func(ev eui.UIEvent) {

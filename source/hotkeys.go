@@ -286,7 +286,7 @@ func makeHotkeysWindow() {
 
 	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	addBtn, addEvents := eui.NewButton()
-	addBtn.Text = "+"
+	setMaterialIconOnly(addBtn, "add", "+")
 	addBtn.SetTooltip("Create a new hotkey")
 	addBtn.Size = eui.Point{X: 20, Y: 20}
 	addBtn.FontSize = 14
@@ -355,7 +355,7 @@ func refreshHotkeysList() {
 		}
 		row.AddItem(btn)
 		delBtn, delEvents := eui.NewButton()
-		delBtn.Text = "x"
+		setMaterialIconOnly(delBtn, "delete", "x")
 		delBtn.SetTooltip("Remove this hotkey")
 		delBtn.Size = eui.Point{X: 20, Y: 20}
 		delBtn.FontSize = 10
@@ -489,6 +489,7 @@ func openHotkeyEditor(idx int) {
 	row.AddItem(hotkeyComboText)
 	hotkeyRecordBtn, recordEvents := eui.NewButton()
 	hotkeyRecordBtn.Text = "Record"
+	setMaterialButtonIcon(hotkeyRecordBtn, "fiber_manual_record")
 	hotkeyRecordBtn.SetTooltip("Capture a key/mouse combo")
 	hotkeyRecordBtn.Size = eui.Point{X: 60, Y: 20}
 	hotkeyRecordBtn.FontSize = 12
@@ -518,7 +519,7 @@ func openHotkeyEditor(idx int) {
 
 	// Row to add a command input
 	addCmdRow, addCmdEvents := eui.NewButton()
-	addCmdRow.Text = "+"
+	setMaterialIconOnly(addCmdRow, "add", "+")
 	addCmdRow.SetTooltip("Add another command line")
 	addCmdRow.Size = eui.Point{X: 20, Y: 20}
 	addCmdRow.FontSize = 14
@@ -532,6 +533,7 @@ func openHotkeyEditor(idx int) {
 	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "OK"
+	setMaterialButtonIcon(okBtn, "check_circle")
 	okBtn.Size = eui.Point{X: 80, Y: 20}
 	okBtn.FontSize = 12
 	okEvents.Handle = func(ev eui.UIEvent) {
@@ -543,6 +545,7 @@ func openHotkeyEditor(idx int) {
 
 	cancelBtn, cancelEvents := eui.NewButton()
 	cancelBtn.Text = "Cancel"
+	setMaterialButtonIcon(cancelBtn, "close")
 	cancelBtn.Size = eui.Point{X: 80, Y: 20}
 	cancelBtn.FontSize = 12
 	cancelEvents.Handle = func(ev eui.UIEvent) {
