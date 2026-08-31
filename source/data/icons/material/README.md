@@ -34,6 +34,7 @@ The rest of the interface also uses:
 - `check_circle`
 - `chat`
 - `close`
+- `code`
 - `dashboard_customize`
 - `delete`
 - `delete_sweep`
@@ -47,6 +48,7 @@ The rest of the interface also uses:
 - `history`
 - `info`
 - `keyboard`
+- `keyboard_command_key`
 - `language`
 - `list_alt`
 - `login`
@@ -66,12 +68,15 @@ The rest of the interface also uses:
 - `save`
 - `search`
 - `settings`
+- `shortcut`
 - `skip_next`
 - `sports_esports`
+- `terminal`
 - `tune`
 - `undo`
 - `visibility`
 - `visibility_off`
+- `volume_off`
 - `volume_up`
 - `window`
 

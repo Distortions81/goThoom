@@ -1926,8 +1926,32 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 			}
 			drawRoundRect(subImg, &roundRect{Size: maxSize, Position: point{X: offset.X, Y: y}, Fillet: item.Fillet, Filled: true, Color: col})
 		}
+		textX := offset.X + item.BorderPad + item.Padding + currentStyle.TextPadding*uiScale
+		if itemHasOptionImages(item) {
+			iconSize := dropdownOptionImageSize(item)
+			if i < len(item.OptionImages) && item.OptionImages[i] != nil && iconSize > 0 {
+				icon := item.OptionImages[i]
+				iw := float64(icon.Bounds().Dx())
+				ih := float64(icon.Bounds().Dy())
+				if iw > 0 && ih > 0 {
+					scale := math.Min(float64(iconSize)/iw, float64(iconSize)/ih)
+					op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+					if item.SmoothImage {
+						op.Filter = ebiten.FilterLinear
+						op.DisableMipmaps = false
+					}
+					op.GeoM.Scale(scale, scale)
+					op.GeoM.Translate(
+						float64(textX)+(float64(iconSize)-iw*scale)/2,
+						float64(y)+(float64(optionH)-ih*scale)/2,
+					)
+					subImg.DrawImage(icon, op)
+				}
+			}
+			textX += dropdownOptionImageSlot(item)
+		}
 		td := acquireDrawImageOptions()
-		td.GeoM.Translate(float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale), float64(y+optionH/2))
+		td.GeoM.Translate(float64(textX), float64(y+optionH/2))
 		tdo := acquireTextDrawOptions()
 		tdo.DrawImageOptions = *td
 		tdo.LayoutOptions = loo

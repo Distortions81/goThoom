@@ -487,7 +487,15 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 			"Legacy Macros",
 			"Saved Data",
 		}
-		eui.ShowContextMenu(options, r.X0, r.Y1, func(i int) {
+		icons := materialMenuIcons(
+			"keyboard_command_key",
+			"shortcut",
+			"keyboard",
+			"code",
+			"terminal",
+			"save",
+		)
+		eui.ShowContextMenuWithIcons(options, icons, r.X0, r.Y1, func(i int) {
 			switch i {
 			case 0:
 				hotkeysWin.ToggleNear(actionsBtn)
@@ -1820,17 +1828,13 @@ func makeMixerWindow() {
 
 	var mixMuteEvents *eui.EventHandler
 	mixMuteBtn, mixMuteEvents = eui.NewButton()
-	mixMuteBtn.Text = "Mute"
-	if gs.Mute {
-		mixMuteBtn.Text = "Unmute"
-	}
+	setAudioMuteButtonState(mixMuteBtn, gs.Mute)
 	// Make the mute button wider to accommodate label and adjacent checkbox context
 	mixMuteBtn.Size = eui.Point{X: 192, Y: 24}
 	mixMuteEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.Mute = !gs.Mute
 			if gs.Mute {
-				mixMuteBtn.Text = "Unmute"
 				if volumeSlider != nil {
 					volumeSlider.Value = 0
 				}
@@ -1838,14 +1842,9 @@ func makeMixerWindow() {
 					masterMixSlider.Value = 0
 					masterMixSlider.Dirty = true
 				}
-				if muteBtn != nil {
-					muteBtn.Text = "Unmute"
-					muteBtn.Dirty = true
-				}
 				stopAllAudioPlayers()
 				clearTuneQueue()
 			} else {
-				mixMuteBtn.Text = "Mute"
 				if volumeSlider != nil {
 					volumeSlider.Value = float32(gs.MasterVolume)
 				}
@@ -1853,12 +1852,9 @@ func makeMixerWindow() {
 					masterMixSlider.Value = float32(gs.MasterVolume)
 					masterMixSlider.Dirty = true
 				}
-				if muteBtn != nil {
-					muteBtn.Text = "Mute"
-					muteBtn.Dirty = true
-				}
 			}
-			mixMuteBtn.Dirty = true
+			setAudioMuteButtonState(mixMuteBtn, gs.Mute)
+			setAudioMuteButtonState(muteBtn, gs.Mute)
 			if volumeSlider != nil {
 				volumeSlider.Dirty = true
 			}

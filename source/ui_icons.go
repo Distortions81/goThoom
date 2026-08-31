@@ -86,6 +86,30 @@ func setMaterialButtonIcon(button *eui.ItemData, name string) {
 	setMaterialIconBinding(button, materialIconBinding{name: name})
 }
 
+func materialMenuIcons(names ...string) []*ebiten.Image {
+	materialIconMu.Lock()
+	defer materialIconMu.Unlock()
+
+	icons := make([]*ebiten.Image, len(names))
+	for i, name := range names {
+		icons[i] = materialIcons[name]
+	}
+	return icons
+}
+
+func setAudioMuteButtonState(button *eui.ItemData, muted bool) {
+	if button == nil {
+		return
+	}
+	if muted {
+		button.Text = "Unmute"
+		setMaterialButtonIcon(button, "volume_up")
+	} else {
+		button.Text = "Mute"
+		setMaterialButtonIcon(button, "volume_off")
+	}
+}
+
 func setMaterialIconOnly(button *eui.ItemData, name, fallback string) {
 	setMaterialIconBinding(button, materialIconBinding{name: name, fallback: fallback, iconOnly: true})
 }

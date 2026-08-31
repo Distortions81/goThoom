@@ -150,11 +150,14 @@ type itemData struct {
 	ScrollMarks []float32
 
 	// Dropdown specific
-	Options    []string
-	Selected   int
-	Open       bool
-	MaxVisible int
-	HoverIndex int
+	Options []string
+	// OptionImages optionally adds a leading image to matching dropdown or
+	// context-menu rows. Missing and nil entries retain the shared text inset.
+	OptionImages []*ebiten.Image
+	Selected     int
+	Open         bool
+	MaxVisible   int
+	HoverIndex   int
 
 	// HeaderCount marks the number of initial options that are shown as
 	// non-interactive headers in dropdowns/context menus. These indices are

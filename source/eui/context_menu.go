@@ -1,6 +1,7 @@
 package eui
 
 import (
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
@@ -12,6 +13,17 @@ var contextMenus []*itemData
 // when the user clicks an item. Returns the underlying item handle for advanced
 // customization if desired.
 func ShowContextMenu(options []string, x, y float32, onSelect func(int)) *ItemData {
+	return showContextMenu(options, nil, x, y, onSelect)
+}
+
+// ShowContextMenuWithIcons opens a context menu with an optional leading icon
+// for each row. Icons are scaled down with linear filtering and all labels use
+// the same inset, including rows whose matching icon is nil.
+func ShowContextMenuWithIcons(options []string, icons []*ebiten.Image, x, y float32, onSelect func(int)) *ItemData {
+	return showContextMenu(options, icons, x, y, onSelect)
+}
+
+func showContextMenu(options []string, icons []*ebiten.Image, x, y float32, onSelect func(int)) *ItemData {
 	if len(options) == 0 {
 		return nil
 	}
@@ -20,6 +32,8 @@ func ShowContextMenu(options []string, x, y float32, onSelect func(int)) *ItemDa
 	menu := new(itemData)
 	*menu = *defaultDropdown
 	menu.Options = append([]string(nil), options...)
+	menu.OptionImages = append([]*ebiten.Image(nil), icons...)
+	menu.SmoothImage = len(icons) > 0
 	menu.Open = true
 	menu.HoverIndex = -1
 	menu.OnSelect = onSelect
@@ -38,6 +52,9 @@ func ShowContextMenu(options []string, x, y float32, onSelect func(int)) *ItemDa
 	leftPad := menu.BorderPad + menu.Padding + currentStyle.TextPadding*uiScale
 	// Mirror left padding on the right and add a small safety margin.
 	desiredW := maxW + 2*leftPad + 4*uiScale
+	if itemHasOptionImages(menu) {
+		desiredW += dropdownOptionImageSlot(menu)
+	}
 	if desiredW < (defaultDropdown.Size.X * uiScale) {
 		desiredW = defaultDropdown.Size.X * uiScale
 	}
@@ -50,6 +67,27 @@ func ShowContextMenu(options []string, x, y float32, onSelect func(int)) *ItemDa
 
 	contextMenus = append(contextMenus, menu)
 	return (*ItemData)(menu)
+}
+
+func itemHasOptionImages(item *itemData) bool {
+	for _, icon := range item.OptionImages {
+		if icon != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func dropdownOptionImageSize(item *itemData) float32 {
+	size := item.GetSize().Y - 8*uiScale
+	if size < 0 {
+		return 0
+	}
+	return size
+}
+
+func dropdownOptionImageSlot(item *itemData) float32 {
+	return dropdownOptionImageSize(item) + 4*uiScale
 }
 
 // CloseContextMenus closes all open context menus.
