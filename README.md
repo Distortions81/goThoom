@@ -12,7 +12,7 @@ macOS, and Linux.
 · [User manual](https://gothoom.m45sci.xyz/help)
 · [Video overview](https://youtu.be/MrGdcqIl3a4)
 
-<img src="dev-screenshots/tiled.png" alt="goThoom game client" />
+<img src="dev-screenshots/Screenshot_20260831_034828.png" alt="goThoom game client" />
 
 ## Get started
 
