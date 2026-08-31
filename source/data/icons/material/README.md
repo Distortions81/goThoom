@@ -26,8 +26,12 @@ Rounded set. Movie controls use:
 The rest of the interface also uses:
 
 - `add`
+- `auto_fix_high`
 - `bolt`
+- `bug_report`
 - `check_circle`
+- `chat`
+- `dashboard_customize`
 - `delete`
 - `delete_sweep`
 - `download`
@@ -38,11 +42,15 @@ The rest of the interface also uses:
 - `help`
 - `history`
 - `info`
+- `keyboard`
+- `language`
 - `login`
 - `logout`
 - `map`
 - `movie`
 - `my_location`
+- `notifications`
+- `palette`
 - `person_add`
 - `power_settings_new`
 - `query_stats`
@@ -52,6 +60,8 @@ The rest of the interface also uses:
 - `save`
 - `search`
 - `settings`
+- `sports_esports`
+- `tune`
 - `undo`
 - `visibility`
 - `volume_up`

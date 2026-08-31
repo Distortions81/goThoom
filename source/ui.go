@@ -4070,6 +4070,7 @@ func makeSettingsWindow() {
 
 	tiledLayoutBtn, tiledLayoutEvents := eui.NewButton()
 	tiledLayoutBtn.Text = "Tiled Layout"
+	setMaterialButtonIcon(tiledLayoutBtn, "dashboard_customize")
 	tiledLayoutBtn.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
 	tiledLayoutBtn.SetTooltip("Open panel ordering, game placement, and combined-message controls.")
 	tiledLayoutEvents.Handle = func(ev eui.UIEvent) {
@@ -4307,6 +4308,7 @@ func makeSettingsWindow() {
 
 	qualityBtn, qualityEvents := eui.NewButton()
 	qualityBtn.Text = "Quality Settings"
+	setMaterialButtonIcon(qualityBtn, "tune")
 	qualityBtn.SetTooltip("Tune artwork scaling, shadows, lighting, motion, and GPU costs individually.")
 	qualityBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityEvents.Handle = func(ev eui.UIEvent) {
@@ -4397,6 +4399,7 @@ func makeSettingsWindow() {
 
 	notifBtn, notifBtnEvents := eui.NewButton()
 	notifBtn.Text = "Notification Settings"
+	setMaterialButtonIcon(notifBtn, "notifications")
 	notifBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	notifBtnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -4410,6 +4413,7 @@ func makeSettingsWindow() {
 
 	textColorsBtn, textColorsEvents := eui.NewButton()
 	textColorsBtn.Text = "Text Colors"
+	setMaterialButtonIcon(textColorsBtn, "palette")
 	textColorsBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	textColorsEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -4746,6 +4750,7 @@ func makeSettingsWindow() {
 
 	advancedBtn, advancedEvents := eui.NewButton()
 	advancedBtn.Text = "Advanced Settings"
+	setMaterialButtonIcon(advancedBtn, "tune")
 	advancedBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	advancedEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -4765,6 +4770,7 @@ func makeSettingsWindow() {
 
 	setupBtn, setupEvents := eui.NewButton()
 	setupBtn.Text = "Setup Wizard"
+	setMaterialButtonIcon(setupBtn, "auto_fix_high")
 	setupBtn.SetTooltip("Reopen guided graphics, layout, controls, and audio setup without resetting choices.")
 	setupBtn.Size = eui.Point{X: panelWidth, Y: 40}
 	setupBtn.FontSize = 15
@@ -6320,6 +6326,7 @@ func makeNotificationsWindow() {
 	// Test desktop notification button
 	testBtn, testEv := eui.NewButton()
 	testBtn.Text = "Send Test Notification"
+	setMaterialButtonIcon(testBtn, "notifications")
 	testBtn.Size = eui.Point{X: width, Y: 24}
 	testEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -6375,6 +6382,7 @@ func makeAdvancedSettingsWindow() {
 
 	debugBtn, debugEvents := eui.NewButton()
 	debugBtn.Text = "Debug Settings"
+	setMaterialButtonIcon(debugBtn, "bug_report")
 	debugBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	debugEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -6537,6 +6545,7 @@ func makeAdvancedSettingsWindow() {
 
 	joystickBtn, joystickEvents := eui.NewButton()
 	joystickBtn.Text = "Gamepad"
+	setMaterialButtonIcon(joystickBtn, "sports_esports")
 	joystickBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	joystickEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -6614,6 +6623,7 @@ func makeAdvancedSettingsWindow() {
 
 	bubbleBtn, bubbleEvents := eui.NewButton()
 	bubbleBtn.Text = "Message Bubbles"
+	setMaterialButtonIcon(bubbleBtn, "chat")
 	bubbleBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	bubbleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -6684,6 +6694,7 @@ func makeAdvancedSettingsWindow() {
 
 	ttsTestBtn, ttsTestBtnEvents := eui.NewButton()
 	ttsTestBtn.Text = "Test TTS"
+	setMaterialButtonIcon(ttsTestBtn, "volume_up")
 	ttsTestBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	ttsTestBtnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -6832,6 +6843,7 @@ func makeAdvancedSettingsWindow() {
 
 	timingBtn, timingEvents := eui.NewButton()
 	timingBtn.Text = "Show Network Timing"
+	setMaterialButtonIcon(timingBtn, "query_stats")
 	timingBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	timingEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -7172,6 +7184,7 @@ func makeDebugWindow() {
 
 	previewEffectsBtn, previewEffectsEvents := eui.NewButton()
 	previewEffectsBtn.Text = "Toggle Effects Preview"
+	setMaterialButtonIcon(previewEffectsBtn, "visibility")
 	previewEffectsBtn.Size = eui.Point{X: width, Y: 24}
 	previewEffectsBtn.SetTooltip("Preview every replacement effect.")
 	previewEffectsEvents.Handle = func(ev eui.UIEvent) {

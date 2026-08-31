@@ -114,6 +114,7 @@ func makeCommandPaletteWindow() {
 	buttons := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	commandPaletteRunBtn, _ = eui.NewButton()
 	commandPaletteRunBtn.Text = "Run"
+	setMaterialButtonIcon(commandPaletteRunBtn, "play_arrow")
 	commandPaletteRunBtn.Size = eui.Point{X: 90, Y: 28}
 	commandPaletteRunBtn.Handler.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

@@ -36,6 +36,7 @@ func initAboutUI() {
 
 	linkBtn, linkEvents := eui.NewButton()
 	linkBtn.Text = "goThoom Site"
+	setMaterialButtonIcon(linkBtn, "language")
 	linkBtn.Size.Y = 20
 	linkBtn.Fixed = true
 	linkEvents.Handle = func(ev eui.UIEvent) {

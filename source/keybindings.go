@@ -40,6 +40,7 @@ func makeKeybindingsWindow() {
 	buttons.Size = eui.Point{X: keybindingsWin.Size.X, Y: 28}
 	testButton, testEvents := eui.NewButton()
 	testButton.Text = "Test Keyboard/Mouse"
+	setMaterialButtonIcon(testButton, "keyboard")
 	testButton.Size = eui.Point{X: 160, Y: 24}
 	testButton.SetTooltip("Show detected input.")
 	testEvents.Handle = func(event eui.UIEvent) {
