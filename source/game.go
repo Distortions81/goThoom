@@ -1871,6 +1871,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawStartupLoadingScreen(screen, startupLoadingLabel())
 		return
 	}
+	loadMaterialIcons()
 	loadToolbarHands()
 
 	// Power-save throttling: measure draw duration and sleep remaining time

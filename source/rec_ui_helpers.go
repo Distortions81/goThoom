@@ -12,8 +12,10 @@ func updateRecordButton() {
 	}
 	if (playingMovie && !setupWizardPreviewActive) || recordingMovie {
 		recordBtn.Text = "STOP"
+		setMaterialButtonIcon(recordBtn, "stop")
 	} else {
 		recordBtn.Text = "Record"
+		setMaterialButtonIcon(recordBtn, "fiber_manual_record")
 	}
 	// Force re-render of the button and toolbar window
 	recordBtn.Dirty = true

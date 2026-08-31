@@ -445,6 +445,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
+	setMaterialButtonIcon(winBtn, "window")
 	winBtn.SetTooltip("Manage windows layout and visibility")
 	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	winBtn.FontSize = toolFontSize
@@ -457,6 +458,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
+	setMaterialButtonIcon(btn, "settings")
 	btn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	btn.FontSize = toolFontSize
 	setEvents.Handle = func(ev eui.UIEvent) {
@@ -468,6 +470,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	actionsBtn, actionsEvents := eui.NewButton()
 	actionsBtn.Text = "Actions"
+	setMaterialButtonIcon(actionsBtn, "bolt")
 	actionsBtn.SetTooltip("Open hotkeys, shortcuts, keybindings, scripts, macros, and saved data.")
 	actionsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	actionsBtn.FontSize = toolFontSize
@@ -512,6 +515,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	var recordEvents *eui.EventHandler
 	recordBtn, recordEvents = eui.NewButton()
 	recordBtn.Text = "Record"
+	setMaterialButtonIcon(recordBtn, "fiber_manual_record")
 	recordBtn.SetTooltip("Start/stop recording (.clmov)")
 	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	recordBtn.Color = eui.ColorDarkRed
@@ -546,6 +550,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	helpBtn, helpEvents := eui.NewButton()
 	helpBtn.Text = "Help"
+	setMaterialButtonIcon(helpBtn, "help")
 	helpBtn.SetTooltip("Open the goThoom user manual in your browser.")
 	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	helpBtn.FontSize = toolFontSize
@@ -572,6 +577,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	paletteBtn, paletteEvents := eui.NewButton()
 	paletteBtn.Text = "Palette"
+	setMaterialButtonIcon(paletteBtn, "search")
 	paletteBtn.SetTooltip("Search settings, windows, scripts, player actions, and commands (Ctrl+Shift+P).")
 	paletteBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	paletteBtn.FontSize = toolFontSize
@@ -584,6 +590,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	mixBtn, mixEvents := eui.NewButton()
 	mixBtn.Text = "Audio"
+	setMaterialButtonIcon(mixBtn, "volume_up")
 	mixBtn.SetTooltip("Adjust game, music, speech, notification, and enhancement levels.")
 	mixBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	mixBtn.FontSize = toolFontSize
@@ -596,6 +603,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	statsBtn, statsEvents := eui.NewButton()
 	statsBtn.Text = "Stats"
+	setMaterialButtonIcon(statsBtn, "query_stats")
 	statsBtn.SetTooltip("Show live network, frame-rate, and cache statistics.")
 	statsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	statsBtn.FontSize = toolFontSize
@@ -611,6 +619,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 
 	exitBtn, exitEvents := eui.NewButton()
 	exitBtn.Text = "Logout"
+	setMaterialButtonIcon(exitBtn, "logout")
 	exitBtn.SetTooltip("Disconnect and return to the login screen.")
 	exitBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	exitBtn.FontSize = toolFontSize
@@ -1899,8 +1908,8 @@ func makeToolbar() {
 }
 
 func buildToolbarRoot(docked bool) *eui.ItemData {
-	var toolFontSize float32 = 12
-	var buttonHeight float32 = 18
+	var toolFontSize float32 = 10
+	var buttonHeight float32 = 24
 	var buttonWidth float32 = 80
 	if docked {
 		buttonWidth = 68

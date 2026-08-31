@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"embed"
 	"encoding/binary"
 	"fmt"
-	"image/png"
 	"log"
 	"sort"
 	"sync"
@@ -14,7 +12,6 @@ import (
 
 	"gothoom/eui"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hako/durafmt"
 )
 
@@ -26,46 +23,8 @@ var (
 	movieDropped  int
 )
 
-//go:embed data/icons/material/*.png
-var movieControlIconFiles embed.FS
-
-var (
-	movieControlIconOnce sync.Once
-	movieControlIcons    map[string]*ebiten.Image
-)
-
-func movieControlIcon(name string) *ebiten.Image {
-	movieControlIconOnce.Do(func() {
-		movieControlIcons = make(map[string]*ebiten.Image)
-		for _, iconName := range []string{
-			"arrow_right", "exit_to_app", "fast_forward", "fast_forward_3",
-			"fast_rewind", "fast_rewind_3", "forward_30", "forward_5",
-			"pause", "play_arrow", "replay_30", "replay_5", "stop",
-		} {
-			file, err := movieControlIconFiles.Open("data/icons/material/" + iconName + ".png")
-			if err != nil {
-				log.Printf("open movie control icon %q: %v", iconName, err)
-				continue
-			}
-			decoded, err := png.Decode(file)
-			_ = file.Close()
-			if err != nil {
-				log.Printf("decode movie control icon %q: %v", iconName, err)
-				continue
-			}
-			movieControlIcons[iconName] = newManagedImageFromImage(decoded)
-		}
-	})
-	return movieControlIcons[name]
-}
-
 func setMovieControlIcon(button *eui.ItemData, name, fallback string) {
-	button.Image = movieControlIcon(name)
-	if button.Image == nil {
-		button.Text = fallback
-	} else {
-		button.Text = ""
-	}
+	setMaterialIconOnly(button, name, fallback)
 }
 
 // movieCheckpoint captures the draw state after processing a frame. idx

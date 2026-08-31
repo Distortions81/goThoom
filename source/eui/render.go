@@ -1187,8 +1187,20 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 				Color:    itemColor,
 			})
 		}
+		textSize := (item.FontSize * uiScale) + 2
+		face := itemFace(item, textSize)
+		if item.ParentWindow != nil && item.ParentWindow.DefaultButton == item && item.Face == nil {
+			face = boldFace(textSize)
+		}
+		textCenterX := float64(offset.X + maxSize.X/2)
 		if item.Image != nil {
-			sop := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
+			filter := ebiten.FilterNearest
+			disableMipmaps := true
+			if item.SmoothImage {
+				filter = ebiten.FilterLinear
+				disableMipmaps = false
+			}
+			sop := &ebiten.DrawImageOptions{Filter: filter, DisableMipmaps: disableMipmaps}
 			imageWidth := float64(item.Image.Bounds().Dx())
 			imageHeight := float64(item.Image.Bounds().Dy())
 			availableWidth := float64(maxSize.X - 6*uiScale)
@@ -1197,21 +1209,32 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			if imageWidth > 0 && imageHeight > 0 {
 				scale = math.Min(availableWidth/imageWidth, availableHeight/imageHeight)
 			}
+			imageX := float64(offset.X) + (float64(maxSize.X)-imageWidth*scale)/2
+			if scale > 0 && item.Text != "" {
+				textWidth := float64(0)
+				for _, line := range strings.Split(item.Text, "\n") {
+					width, _ := text.Measure(line, face, 0)
+					textWidth = math.Max(textWidth, width)
+				}
+				gap := float64(3 * uiScale)
+				iconWidth := math.Max(0, availableWidth-textWidth-gap)
+				scale = math.Min(scale, iconWidth/imageWidth)
+				if scale > 0 {
+					groupWidth := imageWidth*scale + gap + textWidth
+					imageX = float64(offset.X) + (float64(maxSize.X)-groupWidth)/2
+					textCenterX = imageX + imageWidth*scale + gap + textWidth/2
+				}
+			}
 			if scale > 0 {
 				sop.GeoM.Scale(scale, scale)
 				sop.GeoM.Translate(
-					float64(offset.X)+(float64(maxSize.X)-imageWidth*scale)/2,
+					imageX,
 					float64(offset.Y)+(float64(maxSize.Y)-imageHeight*scale)/2,
 				)
 			}
 			subImg.DrawImage(item.Image, sop)
 		}
 
-		textSize := (item.FontSize * uiScale) + 2
-		face := itemFace(item, textSize)
-		if item.ParentWindow != nil && item.ParentWindow.DefaultButton == item && item.Face == nil {
-			face = boldFace(textSize)
-		}
 		loo := text.LayoutOptions{
 			LineSpacing:    0,
 			PrimaryAlign:   text.AlignCenter,
@@ -1225,7 +1248,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		for i, line := range lines {
 			tdop.GeoM.Reset()
 			tdop.GeoM.Translate(
-				float64(offset.X+((maxSize.X)/2)),
+				textCenterX,
 				startY+float64(i)*lineHeight,
 			)
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}

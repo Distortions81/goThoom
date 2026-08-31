@@ -169,6 +169,9 @@ type itemData struct {
 
 	ImageName string
 	Image     *ebiten.Image
+	// SmoothImage enables filtered scaling for antialiased vector-derived
+	// images. Pixel-art images keep nearest-neighbor scaling by default.
+	SmoothImage bool
 
 	//Style
 	Padding, Margin float32
