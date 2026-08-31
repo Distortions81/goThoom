@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"embed"
 	"encoding/binary"
 	"fmt"
+	"image/png"
 	"log"
 	"sort"
 	"sync"
@@ -12,6 +14,7 @@ import (
 
 	"gothoom/eui"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hako/durafmt"
 )
 
@@ -22,6 +25,48 @@ var (
 	movieWin      *eui.WindowData
 	movieDropped  int
 )
+
+//go:embed data/icons/material/*.png
+var movieControlIconFiles embed.FS
+
+var (
+	movieControlIconOnce sync.Once
+	movieControlIcons    map[string]*ebiten.Image
+)
+
+func movieControlIcon(name string) *ebiten.Image {
+	movieControlIconOnce.Do(func() {
+		movieControlIcons = make(map[string]*ebiten.Image)
+		for _, iconName := range []string{
+			"arrow_right", "exit_to_app", "fast_forward", "fast_forward_3",
+			"fast_rewind", "fast_rewind_3", "forward_30", "forward_5",
+			"pause", "play_arrow", "replay_30", "replay_5", "stop",
+		} {
+			file, err := movieControlIconFiles.Open("data/icons/material/" + iconName + ".png")
+			if err != nil {
+				log.Printf("open movie control icon %q: %v", iconName, err)
+				continue
+			}
+			decoded, err := png.Decode(file)
+			_ = file.Close()
+			if err != nil {
+				log.Printf("decode movie control icon %q: %v", iconName, err)
+				continue
+			}
+			movieControlIcons[iconName] = newManagedImageFromImage(decoded)
+		}
+	})
+	return movieControlIcons[name]
+}
+
+func setMovieControlIcon(button *eui.ItemData, name, fallback string) {
+	button.Image = movieControlIcon(name)
+	if button.Image == nil {
+		button.Text = fallback
+	} else {
+		button.Text = ""
+	}
+}
 
 // movieCheckpoint captures the draw state after processing a frame. idx
 // matches the number of processed frames (the next frame to play).
@@ -78,6 +123,7 @@ func restoreMovieNightState(n movieNightState) {
 // times.
 const checkpointInterval = 300
 const movieSeekFullRenderInterval = 500 * time.Millisecond
+const movieControlButtonHeight = 38
 
 // moviePlayer manages clMov playback with basic controls.
 type moviePlayer struct {
@@ -211,6 +257,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.Closable = true
 	win.Resizable = false
 	win.AutoSize = true
+	win.NoScroll = true
 	win.SetZone(eui.HZoneCenter, eui.VZoneBottom)
 	win.SetZoneOffset(eui.Point{Y: -164})
 
@@ -253,8 +300,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 
 	backb, backbEv := eui.NewButton()
-	backb.Text = "<<<"
-	backb.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(backb, "replay_30", "<<<")
+	backb.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	backb.SetTooltip("Skip back 30s")
 	backbEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -264,8 +311,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(backb)
 
 	back, backEv := eui.NewButton()
-	back.Text = "<<"
-	back.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(back, "replay_5", "<<")
+	back.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	back.SetTooltip("Skip back 5s")
 	backEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -275,9 +322,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(back)
 
 	play, playEv := eui.NewButton()
-	play.Text = "Play/Pause"
+	setMovieControlIcon(play, "pause", "Pause")
 	play.SetTooltip("Toggle playback")
-	play.Size = eui.Point{X: 80, Y: 24}
+	play.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	p.playButton = play
 	changePlayButton(p, p.playButton)
 	playEv.Handle = func(ev eui.UIEvent) {
@@ -293,9 +340,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(play)
 
 	stopSeek, stopSeekEv := eui.NewButton()
-	stopSeek.Text = "Stop Seek"
+	setMovieControlIcon(stopSeek, "stop", "Stop Seek")
 	stopSeek.SetTooltip("Stop seeking")
-	stopSeek.Size = eui.Point{X: 80, Y: 24}
+	stopSeek.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	stopSeekEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.stopSeek()
@@ -304,8 +351,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(stopSeek)
 
 	forwardb, fwdbEv := eui.NewButton()
-	forwardb.Text = ">>"
-	forwardb.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(forwardb, "forward_5", ">>")
+	forwardb.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	forwardb.SetTooltip("Skip forward 5s")
 	fwdbEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -315,8 +362,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(forwardb)
 
 	forward, fwdEv := eui.NewButton()
-	forward.Text = ">>>"
-	forward.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(forward, "forward_30", ">>>")
+	forward.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	forward.SetTooltip("Skip forward 30s")
 	fwdEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -327,12 +374,12 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	spacer, _ := eui.NewText()
 	spacer.Text = ""
-	spacer.Size = eui.Point{X: 20, Y: 24}
+	spacer.Size = eui.Point{X: 20, Y: movieControlButtonHeight}
 	bFlow.AddItem(spacer)
 
 	half, halfEv := eui.NewButton()
-	half.Text = "--"
-	half.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(half, "fast_rewind_3", "--")
+	half.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	half.SetTooltip("Half speed")
 	halfEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -342,8 +389,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(half)
 
 	dec, decEv := eui.NewButton()
-	dec.Text = "-"
-	dec.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(dec, "fast_rewind", "-")
+	dec.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	dec.SetTooltip("Slow down")
 	decEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -353,9 +400,9 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(dec)
 
 	reset, resetEv := eui.NewButton()
-	reset.Text = "RESET"
+	setMovieControlIcon(reset, "arrow_right", "RESET")
 	reset.SetTooltip("Reset playback speed")
-	reset.Size = eui.Point{X: 80, Y: 24}
+	reset.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	resetEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			p.setFPS(p.baseFPS)
@@ -364,8 +411,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(reset)
 
 	inc, incEv := eui.NewButton()
-	inc.Text = "+"
-	inc.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(inc, "fast_forward", "+")
+	inc.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	inc.SetTooltip("Speed up")
 	incEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -375,8 +422,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(inc)
 
 	dbl, dblEv := eui.NewButton()
-	dbl.Text = "++"
-	dbl.Size = eui.Point{X: 40, Y: 24}
+	setMovieControlIcon(dbl, "fast_forward_3", "++")
+	dbl.Size = eui.Point{X: 40, Y: movieControlButtonHeight}
 	dbl.SetTooltip("Double speed")
 	dblEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -386,8 +433,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(dbl)
 
 	exitBtn, exitEv := eui.NewButton()
-	exitBtn.Text = "Exit"
-	exitBtn.Size = eui.Point{X: 80, Y: 24}
+	setMovieControlIcon(exitBtn, "exit_to_app", "Exit")
+	exitBtn.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	exitEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			showPopup(
@@ -406,7 +453,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	fpsInfo, _ := eui.NewText()
 	fpsInfo.Text = movieUPSValue(p.fps)
 	fpsInfo.SetTooltip("Playback updates per second")
-	fpsInfo.Size = eui.Point{X: 50, Y: 24}
+	fpsInfo.Size = eui.Point{X: 50, Y: movieControlButtonHeight}
 	fpsInfo.FontSize = 15
 	fpsInfo.Alignment = eui.ALIGN_CENTER
 	p.fpsLabel = fpsInfo
@@ -470,10 +517,11 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 func changePlayButton(p *moviePlayer, play *eui.ItemData) {
 	if p.playing {
-		play.Text = "Pause"
+		setMovieControlIcon(play, "pause", "Pause")
 	} else {
-		play.Text = "Play"
+		setMovieControlIcon(play, "play_arrow", "Play")
 	}
+	play.Dirty = true
 }
 
 func (p *moviePlayer) run(ctx context.Context) {
