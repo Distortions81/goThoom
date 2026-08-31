@@ -39,6 +39,7 @@ func makeShortcutsWindow() {
 	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	addUserBtn, addUserEvents := eui.NewButton()
 	addUserBtn.Text = "Add for character"
+	setMaterialButtonIcon(addUserBtn, "person_add")
 	addUserBtn.Size = eui.Point{X: 160, Y: 24}
 	addUserEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -48,6 +49,7 @@ func makeShortcutsWindow() {
 	btnRow.AddItem(addUserBtn)
 	addGlobalBtn, addGlobalEvents := eui.NewButton()
 	addGlobalBtn.Text = "Add For All"
+	setMaterialButtonIcon(addGlobalBtn, "add")
 	addGlobalBtn.Size = eui.Point{X: 160, Y: 24}
 	addGlobalEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -254,6 +256,7 @@ func refreshShortcutsList() {
 				row.AddItem(t)
 				delBtn, delEvents := eui.NewButton()
 				delBtn.Text = "X"
+				setMaterialIconOnly(delBtn, "delete", "X")
 				delBtn.Size = eui.Point{X: rowUnits, Y: rowUnits}
 				delBtn.FontSize = float32(fontSize)
 				owner := p.owner
@@ -285,6 +288,7 @@ func refreshShortcutsList() {
 			row.AddItem(t)
 			viewBtn, vh := eui.NewButton()
 			viewBtn.Text = "View"
+			setMaterialButtonIcon(viewBtn, "visibility")
 			viewBtn.Size = eui.Point{X: rowUnits * 3, Y: rowUnits}
 			viewBtn.FontSize = float32(fontSize)
 			owner := p.owner

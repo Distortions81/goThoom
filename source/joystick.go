@@ -91,6 +91,7 @@ func makeJoystickWindow() {
 
 	refreshBtn, refreshEvents := eui.NewButton()
 	refreshBtn.Text = "Refresh"
+	setMaterialButtonIcon(refreshBtn, "refresh")
 	refreshBtn.Size = eui.Point{X: 80, Y: 24}
 	refreshEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {

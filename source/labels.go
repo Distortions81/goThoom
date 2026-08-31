@@ -143,6 +143,7 @@ func openLabelEditWindow() {
 	}
 	saveBtn, _ := eui.NewButton()
 	saveBtn.Text = "Save"
+	setMaterialButtonIcon(saveBtn, "save")
 	saveBtn.Action = func() {
 		playersPersistDirty = true
 		labelEditWin.Close()

@@ -193,6 +193,7 @@ func showDualGroupEditor(title, availableTitle, memberTitle string, entries func
 	}
 	deleteButton, deleteEvents := eui.NewButton()
 	deleteButton.Text = "Delete Group"
+	setMaterialButtonIcon(deleteButton, "delete")
 	deleteButton.Color = eui.ColorDarkRed
 	deleteButton.HoverColor = eui.ColorRed
 	deleteButton.Size = eui.Point{X: 140, Y: 26}

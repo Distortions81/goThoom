@@ -75,7 +75,8 @@ func makeLegacyMacroLibraryWindow() {
 
 	refreshButton, refreshEvents := eui.NewButton()
 	refreshButton.Text = "Refresh"
-	refreshButton.Size = eui.Point{X: 64, Y: 24}
+	setMaterialButtonIcon(refreshButton, "refresh")
+	refreshButton.Size = eui.Point{X: 80, Y: 24}
 	refreshButton.Disabled = isWASM
 	refreshButton.SetTooltip("Rescan the macro library.")
 	if isWASM {
@@ -90,6 +91,7 @@ func makeLegacyMacroLibraryWindow() {
 
 	openButton, openEvents := eui.NewButton()
 	openButton.Text = "Open Folder"
+	setMaterialButtonIcon(openButton, "folder_open")
 	openButton.Size = eui.Point{X: 112, Y: 24}
 	openButton.Disabled = isWASM
 	if isWASM {
@@ -106,6 +108,7 @@ func makeLegacyMacroLibraryWindow() {
 
 	reloadButton, reloadEvents := eui.NewButton()
 	reloadButton.Text = "Reload Macros"
+	setMaterialButtonIcon(reloadButton, "restart_alt")
 	reloadButton.Size = eui.Point{X: 112, Y: 24}
 	reloadButton.SetTooltip("Reload enabled macros.")
 	reloadEvents.Handle = func(event eui.UIEvent) {
@@ -117,6 +120,7 @@ func makeLegacyMacroLibraryWindow() {
 
 	errorsButton, errorsEvents := eui.NewButton()
 	errorsButton.Text = "No Errors"
+	setMaterialButtonIcon(errorsButton, "check_circle")
 	errorsButton.Size = eui.Point{X: 96, Y: 24}
 	errorsButton.SetTooltip("Show macro errors.")
 	errorsEvents.Handle = func(event eui.UIEvent) {
@@ -195,6 +199,7 @@ func refreshLegacyMacroLibraryWindow() {
 		}
 		infoButton, infoEvents := eui.NewButton()
 		infoButton.Text = "i"
+		setMaterialIconOnly(infoButton, "info", "i")
 		infoButton.Size = eui.Point{X: 24, Y: 24}
 		infoButton.SetTooltip("Show macro details, commands, and keybindings.")
 		infoEvents.Handle = func(event eui.UIEvent) {
@@ -206,6 +211,7 @@ func refreshLegacyMacroLibraryWindow() {
 
 		editButton, editEvents := eui.NewButton()
 		editButton.Text = "Edit"
+		setMaterialButtonIcon(editButton, "edit")
 		editButton.Size = eui.Point{X: 44, Y: 24}
 		editButton.Disabled = isWASM
 		editButton.SetTooltip("Open this macro file.")
@@ -365,8 +371,10 @@ func legacyMacroLibraryRefreshErrorsButton() {
 	text := "No Errors"
 	if count == 0 {
 		text = "No Errors"
+		setMaterialButtonIcon(legacyMacroLibraryErrors, "check_circle")
 	} else {
 		text = fmt.Sprintf("Errors (%d)", count)
+		setMaterialButtonIcon(legacyMacroLibraryErrors, "error")
 	}
 	legacyMacroLibraryErrors.UpdateText(text)
 	legacyMacroLibraryErrors.Disabled = false

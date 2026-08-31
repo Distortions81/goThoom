@@ -431,6 +431,7 @@ func setupWizardUIScaleControl() *eui.ItemData {
 
 	apply, applyEvents := eui.NewButton()
 	apply.Text = "Apply"
+	setMaterialButtonIcon(apply, "check_circle")
 	apply.Size = eui.Point{X: 90, Y: 24}
 	applyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {

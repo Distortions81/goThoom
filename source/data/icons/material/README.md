@@ -23,22 +23,37 @@ Rounded set. Movie controls use:
 - `fast_rewind_3` (goThoom triple-arrow variant)
 - `fast_forward_3` (goThoom triple-arrow variant)
 
-The main and World Map toolbars also use:
+The rest of the interface also uses:
 
+- `add`
 - `bolt`
+- `check_circle`
+- `delete`
+- `delete_sweep`
+- `download`
+- `edit`
+- `error`
 - `fiber_manual_record`
 - `folder_open`
 - `help`
+- `history`
+- `info`
+- `login`
 - `logout`
 - `map`
 - `movie`
 - `my_location`
+- `person_add`
+- `power_settings_new`
 - `query_stats`
 - `redo`
+- `refresh`
+- `restart_alt`
 - `save`
 - `search`
 - `settings`
 - `undo`
+- `visibility`
 - `volume_up`
 - `window`
 

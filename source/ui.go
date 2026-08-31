@@ -705,8 +705,9 @@ func makescriptsWindow() {
 
 	refreshBtn, rh := eui.NewButton()
 	refreshBtn.Text = "Refresh"
+	setMaterialButtonIcon(refreshBtn, "refresh")
 	refreshBtn.SetTooltip("Rescan scripts and reload list")
-	refreshBtn.Size = eui.Point{X: 64, Y: 24}
+	refreshBtn.Size = eui.Point{X: 80, Y: 24}
 	rh.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			rescanscripts()
@@ -716,6 +717,7 @@ func makescriptsWindow() {
 
 	openBtn, oh := eui.NewButton()
 	openBtn.Text = "Open scripts folder"
+	setMaterialButtonIcon(openBtn, "folder_open")
 	// Label already clear; no tooltip.
 	openBtn.Size = eui.Point{X: 160, Y: 24}
 	oh.Handle = func(ev eui.UIEvent) {
@@ -977,6 +979,7 @@ func refreshscriptsWindow() {
 			allCB.Disabled = e.invalid
 			infoBtn, infoEvents := eui.NewButton()
 			infoBtn.Text = "i"
+			setMaterialIconOnly(infoBtn, "info", "i")
 			infoBtn.Size = eui.Point{X: scriptsManagerInfoSize, Y: 24}
 			infoBtn.SetTooltip("Show script details and actions.")
 			infoEvents.Handle = func(ev eui.UIEvent) {
@@ -1022,8 +1025,9 @@ func refreshscriptsWindow() {
 			if !e.invalid {
 				reloadBtn, rh := eui.NewButton()
 				reloadBtn.Text = "Reload"
+				setMaterialIconOnly(reloadBtn, "restart_alt", "Reload")
 				reloadBtn.SetTooltip("Restart this script if enabled")
-				reloadBtn.Size = eui.Point{X: 55, Y: 24}
+				reloadBtn.Size = eui.Point{X: 32, Y: 24}
 				rh.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventClick {
 						scriptMu.RLock()
@@ -1042,7 +1046,8 @@ func refreshscriptsWindow() {
 				if len(cfg) > 0 {
 					cfgBtn, ch := eui.NewButton()
 					cfgBtn.Text = "Configure"
-					cfgBtn.Size = eui.Point{X: 70, Y: 24}
+					setMaterialButtonIcon(cfgBtn, "settings")
+					cfgBtn.Size = eui.Point{X: 82, Y: 24}
 					ch.Handle = func(ev eui.UIEvent) {
 						if ev.Type == eui.EventClick {
 							openscriptConfigWindow(owner)
@@ -2377,6 +2382,7 @@ func showRecordingSaveDialog(path string) {
 	}
 	saveBtn, saveEv := eui.NewButton()
 	saveBtn.Text = "Save"
+	setMaterialButtonIcon(saveBtn, "save")
 	saveBtn.Size = eui.Point{X: 80, Y: 24}
 	saveEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
@@ -2782,6 +2788,7 @@ func makeDownloadsWindow() {
 	if !isWASM {
 		dlBtn, dlEvents := eui.NewButton()
 		dlBtn.Text = "Download"
+		setMaterialButtonIcon(dlBtn, "download")
 		dlBtn.Size = eui.Point{X: 100, Y: 24}
 		dlEvents.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventClick {
@@ -3079,6 +3086,7 @@ func makeAddCharacterWindow() {
 
 	addBtn, addEvents := eui.NewButton()
 	addBtn.Text = "Add"
+	setMaterialButtonIcon(addBtn, "add")
 	addBtn.Size = eui.Point{X: 200, Y: 24}
 	addCharWin.DefaultButton = addBtn
 	addEvents.Handle = func(ev eui.UIEvent) {
@@ -3279,6 +3287,7 @@ func makeEditCharacterWindow() {
 
 	saveBtn, saveEvents := eui.NewButton()
 	saveBtn.Text = "Save"
+	setMaterialButtonIcon(saveBtn, "save")
 	saveBtn.Size = eui.Point{X: 136, Y: 24}
 	editCharWin.DefaultButton = saveBtn
 	saveEvents.Handle = func(ev eui.UIEvent) {
@@ -3371,6 +3380,7 @@ func makePasswordWindow() {
 
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "Connect"
+	setMaterialButtonIcon(okBtn, "login")
 	okBtn.Size = eui.Point{X: 96, Y: 24}
 	okEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -3612,6 +3622,7 @@ func makeLoginWindow() {
 
 	connBtn, connEvents := eui.NewButton()
 	connBtn.Text = "Connect"
+	setMaterialButtonIcon(connBtn, "login")
 	connBtn.Size = eui.Point{X: charWinWidth, Y: 48}
 	connBtn.Padding = 10
 	connBtn.FontSize = 24
@@ -3659,6 +3670,7 @@ func makeLoginWindow() {
 
 	addBtn, addEvents := eui.NewButton()
 	addBtn.Text = "Add"
+	setMaterialButtonIcon(addBtn, "add")
 	addBtn.SetTooltip("Add a saved character")
 	addBtn.Size = eui.Point{X: 164, Y: 24}
 	addEvents.Handle = func(ev eui.UIEvent) {
@@ -3681,6 +3693,7 @@ func makeLoginWindow() {
 	editBtn, editEvents := eui.NewButton()
 	editCharBtn = editBtn
 	editBtn.Text = "Edit"
+	setMaterialButtonIcon(editBtn, "edit")
 	editBtn.SetTooltip("Change the selected character's password, password saving, or settings profile.")
 	editBtn.Size = eui.Point{X: 164, Y: 24}
 	editEvents.Handle = func(ev eui.UIEvent) {
@@ -3705,6 +3718,7 @@ func makeLoginWindow() {
 	deleteBtn, deleteEvents := eui.NewButton()
 	deleteCharBtn = deleteBtn
 	deleteBtn.Text = "Delete"
+	setMaterialButtonIcon(deleteBtn, "delete")
 	deleteBtn.SetTooltip("Delete the selected saved character")
 	deleteBtn.Size = eui.Point{X: 164, Y: 24}
 	deleteBtn.Color = eui.ColorDarkRed
@@ -3729,6 +3743,7 @@ func makeLoginWindow() {
 
 	openBtn, openEvents := eui.NewButton()
 	openBtn.Text = "Play movie file [clMov]"
+	setMaterialButtonIcon(openBtn, "movie")
 	openBtn.SetTooltip("Open and play a .clmov recording")
 	openBtn.Size = eui.Point{X: charWinWidth, Y: 24}
 	openEvents.Handle = func(ev eui.UIEvent) {
@@ -3782,6 +3797,7 @@ func makeLoginWindow() {
 
 	quitBttn, quitEvn := eui.NewButton()
 	quitBttn.Text = "Quit"
+	setMaterialButtonIcon(quitBttn, "power_settings_new")
 	// Increase Quit button font size by 2pt
 	quitBttn.FontSize = 24
 	// Double the height of the Quit button
@@ -3799,13 +3815,14 @@ func makeLoginWindow() {
 	verLabel, _ := eui.NewText()
 	verLabel.Text = fmt.Sprintf("goThoom test %4d", appVersion)
 	verLabel.FontSize = 14
-	verLabel.Size = eui.Point{X: 357, Y: 24}
+	verLabel.Size = eui.Point{X: 330, Y: 24}
 	verFlow.AddItem(verLabel)
 
 	changeBtn, changeEvents := eui.NewButton()
 	changeBtn.Text = "Changelog"
+	setMaterialButtonIcon(changeBtn, "history")
 	changeBtn.SetTooltip("View recent changes")
-	changeBtn.Size = eui.Point{X: 70, Y: 24}
+	changeBtn.Size = eui.Point{X: 97, Y: 24}
 	changeBtn.FontSize = 10
 	changeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -3819,6 +3836,7 @@ func makeLoginWindow() {
 
 	aboutBtn, aboutEvents := eui.NewButton()
 	aboutBtn.Text = "About"
+	setMaterialButtonIcon(aboutBtn, "info")
 	aboutBtn.Size = eui.Point{X: 60, Y: 24}
 	aboutBtn.FontSize = 10
 	aboutEvents.Handle = func(ev eui.UIEvent) {
@@ -4028,6 +4046,7 @@ func makeSettingsWindow() {
 
 	resetWindowsBtn, resetWindowsEvents := eui.NewButton()
 	resetWindowsBtn.Text = "Reset Windows"
+	setMaterialButtonIcon(resetWindowsBtn, "restart_alt")
 	resetWindowsBtn.Size = eui.Point{X: panelWidth, Y: 24}
 	resetWindowsBtn.SetTooltip("Restore the default window layout.")
 	resetWindowsEvents.Handle = func(ev eui.UIEvent) {
@@ -4111,7 +4130,8 @@ func makeSettingsWindow() {
 
 	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
 	uiScaleApplyBtn.Text = "Apply"
-	uiScaleApplyBtn.Size = eui.Point{X: 48, Y: 24}
+	setMaterialButtonIcon(uiScaleApplyBtn, "check_circle")
+	uiScaleApplyBtn.Size = eui.Point{X: 64, Y: 24}
 	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.UIScale = pendingUIScale
@@ -6367,6 +6387,7 @@ func makeAdvancedSettingsWindow() {
 
 	dlBtn, dlEvents := eui.NewButton()
 	dlBtn.Text = "Download Files"
+	setMaterialButtonIcon(dlBtn, "download")
 	dlBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	dlEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -6388,6 +6409,7 @@ func makeAdvancedSettingsWindow() {
 
 	dataFolderBtn, dataFolderEvents := eui.NewButton()
 	dataFolderBtn.Text = "Open User Data Folder"
+	setMaterialButtonIcon(dataFolderBtn, "folder_open")
 	dataFolderBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	dataFolderBtn.SetTooltip("Open the persistent folder containing settings, characters, scripts, recordings, themes, and downloaded assets.")
 	dataFolderEvents.Handle = func(ev eui.UIEvent) {
@@ -6401,6 +6423,7 @@ func makeAdvancedSettingsWindow() {
 
 	diagnosticsFolderBtn, diagnosticsFolderEvents := eui.NewButton()
 	diagnosticsFolderBtn.Text = "Open Diagnostics Folder"
+	setMaterialButtonIcon(diagnosticsFolderBtn, "folder_open")
 	diagnosticsFolderBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	diagnosticsFolderBtn.SetTooltip("Open the folder containing the current and rotated diagnostic logs for bug reports.")
 	diagnosticsFolderEvents.Handle = func(ev eui.UIEvent) {
@@ -6419,6 +6442,7 @@ func makeAdvancedSettingsWindow() {
 
 	resetBtn, resetEv := eui.NewButton()
 	resetBtn.Text = "Reset All Settings"
+	setMaterialButtonIcon(resetBtn, "restart_alt")
 	resetBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	resetBtn.Color = eui.ColorDarkRed
 	resetBtn.HoverColor = eui.ColorRed
@@ -6681,6 +6705,7 @@ func makeAdvancedSettingsWindow() {
 
 	ttsEditBtn, ttsEditEvents := eui.NewButton()
 	ttsEditBtn.Text = "Edit TTS corrections"
+	setMaterialButtonIcon(ttsEditBtn, "edit")
 	ttsEditBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	ttsEditEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -7126,6 +7151,7 @@ func makeDebugWindow() {
 	// Add a small "Reload" button beside the shader checkbox for hot-reload.
 	reloadBtn, reloadEv := eui.NewButton()
 	reloadBtn.Text = "Reload Shaders"
+	setMaterialButtonIcon(reloadBtn, "restart_alt")
 	reloadBtn.Size = eui.Point{X: 160, Y: 24}
 	reloadBtn.SetTooltip("Reload effect shaders.")
 	reloadEv.Handle = func(ev eui.UIEvent) {
@@ -7265,6 +7291,7 @@ func makeDebugWindow() {
 
 	clearCacheBtn, clearCacheEvents := eui.NewButton()
 	clearCacheBtn.Text = "Clear All Caches"
+	setMaterialButtonIcon(clearCacheBtn, "delete_sweep")
 	clearCacheBtn.Size = eui.Point{X: width, Y: 24}
 	clearCacheEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -7425,6 +7452,7 @@ func makeWindowsWindow() {
 
 	resetBtn, resetEvents := eui.NewButton()
 	resetBtn.Text = "Reset Windows"
+	setMaterialButtonIcon(resetBtn, "restart_alt")
 	resetBtn.Size = eui.Point{X: 128, Y: 24}
 	resetBtn.SetTooltip("Restore the default window layout.")
 	resetEvents.Handle = func(ev eui.UIEvent) {

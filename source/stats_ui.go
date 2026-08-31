@@ -284,6 +284,7 @@ func makeStatsWindow() {
 	networkControls.AddItem(statsPNACheckbox)
 	clearButton, clearEvents := eui.NewButton()
 	clearButton.Text = "Clear Stats"
+	setMaterialButtonIcon(clearButton, "delete_sweep")
 	clearButton.Size = eui.Point{X: 92, Y: 24}
 	clearButton.FontSize = 10
 	clearButton.SetTooltip("Clear the five-minute graph history. Session packet totals and NLSPT measurements are unchanged.")
@@ -347,6 +348,7 @@ func makeStatsWindow() {
 	memoryControls.AddItem(statsMemoryText)
 	clearCachesButton, clearCachesEvents := eui.NewButton()
 	clearCachesButton.Text = "Clear Caches"
+	setMaterialButtonIcon(clearCachesButton, "delete_sweep")
 	clearCachesButton.Size = eui.Point{X: 104, Y: 24}
 	clearCachesButton.FontSize = 10
 	clearCachesButton.SetTooltip("Clear decoded artwork and sound caches. Enabled precaching may begin filling them again immediately.")

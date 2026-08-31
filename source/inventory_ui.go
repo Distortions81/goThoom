@@ -592,6 +592,7 @@ func (s *inventoryRenderState) groupHeader(group string, count int) *eui.ItemDat
 		if group != "" {
 			button, events := eui.NewButton()
 			button.Text = "Edit"
+			setMaterialButtonIcon(button, "edit")
 			name := group
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventClick {

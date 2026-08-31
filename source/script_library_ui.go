@@ -64,6 +64,7 @@ func refreshScriptLibraryWindow() {
 
 		install, installEvents := eui.NewButton()
 		install.Text = "Install"
+		setMaterialButtonIcon(install, "download")
 		install.Size = eui.Point{X: 64, Y: 24}
 		install.Disabled = installed || isWASM
 		installEvents.Handle = func(event eui.UIEvent) {
@@ -87,6 +88,7 @@ func refreshScriptLibraryWindow() {
 
 		edit, editEvents := eui.NewButton()
 		edit.Text = "Edit"
+		setMaterialButtonIcon(edit, "edit")
 		edit.Size = eui.Point{X: 48, Y: 24}
 		edit.Disabled = !installed || isWASM
 		editEvents.Handle = func(event eui.UIEvent) {

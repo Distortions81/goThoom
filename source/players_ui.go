@@ -610,6 +610,7 @@ func makePlayerGroupHeader(group string, count int, width, rowUnits float32, fon
 	if editable {
 		button, events := eui.NewButton()
 		button.Text = "Edit"
+		setMaterialButtonIcon(button, "edit")
 		button.Size = eui.Point{X: 52, Y: rowUnits + 2}
 		label.Size.X = max(0, contentWidth-label.Position.X-button.Position.X-button.Size.X)
 		name := group

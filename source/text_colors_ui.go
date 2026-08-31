@@ -127,6 +127,7 @@ func makeTextColorsWindow() {
 
 	reset, resetEvents := eui.NewButton()
 	reset.Text = "Reset Colors"
+	setMaterialButtonIcon(reset, "restart_alt")
 	reset.Size = eui.Point{X: 130, Y: 24}
 	resetEvents.Handle = func(event eui.UIEvent) {
 		if event.Type != eui.EventClick {

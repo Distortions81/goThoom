@@ -82,6 +82,7 @@ func refreshSavedDataList() {
 		row.AddItem(txt)
 		viewBtn, vh := eui.NewButton()
 		viewBtn.Text = "View"
+		setMaterialButtonIcon(viewBtn, "visibility")
 		viewBtn.Size = eui.Point{X: 64, Y: 24}
 		owner := o
 		vh.Handle = func(ev eui.UIEvent) {
