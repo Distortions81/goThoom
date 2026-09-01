@@ -7,9 +7,9 @@ Bubbles, Controller, or Tiled Layout. This document lists the exceptions.
 
 ## Audit summary
 
-The current internal `settings` structure contains 175 exported fields:
+The current internal `settings` structure contains 179 exported fields:
 
-- 170 are mapped directly by the v4 JSON schema.
+- 174 are mapped directly by the v4 JSON schema.
 - `BarPlacement` and `SpriteUpscaleMode` are persisted separately as readable
   string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.
@@ -74,6 +74,22 @@ control:
 These values are exposed by `/setting` because that command reflects the JSON
 schema, but direct edits can produce awkward layouts. Use the window controls,
 tiled dividers, or **Reset Windows** unless diagnosing a layout problem.
+
+## File paths
+
+**Settings → File Paths** configures four global, restart-scoped
+locations: assets and audio (including `CL_Images`, `CL_Sounds`, the SoundFont,
+and Piper TTS files), diagnostic and text logs, legacy macros, and Go scripts.
+An empty JSON value uses the standard location in the user data folder.
+
+When **Copy existing files to the selected folder** is enabled, goThoom first
+checks for conflicting files, copies without overwriting different destination
+files, and verifies each copied file with SHA-256. It creates and reads back a
+temporary probe in the destination before saving the path. If validation,
+copying, checksum verification, or settings persistence fails, the filepath
+setting remains unchanged. Restart goThoom after a successful change so open
+logs and already-loaded assets keep a consistent location for the whole
+session.
 
 ## Session-only controls not written to JSON
 

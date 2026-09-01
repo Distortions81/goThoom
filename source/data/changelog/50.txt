@@ -1,0 +1,20 @@
+goThoom 50 changes since test49.
+
+Downloads and asset updates:
+- Added automatic incremental patching for CL_Images and CL_Sounds, substantially reducing downloads when a compatible local archive is already installed.
+- Added support for applying multiple available patches in sequence when there is no direct patch from the installed version to the current version.
+- Missing local archives are downloaded in full. A missing, corrupt, incompatible, or otherwise failed patch also falls back automatically to the full current archive.
+- Patch downloads verify their gzip checksum, target version, keyfile structure, and resulting archive before replacing the installed file. Image patches also verify the artwork checksums embedded in CL_Images.
+- Patched archives are written and checksum-verified through a temporary file before atomically replacing the previous archive.
+
+Classic client compatibility:
+- Matched the classic client's keyfile merge behavior, including version-last patching, sorted version-2 keyfile tables, destination-specific record cleanup, and preservation of metadata present in the official full archives.
+
+Files and storage:
+- Added Settings → File Paths for alternate locations for assets and audio, logs, legacy macros, and Go scripts.
+- New locations are tested for write and read access before being saved. An optional migration copies existing files with checksum verification, refuses to overwrite conflicting files, and leaves the active setting unchanged if any step fails.
+- File path changes take effect after restart so open logs and loaded assets stay on one consistent path for the entire session.
+
+Technical changes:
+- Cleaned up launch parameters by removing obsolete `-experimental` and `-uiscale` options and hiding internal flags registered by dependencies. Asset patching is automatic, and UI scaling remains available in Settings.
+- Added regression coverage for direct patches, chained patches, missing and corrupt patch fallback, installations without local archives, target-version validation, classic keyfile construction, archive cleanup, and checksum failures.

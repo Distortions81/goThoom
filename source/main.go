@@ -79,6 +79,10 @@ func defaultPGOMoviePath() string {
 }
 
 func main() {
+	// Dependencies register a few internal flags on Go's default FlagSet during
+	// package initialization. Give the client a clean launch surface containing
+	// only the options registered below.
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	defer closeDiagnosticsLog()
 	defer shutdownScripts()
 	// Ensure any active recording is finalized on exit.
@@ -107,12 +111,9 @@ func main() {
 	flag.BoolVar(&dumpPreloadAssets, "dumpPreloadAssets", false, "export startup-preloaded images and sounds to dump/preload and exit")
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
-	flag.Bool("experimental", false, "deprecated: asset patching is now enabled automatically")
 	flag.DurationVar(&assetLoadTraceThreshold, "assetLoadTrace", 0, "log frames that perform asset/atlas loading; mark Draw times at or above this duration as slow (for example 8ms)")
 	flag.DurationVar(&framePacingTraceThreshold, "framePacingTrace", 0, "log Update-to-Update intervals at or above this duration, including presentation/driver wait (for example 20ms)")
 	flag.DurationVar(&startupLoadingDelay, "startupDelay", 0, "minimum time to show each startup step (for example 1s)")
-	// Kept for existing launch scripts; UI Scale is now always in Settings.
-	_ = flag.Bool("uiscale", false, "deprecated: UI scaling options are always shown in Settings")
 	flag.StringVar(&brandSpriteOutput, "exportBrandSprite", "", "render the goThoom brand character to a transparent PNG and exit")
 	genPGO := flag.Bool("pgo", false, "create default.pgo from -clmov (or test.clMov) at 30 fps")
 	pgoWarmup := flag.Duration("pgoWarmup", 0, "unprofiled warmup duration used with -pgo")
@@ -141,8 +142,6 @@ func main() {
 	if _, ok := imageDumpUpscaleMode(imgDumpScaleType); !ok {
 		log.Fatalf("imgDumpScaleType must be nearest, crisp, balanced, smooth, or ultra-smooth, got %q", imgDumpScaleType)
 	}
-
-	// Classic timing and parser are always enabled; flags removed.
 
 	if *dumpTune != "" {
 		// Minimal dump path: no window/audio init needed.
@@ -179,6 +178,8 @@ func main() {
 	}
 
 	migrated, err := initializeUserData()
+	loadSettings()
+	activateStoragePaths()
 	setupLogging(doDebug)
 	if err != nil {
 		log.Printf("initialize user data: %v", err)
@@ -187,6 +188,7 @@ func main() {
 		log.Printf("copied portable user data to %s; original files were left in place", dataDirPath)
 	}
 	eui.SetUserDataRoot(dataDirPath)
+	loadTTSSubstitutions()
 	loadCustomSplashImages()
 
 	if *genPGO {
@@ -196,7 +198,6 @@ func main() {
 		clMovFPS = 30
 	}
 
-	loadSettings()
 	if gs.WindowWidth < 512 {
 		gs.WindowWidth = initialWindowW
 	}
@@ -247,7 +248,7 @@ func main() {
 		if isWASM && len(wasmCLImagesData) > 0 {
 			clImages, err = climg.LoadBytes(wasmCLImagesData)
 		} else {
-			clImages, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
+			clImages, err = climg.Load(assetFilePath(CL_ImagesFile))
 		}
 		if err != nil {
 			log.Fatalf("export brand sprite: load CL_Images: %v", err)

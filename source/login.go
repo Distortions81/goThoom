@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -232,7 +231,7 @@ func parseDemoCharacterNames(data []byte) []string {
 }
 
 func fetchDemoCharactersOnce(clVersion int) ([]string, error) {
-	imagesVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_ImagesFile))
+	imagesVersion, err := readKeyFileVersion(assetFilePath(CL_ImagesFile))
 	imagesMissing := false
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -245,7 +244,7 @@ func fetchDemoCharactersOnce(clVersion int) ([]string, error) {
 		}
 	}
 
-	soundsVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_SoundsFile))
+	soundsVersion, err := readKeyFileVersion(assetFilePath(CL_SoundsFile))
 	soundsMissing := false
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -366,7 +365,7 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 		tag := binary.BigEndian.Uint16(resp[:2])
 		result := int16(binary.BigEndian.Uint16(resp[2:4]))
 		if result == -30972 || result == -30973 {
-			if _, err := autoUpdate(resp, dataDirPath); err != nil {
+			if _, err := autoUpdate(resp, assetsDirPath()); err != nil {
 				return nil, fmt.Errorf("update demo data: %w", err)
 			}
 			return nil, errRetryLogin
@@ -424,7 +423,7 @@ func loginWithDemoCandidates(ctx context.Context, clVersion int, demoCandidates 
 	}
 outer:
 	for {
-		imagesVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_ImagesFile))
+		imagesVersion, err := readKeyFileVersion(assetFilePath(CL_ImagesFile))
 		imagesMissing := false
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -437,7 +436,7 @@ outer:
 			}
 		}
 
-		soundsVersion, err := readKeyFileVersion(filepath.Join(dataDirPath, CL_SoundsFile))
+		soundsVersion, err := readKeyFileVersion(assetFilePath(CL_SoundsFile))
 		soundsMissing := false
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -714,7 +713,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 
 	if result == -30972 || result == -30973 {
 		dispatchMainThread(func() { updateConnectDialog("Server requested update; retrying...") })
-		_, _ = autoUpdate(resp, dataDirPath)
+		_, _ = autoUpdate(resp, assetsDirPath())
 		tcp.Close()
 		tcp = nil
 		udp.Close()

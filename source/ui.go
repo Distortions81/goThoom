@@ -2741,7 +2741,7 @@ func makeDownloadsWindow() {
 			if isWASM && len(wasmCLImagesData) > 0 {
 				img, err = climg.LoadBytes(wasmCLImagesData)
 			} else {
-				img, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
+				img, err = climg.Load(assetFilePath(CL_ImagesFile))
 			}
 			if err != nil {
 				logError("failed to load CL_Images: %v", err)
@@ -4791,6 +4791,22 @@ func makeSettingsWindow() {
 	}
 	moreSection.AddItem(advancedBtn)
 
+	filePathsBtn, filePathsEvents := eui.NewButton()
+	filePathsBtn.Text = "File Paths"
+	setMaterialButtonIcon(filePathsBtn, "folder_open")
+	filePathsBtn.Size = eui.Point{X: panelWidth, Y: 24}
+	filePathsBtn.Disabled = isWASM
+	filePathsBtn.SetTooltip("Choose alternate folders for assets and audio, logs, legacy macros, and Go scripts.")
+	filePathsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick && !isWASM {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+			makeFilePathsWindow()
+			filePathsWin.ToggleNear(ev.Item)
+		}
+	}
+	moreSection.AddItem(filePathsBtn)
+
 	// Keep the Window & Display pane balanced: the UI Scale row belongs there,
 	// while layout recovery is an infrequent action that fits naturally with
 	// the other additional tools.
@@ -5033,6 +5049,13 @@ func resetAllSettings() {
 	if advancedWin != nil {
 		advancedWin.Close()
 		advancedWin = nil
+	}
+	if filePathsWin != nil {
+		filePathsWin.Close()
+		filePathsWin = nil
+		filePathsCopyCB = nil
+		filePathsStatus = nil
+		filePathsDisplays = nil
 	}
 	if textColorsWin != nil {
 		textColorsWin.Close()

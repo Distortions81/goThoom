@@ -601,6 +601,19 @@ func setSettingFromText(entry settingsSchemaEntry, raw string) (string, error) {
 		SettingsLock.Unlock()
 		return "", fmt.Errorf("invalid value for %s: %w", settingFullName(entry), err)
 	}
+	if kind, ok := storagePathKindForSetting(entry); ok {
+		if _, err := changeStoragePath(kind, value.String(), false); err != nil {
+			SettingsLock.Unlock()
+			return "", err
+		}
+		field = reflect.ValueOf(&gs).Elem().FieldByName(entry.field)
+		formatted := formatCommandSettingValue(entry, field)
+		SettingsLock.Unlock()
+		if uiReady {
+			rebuildConfigurationWindows()
+		}
+		return formatted, nil
+	}
 	if err := applySettingCommandSideEffects(entry, value); err != nil {
 		SettingsLock.Unlock()
 		return "", fmt.Errorf("could not apply %s: %w", settingFullName(entry), err)

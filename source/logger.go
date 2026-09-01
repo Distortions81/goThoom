@@ -171,7 +171,7 @@ func rotateLogFiles(path string, backups int) error {
 }
 
 func diagnosticsLogDir() string {
-	return filepath.Join(dataDirPath, diagnosticsDirectoryName)
+	return filepath.Join(logsDirPath(), diagnosticsDirectoryName)
 }
 
 func diagnosticsLogPath() string {

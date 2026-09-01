@@ -23,6 +23,7 @@ type settingsDocument struct {
 	Controller    map[string]json.RawMessage `json:"controller"`
 	Windows       map[string]json.RawMessage `json:"windows"`
 	Scripts       map[string]json.RawMessage `json:"scripts"`
+	FilePaths     map[string]json.RawMessage `json:"file_paths"`
 	Updates       map[string]json.RawMessage `json:"updates"`
 }
 
@@ -40,6 +41,7 @@ const (
 	settingsController    = "controller"
 	settingsWindows       = "windows"
 	settingsScripts       = "scripts"
+	settingsFilePaths     = "file_paths"
 	settingsUpdates       = "updates"
 )
 
@@ -238,6 +240,11 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "ScriptSpamKill", category: settingsScripts, name: "stop_spamming_scripts"},
 	{field: "LegacyMacroContinuous", category: settingsScripts, name: "allow_continuous_legacy_macros"},
 
+	{field: "AssetsPath", category: settingsFilePaths, name: "assets_and_audio"},
+	{field: "LogsPath", category: settingsFilePaths, name: "logs"},
+	{field: "MacrosPath", category: settingsFilePaths, name: "macros"},
+	{field: "ScriptsPath", category: settingsFilePaths, name: "go_scripts"},
+
 	{field: "LastUpdateCheck", category: settingsUpdates, name: "last_check"},
 	{field: "NotifiedVersion", category: settingsUpdates, name: "last_notified_version"},
 }
@@ -258,6 +265,7 @@ func newSettingsDocument() settingsDocument {
 		Controller:    make(map[string]json.RawMessage),
 		Windows:       make(map[string]json.RawMessage),
 		Scripts:       make(map[string]json.RawMessage),
+		FilePaths:     make(map[string]json.RawMessage),
 		Updates:       make(map[string]json.RawMessage),
 	}
 }
@@ -290,6 +298,8 @@ func (d *settingsDocument) category(name string) map[string]json.RawMessage {
 		return d.Windows
 	case settingsScripts:
 		return d.Scripts
+	case settingsFilePaths:
+		return d.FilePaths
 	case settingsUpdates:
 		return d.Updates
 	default:

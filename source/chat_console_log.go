@@ -109,7 +109,7 @@ func ensureTextLog() {
 		return
 	}
 
-	base := filepath.Join(dataDirPath, "Text Logs")
+	base := textLogsDirPath()
 	charDir := filepath.Join(base, desired)
 
 	now := time.Now()

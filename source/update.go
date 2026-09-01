@@ -448,7 +448,7 @@ type dataFilesStatus struct {
 func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 	var status dataFilesStatus
 
-	imgPath := filepath.Join(dataDirPath, CL_ImagesFile)
+	imgPath := assetFilePath(CL_ImagesFile)
 	if v, err := readKeyFileVersion(imgPath); err != nil {
 		if !os.IsNotExist(err) {
 			logError("read %v: %v", imgPath, err)
@@ -470,7 +470,7 @@ func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 		}
 	}
 
-	sndPath := filepath.Join(dataDirPath, CL_SoundsFile)
+	sndPath := assetFilePath(CL_SoundsFile)
 	if v, err := readKeyFileVersion(sndPath); err != nil {
 		if !os.IsNotExist(err) {
 			logError("read %v: %v", sndPath, err)
@@ -507,13 +507,13 @@ func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 		return status, nil
 	}
 
-	sfPath := filepath.Join(dataDirPath, soundFontFile)
+	sfPath := soundFontPath()
 	if _, err := os.Stat(sfPath); errors.Is(err, os.ErrNotExist) {
 		status.NeedSoundfont = true
 		status.SoundfontSize = headSize(soundFontURL)
 	}
 
-	piperDir := filepath.Join(dataDirPath, "piper")
+	piperDir := piperDirPath()
 	binDir := filepath.Join(piperDir, "bin")
 	var archiveName, binName string
 	switch runtime.GOOS {
@@ -595,14 +595,14 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 		// Restrict downloads to CL_Images/CL_Sounds only in WASM.
 		getSoundfont, getPiper, getFem, getMale = false, false, false, false
 	} else {
-		if err := os.MkdirAll(dataDirPath, 0755); err != nil {
-			logError("create %v: %v", dataDirPath, err)
+		if err := os.MkdirAll(assetsDirPath(), 0755); err != nil {
+			logError("create %v: %v", assetsDirPath(), err)
 			return err
 		}
 	}
 	bases := assetBases(updateBase, fallbackUpdateBase)
 	if status.NeedImages {
-		imgPath := filepath.Join(dataDirPath, CL_ImagesFile)
+		imgPath := assetFilePath(CL_ImagesFile)
 		err := downloadAssetUpdate(bases, "CL_Images", imgPath, status.ImageVersion, clientVer, climg.ApplyPatch)
 		if err != nil {
 			logError("download CL_Images: %v", err)
@@ -610,7 +610,7 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 		}
 	}
 	if status.NeedSounds {
-		sndPath := filepath.Join(dataDirPath, CL_SoundsFile)
+		sndPath := assetFilePath(CL_SoundsFile)
 		err := downloadAssetUpdate(bases, "CL_Sounds", sndPath, status.SoundVersion, clientVer, clsnd.ApplyPatch)
 		if err != nil {
 			logError("download CL_Sounds: %v", err)
@@ -618,13 +618,16 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 		}
 	}
 	if getSoundfont {
-		sfPath := filepath.Join(dataDirPath, soundFontFile)
+		if err := os.MkdirAll(soundFontsDirPath(), 0o755); err != nil {
+			return fmt.Errorf("create soundfont directory: %w", err)
+		}
+		sfPath := soundFontPath()
 		if err := downloadGZ(soundFontURL, sfPath); err != nil {
 			logError("download %v: %v", soundFontURL, err)
 			return fmt.Errorf("download soundfont: %w", err)
 		}
 	}
-	piperDir := filepath.Join(dataDirPath, "piper")
+	piperDir := piperDirPath()
 	voicesDir := filepath.Join(piperDir, "voices")
 	if getPiper || getFem || getMale {
 		if err := os.MkdirAll(piperDir, 0o755); err != nil {
@@ -733,7 +736,7 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 		}
 	}
 	if getPiper || getFem || getMale {
-		if path, model, cfg, err := preparePiper(dataDirPath); err == nil {
+		if path, model, cfg, err := preparePiperDirectory(piperDirPath()); err == nil {
 			piperPath, piperModel, piperConfig = path, model, cfg
 			settingsDirty = true
 			go playChatTTS(chatTTSCtx, ttsTestPhrase)

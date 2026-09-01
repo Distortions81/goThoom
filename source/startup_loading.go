@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -208,7 +207,7 @@ func loadStartupImages() {
 	if isWASM && len(wasmCLImagesData) > 0 {
 		images, err = climg.LoadBytes(wasmCLImagesData)
 	} else {
-		images, err = climg.Load(filepath.Join(dataDirPath, CL_ImagesFile))
+		images, err = climg.Load(assetFilePath(CL_ImagesFile))
 	}
 	if err != nil {
 		logError("failed to load CL_Images: %v", err)

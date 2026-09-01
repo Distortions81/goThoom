@@ -125,7 +125,7 @@ var (
 )
 
 func legacyMacrosDir() string {
-	return filepath.Join(dataDirPath, legacyMacrosDirName)
+	return macrosDirPath()
 }
 
 // loadLegacyMacrosForCharacter follows the reference client's entry point:

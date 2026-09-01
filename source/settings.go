@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -342,6 +344,10 @@ var gsdef settings = settings{
 	MusicEnhancementAmount:  1.0,
 	HighQualityResampling:   true,
 	ServerAddress:           defaultServerHostName + ":5010",
+	AssetsPath:              "",
+	LogsPath:                "",
+	MacrosPath:              "",
+	ScriptsPath:             "",
 
 	NightEffect:              true,
 	ShadersEnabled:           true,
@@ -563,6 +569,10 @@ type settings struct {
 	scriptEventDebug         bool
 	AltNetMode               bool
 	ServerAddress            string
+	AssetsPath               string
+	LogsPath                 string
+	MacrosPath               string
+	ScriptsPath              string
 	hideMoving               bool
 	hideMobiles              bool
 	NightEffect              bool
@@ -810,21 +820,60 @@ func saveSettings() {
 		// Skip disk writes in WASM; silently ignore.
 		return
 	}
-	data, err := marshalSettingsDocument(settingsForSave())
-	if err != nil {
+	if err := writeSettingsFile(settingsForSave()); err != nil {
 		logError("save settings: %v", err)
-		return
+	}
+}
+
+func writeSettingsFile(value settings) error {
+	data, err := marshalSettingsDocument(value)
+	if err != nil {
+		return err
 	}
 	data = append(data, '\n')
 	path := filepath.Join(dataDirPath, settingsFile)
-	if err := os.WriteFile(path+".tmp", data, 0644); err != nil {
-		logError("save settings: %v", err)
-		return
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
 	}
-
-	if err := os.Rename(path+".tmp", path); err != nil {
-		logError("save settings: %v", err)
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".settings-*.tmp")
+	if err != nil {
+		return err
 	}
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	if err := temporary.Chmod(0o644); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if _, err := temporary.Write(data); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		_ = temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	written, err := os.ReadFile(temporaryPath)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(written, data) {
+		return fmt.Errorf("settings verification failed")
+	}
+	if err := os.Rename(temporaryPath, path); err != nil {
+		return err
+	}
+	written, err = os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(written, data) {
+		return fmt.Errorf("saved settings verification failed")
+	}
+	return nil
 }
 
 func syncWindowSettings() bool {

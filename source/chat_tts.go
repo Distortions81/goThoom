@@ -126,7 +126,7 @@ func ensurePiper() bool {
 		return true
 	}
 	var err error
-	piperPath, piperModel, piperConfig, err = preparePiper(dataDirPath)
+	piperPath, piperModel, piperConfig, err = preparePiperDirectory(piperDirPath())
 	if err != nil {
 		logError("chat tts init: %v", err)
 		return false
@@ -268,10 +268,13 @@ func speakChatMessage(msg string) {
 }
 
 func preparePiper(dataDir string) (string, string, string, error) {
+	return preparePiperDirectory(filepath.Join(dataDir, "piper"))
+}
+
+func preparePiperDirectory(piperDir string) (string, string, string, error) {
 	if isWASM {
 		return "", "", "", fmt.Errorf("chat tts unavailable in wasm")
 	}
-	piperDir := filepath.Join(dataDir, "piper")
 	binDir := filepath.Join(piperDir, "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return "", "", "", err
@@ -393,7 +396,7 @@ func listPiperVoices() ([]string, error) {
 	if isWASM {
 		return nil, fmt.Errorf("chat tts unavailable in wasm")
 	}
-	voicesDir := filepath.Join(dataDirPath, "piper", "voices")
+	voicesDir := filepath.Join(piperDirPath(), "voices")
 	entries, err := os.ReadDir(voicesDir)
 	if err != nil {
 		return nil, err

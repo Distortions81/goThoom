@@ -87,6 +87,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.MobilesReceiveSunShadows = false
 	want.PlayerShareIcons = true
 	want.GroupClanMembers = true
+	want.AssetsPath = "/mnt/gothoom-assets"
 
 	data, err := marshalSettingsDocument(want)
 	if err != nil {
@@ -120,6 +121,8 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"group_clan_members": true`,
 		`"nlspt_enabled": false`,
 		`"shaders_enabled": true`,
+		`"file_paths"`,
+		`"assets_and_audio": "/mnt/gothoom-assets"`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("v4 settings missing %s", expected)

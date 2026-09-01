@@ -9,7 +9,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -94,7 +93,7 @@ func stopMusicFor(who int) {
 func setupSynth() {
 	var err error
 
-	sfPath := path.Join(dataDirPath, "soundfont.sf2")
+	sfPath := soundFontPath()
 
 	var sfData []byte
 	sfData, err = os.ReadFile(sfPath)

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -1284,13 +1283,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 //go:embed script_library
 var scriptScripts embed.FS
 
-// userScriptsDir returns the user-editable scripts folder in the same data
-// hierarchy as legacy macros and script enablement.
+// userScriptsDir returns the configured user-editable scripts folder.
 func userScriptsDir() string {
 	if isWASM {
 		return ""
 	}
-	return filepath.Join(dataDirPath, "Scripts")
+	return scriptsDirPath()
 }
 
 // scriptSearchDirs returns the user scripts folder.

@@ -33,9 +33,12 @@ The user data folder is `%LOCALAPPDATA%\goThoom` on Windows,
 or Linux release copies existing portable data there on first launch without
 deleting the original files.
 
-Diagnostics are written automatically to the user data folder's `Diagnostics`
+Diagnostics are written by default to the user data folder's `Diagnostics`
 directory. Use **Advanced Settings → Open Diagnostics Folder** to find the
 current `goThoom.log` and its five rotated backups when reporting a problem.
+Use **Settings → File Paths** to place assets and audio, logs, legacy
+macros, or Go scripts in alternate folders. goThoom can copy the existing files
+and verifies that a new folder is readable and writable before saving it.
 
 ## Highlights
 

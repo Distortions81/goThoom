@@ -23,7 +23,7 @@ func init() {
 }
 
 func loadTTSSubstitutions() {
-	path := filepath.Join(dataDirPath, ttsSubstituteFile)
+	path := filepath.Join(ttsDataDirPath(), ttsSubstituteFile)
 	var b []byte
 	if isWASM {
 		b = append([]byte(nil), defaultTTSSubstitute...)
