@@ -1,11 +1,6 @@
 package climg
 
-import (
-	"bytes"
-	"encoding/binary"
-	"io"
-	"log"
-)
+import "log"
 
 // AlphaMask represents a quarter-resolution 1-bit alpha mask where each mask
 // pixel covers a 4x4 block of the original image.
@@ -53,77 +48,13 @@ func (c *CLImages) AlphaMaskQuarter(id uint32, forceTransparent bool) *AlphaMask
 		return nil
 	}
 
-	r := bytes.NewReader(c.data)
-	if _, err := r.Seek(int64(imgLoc.offset), io.SeekStart); err != nil {
-		log.Printf("seek image %d: %v", id, err)
+	data, width, height, err := decodeIndexedImage(c.data, imgLoc)
+	if err != nil {
+		log.Printf("decode image %d: %v", id, err)
 		return nil
 	}
-	var h, w uint16
-	var pad uint32
-	var v, b byte
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		log.Printf("read h for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &w); err != nil {
-		log.Printf("read w for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &pad); err != nil {
-		log.Printf("read pad for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
-		log.Printf("read v for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &b); err != nil {
-		log.Printf("read b for %d: %v", id, err)
-		return nil
-	}
-
-	width := int(w)
-	height := int(h)
-	valueW := int(v)
-	blockLenW := int(b)
-	pixelCount := width * height
-	br := New(r)
-	data := make([]byte, pixelCount)
-	pixPos := 0
-	for pixPos < pixelCount {
-		t, err := br.ReadBit()
-		if err != nil {
-			log.Printf("read bit for %d: %v", id, err)
-			return nil
-		}
-		s, err := br.ReadInt(blockLenW)
-		if err != nil {
-			log.Printf("read int for %d: %v", id, err)
-			return nil
-		}
-		s++
-		if t {
-			for i := 0; i < s && pixPos < pixelCount; i++ {
-				val, err := br.ReadBits(valueW)
-				if err != nil {
-					log.Printf("read bits for %d: %v", id, err)
-					return nil
-				}
-				data[pixPos] = val
-				pixPos++
-			}
-		} else {
-			val, err := br.ReadBits(valueW)
-			if err != nil {
-				log.Printf("read bits for %d: %v", id, err)
-				return nil
-			}
-			for i := 0; i < s && pixPos < pixelCount; i++ {
-				data[pixPos] = val
-				pixPos++
-			}
-		}
-	}
+	indexedPixels := data
+	defer releaseIndexedPixels(indexedPixels)
 
 	if ref.flags&pictDefCustomColors != 0 && len(data) >= width {
 		data = data[width:]

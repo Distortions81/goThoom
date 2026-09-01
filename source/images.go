@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"encoding/binary"
 	"encoding/csv"
 	"fmt"
 	"image"
@@ -983,6 +984,19 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 	destination := allocate(image.Rect(0, 0, sourceRect.Dx()*factor, sourceRect.Dy()*factor))
 	reach := artworkUpscaleCornerReachForMode(mode)
 	strength := artworkUpscaleBlendStrengthForMode(mode)
+	var cornerWeights [4][4][4]float32
+	if factor <= 4 {
+		for oy := 0; oy < factor; oy++ {
+			localY := (float32(oy) + 0.5) / float32(factor)
+			for ox := 0; ox < factor; ox++ {
+				localX := (float32(ox) + 0.5) / float32(factor)
+				cornerWeights[0][oy][ox] = clampFloat32(reach-2*(localX+localY), 0, 1) * strength
+				cornerWeights[1][oy][ox] = clampFloat32(reach-2*((1-localX)+localY), 0, 1) * strength
+				cornerWeights[2][oy][ox] = clampFloat32(reach-2*(localX+(1-localY)), 0, 1) * strength
+				cornerWeights[3][oy][ox] = clampFloat32(reach-2*((1-localX)+(1-localY)), 0, 1) * strength
+			}
+		}
+	}
 	for sy := sourceRect.Min.Y; sy < sourceRect.Max.Y; sy++ {
 		for sx := sourceRect.Min.X; sx < sourceRect.Max.X; sx++ {
 			center := rgbaPixelAt(source, sx, sy)
@@ -995,27 +1009,79 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 			topRight := edgeCrosses && upscaleColorDistance(top, right) < 0.16
 			bottomLeft := edgeCrosses && upscaleColorDistance(left, bottom) < 0.16
 			bottomRight := edgeCrosses && upscaleColorDistance(bottom, right) < 0.16
+			if !topLeft && !topRight && !bottomLeft && !bottomRight {
+				sourceOffset := source.PixOffset(sx, sy)
+				rgba := binary.LittleEndian.Uint32(source.Pix[sourceOffset : sourceOffset+4])
+				rgbaPair := uint64(rgba) | uint64(rgba)<<32
+				for oy := 0; oy < factor; oy++ {
+					destinationOffset := destination.PixOffset((sx-sourceRect.Min.X)*factor, (sy-sourceRect.Min.Y)*factor+oy)
+					// The client uses factors 1 through 4. Fixed-width stores are
+					// faster here than walking every replicated pixel separately.
+					switch factor {
+					case 1:
+						binary.LittleEndian.PutUint32(destination.Pix[destinationOffset:destinationOffset+4], rgba)
+					case 2:
+						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
+					case 3:
+						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
+						binary.LittleEndian.PutUint32(destination.Pix[destinationOffset+8:destinationOffset+12], rgba)
+					case 4:
+						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
+						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset+8:destinationOffset+16], rgbaPair)
+					default:
+						for ox := 0; ox < factor; ox++ {
+							binary.LittleEndian.PutUint32(destination.Pix[destinationOffset:destinationOffset+4], rgba)
+							destinationOffset += 4
+						}
+					}
+				}
+				continue
+			}
 			for oy := 0; oy < factor; oy++ {
-				localY := (float32(oy) + 0.5) / float32(factor)
 				for ox := 0; ox < factor; ox++ {
-					localX := (float32(ox) + 0.5) / float32(factor)
 					target := center
 					weight := float32(0)
+					leftHalf := (2*ox + 1) < factor
+					topHalf := (2*oy + 1) < factor
 					switch {
-					case localX < 0.5 && localY < 0.5 && topLeft:
+					case leftHalf && topHalf && topLeft:
 						target = averageUpscaleColor(left, top)
-						weight = clampFloat32(reach-2*(localX+localY), 0, 1)
-					case localX >= 0.5 && localY < 0.5 && topRight:
+						if factor <= 4 {
+							weight = cornerWeights[0][oy][ox]
+						} else {
+							localX := (float32(ox) + 0.5) / float32(factor)
+							localY := (float32(oy) + 0.5) / float32(factor)
+							weight = clampFloat32(reach-2*(localX+localY), 0, 1) * strength
+						}
+					case !leftHalf && topHalf && topRight:
 						target = averageUpscaleColor(top, right)
-						weight = clampFloat32(reach-2*((1-localX)+localY), 0, 1)
-					case localX < 0.5 && localY >= 0.5 && bottomLeft:
+						if factor <= 4 {
+							weight = cornerWeights[1][oy][ox]
+						} else {
+							localX := (float32(ox) + 0.5) / float32(factor)
+							localY := (float32(oy) + 0.5) / float32(factor)
+							weight = clampFloat32(reach-2*((1-localX)+localY), 0, 1) * strength
+						}
+					case leftHalf && !topHalf && bottomLeft:
 						target = averageUpscaleColor(left, bottom)
-						weight = clampFloat32(reach-2*(localX+(1-localY)), 0, 1)
-					case localX >= 0.5 && localY >= 0.5 && bottomRight:
+						if factor <= 4 {
+							weight = cornerWeights[2][oy][ox]
+						} else {
+							localX := (float32(ox) + 0.5) / float32(factor)
+							localY := (float32(oy) + 0.5) / float32(factor)
+							weight = clampFloat32(reach-2*(localX+(1-localY)), 0, 1) * strength
+						}
+					case !leftHalf && !topHalf && bottomRight:
 						target = averageUpscaleColor(bottom, right)
-						weight = clampFloat32(reach-2*((1-localX)+(1-localY)), 0, 1)
+						if factor <= 4 {
+							weight = cornerWeights[3][oy][ox]
+						} else {
+							localX := (float32(ox) + 0.5) / float32(factor)
+							localY := (float32(oy) + 0.5) / float32(factor)
+							weight = clampFloat32(reach-2*((1-localX)+(1-localY)), 0, 1) * strength
+						}
 					}
-					result := mixUpscaleColor(center, target, weight*strength)
+					result := mixUpscaleColor(center, target, weight)
 					dx := (sx-sourceRect.Min.X)*factor + ox
 					dy := (sy-sourceRect.Min.Y)*factor + oy
 					offset := destination.PixOffset(dx, dy)

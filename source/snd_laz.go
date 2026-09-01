@@ -175,14 +175,17 @@ func ResampleLanczosInt16PadDB(src []int16, srcRate, dstRate int, padDB float64)
 			base := int(phase >> 32)
 			fracIdx := int((phase >> (32 - fracBits)) & uint64(phases-1))
 			wts := lzW[fracIdx]
-
-			acc := int64(0)
-			j := 0
-			for k := -a + 1; k <= a; k++ {
-				s := int32(src[base+k+a])
-				acc += int64(wts[j]) * int64(s)
-				j++
-			}
+			// Eight taps is invariant. Keeping the dot product explicit removes
+			// the inner loop and lets bounds checks collapse to the slice below.
+			samples := src[base+1 : base+9]
+			acc := int64(wts[0])*int64(samples[0]) +
+				int64(wts[1])*int64(samples[1]) +
+				int64(wts[2])*int64(samples[2]) +
+				int64(wts[3])*int64(samples[3]) +
+				int64(wts[4])*int64(samples[4]) +
+				int64(wts[5])*int64(samples[5]) +
+				int64(wts[6])*int64(samples[6]) +
+				int64(wts[7])*int64(samples[7])
 
 			y := int32((acc*scaleQ15 + (1 << 29)) >> 30)
 			if y > 32767 {

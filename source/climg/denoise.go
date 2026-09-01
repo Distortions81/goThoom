@@ -108,6 +108,37 @@ var hsvPool = sync.Pool{New: func() any { return &hsvBuffer{} }}
 
 type hsv struct{ h, s, v float64 }
 
+const denoiseLUTSize = 256
+
+type denoiseRangeWeightEntry struct {
+	key   uint64
+	value float64
+}
+
+type denoiseRangeWeightLUT [denoiseLUTSize]denoiseRangeWeightEntry
+
+func denoiseLUTIndex(key uint64) uint64 {
+	key ^= key >> 33
+	key *= 0xff51afd7ed558ccd
+	return key & (denoiseLUTSize - 1)
+}
+
+func (lut *denoiseRangeWeightLUT) weight(distance, sharpness float64) float64 {
+	key := math.Float64bits(distance)
+	index := denoiseLUTIndex(key)
+	entry := &lut[index]
+	if entry.key == key && entry.value != 0 {
+		return entry.value
+	}
+	return lut.missedWeight(index, key, distance, sharpness)
+}
+
+func (lut *denoiseRangeWeightLUT) missedWeight(index, key uint64, distance, sharpness float64) float64 {
+	value := math.Pow(1-distance, sharpness)
+	lut[index] = denoiseRangeWeightEntry{key: key, value: value}
+	return value
+}
+
 func denoiseRows(img, src *image.RGBA, hsvs []hsv, w, start, end int, sharpness, maxPercent float64) {
 	if maxPercent <= 0 {
 		return
@@ -118,6 +149,7 @@ func denoiseRows(img, src *image.RGBA, hsvs []hsv, w, start, end int, sharpness,
 	if sharpness < 0 {
 		sharpness = 0
 	}
+	var rangeWeightLUT denoiseRangeWeightLUT
 	for y := start; y < end; y++ {
 		yoff := y * src.Stride
 		idx := y * w
@@ -149,13 +181,29 @@ func denoiseRows(img, src *image.RGBA, hsvs []hsv, w, start, end int, sharpness,
 			)
 			distinctCardinals := 0
 			strongDistinctCardinals := 0
-			for _, dist := range [...]float64{leftDist, rightDist, topDist, bottomDist} {
-				if dist > detailThreshold {
-					distinctCardinals++
-				}
-				if dist > strongDetailThreshold {
-					strongDistinctCardinals++
-				}
+			if leftDist > detailThreshold {
+				distinctCardinals++
+			}
+			if rightDist > detailThreshold {
+				distinctCardinals++
+			}
+			if topDist > detailThreshold {
+				distinctCardinals++
+			}
+			if bottomDist > detailThreshold {
+				distinctCardinals++
+			}
+			if leftDist > strongDetailThreshold {
+				strongDistinctCardinals++
+			}
+			if rightDist > strongDetailThreshold {
+				strongDistinctCardinals++
+			}
+			if topDist > strongDetailThreshold {
+				strongDistinctCardinals++
+			}
+			if bottomDist > strongDetailThreshold {
+				strongDistinctCardinals++
 			}
 			// Three or four different sides describes an isolated pixel or the
 			// end of a one-pixel stroke, not a broad colour texture.
@@ -210,7 +258,7 @@ func denoiseRows(img, src *image.RGBA, hsvs []hsv, w, start, end int, sharpness,
 							continue
 						}
 					}
-					rangeWeight := math.Pow(1-dist, sharpness)
+					rangeWeight := rangeWeightLUT.weight(dist, sharpness)
 					spatialWeight := 1 / float64(1+dx*dx+dy*dy)
 					weight := rangeWeight * spatialWeight
 					totalWeight += weight

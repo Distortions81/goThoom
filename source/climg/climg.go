@@ -19,7 +19,7 @@ type dataLocation struct {
 	size         uint32
 	entryType    uint32
 	id           uint32
-	colorBytes   []uint16
+	colorBytes   []byte
 	version      uint32
 	imageID      uint32
 	colorID      uint32
@@ -44,6 +44,8 @@ type dataLocation struct {
 
 type CLImages struct {
 	data             []byte
+	locations        []dataLocation
+	itemValues       []ClientItem
 	idrefs           map[uint32]*dataLocation
 	colors           map[uint32]*dataLocation
 	images           map[uint32]*dataLocation
@@ -97,52 +99,56 @@ func Load(path string) (*CLImages, error) {
 func LoadBytes(data []byte) (*CLImages, error) { return parseCLImages(data) }
 
 func parseCLImages(data []byte) (*CLImages, error) {
-	r := bytes.NewReader(data)
-	var header uint16
-	var entryCount uint32
-	if err := binary.Read(r, binary.BigEndian, &header); err != nil {
-		return nil, err
+	if len(data) < 12 {
+		return nil, io.ErrUnexpectedEOF
 	}
-	if header != 0xffff {
+	if binary.BigEndian.Uint16(data[0:2]) != 0xffff {
 		return nil, fmt.Errorf("bad header")
 	}
-	if err := binary.Read(r, binary.BigEndian, &entryCount); err != nil {
-		return nil, err
+	entryCount64 := uint64(binary.BigEndian.Uint32(data[2:6]))
+	if entryCount64 > uint64((len(data)-12)/16) {
+		return nil, io.ErrUnexpectedEOF
 	}
-	var pad1 uint32
-	var pad2 uint16
-	if err := binary.Read(r, binary.BigEndian, &pad1); err != nil {
-		return nil, err
-	}
-	if err := binary.Read(r, binary.BigEndian, &pad2); err != nil {
-		return nil, err
+	entryCount := int(entryCount64)
+	table := data[12 : 12+entryCount*16]
+
+	var idrefCount, colorCount, imageCount, lightCount, itemCount int
+	for offset := 0; offset < len(table); offset += 16 {
+		switch binary.BigEndian.Uint32(table[offset+8 : offset+12]) {
+		case TYPE_IDREF:
+			idrefCount++
+		case TYPE_COLOR:
+			colorCount++
+		case TYPE_IMAGE:
+			imageCount++
+		case TYPE_LIGHT:
+			lightCount++
+		case TYPE_CLIENT_ITEM:
+			itemCount++
+		}
 	}
 
 	imgs := &CLImages{
 		data:       data,
-		idrefs:     make(map[uint32]*dataLocation, entryCount),
-		colors:     make(map[uint32]*dataLocation, entryCount),
-		images:     make(map[uint32]*dataLocation, entryCount),
-		lights:     make(map[uint32]*dataLocation, entryCount),
-		items:      make(map[uint32]*ClientItem),
+		locations:  make([]dataLocation, entryCount),
+		itemValues: make([]ClientItem, itemCount),
+		idrefs:     make(map[uint32]*dataLocation, idrefCount),
+		colors:     make(map[uint32]*dataLocation, colorCount),
+		images:     make(map[uint32]*dataLocation, imageCount),
+		lights:     make(map[uint32]*dataLocation, lightCount),
+		items:      make(map[uint32]*ClientItem, itemCount),
 		cache:      make(map[string]*ebiten.Image),
 		lightInfos: make(map[uint32]LightInfo),
 	}
 
-	for i := uint32(0); i < entryCount; i++ {
-		dl := &dataLocation{}
-		if err := binary.Read(r, binary.BigEndian, &dl.offset); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &dl.size); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &dl.entryType); err != nil {
-			return nil, err
-		}
-		if err := binary.Read(r, binary.BigEndian, &dl.id); err != nil {
-			return nil, err
-		}
+	nextItem := 0
+	for i := range imgs.locations {
+		offset := i * 16
+		dl := &imgs.locations[i]
+		dl.offset = binary.BigEndian.Uint32(table[offset : offset+4])
+		dl.size = binary.BigEndian.Uint32(table[offset+4 : offset+8])
+		dl.entryType = binary.BigEndian.Uint32(table[offset+8 : offset+12])
+		dl.id = binary.BigEndian.Uint32(table[offset+12 : offset+16])
 		switch dl.entryType {
 		case TYPE_IDREF:
 			imgs.idrefs[dl.id] = dl
@@ -153,184 +159,77 @@ func parseCLImages(data []byte) (*CLImages, error) {
 		case TYPE_LIGHT:
 			imgs.lights[dl.id] = dl
 		case TYPE_CLIENT_ITEM:
-			// store location to parse later
-			imgs.items[dl.id] = &ClientItem{_loc: dl}
+			item := &imgs.itemValues[nextItem]
+			nextItem++
+			item._loc = dl
+			imgs.items[dl.id] = item
 		}
 	}
 
 	// populate IDREF data
 	var loadErr error
 	for _, ref := range imgs.idrefs {
-		start := int64(ref.offset)
-		end := start + int64(ref.size)
-		if end > int64(len(imgs.data)) {
-			end = int64(len(imgs.data))
-		}
-		sr := io.NewSectionReader(bytes.NewReader(imgs.data), start, end-start)
-		remaining := end - start
-
-		// mandatory fields
-		if remaining < 4 {
+		resource := clampedResource(data, ref)
+		if len(resource) < 4 {
 			loadErr = io.ErrUnexpectedEOF
 			log.Printf("climg: truncated idref %d", ref.id)
 			continue
 		}
-		if err := binary.Read(sr, binary.BigEndian, &ref.version); err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				loadErr = err
-				log.Printf("climg: truncated idref %d: %v", ref.id, err)
-				continue
-			}
-			return nil, err
-		}
-		remaining -= 4
-
-		if remaining < 4 {
+		ref.version = binary.BigEndian.Uint32(resource[0:4])
+		if len(resource) < 8 {
 			loadErr = io.ErrUnexpectedEOF
 			log.Printf("climg: truncated idref %d", ref.id)
 			continue
 		}
-		if err := binary.Read(sr, binary.BigEndian, &ref.imageID); err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				loadErr = err
-				log.Printf("climg: truncated idref %d: %v", ref.id, err)
-				continue
-			}
-			return nil, err
-		}
-		remaining -= 4
-
-		if remaining < 4 {
+		ref.imageID = binary.BigEndian.Uint32(resource[4:8])
+		if len(resource) < 12 {
 			loadErr = io.ErrUnexpectedEOF
 			log.Printf("climg: truncated idref %d", ref.id)
 			continue
 		}
-		if err := binary.Read(sr, binary.BigEndian, &ref.colorID); err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				loadErr = err
-				log.Printf("climg: truncated idref %d: %v", ref.id, err)
-				continue
+		ref.colorID = binary.BigEndian.Uint32(resource[8:12])
+		position := 12
+		readUint32 := func(target *uint32) {
+			if position+4 <= len(resource) {
+				*target = binary.BigEndian.Uint32(resource[position : position+4])
+				position += 4
 			}
-			return nil, err
 		}
-		remaining -= 4
-
-		// optional fields
-		if remaining >= 4 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.checksum); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 4
+		readUint32(&ref.checksum)
+		readUint32(&ref.flags)
+		readUint32(&ref.unusedFlags)
+		readUint32(&ref.unusedFlags2)
+		if position+4 <= len(resource) {
+			ref.lightingID = int32(binary.BigEndian.Uint32(resource[position : position+4]))
+			position += 4
 		}
-		if remaining >= 4 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.flags); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 4
+		if position+2 <= len(resource) {
+			ref.plane = int16(binary.BigEndian.Uint16(resource[position : position+2]))
+			position += 2
 		}
-		if remaining >= 4 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.unusedFlags); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 4
+		if position+2 <= len(resource) {
+			ref.numFrames = binary.BigEndian.Uint16(resource[position : position+2])
+			position += 2
 		}
-		if remaining >= 4 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.unusedFlags2); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 4
+		if position+2 <= len(resource) {
+			ref.numAnims = int16(binary.BigEndian.Uint16(resource[position : position+2]))
+			position += 2
 		}
-		if remaining >= 4 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.lightingID); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 4
-		}
-		if remaining >= 2 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.plane); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 2
-		}
-		if remaining >= 2 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.numFrames); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 2
-		}
-		if remaining >= 2 {
-			if err := binary.Read(sr, binary.BigEndian, &ref.numAnims); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-					continue
-				}
-				return nil, err
-			}
-			remaining -= 2
-		}
-
-		for i := 0; i < 16 && remaining >= 2; i++ {
-			var v int16
-			if err := binary.Read(sr, binary.BigEndian, &v); err != nil {
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					loadErr = err
-					log.Printf("climg: truncated idref %d: %v", ref.id, err)
-				} else {
-					return nil, err
-				}
-				break
-			}
+		for i := 0; i < len(ref.animFrameTable) && position+2 <= len(resource); i++ {
+			value := int16(binary.BigEndian.Uint16(resource[position : position+2]))
 			if int16(i) < ref.numAnims {
-				ref.animFrameTable[i] = v
+				ref.animFrameTable[i] = value
 			}
-			remaining -= 2
+			position += 2
 		}
 
 		if ref.lightingID != 0 {
 			if l := imgs.lights[uint32(ref.lightingID)]; l != nil && l.size >= 8 {
-				start := int(l.offset)
-				end := start + 8
-				if end <= len(imgs.data) {
-					var li LightInfo
-					if err := binary.Read(bytes.NewReader(imgs.data[start:end]), binary.BigEndian, &li); err == nil {
-						imgs.lightInfos[ref.id] = li
-					}
+				resource := clampedResource(data, l)
+				if len(resource) >= 8 {
+					li := LightInfo{Radius: binary.BigEndian.Uint16(resource[4:6]), Plane: int16(binary.BigEndian.Uint16(resource[6:8]))}
+					copy(li.Color[:], resource[:4])
+					imgs.lightInfos[ref.id] = li
 				}
 			}
 		}
@@ -365,74 +264,52 @@ func parseCLImages(data []byte) (*CLImages, error) {
 	}
 
 	// parse client items (names, slots, pictIDs)
-	for id, it := range imgs.items {
+	for _, it := range imgs.items {
 		if it == nil || it._loc == nil {
 			continue
 		}
-		start := int64(it._loc.offset)
-		end := start + int64(it._loc.size)
-		if end > int64(len(imgs.data)) {
-			end = int64(len(imgs.data))
-		}
-		r := io.NewSectionReader(bytes.NewReader(imgs.data), start, end-start)
-		var flags uint32
-		var slot int32
-		var right, left, worn int32
-		if err := binary.Read(r, binary.BigEndian, &flags); err != nil {
-			continue
-		}
-		if err := binary.Read(r, binary.BigEndian, &slot); err != nil {
-			continue
-		}
-		if err := binary.Read(r, binary.BigEndian, &right); err != nil {
-			continue
-		}
-		if err := binary.Read(r, binary.BigEndian, &left); err != nil {
-			continue
-		}
-		if err := binary.Read(r, binary.BigEndian, &worn); err != nil {
+		resource := clampedResource(data, it._loc)
+		if len(resource) < 20 {
 			continue
 		}
 		// Read up to kMaxItemNameLen (256) bytes for name, but tolerate
 		// shorter records by reading whatever remains.
-		nameBytes := make([]byte, 256)
-		n, _ := r.Read(nameBytes)
-		if n < 0 {
-			n = 0
-		}
-		if n > 256 {
-			n = 256
-		}
-		nameBytes = nameBytes[:n]
+		nameBytes := resource[20:min(len(resource), 20+256)]
 		if i := bytes.IndexByte(nameBytes, 0); i >= 0 {
 			nameBytes = nameBytes[:i]
 		}
-		name := string(nameBytes)
-		imgs.items[id] = &ClientItem{
-			Flags:           flags,
-			Slot:            int(slot),
-			RightHandPictID: uint32(right),
-			LeftHandPictID:  uint32(left),
-			WornPictID:      uint32(worn),
-			Name:            name,
+		*it = ClientItem{
+			Flags:           binary.BigEndian.Uint32(resource[0:4]),
+			Slot:            int(int32(binary.BigEndian.Uint32(resource[4:8]))),
+			RightHandPictID: binary.BigEndian.Uint32(resource[8:12]),
+			LeftHandPictID:  binary.BigEndian.Uint32(resource[12:16]),
+			WornPictID:      binary.BigEndian.Uint32(resource[16:20]),
+			Name:            string(nameBytes),
 		}
 	}
 
 	// preload colors
 	for _, c := range imgs.colors {
-		if _, err := r.Seek(int64(c.offset), io.SeekStart); err != nil {
-			return nil, err
+		start := uint64(c.offset)
+		end := start + uint64(c.size)
+		if end > uint64(len(data)) {
+			return nil, io.ErrUnexpectedEOF
 		}
-		c.colorBytes = make([]uint16, c.size)
-		for i := 0; i < int(c.size); i++ {
-			b, err := r.ReadByte()
-			if err != nil {
-				return nil, err
-			}
-			c.colorBytes[i] = uint16(b)
-		}
+		c.colorBytes = data[int(start):int(end)]
 	}
 	return imgs, loadErr
+}
+
+func clampedResource(data []byte, location *dataLocation) []byte {
+	start := uint64(location.offset)
+	if start >= uint64(len(data)) {
+		return nil
+	}
+	end := start + uint64(location.size)
+	if end > uint64(len(data)) {
+		end = uint64(len(data))
+	}
+	return data[int(start):int(end)]
 }
 
 // ClientItem describes per-item metadata stored in CL_Images (kTypeClientItem).
@@ -568,90 +445,18 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 		return nil
 	}
 
-	r := bytes.NewReader(c.data)
-	if _, err := r.Seek(int64(imgLoc.offset), io.SeekStart); err != nil {
-		log.Printf("seek image %d: %v", id, err)
+	data, width, height, err := decodeIndexedImage(c.data, imgLoc)
+	if err != nil {
+		log.Printf("decode image %d: %v", id, err)
 		return nil
 	}
-
-	var h, w uint16
-	var pad uint32
-	var v, b byte
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		log.Printf("read h for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &w); err != nil {
-		log.Printf("read w for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &pad); err != nil {
-		log.Printf("read pad for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
-		log.Printf("read v for %d: %v", id, err)
-		return nil
-	}
-	if err := binary.Read(r, binary.BigEndian, &b); err != nil {
-		log.Printf("read b for %d: %v", id, err)
-		return nil
-	}
-
-	width := int(w)
-	height := int(h)
-	valueW := int(v)
-	blockLenW := int(b)
-	pixelCount := width * height
-	br := New(r)
-	data := make([]byte, pixelCount)
-	pixPos := 0
-	for pixPos < pixelCount {
-		t, err := br.ReadBit()
-		if err != nil {
-			log.Printf("read bit for %d: %v", id, err)
-			return nil
-		}
-		s, err := br.ReadInt(blockLenW)
-		if err != nil {
-			log.Printf("read int for %d: %v", id, err)
-			return nil
-		}
-		s++
-		if t {
-			for i := 0; i < s; i++ {
-				val, err := br.ReadBits(valueW)
-				if err != nil {
-					log.Printf("read bits for %d: %v", id, err)
-					return nil
-				}
-				if pixPos < pixelCount {
-					data[pixPos] = val
-					pixPos++
-				} else {
-					break
-				}
-			}
-		} else {
-			val, err := br.ReadBits(valueW)
-			if err != nil {
-				log.Printf("read bits for %d: %v", id, err)
-				return nil
-			}
-			for i := 0; i < s; i++ {
-				if pixPos < pixelCount {
-					data[pixPos] = val
-					pixPos++
-				} else {
-					break
-				}
-			}
-		}
-	}
+	indexedPixels := data
+	defer releaseIndexedPixels(indexedPixels)
 
 	// prepare color table and handle custom palette row if present
 	pal := palette // from palette.go
-	col := append([]uint16(nil), colLoc.colorBytes...)
+	col := colLoc.colorBytes
+	var customColorTable [256]byte
 
 	var mapping []byte
 	if ref.flags&pictDefCustomColors != 0 {
@@ -661,10 +466,17 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 			height--
 		}
 		if len(custom) > 0 {
+			// The archive palette is shared by every decode. Copy only when a
+			// customized mobile is actually going to modify it.
+			if len(col) <= len(customColorTable) {
+				copy(customColorTable[:], col)
+				col = customColorTable[:len(col)]
+			} else {
+				col = append([]byte(nil), col...)
+			}
 			applyCustomPalette(col, mapping, custom)
 		}
 	}
-	pixelCount = len(data)
 	// Add a 1 pixel transparent border around the decoded image.
 	img := image.NewRGBA(image.Rect(0, 0, width+2, height+2))
 
@@ -681,11 +493,15 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 
 	pix := img.Pix
 	stride := img.Stride
-	for i := 0; i < pixelCount; i++ {
-		idx := col[data[i]]
-		r := uint8(pal[idx*3])
-		g := uint8(pal[idx*3+1])
-		b := uint8(pal[idx*3+2])
+	var rgbaTable [256]uint32
+	for paletteIndex, idx := range col {
+		if paletteIndex >= len(rgbaTable) {
+			break
+		}
+		paletteOffset := int(idx) * 3
+		r := uint8(pal[paletteOffset])
+		g := uint8(pal[paletteOffset+1])
+		b := uint8(pal[paletteOffset+2])
 		a := alpha
 		// Treat palette index 0 as fully transparent universally. The
 		// legacy client consistently uses index 0 for transparency,
@@ -702,12 +518,9 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 		r = uint8(int(r) * int(a) / 255)
 		g = uint8(int(g) * int(a) / 255)
 		b = uint8(int(b) * int(a) / 255)
-		off := (i/width+1)*stride + (i%width+1)*4
-		pix[off+0] = r
-		pix[off+1] = g
-		pix[off+2] = b
-		pix[off+3] = a
+		rgbaTable[paletteIndex] = uint32(r) | uint32(g)<<8 | uint32(b)<<16 | uint32(a)<<24
 	}
+	writePackedRGBA(pix, stride, data, width, height, &rgbaTable)
 	// Normal artwork preparation decodes the unmodified palette first. Record
 	// the per-frame opaque footprint here so callers deciding whether a sprite
 	// is small never have to inspect pixels in the render path.
@@ -716,6 +529,34 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 	}
 
 	return img
+}
+
+func writePackedRGBA(pix []byte, stride int, data []byte, width, height int, rgbaTable *[256]uint32) {
+	position := 0
+	for y := 0; y < height; y++ {
+		offset := (y+1)*stride + 4
+		x := 0
+		// Four indexes at a time amortizes loop control while keeping the odd
+		// and two-pixel tails compact for narrow artwork.
+		for ; x+3 < width; x += 4 {
+			rgbaPair0 := uint64(rgbaTable[data[position]]) | uint64(rgbaTable[data[position+1]])<<32
+			rgbaPair1 := uint64(rgbaTable[data[position+2]]) | uint64(rgbaTable[data[position+3]])<<32
+			binary.LittleEndian.PutUint64(pix[offset:offset+8], rgbaPair0)
+			binary.LittleEndian.PutUint64(pix[offset+8:offset+16], rgbaPair1)
+			position += 4
+			offset += 16
+		}
+		for ; x+1 < width; x += 2 {
+			rgbaPair := uint64(rgbaTable[data[position]]) | uint64(rgbaTable[data[position+1]])<<32
+			binary.LittleEndian.PutUint64(pix[offset:offset+8], rgbaPair)
+			position += 2
+			offset += 8
+		}
+		if x < width {
+			binary.LittleEndian.PutUint32(pix[offset:offset+4], rgbaTable[data[position]])
+			position++
+		}
+	}
 }
 
 // VisibleFrameSize returns the largest non-transparent bounding-box width and
@@ -981,77 +822,13 @@ func (c *CLImages) NonTransparentPixels(id uint32) int {
 	if imgLoc == nil || colLoc == nil {
 		return 0
 	}
-	r := bytes.NewReader(c.data)
-	if _, err := r.Seek(int64(imgLoc.offset), io.SeekStart); err != nil {
-		log.Printf("seek image %d: %v", id, err)
+	data, width, _, err := decodeIndexedImage(c.data, imgLoc)
+	if err != nil {
+		log.Printf("decode image %d: %v", id, err)
 		return 0
 	}
-	var h, w uint16
-	var pad uint32
-	var v, b byte
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		log.Printf("read h for %d: %v", id, err)
-		return 0
-	}
-	if err := binary.Read(r, binary.BigEndian, &w); err != nil {
-		log.Printf("read w for %d: %v", id, err)
-		return 0
-	}
-	if err := binary.Read(r, binary.BigEndian, &pad); err != nil {
-		log.Printf("read pad for %d: %v", id, err)
-		return 0
-	}
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
-		log.Printf("read v for %d: %v", id, err)
-		return 0
-	}
-	if err := binary.Read(r, binary.BigEndian, &b); err != nil {
-		log.Printf("read b for %d: %v", id, err)
-		return 0
-	}
-
-	width := int(w)
-	height := int(h)
-	valueW := int(v)
-	blockLenW := int(b)
-	pixelCount := width * height
-	br := New(r)
-	data := make([]byte, pixelCount)
-	pixPos := 0
-	for pixPos < pixelCount {
-		t, err := br.ReadBit()
-		if err != nil {
-			log.Printf("read bit for %d: %v", id, err)
-			return 0
-		}
-		s, err := br.ReadInt(blockLenW)
-		if err != nil {
-			log.Printf("read int for %d: %v", id, err)
-			return 0
-		}
-		s++
-		if t {
-			for i := 0; i < s && pixPos < pixelCount; i++ {
-				val, err := br.ReadBits(valueW)
-				if err != nil {
-					log.Printf("read bits for %d: %v", id, err)
-					return 0
-				}
-				data[pixPos] = val
-				pixPos++
-			}
-		} else {
-			val, err := br.ReadBits(valueW)
-			if err != nil {
-				log.Printf("read bits for %d: %v", id, err)
-				return 0
-			}
-			for i := 0; i < s && pixPos < pixelCount; i++ {
-				data[pixPos] = val
-				pixPos++
-			}
-		}
-	}
+	indexedPixels := data
+	defer releaseIndexedPixels(indexedPixels)
 
 	if ref.flags&pictDefCustomColors != 0 && len(data) >= width {
 		data = data[width:]
@@ -1080,80 +857,16 @@ func (c *CLImages) HasOpaqueRect(id uint32, rect image.Rectangle) bool {
 	if imgLoc == nil || colLoc == nil {
 		return false
 	}
-	r := bytes.NewReader(c.data)
-	if _, err := r.Seek(int64(imgLoc.offset), io.SeekStart); err != nil {
-		log.Printf("seek image %d: %v", id, err)
+	data, width, height, err := decodeIndexedImage(c.data, imgLoc)
+	if err != nil {
+		log.Printf("decode image %d: %v", id, err)
 		return false
 	}
-	var h, w uint16
-	var pad uint32
-	var v, b byte
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		log.Printf("read h for %d: %v", id, err)
-		return false
-	}
-	if err := binary.Read(r, binary.BigEndian, &w); err != nil {
-		log.Printf("read w for %d: %v", id, err)
-		return false
-	}
-	if err := binary.Read(r, binary.BigEndian, &pad); err != nil {
-		log.Printf("read pad for %d: %v", id, err)
-		return false
-	}
-	if err := binary.Read(r, binary.BigEndian, &v); err != nil {
-		log.Printf("read v for %d: %v", id, err)
-		return false
-	}
-	if err := binary.Read(r, binary.BigEndian, &b); err != nil {
-		log.Printf("read b for %d: %v", id, err)
-		return false
-	}
-
-	width := int(w)
-	height := int(h)
+	indexedPixels := data
+	defer releaseIndexedPixels(indexedPixels)
 	rect = rect.Intersect(image.Rect(0, 0, width, height))
 	if rect.Empty() {
 		return false
-	}
-	valueW := int(v)
-	blockLenW := int(b)
-	pixelCount := width * height
-	br := New(r)
-	data := make([]byte, pixelCount)
-	pixPos := 0
-	for pixPos < pixelCount {
-		t, err := br.ReadBit()
-		if err != nil {
-			log.Printf("read bit for %d: %v", id, err)
-			return false
-		}
-		s, err := br.ReadInt(blockLenW)
-		if err != nil {
-			log.Printf("read int for %d: %v", id, err)
-			return false
-		}
-		s++
-		if t {
-			for i := 0; i < s && pixPos < pixelCount; i++ {
-				val, err := br.ReadBits(valueW)
-				if err != nil {
-					log.Printf("read bits for %d: %v", id, err)
-					return false
-				}
-				data[pixPos] = val
-				pixPos++
-			}
-		} else {
-			val, err := br.ReadBits(valueW)
-			if err != nil {
-				log.Printf("read bits for %d: %v", id, err)
-				return false
-			}
-			for i := 0; i < s && pixPos < pixelCount; i++ {
-				data[pixPos] = val
-				pixPos++
-			}
-		}
 	}
 
 	if ref.flags&pictDefCustomColors != 0 && len(data) >= width {
@@ -1175,11 +888,11 @@ func (c *CLImages) HasOpaqueRect(id uint32, rect image.Rectangle) bool {
 // applyCustomPalette replaces entries in col according to mapping and custom.
 // mapping holds color table indices for each customizable slot while custom
 // provides the new palette indices supplied by the server for those slots.
-func applyCustomPalette(col []uint16, mapping []byte, custom []byte) {
+func applyCustomPalette(col []byte, mapping []byte, custom []byte) {
 	for i := 0; i < len(custom) && i < len(mapping); i++ {
 		idx := int(mapping[i])
 		if idx >= 0 && idx < len(col) {
-			col[idx] = uint16(custom[i])
+			col[idx] = custom[i]
 		}
 	}
 }
