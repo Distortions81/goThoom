@@ -98,6 +98,11 @@ func TestStartupArtworkPreloadExcludesPaletteVariants(t *testing.T) {
 			t.Fatalf("startup artwork ID %d produced a palette/mobile key: %#v", id, key)
 		}
 	}
+	for _, id := range []uint16{635, 1580, 417, 624, 1408, 2252, 1528, 127, 4069} {
+		if _, ok := seen[id]; !ok {
+			t.Errorf("profession icon %d is not in the startup artwork preload", id)
+		}
+	}
 }
 
 func TestStartupLoadingPanelLayoutStaysCenteredAndInset(t *testing.T) {

@@ -38,6 +38,10 @@ var startupArtworkPreloadIDs = [...]uint16{
 	1842, 1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850, 1851,
 	481, 2245, 3125, 194, 3582, 41, 3789, 1501,
 	446, 2988, 2989, 197, 195, 886,
+	// Fixed profession icons used by the login, character, and players UI.
+	635, 1580, 417, 624, 1408, 2252, 1528, 127, 4069,
+	// Small held-item pictures recurring across the bundled movie set.
+	3521, 1518, 1037, 433, 698,
 }
 
 var startupLoader = struct {
