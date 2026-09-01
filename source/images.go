@@ -84,10 +84,16 @@ var (
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	// scaledMobileCache stores pixel-art upscaled mobile frames.
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
+	// mobileRecolorMaskCache stores palette-independent per-pixel custom-color
+	// influences for mobile poses. Keys never contain custom colors.
+	mobileRecolorMaskCache = make(map[scaledMobileKey]*ebiten.Image)
+	// mobilePaletteDeltaCache stores the small palette payload sent to the GPU.
+	mobilePaletteDeltaCache = make(map[mobileKey]*mobilePaletteShaderState)
 	// Completed batch keys avoid rescanning every animation frame or mobile pose
 	// on every draw after its first-use upscale batch finishes.
-	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})
-	scaledMobileBatches  = make(map[scaledMobileBatchKey]struct{})
+	scaledPictureBatches     = make(map[scaledPictureBatchKey]struct{})
+	scaledMobileBatches      = make(map[scaledMobileBatchKey]struct{})
+	mobileRecolorMaskBatches = make(map[scaledMobileBatchKey]struct{})
 	// scaledCacheFactor is the fitted-screen factor represented by all scaled
 	// and blended artwork caches. A threshold change replaces these caches.
 	scaledCacheFactor uint8
@@ -104,10 +110,12 @@ var (
 	dumpedImgIDs  = make(map[uint16]struct{})
 	imgMetaWriter *csv.Writer
 
-	spriteUpscaleShader    *ebiten.Shader
-	frameBlendShader       *ebiten.Shader
-	spriteUpscaleScratchMu sync.Mutex
-	spriteUpscaleScratch   reusableUpscaleScratch
+	spriteUpscaleShader      *ebiten.Shader
+	frameBlendShader         *ebiten.Shader
+	mobileRecolorShader      *ebiten.Shader
+	mobileRecolorBlendShader *ebiten.Shader
+	spriteUpscaleScratchMu   sync.Mutex
+	spriteUpscaleScratch     reusableUpscaleScratch
 
 	artworkWorkerOnce sync.Once
 	artworkWorkerJobs chan func()
@@ -184,18 +192,34 @@ type preparedArtworkRegion struct {
 	rect       image.Rectangle
 	base       *image.RGBA
 	scaled     *image.RGBA
+	influence  *image.RGBA
 	metrics    mobileSpriteMetrics
 	hasMetrics bool
 }
 
 type preparedArtworkSheet struct {
-	key       sheetKey
-	pixels    *image.RGBA
-	regions   []preparedArtworkRegion
-	needBase  bool
-	needScale bool
-	factor    int
-	mode      int
+	key           sheetKey
+	pixels        *image.RGBA
+	slots         *image.Gray
+	regions       []preparedArtworkRegion
+	needBase      bool
+	needScale     bool
+	needInfluence bool
+	factor        int
+	mode          int
+}
+
+func mobileRecolorSourceEligible(key sheetKey) bool {
+	return key.forceTransparent && key.colorsLen == 0 && clImages != nil && clImages.HasCustomColors(uint32(key.id)) &&
+		gs.ShadersEnabled && !gs.DenoiseImages && mobileRecolorShader != nil && mobileRecolorBlendShader != nil
+}
+
+func mobileRecolorBatchKey(id uint16, factor, mode int) scaledMobileBatchKey {
+	return scaledMobileBatchKey{
+		mobileKey: makeMobileKey(id, 0, nil),
+		scale:     uint8(factor),
+		mode:      uint8(mode),
+	}
 }
 
 func sheetKeyColors(key *sheetKey) []byte {
@@ -320,6 +344,12 @@ var spriteUpscaleShaderSource []byte
 //go:embed data/shaders/frame_blend.kage
 var frameBlendShaderSource []byte
 
+//go:embed data/shaders/mobile_recolor.kage
+var mobileRecolorShaderSource []byte
+
+//go:embed data/shaders/mobile_recolor_blend.kage
+var mobileRecolorBlendShaderSource []byte
+
 // ReloadSpriteUpscaleShader recompiles the artwork-upscale shader.
 func ReloadSpriteUpscaleShader() error {
 	upscale, err := ebiten.NewShader(spriteUpscaleShaderSource)
@@ -331,8 +361,23 @@ func ReloadSpriteUpscaleShader() error {
 		upscale.Deallocate()
 		return err
 	}
+	recolor, err := ebiten.NewShader(mobileRecolorShaderSource)
+	if err != nil {
+		upscale.Deallocate()
+		blend.Deallocate()
+		return err
+	}
+	recolorBlend, err := ebiten.NewShader(mobileRecolorBlendShaderSource)
+	if err != nil {
+		upscale.Deallocate()
+		blend.Deallocate()
+		recolor.Deallocate()
+		return err
+	}
 	spriteUpscaleShader = upscale
 	frameBlendShader = blend
+	mobileRecolorShader = recolor
+	mobileRecolorBlendShader = recolorBlend
 	return nil
 }
 
@@ -394,6 +439,17 @@ func markArtworkSheetBatchCompleteLocked(key sheetKey, factor, mode int) {
 // Ebitengine images are created only after the batch finishes, on the caller's
 // render goroutine.
 func prepareArtworkSheets(keys []sheetKey) int {
+	return prepareArtworkSheetsInternal(keys, false)
+}
+
+// prepareBaseArtworkSheets decodes and uploads only the requested sheets. It
+// deliberately skips pose processing, upscaling, metrics, and recolor masks so
+// broad boot-time mobile preloads remain quick and memory-bounded.
+func prepareBaseArtworkSheets(keys []sheetKey) int {
+	return prepareArtworkSheetsInternal(keys, true)
+}
+
+func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 	if clImages == nil || len(keys) == 0 {
 		return 0
 	}
@@ -407,7 +463,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 
 	factor := screenCappedArtworkUpscaleFactor()
 	mode := artworkUpscaleMode()
-	needUpscale := artworkUpscaleEnabled()
+	needUpscale := !baseOnly && artworkUpscaleEnabled()
 	imageMu.Lock()
 	if needUpscale {
 		ensureScaledArtworkCacheFactorLocked(factor)
@@ -425,15 +481,25 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		base, haveBase := sheetCache[key]
 		knownMissing := haveBase && base == nil
 		haveScale := !needUpscale || knownMissing || artworkSheetBatchCompleteLocked(key, factor, mode)
-		if haveBase && haveScale {
+		influenceFactor, influenceMode := factor, mode
+		if !needUpscale {
+			influenceFactor, influenceMode = 1, artworkUpscaleOff
+		}
+		needInfluence := !baseOnly && mobileRecolorSourceEligible(key)
+		_, haveInfluence := mobileRecolorMaskBatches[mobileRecolorBatchKey(key.id, influenceFactor, influenceMode)]
+		if !needInfluence || knownMissing {
+			haveInfluence = true
+		}
+		if haveBase && haveScale && haveInfluence {
 			continue
 		}
 		work = append(work, preparedArtworkSheet{
-			key:       key,
-			needBase:  !haveBase,
-			needScale: needUpscale && !haveScale,
-			factor:    factor,
-			mode:      mode,
+			key:           key,
+			needBase:      !haveBase,
+			needScale:     needUpscale && !haveScale,
+			needInfluence: needInfluence && !haveInfluence,
+			factor:        factor,
+			mode:          mode,
 		})
 	}
 	imageMu.Unlock()
@@ -451,7 +517,11 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		index := index
 		decodeJobs[index] = func() {
 			key := &work[index].key
-			work[index].pixels = clImages.DecodeRGBA(uint32(key.id), sheetKeyColors(key), key.forceTransparent)
+			if work[index].needInfluence {
+				work[index].pixels, work[index].slots = clImages.DecodeRGBAWithCustomColorSlots(uint32(key.id), sheetKeyColors(key), key.forceTransparent, maxColors)
+			} else {
+				work[index].pixels = clImages.DecodeRGBA(uint32(key.id), sheetKeyColors(key), key.forceTransparent)
+			}
 		}
 	}
 	runArtworkJobs(decodeJobs)
@@ -472,11 +542,14 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		if work[sheetIndex].pixels == nil {
 			continue
 		}
+		if baseOnly {
+			continue
+		}
 		rects := artworkRegionRects(work[sheetIndex].key, work[sheetIndex].pixels)
 		work[sheetIndex].regions = make([]preparedArtworkRegion, len(rects))
 		for regionIndex, rect := range rects {
 			work[sheetIndex].regions[regionIndex] = preparedArtworkRegion{index: regionIndex, rect: rect}
-			if !denoise && !work[sheetIndex].needScale && !work[sheetIndex].key.forceTransparent {
+			if !denoise && !work[sheetIndex].needScale && !work[sheetIndex].needInfluence && !work[sheetIndex].key.forceTransparent {
 				continue
 			}
 			sheetIndex, regionIndex := sheetIndex, regionIndex
@@ -494,8 +567,20 @@ func prepareArtworkSheets(keys []sheetKey) int {
 					climg.DenoiseRGBASerial(base, sharpness, amount)
 					region.base = base
 				}
-				if work[sheetIndex].needScale {
-					region.scaled = upscaleSpriteRegionCPUWithAllocator(base, base.Bounds(), work[sheetIndex].factor, work[sheetIndex].mode, acquireArtworkRGBA)
+				if work[sheetIndex].needScale || work[sheetIndex].needInfluence {
+					factor, mode := work[sheetIndex].factor, work[sheetIndex].mode
+					if !work[sheetIndex].needScale {
+						factor, mode = 1, artworkUpscaleOff
+					}
+					var slotRegion image.Rectangle
+					if work[sheetIndex].slots != nil {
+						slotRegion = region.rect
+					}
+					region.scaled, region.influence = upscaleSpriteRegionCPUWithInfluence(base, base.Bounds(), work[sheetIndex].slots, slotRegion, factor, mode, acquireArtworkRGBA)
+					if !work[sheetIndex].needScale {
+						releaseArtworkRGBA(region.scaled)
+						region.scaled = nil
+					}
 				}
 				if !denoise {
 					releaseArtworkRGBA(base)
@@ -567,11 +652,14 @@ func prepareArtworkSheets(keys []sheetKey) int {
 			imageMu.Unlock()
 		}
 		if !prepared.needScale {
-			prepared.pixels = nil
-			continue
+			// A non-upscaled recolor influence still has to be uploaded below.
+			if !prepared.needInfluence {
+				prepared.pixels = nil
+				continue
+			}
 		}
 		imageMu.Lock()
-		if scaledCacheFactor != uint8(prepared.factor) {
+		if prepared.needScale && scaledCacheFactor != uint8(prepared.factor) {
 			imageMu.Unlock()
 			for index := range prepared.regions {
 				releaseArtworkRGBA(prepared.regions[index].scaled)
@@ -583,9 +671,8 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		for index := range prepared.regions {
 			region := &prepared.regions[index]
 			if region.scaled == nil {
-				continue
-			}
-			if prepared.key.forceTransparent {
+				// Influence-only work continues below.
+			} else if prepared.key.forceTransparent {
 				mobileKey := makeMobileKey(prepared.key.id, uint8(region.index), prepared.key.colors[:int(prepared.key.colorsLen)])
 				key := scaledMobileKey{mobileKey: mobileKey, scale: uint8(prepared.factor), mode: uint8(prepared.mode)}
 				if _, exists := scaledMobileCache[key]; !exists {
@@ -597,10 +684,34 @@ func prepareArtworkSheets(keys []sheetKey) int {
 					scaledImageCache[key] = newCachedSpriteImageFromRGBA(region.scaled)
 				}
 			}
-			releaseArtworkRGBA(region.scaled)
-			region.scaled = nil
+			if region.influence != nil {
+				influenceFactor, influenceMode := prepared.factor, prepared.mode
+				if !prepared.needScale {
+					influenceFactor, influenceMode = 1, artworkUpscaleOff
+				}
+				mobileKey := makeMobileKey(prepared.key.id, uint8(region.index), nil)
+				key := scaledMobileKey{mobileKey: mobileKey, scale: uint8(influenceFactor), mode: uint8(influenceMode)}
+				if _, exists := mobileRecolorMaskCache[key]; !exists {
+					mobileRecolorMaskCache[key] = newManagedImageFromImage(region.influence)
+				}
+				releaseArtworkRGBA(region.influence)
+				region.influence = nil
+			}
+			if region.scaled != nil {
+				releaseArtworkRGBA(region.scaled)
+				region.scaled = nil
+			}
 		}
-		markArtworkSheetBatchCompleteLocked(prepared.key, prepared.factor, prepared.mode)
+		if prepared.needScale {
+			markArtworkSheetBatchCompleteLocked(prepared.key, prepared.factor, prepared.mode)
+		}
+		if prepared.needInfluence {
+			influenceFactor, influenceMode := prepared.factor, prepared.mode
+			if !prepared.needScale {
+				influenceFactor, influenceMode = 1, artworkUpscaleOff
+			}
+			mobileRecolorMaskBatches[mobileRecolorBatchKey(prepared.key.id, influenceFactor, influenceMode)] = struct{}{}
+		}
 		imageMu.Unlock()
 		prepared.pixels = nil
 	}
@@ -977,11 +1088,40 @@ func upscaleSpriteRegionCPU(source *image.RGBA, sourceRect image.Rectangle, fact
 }
 
 func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Rectangle, factor, mode int, allocate func(image.Rectangle) *image.RGBA) *image.RGBA {
+	destination, _ := upscaleSpriteRegionCPUWithInfluence(source, sourceRect, nil, image.Rectangle{}, factor, mode, allocate)
+	return destination
+}
+
+func upscaleSpriteRegionCPUWithInfluence(source *image.RGBA, sourceRect image.Rectangle, slots *image.Gray, slotRect image.Rectangle, factor, mode int, allocate func(image.Rectangle) *image.RGBA) (*image.RGBA, *image.RGBA) {
 	sourceRect = sourceRect.Intersect(source.Bounds())
 	if sourceRect.Empty() || factor < 1 {
-		return image.NewRGBA(image.Rectangle{})
+		return image.NewRGBA(image.Rectangle{}), nil
 	}
 	destination := allocate(image.Rect(0, 0, sourceRect.Dx()*factor, sourceRect.Dy()*factor))
+	var influence *image.RGBA
+	if slots != nil && slotRect.Dx() == sourceRect.Dx() && slotRect.Dy() == sourceRect.Dy() && slotRect.In(slots.Bounds()) {
+		influence = allocate(destination.Bounds())
+	}
+	slotAt := func(x, y int) byte {
+		if influence == nil {
+			return 0
+		}
+		sx := slotRect.Min.X + x - sourceRect.Min.X
+		sy := slotRect.Min.Y + y - sourceRect.Min.Y
+		return slots.Pix[slots.PixOffset(sx, sy)]
+	}
+	writeInfluence := func(x, y int, center, first, second byte, weight float32) {
+		if influence == nil {
+			return
+		}
+		// Three five-bit slot IDs and an eight-bit blend weight fit in RGB24.
+		packed := uint32(center&31) | uint32(first&31)<<5 | uint32(second&31)<<10 | uint32(upscaleByte(weight*255))<<15
+		offset := influence.PixOffset(x, y)
+		influence.Pix[offset] = byte(packed)
+		influence.Pix[offset+1] = byte(packed >> 8)
+		influence.Pix[offset+2] = byte(packed >> 16)
+		influence.Pix[offset+3] = 255
+	}
 	reach := artworkUpscaleCornerReachForMode(mode)
 	strength := artworkUpscaleBlendStrengthForMode(mode)
 	var cornerWeights [4][4][4]float32
@@ -1000,6 +1140,11 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 	for sy := sourceRect.Min.Y; sy < sourceRect.Max.Y; sy++ {
 		for sx := sourceRect.Min.X; sx < sourceRect.Max.X; sx++ {
 			center := rgbaPixelAt(source, sx, sy)
+			centerSlot := slotAt(sx, sy)
+			topSlot := slotAt(sx, max(sourceRect.Min.Y, sy-1))
+			leftSlot := slotAt(max(sourceRect.Min.X, sx-1), sy)
+			rightSlot := slotAt(min(sourceRect.Max.X-1, sx+1), sy)
+			bottomSlot := slotAt(sx, min(sourceRect.Max.Y-1, sy+1))
 			top := rgbaPixelAt(source, sx, max(sourceRect.Min.Y, sy-1))
 			left := rgbaPixelAt(source, max(sourceRect.Min.X, sx-1), sy)
 			right := rgbaPixelAt(source, min(sourceRect.Max.X-1, sx+1), sy)
@@ -1034,6 +1179,28 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 							destinationOffset += 4
 						}
 					}
+					if influence != nil {
+						influenceOffset := influence.PixOffset((sx-sourceRect.Min.X)*factor, (sy-sourceRect.Min.Y)*factor+oy)
+						encoded := uint32(centerSlot) | 0xff000000
+						encodedPair := uint64(encoded) | uint64(encoded)<<32
+						switch factor {
+						case 1:
+							binary.LittleEndian.PutUint32(influence.Pix[influenceOffset:influenceOffset+4], encoded)
+						case 2:
+							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+						case 3:
+							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+							binary.LittleEndian.PutUint32(influence.Pix[influenceOffset+8:influenceOffset+12], encoded)
+						case 4:
+							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset+8:influenceOffset+16], encodedPair)
+						default:
+							for ox := 0; ox < factor; ox++ {
+								binary.LittleEndian.PutUint32(influence.Pix[influenceOffset:influenceOffset+4], encoded)
+								influenceOffset += 4
+							}
+						}
+					}
 				}
 				continue
 			}
@@ -1041,11 +1208,13 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 				for ox := 0; ox < factor; ox++ {
 					target := center
 					weight := float32(0)
+					firstSlot, secondSlot := byte(0), byte(0)
 					leftHalf := (2*ox + 1) < factor
 					topHalf := (2*oy + 1) < factor
 					switch {
 					case leftHalf && topHalf && topLeft:
 						target = averageUpscaleColor(left, top)
+						firstSlot, secondSlot = leftSlot, topSlot
 						if factor <= 4 {
 							weight = cornerWeights[0][oy][ox]
 						} else {
@@ -1055,6 +1224,7 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 						}
 					case !leftHalf && topHalf && topRight:
 						target = averageUpscaleColor(top, right)
+						firstSlot, secondSlot = topSlot, rightSlot
 						if factor <= 4 {
 							weight = cornerWeights[1][oy][ox]
 						} else {
@@ -1064,6 +1234,7 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 						}
 					case leftHalf && !topHalf && bottomLeft:
 						target = averageUpscaleColor(left, bottom)
+						firstSlot, secondSlot = leftSlot, bottomSlot
 						if factor <= 4 {
 							weight = cornerWeights[2][oy][ox]
 						} else {
@@ -1073,6 +1244,7 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 						}
 					case !leftHalf && !topHalf && bottomRight:
 						target = averageUpscaleColor(bottom, right)
+						firstSlot, secondSlot = bottomSlot, rightSlot
 						if factor <= 4 {
 							weight = cornerWeights[3][oy][ox]
 						} else {
@@ -1089,11 +1261,12 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 					destination.Pix[offset+1] = upscaleByte(result.g)
 					destination.Pix[offset+2] = upscaleByte(result.b)
 					destination.Pix[offset+3] = upscaleByte(result.a)
+					writeInfluence(dx, dy, centerSlot, firstSlot, secondSlot, weight)
 				}
 			}
 		}
 	}
-	return destination
+	return destination, influence
 }
 
 func upscaleSpriteImageWithModeAndLifetime(img *ebiten.Image, factor, mode int, managed bool) *ebiten.Image {
@@ -1665,6 +1838,13 @@ func imageCacheStats() imageCacheStatsData {
 		}
 	}
 	for _, img := range scaledMobileCache {
+		if img != nil {
+			stats.scaledMobileCount++
+			b := img.Bounds()
+			stats.scaledMobileBytes += b.Dx() * b.Dy() * 4
+		}
+	}
+	for _, img := range mobileRecolorMaskCache {
 		if img != nil {
 			stats.scaledMobileCount++
 			b := img.Bounds()

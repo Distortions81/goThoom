@@ -229,6 +229,12 @@ var (
 	rightHandImg          *eui.ItemData
 	toolbarLeftComposite  *ebiten.Image
 	toolbarRightComposite *ebiten.Image
+	toolbarHandsRendered  bool
+	toolbarHandsRightID   uint16
+	toolbarHandsLeftID    uint16
+	toolbarHandsTargetL   *eui.ItemData
+	toolbarHandsTargetR   *eui.ItemData
+	toolbarHandsSourceGPU *ebiten.Image
 )
 
 var (
@@ -2162,11 +2168,15 @@ func updateToolbarHands() {
 	if toolbarHandsImage == nil || leftHandImg == nil || rightHandImg == nil {
 		return
 	}
+	rightID, leftID := equippedItemPicts()
+	if toolbarHandsRendered && toolbarHandsRightID == rightID && toolbarHandsLeftID == leftID &&
+		toolbarHandsTargetL == leftHandImg && toolbarHandsTargetR == rightHandImg && toolbarHandsSourceGPU == toolbarHandsImage {
+		return
+	}
 	bounds := toolbarHandsImage.Bounds()
 	middle := bounds.Dx() / 2
 	leftHand := toolbarHandsImage.SubImage(image.Rect(0, 0, middle, bounds.Dy())).(*ebiten.Image)
 	rightHand := toolbarHandsImage.SubImage(image.Rect(middle, 0, bounds.Dx(), bounds.Dy())).(*ebiten.Image)
-	rightID, leftID := equippedItemPicts()
 	if toolbarLeftComposite != nil {
 		toolbarLeftComposite.Deallocate()
 		toolbarLeftComposite = nil
@@ -2197,6 +2207,12 @@ func updateToolbarHands() {
 	rightHandImg.Image = rightImage
 	rightHandImg.Size = eui.Point{X: float32(rightImage.Bounds().Dx()), Y: float32(rightImage.Bounds().Dy())}
 	rightHandImg.Dirty = true
+	toolbarHandsRendered = true
+	toolbarHandsRightID = rightID
+	toolbarHandsLeftID = leftID
+	toolbarHandsTargetL = leftHandImg
+	toolbarHandsTargetR = rightHandImg
+	toolbarHandsSourceGPU = toolbarHandsImage
 	refreshToolbar()
 }
 
@@ -3931,7 +3947,7 @@ func updateChangelogWindow() {
 	lines := strings.Split(changelog, "\n")
 	header := fmt.Sprintf("goThoom test %d", appVersion)
 	lines = append([]string{header, ""}, lines...)
-	updateTextWindow(changelogWin, changelogList, nil, lines, 14, "", monoFaceSource, false)
+	updateTextWindow(changelogWin, changelogList, nil, lines, 14, "", monoFaceSource, false, &changelogTextWrapCache)
 	if changelogPrevBtn != nil {
 		changelogPrevBtn.Disabled = changelogVersionIdx <= 0
 		changelogPrevBtn.Dirty = true
@@ -7359,7 +7375,7 @@ func updateDebugStats() {
 		mobileCacheLabel.Dirty = true
 	}
 	if scaledMobileCacheLabel != nil {
-		scaledMobileCacheLabel.Text = fmt.Sprintf("Upscaled Mobile Frames: %d (%s)", stats.scaledMobileCount, humanize.Bytes(uint64(stats.scaledMobileBytes)))
+		scaledMobileCacheLabel.Text = fmt.Sprintf("Upscaled Mobile Frames/Masks: %d (%s)", stats.scaledMobileCount, humanize.Bytes(uint64(stats.scaledMobileBytes)))
 		scaledMobileCacheLabel.Dirty = true
 	}
 	if soundCacheLabel != nil {
@@ -7493,11 +7509,14 @@ func makePlayersWindow() {
 	if playersWin != nil {
 		return
 	}
+	cachedPlayerRows = map[string]cachedPlayerRow{}
+	cachedPlayerHeaders = map[string]cachedPlayerHeader{}
 	// Use the common text window scaffold to get an inner scrollable list
 	// and consistent padding/behavior with Inventory/Chat windows.
 	playersWin, playersList, _ = makeTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)
 	playersWin.Searchable = true
 	playersWin.OnSearch = searchPlayersWindow
+	playersWin.OnOpen = updatePlayersWindow
 	// Refresh contents on resize so word-wrapping and row sizing stay correct.
 	playersWin.OnResize = func() { updatePlayersWindow() }
 	updatePlayersWindow()

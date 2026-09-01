@@ -1,0 +1,55 @@
+//kage:unit pixels
+
+package main
+
+const PaletteSize = 30
+
+var (
+	PaletteR [PaletteSize]float
+	PaletteG [PaletteSize]float
+	PaletteB [PaletteSize]float
+	PaletteA [PaletteSize]float
+)
+
+func paletteDelta(slot float) vec4 {
+	if slot < 1 {
+		return vec4(0)
+	}
+	index := int(slot) - 1
+	return vec4(PaletteR[index], PaletteG[index], PaletteB[index], PaletteA[index])
+}
+
+func recolorAt(pos vec2) vec4 {
+	base := imageSrc0At(pos)
+	encoded := floor(imageSrc1At(pos).rgb*255 + vec3(0.5))
+	packed := encoded.x + encoded.y*256 + encoded.z*65536
+	weightByte := floor(packed / 32768)
+	low := packed - weightByte*32768
+	center := low - floor(low/32)*32
+	firstValue := floor(low / 32)
+	first := firstValue - floor(firstValue/32)*32
+	second := floor(low / 1024)
+	weight := weightByte / 255
+	result := base + paletteDelta(center)*(1-weight) +
+		(paletteDelta(first)+paletteDelta(second))*(weight/2)
+	return clamp(result, vec4(0), vec4(1))
+}
+
+func sampleRecolored(pos vec2, linear bool) vec4 {
+	if !linear {
+		return recolorAt(pos)
+	}
+	delta := min(vec2(abs(dfdx(pos.x)), abs(dfdy(pos.y))), vec2(1))
+	p0 := pos - delta/2
+	p1 := pos + delta/2
+	c0 := recolorAt(p0)
+	c1 := recolorAt(vec2(p1.x, p0.y))
+	c2 := recolorAt(vec2(p0.x, p1.y))
+	c3 := recolorAt(p1)
+	rate := clamp(fract(p1)/delta, 0, 1)
+	return mix(mix(c0, c1, rate.x), mix(c2, c3, rate.x), rate.y)
+}
+
+func Fragment(_ vec4, srcPos vec2, color vec4, custom vec4) vec4 {
+	return sampleRecolored(srcPos, custom.x >= 0.5) * color
+}

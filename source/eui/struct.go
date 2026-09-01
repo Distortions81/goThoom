@@ -99,6 +99,11 @@ type windowData struct {
 	// window is removed from the active list.
 	OnClose func()
 
+	// OnOpen is an optional callback invoked when a closed window is opened.
+	// It runs before the first Refresh so clients can rebuild deferred content
+	// without exposing a stale frame.
+	OnOpen func()
+
 	// OnResize is an optional callback invoked when the window's size changes
 	// due to user interaction or programmatic updates.
 	OnResize func()

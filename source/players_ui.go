@@ -29,6 +29,56 @@ var selectedPlayerName string
 var lastPlayerClickName string
 var lastPlayerClickTime time.Time
 
+type playerRowSignature struct {
+	name              string
+	displayName       string
+	class             string
+	gender            string
+	colorsLen         uint8
+	colors            [maxColors]byte
+	pictID            uint16
+	friendLabel       int
+	offline           bool
+	dead              bool
+	local             bool
+	sharee            bool
+	sharing           bool
+	sameClan          bool
+	shareIcons        bool
+	alternateRows     bool
+	clientWidth       float32
+	rowUnits          float32
+	fontSize          float64
+	uiScale           float32
+	face              text.Face
+	outlineColor      eui.Color
+	alternateRowColor eui.Color
+}
+
+type cachedPlayerRow struct {
+	row       *eui.ItemData
+	signature playerRowSignature
+}
+
+type playerHeaderSignature struct {
+	title       string
+	count       int
+	width       float32
+	rowUnits    float32
+	fontSize    float64
+	editable    bool
+	accentColor eui.Color
+	face        text.Face
+}
+
+type cachedPlayerHeader struct {
+	row       *eui.ItemData
+	signature playerHeaderSignature
+}
+
+var cachedPlayerRows = map[string]cachedPlayerRow{}
+var cachedPlayerHeaders = map[string]cachedPlayerHeader{}
+
 type playerListGroup int
 
 const (
@@ -288,8 +338,204 @@ func defaultMobilePictID(g genderIcon) uint16 {
 	}
 }
 
+func playerRowFace(p Player) text.Face {
+	style := playerListNameStyle(p)
+	switch style & (styleBold | styleItalic) {
+	case styleBoldItalic:
+		return mainFontBoldItalic
+	case styleBold:
+		return mainFontBold
+	case styleItalic:
+		return mainFontItalic
+	default:
+		return mainFont
+	}
+}
+
+func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float32, fontSize float64, ui float32) playerRowSignature {
+	displayName := p.Name
+	if sameRealClan(p.clan, myClan) {
+		displayName += " *"
+	}
+	outline := eui.Color{}
+	if p.FriendLabel > 0 {
+		outline = labelColor(p.FriendLabel)
+	}
+	signature := playerRowSignature{
+		name:              p.Name,
+		displayName:       displayName,
+		class:             p.Class,
+		gender:            p.Gender,
+		pictID:            p.PictID,
+		friendLabel:       p.FriendLabel,
+		offline:           p.Offline,
+		dead:              p.Dead,
+		local:             strings.EqualFold(p.Name, playerName),
+		sharee:            p.Sharee,
+		sharing:           p.Sharing,
+		sameClan:          p.SameClan,
+		shareIcons:        gs.PlayerShareIcons,
+		alternateRows:     gs.AlternateRowBackgrounds,
+		clientWidth:       clientWidth,
+		rowUnits:          rowUnits,
+		fontSize:          fontSize,
+		uiScale:           ui,
+		face:              playerRowFace(p),
+		outlineColor:      outline,
+		alternateRowColor: alternateRowColor(),
+	}
+	colorCount := min(len(p.Colors), len(signature.colors))
+	signature.colorsLen = uint8(colorCount)
+	copy(signature.colors[:], p.Colors[:colorCount])
+	return signature
+}
+
+func makePlayerRow(p Player, signature playerRowSignature, rowIndex int) *eui.ItemData {
+	row := &eui.ItemData{
+		ItemType: eui.ITEM_FLOW,
+		FlowType: eui.FLOW_HORIZONTAL,
+		Fixed:    true,
+		Filled:   signature.alternateRows && rowIndex%2 == 1,
+		Color:    signature.alternateRowColor,
+	}
+	if signature.friendLabel > 0 {
+		row.Outlined = true
+		row.Border = 3
+		row.OutlineColor = signature.outlineColor
+	}
+
+	iconSize := int(signature.rowUnits + 0.5)
+	profItem, profBacking := eui.NewImageItem(iconSize, iconSize)
+	profItem.Margin = 4
+	profItem.Border = 0
+	profItem.Filled = false
+	profItem.Disabled = signature.offline
+	if pid := professionPictID(signature.class); pid != 0 {
+		if img := loadImage(pid); img != nil {
+			profBacking.Deallocate()
+			profItem.Image = img
+			profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
+		}
+	}
+	name := signature.name
+	profItem.Action = func() { handlePlayersClick(name) }
+	row.AddItem(profItem)
+
+	avItem, avatarBacking := eui.NewImageItem(iconSize, iconSize)
+	avItem.Margin = 4
+	avItem.Border = 0
+	avItem.Filled = false
+	avItem.Disabled = signature.offline
+	var avatar *ebiten.Image
+	state := uint8(0)
+	if signature.dead && !signature.local {
+		state = 32
+	}
+	if signature.pictID != 0 {
+		if mobile := loadMobileFrame(signature.pictID, state, p.Colors); mobile != nil {
+			avatar = mobile
+		} else if image := loadImage(signature.pictID); image != nil {
+			avatar = image
+		}
+	}
+	if avatar == nil {
+		if pictID := defaultMobilePictID(genderFromString(signature.gender)); pictID != 0 {
+			if mobile := loadMobileFrame(pictID, state, nil); mobile != nil {
+				avatar = mobile
+			} else if image := loadImage(pictID); image != nil {
+				avatar = image
+			}
+		}
+	}
+	if avatar != nil {
+		avatarBacking.Deallocate()
+		avItem.Image = avatar
+	}
+	avItem.Action = func() { handlePlayersClick(name) }
+	row.AddItem(avItem)
+
+	nameItem, _ := eui.NewText()
+	nameItem.Text = signature.displayName
+	nameItem.FontSize = float32(signature.fontSize)
+	nameItem.Face = signature.face
+	if signature.sharee {
+		nameItem.Underlines = []eui.TextSpan{{Start: 0, End: len([]rune(signature.name)), MatchTextColor: true}}
+	}
+	if (signature.dead && !signature.local) || signature.offline {
+		nameItem.TextColor = eui.ColorVeryDarkGray
+		nameItem.ForceTextColor = true
+	}
+
+	indicator := ""
+	var shareIcon *ebiten.Image
+	shareContentWidth := float32(0)
+	if signature.shareIcons {
+		indicator = playerSharingIndicator(p)
+		shareIcon = playerSharingIcon(p)
+		switch {
+		case shareIcon != nil:
+			bounds := shareIcon.Bounds()
+			shareContentWidth = signature.rowUnits*float32(bounds.Dx())/float32(bounds.Dy()) + 4
+		case indicator != "":
+			if width, _ := text.Measure("↔", signature.face, 0); width > 0 {
+				shareContentWidth = float32(math.Ceil(width/float64(signature.uiScale))) + 8
+			}
+		}
+	}
+	indicatorWidth := playerShareIndicatorReservation(shareContentWidth)
+	nameItem.Size = eui.Point{
+		X: signature.clientWidth - float32(iconSize*2) - 8 - indicatorWidth,
+		Y: signature.rowUnits,
+	}
+	nameItem.Action = func() { handlePlayersClick(name) }
+	row.AddItem(nameItem)
+
+	if shareContentWidth > 0 {
+		if shareIcon != nil {
+			shareItem, backing := eui.NewImageItem(int(math.Ceil(float64(shareContentWidth))), int(math.Ceil(float64(signature.rowUnits))))
+			backing.Deallocate()
+			shareItem.Image = shareIcon
+			shareItem.Filled = false
+			shareItem.Border = 0
+			shareItem.Disabled = signature.offline
+			shareItem.SetTooltip(playerSharingTooltip(p))
+			shareItem.Action = func() { handlePlayersClick(name) }
+			row.AddItem(shareItem)
+		} else {
+			shareItem, _ := eui.NewText()
+			shareItem.Text = indicator
+			shareItem.FontSize = float32(signature.fontSize)
+			shareItem.Face = signature.face
+			shareItem.Size = eui.Point{X: shareContentWidth, Y: signature.rowUnits}
+			shareItem.SetTooltip(playerSharingTooltip(p))
+			shareItem.Action = func() { handlePlayersClick(name) }
+			row.AddItem(shareItem)
+		}
+		spacer, _ := eui.NewText()
+		spacer.Fixed = true
+		spacer.Size = eui.Point{X: playerShareIconRightMargin, Y: signature.rowUnits}
+		row.AddItem(spacer)
+	}
+
+	row.Action = func() { handlePlayersClick(name) }
+	row.Size.Y = signature.rowUnits
+	return row
+}
+
+func reusablePlayerHeader(key string, signature playerHeaderSignature, next map[string]cachedPlayerHeader) *eui.ItemData {
+	cached, ok := cachedPlayerHeaders[key]
+	if !ok || cached.signature != signature {
+		cached = cachedPlayerHeader{
+			row:       makePlayerGroupHeader(signature.title, signature.count, signature.width, signature.rowUnits, signature.fontSize, signature.editable),
+			signature: signature,
+		}
+	}
+	next[key] = cached
+	return cached.row
+}
+
 func updatePlayersWindow() {
-	if playersWin == nil || playersList == nil {
+	if playersWin == nil || playersList == nil || !playersWin.IsOpen() {
 		return
 	}
 
@@ -394,11 +640,14 @@ func updatePlayersWindow() {
 	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
 	rowUnits := float32(linePx) / ui
 
-	// Rebuild contents: one row per player.
-	// Layout per row: [avatar (or default/blank)] [profession (or blank)] [name]
-	playersList.Contents = nil
+	// Rebuild ordering while retaining rows whose appearance and layout did not
+	// change. This avoids allocating image placeholders and looking up the same
+	// profession/mobile artwork on every player-data refresh.
 	playersRowRefs = map[*eui.ItemData]string{}
 	playersGroupHeaders = map[*eui.ItemData]bool{}
+	nextRows := make(map[string]cachedPlayerRow, len(exiles))
+	nextHeaders := make(map[string]cachedPlayerHeader, len(groupCounts)+len(gs.PlayerGroups.Names))
+	nextContents := make([]*eui.ItemData, 0, len(exiles)+len(groupCounts)+len(gs.PlayerGroups.Names))
 	nextRecentPlayersExpiry = time.Time{}
 	var selectedRow *eui.ItemData
 
@@ -408,16 +657,35 @@ func updatePlayersWindow() {
 		if groupCounts["custom:"+customGroup] != 0 {
 			continue
 		}
-		header := makePlayerGroupHeader(customGroup, 0, clientWAvail, rowUnits, fontSize, true)
-		playersList.AddItem(header)
+		headerSignature := playerHeaderSignature{
+			title:       customGroup,
+			width:       clientWAvail,
+			rowUnits:    rowUnits,
+			fontSize:    fontSize,
+			editable:    true,
+			accentColor: accent,
+			face:        mainFontBold,
+		}
+		header := reusablePlayerHeader("empty:"+customGroup, headerSignature, nextHeaders)
+		nextContents = append(nextContents, header)
 		playersGroupHeaders[header] = true
 	}
 	for _, p := range exiles {
 		group := playerDisplayGroup(p, now)
 		if group != lastGroup {
 			custom := strings.HasPrefix(group, "custom:")
-			header := makePlayerGroupHeader(playerDisplayGroupTitle(group), groupCounts[group], clientWAvail, rowUnits, fontSize, custom)
-			playersList.AddItem(header)
+			headerSignature := playerHeaderSignature{
+				title:       playerDisplayGroupTitle(group),
+				count:       groupCounts[group],
+				width:       clientWAvail,
+				rowUnits:    rowUnits,
+				fontSize:    fontSize,
+				editable:    custom,
+				accentColor: accent,
+				face:        mainFontBold,
+			}
+			header := reusablePlayerHeader("group:"+group, headerSignature, nextHeaders)
+			nextContents = append(nextContents, header)
 			playersGroupHeaders[header] = true
 			lastGroup = group
 		}
@@ -427,162 +695,25 @@ func updatePlayersWindow() {
 				nextRecentPlayersExpiry = expires
 			}
 		}
-		offline := p.Offline
-		name := p.Name
-		if sameRealClan(p.clan, myClan) {
-			name += " *"
+		signature := makePlayerRowSignature(p, myClan, clientWAvail, rowUnits, fontSize, ui)
+		cached, ok := cachedPlayerRows[p.Name]
+		if !ok || cached.signature != signature {
+			cached = cachedPlayerRow{row: makePlayerRow(p, signature, rowIndex), signature: signature}
 		}
-
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true, Filled: gs.AlternateRowBackgrounds && rowIndex%2 == 1, Color: alternateRowColor()}
-
-		if p.FriendLabel > 0 {
-			row.Outlined = true
-			row.Border = 3
-			row.OutlineColor = labelColor(p.FriendLabel)
-		}
+		row := cached.row
+		nextRows[p.Name] = cached
+		nextContents = append(nextContents, row)
+		playersRowRefs[row] = p.Name
 
 		// Track selected row for highlight after search.
 		if p.Name == selectedPlayerName {
 			selectedRow = row
 		}
-
-		iconSize := int(rowUnits + 0.5)
-
-		{
-			profItem, _ := eui.NewImageItem(iconSize, iconSize)
-			profItem.Margin = 4
-			profItem.Border = 0
-			profItem.Filled = false
-			profItem.Disabled = offline
-			if pid := professionPictID(p.Class); pid != 0 {
-				if img := loadImage(pid); img != nil {
-					profItem.Image = img
-					profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
-				}
-			}
-			// Click selects this player.
-			n := p.Name
-			profItem.Action = func() { handlePlayersClick(n) }
-			row.AddItem(profItem)
-		}
-
-		{
-			avItem, _ := eui.NewImageItem(iconSize, iconSize)
-			avItem.Margin = 4
-			avItem.Border = 0
-			avItem.Filled = false
-			avItem.Disabled = offline
-			var img *ebiten.Image
-			state := uint8(0)
-			if p.Dead && !strings.EqualFold(p.Name, playerName) {
-				state = 32
-			}
-			if p.PictID != 0 {
-				if m := loadMobileFrame(p.PictID, state, p.Colors); m != nil {
-					img = m
-				} else if im := loadImage(p.PictID); im != nil {
-					img = im
-				}
-			}
-			if img == nil {
-				gid := defaultMobilePictID(genderFromString(p.Gender))
-				if gid != 0 {
-					if m := loadMobileFrame(gid, state, nil); m != nil {
-						img = m
-					} else if im := loadImage(gid); im != nil {
-						img = im
-					}
-				}
-			}
-			if img != nil {
-				avItem.Image = img
-			}
-			// Always add avatar slot, even if blank, to keep alignment.
-			// Click selects this player.
-			n := p.Name
-			avItem.Action = func() { handlePlayersClick(n) }
-			row.AddItem(avItem)
-		}
-
-		t, _ := eui.NewText()
-		t.Text = name
-		t.FontSize = float32(fontSize)
-		style := playerListNameStyle(p)
-		face := mainFont
-		switch style & (styleBold | styleItalic) {
-		case styleBoldItalic:
-			face = mainFontBoldItalic
-		case styleBold:
-			face = mainFontBold
-		case styleItalic:
-			face = mainFontItalic
-		}
-		t.Face = face
-		if style&styleUnderline != 0 {
-			t.Underlines = []eui.TextSpan{{Start: 0, End: len([]rune(p.Name)), MatchTextColor: true}}
-		}
-		if (p.Dead && !strings.EqualFold(p.Name, playerName)) || offline {
-			t.TextColor = eui.ColorVeryDarkGray
-			t.ForceTextColor = true
-		}
-		indicator := ""
-		var shareIcon *ebiten.Image
-		shareContentWidth := float32(0)
-		if gs.PlayerShareIcons {
-			indicator = playerSharingIndicator(p)
-			shareIcon = playerSharingIcon(p)
-			switch {
-			case shareIcon != nil:
-				bounds := shareIcon.Bounds()
-				shareContentWidth = rowUnits*float32(bounds.Dx())/float32(bounds.Dy()) + 4
-			case indicator != "":
-				if w, _ := text.Measure("↔", face, 0); w > 0 {
-					shareContentWidth = float32(math.Ceil(w/float64(ui))) + 8
-				}
-			}
-		}
-		indicatorWidth := playerShareIndicatorReservation(shareContentWidth)
-		t.Size = eui.Point{X: clientWAvail - float32(iconSize*2) - 8 - indicatorWidth, Y: rowUnits}
-		// Click selects this player.
-		n := p.Name
-		t.Action = func() { handlePlayersClick(n) }
-		row.AddItem(t)
-
-		if shareContentWidth > 0 {
-			if shareIcon != nil {
-				shareItem, _ := eui.NewImageItem(int(math.Ceil(float64(shareContentWidth))), int(math.Ceil(float64(rowUnits))))
-				shareItem.Image = shareIcon
-				shareItem.Filled = false
-				shareItem.Border = 0
-				shareItem.Disabled = offline
-				shareItem.SetTooltip(playerSharingTooltip(p))
-				shareItem.Action = func() { handlePlayersClick(n) }
-				row.AddItem(shareItem)
-			} else {
-				shareItem, _ := eui.NewText()
-				shareItem.Text = indicator
-				shareItem.FontSize = float32(fontSize)
-				shareItem.Face = face
-				shareItem.Size = eui.Point{X: shareContentWidth, Y: rowUnits}
-				shareItem.SetTooltip(playerSharingTooltip(p))
-				shareItem.Action = func() { handlePlayersClick(n) }
-				row.AddItem(shareItem)
-			}
-			spacer, _ := eui.NewText()
-			spacer.Fixed = true
-			spacer.Size = eui.Point{X: playerShareIconRightMargin, Y: rowUnits}
-			row.AddItem(spacer)
-		}
-
-		// Also allow clicking the row background to select.
-		n = p.Name
-		row.Action = func() { handlePlayersClick(n) }
-
-		row.Size.Y = rowUnits
-		playersList.AddItem(row)
-		playersRowRefs[row] = p.Name
 		rowIndex++
 	}
+	cachedPlayerRows = nextRows
+	cachedPlayerHeaders = nextHeaders
+	playersList.SetItems(nextContents)
 
 	// Size the list below any docked toolbar rows.
 	sizeTextWindowList(playersList, clientWAvail, clientHAvail)

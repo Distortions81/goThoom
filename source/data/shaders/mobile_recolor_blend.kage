@@ -1,0 +1,101 @@
+//kage:unit pixels
+
+package main
+
+const PaletteSize = 30
+
+var (
+	PreviousPaletteR [PaletteSize]float
+	PreviousPaletteG [PaletteSize]float
+	PreviousPaletteB [PaletteSize]float
+	PreviousPaletteA [PaletteSize]float
+	CurrentPaletteR [PaletteSize]float
+	CurrentPaletteG [PaletteSize]float
+	CurrentPaletteB [PaletteSize]float
+	CurrentPaletteA [PaletteSize]float
+)
+
+func previousPaletteDelta(slot float) vec4 {
+	if slot < 1 {
+		return vec4(0)
+	}
+	index := int(slot) - 1
+	return vec4(PreviousPaletteR[index], PreviousPaletteG[index], PreviousPaletteB[index], PreviousPaletteA[index])
+}
+
+func currentPaletteDelta(slot float) vec4 {
+	if slot < 1 {
+		return vec4(0)
+	}
+	index := int(slot) - 1
+	return vec4(CurrentPaletteR[index], CurrentPaletteG[index], CurrentPaletteB[index], CurrentPaletteA[index])
+}
+
+func recolorPreviousAt(pos vec2) vec4 {
+	base := imageSrc0At(pos)
+	encoded := floor(imageSrc1At(pos).rgb*255 + vec3(0.5))
+	packed := encoded.x + encoded.y*256 + encoded.z*65536
+	weightByte := floor(packed / 32768)
+	low := packed - weightByte*32768
+	center := low - floor(low/32)*32
+	firstValue := floor(low / 32)
+	first := firstValue - floor(firstValue/32)*32
+	second := floor(low / 1024)
+	weight := weightByte / 255
+	result := base + previousPaletteDelta(center)*(1-weight) +
+		(previousPaletteDelta(first)+previousPaletteDelta(second))*(weight/2)
+	return clamp(result, vec4(0), vec4(1))
+}
+
+func recolorCurrentAt(pos vec2) vec4 {
+	base := imageSrc2At(pos)
+	encoded := floor(imageSrc3At(pos).rgb*255 + vec3(0.5))
+	packed := encoded.x + encoded.y*256 + encoded.z*65536
+	weightByte := floor(packed / 32768)
+	low := packed - weightByte*32768
+	center := low - floor(low/32)*32
+	firstValue := floor(low / 32)
+	first := firstValue - floor(firstValue/32)*32
+	second := floor(low / 1024)
+	weight := weightByte / 255
+	result := base + currentPaletteDelta(center)*(1-weight) +
+		(currentPaletteDelta(first)+currentPaletteDelta(second))*(weight/2)
+	return clamp(result, vec4(0), vec4(1))
+}
+
+func samplePrevious(pos vec2, linear bool) vec4 {
+	if !linear {
+		return recolorPreviousAt(pos)
+	}
+	delta := min(vec2(abs(dfdx(pos.x)), abs(dfdy(pos.y))), vec2(1))
+	p0 := pos - delta/2
+	p1 := pos + delta/2
+	c0 := recolorPreviousAt(p0)
+	c1 := recolorPreviousAt(vec2(p1.x, p0.y))
+	c2 := recolorPreviousAt(vec2(p0.x, p1.y))
+	c3 := recolorPreviousAt(p1)
+	rate := clamp(fract(p1)/delta, 0, 1)
+	return mix(mix(c0, c1, rate.x), mix(c2, c3, rate.x), rate.y)
+}
+
+func sampleCurrent(pos vec2, linear bool) vec4 {
+	if !linear {
+		return recolorCurrentAt(pos)
+	}
+	delta := min(vec2(abs(dfdx(pos.x)), abs(dfdy(pos.y))), vec2(1))
+	p0 := pos - delta/2
+	p1 := pos + delta/2
+	c0 := recolorCurrentAt(p0)
+	c1 := recolorCurrentAt(vec2(p1.x, p0.y))
+	c2 := recolorCurrentAt(vec2(p0.x, p1.y))
+	c3 := recolorCurrentAt(p1)
+	rate := clamp(fract(p1)/delta, 0, 1)
+	return mix(mix(c0, c1, rate.x), mix(c2, c3, rate.x), rate.y)
+}
+
+// custom contains fade, previous-to-current X/Y offset, and linear filtering.
+func Fragment(_ vec4, srcPos vec2, color vec4, custom vec4) vec4 {
+	currentPos := srcPos + custom.yz
+	linear := custom.w >= 0.5
+	return mix(samplePrevious(srcPos, linear), sampleCurrent(currentPos, linear), custom.x) * color
+}

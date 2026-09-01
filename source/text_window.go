@@ -14,7 +14,88 @@ import (
 var (
 	cursorPosition  = ebiten.CursorPosition
 	showContextMenu = eui.ShowContextMenu
+
+	chatTextWrapCache      textWindowWrapCache
+	consoleTextWrapCache   textWindowWrapCache
+	aboutTextWrapCache     textWindowWrapCache
+	changelogTextWrapCache textWindowWrapCache
 )
+
+type textWindowWrapConfig struct {
+	width    float64
+	faceSize float64
+	source   *text.GoTextFaceSource
+}
+
+type textWindowWrapEntry struct {
+	text       string
+	lineCount  int
+	generation uint64
+}
+
+// textWindowWrapCache keeps wrapping work proportional to new messages.
+// Existing messages are rewrapped only when the effective width or font
+// changes.
+type textWindowWrapCache struct {
+	config     textWindowWrapConfig
+	entries    map[string]textWindowWrapEntry
+	generation uint64
+}
+
+func (cache *textWindowWrapCache) begin(config textWindowWrapConfig) {
+	if cache.entries == nil {
+		cache.entries = make(map[string]textWindowWrapEntry)
+	} else if cache.config != config {
+		clear(cache.entries)
+	}
+	cache.config = config
+	cache.generation++
+	if cache.generation == 0 {
+		// Practically unreachable, but keep the generation marker valid after
+		// integer wraparound.
+		clear(cache.entries)
+		cache.generation = 1
+	}
+}
+
+func (cache *textWindowWrapCache) wrap(raw string, face text.Face, width float64) (string, int) {
+	if cached, ok := cache.entries[raw]; ok {
+		cached.generation = cache.generation
+		cache.entries[raw] = cached
+		return cached.text, cached.lineCount
+	}
+
+	_, lines := wrapText(raw, face, width)
+	wrapped := strings.Join(lines, "\n")
+	lineCount := len(lines)
+	if lineCount < 1 {
+		lineCount = 1
+	}
+	cache.entries[raw] = textWindowWrapEntry{
+		text:       wrapped,
+		lineCount:  lineCount,
+		generation: cache.generation,
+	}
+	return wrapped, lineCount
+}
+
+func (cache *textWindowWrapCache) finish(messageCount int) {
+	if messageCount == 0 {
+		clear(cache.entries)
+		return
+	}
+	// Allow a small amount of slack so appending one message does not require
+	// scanning the cache. Once stale entries accumulate, discard everything
+	// not used by the current message set.
+	if len(cache.entries) <= messageCount+64 {
+		return
+	}
+	for raw, cached := range cache.entries {
+		if cached.generation != cache.generation {
+			delete(cache.entries, raw)
+		}
+	}
+}
 
 func alternateRowColor() eui.Color { return eui.SubtleAlternateRowColor() }
 
@@ -101,7 +182,7 @@ func newTextWindow(name string, hz eui.HZone, vz eui.VZone, hasInput bool, updat
 
 // updateTextWindow refreshes a text window's content and optional input message.
 // If faceSrc is nil the default font source is used.
-func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource, alternateRows bool) {
+func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource, alternateRows bool, wrapCache *textWindowWrapCache) {
 	if list == nil || win == nil {
 		return
 	}
@@ -134,14 +215,11 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	// (EUI renders with size = fontSize*ui + 2). Using the same value here
 	// ensures wrap measurements align with what actually gets drawn.
 	facePx := float64(float32(fontSize)*ui) + 2
-	var goFace *text.GoTextFace
-	if faceSrc != nil {
-		goFace = &text.GoTextFace{Source: faceSrc, Size: facePx}
-	} else if src := eui.FontSource(); src != nil {
-		goFace = &text.GoTextFace{Source: src, Size: facePx}
-	} else {
-		goFace = &text.GoTextFace{Size: facePx}
+	resolvedFaceSrc := faceSrc
+	if resolvedFaceSrc == nil {
+		resolvedFaceSrc = eui.FontSource()
 	}
+	goFace := &text.GoTextFace{Source: resolvedFaceSrc, Size: facePx}
 	metrics := goFace.Metrics()
 	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
 	rowUnits := float32(linePx) / ui
@@ -161,15 +239,14 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	contentWUnits := contentW / ui
 	clientWUnits := clientWAvail / ui
 	clientHUnits := clientHAvail / ui
+	wrapCache.begin(textWindowWrapConfig{
+		width:    wrapWidthPx,
+		faceSize: facePx,
+		source:   resolvedFaceSrc,
+	})
 
 	for i, msg := range msgs {
-		// Word-wrap the message to the available width.
-		_, lines := wrapText(msg, face, wrapWidthPx)
-		wrapped := strings.Join(lines, "\n")
-		linesN := len(lines)
-		if linesN < 1 {
-			linesN = 1
-		}
+		wrapped, linesN := wrapCache.wrap(msg, face, wrapWidthPx)
 		if i < len(list.Contents) {
 			if list.Contents[i].Text != wrapped || list.Contents[i].FontSize != float32(fontSize) {
 				list.Contents[i].Text = wrapped
@@ -196,6 +273,7 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 			list.AddItem(t)
 		}
 	}
+	wrapCache.finish(len(msgs))
 	if len(list.Contents) > len(msgs) {
 		for i := len(msgs); i < len(list.Contents); i++ {
 			list.Contents[i] = nil

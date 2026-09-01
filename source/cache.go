@@ -25,6 +25,8 @@ func clearCaches() {
 	sheetCache = make(map[sheetKey]*ebiten.Image)
 	mobileCache = make(map[mobileKey]*ebiten.Image)
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
+	mobilePaletteDeltaCache = make(map[mobileKey]*mobilePaletteShaderState)
+	mobilePaletteBlendCache = make(map[mobilePalettePairKey]*mobilePaletteBlendShaderState)
 	imageMu.Unlock()
 
 	pixelCountMu.Lock()
@@ -77,13 +79,25 @@ func clearScaledArtworkCachesLocked() {
 			deallocateImage(img)
 		}
 	}
+	for _, img := range mobileRecolorMaskCache {
+		if img != nil {
+			if trace != nil {
+				bounds := img.Bounds()
+				clearedImages++
+				clearedBytes += bounds.Dx() * bounds.Dy() * 4
+			}
+			deallocateImage(img)
+		}
+	}
 	if trace != nil && clearedImages != 0 {
 		noteFrameAtlasCacheClear(clearedImages, clearedBytes)
 	}
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
+	mobileRecolorMaskCache = make(map[scaledMobileKey]*ebiten.Image)
 	scaledPictureBatches = make(map[scaledPictureBatchKey]struct{})
 	scaledMobileBatches = make(map[scaledMobileBatchKey]struct{})
+	mobileRecolorMaskBatches = make(map[scaledMobileBatchKey]struct{})
 }
 
 var (

@@ -14,3 +14,22 @@ func TestCloseUpdatesActiveWindow(t *testing.T) {
 		t.Fatalf("expected activeWindow to fall back to w1, got %v", activeWindow)
 	}
 }
+
+func TestMarkOpenCallsOnOpenOnlyForClosedWindow(t *testing.T) {
+	windows = nil
+	win := NewWindow()
+	calls := 0
+	win.OnOpen = func() { calls++ }
+
+	win.MarkOpen()
+	win.MarkOpen()
+	if calls != 1 {
+		t.Fatalf("OnOpen calls while already open = %d, want 1", calls)
+	}
+
+	win.Close()
+	win.MarkOpen()
+	if calls != 2 {
+		t.Fatalf("OnOpen calls after reopening = %d, want 2", calls)
+	}
+}

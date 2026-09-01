@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"image/color"
 	"runtime"
 	"testing"
 	"time"
@@ -88,6 +89,50 @@ func TestFrameBlendShaderCompiles(t *testing.T) {
 		t.Fatalf("compile frame blend shader: %v", err)
 	}
 	shader.Deallocate()
+}
+
+func TestMobileRecolorShadersCompile(t *testing.T) {
+	for name, source := range map[string][]byte{
+		"single": mobileRecolorShaderSource,
+		"blend":  mobileRecolorBlendShaderSource,
+	} {
+		shader, err := ebiten.NewShader(source)
+		if err != nil {
+			t.Fatalf("compile mobile recolor %s shader: %v", name, err)
+		}
+		shader.Deallocate()
+	}
+}
+
+func TestUpscaleInfluenceTracksCornerContributors(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	for y := 0; y < 3; y++ {
+		for x := 0; x < 3; x++ {
+			source.SetRGBA(x, y, color.RGBA{R: 128, G: 128, B: 128, A: 255})
+		}
+	}
+	source.SetRGBA(1, 0, color.RGBA{A: 255})
+	source.SetRGBA(0, 1, color.RGBA{A: 255})
+	source.SetRGBA(2, 1, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	source.SetRGBA(1, 2, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	slots := image.NewGray(source.Bounds())
+	slots.SetGray(1, 0, color.Gray{Y: 1})
+	slots.SetGray(0, 1, color.Gray{Y: 2})
+	slots.SetGray(1, 1, color.Gray{Y: 3})
+
+	_, influence := upscaleSpriteRegionCPUWithInfluence(source, source.Bounds(), slots, slots.Bounds(), 4, artworkUpscaleBalanced, image.NewRGBA)
+	if influence == nil {
+		t.Fatal("upscale did not produce a custom-color influence image")
+	}
+	offset := influence.PixOffset(4, 4)
+	packed := uint32(influence.Pix[offset]) | uint32(influence.Pix[offset+1])<<8 | uint32(influence.Pix[offset+2])<<16
+	center := packed & 31
+	first := (packed >> 5) & 31
+	second := (packed >> 10) & 31
+	weight := packed >> 15
+	if center != 3 || first != 2 || second != 1 || weight != 204 {
+		t.Fatalf("corner influence = slots %d,%d,%d weight %d, want 3,2,1 weight 204", center, first, second, weight)
+	}
 }
 
 func BenchmarkArtworkPoseBatch(b *testing.B) {

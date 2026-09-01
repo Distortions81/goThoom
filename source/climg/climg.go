@@ -54,6 +54,7 @@ type CLImages struct {
 	cache            map[string]*ebiten.Image
 	lightInfos       map[uint32]LightInfo
 	masks            map[alphaMaskKey]*AlphaMask
+	customMappings   map[uint32][]byte
 	mu               sync.Mutex
 	Denoise          bool
 	DenoiseSharpness float64
@@ -129,16 +130,17 @@ func parseCLImages(data []byte) (*CLImages, error) {
 	}
 
 	imgs := &CLImages{
-		data:       data,
-		locations:  make([]dataLocation, entryCount),
-		itemValues: make([]ClientItem, itemCount),
-		idrefs:     make(map[uint32]*dataLocation, idrefCount),
-		colors:     make(map[uint32]*dataLocation, colorCount),
-		images:     make(map[uint32]*dataLocation, imageCount),
-		lights:     make(map[uint32]*dataLocation, lightCount),
-		items:      make(map[uint32]*ClientItem, itemCount),
-		cache:      make(map[string]*ebiten.Image),
-		lightInfos: make(map[uint32]LightInfo),
+		data:           data,
+		locations:      make([]dataLocation, entryCount),
+		itemValues:     make([]ClientItem, itemCount),
+		idrefs:         make(map[uint32]*dataLocation, idrefCount),
+		colors:         make(map[uint32]*dataLocation, colorCount),
+		images:         make(map[uint32]*dataLocation, imageCount),
+		lights:         make(map[uint32]*dataLocation, lightCount),
+		items:          make(map[uint32]*ClientItem, itemCount),
+		cache:          make(map[string]*ebiten.Image),
+		customMappings: make(map[uint32][]byte),
+		lightInfos:     make(map[uint32]LightInfo),
 	}
 
 	nextItem := 0
@@ -434,21 +436,32 @@ func (c *CLImages) Get(id uint32, custom []byte, forceTransparent bool) *ebiten.
 // individual frames or mobile poses can therefore do all CPU work before the
 // first Ebitengine upload.
 func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *image.RGBA {
+	img, _ := c.decodeRGBA(id, custom, forceTransparent, 0)
+	return img
+}
+
+// DecodeRGBAWithCustomColorSlots decodes the base pixels and custom-color slot
+// map in one indexed-data pass. The slot image is nil for non-custom artwork.
+func (c *CLImages) DecodeRGBAWithCustomColorSlots(id uint32, custom []byte, forceTransparent bool, maxSlots int) (*image.RGBA, *image.Gray) {
+	return c.decodeRGBA(id, custom, forceTransparent, maxSlots)
+}
+
+func (c *CLImages) decodeRGBA(id uint32, custom []byte, forceTransparent bool, maxSlots int) (*image.RGBA, *image.Gray) {
 
 	ref := c.idrefs[id]
 	if ref == nil {
-		return nil
+		return nil, nil
 	}
 	imgLoc := c.images[ref.imageID]
 	colLoc := c.colors[ref.colorID]
 	if imgLoc == nil || colLoc == nil {
-		return nil
+		return nil, nil
 	}
 
 	data, width, height, err := decodeIndexedImage(c.data, imgLoc)
 	if err != nil {
 		log.Printf("decode image %d: %v", id, err)
-		return nil
+		return nil, nil
 	}
 	indexedPixels := data
 	defer releaseIndexedPixels(indexedPixels)
@@ -475,6 +488,33 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 				col = append([]byte(nil), col...)
 			}
 			applyCustomPalette(col, mapping, custom)
+		}
+	}
+	var slots *image.Gray
+	if maxSlots > 0 && len(mapping) != 0 && height >= 0 && len(data) >= width*height {
+		c.mu.Lock()
+		if c.customMappings == nil {
+			c.customMappings = make(map[uint32][]byte)
+		}
+		if _, exists := c.customMappings[id]; !exists {
+			c.customMappings[id] = append([]byte(nil), mapping...)
+		}
+		c.mu.Unlock()
+		var slotForColor [256]byte
+		for slot, colorIndex := range mapping {
+			if slot >= maxSlots || slot >= 31 {
+				break
+			}
+			slotForColor[colorIndex] = byte(slot + 1)
+		}
+		slots = image.NewGray(image.Rect(0, 0, width+2, height+2))
+		position := 0
+		for y := 0; y < height; y++ {
+			offset := slots.PixOffset(1, y+1)
+			for x := 0; x < width; x++ {
+				slots.Pix[offset+x] = slotForColor[data[position+x]]
+			}
+			position += width
 		}
 	}
 	// Add a 1 pixel transparent border around the decoded image.
@@ -528,7 +568,104 @@ func (c *CLImages) DecodeRGBA(id uint32, custom []byte, forceTransparent bool) *
 		c.cacheVisibleFrameSize(ref, img)
 	}
 
-	return img
+	return img, slots
+}
+
+// DecodeCustomColorSlots returns one byte per decoded pixel identifying which
+// server-supplied custom-color slot controls it. Zero means the pixel is not
+// customizable; slots are encoded as one through len(mapping). The image has
+// the same transparent border and bounds as DecodeRGBA.
+func (c *CLImages) DecodeCustomColorSlots(id uint32, maxSlots int) *image.Gray {
+	_, slots := c.decodeRGBA(id, nil, true, maxSlots)
+	return slots
+}
+
+// CustomPaletteDeltas returns premultiplied RGBA differences between a
+// picture's archive colors and the supplied custom colors. Entry i corresponds
+// to custom-color slot i and is suitable for adding to DecodeRGBA(id, nil, ...)
+// in a shader. The returned slice contains four floats per requested slot.
+func (c *CLImages) CustomPaletteDeltas(id uint32, custom []byte) []float32 {
+	result := make([]float32, len(custom)*4)
+	ref := c.idrefs[id]
+	if ref == nil || ref.flags&pictDefCustomColors == 0 || len(custom) == 0 {
+		return result
+	}
+	colLoc := c.colors[ref.colorID]
+	if colLoc == nil {
+		return result
+	}
+	c.mu.Lock()
+	mapping := append([]byte(nil), c.customMappings[id]...)
+	c.mu.Unlock()
+	if len(mapping) == 0 {
+		imgLoc := c.images[ref.imageID]
+		if imgLoc == nil {
+			return result
+		}
+		data, width, _, err := decodeIndexedImage(c.data, imgLoc)
+		if err != nil {
+			return result
+		}
+		if width > 0 && len(data) >= width {
+			mapping = append(mapping, data[:width]...)
+		}
+		releaseIndexedPixels(data)
+		if len(mapping) != 0 {
+			c.mu.Lock()
+			if c.customMappings == nil {
+				c.customMappings = make(map[uint32][]byte)
+			}
+			if cached := c.customMappings[id]; len(cached) != 0 {
+				mapping = append(mapping[:0], cached...)
+			} else {
+				c.customMappings[id] = append([]byte(nil), mapping...)
+			}
+			c.mu.Unlock()
+		}
+	}
+	if len(mapping) == 0 {
+		return result
+	}
+	alpha, _ := alphaTransparentForFlags(ref.flags)
+	c.gammaMu.RLock()
+	gammaEnabled := c.gammaEnabled
+	gammaLUT := c.gammaLUT
+	c.gammaMu.RUnlock()
+	paletteColor := func(index byte) (float32, float32, float32, float32) {
+		paletteOffset := int(index) * 3
+		r := uint8(palette[paletteOffset])
+		g := uint8(palette[paletteOffset+1])
+		b := uint8(palette[paletteOffset+2])
+		a := alpha
+		if index == 0 {
+			a = 0
+		}
+		if gammaEnabled && len(gammaLUT) == 256 {
+			r, g, b = gammaLUT[r], gammaLUT[g], gammaLUT[b]
+		}
+		scale := float32(a) / (255 * 255)
+		return float32(r) * scale, float32(g) * scale, float32(b) * scale, float32(a) / 255
+	}
+	for slot := 0; slot < len(custom) && slot < len(mapping); slot++ {
+		colorTableIndex := int(mapping[slot])
+		if colorTableIndex >= len(colLoc.colorBytes) {
+			continue
+		}
+		baseR, baseG, baseB, baseA := paletteColor(colLoc.colorBytes[colorTableIndex])
+		customR, customG, customB, customA := paletteColor(custom[slot])
+		offset := slot * 4
+		result[offset] = customR - baseR
+		result[offset+1] = customG - baseG
+		result[offset+2] = customB - baseB
+		result[offset+3] = customA - baseA
+	}
+	return result
+}
+
+// HasCustomColors reports whether a picture carries a custom-color mapping.
+func (c *CLImages) HasCustomColors(id uint32) bool {
+	ref := c.idrefs[id]
+	return ref != nil && ref.flags&pictDefCustomColors != 0
 }
 
 func writePackedRGBA(pix []byte, stride int, data []byte, width, height int, rgbaTable *[256]uint32) {

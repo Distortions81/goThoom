@@ -155,6 +155,40 @@ func (parent *itemData) removeItem(child *itemData) {
 	}
 }
 
+func (parent *itemData) setItems(children []*itemData) {
+	if parent == nil {
+		return
+	}
+	oldContents := parent.Contents
+	for _, child := range oldContents {
+		if child != nil && child.Parent == parent {
+			child.Parent = nil
+			child.setParentWindow(nil)
+		}
+	}
+	parent.Contents = append(oldContents[:0], children...)
+	for i := len(parent.Contents); i < len(oldContents); i++ {
+		oldContents[i] = nil
+	}
+	for _, child := range parent.Contents {
+		if child == nil {
+			continue
+		}
+		child.Parent = parent
+		if child.Theme == nil {
+			child.Theme = parent.Theme
+		}
+		child.setParentWindow(parent.ParentWindow)
+	}
+	if parent.ItemType == ITEM_FLOW {
+		parent.resizeFlow(parent.GetSize())
+	}
+	if parent.ParentWindow != nil {
+		parent.ParentWindow.updateHasIndeterminate()
+		parent.ParentWindow.markDirty()
+	}
+}
+
 func (parent *windowData) removeItem(child *itemData) {
 	if child == nil {
 		return

@@ -38,7 +38,7 @@ func updateChatWindow() {
 	scrollit := chatList.ScrollAtBottom()
 
 	msgs, types := getChatMessageEntries()
-	updateTextWindow(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, true)
+	updateTextWindow(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, true, &chatTextWrapCache)
 	searchTextWindow(chatWin, chatList, chatWin.SearchText)
 	if chatList != nil {
 		for i, msg := range msgs {
@@ -68,6 +68,7 @@ func makeChatWindow() error {
 	chatWin, chatList, _ = newTextWindow("Chat", eui.HZoneRight, eui.VZoneBottom, false, updateChatWindow)
 	chatWin.Searchable = true
 	chatWin.OnSearch = func(s string) { searchTextWindow(chatWin, chatList, s) }
+	chatWin.OnOpen = updateChatWindow
 	updateChatWindow()
 	chatWin.Refresh()
 	return nil

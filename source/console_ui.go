@@ -31,7 +31,7 @@ func queueConsoleWindowUpdate() {
 }
 
 func updateConsoleWindow() {
-	if consoleWin == nil {
+	if consoleWin == nil || !consoleWin.IsOpen() {
 		return
 	}
 	inputMsg := "[Press Enter To Type]"
@@ -41,7 +41,7 @@ func updateConsoleWindow() {
 	scrollit := messagesFlow.ScrollAtBottom()
 
 	msgs, types := getConsoleMessageEntries()
-	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, true)
+	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, true, &consoleTextWrapCache)
 	searchTextWindow(consoleWin, messagesFlow, consoleWin.SearchText)
 	if inputFlow != nil && len(inputFlow.Contents) > 0 {
 		inputItem := inputFlow.Contents[0]
@@ -76,6 +76,7 @@ func makeConsoleWindow() {
 	consoleWin, messagesFlow, inputFlow = newTextWindow("Console", eui.HZoneLeft, eui.VZoneBottom, true, updateConsoleWindow)
 	consoleWin.Searchable = true
 	consoleWin.OnSearch = func(s string) { searchTextWindow(consoleWin, messagesFlow, s) }
+	consoleWin.OnOpen = updateConsoleWindow
 	consoleMessage("Starting...")
 	updateConsoleWindow()
 }

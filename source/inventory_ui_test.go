@@ -32,6 +32,7 @@ func TestInventoryWindowIncrementalUpdates(t *testing.T) {
 	selectedInvIdx = -1
 
 	makeInventoryWindow()
+	inventoryWin.MarkOpen()
 
 	addInventoryItem(100, -1, "shadow bell", false)
 	addInventoryItem(200, -1, "linen shirt", false)
@@ -183,6 +184,7 @@ func TestInventoryWindowCountsStackedSlotsAndUnderlinesEquippedItems(t *testing.
 	inventoryList = nil
 	invRender = inventoryRenderState{}
 	makeInventoryWindow()
+	inventoryWin.MarkOpen()
 	addInventoryItem(100, -1, "stone", false)
 	addInventoryItem(100, -1, "stone", false)
 	addInventoryItem(200, -1, "shirt", true)

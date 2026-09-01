@@ -140,13 +140,14 @@ func makeInventoryWindow() {
 	inventoryWin, inventoryList, _ = makeTextWindow("Inventory", eui.HZoneLeft, eui.VZoneMiddleTop, true)
 	inventoryWin.Searchable = true
 	inventoryWin.OnSearch = searchInventoryWindow
+	inventoryWin.OnOpen = updateInventoryWindow
 	// Ensure layout updates immediately on resize to avoid gaps.
 	inventoryWin.OnResize = func() { updateInventoryWindow() }
 	updateInventoryWindow()
 }
 
 func updateInventoryWindow() {
-	if inventoryWin == nil || inventoryList == nil {
+	if inventoryWin == nil || inventoryList == nil || !inventoryWin.IsOpen() {
 		return
 	}
 
@@ -423,7 +424,11 @@ func (s *inventoryRenderState) ensureSpacer() {
 
 func (s *inventoryRenderState) createRow(data inventoryRowData) *inventoryRow {
 	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-	icon, _ := eui.NewImageItem(s.iconSize, s.iconSize)
+	icon, backing := eui.NewImageItem(s.iconSize, s.iconSize)
+	if data.icon != nil {
+		backing.Deallocate()
+		icon.Image = nil
+	}
 	icon.Filled = false
 	icon.Border = 0
 	icon.Margin = 4

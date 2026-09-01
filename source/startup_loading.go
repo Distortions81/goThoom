@@ -26,8 +26,6 @@ const (
 )
 
 // startupArtworkPreloadIDs are common, palette-independent clmov pictures.
-// Keep this deliberately small: palette-dependent mobiles can have many color
-// variants and are better left to the normal scene artwork loader.
 var startupArtworkPreloadIDs = [...]uint16{
 	1759, 1760, 445, 1286, // common legacy magic effects
 	3574, 334, 33, 3037, 2670,
@@ -42,6 +40,18 @@ var startupArtworkPreloadIDs = [...]uint16{
 	635, 1580, 417, 624, 1408, 2252, 1528, 127, 4069,
 	// Small held-item pictures recurring across the bundled movie set.
 	3521, 1518, 1037, 433, 698,
+}
+
+// startupNamedMobileBasePreloadIDs are the custom-color picture IDs used by
+// named mobiles across the bundled movie corpus. Only the uncolored mobile
+// sheet is warmed: eagerly building every 4x pose and influence mask would add
+// roughly 314 MiB, while these source sheets total about 9.6 MiB.
+var startupNamedMobileBasePreloadIDs = [...]uint16{
+	22, 76, 447, 448, 449, 450, 451, 452, 453, 454, 455, 456, 457,
+	458, 460, 537, 565, 1583, 1839, 1840, 1841, 1966, 2791, 3000,
+	3001, 3002, 3003, 3005, 3006, 3008, 3009, 3011, 3013, 3014,
+	3324, 3355, 3356, 4180, 4404, 4405, 4743, 4896, 5921, 5924,
+	7957, 7958, 7959, 7960, 7962, 7964, 7966, 7967,
 }
 
 var startupLoader = struct {
@@ -217,7 +227,15 @@ func preloadStartupArtwork() int {
 		// must never create per-character recolored mobile variants.
 		keys = append(keys, makeSheetKey(id, nil, false))
 	}
-	return prepareArtworkSheets(keys)
+	prepared := prepareArtworkSheets(keys)
+	if !gs.ShadersEnabled || gs.DenoiseImages {
+		return prepared
+	}
+	mobileKeys := make([]sheetKey, 0, len(startupNamedMobileBasePreloadIDs))
+	for _, id := range startupNamedMobileBasePreloadIDs {
+		mobileKeys = append(mobileKeys, makeSheetKey(id, nil, true))
+	}
+	return prepared + prepareBaseArtworkSheets(mobileKeys)
 }
 
 func preloadStartupCommonAssets() {

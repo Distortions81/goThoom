@@ -304,7 +304,11 @@ func (target *windowData) BringForward() {
 
 // MarkOpen sets the window to open and brings it forward if necessary.
 func (target *windowData) MarkOpen() {
+	wasOpen := target.Open
 	target.Open = true
+	if !wasOpen && target.OnOpen != nil {
+		target.OnOpen()
+	}
 	found := false
 	for _, win := range windows {
 		if win == target {

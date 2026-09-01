@@ -21,6 +21,15 @@ var aboutList *eui.ItemData
 var aboutLines []string
 
 var patreonList *eui.ItemData
+var aboutPatreonsLoading bool
+var aboutPatreonsLoaded bool
+var aboutPatreonsPopulated bool
+var aboutPatreons []loadedPatreon
+
+type loadedPatreon struct {
+	name  string
+	image image.Image
+}
 
 const patreonsURL = "https://m45sci.xyz/u/dist/goThoom/patreons.json"
 const websiteURL = "https://gothoom.m45sci.xyz/"
@@ -48,9 +57,18 @@ func initAboutUI() {
 	flow.PrependItem(linkBtn)
 
 	aboutLines = strings.Split(strings.ReplaceAll(aboutText, "\r\n", "\n"), "\n")
-	aboutWin.OnResize = func() { updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource, false) }
-
-	go loadPatreons()
+	aboutWin.OnResize = func() {
+		if aboutWin.IsOpen() {
+			updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource, false, &aboutTextWrapCache)
+		}
+	}
+	patreonList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+	flow.AddItem(patreonList)
+	aboutWin.OnOpen = func() {
+		updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource, false, &aboutTextWrapCache)
+		populatePatreons()
+		loadPatreons()
+	}
 }
 
 func openAboutWindow(anchor *eui.ItemData) {
@@ -63,16 +81,11 @@ func openAboutWindow(anchor *eui.ItemData) {
 		return
 	}
 
-	updateTextWindow(aboutWin, aboutList, nil, aboutLines, 15, "", monoFaceSource, false)
 	if anchor != nil {
 		aboutWin.MarkOpenNear(anchor)
 	} else {
 		aboutWin.MarkOpen()
 	}
-	if aboutWin.OnResize != nil {
-		aboutWin.OnResize()
-	}
-	aboutWin.Refresh()
 }
 
 type patreonEntry struct {
@@ -85,18 +98,35 @@ type patreonFile struct {
 }
 
 func loadPatreons() {
+	if aboutPatreonsLoading || aboutPatreonsLoaded {
+		return
+	}
+	aboutPatreonsLoading = true
+	go func() {
+		loaded := fetchPatreons()
+		dispatchMainThread(func() {
+			aboutPatreonsLoading = false
+			aboutPatreonsLoaded = true
+			aboutPatreons = loaded
+			populatePatreons()
+		})
+	}()
+}
+
+func fetchPatreons() []loadedPatreon {
 	resp, err := http.Get(patreonsURL)
 	if err != nil {
-		return
+		return nil
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return
+		return nil
 	}
 	var pf patreonFile
 	if err := json.NewDecoder(resp.Body).Decode(&pf); err != nil {
-		return
+		return nil
 	}
+	loaded := make([]loadedPatreon, 0, len(pf.Patreons))
 	for _, p := range pf.Patreons {
 		url := p.Avatar
 		if url == "" {
@@ -111,15 +141,25 @@ func loadPatreons() {
 		if err != nil {
 			continue
 		}
-		w := img.Bounds().Dx()
-		h := img.Bounds().Dy()
+		loaded = append(loaded, loadedPatreon{name: p.Name, image: img})
+	}
+	return loaded
+}
+
+func populatePatreons() {
+	if aboutPatreonsPopulated || !aboutPatreonsLoaded || aboutWin == nil || !aboutWin.IsOpen() || patreonList == nil {
+		return
+	}
+	for _, p := range aboutPatreons {
+		w := p.image.Bounds().Dx()
+		h := p.image.Bounds().Dy()
 		imgItem, backing := eui.NewImageItem(w, h)
 		backing.Deallocate()
-		imgItem.Image = newManagedImageFromImage(img)
+		imgItem.Image = newUnmanagedImageFromImage(p.image)
 		imgItem.Size = eui.Point{X: float32(w), Y: float32(h)}
 		imgItem.Fixed = true
 		nameItem, _ := eui.NewText()
-		nameItem.Text = p.Name
+		nameItem.Text = p.name
 		nameItem.FontSize = 14
 		nameItem.Fixed = true
 		nameItem.Size.Y = 16
@@ -130,7 +170,6 @@ func loadPatreons() {
 		patItem.Size.Y = float32(h) + nameItem.Size.Y
 		patreonList.AddItem(patItem)
 	}
-	if aboutWin != nil {
-		aboutWin.Refresh()
-	}
+	aboutPatreonsPopulated = true
+	aboutWin.Refresh()
 }

@@ -16,8 +16,11 @@ Rendering and hitch reduction:
 - Reduced managed texture-atlas churn by keeping cached artwork managed while moving temporary render targets and evicting speech-bubble text images to standalone textures.
 - Removed an explicit garbage collection after room artwork preparation and replaced large temporary artwork allocations with bounded reusable buffers.
 - Avoided unnecessary Players-window refreshes and persistence work when repeated backend who records do not change visible or saved player state.
+- Reuses wrapped Chat and Console message layouts until the window width or font changes, avoiding repeated measurement of the full message history as new text arrives.
+- Closed Inventory, Players, Chat, Console, and About windows now defer content work until they reopen. The Players window retains unchanged rows and headers instead of recreating their image items and reloading artwork, and unchanged held items reuse their existing toolbar composites.
 - Correctly deallocates cached sheets and processed artwork when settings invalidate them, while retaining stable cache entries during normal rendering.
 - Added optional per-frame asset diagnostics with `-assetLoadTrace`, reporting artwork decoding, processing, upload submission, managed and unmanaged image activity, atlas cache clears, scale-factor changes, and slow draw frames.
+- Custom-colored mobiles now share one CPU-upscaled base pose and a palette-independent influence mask; their small palettes are applied on the GPU before animation-frame blending. This avoids caching and uploading a separate managed texture for every player's colors while retaining the CPU artwork upscaler and the existing denoise/shader-disabled fallback. The small uncolored source sheets for named mobiles found across the bundled movies are warmed at boot without eagerly allocating their much larger scaled pose and mask caches.
 
 Developer and diagnostic tools:
 - Added `-dumpPreloadAssets` to export the exact startup-preloaded images and sounds under `dump/preload` for inspection.

@@ -2294,7 +2294,11 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 	addPictures(snap.picsPos)
 	for _, mobile := range snap.mobiles {
 		if descriptor, ok := snap.descriptors[mobile.Index]; ok {
-			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
+			colors := playerColorsForDescriptor(descriptor)
+			if mobileGPURecolorEligible(descriptor.PictID, colors) {
+				colors = nil
+			}
+			keys = append(keys, makeSheetKey(descriptor.PictID, colors, true))
 		}
 		if !frameBlend {
 			continue
@@ -2304,7 +2308,11 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 			if previousDescriptor, ok := snap.prevDescs[mobile.Index]; ok {
 				descriptor = previousDescriptor
 			}
-			keys = append(keys, makeSheetKey(descriptor.PictID, playerColorsForDescriptor(descriptor), true))
+			colors := playerColorsForDescriptor(descriptor)
+			if mobileGPURecolorEligible(descriptor.PictID, colors) {
+				colors = nil
+			}
+			keys = append(keys, makeSheetKey(descriptor.PictID, colors, true))
 		}
 	}
 	if sceneArtworkRequests.valid &&
@@ -2377,27 +2385,64 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 	var d frameDescriptor
 	var colors []byte
 	var state uint8
+	var influence *ebiten.Image
+	var palette *mobilePaletteShaderState
+	gpuRecolor := false
 	if desc, ok := descMap[m.Index]; ok {
 		d = desc
 		colors = playerColorsForDescriptor(d)
 		state = m.State
-		img = loadMobileFrame(d.PictID, state, colors)
+		img, influence, palette, gpuRecolor = loadGPURecoloredMobileFrame(d.PictID, state, colors)
+		if !gpuRecolor {
+			img = loadMobileFrame(d.PictID, state, colors)
+		}
 		plane = d.Plane
 	}
 	curKey := makeMobileKey(d.PictID, state, colors)
-	img = getScaledMobileFrame(curKey, img)
+	metricsKey := curKey
+	if gpuRecolor {
+		metricsKey = mobileRecolorSharedKey(d.PictID, state)
+	} else {
+		img = getScaledMobileFrame(curKey, img)
+	}
 	var prevImg *ebiten.Image
 	var prevColors []byte
+	var prevInfluence *ebiten.Image
+	var prevPalette *mobilePaletteShaderState
+	prevGPURecolor := false
+	var previousDescriptor frameDescriptor
+	var previousState uint8
 	if mobileFrameBlendingEnabled() {
 		if pm, ok := prevMobiles[m.Index]; ok {
 			pd := descMap[m.Index]
 			if d, ok := prevDescs[m.Index]; ok {
 				pd = d
 			}
+			previousDescriptor = pd
+			previousState = pm.State
 			prevColors = playerColorsForDescriptor(pd)
-			prevImg = loadMobileFrame(pd.PictID, pm.State, prevColors)
-			prevKey := makeMobileKey(pd.PictID, pm.State, prevColors)
+			prevImg, prevInfluence, prevPalette, prevGPURecolor = loadGPURecoloredMobileFrame(pd.PictID, pm.State, prevColors)
+			if !prevGPURecolor {
+				prevImg = loadMobileFrame(pd.PictID, pm.State, prevColors)
+				prevKey := makeMobileKey(pd.PictID, pm.State, prevColors)
+				prevImg = getScaledMobileFrame(prevKey, prevImg)
+			}
+		}
+	}
+	// The blended shader recolors both samples before mixing. If only one side
+	// can use it, keep both sides on the established CPU-colored path.
+	if prevImg != nil && fade > 0 && fade < 1 && gpuRecolor != prevGPURecolor {
+		if gpuRecolor {
+			img = loadMobileFrame(d.PictID, state, colors)
+			img = getScaledMobileFrame(curKey, img)
+			gpuRecolor, influence, palette = false, nil, nil
+			metricsKey = curKey
+		}
+		if prevGPURecolor {
+			prevKey := makeMobileKey(previousDescriptor.PictID, previousState, prevColors)
+			prevImg = loadMobileFrame(previousDescriptor.PictID, previousState, prevColors)
 			prevImg = getScaledMobileFrame(prevKey, prevImg)
+			prevGPURecolor, prevInfluence, prevPalette = false, nil, nil
 		}
 	}
 	if img != nil {
@@ -2405,22 +2450,28 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		addMobileLightCaster(x, y, size, mobileSpriteMetricsFor(curKey, img))
+		addMobileLightCaster(x, y, size, mobileSpriteMetricsFor(metricsKey, img))
 		addMobileLightSource(uint32(d.PictID), m.State, m.Index, d.Type == kDescPlayer, x, y, size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
+		var srcInfluence *ebiten.Image
+		var srcPalette *mobilePaletteShaderState
+		srcGPURecolor := false
 		drawSize := img.Bounds().Dx()
 		if blend {
 			drawSize = max(prevImg.Bounds().Dx(), img.Bounds().Dx())
 		} else if mobileFrameBlendingEnabled() && prevImg != nil {
 			if fade <= 0 {
 				src = prevImg
+				srcInfluence, srcPalette, srcGPURecolor = prevInfluence, prevPalette, prevGPURecolor
 				drawSize = prevImg.Bounds().Dx()
 			} else {
 				src = img
+				srcInfluence, srcPalette, srcGPURecolor = influence, palette, gpuRecolor
 			}
 		} else {
 			src = img
+			srcInfluence, srcPalette, srcGPURecolor = influence, palette, gpuRecolor
 			drawSize = img.Bounds().Dx()
 		}
 		target := float64(roundToInt(float64(size) * gs.GameScale))
@@ -2442,7 +2493,11 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
 				Linear: worldArtworkFilter() == ebiten.FilterLinear,
 			}
-			drawn = drawFrameBlend(screen, prevImg, img, blendOptions)
+			if gpuRecolor && prevGPURecolor {
+				drawn = drawRecoloredMobileFrameBlend(screen, prevImg, prevInfluence, img, influence, prevPalette, palette, blendOptions)
+			} else {
+				drawn = drawFrameBlend(screen, prevImg, img, blendOptions)
+			}
 			if drawn {
 				clearLayeredShadowCoverageFrameBlend(prevImg, img, blendOptions)
 			}
@@ -2451,17 +2506,34 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			if src == nil {
 				src = img
 			}
-			op := acquireDrawOpts()
-			op.Filter = worldArtworkFilter()
-			op.DisableMipmaps = true
-			if brightness < 1 {
-				op.ColorScale.Scale(brightness, brightness, brightness, 1)
+			if srcGPURecolor {
+				drawn = drawRecoloredMobile(screen, src, srcInfluence, srcPalette, frameBlendDrawOptions{
+					Left: tx, Top: ty, ScaleX: scale, ScaleY: scale,
+					Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
+					Linear: worldArtworkFilter() == ebiten.FilterLinear,
+				})
 			}
-			op.GeoM.Scale(scale, scale)
-			op.GeoM.Translate(tx, ty)
-			screen.DrawImage(src, op)
-			clearLayeredShadowCoverageImage(src, op)
-			releaseDrawOpts(op)
+			if drawn {
+				op := acquireDrawOpts()
+				op.Filter = worldArtworkFilter()
+				op.DisableMipmaps = true
+				op.GeoM.Scale(scale, scale)
+				op.GeoM.Translate(tx, ty)
+				clearLayeredShadowCoverageImage(src, op)
+				releaseDrawOpts(op)
+			} else {
+				op := acquireDrawOpts()
+				op.Filter = worldArtworkFilter()
+				op.DisableMipmaps = true
+				if brightness < 1 {
+					op.ColorScale.Scale(brightness, brightness, brightness, 1)
+				}
+				op.GeoM.Scale(scale, scale)
+				op.GeoM.Translate(tx, ty)
+				screen.DrawImage(src, op)
+				clearLayeredShadowCoverageImage(src, op)
+				releaseDrawOpts(op)
+			}
 		}
 		if gs.imgPlanesDebug {
 			metrics := mainFont.Metrics()
@@ -3046,6 +3118,9 @@ func replacementEffectPlayerMask(ox, oy int, p framePicture, mobiles []frameMobi
 		return nil, x, y, 0, instanceKey
 	}
 	colors := playerColorsForDescriptor(desc)
+	if mobileGPURecolorEligible(desc.PictID, colors) {
+		colors = nil
+	}
 	img := loadMobileFrame(desc.PictID, mobile.State, colors)
 	img = getScaledMobileFrame(makeMobileKey(desc.PictID, mobile.State, colors), img)
 	if img == nil {

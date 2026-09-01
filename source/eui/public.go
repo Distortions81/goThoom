@@ -156,6 +156,9 @@ func (win *WindowData) PrependItem(child *ItemData) { win.prependItemTo(child) }
 // RemoveItem removes a child item from the parent item.
 func (parent *ItemData) RemoveItem(child *ItemData) { parent.removeItem(child) }
 
+// SetItems replaces a parent's children and recalculates its flow once.
+func (parent *ItemData) SetItems(children []*ItemData) { parent.setItems(children) }
+
 // RemoveItem removes a child item from the window.
 func (win *WindowData) RemoveItem(child *ItemData) { win.removeItem(child) }
 

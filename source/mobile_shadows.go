@@ -267,6 +267,9 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		}
 		state := mobile.State
 		colors := playerColorsForDescriptor(desc)
+		if mobileGPURecolorEligible(desc.PictID, colors) {
+			colors = nil
+		}
 		img := loadMobileFrame(desc.PictID, state, colors)
 		if img == nil {
 			continue
@@ -709,6 +712,9 @@ func drawMobileDropShadow(screen *ebiten.Image, ox, oy int, mobile frameMobile, 
 		return
 	}
 	colors := playerColorsForDescriptor(desc)
+	if mobileGPURecolorEligible(desc.PictID, colors) {
+		colors = nil
+	}
 	img := loadMobileFrame(desc.PictID, mobile.State, colors)
 	if img == nil {
 		return
@@ -742,6 +748,9 @@ func drawMobileContactShadow(screen *ebiten.Image, ox, oy int, mobile frameMobil
 		return
 	}
 	colors := playerColorsForDescriptor(desc)
+	if mobileGPURecolorEligible(desc.PictID, colors) {
+		colors = nil
+	}
 	img := loadMobileFrame(desc.PictID, mobile.State, colors)
 	if img == nil {
 		return

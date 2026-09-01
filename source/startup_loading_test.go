@@ -105,6 +105,26 @@ func TestStartupArtworkPreloadExcludesPaletteVariants(t *testing.T) {
 	}
 }
 
+func TestStartupNamedMobilePreloadUsesUncoloredMobileSheets(t *testing.T) {
+	if got := len(startupNamedMobileBasePreloadIDs); got != 52 {
+		t.Fatalf("named mobile preload count = %d, want 52", got)
+	}
+	seen := make(map[uint16]struct{}, len(startupNamedMobileBasePreloadIDs))
+	for _, id := range startupNamedMobileBasePreloadIDs {
+		if id == 0 || id == 0xffff {
+			t.Fatalf("invalid named mobile preload ID %d", id)
+		}
+		if _, exists := seen[id]; exists {
+			t.Fatalf("duplicate named mobile preload ID %d", id)
+		}
+		seen[id] = struct{}{}
+		key := makeSheetKey(id, nil, true)
+		if key.colorsLen != 0 || !key.forceTransparent {
+			t.Fatalf("named mobile preload ID %d produced the wrong key: %#v", id, key)
+		}
+	}
+}
+
 func TestStartupLoadingPanelLayoutStaysCenteredAndInset(t *testing.T) {
 	for _, bounds := range []image.Rectangle{
 		image.Rect(0, 0, 512, 384),

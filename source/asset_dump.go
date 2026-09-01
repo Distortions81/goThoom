@@ -42,9 +42,14 @@ func exportPreloadImages() {
 		log.Print("Preload image export skipped: CL_Images is not available.")
 		return
 	}
-	log.Printf("Exporting %d preloaded images to %s...", len(startupArtworkPreloadIDs), assetDumpImageDir())
+	log.Printf("Exporting %d preloaded images to %s...", len(startupArtworkPreloadIDs)+len(startupNamedMobileBasePreloadIDs), assetDumpImageDir())
 	for _, id := range startupArtworkPreloadIDs {
 		if sheet := clImages.Get(uint32(id), nil, false); sheet != nil {
+			dumpImageSheet(id, sheet)
+		}
+	}
+	for _, id := range startupNamedMobileBasePreloadIDs {
+		if sheet := clImages.Get(uint32(id), nil, true); sheet != nil {
 			dumpImageSheet(id, sheet)
 		}
 	}
