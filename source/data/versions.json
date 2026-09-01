@@ -103,6 +103,10 @@
     {
       "Version": 48,
       "CLVersion": 1497
+    },
+    {
+      "Version": 49,
+      "CLVersion": 1497
     }
   ]
 }
