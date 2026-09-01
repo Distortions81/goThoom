@@ -26,6 +26,26 @@ func TestUpdatePlayerAppearanceUnmarksDead(t *testing.T) {
 	}
 }
 
+func TestUnchangedPlayerAppearanceDoesNotDirtyList(t *testing.T) {
+	originalPlayers := players
+	originalDirty := playersDirty
+	originalPlayerName := playerName
+	t.Cleanup(func() {
+		players = originalPlayers
+		playersDirty = originalDirty
+		playerName = originalPlayerName
+	})
+	playerName = ""
+	players = map[string]*Player{
+		"Bob": {Name: "Bob", PictID: 7, Colors: []byte{1, 2}, Seen: true},
+	}
+	playersDirty = false
+	updatePlayerAppearance("Bob", 7, []byte{1, 2}, false)
+	if playersDirty {
+		t.Fatal("unchanged descriptor dirtied the Players list")
+	}
+}
+
 func TestPlayerGroupUsesTwoMinuteOnScreenWindow(t *testing.T) {
 	now := time.Unix(1000, 0)
 	recent := Player{Name: "Recent", LastOnScreen: now.Add(-recentPlayerWindow + time.Second)}

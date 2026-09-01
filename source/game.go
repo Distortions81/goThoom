@@ -1161,14 +1161,19 @@ func (g *Game) Update() error {
 		inventoryDirty = false
 	}
 
-	if !nextRecentPlayersExpiry.IsZero() && !now.Before(nextRecentPlayersExpiry) {
-		playersDirty = true
-		nextRecentPlayersExpiry = time.Time{}
+	if shouldCheckRecentPlayerExpiry(now) {
+		if !nextRecentPlayersExpiry.IsZero() && !now.Before(nextRecentPlayersExpiry) {
+			playersDirty = true
+			nextRecentPlayersExpiry = time.Time{}
+		}
 	}
 
 	if playersDirty {
 		updatePlayersWindow()
 		playersDirty = false
+	}
+	if loadVisiblePlayerArtwork(false) && playersWin != nil {
+		playersWin.Refresh()
 	}
 
 	if syncWindowSettings() {
@@ -1415,9 +1420,6 @@ func (g *Game) Update() error {
 	}
 	if changedInput {
 		updateConsoleWindow()
-		if consoleWin != nil {
-			consoleWin.Refresh()
-		}
 	}
 
 	if inputFlow != nil && len(inputFlow.Contents) > 0 {
@@ -3431,6 +3433,29 @@ type bubblePlacementHistoryEntry struct {
 var bubblePlacementHistory = make(map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry)
 var bubbleTortureLastOverlapLog time.Time
 
+type speechBubbleFrameScratch struct {
+	prepared     []preparedSpeechBubble
+	active       map[bubblePlacementHistoryKey]struct{}
+	priorTargets []jointBubbleLayoutItem
+	lastLayouts  []time.Time
+	targets      []jointBubbleLayoutItem
+	anchors      []image.Point
+	renderItems  []jointBubbleLayoutItem
+	occupied     []image.Rectangle
+	drawRequests []bubbleDrawRequest
+}
+
+var bubbleFrameScratch speechBubbleFrameScratch
+
+func resizeBubbleScratch[T any](items []T, length int) []T {
+	if cap(items) < length {
+		return make([]T, length)
+	}
+	items = items[:length]
+	clear(items)
+	return items
+}
+
 func bubbleVisibleWithoutOwner(typ int) bool {
 	switch typ & kBubbleTypeMask {
 	case kBubbleYell, kBubbleThought:
@@ -3866,10 +3891,26 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		fontScale = 0.1
 	}
 	descMap := snap.descriptors
+	var mobilePositions [256]int16
+	for i := range mobilePositions {
+		mobilePositions[i] = -1
+	}
+	for i := range snap.mobiles {
+		mobilePositions[snap.mobiles[i].Index] = int16(i)
+	}
 	maxDist := maxMobileInterpPixels * (snap.dropped + 1)
 	bounds := image.Rect(0, 0, screen.Bounds().Dx(), screen.Bounds().Dy())
-	prepared := make([]preparedSpeechBubble, 0, len(snap.bubbles))
-	activeHistory := make(map[bubblePlacementHistoryKey]struct{}, len(snap.bubbles))
+	clear(bubbleFrameScratch.prepared)
+	prepared := bubbleFrameScratch.prepared[:0]
+	if cap(prepared) < len(snap.bubbles) {
+		prepared = make([]preparedSpeechBubble, 0, len(snap.bubbles))
+	}
+	activeHistory := bubbleFrameScratch.active
+	if activeHistory == nil {
+		activeHistory = make(map[bubblePlacementHistoryKey]struct{}, len(snap.bubbles))
+	} else {
+		clear(activeHistory)
+	}
 	layoutNow := time.Now()
 	bubbleSizeLimit := bubbleBodySizeLimit(screen.Bounds().Dx(), screen.Bounds().Dy())
 	for _, b := range snap.bubbles {
@@ -3917,11 +3958,8 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		ownerMissing := false
 		if !b.Far {
 			var m *frameMobile
-			for i := range snap.mobiles {
-				if snap.mobiles[i].Index == b.Index {
-					m = &snap.mobiles[i]
-					break
-				}
+			if position := mobilePositions[b.Index]; position >= 0 {
+				m = &snap.mobiles[position]
 			}
 			if m != nil {
 				facing = int(m.State) / 4
@@ -4019,8 +4057,8 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		})
 	}
 
-	priorTargets := make([]jointBubbleLayoutItem, len(prepared))
-	lastLayouts := make([]time.Time, len(prepared))
+	priorTargets := resizeBubbleScratch(bubbleFrameScratch.priorTargets, len(prepared))
+	lastLayouts := resizeBubbleScratch(bubbleFrameScratch.lastLayouts, len(prepared))
 	for i := range prepared {
 		previous := bubblePlacementHistory[prepared[i].key]
 		lastLayouts[i] = previous.laidOutAt
@@ -4040,7 +4078,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		priorTargets, layoutNow, gs.AvoidBubbleOverlap,
 	)
 	if needsSolve {
-		targets := make([]jointBubbleLayoutItem, len(prepared))
+		targets := resizeBubbleScratch(bubbleFrameScratch.targets, len(prepared))
 		for i := range prepared {
 			targets[i] = jointBubbleLayoutItem{
 				rect: prepared[i].normalRect, margin: prepared[i].margin,
@@ -4048,14 +4086,15 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		}
 		if gs.AvoidBubbleOverlap {
 			separateBubbleLayout(targets, bounds)
-			anchors := make([]image.Point, len(prepared))
+			anchors := resizeBubbleScratch(bubbleFrameScratch.anchors, len(prepared))
 			for i := range prepared {
 				anchors[i] = prepared[i].tailAnchor
 			}
 			stabilityThreshold := max(12.0, 12*bubbleScale)
 			if keepPriorBubbleLayout(priorTargets, targets, anchors, stabilityThreshold) {
-				targets = priorTargets
+				copy(targets, priorTargets)
 			}
+			bubbleFrameScratch.anchors = anchors
 		}
 		conflicts := bubbleLayoutConflictFlags(targets)
 		for i := range prepared {
@@ -4080,9 +4119,10 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 			}
 			bubblePlacementHistory[prepared[i].key] = history
 		}
+		bubbleFrameScratch.targets = targets
 	}
 
-	renderItems := make([]jointBubbleLayoutItem, len(prepared))
+	renderItems := resizeBubbleScratch(bubbleFrameScratch.renderItems, len(prepared))
 	for i := range prepared {
 		previous := bubblePlacementHistory[prepared[i].key]
 		offset, _, _, renderedRect := bubbleLayoutRenderOffset(
@@ -4098,8 +4138,15 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		separateBubbleLayout(renderItems, bounds)
 	}
 
-	occupied := make([]image.Rectangle, 0, len(prepared))
-	drawRequests := make([]bubbleDrawRequest, 0, len(prepared))
+	occupied := bubbleFrameScratch.occupied[:0]
+	if cap(occupied) < len(prepared) {
+		occupied = make([]image.Rectangle, 0, len(prepared))
+	}
+	clear(bubbleFrameScratch.drawRequests)
+	drawRequests := bubbleFrameScratch.drawRequests[:0]
+	if cap(drawRequests) < len(prepared) {
+		drawRequests = make([]bubbleDrawRequest, 0, len(prepared))
+	}
 	for i := range prepared {
 		prepared[i].request.bodyOffset = renderItems[i].rect.Min.Sub(prepared[i].normalRect.Min)
 		renderedRect, _, drawable := bubbleDrawRect(screen.Bounds(), prepared[i].request)
@@ -4127,6 +4174,13 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 			delete(bubblePlacementHistory, key)
 		}
 	}
+	bubbleFrameScratch.prepared = prepared
+	bubbleFrameScratch.active = activeHistory
+	bubbleFrameScratch.priorTargets = priorTargets
+	bubbleFrameScratch.lastLayouts = lastLayouts
+	bubbleFrameScratch.renderItems = renderItems
+	bubbleFrameScratch.occupied = occupied
+	bubbleFrameScratch.drawRequests = drawRequests
 }
 
 func bubbleOverlapsOccupied(rendered image.Rectangle, occupied []image.Rectangle, collisionMargin int) bool {

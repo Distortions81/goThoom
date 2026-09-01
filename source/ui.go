@@ -7511,6 +7511,8 @@ func makePlayersWindow() {
 	}
 	cachedPlayerRows = map[string]cachedPlayerRow{}
 	cachedPlayerHeaders = map[string]cachedPlayerHeader{}
+	playerArtworkViewport.valid = false
+	renderedPlayerSelection = ""
 	// Use the common text window scaffold to get an inner scrollable list
 	// and consistent padding/behavior with Inventory/Chat windows.
 	playersWin, playersList, _ = makeTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)

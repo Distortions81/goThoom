@@ -42,7 +42,8 @@ type textWindowWrapCache struct {
 	generation uint64
 }
 
-func (cache *textWindowWrapCache) begin(config textWindowWrapConfig) {
+func (cache *textWindowWrapCache) begin(config textWindowWrapConfig) bool {
+	changed := cache.entries == nil || cache.config != config
 	if cache.entries == nil {
 		cache.entries = make(map[string]textWindowWrapEntry)
 	} else if cache.config != config {
@@ -56,6 +57,7 @@ func (cache *textWindowWrapCache) begin(config textWindowWrapConfig) {
 		clear(cache.entries)
 		cache.generation = 1
 	}
+	return changed
 }
 
 func (cache *textWindowWrapCache) wrap(raw string, face text.Face, width float64) (string, int) {
@@ -172,9 +174,6 @@ func newTextWindow(name string, hz eui.HZone, vz eui.VZone, hasInput bool, updat
 	if update != nil {
 		win.OnResize = func() {
 			update()
-			if win != nil {
-				win.Refresh()
-			}
 		}
 	}
 	return win, list, input
@@ -183,6 +182,13 @@ func newTextWindow(name string, hz eui.HZone, vz eui.VZone, hasInput bool, updat
 // updateTextWindow refreshes a text window's content and optional input message.
 // If faceSrc is nil the default font source is used.
 func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource, alternateRows bool, wrapCache *textWindowWrapCache) {
+	updateTextWindowFrom(win, list, input, msgs, fontSize, inputMsg, faceSrc, alternateRows, wrapCache, 0)
+}
+
+// updateTextWindowFrom updates only rows at or after firstChanged when the
+// width and font configuration is stable. Earlier rows retain their measured
+// layout and rendered content.
+func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource, alternateRows bool, wrapCache *textWindowWrapCache, firstChanged int) {
 	if list == nil || win == nil {
 		return
 	}
@@ -239,13 +245,19 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 	contentWUnits := contentW / ui
 	clientWUnits := clientWAvail / ui
 	clientHUnits := clientHAvail / ui
-	wrapCache.begin(textWindowWrapConfig{
+	if wrapCache.begin(textWindowWrapConfig{
 		width:    wrapWidthPx,
 		faceSize: facePx,
 		source:   resolvedFaceSrc,
-	})
+	}) {
+		firstChanged = 0
+	}
+	if firstChanged < 0 || firstChanged > len(msgs) || firstChanged > len(list.Contents) {
+		firstChanged = 0
+	}
 
-	for i, msg := range msgs {
+	for i := firstChanged; i < len(msgs); i++ {
+		msg := msgs[i]
 		wrapped, linesN := wrapCache.wrap(msg, face, wrapWidthPx)
 		if i < len(list.Contents) {
 			if list.Contents[i].Text != wrapped || list.Contents[i].FontSize != float32(fontSize) {
@@ -441,10 +453,17 @@ func showSpellSuggestions(t *eui.ItemData) {
 // adds markers to the scrollbar for quick navigation. It clears highlights when
 // the query is empty.
 func searchTextWindow(win *eui.WindowData, list *eui.ItemData, query string) {
+	applyTextWindowSearch(list, query)
+	if win != nil {
+		win.Refresh()
+	}
+}
+
+// applyTextWindowSearch updates search presentation without refreshing the
+// window. Update callers use it to batch layout, style, and search into one
+// final refresh.
+func applyTextWindowSearch(list *eui.ItemData, query string) {
 	if list == nil {
-		if win != nil {
-			win.Refresh()
-		}
 		return
 	}
 
@@ -463,7 +482,4 @@ func searchTextWindow(win *eui.WindowData, list *eui.ItemData, query string) {
 		}
 	}
 	list.ScrollMarks = marks
-	if win != nil {
-		win.Refresh()
-	}
 }

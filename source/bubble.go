@@ -647,17 +647,38 @@ func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleD
 	}, true
 }
 
-func bubbleBackgroundTarget(screen *ebiten.Image, bubbleType int, fillColor color.RGBA64) (*ebiten.Image, color.RGBA64, ebiten.Blend, bool) {
+func bubbleBackgroundTarget(screen *ebiten.Image, bubbleType int, fillColor color.RGBA64, region image.Rectangle) (*ebiten.Image, color.RGBA64, ebiten.Blend, bool) {
 	backgroundTarget := screen
 	backgroundBlend := ebiten.Blend{}
 	compositeThought := bubbleType == kBubbleThought || bubbleType == kBubblePonder
 	if compositeThought {
 		backgroundTarget = thoughtBubbleMask(screen)
-		backgroundTarget.Clear()
+		region = region.Intersect(backgroundTarget.Bounds())
+		if !region.Empty() {
+			backgroundTarget.SubImage(region).(*ebiten.Image).Clear()
+		}
 		fillColor = color.RGBA64{R: 0xffff, G: 0xffff, B: 0xffff, A: 0xffff}
 		backgroundBlend = thoughtBubbleMaskBlend
 	}
 	return backgroundTarget, fillColor, backgroundBlend, compositeThought
+}
+
+func bubbleCompositeRegion(g bubbleDrawGeometry, tail bool) image.Rectangle {
+	left := g.left + g.offsetX
+	top := g.top + g.offsetY
+	right := g.right + g.offsetX
+	bottom := g.bottom + g.offsetY
+	margin := int(math.Ceil(float64(max(g.scale, 1)))) + 2
+	if tail {
+		left = min(left, g.tailX+g.offsetX)
+		right = max(right, g.tailX+g.offsetX)
+		top = min(top, g.tailY+g.offsetY)
+		bottom = max(bottom, g.tailY+g.offsetY)
+		margin += g.request.metrics.tailHalf
+	} else {
+		margin += bubbleOverlapMargin(g.request.typ, g.request.bubbleScale)
+	}
+	return image.Rect(left-margin, top-margin, right+margin, bottom+margin)
 }
 
 // drawBubbleTail draws only the pointer/ponder trail. drawSpeechBubbles calls
@@ -700,7 +721,8 @@ func drawBubbleTail(screen *ebiten.Image, request bubbleDrawRequest) {
 		tail.Close()
 	}
 
-	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor)
+	compositeRegion := bubbleCompositeRegion(g, true).Intersect(screen.Bounds())
+	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
 	tailOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
 	tailOp.ColorScale.ScaleWithColor(fillColor)
 	vector.FillPath(backgroundTarget, &tail, nil, tailOp)
@@ -711,7 +733,7 @@ func drawBubbleTail(screen *ebiten.Image, request bubbleDrawRequest) {
 		vector.StrokePath(screen, &tail, strokeOp, drawOp)
 	}
 	if compositeThought {
-		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol)
+		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
 	}
 }
 
@@ -738,7 +760,8 @@ func drawBubbleBody(screen *ebiten.Image, request bubbleDrawRequest) {
 	body.Arc(float32(g.left)+g.radius+fx, float32(g.top)+g.radius+fy, g.radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
 	body.Close()
 
-	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor)
+	compositeRegion := bubbleCompositeRegion(g, false).Intersect(screen.Bounds())
+	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
 
 	if g.bubbleType != kBubblePonder {
 		fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
@@ -757,7 +780,7 @@ func drawBubbleBody(screen *ebiten.Image, request bubbleDrawRequest) {
 	}
 
 	if compositeThought {
-		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol)
+		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
 	}
 
 	if g.bubbleType == kBubbleYell {
@@ -1097,19 +1120,24 @@ func drawBubbleCircle(screen *ebiten.Image, cx, cy, radius float32, col color.RG
 
 func thoughtBubbleMask(screen *ebiten.Image) *ebiten.Image {
 	bounds := screen.Bounds()
-	if thoughtBubbleCompositeMask == nil || thoughtBubbleCompositeMask.Bounds().Dx() != bounds.Dx() || thoughtBubbleCompositeMask.Bounds().Dy() != bounds.Dy() {
+	if thoughtBubbleCompositeMask == nil || thoughtBubbleCompositeMask.Bounds() != bounds {
 		if thoughtBubbleCompositeMask != nil {
 			thoughtBubbleCompositeMask.Deallocate()
 		}
-		thoughtBubbleCompositeMask = newUnmanagedImage(bounds.Dx(), bounds.Dy())
+		thoughtBubbleCompositeMask = newUnmanagedImageWithBounds(bounds)
 	}
 	return thoughtBubbleCompositeMask
 }
 
-func compositeThoughtBubbleBackground(screen, mask *ebiten.Image, background color.Color) {
+func compositeThoughtBubbleBackground(screen, mask *ebiten.Image, background color.Color, region image.Rectangle) {
+	region = region.Intersect(mask.Bounds()).Intersect(screen.Bounds())
+	if region.Empty() {
+		return
+	}
 	op := &ebiten.DrawImageOptions{}
 	op.ColorScale.ScaleWithColor(background)
-	screen.DrawImage(mask, op)
+	op.GeoM.Translate(float64(region.Min.X), float64(region.Min.Y))
+	screen.DrawImage(mask.SubImage(region).(*ebiten.Image), op)
 }
 
 func clearThoughtBubbleMask() {

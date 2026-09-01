@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"gothoom/eui"
 
@@ -78,6 +79,77 @@ func TestPlayersWindowDefersClosedUpdatesAndReusesRows(t *testing.T) {
 	updatePlayersWindow()
 	if got := playerWindowTestRow(t, "Bob"); got == bob {
 		t.Fatal("changed player incorrectly reused its old row")
+	}
+}
+
+func TestVisiblePlayerArtworkLoadsOnlyViewportRows(t *testing.T) {
+	originalWindow := playersWin
+	originalList := playersList
+	originalRows := cachedPlayerRows
+	originalRefs := playersRowRefs
+	originalViewport := playerArtworkViewport
+	t.Cleanup(func() {
+		if playersWin != nil && playersWin != originalWindow {
+			playersWin.RemoveWindow()
+		}
+		playersWin = originalWindow
+		playersList = originalList
+		cachedPlayerRows = originalRows
+		playersRowRefs = originalRefs
+		playerArtworkViewport = originalViewport
+	})
+
+	playersWin = eui.NewWindow()
+	playersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true, Scrollable: true}
+	playersList.Size = eui.Point{X: 100, Y: 20}
+	playersWin.AddItem(playersList)
+	playersWin.MarkOpen()
+	cachedPlayerRows = make(map[string]cachedPlayerRow)
+	playersRowRefs = make(map[*eui.ItemData]string)
+	rows := make([]*eui.ItemData, 10)
+	for i := range rows {
+		name := string(rune('A' + i))
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
+		row.Size = eui.Point{X: 100, Y: 10}
+		rows[i] = row
+		playersRowRefs[row] = name
+		cachedPlayerRows[name] = cachedPlayerRow{
+			row:        row,
+			profession: eui.NewImageReferenceItem(10, 10),
+			avatar:     eui.NewImageReferenceItem(10, 10),
+			signature:  playerRowSignature{name: name, rowUnits: 10},
+		}
+	}
+	playersList.SetItems(rows)
+	playerArtworkViewport.valid = false
+	loadVisiblePlayerArtwork(false)
+	if !cachedPlayerRows["A"].artworkLoaded {
+		t.Fatal("first visible player row was not materialized")
+	}
+	if cachedPlayerRows["J"].artworkLoaded {
+		t.Fatal("off-screen player row was materialized")
+	}
+
+	playersList.Scroll.Y = 80
+	loadVisiblePlayerArtwork(false)
+	if !cachedPlayerRows["J"].artworkLoaded {
+		t.Fatal("newly visible player row was not materialized after scrolling")
+	}
+}
+
+func TestRecentPlayerExpiryCheckIsThrottled(t *testing.T) {
+	original := lastRecentPlayerExpiryCheck
+	t.Cleanup(func() { lastRecentPlayerExpiryCheck = original })
+	lastRecentPlayerExpiryCheck = time.Time{}
+	now := time.Unix(5000, 0)
+	if !shouldCheckRecentPlayerExpiry(now) {
+		t.Fatal("initial recent-player expiry check was skipped")
+	}
+	if shouldCheckRecentPlayerExpiry(now.Add(9 * time.Second)) {
+		t.Fatal("recent-player expiry check ran before ten seconds")
+	}
+	if !shouldCheckRecentPlayerExpiry(now.Add(10 * time.Second)) {
+		t.Fatal("recent-player expiry check did not run at ten seconds")
 	}
 }
 

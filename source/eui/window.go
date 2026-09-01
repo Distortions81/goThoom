@@ -245,6 +245,20 @@ func NewImageItem(w, h int) (*itemData, *ebiten.Image) {
 	return &newItem, newItem.Image
 }
 
+// NewImageReferenceItem creates an image item without allocating a backing
+// render target. Use it when the image will be supplied later or borrowed from
+// a stable cache.
+func NewImageReferenceItem(w, h int) *itemData {
+	if currentTheme == nil {
+		currentTheme = baseTheme
+	}
+	return &itemData{
+		ItemType: ITEM_IMAGE,
+		Size:     point{X: float32(w), Y: float32(h)},
+		Theme:    currentTheme,
+	}
+}
+
 // Create a new image item with a new image buffer
 func NewImageFastItem(w, h int) (*itemData, *ebiten.Image) {
 	if currentTheme == nil {

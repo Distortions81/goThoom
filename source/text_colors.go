@@ -194,6 +194,8 @@ func messageTextTypeForBubble(bubbleType int) string {
 }
 
 func refreshMessageTextWindows() {
+	consoleWindowForceFull = true
+	chatWindowForceFull = true
 	updateConsoleWindow()
 	updateChatWindow()
 }

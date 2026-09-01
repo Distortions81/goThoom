@@ -26,6 +26,7 @@ var playersRowRefs = map[*eui.ItemData]string{}
 var playersGroupHeaders = map[*eui.ItemData]bool{}
 var nextRecentPlayersExpiry time.Time
 var selectedPlayerName string
+var renderedPlayerSelection string
 var lastPlayerClickName string
 var lastPlayerClickTime time.Time
 
@@ -56,8 +57,11 @@ type playerRowSignature struct {
 }
 
 type cachedPlayerRow struct {
-	row       *eui.ItemData
-	signature playerRowSignature
+	row           *eui.ItemData
+	profession    *eui.ItemData
+	avatar        *eui.ItemData
+	signature     playerRowSignature
+	artworkLoaded bool
 }
 
 type playerHeaderSignature struct {
@@ -79,6 +83,12 @@ type cachedPlayerHeader struct {
 var cachedPlayerRows = map[string]cachedPlayerRow{}
 var cachedPlayerHeaders = map[string]cachedPlayerHeader{}
 
+var playerArtworkViewport struct {
+	scroll eui.Point
+	size   eui.Point
+	valid  bool
+}
+
 type playerListGroup int
 
 const (
@@ -88,6 +98,17 @@ const (
 )
 
 const visiblePlayerGroupRadius = 180
+const recentPlayerExpiryCheckInterval = 10 * time.Second
+
+var lastRecentPlayerExpiryCheck time.Time
+
+func shouldCheckRecentPlayerExpiry(now time.Time) bool {
+	if !lastRecentPlayerExpiryCheck.IsZero() && now.Sub(lastRecentPlayerExpiryCheck) < recentPlayerExpiryCheckInterval && !now.Before(lastRecentPlayerExpiryCheck) {
+		return false
+	}
+	lastRecentPlayerExpiryCheck = now
+	return true
+}
 
 func nearbyVisiblePlayerGroupKeys() []string {
 	stateMu.Lock()
@@ -232,10 +253,14 @@ func playersWindowTitle(online, sharedTo, sharingToUs int) string {
 // searchPlayersWindow highlights player rows whose names contain query and
 // adds matching-row markers to the scrollbar.
 func searchPlayersWindow(query string) {
+	applyPlayersSearch(query)
+	if playersWin != nil {
+		playersWin.Refresh()
+	}
+}
+
+func applyPlayersSearch(query string) {
 	if playersList == nil {
-		if playersWin != nil {
-			playersWin.Refresh()
-		}
 		return
 	}
 
@@ -269,9 +294,6 @@ func searchPlayersWindow(query string) {
 		}
 	}
 	playersList.ScrollMarks = marks
-	if playersWin != nil {
-		playersWin.Refresh()
-	}
 }
 
 func playerSharingIndicator(p Player) string {
@@ -390,7 +412,7 @@ func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float
 	return signature
 }
 
-func makePlayerRow(p Player, signature playerRowSignature, rowIndex int) *eui.ItemData {
+func makePlayerRow(p Player, signature playerRowSignature, rowIndex int) cachedPlayerRow {
 	row := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
@@ -405,52 +427,20 @@ func makePlayerRow(p Player, signature playerRowSignature, rowIndex int) *eui.It
 	}
 
 	iconSize := int(signature.rowUnits + 0.5)
-	profItem, profBacking := eui.NewImageItem(iconSize, iconSize)
+	profItem := eui.NewImageReferenceItem(iconSize, iconSize)
 	profItem.Margin = 4
 	profItem.Border = 0
 	profItem.Filled = false
 	profItem.Disabled = signature.offline
-	if pid := professionPictID(signature.class); pid != 0 {
-		if img := loadImage(pid); img != nil {
-			profBacking.Deallocate()
-			profItem.Image = img
-			profItem.ImageName = "prof:cl:" + fmt.Sprint(pid)
-		}
-	}
 	name := signature.name
 	profItem.Action = func() { handlePlayersClick(name) }
 	row.AddItem(profItem)
 
-	avItem, avatarBacking := eui.NewImageItem(iconSize, iconSize)
+	avItem := eui.NewImageReferenceItem(iconSize, iconSize)
 	avItem.Margin = 4
 	avItem.Border = 0
 	avItem.Filled = false
 	avItem.Disabled = signature.offline
-	var avatar *ebiten.Image
-	state := uint8(0)
-	if signature.dead && !signature.local {
-		state = 32
-	}
-	if signature.pictID != 0 {
-		if mobile := loadMobileFrame(signature.pictID, state, p.Colors); mobile != nil {
-			avatar = mobile
-		} else if image := loadImage(signature.pictID); image != nil {
-			avatar = image
-		}
-	}
-	if avatar == nil {
-		if pictID := defaultMobilePictID(genderFromString(signature.gender)); pictID != 0 {
-			if mobile := loadMobileFrame(pictID, state, nil); mobile != nil {
-				avatar = mobile
-			} else if image := loadImage(pictID); image != nil {
-				avatar = image
-			}
-		}
-	}
-	if avatar != nil {
-		avatarBacking.Deallocate()
-		avItem.Image = avatar
-	}
 	avItem.Action = func() { handlePlayersClick(name) }
 	row.AddItem(avItem)
 
@@ -519,7 +509,100 @@ func makePlayerRow(p Player, signature playerRowSignature, rowIndex int) *eui.It
 
 	row.Action = func() { handlePlayersClick(name) }
 	row.Size.Y = signature.rowUnits
-	return row
+	return cachedPlayerRow{row: row, profession: profItem, avatar: avItem, signature: signature}
+}
+
+func loadPlayerRowArtwork(cached cachedPlayerRow) (cachedPlayerRow, bool) {
+	if cached.artworkLoaded {
+		return cached, false
+	}
+	changed := false
+	if pid := professionPictID(cached.signature.class); pid != 0 {
+		if img := loadImage(pid); img != nil {
+			cached.profession.Image = img
+			cached.profession.ImageName = "prof:cl:" + fmt.Sprint(pid)
+			cached.profession.Dirty = true
+			changed = true
+		}
+	}
+	state := uint8(0)
+	if cached.signature.dead && !cached.signature.local {
+		state = 32
+	}
+	colors := cached.signature.colors[:cached.signature.colorsLen]
+	var avatar *ebiten.Image
+	if cached.signature.pictID != 0 {
+		if mobile := loadMobileFrame(cached.signature.pictID, state, colors); mobile != nil {
+			avatar = mobile
+		} else {
+			avatar = loadImage(cached.signature.pictID)
+		}
+	}
+	if avatar == nil {
+		if pictID := defaultMobilePictID(genderFromString(cached.signature.gender)); pictID != 0 {
+			if mobile := loadMobileFrame(pictID, state, nil); mobile != nil {
+				avatar = mobile
+			} else {
+				avatar = loadImage(pictID)
+			}
+		}
+	}
+	if avatar != nil {
+		cached.avatar.Image = avatar
+		cached.avatar.Dirty = true
+		changed = true
+	}
+	cached.artworkLoaded = true
+	return cached, changed
+}
+
+// loadVisiblePlayerArtwork materializes cached sprite references only for rows
+// intersecting the viewport, plus a small overscan margin. Rows retain artwork
+// once visited so scrolling never causes load/unload churn.
+func loadVisiblePlayerArtwork(force bool) bool {
+	if playersWin == nil || playersList == nil || !playersWin.IsOpen() {
+		return false
+	}
+	viewportSize := playersList.GetSize()
+	if !force && playerArtworkViewport.valid && playerArtworkViewport.scroll == playersList.Scroll && playerArtworkViewport.size == viewportSize {
+		return false
+	}
+	playerArtworkViewport.scroll = playersList.Scroll
+	playerArtworkViewport.size = viewportSize
+	playerArtworkViewport.valid = true
+
+	overscan := float32(0)
+	for _, cached := range cachedPlayerRows {
+		overscan = max(overscan, cached.signature.rowUnits*2)
+		break
+	}
+	viewTop := max(float32(0), playersList.Scroll.Y-overscan)
+	viewBottom := playersList.Scroll.Y + viewportSize.Y + overscan
+	y := float32(0)
+	changed := false
+	for _, item := range playersList.Contents {
+		if item == nil {
+			continue
+		}
+		top := y + item.Position.Y
+		bottom := top + item.GetSize().Y
+		if bottom >= viewTop && top <= viewBottom {
+			if name := playersRowRefs[item]; name != "" {
+				cached, ok := cachedPlayerRows[name]
+				if ok {
+					var loaded bool
+					cached, loaded = loadPlayerRowArtwork(cached)
+					cachedPlayerRows[name] = cached
+					changed = changed || loaded
+				}
+			}
+		}
+		y += item.GetSize().Y + item.Position.Y
+		if y > viewBottom {
+			break
+		}
+	}
+	return changed
 }
 
 func reusablePlayerHeader(key string, signature playerHeaderSignature, next map[string]cachedPlayerHeader) *eui.ItemData {
@@ -542,6 +625,7 @@ func updatePlayersWindow() {
 	accent := eui.AccentColor()
 
 	prevScroll := playersList.Scroll
+	previousListSize := playersList.GetSize()
 
 	// Gather current players and filter to non-NPCs with names.
 	ps := getPlayers()
@@ -595,7 +679,9 @@ func updatePlayersWindow() {
 			onlineCount++
 		}
 	}
-	playersWin.Title = playersWindowTitle(onlineCount, shareeCount, shareCount)
+	nextTitle := playersWindowTitle(onlineCount, shareeCount, shareCount)
+	titleChanged := playersWin.Title != nextTitle
+	playersWin.Title = nextTitle
 
 	myClan := ""
 	if playerName != "" {
@@ -698,7 +784,7 @@ func updatePlayersWindow() {
 		signature := makePlayerRowSignature(p, myClan, clientWAvail, rowUnits, fontSize, ui)
 		cached, ok := cachedPlayerRows[p.Name]
 		if !ok || cached.signature != signature {
-			cached = cachedPlayerRow{row: makePlayerRow(p, signature, rowIndex), signature: signature}
+			cached = makePlayerRow(p, signature, rowIndex)
 		}
 		row := cached.row
 		nextRows[p.Name] = cached
@@ -713,17 +799,36 @@ func updatePlayersWindow() {
 	}
 	cachedPlayerRows = nextRows
 	cachedPlayerHeaders = nextHeaders
-	playersList.SetItems(nextContents)
+	contentsChanged := len(playersList.Contents) != len(nextContents)
+	if !contentsChanged {
+		for i := range nextContents {
+			if playersList.Contents[i] != nextContents[i] {
+				contentsChanged = true
+				break
+			}
+		}
+	}
+	if contentsChanged {
+		playersList.SetItems(nextContents)
+	}
 
 	// Size the list below any docked toolbar rows.
 	sizeTextWindowList(playersList, clientWAvail, clientHAvail)
+	layoutChanged := playersList.GetSize() != previousListSize
 	playersList.Scroll = prevScroll
-	searchPlayersWindow(playersWin.SearchText)
+	selectionChanged := renderedPlayerSelection != selectedPlayerName
+	if playersWin.SearchText != "" || contentsChanged || selectionChanged {
+		applyPlayersSearch(playersWin.SearchText)
+	}
 	if selectedRow != nil {
 		selectedRow.Filled = true
 		selectedRow.Color = accent
 	}
-	playersWin.Refresh()
+	renderedPlayerSelection = selectedPlayerName
+	artworkChanged := loadVisiblePlayerArtwork(contentsChanged || layoutChanged)
+	if contentsChanged || layoutChanged || titleChanged || selectionChanged || artworkChanged {
+		playersWin.Refresh()
+	}
 }
 
 func makePlayerGroupHeader(group string, count int, width, rowUnits float32, fontSize float64, editable bool) *eui.ItemData {

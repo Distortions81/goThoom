@@ -82,6 +82,8 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 		p = &Player{Name: name}
 		players[name] = p
 	}
+	wasOffline := p.Offline
+	wasDead := p.Dead
 	paletteChanged := !bytes.Equal(p.Colors, colors)
 	appearanceChanged := p.PictID != pictID || paletteChanged
 	p.PictID = pictID
@@ -113,7 +115,9 @@ func updatePlayerAppearance(name string, pictID uint16, colors []byte, isNPC boo
 	playerCopy := *p
 	playerCopy.Colors = append([]byte(nil), p.Colors...)
 	playersMu.Unlock()
-	playersDirty = true
+	if !ok || appearanceChanged || wasOffline || wasDead || prevSC != playerCopy.SameClan {
+		playersDirty = true
+	}
 	if seenChanged || appearanceChanged || prevSC != playerCopy.SameClan {
 		playersPersistDirty = true
 	}

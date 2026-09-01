@@ -17,6 +17,8 @@ var messagesFlow *eui.ItemData
 var inputFlow *eui.ItemData
 var consoleHighlighted *eui.ItemData
 var consoleWindowUpdateQueued atomic.Bool
+var consoleWindowMessages messageWindowState
+var consoleWindowForceFull bool
 
 // queueConsoleWindowUpdate coalesces message-driven refreshes and keeps EUI
 // tree mutations on the game loop. Console messages may originate outside it.
@@ -40,9 +42,16 @@ func updateConsoleWindow() {
 	}
 	scrollit := messagesFlow.ScrollAtBottom()
 
-	msgs, types := getConsoleMessageEntries()
-	updateTextWindow(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, true, &consoleTextWrapCache)
-	searchTextWindow(consoleWin, messagesFlow, consoleWin.SearchText)
+	format := gs.TimestampFormat
+	msgs, types, firstChanged := consoleWindowMessages.Sync(&consoleLog, format, gs.ConsoleTimestamps, consoleWindowForceFull)
+	consoleWindowForceFull = false
+	if consoleWindowMessages.dropped > 0 && !consoleWindowMessages.reset && consoleWindowMessages.dropped <= len(messagesFlow.Contents) {
+		messagesFlow.SetItems(messagesFlow.Contents[consoleWindowMessages.dropped:])
+	}
+	updateTextWindowFrom(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, true, &consoleTextWrapCache, firstChanged)
+	if consoleWin.SearchText != "" {
+		applyTextWindowSearch(messagesFlow, consoleWin.SearchText)
+	}
 	if inputFlow != nil && len(inputFlow.Contents) > 0 {
 		inputItem := inputFlow.Contents[0]
 		inputItem.Focused = inputActive
@@ -53,11 +62,18 @@ func updateConsoleWindow() {
 		}
 	}
 	if messagesFlow != nil {
-		for i, messageType := range types {
-			if i >= len(messagesFlow.Contents) {
-				break
-			}
+		styleStart := firstChanged
+		if consoleWindowMessages.reset {
+			styleStart = 0
+		}
+		for i := styleStart; i < len(types) && i < len(messagesFlow.Contents); i++ {
+			messageType := types[i]
 			messagesFlow.Contents[i].TextColor, messagesFlow.Contents[i].ForceTextColor = messageTextStyleForMessage(messageType, msgs[i])
+		}
+		if consoleWindowMessages.dropped > 0 && consoleWin.SearchText == "" {
+			for i, row := range messagesFlow.Contents {
+				restoreAlternateTextRow(row, i)
+			}
 		}
 		// Scroll to bottom on new text; clamp occurs on Refresh.
 		if scrollit {
@@ -124,9 +140,6 @@ func handleConsoleInputContext(mx, my int) bool {
 			scriptSetInputText(cur + clip)
 			spellDirty = true
 			updateConsoleWindow()
-			if consoleWin != nil {
-				consoleWin.Refresh()
-			}
 		})
 	}
 	// Copy current line
@@ -147,9 +160,6 @@ func handleConsoleInputContext(mx, my int) bool {
 		scriptSetInputText("")
 		spellDirty = true
 		updateConsoleWindow()
-		if consoleWin != nil {
-			consoleWin.Refresh()
-		}
 	})
 
 	menu := eui.ShowContextMenu(opts, pos.X, pos.Y, func(i int) {

@@ -60,12 +60,16 @@ func newManagedImage(w, h int) *ebiten.Image {
 // newUnmanagedImage creates a standalone texture for scratch images and
 // images that can be replaced, evicted, or removed during normal use.
 func newUnmanagedImage(w, h int) *ebiten.Image {
+	return newUnmanagedImageWithBounds(image.Rect(0, 0, w, h))
+}
+
+func newUnmanagedImageWithBounds(bounds image.Rectangle) *ebiten.Image {
 	if assetLoadTraceThreshold <= 0 {
-		return ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
+		return ebiten.NewImageWithOptions(bounds, &ebiten.NewImageOptions{Unmanaged: true})
 	}
 	started := time.Now()
-	img := ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
-	noteFrameUnmanagedImageCreation(w, h, time.Since(started), unmanagedImageCreationSite(1))
+	img := ebiten.NewImageWithOptions(bounds, &ebiten.NewImageOptions{Unmanaged: true})
+	noteFrameUnmanagedImageCreation(bounds.Dx(), bounds.Dy(), time.Since(started), unmanagedImageCreationSite(1))
 	return img
 }
 

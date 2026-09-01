@@ -16,6 +16,8 @@ var chatWin *eui.WindowData
 var chatList *eui.ItemData
 var chatHighlighted *eui.ItemData
 var chatWindowUpdateQueued atomic.Bool
+var chatWindowMessages messageWindowState
+var chatWindowForceFull bool
 
 // queueChatWindowUpdate coalesces message-driven refreshes and keeps EUI tree
 // mutations on the game loop. Chat can arrive on a network goroutine while the
@@ -37,17 +39,34 @@ func updateChatWindow() {
 
 	scrollit := chatList.ScrollAtBottom()
 
-	msgs, types := getChatMessageEntries()
-	updateTextWindow(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, true, &chatTextWrapCache)
-	searchTextWindow(chatWin, chatList, chatWin.SearchText)
+	format := gs.TimestampFormat
+	msgs, types, firstChanged := chatWindowMessages.Sync(&chatLog, format, gs.ChatTimestamps, chatWindowForceFull)
+	chatWindowForceFull = false
+	if chatWindowMessages.dropped > 0 && !chatWindowMessages.reset && chatWindowMessages.dropped <= len(chatList.Contents) {
+		chatList.SetItems(chatList.Contents[chatWindowMessages.dropped:])
+	}
+	updateTextWindowFrom(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, true, &chatTextWrapCache, firstChanged)
+	if chatWin.SearchText != "" {
+		applyTextWindowSearch(chatList, chatWin.SearchText)
+	}
 	if chatList != nil {
-		for i, msg := range msgs {
+		styleStart := firstChanged
+		if chatWindowMessages.reset {
+			styleStart = 0
+		}
+		for i := styleStart; i < len(msgs); i++ {
+			msg := msgs[i]
 			if i < len(types) {
 				chatList.Contents[i].TextColor, chatList.Contents[i].ForceTextColor = messageTextStyleForMessage(types[i], msg)
 			}
 			if !gs.ClassicMessageColors && chatHasPlayerTag(msg) {
 				chatList.Contents[i].TextColor = eui.AccentColor()
 				chatList.Contents[i].ForceTextColor = true
+			}
+		}
+		if chatWindowMessages.dropped > 0 && chatWin.SearchText == "" {
+			for i, row := range chatList.Contents {
+				restoreAlternateTextRow(row, i)
 			}
 		}
 		// Auto-scroll list to bottom on new messages
@@ -70,7 +89,6 @@ func makeChatWindow() error {
 	chatWin.OnSearch = func(s string) { searchTextWindow(chatWin, chatList, s) }
 	chatWin.OnOpen = updateChatWindow
 	updateChatWindow()
-	chatWin.Refresh()
 	return nil
 }
 

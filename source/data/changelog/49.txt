@@ -17,6 +17,7 @@ Rendering and hitch reduction:
 - Removed an explicit garbage collection after room artwork preparation and replaced large temporary artwork allocations with bounded reusable buffers.
 - Avoided unnecessary Players-window refreshes and persistence work when repeated backend who records do not change visible or saved player state.
 - Reuses wrapped Chat and Console message layouts until the window width or font changes, avoiding repeated measurement of the full message history as new text arrives.
+- Reduced active-window update work as well: Chat and Console now append retained rows incrementally, the Players window limits artwork work to visible rows and checks recent-player expiry at most every 10 seconds, Inventory reuses stable row actions, and animated speech bubbles composite only their bounded screen regions.
 - Closed Inventory, Players, Chat, Console, and About windows now defer content work until they reopen. The Players window retains unchanged rows and headers instead of recreating their image items and reloading artwork, and unchanged held items reuse their existing toolbar composites.
 - Correctly deallocates cached sheets and processed artwork when settings invalidate them, while retaining stable cache entries during normal rendering.
 - Added optional per-frame asset diagnostics with `-assetLoadTrace`, reporting artwork decoding, processing, upload submission, managed and unmanaged image activity, atlas cache clears, scale-factor changes, and slow draw frames.

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -51,6 +52,7 @@ type inventoryRow struct {
 	id     uint16
 	idx    int
 	global int
+	action func()
 }
 
 type inventoryRenderState struct {
@@ -437,6 +439,9 @@ func (s *inventoryRenderState) createRow(data inventoryRowData) *inventoryRow {
 	label.FontSize = float32(s.fontSize)
 	row.AddItem(label)
 	res := &inventoryRow{key: data.key, row: row, icon: icon, label: label}
+	res.action = func() { handleInventoryClick(res.id, res.idx) }
+	icon.Action = res.action
+	label.Action = res.action
 	s.updateRow(res, data)
 	return res
 }
@@ -485,9 +490,13 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.label.Size.X = avail
 		row.label.Size.Y = s.rowUnits
 		row.label.UpdateText(data.label)
-		row.label.Underlines = nil
 		if data.equipped {
-			row.label.Underlines = []eui.TextSpan{{Start: 0, End: len([]rune(data.label))}}
+			end := utf8.RuneCountInString(data.label)
+			if len(row.label.Underlines) != 1 || row.label.Underlines[0].Start != 0 || row.label.Underlines[0].End != end {
+				row.label.Underlines = []eui.TextSpan{{Start: 0, End: end}}
+			}
+		} else if len(row.label.Underlines) != 0 {
+			row.label.Underlines = nil
 		}
 	}
 
@@ -497,6 +506,7 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 			lt, _ := eui.NewText()
 			lt.Fixed = true
 			row.slot = lt
+			row.slot.Action = row.action
 			newSlot = true
 		}
 		row.slot.FontSize = float32(s.fontSize)
@@ -513,18 +523,6 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.slot = nil
 	}
 
-	idCopy := data.id
-	idxCopy := data.idx
-	click := func() { handleInventoryClick(idCopy, idxCopy) }
-	if row.icon != nil {
-		row.icon.Action = click
-	}
-	if row.label != nil {
-		row.label.Action = click
-	}
-	if row.slot != nil {
-		row.slot.Action = click
-	}
 }
 
 func (s *inventoryRenderState) rebuild(data []inventoryRowData) {
@@ -616,7 +614,7 @@ func (s *inventoryRenderState) groupHeader(group string, count int) *eui.ItemDat
 	header.Size = eui.Point{X: contentWidth, Y: s.rowUnits + 4}
 	if len(header.Contents) > 0 {
 		label := header.Contents[0]
-		label.Text = fmt.Sprintf("%s (%d)", title, count)
+		label.UpdateText(fmt.Sprintf("%s (%d)", title, count))
 		label.FontSize = float32(s.fontSize)
 		label.Size = eui.Point{X: max(0, contentWidth-label.Position.X), Y: s.rowUnits + 4}
 		if len(header.Contents) > 1 {
@@ -664,6 +662,18 @@ func (s *inventoryRenderState) groupedContents(data []inventoryRowData, rows []*
 }
 
 func (s *inventoryRenderState) reconcileContents(desired []*eui.ItemData) {
+	if len(inventoryList.Contents) == len(desired) {
+		same := true
+		for i := range desired {
+			if inventoryList.Contents[i] != desired[i] {
+				same = false
+				break
+			}
+		}
+		if same {
+			return
+		}
+	}
 	current := append([]*eui.ItemData(nil), inventoryList.Contents...)
 	i := 0
 	for _, target := range desired {
