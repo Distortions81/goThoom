@@ -117,4 +117,33 @@ func TestBuildLightShadowsHonorsBudget(t *testing.T) {
 	if len(shadows) != maxLightShadows {
 		t.Fatalf("buildLightShadows returned %d shadows, want budget %d", len(shadows), maxLightShadows)
 	}
+	for i, shadow := range shadows {
+		if shadow.CasterX > float32(20+maxLightShadows-1) {
+			t.Fatalf("shadow %d retained farther caster %v", i, shadow.CasterX)
+		}
+		if i > 0 && shadow.priority < shadows[i-1].priority {
+			t.Fatalf("shadow priorities are not ordered at %d: %v before %v", i, shadows[i-1].priority, shadow.priority)
+		}
+	}
+}
+
+func BenchmarkBuildLightShadowsCrowded(b *testing.B) {
+	lights := make([]lightSource, 64)
+	for i := range lights {
+		lights[i] = lightSource{X: float32(i * 3), Y: float32(i * 2), Radius: 160, Intensity: 1}
+	}
+	casters := make([]lightCaster, 128)
+	for i := range casters {
+		casters[i] = lightCaster{X: float32(30 + i*2), Y: float32(20 + i), Radius: 4}
+	}
+	dst := make([]lightShadow, 0, maxLightShadows)
+	buildLightShadows(lights, casters, dst)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		dst = buildLightShadows(lights, casters, dst)
+	}
+	if len(dst) != maxLightShadows {
+		b.Fatalf("retained %d shadows, want %d", len(dst), maxLightShadows)
+	}
 }

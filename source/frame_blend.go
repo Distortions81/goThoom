@@ -2,7 +2,7 @@ package main
 
 import "github.com/hajimehoshi/ebiten/v2"
 
-var frameBlendIndices = []uint16{0, 1, 2, 1, 2, 3}
+var frameBlendIndices = []uint32{0, 1, 2, 1, 2, 3}
 
 type frameBlendDrawOptions struct {
 	Left, Top      float64
@@ -74,6 +74,6 @@ func drawFrameBlend(destination, previous, current *ebiten.Image, options frameB
 	shaderOptions := &ebiten.DrawTrianglesShaderOptions{}
 	shaderOptions.Images[0] = previous
 	shaderOptions.Images[1] = current
-	destination.DrawTrianglesShader(vertices[:], frameBlendIndices, frameBlendShader, shaderOptions)
+	destination.DrawTrianglesShader32(vertices[:], frameBlendIndices, frameBlendShader, shaderOptions)
 	return true
 }

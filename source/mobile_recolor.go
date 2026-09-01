@@ -156,7 +156,7 @@ func drawRecoloredMobile(destination, base, influence *ebiten.Image, palette *mo
 	vertices := mobileShaderVertices(base.Bounds(), options, [4]float32{linear})
 	op := &palette.op
 	op.Images[0], op.Images[1] = base, influence
-	destination.DrawTrianglesShader(vertices[:], frameBlendIndices, mobileRecolorShader, op)
+	destination.DrawTrianglesShader32(vertices[:], frameBlendIndices, mobileRecolorShader, op)
 	return true
 }
 
@@ -190,6 +190,6 @@ func drawRecoloredMobileFrameBlend(destination, previous, previousInfluence, cur
 	op := &state.op
 	op.Images[0], op.Images[1] = previous, previousInfluence
 	op.Images[2], op.Images[3] = current, currentInfluence
-	destination.DrawTrianglesShader(vertices[:], frameBlendIndices, mobileRecolorBlendShader, op)
+	destination.DrawTrianglesShader32(vertices[:], frameBlendIndices, mobileRecolorBlendShader, op)
 	return true
 }

@@ -43,7 +43,7 @@ var (
 	scasterX, scasterY, scasterRadius                 [maxLightShadows]float32
 	shadowAxisX, shadowAxisY, shadowInvDistance       [maxLightShadows]float32
 	characterShadowMin, characterShadowMax            [2]float32
-	lightingIndices                                   = []uint16{0, 1, 2, 1, 2, 3}
+	lightingIndices                                   = []uint32{0, 1, 2, 1, 2, 3}
 )
 
 type lightingShaderVariant struct {
@@ -271,6 +271,7 @@ type lightShadow struct {
 	LightIntensity              float32
 	CasterX, CasterY            float32
 	CasterRadius                float32
+	priority                    float32
 }
 
 func ensureLightingTmp(bounds image.Rectangle) *ebiten.Image {
@@ -423,7 +424,7 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		{DstX: left, DstY: bottom, SrcX: left, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 		{DstX: right, DstY: bottom, SrcX: right, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 	}
-	dst.DrawTrianglesShader(vertices[:], lightingIndices, variant.shader, op)
+	dst.DrawTrianglesShader32(vertices[:], lightingIndices, variant.shader, op)
 }
 
 func highestLightPlane(lights []lightSource) float32 {
@@ -710,8 +711,13 @@ func medianOccupiedRowWidth(pixels []byte, width, height int) int {
 }
 
 func buildLightShadows(lights []lightSource, casters []lightCaster, dst []lightShadow) []lightShadow {
+	dst = dst[:0]
+	worstIndex := -1
+	worstPriority := float32(0)
+	overflow := false
 	for _, light := range lights {
 		effectiveRadius := light.Radius * float32(lightRadiusScale)
+		effectiveRadiusSquared := effectiveRadius * effectiveRadius
 		shadowReach := effectiveRadius * float32(lightCutoffEnd)
 		for _, caster := range casters {
 			distanceSquared := dist2(light.X, light.Y, caster.X, caster.Y)
@@ -733,21 +739,54 @@ func buildLightShadows(lights []lightSource, casters []lightCaster, dst []lightS
 				CasterX:        caster.X,
 				CasterY:        caster.Y,
 				CasterRadius:   caster.Radius,
+				priority:       distanceSquared / effectiveRadiusSquared,
 			}
-			dst = append(dst, shadow)
+			if len(dst) < maxLightShadows {
+				dst = append(dst, shadow)
+				if len(dst) == maxLightShadows {
+					worstIndex, worstPriority = worstLightShadow(dst)
+				}
+				continue
+			}
+			overflow = true
+			if shadow.priority >= worstPriority {
+				continue
+			}
+			dst[worstIndex] = shadow
+			worstIndex, worstPriority = worstLightShadow(dst)
 		}
 	}
-	if len(dst) > maxLightShadows {
+	if overflow {
 		// Prefer the interactions deepest inside their light's glow when a
-		// crowded scene exceeds the shader's fixed shadow budget.
-		sort.Slice(dst, func(i, j int) bool {
-			di := dist2(dst[i].LightX, dst[i].LightY, dst[i].CasterX, dst[i].CasterY)
-			dj := dist2(dst[j].LightX, dst[j].LightY, dst[j].CasterX, dst[j].CasterY)
-			return di/(dst[i].LightRadius*dst[i].LightRadius) < dj/(dst[j].LightRadius*dst[j].LightRadius)
-		})
-		dst = dst[:maxLightShadows]
+		// crowded scene exceeds the shader's fixed shadow budget. Only the
+		// retained fixed-size set needs ordering.
+		sortLightShadowsByPriority(dst)
 	}
 	return dst
+}
+
+func worstLightShadow(shadows []lightShadow) (int, float32) {
+	index := 0
+	priority := shadows[0].priority
+	for i := 1; i < len(shadows); i++ {
+		if shadows[i].priority > priority {
+			index = i
+			priority = shadows[i].priority
+		}
+	}
+	return index, priority
+}
+
+func sortLightShadowsByPriority(shadows []lightShadow) {
+	for i := 1; i < len(shadows); i++ {
+		shadow := shadows[i]
+		j := i
+		for j > 0 && shadow.priority < shadows[j-1].priority {
+			shadows[j] = shadows[j-1]
+			j--
+		}
+		shadows[j] = shadow
+	}
 }
 
 func mixLightFlicker(value uint64) uint64 {

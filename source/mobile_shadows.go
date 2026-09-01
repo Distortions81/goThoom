@@ -75,7 +75,6 @@ var (
 	layeredShadowCompositeShader      *ebiten.Shader
 	layeredShadowCoverage             *ebiten.Image
 	layeredShadowIncoming             *ebiten.Image
-	layeredShadowPrevious             *ebiten.Image
 	layeredShadowScene                *ebiten.Image
 	layeredShadowOrigin               image.Point
 	frameLayeredShadowCompositeActive bool
@@ -439,24 +438,20 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 	}
 	size := bounds.Size()
 	layeredShadowIncoming = ensureCharacterShadowImage(layeredShadowIncoming, size)
-	layeredShadowPrevious = ensureCharacterShadowImage(layeredShadowPrevious, size)
 	layeredShadowScene = ensureCharacterShadowImage(layeredShadowScene, size)
 	incoming := layeredShadowIncoming.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
-	previous := layeredShadowPrevious.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
 	scene := layeredShadowScene.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
 	incoming.Clear()
-	previous.Clear()
-	scene.Clear()
 
 	drawCharacterShadow(incoming, command.texture, command.size, command.x-bounds.Min.X, command.y-bounds.Min.Y, command.alpha, command.projection, command.upright, shadowMaskBlend)
-	scene.DrawImage(screen.SubImage(bounds).(*ebiten.Image), nil)
+	sceneCopyOp := &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy}
+	scene.DrawImage(screen.SubImage(bounds).(*ebiten.Image), sceneCopyOp)
 	coverageRect := bounds.Sub(layeredShadowOrigin)
 	coverageSource := layeredShadowCoverage.SubImage(coverageRect).(*ebiten.Image)
-	previous.DrawImage(coverageSource, nil)
 
 	shaderOp := &ebiten.DrawRectShaderOptions{}
 	shaderOp.Images[0] = scene
-	shaderOp.Images[1] = previous
+	shaderOp.Images[1] = coverageSource
 	shaderOp.Images[2] = incoming
 	shaderOp.Blend = ebiten.BlendCopy
 	shaderOp.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
@@ -856,14 +851,13 @@ func clearCharacterShadowCache() {
 		deallocateImage(contactShadowTexture)
 		contactShadowTexture = nil
 	}
-	for _, target := range []*ebiten.Image{layeredShadowCoverage, layeredShadowIncoming, layeredShadowPrevious, layeredShadowScene} {
+	for _, target := range []*ebiten.Image{layeredShadowCoverage, layeredShadowIncoming, layeredShadowScene} {
 		if target != nil {
 			target.Deallocate()
 		}
 	}
 	layeredShadowCoverage = nil
 	layeredShadowIncoming = nil
-	layeredShadowPrevious = nil
 	layeredShadowScene = nil
 }
 

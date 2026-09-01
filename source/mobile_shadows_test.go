@@ -112,14 +112,13 @@ func TestClearCharacterShadowCache(t *testing.T) {
 	detailedCharacterShadowMask = ebiten.NewImage(8, 8)
 	layeredShadowCoverage = ebiten.NewImage(8, 8)
 	layeredShadowIncoming = ebiten.NewImage(8, 8)
-	layeredShadowPrevious = ebiten.NewImage(8, 8)
 	layeredShadowScene = ebiten.NewImage(8, 8)
 	frameLayeredShadowCompositeActive = true
 	clearCharacterShadowCache()
 	if detailedCharacterShadowMask != nil {
 		t.Fatal("character shadow mask was not cleared")
 	}
-	if layeredShadowCoverage != nil || layeredShadowIncoming != nil || layeredShadowPrevious != nil || layeredShadowScene != nil || frameLayeredShadowCompositeActive {
+	if layeredShadowCoverage != nil || layeredShadowIncoming != nil || layeredShadowScene != nil || frameLayeredShadowCompositeActive {
 		t.Fatal("layered character shadow composite was not cleared")
 	}
 }

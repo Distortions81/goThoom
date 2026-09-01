@@ -14,49 +14,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-var healingBurstPictIDs = map[uint16]struct{}{
-	1759: {},
-	1760: {},
-}
-
-var mysticWardPictIDs = map[uint16]struct{}{
-	1286: {},
-}
-
-var mysticFadePictIDs = map[uint16]struct{}{
-	445: {},
-}
-
-var teleportGoldPictIDs = map[uint16]struct{}{
-	2976: {},
-}
-
-var teleportBluePictIDs = map[uint16]struct{}{
-	2977: {},
-}
-
-var teleportPrismaticPictIDs = map[uint16]struct{}{
-	2978: {},
-}
-
-var stoneFormPictIDs = map[uint16]struct{}{
-	3125: {},
-}
-
 // Coin rewards are individual denomination sprites, not animation frames.
 // 1842 is 0, 1843 is 1, through 1851 for 9.
-var coinRewardPictIDs = map[uint16]int{
-	1842: 0,
-	1843: 1,
-	1844: 2,
-	1845: 3,
-	1846: 4,
-	1847: 5,
-	1848: 6,
-	1849: 7,
-	1850: 8,
-	1851: 9,
-}
+const (
+	coinRewardFirstPictID uint16 = 1842
+	coinRewardLastPictID  uint16 = 1851
+)
 
 //go:embed data/shaders/healing_burst.kage
 var healingBurstShaderSource []byte
@@ -142,7 +105,7 @@ type replacementEffectShaderState struct {
 }
 
 var replacementEffectShaderStates [replacementEffectCoinReward + 1]replacementEffectShaderState
-var replacementEffectShaderIndices = []uint16{0, 1, 2, 1, 2, 3}
+var replacementEffectShaderIndices = []uint32{0, 1, 2, 1, 2, 3}
 
 func init() {
 	for kind := replacementEffectHealing; kind <= replacementEffectCoinReward; kind++ {
@@ -193,7 +156,7 @@ func drawReplacementEffectShader(screen *ebiten.Image, left, top float64, width,
 		vertices[index].ColorB = 1
 		vertices[index].ColorA = 1
 	}
-	screen.DrawTrianglesShader(vertices[:], replacementEffectShaderIndices, shader, &state.op)
+	screen.DrawTrianglesShader32(vertices[:], replacementEffectShaderIndices, shader, &state.op)
 }
 
 const (
@@ -343,28 +306,22 @@ func replacementEffectReplacesPict(id uint16) bool {
 }
 
 func replacementEffectKindForPict(id uint16) (replacementEffectKind, bool) {
-	if _, ok := healingBurstPictIDs[id]; ok {
+	switch id {
+	case 1759, 1760:
 		return replacementEffectHealing, true
-	}
-	if _, ok := mysticWardPictIDs[id]; ok {
+	case 1286:
 		return replacementEffectMysticWard, true
-	}
-	if _, ok := mysticFadePictIDs[id]; ok {
+	case 445:
 		return replacementEffectMysticFade, true
-	}
-	if _, ok := teleportGoldPictIDs[id]; ok {
+	case 2976:
 		return replacementEffectTeleportGold, true
-	}
-	if _, ok := teleportBluePictIDs[id]; ok {
+	case 2977:
 		return replacementEffectTeleportBlue, true
-	}
-	if _, ok := teleportPrismaticPictIDs[id]; ok {
+	case 2978:
 		return replacementEffectTeleportPrismatic, true
-	}
-	if _, ok := stoneFormPictIDs[id]; ok {
+	case 3125:
 		return replacementEffectStoneForm, true
-	}
-	if _, ok := coinRewardPictIDs[id]; ok {
+	case coinRewardFirstPictID, 1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850, coinRewardLastPictID:
 		return replacementEffectCoinReward, true
 	}
 	return 0, false
@@ -418,7 +375,7 @@ func queueReplacementPictureEffect(pictID uint16, frame int, h, v int16, instanc
 	}
 	kind, _ := replacementEffectKindForPict(pictID)
 	if kind == replacementEffectCoinReward {
-		frame = coinRewardPictIDs[pictID]
+		frame = int(pictID - coinRewardFirstPictID)
 	}
 	now := drawFrameNow
 	if now.IsZero() {
