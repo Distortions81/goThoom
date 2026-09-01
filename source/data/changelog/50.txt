@@ -4,8 +4,8 @@ Downloads and asset updates:
 - Added automatic incremental patching for CL_Images and CL_Sounds, substantially reducing downloads when a compatible local archive is already installed.
 - Added support for applying multiple available patches in sequence when there is no direct patch from the installed version to the current version.
 - Missing local archives are downloaded in full. A missing, corrupt, incompatible, or otherwise failed patch also falls back automatically to the full current archive.
-- Patch downloads verify their gzip checksum, target version, keyfile structure, and resulting archive before replacing the installed file. Image patches also verify the artwork checksums embedded in CL_Images.
-- Patched archives are written and checksum-verified through a temporary file before atomically replacing the previous archive.
+- Patch downloads validate their gzip stream, target version, and keyfile structure. The locally merged result must also load successfully as an image or sound archive before it can replace the installed file.
+- Patched archives are written to a temporary file and read back to confirm that the on-disk bytes match the locally merged result before atomically replacing the previous archive. A successful patch does not download the full archive for comparison.
 
 Classic client compatibility:
 - Matched the classic client's keyfile merge behavior, including version-last patching, sorted version-2 keyfile tables, destination-specific record cleanup, and preservation of metadata present in the official full archives.
@@ -17,4 +17,4 @@ Files and storage:
 
 Technical changes:
 - Cleaned up launch parameters by removing obsolete `-experimental` and `-uiscale` options and hiding internal flags registered by dependencies. Asset patching is automatic, and UI scaling remains available in Settings.
-- Added regression coverage for direct patches, chained patches, missing and corrupt patch fallback, installations without local archives, target-version validation, classic keyfile construction, archive cleanup, and checksum failures.
+- Added regression coverage for direct patches, chained patches, missing and corrupt patch fallback, installations without local archives, target-version validation, classic keyfile construction, archive cleanup, and gzip corruption.
