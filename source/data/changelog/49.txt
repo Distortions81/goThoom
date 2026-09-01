@@ -23,6 +23,7 @@ Rendering and hitch reduction:
 - Added optional per-frame asset diagnostics with `-assetLoadTrace`, reporting artwork decoding, processing, upload submission, managed and unmanaged image activity, atlas cache clears, scale-factor changes, and slow draw frames.
 - Custom-colored mobiles now share one CPU-upscaled base pose and a palette-independent influence mask; their small palettes are applied on the GPU before animation-frame blending. This avoids caching and uploading a separate managed texture for every player's colors while retaining the CPU artwork upscaler and the existing denoise/shader-disabled fallback. The small uncolored source sheets for named mobiles found across the bundled movies are warmed at boot without eagerly allocating their much larger scaled pose and mask caches.
 - Reduced shader submission overhead by selecting only the nearest light-cone shadows before sorting, using constant-time replacement-effect dispatch, avoiding redundant shadow scratch-image copies, and drawing with native 32-bit index buffers.
+- Refreshed the compiler optimization profile with a five-minute uncapped, full-quality movie-rendering workload covering the current shader, atlas, vector, and interpolation paths.
 
 Developer and diagnostic tools:
 - Added `-dumpPreloadAssets` to export the exact startup-preloaded images and sounds under `dump/preload` for inspection.
