@@ -38,7 +38,7 @@ func clearCaches() {
 	soundMu.Unlock()
 	soundsPrecached.Store(false)
 	if restartSoundPrecache {
-		go precacheSounds()
+		go precacheStartupSounds(true)
 	}
 
 	if clImages != nil {
@@ -91,6 +91,27 @@ var (
 	soundsPrecached        atomic.Bool
 	soundPrecacheRunning   atomic.Bool
 )
+
+var startupSoundPreloadIDs = [...]uint16{
+	205, 131, 59, 43, 65, 132, 276, 278, 20, 48,
+}
+
+// precacheStartupSounds warms the small set most frequently referenced by the
+// bundled clmov files before optionally continuing into the full sound cache.
+func precacheStartupSounds(precacheAll bool) {
+	soundMu.Lock()
+	context := audioContext
+	highQuality := highQualityResampling
+	soundMu.Unlock()
+	if context != nil {
+		for _, id := range startupSoundPreloadIDs {
+			loadSoundForPlayback(id, context.SampleRate(), highQuality)
+		}
+	}
+	if precacheAll {
+		precacheSounds()
+	}
+}
 
 func precacheSounds() {
 	if soundsPrecached.Load() || !soundPrecacheRunning.CompareAndSwap(false, true) {

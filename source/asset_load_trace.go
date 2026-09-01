@@ -3,6 +3,9 @@ package main
 import (
 	"log"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,6 +49,12 @@ type assetLoadFrameTrace struct {
 	managedAddBytes    atomic.Uint64
 	managedRemoves     atomic.Uint64
 	managedRemoveBytes atomic.Uint64
+	unmanagedCreates   atomic.Uint64
+	unmanagedBytes     atomic.Uint64
+	unmanagedNanos     atomic.Int64
+
+	unmanagedMu    sync.Mutex
+	unmanagedSites map[string]uint64
 
 	cacheClears        atomic.Uint64
 	cacheClearedImages atomic.Uint64
@@ -89,9 +98,16 @@ func (trace *assetLoadFrameTrace) finish() {
 	trace.idsMu.Lock()
 	ids := append([]uint16(nil), trace.ids...)
 	trace.idsMu.Unlock()
+	trace.unmanagedMu.Lock()
+	unmanagedSites := make([]string, 0, len(trace.unmanagedSites))
+	for site, count := range trace.unmanagedSites {
+		unmanagedSites = append(unmanagedSites, site+"="+strconv.FormatUint(count, 10))
+	}
+	trace.unmanagedMu.Unlock()
+	sort.Strings(unmanagedSites)
 
 	residentCount, residentBytes := tracedManagedImageTotals()
-	log.Printf("asset frame: frame=%d total=%s slow=%t threshold=%s world=%s ui=%s view=%dx%d render_scale=%.3f atlas_factor=%d prepare_calls=%d requested_sheets=%d prepared_sheets=%d ids=%v prepare=%s decode=%s process=%s upload_submit=%s image_creates=%d image_bytes=%d image_create=%s managed_adds=%d managed_add_bytes=%d managed_removes=%d managed_remove_bytes=%d managed_residents=%d managed_resident_bytes=%d cache_clears=%d cleared_images=%d cleared_bytes=%d factor_changes=%d last_factor_change=%d->%d",
+	log.Printf("asset frame: frame=%d total=%s slow=%t threshold=%s world=%s ui=%s view=%dx%d render_scale=%.3f atlas_factor=%d prepare_calls=%d requested_sheets=%d prepared_sheets=%d ids=%v prepare=%s decode=%s process=%s upload_submit=%s image_creates=%d image_bytes=%d image_create=%s managed_adds=%d managed_add_bytes=%d managed_removes=%d managed_remove_bytes=%d managed_residents=%d managed_resident_bytes=%d unmanaged_creates=%d unmanaged_bytes=%d unmanaged_create=%s unmanaged_sites=%v cache_clears=%d cleared_images=%d cleared_bytes=%d factor_changes=%d last_factor_change=%d->%d",
 		trace.sequence,
 		total.Round(time.Microsecond), total >= assetLoadTraceThreshold, assetLoadTraceThreshold,
 		time.Duration(trace.worldNanos.Load()).Round(time.Microsecond),
@@ -106,6 +122,7 @@ func (trace *assetLoadFrameTrace) finish() {
 		time.Duration(trace.imageCreateNanos.Load()).Round(time.Microsecond),
 		trace.managedAdds.Load(), trace.managedAddBytes.Load(), trace.managedRemoves.Load(), trace.managedRemoveBytes.Load(),
 		residentCount, residentBytes,
+		trace.unmanagedCreates.Load(), trace.unmanagedBytes.Load(), time.Duration(trace.unmanagedNanos.Load()).Round(time.Microsecond), unmanagedSites,
 		trace.cacheClears.Load(), trace.cacheClearedImages.Load(), trace.cacheClearedBytes.Load(),
 		trace.factorChanges.Load(), oldFactor, newFactor,
 	)
@@ -114,7 +131,26 @@ func (trace *assetLoadFrameTrace) finish() {
 func (trace *assetLoadFrameTrace) hasAssetWork() bool {
 	return trace != nil && (trace.prepareCalls.Load() != 0 || trace.imageCreates.Load() != 0 ||
 		trace.managedAdds.Load() != 0 || trace.managedRemoves.Load() != 0 ||
-		trace.cacheClears.Load() != 0 || trace.factorChanges.Load() != 0)
+		trace.unmanagedCreates.Load() != 0 || trace.cacheClears.Load() != 0 || trace.factorChanges.Load() != 0)
+}
+
+func noteFrameUnmanagedImageCreation(width, height int, elapsed time.Duration, site string) {
+	trace := currentAssetLoadFrameTrace()
+	if trace == nil {
+		return
+	}
+	trace.unmanagedCreates.Add(1)
+	if width > 0 && height > 0 {
+		trace.unmanagedBytes.Add(uint64(width) * uint64(height) * 4)
+	}
+	trace.unmanagedNanos.Add(int64(elapsed))
+	site = strings.TrimPrefix(site, "gothoom/")
+	trace.unmanagedMu.Lock()
+	if trace.unmanagedSites == nil {
+		trace.unmanagedSites = make(map[string]uint64)
+	}
+	trace.unmanagedSites[site]++
+	trace.unmanagedMu.Unlock()
 }
 
 func (trace *assetLoadFrameTrace) setWorldContext(width, height int, renderScale float64) {

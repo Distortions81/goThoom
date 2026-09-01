@@ -2,6 +2,7 @@ package main
 
 import (
 	"image"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -59,7 +60,13 @@ func newManagedImage(w, h int) *ebiten.Image {
 // newUnmanagedImage creates a standalone texture for scratch images and
 // images that can be replaced, evicted, or removed during normal use.
 func newUnmanagedImage(w, h int) *ebiten.Image {
-	return ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
+	if assetLoadTraceThreshold <= 0 {
+		return ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
+	}
+	started := time.Now()
+	img := ebiten.NewImageWithOptions(image.Rect(0, 0, w, h), &ebiten.NewImageOptions{Unmanaged: true})
+	noteFrameUnmanagedImageCreation(w, h, time.Since(started), unmanagedImageCreationSite(1))
+	return img
 }
 
 func newManagedImageFromImage(src image.Image) *ebiten.Image {
@@ -84,7 +91,26 @@ func newManagedImageFromImage(src image.Image) *ebiten.Image {
 }
 
 func newUnmanagedImageFromImage(src image.Image) *ebiten.Image {
-	return ebiten.NewImageFromImageWithOptions(src, &ebiten.NewImageFromImageOptions{Unmanaged: true})
+	if assetLoadTraceThreshold <= 0 {
+		return ebiten.NewImageFromImageWithOptions(src, &ebiten.NewImageFromImageOptions{Unmanaged: true})
+	}
+	started := time.Now()
+	img := ebiten.NewImageFromImageWithOptions(src, &ebiten.NewImageFromImageOptions{Unmanaged: true})
+	bounds := src.Bounds()
+	noteFrameUnmanagedImageCreation(bounds.Dx(), bounds.Dy(), time.Since(started), unmanagedImageCreationSite(1))
+	return img
+}
+
+func unmanagedImageCreationSite(skip int) string {
+	pc, _, _, ok := runtime.Caller(skip + 1)
+	if !ok {
+		return "unknown"
+	}
+	fn := runtime.FuncForPC(pc)
+	if fn == nil {
+		return "unknown"
+	}
+	return fn.Name()
 }
 
 // mirrorImage returns a horizontally mirrored standalone image. Mirrored

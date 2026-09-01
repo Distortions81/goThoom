@@ -21,6 +21,7 @@ func TestAssetLoadFrameTraceCollectsAtlasWork(t *testing.T) {
 	noteFrameImageCreation(20, 10, 500*time.Microsecond)
 	noteFrameManagedImageAdd(800)
 	noteFrameManagedImageRemove(400)
+	noteFrameUnmanagedImageCreation(30, 20, 250*time.Microsecond, "main.test")
 	noteFrameAtlasFactorChange(2, 3)
 	noteFrameAtlasCacheClear(7, 4096)
 
@@ -39,6 +40,15 @@ func TestAssetLoadFrameTraceCollectsAtlasWork(t *testing.T) {
 	if got := trace.managedRemoveBytes.Load(); got != 400 {
 		t.Fatalf("managed remove bytes = %d, want 400", got)
 	}
+	if got := trace.unmanagedBytes.Load(); got != 2400 {
+		t.Fatalf("unmanaged bytes = %d, want 2400", got)
+	}
+	trace.unmanagedMu.Lock()
+	if got := trace.unmanagedSites["main.test"]; got != 1 {
+		trace.unmanagedMu.Unlock()
+		t.Fatalf("unmanaged test-site creations = %d, want 1", got)
+	}
+	trace.unmanagedMu.Unlock()
 	if got := trace.lastFactorChange.Load(); got != uint32(2)<<8|3 {
 		t.Fatalf("factor transition = %#x, want 2->3", got)
 	}

@@ -69,12 +69,33 @@ func TestStartupLoadingLabels(t *testing.T) {
 	}{
 		{startupLoadImages, "Loading artwork"},
 		{startupLoadInterface, "Building windows and controls"},
+		{startupLoadCommonAssets, "Precaching common artwork and sounds"},
 		{startupLoadCoreDone, "Preparing lighting"},
 	}
 	for _, test := range tests {
 		startupLoader.stage = test.stage
 		if got := startupLoadingLabel(); got != test.want {
 			t.Errorf("startupLoadingLabel() = %q, want %q", got, test.want)
+		}
+	}
+}
+
+func TestStartupArtworkPreloadExcludesPaletteVariants(t *testing.T) {
+	if len(startupArtworkPreloadIDs) == 0 {
+		t.Fatal("startup artwork preload is empty")
+	}
+	seen := make(map[uint16]struct{}, len(startupArtworkPreloadIDs))
+	for _, id := range startupArtworkPreloadIDs {
+		if id == 0 || id == 0xffff {
+			t.Fatalf("invalid startup artwork ID %d", id)
+		}
+		if _, exists := seen[id]; exists {
+			t.Fatalf("duplicate startup artwork ID %d", id)
+		}
+		seen[id] = struct{}{}
+		key := makeSheetKey(id, nil, false)
+		if key.colorsLen != 0 || key.forceTransparent {
+			t.Fatalf("startup artwork ID %d produced a palette/mobile key: %#v", id, key)
 		}
 	}
 }
@@ -129,7 +150,7 @@ func TestStartupLoadingActivityScrollsToNewestLines(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("visible activity lines = %d, want 3", len(lines))
 	}
-	if lines[0].text != "Windows and controls ready" || lines[2].text != "Artwork renderer ready" {
+	if lines[0].text != "Common artwork and sounds ready" || lines[2].text != "Artwork renderer ready" {
 		t.Fatalf("visible activity lines = %#v, want newest three entries", lines)
 	}
 }
@@ -155,8 +176,12 @@ func TestStartupLoadingProgressTracksCompletedSteps(t *testing.T) {
 		t.Fatalf("initial progress = %v, want 0", got)
 	}
 	startupLoader.stage = startupLoadInterface
-	if got := startupLoadingProgress(); got != 1.0/4.0 {
-		t.Fatalf("interface-stage progress = %v, want %v", got, 1.0/4.0)
+	if got := startupLoadingProgress(); got != 1.0/5.0 {
+		t.Fatalf("interface-stage progress = %v, want %v", got, 1.0/5.0)
+	}
+	startupLoader.stage = startupLoadCommonAssets
+	if got := startupLoadingProgress(); got != 2.0/5.0 {
+		t.Fatalf("common-precache progress = %v, want %v", got, 2.0/5.0)
 	}
 	startupLoader.stage = startupLoadCoreDone
 	startupShaderLoader.lightingAttempted = true

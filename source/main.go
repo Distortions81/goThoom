@@ -120,6 +120,9 @@ func main() {
 	pgoHeapOutput := flag.String("pgoHeapOutput", "", "heap profile output written after -pgo completes")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
 	flag.Parse()
+	if assetLoadTraceThreshold > 0 {
+		eui.UnmanagedImageCreated = noteFrameUnmanagedImageCreation
+	}
 	if bubbleTorture {
 		fake = true
 	}

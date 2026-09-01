@@ -21,8 +21,19 @@ type startupLoadStage uint8
 const (
 	startupLoadImages startupLoadStage = iota
 	startupLoadInterface
+	startupLoadCommonAssets
 	startupLoadCoreDone
 )
+
+// startupArtworkPreloadIDs are common, palette-independent clmov pictures.
+// Keep this deliberately small: palette-dependent mobiles can have many color
+// variants and are better left to the normal scene artwork loader.
+var startupArtworkPreloadIDs = [...]uint16{
+	1759, 1760, 445, 1286, // common legacy magic effects
+	3574, 334, 33, 3037, 2670,
+	4504, 4499, 3573, 3785, 3504,
+	888, 40, 335,
+}
 
 var startupLoader = struct {
 	stage         startupLoadStage
@@ -135,6 +146,8 @@ func updateStartupLoading() bool {
 			loadStartupImages()
 		case startupLoadInterface:
 			once.Do(initGame)
+		case startupLoadCommonAssets:
+			preloadStartupCommonAssets()
 		}
 		startupLoader.stage++
 		if startupLoader.stage < startupLoadCoreDone || startupShaderPending() {
@@ -188,7 +201,45 @@ func loadStartupImages() {
 	prepareClassicSplash()
 }
 
+func preloadStartupArtwork() int {
+	keys := make([]sheetKey, 0, len(startupArtworkPreloadIDs))
+	for _, id := range startupArtworkPreloadIDs {
+		// A nil palette and forceTransparent=false are intentional: this preload
+		// must never create per-character recolored mobile variants.
+		keys = append(keys, makeSheetKey(id, nil, false))
+	}
+	return prepareArtworkSheets(keys)
+}
+
+func preloadStartupCommonAssets() {
+	soundsDone := make(chan struct{})
+	go func() {
+		defer close(soundsDone)
+		if currentCLSoundsArchive() == nil {
+			sounds, err := loadCLSoundsArchive()
+			if err != nil {
+				logError("failed to load CL_Sounds: %v", err)
+				return
+			}
+			replaceCLSoundsArchive(sounds)
+		}
+		precacheStartupSounds(false)
+	}()
+	preloadStartupArtwork()
+	<-soundsDone
+}
+
 func loadSoundsAfterStartup() {
+	if currentCLSoundsArchive() != nil {
+		if gs.PrecacheSounds && !startupLoader.precacheRun {
+			startupLoader.precacheRun = true
+			go precacheSounds()
+		}
+		if clmov == "" && pcapPath == "" && !fake && clImages != nil && !status.NeedImages && !status.NeedSounds && shouldShowSetupWizard(settingsLoaded, gs.SetupWizardVersion, appVersion) {
+			openSetupWizard(false)
+		}
+		return
+	}
 	go func() {
 		sounds, err := loadCLSoundsArchive()
 		if err != nil {
@@ -197,6 +248,7 @@ func loadSoundsAfterStartup() {
 		}
 		dispatchMainThread(func() {
 			replaceCLSoundsArchive(sounds)
+			precacheStartupSounds(false)
 			if gs.PrecacheSounds && !startupLoader.precacheRun {
 				startupLoader.precacheRun = true
 				go precacheSounds()
@@ -225,6 +277,8 @@ func startupLoadingLabel() string {
 		return "Loading artwork"
 	case startupLoadInterface:
 		return "Building windows and controls"
+	case startupLoadCommonAssets:
+		return "Precaching common artwork and sounds"
 	default:
 		switch {
 		case !startupShaderLoader.lightingAttempted:
@@ -250,6 +304,7 @@ func startupLoadingLogLines() []startupLoadingLine {
 	}{
 		{startupLoadImages, "Reading artwork archive", "Artwork archive ready"},
 		{startupLoadInterface, "Building windows and controls", "Windows and controls ready"},
+		{startupLoadCommonAssets, "Precaching common artwork and sounds", "Common artwork and sounds ready"},
 	}
 
 	lines := make([]startupLoadingLine, 0, 7)

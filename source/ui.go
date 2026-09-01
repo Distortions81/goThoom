@@ -2749,6 +2749,10 @@ func makeDownloadsWindow() {
 				// no archive was available. Drop every derived entry before either UI
 				// renders from the newly installed archive.
 				clearCaches()
+				// Keep the download dialog up until the small, common startup set is
+				// resident. Full sound precaching, when enabled, remains background work.
+				preloadStartupArtwork()
+				precacheStartupSounds(false)
 				if gs.PrecacheSounds && !startupLoader.precacheRun {
 					startupLoader.precacheRun = true
 					go precacheSounds()
