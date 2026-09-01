@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"runtime"
@@ -132,6 +134,55 @@ func TestUpscaleInfluenceTracksCornerContributors(t *testing.T) {
 	weight := packed >> 15
 	if center != 3 || first != 2 || second != 1 || weight != 204 {
 		t.Fatalf("corner influence = slots %d,%d,%d weight %d, want 3,2,1 weight 204", center, first, second, weight)
+	}
+}
+
+func TestUpscaleRegionWorkersMatchSerial(t *testing.T) {
+	source := image.NewRGBA(image.Rect(3, 5, 132, 102))
+	slots := image.NewGray(source.Bounds())
+	for y := source.Bounds().Min.Y; y < source.Bounds().Max.Y; y++ {
+		for x := source.Bounds().Min.X; x < source.Bounds().Max.X; x++ {
+			offset := source.PixOffset(x, y)
+			source.Pix[offset] = byte(x*x + 7*y)
+			source.Pix[offset+1] = byte(3*x + y*y)
+			source.Pix[offset+2] = byte(11*x + 13*y)
+			source.Pix[offset+3] = 255
+			slots.Pix[slots.PixOffset(x, y)] = byte((x + 3*y) % maxColors)
+		}
+	}
+
+	serial, serialInfluence := upscaleSpriteRegionCPUWithInfluenceWorkers(source, source.Bounds(), slots, slots.Bounds(), 4, artworkUpscaleBalanced, image.NewRGBA, 1)
+	parallel, parallelInfluence := upscaleSpriteRegionCPUWithInfluenceWorkers(source, source.Bounds(), slots, slots.Bounds(), 4, artworkUpscaleBalanced, image.NewRGBA, 8)
+	if !bytes.Equal(serial.Pix, parallel.Pix) {
+		t.Fatal("parallel upscale output differs from serial output")
+	}
+	if serialInfluence == nil || parallelInfluence == nil || !bytes.Equal(serialInfluence.Pix, parallelInfluence.Pix) {
+		t.Fatal("parallel upscale influence differs from serial output")
+	}
+}
+
+func BenchmarkUpscaleLargeRegionWorkers(b *testing.B) {
+	const size = 192
+	source := image.NewRGBA(image.Rect(0, 0, size, size))
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			offset := source.PixOffset(x, y)
+			source.Pix[offset] = byte(x*x + 7*y)
+			source.Pix[offset+1] = byte(3*x + y*y)
+			source.Pix[offset+2] = byte(11*x + 13*y)
+			source.Pix[offset+3] = 255
+		}
+	}
+	for _, workers := range []int{1, 2, 4, 8, 16} {
+		b.Run(fmt.Sprintf("%d_workers", workers), func(b *testing.B) {
+			b.ReportAllocs()
+			for range b.N {
+				result, _ := upscaleSpriteRegionCPUWithInfluenceWorkers(source, source.Bounds(), nil, image.Rectangle{}, 4, artworkUpscaleBalanced, image.NewRGBA, workers)
+				if result.Bounds().Dx() != size*4 {
+					b.Fatal("unexpected upscale width")
+				}
+			}
+		})
 	}
 }
 

@@ -39,6 +39,13 @@ func DenoiseRGBASerial(img *image.RGBA, sharpness, maxPercent float64) {
 	denoiseImageWithWorkers(img, sharpness, maxPercent, 1)
 }
 
+// DenoiseRGBAWorkers applies denoise with an explicit worker ceiling. It lets
+// callers that already distribute independent images divide the available CPU
+// budget between outer image jobs and inner row jobs without oversubscribing.
+func DenoiseRGBAWorkers(img *image.RGBA, sharpness, maxPercent float64, workers int) {
+	denoiseImageWithWorkers(img, sharpness, maxPercent, workers)
+}
+
 const (
 	denoiseRowsPerWorker = 4
 	maxDenoiseWorkers    = 16
@@ -63,6 +70,13 @@ func denoiseImageWithWorkers(img *image.RGBA, sharpness, maxPercent float64, wor
 		idx := y * w
 		for x := 0; x < w; x++ {
 			off := yoff + x*4
+			// Transparent and black pixels are rejected by colourDist before
+			// their HSV value is observed. Avoid the relatively expensive colour
+			// conversion across the empty area surrounding most sprite poses.
+			if src.Pix[off+3] != 0xff || (src.Pix[off] == 0 && src.Pix[off+1] == 0 && src.Pix[off+2] == 0) {
+				hsvs[idx+x] = hsv{}
+				continue
+			}
 			r := float64(src.Pix[off]) / 255
 			g := float64(src.Pix[off+1]) / 255
 			b := float64(src.Pix[off+2]) / 255
@@ -249,15 +263,6 @@ func denoiseRows(img, src *image.RGBA, hsvs []hsv, w, start, end int, sharpness,
 					if dist >= strongDetailThreshold {
 						continue
 					}
-					if dx != 0 && dy != 0 && dist > strongDetailThreshold {
-						bridgeX, bridgeXIdx := rgbaAt(src, w, x+dx, y)
-						bridgeY, bridgeYIdx := rgbaAt(src, w, x, y+dy)
-						bridgeXDist := colourDist(c, bridgeX, chsv, hsvs[bridgeXIdx])
-						bridgeYDist := colourDist(c, bridgeY, chsv, hsvs[bridgeYIdx])
-						if bridgeXDist < detailThreshold && bridgeYDist < detailThreshold {
-							continue
-						}
-					}
 					rangeWeight := rangeWeightLUT.weight(dist, sharpness)
 					spatialWeight := 1 / float64(1+dx*dx+dy*dy)
 					weight := rangeWeight * spatialWeight
@@ -298,33 +303,28 @@ func rgbaAt(img *image.RGBA, width, x, y int) (color.RGBA, int) {
 // response. Choosing the strongest channel also catches chromatic edges whose
 // two sides have nearly identical luminance.
 func sobelColorEdge(img *image.RGBA, x, y int) (edgeX, edgeY, strength float64) {
-	var gx, gy [3]float64
-	for dy := -1; dy <= 1; dy++ {
-		for dx := -1; dx <= 1; dx++ {
-			if dx == 0 && dy == 0 {
-				continue
-			}
-			off := (y+dy)*img.Stride + (x+dx)*4
-			wx := float64(dx)
-			wy := float64(dy)
-			if dy == 0 {
-				wx *= 2
-			}
-			if dx == 0 {
-				wy *= 2
-			}
-			for channel := range 3 {
-				value := float64(img.Pix[off+channel])
-				gx[channel] += value * wx
-				gy[channel] += value * wy
-			}
-		}
+	center := y*img.Stride + x*4
+	topLeft := center - img.Stride - 4
+	top := center - img.Stride
+	topRight := center - img.Stride + 4
+	left := center - 4
+	right := center + 4
+	bottomLeft := center + img.Stride - 4
+	bottom := center + img.Stride
+	bottomRight := center + img.Stride + 4
+	var gx, gy [3]int
+	for channel := range 3 {
+		gx[channel] = int(img.Pix[topRight+channel]) - int(img.Pix[topLeft+channel]) +
+			2*(int(img.Pix[right+channel])-int(img.Pix[left+channel])) +
+			int(img.Pix[bottomRight+channel]) - int(img.Pix[bottomLeft+channel])
+		gy[channel] = int(img.Pix[bottomLeft+channel]) + 2*int(img.Pix[bottom+channel]) + int(img.Pix[bottomRight+channel]) -
+			int(img.Pix[topLeft+channel]) - 2*int(img.Pix[top+channel]) - int(img.Pix[topRight+channel])
 	}
 	const sobelScale = 1.0 / (4 * 255)
 	var strengthSquared float64
 	for channel := range 3 {
-		x := gx[channel] * sobelScale
-		y := gy[channel] * sobelScale
+		x := float64(gx[channel]) * sobelScale
+		y := float64(gy[channel]) * sobelScale
 		magnitudeSquared := x*x + y*y
 		if magnitudeSquared > strengthSquared {
 			edgeX = x

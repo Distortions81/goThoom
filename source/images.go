@@ -538,6 +538,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 	sharpness := gs.DenoiseSharpness
 	amount := gs.DenoiseAmount
 	regionJobs := make([]func(), 0)
+	regionWorkers := 1
 	for sheetIndex := range work {
 		if work[sheetIndex].pixels == nil {
 			continue
@@ -564,7 +565,11 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 					region.hasMetrics = true
 				}
 				if denoise {
-					climg.DenoiseRGBASerial(base, sharpness, amount)
+					if regionWorkers > 1 && base.Bounds().Dx()*base.Bounds().Dy() >= 64*64 {
+						climg.DenoiseRGBAWorkers(base, sharpness, amount, regionWorkers)
+					} else {
+						climg.DenoiseRGBASerial(base, sharpness, amount)
+					}
 					region.base = base
 				}
 				if work[sheetIndex].needScale || work[sheetIndex].needInfluence {
@@ -576,7 +581,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 					if work[sheetIndex].slots != nil {
 						slotRegion = region.rect
 					}
-					region.scaled, region.influence = upscaleSpriteRegionCPUWithInfluence(base, base.Bounds(), work[sheetIndex].slots, slotRegion, factor, mode, acquireArtworkRGBA)
+					region.scaled, region.influence = upscaleSpriteRegionCPUWithInfluenceWorkers(base, base.Bounds(), work[sheetIndex].slots, slotRegion, factor, mode, acquireArtworkRGBA, regionWorkers)
 					if !work[sheetIndex].needScale {
 						releaseArtworkRGBA(region.scaled)
 						region.scaled = nil
@@ -587,6 +592,16 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 				}
 			})
 		}
+	}
+	// Most sheets contain many small independent frames, which already occupy
+	// the shared worker pool well. A sheet with only one or two large frames was
+	// previously denoised and upscaled on a single core and accounted for the
+	// longest art preparation hitches. Divide the available CPU budget between
+	// the active outer jobs and their internal row workers.
+	availableWorkers := min(max(1, runtime.GOMAXPROCS(0)), maxArtworkWorkers)
+	activeRegionJobs := min(len(regionJobs), availableWorkers)
+	if activeRegionJobs > 0 {
+		regionWorkers = max(1, availableWorkers/activeRegionJobs)
 	}
 	runArtworkJobs(regionJobs)
 	var processDuration time.Duration
@@ -1093,6 +1108,10 @@ func upscaleSpriteRegionCPUWithAllocator(source *image.RGBA, sourceRect image.Re
 }
 
 func upscaleSpriteRegionCPUWithInfluence(source *image.RGBA, sourceRect image.Rectangle, slots *image.Gray, slotRect image.Rectangle, factor, mode int, allocate func(image.Rectangle) *image.RGBA) (*image.RGBA, *image.RGBA) {
+	return upscaleSpriteRegionCPUWithInfluenceWorkers(source, sourceRect, slots, slotRect, factor, mode, allocate, 1)
+}
+
+func upscaleSpriteRegionCPUWithInfluenceWorkers(source *image.RGBA, sourceRect image.Rectangle, slots *image.Gray, slotRect image.Rectangle, factor, mode int, allocate func(image.Rectangle) *image.RGBA, workers int) (*image.RGBA, *image.RGBA) {
 	sourceRect = sourceRect.Intersect(source.Bounds())
 	if sourceRect.Empty() || factor < 1 {
 		return image.NewRGBA(image.Rectangle{}), nil
@@ -1137,134 +1156,152 @@ func upscaleSpriteRegionCPUWithInfluence(source *image.RGBA, sourceRect image.Re
 			}
 		}
 	}
-	for sy := sourceRect.Min.Y; sy < sourceRect.Max.Y; sy++ {
-		for sx := sourceRect.Min.X; sx < sourceRect.Max.X; sx++ {
-			center := rgbaPixelAt(source, sx, sy)
-			centerSlot := slotAt(sx, sy)
-			topSlot := slotAt(sx, max(sourceRect.Min.Y, sy-1))
-			leftSlot := slotAt(max(sourceRect.Min.X, sx-1), sy)
-			rightSlot := slotAt(min(sourceRect.Max.X-1, sx+1), sy)
-			bottomSlot := slotAt(sx, min(sourceRect.Max.Y-1, sy+1))
-			top := rgbaPixelAt(source, sx, max(sourceRect.Min.Y, sy-1))
-			left := rgbaPixelAt(source, max(sourceRect.Min.X, sx-1), sy)
-			right := rgbaPixelAt(source, min(sourceRect.Max.X-1, sx+1), sy)
-			bottom := rgbaPixelAt(source, sx, min(sourceRect.Max.Y-1, sy+1))
-			edgeCrosses := upscaleColorDistance(top, bottom) > 0.07 && upscaleColorDistance(left, right) > 0.07
-			topLeft := edgeCrosses && upscaleColorDistance(left, top) < 0.16
-			topRight := edgeCrosses && upscaleColorDistance(top, right) < 0.16
-			bottomLeft := edgeCrosses && upscaleColorDistance(left, bottom) < 0.16
-			bottomRight := edgeCrosses && upscaleColorDistance(bottom, right) < 0.16
-			if !topLeft && !topRight && !bottomLeft && !bottomRight {
-				sourceOffset := source.PixOffset(sx, sy)
-				rgba := binary.LittleEndian.Uint32(source.Pix[sourceOffset : sourceOffset+4])
-				rgbaPair := uint64(rgba) | uint64(rgba)<<32
-				for oy := 0; oy < factor; oy++ {
-					destinationOffset := destination.PixOffset((sx-sourceRect.Min.X)*factor, (sy-sourceRect.Min.Y)*factor+oy)
-					// The client uses factors 1 through 4. Fixed-width stores are
-					// faster here than walking every replicated pixel separately.
-					switch factor {
-					case 1:
-						binary.LittleEndian.PutUint32(destination.Pix[destinationOffset:destinationOffset+4], rgba)
-					case 2:
-						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
-					case 3:
-						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
-						binary.LittleEndian.PutUint32(destination.Pix[destinationOffset+8:destinationOffset+12], rgba)
-					case 4:
-						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
-						binary.LittleEndian.PutUint64(destination.Pix[destinationOffset+8:destinationOffset+16], rgbaPair)
-					default:
-						for ox := 0; ox < factor; ox++ {
-							binary.LittleEndian.PutUint32(destination.Pix[destinationOffset:destinationOffset+4], rgba)
-							destinationOffset += 4
-						}
-					}
-					if influence != nil {
-						influenceOffset := influence.PixOffset((sx-sourceRect.Min.X)*factor, (sy-sourceRect.Min.Y)*factor+oy)
-						encoded := uint32(centerSlot) | 0xff000000
-						encodedPair := uint64(encoded) | uint64(encoded)<<32
+	processRows := func(startY, endY int) {
+		for sy := startY; sy < endY; sy++ {
+			for sx := sourceRect.Min.X; sx < sourceRect.Max.X; sx++ {
+				center := rgbaPixelAt(source, sx, sy)
+				centerSlot := slotAt(sx, sy)
+				topSlot := slotAt(sx, max(sourceRect.Min.Y, sy-1))
+				leftSlot := slotAt(max(sourceRect.Min.X, sx-1), sy)
+				rightSlot := slotAt(min(sourceRect.Max.X-1, sx+1), sy)
+				bottomSlot := slotAt(sx, min(sourceRect.Max.Y-1, sy+1))
+				top := rgbaPixelAt(source, sx, max(sourceRect.Min.Y, sy-1))
+				left := rgbaPixelAt(source, max(sourceRect.Min.X, sx-1), sy)
+				right := rgbaPixelAt(source, min(sourceRect.Max.X-1, sx+1), sy)
+				bottom := rgbaPixelAt(source, sx, min(sourceRect.Max.Y-1, sy+1))
+				edgeCrosses := upscaleColorDistance(top, bottom) > 0.07 && upscaleColorDistance(left, right) > 0.07
+				topLeft := edgeCrosses && upscaleColorDistance(left, top) < 0.16
+				topRight := edgeCrosses && upscaleColorDistance(top, right) < 0.16
+				bottomLeft := edgeCrosses && upscaleColorDistance(left, bottom) < 0.16
+				bottomRight := edgeCrosses && upscaleColorDistance(bottom, right) < 0.16
+				if !topLeft && !topRight && !bottomLeft && !bottomRight {
+					sourceOffset := source.PixOffset(sx, sy)
+					rgba := binary.LittleEndian.Uint32(source.Pix[sourceOffset : sourceOffset+4])
+					rgbaPair := uint64(rgba) | uint64(rgba)<<32
+					for oy := 0; oy < factor; oy++ {
+						destinationOffset := destination.PixOffset((sx-sourceRect.Min.X)*factor, (sy-sourceRect.Min.Y)*factor+oy)
+						// The client uses factors 1 through 4. Fixed-width stores are
+						// faster here than walking every replicated pixel separately.
 						switch factor {
 						case 1:
-							binary.LittleEndian.PutUint32(influence.Pix[influenceOffset:influenceOffset+4], encoded)
+							binary.LittleEndian.PutUint32(destination.Pix[destinationOffset:destinationOffset+4], rgba)
 						case 2:
-							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+							binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
 						case 3:
-							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
-							binary.LittleEndian.PutUint32(influence.Pix[influenceOffset+8:influenceOffset+12], encoded)
+							binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
+							binary.LittleEndian.PutUint32(destination.Pix[destinationOffset+8:destinationOffset+12], rgba)
 						case 4:
-							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
-							binary.LittleEndian.PutUint64(influence.Pix[influenceOffset+8:influenceOffset+16], encodedPair)
+							binary.LittleEndian.PutUint64(destination.Pix[destinationOffset:destinationOffset+8], rgbaPair)
+							binary.LittleEndian.PutUint64(destination.Pix[destinationOffset+8:destinationOffset+16], rgbaPair)
 						default:
 							for ox := 0; ox < factor; ox++ {
+								binary.LittleEndian.PutUint32(destination.Pix[destinationOffset:destinationOffset+4], rgba)
+								destinationOffset += 4
+							}
+						}
+						if influence != nil {
+							influenceOffset := influence.PixOffset((sx-sourceRect.Min.X)*factor, (sy-sourceRect.Min.Y)*factor+oy)
+							encoded := uint32(centerSlot) | 0xff000000
+							encodedPair := uint64(encoded) | uint64(encoded)<<32
+							switch factor {
+							case 1:
 								binary.LittleEndian.PutUint32(influence.Pix[influenceOffset:influenceOffset+4], encoded)
-								influenceOffset += 4
+							case 2:
+								binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+							case 3:
+								binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+								binary.LittleEndian.PutUint32(influence.Pix[influenceOffset+8:influenceOffset+12], encoded)
+							case 4:
+								binary.LittleEndian.PutUint64(influence.Pix[influenceOffset:influenceOffset+8], encodedPair)
+								binary.LittleEndian.PutUint64(influence.Pix[influenceOffset+8:influenceOffset+16], encodedPair)
+							default:
+								for ox := 0; ox < factor; ox++ {
+									binary.LittleEndian.PutUint32(influence.Pix[influenceOffset:influenceOffset+4], encoded)
+									influenceOffset += 4
+								}
 							}
 						}
 					}
+					continue
 				}
-				continue
-			}
-			for oy := 0; oy < factor; oy++ {
-				for ox := 0; ox < factor; ox++ {
-					target := center
-					weight := float32(0)
-					firstSlot, secondSlot := byte(0), byte(0)
-					leftHalf := (2*ox + 1) < factor
-					topHalf := (2*oy + 1) < factor
-					switch {
-					case leftHalf && topHalf && topLeft:
-						target = averageUpscaleColor(left, top)
-						firstSlot, secondSlot = leftSlot, topSlot
-						if factor <= 4 {
-							weight = cornerWeights[0][oy][ox]
-						} else {
-							localX := (float32(ox) + 0.5) / float32(factor)
-							localY := (float32(oy) + 0.5) / float32(factor)
-							weight = clampFloat32(reach-2*(localX+localY), 0, 1) * strength
+				for oy := 0; oy < factor; oy++ {
+					for ox := 0; ox < factor; ox++ {
+						target := center
+						weight := float32(0)
+						firstSlot, secondSlot := byte(0), byte(0)
+						leftHalf := (2*ox + 1) < factor
+						topHalf := (2*oy + 1) < factor
+						switch {
+						case leftHalf && topHalf && topLeft:
+							target = averageUpscaleColor(left, top)
+							firstSlot, secondSlot = leftSlot, topSlot
+							if factor <= 4 {
+								weight = cornerWeights[0][oy][ox]
+							} else {
+								localX := (float32(ox) + 0.5) / float32(factor)
+								localY := (float32(oy) + 0.5) / float32(factor)
+								weight = clampFloat32(reach-2*(localX+localY), 0, 1) * strength
+							}
+						case !leftHalf && topHalf && topRight:
+							target = averageUpscaleColor(top, right)
+							firstSlot, secondSlot = topSlot, rightSlot
+							if factor <= 4 {
+								weight = cornerWeights[1][oy][ox]
+							} else {
+								localX := (float32(ox) + 0.5) / float32(factor)
+								localY := (float32(oy) + 0.5) / float32(factor)
+								weight = clampFloat32(reach-2*((1-localX)+localY), 0, 1) * strength
+							}
+						case leftHalf && !topHalf && bottomLeft:
+							target = averageUpscaleColor(left, bottom)
+							firstSlot, secondSlot = leftSlot, bottomSlot
+							if factor <= 4 {
+								weight = cornerWeights[2][oy][ox]
+							} else {
+								localX := (float32(ox) + 0.5) / float32(factor)
+								localY := (float32(oy) + 0.5) / float32(factor)
+								weight = clampFloat32(reach-2*(localX+(1-localY)), 0, 1) * strength
+							}
+						case !leftHalf && !topHalf && bottomRight:
+							target = averageUpscaleColor(bottom, right)
+							firstSlot, secondSlot = bottomSlot, rightSlot
+							if factor <= 4 {
+								weight = cornerWeights[3][oy][ox]
+							} else {
+								localX := (float32(ox) + 0.5) / float32(factor)
+								localY := (float32(oy) + 0.5) / float32(factor)
+								weight = clampFloat32(reach-2*((1-localX)+(1-localY)), 0, 1) * strength
+							}
 						}
-					case !leftHalf && topHalf && topRight:
-						target = averageUpscaleColor(top, right)
-						firstSlot, secondSlot = topSlot, rightSlot
-						if factor <= 4 {
-							weight = cornerWeights[1][oy][ox]
-						} else {
-							localX := (float32(ox) + 0.5) / float32(factor)
-							localY := (float32(oy) + 0.5) / float32(factor)
-							weight = clampFloat32(reach-2*((1-localX)+localY), 0, 1) * strength
-						}
-					case leftHalf && !topHalf && bottomLeft:
-						target = averageUpscaleColor(left, bottom)
-						firstSlot, secondSlot = leftSlot, bottomSlot
-						if factor <= 4 {
-							weight = cornerWeights[2][oy][ox]
-						} else {
-							localX := (float32(ox) + 0.5) / float32(factor)
-							localY := (float32(oy) + 0.5) / float32(factor)
-							weight = clampFloat32(reach-2*(localX+(1-localY)), 0, 1) * strength
-						}
-					case !leftHalf && !topHalf && bottomRight:
-						target = averageUpscaleColor(bottom, right)
-						firstSlot, secondSlot = bottomSlot, rightSlot
-						if factor <= 4 {
-							weight = cornerWeights[3][oy][ox]
-						} else {
-							localX := (float32(ox) + 0.5) / float32(factor)
-							localY := (float32(oy) + 0.5) / float32(factor)
-							weight = clampFloat32(reach-2*((1-localX)+(1-localY)), 0, 1) * strength
-						}
+						result := mixUpscaleColor(center, target, weight)
+						dx := (sx-sourceRect.Min.X)*factor + ox
+						dy := (sy-sourceRect.Min.Y)*factor + oy
+						offset := destination.PixOffset(dx, dy)
+						destination.Pix[offset] = upscaleByte(result.r)
+						destination.Pix[offset+1] = upscaleByte(result.g)
+						destination.Pix[offset+2] = upscaleByte(result.b)
+						destination.Pix[offset+3] = upscaleByte(result.a)
+						writeInfluence(dx, dy, centerSlot, firstSlot, secondSlot, weight)
 					}
-					result := mixUpscaleColor(center, target, weight)
-					dx := (sx-sourceRect.Min.X)*factor + ox
-					dy := (sy-sourceRect.Min.Y)*factor + oy
-					offset := destination.PixOffset(dx, dy)
-					destination.Pix[offset] = upscaleByte(result.r)
-					destination.Pix[offset+1] = upscaleByte(result.g)
-					destination.Pix[offset+2] = upscaleByte(result.b)
-					destination.Pix[offset+3] = upscaleByte(result.a)
-					writeInfluence(dx, dy, centerSlot, firstSlot, secondSlot, weight)
 				}
 			}
 		}
+	}
+	if workers < 2 || sourceRect.Dx()*sourceRect.Dy() < 64*64 {
+		processRows(sourceRect.Min.Y, sourceRect.Max.Y)
+	} else {
+		workers = min(workers, sourceRect.Dy())
+		var wait sync.WaitGroup
+		wait.Add(workers)
+		for worker := 0; worker < workers; worker++ {
+			startY := sourceRect.Min.Y + worker*sourceRect.Dy()/workers
+			endY := sourceRect.Min.Y + (worker+1)*sourceRect.Dy()/workers
+			go func() {
+				defer wait.Done()
+				processRows(startY, endY)
+			}()
+		}
+		wait.Wait()
 	}
 	return destination, influence
 }

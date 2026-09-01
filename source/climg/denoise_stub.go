@@ -12,3 +12,6 @@ func DenoiseRGBA(img *image.RGBA, sharpness, maxPercent float64) {}
 
 // DenoiseRGBASerial is a no-op when image denoising is disabled at build time.
 func DenoiseRGBASerial(img *image.RGBA, sharpness, maxPercent float64) {}
+
+// DenoiseRGBAWorkers is a no-op when image denoising is disabled at build time.
+func DenoiseRGBAWorkers(img *image.RGBA, sharpness, maxPercent float64, workers int) {}
