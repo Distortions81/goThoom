@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -397,6 +398,11 @@ func prepareArtworkSheets(keys []sheetKey) int {
 	}
 	imageCacheLifecycleMu.RLock()
 	defer imageCacheLifecycleMu.RUnlock()
+	traceEnabled := currentAssetLoadFrameTrace() != nil
+	var prepareStarted time.Time
+	if traceEnabled {
+		prepareStarted = time.Now()
+	}
 
 	factor := screenCappedArtworkUpscaleFactor()
 	mode := artworkUpscaleMode()
@@ -435,6 +441,10 @@ func prepareArtworkSheets(keys []sheetKey) int {
 	}
 	noteClientActivity(clientActivityData)
 
+	var decodeStarted time.Time
+	if traceEnabled {
+		decodeStarted = time.Now()
+	}
 	decodeJobs := make([]func(), len(work))
 	for index := range work {
 		index := index
@@ -444,7 +454,15 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		}
 	}
 	runArtworkJobs(decodeJobs)
+	var decodeDuration time.Duration
+	if traceEnabled {
+		decodeDuration = time.Since(decodeStarted)
+	}
 
+	var processStarted time.Time
+	if traceEnabled {
+		processStarted = time.Now()
+	}
 	denoise := gs.DenoiseImages
 	sharpness := gs.DenoiseSharpness
 	amount := gs.DenoiseAmount
@@ -485,7 +503,15 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		}
 	}
 	runArtworkJobs(regionJobs)
+	var processDuration time.Duration
+	if traceEnabled {
+		processDuration = time.Since(processStarted)
+	}
 
+	var uploadStarted time.Time
+	if traceEnabled {
+		uploadStarted = time.Now()
+	}
 	for sheetIndex := range work {
 		prepared := &work[sheetIndex]
 		if prepared.pixels == nil {
@@ -516,7 +542,7 @@ func prepareArtworkSheets(keys []sheetKey) int {
 			sheet = newManagedImageFromImage(prepared.pixels)
 			imageMu.Lock()
 			if existing := sheetCache[prepared.key]; existing != nil {
-				sheet.Deallocate()
+				deallocateImage(sheet)
 				sheet = existing
 			} else {
 				sheetCache[prepared.key] = sheet
@@ -576,6 +602,13 @@ func prepareArtworkSheets(keys []sheetKey) int {
 		markArtworkSheetBatchCompleteLocked(prepared.key, prepared.factor, prepared.mode)
 		imageMu.Unlock()
 		prepared.pixels = nil
+	}
+	if traceEnabled {
+		ids := make([]uint16, len(work))
+		for index := range work {
+			ids[index] = work[index].key.id
+		}
+		noteFrameArtworkPrepare(len(keys), len(work), factor, ids, time.Since(prepareStarted), decodeDuration, processDuration, time.Since(uploadStarted))
 	}
 	return len(work)
 }
@@ -1150,6 +1183,7 @@ func screenCappedArtworkUpscaleFactor() int {
 }
 
 func ensureScaledArtworkCacheFactorLocked(factor int) {
+	noteFrameAtlasFactorChange(scaledCacheFactor, uint8(factor))
 	if scaledCacheFactor != 0 && scaledCacheFactor != uint8(factor) {
 		clearScaledArtworkCachesLocked()
 	}
@@ -1262,13 +1296,13 @@ func cacheScaledPictureFramesWithReader(id uint16, requestedFrame, frameCount, f
 	if scaledCacheFactor != uint8(factor) {
 		imageMu.Unlock()
 		for _, frame := range pending {
-			frame.image.Deallocate()
+			deallocateImage(frame.image)
 		}
 		return false
 	}
 	for _, frame := range pending {
 		if _, ok := scaledImageCache[frame.key]; ok {
-			frame.image.Deallocate()
+			deallocateImage(frame.image)
 			continue
 		}
 		scaledImageCache[frame.key] = frame.image
@@ -1448,13 +1482,13 @@ func cacheScaledMobileFramesWithReader(requestedKey mobileKey, factor, mode int,
 	if scaledCacheFactor != uint8(factor) {
 		imageMu.Unlock()
 		for _, frame := range pending {
-			frame.image.Deallocate()
+			deallocateImage(frame.image)
 		}
 		return false
 	}
 	for _, frame := range pending {
 		if _, ok := scaledMobileCache[frame.key]; ok {
-			frame.image.Deallocate()
+			deallocateImage(frame.image)
 			continue
 		}
 		scaledMobileCache[frame.key] = frame.image

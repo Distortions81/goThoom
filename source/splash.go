@@ -42,7 +42,7 @@ func loadCustomSplashImages() {
 	if f, err := os.Open(filepath.Join(dataDirPath, "splash.png")); err == nil {
 		if img, _, err := image.Decode(f); err == nil {
 			if splashImg != nil && splashImg != embeddedSplashImg {
-				splashImg.Deallocate()
+				deallocateImage(splashImg)
 			}
 			splashImg = newManagedImageFromImage(splashWithBorder(img))
 		} else {

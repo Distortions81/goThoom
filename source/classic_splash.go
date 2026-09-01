@@ -26,7 +26,7 @@ func gameHasStarted() bool {
 
 func restoreDefaultSplash() {
 	if classicSplashImg != nil {
-		classicSplashImg.Deallocate()
+		deallocateImage(classicSplashImg)
 		classicSplashImg = nil
 	}
 	if defaultSplashImg != nil {
@@ -96,7 +96,7 @@ func prepareClassicSplash() {
 
 	// Hand the processed image to the splash drawer
 	if classicSplashImg != nil {
-		classicSplashImg.Deallocate()
+		deallocateImage(classicSplashImg)
 	}
 	classicSplashImg = scaled
 	splashImg = scaled

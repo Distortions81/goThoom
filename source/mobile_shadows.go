@@ -844,7 +844,7 @@ func clearCharacterShadowCache() {
 		detailedCharacterShadowMask = nil
 	}
 	if contactShadowTexture != nil {
-		contactShadowTexture.Deallocate()
+		deallocateImage(contactShadowTexture)
 		contactShadowTexture = nil
 	}
 	for _, target := range []*ebiten.Image{layeredShadowCoverage, layeredShadowIncoming, layeredShadowPrevious, layeredShadowScene} {

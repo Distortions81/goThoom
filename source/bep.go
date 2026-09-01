@@ -207,7 +207,8 @@ func parseBackendWho(data []byte) {
 		beginBeWhoScan()
 	}
 	batchCount := 0
-	newCount := 0
+	displayChanged := false
+	persistChanged := false
 	for len(data) > 0 {
 		if len(data) < 3 || data[0] != 0xC2 || data[1] != 'p' || data[2] != 'n' {
 			break
@@ -247,14 +248,15 @@ func parseBackendWho(data []byte) {
 		if !ok {
 			p = &Player{Name: name}
 			players[name] = p
-			newCount++
+			displayChanged = true
+			persistChanged = true
 		}
+		wasOffline := p.Offline
 		if gm >= 0 {
 			p.gmLevel = gm
 		}
 		p.LastSeen = time.Now()
 		p.Offline = false
-		bwChanged := !p.beWho
 		seenChanged := !p.Seen
 		scChanged := false
 		if me, ok := players[playerName]; ok {
@@ -266,22 +268,25 @@ func parseBackendWho(data []byte) {
 		}
 		p.beWho = true
 		p.Seen = true
+		if wasOffline || scChanged {
+			displayChanged = true
+		}
+		if wasOffline || seenChanged {
+			persistChanged = true
+		}
 		playerCopy := *p
 		playersMu.Unlock()
 		notifyPlayerHandlers(playerCopy)
 		if scChanged {
 			killNameTagCacheFor(name)
 		}
-		if bwChanged || seenChanged {
-			playersPersistDirty = true
-		}
 		queueInfoRequest(name)
 		batchCount++
 	}
-	if batchCount > 0 {
+	if displayChanged {
 		playersDirty = true
 	}
-	if newCount > 0 {
+	if persistChanged {
 		playersPersistDirty = true
 	}
 	// Consider requesting another who batch if this looks like a partial page

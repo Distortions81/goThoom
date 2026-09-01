@@ -65,6 +65,19 @@ var (
 	brandSpriteOutput  string
 )
 
+func defaultPGOMoviePath() string {
+	const relativePath = "clmovFiles/test.clMov.zip"
+	_, sourceFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return relativePath
+	}
+	candidate := filepath.Join(filepath.Dir(sourceFile), filepath.FromSlash(relativePath))
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate
+	}
+	return relativePath
+}
+
 func main() {
 	defer closeDiagnosticsLog()
 	defer shutdownScripts()
@@ -94,6 +107,7 @@ func main() {
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
+	flag.DurationVar(&assetLoadTraceThreshold, "assetLoadTrace", 0, "log frames that perform asset/atlas loading; mark Draw times at or above this duration as slow (for example 8ms)")
 	flag.DurationVar(&startupLoadingDelay, "startupDelay", 0, "minimum time to show each startup step (for example 1s)")
 	// Kept for existing launch scripts; UI Scale is now always in Settings.
 	_ = flag.Bool("uiscale", false, "deprecated: UI scaling options are always shown in Settings")
@@ -165,7 +179,7 @@ func main() {
 
 	if *genPGO {
 		if clmov == "" {
-			clmov = filepath.Join("clmovFiles", "test.clMov.zip")
+			clmov = defaultPGOMoviePath()
 		}
 		clMovFPS = 30
 	}

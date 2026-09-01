@@ -12,7 +12,6 @@ import (
 	"math"
 	"math/rand"
 	"net"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -1871,9 +1870,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawStartupLoadingScreen(screen, startupLoadingLabel())
 		return
 	}
-	loadMaterialIcons()
-	loadToolbarHands()
-
 	// Power-save throttling: measure draw duration and sleep remaining time
 	// to achieve the requested FPS when active.
 	if gs.PowerSaveAlways || (!ebiten.IsFocused() && gs.PowerSaveBackground) {
@@ -1895,6 +1891,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 		}()
 	}
+	assetTrace := beginAssetLoadFrameTrace(drawStarted)
+	if assetTrace != nil {
+		defer assetTrace.finish()
+	}
+	loadMaterialIcons()
+	loadToolbarHands()
 	worldOriginX, worldOriginY, worldScale = worldDrawInfo()
 
 	// A movie seek publishes only fully prepared scene states. Keep displaying
@@ -1918,13 +1920,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if gameImage == nil {
 		// UI not ready yet
 		worldViewRect = image.Rectangle{}
-		eui.Draw(screen)
+		if assetTrace != nil {
+			uiStarted := time.Now()
+			eui.Draw(screen)
+			assetTrace.addUIDuration(time.Since(uiStarted))
+		} else {
+			eui.Draw(screen)
+		}
 		return
 	}
 
 	bufW := gameImage.Bounds().Dx()
 	bufH := gameImage.Bounds().Dy()
 	viewRect, renderScale := fittedWorldView(bufW, bufH)
+	assetTrace.setWorldContext(bufW, bufH, renderScale)
 	worldViewRect = viewRect
 	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
 	worldKey := currentWorldRenderKey(bufW, bufH)
@@ -1932,11 +1941,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// gameImage already contains the last completed server update. Continue
 		// drawing EUI so text windows, controls, notifications, and other UI can
 		// update without rebuilding the world at the display refresh rate.
-		eui.Draw(screen)
+		if assetTrace != nil {
+			uiStarted := time.Now()
+			eui.Draw(screen)
+			assetTrace.addUIDuration(time.Since(uiStarted))
+		} else {
+			eui.Draw(screen)
+		}
 		return
 	}
 
 	// Render the world directly at its final game-window resolution.
+	var worldStarted time.Time
+	if assetTrace != nil {
+		worldStarted = time.Now()
+	}
 	var snap drawSnapshot
 	var alpha float64
 	var haveSnap bool
@@ -2035,13 +2054,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	drawSetupWizardFPS(gameImage)
 	drawClientActivityIndicators(worldView, takeClientActivity())
+	if assetTrace != nil {
+		assetTrace.addWorldDuration(time.Since(worldStarted))
+	}
 	if worldRendered {
 		g.lastWorldRenderKey = worldKey
 		g.worldRenderValid = true
 	}
 
 	// Finally, draw UI (which includes the game window image)
-	eui.Draw(screen)
+	if assetTrace != nil {
+		uiStarted := time.Now()
+		eui.Draw(screen)
+		assetTrace.addUIDuration(time.Since(uiStarted))
+	} else {
+		eui.Draw(screen)
+	}
 
 	// Old fixed background sleep replaced by deferred power-save throttle above.
 
@@ -2122,10 +2150,6 @@ func prepareSceneArtworkFrame(snap drawSnapshot) bool {
 	if preparedSheets <= 1 {
 		return false
 	}
-	// Artwork preparation creates large temporary RGBA pose and upscale
-	// buffers. Collect them during the deliberate loading hitch instead of
-	// letting the next automatic GC stretch recovery across visible frames.
-	runtime.GC()
 	return tcpConn != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive
 }
 

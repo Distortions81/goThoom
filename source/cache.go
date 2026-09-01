@@ -15,8 +15,12 @@ func clearCaches() {
 
 	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
+	noteFrameAtlasFactorChange(scaledCacheFactor, 0)
 	clearScaledArtworkCachesLocked()
 	scaledCacheFactor = 0
+	for _, img := range sheetCache {
+		deallocateImage(img)
+	}
 	imageCache = make(map[imageKey]*ebiten.Image)
 	sheetCache = make(map[sheetKey]*ebiten.Image)
 	mobileCache = make(map[mobileKey]*ebiten.Image)
@@ -50,15 +54,31 @@ func clearCaches() {
 }
 
 func clearScaledArtworkCachesLocked() {
+	clearedImages := 0
+	clearedBytes := 0
+	trace := currentAssetLoadFrameTrace()
 	for _, img := range scaledImageCache {
 		if img != nil {
-			img.Deallocate()
+			if trace != nil {
+				bounds := img.Bounds()
+				clearedImages++
+				clearedBytes += bounds.Dx() * bounds.Dy() * 4
+			}
+			deallocateImage(img)
 		}
 	}
 	for _, img := range scaledMobileCache {
 		if img != nil {
-			img.Deallocate()
+			if trace != nil {
+				bounds := img.Bounds()
+				clearedImages++
+				clearedBytes += bounds.Dx() * bounds.Dy() * 4
+			}
+			deallocateImage(img)
 		}
+	}
+	if trace != nil && clearedImages != 0 {
+		noteFrameAtlasCacheClear(clearedImages, clearedBytes)
 	}
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)

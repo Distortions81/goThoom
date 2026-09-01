@@ -526,7 +526,10 @@ func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeig
 			return nil
 		}
 	}
-	img := newManagedImage(imageWidth, imageHeight)
+	// Bubble labels are render targets and entries in an evicting cache. Keep
+	// them out of Ebitengine's automatic atlas so drawing the text cannot first
+	// isolate an atlas entry and later migrate it back after repeated source use.
+	img := newUnmanagedImage(imageWidth, imageHeight)
 	for index, line := range lines {
 		op := &text.DrawOptions{}
 		op.GeoM.Translate(bubbleTextImageMargin, float64(bubbleTextImageMargin+index*lineHeight))
