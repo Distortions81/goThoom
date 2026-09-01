@@ -33,6 +33,11 @@ var startupArtworkPreloadIDs = [...]uint16{
 	3574, 334, 33, 3037, 2670,
 	4504, 4499, 3573, 3785, 3504,
 	888, 40, 335,
+	603, 302, 307, 601, 8035, // second-pass hitch-focused sheets
+	// Broadly used sheets that each prepared in under 1 ms in the quick pass.
+	1842, 1843, 1844, 1845, 1846, 1847, 1848, 1849, 1850, 1851,
+	481, 2245, 3125, 194, 3582, 41, 3789, 1501,
+	446, 2988, 2989, 197, 195, 886,
 }
 
 var startupLoader = struct {
@@ -230,6 +235,9 @@ func preloadStartupCommonAssets() {
 }
 
 func loadSoundsAfterStartup() {
+	if assetDumpMode() {
+		return
+	}
 	if currentCLSoundsArchive() != nil {
 		if gs.PrecacheSounds && !startupLoader.precacheRun {
 			startupLoader.precacheRun = true

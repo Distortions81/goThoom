@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"path/filepath"
 	"sort"
 	"sync"
 )
@@ -12,13 +13,20 @@ var (
 )
 
 func assetDumpMode() bool {
-	return imgDump || sndDump
+	return imgDump || sndDump || dumpPreloadAssets
 }
 
 // exportAssets runs from Game.Update, after Ebiten has initialized its graphics
 // context. This makes the dump flags useful as one-shot archive exporters
 // rather than depending on which assets happen to be used during a session.
 func exportAssets() {
+	if dumpPreloadAssets {
+		exportPreloadImages()
+		exportPreloadSounds()
+		log.Print("Preload asset export complete.")
+		close(assetDumpComplete)
+		return
+	}
 	if imgDump {
 		exportImages()
 	}
@@ -27,6 +35,44 @@ func exportAssets() {
 	}
 	log.Print("Asset export complete.")
 	close(assetDumpComplete)
+}
+
+func exportPreloadImages() {
+	if clImages == nil {
+		log.Print("Preload image export skipped: CL_Images is not available.")
+		return
+	}
+	log.Printf("Exporting %d preloaded images to %s...", len(startupArtworkPreloadIDs), assetDumpImageDir())
+	for _, id := range startupArtworkPreloadIDs {
+		if sheet := clImages.Get(uint32(id), nil, false); sheet != nil {
+			dumpImageSheet(id, sheet)
+		}
+	}
+}
+
+func exportPreloadSounds() {
+	if currentCLSoundsArchive() == nil {
+		log.Print("Preload sound export skipped: CL_Sounds is not available.")
+		return
+	}
+	log.Printf("Exporting %d preloaded sounds to %s...", len(startupSoundPreloadIDs), assetDumpSoundDir())
+	for _, id := range startupSoundPreloadIDs {
+		loadSound(id)
+	}
+}
+
+func assetDumpImageDir() string {
+	if dumpPreloadAssets {
+		return filepath.Join("dump", "preload", "img")
+	}
+	return filepath.Join("dump", "img")
+}
+
+func assetDumpSoundDir() string {
+	if dumpPreloadAssets {
+		return filepath.Join("dump", "preload", "snd")
+	}
+	return filepath.Join("dump", "snd")
 }
 
 func exportImages() {

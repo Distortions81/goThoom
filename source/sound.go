@@ -1264,7 +1264,7 @@ func loadSoundForPlayback(id uint16, outputRate int, highQuality bool) (pcm []by
 		pcm[2*i+1] = byte(v >> 8)
 	}
 
-	if sndDump {
+	if sndDump || dumpPreloadAssets {
 		dumpSound(id, s, pcm, dstRate)
 	}
 
@@ -1277,8 +1277,9 @@ func dumpSound(id uint16, s *clsnd.Sound, pcm []byte, rate int) {
 		return
 	}
 	sndDumpOnce.Do(func() {
-		os.MkdirAll(filepath.Join("dump", "snd"), 0755)
-		if f, err := os.Create(filepath.Join("dump", "snd", "metadata.csv")); err == nil {
+		dir := assetDumpSoundDir()
+		os.MkdirAll(dir, 0755)
+		if f, err := os.Create(filepath.Join(dir, "metadata.csv")); err == nil {
 			sndMetaWriter = csv.NewWriter(f)
 			sndMetaWriter.Write([]string{"id", "origRate", "origChannels", "origBits", "bytes"})
 		}
@@ -1291,7 +1292,7 @@ func dumpSound(id uint16, s *clsnd.Sound, pcm []byte, rate int) {
 	dumpedSndIDs[id] = struct{}{}
 	sndDumpMu.Unlock()
 
-	fn := filepath.Join("dump", "snd", fmt.Sprintf("%d.wav", id))
+	fn := filepath.Join(assetDumpSoundDir(), fmt.Sprintf("%d.wav", id))
 	f, err := os.Create(fn)
 	if err != nil {
 		log.Printf("dump sound %d: %v", id, err)

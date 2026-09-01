@@ -58,6 +58,7 @@ var (
 	imgDumpSingleFrame bool
 	imgDumpScale       int
 	imgDumpScaleType   string
+	dumpPreloadAssets  bool
 	sndDump            bool
 	dumpBEPPTags       bool
 	musicDebug         bool
@@ -104,6 +105,7 @@ func main() {
 	flag.IntVar(&imgDumpScale, "imgDumpScale", 1, "scale exported images by 1, 2, 3, or 4")
 	flag.StringVar(&imgDumpScaleType, "imgDumpScaleType", "nearest", "image export upscale type: nearest, crisp, balanced, smooth, or ultra-smooth")
 	flag.BoolVar(&sndDump, "sndDump", false, "export all sounds to dump/snd as WAV and exit")
+	flag.BoolVar(&dumpPreloadAssets, "dumpPreloadAssets", false, "export startup-preloaded images and sounds to dump/preload and exit")
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")

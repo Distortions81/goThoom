@@ -650,8 +650,9 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 		return
 	}
 	dumpImgOnce.Do(func() {
-		os.MkdirAll(filepath.Join("dump", "img"), 0755)
-		if f, err := os.Create(filepath.Join("dump", "img", "metadata.csv")); err == nil {
+		dir := assetDumpImageDir()
+		os.MkdirAll(dir, 0755)
+		if f, err := os.Create(filepath.Join(dir, "metadata.csv")); err == nil {
 			imgMetaWriter = csv.NewWriter(f)
 			imgMetaWriter.Write([]string{"id", "width", "height", "frames", "flags", "name"})
 		}
@@ -679,7 +680,7 @@ func dumpImageSheet(id uint16, sheet *ebiten.Image) {
 	for f := 0; f < framesToDump; f++ {
 		y := 1 + f*h
 		frameImg := sheet.SubImage(image.Rect(1, y, 1+innerWidth, y+h)).(*ebiten.Image)
-		fn := filepath.Join("dump", "img", imageDumpFrameFilename(id, f, frames))
+		fn := filepath.Join(assetDumpImageDir(), imageDumpFrameFilename(id, f, frames))
 		if file, err := os.Create(fn); err == nil {
 			img := frameImg
 			if imgDumpScale > 1 {
