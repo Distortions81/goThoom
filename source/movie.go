@@ -405,6 +405,7 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		}
 		if restoredBubble != nil {
 			state.bubbles = append(state.bubbles, *restoredBubble)
+			markWorldStateChanged()
 		}
 		stateMu.Unlock()
 

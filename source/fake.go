@@ -60,6 +60,7 @@ func runFakeMode(ctx context.Context) {
 			}
 			stateMu.Lock()
 			state.bubbles = append(state.bubbles, b)
+			markWorldStateChanged()
 			stateMu.Unlock()
 			switch verb {
 			case "", bubbleVerbVerbatim:
@@ -113,6 +114,7 @@ func runFakeMode(ctx context.Context) {
 				b := bubble{Index: 1, H: int16(fieldCenterX + 10), V: 0, Far: true, Text: "Over here!", Type: kBubbleNormal, CreatedFrame: frameCounter, LifeFrames: life}
 				stateMu.Lock()
 				state.bubbles = append(state.bubbles, b)
+				markWorldStateChanged()
 				stateMu.Unlock()
 				chatMessage(p2 + " says, Over here!")
 			case 13: // Bob falls

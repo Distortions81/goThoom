@@ -53,15 +53,37 @@ type bubbleTextImageCacheEntry struct {
 	lastUsed uint64
 }
 
+type bubbleBodyImageCacheKey struct {
+	width, height    int
+	radiusBits       uint32
+	strokeWidthBits  uint32
+	fillR, fillG     uint16
+	fillB, fillA     uint16
+	borderR, borderG uint16
+	borderB, borderA uint16
+}
+
+type bubbleBodyImageCacheEntry struct {
+	image    *ebiten.Image
+	margin   int
+	bytes    int
+	lastUsed uint64
+}
+
 var scaledBubbleFaceCache = make(map[bubbleFaceCacheKey]text.Face)
 var bubbleTextLayoutCache = make(map[bubbleTextLayoutCacheKey]bubbleTextLayout)
 var bubbleTextImageCache = make(map[bubbleTextImageCacheKey]*bubbleTextImageCacheEntry)
 var bubbleTextImageBytes int
 var bubbleTextUseCounter uint64
+var bubbleBodyImageCache = make(map[bubbleBodyImageCacheKey]*bubbleBodyImageCacheEntry)
+var bubbleBodyImageBytes int
+var bubbleBodyUseCounter uint64
 
 const maxBubbleTextLayouts = 512
 const bubbleTextImageMargin = 1
 const maxBubbleTextImageBytes = 32 << 20
+const maxBubbleBodyImages = 256
+const maxBubbleBodyImageBytes = 16 << 20
 
 const ponderBubbleAnimationSpeed = 4.0
 const bubbleMaxBodyWidthFraction = 0.45
@@ -478,6 +500,12 @@ func clearBubbleTextCaches() {
 	clear(bubbleTextImageCache)
 	bubbleTextImageBytes = 0
 	bubbleTextUseCounter = 0
+	for _, entry := range bubbleBodyImageCache {
+		entry.image.Deallocate()
+	}
+	clear(bubbleBodyImageCache)
+	bubbleBodyImageBytes = 0
+	bubbleBodyUseCounter = 0
 }
 
 func evictOldestBubbleTextImage() bool {
@@ -539,6 +567,87 @@ func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeig
 	bubbleTextImageCache[key] = &bubbleTextImageCacheEntry{image: img, bytes: imageBytes, lastUsed: bubbleTextUseCounter}
 	bubbleTextImageBytes += imageBytes
 	return img
+}
+
+func bubbleRoundedRectPath(left, top, right, bottom int, radius float32) vector.Path {
+	var body vector.Path
+	body.MoveTo(float32(left)+radius, float32(top))
+	body.LineTo(float32(right)-radius, float32(top))
+	body.Arc(float32(right)-radius, float32(top)+radius, radius, -math.Pi/2, 0, vector.Clockwise)
+	body.LineTo(float32(right), float32(bottom)-radius)
+	body.Arc(float32(right)-radius, float32(bottom)-radius, radius, 0, math.Pi/2, vector.Clockwise)
+	body.LineTo(float32(left)+radius, float32(bottom))
+	body.Arc(float32(left)+radius, float32(bottom)-radius, radius, math.Pi/2, math.Pi, vector.Clockwise)
+	body.LineTo(float32(left), float32(top)+radius)
+	body.Arc(float32(left)+radius, float32(top)+radius, radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
+	body.Close()
+	return body
+}
+
+func evictOldestBubbleBodyImage() bool {
+	var oldestKey bubbleBodyImageCacheKey
+	var oldest *bubbleBodyImageCacheEntry
+	for key, entry := range bubbleBodyImageCache {
+		if oldest == nil || entry.lastUsed < oldest.lastUsed {
+			oldestKey = key
+			oldest = entry
+		}
+	}
+	if oldest == nil {
+		return false
+	}
+	bubbleBodyImageBytes -= oldest.bytes
+	delete(bubbleBodyImageCache, oldestKey)
+	return true
+}
+
+// cachedBubbleBodyImage pre-renders the non-animated fill and outline into an
+// unmanaged texture. Bubble bodies usually survive many display frames, so
+// this replaces repeated path tessellation and two vector submissions with a
+// single image draw after the first frame.
+func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill, border color.RGBA64) (*ebiten.Image, int) {
+	if width < 1 || height < 1 {
+		return nil, 0
+	}
+	key := bubbleBodyImageCacheKey{
+		width: width, height: height,
+		radiusBits: math.Float32bits(radius), strokeWidthBits: math.Float32bits(strokeWidth),
+		fillR: fill.R, fillG: fill.G, fillB: fill.B, fillA: fill.A,
+		borderR: border.R, borderG: border.G, borderB: border.B, borderA: border.A,
+	}
+	bubbleBodyUseCounter++
+	if cached := bubbleBodyImageCache[key]; cached != nil {
+		cached.lastUsed = bubbleBodyUseCounter
+		return cached.image, cached.margin
+	}
+	margin := int(math.Ceil(float64(strokeWidth)/2)) + 2
+	imageWidth := width + 2*margin
+	imageHeight := height + 2*margin
+	imageBytes := imageWidth * imageHeight * 4
+	if imageBytes > maxBubbleBodyImageBytes {
+		return nil, 0
+	}
+	for len(bubbleBodyImageCache) >= maxBubbleBodyImages || bubbleBodyImageBytes+imageBytes > maxBubbleBodyImageBytes {
+		if !evictOldestBubbleBodyImage() {
+			return nil, 0
+		}
+	}
+
+	img := newUnmanagedImage(imageWidth, imageHeight)
+	body := bubbleRoundedRectPath(margin, margin, margin+width, margin+height, radius)
+	fillOp := &vector.DrawPathOptions{AntiAlias: true}
+	fillOp.ColorScale.ScaleWithColor(fill)
+	vector.FillPath(img, &body, nil, fillOp)
+	strokeOp := &vector.StrokeOptions{Width: strokeWidth}
+	drawOutline := &vector.DrawPathOptions{AntiAlias: true}
+	drawOutline.ColorScale.ScaleWithColor(border)
+	vector.StrokePath(img, &body, strokeOp, drawOutline)
+
+	bubbleBodyImageCache[key] = &bubbleBodyImageCacheEntry{
+		image: img, margin: margin, bytes: imageBytes, lastUsed: bubbleBodyUseCounter,
+	}
+	bubbleBodyImageBytes += imageBytes
+	return img, margin
 }
 
 // bubbleDrawRequest keeps a bubble's measured layout and final placement
@@ -748,39 +857,40 @@ func drawBubbleBody(screen *ebiten.Image, request bubbleDrawRequest) {
 	m := g.request.metrics
 	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
 
-	var body vector.Path
-	body.MoveTo(float32(g.left)+g.radius+fx, float32(g.top)+fy)
-	body.LineTo(float32(g.right)-g.radius+fx, float32(g.top)+fy)
-	body.Arc(float32(g.right)-g.radius+fx, float32(g.top)+g.radius+fy, g.radius, -math.Pi/2, 0, vector.Clockwise)
-	body.LineTo(float32(g.right)+fx, float32(g.bottom)-g.radius+fy)
-	body.Arc(float32(g.right)-g.radius+fx, float32(g.bottom)-g.radius+fy, g.radius, 0, math.Pi/2, vector.Clockwise)
-	body.LineTo(float32(g.left)+g.radius+fx, float32(g.bottom)+fy)
-	body.Arc(float32(g.left)+g.radius+fx, float32(g.bottom)-g.radius+fy, g.radius, math.Pi/2, math.Pi, vector.Clockwise)
-	body.LineTo(float32(g.left)+fx, float32(g.top)+g.radius+fy)
-	body.Arc(float32(g.left)+g.radius+fx, float32(g.top)+g.radius+fy, g.radius, math.Pi, 3*math.Pi/2, vector.Clockwise)
-	body.Close()
-
-	compositeRegion := bubbleCompositeRegion(g, false).Intersect(screen.Bounds())
-	backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
-
-	if g.bubbleType != kBubblePonder {
-		fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
-		fillOp.ColorScale.ScaleWithColor(fillColor)
-		vector.FillPath(backgroundTarget, &body, nil, fillOp)
-	}
-	if g.bubbleType != kBubblePonder {
-		// Thicken outline a bit with scale
-		strokeW := max(1, g.scale)
-		strokeOp := &vector.StrokeOptions{Width: strokeW}
-		drawOutline := &vector.DrawPathOptions{AntiAlias: true}
-		drawOutline.ColorScale.ScaleWithColor(g.borderColor)
-		vector.StrokePath(screen, &body, strokeOp, drawOutline)
+	strokeW := max(1, g.scale)
+	if g.bubbleType != kBubbleThought && g.bubbleType != kBubblePonder {
+		if bodyImage, margin := cachedBubbleBodyImage(g.right-g.left, g.bottom-g.top, g.radius, strokeW, g.fillColor, g.borderColor); bodyImage != nil {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(g.left+g.offsetX-margin), float64(g.top+g.offsetY-margin))
+			screen.DrawImage(bodyImage, op)
+		} else {
+			body := bubbleRoundedRectPath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius)
+			fillOp := &vector.DrawPathOptions{AntiAlias: true}
+			fillOp.ColorScale.ScaleWithColor(g.fillColor)
+			vector.FillPath(screen, &body, nil, fillOp)
+			strokeOp := &vector.StrokeOptions{Width: strokeW}
+			drawOutline := &vector.DrawPathOptions{AntiAlias: true}
+			drawOutline.ColorScale.ScaleWithColor(g.borderColor)
+			vector.StrokePath(screen, &body, strokeOp, drawOutline)
+		}
 	} else {
-		drawPonderWaves(backgroundTarget, g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, fillColor, float64(g.scale), ponderPhase, backgroundBlend)
-	}
-
-	if compositeThought {
-		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
+		body := bubbleRoundedRectPath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius)
+		compositeRegion := bubbleCompositeRegion(g, false).Intersect(screen.Bounds())
+		backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
+		if g.bubbleType != kBubblePonder {
+			fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
+			fillOp.ColorScale.ScaleWithColor(fillColor)
+			vector.FillPath(backgroundTarget, &body, nil, fillOp)
+			strokeOp := &vector.StrokeOptions{Width: strokeW}
+			drawOutline := &vector.DrawPathOptions{AntiAlias: true}
+			drawOutline.ColorScale.ScaleWithColor(g.borderColor)
+			vector.StrokePath(screen, &body, strokeOp, drawOutline)
+		} else {
+			drawPonderWaves(backgroundTarget, g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, fillColor, float64(g.scale), ponderPhase, backgroundBlend)
+		}
+		if compositeThought {
+			compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
+		}
 	}
 
 	if g.bubbleType == kBubbleYell {

@@ -608,6 +608,10 @@ func relinkBubbleMobileByName(b *bubble, descriptors map[uint8]frameDescriptor, 
 
 // drawSnapshot is a read-only copy of the current draw state.
 type drawSnapshot struct {
+	valid                       bool
+	motionSmoothing             bool
+	objectPinning               bool
+	mobileFrameBlending         bool
 	worldGeneration             uint64
 	descriptors                 map[uint8]frameDescriptor
 	prevPicturePositions        map[picturePositionKey]struct{}
@@ -644,7 +648,14 @@ type drawSnapshot struct {
 // Draw calls this serially with the same destination so maps and slices can be
 // reused without sharing mutable storage with the network goroutine.
 func captureDrawSnapshot(snap *drawSnapshot) {
+	lockStarted := time.Time{}
+	if framePacingTraceThreshold > 0 {
+		lockStarted = time.Now()
+	}
 	stateMu.Lock()
+	if !lockStarted.IsZero() {
+		traceFramePacingSnapshotLockWait(time.Since(lockStarted))
+	}
 	defer stateMu.Unlock()
 
 	if snap.descriptors == nil {
@@ -654,6 +665,9 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	}
 	generation := worldStateGeneration.Load()
 	snap.worldGeneration = generation
+	snap.motionSmoothing = gs.MotionSmoothing
+	snap.objectPinning = gs.ObjectPinning
+	snap.mobileFrameBlending = mobileFrameBlendingEnabled()
 	if gs.ObjectPinning && gs.MotionSmoothing {
 		if !snap.prevPictureIndexValid || snap.prevPictureIndexGeneration != generation {
 			if snap.prevPicturePositions == nil {
@@ -747,7 +761,7 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	} else if snap.prevMobiles != nil {
 		clear(snap.prevMobiles)
 	}
-	if mobileFrameBlendingEnabled() {
+	if snap.mobileFrameBlending {
 		if snap.prevDescs == nil {
 			snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
 		} else {
@@ -759,6 +773,20 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	} else if snap.prevDescs != nil {
 		clear(snap.prevDescs)
 	}
+	snap.valid = true
+}
+
+// captureDrawSnapshotIfChanged avoids repeatedly locking and copying the
+// network-owned draw state when the renderer runs faster than server updates.
+func captureDrawSnapshotIfChanged(snap *drawSnapshot) bool {
+	if snap.valid && snap.worldGeneration == worldStateGeneration.Load() &&
+		snap.motionSmoothing == gs.MotionSmoothing &&
+		snap.objectPinning == gs.ObjectPinning &&
+		snap.mobileFrameBlending == mobileFrameBlendingEnabled() {
+		return false
+	}
+	captureDrawSnapshot(snap)
+	return true
 }
 
 // cloneDrawState makes a deep copy of a drawState.
@@ -1011,19 +1039,57 @@ func worldRenderCanBeReused(g *Game, key worldRenderKey) bool {
 
 var errApplicationShutdown = errors.New("application shutdown requested")
 
+// pgoRenderFrameInterval optionally keeps uncapped software-renderer profiling
+// from running thousands of redundant Draw calls per second.
+var pgoRenderFrameInterval time.Duration
+
 var once sync.Once
 var lastBackpace time.Time
 var lastPlayersRefreshTick time.Time
 var lastFocused bool
+
+const windowFocusPollInterval = 500 * time.Millisecond
+
+var (
+	cachedWindowFocused atomic.Bool
+	nextWindowFocusPoll time.Time
+)
+
+func init() {
+	// Assume focus until the first Update poll. This avoids suppressing input or
+	// foreground-only behavior during startup before Ebitengine can answer.
+	cachedWindowFocused.Store(true)
+}
+
+func pollWindowFocus(now time.Time) bool {
+	return pollWindowFocusWith(now, ebiten.IsFocused)
+}
+
+func pollWindowFocusWith(now time.Time, readFocus func() bool) bool {
+	if nextWindowFocusPoll.IsZero() || !now.Before(nextWindowFocusPoll) {
+		cachedWindowFocused.Store(readFocus())
+		nextWindowFocusPoll = now.Add(windowFocusPollInterval)
+	}
+	return cachedWindowFocused.Load()
+}
+
+func windowIsFocused() bool {
+	return cachedWindowFocused.Load()
+}
 
 // suppressInterpOnce skips interpolation for the next draw frame.
 var suppressInterpOnce bool
 
 func (g *Game) Update() error {
 	updateStarted := time.Now()
-	defer func() { recordGameLoopWork(time.Since(updateStarted)) }()
+	traceFramePacingUpdateStarted(updateStarted)
+	defer func() {
+		elapsed := time.Since(updateStarted)
+		recordGameLoopWork(elapsed)
+		traceFramePacingUpdateFinished(elapsed)
+	}()
 	// Background behaviors: mute and slow render when unfocused
-	focused := ebiten.IsFocused()
+	focused := pollWindowFocus(updateStarted)
 	if focused != lastFocused {
 		if !focused {
 			if gs.MuteWhenUnfocused {
@@ -1037,7 +1103,7 @@ func (g *Game) Update() error {
 		lastFocused = focused
 	}
 	// Cache the current time once per frame and reuse everywhere.
-	now := time.Now()
+	now := updateStarted
 	select {
 	case <-gameCtx.Done():
 		syncWindowSettings()
@@ -1426,8 +1492,6 @@ func (g *Game) Update() error {
 		showSpellSuggestions(inputFlow.Contents[0])
 	}
 
-	focused = ebiten.IsFocused()
-
 	/* WASD / ARROWS */
 
 	var keyWalk bool
@@ -1666,7 +1730,7 @@ func (g *Game) Update() error {
 	// Suppress this while intentionally lowering FPS due to power saving
 	// (background/unfocused or always-on power save).
 	if tcpConn != nil && perFrameShaderEffectsEnabled() && gs.PromptDisableShaders && !shaderWarnShown {
-		powerSaving := gs.PowerSaveAlways || (!ebiten.IsFocused() && gs.PowerSaveBackground)
+		powerSaving := gs.PowerSaveAlways || (!focused && gs.PowerSaveBackground)
 		if !powerSaving && ebiten.ActualFPS() < 50 {
 			if lowFPSSince.IsZero() {
 				lowFPSSince = now
@@ -1858,10 +1922,16 @@ func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	drawStarted := time.Now()
+	traceFramePacingDrawStarted()
 	drawWorkRecorded := false
 	defer func() {
+		elapsed := time.Since(drawStarted)
+		traceFramePacingDrawFinished(elapsed)
 		if !drawWorkRecorded {
-			recordGameLoopWork(time.Since(drawStarted))
+			recordGameLoopWork(elapsed)
+		}
+		if pgoRenderFrameInterval > 0 && elapsed < pgoRenderFrameInterval {
+			time.Sleep(pgoRenderFrameInterval - elapsed)
 		}
 	}()
 	now := drawStarted
@@ -1874,7 +1944,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	// Power-save throttling: measure draw duration and sleep remaining time
 	// to achieve the requested FPS when active.
-	if gs.PowerSaveAlways || (!ebiten.IsFocused() && gs.PowerSaveBackground) {
+	if gs.PowerSaveAlways || (!windowIsFocused() && gs.PowerSaveBackground) {
 		frameStart := now
 		fps := gs.PowerSaveFPS
 		if fps < 1 {
@@ -1970,7 +2040,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		gs.GameScale = prev
 		worldRendered = true
 	} else {
-		captureDrawSnapshot(&g.drawSnapshot)
+		captureDrawSnapshotIfChanged(&g.drawSnapshot)
 		if bubbleTorture {
 			prepareBubbleTortureSnapshot(&g.drawSnapshot, now)
 		} else if setupWizardPreviewActive {

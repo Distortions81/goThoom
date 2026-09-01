@@ -566,7 +566,7 @@ func legacyMacroPlayerClickEvent(name string) legacyMacroClickEvent {
 }
 
 func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
-	if !ebiten.IsFocused() || keyboardTestSuppressingInput() {
+	if !windowIsFocused() || keyboardTestSuppressingInput() {
 		return
 	}
 	runtime := legacyMacroRuntimeSnapshot()

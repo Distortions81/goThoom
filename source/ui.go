@@ -1880,7 +1880,7 @@ func makeMixerWindow() {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MuteWhenUnfocused = ev.Checked
 			if ev.Checked {
-				if !ebiten.IsFocused() {
+				if !windowIsFocused() {
 					focusMuted = true
 				}
 			} else {

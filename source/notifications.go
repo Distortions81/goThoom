@@ -5,7 +5,6 @@ import (
 
 	"gothoom/eui"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
@@ -36,7 +35,7 @@ func showNotification(msg string, keys ...int) {
 	}
 	// If app is unfocused and user enabled background desktop notifications,
 	// mirror this in-game notification to the OS.
-	if gs.NotifyWhenBackground && !ebiten.IsFocused() {
+	if gs.NotifyWhenBackground && !windowIsFocused() {
 		notifyDesktop("goThoom", msg)
 	}
 

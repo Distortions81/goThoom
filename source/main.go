@@ -110,6 +110,7 @@ func main() {
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
 	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
 	flag.DurationVar(&assetLoadTraceThreshold, "assetLoadTrace", 0, "log frames that perform asset/atlas loading; mark Draw times at or above this duration as slow (for example 8ms)")
+	flag.DurationVar(&framePacingTraceThreshold, "framePacingTrace", 0, "log Update-to-Update intervals at or above this duration, including presentation/driver wait (for example 20ms)")
 	flag.DurationVar(&startupLoadingDelay, "startupDelay", 0, "minimum time to show each startup step (for example 1s)")
 	// Kept for existing launch scripts; UI Scale is now always in Settings.
 	_ = flag.Bool("uiscale", false, "deprecated: UI scaling options are always shown in Settings")
@@ -118,10 +119,17 @@ func main() {
 	pgoWarmup := flag.Duration("pgoWarmup", 0, "unprofiled warmup duration used with -pgo")
 	pgoWarmupMovie := flag.Bool("pgoWarmupMovie", false, "play one complete movie pass before profiling with -pgo")
 	pgoDuration := flag.Duration("pgoDuration", 5*time.Minute, "CPU profiling duration used with -pgo")
+	pgoMaxFPS := flag.Int("pgoMaxFPS", 0, "maximum render FPS used with -pgo while VSync is off (0 is uncapped)")
 	pgoOutput := flag.String("pgoOutput", "default.pgo", "CPU profile output path used with -pgo")
 	pgoHeapOutput := flag.String("pgoHeapOutput", "", "heap profile output written after -pgo completes")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
 	flag.Parse()
+	if *pgoMaxFPS < 0 {
+		log.Fatalf("pgoMaxFPS must not be negative, got %d", *pgoMaxFPS)
+	}
+	if *genPGO && *pgoMaxFPS > 0 {
+		pgoRenderFrameInterval = time.Second / time.Duration(*pgoMaxFPS)
+	}
 	if assetLoadTraceThreshold > 0 {
 		eui.UnmanagedImageCreated = noteFrameUnmanagedImageCreation
 	}

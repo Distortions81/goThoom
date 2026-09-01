@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
 	"strings"
 	"sync"
 )
@@ -61,7 +60,7 @@ func chatMessageTyped(msg, messageType string) {
 	if tagged && !isSelfChatMessage(msg) {
 		playMentionSound()
 		// Notify on mentions only when unfocused (respect setting)
-		if gs.NotifyWhenBackground && !ebiten.IsFocused() {
+		if gs.NotifyWhenBackground && !windowIsFocused() {
 			notifyDesktop("Mention", msg)
 		}
 	}

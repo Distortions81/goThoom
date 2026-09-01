@@ -62,4 +62,11 @@ func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
 	if snap.logicalFrame != 77 {
 		t.Fatalf("snapshot logical frame = %d, want 77", snap.logicalFrame)
 	}
+	if captureDrawSnapshotIfChanged(&snap) {
+		t.Fatal("unchanged snapshot was copied again")
+	}
+	markWorldStateChanged()
+	if !captureDrawSnapshotIfChanged(&snap) {
+		t.Fatal("changed world generation did not refresh snapshot")
+	}
 }

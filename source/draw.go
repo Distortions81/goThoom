@@ -2117,6 +2117,7 @@ stateRecordLoop:
 		if len(bubbles) > 0 {
 			stateMu.Lock()
 			state.bubbles = append(state.bubbles, bubbles...)
+			markWorldStateChanged()
 			stateMu.Unlock()
 		}
 
