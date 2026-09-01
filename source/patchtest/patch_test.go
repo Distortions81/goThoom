@@ -68,7 +68,7 @@ func TestApplyPatchImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	patch := buildKeyfile(2)
-	if err := climg.ApplyPatch(base, patch); err != nil {
+	if err := climg.ApplyPatch(base, patch, 2); err != nil {
 		t.Fatalf("apply patch: %v", err)
 	}
 	if v, err := readKeyFileVersion(base); err != nil || int(v>>8) != 2 {
@@ -86,7 +86,7 @@ func TestApplyPatchSounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	patch := buildKeyfile(2)
-	if err := clsnd.ApplyPatch(base, patch); err != nil {
+	if err := clsnd.ApplyPatch(base, patch, 2); err != nil {
 		t.Fatalf("apply patch: %v", err)
 	}
 	if v, err := readKeyFileVersion(base); err != nil || int(v>>8) != 2 {

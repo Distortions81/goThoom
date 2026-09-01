@@ -62,7 +62,6 @@ var (
 	sndDump            bool
 	dumpBEPPTags       bool
 	musicDebug         bool
-	experimental       bool
 	brandSpriteOutput  string
 )
 
@@ -108,7 +107,7 @@ func main() {
 	flag.BoolVar(&dumpPreloadAssets, "dumpPreloadAssets", false, "export startup-preloaded images and sounds to dump/preload and exit")
 	flag.BoolVar(&dumpBEPPTags, "dumpBEPPTags", false, "log BEPP tags seen (for empirical analysis)")
 	flag.BoolVar(&musicDebug, "musicDebug", false, "show bard music messages in chat")
-	flag.BoolVar(&experimental, "experimental", false, "enable experimental features like CL_Images/CL_Sounds patching")
+	flag.Bool("experimental", false, "deprecated: asset patching is now enabled automatically")
 	flag.DurationVar(&assetLoadTraceThreshold, "assetLoadTrace", 0, "log frames that perform asset/atlas loading; mark Draw times at or above this duration as slow (for example 8ms)")
 	flag.DurationVar(&framePacingTraceThreshold, "framePacingTrace", 0, "log Update-to-Update intervals at or above this duration, including presentation/driver wait (for example 20ms)")
 	flag.DurationVar(&startupLoadingDelay, "startupDelay", 0, "minimum time to show each startup step (for example 1s)")

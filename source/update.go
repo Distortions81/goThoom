@@ -10,7 +10,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -326,7 +329,26 @@ func headSize(url string) int64 {
 		return -1
 	}
 	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return -1
+	}
 	return resp.ContentLength
+}
+
+func assetUpdateFileInfo(name string, currentVersion, targetVersion int) fileInfo {
+	fullName := fmt.Sprintf("%s.%d.gz", name, targetVersion)
+	for _, base := range assetBases(updateBase, fallbackUpdateBase) {
+		if !isWASM && currentVersion > 0 {
+			patchName := fmt.Sprintf("%s.%dto%d.gz", name, currentVersion, targetVersion)
+			if size := headSize(fmt.Sprintf("%s/data/%s", base, patchName)); size >= 0 {
+				return fileInfo{Name: patchName, Size: size}
+			}
+		}
+		if size := headSize(fmt.Sprintf("%s/data/%s", base, fullName)); size >= 0 {
+			return fileInfo{Name: fullName, Size: size}
+		}
+	}
+	return fileInfo{Name: fullName, Size: -1}
 }
 
 func urlExists(url string) bool {
@@ -383,24 +405,7 @@ func autoUpdate(resp []byte, dataDir string) (int, error) {
 	if old, err := readKeyFileVersion(imgPath); err == nil {
 		imgOld = int(old >> 8)
 	}
-	var err error
-	for _, b := range bases {
-		if imgOld > 0 && experimental {
-			patchURL := fmt.Sprintf("%v/data/CL_Images.%dto%d.gz", b, imgOld, imgVer)
-			if err = downloadPatch(patchURL, imgPath, climg.ApplyPatch); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", b, imgVer)
-					err = downloadGZ(imgURL, imgPath)
-				}
-			}
-		} else {
-			imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", b, imgVer)
-			err = downloadGZ(imgURL, imgPath)
-		}
-		if err == nil {
-			break
-		}
-	}
+	err := downloadAssetUpdate(bases, "CL_Images", imgPath, imgOld, imgVer, climg.ApplyPatch)
 	if err != nil {
 		logError("update CL_Images: %v", err)
 		return 0, err
@@ -410,23 +415,7 @@ func autoUpdate(resp []byte, dataDir string) (int, error) {
 	if old, err := readKeyFileVersion(sndPath); err == nil {
 		sndOld = int(old >> 8)
 	}
-	for _, b := range bases {
-		if sndOld > 0 && experimental {
-			patchURL := fmt.Sprintf("%v/data/CL_Sounds.%dto%d.gz", b, sndOld, sndVer)
-			if err = downloadPatch(patchURL, sndPath, clsnd.ApplyPatch); err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", b, sndVer)
-					err = downloadGZ(sndURL, sndPath)
-				}
-			}
-		} else {
-			sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", b, sndVer)
-			err = downloadGZ(sndURL, sndPath)
-		}
-		if err == nil {
-			break
-		}
-	}
+	err = downloadAssetUpdate(bases, "CL_Sounds", sndPath, sndOld, sndVer, clsnd.ApplyPatch)
 	if err != nil {
 		logError("update CL_Sounds: %v", err)
 		return 0, err
@@ -508,26 +497,10 @@ func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 	}
 
 	if status.NeedImages {
-		name := fmt.Sprintf("CL_Images.%d.gz", clientVer)
-		size := int64(-1)
-		for _, b := range assetBases(updateBase, fallbackUpdateBase) {
-			size = headSize(fmt.Sprintf("%v/data/%s", b, name))
-			if size >= 0 {
-				break
-			}
-		}
-		status.Files = append(status.Files, fileInfo{Name: name, Size: size})
+		status.Files = append(status.Files, assetUpdateFileInfo("CL_Images", status.ImageVersion, clientVer))
 	}
 	if status.NeedSounds {
-		name := fmt.Sprintf("CL_Sounds.%d.gz", clientVer)
-		size := int64(-1)
-		for _, b := range assetBases(updateBase, fallbackUpdateBase) {
-			size = headSize(fmt.Sprintf("%v/data/%s", b, name))
-			if size >= 0 {
-				break
-			}
-		}
-		status.Files = append(status.Files, fileInfo{Name: name, Size: size})
+		status.Files = append(status.Files, assetUpdateFileInfo("CL_Sounds", status.SoundVersion, clientVer))
 	}
 	// In WASM mode, only offer core assets (images/sounds) to save bandwidth.
 	if isWASM {
@@ -630,24 +603,7 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 	bases := assetBases(updateBase, fallbackUpdateBase)
 	if status.NeedImages {
 		imgPath := filepath.Join(dataDirPath, CL_ImagesFile)
-		var err error
-		for _, base := range bases {
-			if status.ImageVersion > 0 && experimental {
-				patchURL := fmt.Sprintf("%v/data/CL_Images.%dto%d.gz", base, status.ImageVersion, clientVer)
-				if err = downloadPatch(patchURL, imgPath, climg.ApplyPatch); err != nil {
-					if errors.Is(err, os.ErrNotExist) {
-						imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", base, clientVer)
-						err = downloadGZ(imgURL, imgPath)
-					}
-				}
-			} else {
-				imgURL := fmt.Sprintf("%v/data/CL_Images.%d.gz", base, clientVer)
-				err = downloadGZ(imgURL, imgPath)
-			}
-			if err == nil {
-				break
-			}
-		}
+		err := downloadAssetUpdate(bases, "CL_Images", imgPath, status.ImageVersion, clientVer, climg.ApplyPatch)
 		if err != nil {
 			logError("download CL_Images: %v", err)
 			return fmt.Errorf("download CL_Images: %w", err)
@@ -655,24 +611,7 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 	}
 	if status.NeedSounds {
 		sndPath := filepath.Join(dataDirPath, CL_SoundsFile)
-		var err error
-		for _, base := range bases {
-			if status.SoundVersion > 0 && experimental {
-				patchURL := fmt.Sprintf("%v/data/CL_Sounds.%dto%d.gz", base, status.SoundVersion, clientVer)
-				if err = downloadPatch(patchURL, sndPath, clsnd.ApplyPatch); err != nil {
-					if errors.Is(err, os.ErrNotExist) {
-						sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", base, clientVer)
-						err = downloadGZ(sndURL, sndPath)
-					}
-				}
-			} else {
-				sndURL := fmt.Sprintf("%v/data/CL_Sounds.%d.gz", base, clientVer)
-				err = downloadGZ(sndURL, sndPath)
-			}
-			if err == nil {
-				break
-			}
-		}
+		err := downloadAssetUpdate(bases, "CL_Sounds", sndPath, status.SoundVersion, clientVer, clsnd.ApplyPatch)
 		if err != nil {
 			logError("download CL_Sounds: %v", err)
 			return fmt.Errorf("download CL_Sounds: %w", err)
@@ -805,7 +744,130 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 	return nil
 }
 
-func downloadPatch(url, dest string, apply func(string, []byte) error) error {
+type assetPatchStep struct {
+	from int
+	to   int
+}
+
+func downloadAssetUpdate(
+	bases []string,
+	name, dest string,
+	currentVersion, targetVersion int,
+	apply func(string, []byte, uint32) error,
+) error {
+	var lastErr error
+	for _, base := range bases {
+		current := currentVersion
+		if isWASM {
+			current = 0
+		} else if version, err := readKeyFileVersion(dest); err == nil {
+			current = int(version >> 8)
+		} else {
+			current = 0
+		}
+		if current >= targetVersion {
+			return nil
+		}
+
+		if current > 0 {
+			patchURL := fmt.Sprintf("%s/data/%s.%dto%d.gz", base, name, current, targetVersion)
+			patchErr := downloadPatch(patchURL, dest, targetVersion, apply)
+			if patchErr == nil {
+				return nil
+			}
+
+			if errors.Is(patchErr, os.ErrNotExist) {
+				steps := availableAssetPatchChain(base, name, current, targetVersion)
+				if len(steps) > 0 {
+					patchErr = nil
+					for _, step := range steps {
+						stepURL := fmt.Sprintf("%s/data/%s.%dto%d.gz", base, name, step.from, step.to)
+						if err := downloadPatch(stepURL, dest, step.to, apply); err != nil {
+							patchErr = err
+							break
+						}
+					}
+					if patchErr == nil {
+						return nil
+					}
+				}
+			}
+			logDebug("patch %s %d to %d unavailable or failed (%v); downloading full archive", name, current, targetVersion, patchErr)
+			if downloadStatus != nil {
+				downloadStatus(fmt.Sprintf("Patch unavailable or failed; downloading full %s archive...", name))
+			}
+		}
+
+		fullURL := fmt.Sprintf("%s/data/%s.%d.gz", base, name, targetVersion)
+		lastErr = downloadGZ(fullURL, dest)
+		if lastErr == nil {
+			return nil
+		}
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no download source available for %s version %d", name, targetVersion)
+	}
+	return lastErr
+}
+
+func availableAssetPatchChain(base, name string, currentVersion, targetVersion int) []assetPatchStep {
+	req, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, strings.TrimRight(base, "/")+"/data/", nil)
+	if err != nil {
+		return nil
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	listing, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	if err != nil {
+		return nil
+	}
+	pattern, err := regexp.Compile(regexp.QuoteMeta(name) + `\.(\d+)to(\d+)\.gz`)
+	if err != nil {
+		return nil
+	}
+	edges := make(map[int][]int)
+	for _, match := range pattern.FindAllSubmatch(listing, -1) {
+		from, fromErr := strconv.Atoi(string(match[1]))
+		to, toErr := strconv.Atoi(string(match[2]))
+		if fromErr != nil || toErr != nil || from < currentVersion || to <= from || to > targetVersion {
+			continue
+		}
+		edges[from] = append(edges[from], to)
+	}
+	for from := range edges {
+		sort.Sort(sort.Reverse(sort.IntSlice(edges[from])))
+	}
+
+	type route struct {
+		version int
+		steps   []assetPatchStep
+	}
+	queue := []route{{version: currentVersion}}
+	visited := map[int]bool{currentVersion: true}
+	for len(queue) > 0 {
+		candidate := queue[0]
+		queue = queue[1:]
+		for _, next := range edges[candidate.version] {
+			steps := append(append([]assetPatchStep(nil), candidate.steps...), assetPatchStep{from: candidate.version, to: next})
+			if next == targetVersion {
+				return steps
+			}
+			if !visited[next] {
+				visited[next] = true
+				queue = append(queue, route{version: next, steps: steps})
+			}
+		}
+	}
+	return nil
+}
+
+func downloadPatch(url, dest string, expectedMajor int, apply func(string, []byte, uint32) error) error {
 	// Keep it simple: under WASM, skip patching and force full download path.
 	if isWASM {
 		return os.ErrNotExist
@@ -838,7 +900,7 @@ func downloadPatch(url, dest string, apply func(string, []byte) error) error {
 	if err != nil {
 		return err
 	}
-	if err := apply(dest, data); err != nil {
+	if err := apply(dest, data, uint32(expectedMajor)); err != nil {
 		return err
 	}
 	if downloadStatus != nil {

@@ -1,31 +1,22 @@
 package climg
 
-import (
-	"os"
+import "gothoom/keyfile"
 
-	"gothoom/keyfile"
-)
-
-// ApplyPatch merges patch data into the CL_Images keyfile at basePath.
-// The patch data must be an uncompressed keyfile. The update is written
-// atomically: a temporary file is written and replaces the original on
-// success.
-func ApplyPatch(basePath string, patch []byte) error {
-	base, err := os.ReadFile(basePath)
-	if err != nil {
+// ApplyPatch applies a classic-client CL_Images patch and verifies its target
+// version before replacing the archive.
+func ApplyPatch(basePath string, patch []byte, expectedMajor uint32) error {
+	validate := func(data []byte) error {
+		_, err := LoadBytes(data)
 		return err
 	}
-	merged, err := keyfile.Merge(base, patch)
-	if err != nil {
-		return err
-	}
-	tmp := basePath + ".tmp"
-	if err := os.WriteFile(tmp, merged, 0644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, basePath); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	return nil
+	return keyfile.ApplyPatchValidated(basePath, patch, expectedMajor, validate,
+		0x3c566572, // '<Ver' metadata present in official full archives
+		TYPE_IMAGE,
+		TYPE_COLOR,
+		TYPE_CLIENT_ITEM,
+		TYPE_LIGHT,
+		0x4c617933, // 'Lay3'
+		TYPE_IDREF,
+		0x56657273, // 'Vers'
+	)
 }
