@@ -1,0 +1,24 @@
+goThoom 49 changes since test48.
+
+Interface:
+- Reorganized the main Settings window into focused Display, Text, World, and Speech & Alerts tabs, making the settings easier to browse without an extremely wide window.
+- Added consistent Material icons throughout the interface, including movie playback, toolbar actions, setup, settings, scripts, shortcuts, groups, login, and common confirmation controls. Context menus and dropdown rows can now align icons alongside their labels.
+- Added a dedicated Snapshot icon to the toolbar and improved its spacing.
+
+Startup and asset loading:
+- Added a short startup precache for common, quick-loading artwork and sounds found across the bundled movies. This includes frequently used magic effects, interface and profession artwork, and common held items, reducing first-use pauses during movie playback and normal play.
+- Common sound loading runs alongside artwork preparation, and managed-atlas uploads are deferred until each artwork batch has finished its CPU work.
+- Greatly reduced image-archive parsing time and allocation pressure by reading resource tables and metadata in contiguous chunks instead of thousands of small operations.
+- Replaced the per-bit image decompressor with a buffered indexed-image decoder, reusable bounded pixel buffers, packed palette lookup tables, and wider pixel stores. Image masks and transparency checks share the same decoder.
+- Improved palette expansion, denoising, sprite upscaling, and fixed eight-tap high-quality sound resampling with measured lookup-table, word-at-a-time, and selectively unrolled operations.
+
+Rendering and hitch reduction:
+- Reduced managed texture-atlas churn by keeping cached artwork managed while moving temporary render targets and evicting speech-bubble text images to standalone textures.
+- Removed an explicit garbage collection after room artwork preparation and replaced large temporary artwork allocations with bounded reusable buffers.
+- Avoided unnecessary Players-window refreshes and persistence work when repeated backend who records do not change visible or saved player state.
+- Correctly deallocates cached sheets and processed artwork when settings invalidate them, while retaining stable cache entries during normal rendering.
+- Added optional per-frame asset diagnostics with `-assetLoadTrace`, reporting artwork decoding, processing, upload submission, managed and unmanaged image activity, atlas cache clears, scale-factor changes, and slow draw frames.
+
+Developer and diagnostic tools:
+- Added `-dumpPreloadAssets` to export the exact startup-preloaded images and sounds under `dump/preload` for inspection.
+- Expanded regression coverage for chunked archive parsing, indexed-image decoding, reusable buffers, atlas diagnostics, startup precaching, and tabbed interface behavior.
