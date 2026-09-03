@@ -2225,11 +2225,38 @@ func prepareSceneArtworkFrame(snap drawSnapshot) bool {
 	return tcpConn != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive
 }
 
+func sceneHasExplicitShadowPictures(snap drawSnapshot) bool {
+	if clImages == nil || !characterShadowCompositeEnabled() || layeredShadowCompositeShader == nil {
+		return false
+	}
+	for _, pictures := range [...][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
+		for _, picture := range pictures {
+			if gs.hideMoving && picture.Moving {
+				continue
+			}
+			flags := clImages.Flags(uint32(picture.PictID))
+			if flags&climg.PictDefIsShadow == 0 {
+				continue
+			}
+			if draw, _ := explicitShadowPictureAlpha(flags); draw {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // drawScene renders all world objects for the current frame.
 func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
 	frameDetailedShadowMask = nil
 	frameDetailedShadowBounds = image.Rectangle{}
 	resetLayeredCharacterShadows()
+	// Explicit shadow pictures can be on negative planes, before character
+	// shadows are prepared. Start one shared coverage mask at the beginning of
+	// the scene so neither kind multiplies darkness where they overlap.
+	if sceneHasExplicitShadowPictures(snap) {
+		beginLayeredCharacterShadowComposite(screen.Bounds())
+	}
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
@@ -2979,9 +3006,12 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	}
 	plane := p.Plane
 	shadowAlpha := float32(1)
+	explicitShadow := false
 	if clImages != nil {
+		flags := clImages.Flags(uint32(p.PictID))
+		explicitShadow = flags&climg.PictDefIsShadow != 0
 		var draw bool
-		draw, shadowAlpha = explicitShadowPictureAlpha(clImages.Flags(uint32(p.PictID)))
+		draw, shadowAlpha = explicitShadowPictureAlpha(flags)
 		if !draw {
 			return
 		}
@@ -3027,7 +3057,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	img := loadImageFrame(p.PictID, frame)
 	img = getScaledPictureFrame(p.PictID, frame, img)
 	var prevImg *ebiten.Image
-	if pictureFrameBlendingEnabled() && clImages != nil {
+	if !explicitShadow && pictureFrameBlendingEnabled() && clImages != nil {
 		if prevFrame != frame {
 			prevImg = loadImageFrame(p.PictID, prevFrame)
 			prevImg = getScaledPictureFrame(p.PictID, prevFrame, prevImg)
@@ -3036,7 +3066,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 
 	if img != nil {
 		drawW, drawH := w, h
-		blend := pictureFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
+		blend := !explicitShadow && pictureFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		if blend {
 			drawW = max(prevImg.Bounds().Dx(), img.Bounds().Dx())
@@ -3098,8 +3128,17 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 			op.GeoM.Scale(sx, sy)
 			op.GeoM.Translate(left, top)
 			op.ColorScale.Scale(red, green, blue, drawAlpha)
-			screen.DrawImage(src, op)
-			clearLayeredShadowCoverageImage(src, op)
+			const filterMargin = 2
+			bounds := image.Rect(
+				int(math.Floor(left))-filterMargin,
+				int(math.Floor(top))-filterMargin,
+				int(math.Ceil(left+targetW))+filterMargin,
+				int(math.Ceil(top+targetH))+filterMargin,
+			)
+			if !explicitShadow || !compositeLayeredShadowImage(screen, src, op, bounds) {
+				screen.DrawImage(src, op)
+				clearLayeredShadowCoverageImage(src, op)
+			}
 			releaseDrawOpts(op)
 		}
 

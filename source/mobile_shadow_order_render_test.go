@@ -91,6 +91,9 @@ func (g *shadowOrderRenderGame) Draw(_ *ebiten.Image) {
 	if g.err == nil {
 		g.err = verifyLayeredShadowOffsetCoordinates(texture, projection)
 	}
+	if g.err == nil {
+		g.err = verifyLayeredPictureShadowMaximum(texture, projection)
+	}
 	g.rendered = true
 }
 
@@ -163,6 +166,57 @@ func verifyLayeredShadowOffsetCoordinates(texture characterShadowTexture, projec
 	canvas.ReadPixels(pixels)
 	if got := shadowOrderPixel(pixels, 16, 10, 4); got != (color.RGBA{R: 240, G: 40, B: 20, A: 255}) {
 		return fmt.Errorf("offset-origin foreground was not drawn over its shadow: %#v", got)
+	}
+	return nil
+}
+
+func verifyLayeredPictureShadowMaximum(texture characterShadowTexture, projection characterShadowProjection) error {
+	canvas := ebiten.NewImage(12, 8)
+	canvas.Fill(color.RGBA{R: 200, G: 200, B: 200, A: 255})
+	shadowPicture := ebiten.NewImage(8, 8)
+	shadowPicture.Fill(color.White)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(2, 0)
+	op.ColorScale.Scale(0, 0, 0, 0.5)
+	bounds := image.Rect(2, 0, 10, 8)
+	beginLayeredCharacterShadowComposite(canvas.Bounds())
+	if !compositeLayeredShadowImage(canvas, shadowPicture, op, bounds) {
+		return fmt.Errorf("explicit picture shadow did not use layered compositor")
+	}
+	first := make([]byte, 12*8*4)
+	canvas.ReadPixels(first)
+	firstGround := shadowOrderPixel(first, 12, 6, 4)
+	if firstGround.R >= 200 || firstGround.G >= 200 || firstGround.B >= 200 {
+		return fmt.Errorf("explicit picture shadow did not darken ground: %#v", firstGround)
+	}
+
+	if !compositeLayeredShadowImage(canvas, shadowPicture, op, bounds) {
+		return fmt.Errorf("second explicit picture shadow did not use layered compositor")
+	}
+	second := make([]byte, 12*8*4)
+	canvas.ReadPixels(second)
+	if secondGround := shadowOrderPixel(second, 12, 6, 4); !shadowOrderColorNear(firstGround, secondGround) {
+		return fmt.Errorf("overlapping picture shadows multiplied darkness: first %#v, second %#v", firstGround, secondGround)
+	}
+
+	// Character shadow opacity includes the detailed-core multiplier. Choose
+	// its input alpha so its final 50% coverage matches the picture shadow.
+	command := characterShadowDraw{
+		texture: texture,
+		size:    8,
+		x:       6,
+		y:       4,
+		alpha:   2.0 / 3.0,
+		projection: characterShadowProjection{
+			contrast: projection.contrast,
+		},
+	}
+	command.quad = mobileSunShadowQuad(texture, command.size, command.x, command.y, command.projection, false)
+	compositeLayeredCharacterShadow(canvas, command)
+	third := make([]byte, 12*8*4)
+	canvas.ReadPixels(third)
+	if thirdGround := shadowOrderPixel(third, 12, 6, 4); !shadowOrderColorNear(firstGround, thirdGround) {
+		return fmt.Errorf("picture and character shadows multiplied darkness: picture %#v, combined %#v", firstGround, thirdGround)
 	}
 	return nil
 }
