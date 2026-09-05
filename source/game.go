@@ -3888,6 +3888,19 @@ func separateBubbleLayout(items []jointBubbleLayoutItem, bounds image.Rectangle)
 	}
 }
 
+// bubbleLayoutHasConflict stops as soon as any visible footprints overlap.
+func bubbleLayoutHasConflict(items []jointBubbleLayoutItem) bool {
+	for i := range items {
+		for j := i + 1; j < len(items); j++ {
+			a, b := bubbleLayoutPairFootprints(items[i], items[j], 0)
+			if !a.Intersect(b).Empty() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func bubbleLayoutConflictFlags(items []jointBubbleLayoutItem) []bool {
 	conflicts := make([]bool, len(items))
 	for i := range items {
@@ -3917,11 +3930,7 @@ func bubbleLayoutNeedsSolve(activeCount, rememberedCount int, laidOut []time.Tim
 		}
 	}
 	if preventOverlap {
-		for _, conflict := range bubbleLayoutConflictFlags(prior) {
-			if conflict {
-				return true
-			}
-		}
+		return bubbleLayoutHasConflict(prior)
 	}
 	return false
 }
@@ -3939,10 +3948,8 @@ func bubbleLayoutMaxAnchorDistance(items []jointBubbleLayoutItem, anchors []imag
 }
 
 func keepPriorBubbleLayout(prior, candidate []jointBubbleLayoutItem, anchors []image.Point, improvementThreshold float64) bool {
-	for _, conflict := range bubbleLayoutConflictFlags(prior) {
-		if conflict {
-			return false
-		}
+	if bubbleLayoutHasConflict(prior) {
+		return false
 	}
 	priorMaximum := bubbleLayoutMaxAnchorDistance(prior, anchors)
 	candidateMaximum := bubbleLayoutMaxAnchorDistance(candidate, anchors)

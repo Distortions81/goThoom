@@ -36,6 +36,8 @@ var (
 	frameLightShadows        []lightShadow
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
 	// Reused shader data to avoid per-frame allocations
+	leqR, leqG, leqB                                  [maxLights]float32
+	seqR, seqG, seqB                                  [maxLightShadows]float32
 	lposX, lposY, linvRadiusSquared, lr, lg, lb, lint [maxLights]float32
 	dposX, dposY, dinvRadiusSquared, da, dint, dplane [maxLights]float32
 	slightX, slightY, slightInvRadiusSquared          [maxLightShadows]float32
@@ -76,6 +78,12 @@ const (
 
 func newLightingShaderVariant(shader *ebiten.Shader, lightLimit, shadowLimit int) lightingShaderVariant {
 	uniforms := map[string]any{
+		"LightEqualizedR":             leqR[:lightLimit],
+		"LightEqualizedG":             leqG[:lightLimit],
+		"LightEqualizedB":             leqB[:lightLimit],
+		"ShadowEqualizedR":            seqR[:shadowLimit],
+		"ShadowEqualizedG":            seqG[:shadowLimit],
+		"ShadowEqualizedB":            seqB[:shadowLimit],
 		"LightCount":                  0,
 		"DarkCount":                   0,
 		"LightPosX":                   lposX[:lightLimit],
@@ -335,6 +343,7 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		lr[i] = ls.R
 		lg[i] = ls.G
 		lb[i] = ls.B
+		leqR[i], leqG[i], leqB[i] = equalizedLightColor(ls.R, ls.G, ls.B)
 		if ls.Intensity <= 0 {
 			lint[i] = 0
 		} else if ls.Intensity >= 1 {
@@ -366,6 +375,7 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		slightR[i] = shadow.LightR
 		slightG[i] = shadow.LightG
 		slightB[i] = shadow.LightB
+		seqR[i], seqG[i], seqB[i] = equalizedLightColor(shadow.LightR, shadow.LightG, shadow.LightB)
 		slightInt[i] = shadow.LightIntensity
 		scasterX[i], scasterY[i] = localLightingPosition(shadow.CasterX, shadow.CasterY, dstBounds)
 		scasterRadius[i] = shadow.CasterRadius
@@ -425,6 +435,13 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		{DstX: right, DstY: bottom, SrcX: right, SrcY: bottom, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: 1},
 	}
 	dst.DrawTrianglesShader32(vertices[:], lightingIndices, variant.shader, op)
+}
+
+// equalizedLightColor is constant across pixels for each light or shadow.
+func equalizedLightColor(r, g, b float32) (float32, float32, float32) {
+	lum := max(r*0.2126+g*0.7152+b*0.0722, float32(0.001))
+	const amount = float32(0.03)
+	return r*(1-amount) + (r/lum)*amount, g*(1-amount) + (g/lum)*amount, b*(1-amount) + (b/lum)*amount
 }
 
 func highestLightPlane(lights []lightSource) float32 {
