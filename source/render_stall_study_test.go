@@ -74,15 +74,17 @@ func TestRenderStallStudy(t *testing.T) {
 		}
 	}
 	fullscreen := os.Getenv("GOTHOOM_RENDER_FULLSCREEN") == "1"
+	vsync := os.Getenv("GOTHOOM_RENDER_VSYNC") == "1"
+	docked := os.Getenv("GOTHOOM_RENDER_DOCKED") != "0"
 	fixture := loadTourPerformanceFixture(t)
 	gs = gsdef
 	gs.GameScale = float64(scale)
 	gs.SpriteUpscale = artworkScale
 	gs.UIScale = float64(scale) / 2
-	gs.VSync = false
+	gs.VSync = vsync
 	gs.PowerSaveBackground = false
 	gs.PowerSaveAlways = false
-	gs.TiledWindows = true
+	gs.TiledWindows = docked
 	gs.MessagesToConsole = false
 	gs.forceNightLevel = 50
 	gNight.Shadows = 50
@@ -105,14 +107,13 @@ func TestRenderStallStudy(t *testing.T) {
 		t.Fatal(err)
 	}
 	startupLoader.complete = true
-	ebiten.SetVsyncEnabled(false)
+	ebiten.SetVsyncEnabled(vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetWindowSize(960, 540)
 	ebiten.SetFullscreen(fullscreen)
 	eui.SetScreenSize(960*scale, 540*scale)
 	eui.SetUIScale(float32(scale) / 2)
-	gameWin = eui.NewWindow()
-	gameWin.NoCache, gameWin.NoScale, gameWin.NoScroll = true, true, true
+	gameWin = newGameRenderWindow()
 	gameWin.Padding, gameWin.TitleHeight = 0, 0
 	gameWin.Size = eui.Point{X: float32(gameAreaSizeX * scale), Y: float32(gameAreaSizeY * scale)}
 	gameWin.Position = eui.Point{X: float32(200 * scale)}
@@ -129,6 +130,8 @@ func TestRenderStallStudy(t *testing.T) {
 		w.SetPos(eui.Point{X: float32((i % 2) * 775 * scale), Y: float32((i / 2) * 270 * scale)})
 		w.MarkOpen()
 	}
+	prepareTiledWorkspaceWindowChrome()
+	finishTiledWorkspaceWindowChrome()
 	g := &renderStallStudy{scale: scale, panes: panes, output: output, minimumDuration: time.Duration(seconds * float64(time.Second)), minimumSamples: minimumSamples}
 	if err := ebiten.RunGame(g); err != nil {
 		t.Fatal(err)
@@ -140,6 +143,9 @@ func TestRenderStallStudy(t *testing.T) {
 		t.Fatalf("render study interrupted: completed %d of %d cases", len(g.results), len(renderStallCases))
 	}
 	report := map[string]any{"worldBounds": gameImage.Bounds().String(), "worldScale": worldScale, "fixture": performanceTourFixture, "pictures": len(fixture.busyScene.pictures), "mobiles": len(fixture.busyScene.mobiles), "scale": scale, "nightPercent": 50, "animatedDefault": gsdef.AnimatedChatBubbles, "artworkUpscale": artworkScale, "minimumSamplesPerCase": minimumSamples, "minimumSecondsPerCase": seconds, "warmupFrames": 90, "fullscreen": fullscreen, "goVersion": runtime.Version(), "goos": runtime.GOOS, "goarch": runtime.GOARCH, "cases": g.results}
+	report["vsync"] = vsync
+	report["docked"] = docked
+	report["gameWindowNoBackground"] = gameWin.NoBGColor
 	monitor := ebiten.Monitor()
 	mw, mh := monitor.Size()
 	report["monitor"] = map[string]any{"name": monitor.Name(), "widthDP": mw, "heightDP": mh, "deviceScaleFactor": monitor.DeviceScaleFactor()}

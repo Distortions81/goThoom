@@ -1,5 +1,11 @@
 # Laptop rendering benchmark
 
+> Fixture correction: the [GPU audit](GPUStallAudit.md) found a game-window
+> background/shadow absent from the client and missing docking setup. The
+> current fixture shares the client's game-window rendering policy and applies
+> production pane chrome. Reports now record `gameWindowNoBackground` and
+> `docked`; historical reports without these fields used the old fixture.
+
 > Status: The uncommitted bubble rendering experiment was reverted on 2026-09-05.
 > Bubble behavior and the animation default are back to the committed implementation.
 > The experiment descriptions and before/after captures below are historical; they
@@ -73,7 +79,7 @@ Original measurements and limitations are in [RenderStallStudy.md](RenderStallSt
    with Python 3. The runner selects Ebitengine's OpenGL backend, records
    `glxinfo -B`, and refuses llvmpipe/softpipe software rendering.
 
-The test opens its own window, disables VSync and power-saving frame limits,
+The test opens its own window, defaults to VSync off, and disables power-saving frame limits,
 and uses temporary application data. It does not connect to the game server.
 It does not change the user's saved settings.
 
@@ -97,6 +103,23 @@ To locate game assets outside the default Linux data directory:
 GOTHOOM_PERF_IMAGES=/path/to/CL_Images \
 build-scripts/render_stall_study.sh /tmp/gothoom-laptop-current
 ```
+
+Compare VSync in separate output directories, keeping all other settings the
+same. The runner defaults to `GOTHOOM_RENDER_VSYNC=0`; each JSON report records
+the selected setting. Use `1` for VSync on:
+
+```sh
+GOTHOOM_RENDER_VSYNC=1 \
+build-scripts/render_stall_study.sh /tmp/gothoom-laptop-vsync-on
+```
+
+Keep windowed and fullscreen comparisons separate. The desktop compositor
+can affect presentation even when the application requests VSync off. See
+[GPUStallAudit.md](GPUStallAudit.md) for the measured 5500U comparison and draw-call audit.
+
+The corrected fixture defaults to docked panes. Set `GOTHOOM_RENDER_DOCKED=0`
+for a separate floating-window run. This also sets the corresponding client
+layout preference; compare reports' world bounds when changing layout.
 
 After the primary 2x comparison, repeat at 3x; 4x is an optional high-load case:
 

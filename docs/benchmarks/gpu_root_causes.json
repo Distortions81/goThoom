@@ -1,0 +1,579 @@
+{
+  "date": "2026-09-05",
+  "reference_commit": "57bca77",
+  "hardware": "Ryzen 5 5500U / Radeon renoir, Mesa 25.2.8, Linux X11/KDE, 1920x1080 60.05 Hz",
+  "method": "clean windowed fixed-scene timings; render/artwork scale 2; 600 frames and 10 seconds minimum per case",
+  "clean": {
+    "old_fixture": {
+      "artworkUpscale": 2,
+      "fullscreen": false,
+      "scale": 2,
+      "vsync": false,
+      "worldBounds": "(0,0)-(1094,1080)",
+      "worldScale": 2,
+      "cases": [
+        {
+          "Samples": 600,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 14.960967,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 7.78061,
+            "p95_ms": 8.957815,
+            "p99_ms": 9.345812
+          },
+          "FrameInterval": {
+            "max_ms": 39.50935,
+            "over_16_67ms_pct": 100,
+            "over_33_33ms_pct": 100,
+            "p50_ms": 37.746676,
+            "p95_ms": 38.245133,
+            "p99_ms": 38.547726
+          },
+          "GPUBytes": 874489856
+        },
+        {
+          "Samples": 600,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 18.291427,
+            "over_16_67ms_pct": 0.16666666666666666,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.164989,
+            "p95_ms": 10.947881,
+            "p99_ms": 11.744821
+          },
+          "FrameInterval": {
+            "max_ms": 61.540308,
+            "over_16_67ms_pct": 100,
+            "over_33_33ms_pct": 100,
+            "p50_ms": 37.798903,
+            "p95_ms": 61.031685,
+            "p99_ms": 61.337126
+          },
+          "GPUBytes": 878683136
+        }
+      ]
+    },
+    "game_background_corrected": {
+      "artworkUpscale": 2,
+      "fullscreen": false,
+      "scale": 2,
+      "vsync": false,
+      "worldBounds": "(0,0)-(1094,1080)",
+      "worldScale": 2,
+      "cases": [
+        {
+          "Samples": 1202,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 11.22625,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.109393,
+            "p95_ms": 6.044781,
+            "p99_ms": 6.441061
+          },
+          "FrameInterval": {
+            "max_ms": 11.995205,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.318749,
+            "p95_ms": 8.742198,
+            "p99_ms": 8.962758
+          },
+          "GPUBytes": 404727808
+        },
+        {
+          "Samples": 1124,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 12.366273,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.315845,
+            "p95_ms": 7.444404,
+            "p99_ms": 9.092454
+          },
+          "FrameInterval": {
+            "max_ms": 19.277926,
+            "over_16_67ms_pct": 3.9145907473309607,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.297169,
+            "p95_ms": 16.47819,
+            "p99_ms": 17.033429
+          },
+          "GPUBytes": 408921088
+        },
+        {
+          "Samples": 1201,
+          "Name": "baseline_repeat",
+          "Submission": {
+            "max_ms": 12.10751,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.268702,
+            "p95_ms": 6.173708,
+            "p99_ms": 6.650865
+          },
+          "FrameInterval": {
+            "max_ms": 13.143678,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.332787,
+            "p95_ms": 8.773766,
+            "p99_ms": 8.97519
+          },
+          "GPUBytes": 405775360
+        }
+      ]
+    },
+    "tiled": {
+      "artworkUpscale": 2,
+      "docked": true,
+      "fullscreen": false,
+      "gameWindowNoBackground": true,
+      "scale": 2,
+      "vsync": false,
+      "worldBounds": "(0,0)-(1094,1080)",
+      "worldScale": 2,
+      "cases": [
+        {
+          "Samples": 1674,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 11.676947,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 4.859038,
+            "p95_ms": 5.550661,
+            "p99_ms": 5.823735
+          },
+          "FrameInterval": {
+            "max_ms": 12.512442,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.967676,
+            "p95_ms": 6.463258,
+            "p99_ms": 6.850452
+          },
+          "GPUBytes": 341813248
+        },
+        {
+          "Samples": 1664,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 9.014172,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 4.820911,
+            "p95_ms": 5.68099,
+            "p99_ms": 6.588276
+          },
+          "FrameInterval": {
+            "max_ms": 15.409971,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.859499,
+            "p95_ms": 6.691852,
+            "p99_ms": 11.536301
+          },
+          "GPUBytes": 342860800
+        }
+      ]
+    },
+    "tiled_vsync": {
+      "artworkUpscale": 2,
+      "docked": true,
+      "fullscreen": false,
+      "gameWindowNoBackground": true,
+      "scale": 2,
+      "vsync": true,
+      "worldBounds": "(0,0)-(1094,1080)",
+      "worldScale": 2,
+      "cases": [
+        {
+          "Samples": 602,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 6.218625,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 4.649456,
+            "p95_ms": 5.43921,
+            "p99_ms": 5.80517
+          },
+          "FrameInterval": {
+            "max_ms": 17.807167,
+            "over_16_67ms_pct": 47.50830564784053,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 16.642869,
+            "p95_ms": 17.246774,
+            "p99_ms": 17.447282
+          },
+          "GPUBytes": 341813248
+        },
+        {
+          "Samples": 602,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 8.632369,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 4.656375,
+            "p95_ms": 5.951351,
+            "p99_ms": 6.506298
+          },
+          "FrameInterval": {
+            "max_ms": 17.691186,
+            "over_16_67ms_pct": 50.332225913621265,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 16.668864,
+            "p95_ms": 17.181909,
+            "p99_ms": 17.381929
+          },
+          "GPUBytes": 346006528
+        }
+      ]
+    },
+    "floating": {
+      "artworkUpscale": 2,
+      "docked": false,
+      "fullscreen": false,
+      "gameWindowNoBackground": true,
+      "scale": 2,
+      "vsync": false,
+      "worldBounds": "(0,0)-(1090,1076)",
+      "worldScale": 1.9925925925925927,
+      "cases": [
+        {
+          "Samples": 1197,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 11.837623,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.218383,
+            "p95_ms": 6.224848,
+            "p99_ms": 7.069146
+          },
+          "FrameInterval": {
+            "max_ms": 12.524011,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.352528,
+            "p95_ms": 8.731901,
+            "p99_ms": 9.016708
+          },
+          "GPUBytes": 404727808
+        },
+        {
+          "Samples": 1119,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 11.229389,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.358276,
+            "p95_ms": 7.667893,
+            "p99_ms": 8.695658
+          },
+          "FrameInterval": {
+            "max_ms": 18.161091,
+            "over_16_67ms_pct": 3.2171581769436997,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.342967,
+            "p95_ms": 16.503225,
+            "p99_ms": 17.013694
+          },
+          "GPUBytes": 408921088
+        }
+      ]
+    },
+    "floating_background_cached_probe": {
+      "artworkUpscale": 2,
+      "docked": false,
+      "fullscreen": false,
+      "gameWindowNoBackground": true,
+      "scale": 2,
+      "vsync": false,
+      "worldBounds": "(0,0)-(1090,1076)",
+      "worldScale": 1.9925925925925927,
+      "cases": [
+        {
+          "Samples": 1190,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 11.955386,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.41618,
+            "p95_ms": 6.622181,
+            "p99_ms": 8.070876
+          },
+          "FrameInterval": {
+            "max_ms": 14.623841,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.364134,
+            "p95_ms": 8.967417,
+            "p99_ms": 9.715122
+          },
+          "GPUBytes": 408922112
+        },
+        {
+          "Samples": 1166,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 11.792944,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.442721,
+            "p95_ms": 7.040318,
+            "p99_ms": 8.084357
+          },
+          "FrameInterval": {
+            "max_ms": 19.141544,
+            "over_16_67ms_pct": 1.9725557461406518,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 8.326006,
+            "p95_ms": 9.791538,
+            "p99_ms": 16.861394
+          },
+          "GPUBytes": 405775360
+        }
+      ]
+    },
+    "final_fixture_validation": {
+      "artworkUpscale": 2,
+      "docked": true,
+      "fullscreen": false,
+      "gameWindowNoBackground": true,
+      "scale": 2,
+      "vsync": false,
+      "worldBounds": "(0,0)-(1094,1080)",
+      "worldScale": 2,
+      "cases": [
+        {
+          "Samples": 1668,
+          "Name": "baseline",
+          "Submission": {
+            "max_ms": 9.961818,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 4.947809,
+            "p95_ms": 5.699541,
+            "p99_ms": 6.160683
+          },
+          "FrameInterval": {
+            "max_ms": 11.130278,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.978754,
+            "p95_ms": 6.554986,
+            "p99_ms": 7.41846
+          },
+          "GPUBytes": 341813248
+        },
+        {
+          "Samples": 1657,
+          "Name": "ui_refresh_5hz_unbatched",
+          "Submission": {
+            "max_ms": 9.664735,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 4.891171,
+            "p95_ms": 5.911855,
+            "p99_ms": 6.885326
+          },
+          "FrameInterval": {
+            "max_ms": 15.861109,
+            "over_16_67ms_pct": 0,
+            "over_33_33ms_pct": 0,
+            "p50_ms": 5.884826,
+            "p95_ms": 6.817025,
+            "p99_ms": 11.649815
+          },
+          "GPUBytes": 342860800
+        }
+      ]
+    }
+  },
+  "gpu_probe": {
+    "old_fixture": {
+      "batch_range": [
+        100,
+        190
+      ],
+      "samples": 91,
+      "disjoint_records": 0,
+      "median_gpu_ms": 36.38508,
+      "median_driver_submit_ms": 1.886697,
+      "median_swap_ms": 35.769167,
+      "target_median_ms": {
+        "0": 0.18068,
+        "1": 1.52284,
+        "3": 10.0676,
+        "31": 2.4433599999999998,
+        "32": 0.03916,
+        "73": 22.130119999999994
+      }
+    },
+    "game_background_corrected": {
+      "batch_range": [
+        100,
+        190
+      ],
+      "samples": 91,
+      "disjoint_records": 0,
+      "median_gpu_ms": 7.316039999999999,
+      "median_driver_submit_ms": 1.755326,
+      "median_swap_ms": 6.574528,
+      "target_median_ms": {
+        "0": 0.18028,
+        "1": 1.54252,
+        "3": 0.45376000000000005,
+        "31": 2.43844,
+        "32": 0.031920000000000004,
+        "55": 2.67076
+      }
+    }
+  },
+  "moving_playback": {
+    "method": "30 second PGO capture at 30 movie updates per second, isolated default settings with scale 2, VSync off, tiled layout, master audio volume 0; instrumentation enabled; not clean gameplay percentiles",
+    "asset_transition_evidence": [
+      "2026/09/05 04:33:27.047842 asset frame: frame=1923 total=43.533ms slow=true threshold=8ms world=41.566ms ui=1.951ms view=1013x1000 render_scale=1.852 atlas_factor=2 prepare_calls=1 requested_sheets=102 prepared_sheets=14 ids=[4478 5075 5960 5959 5000 5094 5528 6057 912 4199 479 4200 5196 5982] prepare=38.244ms decode=2ms process=24.358ms upload_submit=11.85ms image_creates=14 image_bytes=4837712 image_create=1.827ms managed_adds=107 managed_add_bytes=7959392 managed_removes=0 managed_remove_bytes=0 managed_residents=7760 managed_resident_bytes=596502252 unmanaged_creates=11 unmanaged_bytes=6123104 unmanaged_create=20\u00b5s unmanaged_sites=[main.newUnmanagedImage=11] cache_clears=0 cleared_images=0 cleared_bytes=0 factor_changes=0 last_factor_change=0->0",
+      "2026/09/05 04:33:27.064647 frame pacing: frame=15 interval=60.567ms threshold=20ms update=416\u00b5s draw=43.573ms outside=16.578ms snapshot_wait=1\u00b5s fps=86.8 focused=true vsync=false gc_total=10 last_gc_pause=184\u00b5s last_gc_age=3.254s gc_during_interval=false heap=917MiB goroutines=49"
+    ],
+    "snapshot_lock_us": 1,
+    "gc_during_transition": false,
+    "window_shadows_on": {
+      "samples": 2660,
+      "excluded_first_submission_batches": 300,
+      "gpu_interval_quantiles_ms": {
+        "p50": 7.856800000000001,
+        "p95": 17.004000000000005,
+        "p99": 18.61248
+      }
+    },
+    "window_shadows_off": {
+      "samples": 3808,
+      "excluded_first_submission_batches": 300,
+      "gpu_interval_quantiles_ms": {
+        "p50": 6.5315199999999995,
+        "p95": 8.372959999999999,
+        "p99": 9.959959999999999
+      }
+    }
+  },
+  "native_walking_vsync": {
+    "method": "Normal client movie playback at 5 updates per second, VSync on, tiled layout, power saving off, isolated settings; temporary diagnostic overlay seeks to tour frame 12290 and buffers Update-to-Update timings with the preceding Update, Draw, interpolation and UI repaint work. GPU timestamp probe enabled. No background cache optimization. Single instrumented run, not a paired speedup comparison.",
+    "fixture": "tour-2025.08.02.clMov.zip",
+    "seek_frame": 12290,
+    "first_measured_logical_frame": 12340,
+    "last_measured_logical_frame": 12434,
+    "measurement_duration_seconds": 18.984790387,
+    "vsync": true,
+    "movie_updates_per_second": 5,
+    "docked": true,
+    "all": {
+      "samples": 1140,
+      "intervals_over_25ms": 0,
+      "interval_ms": {
+        "p50": 16.640769,
+        "p95": 17.253556,
+        "p99": 17.501352
+      },
+      "update_ms": {
+        "p50": 0.214761,
+        "p95": 0.631573,
+        "p99": 1.604041
+      },
+      "draw_ms": {
+        "p50": 0.49252,
+        "p95": 1.924543,
+        "p99": 3.149556
+      },
+      "repaint_ms": {
+        "p50": 0.0,
+        "p95": 1.324956,
+        "p99": 1.591889
+      }
+    },
+    "moving": {
+      "samples": 936,
+      "intervals_over_25ms": 0,
+      "interval_ms": {
+        "p50": 16.642587,
+        "p95": 17.246852,
+        "p99": 17.469017
+      },
+      "update_ms": {
+        "p50": 0.213783,
+        "p95": 1.066963,
+        "p99": 1.587769
+      },
+      "draw_ms": {
+        "p50": 0.479041,
+        "p95": 1.924543,
+        "p99": 3.149556
+      },
+      "repaint_ms": {
+        "p50": 0.0,
+        "p95": 1.327261,
+        "p99": 1.591889
+      }
+    },
+    "repaint": {
+      "samples": 114,
+      "intervals_over_25ms": 0,
+      "interval_ms": {
+        "p50": 16.609272,
+        "p95": 17.246852,
+        "p99": 17.501352
+      },
+      "update_ms": {
+        "p50": 0.241441,
+        "p95": 1.658587,
+        "p99": 1.951222
+      },
+      "draw_ms": {
+        "p50": 1.924543,
+        "p95": 4.796062,
+        "p99": 8.916829
+      },
+      "repaint_ms": {
+        "p50": 1.324956,
+        "p95": 1.687711,
+        "p99": 2.36936
+      }
+    },
+    "no_repaint": {
+      "samples": 1026,
+      "intervals_over_25ms": 0,
+      "interval_ms": {
+        "p50": 16.64908,
+        "p95": 17.253556,
+        "p99": 17.479002
+      },
+      "update_ms": {
+        "p50": 0.212806,
+        "p95": 0.325041,
+        "p99": 1.436144
+      },
+      "draw_ms": {
+        "p50": 0.481135,
+        "p95": 0.66377,
+        "p99": 0.78257
+      },
+      "repaint_ms": {
+        "p50": 0.0,
+        "p95": 0.0,
+        "p99": 0.0
+      }
+    },
+    "conclusion": "Regular walking drops were not reproduced. The user also confirmed smoother play. This does not isolate which earlier change improved it; no additional production optimization is justified by this sample.",
+    "limitations": "Update-to-Update intervals measure application cadence, not display scanout. A 25 ms threshold identifies intervals consistent with a missed 60 Hz refresh, not proof of presentation timing. Excludes startup and the first 50 logical updates after seek; no individual measured outliers removed."
+  }
+}

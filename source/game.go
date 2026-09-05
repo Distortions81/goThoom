@@ -4586,23 +4586,31 @@ func initGame() {
 	go loadSpellcheck()
 }
 
+// newGameRenderWindow supplies the rendering policy shared by the client and
+// render studies. The playfield paints its own background; drawing EUI window
+// backgrounds here would add a large, hidden shadow pass on every frame.
+func newGameRenderWindow() *eui.WindowData {
+	win := eui.NewWindow()
+	win.NoBGColor = true
+	win.NoScroll = true
+	win.NoCache = true
+	win.NoScale = true
+	win.AlwaysDrawFirst = true
+	return win
+}
+
 func makeGameWindow() {
 	if gameWin != nil {
 		return
 	}
-	gameWin = eui.NewWindow()
+	gameWin = newGameRenderWindow()
 	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
 	gameWindowFreeformPadding = gameWin.Padding
 	gameWindowFreeformMargin = gameWin.Margin
 	updateGameWindowTitle()
 	gameWin.Closable = false
 	gameWin.Resizable = !gs.TiledWindows
-	gameWin.NoBGColor = true
 	gameWin.Movable = true
-	gameWin.NoScroll = true
-	gameWin.NoCache = true
-	gameWin.NoScale = true
-	gameWin.AlwaysDrawFirst = true
 	if !settingsLoaded {
 		gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
 	}

@@ -1,5 +1,11 @@
 # Pixel-aligned UI fills — 2026-09-05
 
+> Historical fixture results. The later [GPU audit](GPUStallAudit.md) found
+> that this fixture enabled a game-window background/shadow absent from the
+> client and left tiled panes undocked. The numbers below remain the original
+> measurements; they do not establish a 19% improvement in normal gameplay.
+> Use the corrected fixture for future client performance claims.
+
 UI rectangle fills already round their position and dimensions to whole pixels.
 Disable antialiasing for these fills: Ebitengine 2.9.10's `vector.FillRect`
 then uses a batchable image quad instead of a vector stencil and fill pass.

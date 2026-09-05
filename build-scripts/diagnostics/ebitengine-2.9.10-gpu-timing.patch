@@ -1,0 +1,201 @@
+--- a/internal/graphicsdriver/opengl/gl/default_purego.go
++++ b/internal/graphicsdriver/opengl/gl/default_purego.go
+@@ -17,7 +17,10 @@
+ package gl
+ 
+ import (
++	"fmt"
++	"os"
+ 	"runtime"
++	"time"
+ 	"unsafe"
+ 
+ 	"github.com/ebitengine/purego"
+@@ -138,6 +141,7 @@
+ }
+ 
+ func (c *defaultContext) BindFramebuffer(target uint32, framebuffer uint32) {
++	probeFB = framebuffer
+ 	purego.SyscallN(c.gpBindFramebuffer, uintptr(target), uintptr(framebuffer))
+ }
+ 
+@@ -264,6 +268,7 @@
+ }
+ 
+ func (c *defaultContext) DrawElements(mode uint32, count int32, xtype uint32, offset int) {
++	probeDraw(c)
+ 	purego.SyscallN(c.gpDrawElements, uintptr(mode), uintptr(count), uintptr(xtype), uintptr(offset))
+ }
+ 
+@@ -276,6 +281,7 @@
+ }
+ 
+ func (c *defaultContext) Flush() {
++	probeFlush(c)
+ 	purego.SyscallN(c.gpFlush)
+ }
+ 
+@@ -563,3 +569,126 @@
+ 		bs = nil
+ 	}
+ }
++
++// Diagnostic overlay only. Never included in the normal client.
++type probeStamp struct {
++	q     uint32
++	frame int
++	fb    uint32
++	end   bool
++}
++
++var probeFile *os.File
++var probeInit bool
++var probeFrame int
++var probeFB, probeLastFB uint32
++var probeDraws, probeSwitches int
++var probeStart time.Time
++var probeActive bool
++var probeFree []uint32
++var probePending []probeStamp
++var probeGen func(int32, *uint32)
++var probeCounter func(uint32, uint32)
++var probeAvailable func(uint32, uint32, *uint32)
++var probeResult func(uint32, uint32, *uint64)
++var probeQueryInfo func(uint32, uint32, *int32)
++var probeLastStamp uint64
++var probeLastLabel probeStamp
++var probeHaveLast bool
++
++func probeInitWith(c *defaultContext) {
++	probeInit = true
++	path := os.Getenv("GOTHOOM_GPU_TIMELINE")
++	if path == "" {
++		return
++	}
++	var err error
++	probeFile, err = os.Create(path)
++	if err != nil {
++		panic(err)
++	}
++	lib, err := purego.Dlopen("libGL.so.1", purego.RTLD_LAZY|purego.RTLD_GLOBAL)
++	if err != nil {
++		panic(err)
++	}
++	var get func(string) uintptr
++	purego.RegisterLibFunc(&get, lib, "glXGetProcAddress")
++	purego.RegisterFunc(&probeGen, get("glGenQueriesEXT"))
++	purego.RegisterFunc(&probeCounter, get("glQueryCounterEXT"))
++	purego.RegisterFunc(&probeAvailable, get("glGetQueryObjectuivEXT"))
++	purego.RegisterFunc(&probeResult, get("glGetQueryObjectui64vEXT"))
++	purego.RegisterFunc(&probeQueryInfo, get("glGetQueryivEXT"))
++	var bits int32
++	probeQueryInfo(0x8e28, 0x8864, &bits)
++	fmt.Fprintf(probeFile, "meta,timestamp_bits,%d,error,%d\n", bits, c.GetError())
++	if bits == 0 {
++		panic("GPU timestamps unsupported")
++	}
++	probeFree = make([]uint32, 8192)
++	probeGen(int32(len(probeFree)), &probeFree[0])
++	c.GetInteger(0x8fbb)
++}
++func DiagnosticBegin() { probeFrame++; probeStart = time.Now(); probeDraws = 0; probeSwitches = 0 }
++func DiagnosticEnd(exec, swap time.Duration) {
++	if probeFile != nil {
++		fmt.Fprintf(probeFile, "cpu,%d,%d,%d,%d,%d,%d\n", probeFrame, exec.Nanoseconds(), swap.Nanoseconds(), probeDraws, probeSwitches, probeStart.UnixNano())
++	}
++}
++func DiagnosticElapsed() time.Duration { return time.Since(probeStart) }
++func probeMark(frame int, fb uint32, end bool) {
++	if len(probeFree) == 0 {
++		panic("GPU query ring exhausted")
++	}
++	q := probeFree[len(probeFree)-1]
++	probeFree = probeFree[:len(probeFree)-1]
++	probeCounter(q, 0x8e28)
++	probePending = append(probePending, probeStamp{q, frame, fb, end})
++}
++func probeDraw(c *defaultContext) {
++	if !probeInit {
++		probeInitWith(c)
++	}
++	if probeFile == nil {
++		return
++	}
++	probeDraws++
++	if !probeActive || probeFB != probeLastFB {
++		probeMark(probeFrame, probeFB, false)
++		probeActive = true
++		probeLastFB = probeFB
++		probeSwitches++
++	}
++}
++func probeFlush(c *defaultContext) {
++	if probeFile == nil {
++		return
++	}
++	if probeActive {
++		probeMark(probeFrame, probeLastFB, true)
++		probeActive = false
++	}
++	disjoint := c.GetInteger(0x8fbb)
++	if disjoint != 0 {
++		fmt.Fprintln(probeFile, "meta,disjoint,1")
++		panic("GPU clock became disjoint; discard this capture")
++	}
++	consumed := 0
++	for _, s := range probePending {
++		var ready uint32
++		probeAvailable(s.q, 0x8867, &ready)
++		if ready == 0 {
++			break
++		}
++		var stamp uint64
++		probeResult(s.q, 0x8866, &stamp)
++		if probeHaveLast && probeLastLabel.frame == s.frame && !probeLastLabel.end {
++			fmt.Fprintf(probeFile, "gpu,%d,%d,%d,%d\n", s.frame, probeLastLabel.fb, stamp-probeLastStamp, disjoint)
++		}
++		probeLastStamp = stamp
++		probeLastLabel = s
++		probeHaveLast = disjoint == 0
++		probeFree = append(probeFree, s.q)
++		consumed++
++	}
++	probePending = append(probePending[:0], probePending[consumed:]...)
++}
+--- a/internal/graphicsdriver/opengl/graphics.go
++++ b/internal/graphicsdriver/opengl/graphics.go
+@@ -18,6 +18,7 @@
+ 
+ import (
+ 	"fmt"
++	"time"
+ 	"unsafe"
+ 
+ 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+@@ -70,11 +71,14 @@
+ }
+ 
+ func (g *Graphics) Begin() error {
++	gl.DiagnosticBegin()
+ 	// Do nothing.
+ 	return nil
+ }
+ 
+ func (g *Graphics) End(present bool) error {
++	var swapDuration time.Duration
++	defer func() { gl.DiagnosticEnd(gl.DiagnosticElapsed()-swapDuration, swapDuration) }()
+ 	// Call glFlush to prevent black flicking (especially on Android (#226) and iOS).
+ 	// TODO: examples/sprites worked without this. Is this really needed?
+ 	g.context.ctx.Flush()
+@@ -82,7 +86,10 @@
+ 	// The last uniforms must be reset before swapping the buffer (#2517).
+ 	if present {
+ 		g.state.resetLastUniforms()
+-		if err := g.swapBuffers(); err != nil {
++		swapStarted := time.Now()
++		swapErr := g.swapBuffers()
++		swapDuration = time.Since(swapStarted)
++		if err := swapErr; err != nil {
+ 			return err
+ 		}
+ 	}

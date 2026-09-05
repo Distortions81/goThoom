@@ -9,6 +9,8 @@ study_repeats="${GOTHOOM_RENDER_REPEATS:-3}"
 study_order_offset="${GOTHOOM_RENDER_ORDER_OFFSET:-0}"
 export GOTHOOM_RENDER_SECONDS="${GOTHOOM_RENDER_SECONDS:-10}"
 export GOTHOOM_RENDER_FULLSCREEN="${GOTHOOM_RENDER_FULLSCREEN:-1}"
+export GOTHOOM_RENDER_VSYNC="${GOTHOOM_RENDER_VSYNC:-0}"
+export GOTHOOM_RENDER_DOCKED="${GOTHOOM_RENDER_DOCKED:-1}"
 export EBITENGINE_GRAPHICS_LIBRARY=opengl
 export GOTHOOM_PERF_IMAGES="${GOTHOOM_PERF_IMAGES:-${XDG_DATA_HOME:-$HOME/.local/share}/goThoom/CL_Images}"
 
@@ -19,6 +21,8 @@ done
 [[ -f "$GOTHOOM_PERF_IMAGES" ]] || { echo 'Set GOTHOOM_PERF_IMAGES to the CL_Images file.' >&2; exit 1; }
 [[ "$study_repeats" =~ ^[1-9][0-9]*$ ]] || { echo 'GOTHOOM_RENDER_REPEATS must be positive.' >&2; exit 1; }
 [[ "$study_order_offset" =~ ^[01]$ ]] || { echo 'GOTHOOM_RENDER_ORDER_OFFSET must be 0 or 1.' >&2; exit 1; }
+[[ "$GOTHOOM_RENDER_VSYNC" =~ ^[01]$ ]] || { echo 'GOTHOOM_RENDER_VSYNC must be 0 or 1.' >&2; exit 1; }
+[[ "$GOTHOOM_RENDER_DOCKED" =~ ^[01]$ ]] || { echo 'GOTHOOM_RENDER_DOCKED must be 0 or 1.' >&2; exit 1; }
 for study_scale in $study_scales; do
     [[ "$study_scale" =~ ^[234]$ ]] || { echo 'Use space-separated scales: 2 3 4.' >&2; exit 1; }
 done
@@ -40,7 +44,7 @@ fi
     uname -srmo
     command -v lscpu >/dev/null && lscpu
     command -v powerprofilesctl >/dev/null && powerprofilesctl get
-    printf 'DISPLAY=%s\nFULLSCREEN=%s\nSCALES=%s\nSECONDS=%s\n' "$DISPLAY" "$GOTHOOM_RENDER_FULLSCREEN" "$study_scales" "$GOTHOOM_RENDER_SECONDS"
+    printf 'DISPLAY=%s\nFULLSCREEN=%s\nVSYNC=%s\nDOCKED=%s\nSCALES=%s\nSECONDS=%s\n' "$DISPLAY" "$GOTHOOM_RENDER_FULLSCREEN" "$GOTHOOM_RENDER_VSYNC" "$GOTHOOM_RENDER_DOCKED" "$study_scales" "$GOTHOOM_RENDER_SECONDS"
 } > "$study_output/system.txt"
 if git -C "$study_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$study_root" rev-parse HEAD > "$study_output/commit.txt"
@@ -54,7 +58,7 @@ fi
 study_binary="${GOTHOOM_RENDER_BINARY:-}"
 if [[ -z "$study_binary" ]]; then
     command -v go >/dev/null || { echo 'Go 1.26.6 is required to build the benchmark.' >&2; exit 1; }
-    [[ "$(go env GOVERSION)" == go1.26.6 ]] || { echo 'Use the project Go 1.26.6 toolchain.' >&2; exit 1; }
+    [[ "$(cd "$study_root/source" && go env GOVERSION)" == go1.26.6 ]] || { echo 'Use the project Go 1.26.6 toolchain.' >&2; exit 1; }
     study_binary="$study_output/render-study.test"
     (cd "$study_root/source" && go test -c -o "$study_binary" .)
 fi

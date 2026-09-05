@@ -1,5 +1,9 @@
 # Rendering stall study — 2026-09-05
 
+> Superseded fixture: the [GPU audit](GPUStallAudit.md) found that the study
+> drew a game-window background/shadow that the client disables and did not
+> apply tiled pane chrome. These historical timings include that extra work.
+
 The strongest leads are bubble geometry and bursts of UI repainting. The tested
 lighting and character-shadow switches produced much smaller changes.
 
