@@ -251,6 +251,7 @@ func preloadStartupCommonAssets() {
 		}
 		precacheStartupSounds(false)
 	}()
+	preallocateSpriteSlots()
 	preloadStartupArtwork()
 	<-soundsDone
 }

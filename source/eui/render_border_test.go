@@ -41,3 +41,22 @@ func TestReusableRenderTargetKeepsSameSizedTexture(t *testing.T) {
 	}
 	win.deallocate()
 }
+
+func TestWindowCloseAndResizeRecycleRenderTargets(t *testing.T) {
+	uiRenderTargets.Clear()
+	defer uiRenderTargets.Clear()
+	win := NewWindow()
+	initial := win.reusableRenderTarget(120, 80)
+	win.Close()
+	if win.Render != nil {
+		t.Fatal("closed window retained its leased render view")
+	}
+	if reopened := win.reusableRenderTarget(120, 80); reopened != initial {
+		t.Fatal("reopening the same window replaced its allocation")
+	}
+	win.reusableRenderTarget(240, 160)
+	if restored := win.reusableRenderTarget(120, 80); restored != initial {
+		t.Fatal("returning to a previous window size missed its recycled target")
+	}
+	win.deallocate()
+}

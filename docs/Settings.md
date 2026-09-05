@@ -7,9 +7,9 @@ Bubbles, Controller, or Tiled Layout. This document lists the exceptions.
 
 ## Audit summary
 
-The current internal `settings` structure contains 179 exported fields:
+The current internal `settings` structure contains 180 exported fields:
 
-- 174 are mapped directly by the v4 JSON schema.
+- 175 are mapped directly by the v4 JSON schema.
 - `BarPlacement` and `SpriteUpscaleMode` are persisted separately as readable
   string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.
@@ -140,3 +140,53 @@ human-readable JSON strings even though their internal values are enums.
 in the internal settings structure is either represented by that schema or is
 explicitly classified as version metadata, a human-readable special case, or
 a derived field.
+
+## Sprite cache
+
+Advanced Settings → Performance → Sprite cache offers named presets. The
+explanation below the selector updates immediately with the selected tradeoff
+and the reserve at each sprite resolution. **Balanced** is the default.
+
+| Preset | 2x reserve | 3x reserve | 4x reserve |
+|---|---:|---:|---:|
+| Minimal | 128 MiB | 288 MiB | 512 MiB |
+| Compact | 256 MiB | 576 MiB | 1 GiB |
+| Balanced | 512 MiB | 1,152 MiB | 2 GiB |
+| Generous | 1 GiB | 2,304 MiB | 4 GiB |
+| Maximum | 2 GiB | 4,608 MiB | 8 GiB |
+
+The reserve scales with texture area: the 2x reference amount multiplied by
+`effective_factor² / 4`, capped at 8 GiB. Startup allocation uses the effective
+screen-capped artwork factor; subsequent uploads use their actual texture factor.
+Restart after changing the preset to rebuild the preallocated reserve.
+
+The persistent setting remains `performance.sprite_cache_mib`, now interpreted
+as the reference amount at 2x. Numeric values that do not match a named preset
+appear as **Custom** and are preserved until another preset is selected.
+
+This is a soft allocation target, not a limit on total VRAM. The pool can grow
+when the current scene needs more slots or different sizes. Source sheets, UI,
+bubbles, render targets, and Ebitengine's atlas overhead are additional.
+When no free slot fits, occupied slot area is compared with the scaled target to decide
+whether to reclaim an old sprite. Idle preallocated space does not create eviction
+pressure. Already-free slots remain available even if the live cache exceeds the target.
+Old sprite IDs are reclaimed by last game frame seen, with all poses and recolor
+masks invalidated together. Current and previous scene sprites stay pinned
+through interpolation. Free larger slots can be reused up to twice the requested
+area; evictions still require a matching size. The Debug window reports allocated
+slot bytes split into live and spare space, slot reuse, first sprite IDs, and ID reloads after eviction. These
+counters reset on cache clear and do not measure total GPU memory.
+
+See [Sprite cache measurements](SpriteCacheStudy.md) for reload pressure across
+the bundled movies and instructions for repeating the comparison.
+
+The default leaves room for non-game textures. Bubble text and bodies recycle
+managed allocations, retaining at most 16 MiB and 8 MiB of idle slots respectively.
+Their active caches are limited to 32 MiB and 16 MiB, including slot padding.
+Cached UI windows and color wheels share a pool with up to 64 MiB of idle slots;
+open windows keep their active allocations. These reserves fill on demand.
+Potato GPU compatibility mode continues to use standalone textures.
+
+The Debug window shows bubble and UI pool sizes and reuse counts. The Stats
+window's GPU memory figure uses Ebitengine's total image-memory counter, including
+atlas space and render targets, rather than estimating from artwork dimensions.

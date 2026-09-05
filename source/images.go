@@ -455,6 +455,8 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 	}
 	imageCacheLifecycleMu.RLock()
 	defer imageCacheLifecycleMu.RUnlock()
+	unpin := pinPreparingSpriteSlots(keys)
+	defer unpin()
 	traceEnabled := currentAssetLoadFrameTrace() != nil
 	var prepareStarted time.Time
 	if traceEnabled {
@@ -691,12 +693,12 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 				mobileKey := makeMobileKey(prepared.key.id, uint8(region.index), prepared.key.colors[:int(prepared.key.colorsLen)])
 				key := scaledMobileKey{mobileKey: mobileKey, scale: uint8(prepared.factor), mode: uint8(prepared.mode)}
 				if _, exists := scaledMobileCache[key]; !exists {
-					scaledMobileCache[key] = newCachedSpriteImageFromRGBA(region.scaled)
+					scaledMobileCache[key] = cachedSpriteSlotLocked(spriteSlotKey{kind: 1, mobile: key}, region.scaled)
 				}
 			} else {
 				key := scaledImageKey{imageKey: makeImageKey(prepared.key.id, region.index), scale: uint8(prepared.factor), mode: uint8(prepared.mode)}
 				if _, exists := scaledImageCache[key]; !exists {
-					scaledImageCache[key] = newCachedSpriteImageFromRGBA(region.scaled)
+					scaledImageCache[key] = cachedSpriteSlotLocked(spriteSlotKey{picture: key}, region.scaled)
 				}
 			}
 			if region.influence != nil {
@@ -707,7 +709,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 				mobileKey := makeMobileKey(prepared.key.id, uint8(region.index), nil)
 				key := scaledMobileKey{mobileKey: mobileKey, scale: uint8(influenceFactor), mode: uint8(influenceMode)}
 				if _, exists := mobileRecolorMaskCache[key]; !exists {
-					mobileRecolorMaskCache[key] = newManagedImageFromImage(region.influence)
+					mobileRecolorMaskCache[key] = cachedSpriteSlotLocked(spriteSlotKey{kind: 2, mobile: key}, region.influence)
 				}
 				releaseArtworkRGBA(region.influence)
 				region.influence = nil
@@ -1827,16 +1829,28 @@ func mobileSize(id uint16) int {
 }
 
 type imageCacheStatsData struct {
-	sheetCount        int
-	sheetBytes        int
-	frameCount        int
-	frameBytes        int
-	scaledFrameCount  int
-	scaledFrameBytes  int
-	mobileCount       int
-	mobileBytes       int
-	scaledMobileCount int
-	scaledMobileBytes int
+	slotExtraBytes                              int64
+	slotCount                                   int
+	slotBytes                                   int64
+	slotUsedBytes                               int64
+	slotReuses, slotEvictions, spriteGameFrames uint64
+	slotLoads, slotReloads                      uint64
+	sheetCount                                  int
+	sheetBytes                                  int
+	frameCount                                  int
+	frameBytes                                  int
+	scaledFrameCount                            int
+	scaledFrameBytes                            int
+	mobileCount                                 int
+	mobileBytes                                 int
+	scaledMobileCount                           int
+	scaledMobileBytes                           int
+}
+
+// Include unused slots and padding once; occupied sprite views are already
+// included in the scaled cache content totals below.
+func (s imageCacheStatsData) totalBytes() int64 {
+	return int64(s.sheetBytes) + int64(s.frameBytes) + int64(s.scaledFrameBytes) + int64(s.mobileBytes) + int64(s.scaledMobileBytes) + s.slotExtraBytes
 }
 
 // imageCacheStats returns the counts and approximate memory usage in bytes for
@@ -1845,7 +1859,16 @@ func imageCacheStats() imageCacheStatsData {
 	imageMu.Lock()
 	defer imageMu.Unlock()
 
-	var stats imageCacheStatsData
+	stats := imageCacheStatsData{slotCount: spriteSlots.count, slotBytes: spriteSlots.bytes, slotUsedBytes: spriteSlots.usedBytes, slotReuses: spriteSlots.reuses, slotEvictions: spriteSlots.evictions, slotLoads: spriteSlots.loads, slotReloads: spriteSlots.reloads}
+	stats.slotExtraBytes = spriteSlots.bytes
+	for _, slots := range spriteSlots.owners {
+		for _, slot := range slots {
+			stats.slotExtraBytes -= slot.contentBytes
+		}
+	}
+	spriteUsage.Lock()
+	stats.spriteGameFrames = spriteUsage.frame
+	spriteUsage.Unlock()
 	for _, img := range sheetCache {
 		if img != nil {
 			stats.sheetCount++

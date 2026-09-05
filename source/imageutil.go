@@ -48,8 +48,8 @@ func tracedManagedImageTotals() (count, bytes int64) {
 }
 
 // newManagedImage creates an image that can live on Ebitengine's automatic
-// atlas. Use it only for images that remain cached for their full lifetime and
-// are discarded only when a settings change invalidates the cache.
+// atlas. Keep the allocation alive while cached; reusable sprite slots update
+// their pixels in place and release their parents only when caches are cleared.
 func newManagedImage(w, h int) *ebiten.Image {
 	if gs.PotatoGPU {
 		return newUnmanagedImage(w, h)
@@ -57,8 +57,8 @@ func newManagedImage(w, h int) *ebiten.Image {
 	return trackManagedImage(ebiten.NewImage(w, h), w, h)
 }
 
-// newUnmanagedImage creates a standalone texture for scratch images and
-// images that can be replaced, evicted, or removed during normal use.
+// newUnmanagedImage creates a standalone texture for compositing targets and
+// compatibility paths. Evicting caches can instead recycle managed allocations.
 func newUnmanagedImage(w, h int) *ebiten.Image {
 	return newUnmanagedImageWithBounds(image.Rect(0, 0, w, h))
 }

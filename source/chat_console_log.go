@@ -29,7 +29,8 @@ func appendTextLog(msg string) {
 		return
 	}
 
-	if playingMovie {
+	// The selected path covers loading; movieMode remains set at end of playback.
+	if clmov != "" || movieMode || playingMovie {
 		return
 	}
 
@@ -80,7 +81,7 @@ func ensureTextLog() {
 	textLogMu.Lock()
 	defer textLogMu.Unlock()
 
-	if playingMovie {
+	if clmov != "" || movieMode || playingMovie {
 		textLogPath = ""
 		textLogChar = ""
 		return

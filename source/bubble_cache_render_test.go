@@ -36,6 +36,7 @@ func (g *bubbleCacheRenderGame) Update() error {
 }
 
 func (g *bubbleCacheRenderGame) Draw(_ *ebiten.Image) {
+	defer clearBubbleTextCaches()
 	const width, height = 72, 30
 	const left, top = 11, 9
 	const radius, stroke = float32(4), float32(1)
@@ -65,6 +66,20 @@ func (g *bubbleCacheRenderGame) Draw(_ *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(left-margin), float64(top-margin))
 	cached.DrawImage(image, op)
+	// Repaint an evicted cache entry before the earlier draw is flushed. The
+	// old draw must keep its original pixels, while the new entry reuses storage.
+	beforeReuse := bubbleBodyTargets.Stats().Reuses
+	if !evictOldestBubbleBodyImage() {
+		g.err = fmt.Errorf("bubble body was not evictable")
+		g.rendered = true
+		return
+	}
+	replacement, _ := cachedBubbleBodyImage(width, height, radius, stroke, color.RGBA64{G: 0xffff, A: 0xffff}, border)
+	if replacement == nil || bubbleBodyTargets.Stats().Reuses != beforeReuse+1 {
+		g.err = fmt.Errorf("replacement bubble did not recycle its allocation")
+		g.rendered = true
+		return
+	}
 
 	directPixels := make([]byte, 96*52*4)
 	cachedPixels := make([]byte, len(directPixels))

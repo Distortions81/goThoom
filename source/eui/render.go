@@ -229,9 +229,9 @@ func (win *windowData) reusableRenderTarget(w, h int) *ebiten.Image {
 		return win.Render
 	}
 	if win.Render != nil {
-		win.Render.Deallocate()
+		releaseUIRenderTarget(win.Render)
 	}
-	win.Render = newUnmanagedImage(w, h)
+	win.Render = uiRenderTargets.Acquire(w, h, potatoMode)
 	return win.Render
 }
 
@@ -1518,7 +1518,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 
 		if item.Image == nil || item.Image.Bounds().Dx() != int(wheelSize) {
 			if item.Image != nil {
-				item.Image.Deallocate()
+				releaseUIRenderTarget(item.Image)
 			}
 			item.Image = colorWheelImage(int(wheelSize))
 		}

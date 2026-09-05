@@ -2054,6 +2054,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// factors, with the preload and draw paths clearing each other's caches.
 		prevScale := gs.GameScale
 		gs.GameScale = renderScale
+		pinSceneSpriteSlots(snap)
 		if prepareSceneArtworkFrame(snap) {
 			// Keep the last completed world frame visible while Ebitengine submits
 			// the prepared upload batch. A small indicator communicates the pause
@@ -2359,30 +2360,7 @@ func equalSheetKeys(a, b []sheetKey) bool {
 	return true
 }
 
-func prepareSceneArtwork(snap drawSnapshot) int {
-	if clImages == nil {
-		return 0
-	}
-	factor := screenCappedArtworkUpscaleFactor()
-	mode := artworkUpscaleMode()
-	upscale := artworkUpscaleEnabled()
-	frameBlend := mobileFrameBlendingEnabled()
-	cacheGeneration := artworkCacheGeneration.Load()
-
-	sceneArtworkRequests.Lock()
-	defer sceneArtworkRequests.Unlock()
-	if sceneArtworkRequests.valid &&
-		sceneArtworkRequests.worldGeneration == snap.worldGeneration &&
-		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
-		sceneArtworkRequests.upscaleFactor == factor &&
-		sceneArtworkRequests.upscaleMode == mode &&
-		sceneArtworkRequests.upscaleEnabled == upscale &&
-		sceneArtworkRequests.frameBlend == frameBlend &&
-		sceneArtworkRequests.archive == clImages {
-		return 0
-	}
-
-	keys := sceneArtworkRequests.scratch[:0]
+func appendSceneArtworkKeys(keys []sheetKey, snap drawSnapshot, frameBlend bool) []sheetKey {
 	addPictures := func(pictures []framePicture) {
 		for _, picture := range pictures {
 			keys = append(keys, makeSheetKey(picture.PictID, nil, false))
@@ -2414,6 +2392,33 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 			keys = append(keys, makeSheetKey(descriptor.PictID, colors, true))
 		}
 	}
+	return keys
+}
+
+func prepareSceneArtwork(snap drawSnapshot) int {
+	if clImages == nil {
+		return 0
+	}
+	factor := screenCappedArtworkUpscaleFactor()
+	mode := artworkUpscaleMode()
+	upscale := artworkUpscaleEnabled()
+	frameBlend := mobileFrameBlendingEnabled()
+	cacheGeneration := artworkCacheGeneration.Load()
+
+	sceneArtworkRequests.Lock()
+	defer sceneArtworkRequests.Unlock()
+	if sceneArtworkRequests.valid &&
+		sceneArtworkRequests.worldGeneration == snap.worldGeneration &&
+		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
+		sceneArtworkRequests.upscaleFactor == factor &&
+		sceneArtworkRequests.upscaleMode == mode &&
+		sceneArtworkRequests.upscaleEnabled == upscale &&
+		sceneArtworkRequests.frameBlend == frameBlend &&
+		sceneArtworkRequests.archive == clImages {
+		return 0
+	}
+
+	keys := appendSceneArtworkKeys(sceneArtworkRequests.scratch[:0], snap, frameBlend)
 	if sceneArtworkRequests.valid &&
 		sceneArtworkRequests.cacheGeneration == cacheGeneration &&
 		sceneArtworkRequests.upscaleFactor == factor &&

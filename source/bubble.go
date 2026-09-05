@@ -2,6 +2,7 @@ package main
 
 import (
 	"gothoom/eui"
+	"gothoom/internal/renderpool"
 	"image"
 	"image/color"
 	"math"
@@ -78,6 +79,18 @@ var bubbleTextUseCounter uint64
 var bubbleBodyImageCache = make(map[bubbleBodyImageCacheKey]*bubbleBodyImageCacheEntry)
 var bubbleBodyImageBytes int
 var bubbleBodyUseCounter uint64
+
+// Idle allocations survive cache eviction so later bubbles can repaint them.
+// Each cache keeps its own reserve to avoid a large body displacing text slots.
+var bubbleTextTargets = renderpool.Pool{MaxFreeBytes: 16 << 20, NewImage: newBubbleRenderTarget, Deallocate: deallocateImage}
+var bubbleBodyTargets = renderpool.Pool{MaxFreeBytes: 8 << 20, NewImage: newBubbleRenderTarget, Deallocate: deallocateImage}
+
+func newBubbleRenderTarget(width, height int, unmanaged bool) *ebiten.Image {
+	if unmanaged {
+		return newUnmanagedImage(width, height)
+	}
+	return newManagedImage(width, height)
+}
 
 const maxBubbleTextLayouts = 512
 const bubbleTextImageMargin = 1
@@ -495,17 +508,19 @@ func clearBubbleTextCaches() {
 	clear(scaledBubbleFaceCache)
 	clear(bubbleTextLayoutCache)
 	for _, entry := range bubbleTextImageCache {
-		entry.image.Deallocate()
+		bubbleTextTargets.Release(entry.image)
 	}
 	clear(bubbleTextImageCache)
 	bubbleTextImageBytes = 0
 	bubbleTextUseCounter = 0
 	for _, entry := range bubbleBodyImageCache {
-		entry.image.Deallocate()
+		bubbleBodyTargets.Release(entry.image)
 	}
 	clear(bubbleBodyImageCache)
 	bubbleBodyImageBytes = 0
 	bubbleBodyUseCounter = 0
+	bubbleTextTargets.Clear()
+	bubbleBodyTargets.Clear()
 }
 
 func evictOldestBubbleTextImage() bool {
@@ -520,9 +535,9 @@ func evictOldestBubbleTextImage() bool {
 	if oldest == nil {
 		return false
 	}
-	// Do not explicitly deallocate here: an older cached label might already be
-	// queued as a source in this Draw. Dropping the reference lets Ebitengine's
-	// deferred cleanup release it safely after submitted work completes.
+	// Release ownership after the label's draw has been submitted. A reused
+	// parent is cleared and repainted after that draw in Ebitengine's queue.
+	bubbleTextTargets.Release(oldest.image)
 	bubbleTextImageBytes -= oldest.bytes
 	delete(bubbleTextImageCache, oldestKey)
 	return true
@@ -545,7 +560,7 @@ func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeig
 	}
 	imageWidth := width + 2*bubbleTextImageMargin
 	imageHeight := height + 2*bubbleTextImageMargin
-	imageBytes := imageWidth * imageHeight * 4
+	imageBytes := int(renderpool.BytesForSize(imageWidth, imageHeight, gs.PotatoGPU))
 	if imageBytes > maxBubbleTextImageBytes {
 		return nil
 	}
@@ -554,10 +569,14 @@ func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeig
 			return nil
 		}
 	}
-	// Bubble labels are render targets and entries in an evicting cache. Keep
-	// them out of Ebitengine's automatic atlas so drawing the text cannot first
-	// isolate an atlas entry and later migrate it back after repeated source use.
-	img := newUnmanagedImage(imageWidth, imageHeight)
+	img := bubbleTextTargets.Acquire(imageWidth, imageHeight, gs.PotatoGPU)
+	imageBytes = int(bubbleTextTargets.Bytes(img))
+	for bubbleTextImageBytes+imageBytes > maxBubbleTextImageBytes {
+		if !evictOldestBubbleTextImage() {
+			bubbleTextTargets.Release(img)
+			return nil
+		}
+	}
 	for index, line := range lines {
 		op := &text.DrawOptions{}
 		op.GeoM.Translate(bubbleTextImageMargin, float64(bubbleTextImageMargin+index*lineHeight))
@@ -596,13 +615,14 @@ func evictOldestBubbleBodyImage() bool {
 	if oldest == nil {
 		return false
 	}
+	bubbleBodyTargets.Release(oldest.image)
 	bubbleBodyImageBytes -= oldest.bytes
 	delete(bubbleBodyImageCache, oldestKey)
 	return true
 }
 
-// cachedBubbleBodyImage pre-renders the non-animated fill and outline into an
-// unmanaged texture. Bubble bodies usually survive many display frames, so
+// cachedBubbleBodyImage pre-renders the non-animated fill and outline into a
+// pooled managed texture. Bubble bodies usually survive many display frames, so
 // this replaces repeated path tessellation and two vector submissions with a
 // single image draw after the first frame.
 func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill, border color.RGBA64) (*ebiten.Image, int) {
@@ -623,7 +643,7 @@ func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill,
 	margin := int(math.Ceil(float64(strokeWidth)/2)) + 2
 	imageWidth := width + 2*margin
 	imageHeight := height + 2*margin
-	imageBytes := imageWidth * imageHeight * 4
+	imageBytes := int(renderpool.BytesForSize(imageWidth, imageHeight, gs.PotatoGPU))
 	if imageBytes > maxBubbleBodyImageBytes {
 		return nil, 0
 	}
@@ -633,7 +653,14 @@ func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill,
 		}
 	}
 
-	img := newUnmanagedImage(imageWidth, imageHeight)
+	img := bubbleBodyTargets.Acquire(imageWidth, imageHeight, gs.PotatoGPU)
+	imageBytes = int(bubbleBodyTargets.Bytes(img))
+	for bubbleBodyImageBytes+imageBytes > maxBubbleBodyImageBytes {
+		if !evictOldestBubbleBodyImage() {
+			bubbleBodyTargets.Release(img)
+			return nil, 0
+		}
+	}
 	body := bubbleRoundedRectPath(margin, margin, margin+width, margin+height, radius)
 	fillOp := &vector.DrawPathOptions{AntiAlias: true}
 	fillOp.ColorScale.ScaleWithColor(fill)

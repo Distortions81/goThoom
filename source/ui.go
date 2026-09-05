@@ -243,6 +243,8 @@ var (
 	scaledFrameCacheLabel  *eui.ItemData
 	mobileCacheLabel       *eui.ItemData
 	scaledMobileCacheLabel *eui.ItemData
+	spriteSlotCacheLabel   *eui.ItemData
+	renderPoolCacheLabel   *eui.ItemData
 	soundCacheLabel        *eui.ItemData
 	totalCacheLabel        *eui.ItemData
 
@@ -6931,6 +6933,10 @@ func makeAdvancedSettingsWindow() {
 	}
 	systemCol.AddItem(batchArtworkCB)
 
+	spriteReserve, spriteReserveExplanation := newSpriteCacheControls(columnWidth - 10)
+	systemCol.AddItem(spriteReserve)
+	systemCol.AddItem(spriteReserveExplanation)
+
 	psBGCB, psBGEvents := eui.NewCheckbox()
 	psBGCB.Text = "Power save in background"
 	psBGCB.Size = eui.Point{X: columnWidth, Y: 24}
@@ -7343,6 +7349,16 @@ func makeDebugWindow() {
 	scaledMobileCacheLabel.Size = eui.Point{X: width, Y: 24}
 	scaledMobileCacheLabel.FontSize = 10
 	cacheSection.AddItem(scaledMobileCacheLabel)
+	spriteSlotCacheLabel, _ = eui.NewText()
+	spriteSlotCacheLabel.Size = eui.Point{X: width, Y: 80}
+	spriteSlotCacheLabel.FontSize = 10
+	spriteSlotCacheLabel.SetTooltip("Live slot area determines cache pressure; spare allocations do not. First IDs and reloads count sprite residencies, not individual poses. A reload means a previously evicted ID returned. Counters reset when artwork caches are cleared.")
+	cacheSection.AddItem(spriteSlotCacheLabel)
+	renderPoolCacheLabel, _ = eui.NewText()
+	renderPoolCacheLabel.Size = eui.Point{X: width, Y: 48}
+	renderPoolCacheLabel.FontSize = 10
+	renderPoolCacheLabel.SetTooltip("Active and spare managed render allocations, including slot padding. Atlas packing overhead is additional.")
+	cacheSection.AddItem(renderPoolCacheLabel)
 
 	soundCacheLabel, _ = eui.NewText()
 	soundCacheLabel.Text = ""
@@ -7401,12 +7417,23 @@ func updateDebugStats() {
 		scaledMobileCacheLabel.Text = fmt.Sprintf("Upscaled Mobile Frames/Masks: %d (%s)", stats.scaledMobileCount, humanize.Bytes(uint64(stats.scaledMobileBytes)))
 		scaledMobileCacheLabel.Dirty = true
 	}
+	if spriteSlotCacheLabel != nil {
+		spriteSlotCacheLabel.Text = fmt.Sprintf("Sprite slots: %d (%s)\nLive: %s | Spare: %s\nReuses: %d | Evicted IDs: %d\nFirst IDs: %d | Reloads: %d\nGame frames: %d", stats.slotCount, humanize.Bytes(uint64(stats.slotBytes)), humanize.Bytes(uint64(stats.slotUsedBytes)), humanize.Bytes(uint64(stats.slotBytes-stats.slotUsedBytes)), stats.slotReuses, stats.slotEvictions, stats.slotLoads, stats.slotReloads, stats.spriteGameFrames)
+		spriteSlotCacheLabel.Dirty = true
+	}
+	if renderPoolCacheLabel != nil {
+		textPool, bodyPool, uiPool := bubbleTextTargets.Stats(), bubbleBodyTargets.Stats(), eui.RenderTargetPoolStats()
+		bubbleBytes := textPool.ActiveBytes + textPool.FreeBytes + bodyPool.ActiveBytes + bodyPool.FreeBytes
+		uiBytes := uiPool.ActiveBytes + uiPool.FreeBytes
+		renderPoolCacheLabel.Text = fmt.Sprintf("Bubble pool: %s | UI pool: %s\nReuses: %d bubbles, %d UI\nSpare slots: %d bubbles, %d UI", humanize.Bytes(uint64(bubbleBytes)), humanize.Bytes(uint64(uiBytes)), textPool.Reuses+bodyPool.Reuses, uiPool.Reuses, textPool.Free+bodyPool.Free, uiPool.Free)
+		renderPoolCacheLabel.Dirty = true
+	}
 	if soundCacheLabel != nil {
 		soundCacheLabel.Text = fmt.Sprintf("Sounds: %d (%s)", soundCount, humanize.Bytes(uint64(soundBytes)))
 		soundCacheLabel.Dirty = true
 	}
 	if totalCacheLabel != nil {
-		total := stats.sheetBytes + stats.frameBytes + stats.scaledFrameBytes + stats.mobileBytes + stats.scaledMobileBytes + soundBytes
+		total := stats.totalBytes() + int64(soundBytes)
 		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(total)))
 		totalCacheLabel.Dirty = true
 	}

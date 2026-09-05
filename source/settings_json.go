@@ -196,6 +196,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "PowerSaveFPS", category: settingsPerformance, name: "power_save_fps"},
 	{field: "PotatoGPU", category: settingsPerformance, name: "integrated_or_low_memory_gpu_mode"},
 	{field: "BatchArtworkLoading", category: settingsPerformance, name: "batch_room_artwork_loading"},
+	{field: "SpriteCacheMiB", category: settingsPerformance, name: "sprite_cache_mib"},
 	{field: "AssetActivityIndicators", category: settingsPerformance, name: "show_asset_activity_indicators"},
 	{field: "PrecacheSounds", category: settingsPerformance, name: "precache_sounds"},
 	{field: "PromptDisableShaders", category: settingsPerformance, name: "prompt_to_disable_slow_shaders"},

@@ -12,9 +12,9 @@ import (
 // color on the outer edge.
 func colorWheelImage(size int) *ebiten.Image {
 	if size <= 0 {
-		return newUnmanagedImage(1, 1)
+		return uiRenderTargets.Acquire(1, 1, potatoMode)
 	}
-	img := newUnmanagedImage(size, size)
+	img := uiRenderTargets.Acquire(size, size, potatoMode)
 	r := float64(size) / 2
 	// Use a 4x4 grid of subpixel samples for smoother edges
 	offsets := []float64{0.125, 0.375, 0.625, 0.875}

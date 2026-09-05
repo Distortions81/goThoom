@@ -7,11 +7,14 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"gothoom/eui"
 )
 
 func clearCaches() {
 	clearCharacterShadowCache()
 	clearThoughtBubbleMask()
+	clearBubbleTextCaches()
+	eui.ClearRenderTargetPool()
 
 	imageCacheLifecycleMu.Lock()
 	imageMu.Lock()
@@ -92,6 +95,7 @@ func clearScaledArtworkCachesLocked() {
 	if trace != nil && clearedImages != 0 {
 		noteFrameAtlasCacheClear(clearedImages, clearedBytes)
 	}
+	spriteSlots.clear()
 	scaledImageCache = make(map[scaledImageKey]*ebiten.Image)
 	scaledMobileCache = make(map[scaledMobileKey]*ebiten.Image)
 	mobileRecolorMaskCache = make(map[scaledMobileKey]*ebiten.Image)

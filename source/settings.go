@@ -335,6 +335,7 @@ var gsdef settings = settings{
 
 	PotatoGPU:               false,
 	BatchArtworkLoading:     true,
+	SpriteCacheMiB:          defaultSpriteCacheMiB,
 	AssetActivityIndicators: false,
 	BarColorByValue:         false,
 	ThrottleSounds:          true,
@@ -552,6 +553,7 @@ type settings struct {
 
 	PotatoGPU               bool
 	BatchArtworkLoading     bool
+	SpriteCacheMiB          int // Reference reserve at 2x; scales with texture area.
 	AssetActivityIndicators bool
 	PrecacheSounds          bool
 	BarColorByValue         bool

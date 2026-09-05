@@ -80,6 +80,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.AltNetMode = false
 	want.LegacyMacroContinuous = true
 	want.BatchArtworkLoading = false
+	want.SpriteCacheMiB = 1024
 	want.InterpolateSmallMovingPictures = true
 	want.AssetActivityIndicators = true
 	want.MobileLightConeShadows = true

@@ -1830,6 +1830,7 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	if buildCache {
 		prepareRenderCacheLocked()
 	}
+	recordSpriteGameFrameLocked()
 	//ack := state.ackCmd
 	//light := state.lightingFlags
 	stateMu.Unlock()

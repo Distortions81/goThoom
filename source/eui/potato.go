@@ -1,6 +1,7 @@
 package eui
 
 import (
+	"gothoom/internal/renderpool"
 	"image"
 	"image/color"
 	"runtime"
@@ -40,9 +41,8 @@ func SetWindowShadows(v bool) {
 	}
 }
 
-// newManagedImage is reserved for images that remain in place for their full
-// lifetime. Replaceable window and item render targets must be unmanaged so
-// normal UI activity cannot fragment Ebitengine's automatic atlas.
+// Managed images let Ebitengine share cached UI textures on its atlases.
+// Cache owners recycle replaceable targets with uiRenderTargets.
 func newManagedImage(w, h int) *ebiten.Image {
 	if potatoMode {
 		return newUnmanagedImage(w, h)
@@ -65,3 +65,22 @@ func newUnmanagedImage(w, h int) *ebiten.Image {
 	UnmanagedImageCreated(w, h, time.Since(started), site)
 	return img
 }
+
+var uiRenderTargets = renderpool.Pool{MaxFreeBytes: 64 << 20, NewImage: func(w, h int, unmanaged bool) *ebiten.Image {
+	if unmanaged {
+		return newUnmanagedImage(w, h)
+	}
+	return newManagedImage(w, h)
+}}
+
+func releaseUIRenderTarget(img *ebiten.Image) {
+	if img != nil && !uiRenderTargets.Release(img) {
+		img.Deallocate()
+	}
+}
+
+// RenderTargetPoolStats reports active and idle allocations for diagnostics.
+func RenderTargetPoolStats() renderpool.Stats { return uiRenderTargets.Stats() }
+
+// ClearRenderTargetPool releases idle allocations without invalidating windows.
+func ClearRenderTargetPool() { uiRenderTargets.Clear() }

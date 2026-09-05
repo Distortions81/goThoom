@@ -549,15 +549,17 @@ func updateStatsWindow(now time.Time) {
 	images := imageCacheStats()
 	sounds, soundBytes := soundCacheStats()
 	imageCount := images.sheetCount + images.frameCount + images.scaledFrameCount + images.mobileCount + images.scaledMobileCount
-	imageBytes := images.sheetBytes + images.frameBytes + images.scaledFrameBytes + images.mobileBytes + images.scaledMobileBytes
-	gpuTextures := imageBytes + ebitenImageBytes(gameImageBacking) + ebitenImageBytes(backgroundImg) + ebitenImageBytes(splashImg) + ebitenImageBytes(toolbarHandsImage) + ebitenImageBytes(toolbarLeftComposite) + ebitenImageBytes(toolbarRightComposite)
+	imageBytes := images.totalBytes()
+	var gpuInfo ebiten.DebugInfo
+	ebiten.ReadDebugInfo(&gpuInfo)
+	gpuTextures := gpuInfo.TotalGPUImageMemoryUsageInBytes
 	if sampleDue {
 		appendStatsSample(liveStatsSample{
 			fps:         ebiten.ActualFPS(),
 			updateRate:  updatesPerSecond,
 			reply:       reply,
 			jitter:      jitter,
-			cacheMemory: float64(imageBytes+soundBytes) / (1024 * 1024),
+			cacheMemory: float64(imageBytes+int64(soundBytes)) / (1024 * 1024),
 			gpuMemory:   float64(gpuTextures) / (1024 * 1024),
 		})
 		lastStatsSample = now
@@ -661,7 +663,7 @@ func updateStatsWindow(now time.Time) {
 	}
 	setStatsMetric(statsArtwork, humanize.Bytes(uint64(imageBytes)))
 	setStatsMetric(statsSounds, humanize.Bytes(uint64(soundBytes)))
-	setStatsMetric(statsCacheTotal, humanize.Bytes(uint64(imageBytes+soundBytes)))
+	setStatsMetric(statsCacheTotal, humanize.Bytes(uint64(imageBytes+int64(soundBytes))))
 	setStatsMetric(statsGPUMemory, "~"+humanize.Bytes(uint64(gpuTextures)))
 	if statsMemoryText != nil {
 		statsMemoryText.Text = fmt.Sprintf("Cache entries: %d artwork, %d sounds", imageCount, sounds)

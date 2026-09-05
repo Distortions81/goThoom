@@ -49,7 +49,7 @@ func (target *windowData) AddWindow(toBack bool) {
 // deallocate releases cached render images for the window and its items.
 func (target *windowData) deallocate() {
 	if target.Render != nil {
-		target.Render.Deallocate()
+		releaseUIRenderTarget(target.Render)
 		target.Render = nil
 	}
 	for _, item := range target.Contents {
@@ -59,8 +59,12 @@ func (target *windowData) deallocate() {
 
 // deallocate releases cached render images for the item and its children.
 func (item *itemData) deallocate() {
+	if item.ItemType == ITEM_COLORWHEEL && item.Image != nil {
+		releaseUIRenderTarget(item.Image)
+		item.Image = nil
+	}
 	if item.Render != nil {
-		item.Render.Deallocate()
+		releaseUIRenderTarget(item.Render)
 		item.Render = nil
 	}
 	for _, child := range item.Contents {
@@ -241,7 +245,7 @@ func NewImageItem(w, h int) (*itemData, *ebiten.Image) {
 		Size:     point{X: float32(w), Y: float32(h)},
 		Theme:    currentTheme,
 	}
-	newItem.Image = newUnmanagedImage(w, h)
+	newItem.Image = newManagedImage(w, h)
 	return &newItem, newItem.Image
 }
 
