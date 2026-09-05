@@ -1,0 +1,203 @@
+{
+  "cases": [
+    {
+      "Name": "baseline",
+      "Submission": {
+        "max_ms": 1.803525,
+        "p50_ms": 1.085661,
+        "p95_ms": 1.478727,
+        "p99_ms": 1.628157
+      },
+      "FrameInterval": {
+        "max_ms": 15.440618,
+        "p50_ms": 6.238687,
+        "p95_ms": 6.443825,
+        "p99_ms": 6.575384
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1881122816
+    },
+    {
+      "Name": "lighting_off",
+      "Submission": {
+        "max_ms": 2.073023,
+        "p50_ms": 1.082231,
+        "p95_ms": 1.484627,
+        "p99_ms": 1.568067
+      },
+      "FrameInterval": {
+        "max_ms": 6.267347,
+        "p50_ms": 5.755021,
+        "p95_ms": 6.106128,
+        "p99_ms": 6.193118
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1885316096
+    },
+    {
+      "Name": "fast_shadows",
+      "Submission": {
+        "max_ms": 2.051433,
+        "p50_ms": 1.08956,
+        "p95_ms": 1.472628,
+        "p99_ms": 1.575767
+      },
+      "FrameInterval": {
+        "max_ms": 6.793563,
+        "p50_ms": 6.409876,
+        "p95_ms": 6.590964,
+        "p99_ms": 6.676204
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1885316096
+    },
+    {
+      "Name": "shadows_off",
+      "Submission": {
+        "max_ms": 1.654286,
+        "p50_ms": 1.079011,
+        "p95_ms": 1.464448,
+        "p99_ms": 1.566926
+      },
+      "FrameInterval": {
+        "max_ms": 6.571785,
+        "p50_ms": 6.408426,
+        "p95_ms": 6.488225,
+        "p99_ms": 6.535926
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1885316096
+    },
+    {
+      "Name": "bubble_animation_off",
+      "Submission": {
+        "max_ms": 1.799115,
+        "p50_ms": 0.828703,
+        "p95_ms": 1.068961,
+        "p99_ms": 1.18627
+      },
+      "FrameInterval": {
+        "max_ms": 6.413576,
+        "p50_ms": 6.234848,
+        "p95_ms": 6.313507,
+        "p99_ms": 6.346827
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1885316096
+    },
+    {
+      "Name": "bubbles_off",
+      "Submission": {
+        "max_ms": 1.095841,
+        "p50_ms": 0.429086,
+        "p95_ms": 0.555055,
+        "p99_ms": 0.605655
+      },
+      "FrameInterval": {
+        "max_ms": 5.676423,
+        "p50_ms": 5.452624,
+        "p95_ms": 5.554373,
+        "p99_ms": 5.601434
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1885316096
+    },
+    {
+      "Name": "ui_refresh_5hz",
+      "Submission": {
+        "max_ms": 2.832657,
+        "p50_ms": 1.111271,
+        "p95_ms": 1.595766,
+        "p99_ms": 2.163952
+      },
+      "FrameInterval": {
+        "max_ms": 12.919922,
+        "p50_ms": 6.256228,
+        "p95_ms": 11.687373,
+        "p99_ms": 12.816824
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1897899008
+    },
+    {
+      "Name": "ui_refresh_5hz_unbatched",
+      "Submission": {
+        "max_ms": 2.884887,
+        "p50_ms": 1.15113,
+        "p95_ms": 1.593997,
+        "p99_ms": 2.668628
+      },
+      "FrameInterval": {
+        "max_ms": 14.328421,
+        "p50_ms": 6.227648,
+        "p95_ms": 6.328278,
+        "p99_ms": 14.291622
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1897899008
+    },
+    {
+      "Name": "ui_hidden",
+      "Submission": {
+        "max_ms": 2.066083,
+        "p50_ms": 1.062671,
+        "p95_ms": 1.433308,
+        "p99_ms": 1.552497
+      },
+      "FrameInterval": {
+        "max_ms": 6.338618,
+        "p50_ms": 6.213999,
+        "p95_ms": 6.279328,
+        "p99_ms": 6.317408
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1897899008
+    },
+    {
+      "Name": "baseline_repeat",
+      "Submission": {
+        "max_ms": 2.056043,
+        "p50_ms": 1.107991,
+        "p95_ms": 1.494027,
+        "p99_ms": 1.592477
+      },
+      "FrameInterval": {
+        "max_ms": 6.452997,
+        "p50_ms": 6.219279,
+        "p95_ms": 6.288728,
+        "p99_ms": 6.319768
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1897899008
+    }
+  ],
+  "fixture": "tour-2025.08.02.clMov",
+  "mobiles": 30,
+  "nightPercent": 50,
+  "pictures": 146,
+  "samplesPerCase": 600,
+  "scale": 4,
+  "warmupFrames": 90,
+  "worldBounds": "(0,0)-(2188,2160)",
+  "worldScale": 4
+}

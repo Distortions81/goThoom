@@ -307,7 +307,6 @@ func buildCommandPaletteActions() []commandPaletteAction {
 		{label: "Window: Quality Options", detail: "Open graphics quality settings", run: func() { openPaletteWindow(qualityWin) }},
 		{label: "Window: Audio Mixer", detail: "Open audio controls", run: func() { openPaletteWindow(mixerWin) }},
 		{label: "Window: Notifications", detail: "Open notification settings", run: func() { openPaletteWindow(notificationsWin) }},
-		{label: "Window: Advanced Settings", detail: "Open advanced settings", run: func() { openPaletteWindow(advancedWin) }},
 		{label: "Window: Speech Bubbles", detail: "Open speech bubble settings", run: func() { openPaletteWindow(bubbleWin) }},
 		{label: "Window: Scripts", detail: "Open script manager", run: func() { refreshscriptsWindow(); openPaletteWindow(scriptsWin) }},
 		{label: "Window: Legacy Macros", detail: "Open macro manager", run: func() {
@@ -405,6 +404,19 @@ func buildCommandPaletteActions() []commandPaletteAction {
 			label: "Script: " + name, detail: "Show in the Scripts window", search: "go script enabled disabled",
 			run: func() { refreshscriptsWindow(); openPaletteWindow(scriptsWin) },
 		})
+	}
+	if settingsWin != nil && len(settingsWin.Contents) > 0 {
+		for _, tab := range settingsWin.Contents[0].Tabs {
+			name := tab.Name
+			actions = append(actions, commandPaletteAction{
+				label: "Settings: " + name, detail: "Open " + strings.ToLower(name) + " settings",
+				run: func() {
+					makeSettingsWindow()
+					selectSettingsTab(name)
+					settingsWin.MarkOpen()
+				},
+			})
+		}
 	}
 	return actions
 }
@@ -654,9 +666,10 @@ func rebuildConfigurationWindows() {
 			(*win).MarkOpen()
 		}
 	}
+	selectedTab := selectedSettingsTab()
 	rebuild(&settingsWin, makeSettingsWindow)
+	selectSettingsTab(selectedTab)
 	rebuild(&qualityWin, makeQualityWindow)
-	rebuild(&advancedWin, makeAdvancedSettingsWindow)
 	rebuild(&notificationsWin, makeNotificationsWindow)
 	rebuild(&bubbleWin, makeBubbleWindow)
 	rebuild(&mixerWin, makeMixerWindow)

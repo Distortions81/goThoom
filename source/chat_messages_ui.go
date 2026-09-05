@@ -73,7 +73,7 @@ func updateChatWindow() {
 		if scrollit {
 			chatList.Scroll.Y = 1e9
 		}
-		chatWin.Refresh()
+		chatWin.RefreshWithReason("chat content")
 	}
 }
 

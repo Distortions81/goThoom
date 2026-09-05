@@ -1,0 +1,744 @@
+{
+  "cases": [
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 3652972,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 526531,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 6670419,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 2981000,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "baseline",
+      "Submission": {
+        "max_ms": 4.364153,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 3.06265,
+        "p95_ms": 3.82761,
+        "p99_ms": 4.167652
+      },
+      "FrameInterval": {
+        "max_ms": 61.018699,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 59.850677,
+        "p95_ms": 60.61893,
+        "p99_ms": 60.727967
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1216254976
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1139165,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 316857,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 321396,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 622613,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "lighting_off",
+      "Submission": {
+        "max_ms": 8.118643,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 3.080189,
+        "p95_ms": 3.975325,
+        "p99_ms": 4.273044
+      },
+      "FrameInterval": {
+        "max_ms": 58.686654,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 57.332005,
+        "p95_ms": 58.275179,
+        "p99_ms": 58.4461
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1217302528
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1283286,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 311134,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 858270,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 706404,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "fast_shadows",
+      "Submission": {
+        "max_ms": 7.372111,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 3.007721,
+        "p95_ms": 3.94741,
+        "p99_ms": 4.162813
+      },
+      "FrameInterval": {
+        "max_ms": 60.037347,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 59.064836,
+        "p95_ms": 59.70937,
+        "p99_ms": 59.828357
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1217302528
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1079055,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 345906,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 305758,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 629460,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "shadows_off",
+      "Submission": {
+        "max_ms": 6.226107,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 2.896777,
+        "p95_ms": 3.92193,
+        "p99_ms": 4.158071
+      },
+      "FrameInterval": {
+        "max_ms": 60.358857,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 59.153563,
+        "p95_ms": 59.778503,
+        "p99_ms": 59.97345
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1217302528
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1112083,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 301080,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 310926,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 856388,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "bubble_animation_off",
+      "Submission": {
+        "max_ms": 5.993326,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 2.303417,
+        "p95_ms": 3.090192,
+        "p99_ms": 3.280461
+      },
+      "FrameInterval": {
+        "max_ms": 58.730239,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 57.760874,
+        "p95_ms": 58.410669,
+        "p99_ms": 58.588174
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1217302528
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1117599,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 302058,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 308272,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 621362,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "bubbles_off",
+      "Submission": {
+        "max_ms": 4.116763,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 1.363175,
+        "p95_ms": 1.97969,
+        "p99_ms": 2.2078
+      },
+      "FrameInterval": {
+        "max_ms": 55.126447,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 53.529659,
+        "p95_ms": 54.337766,
+        "p99_ms": 54.679133
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1217302528
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1011131,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Chat",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 283698,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 318868,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 615825,
+          "LastReason": "study 5 Hz refresh"
+        }
+      ],
+      "Name": "ui_refresh_5hz",
+      "Submission": {
+        "max_ms": 7.913648,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 3.515436,
+        "p95_ms": 5.84554,
+        "p99_ms": 6.241366
+      },
+      "FrameInterval": {
+        "max_ms": 97.290625,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 58.735331,
+        "p95_ms": 95.139841,
+        "p99_ms": 96.586181
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1220448256
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1015533,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Chat",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 331779,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 324023,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 200,
+          "Pixels": 34300000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 636516,
+          "LastReason": "study 5 Hz refresh"
+        }
+      ],
+      "Name": "ui_refresh_5hz_unbatched",
+      "Submission": {
+        "max_ms": 6.700265,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 3.612692,
+        "p95_ms": 5.890442,
+        "p99_ms": 6.257277
+      },
+      "FrameInterval": {
+        "max_ms": 96.083363,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 58.897738,
+        "p95_ms": 95.31448,
+        "p99_ms": 95.666017
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1220448256
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1015533,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 331779,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 324023,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 636516,
+          "LastReason": "study 5 Hz refresh"
+        }
+      ],
+      "Name": "ui_hidden",
+      "Submission": {
+        "max_ms": 6.873505,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 2.933458,
+        "p95_ms": 3.820436,
+        "p99_ms": 4.051707
+      },
+      "FrameInterval": {
+        "max_ms": 446.602059,
+        "over_16_67ms_pct": 99.33333333333333,
+        "over_33_33ms_pct": 99,
+        "p50_ms": 58.07473,
+        "p95_ms": 58.879063,
+        "p99_ms": 63.027784
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1220448256
+    },
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 2456833,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 337576,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 347208,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 934494,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "baseline_repeat",
+      "Submission": {
+        "max_ms": 5.96708,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 2.962119,
+        "p95_ms": 3.934145,
+        "p99_ms": 4.158471
+      },
+      "FrameInterval": {
+        "max_ms": 59.903539,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 58.429938,
+        "p95_ms": 59.12615,
+        "p99_ms": 59.293358
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1220448256
+    }
+  ],
+  "fixture": "tour-2025.08.02.clMov",
+  "fullscreen": true,
+  "goVersion": "go1.26.6",
+  "goarch": "amd64",
+  "goos": "linux",
+  "minimumSamplesPerCase": 600,
+  "minimumSecondsPerCase": 10,
+  "mobiles": 30,
+  "monitor": {
+    "deviceScaleFactor": 1,
+    "heightDP": 1080,
+    "name": "eDP",
+    "widthDP": 1920
+  },
+  "nightPercent": 50,
+  "pictures": 146,
+  "scale": 2,
+  "warmupFrames": 90,
+  "worldBounds": "(0,0)-(1094,1080)",
+  "worldScale": 2
+}

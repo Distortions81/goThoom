@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -83,7 +84,11 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 	if !ok {
 		return tourPerformanceFixture{}, fmt.Errorf("could not locate performance benchmark source")
 	}
-	images, err := climg.Load(filepath.Join(filepath.Dir(sourceFile), "data", CL_ImagesFile))
+	imagePath := os.Getenv("GOTHOOM_PERF_IMAGES")
+	if imagePath == "" {
+		imagePath = filepath.Join(filepath.Dir(sourceFile), "data", CL_ImagesFile)
+	}
+	images, err := climg.Load(imagePath)
 	if err != nil {
 		return tourPerformanceFixture{}, fmt.Errorf("load CL_Images: %w", err)
 	}
@@ -97,7 +102,11 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 	blockTTS = true
 	blockMusic = true
 	initFont()
-	frames, err := parseMovie(movieFixturePath(t, performanceTourFixture), clVersion)
+	moviePath := os.Getenv("GOTHOOM_PERF_MOVIE")
+	if moviePath == "" {
+		moviePath = movieFixturePath(t, performanceTourFixture)
+	}
+	frames, err := parseMovie(moviePath, clVersion)
 	if err != nil {
 		return tourPerformanceFixture{}, fmt.Errorf("parse movie: %w", err)
 	}

@@ -1,0 +1,169 @@
+{
+  "artworkUpscale": 2,
+  "cases": [
+    {
+      "Samples": 120,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 3898261,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 4540994,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 664433,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1600307,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "baseline",
+      "Submission": {
+        "max_ms": 9.881961,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 6.120094,
+        "p95_ms": 8.480732,
+        "p99_ms": 8.860357
+      },
+      "FrameInterval": {
+        "max_ms": 29.594374,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 28.878169,
+        "p95_ms": 29.476023,
+        "p99_ms": 29.586704
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 880710656
+    },
+    {
+      "Samples": 120,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1109293,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 325844,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 302605,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 618190,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "baseline_repeat",
+      "Submission": {
+        "max_ms": 14.369917,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 6.2343,
+        "p95_ms": 7.732274,
+        "p99_ms": 8.699489
+      },
+      "FrameInterval": {
+        "max_ms": 29.757217,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 28.968898,
+        "p95_ms": 29.582105,
+        "p99_ms": 29.688493
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 881758208
+    }
+  ],
+  "fixture": "tour-2025.08.02.clMov",
+  "fullscreen": true,
+  "goVersion": "go1.26.6",
+  "goarch": "amd64",
+  "goos": "linux",
+  "minimumSamplesPerCase": 120,
+  "minimumSecondsPerCase": 2,
+  "mobiles": 30,
+  "monitor": {
+    "deviceScaleFactor": 1,
+    "heightDP": 1080,
+    "name": "eDP",
+    "widthDP": 1920
+  },
+  "nightPercent": 50,
+  "pictures": 146,
+  "scale": 2,
+  "warmupFrames": 90,
+  "worldBounds": "(0,0)-(1094,1080)",
+  "worldScale": 2
+}

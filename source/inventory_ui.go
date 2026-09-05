@@ -249,7 +249,7 @@ func updateInventoryWindow() {
 func searchInventoryWindow(query string) {
 	if inventoryList == nil {
 		if inventoryWin != nil {
-			inventoryWin.Refresh()
+			inventoryWin.RefreshWithReason("inventory content")
 		}
 		return
 	}

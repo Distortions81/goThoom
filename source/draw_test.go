@@ -70,7 +70,7 @@ func TestReuseCachedNameTagFromSharedCache(t *testing.T) {
 	t.Cleanup(clearSharedNameTagCache)
 	key := nameTagKey{Text: "Returning", FontGen: 9, FrameColor: color.RGBA{R: 12, G: 34, B: 56, A: 200}}
 	image := new(ebiten.Image)
-	sharedNameTagCache[key] = cachedNameTagImage{image: image, width: 48, height: 14}
+	sharedNameTagCache[key] = &cachedNameTagImage{image: image, width: 48, height: 14}
 
 	mobile := frameMobile{Index: 7}
 	if !reuseCachedNameTag(&mobile, nil, key) {

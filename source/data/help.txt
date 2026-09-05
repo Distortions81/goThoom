@@ -62,7 +62,7 @@ Other Windows
 
 Extras
 ------
-- Open the user data directory from Advanced Settings → Open User Data Folder.
+- Open the user data directory from Settings → Files → Open User Data Folder.
 - Custom background: place `background.png` directly in that directory.
 - Music test: `/play <instrument-number> <notes>` (e.g., `/play 10 cdefg`).
 - Settings commands: `/setting search <text>`, `/setting get <name>`, `/setting set <name> <value>`, and `/setting reset <name>`.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gothoom/internal/renderpool"
 	"image/color"
 	"math"
 	"sync"
@@ -11,14 +12,22 @@ import (
 type cachedNameTagImage struct {
 	image         *ebiten.Image
 	width, height int
+	bytes         int64
+	lastUsed      uint64
+	borrowers     int
+	retired       bool
 }
 
 const maxSharedNameTags = 4096
+const maxSharedNameTagBytes = 64 << 20
 const nameTagRasterScaleUnits = 64
 
 var (
 	sharedNameTagMu    sync.RWMutex
-	sharedNameTagCache = make(map[nameTagKey]cachedNameTagImage)
+	sharedNameTagBytes int64
+	sharedNameTagClock uint64
+	nameTagTargets     = renderpool.Pool{MaxFreeBytes: 8 << 20, NewImage: newBubbleRenderTarget, Deallocate: deallocateImage}
+	sharedNameTagCache = make(map[nameTagKey]*cachedNameTagImage)
 )
 
 func nameTagFrameColor(name string, opacity uint8) color.RGBA {
@@ -73,51 +82,131 @@ func makeNameTagKey(name string, colors, descriptorType, opacity, style uint8, d
 	}
 }
 
+// Mobile snapshots can retain old image pointers after eviction. Those pointers
+// are hints for parsing only; rendering borrows the current cache entry by key.
 func reuseSharedNameTag(m *frameMobile, key nameTagKey) bool {
-	sharedNameTagMu.RLock()
-	cached, ok := sharedNameTagCache[key]
-	sharedNameTagMu.RUnlock()
-	if !ok || cached.image == nil {
+	sharedNameTagMu.Lock()
+	defer sharedNameTagMu.Unlock()
+	cached := sharedNameTagCache[key]
+	if cached == nil || cached.image == nil {
 		return false
 	}
-	m.nameTag = cached.image
-	m.nameTagW = cached.width
-	m.nameTagH = cached.height
-	m.nameTagKey = key
+	touchSharedNameTag(cached)
+	m.nameTag, m.nameTagW, m.nameTagH, m.nameTagKey = cached.image, cached.width, cached.height, key
 	return true
+}
+
+func touchSharedNameTag(entry *cachedNameTagImage) {
+	sharedNameTagClock++
+	entry.lastUsed = sharedNameTagClock
 }
 
 func sharedNameTagImage(key nameTagKey) (*ebiten.Image, int, int) {
 	sharedNameTagMu.Lock()
 	defer sharedNameTagMu.Unlock()
-	if cached, ok := sharedNameTagCache[key]; ok {
-		return cached.image, cached.width, cached.height
+	entry := sharedNameTagImageLocked(key)
+	if entry == nil {
+		return nil, 0, 0
+	}
+	return entry.image, entry.width, entry.height
+}
+
+func sharedNameTagImageLocked(key nameTagKey) *cachedNameTagImage {
+	if entry := sharedNameTagCache[key]; entry != nil {
+		touchSharedNameTag(entry)
+		return entry
 	}
 	rasterScale := nameTagRasterScaleFromKey(key.RasterScale)
-	img, width, height := buildNameTagImage(key.Text, key.Colors, key.Type, key.Opacity, key.Style, key.Dead, key.FrameColor, rasterScale)
-	if img != nil {
-		if len(sharedNameTagCache) >= maxSharedNameTags {
-			clear(sharedNameTagCache)
+	// Evict before acquiring storage so the next label can reuse an idle slot.
+	for len(sharedNameTagCache) >= maxSharedNameTags || sharedNameTagBytes >= maxSharedNameTagBytes {
+		if !evictOldestSharedNameTag() {
+			break
 		}
-		sharedNameTagCache[key] = cachedNameTagImage{image: img, width: width, height: height}
 	}
-	return img, width, height
+	img, width, height := buildNameTagImageWithTarget(key.Text, key.Colors, key.Type, key.Opacity, key.Style, key.Dead, key.FrameColor, rasterScale,
+		func(w, h int) *ebiten.Image { return nameTagTargets.Acquire(w, h, gs.PotatoGPU) })
+	if img == nil {
+		return nil
+	}
+	entry := &cachedNameTagImage{image: img, width: width, height: height, bytes: nameTagTargets.Bytes(img)}
+	for sharedNameTagBytes+entry.bytes > maxSharedNameTagBytes {
+		if !evictOldestSharedNameTag() {
+			break
+		}
+	}
+	touchSharedNameTag(entry)
+	sharedNameTagCache[key] = entry
+	sharedNameTagBytes += entry.bytes
+	return entry
+}
+
+// Borrowing protects the image until DrawImage has queued its use. Repainting
+// its slot after release is then safe because Ebitengine orders those commands.
+func borrowSharedNameTag(key nameTagKey) *cachedNameTagImage {
+	sharedNameTagMu.Lock()
+	defer sharedNameTagMu.Unlock()
+	entry := sharedNameTagImageLocked(key)
+	if entry != nil {
+		entry.borrowers++
+	}
+	return entry
+}
+
+func releaseSharedNameTag(entry *cachedNameTagImage) {
+	if entry == nil {
+		return
+	}
+	sharedNameTagMu.Lock()
+	defer sharedNameTagMu.Unlock()
+	entry.borrowers--
+	if entry.retired && entry.borrowers == 0 {
+		nameTagTargets.Release(entry.image)
+	}
+}
+
+func retireSharedNameTag(key nameTagKey, entry *cachedNameTagImage) {
+	delete(sharedNameTagCache, key)
+	sharedNameTagBytes -= entry.bytes
+	entry.retired = true
+	if entry.borrowers == 0 {
+		nameTagTargets.Release(entry.image)
+	}
+}
+
+// Called with sharedNameTagMu held. Never retire an entry in active use just
+// to meet a budget; an oversized label or active borrowers may exceed it briefly.
+func evictOldestSharedNameTag() bool {
+	var oldest *cachedNameTagImage
+	var oldestKey nameTagKey
+	for key, entry := range sharedNameTagCache {
+		if entry.borrowers == 0 && (oldest == nil || entry.lastUsed < oldest.lastUsed) {
+			oldest, oldestKey = entry, key
+		}
+	}
+	if oldest == nil {
+		return false
+	}
+	retireSharedNameTag(oldestKey, oldest)
+	return true
 }
 
 func clearSharedNameTagCache() {
 	sharedNameTagMu.Lock()
-	sharedNameTagCache = make(map[nameTagKey]cachedNameTagImage)
-	sharedNameTagMu.Unlock()
+	defer sharedNameTagMu.Unlock()
+	for key, entry := range sharedNameTagCache {
+		retireSharedNameTag(key, entry)
+	}
+	nameTagTargets.Clear()
 }
 
 func clearSharedNameTagCacheFor(name string) {
 	sharedNameTagMu.Lock()
-	for key := range sharedNameTagCache {
+	defer sharedNameTagMu.Unlock()
+	for key, entry := range sharedNameTagCache {
 		if key.Text == name {
-			delete(sharedNameTagCache, key)
+			retireSharedNameTag(key, entry)
 		}
 	}
-	sharedNameTagMu.Unlock()
 }
 
 // killNameTagCache clears all cached mobile name tag images.

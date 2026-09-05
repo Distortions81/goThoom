@@ -558,6 +558,12 @@ func (win *windowData) ScrollAtBottom() bool {
 }
 
 func (win *windowData) Refresh() {
+	win.RefreshWithReason("layout")
+}
+
+// RefreshWithReason refreshes layout and labels the next cached repaint for
+// diagnostics. Like Refresh, this is called on the UI thread.
+func (win *windowData) RefreshWithReason(reason string) {
 	if !win.IsOpen() {
 		return
 	}
@@ -581,6 +587,7 @@ func (win *windowData) Refresh() {
 	restoreScroll(win.Contents, savedFlows)
 	win.adjustScrollForResize()
 	win.markDirty()
+	win.repaintReason = reason
 }
 
 func (win *windowData) IsOpen() bool {
@@ -1332,6 +1339,9 @@ func (win *windowData) markDirty() {
 	if win == nil {
 		return
 	}
+	if win.repaintRequested.IsZero() {
+		win.repaintRequested = time.Now()
+	}
 	if win.refreshInterval > 0 && win.Render != nil && !win.lastRefresh.IsZero() && time.Since(win.lastRefresh) < win.refreshInterval {
 		win.refreshPending = true
 		return
@@ -1344,6 +1354,9 @@ func (item *itemData) markDirty() {
 		item.Dirty = true
 		if item.ParentWindow != nil {
 			item.ParentWindow.markDirty()
+			if item.ParentWindow.repaintReason == "" {
+				item.ParentWindow.repaintReason = "item"
+			}
 		}
 	}
 }

@@ -60,7 +60,7 @@ var (
 	statsRecentLoss        statsMetric
 	statsSessionLoss       statsMetric
 	statsPNACheckbox       *eui.ItemData
-	advancedPNACheckbox    *eui.ItemData
+	settingsPNACheckbox    *eui.ItemData
 	statsNetworkText       *eui.ItemData
 	statsPNAAlert          *eui.ItemData
 	statsFPSMetric         statsMetric
@@ -237,7 +237,7 @@ func setPNAEnabled(enabled bool) {
 		resetPNAController()
 		resetPNAFallback()
 	}
-	for _, checkbox := range []*eui.ItemData{statsPNACheckbox, advancedPNACheckbox} {
+	for _, checkbox := range []*eui.ItemData{statsPNACheckbox, settingsPNACheckbox} {
 		if checkbox != nil && checkbox.Checked != enabled {
 			checkbox.Checked = enabled
 			checkbox.Dirty = true

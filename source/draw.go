@@ -742,6 +742,10 @@ func mobileOnEdge(m frameMobile, d frameDescriptor) bool {
 // current font and settings. Returns the image and its width/height in pixels.
 // A non-zero frameClr draws the optional player-label frame.
 func buildNameTagImage(name string, colorCode, descriptorType, opacity, style uint8, dead bool, frameClr color.RGBA, rasterScale float64) (*ebiten.Image, int, int) {
+	return buildNameTagImageWithTarget(name, colorCode, descriptorType, opacity, style, dead, frameClr, rasterScale, newManagedImage)
+}
+
+func buildNameTagImageWithTarget(name string, colorCode, descriptorType, opacity, style uint8, dead bool, frameClr color.RGBA, rasterScale float64, target func(int, int) *ebiten.Image) (*ebiten.Image, int, int) {
 	if name == "" {
 		return nil, 0, 0
 	}
@@ -771,7 +775,7 @@ func buildNameTagImage(name string, colorCode, descriptorType, opacity, style ui
 	if iw <= 0 || ih <= 0 {
 		iw, ih = 1, 1
 	}
-	img := newUnmanagedImage(iw+5, ih)
+	img := target(iw+5, ih)
 	// Fill background
 	op := acquireDrawOpts()
 	op.GeoM.Scale(float64(iw+5), float64(ih))

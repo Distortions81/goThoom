@@ -1160,6 +1160,7 @@ func completeSetupWizard() {
 }
 
 func rebuildSettingsAfterSetupWizard() {
+	selectedTab := selectedSettingsTab()
 	if settingsWin != nil {
 		wasOpen := settingsWin.IsOpen()
 		settingsWin.RemoveWindow()
@@ -1169,15 +1170,7 @@ func rebuildSettingsAfterSetupWizard() {
 			settingsWin.MarkOpen()
 		}
 	}
-	if advancedWin != nil {
-		wasOpen := advancedWin.IsOpen()
-		advancedWin.RemoveWindow()
-		advancedWin = nil
-		makeAdvancedSettingsWindow()
-		if wasOpen {
-			advancedWin.MarkOpen()
-		}
-	}
+	selectSettingsTab(selectedTab)
 	if qualityWin != nil {
 		wasOpen := qualityWin.IsOpen()
 		qualityWin.RemoveWindow()

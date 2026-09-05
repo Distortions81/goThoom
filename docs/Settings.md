@@ -2,8 +2,28 @@
 
 goThoom stores persistent settings in the categorized version 4
 `settings.json` file in the user data folder. Most user preferences have a
-control in Settings, Quality, Advanced Settings, Mixer, Notifications, Speech
+control in Settings, Quality, Mixer, Notifications, Speech
 Bubbles, Controller, or Tiled Layout. This document lists the exceptions.
+
+## Settings navigation
+
+The Settings window replaces the former Advanced window with ten topic tabs:
+
+| Tab | Controls |
+| --- | --- |
+| Display | Window layout, UI scale, fullscreen, themes, and appearance |
+| World | Status bars, visibility, character names, and player-list grouping |
+| Text | Font sizes, chat timestamps, timestamp format, and text colors |
+| Bubbles | Speech bubble appearance, lifetime, and message-type options |
+| Audio | Mixer, sound processing, text to speech, and notifications |
+| Controls | Movement, keyboard bindings, hotkeys, gamepad, and script limits |
+| Performance | Graphics quality, sprite cache, artwork loading, and power saving |
+| Network | Server address, latency adjustment, and network timing |
+| Files | File paths, downloaded assets, user data and diagnostics folders, and recording |
+| Tools | Setup wizard, debug settings, and resetting all preferences |
+
+Tabs use two rows so every category remains visible in a compact window.
+Detailed editors such as Quality, File Paths, and Mixer still open separately.
 
 ## Audit summary
 
@@ -77,7 +97,7 @@ tiled dividers, or **Reset Windows** unless diagnosing a layout problem.
 
 ## File paths
 
-**Settings → File Paths** configures four global, restart-scoped
+**Settings → Files → File Paths** configures four global, restart-scoped
 locations: assets and audio (including `CL_Images`, `CL_Sounds`, the SoundFont,
 and Piper TTS files), diagnostic and text logs, legacy macros, and Go scripts.
 An empty JSON value uses the standard location in the user data folder.
@@ -97,7 +117,7 @@ session.
 
 Network Latency & Server Phase Timing is enabled by default. Its persisted
 setting is `general.nlspt_enabled`. The
-Advanced Settings **NLSPT safety (%)** slider controls the internal
+Settings → Network **NLSPT safety (%)** slider controls the internal
 `networkAdjustmentSafetyPercent` value. It is deliberately session-only,
 accepts 0–50%, and starts at 10% each time goThoom launches. The learned server
 phase, lead, reply timing, RTT floor, jitter/loss samples, fallback state, and
@@ -143,7 +163,7 @@ a derived field.
 
 ## Sprite cache
 
-Advanced Settings → Performance → Sprite cache offers named presets. The
+Settings → Performance → Sprite cache offers named presets. The
 explanation below the selector updates immediately with the selected tradeoff
 and the reserve at each sprite resolution. **Balanced** is the default.
 

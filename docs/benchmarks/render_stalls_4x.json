@@ -1,0 +1,184 @@
+{
+  "cases": [
+    {
+      "Name": "baseline",
+      "Submission": {
+        "max_ms": 3.135146,
+        "p50_ms": 1.818879,
+        "p95_ms": 2.449842,
+        "p99_ms": 2.679814
+      },
+      "FrameInterval": {
+        "max_ms": 6.757395,
+        "p50_ms": 6.346972,
+        "p95_ms": 6.428042,
+        "p99_ms": 6.470862
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1884137472
+    },
+    {
+      "Name": "lighting_off",
+      "Submission": {
+        "max_ms": 3.221655,
+        "p50_ms": 1.743079,
+        "p95_ms": 2.278151,
+        "p99_ms": 2.622463
+      },
+      "FrameInterval": {
+        "max_ms": 6.230651,
+        "p50_ms": 5.884099,
+        "p95_ms": 5.999129,
+        "p99_ms": 6.05006
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1888330752
+    },
+    {
+      "Name": "fast_shadows",
+      "Submission": {
+        "max_ms": 3.255576,
+        "p50_ms": 1.828259,
+        "p95_ms": 2.486682,
+        "p99_ms": 2.714603
+      },
+      "FrameInterval": {
+        "max_ms": 6.817994,
+        "p50_ms": 6.388591,
+        "p95_ms": 6.533742,
+        "p99_ms": 6.629102
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1888330752
+    },
+    {
+      "Name": "shadows_off",
+      "Submission": {
+        "max_ms": 3.319836,
+        "p50_ms": 1.741669,
+        "p95_ms": 2.18102,
+        "p99_ms": 2.582862
+      },
+      "FrameInterval": {
+        "max_ms": 6.637632,
+        "p50_ms": 6.36046,
+        "p95_ms": 6.487771,
+        "p99_ms": 6.540031
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1888330752
+    },
+    {
+      "Name": "bubble_animation_off",
+      "Submission": {
+        "max_ms": 3.088325,
+        "p50_ms": 1.779839,
+        "p95_ms": 2.445741,
+        "p99_ms": 2.659793
+      },
+      "FrameInterval": {
+        "max_ms": 6.637321,
+        "p50_ms": 6.416241,
+        "p95_ms": 6.497201,
+        "p99_ms": 6.533371
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1888330752
+    },
+    {
+      "Name": "bubbles_off",
+      "Submission": {
+        "max_ms": 0.748734,
+        "p50_ms": 0.434712,
+        "p95_ms": 0.522712,
+        "p99_ms": 0.577882
+      },
+      "FrameInterval": {
+        "max_ms": 5.771497,
+        "p50_ms": 5.322125,
+        "p95_ms": 5.455766,
+        "p99_ms": 5.504366
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1888330752
+    },
+    {
+      "Name": "ui_refresh_5hz",
+      "Submission": {
+        "max_ms": 3.325895,
+        "p50_ms": 1.769388,
+        "p95_ms": 2.10908,
+        "p99_ms": 3.174395
+      },
+      "FrameInterval": {
+        "max_ms": 12.92363,
+        "p50_ms": 6.26383,
+        "p95_ms": 12.283637,
+        "p99_ms": 12.744779
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1900913664
+    },
+    {
+      "Name": "ui_hidden",
+      "Submission": {
+        "max_ms": 3.428926,
+        "p50_ms": 1.776028,
+        "p95_ms": 2.428011,
+        "p99_ms": 2.592572
+      },
+      "FrameInterval": {
+        "max_ms": 6.46485,
+        "p50_ms": 6.246388,
+        "p95_ms": 6.313068,
+        "p99_ms": 6.364439
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1900913664
+    },
+    {
+      "Name": "baseline_repeat",
+      "Submission": {
+        "max_ms": 3.536116,
+        "p50_ms": 1.783638,
+        "p95_ms": 2.435491,
+        "p99_ms": 2.640402
+      },
+      "FrameInterval": {
+        "max_ms": 6.64128,
+        "p50_ms": 6.442239,
+        "p95_ms": 6.537239,
+        "p99_ms": 6.58756
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 1888330752
+    }
+  ],
+  "fixture": "tour-2025.08.02.clMov",
+  "mobiles": 30,
+  "nightPercent": 50,
+  "pictures": 146,
+  "samplesPerCase": 600,
+  "scale": 4,
+  "warmupFrames": 90,
+  "worldBounds": "(0,0)-(2188,2160)",
+  "worldScale": 4
+}

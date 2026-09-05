@@ -255,7 +255,7 @@ func playersWindowTitle(online, sharedTo, sharingToUs int) string {
 func searchPlayersWindow(query string) {
 	applyPlayersSearch(query)
 	if playersWin != nil {
-		playersWin.Refresh()
+		playersWin.RefreshWithReason("player list")
 	}
 }
 
@@ -827,7 +827,7 @@ func updatePlayersWindow() {
 	renderedPlayerSelection = selectedPlayerName
 	artworkChanged := loadVisiblePlayerArtwork(contentsChanged || layoutChanged)
 	if contentsChanged || layoutChanged || titleChanged || selectionChanged || artworkChanged {
-		playersWin.Refresh()
+		playersWin.RefreshWithReason("player list")
 	}
 }
 

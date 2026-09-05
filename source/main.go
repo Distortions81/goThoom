@@ -123,7 +123,15 @@ func main() {
 	pgoOutput := flag.String("pgoOutput", "default.pgo", "CPU profile output path used with -pgo")
 	pgoHeapOutput := flag.String("pgoHeapOutput", "", "heap profile output written after -pgo completes")
 	verifyPath := flag.String("verifyClmov", "", "verify a .clMov file by re-encoding and comparing")
+	uiRepaintTrace := flag.Duration("uiRepaintTrace", 0, "log cached UI repaints with CPU submission time at or above this duration (for example 1ms)")
 	flag.Parse()
+	if *uiRepaintTrace > 0 {
+		eui.RepaintObserver = func(s eui.RepaintStats) {
+			if s.LastDuration >= *uiRepaintTrace {
+				log.Printf("UI repaint window=%q reason=%q pixels=%d cpu=%s repaints=%d deferredFrames=%d", s.Title, s.LastReason, s.LastPixels, s.LastDuration, s.Count, s.DeferredFrames)
+			}
+		}
+	}
 	if *pgoMaxFPS < 0 {
 		log.Fatalf("pgoMaxFPS must not be negative, got %d", *pgoMaxFPS)
 	}

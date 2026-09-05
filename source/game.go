@@ -3466,23 +3466,9 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			playersMu.RUnlock()
 			style := mobileNameStyle(m.Colors, sharee)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead, gs.GameScale)
-			img, iw, ih := m.nameTag, m.nameTagW, m.nameTagH
-			if img == nil || m.nameTagKey != key {
-				img, iw, ih = sharedNameTagImage(key)
-				if img != nil {
-					// Update shared cache so next frames reuse this image.
-					stateMu.Lock()
-					if sm, ok := state.mobiles[m.Index]; ok {
-						sm.nameTag = img
-						sm.nameTagW = iw
-						sm.nameTagH = ih
-						sm.nameTagKey = key
-						state.mobiles[m.Index] = sm
-					}
-					stateMu.Unlock()
-				}
-			}
-			if img != nil {
+			entry := borrowSharedNameTag(key)
+			if entry != nil {
+				img, iw, ih := entry.image, entry.width, entry.height
 				scaledWidth := max(1, iw)
 				scaledHeight := max(1, ih)
 				top := y + int(offset)
@@ -3504,6 +3490,7 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				op.GeoM.Translate(float64(left), float64(top+nameY))
 				screen.DrawImage(img, op)
 				releaseDrawOpts(op)
+				releaseSharedNameTag(entry)
 			}
 		} else {
 			drawGenericBar()

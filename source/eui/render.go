@@ -78,12 +78,20 @@ func tabFontSize(item, style *itemData) float32 {
 	return 0
 }
 
-func tabStripHeight(item, style *itemData) float32 {
+func tabRowHeight(item, style *itemData) float32 {
 	height := float32(defaultTabHeight) * uiScale
 	if textHeight := tabFontSize(item, style)*uiScale + 4; textHeight > height {
 		height = textHeight
 	}
 	return height
+}
+
+func tabStripHeight(item, style *itemData) float32 {
+	rows := 1
+	if item != nil && item.TabColumns > 0 && len(item.Tabs) > 0 {
+		rows = (len(item.Tabs) + item.TabColumns - 1) / item.TabColumns
+	}
+	return tabRowHeight(item, style)*float32(rows) + float32(rows-1)*4*uiScale
 }
 
 // Draw renders the UI to the provided screen image.
@@ -96,6 +104,7 @@ func Draw(screen *ebiten.Image) {
 	if cap(dropdowns) < len(windows) {
 		dropdowns = make([]openDropdown, 0, len(windows))
 	}
+	repaintPixels := 0
 	drawWindow := func(win *windowData) {
 		if !win.Open {
 			return
@@ -109,7 +118,9 @@ func Draw(screen *ebiten.Image) {
 		if !win.Dirty && win.HasIndeterminate {
 			win.Dirty = true
 		}
-		win.Draw(screen, &dropdowns)
+		urgent := win.Hovered || win == activeWindow || win == activeSearch || win == dragWin ||
+			(activeItem != nil && activeItem.ParentWindow == win)
+		win.draw(screen, &dropdowns, win.shouldDeferRepaint(renderNow, urgent, &repaintPixels))
 	}
 	// Docked panes form the workspace's base layer. Draw its gutters over the
 	// panes, then draw standalone utility windows so they remain ordinary
@@ -236,6 +247,10 @@ func (win *windowData) reusableRenderTarget(w, h int) *ebiten.Image {
 }
 
 func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
+	win.draw(screen, dropdowns, false)
+}
+
+func (win *windowData) draw(screen *ebiten.Image, dropdowns *[]openDropdown, deferRepaint bool) {
 	if win.NoCache {
 		// In NoCache mode, if opacity is < 1, render to a temporary offscreen
 		// image and composite with alpha. Otherwise, render directly to screen.
@@ -292,7 +307,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 	}
 
 	// Cached/offscreen render path
-	if win.Dirty || win.Render == nil {
+	if (win.Dirty || win.Render == nil) && !deferRepaint {
 		if CacheCheck {
 			win.RenderCount++
 		}
@@ -301,6 +316,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		if size.X < 1 || size.Y < 1 {
 			return
 		}
+		start := time.Now()
 		win.reusableRenderTarget(imgW, imgH)
 		origPos := win.Position
 		basePos := win.getPosition()
@@ -313,6 +329,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 		win.Position = origPos
 		win.Dirty = false
 		win.lastRefresh = renderNow
+		win.recordRepaint(start, imgW*imgH)
 	} else {
 		win.collectDropdowns(dropdowns)
 	}
@@ -808,10 +825,16 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 
 		fontSize := tabFontSize(item, style)
 		tabHeight := tabStripHeight(item, style)
+		rowHeight := tabRowHeight(item, style)
 		textSize := (fontSize * uiScale) + 2
 		x := offset.X
 		spacing := float32(4) * uiScale
+		tabY := offset.Y
 		for i, tab := range item.Tabs {
+			if item.TabColumns > 0 && i > 0 && i%item.TabColumns == 0 {
+				x = offset.X
+				tabY += rowHeight + spacing
+			}
 			face := itemFace(tab, textSize)
 			tw, _ := text.Measure(tab.Name, face, 0)
 			w := float32(tw) + 8
@@ -830,8 +853,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			}
 			if item.Filled {
 				drawTabShape(subImg,
-					point{X: x, Y: offset.Y},
-					point{X: w, Y: tabHeight},
+					point{X: x, Y: tabY},
+					point{X: w, Y: rowHeight},
 					col,
 					item.Fillet*uiScale,
 					item.BorderPad*uiScale,
@@ -843,8 +866,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 					border = 1 * uiScale
 				}
 				strokeTabShape(subImg,
-					point{X: x, Y: offset.Y},
-					point{X: w, Y: tabHeight},
+					point{X: x, Y: tabY},
+					point{X: w, Y: rowHeight},
 					style.OutlineColor,
 					item.Fillet*uiScale,
 					item.BorderPad*uiScale,
@@ -852,22 +875,28 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				)
 			}
 			if item.ActiveOutline && i == item.ActiveTab {
-				strokeTabTop(subImg,
-					point{X: x, Y: offset.Y},
-					point{X: w, Y: tabHeight},
-					style.ClickColor,
-					item.Fillet*uiScale,
-					item.BorderPad*uiScale,
-					3*uiScale,
-				)
+				if item.TabColumns > 0 {
+					// Keep the accent inside its row; the raised single-row tab
+					// outline would extend over the row above it.
+					drawFilledRect(subImg, x+6*uiScale, tabY, w-12*uiScale, 3*uiScale, style.ClickColor, false)
+				} else {
+					strokeTabTop(subImg,
+						point{X: x, Y: tabY},
+						point{X: w, Y: rowHeight},
+						style.ClickColor,
+						item.Fillet*uiScale,
+						item.BorderPad*uiScale,
+						3*uiScale,
+					)
+				}
 			}
 			loo := text.LayoutOptions{PrimaryAlign: text.AlignCenter, SecondaryAlign: text.AlignCenter}
 			dop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
-			dop.GeoM.Translate(float64(x+w/2), float64(offset.Y+tabHeight/2))
+			dop.GeoM.Translate(float64(x+w/2), float64(tabY+rowHeight/2))
 			dto := &text.DrawOptions{DrawImageOptions: dop, LayoutOptions: loo}
 			dto.ColorScale.ScaleWithColor(style.TextColor)
 			text.Draw(subImg, tab.Name, face, dto)
-			tab.DrawRect = rectAdd(rect{X0: x, Y0: offset.Y, X1: x + w, Y1: offset.Y + tabHeight}, base)
+			tab.DrawRect = rectAdd(rect{X0: x, Y0: tabY, X1: x + w, Y1: tabY + rowHeight}, base)
 			x += w + spacing
 		}
 		drawOffset = pointAdd(drawOffset, point{Y: tabHeight})

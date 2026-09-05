@@ -73,6 +73,13 @@ type windowData struct {
 	Render *ebiten.Image
 	Dirty  bool
 
+	// DeferRepaint lets large background panes share a per-frame repaint
+	// budget. Interaction, resizing and initial painting remain immediate.
+	DeferRepaint     bool
+	repaintRequested time.Time
+	repaintReason    string
+	repaintStats     RepaintStats
+
 	// refreshInterval coalesces repeated invalidations for large, mostly
 	// static windows. The first change is immediate; further changes within
 	// the interval are rendered together.
@@ -222,6 +229,8 @@ type itemData struct {
 	// flow referenced by ActiveTab will be drawn and receive input.
 	Tabs      []*itemData
 	ActiveTab int
+	// TabColumns wraps the tab strip after this many tabs. Zero keeps one row.
+	TabColumns int
 
 	Theme *Theme
 	// DrawRect stores the last drawn rectangle of the item in screen

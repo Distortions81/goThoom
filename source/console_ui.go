@@ -80,7 +80,7 @@ func updateConsoleWindow() {
 			messagesFlow.Scroll.Y = 1e9
 		}
 		if consoleWin != nil {
-			consoleWin.Refresh()
+			consoleWin.RefreshWithReason("console content")
 		}
 	}
 }

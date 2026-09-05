@@ -27,22 +27,32 @@ func TestSettingsWindowFitsCurrentScreenLayout(t *testing.T) {
 	eui.SetScreenSize(1920, 951)
 	eui.SetUIScale(1)
 	makeSettingsWindow()
-	for _, scale := range []float32{1, 1.25, 1.3} {
-		eui.SetUIScale(scale)
-
-		size := settingsWin.GetSize()
-		t.Logf("settings window size at %.2fx: %.0fx%.0f", scale, size.X, size.Y)
-		if settingsWin.NoCache {
-			t.Fatal("settings window bypasses its render cache")
-		}
-		if settingsWin.RefreshInterval() != 100*time.Millisecond {
-			t.Fatalf("settings refresh interval = %v, want 100ms", settingsWin.RefreshInterval())
-		}
-		if horizontal, vertical := settingsWin.RequiresScroll(); horizontal || vertical {
-			t.Fatalf("settings window requires scrollbars at %.2fx: horizontal=%t vertical=%t", scale, horizontal, vertical)
-		}
-		if size.X > 1200*scale || size.Y > 730*scale {
-			t.Fatalf("settings window size at %.2fx = %.0fx%.0f, want at most %.0fx%.0f", scale, size.X, size.Y, 1200*scale, 730*scale)
+	settingsWin.MarkOpen()
+	for _, screen := range []struct {
+		width, height int
+		scale         float32
+	}{
+		{1920, 951, 1}, {1920, 951, 1.25}, {1920, 951, 1.3}, {3840, 2160, 2},
+	} {
+		eui.SetScreenSize(screen.width, screen.height)
+		eui.SetUIScale(screen.scale)
+		for index, tab := range settingsWin.Contents[0].Tabs {
+			settingsWin.Contents[0].ActiveTab = index
+			settingsWin.Refresh()
+			size := settingsWin.GetSize()
+			t.Logf("%s at %.2fx: %.0fx%.0f", tab.Name, screen.scale, size.X, size.Y)
+			if settingsWin.NoCache {
+				t.Fatal("settings window bypasses its render cache")
+			}
+			if settingsWin.RefreshInterval() != 100*time.Millisecond {
+				t.Fatalf("settings refresh interval = %v, want 100ms", settingsWin.RefreshInterval())
+			}
+			if horizontal, vertical := settingsWin.RequiresScroll(); horizontal || vertical {
+				t.Fatalf("%s requires scrollbars at %.2fx: horizontal=%t vertical=%t", tab.Name, screen.scale, horizontal, vertical)
+			}
+			if size.X > 730*screen.scale || size.Y > 730*screen.scale {
+				t.Fatalf("%s at %.2fx = %.0fx%.0f, want at most 730x730 logical pixels", tab.Name, screen.scale, size.X, size.Y)
+			}
 		}
 	}
 }
@@ -199,5 +209,66 @@ func TestClassicBubbleLifetimeDisablesModernSliders(t *testing.T) {
 	lifetime.Handler.Emit(eui.UIEvent{Item: lifetime, Type: eui.EventDropdownSelected, Index: 1})
 	if !base.Disabled || !perWord.Disabled {
 		t.Fatal("modern lifetime sliders remain enabled after selecting classic mode")
+	}
+}
+
+func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
+	initFont()
+	originalWindow, originalPreset := settingsWin, qualityPresetDD
+	settingsWin = nil
+	t.Cleanup(func() {
+		settingsWin.RemoveWindow()
+		settingsWin, qualityPresetDD = originalWindow, originalPreset
+	})
+	makeSettingsWindow()
+	tabs := settingsWin.Contents[0].Tabs
+	if len(tabs) != 10 || settingsWin.Contents[0].TabColumns != 5 {
+		t.Fatal("settings should have ten categories in two rows")
+	}
+	locations := map[string]string{}
+	var visit func([]*eui.ItemData, string)
+	visit = func(items []*eui.ItemData, page string) {
+		for _, item := range items {
+			if item.Text != "" {
+				locations[item.Text] = page
+			}
+			if item.Label != "" {
+				locations[item.Label] = page
+			}
+			visit(item.Contents, page)
+		}
+	}
+	for _, tab := range tabs {
+		visit(tab.Contents, tab.Name)
+	}
+	for control, want := range map[string]string{
+		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
+		"Auto-record sessions": "Files", "Download Files": "Files",
+		"Sprite cache": "Performance", "Power-save FPS": "Performance", "Batch room artwork loading": "Performance",
+		"Always on top": "Display", "Reset Windows": "Display",
+		"Timestamp format": "Text", "Show recently on-screen group": "World",
+		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
+		"TTS Voice": "Audio", "TTS Speed": "Audio", "Audio Mixer": "Audio", "Notification Settings": "Audio",
+		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
+		"Server address": "Network", "NLSPT safety (%)": "Network",
+		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",
+	} {
+		if got := locations[control]; got != want {
+			t.Errorf("%q lives in %q, want %q", control, got, want)
+		}
+	}
+	for _, action := range buildCommandPaletteActions() {
+		if action.label == "Settings: Files" {
+			action.run()
+			if selectedSettingsTab() != "Files" || !settingsWin.IsOpen() {
+				t.Fatal("command palette did not open the Files tab")
+			}
+		}
+	}
+	if selectedSettingsTab() != "Files" {
+		t.Fatal("Files tab is missing from the command palette")
+	}
+	if _, exists := locations["Advanced Settings"]; exists {
+		t.Fatal("obsolete Advanced Settings launcher remains")
 	}
 }
