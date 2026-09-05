@@ -54,3 +54,15 @@ func TestInputCompletionOnlyPredictsAtEnd(t *testing.T) {
 		t.Fatalf("exact command completion = %q, want none", got)
 	}
 }
+
+func TestCompletionPreservesNormalizationAndUnicode(t *testing.T) {
+	candidates := []string{" healing potion ", "Healing Potion", "Élodie", "élodie", "", "SUNSTONE", "Sunstone"}
+	for _, test := range []struct{ text, want string }{
+		{"I need healing p", "otion"}, {"Hello Élo", "die"},
+		{"Hello Élodie", ""}, {"sun", "STONE"}, {"no match", ""},
+	} {
+		if got := completionAtWordBoundary(test.text, candidates); got != test.want {
+			t.Errorf("completion for %q = %q, want %q", test.text, got, test.want)
+		}
+	}
+}

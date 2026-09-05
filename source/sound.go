@@ -155,9 +155,21 @@ func highQualityResamplingEnabled() bool {
 }
 
 func soundPlaybackCacheKey(ids []uint16, context *audio.Context, enhanced bool, enhancementAmount float64, highQuality bool) soundPlaybackKey {
-	ids = append([]uint16(nil), ids...)
-	slices.Sort(ids)
-	encoded := make([]byte, len(ids)*2)
+	// Most requests contain one sound or a small mix. Keep temporary key
+	// storage on the stack, without modifying the caller's ID slice.
+	var idBuffer [16]uint16
+	if len(ids) > 1 {
+		sorted := idBuffer[:0]
+		sorted = append(sorted, ids...)
+		slices.Sort(sorted)
+		ids = sorted
+	}
+	var encodedBuffer [32]byte
+	encoded := encodedBuffer[:]
+	if len(ids)*2 > len(encodedBuffer) {
+		encoded = make([]byte, len(ids)*2)
+	}
+	encoded = encoded[:len(ids)*2]
 	for i, id := range ids {
 		binary.LittleEndian.PutUint16(encoded[i*2:], id)
 	}

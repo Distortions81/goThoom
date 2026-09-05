@@ -853,6 +853,8 @@ func isModifier(k ebiten.Key) bool {
 	return false
 }
 
+var hotkeyClickVariableRE = regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
+
 func applyHotkeyVars(cmd string) (string, bool) {
 	// Resolve @hovered first (simple, unchanged)
 	needHovered := strings.Contains(cmd, "@hovered")
@@ -868,7 +870,7 @@ func applyHotkeyVars(cmd string) (string, bool) {
 	}
 
 	// Handle new click variables via regex replacement.
-	re := regexp.MustCompile(`@([A-Za-z]+)((?:\.[A-Za-z]+)*)\.clicked`)
+	re := hotkeyClickVariableRE
 	out := re.ReplaceAllStringFunc(cmd, func(segment string) string {
 		m := re.FindStringSubmatch(segment)
 		if len(m) < 3 {

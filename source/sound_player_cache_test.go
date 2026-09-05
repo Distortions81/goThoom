@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/binary"
+	"slices"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
@@ -35,5 +37,27 @@ func TestEffectiveAudioVolumeCanMuteTestOutput(t *testing.T) {
 	muteAudioOutputForTests = false
 	if got := effectiveAudioVolume(0.75); got != 0.75 {
 		t.Fatalf("normal audio volume = %v, want 0.75", got)
+	}
+}
+
+func TestSoundPlaybackCacheKeyBufferSizesAndInputOwnership(t *testing.T) {
+	for _, count := range []int{0, 1, 4, 16, 17, 32} {
+		ids := make([]uint16, count)
+		for i := range ids {
+			ids[i] = uint16(count - i)
+		}
+		original := slices.Clone(ids)
+		key := soundPlaybackCacheKey(ids, nil, false, 0, false)
+		if !slices.Equal(ids, original) {
+			t.Fatalf("%d IDs: modified caller slice", count)
+		}
+		if len(key.ids) != count*2 {
+			t.Fatalf("%d IDs: incorrect key length", count)
+		}
+		for i := range count {
+			if got := binary.LittleEndian.Uint16([]byte(key.ids)[2*i:]); got != uint16(i+1) {
+				t.Fatalf("%d IDs: key entry %d = %d", count, i, got)
+			}
+		}
 	}
 }

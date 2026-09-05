@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // serverCommandNames is the set of server commands documented by the client.
@@ -62,6 +63,7 @@ func inputCompletionSuffix(text string, cursor int, candidates inputCompletionCa
 }
 
 func completionAtWordBoundary(text string, candidates []string) string {
+	ordered := sortedUniqueCandidates(candidates)
 	runes := []rune(text)
 	bestPrefix := ""
 	bestSuffix := ""
@@ -76,7 +78,7 @@ func completionAtWordBoundary(text string, candidates []string) string {
 		if strings.TrimSpace(prefix) == "" || len([]rune(prefix)) < len([]rune(bestPrefix)) {
 			continue
 		}
-		if suffix := completionCandidateSuffix(prefix, candidates); suffix != "" {
+		if suffix := orderedCompletionCandidateSuffix(prefix, ordered); suffix != "" {
 			bestPrefix = prefix
 			bestSuffix = suffix
 		}
@@ -88,20 +90,28 @@ func completionCandidateSuffix(prefix string, candidates []string) string {
 	if prefix == "" {
 		return ""
 	}
-	ordered := sortedUniqueCandidates(candidates)
+	return orderedCompletionCandidateSuffix(prefix, sortedUniqueCandidates(candidates))
+}
+
+// orderedCompletionCandidateSuffix accepts candidates normalized and sorted once
+// for the current request, including all of its possible word boundaries.
+func orderedCompletionCandidateSuffix(prefix string, ordered []string) string {
 	for _, candidate := range ordered {
 		if strings.EqualFold(candidate, prefix) {
 			return ""
 		}
 	}
 	lower := strings.ToLower(prefix)
+	prefixLength := utf8.RuneCountInString(prefix)
 	for _, candidate := range ordered {
-		candidateRunes := []rune(candidate)
-		prefixRunes := []rune(prefix)
-		if !strings.HasPrefix(strings.ToLower(candidate), lower) || len(candidateRunes) <= len(prefixRunes) {
+		if !strings.HasPrefix(strings.ToLower(candidate), lower) {
 			continue
 		}
-		return string(candidateRunes[len(prefixRunes):])
+		candidateRunes := []rune(candidate)
+		if len(candidateRunes) <= prefixLength {
+			continue
+		}
+		return string(candidateRunes[prefixLength:])
 	}
 	return ""
 }
@@ -128,12 +138,13 @@ func sortedUniqueCandidates(values []string) []string {
 		}
 	}
 	result := make([]string, 0, len(byFolded))
-	for _, value := range byFolded {
-		result = append(result, value)
+	for key := range byFolded {
+		result = append(result, key)
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return strings.ToLower(result[i]) < strings.ToLower(result[j])
-	})
+	sort.Strings(result)
+	for i, key := range result {
+		result[i] = byFolded[key]
+	}
 	return result
 }
 
@@ -162,23 +173,29 @@ func currentInputCompletionCandidates() inputCompletionCandidates {
 	}
 	legacyMacrosMu.RUnlock()
 
-	items := getInventory()
-	itemNames := make([]string, 0, len(items))
-	for _, item := range items {
+	inventoryMu.RLock()
+	itemNames := make([]string, 0, len(inventoryItems))
+	for _, item := range inventoryItems {
 		if item.Name != "" {
 			itemNames = append(itemNames, item.Name)
 		}
 	}
 
+	inventoryMu.RUnlock()
 	chat := append([]string(nil), itemNames...)
-	for _, player := range getPlayers() {
+	playersMu.RLock()
+	for _, player := range players {
 		if player.Name != "" && !player.IsNPC {
 			chat = append(chat, player.Name)
 		}
 	}
+	playersMu.RUnlock()
 	return inputCompletionCandidates{commands: commands, items: itemNames, chat: chat}
 }
 
 func currentInputCompletionSuffix(text string, cursor int) string {
+	if cursor <= 0 || cursor != utf8.RuneCountInString(text) {
+		return ""
+	}
 	return inputCompletionSuffix(text, cursor, currentInputCompletionCandidates())
 }
