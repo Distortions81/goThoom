@@ -28,3 +28,19 @@ func BenchmarkUIDrawClippedTextList(b *testing.B) {
 		flow.drawFlows(win, flow, point{}, point{}, rect{X1: 300, Y1: 200}, screen, &dropdowns)
 	}
 }
+
+func BenchmarkUITextListBounds(b *testing.B) {
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		b.Fatal(err)
+	}
+	flow := &itemData{ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL}
+	for range 1000 {
+		flow.Contents = append(flow.Contents, &itemData{
+			ItemType: ITEM_TEXT, Text: "Player status\nAdditional information", FontSize: 12,
+		})
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		flow.bounds(point{})
+	}
+}

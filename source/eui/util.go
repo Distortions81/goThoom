@@ -1465,11 +1465,12 @@ func (item *itemData) bounds(offset point) rect {
 		// Unfixed flows should report bounds based solely on their content
 		r = rect{X0: offset.X, Y0: offset.Y, X1: offset.X, Y1: offset.Y}
 	} else {
+		size := item.GetSize()
 		r = rect{
 			X0: offset.X,
 			Y0: offset.Y,
-			X1: offset.X + item.GetSize().X,
-			Y1: offset.Y + item.GetSize().Y,
+			X1: offset.X + size.X,
+			Y1: offset.Y + size.Y,
 		}
 	}
 	if item.ItemType == ITEM_FLOW {

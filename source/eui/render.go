@@ -269,8 +269,6 @@ func (win *windowData) draw(screen *ebiten.Image, dropdowns *[]openDropdown, def
 			win.drawWinTitle(screen)
 			win.drawBorder(screen)
 			win.Dirty = false
-			// Collect dropdowns for separate overlay rendering and draw debug.
-			win.collectDropdowns(dropdowns)
 			win.drawDebug(screen)
 			if CacheCheck {
 				ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", win.RenderCount), int(win.getPosition().X), int(win.getPosition().Y))
@@ -297,8 +295,6 @@ func (win *windowData) draw(screen *ebiten.Image, dropdowns *[]openDropdown, def
 		op.GeoM.Translate(float64(basePos.X), float64(basePos.Y))
 		op.ColorScale.Scale(1, 1, 1, win.Opacity)
 		screen.DrawImage(tmp, op)
-		// Collect dropdowns for separate overlay rendering and draw debug.
-		win.collectDropdowns(dropdowns)
 		win.drawDebug(screen)
 		if CacheCheck {
 			ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%d", win.RenderCount), int(win.getPosition().X), int(win.getPosition().Y))
@@ -1060,31 +1056,10 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	item.DrawRect = rectAdd(drawRect, base)
 }
 
-func (item *itemData) drawItemInternal(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image) {
-
-	if parent == nil {
-		parent = item
-	}
-	maxSize := item.GetSize()
-	if item.Size.X > parent.Size.X {
-		maxSize.X = parent.GetSize().X
-	}
-	if item.Size.Y > parent.Size.Y {
-		maxSize.Y = parent.GetSize().Y
-	}
-
-	itemRect := rect{
-		X0: offset.X,
-		Y0: offset.Y,
-		X1: offset.X + maxSize.X,
-		Y1: offset.Y + maxSize.Y,
-	}
-	item.DrawRect = intersectRect(itemRect, clip)
-	if item.DrawRect.X1 <= item.DrawRect.X0 || item.DrawRect.Y1 <= item.DrawRect.Y0 {
-		item.DrawRect = rectAdd(item.DrawRect, base)
-		return
-	}
-	subImg := screen.SubImage(item.DrawRect.getRectangle()).(*ebiten.Image)
+// drawItemInternal uses the size and clip already resolved by drawItem.
+func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rect, screen *ebiten.Image) {
+	item.DrawRect = drawRect
+	subImg := screen.SubImage(drawRect.getRectangle()).(*ebiten.Image)
 	style := item.themeStyle()
 	if item.Disabled {
 		style = disabledStyle(style)
@@ -1263,7 +1238,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			imageX := float64(offset.X) + (float64(maxSize.X)-imageWidth*scale)/2
 			if scale > 0 && item.Text != "" {
 				textWidth := float64(0)
-				for _, line := range strings.Split(item.Text, "\n") {
+				for line := range strings.SplitSeq(item.Text, "\n") {
 					width, _ := text.Measure(line, face, 0)
 					textWidth = math.Max(textWidth, width)
 				}
@@ -1294,9 +1269,10 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		metrics := face.Metrics()
 		lineHeight := math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap)
-		lines := strings.Split(item.Text, "\n")
-		startY := float64(offset.Y) + float64(maxSize.Y)/2 - float64(lineHeight)*(float64(len(lines)-1))/2
-		for i, line := range lines {
+		lineCount := strings.Count(item.Text, "\n") + 1
+		startY := float64(offset.Y) + float64(maxSize.Y)/2 - float64(lineHeight)*float64(lineCount-1)/2
+		i := 0
+		for line := range strings.SplitSeq(item.Text, "\n") {
 			tdop.GeoM.Reset()
 			tdop.GeoM.Translate(
 				textCenterX,
@@ -1305,6 +1281,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 			top.ColorScale.ScaleWithColor(style.TextColor)
 			text.Draw(subImg, line, face, top)
+			i++
 		}
 
 		//Text
@@ -1334,14 +1311,15 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		face := itemFace(item, textSize)
 		metrics := face.Metrics()
 		lineHeight := math.Ceil(metrics.HAscent) + math.Ceil(metrics.HDescent) + math.Ceil(metrics.HLineGap)
-		lines := strings.Split(item.Text, "\n")
+		lineCount := strings.Count(item.Text, "\n") + 1
 		loo := text.LayoutOptions{
 			LineSpacing:    0,
 			PrimaryAlign:   text.AlignStart,
 			SecondaryAlign: text.AlignCenter,
 		}
-		startY := float64(offset.Y) + float64(maxSize.Y)/2 - lineHeight*(float64(len(lines)-1))/2
-		for i, line := range lines {
+		startY := float64(offset.Y) + float64(maxSize.Y)/2 - lineHeight*float64(lineCount-1)/2
+		i := 0
+		for line := range strings.SplitSeq(item.Text, "\n") {
 			tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			tdop.GeoM.Translate(
 				float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale),
@@ -1350,6 +1328,7 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 			top.ColorScale.ScaleWithColor(style.TextColor)
 			text.Draw(subImg, line, face, top)
+			i++
 		}
 
 		if item.Focused {
@@ -1360,9 +1339,8 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 				item.CursorPos = len(runes)
 			}
 			prefix := string(runes[:item.CursorPos])
-			preLines := strings.Split(prefix, "\n")
-			lineIdx := len(preLines) - 1
-			lastLine := preLines[lineIdx]
+			lineIdx := strings.Count(prefix, "\n")
+			lastLine := prefix[strings.LastIndexByte(prefix, '\n')+1:]
 			width, _ := text.Measure(lastLine, face, 0)
 			cx := offset.X + item.BorderPad + item.Padding + currentStyle.TextPadding*uiScale + float32(width)
 			cy := float32(startY + float64(lineIdx)*lineHeight)
@@ -1650,9 +1628,9 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 		top.ColorScale.ScaleWithColor(tcolor)
 		text.Draw(subImg, item.Text, face, top)
 		if item.Prediction != "" {
-			lines := strings.Split(item.Text, "\n")
-			line := len(lines) - 1
-			prefixWidth, _ := text.Measure(lines[line], face, 0)
+			line := strings.Count(item.Text, "\n")
+			lastLine := item.Text[strings.LastIndexByte(item.Text, '\n')+1:]
+			prefixWidth, _ := text.Measure(lastLine, face, 0)
 			ghostOpts := &text.DrawOptions{LayoutOptions: loo}
 			ghostOpts.GeoM.Translate(
 				float64(offset.X)+prefixWidth,
@@ -1716,9 +1694,8 @@ func (item *itemData) drawItemInternal(parent *itemData, offset point, base poin
 				item.CursorPos = len(runes)
 			}
 			prefix := string(runes[:item.CursorPos])
-			preLines := strings.Split(prefix, "\n")
-			lineIdx := len(preLines) - 1
-			lastLine := preLines[lineIdx]
+			lineIdx := strings.Count(prefix, "\n")
+			lastLine := prefix[strings.LastIndexByte(prefix, '\n')+1:]
 			width, _ := text.Measure(lastLine, face, 0)
 			cx := offset.X + float32(width)
 			baseY := offset.Y + float32(lineIdx)*lineSpacing + float32(metrics.HAscent)
@@ -1883,11 +1860,14 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 		parent = item
 	}
 	maxSize := item.GetSize()
-	if item.Size.X > parent.Size.X {
-		maxSize.X = parent.GetSize().X
-	}
-	if item.Size.Y > parent.Size.Y {
-		maxSize.Y = parent.GetSize().Y
+	if item.Size.X > parent.Size.X || item.Size.Y > parent.Size.Y {
+		parentSize := parent.GetSize()
+		if item.Size.X > parent.Size.X {
+			maxSize.X = parentSize.X
+		}
+		if item.Size.Y > parent.Size.Y {
+			maxSize.Y = parentSize.Y
+		}
 	}
 
 	itemRect := rect{X0: offset.X, Y0: offset.Y, X1: offset.X + maxSize.X, Y1: offset.Y + maxSize.Y}
@@ -1909,7 +1889,7 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 		op.GeoM.Translate(float64(drawRect.X0), float64(drawRect.Y0))
 		screen.DrawImage(sub, op)
 	} else {
-		item.drawItemInternal(parent, offset, base, drawRect, screen)
+		item.drawItemInternal(offset, base, maxSize, drawRect, screen)
 	}
 
 	if item.ItemType == ITEM_DROPDOWN && item.Open {
