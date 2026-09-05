@@ -766,11 +766,12 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	if CacheCheck {
 		item.RenderCount++
 	}
+	size := item.GetSize()
 	itemRect := rect{
 		X0: offset.X,
 		Y0: offset.Y,
-		X1: offset.X + item.GetSize().X,
-		Y1: offset.Y + item.GetSize().Y,
+		X1: offset.X + size.X,
+		Y1: offset.Y + size.Y,
 	}
 	drawRect := intersectRect(itemRect, clip)
 
@@ -787,7 +788,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	if item.Filled || item.Outlined {
 		col := flowFillColor(item, style)
 		if item.Filled {
-			drawFilledRect(subImg, offset.X, offset.Y, item.GetSize().X, item.GetSize().Y, col.ToRGBA(), true)
+			drawFilledRect(subImg, offset.X, offset.Y, size.X, size.Y, col.ToRGBA(), true)
 		}
 		if item.Outlined {
 			b := item.Border * uiScale
@@ -798,7 +799,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			if oc == (Color{}) && style != nil {
 				oc = style.OutlineColor
 			}
-			strokeRect(subImg, offset.X, offset.Y, item.GetSize().X, item.GetSize().Y, b, oc, true)
+			strokeRect(subImg, offset.X, offset.Y, size.X, size.Y, b, oc, true)
 		}
 	}
 
@@ -806,14 +807,14 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	drawOffset := pointSub(offset, item.Scroll)
 	// Children should not draw or accept input under this flow's scrollbar.
 	childClip := drawRect
+	var contentSize point
 	if item.Scrollable {
-		req := item.contentBounds()
-		size := item.GetSize()
+		contentSize = item.contentBounds()
 		sbW := currentStyle.BorderPad.Slider * 2
-		if item.FlowType == FLOW_VERTICAL && req.Y > size.Y {
+		if item.FlowType == FLOW_VERTICAL && contentSize.Y > size.Y {
 			childClip.X1 -= sbW
 		}
-		if item.FlowType == FLOW_HORIZONTAL && req.X > size.X {
+		if item.FlowType == FLOW_HORIZONTAL && contentSize.X > size.X {
 			childClip.Y1 -= sbW
 		}
 	}
@@ -901,15 +902,15 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		drawFilledRect(subImg,
 			offset.X,
 			offset.Y+tabHeight-3*uiScale,
-			item.GetSize().X,
+			size.X,
 			3*uiScale,
 			style.SelectedColor,
 			false)
 		strokeRect(subImg,
 			offset.X,
 			offset.Y+tabHeight,
-			item.GetSize().X,
-			item.GetSize().Y-tabHeight,
+			size.X,
+			size.Y-tabHeight,
 			1,
 			style.OutlineColor,
 			false)
@@ -921,6 +922,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	var flowOffset point
 
 	for _, subItem := range activeContents {
+		subSize := subItem.GetSize()
 
 		if subItem.ItemType == ITEM_FLOW {
 			// Use window-aware scaled position to handle NoScale windows correctly.
@@ -930,8 +932,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			subRect := rect{
 				X0: itemPos.X,
 				Y0: itemPos.Y,
-				X1: itemPos.X + subItem.GetSize().X,
-				Y1: itemPos.Y + subItem.GetSize().Y,
+				X1: itemPos.X + subSize.X,
+				Y1: itemPos.Y + subSize.Y,
 			}
 			inter := intersectRect(subRect, childClip)
 			if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
@@ -950,8 +952,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				subRect := rect{
 					X0: objOff.X,
 					Y0: objOff.Y,
-					X1: objOff.X + subItem.GetSize().X,
-					Y1: objOff.Y + subItem.GetSize().Y,
+					X1: objOff.X + subSize.X,
+					Y1: objOff.Y + subSize.Y,
 				}
 				inter := intersectRect(subRect, childClip)
 				if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
@@ -968,8 +970,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				subRect := rect{
 					X0: objOff.X,
 					Y0: objOff.Y,
-					X1: objOff.X + subItem.GetSize().X,
-					Y1: objOff.Y + subItem.GetSize().Y,
+					X1: objOff.X + subSize.X,
+					Y1: objOff.Y + subSize.Y,
 				}
 				inter := intersectRect(subRect, childClip)
 				if inter.X1 <= inter.X0 || inter.Y1 <= inter.Y0 {
@@ -982,19 +984,18 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 
 		if item.ItemType == ITEM_FLOW {
 			if item.FlowType == FLOW_HORIZONTAL {
-				flowOffset = pointAdd(flowOffset, point{X: subItem.GetSize().X, Y: 0})
+				flowOffset = pointAdd(flowOffset, point{X: subSize.X, Y: 0})
 				flowOffset = pointAdd(flowOffset, point{X: subItem.getPosition(win).X})
 			} else if item.FlowType == FLOW_VERTICAL {
-				flowOffset = pointAdd(flowOffset, point{X: 0, Y: subItem.GetSize().Y})
+				flowOffset = pointAdd(flowOffset, point{X: 0, Y: subSize.Y})
 				flowOffset = pointAdd(flowOffset, point{Y: subItem.getPosition(win).Y})
 			}
 		}
 	}
 
 	if item.Scrollable {
-		req := item.contentBounds()
-		size := item.GetSize()
-		if item.FlowType == FLOW_VERTICAL && req.Y > size.Y {
+		req := contentSize
+		if item.FlowType == FLOW_VERTICAL && contentSize.Y > size.Y {
 			barH := scrollbarThumbLength(size.Y, req.Y, UIScale())
 			maxScroll := req.Y - size.Y
 			pos := float32(0)
@@ -1014,7 +1015,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			}
 			col := NewColor(96, 96, 96, 192)
 			drawFilledRect(subImg, drawRect.X1-sbW, drawRect.Y0+pos, sbW, barH, col.ToRGBA(), false)
-		} else if item.FlowType == FLOW_HORIZONTAL && req.X > size.X {
+		} else if item.FlowType == FLOW_HORIZONTAL && contentSize.X > size.X {
 			barW := scrollbarThumbLength(size.X, req.X, UIScale())
 			maxScroll := req.X - size.X
 			pos := float32(0)

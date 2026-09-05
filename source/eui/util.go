@@ -1145,26 +1145,19 @@ func (item *itemData) GetSize() Point {
 				}
 			}
 			textSize := (effFont * uiScale) + 2
-			var face text.Face
-			if src := FontSource(); src != nil {
-				face = &text.GoTextFace{Source: src, Size: float64(textSize)}
-			} else {
-				face = &text.GoTextFace{Size: float64(textSize)}
-			}
+			face := textFace(textSize)
 			// Measure lines and compute bounding box.
-			lines := strings.Split(item.Text, "\n")
-			if len(lines) == 0 {
-				lines = []string{""}
-			}
+			lineCount := 0
 			maxW := float64(0)
-			for _, ln := range lines {
+			for ln := range strings.SplitSeq(item.Text, "\n") {
+				lineCount++
 				if w, _ := text.Measure(ln, face, 0); w > maxW {
 					maxW = w
 				}
 			}
 			metrics := face.Metrics()
 			linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2)
-			totalH := float32(linePx) * float32(len(lines))
+			totalH := float32(linePx) * float32(lineCount)
 			if sz.X <= 0 {
 				if maxW <= 0 {
 					sz.X = textSize // minimal width
