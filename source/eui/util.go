@@ -1760,10 +1760,13 @@ func strokeRect(dst *ebiten.Image, x, y, w, h, width float32, col color.Color, a
 	strokeRectFn(dst, x, y, w, h, width, col, aa)
 }
 
-func drawFilledRect(dst *ebiten.Image, x, y, w, h float32, col color.Color, aa bool) {
+func drawFilledRect(dst *ebiten.Image, x, y, w, h float32, col color.Color, _ bool) {
 	x = float32(math.Round(float64(x)))
 	y = float32(math.Round(float64(y)))
 	w = float32(math.Round(float64(w)))
 	h = float32(math.Round(float64(h)))
-	vector.FillRect(dst, x, y, w, h, col, aa)
+	// All edges are on pixel boundaries, so antialiasing adds no coverage.
+	// The non-AA path batches an image quad instead of building a stencil
+	// and filling it, which is especially costly during full-pane repaints.
+	vector.FillRect(dst, x, y, w, h, col, false)
 }

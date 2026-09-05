@@ -136,6 +136,9 @@ func TestRenderStallStudy(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
+	if len(g.results) != len(renderStallCases) {
+		t.Fatalf("render study interrupted: completed %d of %d cases", len(g.results), len(renderStallCases))
+	}
 	report := map[string]any{"worldBounds": gameImage.Bounds().String(), "worldScale": worldScale, "fixture": performanceTourFixture, "pictures": len(fixture.busyScene.pictures), "mobiles": len(fixture.busyScene.mobiles), "scale": scale, "nightPercent": 50, "animatedDefault": gsdef.AnimatedChatBubbles, "artworkUpscale": artworkScale, "minimumSamplesPerCase": minimumSamples, "minimumSecondsPerCase": seconds, "warmupFrames": 90, "fullscreen": fullscreen, "goVersion": runtime.Version(), "goos": runtime.GOOS, "goarch": runtime.GOARCH, "cases": g.results}
 	monitor := ebiten.Monitor()
 	mw, mh := monitor.Size()

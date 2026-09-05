@@ -1,0 +1,98 @@
+{
+  "animatedDefault": true,
+  "artworkUpscale": 2,
+  "cases": [
+    {
+      "Samples": 600,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 120,
+          "Pixels": 20580000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1096090,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Chat",
+          "Count": 120,
+          "Pixels": 20580000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 360264,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 120,
+          "Pixels": 20580000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 412789,
+          "LastReason": "study 5 Hz refresh"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 120,
+          "Pixels": 20580000,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 736803,
+          "LastReason": "study 5 Hz refresh"
+        }
+      ],
+      "Name": "ui_refresh_5hz_unbatched",
+      "Submission": {
+        "max_ms": 18.55796,
+        "over_16_67ms_pct": 0.16666666666666666,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 7.872175,
+        "p95_ms": 11.028024,
+        "p99_ms": 12.154136
+      },
+      "FrameInterval": {
+        "max_ms": 77.316635,
+        "over_16_67ms_pct": 100,
+        "over_33_33ms_pct": 100,
+        "p50_ms": 38.692762,
+        "p95_ms": 74.979343,
+        "p99_ms": 75.933241
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 878684160
+    }
+  ],
+  "fixture": "tour-2025.08.02.clMov",
+  "fullscreen": false,
+  "goVersion": "go1.26.6",
+  "goarch": "amd64",
+  "goos": "linux",
+  "minimumSamplesPerCase": 600,
+  "minimumSecondsPerCase": 10,
+  "mobiles": 30,
+  "monitor": {
+    "deviceScaleFactor": 1,
+    "heightDP": 1080,
+    "name": "eDP",
+    "widthDP": 1920
+  },
+  "nightPercent": 50,
+  "pictures": 146,
+  "scale": 2,
+  "warmupFrames": 90,
+  "worldBounds": "(0,0)-(1094,1080)",
+  "worldScale": 2
+}
