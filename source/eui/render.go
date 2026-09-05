@@ -845,13 +845,11 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			if renderNow.Sub(tab.Clicked) < clickFlash {
 				col = style.ClickColor
 			} else if i == item.ActiveTab {
-				if !item.ActiveOutline {
-					col = style.SelectedColor
-				}
+				col = style.SelectedColor
 			} else if tab.Hovered {
 				col = style.HoverColor
 			}
-			if item.Filled {
+			if item.Filled || i == item.ActiveTab {
 				drawTabShape(subImg,
 					point{X: x, Y: tabY},
 					point{X: w, Y: rowHeight},
