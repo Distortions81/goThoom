@@ -1,0 +1,21 @@
+goThoom 51 changes since test50.
+
+Interface and settings:
+- Combined Settings and Advanced Settings into one window with ten topic tabs: Display, World, Text, Bubbles, Audio, Controls, Performance, Network, Files, and Tools. Tabs occupy two rows to keep every category visible in a compact window.
+- Added command-palette shortcuts for individual Settings tabs and preserved the selected tab when settings controls are rebuilt.
+- Added Minimal, Compact, Balanced, Generous, and Maximum sprite-cache presets under Settings → Performance, with explanations of the memory and artwork-reloading tradeoffs. The cache reserve scales with sprite resolution; changes take effect after restarting.
+
+Rendering and memory use:
+- Reused GPU texture slots for cached artwork and retained recently used sprites to reduce texture churn during play and when revisiting areas.
+- Reused temporary images for UI windows, speech bubbles, and character name tags instead of repeatedly allocating new GPU textures.
+- Improved name-tag caching so modern labels do not rebuild when only the separately drawn health bar changes. The shared cache now has memory limits and safely retains images while they are being drawn.
+- Reduced GPU work for pixel-aligned interface rectangles by drawing them without unnecessary antialiasing passes.
+- Corrected overlapping scenery and character shadows so their shared areas do not become excessively dark, while preserving objects drawn in front of them.
+
+Movie playback:
+- Stopped movie playback, including paused movies, from adding recorded messages to normal chat and console log files.
+
+Diagnostics:
+- Expanded GPU memory reporting and added sprite-cache reload statistics and optional UI repaint tracing to help investigate performance problems.
+- Corrected rendering benchmarks to match the client's game-window background and tiled-window behavior, and added explicit VSync and floating-window comparison controls.
+- Added an optional Linux GPU timing probe and documented normal-speed walking verification with VSync enabled.
