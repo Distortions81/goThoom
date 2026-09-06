@@ -1,0 +1,4 @@
+goThoom 53 changes since test52.
+
+Connection:
+- Added gothoom.m45sci.xyz:5010 to the built-in server list, so it is always available from the server selection menu.
