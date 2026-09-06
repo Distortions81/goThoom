@@ -226,8 +226,8 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	})
 	makeSettingsWindow()
 	tabs := settingsWin.Contents[0].Tabs
-	if len(tabs) != 10 || settingsWin.Contents[0].TabColumns != 5 {
-		t.Fatal("settings should have ten categories in two rows")
+	if len(tabs) != 10 || settingsWin.Contents[0].TabColumns != 0 {
+		t.Fatal("settings should have ten categories in one row")
 	}
 	locations := map[string]string{}
 	var visit func([]*eui.ItemData, string)

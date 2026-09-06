@@ -1473,7 +1473,7 @@ func (item *itemData) bounds(offset point) rect {
 			subItems = item.Tabs[item.ActiveTab].Contents
 			tabHeight = tabStripHeight(item, item.themeStyle())
 			r.Y1 = offset.Y + tabHeight
-			r.X1 = offset.X + staggeredTabStripWidth(item)
+			r.X1 = offset.X + tabStripWidth(item)
 		} else {
 			subItems = item.Contents
 		}
@@ -1583,7 +1583,7 @@ func (item *itemData) contentBounds() point {
 		tabHeight = tabStripHeight(item, item.themeStyle())
 	}
 	if len(list) == 0 {
-		return point{Y: tabHeight}
+		return point{X: tabStripWidth(item), Y: tabHeight}
 	}
 
 	base := point{}
@@ -1624,9 +1624,9 @@ func (item *itemData) contentBounds() point {
 	}
 
 	if first {
-		return point{Y: tabHeight}
+		return point{X: tabStripWidth(item), Y: tabHeight}
 	}
-	return point{X: max(b.X1-base.X, staggeredTabStripWidth(item)), Y: b.Y1 - base.Y + tabHeight}
+	return point{X: max(b.X1-base.X, tabStripWidth(item)), Y: b.Y1 - base.Y + tabHeight}
 }
 
 func (item *itemData) resizeFlow(parentSize point) {

@@ -1915,9 +1915,9 @@ func makeToolbar() {
 func buildToolbarRoot(docked bool) *eui.ItemData {
 	var toolFontSize float32 = 10
 	var buttonHeight float32 = 24
-	var buttonWidth float32 = 80
+	var buttonWidth float32 = 88
 	if docked {
-		buttonWidth = 68
+		buttonWidth = 84
 	}
 
 	controls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}

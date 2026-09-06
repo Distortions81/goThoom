@@ -55,6 +55,10 @@ type bubbleTextImageCacheEntry struct {
 }
 
 type bubbleBodyImageCacheKey struct {
+	gapX, gapHalf    int
+	gapTop           bool
+	decorationType   int
+	scaleBits        uint32
 	width, height    int
 	radiusBits       uint32
 	strokeWidthBits  uint32
@@ -135,12 +139,15 @@ func measureBubble(txt string, typ int, bubbleScale, fontScale float64, maxBodyS
 		fontScale = 0.1
 	}
 	m := bubbleMetrics{}
-	m.pad = max(1, int(math.Round(6*bubbleScale)))
-	m.tailHeight = max(1, int(math.Round(10*bubbleScale)))
-	m.tailHalf = max(1, int(math.Round(6*bubbleScale)))
+	m.pad = max(1, int(math.Round(5*bubbleScale)))
+	m.tailHeight = bubbleTailHeight(typ, bubbleScale)
+	m.tailHalf = max(1, int(math.Round(3*bubbleScale)))
+	if typ&kBubbleTypeMask == kBubbleWhisper {
+		m.tailHalf = max(1, int(math.Round(2*bubbleScale)))
+	}
 	m.maxLineWidth = max(1, maxBodySize.X-2*m.pad)
 	baseFace := bubbleFont
-	if typ&kBubbleTypeMask == kBubbleWhisper {
+	if typ&kBubbleTypeMask == kBubbleWhisper || typ&kBubbleTypeMask == kBubbleRealAction || typ&kBubbleTypeMask == kBubblePlayerAction || typ&kBubbleTypeMask == kBubbleNarrate {
 		baseFace = bubbleFontRegular
 	}
 	if baseFace == nil {
@@ -255,24 +262,30 @@ func ponderWaveOffset(phase, spatialPhase float64, radius float32) float32 {
 	return float32(math.Sin(phase+spatialPhase)) * radius * 0.3
 }
 
-// bubbleOverlapMargin accounts for decoration drawn outside the measured text
-// body. Keep these in sync with drawSpikes, drawMonsterSpikes, and
-// drawPonderWaves so overlap prevention uses the complete visible footprint.
+const (
+	yellSpikeSize    = 5
+	growlSpikeSize   = 6
+	ponderLobeRadius = 8
+)
+
+// bubbleOverlapMargin reserves the complete footprint of the decorations.
 func bubbleOverlapMargin(typ int, bubbleScale float64) int {
 	if bubbleScale <= 0 {
 		bubbleScale = 0.1
 	}
 	var extent float64
 	switch typ & kBubbleTypeMask {
+	case kBubbleThought:
+		extent = 3
 	case kBubblePonder:
-		// Radius 6, with animated center displacement up to 30% of it.
-		extent = 6 * 1.3
+		// Lobes move by up to 30% of their radius.
+		extent = ponderLobeRadius * 1.3
 	case kBubbleYell:
-		// Spike size 3, with the strongest pulse reaching 130%.
-		extent = 3 * 1.3
+		// The strongest yell pulse reaches 130%.
+		extent = yellSpikeSize * 1.3
 	case kBubbleMonster:
-		// Growl spikes reach their full configured size of 4.
-		extent = 4
+		// Growl spikes reach their full configured size.
+		extent = growlSpikeSize
 	default:
 		return 0
 	}
@@ -332,74 +345,72 @@ func adjustBubbleRect(x, y, width, height, tailHeight, sw, sh int, noTail bool) 
 	return
 }
 
-// bubbleColors selects the border, background, and text colors for a bubble
-// based on its type. Alpha values are premultiplied to match Ebiten's color
-// expectations.
-
+// bubbleColors follows the type distinctions in CL_Images 1–3, with paired
+// neutral light/dark surfaces. The existing dark-bubbles preference selects
+// the mode independently of the UI palette.
 func bubbleColors(typ int) (border, bg, text color.Color) {
-	alpha := uint8(gs.BubbleOpacity * 255)
-	if gs.DarkBubblesAndNames {
-		bg = color.NRGBA{0x24, 0x24, 0x24, alpha}
-		text = color.White
-		switch typ & kBubbleTypeMask {
-		case kBubbleWhisper:
-			border = color.NRGBA{0x80, 0x80, 0x80, 0xff}
-		case kBubbleYell:
-			border = color.NRGBA{0xff, 0xff, 0x00, 0xff}
-		case kBubbleThought:
-			border = color.NRGBA{0x00, 0x00, 0x00, 0x00}
-		case kBubblePonder:
-			border = color.NRGBA{0x24, 0x24, 0x24, alpha}
-		case kBubbleRealAction:
-			border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
-		case kBubblePlayerAction:
-			border = color.NRGBA{0x80, 0x00, 0x00, 0xff}
-		case kBubbleNarrate:
-			border = color.NRGBA{0x00, 0x80, 0x00, 0xff}
-		case kBubbleMonster:
-			border = color.NRGBA{0xd6, 0xd6, 0xd6, 0xff}
-		default:
-			border = color.White
-		}
-		return
+	alpha := uint8(math.Max(0, math.Min(1, gs.BubbleOpacity)) * 255)
+	dark := gs.DarkBubblesAndNames
+	if dark {
+		bg = color.NRGBA{0x23, 0x26, 0x29, alpha}
+		text = color.NRGBA{0xef, 0xf0, 0xf1, 0xff}
+		border = color.NRGBA{0xb8, 0xbd, 0xc2, 0xff}
+	} else {
+		bg = color.NRGBA{0xee, 0xee, 0xec, alpha}
+		text = color.NRGBA{0x20, 0x23, 0x26, 0xff}
+		border = color.NRGBA{0x55, 0x59, 0x5c, 0xff}
 	}
 	switch typ & kBubbleTypeMask {
 	case kBubbleWhisper:
-		border = color.NRGBA{0x80, 0x80, 0x80, 0xff}
-		bg = color.NRGBA{0x33, 0x33, 0x33, alpha}
-		text = color.White
+		if dark {
+			border = color.NRGBA{0x91, 0x9c, 0xa4, 0xff}
+			bg = color.NRGBA{0x29, 0x2d, 0x31, alpha}
+			text = color.NRGBA{0xd0, 0xd7, 0xdb, 0xff}
+		} else {
+			border = color.NRGBA{0x70, 0x7a, 0x80, 0xff}
+			bg = color.NRGBA{0xe3, 0xe6, 0xe6, alpha}
+			text = color.NRGBA{0x3b, 0x42, 0x46, 0xff}
+		}
 	case kBubbleYell:
-		border = color.NRGBA{0xff, 0xff, 0x00, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, alpha}
-		text = color.Black
+		if dark {
+			border = color.NRGBA{0xe8, 0xd5, 0x6a, 0xff}
+		} else {
+			border = color.NRGBA{0xc0, 0xa0, 0x00, 0xff}
+		}
 	case kBubbleThought:
-		border = color.NRGBA{0x00, 0x00, 0x00, 0x00}
-		bg = color.NRGBA{0x80, 0x80, 0x80, alpha}
-		text = color.Black
+		if dark {
+			bg = color.NRGBA{0x2c, 0x29, 0x36, alpha}
+			border = color.NRGBA{0xa9, 0x9b, 0xc5, 0xff}
+		} else {
+			bg = color.NRGBA{0xed, 0xe9, 0xf3, alpha}
+			border = color.NRGBA{0x7c, 0x6c, 0x99, 0xff}
+		}
 	case kBubblePonder:
-		border = color.NRGBA{0xcc, 0xcc, 0xcc, alpha}
-		bg = color.NRGBA{0xcc, 0xcc, 0xcc, alpha}
-		text = color.Black
+		border = color.Transparent
 	case kBubbleRealAction:
-		border = color.NRGBA{0x00, 0x00, 0x80, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, alpha}
-		text = color.Black
+		if dark {
+			border = color.NRGBA{0x79, 0xac, 0xdf, 0xff}
+		} else {
+			border = color.NRGBA{0x32, 0x62, 0x97, 0xff}
+		}
 	case kBubblePlayerAction:
-		border = color.NRGBA{0x80, 0x00, 0x00, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, alpha}
-		text = color.Black
+		if dark {
+			border = color.NRGBA{0xde, 0x8d, 0x90, 0xff}
+		} else {
+			border = color.NRGBA{0x9a, 0x43, 0x48, 0xff}
+		}
 	case kBubbleNarrate:
-		border = color.NRGBA{0x00, 0x80, 0x00, 0xff}
-		bg = color.NRGBA{0xff, 0xff, 0xff, alpha}
-		text = color.Black
+		if dark {
+			border = color.NRGBA{0x8c, 0xc4, 0x99, 0xff}
+		} else {
+			border = color.NRGBA{0x3e, 0x79, 0x4c, 0xff}
+		}
 	case kBubbleMonster:
-		border = color.NRGBA{0xd6, 0xd6, 0xd6, 0xff}
-		bg = color.NRGBA{0x47, 0x47, 0x47, alpha}
-		text = color.White
-	default:
-		border = color.White
-		bg = color.NRGBA{0xff, 0xff, 0xff, alpha}
-		text = color.Black
+		if dark {
+			border = color.NRGBA{0xc7, 0xc5, 0xbf, 0xff}
+		} else {
+			border = color.NRGBA{0x55, 0x58, 0x5b, 0xff}
+		}
 	}
 	return
 }
@@ -626,23 +637,44 @@ func evictOldestBubbleBodyImage() bool {
 // this replaces repeated path tessellation and two vector submissions with a
 // single image draw after the first frame.
 func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill, border color.RGBA64) (*ebiten.Image, int) {
+	return cachedBubbleBodyWithGap(width, height, radius, strokeWidth, fill, border, 0, 0, false)
+}
+
+func cachedBubbleBodyWithGap(width, height int, radius, strokeWidth float32, fill, border color.RGBA64, gapX, gapHalf int, gapTop bool) (*ebiten.Image, int) {
 	if width < 1 || height < 1 {
 		return nil, 0
 	}
 	key := bubbleBodyImageCacheKey{
-		width: width, height: height,
+		width: width, height: height, gapX: gapX, gapHalf: gapHalf, gapTop: gapTop,
 		radiusBits: math.Float32bits(radius), strokeWidthBits: math.Float32bits(strokeWidth),
 		fillR: fill.R, fillG: fill.G, fillB: fill.B, fillA: fill.A,
 		borderR: border.R, borderG: border.G, borderB: border.B, borderA: border.A,
+	}
+	margin := int(math.Ceil(float64(strokeWidth)/2)) + 2
+	return cacheBubbleSurface(key, margin, func(img *ebiten.Image) {
+		body := bubbleRoundedRectPath(margin, margin, margin+width, margin+height, radius)
+		fillOp := &vector.DrawPathOptions{AntiAlias: true}
+		fillOp.ColorScale.ScaleWithColor(fill)
+		vector.FillPath(img, &body, nil, fillOp)
+		strokeOp := &vector.StrokeOptions{Width: strokeWidth}
+		drawOutline := &vector.DrawPathOptions{AntiAlias: true}
+		drawOutline.ColorScale.ScaleWithColor(border)
+		outline := bubbleOutlinePath(margin, margin, margin+width, margin+height, radius, margin+gapX, gapHalf, gapTop)
+		vector.StrokePath(img, &outline, strokeOp, drawOutline)
+	})
+}
+
+func cacheBubbleSurface(key bubbleBodyImageCacheKey, margin int, paint func(*ebiten.Image)) (*ebiten.Image, int) {
+	if key.width < 1 || key.height < 1 {
+		return nil, 0
 	}
 	bubbleBodyUseCounter++
 	if cached := bubbleBodyImageCache[key]; cached != nil {
 		cached.lastUsed = bubbleBodyUseCounter
 		return cached.image, cached.margin
 	}
-	margin := int(math.Ceil(float64(strokeWidth)/2)) + 2
-	imageWidth := width + 2*margin
-	imageHeight := height + 2*margin
+	imageWidth := key.width + 2*margin
+	imageHeight := key.height + 2*margin
 	imageBytes := int(renderpool.BytesForSize(imageWidth, imageHeight, gs.PotatoGPU))
 	if imageBytes > maxBubbleBodyImageBytes {
 		return nil, 0
@@ -661,14 +693,15 @@ func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill,
 			return nil, 0
 		}
 	}
-	body := bubbleRoundedRectPath(margin, margin, margin+width, margin+height, radius)
-	fillOp := &vector.DrawPathOptions{AntiAlias: true}
-	fillOp.ColorScale.ScaleWithColor(fill)
-	vector.FillPath(img, &body, nil, fillOp)
-	strokeOp := &vector.StrokeOptions{Width: strokeWidth}
-	drawOutline := &vector.DrawPathOptions{AntiAlias: true}
-	drawOutline.ColorScale.ScaleWithColor(border)
-	vector.StrokePath(img, &body, strokeOp, drawOutline)
+	paint(img)
+	// Painting a decorated surface can also populate its plain body cache.
+	// Account for those entries before publishing the completed surface.
+	for len(bubbleBodyImageCache) >= maxBubbleBodyImages || bubbleBodyImageBytes+imageBytes > maxBubbleBodyImageBytes {
+		if !evictOldestBubbleBodyImage() {
+			bubbleBodyTargets.Release(img)
+			return nil, 0
+		}
+	}
 
 	bubbleBodyImageCache[key] = &bubbleBodyImageCacheEntry{
 		image: img, margin: margin, bytes: imageBytes, lastUsed: bubbleBodyUseCounter,
@@ -680,6 +713,9 @@ func cachedBubbleBodyImage(width, height int, radius, strokeWidth float32, fill,
 // bubbleDrawRequest keeps a bubble's measured layout and final placement
 // together so all tails can be drawn before any balloon bodies or text.
 type bubbleDrawRequest struct {
+	tailAnchor                image.Point
+	hasTailAnchor             bool
+	speakerRect               image.Rectangle
 	txt                       string
 	x, y, typ                 int
 	far, noArrow              bool
@@ -719,14 +755,19 @@ func bubbleDrawRect(bounds image.Rectangle, request bubbleDrawRequest) (image.Re
 	if sw <= 0 || sh <= 0 {
 		return image.Rectangle{}, false, false
 	}
-	noArrow := request.noArrow
-	if request.x < 0 || request.x >= sw || request.y < 0 || request.y >= sh {
+	noArrow := request.noArrow || !bubbleHasSpeakerTail(request.typ)
+	anchor := image.Pt(request.x, request.y)
+	if request.hasTailAnchor {
+		anchor = request.tailAnchor
+	}
+	if anchor.X < 0 || anchor.X >= sw || anchor.Y < 0 || anchor.Y >= sh {
 		noArrow = true
 	}
 	rect := bubbleRectForPlacement(request.x, request.y, request.metrics, request.placement, request.far || noArrow)
 	rect = clampBubbleRect(rect, sw, sh)
 	rect = clampBubbleRect(rect.Add(request.bodyOffset), sw, sh)
-	return rect, noArrow, true
+	rect, clear := clearBubbleSpeaker(rect, request.speakerRect, bubbleOverlapMargin(request.typ, request.bubbleScale), sw, sh)
+	return rect, noArrow, clear
 }
 
 func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleDrawGeometry, bool) {
@@ -746,6 +787,9 @@ func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleD
 	}
 
 	tailX, tailY := request.x, request.y
+	if request.hasTailAnchor {
+		tailX, tailY = request.tailAnchor.X, request.tailAnchor.Y
+	}
 	rect, noArrow, ok := bubbleDrawRect(bounds, request)
 	if !ok {
 		return bubbleDrawGeometry{}, false
@@ -765,13 +809,26 @@ func prepareBubbleDraw(screen *ebiten.Image, request bubbleDrawRequest) (bubbleD
 		attachY = top
 	}
 
+	if request.hasTailAnchor {
+		inset := tailHalf + int(math.Ceil(3*request.bubbleScale))
+		if right-left > 2*inset {
+			baseX = max(left+inset, min(right-inset, tailX))
+		}
+		if tailY < top {
+			attachY = top
+		} else if tailY > bottom {
+			attachY = bottom
+		}
+	}
 	bgR, bgG, bgB, bgA := request.bgCol.RGBA()
 	bdR, bdG, bdB, bdA := request.borderCol.RGBA()
 
 	s := float32(request.bubbleScale)
-	radius := 4 * s
+	radius := 2 * s
 	if bubbleType == kBubblePonder {
 		radius = 8 * s
+	} else if bubbleType == kBubbleRealAction || bubbleType == kBubblePlayerAction || bubbleType == kBubbleNarrate {
+		radius = 0
 	}
 	return bubbleDrawGeometry{
 		request: request, offsetX: offsetX, offsetY: offsetY,
@@ -862,11 +919,15 @@ func drawBubbleTail(screen *ebiten.Image, request bubbleDrawRequest) {
 	tailOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
 	tailOp.ColorScale.ScaleWithColor(fillColor)
 	vector.FillPath(backgroundTarget, &tail, nil, tailOp)
-	if g.bubbleType != kBubblePonder {
+	if g.bubbleType != kBubblePonder && g.bubbleType != kBubbleThought {
 		strokeOp := &vector.StrokeOptions{Width: max(1, g.scale)}
 		drawOp := &vector.DrawPathOptions{AntiAlias: true}
 		drawOp.ColorScale.ScaleWithColor(g.borderColor)
-		vector.StrokePath(screen, &tail, strokeOp, drawOp)
+		var sides vector.Path
+		sides.MoveTo(float32(g.baseX-tailHalf)+fx, float32(g.attachY)+fy)
+		sides.LineTo(float32(g.tailX)+fx, float32(g.tailY)+fy)
+		sides.LineTo(float32(g.baseX+tailHalf)+fx, float32(g.attachY)+fy)
+		vector.StrokePath(screen, &sides, strokeOp, drawOp)
 	}
 	if compositeThought {
 		compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
@@ -880,50 +941,17 @@ func drawBubbleBody(screen *ebiten.Image, request bubbleDrawRequest) {
 	if !ok {
 		return
 	}
-	fx, fy := float32(g.offsetX), float32(g.offsetY)
 	m := g.request.metrics
-	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
-
-	strokeW := max(1, g.scale)
-	if g.bubbleType != kBubbleThought && g.bubbleType != kBubblePonder {
-		if bodyImage, margin := cachedBubbleBodyImage(g.right-g.left, g.bottom-g.top, g.radius, strokeW, g.fillColor, g.borderColor); bodyImage != nil {
+	if g.bubbleType == kBubbleWhisper || !gs.AnimatedChatBubbles && (g.bubbleType == kBubbleThought || g.bubbleType == kBubblePonder || g.bubbleType == kBubbleYell || g.bubbleType == kBubbleMonster) {
+		if img, margin := cachedStaticBubbleDecoration(g); img != nil {
 			op := &ebiten.DrawImageOptions{}
 			op.GeoM.Translate(float64(g.left+g.offsetX-margin), float64(g.top+g.offsetY-margin))
-			screen.DrawImage(bodyImage, op)
+			screen.DrawImage(img, op)
 		} else {
-			body := bubbleRoundedRectPath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius)
-			fillOp := &vector.DrawPathOptions{AntiAlias: true}
-			fillOp.ColorScale.ScaleWithColor(g.fillColor)
-			vector.FillPath(screen, &body, nil, fillOp)
-			strokeOp := &vector.StrokeOptions{Width: strokeW}
-			drawOutline := &vector.DrawPathOptions{AntiAlias: true}
-			drawOutline.ColorScale.ScaleWithColor(g.borderColor)
-			vector.StrokePath(screen, &body, strokeOp, drawOutline)
+			drawBubbleDecoration(screen, g, nil)
 		}
 	} else {
-		body := bubbleRoundedRectPath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius)
-		compositeRegion := bubbleCompositeRegion(g, false).Intersect(screen.Bounds())
-		backgroundTarget, fillColor, backgroundBlend, compositeThought := bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
-		if g.bubbleType != kBubblePonder {
-			fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
-			fillOp.ColorScale.ScaleWithColor(fillColor)
-			vector.FillPath(backgroundTarget, &body, nil, fillOp)
-			strokeOp := &vector.StrokeOptions{Width: strokeW}
-			drawOutline := &vector.DrawPathOptions{AntiAlias: true}
-			drawOutline.ColorScale.ScaleWithColor(g.borderColor)
-			vector.StrokePath(screen, &body, strokeOp, drawOutline)
-		} else {
-			drawPonderWaves(backgroundTarget, g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, fillColor, float64(g.scale), ponderPhase, backgroundBlend)
-		}
-		if compositeThought {
-			compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
-		}
-	}
-
-	if g.bubbleType == kBubbleYell {
-		drawSpikes(screen, float32(g.left)+fx, float32(g.top)+fy, float32(g.right)+fx, float32(g.bottom)+fy, g.radius, 3*g.scale, g.request.borderCol, -1, -1)
-	} else if g.bubbleType == kBubbleMonster {
-		drawMonsterSpikes(screen, float32(g.left)+fx, float32(g.top)+fy, float32(g.right)+fx, float32(g.bottom)+fy, g.radius, 4*g.scale, g.request.borderCol, -1, -1)
+		drawBubbleDecoration(screen, g, nil)
 	}
 
 	textHeight := m.lineHeight * len(m.lines)
@@ -943,13 +971,80 @@ func drawBubbleBody(screen *ebiten.Image, request bubbleDrawRequest) {
 	}
 }
 
+func drawBubbleDecoration(screen *ebiten.Image, g bubbleDrawGeometry, mask *ebiten.Image) {
+	if g.bubbleType == kBubbleWhisper {
+		drawWhisperBody(screen, g)
+		return
+	}
+	fx, fy := float32(g.offsetX), float32(g.offsetY)
+	ponderPhase := bubbleAnimationPhase(ponderBubbleAnimationSpeed)
+
+	strokeW := max(1, g.scale)
+	gapX, gapHalf, gapTop := bubbleOutlineGap(g)
+	if g.bubbleType != kBubbleThought && g.bubbleType != kBubblePonder {
+		if bodyImage, margin := cachedBubbleBodyWithGap(g.right-g.left, g.bottom-g.top, g.radius, strokeW, g.fillColor, g.borderColor, gapX, gapHalf, gapTop); bodyImage != nil {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(g.left+g.offsetX-margin), float64(g.top+g.offsetY-margin))
+			screen.DrawImage(bodyImage, op)
+		} else {
+			body := bubbleRoundedRectPath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius)
+			fillOp := &vector.DrawPathOptions{AntiAlias: true}
+			fillOp.ColorScale.ScaleWithColor(g.fillColor)
+			vector.FillPath(screen, &body, nil, fillOp)
+			strokeOp := &vector.StrokeOptions{Width: strokeW}
+			drawOutline := &vector.DrawPathOptions{AntiAlias: true}
+			drawOutline.ColorScale.ScaleWithColor(g.borderColor)
+			outline := bubbleOutlinePath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius, g.left+g.offsetX+gapX, gapHalf, gapTop)
+			vector.StrokePath(screen, &outline, strokeOp, drawOutline)
+		}
+	} else {
+		body := bubbleRoundedRectPath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius)
+		compositeRegion := bubbleCompositeRegion(g, false).Intersect(screen.Bounds())
+		backgroundTarget, fillColor, backgroundBlend, compositeThought := mask, color.RGBA64{R: 0xffff, G: 0xffff, B: 0xffff, A: 0xffff}, thoughtBubbleMaskBlend, true
+		if mask == nil {
+			backgroundTarget, fillColor, backgroundBlend, compositeThought = bubbleBackgroundTarget(screen, g.bubbleType, g.fillColor, compositeRegion)
+		}
+		if g.bubbleType != kBubblePonder {
+			fillOp := &vector.DrawPathOptions{AntiAlias: true, Blend: backgroundBlend}
+			fillOp.ColorScale.ScaleWithColor(fillColor)
+			vector.FillPath(backgroundTarget, &body, nil, fillOp)
+			strokeOp := &vector.StrokeOptions{Width: strokeW}
+			drawOutline := &vector.DrawPathOptions{AntiAlias: true}
+			drawOutline.ColorScale.ScaleWithColor(g.borderColor)
+			outline := bubbleOutlinePath(g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, g.radius, g.left+g.offsetX+gapX, gapHalf, gapTop)
+			vector.StrokePath(screen, &outline, strokeOp, drawOutline)
+		} else {
+			drawPonderWaves(backgroundTarget, g.left+g.offsetX, g.top+g.offsetY, g.right+g.offsetX, g.bottom+g.offsetY, fillColor, float64(g.scale), ponderPhase, backgroundBlend)
+		}
+		if compositeThought {
+			compositeThoughtBubbleBackground(screen, backgroundTarget, g.request.bgCol, compositeRegion)
+		}
+	}
+
+	if g.bubbleType == kBubbleThought {
+		x, y := float32(g.left+g.right)/2+fx, float32(g.top)+fy
+		var stone vector.Path
+		stone.MoveTo(x, y-3*g.scale)
+		stone.LineTo(x+1.5*g.scale, y)
+		stone.LineTo(x, y+3*g.scale)
+		stone.LineTo(x-1.5*g.scale, y)
+		stone.Close()
+		op := &vector.DrawPathOptions{AntiAlias: true}
+		op.ColorScale.ScaleWithColor(g.borderColor)
+		vector.FillPath(screen, &stone, nil, op)
+	} else if g.bubbleType == kBubbleYell {
+		drawSpikes(screen, float32(g.left)+fx, float32(g.top)+fy, float32(g.right)+fx, float32(g.bottom)+fy, g.radius, yellSpikeSize*g.scale, g.request.borderCol, g)
+	} else if g.bubbleType == kBubbleMonster {
+		drawMonsterSpikes(screen, float32(g.left)+fx, float32(g.top)+fy, float32(g.right)+fx, float32(g.bottom)+fy, g.radius, growlSpikeSize*g.scale, g.request.borderCol, g)
+	}
+
+}
+
 // drawSpikes renders spiky triangles around the bubble rectangle to emphasize
 // a shouted yell. Triangles are drawn pointing outward along each edge and
 // around the rounded corners using the given border color. The spike length
-// gently pulses over time to enhance the yelling effect. bottomGapStart and
-// bottomGapEnd define a segment along the bottom edge where spikes should be
-// omitted (e.g. where the tail arrow attaches).
-func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size float32, col color.Color, bottomGapStart, bottomGapEnd float32) {
+// gently pulses over time. Omit spikes at the tail join on either edge.
+func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size float32, col color.Color, g bubbleDrawGeometry) {
 	bdR, bdG, bdB, bdA := col.RGBA()
 	step := size
 	phase := bubbleAnimationPhase(4)
@@ -958,13 +1053,17 @@ func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size flo
 	drawOp := &vector.DrawPathOptions{AntiAlias: true}
 	drawOp.ColorScale.Scale(float32(bdR)/0xffff, float32(bdG)/0xffff, float32(bdB)/0xffff, float32(bdA)/0xffff)
 
+	var p vector.Path
+	defer func() { vector.FillPath(screen, &p, nil, drawOp) }()
+	gapX, gapHalf, _ := bubbleOutlineGap(g)
 	drawTriangle := func(x1, y1, x2, y2, x3, y3 float32) {
-		var p vector.Path
+		if gapHalf > 0 && y1 == y3 && y1 == float32(g.attachY+g.offsetY) && x1 < left+float32(gapX+gapHalf) && x3 > left+float32(gapX-gapHalf) {
+			return
+		}
 		p.MoveTo(x1, y1)
 		p.LineTo(x2, y2)
 		p.LineTo(x3, y3)
 		p.Close()
-		vector.FillPath(screen, &p, nil, drawOp)
 	}
 
 	startX := left + radius
@@ -979,15 +1078,6 @@ func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size flo
 		drawTriangle(x, top, mid, top-spikeBase, end, top)
 	}
 
-	if bottomGapStart < startX {
-		bottomGapStart = startX
-	}
-	if bottomGapEnd < bottomGapStart {
-		bottomGapEnd = bottomGapStart
-	}
-	if bottomGapEnd > endX {
-		bottomGapEnd = endX
-	}
 	drawBottom := func(segStart, segEnd float32) {
 		for x := segStart; x < segEnd; x += step {
 			spike := size * (0.7 + 0.3*float32(math.Sin(phase+float64(x-startX))))
@@ -1000,8 +1090,7 @@ func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size flo
 			drawTriangle(x, bottom, mid, bottom+spike, end, bottom)
 		}
 	}
-	drawBottom(startX, bottomGapStart)
-	drawBottom(bottomGapEnd, endX)
+	drawBottom(startX, endX)
 
 	startY := top + radius
 	endY := bottom - radius
@@ -1047,21 +1136,25 @@ func drawSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size flo
 	corner(left+radius, bottom-radius, 0.5*math.Pi, math.Pi)
 }
 
-func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size float32, col color.Color, bottomGapStart, bottomGapEnd float32) {
+func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, size float32, col color.Color, g bubbleDrawGeometry) {
 	bdR, bdG, bdB, bdA := col.RGBA()
-	step := size / 2
+	step := size * 1.1
 	phase := bubbleAnimationPhase(1)
 
 	drawOp := &vector.DrawPathOptions{AntiAlias: true}
 	drawOp.ColorScale.Scale(float32(bdR)/0xffff, float32(bdG)/0xffff, float32(bdB)/0xffff, float32(bdA)/0xffff)
 
+	var p vector.Path
+	defer func() { vector.FillPath(screen, &p, nil, drawOp) }()
+	gapX, gapHalf, _ := bubbleOutlineGap(g)
 	drawTriangle := func(x1, y1, x2, y2, x3, y3 float32) {
-		var p vector.Path
+		if gapHalf > 0 && y1 == y3 && y1 == float32(g.attachY+g.offsetY) && x1 < left+float32(gapX+gapHalf) && x3 > left+float32(gapX-gapHalf) {
+			return
+		}
 		p.MoveTo(x1, y1)
 		p.LineTo(x2, y2)
 		p.LineTo(x3, y3)
 		p.Close()
-		vector.FillPath(screen, &p, nil, drawOp)
 	}
 
 	startX := left + radius
@@ -1077,15 +1170,6 @@ func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, s
 		drawTriangle(x, top, mid, top-spike, end, top)
 	}
 
-	if bottomGapStart < startX {
-		bottomGapStart = startX
-	}
-	if bottomGapEnd < bottomGapStart {
-		bottomGapEnd = bottomGapStart
-	}
-	if bottomGapEnd > endX {
-		bottomGapEnd = endX
-	}
 	drawBottom := func(segStart, segEnd float32) {
 		for x := segStart; x < segEnd; x += step {
 			spike := size * (0.7 + 0.3*float32(math.Sin(phase+float64(x-startX))))
@@ -1098,8 +1182,7 @@ func drawMonsterSpikes(screen *ebiten.Image, left, top, right, bottom, radius, s
 			drawTriangle(x, bottom, mid, bottom+spike, end, bottom)
 		}
 	}
-	drawBottom(startX, bottomGapStart)
-	drawBottom(bottomGapEnd, endX)
+	drawBottom(startX, endX)
 
 	startY := top + radius
 	endY := bottom - radius
@@ -1169,15 +1252,17 @@ func drawPonderWaves(screen *ebiten.Image, left, top, right, bottom int, col col
 		Blend:     blend,
 	}
 	bodyOp.ColorScale.ScaleWithColor(waveColor)
-	vector.FillPath(screen, &body, nil, bodyOp)
+	defer func() { vector.FillPath(screen, &body, nil, bodyOp) }()
 
-	r := float32(6) * s
-	step := r * 1.2
-	corner := float32(10) * s
+	r := float32(ponderLobeRadius) * s
+	step := r * 1.65
+	corner := float32(12) * s
 	angleStep := float64(step / corner)
 
 	draw := func(cx, cy float32) {
-		drawBubbleCircle(screen, cx, cy, r, waveColor, blend)
+		body.MoveTo(cx+r, cy)
+		body.Arc(cx, cy, r, 0, 2*math.Pi, vector.Clockwise)
+		body.Close()
 	}
 
 	// top edge

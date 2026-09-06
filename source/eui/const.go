@@ -1,7 +1,6 @@
 package eui
 
 const (
-	defaultTabWidth  = 128
 	defaultTabHeight = 24
 
 	// scrollTolerance defines the padding around window edges used to detect

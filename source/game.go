@@ -4114,13 +4114,14 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 		referenceAnchor := image.Pt(x, y)
 		upperAnchor := image.Pt(x, y)
 		lowerAnchor := upperAnchor
-		if !b.Far {
+		mouthAnchor := referenceAnchor
+		var speakerRect image.Rectangle
+		if !b.Far && !ownerMissing {
 			if d, ok := descMap[b.Index]; ok {
 				if size := mobileSize(d.PictID); size > 0 {
-					tailHeight := int(math.Round(10 * bubbleScale))
+					tailHeight := bubbleTailHeight(b.Type, bubbleScale)
 					scaledSize := int(math.Round(float64(size) * gs.GameScale))
-					upperAnchor.Y += tailHeight - scaledSize
-					lowerAnchor.Y += scaledSize / 2
+					upperAnchor, lowerAnchor, mouthAnchor, speakerRect = bubbleSpeakerAnchors(referenceAnchor, scaledSize, facing, tailHeight, bubbleOverlapMargin(b.Type, bubbleScale)+int(math.Ceil(2*bubbleScale)))
 				}
 			}
 		}
@@ -4164,6 +4165,7 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 			txt: bubbleText, x: x, y: y, typ: b.Type,
 			far: b.Far, noArrow: b.NoArrow || ownerMissing && bubbleType == kBubbleThought, placement: placement,
 			borderCol: borderCol, bgCol: bgCol, textCol: textCol,
+			tailAnchor: mouthAnchor, hasTailAnchor: !speakerRect.Empty(), speakerRect: speakerRect,
 			bubbleScale: bubbleScale, metrics: metrics,
 		}
 		normalRect, _, drawable := bubbleDrawRect(screen.Bounds(), request)

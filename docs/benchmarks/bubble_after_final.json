@@ -1,0 +1,102 @@
+{
+  "animatedDefault": false,
+  "artworkUpscale": 2,
+  "cases": [
+    {
+      "Samples": 2141,
+      "GraphicsLibrary": "OpenGL",
+      "UIRepaints": [
+        {
+          "Title": "",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 0,
+          "LastDuration": 0,
+          "LastReason": ""
+        },
+        {
+          "Title": "Console",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 5889793,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Chat",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 128224,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Inventory   Slots: 0/32",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 256658,
+          "LastReason": "layout"
+        },
+        {
+          "Title": "Players   Online: 40   Shared: 0   Sharing: 14",
+          "Count": 0,
+          "Pixels": 0,
+          "DeferredFrames": 0,
+          "LastPixels": 171500,
+          "LastDuration": 1243970,
+          "LastReason": "layout"
+        }
+      ],
+      "Name": "baseline",
+      "Submission": {
+        "max_ms": 5.903411,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 2.150408,
+        "p95_ms": 2.725532,
+        "p99_ms": 2.979536
+      },
+      "FrameInterval": {
+        "max_ms": 8.46517,
+        "over_16_67ms_pct": 0,
+        "over_33_33ms_pct": 0,
+        "p50_ms": 4.671942,
+        "p95_ms": 5.078614,
+        "p99_ms": 5.33115
+      },
+      "Lights": 46,
+      "Darks": 5,
+      "LightShadows": 0,
+      "GPUBytes": 340109312
+    }
+  ],
+  "docked": true,
+  "fixture": "tour-2025.08.02.clMov",
+  "fullscreen": false,
+  "gameWindowNoBackground": true,
+  "goVersion": "go1.26.6",
+  "goarch": "amd64",
+  "goos": "linux",
+  "minimumSamplesPerCase": 600,
+  "minimumSecondsPerCase": 10,
+  "mobiles": 30,
+  "monitor": {
+    "deviceScaleFactor": 1,
+    "heightDP": 1080,
+    "name": "eDP",
+    "widthDP": 1920
+  },
+  "nightPercent": 50,
+  "pictures": 146,
+  "runWhenUnfocused": true,
+  "scale": 2,
+  "vsync": false,
+  "warmupFrames": 90,
+  "worldBounds": "(0,0)-(1094,1080)",
+  "worldScale": 2
+}

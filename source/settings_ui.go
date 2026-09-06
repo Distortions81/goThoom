@@ -74,7 +74,7 @@ func makeSettingsWindow() {
 	const panelWidth = settingsPanelWidth
 	outer := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL,
-		ActiveOutline: true, TabColumns: 5,
+		ActiveOutline: true,
 	}
 	displayPage := newSettingsPage("Display", panelWidth)
 	worldPage := newSettingsPage("World", panelWidth)
@@ -206,7 +206,7 @@ func makeSettingsWindow() {
 	uiScaleApplyBtn, uiScaleApplyEvents := eui.NewButton()
 	uiScaleApplyBtn.Text = "Apply"
 	setMaterialButtonIcon(uiScaleApplyBtn, "check_circle")
-	uiScaleApplyBtn.Size = eui.Point{X: 64, Y: settingsControlHeight}
+	uiScaleApplyBtn.Size = eui.Point{X: 80, Y: settingsControlHeight}
 	uiScaleApplyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			gs.UIScale = pendingUIScale

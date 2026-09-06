@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -187,7 +188,7 @@ func TestStaggeredTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
 		if got := flow.contentBounds().Y; got != content.GetSize().Y+stripHeight {
 			t.Fatalf("content height at %.1fx = %v, want %v", scale, got, content.GetSize().Y+stripHeight)
 		}
-		if got := flow.contentBounds().X; got < 408*scale {
+		if got := flow.contentBounds().X; got < max(content.GetSize().X, tabStripWidth(flow)) {
 			t.Fatalf("content width at %.1fx = %v, missing staggered row space", scale, got)
 		}
 		screen := ebiten.NewImage(1200, 600)
@@ -201,6 +202,45 @@ func TestStaggeredTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
 		click := point{X: (secondRow.X0 + secondRow.X1) / 2, Y: (secondRow.Y0 + secondRow.Y1) / 2}
 		if !flow.clickFlows(click, true) || flow.ActiveTab != 3 {
 			t.Fatalf("second row click at %.1fx selected tab %d, want 3", scale, flow.ActiveTab)
+		}
+	}
+}
+
+func TestTabLabelsFitFixedPanels(t *testing.T) {
+	previousScale := uiScale
+	t.Cleanup(func() { uiScale = previousScale })
+	if err := EnsureFontSource(goregular.TTF); err != nil {
+		t.Fatal(err)
+	}
+	for _, scale := range []float32{.75, 1, 1.25, 1.5, 2} {
+		uiScale = scale
+		for _, panel := range []struct {
+			width float32
+			names []string
+		}{
+			{236, []string{"View", "Snells", "Sprites"}},
+			{240, []string{"Artwork", "Lighting & Effects", "Power Saving"}},
+		} {
+			flow := &itemData{ItemType: ITEM_FLOW, Fixed: true, Size: point{X: panel.width, Y: 200}}
+			for _, name := range panel.names {
+				flow.Tabs = append(flow.Tabs, &itemData{Name: name})
+			}
+			layout, size := layoutTabs(flow, flow.themeStyle())
+			for i, r := range layout {
+				tw, _ := text.Measure(flow.Tabs[i].Name, itemFace(flow.Tabs[i], tabFontSize(flow, flow.themeStyle())*scale+2), 0)
+				if r.X1 > panel.width*scale || r.X0 < 0 || r.X1-r.X0 < float32(tw)+16*scale {
+					t.Fatalf("%q at %.2fx does not fit panel/label: %v, text width %.1f", flow.Tabs[i].Name, scale, r, tw)
+				}
+				if i > 0 {
+					prev := layout[i-1]
+					if r.Y0 == prev.Y0 && r.X0 < prev.X1 {
+						t.Fatal("tabs overlap")
+					}
+				}
+			}
+			if size.Y != flow.contentBounds().Y {
+				t.Fatal("content did not reserve tab rows")
+			}
 		}
 	}
 }

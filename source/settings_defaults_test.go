@@ -23,7 +23,6 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"throttle sounds":                  gsdef.ThrottleSounds,
 		"inventory alternating row colors": gsdef.InventoryAlternatingRowColors,
 		"window shadows":                   gsdef.WindowShadows,
-		"animated chat bubbles":            gsdef.AnimatedChatBubbles,
 		"bubble overlap prevention":        gsdef.AvoidBubbleOverlap,
 	}
 	for name, enabled := range defaults {
@@ -39,6 +38,9 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	}
 	if gsdef.DenoiseSharpness != 10 || gsdef.DenoiseAmount != 0.35 {
 		t.Errorf("de-dither defaults = sharpness %v, strength %v; want 10 and 0.35", gsdef.DenoiseSharpness, gsdef.DenoiseAmount)
+	}
+	if gsdef.AnimatedChatBubbles {
+		t.Fatal("bubble animation should be opt-in")
 	}
 }
 

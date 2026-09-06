@@ -114,9 +114,10 @@ func TestDecoratedBubbleOverlapMargins(t *testing.T) {
 		want int
 	}{
 		{name: "normal", typ: kBubbleNormal, want: 0},
-		{name: "ponder", typ: kBubblePonder, want: 16},
-		{name: "yell", typ: kBubbleYell, want: 8},
-		{name: "growl", typ: kBubbleMonster, want: 8},
+		{name: "sunstone", typ: kBubbleThought, want: 6},
+		{name: "ponder", typ: kBubblePonder, want: 21},
+		{name: "yell", typ: kBubbleYell, want: 13},
+		{name: "growl", typ: kBubbleMonster, want: 12},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

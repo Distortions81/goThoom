@@ -76,41 +76,6 @@ func tabFontSize(item, style *itemData) float32 {
 	return 0
 }
 
-func tabRowHeight(item, style *itemData) float32 {
-	height := float32(defaultTabHeight) * uiScale
-	if textHeight := tabFontSize(item, style)*uiScale + 4; textHeight > height {
-		height = textHeight
-	}
-	return height
-}
-
-func tabStripHeight(item, style *itemData) float32 {
-	rows := 1
-	if item != nil && item.TabColumns > 0 && len(item.Tabs) > 0 {
-		rows = (len(item.Tabs) + item.TabColumns - 1) / item.TabColumns
-	}
-	return tabRowHeight(item, style)*float32(rows) + float32(rows-1)*4*uiScale
-}
-
-// staggeredTabStripWidth reserves the horizontal space added by row offsets.
-func staggeredTabStripWidth(item *itemData) float32 {
-	if item.TabColumns <= 0 || item.TabRowOffset == 0 {
-		return 0
-	}
-	size := tabFontSize(item, item.themeStyle())*uiScale + 2
-	var width, x float32
-	for i, tab := range item.Tabs {
-		if i%item.TabColumns == 0 {
-			x = float32((i/item.TabColumns)%2) * item.TabRowOffset * uiScale
-		}
-		tw, _ := text.Measure(tab.Name, itemFace(tab, size), 0)
-		w := max(float32(tw)+8, float32(defaultTabWidth)*uiScale)
-		width = max(width, x+w)
-		x += w + 4*uiScale
-	}
-	return width
-}
-
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
@@ -840,23 +805,15 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		// preferences. Other styles retain their existing per-flow appearance.
 		tabsFilled := item.Filled || (style.Border == 0 && style.Filled)
 		fontSize := tabFontSize(item, style)
-		tabHeight := tabStripHeight(item, style)
+		layout, stripSize := layoutTabs(item, style)
+		tabHeight := stripSize.Y
 		rowHeight := tabRowHeight(item, style)
 		textSize := (fontSize * uiScale) + 2
-		x := offset.X
-		spacing := float32(4) * uiScale
-		tabY := offset.Y
 		for i, tab := range item.Tabs {
-			if item.TabColumns > 0 && i > 0 && i%item.TabColumns == 0 {
-				x = offset.X + float32((i/item.TabColumns)%2)*item.TabRowOffset*uiScale
-				tabY += rowHeight + spacing
-			}
+			r := layout[i]
+			x, tabY := offset.X+r.X0, offset.Y+r.Y0
+			w := r.X1 - r.X0
 			face := itemFace(tab, textSize)
-			tw, _ := text.Measure(tab.Name, face, 0)
-			w := float32(tw) + 8
-			if w < float32(defaultTabWidth)*uiScale {
-				w = float32(defaultTabWidth) * uiScale
-			}
 			col := style.Color
 			if renderNow.Sub(tab.Clicked) < clickFlash {
 				col = style.ClickColor
@@ -889,7 +846,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 				)
 			}
 			if item.ActiveOutline && style.ActiveOutline && i == item.ActiveTab {
-				if item.TabColumns > 0 {
+				if item.TabColumns > 0 || tabHeight > rowHeight {
 					// Keep the accent inside its row; the raised single-row tab
 					// outline would extend over the row above it.
 					drawFilledRect(subImg, x+6*uiScale, tabY, w-12*uiScale, 3*uiScale, style.ClickColor, false)
@@ -911,7 +868,6 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			dto.ColorScale.ScaleWithColor(item.surfaceTextColor(style.TextColor, col, tabsFilled || i == item.ActiveTab))
 			text.Draw(subImg, tab.Name, face, dto)
 			tab.DrawRect = rectAdd(rect{X0: x, Y0: tabY, X1: x + w, Y1: tabY + rowHeight}, base)
-			x += w + spacing
 		}
 		drawOffset = pointAdd(drawOffset, point{Y: tabHeight})
 		drawFilledRect(subImg,

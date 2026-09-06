@@ -195,7 +195,7 @@ var gsdef settings = settings{
 	ObscuringPictureOpacity:       0.66,
 	FadeObscuringPictures:         true,
 	SpeechBubbles:                 true,
-	AnimatedChatBubbles:           true,
+	AnimatedChatBubbles:           false,
 	AvoidBubbleOverlap:            true,
 	BubbleNormal:                  true,
 	BubbleWhisper:                 true,

@@ -246,7 +246,7 @@ type itemData struct {
 	// flow referenced by ActiveTab will be drawn and receive input.
 	Tabs      []*itemData
 	ActiveTab int
-	// TabColumns wraps the tab strip after this many tabs. Zero keeps one row.
+	// TabColumns limits the number of tabs per row. Fixed flows also wrap at their width.
 	TabColumns int
 	// TabRowOffset indents every other wrapped tab row in logical pixels.
 	TabRowOffset float32

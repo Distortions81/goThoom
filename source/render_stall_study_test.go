@@ -107,6 +107,8 @@ func TestRenderStallStudy(t *testing.T) {
 		t.Fatal(err)
 	}
 	startupLoader.complete = true
+	// Keep presentation cadence independent of which desktop window has focus.
+	ebiten.SetRunnableOnUnfocused(true)
 	ebiten.SetVsyncEnabled(vsync)
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetWindowSize(960, 540)
@@ -144,6 +146,7 @@ func TestRenderStallStudy(t *testing.T) {
 	}
 	report := map[string]any{"worldBounds": gameImage.Bounds().String(), "worldScale": worldScale, "fixture": performanceTourFixture, "pictures": len(fixture.busyScene.pictures), "mobiles": len(fixture.busyScene.mobiles), "scale": scale, "nightPercent": 50, "animatedDefault": gsdef.AnimatedChatBubbles, "artworkUpscale": artworkScale, "minimumSamplesPerCase": minimumSamples, "minimumSecondsPerCase": seconds, "warmupFrames": 90, "fullscreen": fullscreen, "goVersion": runtime.Version(), "goos": runtime.GOOS, "goarch": runtime.GOARCH, "cases": g.results}
 	report["vsync"] = vsync
+	report["runWhenUnfocused"] = true
 	report["docked"] = docked
 	report["gameWindowNoBackground"] = gameWin.NoBGColor
 	monitor := ebiten.Monitor()
