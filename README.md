@@ -66,6 +66,12 @@ and verifies that a new folder is readable and writable before saving it.
   also has a right-click menu for paste, copy, and clear.
 - **Audio:** Use the Mixer to control game, music, speech, and notification
   volume independently.
+- **Snapshots:** Click **Snap** to name a capture, choose the game view or entire
+  client window, optionally hide name tags, and save as PNG or JPEG. The options
+  window hides before capture; name-tag settings return to normal afterward.
+  The suggested filename starts with the current character's name and a timestamp.
+  Files go into the user data folder's `Screenshots` directory; **Open Folder**
+  opens that location. Duplicate names receive a number.
 
 The toolbar **Help** button opens the full online user manual. A compact guide
 remains available from **Windows → Help**, and a command reference is available

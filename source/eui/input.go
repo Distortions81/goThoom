@@ -72,7 +72,17 @@ func Update() error {
 
 	mx, my := PointerPosition()
 	mpos := point{X: float32(mx), Y: float32(my)}
+	if prevHovered != nil && prevHovered.ItemType == ITEM_DROPDOWN {
+		r, _ := dropdownOpenRect(prevHovered, point{X: prevHovered.DrawRect.X0, Y: prevHovered.DrawRect.Y0})
+		if !prevHovered.Open || !r.containsPoint(mpos) {
+			prevHovered.clearDropdownHover()
+		}
+	}
+	if !keyboardInputCaptured && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		closeAllDropdowns()
+	}
 	orderedWindows := windowsFrontToBack()
+	updateCloseHover(orderedWindows, mpos)
 
 	click := pointerJustPressed()
 	midClick := middleClickMove && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
@@ -188,7 +198,7 @@ func Update() error {
 					c = ebiten.CursorShapeNWSEResize
 				case PART_TOP_RIGHT, PART_BOTTOM_LEFT:
 					c = ebiten.CursorShapeNESWResize
-				case PART_SCROLL_V, PART_SCROLL_H, PART_SEARCH:
+				case PART_SCROLL_V, PART_SCROLL_H, PART_SEARCH, PART_CLOSE:
 					c = ebiten.CursorShapePointer
 				}
 			}
@@ -901,7 +911,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 			item.markDirty()
 		} else if item.ItemType == ITEM_DROPDOWN {
 			if item.Open {
-				optionH := item.GetSize().Y
+				optionH := dropdownOptionHeight(item)
 				r, _ := dropdownOpenRect(item, point{X: item.DrawRect.X0, Y: item.DrawRect.Y0})
 				startY := r.Y0
 				if r.containsPoint(mpos) {
@@ -916,13 +926,17 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 						if item.OnSelect != nil {
 							item.OnSelect(idx)
 						}
+						item.clearDropdownHover()
 					}
 				} else {
 					item.Open = false
+					item.clearDropdownHover()
 					item.markDirty()
 				}
 			} else {
 				item.Open = true
+				item.dropdownLayout = nil
+				item.HoverIndex = -1
 				item.markDirty()
 			}
 		}
@@ -950,7 +964,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 				}
 			}
 		} else if item.ItemType == ITEM_DROPDOWN && item.Open {
-			optionH := item.GetSize().Y
+			optionH := dropdownOptionHeight(item)
 			r, _ := dropdownOpenRect(item, point{X: item.DrawRect.X0, Y: item.DrawRect.Y0})
 			startY := r.Y0
 			if r.containsPoint(mpos) {
@@ -965,13 +979,7 @@ func (item *itemData) clickItem(mpos point, click bool) bool {
 					}
 				}
 			} else {
-				if item.HoverIndex != -1 {
-					item.HoverIndex = -1
-					item.markDirty()
-					if item.OnHover != nil {
-						item.OnHover(item.Selected)
-					}
-				}
+				item.clearDropdownHover()
 			}
 		}
 		if item.ItemType == ITEM_SLIDER && pointerPressed() && downWin == item.ParentWindow {
@@ -1179,6 +1187,10 @@ func (item *itemData) setSliderValueWithModifiers(mpos point, shiftSnap bool, mo
 	maxW, _ := text.Measure(maxLabel, face, 0)
 	knobW := item.AuxSize.X * uiScale
 	gap := currentStyle.SliderValueGap
+	if item.HideValue {
+		gap = 0
+		maxW = 0
+	}
 	width := item.DrawRect.X1 - item.DrawRect.X0 - knobW - gap - float32(maxW)
 	if width < knobW {
 		width = item.DrawRect.X1 - item.DrawRect.X0 - knobW
@@ -1327,7 +1339,7 @@ func scrollDropdown(items []*itemData, mpos point, delta point) bool {
 			continue
 		}
 		if it.ItemType == ITEM_DROPDOWN && it.Open {
-			optionH := it.GetSize().Y
+			optionH := dropdownOptionHeight(it)
 			r, _ := dropdownOpenRect(it, point{X: it.DrawRect.X0, Y: it.DrawRect.Y0})
 			openH := r.Y1 - r.Y0
 			if r.containsPoint(mpos) {
@@ -1591,11 +1603,27 @@ func dropdownOpenContainsAnywhere(mpos point) bool {
 	return false
 }
 
+// Notify preview consumers when the pointer leaves or the menu is dismissed.
+func (item *itemData) clearDropdownHover() {
+	if !item.Open {
+		item.dropdownLayout = nil
+	}
+	if item.HoverIndex == -1 {
+		return
+	}
+	item.HoverIndex = -1
+	item.markDirty()
+	if item.OnHover != nil {
+		item.OnHover(item.Selected)
+	}
+}
+
 func closeDropdowns(items []*itemData) {
 	for _, it := range items {
 		if it.ItemType == ITEM_DROPDOWN {
 			if it.Open {
 				it.Open = false
+				it.clearDropdownHover()
 				it.markDirty()
 			}
 		}
@@ -1647,7 +1675,7 @@ func handleContextMenus(mpos point, click bool) bool {
 		r, _ := dropdownOpenRect(cm, point{X: cm.DrawRect.X0, Y: cm.DrawRect.Y0})
 		if r.containsPoint(mpos) {
 			handled = true
-			optionH := cm.GetSize().Y
+			optionH := dropdownOptionHeight(cm)
 			startY := r.Y0
 			idx := int((mpos.Y - startY + cm.Scroll.Y) / optionH)
 			if idx >= 0 && idx < len(cm.Options) {
@@ -1714,7 +1742,7 @@ func scrollContextMenus(mpos point, delta point) bool {
 		if cm == nil || !cm.Open {
 			continue
 		}
-		optionH := cm.GetSize().Y
+		optionH := dropdownOptionHeight(cm)
 		r, _ := dropdownOpenRect(cm, point{X: cm.DrawRect.X0, Y: cm.DrawRect.Y0})
 		openH := r.Y1 - r.Y0
 		if r.containsPoint(mpos) {

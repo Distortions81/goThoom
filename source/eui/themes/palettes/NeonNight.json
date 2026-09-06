@@ -1,28 +1,35 @@
 {
-  "Comment": "Neon inspired dark theme",
+  "Comment": "Distinctive purple-and-cyan night theme: dark violet surfaces, luminous cyan selections, and violet borders.",
   "Colors": {
-    "background": "240,0.2,0.10",
-    "panel": "240,0.3,0.15",
-    "text": "0,0,1",
-    "outline": "300,1,0.9",
-    "button": "240,0.4,0.30",
-    "hover": "240,0.4,0.50",
-    "accent": "180.0,1.0,0.8",
-    "highlight": "180.0,1.0,0.42",
-    "disabled": "0,0,0.30"
+    "background": "#14141aff",
+    "panel": "#201d30ff",
+    "view": "#0e0e16ff",
+    "text": "#f4f2ffff",
+    "outline": "#bf75ceff",
+    "button": "#2e2946ff",
+    "hover": "#45395fff",
+    "accent": "#00ccccff",
+    "highlight": "#21525aff",
+    "disabled": "#262235ff",
+    "disabledtext": "#b4a8c9ff",
+    "alternate": "#201d30ff",
+    "shadow": "#00cccc70"
   },
   "Window": {
     "Padding": 8,
     "BGColor": "background",
     "TitleBGColor": "panel",
     "TitleColor": "text",
-    "BorderColor": "panel",
+    "BorderColor": "outline",
     "SizeTabColor": "outline",
     "DragbarColor": "panel",
     "HoverTitleColor": "text",
     "HoverColor": "hover",
     "ActiveColor": "accent",
-    "TitleTextColor": "text"
+    "TitleTextColor": "text",
+    "ShadowSize": 18,
+    "ShadowColor": "shadow",
+    "ShadowFalloff": 1.8
   },
   "Button": {
     "TextColor": "text",
@@ -31,53 +38,59 @@
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "disabled"
+    "SelectedColor": "highlight",
+    "DisabledTextColor": "disabledtext"
   },
   "Text": {
     "TextColor": "text",
-    "Color": "disabled",
-    "HoverColor": "disabled",
-    "ClickColor": "highlight",
+    "Color": "alternate",
+    "HoverColor": "highlight",
+    "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "disabled"
+    "SelectedColor": "highlight",
+    "DisabledTextColor": "disabledtext"
   },
   "Checkbox": {
     "TextColor": "text",
-    "Color": "button",
+    "Color": "view",
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "disabled"
+    "SelectedColor": "highlight",
+    "DisabledTextColor": "disabledtext"
   },
   "Radio": {
     "TextColor": "text",
-    "Color": "button",
+    "Color": "view",
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "disabled"
+    "SelectedColor": "highlight",
+    "DisabledTextColor": "disabledtext"
   },
   "Input": {
     "TextColor": "text",
-    "Color": "button",
-    "HoverColor": "hover",
+    "Color": "view",
+    "HoverColor": "view",
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "disabled"
+    "SelectedColor": "highlight",
+    "DisabledTextColor": "disabledtext"
   },
   "Slider": {
     "TextColor": "text",
-    "Color": "button",
+    "Color": "outline",
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
     "SliderFilled": "accent",
-    "SelectedColor": "disabled"
+    "SelectedColor": "accent",
+    "DisabledTextColor": "disabledtext"
   },
   "Dropdown": {
     "TextColor": "text",
@@ -87,15 +100,31 @@
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
     "SelectedColor": "accent",
-    "MaxVisible": 0
+    "MaxVisible": 0,
+    "DisabledTextColor": "disabledtext",
+    "ShadowSize": 12,
+    "ShadowColor": "shadow",
+    "ShadowFalloff": 1.8
   },
   "Tab": {
     "TextColor": "text",
-    "Color": "button",
+    "Color": "panel",
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
-    "SelectedColor": "hover"
+    "SelectedColor": "background",
+    "DisabledColor": "disabled",
+    "DisabledTextColor": "disabledtext"
   },
-  "RecommendedStyle": "NeoRounded"
+  "RecommendedStyle": "Rounded",
+  "Progress": {
+    "TextColor": "text",
+    "Color": "view",
+    "HoverColor": "hover",
+    "ClickColor": "accent",
+    "OutlineColor": "outline",
+    "DisabledColor": "disabled",
+    "SelectedColor": "accent",
+    "DisabledTextColor": "disabledtext"
+  }
 }

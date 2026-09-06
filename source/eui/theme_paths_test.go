@@ -49,7 +49,7 @@ func TestSetUserDataRootMovesEditableThemes(t *testing.T) {
 	assertContainsThemeName(t, ListThemes, "MyPalette")
 	assertContainsThemeName(t, ListThemes, "AccentDark")
 	assertContainsThemeName(t, ListStyles, "MyStyle")
-	assertContainsThemeName(t, ListStyles, "RoundHybrid")
+	assertContainsThemeName(t, ListStyles, "Breeze")
 }
 
 func assertContainsThemeName(t *testing.T, list func() ([]string, error), want string) {

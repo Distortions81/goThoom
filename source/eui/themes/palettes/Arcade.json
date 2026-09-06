@@ -1,19 +1,19 @@
 {
-  "Comment": "Maximum separation: black and white surfaces, yellow selections, and thick square control boundaries.",
+  "Comment": "Playful navy with lime selections and orange borders: a crisp arcade-inspired dark palette.",
   "Colors": {
-    "background": "#000000ff",
-    "panel": "#181818ff",
-    "view": "#000000ff",
-    "text": "#ffffffff",
-    "outline": "#ffffffff",
-    "button": "#202020ff",
-    "hover": "#333333ff",
-    "accent": "#ffde59ff",
-    "highlight": "#6b5500ff",
-    "disabled": "#202020ff",
-    "disabledtext": "#b8bcc4ff",
-    "alternate": "#181818ff",
-    "shadow": "#00000000"
+    "background": "#141c2bff",
+    "panel": "#1e2b3dff",
+    "view": "#0d1420ff",
+    "text": "#f1f5e9ff",
+    "outline": "#ad704fff",
+    "button": "#283b50ff",
+    "hover": "#38546bff",
+    "accent": "#b9ef63ff",
+    "highlight": "#304d3bff",
+    "disabled": "#223044ff",
+    "disabledtext": "#a4b0bcff",
+    "alternate": "#1b283aff",
+    "shadow": "#e5904560"
   },
   "Window": {
     "Padding": 8,
@@ -27,9 +27,9 @@
     "HoverColor": "hover",
     "ActiveColor": "accent",
     "TitleTextColor": "text",
-    "ShadowSize": 0,
+    "ShadowSize": 12,
     "ShadowColor": "shadow",
-    "ShadowFalloff": 2
+    "ShadowFalloff": 1.6
   },
   "Button": {
     "TextColor": "text",
@@ -102,9 +102,9 @@
     "SelectedColor": "accent",
     "MaxVisible": 0,
     "DisabledTextColor": "disabledtext",
-    "ShadowSize": 0,
+    "ShadowSize": 12,
     "ShadowColor": "shadow",
-    "ShadowFalloff": 2
+    "ShadowFalloff": 1.6
   },
   "Tab": {
     "TextColor": "text",

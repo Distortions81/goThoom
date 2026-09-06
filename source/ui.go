@@ -579,12 +579,12 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	shotBtn, shotEvents := eui.NewButton()
 	shotBtn.Text = "Snap"
 	setMaterialButtonIcon(shotBtn, "photo_camera")
-	shotBtn.SetTooltip("Save the visible game view as a PNG in the user data folder's Screenshots directory.")
+	shotBtn.SetTooltip("Open snapshot options to choose a filename, capture area, and image format.")
 	shotBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	shotBtn.FontSize = toolFontSize
 	shotEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			takeScreenshot()
+			showSnapshotWindow()
 		}
 	}
 	row2.AddItem(shotBtn)
@@ -2848,9 +2848,9 @@ func optionalDownloadSelections(soundfontCB, ttsCB *eui.ItemData) (soundfont, tt
 }
 
 const (
-	charWinWidth          = 500
-	freeDemoCharacterName = "-Demo Character-"
-	freeDemoSelection     = "\x00free-demo"
+	charWinWidth          float32 = 480
+	freeDemoCharacterName         = "-Demo Character-"
+	freeDemoSelection             = "\x00free-demo"
 )
 
 var newbieBrownColors = []byte{
@@ -2947,10 +2947,10 @@ func updateCharacterButtons() {
 
 	for _, choice := range loginCharacterChoices() {
 		c := choice.character
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Position: eui.Point{Y: 4}}
 
 		profItem, _ := eui.NewImageItem(48, 48)
-		profItem.Margin = 4
+		profItem.Position = eui.Point{X: 4}
 		profItem.Border = 0
 		profItem.Filled = false
 		if pid := professionPictID(c.Profession); pid != 0 {
@@ -2962,7 +2962,7 @@ func updateCharacterButtons() {
 		row.AddItem(profItem)
 
 		avItem, _ := eui.NewImageItem(48, 48)
-		avItem.Margin = 4
+		avItem.Position = eui.Point{X: 4}
 		avItem.Border = 0
 		avItem.Filled = false
 		var img *ebiten.Image
@@ -2990,8 +2990,10 @@ func updateCharacterButtons() {
 		radio, radioEvents := eui.NewRadio()
 		radio.Text = c.Name
 		radio.RadioGroup = "characters"
-		radio.Size = eui.Point{X: 374, Y: 48}
-		radio.FontSize = 20
+		radio.Size = eui.Point{X: charWinWidth - 124, Y: 32}
+		radio.Position = eui.Point{X: 8, Y: 16}
+		radio.AuxSpace = 8
+		radio.FontSize = 16
 		radio.Checked = name == choice.selection
 		selectionCopy := choice.selection
 		demoCopy := choice.demo
@@ -3613,6 +3615,7 @@ func makeLoginWindow() {
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
 	loginWin.Movable = true
+	loginWin.Padding = 12
 	// Set the login window opacity
 	loginWin.Opacity = 0.9
 	// Increase title font size for "Login" by 2pt
@@ -3624,7 +3627,7 @@ func makeLoginWindow() {
 	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	charactersList.Scrollable = true
 	charactersList.Fixed = true
-	charactersList.Size = eui.Point{X: charWinWidth, Y: 300}
+	charactersList.Size = eui.Point{X: charWinWidth, Y: 224}
 
 	/*
 		manBtn, manBtnEvents := eui.NewButton(&eui.ItemData{Text: "Manage account", Size: eui.Point{X: 200, Y: 24}})
@@ -3639,9 +3642,8 @@ func makeLoginWindow() {
 	connBtn, connEvents := eui.NewButton()
 	connBtn.Text = "Connect"
 	setMaterialButtonIcon(connBtn, "login")
-	connBtn.Size = eui.Point{X: charWinWidth, Y: 48}
-	connBtn.Padding = 10
-	connBtn.FontSize = 24
+	connBtn.Size = eui.Point{X: 200, Y: 44}
+	connBtn.FontSize = 18
 	connBtn.Outlined = true
 	connBtn.Border = 2
 	connBtn.OutlineColor = eui.ColorGreen
@@ -3688,7 +3690,7 @@ func makeLoginWindow() {
 	addBtn.Text = "Add"
 	setMaterialButtonIcon(addBtn, "add")
 	addBtn.SetTooltip("Add a saved character")
-	addBtn.Size = eui.Point{X: 164, Y: 24}
+	addBtn.Size = eui.Point{X: (charWinWidth - 16) / 3, Y: 32}
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			addCharName = ""
@@ -3711,7 +3713,7 @@ func makeLoginWindow() {
 	editBtn.Text = "Edit"
 	setMaterialButtonIcon(editBtn, "edit")
 	editBtn.SetTooltip("Change the selected character's password, password saving, or settings profile.")
-	editBtn.Size = eui.Point{X: 164, Y: 24}
+	editBtn.Size = eui.Point{X: (charWinWidth - 16) / 3, Y: 32}
 	editEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
@@ -3736,7 +3738,7 @@ func makeLoginWindow() {
 	deleteBtn.Text = "Delete"
 	setMaterialButtonIcon(deleteBtn, "delete")
 	deleteBtn.SetTooltip("Delete the selected saved character")
-	deleteBtn.Size = eui.Point{X: 164, Y: 24}
+	deleteBtn.Size = eui.Point{X: (charWinWidth - 16) / 3, Y: 32}
 	deleteBtn.Color = eui.ColorDarkRed
 	deleteBtn.HoverColor = eui.ColorRed
 	deleteEvents.Handle = func(ev eui.UIEvent) {
@@ -3752,7 +3754,10 @@ func makeLoginWindow() {
 	}
 
 	characterActions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	characterActions.Size = eui.Point{X: charWinWidth, Y: 24}
+	characterActions.Size = eui.Point{X: charWinWidth, Y: 32}
+	addBtn.Position = eui.Point{}
+	editBtn.Position = eui.Point{X: 8}
+	deleteBtn.Position = eui.Point{X: 8}
 	characterActions.AddItem(addBtn)
 	characterActions.AddItem(editBtn)
 	characterActions.AddItem(deleteBtn)
@@ -3761,7 +3766,7 @@ func makeLoginWindow() {
 	openBtn.Text = "Play movie file [clMov]"
 	setMaterialButtonIcon(openBtn, "movie")
 	openBtn.SetTooltip("Open and play a .clmov recording")
-	openBtn.Size = eui.Point{X: charWinWidth, Y: 24}
+	openBtn.Size = eui.Point{X: 248, Y: 32}
 	openEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			filename, err := pickMovieFile()
@@ -3814,10 +3819,8 @@ func makeLoginWindow() {
 	quitBttn, quitEvn := eui.NewButton()
 	quitBttn.Text = "Quit"
 	setMaterialButtonIcon(quitBttn, "power_settings_new")
-	// Increase Quit button font size by 2pt
-	quitBttn.FontSize = 24
-	// Double the height of the Quit button
-	quitBttn.Size = eui.Point{X: charWinWidth, Y: 48}
+	quitBttn.FontSize = 14
+	quitBttn.Size = eui.Point{X: 112, Y: 32}
 	quitBttn.Outlined = true
 	quitBttn.Border = 2
 	quitBttn.OutlineColor = eui.ColorRed
@@ -3827,19 +3830,21 @@ func makeLoginWindow() {
 		}
 	}
 
-	verFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Size: eui.Point{X: 260, Y: 24}}
+	verFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Size: eui.Point{X: charWinWidth, Y: 28}}
 	verLabel, _ := eui.NewText()
 	verLabel.Text = fmt.Sprintf("goThoom test %4d", appVersion)
-	verLabel.FontSize = 14
-	verLabel.Size = eui.Point{X: 330, Y: 24}
+	verLabel.FontSize = 12
+	verLabel.Size = eui.Point{X: charWinWidth - 216, Y: 28}
+	verLabel.Position = eui.Point{Y: 4}
 	verFlow.AddItem(verLabel)
 
 	changeBtn, changeEvents := eui.NewButton()
 	changeBtn.Text = "Changelog"
 	setMaterialButtonIcon(changeBtn, "history")
 	changeBtn.SetTooltip("View recent changes")
-	changeBtn.Size = eui.Point{X: 97, Y: 24}
-	changeBtn.FontSize = 10
+	changeBtn.Size = eui.Point{X: 120, Y: 28}
+	changeBtn.FontSize = 12
+	changeBtn.Position = eui.Point{X: 8}
 	changeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			makeChangelogWindow()
@@ -3853,8 +3858,9 @@ func makeLoginWindow() {
 	aboutBtn, aboutEvents := eui.NewButton()
 	aboutBtn.Text = "About"
 	setMaterialButtonIcon(aboutBtn, "info")
-	aboutBtn.Size = eui.Point{X: 60, Y: 24}
-	aboutBtn.FontSize = 10
+	aboutBtn.Size = eui.Point{X: 80, Y: 28}
+	aboutBtn.FontSize = 12
+	aboutBtn.Position = eui.Point{X: 8}
 	aboutEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			openAboutWindow(ev.Item)
@@ -3863,33 +3869,42 @@ func makeLoginWindow() {
 	verFlow.AddItem(aboutBtn)
 
 	addLoginSpacer := func(height float32) {
-		spacer, _ := eui.NewText()
+		spacer := &eui.ItemData{ItemType: eui.ITEM_TEXT}
 		spacer.Size = eui.Point{X: charWinWidth, Y: height}
 		loginFlow.AddItem(spacer)
 	}
 
-	loginFlow.AddItem(quitBttn)
-	addLoginSpacer(8)
-	loginFlow.AddItem(openBtn)
-	addLoginSpacer(10)
+	utilityRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	openBtn.Position = eui.Point{}
+	quitBttn.Position = eui.Point{X: charWinWidth - openBtn.Size.X - quitBttn.Size.X}
+	utilityRow.AddItem(openBtn)
+	utilityRow.AddItem(quitBttn)
+	loginFlow.AddItem(utilityRow)
+	addLoginSpacer(12)
 	characterEditLabel, _ := eui.NewText()
 	characterEditLabel.Text = "Edit Characters:"
-	characterEditLabel.FontSize = 15
-	characterEditLabel.Size = eui.Point{X: charWinWidth, Y: 25}
+	characterEditLabel.FontSize = 13
+	applyBoldFace(characterEditLabel)
+	characterEditLabel.Size = eui.Point{X: charWinWidth, Y: 28}
 	loginFlow.AddItem(characterEditLabel)
 	loginFlow.AddItem(characterActions)
 	addLoginSpacer(12)
 	characterListLabel, _ := eui.NewText()
 	characterListLabel.Text = "Character list:"
-	characterListLabel.FontSize = 15
-	characterListLabel.Size = eui.Point{X: charWinWidth, Y: 25}
+	characterListLabel.FontSize = 13
+	applyBoldFace(characterListLabel)
+	characterListLabel.Size = eui.Point{X: charWinWidth, Y: 28}
 	loginFlow.AddItem(characterListLabel)
 	loginFlow.AddItem(charactersList)
-	addLoginSpacer(10)
+	addLoginSpacer(12)
 	loginFlow.AddItem(connBtn)
 	addLoginSpacer(8)
 	loginFlow.AddItem(verFlow)
 
+	// Root controls share one left edge; horizontal rows own their internal gaps.
+	for _, item := range loginFlow.Contents {
+		item.Position = eui.Point{}
+	}
 	loginWin.AddItem(loginFlow)
 	loginWin.AddWindow(false)
 }
@@ -4041,8 +4056,8 @@ func resetAllSettings() {
 	if textColorsWin != nil {
 		textColorsWin.Close()
 		textColorsWin = nil
-		textColorWheelsDark = nil
-		textColorWheelsLight = nil
+		textColorSwatchesDark = nil
+		textColorSwatchesLight = nil
 		themeTextColorOverrideCB = nil
 		classicMessageColorsCB = nil
 	}

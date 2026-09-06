@@ -32,20 +32,24 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 		t.Fatalf("login root items = %d, want 1 flow", len(loginWin.Contents))
 	}
 	items := loginWin.Contents[0].Contents
-	if len(items) != 13 {
+	if len(items) != 11 {
 		t.Fatalf("login flow items = %d, want controls, Character list label, and spacers", len(items))
 	}
-	if items[0].Text != "Quit" || items[2].Text != "Play movie file [clMov]" || items[4].Text != "Edit Characters:" || items[7].Text != "Character list:" || items[8] != charactersList || items[10].Text != "Connect" {
-		t.Fatalf("login controls are not ordered Quit, Play movie file, character actions, character list, Connect")
+	utilities := items[0].Contents
+	if len(utilities) != 2 || utilities[0].Text != "Play movie file [clMov]" || utilities[1].Text != "Quit" {
+		t.Fatal("login utility row should contain movie playback and Quit")
 	}
-	if !items[0].Outlined || items[0].OutlineColor != eui.ColorRed || !items[10].Outlined || items[10].OutlineColor != eui.ColorGreen {
+	if items[2].Text != "Edit Characters:" || items[5].Text != "Character list:" || items[6] != charactersList || items[8].Text != "Connect" {
+		t.Fatal("login controls are not ordered utilities, character actions, character list, Connect")
+	}
+	if !utilities[1].Outlined || utilities[1].OutlineColor != eui.ColorRed || !items[8].Outlined || items[8].OutlineColor != eui.ColorGreen {
 		t.Fatal("Quit and Connect do not have red and green frames")
 	}
-	actions := items[5].Contents
+	actions := items[3].Contents
 	if len(actions) != 3 || actions[0].Text != "Add" || actions[1].Text != "Edit" || actions[2].Text != "Delete" {
 		t.Fatalf("character action row = %#v, want Add, Edit, Delete", actions)
 	}
-	versionRow := items[12].Contents
+	versionRow := items[10].Contents
 	if len(versionRow) != 3 || versionRow[1].Text != "Changelog" || versionRow[2].Text != "About" {
 		t.Fatalf("version row does not end with Changelog and About")
 	}

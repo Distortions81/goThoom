@@ -18,6 +18,15 @@ import (
 //go:embed themes/palettes/*.json
 var embeddedThemes embed.FS
 
+// Retired built-in names remain loadable from saved settings. A user-authored
+// file with one of these names still takes precedence over its replacement.
+var paletteAliases = map[string]string{
+	"Black": "Midnight", "ConcreteGray": "AccentDark",
+	"CorporateBlue": "AccentLight", "ForestMist": "Forest",
+	"OceanWave": "AccentDark", "SlateNight": "Dusk",
+	"SoftNeutral": "Paper", "SolarFlare": "Paper",
+}
+
 // Theme bundles all style information for windows and widgets.
 type Theme struct {
 	Window   windowData
@@ -52,6 +61,7 @@ var themeAccentRefs struct {
 	SliderFilled   bool
 	DropdownClick  bool
 	DropdownSelect bool
+	ProgressSelect bool
 	TabClick       bool
 }
 
@@ -90,6 +100,9 @@ func LoadTheme(name string) error {
 	file := filepath.Join(themeDirectory, "palettes", name+".json")
 	data, err := os.ReadFile(file)
 	if err != nil {
+		if replacement, ok := paletteAliases[name]; ok {
+			name = replacement
+		}
 		// Fallback to embedded palettes; embed paths must use forward slashes
 		data, err = embeddedThemes.ReadFile(path.Join("themes", "palettes", name+".json"))
 		if err != nil {
@@ -160,6 +173,9 @@ func LoadTheme(name string) error {
 		Tab struct {
 			ClickColor string `json:"ClickColor"`
 		} `json:"Tab"`
+		Progress struct {
+			SelectedColor string `json:"SelectedColor"`
+		} `json:"Progress"`
 	}
 	// Best-effort; ignore errors since not all fields are present in every palette
 	_ = json.Unmarshal(data, &refs)
@@ -176,6 +192,7 @@ func LoadTheme(name string) error {
 	themeAccentRefs.DropdownClick = isAccent(refs.Dropdown.ClickColor)
 	themeAccentRefs.DropdownSelect = isAccent(refs.Dropdown.SelectedColor)
 	themeAccentRefs.TabClick = isAccent(refs.Tab.ClickColor)
+	themeAccentRefs.ProgressSelect = isAccent(refs.Progress.SelectedColor)
 	currentTheme = &th
 	if extra.Slider.SliderFilled != "" {
 		if col, err := resolveColor(extra.Slider.SliderFilled, tf.Colors, map[string]bool{"sliderfilled": true}); err == nil {
@@ -203,6 +220,15 @@ func LoadTheme(name string) error {
 func updateThemeReferences(old, new *Theme) {
 	for _, win := range windows {
 		if win.Theme == old {
+			if win.ShadowSize == old.Window.ShadowSize {
+				win.ShadowSize = new.Window.ShadowSize
+			}
+			if win.ShadowColor == old.Window.ShadowColor {
+				win.ShadowColor = new.Window.ShadowColor
+			}
+			if win.ShadowFalloff == old.Window.ShadowFalloff {
+				win.ShadowFalloff = new.Window.ShadowFalloff
+			}
 			win.Theme = new
 		}
 		updateItemThemeTree(win.Contents, old, new)
@@ -213,7 +239,29 @@ func updateThemeReferences(old, new *Theme) {
 func updateItemThemeTree(items []*itemData, old, new *Theme) {
 	for _, it := range items {
 		if it.Theme == old {
+			oldStyle := it.themeStyle()
 			it.Theme = new
+			// Constructors copy fills and outlines. Carry inherited colors across
+			// palette changes while preserving explicit per-control overrides.
+			if oldStyle != nil {
+				if newStyle := it.themeStyle(); newStyle != nil {
+					if it.Color == oldStyle.Color {
+						it.Color = newStyle.Color
+					}
+					if it.OutlineColor == oldStyle.OutlineColor {
+						it.OutlineColor = newStyle.OutlineColor
+					}
+					if it.ShadowSize == oldStyle.ShadowSize {
+						it.ShadowSize = newStyle.ShadowSize
+					}
+					if it.ShadowColor == oldStyle.ShadowColor {
+						it.ShadowColor = newStyle.ShadowColor
+					}
+					if it.ShadowFalloff == oldStyle.ShadowFalloff {
+						it.ShadowFalloff = newStyle.ShadowFalloff
+					}
+				}
+			}
 		}
 		if len(it.Contents) > 0 {
 			updateItemThemeTree(it.Contents, old, new)
@@ -233,7 +281,7 @@ func listThemes() ([]string, error) {
 	names := make(map[string]struct{}, len(embeddedEntries))
 	addEntries := func(entries []fs.DirEntry) {
 		for _, e := range entries {
-			if e.IsDir() {
+			if e.IsDir() || e.Name() == "Example.json" {
 				continue
 			}
 			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
@@ -319,6 +367,9 @@ func SetAccentColor(c Color) {
 		if themeAccentRefs.TabClick {
 			currentTheme.Tab.ClickColor = ac
 		}
+		if themeAccentRefs.ProgressSelect {
+			currentTheme.Progress.SelectedColor = ac
+		}
 	}
 	markAllDirty()
 }
@@ -365,6 +416,9 @@ func SetAccentSaturation(s float64) {
 		}
 		if themeAccentRefs.TabClick {
 			currentTheme.Tab.ClickColor = ac
+		}
+		if themeAccentRefs.ProgressSelect {
+			currentTheme.Progress.SelectedColor = ac
 		}
 	}
 	markAllDirty()

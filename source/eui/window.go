@@ -377,6 +377,7 @@ func (target *windowData) Toggle() {
 }
 
 func (target *windowData) Close() {
+	closeDropdowns(target.Contents)
 	target.Open = false
 	if target.OnClose != nil {
 		target.OnClose()

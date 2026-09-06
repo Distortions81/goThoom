@@ -69,6 +69,7 @@ func loadMaterialIcons() {
 func applyMaterialIconBinding(button *eui.ItemData, binding materialIconBinding) {
 	button.Image = materialIcons[binding.name]
 	button.SmoothImage = true
+	button.TintImage = true
 	if binding.iconOnly {
 		if button.Image == nil {
 			button.Text = binding.fallback

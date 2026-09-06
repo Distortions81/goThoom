@@ -1,20 +1,21 @@
 {
-  "Comment": "Maximum separation: black and white surfaces, yellow selections, and thick square control boundaries.",
+  "Comment": "Low-distraction black surfaces with a silver accent for dark rooms and OLED displays.",
   "Colors": {
     "background": "#000000ff",
-    "panel": "#181818ff",
+    "panel": "#121416ff",
     "view": "#000000ff",
-    "text": "#ffffffff",
-    "outline": "#ffffffff",
-    "button": "#202020ff",
-    "hover": "#333333ff",
-    "accent": "#ffde59ff",
-    "highlight": "#6b5500ff",
-    "disabled": "#202020ff",
-    "disabledtext": "#b8bcc4ff",
-    "alternate": "#181818ff",
+    "text": "#dfe2e5ff",
+    "outline": "#41464bff",
+    "button": "#1b1f24ff",
+    "hover": "#2a3138ff",
+    "accent": "#adb5bfff",
+    "highlight": "#343e48ff",
+    "disabled": "#14171bff",
+    "disabledtext": "#8e959cff",
+    "alternate": "#121416ff",
     "shadow": "#00000000"
   },
+  "RecommendedStyle": "Flat",
   "Window": {
     "Padding": 8,
     "BGColor": "background",
@@ -88,9 +89,9 @@
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SliderFilled": "accent",
     "SelectedColor": "accent",
-    "DisabledTextColor": "disabledtext"
+    "DisabledTextColor": "disabledtext",
+    "SliderFilled": "accent"
   },
   "Dropdown": {
     "TextColor": "text",
@@ -99,7 +100,7 @@
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "accent",
+    "SelectedColor": "highlight",
     "MaxVisible": 0,
     "DisabledTextColor": "disabledtext",
     "ShadowSize": 0,
@@ -116,7 +117,6 @@
     "DisabledColor": "disabled",
     "DisabledTextColor": "disabledtext"
   },
-  "RecommendedStyle": "HighContrast",
   "Progress": {
     "TextColor": "text",
     "Color": "view",

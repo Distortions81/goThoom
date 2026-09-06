@@ -15,8 +15,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-const shadowAlphaDivisor = 16
-
 var dumpDone bool
 var renderNow time.Time
 
@@ -270,6 +268,7 @@ func (win *windowData) Draw(screen *ebiten.Image, dropdowns *[]openDropdown) {
 }
 
 func (win *windowData) draw(screen *ebiten.Image, dropdowns *[]openDropdown, deferRepaint bool) {
+	win.drawShadow(screen)
 	if win.NoCache {
 		// In NoCache mode, if opacity is < 1, render to a temporary offscreen
 		// image and composite with alpha. Otherwise, render directly to screen.
@@ -382,19 +381,9 @@ func renderImageSize(size point) (int, int) {
 }
 
 func (win *windowData) drawBG(screen *ebiten.Image) {
-	// In NoBGColor mode, skip all background work entirely (no shadow, no fill).
+	// In NoBGColor mode, skip the background fill.
 	if win.NoBGColor {
 		return
-	}
-	if !win.Docked && windowShadows && win.ShadowSize > 0 && win.ShadowColor.A > 0 {
-		rr := roundRect{
-			Size:     win.GetSize(),
-			Position: win.getPosition(),
-			Fillet:   win.Fillet,
-			Filled:   true,
-			Color:    win.ShadowColor,
-		}
-		drawDropShadow(screen, &rr, win.ShadowSize, win.ShadowColor)
 	}
 	r := rect{
 		X0: win.getPosition().X + win.BorderPad*win.scale(),
@@ -463,8 +452,16 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 			}
 			xThick := 1 * win.scale()
 			if win.HoverClose {
-				color = win.Theme.Window.HoverTitleColor
-				win.HoverClose = false
+				r := win.xRect()
+				inset := 2 * win.scale()
+				background := win.Theme.Window.ActiveColor
+				drawRoundRect(screen, &roundRect{
+					Position: point{X: r.X0 + inset, Y: r.Y0 + inset},
+					Size:     point{X: r.X1 - r.X0 - 2*inset, Y: r.Y1 - r.Y0 - 2*inset},
+					Fillet:   min(win.Fillet, 4*win.scale()),
+					Filled:   true, Color: background,
+				})
+				color = readableTextColor(win.Theme.Window.HoverTitleColor, colorOver(background, win.titleBackgroundColor()))
 			}
 			strokeLine(screen,
 				win.getPosition().X+win.GetSize().X-(win.GetTitleSize())+xpad,
@@ -839,6 +836,9 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			item.ActiveTab = 0
 		}
 
+		// Borderless tabs use fills, including flows created with legacy outline
+		// preferences. Other styles retain their existing per-flow appearance.
+		tabsFilled := item.Filled || (style.Border == 0 && style.Filled)
 		fontSize := tabFontSize(item, style)
 		tabHeight := tabStripHeight(item, style)
 		rowHeight := tabRowHeight(item, style)
@@ -865,7 +865,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			} else if tab.Hovered {
 				col = style.HoverColor
 			}
-			if item.Filled || i == item.ActiveTab {
+			if tabsFilled || i == item.ActiveTab {
 				drawTabShape(subImg,
 					point{X: x, Y: tabY},
 					point{X: w, Y: rowHeight},
@@ -874,7 +874,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 					item.BorderPad*uiScale,
 				)
 			}
-			if item.Outlined || !item.Filled {
+			if style.Border > 0 && (item.Outlined || !tabsFilled) {
 				border := item.Border * uiScale
 				if border <= 0 {
 					border = 1 * uiScale
@@ -888,7 +888,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 					border,
 				)
 			}
-			if item.ActiveOutline && i == item.ActiveTab {
+			if item.ActiveOutline && style.ActiveOutline && i == item.ActiveTab {
 				if item.TabColumns > 0 {
 					// Keep the accent inside its row; the raised single-row tab
 					// outline would extend over the row above it.
@@ -908,7 +908,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			dop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 			dop.GeoM.Translate(float64(x+w/2), float64(tabY+rowHeight/2))
 			dto := &text.DrawOptions{DrawImageOptions: dop, LayoutOptions: loo}
-			dto.ColorScale.ScaleWithColor(style.TextColor)
+			dto.ColorScale.ScaleWithColor(item.surfaceTextColor(style.TextColor, col, tabsFilled || i == item.ActiveTab))
 			text.Draw(subImg, tab.Name, face, dto)
 			tab.DrawRect = rectAdd(rect{X0: x, Y0: tabY, X1: x + w, Y1: tabY + rowHeight}, base)
 			x += w + spacing
@@ -921,14 +921,16 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 			3*uiScale,
 			style.SelectedColor,
 			false)
-		strokeRect(subImg,
-			offset.X,
-			offset.Y+tabHeight,
-			size.X,
-			size.Y-tabHeight,
-			1,
-			style.OutlineColor,
-			false)
+		if style.Border > 0 {
+			strokeRect(subImg,
+				offset.X,
+				offset.Y+tabHeight,
+				size.X,
+				size.Y-tabHeight,
+				style.Border*uiScale,
+				style.OutlineColor,
+				false)
+		}
 		activeContents = item.Tabs[item.ActiveTab].Contents
 	} else {
 		activeContents = item.Contents
@@ -1087,12 +1089,16 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 	// Keep the marker in the label row when there is one, so slider tracks,
 	// inputs, and dropdown arrows retain their existing geometry.
 	info := item.tooltipIndicatorRect(offset, maxSize)
+	infoTextColor := item.TextColor
+	if style != nil {
+		infoTextColor = style.TextColor
+	}
 	textTarget := subImg
 	if info.X1 > info.X0 {
 		clip := subImg.Bounds()
 		clip.Max.X = min(clip.Max.X, int(info.X0-3*uiScale))
 		textTarget = subImg.SubImage(clip).(*ebiten.Image)
-		defer func() { drawTooltipIndicator(subImg, info, style.TextColor) }()
+		defer func() { drawTooltipIndicator(subImg, info, infoTextColor) }()
 	}
 
 	if item.Label != "" {
@@ -1152,7 +1158,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			mid := point{X: offset.X + auxSize.X*0.45, Y: offset.Y + auxSize.Y - margin}
 			end := point{X: offset.X + auxSize.X - margin, Y: offset.Y + margin}
 
-			drawCheckmark(subImg, start, mid, end, cThick, style.TextColor)
+			drawCheckmark(subImg, start, mid, end, cThick, item.surfaceTextColor(style.TextColor, itemColor, item.Filled))
 		}
 
 		textSize := (item.FontSize * uiScale) + 2
@@ -1207,7 +1213,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				Position: point{X: offset.X + (auxSize.X-inner)/2, Y: offset.Y + (auxSize.Y-inner)/2},
 				Fillet:   inner / 2,
 				Filled:   true,
-				Color:    style.TextColor,
+				Color:    item.surfaceTextColor(style.TextColor, itemColor, item.Filled),
 			})
 		}
 
@@ -1235,7 +1241,23 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		} else if item.Hovered {
 			itemColor = style.HoverColor
 		}
-		if item.Filled {
+		if item.ColorSwatch {
+			c := item.WheelColor
+			r, g, b, a := (color.NRGBA{R: c.R, G: c.G, B: c.B, A: c.A}).RGBA()
+			itemColor = NewColor(uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8))
+		}
+		filled := item.Filled || item.ColorSwatch
+		captionColor := item.surfaceTextColor(style.TextColor, itemColor, filled)
+		if item.ColorSwatch && item.Disabled {
+			readable := *item
+			readable.Disabled = false
+			captionColor = readable.surfaceTextColor(style.TextColor, itemColor, true)
+		}
+		if item.Label == "" {
+			infoTextColor = captionColor
+		}
+
+		if filled {
 			drawRoundRect(subImg, &roundRect{
 				Size:     maxSize,
 				Position: offset,
@@ -1293,6 +1315,9 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 					imageX,
 					float64(offset.Y)+(float64(maxSize.Y)-imageHeight*scale)/2,
 				)
+				if item.TintImage {
+					sop.ColorScale.ScaleWithColor(captionColor)
+				}
 				subImg.DrawImage(item.Image, sop)
 			}
 		}
@@ -1330,7 +1355,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				startY+float64(i)*lineHeight,
 			)
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
-			top.ColorScale.ScaleWithColor(style.TextColor)
+			top.ColorScale.ScaleWithColor(captionColor)
 			text.Draw(textTarget, line, face, top)
 			i++
 		}
@@ -1347,6 +1372,8 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		} else if item.Hovered {
 			itemColor = style.HoverColor
 		}
+
+		captionColor := item.surfaceTextColor(style.TextColor, itemColor, item.Filled)
 
 		if item.Filled {
 			drawRoundRect(subImg, &roundRect{
@@ -1377,7 +1404,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				startY+float64(i)*lineHeight,
 			)
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
-			top.ColorScale.ScaleWithColor(style.TextColor)
+			top.ColorScale.ScaleWithColor(captionColor)
 			text.Draw(textTarget, line, face, top)
 			i++
 		}
@@ -1400,7 +1427,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			strokeLine(subImg,
 				cx, topY,
 				cx, bottomY,
-				1, style.TextColor, false)
+				1, captionColor, false)
 		}
 
 	} else if item.ItemType == ITEM_SLIDER {
@@ -1445,7 +1472,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				Position: knobRect,
 				Fillet:   item.Fillet,
 				Filled:   false,
-				Border:   1 * uiScale,
+				Border:   item.Border * uiScale,
 				Color:    style.OutlineColor,
 			})
 		} else {
@@ -1468,10 +1495,14 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			maxW, _ := text.Measure(maxLabel, face, 0)
 
 			gap := currentStyle.SliderValueGap
+			if item.HideValue {
+				gap = 0
+				maxW = 0
+			}
 			knobW := item.AuxSize.X * uiScale
 			knobH := item.AuxSize.Y * uiScale
 			trackWidth := maxSize.X - knobW - gap - float32(maxW)
-			showValue := true
+			showValue := !item.HideValue
 			if trackWidth < knobW {
 				trackWidth = maxSize.X - knobW
 				showValue = false
@@ -1509,7 +1540,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				Position: knobRect,
 				Fillet:   item.Fillet,
 				Filled:   false,
-				Border:   1 * uiScale,
+				Border:   item.Border * uiScale,
 				Color:    style.OutlineColor,
 			})
 
@@ -1536,6 +1567,8 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			itemColor = style.HoverColor
 		}
 
+		captionColor := item.surfaceTextColor(style.TextColor, itemColor, item.Filled)
+
 		if item.Filled {
 			drawRoundRect(subImg, &roundRect{
 				Size:     maxSize,
@@ -1552,7 +1585,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		tdop := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		tdop.GeoM.Translate(float64(offset.X+item.BorderPad+item.Padding+currentStyle.TextPadding*uiScale), float64(offset.Y+maxSize.Y/2))
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
-		top.ColorScale.ScaleWithColor(style.TextColor)
+		top.ColorScale.ScaleWithColor(captionColor)
 		label := item.Text
 		if item.Selected >= 0 && item.Selected < len(item.Options) {
 			label = item.Options[item.Selected]
@@ -1564,7 +1597,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			point{X: offset.X + maxSize.X - arrow - item.BorderPad - item.Padding - currentStyle.DropdownArrowPad,
 				Y: offset.Y + (maxSize.Y-arrow)/2},
 			arrow,
-			style.TextColor)
+			captionColor)
 
 	} else if item.ItemType == ITEM_COLORWHEEL {
 
@@ -1687,13 +1720,12 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				float64(offset.X)+prefixWidth,
 				float64(offset.Y)+float64(line)*float64(lineSpacing),
 			)
-			ghostOpts.ColorScale.ScaleWithColor(style.DisabledColor)
+			ghostOpts.ColorScale.ScaleWithColor(style.disabledTextColor())
 			text.Draw(subImg, item.Prediction, face, ghostOpts)
 		}
 
 		if item.SelectableText && item.SelectStart != item.SelectEnd && len(item.Text) > 0 {
 			selectionColor := style.ClickColor
-			selectionColor.A = 0x60
 			start, end := item.SelectStart, item.SelectEnd
 			if start > end {
 				start, end = end, start
@@ -1733,6 +1765,14 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 						Filled:   true,
 						Color:    selectionColor,
 					})
+					selectionRect := rect{X0: offset.X + float32(prefixWidth), Y0: topY, X1: offset.X + float32(prefixWidth+selectedWidth), Y1: bottomY}
+					selectionClip := intersectRect(selectionRect, drawRect)
+					if selectionClip.X1 > selectionClip.X0 && selectionClip.Y1 > selectionClip.Y0 {
+						selectedOptions := *top
+						selectedOptions.ColorScale.Reset()
+						selectedOptions.ColorScale.ScaleWithColor(item.surfaceTextColor(tcolor, selectionColor, true))
+						text.Draw(subImg.SubImage(selectionClip.getRectangle()).(*ebiten.Image), item.Text, face, &selectedOptions)
+					}
 				}
 			}
 		}
@@ -1861,7 +1901,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		}
 	}
 
-	if item.Outlined && item.Border > 0 && item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO {
+	if item.Outlined && item.Border > 0 && style != nil && style.Border > 0 && item.ItemType != ITEM_CHECKBOX && item.ItemType != ITEM_RADIO {
 		outlineColor := item.OutlineColor
 		if outlineColor == (Color{}) {
 			outlineColor = style.OutlineColor
@@ -1945,10 +1985,6 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 
 	if item.ItemType == ITEM_DROPDOWN && item.Open {
 		dropOff := pointAdd(offset, base)
-		if item.Label != "" {
-			textSize := (item.FontSize * uiScale) + 2
-			dropOff.Y += textSize + currentStyle.TextPadding*uiScale
-		}
 		*dropdowns = append(*dropdowns, openDropdown{item: item, offset: dropOff})
 	}
 
@@ -1963,14 +1999,16 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 }
 
 func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten.Image) {
-	maxSize := item.GetSize()
-	optionH := maxSize.Y
-	drawRect, visible := dropdownOpenRect(item, offset)
+	layout := dropdownMenuLayout(item, offset)
+	drawRect, visible := layout.bounds, layout.visible
+	optionH := layout.rowHeight
+	maxSize := point{X: drawRect.X1 - drawRect.X0, Y: optionH}
 	startY := drawRect.Y0
 	first := int(item.Scroll.Y / optionH)
 	offY := startY - (item.Scroll.Y - float32(first)*optionH)
-	textSize := (item.FontSize * uiScale) + 2
-	face := itemFace(item, textSize)
+	fontItem := *item
+	fontItem.Face = layout.face
+	face := itemFace(&fontItem, layout.fontSize)
 	loo := text.LayoutOptions{PrimaryAlign: text.AlignStart, SecondaryAlign: text.AlignCenter}
 
 	if windowShadows && item.ShadowSize > 0 && item.ShadowColor.A > 0 {
@@ -1981,7 +2019,7 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 			Filled:   true,
 			Color:    item.ShadowColor,
 		}
-		drawDropShadow(screen, &rr, item.ShadowSize, item.ShadowColor)
+		drawDropShadow(screen, &rr, item.ShadowSize*uiScale, item.ShadowColor, item.ShadowFalloff, 1)
 	}
 	visibleRect := intersectRect(drawRect, clip)
 	if visibleRect.X1 <= visibleRect.X0 || visibleRect.Y1 <= visibleRect.Y0 {
@@ -2000,17 +2038,18 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 		style.Color, false)
 	for i := first; i < first+visible && i < len(item.Options); i++ {
 		y := offY + float32(i-first)*optionH
+		rowColor := style.Color
 		// Do not highlight header rows.
 		if (i == item.Selected || i == item.HoverIndex) && i >= item.HeaderCount {
-			col := style.SelectedColor
+			rowColor = style.SelectedColor
 			if i == item.HoverIndex && i != item.Selected {
-				col = style.HoverColor
+				rowColor = style.HoverColor
 			}
-			drawRoundRect(subImg, &roundRect{Size: maxSize, Position: point{X: offset.X, Y: y}, Fillet: item.Fillet, Filled: true, Color: col})
+			drawRoundRect(subImg, &roundRect{Size: maxSize, Position: point{X: drawRect.X0, Y: y}, Fillet: item.Fillet, Filled: true, Color: rowColor})
 		}
-		textX := offset.X + item.BorderPad + item.Padding + currentStyle.TextPadding*uiScale
+		textX := drawRect.X0 + layout.textInset
 		if itemHasOptionImages(item) {
-			iconSize := dropdownOptionImageSize(item)
+			iconSize := layout.iconSize
 			if i < len(item.OptionImages) && item.OptionImages[i] != nil && iconSize > 0 {
 				icon := item.OptionImages[i]
 				iw := float64(icon.Bounds().Dx())
@@ -2030,7 +2069,7 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 					subImg.DrawImage(icon, op)
 				}
 			}
-			textX += dropdownOptionImageSlot(item)
+			textX += layout.iconSize + layout.iconGap
 		}
 		td := acquireDrawImageOptions()
 		td.GeoM.Translate(float64(textX), float64(y+optionH/2))
@@ -2039,9 +2078,9 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 		tdo.LayoutOptions = loo
 		if i < item.HeaderCount {
 			// Render headers with disabled text color.
-			tdo.ColorScale.ScaleWithColor(style.DisabledColor)
+			tdo.ColorScale.ScaleWithColor(style.disabledTextColor())
 		} else {
-			tdo.ColorScale.ScaleWithColor(style.TextColor)
+			tdo.ColorScale.ScaleWithColor(item.surfaceTextColor(style.TextColor, rowColor, true))
 		}
 		text.Draw(subImg, item.Options[i], face, tdo)
 		releaseTextDrawOptions(tdo)
@@ -2057,7 +2096,7 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 			pos = (item.Scroll.Y / maxScroll) * (openH - barH)
 		}
 		col := NewColor(96, 96, 96, 192)
-		sbW := currentStyle.BorderPad.Slider * 2
+		sbW := layout.scrollbarWidth
 		drawFilledRect(subImg, drawRect.X1-sbW, startY+pos, sbW, barH, col.ToRGBA(), false)
 	}
 }
@@ -2070,10 +2109,6 @@ func collectItemDropdowns(items []*itemData, dropdowns *[]openDropdown) {
 	for _, it := range items {
 		if it.ItemType == ITEM_DROPDOWN && it.Open {
 			off := point{X: it.DrawRect.X0, Y: it.DrawRect.Y0}
-			if it.Label != "" {
-				textSize := (it.FontSize * uiScale) + 2
-				off.Y += textSize + currentStyle.TextPadding*uiScale
-			}
 			*dropdowns = append(*dropdowns, openDropdown{item: it, offset: off})
 		}
 		if len(it.Tabs) > 0 {
@@ -2102,37 +2137,13 @@ func (win *windowData) drawDebug(screen *ebiten.Image) {
 	}
 }
 
-// drawDropShadow draws a simple drop shadow by offsetting and expanding the
-// provided rounded rectangle before drawing it. The shadow is drawn using the
-// specified color with the alpha preserved.
-func drawDropShadow(screen *ebiten.Image, rrect *roundRect, size float32, col Color) {
-	if size <= 0 || col.A == 0 {
-		return
-	}
-
-	layers := int(math.Ceil(float64(size)))
-	if layers < 1 {
-		layers = 1
-	}
-
-	step := size / float32(layers)
-	for i := layers; i >= 1; i-- {
-		expand := step * float32(i)
-		alpha := float32(col.A) * float32(layers-i+1) / float32(layers)
-
-		shadow := *rrect
-		shadow.Position.X -= expand
-		shadow.Position.Y -= expand
-		shadow.Size.X += expand * 2
-		shadow.Size.Y += expand * 2
-		shadow.Fillet += expand
-		shadow.Color = Color{R: col.R, G: col.G, B: col.B, A: uint8(alpha / shadowAlphaDivisor)}
-		shadow.Filled = true
-		drawRoundRect(screen, &shadow)
+func drawRoundRect(screen *ebiten.Image, rrect *roundRect) {
+	if !drawCachedRoundRect(screen, rrect) {
+		drawRoundRectVector(screen, rrect)
 	}
 }
 
-func drawRoundRect(screen *ebiten.Image, rrect *roundRect) {
+func drawRoundRectVector(screen *ebiten.Image, rrect *roundRect) {
 	var path vector.Path
 
 	width := float32(math.Round(float64(rrect.Border)))
@@ -2142,19 +2153,20 @@ func drawRoundRect(screen *ebiten.Image, rrect *roundRect) {
 			drawFilledRect(screen, rrect.Position.X, rrect.Position.Y, rrect.Size.X, rrect.Size.Y, drawColor, true)
 		}
 		if width > 0 {
-			strokeRect(screen, rrect.Position.X, rrect.Position.Y, rrect.Size.X, rrect.Size.Y, width, drawColor, true)
+			// Keep the whole stroke inside the widget's clipping rectangle.
+			inset := width / 2
+			x := float32(math.Round(float64(rrect.Position.X))) + inset
+			y := float32(math.Round(float64(rrect.Position.Y))) + inset
+			w := max(0, float32(math.Round(float64(rrect.Size.X)))-width)
+			h := max(0, float32(math.Round(float64(rrect.Size.Y)))-width)
+			strokeRectFn(screen, x, y, w, h, width, drawColor, true)
 		}
 		return
 	}
-	off := float32(0)
-	if !rrect.Filled {
-		off = pixelOffset(width)
-	}
-
-	x := float32(math.Round(float64(rrect.Position.X))) + off
-	y := float32(math.Round(float64(rrect.Position.Y))) + off
-	x1 := float32(math.Round(float64(rrect.Position.X+rrect.Size.X))) + off
-	y1 := float32(math.Round(float64(rrect.Position.Y+rrect.Size.Y))) + off
+	x := float32(math.Round(float64(rrect.Position.X)))
+	y := float32(math.Round(float64(rrect.Position.Y)))
+	x1 := float32(math.Round(float64(rrect.Position.X + rrect.Size.X)))
+	y1 := float32(math.Round(float64(rrect.Position.Y + rrect.Size.Y)))
 	w := x1 - x
 	h := y1 - y
 	fillet := rrect.Fillet
@@ -2332,6 +2344,12 @@ func strokeTabTop(screen *ebiten.Image, pos point, size point, col Color, fillet
 }
 
 func drawTriangle(screen *ebiten.Image, pos point, size float32, col Color) {
+	if !drawCachedTriangle(screen, pos, size, col) {
+		drawTriangleVector(screen, pos, size, col)
+	}
+}
+
+func drawTriangleVector(screen *ebiten.Image, pos point, size float32, col Color) {
 	var path vector.Path
 
 	pos.X = float32(math.Round(float64(pos.X)))
@@ -2349,6 +2367,12 @@ func drawTriangle(screen *ebiten.Image, pos point, size float32, col Color) {
 }
 
 func drawCheckmark(screen *ebiten.Image, start, mid, end point, width float32, col Color) {
+	if !drawCachedCheckmark(screen, start, mid, end, width, col) {
+		drawCheckmarkVector(screen, start, mid, end, width, col)
+	}
+}
+
+func drawCheckmarkVector(screen *ebiten.Image, start, mid, end point, width float32, col Color) {
 	var path vector.Path
 
 	width = float32(math.Round(float64(width)))

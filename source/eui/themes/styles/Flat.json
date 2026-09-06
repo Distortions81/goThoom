@@ -1,17 +1,17 @@
 {
-  "SliderValueGap": 16,
-  "DropdownArrowPad": 8,
-  "TextPadding": 8,
+  "SliderValueGap": 14,
+  "DropdownArrowPad": 4,
+  "TextPadding": 4,
   "Fillet": {
-    "Window": 6,
-    "Button": 6,
-    "Text": 6,
-    "Checkbox": 6,
-    "Radio": 6,
-    "Input": 6,
-    "Slider": 6,
-    "Dropdown": 6,
-    "Tab": 6
+    "Window": 2,
+    "Button": 2,
+    "Text": 2,
+    "Checkbox": 2,
+    "Radio": 0,
+    "Input": 2,
+    "Slider": 2,
+    "Dropdown": 2,
+    "Tab": 2
   },
   "Border": {
     "Window": 1,
@@ -25,15 +25,15 @@
     "Tab": 1
   },
   "BorderPad": {
-    "Window": 4,
-    "Button": 4,
-    "Text": 4,
-    "Checkbox": 4,
-    "Radio": 4,
-    "Input": 4,
-    "Slider": 4,
-    "Dropdown": 4,
-    "Tab": 4
+    "Window": 0,
+    "Button": 2,
+    "Text": 2,
+    "Checkbox": 2,
+    "Radio": 2,
+    "Input": 2,
+    "Slider": 2,
+    "Dropdown": 2,
+    "Tab": 2
   },
   "Filled": {
     "Window": true,
@@ -50,11 +50,11 @@
     "Window": false,
     "Button": false,
     "Text": false,
-    "Checkbox": false,
-    "Radio": false,
-    "Input": false,
+    "Checkbox": true,
+    "Radio": true,
+    "Input": true,
     "Slider": false,
-    "Dropdown": false,
+    "Dropdown": true,
     "Tab": false
   },
   "ActiveOutline": {

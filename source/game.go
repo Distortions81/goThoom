@@ -945,6 +945,7 @@ type worldRenderKey struct {
 	nameHealthBarThickness                     int
 	nameTagLabelColors, hideSelfNameTag        bool
 	nameTagsOnHoverOnly                        bool
+	snapshotHideNameTags                       bool
 	barOpacity                                 float64
 	barPlacement                               BarPlacement
 	barColorByValue                            bool
@@ -1016,6 +1017,7 @@ func currentWorldRenderKey(width, height int) worldRenderKey {
 		nameTagLabelColors:        gs.NameTagLabelColors,
 		hideSelfNameTag:           gs.HideSelfNameTag,
 		nameTagsOnHoverOnly:       gs.NameTagsOnHoverOnly,
+		snapshotHideNameTags:      snapshotHidesNameTags(),
 		barOpacity:                gs.BarOpacity,
 		barPlacement:              gs.BarPlacement,
 		barColorByValue:           gs.BarColorByValue,
@@ -1980,6 +1982,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		defer acknowledgeMovieSeekRender(seekRenderGeneration)
 	}
 	lastSeekRenderGeneration = seekRenderGeneration
+	snapshotReady := false
+	defer func() {
+		if snapshotReady {
+			capturePendingSnapshot(screen)
+		}
+	}()
 	if backgroundImg != nil {
 		drawBackground(screen)
 	} else {
@@ -1990,6 +1998,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	updateGameImageSize()
 	if gameImage == nil {
 		// UI not ready yet
+		snapshotReady = true
 		worldViewRect = image.Rectangle{}
 		if assetTrace != nil {
 			uiStarted := time.Now()
@@ -2009,6 +2018,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
 	worldKey := currentWorldRenderKey(bufW, bufH)
 	if worldRenderCanBeReused(g, worldKey) {
+		snapshotReady = true
 		// gameImage already contains the last completed server update. Continue
 		// drawing EUI so text windows, controls, notifications, and other UI can
 		// update without rebuilding the world at the display refresh rate.
@@ -2133,6 +2143,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.lastWorldRenderKey = worldKey
 		g.worldRenderValid = true
 	}
+	// Artwork uploads can defer the world draw; keep the request queued rather
+	// than capturing the previous frame with different name-tag visibility.
+	snapshotReady = worldRendered
 
 	// Finally, draw UI (which includes the game window image)
 	if assetTrace != nil {
@@ -3398,7 +3411,7 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 // It respects motion smoothing and rasterizes name tags at the final display
 // scale so cached text is drawn 1:1 rather than resampled with the artwork.
 func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, alpha float64) {
-	if wasmPrivacyActive() {
+	if wasmPrivacyActive() || snapshotHidesNameTags() {
 		return
 	}
 	h := float64(m.H)

@@ -343,6 +343,9 @@ func preparePiperDirectory(piperDir string) (string, string, string, error) {
 		}
 	}
 	_ = os.Chmod(binPath, 0o755)
+	if err := repairPiperLibraryLinks(filepath.Dir(binPath)); err != nil {
+		return "", "", "", fmt.Errorf("repair piper libraries: %w", err)
+	}
 
 	voicesDir := filepath.Join(piperDir, "voices")
 	// Automatically extract any voice archives placed in the voices directory.

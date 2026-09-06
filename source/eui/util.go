@@ -54,10 +54,8 @@ func (item *itemData) themeStyle() *itemData {
 	return nil
 }
 
-// disabledStyle returns a copy of style with all visual colors replaced by the
-// style's DisabledColor. When a widget is disabled, using this helps ensure it
-// renders in a consistent "grayed out" appearance regardless of hover or
-// active states.
+// disabledStyle suppresses hover and active colors, with an optional separate
+// caption color so disabled controls stay readable.
 func disabledStyle(style *itemData) *itemData {
 	if style == nil {
 		return nil
@@ -67,9 +65,16 @@ func disabledStyle(style *itemData) *itemData {
 	ds.HoverColor = style.DisabledColor
 	ds.ClickColor = style.DisabledColor
 	ds.OutlineColor = style.DisabledColor
-	ds.TextColor = style.DisabledColor
+	ds.TextColor = style.disabledTextColor()
 	ds.SelectedColor = style.DisabledColor
 	return &ds
+}
+
+func (item *itemData) disabledTextColor() Color {
+	if item.DisabledTextColor != (Color{}) {
+		return item.DisabledTextColor
+	}
+	return item.DisabledColor
 }
 
 func (win *windowData) getWinRect() rect {
@@ -708,49 +713,6 @@ func (win *windowData) clampToScreen() {
 	}
 }
 
-// dropdownOpenRect returns the rectangle used for drawing and input handling of
-// an open dropdown menu. The rectangle is adjusted so it never extends off the
-// screen while leaving room for overlay controls at the top and bottom equal to
-// one option height.
-func dropdownOpenRect(item *itemData, offset point) (rect, int) {
-	maxSize := item.GetSize()
-	optionH := maxSize.Y
-	visible := item.MaxVisible
-	if visible <= 0 {
-		visible = len(item.Options)
-	}
-	if visible > len(item.Options) {
-		visible = len(item.Options)
-	}
-
-	maxVisible := int((float32(screenHeight) - optionH*dropdownOverlayReserve*2) / optionH)
-	if maxVisible < 1 {
-		maxVisible = 1
-	}
-	if visible > maxVisible {
-		visible = maxVisible
-	}
-
-	startY := offset.Y + maxSize.Y
-	openH := optionH * float32(visible)
-	r := rect{X0: offset.X, Y0: startY, X1: offset.X + maxSize.X, Y1: startY + openH}
-
-	bottomLimit := float32(screenHeight) - optionH*dropdownOverlayReserve
-	if r.Y1 > bottomLimit {
-		diff := r.Y1 - bottomLimit
-		r.Y0 -= diff
-		r.Y1 -= diff
-	}
-	topLimit := optionH * dropdownOverlayReserve
-	if r.Y0 < topLimit {
-		diff := topLimit - r.Y0
-		r.Y0 += diff
-		r.Y1 += diff
-	}
-
-	return r, visible
-}
-
 func (win *windowData) getWindowPart(mpos point, click bool) dragType {
 	s := win.scale()
 	mpos = point{X: mpos.X * s, Y: mpos.Y * s}
@@ -792,6 +754,23 @@ func (win *windowData) SetDocked(docked bool) {
 	win.Dirty = true
 }
 
+// Update cached title bars on both hover entry and exit, including windows
+// covered by another window or an open menu. Drawing never consumes this state.
+func updateCloseHover(orderedWindows []*windowData, mpos point) {
+	blocked := contextMenuContainsAnywhere(mpos) || dropdownOpenContainsAnywhere(mpos)
+	for _, win := range orderedWindows {
+		hover := false
+		if !blocked && win.Open && win.getWinRect().containsPoint(mpos) {
+			hover = !win.Docked && win.Closable && win.TitleHeight > 0 && win.xRect().containsPoint(mpos)
+			blocked = true
+		}
+		if win.HoverClose != hover {
+			win.HoverClose = hover
+			win.markDirty()
+		}
+	}
+}
+
 func (win *windowData) getTitlebarPart(mpos point) dragType {
 	if win.TitleHeight <= 0 {
 		return PART_NONE
@@ -803,7 +782,6 @@ func (win *windowData) getTitlebarPart(mpos point) dragType {
 			}
 		}
 		if win.Closable && win.xRect().containsPoint(mpos) {
-			win.HoverClose = true
 			return PART_CLOSE
 		}
 		if win.Maximizable && win.maxRect().containsPoint(mpos) {
@@ -1748,7 +1726,9 @@ func strokeLine(dst *ebiten.Image, x0, y0, x1, y1, width float32, col color.Colo
 	y0 = float32(math.Round(float64(y0))) + off
 	x1 = float32(math.Round(float64(x1))) + off
 	y1 = float32(math.Round(float64(y1))) + off
-	strokeLineFn(dst, x0, y0, x1, y1, width, col, aa)
+	if !drawCachedLine(dst, x0, y0, x1, y1, width, col, aa) {
+		strokeLineFn(dst, x0, y0, x1, y1, width, col, aa)
+	}
 }
 
 func strokeRect(dst *ebiten.Image, x, y, w, h, width float32, col color.Color, aa bool) {
@@ -1758,7 +1738,9 @@ func strokeRect(dst *ebiten.Image, x, y, w, h, width float32, col color.Color, a
 	y = float32(math.Round(float64(y))) + off
 	w = float32(math.Round(float64(w)))
 	h = float32(math.Round(float64(h)))
-	strokeRectFn(dst, x, y, w, h, width, col, aa)
+	if !drawPixelFrame(dst, x, y, w, h, width, col) {
+		strokeRectFn(dst, x, y, w, h, width, col, aa)
+	}
 }
 
 func drawFilledRect(dst *ebiten.Image, x, y, w, h float32, col color.Color, _ bool) {

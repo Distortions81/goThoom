@@ -91,8 +91,9 @@ type windowData struct {
 	refreshPending  bool
 
 	// Drop shadow styling
-	ShadowSize  float32
-	ShadowColor Color
+	ShadowSize    float32
+	ShadowColor   Color
+	ShadowFalloff float32 // Positive exponent; larger values fade faster away from the edge.
 
 	// RenderCount tracks how often the window has been drawn.
 	RenderCount int
@@ -155,6 +156,7 @@ type itemData struct {
 	MinValue   float32
 	MaxValue   float32
 	IntOnly    bool
+	HideValue  bool // Hide a slider's value caption when an adjacent field supplies it.
 	RadioGroup string
 
 	Hovered, Checked, Focused,
@@ -174,6 +176,9 @@ type itemData struct {
 	MaxVisible   int
 	HoverIndex   int
 
+	// Preview menus retain their opening geometry until dismissed.
+	dropdownLayout *dropdownLayout
+
 	// HeaderCount marks the number of initial options that are shown as
 	// non-interactive headers in dropdowns/context menus. These indices are
 	// rendered with the disabled text color, are not hover-highlighted, and
@@ -181,7 +186,9 @@ type itemData struct {
 	HeaderCount int
 
 	OnSelect func(int)
-	OnHover  func(int)
+	// OnHover receives an option index, then Selected when hover ends.
+	// For dropdowns HoverIndex is -1 when the pointer leaves or the menu closes.
+	OnHover func(int)
 
 	Fixed, Scrollable bool
 
@@ -190,6 +197,10 @@ type itemData struct {
 	// SmoothImage enables filtered scaling for antialiased vector-derived
 	// images. Pixel-art images keep nearest-neighbor scaling by default.
 	SmoothImage bool
+	// TintImage draws a monochrome button icon in the current text color.
+	TintImage bool
+	// ColorSwatch fills a button with WheelColor, keeping its caption readable.
+	ColorSwatch bool
 
 	//Style
 	Padding, Margin float32
@@ -204,7 +215,10 @@ type itemData struct {
 
 	TextColor, Color, HoverColor,
 	ClickColor, OutlineColor, DisabledColor, SelectedColor Color
-	ForceTextColor bool
+	// DisabledTextColor keeps disabled captions readable above DisabledColor.
+	// Zero preserves the legacy single-color disabled appearance.
+	DisabledTextColor Color
+	ForceTextColor    bool
 
 	Action        func()
 	OnColorChange func(Color)
@@ -249,8 +263,9 @@ type itemData struct {
 	Dirty  bool
 
 	// Drop shadow styling
-	ShadowSize  float32
-	ShadowColor Color
+	ShadowSize    float32
+	ShadowColor   Color
+	ShadowFalloff float32 // Positive exponent; larger values fade faster away from the edge.
 
 	// RenderCount tracks how often the item has been drawn.
 	RenderCount int

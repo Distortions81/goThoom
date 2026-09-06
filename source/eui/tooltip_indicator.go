@@ -11,7 +11,7 @@ import (
 // tooltipIndicatorRect stays inside the existing hover target and respects UI
 // scaling. Configuration windows opt in; ordinary content and toolbars do not.
 func (item *itemData) tooltipIndicatorRect(offset, size point) rect {
-	if item.Tooltip == "" || item.ParentWindow == nil || !item.ParentWindow.ShowTooltipIndicators {
+	if item.ColorSwatch || item.Tooltip == "" || item.ParentWindow == nil || !item.ParentWindow.ShowTooltipIndicators {
 		return rect{}
 	}
 	textSize := item.FontSize*uiScale + 2

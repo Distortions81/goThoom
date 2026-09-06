@@ -405,6 +405,17 @@ func setupWizardThemeStyleSelectors() *eui.ItemData {
 		}
 	}
 
+	bindThemePreview(theme, true, func() {
+		for i, name := range style.Options {
+			if name == eui.CurrentStyleName() {
+				style.Selected = i
+				break
+			}
+		}
+		refreshThemePreview()
+	})
+	bindThemePreview(style, false, nil)
+
 	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	row.Size = eui.Point{X: setupWizardTwoPanelWidth, Y: 34}
 	row.AddItem(theme)

@@ -1,19 +1,19 @@
 {
-  "Comment": "Maximum separation: black and white surfaces, yellow selections, and thick square control boundaries.",
+  "Comment": "Warm ivory, dark ink, and sepia accents for a softer reading-oriented light theme.",
   "Colors": {
-    "background": "#000000ff",
-    "panel": "#181818ff",
-    "view": "#000000ff",
-    "text": "#ffffffff",
-    "outline": "#ffffffff",
-    "button": "#202020ff",
-    "hover": "#333333ff",
-    "accent": "#ffde59ff",
-    "highlight": "#6b5500ff",
-    "disabled": "#202020ff",
-    "disabledtext": "#b8bcc4ff",
-    "alternate": "#181818ff",
-    "shadow": "#00000000"
+    "background": "#f5f3efff",
+    "panel": "#e8e4ddff",
+    "view": "#fffefbff",
+    "text": "#39352fff",
+    "outline": "#b7ada0ff",
+    "button": "#fdfbf7ff",
+    "hover": "#eee7ddff",
+    "accent": "#9b734cff",
+    "highlight": "#dfc9b1ff",
+    "disabled": "#e7e2d9ff",
+    "disabledtext": "#7c7367ff",
+    "alternate": "#e8e4ddff",
+    "shadow": "#4b392b60"
   },
   "Window": {
     "Padding": 8,
@@ -27,7 +27,7 @@
     "HoverColor": "hover",
     "ActiveColor": "accent",
     "TitleTextColor": "text",
-    "ShadowSize": 0,
+    "ShadowSize": 14,
     "ShadowColor": "shadow",
     "ShadowFalloff": 2
   },
@@ -99,10 +99,10 @@
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "accent",
+    "SelectedColor": "highlight",
     "MaxVisible": 0,
     "DisabledTextColor": "disabledtext",
-    "ShadowSize": 0,
+    "ShadowSize": 12,
     "ShadowColor": "shadow",
     "ShadowFalloff": 2
   },
@@ -116,7 +116,7 @@
     "DisabledColor": "disabled",
     "DisabledTextColor": "disabledtext"
   },
-  "RecommendedStyle": "HighContrast",
+  "RecommendedStyle": "Rounded",
   "Progress": {
     "TextColor": "text",
     "Color": "view",

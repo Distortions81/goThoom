@@ -1,19 +1,19 @@
 {
-  "Comment": "Maximum separation: black and white surfaces, yellow selections, and thick square control boundaries.",
+  "Comment": "Soft rose surfaces, berry ink, and mint hover states: a cheerful pastel light palette.",
   "Colors": {
-    "background": "#000000ff",
-    "panel": "#181818ff",
-    "view": "#000000ff",
-    "text": "#ffffffff",
-    "outline": "#ffffffff",
-    "button": "#202020ff",
-    "hover": "#333333ff",
-    "accent": "#ffde59ff",
-    "highlight": "#6b5500ff",
-    "disabled": "#202020ff",
-    "disabledtext": "#b8bcc4ff",
-    "alternate": "#181818ff",
-    "shadow": "#00000000"
+    "background": "#fff1f5ff",
+    "panel": "#efdae4ff",
+    "view": "#fffbfdff",
+    "text": "#512f45ff",
+    "outline": "#c594b0ff",
+    "button": "#ffe5f0ff",
+    "hover": "#d5eee8ff",
+    "accent": "#bd487fff",
+    "highlight": "#f3bad5ff",
+    "disabled": "#ebdbe2ff",
+    "disabledtext": "#866277ff",
+    "alternate": "#f7e2ecff",
+    "shadow": "#743e6055"
   },
   "Window": {
     "Padding": 8,
@@ -27,7 +27,7 @@
     "HoverColor": "hover",
     "ActiveColor": "accent",
     "TitleTextColor": "text",
-    "ShadowSize": 0,
+    "ShadowSize": 14,
     "ShadowColor": "shadow",
     "ShadowFalloff": 2
   },
@@ -53,7 +53,7 @@
   },
   "Checkbox": {
     "TextColor": "text",
-    "Color": "view",
+    "Color": "highlight",
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
@@ -63,7 +63,7 @@
   },
   "Radio": {
     "TextColor": "text",
-    "Color": "view",
+    "Color": "highlight",
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
@@ -99,10 +99,10 @@
     "ClickColor": "accent",
     "OutlineColor": "outline",
     "DisabledColor": "disabled",
-    "SelectedColor": "accent",
+    "SelectedColor": "highlight",
     "MaxVisible": 0,
     "DisabledTextColor": "disabledtext",
-    "ShadowSize": 0,
+    "ShadowSize": 12,
     "ShadowColor": "shadow",
     "ShadowFalloff": 2
   },
@@ -116,7 +116,7 @@
     "DisabledColor": "disabled",
     "DisabledTextColor": "disabledtext"
   },
-  "RecommendedStyle": "HighContrast",
+  "RecommendedStyle": "Borderless",
   "Progress": {
     "TextColor": "text",
     "Color": "view",

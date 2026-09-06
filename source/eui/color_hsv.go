@@ -150,3 +150,12 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 	}
 	return fmt.Errorf("invalid color format: %s", string(data))
 }
+
+// HSVA returns hue in degrees and saturation, value, and alpha in [0,1].
+func (c Color) HSVA() (h, s, v, a float64) { return rgbaToHSVA(color.RGBA(c)) }
+
+// NewColorHSV constructs a color from hue in degrees and unit saturation,
+// value, and alpha. Hue wraps; the other components are clamped to [0,1].
+func NewColorHSV(h, s, v, a float64) Color {
+	return Color(hsvaToRGBA(h, clamp(s, 0, 1), clamp(v, 0, 1), clamp(a, 0, 1)))
+}

@@ -79,7 +79,7 @@ func itemHasOptionImages(item *itemData) bool {
 }
 
 func dropdownOptionImageSize(item *itemData) float32 {
-	size := item.GetSize().Y - 8*uiScale
+	size := dropdownOptionHeight(item) - 8*uiScale
 	if size < 0 {
 		return 0
 	}
