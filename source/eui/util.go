@@ -866,6 +866,16 @@ func (win *windowData) getScrollbarPart(mpos point) dragType {
 	if win.NoScroll {
 		return PART_NONE
 	}
+	// Measuring nested content (including every tab label) is expensive.
+	// Only resolve thumb positions when the pointer could hit a scrollbar.
+	position, size := win.getPosition(), win.GetSize()
+	sbW := currentStyle.BorderPad.Slider * 2
+	right, bottom := position.X+size.X-win.BorderPad, position.Y+size.Y-win.BorderPad
+	vertical := rect{X0: right - sbW, Y0: position.Y, X1: right, Y1: position.Y + size.Y}
+	horizontal := rect{X0: position.X, Y0: bottom - sbW, X1: position.X + size.X, Y1: bottom}
+	if !vertical.containsPoint(mpos) && !horizontal.containsPoint(mpos) {
+		return PART_NONE
+	}
 
 	pad := (win.Padding + win.BorderPad) * win.scale()
 	req := win.contentBounds()
@@ -914,6 +924,19 @@ func (win *windowData) getScrollbarPart(mpos point) dragType {
 
 func (item *itemData) getScrollbarPart(mpos point) dragType {
 	if !item.Scrollable {
+		return PART_NONE
+	}
+	sbW := currentStyle.BorderPad.Slider * 2
+	track := item.DrawRect
+	switch item.FlowType {
+	case FLOW_VERTICAL:
+		track.X0 = track.X1 - sbW
+	case FLOW_HORIZONTAL:
+		track.Y0 = track.Y1 - sbW
+	default:
+		return PART_NONE
+	}
+	if !track.containsPoint(mpos) {
 		return PART_NONE
 	}
 
@@ -1471,9 +1494,10 @@ func (item *itemData) bounds(offset point) rect {
 				item.ActiveTab = 0
 			}
 			subItems = item.Tabs[item.ActiveTab].Contents
-			tabHeight = tabStripHeight(item, item.themeStyle())
+			tabSize := measureTabLayout(item, item.themeStyle(), nil)
+			tabHeight = tabSize.Y
 			r.Y1 = offset.Y + tabHeight
-			r.X1 = offset.X + tabStripWidth(item)
+			r.X1 = offset.X + tabSize.X
 		} else {
 			subItems = item.Contents
 		}

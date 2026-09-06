@@ -1,5 +1,7 @@
 goThoom 51 changes since test50.
 
+- Updated Clan Lord compatibility to version 1501.
+
 Interface and settings:
 - Combined Settings and Advanced Settings into one window with ten topic tabs: Display, World, Text, Bubbles, Audio, Controls, Performance, Network, Files, and Tools. Tabs fit on one row at the default size and wrap when space is limited.
 - Added command-palette shortcuts for individual Settings tabs and preserved the selected tab when settings controls are rebuilt.
@@ -25,6 +27,7 @@ Rendering and memory use:
 - Corrected overlapping scenery and character shadows so their shared areas do not become excessively dark, while preserving objects drawn in front of them.
 - Cached common interface shapes and complete static bubble decorations within bounded memory budgets. Batched spikes and cloud lobes reduce rendering work even with animation enabled.
 - Reduced repeated layout, text allocation, autocomplete, bubble-conflict, and lighting work to improve frame consistency.
+- Reduced idle input and layout work while Settings is open, and refreshed the compiler's profile-guided optimization data for the updated renderer.
 
 Movie playback:
 - Stopped movie playback, including paused movies, from adding recorded messages to normal chat and console log files.

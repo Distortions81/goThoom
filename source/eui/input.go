@@ -1130,12 +1130,16 @@ func clearExpiredClicksAt(list []*itemData, now time.Time) {
 			it.Clicked = time.Time{}
 			it.markDirty()
 		}
-		for _, tab := range it.Tabs {
+		for index, tab := range it.Tabs {
 			if !tab.Clicked.IsZero() && now.Sub(tab.Clicked) >= clickFlash {
 				tab.Clicked = time.Time{}
 				tab.markDirty()
 			}
-			clearExpiredClicksAt(tab.Contents, now)
+			// Hidden pages cannot display a click flash. Clear their old
+			// timestamps when selected, before their next paint.
+			if index == it.ActiveTab {
+				clearExpiredClicksAt(tab.Contents, now)
+			}
 		}
 		clearExpiredClicksAt(it.Contents, now)
 	}

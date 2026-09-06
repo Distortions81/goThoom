@@ -6,8 +6,9 @@
 - Keep solutions simple and focused. Ask before making a consequential
   assumption.
 - Do not create branches or push without explicit permission.
-- After triggering a GitHub release build, report the workflow link and do not
-  wait for it to finish unless the user explicitly asks.
+- After triggering a GitHub release build, report the release and workflow
+  links, then stop. Do not monitor or poll the build, wait for completion, or
+  watch logs unless the user explicitly asks.
 - Preserve unrelated user changes in a dirty worktree.
 - Do not increment versions in `GT_Players.json`, `settings.json`, or
   `characters.json`; those are updated manually.
@@ -79,8 +80,9 @@ script rather than assuming a normal Linux build covers them.
 - `.github/workflows/build-binaries.yml` validates that the numbered changelog
   exists, synchronizes the GitHub release body from it, builds the archives,
   and uploads the release assets.
-- After the release event triggers the build, report both the release URL and
-  workflow URL. Do not wait for the workflow to finish unless the user asks.
+- After the release event triggers the build, look up its workflow URL once
+  and report it with the release URL. Do not monitor or poll build status,
+  watch logs, or wait for completion unless the user explicitly asks.
 
 ## Script API
 

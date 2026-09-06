@@ -1,0 +1,234 @@
+{
+  "animatedBubbles": false,
+  "artworkScale": 2,
+  "audioEnabled": false,
+  "darkBubbles": true,
+  "draw": {
+    "max_ms": 16.402185,
+    "over_16_67ms_pct": 0,
+    "p50_ms": 0.588102,
+    "p95_ms": 0.880568,
+    "p99_ms": 3.1188
+  },
+  "durationSeconds": 30.000339456,
+  "effectiveVsync": false,
+  "engineVsync": false,
+  "frameInterval": {
+    "max_ms": 18.01165,
+    "over_16_67ms_pct": 0.017708517797060386,
+    "p50_ms": 2.602439,
+    "p95_ms": 3.136285,
+    "p99_ms": 4.28046
+  },
+  "gameScale": 2,
+  "goVersion": "go1.26.6",
+  "gpuBytes": 1605709824,
+  "graphicsLibrary": "OpenGL",
+  "includesGameUpdate": true,
+  "samples": 11294,
+  "scene": "bubbleTorture",
+  "settingsOpen": true,
+  "settingsTab": "Display",
+  "snapshotWait": {
+    "max_ms": 0,
+    "over_16_67ms_pct": 0,
+    "p50_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0
+  },
+  "uiRepaints": [
+    {
+      "Title": "Clan Lord",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Scripts",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Gamepad",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Keybindings",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Hotkeys",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Shortcuts",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Windows",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "About",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Help",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Debug Settings",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Bubble Settings",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Notification Settings",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Edit Character",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Add Character",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Login",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Downloads",
+      "Count": 0,
+      "Pixels": 0,
+      "DeferredFrames": 0,
+      "LastPixels": 0,
+      "LastDuration": 0,
+      "LastReason": ""
+    },
+    {
+      "Title": "Inventory   Slots: 0/32",
+      "Count": 1,
+      "Pixels": 371000,
+      "DeferredFrames": 0,
+      "LastPixels": 371000,
+      "LastDuration": 1455859,
+      "LastReason": "layout"
+    },
+    {
+      "Title": "Players   Online: 0   Shared: 0   Sharing: 0",
+      "Count": 1,
+      "Pixels": 378000,
+      "DeferredFrames": 0,
+      "LastPixels": 378000,
+      "LastDuration": 404945,
+      "LastReason": "layout"
+    },
+    {
+      "Title": "Console",
+      "Count": 3,
+      "Pixels": 477000,
+      "DeferredFrames": 0,
+      "LastPixels": 159000,
+      "LastDuration": 1242420,
+      "LastReason": "console content"
+    },
+    {
+      "Title": "Settings -- goThoom test 51",
+      "Count": 1,
+      "Pixels": 490000,
+      "DeferredFrames": 0,
+      "LastPixels": 490000,
+      "LastDuration": 15287059,
+      "LastReason": "layout"
+    }
+  ],
+  "uiScale": 1,
+  "update": {
+    "max_ms": 3.301209,
+    "over_16_67ms_pct": 0,
+    "p50_ms": 0.163081,
+    "p95_ms": 0.237193,
+    "p99_ms": 0.317182
+  },
+  "vsync": false,
+  "warmupSeconds": 5,
+  "windowHeight": 1000,
+  "windowWidth": 1920,
+  "wizardOpen": false
+}
