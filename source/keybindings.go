@@ -99,7 +99,7 @@ func refreshKeybindingsList() {
 			row.Text = line
 			row.FontSize = fontSize
 			row.Size = eui.Point{X: keybindingsList.Size.X, Y: 24}
-			restoreAlternateTextRow(row, i)
+			restoreAlternateTextRow(row, i, false)
 			keybindingsList.AddItem(row)
 		}
 	}

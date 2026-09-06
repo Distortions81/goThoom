@@ -36,10 +36,14 @@ func TestSettingsWindowFitsCurrentScreenLayout(t *testing.T) {
 	} {
 		eui.SetScreenSize(screen.width, screen.height)
 		eui.SetUIScale(screen.scale)
+		wantSize := settingsWin.GetSize()
 		for index, tab := range settingsWin.Contents[0].Tabs {
 			settingsWin.Contents[0].ActiveTab = index
 			settingsWin.Refresh()
 			size := settingsWin.GetSize()
+			if size != wantSize || settingsWin.AutoSize || settingsWin.Resizable {
+				t.Fatalf("%s changed the fixed Settings size: %v, want %v", tab.Name, size, wantSize)
+			}
 			t.Logf("%s at %.2fx: %.0fx%.0f", tab.Name, screen.scale, size.X, size.Y)
 			if settingsWin.NoCache {
 				t.Fatal("settings window bypasses its render cache")
@@ -244,17 +248,26 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	for control, want := range map[string]string{
 		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
 		"Auto-record sessions": "Files", "Download Files": "Files",
-		"Sprite cache": "Performance", "Power-save FPS": "Performance", "Batch room artwork loading": "Performance",
-		"Always on top": "Display", "Reset Windows": "Display",
+		"Always on top": "Display", "Window Shadows": "Display",
 		"Timestamp format": "Text", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
-		"TTS Voice": "Audio", "TTS Speed": "Audio", "Audio Mixer": "Audio", "Notification Settings": "Audio",
+		"TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
 		"Server address": "Network", "NLSPT safety (%)": "Network",
 		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",
 	} {
 		if got := locations[control]; got != want {
 			t.Errorf("%q lives in %q, want %q", control, got, want)
+		}
+	}
+	for _, moved := range []string{
+		"Floating-point sprite coordinates", "Sprite cache", "Power-save FPS", "Batch room artwork loading",
+		"Reset Windows", "Audio Mixer", "Keybindings", "Hotkeys", "Enable chat TTS",
+		"Audio enhancement for sound effects", "Audio enhancement for music",
+		"Network Latency & Server Phase Timing (NLSPT)", "Show Network Timing",
+	} {
+		if page, exists := locations[moved]; exists {
+			t.Errorf("detailed control %q remains in main Settings tab %q", moved, page)
 		}
 	}
 	for _, action := range buildCommandPaletteActions() {

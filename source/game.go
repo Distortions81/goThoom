@@ -279,7 +279,6 @@ var gameWindowFreeformPadding float32
 var gameWindowFreeformMargin float32
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
-var qualityWin *eui.WindowData
 var graphicsWin *eui.WindowData
 var bubbleWin *eui.WindowData
 var notificationsWin *eui.WindowData
@@ -1209,7 +1208,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	if debugWin != nil && debugWin.IsOpen() {
+	if cacheStatsWin != nil && cacheStatsWin.IsOpen() {
 		if now.Sub(lastDebugStatsUpdate) >= time.Second {
 			updateDebugStats()
 			lastDebugStatsUpdate = now
@@ -2399,7 +2398,7 @@ func prepareSceneArtwork(snap drawSnapshot) int {
 	if clImages == nil {
 		return 0
 	}
-	factor := screenCappedArtworkUpscaleFactor()
+	factor := artworkUpscaleFactor()
 	mode := artworkUpscaleMode()
 	upscale := artworkUpscaleEnabled()
 	frameBlend := mobileFrameBlendingEnabled()

@@ -509,7 +509,7 @@ func TestStartSetupWizardGraphicsDetectionResetsSample(t *testing.T) {
 	}
 	if !gs.BlendPicts || !gs.ShaderLighting || !gs.CharacterShadows || !gs.WindowShadows ||
 		!gs.MobilesReceiveSunShadows || !gs.FadeObscuringPictures || !gs.MusicEnhancement ||
-		gs.GameScale != 3 || artworkUpscaleMode() != artworkUpscaleBalanced {
+		gs.GameScale != originalSettings.GameScale || artworkUpscaleMode() != artworkUpscaleBalanced {
 		t.Fatal("graphics detection did not apply High before sampling")
 	}
 	if !setupWizardVSyncBypass {
@@ -882,7 +882,7 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 	}
 }
 
-func TestSetupWizardUsesTwoAsMinimumMaxUpscale(t *testing.T) {
+func TestSetupWizardUsesTwoAsMinimumArtworkScale(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
@@ -895,7 +895,7 @@ func TestSetupWizardUsesTwoAsMinimumMaxUpscale(t *testing.T) {
 	}
 	for _, group := range root.Contents {
 		for _, item := range group.Contents {
-			if item.Label == "Max Upscale" {
+			if item.Label == "Artwork scale override" {
 				if item.MinValue != 2 || item.Value != 2 {
 					t.Fatalf("upscale slider min/value = %v/%v, want 2/2", item.MinValue, item.Value)
 				}

@@ -459,7 +459,7 @@ func (s *inventoryRenderState) updateRow(row *inventoryRow, data inventoryRowDat
 		row.row.Fixed = true
 		row.row.Size.X = s.clientWAvail
 		row.row.Size.Y = s.rowUnits
-		row.row.Filled = gs.AlternateRowBackgrounds && data.rowIndex%2 == 1
+		row.row.Filled = gs.InventoryAlternatingRowColors && data.rowIndex%2 == 1
 		row.row.Color = alternateRowColor()
 	}
 
@@ -729,7 +729,7 @@ func (s *inventoryRenderState) applySelection(accent eui.Color) {
 			row.row.Filled = true
 			row.row.Color = accent
 		} else {
-			row.row.Filled = gs.AlternateRowBackgrounds && i%2 == 1
+			row.row.Filled = gs.InventoryAlternatingRowColors && i%2 == 1
 			if row.row.Filled {
 				row.row.Color = alternateRowColor()
 			} else {

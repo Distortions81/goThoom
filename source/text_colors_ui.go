@@ -2,6 +2,13 @@ package main
 
 import "gothoom/eui"
 
+const (
+	colorPickerDiameter    float32 = 128
+	colorPickerWidth       float32 = 160
+	textColorLabelWidth    float32 = 110
+	textColorsContentWidth         = textColorLabelWidth + 2*colorPickerWidth
+)
+
 var (
 	textColorsWin            *eui.WindowData
 	textColorWheelsDark      map[string]*eui.ItemData
@@ -36,6 +43,7 @@ func makeTextColorsWindow() {
 	}
 	ensureMessageTextColors()
 	textColorsWin = eui.NewWindow()
+	textColorsWin.ShowTooltipIndicators = true
 	textColorsWin.Title = "Text Colors"
 	textColorsWin.Closable = true
 	textColorsWin.Movable = true
@@ -44,7 +52,7 @@ func makeTextColorsWindow() {
 	content := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	classicMessageColorsCB, classicEvents := eui.NewCheckbox()
 	classicMessageColorsCB.Text = "Use classic client text colors"
-	classicMessageColorsCB.Size = eui.Point{X: 290, Y: 24}
+	classicMessageColorsCB.Size = eui.Point{X: textColorsContentWidth, Y: 24}
 	classicMessageColorsCB.Checked = gs.ClassicMessageColors
 	classicMessageColorsCB.SetTooltip("Use the classic client's black speech, green labeled-friend speech, purple self speech, and green private think-to text verbatim.")
 	classicEvents.Handle = func(event eui.UIEvent) {
@@ -64,10 +72,13 @@ func makeTextColorsWindow() {
 	content.AddItem(classicMessageColorsCB)
 
 	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	header.AddItem(textColorColumnHeading("", 110))
-	header.AddItem(textColorColumnHeading("Dark theme", 90))
-	header.AddItem(textColorColumnHeading("Light theme", 90))
+	header.AddItem(textColorColumnHeading("", textColorLabelWidth))
+	header.AddItem(textColorColumnHeading("Dark theme", colorPickerWidth))
+	header.AddItem(textColorColumnHeading("Light theme", colorPickerWidth))
 	content.AddItem(header)
+	paletteList := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true, Scrollable: true}
+	paletteList.Size = eui.Point{X: textColorsContentWidth + 32, Y: 420}
+	content.AddItem(paletteList)
 
 	textColorWheelsDark = make(map[string]*eui.ItemData, len(messageTextColorOptions))
 	textColorWheelsLight = make(map[string]*eui.ItemData, len(messageTextColorOptions))
@@ -77,13 +88,13 @@ func makeTextColorsWindow() {
 		label, _ := eui.NewText()
 		label.Text = option.Label
 		label.FontSize = 12
-		label.Size = eui.Point{X: 110, Y: 40}
+		label.Size = eui.Point{X: textColorLabelWidth, Y: colorPickerDiameter}
 		row.AddItem(label)
 
 		for _, light := range []bool{false, true} {
 			light := light
 			wheel, events := eui.NewColorWheel()
-			wheel.Size = eui.Point{X: 90, Y: 40}
+			wheel.Size = eui.Point{X: colorPickerWidth, Y: colorPickerDiameter}
 			wheel.WheelColor = messageTextColorForPalette(option.Type, light)
 			wheel.Disabled = option.Type == messageTextTypeSystem && !gs.OverrideThemeTextColor
 			events.Handle = func(event eui.UIEvent) {
@@ -103,12 +114,12 @@ func makeTextColorsWindow() {
 			}
 			row.AddItem(wheel)
 		}
-		content.AddItem(row)
+		paletteList.AddItem(row)
 	}
 
 	themeTextColorOverrideCB, overrideEvents := eui.NewCheckbox()
 	themeTextColorOverrideCB.Text = "Override theme default text color"
-	themeTextColorOverrideCB.Size = eui.Point{X: 290, Y: 24}
+	themeTextColorOverrideCB.Size = eui.Point{X: textColorsContentWidth, Y: 24}
 	themeTextColorOverrideCB.Checked = gs.OverrideThemeTextColor
 	themeTextColorOverrideCB.SetTooltip("When off, ordinary console and interface text follows the active theme. Highlighted message types still use the palette above.")
 	overrideEvents.Handle = func(event eui.UIEvent) {

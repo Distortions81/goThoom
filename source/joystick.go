@@ -48,6 +48,7 @@ func makeJoystickWindow() {
 		return
 	}
 	joystickWin = eui.NewWindow()
+	joystickWin.ShowTooltipIndicators = true
 	joystickWin.Title = "Gamepad"
 	joystickWin.Closable = true
 	joystickWin.Movable = true

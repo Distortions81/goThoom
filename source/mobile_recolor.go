@@ -35,7 +35,7 @@ func mobileRecolorSharedKey(id uint16, state uint8) mobileKey {
 func mobileRecolorMaskFor(key mobileKey) *ebiten.Image {
 	factor, mode := 1, artworkUpscaleOff
 	if artworkUpscaleEnabled() {
-		factor, mode = screenCappedArtworkUpscaleFactor(), artworkUpscaleMode()
+		factor, mode = artworkUpscaleFactor(), artworkUpscaleMode()
 	}
 	key.colorsLen = 0
 	clear(key.colors[:])

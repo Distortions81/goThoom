@@ -45,7 +45,7 @@ func updateChatWindow() {
 	if chatWindowMessages.dropped > 0 && !chatWindowMessages.reset && chatWindowMessages.dropped <= len(chatList.Contents) {
 		chatList.SetItems(chatList.Contents[chatWindowMessages.dropped:])
 	}
-	updateTextWindowFrom(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, true, &chatTextWrapCache, firstChanged)
+	updateTextWindowFrom(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, gs.ChatAlternatingRowColors, &chatTextWrapCache, firstChanged)
 	if chatWin.SearchText != "" {
 		applyTextWindowSearch(chatList, chatWin.SearchText)
 	}
@@ -66,7 +66,7 @@ func updateChatWindow() {
 		}
 		if chatWindowMessages.dropped > 0 && chatWin.SearchText == "" {
 			for i, row := range chatList.Contents {
-				restoreAlternateTextRow(row, i)
+				restoreAlternateTextRow(row, i, gs.ChatAlternatingRowColors)
 			}
 		}
 		// Auto-scroll list to bottom on new messages
@@ -105,7 +105,7 @@ func handleChatCopyRightClick(mx, my int) bool {
 		if pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1 {
 			// Clear previous highlights in chat list.
 			for i, it := range chatList.Contents {
-				restoreAlternateTextRow(it, i)
+				restoreAlternateTextRow(it, i, gs.ChatAlternatingRowColors)
 				it.Focused = false
 			}
 			// Highlight selected line briefly and copy the text.
@@ -133,7 +133,7 @@ func scheduleChatUnhighlight(row *eui.ItemData) {
 			if chatHighlighted == target {
 				for i, it := range chatList.Contents {
 					if it == target {
-						restoreAlternateTextRow(it, i)
+						restoreAlternateTextRow(it, i, gs.ChatAlternatingRowColors)
 						break
 					}
 				}

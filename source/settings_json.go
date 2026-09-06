@@ -76,7 +76,10 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "PlayerShareIcons", category: settingsInterface, name: "show_player_share_icons"},
 	{field: "PlayerGroups", category: settingsInterface, name: "player_groups"},
 	{field: "InventoryGroups", category: settingsInterface, name: "inventory_groups"},
-	{field: "AlternateRowBackgrounds", category: settingsInterface, name: "alternate_row_backgrounds"},
+	{field: "InventoryAlternatingRowColors", category: settingsInterface, name: "inventory_alternating_row_colors"},
+	{field: "ChatAlternatingRowColors", category: settingsInterface, name: "chat_alternating_row_colors"},
+	{field: "ConsoleAlternatingRowColors", category: settingsInterface, name: "console_alternating_row_colors"},
+	{field: "PlayersAlternatingRowColors", category: settingsInterface, name: "players_alternating_row_colors"},
 	{field: "NameBgOpacity", category: settingsInterface, name: "name_background_opacity"},
 	{field: "DarkBubblesAndNames", category: settingsInterface, name: "dark_mode_names_and_bubbles"},
 	{field: "NameHealthBarModern", category: settingsInterface, name: "name_health_bar_modern"},
@@ -368,6 +371,9 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 			case "AltNetMode":
 				raw, ok = doc.General["alternate_network_enabled"]
 			}
+		}
+		if !ok && entry.field == "InventoryAlternatingRowColors" {
+			raw, ok = doc.Interface["alternate_row_backgrounds"]
 		}
 		if !ok && entry.field == "DarkBubblesAndNames" {
 			raw, ok = doc.Interface["dark_bubbles_and_names"]

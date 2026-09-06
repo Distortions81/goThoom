@@ -27,8 +27,9 @@ import (
 	open "github.com/skratchdot/open-golang/open"
 	clipboard "golang.design/x/clipboard"
 
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"gothoom/climg"
+
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 const cval = 1000
@@ -276,8 +277,6 @@ var (
 	mobileBlendSlider        *eui.ItemData
 	worldBlendSlider         *eui.ItemData
 	throttleSoundCB          *eui.ItemData
-	soundEnhanceCB           *eui.ItemData
-	musicEnhanceCB           *eui.ItemData
 	resampleAudioCB          *eui.ItemData
 	precacheSoundCB          *eui.ItemData
 	noCacheCB                *eui.ItemData
@@ -407,7 +406,6 @@ func initUI() {
 	makeChatWindow()
 	makeConsoleWindow()
 	makeSettingsWindow()
-	makeQualityWindow()
 	makeNotificationsWindow()
 	makeBubbleWindow()
 	makeDebugWindow()
@@ -716,8 +714,9 @@ func makescriptsWindow() {
 	root.AddItem(list)
 
 	buttonsBottom := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
-	scriptsButtons = buttonsBottom
-	root.AddItem(buttonsBottom)
+	scriptsButtons = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
+	root.AddItem(scriptsButtons)
+	scriptsButtons.AddItem(buttonsBottom)
 
 	refreshBtn, rh := eui.NewButton()
 	refreshBtn.Text = "Refresh"
@@ -742,6 +741,31 @@ func makescriptsWindow() {
 		}
 	}
 	buttonsBottom.AddItem(openBtn)
+
+	eventsBtn, eventsHandler := eui.NewButton()
+	eventsBtn.Text = "Script Events"
+	eventsBtn.Size = eui.Point{X: 120, Y: 24}
+	eventsHandler.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeScriptEventsWindow()
+			scriptEventsWin.ToggleNear(ev.Item)
+		}
+	}
+	buttonsBottom.AddItem(eventsBtn)
+
+	scriptKillCB, scriptKillEvents := eui.NewCheckbox()
+	scriptKillCB.Text = "Auto-kill spammy scripts"
+	scriptKillCB.Size = eui.Point{X: 240, Y: 24}
+	scriptKillCB.Checked = gs.ScriptSpamKill
+	scriptKillEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.ScriptSpamKill = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+	}
+	scriptsButtons.AddItem(scriptKillCB)
 
 	scriptsWin.OnResize = refreshscriptsWindow
 	scriptsWin.AddWindow(false)
@@ -1097,8 +1121,9 @@ func layoutScriptsWindow() {
 
 	scriptsRoot.Size = eui.Point{X: clientW, Y: clientH}
 	scriptsHeader.Size = eui.Point{X: clientW, Y: scriptsManagerRowHeight}
-	scriptsButtons.Size = eui.Point{X: clientW, Y: 24}
-	scriptsList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-scriptsManagerRowHeight-24)}
+	scriptsButtons.Size = eui.Point{X: clientW}
+	footerHeight := scriptsButtons.GetSize().Y / scale
+	scriptsList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-scriptsManagerRowHeight-footerHeight)}
 }
 
 func selectscript(owner string) {
@@ -1354,11 +1379,11 @@ func refreshscriptDebug() {
 		t, _ := eui.NewText()
 		t.Text = ln
 		t.FontSize = 12
-		t.Size = eui.Point{X: 400, Y: 16}
+		t.Size = eui.Point{X: 0, Y: 0}
 		scriptDebugList.AddItem(t)
 	}
-	if debugWin != nil {
-		debugWin.Refresh()
+	if scriptEventsWin != nil {
+		scriptEventsWin.Refresh()
 	}
 }
 
@@ -1376,6 +1401,7 @@ func openscriptConfigWindow(owner string) {
 	name := scriptDisplayNames[owner]
 	scriptMu.RUnlock()
 	scriptConfigWin = eui.NewWindow()
+	scriptConfigWin.ShowTooltipIndicators = true
 	scriptConfigWin.Title = "Configure: " + name
 	scriptConfigWin.Closable = true
 	scriptConfigWin.Resizable = false
@@ -1524,7 +1550,7 @@ func openscriptConfigWindow(owner string) {
 }
 
 // refreshMixerEnhancementControls keeps the mixer in sync when an audio
-// quality preset or the detailed Settings window changes these values.
+// quality preset or the setup wizard changes these values.
 func refreshMixerEnhancementControls() {
 	if soundEnhanceMixCB != nil {
 		soundEnhanceMixCB.Checked = gs.SoundEnhancement
@@ -1551,6 +1577,7 @@ func makeMixerWindow() {
 		return
 	}
 	mixerWin = eui.NewWindow()
+	mixerWin.ShowTooltipIndicators = true
 	mixerWin.Title = "Mixer"
 	mixerWin.Closable = true
 	mixerWin.Resizable = false
@@ -1700,29 +1727,7 @@ func makeMixerWindow() {
 		},
 		func(ev eui.UIEvent) {
 			if ev.Type == eui.EventCheckboxChanged {
-				if ev.Checked {
-					gs.ChatTTS = true
-					ttsMixSlider.Disabled = false
-					if s, err := checkDataFiles(clVersion); err == nil {
-						status = s
-						if status.NeedPiper || status.NeedPiperFem || status.NeedPiperMale {
-							disableTTS()
-							if downloadWin != nil {
-								downloadWin.Close()
-								downloadWin = nil
-							}
-							makeDownloadsWindow()
-							if downloadWin != nil {
-								downloadWin.MarkOpen()
-							}
-							return
-						}
-					}
-					settingsDirty = true
-					updateSoundVolume()
-				} else {
-					disableTTS()
-				}
+				setTTSEnabled(ev.Checked)
 			}
 		})
 
@@ -1761,10 +1766,6 @@ func makeMixerWindow() {
 			return
 		}
 		gs.SoundEnhancement = ev.Checked
-		if soundEnhanceCB != nil {
-			soundEnhanceCB.Checked = ev.Checked
-			soundEnhanceCB.Dirty = true
-		}
 		refreshMixerEnhancementControls()
 		settingsDirty = true
 	}
@@ -1801,10 +1802,6 @@ func makeMixerWindow() {
 			return
 		}
 		gs.MusicEnhancement = ev.Checked
-		if musicEnhanceCB != nil {
-			musicEnhanceCB.Checked = ev.Checked
-			musicEnhanceCB.Dirty = true
-		}
 		refreshMixerEnhancementControls()
 		settingsDirty = true
 	}
@@ -1876,7 +1873,6 @@ func makeMixerWindow() {
 	// Match mute button width so the text fits comfortably
 	muteUnfocusCB.Size = eui.Point{X: 192, Y: 24}
 	muteUnfocusCB.Checked = gs.MuteWhenUnfocused
-	muteUnfocusCB.SetTooltip("Mute audio when unfocused.")
 	muteUnfocusEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MuteWhenUnfocused = ev.Checked
@@ -2493,7 +2489,8 @@ func handleDownloadAssetError(flow, statusText, pb *eui.ItemData, retryFn func()
 	}
 }
 
-func makeDownloadsWindow() {
+func makeDownloadsWindow(preferTTS ...bool) {
+	ttsRequested := len(preferTTS) > 0 && preferTTS[0]
 
 	if downloadWin != nil {
 		return
@@ -2640,7 +2637,7 @@ func makeDownloadsWindow() {
 		}
 		sfCB.Text = label
 		sfCB.Size = eui.Point{X: 320, Y: 24}
-		sfCB.Checked = true
+		sfCB.Checked = !ttsRequested
 		downloadSoundfontCB = sfCB
 		flow.AddItem(sfCB)
 	}
@@ -2653,7 +2650,7 @@ func makeDownloadsWindow() {
 		}
 		pc.Text = label
 		pc.Size = eui.Point{X: 320, Y: 24}
-		pc.Checked = false
+		pc.Checked = ttsRequested
 		downloadTTSCB = pc
 		flow.AddItem(pc)
 	}
@@ -3043,6 +3040,7 @@ func makeAddCharacterWindow() {
 		return
 	}
 	addCharWin = eui.NewWindow()
+	addCharWin.ShowTooltipIndicators = true
 	addCharWin.Title = "Add Character"
 	addCharWin.Closable = false
 	addCharWin.Resizable = false
@@ -3236,6 +3234,7 @@ func makeEditCharacterWindow() {
 		return
 	}
 	editCharWin = eui.NewWindow()
+	editCharWin.ShowTooltipIndicators = true
 	editCharWin.Title = "Edit Character"
 	editCharWin.Closable = false
 	editCharWin.Resizable = false
@@ -3267,7 +3266,6 @@ func makeEditCharacterWindow() {
 	rememberCB, rememberEvents := eui.NewCheckbox()
 	editCharRememberCB = rememberCB
 	rememberCB.Text = "Save Password"
-	rememberCB.SetTooltip("Store this character's password for future logins.")
 	rememberCB.Size = eui.Point{X: 280, Y: 24}
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -4085,9 +4083,9 @@ func resetAllSettings() {
 	if graphicsWin != nil {
 		graphicsWin.Refresh()
 	}
-	if qualityWin != nil {
+	if settingsWin != nil {
 		refreshShaderEffectControls()
-		qualityWin.Refresh()
+		settingsWin.Refresh()
 	}
 	if bubbleWin != nil {
 		bubbleWin.Refresh()
@@ -4403,56 +4401,56 @@ func confirmRemoveCharacter(c Character) {
 	)
 }
 
-func makeQualityWindow() {
-	if qualityWin != nil {
-		return
-	}
+const artworkScaleGuidance = "Suggested starting points:\n2x: up to 1080p (default)\n3x: 1440p\n4x: 4K / large game views"
 
-	var width float32 = 250
-	qualityWin = eui.NewWindow()
-	qualityWin.Title = "Quality Options"
-	qualityWin.Closable = true
-	qualityWin.Resizable = false
-	qualityWin.AutoSize = true
-	qualityWin.Movable = true
-	qualityWin.SetRefreshInterval(100 * time.Millisecond)
-	qualityWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	// Use three short columns so the larger shader group does not make this
-	// window unnecessarily tall.
-	var panelWidth float32 = 270
-	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	left := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	left.Size = eui.Point{X: panelWidth, Y: 10}
-	center := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	center.Size = eui.Point{X: panelWidth, Y: 10}
-	right := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	right.Size = eui.Point{X: panelWidth, Y: 10}
+func newArtworkScaleGuidance(width float32) *eui.ItemData {
+	info, _ := eui.NewText()
+	info.Text = artworkScaleGuidance
+	info.FontSize = 10
+	info.Size = eui.Point{X: width, Y: 90}
+	return info
+}
+
+func addQualityColumns(page *eui.ItemData, width float32, groups ...[]*eui.ItemData) {
+	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	for i, sections := range groups {
+		if i > 0 {
+			row.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 12, Y: 1}})
+		}
+		column := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: width, Y: 10}}
+		for _, section := range sections {
+			column.AddItem(section)
+		}
+		row.AddItem(column)
+	}
+	page.AddItem(row)
+}
+
+func newGraphicsPerformanceOptions() *eui.ItemData {
+	const pageWidth = settingsPanelWidth
+	const width = (pageWidth - 20) / 2
+	outer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, ActiveOutline: true}
+	artworkPage := newSettingsPage("Artwork", pageWidth)
+	motionPage := newSettingsPage("Motion", pageWidth)
+	shaderPage := newSettingsPage("Lighting & Effects", pageWidth)
 
 	artworkSection := newConfigurationSection("Artwork Scaling", width)
 	occlusionSection := newConfigurationSection("Foreground Occlusion", width)
-	performanceSection := newConfigurationSection("GPU & Performance", width)
-	left.AddItem(artworkSection)
-	left.AddItem(occlusionSection)
-	left.AddItem(performanceSection)
-
-	shadowSection := newConfigurationSection("Shadows", width)
-	motionSection := newConfigurationSection("Motion Smoothing", width)
 	gammaSection := newConfigurationSection("Sprite Gamma", width)
 	denoiseSection := newConfigurationSection("Dither Cleanup", width)
-	center.AddItem(shadowSection)
-	center.AddItem(motionSection)
-	center.AddItem(gammaSection)
-	center.AddItem(denoiseSection)
-
-	shaderSection := newConfigurationSection("Shader Effects", width)
-	right.AddItem(shaderSection)
+	shadowSection := newConfigurationSection("Shadows", width)
+	motionSection := newConfigurationSection("Motion Smoothing", width)
+	shaderSection := newConfigurationSection("Lighting & Effects", pageWidth)
+	addQualityColumns(artworkPage, width, []*eui.ItemData{artworkSection, occlusionSection}, []*eui.ItemData{gammaSection, denoiseSection})
+	shaderPage.AddItem(shaderSection)
+	outer.Tabs = []*eui.ItemData{artworkPage, motionPage, shaderPage}
 
 	masterShaders, masterShaderEvents := eui.NewCheckbox()
 	shadersEnabledCB = masterShaders
-	shadersEnabledCB.Text = "Enable Shader Effects"
-	shadersEnabledCB.Size = eui.Point{X: width, Y: 24}
+	shadersEnabledCB.Text = "Enhanced visual effects"
+	shadersEnabledCB.Size = eui.Point{X: pageWidth, Y: 24}
 	shadersEnabledCB.Checked = gs.ShadersEnabled
-	shadersEnabledCB.SetTooltip("Enable custom shader effects. Individual choices are preserved while disabled.")
+	shadersEnabledCB.SetTooltip("Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled.")
 	masterShaderEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventCheckboxChanged {
 			return
@@ -4470,11 +4468,17 @@ func makeQualityWindow() {
 			debugWin.Refresh()
 		}
 	}
-	shaderSection.AddItem(shadersEnabledCB)
+	lightingSection := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	animationSection := newConfigurationSection("Animation Blending", width)
+	addQualityColumns(shaderSection, width, []*eui.ItemData{lightingSection}, []*eui.ItemData{shadowSection})
+	addQualityColumns(motionPage, width, []*eui.ItemData{motionSection}, []*eui.ItemData{animationSection})
+	experimentalSection := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	experimentalSection.AddItem(newConfigurationSubheading("Experimental", pageWidth))
+	shaderSection.AddItem(experimentalSection)
 
 	renderScale, renderScaleEvents := eui.NewSlider()
 	qualityRenderScaleSlider = renderScale
-	renderScale.Label = "Max Upscale"
+	renderScale.Label = "Artwork scale override"
 	renderScale.MinValue = 2
 	renderScale.MaxValue = 4
 	renderScale.IntOnly = true
@@ -4487,7 +4491,7 @@ func makeQualityWindow() {
 
 	renderScale.Value = float32(math.Round(gs.GameScale))
 	renderScale.Size = eui.Point{X: width - 10, Y: 24}
-	renderScale.SetTooltip("Caps artwork upscale at 2x-4x; fitted textures may use less to avoid wasted GPU memory.")
+	renderScale.SetTooltip("Fixed artwork texture scale. Default: 2x. Resizing the game window does not change it. Higher values use more GPU memory.")
 	renderScaleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			prevUpscale := gs.SpriteUpscale
@@ -4512,6 +4516,7 @@ func makeQualityWindow() {
 		}
 	}
 	artworkSection.AddItem(renderScale)
+	artworkSection.AddItem(newArtworkScaleGuidance(width))
 
 	uDD, upscaleModeEvents := eui.NewDropdown()
 	upscaleModeDD = uDD
@@ -4539,7 +4544,6 @@ func makeQualityWindow() {
 	pixelPerfectCB.Text = "Pixel-art scaling"
 	pixelPerfectCB.Size = eui.Point{X: width, Y: 24}
 	pixelPerfectCB.Checked = gs.PixelArtScaling
-	pixelPerfectCB.SetTooltip("Keep crisp pixels when scaling")
 	pixelPerfectEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			if gs.PixelArtScaling != ev.Checked {
@@ -4596,92 +4600,9 @@ func makeQualityWindow() {
 						flow.AddItem(showFPSCB)
 	*/
 
-	psCB, precacheSoundEvents := eui.NewCheckbox()
-	precacheSoundCB = psCB
-	precacheSoundCB.Text = "Precache Sounds"
-	precacheSoundCB.Size = eui.Point{X: width, Y: 24}
-	precacheSoundCB.Checked = gs.PrecacheSounds
-	precacheSoundCB.SetTooltip("Uses roughly 300 MB more RAM to avoid first-play sound decoding delays.")
-	precacheSoundEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.PrecacheSounds = ev.Checked
-			if ev.Checked {
-				if noCacheCB != nil {
-					noCacheCB.Checked = false
-				}
-				go precacheSounds()
-			}
-			settingsDirty = true
-			if qualityWin != nil {
-				qualityWin.Refresh()
-			}
-			if graphicsWin != nil {
-				graphicsWin.Refresh()
-			}
-			if debugWin != nil {
-				debugWin.Refresh()
-			}
-		}
-	}
-	performanceSection.AddItem(precacheSoundCB)
-
-	activityIndicatorsCB, activityIndicatorEvents := eui.NewCheckbox()
-	activityIndicatorsCB.Text = "Show asset activity dots"
-	activityIndicatorsCB.Size = eui.Point{X: width, Y: 24}
-	activityIndicatorsCB.Checked = gs.AssetActivityIndicators
-	activityIndicatorsCB.SetTooltip("Show activity dots in the game view's lower-right: green for artwork decoding and processing, amber for audio decoding, and red for GPU artwork uploads.")
-	activityIndicatorEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.AssetActivityIndicators = ev.Checked
-			setClientActivityIndicatorsEnabled(ev.Checked)
-			settingsDirty = true
-		}
-	}
-	performanceSection.AddItem(activityIndicatorsCB)
-
 	var shadowDarknessSlider *eui.ItemData
-	pcCB, potatoEvents := eui.NewCheckbox()
-	potatoCB = pcCB
-	potatoCB.Text = "Potato GPU (4096px Limit)"
-	potatoCB.SetTooltip("Use standalone textures instead of a large shared atlas for GPUs limited to 4096x4096 textures. Artwork resolution and upscaling are unchanged.")
-	potatoCB.Size = eui.Point{X: width, Y: 24}
-	potatoCB.Checked = gs.PotatoGPU
-	potatoEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.PotatoGPU = ev.Checked
-			applySettings()
-			clearCaches()
-			settingsDirty = true
-		}
-	}
-	performanceSection.AddItem(potatoCB)
 
-	vsyncCB, vsyncEvents := eui.NewCheckbox()
-	vsyncCB.Text = "VSync - Limit FPS"
-	vsyncCB.Size = eui.Point{X: width, Y: 24}
-	vsyncCB.Checked = gs.VSync
-	vsyncCB.SetTooltip("Sync frame rate to the display.")
-	vsyncEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.VSync = ev.Checked
-			applyVSyncSetting()
-			settingsDirty = true
-		}
-	}
-	performanceSection.AddItem(vsyncCB)
-
-	wsCB, windowShadowsEvents := eui.NewCheckbox()
-	windowShadowsCB = wsCB
-	windowShadowsCB.Text = "Window Shadows"
-	windowShadowsCB.Size = eui.Point{X: width, Y: 24}
-	windowShadowsCB.Checked = gs.WindowShadows
-	windowShadowsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.WindowShadows = ev.Checked
-			eui.SetWindowShadows(gs.WindowShadows)
-			settingsDirty = true
-		}
-	}
+	windowShadowsCB = newWindowShadowsCheckbox(width)
 	shadowSection.AddItem(windowShadowsCB)
 
 	characterShadowItem, characterShadowsEvents := eui.NewCheckbox()
@@ -4751,10 +4672,10 @@ func makeQualityWindow() {
 	}
 	shadowSection.AddItem(mobileSunShadowsCB)
 
-	shaderSection.AddItem(newConfigurationSubheading("Lighting", width))
+	lightingSection.AddItem(newConfigurationSubheading("Lighting", width))
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()
 	shaderLightingCB = shaderQualityCB
-	shaderQualityCB.Text = "Shader Lighting Effects"
+	shaderQualityCB.Text = "Lighting Effects"
 	shaderQualityCB.Size = eui.Point{X: width, Y: 24}
 	shaderQualityCB.Checked = gs.ShaderLighting
 	shaderQualityEv.Handle = func(ev eui.UIEvent) {
@@ -4770,21 +4691,21 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	shaderSection.AddItem(shaderQualityCB)
+	lightingSection.AddItem(shaderQualityCB)
 
 	mobileConeCB, mobileConeEvents := eui.NewCheckbox()
 	mobileLightConeShadowsCB = mobileConeCB
-	mobileConeCB.Text = "Mobile light-cone shadows"
-	mobileConeCB.Size = eui.Point{X: width, Y: 24}
+	mobileConeCB.Text = "Mobile light-cone shadows (experimental)"
+	mobileConeCB.Size = eui.Point{X: pageWidth, Y: 24}
 	mobileConeCB.Checked = gs.MobileLightConeShadows
-	mobileConeCB.SetTooltip("Let mobiles cast experimental soft cone shadows from nearby shader lights.")
+	mobileConeCB.SetTooltip("Let mobiles cast experimental soft cone shadows from nearby lights.")
 	mobileConeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MobileLightConeShadows = ev.Checked
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(mobileConeCB)
+	experimentalSection.AddItem(mobileConeCB)
 
 	flameCB, flameEvents := eui.NewCheckbox()
 	flameFlickerCB = flameCB
@@ -4800,7 +4721,7 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(flameFlickerCB)
+	lightingSection.AddItem(flameFlickerCB)
 
 	flameSlider, flameSliderEvents := eui.NewSlider()
 	flameFlickerSlider = flameSlider
@@ -4816,7 +4737,7 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(flameFlickerSlider)
+	lightingSection.AddItem(flameFlickerSlider)
 
 	sLS, shaderLightEvents := eui.NewSlider()
 	shaderLightSlider = sLS
@@ -4835,7 +4756,7 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	shaderSection.AddItem(shaderLightSlider)
+	lightingSection.AddItem(shaderLightSlider)
 
 	sGS, shaderGlowEvents := eui.NewSlider()
 	shaderGlowSlider = sGS
@@ -4854,13 +4775,12 @@ func makeQualityWindow() {
 			}
 		}
 	}
-	shaderSection.AddItem(shaderGlowSlider)
+	lightingSection.AddItem(shaderGlowSlider)
 
-	shaderSection.AddItem(newConfigurationSubheading("Magic Effects", width))
 	replacementCB, replacementEffectsEvents := eui.NewCheckbox()
 	replacementEffectsCB = replacementCB
-	replacementEffectsCB.Text = "Replacement Effects"
-	replacementEffectsCB.Size = eui.Point{X: width, Y: 24}
+	replacementEffectsCB.Text = "Replacement Effects (experimental)"
+	replacementEffectsCB.Size = eui.Point{X: pageWidth, Y: 24}
 	replacementEffectsCB.Checked = gs.ReplacementEffects
 	replacementEffectsCB.SetTooltip("Use procedural magic effects.")
 	replacementEffectsEvents.Handle = func(ev eui.UIEvent) {
@@ -4869,7 +4789,7 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(replacementEffectsCB)
+	experimentalSection.AddItem(replacementEffectsCB)
 
 	gcCB, gammaEvents := eui.NewCheckbox()
 	gammaCorrectionCB = gcCB
@@ -4892,8 +4812,8 @@ func makeQualityWindow() {
 				}
 				clearCaches()
 				settingsDirty = true
-				if qualityWin != nil {
-					qualityWin.Refresh()
+				if settingsWin != nil {
+					settingsWin.Refresh()
 				}
 			}
 		}
@@ -4965,7 +4885,6 @@ func makeQualityWindow() {
 	denoiseCB.Text = "Blend Image Dithering"
 	denoiseCB.Size = eui.Point{X: width, Y: 24}
 	denoiseCB.Checked = gs.DenoiseImages
-	denoiseCB.SetTooltip("Smooth palette dithering.")
 	denoiseEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.DenoiseImages = ev.Checked
@@ -4984,7 +4903,6 @@ func makeQualityWindow() {
 	denoiseSharpSlider.MaxValue = 100
 	denoiseSharpSlider.Value = float32(gs.DenoiseSharpness * 5)
 	denoiseSharpSlider.Size = eui.Point{X: width - 10, Y: 24}
-	denoiseSharpSlider.SetTooltip("Preserve more fine detail.")
 	denoiseSharpEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.DenoiseSharpness = float64(ev.Value / 5)
@@ -5020,7 +4938,6 @@ func makeQualityWindow() {
 	motionCB.Text = "Smooth Motion"
 	motionCB.Size = eui.Point{X: width, Y: 24}
 	motionCB.Checked = gs.MotionSmoothing
-	motionCB.SetTooltip("Smooth camera and mobiles.")
 	motionEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MotionSmoothing = ev.Checked
@@ -5032,7 +4949,7 @@ func makeQualityWindow() {
 
 	smallMovingCB, smallMovingEvents := eui.NewCheckbox()
 	smallMovingPicturesCB = smallMovingCB
-	smallMovingPicturesCB.Text = "Interpolate small moving sprites"
+	smallMovingPicturesCB.Text = "Smooth small moving objects"
 	smallMovingPicturesCB.Size = eui.Point{X: width, Y: 24}
 	smallMovingPicturesCB.Checked = gs.InterpolateSmallMovingPictures
 	smallMovingPicturesCB.Disabled = !gs.MotionSmoothing
@@ -5045,10 +4962,24 @@ func makeQualityWindow() {
 	}
 	motionSection.AddItem(smallMovingPicturesCB)
 
-	shaderSection.AddItem(newConfigurationSubheading("Frame Blending", width))
+	coordsCB, coordsEvents := eui.NewCheckbox()
+	coordsCB.Text = "Subpixel movement"
+	coordsCB.Size = eui.Point{X: width, Y: 24}
+	coordsCB.Checked = gs.FloatingPointSpriteCoords
+	coordsCB.SetTooltip("Keeps interpolated sprites at subpixel screen positions for smoother movement. This can cause shimmering on some artwork; turn it off to floor sprites to whole pixels.")
+	coordsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.FloatingPointSpriteCoords = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+	}
+	motionSection.AddItem(coordsCB)
+
 	aCB, animEvents := eui.NewCheckbox()
 	animCB = aCB
-	animCB.Text = "Mobile Animation Blending"
+	animCB.Text = "Character Animation Blending"
 	animCB.Size = eui.Point{X: width, Y: 24}
 	animCB.Checked = gs.BlendMobiles
 	animEvents.Handle = func(ev eui.UIEvent) {
@@ -5058,14 +4989,13 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(animCB)
+	animationSection.AddItem(animCB)
 
 	pCB, pictBlendEvents := eui.NewCheckbox()
 	pictBlendCB = pCB
 	pictBlendCB.Text = "World Animation Blending"
 	pictBlendCB.Size = eui.Point{X: width, Y: 24}
 	pictBlendCB.Checked = gs.BlendPicts
-	pictBlendCB.SetTooltip("Blend scenery animation frames.")
 	pictBlendEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.BlendPicts = ev.Checked
@@ -5073,11 +5003,11 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(pictBlendCB)
+	animationSection.AddItem(pictBlendCB)
 
 	mobileSlider, mobileBlendEvents := eui.NewSlider()
 	mobileBlendSlider = mobileSlider
-	mobileBlendSlider.Label = "Mobile Animation Blend Duration"
+	mobileBlendSlider.Label = "Character Animation Blend Duration"
 	mobileBlendSlider.MinValue = 0.1
 	mobileBlendSlider.MaxValue = 1.0
 	mobileBlendSlider.Value = float32(gs.MobileBlendAmount)
@@ -5089,7 +5019,7 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(mobileBlendSlider)
+	animationSection.AddItem(mobileBlendSlider)
 
 	worldSlider, blendEvents := eui.NewSlider()
 	worldBlendSlider = worldSlider
@@ -5105,15 +5035,12 @@ func makeQualityWindow() {
 			settingsDirty = true
 		}
 	}
-	shaderSection.AddItem(worldBlendSlider)
+	animationSection.AddItem(worldBlendSlider)
 
 	refreshShaderEffectControls()
 
-	outer.AddItem(left)
-	outer.AddItem(center)
-	outer.AddItem(right)
-	qualityWin.AddItem(outer)
-	qualityWin.AddWindow(false)
+	addPerformancePages(outer)
+	return outer
 }
 
 func applyTiledWorkspaceLayout() {
@@ -5169,6 +5096,7 @@ func makeTileLayoutWindow() {
 	}
 	const width float32 = 310
 	tileLayoutWin = eui.NewWindow()
+	tileLayoutWin.ShowTooltipIndicators = true
 	tileLayoutWin.Title = "Tiled Window Layout"
 	tileLayoutWin.Closable = true
 	tileLayoutWin.Resizable = false
@@ -5301,6 +5229,7 @@ func makeNotificationsWindow() {
 	}
 	var width float32 = 250
 	notificationsWin = eui.NewWindow()
+	notificationsWin.ShowTooltipIndicators = true
 	notificationsWin.Title = "Notification Settings"
 	notificationsWin.Closable = true
 	notificationsWin.Resizable = false
@@ -5310,7 +5239,7 @@ func makeNotificationsWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	eventsSection := newConfigurationSection("Notify About", width)
-	deliverySection := newConfigurationSection("Display & Sound", width)
+	deliverySection := newConfigurationSection("Display", width)
 	flow.AddItem(eventsSection)
 	flow.AddItem(deliverySection)
 
@@ -5323,9 +5252,6 @@ func makeNotificationsWindow() {
 			if ev.Type == eui.EventCheckboxChanged {
 				*val = ev.Checked
 				settingsDirty = true
-				if val == &gs.NotificationBeep {
-					updateSoundVolume()
-				}
 			}
 		}
 		section.AddItem(cb)
@@ -5338,7 +5264,6 @@ func makeNotificationsWindow() {
 	addCB(eventsSection, "Shares", &gs.NotifyShares)
 	addCB(eventsSection, "Friend online", &gs.NotifyFriendOnline)
 	addCB(eventsSection, "Text copied", &gs.NotifyCopyText)
-	addCB(deliverySection, "Beep", &gs.NotificationBeep)
 
 	durSlider, durEvents := eui.NewSlider()
 	durSlider.Label = "Display Duration (sec)"
@@ -5376,6 +5301,7 @@ func makeBubbleWindow() {
 	}
 	var width float32 = 250
 	bubbleWin = eui.NewWindow()
+	bubbleWin.ShowTooltipIndicators = true
 	bubbleWin.Title = "Bubble Settings"
 	bubbleWin.Closable = true
 	bubbleWin.Resizable = false
@@ -5408,7 +5334,6 @@ func makeBubbleWindow() {
 	animatedBubblesCB.Text = "Animated Chat Bubbles"
 	animatedBubblesCB.Size = eui.Point{X: width, Y: 24}
 	animatedBubblesCB.Checked = gs.AnimatedChatBubbles
-	animatedBubblesCB.SetTooltip("Animate special speech bubbles.")
 	animatedBubblesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.AnimatedChatBubbles = ev.Checked
@@ -5469,6 +5394,7 @@ func makeDebugWindow() {
 
 	var width float32 = 250
 	debugWin = eui.NewWindow()
+	debugWin.ShowTooltipIndicators = true
 	debugWin.Title = "Debug Settings"
 	debugWin.Closable = true
 	debugWin.Resizable = false
@@ -5480,36 +5406,9 @@ func makeDebugWindow() {
 	diagnosticsSection := newConfigurationSection("Diagnostics", width)
 	sceneSection := newConfigurationSection("Scene Overrides", width)
 	shaderSection := newConfigurationSection("Shader Tools", width)
-	cacheSection := newConfigurationSection("Cache Statistics", width)
-	scriptSection := newConfigurationSection("Script Events", width)
 	debugFlow.AddItem(diagnosticsSection)
 	debugFlow.AddItem(sceneSection)
 	debugFlow.AddItem(shaderSection)
-	debugFlow.AddItem(scriptSection)
-	debugFlow.AddItem(cacheSection)
-
-	debugCB, debugEvents := eui.NewCheckbox()
-	debugCB.Text = "Record script events"
-	debugCB.Size = eui.Point{X: width, Y: 24}
-	debugCB.Checked = gs.scriptEventDebug
-	debugEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.scriptEventDebug = ev.Checked
-			settingsDirty = true
-			scriptDebugList.Invisible = !ev.Checked
-			if ev.Checked {
-				refreshscriptDebug()
-			} else {
-				debugWin.Refresh()
-			}
-		}
-	}
-	scriptSection.AddItem(debugCB)
-
-	scriptDebugList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
-	scriptDebugList.Size = eui.Point{X: width, Y: 120}
-	scriptDebugList.Invisible = !gs.scriptEventDebug
-	scriptSection.AddItem(scriptDebugList)
 
 	recordStatsCB, recordStatsEvents := eui.NewCheckbox()
 	recordStatsCB.Text = "Record Asset Stats"
@@ -5526,7 +5425,6 @@ func makeDebugWindow() {
 
 	hideMoveCB, hideMoveEvents := eui.NewCheckbox()
 	hideMoveCB.Text = "Hide Moving Objects"
-	hideMoveCB.SetTooltip("Helpful for screenshots")
 	hideMoveCB.Size = eui.Point{X: width, Y: 24}
 	hideMoveCB.Checked = gs.hideMoving
 	hideMoveEvents.Handle = func(ev eui.UIEvent) {
@@ -5539,7 +5437,6 @@ func makeDebugWindow() {
 
 	hideMobCB, hideMobEvents := eui.NewCheckbox()
 	hideMobCB.Text = "Hide Mobiles"
-	hideMobCB.SetTooltip("Helpful for screenshots")
 	hideMobCB.Size = eui.Point{X: width, Y: 24}
 	hideMobCB.Checked = gs.hideMobiles
 	hideMobEvents.Handle = func(ev eui.UIEvent) {
@@ -5565,7 +5462,6 @@ func makeDebugWindow() {
 
 	pictIDCB, pictIDEvents := eui.NewCheckbox()
 	pictIDCB.Text = "Show picture IDs"
-	pictIDCB.SetTooltip("Shows picture ID on each sprite")
 	pictIDCB.Size = eui.Point{X: width, Y: 24}
 	pictIDCB.Checked = gs.pictIDDebug
 	pictIDEvents.Handle = func(ev eui.UIEvent) {
@@ -5581,7 +5477,6 @@ func makeDebugWindow() {
 	reloadBtn.Text = "Reload Shaders"
 	setMaterialButtonIcon(reloadBtn, "restart_alt")
 	reloadBtn.Size = eui.Point{X: 160, Y: 24}
-	reloadBtn.SetTooltip("Reload effect shaders.")
 	reloadEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			if err := ReloadLightingShader(); err != nil {
@@ -5676,83 +5571,14 @@ func makeDebugWindow() {
 	}
 	sceneSection.AddItem(pictAgainCB)
 
-	cacheLabel, _ := eui.NewText()
-	cacheLabel.Text = "Caches:"
-	cacheLabel.Size = eui.Point{X: width, Y: 24}
-	cacheLabel.FontSize = 10
-	cacheSection.AddItem(cacheLabel)
-
-	sheetCacheLabel, _ = eui.NewText()
-	sheetCacheLabel.Text = ""
-	sheetCacheLabel.Size = eui.Point{X: width, Y: 24}
-	sheetCacheLabel.FontSize = 10
-	cacheSection.AddItem(sheetCacheLabel)
-
-	frameCacheLabel, _ = eui.NewText()
-	frameCacheLabel.Text = ""
-	frameCacheLabel.Size = eui.Point{X: width, Y: 24}
-	frameCacheLabel.FontSize = 10
-	cacheSection.AddItem(frameCacheLabel)
-
-	scaledFrameCacheLabel, _ = eui.NewText()
-	scaledFrameCacheLabel.Text = ""
-	scaledFrameCacheLabel.Size = eui.Point{X: width, Y: 24}
-	scaledFrameCacheLabel.FontSize = 10
-	cacheSection.AddItem(scaledFrameCacheLabel)
-
-	mobileCacheLabel, _ = eui.NewText()
-	mobileCacheLabel.Text = ""
-	mobileCacheLabel.Size = eui.Point{X: width, Y: 24}
-	mobileCacheLabel.FontSize = 10
-	cacheSection.AddItem(mobileCacheLabel)
-
-	scaledMobileCacheLabel, _ = eui.NewText()
-	scaledMobileCacheLabel.Text = ""
-	scaledMobileCacheLabel.Size = eui.Point{X: width, Y: 24}
-	scaledMobileCacheLabel.FontSize = 10
-	cacheSection.AddItem(scaledMobileCacheLabel)
-	spriteSlotCacheLabel, _ = eui.NewText()
-	spriteSlotCacheLabel.Size = eui.Point{X: width, Y: 80}
-	spriteSlotCacheLabel.FontSize = 10
-	spriteSlotCacheLabel.SetTooltip("Live slot area determines cache pressure; spare allocations do not. First IDs and reloads count sprite residencies, not individual poses. A reload means a previously evicted ID returned. Counters reset when artwork caches are cleared.")
-	cacheSection.AddItem(spriteSlotCacheLabel)
-	renderPoolCacheLabel, _ = eui.NewText()
-	renderPoolCacheLabel.Size = eui.Point{X: width, Y: 48}
-	renderPoolCacheLabel.FontSize = 10
-	renderPoolCacheLabel.SetTooltip("Active and spare managed render allocations, including slot padding. Atlas packing overhead is additional.")
-	cacheSection.AddItem(renderPoolCacheLabel)
-
-	soundCacheLabel, _ = eui.NewText()
-	soundCacheLabel.Text = ""
-	soundCacheLabel.Size = eui.Point{X: width, Y: 24}
-	soundCacheLabel.FontSize = 10
-	cacheSection.AddItem(soundCacheLabel)
-
-	clearCacheBtn, clearCacheEvents := eui.NewButton()
-	clearCacheBtn.Text = "Clear All Caches"
-	setMaterialButtonIcon(clearCacheBtn, "delete_sweep")
-	clearCacheBtn.Size = eui.Point{X: width, Y: 24}
-	clearCacheEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			clearCaches()
-			updateDebugStats()
-		}
-	}
-	cacheSection.AddItem(clearCacheBtn)
-	totalCacheLabel, _ = eui.NewText()
-	totalCacheLabel.Text = ""
-	totalCacheLabel.Size = eui.Point{X: width, Y: 24}
-	totalCacheLabel.FontSize = 10
-	cacheSection.AddItem(totalCacheLabel)
-
 	debugWin.AddItem(debugFlow)
 
 	debugWin.AddWindow(false)
 }
 
-// updateDebugStats refreshes the cache statistics displayed in the debug window.
+// updateDebugStats refreshes the dedicated cache statistics window.
 func updateDebugStats() {
-	if debugWin == nil || !debugWin.IsOpen() {
+	if cacheStatsWin == nil || !cacheStatsWin.IsOpen() {
 		return
 	}
 

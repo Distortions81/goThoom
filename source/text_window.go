@@ -101,8 +101,21 @@ func (cache *textWindowWrapCache) finish(messageCount int) {
 
 func alternateRowColor() eui.Color { return eui.SubtleAlternateRowColor() }
 
-func restoreAlternateTextRow(row *eui.ItemData, index int) {
-	row.Filled = gs.AlternateRowBackgrounds && index%2 == 1
+func alternatingTextRows(win *eui.WindowData) bool {
+	if win == nil {
+		return false
+	}
+	if win == chatWin {
+		return gs.ChatAlternatingRowColors
+	}
+	if win == consoleWin {
+		return gs.ConsoleAlternatingRowColors
+	}
+	return false
+}
+
+func restoreAlternateTextRow(row *eui.ItemData, index int, enabled bool) {
+	row.Filled = enabled && index%2 == 1
 	if row.Filled {
 		row.Color = alternateRowColor()
 	} else {
@@ -268,7 +281,7 @@ func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs [
 			list.Contents[i].Size.Y = rowUnits * float32(linesN)
 			list.Contents[i].Size.X = contentWUnits
 			list.Contents[i].SelectableText = true
-			list.Contents[i].Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
+			list.Contents[i].Filled = alternateRows && i%2 == 1
 			list.Contents[i].Color = alternateRowColor()
 			list.Contents[i].OnURLClick = func(url string) { _ = browser.OpenURL(url) }
 		} else {
@@ -278,7 +291,7 @@ func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs [
 			t.Face = face
 			t.Size = eui.Point{X: contentWUnits, Y: rowUnits * float32(linesN)}
 			t.SelectableText = true
-			t.Filled = alternateRows && gs.AlternateRowBackgrounds && i%2 == 1
+			t.Filled = alternateRows && i%2 == 1
 			t.Color = alternateRowColor()
 			t.OnURLClick = func(url string) { _ = browser.OpenURL(url) }
 			// Append to maintain ordering with the msgs index
@@ -478,7 +491,7 @@ func applyTextWindowSearch(list *eui.ItemData, query string) {
 			it.Color = accent
 			marks = append(marks, float32(i)/float32(total))
 		} else {
-			restoreAlternateTextRow(it, i)
+			restoreAlternateTextRow(it, i, alternatingTextRows(list.ParentWindow))
 		}
 	}
 	list.ScrollMarks = marks

@@ -3,6 +3,7 @@ package main
 import "testing"
 
 func TestMixerEnhancementCheckboxesLoadSavedState(t *testing.T) {
+	initFont()
 	originalGS := gs
 	originalMixerWin := mixerWin
 	originalGameMixSlider := gameMixSlider

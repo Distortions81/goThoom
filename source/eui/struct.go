@@ -50,6 +50,9 @@ type windowData struct {
 	AlwaysDrawFirst bool
 	NoCache         bool
 
+	// ShowTooltipIndicators marks controls with hover help in configuration windows.
+	ShowTooltipIndicators bool
+
 	TitleHeight float32
 
 	// Visual customization
@@ -231,6 +234,8 @@ type itemData struct {
 	ActiveTab int
 	// TabColumns wraps the tab strip after this many tabs. Zero keeps one row.
 	TabColumns int
+	// TabRowOffset indents every other wrapped tab row in logical pixels.
+	TabRowOffset float32
 
 	Theme *Theme
 	// DrawRect stores the last drawn rectangle of the item in screen

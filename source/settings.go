@@ -160,53 +160,56 @@ var gsdef settings = settings{
 	Version:            SETTINGS_VERSION,
 	SetupWizardVersion: 0,
 
-	LastCharacter:           "",
-	ClickToToggle:           false,
-	MiddleClickMoveWindow:   false,
-	InputBarAlwaysOpen:      true,
-	KBWalkSpeed:             0.25,
-	MainFontSize:            8,
-	BubbleFontSize:          20,
-	ConsoleFontSize:         12,
-	ChatFontSize:            12,
-	InventoryFontSize:       14,
-	PlayersFontSize:         14,
-	ShowRecentPlayers:       true,
-	GroupClanMembers:        false,
-	PlayerShareIcons:        false,
-	AlternateRowBackgrounds: true,
-	BubbleOpacity:           0.8,
-	BubbleLifetimeMode:      BubbleLifetimeModern,
-	BubbleBaseLife:          2,
-	BubbleLifePerWord:       1,
-	BubbleScale:             2.0,
-	NameBgOpacity:           0.8,
-	DarkBubblesAndNames:     true,
-	NameHealthBarModern:     true,
-	NameHealthBarAbove:      true,
-	NameHealthBarThickness:  3,
-	NameTagLabelColors:      true,
-	HideSelfNameTag:         false,
-	NameTagsOnHoverOnly:     false,
-	BarOpacity:              0.66,
-	ObscuringPictureOpacity: 0.66,
-	FadeObscuringPictures:   true,
-	SpeechBubbles:           true,
-	AnimatedChatBubbles:     true,
-	AvoidBubbleOverlap:      true,
-	BubbleNormal:            true,
-	BubbleWhisper:           true,
-	BubbleYell:              true,
-	BubbleThought:           true,
-	BubbleRealAction:        true,
-	BubbleMonster:           true,
-	BubblePlayerAction:      true,
-	BubblePonder:            true,
-	BubbleNarrate:           true,
-	BubbleSelf:              true,
-	BubbleOtherPlayers:      true,
-	BubbleMonsters:          true,
-	BubbleNarration:         true,
+	LastCharacter:                 "",
+	ClickToToggle:                 false,
+	MiddleClickMoveWindow:         false,
+	InputBarAlwaysOpen:            true,
+	KBWalkSpeed:                   0.25,
+	MainFontSize:                  8,
+	BubbleFontSize:                20,
+	ConsoleFontSize:               12,
+	ChatFontSize:                  12,
+	InventoryFontSize:             14,
+	PlayersFontSize:               14,
+	ShowRecentPlayers:             true,
+	GroupClanMembers:              false,
+	PlayerShareIcons:              false,
+	InventoryAlternatingRowColors: true,
+	ChatAlternatingRowColors:      false,
+	ConsoleAlternatingRowColors:   false,
+	PlayersAlternatingRowColors:   false,
+	BubbleOpacity:                 0.8,
+	BubbleLifetimeMode:            BubbleLifetimeModern,
+	BubbleBaseLife:                2,
+	BubbleLifePerWord:             1,
+	BubbleScale:                   2.0,
+	NameBgOpacity:                 0.8,
+	DarkBubblesAndNames:           true,
+	NameHealthBarModern:           true,
+	NameHealthBarAbove:            true,
+	NameHealthBarThickness:        3,
+	NameTagLabelColors:            true,
+	HideSelfNameTag:               false,
+	NameTagsOnHoverOnly:           false,
+	BarOpacity:                    0.66,
+	ObscuringPictureOpacity:       0.66,
+	FadeObscuringPictures:         true,
+	SpeechBubbles:                 true,
+	AnimatedChatBubbles:           true,
+	AvoidBubbleOverlap:            true,
+	BubbleNormal:                  true,
+	BubbleWhisper:                 true,
+	BubbleYell:                    true,
+	BubbleThought:                 true,
+	BubbleRealAction:              true,
+	BubbleMonster:                 true,
+	BubblePlayerAction:            true,
+	BubblePonder:                  true,
+	BubbleNarrate:                 true,
+	BubbleSelf:                    true,
+	BubbleOtherPlayers:            true,
+	BubbleMonsters:                true,
+	BubbleNarration:               true,
 
 	MotionSmoothing:                true,
 	InterpolateSmallMovingPictures: true,
@@ -229,8 +232,8 @@ var gsdef settings = settings{
 	Music:                          true,
 	GameSound:                      true,
 	Mute:                           false,
-	GameScale:                      4.0,
-	SpriteUpscale:                  4,
+	GameScale:                      2.0,
+	SpriteUpscale:                  2,
 	SpriteUpscaleFilter:            true,
 	SpriteUpscaleMode:              artworkUpscaleBalanced,
 	ReplacementEffects:             false,
@@ -380,27 +383,30 @@ type settings struct {
 	Version            int
 	SetupWizardVersion int
 
-	LastCharacter           string
-	ClickToToggle           bool
-	MiddleClickMoveWindow   bool
-	InputBarAlwaysOpen      bool
-	KBWalkSpeed             float64
-	MainFontSize            float64
-	BubbleFontSize          float64
-	ConsoleFontSize         float64
-	ChatFontSize            float64
-	InventoryFontSize       float64
-	PlayersFontSize         float64
-	ShowRecentPlayers       bool
-	GroupClanMembers        bool
-	PlayerShareIcons        bool
-	PlayerGroups            customGroups
-	InventoryGroups         customGroups
-	AlternateRowBackgrounds bool
-	BubbleOpacity           float64
-	BubbleLifetimeMode      string
-	BubbleBaseLife          float64
-	BubbleLifePerWord       float64
+	LastCharacter                 string
+	ClickToToggle                 bool
+	MiddleClickMoveWindow         bool
+	InputBarAlwaysOpen            bool
+	KBWalkSpeed                   float64
+	MainFontSize                  float64
+	BubbleFontSize                float64
+	ConsoleFontSize               float64
+	ChatFontSize                  float64
+	InventoryFontSize             float64
+	PlayersFontSize               float64
+	ShowRecentPlayers             bool
+	GroupClanMembers              bool
+	PlayerShareIcons              bool
+	PlayerGroups                  customGroups
+	InventoryGroups               customGroups
+	InventoryAlternatingRowColors bool
+	ChatAlternatingRowColors      bool
+	ConsoleAlternatingRowColors   bool
+	PlayersAlternatingRowColors   bool
+	BubbleOpacity                 float64
+	BubbleLifetimeMode            string
+	BubbleBaseLife                float64
+	BubbleLifePerWord             float64
 	// BubbleScale scales bubble visuals (not font). Range 1.0–8.0.
 	BubbleScale            float64
 	NameBgOpacity          float64
@@ -630,8 +636,9 @@ func loadSettings() bool {
 
 	type legacySettingsFile struct {
 		settings
-		LegacySoundReverb *bool `json:"SoundReverb"`
-		LegacyMusicReverb *bool `json:"MusicReverb"`
+		LegacyAlternateRows *bool `json:"AlternateRowBackgrounds"`
+		LegacySoundReverb   *bool `json:"SoundReverb"`
+		LegacyMusicReverb   *bool `json:"MusicReverb"`
 	}
 
 	version, modern, err := settingsDocumentVersion(data)
@@ -666,6 +673,9 @@ func loadSettings() bool {
 		}
 		if tmp.LegacyMusicReverb != nil {
 			tmp.settings.MusicEnhancement = *tmp.LegacyMusicReverb
+		}
+		if tmp.LegacyAlternateRows != nil {
+			tmp.settings.InventoryAlternatingRowColors = *tmp.LegacyAlternateRows
 		}
 		gs = tmp.settings
 		gs.Version = SETTINGS_VERSION
@@ -798,7 +808,7 @@ func applySettings() {
 	eui.SetWindowSnapping(gs.WindowSnapping)
 	eui.SetMiddleClickMove(gs.MiddleClickMoveWindow)
 	eui.SetPotatoMode(gs.PotatoGPU)
-	eui.SetWindowShadows(gs.WindowShadows)
+	applyWindowShadowsSetting()
 	climg.SetPotatoMode(gs.PotatoGPU)
 	if clImages != nil {
 		clImages.SetDenoise(gs.DenoiseImages, gs.DenoiseSharpness, gs.DenoiseAmount)
@@ -1328,7 +1338,6 @@ func restoreWindowsAfterScale() {
 }
 
 type qualityPreset struct {
-	gameScale                float64
 	artworkUpscaleMode       int
 	fadeObscuringPictures    bool
 	precacheSounds           bool
@@ -1345,16 +1354,13 @@ type qualityPreset struct {
 
 var (
 	lowestPreset = qualityPreset{
-		gameScale:          2,
 		artworkUpscaleMode: artworkUpscaleOff,
 	}
 	lowPreset = qualityPreset{
-		gameScale:          2,
 		artworkUpscaleMode: artworkUpscaleBalanced,
 		characterShadows:   true,
 	}
 	mediumPreset = qualityPreset{
-		gameScale:          2,
 		artworkUpscaleMode: artworkUpscaleBalanced,
 		precacheSounds:     true,
 		windowShadows:      true,
@@ -1363,7 +1369,6 @@ var (
 		shaderLighting:     true,
 	}
 	highPreset = qualityPreset{
-		gameScale:                3,
 		artworkUpscaleMode:       artworkUpscaleBalanced,
 		fadeObscuringPictures:    true,
 		precacheSounds:           true,
@@ -1376,7 +1381,6 @@ var (
 		musicEnhancement:         true,
 	}
 	ultraPreset = qualityPreset{
-		gameScale:                4,
 		artworkUpscaleMode:       artworkUpscaleBalanced,
 		fadeObscuringPictures:    true,
 		precacheSounds:           true,
@@ -1408,7 +1412,6 @@ func applyQualityPreset(name string) {
 		return
 	}
 
-	gs.GameScale = p.gameScale
 	setArtworkUpscaleMode(p.artworkUpscaleMode)
 	gs.FadeObscuringPictures = p.fadeObscuringPictures
 	gs.PrecacheSounds = p.precacheSounds
@@ -1449,9 +1452,6 @@ func applyQualityPreset(name string) {
 	if potatoCB != nil {
 		potatoCB.Checked = gs.PotatoGPU
 	}
-	if windowShadowsCB != nil {
-		windowShadowsCB.Checked = gs.WindowShadows
-	}
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
 	}
@@ -1459,21 +1459,15 @@ func applyQualityPreset(name string) {
 	if upscaleModeDD != nil {
 		upscaleModeDD.Selected = artworkUpscaleMode()
 	}
-	if soundEnhanceCB != nil {
-		soundEnhanceCB.Checked = gs.SoundEnhancement
-	}
 	if resampleAudioCB != nil {
 		resampleAudioCB.Checked = gs.HighQualityResampling
-	}
-	if musicEnhanceCB != nil {
-		musicEnhanceCB.Checked = gs.MusicEnhancement
 	}
 	refreshMixerEnhancementControls()
 	applySettings()
 	clearCaches()
 	settingsDirty = true
-	if qualityWin != nil {
-		qualityWin.Refresh()
+	if settingsWin != nil {
+		settingsWin.Refresh()
 	}
 	if graphicsWin != nil {
 		graphicsWin.Refresh()
@@ -1484,8 +1478,7 @@ func applyQualityPreset(name string) {
 }
 
 func matchesPreset(p qualityPreset) bool {
-	return gs.GameScale == p.gameScale &&
-		artworkUpscaleMode() == p.artworkUpscaleMode &&
+	return artworkUpscaleMode() == p.artworkUpscaleMode &&
 		gs.FadeObscuringPictures == p.fadeObscuringPictures &&
 		gs.PrecacheSounds == p.precacheSounds &&
 		gs.WindowShadows == p.windowShadows &&

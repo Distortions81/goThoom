@@ -19,6 +19,7 @@ func makeFilePathsWindow() {
 		return
 	}
 	filePathsWin = eui.NewWindow()
+	filePathsWin.ShowTooltipIndicators = true
 	filePathsWin.Title = "File Paths"
 	filePathsWin.Closable = true
 	filePathsWin.Resizable = false
@@ -28,7 +29,7 @@ func makeFilePathsWindow() {
 
 	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	info, _ := eui.NewText()
-	info.Text = "Choose alternate folders for assets and audio, logs, legacy macros, and Go scripts. Saved changes take effect after restarting goThoom."
+	info.Text = "Choose alternate folders for assets and audio, logs, legacy macros, and Go scripts.\nSaved changes take effect after restarting goThoom."
 	info.Size = eui.Point{X: 720, Y: 36}
 	info.FontSize = 11
 	flow.AddItem(info)
@@ -46,7 +47,7 @@ func makeFilePathsWindow() {
 	}
 
 	note, _ := eui.NewText()
-	note.Text = "Every destination is created if needed, then tested by writing, reading, and removing a temporary file before the setting is saved."
+	note.Text = "Every destination is created if needed, then tested by writing, reading, and removing\na temporary file before the setting is saved."
 	note.Size = eui.Point{X: 720, Y: 36}
 	note.FontSize = 10
 	flow.AddItem(note)
@@ -67,6 +68,7 @@ func makeFilePathRow(kind storagePathKind) *eui.ItemData {
 	label, _ := eui.NewText()
 	label.Text = storagePathName(kind)
 	label.Size = eui.Point{X: 115, Y: 24}
+	label.FontSize = 12
 	applyBoldFace(label)
 	row.AddItem(label)
 

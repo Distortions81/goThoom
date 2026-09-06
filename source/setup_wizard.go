@@ -66,6 +66,7 @@ func openSetupWizard(force bool) {
 	setupWizardVSyncBypass = false
 	if setupWizardWin == nil {
 		setupWizardWin = eui.NewWindow()
+		setupWizardWin.ShowTooltipIndicators = true
 		setupWizardWin.Closable = false
 		setupWizardWin.Resizable = false
 		setupWizardWin.AutoSize = true
@@ -591,7 +592,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	}
 	root.AddItem(graphicsMode)
 
-	root.AddItem(setupWizardSlider("Max Upscale", "Sets the maximum artwork upscale from 2x to 4x. Actual texture resolution is capped to twice its fitted on-screen size.", 2, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
+	root.AddItem(setupWizardSlider("Artwork scale override", "Fixed artwork texture scale, independent of game-window size. Default: 2x. Higher values use more GPU memory.", 2, 4, float32(math.Round(gs.GameScale)), true, func(value float32) {
 		previousUpscale := gs.SpriteUpscale
 		gs.GameScale = math.Round(float64(value))
 		gs.SpriteUpscale = spriteUpscaleFactor()
@@ -604,6 +605,8 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		}
 		settingsDirty = true
 	}))
+
+	root.AddItem(newArtworkScaleGuidance(620))
 
 	root.AddItem(setupWizardCheckbox(
 		"Blend image dithering",
@@ -1056,7 +1059,7 @@ func buildSetupFinishPage(root *eui.ItemData) {
 		movement = "click-to-toggle"
 	}
 	root.AddItem(setupWizardText(fmt.Sprintf(
-		"Movement: %s\nMax upscale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader effects: %s\nShader lighting: %s",
+		"Movement: %s\nArtwork scale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader effects: %s\nShader lighting: %s",
 		movement,
 		gs.GameScale,
 		setupWizardToolbarPlacementName(gs.ToolbarPlacement),
@@ -1171,15 +1174,6 @@ func rebuildSettingsAfterSetupWizard() {
 		}
 	}
 	selectSettingsTab(selectedTab)
-	if qualityWin != nil {
-		wasOpen := qualityWin.IsOpen()
-		qualityWin.RemoveWindow()
-		qualityWin = nil
-		makeQualityWindow()
-		if wasOpen {
-			qualityWin.MarkOpen()
-		}
-	}
 }
 
 func markQualityCustom() {
@@ -1187,8 +1181,8 @@ func markQualityCustom() {
 	if qualityPresetDD != nil {
 		qualityPresetDD.Selected = detectQualityPreset()
 	}
-	if qualityWin != nil {
-		qualityWin.Refresh()
+	if settingsWin != nil {
+		settingsWin.Refresh()
 	}
 }
 

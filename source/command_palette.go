@@ -304,7 +304,7 @@ func buildCommandPaletteActions() []commandPaletteAction {
 	actions := []commandPaletteAction{
 		{label: "Command: /setting", detail: "Prefill settings command", search: "search get set reset", run: func() { prefillPaletteCommand("/setting ") }},
 		{label: "Window: Settings", detail: "Open settings", run: func() { openPaletteWindow(settingsWin) }},
-		{label: "Window: Quality Options", detail: "Open graphics quality settings", run: func() { openPaletteWindow(qualityWin) }},
+		{label: "Settings: Graphics & Performance", detail: "Open artwork, effects, rendering, caching, and power settings", run: func() { selectSettingsTab("Performance"); openPaletteWindow(settingsWin) }},
 		{label: "Window: Audio Mixer", detail: "Open audio controls", run: func() { openPaletteWindow(mixerWin) }},
 		{label: "Window: Notifications", detail: "Open notification settings", run: func() { openPaletteWindow(notificationsWin) }},
 		{label: "Window: Speech Bubbles", detail: "Open speech bubble settings", run: func() { openPaletteWindow(bubbleWin) }},
@@ -324,6 +324,15 @@ func buildCommandPaletteActions() []commandPaletteAction {
 		{label: "Window: Chat", detail: "Open chat", run: func() { openPaletteWindow(chatWin) }},
 		{label: "Window: Console", detail: "Open console", run: func() { openPaletteWindow(consoleWin) }},
 		{label: "Window: Help", detail: "Open help", run: func() { openHelpWindow(nil) }},
+		{label: "Window: Cache Statistics", detail: "Open live cache usage", run: func() {
+			makeCacheStatsWindow()
+			openPaletteWindow(cacheStatsWin)
+			updateDebugStats()
+		}},
+		{label: "Window: Script Events", detail: "Record and inspect script callback activity", run: func() {
+			makeScriptEventsWindow()
+			openPaletteWindow(scriptEventsWin)
+		}},
 		{label: "Window: Debug", detail: "Open debugging information", run: func() { openPaletteWindow(debugWin) }},
 		{label: "Action: Exit Session", detail: "Disconnect or return to login", search: "exit disconnect movie", run: confirmExitSession},
 		{label: "Action: Quit goThoom", detail: "Close the application", search: "exit application", run: confirmQuit},
@@ -669,7 +678,6 @@ func rebuildConfigurationWindows() {
 	selectedTab := selectedSettingsTab()
 	rebuild(&settingsWin, makeSettingsWindow)
 	selectSettingsTab(selectedTab)
-	rebuild(&qualityWin, makeQualityWindow)
 	rebuild(&notificationsWin, makeNotificationsWindow)
 	rebuild(&bubbleWin, makeBubbleWindow)
 	rebuild(&mixerWin, makeMixerWindow)

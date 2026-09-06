@@ -9,22 +9,22 @@ import (
 
 func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	defaults := map[string]bool{
-		"fade obscuring pictures":    gsdef.FadeObscuringPictures,
-		"smooth movement":            gsdef.MotionSmoothing,
-		"floating-point coordinates": gsdef.FloatingPointSpriteCoords,
-		"world animation blending":   gsdef.BlendPicts,
-		"shader master":              gsdef.ShadersEnabled,
-		"shader lighting":            gsdef.ShaderLighting,
-		"flame light flicker":        gsdef.FlameLightFlicker,
-		"character shadows":          gsdef.CharacterShadows,
-		"characters receive shadows": gsdef.MobilesReceiveSunShadows,
-		"artwork upscale filter":     gsdef.SpriteUpscaleFilter,
-		"sprite gamma correction":    gsdef.SpriteGammaCorrection,
-		"throttle sounds":            gsdef.ThrottleSounds,
-		"alternate row backgrounds":  gsdef.AlternateRowBackgrounds,
-		"window shadows":             gsdef.WindowShadows,
-		"animated chat bubbles":      gsdef.AnimatedChatBubbles,
-		"bubble overlap prevention":  gsdef.AvoidBubbleOverlap,
+		"fade obscuring pictures":          gsdef.FadeObscuringPictures,
+		"smooth movement":                  gsdef.MotionSmoothing,
+		"floating-point coordinates":       gsdef.FloatingPointSpriteCoords,
+		"world animation blending":         gsdef.BlendPicts,
+		"shader master":                    gsdef.ShadersEnabled,
+		"shader lighting":                  gsdef.ShaderLighting,
+		"flame light flicker":              gsdef.FlameLightFlicker,
+		"character shadows":                gsdef.CharacterShadows,
+		"characters receive shadows":       gsdef.MobilesReceiveSunShadows,
+		"artwork upscale filter":           gsdef.SpriteUpscaleFilter,
+		"sprite gamma correction":          gsdef.SpriteGammaCorrection,
+		"throttle sounds":                  gsdef.ThrottleSounds,
+		"inventory alternating row colors": gsdef.InventoryAlternatingRowColors,
+		"window shadows":                   gsdef.WindowShadows,
+		"animated chat bubbles":            gsdef.AnimatedChatBubbles,
+		"bubble overlap prevention":        gsdef.AvoidBubbleOverlap,
 	}
 	for name, enabled := range defaults {
 		if !enabled {
@@ -43,8 +43,8 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 }
 
 func TestArtworkUpscaleDefaults(t *testing.T) {
-	if gsdef.GameScale != 4 || gsdef.SpriteUpscale != 4 || gsdef.SpriteUpscaleMode != artworkUpscaleBalanced {
-		t.Fatalf("default artwork upscale = (%v, %d, %d), want 4x Balanced", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
+	if gsdef.GameScale != 2 || gsdef.SpriteUpscale != 2 || gsdef.SpriteUpscaleMode != artworkUpscaleBalanced {
+		t.Fatalf("default artwork upscale = (%v, %d, %d), want 2x Balanced", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)
 	}
 }
 
@@ -251,8 +251,8 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	if gs.BlendMobiles {
 		t.Error("settings without BlendMobiles should default it off")
 	}
-	if gs.GameScale != 4 || gs.SpriteUpscale != 4 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleBalanced {
-		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (4, 4, true, Balanced)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
+	if gs.GameScale != 2 || gs.SpriteUpscale != 2 || !gs.SpriteUpscaleFilter || gs.SpriteUpscaleMode != artworkUpscaleBalanced {
+		t.Errorf("settings without artwork upscale values defaulted to (%v, %d, %v, %d), want (2, 2, true, Balanced)", gs.GameScale, gs.SpriteUpscale, gs.SpriteUpscaleFilter, gs.SpriteUpscaleMode)
 	}
 	if !gs.FlameLightFlicker {
 		t.Error("settings without FlameLightFlicker should default it on")

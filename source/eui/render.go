@@ -94,6 +94,25 @@ func tabStripHeight(item, style *itemData) float32 {
 	return tabRowHeight(item, style)*float32(rows) + float32(rows-1)*4*uiScale
 }
 
+// staggeredTabStripWidth reserves the horizontal space added by row offsets.
+func staggeredTabStripWidth(item *itemData) float32 {
+	if item.TabColumns <= 0 || item.TabRowOffset == 0 {
+		return 0
+	}
+	size := tabFontSize(item, item.themeStyle())*uiScale + 2
+	var width, x float32
+	for i, tab := range item.Tabs {
+		if i%item.TabColumns == 0 {
+			x = float32((i/item.TabColumns)%2) * item.TabRowOffset * uiScale
+		}
+		tw, _ := text.Measure(tab.Name, itemFace(tab, size), 0)
+		w := max(float32(tw)+8, float32(defaultTabWidth)*uiScale)
+		width = max(width, x+w)
+		x += w + 4*uiScale
+	}
+	return width
+}
+
 // Draw renders the UI to the provided screen image.
 // Call this from your Ebiten Draw function.
 func Draw(screen *ebiten.Image) {
@@ -829,7 +848,7 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		tabY := offset.Y
 		for i, tab := range item.Tabs {
 			if item.TabColumns > 0 && i > 0 && i%item.TabColumns == 0 {
-				x = offset.X
+				x = offset.X + float32((i/item.TabColumns)%2)*item.TabRowOffset*uiScale
 				tabY += rowHeight + spacing
 			}
 			face := itemFace(tab, textSize)
@@ -1065,6 +1084,17 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		style = disabledStyle(style)
 	}
 
+	// Keep the marker in the label row when there is one, so slider tracks,
+	// inputs, and dropdown arrows retain their existing geometry.
+	info := item.tooltipIndicatorRect(offset, maxSize)
+	textTarget := subImg
+	if info.X1 > info.X0 {
+		clip := subImg.Bounds()
+		clip.Max.X = min(clip.Max.X, int(info.X0-3*uiScale))
+		textTarget = subImg.SubImage(clip).(*ebiten.Image)
+		defer drawTooltipIndicator(subImg, info, style.TextColor)
+	}
+
 	if item.Label != "" {
 		textSize := (item.FontSize * uiScale) + 2
 		face := itemFace(item, textSize)
@@ -1075,7 +1105,8 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		if style != nil {
 			top.ColorScale.ScaleWithColor(style.TextColor)
 		}
-		text.Draw(subImg, item.Label, face, top)
+		text.Draw(textTarget, item.Label, face, top)
+		textTarget = subImg
 		offset.Y += textSize + currentStyle.TextPadding*uiScale
 		maxSize.Y -= textSize + currentStyle.TextPadding*uiScale
 		if maxSize.Y < 0 {
@@ -1138,7 +1169,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		)
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 		top.ColorScale.ScaleWithColor(style.TextColor)
-		text.Draw(subImg, item.Text, face, top)
+		text.Draw(textTarget, item.Text, face, top)
 
 	} else if item.ItemType == ITEM_RADIO {
 
@@ -1194,7 +1225,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		)
 		top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 		top.ColorScale.ScaleWithColor(style.TextColor)
-		text.Draw(subImg, item.Text, face, top)
+		text.Draw(textTarget, item.Text, face, top)
 
 	} else if item.ItemType == ITEM_BUTTON {
 
@@ -1219,6 +1250,9 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			face = boldFace(textSize)
 		}
 		textCenterX := float64(offset.X + maxSize.X/2)
+		if item.Label == "" && info.X1 > info.X0 {
+			textCenterX -= float64(9 * uiScale)
+		}
 		if item.Image != nil {
 			filter := ebiten.FilterNearest
 			disableMipmaps := true
@@ -1280,7 +1314,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			)
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 			top.ColorScale.ScaleWithColor(style.TextColor)
-			text.Draw(subImg, line, face, top)
+			text.Draw(textTarget, line, face, top)
 			i++
 		}
 
@@ -1327,7 +1361,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			)
 			top := &text.DrawOptions{DrawImageOptions: tdop, LayoutOptions: loo}
 			top.ColorScale.ScaleWithColor(style.TextColor)
-			text.Draw(subImg, line, face, top)
+			text.Draw(textTarget, line, face, top)
 			i++
 		}
 
@@ -1626,7 +1660,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			tcolor = item.TextColor
 		}
 		top.ColorScale.ScaleWithColor(tcolor)
-		text.Draw(subImg, item.Text, face, top)
+		text.Draw(textTarget, item.Text, face, top)
 		if item.Prediction != "" {
 			line := strings.Count(item.Text, "\n")
 			lastLine := item.Text[strings.LastIndexByte(item.Text, '\n')+1:]

@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/png"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -463,7 +462,7 @@ func prepareArtworkSheetsInternal(keys []sheetKey, baseOnly bool) int {
 		prepareStarted = time.Now()
 	}
 
-	factor := screenCappedArtworkUpscaleFactor()
+	factor := artworkUpscaleFactor()
 	mode := artworkUpscaleMode()
 	needUpscale := !baseOnly && artworkUpscaleEnabled()
 	imageMu.Lock()
@@ -1445,22 +1444,6 @@ func artworkUpscaleFactor() int {
 	return factor
 }
 
-// screenCappedArtworkUpscaleFactor limits cached texture resolution to twice
-// the sprite's actual fitted size on screen, with a 2x minimum. During
-// direct-resolution drawing, gs.GameScale is the fitted window scale rather
-// than the configured scale that originally populated SpriteUpscale.
-func screenCappedArtworkUpscaleFactor() int {
-	factor := artworkUpscaleFactor()
-	maxFactor := int(math.Floor(gs.GameScale*2 + 1e-9))
-	if maxFactor < 2 {
-		maxFactor = 2
-	}
-	if factor > maxFactor {
-		factor = maxFactor
-	}
-	return factor
-}
-
 func ensureScaledArtworkCacheFactorLocked(factor int) {
 	noteFrameAtlasFactorChange(scaledCacheFactor, uint8(factor))
 	if scaledCacheFactor != 0 && scaledCacheFactor != uint8(factor) {
@@ -1606,7 +1589,7 @@ func getScaledPictureFrame(id uint16, frame int, img *ebiten.Image) *ebiten.Imag
 		return img
 	}
 	for {
-		factor := screenCappedArtworkUpscaleFactor()
+		factor := artworkUpscaleFactor()
 		mode := artworkUpscaleMode()
 		frameCount := 1
 		if clImages != nil {
@@ -1799,7 +1782,7 @@ func getScaledMobileFrame(key mobileKey, img *ebiten.Image) *ebiten.Image {
 		return img
 	}
 	for {
-		factor := screenCappedArtworkUpscaleFactor()
+		factor := artworkUpscaleFactor()
 		mode := artworkUpscaleMode()
 		if !cacheScaledMobileFrames(key, factor, mode, img) {
 			continue

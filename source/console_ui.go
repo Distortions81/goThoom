@@ -48,7 +48,7 @@ func updateConsoleWindow() {
 	if consoleWindowMessages.dropped > 0 && !consoleWindowMessages.reset && consoleWindowMessages.dropped <= len(messagesFlow.Contents) {
 		messagesFlow.SetItems(messagesFlow.Contents[consoleWindowMessages.dropped:])
 	}
-	updateTextWindowFrom(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, true, &consoleTextWrapCache, firstChanged)
+	updateTextWindowFrom(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, gs.ConsoleAlternatingRowColors, &consoleTextWrapCache, firstChanged)
 	if consoleWin.SearchText != "" {
 		applyTextWindowSearch(messagesFlow, consoleWin.SearchText)
 	}
@@ -72,7 +72,7 @@ func updateConsoleWindow() {
 		}
 		if consoleWindowMessages.dropped > 0 && consoleWin.SearchText == "" {
 			for i, row := range messagesFlow.Contents {
-				restoreAlternateTextRow(row, i)
+				restoreAlternateTextRow(row, i, gs.ConsoleAlternatingRowColors)
 			}
 		}
 		// Scroll to bottom on new text; clamp occurs on Refresh.
@@ -190,7 +190,7 @@ func handleConsoleCopyRightClick(mx, my int) bool {
 		if pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1 {
 			// Clear previous highlights in this list.
 			for i, it := range messagesFlow.Contents {
-				restoreAlternateTextRow(it, i)
+				restoreAlternateTextRow(it, i, gs.ConsoleAlternatingRowColors)
 				it.Focused = false
 			}
 			// Highlight selected line briefly.
@@ -219,7 +219,7 @@ func scheduleConsoleUnhighlight(row *eui.ItemData) {
 			if consoleHighlighted == target {
 				for i, it := range messagesFlow.Contents {
 					if it == target {
-						restoreAlternateTextRow(it, i)
+						restoreAlternateTextRow(it, i, gs.ConsoleAlternatingRowColors)
 						break
 					}
 				}

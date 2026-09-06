@@ -57,15 +57,15 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 		{
 			name:   "Lowest",
 			preset: lowestPreset,
-			want:   qualityPreset{gameScale: 2, artworkUpscaleMode: artworkUpscaleOff},
+			want:   qualityPreset{artworkUpscaleMode: artworkUpscaleOff},
 			index:  0,
 		},
 		{
 			name:   "Low",
 			preset: lowPreset,
 			want: qualityPreset{
-				gameScale: 2, artworkUpscaleMode: artworkUpscaleBalanced,
-				characterShadows: true,
+				artworkUpscaleMode: artworkUpscaleBalanced,
+				characterShadows:   true,
 			},
 			index: 1,
 		},
@@ -73,8 +73,8 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 			name:   "Medium",
 			preset: mediumPreset,
 			want: qualityPreset{
-				gameScale: 2, artworkUpscaleMode: artworkUpscaleBalanced,
-				precacheSounds: true, windowShadows: true, characterShadows: true,
+				artworkUpscaleMode: artworkUpscaleBalanced,
+				precacheSounds:     true, windowShadows: true, characterShadows: true,
 				shadersEnabled: true, shaderLighting: true,
 			},
 			index: 2,
@@ -83,7 +83,7 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 			name:   "High",
 			preset: highPreset,
 			want: qualityPreset{
-				gameScale: 3, artworkUpscaleMode: artworkUpscaleBalanced,
+				artworkUpscaleMode:    artworkUpscaleBalanced,
 				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
 				characterShadows: true, shadersEnabled: true, shaderLighting: true,
 				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
@@ -94,7 +94,7 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 			name:   "Ultra",
 			preset: ultraPreset,
 			want: qualityPreset{
-				gameScale: 4, artworkUpscaleMode: artworkUpscaleBalanced,
+				artworkUpscaleMode:    artworkUpscaleBalanced,
 				fadeObscuringPictures: true, precacheSounds: true, windowShadows: true,
 				characterShadows: true, shadersEnabled: true, shaderLighting: true,
 				blendPicts: true, mobilesReceiveSunShadows: true, musicEnhancement: true,
@@ -109,7 +109,12 @@ func TestQualityPresetsApplyCumulativeTiers(t *testing.T) {
 				t.Fatalf("%s preset definition = %+v, want %+v", test.name, test.preset, test.want)
 			}
 			gs = gsdef
+			gs.GameScale = 4
+			gs.SpriteUpscale = 4
 			applyQualityPreset(test.name)
+			if gs.GameScale != 4 || gs.SpriteUpscale != 4 {
+				t.Fatal("quality preset changed the manual artwork scale override")
+			}
 			if !matchesPreset(test.preset) {
 				t.Fatalf("%s preset settings do not match its definition", test.name)
 			}

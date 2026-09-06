@@ -31,29 +31,29 @@ var lastPlayerClickName string
 var lastPlayerClickTime time.Time
 
 type playerRowSignature struct {
-	name              string
-	displayName       string
-	class             string
-	gender            string
-	colorsLen         uint8
-	colors            [maxColors]byte
-	pictID            uint16
-	friendLabel       int
-	offline           bool
-	dead              bool
-	local             bool
-	sharee            bool
-	sharing           bool
-	sameClan          bool
-	shareIcons        bool
-	alternateRows     bool
-	clientWidth       float32
-	rowUnits          float32
-	fontSize          float64
-	uiScale           float32
-	face              text.Face
-	outlineColor      eui.Color
-	alternateRowColor eui.Color
+	alternatingRows bool
+	alternateColor  eui.Color
+	name            string
+	displayName     string
+	class           string
+	gender          string
+	colorsLen       uint8
+	colors          [maxColors]byte
+	pictID          uint16
+	friendLabel     int
+	offline         bool
+	dead            bool
+	local           bool
+	sharee          bool
+	sharing         bool
+	sameClan        bool
+	shareIcons      bool
+	clientWidth     float32
+	rowUnits        float32
+	fontSize        float64
+	uiScale         float32
+	face            text.Face
+	outlineColor    eui.Color
 }
 
 type cachedPlayerRow struct {
@@ -274,10 +274,10 @@ func applyPlayersSearch(query string) {
 			row.Focused = false
 			continue
 		}
-		row.Focused = false
-		name := playersRowRefs[row]
 		alternate := playerIndex%2 == 1
 		playerIndex++
+		row.Focused = false
+		name := playersRowRefs[row]
 		if q != "" && strings.Contains(strings.ToLower(name), q) {
 			row.Filled = true
 			row.Color = accent
@@ -286,11 +286,10 @@ func applyPlayersSearch(query string) {
 			}
 			continue
 		}
-		row.Filled = gs.AlternateRowBackgrounds && alternate
+		row.Filled = gs.PlayersAlternatingRowColors && alternate
+		row.Color = eui.Color{}
 		if row.Filled {
 			row.Color = alternateRowColor()
-		} else {
-			row.Color = eui.Color{}
 		}
 	}
 	playersList.ScrollMarks = marks
@@ -384,27 +383,27 @@ func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float
 		outline = labelColor(p.FriendLabel)
 	}
 	signature := playerRowSignature{
-		name:              p.Name,
-		displayName:       displayName,
-		class:             p.Class,
-		gender:            p.Gender,
-		pictID:            p.PictID,
-		friendLabel:       p.FriendLabel,
-		offline:           p.Offline,
-		dead:              p.Dead,
-		local:             strings.EqualFold(p.Name, playerName),
-		sharee:            p.Sharee,
-		sharing:           p.Sharing,
-		sameClan:          p.SameClan,
-		shareIcons:        gs.PlayerShareIcons,
-		alternateRows:     gs.AlternateRowBackgrounds,
-		clientWidth:       clientWidth,
-		rowUnits:          rowUnits,
-		fontSize:          fontSize,
-		uiScale:           ui,
-		face:              playerRowFace(p),
-		outlineColor:      outline,
-		alternateRowColor: alternateRowColor(),
+		alternatingRows: gs.PlayersAlternatingRowColors,
+		alternateColor:  alternateRowColor(),
+		name:            p.Name,
+		displayName:     displayName,
+		class:           p.Class,
+		gender:          p.Gender,
+		pictID:          p.PictID,
+		friendLabel:     p.FriendLabel,
+		offline:         p.Offline,
+		dead:            p.Dead,
+		local:           strings.EqualFold(p.Name, playerName),
+		sharee:          p.Sharee,
+		sharing:         p.Sharing,
+		sameClan:        p.SameClan,
+		shareIcons:      gs.PlayerShareIcons,
+		clientWidth:     clientWidth,
+		rowUnits:        rowUnits,
+		fontSize:        fontSize,
+		uiScale:         ui,
+		face:            playerRowFace(p),
+		outlineColor:    outline,
 	}
 	colorCount := min(len(p.Colors), len(signature.colors))
 	signature.colorsLen = uint8(colorCount)
@@ -412,13 +411,11 @@ func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float
 	return signature
 }
 
-func makePlayerRow(p Player, signature playerRowSignature, rowIndex int) cachedPlayerRow {
+func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 	row := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
 		Fixed:    true,
-		Filled:   signature.alternateRows && rowIndex%2 == 1,
-		Color:    signature.alternateRowColor,
 	}
 	if signature.friendLabel > 0 {
 		row.Outlined = true
@@ -737,7 +734,6 @@ func updatePlayersWindow() {
 	nextRecentPlayersExpiry = time.Time{}
 	var selectedRow *eui.ItemData
 
-	rowIndex := 0
 	lastGroup := ""
 	for _, customGroup := range gs.PlayerGroups.Names {
 		if groupCounts["custom:"+customGroup] != 0 {
@@ -784,7 +780,7 @@ func updatePlayersWindow() {
 		signature := makePlayerRowSignature(p, myClan, clientWAvail, rowUnits, fontSize, ui)
 		cached, ok := cachedPlayerRows[p.Name]
 		if !ok || cached.signature != signature {
-			cached = makePlayerRow(p, signature, rowIndex)
+			cached = makePlayerRow(p, signature)
 		}
 		row := cached.row
 		nextRows[p.Name] = cached
@@ -795,7 +791,6 @@ func updatePlayersWindow() {
 		if p.Name == selectedPlayerName {
 			selectedRow = row
 		}
-		rowIndex++
 	}
 	cachedPlayerRows = nextRows
 	cachedPlayerHeaders = nextHeaders

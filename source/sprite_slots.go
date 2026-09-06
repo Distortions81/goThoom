@@ -359,7 +359,7 @@ func preallocateSpriteSlots() {
 	defer imageCacheLifecycleMu.RUnlock()
 	imageMu.Lock()
 	defer imageMu.Unlock()
-	factor := screenCappedArtworkUpscaleFactor()
+	factor := artworkUpscaleFactor()
 	ensureScaledArtworkCacheFactorLocked(factor)
 	spriteSlots.preallocate(factor, int64(scaledSpriteCacheMiB(gs.SpriteCacheMiB, factor))<<20)
 }

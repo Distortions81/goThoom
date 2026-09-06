@@ -162,7 +162,7 @@ func TestTabClickRefreshesAndResetsTheActiveFlow(t *testing.T) {
 	}
 }
 
-func TestWrappedTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
+func TestStaggeredTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
 	previousScale := uiScale
 	t.Cleanup(func() { uiScale = previousScale })
 	if err := EnsureFontSource(goregular.TTF); err != nil {
@@ -173,7 +173,7 @@ func TestWrappedTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
 		content := &itemData{ItemType: ITEM_TEXT, Size: point{X: 400, Y: 40}}
 		flow := &itemData{
 			ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL, Fixed: true,
-			Size: point{X: 400, Y: 160}, TabColumns: 3,
+			Size: point{X: 440, Y: 160}, TabColumns: 3, TabRowOffset: 16,
 			Tabs: []*itemData{
 				{Name: "Display", Contents: []*itemData{content}}, {Name: "Audio"}, {Name: "Text"},
 				{Name: "Controls"}, {Name: "Files"}, {Name: "Network"},
@@ -187,12 +187,15 @@ func TestWrappedTabsReserveSpaceAndHandleSecondRowClicks(t *testing.T) {
 		if got := flow.contentBounds().Y; got != content.GetSize().Y+stripHeight {
 			t.Fatalf("content height at %.1fx = %v, want %v", scale, got, content.GetSize().Y+stripHeight)
 		}
+		if got := flow.contentBounds().X; got < 408*scale {
+			t.Fatalf("content width at %.1fx = %v, missing staggered row space", scale, got)
+		}
 		screen := ebiten.NewImage(1200, 600)
 		flow.drawFlows(win, nil, point{X: 10, Y: 20}, point{X: 30, Y: 40},
 			rect{X0: 0, Y0: 0, X1: 1200, Y1: 600}, screen, new([]openDropdown))
 		screen.Deallocate()
 		first, secondRow := flow.Tabs[0].DrawRect, flow.Tabs[3].DrawRect
-		if secondRow.X0 != first.X0 || secondRow.Y0 != first.Y1+4*scale {
+		if secondRow.X0 != first.X0+16*scale || secondRow.Y0 != first.Y1+4*scale {
 			t.Fatalf("second row does not wrap below first at %.1fx: %v, %v", scale, first, secondRow)
 		}
 		click := point{X: (secondRow.X0 + secondRow.X1) / 2, Y: (secondRow.Y0 + secondRow.Y1) / 2}

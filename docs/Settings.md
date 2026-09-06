@@ -2,10 +2,13 @@
 
 goThoom stores persistent settings in the categorized version 4
 `settings.json` file in the user data folder. Most user preferences have a
-control in Settings, Quality, Mixer, Notifications, Speech
+control in Settings, Mixer, Notifications, Speech
 Bubbles, Controller, or Tiled Layout. This document lists the exceptions.
 
 ## Settings navigation
+
+Settings and configuration controls with hover help display a small circled
+“i”. Hover over the control to read its tooltip.
 
 The Settings window replaces the former Advanced window with ten topic tabs:
 
@@ -15,21 +18,55 @@ The Settings window replaces the former Advanced window with ten topic tabs:
 | World | Status bars, visibility, character names, and player-list grouping |
 | Text | Font sizes, chat timestamps, timestamp format, and text colors |
 | Bubbles | Speech bubble appearance, lifetime, and message-type options |
-| Audio | Mixer, sound processing, text to speech, and notifications |
-| Controls | Movement, keyboard bindings, hotkeys, gamepad, and script limits |
-| Performance | Graphics quality, sprite cache, artwork loading, and power saving |
-| Network | Server address, latency adjustment, and network timing |
+| Audio | Sound throttling/resampling, TTS enablement, file downloads, voice and speed, and notification preferences |
+| Controls | Movement behavior, keyboard walk speed, and gamepad |
+| Performance | Quality preset plus artwork, effects, rendering, caching, and power-saving subtabs |
+| Network | Server address and NLSPT safety margin |
 | Files | File paths, downloaded assets, user data and diagnostics folders, and recording |
 | Tools | Setup wizard, debug settings, and resetting all preferences |
 
-Tabs use two rows so every category remains visible in a compact window.
-Detailed editors such as Quality, File Paths, and Mixer still open separately.
+Settings uses a fixed 700 × 700 logical-pixel window (scaled with the UI and
+clamped to smaller screens). Switching tabs or Performance subtabs keeps the
+window size stable. Main Settings tabs use two staggered rows; Performance
+subtabs use a single row.
+Detailed editors such as File Paths still open separately.
+
+Toolbar controls have one home: **Windows → Reset Windows**, **Actions →
+Hotkeys/Keybindings**, **Audio** for notification sound and
+audio enhancement, and **Stats** for NLSPT enablement and live network timing.
+TTS enablement is also available in **Settings → Audio**, alongside its file
+download button and voice controls. Settings omits other duplicate launchers
+and controls. The command palette continues
+to provide searchable access to settings and actions.
+
+The **Performance** tab contains the quality preset, a shared **Enhanced visual effects**
+switch, and five subtabs:
+
+| Tab | Controls |
+| --- | --- |
+| Artwork | Scale override, upscale style, pixel alignment, foreground fading, gamma, and dither cleanup |
+| Motion | Movement smoothing, subpixel movement, and character/world animation blending |
+| Lighting & Effects | Lighting, window/character shadows, and a bottom Experimental section for replacement effects and mobile light-cone shadows |
+| Caching | Batch room artwork loading, sprite cache, sound precaching, activity dots, and GPU compatibility |
+| Power Saving | Background/focused power saving, FPS limit, and VSync |
+
+### Alternating row colors
+
+**Display → Appearance → Alternating row colors** has independent Inventory,
+Chat, Console, and Players checkboxes. Inventory defaults on; the others default
+off. Search matches and selected rows retain their highlights.
+
+The four preferences are saved under `interface` as
+`inventory_alternating_row_colors`, `chat_alternating_row_colors`,
+`console_alternating_row_colors`, and `players_alternating_row_colors`.
+Older `alternate_row_backgrounds` preferences migrate to Inventory only; the
+other windows use their new defaults until explicitly changed.
 
 ## Audit summary
 
-The current internal `settings` structure contains 180 exported fields:
+The current internal `settings` structure contains 183 exported fields:
 
-- 175 are mapped directly by the v4 JSON schema.
+- 178 are mapped directly by the v4 JSON schema.
 - `BarPlacement` and `SpriteUpscaleMode` are persisted separately as readable
   string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.
@@ -116,7 +153,7 @@ session.
 ### Network Latency & Server Phase Timing (NLSPT)
 
 Network Latency & Server Phase Timing is enabled by default. Its persisted
-setting is `general.nlspt_enabled`. The
+setting is `general.nlspt_enabled`; toggle it in **Stats → Enable NLSPT**. The
 Settings → Network **NLSPT safety (%)** slider controls the internal
 `networkAdjustmentSafetyPercent` value. It is deliberately session-only,
 accepts 0–50%, and starts at 10% each time goThoom launches. The learned server
@@ -133,7 +170,6 @@ Every scene or diagnostic override below resets when goThoom exits:
 
 | Debug control | Internal field | Startup value | Effect |
 | --- | --- | --- | --- |
-| Record script events | `scriptEventDebug` | Off | Captures script callback activity for the Debug window. |
 | Record Asset Stats | `recordAssetStats` | Off | Writes image-count diagnostics to `stats.json`. |
 | Hide Moving Objects | `hideMoving` | Off | Omits moving pictures, primarily for screenshots. |
 | Hide Mobiles | `hideMobiles` | Off | Omits mobiles, primarily for screenshots. |
@@ -146,6 +182,33 @@ Every scene or diagnostic override below resets when goThoom exits:
 The Debug window may mark settings as dirty after these controls change, but
 the v4 schema intentionally omits their internal fields, so saving another
 setting does not persist them.
+
+### Scripts
+
+**Actions → Scripts → Auto-kill spammy scripts** controls whether scripts that
+spam output are stopped automatically. It is enabled by default and saved as
+`scripts.stop_spamming_scripts`.
+
+### Diagnostic windows
+
+**Stats → Memory Use → Cache Statistics** shows live image, sound, sprite-slot,
+and render-pool cache usage and provides **Clear All Caches**.
+
+**Actions → Scripts → Script Events** opens the script callback event log.
+Enable **Record script events** (`scriptEventDebug`, off by default) to capture
+activity. Recording continues while the event window is closed and resets to
+off when goThoom exits.
+
+## Artwork scale
+
+**Settings → Performance → Artwork → Artwork scale override** selects a fixed 2x, 3x, or 4x
+artwork texture scale. The default is 2x. Resizing the game window and changing
+quality presets preserve this override; existing saved values are retained.
+The setup wizard offers the same control.
+
+Suggested starting points are 2x for screens up to 1080p, 3x for 1440p, and 4x
+for 4K or large game views. Smaller game windows may look just as good at 2x.
+Higher scales use more GPU memory. These are guidelines, not automatic rules.
 
 ## Derived fields that are not independent JSON settings
 

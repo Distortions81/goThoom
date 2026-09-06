@@ -60,7 +60,6 @@ var (
 	statsRecentLoss        statsMetric
 	statsSessionLoss       statsMetric
 	statsPNACheckbox       *eui.ItemData
-	settingsPNACheckbox    *eui.ItemData
 	statsNetworkText       *eui.ItemData
 	statsPNAAlert          *eui.ItemData
 	statsFPSMetric         statsMetric
@@ -237,11 +236,9 @@ func setPNAEnabled(enabled bool) {
 		resetPNAController()
 		resetPNAFallback()
 	}
-	for _, checkbox := range []*eui.ItemData{statsPNACheckbox, settingsPNACheckbox} {
-		if checkbox != nil && checkbox.Checked != enabled {
-			checkbox.Checked = enabled
-			checkbox.Dirty = true
-		}
+	if statsPNACheckbox != nil && statsPNACheckbox.Checked != enabled {
+		statsPNACheckbox.Checked = enabled
+		statsPNACheckbox.Dirty = true
 	}
 	settingsDirty = true
 }
@@ -362,6 +359,17 @@ func makeStatsWindow() {
 	}
 	memoryControls.AddItem(clearCachesButton)
 	cacheSection.AddItem(memoryControls)
+	cacheBtn, cacheEvents := eui.NewButton()
+	cacheBtn.Text = "Cache Statistics"
+	cacheBtn.Size = eui.Point{X: 140, Y: 24}
+	cacheEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeCacheStatsWindow()
+			cacheStatsWin.ToggleNear(ev.Item)
+			updateDebugStats()
+		}
+	}
+	cacheSection.AddItem(cacheBtn)
 	cacheGraphHeader, cacheScale := newStatsGraphHeader(width,
 		statsLegendEntry{label: "Cache", color: statsCacheMemoryColor},
 		statsLegendEntry{label: "GPU", color: statsGPUMemoryColor},

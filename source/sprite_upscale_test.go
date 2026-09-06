@@ -76,43 +76,17 @@ func TestArtworkUpscaleIsIndependentOfPotatoMode(t *testing.T) {
 	}
 }
 
-func TestArtworkUpscaleFactorIsCappedToTwiceScreenScale(t *testing.T) {
+func TestArtworkUpscaleFactorIsIndependentOfWindowScale(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
-
-	gs.SpriteUpscale = 4
-	tests := []struct {
-		scale float64
-		want  int
-	}{
-		{scale: 0.5, want: 2},
-		{scale: 1, want: 2},
-		{scale: 1.49, want: 2},
-		{scale: 1.5, want: 3},
-		{scale: 1.99, want: 3},
-		{scale: 2, want: 4},
-		{scale: 4, want: 4},
-	}
-	for _, test := range tests {
-		gs.GameScale = test.scale
-		if got := screenCappedArtworkUpscaleFactor(); got != test.want {
-			t.Errorf("screen scale %.2f capped factor = %d, want %d", test.scale, got, test.want)
+	for _, factor := range []int{2, 3, 4} {
+		gs.SpriteUpscale = factor
+		for _, scale := range []float64{0.5, 1, 1.49, 1.5, 1.99, 2, 4} {
+			gs.GameScale = scale
+			if got := artworkUpscaleFactor(); got != factor {
+				t.Errorf("window scale %.2f changed %dx artwork to %dx", scale, factor, got)
+			}
 		}
-	}
-
-	gs.SpriteUpscale = 2
-	gs.GameScale = 4
-	if got := screenCappedArtworkUpscaleFactor(); got != 2 {
-		t.Fatalf("screen cap raised configured 2x upscale to %dx", got)
-	}
-
-	gs.SpriteUpscale = 1
-	gs.GameScale = 0.5
-	if got := screenCappedArtworkUpscaleFactor(); got != 2 {
-		t.Fatalf("enabled artwork upscale fell below 2x: got %dx", got)
-	}
-	if got := spriteUpscaleFactorFromScale(1); got != 2 {
-		t.Fatalf("1x render scale derived a %dx artwork upscale, want 2x", got)
 	}
 }
 
@@ -332,7 +306,7 @@ func TestMobileUpscaleCachesAllPosesForOnlyObservedColors(t *testing.T) {
 	}
 }
 
-func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
+func TestScaledArtworkCacheChangesOnlyWithManualOverride(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	isolateScaledArtworkCaches(t)
@@ -351,12 +325,19 @@ func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
 		t.Fatalf("initial cached texture size = %v, want 16x16", got)
 	}
 	gs.GameScale = 1
+	if resized := getScaledMobileFrame(key, src); resized != large {
+		t.Fatal("resizing the window replaced the cached 4x artwork")
+	}
+	if scaledCacheFactor != 4 {
+		t.Fatalf("window resize changed cache factor to %d", scaledCacheFactor)
+	}
+	gs.SpriteUpscale = 2
 	if !cacheScaledMobileFramesWithReader(key, 2, artworkUpscaleBalanced, src, transparentSpritePixels) {
 		t.Fatal("2x mobile batch was invalidated while being built")
 	}
 	small := getScaledMobileFrame(key, src)
 	if got := small.Bounds().Size(); got != image.Pt(8, 8) {
-		t.Fatalf("screen-capped cached texture size = %v, want 8x8", got)
+		t.Fatalf("manually overridden cached texture size = %v, want 8x8", got)
 	}
 
 	imageMu.Lock()
@@ -365,11 +346,11 @@ func TestScaledArtworkCacheDropsTexturesAboveNewScreenCap(t *testing.T) {
 		t.Errorf("cached artwork factor = %d, want 2", scaledCacheFactor)
 	}
 	if len(scaledMobileCache) != 1 {
-		t.Errorf("scaled mobile cache has %d entries after cap change, want 1", len(scaledMobileCache))
+		t.Errorf("scaled mobile cache has %d entries after manual override, want 1", len(scaledMobileCache))
 	}
 	for cacheKey := range scaledMobileCache {
 		if cacheKey.scale != 2 {
-			t.Errorf("scaled mobile cache retained %dx entry after cap change", cacheKey.scale)
+			t.Errorf("scaled mobile cache retained %dx entry after manual override", cacheKey.scale)
 		}
 	}
 }

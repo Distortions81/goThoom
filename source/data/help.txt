@@ -69,4 +69,4 @@ Extras
 
 Low-end Hardware
 ----------------
-For very old computers or single-board computers such as Raspberry Pi, "Potato GPU (Low VRAM)" under Quality Settings can use unmanaged textures. It defaults off; enable it only if needed.
+For very old computers or single-board computers such as Raspberry Pi, "Potato GPU (Low VRAM)" under Settings → Performance → Caching can use unmanaged textures. It defaults off; enable it only if needed.

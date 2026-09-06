@@ -12,6 +12,12 @@ import (
 	open "github.com/skratchdot/open-golang/open"
 )
 
+const (
+	settingsPanelWidth   float32 = 660
+	settingsWindowWidth  float32 = 700
+	settingsWindowHeight float32 = 700
+)
+
 func selectedSettingsTab() string {
 	if settingsWin != nil && len(settingsWin.Contents) > 0 {
 		flow := settingsWin.Contents[0]
@@ -50,35 +56,23 @@ func addSettingsSection(page *eui.ItemData, title string, width float32) *eui.It
 	return section
 }
 
-func addSettingsWindowButton(section *eui.ItemData, title, icon string, width float32, open func(*eui.ItemData)) {
-	button, events := eui.NewButton()
-	button.Text = title
-	button.Size = eui.Point{X: width, Y: 24}
-	setMaterialButtonIcon(button, icon)
-	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			open(ev.Item)
-		}
-	}
-	section.AddItem(button)
-}
-
 func makeSettingsWindow() {
 	if settingsWin != nil {
 		return
 	}
 	settingsWin = eui.NewWindow()
+	settingsWin.ShowTooltipIndicators = true
 	settingsWin.Title = fmt.Sprintf("Settings -- goThoom test %d", appVersion)
 	settingsWin.Closable = true
 	settingsWin.Resizable = false
-	settingsWin.AutoSize = true
+	settingsWin.Size = eui.Point{X: settingsWindowWidth, Y: settingsWindowHeight}
 	settingsWin.Movable = true
 	settingsWin.SetRefreshInterval(100 * time.Millisecond)
 
-	const panelWidth float32 = 660
+	const panelWidth = settingsPanelWidth
 	outer := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL,
-		ActiveOutline: true, TabColumns: 5,
+		ActiveOutline: true, TabColumns: 5, TabRowOffset: 16,
 	}
 	displayPage := newSettingsPage("Display", panelWidth)
 	worldPage := newSettingsPage("World", panelWidth)
@@ -91,7 +85,16 @@ func makeSettingsWindow() {
 	filesPage := newSettingsPage("Files", panelWidth)
 	toolsPage := newSettingsPage("Tools", panelWidth)
 
-	windowSection := addSettingsSection(displayPage, "Window & Display", panelWidth)
+	const displayColumnWidth = (panelWidth - 20) / 2
+	displayColumns := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	displayWindowPage := newSettingsPage("", displayColumnWidth)
+	displayLayoutPage := newSettingsPage("", displayColumnWidth)
+	displayColumns.AddItem(displayWindowPage)
+	displayColumns.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 20, Y: 1}})
+	displayColumns.AddItem(displayLayoutPage)
+	displayPage.AddItem(displayColumns)
+	windowSection := addSettingsSection(displayWindowPage, "Window & Display", displayColumnWidth)
+	tiledSection := addSettingsSection(displayLayoutPage, "Tiled Windows & Toolbar", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
 	chatSection := addSettingsSection(textPage, "Chat & Messages", panelWidth)
@@ -112,10 +115,7 @@ func makeSettingsWindow() {
 	ttsSection := addSettingsSection(audioPage, "Text to Speech", panelWidth)
 	notificationsSection := addSettingsSection(audioPage, "Notifications", panelWidth)
 	controlsSection := addSettingsSection(controlsPage, "Movement & Input", panelWidth)
-	automationSection := addSettingsSection(controlsPage, "Scripts", panelWidth)
 	qualitySection := addSettingsSection(performancePage, "Graphics Quality", panelWidth)
-	cacheSection := addSettingsSection(performancePage, "Artwork & Sprite Cache", panelWidth)
-	powerSection := addSettingsSection(performancePage, "Power Saving", panelWidth)
 	networkSection := addSettingsSection(networkPage, "Connection & Timing", panelWidth)
 	filesSection := addSettingsSection(filesPage, "Files & Folders", panelWidth)
 	recordingSection := addSettingsSection(filesPage, "Recordings", panelWidth)
@@ -123,20 +123,9 @@ func makeSettingsWindow() {
 	diagnosticsSection := addSettingsSection(toolsPage, "Diagnostics", panelWidth)
 	resetSection := addSettingsSection(toolsPage, "Reset", panelWidth)
 
-	resetWindowsBtn, resetWindowsEvents := eui.NewButton()
-	resetWindowsBtn.Text = "Reset Windows"
-	setMaterialButtonIcon(resetWindowsBtn, "restart_alt")
-	resetWindowsBtn.Size = eui.Point{X: panelWidth, Y: 24}
-	resetWindowsBtn.SetTooltip("Restore the default window layout.")
-	resetWindowsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			confirmResetWindows()
-		}
-	}
-
 	tiledModeCB, tiledModeEvents := eui.NewCheckbox()
 	tiledModeCB.Text = "Tiled window mode"
-	tiledModeCB.Size = eui.Point{X: panelWidth, Y: 24}
+	tiledModeCB.Size = eui.Point{X: displayColumnWidth, Y: 24}
 	tiledModeCB.Checked = gs.TiledWindows
 	tiledModeCB.SetTooltip("Arrange the Game, Inventory, Players, Console, and Chat windows as one tiled workspace.")
 	tiledModeEvents.Handle = func(ev eui.UIEvent) {
@@ -145,12 +134,12 @@ func makeSettingsWindow() {
 			applyTiledWorkspaceLayout()
 		}
 	}
-	windowSection.AddItem(tiledModeCB)
+	tiledSection.AddItem(tiledModeCB)
 
 	tiledLayoutBtn, tiledLayoutEvents := eui.NewButton()
 	tiledLayoutBtn.Text = "Tiled Layout"
 	setMaterialButtonIcon(tiledLayoutBtn, "dashboard_customize")
-	tiledLayoutBtn.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
+	tiledLayoutBtn.Size = eui.Point{X: (displayColumnWidth - 8) / 2, Y: 24}
 	tiledLayoutBtn.SetTooltip("Open panel ordering, game placement, and combined-message controls.")
 	tiledLayoutEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -167,18 +156,18 @@ func makeSettingsWindow() {
 		toolbarPlacementDD.Options = append(toolbarPlacementDD.Options, "Floating Window")
 	}
 	toolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
-	toolbarPlacementDD.Size = eui.Point{X: panelWidth, Y: 24}
+	toolbarPlacementDD.Size = eui.Point{X: displayColumnWidth, Y: 24}
 	toolbarPlacementDD.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
 	toolbarPlacementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
 		}
 	}
-	windowSection.AddItem(toolbarPlacementDD)
+	tiledSection.AddItem(toolbarPlacementDD)
 
 	toolbarInfoCB, toolbarInfoEvents := eui.NewCheckbox()
 	toolbarInfoCB.Text = "Toolbar Info"
-	toolbarInfoCB.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
+	toolbarInfoCB.Size = eui.Point{X: (displayColumnWidth - 8) / 2, Y: 24}
 	toolbarInfoCB.Checked = gs.ToolbarInfoBar
 	toolbarInfoCB.SetTooltip("Show network and performance stats.")
 	toolbarInfoEvents.Handle = func(ev eui.UIEvent) {
@@ -190,7 +179,7 @@ func makeSettingsWindow() {
 	layoutToolsRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
 	layoutToolsRow.AddItem(tiledLayoutBtn)
 	layoutToolsRow.AddItem(toolbarInfoCB)
-	windowSection.AddItem(layoutToolsRow)
+	tiledSection.AddItem(layoutToolsRow)
 
 	// UI scale is always available: users need a direct recovery path if a
 	// display's DPI report is unusual. Retina/HiDPI scaling is applied on top
@@ -223,14 +212,14 @@ func makeSettingsWindow() {
 
 	// Place the slider and button on the same row.
 	uiScaleRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	uiScaleSlider.Size = eui.Point{X: panelWidth - uiScaleApplyBtn.Size.X - 10, Y: 24}
+	uiScaleSlider.Size = eui.Point{X: displayColumnWidth - uiScaleApplyBtn.Size.X - 10, Y: 24}
 	uiScaleRow.AddItem(uiScaleSlider)
 	uiScaleRow.AddItem(uiScaleApplyBtn)
 	windowSection.AddItem(uiScaleRow)
 
 	fullscreenCB, fullscreenEvents := eui.NewCheckbox()
 	fullscreenCB.Text = "Fullscreen (F12)"
-	fullscreenCB.Size = eui.Point{X: panelWidth, Y: 24}
+	fullscreenCB.Size = eui.Point{X: displayColumnWidth, Y: 24}
 	fullscreenCB.Checked = gs.Fullscreen
 	fullscreenEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -319,7 +308,7 @@ func makeSettingsWindow() {
 	}
 
 	accentWheel, accentEvents := eui.NewColorWheel()
-	accentWheel.Size = eui.Point{X: panelWidth, Y: 40}
+	accentWheel.Size = eui.Point{X: panelWidth, Y: colorPickerDiameter}
 	var ac eui.Color
 	_ = ac.UnmarshalJSON([]byte("\"accent\""))
 	accentWheel.WheelColor = ac
@@ -361,6 +350,7 @@ func makeSettingsWindow() {
 	controlsSection.AddItem(toggle)
 
 	qualityPresetDD, qpEvents := eui.NewDropdown()
+	qualityPresetDD.Label = "Quality preset"
 	qualityPresetDD.Options = []string{"Lowest", "Low", "Medium", "High", "Ultra", "Custom"}
 	qualityPresetDD.Size = eui.Point{X: panelWidth, Y: 24}
 	qualityPresetDD.Selected = detectQualityPreset()
@@ -384,21 +374,11 @@ func makeSettingsWindow() {
 		}
 	}
 	qualitySection.AddItem(qualityPresetDD)
+	performanceOptions := newGraphicsPerformanceOptions()
+	qualitySection.AddItem(shadersEnabledCB)
+	qualitySection.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Size: eui.Point{X: panelWidth, Y: 12}, Fixed: true})
 
-	qualityBtn, qualityEvents := eui.NewButton()
-	qualityBtn.Text = "Quality Settings"
-	setMaterialButtonIcon(qualityBtn, "tune")
-	qualityBtn.SetTooltip("Tune artwork scaling, shadows, lighting, motion, and GPU costs individually.")
-	qualityBtn.Size = eui.Point{X: panelWidth, Y: 24}
-	qualityEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			SettingsLock.Lock()
-			defer SettingsLock.Unlock()
-
-			qualityWin.ToggleNear(ev.Item)
-		}
-	}
-	qualitySection.AddItem(qualityBtn)
+	performancePage.AddItem(performanceOptions)
 
 	inputOpenCB, inputOpenEvents := eui.NewCheckbox()
 	inputOpenCB.Text = "Input bar always open"
@@ -502,24 +482,39 @@ func makeSettingsWindow() {
 	}
 	chatSection.AddItem(textColorsBtn)
 
-	alternateRowsCB, alternateRowsEvents := eui.NewCheckbox()
-	alternateRowsCB.Text = "Alternate row backgrounds"
-	alternateRowsCB.Size = eui.Point{X: panelWidth, Y: 24}
-	alternateRowsCB.Checked = gs.AlternateRowBackgrounds
-	alternateRowsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventCheckboxChanged {
-			return
+	appearanceSection.AddItem(newConfigurationSubheading("Alternating row colors", panelWidth))
+	var alternatingRow *eui.ItemData
+	for i, option := range []struct {
+		name  string
+		value *bool
+	}{
+		{"Inventory", &gs.InventoryAlternatingRowColors},
+		{"Chat", &gs.ChatAlternatingRowColors},
+		{"Console", &gs.ConsoleAlternatingRowColors},
+		{"Players", &gs.PlayersAlternatingRowColors},
+	} {
+		if i%2 == 0 {
+			alternatingRow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+			appearanceSection.AddItem(alternatingRow)
 		}
-		SettingsLock.Lock()
-		gs.AlternateRowBackgrounds = ev.Checked
-		SettingsLock.Unlock()
-		settingsDirty = true
-		updateConsoleWindow()
-		updateChatWindow()
-		updateInventoryWindow()
-		updatePlayersWindow()
+		checkbox, events := eui.NewCheckbox()
+		checkbox.Text = option.name
+		checkbox.Size = eui.Point{X: (panelWidth - 8) / 2, Y: 24}
+		checkbox.Checked = *option.value
+		events.Handle = func(ev eui.UIEvent) {
+			if ev.Type != eui.EventCheckboxChanged {
+				return
+			}
+			SettingsLock.Lock()
+			*option.value = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+			refreshMessageTextWindows()
+			updateInventoryWindow()
+			updatePlayersWindow()
+		}
+		alternatingRow.AddItem(checkbox)
 	}
-	appearanceSection.AddItem(alternateRowsCB)
 
 	placements := []struct {
 		name  string
@@ -599,7 +594,6 @@ func makeSettingsWindow() {
 	darkBubblesAndNamesCB.Text = "Dark Mode Names/Bubbles"
 	darkBubblesAndNamesCB.Size = eui.Point{X: panelWidth - 10, Y: 24}
 	darkBubblesAndNamesCB.Checked = gs.DarkBubblesAndNames
-	darkBubblesAndNamesCB.SetTooltip("Uses dark backgrounds and light text for speech bubbles and name tags.")
 	darkBubblesAndNamesEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			SettingsLock.Lock()
@@ -843,8 +837,6 @@ func makeSettingsWindow() {
 	}
 	filesSection.AddItem(filePathsBtn)
 
-	windowSection.AddItem(resetWindowsBtn)
-
 	setupBtn, setupEvents := eui.NewButton()
 	setupBtn.Text = "Setup Wizard"
 	setMaterialButtonIcon(setupBtn, "auto_fix_high")
@@ -1030,6 +1022,8 @@ func makeSettingsWindow() {
 	}
 	textSizeSection.AddItem(chatFontSlider)
 
+	addTTSEnablementControls(ttsSection, panelWidth)
+
 	ttsSpeedSlider, ttsSpeedEvents := eui.NewSlider()
 	ttsSpeedSlider.Label = "TTS Speed"
 	ttsSpeedSlider.MinValue = 0.5
@@ -1046,23 +1040,48 @@ func makeSettingsWindow() {
 	}
 	ttsSection.AddItem(ttsSpeedSlider)
 
-	addDisplaySettings(windowSection, panelWidth)
-	addControlSettings(controlsSection, automationSection, panelWidth)
+	addDisplaySettings(windowSection, displayColumnWidth)
+	addControlSettings(controlsSection, panelWidth)
 	addTextSettings(chatSection, panelWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
 	addAudioSettings(ttsSection, audioSection, panelWidth)
 	addFileSettings(filesSection, recordingSection, panelWidth)
 	addToolSettings(diagnosticsSection, resetSection, panelWidth)
 	addNetworkSettings(networkSection, panelWidth)
-	addPerformanceSettings(qualitySection, cacheSection, powerSection, panelWidth)
-	addSettingsWindowButton(audioSection, "Audio Mixer", "equalizer", panelWidth, func(item *eui.ItemData) { mixerWin.ToggleNear(item) })
-	addSettingsWindowButton(controlsSection, "Keybindings", "keyboard", panelWidth, func(item *eui.ItemData) { refreshKeybindingsList(); keybindingsWin.ToggleNear(item) })
-	addSettingsWindowButton(controlsSection, "Hotkeys", "keyboard", panelWidth, func(item *eui.ItemData) { hotkeysWin.ToggleNear(item) })
 
 	outer.Tabs = []*eui.ItemData{displayPage, worldPage, textPage, bubblesPage, audioPage,
 		controlsPage, performancePage, networkPage, filesPage, toolsPage}
 	settingsWin.AddItem(outer)
 	settingsWin.AddWindow(false)
+}
+
+var settingsWindowShadowsCB *eui.ItemData
+
+func newWindowShadowsCheckbox(width float32) *eui.ItemData {
+	checkbox, events := eui.NewCheckbox()
+	checkbox.Text = "Window Shadows"
+	checkbox.Size = eui.Point{X: width, Y: 24}
+	checkbox.Checked = gs.WindowShadows
+	events.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+			gs.WindowShadows = ev.Checked
+			applyWindowShadowsSetting()
+			settingsDirty = true
+		}
+	}
+	return checkbox
+}
+
+func applyWindowShadowsSetting() {
+	eui.SetWindowShadows(gs.WindowShadows)
+	for _, checkbox := range []*eui.ItemData{windowShadowsCB, settingsWindowShadowsCB} {
+		if checkbox != nil {
+			checkbox.Checked = gs.WindowShadows
+			checkbox.Dirty = true
+		}
+	}
 }
 
 func addDisplaySettings(windowSection *eui.ItemData, columnWidth float32) {
@@ -1081,9 +1100,11 @@ func addDisplaySettings(windowSection *eui.ItemData, columnWidth float32) {
 		}
 	}
 	windowSection.AddItem(alwaysTopCB)
+	settingsWindowShadowsCB = newWindowShadowsCheckbox(columnWidth)
+	windowSection.AddItem(settingsWindowShadowsCB)
 }
 
-func addControlSettings(controlsSection, automationSection *eui.ItemData, columnWidth float32) {
+func addControlSettings(controlsSection *eui.ItemData, columnWidth float32) {
 	midMove, midMoveEvents := eui.NewCheckbox()
 	midMove.Text = "Middle-click moves windows"
 	midMove.Size = eui.Point{X: columnWidth, Y: 24}
@@ -1127,20 +1148,6 @@ func addControlSettings(controlsSection, automationSection *eui.ItemData, column
 		}
 	}
 	controlsSection.AddItem(joystickBtn)
-	scriptKillCB, scriptKillEvents := eui.NewCheckbox()
-	scriptKillCB.Text = "Auto-kill spammy scripts"
-	scriptKillCB.Size = eui.Point{X: columnWidth, Y: 24}
-	scriptKillCB.Checked = gs.ScriptSpamKill
-	scriptKillCB.SetTooltip("Stop scripts that spam output.")
-	scriptKillEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.ScriptSpamKill = ev.Checked
-			SettingsLock.Unlock()
-			settingsDirty = true
-		}
-	}
-	automationSection.AddItem(scriptKillCB)
 }
 
 func addTextSettings(chatSection *eui.ItemData, columnWidth float32) {
@@ -1179,33 +1186,6 @@ func addBubbleSettings(bubbleSection *eui.ItemData, columnWidth float32) {
 }
 
 func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float32) {
-	ttsEnabledCB, ttsEnabledEvents := eui.NewCheckbox()
-	ttsEnabledCB.Text = "Enable chat TTS"
-	ttsEnabledCB.Size = eui.Point{X: columnWidth, Y: 24}
-	ttsEnabledCB.Checked = gs.ChatTTS
-	ttsEnabledCB.Action = func() { ttsEnabledCB.Checked = gs.ChatTTS }
-	ttsEnabledCB.SetTooltip("Speak eligible chat messages.")
-	ttsEnabledEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventCheckboxChanged {
-			return
-		}
-		if !ev.Checked {
-			disableTTS()
-			return
-		}
-		gs.ChatTTS = true
-		if ttsMixCB != nil {
-			ttsMixCB.Checked = true
-			ttsMixCB.Dirty = true
-		}
-		if ttsMixSlider != nil {
-			ttsMixSlider.Disabled = false
-			ttsMixSlider.Dirty = true
-		}
-		settingsDirty = true
-		updateSoundVolume()
-	}
-	ttsSection.AddItem(ttsEnabledCB)
 	voiceDD, voiceEvents := eui.NewDropdown()
 	voiceDD.Label = "TTS Voice"
 	if voices, err := listPiperVoices(); err == nil && len(voices) > 0 {
@@ -1271,16 +1251,8 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	ttsTestBtn.Size = eui.Point{X: columnWidth, Y: 24}
 	ttsTestBtnEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			if !gs.ChatTTS {
-				gs.ChatTTS = true
-				settingsDirty = true
-				if ttsMixCB != nil {
-					ttsMixCB.Checked = true
-				}
-				if ttsMixSlider != nil {
-					ttsMixSlider.Disabled = false
-				}
-				updateSoundVolume()
+			if !setTTSEnabled(true) {
+				return
 			}
 			go playChatTTS(chatTTSCtx, ttsTestPhrase)
 		}
@@ -1312,21 +1284,6 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	}
 	audioSection.AddItem(throttleSoundCB)
 
-	enhancementCB, enhancementEvents := eui.NewCheckbox()
-	soundEnhanceCB = enhancementCB
-	enhancementCB.Text = "Audio enhancement for sound effects"
-	enhancementCB.Size = eui.Point{X: columnWidth, Y: 24}
-	enhancementCB.Checked = gs.SoundEnhancement
-	enhancementCB.SetTooltip("Adds stereo width, ambience, and tone polish to newly played game sounds.")
-	enhancementEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.SoundEnhancement = ev.Checked
-			refreshMixerEnhancementControls()
-			settingsDirty = true
-		}
-	}
-	audioSection.AddItem(enhancementCB)
-
 	resampleCB, resampleEvents := eui.NewCheckbox()
 	resampleAudioCB = resampleCB
 	resampleCB.Text = "High quality resampling"
@@ -1343,20 +1300,6 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	}
 	audioSection.AddItem(resampleCB)
 
-	musicEnhancementCB, musicEnhancementEvents := eui.NewCheckbox()
-	musicEnhanceCB = musicEnhancementCB
-	musicEnhancementCB.Text = "Audio enhancement for music"
-	musicEnhancementCB.Size = eui.Point{X: columnWidth, Y: 24}
-	musicEnhancementCB.Checked = gs.MusicEnhancement
-	musicEnhancementCB.SetTooltip("Adds space and ambience to newly started bard music.")
-	musicEnhancementEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MusicEnhancement = ev.Checked
-			refreshMixerEnhancementControls()
-			settingsDirty = true
-		}
-	}
-	audioSection.AddItem(musicEnhancementCB)
 }
 
 func addFileSettings(filesSection, recordingSection *eui.ItemData, columnWidth float32) {
@@ -1418,7 +1361,6 @@ func addFileSettings(filesSection, recordingSection *eui.ItemData, columnWidth f
 	autoRecCB.Text = "Auto-record sessions"
 	autoRecCB.Size = eui.Point{X: columnWidth, Y: 24}
 	autoRecCB.Checked = gs.AutoRecord
-	autoRecCB.SetTooltip("Record each login session.")
 	autoRecEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.AutoRecord = ev.Checked
@@ -1458,19 +1400,6 @@ func addToolSettings(diagnosticsSection, resetSection *eui.ItemData, columnWidth
 }
 
 func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
-	altNetCB, altNetEvents := eui.NewCheckbox()
-	settingsPNACheckbox = altNetCB
-	altNetCB.Text = "Network Latency & Server Phase Timing (NLSPT)"
-	altNetCB.Size = eui.Point{X: columnWidth, Y: 24}
-	altNetCB.Checked = gs.AltNetMode
-	altNetCB.SetTooltip("Learns the server frame phase and sends fresh input shortly before its next processing window. Packet loss temporarily restores original timing.")
-	altNetEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			setPNAEnabled(ev.Checked)
-		}
-	}
-	networkSection.AddItem(altNetCB)
-
 	pnaSafetySlider, pnaSafetyEvents := eui.NewSlider()
 	pnaSafetySlider.Label = "NLSPT safety (%)"
 	pnaSafetySlider.MinValue = 0
@@ -1490,7 +1419,6 @@ func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
 	serverInput.Text = gs.ServerAddress
 	serverInput.TextPtr = &gs.ServerAddress
 	serverInput.Size = eui.Point{X: columnWidth, Y: 24}
-	serverInput.SetTooltip("Set the primary server address.")
 	serverEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventInputChanged {
 			SettingsLock.Lock()
@@ -1502,131 +1430,4 @@ func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
 	}
 	networkSection.AddItem(serverInput)
 
-	timingLabel, _ := eui.NewText()
-	timingLabel.Text = ""
-	timingLabel.Size = eui.Point{X: columnWidth, Y: 24}
-	timingLabel.FontSize = 10
-	networkSection.AddItem(timingLabel)
-
-	timingBtn, timingEvents := eui.NewButton()
-	timingBtn.Text = "Show Network Timing"
-	setMaterialButtonIcon(timingBtn, "query_stats")
-	timingBtn.Size = eui.Point{X: columnWidth, Y: 24}
-	timingEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			loginMu.Lock()
-			connected := tcpConn != nil
-			loginMu.Unlock()
-			if !connected {
-				timingLabel.Text = "not connected to server"
-				timingLabel.Dirty = true
-				settingsWin.Refresh()
-				return
-			}
-			reply, jitter := networkTimingSnapshot()
-			if reply == 0 {
-				timingLabel.Text = fmt.Sprintf("Cmd reply: waiting   Frame p95: %s", formatToolbarLatency(jitter))
-			} else {
-				timingLabel.Text = fmt.Sprintf("Cmd reply: %s   Frame p95: %s", formatToolbarLatency(reply), formatToolbarLatency(jitter))
-			}
-			timingLabel.Dirty = true
-			settingsWin.Refresh()
-		}
-	}
-	networkSection.AddItem(timingBtn)
-}
-
-func addPerformanceSettings(renderingSection, cacheSection, powerSection *eui.ItemData, columnWidth float32) {
-	coordsCB, coordsEvents := eui.NewCheckbox()
-	coordsCB.Text = "Floating-point sprite coordinates"
-	coordsCB.Size = eui.Point{X: columnWidth, Y: 24}
-	coordsCB.Checked = gs.FloatingPointSpriteCoords
-	coordsCB.SetTooltip("Keeps interpolated sprites at subpixel screen positions for smoother movement. This can cause shimmering on some artwork; turn it off to floor sprites to whole pixels.")
-	coordsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.FloatingPointSpriteCoords = ev.Checked
-			SettingsLock.Unlock()
-			settingsDirty = true
-		}
-	}
-	renderingSection.AddItem(coordsCB)
-	batchArtworkCB, batchArtworkEvents := eui.NewCheckbox()
-	batchArtworkCB.Text = "Batch room artwork loading"
-	batchArtworkCB.Size = eui.Point{X: columnWidth, Y: 24}
-	batchArtworkCB.Checked = gs.BatchArtworkLoading
-	batchArtworkCB.SetTooltip("Load missing room artwork in one pause instead of spreading first-use work across frames.")
-	batchArtworkEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.BatchArtworkLoading = ev.Checked
-			settingsDirty = true
-		}
-	}
-	cacheSection.AddItem(batchArtworkCB)
-
-	spriteReserve, spriteReserveExplanation := newSpriteCacheControls(columnWidth - 10)
-	cacheSection.AddItem(spriteReserve)
-	cacheSection.AddItem(spriteReserveExplanation)
-
-	psBGCB, psBGEvents := eui.NewCheckbox()
-	psBGCB.Text = "Power save in background"
-	psBGCB.Size = eui.Point{X: columnWidth, Y: 24}
-	psBGCB.Checked = gs.PowerSaveBackground
-	psBGCB.SetTooltip("Reduce FPS when window is unfocused")
-	psBGEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.PowerSaveBackground = ev.Checked
-			SettingsLock.Unlock()
-			settingsDirty = true
-		}
-	}
-	powerSection.AddItem(psBGCB)
-
-	psAlwaysCB, psAlwaysEvents := eui.NewCheckbox()
-	psAlwaysCB.Text = "Always power save"
-	psAlwaysCB.Size = eui.Point{X: columnWidth, Y: 24}
-	psAlwaysCB.Checked = gs.PowerSaveAlways
-	psAlwaysCB.SetTooltip("Limit FPS while focused.")
-	psAlwaysEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			SettingsLock.Lock()
-			gs.PowerSaveAlways = ev.Checked
-			SettingsLock.Unlock()
-			settingsDirty = true
-		}
-	}
-	powerSection.AddItem(psAlwaysCB)
-
-	psFPSSlider, psFPSEvents := eui.NewSlider()
-	psFPSSlider.Label = "Power-save FPS"
-	psFPSSlider.MinValue = 1
-	psFPSSlider.MaxValue = 60
-	psFPSSlider.IntOnly = true
-	if gs.PowerSaveFPS < 1 {
-		gs.PowerSaveFPS = 1
-	}
-	if gs.PowerSaveFPS > 60 {
-		gs.PowerSaveFPS = 60
-	}
-	psFPSSlider.Value = float32(gs.PowerSaveFPS)
-	psFPSSlider.Size = eui.Point{X: columnWidth - 10, Y: 24}
-	psFPSSlider.SetTooltip("Set power-saving FPS.")
-	psFPSEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			SettingsLock.Lock()
-			v := int(ev.Value)
-			if v < 1 {
-				v = 1
-			}
-			if v > 60 {
-				v = 60
-			}
-			gs.PowerSaveFPS = v
-			SettingsLock.Unlock()
-			psFPSSlider.Value = float32(v)
-			settingsDirty = true
-		}
-	}
-	powerSection.AddItem(psFPSSlider)
 }

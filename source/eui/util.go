@@ -1202,6 +1202,10 @@ func (item *itemData) GetSize() Point {
 		}
 	}
 
+	if item.Size.X <= 0 && item.ItemType == ITEM_TEXT && item.Tooltip != "" && item.ParentWindow != nil && item.ParentWindow.ShowTooltipIndicators {
+		sz.X += 18 * uiScale
+	}
+
 	// Account for label text below an item if set.
 	if item.Label != "" {
 		textSize := (item.FontSize * uiScale) + 2
@@ -1491,6 +1495,7 @@ func (item *itemData) bounds(offset point) rect {
 			subItems = item.Tabs[item.ActiveTab].Contents
 			tabHeight = tabStripHeight(item, item.themeStyle())
 			r.Y1 = offset.Y + tabHeight
+			r.X1 = offset.X + staggeredTabStripWidth(item)
 		} else {
 			subItems = item.Contents
 		}
@@ -1558,13 +1563,15 @@ func (win *windowData) updateAutoSize() {
 	pad := (win.Padding + win.BorderPad) * win.scale()
 
 	size := win.GetSize()
-	needX := req.X + 2*pad
+	needX := float32(math.Ceil(float64(req.X + 2*pad)))
 	if needX > size.X {
 		size.X = needX
 	}
 
 	// Always include the titlebar height in the calculated size
-	size.Y = req.Y + win.GetTitleSize() + 2*pad
+	// Round outward to whole pixels so fractional UI scales cannot leave the
+	// viewport slightly smaller than its content after converting to UI units.
+	size.Y = float32(math.Ceil(float64(req.Y + win.GetTitleSize() + 2*pad)))
 	if size.X > float32(screenWidth) {
 		size.X = float32(screenWidth)
 	}
@@ -1579,7 +1586,7 @@ func (win *windowData) updateAutoSize() {
 	// so the window tracks that resolved content rather than leaving a stray
 	// scroll range after increasing UI scale.
 	resolved := win.contentBounds()
-	resolvedY := resolved.Y + win.GetTitleSize() + 2*pad
+	resolvedY := float32(math.Ceil(float64(resolved.Y + win.GetTitleSize() + 2*pad)))
 	if resolvedY > size.Y && resolvedY <= float32(screenHeight) {
 		win.Size.Y = resolvedY / s
 		win.resizeFlows()
@@ -1641,7 +1648,7 @@ func (item *itemData) contentBounds() point {
 	if first {
 		return point{Y: tabHeight}
 	}
-	return point{X: b.X1 - base.X, Y: b.Y1 - base.Y + tabHeight}
+	return point{X: max(b.X1-base.X, staggeredTabStripWidth(item)), Y: b.Y1 - base.Y + tabHeight}
 }
 
 func (item *itemData) resizeFlow(parentSize point) {

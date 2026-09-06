@@ -96,11 +96,10 @@ func TestClearStatsHistory(t *testing.T) {
 	}
 }
 
-func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
+func TestSetPNAEnabledSynchronizesStatsCheckbox(t *testing.T) {
 	originalEnabled := gs.AltNetMode
 	originalDirty := settingsDirty
 	originalStatsCheckbox := statsPNACheckbox
-	originalSettingsCheckbox := settingsPNACheckbox
 	pnaControllerMu.Lock()
 	originalController := pnaController
 	pnaControllerMu.Unlock()
@@ -111,7 +110,6 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 		gs.AltNetMode = originalEnabled
 		settingsDirty = originalDirty
 		statsPNACheckbox = originalStatsCheckbox
-		settingsPNACheckbox = originalSettingsCheckbox
 		pnaControllerMu.Lock()
 		pnaController = originalController
 		pnaControllerMu.Unlock()
@@ -122,7 +120,6 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 
 	gs.AltNetMode = false
 	statsPNACheckbox = &eui.ItemData{}
-	settingsPNACheckbox = &eui.ItemData{}
 	pnaControllerMu.Lock()
 	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
 	pnaControllerMu.Unlock()
@@ -132,9 +129,9 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 	settingsDirty = false
 	setPNAEnabled(true)
 
-	if !gs.AltNetMode || !statsPNACheckbox.Checked || !settingsPNACheckbox.Checked {
-		t.Fatalf("PNA controls were not enabled together: setting=%v stats=%v settings=%v",
-			gs.AltNetMode, statsPNACheckbox.Checked, settingsPNACheckbox.Checked)
+	if !gs.AltNetMode || !statsPNACheckbox.Checked {
+		t.Fatalf("PNA controls were not enabled together: setting=%v stats=%v",
+			gs.AltNetMode, statsPNACheckbox.Checked)
 	}
 	if !settingsDirty {
 		t.Fatal("enabling PNA did not mark settings dirty")
