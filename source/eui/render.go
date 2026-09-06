@@ -1092,7 +1092,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		clip := subImg.Bounds()
 		clip.Max.X = min(clip.Max.X, int(info.X0-3*uiScale))
 		textTarget = subImg.SubImage(clip).(*ebiten.Image)
-		defer drawTooltipIndicator(subImg, info, style.TextColor)
+		defer func() { drawTooltipIndicator(subImg, info, style.TextColor) }()
 	}
 
 	if item.Label != "" {
@@ -1250,8 +1250,10 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			face = boldFace(textSize)
 		}
 		textCenterX := float64(offset.X + maxSize.X/2)
+		infoWidth := float64(0)
 		if item.Label == "" && info.X1 > info.X0 {
-			textCenterX -= float64(9 * uiScale)
+			infoWidth = float64(18 * uiScale)
+			textCenterX -= infoWidth / 2
 		}
 		if item.Image != nil {
 			filter := ebiten.FilterNearest
@@ -1263,13 +1265,13 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			sop := &ebiten.DrawImageOptions{Filter: filter, DisableMipmaps: disableMipmaps}
 			imageWidth := float64(item.Image.Bounds().Dx())
 			imageHeight := float64(item.Image.Bounds().Dy())
-			availableWidth := float64(maxSize.X - 6*uiScale)
+			availableWidth := float64(maxSize.X-6*uiScale) - infoWidth
 			availableHeight := float64(maxSize.Y - 6*uiScale)
 			scale := float64(0)
 			if imageWidth > 0 && imageHeight > 0 {
 				scale = math.Min(availableWidth/imageWidth, availableHeight/imageHeight)
 			}
-			imageX := float64(offset.X) + (float64(maxSize.X)-imageWidth*scale)/2
+			imageX := float64(offset.X) + (float64(maxSize.X)-infoWidth-imageWidth*scale)/2
 			if scale > 0 && item.Text != "" {
 				textWidth := float64(0)
 				for line := range strings.SplitSeq(item.Text, "\n") {
@@ -1281,7 +1283,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				scale = math.Min(scale, iconWidth/imageWidth)
 				if scale > 0 {
 					groupWidth := imageWidth*scale + gap + textWidth
-					imageX = float64(offset.X) + (float64(maxSize.X)-groupWidth)/2
+					imageX = float64(offset.X) + (float64(maxSize.X)-infoWidth-groupWidth)/2
 					textCenterX = imageX + imageWidth*scale + gap + textWidth/2
 				}
 			}
@@ -1291,8 +1293,23 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 					imageX,
 					float64(offset.Y)+(float64(maxSize.Y)-imageHeight*scale)/2,
 				)
+				subImg.DrawImage(item.Image, sop)
 			}
-			subImg.DrawImage(item.Image, sop)
+		}
+
+		if infoWidth > 0 {
+			// A leading button image shifts the caption. Position the help
+			// marker after that final caption, not its text-only estimate.
+			var captionWidth float64
+			for line := range strings.SplitSeq(item.Text, "\n") {
+				w, _ := text.Measure(line, face, 0)
+				captionWidth = math.Max(captionWidth, w)
+			}
+			info.X0 = min(float32(textCenterX+captionWidth/2)+6*uiScale, offset.X+maxSize.X-14*uiScale)
+			info.X1 = info.X0 + 12*uiScale
+			clip := subImg.Bounds()
+			clip.Max.X = min(clip.Max.X, int(info.X0-3*uiScale))
+			textTarget = subImg.SubImage(clip).(*ebiten.Image)
 		}
 
 		loo := text.LayoutOptions{
