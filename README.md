@@ -134,12 +134,6 @@ For VS Code completion and type checking, download
 [`goThoom-Script-Template.zip`](https://github.com/Distortions81/goThoom/releases/latest/download/goThoom-Script-Template.zip)
 from the latest release.
 
-## Local multiplayer testing
-
-Run a small demo server for login, walking, and chat with
-`cd source && go run ./cmd/demoserver`. See [DemoServer.md](docs/DemoServer.md)
-for client setup and connecting friends.
-
 ## License
 
 goThoom is released under the [MIT License](LICENSE). Clan Lord and its game
