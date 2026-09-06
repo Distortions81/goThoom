@@ -1,4 +1,10 @@
 goThoom 53 changes since test52.
 
 Connection:
-- Added gothoom.m45sci.xyz:5010 to the built-in server list, so it is always available from the server selection menu.
+- Added a server selection menu. Built-in servers are always available, and custom host:port entries can be added, selected, and removed from the list.
+- Added gothoom.m45sci.xyz:5010 to the built-in server list.
+- The -server command-line option can override the server for one launch without changing saved settings.
+
+Login:
+- Free Demo now lets you choose from the available demo characters instead of automatically selecting one.
+- The login button remains unavailable until a character is selected, preventing accidental login attempts.
