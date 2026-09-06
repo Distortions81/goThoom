@@ -175,5 +175,28 @@ func (g *primitiveCacheGame) verify() error {
 	measure(true) // Warm both geometry variants and the driver.
 	vectorTime, cachedTime := measure(false), measure(true)
 	g.t.Logf("2,000 repeated rounded controls, including readback: vector=%s cached=%s (%.2fx)", vectorTime, cachedTime, float64(vectorTime)/math.Max(1, float64(cachedTime)))
+	// Compare short title grips to their former nine-slice mask path.
+	measureGrips := func(single bool) time.Duration {
+		start := time.Now()
+		for range 30 {
+			got.Clear()
+			for i := range 100 {
+				x, y := i%50*6+10, i/50*30+10
+				if single {
+					strokeLine(got, float32(x), float32(y), float32(x), float32(y+14), 1, ColorWhite, false)
+				} else {
+					key := primitiveKey{kind: primitiveLine, width: 5, height: 10, stroke: 1, points: [6]int{2, 2, 2, 7}}
+					mask := uiPrimitives.mask(key)
+					drawPrimitiveMask(got, mask, x-2, y-2, 5, 19, 3, 3, ColorWhite)
+				}
+			}
+			got.ReadPixels(gotPixels)
+		}
+		return time.Since(start)
+	}
+	measureGrips(false)
+	measureGrips(true)
+	nine, single := measureGrips(false), measureGrips(true)
+	g.t.Logf("3000 title grips with readback: nine-slice=%s single-quad=%s", nine, single)
 	return nil
 }

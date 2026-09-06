@@ -78,6 +78,7 @@ var (
 	layeredShadowScene                *ebiten.Image
 	layeredShadowOrigin               image.Point
 	frameLayeredShadowCoverageBounds  image.Rectangle
+	frameLayeredShadowCoverageRects   []image.Rectangle
 	frameLayeredShadowCompositeActive bool
 )
 
@@ -377,6 +378,7 @@ func resetLayeredCharacterShadows() {
 	clear(frameLayeredShadowDraws[:])
 	clear(frameLayeredShadowReady[:])
 	frameLayeredShadowCoverageBounds = image.Rectangle{}
+	frameLayeredShadowCoverageRects = frameLayeredShadowCoverageRects[:0]
 	frameLayeredShadowCompositeActive = false
 }
 
@@ -388,6 +390,7 @@ func beginLayeredCharacterShadowComposite(bounds image.Rectangle) {
 	layeredShadowCoverage = ensureCharacterShadowImage(layeredShadowCoverage, bounds.Size())
 	layeredShadowCoverage.SubImage(image.Rectangle{Max: bounds.Size()}).(*ebiten.Image).Clear()
 	frameLayeredShadowCoverageBounds = image.Rectangle{}
+	frameLayeredShadowCoverageRects = frameLayeredShadowCoverageRects[:0]
 	frameLayeredShadowCompositeActive = true
 }
 
@@ -436,6 +439,28 @@ func drawLayeredCharacterShadow(screen *ebiten.Image, index uint8) {
 	compositeLayeredCharacterShadow(screen, command)
 }
 
+// Coverage rectangles deliberately survive partial alpha clears: stale bounds
+// can only select the slower composition path, never miss existing coverage.
+func overlapsLayeredShadowCoverage(bounds image.Rectangle) bool {
+	if !bounds.Overlaps(frameLayeredShadowCoverageBounds) {
+		return false
+	}
+	for _, previous := range frameLayeredShadowCoverageRects {
+		if bounds.Overlaps(previous) {
+			return true
+		}
+	}
+	return false
+}
+
+func recordLayeredShadowCoverage(bounds image.Rectangle) {
+	if bounds.Empty() {
+		return
+	}
+	frameLayeredShadowCoverageBounds = frameLayeredShadowCoverageBounds.Union(bounds)
+	frameLayeredShadowCoverageRects = append(frameLayeredShadowCoverageRects, bounds)
+}
+
 func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShadowDraw) {
 	if !frameLayeredShadowCompositeActive || layeredShadowCompositeShader == nil || layeredShadowCoverage == nil {
 		drawCharacterShadow(screen, command.texture, command.size, command.x, command.y, command.alpha, command.projection, command.upright, shadowDarkenBlend)
@@ -448,9 +473,9 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 	// With no earlier coverage under this caster, maximum-opacity composition
 	// is identical to a direct darken. Draw the shadow and its coverage mask in
 	// two submissions instead of clearing/copying/compositing three scratch
-	// targets. The rectangular union is conservative: false overlaps take the
-	// full path, while a reported non-overlap is always safe.
-	if frameLayeredShadowCoverageBounds.Empty() || !bounds.Overlaps(frameLayeredShadowCoverageBounds) {
+	// targets. Individual caster bounds avoid treating gaps in the union as
+	// covered. Bounds remain conservative when foreground artwork clears pixels.
+	if !overlapsLayeredShadowCoverage(bounds) {
 		drawCharacterShadow(screen, command.texture, command.size, command.x, command.y, command.alpha, command.projection, command.upright, shadowDarkenBlend)
 		drawCharacterShadow(
 			layeredShadowCoverage,
@@ -463,7 +488,7 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 			command.upright,
 			shadowMaskBlend,
 		)
-		frameLayeredShadowCoverageBounds = frameLayeredShadowCoverageBounds.Union(bounds)
+		recordLayeredShadowCoverage(bounds)
 		return
 	}
 	size := bounds.Size()
@@ -490,7 +515,7 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 	updateOp := &ebiten.DrawImageOptions{Blend: shadowMaskBlend}
 	updateOp.GeoM.Translate(float64(coverageRect.Min.X), float64(coverageRect.Min.Y))
 	layeredShadowCoverage.DrawImage(incoming, updateOp)
-	frameLayeredShadowCoverageBounds = frameLayeredShadowCoverageBounds.Union(bounds)
+	recordLayeredShadowCoverage(bounds)
 }
 
 // compositeLayeredShadowImage draws explicit shadow artwork through the same
@@ -506,7 +531,7 @@ func compositeLayeredShadowImage(screen, source *ebiten.Image, drawOp *ebiten.Dr
 	if bounds.Empty() {
 		return true
 	}
-	if frameLayeredShadowCoverageBounds.Empty() || !bounds.Overlaps(frameLayeredShadowCoverageBounds) {
+	if !overlapsLayeredShadowCoverage(bounds) {
 		darkenOp := *drawOp
 		darkenOp.Blend = shadowDarkenBlend
 		screen.DrawImage(source, &darkenOp)
@@ -515,7 +540,7 @@ func compositeLayeredShadowImage(screen, source *ebiten.Image, drawOp *ebiten.Dr
 		coverageOp.Blend = shadowMaskBlend
 		coverageOp.GeoM.Translate(float64(-layeredShadowOrigin.X), float64(-layeredShadowOrigin.Y))
 		layeredShadowCoverage.DrawImage(source, &coverageOp)
-		frameLayeredShadowCoverageBounds = frameLayeredShadowCoverageBounds.Union(bounds)
+		recordLayeredShadowCoverage(bounds)
 		return true
 	}
 
@@ -545,7 +570,7 @@ func compositeLayeredShadowImage(screen, source *ebiten.Image, drawOp *ebiten.Dr
 	updateOp := &ebiten.DrawImageOptions{Blend: shadowMaskBlend}
 	updateOp.GeoM.Translate(float64(coverageRect.Min.X), float64(coverageRect.Min.Y))
 	layeredShadowCoverage.DrawImage(incoming, updateOp)
-	frameLayeredShadowCoverageBounds = frameLayeredShadowCoverageBounds.Union(bounds)
+	recordLayeredShadowCoverage(bounds)
 	return true
 }
 

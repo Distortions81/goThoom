@@ -121,7 +121,10 @@ func drawPrimitiveMask(dst, mask *ebiten.Image, x, y, width, height, cornerX, co
 		if src.Empty() || w <= 0 || h <= 0 {
 			return
 		}
-		part := mask.SubImage(src).(*ebiten.Image)
+		part := mask
+		if src != bounds {
+			part = mask.SubImage(src).(*ebiten.Image)
+		}
 		op := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Scale(float64(w)/float64(src.Dx()), float64(h)/float64(src.Dy()))
 		op.GeoM.Translate(float64(x), float64(y))
@@ -234,6 +237,12 @@ func drawCachedLine(dst *ebiten.Image, x0, y0, x1, y1, width float32, tint color
 		ya, yb = minY, minY+mh
 	} else if w > 64 || h > 64 {
 		return false
+	}
+	// Short lines (especially title grips) are cheaper as one cached quad
+	// than nine slices. Retain the actual endpoints in the full-size mask.
+	if w <= 64 && h <= 64 {
+		mw, mh = w, h
+		xa, ya, xb, yb = roundedPixel(x0-off), roundedPixel(y0-off), roundedPixel(x1-off), roundedPixel(y1-off)
 	}
 	key := primitiveKey{kind: primitiveLine, width: mw + 2*pad + 1, height: mh + 2*pad + 1, stroke: stroke, aa: aa,
 		points: [6]int{xa - minX + pad, ya - minY + pad, xb - minX + pad, yb - minY + pad}}

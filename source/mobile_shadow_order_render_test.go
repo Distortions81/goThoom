@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -28,7 +29,7 @@ func TestRenderLayeredCharacterShadowOrder(t *testing.T) {
 		resetLayeredCharacterShadows()
 	})
 
-	game := &shadowOrderRenderGame{}
+	game := &shadowOrderRenderGame{t: t}
 	if err := ebiten.RunGame(game); err != nil {
 		t.Fatal(err)
 	}
@@ -38,6 +39,7 @@ func TestRenderLayeredCharacterShadowOrder(t *testing.T) {
 }
 
 type shadowOrderRenderGame struct {
+	t        *testing.T
 	rendered bool
 	err      error
 }
@@ -93,6 +95,9 @@ func (g *shadowOrderRenderGame) Draw(_ *ebiten.Image) {
 	}
 	if g.err == nil {
 		g.err = verifyLayeredPictureShadowMaximum(texture, projection)
+	}
+	if g.err == nil {
+		g.err = verifySparseLayeredShadowCoverage(g.t, texture, projection)
 	}
 	g.rendered = true
 }
@@ -236,4 +241,81 @@ func shadowOrderColorNear(a, b color.RGBA) bool {
 		}
 	}
 	return true
+}
+
+// Compare the new sparse coverage test against the former rectangular-union
+// path, including explicit artwork, character casters, and receiver clears.
+func verifySparseLayeredShadowCoverage(t *testing.T, texture characterShadowTexture, projection characterShadowProjection) error {
+	const width, height = 96, 32
+	render := func(unionOnly bool) []byte {
+		canvas := ebiten.NewImage(width, height)
+		defer canvas.Deallocate()
+		canvas.Fill(color.RGBA{R: 200, G: 180, B: 160, A: 255})
+		beginLayeredCharacterShadowComposite(canvas.Bounds())
+		for i, x := range []int{8, 80, 40, 42, 10, 70, 25, 26} {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(x), 8)
+			if i == 3 {
+				// New translucent foreground clears only some of the old coverage.
+				foreground := ebiten.NewImage(8, 8)
+				foreground.Fill(color.NRGBA{R: 240, G: 80, B: 20, A: 128})
+				canvas.DrawImage(foreground, op)
+				clearLayeredShadowCoverageImage(foreground, op)
+				foreground.Deallocate()
+			}
+			if i%2 == 0 {
+				compositeLayeredShadowImage(canvas, texture.image, op, image.Rect(x, 8, x+8, 16))
+			} else {
+				command := characterShadowDraw{texture: texture, size: 8, x: x, y: 12, alpha: 0.7, projection: projection}
+				command.quad = mobileSunShadowQuad(texture, 8, x, 12, projection, false)
+				compositeLayeredCharacterShadow(canvas, command)
+			}
+			if unionOnly {
+				frameLayeredShadowCoverageRects = append(frameLayeredShadowCoverageRects[:0], frameLayeredShadowCoverageBounds)
+			}
+		}
+		pixels := make([]byte, width*height*4)
+		canvas.ReadPixels(pixels)
+		return pixels
+	}
+	reference, sparse := render(true), render(false)
+	for i, a := range reference {
+		if d := int(a) - int(sparse[i]); d < -1 || d > 1 {
+			return fmt.Errorf("sparse coverage differs at byte %d: union=%d sparse=%d", i, a, sparse[i])
+		}
+	}
+	// Spread casters across the screen, visiting opposite corners first. The
+	// former union then includes all the empty space between the casters.
+	canvas := ebiten.NewImage(256, 256)
+	defer canvas.Deallocate()
+	pixels := make([]byte, 256*256*4)
+	measure := func(unionOnly bool) time.Duration {
+		start := time.Now()
+		for range 30 {
+			canvas.Fill(color.White)
+			beginLayeredCharacterShadowComposite(canvas.Bounds())
+			for i := range 100 {
+				index := i
+				if i == 1 {
+					index = 99
+				} else if i > 1 {
+					index = i - 1
+				}
+				x, y := 12+index%10*24, 12+index/10*24
+				command := characterShadowDraw{texture: texture, size: 8, x: x, y: y, alpha: 0.7, projection: projection}
+				command.quad = mobileSunShadowQuad(texture, 8, x, y, projection, false)
+				compositeLayeredCharacterShadow(canvas, command)
+				if unionOnly {
+					frameLayeredShadowCoverageRects = append(frameLayeredShadowCoverageRects[:0], frameLayeredShadowCoverageBounds)
+				}
+			}
+			canvas.ReadPixels(pixels)
+		}
+		return time.Since(start)
+	}
+	measure(true)
+	measure(false)
+	unionTime, sparseTime := measure(true), measure(false)
+	t.Logf("3000 separated character shadows with readback: union=%s sparse=%s", unionTime, sparseTime)
+	return nil
 }

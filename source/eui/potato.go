@@ -24,6 +24,7 @@ func SetPotatoMode(v bool) {
 	}
 	potatoMode = v
 	uiPrimitives.clear()
+	plainUIText.clear()
 	if whiteImage != nil {
 		whiteImage.Deallocate()
 	}

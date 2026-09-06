@@ -1666,7 +1666,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			tcolor = item.TextColor
 		}
 		top.ColorScale.ScaleWithColor(tcolor)
-		text.Draw(textTarget, item.Text, face, top)
+		drawCachedUIText(textTarget, item.Text, face, top)
 		if item.Prediction != "" {
 			line := strings.Count(item.Text, "\n")
 			lastLine := item.Text[strings.LastIndexByte(item.Text, '\n')+1:]
