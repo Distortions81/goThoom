@@ -20,6 +20,7 @@ go/.gomodcache_tmp/
 source/go/mod/
 
 # Downloaded and generated game resources
+asset-exports/
 CL_Images
 CL_Sounds
 internalimages*

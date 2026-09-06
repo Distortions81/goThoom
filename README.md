@@ -140,6 +140,12 @@ goThoom is released under the [MIT License](LICENSE). Clan Lord and its game
 assets belong to their respective owners; this repository provides a client,
 not server content.
 
+## Asset reference
+
+For local world-building experiments, the [asset catalog](docs/assets/README.md)
+documents reviewed low-numbered image IDs and a tool for exporting local previews.
+Extracted game artwork is not included in the repository.
+
 ## Credits
 
 Built in Go with a sprinkle of pragmatism and a lot of late-night packet
