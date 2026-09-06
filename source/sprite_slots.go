@@ -82,6 +82,7 @@ type spriteSlot struct {
 	parent       *ebiten.Image
 	size         image.Point
 	key          spriteSlotKey
+	contentSize  image.Point // retained on eviction; identifies an already-clean gutter
 	contentBytes int64
 	written      bool
 }
@@ -99,6 +100,9 @@ type spriteSlotPool struct {
 	loads      uint64 // first residency of a sprite ID
 	reloads    uint64 // new residency after that ID was evicted
 	loadCounts map[uint16]uint64
+
+	uploadBytes   uint64 // pixel bytes submitted by upload, excluding reserve initialization
+	directUploads uint64 // packed sources submitted without an application staging copy
 }
 
 // All pool access is protected by imageMu. Parents stay allocated on eviction;
@@ -239,16 +243,33 @@ func (p *spriteSlotPool) take(size image.Point, budget int64) *spriteSlot {
 
 func (p *spriteSlotPool) upload(key spriteSlotKey, src *image.RGBA, budget int64) *ebiten.Image {
 	slot := p.take(spriteSlotSize(src.Bounds()), budget)
-	// Write the entire allocation, including transparent padding. This also
-	// removes pixels left by a larger previous occupant without a GPU clear.
-	pixels := acquireArtworkRGBA(image.Rectangle{Max: slot.size})
-	clear(pixels.Pix)
-	for y := 0; y < src.Bounds().Dy(); y++ {
-		from := src.PixOffset(src.Bounds().Min.X, src.Bounds().Min.Y+y)
-		copy(pixels.Pix[y*pixels.Stride:y*pixels.Stride+src.Bounds().Dx()*4], src.Pix[from:from+src.Bounds().Dx()*4])
+	content := src.Bounds().Size()
+	if !src.Bounds().Empty() && src.Stride == content.X*4 && (!slot.written || slot.contentSize == content) {
+		// A fresh parent is transparent. Reusing the same content dimensions
+		// preserves the clean gutter established by the previous upload.
+		pixels := src.Pix[:content.X*content.Y*4]
+		slot.parent.SubImage(image.Rectangle{Max: content}).(*ebiten.Image).WritePixels(pixels)
+		p.uploadBytes += uint64(len(pixels))
+		p.directUploads++
+	} else {
+		// Only the new content and its linear-sampling gutter can be visible.
+		// Leave the rest of a reused allocation untouched. One rectangular write
+		// keeps upload scheduling unchanged and avoids a separate GPU clear.
+		uploadSize := src.Bounds().Size().Add(image.Pt(1, 1))
+		pixels := acquireArtworkRGBA(image.Rectangle{Max: uploadSize})
+		rowBytes := src.Bounds().Dx() * 4
+		for y := 0; y < src.Bounds().Dy(); y++ {
+			from := src.PixOffset(src.Bounds().Min.X, src.Bounds().Min.Y+y)
+			row := pixels.Pix[y*pixels.Stride : (y+1)*pixels.Stride]
+			copy(row[:rowBytes], src.Pix[from:from+rowBytes])
+			clear(row[rowBytes:]) // Only the right sampling gutter needs zeroing.
+		}
+		clear(pixels.Pix[src.Bounds().Dy()*pixels.Stride:]) // Bottom gutter.
+		slot.parent.SubImage(image.Rectangle{Max: uploadSize}).(*ebiten.Image).WritePixels(pixels.Pix)
+		p.uploadBytes += uint64(len(pixels.Pix))
+		releaseArtworkRGBA(pixels)
 	}
-	slot.parent.WritePixels(pixels.Pix)
-	releaseArtworkRGBA(pixels)
+	slot.contentSize = content
 	p.noteUpload(slot, key, int64(src.Bounds().Dx())*int64(src.Bounds().Dy())*4)
 	return slot.parent.SubImage(image.Rect(0, 0, src.Bounds().Dx(), src.Bounds().Dy())).(*ebiten.Image)
 }
@@ -370,8 +391,8 @@ func (p *spriteSlotPool) preallocate(factor int, budget int64) {
 	forEachReservedSpriteSlot(factor, reserve, func(size image.Point) {
 		slot := p.allocate(size)
 		// Two pixels force allocation without uploading a slot-sized zero
-		// buffer. A one-pixel write is deferred by Ebitengine. Every slot
-		// receives a full overwrite before it is handed to the renderer.
+		// buffer. A one-pixel write is deferred by Ebitengine. The rest of
+		// the new parent remains transparent until its first content upload.
 		slot.parent.SubImage(image.Rect(0, 0, 2, 1)).(*ebiten.Image).WritePixels(make([]byte, 8))
 		p.free[size] = append(p.free[size], slot)
 	})
