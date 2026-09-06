@@ -10,6 +10,7 @@ const editServerListOption = "Edit Server List..."
 
 var builtInServerAddresses = []string{
 	defaultServerHostName + ":5010",
+	"gothoom.m45sci.xyz:5010",
 }
 
 func normalizeServerAddress(value string) (string, bool) {
