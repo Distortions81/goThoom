@@ -3121,19 +3121,11 @@ func makeAddCharacterWindow() {
 				makeErrorWindow("Error: Add Character: character name is empty")
 				return
 			}
-			// Check for existing character names case-insensitively
-			exists := false
-			for i := range characters {
-				if strings.EqualFold(characters[i].Name, characterName) {
-					// Preserve canonical case from the stored character
-					characterName = characters[i].Name
-					exists = true
-					break
-				}
+			if _, exists := selectedCharacter(characterName); exists {
+				makeErrorWindow("Error: Add Character: character already exists. Use Edit Character to change it.")
+				return
 			}
-			if !exists {
-				characters = append(characters, Character{Name: characterName, DontRemember: true})
-			}
+			characters = append(characters, Character{Name: characterName, DontRemember: true})
 			saveCharacters()
 			hash := stageAddedCharacterPassword(characterName, addCharPass, addCharRemember)
 			// Update selection to the newly added character
