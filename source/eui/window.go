@@ -136,6 +136,15 @@ func (win *windowData) titleBackgroundColor() Color {
 	return baseTheme.Window.TitleBGColor
 }
 
+func (win *windowData) backgroundTint(c Color) Color {
+	opacity := 1 - max(float32(0), min(float32(1), win.BackgroundTransparency))
+	// Color uses premultiplied RGBA, so fade all four channels together.
+	return Color{
+		R: uint8(float32(c.R) * opacity), G: uint8(float32(c.G) * opacity),
+		B: uint8(float32(c.B) * opacity), A: uint8(float32(c.A) * opacity),
+	}
+}
+
 // Maximize resizes this window to cover the full screen area and moves it to (0,0).
 func (win *windowData) Maximize() {
 	if win == nil {

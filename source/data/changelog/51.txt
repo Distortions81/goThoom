@@ -1,9 +1,21 @@
 goThoom 51 changes since test50.
 
 Interface and settings:
-- Combined Settings and Advanced Settings into one window with ten topic tabs: Display, World, Text, Bubbles, Audio, Controls, Performance, Network, Files, and Tools. Tabs occupy two rows to keep every category visible in a compact window.
+- Combined Settings and Advanced Settings into one window with ten topic tabs: Display, World, Text, Bubbles, Audio, Controls, Performance, Network, Files, and Tools. Tabs fit on one row at the default size and wrap when space is limited.
 - Added command-palette shortcuts for individual Settings tabs and preserved the selected tab when settings controls are rebuilt.
 - Added Minimal, Compact, Balanced, Generous, and Maximum sprite-cache presets under Settings → Performance, with explanations of the memory and artwork-reloading tradeoffs. The cache reserve scales with sprite resolution; changes take effect after restarting.
+- Reworked AccentDark and AccentLight around KDE Breeze, refreshed NeonNight, and added distinct playful and quieter palettes, with borderless and high-contrast style options.
+- Preview themes and styles by hovering over their choices. Open dropdowns keep stable sizing, and improved contrast and theme updates keep highlighted text readable.
+- Improved button sizing, tab text fitting, close-button hover feedback, and window shadows. Themes can control shadow or glow color, size, and falloff.
+- Replaced inline color wheels with compact swatches that open an HSV picker, and fixed the classic text-color picker crash.
+- Split the setup wizard's crowded interface page into Appearance and readability and Windows and layout, with shorter, balanced columns.
+- Disabled Edit and Delete for the built-in demo character, with an explanatory tooltip.
+
+Speech bubbles:
+- Refreshed light and dark bubble styles with clearer whispers, larger and fewer yell/growl spikes, and simpler ponder clouds.
+- Speech pointers aim closer to the speaker's face, with clean openings where they join the outline. Bubble bodies avoid covering their own speaker.
+- Sunstone telepathy has a distinct marker and no speech pointer. Actions and narration use rectangular caption boxes without tails.
+- Bubble animation is now off by default for new settings; the option and existing saved preferences remain available.
 
 Rendering and memory use:
 - Reused GPU texture slots for cached artwork and retained recently used sprites to reduce texture churn during play and when revisiting areas.
@@ -11,9 +23,16 @@ Rendering and memory use:
 - Improved name-tag caching so modern labels do not rebuild when only the separately drawn health bar changes. The shared cache now has memory limits and safely retains images while they are being drawn.
 - Reduced GPU work for pixel-aligned interface rectangles by drawing them without unnecessary antialiasing passes.
 - Corrected overlapping scenery and character shadows so their shared areas do not become excessively dark, while preserving objects drawn in front of them.
+- Cached common interface shapes and complete static bubble decorations within bounded memory budgets. Batched spikes and cloud lobes reduce rendering work even with animation enabled.
+- Reduced repeated layout, text allocation, autocomplete, bubble-conflict, and lighting work to improve frame consistency.
 
 Movie playback:
 - Stopped movie playback, including paused movies, from adding recorded messages to normal chat and console log files.
+- Made the movie player's background translucent while keeping text and controls opaque.
+
+Snapshots and speech audio:
+- The snapshot button now opens options for naming, game-only or full-window capture, PNG/JPEG output, and hiding name tags. Suggested filenames include the current character's name.
+- Fixed bundled Piper speech synthesis failing to find its shared libraries on Linux.
 
 Diagnostics:
 - Expanded GPU memory reporting and added sprite-cache reload statistics and optional UI repaint tracing to help investigate performance problems.

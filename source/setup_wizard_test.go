@@ -55,8 +55,8 @@ func TestSetupWizardVSyncBypassPreservesSavedSetting(t *testing.T) {
 }
 
 func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
-	if setupWizardPageCount != 10 {
-		t.Fatalf("setup wizard pages = %d, want 10", setupWizardPageCount)
+	if setupWizardPageCount != 11 {
+		t.Fatalf("setup wizard pages = %d, want 11", setupWizardPageCount)
 	}
 	if shouldStartSetupWizardGraphicsDetection(0, false, false) {
 		t.Fatal("graphics detection starts on the first page")
@@ -72,13 +72,14 @@ func TestSetupWizardGraphicsDetectionStartsOnSecondPage(t *testing.T) {
 	}
 }
 
-func TestSetupWizardInterfacePageIncludesCoreChoices(t *testing.T) {
+func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	gs.TiledWindows = false
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
 	buildSetupInterfacePage(root)
+	buildSetupLayoutPage(root)
 
 	wantLabels := map[string]bool{
 		"UI scale":              false,
@@ -167,8 +168,9 @@ func TestSetupWizardUsesTwoPanelsForTallPages(t *testing.T) {
 		page  int
 		build func(*eui.ItemData)
 	}{
-		{name: "interface", page: 2, build: buildSetupInterfacePage},
-		{name: "audio", page: 7, build: buildSetupAudioPage},
+		{name: "interface", page: setupWizardInterfacePage, build: buildSetupInterfacePage},
+		{name: "layout", page: setupWizardLayoutPage, build: buildSetupLayoutPage},
+		{name: "audio", page: setupWizardAudioPage, build: buildSetupAudioPage},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
@@ -252,7 +254,7 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 
 	gs.TiledWindows = false
 	disabled := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	buildSetupInterfacePage(disabled)
+	buildSetupLayoutPage(disabled)
 	for _, name := range append(wantLabels, wantChecks...) {
 		if contains(disabled, name) {
 			t.Errorf("interface page shows tiled setting %q while tiled mode is disabled", name)
@@ -261,7 +263,7 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 
 	gs.TiledWindows = true
 	enabled := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	buildSetupInterfacePage(enabled)
+	buildSetupLayoutPage(enabled)
 	for _, name := range append(wantLabels, wantChecks...) {
 		if !contains(enabled, name) {
 			t.Errorf("interface page is missing tiled setting %q while tiled mode is enabled", name)
@@ -296,7 +298,7 @@ func TestSetupWizardNamesMessagePlacementForCombinedState(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			gs.MessagesToConsole = test.combined
 			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-			buildSetupInterfacePage(root)
+			buildSetupLayoutPage(root)
 
 			var placement *eui.ItemData
 			var visit func(*eui.ItemData)
@@ -356,7 +358,7 @@ func TestSetupWizardAlternateGameSideDisabledForCenteredLayout(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			gs.TiledLayout = test.layout
 			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-			buildSetupInterfacePage(root)
+			buildSetupLayoutPage(root)
 			gameSide := findGameSide(root)
 			if gameSide == nil {
 				t.Fatal("wizard is missing the alternate game side control")
@@ -568,11 +570,11 @@ func TestSetupWizardSceneDefaultsFollowEffectPages(t *testing.T) {
 		page int
 		want setupWizardSceneMode
 	}{
-		{page: 2, want: setupWizardSceneIndoor},
-		{page: 3, want: setupWizardSceneDay},
-		{page: 4, want: setupWizardSceneMotion},
-		{page: 5, want: setupWizardSceneDay},
-		{page: 6, want: setupWizardSceneNight},
+		{page: setupWizardInterfacePage, want: setupWizardSceneIndoor},
+		{page: setupWizardControlsPage, want: setupWizardSceneDay},
+		{page: setupWizardMotionPage, want: setupWizardSceneMotion},
+		{page: setupWizardShadowsPage, want: setupWizardSceneDay},
+		{page: setupWizardNightPage, want: setupWizardSceneNight},
 	} {
 		setupWizardScenePage = -1
 		selectSetupWizardSceneForPage(test.page)
@@ -671,7 +673,7 @@ func TestSetupWizardSyntheticSceneHasDemonstrationSubjects(t *testing.T) {
 		restoreMovieNightState(originalNight)
 	})
 	setupWizardSceneModeValue = setupWizardSceneMotion
-	setupWizardPage = 2
+	setupWizardPage = setupWizardInterfacePage
 	setupWizardSceneStarted = time.Unix(1000, 0)
 	var snap drawSnapshot
 	prepareSetupWizardSceneSnapshot(&snap, setupWizardSceneStarted.Add(500*time.Millisecond))

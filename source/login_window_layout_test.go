@@ -202,13 +202,18 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 
 	name = freeDemoSelection
 	updateCharacterButtons()
-	if editCharBtn.Disabled || deleteCharBtn.Disabled {
-		t.Fatal("Edit or Delete disappeared for Demo Character")
+	if !editCharBtn.Disabled || !deleteCharBtn.Disabled {
+		t.Fatal("Edit and Delete must be disabled for Demo Character")
 	}
 	if _, ok := selectedCharacter(name); ok {
 		t.Fatal("Demo Character was treated as an editable saved character")
 	}
 	if got := len(charactersList.Contents[len(charactersList.Contents)-1].Contents); got != 3 {
 		t.Fatalf("Demo Character row controls = %d, want profession, portrait, and selector only", got)
+	}
+	name = "Alice"
+	updateCharacterButtons()
+	if editCharBtn.Disabled || deleteCharBtn.Disabled {
+		t.Fatal("Edit and Delete did not re-enable for a saved character")
 	}
 }

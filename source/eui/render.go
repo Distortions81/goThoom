@@ -365,7 +365,7 @@ func (win *windowData) drawBG(screen *ebiten.Image) {
 		Position: point{X: r.X0, Y: r.Y0},
 		Fillet:   fillet,
 		Filled:   true,
-		Color:    win.backgroundColor(),
+		Color:    win.backgroundTint(win.backgroundColor()),
 	})
 }
 
@@ -373,7 +373,7 @@ func (win *windowData) drawWinTitle(screen *ebiten.Image) {
 	// Window Title
 	if win.TitleHeight > 0 {
 		tr := win.getTitleRect()
-		drawFilledRect(screen, tr.X0, tr.Y0, tr.X1-tr.X0, tr.Y1-tr.Y0, win.titleBackgroundColor(), true)
+		drawFilledRect(screen, tr.X0, tr.Y0, tr.X1-tr.X0, tr.Y1-tr.Y0, win.backgroundTint(win.titleBackgroundColor()), true)
 
 		textSize := ((win.GetTitleSize()) / 2)
 		face := textFace(textSize)

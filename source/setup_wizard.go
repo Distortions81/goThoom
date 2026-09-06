@@ -12,8 +12,22 @@ import (
 )
 
 const (
-	setupWizardPageCount                     = 10
-	setupWizardGraphicsBenchmarkPage         = 1
+	setupWizardWelcomePage = iota
+	setupWizardGraphicsPage
+	setupWizardInterfacePage
+	setupWizardLayoutPage
+	setupWizardControlsPage
+	setupWizardMotionPage
+	setupWizardShadowsPage
+	setupWizardNightPage
+	setupWizardAudioPage
+	setupWizardNotificationsPage
+	setupWizardFinishPage
+	setupWizardPageCount
+)
+
+const (
+	setupWizardGraphicsBenchmarkPage         = setupWizardGraphicsPage
 	setupWizardGraphicsWarmup                = 2 * time.Second
 	setupWizardGraphicsDuration              = time.Second
 	setupWizardTopGap                        = 24
@@ -143,25 +157,27 @@ func rebuildSetupWizard() {
 	root.AddItem(step)
 
 	switch setupWizardPage {
-	case 0:
+	case setupWizardWelcomePage:
 		buildSetupWelcomePage(root)
-	case 1:
+	case setupWizardGraphicsPage:
 		buildSetupGraphicsPage(root)
-	case 2:
+	case setupWizardInterfacePage:
 		buildSetupInterfacePage(root)
-	case 3:
+	case setupWizardLayoutPage:
+		buildSetupLayoutPage(root)
+	case setupWizardControlsPage:
 		buildSetupControlsPage(root)
-	case 4:
+	case setupWizardMotionPage:
 		buildSetupMotionPage(root)
-	case 5:
+	case setupWizardShadowsPage:
 		buildSetupShadowsPage(root)
-	case 6:
+	case setupWizardNightPage:
 		buildSetupNightLightingPage(root)
-	case 7:
+	case setupWizardAudioPage:
 		buildSetupAudioPage(root)
-	case 8:
+	case setupWizardNotificationsPage:
 		buildSetupNotificationsPage(root)
-	case 9:
+	case setupWizardFinishPage:
 		buildSetupFinishPage(root)
 	}
 
@@ -183,7 +199,7 @@ func rebuildSetupWizard() {
 }
 
 func setupWizardPageWidth(page int) float32 {
-	if page == 2 || page == 7 {
+	if page == setupWizardInterfacePage || page == setupWizardLayoutPage || page == setupWizardAudioPage {
 		return setupWizardTwoPanelWidth
 	}
 	return setupWizardContentWidth
@@ -259,44 +275,13 @@ func buildSetupControlsPage(root *eui.ItemData) {
 }
 
 func buildSetupInterfacePage(root *eui.ItemData) {
-	root.AddItem(setupWizardHeading("Interface and readability"))
-	root.AddItem(setupWizardText("Choose the interface appearance, main layout, and information drawn over the game. Detailed sizing, opacity, and window controls remain in Settings.", 11, 620))
+	root.AddItem(setupWizardHeading("Appearance and readability"))
+	root.AddItem(setupWizardText("Choose colors, sizing, and the information shown over the game. Window arrangement comes next.", 11, setupWizardTwoPanelWidth))
 	root.AddItem(setupWizardThemeStyleSelectors())
 	root.AddItem(setupWizardUIScaleControl())
-
-	panels, windowPanel, displayPanel := setupWizardTwoPanels()
-	windowPanel.AddItem(setupWizardPanelHeading("Windows and layout"))
-	displayPanel.AddItem(setupWizardPanelHeading("Game display"))
-
-	toolbar, toolbarEvents := eui.NewDropdown()
-	toolbar.Label = "Toolbar placement"
-	toolbar.Options = []string{"Inside Inventory", "Inside Players"}
-	if !gs.TiledWindows {
-		toolbar.Options = append(toolbar.Options, "Floating Window")
-	}
-	toolbar.Selected = int(gs.ToolbarPlacement)
-	toolbar.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
-	toolbar.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
-	toolbarEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index < len(toolbar.Options) {
-			placeToolbar(ToolbarPlacement(ev.Index), true)
-		}
-	}
-	windowPanel.AddItem(toolbar)
-	windowPanel.AddItem(setupWizardCheckboxWidth("Show toolbar info bar", "Show FPS, packet loss, ping, and jitter below the toolbar when it is docked.", gs.ToolbarInfoBar, func(checked bool) {
-		gs.ToolbarInfoBar = checked
-		placeToolbar(gs.ToolbarPlacement, true)
-	}, setupWizardPanelWidth))
-
-	windowPanel.AddItem(setupWizardCheckboxWidth("Tiled window mode", "Arrange the main windows as one tiled workspace.", gs.TiledWindows, func(checked bool) {
-		gs.TiledWindows = checked
-		applyTiledWorkspaceLayout()
-		rebuildSetupWizard()
-	}, setupWizardPanelWidth))
-	if gs.TiledWindows {
-		buildSetupTiledWindowSettings(windowPanel, setupWizardPanelWidth)
-	}
-
+	panels, displayPanel, bubblePanel := setupWizardTwoPanels()
+	displayPanel.AddItem(setupWizardPanelHeading("Game information"))
+	bubblePanel.AddItem(setupWizardPanelHeading("Names and speech"))
 	placement, events := eui.NewDropdown()
 	placement.Label = "Status bar placement"
 	placement.Options = []string{"Along bottom", "Grouped lower left", "Grouped lower right", "Grouped upper right"}
@@ -327,12 +312,12 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 	}
 	displayPanel.AddItem(healthDisplay)
 
-	displayPanel.AddItem(setupWizardCheckboxWidth("Dark mode names/bubbles", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
+	bubblePanel.AddItem(setupWizardCheckboxWidth("Dark mode names/bubbles", "Use dark backgrounds with light text for speech bubbles and character names.", gs.DarkBubblesAndNames, func(checked bool) {
 		gs.DarkBubblesAndNames = checked
 		killNameTagCache()
 		settingsDirty = true
 	}, setupWizardPanelWidth))
-	displayPanel.AddItem(setupWizardCheckboxWidth("Speech bubbles", "Show spoken text over characters as well as in chat.", gs.SpeechBubbles, func(checked bool) {
+	bubblePanel.AddItem(setupWizardCheckboxWidth("Speech bubbles", "Show spoken text over characters as well as in chat.", gs.SpeechBubbles, func(checked bool) {
 		gs.SpeechBubbles = checked
 		settingsDirty = true
 	}, setupWizardPanelWidth))
@@ -340,6 +325,47 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 		gs.FadeObscuringPictures = checked
 		settingsDirty = true
 	}, setupWizardPanelWidth))
+	root.AddItem(panels)
+}
+
+func buildSetupLayoutPage(root *eui.ItemData) {
+	root.AddItem(setupWizardHeading("Windows and layout"))
+	root.AddItem(setupWizardText("Arrange your workspace and choose where the toolbar lives. Changes preview immediately.", 11, setupWizardTwoPanelWidth))
+	panels, windowPanel, tiledPanel := setupWizardTwoPanels()
+	windowPanel.AddItem(setupWizardPanelHeading("Workspace"))
+	toolbar, toolbarEvents := eui.NewDropdown()
+	toolbar.Label = "Toolbar placement"
+	toolbar.Options = []string{"Inside Inventory", "Inside Players"}
+	if !gs.TiledWindows {
+		toolbar.Options = append(toolbar.Options, "Floating Window")
+	}
+	toolbar.Selected = int(gs.ToolbarPlacement)
+	toolbar.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
+	toolbar.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
+	toolbarEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index < len(toolbar.Options) {
+			placeToolbar(ToolbarPlacement(ev.Index), true)
+		}
+	}
+	windowPanel.AddItem(toolbar)
+	windowPanel.AddItem(setupWizardCheckboxWidth("Show toolbar info bar", "Show FPS, packet loss, ping, and jitter below the toolbar when it is docked.", gs.ToolbarInfoBar, func(checked bool) {
+		gs.ToolbarInfoBar = checked
+		placeToolbar(gs.ToolbarPlacement, true)
+	}, setupWizardPanelWidth))
+
+	windowPanel.AddItem(setupWizardCheckboxWidth("Tiled window mode", "Arrange the main windows as one tiled workspace.", gs.TiledWindows, func(checked bool) {
+		gs.TiledWindows = checked
+		applyTiledWorkspaceLayout()
+		rebuildSetupWizard()
+	}, setupWizardPanelWidth))
+	if gs.TiledWindows {
+		buildSetupTiledWindowSettings(windowPanel, tiledPanel, setupWizardPanelWidth)
+	}
+
+	if !gs.TiledWindows {
+		tiledPanel.AddItem(setupWizardPanelHeading("Floating windows"))
+		tiledPanel.AddItem(setupWizardText("Move and resize windows freely. Enable tiled mode to arrange them around the game view.", 11, setupWizardPanelWidth))
+	}
 	root.AddItem(panels)
 }
 
@@ -356,6 +382,7 @@ func setupWizardThemeStyleSelectors() *eui.ItemData {
 		}
 	}
 	style.Size = eui.Point{X: setupWizardPanelWidth, Y: 24}
+	style.Position.X = setupWizardPanelGap
 	style.SetTooltip("Changes the shape, borders, and spacing of interface controls.")
 	styleEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(style.Options) {
@@ -445,6 +472,7 @@ func setupWizardUIScaleControl() *eui.ItemData {
 	apply.Text = "Apply"
 	setMaterialButtonIcon(apply, "check_circle")
 	apply.Size = eui.Point{X: 90, Y: 24}
+	apply.Position.Y = 20
 	applyEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventClick {
 			return
@@ -467,16 +495,16 @@ func setupWizardUIScaleControl() *eui.ItemData {
 	return flow
 }
 
-func buildSetupTiledWindowSettings(root *eui.ItemData, width float32) {
+func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 	heading := setupWizardText("Tiled window settings", 14, width)
 	applyBoldFace(heading)
 	root.AddItem(heading)
 
-	root.AddItem(setupWizardCheckboxWidth("Keep game window large", "Keep the centered game pane at its largest square size.", gs.TiledKeepGameLarge, func(checked bool) {
+	options.AddItem(setupWizardCheckboxWidth("Keep game window large", "Keep the centered game pane at its largest square size.", gs.TiledKeepGameLarge, func(checked bool) {
 		gs.TiledKeepGameLarge = checked
 		applyTiledWorkspaceLayout()
 	}, width))
-	root.AddItem(setupWizardCheckboxWidth("Combine chat + console", "Show chat and console output together in the Console tile, and hide the separate Chat tile.", gs.MessagesToConsole, func(checked bool) {
+	options.AddItem(setupWizardCheckboxWidth("Combine chat + console", "Show chat and console output together in the Console tile, and hide the separate Chat tile.", gs.MessagesToConsole, func(checked bool) {
 		gs.MessagesToConsole = checked
 		applyTiledWorkspaceLayout()
 		rebuildSetupWizard()

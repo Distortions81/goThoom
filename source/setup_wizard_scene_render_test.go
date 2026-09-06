@@ -91,14 +91,14 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 	initFont()
 	for _, mode := range []setupWizardSceneMode{setupWizardSceneDay, setupWizardSceneIndoor, setupWizardSceneNight, setupWizardSceneMotion} {
 		setupWizardSceneModeValue = mode
-		setupWizardPage = 5
+		setupWizardPage = setupWizardShadowsPage
 		switch mode {
 		case setupWizardSceneIndoor:
-			setupWizardPage = 2
+			setupWizardPage = setupWizardInterfacePage
 		case setupWizardSceneNight:
-			setupWizardPage = 6
+			setupWizardPage = setupWizardNightPage
 		case setupWizardSceneMotion:
-			setupWizardPage = 4
+			setupWizardPage = setupWizardMotionPage
 		}
 		setupWizardSceneStarted = time.Unix(1000, 0)
 		now := setupWizardSceneStarted.Add(650 * time.Millisecond)

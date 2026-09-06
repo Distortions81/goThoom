@@ -130,6 +130,10 @@ type windowData struct {
 	// Opacity controls the overall window opacity when composited to the
 	// screen. Range [0,1], where 1 is fully opaque. Defaults to 1.
 	Opacity float32
+
+	// BackgroundTransparency fades only the window and title fills, leaving
+	// text and controls opaque. Range [0,1]; zero preserves the theme colors.
+	BackgroundTransparency float32
 }
 
 type itemData struct {

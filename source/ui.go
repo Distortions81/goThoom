@@ -3033,6 +3033,24 @@ func updateCharacterButtons() {
 	// Preserve window position while contents change size
 	// Restore prior scroll position to keep the user's place.
 	charactersList.Scroll = prevScroll
+	for _, action := range []struct {
+		button *eui.ItemData
+		help   string
+	}{
+		{editCharBtn, "Change the selected character's password, password saving, or settings profile."},
+		{deleteCharBtn, "Delete the selected saved character"},
+	} {
+		if action.button == nil {
+			continue
+		}
+		action.button.Disabled = name == freeDemoSelection
+		if action.button.Disabled {
+			action.button.SetTooltip("The demo character is built in and cannot be edited or deleted.")
+		} else {
+			action.button.SetTooltip(action.help)
+		}
+		action.button.Dirty = true
+	}
 	// Keep UI fresh after potential content changes.
 	loginWin.Refresh()
 }

@@ -29,11 +29,11 @@ func selectSetupWizardSceneForPage(page int) {
 	}
 	setupWizardScenePage = page
 	switch page {
-	case 2:
+	case setupWizardInterfacePage:
 		setupWizardSceneModeValue = setupWizardSceneIndoor
-	case 4:
+	case setupWizardMotionPage:
 		setupWizardSceneModeValue = setupWizardSceneMotion
-	case 6:
+	case setupWizardNightPage:
 		setupWizardSceneModeValue = setupWizardSceneNight
 	default:
 		setupWizardSceneModeValue = setupWizardSceneDay
@@ -216,7 +216,7 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.lightingFlags = 0
 	snap.logicalFrame = logicalFrame
 	snap.bubbles = snap.bubbles[:0]
-	if setupWizardPage == 2 {
+	if setupWizardPage == setupWizardInterfacePage {
 		snap.bubbles = append(snap.bubbles, bubble{
 			Index: 2, Text: "Welcome to Puddleby!", Type: kBubbleNormal,
 			CreatedFrame: snap.logicalFrame, LifeFrames: 100000,

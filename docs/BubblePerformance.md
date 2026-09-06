@@ -81,6 +81,43 @@ GOTHOOM_RENDER_BUBBLE_CACHE_TEST=1 xvfb-run -a go test . -run '^TestRenderCached
 GOTHOOM_RENDER_TEXT_FIT=1 xvfb-run -a go test . -run '^TestRenderControlTextFit$' -count=1
 ```
 
-These checks and `go build ./...` pass. The full suite has the pre-existing
-`TestVersionEntriesAndChangelogsStayInSync` failure: changelog `51.txt` has no
-matching versions.json entry. Release metadata is unchanged by this work.
+These checks and `go build ./...` pass. At the time of the measurements, the
+full suite had a pre-existing `TestVersionEntriesAndChangelogsStayInSync`
+failure because changelog `51.txt` lacked a versions.json entry. The version
+51 metadata update subsequently resolved that mismatch.
+
+## Moving bubble torture follow-up
+
+The actual `-bubbleTorture` client mode was also measured for 30 seconds
+after five seconds of scene warmup, with the normal Game.Update and Game.Draw
+loops running. This covers moving speakers, camera motion, changing text and
+bubble types, layout work, and cache misses. Audio was disabled; the synthetic
+scene does not use a server connection. Both fresh-process runs used 2x
+artwork/game scale, UI scale 1, dark bubbles, animation off, and a 1920x1000
+window on the same hardware display. VSync was explicitly disabled after
+startup and confirmed off through Ebitengine's own query at completion.
+
+| Measurement | Before | Current | Reduction |
+| --- | ---: | ---: | ---: |
+| Frame interval p95 | 4.876 ms | 2.849 ms | 42% |
+| Frame interval p99 | 5.342 ms | 4.077 ms | 24% |
+| Draw submission p95 | 3.874 ms | 0.843 ms | 78% |
+| Update p95 | 0.158 ms | 0.129 ms | 18% |
+
+There were 8,422 samples before and 12,229 after. The current run still had
+two intervals over 16.67 ms (0.016%); its maximum was 20.00 ms, versus one
+interval over 16.67 ms and a 17.92 ms maximum before. The p95 improvement
+therefore does not imply every worst-case spike improved.
+
+The baseline substitutes bubble.go and game.go from `1f062ce` while retaining
+the current UI and identical instrumentation. The current build includes
+the tail-outline gaps. Temporary Go build overlays collected timings in
+memory through the frame-pacing hooks and wrote JSON only after sampling;
+the normal per-frame pacing logger was replaced for these runs. Initial
+setup runs were discarded because startup changed the requested VSync
+setting. The reported pair ran before then after, with both the settings
+and engine flags confirmed false and the setup wizard closed.
+
+Raw reports: [before](benchmarks/bubble_torture_before.json) and
+[current](benchmarks/bubble_torture_after.json). This is one controlled pair,
+not a claim about all scenes or hardware.

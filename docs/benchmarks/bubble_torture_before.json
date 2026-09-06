@@ -1,0 +1,50 @@
+{
+  "animatedBubbles": false,
+  "artworkScale": 2,
+  "audioEnabled": false,
+  "darkBubbles": true,
+  "draw": {
+    "max_ms": 10.223496,
+    "over_16_67ms_pct": 0,
+    "p50_ms": 2.666841,
+    "p95_ms": 3.873745,
+    "p99_ms": 4.324788
+  },
+  "durationSeconds": 30.001752236,
+  "effectiveVsync": false,
+  "engineVsync": false,
+  "frameInterval": {
+    "max_ms": 17.920677,
+    "over_16_67ms_pct": 0.011873664212776063,
+    "p50_ms": 3.490157,
+    "p95_ms": 4.875837,
+    "p99_ms": 5.341569
+  },
+  "gameScale": 2,
+  "goVersion": "go1.26.6",
+  "gpuBytes": 1635069952,
+  "graphicsLibrary": "OpenGL",
+  "includesGameUpdate": true,
+  "samples": 8422,
+  "scene": "bubbleTorture",
+  "snapshotWait": {
+    "max_ms": 0,
+    "over_16_67ms_pct": 0,
+    "p50_ms": 0,
+    "p95_ms": 0,
+    "p99_ms": 0
+  },
+  "uiScale": 1,
+  "update": {
+    "max_ms": 0.846466,
+    "over_16_67ms_pct": 0,
+    "p50_ms": 0.108748,
+    "p95_ms": 0.157858,
+    "p99_ms": 0.225584
+  },
+  "vsync": false,
+  "warmupSeconds": 5,
+  "windowHeight": 1000,
+  "windowWidth": 1920,
+  "wizardOpen": false
+}

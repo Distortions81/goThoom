@@ -210,6 +210,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win := eui.NewWindow()
 	movieWin = win
 	win.Title = "Movie Controls"
+	win.BackgroundTransparency = 0.4
 	win.ShowDragbar = true
 	win.Theme.Window.DragbarColor = eui.Color{R: 96, G: 96, B: 96}
 	win.DragbarSpacing = 5

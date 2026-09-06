@@ -827,7 +827,11 @@ func (item *itemData) clickFlows(mpos point, click bool) bool {
 
 func (item *itemData) clickItem(mpos point, click bool) bool {
 	if item.Disabled {
-		return item.DrawRect.containsPoint(mpos)
+		inside := item.DrawRect.containsPoint(mpos)
+		if inside && item.Tooltip != "" {
+			hoveredItem = item
+		}
+		return inside
 	}
 	if pointerPressed() && activeItem != nil && activeItem != item {
 		return false
