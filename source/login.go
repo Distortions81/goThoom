@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -178,8 +177,8 @@ func handleDisconnect() {
 const CL_ImagesFile = "CL_Images"
 const CL_SoundsFile = "CL_Sounds"
 
-// fetchDemoCharacters retrieves the server's demo characters in randomized
-// order so login can try each candidate until it finds one that is offline.
+// fetchDemoCharacters retrieves the server's available demo characters for
+// the player to choose from.
 func fetchDemoCharacters(clVersion int) ([]string, error) {
 	for {
 		names, err := fetchDemoCharactersOnce(clVersion)
@@ -399,9 +398,6 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 	if len(names) == 0 {
 		return nil, fmt.Errorf("no demo characters returned via %s", target.addr)
 	}
-	rand.Shuffle(len(names), func(i, j int) {
-		names[i], names[j] = names[j], names[i]
-	})
 	return names, nil
 }
 
@@ -482,7 +478,7 @@ outer:
 					logDebug("demo character %s is online; trying %s", previous, name)
 					continue outer
 				}
-				if resultErr.result == loginResultCharacterAlreadyOnline && len(demoCandidates) > 0 {
+				if resultErr.result == loginResultCharacterAlreadyOnline && len(demoCandidates) > 1 {
 					return errDemoSlotsUsed
 				}
 				return err

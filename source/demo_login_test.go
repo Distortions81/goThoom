@@ -103,3 +103,35 @@ func TestDemoLoginTriesEachCandidateOnceBeforeExhaustedError(t *testing.T) {
 		t.Fatalf("attempted demo characters = %v, want each once: %v", got, candidates)
 	}
 }
+
+func TestDemoLoginSelectedCandidateReportsWhenItIsOnline(t *testing.T) {
+	server := newFakeServerWithResults(t, loginResultCharacterAlreadyOnline)
+	defer server.close()
+
+	originalHost := host
+	originalDataDir := dataDirPath
+	originalName := name
+	originalPass := pass
+	originalPassHash := passHash
+	host = server.addr()
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() {
+		host = originalHost
+		dataDirPath = originalDataDir
+		name = originalName
+		pass = originalPass
+		passHash = originalPassHash
+	})
+
+	selected := "Agratis Two"
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err := loginWithDemoCandidates(ctx, 1, []string{selected})
+	var resultErr *loginResultError
+	if !errors.As(err, &resultErr) || resultErr.result != loginResultCharacterAlreadyOnline {
+		t.Fatalf("selected demo login error = %v, want character already online", err)
+	}
+	if got, want := server.attemptedLoginNames(), []string{selected}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("attempted demo characters = %v, want %v", got, want)
+	}
+}

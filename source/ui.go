@@ -50,6 +50,9 @@ var settingsToolbarPlacementDD *eui.ItemData
 var settingsCombineMessagesCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
+var demoCharacterWin *eui.WindowData
+var demoCharacterList *eui.ItemData
+var demoCharacterSelection string
 var addCharWin *eui.WindowData
 var addCharName string
 var addCharPass string
@@ -3541,6 +3544,90 @@ func closeConnectDialog() {
 	connectStatusText = nil
 }
 
+func showDemoCharacterDialog(candidates []string) {
+	if len(candidates) == 0 {
+		makeErrorWindow("Error: Demo: no demo characters are available.")
+		loginWin.MarkOpen()
+		return
+	}
+	if demoCharacterWin == nil {
+		demoCharacterWin = eui.NewWindow()
+		demoCharacterWin.Title = "Choose Demo Character"
+		demoCharacterWin.Closable = false
+		demoCharacterWin.Resizable = false
+		demoCharacterWin.AutoSize = true
+		demoCharacterWin.Movable = true
+
+		flow := eui.NewColumn()
+		prompt, _ := eui.NewText()
+		prompt.Text = "Choose a demo character to play:"
+		prompt.FontSize = 16
+		prompt.Size = eui.Point{X: 360, Y: 28}
+		flow.AddItem(prompt)
+
+		demoCharacterList = eui.NewColumn()
+		demoCharacterList.Scrollable = true
+		demoCharacterList.Fixed = true
+		demoCharacterList.Size = eui.Point{X: 360, Y: 320}
+		flow.AddItem(demoCharacterList)
+
+		buttons := eui.NewRow()
+		cancel, cancelEvents := eui.NewButton()
+		cancel.Text = "Cancel"
+		cancel.Size = eui.Point{X: 96, Y: 24}
+		cancelEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventClick {
+				demoCharacterWin.Close()
+				loginWin.MarkOpen()
+			}
+		}
+		buttons.AddItem(cancel)
+
+		connect, connectEvents := eui.NewButton()
+		connect.Text = "Connect"
+		setMaterialButtonIcon(connect, "login")
+		connect.Size = eui.Point{X: 96, Y: 24}
+		connectEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type != eui.EventClick || demoCharacterSelection == "" {
+				return
+			}
+			demoCharacterWin.Close()
+			loginMu.Lock()
+			demoLoginActive = true
+			loginMu.Unlock()
+			startLoginWithDemoCandidates([]string{demoCharacterSelection})
+		}
+		buttons.AddItem(connect)
+		demoCharacterWin.DefaultButton = connect
+		flow.AddItem(buttons)
+
+		demoCharacterWin.AddItem(flow)
+		demoCharacterWin.AddWindow(false)
+	}
+
+	demoCharacterSelection = candidates[0]
+	for i := range demoCharacterList.Contents {
+		demoCharacterList.Contents[i] = nil
+	}
+	demoCharacterList.Contents = demoCharacterList.Contents[:0]
+	for _, candidate := range candidates {
+		radio, events := eui.NewRadio()
+		radio.Text = candidate
+		radio.RadioGroup = "demo-characters"
+		radio.Size = eui.Point{X: 344, Y: 28}
+		radio.Checked = candidate == demoCharacterSelection
+		candidateCopy := candidate
+		events.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventRadioSelected {
+				demoCharacterSelection = candidateCopy
+			}
+		}
+		demoCharacterList.AddItem(radio)
+	}
+	demoCharacterWin.MarkOpen()
+	demoCharacterWin.Refresh()
+}
+
 func startDemoLogin() {
 	loginMu.Lock()
 	if demoLookupInProgress || loginInProgress || tcpConn != nil {
@@ -3571,9 +3658,11 @@ func startDemoLogin() {
 		}
 		loginMu.Lock()
 		demoLookupInProgress = false
-		demoLoginActive = true
 		loginMu.Unlock()
-		dispatchMainThread(func() { startLoginWithDemoCandidates(demoCandidates) })
+		dispatchMainThread(func() {
+			closeConnectDialog()
+			showDemoCharacterDialog(demoCandidates)
+		})
 	}()
 }
 
