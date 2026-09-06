@@ -1,0 +1,9 @@
+goThoom 52 changes since test51.
+
+Rendering and artwork loading:
+- Reduced drawing overhead for window title-bar grip marks.
+- Cached rendered text across window repaints to reduce repeated work in Chat, Console, and other text-heavy windows, while preserving regular, bold, and italic text.
+- Reduced unnecessary shadow-compositing work when character and artwork shadows are separated, while preserving overlapping shadows and drawing order.
+- Reduced sprite-upload data by skipping unused texture padding. Uploads remain batched to avoid spreading loading work across multiple frames.
+- Removed redundant staging copies for tightly packed sprites uploaded into fresh or same-size reused texture slots.
+
