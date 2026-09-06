@@ -1452,5 +1452,10 @@ func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
 		}
 	}
 	networkSection.AddItem(serverInput)
+	if serverAddressOverride != "" {
+		serverInput.Label = "Server address (saved)"
+		note := eui.NewLabel("This run: " + serverAddressOverride + " (-server)")
+		networkSection.AddItem(note)
+	}
 
 }

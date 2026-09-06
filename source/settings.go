@@ -348,6 +348,7 @@ var gsdef settings = settings{
 	MusicEnhancementAmount:  1.0,
 	HighQualityResampling:   true,
 	ServerAddress:           defaultServerHostName + ":5010",
+	ServerAddresses:         nil,
 	AssetsPath:              "",
 	LogsPath:                "",
 	MacrosPath:              "",
@@ -577,6 +578,7 @@ type settings struct {
 	scriptEventDebug         bool
 	AltNetMode               bool
 	ServerAddress            string
+	ServerAddresses          []string
 	AssetsPath               string
 	LogsPath                 string
 	MacrosPath               string
@@ -787,12 +789,16 @@ func loadSettings() bool {
 }
 
 func applyServerAddressSetting() {
+	normalizeServerListSettings()
 	addr := strings.TrimSpace(gs.ServerAddress)
 	if addr == "" {
 		addr = gsdef.ServerAddress
 	}
 	gs.ServerAddress = addr
 	host = addr
+	if serverAddressOverride != "" {
+		host = serverAddressOverride
+	}
 }
 
 func effectiveVSyncEnabled() bool {

@@ -92,6 +92,7 @@ func main() {
 		}
 	}()
 	defer logMainPanic()
+	flag.Func("server", "override the game server for this run (host:port; saved settings are unchanged)", setServerAddressOverride)
 	dumpTune := flag.String("dumpTune", "", "dump parsed note timings for the given tune string and exit")
 	dumpTempo := flag.Int("dumpTempo", 120, "tempo for -dumpTune (BPM)")
 	dumpInst := flag.Int("dumpInst", defaultInstrument, "instrument index for -dumpTune")

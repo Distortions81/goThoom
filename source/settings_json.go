@@ -58,6 +58,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "SetupWizardVersion", category: settingsGeneral, name: "setup_wizard_version"},
 	{field: "LastCharacter", category: settingsGeneral, name: "last_character"},
 	{field: "ServerAddress", category: settingsGeneral, name: "server_address"},
+	{field: "ServerAddresses", category: settingsGeneral, name: "server_addresses"},
 	{field: "AltNetMode", category: settingsGeneral, name: "nlspt_enabled"},
 
 	{field: "ClickToToggle", category: settingsControls, name: "click_to_toggle"},

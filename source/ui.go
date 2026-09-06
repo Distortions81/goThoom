@@ -50,6 +50,10 @@ var settingsToolbarPlacementDD *eui.ItemData
 var settingsCombineMessagesCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
+var loginServerDropdown *eui.ItemData
+var serverListWin *eui.WindowData
+var serverListContents *eui.ItemData
+var serverListAddress string
 var demoCharacterWin *eui.WindowData
 var demoCharacterList *eui.ItemData
 var demoCharacterSelection string
@@ -3666,6 +3670,145 @@ func startDemoLogin() {
 	}()
 }
 
+func refreshLoginServerDropdown() {
+	if loginServerDropdown == nil {
+		return
+	}
+	addresses := serverAddresses()
+	loginServerDropdown.Options = append(addresses, editServerListOption)
+	loginServerDropdown.Selected = 0
+	for i, address := range addresses {
+		if sameServerAddress(address, gs.ServerAddress) {
+			loginServerDropdown.Selected = i
+			break
+		}
+	}
+	loginServerDropdown.Dirty = true
+	if loginWin != nil {
+		loginWin.Refresh()
+	}
+}
+
+func selectLoginServer(address string) {
+	if normalized, ok := normalizeServerAddress(address); ok {
+		gs.ServerAddress = normalized
+		applyServerAddressSetting()
+		settingsDirty = true
+		refreshLoginServerDropdown()
+	}
+}
+
+func refreshServerListEditor() {
+	if serverListContents == nil {
+		return
+	}
+	for i := range serverListContents.Contents {
+		serverListContents.Contents[i] = nil
+	}
+	serverListContents.Contents = serverListContents.Contents[:0]
+	for _, address := range serverAddresses() {
+		row := eui.NewRow()
+		label := eui.NewLabel(address)
+		label.Size = eui.Point{X: 300, Y: 24}
+		row.AddItem(label)
+		if isBuiltInServerAddress(address) {
+			builtIn := eui.NewLabel("Built-in")
+			builtIn.Size = eui.Point{X: 80, Y: 24}
+			row.AddItem(builtIn)
+		} else {
+			remove, events := eui.NewButton()
+			remove.Text = "Remove"
+			remove.Size = eui.Point{X: 80, Y: 24}
+			addressCopy := address
+			events.Handle = func(ev eui.UIEvent) {
+				if ev.Type != eui.EventClick || !removeServerAddress(addressCopy) {
+					return
+				}
+				applyServerAddressSetting()
+				settingsDirty = true
+				refreshLoginServerDropdown()
+				refreshServerListEditor()
+			}
+			row.AddItem(remove)
+		}
+		serverListContents.AddItem(row)
+	}
+	if serverListWin != nil {
+		serverListWin.Refresh()
+	}
+}
+
+func openServerListWindow() {
+	if serverListWin != nil {
+		serverListWin.MarkOpen()
+		refreshServerListEditor()
+		return
+	}
+	serverListWin = eui.NewWindow()
+	serverListWin.Title = "Edit Server List"
+	serverListWin.Closable = true
+	serverListWin.Resizable = false
+	serverListWin.AutoSize = true
+	serverListWin.Movable = true
+	serverListWin.OnClose = func() {
+		serverListWin = nil
+		serverListContents = nil
+	}
+
+	flow := eui.NewColumn()
+	instructions, _ := eui.NewText()
+	instructions.Text = "Built-in servers are always available and cannot be removed."
+	instructions.FontSize = 14
+	instructions.Size = eui.Point{X: 420, Y: 28}
+	flow.AddItem(instructions)
+
+	serverListContents = eui.NewColumn()
+	serverListContents.Scrollable = true
+	serverListContents.Fixed = true
+	serverListContents.Size = eui.Point{X: 420, Y: 224}
+	flow.AddItem(serverListContents)
+
+	addressInput, _ := eui.NewInput()
+	addressInput.Label = "Server address"
+	addressInput.TextPtr = &serverListAddress
+	addressInput.Size = eui.Point{X: 300, Y: 24}
+	flow.AddItem(addressInput)
+
+	buttons := eui.NewRow()
+	add, addEvents := eui.NewButton()
+	add.Text = "Add Server"
+	add.Size = eui.Point{X: 120, Y: 24}
+	addEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		if !addServerAddress(serverListAddress) {
+			makeErrorWindow("Error: Server: enter a host and port, such as server.example:5010.")
+			return
+		}
+		selectLoginServer(serverListAddress)
+		serverListAddress = ""
+		refreshServerListEditor()
+	}
+	buttons.AddItem(add)
+
+	close, closeEvents := eui.NewButton()
+	close.Text = "Close"
+	close.Size = eui.Point{X: 96, Y: 24}
+	closeEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			serverListWin.Close()
+		}
+	}
+	buttons.AddItem(close)
+	flow.AddItem(buttons)
+
+	serverListWin.AddItem(flow)
+	serverListWin.AddWindow(false)
+	refreshServerListEditor()
+	serverListWin.MarkOpen()
+}
+
 func makeLoginWindow() {
 	if loginWin != nil {
 		return
@@ -3684,6 +3827,25 @@ func makeLoginWindow() {
 	loginWin.SetTitleSize(loginWin.GetRawTitleSize() + 2)
 	centerLoginWindow()
 	loginFlow := eui.NewColumn()
+	serverDropdown, serverEvents := eui.NewDropdown()
+	loginServerDropdown = serverDropdown
+	serverDropdown.Size = eui.Point{X: charWinWidth - 208, Y: 44}
+	serverDropdown.SetTooltip("Choose the server to connect to, or edit the server list.")
+	serverEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventDropdownSelected {
+			return
+		}
+		addresses := serverAddresses()
+		if ev.Index == len(addresses) {
+			refreshLoginServerDropdown()
+			openServerListWindow()
+			return
+		}
+		if ev.Index >= 0 && ev.Index < len(addresses) {
+			selectLoginServer(addresses[ev.Index])
+		}
+	}
+	refreshLoginServerDropdown()
 	// Characters list lives in its own flow and is scrollable.
 	// Use a fixed height so the window doesn't grow unbounded.
 	charactersList = eui.NewColumn()
@@ -3959,7 +4121,12 @@ func makeLoginWindow() {
 	loginFlow.AddItem(characterListLabel)
 	loginFlow.AddItem(charactersList)
 	addLoginSpacer(12)
-	loginFlow.AddItem(connBtn)
+	connectRow := eui.NewRow()
+	connBtn.Position = eui.Point{}
+	serverDropdown.Position = eui.Point{X: 8}
+	connectRow.AddItem(connBtn)
+	connectRow.AddItem(serverDropdown)
+	loginFlow.AddItem(connectRow)
 	addLoginSpacer(8)
 	loginFlow.AddItem(verFlow)
 
