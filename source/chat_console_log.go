@@ -70,8 +70,8 @@ func appendTextLog(msg string) {
 	_ = f.Close()
 }
 
-// ensureTextLog initializes the legacy Text Log path matching old_mac_client.
-// Path: "Text Logs/<CharName>/CL Log YYYY/MM/DD HH.MM.SS.txt"
+// ensureTextLog initializes the Text Log path matching the classic Windows client.
+// Path: "Text Logs/<CharName>/CL Log YYYY-MM-DD HH.MM.SS.txt"
 func ensureTextLog() {
 	if isWASM {
 		textLogPath = ""
@@ -114,16 +114,12 @@ func ensureTextLog() {
 	charDir := filepath.Join(base, desired)
 
 	now := time.Now()
-	year := fmt.Sprintf("%04d", now.Year())
-	month := fmt.Sprintf("%02d", int(now.Month()))
-	day := fmt.Sprintf("%02d", now.Day())
-	timeName := fmt.Sprintf("%s %02d.%02d.%02d.txt", day, now.Hour(), now.Minute(), now.Second())
-	yearMonthDir := filepath.Join(charDir, "CL Log "+year, month)
+	timeName := now.Format("CL Log 2006-01-02 15.04.05.txt")
 
-	if err := os.MkdirAll(yearMonthDir, 0o755); err != nil {
+	if err := os.MkdirAll(charDir, 0o755); err != nil {
 		return
 	}
-	textLogPath = filepath.Join(yearMonthDir, timeName)
+	textLogPath = filepath.Join(charDir, timeName)
 	textLogChar = desired
 
 	// Optional session marker at rotation
