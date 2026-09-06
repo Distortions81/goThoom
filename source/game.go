@@ -3544,6 +3544,20 @@ type bubblePlacementHistoryEntry struct {
 }
 
 var bubblePlacementHistory = make(map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry)
+
+// History contains pixel offsets and fitted sizes, so it is only reusable
+// while the viewport and the scales used to measure its contents match.
+// The viewport origin is excluded: all bubble layout coordinates are local.
+type bubbleLayoutContext struct {
+	viewportSize image.Point
+	worldScale   float64
+	bubbleScale  float64
+	fontScale    float64
+	fontGen      uint32
+}
+
+var lastBubbleLayoutContext bubbleLayoutContext
+
 var bubbleTortureLastOverlapLog time.Time
 
 type speechBubbleFrameScratch struct {
@@ -4020,6 +4034,14 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 	}
 	maxDist := maxMobileInterpPixels * (snap.dropped + 1)
 	bounds := image.Rect(0, 0, screen.Bounds().Dx(), screen.Bounds().Dy())
+	layoutContext := bubbleLayoutContext{
+		viewportSize: bounds.Size(), worldScale: gs.GameScale,
+		bubbleScale: bubbleScale, fontScale: fontScale, fontGen: fontGen,
+	}
+	if layoutContext != lastBubbleLayoutContext {
+		clear(bubblePlacementHistory)
+		lastBubbleLayoutContext = layoutContext
+	}
 	clear(bubbleFrameScratch.prepared)
 	prepared := bubbleFrameScratch.prepared[:0]
 	if cap(prepared) < len(snap.bubbles) {
@@ -4109,8 +4131,10 @@ func drawSpeechBubbles(screen *ebiten.Image, snap drawSnapshot, alpha float64, w
 				}
 			}
 		}
-		x := screen.Bounds().Min.X + roundToInt((hpos+float64(fieldCenterX))*gs.GameScale)
-		y := screen.Bounds().Min.Y + roundToInt((vpos+float64(fieldCenterY))*gs.GameScale)
+		// Placement, collision checks, and speaker clearance use viewport-local
+		// pixels. prepareBubbleDraw adds the subimage origin once when drawing.
+		x := roundToInt((hpos + float64(fieldCenterX)) * gs.GameScale)
+		y := roundToInt((vpos + float64(fieldCenterY)) * gs.GameScale)
 		referenceAnchor := image.Pt(x, y)
 		upperAnchor := image.Pt(x, y)
 		lowerAnchor := upperAnchor

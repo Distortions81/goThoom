@@ -712,6 +712,7 @@ func cacheBubbleSurface(key bubbleBodyImageCacheKey, margin int, paint func(*ebi
 
 // bubbleDrawRequest keeps a bubble's measured layout and final placement
 // together so all tails can be drawn before any balloon bodies or text.
+// Coordinates are local to the destination viewport; drawing adds Bounds().Min.
 type bubbleDrawRequest struct {
 	tailAnchor                image.Point
 	hasTailAnchor             bool
