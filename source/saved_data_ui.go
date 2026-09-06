@@ -75,7 +75,7 @@ func refreshSavedDataList() {
 			continue
 		}
 		disp := getscriptDisplayName(o)
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := eui.NewRow()
 		txt, _ := eui.NewText()
 		txt.Text = fmt.Sprintf("%s (%d entries, %s)", disp, count, humanize.Bytes(uint64(fi.Size())))
 		txt.Size = eui.Point{X: 240, Y: 24}

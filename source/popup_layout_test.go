@@ -18,10 +18,10 @@ func TestSimplePopupsDoNotRequireOuterScrollbars(t *testing.T) {
 	for _, scale := range []float32{1, 1.25, 1.5, 2} {
 		eui.SetUIScale(scale)
 		eui.SetScreenSize(1200, 800)
-		win := showPopup(
+		win := eui.ShowPopup(
 			"Confirm Quit",
 			"Are you sure you would like to quit?",
-			[]popupButton{{Text: "Cancel"}, {Text: "Quit"}},
+			[]eui.PopupButton{{Text: "Cancel"}, {Text: "Quit"}},
 		)
 		if !win.NoScroll {
 			win.RemoveWindow()

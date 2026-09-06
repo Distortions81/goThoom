@@ -139,7 +139,7 @@ func makeInventoryWindow() {
 	if inventoryWin != nil {
 		return
 	}
-	inventoryWin, inventoryList, _ = makeTextWindow("Inventory", eui.HZoneLeft, eui.VZoneMiddleTop, true)
+	inventoryWin, inventoryList, _ = eui.NewTextWindow("Inventory", eui.HZoneLeft, eui.VZoneMiddleTop, true)
 	inventoryWin.Searchable = true
 	inventoryWin.OnSearch = searchInventoryWindow
 	inventoryWin.OnOpen = updateInventoryWindow
@@ -238,7 +238,7 @@ func updateInventoryWindow() {
 	}
 
 	if inventoryWin != nil {
-		sizeTextWindowList(inventoryList, clientWAvail, clientHAvail)
+		eui.SizeTextWindowList(inventoryList, clientWAvail, clientHAvail)
 		inventoryList.Scroll = prevScroll
 		searchInventoryWindow(inventoryWin.SearchText)
 	}

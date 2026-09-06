@@ -28,8 +28,6 @@ import (
 	clipboard "golang.design/x/clipboard"
 
 	"gothoom/climg"
-
-	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
 const cval = 1000
@@ -78,49 +76,6 @@ var passRemember bool
 var passRememberCB *eui.ItemData
 
 var changelogWin *eui.WindowData
-
-// applyBoldFace sets a bold text face for the given item based on its current
-// FontSize and the active UI scale, so it renders as a bold section label.
-func applyBoldFace(it *eui.ItemData) {
-	if it == nil {
-		return
-	}
-	sz := float64(it.FontSize*eui.UIScale() + 2)
-	if src := eui.BoldFontSource(); src != nil {
-		it.Face = &text.GoTextFace{Source: src, Size: sz}
-	} else {
-		it.Face = &text.GoTextFace{Size: sz}
-	}
-}
-
-// newConfigurationSection keeps configuration windows visually consistent.
-// Each section owns its controls, with enough space above the heading to make
-// neighboring groups easy to scan without adding decorative UI machinery.
-func newConfigurationSection(title string, width float32) *eui.ItemData {
-	section := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	section.Size = eui.Point{X: width, Y: 10}
-
-	spacer, _ := eui.NewText()
-	spacer.Size = eui.Point{X: width, Y: 10}
-	section.AddItem(spacer)
-
-	heading, _ := eui.NewText()
-	heading.Text = title
-	heading.FontSize = 15
-	heading.Size = eui.Point{X: width, Y: 30}
-	applyBoldFace(heading)
-	section.AddItem(heading)
-	return section
-}
-
-func newConfigurationSubheading(title string, width float32) *eui.ItemData {
-	heading, _ := eui.NewText()
-	heading.Text = title
-	heading.FontSize = 12
-	heading.Size = eui.Point{X: width, Y: 24}
-	applyBoldFace(heading)
-	return heading
-}
 
 func refreshShaderEffectControls() {
 	masterDisabled := !gs.ShadersEnabled
@@ -444,9 +399,9 @@ func initUI() {
 func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData {
 	var row1, row2, menu *eui.ItemData
 
-	row1 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	row2 = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	menu = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	row1 = eui.NewRow()
+	row2 = eui.NewRow()
+	menu = eui.NewColumn()
 
 	winBtn, winEvents := eui.NewButton()
 	winBtn.Text = "Windows"
@@ -854,7 +809,7 @@ func openNewScriptWindow() {
 	newScriptWin.Movable = true
 	newScriptWin.OnClose = func() { newScriptWin = nil }
 	newScriptWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	newScriptWin.AddItem(root)
 	intro, _ := eui.NewText()
 	intro.Text = "Choose a starting point:"
@@ -862,7 +817,7 @@ func openNewScriptWindow() {
 	root.AddItem(intro)
 	for _, template := range newScriptTemplates {
 		template := template
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := eui.NewRow()
 		button, events := eui.NewButton()
 		button.Text = template.name
 		button.Size = eui.Point{X: 140, Y: 24}
@@ -973,7 +928,7 @@ func refreshscriptsWindow() {
 	}
 	sort.Strings(catList)
 	for _, cat := range catList {
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := eui.NewRow()
 		infoSpacer := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: scriptsManagerInfoSize, Y: scriptsManagerRowHeight}, Fixed: true}
 		spacer1 := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: checkSize, Fixed: true}
 		spacer2 := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: checkSize, Fixed: true}
@@ -996,7 +951,7 @@ func refreshscriptsWindow() {
 			return strings.ToLower(plist[i].name) < strings.ToLower(plist[j].name)
 		})
 		for _, e := range plist {
-			row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+			row := eui.NewRow()
 			charCB, charEvents := eui.NewCheckbox()
 			charCB.Size = checkSize
 			allCB, allEvents := eui.NewCheckbox()
@@ -1137,7 +1092,7 @@ func selectscript(owner string) {
 	scriptDetails = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
 	scriptDetails.Size = eui.Point{X: scriptsManagerInfoWidth, Y: scriptsManagerPaneHeight}
 	refreshscriptDetails()
-	scriptInfoWin = showPopup("Script Info", "", []popupButton{{Text: "Close", Action: func() { scriptInfoWin = nil }}}, scriptDetails)
+	scriptInfoWin = eui.ShowPopup("Script Info", "", []eui.PopupButton{{Text: "Close", Action: func() { scriptInfoWin = nil }}}, scriptDetails)
 }
 
 func refreshscriptDetails() {
@@ -1235,7 +1190,7 @@ func refreshscriptDetails() {
 		}
 	}
 
-	actions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	actions := eui.NewRow()
 	button := func(label string, disabled bool, action func()) {
 		item, events := eui.NewButton()
 		item.Text = label
@@ -1409,11 +1364,11 @@ func openscriptConfigWindow(owner string) {
 	scriptConfigWin.Movable = true
 	scriptConfigWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	scriptConfigWin.AddItem(root)
 
 	for _, ce := range entries {
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := eui.NewRow()
 		lbl, _ := eui.NewText()
 		lbl.Text = ce.Label
 		if ce.Help != "" {
@@ -1584,7 +1539,7 @@ func makeMixerWindow() {
 	mixerWin.AutoSize = true
 	mixerWin.Movable = true
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	flow := eui.NewRow()
 
 	addSpacer := func() {
 		sp, _ := eui.NewText()
@@ -1920,10 +1875,10 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 		buttonWidth = 84
 	}
 
-	controls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	controls := eui.NewRow()
 	if hands := toolbarHandsSource(); hands != nil {
 		w, h := hands.Bounds().Dx(), hands.Bounds().Dy()
-		handsRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		handsRow := eui.NewRow()
 		var leftBacking, rightBacking *ebiten.Image
 		leftHandImg, leftBacking = eui.NewImageItem(w/2, h)
 		rightHandImg, rightBacking = eui.NewImageItem(w-w/2, h)
@@ -2215,7 +2170,7 @@ func updateToolbarHands() {
 
 func confirmExitSession() {
 	if playingMovie && !setupWizardPreviewActive {
-		showPopup("Exit Movie", "Stop playback and return to login?", []popupButton{
+		eui.ShowPopup("Exit Movie", "Stop playback and return to login?", []eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Exit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				if movieWin != nil {
@@ -2229,7 +2184,7 @@ func confirmExitSession() {
 		return
 	}
 	if tcpConn != nil { // Connected to server
-		showPopup("Exit Session", "Disconnect and return to login?", []popupButton{
+		eui.ShowPopup("Exit Session", "Disconnect and return to login?", []eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Disconnect", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				handleDisconnect()
@@ -2458,7 +2413,7 @@ func handleDownloadAssetError(flow, statusText, pb *eui.ItemData, retryFn func()
 		downloadStatus(msg)
 	}
 	flow.Contents = []*eui.ItemData{statusText, pb}
-	retryRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	retryRow := eui.NewRow()
 	retryBtn, retryEvents := eui.NewButton()
 	retryBtn.Text = "Retry"
 	retryBtn.Size = eui.Point{X: 100, Y: 24}
@@ -2507,7 +2462,7 @@ func makeDownloadsWindow(preferTTS ...bool) {
 	var downloadSoundfontCB *eui.ItemData
 	var downloadTTSCB *eui.ItemData
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	// Live status line updated during downloads
 	statusText, _ := eui.NewText()
@@ -2600,7 +2555,7 @@ func makeDownloadsWindow(preferTTS ...bool) {
 	t.Text = "Files we must download:"
 	t.FontSize = 15
 	t.Size = eui.Point{X: 320, Y: 25}
-	applyBoldFace(t)
+	eui.ApplyBoldFace(t)
 	flow.AddItem(t)
 
 	for _, f := range status.Files {
@@ -2620,7 +2575,7 @@ func makeDownloadsWindow(preferTTS ...bool) {
 		opt.Text = "Optional downloads:"
 		opt.FontSize = 15
 		opt.Size = eui.Point{X: 320, Y: 25}
-		applyBoldFace(opt)
+		eui.ApplyBoldFace(opt)
 		flow.AddItem(opt)
 
 		info, _ := eui.NewText()
@@ -2681,7 +2636,7 @@ func makeDownloadsWindow(preferTTS ...bool) {
 		statusText.Dirty = true
 		downloadSoundfont, downloadTTS := optionalDownloadSelections(downloadSoundfontCB, downloadTTSCB)
 		// Show the live status + progress and provide a cancel button
-		cancelRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		cancelRow := eui.NewRow()
 		cancelBtn, cancelEvents := eui.NewButton()
 		cancelBtn.Text = "Cancel"
 		cancelBtn.Size = eui.Point{X: 100, Y: 24}
@@ -2707,7 +2662,7 @@ func makeDownloadsWindow(preferTTS ...bool) {
 				logError("download data files: %v", err)
 				// Present inline Retry and Quit buttons
 				flow.Contents = []*eui.ItemData{statusText, pb}
-				retryRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+				retryRow := eui.NewRow()
 				retryBtn, retryEvents := eui.NewButton()
 				retryBtn.Text = "Retry"
 				retryBtn.Size = eui.Point{X: 100, Y: 24}
@@ -2799,7 +2754,7 @@ func makeDownloadsWindow(preferTTS ...bool) {
 		startDownload()
 	}
 
-	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	btnFlow := eui.NewRow()
 	if !isWASM {
 		dlBtn, dlEvents := eui.NewButton()
 		dlBtn.Text = "Download"
@@ -3068,7 +3023,7 @@ func makeAddCharacterWindow() {
 	addCharWin.Movable = true
 	//addCharWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	nameInput, _ := eui.NewInput()
 	nameInput.Label = "Character"
@@ -3261,7 +3216,7 @@ func makeEditCharacterWindow() {
 	editCharWin.AutoSize = true
 	editCharWin.Movable = true
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	input, inputEvents := eui.NewInput()
 	input.Label = "New Password"
@@ -3306,7 +3261,7 @@ func makeEditCharacterWindow() {
 	}
 	flow.AddItem(profileCB)
 
-	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	btnFlow := eui.NewRow()
 	cancelBtn, cancelEvents := eui.NewButton()
 	cancelBtn.Text = "Cancel"
 	cancelBtn.Size = eui.Point{X: 136, Y: 24}
@@ -3366,7 +3321,7 @@ func makePasswordWindow() {
 	passWin.AutoSize = true
 	passWin.Movable = true
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	input, passEvents := eui.NewInput()
 	input.Label = "Password"
@@ -3399,7 +3354,7 @@ func makePasswordWindow() {
 	}
 	flow.AddItem(passRememberCB)
 
-	btnFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	btnFlow := eui.NewRow()
 
 	cancelBtn, cancelEvents := eui.NewButton()
 	cancelBtn.Text = "Cancel"
@@ -3524,7 +3479,7 @@ func ensureConnectDialog() {
 	connectWin.Padding = 8
 	connectWin.BorderPad = 4
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	status, _ := eui.NewText()
 	status.FontSize = 13
@@ -3639,10 +3594,10 @@ func makeLoginWindow() {
 	// Increase title font size for "Login" by 2pt
 	loginWin.SetTitleSize(loginWin.GetRawTitleSize() + 2)
 	centerLoginWindow()
-	loginFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	loginFlow := eui.NewColumn()
 	// Characters list lives in its own flow and is scrollable.
 	// Use a fixed height so the window doesn't grow unbounded.
-	charactersList = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	charactersList = eui.NewColumn()
 	charactersList.Scrollable = true
 	charactersList.Fixed = true
 	charactersList.Size = eui.Point{X: charWinWidth, Y: 224}
@@ -3771,7 +3726,7 @@ func makeLoginWindow() {
 		confirmRemoveCharacter(character)
 	}
 
-	characterActions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	characterActions := eui.NewRow()
 	characterActions.Size = eui.Point{X: charWinWidth, Y: 32}
 	addBtn.Position = eui.Point{}
 	editBtn.Position = eui.Point{X: 8}
@@ -3892,7 +3847,7 @@ func makeLoginWindow() {
 		loginFlow.AddItem(spacer)
 	}
 
-	utilityRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	utilityRow := eui.NewRow()
 	openBtn.Position = eui.Point{}
 	quitBttn.Position = eui.Point{X: charWinWidth - openBtn.Size.X - quitBttn.Size.X}
 	utilityRow.AddItem(openBtn)
@@ -3902,7 +3857,7 @@ func makeLoginWindow() {
 	characterEditLabel, _ := eui.NewText()
 	characterEditLabel.Text = "Edit Characters:"
 	characterEditLabel.FontSize = 13
-	applyBoldFace(characterEditLabel)
+	eui.ApplyBoldFace(characterEditLabel)
 	characterEditLabel.Size = eui.Point{X: charWinWidth, Y: 28}
 	loginFlow.AddItem(characterEditLabel)
 	loginFlow.AddItem(characterActions)
@@ -3910,7 +3865,7 @@ func makeLoginWindow() {
 	characterListLabel, _ := eui.NewText()
 	characterListLabel.Text = "Character list:"
 	characterListLabel.FontSize = 13
-	applyBoldFace(characterListLabel)
+	eui.ApplyBoldFace(characterListLabel)
 	characterListLabel.Size = eui.Point{X: charWinWidth, Y: 28}
 	loginFlow.AddItem(characterListLabel)
 	loginFlow.AddItem(charactersList)
@@ -3935,7 +3890,7 @@ func centerLoginWindow() {
 
 func makeChangelogWindow() {
 	if changelogWin == nil {
-		changelogWin, changelogList, _ = makeTextWindow("Changelog", eui.HZoneCenter, eui.VZoneMiddleTop, false)
+		changelogWin, changelogList, _ = eui.NewTextWindow("Changelog", eui.HZoneCenter, eui.VZoneMiddleTop, false)
 		changelogWin.OnResize = updateChangelogWindow
 		flow := changelogWin.Contents[0]
 
@@ -4031,7 +3986,7 @@ func explainError(msg string) string {
 
 func makeErrorWindow(msg string) {
 	body := msg + "\n" + explainError(msg)
-	showPopup("Error", body, []popupButton{{Text: "OK"}})
+	eui.ShowPopup("Error", body, []eui.PopupButton{{Text: "OK"}})
 }
 
 var SettingsLock sync.Mutex
@@ -4167,119 +4122,12 @@ func resetWindows() {
 	settingsDirty = false
 }
 
-// popupButton defines a button in a popup dialog.
-type popupButton struct {
-	Text       string
-	Width      float32
-	Color      *eui.Color
-	HoverColor *eui.Color
-	Action     func()
-}
-
-// showPopup creates a simple modal-like popup with optional extra items, a message and buttons.
-func showPopup(title, message string, buttons []popupButton, extras ...*eui.ItemData) *eui.WindowData {
-	win := eui.NewWindow()
-	win.Title = title
-	win.Closable = false
-	win.Resizable = false
-	win.AutoSize = true
-	win.Movable = true
-	win.NoScroll = true
-	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
-	// Add some breathing room so text doesn't hug the border
-	win.Padding = 8
-	win.BorderPad = 4
-
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	// Optional extra items (e.g., images) shown above the message
-	for _, ex := range extras {
-		if ex != nil {
-			flow.AddItem(ex)
-		}
-	}
-	if message != "" {
-		// Message (wrapped to a reasonable width)
-		uiScale := eui.UIScale()
-		targetWidthPx := float64(520)
-		// Add horizontal padding on both sides to avoid right-edge clipping.
-		hpadPx := float64(24)
-		padUnits := float32(hpadPx / float64(uiScale))
-		// targetWidthUnits not used directly; inner width sets actual text width
-		// Match renderer size: (FontSize*uiScale)+2
-		facePx := float64(12*uiScale + 2)
-		var face text.Face
-		if src := eui.FontSource(); src != nil {
-			face = &text.GoTextFace{Source: src, Size: facePx}
-		} else {
-			face = &text.GoTextFace{Size: facePx}
-		}
-		// Wrap to inner width (minus horizontal padding)
-		innerPx := targetWidthPx - 2*hpadPx
-		if innerPx < 50 {
-			innerPx = 50
-		}
-		_, lines := wrapText(message, face, innerPx)
-		wrapped := strings.Join(lines, "\n")
-		gm := face.Metrics()
-		lineHpx := float64(gm.HAscent + gm.HDescent)
-		if lineHpx < 14 {
-			lineHpx = 14
-		}
-		heightUnits := float32((lineHpx*float64(len(lines)) + 8) / float64(uiScale))
-		if heightUnits < 24 {
-			heightUnits = 24
-		}
-		txt, _ := eui.NewText()
-		txt.Text = wrapped
-		txt.FontSize = 12
-		txt.SelectableText = true
-		// Slight width fudge to avoid right-edge clipping from rounding
-		fudgeUnits := float32(2.0 / float64(uiScale))
-		txt.Size = eui.Point{X: float32(innerPx/float64(uiScale)) + fudgeUnits, Y: heightUnits}
-		txt.Position = eui.Point{X: padUnits, Y: 0}
-		flow.AddItem(txt)
-	}
-
-	// Buttons row
-	btnRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
-	for _, b := range buttons {
-		btn, ev := eui.NewButton()
-		btn.Text = b.Text
-		btn.Size = eui.Point{X: 120, Y: 24}
-		if b.Width > 0 {
-			btn.Size.X = b.Width
-		}
-		if b.Color != nil {
-			btn.Color = *b.Color
-		}
-		if b.HoverColor != nil {
-			btn.HoverColor = *b.HoverColor
-		}
-		action := b.Action
-		ev.Handle = func(ev eui.UIEvent) {
-			if ev.Type == eui.EventClick {
-				if action != nil {
-					action()
-				}
-				win.Close()
-			}
-		}
-		btnRow.AddItem(btn)
-	}
-	flow.AddItem(btnRow)
-
-	win.AddItem(flow)
-	win.AddWindow(false)
-	win.MarkOpen()
-	return win
-}
-
 func confirmResetSettings() {
 	// Use a red confirm button to indicate a destructive action
-	showPopup(
+	eui.ShowPopup(
 		"Confirm Reset",
 		"Reset all settings to defaults? This cannot be undone.",
-		[]popupButton{
+		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Reset", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() { resetAllSettings() }},
 		},
@@ -4287,10 +4135,10 @@ func confirmResetSettings() {
 }
 
 func confirmResetWindows() {
-	showPopup(
+	eui.ShowPopup(
 		"Confirm Reset Windows",
 		"Reset window positions, sizes, visibility, and pinned locations to defaults?",
-		[]popupButton{
+		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Reset", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: resetWindows},
 		},
@@ -4298,10 +4146,10 @@ func confirmResetWindows() {
 }
 
 func confirmQuit() {
-	showPopup(
+	eui.ShowPopup(
 		"Confirm Quit",
 		"Are you sure you would like to quit?",
-		[]popupButton{
+		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Quit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				saveCharacters()
@@ -4327,7 +4175,7 @@ func showShaderDisablePrompt() {
 	shaderWarnWin.NoScroll = true
 	shaderWarnWin.SetZone(eui.HZoneRight, eui.VZoneTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	msg, _ := eui.NewText()
 	msg.Text = "FPS has been under 50 for a while. The Lowest quality preset may provide smoother rendering."
@@ -4384,7 +4232,7 @@ func showShaderDisablePrompt() {
 
 // confirmRemoveCharacter prompts before deleting a saved character.
 func confirmRemoveCharacter(c Character) {
-	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row := eui.NewRow()
 
 	profItem, _ := eui.NewImageItem(32, 32)
 	profItem.Margin = 4
@@ -4411,10 +4259,10 @@ func confirmRemoveCharacter(c Character) {
 	}
 	row.AddItem(avItem)
 
-	showPopup(
+	eui.ShowPopup(
 		"Delete Character",
 		fmt.Sprintf("Are you sure you want to delete %s?", c.Name),
-		[]popupButton{
+		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Delete Character", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				discardStagedPassword()
@@ -4445,7 +4293,7 @@ func newArtworkScaleGuidance(width float32) *eui.ItemData {
 }
 
 func addQualityColumns(page *eui.ItemData, width float32, groups ...[]*eui.ItemData) {
-	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row := eui.NewRow()
 	for i, sections := range groups {
 		if i > 0 {
 			row.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 12, Y: 1}})
@@ -4467,13 +4315,13 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	motionPage := newSettingsPage("Motion", pageWidth)
 	shaderPage := newSettingsPage("Lighting & Effects", pageWidth)
 
-	artworkSection := newConfigurationSection("Artwork Scaling", width)
-	occlusionSection := newConfigurationSection("Foreground Occlusion", width)
-	gammaSection := newConfigurationSection("Sprite Gamma", width)
-	denoiseSection := newConfigurationSection("Dither Cleanup", width)
-	shadowSection := newConfigurationSection("Shadows", width)
-	motionSection := newConfigurationSection("Motion Smoothing", width)
-	shaderSection := newConfigurationSection("Lighting & Effects", pageWidth)
+	artworkSection := eui.NewSection("Artwork Scaling", width)
+	occlusionSection := eui.NewSection("Foreground Occlusion", width)
+	gammaSection := eui.NewSection("Sprite Gamma", width)
+	denoiseSection := eui.NewSection("Dither Cleanup", width)
+	shadowSection := eui.NewSection("Shadows", width)
+	motionSection := eui.NewSection("Motion Smoothing", width)
+	shaderSection := eui.NewSection("Lighting & Effects", pageWidth)
 	addQualityColumns(artworkPage, width, []*eui.ItemData{artworkSection, occlusionSection}, []*eui.ItemData{gammaSection, denoiseSection})
 	shaderPage.AddItem(shaderSection)
 	outer.Tabs = []*eui.ItemData{artworkPage, motionPage, shaderPage}
@@ -4501,12 +4349,12 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 			debugWin.Refresh()
 		}
 	}
-	lightingSection := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	animationSection := newConfigurationSection("Animation Blending", width)
+	lightingSection := eui.NewColumn()
+	animationSection := eui.NewSection("Animation Blending", width)
 	addQualityColumns(shaderSection, width, []*eui.ItemData{lightingSection}, []*eui.ItemData{shadowSection})
 	addQualityColumns(motionPage, width, []*eui.ItemData{motionSection}, []*eui.ItemData{animationSection})
-	experimentalSection := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	experimentalSection.AddItem(newConfigurationSubheading("Experimental", pageWidth))
+	experimentalSection := eui.NewColumn()
+	experimentalSection.AddItem(eui.NewSubheading("Experimental", pageWidth))
 	shaderSection.AddItem(experimentalSection)
 
 	renderScale, renderScaleEvents := eui.NewSlider()
@@ -4705,7 +4553,7 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	}
 	shadowSection.AddItem(mobileSunShadowsCB)
 
-	lightingSection.AddItem(newConfigurationSubheading("Lighting", width))
+	lightingSection.AddItem(eui.NewSubheading("Lighting", width))
 	shaderQualityCB, shaderQualityEv := eui.NewCheckbox()
 	shaderLightingCB = shaderQualityCB
 	shaderQualityCB.Text = "Lighting Effects"
@@ -5137,9 +4985,9 @@ func makeTileLayoutWindow() {
 	tileLayoutWin.Movable = true
 	tileLayoutWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	workspace := newConfigurationSection("Workspace", width)
-	arrangement := newConfigurationSection("Arrangement", width)
+	flow := eui.NewColumn()
+	workspace := eui.NewSection("Workspace", width)
+	arrangement := eui.NewSection("Arrangement", width)
 	flow.AddItem(workspace)
 	flow.AddItem(arrangement)
 
@@ -5270,9 +5118,9 @@ func makeNotificationsWindow() {
 	notificationsWin.Movable = true
 	notificationsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	eventsSection := newConfigurationSection("Notify About", width)
-	deliverySection := newConfigurationSection("Display", width)
+	flow := eui.NewColumn()
+	eventsSection := eui.NewSection("Notify About", width)
+	deliverySection := eui.NewSection("Display", width)
 	flow.AddItem(eventsSection)
 	flow.AddItem(deliverySection)
 
@@ -5342,10 +5190,10 @@ func makeBubbleWindow() {
 	bubbleWin.Movable = true
 	bubbleWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	displaySection := newConfigurationSection("Display", width)
-	bubbleTypesSection := newConfigurationSection("Message Types", width)
-	bubbleSourcesSection := newConfigurationSection("Show For", width)
+	flow := eui.NewColumn()
+	displaySection := eui.NewSection("Display", width)
+	bubbleTypesSection := eui.NewSection("Message Types", width)
+	bubbleSourcesSection := eui.NewSection("Show For", width)
 	flow.AddItem(displaySection)
 	flow.AddItem(bubbleTypesSection)
 	flow.AddItem(bubbleSourcesSection)
@@ -5435,10 +5283,10 @@ func makeDebugWindow() {
 	debugWin.Movable = true
 	debugWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	debugFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
-	diagnosticsSection := newConfigurationSection("Diagnostics", width)
-	sceneSection := newConfigurationSection("Scene Overrides", width)
-	shaderSection := newConfigurationSection("Shader Tools", width)
+	debugFlow := eui.NewColumn()
+	diagnosticsSection := eui.NewSection("Diagnostics", width)
+	sceneSection := eui.NewSection("Scene Overrides", width)
+	shaderSection := eui.NewSection("Shader Tools", width)
 	debugFlow.AddItem(diagnosticsSection)
 	debugFlow.AddItem(sceneSection)
 	debugFlow.AddItem(shaderSection)
@@ -5672,7 +5520,7 @@ func makeWindowsWindow() {
 	windowsWin.Movable = true
 	//windowsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	playersBox, playersBoxEvents := eui.NewCheckbox()
 	windowsPlayersCB = playersBox
@@ -5786,7 +5634,7 @@ func makePlayersWindow() {
 	renderedPlayerSelection = ""
 	// Use the common text window scaffold to get an inner scrollable list
 	// and consistent padding/behavior with Inventory/Chat windows.
-	playersWin, playersList, _ = makeTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)
+	playersWin, playersList, _ = eui.NewTextWindow("Players", eui.HZoneRight, eui.VZoneTop, false)
 	playersWin.Searchable = true
 	playersWin.OnSearch = searchPlayersWindow
 	playersWin.OnOpen = updatePlayersWindow

@@ -63,7 +63,7 @@ func newSpriteCacheControls(width float32) (*eui.ItemData, *eui.ItemData) {
 		scale := max(float32(0.1), eui.UIScale())
 		fontSize := explanation.FontSize*scale + 2
 		face := &text.GoTextFace{Source: eui.FontSource(), Size: float64(fontSize)}
-		_, lines := wrapText(spriteCacheExplanation(value), face, float64((width-4)*scale))
+		_, lines := eui.WrapText(spriteCacheExplanation(value), face, float64((width-4)*scale))
 		explanation.Text = strings.Join(lines, "\n")
 		explanation.Size = eui.Point{X: width, Y: (fontSize*1.2*float32(len(lines)) + 4) / scale}
 		explanation.Dirty = true

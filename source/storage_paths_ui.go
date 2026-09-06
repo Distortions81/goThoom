@@ -27,7 +27,7 @@ func makeFilePathsWindow() {
 	filePathsWin.Movable = true
 	filePathsWin.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 	info, _ := eui.NewText()
 	info.Text = "Choose alternate folders for assets and audio, logs, legacy macros, and Go scripts.\nSaved changes take effect after restarting goThoom."
 	info.Size = eui.Point{X: 720, Y: 36}
@@ -62,14 +62,14 @@ func makeFilePathsWindow() {
 }
 
 func makeFilePathRow(kind storagePathKind) *eui.ItemData {
-	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row := eui.NewRow()
 	row.Size = eui.Point{X: 720, Y: 28}
 
 	label, _ := eui.NewText()
 	label.Text = storagePathName(kind)
 	label.Size = eui.Point{X: 115, Y: 24}
 	label.FontSize = 12
-	applyBoldFace(label)
+	eui.ApplyBoldFace(label)
 	row.AddItem(label)
 
 	display, _ := eui.NewText()

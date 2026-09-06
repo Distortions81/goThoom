@@ -43,7 +43,7 @@ func makeSnapshotWindow() {
 	name.Label = "Filename"
 	name.Size = eui.Point{X: 400, Y: 28}
 	root.AddItem(name)
-	row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row := eui.NewRow()
 	area, _ := eui.NewDropdown()
 	area.Label = "Capture"
 	area.Options = []string{"Game view only", "Entire client window"}
@@ -72,7 +72,7 @@ func makeSnapshotWindow() {
 	status.FontSize = 11
 	status.Size = eui.Point{X: 400, Y: 30}
 	root.AddItem(status)
-	footer := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	footer := eui.NewRow()
 	folder, folderEvents := eui.NewButton()
 	folder.Text = "Open Folder"
 	folder.Size = eui.Point{X: 128, Y: 32}

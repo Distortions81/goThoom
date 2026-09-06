@@ -2,7 +2,7 @@ package main
 
 import (
 	"gothoom/eui"
-	"gothoom/internal/renderpool"
+	"gothoom/eui/renderpool"
 	"image"
 	"image/color"
 	"math"
@@ -448,7 +448,7 @@ func cachedBubbleTextLayout(txt string, face text.Face, maxWidth int) (int, []st
 	if cached, ok := bubbleTextLayoutCache[key]; ok {
 		return cached.width, cached.lines
 	}
-	width, lines := wrapText(txt, face, float64(maxWidth))
+	width, lines := eui.WrapText(txt, face, float64(maxWidth))
 	if len(bubbleTextLayoutCache) >= maxBubbleTextLayouts {
 		clear(bubbleTextLayoutCache)
 	}
@@ -490,7 +490,7 @@ func cachedBalancedBubbleTextLayout(txt string, face text.Face, maxWidth, lineHe
 	bestWrapWidth, bestWidth := maxWidth, 0
 	var bestLines []string
 	consider := func(wrapWidth int) {
-		width, lines := wrapText(txt, face, float64(wrapWidth))
+		width, lines := eui.WrapText(txt, face, float64(wrapWidth))
 		bodyWidth := width + 2*pad
 		bodyHeight := lineHeight*len(lines) + 2*pad
 		distance := bubbleAspectDistance(bodyWidth, bodyHeight)

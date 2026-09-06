@@ -49,7 +49,7 @@ func showThinkMessage(msg string) {
 	winSize := gameWin.GetSize()
 	pad := float64((btn.Padding + btn.BorderPad) * eui.UIScale())
 	maxWidth := float64(winSize.X)/4 - 2*pad
-	usedWidth, lines := wrapText(msg, face, maxWidth)
+	usedWidth, lines := eui.WrapText(msg, face, maxWidth)
 	btn.Text = strings.Join(lines, "\n")
 	btn.Size = eui.Point{
 		X: float32(usedWidth)/eui.UIScale() + btn.Padding*2 + btn.BorderPad*2,

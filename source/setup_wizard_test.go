@@ -77,7 +77,7 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	gs.TiledWindows = false
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupInterfacePage(root)
 	buildSetupLayoutPage(root)
 
@@ -123,7 +123,7 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 
 func TestSetupWizardDoesNotOfferClientModePreset(t *testing.T) {
 	initFont()
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupWelcomePage(root)
 	for _, item := range root.Contents {
 		if item.Label == "Starting preset" {
@@ -173,7 +173,7 @@ func TestSetupWizardUsesTwoPanelsForTallPages(t *testing.T) {
 		{name: "audio", page: setupWizardAudioPage, build: buildSetupAudioPage},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+			root := eui.NewColumn()
 			test.build(root)
 			var panels *eui.ItemData
 			for _, item := range root.Contents {
@@ -201,7 +201,7 @@ func TestSetupWizardUIScaleUsesLongDetailedSlider(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupInterfacePage(root)
 	var slider, apply *eui.ItemData
 	var visit func(*eui.ItemData)
@@ -253,7 +253,7 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 	}
 
 	gs.TiledWindows = false
-	disabled := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	disabled := eui.NewColumn()
 	buildSetupLayoutPage(disabled)
 	for _, name := range append(wantLabels, wantChecks...) {
 		if contains(disabled, name) {
@@ -262,7 +262,7 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 	}
 
 	gs.TiledWindows = true
-	enabled := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	enabled := eui.NewColumn()
 	buildSetupLayoutPage(enabled)
 	for _, name := range append(wantLabels, wantChecks...) {
 		if !contains(enabled, name) {
@@ -297,7 +297,7 @@ func TestSetupWizardNamesMessagePlacementForCombinedState(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			gs.MessagesToConsole = test.combined
-			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+			root := eui.NewColumn()
 			buildSetupLayoutPage(root)
 
 			var placement *eui.ItemData
@@ -357,7 +357,7 @@ func TestSetupWizardAlternateGameSideDisabledForCenteredLayout(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			gs.TiledLayout = test.layout
-			root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+			root := eui.NewColumn()
 			buildSetupLayoutPage(root)
 			gameSide := findGameSide(root)
 			if gameSide == nil {
@@ -375,7 +375,7 @@ func TestSetupWizardAudioChoicesOfferOffAndOnTests(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupAudioPage(root)
 	for _, label := range []string{"Enhance sound effects", "High quality audio resampling", "Enhance bard music"} {
 		var option *eui.ItemData
@@ -433,7 +433,7 @@ func TestSetupWizardSeparatesAudioAndNotificationSettings(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupAudioPage(root)
 	wantAudio := map[string]bool{"Volume": false}
 	notificationLabels := map[string]bool{"Game notifications": false, "Notification Settings": false}
@@ -461,7 +461,7 @@ func TestSetupWizardSeparatesAudioAndNotificationSettings(t *testing.T) {
 		}
 	}
 
-	notificationsRoot := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	notificationsRoot := eui.NewColumn()
 	buildSetupNotificationsPage(notificationsRoot)
 	for label := range notificationLabels {
 		notificationLabels[label] = false
@@ -590,9 +590,9 @@ func TestSetupWizardSeparatesDaylightAndNightControls(t *testing.T) {
 	t.Cleanup(func() { gs = originalSettings })
 	gs = gsdef
 
-	shadows := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	shadows := eui.NewColumn()
 	buildSetupShadowsPage(shadows)
-	night := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	night := eui.NewColumn()
 	buildSetupNightLightingPage(night)
 
 	shadowChecks := map[string]bool{
@@ -757,7 +757,7 @@ func TestSetupWizardIncludesArtworkUpscaleStyles(t *testing.T) {
 	t.Cleanup(func() { gs = originalSettings })
 	setArtworkUpscaleMode(artworkUpscaleSmooth)
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupGraphicsPage(root)
 	for _, item := range root.Contents {
 		if item.Label != "Artwork upscale style" {
@@ -784,13 +784,13 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 	gs = gsdef
 	gs.ShadersEnabled = false
 
-	graphics := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	graphics := eui.NewColumn()
 	buildSetupGraphicsPage(graphics)
-	motion := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	motion := eui.NewColumn()
 	buildSetupMotionPage(motion)
-	shadows := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	shadows := eui.NewColumn()
 	buildSetupShadowsPage(shadows)
-	night := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	night := eui.NewColumn()
 	buildSetupNightLightingPage(night)
 
 	wantDisabled := map[string]bool{
@@ -837,7 +837,7 @@ func TestSetupWizardOffersBlendImageDithering(t *testing.T) {
 	t.Cleanup(func() { gs = originalSettings })
 	gs.DenoiseImages = false
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupGraphicsPage(root)
 	for _, group := range root.Contents {
 		for _, item := range group.Contents {
@@ -861,7 +861,7 @@ func TestSetupWizardOffersGraphicsPerformanceTest(t *testing.T) {
 	originalRecommendation := setupWizardGraphicsRecommendation
 	setupWizardGraphicsRecommendation = "High (Recommended)"
 	t.Cleanup(func() { setupWizardGraphicsRecommendation = originalRecommendation })
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupGraphicsPage(root)
 	foundButton := false
 	foundRecommendation := false
@@ -890,7 +890,7 @@ func TestSetupWizardUsesTwoAsMinimumArtworkScale(t *testing.T) {
 	t.Cleanup(func() { gs = originalSettings })
 	gs.GameScale = 1
 
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	buildSetupGraphicsPage(root)
 	if gs.GameScale != 2 {
 		t.Fatalf("wizard game scale = %v, want minimum 2", gs.GameScale)

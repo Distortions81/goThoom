@@ -12,7 +12,7 @@ func TestPopupMessageTextIsSelectable(t *testing.T) {
 	if err := eui.EnsureFontSource(goregular.TTF); err != nil {
 		t.Fatal(err)
 	}
-	win := showPopup("Error", "copy this diagnostic", nil)
+	win := eui.ShowPopup("Error", "copy this diagnostic", nil)
 	t.Cleanup(func() { win.Close() })
 
 	if len(win.Contents) != 1 || len(win.Contents[0].Contents) == 0 {

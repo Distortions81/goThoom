@@ -12,7 +12,7 @@ func TestTTSSettingsReflectEnablementAndInstalledFiles(t *testing.T) {
 	t.Cleanup(func() { gs, status = originalSettings, originalStatus })
 	gs.ChatTTS = true
 	status = dataFilesStatus{NeedPiperFem: true}
-	section := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	section := eui.NewColumn()
 	addTTSEnablementControls(section, settingsPanelWidth)
 	enabled, download := section.Contents[0], section.Contents[1]
 	if !enabled.Checked || download.Disabled || download.Text != "Download TTS files" {

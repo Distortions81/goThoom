@@ -150,7 +150,7 @@ func rebuildSetupWizard() {
 
 	setupWizardWin.Title = fmt.Sprintf("goThoom %d Setup", appVersion)
 	pageWidth := setupWizardPageWidth(setupWizardPage)
-	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	root := eui.NewColumn()
 	root.Size = eui.Point{X: pageWidth, Y: 10}
 
 	step := setupWizardText(fmt.Sprintf("Step %d of %d", setupWizardPage+1, setupWizardPageCount), 10, pageWidth)
@@ -451,7 +451,7 @@ func setupWizardThemeStyleSelectors() *eui.ItemData {
 }
 
 func setupWizardUIScaleControl() *eui.ItemData {
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 	flow.Size = eui.Point{X: 620, Y: 10}
 	pendingScale := clampUIScalePreference(gs.UIScale)
 
@@ -497,7 +497,7 @@ func setupWizardUIScaleControl() *eui.ItemData {
 
 func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 	heading := setupWizardText("Tiled window settings", 14, width)
-	applyBoldFace(heading)
+	eui.ApplyBoldFace(heading)
 	root.AddItem(heading)
 
 	options.AddItem(setupWizardCheckboxWidth("Keep game window large", "Keep the centered game pane at its largest square size.", gs.TiledKeepGameLarge, func(checked bool) {
@@ -1230,7 +1230,7 @@ func setupWizardCheckbox(label, explanation string, checked bool, changed func(b
 }
 
 func setupWizardCheckboxWidth(label, explanation string, checked bool, changed func(bool), width float32) *eui.ItemData {
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 	flow.Size = eui.Point{X: width, Y: 10}
 	checkbox, events := eui.NewCheckbox()
 	checkbox.Text = label
@@ -1279,11 +1279,11 @@ func setupWizardRecommendedCheckboxWidth(label, explanation string, checked, rec
 }
 
 func setupWizardTwoPanels() (row, left, right *eui.ItemData) {
-	row = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	row = eui.NewRow()
 	row.Size = eui.Point{X: setupWizardTwoPanelWidth, Y: 10}
-	left = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	left = eui.NewColumn()
 	left.Size = eui.Point{X: setupWizardPanelWidth, Y: 10}
-	right = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	right = eui.NewColumn()
 	right.Size = eui.Point{X: setupWizardPanelWidth, Y: 10}
 	right.Position.X = setupWizardPanelGap
 	row.AddItem(left)
@@ -1293,12 +1293,12 @@ func setupWizardTwoPanels() (row, left, right *eui.ItemData) {
 
 func setupWizardPanelHeading(title string) *eui.ItemData {
 	heading := setupWizardText(title, 14, setupWizardPanelWidth)
-	applyBoldFace(heading)
+	eui.ApplyBoldFace(heading)
 	return heading
 }
 
 func setupWizardSlider(label, explanation string, minValue, maxValue, value float32, intOnly bool, changed func(float32)) *eui.ItemData {
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 	flow.Size = eui.Point{X: 620, Y: 10}
 	slider, events := eui.NewSlider()
 	slider.Label = label
@@ -1344,7 +1344,7 @@ func setSetupWizardDisabled(item *eui.ItemData, disabled bool) {
 
 func setupWizardHeading(title string) *eui.ItemData {
 	heading := setupWizardText(title, 18, 620)
-	applyBoldFace(heading)
+	eui.ApplyBoldFace(heading)
 	return heading
 }
 
@@ -1358,7 +1358,7 @@ func setupWizardText(body string, fontSize, width float32) *eui.ItemData {
 	} else {
 		item.Face = &text.GoTextFace{Size: faceSize}
 	}
-	_, lines := wrapText(body, item.Face, float64(width*eui.UIScale()))
+	_, lines := eui.WrapText(body, item.Face, float64(width*eui.UIScale()))
 	if len(lines) == 0 {
 		lines = []string{""}
 	}

@@ -16,7 +16,7 @@ func makeScriptEventsWindow() {
 	scriptEventsWin.AutoSize = true
 	scriptEventsWin.Movable = true
 	scriptEventsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	scriptSection := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	scriptSection := eui.NewColumn()
 	debugCB, debugEvents := eui.NewCheckbox()
 	debugCB.Text = "Record script events"
 	debugCB.Size = eui.Point{X: width, Y: 24}

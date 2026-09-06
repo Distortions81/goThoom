@@ -288,7 +288,7 @@ func TestSizeTextWindowListSubtractsDockedRows(t *testing.T) {
 	parent.AddItem(toolbar)
 	parent.AddItem(list)
 
-	sizeTextWindowList(list, 300, 200)
+	eui.SizeTextWindowList(list, 300, 200)
 
 	if got, want := list.Size.Y, float32(140); got != want {
 		t.Fatalf("list height = %v, want %v after docked rows", got, want)

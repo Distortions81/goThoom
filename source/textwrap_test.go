@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gothoom/eui"
 	"testing"
 
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -8,7 +9,7 @@ import (
 
 func TestWrapTextPreservesSpaces(t *testing.T) {
 	face := &text.GoTextFace{Size: 12}
-	_, lines := wrapText("foo  bar", face, 1000)
+	_, lines := eui.WrapText("foo  bar", face, 1000)
 	if len(lines) != 1 {
 		t.Fatalf("lines = %d want 1", len(lines))
 	}

@@ -808,7 +808,7 @@ func updatePlayersWindow() {
 	}
 
 	// Size the list below any docked toolbar rows.
-	sizeTextWindowList(playersList, clientWAvail, clientHAvail)
+	eui.SizeTextWindowList(playersList, clientWAvail, clientHAvail)
 	layoutChanged := playersList.GetSize() != previousListSize
 	playersList.Scroll = prevScroll
 	selectionChanged := renderedPlayerSelection != selectedPlayerName

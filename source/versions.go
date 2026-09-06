@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"gothoom/eui"
 	"log"
 	"net/http"
 	"sort"
@@ -163,10 +164,10 @@ func checkForNewVersion() {
 			for !uiReady {
 				time.Sleep(100 * time.Millisecond)
 			}
-			showPopup(
+			eui.ShowPopup(
 				"Update Available",
 				fmt.Sprintf("goThoom version %d is available!", ver),
-				[]popupButton{
+				[]eui.PopupButton{
 					{Text: "Cancel"},
 					{Text: "Download", Action: func() {
 						browser.OpenURL(updateDownloadURL)

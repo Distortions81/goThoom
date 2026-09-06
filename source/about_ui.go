@@ -38,7 +38,7 @@ func initAboutUI() {
 	if aboutWin != nil {
 		return
 	}
-	aboutWin, aboutList, _ = makeTextWindow("About", eui.HZoneCenter, eui.VZoneMiddleTop, false)
+	aboutWin, aboutList, _ = eui.NewTextWindow("About", eui.HZoneCenter, eui.VZoneMiddleTop, false)
 	aboutWin.AutoSize = true
 
 	flow := aboutList.Parent

@@ -221,10 +221,10 @@ func (p *moviePlayer) makePlaybackWindow() {
 	win.SetZone(eui.HZoneCenter, eui.VZoneBottom)
 	win.SetZoneOffset(eui.Point{Y: -164})
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
 	// Time slider flow
-	tFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	tFlow := eui.NewRow()
 
 	p.curLabel, _ = eui.NewText()
 	p.curLabel.Text = "0s"
@@ -257,7 +257,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	flow.AddItem(tFlow)
 
 	// Button flow
-	bFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	bFlow := eui.NewRow()
 
 	backb, backbEv := eui.NewButton()
 	setMovieControlIcon(backb, "replay_30", "<<<")
@@ -397,10 +397,10 @@ func (p *moviePlayer) makePlaybackWindow() {
 	exitBtn.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	exitEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			showPopup(
+			eui.ShowPopup(
 				"Exit Movie",
 				"Stop playback and return to login?",
-				[]popupButton{{Text: "Cancel"}, {Text: "Exit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+				[]eui.PopupButton{{Text: "Cancel"}, {Text: "Exit", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 					if movieWin != nil {
 						movieWin.Close()
 					}

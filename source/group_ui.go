@@ -16,7 +16,7 @@ func promptCustomGroupName(title, initial string, accept func(string)) {
 	input.Label = "Group name"
 	input.Text = initial
 	input.Size = eui.Point{X: 300, Y: 28}
-	showPopup(title, "", []popupButton{
+	eui.ShowPopup(title, "", []eui.PopupButton{
 		{Text: "Cancel"},
 		{Text: "OK", Action: func() {
 			if name := strings.TrimSpace(input.Text); name != "" {

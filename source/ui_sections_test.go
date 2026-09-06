@@ -8,7 +8,7 @@ import (
 
 func TestNewConfigurationSectionProvidesHeadingAndSpacing(t *testing.T) {
 	const width float32 = 270
-	section := newConfigurationSection("Appearance", width)
+	section := eui.NewSection("Appearance", width)
 
 	if section.ItemType != eui.ITEM_FLOW || section.FlowType != eui.FLOW_VERTICAL {
 		t.Fatalf("section is not a vertical flow: type=%v flow=%v", section.ItemType, section.FlowType)

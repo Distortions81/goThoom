@@ -15,7 +15,7 @@ func makeCacheStatsWindow() {
 	cacheStatsWin.AutoSize = true
 	cacheStatsWin.Movable = true
 	cacheStatsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-	cacheSection := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	cacheSection := eui.NewColumn()
 	cacheLabel, _ := eui.NewText()
 	cacheLabel.Text = "Caches:"
 	cacheLabel.Size = eui.Point{X: width, Y: 24}

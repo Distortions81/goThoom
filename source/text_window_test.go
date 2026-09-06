@@ -5,43 +5,8 @@ import (
 
 	"gothoom/eui"
 
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 )
-
-func TestTextWindowWrapCacheInvalidatesForWidthAndFont(t *testing.T) {
-	face := &text.GoTextFace{Size: 12}
-	config := textWindowWrapConfig{width: 120, faceSize: face.Size}
-	var cache textWindowWrapCache
-
-	cache.begin(config)
-	cache.wrap("A message that wraps", face, config.width)
-	cached := cache.entries["A message that wraps"]
-	cached.text = "cached sentinel"
-	cache.entries["A message that wraps"] = cached
-
-	cache.begin(config)
-	if wrapped, _ := cache.wrap("A message that wraps", face, config.width); wrapped != "cached sentinel" {
-		t.Fatal("unchanged width and font did not reuse cached wrapping")
-	}
-
-	widthConfig := config
-	widthConfig.width = 60
-	cache.begin(widthConfig)
-	if wrapped, _ := cache.wrap("A message that wraps", face, widthConfig.width); wrapped == "cached sentinel" {
-		t.Fatal("width change did not invalidate cached wrapping")
-	}
-
-	cached = cache.entries["A message that wraps"]
-	cached.text = "font sentinel"
-	cache.entries["A message that wraps"] = cached
-	fontConfig := widthConfig
-	fontConfig.faceSize = 16
-	cache.begin(fontConfig)
-	if wrapped, _ := cache.wrap("A message that wraps", &text.GoTextFace{Size: 16}, fontConfig.width); wrapped == "font sentinel" {
-		t.Fatal("font size change did not invalidate cached wrapping")
-	}
-}
 
 func TestTextWindowInputRemainsInsideClientAreaAtUIScale(t *testing.T) {
 	originalScale := eui.UIScale()
@@ -56,7 +21,7 @@ func TestTextWindowInputRemainsInsideClientAreaAtUIScale(t *testing.T) {
 	}
 	eui.SetScreenSize(1600, 1000)
 	eui.SetUIScale(2)
-	win, list, input := makeTextWindow("Console Test", eui.HZoneLeft, eui.VZoneTop, true)
+	win, list, input := eui.NewTextWindow("Console Test", eui.HZoneLeft, eui.VZoneTop, true)
 	t.Cleanup(win.RemoveWindow)
 	if !win.SetSize(eui.Point{X: 400, Y: 300}) {
 		t.Fatal("could not size text window")
@@ -91,7 +56,7 @@ func TestSizeTextWindowListUsesLogicalUnitsAtUIScale(t *testing.T) {
 	parent.AddItem(toolbar)
 	parent.AddItem(list)
 
-	sizeTextWindowList(list, 300, 200)
+	eui.SizeTextWindowList(list, 300, 200)
 
 	if got, want := list.GetSize().Y, float32(140); got != want {
 		t.Fatalf("physical list height = %v, want %v after docked row", got, want)

@@ -140,7 +140,7 @@ func newStatsMetric(label string, width float32) (*eui.ItemData, statsMetric) {
 	valueText.Text = "--"
 	valueText.FontSize = 13
 	valueText.Size = eui.Point{X: width, Y: 25}
-	applyBoldFace(valueText)
+	eui.ApplyBoldFace(valueText)
 	metric.AddItem(valueText)
 
 	return metric, statsMetric{value: valueText}
@@ -263,9 +263,9 @@ func makeStatsWindow() {
 	statsWin.AutoSize = true
 	statsWin.Movable = true
 
-	flow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	flow := eui.NewColumn()
 
-	networkSection := newConfigurationSection("Network", width)
+	networkSection := eui.NewSection("Network", width)
 	networkControls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	networkControls.Size = eui.Point{X: width, Y: 24}
 	statsPNACheckbox, pnaEvents := eui.NewCheckbox()
@@ -316,7 +316,7 @@ func makeStatsWindow() {
 	networkSection.AddItem(networkGraphFooter)
 	flow.AddItem(networkSection)
 
-	rateSection := newConfigurationSection("Frame timing", width)
+	rateSection := eui.NewSection("Frame timing", width)
 	rateMetrics, metrics := newStatsMetricRow(width, "CLIENT FPS", "SERVER RATE", "GAME-LOOP CPU")
 	statsFPSMetric, statsUpdateMetric, statsCPUMetric = metrics[0], metrics[1], metrics[2]
 	rateSection.AddItem(rateMetrics)
@@ -335,7 +335,7 @@ func makeStatsWindow() {
 	rateSection.AddItem(rateGraphFooter)
 	flow.AddItem(rateSection)
 
-	cacheSection := newConfigurationSection("Memory Use", width)
+	cacheSection := eui.NewSection("Memory Use", width)
 	cacheMetrics, metrics := newStatsMetricRow(width, "ARTWORK CACHE", "SOUND CACHE", "TOTAL CACHE", "GPU TEXTURES")
 	statsArtwork, statsSounds, statsCacheTotal, statsGPUMemory = metrics[0], metrics[1], metrics[2], metrics[3]
 	cacheSection.AddItem(cacheMetrics)

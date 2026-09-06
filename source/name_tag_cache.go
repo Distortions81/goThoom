@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gothoom/internal/renderpool"
+	"gothoom/eui/renderpool"
 	"image/color"
 	"math"
 	"sync"

@@ -49,7 +49,7 @@ func newSettingsPage(name string, width float32) *eui.ItemData {
 }
 
 func addSettingsSection(page *eui.ItemData, title string, width float32) *eui.ItemData {
-	section := newConfigurationSection(title, width)
+	section := eui.NewSection(title, width)
 	if len(page.Contents) == 0 {
 		section.Contents = section.Contents[1:]
 	}
@@ -88,7 +88,7 @@ func makeSettingsWindow() {
 	toolsPage := newSettingsPage("Tools", panelWidth)
 
 	const displayColumnWidth = (panelWidth - 20) / 2
-	displayColumns := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	displayColumns := eui.NewRow()
 	displayWindowPage := newSettingsPage("", displayColumnWidth)
 	displayLayoutPage := newSettingsPage("", displayColumnWidth)
 	displayColumns.AddItem(displayWindowPage)
@@ -103,7 +103,7 @@ func makeSettingsWindow() {
 	const worldColumnWidth float32 = (panelWidth - 20) / 2
 	worldStatus := newSettingsPage("", worldColumnWidth)
 	worldNames := newSettingsPage("", worldColumnWidth)
-	worldColumns := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	worldColumns := eui.NewRow()
 	worldColumns.AddItem(worldStatus)
 	worldColumns.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 20, Y: 1}})
 	worldColumns.AddItem(worldNames)
@@ -179,7 +179,7 @@ func makeSettingsWindow() {
 			placeToolbar(gs.ToolbarPlacement, true)
 		}
 	}
-	layoutToolsRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	layoutToolsRow := eui.NewRow()
 	layoutToolsRow.AddItem(tiledLayoutBtn)
 	layoutToolsRow.AddItem(toolbarInfoCB)
 	tiledSection.AddItem(layoutToolsRow)
@@ -218,7 +218,7 @@ func makeSettingsWindow() {
 
 	// Keep the label above both controls so Apply aligns with the slider track.
 	windowSection.AddItem(uiScaleLabel)
-	uiScaleRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	uiScaleRow := eui.NewRow()
 	uiScaleSlider.Size = eui.Point{X: displayColumnWidth - uiScaleApplyBtn.Size.X - 10, Y: settingsControlHeight}
 	uiScaleRow.AddItem(uiScaleSlider)
 	uiScaleRow.AddItem(uiScaleApplyBtn)
@@ -308,7 +308,7 @@ func makeSettingsWindow() {
 				if accentSwatch != nil {
 					var ac eui.Color
 					_ = ac.UnmarshalJSON([]byte("\"accent\""))
-					setColorSwatch(accentSwatch, ac)
+					eui.SetColorSwatch(accentSwatch, ac)
 				}
 			}
 		}
@@ -330,14 +330,14 @@ func makeSettingsWindow() {
 			}
 		}
 		refreshThemePreview()
-		setColorSwatch(accentSwatch, eui.AccentColor())
+		eui.SetColorSwatch(accentSwatch, eui.AccentColor())
 		settingsWin.Refresh()
 	})
 	bindThemePreview(styleDD, false, func() { settingsWin.Refresh() })
 	themeDD.SetTooltip("Hover to preview a palette. Click to keep it; move away or press Escape to restore your choice.")
 	styleDD.SetTooltip("Hover to preview control shapes and spacing. Click to keep the style.")
 
-	themeRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	themeRow := eui.NewRow()
 	styleDD.Position.X = 24
 	themeRow.AddItem(themeDD)
 	themeRow.AddItem(styleDD)
@@ -501,7 +501,7 @@ func makeSettingsWindow() {
 	}
 	chatSection.AddItem(textColorsBtn)
 
-	appearanceSection.AddItem(newConfigurationSubheading("Alternating row colors", panelWidth))
+	appearanceSection.AddItem(eui.NewSubheading("Alternating row colors", panelWidth))
 	var alternatingRow *eui.ItemData
 	for i, option := range []struct {
 		name  string
@@ -513,7 +513,7 @@ func makeSettingsWindow() {
 		{"Players", &gs.PlayersAlternatingRowColors},
 	} {
 		if i%2 == 0 {
-			alternatingRow = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+			alternatingRow = eui.NewRow()
 			appearanceSection.AddItem(alternatingRow)
 		}
 		checkbox, events := eui.NewCheckbox()
@@ -1287,7 +1287,7 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 			open.Run(dataDirPath)
 		}
 	}
-	ttsActions := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	ttsActions := eui.NewRow()
 	ttsEditBtn.Position.X = 8
 	ttsActions.AddItem(ttsTestBtn)
 	ttsActions.AddItem(ttsEditBtn)

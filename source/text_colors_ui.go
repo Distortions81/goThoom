@@ -49,7 +49,7 @@ func makeTextColorsWindow() {
 	textColorsWin.Movable = true
 	textColorsWin.AutoSize = true
 
-	content := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	content := eui.NewColumn()
 	classicMessageColorsCB, _ = eui.NewCheckbox()
 	classicMessageColorsCB.Text = "Use classic client text colors"
 	classicMessageColorsCB.Size = eui.Point{X: textColorsContentWidth, Y: 24}
@@ -71,7 +71,7 @@ func makeTextColorsWindow() {
 	}
 	content.AddItem(classicMessageColorsCB)
 
-	header := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+	header := eui.NewRow()
 	header.AddItem(textColorColumnHeading("", textColorLabelWidth))
 	header.AddItem(textColorColumnHeading("Dark theme", colorSwatchColumnWidth))
 	header.AddItem(textColorColumnHeading("Light theme", colorSwatchColumnWidth))
@@ -84,7 +84,7 @@ func makeTextColorsWindow() {
 	textColorSwatchesLight = make(map[string]*eui.ItemData, len(messageTextColorOptions))
 	for _, option := range messageTextColorOptions {
 		option := option
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := eui.NewRow()
 		label, _ := eui.NewText()
 		label.Text = option.Label
 		label.FontSize = 12
@@ -152,12 +152,12 @@ func makeTextColorsWindow() {
 		gs.ClassicMessageColors = false
 		SettingsLock.Unlock()
 		for messageType, swatch := range textColorSwatchesDark {
-			setColorSwatch(swatch, messageTextColorForPalette(messageType, false))
+			eui.SetColorSwatch(swatch, messageTextColorForPalette(messageType, false))
 			swatch.Disabled = messageType == messageTextTypeSystem
 			swatch.Dirty = true
 		}
 		for messageType, swatch := range textColorSwatchesLight {
-			setColorSwatch(swatch, messageTextColorForPalette(messageType, true))
+			eui.SetColorSwatch(swatch, messageTextColorForPalette(messageType, true))
 			swatch.Disabled = messageType == messageTextTypeSystem
 			swatch.Dirty = true
 		}

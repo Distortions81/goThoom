@@ -75,7 +75,7 @@ func refreshKeybindingsList() {
 		scale = 1
 	}
 	pad := (keybindingsWin.Padding + keybindingsWin.BorderPad) * scale
-	sizeTextWindowList(keybindingsList, max(0, clientW-2*pad), max(0, clientH-2*pad))
+	eui.SizeTextWindowList(keybindingsList, max(0, clientW-2*pad), max(0, clientH-2*pad))
 
 	keybindingsList.Contents = keybindingsList.Contents[:0]
 	entries := keybindingEntriesSnapshot()

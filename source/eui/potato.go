@@ -1,7 +1,7 @@
 package eui
 
 import (
-	"gothoom/internal/renderpool"
+	"gothoom/eui/renderpool"
 	"image"
 	"image/color"
 	"runtime"

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"gothoom/eui"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -325,7 +326,7 @@ func BenchmarkTourBubbleTextLayout(b *testing.B) {
 	b.Run("Uncached", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			wrapText(fixture.longestBubble, bubbleFont, maxWidth)
+			eui.WrapText(fixture.longestBubble, bubbleFont, maxWidth)
 		}
 	})
 	b.Run("Cached", func(b *testing.B) {

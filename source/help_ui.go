@@ -24,7 +24,7 @@ func initHelpUI() {
 	if helpWin != nil {
 		return
 	}
-	helpWin, helpList, _ = makeTextWindow("Help", eui.HZoneCenter, eui.VZoneMiddleTop, false)
+	helpWin, helpList, _ = eui.NewTextWindow("Help", eui.HZoneCenter, eui.VZoneMiddleTop, false)
 	helpWin.Size = eui.Point{X: 1700, Y: 800}
 	helpLines = strings.Split(strings.ReplaceAll(helpText, "\r\n", "\n"), "\n")
 	helpList.FlowType = eui.FLOW_HORIZONTAL
@@ -165,7 +165,7 @@ func rebuildHelpColumns() {
 	for i := range sections {
 		rows := 0
 		for _, l := range sections[i].lines {
-			_, ls := wrapText(l, face, wrapW)
+			_, ls := eui.WrapText(l, face, wrapW)
 			if n := len(ls); n > 0 {
 				rows += n
 			} else {
@@ -179,7 +179,7 @@ func rebuildHelpColumns() {
 	capRows := int(float32(clientHAvail) / rowUnits)
 	// helpers
 	addLine := func(col int, txt string) int {
-		_, ls := wrapText(txt, face, wrapW)
+		_, ls := eui.WrapText(txt, face, wrapW)
 		wrapped := strings.Join(ls, "\n")
 		// skip if divider (more than 4 dashes)
 		tl := strings.TrimSpace(wrapped)
@@ -253,7 +253,7 @@ func rebuildHelpColumns() {
 			remaining := capRows - heights[idx]
 			for remaining > 1 && li < len(lines) {
 				l := lines[li]
-				_, ls := wrapText(l, face, wrapW)
+				_, ls := eui.WrapText(l, face, wrapW)
 				take := len(ls)
 				if take < 1 {
 					take = 1

@@ -303,7 +303,7 @@ func makeHotkeysWindow() {
 	hotkeysList.Size = eui.Point{X: flow.Size.X, Y: flow.Size.Y - btnRow.Size.Y}
 	flow.AddItem(hotkeysList)
 
-	infoFlow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL}
+	infoFlow := eui.NewColumn()
 	infoText := "@right.clicked -> last right-clicked player\n@middle.clicked -> last middle-clicked player\n@<button>.<mod>.clicked -> clicked player with modifier (button: left|middle|right; mod: control|alt|shift)\n@hovered -> currently hovered player\n@selected.player -> selected player\n@selected.item -> selected item\n@equipped.left -> left hand item\n@equipped.belt -> belt item\n@equipped.<slot> -> item in wear slot"
 	help := &eui.ItemData{ItemType: eui.ITEM_TEXT, Text: infoText}
 	help.Size = eui.Point{X: 256, Y: 256}
@@ -439,10 +439,10 @@ func confirmRemoveHotkey(idx int) {
 	}
 	hk := hotkeys[idx]
 	hotkeysMu.RUnlock()
-	showPopup(
+	eui.ShowPopup(
 		"Remove Hotkey",
 		fmt.Sprintf("Remove hotkey %s : %s?", hk.Name, hk.Combo),
-		[]popupButton{
+		[]eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Remove", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				hotkeysMu.Lock()
@@ -664,7 +664,7 @@ func finishHotkeyEdit(save bool) {
 					if name == "" {
 						name = "another hotkey"
 					}
-					showPopup("Error", fmt.Sprintf("%s already bound to %s", combo, name), []popupButton{{Text: "OK"}})
+					eui.ShowPopup("Error", fmt.Sprintf("%s already bound to %s", combo, name), []eui.PopupButton{{Text: "OK"}})
 					return
 				}
 			}

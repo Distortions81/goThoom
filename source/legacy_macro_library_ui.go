@@ -192,7 +192,7 @@ func refreshLegacyMacroLibraryWindow() {
 
 	for index, entry := range entries {
 		entry := entry
-		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL}
+		row := eui.NewRow()
 		if index%2 != 0 {
 			row.Filled = true
 			row.Color = legacyMacroLibraryStripeColor()
@@ -397,7 +397,7 @@ func legacyMacroLibraryShowDiagnostics() {
 	for _, diagnostic := range diagnostics {
 		lines = append(lines, diagnostic.Error())
 	}
-	showPopup("Legacy Macro Errors", strings.Join(lines, "\n"), []popupButton{{Text: "Close"}})
+	eui.ShowPopup("Legacy Macro Errors", strings.Join(lines, "\n"), []eui.PopupButton{{Text: "Close"}})
 }
 
 func legacyMacroLibraryStripeColor() eui.Color {
@@ -413,7 +413,7 @@ func legacyMacroLibraryShowInfo(entry legacyMacroLibraryEntry) {
 		legacyMacroLibraryReport("read " + entry.Name + ": " + err.Error())
 		return
 	}
-	showPopup("Macro Info: "+entry.Name, "", []popupButton{{Text: "Close"}}, legacyMacroLibraryInfoColumns(info))
+	eui.ShowPopup("Macro Info: "+entry.Name, "", []eui.PopupButton{{Text: "Close"}}, legacyMacroLibraryInfoColumns(info))
 }
 
 type legacyMacroLibraryInfo struct {
@@ -544,7 +544,7 @@ func legacyMacroLibraryWrapInfoLines(lines []string, width float32) []string {
 	face := legacyMacroLibraryRowFace()
 	wrapped := make([]string, 0, len(lines))
 	for _, line := range lines {
-		_, chunks := wrapText(line, face, float64(width*eui.UIScale()))
+		_, chunks := eui.WrapText(line, face, float64(width*eui.UIScale()))
 		wrapped = append(wrapped, chunks...)
 	}
 	return wrapped
@@ -558,16 +558,16 @@ func legacyMacroLibraryRowLabel(name, description string, width float32) string 
 	face := legacyMacroLibraryRowFace()
 	maxWidth := float64(width * eui.UIScale())
 	prefix := name + " — "
-	if measureWidth(prefix+"...", face) > maxWidth {
+	if eui.MeasureTextWidth(prefix+"...", face) > maxWidth {
 		return name
 	}
-	if measureWidth(prefix+description, face) <= maxWidth {
+	if eui.MeasureTextWidth(prefix+description, face) <= maxWidth {
 		return prefix + description
 	}
 	var shortened strings.Builder
 	for _, char := range description {
 		candidate := shortened.String() + string(char)
-		if measureWidth(prefix+candidate+"...", face) > maxWidth {
+		if eui.MeasureTextWidth(prefix+candidate+"...", face) > maxWidth {
 			break
 		}
 		shortened.WriteRune(char)
