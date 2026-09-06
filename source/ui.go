@@ -50,6 +50,7 @@ var settingsToolbarPlacementDD *eui.ItemData
 var settingsCombineMessagesCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
+var loginConnectButton *eui.ItemData
 var loginServerDropdown *eui.ItemData
 var serverListWin *eui.WindowData
 var serverListContents *eui.ItemData
@@ -2846,6 +2847,18 @@ func loginCharacterChoices() []loginCharacterChoice {
 	return choices
 }
 
+func validLoginCharacterSelection(selection string) bool {
+	if selection == freeDemoSelection {
+		return true
+	}
+	for _, character := range characters {
+		if character.Name == selection {
+			return true
+		}
+	}
+	return false
+}
+
 func refreshLoginAfterAssetsAvailable() {
 	if loginWin == nil {
 		return
@@ -2874,6 +2887,11 @@ func updateCharacterButtons() {
 	}
 	// Preserve current scroll position while rebuilding the list
 	prevScroll := charactersList.Scroll
+	if name != "" && !validLoginCharacterSelection(name) {
+		name = ""
+		passHash = ""
+		pass = ""
+	}
 	if name == "" {
 		if gs.LastCharacter != "" {
 			for _, c := range characters {
@@ -3012,6 +3030,15 @@ func updateCharacterButtons() {
 			action.button.SetTooltip(action.help)
 		}
 		action.button.Dirty = true
+	}
+	if loginConnectButton != nil {
+		loginConnectButton.Disabled = name == ""
+		if loginConnectButton.Disabled {
+			loginConnectButton.SetTooltip("Select a character before connecting.")
+		} else {
+			loginConnectButton.SetTooltip("Connect as the selected character.")
+		}
+		loginConnectButton.Dirty = true
 	}
 	// Keep UI fresh after potential content changes.
 	loginWin.Refresh()
@@ -3871,6 +3898,7 @@ func makeLoginWindow() {
 	connBtn.Outlined = true
 	connBtn.Border = 2
 	connBtn.OutlineColor = eui.ColorGreen
+	loginConnectButton = connBtn
 	loginWin.DefaultButton = connBtn
 	// Keep a handle so we can enable/disable it dynamically.
 	connEvents.Handle = func(ev eui.UIEvent) {

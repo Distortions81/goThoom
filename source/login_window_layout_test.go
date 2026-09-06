@@ -13,6 +13,8 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	originalList := charactersList
 	originalEditBtn := editCharBtn
 	originalDeleteBtn := deleteCharBtn
+	originalConnectBtn := loginConnectButton
+	originalServerDropdown := loginServerDropdown
 	originalWidth, originalHeight := eui.ScreenSize()
 	loginWin = nil
 	eui.SetScreenSize(1200, 800)
@@ -24,6 +26,8 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 		charactersList = originalList
 		editCharBtn = originalEditBtn
 		deleteCharBtn = originalDeleteBtn
+		loginConnectButton = originalConnectBtn
+		loginServerDropdown = originalServerDropdown
 		eui.SetScreenSize(originalWidth, originalHeight)
 	})
 
@@ -39,10 +43,14 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	if len(utilities) != 2 || utilities[0].Text != "Play movie file [clMov]" || utilities[1].Text != "Quit" {
 		t.Fatal("login utility row should contain movie playback and Quit")
 	}
-	if items[2].Text != "Edit Characters:" || items[5].Text != "Character list:" || items[6] != charactersList || items[8].Text != "Connect" {
+	if items[2].Text != "Edit Characters:" || items[5].Text != "Character list:" || items[6] != charactersList {
 		t.Fatal("login controls are not ordered utilities, character actions, character list, Connect")
 	}
-	if !utilities[1].Outlined || utilities[1].OutlineColor != eui.ColorRed || !items[8].Outlined || items[8].OutlineColor != eui.ColorGreen {
+	connectRow := items[8].Contents
+	if len(connectRow) != 2 || connectRow[0].Text != "Connect" || connectRow[1] != loginServerDropdown {
+		t.Fatal("Connect row should contain Connect and the server selector")
+	}
+	if !utilities[1].Outlined || utilities[1].OutlineColor != eui.ColorRed || !connectRow[0].Outlined || connectRow[0].OutlineColor != eui.ColorGreen {
 		t.Fatal("Quit and Connect do not have red and green frames")
 	}
 	actions := items[3].Contents
@@ -68,6 +76,8 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 	originalList := charactersList
 	originalEditBtn := editCharBtn
 	originalDeleteBtn := deleteCharBtn
+	originalConnectBtn := loginConnectButton
+	originalServerDropdown := loginServerDropdown
 	originalCharacters := characters
 	originalName := name
 	originalPassHash := passHash
@@ -88,6 +98,8 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 		charactersList = originalList
 		editCharBtn = originalEditBtn
 		deleteCharBtn = originalDeleteBtn
+		loginConnectButton = originalConnectBtn
+		loginServerDropdown = originalServerDropdown
 		characters = originalCharacters
 		name = originalName
 		passHash = originalPassHash
@@ -103,6 +115,9 @@ func TestLoginWindowPopulatesCharactersWhileHiddenBySetupWizard(t *testing.T) {
 
 	if got, want := len(charactersList.Contents), len(characters)+1; got != want {
 		t.Fatalf("hidden login character rows = %d, want %d", got, want)
+	}
+	if !loginConnectButton.Disabled {
+		t.Fatal("Connect must be disabled until a character is selected")
 	}
 }
 
