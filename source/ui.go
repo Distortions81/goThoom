@@ -1818,7 +1818,7 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 		handsRow.AddItem(rightHandImg)
 		handsColumn := eui.NewColumn()
 		handsColumn.AddItem(handsRow)
-		if gs.BarPlacement == BarPlacementToolbarHands {
+		if gs.ToolbarStatusBars {
 			toolbarStatusBarsItem, toolbarStatusBarsImage = eui.NewImageItem(w, toolbarStatusBarsHeight)
 			handsColumn.AddItem(toolbarStatusBarsItem)
 		}
@@ -1835,7 +1835,7 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	toolbarHeight := buttonHeight * 2
 	if hands := toolbarHandsSource(); hands != nil {
 		toolbarHeight = float32(hands.Bounds().Dy())
-		if gs.BarPlacement == BarPlacementToolbarHands {
+		if gs.ToolbarStatusBars {
 			toolbarHeight += toolbarStatusBarsHeight
 		}
 	}

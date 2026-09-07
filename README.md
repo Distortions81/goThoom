@@ -12,7 +12,7 @@ macOS, and Linux.
 · [User manual](https://gothoom.m45sci.xyz/help)
 · [Video overview](https://youtu.be/MrGdcqIl3a4)
 
-<img src="dev-screenshots/Screenshot_20260831_034828.png" alt="goThoom game client" />
+<img src="dev-screenshots/Pebble Pockets__2026-09-07-15-05-49.png" alt="goThoom game client" />
 
 ## Get started
 

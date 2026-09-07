@@ -174,6 +174,7 @@ var gsdef settings = settings{
 	MiddleClickMoveWindow:         false,
 	InputBarAlwaysOpen:            true,
 	InputAutocomplete:             true,
+	InputSpellcheck:               true,
 	KBWalkSpeed:                   0.25,
 	MainFontSize:                  8,
 	BubbleFontSize:                20,
@@ -190,7 +191,7 @@ var gsdef settings = settings{
 	PlayersAlternatingRowColors:   false,
 	BubbleOpacity:                 0.8,
 	BubbleLifetimeMode:            BubbleLifetimeModern,
-	BubbleBaseLife:                2,
+	BubbleBaseLife:                3,
 	BubbleLifePerWord:             1,
 	BubbleScale:                   2.0,
 	NameBgOpacity:                 0.8,
@@ -252,6 +253,7 @@ var gsdef settings = settings{
 	MonitorGamma:                   2.2,
 	BarPlacement:                   BarPlacementBottom,
 	BarStyle:                       BarStyleCompact,
+	ToolbarStatusBars:              false,
 	MaxNightLevel:                  100,
 	MessagesToConsole:              true,
 	ChatTTS:                        false,
@@ -400,6 +402,7 @@ type settings struct {
 	MiddleClickMoveWindow         bool
 	InputBarAlwaysOpen            bool
 	InputAutocomplete             bool
+	InputSpellcheck               bool
 	KBWalkSpeed                   float64
 	MainFontSize                  float64
 	BubbleFontSize                float64
@@ -484,6 +487,7 @@ type settings struct {
 	MonitorGamma                   float64
 	BarPlacement                   BarPlacement
 	BarStyle                       BarStyle
+	ToolbarStatusBars              bool
 	MaxNightLevel                  int
 	forceNightLevel                int
 	Theme                          string
@@ -781,6 +785,7 @@ func loadSettings() bool {
 		gs.ToolbarPlacement = ToolbarInInventory
 		settingsDirty = true
 	}
+	normalizeStatusBarPlacement(&gs)
 	if !normalizedWindowSettingsValid() {
 		resetSavedWindowSettings()
 		settingsDirty = true
@@ -799,6 +804,21 @@ func loadSettings() bool {
 		gs.PowerSaveFPS = 45
 	}
 	return settingsLoaded
+}
+
+// normalizeStatusBarPlacement migrates the former toolbar_hands placement to
+// its dedicated toggle while preserving a normal screen placement.
+func normalizeStatusBarPlacement(value *settings) {
+	if value == nil {
+		return
+	}
+	if value.BarPlacement == BarPlacementToolbarHands {
+		value.BarPlacement = BarPlacementBottom
+		value.ToolbarStatusBars = true
+	}
+	if value.BarPlacement < BarPlacementBottom || value.BarPlacement > BarPlacementUpperRight {
+		value.BarPlacement = gsdef.BarPlacement
+	}
 }
 
 func applyServerAddressSetting() {

@@ -535,11 +535,10 @@ func parseCommandSettingValue(entry settingsSchemaEntry, field reflect.Value, ra
 		valid := map[string]BarPlacement{
 			"bottom": BarPlacementBottom, "lower_left": BarPlacementLowerLeft,
 			"lower_right": BarPlacementLowerRight, "upper_right": BarPlacementUpperRight,
-			"toolbar_hands": BarPlacementToolbarHands,
 		}
 		placement, ok := valid[name]
 		if !ok {
-			return reflect.Value{}, fmt.Errorf("use bottom, lower_left, lower_right, upper_right, or toolbar_hands")
+			return reflect.Value{}, fmt.Errorf("use bottom, lower_left, lower_right, or upper_right")
 		}
 		value.SetInt(int64(placement))
 		return value, nil
@@ -619,7 +618,7 @@ func applySettingRuntimeEffects(entry settingsSchemaEntry) {
 		updatePlayersWindow()
 		refreshMessageTextWindows()
 		updateDimmedScreenBG()
-	case "ToolbarPlacement", "BarPlacement":
+	case "ToolbarPlacement", "BarPlacement", "ToolbarStatusBars":
 		placeToolbar(gs.ToolbarPlacement, true)
 	case "SpriteUpscaleMode":
 		setArtworkUpscaleMode(gs.SpriteUpscaleMode)

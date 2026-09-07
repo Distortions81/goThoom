@@ -1,7 +1,15 @@
 goThoom 55 changes since test54.
 
 Interface:
-- Streamlined the toolbar into balanced rows and returned recording to its own button.
 - Combined live stats, command search, Help, and snapshots into the new Tools menu.
 - Moved window visibility controls and Reset Windows to Settings > Display, where they now use a compact two-column layout.
 - Reduced the minimum width needed for a toolbar docked in Inventory or Players, and for the floating toolbar window.
+- The title bar now reads `goThoom`, adding the active character name after `--` while logged in.
+- About and Changelog now open in a wider, resizable 16:10 layout.
+- Status bars now offer Regular, Modern -- thin, and Hidden styles. Modern -- thin is the default, with an optional below-toolbar-hands placement.
+- Refreshed the client screenshot in the README and website.
+
+Settings and setup:
+- Added a Show FPS option in Display, plus separate Autocomplete and Spellcheck options in Text.
+- The Network server setting now opens the existing Server List editor.
+- Graphics detection in the setup wizard now clearly shows that the performance check is in progress.

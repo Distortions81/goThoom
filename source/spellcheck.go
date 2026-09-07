@@ -56,7 +56,7 @@ func loadSpellcheck() {
 }
 
 func findMisspellings(s string) []eui.TextSpan {
-	if sc == nil {
+	if !gs.InputSpellcheck || sc == nil {
 		return nil
 	}
 	rs := []rune(s)

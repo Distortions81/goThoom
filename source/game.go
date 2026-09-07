@@ -4395,7 +4395,7 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	if gs.BarStyle == BarStyleHidden {
 		return
 	}
-	if gs.BarPlacement == BarPlacementToolbarHands {
+	if gs.ToolbarStatusBars {
 		drawToolbarStatusBars(snap, alpha)
 		return
 	}

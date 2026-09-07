@@ -99,7 +99,15 @@ func makeSettingsWindow() {
 	windowsSection := addSettingsSection(displayLayoutPage, "Windows", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
-	chatSection := addSettingsSection(textPage, "Chat & Messages", panelWidth)
+	textColumns := eui.NewRow()
+	textMessagesPage := newSettingsPage("", displayColumnWidth)
+	textInputPage := newSettingsPage("", displayColumnWidth)
+	textColumns.AddItem(textMessagesPage)
+	textColumns.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 20, Y: 1}})
+	textColumns.AddItem(textInputPage)
+	textPage.AddItem(textColumns)
+	chatSection := addSettingsSection(textMessagesPage, "Chat & Messages", displayColumnWidth)
+	inputSection := addSettingsSection(textInputPage, "Input Assistance", displayColumnWidth)
 	const worldColumnWidth float32 = (panelWidth - 20) / 2
 	worldStatus := newSettingsPage("", worldColumnWidth)
 	worldNames := newSettingsPage("", worldColumnWidth)
@@ -543,7 +551,6 @@ func makeSettingsWindow() {
 		{"Grouped Lower Left", BarPlacementLowerLeft},
 		{"Grouped Lower Right", BarPlacementLowerRight},
 		{"Grouped Upper Right", BarPlacementUpperRight},
-		{"Below toolbar hands", BarPlacementToolbarHands},
 	}
 	statusSection.AddItem(eui.NewSubheading("Placement", worldColumnWidth))
 	for _, p := range placements {
@@ -564,6 +571,22 @@ func makeSettingsWindow() {
 		}
 		statusSection.AddItem(radio)
 	}
+	statusSection.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Size: eui.Point{X: worldColumnWidth, Y: 8}, Fixed: true})
+	toolbarBars, toolbarBarsEvents := eui.NewCheckbox()
+	toolbarBars.Text = "Status bars below toolbar hands"
+	toolbarBars.Size = eui.Point{X: worldColumnWidth, Y: settingsControlHeight}
+	toolbarBars.Checked = gs.ToolbarStatusBars
+	toolbarBars.SetTooltip("Show the status bars beneath the toolbar hand slots instead of in the game view.")
+	toolbarBarsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.ToolbarStatusBars = ev.Checked
+			SettingsLock.Unlock()
+			placeToolbar(gs.ToolbarPlacement, false)
+			settingsDirty = true
+		}
+	}
+	statusSection.AddItem(toolbarBars)
 
 	barStyles := []struct {
 		name  string
@@ -806,7 +829,7 @@ func makeSettingsWindow() {
 	bubbleBaseLifeSlider.MaxValue = 5
 	bubbleBaseLifeSlider.Value = float32(gs.BubbleBaseLife)
 	bubbleBaseLifeSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
-	bubbleBaseLifeSlider.SetTooltip("Modern mode starts with this many seconds (default 2).")
+	bubbleBaseLifeSlider.SetTooltip("Modern mode starts with this many seconds (default 3).")
 	bubbleBaseLifeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			gs.BubbleBaseLife = float64(ev.Value)
@@ -1092,7 +1115,7 @@ func makeSettingsWindow() {
 	addDisplaySettings(windowSection, displayColumnWidth)
 	addWindowSettings(windowsSection, displayColumnWidth)
 	addControlSettings(controlsSection, panelWidth)
-	addTextSettings(chatSection, panelWidth)
+	addTextSettings(chatSection, inputSection, displayColumnWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
 	addAudioSettings(ttsSection, audioSection, panelWidth)
 	addFileSettings(filesSection, recordingSection, panelWidth)
@@ -1289,7 +1312,7 @@ func addControlSettings(controlsSection *eui.ItemData, columnWidth float32) {
 	controlsSection.AddItem(joystickBtn)
 }
 
-func addTextSettings(chatSection *eui.ItemData, columnWidth float32) {
+func addTextSettings(chatSection, inputSection *eui.ItemData, columnWidth float32) {
 	autocomplete, autocompleteEvents := eui.NewCheckbox()
 	autocomplete.Text = "Autocomplete"
 	autocomplete.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
@@ -1304,7 +1327,25 @@ func addTextSettings(chatSection *eui.ItemData, columnWidth float32) {
 			updateConsoleWindow()
 		}
 	}
-	chatSection.AddItem(autocomplete)
+	inputSection.AddItem(autocomplete)
+	inputSection.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Size: eui.Point{X: columnWidth, Y: 8}, Fixed: true})
+
+	spellcheck, spellcheckEvents := eui.NewCheckbox()
+	spellcheck.Text = "Spellcheck"
+	spellcheck.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	spellcheck.Checked = gs.InputSpellcheck
+	spellcheck.SetTooltip("Underline misspelled words and offer corrections.")
+	spellcheckEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.InputSpellcheck = ev.Checked
+			SettingsLock.Unlock()
+			spellDirty = true
+			settingsDirty = true
+			updateConsoleWindow()
+		}
+	}
+	inputSection.AddItem(spellcheck)
 
 	tsFormatInput, tsFormatEvents := eui.NewInput()
 	tsFormatInput.Label = "Timestamp format"

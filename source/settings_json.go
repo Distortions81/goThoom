@@ -65,6 +65,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "MiddleClickMoveWindow", category: settingsControls, name: "middle_click_moves_window"},
 	{field: "InputBarAlwaysOpen", category: settingsControls, name: "keep_input_bar_open"},
 	{field: "InputAutocomplete", category: settingsControls, name: "autocomplete"},
+	{field: "InputSpellcheck", category: settingsChat, name: "spellcheck"},
 	{field: "KBWalkSpeed", category: settingsControls, name: "keyboard_walk_speed"},
 
 	{field: "MainFontSize", category: settingsInterface, name: "main_font_size"},
@@ -100,6 +101,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "Style", category: settingsInterface, name: "style_theme"},
 	{field: "ShowClanLordSplashImage", category: settingsInterface, name: "show_clan_lord_splash"},
 	{field: "WindowShadows", category: settingsInterface, name: "window_shadows"},
+	{field: "ToolbarStatusBars", category: settingsInterface, name: "status_bars_below_toolbar_hands"},
 
 	{field: "SpeechBubbles", category: settingsSpeechBubbles, name: "enabled"},
 	{field: "AnimatedChatBubbles", category: settingsSpeechBubbles, name: "animated"},
@@ -417,6 +419,7 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 		}
 		result.BarStyle = parseBarStyle(name)
 	}
+	normalizeStatusBarPlacement(&result)
 	result.Version = SETTINGS_VERSION
 	return result, nil
 }
@@ -472,8 +475,6 @@ func barPlacementName(placement BarPlacement) string {
 		return "lower_right"
 	case BarPlacementUpperRight:
 		return "upper_right"
-	case BarPlacementToolbarHands:
-		return "toolbar_hands"
 	default:
 		return "bottom"
 	}
@@ -488,6 +489,7 @@ func parseBarPlacement(name string) BarPlacement {
 	case "upper_right":
 		return BarPlacementUpperRight
 	case "toolbar_hands":
+		// Kept for settings written before toolbar placement became a toggle.
 		return BarPlacementToolbarHands
 	default:
 		return BarPlacementBottom

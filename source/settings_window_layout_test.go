@@ -249,7 +249,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
 		"Auto-record sessions": "Files", "Download Files": "Files",
 		"Always on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
-		"Timestamp format": "Text", "Show recently on-screen group": "World",
+		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Status bars below toolbar hands": "World", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
 		"TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",

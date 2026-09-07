@@ -66,9 +66,9 @@ other windows use their new defaults until explicitly changed.
 
 ## Audit summary
 
-The current internal `settings` structure contains 185 exported fields:
+The current internal `settings` structure contains 188 exported fields:
 
-- 179 are mapped directly by the v4 JSON schema.
+- 182 are mapped directly by the v4 JSON schema.
 - `BarPlacement`, `BarStyle`, and `SpriteUpscaleMode` are persisted separately
   as readable string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.
@@ -98,10 +98,10 @@ goThoom first so the running client does not overwrite the edit when it exits.
 Modern -- thin uses thin fills, minimal frames, and tight spacing near the selected
 screen edge. Grouped placements share one frame, while Along Bottom keeps the
 three frames separate. It is the default for new settings and in the setup wizard.
-Choose **Below toolbar hands** to stack the bars beneath the two hand slots at
-the same width as those slots.
-The saved setting is
-`interface.status_bar_style`, with values `regular`, `compact`, or `hidden`.
+Enable **Status bars below toolbar hands** to stack the bars beneath the two
+hand slots at the same width as those slots.
+The saved settings are `interface.status_bar_style`, with values `regular`,
+`compact`, or `hidden`, and `interface.status_bars_below_toolbar_hands`.
 
 ## Persistent options without a dedicated control
 

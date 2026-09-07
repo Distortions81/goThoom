@@ -201,6 +201,7 @@ func applyCharacterProfile(base settings, profile characterProfile) (settings, e
 		}
 		result.BarStyle = parseBarStyle(name)
 	}
+	normalizeStatusBarPlacement(&result)
 	result.SpriteUpscale = spriteUpscaleFactorFromScale(result.GameScale)
 	clampWindowSettingsValue(&result)
 	return result, nil

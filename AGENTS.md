@@ -61,8 +61,10 @@ script rather than assuming a normal Linux build covers them.
   `source/data/changelog/<number>.txt` before it is tagged. Keep the versions
   strictly increasing and use the current Clan Lord version for `CLVersion`.
 - Write the changelog as user-facing release notes covering changes since the
-  previous release. The same file is embedded in the client and published as
-  the GitHub release body.
+  previous release. Include only the net, user-visible result: do not mention
+  intermediate implementation changes, temporary UI iterations, or reverted
+  work that users never received. The same file is embedded in the client and
+  published as the GitHub release body.
 - Run the normal validation, commit the release metadata, and push it to
   `main` before creating the release. Committing and pushing still require the
   user's explicit permission.

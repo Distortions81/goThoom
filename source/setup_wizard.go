@@ -286,17 +286,30 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 	bubblePanel.AddItem(setupWizardPanelHeading("Names and speech"))
 	placement, events := eui.NewDropdown()
 	placement.Label = "Status bar placement"
-	placement.Options = []string{"Along bottom", "Grouped lower left", "Grouped lower right", "Grouped upper right", "Below toolbar hands"}
+	placement.Options = []string{"Along bottom", "Grouped lower left", "Grouped lower right", "Grouped upper right"}
 	placement.Selected = int(gs.BarPlacement)
 	placement.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
 	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= int(BarPlacementToolbarHands) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= int(BarPlacementUpperRight) {
 			gs.BarPlacement = BarPlacement(ev.Index)
 			placeToolbar(gs.ToolbarPlacement, false)
 			settingsDirty = true
 		}
 	}
 	displayPanel.AddItem(placement)
+
+	toolbarBars, toolbarBarsEvents := eui.NewCheckbox()
+	toolbarBars.Text = "Status bars below toolbar hands"
+	toolbarBars.Checked = gs.ToolbarStatusBars
+	toolbarBars.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
+	toolbarBarsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ToolbarStatusBars = ev.Checked
+			placeToolbar(gs.ToolbarPlacement, false)
+			settingsDirty = true
+		}
+	}
+	displayPanel.AddItem(toolbarBars)
 
 	barStyle, barStyleEvents := eui.NewDropdown()
 	barStyle.Label = "Status bar style"

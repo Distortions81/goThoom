@@ -79,6 +79,15 @@ func TestStatusBarStyleDefaultsModernThin(t *testing.T) {
 	if gsdef.BarStyle != BarStyleCompact {
 		t.Fatalf("status bar style = %v, want Modern -- thin", gsdef.BarStyle)
 	}
+	if gsdef.ToolbarStatusBars {
+		t.Fatal("status bars below toolbar hands should default off")
+	}
+}
+
+func TestBubbleBaseLifeDefault(t *testing.T) {
+	if gsdef.BubbleBaseLife != 3 {
+		t.Fatalf("bubble base lifetime = %v, want 3", gsdef.BubbleBaseLife)
+	}
 }
 
 func TestOwnNameTagVisibleByDefault(t *testing.T) {
@@ -108,6 +117,12 @@ func TestInputBarDefaultsOpen(t *testing.T) {
 func TestAutocompleteDefaultsOn(t *testing.T) {
 	if !gsdef.InputAutocomplete {
 		t.Fatal("autocomplete should default on")
+	}
+}
+
+func TestSpellcheckDefaultsOn(t *testing.T) {
+	if !gsdef.InputSpellcheck {
+		t.Fatal("spellcheck should default on")
 	}
 }
 

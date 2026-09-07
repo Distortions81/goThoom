@@ -91,11 +91,12 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 		"Player health display": false,
 	}
 	wantChecks := map[string]bool{
-		"Tiled window mode":       false,
-		"Dark mode names/bubbles": false,
-		"Speech bubbles":          false,
-		"Fade obscuring objects":  false,
-		"Show toolbar info bar":   false,
+		"Tiled window mode":               false,
+		"Status bars below toolbar hands": false,
+		"Dark mode names/bubbles":         false,
+		"Speech bubbles":                  false,
+		"Fade obscuring objects":          false,
+		"Show toolbar info bar":           false,
 	}
 	var visit func(*eui.ItemData)
 	visit = func(item *eui.ItemData) {

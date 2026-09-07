@@ -77,6 +77,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.SpriteUpscaleFilter = true
 	want.BarPlacement = BarPlacementUpperRight
 	want.BarStyle = BarStyleCompact
+	want.ToolbarStatusBars = true
 	want.MasterVolume = 0.42
 	want.MusicEnhancementAmount = 1.73
 	want.AltNetMode = false
@@ -144,12 +145,15 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	}
 }
 
-func TestBarPlacementToolbarHandsRoundTrip(t *testing.T) {
-	if got, want := barPlacementName(BarPlacementToolbarHands), "toolbar_hands"; got != want {
-		t.Fatalf("barPlacementName(toolbar hands) = %q, want %q", got, want)
-	}
+func TestBarPlacementToolbarHandsMigratesToToggle(t *testing.T) {
 	if got, want := parseBarPlacement("toolbar_hands"), BarPlacementToolbarHands; got != want {
 		t.Fatalf("parseBarPlacement(toolbar_hands) = %v, want %v", got, want)
+	}
+	value := gsdef
+	value.BarPlacement = parseBarPlacement("toolbar_hands")
+	normalizeStatusBarPlacement(&value)
+	if value.BarPlacement != BarPlacementBottom || !value.ToolbarStatusBars {
+		t.Fatalf("toolbar hands migration = placement:%v enabled:%v", value.BarPlacement, value.ToolbarStatusBars)
 	}
 }
 

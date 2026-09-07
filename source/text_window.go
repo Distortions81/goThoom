@@ -72,7 +72,7 @@ func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs [
 		OnURLClick: func(url string) { _ = browser.OpenURL(url) },
 		InputText:  inputMsg, InputEditable: inputActive,
 		InputUnderlines: func(wrapped string) []eui.TextSpan {
-			if inputMsg == "" || strings.HasPrefix(inputMsg, "[") {
+			if !gs.InputSpellcheck || inputMsg == "" || strings.HasPrefix(inputMsg, "[") {
 				return nil
 			}
 			if len(input.Contents) > 0 && input.Contents[0].Text == wrapped && !spellDirty {
@@ -97,7 +97,7 @@ func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs [
 // when hovering over underlined text. Selecting a suggestion replaces the
 // word and updates the input text.
 func showSpellSuggestions(t *eui.ItemData) {
-	if t == nil || len(t.Underlines) == 0 || sc == nil {
+	if !gs.InputSpellcheck || t == nil || len(t.Underlines) == 0 || sc == nil {
 		return
 	}
 	if t.Text == "" || t.ParentWindow == nil || !t.ParentWindow.IsOpen() {
