@@ -8,13 +8,3 @@ Connection:
 Login:
 - Free Demo now lets you choose from the available demo characters instead of automatically selecting one.
 - The login button remains unavailable until a character is selected, preventing accidental login attempts.
-- Adding a character whose name already exists now reports an error instead of replacing the saved login.
-
-Chat and interface:
-- Fixed speech bubbles after a window resize, display-scale change, or when drawing into an offset viewport.
-- Text logs now use the classic Windows client layout: one dated log file directly in each character's Text Logs folder.
-
-Mac:
-- The game input supports macOS Dictation and input-method composition.
-- Added familiar Mac editing shortcuts: Command for copy, paste, and the command palette; Option for word movement; and Command for line movement and deletion.
-- The keyboard tester labels the Command and Option keys as they appear on Mac keyboards.
