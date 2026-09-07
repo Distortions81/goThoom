@@ -18,6 +18,3 @@ Mac:
 - The game input supports macOS Dictation and input-method composition.
 - Added familiar Mac editing shortcuts: Command for copy, paste, and the command palette; Option for word movement; and Command for line movement and deletion.
 - The keyboard tester labels the Command and Option keys as they appear on Mac keyboards.
-
-Documentation:
-- Added a searchable reference for image IDs 0 through 99, plus a local exporter for previewing game assets without adding extracted artwork to the repository.
