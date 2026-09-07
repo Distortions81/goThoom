@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"gothoom/internal/inputkeys"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -55,13 +57,13 @@ func Update() error {
 	ctrlPressed := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
 	CtrlPressed = ctrlPressed
 	altPressed := ebiten.IsKeyPressed(ebiten.KeyAlt) || ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight)
-	metaPressed := ebiten.IsKeyPressed(ebiten.KeyMeta) || ebiten.IsKeyPressed(ebiten.KeyMetaLeft) || ebiten.IsKeyPressed(ebiten.KeyMetaRight)
 	if !keyboardInputCaptured && inpututil.IsKeyJustPressed(ebiten.KeyCapsLock) {
 		if CapsLockToggleHandler != nil {
 			CapsLockToggleHandler()
 		}
 	}
 	_ = altPressed
+	mods := inputkeys.Current()
 
 	if !keyboardInputCaptured && inpututil.IsKeyJustPressed(ebiten.KeyGraveAccent) && shiftPressed {
 		_ = DumpTree()
@@ -150,7 +152,7 @@ func Update() error {
 	}
 
 	var chars []rune
-	if !keyboardInputCaptured {
+	if !keyboardInputCaptured && !mods.SuppressText() {
 		chars = ebiten.AppendInputChars(inputBuf[:0])
 	}
 
@@ -400,7 +402,7 @@ func Update() error {
 		cursorShape = c
 	}
 
-	if !keyboardInputCaptured && (ctrlPressed || metaPressed) && inpututil.IsKeyJustPressed(ebiten.KeyC) && selectedTextItem != nil {
+	if !keyboardInputCaptured && mods.Shortcut() && inpututil.IsKeyJustPressed(ebiten.KeyC) && selectedTextItem != nil {
 		if selected := selectedTextItem.SelectedText(); selected != "" {
 			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(selected))
 		}
@@ -443,7 +445,7 @@ func Update() error {
 			}
 		}
 
-		if ctrlPressed && inpututil.IsKeyJustPressed(ebiten.KeyV) {
+		if mods.Shortcut() && inpututil.IsKeyJustPressed(ebiten.KeyV) {
 			if txt, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(txt) > 0 {
 				runes := []rune(string(txt))
 				pos := focusedItem.CursorPos
@@ -473,7 +475,7 @@ func Update() error {
 				}
 			}
 		}
-		if (ctrlPressed || metaPressed) && inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		if mods.Shortcut() && !HasTextSelection() && inpututil.IsKeyJustPressed(ebiten.KeyC) {
 			text := focusedItem.Text
 			if focusedItem.HideText {
 				text = focusedItem.SecretText

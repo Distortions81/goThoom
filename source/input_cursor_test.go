@@ -2,6 +2,17 @@ package main
 
 import "testing"
 
+func TestMacWordRight(t *testing.T) {
+	text := []rune("one  café 世界")
+	for _, tc := range []struct{ cursor, want int }{
+		{0, 3}, {2, 3}, {3, 9}, {4, 9}, {5, 9}, {9, 12}, {12, 12},
+	} {
+		if got := nextMacWordBoundary(text, tc.cursor); got != tc.want {
+			t.Errorf("Option+Right from %d = %d, want %d", tc.cursor, got, tc.want)
+		}
+	}
+}
+
 func TestWordBoundaries(t *testing.T) {
 	text := []rune("one  two three")
 	for _, test := range []struct {

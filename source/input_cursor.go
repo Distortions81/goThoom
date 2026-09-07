@@ -65,3 +65,16 @@ func nextWordBoundary(text []rune, cursor int) int {
 	}
 	return cursor
 }
+
+// Option+Right on macOS stops at the end of a word, while the existing
+// Control+Right behavior advances to the start of the next word.
+func nextMacWordBoundary(text []rune, cursor int) int {
+	cursor = max(0, min(cursor, len(text)))
+	for cursor < len(text) && unicode.IsSpace(text[cursor]) {
+		cursor++
+	}
+	for cursor < len(text) && !unicode.IsSpace(text[cursor]) {
+		cursor++
+	}
+	return cursor
+}

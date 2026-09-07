@@ -2,6 +2,23 @@ package eui
 
 import "testing"
 
+func TestHasTextSelection(t *testing.T) {
+	old := selectedTextItem
+	t.Cleanup(func() { selectedTextItem = old })
+	selectedTextItem = &itemData{Text: "café", SelectStart: 0, SelectEnd: 4}
+	if !HasTextSelection() {
+		t.Fatal("selected text must take priority over copying the whole input")
+	}
+	selectedTextItem.SelectEnd = 0
+	if HasTextSelection() {
+		t.Fatal("an empty selection must allow copying the whole input")
+	}
+	selectedTextItem = nil
+	if HasTextSelection() {
+		t.Fatal("nil selection must allow copying the whole input")
+	}
+}
+
 func TestSelectedText(t *testing.T) {
 	item := &itemData{Text: "one two", SelectStart: 7, SelectEnd: 3}
 	if got, want := item.SelectedText(), " two"; got != want {

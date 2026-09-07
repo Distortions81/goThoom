@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"gothoom/eui"
+	"gothoom/internal/inputkeys"
 
 	"unicode"
 
@@ -555,7 +556,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	paletteBtn, paletteEvents := eui.NewButton()
 	paletteBtn.Text = "Palette"
 	setMaterialButtonIcon(paletteBtn, "search")
-	paletteBtn.SetTooltip("Search settings, windows, scripts, player actions, and commands (Ctrl+Shift+P).")
+	paletteBtn.SetTooltip("Search settings, windows, scripts, player actions, and commands (" + inputkeys.ShortcutLabel() + "+Shift+P).")
 	paletteBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	paletteBtn.FontSize = toolFontSize
 	paletteEvents.Handle = func(ev eui.UIEvent) {

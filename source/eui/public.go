@@ -277,6 +277,11 @@ func SubtleAlternateRowColor() Color {
 	return Color{R: blend(bg.R), G: blend(bg.G), B: blend(bg.B), A: 255}
 }
 
+// HasTextSelection reports whether Copy is handled by a selected UI text range.
+func HasTextSelection() bool {
+	return selectedTextItem != nil && selectedTextItem.SelectedText() != ""
+}
+
 // ClearFocus removes focus from the provided item if it is currently focused.
 func ClearFocus(it *ItemData) {
 	if focusedItem == it {

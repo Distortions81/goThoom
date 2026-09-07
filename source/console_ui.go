@@ -39,6 +39,9 @@ func updateConsoleWindow() {
 	inputMsg := "[Press Enter To Type]"
 	if inputActive {
 		inputMsg = string(inputText)
+		if chatComposing {
+			inputMsg = chatComposition
+		}
 	}
 	scrollit := messagesFlow.ScrollAtBottom()
 
@@ -57,7 +60,7 @@ func updateConsoleWindow() {
 		inputItem.Focused = inputActive
 		inputItem.CursorPos = wrappedCursorPos(inputItem.Text, inputPos)
 		inputItem.Prediction = ""
-		if inputActive {
+		if inputActive && !chatComposing {
 			inputItem.Prediction = currentInputCompletionSuffix(string(inputText), inputPos)
 		}
 	}

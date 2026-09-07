@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"gothoom/eui"
+	"gothoom/internal/inputkeys"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -48,9 +49,9 @@ func commandSettingEntries() []settingsSchemaEntry {
 }
 
 func commandPaletteShortcutPressed() bool {
-	ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
+	shortcut := inputkeys.Current().Shortcut()
 	shift := ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight)
-	return ctrl && shift && inpututil.IsKeyJustPressed(ebiten.KeyP)
+	return shortcut && shift && inpututil.IsKeyJustPressed(ebiten.KeyP)
 }
 
 func toggleCommandPalette() {

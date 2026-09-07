@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -414,11 +415,11 @@ func keyboardTestMainLayout() [][]keyboardTestKeySpec {
 		},
 		{
 			{Key: ebiten.KeyControlLeft, Label: "Ctrl", Width: 46},
-			{Key: ebiten.KeyMetaLeft, Label: "Meta", Width: 46},
-			{Key: ebiten.KeyAltLeft, Label: "Alt", Width: 42},
+			{Key: ebiten.KeyMetaLeft, Label: keyboardModifierLabel("Meta"), Width: 46},
+			{Key: ebiten.KeyAltLeft, Label: keyboardModifierLabel("Alt"), Width: 42},
 			{Key: ebiten.KeySpace, Label: "Space", Width: 168},
-			{Key: ebiten.KeyAltRight, Label: "Alt", Width: 42},
-			{Key: ebiten.KeyMetaRight, Label: "Meta", Width: 46},
+			{Key: ebiten.KeyAltRight, Label: keyboardModifierLabel("Alt"), Width: 42},
+			{Key: ebiten.KeyMetaRight, Label: keyboardModifierLabel("Meta"), Width: 46},
 			{Key: ebiten.KeyControlRight, Label: "Ctrl", Width: 46},
 		},
 	}
@@ -471,4 +472,17 @@ func keyboardTestNumpadLayout() [][]keyboardTestKeySpec {
 			{Key: ebiten.KeyNumpadDecimal, Label: ".", Width: 36}, {Blank: true, Width: 36},
 		},
 	}
+}
+
+// Keep stored binding names portable; show the names printed on Mac keyboards.
+func keyboardModifierLabel(name string) string {
+	if runtime.GOOS == "darwin" {
+		switch name {
+		case "Meta":
+			return "Cmd"
+		case "Alt":
+			return "Opt"
+		}
+	}
+	return name
 }

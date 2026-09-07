@@ -20,6 +20,7 @@ import (
 
 	"gothoom/climg"
 	"gothoom/eui"
+	"gothoom/internal/inputkeys"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -1155,14 +1156,18 @@ func (g *Game) Update() error {
 		legacyMacroLibraryRefreshErrorsButton()
 	}
 	typingElsewhere := typingInUI() || paletteKeyboardActive
-	if inputActive && !paletteKeyboardActive && inputFlow != nil && len(inputFlow.Contents) > 0 {
+	if inputActive && !paletteKeyboardActive && !chatComposing && inputFlow != nil && len(inputFlow.Contents) > 0 {
 		item := inputFlow.Contents[0]
 		inputPos = plainCursorPos(item.Text, item.CursorPos)
 		plain := strings.ReplaceAll(item.Text, "\n", "")
 		inputText = []rune(plain)
 	}
+	nativeEdit := pollNativeChatInput(inputActive && !typingElsewhere && !keyboardTestFrameActive && ebiten.IsFocused())
+	nativeOwnsKeys := nativeEdit.composing || nativeEdit.wasComposing
 	updateKeyboardTest()
-	legacyMacroPollKeyboard(int64(acknowledgedFrameSnapshot()), typingElsewhere)
+	if !nativeOwnsKeys {
+		legacyMacroPollKeyboard(int64(acknowledgedFrameSnapshot()), typingElsewhere)
+	}
 	updateNotifications()
 	updateThinkMessages()
 	// Throttle player maintenance to reduce idle CPU (every ~250ms)
@@ -1177,7 +1182,7 @@ func (g *Game) Update() error {
 	updateWorldHover(hx, hy)
 	updateHotkeyRecording()
 	consumedScriptInput := InputEvent{}
-	if !paletteKeyboardActive {
+	if !paletteKeyboardActive && !nativeOwnsKeys {
 		consumedScriptInput = checkHotkeys()
 	}
 
@@ -1278,7 +1283,7 @@ func (g *Game) Update() error {
 	}
 
 	/* Console input */
-	changedInput := false
+	changedInput := nativeEdit.composing || nativeEdit.wasComposing
 	textChanged := false
 	if typingElsewhere && inputActive && !paletteKeyboardActive {
 		inputActive = false
@@ -1289,8 +1294,23 @@ func (g *Game) Update() error {
 		textChanged = true
 	}
 	if inputActive && !paletteKeyboardActive {
-		ctrl := ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
-		if newChars := ebiten.AppendInputChars(nil); len(newChars) > 0 &&
+		mods := inputkeys.Current()
+		ctrl := mods.Control
+		newChars := ebiten.AppendInputChars(nil)
+		if nativeChatEnabled() {
+			newChars = nil
+			if nativeEdit.changed && !mods.SuppressText() &&
+				!legacyMacroSuppressesTypedInput() && !scriptInputConsumesText(consumedScriptInput) {
+				if insertion, ok := nativeChatInsertion(inputText, inputPos, nativeEdit.text); ok {
+					newChars = insertion
+				} else {
+					inputText = []rune(nativeEdit.text)
+					inputPos = nativeEdit.cursor
+					changedInput, textChanged = true, true
+				}
+			}
+		}
+		if len(newChars) > 0 && !mods.SuppressText() &&
 			!legacyMacroSuppressesTypedInput() && !scriptInputConsumesText(consumedScriptInput) {
 			if inputPos < 0 {
 				inputPos = 0
@@ -1315,7 +1335,7 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if ctrl && !legacyMacroKeyConsumed(ebiten.KeyV) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyV) && inpututil.IsKeyJustPressed(ebiten.KeyV) {
+		if !nativeOwnsKeys && mods.Shortcut() && !legacyMacroKeyConsumed(ebiten.KeyV) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyV) && inpututil.IsKeyJustPressed(ebiten.KeyV) {
 			if txt, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(txt) > 0 {
 				runes := []rune(string(txt))
 				inputText = append(inputText[:inputPos], append(runes, inputText[inputPos:]...)...)
@@ -1324,12 +1344,14 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if ctrl && !legacyMacroKeyConsumed(ebiten.KeyC) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyC) && inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		if !nativeOwnsKeys && mods.Shortcut() && !eui.HasTextSelection() && !legacyMacroKeyConsumed(ebiten.KeyC) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyC) && inpututil.IsKeyJustPressed(ebiten.KeyC) {
 			_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(string(inputText)))
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowLeft) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowLeft) && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyArrowLeft) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowLeft) && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) {
 			if inputPos > 0 {
-				if ctrl {
+				if mods.Line() {
+					inputPos = 0
+				} else if mods.Word() {
 					inputPos = previousWordBoundary(inputText, inputPos)
 				} else {
 					inputPos--
@@ -1337,9 +1359,13 @@ func (g *Game) Update() error {
 				changedInput = true
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowRight) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowRight) && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyArrowRight) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowRight) && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) {
 			if inputPos < len(inputText) {
-				if ctrl {
+				if mods.Line() {
+					inputPos = len(inputText)
+				} else if mods.Mac && mods.Alt {
+					inputPos = nextMacWordBoundary(inputText, inputPos)
+				} else if mods.Word() {
 					inputPos = nextWordBoundary(inputText, inputPos)
 				} else {
 					inputPos++
@@ -1347,7 +1373,7 @@ func (g *Game) Update() error {
 				changedInput = true
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowUp) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowUp) && inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyArrowUp) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowUp) && inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) {
 			if len(inputHistory) > 0 {
 				if historyPos > 0 {
 					historyPos--
@@ -1360,7 +1386,7 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyArrowDown) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowDown) && inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyArrowDown) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyArrowDown) && inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) {
 			if len(inputHistory) > 0 {
 				if historyPos < len(inputHistory)-1 {
 					historyPos++
@@ -1377,7 +1403,7 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyTab) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyTab) && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyTab) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyTab) && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 			if suffix := currentInputCompletionSuffix(string(inputText), inputPos); suffix != "" {
 				addition := []rune(suffix)
 				inputText = append(inputText, addition...)
@@ -1386,13 +1412,15 @@ func (g *Game) Update() error {
 				textChanged = true
 			}
 		}
-		if len(inputText) > 0 && !legacyMacroKeyConsumed(ebiten.KeyBackspace) &&
+		if !nativeOwnsKeys && !nativeEdit.handled && len(inputText) > 0 && !legacyMacroKeyConsumed(ebiten.KeyBackspace) &&
 			!scriptInputConsumesKey(consumedScriptInput, ebiten.KeyBackspace) && now.Sub(lastBackpace) > time.Millisecond*keyRepeatRate {
 			if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 				if inputPos > 0 {
 					lastBackpace = now
 					start := inputPos - 1
-					if ctrl {
+					if mods.Line() {
+						start = 0
+					} else if mods.Word() {
 						start = previousWordBoundary(inputText, inputPos)
 					}
 					inputText = append(inputText[:start], inputText[inputPos:]...)
@@ -1404,7 +1432,9 @@ func (g *Game) Update() error {
 				if inputPos > 0 {
 					lastBackpace = now
 					start := inputPos - 1
-					if ctrl {
+					if mods.Line() {
+						start = 0
+					} else if mods.Word() {
 						start = previousWordBoundary(inputText, inputPos)
 					}
 					inputText = append(inputText[:start], inputText[inputPos:]...)
@@ -1414,7 +1444,7 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			if !ctrl {
 				if updated, pos, handled := legacyMacroTriggerReplacement(string(inputText), inputPos); handled {
 					inputText = []rune(updated)
@@ -1463,7 +1493,7 @@ func (g *Game) Update() error {
 			changedInput = true
 			textChanged = true
 		}
-		if !legacyMacroKeyConsumed(ebiten.KeyEscape) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEscape) && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyEscape) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEscape) && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 			inputActive = false
 			inputText = inputText[:0]
 			inputPos = 0
@@ -1482,6 +1512,11 @@ func (g *Game) Update() error {
 		}
 	}
 
+	if inputActive && !typingElsewhere && !keyboardTestFrameActive {
+		syncNativeChatInput()
+	} else {
+		pollNativeChatInput(false)
+	}
 	if textChanged {
 		spellDirty = true
 	}

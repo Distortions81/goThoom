@@ -63,7 +63,9 @@ and verifies that a new folder is readable and writable before saving it.
 - **Players:** Right-click a player for common actions such as Thank, Share,
   Info, Pull, and Push.
 - **Copying text:** Right-click a chat or console line to copy it. The input bar
-  also has a right-click menu for paste, copy, and clear.
+  also has a right-click menu for paste, copy, and clear. Use Command+C/V on
+  macOS or Ctrl+C/V on Windows and Linux. Selected text takes priority over
+  copying the entire input bar.
 - **Audio:** Use the Mixer to control game, music, speech, and notification
   volume independently.
 - **Snapshots:** Click **Snap** to name a capture, choose the game view or entire
@@ -78,6 +80,31 @@ remains available from **Windows → Help**, and a command reference is availabl
 in [docs/CommandsHelp.md](docs/CommandsHelp.md). Persistent options without a
 dedicated control, automatically managed settings, and session-only controls
 are inventoried in [docs/Settings.md](docs/Settings.md).
+
+### Mac keyboard and dictation
+
+Command (⌘) is called `Meta` in portable script/macro bindings; Option (⌥) is
+called `Alt`. The keyboard tester labels these keys **Cmd** and **Opt** on Mac.
+Existing Control shortcuts still work.
+
+| Action | Mac shortcut |
+| --- | --- |
+| Copy / paste | Command+C / Command+V |
+| Open command palette | Command+Shift+P |
+| Move by word in the game input | Option+Left / Option+Right |
+| Move to the beginning / end of the game input | Command+Left / Command+Right |
+| Delete the preceding word | Option+Delete (Backspace) |
+| Delete back to the beginning of the game input | Command+Delete (Backspace) |
+
+The game input now connects to macOS native text input for dictation and IME
+composition. Enable Dictation in **System Settings → Keyboard → Dictation**,
+open the game input with Enter, and use the Dictation shortcut configured there.
+Finish dictation, review the text, then press Enter to send it.
+See [Apple's Dictation guide](https://support.apple.com/guide/mac-help/use-dictation-mh40584/mac).
+This connection currently covers the game input bar; other settings and login
+fields still use ordinary keyboard input. Native dictation requires verification
+on a Mac; the automated tests and cross-builds cannot exercise the microphone or
+macOS text services.
 
 ## Downloads and customization
 
