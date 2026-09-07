@@ -7,7 +7,8 @@ Interface:
 - The title bar now reads `goThoom`, adding the active character name after `--` while logged in.
 - About and Changelog now open in a wider, resizable 16:10 layout.
 - Status bars now offer Regular, Modern -- thin, and Hidden styles. Modern -- thin is the default, with an optional below-toolbar-hands placement.
-- Refreshed the client screenshot in the README and website.
+- Refreshed the client screenshot in the README and website, and added an Accounts link.
+- Updated the online manual for the current toolbar and Settings navigation.
 
 Settings and setup:
 - Added a Show FPS option in Display, plus separate Autocomplete and Spellcheck options in Text.
