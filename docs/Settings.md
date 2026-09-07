@@ -66,11 +66,11 @@ other windows use their new defaults until explicitly changed.
 
 ## Audit summary
 
-The current internal `settings` structure contains 183 exported fields:
+The current internal `settings` structure contains 185 exported fields:
 
-- 178 are mapped directly by the v4 JSON schema.
-- `BarPlacement` and `SpriteUpscaleMode` are persisted separately as readable
-  string values.
+- 179 are mapped directly by the v4 JSON schema.
+- `BarPlacement`, `BarStyle`, and `SpriteUpscaleMode` are persisted separately
+  as readable string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.
 - `Version` is document metadata at the JSON root.
 
@@ -91,6 +91,17 @@ The safest way to inspect or change a persistent option is with the local
 Boolean values accept `true`, `false`, `on`, `off`, or `toggle`. Strings and
 structured values use JSON syntax. If editing `settings.json` by hand, close
 goThoom first so the running client does not overwrite the edit when it exits.
+
+### Status bars
+
+**Settings → World → Status Bars** offers Regular, Modern -- thin, and Hidden styles.
+Modern -- thin uses thin fills, minimal frames, and tight spacing near the selected
+screen edge. Grouped placements share one frame, while Along Bottom keeps the
+three frames separate. It is the default for new settings and in the setup wizard.
+Choose **Below toolbar hands** to stack the bars beneath the two hand slots at
+the same width as those slots.
+The saved setting is
+`interface.status_bar_style`, with values `regular`, `compact`, or `hidden`.
 
 ## Persistent options without a dedicated control
 

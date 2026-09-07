@@ -10,6 +10,20 @@ import (
 	"gothoom/eui"
 )
 
+func TestGameWindowTitle(t *testing.T) {
+	originalPlayerName := playerName
+	t.Cleanup(func() { playerName = originalPlayerName })
+
+	playerName = ""
+	if got, want := gameWindowTitle(), "goThoom"; got != want {
+		t.Fatalf("gameWindowTitle() = %q, want %q", got, want)
+	}
+	playerName = "Aldaron"
+	if got, want := gameWindowTitle(), "goThoom -- Aldaron"; got != want {
+		t.Fatalf("gameWindowTitle() = %q, want %q", got, want)
+	}
+}
+
 func TestPlayfieldBackgroundColorUsesGammaCorrection(t *testing.T) {
 	oldImages := clImages
 	images := &climg.CLImages{}

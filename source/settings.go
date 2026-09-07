@@ -25,6 +25,15 @@ const (
 	BarPlacementLowerLeft
 	BarPlacementLowerRight
 	BarPlacementUpperRight
+	BarPlacementToolbarHands
+)
+
+type BarStyle int
+
+const (
+	BarStyleRegular BarStyle = iota
+	BarStyleCompact
+	BarStyleHidden
 )
 
 type ToolbarPlacement int
@@ -164,6 +173,7 @@ var gsdef settings = settings{
 	ClickToToggle:                 false,
 	MiddleClickMoveWindow:         false,
 	InputBarAlwaysOpen:            true,
+	InputAutocomplete:             true,
 	KBWalkSpeed:                   0.25,
 	MainFontSize:                  8,
 	BubbleFontSize:                20,
@@ -241,6 +251,7 @@ var gsdef settings = settings{
 	SpriteGamma:                    1.8,
 	MonitorGamma:                   2.2,
 	BarPlacement:                   BarPlacementBottom,
+	BarStyle:                       BarStyleCompact,
 	MaxNightLevel:                  100,
 	MessagesToConsole:              true,
 	ChatTTS:                        false,
@@ -388,6 +399,7 @@ type settings struct {
 	ClickToToggle                 bool
 	MiddleClickMoveWindow         bool
 	InputBarAlwaysOpen            bool
+	InputAutocomplete             bool
 	KBWalkSpeed                   float64
 	MainFontSize                  float64
 	BubbleFontSize                float64
@@ -471,6 +483,7 @@ type settings struct {
 	SpriteGamma                    float64
 	MonitorGamma                   float64
 	BarPlacement                   BarPlacement
+	BarStyle                       BarStyle
 	MaxNightLevel                  int
 	forceNightLevel                int
 	Theme                          string

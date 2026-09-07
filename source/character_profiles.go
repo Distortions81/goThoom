@@ -154,6 +154,9 @@ func captureCharacterProfile(name string, value settings) (characterProfile, err
 	if raw, err := json.Marshal(barPlacementName(value.BarPlacement)); err == nil {
 		profile.ensureCategory(settingsInterface)["status_bar_placement"] = raw
 	}
+	if raw, err := json.Marshal(barStyleName(value.BarStyle)); err == nil {
+		profile.ensureCategory(settingsInterface)["status_bar_style"] = raw
+	}
 	return profile, nil
 }
 
@@ -190,6 +193,13 @@ func applyCharacterProfile(base settings, profile characterProfile) (settings, e
 			return base, fmt.Errorf("read profile interface.status_bar_placement: %w", err)
 		}
 		result.BarPlacement = parseBarPlacement(name)
+	}
+	if raw, ok := profile.Interface["status_bar_style"]; ok {
+		var name string
+		if err := json.Unmarshal(raw, &name); err != nil {
+			return base, fmt.Errorf("read profile interface.status_bar_style: %w", err)
+		}
+		result.BarStyle = parseBarStyle(name)
 	}
 	result.SpriteUpscale = spriteUpscaleFactorFromScale(result.GameScale)
 	clampWindowSettingsValue(&result)

@@ -64,6 +64,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "ClickToToggle", category: settingsControls, name: "click_to_toggle"},
 	{field: "MiddleClickMoveWindow", category: settingsControls, name: "middle_click_moves_window"},
 	{field: "InputBarAlwaysOpen", category: settingsControls, name: "keep_input_bar_open"},
+	{field: "InputAutocomplete", category: settingsControls, name: "autocomplete"},
 	{field: "KBWalkSpeed", category: settingsControls, name: "keyboard_walk_speed"},
 
 	{field: "MainFontSize", category: settingsInterface, name: "main_font_size"},
@@ -352,6 +353,9 @@ func marshalSettingsDocument(s settings) ([]byte, error) {
 	if err := putSettingValue(doc.Interface, "status_bar_placement", barPlacementName(s.BarPlacement)); err != nil {
 		return nil, err
 	}
+	if err := putSettingValue(doc.Interface, "status_bar_style", barStyleName(s.BarStyle)); err != nil {
+		return nil, err
+	}
 	return json.MarshalIndent(doc, "", "  ")
 }
 
@@ -405,6 +409,13 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 			return settings{}, fmt.Errorf("read setting interface.status_bar_placement: %w", err)
 		}
 		result.BarPlacement = parseBarPlacement(name)
+	}
+	if raw, ok := doc.Interface["status_bar_style"]; ok {
+		var name string
+		if err := json.Unmarshal(raw, &name); err != nil {
+			return settings{}, fmt.Errorf("read setting interface.status_bar_style: %w", err)
+		}
+		result.BarStyle = parseBarStyle(name)
 	}
 	result.Version = SETTINGS_VERSION
 	return result, nil
@@ -461,6 +472,8 @@ func barPlacementName(placement BarPlacement) string {
 		return "lower_right"
 	case BarPlacementUpperRight:
 		return "upper_right"
+	case BarPlacementToolbarHands:
+		return "toolbar_hands"
 	default:
 		return "bottom"
 	}
@@ -474,7 +487,31 @@ func parseBarPlacement(name string) BarPlacement {
 		return BarPlacementLowerRight
 	case "upper_right":
 		return BarPlacementUpperRight
+	case "toolbar_hands":
+		return BarPlacementToolbarHands
 	default:
 		return BarPlacementBottom
+	}
+}
+
+func barStyleName(style BarStyle) string {
+	switch style {
+	case BarStyleCompact:
+		return "compact"
+	case BarStyleHidden:
+		return "hidden"
+	default:
+		return "regular"
+	}
+}
+
+func parseBarStyle(name string) BarStyle {
+	switch name {
+	case "compact":
+		return BarStyleCompact
+	case "hidden", "off":
+		return BarStyleHidden
+	default:
+		return BarStyleRegular
 	}
 }

@@ -153,41 +153,43 @@ func rebuildSetupWizard() {
 	root := eui.NewColumn()
 	root.Size = eui.Point{X: pageWidth, Y: 10}
 
-	step := setupWizardText(fmt.Sprintf("Step %d of %d", setupWizardPage+1, setupWizardPageCount), 10, pageWidth)
-	root.AddItem(step)
-
-	switch setupWizardPage {
-	case setupWizardWelcomePage:
-		buildSetupWelcomePage(root)
-	case setupWizardGraphicsPage:
-		buildSetupGraphicsPage(root)
-	case setupWizardInterfacePage:
-		buildSetupInterfacePage(root)
-	case setupWizardLayoutPage:
-		buildSetupLayoutPage(root)
-	case setupWizardControlsPage:
-		buildSetupControlsPage(root)
-	case setupWizardMotionPage:
-		buildSetupMotionPage(root)
-	case setupWizardShadowsPage:
-		buildSetupShadowsPage(root)
-	case setupWizardNightPage:
-		buildSetupNightLightingPage(root)
-	case setupWizardAudioPage:
-		buildSetupAudioPage(root)
-	case setupWizardNotificationsPage:
-		buildSetupNotificationsPage(root)
-	case setupWizardFinishPage:
-		buildSetupFinishPage(root)
-	}
-
-	root.AddItem(setupWizardNavigation(pageWidth))
 	if setupWizardGraphicsPending {
-		setSetupWizardDisabled(root, true)
-		detail := setupWizardText("Testing High quality with the running game for one second. The wizard will unlock when detection finishes.", 11, 620)
-		heading := setupWizardHeading("Auto-adjusting performance…")
-		root.PrependItem(detail)
-		root.PrependItem(heading)
+		root.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: pageWidth, Y: 72}})
+		message := setupWizardText(setupWizardBenchmarkMessage, 24, pageWidth)
+		message.Alignment = eui.ALIGN_CENTER
+		message.Size.Y = 72
+		root.AddItem(message)
+		root.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: pageWidth, Y: 72}})
+	} else {
+		step := setupWizardText(fmt.Sprintf("Step %d of %d", setupWizardPage+1, setupWizardPageCount), 10, pageWidth)
+		root.AddItem(step)
+
+		switch setupWizardPage {
+		case setupWizardWelcomePage:
+			buildSetupWelcomePage(root)
+		case setupWizardGraphicsPage:
+			buildSetupGraphicsPage(root)
+		case setupWizardInterfacePage:
+			buildSetupInterfacePage(root)
+		case setupWizardLayoutPage:
+			buildSetupLayoutPage(root)
+		case setupWizardControlsPage:
+			buildSetupControlsPage(root)
+		case setupWizardMotionPage:
+			buildSetupMotionPage(root)
+		case setupWizardShadowsPage:
+			buildSetupShadowsPage(root)
+		case setupWizardNightPage:
+			buildSetupNightLightingPage(root)
+		case setupWizardAudioPage:
+			buildSetupAudioPage(root)
+		case setupWizardNotificationsPage:
+			buildSetupNotificationsPage(root)
+		case setupWizardFinishPage:
+			buildSetupFinishPage(root)
+		}
+
+		root.AddItem(setupWizardNavigation(pageWidth))
 	}
 	if setupWizardRoot == nil {
 		setupWizardWin.AddItem(root)
@@ -284,16 +286,30 @@ func buildSetupInterfacePage(root *eui.ItemData) {
 	bubblePanel.AddItem(setupWizardPanelHeading("Names and speech"))
 	placement, events := eui.NewDropdown()
 	placement.Label = "Status bar placement"
-	placement.Options = []string{"Along bottom", "Grouped lower left", "Grouped lower right", "Grouped upper right"}
+	placement.Options = []string{"Along bottom", "Grouped lower left", "Grouped lower right", "Grouped upper right", "Below toolbar hands"}
 	placement.Selected = int(gs.BarPlacement)
 	placement.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
 	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= int(BarPlacementUpperRight) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= int(BarPlacementToolbarHands) {
 			gs.BarPlacement = BarPlacement(ev.Index)
+			placeToolbar(gs.ToolbarPlacement, false)
 			settingsDirty = true
 		}
 	}
 	displayPanel.AddItem(placement)
+
+	barStyle, barStyleEvents := eui.NewDropdown()
+	barStyle.Label = "Status bar style"
+	barStyle.Options = []string{"Regular", "Modern -- thin", "Hidden"}
+	barStyle.Selected = int(gs.BarStyle)
+	barStyle.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
+	barStyleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= int(BarStyleHidden) {
+			gs.BarStyle = BarStyle(ev.Index)
+			settingsDirty = true
+		}
+	}
+	displayPanel.AddItem(barStyle)
 
 	healthDisplay, healthDisplayEvents := eui.NewDropdown()
 	healthDisplay.Label = "Player health display"
@@ -613,6 +629,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 	graphicsTestRow := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	graphicsTestRow.Size = eui.Point{X: 620, Y: 28}
 	graphicsTestRow.AddItem(graphicsTest)
+	graphicsTestRow.AddItem(&eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: 16, Y: 1}})
 	graphicsTestRow.AddItem(graphicsRecommendation)
 	root.AddItem(graphicsTestRow)
 
@@ -695,7 +712,7 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 		markQualityCustom()
 	}
 	root.AddItem(upscaleStyle)
-	wizardVSync := setupWizardCheckbox("VSync", "VSync is temporarily bypassed only during graphics detection. Your saved setting applies normally afterward.", effectiveVSyncEnabled(), func(checked bool) {
+	wizardVSync := setupWizardCheckbox("VSync", "Synchronizes rendered frames with your display to reduce tearing.", effectiveVSyncEnabled(), func(checked bool) {
 		gs.VSync = checked
 		applyVSyncSetting()
 		settingsDirty = true

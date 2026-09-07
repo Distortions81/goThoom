@@ -253,7 +253,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
 		"TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
-		"Server address": "Network", "NLSPT safety (%)": "Network",
+		"Edit Server List": "Network", "NLSPT safety (%)": "Network",
 		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",
 	} {
 		if got := locations[control]; got != want {

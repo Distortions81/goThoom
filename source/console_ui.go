@@ -60,7 +60,7 @@ func updateConsoleWindow() {
 		inputItem.Focused = inputActive
 		inputItem.CursorPos = wrappedCursorPos(inputItem.Text, inputPos)
 		inputItem.Prediction = ""
-		if inputActive && !chatComposing {
+		if gs.InputAutocomplete && inputActive && !chatComposing {
 			inputItem.Prediction = currentInputCompletionSuffix(string(inputText), inputPos)
 		}
 	}

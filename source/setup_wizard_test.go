@@ -87,6 +87,7 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 		"Style theme":           false,
 		"Toolbar placement":     false,
 		"Status bar placement":  false,
+		"Status bar style":      false,
 		"Player health display": false,
 	}
 	wantChecks := map[string]bool{

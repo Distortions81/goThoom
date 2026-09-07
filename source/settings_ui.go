@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"gothoom/eui"
@@ -544,7 +543,9 @@ func makeSettingsWindow() {
 		{"Grouped Lower Left", BarPlacementLowerLeft},
 		{"Grouped Lower Right", BarPlacementLowerRight},
 		{"Grouped Upper Right", BarPlacementUpperRight},
+		{"Below toolbar hands", BarPlacementToolbarHands},
 	}
+	statusSection.AddItem(eui.NewSubheading("Placement", worldColumnWidth))
 	for _, p := range placements {
 		p := p
 		radio, radioEvents := eui.NewRadio()
@@ -555,9 +556,37 @@ func makeSettingsWindow() {
 		radioEvents.Handle = func(ev eui.UIEvent) {
 			if ev.Type == eui.EventRadioSelected {
 				SettingsLock.Lock()
+				gs.BarPlacement = p.value
+				SettingsLock.Unlock()
+				placeToolbar(gs.ToolbarPlacement, false)
+				settingsDirty = true
+			}
+		}
+		statusSection.AddItem(radio)
+	}
+
+	barStyles := []struct {
+		name  string
+		value BarStyle
+	}{
+		{"Regular", BarStyleRegular},
+		{"Modern -- thin", BarStyleCompact},
+		{"Hidden", BarStyleHidden},
+	}
+	statusSection.AddItem(eui.NewSubheading("Style", worldColumnWidth))
+	for _, style := range barStyles {
+		style := style
+		radio, radioEvents := eui.NewRadio()
+		radio.Text = style.name
+		radio.RadioGroup = "status-bar-style"
+		radio.Size = eui.Point{X: worldColumnWidth, Y: settingsControlHeight}
+		radio.Checked = gs.BarStyle == style.value
+		radioEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type == eui.EventRadioSelected {
+				SettingsLock.Lock()
 				defer SettingsLock.Unlock()
 
-				gs.BarPlacement = p.value
+				gs.BarStyle = style.value
 				settingsDirty = true
 			}
 		}
@@ -1180,6 +1209,21 @@ func applyWindowShadowsSetting() {
 }
 
 func addDisplaySettings(windowSection *eui.ItemData, columnWidth float32) {
+	showFPSCB, showFPSEvents := eui.NewCheckbox()
+	showFPSCB.Text = "Show FPS"
+	showFPSCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	showFPSCB.Checked = gs.ShowFPS
+	showFPSCB.SetTooltip("Show the current frame rate in the game view.")
+	showFPSEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.ShowFPS = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+	}
+	windowSection.AddItem(showFPSCB)
+
 	alwaysTopCB, alwaysTopEvents := eui.NewCheckbox()
 	alwaysTopCB.Text = "Always on top"
 	alwaysTopCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
@@ -1246,6 +1290,22 @@ func addControlSettings(controlsSection *eui.ItemData, columnWidth float32) {
 }
 
 func addTextSettings(chatSection *eui.ItemData, columnWidth float32) {
+	autocomplete, autocompleteEvents := eui.NewCheckbox()
+	autocomplete.Text = "Autocomplete"
+	autocomplete.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	autocomplete.Checked = gs.InputAutocomplete
+	autocomplete.SetTooltip("Show input suggestions and let Tab complete them.")
+	autocompleteEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.InputAutocomplete = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+			updateConsoleWindow()
+		}
+	}
+	chatSection.AddItem(autocomplete)
+
 	tsFormatInput, tsFormatEvents := eui.NewInput()
 	tsFormatInput.Label = "Timestamp format"
 	tsFormatInput.Text = gs.TimestampFormat
@@ -1512,25 +1572,15 @@ func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
 	}
 	networkSection.AddItem(pnaSafetySlider)
 
-	serverInput, serverEvents := eui.NewInput()
-	serverInput.Label = "Server address"
-	serverInput.Text = gs.ServerAddress
-	serverInput.TextPtr = &gs.ServerAddress
-	serverInput.Size = eui.Point{X: 400, Y: settingsControlHeight}
-	serverEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventInputChanged {
-			SettingsLock.Lock()
-			gs.ServerAddress = strings.TrimSpace(ev.Text)
-			SettingsLock.Unlock()
-			settingsDirty = true
-			applyServerAddressSetting()
+	serverListButton, serverListEvents := eui.NewButton()
+	serverListButton.Text = "Edit Server List"
+	serverListButton.Size = eui.Point{X: 180, Y: settingsControlHeight}
+	serverListButton.SetTooltip("Add or remove server addresses used by the Login screen.")
+	serverListEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			openServerListWindow()
 		}
 	}
-	networkSection.AddItem(serverInput)
-	if serverAddressOverride != "" {
-		serverInput.Label = "Server address (saved)"
-		note := eui.NewLabel("This run: " + serverAddressOverride + " (-server)")
-		networkSection.AddItem(note)
-	}
+	networkSection.AddItem(serverListButton)
 
 }

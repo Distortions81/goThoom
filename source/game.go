@@ -1403,7 +1403,7 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyTab) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyTab) && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		if gs.InputAutocomplete && !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyTab) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyTab) && inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 			if suffix := currentInputCompletionSuffix(string(inputText), inputPos); suffix != "" {
 				addition := []rune(suffix)
 				inputText = append(inputText, addition...)
@@ -2169,7 +2169,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		gs.GameScale = prev
 	}
-	drawSetupWizardFPS(gameImage)
+	drawFPSOverlay(gameImage)
 	drawClientActivityIndicators(worldView, takeClientActivity())
 	if assetTrace != nil {
 		assetTrace.addWorldDuration(time.Since(worldStarted))
@@ -4392,6 +4392,13 @@ func lerpBar(prev, cur int, alpha float64) int {
 
 // drawStatusBars renders health, balance and spirit bars.
 func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64) {
+	if gs.BarStyle == BarStyleHidden {
+		return
+	}
+	if gs.BarPlacement == BarPlacementToolbarHands {
+		drawToolbarStatusBars(snap, alpha)
+		return
+	}
 	bounds := screen.Bounds()
 	ox += bounds.Min.X
 	oy += bounds.Min.Y
@@ -4408,6 +4415,19 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	}
 	barWidth := int(110 * gs.GameScale)
 	barHeight := int(8 * gs.GameScale)
+	inset := int(20 * gs.GameScale)
+	spacing := int(4 * gs.GameScale)
+	framePad := int(gs.GameScale)
+	if gs.BarStyle == BarStyleCompact {
+		barWidth = max(1, int(90*gs.GameScale))
+		barHeight = max(1, int(2*gs.GameScale))
+		inset = max(1, int(3*gs.GameScale))
+		spacing = max(1, int(gs.GameScale))
+		framePad = max(1, int(gs.GameScale/2))
+		if gs.BarPlacement == BarPlacementBottom {
+			barHeight = max(1, int(3*gs.GameScale))
+		}
+	}
 
 	fieldWidth := int(float64(gameAreaSizeX) * gs.GameScale)
 	fieldHeight := int(float64(gameAreaSizeY) * gs.GameScale)
@@ -4415,28 +4435,33 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	var x, y, dx, dy int
 	switch gs.BarPlacement {
 	case BarPlacementLowerLeft:
-		x = int(20 * gs.GameScale)
-		spacing := int(4 * gs.GameScale)
-		y = fieldHeight - int(20*gs.GameScale) - 3*barHeight - 2*spacing
+		x = inset
+		y = fieldHeight - inset - 3*barHeight - 2*spacing
 		dx = 0
 		dy = barHeight + spacing
 	case BarPlacementLowerRight:
-		x = fieldWidth - int(20*gs.GameScale) - barWidth
-		spacing := int(4 * gs.GameScale)
-		y = fieldHeight - int(20*gs.GameScale) - 3*barHeight - 2*spacing
+		x = fieldWidth - inset - barWidth
+		y = fieldHeight - inset - 3*barHeight - 2*spacing
 		dx = 0
 		dy = barHeight + spacing
 	case BarPlacementUpperRight:
-		x = fieldWidth - int(20*gs.GameScale) - barWidth
-		spacing := int(4 * gs.GameScale)
-		y = int(20 * gs.GameScale)
+		x = fieldWidth - inset - barWidth
+		y = inset
 		dx = 0
 		dy = barHeight + spacing
 	default: // BarPlacementBottom
-		slot := (fieldWidth - 3*barWidth) / 6
-		x = slot
-		y = fieldHeight - int(20*gs.GameScale) - barHeight
-		dx = barWidth + 2*slot
+		if gs.BarStyle == BarStyleCompact {
+			gap := max(2, int(3*gs.GameScale))
+			framedWidth := barWidth + 2*framePad
+			x = (fieldWidth-3*framedWidth-2*gap)/2 + framePad
+			dx = framedWidth + gap
+			y = fieldHeight - max(1, int(gs.GameScale)) - barHeight - framePad
+		} else {
+			slot := (fieldWidth - 3*barWidth) / 6
+			x = slot
+			dx = barWidth + 2*slot
+			y = fieldHeight - inset - barHeight
+		}
 		dy = 0
 	}
 
@@ -4455,14 +4480,29 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 		y = maxY
 	}
 
+	compactGrouped := gs.BarStyle == BarStyleCompact && gs.BarPlacement != BarPlacementBottom
+	frameClr := color.RGBA{0xff, 0xff, 0xff, 0xff}
+	if !eui.IsLightTheme() {
+		frameClr = color.RGBA{0x00, 0x00, 0x00, 0xff}
+	}
+	if compactGrouped {
+		groupWidth := barWidth + 2*dx
+		groupHeight := barHeight + 2*dy
+		drawRect(x-framePad, y-framePad, groupWidth+2*framePad, framePad, frameClr)
+		drawRect(x-framePad, y+groupHeight, groupWidth+2*framePad, framePad, frameClr)
+		drawRect(x-framePad, y, framePad, groupHeight, frameClr)
+		drawRect(x+groupWidth, y, framePad, groupHeight, frameClr)
+	}
+
 	drawBar := func(x, y int, cur, max int, clr color.RGBA) {
 		alpha := uint8(255)
-		frameClr := color.RGBA{0xff, 0xff, 0xff, alpha}
-		pad := int(gs.GameScale)
-		drawRect(x-pad, y-pad, barWidth+2*pad, pad, frameClr)
-		drawRect(x-pad, y+barHeight, barWidth+2*pad, pad, frameClr)
-		drawRect(x-pad, y, pad, barHeight, frameClr)
-		drawRect(x+barWidth, y, pad, barHeight, frameClr)
+		pad := framePad
+		if !compactGrouped {
+			drawRect(x-pad, y-pad, barWidth+2*pad, pad, frameClr)
+			drawRect(x-pad, y+barHeight, barWidth+2*pad, pad, frameClr)
+			drawRect(x-pad, y, pad, barHeight, frameClr)
+			drawRect(x+barWidth, y, pad, barHeight, frameClr)
+		}
 
 		if max < cur {
 			max = cur
@@ -4520,6 +4560,80 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 	sp := lerpBar(snap.prevSP, snap.sp, alpha)
 	spMax := lerpBar(snap.prevSPMax, snap.spMax, alpha)
 	drawBar(x, y, sp, spMax, color.RGBA{0xff, 0x00, 0x00, 0xff})
+}
+
+// drawToolbarStatusBars renders full-width, stacked bars directly beneath the
+// toolbar's two hand slots.
+func drawToolbarStatusBars(snap drawSnapshot, alpha float64) {
+	if toolbarStatusBarsImage == nil || toolbarStatusBarsItem == nil {
+		return
+	}
+	image := toolbarStatusBarsImage
+	image.Clear()
+	bounds := image.Bounds()
+	framePad := 1
+	barHeight := 4
+	gap := 2
+	if gs.BarStyle == BarStyleCompact {
+		barHeight = 3
+		gap = 1
+	}
+	barWidth := max(1, bounds.Dx()-2*framePad)
+	totalHeight := 3*(barHeight+2*framePad) + 2*gap
+	y := max(0, (bounds.Dy()-totalHeight)/2) + framePad
+	frameClr := color.RGBA{0xff, 0xff, 0xff, 0xff}
+	if !eui.IsLightTheme() {
+		frameClr = color.RGBA{0x00, 0x00, 0x00, 0xff}
+	}
+	drawRect := func(x, y, w, h int, clr color.RGBA) {
+		op := acquireDrawOpts()
+		op.Filter = ebiten.FilterNearest
+		op.DisableMipmaps = true
+		op.GeoM.Scale(float64(w), float64(h))
+		op.GeoM.Translate(float64(x), float64(y))
+		op.ColorScale.ScaleWithColor(clr)
+		op.ColorScale.ScaleAlpha(float32(gs.BarOpacity))
+		image.DrawImage(whiteImage, op)
+		releaseDrawOpts(op)
+	}
+	drawBar := func(cur, maximum int, clr color.RGBA) {
+		drawRect(0, y-framePad, barWidth+2*framePad, framePad, frameClr)
+		drawRect(0, y+barHeight, barWidth+2*framePad, framePad, frameClr)
+		drawRect(0, y, framePad, barHeight, frameClr)
+		drawRect(barWidth+framePad, y, framePad, barHeight, frameClr)
+		if maximum < cur {
+			maximum = cur
+		}
+		cur, maximum = min(255, cur), min(255, maximum)
+		currentWidth := barWidth * cur / 255
+		maximumWidth := barWidth * maximum / 255
+		if currentWidth > 0 {
+			base := clr
+			if gs.BarColorByValue && maximum > 0 {
+				ratio := float64(cur) / float64(maximum)
+				switch {
+				case ratio <= 0.33:
+					base = color.RGBA{R: 0xff, A: 0xff}
+				case ratio <= 0.66:
+					base = color.RGBA{R: 0xff, G: 0xff, A: 0xff}
+				default:
+					base = color.RGBA{G: 0xff, A: 0xff}
+				}
+			}
+			drawRect(framePad, y, currentWidth, barHeight, base)
+		}
+		if maximumWidth > currentWidth {
+			drawRect(framePad+currentWidth, y, maximumWidth-currentWidth, barHeight, color.RGBA{R: 0x80, G: 0x80, B: 0x80, A: 0xff})
+		}
+		if maximumWidth < barWidth {
+			drawRect(framePad+maximumWidth, y, barWidth-maximumWidth, barHeight, color.RGBA{R: 0x80, G: 0x80, A: 0xff})
+		}
+		y += barHeight + 2*framePad + gap
+	}
+	drawBar(lerpBar(snap.prevHP, snap.hp, alpha), lerpBar(snap.prevHPMax, snap.hpMax, alpha), color.RGBA{G: 0xff, A: 0xff})
+	drawBar(lerpBar(snap.prevBalance, snap.balance, alpha), lerpBar(snap.prevBalanceMax, snap.balanceMax, alpha), color.RGBA{B: 0xff, A: 0xff})
+	drawBar(lerpBar(snap.prevSP, snap.sp, alpha), lerpBar(snap.prevSPMax, snap.spMax, alpha), color.RGBA{R: 0xff, A: 0xff})
+	toolbarStatusBarsItem.Dirty = true
 }
 
 // equippedItemPicts returns pict IDs for items equipped in right and left hands.
@@ -4634,7 +4748,7 @@ func runGame(ctx context.Context) {
 }
 
 func initGame() {
-	ebiten.SetWindowTitle("goThoom Client")
+	ebiten.SetWindowTitle(gameWindowTitle())
 	applyVSyncSetting()
 	ebiten.SetTPS(ebiten.SyncWithFPS)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
@@ -4734,13 +4848,18 @@ func makeGameWindow() {
 }
 
 func updateGameWindowTitle() {
-	if gameWin == nil {
-		return
+	title := gameWindowTitle()
+	ebiten.SetWindowTitle(title)
+	if gameWin != nil {
+		gameWin.Title = title
 	}
-	gameWin.Title = "Clan Lord"
-	if playerName != "" {
-		gameWin.Title += " -- " + playerName
+}
+
+func gameWindowTitle() string {
+	if playerName == "" {
+		return "goThoom"
 	}
+	return "goThoom -- " + playerName
 }
 
 // onGameWindowResize enforces the game's aspect ratio on the window's

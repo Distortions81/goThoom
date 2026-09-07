@@ -39,7 +39,8 @@ func initAboutUI() {
 		return
 	}
 	aboutWin, aboutList, _ = eui.NewTextWindow("About", eui.HZoneCenter, eui.VZoneMiddleTop, false)
-	aboutWin.AutoSize = true
+	// Match the changelog's comfortable wide reading area.
+	aboutWin.Size = eui.Point{X: 800, Y: 500}
 
 	flow := aboutList.Parent
 

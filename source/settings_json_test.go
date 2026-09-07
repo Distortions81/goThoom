@@ -27,6 +27,7 @@ func TestSettingsV4SchemaCoversPersistedFields(t *testing.T) {
 	special := map[string]bool{
 		"Version":             true,
 		"BarPlacement":        true,
+		"BarStyle":            true,
 		"SpriteUpscaleMode":   true,
 		"SpriteUpscale":       true, // derived from artwork_scale
 		"SpriteUpscaleFilter": true, // derived from artwork_upscale_style
@@ -75,6 +76,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 	want.SpriteUpscaleMode = artworkUpscaleCrisp
 	want.SpriteUpscaleFilter = true
 	want.BarPlacement = BarPlacementUpperRight
+	want.BarStyle = BarStyleCompact
 	want.MasterVolume = 0.42
 	want.MusicEnhancementAmount = 1.73
 	want.AltNetMode = false
@@ -109,6 +111,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"floating_point_sprite_coordinates": true`,
 		`"artwork_upscale_style": "crisp"`,
 		`"status_bar_placement": "upper_right"`,
+		`"status_bar_style": "compact"`,
 		`"dark_mode_names_and_bubbles"`,
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
@@ -138,6 +141,15 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		if strings.Contains(text, obsolete) {
 			t.Errorf("v4 settings retained obsolete key %s", obsolete)
 		}
+	}
+}
+
+func TestBarPlacementToolbarHandsRoundTrip(t *testing.T) {
+	if got, want := barPlacementName(BarPlacementToolbarHands), "toolbar_hands"; got != want {
+		t.Fatalf("barPlacementName(toolbar hands) = %q, want %q", got, want)
+	}
+	if got, want := parseBarPlacement("toolbar_hands"), BarPlacementToolbarHands; got != want {
+		t.Fatalf("parseBarPlacement(toolbar_hands) = %v, want %v", got, want)
 	}
 }
 

@@ -40,7 +40,11 @@ regenerate the resource archive, and re-share `gothoom_deps.tar.gz`.
 
 ## Validation
 
-Run focused tests while working, then normally finish with:
+Run focused tests while working. For localized visual, layout, copy, or other
+low-risk UI changes, finish with the smallest relevant compile/test check and
+`git diff --check`; do not routinely run the full suite just to validate a few
+pixels. Use the full suite for broad, behavioral, shared-code, release, or
+otherwise higher-risk changes, or when the user asks for it:
 
 ```sh
 cd source

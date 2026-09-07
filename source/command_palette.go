@@ -39,6 +39,7 @@ const commandPaletteMaxResults = 30
 var commandSettingSpecials = []settingsSchemaEntry{
 	{field: "SpriteUpscaleMode", category: settingsRendering, name: "artwork_upscale_style"},
 	{field: "BarPlacement", category: settingsInterface, name: "status_bar_placement"},
+	{field: "BarStyle", category: settingsInterface, name: "status_bar_style"},
 }
 
 func commandSettingEntries() []settingsSchemaEntry {
@@ -489,6 +490,8 @@ func formatCommandSettingValue(entry settingsSchemaEntry, field reflect.Value) s
 		return strconv.Quote(artworkUpscaleModeName(int(field.Int())))
 	case "BarPlacement":
 		return strconv.Quote(barPlacementName(BarPlacement(field.Int())))
+	case "BarStyle":
+		return strconv.Quote(barStyleName(BarStyle(field.Int())))
 	default:
 		return formatSettingValue(field.Interface())
 	}
@@ -532,12 +535,28 @@ func parseCommandSettingValue(entry settingsSchemaEntry, field reflect.Value, ra
 		valid := map[string]BarPlacement{
 			"bottom": BarPlacementBottom, "lower_left": BarPlacementLowerLeft,
 			"lower_right": BarPlacementLowerRight, "upper_right": BarPlacementUpperRight,
+			"toolbar_hands": BarPlacementToolbarHands,
 		}
 		placement, ok := valid[name]
 		if !ok {
-			return reflect.Value{}, fmt.Errorf("use bottom, lower_left, lower_right, or upper_right")
+			return reflect.Value{}, fmt.Errorf("use bottom, lower_left, lower_right, upper_right, or toolbar_hands")
 		}
 		value.SetInt(int64(placement))
+		return value, nil
+	case "BarStyle":
+		name, err := trimSettingString(raw)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		valid := map[string]BarStyle{
+			"regular": BarStyleRegular, "compact": BarStyleCompact,
+			"hidden": BarStyleHidden, "off": BarStyleHidden,
+		}
+		style, ok := valid[name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("use regular, compact, hidden, or off")
+		}
+		value.SetInt(int64(style))
 		return value, nil
 	default:
 		return parseSettingValue(field, raw)
@@ -600,7 +619,7 @@ func applySettingRuntimeEffects(entry settingsSchemaEntry) {
 		updatePlayersWindow()
 		refreshMessageTextWindows()
 		updateDimmedScreenBG()
-	case "ToolbarPlacement":
+	case "ToolbarPlacement", "BarPlacement":
 		placeToolbar(gs.ToolbarPlacement, true)
 	case "SpriteUpscaleMode":
 		setArtworkUpscaleMode(gs.SpriteUpscaleMode)

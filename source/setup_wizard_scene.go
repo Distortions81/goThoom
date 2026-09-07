@@ -8,6 +8,8 @@ import (
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
+const setupWizardBenchmarkMessage = "One moment, checking performance."
+
 type setupWizardSceneMode uint8
 
 const (
@@ -230,8 +232,10 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.prevBalance, snap.prevBalanceMax = snap.balance, snap.balanceMax
 }
 
-func drawSetupWizardFPS(dst *ebiten.Image) {
-	if dst == nil || mainFontBold == nil || setupWizardWin == nil || !setupWizardWin.IsOpen() {
+// drawFPSOverlay renders the same frame-rate readout used by the setup wizard.
+func drawFPSOverlay(dst *ebiten.Image) {
+	wizardOpen := setupWizardWin != nil && setupWizardWin.IsOpen()
+	if dst == nil || mainFontBold == nil || (!gs.ShowFPS && !wizardOpen) {
 		return
 	}
 	label := fmt.Sprintf("%.0f FPS", ebiten.ActualFPS())

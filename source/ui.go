@@ -174,23 +174,27 @@ var toolbarStatsOnce sync.Once
 var shaderWarnWin *eui.WindowData
 var shaderWarnDontShowCB *eui.ItemData
 
+const toolbarStatusBarsHeight = 22
+
 //go:embed data/images/hands.png
 var toolbarHandsPNG []byte
 
 var (
-	toolbarHandsOnce      sync.Once
-	toolbarHandsSrc       image.Image
-	toolbarHandsImage     *ebiten.Image
-	leftHandImg           *eui.ItemData
-	rightHandImg          *eui.ItemData
-	toolbarLeftComposite  *ebiten.Image
-	toolbarRightComposite *ebiten.Image
-	toolbarHandsRendered  bool
-	toolbarHandsRightID   uint16
-	toolbarHandsLeftID    uint16
-	toolbarHandsTargetL   *eui.ItemData
-	toolbarHandsTargetR   *eui.ItemData
-	toolbarHandsSourceGPU *ebiten.Image
+	toolbarHandsOnce       sync.Once
+	toolbarHandsSrc        image.Image
+	toolbarHandsImage      *ebiten.Image
+	leftHandImg            *eui.ItemData
+	rightHandImg           *eui.ItemData
+	toolbarStatusBarsItem  *eui.ItemData
+	toolbarStatusBarsImage *ebiten.Image
+	toolbarLeftComposite   *ebiten.Image
+	toolbarRightComposite  *ebiten.Image
+	toolbarHandsRendered   bool
+	toolbarHandsRightID    uint16
+	toolbarHandsLeftID     uint16
+	toolbarHandsTargetL    *eui.ItemData
+	toolbarHandsTargetR    *eui.ItemData
+	toolbarHandsSourceGPU  *ebiten.Image
 )
 
 var (
@@ -1787,6 +1791,11 @@ func makeToolbar() {
 }
 
 func buildToolbarRoot(docked bool) *eui.ItemData {
+	if toolbarStatusBarsImage != nil {
+		toolbarStatusBarsImage.Deallocate()
+	}
+	toolbarStatusBarsItem = nil
+	toolbarStatusBarsImage = nil
 	var toolFontSize float32 = 10
 	var buttonHeight float32 = 24
 	var buttonWidth float32 = 88
@@ -1807,7 +1816,13 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 		rightHandImg.Image = nil
 		handsRow.AddItem(leftHandImg)
 		handsRow.AddItem(rightHandImg)
-		controls.AddItem(handsRow)
+		handsColumn := eui.NewColumn()
+		handsColumn.AddItem(handsRow)
+		if gs.BarPlacement == BarPlacementToolbarHands {
+			toolbarStatusBarsItem, toolbarStatusBarsImage = eui.NewImageItem(w, toolbarStatusBarsHeight)
+			handsColumn.AddItem(toolbarStatusBarsItem)
+		}
+		controls.AddItem(handsColumn)
 	}
 	controls.AddItem(buildToolbar(toolFontSize, buttonWidth, buttonHeight))
 
@@ -1820,6 +1835,9 @@ func buildToolbarRoot(docked bool) *eui.ItemData {
 	toolbarHeight := buttonHeight * 2
 	if hands := toolbarHandsSource(); hands != nil {
 		toolbarHeight = float32(hands.Bounds().Dy())
+		if gs.BarPlacement == BarPlacementToolbarHands {
+			toolbarHeight += toolbarStatusBarsHeight
+		}
 	}
 	scriptToolbarHeight := float32(len(scriptRows)) * 32
 	toolbarStatsText = nil
@@ -4101,6 +4119,9 @@ func centerLoginWindow() {
 func makeChangelogWindow() {
 	if changelogWin == nil {
 		changelogWin, changelogList, _ = eui.NewTextWindow("Changelog", eui.HZoneCenter, eui.VZoneMiddleTop, false)
+		// Changelog entries are easier to scan with a wide reading column. Keep
+		// this at a 16:10 ratio while leaving the window resizable.
+		changelogWin.Size = eui.Point{X: 800, Y: 500}
 		changelogWin.OnResize = updateChangelogWindow
 		flow := changelogWin.Contents[0]
 

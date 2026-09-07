@@ -75,6 +75,12 @@ func TestNameHealthBarDefaultsAbove(t *testing.T) {
 	}
 }
 
+func TestStatusBarStyleDefaultsModernThin(t *testing.T) {
+	if gsdef.BarStyle != BarStyleCompact {
+		t.Fatalf("status bar style = %v, want Modern -- thin", gsdef.BarStyle)
+	}
+}
+
 func TestOwnNameTagVisibleByDefault(t *testing.T) {
 	if gsdef.HideSelfNameTag {
 		t.Fatal("own name tag should be visible by default")
@@ -96,6 +102,12 @@ func TestNLSPTDefaultsOn(t *testing.T) {
 func TestInputBarDefaultsOpen(t *testing.T) {
 	if !gsdef.InputBarAlwaysOpen {
 		t.Fatal("input bar should be open by default")
+	}
+}
+
+func TestAutocompleteDefaultsOn(t *testing.T) {
+	if !gsdef.InputAutocomplete {
+		t.Fatal("autocomplete should default on")
 	}
 }
 
