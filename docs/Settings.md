@@ -31,9 +31,11 @@ window size stable. Main Settings tabs use two staggered rows; Performance
 subtabs use a single row.
 Detailed editors such as File Paths still open separately.
 
-Toolbar controls have one home: **Windows → Reset Windows**, **Actions →
-Hotkeys/Keybindings**, **Audio** for notification sound and
-audio enhancement, and **Stats** for NLSPT enablement and live network timing.
+Toolbar controls have one home: **Settings → Display → Windows** for window
+visibility and reset, **Actions** for Hotkeys/Keybindings, **Audio** for
+notification sound and audio enhancement, **Tools** for Stats, command
+search, Help, and snapshots, and **Record** for session recording. Stats also contains NLSPT enablement
+and live network timing.
 TTS enablement is also available in **Settings → Audio**, alongside its file
 download button and voice controls. Settings omits other duplicate launchers
 and controls. The command palette continues

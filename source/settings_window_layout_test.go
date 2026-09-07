@@ -248,7 +248,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	for control, want := range map[string]string{
 		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
 		"Auto-record sessions": "Files", "Download Files": "Files",
-		"Always on top": "Display", "Window Shadows": "Display",
+		"Always on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
 		"Timestamp format": "Text", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
 		"TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
@@ -262,7 +262,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	}
 	for _, moved := range []string{
 		"Floating-point sprite coordinates", "Sprite cache", "Power-save FPS", "Batch room artwork loading",
-		"Reset Windows", "Audio Mixer", "Keybindings", "Hotkeys", "Enable chat TTS",
+		"Audio Mixer", "Keybindings", "Hotkeys", "Enable chat TTS",
 		"Audio enhancement for sound effects", "Audio enhancement for music",
 		"Network Latency & Server Phase Timing (NLSPT)", "Show Network Timing",
 	} {

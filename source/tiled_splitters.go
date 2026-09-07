@@ -7,9 +7,13 @@ import (
 )
 
 // dockedToolbarMinimumWidth is the visible two-row toolbar's logical width:
-// 84 pixels of hand slots, five 68-pixel buttons, and 16 pixels of host-window
-// padding/margin. Keep this aligned with the floating toolbar width.
-const dockedToolbarMinimumWidth = 440.0
+// 84 pixels of hand slots, three 84-pixel buttons with their flow spacing,
+// and 4 pixels of host-window padding on each side.
+const dockedToolbarMinimumWidth = 356.0
+
+// floatingToolbarMinimumWidth also accounts for the wider floating buttons
+// and the floating window's 4-pixel padding on each side.
+const floatingToolbarMinimumWidth = 368.0
 
 type tiledSplitter uint8
 

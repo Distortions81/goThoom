@@ -319,7 +319,7 @@ func buildCommandPaletteActions() []commandPaletteAction {
 		{label: "Window: Shortcuts", detail: "Open shortcut editor", run: func() { refreshShortcutsList(); openPaletteWindow(shortcutsWin) }},
 		{label: "Window: Keybindings", detail: "Open movement keybindings", run: func() { refreshKeybindingsList(); openPaletteWindow(keybindingsWin) }},
 		{label: "Window: Saved Data", detail: "Open script saved data", run: func() { makeSavedDataWindow(); openPaletteWindow(savedDataWin) }},
-		{label: "Window: Windows", detail: "Manage window visibility", run: func() { openPaletteWindow(windowsWin) }},
+		{label: "Settings: Windows", detail: "Manage window visibility and layout", run: func() { selectSettingsTab("Display"); openPaletteWindow(settingsWin) }},
 		{label: "Window: Inventory", detail: "Open inventory", run: func() { openPaletteWindow(inventoryWin) }},
 		{label: "Window: Players", detail: "Open player list", run: func() { openPaletteWindow(playersWin) }},
 		{label: "Window: Chat", detail: "Open chat", run: func() { openPaletteWindow(chatWin) }},

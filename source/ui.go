@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"gothoom/eui"
-	"gothoom/internal/inputkeys"
 
 	"unicode"
 
@@ -155,7 +154,6 @@ var addCharNameInput *eui.ItemData
 var addCharPassInput *eui.ItemData
 var addCharPassWarn *eui.ItemData
 var addCharPassPrev string
-var windowsWin *eui.WindowData
 var scriptsWin *eui.WindowData
 var newScriptWin *eui.WindowData
 var scriptsRoot *eui.ItemData
@@ -169,12 +167,6 @@ var scriptConfigWin *eui.WindowData
 var scriptConfigOwner string
 var scriptDebugList *eui.ItemData
 
-// Checkboxes in the Windows window so we can update their state live
-var windowsPlayersCB *eui.ItemData
-var windowsInventoryCB *eui.ItemData
-var windowsChatCB *eui.ItemData
-var windowsConsoleCB *eui.ItemData
-var windowsHelpCB *eui.ItemData
 var hudWin *eui.WindowData
 var toolbarRoot *eui.ItemData
 var toolbarStatsText *eui.ItemData
@@ -312,30 +304,7 @@ func checkCapsWarning(prev *string, curr string, warn *eui.ItemData) {
 func init() {
 	eui.CapsLockToggleHandler = capsLockToggled
 	eui.WindowStateChanged = func() {
-		// Keep the Windows window's checkboxes in sync
-		if windowsPlayersCB != nil {
-			windowsPlayersCB.Checked = playersWin != nil && playersWin.IsOpen()
-			windowsPlayersCB.Dirty = true
-		}
-		if windowsInventoryCB != nil {
-			windowsInventoryCB.Checked = inventoryWin != nil && inventoryWin.IsOpen()
-			windowsInventoryCB.Dirty = true
-		}
-		if windowsChatCB != nil {
-			windowsChatCB.Checked = chatWin != nil && chatWin.IsOpen()
-			windowsChatCB.Dirty = true
-		}
-		if windowsConsoleCB != nil {
-			windowsConsoleCB.Checked = consoleWin != nil && consoleWin.IsOpen()
-			windowsConsoleCB.Dirty = true
-		}
-		if windowsHelpCB != nil {
-			windowsHelpCB.Checked = helpWin != nil && helpWin.IsOpen()
-			windowsHelpCB.Dirty = true
-		}
-		if windowsWin != nil {
-			windowsWin.Refresh()
-		}
+		refreshWindowSettingsControls()
 
 		// If the Players window just opened (or is open) and it's been a few
 		// seconds since our last request, trigger a backend who scan so the
@@ -375,7 +344,6 @@ func initUI() {
 	makeDebugWindow()
 	initHelpUI()
 	initAboutUI()
-	makeWindowsWindow()
 	makeInventoryWindow()
 	makePlayersWindow()
 	makeShortcutsWindow()
@@ -411,19 +379,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	row1 = eui.NewRow()
 	row2 = eui.NewRow()
 	menu = eui.NewColumn()
-
-	winBtn, winEvents := eui.NewButton()
-	winBtn.Text = "Windows"
-	setMaterialButtonIcon(winBtn, "window")
-	winBtn.SetTooltip("Manage windows layout and visibility")
-	winBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	winBtn.FontSize = toolFontSize
-	winEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			windowsWin.ToggleNear(ev.Item)
-		}
-	}
-	row1.AddItem(winBtn)
 
 	btn, setEvents := eui.NewButton()
 	btn.Text = "Settings"
@@ -489,82 +444,38 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(actionsBtn)
 
-	var recordEvents *eui.EventHandler
-	recordBtn, recordEvents = eui.NewButton()
-	recordBtn.Text = "Record"
-	setMaterialButtonIcon(recordBtn, "fiber_manual_record")
-	recordBtn.SetTooltip("Start/stop recording (.clmov)")
-	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	recordBtn.Color = eui.ColorDarkRed
-	recordBtn.FontSize = toolFontSize
-	recordEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			if setupWizardPreviewActive {
-				return
-			}
-			// STOP during playback
-			if playingMovie && !setupWizardPreviewActive {
-				if movieWin != nil {
-					movieWin.Close()
-				} else {
-					playingMovie = false
-					movieMode = false
+	toolsBtn, toolsEvents := eui.NewButton()
+	toolsBtn.Text = "Tools"
+	setMaterialButtonIcon(toolsBtn, "tune")
+	toolsBtn.SetTooltip("Open live stats, command search, help, and snapshots.")
+	toolsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	toolsBtn.FontSize = toolFontSize
+	toolsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		r := ev.Item.DrawRect
+		eui.ShowContextMenuWithIcons([]string{"Stats", "Palette", "Help", "Snap"}, materialMenuIcons(
+			"query_stats", "palette", "help", "photo_camera",
+		), r.X0, r.Y1, func(i int) {
+			switch i {
+			case 0:
+				makeStatsWindow()
+				statsWin.ToggleNear(toolsBtn)
+				lastStatsRender = time.Time{}
+				updateStatsWindow(time.Now())
+			case 1:
+				toggleCommandPalette()
+			case 2:
+				if err := open.Run(userManualURL); err != nil {
+					consoleMessage("open user manual: " + err.Error())
 				}
-				updateRecordButton()
-				return
+			case 3:
+				showSnapshotWindow()
 			}
-			// Cancel arming when disconnected
-			if recorder == nil && recordingMovie && tcpConn == nil {
-				recordingMovie = false
-				consoleMessage("recording canceled; will not start on connect")
-				updateRecordButton()
-				return
-			}
-			toggleRecording()
-		}
+		})
 	}
-	row2.AddItem(recordBtn)
-
-	helpBtn, helpEvents := eui.NewButton()
-	helpBtn.Text = "Help"
-	setMaterialButtonIcon(helpBtn, "help")
-	helpBtn.SetTooltip("Open the goThoom user manual in your browser.")
-	helpBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	helpBtn.FontSize = toolFontSize
-	helpEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			if err := open.Run(userManualURL); err != nil {
-				consoleMessage("open user manual: " + err.Error())
-			}
-		}
-	}
-	row2.AddItem(helpBtn)
-
-	shotBtn, shotEvents := eui.NewButton()
-	shotBtn.Text = "Snap"
-	setMaterialButtonIcon(shotBtn, "photo_camera")
-	shotBtn.SetTooltip("Open snapshot options to choose a filename, capture area, and image format.")
-	shotBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	shotBtn.FontSize = toolFontSize
-	shotEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			showSnapshotWindow()
-		}
-	}
-	row2.AddItem(shotBtn)
-
-	paletteBtn, paletteEvents := eui.NewButton()
-	paletteBtn.Text = "Palette"
-	setMaterialButtonIcon(paletteBtn, "search")
-	paletteBtn.SetTooltip("Search settings, windows, scripts, player actions, and commands (" + inputkeys.ShortcutLabel() + "+Shift+P).")
-	paletteBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	paletteBtn.FontSize = toolFontSize
-	paletteEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			toggleCommandPalette()
-		}
-	}
-	row2.AddItem(paletteBtn)
+	row2.AddItem(toolsBtn)
 
 	mixBtn, mixEvents := eui.NewButton()
 	mixBtn.Text = "Audio"
@@ -579,21 +490,20 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	}
 	row1.AddItem(mixBtn)
 
-	statsBtn, statsEvents := eui.NewButton()
-	statsBtn.Text = "Stats"
-	setMaterialButtonIcon(statsBtn, "query_stats")
-	statsBtn.SetTooltip("Show live network, frame-rate, and cache statistics.")
-	statsBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	statsBtn.FontSize = toolFontSize
-	statsEvents.Handle = func(ev eui.UIEvent) {
+	var recordEvents *eui.EventHandler
+	recordBtn, recordEvents = eui.NewButton()
+	recordBtn.Text = "Record"
+	setMaterialButtonIcon(recordBtn, "fiber_manual_record")
+	recordBtn.SetTooltip("Start or stop recording (.clmov).")
+	recordBtn.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
+	recordBtn.Color = eui.ColorDarkRed
+	recordBtn.FontSize = toolFontSize
+	recordEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
-			makeStatsWindow()
-			statsWin.ToggleNear(ev.Item)
-			lastStatsRender = time.Time{}
-			updateStatsWindow(time.Now())
+			handleToolbarRecording()
 		}
 	}
-	row1.AddItem(statsBtn)
+	row2.AddItem(recordBtn)
 
 	exitBtn, exitEvents := eui.NewButton()
 	exitBtn.Text = "Logout"
@@ -1977,7 +1887,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 		hudWin.Closable = false
 		hudWin.Resizable = false
 		hudWin.AutoSize = false
-		hudWin.Size = eui.Point{X: float32(dockedToolbarMinimumWidth), Y: 49 + toolbarRoot.Size.Y}
+		hudWin.Size = eui.Point{X: float32(floatingToolbarMinimumWidth), Y: 49 + toolbarRoot.Size.Y}
 		hudWin.Movable = true
 		hudWin.NoScroll = true
 		hudWin.AddItem(toolbarRoot)
@@ -2203,6 +2113,29 @@ func confirmExitSession() {
 	}
 	// No active session; just go to login
 	loginWin.MarkOpen()
+}
+
+func handleToolbarRecording() {
+	if setupWizardPreviewActive {
+		return
+	}
+	if playingMovie {
+		if movieWin != nil {
+			movieWin.Close()
+		} else {
+			playingMovie = false
+			movieMode = false
+		}
+		updateRecordButton()
+		return
+	}
+	if recorder == nil && recordingMovie && tcpConn == nil {
+		recordingMovie = false
+		consoleMessage("recording canceled; will not start on connect")
+		updateRecordButton()
+		return
+	}
+	toggleRecording()
 }
 
 func startRecording() {
@@ -5783,122 +5716,6 @@ func updateDebugStats() {
 		totalCacheLabel.Text = fmt.Sprintf("Total: %s", humanize.Bytes(uint64(total)))
 		totalCacheLabel.Dirty = true
 	}
-}
-
-func makeWindowsWindow() {
-	if windowsWin != nil {
-		return
-	}
-	windowsWin = eui.NewWindow()
-	windowsWin.Title = "Windows"
-	windowsWin.Closable = true
-	windowsWin.Resizable = false
-	windowsWin.AutoSize = true
-	windowsWin.Movable = true
-	//windowsWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-
-	flow := eui.NewColumn()
-
-	playersBox, playersBoxEvents := eui.NewCheckbox()
-	windowsPlayersCB = playersBox
-	playersBox.Text = "Players"
-	playersBox.Size = eui.Point{X: 128, Y: 24}
-	playersBox.Checked = playersWin != nil && playersWin.IsOpen()
-	playersBoxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				playersWin.MarkOpenNear(ev.Item)
-			} else {
-				playersWin.Close()
-			}
-		}
-	}
-	flow.AddItem(playersBox)
-
-	inventoryBox, inventoryBoxEvents := eui.NewCheckbox()
-	windowsInventoryCB = inventoryBox
-	inventoryBox.Text = "Inventory"
-	inventoryBox.Size = eui.Point{X: 128, Y: 24}
-	inventoryBox.Checked = inventoryWin != nil && inventoryWin.IsOpen()
-	inventoryBoxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				inventoryWin.MarkOpenNear(ev.Item)
-			} else {
-				inventoryWin.Close()
-			}
-		}
-	}
-	flow.AddItem(inventoryBox)
-
-	chatBox, chatBoxEvents := eui.NewCheckbox()
-	windowsChatCB = chatBox
-	chatBox.Text = "Chat"
-	chatBox.Size = eui.Point{X: 128, Y: 24}
-	chatBox.Checked = chatWin != nil && chatWin.IsOpen()
-	chatBoxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				if chatWin == nil {
-					_ = makeChatWindow()
-				}
-				if chatWin != nil {
-					chatWin.MarkOpenNear(ev.Item)
-				}
-			} else if chatWin != nil {
-				chatWin.Close()
-			}
-		}
-	}
-	flow.AddItem(chatBox)
-
-	consoleBox, consoleBoxEvents := eui.NewCheckbox()
-	windowsConsoleCB = consoleBox
-	consoleBox.Text = "Console"
-	consoleBox.Size = eui.Point{X: 128, Y: 24}
-	consoleBox.Checked = consoleWin != nil && consoleWin.IsOpen()
-	consoleBoxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				consoleWin.MarkOpenNear(ev.Item)
-			} else {
-				consoleWin.Close()
-			}
-		}
-	}
-	flow.AddItem(consoleBox)
-
-	helpBox, helpBoxEvents := eui.NewCheckbox()
-	windowsHelpCB = helpBox
-	helpBox.Text = "Help"
-	helpBox.Size = eui.Point{X: 128, Y: 24}
-	helpBox.Checked = helpWin != nil && helpWin.IsOpen()
-	helpBoxEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			if ev.Checked {
-				openHelpWindow(ev.Item)
-			} else {
-				helpWin.Close()
-			}
-		}
-	}
-	flow.AddItem(helpBox)
-
-	resetBtn, resetEvents := eui.NewButton()
-	resetBtn.Text = "Reset Windows"
-	setMaterialButtonIcon(resetBtn, "restart_alt")
-	resetBtn.Size = eui.Point{X: 128, Y: 24}
-	resetBtn.SetTooltip("Restore the default window layout.")
-	resetEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			confirmResetWindows()
-		}
-	}
-	flow.AddItem(resetBtn)
-
-	windowsWin.AddItem(flow)
-	windowsWin.AddWindow(false)
-
 }
 
 func makePlayersWindow() {

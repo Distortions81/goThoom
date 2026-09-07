@@ -56,8 +56,9 @@ and verifies that a new folder is readable and writable before saving it.
 - **Movement:** Left-click in the game view to walk toward the cursor.
 - **Chat:** The input bar is open by default: type and press Enter to send.
   Escape closes it; Enter reopens it. Up and Down browse message history.
-- **Windows:** Use the **Windows** toolbar menu to open Players, Inventory,
-  Chat, Console, Help, Hotkeys, Shortcuts, Mixer, Settings, and other panels.
+- **Windows:** Use **Settings → Display → Windows** to show or hide Players,
+  Inventory, Chat, Console, and Help. The **Actions** toolbar menu opens
+  Hotkeys, Shortcuts, scripts, macros, and saved data.
 - **Inventory:** Click to select, double-click to equip or unequip, and
   Shift-double-click to use. Right-click for more actions.
 - **Players:** Right-click a player for common actions such as Thank, Share,
@@ -75,8 +76,8 @@ and verifies that a new folder is readable and writable before saving it.
   Files go into the user data folder's `Screenshots` directory; **Open Folder**
   opens that location. Duplicate names receive a number.
 
-The toolbar **Help** button opens the full online user manual. A compact guide
-remains available from **Windows → Help**, and a command reference is available
+The toolbar **Tools** menu opens the full online user manual, and **Record**
+starts or stops a session recording. A command reference is available
 in [docs/CommandsHelp.md](docs/CommandsHelp.md). Persistent options without a
 dedicated control, automatically managed settings, and session-only controls
 are inventoried in [docs/Settings.md](docs/Settings.md).

@@ -6,10 +6,15 @@ import (
 )
 
 func TestToolbarMinimumWidthCoversDockedControls(t *testing.T) {
-	const controlsWidth = 84 + 5*68
-	const hostChrome = 16
-	if dockedToolbarMinimumWidth < controlsWidth+hostChrome {
-		t.Fatalf("toolbar minimum width = %v, need at least %d", dockedToolbarMinimumWidth, controlsWidth+hostChrome)
+	const dockedControlsWidth = 84 + 3*(84+4)
+	const dockedWindowPadding = 8
+	if dockedToolbarMinimumWidth < dockedControlsWidth+dockedWindowPadding {
+		t.Fatalf("toolbar minimum width = %v, need at least %d", dockedToolbarMinimumWidth, dockedControlsWidth+dockedWindowPadding)
+	}
+	const floatingControlsWidth = 84 + 3*(88+4)
+	const floatingWindowPadding = 8
+	if floatingToolbarMinimumWidth < floatingControlsWidth+floatingWindowPadding {
+		t.Fatalf("floating toolbar minimum width = %v, need at least %d", floatingToolbarMinimumWidth, floatingControlsWidth+floatingWindowPadding)
 	}
 }
 

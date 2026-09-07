@@ -97,6 +97,7 @@ func makeSettingsWindow() {
 	displayPage.AddItem(displayColumns)
 	windowSection := addSettingsSection(displayWindowPage, "Window & Display", displayColumnWidth)
 	tiledSection := addSettingsSection(displayLayoutPage, "Tiled Windows & Toolbar", displayColumnWidth)
+	windowsSection := addSettingsSection(displayLayoutPage, "Windows", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
 	chatSection := addSettingsSection(textPage, "Chat & Messages", panelWidth)
@@ -1060,6 +1061,7 @@ func makeSettingsWindow() {
 	ttsSection.AddItem(ttsSpeedSlider)
 
 	addDisplaySettings(windowSection, displayColumnWidth)
+	addWindowSettings(windowsSection, displayColumnWidth)
 	addControlSettings(controlsSection, panelWidth)
 	addTextSettings(chatSection, panelWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
@@ -1075,6 +1077,79 @@ func makeSettingsWindow() {
 }
 
 var settingsWindowShadowsCB *eui.ItemData
+
+var (
+	settingsPlayersCB   *eui.ItemData
+	settingsInventoryCB *eui.ItemData
+	settingsChatCB      *eui.ItemData
+	settingsConsoleCB   *eui.ItemData
+)
+
+func addWindowVisibilityCheckbox(section *eui.ItemData, label string, width float32, target func() *eui.WindowData) *eui.ItemData {
+	checkbox, events := eui.NewCheckbox()
+	checkbox.Text = label
+	checkbox.Size = eui.Point{X: width, Y: settingsControlHeight}
+	checkbox.Checked = target() != nil && target().IsOpen()
+	events.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		if win := target(); win != nil {
+			if ev.Checked {
+				win.MarkOpenNear(ev.Item)
+			} else {
+				win.Close()
+			}
+		}
+	}
+	section.AddItem(checkbox)
+	return checkbox
+}
+
+func addWindowSettings(section *eui.ItemData, width float32) {
+	const gap float32 = 8
+	checkboxWidth := (width - gap) / 2
+	firstRow := eui.NewRow()
+	secondRow := eui.NewRow()
+	section.AddItem(firstRow)
+	section.AddItem(secondRow)
+	settingsPlayersCB = addWindowVisibilityCheckbox(firstRow, "Players", checkboxWidth, func() *eui.WindowData { return playersWin })
+	settingsInventoryCB = addWindowVisibilityCheckbox(firstRow, "Inventory", checkboxWidth, func() *eui.WindowData { return inventoryWin })
+	settingsChatCB = addWindowVisibilityCheckbox(secondRow, "Chat", checkboxWidth, func() *eui.WindowData { return chatWin })
+	settingsConsoleCB = addWindowVisibilityCheckbox(secondRow, "Console", checkboxWidth, func() *eui.WindowData { return consoleWin })
+
+	resetBtn, resetEvents := eui.NewButton()
+	resetBtn.Text = "Reset Windows"
+	setMaterialButtonIcon(resetBtn, "restart_alt")
+	resetBtn.Size = eui.Point{X: width, Y: settingsControlHeight}
+	resetBtn.SetTooltip("Restore the default window layout.")
+	resetEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			confirmResetWindows()
+		}
+	}
+	section.AddItem(resetBtn)
+}
+
+func refreshWindowSettingsControls() {
+	for _, control := range []struct {
+		checkbox *eui.ItemData
+		window   *eui.WindowData
+	}{
+		{settingsPlayersCB, playersWin},
+		{settingsInventoryCB, inventoryWin},
+		{settingsChatCB, chatWin},
+		{settingsConsoleCB, consoleWin},
+	} {
+		if control.checkbox != nil {
+			control.checkbox.Checked = control.window != nil && control.window.IsOpen()
+			control.checkbox.Dirty = true
+		}
+	}
+	if settingsWin != nil {
+		settingsWin.Refresh()
+	}
+}
 
 func newWindowShadowsCheckbox(width float32) *eui.ItemData {
 	checkbox, events := eui.NewCheckbox()
