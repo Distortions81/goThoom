@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -1431,6 +1432,83 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	soundFontRow.AddItem(soundFontDD)
 	soundFontRow.AddItem(soundFontRefreshBtn)
 	audioSection.AddItem(soundFontRow)
+
+	mixerBtn, mixerEvents := eui.NewButton()
+	mixerBtn.Text = "Audio Mixer"
+	setMaterialButtonIcon(mixerBtn, "volume_up")
+	mixerBtn.Size = eui.Point{X: 180, Y: settingsControlHeight}
+	mixerBtn.SetTooltip("Open the Mixer to adjust volume levels.")
+	mixerEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			makeMixerWindow()
+		}
+	}
+	audioSection.AddItem(mixerBtn)
+
+	soundEnhanceSlider, soundEnhanceSliderEvents := eui.NewSlider()
+	soundEnhanceSlider.Label = "Sound effect ambience"
+	soundEnhanceSlider.MinValue = 0.1
+	soundEnhanceSlider.MaxValue = 10
+	soundEnhanceSlider.Value = float32(clampSoundEnhancementAmount(gs.SoundEnhancementAmount))
+	soundEnhanceSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	soundEnhanceSlider.Disabled = !gs.SoundEnhancement
+	soundEnhanceSliderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.SoundEnhancementAmount = clampSoundEnhancementAmount(math.Round(float64(ev.Value)*100) / 100)
+			refreshMixerEnhancementControls()
+			settingsDirty = true
+		}
+	}
+	soundEnhanceCB, soundEnhanceEvents := eui.NewCheckbox()
+	soundEnhanceCB.Text = "Enhance sound effects"
+	soundEnhanceCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	soundEnhanceCB.Checked = gs.SoundEnhancement
+	soundEnhanceCB.SetTooltip("Add ambience to newly played game sound effects.")
+	soundEnhanceEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.SoundEnhancement = ev.Checked
+			soundEnhanceSlider.Disabled = !ev.Checked
+			soundEnhanceSlider.Dirty = true
+			refreshMixerEnhancementControls()
+			settingsDirty = true
+		}
+	}
+	audioSection.AddItem(soundEnhanceCB)
+	audioSection.AddItem(soundEnhanceSlider)
+
+	musicEnhanceSlider, musicEnhanceSliderEvents := eui.NewSlider()
+	musicEnhanceSlider.Label = "Bard music ambience"
+	musicEnhanceSlider.MinValue = 0.1
+	musicEnhanceSlider.MaxValue = 2
+	musicEnhanceSlider.Value = float32(clampMusicEnhancementAmount(gs.MusicEnhancementAmount))
+	musicEnhanceSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	musicEnhanceSlider.Disabled = !gs.MusicEnhancement
+	musicEnhanceSliderEvents.Handle = func(ev eui.UIEvent) {
+		switch ev.Type {
+		case eui.EventSliderChanged:
+			gs.MusicEnhancementAmount = clampMusicEnhancementAmount(math.Round(float64(ev.Value)*100) / 100)
+			refreshMixerEnhancementControls()
+			settingsDirty = true
+		case eui.EventSliderReleased:
+			restartMusicWithCurrentSettings()
+		}
+	}
+	musicEnhanceCB, musicEnhanceEvents := eui.NewCheckbox()
+	musicEnhanceCB.Text = "Enhance bard music"
+	musicEnhanceCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	musicEnhanceCB.Checked = gs.MusicEnhancement
+	musicEnhanceCB.SetTooltip("Add ambience to newly started bard music.")
+	musicEnhanceEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MusicEnhancement = ev.Checked
+			musicEnhanceSlider.Disabled = !ev.Checked
+			musicEnhanceSlider.Dirty = true
+			refreshMixerEnhancementControls()
+			settingsDirty = true
+		}
+	}
+	audioSection.AddItem(musicEnhanceCB)
+	audioSection.AddItem(musicEnhanceSlider)
 
 	musicBufferSlider, musicBufferEvents := eui.NewSlider()
 	musicBufferSlider.Label = "Music Buffer (s)"

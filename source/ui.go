@@ -1691,7 +1691,6 @@ func makeMixerWindow() {
 	musicEnhanceSlider.MaxValue = 2
 	musicEnhanceSlider.Value = float32(clampMusicEnhancementAmount(gs.MusicEnhancementAmount))
 	musicEnhanceSlider.Size = eui.Point{X: 180, Y: 24}
-	musicEnhanceSlider.SetTooltip("Bard music ambience strength. 1.00 matches the prior enhanced sound.")
 	musicEnhanceSliderEvents.Handle = func(ev eui.UIEvent) {
 		switch ev.Type {
 		case eui.EventSliderChanged:
