@@ -976,7 +976,7 @@ func hotkeyEquipAlreadyEquipped(cmd string) bool {
 }
 
 func checkHotkeys() InputEvent {
-	if recording || keyboardTestSuppressingInput() {
+	if recording || bindingInputCaptured() {
 		return InputEvent{}
 	}
 	typing := typingInUI()

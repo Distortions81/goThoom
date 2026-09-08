@@ -856,7 +856,8 @@ func makePlayerGroupHeader(group string, count int, width, rowUnits float32, fon
 }
 
 // handlePlayersContextClick opens a context menu for the player row under the
-// mouse, mirroring the inventory menu behavior. Returns true if a menu opened.
+// mouse after legacy macros have had a chance to consume the right-click.
+// Returns true if the click was handled by a macro or a menu.
 func handlePlayersContextClick(mx, my int) bool {
 	if playersWin == nil || playersList == nil || !playersWin.IsOpen() {
 		return false
@@ -866,6 +867,11 @@ func handlePlayersContextClick(mx, my int) bool {
 		r := row.DrawRect
 		if pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1 {
 			if name, ok := playersRowRefs[row]; ok {
+				event := legacyMacroPlayerClickEvent(name)
+				if started, allowDefault := legacyMacroTriggerRightClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+					legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
+					return true
+				}
 				// Select the player before opening the context menu
 				selectPlayer(name)
 				openPlayersContextMenu(name, pos)

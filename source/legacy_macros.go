@@ -39,20 +39,31 @@ func (d legacyMacroDiagnostic) Error() string {
 // escapes decoded: \r, \\, \" and \' are special; all other escapes remain
 // unchanged.
 type legacyMacroToken struct {
-	Text   string
-	Quote  byte
-	Column int
+	Text      string
+	Quote     byte
+	Column    int
+	EndColumn int
 }
 
 // legacyMacroLine is a physical source line after block comments are removed.
 type legacyMacroLine struct {
-	Source legacyMacroSource
-	Number int
-	Text   string
-	Tokens []legacyMacroToken
+	Source  legacyMacroSource
+	Number  int
+	Text    string
+	Tokens  []legacyMacroToken
+	Offsets []int // Byte offsets in the original decoded source, before comment removal.
+}
+
+// Comments are syntax trivia, retained with their exact source span for editors.
+type legacyMacroComment struct {
+	AttachedTo legacyMacroLocation // Standalone comments belong to the following code; trailing comments to their line.
+	Location   legacyMacroLocation
+	Start, End int
+	Text       string
 }
 
 type legacyMacroProgram struct {
+	Comments    []legacyMacroComment
 	Files       []legacyMacroSource
 	Lines       []legacyMacroLine
 	TopLevel    []legacyMacroLine
@@ -207,6 +218,7 @@ func legacyMacroProgramSnapshot() legacyMacroProgram {
 
 	p := legacyMacrosProgram
 	p.Files = append([]legacyMacroSource(nil), p.Files...)
+	p.Comments = append([]legacyMacroComment(nil), p.Comments...)
 	p.Diagnostics = append([]legacyMacroDiagnostic(nil), p.Diagnostics...)
 	p.Lines = append([]legacyMacroLine(nil), p.Lines...)
 	p.TopLevel = append([]legacyMacroLine(nil), p.TopLevel...)
@@ -459,6 +471,10 @@ func legacyMacroNamedKey(name string) bool {
 }
 
 func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
+	return parseLegacyMacroSourcesWithReader(roots, readLegacyMacroSource)
+}
+
+func parseLegacyMacroSourcesWithReader(roots []legacyMacroSource, readSource func(string) (legacyMacroSource, bool, error)) legacyMacroProgram {
 	program := legacyMacroProgram{}
 	loaded := make(map[string]bool)
 
@@ -482,7 +498,7 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 		}
 		program.Files = append(program.Files, source)
 
-		lines, diagnostics := legacyMacroSourceLines(source)
+		lines, diagnostics := legacyMacroSourceLinesWithComments(source, &program.Comments)
 		program.Diagnostics = append(program.Diagnostics, diagnostics...)
 		for _, line := range lines {
 			tokens, diagnostic := tokenizeLegacyMacroLine(line)
@@ -491,6 +507,15 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 				continue
 			}
 			line.Tokens = tokens
+			tail := 0
+			if len(tokens) > 0 {
+				tail = tokens[len(tokens)-1].EndColumn - 1
+			}
+			if comment := strings.Index(line.Text[tail:], "//"); comment >= 0 {
+				column := tail + comment
+				start, end := line.Offsets[column], line.Offsets[len(line.Offsets)-1]+1
+				program.Comments = append(program.Comments, legacyMacroComment{Location: legacyMacroLocation{Path: source.Path, Line: line.Number, Column: column + 1}, Start: start, End: end, Text: source.Text[start:end]})
+			}
 			if len(tokens) == 0 {
 				continue
 			}
@@ -511,7 +536,7 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 					})
 					continue
 				}
-				included, exists, err := readLegacyMacroSource(includePath)
+				included, exists, err := readSource(includePath)
 				if err != nil {
 					program.Diagnostics = append(program.Diagnostics, legacyMacroDiagnostic{
 						Location: tokenLocation(line, tokens[1]),
@@ -541,6 +566,7 @@ func parseLegacyMacroSources(roots []legacyMacroSource) legacyMacroProgram {
 		load(root)
 	}
 	parseLegacyMacroDeclarations(&program)
+	attachLegacyMacroComments(&program)
 	return program
 }
 
@@ -566,18 +592,25 @@ func legacyMacroIncludePath(includeName string) (string, error) {
 // legacyMacroSourceLines removes block comments using the reference client's
 // deliberately simple behavior: /* ... */ is a comment even inside quotes.
 func legacyMacroSourceLines(source legacyMacroSource) ([]legacyMacroLine, []legacyMacroDiagnostic) {
+	return legacyMacroSourceLinesWithComments(source, nil)
+}
+
+func legacyMacroSourceLinesWithComments(source legacyMacroSource, comments *[]legacyMacroComment) ([]legacyMacroLine, []legacyMacroDiagnostic) {
 	var (
-		lines        []legacyMacroLine
-		diagnostics  []legacyMacroDiagnostic
-		text         strings.Builder
-		line, column = 1, 1
-		blockComment bool
-		commentStart legacyMacroLocation
+		lines         []legacyMacroLine
+		diagnostics   []legacyMacroDiagnostic
+		text          strings.Builder
+		offsets       []int
+		line, column  = 1, 1
+		blockComment  bool
+		commentStart  legacyMacroLocation
+		commentOffset int
 	)
 
 	flush := func() {
-		lines = append(lines, legacyMacroLine{Source: source, Number: line, Text: text.String()})
+		lines = append(lines, legacyMacroLine{Source: source, Number: line, Text: text.String(), Offsets: offsets})
 		text.Reset()
+		offsets = nil
 	}
 
 	for i := 0; i < len(source.Text); {
@@ -585,6 +618,9 @@ func legacyMacroSourceLines(source legacyMacroSource) ([]legacyMacroLine, []lega
 		if blockComment {
 			if ch == '*' && i+1 < len(source.Text) && source.Text[i+1] == '/' {
 				blockComment = false
+				if comments != nil {
+					*comments = append(*comments, legacyMacroComment{Location: commentStart, Start: commentOffset, End: i + 2, Text: source.Text[commentOffset : i+2]})
+				}
 				i += 2
 				column += 2
 				continue
@@ -607,6 +643,7 @@ func legacyMacroSourceLines(source legacyMacroSource) ([]legacyMacroLine, []lega
 		if ch == '/' && i+1 < len(source.Text) && source.Text[i+1] == '*' {
 			blockComment = true
 			commentStart = legacyMacroLocation{Path: source.Path, Line: line, Column: column}
+			commentOffset = i
 			i += 2
 			column += 2
 			continue
@@ -631,6 +668,7 @@ func legacyMacroSourceLines(source legacyMacroSource) ([]legacyMacroLine, []lega
 			continue
 		}
 		text.WriteByte(ch)
+		offsets = append(offsets, i)
 		i++
 		column++
 	}
@@ -705,7 +743,7 @@ func tokenizeLegacyMacroLine(line legacyMacroLine) ([]legacyMacroToken, *legacyM
 				Message:  fmt.Sprintf("matching %q not found", quote),
 			}
 		}
-		tokens = append(tokens, legacyMacroToken{Text: value.String(), Quote: quote, Column: start + 1})
+		tokens = append(tokens, legacyMacroToken{Text: value.String(), Quote: quote, Column: start + 1, EndColumn: i + 1})
 	}
 	return tokens, nil
 }

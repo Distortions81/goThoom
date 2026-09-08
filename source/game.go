@@ -1136,11 +1136,14 @@ func (g *Game) Update() error {
 	}
 	legacyMacroBeginInputFrame()
 	keyboardTestBeginInputFrame()
-	eui.SetKeyboardInputCaptured(keyboardTestFrameActive)
+	legacyTriggerBeginInputFrame()
+	eui.SetKeyboardInputCaptured(bindingCaptureFrameActive())
 	paletteOpenAtFrameStart := commandPaletteWin != nil && commandPaletteWin.IsOpen()
-	eui.Update() //We really need this to return eaten clicks
+	if !legacyTriggerRecordFrame {
+		eui.Update()
+	} // Captured clicks must not activate controls behind the recorder.
 	inputSourceChanged := captureMessageInputFocus()
-	paletteShortcut := !keyboardTestFrameActive && commandPaletteShortcutPressed()
+	paletteShortcut := !bindingCaptureFrameActive() && commandPaletteShortcutPressed()
 	paletteKeyboardActive := paletteOpenAtFrameStart || commandPaletteWin != nil && commandPaletteWin.IsOpen()
 	if paletteShortcut {
 		toggleCommandPalette()
@@ -1159,13 +1162,13 @@ func (g *Game) Update() error {
 	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.IsOpen() {
 		legacyMacroLibraryRefreshErrorsButton()
 	}
-	typingElsewhere := typingInUI() || paletteKeyboardActive
+	typingElsewhere := typingInUI() || paletteKeyboardActive || bindingInputCaptured()
 	if item := currentMessageInputItem(); inputActive && !paletteKeyboardActive && !chatComposing && item != nil {
 		inputPos = plainCursorPos(item.Text, item.CursorPos)
 		plain := strings.ReplaceAll(item.Text, "\n", "")
 		inputText = []rune(plain)
 	}
-	nativeEdit := pollNativeChatInput(inputActive && !typingElsewhere && !keyboardTestFrameActive && ebiten.IsFocused())
+	nativeEdit := pollNativeChatInput(inputActive && !typingElsewhere && !bindingCaptureFrameActive() && ebiten.IsFocused())
 	nativeOwnsKeys := nativeEdit.composing || nativeEdit.wasComposing
 	updateKeyboardTest()
 	if !nativeOwnsKeys {
@@ -1203,7 +1206,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	if !keyboardTestSuppressingInput() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) &&
+	if !bindingInputCaptured() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) &&
 		!scriptInputConsumesButton(consumedScriptInput, "RightClick") {
 		// Input bar menu takes precedence when right-clicking on input.
 		if !handleConsoleInputContext(mx, my) {
@@ -1515,7 +1518,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	if inputActive && !typingElsewhere && !keyboardTestFrameActive {
+	if inputActive && !typingElsewhere && !bindingCaptureFrameActive() {
 		syncNativeChatInput()
 	} else {
 		pollNativeChatInput(false)
@@ -1611,7 +1614,7 @@ func (g *Game) Update() error {
 		}
 	}
 	inGame := pointInGameWindow(mx, my)
-	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) && !keyboardTestSuppressingInput() {
+	if focused && inGame && !typingElsewhere && !pointInUI(mx, my) && !bindingInputCaptured() {
 		wheelX, wheelY := ebiten.Wheel()
 		wheelName, wheelModifiers := legacyMacroWheelInput(wheelX, wheelY, legacyMacroCurrentModifiers(false))
 		if wheelName != "" && !scriptInputConsumesButton(consumedScriptInput, scriptWheelButtonName(wheelX, wheelY)) {
@@ -1641,7 +1644,7 @@ func (g *Game) Update() error {
 		middleClick = false
 		heldTime = 0
 	}
-	if keyboardTestSuppressingInput() {
+	if bindingInputCaptured() {
 		click = false
 		rightClick = false
 		middleClick = false
@@ -1682,7 +1685,7 @@ func (g *Game) Update() error {
 	if rightClick && inGame && !pointInUI(mx, my) {
 		info := handleWorldClick(baseX, baseY, ebiten.MouseButtonRight)
 		event := legacyMacroWorldClickEvent(info, 2, legacyMacroMouseChord(2))
-		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+		if started, allowDefault := legacyMacroTriggerRightClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
 			rightClick = false
 			legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
 		} else if info.OnPlayer && legacyMacroHandlePlayerModifierClick(info.Mobile.Name, event.Modifiers) {
@@ -1707,7 +1710,7 @@ func (g *Game) Update() error {
 		{button: ebiten.MouseButton3, name: "click4", number: 4},
 		{button: ebiten.MouseButton4, name: "click5", number: 5},
 	} {
-		if keyboardTestSuppressingInput() || !focused || !inWindow || !inGame || pointInUI(mx, my) ||
+		if bindingInputCaptured() || !focused || !inWindow || !inGame || pointInUI(mx, my) ||
 			scriptInputConsumesButton(consumedScriptInput, mouseButtonName(extra.button)) || !inpututil.IsMouseButtonJustPressed(extra.button) {
 			continue
 		}

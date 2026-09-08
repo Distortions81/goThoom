@@ -357,6 +357,25 @@ func (runtime *legacyMacroRuntime) triggerWheel(name string, modifiers legacyMac
 	return false, true
 }
 
+// The classic GameWin_cl.cp DoMouseDownEvent tries click2 first. Unless that
+// macro consumes the event, the old event loop delivers it again as a
+// control-click, with the primary button/chord defaults (1, 1). The Players
+// window only receives the converted control-click and has no button/chord
+// variables. Keep goThoom's normal context menu when neither macro consumes it.
+func (runtime *legacyMacroRuntime) triggerRightClick(event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {
+	if event.HasButton {
+		started, allowDefault = runtime.triggerClick(event, frame)
+		if started && !allowDefault {
+			return true, false
+		}
+		event.Chord = 1
+	}
+	event.Button = 1
+	event.Modifiers |= legacyMacroModControl
+	fallbackStarted, allowDefault := runtime.triggerClick(event, frame)
+	return started || fallbackStarted, allowDefault
+}
+
 func legacyMacroWheelInput(wheelX, wheelY float64, modifiers legacyMacroModifiers) (string, legacyMacroModifiers) {
 	switch {
 	case wheelX > 0:
@@ -460,6 +479,14 @@ func legacyMacroTriggerClick(event legacyMacroClickEvent, frame int64) (started,
 		return false, true
 	}
 	return runtime.triggerClick(event, frame)
+}
+
+func legacyMacroTriggerRightClick(event legacyMacroClickEvent, frame int64) (started, allowDefault bool) {
+	runtime := legacyMacroRuntimeSnapshot()
+	if runtime == nil {
+		return false, true
+	}
+	return runtime.triggerRightClick(event, frame)
 }
 
 func legacyMacroTriggerWheel(name string, modifiers legacyMacroModifiers, frame int64) (started, allowDefault bool) {
@@ -566,7 +593,7 @@ func legacyMacroPlayerClickEvent(name string) legacyMacroClickEvent {
 }
 
 func legacyMacroPollKeyboard(frame int64, typingElsewhere bool) {
-	if !windowIsFocused() || keyboardTestSuppressingInput() {
+	if !windowIsFocused() || bindingInputCaptured() {
 		return
 	}
 	runtime := legacyMacroRuntimeSnapshot()

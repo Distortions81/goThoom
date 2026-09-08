@@ -24,7 +24,7 @@ const (
 	legacyMacroNameWidth       = 360
 	legacyMacroGlobalWidth     = 110
 	legacyMacroPlayerWidth     = 150
-	legacyMacroListWidth       = 720
+	legacyMacroListWidth       = 940
 	legacyMacroPaneHeight      = 420
 	legacyMacroRowHeight       = 28
 	legacyMacroContinuousLabel = "Allow continuous macros"
@@ -48,7 +48,7 @@ func makeLegacyMacroLibraryWindow() {
 
 	listHeader := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	infoHeader, _ := eui.NewText()
-	infoHeader.Size = eui.Point{X: 68, Y: 24}
+	infoHeader.Size = eui.Point{X: 260, Y: 24}
 	listHeader.AddItem(infoHeader)
 	nameHeader, _ := eui.NewText()
 	nameHeader.Text = "Macro"
@@ -226,7 +226,34 @@ func refreshLegacyMacroLibraryWindow() {
 			}
 		}
 		row.AddItem(editButton)
+		info, infoErr := collectLegacyMacroLibraryInfo(entry)
+		for _, action := range []struct {
+			label string
+			keys  bool
+			count int
+		}{{"Commands", false, len(info.Commands)}, {"Keybinds", true, len(info.Keybindings)}} {
+			button, events := eui.NewButton()
+			button.Text = action.label
+			button.Size = eui.Point{X: 88, Y: 24}
+			button.Disabled = isWASM || (infoErr == nil && action.count == 0)
+			if infoErr == nil && action.count == 0 {
+				button.SetTooltip("This macro has no " + strings.ToLower(action.label) + ".")
+			}
+			events.Handle = func(event eui.UIEvent) {
+				if event.Type == eui.EventClick && !button.Disabled {
+					openLegacyTriggerEditor(entry, action.keys)
+				}
+			}
+			row.AddItem(button)
+		}
 
+		if index == 0 {
+			var actionWidth float32
+			for _, button := range row.Contents {
+				actionWidth += (button.GetSize().X + button.GetPos().X) / eui.UIScale()
+			}
+			legacyMacroLibraryRoot.Contents[0].Contents[0].Size.X = actionWidth
+		}
 		details, _ := eui.NewText()
 		details.Text = legacyMacroLibraryRowLabel(entry.Name, entry.Description, legacyMacroNameWidth)
 		details.FontSize = 12
@@ -274,19 +301,7 @@ func refreshLegacyMacroLibraryWindow() {
 }
 
 func legacyMacroLibraryLayout() {
-	scale := eui.UIScale()
-	if legacyMacroLibraryWin.NoScale {
-		scale = 1
-	}
-	clientW := legacyMacroLibraryWin.GetSize().X/scale - 2*(legacyMacroLibraryWin.Padding+legacyMacroLibraryWin.BorderPad)
-	clientH := (legacyMacroLibraryWin.GetSize().Y-legacyMacroLibraryWin.GetTitleSize())/scale - 2*(legacyMacroLibraryWin.Padding+legacyMacroLibraryWin.BorderPad)
-	clientW = max(0, clientW)
-	clientH = max(0, clientH)
-
-	legacyMacroLibraryRoot.Size = eui.Point{X: clientW, Y: clientH}
-	legacyMacroLibraryButtons.Size = eui.Point{X: clientW, Y: 24}
-	legacyMacroLibraryContinuous.Size = eui.Point{X: clientW, Y: 24}
-	legacyMacroLibraryList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-24-24-24)}
+	eui.LayoutWindowBody(legacyMacroLibraryWin, legacyMacroLibraryRoot, legacyMacroLibraryList)
 }
 
 func legacyMacroLibraryCurrentCharacter() string {
