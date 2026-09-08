@@ -294,7 +294,7 @@ func ClearFocus(it *ItemData) {
 // Focus gives keyboard focus to a text input. It is useful for transient
 // keyboard-driven windows that should be ready for typing as soon as opened.
 func Focus(it *ItemData) {
-	if it == nil || !itemAcceptsTextEditing(it) {
+	if it == nil || it.isInvisible() || !itemAcceptsTextEditing(it) {
 		return
 	}
 	if focusedItem != nil && focusedItem != it {

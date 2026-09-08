@@ -127,6 +127,9 @@ func (g *controlTextFitGame) Draw(screen *ebiten.Image) {
 
 func checkRenderedControlText(items []*eui.ItemData, scale float32) error {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if len(it.Tabs) > 0 {
 			for _, tab := range it.Tabs {
 				if tab.DrawRect.X0 < it.DrawRect.X0 || tab.DrawRect.X1 > it.DrawRect.X1+1 {
@@ -139,7 +142,7 @@ func checkRenderedControlText(items []*eui.ItemData, scale float32) error {
 		} else if err := checkRenderedControlText(it.Contents, scale); err != nil {
 			return err
 		}
-		if it.ItemType != eui.ITEM_BUTTON || it.Text == "" {
+		if it.ItemType != eui.ITEM_BUTTON || it.Text == "" || it.DrawRect.X1 <= it.DrawRect.X0 || it.DrawRect.Y1 <= it.DrawRect.Y0 {
 			continue
 		}
 		face := *mainFont.(*text.GoTextFace)

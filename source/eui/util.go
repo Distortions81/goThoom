@@ -1117,6 +1117,9 @@ func (win *windowData) GetRawSize() Point { return win.Size }
 func (win *windowData) GetRawPos() Point { return win.Position }
 
 func (item *itemData) GetSize() Point {
+	if item.Invisible {
+		return Point{}
+	}
 	// Start with the explicitly set size (scaled to pixels).
 	sz := Point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
 
@@ -1206,6 +1209,8 @@ func (item *itemData) GetSize() Point {
 	if item.Size.X <= 0 && item.ItemType == ITEM_TEXT && item.Tooltip != "" && item.ParentWindow != nil && item.ParentWindow.ShowTooltipIndicators {
 		sz.X += 18 * uiScale
 	}
+
+	sz.X = max(sz.X, item.buttonContentWidth())
 
 	// Account for label text below an item if set.
 	if item.Label != "" {
@@ -1465,6 +1470,9 @@ func markAllDirty() {
 }
 
 func (item *itemData) bounds(offset point) rect {
+	if item.Invisible {
+		return rect{}
+	}
 	var r rect
 	if item.ItemType == ITEM_FLOW && !item.Fixed {
 		// Unfixed flows should report bounds based solely on their content
@@ -1502,6 +1510,9 @@ func (item *itemData) bounds(offset point) rect {
 			subItems = item.Contents
 		}
 		for _, sub := range subItems {
+			if sub.Invisible {
+				continue
+			}
 			var off point
 			if item.FlowType == FLOW_HORIZONTAL {
 				off = pointAdd(offset, point{X: flowOffset.X + sub.getPosition(item.ParentWindow).X, Y: tabHeight + sub.getPosition(item.ParentWindow).Y})
@@ -1520,6 +1531,9 @@ func (item *itemData) bounds(offset point) rect {
 		}
 	} else {
 		for _, sub := range item.Contents {
+			if sub.Invisible {
+				continue
+			}
 			off := pointAdd(offset, sub.getPosition(item.ParentWindow))
 			r = unionRect(r, sub.bounds(off))
 		}
@@ -1537,6 +1551,9 @@ func (win *windowData) contentBounds() point {
 	var b rect
 
 	for _, item := range win.Contents {
+		if item.Invisible {
+			continue
+		}
 		// Use the generic bounds calculation for all items, including flows.
 		// This ensures fixed flows contribute their set size to autosize,
 		// while unfixed flows contribute based on their content.
@@ -1597,6 +1614,9 @@ func (win *windowData) updateAutoSize() {
 }
 
 func (item *itemData) contentBounds() point {
+	if item.Invisible {
+		return point{}
+	}
 	list := item.Contents
 	tabHeight := float32(0)
 	if len(item.Tabs) > 0 {
@@ -1616,7 +1636,7 @@ func (item *itemData) contentBounds() point {
 	var flowOffset point
 
 	for _, sub := range list {
-		if sub == nil {
+		if sub == nil || sub.Invisible {
 			continue
 		}
 		off := pointAdd(base, sub.getPosition(item.ParentWindow))
@@ -1654,6 +1674,10 @@ func (item *itemData) contentBounds() point {
 }
 
 func (item *itemData) resizeFlow(parentSize point) {
+	if item.Invisible {
+		item.clearHiddenState()
+		return
+	}
 	available := parentSize
 
 	if item.ItemType == ITEM_FLOW {

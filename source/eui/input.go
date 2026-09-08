@@ -49,6 +49,11 @@ var (
 // Programs embedding the UI can call this from their Ebiten Update handler.
 func Update() error {
 	updateNow = time.Now()
+	for _, it := range []*itemData{focusedItem, activeItem, hoveredItem, dragFlow} {
+		if it != nil && it.isInvisible() {
+			it.clearHiddenState()
+		}
+	}
 	checkThemeStyleMods()
 	pointerPressHandled = false
 
@@ -560,7 +565,7 @@ func Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
 			if activeWindow != nil && activeWindow.Open && activeWindow.DefaultButton != nil {
 				btn := activeWindow.DefaultButton
-				if !btn.Disabled && !btn.Invisible {
+				if !btn.Disabled && !btn.isInvisible() {
 					activeItem = btn
 					btn.Clicked = updateNow
 					if btn.Handler != nil {
@@ -722,6 +727,9 @@ func (win *windowData) clickWindowItems(mpos point, click bool) bool {
 }
 
 func (item *itemData) clickFlows(mpos point, click bool) bool {
+	if item.isInvisible() {
+		return false
+	}
 	if item.Disabled {
 		return item.DrawRect.containsPoint(mpos)
 	}
@@ -789,6 +797,9 @@ func (item *itemData) clickFlows(mpos point, click bool) bool {
 }
 
 func (item *itemData) clickItem(mpos point, click bool) bool {
+	if item.isInvisible() {
+		return false
+	}
 	if item.Disabled {
 		inside := item.DrawRect.containsPoint(mpos)
 		if inside && item.Tooltip != "" {
@@ -1240,6 +1251,9 @@ func (item *itemData) colorAt(mpos point) (Color, bool) {
 
 func scrollFlow(items []*itemData, mpos point, delta point) bool {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if it.Disabled {
 			continue
 		}
@@ -1306,6 +1320,9 @@ func scrollFlow(items []*itemData, mpos point, delta point) bool {
 
 func scrollDropdown(items []*itemData, mpos point, delta point) bool {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if it.Disabled {
 			continue
 		}
@@ -1550,6 +1567,9 @@ func dragFlowScroll(flow *itemData, mpos point, vert bool) {
 }
 func dropdownOpenContains(items []*itemData, mpos point) bool {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if it.ItemType == ITEM_DROPDOWN && it.Open {
 			r, _ := dropdownOpenRect(it, point{X: it.DrawRect.X0, Y: it.DrawRect.Y0})
 			if r.containsPoint(mpos) {
@@ -1573,6 +1593,9 @@ func dropdownOpenContains(items []*itemData, mpos point) bool {
 
 func clickOpenDropdown(items []*itemData, mpos point, click bool) bool {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if it.ItemType == ITEM_DROPDOWN && it.Open {
 			r, _ := dropdownOpenRect(it, point{X: it.DrawRect.X0, Y: it.DrawRect.Y0})
 			if r.containsPoint(mpos) {
@@ -1645,6 +1668,9 @@ func closeAllDropdowns() {
 
 func collectInputs(items []*itemData, inputs *[]*itemData) {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if it.ItemType == ITEM_INPUT && !it.Disabled && !it.Invisible {
 			*inputs = append(*inputs, it)
 		}

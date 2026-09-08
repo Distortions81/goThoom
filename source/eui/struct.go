@@ -173,8 +173,10 @@ type itemData struct {
 	HideValue       bool // Hide a slider's value caption when an adjacent field supplies it.
 	RadioGroup      string
 
-	Hovered, Checked, Focused,
-	Disabled, Invisible bool
+	Hovered, Checked, Focused, Disabled bool
+	// Invisible removes the item and its descendants from drawing, input, and
+	// layout. Refresh the parent window after changing it.
+	Invisible   bool
 	Clicked     time.Time
 	FlowType    flowType
 	Scroll      point

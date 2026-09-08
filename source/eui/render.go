@@ -159,7 +159,7 @@ func Draw(screen *ebiten.Image) {
 }
 
 func shouldDrawTooltip(item *itemData, dropdowns []openDropdown, menus []*itemData) bool {
-	if item == nil || item.Tooltip == "" || len(dropdowns) > 0 {
+	if item == nil || item.isInvisible() || item.Tooltip == "" || len(dropdowns) > 0 {
 		return false
 	}
 	for _, menu := range menus {
@@ -740,6 +740,10 @@ func (win *windowData) drawItems(screen *ebiten.Image, base point, dropdowns *[]
 }
 
 func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, base point, clip rect, screen *ebiten.Image, dropdowns *[]openDropdown) {
+	if item.Invisible {
+		item.clearHiddenState()
+		return
+	}
 	if CacheCheck {
 		item.RenderCount++
 	}
@@ -895,11 +899,15 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 	var flowOffset point
 
 	for _, subItem := range activeContents {
+		if subItem.Invisible {
+			subItem.clearHiddenState()
+			continue
+		}
 		subSize := subItem.GetSize()
 
 		if subItem.ItemType == ITEM_FLOW {
 			// Use window-aware scaled position to handle NoScale windows correctly.
-			flowPos := pointAdd(drawOffset, item.getPosition(win))
+			flowPos := drawOffset // This flow’s position is already included in drawOffset.
 			flowOff := pointAdd(flowPos, flowOffset)
 			itemPos := pointAdd(flowOff, subItem.getPosition(win))
 			subRect := rect{
@@ -1919,6 +1927,10 @@ func drawParallelogram(dst *ebiten.Image, x, y, w, h, slant float32, col color.C
 }
 
 func (item *itemData) drawItem(parent *itemData, offset point, base point, clip rect, screen *ebiten.Image, dropdowns *[]openDropdown) {
+	if item.Invisible {
+		item.clearHiddenState()
+		return
+	}
 	if CacheCheck {
 		item.RenderCount++
 	}
@@ -2083,6 +2095,9 @@ func (win *windowData) collectDropdowns(dropdowns *[]openDropdown) {
 
 func collectItemDropdowns(items []*itemData, dropdowns *[]openDropdown) {
 	for _, it := range items {
+		if it.Invisible {
+			continue
+		}
 		if it.ItemType == ITEM_DROPDOWN && it.Open {
 			off := point{X: it.DrawRect.X0, Y: it.DrawRect.Y0}
 			*dropdowns = append(*dropdowns, openDropdown{item: it, offset: off})

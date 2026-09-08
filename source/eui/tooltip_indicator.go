@@ -14,6 +14,11 @@ func (item *itemData) tooltipIndicatorRect(offset, size point) rect {
 	if item.ColorSwatch || item.Tooltip == "" || item.ParentWindow == nil || !item.ParentWindow.ShowTooltipIndicators {
 		return rect{}
 	}
+	// Unlabeled sliders have no caption beside which to place a marker. Keep
+	// their hover help without drawing an icon over the slider track.
+	if item.ItemType == ITEM_SLIDER && item.Label == "" {
+		return rect{}
+	}
 	textSize := item.FontSize*uiScale + 2
 	face := itemFace(item, textSize)
 	caption := item.Text
