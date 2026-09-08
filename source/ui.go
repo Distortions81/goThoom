@@ -1766,9 +1766,23 @@ func makeMixerWindow() {
 		}
 	}
 	// Keep the mixer-wide controls together to the right of the channel sliders.
-	muteCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 192, Y: 60}}
+	muteCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 192, Y: 84}}
 	muteCol.AddItem(mixMuteBtn)
 	muteCol.AddItem(muteUnfocusCB)
+	audioSettingsBtn, audioSettingsEvents := eui.NewButton()
+	audioSettingsBtn.Text = "Audio Settings"
+	setMaterialButtonIcon(audioSettingsBtn, "settings")
+	audioSettingsBtn.Size = eui.Point{X: 192, Y: 24}
+	audioSettingsBtn.SetTooltip("Open Settings directly to SoundFont, music, and speech options.")
+	audioSettingsEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		makeSettingsWindow()
+		selectSettingsTab("Audio")
+		settingsWin.MarkOpenNear(ev.Item)
+	}
+	muteCol.AddItem(audioSettingsBtn)
 	flow.AddItem(muteCol)
 
 	refreshMixerEnhancementControls()

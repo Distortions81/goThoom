@@ -155,6 +155,7 @@ func handleDisconnect() {
 	loginMu.Unlock()
 
 	cancel()
+	stopAllMusic()
 	if recorder != nil {
 		stopRecording()
 	}

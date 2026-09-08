@@ -14,3 +14,14 @@ Settings and setup:
 - Added a Show FPS option in Display, plus separate Autocomplete and Spellcheck options in Text.
 - The Network server setting now opens the existing Server List editor.
 - Graphics detection in the setup wizard now clearly shows that the performance check is in progress.
+
+Audio:
+- Added a Music SoundFont selector to Settings > Audio for choosing any valid `.sf2` file in Assets & Audio, with a refresh button for newly added files and a direct Audio Settings button in the Mixer.
+- SoundFont changes now take effect during active bard music while staying as close as possible to the current song position.
+- Bard instruments are normalized per SoundFont and instrument program for more consistent perceived volume, with conservative peak protection for chords and groups.
+- Disconnecting or logging out now stops active bard music.
+
+Movie playback:
+- Indexed bard-music start and stop events in `.clmov` recordings so music resumes at the corresponding song position after seeking.
+- Bard-music tempo now follows playback UPS without changing instrument pitch.
+- Pausing and resuming movie playback now pauses and resumes bard music; exiting the movie player stops it.

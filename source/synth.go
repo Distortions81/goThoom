@@ -9,6 +9,9 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,9 +55,14 @@ type synthesizer interface {
 }
 
 var (
-	setupSynthOnce sync.Once
-	sfntCached     *meltysynth.SoundFont
-	synthSettings  *meltysynth.SynthesizerSettings
+	setupSynthOnce  sync.Once
+	sfntCached      *meltysynth.SoundFont
+	synthSettings   *meltysynth.SynthesizerSettings
+	synthCacheMu    sync.RWMutex
+	synthGeneration uint64
+
+	programGainMu    sync.Mutex
+	programGainCache = make(map[programGainKey]float32)
 
 	musicPlayers   = make(map[*audio.Player]musicTrack)
 	musicPlayersMu sync.Mutex
@@ -63,6 +71,139 @@ var (
 type musicTrack struct {
 	stream *musicStream
 	whos   map[int]struct{}
+	ctx    *audio.Context
+	parts  []musicPart
+}
+
+type programGainKey struct {
+	generation uint64
+	program    int
+}
+
+const (
+	programCalibrationKey       = 60
+	programCalibrationFrames    = sampleRate
+	programNormalizationRMS     = 0.08
+	programNormalizationPeak    = 0.35
+	programNormalizationMinGain = 0.25
+	programNormalizationMaxGain = 4.0
+)
+
+// configuredSoundFontFile returns the selected SoundFont's base name. Older
+// settings files do not have a selection, so they continue to use the bundled
+// soundfont.sf2. Do not allow a hand-edited setting to escape the audio folder.
+func configuredSoundFontFile() string {
+	name := gs.SoundFontFile
+	if name == "" {
+		return soundFontFile
+	}
+	if filepath.Base(name) != name || !strings.EqualFold(filepath.Ext(name), ".sf2") {
+		return soundFontFile
+	}
+	return name
+}
+
+func loadSoundFont(path string) (*meltysynth.SoundFont, error) {
+	sfData, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return meltysynth.NewSoundFont(bytes.NewReader(sfData))
+}
+
+func newSynthSettings() *meltysynth.SynthesizerSettings {
+	settings := meltysynth.NewSynthesizerSettings(sampleRate)
+	// Disable the built-in reverb/chorus effect to match the desired dry output.
+	settings.EnableReverbAndChorus = false
+	// Align meltysynth internal block size with our render loop to reduce
+	// chances of effect buffers overrunning on odd boundaries.
+	settings.BlockSize = block
+	return settings
+}
+
+// listSoundFonts returns the valid SF2 files in the configured Assets & Audio
+// folder. Parsing each candidate keeps malformed files out of the selector.
+func listSoundFonts() ([]string, error) {
+	entries, err := os.ReadDir(soundFontsDirPath())
+	if err != nil {
+		return nil, err
+	}
+	fonts := make([]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".sf2") {
+			continue
+		}
+		if _, err := loadSoundFont(filepath.Join(soundFontsDirPath(), entry.Name())); err == nil {
+			fonts = append(fonts, entry.Name())
+		}
+	}
+	sort.Strings(fonts)
+	return fonts, nil
+}
+
+// selectSoundFont validates and applies a SoundFont to newly started and
+// currently playing bard music.
+func selectSoundFont(name string) error {
+	if filepath.Base(name) != name || !strings.EqualFold(filepath.Ext(name), ".sf2") {
+		return fmt.Errorf("invalid soundfont filename %q", name)
+	}
+	font, err := loadSoundFont(filepath.Join(soundFontsDirPath(), name))
+	if err != nil {
+		return fmt.Errorf("load soundfont %q: %w", name, err)
+	}
+	synthCacheMu.Lock()
+	sfntCached = font
+	synthSettings = newSynthSettings()
+	synthGeneration++
+	synthCacheMu.Unlock()
+	SettingsLock.Lock()
+	gs.SoundFontFile = name
+	SettingsLock.Unlock()
+	settingsDirty = true
+	restartMusicWithSelectedSoundFont()
+	return nil
+}
+
+// restartMusicWithSelectedSoundFont continues each active bard track at its
+// current playback position using the newly selected SoundFont. The replacement
+// streams are prepared in background goroutines so selecting a large font does
+// not stall the UI.
+func restartMusicWithSelectedSoundFont() {
+	type restart struct {
+		ctx   *audio.Context
+		parts []musicPart
+		whos  []int
+		frame int
+	}
+	var restarts []restart
+	musicPlayersMu.Lock()
+	for player, track := range musicPlayers {
+		if player == nil || track.ctx == nil {
+			continue
+		}
+		whos := make([]int, 0, len(track.whos))
+		for who := range track.whos {
+			whos = append(whos, who)
+		}
+		parts := make([]musicPart, len(track.parts))
+		for i, part := range track.parts {
+			parts[i] = musicPart{program: part.program, notes: append([]Note(nil), part.notes...)}
+		}
+		frame := int(max(player.Position(), time.Duration(0)).Seconds() * sampleRate)
+		restarts = append(restarts, restart{ctx: track.ctx, parts: parts, whos: whos, frame: frame})
+		_ = track.stream.Close()
+	}
+	musicPlayersMu.Unlock()
+
+	settings := currentMusicPlaybackSettings()
+	for _, restart := range restarts {
+		restart := restart
+		go func() {
+			if err := playMusicGroupWithSettingsAtFrame(restart.ctx, restart.parts, restart.whos, nil, nil, settings, restart.frame); err != nil {
+				log.Printf("restart music with selected soundfont: %v", err)
+			}
+		}()
+	}
 }
 
 // newSynthesizer constructs a meltysynth synthesizer. Tests may override this to
@@ -90,31 +231,115 @@ func stopMusicFor(who int) {
 	musicPlayersMu.Unlock()
 }
 
+func pauseAllMusic() {
+	musicPlayersMu.Lock()
+	for player, track := range musicPlayers {
+		track.stream.setPaused(true)
+		player.Pause()
+	}
+	musicPlayersMu.Unlock()
+}
+
+// resumeAllMusic returns whether an existing stream was available to resume.
+// A paused movie seek has no stream, so its caller can rebuild from the index.
+func resumeAllMusic() bool {
+	musicPlayersMu.Lock()
+	resumed := false
+	for player, track := range musicPlayers {
+		track.stream.setPaused(false)
+		resumed = track.stream.playIfOpen(player) || resumed
+	}
+	musicPlayersMu.Unlock()
+	return resumed
+}
+
 func setupSynth() {
-	var err error
-
 	sfPath := soundFontPath()
-
-	var sfData []byte
-	sfData, err = os.ReadFile(sfPath)
+	sfnt, err := loadSoundFont(sfPath)
 	if err != nil {
 		log.Printf("soundfont missing: %v", err)
 		return
 	}
-	rs := bytes.NewReader(sfData)
-	sfnt, err := meltysynth.NewSoundFont(rs)
-	if err != nil {
-		log.Printf("load soundfont: %v", err)
-		return
-	}
-	settings := meltysynth.NewSynthesizerSettings(sampleRate)
-	// Disable the built-in reverb/chorus effect to match the desired dry output.
-	settings.EnableReverbAndChorus = false
-	// Align meltysynth internal block size with our render loop to reduce
-	// chances of effect buffers overrunning on odd boundaries.
-	settings.BlockSize = block
+	synthCacheMu.Lock()
 	sfntCached = sfnt
-	synthSettings = settings
+	synthSettings = newSynthSettings()
+	synthGeneration++
+	synthCacheMu.Unlock()
+}
+
+// programNormalizationGain converts a measured full-velocity reference note
+// into a conservative per-program gain. RMS evens out perceived loudness while
+// the peak limit leaves room for chords and multiple simultaneous bards.
+func programNormalizationGain(rms, peak float64) float32 {
+	if rms <= 0 || peak <= 0 || math.IsNaN(rms) || math.IsNaN(peak) {
+		return 1
+	}
+	gain := math.Min(programNormalizationRMS/rms, programNormalizationPeak/peak)
+	gain = math.Max(programNormalizationMinGain, math.Min(programNormalizationMaxGain, gain))
+	return float32(gain)
+}
+
+func measureProgramGain(font *meltysynth.SoundFont, program int) (gain float32) {
+	gain = 1
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			gain = 1
+		}
+	}()
+	syn, err := meltysynth.NewSynthesizer(font, newSynthSettings())
+	if err != nil {
+		return 1
+	}
+	syn.ProcessMidiMessage(0, 0xC0, int32(program), 0)
+	syn.NoteOn(0, programCalibrationKey, 127)
+	var sumSquares float64
+	var peak float64
+	var samples int
+	for rendered := 0; rendered < programCalibrationFrames; rendered += block {
+		left := make([]float32, block)
+		right := make([]float32, block)
+		if err := safeRender(syn, left, right); err != nil {
+			return 1
+		}
+		keep := min(block, programCalibrationFrames-rendered)
+		for i := 0; i < keep; i++ {
+			for _, value := range [...]float32{left[i], right[i]} {
+				magnitude := math.Abs(float64(value))
+				if magnitude > peak {
+					peak = magnitude
+				}
+				sumSquares += magnitude * magnitude
+				samples++
+			}
+		}
+	}
+	if samples == 0 {
+		return 1
+	}
+	return programNormalizationGain(math.Sqrt(sumSquares/float64(samples)), peak)
+}
+
+func soundFontProgramGain(font *meltysynth.SoundFont, generation uint64, program int) float32 {
+	key := programGainKey{generation: generation, program: program}
+	programGainMu.Lock()
+	if gain, ok := programGainCache[key]; ok {
+		programGainMu.Unlock()
+		return gain
+	}
+	programGainMu.Unlock()
+
+	gain := measureProgramGain(font, program)
+	programGainMu.Lock()
+	programGainCache[key] = gain
+	// A SoundFont switch makes every older calibration unreachable. Drop those
+	// entries while retaining any concurrent result for the current generation.
+	for cachedKey := range programGainCache {
+		if cachedKey.generation != generation {
+			delete(programGainCache, cachedKey)
+		}
+	}
+	programGainMu.Unlock()
+	return gain
 }
 
 // renderSong renders the provided notes using the current SoundFont and returns
@@ -142,6 +367,7 @@ func renderSong(program int, notes []Note) ([]float32, []float32, error) {
 // a song to be rendered in bounded pieces without changing its note timing.
 type songRenderer struct {
 	syn          synthesizer
+	gain         float32
 	events       []songEvent
 	active       map[int]bool
 	pos          int
@@ -155,13 +381,16 @@ type songEvent struct {
 
 func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	setupSynthOnce.Do(setupSynth)
-	if sfntCached == nil || synthSettings == nil {
+	synthCacheMu.RLock()
+	font, settings, generation := sfntCached, synthSettings, synthGeneration
+	synthCacheMu.RUnlock()
+	if font == nil || settings == nil {
 		return nil, errors.New("synth not initialized")
 	}
 
 	const ch = 0
 	// Build a fresh synth per song to avoid concurrent use of internal state.
-	syn, err := newSynthesizer(sfntCached, synthSettings)
+	syn, err := newSynthesizer(font, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +469,7 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 
 	return &songRenderer{
 		syn:          syn,
+		gain:         soundFontProgramGain(font, generation, program),
 		events:       events,
 		active:       make(map[int]bool),
 		totalSamples: maxEnd + tailSamples,
@@ -283,6 +513,12 @@ func (r *songRenderer) render(count int) ([]float32, []float32, error) {
 		right := make([]float32, block)
 		if err := safeRender(r.syn, left, right); err != nil {
 			return nil, nil, fmt.Errorf("synth render: %v", err)
+		}
+		if r.gain != 0 && r.gain != 1 {
+			for i := range left {
+				left[i] *= r.gain
+				right[i] *= r.gain
+			}
 		}
 		leftAll = append(leftAll, left[:n]...)
 		rightAll = append(rightAll, right[:n]...)
@@ -507,6 +743,7 @@ type musicStream struct {
 	mu           sync.Mutex
 	lifecycleMu  sync.Mutex
 	closed       bool
+	paused       bool
 }
 
 func newMusicStream(program int, notes []Note) (*musicStream, error) {
@@ -516,6 +753,25 @@ func newMusicStream(program int, notes []Note) (*musicStream, error) {
 type musicPart struct {
 	program int
 	notes   []Note
+}
+
+// scaleMusicParts changes note timing without resampling the synthesized PCM,
+// preserving instrument pitch when movie playback UPS changes.
+func scaleMusicParts(parts []musicPart, rate float64) []musicPart {
+	if rate <= 0 {
+		rate = 1
+	}
+	scaled := make([]musicPart, len(parts))
+	for i, part := range parts {
+		scaled[i].program = part.program
+		scaled[i].notes = make([]Note, len(part.notes))
+		for j, note := range part.notes {
+			note.Start = time.Duration(float64(note.Start) / rate)
+			note.Duration = time.Duration(float64(note.Duration) / rate)
+			scaled[i].notes[j] = note
+		}
+	}
+	return scaled
 }
 
 type musicPlaybackSettings struct {
@@ -539,10 +795,14 @@ func currentMusicPlaybackSettings() musicPlaybackSettings {
 // relying on simultaneous audio-backend players for /with bard groups.
 func newMixedMusicStream(parts []musicPart) (*musicStream, error) {
 	settings := currentMusicPlaybackSettings()
-	return newMixedMusicStreamWithSettings(parts, settings)
+	return newMixedMusicStreamWithSettingsAtFrame(parts, settings, 0)
 }
 
 func newMixedMusicStreamWithSettings(parts []musicPart, settings musicPlaybackSettings) (*musicStream, error) {
+	return newMixedMusicStreamWithSettingsAtFrame(parts, settings, 0)
+}
+
+func newMixedMusicStreamWithSettingsAtFrame(parts []musicPart, settings musicPlaybackSettings, startFrame int) (*musicStream, error) {
 	if len(parts) == 0 {
 		return nil, errors.New("empty music group")
 	}
@@ -558,13 +818,26 @@ func newMixedMusicStreamWithSettings(parts []musicPart, settings musicPlaybackSe
 			maxFrames = renderer.totalSamples
 		}
 	}
+	startFrame = min(max(startFrame, 0), maxFrames)
+	for remaining := startFrame; remaining > 0; {
+		frames := min(block, remaining)
+		for _, renderer := range renderers {
+			if renderer.remaining() == 0 {
+				continue
+			}
+			if _, _, err := renderer.render(min(frames, renderer.remaining())); err != nil {
+				return nil, fmt.Errorf("seek music: %w", err)
+			}
+		}
+		remaining -= frames
+	}
 	s := &musicStream{
 		chunks:       make(chan []byte, musicBufferSeconds),
 		done:         make(chan struct{}),
 		ready:        make(chan struct{}),
 		exhausted:    make(chan struct{}),
 		producerDone: make(chan struct{}),
-		totalFrames:  maxFrames,
+		totalFrames:  maxFrames - startFrame,
 	}
 	go s.produceMixed(renderers, settings.enhancement, settings.enhancementAmount)
 	<-s.ready // render five seconds before the caller starts the player
@@ -702,6 +975,18 @@ func (s *musicStream) Close() error {
 	return nil
 }
 
+func (s *musicStream) setPaused(paused bool) {
+	s.lifecycleMu.Lock()
+	s.paused = paused
+	s.lifecycleMu.Unlock()
+}
+
+func (s *musicStream) isPaused() bool {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	return s.paused
+}
+
 func (s *musicStream) waitForProducer() {
 	if s.producerDone != nil {
 		<-s.producerDone
@@ -823,6 +1108,11 @@ func waitForMusicPlayback(player musicPlaybackPlayer, stream *musicStream, durat
 		case <-stream.done:
 			return nil
 		case now := <-ticker.C:
+			if stream.isPaused() {
+				monitor.lastProgress = now
+				monitor.lastResume = time.Time{}
+				continue
+			}
 			complete, resume, err := monitor.update(now, player.IsPlaying(), player.Position(), stream.isExhausted(), stream.renderError())
 			if err != nil {
 				return err
@@ -846,6 +1136,10 @@ func playMusicGroup(ctx *audio.Context, parts []musicPart, whos []int, prepared 
 }
 
 func playMusicGroupWithSettings(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings) error {
+	return playMusicGroupWithSettingsAtFrame(ctx, parts, whos, prepared, start, settings, 0)
+}
+
+func playMusicGroupWithSettingsAtFrame(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings, startFrame int) error {
 
 	if ctx == nil {
 		return errors.New("nil audio context")
@@ -855,7 +1149,7 @@ func playMusicGroupWithSettings(ctx *audio.Context, parts []musicPart, whos []in
 		return errors.New("music muted")
 	}
 
-	stream, err := newMixedMusicStreamWithSettings(parts, settings)
+	stream, err := newMixedMusicStreamWithSettingsAtFrame(parts, settings, startFrame)
 	if err != nil {
 		if prepared != nil {
 			prepared()
@@ -880,7 +1174,7 @@ func playMusicGroupWithSettings(ctx *audio.Context, parts []musicPart, whos []in
 	for _, who := range whos {
 		trackWhos[who] = struct{}{}
 	}
-	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos}
+	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos, ctx: ctx, parts: parts}
 	musicPlayersMu.Unlock()
 	defer func() {
 		_ = stream.Close()
@@ -901,7 +1195,11 @@ func playMusicGroupWithSettings(ctx *audio.Context, parts []musicPart, whos []in
 			return nil
 		}
 	}
-	stream.playIfOpen(player)
+	if movieMode && movieMusicPaused.Load() {
+		stream.setPaused(true)
+	} else {
+		stream.playIfOpen(player)
+	}
 
 	playDuration := time.Duration(stream.totalFrames) * time.Second / sampleRate
 	return waitForMusicPlayback(player, stream, playDuration)

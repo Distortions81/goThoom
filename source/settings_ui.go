@@ -1382,6 +1382,55 @@ func addBubbleSettings(bubbleSection *eui.ItemData, columnWidth float32) {
 }
 
 func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float32) {
+	soundFontDD, soundFontEvents := eui.NewDropdown()
+	soundFontDD.Label = "Music SoundFont"
+	soundFontDD.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	soundFontDD.SetTooltip("Choose a valid .sf2 file from the Assets & Audio folder. The list refreshes when opened.")
+	refreshSoundFonts := func() {
+		fonts, err := listSoundFonts()
+		if err != nil || len(fonts) == 0 {
+			soundFontDD.Options = nil
+			soundFontDD.Selected = 0
+			return
+		}
+		soundFontDD.Options = fonts
+		soundFontDD.Selected = 0
+		for i, name := range fonts {
+			if name == configuredSoundFontFile() {
+				soundFontDD.Selected = i
+				break
+			}
+		}
+	}
+	refreshSoundFonts()
+	soundFontDD.Action = func() {
+		if soundFontDD.Open {
+			refreshSoundFonts()
+		}
+	}
+	soundFontEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(soundFontDD.Options) {
+			return
+		}
+		if err := selectSoundFont(soundFontDD.Options[ev.Index]); err != nil {
+			logError("select music soundfont: %v", err)
+			refreshSoundFonts()
+		}
+	}
+	soundFontRefreshBtn, soundFontRefreshEvents := eui.NewButton()
+	setMaterialIconOnly(soundFontRefreshBtn, "refresh", "Refresh")
+	soundFontRefreshBtn.Size = eui.Point{X: settingsControlHeight, Y: settingsControlHeight}
+	soundFontRefreshEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventClick {
+			refreshSoundFonts()
+			soundFontDD.Dirty = true
+		}
+	}
+	soundFontRow := eui.NewRow()
+	soundFontRow.AddItem(soundFontDD)
+	soundFontRow.AddItem(soundFontRefreshBtn)
+	audioSection.AddItem(soundFontRow)
+
 	voiceDD, voiceEvents := eui.NewDropdown()
 	voiceDD.Label = "TTS Voice"
 	if voices, err := listPiperVoices(); err == nil && len(voices) > 0 {

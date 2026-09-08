@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -33,6 +34,15 @@ type movieCheckpoint struct {
 	idx   int
 	state drawState
 	night movieNightState
+}
+
+// movieMusicEvent is a completed bard start or stop indexed by the playback
+// frame immediately after the message that caused it was processed.
+type movieMusicEvent struct {
+	frame   int
+	jobs    []tuneJob
+	stopWho int
+	stop    bool
 }
 
 type movieNightState struct {
@@ -98,6 +108,9 @@ type moviePlayer struct {
 	// resetOnNextDraw removes interpolation history after the first complete
 	// draw at movie start or after looping back to frame zero.
 	resetOnNextDraw bool
+	// musicNeedsRestore is set when a paused seek or UPS change invalidates the
+	// paused audio stream. Ordinary pause/play can resume the existing player.
+	musicNeedsRestore bool
 
 	// Slider motion can generate many values while an expensive seek is still
 	// rebuilding state. Keep only the most recent value and seek to it next.
@@ -108,12 +121,75 @@ type moviePlayer struct {
 	seekStopped bool
 
 	checkpoints []movieCheckpoint
+	music       []movieMusicEvent
 
 	slider     *eui.ItemData
 	curLabel   *eui.ItemData
 	totalLabel *eui.ItemData
 	fpsLabel   *eui.ItemData
 	playButton *eui.ItemData
+}
+
+var movieMusicTempoMu sync.RWMutex
+var movieMusicTempoRate = 1.0
+
+func setMovieMusicTempoRate(rate float64) {
+	if rate <= 0 {
+		rate = 1
+	}
+	movieMusicTempoMu.Lock()
+	movieMusicTempoRate = rate
+	movieMusicTempoMu.Unlock()
+}
+
+func currentMovieMusicTempoRate() float64 {
+	movieMusicTempoMu.RLock()
+	defer movieMusicTempoMu.RUnlock()
+	return movieMusicTempoRate
+}
+
+// indexMovieMusic parses only the music payloads once at movie load time.
+// The tune assembler emits complete jobs, so a seek need not replay messages
+// from the beginning just to recover /part and /with groups.
+func indexMovieMusic(frames []movieFrame) []movieMusicEvent {
+	previousCapture, previousStop := movieMusicIndexCapture, movieMusicIndexStop
+	previousBlockMusic := blockMusic
+	pendingMu.Lock()
+	previousPending := pendingByID
+	pendingByID = make(map[int]*pendingSong)
+	pendingMu.Unlock()
+	defer func() {
+		movieMusicIndexCapture, movieMusicIndexStop = previousCapture, previousStop
+		blockMusic = previousBlockMusic
+		pendingMu.Lock()
+		pendingByID = previousPending
+		pendingMu.Unlock()
+	}()
+
+	blockMusic = false
+	var events []movieMusicEvent
+	currentFrame := 0
+	movieMusicIndexCapture = func(jobs []tuneJob) {
+		copyJobs := append([]tuneJob(nil), jobs...)
+		events = append(events, movieMusicEvent{frame: currentFrame + 1, jobs: copyJobs})
+	}
+	movieMusicIndexStop = func(who int) {
+		events = append(events, movieMusicEvent{frame: currentFrame + 1, stop: true, stopWho: who})
+	}
+	for frame, movieFrame := range frames {
+		currentFrame = frame
+		payload := movieFrame.data
+		for start := 0; start < len(payload); {
+			index := bytes.Index(payload[start:], []byte("/music/"))
+			if index < 0 {
+				break
+			}
+			index += start
+			_ = parseMusicCommand("", payload[index:])
+			start = index + len("/music/")
+		}
+	}
+	return events
 }
 
 // checkpointAtOrBefore returns the closest cached state that does not pass
@@ -150,6 +226,8 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 	frameInterval = time.Second / time.Duration(fps)
 	playingMovie = true
 	movieMode = true
+	movieMusicPaused.Store(false)
+	setMovieMusicTempoRate(1)
 	// Do not interpolate the very first frame of playback.
 	// Ensure prevTime == curTime and clear prior history so sprites
 	// don't lerp from zeroed positions on start.
@@ -165,6 +243,7 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 		cancel:          cancel,
 		looped:          make(chan struct{}, 1),
 		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState), night: captureMovieNightState()}},
+		music:           indexMovieMusic(frames),
 	}
 }
 
@@ -173,6 +252,7 @@ var seekingMov bool
 var movieSeekRenderGeneration atomic.Uint64
 var movieSeekRenderedGeneration atomic.Uint64
 var movieSeekRenderAcknowledged = make(chan struct{}, 1)
+var movieMusicPaused atomic.Bool
 
 func movieSeekFullRenderDue(lastRender, now time.Time) bool {
 	return lastRender.IsZero() || now.Before(lastRender) || now.Sub(lastRender) >= movieSeekFullRenderInterval
@@ -446,6 +526,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 		// Stop any active sounds
 		stopAllSounds()
 		stopAllTTS()
+		stopAllMusic()
+		movieMusicPaused.Store(false)
 		// Cancel playback loop
 		if p.cancel != nil {
 			p.cancel()
@@ -712,13 +794,108 @@ func (p *moviePlayer) setFPS(fps int) {
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
 	frameInterval = time.Second / time.Duration(p.fps)
 	setInterpFPS(p.fps)
+	setMovieMusicTempoRate(float64(p.fps) / float64(p.baseFPS))
+	if p.playing {
+		p.restoreIndexedMusic(p.cur, true)
+		p.musicNeedsRestore = false
+	} else {
+		// A paused stream was rendered for the previous UPS. Rebuild it from
+		// the indexed movie position when Play is pressed.
+		stopAllMusic()
+		p.musicNeedsRestore = true
+	}
 	p.updateUI()
 }
 
-func (p *moviePlayer) play() { p.playing = true }
+// restoreIndexedMusic rebuilds each active movie bard track at idx. The seek
+// frame is measured in the movie's recorded UPS; note timing is then scaled to
+// the current playback UPS so video and music stay synchronized at every speed.
+func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) {
+	if !play || len(p.music) == 0 || p.baseFPS < 1 {
+		return
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	type activeMusic struct {
+		frame int
+		jobs  []tuneJob
+	}
+	active := make([]activeMusic, 0)
+	for _, event := range p.music {
+		if event.frame > idx {
+			break
+		}
+		if event.stop {
+			if event.stopWho == 0 {
+				active = active[:0]
+				continue
+			}
+			kept := active[:0]
+			for _, track := range active {
+				matches := false
+				for _, job := range track.jobs {
+					if job.who == event.stopWho {
+						matches = true
+						break
+					}
+				}
+				if !matches {
+					kept = append(kept, track)
+				}
+			}
+			active = kept
+			continue
+		}
+		active = append(active, activeMusic{frame: event.frame, jobs: event.jobs})
+	}
+	stopAllMusic()
+	soundMu.Lock()
+	context := audioContext
+	soundMu.Unlock()
+	if context == nil {
+		return
+	}
+	rate := currentMovieMusicTempoRate()
+	settings := currentMusicPlaybackSettings()
+	for _, track := range active {
+		elapsed := time.Duration(idx-track.frame) * time.Second / time.Duration(p.baseFPS)
+		scaledElapsed := time.Duration(float64(elapsed) / rate)
+		startFrame := int(scaledElapsed.Seconds() * sampleRate)
+		parts := make([]musicPart, 0, len(track.jobs))
+		whos := make([]int, 0, len(track.jobs))
+		for _, job := range track.jobs {
+			parts = append(parts, musicPart{program: job.program, notes: job.notes})
+			whos = append(whos, job.who)
+		}
+		parts = scaleMusicParts(parts, rate)
+		go func(parts []musicPart, whos []int, startFrame int) {
+			if err := playMusicGroupWithSettingsAtFrame(context, parts, whos, nil, nil, settings, startFrame); err != nil {
+				log.Printf("resume movie music: %v", err)
+			}
+		}(parts, whos, startFrame)
+	}
+}
+
+func (p *moviePlayer) play() {
+	if p.playing {
+		return
+	}
+	p.playing = true
+	movieMusicPaused.Store(false)
+	if p.musicNeedsRestore {
+		stopAllMusic()
+		p.musicNeedsRestore = false
+		p.restoreIndexedMusic(p.cur, true)
+		return
+	}
+	resumeAllMusic()
+}
 
 func (p *moviePlayer) pause() {
 	p.playing = false
+	movieMusicPaused.Store(true)
+	pauseAllMusic()
 }
 
 func (p *moviePlayer) skipBackMilli(milli int) {
@@ -846,6 +1023,12 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	suppressInterpOnce = true
 	p.updateUI()
 	p.playing = wasPlaying
+	if wasPlaying {
+		p.musicNeedsRestore = false
+		p.restoreIndexedMusic(idx, true)
+	} else {
+		p.musicNeedsRestore = true
+	}
 }
 
 // maybeDecodeMessage applies a simple heuristic to determine whether a frame

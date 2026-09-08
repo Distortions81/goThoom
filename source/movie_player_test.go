@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gothoom/eui"
+
+	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
 func TestResetInterpolationClearsPositionHistory(t *testing.T) {
@@ -79,6 +81,30 @@ func TestMovieUPSValueIsFourDigits(t *testing.T) {
 	}
 }
 
+func TestMoviePauseAndPlayControlMusicPauseState(t *testing.T) {
+	originalPaused := movieMusicPaused.Load()
+	musicPlayersMu.Lock()
+	originalPlayers := musicPlayers
+	musicPlayers = make(map[*audio.Player]musicTrack)
+	musicPlayersMu.Unlock()
+	t.Cleanup(func() {
+		movieMusicPaused.Store(originalPaused)
+		musicPlayersMu.Lock()
+		musicPlayers = originalPlayers
+		musicPlayersMu.Unlock()
+	})
+
+	p := &moviePlayer{playing: true, baseFPS: 5, fps: 5}
+	p.pause()
+	if p.playing || !movieMusicPaused.Load() {
+		t.Fatal("movie pause did not pause movie music")
+	}
+	p.play()
+	if !p.playing || movieMusicPaused.Load() {
+		t.Fatal("movie play did not resume movie music")
+	}
+}
+
 func TestMovieSeekFullRenderInterval(t *testing.T) {
 	now := time.Unix(100, 0)
 	if !movieSeekFullRenderDue(time.Time{}, now) {
@@ -92,6 +118,37 @@ func TestMovieSeekFullRenderInterval(t *testing.T) {
 	}
 	if !movieSeekFullRenderDue(now.Add(time.Millisecond), now) {
 		t.Fatal("seek render did not recover from a future timestamp")
+	}
+}
+
+func TestMovieMusicIndexCapturesCompletedStarts(t *testing.T) {
+	frames, err := parseMovie(movieFixturePath(t, "lore1.clMov"), baseVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := indexMovieMusic(frames)
+	for _, event := range events {
+		if !event.stop && len(event.jobs) > 0 {
+			if event.frame <= 0 || event.frame > len(frames) {
+				t.Fatalf("music event frame = %d, want within movie", event.frame)
+			}
+			return
+		}
+	}
+	t.Fatal("movie music index did not capture a completed music start")
+}
+
+func TestScaleMusicPartsFollowsPlaybackUPSWithoutChangingPitchData(t *testing.T) {
+	original := []musicPart{{program: 46, notes: []Note{{Key: 60, Velocity: 100, Start: 2 * time.Second, Duration: time.Second}}}}
+	scaled := scaleMusicParts(original, 2)
+	if got := scaled[0].notes[0].Start; got != time.Second {
+		t.Fatalf("scaled start = %v, want 1s", got)
+	}
+	if got := scaled[0].notes[0].Duration; got != 500*time.Millisecond {
+		t.Fatalf("scaled duration = %v, want 500ms", got)
+	}
+	if scaled[0].notes[0].Key != original[0].notes[0].Key || scaled[0].notes[0].Velocity != original[0].notes[0].Velocity {
+		t.Fatal("tempo scaling changed pitch or velocity data")
 	}
 }
 

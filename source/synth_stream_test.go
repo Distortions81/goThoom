@@ -90,6 +90,48 @@ func (s *sequentialStreamSynth) Render(left, right []float32) {
 	}
 }
 
+type constantStreamSynth struct{ value float32 }
+
+func (*constantStreamSynth) ProcessMidiMessage(int32, int32, int32, int32) {}
+func (*constantStreamSynth) NoteOn(int32, int32, int32)                    {}
+func (*constantStreamSynth) NoteOff(int32, int32)                          {}
+func (s *constantStreamSynth) Render(left, right []float32) {
+	for i := range left {
+		left[i], right[i] = s.value, s.value
+	}
+}
+
+func TestProgramNormalizationGainUsesRMSAndPeakLimits(t *testing.T) {
+	if got := programNormalizationGain(0.04, 0.1); got != 2 {
+		t.Fatalf("normalization gain = %v, want 2", got)
+	}
+	if got := programNormalizationGain(0.001, 0.01); got != programNormalizationMaxGain {
+		t.Fatalf("quiet-program gain = %v, want cap %v", got, programNormalizationMaxGain)
+	}
+	if got := programNormalizationGain(0.5, 1); got != programNormalizationMinGain {
+		t.Fatalf("loud-program gain = %v, want floor %v", got, programNormalizationMinGain)
+	}
+	if got := programNormalizationGain(0, 0); got != 1 {
+		t.Fatalf("silent-program gain = %v, want neutral", got)
+	}
+}
+
+func TestSongRendererAppliesProgramGain(t *testing.T) {
+	renderer := &songRenderer{
+		syn:          &constantStreamSynth{value: 0.1},
+		gain:         2,
+		active:       make(map[int]bool),
+		totalSamples: block,
+	}
+	left, right, err := renderer.render(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(float64(left[0]-0.2)) > 1e-6 || math.Abs(float64(right[0]-0.2)) > 1e-6 {
+		t.Fatalf("normalized samples = %v, %v; want 0.2", left[0], right[0])
+	}
+}
+
 func TestMusicChunksPreserveSynthContinuity(t *testing.T) {
 	if musicChunkFrames%block != 0 {
 		t.Fatalf("music chunk size %d is not aligned to synth block %d", musicChunkFrames, block)

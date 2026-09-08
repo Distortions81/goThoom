@@ -152,6 +152,12 @@ type pendingSong struct {
 var (
 	pendingMu   sync.Mutex
 	pendingByID = make(map[int]*pendingSong)
+
+	// movieMusicIndexCapture is set only while a movie is scanned for music
+	// starts. It receives fully assembled jobs, including /part and /with
+	// groups, without starting audio during the scan.
+	movieMusicIndexCapture func([]tuneJob)
+	movieMusicIndexStop    func(int)
 )
 
 // handleMusicParams translates parsed music params into queued playback. It
@@ -163,12 +169,20 @@ func handleMusicParams(mp MusicParams) {
 			pendingMu.Lock()
 			delete(pendingByID, mp.Who)
 			pendingMu.Unlock()
+			if movieMusicIndexStop != nil {
+				movieMusicIndexStop(mp.Who)
+				return
+			}
 			stopMusicFor(mp.Who)
 		} else {
 			// Global stop
 			pendingMu.Lock()
 			pendingByID = make(map[int]*pendingSong)
 			pendingMu.Unlock()
+			if movieMusicIndexStop != nil {
+				movieMusicIndexStop(0)
+				return
+			}
 			stopAllMusic()
 			clearTuneQueue()
 		}
@@ -179,7 +193,7 @@ func handleMusicParams(mp MusicParams) {
 	}
 	// Ignore play requests while muted, matching classic behavior when sound
 	// is off. Still handled /stop above regardless of mute state.
-	if gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0 {
+	if movieMusicIndexCapture == nil && (gs.Mute || focusMuted || !gs.Music || gs.MasterVolume <= 0 || gs.MusicVolume <= 0) {
 		return
 	}
 	// Validate basics
@@ -362,6 +376,11 @@ func enqueueTunes(jobs []tuneJob) {
 	if len(jobs) == 0 {
 		return
 	}
+	if movieMusicIndexCapture != nil {
+		captured := append([]tuneJob(nil), jobs...)
+		movieMusicIndexCapture(captured)
+		return
+	}
 	soundMu.Lock()
 	context := audioContext
 	soundMu.Unlock()
@@ -378,6 +397,9 @@ func enqueueTunes(jobs []tuneJob) {
 			parts = append(parts, musicPart{program: job.program, notes: job.notes})
 			whos = append(whos, job.who)
 			debug = debug || job.debug
+		}
+		if movieMode {
+			parts = scaleMusicParts(parts, currentMovieMusicTempoRate())
 		}
 		if err := playMusicGroupWithSettings(context, parts, whos, nil, nil, settings); err != nil {
 			log.Printf("play tune: %v", err)
