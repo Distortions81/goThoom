@@ -105,6 +105,37 @@ func TestMoviePauseAndPlayControlMusicPauseState(t *testing.T) {
 	}
 }
 
+func TestMovieStopPausesWhenNoSeekIsActive(t *testing.T) {
+	originalPaused := movieMusicPaused.Load()
+	musicPlayersMu.Lock()
+	originalPlayers := musicPlayers
+	musicPlayers = make(map[*audio.Player]musicTrack)
+	musicPlayersMu.Unlock()
+	t.Cleanup(func() {
+		movieMusicPaused.Store(originalPaused)
+		musicPlayersMu.Lock()
+		musicPlayers = originalPlayers
+		musicPlayersMu.Unlock()
+	})
+
+	p := &moviePlayer{playing: true}
+	p.stopSeek()
+	if p.playing || !movieMusicPaused.Load() {
+		t.Fatal("Stop did not pause playback when no seek was active")
+	}
+}
+
+func TestMovieStopOnlyCancelsActiveSeek(t *testing.T) {
+	p := &moviePlayer{playing: true, seekPending: true}
+	p.stopSeek()
+	if !p.seekStopped || p.seekEpoch != 1 {
+		t.Fatal("Stop did not cancel the active seek")
+	}
+	if !p.playing {
+		t.Fatal("stopping an active seek also paused playback")
+	}
+}
+
 func TestMovieSeekFullRenderInterval(t *testing.T) {
 	now := time.Unix(100, 0)
 	if !movieSeekFullRenderDue(time.Time{}, now) {
@@ -136,6 +167,59 @@ func TestMovieMusicIndexCapturesCompletedStarts(t *testing.T) {
 		}
 	}
 	t.Fatal("movie music index did not capture a completed music start")
+}
+
+func TestMovieMusicJobsDurationUsesLatestNoteEnd(t *testing.T) {
+	jobs := []tuneJob{
+		{notes: []Note{{Start: time.Second, Duration: 2 * time.Second}}},
+		{notes: []Note{{Start: 4 * time.Second, Duration: time.Second}}},
+	}
+	if got := movieMusicJobsDuration(jobs); got != 5*time.Second {
+		t.Fatalf("movie music duration = %v, want 5s", got)
+	}
+	if !movieMusicJobsActiveAt(jobs, 5*time.Second-time.Nanosecond) {
+		t.Fatal("movie music was inactive before its natural end")
+	}
+	if movieMusicJobsActiveAt(jobs, 5*time.Second) {
+		t.Fatal("movie music remained active at its natural end")
+	}
+}
+
+func TestMovieMusicSeekUsesLatestStartKeyframe(t *testing.T) {
+	longNote := []Note{{Duration: time.Hour}}
+	events := []movieMusicEvent{
+		{frame: 10, jobs: []tuneJob{{who: 1, notes: longNote}}},
+		{frame: 20, jobs: []tuneJob{{who: 2, notes: longNote}, {who: 3, notes: longNote}}},
+	}
+	active := activeMovieMusicAt(events, 25, 1)
+	if len(active) != 1 || active[0].frame != 20 || len(active[0].jobs) != 2 {
+		t.Fatalf("active movie music = %#v, want only the synchronized event at frame 20", active)
+	}
+}
+
+func TestConcertSeekAtFortySixFiftyThreeUsesOneMusicKeyframe(t *testing.T) {
+	frames, err := parseMovie(movieFixturePath(t, "concert1.clMov"), baseVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const target = (46*60 + 53) * 5
+	active := activeMovieMusicAt(indexMovieMusic(frames), target, 5)
+	if len(active) != 1 {
+		t.Fatalf("active concert music at 46:53 = %d tracks, want 1", len(active))
+	}
+	if active[0].frame != 13936 {
+		t.Fatalf("active concert music frame = %d, want 13936", active[0].frame)
+	}
+}
+
+func TestMovieMusicRestoreGenerationInvalidatesOlderPreparation(t *testing.T) {
+	p := &moviePlayer{}
+	p.restoreIndexedMusic(0, true)
+	first := p.musicRestoreGeneration.Load()
+	p.restoreIndexedMusic(0, true)
+	if got := p.musicRestoreGeneration.Load(); got != first+1 {
+		t.Fatalf("restore generation = %d, want %d", got, first+1)
+	}
 }
 
 func TestScaleMusicPartsFollowsPlaybackUPSWithoutChangingPitchData(t *testing.T) {

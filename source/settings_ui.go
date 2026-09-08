@@ -126,7 +126,7 @@ func makeSettingsWindow() {
 	notificationsSection := addSettingsSection(audioPage, "Notifications", panelWidth)
 	controlsSection := addSettingsSection(controlsPage, "Movement & Input", panelWidth)
 	qualitySection := addSettingsSection(performancePage, "Graphics Quality", panelWidth)
-	networkSection := addSettingsSection(networkPage, "Connection & Timing", panelWidth)
+	networkSection := addSettingsSection(networkPage, nlsptExpandedName, panelWidth)
 	filesSection := addSettingsSection(filesPage, "Files & Folders", panelWidth)
 	recordingSection := addSettingsSection(filesPage, "Recordings", panelWidth)
 	gettingStartedSection := addSettingsSection(toolsPage, "Setup", panelWidth)
@@ -1135,6 +1135,7 @@ var (
 	settingsInventoryCB *eui.ItemData
 	settingsChatCB      *eui.ItemData
 	settingsConsoleCB   *eui.ItemData
+	settingsPNACheckbox *eui.ItemData
 )
 
 func addWindowVisibilityCheckbox(section *eui.ItemData, label string, width float32, target func() *eui.WindowData) *eui.ItemData {
@@ -1648,6 +1649,19 @@ func addToolSettings(diagnosticsSection, resetSection *eui.ItemData, columnWidth
 }
 
 func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
+	pnaEnabledCheckbox, pnaEnabledEvents := eui.NewCheckbox()
+	settingsPNACheckbox = pnaEnabledCheckbox
+	settingsPNACheckbox.Text = "Enable NLSPT"
+	settingsPNACheckbox.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	settingsPNACheckbox.Checked = gs.AltNetMode
+	settingsPNACheckbox.SetTooltip("Enable Network Latency & Server Phase Timing, which learns the server frame phase and sends fresh input shortly before its next processing window.")
+	pnaEnabledEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			setPNAEnabled(ev.Checked)
+		}
+	}
+	networkSection.AddItem(settingsPNACheckbox)
+
 	pnaSafetySlider, pnaSafetyEvents := eui.NewSlider()
 	pnaSafetySlider.Label = "NLSPT safety (%)"
 	pnaSafetySlider.MinValue = 0

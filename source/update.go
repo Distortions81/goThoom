@@ -507,7 +507,7 @@ func checkDataFiles(clientVer int) (dataFilesStatus, error) {
 		return status, nil
 	}
 
-	sfPath := soundFontPath()
+	sfPath := defaultSoundFontPath()
 	if _, err := os.Stat(sfPath); errors.Is(err, os.ErrNotExist) {
 		status.NeedSoundfont = true
 		status.SoundfontSize = headSize(soundFontURL)
@@ -621,7 +621,7 @@ func downloadDataFiles(clientVer int, status dataFilesStatus, getSoundfont, getP
 		if err := os.MkdirAll(soundFontsDirPath(), 0o755); err != nil {
 			return fmt.Errorf("create soundfont directory: %w", err)
 		}
-		sfPath := soundFontPath()
+		sfPath := defaultSoundFontPath()
 		if err := downloadGZ(soundFontURL, sfPath); err != nil {
 			logError("download %v: %v", soundFontURL, err)
 			return fmt.Errorf("download soundfont: %w", err)

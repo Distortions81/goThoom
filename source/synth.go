@@ -57,12 +57,16 @@ type synthesizer interface {
 var (
 	setupSynthOnce  sync.Once
 	sfntCached      *meltysynth.SoundFont
+	sfntFallback    *meltysynth.SoundFont
 	synthSettings   *meltysynth.SynthesizerSettings
 	synthCacheMu    sync.RWMutex
 	synthGeneration uint64
 
 	programGainMu    sync.Mutex
 	programGainCache = make(map[programGainKey]float32)
+
+	missingProgramMu       sync.Mutex
+	missingProgramReported = make(map[programGainKey]struct{})
 
 	musicPlayers   = make(map[*audio.Player]musicTrack)
 	musicPlayersMu sync.Mutex
@@ -111,6 +115,68 @@ func loadSoundFont(path string) (*meltysynth.SoundFont, error) {
 	return meltysynth.NewSoundFont(bytes.NewReader(sfData))
 }
 
+func loadFallbackSoundFont(selectedName string, selected *meltysynth.SoundFont) *meltysynth.SoundFont {
+	if strings.EqualFold(selectedName, soundFontFile) {
+		return selected
+	}
+	fallback, err := loadSoundFont(defaultSoundFontPath())
+	if err != nil {
+		log.Printf("default soundfont unavailable for missing-instrument fallback: %v", err)
+		return nil
+	}
+	return fallback
+}
+
+func soundFontHasProgram(font *meltysynth.SoundFont, program int) bool {
+	if font == nil {
+		return false
+	}
+	for _, preset := range font.Presets {
+		if preset != nil && preset.BankNumber == 0 && preset.PatchNumber == int32(program) {
+			return true
+		}
+	}
+	return false
+}
+
+// musicSoundFontForProgram keeps partial custom SoundFonts useful. MeltySynth
+// otherwise substitutes the first preset in a font when a requested program
+// is absent, which can turn every missing Clan Lord instrument into an
+// unrelated sound.
+func musicSoundFontForProgram(selected, fallback *meltysynth.SoundFont, program int) *meltysynth.SoundFont {
+	if selected == nil {
+		if soundFontHasProgram(fallback, program) {
+			return fallback
+		}
+		return nil
+	}
+	// Unit tests use an empty SoundFont with an injected synthesizer. A parsed
+	// production SoundFont always contains at least one preset.
+	if len(selected.Presets) == 0 || soundFontHasProgram(selected, program) {
+		return selected
+	}
+	if soundFontHasProgram(fallback, program) {
+		return fallback
+	}
+	return nil
+}
+
+func reportMissingSoundFontProgram(generation uint64, program int) string {
+	message := fmt.Sprintf("Music SoundFont %q is missing Bank 0 preset %d, and %q cannot provide a fallback.", configuredSoundFontFile(), program, soundFontFile)
+	key := programGainKey{generation: generation, program: program}
+	missingProgramMu.Lock()
+	_, reported := missingProgramReported[key]
+	if !reported {
+		missingProgramReported[key] = struct{}{}
+	}
+	missingProgramMu.Unlock()
+	if !reported {
+		consoleMessage(message)
+		log.Print(message)
+	}
+	return message
+}
+
 func newSynthSettings() *meltysynth.SynthesizerSettings {
 	settings := meltysynth.NewSynthesizerSettings(sampleRate)
 	// Disable the built-in reverb/chorus effect to match the desired dry output.
@@ -151,8 +217,10 @@ func selectSoundFont(name string) error {
 	if err != nil {
 		return fmt.Errorf("load soundfont %q: %w", name, err)
 	}
+	fallback := loadFallbackSoundFont(name, font)
 	synthCacheMu.Lock()
 	sfntCached = font
+	sfntFallback = fallback
 	synthSettings = newSynthSettings()
 	synthGeneration++
 	synthCacheMu.Unlock()
@@ -254,14 +322,17 @@ func resumeAllMusic() bool {
 }
 
 func setupSynth() {
-	sfPath := soundFontPath()
+	selectedName := configuredSoundFontFile()
+	sfPath := filepath.Join(soundFontsDirPath(), selectedName)
 	sfnt, err := loadSoundFont(sfPath)
 	if err != nil {
 		log.Printf("soundfont missing: %v", err)
 		return
 	}
+	fallback := loadFallbackSoundFont(selectedName, sfnt)
 	synthCacheMu.Lock()
 	sfntCached = sfnt
+	sfntFallback = fallback
 	synthSettings = newSynthSettings()
 	synthGeneration++
 	synthCacheMu.Unlock()
@@ -382,8 +453,12 @@ type songEvent struct {
 func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	setupSynthOnce.Do(setupSynth)
 	synthCacheMu.RLock()
-	font, settings, generation := sfntCached, synthSettings, synthGeneration
+	selected, fallback, settings, generation := sfntCached, sfntFallback, synthSettings, synthGeneration
 	synthCacheMu.RUnlock()
+	font := musicSoundFontForProgram(selected, fallback, program)
+	if selected != nil && font == nil {
+		return nil, errors.New(reportMissingSoundFontProgram(generation, program))
+	}
 	if font == nil || settings == nil {
 		return nil, errors.New("synth not initialized")
 	}
@@ -1140,6 +1215,12 @@ func playMusicGroupWithSettings(ctx *audio.Context, parts []musicPart, whos []in
 }
 
 func playMusicGroupWithSettingsAtFrame(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings, startFrame int) error {
+	return playMusicGroupWithSettingsAtFrameIf(ctx, parts, whos, prepared, start, settings, startFrame, nil)
+}
+
+// playMusicGroupWithSettingsAtFrameIf discards a prepared stream when valid
+// reports that the movie seek which requested it has been superseded.
+func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, whos []int, prepared func(), start <-chan struct{}, settings musicPlaybackSettings, startFrame int, valid func() bool) error {
 
 	if ctx == nil {
 		return errors.New("nil audio context")
@@ -1155,6 +1236,14 @@ func playMusicGroupWithSettingsAtFrame(ctx *audio.Context, parts []musicPart, wh
 			prepared()
 		}
 		return err
+	}
+	if valid != nil && !valid() {
+		_ = stream.Close()
+		stream.waitForProducer()
+		if prepared != nil {
+			prepared()
+		}
+		return nil
 	}
 	player, err := ctx.NewPlayer(stream)
 	if err != nil {
@@ -1187,6 +1276,9 @@ func playMusicGroupWithSettingsAtFrame(ctx *audio.Context, parts []musicPart, wh
 
 	if prepared != nil {
 		prepared()
+	}
+	if valid != nil && !valid() {
+		return nil
 	}
 	if start != nil {
 		select {

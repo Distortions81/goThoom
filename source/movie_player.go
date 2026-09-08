@@ -45,6 +45,11 @@ type movieMusicEvent struct {
 	stop    bool
 }
 
+type activeMovieMusic struct {
+	frame int
+	jobs  []tuneJob
+}
+
 type movieNightState struct {
 	baseLevel       int
 	azimuth         int
@@ -111,6 +116,10 @@ type moviePlayer struct {
 	// musicNeedsRestore is set when a paused seek or UPS change invalidates the
 	// paused audio stream. Ordinary pause/play can resume the existing player.
 	musicNeedsRestore bool
+	// musicRestoreGeneration invalidates SoundFont streams that an older seek
+	// is still pre-rendering. Without it, rapid scrubbing can let every earlier
+	// seek begin playing several seconds after the final seek.
+	musicRestoreGeneration atomic.Uint64
 
 	// Slider motion can generate many values while an expensive seek is still
 	// rebuilding state. Keep only the most recent value and seek to it next.
@@ -381,7 +390,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 
 	stopSeek, stopSeekEv := eui.NewButton()
 	setMovieControlIcon(stopSeek, "stop", "Stop Seek")
-	stopSeek.SetTooltip("Stop seeking")
+	stopSeek.SetTooltip("Stop seeking, or pause playback when no seek is active")
 	stopSeek.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	stopSeekEv.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
@@ -520,6 +529,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 		log.Printf("movie playback stopped: movie controls closed")
 		// Pause and stop ticker
 		p.pause()
+		p.musicRestoreGeneration.Add(1)
 		if p.ticker != nil {
 			p.ticker.Stop()
 		}
@@ -777,11 +787,19 @@ func (p *moviePlayer) requestSeek(idx int) {
 
 func (p *moviePlayer) stopSeek() {
 	p.seekMu.Lock()
+	stopped := p.seekPending
 	if p.seekPending {
 		p.seekStopped = true
 		p.seekEpoch++
 	}
 	p.seekMu.Unlock()
+	if stopped {
+		return
+	}
+	p.pause()
+	if p.playButton != nil {
+		changePlayButton(p, p.playButton)
+	}
 }
 
 func (p *moviePlayer) setFPS(fps int) {
@@ -801,6 +819,7 @@ func (p *moviePlayer) setFPS(fps int) {
 	} else {
 		// A paused stream was rendered for the previous UPS. Rebuild it from
 		// the indexed movie position when Play is pressed.
+		p.musicRestoreGeneration.Add(1)
 		stopAllMusic()
 		p.musicNeedsRestore = true
 	}
@@ -811,18 +830,53 @@ func (p *moviePlayer) setFPS(fps int) {
 // frame is measured in the movie's recorded UPS; note timing is then scaled to
 // the current playback UPS so video and music stay synchronized at every speed.
 func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) {
+	generation := p.musicRestoreGeneration.Add(1)
 	if !play || len(p.music) == 0 || p.baseFPS < 1 {
 		return
 	}
 	if idx < 0 {
 		idx = 0
 	}
-	type activeMusic struct {
-		frame int
-		jobs  []tuneJob
+	active := activeMovieMusicAt(p.music, idx, p.baseFPS)
+	stopAllMusic()
+	soundMu.Lock()
+	context := audioContext
+	soundMu.Unlock()
+	if context == nil {
+		return
 	}
-	active := make([]activeMusic, 0)
-	for _, event := range p.music {
+	rate := currentMovieMusicTempoRate()
+	settings := currentMusicPlaybackSettings()
+	for _, track := range active {
+		elapsed := time.Duration(idx-track.frame) * time.Second / time.Duration(p.baseFPS)
+		scaledElapsed := time.Duration(float64(elapsed) / rate)
+		startFrame := int(scaledElapsed.Seconds() * sampleRate)
+		parts := make([]musicPart, 0, len(track.jobs))
+		whos := make([]int, 0, len(track.jobs))
+		for _, job := range track.jobs {
+			parts = append(parts, musicPart{program: job.program, notes: job.notes})
+			whos = append(whos, job.who)
+		}
+		parts = scaleMusicParts(parts, rate)
+		go func(parts []musicPart, whos []int, startFrame int) {
+			valid := func() bool { return p.musicRestoreGeneration.Load() == generation }
+			if err := playMusicGroupWithSettingsAtFrameIf(context, parts, whos, nil, nil, settings, startFrame, valid); err != nil {
+				log.Printf("resume movie music: %v", err)
+			}
+		}(parts, whos, startFrame)
+	}
+}
+
+// activeMovieMusicAt treats each completed start as a movie music keyframe.
+// Concurrent bards in a synchronized performance are already represented as
+// jobs within that event. This avoids carrying an older song across a later
+// start when its decoded tune duration is longer than the recorded performance.
+func activeMovieMusicAt(events []movieMusicEvent, idx, baseFPS int) []activeMovieMusic {
+	if idx < 0 || baseFPS < 1 {
+		return nil
+	}
+	active := make([]activeMovieMusic, 0, 1)
+	for _, event := range events {
 		if event.frame > idx {
 			break
 		}
@@ -847,34 +901,35 @@ func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) {
 			active = kept
 			continue
 		}
-		active = append(active, activeMusic{frame: event.frame, jobs: event.jobs})
+		active = append(active[:0], activeMovieMusic{frame: event.frame, jobs: event.jobs})
 	}
-	stopAllMusic()
-	soundMu.Lock()
-	context := audioContext
-	soundMu.Unlock()
-	if context == nil {
-		return
-	}
-	rate := currentMovieMusicTempoRate()
-	settings := currentMusicPlaybackSettings()
+	// Stop events are not required for songs that have simply reached their
+	// natural end. Drop those here instead of creating a zero-length player for
+	// every song that ever appeared before the seek target.
+	kept := active[:0]
 	for _, track := range active {
-		elapsed := time.Duration(idx-track.frame) * time.Second / time.Duration(p.baseFPS)
-		scaledElapsed := time.Duration(float64(elapsed) / rate)
-		startFrame := int(scaledElapsed.Seconds() * sampleRate)
-		parts := make([]musicPart, 0, len(track.jobs))
-		whos := make([]int, 0, len(track.jobs))
-		for _, job := range track.jobs {
-			parts = append(parts, musicPart{program: job.program, notes: job.notes})
-			whos = append(whos, job.who)
+		elapsed := time.Duration(idx-track.frame) * time.Second / time.Duration(baseFPS)
+		if movieMusicJobsActiveAt(track.jobs, elapsed) {
+			kept = append(kept, track)
 		}
-		parts = scaleMusicParts(parts, rate)
-		go func(parts []musicPart, whos []int, startFrame int) {
-			if err := playMusicGroupWithSettingsAtFrame(context, parts, whos, nil, nil, settings, startFrame); err != nil {
-				log.Printf("resume movie music: %v", err)
-			}
-		}(parts, whos, startFrame)
 	}
+	return kept
+}
+
+func movieMusicJobsDuration(jobs []tuneJob) time.Duration {
+	var duration time.Duration
+	for _, job := range jobs {
+		for _, note := range job.notes {
+			if end := note.Start + note.Duration; end > duration {
+				duration = end
+			}
+		}
+	}
+	return duration
+}
+
+func movieMusicJobsActiveAt(jobs []tuneJob, elapsed time.Duration) bool {
+	return elapsed >= 0 && elapsed < movieMusicJobsDuration(jobs)
 }
 
 func (p *moviePlayer) play() {
@@ -933,6 +988,7 @@ func (p *moviePlayer) seek(idx int) {
 func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	seekingMov = true
 	defer func() { seekingMov = false }()
+	p.musicRestoreGeneration.Add(1)
 
 	// Stop any currently playing sounds so scrubbing is silent.
 	stopAllSounds()

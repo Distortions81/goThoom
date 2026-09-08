@@ -132,6 +132,10 @@ func soundFontPath() string {
 	return filepath.Join(soundFontsDirPath(), configuredSoundFontFile())
 }
 
+func defaultSoundFontPath() string {
+	return filepath.Join(soundFontsDirPath(), soundFontFile)
+}
+
 func ttsDataDirPath() string {
 	return assetsDirPath()
 }

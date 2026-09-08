@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	nlsptExpandedName    = "Network Latency & Server Phase Timing (NLSPT)"
 	statsSampleInterval  = 500 * time.Millisecond
 	statsHistoryDuration = 5 * time.Minute
 	statsHistorySize     = int(statsHistoryDuration / statsSampleInterval)
@@ -240,6 +241,10 @@ func setPNAEnabled(enabled bool) {
 		statsPNACheckbox.Checked = enabled
 		statsPNACheckbox.Dirty = true
 	}
+	if settingsPNACheckbox != nil && settingsPNACheckbox.Checked != enabled {
+		settingsPNACheckbox.Checked = enabled
+		settingsPNACheckbox.Dirty = true
+	}
 	settingsDirty = true
 }
 
@@ -265,7 +270,7 @@ func makeStatsWindow() {
 
 	flow := eui.NewColumn()
 
-	networkSection := eui.NewSection("Network", width)
+	networkSection := eui.NewSection(nlsptExpandedName, width)
 	networkControls := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	networkControls.Size = eui.Point{X: width, Y: 24}
 	statsPNACheckbox, pnaEvents := eui.NewCheckbox()

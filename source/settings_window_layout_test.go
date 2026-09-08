@@ -253,7 +253,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
 		"Music SoundFont": "Audio", "TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
-		"Edit Server List": "Network", "NLSPT safety (%)": "Network",
+		nlsptExpandedName: "Network", "Enable NLSPT": "Network", "Edit Server List": "Network", "NLSPT safety (%)": "Network",
 		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",
 	} {
 		if got := locations[control]; got != want {
@@ -264,7 +264,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"Floating-point sprite coordinates", "Sprite cache", "Power-save FPS", "Batch room artwork loading",
 		"Audio Mixer", "Keybindings", "Hotkeys", "Enable chat TTS",
 		"Audio enhancement for sound effects", "Audio enhancement for music",
-		"Network Latency & Server Phase Timing (NLSPT)", "Show Network Timing",
+		"Show Network Timing",
 	} {
 		if page, exists := locations[moved]; exists {
 			t.Errorf("detailed control %q remains in main Settings tab %q", moved, page)

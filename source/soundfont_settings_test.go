@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"gothoom/eui"
+
+	"github.com/sinshu/go-meltysynth/meltysynth"
 )
 
 func TestConfiguredSoundFontFileFallsBackToDefault(t *testing.T) {
@@ -22,6 +24,62 @@ func TestConfiguredSoundFontFileFallsBackToDefault(t *testing.T) {
 	gs.SoundFontFile = "orchestra.SF2"
 	if got := configuredSoundFontFile(); got != "orchestra.SF2" {
 		t.Fatalf("configured soundfont = %q, want selected filename", got)
+	}
+}
+
+func TestMusicSoundFontFallsBackForMissingBankZeroProgram(t *testing.T) {
+	selected := &meltysynth.SoundFont{Presets: []*meltysynth.Preset{
+		{BankNumber: 0, PatchNumber: 47},
+		{BankNumber: 128, PatchNumber: 73},
+	}}
+	fallback := &meltysynth.SoundFont{Presets: []*meltysynth.Preset{{BankNumber: 0, PatchNumber: 73}}}
+
+	if got := musicSoundFontForProgram(selected, fallback, 47); got != selected {
+		t.Fatal("available custom program did not use the selected SoundFont")
+	}
+	if got := musicSoundFontForProgram(selected, fallback, 73); got != fallback {
+		t.Fatal("program present only outside Bank 0 did not use the fallback SoundFont")
+	}
+	if got := musicSoundFontForProgram(selected, fallback, 106); got != nil {
+		t.Fatal("missing custom program with no default preset unexpectedly found a SoundFont")
+	}
+}
+
+func TestDefaultSoundFontPathIgnoresCustomSelection(t *testing.T) {
+	preserveStoragePathTestState(t)
+	dir := t.TempDir()
+	gs = gsdef
+	gs.AssetsPath = dir
+	gs.SoundFontFile = "custom.sf2"
+	activeStoragePaths.assets = dir
+	storagePathsActivated = true
+	if got, want := defaultSoundFontPath(), filepath.Join(dir, soundFontFile); got != want {
+		t.Fatalf("default soundfont path = %q, want %q", got, want)
+	}
+}
+
+func TestMissingFallbackProgramReportsConsoleErrorOnce(t *testing.T) {
+	originalSettings := gs
+	originalEntries := consoleLog.entries
+	const generation = 987654321
+	key := programGainKey{generation: generation, program: 106}
+	t.Cleanup(func() {
+		gs = originalSettings
+		consoleLog.entries = originalEntries
+		missingProgramMu.Lock()
+		delete(missingProgramReported, key)
+		missingProgramMu.Unlock()
+	})
+	gs.SoundFontFile = "custom.sf2"
+	consoleLog.entries = nil
+
+	want := `Music SoundFont "custom.sf2" is missing Bank 0 preset 106, and "soundfont.sf2" cannot provide a fallback.`
+	if got := reportMissingSoundFontProgram(generation, 106); got != want {
+		t.Fatalf("fallback error = %q, want %q", got, want)
+	}
+	reportMissingSoundFontProgram(generation, 106)
+	if len(consoleLog.entries) != 1 || consoleLog.entries[0].Text != want {
+		t.Fatalf("console errors = %#v, want one fallback error", consoleLog.entries)
 	}
 }
 
