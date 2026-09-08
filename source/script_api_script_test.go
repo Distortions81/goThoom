@@ -64,6 +64,7 @@ func TestScriptAPISmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read script: %v", err)
 	}
+	grantScriptPermissionsForTest(t, owner)
 	loadscriptSource(owner, "APISmoke", srcPath, src, restrictedStdlib())
 
 	// Wait for Init() to signal readiness via storage key
@@ -220,6 +221,7 @@ func TestScriptAPIFull(t *testing.T) {
 		t.Fatalf("read script: %v", err)
 	}
 	consoleLog = messageLog{max: maxMessages}
+	grantScriptPermissionsForTest(t, owner)
 	loadscriptSource(owner, "APIFull", srcPath, src, restrictedStdlib())
 
 	// Helper wait

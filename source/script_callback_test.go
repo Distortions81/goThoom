@@ -12,6 +12,7 @@ import (
 
 func resetScriptCallbackTestState(t *testing.T, owner string) {
 	t.Helper()
+	grantScriptPermissionsForTest(t, owner)
 	origDataDir := dataDirPath
 	dataDirPath = t.TempDir()
 	t.Cleanup(func() { dataDirPath = origDataDir })
@@ -670,6 +671,7 @@ func Init() {
 }
 `)
 	started := time.Now()
+	grantScriptPermissionsForTest(t, "init_limit")
 	_, err := prepareScriptSource("init_limit", source, restrictedStdlib())
 	if err == nil || !strings.Contains(err.Error(), "Init exceeded the callback time limit") {
 		t.Fatalf("Init limit error = %v", err)

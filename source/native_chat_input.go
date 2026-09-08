@@ -53,8 +53,8 @@ func pollNativeChatInput(active bool) nativeChatEdit {
 	syncNativeChatInput()
 	chatTextField.Focus()
 	bounds := image.Rect(0, 0, 1, 20)
-	if inputFlow != nil && len(inputFlow.Contents) > 0 {
-		r := inputFlow.Contents[0].DrawRect
+	if item := currentMessageInputItem(); item != nil {
+		r := item.DrawRect
 		bounds = image.Rect(int(r.X0), int(r.Y0), int(r.X0)+1, max(int(r.Y0)+1, int(r.Y1)))
 	}
 	handled, err := chatTextField.HandleInputWithBounds(bounds)

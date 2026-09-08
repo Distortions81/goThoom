@@ -14,6 +14,7 @@ import (
 
 var chatWin *eui.WindowData
 var chatList *eui.ItemData
+var chatInputFlow *eui.ItemData
 var chatHighlighted *eui.ItemData
 var chatWindowUpdateQueued atomic.Bool
 var chatWindowMessages messageWindowState
@@ -45,7 +46,8 @@ func updateChatWindow() {
 	if chatWindowMessages.dropped > 0 && !chatWindowMessages.reset && chatWindowMessages.dropped <= len(chatList.Contents) {
 		chatList.SetItems(chatList.Contents[chatWindowMessages.dropped:])
 	}
-	updateTextWindowFrom(chatWin, chatList, nil, msgs, gs.ChatFontSize, "", nil, gs.ChatAlternatingRowColors, &chatTextWrapCache, firstChanged)
+	updateTextWindowFrom(chatWin, chatList, chatInputFlow, msgs, gs.ChatFontSize, messageInputText(), nil, gs.ChatAlternatingRowColors, &chatTextWrapCache, firstChanged)
+	updateMessageInputPresentation(chatInputFlow)
 	if chatWin.SearchText != "" {
 		applyTextWindowSearch(chatList, chatWin.SearchText)
 	}
@@ -84,7 +86,7 @@ func makeChatWindow() error {
 	if chatWin != nil {
 		return nil
 	}
-	chatWin, chatList, _ = newTextWindow("Chat", eui.HZoneRight, eui.VZoneBottom, false, updateChatWindow)
+	chatWin, chatList, chatInputFlow = newTextWindow("Chat", eui.HZoneRight, eui.VZoneBottom, true, updateChatWindow)
 	chatWin.Searchable = true
 	chatWin.OnSearch = func(s string) { searchTextWindow(chatWin, chatList, s) }
 	chatWin.OnOpen = updateChatWindow

@@ -241,116 +241,54 @@ func snapResize(win *windowData, part dragType) bool {
 	if !windowSnapping {
 		return false
 	}
-	pos := win.getPosition()
-	size := win.Size
-	snapped := false
-
-	sw := float32(screenWidth) / uiScale
-	sh := float32(screenHeight) / uiScale
-
+	s := win.scale()
+	pos, size := win.Position, win.Size
+	sw, sh := float32(screenWidth)/s, float32(screenHeight)/s
 	includesLeft := part == PART_LEFT || part == PART_TOP_LEFT || part == PART_BOTTOM_LEFT
 	includesRight := part == PART_RIGHT || part == PART_TOP_RIGHT || part == PART_BOTTOM_RIGHT
 	includesTop := part == PART_TOP || part == PART_TOP_LEFT || part == PART_TOP_RIGHT
 	includesBottom := part == PART_BOTTOM || part == PART_BOTTOM_LEFT || part == PART_BOTTOM_RIGHT
 
-	// Snap to screen edges
-	if includesLeft {
-		if math.Abs(float64(pos.X)) <= float64(CornerSnapThreshold) {
-			delta := pos.X
-			win.Position.X = 0
-			win.setSize(point{X: size.X - delta, Y: size.Y})
-			pos = win.getPosition()
-			size = win.Size
-			snapped = true
-		}
+	var delta point
+	near := func(a, b float32) bool { return math.Abs(float64(a-b)) <= float64(CornerSnapThreshold) }
+	if includesLeft && near(pos.X, 0) {
+		delta.X = -pos.X
 	}
-	if includesRight {
-		right := pos.X + size.X
-		if math.Abs(float64(sw-right)) <= float64(CornerSnapThreshold) {
-			win.setSize(point{X: sw - pos.X, Y: size.Y})
-			size = win.Size
-			snapped = true
-		}
+	if includesRight && near(pos.X+size.X, sw) {
+		delta.X = sw - pos.X - size.X
 	}
-	if includesTop {
-		if math.Abs(float64(pos.Y)) <= float64(CornerSnapThreshold) {
-			delta := pos.Y
-			win.Position.Y = 0
-			win.setSize(point{X: size.X, Y: size.Y - delta})
-			pos = win.getPosition()
-			size = win.Size
-			snapped = true
-		}
+	if includesTop && near(pos.Y, 0) {
+		delta.Y = -pos.Y
 	}
-	if includesBottom {
-		bottom := pos.Y + size.Y
-		if math.Abs(float64(sh-bottom)) <= float64(CornerSnapThreshold) {
-			win.setSize(point{X: size.X, Y: sh - pos.Y})
-			size = win.Size
-			snapped = true
-		}
+	if includesBottom && near(pos.Y+size.Y, sh) {
+		delta.Y = sh - pos.Y - size.Y
 	}
-
-	// Snap to other windows
 	for _, other := range windows {
 		if other == win || !other.Open {
 			continue
 		}
-		opos := other.getPosition()
-		osize := other.Size
-
-		if includesLeft {
-			if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
-				target := opos.X + osize.X
-				if math.Abs(float64(pos.X-target)) <= float64(CornerSnapThreshold) {
-					delta := pos.X - target
-					win.Position.X = target
-					win.setSize(point{X: size.X - delta, Y: size.Y})
-					pos = win.getPosition()
-					size = win.Size
-					snapped = true
-				}
+		// Other windows may opt out of UI scaling. Compare in this window's units.
+		op, os := other.GetPos(), other.GetSize()
+		opos, osize := point{X: op.X / s, Y: op.Y / s}, point{X: os.X / s, Y: os.Y / s}
+		if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
+			if includesLeft && near(pos.X, opos.X+osize.X) {
+				delta.X = opos.X + osize.X - pos.X
+			}
+			if includesRight && near(pos.X+size.X, opos.X) {
+				delta.X = opos.X - pos.X - size.X
 			}
 		}
-		if includesRight {
-			if pos.Y < opos.Y+osize.Y && pos.Y+size.Y > opos.Y {
-				target := opos.X
-				right := pos.X + size.X
-				if math.Abs(float64(right-target)) <= float64(CornerSnapThreshold) {
-					win.setSize(point{X: target - pos.X, Y: size.Y})
-					size = win.Size
-					snapped = true
-				}
+		if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
+			if includesTop && near(pos.Y, opos.Y+osize.Y) {
+				delta.Y = opos.Y + osize.Y - pos.Y
 			}
-		}
-		if includesTop {
-			if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
-				target := opos.Y + osize.Y
-				if math.Abs(float64(pos.Y-target)) <= float64(CornerSnapThreshold) {
-					delta := pos.Y - target
-					win.Position.Y = target
-					win.setSize(point{X: size.X, Y: size.Y - delta})
-					pos = win.getPosition()
-					size = win.Size
-					snapped = true
-				}
-			}
-		}
-		if includesBottom {
-			if pos.X < opos.X+osize.X && pos.X+size.X > opos.X {
-				target := opos.Y
-				bottom := pos.Y + size.Y
-				if math.Abs(float64(bottom-target)) <= float64(CornerSnapThreshold) {
-					win.setSize(point{X: size.X, Y: target - pos.Y})
-					size = win.Size
-					snapped = true
-				}
+			if includesBottom && near(pos.Y+size.Y, opos.Y) {
+				delta.Y = opos.Y - pos.Y - size.Y
 			}
 		}
 	}
-
-	if snapped {
-		win.clampToScreen()
+	if delta == (point{}) {
+		return false
 	}
-	return snapped
+	return dragWindowResize(win, part, delta)
 }

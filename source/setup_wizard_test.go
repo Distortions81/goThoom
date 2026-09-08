@@ -237,7 +237,7 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 	gs.MessagesToConsole = false
 
 	wantLabels := []string{"Layout", "Inventory / Players", "Console / Chat", "Alternate game side"}
-	wantChecks := []string{"Keep game window large", "Combine chat + console"}
+	wantChecks := []string{"Auto-size side panels", "Combine chat + console"}
 	contains := func(root *eui.ItemData, label string) bool {
 		var visit func(*eui.ItemData) bool
 		visit = func(item *eui.ItemData) bool {

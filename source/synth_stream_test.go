@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -431,19 +430,20 @@ func TestMusicStreamRefillsConsumedChunk(t *testing.T) {
 }
 
 func TestMusicStreamProducesAudiblePCM(t *testing.T) {
-	origFont, origSettings := sfntCached, synthSettings
-	origDataDir, origSettingsState := dataDirPath, gs
+	fontPath := soundFontForTest(t)
+	originalStorageActive := storagePathsActivated
+	origFont, origFallback, origSettings := sfntCached, sfntFallback, synthSettings
+	origSettingsState := gs
 	t.Cleanup(func() {
 		setupSynthOnce = sync.Once{}
-		sfntCached, synthSettings = origFont, origSettings
-		dataDirPath, gs = origDataDir, origSettingsState
+		sfntCached, sfntFallback, synthSettings = origFont, origFallback, origSettings
+		gs = origSettingsState
+		storagePathsActivated = originalStorageActive
 	})
 
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("find test source path")
-	}
-	dataDirPath = filepath.Join(filepath.Dir(thisFile), "data")
+	storagePathsActivated = false
+	gs.AssetsPath = filepath.Dir(fontPath)
+	gs.SoundFontFile = filepath.Base(fontPath)
 	setupSynthOnce = sync.Once{}
 	sfntCached = nil
 	synthSettings = nil

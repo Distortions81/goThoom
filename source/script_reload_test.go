@@ -12,6 +12,8 @@ import (
 )
 
 func TestRescanReloadsEnabledScript(t *testing.T) {
+	isolateScriptScopeSelection(t)
+	scriptSessionLogin("Tester")
 	origDataDir := dataDirPath
 	origPlayerName := playerName
 	origSettings := gs
@@ -99,6 +101,7 @@ func Terminate() {
 		}
 	}
 	const owner = "refresh"
+	grantScriptPermissionsForTest(t, owner)
 	assertSingleRegistrationSet := func() {
 		t.Helper()
 		scriptMu.RLock()

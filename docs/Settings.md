@@ -10,7 +10,7 @@ Bubbles, Controller, or Tiled Layout. This document lists the exceptions.
 Settings and configuration controls with hover help display a small circled
 “i”. Hover over the control to read its tooltip.
 
-The Settings window replaces the former Advanced window with ten topic tabs:
+The Settings window replaces the former Advanced window with eleven topic tabs:
 
 | Tab | Controls |
 | --- | --- |
@@ -18,28 +18,46 @@ The Settings window replaces the former Advanced window with ten topic tabs:
 | World | Status bars, visibility, character names, and player-list grouping |
 | Text | Font sizes, chat timestamps, timestamp format, and text colors |
 | Bubbles | Speech bubble appearance, lifetime, and message-type options |
-| Audio | Music SoundFont and buffering, sound throttling/resampling, TTS, and notification preferences |
+| Audio | Music SoundFont and buffering, sound throttling/resampling, and notification preferences |
+| TTS | Speech enablement, voice downloads, voice and speed, test phrase, and corrections |
 | Controls | Movement behavior, keyboard walk speed, and gamepad |
 | Performance | Quality preset plus artwork, effects, rendering, caching, and power-saving subtabs |
 | Network | Server address and NLSPT safety margin |
 | Files | File paths, downloaded assets, user data and diagnostics folders, and recording |
 | Tools | Setup wizard, debug settings, and resetting all preferences |
 
-Settings uses a fixed 700 × 700 logical-pixel window (scaled with the UI and
+Settings uses a fixed 730 × 700 logical-pixel window (scaled with the UI and
 clamped to smaller screens). Switching tabs or Performance subtabs keeps the
-window size stable. Main Settings tabs use two staggered rows; Performance
-subtabs use a single row.
+window size stable. Main Settings tabs and Performance subtabs each use a single row.
 Detailed editors such as File Paths still open separately.
 
-Toolbar controls have one home: **Settings → Display → Windows** for window
+Toolbar controls have one home: **Settings → Display → Show / Hide Windows** for window
 visibility and reset, **Actions** for Hotkeys/Keybindings, **Audio** for
 notification sound and audio enhancement, **Tools** for Stats, command
 search, Help, and snapshots, and **Record** for session recording. Stats also contains NLSPT enablement
 and live network timing.
-TTS enablement is also available in **Settings → Audio**, alongside its file
-download button and voice controls. Settings omits other duplicate launchers
+TTS has its own **Settings → TTS** tab with enablement, file downloads, voice
+and speed controls, a test phrase, and pronunciation corrections. Settings omits other duplicate launchers
 and controls. The command palette continues
 to provide searchable access to settings and actions.
+
+**Display → Windows & Toolbar → Tiled Layout** offers seven arrangements:
+Game centered, Game on a side, Messages below game, Messages above game,
+Messages above and below, Full-width messages below, and Full-width messages
+above. The new message-row layouts keep Inventory and Players beside the game.
+Every arrangement supports combined or separate Chat and Console. In Game on a
+side, separate messages share the lower row beneath Inventory and Players.
+Use Message split to arrange panes Side by side or Stacked within their shared
+area. Console / Chat swaps left/right or above/below order to match. The layout
+with messages above and below the game always keeps them in separate rows. Combined mode uses one message pane and returns the unused row
+to the game. Drag dividers to adjust row heights, message splits, and list widths;
+these sizes are saved with the window settings. **Auto-size side panels**
+adjusts the side panel widths to use empty space beside the game, sizing the game
+column for the playfield proportions and available height. Dragging either
+vertical game divider moves the game sideways and adjusts both side panels.
+Turning it off keeps the current size and unlocks the dividers for resizing.
+Turning it back on fits the game around its current position, within the list
+width limits.
 
 The **Performance** tab contains the quality preset, a shared **Enhanced visual effects**
 switch, and five subtabs:

@@ -132,3 +132,25 @@ func TestPointerCursorClaimedTracksEUIResizeCursor(t *testing.T) {
 		t.Fatal("default cursor remained claimed by EUI")
 	}
 }
+
+func TestDockedWindowReopensWithoutMovingNearAnchor(t *testing.T) {
+	originalWindows, originalCallback := windows, WindowStateChanged
+	WindowStateChanged = nil
+	t.Cleanup(func() {
+		windows, WindowStateChanged = originalWindows, originalCallback
+	})
+	win := NewWindow()
+	win.Docked = true
+	win.Position = point{X: 20, Y: 30}
+	win.Size = point{X: 200, Y: 100}
+	position, size := win.Position, win.Size
+	anchor := &itemData{DrawRect: rect{X0: 400, Y0: 400, X1: 450, Y1: 425}}
+	win.MarkOpen()
+	for i := 0; i < 3; i++ {
+		win.Close()
+		win.MarkOpenNear(anchor)
+		if !win.IsOpen() || !win.Docked || win.Position != position || win.Size != size {
+			t.Fatalf("reopening moved or undocked the pane: open=%t docked=%t position=%v size=%v", win.IsOpen(), win.Docked, win.Position, win.Size)
+		}
+	}
+}

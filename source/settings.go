@@ -53,6 +53,11 @@ const (
 	// TiledLayoutSide places the game view on one side and the other panels on
 	// the opposite side.
 	TiledLayoutSide
+	TiledLayoutMessagesBelow
+	TiledLayoutMessagesAbove
+	TiledLayoutMessagesSplit
+	TiledLayoutFullMessagesBelow
+	TiledLayoutFullMessagesAbove
 )
 
 var gs settings = gsdef
@@ -147,7 +152,7 @@ func clampTiledPaneFraction(v float64) float64 {
 }
 
 func clampTiledLayoutSettings() {
-	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutSide {
+	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutFullMessagesAbove {
 		gs.TiledLayout = gsdef.TiledLayout
 	}
 	gs.TiledLeftBottom = clampTiledPaneFraction(gs.TiledLeftBottom)
@@ -157,6 +162,9 @@ func clampTiledLayoutSettings() {
 	gs.TiledRightWidth = math.Min(math.Max(gs.TiledRightWidth, 0.15), 0.55)
 	gs.TiledSideGameWidth = math.Min(math.Max(gs.TiledSideGameWidth, 0.35), 0.80)
 	gs.TiledSideTopSplit = math.Min(math.Max(gs.TiledSideTopSplit, 0.15), 0.85)
+	gs.TiledMessagesTopHeight = math.Min(math.Max(gs.TiledMessagesTopHeight, 0.15), 0.40)
+	gs.TiledMessagesBottomHeight = math.Min(math.Max(gs.TiledMessagesBottomHeight, 0.15), 0.40)
+	gs.TiledMessagesSplit = math.Min(math.Max(gs.TiledMessagesSplit, 0.20), 0.80)
 }
 
 func normalizeGamma(v, fallback float64) float64 {
@@ -275,46 +283,49 @@ var gsdef settings = settings{
 	Notifications:                  true,
 	NotifyWhenBackground:           false,
 	// Power saving defaults: limit FPS in background
-	PowerSaveBackground:   false,
-	PowerSaveAlways:       false,
-	PowerSaveFPS:          15,
-	MuteWhenUnfocused:     false,
-	NotifyFallen:          true,
-	NotifyNotFallen:       true,
-	NotifyShares:          true,
-	NotifyFriendOnline:    true,
-	NotifyCopyText:        false,
-	NotificationVolume:    0.20652173459529877,
-	NotificationBeep:      true,
-	NotificationDuration:  6,
-	ScriptSpamKill:        true,
-	LegacyMacroContinuous: false,
-	PromptOnSaveRecording: true,
-	AutoRecord:            false,
-	PromptDisableShaders:  true,
-	ChatTimestamps:        true,
-	ConsoleTimestamps:     true,
-	TimestampFormat:       "3:04PM",
-	LastUpdateCheck:       time.Time{},
-	NotifiedVersion:       0,
-	WindowSnapping:        false,
-	WindowShadows:         true,
-	AutoResizeWindows:     true,
-	TiledWindows:          true,
-	TiledLayout:           TiledLayoutCenter,
-	TiledKeepGameLarge:    true,
-	TiledGamePosition:     0,
-	TiledLeftBottom:       0.30,
-	TiledRightBottom:      0.30,
-	TiledLeftWidth:        0.235,
-	TiledRightWidth:       0.260,
-	TiledSideGameWidth:    0.60,
-	TiledSideTopSplit:     0.50,
-	TiledInventoryLeft:    true,
-	TiledConsoleLeft:      true,
-	TiledGameLeft:         true,
-	ToolbarPlacement:      ToolbarInInventory,
-	ToolbarInfoBar:        false,
+	PowerSaveBackground:       false,
+	PowerSaveAlways:           false,
+	PowerSaveFPS:              15,
+	MuteWhenUnfocused:         false,
+	NotifyFallen:              true,
+	NotifyNotFallen:           true,
+	NotifyShares:              true,
+	NotifyFriendOnline:        true,
+	NotifyCopyText:            false,
+	NotificationVolume:        0.20652173459529877,
+	NotificationBeep:          true,
+	NotificationDuration:      6,
+	ScriptSpamKill:            true,
+	LegacyMacroContinuous:     false,
+	PromptOnSaveRecording:     true,
+	AutoRecord:                false,
+	PromptDisableShaders:      true,
+	ChatTimestamps:            true,
+	ConsoleTimestamps:         true,
+	TimestampFormat:           "3:04PM",
+	LastUpdateCheck:           time.Time{},
+	NotifiedVersion:           0,
+	WindowSnapping:            false,
+	WindowShadows:             true,
+	AutoResizeWindows:         true,
+	TiledWindows:              true,
+	TiledLayout:               TiledLayoutCenter,
+	TiledKeepGameLarge:        true,
+	TiledGamePosition:         0,
+	TiledLeftBottom:           0.30,
+	TiledRightBottom:          0.30,
+	TiledLeftWidth:            0.235,
+	TiledRightWidth:           0.260,
+	TiledSideGameWidth:        0.60,
+	TiledMessagesTopHeight:    0.22,
+	TiledMessagesBottomHeight: 0.28,
+	TiledMessagesSplit:        0.50,
+	TiledSideTopSplit:         0.50,
+	TiledInventoryLeft:        true,
+	TiledConsoleLeft:          true,
+	TiledGameLeft:             true,
+	ToolbarPlacement:          ToolbarInInventory,
+	ToolbarInfoBar:            false,
 
 	JoystickEnabled:        false,
 	JoystickWalkStick:      0,
@@ -554,17 +565,21 @@ type settings struct {
 	TiledGamePosition float64
 	// TiledLeftBottom and TiledRightBottom are the bottom-pane fractions for
 	// the left and right columns in the centered layout.
-	TiledLeftBottom    float64
-	TiledRightBottom   float64
-	TiledLeftWidth     float64
-	TiledRightWidth    float64
-	TiledSideGameWidth float64
-	TiledSideTopSplit  float64
-	TiledInventoryLeft bool
-	TiledConsoleLeft   bool
-	TiledGameLeft      bool
-	ToolbarPlacement   ToolbarPlacement
-	ToolbarInfoBar     bool
+	TiledLeftBottom           float64
+	TiledRightBottom          float64
+	TiledLeftWidth            float64
+	TiledRightWidth           float64
+	TiledSideGameWidth        float64
+	TiledSideTopSplit         float64
+	TiledMessagesTopHeight    float64
+	TiledMessagesBottomHeight float64
+	TiledMessagesSplit        float64
+	TiledMessagesStacked      bool
+	TiledInventoryLeft        bool
+	TiledConsoleLeft          bool
+	TiledGameLeft             bool
+	ToolbarPlacement          ToolbarPlacement
+	ToolbarInfoBar            bool
 
 	JoystickEnabled        bool
 	JoystickBindings       map[string]ebiten.GamepadButton
@@ -1006,6 +1021,10 @@ func resetSavedWindowSettings() {
 	gs.TiledRightWidth = gsdef.TiledRightWidth
 	gs.TiledSideGameWidth = gsdef.TiledSideGameWidth
 	gs.TiledSideTopSplit = gsdef.TiledSideTopSplit
+	gs.TiledMessagesTopHeight = gsdef.TiledMessagesTopHeight
+	gs.TiledMessagesBottomHeight = gsdef.TiledMessagesBottomHeight
+	gs.TiledMessagesSplit = gsdef.TiledMessagesSplit
+	gs.TiledMessagesStacked = gsdef.TiledMessagesStacked
 	gs.TiledInventoryLeft = gsdef.TiledInventoryLeft
 	gs.TiledConsoleLeft = gsdef.TiledConsoleLeft
 	gs.TiledGameLeft = gsdef.TiledGameLeft
@@ -1163,6 +1182,7 @@ func applyManagedWindowLayout() {
 
 	windowLayoutScreenWidth, windowLayoutScreenHeight = eui.ScreenSize()
 	windowLayoutUIScale = eui.UIScale()
+	refreshWindowSettingsControls()
 }
 
 func tiledWorkspaceWindows() []struct {
@@ -1256,14 +1276,17 @@ func applyTiledWindowStates() {
 	}
 	clampTiledLayoutSettings()
 	if width, height := eui.ScreenSize(); width > 0 && height > 0 {
+		clampTiledMessagePairHeight(height)
 		toolbarMinimum := 0.0
 		if gs.ToolbarPlacement != ToolbarFloating {
 			toolbarMinimum = dockedToolbarMinimumWidth * float64(eui.UIScale()) / float64(width)
 		}
-		if gs.TiledLayout == TiledLayoutCenter && gs.TiledKeepGameLarge {
-			maximizeCenteredGameForWorkspace(width, height, toolbarMinimum)
+		if gs.TiledLayout != TiledLayoutSide && gs.TiledKeepGameLarge {
+			top, bottom := tiledMessageBandHeights()
+			maximizeCenteredGameForWorkspace(width, int(float64(height)*(1-top-bottom)), toolbarMinimum)
 		}
 		clampTiledLayoutForToolbar(toolbarMinimum)
+		clampTiledMessagePairSplit(width, height)
 	}
 	gs.GameWindow.Open = true
 	gs.InventoryWindow.Open = true
@@ -1271,11 +1294,11 @@ func applyTiledWindowStates() {
 	gs.MessagesWindow.Open = true
 	gs.ChatWindow.Open = !gs.MessagesToConsole
 	if gs.TiledLayout == TiledLayoutSide {
-		// The side-game arrangement reserves one bottom pane for combined
-		// messages, matching its two-panel upper workspace.
-		gs.MessagesToConsole = true
-		gs.ChatWindow.Open = false
 		applySideTiledWindowStates()
+		return
+	}
+	if gs.TiledLayout >= TiledLayoutMessagesBelow {
+		applyMessageBandTiledWindowStates()
 		return
 	}
 	applyCenteredTiledWindowStates()
@@ -1359,10 +1382,7 @@ func applySideTiledWindowStates() {
 		gs.ChatWindow.Open = false
 		return
 	}
-	// Keep both message windows available when the user has not chosen the
-	// combined-message mode; each gets half of the bottom panel.
-	tiledWindowState(&gs.MessagesWindow, panelX, top, panelWidth/2, bottom)
-	tiledWindowState(&gs.ChatWindow, panelX+panelWidth/2, top, panelWidth/2, bottom)
+	applyTiledMessagePair(panelX, top, panelWidth, bottom)
 }
 
 func managedWindowLayoutChanged() bool {

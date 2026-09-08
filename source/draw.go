@@ -1512,6 +1512,7 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	gNight.SetFlags(uint(lighting))
 
 	stateMu.Lock()
+	state.receivedAt = time.Now()
 	state.logicalFrame = frameCounter
 	state.ackCmd = ackCmd
 	state.dropped = extra

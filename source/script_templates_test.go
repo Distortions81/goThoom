@@ -18,6 +18,7 @@ func TestNewScriptTemplatesAreUniqueAndCompile(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		grantScriptPermissionsForTest(t, normalizeScriptID(strings.TrimSuffix(filepath.Base(path), ".go")))
 		prepared, err := compileScriptSource(normalizeScriptID(strings.TrimSuffix(filepath.Base(path), ".go")), source, restrictedStdlib())
 		if err != nil {
 			t.Fatalf("compile %s template: %v", template.name, err)

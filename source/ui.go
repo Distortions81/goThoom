@@ -47,7 +47,10 @@ var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
 var tileLayoutWin *eui.WindowData
 var settingsToolbarPlacementDD *eui.ItemData
-var settingsCombineMessagesCB *eui.ItemData
+var settingsCombineMessagesCB, tileCombineMessagesCB *eui.ItemData
+var settingsTiledModeCB, tileTiledModeCB *eui.ItemData
+var tileMessageOrderDD, tileMessageSplitDD *eui.ItemData
+var tileKeepGameLargeCB, wizardKeepGameLargeCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
 var loginConnectButton *eui.ItemData
@@ -162,6 +165,8 @@ var scriptsList *eui.ItemData
 var scriptsButtons *eui.ItemData
 var scriptDetails *eui.ItemData
 var scriptInfoWin *eui.WindowData
+var scriptInfoActions *eui.ItemData
+var scriptInfoActionGroups []*eui.ItemData
 var selectedscript string
 var scriptConfigWin *eui.WindowData
 var scriptConfigOwner string
@@ -569,21 +574,6 @@ func makescriptsWindow() {
 
 	listHeader := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	scriptsHeader = listHeader
-	for _, column := range []struct {
-		label string
-		width float32
-	}{
-		{label: "", width: scriptsManagerInfoSize},
-		{label: "Player", width: scriptsManagerCheckSize},
-		{label: "Global", width: scriptsManagerCheckSize},
-		{label: "Script", width: scriptsManagerNameWidth},
-	} {
-		text, _ := eui.NewText()
-		text.Text = column.label
-		text.FontSize = 9
-		text.Size = eui.Point{X: column.width, Y: scriptsManagerRowHeight}
-		listHeader.AddItem(text)
-	}
 	root.AddItem(listHeader)
 
 	list := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
@@ -594,6 +584,7 @@ func makescriptsWindow() {
 	buttonsBottom := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Fixed: true}
 	scriptsButtons = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
 	root.AddItem(scriptsButtons)
+	scriptsButtons.AddItem(scriptListSpace(1, 12))
 	scriptsButtons.AddItem(buttonsBottom)
 
 	refreshBtn, rh := eui.NewButton()
@@ -618,6 +609,7 @@ func makescriptsWindow() {
 			open.Run(userScriptsDir())
 		}
 	}
+	buttonsBottom.AddItem(scriptListSpace(8, 1))
 	buttonsBottom.AddItem(openBtn)
 
 	eventsBtn, eventsHandler := eui.NewButton()
@@ -629,6 +621,7 @@ func makescriptsWindow() {
 			scriptEventsWin.ToggleNear(ev.Item)
 		}
 	}
+	buttonsBottom.AddItem(scriptListSpace(8, 1))
 	buttonsBottom.AddItem(eventsBtn)
 
 	scriptKillCB, scriptKillEvents := eui.NewCheckbox()
@@ -643,6 +636,7 @@ func makescriptsWindow() {
 			settingsDirty = true
 		}
 	}
+	scriptsButtons.AddItem(scriptListSpace(1, 8))
 	scriptsButtons.AddItem(scriptKillCB)
 
 	scriptsWin.OnResize = refreshscriptsWindow
@@ -651,13 +645,12 @@ func makescriptsWindow() {
 }
 
 const (
-	scriptsManagerCheckSize  = 32
-	scriptsManagerInfoSize   = 28
-	scriptsManagerNameWidth  = 400
-	scriptsManagerInfoWidth  = 600
+	scriptsManagerCheckSize  = 56
+	scriptsManagerInfoSize   = 36
+	scriptsManagerInfoWidth  = 860
 	scriptsManagerListWidth  = 640
 	scriptsManagerPaneHeight = 420
-	scriptsManagerRowHeight  = 32
+	scriptsManagerRowHeight  = 48
 )
 
 type newScriptTemplate struct {
@@ -813,10 +806,26 @@ func refreshscriptsWindow() {
 	if scriptsList == nil || scriptsWin == nil {
 		return
 	}
+	character := scriptScopeCharacter()
+	if character == "" {
+		scriptsWin.Title = "Scripts — select a player on Login"
+	} else {
+		scriptsWin.Title = "Scripts — Player: " + character
+	}
 	savedScroll := scriptsList.Scroll
 	layoutScriptsWindow()
-	checkSize := eui.Point{X: scriptsManagerCheckSize, Y: scriptsManagerRowHeight}
-	scriptSize := eui.Point{X: scriptsManagerNameWidth, Y: scriptsManagerRowHeight}
+	nameWidth := max(float32(160), scriptsList.Size.X-scriptsManagerInfoSize-2*scriptsManagerCheckSize-12-72-16)
+	scriptsHeader.Contents = nil
+	scriptsHeader.AddItem(scriptListCell(nil, scriptsManagerInfoSize, 32, true))
+	for _, label := range []string{"Player", "All"} {
+		text := eui.NewLabel(label)
+		text.FontSize = 11
+		scriptsHeader.AddItem(scriptListCell(text, scriptsManagerCheckSize, 32, true))
+	}
+	scriptsHeader.AddItem(scriptListSpace(12, 1))
+	heading := eui.NewLabel("Script / status")
+	heading.FontSize = 11
+	scriptsHeader.AddItem(scriptListCell(heading, nameWidth, 32, false))
 
 	scriptsList.Contents = scriptsList.Contents[:0]
 
@@ -851,21 +860,23 @@ func refreshscriptsWindow() {
 	}
 	sort.Strings(catList)
 	for _, cat := range catList {
+		scriptsList.AddItem(scriptListSpace(1, 8))
+		divider, _ := eui.NewText()
+		divider.Position = eui.Point{}
+		divider.Size = eui.Point{X: scriptsList.Size.X - 16, Y: 1}
+		divider.Filled, divider.Color = true, divider.Theme.Button.OutlineColor
+		scriptsList.AddItem(divider)
+		scriptsList.AddItem(scriptListSpace(1, 8))
 		row := eui.NewRow()
-		infoSpacer := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: eui.Point{X: scriptsManagerInfoSize, Y: scriptsManagerRowHeight}, Fixed: true}
-		spacer1 := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: checkSize, Fixed: true}
-		spacer2 := &eui.ItemData{ItemType: eui.ITEM_TEXT, Size: checkSize, Fixed: true}
-		row.AddItem(infoSpacer)
-		row.AddItem(spacer1)
-		row.AddItem(spacer2)
-		txt, _ := eui.NewText()
+		row.AddItem(scriptListSpace(scriptsManagerInfoSize+2*scriptsManagerCheckSize+12, 24))
 		label := cat
 		if label == "" {
 			label = "Other"
 		}
-		txt.Text = label
-		txt.FontSize = 12
-		txt.Size = scriptSize
+		txt := eui.NewLabel(label)
+		txt.FontSize = 11
+		txt.Position = eui.Point{}
+		txt.Size = eui.Point{X: nameWidth, Y: 24}
 		row.AddItem(txt)
 		scriptsList.AddItem(row)
 
@@ -876,29 +887,36 @@ func refreshscriptsWindow() {
 		for _, e := range plist {
 			row := eui.NewRow()
 			charCB, charEvents := eui.NewCheckbox()
-			charCB.Size = checkSize
+			charCB.Size = eui.Point{X: 20, Y: 20}
+			charCB.AuxSize = charCB.Size
 			allCB, allEvents := eui.NewCheckbox()
-			allCB.Size = checkSize
-			// Consider LastCharacter before login so the per-character
-			// checkbox reflects the saved preference.
-			effChar := effectiveCharacterName()
+			allCB.Size = charCB.Size
+			allCB.AuxSize = allCB.Size
+			// Bind this checkbox to the character named when the row was built.
+			effChar := scriptScopeCharacter()
 			label := e.name
 			if e.sub != "" {
 				label += " [" + e.sub + "]"
 			}
-			label += " — " + scriptStatusLabel(e.disabled, e.invalid, e.errorText, e.reloadFailed)
 			owner := e.owner
 			scriptMu.RLock()
 			scope := scriptEnabledFor[owner]
 			scriptMu.RUnlock()
+			status := scriptScopedStatus(scope, effChar, e.disabled, e.invalid, e.errorText, e.reloadFailed)
 			charCB.Checked = effChar != "" && scope.Chars != nil && scope.Chars[effChar]
 			charCB.Disabled = e.invalid || effChar == ""
 			allCB.Checked = scope.All
 			allCB.Disabled = e.invalid
+			allCB.SetTooltip("Enable for all players. Starts fresh at login and stops at logout.")
+			if effChar == "" {
+				charCB.SetTooltip("Select a saved character on Login before enabling a per-player script.")
+			} else {
+				charCB.SetTooltip("Enable for " + effChar + ". Saved enablement: " + scriptScopeDescription(scope))
+			}
 			infoBtn, infoEvents := eui.NewButton()
 			infoBtn.Text = "i"
 			setMaterialIconOnly(infoBtn, "info", "i")
-			infoBtn.Size = eui.Point{X: scriptsManagerInfoSize, Y: 24}
+			infoBtn.Size = eui.Point{X: 28, Y: 28}
 			infoBtn.SetTooltip("Show script details and actions.")
 			infoEvents.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventClick {
@@ -911,17 +929,17 @@ func refreshscriptsWindow() {
 						// Character/all are mutually exclusive. Prioritize the
 						// clicked box and clear the other to reflect scope.
 						if ev.Checked {
-							setscriptEnabled(owner, true, false)
+							setScriptEnabledForCharacter(owner, effChar, true, false)
 						} else {
 							// Unchecking character when not selecting "all" disables.
-							setscriptEnabled(owner, false, allCB.Checked)
+							setScriptEnabledForCharacter(owner, effChar, false, allCB.Checked)
 						}
 					}
 				}
 				allEvents.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventCheckboxChanged {
 						if ev.Checked {
-							setscriptEnabled(owner, false, true)
+							setScriptEnabledForCharacter(owner, effChar, false, true)
 						} else {
 							// Unchecking "All" should fully disable the script,
 							// regardless of the per-character box state.
@@ -930,22 +948,31 @@ func refreshscriptsWindow() {
 					}
 				}
 			}
-			row.AddItem(infoBtn)
-			row.AddItem(charCB)
-			row.AddItem(allCB)
+			row.AddItem(scriptListCell(infoBtn, scriptsManagerInfoSize, scriptsManagerRowHeight, true))
+			row.AddItem(scriptListCell(charCB, scriptsManagerCheckSize, scriptsManagerRowHeight, true))
+			row.AddItem(scriptListCell(allCB, scriptsManagerCheckSize, scriptsManagerRowHeight, true))
+			row.AddItem(scriptListSpace(12, scriptsManagerRowHeight))
 			nameTxt, _ := eui.NewText()
 			nameTxt.Text = label
 			nameTxt.FontSize = 12
-			nameTxt.Size = scriptSize
+			nameTxt.Position = eui.Point{}
+			nameTxt.Size = eui.Point{X: nameWidth, Y: 20}
+			nameTxt.SetTooltip(label)
 			nameTxt.Disabled = e.invalid
-			row.AddItem(nameTxt)
+			statusTxt := eui.NewLabel(status)
+			statusTxt.FontSize = 10
+			statusTxt.Position = eui.Point{}
+			statusTxt.Size = eui.Point{X: nameWidth, Y: 18}
+			statusTxt.SetTooltip(status)
+			row.AddItem(eui.NewColumn(scriptListSpace(1, 6), nameTxt, statusTxt, scriptListSpace(1, 4)))
 
 			if !e.invalid {
 				reloadBtn, rh := eui.NewButton()
 				reloadBtn.Text = "Reload"
 				setMaterialIconOnly(reloadBtn, "restart_alt", "Reload")
 				reloadBtn.SetTooltip("Restart this script if enabled")
-				reloadBtn.Size = eui.Point{X: 32, Y: 24}
+				reloadBtn.Size = eui.Point{X: 28, Y: 28}
+				reloadBtn.Disabled = e.disabled
 				rh.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventClick {
 						scriptMu.RLock()
@@ -956,7 +983,7 @@ func refreshscriptsWindow() {
 						}
 					}
 				}
-				row.AddItem(reloadBtn)
+				row.AddItem(scriptListCell(reloadBtn, 36, scriptsManagerRowHeight, true))
 
 				scriptConfigMu.RLock()
 				cfg := scriptConfigEntries[owner]
@@ -964,14 +991,15 @@ func refreshscriptsWindow() {
 				if len(cfg) > 0 {
 					cfgBtn, ch := eui.NewButton()
 					cfgBtn.Text = "Configure"
-					setMaterialButtonIcon(cfgBtn, "settings")
-					cfgBtn.Size = eui.Point{X: 82, Y: 24}
+					setMaterialIconOnly(cfgBtn, "settings", "Configure")
+					cfgBtn.SetTooltip("Configure this script")
+					cfgBtn.Size = eui.Point{X: 28, Y: 28}
 					ch.Handle = func(ev eui.UIEvent) {
 						if ev.Type == eui.EventClick {
 							openscriptConfigWindow(owner)
 						}
 					}
-					row.AddItem(cfgBtn)
+					row.AddItem(scriptListCell(cfgBtn, 36, scriptsManagerRowHeight, true))
 				}
 			}
 			scriptsList.AddItem(row)
@@ -987,6 +1015,26 @@ func refreshscriptsWindow() {
 	}
 }
 
+// Fixed cells keep header labels and controls on the same column centers.
+func scriptListSpace(width, height float32) *eui.ItemData {
+	return &eui.ItemData{ItemType: eui.ITEM_FLOW, Fixed: true, Size: eui.Point{X: width, Y: height}}
+}
+
+func scriptListCell(item *eui.ItemData, width, height float32, centered bool) *eui.ItemData {
+	cell := eui.NewRow()
+	cell.Fixed, cell.Size = true, eui.Point{X: width, Y: height}
+	if item != nil {
+		item.Position = eui.Point{}
+		size := item.GetSize()
+		item.Position.Y = max(float32(0), (height-size.Y/eui.UIScale())/2)
+		if centered {
+			item.Position.X = max(float32(0), (width-size.X/eui.UIScale())/2)
+		}
+		cell.AddItem(item)
+	}
+	return cell
+}
+
 func layoutScriptsWindow() {
 	scale := eui.UIScale()
 	if scriptsWin.NoScale {
@@ -998,10 +1046,10 @@ func layoutScriptsWindow() {
 	clientH = max(0, clientH)
 
 	scriptsRoot.Size = eui.Point{X: clientW, Y: clientH}
-	scriptsHeader.Size = eui.Point{X: clientW, Y: scriptsManagerRowHeight}
+	scriptsHeader.Size = eui.Point{X: clientW, Y: 32}
 	scriptsButtons.Size = eui.Point{X: clientW}
 	footerHeight := scriptsButtons.GetSize().Y / scale
-	scriptsList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-scriptsManagerRowHeight-footerHeight)}
+	scriptsList.Size = eui.Point{X: clientW, Y: max(float32(24), clientH-32-footerHeight)}
 }
 
 func selectscript(owner string) {
@@ -1012,10 +1060,73 @@ func selectscript(owner string) {
 	if scriptInfoWin != nil {
 		scriptInfoWin.Close()
 	}
+	win := eui.NewWindow()
+	scriptInfoWin = win
+	win.Title = "Script Info"
+	win.Closable, win.Movable, win.Resizable, win.NoScroll = true, true, true, true
+	win.Padding, win.BorderPad = 8, 4
+	win.Size = eui.Point{X: scriptsManagerInfoWidth + 24, Y: 540}
+	win.SetZone(eui.HZoneCenter, eui.VZoneMiddleTop)
+	removed := false
+	win.OnClose = func() {
+		if removed {
+			return
+		}
+		removed = true
+		win.RemoveWindow()
+		if scriptInfoWin == win {
+			scriptInfoWin = nil
+		}
+	}
 	scriptDetails = &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Scrollable: true, Fixed: true}
-	scriptDetails.Size = eui.Point{X: scriptsManagerInfoWidth, Y: scriptsManagerPaneHeight}
+	scriptInfoActions = eui.NewColumn()
+	root := eui.NewColumn()
+	root.Fixed = true
+	root.AddItem(scriptDetails)
+	root.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Fixed: true, Size: eui.Point{X: 1, Y: 12}})
+	root.AddItem(scriptInfoActions)
+	win.AddItem(root)
+	win.OnResize = layoutScriptInfoWindow
 	refreshscriptDetails()
-	scriptInfoWin = eui.ShowPopup("Script Info", "", []eui.PopupButton{{Text: "Close", Action: func() { scriptInfoWin = nil }}}, scriptDetails)
+	win.AddWindow(false)
+	win.MarkOpen()
+	win.Refresh()
+}
+
+// Only the details pane scrolls. Keep related actions together and wrap whole
+// groups when a smaller screen or larger UI scale cannot fit a single row.
+func layoutScriptInfoWindow() {
+	if scriptInfoWin == nil || scriptInfoActions == nil {
+		return
+	}
+	scale := eui.UIScale()
+	width := max(float32(0), scriptInfoWin.GetSize().X/scale-2*(scriptInfoWin.Padding+scriptInfoWin.BorderPad))
+	height := max(float32(0), (scriptInfoWin.GetSize().Y-scriptInfoWin.GetTitleSize())/scale-2*(scriptInfoWin.Padding+scriptInfoWin.BorderPad))
+	scriptInfoActions.Contents = nil
+	row := eui.NewRow()
+	scriptInfoActions.AddItem(row)
+	used := float32(0)
+	for _, group := range scriptInfoActionGroups {
+		groupWidth := group.GetSize().X / scale
+		if used > 0 && used+16+groupWidth > width {
+			row = eui.NewRow()
+			scriptInfoActions.AddItem(row)
+			used = 0
+		}
+		if used > 0 {
+			row.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Fixed: true, Size: eui.Point{X: 16, Y: 1}})
+			used += 16
+		}
+		row.AddItem(group)
+		used += groupWidth
+	}
+	scriptInfoActions.Size = eui.Point{}
+	footerHeight := scriptInfoActions.GetSize().Y / scale
+	scriptInfoWin.Contents[0].Size = eui.Point{X: width, Y: height}
+	scriptDetails.Size = eui.Point{X: width, Y: max(float32(0), height-footerHeight-12)}
+	for _, item := range scriptDetails.Contents {
+		item.Size.X = max(float32(0), width-16)
+	}
 }
 
 func refreshscriptDetails() {
@@ -1023,6 +1134,7 @@ func refreshscriptDetails() {
 	if scriptDetails == nil {
 		return
 	}
+	savedScroll := scriptDetails.Scroll
 	scriptDetails.Contents = scriptDetails.Contents[:0]
 	owner := selectedscript
 	if owner == "" {
@@ -1046,6 +1158,7 @@ func refreshscriptDetails() {
 	if info, ok := scriptPackages[owner]; ok && info.assets != nil && info.assets.zipped {
 		openPath = info.container
 	}
+	scope := scriptEnabledFor[owner]
 	disabled := scriptDisabled[owner]
 	invalid := scriptInvalid[owner]
 	errorText := scriptErrors[owner]
@@ -1053,7 +1166,7 @@ func refreshscriptDetails() {
 	reloadFailed := scriptReloadFailed[owner]
 	scriptMu.RUnlock()
 
-	status := scriptStatusLabel(disabled, invalid, errorText, reloadFailed)
+	status := scriptScopedStatus(scope, scriptScopeCharacter(), disabled, invalid, errorText, reloadFailed)
 
 	line := func(s string) {
 		item, _ := eui.NewText()
@@ -1076,6 +1189,7 @@ func refreshscriptDetails() {
 		catLabel += sub
 	}
 	line("Category: " + catLabel)
+	line("Enabled for: " + scriptScopeDescription(scope))
 	line("Status: " + status)
 	line("Error: " + valueOrNone(errorText))
 	line("Validation: " + valueOrNone(validationResult))
@@ -1113,11 +1227,15 @@ func refreshscriptDetails() {
 		}
 	}
 
-	actions := eui.NewRow()
+	scriptInfoActionGroups = nil
+	var actions *eui.ItemData
+	group := func() { actions = eui.NewRow(); scriptInfoActionGroups = append(scriptInfoActionGroups, actions) }
+	group()
 	button := func(label string, disabled bool, action func()) {
 		item, events := eui.NewButton()
 		item.Text = label
-		item.Size = eui.Point{X: 84, Y: 24}
+		item.Size = eui.Point{X: 96, Y: 28}
+		item.FontSize = 12
 		item.Disabled = disabled
 		events.Handle = func(event eui.UIEvent) {
 			if event.Type == eui.EventClick && !item.Disabled {
@@ -1126,9 +1244,6 @@ func refreshscriptDetails() {
 		}
 		actions.AddItem(item)
 	}
-	button("Copy Error", errorText == "", func() {
-		_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(errorText))
-	})
 	button("Open File", openPath == "", func() {
 		if err := open.Run(openPath); err != nil {
 			consoleMessage("[script] open file: " + err.Error())
@@ -1138,6 +1253,10 @@ func refreshscriptDetails() {
 		if err := open.Run(filepath.Dir(openPath)); err != nil {
 			consoleMessage("[script] open folder: " + err.Error())
 		}
+	})
+	group()
+	button("Copy Error", errorText == "", func() {
+		_, _ = clipboard.Write(context.Background(), clipboard.FmtText, []byte(errorText))
 	})
 	button("Validate", path == "", func() {
 		result := "Passed"
@@ -1152,9 +1271,18 @@ func refreshscriptDetails() {
 		scriptMu.Unlock()
 		refreshscriptDetails()
 	})
+	button("Permissions", path == "", func() { openScriptPermissionsWindow(owner) })
+	group()
 	button("Reload", disabled || invalid, func() { enablescript(owner) })
 	button("Stop", disabled, func() { clearscriptScope(owner) })
-	scriptDetails.AddItem(actions)
+	group()
+	button("Close", false, func() {
+		if scriptInfoWin != nil {
+			scriptInfoWin.Close()
+		}
+	})
+	scriptDetails.Scroll = savedScroll
+	layoutScriptInfoWindow()
 
 	if scriptInfoWin != nil {
 		scriptInfoWin.Refresh()
@@ -1169,6 +1297,12 @@ func valueOrNone(value string) string {
 }
 
 func scriptStatusLabel(disabled, invalid bool, errorText string, reloadFailed bool) string {
+	if strings.Contains(errorText, "permissions required:") {
+		if !disabled {
+			return "Permissions Required (old version still running)"
+		}
+		return "Permissions Required"
+	}
 	if reloadFailed && !disabled {
 		return "Reload Failed (old version still running)"
 	}
@@ -4011,10 +4145,12 @@ func makeLoginWindow() {
 					return
 				}
 				playerName = extractMoviePlayerName(frames)
-				applyEnabledScripts()
 				ctx, cancel := context.WithCancel(gameCtx)
 				var mp *moviePlayer
+				var scriptSession uint64
+				defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
 				if !dispatchMainThreadAndWait(ctx, func() {
+					scriptSession = startSessionScripts(playerName)
 					updateGameWindowTitle()
 					mp = newMoviePlayer(frames, clMovFPS, cancel)
 					mp.makePlaybackWindow()
@@ -4022,7 +4158,7 @@ func makeLoginWindow() {
 					cancel()
 					return
 				}
-				go mp.run(ctx)
+				mp.run(ctx)
 			}()
 		}
 	}
@@ -5176,18 +5312,7 @@ func applyTiledWorkspaceLayout() {
 		placeToolbar(ToolbarInInventory, true)
 	}
 	refreshToolbarPlacementControl()
-	if gs.TiledWindows && gs.TiledLayout == TiledLayoutSide && !gs.MessagesToConsole {
-		// The alternate workspace has one shared messages pane beneath its
-		// top lists, so selecting it also combines chat and console output.
-		gs.MessagesToConsole = true
-	}
-	if settingsCombineMessagesCB != nil {
-		settingsCombineMessagesCB.Checked = gs.MessagesToConsole
-		settingsCombineMessagesCB.Dirty = true
-		if settingsWin != nil {
-			settingsWin.Refresh()
-		}
-	}
+
 	if gs.MessagesToConsole {
 		if chatWin != nil {
 			chatWin.Close()
@@ -5261,51 +5386,38 @@ func makeTileLayoutWindow() {
 			applyTiledWorkspaceLayout()
 		}
 	}
+	tileTiledModeCB = tiledCB
 	workspace.AddItem(tiledCB)
+	tileCombineMessagesCB = newCombineMessagesCheckbox(width)
+	workspace.AddItem(tileCombineMessagesCB)
 
 	keepGameLargeCB, keepGameLargeEvents := eui.NewCheckbox()
-	keepGameLargeCB.Text = "Keep game window large"
+	keepGameLargeCB.Text = "Auto-size side panels"
 	keepGameLargeCB.Size = eui.Point{X: width, Y: 24}
 	keepGameLargeCB.Checked = gs.TiledKeepGameLarge
-	keepGameLargeCB.SetTooltip("Keep the centered game pane at its largest square size; drag a divider to reposition it.")
+	keepGameLargeCB.SetTooltip("Automatically adjust side panel widths to use empty space beside the game. Drag either game divider to move the game sideways. Turn off to keep the current sizes and resize panels independently.")
+	keepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
 	keepGameLargeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			gs.TiledKeepGameLarge = ev.Checked
-			applyTiledWorkspaceLayout()
+			setTiledKeepGameLarge(ev.Checked)
 		}
 	}
+	tileKeepGameLargeCB = keepGameLargeCB
 	workspace.AddItem(keepGameLargeCB)
 
-	combineMessagesCB, combineMessagesEvents := eui.NewCheckbox()
-	settingsCombineMessagesCB = combineMessagesCB
-	combineMessagesCB.Text = "Combine chat + console"
-	combineMessagesCB.Size = eui.Point{X: width, Y: 24}
-	combineMessagesCB.Checked = gs.MessagesToConsole
-	combineMessagesCB.SetTooltip("Show chat and console output together in the Console tile, and hide the separate Chat tile.")
-	combineMessagesEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.MessagesToConsole = ev.Checked
-			applyTiledWorkspaceLayout()
-		}
-	}
-	workspace.AddItem(combineMessagesCB)
-
-	var gameSideDD *eui.ItemData
+	var gameSideDD, bottomDD *eui.ItemData
+	var refreshArrangement func()
 	layoutDD, layoutEvents := eui.NewDropdown()
 	layoutDD.Label = "Layout"
-	layoutDD.Options = []string{"Game centered", "Game on a side"}
+	layoutDD.Options = tiledLayoutNames
 	layoutDD.Selected = int(gs.TiledLayout)
 	layoutDD.Size = eui.Point{X: width, Y: 24}
-	layoutDD.SetTooltip("Centered uses two side columns; side puts the game beside a shared panel.")
+	layoutDD.SetTooltip("Choose side columns, message rows around the game, or a full-width message strip. Drag dividers to adjust sizes.")
 	layoutEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			gs.TiledLayout = TiledLayout(ev.Index)
 			applyTiledWorkspaceLayout()
-			if gameSideDD != nil {
-				gameSideDD.Disabled = gs.TiledLayout != TiledLayoutSide
-				gameSideDD.Dirty = true
-				tileLayoutWin.Refresh()
-			}
+			refreshArrangement()
 		}
 	}
 	arrangement.AddItem(layoutDD)
@@ -5326,21 +5438,37 @@ func makeTileLayoutWindow() {
 	}
 	arrangement.AddItem(topDD)
 
-	bottomDD, bottomEvents := eui.NewDropdown()
+	bottomControl, bottomEvents := eui.NewDropdown()
+	bottomDD = bottomControl
 	bottomDD.Label = "Console / Chat"
 	bottomDD.Options = []string{"Console left, Chat right", "Chat left, Console right"}
 	if !gs.TiledConsoleLeft {
 		bottomDD.Selected = 1
 	}
 	bottomDD.Size = eui.Point{X: width, Y: 24}
-	bottomDD.SetTooltip("Sets message sides in centered layout; ignored when messages are combined.")
+	bottomDD.SetTooltip("Choose message order: left/right in rows, or above/below when the game separates them.")
 	bottomEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			gs.TiledConsoleLeft = ev.Index == 0
 			applyTiledWorkspaceLayout()
 		}
 	}
+	tileMessageOrderDD = bottomDD
 	arrangement.AddItem(bottomDD)
+
+	messageSplit, messageSplitEvents := eui.NewDropdown()
+	messageSplit.Label = "Message split"
+	messageSplit.Options = []string{"Side by side", "Stacked"}
+	messageSplit.Size = eui.Point{X: width, Y: 24}
+	messageSplit.SetTooltip("Place separate Chat and Console beside each other or stack them in their shared area. Drag the divider to resize them.")
+	messageSplitEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			gs.TiledMessagesStacked = ev.Index == 1
+			applyTiledWorkspaceLayout()
+		}
+	}
+	tileMessageSplitDD = messageSplit
+	arrangement.AddItem(messageSplit)
 
 	gameSideDD, gameSideEvents := eui.NewDropdown()
 	gameSideDD.Label = "Alternate game side"
@@ -5358,6 +5486,18 @@ func makeTileLayoutWindow() {
 		}
 	}
 	arrangement.AddItem(gameSideDD)
+
+	refreshArrangement = func() {
+		refreshTiledMessageLayoutControls(bottomDD, messageSplit)
+		gameSideDD.Disabled = gs.TiledLayout != TiledLayoutSide
+		keepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
+
+		for _, item := range []*eui.ItemData{gameSideDD, keepGameLargeCB, bottomDD} {
+			item.Dirty = true
+		}
+		tileLayoutWin.Refresh()
+	}
+	refreshArrangement()
 
 	tileLayoutWin.AddItem(flow)
 	tileLayoutWin.AddWindow(false)

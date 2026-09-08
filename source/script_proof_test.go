@@ -29,6 +29,7 @@ func activateBundledProofScript(t *testing.T, owner, filename string) scriptEven
 		if scriptIsRunning(owner) {
 			disablescript(owner, "test cleanup")
 		}
+		drainScriptDispatcher()
 	})
 	return scriptEventSimulator{owner: owner}
 }

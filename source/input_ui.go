@@ -110,42 +110,45 @@ func pointInItems(items []*eui.ItemData, fx, fy float32) bool {
 	return false
 }
 
-// typingInUI reports whether any EUI text input other than the console input bar
+// typingInUI reports whether any EUI text input other than the message input bars
 // currently has focus.
 func typingInUI() bool {
 	if eui.SearchActive() {
 		return true
-	}
-	var inputItem *eui.ItemData
-	if inputFlow != nil && len(inputFlow.Contents) > 0 {
-		inputItem = inputFlow.Contents[0]
 	}
 	windows := eui.Windows()
 	for _, win := range windows {
 		if !win.IsOpen() {
 			continue
 		}
-		if typingInItems(win.Contents, inputItem) {
+		if typingInItems(win.Contents, messageInputItem(inputFlow), messageInputItem(chatInputFlow)) {
 			return true
 		}
 	}
 	return false
 }
 
-func typingInItems(items []*eui.ItemData, exclude *eui.ItemData) bool {
+func typingInItems(items []*eui.ItemData, exclude ...*eui.ItemData) bool {
 	for _, it := range items {
 		if it == nil {
 			continue
 		}
-		if it.Focused && (it.ItemType == eui.ITEM_TEXT || it.ItemType == eui.ITEM_INPUT) && it != exclude {
+		if it.Focused && (it.ItemType == eui.ITEM_TEXT || it.ItemType == eui.ITEM_INPUT) {
+			ignored := false
+			for _, item := range exclude {
+				ignored = ignored || it == item
+			}
+			if ignored {
+				continue
+			}
 			return true
 		}
-		if len(it.Contents) > 0 && typingInItems(it.Contents, exclude) {
+		if len(it.Contents) > 0 && typingInItems(it.Contents, exclude...) {
 			return true
 		}
 		if len(it.Tabs) > 0 {
 			for _, tab := range it.Tabs {
-				if typingInItems(tab.Contents, exclude) {
+				if typingInItems(tab.Contents, exclude...) {
 					return true
 				}
 			}

@@ -71,6 +71,11 @@ func TestFasterCharacterShadowsDefaultOff(t *testing.T) {
 func TestSettingsV4RoundTrip(t *testing.T) {
 	want := gsdef
 	want.LastCharacter = "Agratis"
+	want.TiledLayout = TiledLayoutMessagesSplit
+	want.TiledMessagesTopHeight = 0.31
+	want.TiledMessagesBottomHeight = 0.23
+	want.TiledMessagesSplit = 0.65
+	want.TiledMessagesStacked = true
 	want.GameScale = 2
 	want.SpriteUpscale = 2
 	want.SpriteUpscaleMode = artworkUpscaleCrisp

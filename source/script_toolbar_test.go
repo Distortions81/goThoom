@@ -106,6 +106,7 @@ func Init() {
 	}}})
 }
 `)
+	grantScriptPermissionsForTest(t, "loose-toolbar")
 	prepared, err := prepareScriptSource("loose-toolbar", source, restrictedStdlib())
 	if err == nil {
 		err = scriptCandidateConflict("loose-toolbar", prepared.candidate)

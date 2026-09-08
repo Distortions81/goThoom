@@ -14,8 +14,8 @@ import (
 
 const (
 	settingsControlHeight float32 = 28
-	settingsPanelWidth    float32 = 660
-	settingsWindowWidth   float32 = 700
+	settingsPanelWidth    float32 = 690
+	settingsWindowWidth   float32 = 730
 	settingsWindowHeight  float32 = 700
 )
 
@@ -81,6 +81,7 @@ func makeSettingsWindow() {
 	textPage := newSettingsPage("Text", panelWidth)
 	bubblesPage := newSettingsPage("Bubbles", panelWidth)
 	audioPage := newSettingsPage("Audio", panelWidth)
+	ttsPage := newSettingsPage("TTS", panelWidth)
 	controlsPage := newSettingsPage("Controls", panelWidth)
 	performancePage := newSettingsPage("Performance", panelWidth)
 	networkPage := newSettingsPage("Network", panelWidth)
@@ -96,8 +97,8 @@ func makeSettingsWindow() {
 	displayColumns.AddItem(displayLayoutPage)
 	displayPage.AddItem(displayColumns)
 	windowSection := addSettingsSection(displayWindowPage, "Window & Display", displayColumnWidth)
-	tiledSection := addSettingsSection(displayLayoutPage, "Tiled Windows & Toolbar", displayColumnWidth)
-	windowsSection := addSettingsSection(displayLayoutPage, "Windows", displayColumnWidth)
+	layoutSection := addSettingsSection(displayLayoutPage, "Windows & Toolbar", displayColumnWidth)
+	windowsSection := addSettingsSection(displayLayoutPage, "Show / Hide Windows", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
 	textColumns := eui.NewRow()
@@ -123,7 +124,8 @@ func makeSettingsWindow() {
 	playersSection := addSettingsSection(worldNames, "Players List", worldColumnWidth)
 	bubbleSection := addSettingsSection(bubblesPage, "Speech Bubbles", panelWidth)
 	audioSection := addSettingsSection(audioPage, "Sound & Music", panelWidth)
-	ttsSection := addSettingsSection(audioPage, "Text to Speech", panelWidth)
+	ttsSection := addSettingsSection(ttsPage, "Text to Speech", panelWidth)
+	ttsTestSection := addSettingsSection(ttsPage, "Test & Corrections", panelWidth)
 	notificationsSection := addSettingsSection(audioPage, "Notifications", panelWidth)
 	controlsSection := addSettingsSection(controlsPage, "Movement & Input", panelWidth)
 	qualitySection := addSettingsSection(performancePage, "Graphics Quality", panelWidth)
@@ -145,7 +147,10 @@ func makeSettingsWindow() {
 			applyTiledWorkspaceLayout()
 		}
 	}
-	tiledSection.AddItem(tiledModeCB)
+	settingsTiledModeCB = tiledModeCB
+	layoutSection.AddItem(tiledModeCB)
+	settingsCombineMessagesCB = newCombineMessagesCheckbox(displayColumnWidth)
+	layoutSection.AddItem(settingsCombineMessagesCB)
 
 	tiledLayoutBtn, tiledLayoutEvents := eui.NewButton()
 	tiledLayoutBtn.Text = "Tiled Layout"
@@ -174,7 +179,7 @@ func makeSettingsWindow() {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
 		}
 	}
-	tiledSection.AddItem(toolbarPlacementDD)
+	layoutSection.AddItem(toolbarPlacementDD)
 
 	toolbarInfoCB, toolbarInfoEvents := eui.NewCheckbox()
 	toolbarInfoCB.Text = "Toolbar Info"
@@ -191,7 +196,7 @@ func makeSettingsWindow() {
 	layoutToolsRow := eui.NewRow()
 	layoutToolsRow.AddItem(tiledLayoutBtn)
 	layoutToolsRow.AddItem(toolbarInfoCB)
-	tiledSection.AddItem(layoutToolsRow)
+	layoutSection.AddItem(layoutToolsRow)
 
 	// UI scale is always available: users need a direct recovery path if a
 	// display's DPI report is unusual. Retina/HiDPI scaling is applied on top
@@ -426,7 +431,7 @@ func makeSettingsWindow() {
 				inputPos = 0
 				historyPos = len(inputHistory)
 			}
-			updateConsoleWindow()
+			updateMessageInputWindows()
 			if consoleWin != nil {
 				consoleWin.Refresh()
 			}
@@ -437,7 +442,7 @@ func makeSettingsWindow() {
 
 	chatTSCB, chatTSEvents := eui.NewCheckbox()
 	chatTSCB.Text = "Chat timestamps"
-	chatTSCB.Size = eui.Point{X: panelWidth, Y: settingsControlHeight}
+	chatTSCB.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	chatTSCB.Checked = gs.ChatTimestamps
 	chatTSEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -453,7 +458,7 @@ func makeSettingsWindow() {
 
 	consoleTSCB, consoleTSEvents := eui.NewCheckbox()
 	consoleTSCB.Text = "Console timestamps"
-	consoleTSCB.Size = eui.Point{X: panelWidth, Y: settingsControlHeight}
+	consoleTSCB.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	consoleTSCB.Checked = gs.ConsoleTimestamps
 	consoleTSEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -1095,35 +1100,18 @@ func makeSettingsWindow() {
 	}
 	textSizeSection.AddItem(chatFontSlider)
 
-	addTTSEnablementControls(ttsSection, 240)
-
-	ttsSpeedSlider, ttsSpeedEvents := eui.NewSlider()
-	ttsSpeedSlider.Label = "TTS Speed"
-	ttsSpeedSlider.MinValue = 0.5
-	ttsSpeedSlider.MaxValue = 2.0
-	ttsSpeedSlider.Value = float32(gs.ChatTTSSpeed)
-	ttsSpeedSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
-	ttsSpeedEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventSliderChanged {
-			SettingsLock.Lock()
-			gs.ChatTTSSpeed = float64(ev.Value)
-			SettingsLock.Unlock()
-			settingsDirty = true
-		}
-	}
-	ttsSection.AddItem(ttsSpeedSlider)
-
 	addDisplaySettings(windowSection, displayColumnWidth)
 	addWindowSettings(windowsSection, displayColumnWidth)
 	addControlSettings(controlsSection, panelWidth)
 	addTextSettings(chatSection, inputSection, displayColumnWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
-	addAudioSettings(ttsSection, audioSection, panelWidth)
+	addAudioSettings(audioSection, panelWidth)
+	addTTSSettings(ttsSection, ttsTestSection)
 	addFileSettings(filesSection, recordingSection, panelWidth)
 	addToolSettings(diagnosticsSection, resetSection, panelWidth)
 	addNetworkSettings(networkSection, panelWidth)
 
-	outer.Tabs = []*eui.ItemData{displayPage, worldPage, textPage, bubblesPage, audioPage,
+	outer.Tabs = []*eui.ItemData{displayPage, worldPage, textPage, bubblesPage, audioPage, ttsPage,
 		controlsPage, performancePage, networkPage, filesPage, toolsPage}
 	settingsWin.AddItem(outer)
 	settingsWin.AddWindow(false)
@@ -1144,8 +1132,14 @@ func addWindowVisibilityCheckbox(section *eui.ItemData, label string, width floa
 	checkbox.Text = label
 	checkbox.Size = eui.Point{X: width, Y: settingsControlHeight}
 	checkbox.Checked = target() != nil && target().IsOpen()
+	checkbox.Disabled = gs.TiledWindows
+	checkbox.SetTooltip("Show or hide this standalone window. Tiled mode manages window visibility automatically.")
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventCheckboxChanged {
+			return
+		}
+		if gs.TiledWindows {
+			refreshWindowSettingsControls()
 			return
 		}
 		if win := target(); win != nil {
@@ -1186,6 +1180,14 @@ func addWindowSettings(section *eui.ItemData, width float32) {
 }
 
 func refreshWindowSettingsControls() {
+	for _, item := range []*eui.ItemData{tileKeepGameLargeCB, wizardKeepGameLargeCB} {
+		if item != nil {
+			item.Checked = gs.TiledKeepGameLarge
+			item.Disabled = gs.TiledLayout == TiledLayoutSide
+			item.Dirty = true
+		}
+	}
+	refreshTiledMessageLayoutControls(tileMessageOrderDD, tileMessageSplitDD)
 	for _, control := range []struct {
 		checkbox *eui.ItemData
 		window   *eui.WindowData
@@ -1197,12 +1199,44 @@ func refreshWindowSettingsControls() {
 	} {
 		if control.checkbox != nil {
 			control.checkbox.Checked = control.window != nil && control.window.IsOpen()
+			control.checkbox.Disabled = gs.TiledWindows
 			control.checkbox.Dirty = true
+		}
+	}
+	for _, item := range []*eui.ItemData{settingsCombineMessagesCB, tileCombineMessagesCB} {
+		if item != nil {
+			item.Checked, item.Dirty = gs.MessagesToConsole, true
+		}
+	}
+	for _, item := range []*eui.ItemData{settingsTiledModeCB, tileTiledModeCB} {
+		if item != nil {
+			item.Checked, item.Dirty = gs.TiledWindows, true
 		}
 	}
 	if settingsWin != nil {
 		settingsWin.Refresh()
 	}
+	if tileLayoutWin != nil {
+		tileLayoutWin.Refresh()
+	}
+	if setupWizardWin != nil {
+		setupWizardWin.Refresh()
+	}
+}
+
+func newCombineMessagesCheckbox(width float32) *eui.ItemData {
+	checkbox, events := eui.NewCheckbox()
+	checkbox.Text = "Combine chat + console"
+	checkbox.Size = eui.Point{X: width, Y: settingsControlHeight}
+	checkbox.Checked = gs.MessagesToConsole
+	checkbox.SetTooltip("Show chat and console output together in the Console window and hide Chat. Works with tiled or standalone windows.")
+	events.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.MessagesToConsole = ev.Checked
+			applyTiledWorkspaceLayout()
+		}
+	}
+	return checkbox
 }
 
 func newWindowShadowsCheckbox(width float32) *eui.ItemData {
@@ -1326,7 +1360,7 @@ func addTextSettings(chatSection, inputSection *eui.ItemData, columnWidth float3
 			gs.InputAutocomplete = ev.Checked
 			SettingsLock.Unlock()
 			settingsDirty = true
-			updateConsoleWindow()
+			updateMessageInputWindows()
 		}
 	}
 	inputSection.AddItem(autocomplete)
@@ -1344,7 +1378,7 @@ func addTextSettings(chatSection, inputSection *eui.ItemData, columnWidth float3
 			SettingsLock.Unlock()
 			spellDirty = true
 			settingsDirty = true
-			updateConsoleWindow()
+			updateMessageInputWindows()
 		}
 	}
 	inputSection.AddItem(spellcheck)
@@ -1383,7 +1417,7 @@ func addBubbleSettings(bubbleSection *eui.ItemData, columnWidth float32) {
 	bubbleSection.AddItem(bubbleBtn)
 }
 
-func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float32) {
+func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 	soundFontDD, soundFontEvents := eui.NewDropdown()
 	soundFontDD.Label = "Music SoundFont"
 	soundFontDD.Size = eui.Point{X: 400, Y: settingsControlHeight}
@@ -1526,6 +1560,58 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	}
 	audioSection.AddItem(musicBufferSlider)
 
+	throttleCB, throttleEvents := eui.NewCheckbox()
+	throttleSoundCB = throttleCB
+	throttleSoundCB.Text = "Throttle Repeated Sounds"
+	throttleSoundCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	throttleSoundCB.Checked = gs.ThrottleSounds
+	throttleSoundCB.SetTooltip("Suppress the same effect when it repeats in adjacent server updates.")
+	throttleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.ThrottleSounds = ev.Checked
+			clearCaches()
+			settingsDirty = true
+		}
+	}
+	audioSection.AddItem(throttleSoundCB)
+
+	resampleCB, resampleEvents := eui.NewCheckbox()
+	resampleAudioCB = resampleCB
+	resampleCB.Text = "High quality resampling"
+	resampleCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	resampleCB.Checked = gs.HighQualityResampling
+	resampleCB.SetTooltip("Uses Lanczos resampling and dithering for cleaner audio at higher CPU cost.")
+	resampleEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.HighQualityResampling = ev.Checked
+			setHighQualityResamplingEnabled(ev.Checked)
+			clearCaches()
+			settingsDirty = true
+		}
+	}
+	audioSection.AddItem(resampleCB)
+
+}
+
+func addTTSSettings(ttsSection, testSection *eui.ItemData) {
+	addTTSEnablementControls(ttsSection, 240)
+
+	ttsSpeedSlider, ttsSpeedEvents := eui.NewSlider()
+	ttsSpeedSlider.Label = "TTS Speed"
+	ttsSpeedSlider.MinValue = 0.5
+	ttsSpeedSlider.MaxValue = 2.0
+	ttsSpeedSlider.Value = float32(gs.ChatTTSSpeed)
+	ttsSpeedSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	ttsSpeedEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			SettingsLock.Lock()
+			gs.ChatTTSSpeed = float64(ev.Value)
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+	}
+	ttsSection.AddItem(ttsSpeedSlider)
+
 	voiceDD, voiceEvents := eui.NewDropdown()
 	voiceDD.Label = "TTS Voice"
 	if voices, err := listPiperVoices(); err == nil && len(voices) > 0 {
@@ -1583,7 +1669,7 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 			ttsTestPhrase = ev.Text
 		}
 	}
-	ttsSection.AddItem(ttsTestInput)
+	testSection.AddItem(ttsTestInput)
 
 	ttsTestBtn, ttsTestBtnEvents := eui.NewButton()
 	ttsTestBtn.Text = "Test TTS"
@@ -1611,38 +1697,7 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	ttsEditBtn.Position.X = 8
 	ttsActions.AddItem(ttsTestBtn)
 	ttsActions.AddItem(ttsEditBtn)
-	ttsSection.AddItem(ttsActions)
-	throttleCB, throttleEvents := eui.NewCheckbox()
-	throttleSoundCB = throttleCB
-	throttleSoundCB.Text = "Throttle Repeated Sounds"
-	throttleSoundCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
-	throttleSoundCB.Checked = gs.ThrottleSounds
-	throttleSoundCB.SetTooltip("Suppress the same effect when it repeats in adjacent server updates.")
-	throttleEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.ThrottleSounds = ev.Checked
-			clearCaches()
-			settingsDirty = true
-		}
-	}
-	audioSection.AddItem(throttleSoundCB)
-
-	resampleCB, resampleEvents := eui.NewCheckbox()
-	resampleAudioCB = resampleCB
-	resampleCB.Text = "High quality resampling"
-	resampleCB.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
-	resampleCB.Checked = gs.HighQualityResampling
-	resampleCB.SetTooltip("Uses Lanczos resampling and dithering for cleaner audio at higher CPU cost.")
-	resampleEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.HighQualityResampling = ev.Checked
-			setHighQualityResamplingEnabled(ev.Checked)
-			clearCaches()
-			settingsDirty = true
-		}
-	}
-	audioSection.AddItem(resampleCB)
-
+	testSection.AddItem(ttsActions)
 }
 
 func addFileSettings(filesSection, recordingSection *eui.ItemData, columnWidth float32) {
@@ -1781,4 +1836,34 @@ func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
 	}
 	networkSection.AddItem(serverListButton)
 
+}
+
+func refreshTiledMessageLayoutControls(order, split *eui.ItemData) {
+	if order != nil {
+		vertical := gs.TiledLayout == TiledLayoutMessagesSplit || (tiledPairedMessages() && gs.TiledMessagesStacked)
+		order.Label = "Console / Chat"
+		order.Options = []string{"Console left, Chat right", "Chat left, Console right"}
+		if vertical {
+			order.Options = []string{"Console above, Chat below", "Chat above, Console below"}
+		}
+		if gs.MessagesToConsole {
+			order.Label = "Combined chat + console"
+			order.Options = []string{"Combined messages left", "Combined messages right"}
+			if vertical {
+				order.Options = []string{"Combined messages above", "Combined messages below"}
+			}
+		}
+		order.Selected = 0
+		if !gs.TiledConsoleLeft {
+			order.Selected = 1
+		}
+		order.Disabled, order.Dirty = tiledMessageOrderDisabled(), true
+	}
+	if split != nil {
+		split.Selected = 0
+		if gs.TiledMessagesStacked {
+			split.Selected = 1
+		}
+		split.Disabled, split.Dirty = gs.MessagesToConsole || !tiledPairedMessages(), true
+	}
 }

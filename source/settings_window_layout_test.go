@@ -61,11 +61,12 @@ func TestSettingsWindowFitsCurrentScreenLayout(t *testing.T) {
 	}
 }
 
-func TestCombineMessagesControlLivesInTiledLayoutWindow(t *testing.T) {
+func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 	initFont()
 	originalSettingsWin := settingsWin
 	originalTileLayoutWin := tileLayoutWin
-	originalCombineControl := settingsCombineMessagesCB
+	originalCombineControl, originalTileCombine := settingsCombineMessagesCB, tileCombineMessagesCB
+	originalTiledControl, originalTileTiled := settingsTiledModeCB, tileTiledModeCB
 	settingsWin = nil
 	tileLayoutWin = nil
 	settingsCombineMessagesCB = nil
@@ -78,7 +79,8 @@ func TestCombineMessagesControlLivesInTiledLayoutWindow(t *testing.T) {
 		}
 		settingsWin = originalSettingsWin
 		tileLayoutWin = originalTileLayoutWin
-		settingsCombineMessagesCB = originalCombineControl
+		settingsCombineMessagesCB, tileCombineMessagesCB = originalCombineControl, originalTileCombine
+		settingsTiledModeCB, tileTiledModeCB = originalTiledControl, originalTileTiled
 	})
 
 	makeSettingsWindow()
@@ -102,11 +104,31 @@ func TestCombineMessagesControlLivesInTiledLayoutWindow(t *testing.T) {
 		return visit(root.Contents)
 	}
 
-	if containsText(settingsWin, "Combine chat + console") {
-		t.Fatal("combine chat control remains in the general Settings window")
+	if !containsText(settingsWin, "Combine chat + console") {
+		t.Fatal("combine chat control is missing from general Settings")
 	}
 	if !containsText(tileLayoutWin, "Combine chat + console") {
 		t.Fatal("combine chat control is missing from the tiled layout window")
+	}
+	originalSettings := gs
+	t.Cleanup(func() { gs = originalSettings })
+	for _, tiled := range []bool{true, false} {
+		gs.TiledWindows = tiled
+		for _, combined := range []bool{true, false} {
+			gs.MessagesToConsole = combined
+			refreshWindowSettingsControls()
+			if settingsCombineMessagesCB.Checked != combined || tileCombineMessagesCB.Checked != combined {
+				t.Fatal("combine controls did not synchronize")
+			}
+			if settingsTiledModeCB.Checked != tiled || tileTiledModeCB.Checked != tiled {
+				t.Fatal("tiled mode controls did not synchronize")
+			}
+			for _, checkbox := range []*eui.ItemData{settingsPlayersCB, settingsInventoryCB, settingsChatCB, settingsConsoleCB} {
+				if checkbox.Disabled != tiled {
+					t.Fatalf("%s visibility disabled = %t, want %t", checkbox.Text, checkbox.Disabled, tiled)
+				}
+			}
+		}
 	}
 }
 
@@ -114,7 +136,8 @@ func TestAlternateGameSideDisabledForCenteredTiledLayout(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	originalTileLayoutWin := tileLayoutWin
-	originalCombineControl := settingsCombineMessagesCB
+	originalCombineControl, originalTileCombine := settingsCombineMessagesCB, tileCombineMessagesCB
+	originalTiledControl, originalTileTiled := settingsTiledModeCB, tileTiledModeCB
 	originalDirty := settingsDirty
 	gs = gsdef
 	gs.TiledWindows = true
@@ -127,7 +150,8 @@ func TestAlternateGameSideDisabledForCenteredTiledLayout(t *testing.T) {
 		}
 		gs = originalSettings
 		tileLayoutWin = originalTileLayoutWin
-		settingsCombineMessagesCB = originalCombineControl
+		settingsCombineMessagesCB, tileCombineMessagesCB = originalCombineControl, originalTileCombine
+		settingsTiledModeCB, tileTiledModeCB = originalTiledControl, originalTileTiled
 		settingsDirty = originalDirty
 	})
 
@@ -226,8 +250,8 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	})
 	makeSettingsWindow()
 	tabs := settingsWin.Contents[0].Tabs
-	if len(tabs) != 10 || settingsWin.Contents[0].TabColumns != 0 {
-		t.Fatal("settings should have ten categories in one row")
+	if len(tabs) != 11 || settingsWin.Contents[0].TabColumns != 0 {
+		t.Fatal("settings should have eleven categories in one row")
 	}
 	locations := map[string]string{}
 	var visit func([]*eui.ItemData, string)
@@ -248,10 +272,11 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	for control, want := range map[string]string{
 		"File Paths": "Files", "Open User Data Folder": "Files", "Open Diagnostics Folder": "Files",
 		"Auto-record sessions": "Files", "Download Files": "Files",
+		"Windows & Toolbar": "Display", "Combine chat + console": "Display", "Show / Hide Windows": "Display",
 		"Always on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
 		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Status bars below toolbar hands": "World", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
-		"Music SoundFont": "Audio", "Audio Mixer": "Audio", "Enhance sound effects": "Audio", "Sound effect ambience": "Audio", "Enhance bard music": "Audio", "Bard music ambience": "Audio", "Music Buffer (s)": "Audio", "TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
+		"Music SoundFont": "Audio", "Audio Mixer": "Audio", "Enhance sound effects": "Audio", "Sound effect ambience": "Audio", "Enhance bard music": "Audio", "Bard music ambience": "Audio", "Music Buffer (s)": "Audio", "TTS Voice": "TTS", "TTS Speed": "TTS", "Enable Text to Speech": "TTS", "TTS test phrase": "TTS", "Test TTS": "TTS", "Edit TTS corrections": "TTS", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
 		nlsptExpandedName: "Network", "Enable NLSPT": "Network", "Edit Server List": "Network", "NLSPT safety (%)": "Network",
 		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",
@@ -283,5 +308,39 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 	}
 	if _, exists := locations["Advanced Settings"]; exists {
 		t.Fatal("obsolete Advanced Settings launcher remains")
+	}
+}
+
+func TestTiledWindowVisibilityIgnoresCheckboxEvents(t *testing.T) {
+	initFont()
+	originalSettings := gs
+	originalCallback := eui.WindowStateChanged
+	eui.WindowStateChanged = nil
+	t.Cleanup(func() {
+		gs = originalSettings
+		eui.WindowStateChanged = originalCallback
+	})
+	gs.TiledWindows = true
+	win := eui.NewWindow()
+	win.SetDocked(true)
+	win.MarkOpen()
+	t.Cleanup(win.RemoveWindow)
+	checkbox := addWindowVisibilityCheckbox(eui.NewRow(), "Players", 150, func() *eui.WindowData { return win })
+	if !checkbox.Disabled {
+		t.Fatal("visibility control should start disabled in tiled mode")
+	}
+	checkbox.Handler.Emit(eui.UIEvent{Item: checkbox, Type: eui.EventCheckboxChanged, Checked: false})
+	if !win.IsOpen() {
+		t.Fatal("a queued checkbox event closed a tiled pane")
+	}
+	gs.TiledWindows = false
+	win.SetDocked(false)
+	checkbox.Handler.Emit(eui.UIEvent{Item: checkbox, Type: eui.EventCheckboxChanged, Checked: false})
+	if win.IsOpen() {
+		t.Fatal("standalone window could not be closed")
+	}
+	checkbox.Handler.Emit(eui.UIEvent{Item: checkbox, Type: eui.EventCheckboxChanged, Checked: true})
+	if !win.IsOpen() {
+		t.Fatal("standalone window could not be reopened")
 	}
 }

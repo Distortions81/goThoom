@@ -164,11 +164,8 @@ func TestSideTiledLayoutKeepsGameOnSelectedSide(t *testing.T) {
 	gs = gsdef
 	gs.TiledWindows = true
 	gs.TiledLayout = TiledLayoutSide
-	gs.MessagesToConsole = false
+	gs.MessagesToConsole = true
 	applyTiledWindowStates()
-	if !gs.MessagesToConsole {
-		t.Fatal("side tiled layout should combine chat and console")
-	}
 
 	assertWindowRect(t, gs.GameWindow, 0, 0, gs.TiledSideGameWidth, 1)
 	assertWindowRect(t, gs.InventoryWindow, gs.TiledSideGameWidth, 0, (1-gs.TiledSideGameWidth)*gs.TiledSideTopSplit, 0.70)

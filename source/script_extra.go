@@ -98,29 +98,6 @@ func scriptSelf() scriptapi.Character {
 	}
 }
 
-func scriptCurrentWorld() scriptapi.World {
-	stateMu.Lock()
-	mobiles := make([]scriptapi.Mobile, 0, len(state.liveMobs))
-	for _, mobile := range state.liveMobs {
-		descriptor, ok := state.descriptors[mobile.Index]
-		if !ok {
-			continue
-		}
-		mobiles = append(mobiles, scriptapi.Mobile{
-			Index: mobile.Index, Name: descriptor.Name, H: mobile.H, V: mobile.V,
-			PictID: descriptor.PictID, Colors: mobile.Colors, Player: descriptor.Type == kDescPlayer,
-		})
-	}
-	stateMu.Unlock()
-	scriptLocationMu.RLock()
-	location := scriptLocation
-	scriptLocationMu.RUnlock()
-	return scriptapi.World{
-		Width: gameAreaSizeX, Height: gameAreaSizeY, Location: location,
-		Generation: worldStateGeneration.Load(), Mobiles: mobiles,
-	}
-}
-
 func scriptEquippedItems() []InventoryItem {
 	items := getInventory()
 	res := make([]InventoryItem, 0, len(items))

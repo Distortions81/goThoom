@@ -372,6 +372,11 @@ func switchCharacterProfile(character string) {
 			globalSettingsBase.LastCharacter = character
 		}
 		saveSettings()
+		if uiReady {
+			applyEnabledScripts()
+			refreshscriptsWindow()
+			refreshscriptDetails()
+		}
 		return
 	}
 	if uiReady {
@@ -485,5 +490,6 @@ func applyCharacterProfileRuntime() {
 	updateDimmedScreenBG()
 	applyEnabledScripts()
 	refreshscriptsWindow()
+	refreshscriptDetails()
 	rebuildConfigurationWindows()
 }

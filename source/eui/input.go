@@ -175,7 +175,6 @@ func Update() error {
 
 		s := win.scale()
 		posCh := point{X: delta.X / s, Y: delta.Y / s}
-		sizeCh := posCh
 
 		var part dragType
 		handled := false
@@ -245,64 +244,9 @@ func Update() error {
 				switch dragPart {
 				case PART_BAR:
 					dragWindowMove(win, posCh)
-				case PART_TOP:
-					posCh.X = 0
-					sizeCh.X = 0
-					if win.setSize(pointSub(win.Size, sizeCh)) && win.zone == nil {
-						win.Position = pointAdd(win.Position, posCh)
-					}
-
-					if win.searchOpen {
-						if part == PART_NONE {
-							if win.searchBoxRect().containsPoint(mpos) {
-								c = ebiten.CursorShapeText
-							} else if win.searchCloseRect().containsPoint(mpos) {
-								c = ebiten.CursorShapePointer
-							}
-						}
-						if click && dragPart == PART_NONE && downWin == win {
-							if win.searchCloseRect().containsPoint(mpos) {
-								win.closeSearch()
-								break
-							}
-							if win.searchBoxRect().containsPoint(mpos) {
-								activeSearch = win
-								break
-							}
-						}
-					}
-				case PART_BOTTOM:
-					sizeCh.X = 0
-					win.setSize(pointAdd(win.Size, sizeCh))
-				case PART_LEFT:
-					posCh.Y = 0
-					sizeCh.Y = 0
-					if win.setSize(pointSub(win.Size, sizeCh)) && win.zone == nil {
-						win.Position = pointAdd(win.Position, posCh)
-					}
-				case PART_RIGHT:
-					sizeCh.Y = 0
-					win.setSize(pointAdd(win.Size, sizeCh))
-				case PART_TOP_LEFT:
-					if win.setSize(pointSub(win.Size, sizeCh)) && win.zone == nil {
-						win.Position = pointAdd(win.Position, posCh)
-					}
-				case PART_TOP_RIGHT:
-					tx := win.Size.X + sizeCh.X
-					ty := win.Size.Y - sizeCh.Y
-					if win.setSize(point{X: tx, Y: ty}) && win.zone == nil {
-						win.Position.Y += posCh.Y
-					}
-				case PART_BOTTOM_RIGHT:
-					tx := win.Size.X + sizeCh.X
-					ty := win.Size.Y + sizeCh.Y
-					win.setSize(point{X: tx, Y: ty})
-				case PART_BOTTOM_LEFT:
-					tx := win.Size.X - sizeCh.X
-					ty := win.Size.Y + sizeCh.Y
-					if win.setSize(point{X: tx, Y: ty}) && win.zone == nil {
-						win.Position.X += posCh.X
-					}
+				case PART_TOP, PART_BOTTOM, PART_LEFT, PART_RIGHT,
+					PART_TOP_LEFT, PART_TOP_RIGHT, PART_BOTTOM_LEFT, PART_BOTTOM_RIGHT:
+					dragWindowResize(win, dragPart, posCh)
 				case PART_SCROLL_V:
 					if dragFlow != nil {
 						dragFlowScroll(dragFlow, mpos, true)
@@ -322,7 +266,7 @@ func Update() error {
 					}
 				}
 				win.clampToScreen()
-				if windowSnapping && win.zone == nil {
+				if dragPart == PART_BAR && windowSnapping && win.zone == nil {
 					snapped := false
 					if !win.snapAnchorActive {
 						snapped = snapToCorner(win)
@@ -1465,6 +1409,36 @@ func dragWindowMove(win *windowData, delta point) {
 			}
 		}
 	}
+}
+
+// dragWindowResize constrains the dragged edges before setSize can reposition
+// the window to fit the screen. The opposite edges stay fixed, including when
+// a corner reaches the minimum size on only one axis. Delta uses window units.
+func dragWindowResize(win *windowData, part dragType, delta point) bool {
+	left, top := win.Position.X, win.Position.Y
+	right, bottom := left+win.Size.X, top+win.Size.Y
+	sw, sh := float32(screenWidth)/win.scale(), float32(screenHeight)/win.scale()
+	switch part {
+	case PART_LEFT, PART_TOP_LEFT, PART_BOTTOM_LEFT:
+		left = max(0, min(left+delta.X, right-MinWindowSize))
+	case PART_RIGHT, PART_TOP_RIGHT, PART_BOTTOM_RIGHT:
+		right = min(sw, max(right+delta.X, left+MinWindowSize))
+	}
+	switch part {
+	case PART_TOP, PART_TOP_LEFT, PART_TOP_RIGHT:
+		top = max(0, min(top+delta.Y, bottom-MinWindowSize))
+	case PART_BOTTOM, PART_BOTTOM_LEFT, PART_BOTTOM_RIGHT:
+		bottom = min(sh, max(bottom+delta.Y, top+MinWindowSize))
+	}
+	pos, size := point{X: left, Y: top}, point{X: right - left, Y: bottom - top}
+	if pos == win.Position && size == win.Size {
+		return false
+	}
+	// Explicit resizing takes ownership of placement, just like dragging.
+	win.ClearZone()
+	win.snapAnchorActive = false
+	win.Position = pos
+	return win.setSize(size)
 }
 
 func dragWindowScroll(win *windowData, mpos point, vert bool) {

@@ -313,12 +313,11 @@ func main() {
 			if wasmPrivacyActive() {
 				playerName = ""
 			}
-			applyEnabledScripts()
-			scriptSessionLogin(playerName)
-			defer scriptSessionLogout(playerName)
-
+			var scriptSession uint64
+			defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
 			var mp *moviePlayer
 			if !dispatchMainThreadAndWait(ctx, func() {
+				scriptSession = startSessionScripts(playerName)
 				if loginWin != nil {
 					loginWin.Close()
 				}

@@ -155,6 +155,7 @@ func handleDisconnect() {
 	loginMu.Unlock()
 
 	cancel()
+	endSessionScripts(scriptSessionGeneration.Load())
 	stopAllMusic()
 	if recorder != nil {
 		stopRecording()
@@ -620,7 +621,6 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	playerName = utfFold(name)
 	dispatchMainThread(updateGameWindowTitle)
 	applyLocalLabels()
-	applyEnabledScripts()
 	loadShortcuts()
 
 	var resp []byte
@@ -732,9 +732,11 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
 	profileCharacter := playerName
-	dispatchMainThread(func() { switchCharacterProfile(profileCharacter) })
-	scriptSessionLogin(playerName)
-	defer scriptSessionLogout(playerName)
+	var scriptSession uint64
+	defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
+	dispatchMainThread(func() {
+		scriptSession = startSessionScripts(profileCharacter)
+	})
 	dispatchMainThread(func() { updateConnectDialog("Loading macros...") })
 	if err := loadLegacyMacrosForCharacter(playerName); err != nil {
 		log.Printf("legacy macros: %v", err)

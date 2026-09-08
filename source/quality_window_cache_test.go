@@ -49,7 +49,13 @@ func TestPerformanceTabUsesTopicTabs(t *testing.T) {
 	if len(settingsWin.Contents) != 1 {
 		t.Fatalf("quality window root count = %d, want 1", len(settingsWin.Contents))
 	}
-	outer := settingsWin.Contents[0].Tabs[6].Contents[1]
+	selectSettingsTab("Performance")
+	flow := settingsWin.Contents[0]
+	page := flow.Tabs[flow.ActiveTab]
+	if page.Name != "Performance" || len(page.Contents) < 2 {
+		t.Fatal("Performance page is missing its topic controls")
+	}
+	outer := page.Contents[1]
 	wantTabs := []string{"Artwork", "Motion", "Lighting & Effects", "Caching", "Power Saving"}
 	if len(outer.Tabs) != len(wantTabs) {
 		t.Fatalf("options tab count = %d, want %d", len(outer.Tabs), len(wantTabs))

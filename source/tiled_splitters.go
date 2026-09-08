@@ -25,6 +25,9 @@ const (
 	tiledSplitterRightWidth
 	tiledSplitterSideGame
 	tiledSplitterSideTop
+	tiledSplitterMessagesTop
+	tiledSplitterMessagesBottom
+	tiledSplitterMessagesSplit
 )
 
 func updateTiledSplitter(splitter tiledSplitter, position, extent float64) bool {
@@ -38,6 +41,9 @@ func updateTiledSplitter(splitter tiledSplitter, position, extent float64) bool 
 		gs.TiledRightWidth,
 		gs.TiledSideGameWidth,
 		gs.TiledSideTopSplit,
+		gs.TiledMessagesTopHeight,
+		gs.TiledMessagesBottomHeight,
+		gs.TiledMessagesSplit,
 	}
 	beforeGamePosition := gs.TiledGamePosition
 	switch splitter {
@@ -46,13 +52,13 @@ func updateTiledSplitter(splitter tiledSplitter, position, extent float64) bool 
 	case tiledSplitterRightBottom:
 		gs.TiledRightBottom = 1 - position/extent
 	case tiledSplitterLeftWidth:
-		if gs.TiledKeepGameLarge && gs.TiledLayout == TiledLayoutCenter {
+		if gs.TiledKeepGameLarge && gs.TiledLayout != TiledLayoutSide {
 			moveFixedCenteredGame(position/extent, extent)
 		} else {
 			gs.TiledLeftWidth = position / extent
 		}
 	case tiledSplitterRightWidth:
-		if gs.TiledKeepGameLarge && gs.TiledLayout == TiledLayoutCenter {
+		if gs.TiledKeepGameLarge && gs.TiledLayout != TiledLayoutSide {
 			gameWidth := 1 - gs.TiledLeftWidth - gs.TiledRightWidth
 			moveFixedCenteredGame(position/extent-gameWidth, extent)
 		} else {
@@ -63,6 +69,18 @@ func updateTiledSplitter(splitter tiledSplitter, position, extent float64) bool 
 			gs.TiledSideGameWidth = position / extent
 		} else {
 			gs.TiledSideGameWidth = 1 - position/extent
+		}
+	case tiledSplitterMessagesTop:
+		gs.TiledMessagesTopHeight = position / extent
+	case tiledSplitterMessagesBottom:
+		gs.TiledMessagesBottomHeight = 1 - position/extent
+	case tiledSplitterMessagesSplit:
+		start, size := tiledMessageBandSpan()
+		if gs.TiledMessagesStacked {
+			start, size = tiledMessageBandVerticalSpan()
+		}
+		if size > 0 {
+			gs.TiledMessagesSplit = (position/extent - start) / size
 		}
 	case tiledSplitterSideTop:
 		panelWidth := 1 - gs.TiledSideGameWidth
@@ -82,6 +100,9 @@ func updateTiledSplitter(splitter tiledSplitter, position, extent float64) bool 
 		gs.TiledRightWidth,
 		gs.TiledSideGameWidth,
 		gs.TiledSideTopSplit,
+		gs.TiledMessagesTopHeight,
+		gs.TiledMessagesBottomHeight,
+		gs.TiledMessagesSplit,
 	}
 	for i := range before {
 		if before[i] != after[i] {
@@ -89,6 +110,29 @@ func updateTiledSplitter(splitter tiledSplitter, position, extent float64) bool 
 		}
 	}
 	return beforeGamePosition != gs.TiledGamePosition
+}
+
+// Turning automatic sizing off only unlocks the current geometry. Turning it
+// back on maximizes the game around its current center, within the side limits.
+func setTiledKeepGameLarge(enabled bool) {
+	updateTiledKeepGameLarge(enabled)
+	applyTiledWorkspaceLayout()
+}
+
+func updateTiledKeepGameLarge(enabled bool) {
+	if enabled == gs.TiledKeepGameLarge {
+		return
+	}
+	center := (gs.TiledLeftWidth + 1 - gs.TiledRightWidth) / 2
+	gs.TiledKeepGameLarge = enabled
+	if enabled && gs.TiledWindows && gs.TiledLayout != TiledLayoutSide {
+		applyTiledWindowStates()
+		width, _ := eui.ScreenSize()
+		if width > 0 {
+			gameWidth := 1 - gs.TiledLeftWidth - gs.TiledRightWidth
+			moveFixedCenteredGame(center-gameWidth/2, float64(width))
+		}
+	}
 }
 
 func centeredSideMinimums(toolbarMinimum float64) (float64, float64) {
@@ -127,8 +171,8 @@ func moveFixedCenteredGame(desiredLeft, extent float64) {
 	gs.TiledGamePosition = math.Min(math.Max(2*(desiredLeft-leftMinimum)/travel-1, -1), 1)
 }
 
-// maximizeCenteredGameForWorkspace gives the full-height game pane the width
-// of the classic 547x540 playfield aspect ratio, bounded by the two required
+// maximizeCenteredGameForWorkspace fits the classic 547x540 playfield to the
+// available game height, bounded by the two required
 // side columns. Any extra horizontal room is shared evenly unless the
 // toolbar's host needs more.
 func maximizeCenteredGameForWorkspace(width, height int, toolbarMinimum float64) {
@@ -171,7 +215,11 @@ func clampTiledLayoutForToolbar(minWidthFraction float64) {
 		// panel side and 85% of that area to the toolbar's top pane.
 		minWidthFraction = math.Min(minWidthFraction, 0.65*0.85)
 		panelWidth := 1 - gs.TiledSideGameWidth
-		requiredPanelWidth := minWidthFraction / 0.85
+		nativeMinimum := 0.0
+		if width, _ := eui.ScreenSize(); width > 0 {
+			nativeMinimum = eui.MinWindowSize * float64(eui.UIScale()) / float64(width)
+		}
+		requiredPanelWidth := math.Max(minWidthFraction/0.85, minWidthFraction+nativeMinimum)
 		if panelWidth < requiredPanelWidth {
 			panelWidth = requiredPanelWidth
 			gs.TiledSideGameWidth = 1 - panelWidth
@@ -180,12 +228,13 @@ func clampTiledLayoutForToolbar(minWidthFraction float64) {
 			return
 		}
 		requiredShare := minWidthFraction / panelWidth
+		otherShare := math.Max(0.15, nativeMinimum/panelWidth)
 		if tiledToolbarIsInFirstPane() {
 			gs.TiledSideTopSplit = math.Max(gs.TiledSideTopSplit, requiredShare)
-			gs.TiledSideTopSplit = math.Min(gs.TiledSideTopSplit, 0.85)
+			gs.TiledSideTopSplit = math.Min(gs.TiledSideTopSplit, 1-otherShare)
 		} else {
 			gs.TiledSideTopSplit = math.Min(gs.TiledSideTopSplit, 1-requiredShare)
-			gs.TiledSideTopSplit = math.Max(gs.TiledSideTopSplit, 0.15)
+			gs.TiledSideTopSplit = math.Max(gs.TiledSideTopSplit, otherShare)
 		}
 		return
 	}
@@ -238,6 +287,19 @@ func configureTiledWorkspaceDividers() {
 		})
 	}
 
+	addMessageSplit := func() {
+		if gs.MessagesToConsole || !tiledPairedMessages() {
+			return
+		}
+		x, width := tiledMessageBandSpan()
+		y, height := tiledMessageBandVerticalSpan()
+		if gs.TiledMessagesStacked {
+			add(eui.TileDividerHorizontal, float32(y+height*gs.TiledMessagesSplit)*h, float32(x)*w, float32(x+width)*w, tiledSplitterMessagesSplit, float64(h))
+		} else {
+			add(eui.TileDividerVertical, float32(x+width*gs.TiledMessagesSplit)*w, float32(y)*h, float32(y+height)*h, tiledSplitterMessagesSplit, float64(w))
+		}
+	}
+
 	if gs.TiledLayout == TiledLayoutSide {
 		panelWidth := 1 - gs.TiledSideGameWidth
 		panelStart := 0.0
@@ -251,6 +313,28 @@ func configureTiledWorkspaceDividers() {
 		topSplit := panelStart + panelWidth*gs.TiledSideTopSplit
 		add(eui.TileDividerVertical, float32(topSplit*float64(width)), 0, topEnd, tiledSplitterSideTop, float64(width))
 		add(eui.TileDividerHorizontal, topEnd, float32(panelStart*float64(width)), float32((panelStart+panelWidth)*float64(width)), tiledSplitterRightBottom, float64(height))
+		addMessageSplit()
+		eui.SetTileDividers(dividers)
+		return
+	}
+
+	if gs.TiledLayout >= TiledLayoutMessagesBelow {
+		top, bottom := tiledMessageBandHeights()
+		listStart, listEnd := float32(0), h
+		if tiledFullWidthMessages() {
+			listStart, listEnd = float32(top)*h, float32(1-bottom)*h
+		}
+		add(eui.TileDividerVertical, float32(gs.TiledLeftWidth)*w, listStart, listEnd, tiledSplitterLeftWidth, float64(width))
+		add(eui.TileDividerVertical, float32(1-gs.TiledRightWidth)*w, listStart, listEnd, tiledSplitterRightWidth, float64(width))
+		x, bandWidth := tiledMessageBandSpan()
+		start, end := float32(x)*w, float32(x+bandWidth)*w
+		if top > 0 {
+			add(eui.TileDividerHorizontal, float32(top)*h, start, end, tiledSplitterMessagesTop, float64(height))
+		}
+		if bottom > 0 {
+			add(eui.TileDividerHorizontal, float32(1-bottom)*h, start, end, tiledSplitterMessagesBottom, float64(height))
+		}
+		addMessageSplit()
 		eui.SetTileDividers(dividers)
 		return
 	}

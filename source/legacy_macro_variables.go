@@ -38,10 +38,11 @@ func legacyMacroDefaultExecutionContext() legacyMacroExecutionContext {
 // legacyMacroInputSelection snapshots the highlighted typing-box text. The
 // displayed input is soft-wrapped, so remove only those visual line breaks.
 func legacyMacroInputSelection() string {
-	if !inputActive || inputFlow == nil || len(inputFlow.Contents) == 0 {
+	item := currentMessageInputItem()
+	if !inputActive || item == nil {
 		return ""
 	}
-	return strings.ReplaceAll(inputFlow.Contents[0].SelectedText(), "\n", "")
+	return strings.ReplaceAll(item.SelectedText(), "\n", "")
 }
 
 func (context legacyMacroExecutionContext) initialVariables() map[string]string {

@@ -54,6 +54,7 @@ func TestBundledScriptsCompileWithYaegi(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			grantScriptPermissionsForTest(t, entry.ID)
 			prepared, err := compileScriptSource(entry.ID, source, restrictedStdlib())
 			if err != nil {
 				t.Fatalf("compile bundled script: %v", err)

@@ -834,7 +834,7 @@ func legacyMacroSetInputText(text string) {
 
 func legacyMacroRefreshInput() {
 	spellDirty = true
-	updateConsoleWindow()
+	updateMessageInputWindows()
 	if consoleWin != nil {
 		consoleWin.Refresh()
 	}

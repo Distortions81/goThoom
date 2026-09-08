@@ -372,6 +372,7 @@ type drawState struct {
 	prevDescs     map[uint8]frameDescriptor
 	prevTime      time.Time
 	curTime       time.Time
+	receivedAt    time.Time // Most recent accepted draw state, independent of interpolation.
 
 	bubbles []bubble
 
@@ -1127,15 +1128,18 @@ func (g *Game) Update() error {
 		prepareClassicSplash()
 	}
 
-	if inputFlow != nil && len(inputFlow.Contents) > 0 {
-		eui.ClearFocus(inputFlow.Contents[0])
-		inputFlow.Contents[0].Focused = false
+	for _, flow := range []*eui.ItemData{inputFlow, chatInputFlow} {
+		if item := messageInputItem(flow); item != nil {
+			eui.ClearFocus(item)
+			item.Focused = false
+		}
 	}
 	legacyMacroBeginInputFrame()
 	keyboardTestBeginInputFrame()
 	eui.SetKeyboardInputCaptured(keyboardTestFrameActive)
 	paletteOpenAtFrameStart := commandPaletteWin != nil && commandPaletteWin.IsOpen()
 	eui.Update() //We really need this to return eaten clicks
+	inputSourceChanged := captureMessageInputFocus()
 	paletteShortcut := !keyboardTestFrameActive && commandPaletteShortcutPressed()
 	paletteKeyboardActive := paletteOpenAtFrameStart || commandPaletteWin != nil && commandPaletteWin.IsOpen()
 	if paletteShortcut {
@@ -1156,8 +1160,7 @@ func (g *Game) Update() error {
 		legacyMacroLibraryRefreshErrorsButton()
 	}
 	typingElsewhere := typingInUI() || paletteKeyboardActive
-	if inputActive && !paletteKeyboardActive && !chatComposing && inputFlow != nil && len(inputFlow.Contents) > 0 {
-		item := inputFlow.Contents[0]
+	if item := currentMessageInputItem(); inputActive && !paletteKeyboardActive && !chatComposing && item != nil {
 		inputPos = plainCursorPos(item.Text, item.CursorPos)
 		plain := strings.ReplaceAll(item.Text, "\n", "")
 		inputText = []rune(plain)
@@ -1283,7 +1286,7 @@ func (g *Game) Update() error {
 	}
 
 	/* Console input */
-	changedInput := nativeEdit.composing || nativeEdit.wasComposing
+	changedInput := inputSourceChanged || nativeEdit.composing || nativeEdit.wasComposing
 	textChanged := false
 	if typingElsewhere && inputActive && !paletteKeyboardActive {
 		inputActive = false
@@ -1521,11 +1524,11 @@ func (g *Game) Update() error {
 		spellDirty = true
 	}
 	if changedInput {
-		updateConsoleWindow()
+		updateMessageInputWindows()
 	}
 
-	if inputFlow != nil && len(inputFlow.Contents) > 0 {
-		showSpellSuggestions(inputFlow.Contents[0])
+	if item := currentMessageInputItem(); item != nil {
+		showSpellSuggestions(item)
 	}
 
 	/* WASD / ARROWS */
@@ -1758,6 +1761,9 @@ func (g *Game) Update() error {
 		x, y = prev.mouseX, prev.mouseY
 	}
 
+	if walk || (click && inGame && !uiMouseDown) || legacyMacroMovedThisFrame() {
+		interruptScriptMovement(now)
+	}
 	if !legacyMacroMovedThisFrame() {
 		queueInput(inputState{mouseX: x, mouseY: y, mouseDown: walk})
 	}
@@ -5313,6 +5319,8 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 			}
 		}
 		inputMu.Unlock()
+
+		s = applyScriptMovement(s, time.Now())
 
 		reliable := false
 		now := time.Now()

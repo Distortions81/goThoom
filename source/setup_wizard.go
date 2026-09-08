@@ -133,6 +133,7 @@ func stopSetupWizardPreview() {
 }
 
 func rebuildSetupWizard() {
+	wizardKeepGameLargeCB = nil
 	if setupWizardWin == nil {
 		return
 	}
@@ -529,10 +530,10 @@ func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 	eui.ApplyBoldFace(heading)
 	root.AddItem(heading)
 
-	options.AddItem(setupWizardCheckboxWidth("Keep game window large", "Keep the centered game pane at its largest square size.", gs.TiledKeepGameLarge, func(checked bool) {
-		gs.TiledKeepGameLarge = checked
-		applyTiledWorkspaceLayout()
-	}, width))
+	keepGameLarge := setupWizardCheckboxWidth("Auto-size side panels", "Automatically adjust side panel widths to use empty space beside the game. Drag either game divider to move the game sideways. Turn off to keep the current sizes and resize panels independently.", gs.TiledKeepGameLarge, setTiledKeepGameLarge, width)
+	wizardKeepGameLargeCB = keepGameLarge.Contents[0]
+	wizardKeepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
+	options.AddItem(keepGameLarge)
 	options.AddItem(setupWizardCheckboxWidth("Combine chat + console", "Show chat and console output together in the Console tile, and hide the separate Chat tile.", gs.MessagesToConsole, func(checked bool) {
 		gs.MessagesToConsole = checked
 		applyTiledWorkspaceLayout()
@@ -541,12 +542,12 @@ func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 
 	layout, layoutEvents := eui.NewDropdown()
 	layout.Label = "Layout"
-	layout.Options = []string{"Game centered", "Game on a side"}
+	layout.Options = tiledLayoutNames
 	layout.Selected = int(gs.TiledLayout)
 	layout.Size = eui.Point{X: width - 10, Y: 24}
-	layout.SetTooltip("Centered uses two side columns; side puts the game beside a shared panel.")
+	layout.SetTooltip("Choose side columns, message rows around the game, or a full-width message strip.")
 	layoutEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(TiledLayoutCenter) && ev.Index <= int(TiledLayoutSide) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(TiledLayoutCenter) && ev.Index <= int(TiledLayoutFullMessagesAbove) {
 			gs.TiledLayout = TiledLayout(ev.Index)
 			applyTiledWorkspaceLayout()
 			rebuildSetupWizard()
@@ -573,17 +574,8 @@ func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 	bottom, bottomEvents := eui.NewDropdown()
 	bottom.Label = "Console / Chat"
 	bottom.Options = []string{"Console left, Chat right", "Chat left, Console right"}
-	bottomTooltip := "Sets message sides in centered layout."
-	if gs.MessagesToConsole {
-		bottom.Label = "Combined chat + console"
-		bottom.Options = []string{"Combined messages left", "Combined messages right"}
-		bottomTooltip = "Chooses which side holds the combined Console and Chat pane."
-	}
-	if !gs.TiledConsoleLeft {
-		bottom.Selected = 1
-	}
 	bottom.Size = eui.Point{X: width - 10, Y: 24}
-	bottom.SetTooltip(bottomTooltip)
+	bottom.SetTooltip("Choose message order: left/right for side-by-side panes, or above/below for stacked panes.")
 	bottomEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
 			gs.TiledConsoleLeft = ev.Index == 0
@@ -591,6 +583,21 @@ func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 		}
 	}
 	root.AddItem(bottom)
+
+	messageSplit, messageSplitEvents := eui.NewDropdown()
+	messageSplit.Label = "Message split"
+	messageSplit.Options = []string{"Side by side", "Stacked"}
+	messageSplit.Size = eui.Point{X: width - 10, Y: 24}
+	messageSplit.SetTooltip("Arrange separate Chat and Console horizontally or vertically inside their shared area.")
+	messageSplitEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected {
+			gs.TiledMessagesStacked = ev.Index == 1
+			applyTiledWorkspaceLayout()
+			rebuildSetupWizard()
+		}
+	}
+	root.AddItem(messageSplit)
+	refreshTiledMessageLayoutControls(bottom, messageSplit)
 
 	gameSide, gameSideEvents := eui.NewDropdown()
 	gameSide.Label = "Alternate game side"

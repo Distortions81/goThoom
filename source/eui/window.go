@@ -412,6 +412,12 @@ func (target *windowData) Close() {
 // positioned adjacent to the anchor while trying to avoid overlapping the
 // anchor's parent window when possible and clamping to screen bounds.
 func (target *windowData) MarkOpenNear(anchor *itemData) {
+	// The workspace owns a docked pane's geometry; opening it must not
+	// move it next to a menu or a settings checkbox.
+	if target.Docked {
+		target.MarkOpen()
+		return
+	}
 	// Respect explicit zone placement: if a window has a zone, open it at
 	// the zone rather than near the anchor.
 	if target.zone != nil {

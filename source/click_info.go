@@ -79,6 +79,8 @@ func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 					PictID: d.PictID,
 					Colors: m.Colors,
 					Player: d.Type == kDescPlayer,
+					State:  m.State, Plane: d.Plane, Size: size, Self: m.Index == playerIndex,
+					Dead: m.State == poseDead, Stale: m.Persist,
 				}
 				break
 			}

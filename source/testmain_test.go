@@ -17,7 +17,8 @@ func TestMain(m *testing.M) {
 	if audioContext == nil {
 		audioContext = audio.NewContext(sampleRate)
 	}
-	// Point dataDirPath at the repo's ./data so tests can find assets like soundfont.sf2
+	// Keep test data rooted in the repo. Audio integration tests separately
+	// resolve an installed SoundFont without directing writes into user data.
 	if wd, err := os.Getwd(); err == nil {
 		dataDirPath = filepath.Join(wd, "data")
 	}

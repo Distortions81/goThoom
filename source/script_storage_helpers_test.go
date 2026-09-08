@@ -61,6 +61,7 @@ func TestMigrateStorageRunsOnceAndStagesVersion(t *testing.T) {
 	scriptStoreMu = sync.Mutex{}
 
 	const owner = "migration-test"
+	grantScriptPermissionsForTest(t, owner)
 	setScriptStorageValue(owner, scriptStorageVersionKey, 1)
 	candidate := &scriptCandidate{}
 	exports := exportsForScriptCandidate(owner, candidate)["gt2/gt2"]

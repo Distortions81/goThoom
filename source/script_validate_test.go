@@ -10,6 +10,7 @@ import (
 
 func TestValidateScriptFileRunsInitWithoutActivating(t *testing.T) {
 	owner := "validate-test"
+	grantScriptPermissionsForTest(t, owner)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "valid.go")
 	source := `package main
@@ -44,6 +45,7 @@ func Init() {
 }
 
 func TestValidateScriptFileReportsPathAndInitError(t *testing.T) {
+	grantScriptPermissionsForTest(t, "validate-broken")
 	path := filepath.Join(t.TempDir(), "broken.go")
 	source := `package main
 func Init() { panic("bad init") }

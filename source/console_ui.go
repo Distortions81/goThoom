@@ -28,20 +28,13 @@ func queueConsoleWindowUpdate() {
 	}
 	dispatchMainThread(func() {
 		consoleWindowUpdateQueued.Store(false)
-		updateConsoleWindow()
+		updateMessageInputWindows()
 	})
 }
 
 func updateConsoleWindow() {
 	if consoleWin == nil || !consoleWin.IsOpen() {
 		return
-	}
-	inputMsg := "[Press Enter To Type]"
-	if inputActive {
-		inputMsg = string(inputText)
-		if chatComposing {
-			inputMsg = chatComposition
-		}
 	}
 	scrollit := messagesFlow.ScrollAtBottom()
 
@@ -51,19 +44,11 @@ func updateConsoleWindow() {
 	if consoleWindowMessages.dropped > 0 && !consoleWindowMessages.reset && consoleWindowMessages.dropped <= len(messagesFlow.Contents) {
 		messagesFlow.SetItems(messagesFlow.Contents[consoleWindowMessages.dropped:])
 	}
-	updateTextWindowFrom(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, inputMsg, nil, gs.ConsoleAlternatingRowColors, &consoleTextWrapCache, firstChanged)
+	updateTextWindowFrom(consoleWin, messagesFlow, inputFlow, msgs, gs.ConsoleFontSize, messageInputText(), nil, gs.ConsoleAlternatingRowColors, &consoleTextWrapCache, firstChanged)
 	if consoleWin.SearchText != "" {
 		applyTextWindowSearch(messagesFlow, consoleWin.SearchText)
 	}
-	if inputFlow != nil && len(inputFlow.Contents) > 0 {
-		inputItem := inputFlow.Contents[0]
-		inputItem.Focused = inputActive
-		inputItem.CursorPos = wrappedCursorPos(inputItem.Text, inputPos)
-		inputItem.Prediction = ""
-		if gs.InputAutocomplete && inputActive && !chatComposing {
-			inputItem.Prediction = currentInputCompletionSuffix(string(inputText), inputPos)
-		}
-	}
+	updateMessageInputPresentation(inputFlow)
 	if messagesFlow != nil {
 		styleStart := firstChanged
 		if consoleWindowMessages.reset {
@@ -103,18 +88,23 @@ func makeConsoleWindow() {
 // handleConsoleInputContext shows a context menu when right-clicking the
 // console input bar. Returns true if the click was on the input.
 func handleConsoleInputContext(mx, my int) bool {
-	if consoleWin == nil || inputFlow == nil || !consoleWin.IsOpen() {
+	return handleMessageInputContext(chatWin, chatInputFlow, mx, my) || handleMessageInputContext(consoleWin, inputFlow, mx, my)
+}
+
+func handleMessageInputContext(win *eui.WindowData, flow *eui.ItemData, mx, my int) bool {
+	if win == nil || flow == nil || !win.IsOpen() {
 		return false
 	}
 	pos := eui.Point{X: float32(mx), Y: float32(my)}
 	// Identify the input area rect (flow or its first child text).
-	r := inputFlow.DrawRect
-	if len(inputFlow.Contents) > 0 {
-		r = inputFlow.Contents[0].DrawRect
+	r := flow.DrawRect
+	if len(flow.Contents) > 0 {
+		r = flow.Contents[0].DrawRect
 	}
 	if !(pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1) {
 		return false
 	}
+	selectedMessageInput = flow
 	// Prepare clipboard preview for Paste action.
 	var clip string
 	if b, err := clipboard.Read(context.Background(), clipboard.FmtText); err == nil && len(b) > 0 {
@@ -142,7 +132,7 @@ func handleConsoleInputContext(mx, my int) bool {
 			cur := string(inputText)
 			scriptSetInputText(cur + clip)
 			spellDirty = true
-			updateConsoleWindow()
+			updateMessageInputWindows()
 		})
 	}
 	// Copy current line
@@ -162,7 +152,7 @@ func handleConsoleInputContext(mx, my int) bool {
 		// Clear the input and switch to input mode so the empty state is visible.
 		scriptSetInputText("")
 		spellDirty = true
-		updateConsoleWindow()
+		updateMessageInputWindows()
 	})
 
 	menu := eui.ShowContextMenu(opts, pos.X, pos.Y, func(i int) {

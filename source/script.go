@@ -30,6 +30,9 @@ type scriptScope struct {
 }
 
 func (s scriptScope) enablesFor(effChar string) bool {
+	if effChar == "" {
+		return false
+	}
 	if s.All {
 		return true
 	}
@@ -97,6 +100,8 @@ var basescriptExports = interp.Exports{
 		"CurrentWorld":        reflect.ValueOf(scriptCurrentWorld),
 		"Click":               reflect.ValueOf((*scriptapi.Click)(nil)),
 		"World":               reflect.ValueOf((*scriptapi.World)(nil)),
+		"Picture":             reflect.ValueOf((*scriptapi.Picture)(nil)),
+		"MovementState":       reflect.ValueOf((*scriptapi.MovementState)(nil)),
 		"InputEvent":          reflect.ValueOf((*InputEvent)(nil)),
 		"ChatFilter":          reflect.ValueOf((*ChatFilter)(nil)),
 		"ChatEvent":           reflect.ValueOf((*ChatEvent)(nil)),
@@ -116,6 +121,9 @@ var basescriptExports = interp.Exports{
 		"ItemOption":          reflect.ValueOf((*scriptapi.ItemOption)(nil)),
 		"ToolbarButton":       reflect.ValueOf((*scriptapi.ToolbarButton)(nil)),
 		"ToolbarOptions":      reflect.ValueOf((*scriptapi.ToolbarOptions)(nil)),
+		"Window":              reflect.ValueOf((*Window)(nil)),
+		"WindowButton":        reflect.ValueOf((*scriptapi.WindowButton)(nil)),
+		"WindowOptions":       reflect.ValueOf((*scriptapi.WindowOptions)(nil)),
 		"ScopeGlobal":         reflect.ValueOf(scriptapi.ScopeGlobal),
 		"ScopeCharacter":      reflect.ValueOf(scriptapi.ScopeCharacter),
 		"Mobile":              reflect.ValueOf((*Mobile)(nil)),
@@ -152,6 +160,7 @@ var basescriptExports = interp.Exports{
 }
 
 type scriptCandidate struct {
+	generation  uint64
 	mu          sync.Mutex
 	active      bool
 	failed      bool
@@ -639,7 +648,7 @@ func interruptScriptInterpreter(interpreter *interp.Interpreter) {
 func (q *scriptEventQueue) execute(event scriptEvent) bool {
 	allowance, budgetLimited := q.callbackAllowance(time.Now())
 	if allowance <= 0 {
-		if scriptExecutionLimitHandler != nil {
+		if scriptExecutionLimitHandler != nil && scriptEventQueueIsCurrent(q.owner, q) {
 			scriptExecutionLimitHandler(q.owner, event.name, true)
 		}
 		return false
@@ -650,7 +659,7 @@ func (q *scriptEventQueue) execute(event scriptEvent) bool {
 	q.activeLimiter = limiter
 	q.mu.Unlock()
 	result := make(chan bool, 1)
-	go func() { result <- runScriptCallback(q.owner, event.name, event.callback) }()
+	go func() { result <- runScriptCallbackOnQueue(q, q.owner, event.name, event.callback) }()
 
 	select {
 	case ok := <-result:
@@ -670,7 +679,7 @@ func (q *scriptEventQueue) execute(event scriptEvent) bool {
 		}
 		q.mu.Unlock()
 		q.interruptInterpreter()
-		if scriptExecutionLimitHandler != nil {
+		if scriptExecutionLimitHandler != nil && scriptEventQueueIsCurrent(q.owner, q) {
 			scriptExecutionLimitHandler(q.owner, event.name, budgetLimited)
 		}
 		return false
@@ -892,7 +901,11 @@ func (c *scriptCandidate) dispatch(owner string, action func()) {
 	if !scriptEventQueueIsCurrent(owner, eventQueue) {
 		return
 	}
-	dispatchScript(owner, action)
+	dispatchScript(owner, func() {
+		if scriptEventQueueIsCurrent(owner, eventQueue) {
+			action()
+		}
+	})
 }
 
 func (c *scriptCandidate) runtimeEventQueue(owner string) *scriptEventQueue {
@@ -1033,6 +1046,9 @@ func exportsForscript(owner string) interp.Exports {
 }
 
 func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.Exports {
+	if candidate != nil {
+		candidate.generation = scriptSessionGeneration.Load()
+	}
 	ex := make(interp.Exports)
 	for pkg, symbols := range basescriptExports {
 		m := map[string]reflect.Value{}
@@ -1045,6 +1061,28 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			stage(func() { subscription.attach(register()) })
 			return subscription
 		}
+		m["Movement"] = reflect.ValueOf(func() scriptapi.MovementState { return scriptMovementSnapshot(owner, time.Now()) })
+		m["Move"] = reflect.ValueOf(func(x, y int16) bool {
+			if queue := candidate.runtimeEventQueue(owner); queue == nil || !scriptEventQueueIsCurrent(owner, queue) {
+				return false
+			}
+			return scriptMove(owner, x, y, time.Now())
+		})
+		m["StopMoving"] = reflect.ValueOf(func() {
+			if queue := candidate.runtimeEventQueue(owner); queue != nil && scriptEventQueueIsCurrent(owner, queue) {
+				stopScriptMovement(owner)
+				return
+			}
+			stage(func() { stopScriptMovement(owner) })
+		})
+		m["OnWorld"] = reflect.ValueOf(func(handler func(scriptapi.World)) Subscription {
+			if handler == nil {
+				return Subscription{}
+			}
+			return subscribe(func() scriptRegistrationHandle {
+				return scriptRegisterChange(owner, ChangeWorld, func(ChangeEvent) { handler(scriptCurrentWorld()) })
+			})
+		})
 		m["Equip"] = reflect.ValueOf(func(name string) {
 			if candidate.runtimeEventQueue(owner) != nil {
 				scriptEquipByName(owner, name)
@@ -1079,7 +1117,22 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			}
 			return Subscription{}
 		})
+		m["CreateWindow"] = reflect.ValueOf(func(options scriptapi.WindowOptions) Window {
+			if err := validateScriptWindowOptions(options); err != nil {
+				panic(err.Error())
+			}
+			options.Buttons = append([]scriptapi.WindowButton(nil), options.Buttons...)
+			window := Window{state: &scriptWindowState{owner: owner, candidate: candidate}}
+			stage(func() { window.create(options) })
+			return window
+		})
 		m["AddToolbar"] = reflect.ValueOf(func(options scriptapi.ToolbarOptions) Subscription {
+			if !scriptHasPermission(owner, "hotkeys") {
+				options.Buttons = append([]scriptapi.ToolbarButton(nil), options.Buttons...)
+				for index := range options.Buttons {
+					options.Buttons[index].Key = ""
+				}
+			}
 			if candidate.claimToolbar(options) {
 				return subscribe(func() scriptRegistrationHandle {
 					return scriptRegisterToolbar(owner, options, candidate.assets)
@@ -1272,6 +1325,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			})
 			return timer
 		})
+		guardScriptExports(owner, candidate, m)
 		ex[pkg] = m
 	}
 	return ex
@@ -1938,7 +1992,10 @@ func compileScriptSourceWithAssets(owner string, src []byte, restricted interp.E
 	if err := checkScriptSourceRequirements(src); err != nil {
 		return nil, err
 	}
-	candidate := &scriptCandidate{assets: assets}
+	if err := checkScriptPermissions(owner, src); err != nil {
+		return nil, err
+	}
+	candidate := &scriptCandidate{assets: assets, generation: scriptSessionGeneration.Load()}
 	diagnostics := &scriptDiagnostics{}
 	i := interp.New(interp.Options{Stderr: diagnostics})
 	if len(restricted) > 0 {
@@ -2034,15 +2091,19 @@ func callScriptLifecycle(event string, fn func(), interpreters ...*interp.Interp
 	}
 }
 
-func runScriptCallback(owner, event string, fn func()) (ok bool) {
-	if fn == nil || scriptIsDisabled(owner) {
+func runScriptCallback(owner, event string, fn func()) bool {
+	return runScriptCallbackOnQueue(currentScriptEventQueue(owner), owner, event, fn)
+}
+
+func runScriptCallbackOnQueue(queue *scriptEventQueue, owner, event string, fn func()) (ok bool) {
+	if fn == nil || scriptIsDisabled(owner) || currentScriptEventQueue(owner) != queue {
 		return false
 	}
 	ok = true
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			ok = false
-			if scriptCallbackPanicHandler != nil {
+			if scriptCallbackPanicHandler != nil && currentScriptEventQueue(owner) == queue {
 				scriptCallbackPanicHandler(owner, event, recovered, scriptCallbackSourceLocation(owner))
 			}
 		}
@@ -2091,6 +2152,7 @@ func recordScriptError(owner, message string, reloadFailed bool) {
 }
 
 func handleScriptCallbackPanic(owner, event string, recovered any, location string) {
+	queue := currentScriptEventQueue(owner)
 	name := scriptDisplayName(owner)
 	where := ""
 	if location != "" {
@@ -2123,12 +2185,15 @@ func handleScriptCallbackPanic(owner, event string, recovered any, location stri
 		return
 	}
 	dispatchScriptControl(func() {
-		consoleMessage(msg)
-		disablescript(owner, "panic in "+event+" callback")
+		if currentScriptEventQueue(owner) == queue {
+			consoleMessage(msg)
+			disablescript(owner, "panic in "+event+" callback")
+		}
 	})
 }
 
 func handleScriptExecutionLimit(owner, event string, budgetLimited bool) {
+	queue := currentScriptEventQueue(owner)
 	limitName := "callback time limit"
 	reason := "execution time limit"
 	if budgetLimited {
@@ -2146,8 +2211,10 @@ func handleScriptExecutionLimit(owner, event string, budgetLimited bool) {
 		return
 	}
 	dispatchScriptControl(func() {
-		consoleMessage(msg)
-		disablescript(owner, reason+" exceeded")
+		if currentScriptEventQueue(owner) == queue {
+			consoleMessage(msg)
+			disablescript(owner, reason+" exceeded")
+		}
 	})
 }
 
@@ -2233,9 +2300,18 @@ func loadscriptPackageSource(owner, name, path string, src []byte, restricted in
 		}
 	}
 	if err != nil {
-		log.Printf("script %s: %v", path, err)
 		message := formatScriptError(path, err)
 		recordScriptError(owner, message, wasRunning)
+		if _, needsReview := err.(*scriptPermissionReviewError); needsReview {
+			if !wasRunning {
+				disablescript(owner, "permissions required")
+			}
+			consoleMessage("[script] awaiting permission review: " + name)
+			dispatchScriptControl(func() { queueScriptPermissionReview(owner) })
+			refreshscriptsWindow()
+			return false
+		}
+		log.Printf("script %s: %v", path, err)
 		if wasRunning {
 			consoleMessage("[script] reload error for " + path + ": " + message)
 			refreshscriptsWindow()
@@ -2287,6 +2363,9 @@ func stripGoBuildDirectives(src []byte) []byte {
 }
 
 func enablescript(owner string) {
+	if scriptExecutionCharacter() == "" {
+		return
+	}
 	scriptMu.RLock()
 	info, ok := scriptPackages[owner]
 	scriptMu.RUnlock()
@@ -2337,7 +2416,7 @@ type deactivatedScript struct {
 func deactivateScript(owner, reason string) deactivatedScript {
 	scriptMu.Lock()
 	scriptDisabled[owner] = true
-	if reason != "disabled for this character" && reason != "reloaded" && reason != "application shutdown" {
+	if reason != "disabled for this character" && reason != "reloaded" && reason != "application shutdown" && reason != "permissions changed" && reason != "permissions required" && reason != "session ended" && reason != "session restart" {
 		delete(scriptEnabledFor, owner)
 	}
 	term := scriptTerminators[owner]
@@ -2370,6 +2449,7 @@ func terminateDeactivatedScript(owner string, deactivated deactivatedScript) {
 }
 
 func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) {
+	stopScriptMovement(owner)
 	cancelScriptDispatch(owner)
 	releaseScriptRegistrations(eventQueue)
 	if scriptConfigWin != nil && scriptConfigOwner == owner {
@@ -2447,7 +2527,7 @@ func stopScripts(reason string) {
 	scriptMu.RLock()
 	owners := make([]string, 0, len(scriptDisplayNames))
 	for o := range scriptDisplayNames {
-		if !scriptDisabled[o] {
+		if !scriptDisabled[o] || currentScriptEventQueue(o) != nil {
 			owners = append(owners, o)
 		}
 	}
@@ -2476,15 +2556,19 @@ func applyEnabledScripts() {
 		disabled := scriptDisabled[o]
 		invalid := scriptInvalid[o]
 		scriptMu.RUnlock()
+		if !scope.empty() && !invalid {
+			queueScriptPermissionReview(o)
+		}
+		// Saved enablement only starts interpreters inside an active session.
+		effChar := scriptExecutionCharacter()
+		shouldEnable := scope.enablesFor(effChar)
 		if invalid {
-			// A running script may have become invalid after an edit. Keep its
-			// last working interpreter alive until a valid replacement is ready.
+			// Keep the last working version only while its player scope still applies.
+			if !disabled && !shouldEnable {
+				disablescript(o, "disabled for this character")
+			}
 			continue
 		}
-		// Enable when set to all, or when the scope includes the active
-		// character. If not logged in, fall back to LastCharacter.
-		effChar := effectiveCharacterName()
-		shouldEnable := scope.enablesFor(effChar)
 		if disabled && shouldEnable {
 			enablescript(o)
 		} else if !disabled && !shouldEnable {
@@ -2498,6 +2582,13 @@ func applyEnabledScripts() {
 }
 
 func setscriptEnabled(owner string, char, all bool) {
+	setScriptEnabledForCharacter(owner, scriptScopeCharacter(), char, all)
+}
+
+func setScriptEnabledForCharacter(owner, character string, char, all bool) {
+	if !all && character == "" {
+		return
+	}
 	scriptMu.Lock()
 	if scriptInvalid[owner] {
 		scriptMu.Unlock()
@@ -2508,13 +2599,13 @@ func setscriptEnabled(owner string, char, all bool) {
 		s.All = true
 		s.Chars = nil
 	} else if char {
-		effChar := effectiveCharacterName()
+		effChar := character
 		if effChar != "" {
 			s.All = false
 			s.addChar(effChar)
 		}
 	} else {
-		effChar := effectiveCharacterName()
+		effChar := character
 		if effChar != "" {
 			s.removeChar(effChar)
 		} else {
@@ -2528,6 +2619,9 @@ func setscriptEnabled(owner string, char, all bool) {
 	}
 	scriptMu.Unlock()
 	saveScriptEnablement()
+	if !s.empty() {
+		queueScriptPermissionReview(owner)
+	}
 	applyEnabledScripts()
 	saveSettings()
 	refreshscriptsWindow()
@@ -3060,6 +3154,7 @@ func scriptSessionLogin(character string) {
 	character = strings.TrimSpace(character)
 	clearScriptLatestServerMessage()
 	scriptSessionMu.Lock()
+	stopScriptMovement("")
 	previous := scriptSessionCharacter
 	changed := previous != "" && !strings.EqualFold(previous, character)
 	scriptSessionCharacter = character
@@ -3087,6 +3182,7 @@ func notifyLoadedScriptsOfCurrentSession() {
 
 func scriptSessionLogout(character string) {
 	scriptSessionMu.Lock()
+	stopScriptMovement("")
 	if !scriptSessionActive {
 		scriptSessionMu.Unlock()
 		return
@@ -3104,7 +3200,10 @@ func runScriptStopHandlers(owner, reason string) {
 	chatHandlersMu.RLock()
 	handlers := append([]scriptLifecycleHandler{}, scriptLifecycleHandlers...)
 	chatHandlersMu.RUnlock()
-	event := LifecycleEvent{Type: lifecycleStop, Character: playerName, Reason: reason}
+	scriptSessionMu.Lock()
+	character := scriptSessionCharacter
+	scriptSessionMu.Unlock()
+	event := LifecycleEvent{Type: lifecycleStop, Character: character, Reason: reason}
 	for _, handler := range handlers {
 		if handler.owner == owner && handler.kind == lifecycleStop && handler.fn != nil {
 			fn := handler.fn
@@ -3519,7 +3618,7 @@ func rescanScripts(scriptDirs []string) {
 			scriptDisabled[o] = !oldRunning[o]
 			continue
 		}
-		effChar := effectiveCharacterName()
+		effChar := scriptExecutionCharacter()
 		shouldEnable := newEnabled[o].enablesFor(effChar)
 		scriptDisabled[o] = !oldRunning[o]
 		activeHash, hasActiveHash := scriptActiveSourceHashes[o]
@@ -3553,6 +3652,7 @@ func loadScripts() {
 	}
 	ensureScriptsDir()
 	loadScriptEnablement()
+	loadScriptPermissions()
 	scanned := scanscripts(scriptSearchDirs(), func(name, path string) {
 		log.Printf("script %s duplicate name %s", path, name)
 		consoleMessage("[script] duplicate name: " + name)
@@ -3574,7 +3674,7 @@ func loadScripts() {
 		info := scanned[o]
 		scriptNames[strings.ToLower(info.name)] = true
 		s := scriptEnabledFor[o]
-		effChar := effectiveCharacterName()
+		effChar := scriptExecutionCharacter()
 		invalid := info.invalid || info.apiVer != scriptAPICurrentVersion
 		disabled := invalid || !s.enablesFor(effChar)
 		scriptMu.Lock()
@@ -3597,6 +3697,9 @@ func loadScripts() {
 			scriptErrors[o] = fmt.Sprintf("%s: unsupported script API version %d; this client supports version %d", info.path, info.apiVer, scriptAPICurrentVersion)
 		}
 		scriptMu.Unlock()
+		if !s.empty() && !invalid {
+			queueScriptPermissionReview(o)
+		}
 		if !disabled {
 			loadscriptPackageSource(o, info.name, info.path, info.src, restrictedStdlib(), info.assets, info.fingerprint)
 		}

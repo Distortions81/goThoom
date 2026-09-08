@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -319,20 +318,20 @@ func TestConcertTrioAtThirteenThirty(t *testing.T) {
 }
 
 func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
+	fontPath := soundFontForTest(t)
+	originalStorageActive := storagePathsActivated
 	frames, err := parseMovie(movieFixturePath(t, "concert1.clMov"), baseVersion)
 	if err != nil {
 		t.Fatalf("parseMovie: %v", err)
 	}
 	oldSettings, oldBlock := gs, blockMusic
-	oldDataDir, oldFont, oldSynthSettings := dataDirPath, sfntCached, synthSettings
-	_, testFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("find test source path")
-	}
-	dataDirPath = filepath.Join(filepath.Dir(testFile), "data")
+	oldFont, oldFallback, oldSynthSettings := sfntCached, sfntFallback, synthSettings
 	setupSynthOnce = sync.Once{}
 	sfntCached, synthSettings = nil, nil
 	gs = gsdef
+	storagePathsActivated = false
+	gs.AssetsPath = filepath.Dir(fontPath)
+	gs.SoundFontFile = filepath.Base(fontPath)
 	gs.Music = true
 	blockMusic = false
 	pendingMu.Lock()
@@ -341,9 +340,9 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 	t.Cleanup(func() {
 		stopAllMusic()
 		gs, blockMusic = oldSettings, oldBlock
-		dataDirPath = oldDataDir
+		storagePathsActivated = originalStorageActive
 		setupSynthOnce = sync.Once{}
-		sfntCached, synthSettings = oldFont, oldSynthSettings
+		sfntCached, sfntFallback, synthSettings = oldFont, oldFallback, oldSynthSettings
 		pendingMu.Lock()
 		pendingByID = make(map[int]*pendingSong)
 		pendingMu.Unlock()
