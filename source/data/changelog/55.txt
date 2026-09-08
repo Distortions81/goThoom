@@ -1,6 +1,8 @@
 goThoom 55 changes since test54.
 
 Interface:
+- Login stays centered over the game pane and cannot be dragged.
+- Disabled checkboxes and radio buttons remain visible in the bundled themes, with readable checkmarks and labels.
 - The main workspace now always uses tiled panes. Window Layout offers clickable diagrams, with controls to swap sides, put messages above or below the game, and split separate Chat and Console side by side or vertically.
 - Combine chat + console is available in Window Layout. Separating messages restores a working Chat pane and input bar.
 - Auto-size side panels uses empty space beside the game; turning it off keeps the current divider sizes for manual resizing.

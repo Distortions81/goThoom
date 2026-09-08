@@ -13,7 +13,9 @@
     "highlight": "#a3d4faff",
     "disabled": "#e3e5e7ff",
     "disabledtext": "#6a747eff",
-    "shadow": "#00000060"
+    "shadow": "#00000060",
+    "disabledtoggle": "#838688ff",
+    "disabledtoggletext": "#33383dff"
   },
   "RecommendedStyle": "Breeze",
   "Window": {
@@ -58,9 +60,9 @@
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
-    "DisabledColor": "disabled",
+    "DisabledColor": "disabledtoggle",
     "SelectedColor": "highlight",
-    "DisabledTextColor": "disabledtext"
+    "DisabledTextColor": "disabledtoggletext"
   },
   "Radio": {
     "TextColor": "text",
@@ -68,9 +70,9 @@
     "HoverColor": "hover",
     "ClickColor": "accent",
     "OutlineColor": "outline",
-    "DisabledColor": "disabled",
+    "DisabledColor": "disabledtoggle",
     "SelectedColor": "highlight",
-    "DisabledTextColor": "disabledtext"
+    "DisabledTextColor": "disabledtoggletext"
   },
   "Input": {
     "TextColor": "text",
