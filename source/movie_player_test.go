@@ -81,6 +81,39 @@ func TestMovieUPSValueIsFourDigits(t *testing.T) {
 	}
 }
 
+func TestMovieTimelineAlwaysUsesFiveUPS(t *testing.T) {
+	originalRate := currentMovieMusicTempoRate()
+	originalPlayingMovie, originalMovieMode := playingMovie, movieMode
+	originalPaused := movieMusicPaused.Load()
+	t.Cleanup(func() {
+		setMovieMusicTempoRate(originalRate)
+		playingMovie, movieMode = originalPlayingMovie, originalMovieMode
+		movieMusicPaused.Store(originalPaused)
+	})
+
+	p := newMoviePlayer(nil, 10, nil)
+	t.Cleanup(p.ticker.Stop)
+	if p.baseFPS != movieRecordedUPS {
+		t.Fatalf("movie timeline UPS = %d, want %d", p.baseFPS, movieRecordedUPS)
+	}
+	if got := currentMovieMusicTempoRate(); got != 2 {
+		t.Fatalf("music tempo rate = %v, want 2 at 10 playback UPS", got)
+	}
+}
+
+func TestMovieJumpUsesPendingScrubTargetOnFiveUPSTimeline(t *testing.T) {
+	p := &moviePlayer{cur: 100, fps: 30, baseFPS: movieRecordedUPS}
+	if got := p.skipTarget(5 * 1000); got != 125 {
+		t.Fatalf("five-second jump target = %d, want 125", got)
+	}
+
+	p.seekTarget = 200
+	p.seekPending = true
+	if got := p.skipTarget(-5 * 1000); got != 175 {
+		t.Fatalf("jump from pending scrub target = %d, want 175", got)
+	}
+}
+
 func TestMoviePauseAndPlayControlMusicPauseState(t *testing.T) {
 	originalPaused := movieMusicPaused.Load()
 	musicPlayersMu.Lock()
@@ -182,6 +215,44 @@ func TestMovieMusicJobsDurationUsesLatestNoteEnd(t *testing.T) {
 	}
 	if movieMusicJobsActiveAt(jobs, 5*time.Second) {
 		t.Fatal("movie music remained active at its natural end")
+	}
+}
+
+func TestMovieMusicTimelineRangesFollowStartsStopsAndNaturalEnds(t *testing.T) {
+	long := []Note{{Duration: 10 * time.Second}}
+	events := []movieMusicEvent{
+		{frame: 10, jobs: []tuneJob{{who: 1, notes: long}}},
+		{frame: 20, stop: true, stopWho: 99},
+		{frame: 40, jobs: []tuneJob{{who: 2, notes: long}}},
+		{frame: 45, stop: true, stopWho: 2},
+		{frame: 60, jobs: []tuneJob{{who: 3, notes: []Note{{Duration: time.Second}}}}},
+	}
+	ranges := movieMusicTimelineRanges(events, 100, movieRecordedUPS)
+	want := [][2]float32{{10, 40}, {40, 45}, {60, 65}}
+	if len(ranges) != len(want) {
+		t.Fatalf("music timeline ranges = %#v, want %d ranges", ranges, len(want))
+	}
+	for i, bounds := range want {
+		if ranges[i].Start != bounds[0] || ranges[i].End != bounds[1] {
+			t.Errorf("music timeline range %d = [%v,%v], want [%v,%v]", i, ranges[i].Start, ranges[i].End, bounds[0], bounds[1])
+		}
+	}
+}
+
+func TestMovieMusicTimelineColorsRepeat(t *testing.T) {
+	events := make([]movieMusicEvent, len(movieMusicTimelineColors)+1)
+	for i := range events {
+		events[i] = movieMusicEvent{
+			frame: i * 2,
+			jobs:  []tuneJob{{notes: []Note{{Duration: time.Second}}}},
+		}
+	}
+	ranges := movieMusicTimelineRanges(events, 100, movieRecordedUPS)
+	if len(ranges) != len(events) {
+		t.Fatalf("music timeline ranges = %d, want %d", len(ranges), len(events))
+	}
+	if ranges[0].Color != ranges[len(movieMusicTimelineColors)].Color {
+		t.Fatal("music timeline palette did not repeat")
 	}
 }
 

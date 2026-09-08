@@ -1693,16 +1693,18 @@ func makeMixerWindow() {
 	musicEnhanceSlider.Size = eui.Point{X: 180, Y: 24}
 	musicEnhanceSlider.SetTooltip("Bard music ambience strength. 1.00 matches the prior enhanced sound.")
 	musicEnhanceSliderEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventSliderChanged {
-			return
+		switch ev.Type {
+		case eui.EventSliderChanged:
+			amount := math.Round(float64(ev.Value)*100) / 100
+			gs.MusicEnhancementAmount = clampMusicEnhancementAmount(amount)
+			if ev.Item.Value != float32(gs.MusicEnhancementAmount) {
+				ev.Item.Value = float32(gs.MusicEnhancementAmount)
+				ev.Item.Dirty = true
+			}
+			settingsDirty = true
+		case eui.EventSliderReleased:
+			restartMusicWithCurrentSettings()
 		}
-		amount := math.Round(float64(ev.Value)*100) / 100
-		gs.MusicEnhancementAmount = clampMusicEnhancementAmount(amount)
-		if ev.Item.Value != float32(gs.MusicEnhancementAmount) {
-			ev.Item.Value = float32(gs.MusicEnhancementAmount)
-			ev.Item.Dirty = true
-		}
-		settingsDirty = true
 	}
 	enhanceCol.AddItem(musicEnhanceSlider)
 	flow.AddItem(enhanceCol)

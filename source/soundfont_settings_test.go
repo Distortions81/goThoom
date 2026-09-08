@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"gothoom/eui"
 
@@ -102,6 +103,16 @@ func TestListSoundFontsSkipsInvalidFiles(t *testing.T) {
 	}
 	if len(fonts) != 0 {
 		t.Fatalf("invalid files appeared in soundfont choices: %v", fonts)
+	}
+}
+
+func TestMusicTrackPlaybackFramePreservesPriorSeekOffset(t *testing.T) {
+	track := musicTrack{startFrame: 2 * sampleRate}
+	if got := musicTrackPlaybackFrame(track, 3*time.Second); got != 5*sampleRate {
+		t.Fatalf("replacement frame = %d, want %d", got, 5*sampleRate)
+	}
+	if got := musicTrackPlaybackFrame(track, -time.Second); got != 2*sampleRate {
+		t.Fatalf("negative player position changed prior offset: got %d, want %d", got, 2*sampleRate)
 	}
 }
 

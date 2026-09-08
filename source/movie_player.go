@@ -50,6 +50,17 @@ type activeMovieMusic struct {
 	jobs  []tuneJob
 }
 
+var movieMusicTimelineColors = []eui.Color{
+	eui.NewColor(239, 83, 80, 210),
+	eui.NewColor(255, 167, 38, 210),
+	eui.NewColor(255, 238, 88, 210),
+	eui.NewColor(102, 187, 106, 210),
+	eui.NewColor(38, 198, 218, 210),
+	eui.NewColor(66, 165, 245, 210),
+	eui.NewColor(126, 87, 194, 210),
+	eui.NewColor(236, 64, 122, 210),
+}
+
 type movieNightState struct {
 	baseLevel       int
 	azimuth         int
@@ -98,6 +109,11 @@ func restoreMovieNightState(n movieNightState) {
 const checkpointInterval = 300
 const movieSeekFullRenderInterval = 500 * time.Millisecond
 const movieControlButtonHeight = 38
+
+// Clan Lord movies record one frame for each of the game's fixed 5 UPS.
+// Playback UPS may change, but frame indexes and indexed music positions must
+// always be interpreted on this recorded timeline.
+const movieRecordedUPS = 5
 
 // moviePlayer manages clMov playback with basic controls.
 type moviePlayer struct {
@@ -236,7 +252,7 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 	playingMovie = true
 	movieMode = true
 	movieMusicPaused.Store(false)
-	setMovieMusicTempoRate(1)
+	setMovieMusicTempoRate(float64(fps) / movieRecordedUPS)
 	// Do not interpolate the very first frame of playback.
 	// Ensure prevTime == curTime and clear prior history so sprites
 	// don't lerp from zeroed positions on start.
@@ -245,7 +261,7 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 	return &moviePlayer{
 		frames:          frames,
 		fps:             fps,
-		baseFPS:         fps,
+		baseFPS:         movieRecordedUPS,
 		playing:         true,
 		resetOnNextDraw: true,
 		ticker:          time.NewTicker(time.Second / time.Duration(fps)),
@@ -328,6 +344,8 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider.MaxValue = max
 	p.slider.Size = eui.Point{X: 600, Y: 24}
 	p.slider.IntOnly = true
+	p.slider.Ranges = movieMusicTimelineRanges(p.music, len(p.frames), p.baseFPS)
+	p.slider.SetTooltip("Seek through the movie. Colored bands show indexed bard music.")
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventSliderChanged {
 			p.requestSeek(int(ev.Value))
@@ -932,6 +950,60 @@ func movieMusicJobsActiveAt(jobs []tuneJob, elapsed time.Duration) bool {
 	return elapsed >= 0 && elapsed < movieMusicJobsDuration(jobs)
 }
 
+func movieMusicTimelineRanges(events []movieMusicEvent, totalFrames, ups int) []eui.SliderRange {
+	if totalFrames <= 0 || ups <= 0 || len(movieMusicTimelineColors) == 0 {
+		return nil
+	}
+	type musicRange struct {
+		start int
+		end   int
+		jobs  []tuneJob
+	}
+	ranges := make([]musicRange, 0)
+	active := -1
+	for _, event := range events {
+		frame := min(max(event.frame, 0), totalFrames)
+		if !event.stop {
+			if active >= 0 {
+				ranges[active].end = min(ranges[active].end, frame)
+			}
+			duration := movieMusicJobsDuration(event.jobs)
+			durationFrames := int((duration.Nanoseconds()*int64(ups) + int64(time.Second) - 1) / int64(time.Second))
+			ranges = append(ranges, musicRange{
+				start: frame,
+				end:   min(frame+durationFrames, totalFrames),
+				jobs:  event.jobs,
+			})
+			active = len(ranges) - 1
+			continue
+		}
+		if active < 0 || frame >= ranges[active].end {
+			continue
+		}
+		stopsActive := event.stopWho == 0
+		for _, job := range ranges[active].jobs {
+			stopsActive = stopsActive || job.who == event.stopWho
+		}
+		if stopsActive {
+			ranges[active].end = frame
+			active = -1
+		}
+	}
+
+	highlights := make([]eui.SliderRange, 0, len(ranges))
+	for _, music := range ranges {
+		if music.end <= music.start {
+			continue
+		}
+		highlights = append(highlights, eui.SliderRange{
+			Start: float32(music.start),
+			End:   float32(music.end),
+			Color: movieMusicTimelineColors[len(highlights)%len(movieMusicTimelineColors)],
+		})
+	}
+	return highlights
+}
+
 func (p *moviePlayer) play() {
 	if p.playing {
 		return
@@ -954,29 +1026,22 @@ func (p *moviePlayer) pause() {
 }
 
 func (p *moviePlayer) skipBackMilli(milli int) {
-	if seekingMov {
-		return
-	}
-	seekLock.Lock()
-	go func() {
-		skip := int(float64(milli) * (float64(p.baseFPS) / 1000.0))
-		p.seek(p.cur - skip)
-		seekLock.Unlock()
-	}()
-
+	p.requestSeek(p.skipTarget(-milli))
 }
 
 func (p *moviePlayer) skipForwardMilli(milli int) {
-	if seekingMov {
-		return
-	}
-	seekLock.Lock()
-	go func() {
-		skip := int(float64(milli) * (float64(p.baseFPS) / 1000.0))
-		p.seek(p.cur + skip)
-		seekLock.Unlock()
-	}()
+	p.requestSeek(p.skipTarget(milli))
+}
 
+// skipTarget keeps jump buttons on the same queued timeline as slider seeks.
+// If a scrub is still rebuilding, the visible pending position is the user's
+// current position and therefore the correct base for the jump.
+func (p *moviePlayer) skipTarget(milli int) int {
+	target, pending := p.pendingSeekTarget()
+	if !pending {
+		target = p.cur
+	}
+	return target + milli*p.baseFPS/1000
 }
 
 func (p *moviePlayer) seek(idx int) {

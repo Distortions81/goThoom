@@ -125,6 +125,9 @@ func Update() error {
 	midClickDrag := midClickTime > 1
 
 	if !pointerPressed() && !midPressed {
+		if activeItem != nil {
+			activeItem.emitSliderReleased()
+		}
 		if selectedTextItem != nil && selectedTextItem.selecting {
 			selectedTextItem.selecting = false
 			selectedTextItem.markDirty()
@@ -708,6 +711,20 @@ func Update() error {
 	}
 
 	return nil
+}
+
+// emitSliderReleased completes a slider interaction. Release events are only
+// useful when the interaction changed the value, so clicks without movement
+// do not notify consumers.
+func (item *itemData) emitSliderReleased() {
+	if item.ItemType != ITEM_SLIDER || !item.dragStartInit {
+		return
+	}
+	item.dragStartInit = false
+	if item.Value == item.dragStartValue || item.Handler == nil {
+		return
+	}
+	item.Handler.Emit(UIEvent{Item: item, Type: EventSliderReleased, Value: item.Value})
 }
 
 func windowsFrontToBack() []*windowData {

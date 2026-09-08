@@ -73,10 +73,11 @@ var (
 )
 
 type musicTrack struct {
-	stream *musicStream
-	whos   map[int]struct{}
-	ctx    *audio.Context
-	parts  []musicPart
+	stream     *musicStream
+	whos       map[int]struct{}
+	ctx        *audio.Context
+	parts      []musicPart
+	startFrame int
 }
 
 type programGainKey struct {
@@ -237,6 +238,16 @@ func selectSoundFont(name string) error {
 // streams are prepared in background goroutines so selecting a large font does
 // not stall the UI.
 func restartMusicWithSelectedSoundFont() {
+	restartActiveMusic("restart music with selected soundfont")
+}
+
+// restartMusicWithCurrentSettings continues active bard tracks from their
+// current positions so changes that affect rendering are audible immediately.
+func restartMusicWithCurrentSettings() {
+	restartActiveMusic("restart music with updated settings")
+}
+
+func restartActiveMusic(errorContext string) {
 	type restart struct {
 		ctx   *audio.Context
 		parts []musicPart
@@ -257,7 +268,7 @@ func restartMusicWithSelectedSoundFont() {
 		for i, part := range track.parts {
 			parts[i] = musicPart{program: part.program, notes: append([]Note(nil), part.notes...)}
 		}
-		frame := int(max(player.Position(), time.Duration(0)).Seconds() * sampleRate)
+		frame := musicTrackPlaybackFrame(track, player.Position())
 		restarts = append(restarts, restart{ctx: track.ctx, parts: parts, whos: whos, frame: frame})
 		_ = track.stream.Close()
 	}
@@ -268,10 +279,15 @@ func restartMusicWithSelectedSoundFont() {
 		restart := restart
 		go func() {
 			if err := playMusicGroupWithSettingsAtFrame(restart.ctx, restart.parts, restart.whos, nil, nil, settings, restart.frame); err != nil {
-				log.Printf("restart music with selected soundfont: %v", err)
+				log.Printf("%s: %v", errorContext, err)
 			}
 		}()
 	}
+}
+
+func musicTrackPlaybackFrame(track musicTrack, position time.Duration) int {
+	position = max(position, time.Duration(0))
+	return max(track.startFrame+int(position.Seconds()*sampleRate), 0)
 }
 
 // newSynthesizer constructs a meltysynth synthesizer. Tests may override this to
@@ -1263,7 +1279,7 @@ func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, 
 	for _, who := range whos {
 		trackWhos[who] = struct{}{}
 	}
-	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos, ctx: ctx, parts: parts}
+	musicPlayers[player] = musicTrack{stream: stream, whos: trackWhos, ctx: ctx, parts: parts, startFrame: startFrame}
 	musicPlayersMu.Unlock()
 	defer func() {
 		_ = stream.Close()

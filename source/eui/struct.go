@@ -17,6 +17,13 @@ func (c Color) RGBA() (r, g, b, a uint32) {
 
 func (c Color) ToRGBA() color.RGBA { return color.RGBA(c) }
 
+// SliderRange highlights an interval on a slider track using slider values.
+type SliderRange struct {
+	Start float32
+	End   float32
+	Color Color
+}
+
 type windowData struct {
 	Title    string
 	Position point
@@ -159,6 +166,7 @@ type itemData struct {
 	Value      float32
 	MinValue   float32
 	MaxValue   float32
+	Ranges     []SliderRange
 	IntOnly    bool
 	HideValue  bool // Hide a slider's value caption when an adjacent field supplies it.
 	RadioGroup string

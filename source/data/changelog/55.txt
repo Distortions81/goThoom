@@ -20,10 +20,11 @@ Audio:
 - Added a Music SoundFont selector to Settings > Audio for choosing any valid `.sf2` file in Assets & Audio, with a refresh button for newly added files and a direct Audio Settings button in the Mixer.
 - Custom SoundFonts may contain only selected instruments; missing Bank 0 presets automatically use the bundled default SoundFont.
 - SoundFont changes now take effect during active bard music while staying as close as possible to the current song position.
+- Releasing the bard-music enhancement slider after changing it now re-renders active music from the current song position.
 - Bard instruments are normalized per SoundFont and instrument program for more consistent perceived volume, with conservative peak protection for chords and groups.
 - Disconnecting or logging out now stops active bard music.
 
 Movie playback:
-- Bard music now follows `.clmov` seeking and resumes at the corresponding song position.
+- Bard music is indexed on the `.clmov` timeline, with colored song regions and consistent scrub or jump seeking that resumes at the corresponding song position.
 - Bard-music tempo now follows playback UPS without changing instrument pitch.
 - Pausing and resuming movie playback now pauses and resumes bard music; Stop pauses playback when no seek is active, and exiting the movie player stops it.

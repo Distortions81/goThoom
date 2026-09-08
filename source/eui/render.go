@@ -1480,6 +1480,22 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				ratio = 1
 			}
 			knobCenter := trackStart + float32(ratio)*trackWidth
+			for _, highlight := range item.Ranges {
+				startRatio := float32(0)
+				endRatio := float32(0)
+				if item.MaxValue > item.MinValue {
+					startRatio = (highlight.Start - item.MinValue) / (item.MaxValue - item.MinValue)
+					endRatio = (highlight.End - item.MinValue) / (item.MaxValue - item.MinValue)
+				}
+				startRatio = min(max(startRatio, 0), 1)
+				endRatio = min(max(endRatio, 0), 1)
+				if endRatio <= startRatio {
+					continue
+				}
+				x := trackStart + startRatio*trackWidth
+				width := max((endRatio-startRatio)*trackWidth, uiScale)
+				drawFilledRect(subImg, x, trackY-3*uiScale, width, 6*uiScale, highlight.Color.ToRGBA(), false)
+			}
 			filledCol := style.SelectedColor
 			strokeLine(subImg, trackStart, trackY, knobCenter, trackY, 2*uiScale, filledCol, true)
 			strokeLine(subImg, knobCenter, trackY, trackStart+trackWidth, trackY, 2*uiScale, itemColor, true)

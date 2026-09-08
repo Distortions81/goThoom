@@ -11,6 +11,8 @@ const (
 	EventRadioSelected
 	EventColorChanged
 	EventInputChanged
+	// EventSliderReleased is emitted after a slider drag changed its value.
+	EventSliderReleased
 )
 
 // UIEvent describes a user interaction with a widget.
