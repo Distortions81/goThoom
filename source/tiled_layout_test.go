@@ -35,47 +35,17 @@ func TestCenteredTiledLayoutUsesCurrentThreeColumnWorkspace(t *testing.T) {
 	}
 }
 
-func TestTiledGameWindowHidesAndRestoresTitleBar(t *testing.T) {
-	originalGS := gs
-	originalGameWin := gameWin
-	originalTitleHeight := gameWindowFreeformTitleHeight
-	originalPadding := gameWindowFreeformPadding
-	originalMargin := gameWindowFreeformMargin
-	t.Cleanup(func() {
-		if gameWin != nil && gameWin != originalGameWin {
-			gameWin.RemoveWindow()
-		}
-		gs = originalGS
-		gameWin = originalGameWin
-		gameWindowFreeformTitleHeight = originalTitleHeight
-		gameWindowFreeformPadding = originalPadding
-		gameWindowFreeformMargin = originalMargin
-	})
-
+func TestGameWindowAlwaysUsesTiledChrome(t *testing.T) {
+	originalGS, originalWin := gs, gameWin
+	t.Cleanup(func() { gameWin.RemoveWindow(); gameWin = originalWin; gs = originalGS })
 	gameWin = eui.NewWindow()
-	defaultTitleHeight := gameWin.GetRawTitleSize()
-	defaultPadding := gameWin.Padding
-	defaultMargin := gameWin.Margin
-	gameWindowFreeformTitleHeight = defaultTitleHeight
-	gameWindowFreeformPadding = defaultPadding
-	gameWindowFreeformMargin = defaultMargin
 	gs = gsdef
-	gs.TiledWindows = true
+	gs.TiledWindows = false // A saved preference from an older client.
+	applyTiledWindowStates()
 	prepareTiledWorkspaceWindowChrome()
-	if gameWin.GetRawTitleSize() != 0 {
-		t.Fatalf("tiled game title height = %v, want 0", gameWin.GetRawTitleSize())
-	}
-	if gameWin.Padding != 0 || gameWin.Margin != 0 {
-		t.Fatalf("tiled game spacing = padding %v margin %v, want zero", gameWin.Padding, gameWin.Margin)
-	}
-
-	gs.TiledWindows = false
-	prepareTiledWorkspaceWindowChrome()
-	if gameWin.GetRawTitleSize() != defaultTitleHeight {
-		t.Fatalf("freeform game title height = %v, want %v", gameWin.GetRawTitleSize(), defaultTitleHeight)
-	}
-	if gameWin.Padding != defaultPadding || gameWin.Margin != defaultMargin {
-		t.Fatalf("freeform game spacing = padding %v margin %v, want %v and %v", gameWin.Padding, gameWin.Margin, defaultPadding, defaultMargin)
+	finishTiledWorkspaceWindowChrome()
+	if !gs.TiledWindows || gameWin.GetRawTitleSize() != 0 || gameWin.Padding != 0 || gameWin.Margin != 0 || gameWin.Resizable || gameWin.Movable || gameWin.Closable || gameWin.Maximizable {
+		t.Fatal("old freeform preference escaped the tiled workspace")
 	}
 }
 

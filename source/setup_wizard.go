@@ -366,12 +366,9 @@ func buildSetupLayoutPage(root *eui.ItemData) {
 	toolbar, toolbarEvents := eui.NewDropdown()
 	toolbar.Label = "Toolbar placement"
 	toolbar.Options = []string{"Inside Inventory", "Inside Players"}
-	if !gs.TiledWindows {
-		toolbar.Options = append(toolbar.Options, "Floating Window")
-	}
 	toolbar.Selected = int(gs.ToolbarPlacement)
 	toolbar.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
-	toolbar.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
+	toolbar.SetTooltip("Choose which list contains the toolbar.")
 	toolbarEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(ToolbarInInventory) && ev.Index < len(toolbar.Options) {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
@@ -383,19 +380,18 @@ func buildSetupLayoutPage(root *eui.ItemData) {
 		placeToolbar(gs.ToolbarPlacement, true)
 	}, setupWizardPanelWidth))
 
-	windowPanel.AddItem(setupWizardCheckboxWidth("Tiled window mode", "Arrange the main windows as one tiled workspace.", gs.TiledWindows, func(checked bool) {
-		gs.TiledWindows = checked
+	buildSetupTiledWindowSettings(windowPanel, windowPanel, setupWizardPanelWidth)
+	tiledPanel.AddItem(newTiledLayoutGallery(func(layout TiledLayout) {
+		gs.TiledLayout = layout
 		applyTiledWorkspaceLayout()
 		rebuildSetupWizard()
-	}, setupWizardPanelWidth))
-	if gs.TiledWindows {
-		buildSetupTiledWindowSettings(windowPanel, tiledPanel, setupWizardPanelWidth)
-	}
-
-	if !gs.TiledWindows {
-		tiledPanel.AddItem(setupWizardPanelHeading("Floating windows"))
-		tiledPanel.AddItem(setupWizardText("Move and resize windows freely. Enable tiled mode to arrange them around the game view.", 11, setupWizardPanelWidth))
-	}
+	}, 2))
+	layoutButton := eui.NewActionButton("Window Layout", func() {
+		makeTileLayoutWindow()
+		tileLayoutWin.MarkOpen()
+	})
+	layoutButton.SetTooltip("Open all layout controls, including Combine chat + console.")
+	windowPanel.AddItem(layoutButton)
 	root.AddItem(panels)
 }
 
@@ -526,95 +522,16 @@ func setupWizardUIScaleControl() *eui.ItemData {
 }
 
 func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
-	heading := setupWizardText("Tiled window settings", 14, width)
+	heading := setupWizardText("Arrangement", 14, width)
 	eui.ApplyBoldFace(heading)
 	root.AddItem(heading)
 
-	keepGameLarge := setupWizardCheckboxWidth("Auto-size side panels", "Automatically adjust side panel widths to use empty space beside the game. Drag either game divider to move the game sideways. Turn off to keep the current sizes and resize panels independently.", gs.TiledKeepGameLarge, setTiledKeepGameLarge, width)
+	keepGameLarge := setupWizardCheckboxWidth("Auto-size side panels", "Fill empty space beside the game. Turn off to keep the current sizes and resize panels independently.", gs.TiledKeepGameLarge, setTiledKeepGameLarge, width)
 	wizardKeepGameLargeCB = keepGameLarge.Contents[0]
 	wizardKeepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
 	options.AddItem(keepGameLarge)
-	options.AddItem(setupWizardCheckboxWidth("Combine chat + console", "Show chat and console output together in the Console tile, and hide the separate Chat tile.", gs.MessagesToConsole, func(checked bool) {
-		gs.MessagesToConsole = checked
-		applyTiledWorkspaceLayout()
-		rebuildSetupWizard()
-	}, width))
 
-	layout, layoutEvents := eui.NewDropdown()
-	layout.Label = "Layout"
-	layout.Options = tiledLayoutNames
-	layout.Selected = int(gs.TiledLayout)
-	layout.Size = eui.Point{X: width - 10, Y: 24}
-	layout.SetTooltip("Choose side columns, message rows around the game, or a full-width message strip.")
-	layoutEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= int(TiledLayoutCenter) && ev.Index <= int(TiledLayoutFullMessagesAbove) {
-			gs.TiledLayout = TiledLayout(ev.Index)
-			applyTiledWorkspaceLayout()
-			rebuildSetupWizard()
-		}
-	}
-	root.AddItem(layout)
-
-	top, topEvents := eui.NewDropdown()
-	top.Label = "Inventory / Players"
-	top.Options = []string{"Inventory left, Players right", "Players left, Inventory right"}
-	if !gs.TiledInventoryLeft {
-		top.Selected = 1
-	}
-	top.Size = eui.Point{X: width - 10, Y: 24}
-	top.SetTooltip("Sets list order in the side columns or the upper shared panel.")
-	topEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
-			gs.TiledInventoryLeft = ev.Index == 0
-			applyTiledWorkspaceLayout()
-		}
-	}
-	root.AddItem(top)
-
-	bottom, bottomEvents := eui.NewDropdown()
-	bottom.Label = "Console / Chat"
-	bottom.Options = []string{"Console left, Chat right", "Chat left, Console right"}
-	bottom.Size = eui.Point{X: width - 10, Y: 24}
-	bottom.SetTooltip("Choose message order: left/right for side-by-side panes, or above/below for stacked panes.")
-	bottomEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
-			gs.TiledConsoleLeft = ev.Index == 0
-			applyTiledWorkspaceLayout()
-		}
-	}
-	root.AddItem(bottom)
-
-	messageSplit, messageSplitEvents := eui.NewDropdown()
-	messageSplit.Label = "Message split"
-	messageSplit.Options = []string{"Side by side", "Stacked"}
-	messageSplit.Size = eui.Point{X: width - 10, Y: 24}
-	messageSplit.SetTooltip("Arrange separate Chat and Console horizontally or vertically inside their shared area.")
-	messageSplitEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			gs.TiledMessagesStacked = ev.Index == 1
-			applyTiledWorkspaceLayout()
-			rebuildSetupWizard()
-		}
-	}
-	root.AddItem(messageSplit)
-	refreshTiledMessageLayoutControls(bottom, messageSplit)
-
-	gameSide, gameSideEvents := eui.NewDropdown()
-	gameSide.Label = "Alternate game side"
-	gameSide.Options = []string{"Game left", "Game right"}
-	if !gs.TiledGameLeft {
-		gameSide.Selected = 1
-	}
-	gameSide.Disabled = gs.TiledLayout != TiledLayoutSide
-	gameSide.Size = eui.Point{X: width - 10, Y: 24}
-	gameSide.SetTooltip("Chooses the game edge for Game on a side; ignored by the centered layout.")
-	gameSideEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index <= 1 {
-			gs.TiledGameLeft = ev.Index == 0
-			applyTiledWorkspaceLayout()
-		}
-	}
-	root.AddItem(gameSide)
+	root.AddItem(newTiledArrangementControls(width-10, rebuildSetupWizard))
 }
 
 func buildSetupGraphicsPage(root *eui.ItemData) {

@@ -98,7 +98,6 @@ func makeSettingsWindow() {
 	displayPage.AddItem(displayColumns)
 	windowSection := addSettingsSection(displayWindowPage, "Window & Display", displayColumnWidth)
 	layoutSection := addSettingsSection(displayLayoutPage, "Windows & Toolbar", displayColumnWidth)
-	windowsSection := addSettingsSection(displayLayoutPage, "Show / Hide Windows", displayColumnWidth)
 	appearanceSection := addSettingsSection(displayPage, "Appearance", panelWidth)
 	textSizeSection := addSettingsSection(textPage, "Text Sizes", panelWidth)
 	textColumns := eui.NewRow()
@@ -136,24 +135,8 @@ func makeSettingsWindow() {
 	diagnosticsSection := addSettingsSection(toolsPage, "Diagnostics", panelWidth)
 	resetSection := addSettingsSection(toolsPage, "Reset", panelWidth)
 
-	tiledModeCB, tiledModeEvents := eui.NewCheckbox()
-	tiledModeCB.Text = "Tiled window mode"
-	tiledModeCB.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
-	tiledModeCB.Checked = gs.TiledWindows
-	tiledModeCB.SetTooltip("Arrange the Game, Inventory, Players, Console, and Chat windows as one tiled workspace.")
-	tiledModeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.TiledWindows = ev.Checked
-			applyTiledWorkspaceLayout()
-		}
-	}
-	settingsTiledModeCB = tiledModeCB
-	layoutSection.AddItem(tiledModeCB)
-	settingsCombineMessagesCB = newCombineMessagesCheckbox(displayColumnWidth)
-	layoutSection.AddItem(settingsCombineMessagesCB)
-
 	tiledLayoutBtn, tiledLayoutEvents := eui.NewButton()
-	tiledLayoutBtn.Text = "Tiled Layout"
+	tiledLayoutBtn.Text = "Window Layout"
 	setMaterialButtonIcon(tiledLayoutBtn, "dashboard_customize")
 	tiledLayoutBtn.Size = eui.Point{X: (displayColumnWidth - 8) / 2, Y: settingsControlHeight}
 	tiledLayoutBtn.SetTooltip("Open panel ordering, game placement, and combined-message controls.")
@@ -168,12 +151,9 @@ func makeSettingsWindow() {
 	settingsToolbarPlacementDD = toolbarPlacementDD
 	toolbarPlacementDD.Label = "Toolbar Placement"
 	toolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players"}
-	if !gs.TiledWindows {
-		toolbarPlacementDD.Options = append(toolbarPlacementDD.Options, "Floating Window")
-	}
 	toolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
 	toolbarPlacementDD.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
-	toolbarPlacementDD.SetTooltip("Dock in Inventory or Players. Floating is unavailable while tiled mode is on.")
+	toolbarPlacementDD.SetTooltip("Choose which list contains the toolbar.")
 	toolbarPlacementEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventDropdownSelected {
 			placeToolbar(ToolbarPlacement(ev.Index), true)
@@ -1101,7 +1081,7 @@ func makeSettingsWindow() {
 	textSizeSection.AddItem(chatFontSlider)
 
 	addDisplaySettings(windowSection, displayColumnWidth)
-	addWindowSettings(windowsSection, displayColumnWidth)
+	addWindowSettings(layoutSection, displayColumnWidth)
 	addControlSettings(controlsSection, panelWidth)
 	addTextSettings(chatSection, inputSection, displayColumnWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
@@ -1119,53 +1099,9 @@ func makeSettingsWindow() {
 
 var settingsWindowShadowsCB *eui.ItemData
 
-var (
-	settingsPlayersCB   *eui.ItemData
-	settingsInventoryCB *eui.ItemData
-	settingsChatCB      *eui.ItemData
-	settingsConsoleCB   *eui.ItemData
-	settingsPNACheckbox *eui.ItemData
-)
-
-func addWindowVisibilityCheckbox(section *eui.ItemData, label string, width float32, target func() *eui.WindowData) *eui.ItemData {
-	checkbox, events := eui.NewCheckbox()
-	checkbox.Text = label
-	checkbox.Size = eui.Point{X: width, Y: settingsControlHeight}
-	checkbox.Checked = target() != nil && target().IsOpen()
-	checkbox.Disabled = gs.TiledWindows
-	checkbox.SetTooltip("Show or hide this standalone window. Tiled mode manages window visibility automatically.")
-	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventCheckboxChanged {
-			return
-		}
-		if gs.TiledWindows {
-			refreshWindowSettingsControls()
-			return
-		}
-		if win := target(); win != nil {
-			if ev.Checked {
-				win.MarkOpenNear(ev.Item)
-			} else {
-				win.Close()
-			}
-		}
-	}
-	section.AddItem(checkbox)
-	return checkbox
-}
+var settingsPNACheckbox *eui.ItemData
 
 func addWindowSettings(section *eui.ItemData, width float32) {
-	const gap float32 = 8
-	checkboxWidth := (width - gap) / 2
-	firstRow := eui.NewRow()
-	secondRow := eui.NewRow()
-	section.AddItem(firstRow)
-	section.AddItem(secondRow)
-	settingsPlayersCB = addWindowVisibilityCheckbox(firstRow, "Players", checkboxWidth, func() *eui.WindowData { return playersWin })
-	settingsInventoryCB = addWindowVisibilityCheckbox(firstRow, "Inventory", checkboxWidth, func() *eui.WindowData { return inventoryWin })
-	settingsChatCB = addWindowVisibilityCheckbox(secondRow, "Chat", checkboxWidth, func() *eui.WindowData { return chatWin })
-	settingsConsoleCB = addWindowVisibilityCheckbox(secondRow, "Console", checkboxWidth, func() *eui.WindowData { return consoleWin })
-
 	resetBtn, resetEvents := eui.NewButton()
 	resetBtn.Text = "Reset Windows"
 	setMaterialButtonIcon(resetBtn, "restart_alt")
@@ -1180,6 +1116,7 @@ func addWindowSettings(section *eui.ItemData, width float32) {
 }
 
 func refreshWindowSettingsControls() {
+	refreshTiledLayoutPreviews()
 	for _, item := range []*eui.ItemData{tileKeepGameLargeCB, wizardKeepGameLargeCB} {
 		if item != nil {
 			item.Checked = gs.TiledKeepGameLarge
@@ -1187,31 +1124,8 @@ func refreshWindowSettingsControls() {
 			item.Dirty = true
 		}
 	}
-	refreshTiledMessageLayoutControls(tileMessageOrderDD, tileMessageSplitDD)
-	for _, control := range []struct {
-		checkbox *eui.ItemData
-		window   *eui.WindowData
-	}{
-		{settingsPlayersCB, playersWin},
-		{settingsInventoryCB, inventoryWin},
-		{settingsChatCB, chatWin},
-		{settingsConsoleCB, consoleWin},
-	} {
-		if control.checkbox != nil {
-			control.checkbox.Checked = control.window != nil && control.window.IsOpen()
-			control.checkbox.Disabled = gs.TiledWindows
-			control.checkbox.Dirty = true
-		}
-	}
-	for _, item := range []*eui.ItemData{settingsCombineMessagesCB, tileCombineMessagesCB} {
-		if item != nil {
-			item.Checked, item.Dirty = gs.MessagesToConsole, true
-		}
-	}
-	for _, item := range []*eui.ItemData{settingsTiledModeCB, tileTiledModeCB} {
-		if item != nil {
-			item.Checked, item.Dirty = gs.TiledWindows, true
-		}
+	if tileCombineMessagesCB != nil {
+		tileCombineMessagesCB.Checked, tileCombineMessagesCB.Dirty = gs.MessagesToConsole, true
 	}
 	if settingsWin != nil {
 		settingsWin.Refresh()
@@ -1220,6 +1134,7 @@ func refreshWindowSettingsControls() {
 		tileLayoutWin.Refresh()
 	}
 	if setupWizardWin != nil {
+		refreshTiledArrangementControls(setupWizardWin.Contents)
 		setupWizardWin.Refresh()
 	}
 }
@@ -1229,7 +1144,7 @@ func newCombineMessagesCheckbox(width float32) *eui.ItemData {
 	checkbox.Text = "Combine chat + console"
 	checkbox.Size = eui.Point{X: width, Y: settingsControlHeight}
 	checkbox.Checked = gs.MessagesToConsole
-	checkbox.SetTooltip("Show chat and console output together in the Console window and hide Chat. Works with tiled or standalone windows.")
+	checkbox.SetTooltip("Show chat and console output together in one pane.")
 	events.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.MessagesToConsole = ev.Checked
@@ -1836,34 +1751,4 @@ func addNetworkSettings(networkSection *eui.ItemData, columnWidth float32) {
 	}
 	networkSection.AddItem(serverListButton)
 
-}
-
-func refreshTiledMessageLayoutControls(order, split *eui.ItemData) {
-	if order != nil {
-		vertical := gs.TiledLayout == TiledLayoutMessagesSplit || (tiledPairedMessages() && gs.TiledMessagesStacked)
-		order.Label = "Console / Chat"
-		order.Options = []string{"Console left, Chat right", "Chat left, Console right"}
-		if vertical {
-			order.Options = []string{"Console above, Chat below", "Chat above, Console below"}
-		}
-		if gs.MessagesToConsole {
-			order.Label = "Combined chat + console"
-			order.Options = []string{"Combined messages left", "Combined messages right"}
-			if vertical {
-				order.Options = []string{"Combined messages above", "Combined messages below"}
-			}
-		}
-		order.Selected = 0
-		if !gs.TiledConsoleLeft {
-			order.Selected = 1
-		}
-		order.Disabled, order.Dirty = tiledMessageOrderDisabled(), true
-	}
-	if split != nil {
-		split.Selected = 0
-		if gs.TiledMessagesStacked {
-			split.Selected = 1
-		}
-		split.Disabled, split.Dirty = gs.MessagesToConsole || !tiledPairedMessages(), true
-	}
 }

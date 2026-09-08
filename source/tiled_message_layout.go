@@ -92,10 +92,6 @@ func applyMessageBandTiledWindowStates() {
 	applyTiledMessagePair(x, y, width, height)
 }
 
-func tiledMessageOrderDisabled() bool {
-	return gs.MessagesToConsole && gs.TiledLayout != TiledLayoutCenter && gs.TiledLayout != TiledLayoutMessagesSplit
-}
-
 func tiledPairedMessages() bool {
 	return gs.TiledLayout == TiledLayoutSide || (gs.TiledLayout >= TiledLayoutMessagesBelow && gs.TiledLayout != TiledLayoutMessagesSplit)
 }

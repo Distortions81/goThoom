@@ -275,9 +275,6 @@ var (
 // classic client field box (547×540) defined in old_mac_client/client/source/
 // GameWin_cl.cp and Public_cl.h (Layout.layoFieldBox).
 var gameWin *eui.WindowData
-var gameWindowFreeformTitleHeight float32
-var gameWindowFreeformPadding float32
-var gameWindowFreeformMargin float32
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var graphicsWin *eui.WindowData
@@ -4709,7 +4706,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	if uiReady {
 		if !windowsRestored {
 			restoreWindowsAfterScale()
-		} else if (gs.TiledWindows || gs.AutoResizeWindows) && managedWindowLayoutChanged() {
+		} else if managedWindowLayoutChanged() {
 			applyManagedWindowLayout()
 		}
 	}
@@ -4807,12 +4804,9 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = newGameRenderWindow()
-	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
-	gameWindowFreeformPadding = gameWin.Padding
-	gameWindowFreeformMargin = gameWin.Margin
 	updateGameWindowTitle()
 	gameWin.Closable = false
-	gameWin.Resizable = !gs.TiledWindows
+	gameWin.Resizable = false
 	gameWin.Movable = true
 	if !settingsLoaded {
 		gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
@@ -4820,7 +4814,7 @@ func makeGameWindow() {
 	gameWin.Size = eui.Point{X: 8000, Y: 8000}
 	gameWin.OnResize = func() { onGameWindowResize() }
 	// Titlebar maximize button controlled by settings (now default on)
-	gameWin.Maximizable = !gs.TiledWindows
+	gameWin.Maximizable = false
 	// Keep same horizontal center on maximize
 	gameWin.OnMaximize = func() {
 		if gameWin == nil {

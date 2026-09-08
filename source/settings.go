@@ -152,6 +152,11 @@ func clampTiledPaneFraction(v float64) float64 {
 }
 
 func clampTiledLayoutSettings() {
+	// Retain the old preference for reading existing settings, but always use tiles.
+	if !gs.TiledWindows {
+		gs.TiledWindows = true
+		settingsDirty = true
+	}
 	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutFullMessagesAbove {
 		gs.TiledLayout = gsdef.TiledLayout
 	}
@@ -814,7 +819,7 @@ func loadSettings() bool {
 		gs.ToolbarPlacement = gsdef.ToolbarPlacement
 		settingsDirty = true
 	}
-	if gs.TiledWindows && gs.ToolbarPlacement == ToolbarFloating {
+	if gs.ToolbarPlacement == ToolbarFloating {
 		gs.ToolbarPlacement = ToolbarInInventory
 		settingsDirty = true
 	}
@@ -1209,47 +1214,16 @@ func prepareTiledWorkspaceWindowChrome() {
 		if item.win == nil {
 			continue
 		}
-		if gs.TiledWindows {
-			if item.game {
-				if item.win.GetRawTitleSize() > 0 {
-					gameWindowFreeformTitleHeight = item.win.GetRawTitleSize()
-				}
-				if item.win.Padding > 0 {
-					gameWindowFreeformPadding = item.win.Padding
-				}
-				if item.win.Margin > 0 {
-					gameWindowFreeformMargin = item.win.Margin
-				}
-				item.win.TitleHeight = 0
-				item.win.Padding = 0
-				item.win.Margin = 0
-			}
-			item.win.SetDocked(true)
-			item.win.Closable = false
-			item.win.Maximizable = false
-			item.win.Movable = false
-			item.win.Resizable = true
-			continue
-		}
-		item.win.SetDocked(false)
-		if item.game && gameWindowFreeformTitleHeight > 0 {
-			item.win.TitleHeight = gameWindowFreeformTitleHeight
-			item.win.Padding = gameWindowFreeformPadding
-			item.win.Margin = gameWindowFreeformMargin
-		}
-		item.win.Resizable = true
-		item.win.Closable = !item.game
-		item.win.Movable = true
 		if item.game {
-			item.win.Maximizable = true
+			item.win.TitleHeight, item.win.Padding, item.win.Margin = 0, 0, 0
 		}
+		item.win.SetDocked(true)
+		item.win.Closable, item.win.Maximizable, item.win.Movable = false, false, false
+		item.win.Resizable = true
 	}
 }
 
 func finishTiledWorkspaceWindowChrome() {
-	if !gs.TiledWindows {
-		return
-	}
 	for _, item := range tiledWorkspaceWindows() {
 		if item.win == nil {
 			continue
@@ -1269,11 +1243,8 @@ func tiledWindowState(state *WindowState, x, y, width, height float64) {
 }
 
 // applyTiledWindowStates derives the persisted geometry from the selected
-// workspace. The normal window-state path continues to handle freeform mode.
+// workspace.
 func applyTiledWindowStates() {
-	if !gs.TiledWindows {
-		return
-	}
 	clampTiledLayoutSettings()
 	if width, height := eui.ScreenSize(); width > 0 && height > 0 {
 		clampTiledMessagePairHeight(height)

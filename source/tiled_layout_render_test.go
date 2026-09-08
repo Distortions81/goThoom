@@ -112,18 +112,43 @@ func (g *tiledLayoutRenderGame) render(screen *ebiten.Image) error {
 	makeTileLayoutWindow()
 	tileLayoutWin.MarkOpen()
 	for _, scale := range []float32{1, 2} {
-		eui.SetUIScale(scale)
-		tileLayoutWin.Refresh()
-		screen.Clear()
-		eui.Draw(screen)
-		if h, v := tileLayoutWin.RequiresScroll(); h || v {
-			return fmt.Errorf("layout chooser requires scrolling at %gx", scale)
-		}
-		if err := checkRenderedControlText(tileLayoutWin.Contents, scale); err != nil {
-			return err
-		}
-		if err := g.save(screen, fmt.Sprintf("chooser-%gx.png", scale)); err != nil {
-			return err
+		for layout := TiledLayoutCenter; layout <= TiledLayoutFullMessagesAbove; layout++ {
+			for _, combined := range []bool{false, true} {
+				gs.TiledLayout, gs.MessagesToConsole = layout, combined
+				refreshWindowSettingsControls()
+				eui.SetUIScale(scale)
+				tileLayoutWin.Refresh()
+				screen.Clear()
+				eui.Draw(screen)
+				if h, v := tileLayoutWin.RequiresScroll(); h || v {
+					return fmt.Errorf("layout chooser requires scrolling at %gx", scale)
+				}
+				if err := checkRenderedControlText(tileLayoutWin.Contents, scale); err != nil {
+					return err
+				}
+				pos, size := tileLayoutWin.GetPos(), tileLayoutWin.GetSize()
+				var checkPreviews func([]*eui.ItemData) error
+				checkPreviews = func(items []*eui.ItemData) error {
+					for _, it := range items {
+						if it.Invisible {
+							continue
+						}
+						if it.Name == "tiled-layout-preview" && (it.DrawRect.X0 < pos.X || it.DrawRect.X1 > pos.X+size.X-8*scale || it.DrawRect.Y1 > pos.Y+size.Y-8*scale) {
+							return fmt.Errorf("preview %d is clipped at %gx", it.Selected, scale)
+						}
+						if err := checkPreviews(it.Contents); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
+				if err := checkPreviews(tileLayoutWin.Contents); err != nil {
+					return err
+				}
+				if err := g.save(screen, fmt.Sprintf("chooser-%d-combined-%t-%gx.png", layout, combined, scale)); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

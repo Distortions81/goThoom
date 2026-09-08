@@ -232,6 +232,9 @@ func TestSettingsV3MigratesToV4(t *testing.T) {
 	legacy := []byte(`{
   "Version": 3,
   "LastCharacter": "Migrated Hero",
+  "TiledWindows": false,
+  "ToolbarPlacement": 2,
+  "TiledLeftWidth": 0.3,
   "GameScale": 2,
   "SpriteUpscale": 2,
   "SpriteUpscaleFilter": true,
@@ -249,6 +252,9 @@ func TestSettingsV3MigratesToV4(t *testing.T) {
 	settingsDirty = false
 	if !loadSettings() {
 		t.Fatal("v3 settings were not migrated")
+	}
+	if !gs.TiledWindows || gs.ToolbarPlacement != ToolbarInInventory || gs.TiledLeftWidth != 0.3 {
+		t.Fatalf("legacy workspace migration lost layout preferences: tiled=%v toolbar=%v width=%v", gs.TiledWindows, gs.ToolbarPlacement, gs.TiledLeftWidth)
 	}
 	if gs.Version != SETTINGS_VERSION || gs.LastCharacter != "Migrated Hero" || gs.GameScale != 2 || gs.SpriteUpscaleMode != artworkUpscaleSmooth {
 		t.Fatalf("migrated settings = version:%d character:%q scale:%v mode:%d", gs.Version, gs.LastCharacter, gs.GameScale, gs.SpriteUpscaleMode)
@@ -274,5 +280,28 @@ func TestSettingsV3MigratesToV4(t *testing.T) {
 	}
 	if _, ok := root["Version"]; ok {
 		t.Error("migrated output retained the legacy Version key")
+	}
+}
+
+func TestSettingsV4MigratesFreeformWorkspace(t *testing.T) {
+	old := gsdef
+	old.TiledWindows = false
+	old.ToolbarPlacement = ToolbarFloating
+	old.TiledLayout = TiledLayoutMessagesAbove
+	old.TiledLeftWidth = 0.3
+	old.MessagesToConsole = false
+	data, err := marshalSettingsDocument(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := unmarshalSettingsDocument(data, gsdef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := old
+	want.TiledWindows = true
+	want.ToolbarPlacement = ToolbarInInventory
+	if !reflect.DeepEqual(got, want) {
+		t.Fatal("workspace migration should enable tiling and dock the toolbar while preserving other settings")
 	}
 }

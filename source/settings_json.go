@@ -425,6 +425,10 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 		}
 		result.BarStyle = parseBarStyle(name)
 	}
+	result.TiledWindows = true
+	if result.ToolbarPlacement == ToolbarFloating {
+		result.ToolbarPlacement = ToolbarInInventory
+	}
 	normalizeStatusBarPlacement(&result)
 	result.Version = SETTINGS_VERSION
 	return result, nil

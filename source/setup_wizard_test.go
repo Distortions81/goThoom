@@ -91,7 +91,6 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 		"Player health display": false,
 	}
 	wantChecks := map[string]bool{
-		"Tiled window mode":               false,
 		"Status bars below toolbar hands": false,
 		"Dark mode names/bubbles":         false,
 		"Speech bubbles":                  false,
@@ -188,8 +187,8 @@ func TestSetupWizardUsesTwoPanelsForTallPages(t *testing.T) {
 			if panels == nil {
 				t.Fatal("wizard page does not contain two side-by-side panels")
 			}
-			if panels.Size.X < setupWizardTwoPanelWidth {
-				t.Fatalf("two-panel width = %.0f, want at least %.0f", panels.Size.X, setupWizardTwoPanelWidth)
+			if panels.Size.X < 2*(setupWizardPanelWidth-10) {
+				t.Fatalf("two-panel width = %.0f, want at least %.0f", panels.Size.X, 2*(setupWizardPanelWidth-10))
 			}
 			if setupWizardPageWidth(test.page) != setupWizardTwoPanelWidth {
 				t.Fatalf("page width = %.0f, want %.0f", setupWizardPageWidth(test.page), setupWizardTwoPanelWidth)
@@ -230,14 +229,14 @@ func TestSetupWizardUIScaleUsesLongDetailedSlider(t *testing.T) {
 	}
 }
 
-func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
+func TestSetupWizardAlwaysShowsLayoutPreviews(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	gs.MessagesToConsole = false
 
-	wantLabels := []string{"Layout", "Inventory / Players", "Console / Chat", "Alternate game side"}
-	wantChecks := []string{"Auto-size side panels", "Combine chat + console"}
+	wantLabels := []string{"Window Layout"}
+	wantChecks := []string{"Auto-size side panels", "Swap inventory / players list", "Swap console and chat", "Swap game side"}
 	contains := func(root *eui.ItemData, label string) bool {
 		var visit func(*eui.ItemData) bool
 		visit = func(item *eui.ItemData) bool {
@@ -254,18 +253,12 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 		return visit(root)
 	}
 
-	gs.TiledWindows = false
-	disabled := eui.NewColumn()
-	buildSetupLayoutPage(disabled)
-	for _, name := range append(wantLabels, wantChecks...) {
-		if contains(disabled, name) {
-			t.Errorf("interface page shows tiled setting %q while tiled mode is disabled", name)
-		}
-	}
-
 	gs.TiledWindows = true
 	enabled := eui.NewColumn()
 	buildSetupLayoutPage(enabled)
+	if contains(enabled, "Tiled window mode") || contains(enabled, "Combine chat + console") || contains(enabled, "Layout") {
+		t.Fatal("wizard retained a redundant mode, combine, or layout selector")
+	}
 	for _, name := range append(wantLabels, wantChecks...) {
 		if !contains(enabled, name) {
 			t.Errorf("interface page is missing tiled setting %q while tiled mode is enabled", name)
@@ -273,54 +266,40 @@ func TestSetupWizardShowsTiledSettingsOnlyWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestSetupWizardNamesMessagePlacementForCombinedState(t *testing.T) {
+func TestSetupWizardShowsCombinedMessageSide(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	gs.TiledWindows = true
-
-	for _, test := range []struct {
-		name     string
-		combined bool
-		label    string
-		options  []string
-	}{
-		{
-			name:    "separate",
-			label:   "Console / Chat",
-			options: []string{"Console left, Chat right", "Chat left, Console right"},
-		},
-		{
-			name:     "combined",
-			combined: true,
-			label:    "Combined chat + console",
-			options:  []string{"Combined messages left", "Combined messages right"},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			gs.MessagesToConsole = test.combined
-			root := eui.NewColumn()
-			buildSetupLayoutPage(root)
-
-			var placement *eui.ItemData
-			var visit func(*eui.ItemData)
-			visit = func(item *eui.ItemData) {
-				if item.ItemType == eui.ITEM_DROPDOWN && item.Label == test.label {
-					placement = item
-					return
-				}
-				for _, child := range item.Contents {
-					visit(child)
-				}
+	gs.TiledLayout = TiledLayoutCenter
+	for _, combined := range []bool{false, true} {
+		gs.MessagesToConsole = combined
+		root := eui.NewColumn()
+		buildSetupLayoutPage(root)
+		var placement *eui.ItemData
+		var visit func(*eui.ItemData)
+		visit = func(item *eui.ItemData) {
+			if item.Name == "tiled-swap-messages" {
+				placement = item
 			}
-			visit(root)
-			if placement == nil {
-				t.Fatalf("wizard is missing the %q placement dropdown", test.label)
+			for _, child := range item.Contents {
+				visit(child)
 			}
-			if !slices.Equal(placement.Options, test.options) {
-				t.Fatalf("%q options = %v, want %v", test.label, placement.Options, test.options)
-			}
-		})
+		}
+		visit(root)
+		if placement == nil || placement.ItemType != eui.ITEM_CHECKBOX {
+			t.Fatal("wizard is missing the message swap checkbox")
+		}
+		if placement.Invisible || placement.Disabled {
+			t.Fatal("centered layout must allow swapping separate or combined messages")
+		}
+		want := "Swap console and chat"
+		if combined {
+			want = "Combined messages on right"
+		}
+		if placement.Text != want {
+			t.Fatalf("message side label = %q, want %q", placement.Text, want)
+		}
 	}
 }
 
@@ -336,7 +315,7 @@ func TestSetupWizardAlternateGameSideDisabledForCenteredLayout(t *testing.T) {
 			if found != nil {
 				return
 			}
-			if item.Label == "Alternate game side" {
+			if item.Text == "Swap game side" {
 				found = item
 				return
 			}

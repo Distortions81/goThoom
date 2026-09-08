@@ -47,9 +47,7 @@ var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
 var tileLayoutWin *eui.WindowData
 var settingsToolbarPlacementDD *eui.ItemData
-var settingsCombineMessagesCB, tileCombineMessagesCB *eui.ItemData
-var settingsTiledModeCB, tileTiledModeCB *eui.ItemData
-var tileMessageOrderDD, tileMessageSplitDD *eui.ItemData
+var tileCombineMessagesCB *eui.ItemData
 var tileKeepGameLargeCB, wizardKeepGameLargeCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
@@ -907,11 +905,11 @@ func refreshscriptsWindow() {
 			charCB.Disabled = e.invalid || effChar == ""
 			allCB.Checked = scope.All
 			allCB.Disabled = e.invalid
-			allCB.SetTooltip("Enable for all players. Starts fresh at login and stops at logout.")
+			allCB.SetTooltip("Enable for all players.")
 			if effChar == "" {
 				charCB.SetTooltip("Select a saved character on Login before enabling a per-player script.")
 			} else {
-				charCB.SetTooltip("Enable for " + effChar + ". Saved enablement: " + scriptScopeDescription(scope))
+				charCB.SetTooltip("Enable for " + effChar + ".")
 			}
 			infoBtn, infoEvents := eui.NewButton()
 			infoBtn.Text = "i"
@@ -2008,7 +2006,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	if placement < ToolbarInInventory || placement > ToolbarFloating {
 		placement = ToolbarInInventory
 	}
-	if gs.TiledWindows && placement == ToolbarFloating {
+	if placement == ToolbarFloating {
 		placement = ToolbarInInventory
 	}
 	var oldHost *eui.WindowData
@@ -2076,9 +2074,6 @@ func refreshToolbarPlacementControl() {
 		return
 	}
 	settingsToolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players"}
-	if !gs.TiledWindows {
-		settingsToolbarPlacementDD.Options = append(settingsToolbarPlacementDD.Options, "Floating Window")
-	}
 	settingsToolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
 	settingsToolbarPlacementDD.Dirty = true
 	if settingsWin != nil {
@@ -5308,7 +5303,7 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 
 func applyTiledWorkspaceLayout() {
 	clampTiledLayoutSettings()
-	if gs.TiledWindows && gs.ToolbarPlacement == ToolbarFloating {
+	if gs.ToolbarPlacement == ToolbarFloating {
 		placeToolbar(ToolbarInInventory, true)
 	}
 	refreshToolbarPlacementControl()
@@ -5362,7 +5357,7 @@ func makeTileLayoutWindow() {
 	const width float32 = 310
 	tileLayoutWin = eui.NewWindow()
 	tileLayoutWin.ShowTooltipIndicators = true
-	tileLayoutWin.Title = "Tiled Window Layout"
+	tileLayoutWin.Title = "Window Layout"
 	tileLayoutWin.Closable = true
 	tileLayoutWin.Resizable = false
 	tileLayoutWin.AutoSize = true
@@ -5375,19 +5370,6 @@ func makeTileLayoutWindow() {
 	flow.AddItem(workspace)
 	flow.AddItem(arrangement)
 
-	tiledCB, tiledEvents := eui.NewCheckbox()
-	tiledCB.Text = "Use tiled window layout"
-	tiledCB.Size = eui.Point{X: width, Y: 24}
-	tiledCB.Checked = gs.TiledWindows
-	tiledCB.SetTooltip("Keep the main windows aligned as a workspace. Turn this off for freeform windows.")
-	tiledEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventCheckboxChanged {
-			gs.TiledWindows = ev.Checked
-			applyTiledWorkspaceLayout()
-		}
-	}
-	tileTiledModeCB = tiledCB
-	workspace.AddItem(tiledCB)
 	tileCombineMessagesCB = newCombineMessagesCheckbox(width)
 	workspace.AddItem(tileCombineMessagesCB)
 
@@ -5405,101 +5387,15 @@ func makeTileLayoutWindow() {
 	tileKeepGameLargeCB = keepGameLargeCB
 	workspace.AddItem(keepGameLargeCB)
 
-	var gameSideDD, bottomDD *eui.ItemData
-	var refreshArrangement func()
-	layoutDD, layoutEvents := eui.NewDropdown()
-	layoutDD.Label = "Layout"
-	layoutDD.Options = tiledLayoutNames
-	layoutDD.Selected = int(gs.TiledLayout)
-	layoutDD.Size = eui.Point{X: width, Y: 24}
-	layoutDD.SetTooltip("Choose side columns, message rows around the game, or a full-width message strip. Drag dividers to adjust sizes.")
-	layoutEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			gs.TiledLayout = TiledLayout(ev.Index)
-			applyTiledWorkspaceLayout()
-			refreshArrangement()
-		}
+	arrangement.AddItem(newTiledArrangementControls(width, nil))
+	selectLayout := func(layout TiledLayout) {
+		gs.TiledLayout = layout
+		applyTiledWorkspaceLayout()
 	}
-	arrangement.AddItem(layoutDD)
 
-	topDD, topEvents := eui.NewDropdown()
-	topDD.Label = "Inventory / Players"
-	topDD.Options = []string{"Inventory left, Players right", "Players left, Inventory right"}
-	if !gs.TiledInventoryLeft {
-		topDD.Selected = 1
-	}
-	topDD.Size = eui.Point{X: width, Y: 24}
-	topDD.SetTooltip("Sets list order in the side columns or the upper shared panel.")
-	topEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			gs.TiledInventoryLeft = ev.Index == 0
-			applyTiledWorkspaceLayout()
-		}
-	}
-	arrangement.AddItem(topDD)
-
-	bottomControl, bottomEvents := eui.NewDropdown()
-	bottomDD = bottomControl
-	bottomDD.Label = "Console / Chat"
-	bottomDD.Options = []string{"Console left, Chat right", "Chat left, Console right"}
-	if !gs.TiledConsoleLeft {
-		bottomDD.Selected = 1
-	}
-	bottomDD.Size = eui.Point{X: width, Y: 24}
-	bottomDD.SetTooltip("Choose message order: left/right in rows, or above/below when the game separates them.")
-	bottomEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			gs.TiledConsoleLeft = ev.Index == 0
-			applyTiledWorkspaceLayout()
-		}
-	}
-	tileMessageOrderDD = bottomDD
-	arrangement.AddItem(bottomDD)
-
-	messageSplit, messageSplitEvents := eui.NewDropdown()
-	messageSplit.Label = "Message split"
-	messageSplit.Options = []string{"Side by side", "Stacked"}
-	messageSplit.Size = eui.Point{X: width, Y: 24}
-	messageSplit.SetTooltip("Place separate Chat and Console beside each other or stack them in their shared area. Drag the divider to resize them.")
-	messageSplitEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			gs.TiledMessagesStacked = ev.Index == 1
-			applyTiledWorkspaceLayout()
-		}
-	}
-	tileMessageSplitDD = messageSplit
-	arrangement.AddItem(messageSplit)
-
-	gameSideDD, gameSideEvents := eui.NewDropdown()
-	gameSideDD.Label = "Alternate game side"
-	gameSideDD.Options = []string{"Game left", "Game right"}
-	if !gs.TiledGameLeft {
-		gameSideDD.Selected = 1
-	}
-	gameSideDD.Disabled = gs.TiledLayout != TiledLayoutSide
-	gameSideDD.Size = eui.Point{X: width, Y: 24}
-	gameSideDD.SetTooltip("Chooses which edge holds the game when Game on a side is selected.")
-	gameSideEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
-			gs.TiledGameLeft = ev.Index == 0
-			applyTiledWorkspaceLayout()
-		}
-	}
-	arrangement.AddItem(gameSideDD)
-
-	refreshArrangement = func() {
-		refreshTiledMessageLayoutControls(bottomDD, messageSplit)
-		gameSideDD.Disabled = gs.TiledLayout != TiledLayoutSide
-		keepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
-
-		for _, item := range []*eui.ItemData{gameSideDD, keepGameLargeCB, bottomDD} {
-			item.Dirty = true
-		}
-		tileLayoutWin.Refresh()
-	}
-	refreshArrangement()
-
-	tileLayoutWin.AddItem(flow)
+	gallery := newTiledLayoutGallery(selectLayout, 3)
+	gallery.Position.X = 16
+	tileLayoutWin.AddItem(eui.NewRow(flow, gallery))
 	tileLayoutWin.AddWindow(false)
 }
 

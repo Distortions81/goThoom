@@ -71,8 +71,8 @@ func (g *wizardLayoutRenderGame) Draw(screen *ebiten.Image) {
 		}
 		for _, scale := range []float32{1, 1.25, 1.5} {
 			eui.SetUIScale(scale)
-			for _, tiled := range []bool{false, true} {
-				gs.TiledWindows = tiled
+			for _, combined := range []bool{false, true} {
+				gs.MessagesToConsole = combined
 				for _, page := range []int{setupWizardInterfacePage, setupWizardLayoutPage} {
 					setupWizardPage = page
 					rebuildSetupWizard()
@@ -81,11 +81,11 @@ func (g *wizardLayoutRenderGame) Draw(screen *ebiten.Image) {
 					eui.Draw(screen)
 					size := setupWizardWin.GetSize()
 					if size.Y > 650*scale || size.X > 850*scale {
-						g.err = fmt.Errorf("%s page %d tiled=%v scale %.2f: window %.0fx%.0f exceeds compact page budget", style, page, tiled, scale, size.X, size.Y)
+						g.err = fmt.Errorf("%s page %d combined=%v scale %.2f: window %.0fx%.0f exceeds compact page budget", style, page, combined, scale, size.X, size.Y)
 						return
 					}
-					if g.dir != "" && style == "Breeze" && scale == 1 && tiled {
-						f, err := os.Create(filepath.Join(g.dir, fmt.Sprintf("page-%d.png", page+1)))
+					if g.dir != "" && style == "Breeze" && scale == 1 {
+						f, err := os.Create(filepath.Join(g.dir, fmt.Sprintf("page-%d-combined-%v.png", page+1, combined)))
 						if err != nil {
 							g.err = err
 							return
