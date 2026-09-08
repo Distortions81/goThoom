@@ -638,7 +638,7 @@ func updateSoundVolume() {
 
 	musicPlayersMu.Lock()
 	for p := range musicPlayers {
-		// A music player is registered before its five-second prebuffered group
+		// A music player is registered before its prebuffered group
 		// is released. IsPlaying is therefore false while it is validly waiting
 		// to start; closing it here silences every bard in that group. The music
 		// playback goroutine owns its lifecycle and removes it on completion.

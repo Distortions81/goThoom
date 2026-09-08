@@ -816,7 +816,6 @@ func mixPCM(leftAll, rightAll []float32) []byte {
 
 const (
 	musicRenderSeconds       = 1
-	musicBufferSeconds       = 5
 	musicPlayerBuffer        = 2 * time.Second
 	musicPlaybackPoll        = 50 * time.Millisecond
 	musicPlaybackResumeEvery = 250 * time.Millisecond
@@ -829,9 +828,9 @@ const (
 	musicChunkFrames = (musicRenderSeconds * sampleRate / block) * block
 )
 
-// musicStream exposes rendered PCM to Ebiten as it becomes available. Five
-// block-aligned chunks (approximately five seconds) are produced before
-// playback starts; after that the renderer keeps the queue full.
+// musicStream exposes rendered PCM to Ebiten as it becomes available. The
+// configured number of block-aligned chunks are produced before playback
+// starts; after that the renderer keeps the queue full.
 type musicStream struct {
 	chunks       chan []byte
 	done         chan struct{}
@@ -848,6 +847,7 @@ type musicStream struct {
 	lifecycleMu  sync.Mutex
 	closed       bool
 	paused       bool
+	bufferChunks int
 }
 
 func newMusicStream(program int, notes []Note) (*musicStream, error) {
@@ -883,6 +883,7 @@ type musicPlaybackSettings struct {
 	volume            float64
 	enhancement       bool
 	enhancementAmount float64
+	bufferSeconds     int
 }
 
 func currentMusicPlaybackSettings() musicPlaybackSettings {
@@ -892,6 +893,7 @@ func currentMusicPlaybackSettings() musicPlaybackSettings {
 		volume:            effectiveAudioVolume(gs.MasterVolume * gs.MusicVolume),
 		enhancement:       gs.MusicEnhancement,
 		enhancementAmount: gs.MusicEnhancementAmount,
+		bufferSeconds:     clampMusicBufferSeconds(gs.MusicBufferSeconds),
 	}
 }
 
@@ -910,6 +912,11 @@ func newMixedMusicStreamWithSettingsAtFrame(parts []musicPart, settings musicPla
 	if len(parts) == 0 {
 		return nil, errors.New("empty music group")
 	}
+	bufferSeconds := settings.bufferSeconds
+	if bufferSeconds == 0 {
+		bufferSeconds = gsdef.MusicBufferSeconds
+	}
+	bufferSeconds = clampMusicBufferSeconds(bufferSeconds)
 	renderers := make([]*songRenderer, 0, len(parts))
 	maxFrames := 0
 	for _, part := range parts {
@@ -936,15 +943,16 @@ func newMixedMusicStreamWithSettingsAtFrame(parts []musicPart, settings musicPla
 		remaining -= frames
 	}
 	s := &musicStream{
-		chunks:       make(chan []byte, musicBufferSeconds),
+		chunks:       make(chan []byte, bufferSeconds),
 		done:         make(chan struct{}),
 		ready:        make(chan struct{}),
 		exhausted:    make(chan struct{}),
 		producerDone: make(chan struct{}),
 		totalFrames:  maxFrames - startFrame,
+		bufferChunks: bufferSeconds,
 	}
 	go s.produceMixed(renderers, settings.enhancement, settings.enhancementAmount)
-	<-s.ready // render five seconds before the caller starts the player
+	<-s.ready // render the configured buffer before the caller starts the player
 	if err := s.renderError(); err != nil {
 		_ = s.Close()
 		s.waitForProducer()
@@ -992,7 +1000,7 @@ func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool, 
 		select {
 		case s.chunks <- pcm:
 			buffered++
-			if buffered == musicBufferSeconds {
+			if buffered == s.bufferChunks {
 				s.signalReady()
 			}
 		case <-s.done:
@@ -1135,15 +1143,15 @@ func mixPCMChunk(left, right []float32, final bool) []byte {
 	return pcm
 }
 
-// Play starts an independent, five-second-buffered music stream. Rendering is
-// done in one-second increments, allowing several bards to play together.
+// Play starts an independently buffered music stream. Rendering is done in
+// one-second increments, allowing several bards to play together.
 func Play(ctx *audio.Context, program int, notes []Note) error {
 	return playMusic(ctx, program, notes, 0, nil, nil)
 }
 
-// prepared is called after the initial five seconds are rendered. start gates
-// playback so a /with group can begin its independently rendered tracks at the
-// same instant.
+// prepared is called after the configured initial buffer is rendered. start
+// gates playback so a /with group can begin its independently rendered tracks
+// at the same instant.
 func playMusic(ctx *audio.Context, program int, notes []Note, who int, prepared func(), start <-chan struct{}) error {
 	return playMusicGroup(ctx, []musicPart{{program: program, notes: notes}}, []int{who}, prepared, start)
 }

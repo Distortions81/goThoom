@@ -341,7 +341,7 @@ func TestMusicNoteOffRoundingPreservesSameKeyRetrigger(t *testing.T) {
 	}
 }
 
-func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
+func TestMusicStreamUsesConfiguredOneSecondBufferChunks(t *testing.T) {
 	origSynth := newSynthesizer
 	origFont := sfntCached
 	origSettings := synthSettings
@@ -361,10 +361,14 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	sfntCached = &meltysynth.SoundFont{}
 	synthSettings = meltysynth.NewSynthesizerSettings(sampleRate)
 	gs.MusicEnhancement = false
+	gs.MusicBufferSeconds = 3
 
 	stream, err := newMusicStream(0, []Note{{Key: 60, Velocity: 100, Duration: 6 * time.Second}})
 	if err != nil {
 		t.Fatalf("newMusicStream: %v", err)
+	}
+	if stream.bufferChunks != 3 {
+		t.Fatalf("music buffer chunks = %d, want configured 3", stream.bufferChunks)
 	}
 	defer func() {
 		_ = stream.Close()
@@ -372,7 +376,7 @@ func TestMusicStreamBuffersFiveOneSecondChunks(t *testing.T) {
 	}()
 
 	buf := make([]byte, musicChunkFrames*4)
-	for i := 0; i < musicBufferSeconds; i++ {
+	for i := 0; i < stream.bufferChunks; i++ {
 		n, err := stream.Read(buf)
 		if err != nil {
 			t.Fatalf("chunk %d: %v", i, err)
@@ -418,11 +422,11 @@ func TestMusicStreamRefillsConsumedChunk(t *testing.T) {
 		t.Fatalf("consume buffered chunk: n=%d err=%v", n, err)
 	}
 	deadline := time.Now().Add(time.Second)
-	for len(stream.chunks) < musicBufferSeconds && time.Now().Before(deadline) {
+	for len(stream.chunks) < stream.bufferChunks && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
-	if got := len(stream.chunks); got != musicBufferSeconds {
-		t.Fatalf("buffered chunks after refill = %d, want %d", got, musicBufferSeconds)
+	if got := len(stream.chunks); got != stream.bufferChunks {
+		t.Fatalf("buffered chunks after refill = %d, want %d", got, stream.bufferChunks)
 	}
 }
 

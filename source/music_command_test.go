@@ -184,7 +184,7 @@ func TestVolumeRefreshKeepsPrebufferedMusicPlayer(t *testing.T) {
 	})
 
 	// The player has deliberately not been started yet, just like a /with
-	// track that is still rendering its five-second buffer.
+	// track that is still rendering its initial buffer.
 	updateSoundVolume()
 	if err := p.Close(); err != nil {
 		t.Fatalf("volume refresh closed a valid prebuffered music player: %v", err)
@@ -398,5 +398,73 @@ func TestParseMusicCommandWithMalformedWith(t *testing.T) {
 		case <-time.After(100 * time.Millisecond):
 			t.Fatalf("parseMusicCommand did not terminate for %q", cmd)
 		}
+	}
+}
+
+func TestWithGroupWaitsForEveryBardToFinalize(t *testing.T) {
+	pendingMu.Lock()
+	originalPending := pendingByID
+	pendingByID = make(map[int]*pendingSong)
+	pendingMu.Unlock()
+	originalCapture := movieMusicIndexCapture
+	var captured [][]tuneJob
+	movieMusicIndexCapture = func(jobs []tuneJob) {
+		captured = append(captured, append([]tuneJob(nil), jobs...))
+	}
+	t.Cleanup(func() {
+		movieMusicIndexCapture = originalCapture
+		pendingMu.Lock()
+		pendingByID = originalPending
+		pendingMu.Unlock()
+	})
+
+	handleMusicParams(MusicParams{Who: 1, Inst: 5, Notes: "c", Part: true, With: []int{2}})
+	handleMusicParams(MusicParams{Who: 2, Inst: 1, Notes: "e", Part: true, With: []int{1}})
+	handleMusicParams(MusicParams{Who: 1, Inst: 5, Notes: "d", With: []int{2}})
+	if len(captured) != 0 {
+		t.Fatalf("group started with an unfinished bard: %#v", captured)
+	}
+	handleMusicParams(MusicParams{Who: 2, Inst: 1, Notes: "f", With: []int{1}})
+	if len(captured) != 1 || len(captured[0]) != 2 {
+		t.Fatalf("finalized duo captures = %#v, want one two-bard group", captured)
+	}
+}
+
+func TestMultipartSongExpiresAfterClassicTimeout(t *testing.T) {
+	pendingMu.Lock()
+	originalPending := pendingByID
+	pendingByID = make(map[int]*pendingSong)
+	pendingMu.Unlock()
+	originalNow := musicCommandNow
+	originalCapture := movieMusicIndexCapture
+	movieMusicIndexCapture = func([]tuneJob) {}
+	now := time.Unix(1000, 0)
+	musicCommandNow = func() time.Time { return now }
+	t.Cleanup(func() {
+		musicCommandNow = originalNow
+		movieMusicIndexCapture = originalCapture
+		pendingMu.Lock()
+		pendingByID = originalPending
+		pendingMu.Unlock()
+	})
+
+	handleMusicParams(MusicParams{Who: 1, Inst: 5, Notes: "c", Part: true})
+	now = now.Add(musicPartTimeout)
+	handleMusicParams(MusicParams{Who: 2, Inst: 1, Notes: "e", Part: true})
+	pendingMu.Lock()
+	_, boundaryExists := pendingByID[1]
+	pendingMu.Unlock()
+	if !boundaryExists {
+		t.Fatal("multipart song expired at the 20-second boundary")
+	}
+
+	now = now.Add(time.Millisecond)
+	handleMusicParams(MusicParams{Who: 3, Inst: 1, Notes: "g", Part: true})
+	pendingMu.Lock()
+	_, staleExists := pendingByID[1]
+	_, currentExists := pendingByID[3]
+	pendingMu.Unlock()
+	if staleExists || !currentExists {
+		t.Fatalf("pending after timeout: stale=%v current=%v, want false/true", staleExists, currentExists)
 	}
 }

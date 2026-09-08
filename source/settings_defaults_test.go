@@ -156,6 +156,24 @@ func TestMusicEnhancementAmountDefaultAndClamp(t *testing.T) {
 	}
 }
 
+func TestMusicBufferSecondsDefaultAndClamp(t *testing.T) {
+	if gsdef.MusicBufferSeconds != 2 {
+		t.Fatalf("music buffer default = %d, want 2", gsdef.MusicBufferSeconds)
+	}
+	for _, test := range []struct {
+		value int
+		want  int
+	}{
+		{value: -1, want: 1},
+		{value: 4, want: 4},
+		{value: 20, want: 10},
+	} {
+		if got := clampMusicBufferSeconds(test.value); got != test.want {
+			t.Errorf("clampMusicBufferSeconds(%d) = %d, want %d", test.value, got, test.want)
+		}
+	}
+}
+
 func TestUIScalePreferenceClamp(t *testing.T) {
 	for _, test := range []struct {
 		value float64

@@ -116,6 +116,7 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"dark_mode_names_and_bubbles"`,
 		`"allow_continuous_legacy_macros": true`,
 		`"music_enhancement_amount": 1.73`,
+		`"music_buffer_seconds": 2`,
 		`"batch_room_artwork_loading": false`,
 		`"interpolate_small_moving_pictures": true`,
 		`"show_asset_activity_indicators": true`,

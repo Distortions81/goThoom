@@ -256,6 +256,24 @@ func TestMovieMusicTimelineColorsRepeat(t *testing.T) {
 	}
 }
 
+func TestMovieMusicTimelineAdjacentColorsAreDistinct(t *testing.T) {
+	for i, current := range movieMusicTimelineColors {
+		next := movieMusicTimelineColors[(i+1)%len(movieMusicTimelineColors)]
+		currentHue, _, _, _ := current.HSVA()
+		nextHue, _, _, _ := next.HSVA()
+		distance := currentHue - nextHue
+		if distance < 0 {
+			distance = -distance
+		}
+		if distance > 180 {
+			distance = 360 - distance
+		}
+		if distance < 90 {
+			t.Errorf("timeline colors %d and %d are only %.1f degrees apart", i, (i+1)%len(movieMusicTimelineColors), distance)
+		}
+	}
+}
+
 func TestMovieMusicSeekUsesLatestStartKeyframe(t *testing.T) {
 	longNote := []Note{{Duration: time.Hour}}
 	events := []movieMusicEvent{
@@ -283,9 +301,41 @@ func TestConcertSeekAtFortySixFiftyThreeUsesOneMusicKeyframe(t *testing.T) {
 	}
 }
 
+func TestConcertSeekAtTwentyNineFortySevenUsesOneMusicKeyframe(t *testing.T) {
+	frames, err := parseMovie(movieFixturePath(t, "concert1.clMov"), baseVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const target = (29*60 + 47) * movieRecordedUPS
+	events := indexMovieMusic(frames)
+	active := activeMovieMusicAt(events, target, movieRecordedUPS)
+	if len(active) != 1 {
+		t.Fatalf("active concert music at 29:47 = %d tracks, want 1", len(active))
+	}
+	if active[0].frame != 8668 {
+		t.Fatalf("active concert music frame = %d, want 8668", active[0].frame)
+	}
+	if len(active[0].jobs) != 2 {
+		t.Fatalf("active concert group has %d jobs, want synchronized duo", len(active[0].jobs))
+	}
+	wantPrograms := []int{25, 73}
+	for i, job := range active[0].jobs {
+		if job.program != wantPrograms[i] {
+			t.Errorf("duo job %d program = %d, want %d", i, job.program, wantPrograms[i])
+		}
+	}
+	if duration := movieMusicJobsDuration(active[0].jobs); duration < 2*time.Minute || duration > 3*time.Minute {
+		t.Fatalf("duo duration = %v, want about two minutes", duration)
+	}
+}
+
 func TestMovieMusicRestoreGenerationInvalidatesOlderPreparation(t *testing.T) {
 	p := &moviePlayer{}
-	p.restoreIndexedMusic(0, true)
+	select {
+	case <-p.restoreIndexedMusic(0, true):
+	case <-time.After(time.Second):
+		t.Fatal("empty music restore did not report ready")
+	}
 	first := p.musicRestoreGeneration.Load()
 	p.restoreIndexedMusic(0, true)
 	if got := p.musicRestoreGeneration.Load(); got != first+1 {

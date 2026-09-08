@@ -52,13 +52,13 @@ type activeMovieMusic struct {
 
 var movieMusicTimelineColors = []eui.Color{
 	eui.NewColor(239, 83, 80, 210),
-	eui.NewColor(255, 167, 38, 210),
-	eui.NewColor(255, 238, 88, 210),
-	eui.NewColor(102, 187, 106, 210),
-	eui.NewColor(38, 198, 218, 210),
 	eui.NewColor(66, 165, 245, 210),
+	eui.NewColor(255, 238, 88, 210),
 	eui.NewColor(126, 87, 194, 210),
+	eui.NewColor(255, 167, 38, 210),
+	eui.NewColor(38, 198, 218, 210),
 	eui.NewColor(236, 64, 122, 210),
+	eui.NewColor(102, 187, 106, 210),
 }
 
 type movieNightState struct {
@@ -179,6 +179,7 @@ func currentMovieMusicTempoRate() float64 {
 func indexMovieMusic(frames []movieFrame) []movieMusicEvent {
 	previousCapture, previousStop := movieMusicIndexCapture, movieMusicIndexStop
 	previousBlockMusic := blockMusic
+	previousMusicCommandNow := musicCommandNow
 	pendingMu.Lock()
 	previousPending := pendingByID
 	pendingByID = make(map[int]*pendingSong)
@@ -186,6 +187,7 @@ func indexMovieMusic(frames []movieFrame) []movieMusicEvent {
 	defer func() {
 		movieMusicIndexCapture, movieMusicIndexStop = previousCapture, previousStop
 		blockMusic = previousBlockMusic
+		musicCommandNow = previousMusicCommandNow
 		pendingMu.Lock()
 		pendingByID = previousPending
 		pendingMu.Unlock()
@@ -194,6 +196,10 @@ func indexMovieMusic(frames []movieFrame) []movieMusicEvent {
 	blockMusic = false
 	var events []movieMusicEvent
 	currentFrame := 0
+	movieMusicIndexStart := time.Unix(0, 0)
+	musicCommandNow = func() time.Time {
+		return movieMusicIndexStart.Add(time.Duration(currentFrame) * time.Second / movieRecordedUPS)
+	}
 	movieMusicIndexCapture = func(jobs []tuneJob) {
 		copyJobs := append([]tuneJob(nil), jobs...)
 		events = append(events, movieMusicEvent{frame: currentFrame + 1, jobs: copyJobs})
@@ -468,7 +474,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	bFlow.AddItem(dec)
 
 	reset, resetEv := eui.NewButton()
-	setMovieControlIcon(reset, "arrow_right", "RESET")
+	setMovieControlIcon(reset, "restart_alt", "RESET")
 	reset.SetTooltip("Reset playback speed")
 	reset.Size = eui.Point{X: 80, Y: movieControlButtonHeight}
 	resetEv.Handle = func(ev eui.UIEvent) {
@@ -845,13 +851,16 @@ func (p *moviePlayer) setFPS(fps int) {
 	p.updateUI()
 }
 
-// restoreIndexedMusic rebuilds each active movie bard track at idx. The seek
-// frame is measured in the movie's recorded UPS; note timing is then scaled to
-// the current playback UPS so video and music stay synchronized at every speed.
-func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) {
+// restoreIndexedMusic rebuilds each active movie bard track at idx and returns
+// a channel that closes once every replacement stream is ready. The seek frame
+// is measured in the movie's recorded UPS; note timing is then scaled to the
+// current playback UPS so video and music stay synchronized at every speed.
+func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) <-chan struct{} {
+	ready := make(chan struct{})
 	generation := p.musicRestoreGeneration.Add(1)
 	if !play || len(p.music) == 0 || p.baseFPS < 1 {
-		return
+		close(ready)
+		return ready
 	}
 	if idx < 0 {
 		idx = 0
@@ -861,11 +870,18 @@ func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) {
 	soundMu.Lock()
 	context := audioContext
 	soundMu.Unlock()
-	if context == nil {
-		return
-	}
 	rate := currentMovieMusicTempoRate()
 	settings := currentMusicPlaybackSettings()
+	if context == nil || !settings.enabled || len(active) == 0 {
+		close(ready)
+		return ready
+	}
+	var prepared sync.WaitGroup
+	prepared.Add(len(active))
+	go func() {
+		prepared.Wait()
+		close(ready)
+	}()
 	for _, track := range active {
 		elapsed := time.Duration(idx-track.frame) * time.Second / time.Duration(p.baseFPS)
 		scaledElapsed := time.Duration(float64(elapsed) / rate)
@@ -878,12 +894,16 @@ func (p *moviePlayer) restoreIndexedMusic(idx int, play bool) {
 		}
 		parts = scaleMusicParts(parts, rate)
 		go func(parts []musicPart, whos []int, startFrame int) {
+			var preparedOnce sync.Once
+			markPrepared := func() { preparedOnce.Do(prepared.Done) }
+			defer markPrepared()
 			valid := func() bool { return p.musicRestoreGeneration.Load() == generation }
-			if err := playMusicGroupWithSettingsAtFrameIf(context, parts, whos, nil, nil, settings, startFrame, valid); err != nil {
+			if err := playMusicGroupWithSettingsAtFrameIf(context, parts, whos, markPrepared, nil, settings, startFrame, valid); err != nil {
 				log.Printf("resume movie music: %v", err)
 			}
 		}(parts, whos, startFrame)
 	}
+	return ready
 }
 
 // activeMovieMusicAt treats each completed start as a movie music keyframe.
@@ -1144,13 +1164,14 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 	// Avoid interpolation artifacts on the first frame after a seek.
 	suppressInterpOnce = true
 	p.updateUI()
+	movieMusicPaused.Store(!wasPlaying)
+	// Preparing a restored SoundFont stream can take noticeable time. Keep the
+	// movie clock stopped until its audio is ready so a seek cannot leave the
+	// song a second or two behind the recorded reactions.
+	<-p.restoreIndexedMusic(idx, true)
+	p.musicNeedsRestore = false
 	p.playing = wasPlaying
-	if wasPlaying {
-		p.musicNeedsRestore = false
-		p.restoreIndexedMusic(idx, true)
-	} else {
-		p.musicNeedsRestore = true
-	}
+	p.updateUI()
 }
 
 // maybeDecodeMessage applies a simple heuristic to determine whether a frame

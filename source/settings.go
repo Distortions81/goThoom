@@ -116,6 +116,16 @@ func clampMusicEnhancementAmount(v float64) float64 {
 	return v
 }
 
+func clampMusicBufferSeconds(v int) int {
+	if v < 1 {
+		return 1
+	}
+	if v > 10 {
+		return 10
+	}
+	return v
+}
+
 func clampUIScalePreference(v float64) float64 {
 	if v < 0.75 {
 		return 0.75
@@ -241,6 +251,7 @@ var gsdef settings = settings{
 	GameVolume:                     0.28260868787765503,
 	MusicVolume:                    1.0,
 	SoundFontFile:                  soundFontFile,
+	MusicBufferSeconds:             2,
 	Music:                          true,
 	GameSound:                      true,
 	Mute:                           false,
@@ -476,6 +487,7 @@ type settings struct {
 	GameVolume                     float64
 	MusicVolume                    float64
 	SoundFontFile                  string
+	MusicBufferSeconds             int
 	Music                          bool
 	GameSound                      bool
 	Mute                           bool
@@ -769,6 +781,10 @@ func loadSettings() bool {
 
 	gs.SoundEnhancementAmount = clampSoundEnhancementAmount(gs.SoundEnhancementAmount)
 	gs.MusicEnhancementAmount = clampMusicEnhancementAmount(gs.MusicEnhancementAmount)
+	if gs.MusicBufferSeconds == 0 {
+		gs.MusicBufferSeconds = gsdef.MusicBufferSeconds
+	}
+	gs.MusicBufferSeconds = clampMusicBufferSeconds(gs.MusicBufferSeconds)
 	gs.UIScale = clampUIScalePreference(gs.UIScale)
 	clampTiledLayoutSettings()
 

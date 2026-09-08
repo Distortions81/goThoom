@@ -1432,6 +1432,22 @@ func addAudioSettings(ttsSection, audioSection *eui.ItemData, columnWidth float3
 	soundFontRow.AddItem(soundFontRefreshBtn)
 	audioSection.AddItem(soundFontRow)
 
+	musicBufferSlider, musicBufferEvents := eui.NewSlider()
+	musicBufferSlider.Label = "Music Buffer (s)"
+	musicBufferSlider.MinValue = 1
+	musicBufferSlider.MaxValue = 10
+	musicBufferSlider.IntOnly = true
+	musicBufferSlider.Value = float32(clampMusicBufferSeconds(gs.MusicBufferSeconds))
+	musicBufferSlider.Size = eui.Point{X: 400, Y: settingsControlHeight}
+	musicBufferSlider.SetTooltip("Seconds of bard music prepared before playback. More buffering tolerates slower SoundFonts but takes longer to start.")
+	musicBufferEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventSliderChanged {
+			gs.MusicBufferSeconds = clampMusicBufferSeconds(int(ev.Value))
+			settingsDirty = true
+		}
+	}
+	audioSection.AddItem(musicBufferSlider)
+
 	voiceDD, voiceEvents := eui.NewDropdown()
 	voiceDD.Label = "TTS Voice"
 	if voices, err := listPiperVoices(); err == nil && len(voices) > 0 {

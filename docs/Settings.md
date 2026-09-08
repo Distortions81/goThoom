@@ -18,7 +18,7 @@ The Settings window replaces the former Advanced window with ten topic tabs:
 | World | Status bars, visibility, character names, and player-list grouping |
 | Text | Font sizes, chat timestamps, timestamp format, and text colors |
 | Bubbles | Speech bubble appearance, lifetime, and message-type options |
-| Audio | Sound throttling/resampling, TTS enablement, file downloads, voice and speed, and notification preferences |
+| Audio | Music SoundFont and buffering, sound throttling/resampling, TTS, and notification preferences |
 | Controls | Movement behavior, keyboard walk speed, and gamepad |
 | Performance | Quality preset plus artwork, effects, rendering, caching, and power-saving subtabs |
 | Network | Server address and NLSPT safety margin |
@@ -66,9 +66,9 @@ other windows use their new defaults until explicitly changed.
 
 ## Audit summary
 
-The current internal `settings` structure contains 188 exported fields:
+The current internal `settings` structure contains 189 exported fields:
 
-- 182 are mapped directly by the v4 JSON schema.
+- 183 are mapped directly by the v4 JSON schema.
 - `BarPlacement`, `BarStyle`, and `SpriteUpscaleMode` are persisted separately
   as readable string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.

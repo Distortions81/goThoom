@@ -251,7 +251,7 @@ func TestSettingsControlsAreGroupedByPurpose(t *testing.T) {
 		"Always on top": "Display", "Window Shadows": "Display", "Reset Windows": "Display",
 		"Timestamp format": "Text", "Autocomplete": "Text", "Spellcheck": "Text", "Status bars below toolbar hands": "World", "Show recently on-screen group": "World",
 		"Message Bubbles": "Bubbles", "Bubble Lifetime": "Bubbles",
-		"Music SoundFont": "Audio", "TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
+		"Music SoundFont": "Audio", "Music Buffer (s)": "Audio", "TTS Voice": "Audio", "TTS Speed": "Audio", "Notification Settings": "Audio",
 		"Keyboard Walk Speed": "Controls", "Middle-click moves windows": "Controls", "Gamepad": "Controls",
 		nlsptExpandedName: "Network", "Enable NLSPT": "Network", "Edit Server List": "Network", "NLSPT safety (%)": "Network",
 		"Setup Wizard": "Tools", "Debug Settings": "Tools", "Reset All Settings": "Tools",

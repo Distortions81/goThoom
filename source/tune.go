@@ -147,11 +147,19 @@ type pendingSong struct {
 	volPct  int
 	notes   []string
 	withIDs []int
+	ready   bool
+	touched time.Time
 }
+
+const musicPartTimeout = 20 * time.Second
 
 var (
 	pendingMu   sync.Mutex
 	pendingByID = make(map[int]*pendingSong)
+	// musicCommandNow uses wall time during live play. Movie indexing replaces
+	// it temporarily with the recording's fixed-UPS timeline so the classic
+	// client's multipart timeout remains meaningful during a fast scan.
+	musicCommandNow = time.Now
 
 	// movieMusicIndexCapture is set only while a movie is scanned for music
 	// starts. It receives fully assembled jobs, including /part and /with
@@ -163,6 +171,16 @@ var (
 // handleMusicParams translates parsed music params into queued playback. It
 // supports /stop, /part accumulation and tempo/volume/instrument parameters.
 func handleMusicParams(mp MusicParams) {
+	now := musicCommandNow()
+	// The classic client runs its idle purge before every music command.
+	pendingMu.Lock()
+	for who, song := range pendingByID {
+		if !song.touched.IsZero() && now.Sub(song.touched) > musicPartTimeout {
+			delete(pendingByID, who)
+		}
+	}
+	pendingMu.Unlock()
+
 	if mp.Stop {
 		// Scoped stop: if who provided, clear that pending and stop if playing.
 		if mp.Who != 0 {
@@ -213,7 +231,7 @@ func handleMusicParams(mp MusicParams) {
 		pendingMu.Lock()
 		ps := pendingByID[id]
 		if ps == nil {
-			ps = &pendingSong{inst: mp.Inst, tempo: mp.Tempo, volPct: mp.VolPct}
+			ps = &pendingSong{inst: mp.Inst, tempo: mp.Tempo, volPct: mp.VolPct, touched: now}
 			pendingByID[id] = ps
 		} else {
 			if mp.Inst != 0 {
@@ -232,6 +250,7 @@ func handleMusicParams(mp MusicParams) {
 		if len(mp.With) > 0 {
 			ps.withIDs = append([]int(nil), mp.With...)
 		}
+		ps.touched = now
 		pendingMu.Unlock()
 		return
 	}
@@ -267,25 +286,11 @@ func handleMusicParams(mp MusicParams) {
 	// pending content; otherwise, store this song and return until ready.
 	if len(mp.With) > 0 {
 		// Save current as pending with its group
-		p := &pendingSong{inst: inst, tempo: tempo, volPct: vol, notes: []string{notes}, withIDs: append([]int(nil), mp.With...)}
+		p := &pendingSong{inst: inst, tempo: tempo, volPct: vol, notes: []string{notes}, withIDs: append([]int(nil), mp.With...), ready: true, touched: now}
 		pendingByID[id] = p
-		// Check readiness of group (including self)
-		all := append([]int{id}, mp.With...)
-		ready := true
-		for _, w := range all {
-			if _, ok := pendingByID[w]; !ok {
-				ready = false
-				break
-			}
-		}
-		if !ready {
-			pendingMu.Unlock()
-			return
-		}
-		// All parts present: build jobs in sorted order
-		// Deduplicate and sort IDs
+		// Deduplicate and sort the requested group IDs.
 		idmap := map[int]struct{}{}
-		for _, w := range all {
+		for _, w := range append([]int{id}, mp.With...) {
 			idmap[w] = struct{}{}
 		}
 		ids := make([]int, 0, len(idmap))
@@ -300,6 +305,14 @@ func handleMusicParams(mp MusicParams) {
 				j--
 			}
 		}
+		for _, w := range ids {
+			song := pendingByID[w]
+			if song == nil || !song.ready {
+				pendingMu.Unlock()
+				return
+			}
+		}
+		// All parts present: build jobs in sorted order.
 		jobs := make([]tuneJob, 0, len(ids))
 		for _, w := range ids {
 			ps := pendingByID[w]
