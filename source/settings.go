@@ -1184,6 +1184,7 @@ func applyManagedWindowLayout() {
 	}
 	finishTiledWorkspaceWindowChrome()
 	configureTiledWorkspaceDividers()
+	centerLoginWindow()
 
 	windowLayoutScreenWidth, windowLayoutScreenHeight = eui.ScreenSize()
 	windowLayoutUIScale = eui.UIScale()
@@ -1362,9 +1363,6 @@ func managedWindowLayoutChanged() bool {
 }
 
 func restoreWindowSettings() {
-	// Login has no persisted geometry and should start in the true screen
-	// center even when an older saved zone table says it was unpinned.
-	centerLoginWindow()
 	applyManagedWindowLayout()
 	if gameWin != nil {
 		gameWin.MarkOpen()

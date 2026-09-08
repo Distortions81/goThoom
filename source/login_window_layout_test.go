@@ -10,6 +10,7 @@ import (
 func TestLoginWindowStartsCentered(t *testing.T) {
 	initFont()
 	originalWindow := loginWin
+	originalGameWindow := gameWin
 	originalList := charactersList
 	originalEditBtn := editCharBtn
 	originalDeleteBtn := deleteCharBtn
@@ -17,12 +18,14 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	originalServerDropdown := loginServerDropdown
 	originalWidth, originalHeight := eui.ScreenSize()
 	loginWin = nil
+	gameWin = nil
 	eui.SetScreenSize(1200, 800)
 	t.Cleanup(func() {
 		if loginWin != nil {
 			loginWin.RemoveWindow()
 		}
 		loginWin = originalWindow
+		gameWin = originalGameWindow
 		charactersList = originalList
 		editCharBtn = originalEditBtn
 		deleteCharBtn = originalDeleteBtn
@@ -32,6 +35,9 @@ func TestLoginWindowStartsCentered(t *testing.T) {
 	})
 
 	makeLoginWindow()
+	if loginWin.Movable {
+		t.Fatal("Login must not be draggable")
+	}
 	if len(loginWin.Contents) != 1 {
 		t.Fatalf("login root items = %d, want 1 flow", len(loginWin.Contents))
 	}
@@ -230,5 +236,49 @@ func TestEditCharacterOptionsFollowSelectedCharacter(t *testing.T) {
 	updateCharacterButtons()
 	if editCharBtn.Disabled || deleteCharBtn.Disabled {
 		t.Fatal("Edit and Delete did not re-enable for a saved character")
+	}
+}
+
+func TestLoginTracksGamePaneLayout(t *testing.T) {
+	originalSettings := gs
+	originalLogin, originalGame := loginWin, gameWin
+	originalInventory, originalPlayers, originalConsole, originalChat := inventoryWin, playersWin, consoleWin, chatWin
+	originalMovie, originalHUD := movieWin, hudWin
+	originalWidth, originalHeight := eui.ScreenSize()
+	originalScale := eui.UIScale()
+	originalLayoutWidth, originalLayoutHeight, originalLayoutScale := windowLayoutScreenWidth, windowLayoutScreenHeight, windowLayoutUIScale
+	originalDirty := settingsDirty
+	loginWin, gameWin = eui.NewWindow(), eui.NewWindow()
+	loginWin.Size = eui.Point{X: 300, Y: 200}
+	inventoryWin, playersWin, consoleWin, chatWin, movieWin, hudWin = nil, nil, nil, nil, nil, nil
+	t.Cleanup(func() {
+		loginWin.RemoveWindow()
+		gameWin.RemoveWindow()
+		gs, loginWin, gameWin = originalSettings, originalLogin, originalGame
+		inventoryWin, playersWin, consoleWin, chatWin = originalInventory, originalPlayers, originalConsole, originalChat
+		movieWin, hudWin = originalMovie, originalHUD
+		eui.SetUIScale(originalScale)
+		eui.SetScreenSize(originalWidth, originalHeight)
+		windowLayoutScreenWidth, windowLayoutScreenHeight, windowLayoutUIScale = originalLayoutWidth, originalLayoutHeight, originalLayoutScale
+		settingsDirty = originalDirty
+	})
+	gs = gsdef
+	for _, scale := range []float32{1, 1.5} {
+		eui.SetUIScale(scale)
+		for _, screen := range [][2]int{{1920, 1080}, {1600, 1000}} {
+			eui.SetScreenSize(screen[0], screen[1])
+			for _, layout := range []TiledLayout{TiledLayoutCenter, TiledLayoutSide, TiledLayoutMessagesAbove, TiledLayoutFullMessagesBelow} {
+				gs.TiledLayout = layout
+				for _, gameLeft := range []bool{true, false} {
+					gs.TiledGameLeft = gameLeft
+					applyManagedWindowLayout()
+					pos, size := loginWin.GetPos(), loginWin.GetSize()
+					gamePos, gameSize := gameWin.GetPos(), gameWin.GetSize()
+					if math.Abs(float64(pos.X+size.X/2-gamePos.X-gameSize.X/2)) > 1 || math.Abs(float64(pos.Y+size.Y/2-gamePos.Y-gameSize.Y/2)) > 1 {
+						t.Fatalf("Login not centered in game pane: layout=%v left=%v scale=%v login=%v/%v game=%v/%v", layout, gameLeft, scale, pos, size, gamePos, gameSize)
+					}
+				}
+			}
+		}
 	}
 }

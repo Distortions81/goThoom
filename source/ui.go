@@ -3934,7 +3934,7 @@ func makeLoginWindow() {
 	loginWin.Closable = false
 	loginWin.Resizable = false
 	loginWin.AutoSize = true
-	loginWin.Movable = true
+	loginWin.Movable = false
 	loginWin.Padding = 12
 	// Set the login window opacity
 	loginWin.Opacity = 0.9
@@ -4257,8 +4257,19 @@ func makeLoginWindow() {
 }
 
 func centerLoginWindow() {
-	if loginWin != nil {
-		loginWin.SetZone(eui.HZoneCenter, eui.VZoneCenter)
+	if loginWin == nil {
+		return
+	}
+	loginWin.SetZone(eui.HZoneCenter, eui.VZoneCenter)
+	if gameWin != nil {
+		pos, size := gameWin.GetPos(), gameWin.GetSize()
+		if size.X > 0 && size.Y > 0 {
+			width, height := eui.ScreenSize()
+			loginWin.SetZoneOffset(eui.Point{
+				X: pos.X + size.X/2 - float32(width)/2,
+				Y: pos.Y + size.Y/2 - float32(height)/2,
+			})
+		}
 	}
 }
 
