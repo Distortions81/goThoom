@@ -1392,6 +1392,10 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 		if item.Hovered {
 			itemColor = style.HoverColor
 		}
+		knobColor := style.Color
+		if item.SliderKnobColor != (Color{}) {
+			knobColor = item.SliderKnobColor
+		}
 
 		if item.Vertical {
 			knobW := item.AuxSize.X * uiScale
@@ -1421,7 +1425,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				Position: knobRect,
 				Fillet:   item.Fillet,
 				Filled:   true,
-				Color:    style.Color,
+				Color:    knobColor,
 			})
 			drawRoundRect(subImg, &roundRect{
 				Size:     pointScaleMul(item.AuxSize),
@@ -1505,7 +1509,7 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 				Position: knobRect,
 				Fillet:   item.Fillet,
 				Filled:   true,
-				Color:    style.Color,
+				Color:    knobColor,
 			})
 			drawRoundRect(subImg, &roundRect{
 				Size:     pointScaleMul(item.AuxSize),

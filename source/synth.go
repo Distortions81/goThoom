@@ -63,7 +63,7 @@ var (
 	synthGeneration uint64
 
 	programGainMu    sync.Mutex
-	programGainCache = make(map[programGainKey]float32)
+	programGainCache = make(map[programGainKey]*programGainCacheEntry)
 
 	missingProgramMu       sync.Mutex
 	missingProgramReported = make(map[programGainKey]struct{})
@@ -85,14 +85,20 @@ type programGainKey struct {
 	program    int
 }
 
+type programGainCacheEntry struct {
+	once sync.Once
+	gain float32
+}
+
 const (
-	programCalibrationKey       = 60
 	programCalibrationFrames    = sampleRate
 	programNormalizationRMS     = 0.08
 	programNormalizationPeak    = 0.35
 	programNormalizationMinGain = 0.25
 	programNormalizationMaxGain = 4.0
 )
+
+var programCalibrationKeys = [...]int32{48, 60, 72}
 
 // configuredSoundFontFile returns the selected SoundFont's base name. Older
 // settings files do not have a selection, so they continue to use the bundled
@@ -354,7 +360,7 @@ func setupSynth() {
 	synthCacheMu.Unlock()
 }
 
-// programNormalizationGain converts a measured full-velocity reference note
+// programNormalizationGain converts measured full-velocity reference notes
 // into a conservative per-program gain. RMS evens out perceived loudness while
 // the peak limit leaves room for chords and multiple simultaneous bards.
 func programNormalizationGain(rms, peak float64) float32 {
@@ -373,32 +379,47 @@ func measureProgramGain(font *meltysynth.SoundFont, program int) (gain float32) 
 			gain = 1
 		}
 	}()
-	syn, err := meltysynth.NewSynthesizer(font, newSynthSettings())
-	if err != nil {
-		return 1
-	}
-	syn.ProcessMidiMessage(0, 0xC0, int32(program), 0)
-	syn.NoteOn(0, programCalibrationKey, 127)
 	var sumSquares float64
 	var peak float64
 	var samples int
-	for rendered := 0; rendered < programCalibrationFrames; rendered += block {
-		left := make([]float32, block)
-		right := make([]float32, block)
-		if err := safeRender(syn, left, right); err != nil {
+	for _, note := range programCalibrationKeys {
+		// Give each pitch a fresh synth so the tail of the previous sample does
+		// not inflate the next pitch's measurement.
+		syn, err := meltysynth.NewSynthesizer(font, newSynthSettings())
+		if err != nil {
 			return 1
 		}
-		keep := min(block, programCalibrationFrames-rendered)
-		for i := 0; i < keep; i++ {
-			for _, value := range [...]float32{left[i], right[i]} {
-				magnitude := math.Abs(float64(value))
-				if magnitude > peak {
-					peak = magnitude
+		syn.ProcessMidiMessage(0, 0xC0, int32(program), 0)
+		syn.NoteOn(0, note, 127)
+		var noteSquares float64
+		var notePeak float64
+		noteSamples := 0
+		for rendered := 0; rendered < programCalibrationFrames; rendered += block {
+			left := make([]float32, block)
+			right := make([]float32, block)
+			if err := safeRender(syn, left, right); err != nil {
+				return 1
+			}
+			keep := min(block, programCalibrationFrames-rendered)
+			for i := 0; i < keep; i++ {
+				for _, value := range [...]float32{left[i], right[i]} {
+					magnitude := math.Abs(float64(value))
+					if magnitude > notePeak {
+						notePeak = magnitude
+					}
+					noteSquares += magnitude * magnitude
+					noteSamples++
 				}
-				sumSquares += magnitude * magnitude
-				samples++
 			}
 		}
+		// Some specialty presets intentionally cover only part of the keyboard.
+		// Do not let a silent probe make an otherwise audible preset too loud.
+		if notePeak == 0 {
+			continue
+		}
+		sumSquares += noteSquares
+		samples += noteSamples
+		peak = max(peak, notePeak)
 	}
 	if samples == 0 {
 		return 1
@@ -406,27 +427,19 @@ func measureProgramGain(font *meltysynth.SoundFont, program int) (gain float32) 
 	return programNormalizationGain(math.Sqrt(sumSquares/float64(samples)), peak)
 }
 
+var measureProgramGainForCache = measureProgramGain
+
 func soundFontProgramGain(font *meltysynth.SoundFont, generation uint64, program int) float32 {
 	key := programGainKey{generation: generation, program: program}
 	programGainMu.Lock()
-	if gain, ok := programGainCache[key]; ok {
-		programGainMu.Unlock()
-		return gain
+	entry := programGainCache[key]
+	if entry == nil {
+		entry = &programGainCacheEntry{}
+		programGainCache[key] = entry
 	}
 	programGainMu.Unlock()
-
-	gain := measureProgramGain(font, program)
-	programGainMu.Lock()
-	programGainCache[key] = gain
-	// A SoundFont switch makes every older calibration unreachable. Drop those
-	// entries while retaining any concurrent result for the current generation.
-	for cachedKey := range programGainCache {
-		if cachedKey.generation != generation {
-			delete(programGainCache, cachedKey)
-		}
-	}
-	programGainMu.Unlock()
-	return gain
+	entry.once.Do(func() { entry.gain = measureProgramGainForCache(font, program) })
+	return entry.gain
 }
 
 // renderSong renders the provided notes using the current SoundFont and returns

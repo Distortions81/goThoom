@@ -163,13 +163,15 @@ type itemData struct {
 	LineSpace  float32 //Multiplier, 1.0 = no gap between lines
 	ItemType   itemTypeData
 
-	Value      float32
-	MinValue   float32
-	MaxValue   float32
-	Ranges     []SliderRange
-	IntOnly    bool
-	HideValue  bool // Hide a slider's value caption when an adjacent field supplies it.
-	RadioGroup string
+	Value    float32
+	MinValue float32
+	MaxValue float32
+	Ranges   []SliderRange
+	// SliderKnobColor overrides the theme color for a slider's playhead/knob.
+	SliderKnobColor Color
+	IntOnly         bool
+	HideValue       bool // Hide a slider's value caption when an adjacent field supplies it.
+	RadioGroup      string
 
 	Hovered, Checked, Focused,
 	Disabled, Invisible bool

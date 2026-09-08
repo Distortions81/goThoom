@@ -344,6 +344,7 @@ func (p *moviePlayer) makePlaybackWindow() {
 	p.slider.MaxValue = max
 	p.slider.Size = eui.Point{X: 600, Y: 24}
 	p.slider.IntOnly = true
+	p.slider.SliderKnobColor = eui.NewColor(255, 255, 255, 255)
 	p.slider.Ranges = movieMusicTimelineRanges(p.music, len(p.frames), p.baseFPS)
 	p.slider.SetTooltip("Seek through the movie. Colored bands show indexed bard music.")
 	events.Handle = func(ev eui.UIEvent) {

@@ -116,6 +116,35 @@ func TestProgramNormalizationGainUsesRMSAndPeakLimits(t *testing.T) {
 	}
 }
 
+func TestProgramGainCachedUntilSoundFontGenerationChanges(t *testing.T) {
+	programGainMu.Lock()
+	originalCache := programGainCache
+	programGainCache = make(map[programGainKey]*programGainCacheEntry)
+	programGainMu.Unlock()
+	originalMeasure := measureProgramGainForCache
+	calls := 0
+	measureProgramGainForCache = func(*meltysynth.SoundFont, int) float32 {
+		calls++
+		return 0.75
+	}
+	t.Cleanup(func() {
+		measureProgramGainForCache = originalMeasure
+		programGainMu.Lock()
+		programGainCache = originalCache
+		programGainMu.Unlock()
+	})
+
+	if first := soundFontProgramGain(nil, 10, 47); first != 0.75 {
+		t.Fatalf("first cached gain = %v, want 0.75", first)
+	}
+	if second := soundFontProgramGain(nil, 10, 47); second != 0.75 || calls != 1 {
+		t.Fatalf("reused gain = %v with %d measurements, want 0.75 with 1", second, calls)
+	}
+	if reloaded := soundFontProgramGain(nil, 11, 47); reloaded != 0.75 || calls != 2 {
+		t.Fatalf("reloaded gain = %v with %d measurements, want 0.75 with 2", reloaded, calls)
+	}
+}
+
 func TestSongRendererAppliesProgramGain(t *testing.T) {
 	renderer := &songRenderer{
 		syn:          &constantStreamSynth{value: 0.1},
