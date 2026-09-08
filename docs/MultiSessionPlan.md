@@ -1,0 +1,310 @@
+# Multi-session client plan
+
+## Goal
+
+Allow one goThoom process to maintain multiple independently logged-in game
+sessions.  Sessions share application settings, artwork/GPU resources, the
+audio device, and the primary UI, while each character keeps independent game,
+network, input, and automation state.
+
+The user can work with the selected session directly while retaining live views
+of the other sessions.
+
+## Decisions already made
+
+| Area | Decision |
+| --- | --- |
+| Settings | One application-wide settings object.  Character profiles do not switch rendering, UI, audio, or input settings when sessions change. |
+| Rendering resources | Images, textures, shaders, fonts, artwork caches, and the Ebitengine process remain shared. |
+| Sound effects | Use the common mixer; effects from every connected session may play. |
+| Music | Exactly one selected session feeds the shared music player.  Mixer/Settings shows four mutually exclusive session selectors; changing selection stops current music without resuming or synchronizing a tune. |
+| Macros and scripts | Each session has an independent legacy macro runtime and Go-script engine.  No runtime state is shared between characters. |
+| Chat and console | Display one combined transcript.  Every entry visibly identifies its source character, with optional character tinting. |
+| Input target | The selected session view is the sole target for keyboard input, chat submission, movement, commands, hotkeys, toolbar actions, and shared panels. |
+| Shared panels | Chat/console, Players, and Inventory remain one set of UI windows and rebind to the selected session.  Their title/input border visibly show the selected character. |
+| Freeform workspace | Multi-session mode opens four movable/resizable game windows, one session slot per window. |
+| Tiled workspace | Subdivide the existing game-window area into a 2x2 grid of session slots.  Occupied slots show sessions; unused slots show an add-character/login surface. |
+| Session activation | Start every application in single-session mode.  Additional sessions become available only after the client is ready for sessions. |
+| Mode control | A toolbar control switches between single-session and multi-session workspaces.  Entering multi-session mode creates four login-ready session slots. |
+| Leaving multi-session | The workspace cannot return to single-session while any session is logged in.  The user must log out of every session or quit the application. |
+| Quit all sessions | Provide a toolbar action that logs out/closes every session while leaving the application running.  The user may instead quit the application normally. |
+| Notifications | Deliver all normal notifications from every session, visibly labeled with their source character. |
+| Background automation | Background sessions continue normal network, macro, and script processing.  Only direct user input is restricted to the selected session. |
+| Multi-session music default | The user chooses one session as the music source.  Default to the lowest session ID. |
+| Prototype modes | PCAP support may be disabled or removed.  Fake mode does not need multi-session support.  Setup wizard runs before the app becomes ready for sessions. |
+
+## Vocabulary and ownership
+
+Do not use `viewport` as the owner of protocol state.  A viewport is a visual
+and input surface; a session is the character connection and its mutable game
+state.  The initial UI attaches one session to one viewport, but this
+separation allows a replay/spectator view later without another connection.
+
+```text
+App
+|- shared settings, assets, GPU caches, fonts, audio device, global UI theme
+|- audio policy: common effects; one music-source session
+|- combined console/chat transcript
+|- Session A: connection, decoded state, input, players, inventory, automation
+|- Session B: connection, decoded state, input, players, inventory, automation
+`- Viewport manager
+   |- viewport A -> Session A
+   `- viewport B -> Session B
+```
+
+### App-owned state
+
+- `gs` and settings persistence, themes/styles, keybinding definitions, and
+  general UI configuration.
+- CL image/sound data, decoded-image and GPU caches, shader instances, fonts,
+  and shared render pools.
+- The Ebitengine `Game`/application loop, shared EUI windows, and the viewport
+  manager.
+- The shared sound device/mixer, one active or pinned music source, and the
+  combined log display.
+- Cross-session layout persistence: freeform viewport geometry or tiled slot
+  order, selected viewport, and music-source pin.
+
+### Session-owned state
+
+- Login state, credentials reference, TCP and UDP connections, cancellation,
+  read/dispatch/send goroutines, reconnect status, and per-session protocol
+  encryption/transport state.
+- Character identity, game mode, commands, input queue, mouse/key walking
+  state, server frame timing, packet-loss/PNA state, and recording state.
+- Draw state, locking, snapshots/interpolation, bubbles, light/night state,
+  health/stamina/balance, and per-session world render generation.
+- Player directory/presence, inventory, selected inventory/player rows,
+  `/be-who` and info queues, chat history, and unread/event counters.
+- Legacy macro sources/runtime and Go script interpreters, event queues,
+  timers, stores, registrations, and lifecycle callbacks.
+- Parsed music timeline/current tune metadata.  This is data only; playback is
+  selected by the app-level music policy.
+
+### View-owned state
+
+- A stable ID, assigned session (or empty slot), selected state, tab/tile
+  label, and accent color.
+- Freeform EUI game window or tiled rectangle, render target/image, and its
+  `Game` render snapshot/cache.
+- Pointer hit testing and conversion from screen coordinates to that view's
+  world coordinates.
+- A non-movable, view-centered login/connecting/reconnecting overlay for
+  an empty or disconnected slot.
+
+## UI behavior
+
+### Select and route
+
+Selecting a viewport is one operation, completed before any resulting action
+is dispatched:
+
+```text
+pointer press in viewport B or click Character-B tab
+-> select Session B
+-> rebind shared chat/console, Players, and Inventory views to B
+-> update panel titles, input label, and accent border to B's color
+-> route the input action (if it was a world press) only to B
+```
+
+A click in a world view both selects it and performs its normal world action,
+unless an overlay or UI control consumed the press.  Keyboard and raw mouse
+bindings go only to the selected session; background sessions still receive
+their own network and script events.
+
+### Combined chat and console
+
+Keep a session-local log for scripts, macros, filtering, and persistence;
+publish a copy to an app-level combined display model.  Each displayed entry
+has session ID, character name, time, type, text, and an optional tint.
+
+Use a clear source treatment rather than color-only identification:
+
+- a character-name prefix on every entry;
+- a subtle tinted left rail or background around each entry;
+- a colored frame around the shared log and input area matching the selected
+  session; and
+- an input label such as `Hardia > Say something...`.
+
+Ordinary chat and server commands entered there target the selected session.
+Local client commands need an explicit app-level syntax or command palette
+path so they cannot accidentally be sent to a server.
+
+### Players and Inventory
+
+The rows and selections are session-owned.  The EUI windows are shared views:
+on every session selection, `BindSession(session)` replaces the rows from a
+consistent session snapshot, restores that session's own selection if valid,
+sets `Hardia - Inventory` / `Hardia - Players`, applies its accent, and redraws.
+
+Context menus and delayed/double-click actions must capture the originating
+session ID when opened.  They must not act on whichever session happens to be
+selected later.
+
+### Music
+
+Default the music source to the lowest session ID.  Mixer/Settings presents
+four session selectors (shown as checkboxes if that fits the existing control
+style, but mutually exclusive in behavior).  Label each with its session or
+character name and disable selectors for unused slots.
+
+Switching the selected source immediately stops current music.  Do not resume,
+seek, or synchronize the newly selected session's current tune; it may start
+music only when it later receives a normal music event.  This intentionally
+keeps handoff simple and prevents two songs from playing at once.
+
+### Layouts
+
+Freeform multi-session mode creates four titled game windows, one per session
+slot.  These windows are movable/resizable; the other UI windows stay shared.
+
+Tiled multi-session mode subdivides the existing game-window area into a 2x2
+session grid; the surrounding shared Inventory, Players, and combined
+Chat/Console windows retain their existing tiled placement.  The selected tile
+has the accent outline.  Tiles retain the normal world aspect ratio; on a
+smaller display the user accepts the reduced rendering size or uses a
+higher-resolution display.
+
+In every multi-session layout, each empty slot shows the normal login screen
+as its entire session view.  It is not a floating dialog: login, connecting,
+and reconnecting take over the full assigned session area until that session
+is playing.  Entering multi-session mode creates all four empty/login-ready
+slots at once.
+
+## Ready-for-sessions gate
+
+The app always starts with one session.  It becomes **ready for sessions** only
+after startup loading, asset availability/compatibility checks, and the setup
+wizard have completed.  Until then, the toolbar's multi-session control is
+hidden or disabled and the startup/wizard/fake paths retain their current
+single-session assumptions.
+
+Passing this gate enables the toolbar's multi-session control.  Activating it
+creates four slots and opens the normal, existing login flow inside each slot.
+Login itself does not need a reduced or alternate form.
+
+While any slot is logged in, switching back to the single-session workspace is
+unavailable.  After every session has logged out, single-session mode may be
+selected again.  The toolbar also provides **Quit All Sessions**, which closes
+every session connection and returns all slots to their login screens without
+quitting the application.
+
+## Migration plan
+
+### Phase 0: establish safety nets
+
+1. Inventory all mutable globals and label each as app-, session-, or
+   viewport-owned.  Include test hooks and state reset helpers.
+2. Add focused tests for two independent state objects: draw decoding,
+   inventory, players, command queues, and macro/script dispatch must not
+   cross-contaminate.
+3. Define a stable `SessionID`; never use display name alone as an internal
+   identity.
+
+### Phase 1: introduce `Session` without changing the visible UI
+
+1. Create `Session` and move draw state, its mutex, snapshots, frame timing,
+   and world-state generation into it.
+2. Make protocol decode and dispatch methods take `*Session`; retain one
+   default session and preserve the present one-client behavior.
+3. Move connection lifecycle, input/commands, player/inventory/chat data, and
+   night state into `Session` in small compilable slices.
+4. Convert session reset functions to methods.  Do not keep a mutable
+   package-global alias to the active state; temporary compatibility wrappers
+   should be read-only or short-lived and removed before multi-session UI.
+
+### Phase 2: isolate automation and audio data
+
+1. Give every session its own script manager and legacy macro runtime; pass
+   session context through all API calls and events.
+2. Move music parsing/timeline ownership into the session and add the
+   app-level music source selector.
+3. Tag effect and notification requests with the session ID for diagnostics
+   and future routing, while retaining the common mixer.
+
+### Phase 3: add the session manager and shared-panel binding
+
+1. Add an app-level session manager with create/select/disconnect/remove
+   operations and a single authoritative selected-session ID.
+2. Convert combined chat/console into an aggregate view over session-local
+   entries.
+3. Implement `BindSession` for Inventory and Players, including source-ID
+   capture for callbacks/context menus.
+4. Make titles, command targets, toolbar state, notification labels, and the
+   native window title selected-session-aware.
+
+### Phase 4: introduce viewports
+
+1. Extract the present game image/window and per-render cache into a
+   `Viewport` bound to one session.
+2. Implement viewport hit testing, selection, coordinate conversion, and
+   viewport-centered login overlays.
+3. Implement four freeform session views first.  Verify that they render,
+   accept only their own input, disconnect independently, and keep shared
+   panels correctly bound.
+4. Add the tiled 2x2 grid by subdividing the existing game-window area, then
+   add layout persistence.  The four slots already provide the explicit
+   initial maximum.
+
+### Phase 5: harden and document
+
+1. Exercise two live sessions plus a movie/replay if supported together.
+2. Run race detection on session/model tests; check disconnect/reconnect,
+   rapid selection changes, and callbacks queued after a session closes.
+3. Document focus, music source, background macro behavior, combined-log
+   filtering, and layout behavior for users.
+
+## Non-negotiable invariants
+
+- Every command, click, context-menu action, script API call, and macro action
+  has exactly one target session.
+- Every displayed session-originated event visibly identifies its session.
+- No goroutine may mutate or read another session's data through an implicit
+  global "current character".
+- Closing a session cancels and joins its goroutines before its resources are
+  removed; queued callbacks verify the session is still live.
+- Shared settings and GPU/audio resources cannot make one session's state
+  appear in another session's viewport.
+- A selected-session swap rebinds all shared panels as one UI transaction;
+  stale rows and callbacks cannot act on the new session.
+
+## Resolved session-exit behavior
+
+- Logging out of a session always returns that existing slot/window/tile to its
+  normal full-area login screen.  It does not remove or rearrange slots.
+- Multi-session mode cannot be left while any session is logged in.  The user
+  must first log out of every session, use **Quit All Sessions**, or quit the
+  application.
+- **Quit All Sessions** is a toolbar action that cancels, disconnects, and
+  joins all session goroutines, then returns every slot to login.  It does not
+  exit the application.
+
+The following are deliberately non-blocking for the first implementation:
+
+- Concurrent sessions using different credentials/accounts and duplicate
+  character selection need no special product handling beyond correct
+  per-session isolation and normal server behavior.
+- Existing layout/profile migration does not need new work.  Preserve current
+  single-session behavior and save only new multi-session metadata when used.
+- PCAP is outside multi-session scope and can be disabled or removed; fake
+  mode remains single-session only.
+- Music handoff intentionally stops playback and waits for a future normal
+  music event from the newly selected source; it does not attempt seeking or
+  synchronization.
+- Tabbed session views are deferred and intentionally outside the first
+  multi-session implementation.
+- The user-facing term is **session**.  Internal rendering code may use a
+  small view object where needed, but UI labels and documentation should say
+  session.
+
+## Existing-code implications
+
+The current renderer has a useful `drawState` boundary and snapshot mechanism,
+but it is package-global.  Login assigns the global character, switches the
+global character profile, starts global automation, installs one `tcpConn`,
+and starts loops that feed global protocol handling.  Those must become
+session methods before a second connection can be correct.
+
+Similarly, the current tiled workspace explicitly manages one `gameWin` plus
+Inventory, Players, Console, and Chat.  Multi-session tiled mode needs an
+intentional workspace redesign, not only a second render image.
