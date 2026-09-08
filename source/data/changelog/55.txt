@@ -1,6 +1,7 @@
 goThoom 55 changes since test54.
 
 Interface:
+- Separating combined Chat and Console output now reopens both windows.
 - Combined live stats, command search, Help, and snapshots into the new Tools menu.
 - Moved window visibility controls and Reset Windows to Settings > Display, where they now use a compact two-column layout.
 - Reduced the minimum width needed for a toolbar docked in Inventory or Players, and for the floating toolbar window.

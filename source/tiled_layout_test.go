@@ -129,6 +129,34 @@ func TestCombinedMessagesCollapseChatIntoCenteredConsoleTile(t *testing.T) {
 	}
 }
 
+func TestSeparatingMessagesReopensChatAndConsole(t *testing.T) {
+	originalSettings, originalChat, originalConsole := gs, chatWin, consoleWin
+	t.Cleanup(func() {
+		chatWin.RemoveWindow()
+		consoleWin.RemoveWindow()
+		gs, chatWin, consoleWin = originalSettings, originalChat, originalConsole
+	})
+
+	gs = gsdef
+	chatWin = eui.NewWindow()
+	consoleWin = eui.NewWindow()
+	chatWin.AddWindow(true)
+	consoleWin.AddWindow(true)
+	chatWin.Close()
+	consoleWin.Close()
+	gs.ChatWindow.Open = false
+	gs.MessagesWindow.Open = false
+
+	restoreSeparateMessageWindows()
+
+	if !chatWin.IsOpen() || !consoleWin.IsOpen() {
+		t.Fatal("separating chat and console did not reopen both windows")
+	}
+	if !gs.ChatWindow.Open || !gs.MessagesWindow.Open {
+		t.Fatal("separating chat and console did not restore both saved window states")
+	}
+}
+
 func TestSideTiledLayoutKeepsGameOnSelectedSide(t *testing.T) {
 	original := gs
 	t.Cleanup(func() { gs = original })

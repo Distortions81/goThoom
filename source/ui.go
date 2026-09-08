@@ -5194,12 +5194,7 @@ func applyTiledWorkspaceLayout() {
 		}
 		gs.ChatWindow.Open = false
 	} else {
-		gs.ChatWindow.Open = true
-		if chatWin == nil {
-			_ = makeChatWindow()
-		} else {
-			chatWin.MarkOpen()
-		}
+		restoreSeparateMessageWindows()
 	}
 	applyManagedWindowLayout()
 	if inventoryWin != nil {
@@ -5215,6 +5210,24 @@ func applyTiledWorkspaceLayout() {
 		updateChatWindow()
 	}
 	settingsDirty = true
+}
+
+// restoreSeparateMessageWindows reopens both output windows after their shared
+// pane is split. Their visibility is intentional here, rather than retaining
+// the closed state from when chat output was combined into Console.
+func restoreSeparateMessageWindows() {
+	gs.MessagesWindow.Open = true
+	if consoleWin == nil {
+		makeConsoleWindow()
+	} else {
+		consoleWin.MarkOpen()
+	}
+	gs.ChatWindow.Open = true
+	if chatWin == nil {
+		_ = makeChatWindow()
+	} else {
+		chatWin.MarkOpen()
+	}
 }
 
 func makeTileLayoutWindow() {
