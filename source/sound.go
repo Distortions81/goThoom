@@ -795,9 +795,9 @@ func applyFadeInOut(samples []int16, rate int) {
 
 // applyGameSoundReverb adds a light ambience tuned to resemble a wide open
 // field. The goal is mostly a dry signal with a faint but noticeable sense of
-// distance, so the processing uses short delays, controlled feedback, and a
-// gentle roll-off of the high end. The work is done on 32-bit intermediate
-// samples so the later normalization still fits the 16-bit output range.
+// distance, so the processing uses short delays and controlled feedback. The
+// work is done on 32-bit intermediate samples so the later normalization still
+// fits the 16-bit output range.
 func applyGameSoundReverb(samples []int32, enhancementAmount float64) {
 	if len(samples) == 0 {
 		return
@@ -826,10 +826,6 @@ func applyGameSoundReverb(samples []int32, enhancementAmount float64) {
 		ambienceA[i] += ambienceB[i]
 	}
 	wetBuffer := ambienceA
-
-	if shelf := newHighShelf(float32(rate), 3800, -2); shelf != nil {
-		applyBiquad(wetBuffer, shelf)
-	}
 
 	amount := float32(clampSoundEnhancementAmount(enhancementAmount))
 	mixScale := math32.Sqrt(amount)
@@ -1037,72 +1033,6 @@ func applySlapDelay(samples []float32, rate int, delaySec, feedback, mix float32
 		}
 		samples[i] = input*dryMix + wet*mix
 	}
-}
-
-type biquad struct {
-	b0, b1, b2 float32
-	a1, a2     float32
-	z1, z2     float32
-}
-
-func newBiquad(b0, b1, b2, a0, a1, a2 float32) *biquad {
-	if a0 == 0 {
-		return nil
-	}
-	invA0 := 1 / a0
-	return &biquad{
-		b0: b0 * invA0,
-		b1: b1 * invA0,
-		b2: b2 * invA0,
-		a1: a1 * invA0,
-		a2: a2 * invA0,
-	}
-}
-
-func (b *biquad) Process(x float32) float32 {
-	if b == nil {
-		return x
-	}
-	y := b.b0*x + b.z1
-	b.z1 = b.b1*x - b.a1*y + b.z2
-	b.z2 = b.b2*x - b.a2*y
-	return y
-}
-
-func applyBiquad(samples []float32, b *biquad) {
-	if b == nil {
-		return
-	}
-	for i := range samples {
-		samples[i] = b.Process(samples[i])
-	}
-}
-
-func newHighShelf(fs, freq, gainDB float32) *biquad {
-	if fs <= 0 || freq <= 0 {
-		return nil
-	}
-	if freq >= fs/2 {
-		freq = fs/2 - 1
-		if freq <= 0 {
-			freq = fs / 4
-		}
-	}
-	A := math32.Pow(10, gainDB/40)
-	w0 := 2 * math32.Pi * freq / fs
-	sinW0, cosW0 := math32.Sincos(w0)
-	alpha := sinW0 / math32.Sqrt2
-	sqrtA := math32.Sqrt(A)
-	beta := 2 * sqrtA * alpha
-
-	b0 := A * ((A + 1) + (A-1)*cosW0 + beta)
-	b1 := -2 * A * ((A - 1) + (A+1)*cosW0)
-	b2 := A * ((A + 1) + (A-1)*cosW0 - beta)
-	a0 := (A + 1) - (A-1)*cosW0 + beta
-	a1 := 2 * ((A - 1) - (A+1)*cosW0)
-	a2 := (A + 1) - (A-1)*cosW0 - beta
-
-	return newBiquad(b0, b1, b2, a0, a1, a2)
 }
 
 func applySaturation(samples, scratch []float32, drive, mix float32) {
