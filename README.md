@@ -84,8 +84,10 @@ are inventoried in [docs/Settings.md](docs/Settings.md).
 
 ### Mac keyboard and dictation
 
-Command (⌘) is called `Meta` in portable script/macro bindings; Option (⌥) is
-called `Alt`. The keyboard tester labels these keys **Cmd** and **Opt** on Mac.
+Legacy macros use `command` for Command (⌘), `option` for Option (⌥), and
+`control` for Control. Hotkeys and Go script bindings use `Meta`, `Alt`, and
+`Ctrl`; `Command` and `Cmd` are also accepted there. The keyboard tester labels
+Command and Option **Cmd** and **Opt** on Mac.
 Existing Control shortcuts still work.
 
 | Action | Mac shortcut |
@@ -145,7 +147,9 @@ pausing or producing output.
 Macro metadata and examples are documented in
 [METADATA.md](source/testdata/legacy_macros/web/METADATA.md). Legacy text
 encoding details are in
-[LegacyTextCompatibility.md](docs/LegacyTextCompatibility.md).
+[LegacyTextCompatibility.md](docs/LegacyTextCompatibility.md). The
+[macro input compatibility reference](docs/LegacyMacroInputCompatibility.md)
+lists key names, aliases, and hardware limits.
 
 ### Go scripts
 

@@ -90,11 +90,11 @@ func legacyMacroMarkKeyConsumed(key ebiten.Key, name string) {
 		legacyMacroInputState.consumed = make(map[string]bool)
 	}
 	legacyMacroInputState.consumedKeys[key] = true
-	legacyMacroInputState.consumed[legacyMacroInputName(name)] = true
+	legacyMacroInputState.consumed[strings.ToLower(name)] = true
 	// A printed-character macro such as option-µ still came from the physical
 	// M key. Suppress both names so the app's option-m hotkey cannot also fire.
 	if physical, _, ok := legacyMacroKeyName(key); ok {
-		legacyMacroInputState.consumed[legacyMacroInputName(physical)] = true
+		legacyMacroInputState.consumed[strings.ToLower(physical)] = true
 	}
 	legacyMacroInputState.Unlock()
 }
@@ -143,11 +143,11 @@ func legacyMacroHotkeySuppressed(combo string) bool {
 	legacyMacroInputState.Lock()
 	defer legacyMacroInputState.Unlock()
 	name := legacyMacroInputName(parts[len(parts)-1])
-	if legacyMacroInputState.consumed[name] {
-		return true
+	// Hotkeys use modern Delete for forward delete; classic macros call it del.
+	if strings.EqualFold(parts[len(parts)-1], "delete") {
+		name = "del"
 	}
-	return (name == "delete" && legacyMacroInputState.consumed["del"]) ||
-		(name == "del" && legacyMacroInputState.consumed["delete"])
+	return legacyMacroInputState.consumed[name]
 }
 
 func legacyMacroInputName(name string) string {
@@ -170,6 +170,8 @@ func legacyMacroInputName(name string) string {
 		return "return"
 	case "numpadenter":
 		return "enter"
+	case "numlock":
+		return "clear"
 	case "backspace":
 		return "delete"
 	default:
@@ -224,9 +226,7 @@ func legacyMacroKeyMatches(declaration legacyMacroDeclaration, name string, modi
 	if strings.EqualFold(declaration.Key.Name, name) {
 		return true
 	}
-	return (declaration.Key.Name == "delete" && name == "del") ||
-		(declaration.Key.Name == "del" && name == "delete") ||
-		(declaration.Key.Name == "clear" && name == "escape") ||
+	return (declaration.Key.Name == "clear" && name == "escape") ||
 		(declaration.Key.Name == "escape" && name == "clear")
 }
 
@@ -710,7 +710,10 @@ func legacyMacroKeyName(key ebiten.Key) (name string, numpad, ok bool) {
 	case ebiten.KeyEnter:
 		return "return", false, true
 	case ebiten.KeyNumpadEnter:
-		return "enter", true, true
+		return "enter", false, true
+	case ebiten.KeyNumLock:
+		// Ebitengine exposes the Mac keypad Clear key as NumLock.
+		return "clear", true, true
 	case ebiten.KeySpace:
 		return "space", false, true
 	case ebiten.KeyHome:

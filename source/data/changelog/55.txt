@@ -16,6 +16,7 @@ Interface:
 
 Macros and scripts:
 - Legacy macro rows now offer Commands and Keybinds editors for renaming typed triggers and recording replacement keys, clicks, or wheel gestures. Edits preserve comments and macro bodies and check for conflicting triggers before saving.
+- Legacy macros distinguish Backspace (delete) from forward Delete (del) and recognize classic keypad Enter and Clear bindings.
 - Fixed legacy right-click macro compatibility with the classic Mac client, including Control-click bindings in the game and Players list.
 - Go scripts request permissions before their first use. Review or change access to commands, keybinds, server commands, and other capabilities from the script's Permissions button.
 - Expanded Go scripting with world data, events, movement controls, and script-created windows and controls. Updated the API reference and editor support.

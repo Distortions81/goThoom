@@ -426,6 +426,11 @@ func parseLegacyMacroKeyBinding(trigger string) (legacyMacroKind, legacyMacroKey
 	}
 
 	if legacyMacroNamedKey(name) {
+		// Classic keypad Enter is a distinct key without the numpad modifier.
+		// Keep previously recorded numpad-enter bindings as an alias.
+		if name == "enter" {
+			binding.Modifiers &^= legacyMacroModNumpad
+		}
 		binding.Name = name
 		return legacyMacroKey, binding, true
 	}
@@ -462,7 +467,7 @@ func legacyMacroNamedKey(name string) bool {
 		"f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8",
 		"f9", "f10", "f11", "f12", "f13", "f14", "f15", "f16",
 		"minus", "delete", "tab", "return", "space", "help", "home",
-		"undo", "pageup", "del", "end", "pagedown", "up", "down", "left",
+		"pageup", "del", "end", "pagedown", "up", "down", "left",
 		"right", "clear", "enter":
 		return true
 	default:

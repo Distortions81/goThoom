@@ -516,9 +516,9 @@ func TestLegacyMacroDeclarationNamesMayStartWithSetOrInclude(t *testing.T) {
 }
 
 func TestLegacyMacroKeyParserHandlesCompatibilityNames(t *testing.T) {
-	kind, binding, ok := parseLegacyMacroKeyBinding("undo")
-	if !ok || kind != legacyMacroKey || binding.Name != "undo" {
-		t.Fatalf("undo binding = (%v, %#v, %t), want legacy key", kind, binding, ok)
+	kind, binding, ok := parseLegacyMacroKeyBinding("escape")
+	if !ok || kind != legacyMacroKey || binding.Name != "escape" {
+		t.Fatalf("escape binding = (%v, %#v, %t), want legacy key", kind, binding, ok)
 	}
 	kind, binding, ok = parseLegacyMacroKeyBinding("wnumpad-1")
 	if !ok || kind != legacyMacroKey || binding.Name != "1" || binding.Modifiers != legacyMacroModNumpad {
