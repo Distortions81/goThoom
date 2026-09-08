@@ -56,8 +56,8 @@ and verifies that a new folder is readable and writable before saving it.
 - **Movement:** Left-click in the game view to walk toward the cursor.
 - **Chat:** The input bar is open by default: type and press Enter to send.
   Escape closes it; Enter reopens it. Up and Down browse message history.
-- **Windows:** Use **Settings → Display → Windows** to show or hide Players,
-  Inventory, Chat, Console, and Help. The **Actions** toolbar menu opens
+- **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
+  Players, Inventory, Chat, and Console panes. The **Actions** toolbar menu opens
   Hotkeys, Shortcuts, scripts, macros, and saved data.
 - **Inventory:** Click to select, double-click to equip or unequip, and
   Shift-double-click to use. Right-click for more actions.
@@ -156,13 +156,10 @@ or **Block all** to deny it and disable the script. Commands, key bindings,
 server commands, data/events, movement, UI, input, notifications, storage, and
 background timers have separate controls. Use **Info → Permissions** to change
 these later. Decisions are saved separately in `Scripts/permissions.json`.
-The Scripts title names the player its **Player** checkboxes apply to. Select a
-saved player on Login to configure their enablement; with no selection, the
-Player checkboxes are disabled. **All** means enabled for all players. Every
-enabled script starts fresh at successful login and stops at logout, regardless
-of that setting. No scripts run at Login. Variables, timers, callbacks, and
-script windows do not carry across sessions. Only explicitly stored data
-(`gt2.Store`) persists; character-specific storage needs character-specific keys.
+Use **Player** to enable a script for the character named in the Scripts window,
+or **All** to enable it for every character. Scripts run during a logged-in
+session. For setup, permission choices, and examples, see the
+[automation manual](https://gothoom.m45sci.xyz/help/automation.html).
 Scripts may be a single `.go` file, a folder with assets, or a ZIP package. The
 embedded examples are copied to an empty `Scripts` folder in the user data
 directory and never replace existing scripts.
@@ -170,14 +167,6 @@ directory and never replace existing scripts.
 Script-author documentation lives in
 [source/script_library/README.md](source/script_library/README.md), with the complete API in
 [source/gt2/API_REFERENCE.md](source/gt2/API_REFERENCE.md).
-
-The bundled **Follow Player** example opens its own script-created window with
-Follow and Stop Follow buttons plus live target/activity status. It aims behind
-a visible player, maintains spacing, routes around mobiles, and wiggles when
-stuck. Manual movement cancels following. `/follow Player Name`, `/stopfollow`,
-and `/followui` also control it. See the
-[script guide](source/script_library/README.md#follow-player-example) for setup
-and the limits of scenery-based navigation.
 
 For VS Code completion and type checking, download
 [`goThoom-Script-Template.zip`](https://github.com/Distortions81/goThoom/releases/latest/download/goThoom-Script-Template.zip)

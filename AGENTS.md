@@ -12,6 +12,32 @@
 - Preserve unrelated user changes in a dirty worktree.
 - Do not increment versions in `GT_Players.json`, `settings.json`, or
   `characters.json`; those are updated manually.
+- When a UI defect comes from shared sizing, layout, or rendering behavior,
+  fix it in EUI and add a focused regression check there. Prefer reusable
+  content sizing and layout rules over per-window width or spacing patches,
+  so other windows and future controls benefit from the same fix. Keep
+  application-specific layout choices in the client.
+
+## UI and documentation writing
+
+- Write for the reader's immediate task and the state they can see. Explain
+  what happens next, the scope of a choice, or a useful tradeoff when it helps
+  them decide or act.
+- Describe the current product. Leave out implementation history, previous
+  behavior, and explanations of internal fixes unless a user needs that
+  information to complete a migration or resolve a specific problem.
+- Keep edge cases where they matter: explain an unavailable action in that
+  action's disabled state or in troubleshooting, not in every general guide
+  or screenshot of a working state.
+- Screenshot callouts must add understanding beyond the control's caption.
+  Omit the box when there is no useful explanation to add. Do not generate
+  filler instructions describing basic button or checkbox operation.
+- Put specialized workflows in their own guide. Keep the player manual focused
+  on ordinary client use; put scripting examples and authoring details in the
+  automation documentation.
+- Apply these principles to UI labels and tooltips, help pages, README content,
+  and changelogs. Release notes should describe the result users receive, not
+  the development conversation or intermediate implementation choices.
 
 ## Project layout
 

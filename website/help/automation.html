@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#081019">
+    <meta name="description" content="The complete goThoom user manual: setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+
+    <title>Macros, scripts &amp; hotkeys — goThoom manual</title>
+    <link rel="canonical" href="https://gothoom.m45sci.xyz/help/automation.html">
+    <link rel="icon" type="image/png" href="../mark.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="manual.css">
+
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="goThoom user manual">
+    <meta property="og:description" content="Setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+    <meta property="og:url" content="https://gothoom.m45sci.xyz/help/automation.html">
+    <meta property="og:image" content="https://gothoom.m45sci.xyz/og.png">
+  </head>
+  <body class="manual-page">
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="goThoom home">
+        <img src="../mark.png" width="42" height="42" alt="">
+        <span>goThoom</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="../index.html#features">Features</a>
+        <a href="../index.html#platforms">Platforms</a>
+        <a href="../downloads.html">Downloads</a>
+        <a href="/accounts">Accounts</a>
+        <a href="./" aria-current="page">Help</a>
+        <a href="https://discord.gg/47s254CbZB" target="_blank" rel="noopener noreferrer">Discord</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top" class="manual-main help-guide">
+      <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html" aria-current="page">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
+      <h1>Macros, scripts &amp; hotkeys</h1>
+      <!-- help-metadata --><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 8, 2026</p><!-- /help-metadata -->
+      <p class="help-guide-intro">Use a key for a common action, expand a command while typing, install a classic macro package, or write a script that responds to the game. Start with the smallest tool that covers the task.</p>
+      <details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#automation">Choose a tool</a><a href="#hotkeys">Hotkeys and context</a><a href="#text-shortcuts">Text shortcuts</a><a href="#go-scripts">Go scripts</a><a href="#script-permissions">Permissions</a><a href="#legacy-macros">Legacy macros</a><a href="#binding-conflicts">Troubleshooting</a></nav></details>
+      <p><a href="./#help-search">Search all help topics</a> · <a href="reference.html">Visual control reference</a></p>
+      <article class="manual-content">          <section id="automation" class="manual-section">
+            <p class="manual-kicker">Choose an automation tool</p>
+            <h2 id="automate-at-the-level-you-need">Automate at the level you need</h2>
+
+            <div class="manual-table-wrap"><table><thead><tr><th>You want to…</th><th>Use</th><th>Example</th></tr></thead><tbody>
+              <tr><td>Run a command with a key</td><td>Hotkeys</td><td>Ask for information about the selected player.</td></tr>
+              <tr><td>Type a shorter first word</td><td>Shortcuts</td><td>Expand <code>pp</code> into <code>/ponder</code>.</td></tr>
+              <tr><td>React to events, track state, or create controls</td><td>Go scripts</td><td>Reply to a ferryman’s offer with Yes Boats.</td></tr>
+              <tr><td>Use an existing classic macro library</td><td>Legacy Macros</td><td>Load a familiar <code>.mac</code> package.</td></tr>
+            </tbody></table></div>
+
+            </section><section id="hotkeys" class="manual-section"><h2 id="hotkeys-2">Hotkeys</h2>
+            <p>Open <strong>Actions → Hotkeys</strong> and press <strong>+</strong>. Give the hotkey a name, choose <strong>Record</strong>, press the desired keyboard or mouse combination, and add one or more commands. Script-provided hotkeys appear in the same window and can be individually enabled or disabled.</p>
+            <p>Use <strong>Actions → Keybindings</strong> to inspect active script and legacy-macro bindings in one place. <strong>Test Keyboard/Mouse</strong> shows the input names the client detects and helps diagnose unusual keyboards or mouse buttons.</p>
+
+            <h3 id="hotkey-recipe">Create a hotkey for the selected player</h3>
+            <ol>
+              <li>Open <strong>Actions → Hotkeys</strong> and press <strong>+</strong>.</li>
+              <li>Give it a recognizable name, such as “Info about selected player”.</li>
+              <li>Choose <strong>Record</strong> and press the key combination you want.</li>
+              <li>Enter <code>/info @selected.player</code> as the command and press <strong>OK</strong>.</li>
+              <li>Select someone in Players, then press your new binding while the client has focus.</li>
+              <li>If the wrong action runs, inspect <strong>Actions → Keybindings</strong> for another owner using the same combination. Use <strong>Test Keyboard/Mouse</strong> to see the actual input names.</li>
+            </ol>
+            <p>Context values are resolved when the action runs. A command using <code>@selected.player</code> needs a selected player; one using <code>@selected.item</code> needs a selected inventory item.</p>
+
+            <!-- help-figure:hotkey-editor -->
+<figure class="help-figure" data-screen="hotkey-editor">
+  <div class="help-image" style="max-width:440px">
+    <img src="images/hotkey-editor.png" width="440" height="200" loading="lazy" decoding="async" alt="Create a hotkey. Highlighted controls: Command.">
+<div class="help-highlights"><span class="help-highlight" style="left:4.5455%;top:58.0000%;width:81.8182%;height:10.0000%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Hotkeys → +</strong>
+<ol class="help-legend"><li><b>1</b><p>The selected player is resolved when you press the hotkey, not when you save it. This example can therefore inspect any player you select, using the same binding each time. It needs a selection in Players; the player beneath the pointer is a different context value.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/hotkey-editor.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+            </section><section id="text-shortcuts" class="manual-section"><h2 id="text-shortcuts-2">Text shortcuts</h2>
+            <p>Shortcuts expand the first word of an outgoing input line. For example, mapping <code>pp</code> to <code>/ponder </code> turns <code>pp hello</code> into <code>/ponder hello</code>. Shortcuts can be global, character-specific, or provided by a running script.</p>
+
+            <h3 id="shortcut-recipe">Create a shortcut for a longer command</h3>
+            <ol><li>Open <strong>Actions → Shortcuts</strong>.</li><li>Choose <strong>Add for character</strong> for one character’s expansion or <strong>Add For All</strong> for a shared expansion.</li><li>Enter <code>pp</code> as the shortcut and <code>/ponder </code> as the expansion, then save it.</li><li>In chat input, type <code>pp hello</code> and send. Only the first word is expanded, producing <code>/ponder hello</code>.</li></ol>
+            <!-- help-figure:shortcut-editor -->
+<figure class="help-figure" data-screen="shortcut-editor">
+  <div class="help-image" style="max-width:520px">
+    <img src="images/shortcut-editor.png" width="520" height="128" loading="lazy" decoding="async" alt="Create a text shortcut. Highlighted controls: Expansion.">
+<div class="help-highlights"><span class="help-highlight" style="left:20.0000%;top:53.1250%;width:76.9231%;height:15.6250%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Shortcuts → Add For All</strong>
+<ol class="help-legend"><li><b>1</b><p>Shortcuts expand the first word when you send a line. With this example, “pp hello” becomes “/ponder hello”; “hello pp” is not expanded. Choose a short word you are unlikely to start an ordinary message with by accident.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/shortcut-editor.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+            </section><section id="go-scripts" class="manual-section"><h2 id="go-scripts-2">Go scripts</h2>
+            <p>Open <strong>Actions → Scripts</strong>. The <strong>Player</strong> checkbox enables a script only for the selected character; <strong>All</strong> enables it for every character. These choices are mutually exclusive. The information button shows metadata, validation or runtime errors, and actions available for that package.</p>
+            <ol>
+              <li>Use <strong>Open scripts folder</strong> and add a single <code>.go</code> file, a package folder, or a ZIP package.</li>
+              <li>If the Scripts folder is empty, goThoom seeds it with embedded examples. Existing files are never overwritten.</li>
+              <li>Press <strong>Refresh</strong> to rescan immediately. Enabled scripts normally reload when their files change.</li>
+              <li>If a reload fails, inspect the script’s information panel and Console. The last working copy continues when possible.</li>
+            </ol>
+            <p>Scripts can add commands, hotkeys, shortcuts, notifications, configuration fields, and toolbar controls. They run locally but can issue commands as your character, so read unfamiliar code before enabling it. Use <strong>Actions → Saved Data</strong> to inspect or clear script-owned persistent data.</p>
+            <p>For writing scripts, use the generated <code>README.md</code> and <code>gt2/API_REFERENCE.md</code> in the Scripts folder or read the <a href="https://github.com/Distortions81/goThoom/blob/main/source/script_library/README.md">online scripting guide</a>. The release page also provides a VS Code script template.</p>
+
+            <h3 id="first-go-script">Write a small local command</h3>
+<p>A script can respond to a local command without sending anything to the server. This is a useful first experiment because you can see whether the script loaded before adding game actions.</p>
+<ol><li>In Scripts, use <strong>Open scripts folder</strong>. Create a plain-text file named <code>hello.go</code> in your editor.</li><li>Paste this example and save it. Keep the build line as the first line.</li></ol>
+<pre><code>//go:build script
+
+package main
+
+import "gt2"
+
+const scriptID = "my-first-local-command"
+const scriptName = "Local Greeting"
+const scriptAPIVersion = 2
+
+func Init() {
+    gt2.Command("hello", func(args string) {
+        gt2.Print("Hello " + args)
+    })
+}</code></pre>
+<ol start="3"><li>Refresh the Scripts list, enable Local Greeting, and review its command-registration permission.</li><li>Log in, then type <code>/hello world</code>. The response appears in Console.</li><li>Edit the greeting, save the file, and check the script’s status. Use Reload if needed, then try the command again.</li></ol>
+<p><code>gt2.Print</code> writes local output. <code>gt2.Send</code> sends text or commands as your character and requires a separate server-command grant. Do not substitute one for the other when you only want to display a status message.</p>
+<p>Keep a script’s ID stable when editing it: its saved settings and storage use that identity. Give a new, independent script a new ID. The <a href="https://github.com/Distortions81/goThoom/blob/main/source/script_library/README.md">script-author guide</a> covers complete examples, and the <a href="https://github.com/Distortions81/goThoom/blob/main/source/gt2/API_REFERENCE.md">API reference</a> lists available functions and types.</p>
+<h3 id="script-permissions">Enable a script and review its permissions</h3>
+<p>The screenshots use <strong>Yes Boats</strong>, a simple script that whispers “yes” when a ferryman’s boat offer mentions your character. It reads NPC messages and your character’s name, then sends the reply. Those actions explain why it requests chat, game-data, and server-command access.</p>
+            <ol>
+              <li>Open <strong>Actions → Scripts</strong>. Use <strong>Open scripts folder</strong> to add the file or package, then <strong>Refresh</strong>.</li>
+              <li>Check <strong>Player</strong> for the character named in the window title, or <strong>All</strong> to enable it for every character.</li>
+              <li>On first enable, review the permission window. Requested capabilities start checked. A greyed-out capability has no corresponding API reference in this source.</li>
+              <li>Uncheck any requested capability you do not want to grant. Press <strong>Grant</strong> to save the choices, or <strong>Block all</strong> to deny access and disable the script.</li>
+              <li>Log in to run an enabled script. Selecting it at Login configures enablement; it does not run there.</li>
+              <li>Open the script’s <strong>Info → Permissions</strong> later to inspect or change access. Use Info to validate, reload, stop, or inspect errors.</li>
+            </ol>
+            <!-- help-figure:scripts -->
+<figure class="help-figure" data-screen="scripts">
+  <div class="help-image" style="max-width:656px">
+    <img src="images/scripts.png" width="656" height="656" loading="lazy" decoding="async" alt="Enable scripts for a character.">
+
+  </div>
+  <figcaption><strong>Actions → Scripts</strong>
+
+    <div class="help-image-actions"><a href="images/scripts.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure --><!-- help-figure:permissions -->
+<figure class="help-figure" data-screen="permissions">
+  <div class="help-image" style="max-width:556px">
+    <img src="images/permissions.png" width="556" height="496" loading="lazy" decoding="async" alt="Grant script permissions. Highlighted controls: Send server commands; Grant.">
+<div class="help-highlights"><span class="help-highlight" style="left:2.8777%;top:33.0645%;width:93.5252%;height:4.8387%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:3.5971%;top:91.1290%;width:17.9856%;height:5.6452%" aria-hidden="true"><b>2</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Scripts → Info → Permissions</strong>
+<ol class="help-legend"><li><b>1</b><p>Yes Boats sends a whisper as your character when it recognizes a boat offer addressed to you. This permission allows that reply; reading the offer and checking your character’s name require separate chat and game-data grants.</p></li><li><b>2</b><p>Grant saves only the checked capabilities, and the decision applies to this script across characters. Unchecking something does not automatically adapt the script: a feature that depends on the denied capability may no longer work. Reopen Info → Permissions to change your decision; Block all also disables the script.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/permissions.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+            <p>Grants apply to that script across characters and are saved in <code>Scripts/permissions.json</code>. Enablement is stored separately in <code>enabled.json</code>. A partial grant may prevent some features from working; the script must be written to handle that.</p>
+            <div class="manual-table-wrap"><table><thead><tr><th>Permission</th><th>What you are allowing</th></tr></thead><tbody>
+              <tr><td>Register commands and shortcuts</td><td>Add commands and first-word expansions inside the client.</td></tr>
+              <tr><td>Bind keys and mouse buttons</td><td>Respond to bindings and consume their input.</td></tr>
+              <tr><td>Send server commands</td><td>Send text or commands as your character, including equipment actions.</td></tr>
+              <tr><td>Game data and events</td><td>Read players, inventory, selections, vitals, and visible scenery updates.</td></tr>
+              <tr><td>Chat and server messages</td><td>Read incoming messages, including private messages.</td></tr>
+              <tr><td>Automatic movement</td><td>Steer the character through the movement pointer.</td></tr>
+              <tr><td>Windows, toolbars and overlays</td><td>Create local controls and draw overlays.</td></tr>
+              <tr><td>Input box and pointer</td><td>Inspect the pointer and read or replace unsent input.</td></tr>
+              <tr><td>Notifications and sound</td><td>Show notifications or play sounds.</td></tr>
+              <tr><td>Persistent script storage</td><td>Keep that script’s saved values between sessions.</td></tr>
+              <tr><td>Background timers</td><td>Run repeating callbacks without a command or hotkey.</td></tr>
+              <tr><td>Session events</td><td>React to login, logout, character changes, and stopping.</td></tr>
+            </tbody></table></div>
+            <h3 id="script-saved-data">Know what a script can remember</h3>
+<p>Normal Go variables belong to the running script instance. Saved configuration and values deliberately written through <code>gt2.Store</code> can outlive that instance. Use <strong>Actions → Saved Data</strong> to inspect script-owned persistent values when troubleshooting a script that keeps restoring an unexpected choice.</p>
+<p>Stored values are private to one script but shared across its characters. For example, a reminder that belongs to one character needs that character’s normalized name in its storage key. Read character-specific data only after the character is known. A repeating timer does not survive logout or a restart; save a due date and check it in the next session if the reminder must survive.</p>
+<h3 id="script-lifecycle">Understand when scripts run and stop</h3>
+            <p>Enabled scripts start when you log in and stop when you log out. Your next login starts a new instance. Use persistent storage for values that need to survive between sessions.</p>
+            <p>Only data deliberately saved through script storage persists. That storage is private to the script but shared across its characters; script authors must use character-specific keys for character-specific data. For authoring details, read the <a href="https://github.com/Distortions81/goThoom/blob/main/source/script_library/README.md">scripting guide</a> and <a href="https://github.com/Distortions81/goThoom/blob/main/source/gt2/API_REFERENCE.md">API reference</a>.</p>
+            <h3 id="script-errors">Recover from a script error</h3>
+            <ol>
+              <li>Open the script’s Info panel and read the status and error. <strong>Copy Error</strong> helps include the exact message in a report.</li>
+              <li>Use <strong>Validate</strong> to check the source. Correct syntax or API problems before retrying.</li>
+              <li>If status says permissions are required, use <strong>Permissions</strong> to review the current source’s access.</li>
+              <li>Use <strong>Reload</strong> when enabled. A failed reload can leave the older working copy running; the status says when that happened.</li>
+              <li>Use <strong>Stop</strong> to disable the script if it is not behaving as expected. Log out to end all session scripts.</li>
+            </ol>
+            <!-- help-figure:script-info -->
+<figure class="help-figure" data-screen="script-info">
+  <div class="help-image" style="max-width:900px">
+    <img src="images/script-info.png" width="900" height="556" loading="lazy" decoding="async" alt="Review a script. Highlighted controls: Reload.">
+<div class="help-highlights"><span class="help-highlight" style="left:61.7778%;top:91.3669%;width:10.6667%;height:5.0360%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Scripts → Info</strong>
+<ol class="help-legend"><li><b>1</b><p>A reload can fail while the previous working copy continues running. Read the status and error before assuming your edited code is active. Validate can help find source problems; if the change requests additional access, review Permissions before trying again.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/script-info.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+
+            </section><section id="legacy-macros" class="manual-section"><h2 id="legacy-macros-2">Legacy macros</h2>
+            <p>Open <strong>Actions → Legacy Macros</strong>. Like scripts, a macro can be enabled for the selected player or globally. Use the information button for its description and diagnostics, <strong>Refresh</strong> after adding or renaming files, and <strong>Reload Macros</strong> after editing enabled macros.</p>
+            <p>Add personal <code>.mac</code> files to <code>Macros/Library</code> in the user data directory. Embedded examples populate an empty library without replacing your work. Leave <strong>Allow continuous macros</strong> off unless a trusted classic macro intentionally loops without pausing or producing output; the default execution limit protects the client from runaway macros.</p>
+
+<h3 id="install-legacy-macro">Install an existing legacy macro</h3>
+<ol><li>Open <strong>Settings → Files → Open User Data Folder</strong> and locate <code>Macros/Library</code>. If you configured an alternate macro folder, use that location.</li><li>Copy the macro’s <code>.mac</code> file and any accompanying files into the library, preserving relative folder paths. An include file is part of the package, not necessarily a second macro to enable.</li><li>Open <strong>Actions → Legacy Macros</strong> and use <strong>Refresh</strong> so new or renamed files appear.</li><li>Open its information panel. Read the description and available diagnostics, then enable it for the intended player or for all players.</li><li>Try the trigger named in the macro’s documentation. If a binding collides with a hotkey or script, use Actions → Keybindings to inspect its owner.</li></ol>
+<p>Refreshing the library and reloading active macros solve different problems. Refresh discovers files; use <strong>Reload Macros</strong> after changing the contents of an enabled macro. If the package cannot load, examine its information panel and Console rather than repeatedly pressing its trigger.</p>
+<h3 id="edit-macro-triggers">Change a macro’s commands or keybindings</h3>
+<p>Use <strong>Commands</strong> or <strong>Keybinds</strong> on a row in <strong>Actions → Legacy Macros</strong>. Commands edits what you type to start a macro or expand an abbreviation; it does not change the text sent by the macro. Keybinds changes which key, mouse button, or wheel action starts it.</p>
+<!-- help-figure:legacy-macros -->
+<figure class="help-figure" data-screen="legacy-macros">
+  <div class="help-image" style="max-width:948px">
+    <img src="images/legacy-macros.png" width="948" height="576" loading="lazy" decoding="async" alt="Legacy macro library.">
+
+  </div>
+  <figcaption><strong>Actions → Legacy Macros</strong>
+
+    <div class="help-image-actions"><a href="images/legacy-macros.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<ol><li>Open the editor for the macro you want to customize. Each entry shows its current trigger and source file. Included files can be shared by several macros, so changes to those files affect every macro that includes them.</li><li>For a command, edit the trigger text. For a keybinding, click <strong>Record</strong>, release the click, then press the replacement key or click with the desired modifiers. Escape cancels recording; you can also type a binding such as <code>Control-F6</code> directly.</li><li>Use <strong>Reset</strong> to undo an unsaved change to one entry, or <strong>Cancel</strong> to discard all edits in the window.</li><li>Press <strong>Save</strong>. The client validates the edited source, rejects conflicting triggers within the macro and its includes, saves the changes, and reloads enabled macros. If another editor changed the files while this window was open, reopen the window before trying again.</li></ol>
+<p>Changes apply to the macro file for every character using it. Comments, macro bodies, and surrounding formatting stay in place. Use the row’s <strong>Edit</strong> button when you want to change what the macro actually does.</p>
+<!-- help-figure:macro-commands -->
+<figure class="help-figure" data-screen="macro-commands">
+  <div class="help-image" style="max-width:776px">
+    <img src="images/macro-commands.png" width="776" height="516" loading="lazy" decoding="async" alt="Edit macro command triggers.">
+
+  </div>
+  <figcaption><strong>Actions → Legacy Macros → Commands</strong>
+
+    <div class="help-image-actions"><a href="images/macro-commands.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<!-- help-figure:macro-keybinds -->
+<figure class="help-figure" data-screen="macro-keybinds">
+  <div class="help-image" style="max-width:776px">
+    <img src="images/macro-keybinds.png" width="776" height="516" loading="lazy" decoding="async" alt="Edit macro keybindings.">
+
+  </div>
+  <figcaption><strong>Actions → Legacy Macros → Keybinds</strong>
+
+    <div class="help-image-actions"><a href="images/macro-keybinds.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<h3 id="first-legacy-macro">Make a one-key macro</h3>
+<p>Save the following plain text as <code>look.mac</code> inside your macro library:</p>
+<pre><code>// Metadata
+// Name: Look Around
+// Desc: Sends /look when F6 is pressed.
+
+f6 "/look\r"</code></pre>
+<p>Refresh the library and enable Look Around. While connected, F6 sends <code>/look</code>. The trigger is outside the quotes; the quoted text is what the macro enters. The <code>\r</code> at the end submits the line. If you want to review or add to a line before sending it, leave off that final submit sequence.</p>
+<p>The metadata comments make the entry identifiable in the library. They do not change execution. Use a free binding while testing, and edit or disable this example if you already use F6 for another action. The <a href="https://github.com/Distortions81/goThoom/blob/main/source/testdata/legacy_macros/web/METADATA.md">metadata format</a> and bundled examples provide starting points for a larger package.</p>
+<h3 id="macro-loops">Why a looping macro may be stopped</h3>
+<p>Some old macros deliberately loop without waiting or producing output. The client normally limits that behavior to avoid an unresponsive or runaway macro. Enable <strong>Allow continuous macros</strong> only when you understand why a particular package needs it. A macro failing immediately with a syntax or missing-include error is not fixed by allowing continuous execution.</p>
+</section>
+<section id="binding-conflicts" class="manual-section"><h2 id="find-why-an-action-did-not-run">Find why an action did not run</h2>
+<div class="manual-table-wrap"><table><thead><tr><th>Symptom</th><th>What to check</th></tr></thead><tbody>
+<tr><td>The key runs a different action</td><td>Inspect Actions → Keybindings. Check the owner and look for a legacy macro, script, or hotkey using the same input.</td></tr>
+<tr><td>The key is never recognized</td><td>Focus the client and use Test Keyboard/Mouse. Record the name the client receives; physical key labels and detected input names can differ.</td></tr>
+<tr><td>The wrong player or item is used</td><td>Check whether the command uses selected, hovered, or last-clicked context. Those are different values.</td></tr>
+<tr><td>The script is enabled but idle at Login</td><td>That is expected: scripts run after a successful login. Confirm Player applies to the character you intend to connect.</td></tr>
+<tr><td>Only part of a script works</td><td>Review permissions and the script’s configuration. Registering a command, reading game data, moving, and sending server text are separate capabilities.</td></tr>
+<tr><td>Editing a macro changes nothing</td><td>Reload Macros after saving. Refresh is for discovering files. For Go scripts, read Info for reload errors and whether the old copy is still active.</td></tr>
+</tbody></table></div>
+<p>When reporting a problem, include the package name, trigger, selected character, permissions relevant to the feature, and the exact error. The <a href="./#diagnostics-recipe">diagnostics guide</a> explains where to find logs.</p>
+</section>
+</article>
+      <p class="help-guide-end"><a href="#top">Back to top</a> · <a href="./">Player manual</a></p>
+    </main><script src="manual.js" defer></script></body></html>

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#081019">
+    <meta name="description" content="The complete goThoom user manual: setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+
+    <title>Visual control reference — goThoom</title>
+    <link rel="canonical" href="https://gothoom.m45sci.xyz/help/reference.html">
+    <link rel="icon" type="image/png" href="../mark.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="manual.css">
+
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="goThoom user manual">
+    <meta property="og:description" content="Setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+    <meta property="og:url" content="https://gothoom.m45sci.xyz/help/reference.html">
+    <meta property="og:image" content="https://gothoom.m45sci.xyz/og.png">
+  </head>
+  <body class="manual-page">
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="goThoom home">
+        <img src="../mark.png" width="42" height="42" alt="">
+        <span>goThoom</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="../index.html#features">Features</a>
+        <a href="../index.html#platforms">Platforms</a>
+        <a href="../downloads.html">Downloads</a>
+        <a href="/accounts">Accounts</a>
+        <a href="./" aria-current="page">Help</a>
+        <a href="https://discord.gg/47s254CbZB" target="_blank" rel="noopener noreferrer">Discord</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top" class="manual-main help-reference">
+      <nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="reference.html" aria-current="page">UI reference</a></nav>
+      <a class="back-link" href="./">← Back to the step-by-step manual</a>
+      <h1>Visual control reference</h1><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 8, 2026</p>
+      <p>Real client windows, with explanations of behavior and tradeoffs that are easy to miss. These examples use the default theme and illustrative data. Installed voices, resources, and your settings may change what is available.</p>
+      <p>Numbered callouts explain when an option helps, what it affects, and why it may behave unexpectedly. Straightforward controls are left unboxed. Expand menu options and slider ranges when you need values that are not visible in the screenshot.</p>
+      <details class="help-reference-nav" open><summary>Jump to a window</summary><nav aria-label="Reference windows"><a href="#settings-display">Settings: Display</a><a href="#settings-world">Settings: World</a><a href="#settings-text">Settings: Text</a><a href="#settings-bubbles">Settings: Bubbles</a><a href="#settings-audio">Settings: Audio</a><a href="#settings-tts">Settings: TTS</a><a href="#settings-controls">Settings: Controls</a><a href="#settings-performance">Settings: Performance</a><a href="#performance-artwork">Performance: Artwork</a><a href="#performance-motion">Performance: Motion</a><a href="#performance-lighting---effects">Performance: Lighting &amp; Effects</a><a href="#performance-caching">Performance: Caching</a><a href="#performance-power-saving">Performance: Power Saving</a><a href="#settings-network">Settings: Network</a><a href="#settings-files">Settings: Files</a><a href="#settings-tools">Settings: Tools</a><a href="#tiled-layout">Arrange tiled windows</a><a href="#tiled-separate">Separate message panes</a><a href="#add-character">Add a character</a><a href="#mixer">Audio mixer</a><a href="#notifications">Notification settings</a><a href="#speech-bubbles">Speech bubble settings</a><a href="#snapshot">Take a screenshot</a><a href="#file-paths">Change file locations</a><a href="#hotkey-editor">Create a hotkey</a><a href="#shortcut-editor">Create a text shortcut</a><a href="#gamepad">Gamepad (work in progress)</a><a href="#legacy-macros">Legacy macro library</a><a href="#macro-commands">Edit macro command triggers</a><a href="#macro-keybinds">Edit macro keybindings</a><a href="#scripts">Enable scripts for a character</a><a href="#script-info">Review a script</a><a href="#permissions">Grant script permissions</a></nav></details>
+      <article class="manual-content"><section class="manual-section" id="settings-display"><h2>Settings: Display</h2>
+<figure class="help-figure" data-screen="settings-display">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-display.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Display. Highlighted controls: UI Scale; Reset Windows.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:18.1564%;width:32.8418%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:26.5363%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Display</strong>
+<ol class="help-legend"><li><b>1</b><p>Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply.</p></li><li><b>2</b><p>Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-display.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">UI Scale</th><td>0.75–4</td></tr><tr><th scope="row">Toolbar Placement</th><td>Inside Inventory · Inside Players</td></tr><tr><th scope="row">Color Theme</th><td>AccentDark · AccentLight · Arcade · Candy · Coffee · Dusk · Forest · HighContrast · Midnight · NeonNight · Paper · SeaGlass</td></tr><tr><th scope="row">Style Theme</th><td>Borderless · Breeze · Flat · HighContrast · Outline · Rounded</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-world"><h2>Settings: World</h2>
+<figure class="help-figure" data-screen="settings-world">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-world.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: World. Highlighted controls: Show recently on-screen group; Show sharing icons in Players list.">
+<div class="help-highlights"><span class="help-highlight" style="left:51.3405%;top:62.8492%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:51.3405%;top:71.2291%;width:44.9062%;height:3.9106%" aria-hidden="true"><b>2</b></span></div>
+  </div>
+  <figcaption><strong>Settings → World</strong>
+<ol class="help-legend"><li><b>1</b><p>This keeps recently seen players easy to select after they leave the view. Being listed here does not mean a player is still on screen. Use the group to find a familiar name again, but check the game view before assuming they are still nearby.</p></li><li><b>2</b><p>Names already indicate sharing: an underline means you share with that player, bold means they share with you, and both styles mean mutual sharing. This option adds icons without replacing those styles. Hover an icon if its direction is unclear. Italics indicate a clanmate and can appear with any sharing style.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-world.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Status bar opacity</th><td>0.1–1</td></tr><tr><th scope="row">Max Night Level</th><td>0–100</td></tr><tr><th scope="row">Name Background Opacity</th><td>0–1</td></tr><tr><th scope="row">Player Health Display</th><td>Color bar · Classic name color</td></tr><tr><th scope="row">Color Bar Position</th><td>Above name · Below name</td></tr><tr><th scope="row">Modern Bar Thickness</th><td>1–8</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-text"><h2>Settings: Text</h2>
+<figure class="help-figure" data-screen="settings-text">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-text.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Text. Highlighted controls: Chat Window Font Size.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:43.8547%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Text</strong>
+<ol class="help-legend"><li><b>1</b><p>Chat, Console, overhead names, and speech bubbles have independent font sizes. If you separate Chat from Console and one looks smaller, adjust its own slider. Enlarging chat text also wraps lines sooner, so a wider message pane may make more difference than increasing the font again.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-text.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Name Font Size</th><td>5–48</td></tr><tr><th scope="row">Inventory Font Size</th><td>5–48</td></tr><tr><th scope="row">Players List Font Size</th><td>5–48</td></tr><tr><th scope="row">Console Font Size</th><td>4–48</td></tr><tr><th scope="row">Chat Window Font Size</th><td>4–48</td></tr><tr><th scope="row">Chat Bubble Font Size</th><td>4–48</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-bubbles"><h2>Settings: Bubbles</h2>
+<figure class="help-figure" data-screen="settings-bubbles">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-bubbles.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Bubbles. Highlighted controls: Bubble Lifetime.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:26.2570%;width:32.1716%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Bubbles</strong>
+<ol class="help-legend"><li><b>1</b><p>Modern mode adds reading time for each word, so a long sentence stays longer than a short one. Increase the base time if even short messages vanish too soon; increase the per-word time if only long messages are difficult to finish. Classic mode uses a fixed lifetime instead.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-bubbles.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Bubble Opacity</th><td>0–1</td></tr><tr><th scope="row">Bubble Lifetime</th><td>Modern · Classic</td></tr><tr><th scope="row">Modern Base Life (s)</th><td>1–5</td></tr><tr><th scope="row">Modern Life per Word (s)</th><td>0–2</td></tr><tr><th scope="row">Bubble Scale</th><td>1–8</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-audio"><h2>Settings: Audio</h2>
+<figure class="help-figure" data-screen="settings-audio">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-audio.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Audio. Highlighted controls: Music SoundFont.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:14.8045%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Audio</strong>
+<ol class="help-legend"><li><b>1</b><p>A SoundFont supplies the instrument sounds used for bard music. Changing it can change how the same tune sounds; it does not replace game sound effects or a Piper speaking voice. If the menu is empty, install a SoundFont through Files → Download Files.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-audio.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Sound effect ambience</th><td>0.1–10</td></tr><tr><th scope="row">Bard music ambience</th><td>0.1–2</td></tr><tr><th scope="row">Music Buffer (s)</th><td>1–10</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-tts"><h2>Settings: TTS</h2>
+<figure class="help-figure" data-screen="settings-tts">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-tts.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: TTS. Highlighted controls: TTS Voice.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:29.6089%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → TTS</strong>
+<ol class="help-legend"><li><b>1</b><p>The voice menu is populated from installed Piper models. The empty menu in this example means a usable voice has not been found; enabling speech alone does not provide one. Download the TTS files, select a voice, then test a sentence before relying on spoken chat. The Audio mixer controls speech volume separately.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-tts.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">TTS Speed</th><td>0.5–2</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-controls"><h2>Settings: Controls</h2>
+<figure class="help-figure" data-screen="settings-controls">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-controls.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Controls. Highlighted controls: Input bar always open.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:18.7151%;width:92.4933%;height:3.9106%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Controls</strong>
+<ol class="help-legend"><li><b>1</b><p>With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-controls.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Keyboard Walk Speed</th><td>0.1–1</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-performance"><h2>Settings: Performance</h2>
+<figure class="help-figure" data-screen="settings-performance">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-performance.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Performance. Highlighted controls: Quality preset.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:14.8045%;width:32.1716%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Performance</strong>
+<ol class="help-legend"><li><b>1</b><p>A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-performance.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Quality preset</th><td>Lowest · Low · Medium · High · Ultra · Custom</td></tr><tr><th scope="row">Artwork scale override</th><td>2–4</td></tr><tr><th scope="row">Artwork upscale style</th><td>Off · Crisp · Balanced · Smooth · Ultra Smooth</td></tr><tr><th scope="row">Obscuring Object Opacity</th><td>0.25–0.7</td></tr><tr><th scope="row">Sprite Gamma</th><td>1.8–2.4</td></tr><tr><th scope="row">Monitor Gamma</th><td>1.8–2.4</td></tr><tr><th scope="row">Sharpness</th><td>0–100</td></tr><tr><th scope="row">Denoise strength</th><td>0–50</td></tr></tbody></table></div></details></section><section class="manual-section" id="performance-artwork"><h2>Performance: Artwork</h2>
+<figure class="help-figure" data-screen="performance-artwork">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-artwork.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Artwork.">
+
+  </div>
+  <figcaption><strong>Settings → Performance → Artwork</strong>
+
+    <div class="help-image-actions"><a href="images/performance-artwork.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Quality preset</th><td>Lowest · Low · Medium · High · Ultra · Custom</td></tr><tr><th scope="row">Artwork scale override</th><td>2–4</td></tr><tr><th scope="row">Artwork upscale style</th><td>Off · Crisp · Balanced · Smooth · Ultra Smooth</td></tr><tr><th scope="row">Obscuring Object Opacity</th><td>0.25–0.7</td></tr><tr><th scope="row">Sprite Gamma</th><td>1.8–2.4</td></tr><tr><th scope="row">Monitor Gamma</th><td>1.8–2.4</td></tr><tr><th scope="row">Sharpness</th><td>0–100</td></tr><tr><th scope="row">Denoise strength</th><td>0–50</td></tr></tbody></table></div></details></section><section class="manual-section" id="performance-motion"><h2>Performance: Motion</h2>
+<figure class="help-figure" data-screen="performance-motion">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-motion.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Motion. Highlighted controls: Character Animation Blending.">
+<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:37.1508%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Performance → Motion</strong>
+<ol class="help-legend"><li><b>1</b><p>This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/performance-motion.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Quality preset</th><td>Lowest · Low · Medium · High · Ultra · Custom</td></tr><tr><th scope="row">Character Animation Blend Duration</th><td>0.1–1</td></tr><tr><th scope="row">World Animation Blend Duration</th><td>0.1–1</td></tr></tbody></table></div></details></section><section class="manual-section" id="performance-lighting---effects"><h2>Performance: Lighting &amp; Effects</h2>
+<figure class="help-figure" data-screen="performance-lighting---effects">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-lighting---effects.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Lighting &amp; Effects.">
+
+  </div>
+  <figcaption><strong>Settings → Performance → Lighting &amp; Effects</strong>
+
+    <div class="help-image-actions"><a href="images/performance-lighting---effects.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Quality preset</th><td>Lowest · Low · Medium · High · Ultra · Custom</td></tr><tr><th scope="row">Flame Flicker Strength</th><td>0–200</td></tr><tr><th scope="row">Light Strength</th><td>0.01–5000</td></tr><tr><th scope="row">Glow Strength</th><td>0.01–500</td></tr><tr><th scope="row">Character Shadow Darkness</th><td>1–200</td></tr></tbody></table></div></details></section><section class="manual-section" id="performance-caching"><h2>Performance: Caching</h2>
+<figure class="help-figure" data-screen="performance-caching">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-caching.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Caching.">
+
+  </div>
+  <figcaption><strong>Settings → Performance → Caching</strong>
+
+    <div class="help-image-actions"><a href="images/performance-caching.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Quality preset</th><td>Lowest · Low · Medium · High · Ultra · Custom</td></tr><tr><th scope="row">Sprite cache</th><td>Minimal · Compact · Balanced · Generous · Maximum</td></tr></tbody></table></div></details></section><section class="manual-section" id="performance-power-saving"><h2>Performance: Power Saving</h2>
+<figure class="help-figure" data-screen="performance-power-saving">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-power-saving.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Power Saving. Highlighted controls: Always power save.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:38.8268%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Performance → Power Saving</strong>
+<ol class="help-legend"><li><b>1</b><p>This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/performance-power-saving.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Quality preset</th><td>Lowest · Low · Medium · High · Ultra · Custom</td></tr><tr><th scope="row">Power-save FPS</th><td>1–60</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-network"><h2>Settings: Network</h2>
+<figure class="help-figure" data-screen="settings-network">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-network.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Network. Highlighted controls: NLSPT safety (%).">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:18.9944%;width:53.6193%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Network</strong>
+<ol class="help-legend"><li><b>1</b><p>This adjusts the safety margin for Network Latency &amp; Server Phase Timing, not your internet connection speed. It is a session-only adjustment: it starts at 10% when the client launches and is not saved with your profile. Leave the default in place unless you are deliberately comparing timing behavior.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-network.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">NLSPT safety (%)</th><td>0–50</td></tr></tbody></table></div></details></section><section class="manual-section" id="settings-files"><h2>Settings: Files</h2>
+<figure class="help-figure" data-screen="settings-files">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-files.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Files.">
+
+  </div>
+  <figcaption><strong>Settings → Files</strong>
+
+    <div class="help-image-actions"><a href="images/settings-files.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="settings-tools"><h2>Settings: Tools</h2>
+<figure class="help-figure" data-screen="settings-tools">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-tools.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Tools.">
+
+  </div>
+  <figcaption><strong>Settings → Tools</strong>
+
+    <div class="help-image-actions"><a href="images/settings-tools.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="tiled-layout"><h2>Arrange tiled windows</h2>
+<figure class="help-figure" data-screen="tiled-layout">
+  <div class="help-image" style="max-width:898px">
+    <img src="images/tiled-layout.png" width="898" height="368" loading="lazy" decoding="async" alt="Arrange tiled windows. Highlighted controls: Auto-size side panels.">
+<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:32.6087%;width:34.5212%;height:6.5217%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Display → Window Layout</strong>
+<ol class="help-legend"><li><b>1</b><p>Extra width beside the playfield can become wider lists instead of empty space. With automatic sizing on, dragging either game divider slides the game sideways and moves both dividers together. Turn it off to keep the current sizes and resize each side independently. Turning it back on recalculates around the game’s current position.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/tiled-layout.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Message split</th><td>Side by side · Stacked</td></tr></tbody></table></div></details></section><section class="manual-section" id="tiled-separate"><h2>Separate message panes</h2>
+<figure class="help-figure" data-screen="tiled-separate">
+  <div class="help-image" style="max-width:898px">
+    <img src="images/tiled-separate.png" width="898" height="368" loading="lazy" decoding="async" alt="Separate message panes. Highlighted controls: Message split.">
+<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:81.5217%;width:34.5212%;height:11.9565%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Display → Window Layout</strong>
+<ol class="help-legend"><li><b>1</b><p>Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/tiled-separate.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Message split</th><td>Side by side · Stacked</td></tr></tbody></table></div></details></section><section class="manual-section" id="add-character"><h2>Add a character</h2>
+<figure class="help-figure" data-screen="add-character">
+  <div class="help-image" style="max-width:236px">
+    <img src="images/add-character.png" width="236" height="288" loading="lazy" decoding="async" alt="Add a character. Highlighted controls: Password (optional); Keep settings separate.">
+<div class="help-highlights"><span class="help-highlight" style="left:6.7797%;top:30.5556%;width:84.7458%;height:15.2778%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:6.7797%;top:65.9722%;width:84.7458%;height:8.3333%" aria-hidden="true"><b>2</b></span></div>
+  </div>
+  <figcaption><strong>Login → Add Character</strong>
+<ol class="help-legend"><li><b>1</b><p>You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account.</p></li><li><b>2</b><p>Use a character profile for preferences such as window positions and tiled layout, UI scale and themes, text sizes, status bars, speech bubbles, graphics effects, audio levels, TTS voice, and notifications. The first profile copies your current shared setup. Turning this off returns to shared settings without deleting the profile. Server addresses and file locations remain shared; script and macro enablement have their own Player/All choices.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/add-character.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="mixer"><h2>Audio mixer</h2>
+<figure class="help-figure" data-screen="mixer">
+  <div class="help-image" style="max-width:908px">
+    <img src="images/mixer.png" width="908" height="188" loading="lazy" decoding="async" alt="Audio mixer.">
+
+  </div>
+  <figcaption><strong>Toolbar → Audio</strong>
+
+    <div class="help-image-actions"><a href="images/mixer.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Sound effect enhancement strength. 1.00 is the normal
+enhanced mix.</th><td>0.1–10</td></tr></tbody></table></div></details></section><section class="manual-section" id="notifications"><h2>Notification settings</h2>
+<figure class="help-figure" data-screen="notifications">
+  <div class="help-image" style="max-width:286px">
+    <img src="images/notifications.png" width="286" height="384" loading="lazy" decoding="async" alt="Notification settings.">
+
+  </div>
+  <figcaption><strong>Settings → Audio → Notification Settings</strong>
+
+    <div class="help-image-actions"><a href="images/notifications.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Display Duration (sec)</th><td>1–30</td></tr></tbody></table></div></details></section><section class="manual-section" id="speech-bubbles"><h2>Speech bubble settings</h2>
+<figure class="help-figure" data-screen="speech-bubbles">
+  <div class="help-image" style="max-width:286px">
+    <img src="images/speech-bubbles.png" width="286" height="616" loading="lazy" decoding="async" alt="Speech bubble settings.">
+
+  </div>
+  <figcaption><strong>Settings → Bubbles → Message Bubbles</strong>
+
+    <div class="help-image-actions"><a href="images/speech-bubbles.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="snapshot"><h2>Take a screenshot</h2>
+<figure class="help-figure" data-screen="snapshot">
+  <div class="help-image" style="max-width:444px">
+    <img src="images/snapshot.png" width="444" height="296" loading="lazy" decoding="async" alt="Take a screenshot. Highlighted controls: Include name tags.">
+<div class="help-highlights"><span class="help-highlight" style="left:4.5045%;top:50.0000%;width:90.0901%;height:9.4595%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Tools → Snap</strong>
+<ol class="help-legend"><li><b>1</b><p>This hides overhead names for the capture without changing your normal name-tag preference. It does not remove names from Chat, Console, or Players if you capture the entire client. Check those panels before sharing a screenshot of a private conversation.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/snapshot.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Capture</th><td>Game view only · Entire client window</td></tr><tr><th scope="row">Format</th><td>PNG · JPEG</td></tr></tbody></table></div></details></section><section class="manual-section" id="file-paths"><h2>Change file locations</h2>
+<figure class="help-figure" data-screen="file-paths">
+  <div class="help-image" style="max-width:756px">
+    <img src="images/file-paths.png" width="756" height="308" loading="lazy" decoding="async" alt="Change file locations. Highlighted controls: Copy existing files to the selected folder.">
+<div class="help-highlights"><span class="help-highlight" style="left:2.1164%;top:25.9740%;width:95.2381%;height:7.7922%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Files → File Paths</strong>
+<ol class="help-legend"><li><b>1</b><p>Use copying when the new folder should start with your current files. Different files with the same destination names cause the move to fail rather than overwrite them. The client checks access and verifies the copy before saving the new path. Restart after a successful change so loaded assets and open logs use the new location.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/file-paths.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="hotkey-editor"><h2>Create a hotkey</h2>
+<figure class="help-figure" data-screen="hotkey-editor">
+  <div class="help-image" style="max-width:440px">
+    <img src="images/hotkey-editor.png" width="440" height="200" loading="lazy" decoding="async" alt="Create a hotkey. Highlighted controls: Command.">
+<div class="help-highlights"><span class="help-highlight" style="left:4.5455%;top:58.0000%;width:81.8182%;height:10.0000%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Hotkeys → +</strong>
+<ol class="help-legend"><li><b>1</b><p>The selected player is resolved when you press the hotkey, not when you save it. This example can therefore inspect any player you select, using the same binding each time. It needs a selection in Players; the player beneath the pointer is a different context value.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/hotkey-editor.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="shortcut-editor"><h2>Create a text shortcut</h2>
+<figure class="help-figure" data-screen="shortcut-editor">
+  <div class="help-image" style="max-width:520px">
+    <img src="images/shortcut-editor.png" width="520" height="128" loading="lazy" decoding="async" alt="Create a text shortcut. Highlighted controls: Expansion.">
+<div class="help-highlights"><span class="help-highlight" style="left:20.0000%;top:53.1250%;width:76.9231%;height:15.6250%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Shortcuts → Add For All</strong>
+<ol class="help-legend"><li><b>1</b><p>Shortcuts expand the first word when you send a line. With this example, “pp hello” becomes “/ponder hello”; “hello pp” is not expanded. Choose a short word you are unlikely to start an ordinary message with by accident.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/shortcut-editor.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="gamepad"><h2>Gamepad (work in progress)</h2>
+<figure class="help-figure" data-screen="gamepad">
+  <div class="help-image" style="max-width:386px">
+    <img src="images/gamepad.png" width="386" height="724" loading="lazy" decoding="async" alt="Gamepad (work in progress).">
+
+  </div>
+  <figcaption><strong>Settings → Controls → Gamepad</strong>
+
+    <div class="help-image-actions"><a href="images/gamepad.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Walk Deadzone</th><td>0.01–0.2</td></tr><tr><th scope="row">Cursor Deadzone</th><td>0.01–0.2</td></tr></tbody></table></div></details></section><section class="manual-section" id="legacy-macros"><h2>Legacy macro library</h2>
+<figure class="help-figure" data-screen="legacy-macros">
+  <div class="help-image" style="max-width:948px">
+    <img src="images/legacy-macros.png" width="948" height="576" loading="lazy" decoding="async" alt="Legacy macro library.">
+
+  </div>
+  <figcaption><strong>Actions → Legacy Macros</strong>
+
+    <div class="help-image-actions"><a href="images/legacy-macros.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="macro-commands"><h2>Edit macro command triggers</h2>
+<figure class="help-figure" data-screen="macro-commands">
+  <div class="help-image" style="max-width:776px">
+    <img src="images/macro-commands.png" width="776" height="516" loading="lazy" decoding="async" alt="Edit macro command triggers.">
+
+  </div>
+  <figcaption><strong>Actions → Legacy Macros → Commands</strong>
+
+    <div class="help-image-actions"><a href="images/macro-commands.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="macro-keybinds"><h2>Edit macro keybindings</h2>
+<figure class="help-figure" data-screen="macro-keybinds">
+  <div class="help-image" style="max-width:776px">
+    <img src="images/macro-keybinds.png" width="776" height="516" loading="lazy" decoding="async" alt="Edit macro keybindings.">
+
+  </div>
+  <figcaption><strong>Actions → Legacy Macros → Keybinds</strong>
+
+    <div class="help-image-actions"><a href="images/macro-keybinds.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="scripts"><h2>Enable scripts for a character</h2>
+<figure class="help-figure" data-screen="scripts">
+  <div class="help-image" style="max-width:656px">
+    <img src="images/scripts.png" width="656" height="656" loading="lazy" decoding="async" alt="Enable scripts for a character.">
+
+  </div>
+  <figcaption><strong>Actions → Scripts</strong>
+
+    <div class="help-image-actions"><a href="images/scripts.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="script-info"><h2>Review a script</h2>
+<figure class="help-figure" data-screen="script-info">
+  <div class="help-image" style="max-width:900px">
+    <img src="images/script-info.png" width="900" height="556" loading="lazy" decoding="async" alt="Review a script. Highlighted controls: Reload.">
+<div class="help-highlights"><span class="help-highlight" style="left:61.7778%;top:91.3669%;width:10.6667%;height:5.0360%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Scripts → Info</strong>
+<ol class="help-legend"><li><b>1</b><p>A reload can fail while the previous working copy continues running. Read the status and error before assuming your edited code is active. Validate can help find source problems; if the change requests additional access, review Permissions before trying again.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/script-info.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section><section class="manual-section" id="permissions"><h2>Grant script permissions</h2>
+<figure class="help-figure" data-screen="permissions">
+  <div class="help-image" style="max-width:556px">
+    <img src="images/permissions.png" width="556" height="496" loading="lazy" decoding="async" alt="Grant script permissions. Highlighted controls: Send server commands; Grant.">
+<div class="help-highlights"><span class="help-highlight" style="left:2.8777%;top:33.0645%;width:93.5252%;height:4.8387%" aria-hidden="true"><b>1</b></span><span class="help-highlight" style="left:3.5971%;top:91.1290%;width:17.9856%;height:5.6452%" aria-hidden="true"><b>2</b></span></div>
+  </div>
+  <figcaption><strong>Actions → Scripts → Info → Permissions</strong>
+<ol class="help-legend"><li><b>1</b><p>Yes Boats sends a whisper as your character when it recognizes a boat offer addressed to you. This permission allows that reply; reading the offer and checking your character’s name require separate chat and game-data grants.</p></li><li><b>2</b><p>Grant saves only the checked capabilities, and the decision applies to this script across characters. Unchecking something does not automatically adapt the script: a feature that depends on the denied capability may no longer work. Reopen Info → Permissions to change your decision; Block all also disables the script.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/permissions.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+</section></article>
+      <p><a href="#top">Back to top</a> · <a href="./">Return to the manual</a></p>
+    </main><script src="manual.js" defer></script></body></html>

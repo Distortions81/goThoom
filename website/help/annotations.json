@@ -1,0 +1,138 @@
+{
+  "add-character": [
+    {
+      "control": "Password (optional)",
+      "explanation": "You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account."
+    },
+    {
+      "control": "Keep settings separate",
+      "explanation": "Use a character profile for preferences such as window positions and tiled layout, UI scale and themes, text sizes, status bars, speech bubbles, graphics effects, audio levels, TTS voice, and notifications. The first profile copies your current shared setup. Turning this off returns to shared settings without deleting the profile. Server addresses and file locations remain shared; script and macro enablement have their own Player/All choices."
+    }
+  ],
+  "settings-display": [
+    {
+      "control": "UI Scale",
+      "explanation": "Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply."
+    },
+    {
+      "control": "Reset Windows",
+      "explanation": "Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences."
+    }
+  ],
+  "tiled-layout": [
+    {
+      "control": "Auto-size side panels",
+      "explanation": "Extra width beside the playfield can become wider lists instead of empty space. With automatic sizing on, dragging either game divider slides the game sideways and moves both dividers together. Turn it off to keep the current sizes and resize each side independently. Turning it back on recalculates around the game’s current position."
+    }
+  ],
+  "tiled-separate": [
+    {
+      "control": "Message split",
+      "explanation": "Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game."
+    }
+  ],
+  "settings-text": [
+    {
+      "control": "Chat Window Font Size",
+      "explanation": "Chat, Console, overhead names, and speech bubbles have independent font sizes. If you separate Chat from Console and one looks smaller, adjust its own slider. Enlarging chat text also wraps lines sooner, so a wider message pane may make more difference than increasing the font again."
+    }
+  ],
+  "settings-world": [
+    {
+      "control": "Show recently on-screen group",
+      "explanation": "This keeps recently seen players easy to select after they leave the view. Being listed here does not mean a player is still on screen. Use the group to find a familiar name again, but check the game view before assuming they are still nearby."
+    },
+    {
+      "control": "Show sharing icons in Players list",
+      "explanation": "Names already indicate sharing: an underline means you share with that player, bold means they share with you, and both styles mean mutual sharing. This option adds icons without replacing those styles. Hover an icon if its direction is unclear. Italics indicate a clanmate and can appear with any sharing style."
+    }
+  ],
+  "settings-bubbles": [
+    {
+      "control": "Bubble Lifetime",
+      "explanation": "Modern mode adds reading time for each word, so a long sentence stays longer than a short one. Increase the base time if even short messages vanish too soon; increase the per-word time if only long messages are difficult to finish. Classic mode uses a fixed lifetime instead."
+    }
+  ],
+  "settings-audio": [
+    {
+      "control": "Music SoundFont",
+      "explanation": "A SoundFont supplies the instrument sounds used for bard music. Changing it can change how the same tune sounds; it does not replace game sound effects or a Piper speaking voice. If the menu is empty, install a SoundFont through Files → Download Files."
+    }
+  ],
+  "settings-tts": [
+    {
+      "control": "TTS Voice",
+      "explanation": "The voice menu is populated from installed Piper models. The empty menu in this example means a usable voice has not been found; enabling speech alone does not provide one. Download the TTS files, select a voice, then test a sentence before relying on spoken chat. The Audio mixer controls speech volume separately."
+    }
+  ],
+  "settings-controls": [
+    {
+      "control": "Input bar always open",
+      "explanation": "With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message."
+    }
+  ],
+  "settings-network": [
+    {
+      "control": "NLSPT safety (%)",
+      "explanation": "This adjusts the safety margin for Network Latency & Server Phase Timing, not your internet connection speed. It is a session-only adjustment: it starts at 10% when the client launches and is not saved with your profile. Leave the default in place unless you are deliberately comparing timing behavior."
+    }
+  ],
+  "settings-performance": [
+    {
+      "control": "Quality preset",
+      "explanation": "A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere."
+    }
+  ],
+  "performance-motion": [
+    {
+      "control": "Character Animation Blending",
+      "explanation": "This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on."
+    }
+  ],
+  "performance-power-saving": [
+    {
+      "control": "Always power save",
+      "explanation": "This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations."
+    }
+  ],
+  "file-paths": [
+    {
+      "control": "Copy existing files to the selected folder",
+      "explanation": "Use copying when the new folder should start with your current files. Different files with the same destination names cause the move to fail rather than overwrite them. The client checks access and verifies the copy before saving the new path. Restart after a successful change so loaded assets and open logs use the new location."
+    }
+  ],
+  "hotkey-editor": [
+    {
+      "control": "Command",
+      "explanation": "The selected player is resolved when you press the hotkey, not when you save it. This example can therefore inspect any player you select, using the same binding each time. It needs a selection in Players; the player beneath the pointer is a different context value."
+    }
+  ],
+  "shortcut-editor": [
+    {
+      "control": "Expansion",
+      "explanation": "Shortcuts expand the first word when you send a line. With this example, “pp hello” becomes “/ponder hello”; “hello pp” is not expanded. Choose a short word you are unlikely to start an ordinary message with by accident."
+    }
+  ],
+  "permissions": [
+    {
+      "control": "Send server commands",
+      "explanation": "Yes Boats sends a whisper as your character when it recognizes a boat offer addressed to you. This permission allows that reply; reading the offer and checking your character’s name require separate chat and game-data grants."
+    },
+    {
+      "control": "Grant",
+      "explanation": "Grant saves only the checked capabilities, and the decision applies to this script across characters. Unchecking something does not automatically adapt the script: a feature that depends on the denied capability may no longer work. Reopen Info → Permissions to change your decision; Block all also disables the script."
+    }
+  ],
+  "script-info": [
+    {
+      "control": "Reload",
+      "explanation": "A reload can fail while the previous working copy continues running. Read the status and error before assuming your edited code is active. Validate can help find source problems; if the change requests additional access, review Permissions before trying again."
+    }
+  ],
+  "snapshot": [
+    {
+      "control": "Include name tags",
+      "explanation": "This hides overhead names for the capture without changing your normal name-tag preference. It does not remove names from Chat, Console, or Players if you capture the entire client. Check those panels before sharing a screenshot of a private conversation."
+    }
+  ]
+}

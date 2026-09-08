@@ -1,0 +1,647 @@
+[
+  {
+    "title": "From download to the Lands",
+    "url": "./#from-download-to-the-lands",
+    "text": "goThoom is an installer-free desktop client for Windows, macOS, and Linux. Unpack it somewhere you can keep it, launch it, and allow it to download the current Clan Lord artwork and sounds. Writable user data is stored separately so the application can be replaced during an upgrade."
+  },
+  {
+    "title": "Install goThoom",
+    "url": "./#install",
+    "text": "01 Download your platform build Use the downloads page and choose the current Windows, macOS, or Linux archive. 02 Extract the app Each platform ZIP contains only the executable, or the macOS app bundle. The extracted filename includes the release number so it is easy to distinguish from an older copy. 03 Launch goThoom The client checks its game resources and offers to download missing or outdated files. Keep it open until that process finishes. macOS first launch If macOS blocks the unsigned app, open System Settings → Privacy & Security and choose to open it. goThoom keeps its writable data in its application container on macOS."
+  },
+  {
+    "title": "Add and connect a character",
+    "url": "./#first-launch",
+    "text": "In the Login window, select Add Character , enter the character name and password, and choose whether to remember the password. Leave Keep settings separate off to share the global client setup, or opt in when this login should have independent settings. To change those choices later, select the character and open Edit Character ; there you can enter a new password, change Save Password , or choose whether it keeps settings separate. Select the character and press Connect . If a saved character has no remembered password, goThoom asks for it when you connect. Remember Password is a convenience feature stored in the local client data. It is not an operating-system password vault. Anyone who can read those files should be treated as having access to the saved login. Use the trash control beside a character to remove it from the local list. This only removes the local entry; it does not delete the Clan Lord account. 1 2 Login → Add Character 1 You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account. 2 Use a character profile for preferences such as window positions and tiled layout, UI scale and themes, text sizes, status bars, speech bubbles, graphics effects, audio levels, TTS voice, and notifications. The first profile copies your current shared setup. Turning this off returns to shared settings without deleting the profile. Server addresses and file locations remain shared; script and macro enablement have their own Player/All choices. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Your first connection, step by step",
+    "url": "./#login-checklist",
+    "text": "Finish the resource downloads before trying to enter the game. The artwork and sound files are separate from the client executable. Choose Add Character . Enter the character you already use for Clan Lord. Adding a local entry does not create a new paid account. Leave the password empty if you want to enter it at connection time. Otherwise enter it and decide whether to check Remember Password . Leave Keep settings separate off for a shared setup. Enable it if this character needs its own layout or preferences. Press Add , select the saved character in Login, then press Connect . Enter the password if prompted. After connecting, try a short movement and a chat message. Open Settings from the toolbar to make the client comfortable. Select the character you intend to use before opening Edit Character or adjusting its separate settings."
+  },
+  {
+    "title": "First-run setup wizard",
+    "url": "./#first-run-setup-wizard",
+    "text": "The setup wizard begins with the built-in defaults and previews layout, controls, graphics, and audio choices. Its graphics check briefly shows One moment, checking performance. while it selects Default or iGPU Graphics for the current machine. You can run the wizard again later from Settings → Tools → Setup Wizard ; reopening it starts from your current settings rather than resetting them first. The default starting point On a fresh setup, the input bar stays open, click-to-toggle walking and middle-click window movement are off, and the main windows use the centered tiled layout. Inventory and the combined Chat/Console are on the left, the Game is in the center, Players is on the right, and the toolbar is inside Inventory. Smooth movement, small-moving-sprite interpolation, network latency and server phase timing, sound, music, speech bubbles, timestamps, and game notifications are on; chat text-to-speech, automatic recording, and per-character settings profiles are off. 02 · Essential controls"
+  },
+  {
+    "title": "The controls you will use constantly",
+    "url": "./#the-controls-you-will-use-constantly",
+    "text": ""
+  },
+  {
+    "title": "Movement",
+    "url": "./#movement",
+    "text": "Left-click in the game view to walk toward the pointer. Enable Click-to-Toggle Walk if you prefer a click to establish a continuing target instead of holding the button. Keyboard movement can be configured under Controls, including its speed. The Settings → Controls → Gamepad window is marked work in progress and does not yet function; use mouse or keyboard movement."
+  },
+  {
+    "title": "Chat input",
+    "url": "./#chat-input",
+    "text": "The input bar is active by default: type a message and press Enter to send it. Esc cancels and closes the bar; Enter opens it again. If you turn off Input bar always open , press Enter before typing and again to send. ↑ and ↓ browse sent-message history. While typing, Ctrl + V pastes and Ctrl + C copies selected text, or the input line if there is no selection. Use Cmd on Mac."
+  },
+  {
+    "title": "Scrolling and windows",
+    "url": "./#scrolling-and-windows",
+    "text": "Use the mouse wheel over a list or text window. Drag the dividers between panes to resize your workspace. Settings and other dialogs can be moved by their titles."
+  },
+  {
+    "title": "Command palette",
+    "url": "./#command-palette",
+    "text": "Press Ctrl + Shift + P or choose Tools → Palette . Type to filter, use ↑ / ↓ , press Enter to run, or Esc to close."
+  },
+  {
+    "title": "Pointer actions at a glance",
+    "url": "./#pointer-actions-at-a-glance",
+    "text": "Where Action Result Game Left-click Walk toward the pointer. Inventory item Single-click Select the item. Inventory item Double-click Equip or unequip it. Inventory item Shift + double-click Use the item. Inventory item Right-click Open Equip/Unequip, Examine, Show, and Drop actions. Player Single-click Select the player. Player Right-click Open common player actions. Chat/Console line Right-click Copy that line. Input bar Right-click Paste, copy the line, or clear it."
+  },
+  {
+    "title": "Choose how to walk",
+    "url": "./#movement-options",
+    "text": "Start with ordinary mouse movement: point where you want to go and hold the left button to walk toward it. For a continuing movement target, open Settings → Controls and enable Click-to-toggle movement . Try it in a clear area so you can get used to toggling movement. Adjust Keyboard Walk Speed for keyboard walking. This changes the client’s requested movement speed; it does not remove movement restrictions imposed by the game. The Gamepad window is currently marked “Work in progress, does not function.” Use mouse or keyboard movement. Use the input tester if a key or mouse button is not recognized as expected. Keep Middle-click moves windows off if you use that button for game actions. When enabled, it provides another way to reposition movable windows. 1 Settings → Controls 1 With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Mac shortcuts and dictation",
+    "url": "./#mac-input",
+    "text": "On Mac, use Cmd for copy/paste and Cmd + Shift + P for the command palette. Option +arrow moves by word; Cmd +arrow moves to the start or end of the line. The key tester labels the modifier as Cmd; script bindings call it Meta . For dictation, first enable Dictation in macOS Keyboard settings. Open the game input bar, activate your configured macOS dictation shortcut, finish speaking, and review the text before sending. Native dictation and IME composition are connected to the game input bar; other client text fields may behave differently."
+  },
+  {
+    "title": "Sliders",
+    "url": "./#sliders",
+    "text": "Drag normally for broad adjustments. Hold Shift to snap to whole numbers, or hold Ctrl for fine movement at one-eighth speed. 03 · Interface and windows"
+  },
+  {
+    "title": "Make the client fit the way you play",
+    "url": "./#make-the-client-fit-the-way-you-play",
+    "text": ""
+  },
+  {
+    "title": "The toolbar",
+    "url": "./#the-toolbar",
+    "text": "Control What it opens or does Settings Opens the main settings categories. Actions Opens Hotkeys, Shortcuts, Keybindings, Scripts, Legacy Macros, and Saved Data. Tools Opens live Stats, the command Palette, this online Help manual, and the Snap capture window. Audio Opens the live mixer for master, game, music, TTS, notification, and enhancement levels. Record Starts or stops a .clMov session recording. When disconnected, it arms recording for the next connection. Logout Disconnects and returns to the Login window."
+  },
+  {
+    "title": "Default tiled layout",
+    "url": "./#default-tiled-layout",
+    "text": "Tiled mode is enabled by default. Inventory occupies the upper-left, the combined Chat/Console occupies the lower-left, the Game fills the center, and Players occupies the right side. The toolbar starts inside Inventory. Separating Chat from Console adds Chat to the lower-right; the alternate layout puts the Game on one side of a shared panel. Drag a divider to resize neighboring tiles. Auto-size side panels adjusts panel widths to use empty space beside the Game. Drag either Game divider to move the Game sideways; turn the option off to keep the current sizes and resize panels independently. Open Settings → Display → Window Layout to swap Inventory and Players, choose message placement, combine Chat with Console, or choose the game side. The toolbar can be moved from its default home in Inventory to Players."
+  },
+  {
+    "title": "Choose a layout and place your message panes",
+    "url": "./#arrange-workspace",
+    "text": "Open Settings → Display . In Windows & Toolbar , open Window Layout . Click a layout preview. For a message row, Messages above game switches between above and below. The client rearranges the panes immediately. Use Swap inventory / players list to exchange the lists. With Side , Swap game side moves the game to the other edge. Decide whether to check Combine chat + console . The available previews update to match. In Game centered , use Combined messages on right to choose the side for the shared pane. With separate messages sharing one area, use Message split : Side by side puts them next to each other; Stacked puts one above the other. Use Swap console and chat to reverse their order. Drag a divider to adjust the row height or message split. The client remembers these sizes. 1 Settings → Display → Window Layout 1 Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Compare tiled layouts",
+    "url": "./#tiled-layout-diagrams",
+    "text": "Compare the layout patterns below, using the checkboxes to try different pane positions. In Settings → Display → Window Layout , click a preview to choose that layout. These diagrams show relative positions; drag the dividers in the client to set your own sizes. Preview arrangement Combine chat + console Swap inventory / players list Combined messages on right (centered layout) Swap console and chat Messages above game Side by side Stacked Move the message row above or below the game without changing list order. Separate messages can share a row or stack; Above & below puts the game between them. Game centered Game Inventory Players Console Chat + Console Chat The game keeps its full height. Combining messages lets the list above the former Chat pane expand. Game on a side Swap game side Game Inventory Players Console Chat + Console Chat All lists and messages share the other side. Swapping the game side keeps their order intact. Message row Game Inventory Players Console Chat + Console Chat Keep the lists at full height while messages sit above or below the action. Full-width message row Game Inventory Players Console Chat + Console Chat Use the whole workspace width for messages. Stacked panes give each stream longer lines. Messages above and below Game Inventory Players Console Chat + Console Chat Keep conversation and client output on opposite sides of the game. Swap Console and Chat to choose which is above."
+  },
+  {
+    "title": "Let the side panels use extra space—or resize them yourself",
+    "url": "./#auto-size-panels",
+    "text": "Auto-size side panels adjusts their widths to use space beside the game while preserving room for the game’s proportions. With no message rows above or below, this often expands the side panels into otherwise empty space. On: the game column is sized automatically. Drag either vertical game divider to move the game sideways; both dividers move together. Off: the current sizes stay exactly where they are. Drag the dividers independently to give panels more or less room. Turn it back on: the client recalculates around the game’s current position, subject to the space needed for the lists and toolbar. This option is unavailable with Game on a side . Use that layout’s game/panel divider directly. 1 Settings → Display → Window Layout 1 Extra width beside the playfield can become wider lists instead of empty space. With automatic sizing on, dragging either game divider slides the game sideways and moves both dividers together. Turn it off to keep the current sizes and resize each side independently. Turning it back on recalculates around the game’s current position. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Adjust or restore the layout",
+    "url": "./#recover-windows",
+    "text": "Drag pane dividers to change the space available for the game, lists, and messages. To start over, choose Settings → Display → Reset Windows and confirm the layout reset. Your graphics, audio, and other preferences are kept. Use Toolbar Placement in the same Display page to put the toolbar in Inventory or Players. Leave enough width in that list for the toolbar controls. 1 2 Settings → Display 1 Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply. 2 Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Text, scale, and fullscreen",
+    "url": "./#text-scale-and-fullscreen",
+    "text": "Settings → Display controls UI scale, fullscreen, themes, window layout, and the optional FPS display. Automatic HiDPI scaling follows the monitor scale; the manual UI scale lets you tune it further. Settings → Text contains separate size controls for Chat, Console, Inventory, Players, names, and bubbles. 04 · Chat and messages"
+  },
+  {
+    "title": "Speak, review, copy, and notice",
+    "url": "./#speak-review-copy-and-notice",
+    "text": "By default, Chat and Console are combined in the lower-left Console tile. It contains player-facing conversation along with client information, script output, and diagnostics. Disable Combine chat + console in Window Layout to add a separate Chat pane. Open it from Settings → Display. The input bar grows as the message wraps. Right-click a Chat or Console line to copy it; the copied line briefly highlights. Timestamps are enabled for both Chat and Console by default; each can be disabled separately, and their shared format can be changed in settings. Mentions of @your-name or @your-profession are highlighted and can play a distinct sound. Message text colors, alternating rows, and font sizes can be customized. Text settings also let you independently enable Autocomplete and Spellcheck."
+  },
+  {
+    "title": "Separate Chat from Console without losing your draft",
+    "url": "./#separate-chat",
+    "text": "Open Settings → Display → Windows & Toolbar . Uncheck Combine chat + console . Chat gets its own pane. Click the input bar in either Chat or Console and continue typing. They share the draft and sent-message history. If the input bar is closed, press Enter . Enable Settings → Controls → Input bar always open to keep it available. Use Window Layout to choose message placement and split direction. Check Combine chat + console again to return to one message window."
+  },
+  {
+    "title": "Make chat and lists easier to read",
+    "url": "./#readable-text",
+    "text": "If the whole interface is too small, adjust Settings → Display → UI Scale and press Apply . If only text is too small, open Settings → Text . Adjust Chat Window Font Size and Console Font Size separately. Inventory, Players, names, and speech bubbles have their own sliders. Enable or disable Chat timestamps and Console timestamps independently. The timestamp format field controls their shared format. Use Text Colors for message colors. Use Display → Appearance → Alternating row colors to stripe only the lists where that helps. Turn Autocomplete and Spellcheck on or off independently under Input Assistance. 1 Settings → Text 1 Chat, Console, overhead names, and speech bubbles have independent font sizes. If you separate Chat from Console and one looks smaller, adjust its own slider. Enlarging chat text also wraps lines sooner, so a wider message pane may make more difference than increasing the font again. Hide highlights Open full-size image UI scale changes controls and windows; font-size sliders change specific text. Enlarging both at once can make the layout much larger than you intended. Change one, check the result, then adjust the other if needed."
+  },
+  {
+    "title": "Speech bubbles",
+    "url": "./#speech-bubbles",
+    "text": "Speech bubbles start enabled in Modern lifetime mode for every message type and source; animation is optional. A clear bubble is centered above its speaker; near an edge or other bubbles, placement moves as needed while keeping the pointer anchored. Settings → Bubbles → Message Bubbles controls whether bubbles appear, how long they last, their scale and opacity, animation, overlap prevention, and which message types or sources are shown. Modern lifetime uses a base duration plus time per word; Classic uses a fixed duration."
+  },
+  {
+    "title": "Show fewer bubbles or keep them visible longer",
+    "url": "./#bubble-recipe",
+    "text": "Open Settings → Bubbles . Choose Bubble Lifetime : Modern uses a base duration plus time per word; Classic uses a fixed lifetime. For Modern mode, increase Modern Base Life (s) or Modern Life per Word (s) if bubbles disappear before you finish reading. Adjust Bubble Scale and Bubble Opacity to taste. Open Message Bubbles . Leave the master Message Bubbles checkbox on, then disable message types or sources you do not want over the game. Use Prevent Bubble Overlap to let bubbles move apart. Toggle Animated Chat Bubbles independently. Settings → Bubbles → Message Bubbles Open full-size image"
+  },
+  {
+    "title": "Useful Clan Lord commands",
+    "url": "./#useful-clan-lord-commands",
+    "text": "Commands begin with / or \\ . Common examples include /think , /thinkto name message , /who , /info name , /share name , /unshare name , /equip item , and /useitem item . Type /help command for the server’s help for a specific command. For a broader list, see the repository’s Clan Lord command reference . 05 · Players and inventory"
+  },
+  {
+    "title": "Act without retyping every command",
+    "url": "./#act-without-retyping-every-command",
+    "text": ""
+  },
+  {
+    "title": "Players",
+    "url": "./#players",
+    "text": "The Players list uses the appearance of each name to show sharing relationships and clan membership. Read sharing from your character’s point of view: Name appearance Meaning Underlined You are sharing your experiences with this player. Bold This player is sharing their experiences with you. Bold and underlined You are sharing with each other. Italic This player is in your clan. Italics can combine with either sharing style. Sharing in one direction does not imply sharing in the other. In the title, Shared counts players you share with; Sharing counts players sharing with you. A mutual relationship contributes to both counts. For an additional visual cue, enable Settings → World → Players List → Show sharing icons in Players list . The icons appear beside names and distinguish outgoing, incoming, and mutual sharing. Hover an icon to read the direction in words. Name styling works even with the icons off, which is the default. The list also includes a recently seen group by default. A player’s presence there does not mean they are still on screen. Right-click a player for Thank, Curse, Anon Thank, Anon Curse, Share, Unshare, Info, Pull , or Push . The command palette can also search actions for the selected player. The recent group can be hidden under Settings → World → Players List ."
+  },
+  {
+    "title": "Inventory",
+    "url": "./#inventory",
+    "text": "Select an item with one click. Double-click to equip or unequip it; Shift-double-click to use it. The right-click menu offers Equip/Unequip, Examine, Show, Drop, and Drop (Mine). When an inventory item has a hotkey, its key is displayed in brackets before the item name."
+  },
+  {
+    "title": "Selected values in hotkeys",
+    "url": "./#selected-values-in-hotkeys",
+    "text": "User hotkeys can refer to context values such as @selected.player , @selected.item , @hovered , @right.clicked , @equipped.left , and other equipment slots. This makes reusable commands such as /info @selected.player practical. 06 · Settings and profiles"
+  },
+  {
+    "title": "Choose the experience per character",
+    "url": "./#choose-the-experience-per-character",
+    "text": "The main Settings window has eleven tabs: Display, World, Text, Bubbles, Audio, TTS, Controls, Performance, Network, Files, and Tools. Related controls share clear sections, and controls that need more room open a dedicated subwindow."
+  },
+  {
+    "title": "Appearance",
+    "url": "./#appearance",
+    "text": "Choose interface themes, palettes, row styling, status bars, name tags, fonts, and speech bubble behavior."
+  },
+  {
+    "title": "Graphics",
+    "url": "./#graphics",
+    "text": "Adjust artwork scaling, foreground fading, shadows, shader lighting, replacement effects, gamma, dither cleanup, and animation smoothing. Player illumination and procedural effects participate in the same night-lit world."
+  },
+  {
+    "title": "Controls",
+    "url": "./#controls",
+    "text": "Choose click-to-toggle walking, keyboard movement speed, middle-click window behavior, input-bar behavior, and the gamepad work-in-progress window."
+  },
+  {
+    "title": "Performance",
+    "url": "./#performance",
+    "text": "Control VSync, sound and artwork precaching, activity indicators, background power saving, and the low-VRAM Potato GPU mode. Activity dots mean artwork decoding/processing (green), audio decoding (amber), and GPU artwork upload (red)."
+  },
+  {
+    "title": "Status bars and text input",
+    "url": "./#status-bars-and-text-input",
+    "text": "Settings → World → Status Bars offers Regular, Modern -- thin, and Hidden styles. Modern -- thin is the default; choose a screen placement or enable status bars below the toolbar hand slots. Settings → Text keeps chat and timestamp controls beside separate Autocomplete and Spellcheck options."
+  },
+  {
+    "title": "Graphics and performance",
+    "url": "./#quality-presets",
+    "text": "The Performance & visuals manual explains presets, artwork resolution, smooth movement, lighting, caches, and power saving. Start with its symptom table to distinguish a rendering problem from a loading pause or a frame-rate cap."
+  },
+  {
+    "title": "Arrange status bars and reduce name clutter",
+    "url": "./#world-recipe",
+    "text": "Open Settings → World . Choose a status-bar placement and style. Enable Status bars below toolbar hands if you want the bars near your equipment instead of in the game view. Use the Character Names section to adjust the name background, health display, and bar placement. Enable Hide My Name Tag or Show name-tags only on hover if the scene feels crowded. In Players List, choose whether recently seen players and clan members get their own groups. 1 2 Settings → World 1 This keeps recently seen players easy to select after they leave the view. Being listed here does not mean a player is still on screen. Use the group to find a familiar name again, but check the game view before assuming they are still nearby. 2 Names already indicate sharing: an underline means you share with that player, bold means they share with you, and both styles mean mutual sharing. This option adds icons without replacing those styles. Hover an icon if its direction is unclear. Italics indicate a clanmate and can appear with any sharing style. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Per-character profiles",
+    "url": "./#per-character-profiles",
+    "text": "Settings are shared globally by default. On the Login screen, select a saved character, open Edit Character , and enable Keep settings separate when that login should have its own window layout, audio, notifications, appearance, rendering, speech bubbles, and related preferences. Enabling a profile for the first time copies the current global setup. Turning it off immediately returns that login to the shared global setup without deleting its saved profile; turn it on again to restore the character’s prior choices. Changes are saved automatically. The profiles and their opt-in state live in profiles.json in the user data directory. Script and macro enablement separately retain their explicit per-player/all-player selections in each manager’s enabled.json ; those files remain authoritative for which automation is active. Reset means reset Reset All Settings intentionally restores defaults. If you only need to recover the layout, use Settings → Display → Reset Windows instead. 07 · Audio, TTS, and notifications"
+  },
+  {
+    "title": "Hear what matters at the right level",
+    "url": "./#hear-what-matters-at-the-right-level",
+    "text": ""
+  },
+  {
+    "title": "Mixer",
+    "url": "./#mixer",
+    "text": "Game sounds and music start enabled, while chat text-to-speech starts disabled. The Audio toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. Mute when unfocused is optional and off by default. Throttle Repeated Sounds suppresses the same effect when it repeats in adjacent server updates. High quality resampling produces cleaner conversion at a higher CPU cost. Sound-effect and music enhancement add width, ambience, and tonal processing to newly started audio. A downloaded SoundFont improves MIDI-style music playback."
+  },
+  {
+    "title": "Text to speech",
+    "url": "./#text-to-speech",
+    "text": "Enable chat TTS, pick an installed Piper voice, and adjust voice speed and volume. Use Test TTS before relying on it. Download Files installs available Piper components and voices. The client combines nearby messages from the same speaker and limits its pending speech queue. Edit TTS corrections opens the data folder containing the generated substitution file. Add replacements there when a name or game term is consistently pronounced incorrectly."
+  },
+  {
+    "title": "Set up text to speech",
+    "url": "./#tts-setup",
+    "text": "Open the dedicated Settings → TTS tab. If speech files are missing, use the download control on that page or Settings → Files → Download Files . Install the Piper components and a voice, then wait for the download to finish. Check Enable Text to Speech . Pick an installed model from TTS Voice . Enter a short sentence in TTS test phrase and press Test TTS . Adjust TTS Speed for pronunciation and pace. Open the toolbar’s Audio mixer to adjust TTS volume relative to game sounds and music. If you hear nothing, check the master mute and TTS channel in the mixer, plus Mute when unfocused. Return to the client and test again. Use Edit TTS corrections to open the data folder and edit the generated substitutions file for names or game terms that need different pronunciation. 1 Settings → TTS 1 The voice menu is populated from installed Piper models. The empty menu in this example means a usable voice has not been found; enabling speech alone does not provide one. Download the TTS files, select a voice, then test a sentence before relying on spoken chat. The Audio mixer controls speech volume separately. Hide highlights Open full-size image The download button reads TTS files installed and is disabled when the required files are already present. An empty voice list means no usable voice was found. The menu depends on the files installed on your machine. To silence one speaker without turning speech off, use /notts add Player Name . Use /notts list to inspect the list and /notts remove Player Name to allow that speaker again."
+  },
+  {
+    "title": "Balance game sounds, music, and speech",
+    "url": "./#audio-recipe",
+    "text": "Open Audio from the toolbar. Check that master output is not muted. Enable the channels you want and set their levels. Lower Music or Game if speech is hard to hear. For music resources, open Settings → Audio → Music SoundFont . Install an optional SoundFont through Download Files if needed, then choose it from this menu. Try sound-effect and bard-music enhancements separately. Their ambience controls let you reduce the effect without changing the main channel volume. If audio stutters, inspect the Music Buffer setting and performance in the same session. Keep a note of your starting values so you can undo experiments. Toolbar → Audio Open full-size image"
+  },
+  {
+    "title": "Notifications",
+    "url": "./#notifications",
+    "text": "Game notifications and their sound start enabled for falling, recovering, shares, and friends coming online. Mentions play their own sound; optionally, they can also create a desktop notification while the client is in the background. Notification Settings chooses which events matter and how they are delivered. You can configure on-screen duration, sound, volume, desktop prompts, and whether background mentions notify. Use Send Test Notification to verify the result."
+  },
+  {
+    "title": "Choose which events interrupt you",
+    "url": "./#notification-recipe",
+    "text": "In Settings → Audio , enable Game Notifications and open Notification Settings . Choose events such as Fallen, Not fallen, Shares, and Friend online. Set Display Duration (sec) for on-screen notices. If you want notices while using another app, enable Notify when in background , then use Send Test Notification . Check operating-system notification permissions if it does not appear. Use the Audio mixer’s Notif channel to balance notification sounds independently of game audio. Settings → Audio → Notification Settings Open full-size image 08 · Automation"
+  },
+  {
+    "title": "Macros, scripts & hotkeys",
+    "url": "./#macros-scripts-hotkeys",
+    "text": "Choose a simple key binding, a text shortcut, a legacy macro, or a Go script. The dedicated guide explains how to install, configure, write, and troubleshoot each kind of automation. Open the automation manual → Automate at the level you need Hotkeys Create a hotkey for the selected player Text shortcuts Create a shortcut for a longer command Go scripts Enable a script and review its permissions Understand when scripts run and stop Recover from a script error Legacy macros 09 · Movies, recording, and screenshots"
+  },
+  {
+    "title": "Capture a session and revisit any moment",
+    "url": "./#capture-a-session-and-revisit-any-moment",
+    "text": ""
+  },
+  {
+    "title": "Record",
+    "url": "./#record",
+    "text": "Click Record while connected to begin, then click it again to finish. If you click it before connecting, recording is armed and begins after login. Recordings are written to Movies under the user data directory, with the character and timestamp in the name. Automatic recording starts off. Settings can auto-record every login session, ask what to do when a recording finishes, and compress a saved movie into ZIP. A recording is finalized when the session or app exits normally."
+  },
+  {
+    "title": "Keep a recording automatically",
+    "url": "./#record-recipe",
+    "text": "Open Settings → Files and enable Auto-record sessions . Connect a character. The client starts the session recording automatically. Use the toolbar’s Record control if you want to stop early; otherwise the recording is finalized when the session ends normally. Use the save dialog, when enabled, to rename the movie or compress it as a ZIP. Find it in the Movies folder under Open User Data Folder. Keep a backup if the session matters to you."
+  },
+  {
+    "title": "Play and seek",
+    "url": "./#play-and-seek",
+    "text": "Disconnect first, return to Login, and choose Play movie file . goThoom accepts .clMov files and ZIP packages containing one. Movie playback never begins while a server connection or connection attempt is active. Drag the time slider to seek. Skip backward or forward by 5 or 30 seconds. Pause, resume, halve, double, or fine-tune playback speed. Use Stop Seek to cancel a long rebuild. Close Movie Controls or press Exit to return to Login. Movie artwork is prepared and cached at the scale fitted to the current game view, including in smaller laptop layouts. Missing artwork is recorded after its first failed lookup instead of being retried every frame. During seeking, goThoom suppresses transient notifications, notification sounds, text-to-speech, and think overlays so scanning through a recording does not flood the desktop or audio output."
+  },
+  {
+    "title": "Screenshots",
+    "url": "./#screenshots",
+    "text": "Tools → Snap can capture the visible game view or the full client window, then writes a PNG or JPEG to Screenshots under the user data directory. Debug Settings can temporarily hide mobiles or moving objects for specialized captures."
+  },
+  {
+    "title": "Save a screenshot with or without name tags",
+    "url": "./#snapshot-recipe",
+    "text": "Arrange the view you want to capture, then open Tools → Snap . Enter a filename. Choose Game view only for the playfield or Entire client window to include your panels. Choose PNG or JPEG. PNG keeps UI text crisp; JPEG produces a compressed image. Uncheck Include name tags if you want to hide overhead names in this capture. Press Capture . The options window closes before the image is taken. Use Open Folder to find the saved image in Screenshots. Duplicate names receive a number rather than replacing an existing image. 1 Tools → Snap 1 This hides overhead names for the capture without changing your normal name-tag preference. It does not remove names from Chat, Console, or Players if you capture the entire client. Check those panels before sharing a screenshot of a private conversation. Hide highlights Open full-size image 10 · Palette and settings commands"
+  },
+  {
+    "title": "Reach almost anything from the keyboard",
+    "url": "./#reach-almost-anything-from-the-keyboard",
+    "text": ""
+  },
+  {
+    "title": "Command palette",
+    "url": "./#command-palette-2",
+    "text": "The palette searches by action name and descriptive text. It can open windows, jump to settings, enable or configure scripts, run player actions, and insert or execute commands. A selected-player action uses the player currently selected in the Players window."
+  },
+  {
+    "title": "Text access to settings",
+    "url": "./#text-access-to-settings",
+    "text": "The local /setting commands let you discover and change settings from the input bar: /setting search shadows /setting get rendering.character_shadows /setting set rendering.character_shadows true /setting reset rendering.character_shadows search accepts ordinary words and reports matching setting names. get prints the current value and accepted type. set parses the new value, applies it immediately, and saves it. reset restores that one setting to its default. Unsure of the exact setting name? Start with /setting search and a visible label fragment, such as volume , bubbles , tiled , or shadows . 11 · Files and customization"
+  },
+  {
+    "title": "Know what belongs to you",
+    "url": "./#know-what-belongs-to-you",
+    "text": "All persistent files live under one user data directory, separate from the application. Windows uses %LOCALAPPDATA%\\goThoom . Linux uses $XDG_DATA_HOME/goThoom , or ~/.local/share/goThoom when XDG_DATA_HOME is unset. macOS uses ~/Library/Containers/com.goThoom.client . Use Settings → Files → Open User Data Folder to open the active location without guessing. Location Purpose settings.json Your saved global client settings. The current global setup, not the built-in defaults, is copied when a character profile is first enabled. profiles.json Opt-in state and saved settings for logins that use a per-character profile. characters.json Locally saved character entries and optional remembered login data. Scripts Your Go scripts, author documentation, enabled.json , and permissions.json . Macros/Library Your legacy .mac files and macro enablement file. scripts/storage Private persistent values owned by scripts. shortcuts Global and character-specific text shortcuts. Movies Recorded .clMov sessions and optional ZIPs. Screenshots Snapshots captured from the toolbar. piper Local text-to-speech program, voices, and support files. Text Logs and Diagnostics Saved chat/console history and application diagnostic logs. themes/palettes and themes/styles Custom interface colors and styles, with generated examples and format notes."
+  },
+  {
+    "title": "Move your files or prepare a backup",
+    "url": "./#files-recipe",
+    "text": "Open Settings → Files → Open User Data Folder to locate the active files. For a backup, close the client before copying personalized files so they are not changing during the copy. Include character entries, settings, profiles, scripts and their saved data, macros, and anything you want from Movies or Screenshots. To relocate a category, open File Paths . Assets/audio, logs, legacy macros, and Go scripts can use separate locations. Choose a folder and decide whether to enable Copy existing files to the selected folder . The client checks access and conflicting files before saving the change. Wait for the operation to succeed. If it reports a conflict or failure, resolve that before trying again; do not assume the active path changed. Restart goThoom after a successful path change. Already-open logs and loaded assets continue using their session locations until restart. Settings → Files Open full-size image 1 Settings → Files → File Paths 1 Use copying when the new folder should start with your current files. Different files with the same destination names cause the move to fail rather than overwrite them. The client checks access and verifies the copy before saving the new path. Restart after a successful change so loaded assets and open logs use the new location. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Report a problem with useful details",
+    "url": "./#diagnostics-recipe",
+    "text": "Write down your goThoom test number, operating system, UI scale, and your selected window layout. List the steps from a working state to the problem, including the layout name and whether Chat and Console are combined. Capture the affected window with Tools → Snap → Entire client window . Open Settings → Files → Open Diagnostics Folder . The application log is goThoom.log , with rotated backups. For scripts, include the script name and the Info panel’s copied error. Include relevant log lines around the failure when reporting it. Use GitHub issues or the project’s Discord. A screenshot plus repeatable steps is more useful than “the window is broken.” Review what you share if the capture includes private conversation."
+  },
+  {
+    "title": "Custom background",
+    "url": "./#custom-background",
+    "text": "Place an image named background.png directly in the user data directory to replace the client background."
+  },
+  {
+    "title": "Backups and upgrades",
+    "url": "./#backups-and-upgrades",
+    "text": "Replacing the application does not replace the user data directory. On the first launch after upgrading from an older portable Windows or Linux version, goThoom copies existing data , themes , Text Logs , and logs from the application folder into the new location without deleting the originals or overwriting files already present there. Launch that first upgraded version from the existing application folder so it can find the portable data. After migration, future application replacements need no special file handling. The user data directory still contains the personalized files worth backing up. If the old application folder was moved or deleted before migration, manually copy its writable folders into the new user data location. 12 · Troubleshooting"
+  },
+  {
+    "title": "Fast answers to common problems",
+    "url": "./#fast-answers-to-common-problems",
+    "text": "The client cannot connect Confirm Clan Lord itself is available, then retry. Open Settings → Network → Edit Server List to verify the configured server. Firewalls must allow the client’s TCP and UDP traffic. Artwork or sound is missing Open Settings → Files → Download Files and let resource checking finish. Ensure the client can write to its data folder and that security software has not quarantined the downloaded archives. A window is missing or off-screen Open Settings → Display → Window Layout and check the selected arrangement and Combine chat + console. If needed, choose Reset Windows . This restores layout without resetting unrelated graphics, audio, or control settings. Chat is separate, but I cannot type into it Press Enter to reopen the input bar. Check Settings → Controls → Input bar always open. Chat and Console share their draft and history. Check the selected arrangement in Window Layout. Follow the separate-chat walkthrough . The dividers move together Auto-size side panels is on. That makes a divider drag move the game sideways while preserving its automatic width. Turn it off in Window Layout to keep the current sizes and resize the two sides independently. The voice menu is empty or Test TTS is silent Install a Piper voice in Download Files, select it in Settings → TTS, and test with the client focused. Check master mute, the TTS channel, and Mute when unfocused in the Audio mixer. See the speech setup steps . Scrolling jumps or does not reach the bottom Resize the window once and retry with the pointer directly over its list. If it persists in the current release, capture the window name, platform, UI scale, and exact steps and report it on GitHub or Discord. A script does nothing Open Scripts and confirm the correct Player or All box is selected. Scripts start at successful login, so nothing runs while you are at Login. Check Info → Permissions, then read validation/runtime errors and the Console. Check whether its trigger text, expected message source, or hotkey matches what the game actually produced. A macro key or script key does not fire Open Actions → Keybindings to see active bindings and their owners. Legacy macros and earlier registrations can shadow a later binding. Use Test Keyboard/Mouse to confirm the physical input name. Performance is poor Enable Show FPS in Display while testing. Try the iGPU or lower quality preset, reduce shader lighting and shadows, lower artwork processing, and disable animation blending. Use Potato GPU only for limited-VRAM devices; it trades loading smoothness for reduced texture memory. Audio or TTS is silent Check master and channel toggles in Audio, focus muting, and the relevant volumes. For TTS, enable Chat TTS, install a Piper voice through Download Files, and press Test TTS. Review Console output for a missing voice or executable. A movie will not play Movie playback is intentionally blocked while connected or connecting. Disconnect, return to Login, and choose Play movie file. Supported inputs are .clMov and ZIP files containing a movie."
+  },
+  {
+    "title": "When reporting a bug",
+    "url": "./#when-reporting-a-bug",
+    "text": "Include the goThoom release, operating system, what you expected, what happened, and the smallest repeatable sequence. Screenshots and relevant Console lines help. Do not post passwords, saved credential files, or private chat logs publicly. Report an issue ↗ Ask on Discord ↗ Back to top ↑"
+  },
+  {
+    "title": "Automate at the level you need",
+    "url": "automation.html#automate-at-the-level-you-need",
+    "text": "You want to… Use Example Run a command with a key Hotkeys Ask for information about the selected player. Type a shorter first word Shortcuts Expand pp into /ponder . React to events, track state, or create controls Go scripts Reply to a ferryman’s offer with Yes Boats. Use an existing classic macro library Legacy Macros Load a familiar .mac package."
+  },
+  {
+    "title": "Hotkeys",
+    "url": "automation.html#hotkeys-2",
+    "text": "Open Actions → Hotkeys and press + . Give the hotkey a name, choose Record , press the desired keyboard or mouse combination, and add one or more commands. Script-provided hotkeys appear in the same window and can be individually enabled or disabled. Use Actions → Keybindings to inspect active script and legacy-macro bindings in one place. Test Keyboard/Mouse shows the input names the client detects and helps diagnose unusual keyboards or mouse buttons."
+  },
+  {
+    "title": "Create a hotkey for the selected player",
+    "url": "automation.html#hotkey-recipe",
+    "text": "Open Actions → Hotkeys and press + . Give it a recognizable name, such as “Info about selected player”. Choose Record and press the key combination you want. Enter /info @selected.player as the command and press OK . Select someone in Players, then press your new binding while the client has focus. If the wrong action runs, inspect Actions → Keybindings for another owner using the same combination. Use Test Keyboard/Mouse to see the actual input names. Context values are resolved when the action runs. A command using @selected.player needs a selected player; one using @selected.item needs a selected inventory item. 1 Actions → Hotkeys → + 1 The selected player is resolved when you press the hotkey, not when you save it. This example can therefore inspect any player you select, using the same binding each time. It needs a selection in Players; the player beneath the pointer is a different context value. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Text shortcuts",
+    "url": "automation.html#text-shortcuts-2",
+    "text": "Shortcuts expand the first word of an outgoing input line. For example, mapping pp to /ponder turns pp hello into /ponder hello . Shortcuts can be global, character-specific, or provided by a running script."
+  },
+  {
+    "title": "Create a shortcut for a longer command",
+    "url": "automation.html#shortcut-recipe",
+    "text": "Open Actions → Shortcuts . Choose Add for character for one character’s expansion or Add For All for a shared expansion. Enter pp as the shortcut and /ponder as the expansion, then save it. In chat input, type pp hello and send. Only the first word is expanded, producing /ponder hello . 1 Actions → Shortcuts → Add For All 1 Shortcuts expand the first word when you send a line. With this example, “pp hello” becomes “/ponder hello”; “hello pp” is not expanded. Choose a short word you are unlikely to start an ordinary message with by accident. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Go scripts",
+    "url": "automation.html#go-scripts-2",
+    "text": "Open Actions → Scripts . The Player checkbox enables a script only for the selected character; All enables it for every character. These choices are mutually exclusive. The information button shows metadata, validation or runtime errors, and actions available for that package. Use Open scripts folder and add a single .go file, a package folder, or a ZIP package. If the Scripts folder is empty, goThoom seeds it with embedded examples. Existing files are never overwritten. Press Refresh to rescan immediately. Enabled scripts normally reload when their files change. If a reload fails, inspect the script’s information panel and Console. The last working copy continues when possible. Scripts can add commands, hotkeys, shortcuts, notifications, configuration fields, and toolbar controls. They run locally but can issue commands as your character, so read unfamiliar code before enabling it. Use Actions → Saved Data to inspect or clear script-owned persistent data. For writing scripts, use the generated README.md and gt2/API_REFERENCE.md in the Scripts folder or read the online scripting guide . The release page also provides a VS Code script template."
+  },
+  {
+    "title": "Write a small local command",
+    "url": "automation.html#first-go-script",
+    "text": "A script can respond to a local command without sending anything to the server. This is a useful first experiment because you can see whether the script loaded before adding game actions. In Scripts, use Open scripts folder . Create a plain-text file named hello.go in your editor. Paste this example and save it. Keep the build line as the first line. //go:build script package main import \"gt2\" const scriptID = \"my-first-local-command\" const scriptName = \"Local Greeting\" const scriptAPIVersion = 2 func Init() { gt2.Command(\"hello\", func(args string) { gt2.Print(\"Hello \" + args) }) } Refresh the Scripts list, enable Local Greeting, and review its command-registration permission. Log in, then type /hello world . The response appears in Console. Edit the greeting, save the file, and check the script’s status. Use Reload if needed, then try the command again. gt2.Print writes local output. gt2.Send sends text or commands as your character and requires a separate server-command grant. Do not substitute one for the other when you only want to display a status message. Keep a script’s ID stable when editing it: its saved settings and storage use that identity. Give a new, independent script a new ID. The script-author guide covers complete examples, and the API reference lists available functions and types."
+  },
+  {
+    "title": "Enable a script and review its permissions",
+    "url": "automation.html#script-permissions",
+    "text": "The screenshots use Yes Boats , a simple script that whispers “yes” when a ferryman’s boat offer mentions your character. It reads NPC messages and your character’s name, then sends the reply. Those actions explain why it requests chat, game-data, and server-command access. Open Actions → Scripts . Use Open scripts folder to add the file or package, then Refresh . Check Player for the character named in the window title, or All to enable it for every character. On first enable, review the permission window. Requested capabilities start checked. A greyed-out capability has no corresponding API reference in this source. Uncheck any requested capability you do not want to grant. Press Grant to save the choices, or Block all to deny access and disable the script. Log in to run an enabled script. Selecting it at Login configures enablement; it does not run there. Open the script’s Info → Permissions later to inspect or change access. Use Info to validate, reload, stop, or inspect errors. Actions → Scripts Open full-size image 1 2 Actions → Scripts → Info → Permissions 1 Yes Boats sends a whisper as your character when it recognizes a boat offer addressed to you. This permission allows that reply; reading the offer and checking your character’s name require separate chat and game-data grants. 2 Grant saves only the checked capabilities, and the decision applies to this script across characters. Unchecking something does not automatically adapt the script: a feature that depends on the denied capability may no longer work. Reopen Info → Permissions to change your decision; Block all also disables the script. Hide highlights Open full-size image Grants apply to that script across characters and are saved in Scripts/permissions.json . Enablement is stored separately in enabled.json . A partial grant may prevent some features from working; the script must be written to handle that. Permission What you are allowing Register commands and shortcuts Add commands and first-word expansions inside the client. Bind keys and mouse buttons Respond to bindings and consume their input. Send server commands Send text or commands as your character, including equipment actions. Game data and events Read players, inventory, selections, vitals, and visible scenery updates. Chat and server messages Read incoming messages, including private messages. Automatic movement Steer the character through the movement pointer. Windows, toolbars and overlays Create local controls and draw overlays. Input box and pointer Inspect the pointer and read or replace unsent input. Notifications and sound Show notifications or play sounds. Persistent script storage Keep that script’s saved values between sessions. Background timers Run repeating callbacks without a command or hotkey. Session events React to login, logout, character changes, and stopping."
+  },
+  {
+    "title": "Know what a script can remember",
+    "url": "automation.html#script-saved-data",
+    "text": "Normal Go variables belong to the running script instance. Saved configuration and values deliberately written through gt2.Store can outlive that instance. Use Actions → Saved Data to inspect script-owned persistent values when troubleshooting a script that keeps restoring an unexpected choice. Stored values are private to one script but shared across its characters. For example, a reminder that belongs to one character needs that character’s normalized name in its storage key. Read character-specific data only after the character is known. A repeating timer does not survive logout or a restart; save a due date and check it in the next session if the reminder must survive."
+  },
+  {
+    "title": "Understand when scripts run and stop",
+    "url": "automation.html#script-lifecycle",
+    "text": "Enabled scripts start when you log in and stop when you log out. Your next login starts a new instance. Use persistent storage for values that need to survive between sessions. Only data deliberately saved through script storage persists. That storage is private to the script but shared across its characters; script authors must use character-specific keys for character-specific data. For authoring details, read the scripting guide and API reference ."
+  },
+  {
+    "title": "Recover from a script error",
+    "url": "automation.html#script-errors",
+    "text": "Open the script’s Info panel and read the status and error. Copy Error helps include the exact message in a report. Use Validate to check the source. Correct syntax or API problems before retrying. If status says permissions are required, use Permissions to review the current source’s access. Use Reload when enabled. A failed reload can leave the older working copy running; the status says when that happened. Use Stop to disable the script if it is not behaving as expected. Log out to end all session scripts. 1 Actions → Scripts → Info 1 A reload can fail while the previous working copy continues running. Read the status and error before assuming your edited code is active. Validate can help find source problems; if the change requests additional access, review Permissions before trying again. Hide highlights Open full-size image"
+  },
+  {
+    "title": "Legacy macros",
+    "url": "automation.html#legacy-macros-2",
+    "text": "Open Actions → Legacy Macros . Like scripts, a macro can be enabled for the selected player or globally. Use the information button for its description and diagnostics, Refresh after adding or renaming files, and Reload Macros after editing enabled macros. Add personal .mac files to Macros/Library in the user data directory. Embedded examples populate an empty library without replacing your work. Leave Allow continuous macros off unless a trusted classic macro intentionally loops without pausing or producing output; the default execution limit protects the client from runaway macros."
+  },
+  {
+    "title": "Install an existing legacy macro",
+    "url": "automation.html#install-legacy-macro",
+    "text": "Open Settings → Files → Open User Data Folder and locate Macros/Library . If you configured an alternate macro folder, use that location. Copy the macro’s .mac file and any accompanying files into the library, preserving relative folder paths. An include file is part of the package, not necessarily a second macro to enable. Open Actions → Legacy Macros and use Refresh so new or renamed files appear. Open its information panel. Read the description and available diagnostics, then enable it for the intended player or for all players. Try the trigger named in the macro’s documentation. If a binding collides with a hotkey or script, use Actions → Keybindings to inspect its owner. Refreshing the library and reloading active macros solve different problems. Refresh discovers files; use Reload Macros after changing the contents of an enabled macro. If the package cannot load, examine its information panel and Console rather than repeatedly pressing its trigger."
+  },
+  {
+    "title": "Change a macro’s commands or keybindings",
+    "url": "automation.html#edit-macro-triggers",
+    "text": "Use Commands or Keybinds on a row in Actions → Legacy Macros . Commands edits what you type to start a macro or expand an abbreviation; it does not change the text sent by the macro. Keybinds changes which key, mouse button, or wheel action starts it. Actions → Legacy Macros Open full-size image Open the editor for the macro you want to customize. Each entry shows its current trigger and source file. Included files can be shared by several macros, so changes to those files affect every macro that includes them. For a command, edit the trigger text. For a keybinding, click Record , release the click, then press the replacement key or click with the desired modifiers. Escape cancels recording; you can also type a binding such as Control-F6 directly. Use Reset to undo an unsaved change to one entry, or Cancel to discard all edits in the window. Press Save . The client validates the edited source, rejects conflicting triggers within the macro and its includes, saves the changes, and reloads enabled macros. If another editor changed the files while this window was open, reopen the window before trying again. Changes apply to the macro file for every character using it. Comments, macro bodies, and surrounding formatting stay in place. Use the row’s Edit button when you want to change what the macro actually does. Actions → Legacy Macros → Commands Open full-size image Actions → Legacy Macros → Keybinds Open full-size image"
+  },
+  {
+    "title": "Make a one-key macro",
+    "url": "automation.html#first-legacy-macro",
+    "text": "Save the following plain text as look.mac inside your macro library: // Metadata // Name: Look Around // Desc: Sends /look when F6 is pressed. f6 \"/look\\r\" Refresh the library and enable Look Around. While connected, F6 sends /look . The trigger is outside the quotes; the quoted text is what the macro enters. The \\r at the end submits the line. If you want to review or add to a line before sending it, leave off that final submit sequence. The metadata comments make the entry identifiable in the library. They do not change execution. Use a free binding while testing, and edit or disable this example if you already use F6 for another action. The metadata format and bundled examples provide starting points for a larger package."
+  },
+  {
+    "title": "Why a looping macro may be stopped",
+    "url": "automation.html#macro-loops",
+    "text": "Some old macros deliberately loop without waiting or producing output. The client normally limits that behavior to avoid an unresponsive or runaway macro. Enable Allow continuous macros only when you understand why a particular package needs it. A macro failing immediately with a syntax or missing-include error is not fixed by allowing continuous execution."
+  },
+  {
+    "title": "Find why an action did not run",
+    "url": "automation.html#find-why-an-action-did-not-run",
+    "text": "Symptom What to check The key runs a different action Inspect Actions → Keybindings. Check the owner and look for a legacy macro, script, or hotkey using the same input. The key is never recognized Focus the client and use Test Keyboard/Mouse. Record the name the client receives; physical key labels and detected input names can differ. The wrong player or item is used Check whether the command uses selected, hovered, or last-clicked context. Those are different values. The script is enabled but idle at Login That is expected: scripts run after a successful login. Confirm Player applies to the character you intend to connect. Only part of a script works Review permissions and the script’s configuration. Registering a command, reading game data, moving, and sending server text are separate capabilities. Editing a macro changes nothing Reload Macros after saving. Refresh is for discovering files. For Go scripts, read Info for reload errors and whether the old copy is still active. When reporting a problem, include the package name, trigger, selected character, permissions relevant to the feature, and the exact error. The diagnostics guide explains where to find logs."
+  },
+  {
+    "title": "Choose the problem before changing settings",
+    "url": "performance.html#choose-the-problem-before-changing-settings",
+    "text": "A low frame rate, a one-time loading pause, and a picture you do not like need different adjustments. Open Settings → Display → Show FPS , then compare changes in the same scene at the same game-window size. Keep the client focused during a comparison so background power saving does not change the result. What you notice Start here Why The scene stays slow while you stand still Lighting & effects , then artwork resolution These change ongoing drawing work. A larger cache is not the first response to steady low FPS. A pause occurs on entering a room Artwork loading and cache Artwork being prepared for the first time can interrupt an otherwise smooth session. The picture is too soft or looks smeared Artwork style for still images; animation blending for changing poses Static filtering and blending over time have different effects. Performance drops after switching to another app Power saving The client can deliberately reduce its drawing rate when unfocused. Text and buttons are too small UI scale and text sizes Artwork resolution does not make the interface easier to read. Actions feel late but the scene draws smoothly Network timing and live Stats Drawing more frames does not reduce network delay or change the server’s update rate."
+  },
+  {
+    "title": "Make a comparison you can undo",
+    "url": "performance.html#graphics-recipe",
+    "text": "Choose a familiar location or use the same point in a movie recording for repeatable visual comparisons. Note the current preset and the option you plan to change. A screenshot of its settings page can help restore your starting point. Change one setting and inspect the same scene. For loading behavior, also check a new room and a room you revisit. Keep the change if it improves the thing you are trying to fix. Otherwise restore it before testing another option. Changing artwork processing can clear its cached results. The first draw afterward may include rebuilding work; distinguish that temporary pause from the behavior after the scene has settled."
+  },
+  {
+    "title": "Presets and the effects master switch",
+    "url": "performance.html#presets-and-the-effects-master-switch",
+    "text": "Settings → Performance → Quality preset provides a starting set of graphics choices. The setup wizard’s check chooses Default or iGPU Graphics. Choose the preset before individual tuning: applying another preset can change several options at once. 1 Settings → Performance 1 A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere. Hide highlights Open full-size image Enhanced visual effects controls lighting, animation blending, replacement effects, and faster shadows together. Turning it off preserves the individual choices while disabling the affected features. This makes it useful for a quick comparison. If a feature’s control is greyed out, check its master switch before assuming that the individual setting was lost. Profiles can make your choices character-specific. A different saved character may load different graphics settings when Keep settings separate is enabled. Read about character profiles before diagnosing a change that only happens when you switch characters."
+  },
+  {
+    "title": "Artwork resolution, edges, and color",
+    "url": "performance.html#artwork-resolution-edges-and-color",
+    "text": "Artwork scale override controls the resolution of prepared artwork textures. Its default is 2×, and the control offers up to 4×. Resizing the game window does not change that setting. More detailed textures require more graphics memory, even if you display them in a small game pane. Artwork upscale style changes the treatment of the original pixels. Crisp preserves hard boundaries; smoother styles blend more neighboring pixels. Compare small faces, equipment, and high-contrast scenery rather than judging only a large flat area. Settings → Performance → Artwork Open full-size image"
+  },
+  {
+    "title": "Choose a visual direction",
+    "url": "performance.html#artwork-recipes",
+    "text": "For a sharper, more classic look: start with a crisper upscale style and compare Pixel-art scaling. If the picture still appears softened, turn off Blend Image Dithering and compare the result. For gentler edges: compare the smoother styles while standing still. Then walk through the scene; a treatment you like in a still image may look different in motion. If artwork looks washed out: compare Enable Sprite Gamma Correction before adjusting several brightness settings. Sprite Gamma describes the source artwork’s brightness encoding; Monitor Gamma describes the target response. They are not two independent brightness boosts. Blend Image Dithering processes the artwork’s alternating pixel patterns. Its Denoise strength and Sharpness controls alter that treatment; judge both the intended smoothing and any fine detail you want to keep."
+  },
+  {
+    "title": "See characters behind scenery",
+    "url": "performance.html#scenery-visibility",
+    "text": "Fade objects obscuring mobiles makes obstructing artwork less opaque. Its opacity value controls how much of the object remains visible while faded. This changes visibility, not collision: being able to see through an object does not mean your character can walk through it."
+  },
+  {
+    "title": "Separate movement smoothing from pose blending",
+    "url": "performance.html#separate-movement-smoothing-from-pose-blending",
+    "text": "Smooth Motion interpolates movement between updates. Character Animation Blending blends changing character poses, and World Animation Blending handles changing world imagery. You can like smooth travel while preferring an immediate change of pose. 1 Settings → Performance → Motion 1 This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on. Hide highlights Open full-size image If travel looks jerky, compare Smooth Motion first. If a moving sprite seems to shimmer, compare Subpixel movement. It permits positions between screen pixels; turning it off places sprites on whole pixels. If changing poses leave a smeared appearance, reduce the relevant blend duration or disable that kind of animation blending. If small moving pictures lag visually behind the rest of the scene, compare Smooth small moving objects. It depends on Smooth Motion and only attempts to smooth eligible small sprites. These controls change the displayed transition between received states. They do not make the server send updates more often or remove a delay in receiving them."
+  },
+  {
+    "title": "Lighting and shadows",
+    "url": "performance.html#lighting-and-shadows",
+    "text": "Use Lighting & Effects to compare scene lighting and character shadows separately. Light strength, glow, and flame flicker affect appearance; turning off a whole effect is a clearer first comparison when diagnosing its rendering cost. Settings → Performance → Lighting & Effects Open full-size image Compare Lighting Effects in the same scene, including the same night conditions where possible. Compare Character Shadows separately. Window Shadows belongs to the UI windows, so changing it will not remove shadows under characters. Try Faster Character Shadows if you want to compare the alternative shadow path. Judge both the resulting image and drawing performance. Leave Experimental choices for separate comparisons after you have a stable setup. Replacement effects and mobile light-cone shadows are not required to use the client. If options here seem inactive, check Enhanced visual effects at the top of Performance. To make a dark scene more readable without changing every lighting option, also inspect Settings → World → Max Night Level ."
+  },
+  {
+    "title": "Loading pauses and memory use",
+    "url": "performance.html#loading-pauses-and-memory-use",
+    "text": "Batch room artwork loading prepares missing room artwork in one pause instead of spreading its first-use work across several frames. It changes when you experience that work. Compare room entry and the movement immediately afterward, not just an FPS reading while standing still. Settings → Performance → Caching Open full-size image"
+  },
+  {
+    "title": "Choose how much artwork to keep ready",
+    "url": "performance.html#sprite-cache",
+    "text": "The Sprite cache presets range from Minimal through Compact, Balanced, Generous, and Maximum. Balanced is the default. A smaller reserve leaves room for other applications but can require artwork to reload more often. A larger reserve can help when revisiting areas, if the machine has room for it. The reserve scales with artwork resolution. For example, Balanced reserves 512 MiB at 2×, 1,152 MiB at 3×, and 2 GiB at 4×. Doubling the texture dimensions uses four times the area, so increasing artwork resolution and cache size together can be a large memory change. This is not a ceiling on total graphics memory: the scene, interface, and other rendering resources also need memory. Read the reserve explanation below the selector and restart after changing the preset to rebuild it."
+  },
+  {
+    "title": "Recognize sound-loading pauses",
+    "url": "performance.html#sound-precache",
+    "text": "Precache Sounds spends roughly 300 MB of additional RAM to avoid decoding a sound on its first playback. Consider it when a hitch coincides with a sound first being heard. It is a separate tradeoff from retaining artwork in graphics memory."
+  },
+  {
+    "title": "Use activity dots as clues",
+    "url": "performance.html#asset-dots",
+    "text": "Show asset activity dots distinguishes artwork decoding/processing in green, audio decoding in amber, and GPU artwork upload in red. A dot tells you work is happening; it does not, by itself, establish the cause of a slowdown. Compare its timing with the pause you are investigating. Potato GPU (4096px Limit) is the compatibility option for devices constrained by large textures. It is not a general promise that every slow machine will run faster. For continued problems, include the device, artwork scale, cache preset, and observed symptom in your report."
+  },
+  {
+    "title": "Frame-rate limits and background behavior",
+    "url": "performance.html#frame-rate-limits-and-background-behavior",
+    "text": "Power save in background reduces drawing while the client is unfocused. Always power save applies the power-saving limit even while focused. Both use the Power-save FPS value. 1 Settings → Performance → Power Saving 1 This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations. Hide highlights Open full-size image VSync - Limit FPS relates drawing to the display’s refresh behavior. Disabling it can increase drawing work and power use without changing the game server’s timing. Do not interpret a deliberately capped rate as proof that your graphics settings are too demanding. If the rate drops only when you switch applications, check the background setting. If it stays capped while you play, check Always power save and Power-save FPS. If the cap matches the display’s refresh rate, check VSync before reducing visual quality. After testing, restore the power settings you want for ordinary use."
+  },
+  {
+    "title": "Restore a usable picture",
+    "url": "performance.html#restore-a-usable-picture",
+    "text": "Open Settings → Performance → Quality preset and choose a preset to restore a coordinated set of graphics settings. Use this when the picture becomes difficult to read after experimenting with individual options. Once it looks comfortable again, make any further adjustments one at a time. For a report, record the client version, operating system, graphics device, window size, UI scale, quality preset, and the specific settings that reproduce the problem. Include whether it occurs on first room entry, throughout a scene, only during movement, or only when unfocused. The diagnostics walkthrough explains screenshots and logs."
+  },
+  {
+    "title": "Settings: Display",
+    "url": "reference.html#settings-display",
+    "text": "Settings → Display UI Scale Apply Fullscreen (F12) Show FPS Show the current frame rate in the game view. Always on top Window Shadows Show the shadow or glow defined by the theme around floating windows and menus. Toolbar Placement Choose which list contains the toolbar. Window Layout Open panel ordering, game placement, and combined-message controls. Toolbar Info Show network and performance stats. Reset Windows Restore the default window layout. Color Theme Hover to preview a palette. Click to keep it; move away or press Escape to restore your choice. Style Theme Hover to preview control shapes and spacing. Click to keep the style. Choose accent color Choose accent color Inventory Chat Console Players Use this when buttons, menus, and window controls are all too small. If only the conversation is hard to read, increase Chat Window Font Size in the Text tab instead; that gives you larger text without enlarging every panel. This slider takes effect when you press Apply. Use this to recover a lost panel or an awkward arrangement. It resets the window layout, not your graphics, audio, and other preferences."
+  },
+  {
+    "title": "Settings: World",
+    "url": "reference.html#settings-world",
+    "text": "Settings → World Along Bottom Grouped Lower Left Grouped Lower Right Grouped Upper Right Status bars below toolbar hands Show the status bars beneath the toolbar hand slots instead of in the game view. Regular Modern -- thin Hidden Color bars by value Status bar opacity Max Night Level Name Background Opacity Name Tag Label Colors Color name-tag borders by label. Player Health Display Color bar keeps names stable; Classic changes name color as health falls. Color Bar Position Modern Bar Thickness Hide My Name Tag Show name-tags only on hover Show recently on-screen group Group clan members together Show sharing icons in Players list This keeps recently seen players easy to select after they leave the view. Being listed here does not mean a player is still on screen. Use the group to find a familiar name again, but check the game view before assuming they are still nearby. Names already indicate sharing: an underline means you share with that player, bold means they share with you, and both styles mean mutual sharing. This option adds icons without replacing those styles. Hover an icon if its direction is unclear. Italics indicate a clanmate and can appear with any sharing style."
+  },
+  {
+    "title": "Settings: Text",
+    "url": "reference.html#settings-text",
+    "text": "Settings → Text Name Font Size Inventory Font Size Players List Font Size Console Font Size Chat Window Font Size Chat Bubble Font Size Chat timestamps Console timestamps Text Colors Timestamp format mo,day,hour,min,sec,yr:01,02,03... Autocomplete Show input suggestions and let Tab complete them. Spellcheck Underline misspelled words and offer corrections. Chat, Console, overhead names, and speech bubbles have independent font sizes. If you separate Chat from Console and one looks smaller, adjust its own slider. Enlarging chat text also wraps lines sooner, so a wider message pane may make more difference than increasing the font again."
+  },
+  {
+    "title": "Settings: Bubbles",
+    "url": "reference.html#settings-bubbles",
+    "text": "Settings → Bubbles Dark Mode Names/Bubbles Bubble Opacity Bubble Lifetime Classic: fixed 8 seconds. Modern: base seconds plus seconds per word. Modern Base Life (s) Modern mode starts with this many seconds (default 3). Modern Life per Word (s) Modern mode adds this many seconds per word (default 1). Bubble Scale Message Bubbles Modern mode adds reading time for each word, so a long sentence stays longer than a short one. Increase the base time if even short messages vanish too soon; increase the per-word time if only long messages are difficult to finish. Classic mode uses a fixed lifetime instead."
+  },
+  {
+    "title": "Settings: Audio",
+    "url": "reference.html#settings-audio",
+    "text": "Settings → Audio Music SoundFont Choose a valid .sf2 file from the Assets & Audio folder. The list refreshes when opened. Audio Mixer Open the Mixer to adjust volume levels. Enhance sound effects Add ambience to newly played game sound effects. Sound effect ambience Enhance bard music Add ambience to newly started bard music. Bard music ambience Music Buffer (s) Seconds of bard music prepared before playback. More buffering tolerates slower SoundFonts but takes longer to start. Throttle Repeated Sounds Suppress the same effect when it repeats in adjacent server updates. High quality resampling Uses Lanczos resampling and dithering for cleaner audio at higher CPU cost. Game Notifications Notification Settings A SoundFont supplies the instrument sounds used for bard music. Changing it can change how the same tune sounds; it does not replace game sound effects or a Piper speaking voice. If the menu is empty, install a SoundFont through Files → Download Files."
+  },
+  {
+    "title": "Settings: TTS",
+    "url": "reference.html#settings-tts",
+    "text": "Settings → TTS Enable Text to Speech Download TTS files TTS Speed TTS Voice TTS test phrase Test TTS Edit TTS corrections The voice menu is populated from installed Piper models. The empty menu in this example means a usable voice has not been found; enabling speech alone does not provide one. Download the TTS files, select a voice, then test a sentence before relying on spoken chat. The Audio mixer controls speech volume separately."
+  },
+  {
+    "title": "Settings: Controls",
+    "url": "reference.html#settings-controls",
+    "text": "Settings → Controls Click-to-toggle movement Click once to keep walking toward the pointer; click again to stop. Input bar always open Close for WASD and extra hotkeys. Middle-click moves windows Keyboard Walk Speed Gamepad With this off, Enter opens the input bar and Enter again sends the message. With it on, you can begin typing without first opening the bar. Chat and Console share one draft and sent-message history, so switching between their input bars does not give you a second independent message."
+  },
+  {
+    "title": "Settings: Performance",
+    "url": "reference.html#settings-performance",
+    "text": "Settings → Performance Quality preset Choose one of five cumulative quality tiers; Custom preserves individual choices. Enhanced visual effects Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled. Artwork scale override Fixed artwork texture scale. Default: 2x. Resizing the game window does not change it. Higher values use more GPU memory. Artwork upscale style Crisp preserves hard edges; smoother modes blend more neighboring pixels. Pixel-art scaling Fade objects obscuring mobiles Obscuring Object Opacity Lower values make covering artwork more transparent while it is faded. Enable Sprite Gamma Correction Compensates classic artwork for modern displays; disable if colors look washed out. Sprite Gamma Describes how brightness is encoded in the original sprite artwork. Monitor Gamma Describes the target display response used when correcting sprite brightness. Blend Image Dithering Sharpness Denoise strength A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere."
+  },
+  {
+    "title": "Performance: Artwork",
+    "url": "reference.html#performance-artwork",
+    "text": "Settings → Performance → Artwork Quality preset Choose one of five cumulative quality tiers; Custom preserves individual choices. Enhanced visual effects Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled. Artwork scale override Fixed artwork texture scale. Default: 2x. Resizing the game window does not change it. Higher values use more GPU memory. Artwork upscale style Crisp preserves hard edges; smoother modes blend more neighboring pixels. Pixel-art scaling Fade objects obscuring mobiles Obscuring Object Opacity Lower values make covering artwork more transparent while it is faded. Enable Sprite Gamma Correction Compensates classic artwork for modern displays; disable if colors look washed out. Sprite Gamma Describes how brightness is encoded in the original sprite artwork. Monitor Gamma Describes the target display response used when correcting sprite brightness. Blend Image Dithering Sharpness Denoise strength"
+  },
+  {
+    "title": "Performance: Motion",
+    "url": "reference.html#performance-motion",
+    "text": "Settings → Performance → Motion Quality preset Choose one of five cumulative quality tiers; Custom preserves individual choices. Enhanced visual effects Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled. Smooth Motion Smooth small moving objects Attempt to smooth independently moving picture sprites whose visible area is up to 35x35 pixels and moves no more than 64 pixels between updates, such as coins. Requires Smooth Motion. Subpixel movement Keeps interpolated sprites at subpixel screen positions for smoother movement. This can cause shimmering on some artwork; turn it off to floor sprites to whole pixels. Character Animation Blending World Animation Blending Character Animation Blend Duration Set how much of the animation interval is spent blending frames. World Animation Blend Duration Set how much of the animation interval is spent blending frames. This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on."
+  },
+  {
+    "title": "Performance: Lighting & Effects",
+    "url": "reference.html#performance-lighting---effects",
+    "text": "Settings → Performance → Lighting & Effects Quality preset Choose one of five cumulative quality tiers; Custom preserves individual choices. Enhanced visual effects Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled. Lighting Effects Flame Light Flicker Flame Flicker Strength Light Strength Glow Strength Window Shadows Show the shadow or glow defined by the theme around floating windows and menus. Character Shadows Character Shadow Darkness Faster Character Shadows Uses one cheaper shadow pass, but may shade foreground artwork that should cover a shadow. Characters Receive Sun Shadows Shade characters in proportion to how much another character's projected shadow covers them. Mobile light-cone shadows (experimental) Let mobiles cast experimental soft cone shadows from nearby lights. Replacement Effects (experimental) Use procedural magic effects."
+  },
+  {
+    "title": "Performance: Caching",
+    "url": "reference.html#performance-caching",
+    "text": "Settings → Performance → Caching Quality preset Choose one of five cumulative quality tiers; Custom preserves individual choices. Enhanced visual effects Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled. Batch room artwork loading Load missing room artwork in one pause instead of spreading first-use work across frames. Sprite cache Choose how much artwork to keep ready. The reserve automatically scales with sprite resolution. Precache Sounds Uses roughly 300 MB more RAM to avoid first-play sound decoding delays. Show asset activity dots Show activity dots in the game view's lower-right: green for artwork decoding and processing, amber for audio decoding, and red for GPU artwork uploads. Potato GPU (4096px Limit) Use standalone textures instead of a large shared atlas for GPUs limited to 4096x4096 textures. Artwork resolution and upscaling are unchanged."
+  },
+  {
+    "title": "Performance: Power Saving",
+    "url": "reference.html#performance-power-saving",
+    "text": "Settings → Performance → Power Saving Quality preset Choose one of five cumulative quality tiers; Custom preserves individual choices. Enhanced visual effects Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled. Power save in background Reduce FPS when window is unfocused Always power save Limit FPS while focused. Power-save FPS VSync - Limit FPS Sync frame rate to the display. This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations."
+  },
+  {
+    "title": "Settings: Network",
+    "url": "reference.html#settings-network",
+    "text": "Settings → Network Enable NLSPT Enable Network Latency & Server Phase Timing, which learns the server frame phase and sends fresh input shortly before its next processing window. NLSPT safety (%) Minimum lead as a percentage of one server frame, with frame jitter added separately. Session-only; resets to 10% when goThoom starts. Edit Server List Add or remove server addresses used by the Login screen. This adjusts the safety margin for Network Latency & Server Phase Timing, not your internet connection speed. It is a session-only adjustment: it starts at 10% when the client launches and is not saved with your profile. Leave the default in place unless you are deliberately comparing timing behavior."
+  },
+  {
+    "title": "Settings: Files",
+    "url": "reference.html#settings-files",
+    "text": "Settings → Files File Paths Choose alternate folders for assets and audio, logs, legacy macros, and Go scripts. Download Files Open User Data Folder Open the persistent folder containing settings, characters, scripts, recordings, themes, and downloaded assets. Open Diagnostics Folder Open the folder containing the current and rotated diagnostic logs for bug reports. Auto-record sessions"
+  },
+  {
+    "title": "Settings: Tools",
+    "url": "reference.html#settings-tools",
+    "text": "Settings → Tools Setup Wizard Reopen guided graphics, layout, controls, and audio setup without resetting choices. Debug Settings Reset All Settings"
+  },
+  {
+    "title": "Arrange tiled windows",
+    "url": "reference.html#tiled-layout",
+    "text": "Settings → Display → Window Layout Combine chat + console Show chat and console output together in one pane. Auto-size side panels Automatically adjust side panel widths to use empty space beside the game. Drag either game divider to move the game sideways. Turn off to keep the current sizes and resize panels independently. Swap game side Choose Game on a side to move the game between the left and right edges. Swap inventory / players list Exchange the two lists without moving the game or messages. Combined messages on right Move the combined Chat and Console pane to the right side of the centered game. Messages above game Choose Messages above or below or Full-width message row to move the row above the game. Message split Turn off Combine chat + console to split the message area into separate panes. Extra width beside the playfield can become wider lists instead of empty space. With automatic sizing on, dragging either game divider slides the game sideways and moves both dividers together. Turn it off to keep the current sizes and resize each side independently. Turning it back on recalculates around the game’s current position."
+  },
+  {
+    "title": "Separate message panes",
+    "url": "reference.html#tiled-separate",
+    "text": "Settings → Display → Window Layout Combine chat + console Show chat and console output together in one pane. Auto-size side panels Automatically adjust side panel widths to use empty space beside the game. Drag either game divider to move the game sideways. Turn off to keep the current sizes and resize panels independently. Swap game side Choose Game on a side to move the game between the left and right edges. Swap inventory / players list Exchange the two lists without moving the game or messages. Swap console and chat Exchange Console and Chat within their row, stack, or separate areas. Messages above game Move the message row above the game. List and message order stay the same. Message split Place separate Chat and Console beside each other or stack them in their shared area. Drag the divider to resize them. Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game."
+  },
+  {
+    "title": "Add a character",
+    "url": "reference.html#add-character",
+    "text": "Login → Add Character Character Password (optional) Remember Password Keep settings separate Start this character with independent windows, appearance, audio, notifications, and related settings. Add Cancel You can add the character without entering a password here. When you later press Connect, the client asks for it if no password is available for that login. Adding a character only creates a local login entry; it does not create a Clan Lord account. Use a character profile for preferences such as window positions and tiled layout, UI scale and themes, text sizes, status bars, speech bubbles, graphics effects, audio levels, TTS voice, and notifications. The first profile copies your current shared setup. Turning this off returns to shared settings without deleting the profile. Server addresses and file locations remain shared; script and macro enablement have their own Player/All choices."
+  },
+  {
+    "title": "Audio mixer",
+    "url": "reference.html#mixer",
+    "text": "Toolbar → Audio Game Music TTS Notif Enhance sound effects Add ambience to newly played game sound effects. Sound effect enhancement strength. 1.00 is the normal enhanced mix. Sound effect enhancement strength. 1.00 is the normal enhanced mix. Enhance bard music Add ambience to newly started bard music. Mute Mute when unfocused Audio Settings Open Settings directly to SoundFont, music, and speech options."
+  },
+  {
+    "title": "Notification settings",
+    "url": "reference.html#notifications",
+    "text": "Settings → Audio → Notification Settings Notify when in background Fallen Not fallen Shares Friend online Text copied Display Duration (sec) Send Test Notification"
+  },
+  {
+    "title": "Speech bubble settings",
+    "url": "reference.html#speech-bubbles",
+    "text": "Settings → Bubbles → Message Bubbles Message Bubbles Animated Chat Bubbles Prevent Bubble Overlap Move crowded chat bubbles apart while keeping their arrows anchored to the speaker. Normal Whisper Yell Thought Real Action Monster Player Action Ponder Narrate Self Other Players Monsters Narration"
+  },
+  {
+    "title": "Take a screenshot",
+    "url": "reference.html#snapshot",
+    "text": "Tools → Snap Filename Capture Format Include name tags Turn off to hide overhead name tags for this snapshot. Open Folder Cancel Capture This hides overhead names for the capture without changing your normal name-tag preference. It does not remove names from Chat, Console, or Players if you capture the entire client. Check those panels before sharing a screenshot of a private conversation."
+  },
+  {
+    "title": "Change file locations",
+    "url": "reference.html#file-paths",
+    "text": "Settings → Files → File Paths Copy existing files to the selected folder Copy files used by this category. Existing files with different contents cause the change to fail and are never overwritten. Choose... Default Restore the standard location inside the goThoom user data folder. Choose... Default Restore the standard location inside the goThoom user data folder. Choose... Default Restore the standard location inside the goThoom user data folder. Choose... Default Restore the standard location inside the goThoom user data folder. Use copying when the new folder should start with your current files. Different files with the same destination names cause the move to fail rather than overwrite them. The client checks access and verifies the copy before saving the new path. Restart after a successful change so loaded assets and open logs use the new location."
+  },
+  {
+    "title": "Create a hotkey",
+    "url": "reference.html#hotkey-editor",
+    "text": "Actions → Hotkeys → + Record Capture a key/mouse combo Name Command Add another command line Add another command line OK Cancel The selected player is resolved when you press the hotkey, not when you save it. This example can therefore inspect any player you select, using the same binding each time. It needs a selection in Players; the player beneath the pointer is a different context value."
+  },
+  {
+    "title": "Create a text shortcut",
+    "url": "reference.html#shortcut-editor",
+    "text": "Actions → Shortcuts → Add For All Shortcut Expansion OK Cancel Shortcuts expand the first word when you send a line. With this example, “pp hello” becomes “/ponder hello”; “hello pp” is not expanded. Choose a short word you are unlikely to start an ordinary message with by accident."
+  },
+  {
+    "title": "Gamepad (work in progress)",
+    "url": "reference.html#gamepad",
+    "text": "Settings → Controls → Gamepad Controller Refresh Enable Gamepad Walk Stick Walk Deadzone Cursor Stick Cursor Deadzone Click1 Button Click2 Button Click3 Button"
+  },
+  {
+    "title": "Legacy macro library",
+    "url": "reference.html#legacy-macros",
+    "text": "Actions → Legacy Macros Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands This macro has no commands. Keybinds On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds On Enable for every character. On Select a character first. Show macro details, commands, and keybindings. Show macro details, commands, and keybindings. Edit Open this macro file. Commands Keybinds This macro has no keybinds. On Enable for every character. On Select a character first. Refresh Rescan the macro library. Open Folder Reload Macros Reload enabled macros. No Errors Show macro errors. Allow continuous macros Allow continuous macro loops."
+  },
+  {
+    "title": "Edit macro command triggers",
+    "url": "reference.html#macro-commands",
+    "text": "Actions → Legacy Macros → Commands /lookaround Reset pp Reset Save Cancel"
+  },
+  {
+    "title": "Edit macro keybindings",
+    "url": "reference.html#macro-keybinds",
+    "text": "Actions → Legacy Macros → Keybinds f6 Record Reset control-click2 Record Reset Save Cancel"
+  },
+  {
+    "title": "Enable scripts for a character",
+    "url": "reference.html#scripts",
+    "text": "Actions → Scripts Show script details and actions. Show script details and actions. Enable for Alpha. Enable for Alpha. Enable for all players. Enable for all players. Restart this script if enabled Restart this script if enabled Refresh Rescan scripts and reload list Open scripts folder Script Events Auto-kill spammy scripts"
+  },
+  {
+    "title": "Review a script",
+    "url": "reference.html#script-info",
+    "text": "Actions → Scripts → Info Open File Open Folder Copy Error Validate Permissions Reload Stop Close A reload can fail while the previous working copy continues running. Read the status and error before assuming your edited code is active. Validate can help find source problems; if the change requests additional access, review Permissions before trying again."
+  },
+  {
+    "title": "Grant script permissions",
+    "url": "reference.html#permissions",
+    "text": "Actions → Scripts → Info → Permissions Register commands and shortcuts Add slash commands and text shortcuts to the client. Bind keys and mouse buttons React to bound keys or mouse buttons, inspect their input event and consume that input. Send server commands Send text and commands to the server as your character, including equipment commands. Game data and events Read players, inventory, selections, vitals, scenery and world updates. Chat and server messages Read chat and server messages, including private messages. Automatic movement Steer your character using the movement mouse. Windows, toolbars and overlays Create client windows, toolbar buttons and world overlays. Input box and pointer Read or replace unsent input text and inspect the pointer. Notifications and sound Show notifications and play sounds. Persistent script storage Read and write this script's private saved data, shared across characters. Background timers Run repeating callbacks without a command or hotkey. Session events React to login, logout, character changes and script stop events. Grant Block all Yes Boats sends a whisper as your character when it recognizes a boat offer addressed to you. This permission allows that reply; reading the offer and checking your character’s name require separate chat and game-data grants. Grant saves only the checked capabilities, and the decision applies to this script across characters. Unchecking something does not automatically adapt the script: a feature that depends on the denied capability may no longer work. Reopen Info → Permissions to change your decision; Block all also disables the script."
+  }
+]

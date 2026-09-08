@@ -1,0 +1,4658 @@
+{
+  "version": 55,
+  "clVersion": 1501,
+  "screens": [
+    {
+      "id": "settings-display",
+      "title": "Settings: Display",
+      "route": "Settings \u2192 Display",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "UI Scale",
+          "kind": "Slider",
+          "value": "1 (range 0.75\u20134)",
+          "rect": [
+            24,
+            130,
+            245,
+            28
+          ]
+        },
+        {
+          "label": "Apply",
+          "kind": "Button",
+          "rect": [
+            273,
+            130,
+            80,
+            28
+          ]
+        },
+        {
+          "label": "Fullscreen (F12)",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            160,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Show FPS",
+          "help": "Show the current frame rate in the game view.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            190,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Always on top",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            220,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Window Shadows",
+          "help": "Show the shadow or glow defined by the theme around\nfloating windows and menus.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            250,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Toolbar Placement",
+          "help": "Choose which list contains the toolbar.",
+          "kind": "Choice",
+          "value": "Inside Inventory",
+          "options": [
+            "Inside Inventory",
+            "Inside Players"
+          ],
+          "rect": [
+            383,
+            106,
+            335,
+            48
+          ]
+        },
+        {
+          "label": "Window Layout",
+          "help": "Open panel ordering, game placement, and\ncombined-message controls.",
+          "kind": "Button",
+          "rect": [
+            383,
+            158,
+            163,
+            28
+          ]
+        },
+        {
+          "label": "Toolbar Info",
+          "help": "Show network and performance stats.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            550,
+            164,
+            164,
+            16
+          ]
+        },
+        {
+          "label": "Reset Windows",
+          "help": "Restore the default window layout.",
+          "kind": "Button",
+          "rect": [
+            383,
+            190,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Color Theme",
+          "help": "Hover to preview a palette. Click to keep it; move away or\npress Escape to restore your choice.",
+          "kind": "Choice",
+          "value": "AccentDark",
+          "options": [
+            "AccentDark",
+            "AccentLight",
+            "Arcade",
+            "Candy",
+            "Coffee",
+            "Dusk",
+            "Forest",
+            "HighContrast",
+            "Midnight",
+            "NeonNight",
+            "Paper",
+            "SeaGlass"
+          ],
+          "rect": [
+            24,
+            330,
+            335,
+            48
+          ]
+        },
+        {
+          "label": "Style Theme",
+          "help": "Hover to preview control shapes and spacing. Click to keep\nthe style.",
+          "kind": "Choice",
+          "value": "Breeze",
+          "options": [
+            "Borderless",
+            "Breeze",
+            "Flat",
+            "HighContrast",
+            "Outline",
+            "Rounded"
+          ],
+          "rect": [
+            383,
+            330,
+            335,
+            48
+          ]
+        },
+        {
+          "label": "Choose accent color",
+          "help": "Choose accent color",
+          "kind": "Button",
+          "rect": [
+            24,
+            406,
+            128,
+            28
+          ]
+        },
+        {
+          "label": "Inventory",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            464,
+            341,
+            28
+          ]
+        },
+        {
+          "label": "Chat",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            369,
+            464,
+            341,
+            28
+          ]
+        },
+        {
+          "label": "Console",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            494,
+            341,
+            28
+          ]
+        },
+        {
+          "label": "Players",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            369,
+            494,
+            341,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-world",
+      "title": "Settings: World",
+      "route": "Settings \u2192 World",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Along Bottom",
+          "kind": "Radio",
+          "value": "On",
+          "rect": [
+            24,
+            132,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Grouped Lower Left",
+          "kind": "Radio",
+          "value": "Off",
+          "rect": [
+            24,
+            162,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Grouped Lower Right",
+          "kind": "Radio",
+          "value": "Off",
+          "rect": [
+            24,
+            192,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Grouped Upper Right",
+          "kind": "Radio",
+          "value": "Off",
+          "rect": [
+            24,
+            222,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Status bars below toolbar hands",
+          "help": "Show the status bars beneath the toolbar hand slots instead\nof in the game view.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            260,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Regular",
+          "kind": "Radio",
+          "value": "Off",
+          "rect": [
+            24,
+            318,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Modern -- thin",
+          "kind": "Radio",
+          "value": "On",
+          "rect": [
+            24,
+            348,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Hidden",
+          "kind": "Radio",
+          "value": "Off",
+          "rect": [
+            24,
+            378,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Color bars by value",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            408,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Status bar opacity",
+          "kind": "Slider",
+          "value": "0.66 (range 0.1\u20131)",
+          "rect": [
+            24,
+            440,
+            325,
+            48
+          ]
+        },
+        {
+          "label": "Max Night Level",
+          "kind": "Slider",
+          "value": "100 (range 0\u2013100)",
+          "rect": [
+            24,
+            540,
+            325,
+            48
+          ]
+        },
+        {
+          "label": "Name Background Opacity",
+          "kind": "Slider",
+          "value": "0.8 (range 0\u20131)",
+          "rect": [
+            383,
+            106,
+            325,
+            48
+          ]
+        },
+        {
+          "label": "Name Tag Label Colors",
+          "help": "Color name-tag borders by label.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            383,
+            156,
+            325,
+            28
+          ]
+        },
+        {
+          "label": "Player Health Display",
+          "help": "Color bar keeps names stable; Classic changes name color\nas health falls.",
+          "kind": "Choice",
+          "value": "Color bar",
+          "options": [
+            "Color bar",
+            "Classic name color"
+          ],
+          "rect": [
+            383,
+            188,
+            325,
+            48
+          ]
+        },
+        {
+          "label": "Color Bar Position",
+          "kind": "Choice",
+          "value": "Above name",
+          "options": [
+            "Above name",
+            "Below name"
+          ],
+          "rect": [
+            383,
+            240,
+            325,
+            48
+          ]
+        },
+        {
+          "label": "Modern Bar Thickness",
+          "kind": "Slider",
+          "value": "3 (range 1\u20138)",
+          "rect": [
+            383,
+            292,
+            325,
+            48
+          ]
+        },
+        {
+          "label": "Hide My Name Tag",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            383,
+            342,
+            325,
+            28
+          ]
+        },
+        {
+          "label": "Show name-tags only on hover",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            383,
+            372,
+            325,
+            28
+          ]
+        },
+        {
+          "label": "Show recently on-screen group",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            383,
+            450,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Group clan members together",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            383,
+            480,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Show sharing icons in Players list",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            383,
+            510,
+            335,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-text",
+      "title": "Settings: Text",
+      "route": "Settings \u2192 Text",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Name Font Size",
+          "kind": "Slider",
+          "value": "8 (range 5\u201348)",
+          "rect": [
+            24,
+            106,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Inventory Font Size",
+          "kind": "Slider",
+          "value": "14 (range 5\u201348)",
+          "rect": [
+            24,
+            158,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Players List Font Size",
+          "kind": "Slider",
+          "value": "14 (range 5\u201348)",
+          "rect": [
+            24,
+            210,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Console Font Size",
+          "kind": "Slider",
+          "value": "12 (range 4\u201348)",
+          "rect": [
+            24,
+            262,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Chat Window Font Size",
+          "kind": "Slider",
+          "value": "12 (range 4\u201348)",
+          "rect": [
+            24,
+            314,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Chat Bubble Font Size",
+          "kind": "Slider",
+          "value": "20 (range 4\u201348)",
+          "rect": [
+            24,
+            366,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Chat timestamps",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            450,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Console timestamps",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            480,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Text Colors",
+          "kind": "Button",
+          "rect": [
+            24,
+            512,
+            180,
+            28
+          ]
+        },
+        {
+          "label": "Timestamp format",
+          "help": "mo,day,hour,min,sec,yr:01,02,03...",
+          "kind": "Input",
+          "rect": [
+            24,
+            544,
+            320,
+            48
+          ]
+        },
+        {
+          "label": "Autocomplete",
+          "help": "Show input suggestions and let Tab complete them.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            383,
+            450,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Spellcheck",
+          "help": "Underline misspelled words and offer corrections.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            383,
+            488,
+            335,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-bubbles",
+      "title": "Settings: Bubbles",
+      "route": "Settings \u2192 Bubbles",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Dark Mode Names/Bubbles",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            104,
+            400,
+            28
+          ]
+        },
+        {
+          "label": "Bubble Opacity",
+          "kind": "Slider",
+          "value": "0.8 (range 0\u20131)",
+          "rect": [
+            24,
+            136,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Bubble Lifetime",
+          "help": "Classic: fixed 8 seconds. Modern: base seconds plus seconds\nper word.",
+          "kind": "Choice",
+          "value": "Modern",
+          "options": [
+            "Modern",
+            "Classic"
+          ],
+          "rect": [
+            24,
+            188,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Modern Base Life (s)",
+          "help": "Modern mode starts with this many seconds (default 3).",
+          "kind": "Slider",
+          "value": "3 (range 1\u20135)",
+          "rect": [
+            24,
+            240,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Modern Life per Word (s)",
+          "help": "Modern mode adds this many seconds per word (default 1).",
+          "kind": "Slider",
+          "value": "1 (range 0\u20132)",
+          "rect": [
+            24,
+            292,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Bubble Scale",
+          "kind": "Slider",
+          "value": "2 (range 1\u20138)",
+          "rect": [
+            24,
+            344,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Message Bubbles",
+          "kind": "Button",
+          "rect": [
+            24,
+            396,
+            180,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-audio",
+      "title": "Settings: Audio",
+      "route": "Settings \u2192 Audio",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Music SoundFont",
+          "help": "Choose a valid .sf2 file from the Assets & Audio folder. The\nlist refreshes when opened.",
+          "kind": "Choice",
+          "rect": [
+            24,
+            106,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Audio Mixer",
+          "help": "Open the Mixer to adjust volume levels.",
+          "kind": "Button",
+          "rect": [
+            24,
+            158,
+            180,
+            28
+          ]
+        },
+        {
+          "label": "Enhance sound effects",
+          "help": "Add ambience to newly played game sound effects.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            188,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Sound effect ambience",
+          "kind": "Slider",
+          "value": "1.5 (range 0.1\u201310)",
+          "rect": [
+            24,
+            220,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Enhance bard music",
+          "help": "Add ambience to newly started bard music.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            270,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Bard music ambience",
+          "kind": "Slider",
+          "value": "1 (range 0.1\u20132)",
+          "rect": [
+            24,
+            302,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Music Buffer (s)",
+          "help": "Seconds of bard music prepared before playback. More\nbuffering tolerates slower SoundFonts but takes longer to\nstart.",
+          "kind": "Slider",
+          "value": "2 (range 1\u201310)",
+          "rect": [
+            24,
+            354,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Throttle Repeated Sounds",
+          "help": "Suppress the same effect when it repeats in adjacent server\nupdates.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            404,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "High quality resampling",
+          "help": "Uses Lanczos resampling and dithering for cleaner audio at\nhigher CPU cost.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            434,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Game Notifications",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            512,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Notification Settings",
+          "kind": "Button",
+          "rect": [
+            24,
+            544,
+            200,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-tts",
+      "title": "Settings: TTS",
+      "route": "Settings \u2192 TTS",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Enable Text to Speech",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            104,
+            240,
+            24
+          ]
+        },
+        {
+          "label": "Download TTS files",
+          "kind": "Button",
+          "rect": [
+            24,
+            132,
+            240,
+            24
+          ]
+        },
+        {
+          "label": "TTS Speed",
+          "kind": "Slider",
+          "value": "1.25 (range 0.5\u20132)",
+          "rect": [
+            24,
+            160,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "TTS Voice",
+          "kind": "Choice",
+          "rect": [
+            24,
+            212,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "TTS test phrase",
+          "kind": "Input",
+          "rect": [
+            24,
+            312,
+            480,
+            48
+          ]
+        },
+        {
+          "label": "Test TTS",
+          "kind": "Button",
+          "rect": [
+            24,
+            364,
+            140,
+            28
+          ]
+        },
+        {
+          "label": "Edit TTS corrections",
+          "kind": "Button",
+          "rect": [
+            172,
+            364,
+            200,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-controls",
+      "title": "Settings: Controls",
+      "route": "Settings \u2192 Controls",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Click-to-toggle movement",
+          "help": "Click once to keep walking toward the pointer; click again to\nstop.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            104,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Input bar always open",
+          "help": "Close for WASD and extra hotkeys.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            134,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Middle-click moves windows",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            164,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "Keyboard Walk Speed",
+          "kind": "Slider",
+          "value": "0.25 (range 0.1\u20131)",
+          "rect": [
+            24,
+            196,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Gamepad",
+          "kind": "Button",
+          "rect": [
+            24,
+            248,
+            140,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-performance",
+      "title": "Settings: Performance",
+      "route": "Settings \u2192 Performance",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Quality preset",
+          "help": "Choose one of five cumulative quality tiers; Custom\npreserves individual choices.",
+          "kind": "Choice",
+          "value": "Ultra",
+          "options": [
+            "Lowest",
+            "Low",
+            "Medium",
+            "High",
+            "Ultra",
+            "Custom"
+          ],
+          "rect": [
+            24,
+            106,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Enhanced visual effects",
+          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            156,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Artwork scale override",
+          "help": "Fixed artwork texture scale. Default: 2x. Resizing the game\nwindow does not change it. Higher values use more GPU\nmemory.",
+          "kind": "Slider",
+          "value": "2 (range 2\u20134)",
+          "rect": [
+            24,
+            268,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Artwork upscale style",
+          "help": "Crisp preserves hard edges; smoother modes blend more\nneighboring pixels.",
+          "kind": "Choice",
+          "value": "Balanced",
+          "options": [
+            "Off",
+            "Crisp",
+            "Balanced",
+            "Smooth",
+            "Ultra Smooth"
+          ],
+          "rect": [
+            24,
+            410,
+            335,
+            44
+          ]
+        },
+        {
+          "label": "Pixel-art scaling",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            456,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Fade objects obscuring mobiles",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            530,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Obscuring Object Opacity",
+          "help": "Lower values make covering artwork more transparent\nwhile it is faded.",
+          "kind": "Slider",
+          "value": "0.66 (range 0.25\u20130.7)",
+          "rect": [
+            24,
+            558,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Enable Sprite Gamma Correction",
+          "help": "Compensates classic artwork for modern displays; disable if\ncolors look washed out.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            375,
+            266,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Sprite Gamma",
+          "help": "Describes how brightness is encoded in the original sprite\nartwork.",
+          "kind": "Slider",
+          "value": "1.8 (range 1.8\u20132.4)",
+          "rect": [
+            375,
+            294,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Monitor Gamma",
+          "help": "Describes the target display response used when correcting\nsprite brightness.",
+          "kind": "Slider",
+          "value": "2.2 (range 1.8\u20132.4)",
+          "rect": [
+            375,
+            342,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Blend Image Dithering",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            375,
+            436,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Sharpness",
+          "kind": "Slider",
+          "value": "50 (range 0\u2013100)",
+          "rect": [
+            375,
+            464,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Denoise strength",
+          "kind": "Slider",
+          "value": "35 (range 0\u201350)",
+          "rect": [
+            375,
+            512,
+            325,
+            44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "performance-artwork",
+      "title": "Performance: Artwork",
+      "route": "Settings \u2192 Performance \u2192 Artwork",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Quality preset",
+          "help": "Choose one of five cumulative quality tiers; Custom\npreserves individual choices.",
+          "kind": "Choice",
+          "value": "Ultra",
+          "options": [
+            "Lowest",
+            "Low",
+            "Medium",
+            "High",
+            "Ultra",
+            "Custom"
+          ],
+          "rect": [
+            24,
+            106,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Enhanced visual effects",
+          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            156,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Artwork scale override",
+          "help": "Fixed artwork texture scale. Default: 2x. Resizing the game\nwindow does not change it. Higher values use more GPU\nmemory.",
+          "kind": "Slider",
+          "value": "2 (range 2\u20134)",
+          "rect": [
+            24,
+            268,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Artwork upscale style",
+          "help": "Crisp preserves hard edges; smoother modes blend more\nneighboring pixels.",
+          "kind": "Choice",
+          "value": "Balanced",
+          "options": [
+            "Off",
+            "Crisp",
+            "Balanced",
+            "Smooth",
+            "Ultra Smooth"
+          ],
+          "rect": [
+            24,
+            410,
+            335,
+            44
+          ]
+        },
+        {
+          "label": "Pixel-art scaling",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            456,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Fade objects obscuring mobiles",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            530,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Obscuring Object Opacity",
+          "help": "Lower values make covering artwork more transparent\nwhile it is faded.",
+          "kind": "Slider",
+          "value": "0.66 (range 0.25\u20130.7)",
+          "rect": [
+            24,
+            558,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Enable Sprite Gamma Correction",
+          "help": "Compensates classic artwork for modern displays; disable if\ncolors look washed out.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            375,
+            266,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Sprite Gamma",
+          "help": "Describes how brightness is encoded in the original sprite\nartwork.",
+          "kind": "Slider",
+          "value": "1.8 (range 1.8\u20132.4)",
+          "rect": [
+            375,
+            294,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Monitor Gamma",
+          "help": "Describes the target display response used when correcting\nsprite brightness.",
+          "kind": "Slider",
+          "value": "2.2 (range 1.8\u20132.4)",
+          "rect": [
+            375,
+            342,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Blend Image Dithering",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            375,
+            436,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Sharpness",
+          "kind": "Slider",
+          "value": "50 (range 0\u2013100)",
+          "rect": [
+            375,
+            464,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Denoise strength",
+          "kind": "Slider",
+          "value": "35 (range 0\u201350)",
+          "rect": [
+            375,
+            512,
+            325,
+            44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "performance-motion",
+      "title": "Performance: Motion",
+      "route": "Settings \u2192 Performance \u2192 Motion",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Quality preset",
+          "help": "Choose one of five cumulative quality tiers; Custom\npreserves individual choices.",
+          "kind": "Choice",
+          "value": "Ultra",
+          "options": [
+            "Lowest",
+            "Low",
+            "Medium",
+            "High",
+            "Ultra",
+            "Custom"
+          ],
+          "rect": [
+            24,
+            106,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Enhanced visual effects",
+          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            156,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Smooth Motion",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            266,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Smooth small moving objects",
+          "help": "Attempt to smooth independently moving picture sprites\nwhose visible area is up to 35x35 pixels and moves no more\nthan 64 pixels between updates, such as coins. Requires\nSmooth Motion.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            292,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Subpixel movement",
+          "help": "Keeps interpolated sprites at subpixel screen positions for\nsmoother movement. This can cause shimmering on some\nartwork; turn it off to floor sprites to whole pixels.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            318,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Character Animation Blending",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            375,
+            266,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "World Animation Blending",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            375,
+            292,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Character Animation Blend Duration",
+          "help": "Set how much of the animation interval is spent blending\nframes.",
+          "kind": "Slider",
+          "value": "0.25 (range 0.1\u20131)",
+          "disabled": true,
+          "rect": [
+            375,
+            320,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "World Animation Blend Duration",
+          "help": "Set how much of the animation interval is spent blending\nframes.",
+          "kind": "Slider",
+          "value": "1 (range 0.1\u20131)",
+          "rect": [
+            375,
+            368,
+            325,
+            44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "performance-lighting---effects",
+      "title": "Performance: Lighting & Effects",
+      "route": "Settings \u2192 Performance \u2192 Lighting & Effects",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Quality preset",
+          "help": "Choose one of five cumulative quality tiers; Custom\npreserves individual choices.",
+          "kind": "Choice",
+          "value": "Ultra",
+          "options": [
+            "Lowest",
+            "Low",
+            "Medium",
+            "High",
+            "Ultra",
+            "Custom"
+          ],
+          "rect": [
+            24,
+            106,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Enhanced visual effects",
+          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            156,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Lighting Effects",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            294,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Flame Light Flicker",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            320,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Flame Flicker Strength",
+          "kind": "Slider",
+          "value": "100 (range 0\u2013200)",
+          "rect": [
+            24,
+            348,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Light Strength",
+          "kind": "Slider",
+          "value": "100 (range 0.01\u20135000)",
+          "rect": [
+            24,
+            396,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Glow Strength",
+          "kind": "Slider",
+          "value": "100 (range 0.01\u2013500)",
+          "rect": [
+            24,
+            444,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Window Shadows",
+          "help": "Show the shadow or glow defined by the theme around\nfloating windows and menus.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            375,
+            314,
+            335,
+            28
+          ]
+        },
+        {
+          "label": "Character Shadows",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            375,
+            344,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Character Shadow Darkness",
+          "kind": "Slider",
+          "value": "180 (range 1\u2013200)",
+          "rect": [
+            375,
+            372,
+            325,
+            44
+          ]
+        },
+        {
+          "label": "Faster Character Shadows",
+          "help": "Uses one cheaper shadow pass, but may shade foreground\nartwork that should cover a shadow.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            375,
+            418,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Characters Receive Sun Shadows",
+          "help": "Shade characters in proportion to how much another\ncharacter's projected shadow covers them.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            375,
+            444,
+            335,
+            24
+          ]
+        },
+        {
+          "label": "Mobile light-cone shadows (experimental)",
+          "help": "Let mobiles cast experimental soft cone shadows from\nnearby lights.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            518,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Replacement Effects (experimental)",
+          "help": "Use procedural magic effects.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            544,
+            690,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "performance-caching",
+      "title": "Performance: Caching",
+      "route": "Settings \u2192 Performance \u2192 Caching",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Quality preset",
+          "help": "Choose one of five cumulative quality tiers; Custom\npreserves individual choices.",
+          "kind": "Choice",
+          "value": "Ultra",
+          "options": [
+            "Lowest",
+            "Low",
+            "Medium",
+            "High",
+            "Ultra",
+            "Custom"
+          ],
+          "rect": [
+            24,
+            106,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Enhanced visual effects",
+          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            156,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Batch room artwork loading",
+          "help": "Load missing room artwork in one pause instead of\nspreading first-use work across frames.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            252,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Sprite cache",
+          "help": "Choose how much artwork to keep ready. The reserve\nautomatically scales with sprite resolution.",
+          "kind": "Choice",
+          "value": "Balanced",
+          "options": [
+            "Minimal",
+            "Compact",
+            "Balanced",
+            "Generous",
+            "Maximum"
+          ],
+          "rect": [
+            24,
+            280,
+            680,
+            44
+          ]
+        },
+        {
+          "label": "Precache Sounds",
+          "help": "Uses roughly 300 MB more RAM to avoid first-play sound\ndecoding delays.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            406,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Show asset activity dots",
+          "help": "Show activity dots in the game view's lower-right: green for\nartwork decoding and processing, amber for audio\ndecoding, and red for GPU artwork uploads.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            432,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Potato GPU (4096px Limit)",
+          "help": "Use standalone textures instead of a large shared atlas for\nGPUs limited to 4096x4096 textures. Artwork resolution and\nupscaling are unchanged.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            458,
+            690,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "performance-power-saving",
+      "title": "Performance: Power Saving",
+      "route": "Settings \u2192 Performance \u2192 Power Saving",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Quality preset",
+          "help": "Choose one of five cumulative quality tiers; Custom\npreserves individual choices.",
+          "kind": "Choice",
+          "value": "Ultra",
+          "options": [
+            "Lowest",
+            "Low",
+            "Medium",
+            "High",
+            "Ultra",
+            "Custom"
+          ],
+          "rect": [
+            24,
+            106,
+            240,
+            48
+          ]
+        },
+        {
+          "label": "Enhanced visual effects",
+          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            156,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Power save in background",
+          "help": "Reduce FPS when window is unfocused",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            252,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Always power save",
+          "help": "Limit FPS while focused.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            278,
+            690,
+            24
+          ]
+        },
+        {
+          "label": "Power-save FPS",
+          "kind": "Slider",
+          "value": "15 (range 1\u201360)",
+          "rect": [
+            24,
+            306,
+            680,
+            44
+          ]
+        },
+        {
+          "label": "VSync - Limit FPS",
+          "help": "Sync frame rate to the display.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            352,
+            690,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-network",
+      "title": "Settings: Network",
+      "route": "Settings \u2192 Network",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Enable NLSPT",
+          "help": "Enable Network Latency & Server Phase Timing, which\nlearns the server frame phase and sends fresh input shortly\nbefore its next processing window.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            24,
+            104,
+            690,
+            28
+          ]
+        },
+        {
+          "label": "NLSPT safety (%)",
+          "help": "Minimum lead as a percentage of one server frame, with\nframe jitter added separately. Session-only; resets to 10%\nwhen goThoom starts.",
+          "kind": "Slider",
+          "value": "10 (range 0\u201350)",
+          "rect": [
+            24,
+            136,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Edit Server List",
+          "help": "Add or remove server addresses used by the Login screen.",
+          "kind": "Button",
+          "rect": [
+            24,
+            188,
+            180,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-files",
+      "title": "Settings: Files",
+      "route": "Settings \u2192 Files",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "File Paths",
+          "help": "Choose alternate folders for assets and audio, logs, legacy\nmacros, and Go scripts.",
+          "kind": "Button",
+          "rect": [
+            24,
+            106,
+            180,
+            28
+          ]
+        },
+        {
+          "label": "Download Files",
+          "kind": "Button",
+          "rect": [
+            24,
+            138,
+            180,
+            28
+          ]
+        },
+        {
+          "label": "Open User Data Folder",
+          "help": "Open the persistent folder containing settings, characters,\nscripts, recordings, themes, and downloaded assets.",
+          "kind": "Button",
+          "rect": [
+            24,
+            170,
+            260,
+            28
+          ]
+        },
+        {
+          "label": "Open Diagnostics Folder",
+          "help": "Open the folder containing the current and rotated\ndiagnostic logs for bug reports.",
+          "kind": "Button",
+          "rect": [
+            24,
+            202,
+            260,
+            28
+          ]
+        },
+        {
+          "label": "Auto-record sessions",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            24,
+            280,
+            690,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-tools",
+      "title": "Settings: Tools",
+      "route": "Settings \u2192 Tools",
+      "width": 746,
+      "height": 716,
+      "controls": [
+        {
+          "label": "Setup Wizard",
+          "help": "Reopen guided graphics, layout, controls, and audio setup\nwithout resetting choices.",
+          "kind": "Button",
+          "rect": [
+            24,
+            106,
+            200,
+            40
+          ]
+        },
+        {
+          "label": "Debug Settings",
+          "kind": "Button",
+          "rect": [
+            24,
+            198,
+            180,
+            28
+          ]
+        },
+        {
+          "label": "Reset All Settings",
+          "kind": "Button",
+          "rect": [
+            24,
+            278,
+            200,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tiled-layout",
+      "title": "Arrange tiled windows",
+      "route": "Settings \u2192 Display \u2192 Window Layout",
+      "width": 898,
+      "height": 368,
+      "controls": [
+        {
+          "label": "Combine chat + console",
+          "help": "Show chat and console output together in one pane.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            12,
+            90,
+            310,
+            28
+          ]
+        },
+        {
+          "label": "Auto-size side panels",
+          "help": "Automatically adjust side panel widths to use empty space\nbeside the game. Drag either game divider to move the\ngame sideways. Turn off to keep the current sizes and resize\npanels independently.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            12,
+            120,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Swap game side",
+          "help": "Choose Game on a side to move the game between the left\nand right edges.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            12,
+            194,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Swap inventory / players list",
+          "help": "Exchange the two lists without moving the game or\nmessages.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            220,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Combined messages on right",
+          "help": "Move the combined Chat and Console pane to the right side\nof the centered game.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            246,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Messages above game",
+          "help": "Choose Messages above or below or Full-width message\nrow to move the row above the game.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            12,
+            272,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Message split",
+          "help": "Turn off Combine chat + console to split the message area\ninto separate panes.",
+          "kind": "Choice",
+          "value": "Side by side",
+          "options": [
+            "Side by side",
+            "Stacked"
+          ],
+          "disabled": true,
+          "rect": [
+            12,
+            300,
+            310,
+            44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tiled-separate",
+      "title": "Separate message panes",
+      "route": "Settings \u2192 Display \u2192 Window Layout",
+      "width": 898,
+      "height": 368,
+      "controls": [
+        {
+          "label": "Combine chat + console",
+          "help": "Show chat and console output together in one pane.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            90,
+            310,
+            28
+          ]
+        },
+        {
+          "label": "Auto-size side panels",
+          "help": "Automatically adjust side panel widths to use empty space\nbeside the game. Drag either game divider to move the\ngame sideways. Turn off to keep the current sizes and resize\npanels independently.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            12,
+            120,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Swap game side",
+          "help": "Choose Game on a side to move the game between the left\nand right edges.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            12,
+            194,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Swap inventory / players list",
+          "help": "Exchange the two lists without moving the game or\nmessages.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            220,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Swap console and chat",
+          "help": "Exchange Console and Chat within their row, stack, or\nseparate areas.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            246,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Messages above game",
+          "help": "Move the message row above the game. List and message\norder stay the same.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            12,
+            272,
+            310,
+            24
+          ]
+        },
+        {
+          "label": "Message split",
+          "help": "Place separate Chat and Console beside each other or stack\nthem in their shared area. Drag the divider to resize them.",
+          "kind": "Choice",
+          "value": "Side by side",
+          "options": [
+            "Side by side",
+            "Stacked"
+          ],
+          "rect": [
+            12,
+            300,
+            310,
+            44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "add-character",
+      "title": "Add a character",
+      "route": "Login \u2192 Add Character",
+      "width": 236,
+      "height": 288,
+      "controls": [
+        {
+          "label": "Character",
+          "kind": "Input",
+          "rect": [
+            16,
+            40,
+            200,
+            44
+          ]
+        },
+        {
+          "label": "Password (optional)",
+          "kind": "Input",
+          "rect": [
+            16,
+            88,
+            200,
+            44
+          ]
+        },
+        {
+          "label": "Remember Password",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            16,
+            164,
+            200,
+            24
+          ]
+        },
+        {
+          "label": "Keep settings separate",
+          "help": "Start this character with independent windows, appearance,\naudio, notifications, and related settings.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            16,
+            190,
+            200,
+            24
+          ]
+        },
+        {
+          "label": "Add",
+          "kind": "Button",
+          "rect": [
+            16,
+            216,
+            200,
+            24
+          ]
+        },
+        {
+          "label": "Cancel",
+          "kind": "Button",
+          "rect": [
+            16,
+            244,
+            200,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mixer",
+      "title": "Audio mixer",
+      "route": "Toolbar \u2192 Audio",
+      "width": 908,
+      "height": 188,
+      "controls": [
+        {
+          "label": "Game",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            120,
+            146,
+            64,
+            24
+          ]
+        },
+        {
+          "label": "Music",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            208,
+            146,
+            64,
+            24
+          ]
+        },
+        {
+          "label": "TTS",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            296,
+            146,
+            64,
+            24
+          ]
+        },
+        {
+          "label": "Notif",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            384,
+            146,
+            64,
+            24
+          ]
+        },
+        {
+          "label": "Enhance sound effects",
+          "help": "Add ambience to newly played game sound effects.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            484,
+            42,
+            180,
+            24
+          ]
+        },
+        {
+          "label": "Sound effect enhancement strength. 1.00 is the normal\nenhanced mix.",
+          "help": "Sound effect enhancement strength. 1.00 is the normal\nenhanced mix.",
+          "kind": "Slider",
+          "value": "1.5 (range 0.1\u201310)",
+          "rect": [
+            484,
+            70,
+            180,
+            24
+          ]
+        },
+        {
+          "label": "Enhance bard music",
+          "help": "Add ambience to newly started bard music.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            484,
+            96,
+            180,
+            24
+          ]
+        },
+        {
+          "label": "Mute",
+          "kind": "Button",
+          "rect": [
+            700,
+            44,
+            192,
+            24
+          ]
+        },
+        {
+          "label": "Mute when unfocused",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            700,
+            70,
+            192,
+            24
+          ]
+        },
+        {
+          "label": "Audio Settings",
+          "help": "Open Settings directly to SoundFont, music, and speech\noptions.",
+          "kind": "Button",
+          "rect": [
+            700,
+            98,
+            192,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notifications",
+      "title": "Notification settings",
+      "route": "Settings \u2192 Audio \u2192 Notification Settings",
+      "width": 286,
+      "height": 384,
+      "controls": [
+        {
+          "label": "Notify when in background",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            20,
+            90,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Fallen",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            116,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Not fallen",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            142,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Shares",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            168,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Friend online",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            194,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Text copied",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            20,
+            220,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Display Duration (sec)",
+          "kind": "Slider",
+          "value": "6 (range 1\u201330)",
+          "rect": [
+            20,
+            296,
+            240,
+            44
+          ]
+        },
+        {
+          "label": "Send Test Notification",
+          "kind": "Button",
+          "rect": [
+            20,
+            344,
+            250,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "speech-bubbles",
+      "title": "Speech bubble settings",
+      "route": "Settings \u2192 Bubbles \u2192 Message Bubbles",
+      "width": 286,
+      "height": 616,
+      "controls": [
+        {
+          "label": "Message Bubbles",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            90,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Animated Chat Bubbles",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            20,
+            116,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Prevent Bubble Overlap",
+          "help": "Move crowded chat bubbles apart while keeping their\narrows anchored to the speaker.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            142,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Normal",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            216,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Whisper",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            242,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Yell",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            268,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Thought",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            294,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Real Action",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            320,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Monster",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            346,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Player Action",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            372,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Ponder",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            398,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Narrate",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            424,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Self",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            498,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Other Players",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            524,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Monsters",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            550,
+            250,
+            24
+          ]
+        },
+        {
+          "label": "Narration",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            576,
+            250,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "snapshot",
+      "title": "Take a screenshot",
+      "route": "Tools \u2192 Snap",
+      "width": 444,
+      "height": 296,
+      "controls": [
+        {
+          "label": "Filename",
+          "kind": "Input",
+          "rect": [
+            20,
+            44,
+            400,
+            48
+          ]
+        },
+        {
+          "label": "Capture",
+          "kind": "Choice",
+          "value": "Game view only",
+          "options": [
+            "Game view only",
+            "Entire client window"
+          ],
+          "rect": [
+            24,
+            100,
+            260,
+            48
+          ]
+        },
+        {
+          "label": "Format",
+          "kind": "Choice",
+          "value": "PNG",
+          "options": [
+            "PNG",
+            "JPEG"
+          ],
+          "rect": [
+            292,
+            100,
+            128,
+            48
+          ]
+        },
+        {
+          "label": "Include name tags",
+          "help": "Turn off to hide overhead name tags for this snapshot.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            148,
+            400,
+            28
+          ]
+        },
+        {
+          "label": "Open Folder",
+          "kind": "Button",
+          "rect": [
+            24,
+            244,
+            128,
+            32
+          ]
+        },
+        {
+          "label": "Cancel",
+          "kind": "Button",
+          "rect": [
+            156,
+            244,
+            112,
+            32
+          ]
+        },
+        {
+          "label": "Capture",
+          "kind": "Button",
+          "rect": [
+            272,
+            244,
+            144,
+            32
+          ]
+        }
+      ]
+    },
+    {
+      "id": "file-paths",
+      "title": "Change file locations",
+      "route": "Settings \u2192 Files \u2192 File Paths",
+      "width": 756,
+      "height": 308,
+      "controls": [
+        {
+          "label": "Copy existing files to the selected folder",
+          "help": "Copy files used by this category. Existing files with different\ncontents cause the change to fail and are never overwritten.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            16,
+            80,
+            720,
+            24
+          ]
+        },
+        {
+          "label": "Choose...",
+          "kind": "Button",
+          "rect": [
+            538,
+            110,
+            100,
+            24
+          ]
+        },
+        {
+          "label": "Default",
+          "help": "Restore the standard location inside the goThoom user data\nfolder.",
+          "kind": "Button",
+          "rect": [
+            642,
+            110,
+            90,
+            24
+          ]
+        },
+        {
+          "label": "Choose...",
+          "kind": "Button",
+          "rect": [
+            538,
+            138,
+            100,
+            24
+          ]
+        },
+        {
+          "label": "Default",
+          "help": "Restore the standard location inside the goThoom user data\nfolder.",
+          "kind": "Button",
+          "rect": [
+            642,
+            138,
+            90,
+            24
+          ]
+        },
+        {
+          "label": "Choose...",
+          "kind": "Button",
+          "rect": [
+            538,
+            166,
+            100,
+            24
+          ]
+        },
+        {
+          "label": "Default",
+          "help": "Restore the standard location inside the goThoom user data\nfolder.",
+          "kind": "Button",
+          "rect": [
+            642,
+            166,
+            90,
+            24
+          ]
+        },
+        {
+          "label": "Choose...",
+          "kind": "Button",
+          "rect": [
+            538,
+            194,
+            100,
+            24
+          ]
+        },
+        {
+          "label": "Default",
+          "help": "Restore the standard location inside the goThoom user data\nfolder.",
+          "kind": "Button",
+          "rect": [
+            642,
+            194,
+            90,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hotkey-editor",
+      "title": "Create a hotkey",
+      "route": "Actions \u2192 Hotkeys \u2192 +",
+      "width": 440,
+      "height": 200,
+      "controls": [
+        {
+          "label": "Record",
+          "help": "Capture a key/mouse combo",
+          "kind": "Button",
+          "rect": [
+            268,
+            44,
+            73,
+            20
+          ]
+        },
+        {
+          "label": "Name",
+          "kind": "Input",
+          "rect": [
+            64,
+            68,
+            360,
+            20
+          ]
+        },
+        {
+          "label": "Command",
+          "kind": "Input",
+          "rect": [
+            20,
+            116,
+            360,
+            20
+          ]
+        },
+        {
+          "label": "Add another command line",
+          "help": "Add another command line",
+          "kind": "Button",
+          "rect": [
+            16,
+            136,
+            20,
+            20
+          ]
+        },
+        {
+          "label": "OK",
+          "kind": "Button",
+          "rect": [
+            20,
+            164,
+            80,
+            20
+          ]
+        },
+        {
+          "label": "Cancel",
+          "kind": "Button",
+          "rect": [
+            104,
+            164,
+            80,
+            20
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shortcut-editor",
+      "title": "Create a text shortcut",
+      "route": "Actions \u2192 Shortcuts \u2192 Add For All",
+      "width": 520,
+      "height": 128,
+      "controls": [
+        {
+          "label": "Shortcut",
+          "kind": "Input",
+          "rect": [
+            104,
+            44,
+            400,
+            20
+          ]
+        },
+        {
+          "label": "Expansion",
+          "kind": "Input",
+          "rect": [
+            104,
+            68,
+            400,
+            20
+          ]
+        },
+        {
+          "label": "OK",
+          "kind": "Button",
+          "rect": [
+            20,
+            92,
+            80,
+            20
+          ]
+        },
+        {
+          "label": "Cancel",
+          "kind": "Button",
+          "rect": [
+            104,
+            92,
+            80,
+            20
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gamepad",
+      "title": "Gamepad (work in progress)",
+      "route": "Settings \u2192 Controls \u2192 Gamepad",
+      "width": 386,
+      "height": 724,
+      "controls": [
+        {
+          "label": "Controller",
+          "kind": "Choice",
+          "rect": [
+            16,
+            64,
+            350,
+            44
+          ]
+        },
+        {
+          "label": "Refresh",
+          "kind": "Button",
+          "rect": [
+            16,
+            112,
+            80,
+            24
+          ]
+        },
+        {
+          "label": "Enable Gamepad",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            16,
+            196,
+            128,
+            24
+          ]
+        },
+        {
+          "label": "Walk Stick",
+          "kind": "Choice",
+          "value": "none",
+          "options": [
+            "none"
+          ],
+          "disabled": true,
+          "rect": [
+            16,
+            222,
+            260,
+            44
+          ]
+        },
+        {
+          "label": "Walk Deadzone",
+          "kind": "Slider",
+          "value": "0.1 (range 0.01\u20130.2)",
+          "rect": [
+            16,
+            270,
+            260,
+            44
+          ]
+        },
+        {
+          "label": "Cursor Stick",
+          "kind": "Choice",
+          "value": "none",
+          "options": [
+            "none"
+          ],
+          "disabled": true,
+          "rect": [
+            16,
+            318,
+            260,
+            44
+          ]
+        },
+        {
+          "label": "Cursor Deadzone",
+          "kind": "Slider",
+          "value": "0.1 (range 0.01\u20130.2)",
+          "rect": [
+            16,
+            366,
+            260,
+            44
+          ]
+        },
+        {
+          "label": "Click1 Button",
+          "kind": "Input",
+          "rect": [
+            16,
+            414,
+            350,
+            44
+          ]
+        },
+        {
+          "label": "Click2 Button",
+          "kind": "Input",
+          "rect": [
+            16,
+            462,
+            350,
+            44
+          ]
+        },
+        {
+          "label": "Click3 Button",
+          "kind": "Input",
+          "rect": [
+            16,
+            510,
+            350,
+            44
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legacy-macros",
+      "title": "Legacy macro library",
+      "route": "Actions \u2192 Legacy Macros",
+      "width": 948,
+      "height": 576,
+      "controls": [
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            72,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            72,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            72,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            72,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            70,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            70,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            104,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            104,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            104,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            104,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            102,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            102,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            136,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            136,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            136,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "kind": "Button",
+          "rect": [
+            189,
+            136,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            134,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            134,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            168,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            168,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "help": "This macro has no commands.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            97,
+            168,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "kind": "Button",
+          "rect": [
+            189,
+            168,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            166,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            166,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            200,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            200,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            200,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            200,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            198,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            198,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            232,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            232,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            232,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            232,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            230,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            230,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            264,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            264,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            264,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "kind": "Button",
+          "rect": [
+            189,
+            264,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            262,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            262,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            296,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            296,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            296,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            296,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            294,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            294,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            328,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            328,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            328,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            328,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            326,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            326,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            360,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            360,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            360,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            360,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            358,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            358,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            392,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            392,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            392,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            392,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            390,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            390,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            424,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            424,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            424,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            424,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            422,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            422,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            456,
+            24,
+            24
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            456,
+            53,
+            24
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            456,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "kind": "Button",
+          "rect": [
+            189,
+            456,
+            88,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            454,
+            110,
+            24
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            454,
+            150,
+            24
+          ]
+        },
+        {
+          "label": "Show macro details, commands, and keybindings.",
+          "help": "Show macro details, commands, and keybindings.",
+          "kind": "Button",
+          "rect": [
+            12,
+            488,
+            24,
+            18
+          ]
+        },
+        {
+          "label": "Edit",
+          "help": "Open this macro file.",
+          "kind": "Button",
+          "rect": [
+            40,
+            488,
+            53,
+            18
+          ]
+        },
+        {
+          "label": "Commands",
+          "kind": "Button",
+          "rect": [
+            97,
+            488,
+            88,
+            18
+          ]
+        },
+        {
+          "label": "Keybinds",
+          "help": "This macro has no keybinds.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            189,
+            488,
+            88,
+            18
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Enable for every character.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            645,
+            486,
+            110,
+            20
+          ]
+        },
+        {
+          "label": "On",
+          "help": "Select a character first.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            759,
+            486,
+            150,
+            20
+          ]
+        },
+        {
+          "label": "Refresh",
+          "help": "Rescan the macro library.",
+          "kind": "Button",
+          "rect": [
+            12,
+            510,
+            80,
+            24
+          ]
+        },
+        {
+          "label": "Open Folder",
+          "kind": "Button",
+          "rect": [
+            96,
+            510,
+            112,
+            24
+          ]
+        },
+        {
+          "label": "Reload Macros",
+          "help": "Reload enabled macros.",
+          "kind": "Button",
+          "rect": [
+            212,
+            510,
+            124,
+            24
+          ]
+        },
+        {
+          "label": "No Errors",
+          "help": "Show macro errors.",
+          "kind": "Button",
+          "rect": [
+            340,
+            510,
+            96,
+            24
+          ]
+        },
+        {
+          "label": "Allow continuous macros",
+          "help": "Allow continuous macro loops.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            8,
+            534,
+            920,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "macro-commands",
+      "title": "Edit macro command triggers",
+      "route": "Actions \u2192 Legacy Macros \u2192 Commands",
+      "width": 776,
+      "height": 516,
+      "controls": [
+        {
+          "label": "/lookaround",
+          "kind": "Input",
+          "rect": [
+            20,
+            120,
+            460,
+            28
+          ]
+        },
+        {
+          "label": "Reset",
+          "kind": "Button",
+          "rect": [
+            488,
+            120,
+            70,
+            28
+          ]
+        },
+        {
+          "label": "pp",
+          "kind": "Input",
+          "rect": [
+            20,
+            190,
+            460,
+            28
+          ]
+        },
+        {
+          "label": "Reset",
+          "kind": "Button",
+          "rect": [
+            488,
+            190,
+            70,
+            28
+          ]
+        },
+        {
+          "label": "Save",
+          "kind": "Button",
+          "rect": [
+            20,
+            472,
+            100,
+            28
+          ]
+        },
+        {
+          "label": "Cancel",
+          "kind": "Button",
+          "rect": [
+            132,
+            472,
+            100,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "macro-keybinds",
+      "title": "Edit macro keybindings",
+      "route": "Actions \u2192 Legacy Macros \u2192 Keybinds",
+      "width": 776,
+      "height": 516,
+      "controls": [
+        {
+          "label": "f6",
+          "kind": "Input",
+          "rect": [
+            20,
+            120,
+            460,
+            28
+          ]
+        },
+        {
+          "label": "Record",
+          "kind": "Button",
+          "rect": [
+            488,
+            120,
+            90,
+            28
+          ]
+        },
+        {
+          "label": "Reset",
+          "kind": "Button",
+          "rect": [
+            586,
+            120,
+            70,
+            28
+          ]
+        },
+        {
+          "label": "control-click2",
+          "kind": "Input",
+          "rect": [
+            20,
+            190,
+            460,
+            28
+          ]
+        },
+        {
+          "label": "Record",
+          "kind": "Button",
+          "rect": [
+            488,
+            190,
+            90,
+            28
+          ]
+        },
+        {
+          "label": "Reset",
+          "kind": "Button",
+          "rect": [
+            586,
+            190,
+            70,
+            28
+          ]
+        },
+        {
+          "label": "Save",
+          "kind": "Button",
+          "rect": [
+            20,
+            472,
+            100,
+            28
+          ]
+        },
+        {
+          "label": "Cancel",
+          "kind": "Button",
+          "rect": [
+            132,
+            472,
+            100,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scripts",
+      "title": "Enable scripts for a character",
+      "route": "Actions \u2192 Scripts",
+      "width": 656,
+      "height": 656,
+      "controls": [
+        {
+          "label": "Show script details and actions.",
+          "help": "Show script details and actions.",
+          "kind": "Button",
+          "rect": [
+            20,
+            123,
+            28,
+            28
+          ]
+        },
+        {
+          "label": "Enable for Alpha.",
+          "help": "Enable for Alpha.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            70,
+            127,
+            20,
+            20
+          ]
+        },
+        {
+          "label": "Enable for all players.",
+          "help": "Enable for all players.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "rect": [
+            126,
+            127,
+            20,
+            20
+          ]
+        },
+        {
+          "label": "Restart this script if enabled",
+          "help": "Restart this script if enabled",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            556,
+            123,
+            28,
+            28
+          ]
+        },
+        {
+          "label": "Refresh",
+          "help": "Rescan scripts and reload list",
+          "kind": "Button",
+          "rect": [
+            20,
+            582,
+            80,
+            24
+          ]
+        },
+        {
+          "label": "Open scripts folder",
+          "kind": "Button",
+          "rect": [
+            112,
+            582,
+            160,
+            24
+          ]
+        },
+        {
+          "label": "Script Events",
+          "kind": "Button",
+          "rect": [
+            284,
+            582,
+            120,
+            24
+          ]
+        },
+        {
+          "label": "Auto-kill spammy scripts",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            20,
+            616,
+            240,
+            24
+          ]
+        }
+      ]
+    },
+    {
+      "id": "script-info",
+      "title": "Review a script",
+      "route": "Actions \u2192 Scripts \u2192 Info",
+      "width": 900,
+      "height": 556,
+      "controls": [
+        {
+          "label": "Open File",
+          "kind": "Button",
+          "rect": [
+            24,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Open Folder",
+          "kind": "Button",
+          "rect": [
+            124,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Copy Error",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            240,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Validate",
+          "kind": "Button",
+          "rect": [
+            340,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Permissions",
+          "kind": "Button",
+          "rect": [
+            440,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Reload",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            556,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Stop",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            656,
+            508,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Close",
+          "kind": "Button",
+          "rect": [
+            772,
+            508,
+            96,
+            28
+          ]
+        }
+      ]
+    },
+    {
+      "id": "permissions",
+      "title": "Grant script permissions",
+      "route": "Actions \u2192 Scripts \u2192 Info \u2192 Permissions",
+      "width": 556,
+      "height": 496,
+      "controls": [
+        {
+          "label": "Register commands and shortcuts",
+          "help": "Add slash commands and text shortcuts to the client.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            112,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Bind keys and mouse buttons",
+          "help": "React to bound keys or mouse buttons, inspect their input\nevent and consume that input.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            138,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Send server commands",
+          "help": "Send text and commands to the server as your character,\nincluding equipment commands.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            16,
+            164,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Game data and events",
+          "help": "Read players, inventory, selections, vitals, scenery and world\nupdates.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            16,
+            190,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Chat and server messages",
+          "help": "Read chat and server messages, including private\nmessages.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            16,
+            216,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Automatic movement",
+          "help": "Steer your character using the movement mouse.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            242,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Windows, toolbars and overlays",
+          "help": "Create client windows, toolbar buttons and world overlays.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            268,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Input box and pointer",
+          "help": "Read or replace unsent input text and inspect the pointer.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            294,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Notifications and sound",
+          "help": "Show notifications and play sounds.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            320,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Persistent script storage",
+          "help": "Read and write this script's private saved data, shared\nacross characters.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            346,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Background timers",
+          "help": "Run repeating callbacks without a command or hotkey.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            372,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Session events",
+          "help": "React to login, logout, character changes and script stop\nevents.",
+          "kind": "Checkbox",
+          "value": "Off",
+          "disabled": true,
+          "rect": [
+            16,
+            398,
+            520,
+            24
+          ]
+        },
+        {
+          "label": "Grant",
+          "kind": "Button",
+          "rect": [
+            20,
+            452,
+            100,
+            28
+          ]
+        },
+        {
+          "label": "Block all",
+          "kind": "Button",
+          "rect": [
+            124,
+            452,
+            100,
+            28
+          ]
+        }
+      ]
+    }
+  ],
+  "updated": "2026-09-08"
+}

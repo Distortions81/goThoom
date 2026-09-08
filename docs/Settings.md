@@ -3,7 +3,7 @@
 goThoom stores persistent settings in the categorized version 4
 `settings.json` file in the user data folder. Most user preferences have a
 control in Settings, Mixer, Notifications, Speech
-Bubbles, Controller, or Tiled Layout. This document lists the exceptions.
+Bubbles, Controller, or Window Layout. This document lists the exceptions.
 
 ## Settings navigation
 
@@ -41,16 +41,15 @@ and speed controls, a test phrase, and pronunciation corrections. Settings omits
 and controls. The command palette continues
 to provide searchable access to settings and actions.
 
-**Display → Windows & Toolbar → Tiled Layout** offers seven arrangements:
-Game centered, Game on a side, Messages below game, Messages above game,
-Messages above and below, Full-width messages below, and Full-width messages
-above. The new message-row layouts keep Inventory and Players beside the game.
-Every arrangement supports combined or separate Chat and Console. In Game on a
-side, separate messages share the lower row beneath Inventory and Players.
-Use Message split to arrange panes Side by side or Stacked within their shared
-area. Console / Chat swaps left/right or above/below order to match. The layout
-with messages above and below the game always keeps them in separate rows. Combined mode uses one message pane and returns the unused row
-to the game. Drag dividers to adjust row heights, message splits, and list widths;
+**Display → Windows & Toolbar → Window Layout** shows clickable arrangements
+for the game, Inventory, Players, and messages. The setup wizard uses the same
+previews. Choose a centered game, a game on one side, a message row above or below
+the game, or a full-width message row. Turn off **Combine chat + console** in
+Window Layout to show separate message panes and the additional arrangement with
+messages above and below the game. Use the swap controls to place lists and
+messages on the preferred side, and **Message split** to put paired message
+panes **Side by side** or **Stacked**. Unavailable options remain visible but disabled.
+Drag dividers to adjust row heights, message splits, and list widths;
 these sizes are saved with the window settings. **Auto-size side panels**
 adjusts the side panel widths to use empty space beside the game, sizing the game
 column for the playfield proportions and available height. Dragging either

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#081019">
+    <meta name="description" content="The complete goThoom user manual: setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+
+    <title>Performance &amp; visuals — goThoom manual</title>
+    <link rel="canonical" href="https://gothoom.m45sci.xyz/help/performance.html">
+    <link rel="icon" type="image/png" href="../mark.png">
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="manual.css">
+
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="goThoom user manual">
+    <meta property="og:description" content="Setup, controls, windows, audio, graphics, scripts, macros, recordings, settings, and troubleshooting.">
+    <meta property="og:url" content="https://gothoom.m45sci.xyz/help/performance.html">
+    <meta property="og:image" content="https://gothoom.m45sci.xyz/og.png">
+  </head>
+  <body class="manual-page">
+    <header class="site-header">
+      <a class="brand" href="../index.html" aria-label="goThoom home">
+        <img src="../mark.png" width="42" height="42" alt="">
+        <span>goThoom</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="../index.html#features">Features</a>
+        <a href="../index.html#platforms">Platforms</a>
+        <a href="../downloads.html">Downloads</a>
+        <a href="/accounts">Accounts</a>
+        <a href="./" aria-current="page">Help</a>
+        <a href="https://discord.gg/47s254CbZB" target="_blank" rel="noopener noreferrer">Discord</a>
+        <a href="https://github.com/Distortions81/goThoom">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top" class="manual-main help-guide">
+<!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html" aria-current="page">Performance &amp; visuals</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
+<h1>Performance &amp; visuals</h1>
+<!-- help-metadata --><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 8, 2026</p><!-- /help-metadata -->
+<p class="help-guide-intro">Make the picture comfortable to read and the client responsive. Learn which controls affect image quality, loading pauses, memory, and drawing speed before changing them.</p>
+<details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#start">Identify the symptom</a><a href="#presets">Presets</a><a href="#artwork">Artwork and color</a><a href="#motion">Motion</a><a href="#lighting">Lighting and shadows</a><a href="#caching">Loading and memory</a><a href="#power">Power saving</a><a href="#restore">Recovery</a></nav></details>
+<p><a href="./#help-search">Search all help topics</a> · <a href="automation.html">Macros, scripts &amp; hotkeys</a></p>
+<article class="manual-content"><section id="start" class="manual-section"><h2 id="choose-the-problem-before-changing-settings">Choose the problem before changing settings</h2>
+<p>A low frame rate, a one-time loading pause, and a picture you do not like need different adjustments. Open <strong>Settings → Display → Show FPS</strong>, then compare changes in the same scene at the same game-window size. Keep the client focused during a comparison so background power saving does not change the result.</p>
+<div class="manual-table-wrap"><table><thead><tr><th>What you notice</th><th>Start here</th><th>Why</th></tr></thead><tbody>
+<tr><td>The scene stays slow while you stand still</td><td><a href="#lighting">Lighting &amp; effects</a>, then <a href="#artwork">artwork resolution</a></td><td>These change ongoing drawing work. A larger cache is not the first response to steady low FPS.</td></tr>
+<tr><td>A pause occurs on entering a room</td><td><a href="#caching">Artwork loading and cache</a></td><td>Artwork being prepared for the first time can interrupt an otherwise smooth session.</td></tr>
+<tr><td>The picture is too soft or looks smeared</td><td><a href="#artwork">Artwork style</a> for still images; <a href="#motion">animation blending</a> for changing poses</td><td>Static filtering and blending over time have different effects.</td></tr>
+<tr><td>Performance drops after switching to another app</td><td><a href="#power">Power saving</a></td><td>The client can deliberately reduce its drawing rate when unfocused.</td></tr>
+<tr><td>Text and buttons are too small</td><td><a href="./#readable-text">UI scale and text sizes</a></td><td>Artwork resolution does not make the interface easier to read.</td></tr>
+<tr><td>Actions feel late but the scene draws smoothly</td><td><a href="reference.html#settings-network">Network timing</a> and live Stats</td><td>Drawing more frames does not reduce network delay or change the server’s update rate.</td></tr>
+</tbody></table></div>
+<h3 id="graphics-recipe">Make a comparison you can undo</h3>
+<ol><li>Choose a familiar location or use the same point in a <a href="./#play-and-seek">movie recording</a> for repeatable visual comparisons.</li><li>Note the current preset and the option you plan to change. A screenshot of its settings page can help restore your starting point.</li><li>Change one setting and inspect the same scene. For loading behavior, also check a new room and a room you revisit.</li><li>Keep the change if it improves the thing you are trying to fix. Otherwise restore it before testing another option.</li></ol>
+<p>Changing artwork processing can clear its cached results. The first draw afterward may include rebuilding work; distinguish that temporary pause from the behavior after the scene has settled.</p>
+</section>
+<section id="presets" class="manual-section"><h2 id="presets-and-the-effects-master-switch">Presets and the effects master switch</h2>
+<p><strong>Settings → Performance → Quality preset</strong> provides a starting set of graphics choices. The setup wizard’s check chooses Default or iGPU Graphics. Choose the preset before individual tuning: applying another preset can change several options at once.</p>
+<!-- help-figure:settings-performance -->
+<figure class="help-figure" data-screen="settings-performance">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/settings-performance.png" width="746" height="716" loading="lazy" decoding="async" alt="Settings: Performance. Highlighted controls: Quality preset.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:14.8045%;width:32.1716%;height:6.7039%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Performance</strong>
+<ol class="help-legend"><li><b>1</b><p>A preset changes several graphics choices together. Use it as a starting point, then adjust individual effects while comparing the same scene. Selecting another preset can replace that tuning, so choose the preset before making detailed changes. UI and text sizing are controlled elsewhere.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/settings-performance.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<p><strong>Enhanced visual effects</strong> controls lighting, animation blending, replacement effects, and faster shadows together. Turning it off preserves the individual choices while disabling the affected features. This makes it useful for a quick comparison. If a feature’s control is greyed out, check its master switch before assuming that the individual setting was lost.</p>
+<p>Profiles can make your choices character-specific. A different saved character may load different graphics settings when <strong>Keep settings separate</strong> is enabled. <a href="./#per-character-profiles">Read about character profiles</a> before diagnosing a change that only happens when you switch characters.</p>
+</section>
+<section id="artwork" class="manual-section"><h2 id="artwork-resolution-edges-and-color">Artwork resolution, edges, and color</h2>
+<p><strong>Artwork scale override</strong> controls the resolution of prepared artwork textures. Its default is 2×, and the control offers up to 4×. Resizing the game window does not change that setting. More detailed textures require more graphics memory, even if you display them in a small game pane.</p>
+<p><strong>Artwork upscale style</strong> changes the treatment of the original pixels. Crisp preserves hard boundaries; smoother styles blend more neighboring pixels. Compare small faces, equipment, and high-contrast scenery rather than judging only a large flat area.</p>
+<!-- help-figure:performance-artwork -->
+<figure class="help-figure" data-screen="performance-artwork">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-artwork.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Artwork.">
+
+  </div>
+  <figcaption><strong>Settings → Performance → Artwork</strong>
+
+    <div class="help-image-actions"><a href="images/performance-artwork.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<h3 id="artwork-recipes">Choose a visual direction</h3>
+<ul><li><strong>For a sharper, more classic look:</strong> start with a crisper upscale style and compare Pixel-art scaling. If the picture still appears softened, turn off <strong>Blend Image Dithering</strong> and compare the result.</li><li><strong>For gentler edges:</strong> compare the smoother styles while standing still. Then walk through the scene; a treatment you like in a still image may look different in motion.</li><li><strong>If artwork looks washed out:</strong> compare Enable Sprite Gamma Correction before adjusting several brightness settings. Sprite Gamma describes the source artwork’s brightness encoding; Monitor Gamma describes the target response. They are not two independent brightness boosts.</li></ul>
+<p><strong>Blend Image Dithering</strong> processes the artwork’s alternating pixel patterns. Its Denoise strength and Sharpness controls alter that treatment; judge both the intended smoothing and any fine detail you want to keep.</p>
+<h3 id="scenery-visibility">See characters behind scenery</h3>
+<p><strong>Fade objects obscuring mobiles</strong> makes obstructing artwork less opaque. Its opacity value controls how much of the object remains visible while faded. This changes visibility, not collision: being able to see through an object does not mean your character can walk through it.</p>
+</section>
+<section id="motion" class="manual-section"><h2 id="separate-movement-smoothing-from-pose-blending">Separate movement smoothing from pose blending</h2>
+<p><strong>Smooth Motion</strong> interpolates movement between updates. <strong>Character Animation Blending</strong> blends changing character poses, and <strong>World Animation Blending</strong> handles changing world imagery. You can like smooth travel while preferring an immediate change of pose.</p>
+<!-- help-figure:performance-motion -->
+<figure class="help-figure" data-screen="performance-motion">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-motion.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Motion. Highlighted controls: Character Animation Blending.">
+<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:37.1508%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Performance → Motion</strong>
+<ol class="help-legend"><li><b>1</b><p>This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/performance-motion.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<ul><li>If travel looks jerky, compare Smooth Motion first.</li><li>If a moving sprite seems to shimmer, compare Subpixel movement. It permits positions between screen pixels; turning it off places sprites on whole pixels.</li><li>If changing poses leave a smeared appearance, reduce the relevant blend duration or disable that kind of animation blending.</li><li>If small moving pictures lag visually behind the rest of the scene, compare Smooth small moving objects. It depends on Smooth Motion and only attempts to smooth eligible small sprites.</li></ul>
+<p>These controls change the displayed transition between received states. They do not make the server send updates more often or remove a delay in receiving them.</p>
+</section>
+<section id="lighting" class="manual-section"><h2 id="lighting-and-shadows">Lighting and shadows</h2>
+<p>Use <strong>Lighting &amp; Effects</strong> to compare scene lighting and character shadows separately. Light strength, glow, and flame flicker affect appearance; turning off a whole effect is a clearer first comparison when diagnosing its rendering cost.</p>
+<!-- help-figure:performance-lighting---effects -->
+<figure class="help-figure" data-screen="performance-lighting---effects">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-lighting---effects.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Lighting &amp; Effects.">
+
+  </div>
+  <figcaption><strong>Settings → Performance → Lighting &amp; Effects</strong>
+
+    <div class="help-image-actions"><a href="images/performance-lighting---effects.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<ol><li>Compare Lighting Effects in the same scene, including the same night conditions where possible.</li><li>Compare Character Shadows separately. Window Shadows belongs to the UI windows, so changing it will not remove shadows under characters.</li><li>Try Faster Character Shadows if you want to compare the alternative shadow path. Judge both the resulting image and drawing performance.</li><li>Leave Experimental choices for separate comparisons after you have a stable setup. Replacement effects and mobile light-cone shadows are not required to use the client.</li></ol>
+<p>If options here seem inactive, check Enhanced visual effects at the top of Performance. To make a dark scene more readable without changing every lighting option, also inspect <strong>Settings → World → Max Night Level</strong>.</p>
+</section>
+<section id="caching" class="manual-section"><h2 id="loading-pauses-and-memory-use">Loading pauses and memory use</h2>
+<p><strong>Batch room artwork loading</strong> prepares missing room artwork in one pause instead of spreading its first-use work across several frames. It changes when you experience that work. Compare room entry and the movement immediately afterward, not just an FPS reading while standing still.</p>
+<!-- help-figure:performance-caching -->
+<figure class="help-figure" data-screen="performance-caching">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-caching.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Caching.">
+
+  </div>
+  <figcaption><strong>Settings → Performance → Caching</strong>
+
+    <div class="help-image-actions"><a href="images/performance-caching.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<h3 id="sprite-cache">Choose how much artwork to keep ready</h3>
+<p>The Sprite cache presets range from Minimal through Compact, Balanced, Generous, and Maximum. Balanced is the default. A smaller reserve leaves room for other applications but can require artwork to reload more often. A larger reserve can help when revisiting areas, if the machine has room for it.</p>
+<p>The reserve scales with artwork resolution. For example, Balanced reserves 512 MiB at 2×, 1,152 MiB at 3×, and 2 GiB at 4×. Doubling the texture dimensions uses four times the area, so increasing artwork resolution and cache size together can be a large memory change.</p>
+<p>This is not a ceiling on total graphics memory: the scene, interface, and other rendering resources also need memory. Read the reserve explanation below the selector and restart after changing the preset to rebuild it.</p>
+<h3 id="sound-precache">Recognize sound-loading pauses</h3>
+<p><strong>Precache Sounds</strong> spends roughly 300 MB of additional RAM to avoid decoding a sound on its first playback. Consider it when a hitch coincides with a sound first being heard. It is a separate tradeoff from retaining artwork in graphics memory.</p>
+<h3 id="asset-dots">Use activity dots as clues</h3>
+<p>Show asset activity dots distinguishes artwork decoding/processing in green, audio decoding in amber, and GPU artwork upload in red. A dot tells you work is happening; it does not, by itself, establish the cause of a slowdown. Compare its timing with the pause you are investigating.</p>
+<p><strong>Potato GPU (4096px Limit)</strong> is the compatibility option for devices constrained by large textures. It is not a general promise that every slow machine will run faster. For continued problems, include the device, artwork scale, cache preset, and observed symptom in your report.</p>
+</section>
+<section id="power" class="manual-section"><h2 id="frame-rate-limits-and-background-behavior">Frame-rate limits and background behavior</h2>
+<p><strong>Power save in background</strong> reduces drawing while the client is unfocused. <strong>Always power save</strong> applies the power-saving limit even while focused. Both use the Power-save FPS value.</p>
+<!-- help-figure:performance-power-saving -->
+<figure class="help-figure" data-screen="performance-power-saving">
+  <div class="help-image" style="max-width:746px">
+    <img src="images/performance-power-saving.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Power Saving. Highlighted controls: Always power save.">
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:38.8268%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+  </div>
+  <figcaption><strong>Settings → Performance → Power Saving</strong>
+<ol class="help-legend"><li><b>1</b><p>This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations.</p></li></ol>
+    <div class="help-image-actions"><button type="button" class="help-toggle" aria-pressed="true">Hide highlights</button><a href="images/performance-power-saving.png" target="_blank" rel="noopener">Open full-size image</a></div>
+  </figcaption>
+</figure>
+<!-- /help-figure -->
+<p><strong>VSync - Limit FPS</strong> relates drawing to the display’s refresh behavior. Disabling it can increase drawing work and power use without changing the game server’s timing. Do not interpret a deliberately capped rate as proof that your graphics settings are too demanding.</p>
+<ol><li>If the rate drops only when you switch applications, check the background setting.</li><li>If it stays capped while you play, check Always power save and Power-save FPS.</li><li>If the cap matches the display’s refresh rate, check VSync before reducing visual quality.</li><li>After testing, restore the power settings you want for ordinary use.</li></ol>
+</section>
+<section id="restore" class="manual-section"><h2 id="restore-a-usable-picture">Restore a usable picture</h2>
+<p>Open <strong>Settings → Performance → Quality preset</strong> and choose a preset to restore a coordinated set of graphics settings. Use this when the picture becomes difficult to read after experimenting with individual options. Once it looks comfortable again, make any further adjustments one at a time.</p>
+<p>For a report, record the client version, operating system, graphics device, window size, UI scale, quality preset, and the specific settings that reproduce the problem. Include whether it occurs on first room entry, throughout a scene, only during movement, or only when unfocused. The <a href="./#diagnostics-recipe">diagnostics walkthrough</a> explains screenshots and logs.</p>
+</section>
+</article>
+<p class="help-guide-end"><a href="#top">Back to top</a> · <a href="./">Player manual</a></p>
+</main><script src="manual.js" defer></script></body></html>

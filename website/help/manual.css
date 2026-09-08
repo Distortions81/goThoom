@@ -1,0 +1,143 @@
+/* Reading and screenshot tools for the manual; the rest of the site is unchanged. */
+.manual-hero { padding-block: 38px 24px; min-height: 0; }
+.manual-hero h1 { font-size: clamp(2.6rem, 6vw, 4.5rem); }
+.manual-version { color: #b9d6de; font-size: .875rem; line-height: 1.6; margin-block: 16px; }
+.manual-section p, .manual-section li { font-size: 1rem; }
+.manual-section h3 { margin-top: 48px; }
+.manual-section { padding-bottom: 54px; }
+.manual-section + .manual-section { padding-top: 54px; }
+.help-finder { padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: #0c1a25; }
+.help-finder label { display: block; color: var(--text); font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; }
+.help-finder input { width: 100%; padding: 13px 16px; border: 1px solid #597783; border-radius: 8px; background: #07121b; color: #f1f7f9; font: inherit; }
+.help-finder input::placeholder { color: #9fb4be; }
+.help-finder p { margin: 10px 0; font-size: .875rem; color: #b1c8d1; }
+.help-quicklinks { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 20px; }
+.help-quicklinks a { color: #bdeaf0; font-size: .9rem; }
+#help-search-results { list-style: none; padding: 0; margin: 18px 0 0; }
+#help-search-results li { border-top: 1px solid var(--line); padding: 12px 0; }
+#help-search-results a { display: block; color: #d5f4ff; font-weight: 700; }
+#help-search-results small { display: block; color: #b1c8d1; margin-top: 5px; line-height: 1.5; }
+.help-figure { margin: 28px 0 38px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: #07121b; }
+.help-image { position: relative; margin-inline: auto; }
+.help-image img { display: block; width: 100%; height: auto; }
+.help-highlights { position: absolute; inset: 0; pointer-events: none; }
+.help-highlight { position: absolute; border: 2px solid #ffd36b; border-radius: 3px; box-shadow: 0 0 0 1px #101821; }
+.help-highlight b { position: absolute; top: -12px; left: -12px; display: grid; place-items: center; width: 23px; height: 23px; color: #101821; background: #ffd36b; border: 1px solid #101821; border-radius: 50%; font: 700 13px/1 system-ui, sans-serif; }
+.help-figure figcaption { padding-top: 18px; font-size: .9rem; line-height: 1.6; color: #d1e5ea; }
+.help-legend { list-style: none; padding: 0; margin: 18px 0; }
+.manual-section .help-legend li { display: grid; grid-template-columns: 23px minmax(0, 1fr); gap: 12px; margin: 14px 0; }
+.manual-section .help-legend p { margin: 0; font-size: 1rem; line-height: 1.7; }
+.help-legend b { display: inline-grid; place-items: center; width: 23px; height: 23px; margin-top: 3px; border-radius: 50%; color: #101821; background: #ffd36b; font: 700 13px/1 system-ui, sans-serif; }
+.help-image-actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.help-toggle { color: #bdeaf0; font: inherit; cursor: pointer; }
+.help-toggle { border: 1px solid #597783; background: #122632; border-radius: 6px; padding: 7px 12px; min-height: 36px; }
+.help-image-actions a { font-size: .875rem; }
+.help-controls { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: -18px; }
+.help-controls summary { cursor: pointer; color: #d5f4ff; line-height: 1.5; }
+.help-controls > p { margin-top: 16px; }
+.help-controls th small, .help-controls td small { display: block; color: #b4cbd3; font-size: .8rem; font-weight: 400; margin-top: 6px; }
+.help-controls tbody th { width: 26%; font-weight: 500; text-transform: none; letter-spacing: normal; font-size: .9rem; }
+.help-controls td { font-size: .9rem; }
+.help-controls td p { font-size: .85rem; margin-top: 12px; }
+.help-reference { padding-top: 38px; }
+.help-reference > h1 { margin-block: 24px; font: 600 clamp(2.5rem, 5vw, 4rem)/1.1 Georgia, serif; }
+.help-reference > p { max-width: 800px; line-height: 1.7; color: #b9ced6; }
+.help-reference .manual-content { max-width: 900px; margin-inline: auto; }
+.help-reference .manual-section > h2 { font-size: clamp(1.9rem, 4vw, 3rem); }
+.help-reference-nav { padding: 20px; border: 1px solid var(--line); border-radius: 10px; margin: 28px 0; }
+.help-reference-nav summary { cursor: pointer; }
+.help-reference-nav nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 20px; }
+.help-reference-nav nav a { font-size: .9rem; color: #bdeaf0; }
+.manual-page :focus-visible { outline: 3px solid #ffd36b; outline-offset: 4px; }
+.manual-page [hidden] { display: none !important; }
+@media (max-width: 620px) {
+ .help-finder, .help-figure { padding: 12px; }
+ .help-figure { margin-inline: -4px; }
+ .help-reference-nav nav a { display: block; }
+ .manual-mobile-toc nav a { display: block; }
+ .help-controls { padding: 12px; }
+ .help-controls .manual-table-wrap { margin-inline: -8px; }
+ .help-controls table { min-width: 580px; }
+ .help-reference-nav nav { grid-template-columns: 1fr; }
+ .help-legend { display: block; }
+ .manual-section .help-legend li { margin-block: 7px; }
+}
+@media print {
+ .site-header, .manual-toc, .manual-mobile-toc, .help-finder, .help-image-actions, .help-reference-nav { display: none; }
+ .manual-layout { display: block; }
+ .manual-page, .help-figure { background: white; }
+ .manual-section p, .manual-section li, .manual-section h2, .manual-section h3, .manual-version { color: black; }
+ .help-figure { break-inside: avoid; }
+}
+
+.help-name-underline { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Schematic tiled workspaces. Native radios also work without JavaScript. */
+.layout-preview-controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 24px 0 12px; padding: 16px; border: 1px solid #597783; border-radius: 10px; }
+.layout-split-options { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.layout-explorer:has(#layout-combined:checked) .layout-split-options { display: none; }
+.layout-preview-controls legend { padding-inline: 8px; color: #d5f4ff; }
+.layout-preview-controls label, .layout-card-control { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: .9rem; color: #d1e5ea; }
+.layout-preview-controls input, .layout-card-control input { accent-color: #65d2cb; width: 18px; height: 18px; margin: 0; }
+.manual-section .layout-preview-note { font-size: .9rem; }
+.layout-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 20px; margin-top: 24px; }
+.layout-card { margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #0c1a25; break-inside: avoid; }
+.layout-card figcaption { margin-bottom: 16px; color: #e1f0f5; font-size: 1rem; }
+.manual-section .layout-card p { font-size: .9rem; line-height: 1.6; margin: 16px 0 0; }
+.layout-map { display: grid; height: 200px; gap: 4px; grid-template-columns: 1fr 1.8fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+.layout-pane { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 3px; text-align: center; border: 1px solid #617987; border-radius: 4px; color: #e4edf4; background: #253948; font: 600 12px/1.35 system-ui, sans-serif; overflow-wrap: normal; }
+.layout-game { grid-area: game; background: #12443f; border-color: #53b8a9; color: #cbfff2; font-size: 17px; }
+.layout-inventory { grid-area: inventory; }
+.layout-players { grid-area: players; }
+.layout-console { grid-area: console; background: #423622; border-color: #bb9860; color: #ffe5b7; }
+.layout-chat { grid-area: chat; background: #302e50; border-color: #9890cf; color: #eae5ff; }
+.layout-message-pair { grid-area: messages; display: grid; gap: 4px; min-width: 0; grid-template-columns: 1fr 1fr; grid-template-areas: "console chat"; }
+.layout-center { grid-template-areas: "inventory game players" "inventory game players" "console game chat"; }
+.layout-side { grid-template-columns: 1.8fr 1fr 1fr; grid-template-areas: "game inventory players" "game inventory players" "game messages messages"; }
+.layout-below { grid-template-areas: "inventory game players" "inventory game players" "inventory messages players"; }
+.layout-split { grid-template-areas: "inventory console players" "inventory game players" "inventory chat players"; }
+.layout-full-below { grid-template-areas: "inventory game players" "inventory game players" "messages messages messages"; }
+.layout-combined-label { display: none; }
+.layout-explorer:has(#layout-combined:not(:checked)):has(#layout-stacked:checked) .layout-message-pair { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; grid-template-areas: "console" "chat"; }
+.layout-explorer:has(#layout-combined:checked) .layout-chat,
+.layout-explorer:has(#layout-combined:checked) .layout-separate-label { display: none; }
+.layout-explorer:has(#layout-combined:checked) .layout-combined-label { display: inline; }
+.layout-explorer:has(#layout-combined:checked) .layout-message-pair { grid-template-columns: 1fr; grid-template-areas: "console"; }
+.layout-explorer:has(#layout-combined:checked) .layout-center { grid-template-areas: "inventory game players" "inventory game players" "console game players"; }
+.layout-explorer:has(#layout-combined:checked) .layout-split { grid-template-areas: "inventory console players" "inventory game players" "inventory game players"; }
+
+.help-area-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 0; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+.help-area-nav a { display: block; padding: 10px 14px; border: 1px solid transparent; border-radius: 7px; font-size: .95rem; color: #bdd5df; text-decoration: none; }
+.help-area-nav a:hover { color: white; border-color: #597783; }
+.help-area-nav a[aria-current="page"] { color: #e5f8fd; background: #163342; border-color: #438397; }
+.help-guide { padding-top: 12px; }
+.help-guide h1 { margin: 30px 0 20px; font: 600 clamp(2.3rem, 5vw, 4rem)/1.1 Georgia, serif; }
+.help-guide-intro { max-width: 840px; color: #c0d2db; font-size: 1.1rem; line-height: 1.7; }
+.help-guide .manual-content { max-width: 900px; margin-inline: auto; }
+.help-guide .manual-section > h2 { font-size: clamp(1.9rem, 4vw, 3rem); }
+.help-guide > p, .help-guide-end { line-height: 1.7; color: #bbd2da; }
+.help-guide a, .help-guide-link { color: #bdeaf0; text-underline-offset: 3px; }
+.help-topic-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px 22px; margin-top: 24px; }
+.help-topic-links a { font-size: .95rem; line-height: 1.5; }
+@media (max-width: 620px) {
+ .help-area-nav a, .help-topic-links a { display: block; }
+ .help-area-nav { display: grid; grid-template-columns: 1fr 1fr; }
+ .help-area-nav a { padding: 10px; font-size: .875rem; }
+ .help-topic-links { grid-template-columns: 1fr; }
+}
+
+.layout-explorer:has(#layout-swap-lists:checked) .layout-inventory { grid-area: players; }
+.layout-explorer:has(#layout-swap-lists:checked) .layout-players { grid-area: inventory; }
+
+.layout-explorer:has(#layout-swap-messages:checked):has(#layout-combined:not(:checked)) .layout-console { grid-area: chat; }
+.layout-explorer:has(#layout-swap-messages:checked):has(#layout-combined:not(:checked)) .layout-chat { grid-area: console; }
+
+.layout-card-control { margin-bottom: 12px; }
+.layout-explorer:has(#layout-combined:checked) .layout-message-swap,
+.layout-explorer:has(#layout-combined:checked) .layout-separate-card { display: none; }
+.layout-explorer:has(#layout-above:checked) .layout-below { grid-template-areas: "inventory messages players" "inventory game players" "inventory game players"; }
+.layout-explorer:has(#layout-above:checked) .layout-full-below { grid-template-areas: "messages messages messages" "inventory game players" "inventory game players"; }
+.layout-side-card:has(#layout-swap-game:checked) .layout-side { grid-template-columns: 1fr 1fr 1.8fr; grid-template-areas: "inventory players game" "inventory players game" "messages messages game"; }
+
+.layout-explorer:has(#layout-combined:not(:checked)) .layout-combined-side { display: none; }
+.layout-explorer:has(#layout-combined:checked):has(#layout-combined-right:checked) .layout-center { grid-template-areas: "inventory game players" "inventory game players" "inventory game console"; }
