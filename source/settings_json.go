@@ -211,6 +211,10 @@ var settingsSchema = []settingsSchemaEntry{
 
 	{field: "PromptOnSaveRecording", category: settingsRecording, name: "prompt_when_saving"},
 	{field: "AutoRecord", category: settingsRecording, name: "record_automatically"},
+	{field: "StreamSource", category: settingsRecording, name: "local_stream_source"},
+	{field: "StreamResolution", category: settingsRecording, name: "local_stream_resolution"},
+	{field: "StreamFPS", category: settingsRecording, name: "local_stream_fps"},
+	{field: "StreamIdleBlack", category: settingsRecording, name: "local_stream_idle_black"},
 
 	{field: "JoystickEnabled", category: settingsController, name: "enabled"},
 	{field: "JoystickBindings", category: settingsController, name: "button_bindings"},

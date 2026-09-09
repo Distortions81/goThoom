@@ -286,6 +286,10 @@ var gsdef settings = settings{
 	PowerSaveBackground:       false,
 	PowerSaveAlways:           false,
 	PowerSaveFPS:              15,
+	StreamSource:              0,
+	StreamResolution:          1080,
+	StreamFPS:                 60,
+	StreamIdleBlack:           false,
 	MuteWhenUnfocused:         false,
 	NotifyFallen:              true,
 	NotifyNotFallen:           true,
@@ -533,7 +537,15 @@ type settings struct {
 	// PowerSaveAlways reduces FPS even when focused (e.g., laptops).
 	PowerSaveAlways bool
 	// PowerSaveFPS is the target FPS when power saving is active (1-45).
-	PowerSaveFPS          int
+	PowerSaveFPS int
+	// StreamSource selects the local streaming output: 0 is the game view and
+	// 1 is the entire client.
+	StreamSource     int
+	StreamResolution int
+	StreamFPS        int
+	// StreamIdleBlack selects a plain black frame instead of the splash screen
+	// before the game render is available.
+	StreamIdleBlack       bool
 	MuteWhenUnfocused     bool
 	NotifyFallen          bool
 	NotifyNotFallen       bool
@@ -840,6 +852,15 @@ func loadSettings() bool {
 	}
 	if gs.PowerSaveFPS > 45 {
 		gs.PowerSaveFPS = 45
+	}
+	if gs.StreamSource < 0 || gs.StreamSource > 1 {
+		gs.StreamSource = gsdef.StreamSource
+	}
+	if !validStreamResolution(gs.StreamResolution) {
+		gs.StreamResolution = gsdef.StreamResolution
+	}
+	if gs.StreamFPS != 15 && gs.StreamFPS != 30 && gs.StreamFPS != 60 {
+		gs.StreamFPS = gsdef.StreamFPS
 	}
 	return settingsLoaded
 }

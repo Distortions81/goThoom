@@ -85,6 +85,7 @@ func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	defer closeDiagnosticsLog()
 	defer shutdownScripts()
+	defer stopStreamOutput()
 	// Ensure any active recording is finalized on exit.
 	defer func() {
 		if recorder != nil {

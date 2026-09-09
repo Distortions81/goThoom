@@ -1,0 +1,7 @@
+goThoom 56 changes since test55.
+
+Local streaming:
+- Stream the game render or the whole client window to a local Browser Source at http://127.0.0.1:8080/.
+- Choose 720p, 1080p, 1440p, or 4K output at 15, 30, or 60 FPS. New streams start at 1080p and 60 FPS.
+- Switch between the game render and the whole window while streaming without changing the configured output dimensions.
+- The stream can show the splash screen or black before login. Click the displayed URL to copy it.

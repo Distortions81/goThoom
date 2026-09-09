@@ -1965,6 +1965,10 @@ func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
 	return image.Rect(left, top, left+w, top+h), scale
 }
 
+func showingGameSplash() bool {
+	return !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	drawStarted := time.Now()
 	traceFramePacingDrawStarted()
@@ -1983,8 +1987,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	drawFrameNow = now
 	defer func() { drawFrameNow = time.Time{} }()
 	defer shaderCompilationFrameDrawn()
+	readPendingStreamOutput()
 	if shouldDrawStartupLoadingScreen() {
 		drawStartupLoadingScreen(screen, startupLoadingLabel())
+		captureStreamOutput(screen, false)
 		return
 	}
 	// Power-save throttling: measure draw duration and sleep remaining time
@@ -2040,6 +2046,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Ensure the game image item/buffer exists and matches window content.
 	updateGameImageSize()
+	updateStreamIndicators(now)
 	if gameImage == nil {
 		// UI not ready yet
 		snapshotReady = true
@@ -2051,6 +2058,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		} else {
 			eui.Draw(screen)
 		}
+		captureStreamOutput(screen, false)
 		return
 	}
 
@@ -2073,6 +2081,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		} else {
 			eui.Draw(screen)
 		}
+		captureStreamOutput(screen, false)
 		return
 	}
 
@@ -2085,7 +2094,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	var alpha float64
 	var haveSnap bool
 	worldRendered := false
-	if !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake {
+	if showingGameSplash() {
 		gameImage.Fill(playfieldBackgroundColor())
 		prev := gs.GameScale
 		gs.GameScale = renderScale
@@ -2230,6 +2239,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		text.Draw(screen, label, mainFontBold, op)
 		releaseTextDrawOpts(op)
 	}
+	captureStreamOutput(screen, worldRendered)
 }
 
 var lastSeekRenderGeneration uint64

@@ -51,6 +51,7 @@ The rest of the interface also uses:
 - `keyboard_command_key`
 - `language`
 - `list_alt`
+- `live_tv`
 - `login`
 - `logout`
 - `map`

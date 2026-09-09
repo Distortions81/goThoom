@@ -20,6 +20,7 @@ var (
 	framePacingUpdateWork      atomic.Int64
 	framePacingDrawWork        atomic.Int64
 	framePacingSnapshotWait    atomic.Int64
+	framePacingStreamReadback  atomic.Int64
 	framePacingSequence        atomic.Uint64
 )
 
@@ -47,11 +48,12 @@ func traceFramePacingUpdateStarted(now time.Time) {
 		lastGCAge = now.Sub(time.Unix(0, int64(memory.LastGC)))
 	}
 
-	log.Printf("frame pacing: frame=%d interval=%s threshold=%s update=%s draw=%s outside=%s snapshot_wait=%s fps=%.1f focused=%t vsync=%t gc_total=%d last_gc_pause=%s last_gc_age=%s gc_during_interval=%t heap=%dMiB goroutines=%d",
+	log.Printf("frame pacing: frame=%d interval=%s threshold=%s update=%s draw=%s outside=%s snapshot_wait=%s stream_readback=%s fps=%.1f focused=%t vsync=%t gc_total=%d last_gc_pause=%s last_gc_age=%s gc_during_interval=%t heap=%dMiB goroutines=%d",
 		framePacingSequence.Add(1),
 		interval.Round(time.Microsecond), framePacingTraceThreshold,
 		updateWork.Round(time.Microsecond), drawWork.Round(time.Microsecond), outside.Round(time.Microsecond),
 		time.Duration(framePacingSnapshotWait.Load()).Round(time.Microsecond),
+		time.Duration(framePacingStreamReadback.Load()).Round(time.Microsecond),
 		ebiten.ActualFPS(), windowIsFocused(), effectiveVSyncEnabled(), memory.NumGC, lastGCPause.Round(time.Microsecond), lastGCAge.Round(time.Millisecond), memory.NumGC > 0 && lastGCAge <= interval,
 		memory.HeapAlloc>>20, runtime.NumGoroutine(),
 	)
@@ -66,6 +68,7 @@ func traceFramePacingUpdateFinished(elapsed time.Duration) {
 func traceFramePacingDrawStarted() {
 	if framePacingTraceThreshold > 0 {
 		framePacingSnapshotWait.Store(0)
+		framePacingStreamReadback.Store(0)
 	}
 }
 
