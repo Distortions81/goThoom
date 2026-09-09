@@ -4,15 +4,15 @@ package main
 // makes disabling all custom shaders cheap and reversible without losing the
 // user's per-effect choices.
 func shaderLightingEnabled() bool {
-	return gs.ShadersEnabled && gs.ShaderLighting
+	return gs.ShaderLighting
 }
 
 func replacementEffectsEnabled() bool {
-	return gs.ShadersEnabled && gs.ReplacementEffects
+	return gs.ReplacementEffects
 }
 
 func characterShadowCompositeEnabled() bool {
-	return gs.ShadersEnabled
+	return true
 }
 
 // layeredCharacterShadowsEnabled keeps each projected shadow at its caster's

@@ -152,11 +152,6 @@ func clampTiledPaneFraction(v float64) float64 {
 }
 
 func clampTiledLayoutSettings() {
-	// Retain the old preference for reading existing settings, but always use tiles.
-	if !gs.TiledWindows {
-		gs.TiledWindows = true
-		settingsDirty = true
-	}
 	if gs.TiledLayout < TiledLayoutCenter || gs.TiledLayout > TiledLayoutFullMessagesAbove {
 		gs.TiledLayout = gsdef.TiledLayout
 	}
@@ -396,7 +391,6 @@ var gsdef settings = settings{
 	ScriptsPath:             "",
 
 	NightEffect:              true,
-	ShadersEnabled:           true,
 	ShaderLighting:           true,
 	MobileLightConeShadows:   false,
 	CharacterShadows:         true,
@@ -637,7 +631,6 @@ type settings struct {
 	hideMoving               bool
 	hideMobiles              bool
 	NightEffect              bool
-	ShadersEnabled           bool
 	ShaderLighting           bool
 	MobileLightConeShadows   bool
 	CharacterShadows         bool
@@ -730,6 +723,13 @@ func loadSettings() bool {
 		if tmp.LegacyAlternateRows != nil {
 			tmp.settings.InventoryAlternatingRowColors = *tmp.LegacyAlternateRows
 		}
+		// The floating/tiled choice was renamed in the v4 document. Older
+		// settings therefore begin with the tiled default and can opt into
+		// floating windows again from Window Layout.
+		tmp.settings.TiledWindows = gsdef.TiledWindows
+		if tmp.settings.ToolbarPlacement == ToolbarFloating {
+			tmp.settings.ToolbarPlacement = ToolbarInInventory
+		}
 		gs = tmp.settings
 		gs.Version = SETTINGS_VERSION
 		migrated = true
@@ -819,7 +819,7 @@ func loadSettings() bool {
 		gs.ToolbarPlacement = gsdef.ToolbarPlacement
 		settingsDirty = true
 	}
-	if gs.ToolbarPlacement == ToolbarFloating {
+	if gs.TiledWindows && gs.ToolbarPlacement == ToolbarFloating {
 		gs.ToolbarPlacement = ToolbarInInventory
 		settingsDirty = true
 	}
@@ -1215,16 +1215,45 @@ func prepareTiledWorkspaceWindowChrome() {
 		if item.win == nil {
 			continue
 		}
-		if item.game {
-			item.win.TitleHeight, item.win.Padding, item.win.Margin = 0, 0, 0
+		if gs.TiledWindows {
+			if item.game {
+				if item.win.GetRawTitleSize() > 0 {
+					gameWindowFreeformTitleHeight = item.win.GetRawTitleSize()
+				}
+				if item.win.Padding > 0 {
+					gameWindowFreeformPadding = item.win.Padding
+				}
+				if item.win.Margin > 0 {
+					gameWindowFreeformMargin = item.win.Margin
+				}
+				item.win.TitleHeight = 0
+				item.win.Padding = 0
+				item.win.Margin = 0
+			}
+			item.win.SetDocked(true)
+			item.win.Closable, item.win.Maximizable, item.win.Movable = false, false, false
+			item.win.Resizable = true
+			continue
 		}
-		item.win.SetDocked(true)
-		item.win.Closable, item.win.Maximizable, item.win.Movable = false, false, false
+		item.win.SetDocked(false)
+		if item.game && gameWindowFreeformTitleHeight > 0 {
+			item.win.TitleHeight = gameWindowFreeformTitleHeight
+			item.win.Padding = gameWindowFreeformPadding
+			item.win.Margin = gameWindowFreeformMargin
+		}
 		item.win.Resizable = true
+		item.win.Closable = !item.game
+		item.win.Movable = true
+		if item.game {
+			item.win.Maximizable = true
+		}
 	}
 }
 
 func finishTiledWorkspaceWindowChrome() {
+	if !gs.TiledWindows {
+		return
+	}
 	for _, item := range tiledWorkspaceWindows() {
 		if item.win == nil {
 			continue
@@ -1244,8 +1273,11 @@ func tiledWindowState(state *WindowState, x, y, width, height float64) {
 }
 
 // applyTiledWindowStates derives the persisted geometry from the selected
-// workspace.
+// workspace. The normal window-state path continues to handle floating mode.
 func applyTiledWindowStates() {
+	if !gs.TiledWindows {
+		return
+	}
 	clampTiledLayoutSettings()
 	if width, height := eui.ScreenSize(); width > 0 && height > 0 {
 		clampTiledMessagePairHeight(height)
@@ -1389,7 +1421,6 @@ type qualityPreset struct {
 	precacheSounds           bool
 	windowShadows            bool
 	characterShadows         bool
-	shadersEnabled           bool
 	shaderLighting           bool
 	blendPicts               bool
 	mobilesReceiveSunShadows bool
@@ -1411,7 +1442,6 @@ var (
 		precacheSounds:     true,
 		windowShadows:      true,
 		characterShadows:   true,
-		shadersEnabled:     true,
 		shaderLighting:     true,
 	}
 	highPreset = qualityPreset{
@@ -1420,7 +1450,6 @@ var (
 		precacheSounds:           true,
 		windowShadows:            true,
 		characterShadows:         true,
-		shadersEnabled:           true,
 		shaderLighting:           true,
 		blendPicts:               true,
 		mobilesReceiveSunShadows: true,
@@ -1432,7 +1461,6 @@ var (
 		precacheSounds:           true,
 		windowShadows:            true,
 		characterShadows:         true,
-		shadersEnabled:           true,
 		shaderLighting:           true,
 		blendPicts:               true,
 		mobilesReceiveSunShadows: true,
@@ -1463,7 +1491,6 @@ func applyQualityPreset(name string) {
 	gs.PrecacheSounds = p.precacheSounds
 	gs.WindowShadows = p.windowShadows
 	gs.CharacterShadows = p.characterShadows
-	gs.ShadersEnabled = p.shadersEnabled
 	gs.ShaderLighting = p.shaderLighting
 	gs.BlendPicts = p.blendPicts
 	gs.MobilesReceiveSunShadows = p.mobilesReceiveSunShadows
@@ -1529,7 +1556,6 @@ func matchesPreset(p qualityPreset) bool {
 		gs.PrecacheSounds == p.precacheSounds &&
 		gs.WindowShadows == p.windowShadows &&
 		gs.CharacterShadows == p.characterShadows &&
-		gs.ShadersEnabled == p.shadersEnabled &&
 		gs.ShaderLighting == p.shaderLighting &&
 		gs.BlendPicts == p.blendPicts &&
 		gs.MobilesReceiveSunShadows == p.mobilesReceiveSunShadows &&

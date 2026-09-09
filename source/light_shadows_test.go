@@ -54,7 +54,6 @@ func TestMobileLightConeShadowSettingGatesCasters(t *testing.T) {
 		frameLightCasters = originalCasters
 	})
 
-	gs.ShadersEnabled = true
 	gs.ShaderLighting = true
 	gs.GameScale = 2
 	frameLightCasters = nil

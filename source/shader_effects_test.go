@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func TestShaderMasterDisablesEveryShaderGroupWithoutChangingPreferences(t *testing.T) {
+func TestShaderFeaturesFollowTheirIndividualPreferences(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 
@@ -23,19 +23,9 @@ func TestShaderMasterDisablesEveryShaderGroupWithoutChangingPreferences(t *testi
 		t.Fatal("an enabled shader group did not become active")
 	}
 
-	gs.ShadersEnabled = false
-	if mobileFrameBlendingEnabled() || pictureFrameBlendingEnabled() ||
-		shaderLightingEnabled() ||
-		characterShadowCompositeEnabled() || layeredCharacterShadowsEnabled() || replacementEffectsEnabled() ||
-		perFrameShaderEffectsEnabled() {
-		t.Fatal("the shader master left a shader group active")
-	}
-	if !artworkUpscaleEnabled() {
-		t.Fatal("the shader master disabled CPU artwork upscaling")
-	}
-	if !gs.BlendMobiles || !gs.BlendPicts || !gs.SpriteUpscaleFilter ||
-		!gs.ShaderLighting || !gs.ReplacementEffects {
-		t.Fatal("the shader master changed an individual effect preference")
+	gs.ShaderLighting, gs.ReplacementEffects = false, false
+	if shaderLightingEnabled() || replacementEffectsEnabled() {
+		t.Fatal("individual graphics preferences did not disable their feature")
 	}
 }
 

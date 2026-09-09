@@ -38,7 +38,7 @@
     <main id="top" class="manual-main help-guide">
 <!-- help-navigation --><nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html" aria-current="page">Performance &amp; visuals</a><a href="reference.html">UI reference</a></nav><!-- /help-navigation -->
 <h1>Performance &amp; visuals</h1>
-<!-- help-metadata --><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 8, 2026</p><!-- /help-metadata -->
+<!-- help-metadata --><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 9, 2026</p><!-- /help-metadata -->
 <p class="help-guide-intro">Make the picture comfortable to read and the client responsive. Learn which controls affect image quality, loading pauses, memory, and drawing speed before changing them.</p>
 <details class="help-reference-nav" open><summary>In this guide</summary><nav aria-label="Guide sections"><a href="#start">Identify the symptom</a><a href="#presets">Presets</a><a href="#artwork">Artwork and color</a><a href="#motion">Motion</a><a href="#lighting">Lighting and shadows</a><a href="#caching">Loading and memory</a><a href="#power">Power saving</a><a href="#restore">Recovery</a></nav></details>
 <p><a href="./#help-search">Search all help topics</a> · <a href="automation.html">Macros, scripts &amp; hotkeys</a></p>
@@ -70,7 +70,6 @@
   </figcaption>
 </figure>
 <!-- /help-figure -->
-<p><strong>Enhanced visual effects</strong> controls lighting, animation blending, replacement effects, and faster shadows together. Turning it off preserves the individual choices while disabling the affected features. This makes it useful for a quick comparison. If a feature’s control is greyed out, check its master switch before assuming that the individual setting was lost.</p>
 <p>Profiles can make your choices character-specific. A different saved character may load different graphics settings when <strong>Keep settings separate</strong> is enabled. <a href="./#per-character-profiles">Read about character profiles</a> before diagnosing a change that only happens when you switch characters.</p>
 </section>
 <section id="artwork" class="manual-section"><h2 id="artwork-resolution-edges-and-color">Artwork resolution, edges, and color</h2>
@@ -100,7 +99,7 @@
 <figure class="help-figure" data-screen="performance-motion">
   <div class="help-image" style="max-width:746px">
     <img src="images/performance-motion.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Motion. Highlighted controls: Character Animation Blending.">
-<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:37.1508%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:33.5196%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Motion</strong>
 <ol class="help-legend"><li><b>1</b><p>This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on.</p></li></ol>
@@ -126,7 +125,7 @@
 </figure>
 <!-- /help-figure -->
 <ol><li>Compare Lighting Effects in the same scene, including the same night conditions where possible.</li><li>Compare Character Shadows separately. Window Shadows belongs to the UI windows, so changing it will not remove shadows under characters.</li><li>Try Faster Character Shadows if you want to compare the alternative shadow path. Judge both the resulting image and drawing performance.</li><li>Leave Experimental choices for separate comparisons after you have a stable setup. Replacement effects and mobile light-cone shadows are not required to use the client.</li></ol>
-<p>If options here seem inactive, check Enhanced visual effects at the top of Performance. To make a dark scene more readable without changing every lighting option, also inspect <strong>Settings → World → Max Night Level</strong>.</p>
+<p>If an option here seems inactive, check the related choice: lighting controls its own strength, glow, and flicker; shadow options require Character Shadows; and animation blending requires Smooth Motion. To make a dark scene more readable without changing every lighting option, also inspect <strong>Settings → World → Max Night Level</strong>.</p>
 </section>
 <section id="caching" class="manual-section"><h2 id="loading-pauses-and-memory-use">Loading pauses and memory use</h2>
 <p><strong>Batch room artwork loading</strong> prepares missing room artwork in one pause instead of spreading its first-use work across several frames. It changes when you experience that work. Compare room entry and the movement immediately afterward, not just an FPS reading while standing still.</p>
@@ -158,7 +157,7 @@
 <figure class="help-figure" data-screen="performance-power-saving">
   <div class="help-image" style="max-width:746px">
     <img src="images/performance-power-saving.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Power Saving. Highlighted controls: Always power save.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:38.8268%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:35.1955%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Power Saving</strong>
 <ol class="help-legend"><li><b>1</b><p>This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations.</p></li></ol>

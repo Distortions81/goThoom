@@ -60,7 +60,6 @@ func TestRenderRealMobileRecolorPixels(t *testing.T) {
 	}
 
 	originalSettings, originalImages := gs, clImages
-	gs.ShadersEnabled = true
 	gs.DenoiseImages = false
 	gs.SpriteUpscaleFilter = false
 	gs.SpriteUpscaleMode = artworkUpscaleOff

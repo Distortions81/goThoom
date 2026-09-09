@@ -131,7 +131,6 @@ func TestSettingsV4RoundTrip(t *testing.T) {
 		`"show_player_share_icons": true`,
 		`"group_clan_members": true`,
 		`"nlspt_enabled": false`,
-		`"shaders_enabled": true`,
 		`"file_paths"`,
 		`"assets_and_audio": "/mnt/gothoom-assets"`,
 	} {
@@ -283,7 +282,7 @@ func TestSettingsV3MigratesToV4(t *testing.T) {
 	}
 }
 
-func TestSettingsV4MigratesFreeformWorkspace(t *testing.T) {
+func TestSettingsV4PreservesFloatingWorkspace(t *testing.T) {
 	old := gsdef
 	old.TiledWindows = false
 	old.ToolbarPlacement = ToolbarFloating
@@ -299,9 +298,18 @@ func TestSettingsV4MigratesFreeformWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := old
-	want.TiledWindows = true
-	want.ToolbarPlacement = ToolbarInInventory
 	if !reflect.DeepEqual(got, want) {
-		t.Fatal("workspace migration should enable tiling and dock the toolbar while preserving other settings")
+		t.Fatal("workspace migration should preserve the selected layout mode")
+	}
+}
+
+func TestSettingsV4OldTiledLayoutKeyDefaultsToTiled(t *testing.T) {
+	data := []byte(`{"version":4,"windows":{"tiled_layout":false}}`)
+	got, err := unmarshalSettingsDocument(data, gsdef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.TiledWindows {
+		t.Fatal("old tiled_layout setting should use the tiled default")
 	}
 }

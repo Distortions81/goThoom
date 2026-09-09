@@ -110,6 +110,23 @@ func TestSetupWizardInterfaceAndLayoutIncludeCoreChoices(t *testing.T) {
 		}
 	}
 	visit(root)
+	if found := func() bool {
+		var hasModeControl func(*eui.ItemData) bool
+		hasModeControl = func(item *eui.ItemData) bool {
+			if item.Text == "Use tiled window layout" {
+				return true
+			}
+			for _, child := range item.Contents {
+				if hasModeControl(child) {
+					return true
+				}
+			}
+			return false
+		}
+		return hasModeControl(root)
+	}(); found {
+		t.Fatal("setup wizard must not offer the tiled-mode choice")
+	}
 	for label, found := range wantLabels {
 		if !found {
 			t.Errorf("interface page missing %q dropdown", label)
@@ -758,12 +775,11 @@ func TestSetupWizardIncludesArtworkUpscaleStyles(t *testing.T) {
 	t.Fatal("setup wizard has no artwork upscale style dropdown")
 }
 
-func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
+func TestSetupWizardKeepsGraphicsChoicesIndependent(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	gs = gsdef
-	gs.ShadersEnabled = false
 
 	graphics := eui.NewColumn()
 	buildSetupGraphicsPage(graphics)
@@ -774,7 +790,7 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 	night := eui.NewColumn()
 	buildSetupNightLightingPage(night)
 
-	wantDisabled := map[string]bool{
+	wantEnabled := map[string]bool{
 		"Character animation blending": false,
 		"World animation blending":     false,
 		"Shader lighting effects":      false,
@@ -786,13 +802,13 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 		if name == "" {
 			name = item.Label
 		}
-		if _, ok := wantDisabled[name]; ok && item.Disabled {
-			wantDisabled[name] = true
+		if _, ok := wantEnabled[name]; ok && !item.Disabled {
+			wantEnabled[name] = true
 		}
 		if name == "Artwork upscale style" {
 			foundUpscale = true
 			if item.Disabled {
-				t.Error("CPU artwork upscaling was greyed out by the shader master")
+				t.Error("CPU artwork upscaling was unexpectedly disabled")
 			}
 		}
 		for _, child := range item.Contents {
@@ -802,9 +818,9 @@ func TestSetupWizardGreysShaderChoicesWhenMasterIsOff(t *testing.T) {
 	for _, page := range []*eui.ItemData{graphics, motion, shadows, night} {
 		visit(page)
 	}
-	for name, disabled := range wantDisabled {
-		if !disabled {
-			t.Errorf("setup wizard shader control %q was not greyed out", name)
+	for name, enabled := range wantEnabled {
+		if !enabled {
+			t.Errorf("setup wizard graphics control %q was unexpectedly disabled", name)
 		}
 	}
 	if !foundUpscale {

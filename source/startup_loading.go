@@ -227,7 +227,7 @@ func preloadStartupArtwork() int {
 		keys = append(keys, makeSheetKey(id, nil, false))
 	}
 	prepared := prepareArtworkSheets(keys)
-	if !gs.ShadersEnabled || gs.DenoiseImages {
+	if gs.DenoiseImages {
 		return prepared
 	}
 	mobileKeys := make([]sheetKey, 0, len(startupNamedMobileBasePreloadIDs))

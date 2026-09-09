@@ -41,10 +41,12 @@ and speed controls, a test phrase, and pronunciation corrections. Settings omits
 and controls. The command palette continues
 to provide searchable access to settings and actions.
 
-**Display → Windows & Toolbar → Window Layout** shows clickable arrangements
-for the game, Inventory, Players, and messages. The setup wizard uses the same
-previews. Choose a centered game, a game on one side, a message row above or below
-the game, or a full-width message row. Turn off **Combine chat + console** in
+**Display → Windows & Toolbar → Window Layout** starts with the tiled workspace
+used by default and shows clickable arrangements for the game, Inventory, Players,
+and messages. Turn off **Use tiled window layout** there to move and resize the
+main windows freely; the setup wizard keeps its tiled-layout choices and does not
+change that preference. Choose a centered game, a game on one side, a message row
+above or below the game, or a full-width message row. Turn off **Combine chat + console** in
 Window Layout to show separate message panes and the additional arrangement with
 messages above and below the game. Use the swap controls to place lists and
 messages on the preferred side, and **Message split** to put paired message
@@ -58,8 +60,7 @@ Turning it off keeps the current size and unlocks the dividers for resizing.
 Turning it back on fits the game around its current position, within the list
 width limits.
 
-The **Performance** tab contains the quality preset, a shared **Enhanced visual effects**
-switch, and five subtabs:
+The **Performance** tab contains the quality preset and five subtabs:
 
 | Tab | Controls |
 | --- | --- |

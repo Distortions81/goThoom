@@ -183,7 +183,6 @@ func TestCharacterShadowDarknessScalesFinalOpacity(t *testing.T) {
 	t.Cleanup(func() { gs = originalSettings })
 
 	projection := characterShadowProjection{contrast: 1}
-	gs.ShadersEnabled = true
 	gs.CharacterShadowDarkness = 0.01
 	faint := characterShadowDrawAlpha(1, projection)
 	gs.CharacterShadowDarkness = 1

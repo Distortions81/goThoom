@@ -201,7 +201,6 @@ func (g *renderStallStudy) Draw(screen *ebiten.Image) {
 	}
 	name := renderStallCases[g.index]
 	if g.frame == 0 {
-		gs.ShadersEnabled = name != "all_shaders_off"
 		gs.ShaderLighting = name != "lighting_off"
 		gs.FasterCharacterShadows = name == "fast_shadows"
 		gs.CharacterShadows = name != "shadows_off"

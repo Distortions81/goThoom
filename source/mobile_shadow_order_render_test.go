@@ -18,7 +18,6 @@ func TestRenderLayeredCharacterShadowOrder(t *testing.T) {
 	originalSettings := gs
 	gs = gsdef
 	gs.GameScale = 1
-	gs.ShadersEnabled = true
 	gs.FasterCharacterShadows = false
 	gs.CharacterShadowDarkness = 1
 	if err := ReloadLightingShader(); err != nil {

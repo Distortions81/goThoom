@@ -13,7 +13,6 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 		"smooth movement":                  gsdef.MotionSmoothing,
 		"floating-point coordinates":       gsdef.FloatingPointSpriteCoords,
 		"world animation blending":         gsdef.BlendPicts,
-		"shader master":                    gsdef.ShadersEnabled,
 		"shader lighting":                  gsdef.ShaderLighting,
 		"flame light flicker":              gsdef.FlameLightFlicker,
 		"character shadows":                gsdef.CharacterShadows,
@@ -226,7 +225,6 @@ func TestNewConfigUsesEnhancedRenderingDefaults(t *testing.T) {
 		"smooth movement":            gs.MotionSmoothing,
 		"floating-point coordinates": gs.FloatingPointSpriteCoords,
 		"world animation blending":   gs.BlendPicts,
-		"shader effects":             gs.ShadersEnabled,
 		"shader lighting":            gs.ShaderLighting,
 		"flame light flicker":        gs.FlameLightFlicker,
 		"character shadows":          gs.CharacterShadows,
@@ -272,7 +270,6 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 
 	gs.CharacterShadows = false
 	gs.MobilesReceiveSunShadows = false
-	gs.ShadersEnabled = false
 	gs.FloatingPointSpriteCoords = false
 	gs.BlendMobiles = true
 	gs.GameScale = 1
@@ -288,9 +285,6 @@ func TestExistingConfigDefaultsNewRenderingOptionsOn(t *testing.T) {
 	}
 	if !gs.MobilesReceiveSunShadows {
 		t.Error("settings without MobilesReceiveSunShadows should default it on")
-	}
-	if !gs.ShadersEnabled {
-		t.Error("settings without ShadersEnabled should default it on")
 	}
 	if !gs.FloatingPointSpriteCoords {
 		t.Error("settings without FloatingPointSpriteCoords should default it on")

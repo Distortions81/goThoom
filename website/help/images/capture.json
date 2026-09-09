@@ -1022,25 +1022,13 @@
           ]
         },
         {
-          "label": "Enhanced visual effects",
-          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            156,
-            690,
-            24
-          ]
-        },
-        {
           "label": "Artwork scale override",
           "help": "Fixed artwork texture scale. Default: 2x. Resizing the game\nwindow does not change it. Higher values use more GPU\nmemory.",
           "kind": "Slider",
           "value": "2 (range 2\u20134)",
           "rect": [
             24,
-            268,
+            242,
             325,
             44
           ]
@@ -1059,7 +1047,7 @@
           ],
           "rect": [
             24,
-            410,
+            384,
             335,
             44
           ]
@@ -1070,7 +1058,7 @@
           "value": "Off",
           "rect": [
             24,
-            456,
+            430,
             335,
             24
           ]
@@ -1081,7 +1069,7 @@
           "value": "On",
           "rect": [
             24,
-            530,
+            504,
             335,
             24
           ]
@@ -1093,7 +1081,7 @@
           "value": "0.66 (range 0.25\u20130.7)",
           "rect": [
             24,
-            558,
+            532,
             325,
             44
           ]
@@ -1105,7 +1093,7 @@
           "value": "On",
           "rect": [
             375,
-            266,
+            240,
             335,
             24
           ]
@@ -1117,7 +1105,7 @@
           "value": "1.8 (range 1.8\u20132.4)",
           "rect": [
             375,
-            294,
+            268,
             325,
             44
           ]
@@ -1129,7 +1117,7 @@
           "value": "2.2 (range 1.8\u20132.4)",
           "rect": [
             375,
-            342,
+            316,
             325,
             44
           ]
@@ -1140,7 +1128,7 @@
           "value": "Off",
           "rect": [
             375,
-            436,
+            410,
             335,
             24
           ]
@@ -1151,7 +1139,7 @@
           "value": "50 (range 0\u2013100)",
           "rect": [
             375,
-            464,
+            438,
             325,
             44
           ]
@@ -1162,7 +1150,7 @@
           "value": "35 (range 0\u201350)",
           "rect": [
             375,
-            512,
+            486,
             325,
             44
           ]
@@ -1197,25 +1185,13 @@
           ]
         },
         {
-          "label": "Enhanced visual effects",
-          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            156,
-            690,
-            24
-          ]
-        },
-        {
           "label": "Artwork scale override",
           "help": "Fixed artwork texture scale. Default: 2x. Resizing the game\nwindow does not change it. Higher values use more GPU\nmemory.",
           "kind": "Slider",
           "value": "2 (range 2\u20134)",
           "rect": [
             24,
-            268,
+            242,
             325,
             44
           ]
@@ -1234,7 +1210,7 @@
           ],
           "rect": [
             24,
-            410,
+            384,
             335,
             44
           ]
@@ -1245,7 +1221,7 @@
           "value": "Off",
           "rect": [
             24,
-            456,
+            430,
             335,
             24
           ]
@@ -1256,7 +1232,7 @@
           "value": "On",
           "rect": [
             24,
-            530,
+            504,
             335,
             24
           ]
@@ -1268,7 +1244,7 @@
           "value": "0.66 (range 0.25\u20130.7)",
           "rect": [
             24,
-            558,
+            532,
             325,
             44
           ]
@@ -1280,7 +1256,7 @@
           "value": "On",
           "rect": [
             375,
-            266,
+            240,
             335,
             24
           ]
@@ -1292,7 +1268,7 @@
           "value": "1.8 (range 1.8\u20132.4)",
           "rect": [
             375,
-            294,
+            268,
             325,
             44
           ]
@@ -1304,7 +1280,7 @@
           "value": "2.2 (range 1.8\u20132.4)",
           "rect": [
             375,
-            342,
+            316,
             325,
             44
           ]
@@ -1315,7 +1291,7 @@
           "value": "Off",
           "rect": [
             375,
-            436,
+            410,
             335,
             24
           ]
@@ -1326,7 +1302,7 @@
           "value": "50 (range 0\u2013100)",
           "rect": [
             375,
-            464,
+            438,
             325,
             44
           ]
@@ -1337,7 +1313,7 @@
           "value": "35 (range 0\u201350)",
           "rect": [
             375,
-            512,
+            486,
             325,
             44
           ]
@@ -1372,24 +1348,12 @@
           ]
         },
         {
-          "label": "Enhanced visual effects",
-          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            156,
-            690,
-            24
-          ]
-        },
-        {
           "label": "Smooth Motion",
           "kind": "Checkbox",
           "value": "On",
           "rect": [
             24,
-            266,
+            240,
             335,
             24
           ]
@@ -1401,7 +1365,7 @@
           "value": "On",
           "rect": [
             24,
-            292,
+            266,
             335,
             24
           ]
@@ -1413,7 +1377,7 @@
           "value": "On",
           "rect": [
             24,
-            318,
+            292,
             335,
             24
           ]
@@ -1424,7 +1388,7 @@
           "value": "Off",
           "rect": [
             375,
-            266,
+            240,
             335,
             24
           ]
@@ -1435,7 +1399,7 @@
           "value": "On",
           "rect": [
             375,
-            292,
+            266,
             335,
             24
           ]
@@ -1448,7 +1412,7 @@
           "disabled": true,
           "rect": [
             375,
-            320,
+            294,
             325,
             44
           ]
@@ -1460,7 +1424,7 @@
           "value": "1 (range 0.1\u20131)",
           "rect": [
             375,
-            368,
+            342,
             325,
             44
           ]
@@ -1495,24 +1459,12 @@
           ]
         },
         {
-          "label": "Enhanced visual effects",
-          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            156,
-            690,
-            24
-          ]
-        },
-        {
           "label": "Lighting Effects",
           "kind": "Checkbox",
           "value": "On",
           "rect": [
             24,
-            294,
+            268,
             335,
             24
           ]
@@ -1523,7 +1475,7 @@
           "value": "On",
           "rect": [
             24,
-            320,
+            294,
             335,
             24
           ]
@@ -1534,7 +1486,7 @@
           "value": "100 (range 0\u2013200)",
           "rect": [
             24,
-            348,
+            322,
             325,
             44
           ]
@@ -1545,7 +1497,7 @@
           "value": "100 (range 0.01\u20135000)",
           "rect": [
             24,
-            396,
+            370,
             325,
             44
           ]
@@ -1556,7 +1508,7 @@
           "value": "100 (range 0.01\u2013500)",
           "rect": [
             24,
-            444,
+            418,
             325,
             44
           ]
@@ -1568,7 +1520,7 @@
           "value": "On",
           "rect": [
             375,
-            314,
+            288,
             335,
             28
           ]
@@ -1579,7 +1531,7 @@
           "value": "On",
           "rect": [
             375,
-            344,
+            318,
             335,
             24
           ]
@@ -1590,7 +1542,7 @@
           "value": "180 (range 1\u2013200)",
           "rect": [
             375,
-            372,
+            346,
             325,
             44
           ]
@@ -1602,7 +1554,7 @@
           "value": "Off",
           "rect": [
             375,
-            418,
+            392,
             335,
             24
           ]
@@ -1614,7 +1566,7 @@
           "value": "On",
           "rect": [
             375,
-            444,
+            418,
             335,
             24
           ]
@@ -1626,7 +1578,7 @@
           "value": "Off",
           "rect": [
             24,
-            518,
+            492,
             690,
             24
           ]
@@ -1638,7 +1590,7 @@
           "value": "Off",
           "rect": [
             24,
-            544,
+            518,
             690,
             24
           ]
@@ -1673,25 +1625,13 @@
           ]
         },
         {
-          "label": "Enhanced visual effects",
-          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            156,
-            690,
-            24
-          ]
-        },
-        {
           "label": "Batch room artwork loading",
           "help": "Load missing room artwork in one pause instead of\nspreading first-use work across frames.",
           "kind": "Checkbox",
           "value": "On",
           "rect": [
             24,
-            252,
+            226,
             690,
             24
           ]
@@ -1710,7 +1650,7 @@
           ],
           "rect": [
             24,
-            280,
+            254,
             680,
             44
           ]
@@ -1722,7 +1662,7 @@
           "value": "On",
           "rect": [
             24,
-            406,
+            380,
             690,
             24
           ]
@@ -1734,7 +1674,7 @@
           "value": "Off",
           "rect": [
             24,
-            432,
+            406,
             690,
             24
           ]
@@ -1746,7 +1686,7 @@
           "value": "Off",
           "rect": [
             24,
-            458,
+            432,
             690,
             24
           ]
@@ -1781,25 +1721,13 @@
           ]
         },
         {
-          "label": "Enhanced visual effects",
-          "help": "Controls lighting, animation blending, replacement effects,\nand faster shadows. Individual choices are preserved while\ndisabled.",
-          "kind": "Checkbox",
-          "value": "On",
-          "rect": [
-            24,
-            156,
-            690,
-            24
-          ]
-        },
-        {
           "label": "Power save in background",
           "help": "Reduce FPS when window is unfocused",
           "kind": "Checkbox",
           "value": "Off",
           "rect": [
             24,
-            252,
+            226,
             690,
             24
           ]
@@ -1811,7 +1739,7 @@
           "value": "Off",
           "rect": [
             24,
-            278,
+            252,
             690,
             24
           ]
@@ -1822,7 +1750,7 @@
           "value": "15 (range 1\u201360)",
           "rect": [
             24,
-            306,
+            280,
             680,
             44
           ]
@@ -1834,7 +1762,7 @@
           "value": "On",
           "rect": [
             24,
-            352,
+            326,
             690,
             24
           ]
@@ -1993,8 +1921,20 @@
       "title": "Arrange tiled windows",
       "route": "Settings \u2192 Display \u2192 Window Layout",
       "width": 898,
-      "height": 368,
+      "height": 386,
       "controls": [
+        {
+          "label": "Use tiled window layout",
+          "help": "Keep the main windows aligned as one workspace. Turn this\noff to move and resize them freely.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            12,
+            90,
+            310,
+            24
+          ]
+        },
         {
           "label": "Combine chat + console",
           "help": "Show chat and console output together in one pane.",
@@ -2002,7 +1942,7 @@
           "value": "On",
           "rect": [
             12,
-            90,
+            116,
             310,
             28
           ]
@@ -2014,7 +1954,7 @@
           "value": "On",
           "rect": [
             12,
-            120,
+            146,
             310,
             24
           ]
@@ -2027,7 +1967,7 @@
           "disabled": true,
           "rect": [
             12,
-            194,
+            220,
             310,
             24
           ]
@@ -2039,7 +1979,7 @@
           "value": "Off",
           "rect": [
             12,
-            220,
+            246,
             310,
             24
           ]
@@ -2051,7 +1991,7 @@
           "value": "Off",
           "rect": [
             12,
-            246,
+            272,
             310,
             24
           ]
@@ -2064,7 +2004,7 @@
           "disabled": true,
           "rect": [
             12,
-            272,
+            298,
             310,
             24
           ]
@@ -2081,7 +2021,7 @@
           "disabled": true,
           "rect": [
             12,
-            300,
+            326,
             310,
             44
           ]
@@ -2093,8 +2033,20 @@
       "title": "Separate message panes",
       "route": "Settings \u2192 Display \u2192 Window Layout",
       "width": 898,
-      "height": 368,
+      "height": 386,
       "controls": [
+        {
+          "label": "Use tiled window layout",
+          "help": "Keep the main windows aligned as one workspace. Turn this\noff to move and resize them freely.",
+          "kind": "Checkbox",
+          "value": "On",
+          "rect": [
+            12,
+            90,
+            310,
+            24
+          ]
+        },
         {
           "label": "Combine chat + console",
           "help": "Show chat and console output together in one pane.",
@@ -2102,7 +2054,7 @@
           "value": "Off",
           "rect": [
             12,
-            90,
+            116,
             310,
             28
           ]
@@ -2114,7 +2066,7 @@
           "value": "On",
           "rect": [
             12,
-            120,
+            146,
             310,
             24
           ]
@@ -2127,7 +2079,7 @@
           "disabled": true,
           "rect": [
             12,
-            194,
+            220,
             310,
             24
           ]
@@ -2139,7 +2091,7 @@
           "value": "Off",
           "rect": [
             12,
-            220,
+            246,
             310,
             24
           ]
@@ -2151,7 +2103,7 @@
           "value": "Off",
           "rect": [
             12,
-            246,
+            272,
             310,
             24
           ]
@@ -2163,7 +2115,7 @@
           "value": "Off",
           "rect": [
             12,
-            272,
+            298,
             310,
             24
           ]
@@ -2179,7 +2131,7 @@
           ],
           "rect": [
             12,
-            300,
+            326,
             310,
             44
           ]
@@ -4324,8 +4276,8 @@
           ]
         },
         {
-          "label": "Restart this script if enabled",
-          "help": "Restart this script if enabled",
+          "label": "Reload this script from disk",
+          "help": "Reload this script from disk",
           "kind": "Button",
           "disabled": true,
           "rect": [
@@ -4391,7 +4343,7 @@
           "kind": "Button",
           "rect": [
             24,
-            508,
+            476,
             96,
             28
           ]
@@ -4401,7 +4353,7 @@
           "kind": "Button",
           "rect": [
             124,
-            508,
+            476,
             96,
             28
           ]
@@ -4412,7 +4364,7 @@
           "disabled": true,
           "rect": [
             240,
-            508,
+            476,
             96,
             28
           ]
@@ -4422,7 +4374,7 @@
           "kind": "Button",
           "rect": [
             340,
-            508,
+            476,
             96,
             28
           ]
@@ -4432,7 +4384,19 @@
           "kind": "Button",
           "rect": [
             440,
-            508,
+            476,
+            96,
+            28
+          ]
+        },
+        {
+          "label": "Settings",
+          "help": "Enable this script and log in to edit its preferences, key\nbindings, and commands.",
+          "kind": "Button",
+          "disabled": true,
+          "rect": [
+            540,
+            476,
             96,
             28
           ]
@@ -4442,8 +4406,8 @@
           "kind": "Button",
           "disabled": true,
           "rect": [
-            556,
-            508,
+            656,
+            476,
             96,
             28
           ]
@@ -4453,8 +4417,8 @@
           "kind": "Button",
           "disabled": true,
           "rect": [
-            656,
-            508,
+            756,
+            476,
             96,
             28
           ]
@@ -4463,7 +4427,7 @@
           "label": "Close",
           "kind": "Button",
           "rect": [
-            772,
+            24,
             508,
             96,
             28
@@ -4607,7 +4571,7 @@
         },
         {
           "label": "Background timers",
-          "help": "Run repeating callbacks without a command or hotkey.",
+          "help": "Run timers and cancellable background tasks.",
           "kind": "Checkbox",
           "value": "Off",
           "disabled": true,
@@ -4654,5 +4618,5 @@
       ]
     }
   ],
-  "updated": "2026-09-08"
+  "updated": "2026-09-09"
 }

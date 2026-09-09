@@ -388,7 +388,6 @@ func makeSettingsWindow() {
 	}
 	qualitySection.AddItem(qualityPresetDD)
 	performanceOptions := newGraphicsPerformanceOptions()
-	qualitySection.AddItem(shadersEnabledCB)
 	qualitySection.AddItem(&eui.ItemData{ItemType: eui.ITEM_FLOW, Size: eui.Point{X: panelWidth, Y: 12}, Fixed: true})
 
 	performancePage.AddItem(performanceOptions)
@@ -1117,6 +1116,9 @@ func addWindowSettings(section *eui.ItemData, width float32) {
 
 func refreshWindowSettingsControls() {
 	refreshTiledLayoutPreviews()
+	if tileTiledModeCB != nil {
+		tileTiledModeCB.Checked, tileTiledModeCB.Dirty = gs.TiledWindows, true
+	}
 	for _, item := range []*eui.ItemData{tileKeepGameLargeCB, wizardKeepGameLargeCB} {
 		if item != nil {
 			item.Checked = gs.TiledKeepGameLarge

@@ -107,6 +107,9 @@ func TestCombineMessagesControlsShareWindowSettings(t *testing.T) {
 	if !containsText(tileLayoutWin, "Combine chat + console") {
 		t.Fatal("combine chat control is missing from the tiled layout window")
 	}
+	if !containsText(tileLayoutWin, "Use tiled window layout") {
+		t.Fatal("window layout is missing the tiled-mode control")
+	}
 	originalSettings := gs
 	t.Cleanup(func() { gs = originalSettings })
 	for _, combined := range []bool{true, false} {

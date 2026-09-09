@@ -47,7 +47,7 @@ var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
 var tileLayoutWin *eui.WindowData
 var settingsToolbarPlacementDD *eui.ItemData
-var tileCombineMessagesCB *eui.ItemData
+var tileCombineMessagesCB, tileTiledModeCB *eui.ItemData
 var tileKeepGameLargeCB, wizardKeepGameLargeCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
@@ -87,26 +87,22 @@ var passRememberCB *eui.ItemData
 var changelogWin *eui.WindowData
 
 func refreshShaderEffectControls() {
-	masterDisabled := !gs.ShadersEnabled
-	if shadersEnabledCB != nil {
-		shadersEnabledCB.Checked = gs.ShadersEnabled
-	}
 	if upscaleModeDD != nil {
 		upscaleModeDD.Selected = artworkUpscaleMode()
 		upscaleModeDD.Disabled = false
 	}
 	if shaderLightingCB != nil {
 		shaderLightingCB.Checked = gs.ShaderLighting
-		shaderLightingCB.Disabled = masterDisabled
+		shaderLightingCB.Disabled = false
 	}
-	lightingDisabled := masterDisabled || !gs.ShaderLighting
+	lightingDisabled := !gs.ShaderLighting
 	if mobileLightConeShadowsCB != nil {
 		mobileLightConeShadowsCB.Checked = gs.MobileLightConeShadows
 		mobileLightConeShadowsCB.Disabled = lightingDisabled
 	}
 	if fasterCharacterShadowsCB != nil {
 		fasterCharacterShadowsCB.Checked = gs.FasterCharacterShadows
-		fasterCharacterShadowsCB.Disabled = masterDisabled || !gs.CharacterShadows
+		fasterCharacterShadowsCB.Disabled = !gs.CharacterShadows
 	}
 	if shaderLightSlider != nil {
 		shaderLightSlider.Disabled = lightingDisabled
@@ -123,13 +119,13 @@ func refreshShaderEffectControls() {
 	}
 	if replacementEffectsCB != nil {
 		replacementEffectsCB.Checked = gs.ReplacementEffects
-		replacementEffectsCB.Disabled = masterDisabled
+		replacementEffectsCB.Disabled = false
 	}
 	if smallMovingPicturesCB != nil {
 		smallMovingPicturesCB.Checked = gs.InterpolateSmallMovingPictures
 		smallMovingPicturesCB.Disabled = !gs.MotionSmoothing
 	}
-	frameBlendDisabled := masterDisabled || !gs.MotionSmoothing
+	frameBlendDisabled := !gs.MotionSmoothing
 	if animCB != nil {
 		animCB.Checked = gs.BlendMobiles
 		animCB.Disabled = frameBlendDisabled
@@ -231,7 +227,6 @@ var (
 	smallMovingPicturesCB    *eui.ItemData
 	animCB                   *eui.ItemData
 	pictBlendCB              *eui.ItemData
-	shadersEnabledCB         *eui.ItemData
 	shaderLightingCB         *eui.ItemData
 	mobileLightConeShadowsCB *eui.ItemData
 	fasterCharacterShadowsCB *eui.ItemData
@@ -2008,7 +2003,7 @@ func placeToolbar(placement ToolbarPlacement, dirty bool) {
 	if placement < ToolbarInInventory || placement > ToolbarFloating {
 		placement = ToolbarInInventory
 	}
-	if placement == ToolbarFloating {
+	if gs.TiledWindows && placement == ToolbarFloating {
 		placement = ToolbarInInventory
 	}
 	var oldHost *eui.WindowData
@@ -2076,6 +2071,9 @@ func refreshToolbarPlacementControl() {
 		return
 	}
 	settingsToolbarPlacementDD.Options = []string{"Inside Inventory", "Inside Players"}
+	if !gs.TiledWindows {
+		settingsToolbarPlacementDD.Options = append(settingsToolbarPlacementDD.Options, "Floating Window")
+	}
 	settingsToolbarPlacementDD.Selected = int(gs.ToolbarPlacement)
 	settingsToolbarPlacementDD.Dirty = true
 	if settingsWin != nil {
@@ -4716,29 +4714,6 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	shaderPage.AddItem(shaderSection)
 	outer.Tabs = []*eui.ItemData{artworkPage, motionPage, shaderPage}
 
-	masterShaders, masterShaderEvents := eui.NewCheckbox()
-	shadersEnabledCB = masterShaders
-	shadersEnabledCB.Text = "Enhanced visual effects"
-	shadersEnabledCB.Size = eui.Point{X: pageWidth, Y: 24}
-	shadersEnabledCB.Checked = gs.ShadersEnabled
-	shadersEnabledCB.SetTooltip("Controls lighting, animation blending, replacement effects, and faster shadows. Individual choices are preserved while disabled.")
-	masterShaderEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventCheckboxChanged {
-			return
-		}
-		gs.ShadersEnabled = ev.Checked
-		settingsDirty = true
-		refreshShaderEffectControls()
-		if qualityPresetDD != nil {
-			qualityPresetDD.Selected = detectQualityPreset()
-		}
-		if gameWin != nil {
-			gameWin.Refresh()
-		}
-		if debugWin != nil {
-			debugWin.Refresh()
-		}
-	}
 	lightingSection := eui.NewColumn()
 	animationSection := eui.NewSection("Animation Blending", width)
 	addQualityColumns(shaderSection, width, []*eui.ItemData{lightingSection}, []*eui.ItemData{shadowSection})
@@ -4918,7 +4893,7 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	fasterShadowCB.Text = "Faster Character Shadows"
 	fasterShadowCB.Size = eui.Point{X: width, Y: 24}
 	fasterShadowCB.Checked = gs.FasterCharacterShadows
-	fasterShadowCB.Disabled = !gs.ShadersEnabled || !gs.CharacterShadows
+	fasterShadowCB.Disabled = !gs.CharacterShadows
 	fasterShadowCB.SetTooltip("Uses one cheaper shadow pass, but may shade foreground artwork that should cover a shadow.")
 	fasterShadowEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
@@ -5316,7 +5291,7 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 
 func applyTiledWorkspaceLayout() {
 	clampTiledLayoutSettings()
-	if gs.ToolbarPlacement == ToolbarFloating {
+	if gs.TiledWindows && gs.ToolbarPlacement == ToolbarFloating {
 		placeToolbar(ToolbarInInventory, true)
 	}
 	refreshToolbarPlacementControl()
@@ -5382,6 +5357,19 @@ func makeTileLayoutWindow() {
 	arrangement := eui.NewSection("Arrangement", width)
 	flow.AddItem(workspace)
 	flow.AddItem(arrangement)
+	tiledCB, tiledEvents := eui.NewCheckbox()
+	tiledCB.Text = "Use tiled window layout"
+	tiledCB.Size = eui.Point{X: width, Y: 24}
+	tiledCB.Checked = gs.TiledWindows
+	tiledCB.SetTooltip("Keep the main windows aligned as one workspace. Turn this off to move and resize them freely.")
+	tiledEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.TiledWindows = ev.Checked
+			applyTiledWorkspaceLayout()
+		}
+	}
+	tileTiledModeCB = tiledCB
+	workspace.AddItem(tiledCB)
 
 	tileCombineMessagesCB = newCombineMessagesCheckbox(width)
 	workspace.AddItem(tileCombineMessagesCB)

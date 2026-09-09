@@ -38,7 +38,7 @@
     <main id="top" class="manual-main help-reference">
       <nav class="help-area-nav" aria-label="Manual areas"><a href="index.html">Player manual</a><a href="automation.html">Macros, scripts &amp; hotkeys</a><a href="performance.html">Performance &amp; visuals</a><a href="reference.html" aria-current="page">UI reference</a></nav>
       <a class="back-link" href="./">← Back to the step-by-step manual</a>
-      <h1>Visual control reference</h1><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 8, 2026</p>
+      <h1>Visual control reference</h1><p class="manual-version">Updated for goThoom test 55 · Clan Lord 1501 · September 9, 2026</p>
       <p>Real client windows, with explanations of behavior and tradeoffs that are easy to miss. These examples use the default theme and illustrative data. Installed voices, resources, and your settings may change what is available.</p>
       <p>Numbered callouts explain when an option helps, what it affects, and why it may behave unexpectedly. Straightforward controls are left unboxed. Expand menu options and slider ranges when you need values that are not visible in the screenshot.</p>
       <details class="help-reference-nav" open><summary>Jump to a window</summary><nav aria-label="Reference windows"><a href="#settings-display">Settings: Display</a><a href="#settings-world">Settings: World</a><a href="#settings-text">Settings: Text</a><a href="#settings-bubbles">Settings: Bubbles</a><a href="#settings-audio">Settings: Audio</a><a href="#settings-tts">Settings: TTS</a><a href="#settings-controls">Settings: Controls</a><a href="#settings-performance">Settings: Performance</a><a href="#performance-artwork">Performance: Artwork</a><a href="#performance-motion">Performance: Motion</a><a href="#performance-lighting---effects">Performance: Lighting &amp; Effects</a><a href="#performance-caching">Performance: Caching</a><a href="#performance-power-saving">Performance: Power Saving</a><a href="#settings-network">Settings: Network</a><a href="#settings-files">Settings: Files</a><a href="#settings-tools">Settings: Tools</a><a href="#tiled-layout">Arrange tiled windows</a><a href="#tiled-separate">Separate message panes</a><a href="#add-character">Add a character</a><a href="#mixer">Audio mixer</a><a href="#notifications">Notification settings</a><a href="#speech-bubbles">Speech bubble settings</a><a href="#snapshot">Take a screenshot</a><a href="#file-paths">Change file locations</a><a href="#hotkey-editor">Create a hotkey</a><a href="#shortcut-editor">Create a text shortcut</a><a href="#gamepad">Gamepad (work in progress)</a><a href="#legacy-macros">Legacy macro library</a><a href="#macro-commands">Edit macro command triggers</a><a href="#macro-keybinds">Edit macro keybindings</a><a href="#scripts">Enable scripts for a character</a><a href="#script-info">Review a script</a><a href="#permissions">Grant script permissions</a></nav></details>
@@ -145,7 +145,7 @@
 <figure class="help-figure" data-screen="performance-motion">
   <div class="help-image" style="max-width:746px">
     <img src="images/performance-motion.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Motion. Highlighted controls: Character Animation Blending.">
-<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:37.1508%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:50.2681%;top:33.5196%;width:44.9062%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Motion</strong>
 <ol class="help-legend"><li><b>1</b><p>This blends between a character’s animation poses. It is separate from smoothing the character’s movement across the screen. If walking feels smooth but the character looks smeared during pose changes, shorten the character blend duration or disable this option while leaving Smooth Motion on.</p></li></ol>
@@ -178,7 +178,7 @@
 <figure class="help-figure" data-screen="performance-power-saving">
   <div class="help-image" style="max-width:746px">
     <img src="images/performance-power-saving.png" width="746" height="716" loading="lazy" decoding="async" alt="Performance: Power Saving. Highlighted controls: Always power save.">
-<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:38.8268%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:3.2172%;top:35.1955%;width:92.4933%;height:3.3520%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Performance → Power Saving</strong>
 <ol class="help-legend"><li><b>1</b><p>This applies the power-saving frame rate even while you are using the client. If the game seems capped below the rate you expected, check this before reducing graphics quality. Power save in background applies when the client loses focus; the two settings serve different situations.</p></li></ol>
@@ -221,8 +221,8 @@
 </section><section class="manual-section" id="tiled-layout"><h2>Arrange tiled windows</h2>
 <figure class="help-figure" data-screen="tiled-layout">
   <div class="help-image" style="max-width:898px">
-    <img src="images/tiled-layout.png" width="898" height="368" loading="lazy" decoding="async" alt="Arrange tiled windows. Highlighted controls: Auto-size side panels.">
-<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:32.6087%;width:34.5212%;height:6.5217%" aria-hidden="true"><b>1</b></span></div>
+    <img src="images/tiled-layout.png" width="898" height="386" loading="lazy" decoding="async" alt="Arrange tiled windows. Highlighted controls: Auto-size side panels.">
+<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:37.8238%;width:34.5212%;height:6.2176%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Display → Window Layout</strong>
 <ol class="help-legend"><li><b>1</b><p>Extra width beside the playfield can become wider lists instead of empty space. With automatic sizing on, dragging either game divider slides the game sideways and moves both dividers together. Turn it off to keep the current sizes and resize each side independently. Turning it back on recalculates around the game’s current position.</p></li></ol>
@@ -232,8 +232,8 @@
 <details class="help-controls"><summary>Menu options and slider ranges</summary><div class="manual-table-wrap"><table><thead><tr><th>Control</th><th>Available choices or range</th></tr></thead><tbody><tr><th scope="row">Message split</th><td>Side by side · Stacked</td></tr></tbody></table></div></details></section><section class="manual-section" id="tiled-separate"><h2>Separate message panes</h2>
 <figure class="help-figure" data-screen="tiled-separate">
   <div class="help-image" style="max-width:898px">
-    <img src="images/tiled-separate.png" width="898" height="368" loading="lazy" decoding="async" alt="Separate message panes. Highlighted controls: Message split.">
-<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:81.5217%;width:34.5212%;height:11.9565%" aria-hidden="true"><b>1</b></span></div>
+    <img src="images/tiled-separate.png" width="898" height="386" loading="lazy" decoding="async" alt="Separate message panes. Highlighted controls: Message split.">
+<div class="help-highlights"><span class="help-highlight" style="left:1.3363%;top:84.4560%;width:34.5212%;height:11.3990%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Settings → Display → Window Layout</strong>
 <ol class="help-legend"><li><b>1</b><p>Side by side gives each message pane more height but shorter lines; Stacked gives longer lines but less visible history in each pane. This choice applies when Chat and Console share one message area. It is unavailable when they are combined, or when the layout already puts them in separate areas, such as above and below the game.</p></li></ol>
@@ -388,7 +388,7 @@ enhanced mix.</th><td>0.1–10</td></tr></tbody></table></div></details></sectio
 <figure class="help-figure" data-screen="script-info">
   <div class="help-image" style="max-width:900px">
     <img src="images/script-info.png" width="900" height="556" loading="lazy" decoding="async" alt="Review a script. Highlighted controls: Reload.">
-<div class="help-highlights"><span class="help-highlight" style="left:61.7778%;top:91.3669%;width:10.6667%;height:5.0360%" aria-hidden="true"><b>1</b></span></div>
+<div class="help-highlights"><span class="help-highlight" style="left:72.8889%;top:85.6115%;width:10.6667%;height:5.0360%" aria-hidden="true"><b>1</b></span></div>
   </div>
   <figcaption><strong>Actions → Scripts → Info</strong>
 <ol class="help-legend"><li><b>1</b><p>A reload can fail while the previous working copy continues running. Read the status and error before assuming your edited code is active. Validate can help find source problems; if the change requests additional access, review Permissions before trying again.</p></li></ol>

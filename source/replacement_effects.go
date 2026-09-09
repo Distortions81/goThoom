@@ -651,7 +651,7 @@ var replacementEffectsPreviews = []replacementEffectPreview{
 // drawReplacementEffectsPreview renders the actual effect shaders in a
 // looping gallery, so visual tuning does not require finding a movie event.
 func drawReplacementEffectsPreview(screen *ebiten.Image) {
-	if !replacementEffectsShadersReady || !gs.ShadersEnabled {
+	if !replacementEffectsShadersReady {
 		return
 	}
 	bounds := screen.Bounds()

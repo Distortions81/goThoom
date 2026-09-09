@@ -210,7 +210,7 @@ type preparedArtworkSheet struct {
 
 func mobileRecolorSourceEligible(key sheetKey) bool {
 	return key.forceTransparent && key.colorsLen == 0 && clImages != nil && clImages.HasCustomColors(uint32(key.id)) &&
-		gs.ShadersEnabled && !gs.DenoiseImages && mobileRecolorShader != nil && mobileRecolorBlendShader != nil
+		!gs.DenoiseImages && mobileRecolorShader != nil && mobileRecolorBlendShader != nil
 }
 
 func mobileRecolorBatchKey(id uint16, factor, mode int) scaledMobileBatchKey {

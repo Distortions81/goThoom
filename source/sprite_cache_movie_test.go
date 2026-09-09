@@ -123,7 +123,7 @@ func TestSpriteCacheMovieReloadPressure(t *testing.T) {
 	}
 	gs = gsdef
 	gs.MotionSmoothing, gs.BlendMobiles, gs.BlendPicts = true, true, true
-	gs.ShadersEnabled, gs.DenoiseImages, gs.PotatoGPU = true, false, false
+	gs.DenoiseImages, gs.PotatoGPU = false, false
 	playingMovie, movieMode, drawStateEncrypted = true, true, false
 	blockSound, blockMusic, blockTTS = true, true, true
 	dataDirPath = t.TempDir()

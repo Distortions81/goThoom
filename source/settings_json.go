@@ -146,7 +146,6 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "FadeObscuringPictures", category: settingsRendering, name: "fade_obscuring_artwork"},
 	{field: "MaxNightLevel", category: settingsRendering, name: "maximum_night_darkness"},
 	{field: "NightEffect", category: settingsRendering, name: "night_effect"},
-	{field: "ShadersEnabled", category: settingsRendering, name: "shaders_enabled"},
 	{field: "ShaderLighting", category: settingsRendering, name: "shader_lighting"},
 	{field: "MobileLightConeShadows", category: settingsRendering, name: "mobile_light_cone_shadows"},
 	{field: "ReplacementEffects", category: settingsRendering, name: "replacement_effects"},
@@ -232,7 +231,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "ToolbarPlacement", category: settingsWindows, name: "toolbar_placement"},
 	{field: "ToolbarInfoBar", category: settingsWindows, name: "show_toolbar_info_bar"},
 	{field: "AutoResizeWindows", category: settingsWindows, name: "auto_resize"},
-	{field: "TiledWindows", category: settingsWindows, name: "tiled_layout"},
+	{field: "TiledWindows", category: settingsWindows, name: "tiled_windows"},
 	{field: "TiledLayout", category: settingsWindows, name: "tiled_layout_style"},
 	{field: "TiledKeepGameLarge", category: settingsWindows, name: "tiled_keep_game_large"},
 	{field: "TiledGamePosition", category: settingsWindows, name: "tiled_game_position"},
@@ -424,10 +423,6 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 			return settings{}, fmt.Errorf("read setting interface.status_bar_style: %w", err)
 		}
 		result.BarStyle = parseBarStyle(name)
-	}
-	result.TiledWindows = true
-	if result.ToolbarPlacement == ToolbarFloating {
-		result.ToolbarPlacement = ToolbarInInventory
 	}
 	normalizeStatusBarPlacement(&result)
 	result.Version = SETTINGS_VERSION

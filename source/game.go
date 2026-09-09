@@ -276,6 +276,9 @@ var (
 // classic client field box (547×540) defined in old_mac_client/client/source/
 // GameWin_cl.cp and Public_cl.h (Layout.layoFieldBox).
 var gameWin *eui.WindowData
+var gameWindowFreeformTitleHeight float32
+var gameWindowFreeformPadding float32
+var gameWindowFreeformMargin float32
 var settingsWin *eui.WindowData
 var debugWin *eui.WindowData
 var graphicsWin *eui.WindowData
@@ -835,11 +838,11 @@ func cloneDrawState(src drawState) drawState {
 }
 
 func mobileFrameBlendingEnabled() bool {
-	return gs.ShadersEnabled && gs.MotionSmoothing && gs.BlendMobiles
+	return gs.MotionSmoothing && gs.BlendMobiles
 }
 
 func pictureFrameBlendingEnabled() bool {
-	return gs.ShadersEnabled && gs.MotionSmoothing && gs.BlendPicts
+	return gs.MotionSmoothing && gs.BlendPicts
 }
 
 // computeInterpolation returns the blend factors for frame interpolation and onion skinning.
@@ -917,7 +920,7 @@ type worldRenderKey struct {
 	denoiseSharpness, denoiseAmount            float64
 	spriteGammaCorrection                      bool
 	spriteGamma, monitorGamma                  float64
-	shadersEnabled, shaderLighting             bool
+	shaderLighting                             bool
 	replacementEffects, mobileLightConeShadows bool
 	shaderLightStrength, shaderGlowStrength    float64
 	flameLightFlicker                          bool
@@ -972,7 +975,6 @@ func currentWorldRenderKey(width, height int) worldRenderKey {
 		spriteGammaCorrection:     gs.SpriteGammaCorrection,
 		spriteGamma:               gs.SpriteGamma,
 		monitorGamma:              gs.MonitorGamma,
-		shadersEnabled:            gs.ShadersEnabled,
 		shaderLighting:            gs.ShaderLighting,
 		replacementEffects:        gs.ReplacementEffects,
 		mobileLightConeShadows:    gs.MobileLightConeShadows,
@@ -4842,9 +4844,12 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = newGameRenderWindow()
+	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
+	gameWindowFreeformPadding = gameWin.Padding
+	gameWindowFreeformMargin = gameWin.Margin
 	updateGameWindowTitle()
 	gameWin.Closable = false
-	gameWin.Resizable = false
+	gameWin.Resizable = !gs.TiledWindows
 	gameWin.Movable = true
 	if !settingsLoaded {
 		gameWin.SetZone(eui.HZoneCenter, eui.VZoneTop)
@@ -4852,7 +4857,7 @@ func makeGameWindow() {
 	gameWin.Size = eui.Point{X: 8000, Y: 8000}
 	gameWin.OnResize = func() { onGameWindowResize() }
 	// Titlebar maximize button controlled by settings (now default on)
-	gameWin.Maximizable = false
+	gameWin.Maximizable = !gs.TiledWindows
 	// Keep same horizontal center on maximize
 	gameWin.OnMaximize = func() {
 		if gameWin == nil {

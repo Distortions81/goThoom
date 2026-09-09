@@ -35,17 +35,18 @@ func TestCenteredTiledLayoutUsesCurrentThreeColumnWorkspace(t *testing.T) {
 	}
 }
 
-func TestGameWindowAlwaysUsesTiledChrome(t *testing.T) {
+func TestFloatingGameWindowRestoresWindowChrome(t *testing.T) {
 	originalGS, originalWin := gs, gameWin
 	t.Cleanup(func() { gameWin.RemoveWindow(); gameWin = originalWin; gs = originalGS })
 	gameWin = eui.NewWindow()
+	titleHeight, padding, margin := gameWin.GetRawTitleSize(), gameWin.Padding, gameWin.Margin
 	gs = gsdef
-	gs.TiledWindows = false // A saved preference from an older client.
+	gs.TiledWindows = false
 	applyTiledWindowStates()
 	prepareTiledWorkspaceWindowChrome()
 	finishTiledWorkspaceWindowChrome()
-	if !gs.TiledWindows || gameWin.GetRawTitleSize() != 0 || gameWin.Padding != 0 || gameWin.Margin != 0 || gameWin.Resizable || gameWin.Movable || gameWin.Closable || gameWin.Maximizable {
-		t.Fatal("old freeform preference escaped the tiled workspace")
+	if gameWin.GetRawTitleSize() != titleHeight || gameWin.Padding != padding || gameWin.Margin != margin || !gameWin.Resizable || !gameWin.Movable || gameWin.Closable || !gameWin.Maximizable {
+		t.Fatal("floating game window did not restore its normal chrome")
 	}
 }
 

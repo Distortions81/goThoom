@@ -40,7 +40,6 @@ func TestRenderSetupWizardSyntheticScenes(t *testing.T) {
 	originalPage := setupWizardPage
 	gs.GameScale = 1
 	gs.CharacterShadows = true
-	gs.ShadersEnabled = true
 	gs.ShaderLighting = true
 	gs.ShaderLightStrength = 1
 	gs.ShaderGlowStrength = 1

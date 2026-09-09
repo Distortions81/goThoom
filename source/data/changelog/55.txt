@@ -3,10 +3,11 @@ goThoom 55 changes since test54.
 Interface:
 - Login stays centered over the game pane and cannot be dragged.
 - Disabled checkboxes and radio buttons remain visible in the bundled themes, with readable checkmarks and labels.
-- The main workspace now always uses tiled panes. Window Layout offers clickable diagrams, with controls to swap sides, put messages above or below the game, and split separate Chat and Console side by side or vertically.
+- The main workspace uses tiled panes by default. Window Layout can switch to freely movable windows or offers clickable tiled-layout diagrams, with controls to swap sides, put messages above or below the game, and split separate Chat and Console side by side or vertically.
 - Combine chat + console is available in Window Layout. Separating messages restores a working Chat pane and input bar.
 - Auto-size side panels uses empty space beside the game; turning it off keeps the current divider sizes for manual resizing.
 - Fixed pane resizing at screen edges and improved control sizing, alignment, and spacing.
+- Fixed scene-light flicker while scrolling or changing movement smoothing.
 - Combined live stats, command search, Help, and snapshots into the new Tools menu.
 - Open Window Layout or Reset Windows from Settings > Display. The setup wizard includes the same clickable layout previews.
 - Reduced the minimum width needed for the toolbar in Inventory or Players.
@@ -21,7 +22,8 @@ Macros and scripts:
 - Legacy macros distinguish Backspace (delete) from forward Delete (del) and recognize classic keypad Enter and Clear bindings.
 - Fixed legacy right-click macro compatibility with the classic Mac client, including Control-click bindings in the game and Players list.
 - Go scripts request permissions before their first use. Review or change access to commands, keybinds, server commands, and other capabilities from the script's Permissions button.
-- Expanded Go scripting with world data, events, movement controls, and script-created windows and controls. Updated the API reference and editor support.
+- Scripts can offer saved preferences, and their Settings window can change script key bindings and local command names.
+- Expanded Go scripting with world data, events, movement controls, cancellable tasks, and interactive windows and controls. Updated the API reference and editor support.
 - Script information windows keep their action buttons visible below the scrolling details.
 
 Settings and setup:

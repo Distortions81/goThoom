@@ -27,7 +27,7 @@ var mobilePaletteBlendCache = make(map[mobilePalettePairKey]*mobilePaletteBlendS
 
 func mobileGPURecolorEligible(id uint16, colors []byte) bool {
 	return len(colors) != 0 && clImages != nil && clImages.HasCustomColors(uint32(id)) &&
-		gs.ShadersEnabled && !gs.DenoiseImages && mobileRecolorShader != nil && mobileRecolorBlendShader != nil
+		!gs.DenoiseImages && mobileRecolorShader != nil && mobileRecolorBlendShader != nil
 }
 
 func mobileRecolorSharedKey(id uint16, state uint8) mobileKey {

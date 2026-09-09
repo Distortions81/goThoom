@@ -366,7 +366,9 @@ func buildSetupLayoutPage(root *eui.ItemData) {
 	toolbar, toolbarEvents := eui.NewDropdown()
 	toolbar.Label = "Toolbar placement"
 	toolbar.Options = []string{"Inside Inventory", "Inside Players"}
-	toolbar.Selected = int(gs.ToolbarPlacement)
+	if gs.ToolbarPlacement <= ToolbarInPlayers {
+		toolbar.Selected = int(gs.ToolbarPlacement)
+	}
 	toolbar.Size = eui.Point{X: setupWizardPanelWidth - 10, Y: 24}
 	toolbar.SetTooltip("Choose which list contains the toolbar.")
 	toolbarEvents.Handle = func(ev eui.UIEvent) {
@@ -617,17 +619,6 @@ func buildSetupGraphicsPage(root *eui.ItemData) {
 			markQualityCustom()
 		},
 	))
-	root.AddItem(setupWizardCheckbox(
-		"Enable shader effects",
-		"Master switch for frame blending, lighting, accurate shadow compositing, and procedural effects.",
-		gs.ShadersEnabled,
-		func(checked bool) {
-			gs.ShadersEnabled = checked
-			refreshShaderEffectControls()
-			markQualityCustom()
-			rebuildSetupWizard()
-		},
-	))
 	upscaleStyle, upscaleEvents := eui.NewDropdown()
 	upscaleStyle.Label = "Artwork upscale style"
 	upscaleStyle.Options = artworkUpscaleModeNames
@@ -731,7 +722,7 @@ func buildSetupMotionPage(root *eui.ItemData) {
 	root.AddItem(setupWizardCheckbox("Smooth movement positions", "Interpolates only camera and character positions between server frames.", gs.MotionSmoothing, func(checked bool) {
 		gs.MotionSmoothing = checked
 		for _, option := range frameBlendOptions {
-			setSetupWizardDisabled(option, !checked || !gs.ShadersEnabled)
+			setSetupWizardDisabled(option, !checked)
 		}
 		markQualityCustom()
 		if setupWizardWin != nil {
@@ -740,7 +731,7 @@ func buildSetupMotionPage(root *eui.ItemData) {
 	}))
 	addFrameBlendOption := func(option *eui.ItemData) {
 		option = setupWizardSubOption(option)
-		setSetupWizardDisabled(option, !gs.MotionSmoothing || !gs.ShadersEnabled)
+		setSetupWizardDisabled(option, !gs.MotionSmoothing)
 		frameBlendOptions = append(frameBlendOptions, option)
 		root.AddItem(option)
 	}
@@ -809,33 +800,32 @@ func buildSetupNightLightingPage(root *eui.ItemData) {
 	shaderLighting := setupWizardCheckbox("Shader lighting effects", "Use colored lights, glow, and light cones.", gs.ShaderLighting, func(checked bool) {
 		gs.ShaderLighting = checked
 		for _, option := range shaderOptions {
-			setSetupWizardDisabled(option, !checked || !gs.ShadersEnabled)
+			setSetupWizardDisabled(option, !checked)
 		}
 		if shaderLightingCB != nil {
 			shaderLightingCB.Checked = checked
 		}
 		if shaderLightSlider != nil {
-			shaderLightSlider.Disabled = !checked || !gs.ShadersEnabled
+			shaderLightSlider.Disabled = !checked
 		}
 		if shaderGlowSlider != nil {
-			shaderGlowSlider.Disabled = !checked || !gs.ShadersEnabled
+			shaderGlowSlider.Disabled = !checked
 		}
 		if flameFlickerCB != nil {
-			flameFlickerCB.Disabled = !checked || !gs.ShadersEnabled
+			flameFlickerCB.Disabled = !checked
 		}
 		if flameFlickerSlider != nil {
-			flameFlickerSlider.Disabled = !checked || !gs.FlameLightFlicker || !gs.ShadersEnabled
+			flameFlickerSlider.Disabled = !checked || !gs.FlameLightFlicker
 		}
 		markQualityCustom()
 		if setupWizardWin != nil {
 			setupWizardWin.Refresh()
 		}
 	})
-	setSetupWizardDisabled(shaderLighting, !gs.ShadersEnabled)
 	root.AddItem(shaderLighting)
 	addShaderOption := func(option *eui.ItemData) {
 		option = setupWizardSubOption(option)
-		setSetupWizardDisabled(option, !gs.ShadersEnabled || !gs.ShaderLighting)
+		setSetupWizardDisabled(option, !gs.ShaderLighting)
 		shaderOptions = append(shaderOptions, option)
 		root.AddItem(option)
 	}
@@ -861,7 +851,7 @@ func buildSetupNightLightingPage(root *eui.ItemData) {
 			flameFlickerCB.Checked = checked
 		}
 		if flameFlickerSlider != nil {
-			flameFlickerSlider.Disabled = !checked || !gs.ShaderLighting || !gs.ShadersEnabled
+			flameFlickerSlider.Disabled = !checked || !gs.ShaderLighting
 		}
 		settingsDirty = true
 	}))
@@ -1052,13 +1042,12 @@ func buildSetupFinishPage(root *eui.ItemData) {
 		movement = "click-to-toggle"
 	}
 	root.AddItem(setupWizardText(fmt.Sprintf(
-		"Movement: %s\nArtwork scale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader effects: %s\nShader lighting: %s",
+		"Movement: %s\nArtwork scale: %.0fx\nToolbar: %s\nSmooth motion: %s\nMaximum night: %d%%\nShader lighting: %s",
 		movement,
 		gs.GameScale,
 		setupWizardToolbarPlacementName(gs.ToolbarPlacement),
 		onOff(gs.MotionSmoothing),
 		gs.MaxNightLevel,
-		onOff(gs.ShadersEnabled),
 		onOff(gs.ShaderLighting),
 	), 12, 620))
 	root.AddItem(setupWizardText(

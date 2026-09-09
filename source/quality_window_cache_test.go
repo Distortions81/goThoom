@@ -126,13 +126,12 @@ func TestPerformanceTabUsesTopicTabs(t *testing.T) {
 
 }
 
-func TestPerformanceTabGroupsAndDisablesShaderEffects(t *testing.T) {
+func TestPerformanceTabKeepsFeaturesIndependentlyAvailable(t *testing.T) {
 	initFont()
 	originalSettings := gs
 	originalWindow := settingsWin
 	settingsWin = nil
 	gs = gsdef
-	gs.ShadersEnabled = false
 	t.Cleanup(func() {
 		if settingsWin != nil {
 			settingsWin.RemoveWindow()
@@ -142,9 +141,6 @@ func TestPerformanceTabGroupsAndDisablesShaderEffects(t *testing.T) {
 	})
 
 	makeSettingsWindow()
-	if shadersEnabledCB == nil || shadersEnabledCB.Disabled {
-		t.Fatal("shader master is missing or disabled")
-	}
 	for name, control := range map[string]*eui.ItemData{
 		"lighting":                  shaderLightingCB,
 		"mobile light-cone shadows": mobileLightConeShadowsCB,
@@ -153,8 +149,8 @@ func TestPerformanceTabGroupsAndDisablesShaderEffects(t *testing.T) {
 		"mobile blending":           animCB,
 		"world blending":            pictBlendCB,
 	} {
-		if control == nil || !control.Disabled {
-			t.Errorf("%s control was not greyed out by the shader master", name)
+		if control == nil || control.Disabled {
+			t.Errorf("%s control was disabled by the removed shader master", name)
 		}
 	}
 	if motionCB == nil || motionCB.Disabled {
