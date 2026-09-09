@@ -39,11 +39,13 @@ type hitFlashSettings struct {
 type spriteEntry struct {
 	Key  int
 	ID   string
+	Name string
 	Note string
 	Mark lastyMark
 }
 
 var marks = map[uint16]lastyMark{}
+var namedMarks = map[string]lastyMark{}
 var entries []spriteEntry
 var nextEntryKey = 1
 var lastiesWindow gt2.Window
@@ -80,7 +82,7 @@ func Init() {
 	lastiesWindow = gt2.CreateWindow(gt2.WindowOptions{
 		Title: "Mark Beasts",
 		Width: 680,
-		Text:  "Changes save automatically. Alt-click a creature to add or remove it.",
+		Text:  "Changes save automatically. Alt-click a creature or player to add or remove it.",
 		Rows:  spriteRows(),
 		Buttons: []gt2.WindowButton{
 			{ID: "add", Label: "Add", OnClick: addMark},
@@ -132,10 +134,11 @@ func spriteRow(entry spriteEntry) gt2.WindowRow {
 	return gt2.WindowRow{
 		Controls: []gt2.WindowControl{
 			{ID: rowControlID(key, "image"), Label: "Sprite", Kind: gt2.ControlImage, Image: id, Width: 48},
-			{ID: rowControlID(key, "id"), Label: "ID", Kind: gt2.ControlText, Text: entry.ID, Width: 80, OnChange: func(e gt2.WindowControlEvent) { changeID(key, e.Text) }},
-			{ID: rowControlID(key, "tint"), Label: "Tint", Kind: gt2.ControlColor, Color: packColor(entry.Mark), Width: 88, OnChange: func(e gt2.WindowControlEvent) { changeColor(key, e.Color, false) }},
-			{ID: rowControlID(key, "outline"), Label: "Outline", Kind: gt2.ControlColor, Color: packColor(outline), Width: 88, OnChange: func(e gt2.WindowControlEvent) { changeColor(key, e.Color, true) }},
-			{ID: rowControlID(key, "note"), Label: "Notes", Kind: gt2.ControlText, Text: entry.Note, Width: 300, OnChange: func(e gt2.WindowControlEvent) { changeNote(key, e.Text) }},
+			{ID: rowControlID(key, "id"), Label: "ID", Kind: gt2.ControlText, Text: entry.ID, Width: 64, OnChange: func(e gt2.WindowControlEvent) { changeID(key, e.Text) }},
+			{ID: rowControlID(key, "name"), Label: "Name", Kind: gt2.ControlText, Text: entry.Name, Width: 128, Tooltip: "Match this name instead of the sprite ID.", OnChange: func(e gt2.WindowControlEvent) { changeName(key, e.Text) }},
+			{ID: rowControlID(key, "tint"), Label: "Tint", Kind: gt2.ControlColor, Color: packColor(entry.Mark), Width: 64, OnChange: func(e gt2.WindowControlEvent) { changeColor(key, e.Color, false) }},
+			{ID: rowControlID(key, "outline"), Label: "Outline", Kind: gt2.ControlColor, Color: packColor(outline), Width: 64, OnChange: func(e gt2.WindowControlEvent) { changeColor(key, e.Color, true) }},
+			{ID: rowControlID(key, "note"), Label: "Notes", Kind: gt2.ControlText, Text: entry.Note, Width: 220, OnChange: func(e gt2.WindowControlEvent) { changeNote(key, e.Text) }},
 		},
 		Buttons: []gt2.WindowButton{{ID: rowControlID(key, "delete"), Label: "×", Tooltip: "Delete this entry", Width: 32, OnClick: func() { removeMark(key) }}},
 	}
@@ -157,6 +160,16 @@ func changeID(key int, value string) {
 			entries[i].ID = value
 			id, _ := parseSpriteID(value)
 			lastiesWindow.SetControlImage(rowControlID(key, "image"), id)
+			persistEntries()
+			return
+		}
+	}
+}
+
+func changeName(key int, value string) {
+	for i := range entries {
+		if entries[i].Key == key {
+			entries[i].Name = value
 			persistEntries()
 			return
 		}
@@ -205,7 +218,18 @@ func toggleClickedMobile(event gt2.InputEvent) {
 		return
 	}
 	event.Consume()
+	name := strings.TrimSpace(event.Mobile.Name)
 	for _, entry := range entries {
+		if name != "" {
+			if normalizeName(entry.Name) == normalizeName(name) {
+				removeMark(entry.Key)
+				return
+			}
+			continue
+		}
+		if normalizeName(entry.Name) != "" {
+			continue
+		}
 		id, ok := parseSpriteID(entry.ID)
 		if ok && id == event.Mobile.PictID {
 			removeMark(entry.Key)
@@ -213,7 +237,7 @@ func toggleClickedMobile(event gt2.InputEvent) {
 		}
 	}
 	if len(entries) < 256 {
-		entries = append(entries, spriteEntry{Key: nextEntryKey, ID: strconv.Itoa(int(event.Mobile.PictID)), Mark: defaultMark()})
+		entries = append(entries, spriteEntry{Key: nextEntryKey, ID: strconv.Itoa(int(event.Mobile.PictID)), Name: name, Mark: defaultMark()})
 		nextEntryKey++
 		persistEntries()
 		refreshWindow()
@@ -222,8 +246,17 @@ func toggleClickedMobile(event gt2.InputEvent) {
 
 func persistEntries() {
 	marks = map[uint16]lastyMark{}
-	message := "Changes save automatically. Alt-click a creature to add or remove it."
+	namedMarks = map[string]lastyMark{}
+	message := "Changes save automatically. Alt-click a creature or player to add or remove it."
 	for _, entry := range entries {
+		if name := normalizeName(entry.Name); name != "" {
+			if _, duplicate := namedMarks[name]; duplicate {
+				message = fmt.Sprintf("%s is listed twice. Only the first row applies.", strings.TrimSpace(entry.Name))
+				continue
+			}
+			namedMarks[name] = entry.Mark
+			continue
+		}
 		id, ok := parseSpriteID(entry.ID)
 		if !ok {
 			if strings.TrimSpace(entry.ID) != "" {
@@ -255,7 +288,7 @@ func showEffects() {
 	}
 	effectsWindow = gt2.CreateWindow(gt2.WindowOptions{
 		Title: "Beast Effects", Width: 320,
-		Text: "Applies to every marked sprite. Changes save automatically.",
+		Text: "Applies to every marked creature or player. Changes save automatically.",
 		Controls: []gt2.WindowControl{
 			{ID: "outline", Label: "Show outlines", Kind: gt2.ControlCheckbox, Checked: showOutline, OnChange: func(e gt2.WindowControlEvent) {
 				showOutline = e.Checked
@@ -291,6 +324,12 @@ func applyTints() {
 			gt2.SetMobileOutline(id, tint.OutlineR, tint.OutlineG, tint.OutlineB, tint.OutlineA)
 		}
 	}
+	for name, tint := range namedMarks {
+		gt2.SetNamedMobileTint(name, tint.R, tint.G, tint.B, tint.A)
+		if showOutline {
+			gt2.SetNamedMobileOutline(name, tint.OutlineR, tint.OutlineG, tint.OutlineB, tint.OutlineA)
+		}
+	}
 }
 
 func updateWorld(world gt2.World) {
@@ -308,7 +347,7 @@ func flashHitMobiles(world gt2.World) {
 		centerX := int(picture.H) + picture.Width/2
 		centerY := int(picture.V) + picture.Height/2
 		for _, mobile := range world.Mobiles {
-			if mobile.Stale || (!hitFlash.AllMobiles && !isMarked(mobile.PictID)) {
+			if mobile.Stale || (!hitFlash.AllMobiles && !isMarked(mobile)) {
 				continue
 			}
 			radius := mobile.Size / 4
@@ -323,9 +362,16 @@ func flashHitMobiles(world gt2.World) {
 	}
 }
 
-func isMarked(id uint16) bool {
-	_, marked := marks[id]
+func isMarked(mobile gt2.Mobile) bool {
+	if _, marked := namedMarks[normalizeName(mobile.Name)]; marked {
+		return true
+	}
+	_, marked := marks[mobile.PictID]
 	return marked
+}
+
+func normalizeName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
 func abs(value int) int {

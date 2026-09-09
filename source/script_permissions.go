@@ -52,6 +52,8 @@ var scriptFunctionPermissions = map[string]string{
 	"CreateWindow": "windows", "AddToolbar": "windows", "OverlayRect": "windows", "OverlayText": "windows", "OverlayImage": "windows",
 	"SetMobileTint": "windows", "ClearMobileTint": "windows", "ClearMobileTints": "windows",
 	"SetMobileOutline": "windows", "ClearMobileOutline": "windows", "ClearMobileOutlines": "windows",
+	"SetNamedMobileTint": "windows", "ClearNamedMobileTint": "windows",
+	"SetNamedMobileOutline": "windows", "ClearNamedMobileOutline": "windows",
 	"FlashMobile": "windows",
 	"InputText":   "input", "SetInputText": "input", "LastClick": "input", "Hover": "input",
 	"ShowNotification": "notifications", "PlaySound": "notifications",

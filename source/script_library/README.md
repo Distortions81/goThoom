@@ -439,6 +439,17 @@ lexicographically last script ID is used. A script can combine this with
 `OnWorld` and the regular overlay functions to draw an outline around the same
 mobiles.
 
+`SetNamedMobileTint(name, r, g, b, a)` and `SetNamedMobileOutline(name, r, g, b, a)`
+match an exact mobile name, ignoring case and surrounding spaces. Name matches
+apply regardless of sprite ID and take precedence over sprite-ID marks.
+`ClearNamedMobileTint(name)` and `ClearNamedMobileOutline(name)` remove one
+name match; `ClearMobileTints()` and `ClearMobileOutlines()` clear both kinds.
+These marks also disappear when their script stops or reloads.
+
+Mark Beasts uses name matches when you Alt-click a named mobile. Its Name
+field overrides the ID match; the ID supplies the sprite preview. Names,
+colors, and notes save automatically, just like sprite entries.
+
 `FlashMobile(index, r, g, b, a, duration)` briefly recolors one visible
 mobile. It is useful for responding to an effect picture that appears at a
 mobile's center, such as a hit indicator. The flash automatically expires after

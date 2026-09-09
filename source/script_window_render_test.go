@@ -59,6 +59,7 @@ func TestRenderScriptWindow(t *testing.T) {
 			t.Fatal(err)
 		}
 		panel = value.Interface().(Window)
+		panel.state.controls["entry-2-name"].item.Handler.Emit(eui.UIEvent{Type: eui.EventInputChanged, Text: "Sam"})
 		for index, note := range []string{"Leave last hit for Sam", "Watch for a group nearby", "Check this sprite on the next hunt"} {
 			panel.state.controls[fmt.Sprintf("entry-%d-note", index+1)].item.Handler.Emit(eui.UIEvent{Type: eui.EventInputChanged, Text: note})
 		}

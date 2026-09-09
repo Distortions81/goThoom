@@ -1258,6 +1258,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["OverlayImage"] = reflect.ValueOf(func(id uint16, x, y int) {
 			stage(func() { scriptOverlayImage(owner, id, x, y) })
 		})
+		m["SetNamedMobileTint"] = reflect.ValueOf(func(name string, r, g, b, a uint8) {
+			stage(func() { scriptSetNamedMobileEffect(owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, false) })
+		})
+		m["ClearNamedMobileTint"] = reflect.ValueOf(func(name string) {
+			stage(func() { scriptClearNamedMobileEffect(owner, name, false) })
+		})
 		m["SetMobileTint"] = reflect.ValueOf(func(id uint16, r, g, b, a uint8) {
 			stage(func() { scriptSetMobileTint(owner, id, r, g, b, a) })
 		})
@@ -1266,6 +1272,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["ClearMobileTints"] = reflect.ValueOf(func() {
 			stage(func() { scriptClearMobileTints(owner) })
+		})
+		m["SetNamedMobileOutline"] = reflect.ValueOf(func(name string, r, g, b, a uint8) {
+			stage(func() { scriptSetNamedMobileEffect(owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, true) })
+		})
+		m["ClearNamedMobileOutline"] = reflect.ValueOf(func(name string) {
+			stage(func() { scriptClearNamedMobileEffect(owner, name, true) })
 		})
 		m["SetMobileOutline"] = reflect.ValueOf(func(id uint16, r, g, b, a uint8) {
 			stage(func() { scriptSetMobileOutline(owner, id, r, g, b, a) })
@@ -1708,11 +1720,13 @@ var (
 	scriptStopping               = map[string]bool{}
 
 	// Per-script world overlay draw operations, mobile pict-ID effects, and flashes.
-	scriptOverlayOps     = map[string][]overlayOp{}
-	scriptMobileTints    = map[string]map[uint16]scriptMobileTint{}
-	scriptMobileOutlines = map[string]map[uint16]scriptMobileTint{}
-	scriptMobileFlashes  = map[string]map[uint8]scriptMobileFlash{}
-	overlayMu            sync.RWMutex
+	scriptOverlayOps          = map[string][]overlayOp{}
+	scriptMobileTints         = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileOutlines      = map[string]map[uint16]scriptMobileTint{}
+	scriptNamedMobileTints    = map[string]map[string]scriptMobileTint{}
+	scriptNamedMobileOutlines = map[string]map[string]scriptMobileTint{}
+	scriptMobileFlashes       = map[string]map[uint8]scriptMobileFlash{}
+	overlayMu                 sync.RWMutex
 
 	scriptDebugLines []string
 	scriptDebugMu    sync.Mutex
@@ -2559,7 +2573,9 @@ func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) 
 	overlayMu.Lock()
 	delete(scriptOverlayOps, owner)
 	delete(scriptMobileTints, owner)
+	delete(scriptNamedMobileTints, owner)
 	delete(scriptMobileOutlines, owner)
+	delete(scriptNamedMobileOutlines, owner)
 	delete(scriptMobileFlashes, owner)
 	overlayMu.Unlock()
 	markWorldRenderChanged()
@@ -3520,6 +3536,7 @@ func scriptClearMobileTint(owner string, id uint16) {
 func scriptClearMobileTints(owner string) {
 	overlayMu.Lock()
 	delete(scriptMobileTints, owner)
+	delete(scriptNamedMobileTints, owner)
 	overlayMu.Unlock()
 	markWorldRenderChanged()
 }
@@ -3552,6 +3569,7 @@ func scriptClearMobileOutline(owner string, id uint16) {
 func scriptClearMobileOutlines(owner string) {
 	overlayMu.Lock()
 	delete(scriptMobileOutlines, owner)
+	delete(scriptNamedMobileOutlines, owner)
 	overlayMu.Unlock()
 	markWorldRenderChanged()
 }
@@ -3571,29 +3589,11 @@ func scriptFlashMobile(owner string, index uint8, r, g, b, a uint8, duration tim
 
 // scriptMobileTintForPict deterministically resolves conflicting script tints.
 func scriptMobileTintForPict(id uint16) (scriptMobileTint, bool) {
-	overlayMu.RLock()
-	defer overlayMu.RUnlock()
-	var owner string
-	var tint scriptMobileTint
-	for candidate, tints := range scriptMobileTints {
-		if value, ok := tints[id]; ok && candidate > owner {
-			owner, tint = candidate, value
-		}
-	}
-	return tint, owner != ""
+	return scriptMobileEffectForMobile(id, "", false)
 }
 
 func scriptMobileOutlineForPict(id uint16) (scriptMobileTint, bool) {
-	overlayMu.RLock()
-	defer overlayMu.RUnlock()
-	var owner string
-	var outline scriptMobileTint
-	for candidate, outlines := range scriptMobileOutlines {
-		if value, ok := outlines[id]; ok && candidate > owner {
-			owner, outline = candidate, value
-		}
-	}
-	return outline, owner != ""
+	return scriptMobileEffectForMobile(id, "", true)
 }
 
 // scriptMobileFlashForIndex deterministically resolves active flashes and

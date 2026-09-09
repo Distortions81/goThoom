@@ -429,6 +429,24 @@ func ClearMobileOutline(id uint16) {}
 // ClearMobileOutlines removes every mobile outline owned by this script.
 func ClearMobileOutlines() {}
 
+// SetNamedMobileTint applies a tint to an exact mobile name, ignoring case and
+// leading/trailing spaces. It matches independently of sprite ID and takes
+// precedence over sprite-ID tints. Conflicting name tints use the
+// lexicographically last script ID. Empty names are ignored. Stop/reload and
+// ClearMobileTints release these tints along with sprite-ID tints.
+func SetNamedMobileTint(name string, r, g, b, a uint8) {}
+
+// ClearNamedMobileTint removes this script's tint for one mobile name.
+func ClearNamedMobileTint(name string) {}
+
+// SetNamedMobileOutline draws an outline for an exact mobile name, using the
+// same matching and precedence rules as SetNamedMobileTint. Stop/reload and
+// ClearMobileOutlines release both named and sprite-ID outlines.
+func SetNamedMobileOutline(name string, r, g, b, a uint8) {}
+
+// ClearNamedMobileOutline removes this script's outline for one mobile name.
+func ClearNamedMobileOutline(name string) {}
+
 // FlashMobile replaces one visible mobile's colors for duration, preserving its
 // sprite transparency. Alpha is the flash strength: 255 is solid color, and
 // lower values mix with the normal artwork. The flash belongs to

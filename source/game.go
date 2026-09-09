@@ -2557,7 +2557,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		plane = d.Plane
 	}
 	tintRed, tintGreen, tintBlue, tintAlpha := float32(1), float32(1), float32(1), float32(1)
-	if tint, ok := scriptMobileTintForPict(d.PictID); ok {
+	if tint, ok := scriptMobileEffectForMobile(d.PictID, d.Name, false); ok {
 		tintRed = float32(tint.r) / 255
 		tintGreen = float32(tint.g) / 255
 		tintBlue = float32(tint.b) / 255
@@ -2655,7 +2655,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if sunShade > 0 {
 			brightness = 1 - sunShade
 		}
-		if outline, ok := scriptMobileOutlineForPict(d.PictID); ok {
+		if outline, ok := scriptMobileEffectForMobile(d.PictID, d.Name, true); ok {
 			drawMobileSpriteOutline(screen, img, tx, ty, scale, outline)
 		}
 		drawn := false

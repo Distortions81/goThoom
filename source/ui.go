@@ -1119,25 +1119,45 @@ func layoutScriptInfoWindow() {
 	footerHeight := scriptInfoActions.GetSize().Y / scale
 	scriptInfoWin.Contents[0].Size = eui.Point{X: width, Y: height}
 	scriptDetails.Size = eui.Point{X: width, Y: max(float32(0), height-footerHeight-12)}
-	for _, item := range scriptDetails.Contents {
-		item.Size.X = max(float32(0), width-16)
+	if len(scriptDetails.Contents) != 2 {
+		return
+	}
+	header, columns := scriptDetails.Contents[0], scriptDetails.Contents[1]
+	contentWidth := max(float32(1), width-16)
+	header.Size.X, columns.Size.X = contentWidth, contentWidth
+	for _, item := range header.Contents {
+		item.Size.X = contentWidth
+	}
+	columnWidth := max(float32(1), (contentWidth-24)/2)
+	for _, column := range columns.Contents {
+		if column.Fixed {
+			continue // Gutter between the two columns.
+		}
+		column.Size.X = columnWidth
+		for _, item := range column.Contents {
+			item.Size.X = columnWidth
+		}
 	}
 }
 
 func refreshscriptDetails() {
-	infoSize := eui.Point{X: scriptsManagerInfoWidth, Y: 24}
+	infoSize := eui.Point{X: (scriptsManagerInfoWidth - 40) / 2}
 	if scriptDetails == nil {
 		return
 	}
 	savedScroll := scriptDetails.Scroll
 	scriptDetails.Contents = scriptDetails.Contents[:0]
+	header, primary, secondary := eui.NewColumn(), eui.NewColumn(), eui.NewColumn()
+	columns := eui.NewRow(primary, &eui.ItemData{ItemType: eui.ITEM_FLOW, Fixed: true, Size: eui.Point{X: 24, Y: 1}}, secondary)
+	scriptDetails.AddItem(header)
+	scriptDetails.AddItem(columns)
 	owner := selectedscript
 	if owner == "" {
 		txt, _ := eui.NewText()
 		txt.Text = "Select a script"
 		txt.FontSize = 12
 		txt.Size = infoSize
-		scriptDetails.AddItem(txt)
+		primary.AddItem(txt)
 		return
 	}
 
@@ -1163,49 +1183,37 @@ func refreshscriptDetails() {
 
 	status := scriptScopedStatus(scope, scriptScopeCharacter(), disabled, invalid, errorText, reloadFailed)
 
+	column := header
 	line := func(s string) {
-		item, _ := eui.NewText()
-		item.Text = s
-		item.FontSize = 12
-		item.Size = infoSize
-		scriptDetails.AddItem(item)
+		item := eui.NewWrappedLabel(s, infoSize.X)
+		column.AddItem(item)
 	}
 
-	line("Name: " + name)
-	line("Author: " + author)
-	line("Path: " + path)
-	line("Description: " + valueOrNone(description))
-	line("API version: " + strconv.Itoa(apiVersion))
-	catLabel := cat
-	if sub != "" {
-		if catLabel != "" {
-			catLabel += " / "
-		}
-		catLabel += sub
+	line(name)
+	if description != "" {
+		line(description)
 	}
-	line("Category: " + catLabel)
-	line("Enabled for: " + scriptScopeDescription(scope))
+	if path != "" {
+		line("Path: " + path)
+	}
+	column = primary
 	line("Status: " + status)
-	line("Error: " + valueOrNone(errorText))
-	line("Validation: " + valueOrNone(validationResult))
+	line("Enabled for: " + scriptScopeDescription(scope))
+	if errorText != "" {
+		line("Error: " + errorText)
+	}
+	if validationResult != "" {
+		line("Validation: " + validationResult)
+	}
 
 	commands, bindings, events, timers, settings := scriptRegistrationSummary(owner)
 	addScriptDetailList(line, "Commands", commands)
-	addScriptDetailList(line, "Bindings", bindings)
-	addScriptDetailList(line, "Events", events)
-	if timers == 0 {
-		line("Timers: none")
-	} else {
-		line("Timers: " + strconv.Itoa(timers))
-	}
-	addScriptDetailList(line, "Settings", settings)
+	addScriptDetailList(line, "Key bindings", bindings)
 
 	shortcutMu.RLock()
 	m := shortcutMaps[owner]
 	shortcutMu.RUnlock()
-	if len(m) == 0 {
-		line("Shortcuts: none")
-	} else {
+	if len(m) > 0 {
 		line("Shortcuts:")
 		type pair struct{ short, full string }
 		var list []pair
@@ -1214,13 +1222,30 @@ func refreshscriptDetails() {
 		}
 		sort.Slice(list, func(i, j int) bool { return list[i].short < list[j].short })
 		for _, p := range list {
-			t, _ := eui.NewText()
-			t.Text = "  " + p.short + " = " + strings.TrimSpace(p.full)
-			t.FontSize = 12
-			t.Size = infoSize
-			scriptDetails.AddItem(t)
+			line(p.short + " = " + strings.TrimSpace(p.full))
 		}
 	}
+
+	column = secondary
+	if author != "" {
+		line("Author: " + author)
+	}
+	catLabel := cat
+	if sub != "" {
+		if catLabel != "" {
+			catLabel += " / "
+		}
+		catLabel += sub
+	}
+	if catLabel != "" {
+		line("Category: " + catLabel)
+	}
+	addScriptDetailList(line, "Settings", settings)
+	addScriptDetailList(line, "Events", events)
+	if timers > 0 {
+		line("Timers: " + strconv.Itoa(timers))
+	}
+	line("API version: " + strconv.Itoa(apiVersion))
 
 	scriptInfoActionGroups = nil
 	var actions *eui.ItemData
@@ -1292,13 +1317,6 @@ func refreshscriptDetails() {
 	}
 }
 
-func valueOrNone(value string) string {
-	if strings.TrimSpace(value) == "" {
-		return "none"
-	}
-	return value
-}
-
 func scriptStatusLabel(disabled, invalid bool, errorText string, reloadFailed bool) string {
 	if strings.Contains(errorText, "permissions required:") {
 		if !disabled {
@@ -1323,7 +1341,6 @@ func scriptStatusLabel(disabled, invalid bool, errorText string, reloadFailed bo
 
 func addScriptDetailList(line func(string), label string, values []string) {
 	if len(values) == 0 {
-		line(label + ": none")
 		return
 	}
 	line(label + ": " + strings.Join(values, ", "))
