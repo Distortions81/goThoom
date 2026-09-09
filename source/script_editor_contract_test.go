@@ -71,7 +71,7 @@ func TestScriptEditorPackageMatchesRuntimeSurface(t *testing.T) {
 		}
 	}
 	removed := []string{
-		"AddHotkey", "AddShortcuts", "After", "AfterDur", "Chat", "ChatFrom", "Cmd", "Console", "ConsoleMsg",
+		"AddHotkey", "AddShortcuts", "AfterDur", "Chat", "ChatFrom", "Cmd", "Console", "ConsoleMsg",
 		"CreatureChat", "EnqueueCommand", "EquipById", "EquipPartial", "Every", "EveryDur", "Has", "Input",
 		"Key", "KeyJustPressed", "MouseJustPressed", "MouseWheel", "Notify", "NPCChat", "OtherChat", "OtherChatFrom",
 		"PlayerChat", "PlayerChatFrom", "RegisterChatHandler", "RegisterCommand", "RegisterConsoleTriggers",

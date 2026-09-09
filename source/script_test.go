@@ -94,7 +94,10 @@ func TestScriptEquipWaitsForServerInventoryUpdate(t *testing.T) {
 
 // getQueuedCommands returns the pending command followed by any queued commands.
 func getQueuedCommands() []string {
-	cmds := append([]string{}, commandQueue...)
+	cmds := make([]string, len(commandQueue))
+	for i, command := range commandQueue {
+		cmds[i] = command.text
+	}
 	if pendingCommand != "" {
 		cmds = append([]string{pendingCommand}, cmds...)
 	}

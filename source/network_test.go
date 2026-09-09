@@ -133,6 +133,7 @@ func extractCommandText(t *testing.T, buf *bufConn) string {
 func resetCommandStateForTest(t testing.TB, number uint32) {
 	t.Helper()
 	oldCommandNum := commandNum
+	oldTicket := pendingCommandTicket
 	oldPending := pendingCommand
 	oldPendingID := pendingCommandID
 	oldPendingSent := pendingCommandSent
@@ -145,6 +146,7 @@ func resetCommandStateForTest(t testing.TB, number uint32) {
 	oldWhoLastCommandFrame := whoLastCommandFrame
 	t.Cleanup(func() {
 		commandNum = oldCommandNum
+		pendingCommandTicket = oldTicket
 		pendingCommand = oldPending
 		pendingCommandID = oldPendingID
 		pendingCommandSent = oldPendingSent
@@ -157,6 +159,7 @@ func resetCommandStateForTest(t testing.TB, number uint32) {
 		whoLastCommandFrame = oldWhoLastCommandFrame
 	})
 	commandNum = number
+	pendingCommandTicket = nil
 	pendingCommand = ""
 	pendingCommandID = 0
 	pendingCommandSent = false
@@ -227,7 +230,7 @@ func TestSendPlayerInputCommandWaitsForAcknowledgement(t *testing.T) {
 func TestSendPlayerInputAcknowledgementAdvancesFIFO(t *testing.T) {
 	resetCommandStateForTest(t, 1)
 	pendingCommand = "/say"
-	commandQueue = []string{"/wave"}
+	commandQueue = []queuedCommand{{text: "/wave"}}
 
 	conn := &bufConn{}
 	if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
@@ -240,7 +243,7 @@ func TestSendPlayerInputAcknowledgementAdvancesFIFO(t *testing.T) {
 	if pendingCommand != "/say" {
 		t.Fatalf("pendingCommand %q want %q before ack", pendingCommand, "/say")
 	}
-	if len(commandQueue) != 1 || commandQueue[0] != "/wave" {
+	if len(commandQueue) != 1 || commandQueue[0].text != "/wave" {
 		t.Fatalf("commandQueue before ack: %v", commandQueue)
 	}
 

@@ -185,12 +185,15 @@ type scriptDispatchEntry struct {
 }
 
 type scriptEvent struct {
+	task     *scriptTaskState
 	name     string
 	callback func()
 	done     chan bool
 }
 
 type scriptEventQueue struct {
+	activeTask        *scriptTaskState
+	wake              chan struct{}
 	owner             string
 	interpreter       *interp.Interpreter
 	diagnostics       *scriptDiagnostics
@@ -465,7 +468,7 @@ func startScriptEventQueue(owner string, interpreters ...*interp.Interpreter) *s
 	if len(interpreters) > 0 {
 		interpreter = interpreters[0]
 	}
-	queue := &scriptEventQueue{owner: owner, interpreter: interpreter, done: make(chan struct{})}
+	queue := &scriptEventQueue{owner: owner, interpreter: interpreter, done: make(chan struct{}), wake: make(chan struct{}, 1)}
 	scriptEventMu.Lock()
 	old := scriptEventQueues[owner]
 	scriptEventQueues[owner] = queue
@@ -514,6 +517,10 @@ func (q *scriptEventQueue) enqueue(event scriptEvent) bool {
 		return false
 	}
 	q.events = append(q.events, event)
+	select {
+	case q.wake <- struct{}{}:
+	default:
+	}
 	if q.running {
 		q.mu.Unlock()
 		return true
@@ -656,7 +663,9 @@ func (q *scriptEventQueue) execute(event scriptEvent) bool {
 	limiter := newScriptExecutionLimiter(allowance)
 	q.diagnostics.clear()
 	q.mu.Lock()
-	q.activeLimiter = limiter
+	previousLimiter, previousTask := q.activeLimiter, q.activeTask
+	q.activeLimiter, q.activeTask = limiter, event.task
+	defer func() { q.mu.Lock(); q.activeLimiter, q.activeTask = previousLimiter, previousTask; q.mu.Unlock() }()
 	q.mu.Unlock()
 	result := make(chan bool, 1)
 	go func() { result <- runScriptCallbackOnQueue(q, q.owner, event.name, event.callback) }()
@@ -1121,7 +1130,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			if err := validateScriptWindowOptions(options); err != nil {
 				panic(err.Error())
 			}
-			options.Buttons = append([]scriptapi.WindowButton(nil), options.Buttons...)
+			options = cloneScriptWindowOptions(options)
 			window := Window{state: &scriptWindowState{owner: owner, candidate: candidate}}
 			stage(func() { window.create(options) })
 			return window
@@ -1325,6 +1334,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			})
 			return timer
 		})
+		addScriptExtendedExports(m, owner, candidate)
 		guardScriptExports(owner, candidate, m)
 		ex[pkg] = m
 	}
@@ -1732,9 +1742,25 @@ func scriptSleepTicks(owner string, eventQueue *scriptEventQueue, ticks int) {
 	scriptTickWaiters[owner] = append(scriptTickWaiters[owner], w)
 	scriptMu.Unlock()
 	scriptEventMu.Unlock()
+	defer func() {
+		scriptMu.Lock()
+		list := scriptTickWaiters[owner]
+		for i, waiter := range list {
+			if waiter == w {
+				list = append(list[:i], list[i+1:]...)
+				break
+			}
+		}
+		if len(list) == 0 {
+			delete(scriptTickWaiters, owner)
+		} else {
+			scriptTickWaiters[owner] = list
+		}
+		scriptMu.Unlock()
+	}()
 	eventQueue.pauseExecution()
 	defer eventQueue.resumeExecution()
-	<-w.done
+	waitScriptSignal(eventQueue, w.done, nil)
 }
 
 func scriptWait(owner string, eventQueue *scriptEventQueue, duration time.Duration) {
@@ -1745,14 +1771,7 @@ func scriptWait(owner string, eventQueue *scriptEventQueue, duration time.Durati
 	defer timer.Stop()
 	eventQueue.pauseExecution()
 	defer eventQueue.resumeExecution()
-	if eventQueue.done == nil {
-		<-timer.C
-		return
-	}
-	select {
-	case <-timer.C:
-	case <-eventQueue.done:
-	}
+	waitScriptSignal(eventQueue, nil, timer.C)
 }
 
 func waitForScriptInventory(owner string, eventQueue *scriptEventQueue, name string, want, equipmentOnly bool, timeout time.Duration) bool {
@@ -1799,18 +1818,12 @@ func waitForScriptInventory(owner string, eventQueue *scriptEventQueue, name str
 	defer timer.Stop()
 	eventQueue.pauseExecution()
 	defer eventQueue.resumeExecution()
-	for {
-		select {
-		case <-waiter.signal:
-			if matches() {
-				return true
-			}
-		case <-timer.C:
-			return false
-		case <-eventQueue.done:
-			return false
+	for waitScriptSignal(eventQueue, waiter.signal, timer.C) {
+		if matches() {
+			return true
 		}
 	}
+	return false
 }
 
 func notifyScriptStateWaiters() {
@@ -1965,17 +1978,14 @@ func scriptCommand(owner, cmd string) bool {
 	if scriptIsDisabled(owner) {
 		return false
 	}
-	cmd = strings.TrimSpace(cmd)
-	if cmd == "" {
-		reportScriptCommandError(owner, "command rejected: empty command")
-		return false
+	ticket := newScriptCommandTicket(owner, currentScriptEventQueue(owner))
+	if queueTrackedScriptCommand(ticket, cmd) {
+		return true
 	}
-	if recordscriptSend(owner) {
-		reportScriptCommandError(owner, "command rejected: rate limit exceeded")
-		return false
+	if status := ticket.Status(); status.State == scriptapi.CommandRejected {
+		reportScriptCommandError(owner, "command rejected: "+status.Reason)
 	}
-	enqueueCommand(cmd)
-	return true
+	return false
 }
 
 func reportScriptCommandError(owner, message string) {
@@ -2108,6 +2118,9 @@ func runScriptCallbackOnQueue(queue *scriptEventQueue, owner, event string, fn f
 	ok = true
 	defer func() {
 		if recovered := recover(); recovered != nil {
+			if _, cancelled := recovered.(scriptTaskCancelled); cancelled {
+				return
+			}
 			ok = false
 			if scriptCallbackPanicHandler != nil && currentScriptEventQueue(owner) == queue {
 				scriptCallbackPanicHandler(owner, event, recovered, scriptCallbackSourceLocation(owner))
@@ -2446,6 +2459,7 @@ func deactivateScript(owner, reason string) deactivatedScript {
 	delete(scriptTerminators, owner)
 	scriptMu.Unlock()
 	eventQueue := stopScriptEventQueue(owner)
+	cancelScriptCommands(owner, nil)
 	return deactivatedScript{terminate: term, eventQueue: eventQueue}
 }
 
@@ -2920,6 +2934,8 @@ type ChangeEvent struct {
 }
 
 type scriptChangeSnapshot struct {
+	players             []scriptapi.Player
+	playersObserved     bool
 	initialized         bool
 	inventory           []InventoryItem
 	equipment           []InventoryItem
@@ -3085,6 +3101,9 @@ func pollScriptChangeEvents() {
 	if !previous.initialized {
 		return
 	}
+	if previous.playersObserved && current.playersObserved {
+		dispatchScriptPlayerChanges(previous.players, current.players)
+	}
 	base := ChangeEvent{
 		Inventory: append([]InventoryItem(nil), current.inventory...), Equipment: append([]InventoryItem(nil), current.equipment...),
 		SelectedPlayer: current.selectedPlayer, SelectedItem: current.selectedItem, HasSelectedItem: current.hasSelectedItem,
@@ -3130,6 +3149,7 @@ func pollScriptChangeEvents() {
 }
 
 func captureScriptChangeSnapshot() scriptChangeSnapshot {
+	playerSnapshot, playersObserved := captureScriptPlayerChanges()
 	inventory := getInventory()
 	equipment := make([]InventoryItem, 0, len(inventory))
 	for _, item := range inventory {
@@ -3153,7 +3173,7 @@ func captureScriptChangeSnapshot() scriptChangeSnapshot {
 	location := scriptLocation
 	scriptLocationMu.RUnlock()
 	return scriptChangeSnapshot{
-		initialized: true, inventory: inventory, equipment: equipment, selectedPlayer: selectedPlayerName,
+		initialized: true, players: playerSnapshot, playersObserved: playersObserved, inventory: inventory, equipment: equipment, selectedPlayer: selectedPlayerName,
 		selectedItem: selectedItem, hasSelectedItem: hasSelectedItem, health: health, healthMax: healthMax,
 		spirit: spirit, spiritMax: spiritMax, balance: balanceValue, balanceMax: balanceMaxValue,
 		location: location, worldGeneration: worldStateGeneration.Load(),

@@ -10,15 +10,17 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"gothoom/eui"
+	scriptapi "gt2"
 )
 
 // Run alone: this starts Ebitengine's game loop and exports visual QA images.
 func TestRenderScriptWindow(t *testing.T) {
+	controls := os.Getenv("GOTHOOM_RENDER_SCRIPT_CONTROLS") != ""
 	settings := os.Getenv("GOTHOOM_RENDER_SCRIPT_SETTINGS")
 	manager := os.Getenv("GOTHOOM_RENDER_SCRIPTS_LIST") != ""
 	permissions := os.Getenv("GOTHOOM_RENDER_SCRIPT_PERMISSIONS") != ""
 	info := os.Getenv("GOTHOOM_RENDER_SCRIPT_INFO") != ""
-	if os.Getenv("GOTHOOM_RENDER_SCRIPT_WINDOW") == "" && !permissions && !info && !manager && settings == "" {
+	if os.Getenv("GOTHOOM_RENDER_SCRIPT_WINDOW") == "" && !permissions && !info && !manager && settings == "" && !controls {
 		t.Skip("set GOTHOOM_RENDER_SCRIPT_WINDOW=1")
 	}
 	initFont()
@@ -32,7 +34,22 @@ func TestRenderScriptWindow(t *testing.T) {
 	var panel Window
 	var native *eui.WindowData
 	prefix := "follow"
-	if settings != "" {
+	if controls {
+		prefix = "controls"
+		resetScriptCallbackTestState(t, owner)
+		create := exportsForscript(owner)["gt2/gt2"]["CreateWindow"].Interface().(func(scriptapi.WindowOptions) Window)
+		panel = create(scriptapi.WindowOptions{Title: "Delayed Command", Width: 340, Text: "Choose a command and delay, then start.",
+			Controls: []scriptapi.WindowControl{
+				{ID: "command", Label: "Command", Kind: scriptapi.ControlText, Text: "/pose sit"},
+				{ID: "notify", Label: "Notify when sent", Kind: scriptapi.ControlCheckbox, Checked: true},
+				{ID: "delay", Label: "Delay", Kind: scriptapi.ControlDropdown, Options: []string{"1 second", "3 seconds", "10 seconds"}},
+				{ID: "recent", Label: "Recent commands", Kind: scriptapi.ControlList, Options: []string{"/pose sit", "/pose kneel", "/pose akimbo"}},
+			}, Buttons: []scriptapi.WindowButton{{ID: "start", Label: "Start", OnClick: func() {}}, {ID: "cancel", Label: "Cancel", Disabled: true, OnClick: func() {}}},
+		})
+		drainScriptDispatcher()
+		native = panel.state.ui
+		t.Cleanup(func() { disablescript(owner, "test cleanup"); drainScriptDispatcher() })
+	} else if settings != "" {
 		prefix = "settings-" + settings
 		activateBundledProofScript(t, owner, "follow_player.go")
 		scriptDisplayNames[owner] = "Follow Player"
@@ -133,7 +150,7 @@ func (g *scriptWindowRenderGame) Draw(screen *ebiten.Image) {
 	loadMaterialIcons()
 	for index, scale := range []float32{1, 1.5, 2} {
 		eui.SetUIScale(scale)
-		if index > 0 && g.panel.state != nil {
+		if index > 0 && g.panel.state != nil && g.prefix != "controls" {
 			g.panel.SetText("Selected: A Player With A Long Character Name\nFollowing: A Player With A Long Character Name\nStatus: Routing")
 			g.panel.SetButtonEnabled("follow", true)
 			g.panel.SetButtonEnabled("stop", true)
@@ -165,7 +182,7 @@ func (g *scriptWindowRenderGame) Draw(screen *ebiten.Image) {
 		if g.err = checkRenderedControlText(g.window.Contents, scale); g.err != nil {
 			return
 		}
-		if horizontal, vertical := g.window.RequiresScroll(); horizontal || vertical {
+		if horizontal, vertical := g.window.RequiresScroll(); horizontal || vertical && g.prefix != "controls" {
 			g.err = fmt.Errorf("window needs scrollbars at %.1fx", scale)
 			return
 		}

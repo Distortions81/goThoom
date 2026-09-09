@@ -31,13 +31,14 @@ var scriptPermissionCatalog = []scriptPermission{
 	{"input", "Input box and pointer", "Read or replace unsent input text and inspect the pointer."},
 	{"notifications", "Notifications and sound", "Show notifications and play sounds."},
 	{"storage", "Persistent script storage", "Read and write this script's private saved data, shared across characters."},
-	{"timers", "Background timers", "Run repeating callbacks without a command or hotkey."},
+	{"timers", "Background timers", "Run timers and cancellable background tasks."},
 	{"session", "Session events", "React to login, logout, character changes and script stop events."},
 }
 
 // Every exported function must be classified. Empty means basic output,
 // configuration or cleanup contract. Unknown functions fail closed.
 var scriptFunctionPermissions = map[string]string{
+	"CharacterStore": "storage", "HasPermission": "", "StartTask": "timers", "After": "timers", "QueueCommand": "send", "OnPlayerChange": "data",
 	"Command": "commands", "Bind": "hotkeys", "Send": "send", "Print": "", "AddShortcut": "commands",
 	"Equip": "send", "Unequip": "send", "Wait": "", "WaitTicks": "", "OnStop": "session", "StopMoving": "", "OverlayClear": "",
 	"Bool": "", "Integer": "", "Decimal": "", "Text": "", "Choice": "", "KeyBinding": "",
@@ -87,6 +88,7 @@ func guardScriptExports(owner string, candidate *scriptCandidate, symbols map[st
 				}
 				return results
 			}
+			checkScriptTask(candidate.runtimeEventQueue(owner))
 			return fn.Call(args)
 		})
 	}

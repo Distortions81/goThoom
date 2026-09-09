@@ -83,6 +83,9 @@ understand.
 - `gt2.Print(text)` writes to the in-game console.
 - `gt2.ShowNotification(text)` displays an on-screen notification.
 - `gt2.Send(command)` sends an ordered, rate-limited game command.
+- `gt2.QueueCommand(command)` returns a ticket for delivery status and cancellation.
+- `gt2.StartTask(callback)` starts a cancellable sequence.
+- `gt2.After(delay, callback)` schedules one cancellable callback.
 - `gt2.Command(name, handler)` adds a local slash command.
 - `gt2.Bind(keys, handler)` binds a key, click, chord, or mouse wheel action.
 - `gt2.OnChat(filter, handler)` listens for matching chat.
@@ -98,6 +101,9 @@ understand.
 - `gt2.Wait(...)` and `gt2.WaitTicks(...)` pause only the current script task.
 - `gt2.Repeat(...)` runs a serialized callback repeatedly.
 - `gt2.Store(...)` and the `gt2.Load*` functions keep private script data.
+- `gt2.CharacterStore()` provides the same storage helpers scoped to the current character.
+- `gt2.OnPlayerChange(handler)` reports observed player presence, fallen, and sharing changes.
+- `gt2.HasPermission(id)` checks which capabilities the user granted.
 
 Open `gt2/API_REFERENCE.md` inside the active scripts folder for every type,
 function, constant, and example supported by your installed goThoom version.
@@ -213,16 +219,21 @@ count. Scripts cannot grant themselves access.
 | --- | --- |
 | Register commands and shortcuts | `Command`, `AddShortcut` |
 | Bind keys and mouse buttons | `Bind`, toolbar hotkeys and their input events |
-| Send server commands | `Send`, `Equip`, `Unequip`, `WithEquipment` |
-| Game data and events | `Self`, `Players`, inventory queries, selections, `CurrentWorld`, `OnWorld`, `OnChange`, image/world sizes, inventory/equipment waits, `WithEquipment`, `ItemSelector` |
+| Send server commands | `Send`, `QueueCommand`, `Equip`, `Unequip`, `WithEquipment` |
+| Game data and events | `OnPlayerChange`, `Self`, `Players`, inventory queries, selections, `CurrentWorld`, `OnWorld`, `OnChange`, image/world sizes, inventory/equipment waits, `WithEquipment`, `ItemSelector` |
 | Chat and server messages | `OnChat`, `OnServerMessage`, `LatestServerMessage`, including private messages |
 | Automatic movement | `Move`, `Movement` |
 | Windows, toolbars and overlays | `CreateWindow`, `AddToolbar`, overlay drawing |
 | Input box and pointer | `InputText`, `SetInputText`, `LastClick`, `Hover` |
 | Notifications and sound | `ShowNotification`, `PlaySound` |
-| Persistent script storage | `Store`, all `Load*` helpers, `DeleteStored`, `MigrateStorage` |
-| Background timers | `Repeat` |
+| Persistent script storage | `CharacterStore` and its methods, `Store`, all `Load*` helpers, `DeleteStored`, `MigrateStorage` |
+| Background timers | `Repeat`, `After`, `StartTask` |
 | Session events | `OnLogin`, `OnLogout`, `OnCharacterChange`, `OnStop` |
+
+`HasPermission` accepts these IDs: `commands`, `hotkeys`, `send`, `data`,
+`messages`, `movement`, `windows`, `input`, `notifications`, `storage`, `timers`,
+and `session`. Unknown IDs return false. Querying a permission does not request
+it or open a review; the client discovers requests from the APIs your script uses.
 
 Console output, basic configuration, and `Wait`/`WaitTicks` remain available
 after review without extra grants. `WithEquipment` needs both game data and
@@ -260,14 +271,32 @@ only configure enablement and permissions. Package variables, callbacks, timers,
 and script-created windows never survive a session; use explicit storage for
 data that should persist. `OnLogout` runs before `OnStop` and `Terminate`.
 
-`gt2.Repeat` and `gt2.Wait` exist only while the script is running. Their
+`gt2.Repeat`, `gt2.After`, tasks, and `gt2.Wait` exist only while the script is running. Their
 countdowns are cancelled when the script reloads, stops, or goThoom exits.
 
-Storage belongs to the script and persists across app launches, but it is
-shared by every character using that script. It is not automatically scoped to
-the current character. For character-specific state, wait until a character is
-known through `gt2.Self().Name` or `gt2.OnLogin`, normalize that name, and
-include it in every related storage key.
+`gt2.Store` and the top-level `Load*` functions share data across the script's
+characters. Use `gt2.CharacterStore()` for data belonging to the current character:
+
+```go
+saved := gt2.CharacterStore()
+if saved.Active() {
+    count := saved.LoadInteger("reminders", 0)
+    saved.Store("reminders", count+1)
+}
+```
+
+The handle supplies `Store`, `LoadString`, `LoadBool`, `LoadInteger`,
+`LoadDecimal`, `LoadStrings`, `LoadJSON`, and `DeleteStored`. It binds to the
+normalized current character. An unknown character returns an inactive handle;
+obtain a new one after login. Retain the handle to save during `OnLogout`,
+`OnStop`, or `Terminate`. An old handle cannot access another character's
+storage or a replacement script session. Denied or inactive reads return their
+fallbacks; writes do nothing. Validation stages writes until activation succeeds.
+
+Existing scripts may continue including normalized character names in ordinary
+storage keys. `CharacterStore` uses its own namespace and does not automatically
+move those values. To adopt it without losing saved state, copy your existing
+values explicitly before deleting old keys.
 
 For a task that must survive an app relaunch, store the last completed date or
 the next due time with `gt2.Store`. In `Init` or the login handler, load the
@@ -282,6 +311,90 @@ remains open.
 
 For more examples, open **Actions -> Scripts -> Examples**. Those bundled
 examples always match the scripting API in the current release.
+
+## Cancellable tasks and delivery feedback
+
+Use `StartTask` for a sequence that should have a Stop command or button:
+
+```go
+var job gt2.Task
+
+func Init() {
+    gt2.Command("posecycle", func(args string) {
+        job.Cancel()
+        job = gt2.StartTask(func() {
+            gt2.Send("/pose sit")
+            gt2.Wait(2 * time.Second)
+            gt2.Send("/pose kneel")
+        })
+    })
+    gt2.Command("stopposes", func(args string) { job.Cancel() })
+}
+```
+
+Import `time` along with `gt2` for this example. Tasks run serially. During a
+task's `Wait`, `WaitTicks`, `WaitForInventory`, or `WaitForEquipment`, ordinary
+callbacks can run, allowing commands, hotkeys, and window buttons to cancel it.
+Another task waits its turn. Keep ordinary callbacks short; their own long waits
+can delay the task and other controls. Shared script variables can change while
+a task waits, so read them again when necessary.
+
+`Cancel` interrupts a wait and unwinds the task. Deferred Go functions run;
+subsequent API calls still honor cancellation. Cancellation is cooperative at
+API calls and waits, and CPU-only loops remain subject to execution limits.
+Cancellation removes thetask's unsent commands, including commands from `Send`,
+`Equip`, and `Unequip`. It cannot undo a command already being transmitted or
+sent, and does not roll back equipment changes already made. Stopping or
+reloading a script cancels its tasks and unsent commands. Successful task
+completion leaves its queued commands available to send.
+
+Use a ticket when your UI needs delivery feedback:
+
+```go
+ticket := gt2.QueueCommand("/pose sit")
+// Read again later, for example from a timer or a button callback.
+status := ticket.Status()
+if status.State == gt2.CommandRejected {
+    gt2.Print(status.Reason)
+}
+```
+
+`Status` returns `CommandQueued`, `CommandSent`, `CommandCancelled`, or
+`CommandRejected`. Rejections include empty commands, rate limits, and unavailable
+access. A failed network write remains queued for retry. `CommandSent` means the
+network write succeeded; it does not confirm that the server accepted or
+completed the action. Observe game data or server messages for that confirmation.
+`ticket.Cancel()` returns true when it removes unsent work, and false when it is
+already finished or being transmitted. Cancelling one ticket preserves other
+commands' order. If cancellation meets a write in progress and that write fails,
+the command is cancelled before retrying.
+
+`gt2.After(3*time.Second, callback)` returns the same `Timer` handle as `Repeat`.
+Call `Stop()` to cancel it, including after the callback has been queued but
+before it starts. A one-shot timer becomes inactive when its callback begins.
+Zero delay schedules the callback; negative delays and nil callbacks return
+inactive handles. Timers registered in `Init` start only after activation, and
+all timers are cancelled when the script stops. Persist a due time for reminders
+that need to survive a restart.
+
+## Player changes
+
+`gt2.OnPlayerChange(func(event gt2.PlayerChangeEvent) { ... })` returns a removable
+subscription. Each event has `Type`, `Previous`, and `Player` snapshots:
+
+- `PlayerDiscovered` and `PlayerRemoved` identify additions/removals from the
+  client's known-player data. For removals, use `Previous`; `Player` is empty.
+- `PlayerLogin` and `PlayerLogout` report observed changes in `Offline`.
+- `PlayerFallen` and `PlayerRecovered` report changes in `Dead`.
+- `PlayerSharing` reports a change in either `Sharing` or `Sharee`.
+
+The first client snapshot establishes a baseline without announcing everyone as
+newly logged in. A newly discovered player produces a discovery event, without
+inventing earlier transitions. A player may produce several event types in one
+update. These events describe state the client observes, not a complete server
+event history; rapid changes between client checks can be missed. Entering or
+leaving the visible scene is distinct from logging in or out; use world snapshots
+for visibility. Query `Players()` for initial data.
 
 ## World data and movement
 
@@ -372,7 +485,7 @@ clearance still needs in-game tuning.
 ## Script-owned windows
 
 `gt2.CreateWindow` creates an independent, movable client window with wrapped
-status text and up to eight buttons. It returns a `gt2.Window` handle. Use
+status text, up to eight buttons, and up to 32 controls. It returns a `gt2.Window` handle. Use
 `SetText`, `SetButtonEnabled`, `Show`, `Hide`, and `Remove` on that handle; updates
 are sent to the client UI thread and do not recreate the window. Button IDs
 must be nonempty and unique within the window.
@@ -400,3 +513,43 @@ or `Hide()` is called. Closing hides the window; `Show()` can reopen it.
 true while a live window is hidden. Validation and Init stage changes until
 script activation succeeds. Stopping or reloading a script removes its windows
 and prevents their old callbacks from running.
+
+### Editable window controls
+
+Add `Controls: []gt2.WindowControl{...}` to `WindowOptions`. Every control needs
+a unique `ID`, a `Label`, and a `Kind`. Control and button IDs share one namespace.
+
+| Kind | Initial value | User callback value |
+| --- | --- | --- |
+| `ControlText` | `Text` | `event.Text` |
+| `ControlCheckbox` | `Checked` | `event.Checked` |
+| `ControlDropdown` | `Options`, `Selected` | `event.Selected`, `event.Text` |
+| `ControlList` | `Options`, `Selected` | `event.Selected`, `event.Text` |
+
+`ControlList` shows selectable rows in a scrolling area. Lists and dropdowns
+accept up to 256 strings. `Selected` is a zero-based index, or -1 for no selection;
+an empty option list always has no selection. `Disabled` and `Tooltip` apply to
+every kind. `OnChange` is optional and runs on the serialized script callback queue:
+
+```go
+panel := gt2.CreateWindow(gt2.WindowOptions{
+    Title: "Reminder",
+    Controls: []gt2.WindowControl{
+        {ID: "message", Label: "Message", Kind: gt2.ControlText,
+            Text: "Time for a break", OnChange: func(e gt2.WindowControlEvent) {
+                gt2.CharacterStore().Store("message", e.Text)
+            }},
+        {ID: "notify", Label: "Show notification", Kind: gt2.ControlCheckbox,
+            Checked: true},
+    },
+})
+panel.SetControlText("message", "Rest and recover")
+```
+
+Use `SetControlText`, `SetControlChecked`, `SetControlSelected`,
+`SetControlOptions`, and `SetControlEnabled` to update controls on an existing
+window. Programmatic changes do not fire `OnChange`. Replacing options clears
+the selection; set it again explicitly if needed. Invalid IDs, mismatched kinds,
+and out-of-range selections are ignored. Stopping the script removes its controls
+and discards their callbacks. Control values are session-only unless the script
+saves them.

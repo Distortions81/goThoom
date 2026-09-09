@@ -36,7 +36,29 @@ func (Timer) Stop()        {}
 func (Timer) Active() bool { return false }
 
 func Command(name string, handler func(args string)) Subscription { return Subscription{} }
-func Send(cmd string)                                             {}
+
+// QueueCommand returns delivery feedback. Sent means a successful network write,
+// not that the server accepted or completed the action. Cancel only removes unsent work.
+func QueueCommand(cmd string) CommandTicket { return CommandTicket{} }
+
+type CommandTicket struct{}
+
+func (CommandTicket) Status() CommandStatus { return CommandStatus{} }
+func (CommandTicket) Cancel() bool          { return false }
+
+type CommandStatus struct{ State, Reason string }
+
+const (
+	CommandQueued    = "queued"
+	CommandSent      = "sent"
+	CommandCancelled = "cancelled"
+	CommandRejected  = "rejected"
+)
+
+// HasPermission checks a permission ID from the script guide. Unknown IDs return false.
+func HasPermission(permission string) bool { return false }
+
+func Send(cmd string) {}
 
 // Hotkeys
 type InputEvent struct {
@@ -88,7 +110,30 @@ type WindowButton struct {
 	OnClick            func()
 }
 
+const (
+	ControlText     = "text"
+	ControlCheckbox = "checkbox"
+	ControlDropdown = "dropdown"
+	ControlList     = "list"
+)
+
+// WindowControl IDs share a namespace with button IDs. Lists show selectable rows.
+// OnChange runs for user edits only. Selected is -1 for no selection.
+type WindowControl struct {
+	ID, Label, Kind, Text, Tooltip string
+	Checked, Disabled              bool
+	Options                        []string
+	Selected                       int
+	OnChange                       func(WindowControlEvent)
+}
+type WindowControlEvent struct {
+	ID, Text string
+	Checked  bool
+	Selected int
+}
+
 type WindowOptions struct {
+	Controls    []WindowControl
 	Title, Text string
 	Width       int            // Content width in logical pixels; default 340, clamped to 220..800.
 	Buttons     []WindowButton // Up to eight buttons, arranged two per row; IDs must be unique.
@@ -103,8 +148,15 @@ func CreateWindow(options WindowOptions) Window { return Window{} }
 
 func (Window) SetText(text string)                      {}
 func (Window) SetButtonEnabled(id string, enabled bool) {}
-func (Window) Show()                                    {}
-func (Window) Hide()                                    {}
+
+// Programmatic changes do not fire OnChange. Invalid IDs/selections are ignored.
+func (Window) SetControlText(id, value string)               {}
+func (Window) SetControlChecked(id string, checked bool)     {}
+func (Window) SetControlSelected(id string, selected int)    {}
+func (Window) SetControlOptions(id string, options []string) {}
+func (Window) SetControlEnabled(id string, enabled bool)     {}
+func (Window) Show()                                         {}
+func (Window) Hide()                                         {}
 
 // Remove permanently removes the window without calling OnClose.
 func (Window) Remove() {}
@@ -188,6 +240,22 @@ func LoadJSON(key string, target any) bool                      { return false }
 func DeleteStored(key string)                                   {}
 func MigrateStorage(version int, migrate func(fromVersion int)) {}
 
+// Storage is a character-bound handle. An unknown character produces an inactive
+// handle; obtain a new one after login. Retained handles can save during logout
+// and Terminate. Methods preserve ordinary storage fallbacks.
+type Storage struct{}
+
+func CharacterStore() Storage                                      { return Storage{} }
+func (Storage) Active() bool                                       { return false }
+func (Storage) Store(key string, value any)                        {}
+func (Storage) LoadString(key, fallback string) string             { return fallback }
+func (Storage) LoadBool(key string, fallback bool) bool            { return fallback }
+func (Storage) LoadInteger(key string, fallback int) int           { return fallback }
+func (Storage) LoadDecimal(key string, fallback float64) float64   { return fallback }
+func (Storage) LoadStrings(key string, fallback []string) []string { return fallback }
+func (Storage) LoadJSON(key string, target any) bool               { return false }
+func (Storage) DeleteStored(key string)                            {}
+
 // Input box helpers
 func InputText() string        { return "" }
 func SetInputText(text string) {}
@@ -235,6 +303,26 @@ type Character struct {
 
 func Self() Character   { return Character{} }
 func Players() []Player { return nil }
+
+// PlayerChangeEvent reports observed changes, with detached before/after snapshots.
+// First observation establishes a baseline. New known players use PlayerDiscovered;
+// login/logout mean an observed Offline transition, not entering/leaving the screen.
+type PlayerChangeEvent struct {
+	Type             string
+	Previous, Player Player
+}
+
+const (
+	PlayerDiscovered = "discovered"
+	PlayerRemoved    = "removed"
+	PlayerLogin      = "login"
+	PlayerLogout     = "logout"
+	PlayerFallen     = "fallen"
+	PlayerRecovered  = "recovered"
+	PlayerSharing    = "sharing"
+)
+
+func OnPlayerChange(handler func(PlayerChangeEvent)) Subscription { return Subscription{} }
 
 // Inventory
 type Item struct {
@@ -480,6 +568,19 @@ type ChangeEvent struct {
 }
 
 func OnChange(kind string, handler func(ChangeEvent)) Subscription { return Subscription{} }
+
+// Tasks run serially. Wait/WaitTicks/inventory waits inside a task let ordinary
+// callbacks run, so a command or button can cancel it. Cancellation unwinds at
+// the next API call or wait, runs defers, and removes unsent task commands.
+// CPU-only loops still use the normal script execution limits.
+type Task struct{}
+
+func StartTask(fn func()) Task { return Task{} }
+func (Task) Cancel()           {}
+func (Task) Active() bool      { return false }
+
+// After schedules one callback after successful activation; it is session-only.
+func After(delay time.Duration, fn func()) Timer { return Timer{} }
 
 // Time helpers
 func WaitTicks(ticks int)         {}

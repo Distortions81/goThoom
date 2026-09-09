@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	scriptapi "gt2"
+
 	"golang.org/x/text/encoding/charmap"
 	"gothoom/internal/twofish"
 )
@@ -249,7 +251,7 @@ var pendingCommandSentFrame int32
 var pendingCommandSentPhase time.Duration
 var pendingCommandSentInterval time.Duration
 var pendingCommandSentPredictively bool
-var commandQueue []string
+var commandQueue []queuedCommand
 var commandMu sync.Mutex
 var playerName string
 var playerIndex uint8 = 0xff
@@ -284,7 +286,7 @@ func enqueueCommand(cmd string) {
 		return
 	}
 	commandMu.Lock()
-	commandQueue = append(commandQueue, cmd)
+	commandQueue = append(commandQueue, queuedCommand{text: cmd})
 	nextCommandLocked()
 	commandMu.Unlock()
 }
@@ -297,7 +299,8 @@ func nextCommand() {
 
 func nextCommandLocked() {
 	if pendingCommand == "" && len(commandQueue) > 0 {
-		pendingCommand = commandQueue[0]
+		pendingCommand = commandQueue[0].text
+		pendingCommandTicket = commandQueue[0].ticket
 		commandQueue = commandQueue[1:]
 		pendingCommandID = 0
 		pendingCommandSent = false
@@ -345,6 +348,7 @@ func acknowledgeCommandAt(ack uint8, acknowledgedFrame int32, acknowledgedAt tim
 	sentInterval := pendingCommandSentInterval
 	sentPredictively := pendingCommandSentPredictively
 	pendingCommand = ""
+	pendingCommandTicket = nil
 	pendingCommandID = 0
 	pendingCommandSent = false
 	resetPendingCommandTimingLocked()
@@ -378,6 +382,7 @@ func enqueueCommandIfIdle(cmd string) bool {
 		return false
 	}
 	pendingCommand = cmd
+	pendingCommandTicket = nil
 	pendingCommandID = 0
 	pendingCommandSent = false
 	resetPendingCommandTimingLocked()
@@ -386,7 +391,16 @@ func enqueueCommandIfIdle(cmd string) bool {
 
 func clearCommands() {
 	commandMu.Lock()
+	if pendingCommandTicket != nil && pendingCommandTicket.status.State == scriptapi.CommandQueued {
+		pendingCommandTicket.status.State = scriptapi.CommandCancelled
+	}
+	for _, cmd := range commandQueue {
+		if cmd.ticket != nil && cmd.ticket.status.State == scriptapi.CommandQueued {
+			cmd.ticket.status.State = scriptapi.CommandCancelled
+		}
+	}
 	pendingCommand = ""
+	pendingCommandTicket = nil
 	pendingCommandID = 0
 	pendingCommandSent = false
 	resetPendingCommandTimingLocked()

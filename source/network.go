@@ -9,6 +9,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	scriptapi "gt2"
 )
 
 // tcpConn is the active TCP connection to the game server.
@@ -253,6 +255,7 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	cmd := ""
 	commandID := uint8(0)
 	recordCommandTiming := false
+	var sentTicket *scriptCommandState
 	if pendingCommand != "" {
 		if pendingCommandID == 0 {
 			pendingCommandID = nextCommandNumberLocked()
@@ -262,6 +265,10 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	}
 	if pendingCommand != "" && !pendingCommandSent {
 		cmd = pendingCommand
+		sentTicket = pendingCommandTicket
+		if sentTicket != nil {
+			sentTicket.inFlight = true
+		}
 		// Record last-command frame for who throttling.
 		whoLastCommandFrame = inputAck
 		pendingCommandSent = true
@@ -322,10 +329,22 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	}
 	if err != nil && cmd != "" {
 		commandMu.Lock()
-		if pendingCommandID == commandID && pendingCommand == cmd {
+		if sentTicket != nil {
+			sentTicket.inFlight = false
+		}
+		if pendingCommandID == commandID && pendingCommand == cmd && pendingCommandTicket == sentTicket {
 			pendingCommandSent = false
 			resetPendingCommandTimingLocked()
+			if sentTicket != nil && sentTicket.cancelRequested {
+				cancelCommandTicketLocked(sentTicket)
+			}
 		}
+		commandMu.Unlock()
+	}
+	if err == nil && sentTicket != nil {
+		commandMu.Lock()
+		sentTicket.inFlight = false
+		sentTicket.status = scriptapi.CommandStatus{State: scriptapi.CommandSent}
 		commandMu.Unlock()
 	}
 	return err

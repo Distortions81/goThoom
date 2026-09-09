@@ -23,6 +23,7 @@ type scriptWindowState struct {
 	ui        *eui.WindowData
 	label     *eui.ItemData
 	buttons   map[string]*eui.ItemData
+	controls  map[string]*scriptWindowControl
 	text      string
 	width     float32
 	scale     float32
@@ -42,7 +43,7 @@ func validateScriptWindowOptions(options scriptapi.WindowOptions) error {
 		}
 		ids[b.ID] = true
 	}
-	return nil
+	return validateScriptWindowControls(options, ids)
 }
 
 // create and all update closures run on the client thread after staging.
@@ -80,6 +81,7 @@ func (w Window) create(options scriptapi.WindowOptions) {
 	s.label.Face = nil
 	s.setText(options.Text)
 	column := eui.NewColumn(s.label)
+	s.addControls(column, options.Controls)
 	s.buttons = make(map[string]*eui.ItemData, len(options.Buttons))
 	var row *eui.ItemData
 	for i, option := range options.Buttons {

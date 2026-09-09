@@ -2,6 +2,17 @@
 // Runtime exports and the generated API reference are verified against this
 // file. Implementations are no-ops so editors can type-check scripts without
 // the full client.
+//
+// Permissions: the client infers requested capabilities from API references.
+// First enable requires user review in a Grant / Block all dialog before globals
+// or Init run. Commands, key bindings, sending server commands, data/events,
+// messages, movement, windows/overlays, input, notifications, storage, Repeat and
+// session events have separate grants. Denied calls do nothing and return zero
+// values or inactive handles. Print, basic configuration, Wait/WaitTicks and
+// cleanup helpers remain available after review. See the script guide for the
+// complete mapping. Decisions are per script ID across characters and persist
+// in Scripts/permissions.json. New capabilities require another review;
+// changing grants restarts the script and releases its existing resources.
 package gt2
 
 import "time"
@@ -25,7 +36,29 @@ func (Timer) Stop()        {}
 func (Timer) Active() bool { return false }
 
 func Command(name string, handler func(args string)) Subscription { return Subscription{} }
-func Send(cmd string)                                             {}
+
+// QueueCommand returns delivery feedback. Sent means a successful network write,
+// not that the server accepted or completed the action. Cancel only removes unsent work.
+func QueueCommand(cmd string) CommandTicket { return CommandTicket{} }
+
+type CommandTicket struct{}
+
+func (CommandTicket) Status() CommandStatus { return CommandStatus{} }
+func (CommandTicket) Cancel() bool          { return false }
+
+type CommandStatus struct{ State, Reason string }
+
+const (
+	CommandQueued    = "queued"
+	CommandSent      = "sent"
+	CommandCancelled = "cancelled"
+	CommandRejected  = "rejected"
+)
+
+// HasPermission checks a permission ID from the script guide. Unknown IDs return false.
+func HasPermission(permission string) bool { return false }
+
+func Send(cmd string) {}
 
 // Hotkeys
 type InputEvent struct {
@@ -67,6 +100,69 @@ type ToolbarOptions struct {
 // AddToolbar adds a row to the client toolbar. Icon paths are relative to the
 // root of a folder or ZIP script and are loaded by goThoom.
 func AddToolbar(options ToolbarOptions) Subscription { return Subscription{} }
+
+// Script windows are independent, movable client windows. All UI changes are
+// marshaled to the client thread. Button and close callbacks run on the script's
+// serialized event queue. Windows are removed when their script stops/reloads.
+type WindowButton struct {
+	ID, Label, Tooltip string
+	Disabled           bool
+	OnClick            func()
+}
+
+const (
+	ControlText     = "text"
+	ControlCheckbox = "checkbox"
+	ControlDropdown = "dropdown"
+	ControlList     = "list"
+)
+
+// WindowControl IDs share a namespace with button IDs. Lists show selectable rows.
+// OnChange runs for user edits only. Selected is -1 for no selection.
+type WindowControl struct {
+	ID, Label, Kind, Text, Tooltip string
+	Checked, Disabled              bool
+	Options                        []string
+	Selected                       int
+	OnChange                       func(WindowControlEvent)
+}
+type WindowControlEvent struct {
+	ID, Text string
+	Checked  bool
+	Selected int
+}
+
+type WindowOptions struct {
+	Controls    []WindowControl
+	Title, Text string
+	Width       int            // Content width in logical pixels; default 340, clamped to 220..800.
+	Buttons     []WindowButton // Up to eight buttons, arranged two per row; IDs must be unique.
+	OnClose     func()         // Called when the user closes the window or Hide is called.
+}
+
+type Window struct{}
+
+// CreateWindow opens a window after successful script activation. Init and
+// validation stage all UI changes; failed scripts never open a window.
+func CreateWindow(options WindowOptions) Window { return Window{} }
+
+func (Window) SetText(text string)                      {}
+func (Window) SetButtonEnabled(id string, enabled bool) {}
+
+// Programmatic changes do not fire OnChange. Invalid IDs/selections are ignored.
+func (Window) SetControlText(id, value string)               {}
+func (Window) SetControlChecked(id string, checked bool)     {}
+func (Window) SetControlSelected(id string, selected int)    {}
+func (Window) SetControlOptions(id string, options []string) {}
+func (Window) SetControlEnabled(id string, enabled bool)     {}
+func (Window) Show()                                         {}
+func (Window) Hide()                                         {}
+
+// Remove permanently removes the window without calling OnClose.
+func (Window) Remove() {}
+
+// Active reports whether the window exists, including while hidden.
+func (Window) Active() bool { return false }
 
 // Shortcuts
 func AddShortcut(short, full string) {}
@@ -144,6 +240,22 @@ func LoadJSON(key string, target any) bool                      { return false }
 func DeleteStored(key string)                                   {}
 func MigrateStorage(version int, migrate func(fromVersion int)) {}
 
+// Storage is a character-bound handle. An unknown character produces an inactive
+// handle; obtain a new one after login. Retained handles can save during logout
+// and Terminate. Methods preserve ordinary storage fallbacks.
+type Storage struct{}
+
+func CharacterStore() Storage                                      { return Storage{} }
+func (Storage) Active() bool                                       { return false }
+func (Storage) Store(key string, value any)                        {}
+func (Storage) LoadString(key, fallback string) string             { return fallback }
+func (Storage) LoadBool(key string, fallback bool) bool            { return fallback }
+func (Storage) LoadInteger(key string, fallback int) int           { return fallback }
+func (Storage) LoadDecimal(key string, fallback float64) float64   { return fallback }
+func (Storage) LoadStrings(key string, fallback []string) []string { return fallback }
+func (Storage) LoadJSON(key string, target any) bool               { return false }
+func (Storage) DeleteStored(key string)                            {}
+
 // Input box helpers
 func InputText() string        { return "" }
 func SetInputText(text string) {}
@@ -191,6 +303,26 @@ type Character struct {
 
 func Self() Character   { return Character{} }
 func Players() []Player { return nil }
+
+// PlayerChangeEvent reports observed changes, with detached before/after snapshots.
+// First observation establishes a baseline. New known players use PlayerDiscovered;
+// login/logout mean an observed Offline transition, not entering/leaving the screen.
+type PlayerChangeEvent struct {
+	Type             string
+	Previous, Player Player
+}
+
+const (
+	PlayerDiscovered = "discovered"
+	PlayerRemoved    = "removed"
+	PlayerLogin      = "login"
+	PlayerLogout     = "logout"
+	PlayerFallen     = "fallen"
+	PlayerRecovered  = "recovered"
+	PlayerSharing    = "sharing"
+)
+
+func OnPlayerChange(handler func(PlayerChangeEvent)) Subscription { return Subscription{} }
 
 // Inventory
 type Item struct {
@@ -251,7 +383,8 @@ func OverlayRect(x, y, w, h int, r, g, b, a uint8)       {}
 func OverlayText(x, y int, txt string, r, g, b, a uint8) {}
 func OverlayImage(id uint16, x, y int)                   {}
 
-// Last world click
+// Mobile coordinates are unscaled, relative to the center of the playfield.
+// Index is a temporary descriptor slot; use Name to track a player across scenes.
 type Mobile struct {
 	Index  uint8
 	Name   string
@@ -259,6 +392,12 @@ type Mobile struct {
 	PictID uint16
 	Colors uint8
 	Player bool
+	State  uint8 // Raw protocol animation state.
+	Plane  int   // Draw order, not a collision layer.
+	Size   int   // Sprite frame size, not a collision radius.
+	Self   bool
+	Dead   bool
+	Stale  bool // Retained for edge rendering; absent from the current server frame.
 }
 
 type Click struct {
@@ -279,15 +418,60 @@ func Hover() Click     { return Click{} }
 func SelectedPlayer() (Player, bool) { return Player{}, false }
 func SelectedItem() (Item, bool)     { return Item{}, false }
 
+// Picture describes scenery artwork. H,V is its top-left corner in centered
+// world coordinates. Dimensions describe one animation frame. No collision
+// geometry is sent by the server; planes and artwork are only navigation hints.
+type Picture struct {
+	PictID             uint16
+	H, V               int16
+	Width, Height      int
+	Plane              int
+	Moving, Background bool
+	Reused             bool // Reused from a preceding frame, including retained edge artwork.
+	Shadow             bool
+}
+
 type World struct {
-	Width      int
-	Height     int
-	Location   string
-	Generation uint64
-	Mobiles    []Mobile
+	Width                      int
+	Height                     int
+	Location                   string
+	Generation                 uint64
+	Mobiles                    []Mobile // Includes fallen and retained edge mobiles; check Dead/Stale.
+	Pictures                   []Picture
+	Self                       Mobile
+	HasSelf                    bool
+	Frame                      int // Server logical frame; may reset on reconnect or movie seek.
+	ReceivedAt                 time.Time
+	CameraShiftX, CameraShiftY int   // Estimated scenery shift since the preceding frame.
+	Lighting                   uint8 // Raw protocol lighting flags.
 }
 
 func CurrentWorld() World { return World{} }
+
+// OnWorld runs on world changes, with a fresh detached snapshot at callback time.
+// Slow handlers may skip intermediate frames. Do not assume one event per packet.
+func OnWorld(handler func(World)) Subscription { return Subscription{} }
+
+// Move aims at centered world coordinates, like holding the movement mouse.
+// Refresh at least every 500ms. Returns false while disconnected, without fresh
+// world data, during validation/Init, during manual input (and for 1s afterward),
+// or while another script owns movement. Requests use the normal input cadence.
+// Coordinates outside the playfield are clamped. This is steering, not pathfinding.
+func Move(x, y int16) bool { return false }
+
+// MovementState reports a script steering lease and the latest manual movement.
+type MovementState struct {
+	Active          bool
+	Owned           bool // This script owns the active lease.
+	H, V            int16
+	ExpiresAt       time.Time
+	LastManualInput time.Time
+}
+
+func Movement() MovementState { return MovementState{} }
+
+// StopMoving releases only this script's movement. Reload/stop/logout also release it.
+func StopMoving() {}
 
 // Chat trigger kinds
 const (
@@ -384,6 +568,19 @@ type ChangeEvent struct {
 }
 
 func OnChange(kind string, handler func(ChangeEvent)) Subscription { return Subscription{} }
+
+// Tasks run serially. Wait/WaitTicks/inventory waits inside a task let ordinary
+// callbacks run, so a command or button can cancel it. Cancellation unwinds at
+// the next API call or wait, runs defers, and removes unsent task commands.
+// CPU-only loops still use the normal script execution limits.
+type Task struct{}
+
+func StartTask(fn func()) Task { return Task{} }
+func (Task) Cancel()           {}
+func (Task) Active() bool      { return false }
+
+// After schedules one callback after successful activation; it is session-only.
+func After(delay time.Duration, fn func()) Timer { return Timer{} }
 
 // Time helpers
 func WaitTicks(ticks int)         {}
