@@ -2,7 +2,7 @@ module gothoom
 
 go 1.26.6
 
-require github.com/hajimehoshi/ebiten/v2 v2.10.1-0.20260909104753-f3e017a2e5c2
+require github.com/hajimehoshi/ebiten/v2 v2.11.0-alpha
 
 require gt2 v0.0.0
 
