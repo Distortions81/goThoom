@@ -9,6 +9,7 @@ import (
 type mobilePaletteShaderState struct {
 	key        mobileKey
 	r, g, b, a [maxColors]float32
+	flash      [4]float32
 	op         ebiten.DrawTrianglesShaderOptions
 }
 
@@ -18,7 +19,8 @@ type mobilePalettePairKey struct {
 }
 
 type mobilePaletteBlendShaderState struct {
-	op ebiten.DrawTrianglesShaderOptions
+	op    ebiten.DrawTrianglesShaderOptions
+	flash [4]float32
 }
 
 var mobilePaletteBlendCache = make(map[mobilePalettePairKey]*mobilePaletteBlendShaderState)
@@ -80,10 +82,11 @@ func mobilePaletteState(id uint16, colors []byte) *mobilePaletteShaderState {
 		state.a[slot] = deltas[slot*4+3]
 	}
 	state.op.Uniforms = map[string]any{
-		"PaletteR": state.r[:],
-		"PaletteG": state.g[:],
-		"PaletteB": state.b[:],
-		"PaletteA": state.a[:],
+		"FlashColor": state.flash[:],
+		"PaletteR":   state.r[:],
+		"PaletteG":   state.g[:],
+		"PaletteB":   state.b[:],
+		"PaletteA":   state.a[:],
 	}
 	imageMu.Lock()
 	if cached := mobilePaletteDeltaCache[key]; cached != nil {
@@ -105,6 +108,7 @@ func mobilePaletteBlendState(previous, current *mobilePaletteShaderState) *mobil
 	imageMu.Unlock()
 	state := &mobilePaletteBlendShaderState{}
 	state.op.Uniforms = map[string]any{
+		"FlashColor":       state.flash[:],
 		"PreviousPaletteR": previous.r[:], "PreviousPaletteG": previous.g[:],
 		"PreviousPaletteB": previous.b[:], "PreviousPaletteA": previous.a[:],
 		"CurrentPaletteR": current.r[:], "CurrentPaletteG": current.g[:],
@@ -156,6 +160,7 @@ func drawRecoloredMobile(destination, base, influence *ebiten.Image, palette *mo
 	vertices := mobileShaderVertices(base.Bounds(), options, [4]float32{linear})
 	op := &palette.op
 	op.Images[0], op.Images[1] = base, influence
+	palette.flash = options.FlashColor
 	destination.DrawTrianglesShader32(vertices[:], frameBlendIndices, mobileRecolorShader, op)
 	return true
 }
@@ -190,6 +195,7 @@ func drawRecoloredMobileFrameBlend(destination, previous, previousInfluence, cur
 	op := &state.op
 	op.Images[0], op.Images[1] = previous, previousInfluence
 	op.Images[2], op.Images[3] = current, currentInfluence
+	state.flash = options.FlashColor
 	destination.DrawTrianglesShader32(vertices[:], frameBlendIndices, mobileRecolorBlendShader, op)
 	return true
 }

@@ -719,14 +719,12 @@
       "flags": 49152,
       "custom_colors": false,
       "category": "effect",
-      "label": "Red segmented star-shaped graphic",
+      "label": "blood spurt",
       "tags": [
         "red",
-        "star",
-        "symbol"
+        "blood spurt"
       ],
       "visual_confidence": "low",
-      "notes": "Small curled radial shape; effect, marker, or object role unknown.",
       "evidence": [
         "visual-review"
       ]

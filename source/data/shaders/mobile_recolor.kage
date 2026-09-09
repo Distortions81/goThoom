@@ -5,6 +5,7 @@ package main
 const PaletteSize = 30
 
 var (
+	FlashColor vec4
 	PaletteR [PaletteSize]float
 	PaletteG [PaletteSize]float
 	PaletteB [PaletteSize]float
@@ -51,5 +52,6 @@ func sampleRecolored(pos vec2, linear bool) vec4 {
 }
 
 func Fragment(_ vec4, srcPos vec2, color vec4, custom vec4) vec4 {
-	return sampleRecolored(srcPos, custom.x >= 0.5) * color
+	result := sampleRecolored(srcPos, custom.x >= 0.5) * color
+	return vec4(mix(result.rgb, FlashColor.rgb*result.a, FlashColor.a), result.a)
 }

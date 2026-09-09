@@ -24,17 +24,37 @@ type scriptWindowState struct {
 	label     *eui.ItemData
 	buttons   map[string]*eui.ItemData
 	controls  map[string]*scriptWindowControl
+	rows      *eui.ItemData
+	rowIDs    map[string]bool
+	rowList   *eui.ItemData
+	rowCount  int
+	options   scriptapi.WindowOptions
 	text      string
 	width     float32
 	scale     float32
 }
 
 func validateScriptWindowOptions(options scriptapi.WindowOptions) error {
-	if len(options.Buttons) > 8 {
-		return fmt.Errorf("script window supports at most eight buttons")
+	if len(options.Rows) > 256 {
+		return fmt.Errorf("script window supports at most 256 rows")
 	}
 	ids := map[string]bool{}
-	for _, b := range options.Buttons {
+	if err := validateScriptWindowGroup(options.Controls, options.Buttons, ids); err != nil {
+		return err
+	}
+	for _, row := range options.Rows {
+		if err := validateScriptWindowGroup(row.Controls, row.Buttons, ids); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateScriptWindowGroup(controls []scriptapi.WindowControl, buttons []scriptapi.WindowButton, ids map[string]bool) error {
+	if len(buttons) > 8 {
+		return fmt.Errorf("script window supports at most eight buttons")
+	}
+	for _, b := range buttons {
 		if strings.TrimSpace(b.ID) == "" || ids[b.ID] {
 			return fmt.Errorf("script window button IDs must be nonempty and unique")
 		}
@@ -43,7 +63,7 @@ func validateScriptWindowOptions(options scriptapi.WindowOptions) error {
 		}
 		ids[b.ID] = true
 	}
-	return validateScriptWindowControls(options, ids)
+	return validateScriptWindowControls(scriptapi.WindowOptions{Controls: controls}, ids)
 }
 
 // create and all update closures run on the client thread after staging.
@@ -81,17 +101,41 @@ func (w Window) create(options scriptapi.WindowOptions) {
 	s.label.Face = nil
 	s.setText(options.Text)
 	column := eui.NewColumn(s.label)
-	s.addControls(column, options.Controls)
-	s.buttons = make(map[string]*eui.ItemData, len(options.Buttons))
+	s.options = options
+	s.controls = make(map[string]*scriptWindowControl)
+	s.buttons = make(map[string]*eui.ItemData)
+	s.addControls(column, options.Controls, s.width, false)
+	s.rows = eui.NewColumn()
+	column.AddItem(s.rows)
+	s.rebuildRows(options.Rows)
+	s.addButtons(column, options.Buttons, s.width, false)
+	s.ui.AddItem(column)
+	s.ui.OnResize = func() {
+		if s.scale != eui.UIScale() {
+			s.setText(s.text)
+			s.ui.Refresh()
+		}
+	}
+	s.ui.AddWindow(false)
+	s.ui.MarkOpen()
+}
+
+func (s *scriptWindowState) addButtons(column *eui.ItemData, options []scriptapi.WindowButton, width float32, inline bool) {
+	queue := s.handle.queue
 	var row *eui.ItemData
-	for i, option := range options.Buttons {
-		if i%2 == 0 {
+	for i, option := range options {
+		if inline {
+			row = column
+		} else if i%2 == 0 {
 			row = eui.NewRow()
 			column.AddItem(row)
 		}
 		button, events := eui.NewButton()
 		button.Text = option.Label
-		button.Size = eui.Point{X: (s.width - 16) / 2, Y: 34}
+		button.Size = eui.Point{X: (width - 16) / 2, Y: 34}
+		if inline {
+			button.Size.X = width
+		}
 		button.Disabled = option.Disabled
 		button.SetTooltip(option.Tooltip)
 		s.buttons[option.ID] = button
@@ -112,15 +156,6 @@ func (w Window) create(options scriptapi.WindowOptions) {
 		}
 		row.AddItem(button)
 	}
-	s.ui.AddItem(column)
-	s.ui.OnResize = func() {
-		if s.scale != eui.UIScale() {
-			s.setText(s.text)
-			s.ui.Refresh()
-		}
-	}
-	s.ui.AddWindow(false)
-	s.ui.MarkOpen()
 }
 
 func (s *scriptWindowState) setText(value string) {

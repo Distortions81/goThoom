@@ -9,18 +9,20 @@ import (
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"gothoom/climg"
 	"gothoom/eui"
 	scriptapi "gt2"
 )
 
 // Run alone: this starts Ebitengine's game loop and exports visual QA images.
 func TestRenderScriptWindow(t *testing.T) {
+	lasties := os.Getenv("GOTHOOM_RENDER_LASTIES") != ""
 	controls := os.Getenv("GOTHOOM_RENDER_SCRIPT_CONTROLS") != ""
 	settings := os.Getenv("GOTHOOM_RENDER_SCRIPT_SETTINGS")
 	manager := os.Getenv("GOTHOOM_RENDER_SCRIPTS_LIST") != ""
 	permissions := os.Getenv("GOTHOOM_RENDER_SCRIPT_PERMISSIONS") != ""
 	info := os.Getenv("GOTHOOM_RENDER_SCRIPT_INFO") != ""
-	if os.Getenv("GOTHOOM_RENDER_SCRIPT_WINDOW") == "" && !permissions && !info && !manager && settings == "" && !controls {
+	if os.Getenv("GOTHOOM_RENDER_SCRIPT_WINDOW") == "" && !permissions && !info && !manager && settings == "" && !controls && !lasties {
 		t.Skip("set GOTHOOM_RENDER_SCRIPT_WINDOW=1")
 	}
 	initFont()
@@ -34,7 +36,37 @@ func TestRenderScriptWindow(t *testing.T) {
 	var panel Window
 	var native *eui.WindowData
 	prefix := "follow"
-	if controls {
+	if lasties {
+		prefix = "lasties"
+		original := clImages
+		if path := os.Getenv("GOTHOOM_TEST_CL_IMAGES"); path != "" {
+			var err error
+			clImages, err = climg.Load(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { clearCaches(); clImages = original })
+		}
+		sim := activateBundledProofScript(t, owner, "mark_beasts.go")
+		for _, id := range []uint16{22, 71, 82} {
+			click := makeScriptInputEvent("Alt-LeftClick")
+			click.OnMobile, click.Mobile.PictID = true, id
+			sim.input(t, click)
+		}
+		sim.barrier(t)
+		value, err := currentScriptEventQueue(owner).interpreter.Eval("lastiesWindow")
+		if err != nil {
+			t.Fatal(err)
+		}
+		panel = value.Interface().(Window)
+		for index, note := range []string{"Leave last hit for Sam", "Watch for a group nearby", "Check this sprite on the next hunt"} {
+			panel.state.controls[fmt.Sprintf("entry-%d-note", index+1)].item.Handler.Emit(eui.UIEvent{Type: eui.EventInputChanged, Text: note})
+		}
+		sim.barrier(t)
+		panel.state.buttons["add"].Handler.Emit(eui.UIEvent{Type: eui.EventClick})
+		sim.barrier(t)
+		native = panel.state.ui
+	} else if controls {
 		prefix = "controls"
 		resetScriptCallbackTestState(t, owner)
 		create := exportsForscript(owner)["gt2/gt2"]["CreateWindow"].Interface().(func(scriptapi.WindowOptions) Window)
@@ -150,7 +182,7 @@ func (g *scriptWindowRenderGame) Draw(screen *ebiten.Image) {
 	loadMaterialIcons()
 	for index, scale := range []float32{1, 1.5, 2} {
 		eui.SetUIScale(scale)
-		if index > 0 && g.panel.state != nil && g.prefix != "controls" {
+		if index > 0 && g.panel.state != nil && g.prefix == "follow" {
 			g.panel.SetText("Selected: A Player With A Long Character Name\nFollowing: A Player With A Long Character Name\nStatus: Routing")
 			g.panel.SetButtonEnabled("follow", true)
 			g.panel.SetButtonEnabled("stop", true)

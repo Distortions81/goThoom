@@ -91,7 +91,8 @@ func testMobilePalette(key mobileKey, red, green, blue, alpha float32) *mobilePa
 	state := &mobilePaletteShaderState{key: key}
 	state.r[0], state.g[0], state.b[0], state.a[0] = red, green, blue, alpha
 	state.op.Uniforms = map[string]any{
-		"PaletteR": state.r[:], "PaletteG": state.g[:],
+		"FlashColor": state.flash[:],
+		"PaletteR":   state.r[:], "PaletteG": state.g[:],
 		"PaletteB": state.b[:], "PaletteA": state.a[:],
 	}
 	return state

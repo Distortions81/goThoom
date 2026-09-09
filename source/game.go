@@ -23,6 +23,7 @@ import (
 	"gothoom/internal/inputkeys"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -1033,7 +1034,7 @@ func currentWorldRenderKey(width, height int) worldRenderKey {
 
 func worldRenderCanBeReused(g *Game, key worldRenderKey) bool {
 	return g != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
-		!bubbleTorture && !replacementEffectsPreview &&
+		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActive() &&
 		g.worldRenderValid && g.lastWorldRenderKey == key
 }
 
@@ -2555,6 +2556,17 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		}
 		plane = d.Plane
 	}
+	tintRed, tintGreen, tintBlue, tintAlpha := float32(1), float32(1), float32(1), float32(1)
+	if tint, ok := scriptMobileTintForPict(d.PictID); ok {
+		tintRed = float32(tint.r) / 255
+		tintGreen = float32(tint.g) / 255
+		tintBlue = float32(tint.b) / 255
+		tintAlpha = float32(tint.a) / 255
+	}
+	var flashColor [4]float32
+	if flash, ok := scriptMobileFlashForIndex(m.Index); ok {
+		flashColor = [4]float32{float32(flash.r) / 255, float32(flash.g) / 255, float32(flash.b) / 255, float32(flash.a) / 255}
+	}
 	curKey := makeMobileKey(d.PictID, state, colors)
 	metricsKey := curKey
 	if gpuRecolor {
@@ -2643,20 +2655,23 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if sunShade > 0 {
 			brightness = 1 - sunShade
 		}
+		if outline, ok := scriptMobileOutlineForPict(d.PictID); ok {
+			drawMobileSpriteOutline(screen, img, tx, ty, scale, outline)
+		}
 		drawn := false
+		drawOptions := frameBlendDrawOptions{
+			Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: fade,
+			Red: brightness * tintRed, Green: brightness * tintGreen, Blue: brightness * tintBlue, Alpha: tintAlpha,
+			Linear: worldArtworkFilter() == ebiten.FilterLinear, FlashColor: flashColor,
+		}
 		if blend {
-			blendOptions := frameBlendDrawOptions{
-				Left: tx, Top: ty, ScaleX: scale, ScaleY: scale, Fade: fade,
-				Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
-				Linear: worldArtworkFilter() == ebiten.FilterLinear,
-			}
 			if gpuRecolor && prevGPURecolor {
-				drawn = drawRecoloredMobileFrameBlend(screen, prevImg, prevInfluence, img, influence, prevPalette, palette, blendOptions)
+				drawn = drawRecoloredMobileFrameBlend(screen, prevImg, prevInfluence, img, influence, prevPalette, palette, drawOptions)
 			} else {
-				drawn = drawFrameBlend(screen, prevImg, img, blendOptions)
+				drawn = drawFrameBlend(screen, prevImg, img, drawOptions)
 			}
 			if drawn {
-				clearLayeredShadowCoverageFrameBlend(prevImg, img, blendOptions)
+				clearLayeredShadowCoverageFrameBlend(prevImg, img, drawOptions)
 			}
 		}
 		if !drawn {
@@ -2664,11 +2679,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				src = img
 			}
 			if srcGPURecolor {
-				drawn = drawRecoloredMobile(screen, src, srcInfluence, srcPalette, frameBlendDrawOptions{
-					Left: tx, Top: ty, ScaleX: scale, ScaleY: scale,
-					Red: brightness, Green: brightness, Blue: brightness, Alpha: 1,
-					Linear: worldArtworkFilter() == ebiten.FilterLinear,
-				})
+				drawn = drawRecoloredMobile(screen, src, srcInfluence, srcPalette, drawOptions)
 			}
 			if drawn {
 				op := acquireDrawOpts()
@@ -2682,12 +2693,16 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 				op := acquireDrawOpts()
 				op.Filter = worldArtworkFilter()
 				op.DisableMipmaps = true
-				if brightness < 1 {
-					op.ColorScale.Scale(brightness, brightness, brightness, 1)
+				if brightness < 1 || tintRed != 1 || tintGreen != 1 || tintBlue != 1 || tintAlpha != 1 {
+					op.ColorScale.Scale(brightness*tintRed, brightness*tintGreen, brightness*tintBlue, tintAlpha)
 				}
 				op.GeoM.Scale(scale, scale)
 				op.GeoM.Translate(tx, ty)
-				screen.DrawImage(src, op)
+				if flashColor[3] > 0 {
+					drawMobileFlashImage(screen, src, drawOptions)
+				} else {
+					screen.DrawImage(src, op)
+				}
 				clearLayeredShadowCoverageImage(src, op)
 				releaseDrawOpts(op)
 			}
@@ -2716,6 +2731,29 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 			text.Draw(screen, lbl, mainFont, op)
 			releaseTextDrawOpts(op)
 		}
+	}
+}
+
+// drawMobileSpriteOutline draws offset copies of the sprite before its normal
+// draw. Because it runs in drawMobile, it inherits its selected animation
+// frame, scale, and interpolated position.
+func drawMobileSpriteOutline(screen, sprite *ebiten.Image, x, y, scale float64, outline scriptMobileTint) {
+	if screen == nil || sprite == nil || outline.a == 0 {
+		return
+	}
+	width := max(1, roundToInt(scale*2))
+	// Replace source RGB while preserving its alpha silhouette. Multiplying
+	// artwork colors leaves black edge pixels black regardless of the swatch.
+	var solid colorm.ColorM
+	solid.Scale(0, 0, 0, float64(outline.a)/255)
+	solid.Translate(float64(outline.r)/255, float64(outline.g)/255, float64(outline.b)/255, 0)
+	for _, offset := range [][2]int{{-width, 0}, {width, 0}, {0, -width}, {0, width}, {-width, -width}, {-width, width}, {width, -width}, {width, width}} {
+		op := &colorm.DrawImageOptions{}
+		op.Filter = worldArtworkFilter()
+		op.GeoM.Scale(scale, scale)
+		op.GeoM.Translate(x+float64(offset[0]), y+float64(offset[1]))
+		op.Blend = ebiten.BlendSourceOver
+		colorm.DrawImage(screen, sprite, solid, op)
 	}
 }
 

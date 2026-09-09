@@ -47,6 +47,9 @@ func resetScriptCallbackTestState(t *testing.T, owner string) {
 	scriptChangeHandlers = nil
 	overlayMu = sync.RWMutex{}
 	scriptOverlayOps = map[string][]overlayOp{}
+	scriptMobileTints = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileOutlines = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileFlashes = map[string]map[uint8]scriptMobileFlash{}
 	scriptConfigMu = sync.RWMutex{}
 	scriptConfigEntries = map[string][]scriptConfigEntry{}
 	scriptStoreMu = sync.Mutex{}

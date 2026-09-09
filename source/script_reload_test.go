@@ -12,6 +12,17 @@ import (
 )
 
 func TestRescanReloadsEnabledScript(t *testing.T) {
+	testScriptReload(t, "")
+}
+
+func TestReloadReadsScriptFromDisk(t *testing.T) {
+	for _, kind := range []string{"file", "directory", "zip"} {
+		t.Run(kind, func(t *testing.T) { testScriptReload(t, kind) })
+	}
+}
+
+func testScriptReload(t *testing.T, kind string) {
+	t.Helper()
 	isolateScriptScopeSelection(t)
 	scriptSessionLogin("Tester")
 	origDataDir := dataDirPath
@@ -65,11 +76,38 @@ func TestRescanReloadsEnabledScript(t *testing.T) {
 	scriptHotkeyEnabled = map[string]map[string]bool{}
 	overlayMu = sync.RWMutex{}
 	scriptOverlayOps = map[string][]overlayOp{}
+	scriptMobileTints = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileOutlines = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileFlashes = map[string]map[uint8]scriptMobileFlash{}
 	scriptStoreMu = sync.Mutex{}
 	scriptStores = map[string]*scriptStore{}
 
 	dir := t.TempDir()
+	gs.ScriptsPath = dir
 	path := filepath.Join(dir, "refresh.go")
+	if kind == "directory" {
+		if err := os.Mkdir(filepath.Join(dir, "refresh"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		path = filepath.Join(dir, "refresh", "main.go")
+	} else if kind == "zip" {
+		path = filepath.Join(dir, "refresh.zip")
+	}
+	writeSource := func(src string) {
+		t.Helper()
+		if kind == "zip" {
+			writeScriptZip(t, path, map[string]string{"main.go": src})
+		} else if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reload := func() {
+		if kind == "" {
+			rescanScripts([]string{dir})
+		} else {
+			reloadscript("refresh")
+		}
+	}
 	writeVersion := func(version string) {
 		t.Helper()
 		src := `package main
@@ -78,6 +116,7 @@ import (
 	"gt2"
 )
 const scriptName = "Refresh"
+const scriptID = "refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 2
@@ -96,9 +135,7 @@ func Terminate() {
 	gt2.Store("termination_count", gt2.LoadInteger("termination_count", 0)+1)
 }
 `
-		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
-			t.Fatalf("write script: %v", err)
-		}
+		writeSource(src)
 	}
 	const owner = "refresh"
 	grantScriptPermissionsForTest(t, owner)
@@ -158,7 +195,7 @@ func Terminate() {
 	saveHotkeys()
 
 	writeVersion("two")
-	rescanScripts([]string{dir})
+	reload()
 	if scriptStorageGet(owner, "loaded_version") != "two" {
 		t.Fatalf("enabled script was not reloaded")
 	}
@@ -208,15 +245,14 @@ func Terminate() {
 	brokenSource := `package main
 import "gt2"
 const scriptName = "Refresh"
+const scriptID = "refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 2
 func Init() { gt2.Store("loaded_version", "compile-broken")
 `
-	if err := os.WriteFile(path, []byte(brokenSource), 0o644); err != nil {
-		t.Fatalf("write malformed script: %v", err)
-	}
-	rescanScripts([]string{dir})
+	writeSource(brokenSource)
+	reload()
 	if got := scriptStorageGet(owner, "loaded_version"); got != "two" {
 		t.Fatalf("compile failure changed running script storage: %v", got)
 	}
@@ -233,6 +269,7 @@ func Init() { gt2.Store("loaded_version", "compile-broken")
 	panicSource := `package main
 import "gt2"
 const scriptName = "Refresh"
+const scriptID = "refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 2
@@ -242,10 +279,8 @@ func Init() {
 	panic("boom")
 }
 `
-	if err := os.WriteFile(path, []byte(panicSource), 0o644); err != nil {
-		t.Fatalf("write panicking script: %v", err)
-	}
-	rescanScripts([]string{dir})
+	writeSource(panicSource)
+	reload()
 	if got := scriptStorageGet(owner, "loaded_version"); got != "two" {
 		t.Fatalf("Init panic committed staged storage: %v", got)
 	}
@@ -264,17 +299,16 @@ func Init() {
 
 	timeoutSource := `package main
 const scriptName = "Refresh"
+const scriptID = "refresh"
 const scriptAuthor = "Test"
 const scriptCategory = "Tests"
 const scriptAPIVersion = 2
 func Init() { for {} }
 `
-	if err := os.WriteFile(path, []byte(timeoutSource), 0o644); err != nil {
-		t.Fatalf("write timing-out script: %v", err)
-	}
+	writeSource(timeoutSource)
 	origCallbackLimit := scriptCallbackTimeLimit
 	scriptCallbackTimeLimit = 20 * time.Millisecond
-	rescanScripts([]string{dir})
+	reload()
 	scriptCallbackTimeLimit = origCallbackLimit
 	if got := scriptStorageGet(owner, "loaded_version"); got != "two" {
 		t.Fatalf("Init timeout changed running script storage: %v", got)
@@ -293,7 +327,7 @@ func Init() { for {} }
 	}
 
 	writeVersion("three")
-	rescanScripts([]string{dir})
+	reload()
 	if scriptStorageGet(owner, "loaded_version") != "three" {
 		t.Fatal("valid script did not replace failed candidates")
 	}
@@ -307,6 +341,19 @@ func Init() { for {} }
 	sim.command(t, "refresh_cmd", "")
 	if got := scriptStorageGet(owner, "command_version"); got != "three" {
 		t.Fatalf("final replacement callback is not active: %v", got)
+	}
+	if kind != "" {
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		reload()
+		if !scriptIsRunning(owner) || !scriptReloadFailed[owner] {
+			t.Fatal("missing source should report a failed reload and keep the working script")
+		}
+		sim.command(t, "refresh_cmd", "")
+		if got := scriptStorageGet(owner, "command_version"); got != "three" {
+			t.Fatalf("missing source replaced the working callback: %v", got)
+		}
 	}
 	shutdownScripts()
 	persisted = readStoredValues()

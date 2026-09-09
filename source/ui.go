@@ -968,7 +968,7 @@ func refreshscriptsWindow() {
 				reloadBtn, rh := eui.NewButton()
 				reloadBtn.Text = "Reload"
 				setMaterialIconOnly(reloadBtn, "restart_alt", "Reload")
-				reloadBtn.SetTooltip("Restart this script if enabled")
+				reloadBtn.SetTooltip("Reload this script from disk")
 				reloadBtn.Size = eui.Point{X: 28, Y: 28}
 				reloadBtn.Disabled = e.disabled
 				rh.Handle = func(ev eui.UIEvent) {
@@ -977,7 +977,7 @@ func refreshscriptsWindow() {
 						enabled := !scriptDisabled[owner]
 						scriptMu.RUnlock()
 						if enabled {
-							enablescript(owner)
+							reloadscript(owner)
 						}
 					}
 				}
@@ -1276,7 +1276,7 @@ func refreshscriptDetails() {
 		settingsButton.SetTooltip("Edit preferences, key bindings, and local command names.")
 	}
 	group()
-	button("Reload", disabled || invalid, func() { enablescript(owner) })
+	button("Reload", disabled || invalid, func() { reloadscript(owner) })
 	button("Stop", disabled, func() { clearscriptScope(owner) })
 	group()
 	button("Close", false, func() {

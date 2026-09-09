@@ -66,13 +66,15 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 		"Storage": (*Storage)(nil), "Task": (*Task)(nil), "CommandTicket": (*CommandTicket)(nil),
 		"CommandStatus": (*scriptapi.CommandStatus)(nil), "PlayerChangeEvent": (*scriptapi.PlayerChangeEvent)(nil),
 		"WindowControl": (*scriptapi.WindowControl)(nil), "WindowControlEvent": (*scriptapi.WindowControlEvent)(nil),
+		"WindowRow":     (*scriptapi.WindowRow)(nil),
 		"CommandQueued": scriptapi.CommandQueued, "CommandSent": scriptapi.CommandSent,
 		"CommandCancelled": scriptapi.CommandCancelled, "CommandRejected": scriptapi.CommandRejected,
 		"PlayerDiscovered": scriptapi.PlayerDiscovered, "PlayerRemoved": scriptapi.PlayerRemoved,
 		"PlayerLogin": scriptapi.PlayerLogin, "PlayerLogout": scriptapi.PlayerLogout,
 		"PlayerFallen": scriptapi.PlayerFallen, "PlayerRecovered": scriptapi.PlayerRecovered, "PlayerSharing": scriptapi.PlayerSharing,
 		"ControlText": scriptapi.ControlText, "ControlCheckbox": scriptapi.ControlCheckbox,
-		"ControlDropdown": scriptapi.ControlDropdown, "ControlList": scriptapi.ControlList,
+		"ControlDropdown": scriptapi.ControlDropdown, "ControlList": scriptapi.ControlList, "ControlColor": scriptapi.ControlColor,
+		"ControlImage": scriptapi.ControlImage,
 	} {
 		m[name] = reflect.ValueOf(value)
 	}

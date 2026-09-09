@@ -248,11 +248,13 @@ func TestScriptWindowRichControls(t *testing.T) {
 import "gt2"
 var panel gt2.Window
 func changed(e gt2.WindowControlEvent){gt2.Store(e.ID,e.Text);gt2.Store("edits",gt2.LoadInteger("edits",0)+1)}
+func colorChanged(e gt2.WindowControlEvent){gt2.Store("color",int(e.Color));gt2.Store("edits",gt2.LoadInteger("edits",0)+1)}
 func Init(){panel=gt2.CreateWindow(gt2.WindowOptions{Title:"Controls",Controls:[]gt2.WindowControl{
  {ID:"name",Label:"Name",Kind:gt2.ControlText,Text:"Pebble",OnChange:changed},
  {ID:"enabled",Label:"Enabled",Kind:gt2.ControlCheckbox,OnChange:changed},
  {ID:"mode",Label:"Mode",Kind:gt2.ControlDropdown,Options:[]string{"One","Two"},OnChange:changed},
  {ID:"players",Label:"Players",Kind:gt2.ControlList,Options:[]string{"Pebble","Other"},OnChange:changed},
+ {ID:"accent",Label:"Accent",Kind:gt2.ControlColor,Color:0x11223344,OnChange:colorChanged},
 }})}
 `)
 	v, _ := prepared.interpreter.Eval("panel")
@@ -260,35 +262,50 @@ func Init(){panel=gt2.CreateWindow(gt2.WindowOptions{Title:"Controls",Controls:[
 	sim := scriptEventSimulator{owner}
 	sim.barrier(t)
 	controls := panel.state.controls
+	oldPicker := colorPickerWin
+	colorPickerWin = nil
+	t.Cleanup(func() {
+		if colorPickerWin != nil {
+			colorPickerWin.Close()
+		}
+		colorPickerWin = oldPicker
+	})
+	controls["accent"].item.Handler.Emit(eui.UIEvent{Type: eui.EventClick})
+	if colorPickerWin == nil || !controls["accent"].item.ColorSwatch {
+		t.Fatal("color control did not open the existing color picker")
+	}
+	colorPickerWin.Close()
 	controls["name"].item.Handler.Emit(eui.UIEvent{Type: eui.EventInputChanged, Text: "Edited"})
 	controls["enabled"].item.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: true})
 	controls["mode"].item.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected, Index: 1})
 	oldRow := controls["players"].item.Contents[1]
 	oldRow.Handler.Emit(eui.UIEvent{Type: eui.EventRadioSelected})
+	panel.state.colorPicked(controls["accent"], 0xaabbccdd, controls["accent"].revision)
 	sim.barrier(t)
-	if scriptStorageGet(owner, "edits") != 4 || scriptStorageGet(owner, "players") != "Other" {
-		t.Fatal("control callbacks failed")
+	if scriptStorageGet(owner, "edits") != 5 || scriptStorageGet(owner, "players") != "Other" || scriptStorageGet(owner, "color") != int(0xaabbccdd) {
+		t.Fatalf("control callbacks failed: edits=%v players=%v color=%v", scriptStorageGet(owner, "edits"), scriptStorageGet(owner, "players"), scriptStorageGet(owner, "color"))
 	}
 	panel.SetControlText("name", "Programmatic")
 	panel.SetControlChecked("enabled", false)
 	panel.SetControlSelected("mode", 0)
 	panel.SetControlOptions("players", []string{"New"})
+	panel.SetControlColor("accent", 0x102030ff)
 	panel.SetControlEnabled("mode", false)
 	sim.barrier(t)
 	oldRow.Handler.Emit(eui.UIEvent{Type: eui.EventRadioSelected})
 	controls["mode"].item.Handler.Emit(eui.UIEvent{Type: eui.EventDropdownSelected, Index: 1})
 	sim.barrier(t)
-	if scriptStorageGet(owner, "edits") != 4 {
+	if scriptStorageGet(owner, "edits") != 5 {
 		t.Fatal("programmatic/stale/disabled update fired callback")
 	}
-	if controls["name"].item.Text != "Programmatic" || controls["enabled"].item.Checked || controls["mode"].item.Selected != 0 || len(controls["players"].item.Contents) != 1 {
+	if controls["name"].item.Text != "Programmatic" || controls["enabled"].item.Checked || controls["mode"].item.Selected != 0 || len(controls["players"].item.Contents) != 1 || packScriptWindowColor(controls["accent"].item.WheelColor) != 0x102030ff {
 		t.Fatal("programmatic update failed")
 	}
 	panel.Remove()
 	sim.barrier(t)
 	controls["name"].item.Handler.Emit(eui.UIEvent{Type: eui.EventInputChanged, Text: "stale"})
 	sim.barrier(t)
-	if scriptStorageGet(owner, "edits") != 4 {
+	if scriptStorageGet(owner, "edits") != 5 {
 		t.Fatal("removed control fired")
 	}
 }
@@ -353,10 +370,27 @@ func TestScriptWindowControlValidation(t *testing.T) {
 		{Controls: []scriptapi.WindowControl{{ID: "unknown", Label: "Unknown", Kind: "bogus"}}},
 		{Controls: []scriptapi.WindowControl{{ID: "bad", Label: "Bad", Kind: scriptapi.ControlList, Options: []string{"one"}, Selected: 2}}},
 		{Controls: []scriptapi.WindowControl{{ID: "", Label: "Empty", Kind: scriptapi.ControlText}}},
+		{Rows: make([]scriptapi.WindowRow, 257)},
+		{Controls: []scriptapi.WindowControl{{ID: "same", Label: "Top", Kind: scriptapi.ControlText}}, Rows: []scriptapi.WindowRow{{Controls: []scriptapi.WindowControl{{ID: "same", Label: "Row", Kind: scriptapi.ControlText}}}}},
+		{Rows: []scriptapi.WindowRow{{Controls: []scriptapi.WindowControl{{ID: "bad", Label: "Bad", Kind: "unknown"}}}}},
 	} {
 		if validateScriptWindowOptions(options) == nil {
 			t.Fatalf("accepted invalid controls: %+v", options)
 		}
+	}
+}
+
+func TestScriptWindowRowsCloneInputs(t *testing.T) {
+	options := scriptapi.WindowOptions{Rows: []scriptapi.WindowRow{{
+		Controls: []scriptapi.WindowControl{{ID: "choices", Label: "Choices", Kind: scriptapi.ControlList, Options: []string{"one"}, OptionImages: []uint16{22}}},
+		Buttons:  []scriptapi.WindowButton{{ID: "delete", Label: "×", OnClick: func() {}}},
+	}}}
+	cloned := cloneScriptWindowOptions(options)
+	options.Rows[0].Controls[0].Options[0] = "changed"
+	options.Rows[0].Controls[0].OptionImages[0] = 71
+	options.Rows[0].Buttons[0].Label = "changed"
+	if cloned.Rows[0].Controls[0].Options[0] != "one" || cloned.Rows[0].Controls[0].OptionImages[0] != 22 || cloned.Rows[0].Buttons[0].Label != "×" {
+		t.Fatal("row options retain mutable aliases")
 	}
 }
 

@@ -66,7 +66,6 @@ func ShowColorPicker(title string, initial Color, apply func(Color)) *WindowData
 	root.AddItem(columns)
 	wheel, _ := NewColorWheel()
 	wheel.Size = Point{X: 192, Y: 192}
-	wheel.SetTooltip("Choose hue and brightness; saturation is adjustable on the right.")
 	left.AddItem(wheel)
 	preview, _ := NewButton()
 	preview.ColorSwatch, preview.Filled = true, true

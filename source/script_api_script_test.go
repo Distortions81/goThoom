@@ -206,6 +206,9 @@ func TestScriptAPIFull(t *testing.T) {
 	scriptChangeHandlers = nil
 	overlayMu = sync.RWMutex{}
 	scriptOverlayOps = map[string][]overlayOp{}
+	scriptMobileTints = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileOutlines = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileFlashes = map[string]map[uint8]scriptMobileFlash{}
 	scriptRepeats = map[string][]*scriptRepeatRegistration{}
 	scriptTickWaiters = map[string][]*tickWaiter{}
 
@@ -291,6 +294,18 @@ func TestScriptAPIFull(t *testing.T) {
 	overlayMu.RUnlock()
 	if len(ops) < 3 {
 		t.Fatalf("overlay ops: %+v", ops)
+	}
+	overlayMu.RLock()
+	tint := scriptMobileTints[owner][456]
+	overlayMu.RUnlock()
+	if tint != (scriptMobileTint{r: 128, g: 255, b: 128, a: 192}) {
+		t.Fatalf("mobile tint = %+v", tint)
+	}
+	if outline := scriptMobileOutlines[owner][456]; outline != (scriptMobileTint{r: 255, g: 64, b: 64, a: 255}) {
+		t.Fatalf("mobile outline = %+v", outline)
+	}
+	if flash, ok := scriptMobileFlashForIndex(7); !ok || flash != (scriptMobileTint{r: 255, g: 48, b: 48, a: 255}) {
+		t.Fatalf("mobile flash = %+v, %v", flash, ok)
 	}
 
 	// World size and image size

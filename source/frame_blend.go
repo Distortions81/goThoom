@@ -13,6 +13,7 @@ type frameBlendDrawOptions struct {
 	Blue           float32
 	Alpha          float32
 	Linear         bool
+	FlashColor     [4]float32 // Straight RGB and replacement strength; zero leaves artwork unchanged.
 }
 
 // premultipliedDrawColor converts a straight-alpha tint into the format used
@@ -74,6 +75,9 @@ func drawFrameBlend(destination, previous, current *ebiten.Image, options frameB
 	shaderOptions := &ebiten.DrawTrianglesShaderOptions{}
 	shaderOptions.Images[0] = previous
 	shaderOptions.Images[1] = current
+	if options.FlashColor[3] > 0 {
+		shaderOptions.Uniforms = map[string]any{"FlashColor": options.FlashColor[:]}
+	}
 	destination.DrawTrianglesShader32(vertices[:], frameBlendIndices, frameBlendShader, shaderOptions)
 	return true
 }

@@ -16,7 +16,8 @@ engine; you do not need to compile the client.
 3. Select the script and enable it for **All** players or the selected **Player**.
    Review its permissions. Enabled scripts run after successful login.
 4. Save your changes. goThoom notices file changes and reloads enabled scripts
-   automatically. **Refresh** forces a rescan.
+   automatically. **Reload** reads the selected script from disk and restarts it.
+   **Refresh** rescans the folder.
 
 The first time `Scripts` in the user data folder has no script packages,
 goThoom copies its embedded examples there. Your existing scripts are never
@@ -96,6 +97,8 @@ understand.
 - `gt2.CurrentWorld()` and `gt2.OnWorld(handler)` expose mobiles, scenery,
   sprite planes and sizes, your on-screen character, frame timing, lighting,
   and estimated camera motion.
+- `gt2.SetMobileTint(id, r, g, b, a)` tints visible mobiles with that sprite ID.
+- `gt2.FlashMobile(index, r, g, b, a, duration)` briefly replaces a visible mobile's colors with a flash color.
 - `gt2.Move(x, y)`, `gt2.StopMoving()`, and `gt2.Movement()` steer through the
   normal game input loop and report script/manual movement state.
 - `gt2.Wait(...)` and `gt2.WaitTicks(...)` pause only the current script task.
@@ -223,7 +226,7 @@ count. Scripts cannot grant themselves access.
 | Game data and events | `OnPlayerChange`, `Self`, `Players`, inventory queries, selections, `CurrentWorld`, `OnWorld`, `OnChange`, image/world sizes, inventory/equipment waits, `WithEquipment`, `ItemSelector` |
 | Chat and server messages | `OnChat`, `OnServerMessage`, `LatestServerMessage`, including private messages |
 | Automatic movement | `Move`, `Movement` |
-| Windows, toolbars and overlays | `CreateWindow`, `AddToolbar`, overlay drawing |
+| Windows, toolbars and overlays | `CreateWindow`, `AddToolbar`, color pickers, overlay drawing, mobile tints, outlines and flashes |
 | Input box and pointer | `InputText`, `SetInputText`, `LastClick`, `Hover` |
 | Notifications and sound | `ShowNotification`, `PlaySound` |
 | Persistent script storage | `CharacterStore` and its methods, `Store`, all `Load*` helpers, `DeleteStored`, `MigrateStorage` |
@@ -419,6 +422,32 @@ slow handlers can miss intermediate frames. Use frame numbers to avoid double
 counting movement. No world coordinates beyond the visible scene or server
 collision map are available.
 
+### Mobile sprite tints
+
+`SetMobileTint(id, r, g, b, a)` applies a multiplicative RGBA tint to every
+visible mobile using that sprite ID. `ClearMobileTint(id)` removes one tint and
+`ClearMobileTints()` removes every tint owned by the calling script. Tints are
+released automatically when the script stops or reloads. The values multiply
+the sprite's existing color and opacity, so use light colors for a visible
+colored cue: `255, 128, 128, 255` makes a bright red-tinted marker without
+making the sprite nearly black.
+
+This API is useful when a creature type needs a distinct reminder during a
+hunt. It affects the sprite image only; names, shadows, and collision behavior
+are unchanged. If scripts tint the same ID, the tint belonging to the
+lexicographically last script ID is used. A script can combine this with
+`OnWorld` and the regular overlay functions to draw an outline around the same
+mobiles.
+
+`FlashMobile(index, r, g, b, a, duration)` briefly recolors one visible
+mobile. It is useful for responding to an effect picture that appears at a
+mobile's center, such as a hit indicator. The flash automatically expires after
+`duration`; call it again while the effect remains visible to extend the cue.
+At alpha 255 the sprite becomes the solid flash color while retaining its shape
+and transparency. Lower alpha values mix the flash with the normal artwork.
+As with tints, scripts sharing an
+index resolve to the lexicographically last script ID.
+
 `Move(x, y)` supplies the same target as holding the movement mouse at those
 centered coordinates. It does not warp the desktop cursor or find a route.
 Refresh it more frequently than every 500 milliseconds. Each request replaces
@@ -484,6 +513,14 @@ clearance still needs in-game tuning.
 
 ## Script-owned windows
 
+The **Mark Beasts** example shows a sprite preview, editable ID, tint and outline
+swatches, notes, and a delete button on each row. Use it for last-hit reminders,
+creature identification, or other notes about a sprite type. **Add** creates a
+blank row. Notes and colors save automatically, including on blank rows.
+**Effects** controls outlines and hit flashes; Alt-click a creature to add or
+remove its sprite type. Open it from **Mark Beasts** on the toolbar or `/marks`.
+The `/lasties` command also opens it.
+
 `gt2.CreateWindow` creates an independent, movable client window with wrapped
 status text, up to eight buttons, and up to 32 controls. It returns a `gt2.Window` handle. Use
 `SetText`, `SetButtonEnabled`, `Show`, `Hide`, and `Remove` on that handle; updates
@@ -525,10 +562,16 @@ a unique `ID`, a `Label`, and a `Kind`. Control and button IDs share one namespa
 | `ControlCheckbox` | `Checked` | `event.Checked` |
 | `ControlDropdown` | `Options`, `Selected` | `event.Selected`, `event.Text` |
 | `ControlList` | `Options`, `Selected` | `event.Selected`, `event.Text` |
+| `ControlColor` | packed `Color` (`0xRRGGBBAA`) | `event.Color` |
+| `ControlImage` | sprite ID in `Image` (zero for an empty preview) | None |
 
 `ControlList` shows selectable rows in a scrolling area. Lists and dropdowns
 accept up to 256 strings. `Selected` is a zero-based index, or -1 for no selection;
-an empty option list always has no selection. `Disabled` and `Tooltip` apply to
+an empty option list always has no selection. Set `OptionImages` to a matching
+slice of sprite IDs to show artwork beside list rows. Pass the same slice as the
+optional third argument to `SetControlOptions` when replacing the rows.
+`ControlColor` uses the client's color swatch and HSV/opacity picker.
+`Disabled` and `Tooltip` apply to
 every kind. `OnChange` is optional and runs on the serialized script callback queue:
 
 ```go
@@ -546,10 +589,18 @@ panel := gt2.CreateWindow(gt2.WindowOptions{
 panel.SetControlText("message", "Rest and recover")
 ```
 
-Use `SetControlText`, `SetControlChecked`, `SetControlSelected`,
+Use `SetControlText`, `SetControlChecked`, `SetControlColor`, `SetControlImage`, `SetControlSelected`,
 `SetControlOptions`, and `SetControlEnabled` to update controls on an existing
 window. Programmatic changes do not fire `OnChange`. Replacing options clears
 the selection; set it again explicitly if needed. Invalid IDs, mismatched kinds,
 and out-of-range selections are ignored. Stopping the script removes its controls
 and discards their callbacks. Control values are session-only unless the script
 saves them.
+
+For inline editing, supply `Rows: []gt2.WindowRow{...}`. Each row groups its
+`Controls` and `Buttons` horizontally; the first row's control labels become
+column headings. Set each control or button's `Width` in logical pixels.
+Rows share the window's ID namespace and use a scrolling area. `SetRows` replaces
+them without moving the window; appended rows scroll into view. Update individual
+fields with the control setters while typing to keep keyboard focus. A window
+accepts up to 256 rows, each with up to 32 controls and eight buttons.

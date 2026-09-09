@@ -2,6 +2,8 @@
 
 package main
 
+var FlashColor vec4
+
 func samplePrevious(pos vec2, linear bool) vec4 {
 	if !linear {
 		return imageSrc0At(pos)
@@ -40,5 +42,6 @@ func Fragment(_ vec4, srcPos vec2, color vec4, custom vec4) vec4 {
 	// image 1's atlas origin internally.
 	currentPos := srcPos + custom.yz
 	linear := custom.w >= 0.5
-	return mix(samplePrevious(srcPos, linear), sampleCurrent(currentPos, linear), custom.x) * color
+	result := mix(samplePrevious(srcPos, linear), sampleCurrent(currentPos, linear), custom.x) * color
+	return vec4(mix(result.rgb, FlashColor.rgb*result.a, FlashColor.a), result.a)
 }

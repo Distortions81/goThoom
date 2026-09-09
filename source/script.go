@@ -1258,6 +1258,27 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["OverlayImage"] = reflect.ValueOf(func(id uint16, x, y int) {
 			stage(func() { scriptOverlayImage(owner, id, x, y) })
 		})
+		m["SetMobileTint"] = reflect.ValueOf(func(id uint16, r, g, b, a uint8) {
+			stage(func() { scriptSetMobileTint(owner, id, r, g, b, a) })
+		})
+		m["ClearMobileTint"] = reflect.ValueOf(func(id uint16) {
+			stage(func() { scriptClearMobileTint(owner, id) })
+		})
+		m["ClearMobileTints"] = reflect.ValueOf(func() {
+			stage(func() { scriptClearMobileTints(owner) })
+		})
+		m["SetMobileOutline"] = reflect.ValueOf(func(id uint16, r, g, b, a uint8) {
+			stage(func() { scriptSetMobileOutline(owner, id, r, g, b, a) })
+		})
+		m["ClearMobileOutline"] = reflect.ValueOf(func(id uint16) {
+			stage(func() { scriptClearMobileOutline(owner, id) })
+		})
+		m["ClearMobileOutlines"] = reflect.ValueOf(func() {
+			stage(func() { scriptClearMobileOutlines(owner) })
+		})
+		m["FlashMobile"] = reflect.ValueOf(func(index uint8, r, g, b, a uint8, duration time.Duration) {
+			stage(func() { scriptFlashMobile(owner, index, r, g, b, a, duration) })
+		})
 		m["WorldSize"] = reflect.ValueOf(func() (int, int) { return gameAreaSizeX, gameAreaSizeY })
 		m["ImageSize"] = reflect.ValueOf(func(id uint16) (int, int) {
 			if clImages == nil {
@@ -1686,9 +1707,12 @@ var (
 	scriptTickWaiters            = map[string][]*tickWaiter{}
 	scriptStopping               = map[string]bool{}
 
-	// Per-script world overlay draw operations.
-	scriptOverlayOps = map[string][]overlayOp{}
-	overlayMu        sync.RWMutex
+	// Per-script world overlay draw operations, mobile pict-ID effects, and flashes.
+	scriptOverlayOps     = map[string][]overlayOp{}
+	scriptMobileTints    = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileOutlines = map[string]map[uint16]scriptMobileTint{}
+	scriptMobileFlashes  = map[string]map[uint8]scriptMobileFlash{}
+	overlayMu            sync.RWMutex
 
 	scriptDebugLines []string
 	scriptDebugMu    sync.Mutex
@@ -1702,6 +1726,13 @@ type overlayOp struct {
 	r, g, b, a uint8
 	text       string // for text
 	id         uint16 // for image (CL_Images pict ID)
+}
+
+type scriptMobileTint struct{ r, g, b, a uint8 }
+
+type scriptMobileFlash struct {
+	scriptMobileTint
+	expires time.Time
 }
 
 type tickWaiter struct {
@@ -2398,6 +2429,36 @@ func stripGoBuildDirectives(src []byte) []byte {
 	return src
 }
 
+// reloadscript refreshes the selected package before restarting it. Enabling
+// from the cached list alone would rerun the source from the last folder scan.
+func reloadscript(owner string) {
+	if scriptExecutionCharacter() == "" {
+		return
+	}
+	info, ok := scanscripts(scriptSearchDirs(), nil)[owner]
+	if !ok || info.invalid {
+		message := "Could not read this script from disk. Refresh the Scripts list if it was moved or its ID changed."
+		if ok && info.err != "" {
+			message = formatScriptError(info.path, fmt.Errorf("%s", info.err))
+		}
+		recordScriptError(owner, message, scriptIsRunning(owner))
+		consoleMessage("[script] reload error: " + message)
+		refreshscriptsWindow()
+		return
+	}
+	scriptMu.Lock()
+	scriptPackages[owner] = info
+	scriptPaths[owner] = info.path
+	scriptDisplayNames[owner] = info.name
+	scriptAuthors[owner] = info.author
+	scriptCategories[owner] = info.category
+	scriptSubCategories[owner] = info.subCategory
+	scriptDescriptions[owner] = info.description
+	scriptAPIVersions[owner] = info.apiVer
+	scriptMu.Unlock()
+	enablescript(owner)
+}
+
 func enablescript(owner string) {
 	if scriptExecutionCharacter() == "" {
 		return
@@ -2497,6 +2558,9 @@ func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) 
 	// Clear overlay ops
 	overlayMu.Lock()
 	delete(scriptOverlayOps, owner)
+	delete(scriptMobileTints, owner)
+	delete(scriptMobileOutlines, owner)
+	delete(scriptMobileFlashes, owner)
 	overlayMu.Unlock()
 	markWorldRenderChanged()
 	// Stop repeating timers and tick waiters for this script.
@@ -3426,6 +3490,161 @@ func scriptOverlayImage(owner string, id uint16, x, y int) {
 	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 2, x: x, y: y, id: id, a: 255, r: 255, g: 255, b: 255})
 	overlayMu.Unlock()
 	markWorldRenderChanged()
+}
+
+func scriptSetMobileTint(owner string, id uint16, r, g, b, a uint8) {
+	if id == 0 || id == 0xffff {
+		return
+	}
+	overlayMu.Lock()
+	if scriptMobileTints[owner] == nil {
+		scriptMobileTints[owner] = map[uint16]scriptMobileTint{}
+	}
+	scriptMobileTints[owner][id] = scriptMobileTint{r: r, g: g, b: b, a: a}
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptClearMobileTint(owner string, id uint16) {
+	overlayMu.Lock()
+	if tints := scriptMobileTints[owner]; tints != nil {
+		delete(tints, id)
+		if len(tints) == 0 {
+			delete(scriptMobileTints, owner)
+		}
+	}
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptClearMobileTints(owner string) {
+	overlayMu.Lock()
+	delete(scriptMobileTints, owner)
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptSetMobileOutline(owner string, id uint16, r, g, b, a uint8) {
+	if id == 0 || id == 0xffff {
+		return
+	}
+	overlayMu.Lock()
+	if scriptMobileOutlines[owner] == nil {
+		scriptMobileOutlines[owner] = map[uint16]scriptMobileTint{}
+	}
+	scriptMobileOutlines[owner][id] = scriptMobileTint{r: r, g: g, b: b, a: a}
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptClearMobileOutline(owner string, id uint16) {
+	overlayMu.Lock()
+	if outlines := scriptMobileOutlines[owner]; outlines != nil {
+		delete(outlines, id)
+		if len(outlines) == 0 {
+			delete(scriptMobileOutlines, owner)
+		}
+	}
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptClearMobileOutlines(owner string) {
+	overlayMu.Lock()
+	delete(scriptMobileOutlines, owner)
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptFlashMobile(owner string, index uint8, r, g, b, a uint8, duration time.Duration) {
+	if duration <= 0 {
+		return
+	}
+	overlayMu.Lock()
+	if scriptMobileFlashes[owner] == nil {
+		scriptMobileFlashes[owner] = map[uint8]scriptMobileFlash{}
+	}
+	scriptMobileFlashes[owner][index] = scriptMobileFlash{scriptMobileTint: scriptMobileTint{r: r, g: g, b: b, a: a}, expires: time.Now().Add(duration)}
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+// scriptMobileTintForPict deterministically resolves conflicting script tints.
+func scriptMobileTintForPict(id uint16) (scriptMobileTint, bool) {
+	overlayMu.RLock()
+	defer overlayMu.RUnlock()
+	var owner string
+	var tint scriptMobileTint
+	for candidate, tints := range scriptMobileTints {
+		if value, ok := tints[id]; ok && candidate > owner {
+			owner, tint = candidate, value
+		}
+	}
+	return tint, owner != ""
+}
+
+func scriptMobileOutlineForPict(id uint16) (scriptMobileTint, bool) {
+	overlayMu.RLock()
+	defer overlayMu.RUnlock()
+	var owner string
+	var outline scriptMobileTint
+	for candidate, outlines := range scriptMobileOutlines {
+		if value, ok := outlines[id]; ok && candidate > owner {
+			owner, outline = candidate, value
+		}
+	}
+	return outline, owner != ""
+}
+
+// scriptMobileFlashForIndex deterministically resolves active flashes and
+// drops expired entries as the renderer observes them.
+func scriptMobileFlashForIndex(index uint8) (scriptMobileTint, bool) {
+	now := time.Now()
+	overlayMu.Lock()
+	defer overlayMu.Unlock()
+	var owner string
+	var tint scriptMobileTint
+	for candidate, flashes := range scriptMobileFlashes {
+		flash, ok := flashes[index]
+		if !ok {
+			continue
+		}
+		if !flash.expires.After(now) {
+			delete(flashes, index)
+			if len(flashes) == 0 {
+				delete(scriptMobileFlashes, candidate)
+			}
+			continue
+		}
+		if candidate > owner {
+			owner, tint = candidate, flash.scriptMobileTint
+		}
+	}
+	return tint, owner != ""
+}
+
+func scriptMobileFlashesActive() bool {
+	now := time.Now()
+	overlayMu.Lock()
+	active, expired := false, false
+	for owner, flashes := range scriptMobileFlashes {
+		for index, flash := range flashes {
+			if flash.expires.After(now) {
+				active = true
+				continue
+			}
+			delete(flashes, index)
+			expired = true
+		}
+		if len(flashes) == 0 {
+			delete(scriptMobileFlashes, owner)
+		}
+	}
+	overlayMu.Unlock()
+	if expired {
+		markWorldRenderChanged()
+	}
+	return active || expired
 }
 
 func isUserScriptFile(name string) bool {
