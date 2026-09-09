@@ -6,6 +6,23 @@ with the server.
 
 ## Sending text
 
+Use emoji shortcodes such as `:smile:`, `:thumbs_up:`, or `:rocket:` in outgoing
+messages, including speech commands such as `/think :rocket:`. Shortcodes are
+sent unchanged. Pasted emoji are converted to names when recognized: 😄 becomes
+`:smile:` on the wire. Scripts and macros follow the same rule. Message history
+keeps the text you typed.
+
+In chat and speech bubbles, both Unicode emoji and recognized shortcodes display
+as emoji, whether the message is yours or another player's. Names are
+case-insensitive; underscores and spaces are interchangeable. Unknown names
+and names without both colons stay unchanged. Noto Color Emoji is bundled with
+the client, so no system emoji font is needed. Clients without shortcode support
+see the readable names.
+
+To keep shortcodes visible, turn off **Settings → Text → Chat & Messages →
+Show :smile: as emoji**. This affects chat and bubble display; literal emoji
+still render normally and outgoing encoding stays the same.
+
 Characters available in MacRoman are sent as their original single byte.
 Unicode characters that MacRoman cannot represent are sent as readable ASCII
 escapes instead:
@@ -23,6 +40,10 @@ Literal backslashes are sent unchanged. Unknown or malformed sequences such as
 This keeps every wire message valid MacRoman without losing Unicode. A client
 that understands these escapes restores the original text. An older client
 will display the readable escape instead of mojibake.
+
+Messages are limited to 511 encoded bytes. Emoji names count toward that limit
+as ordinary text. Truncation preserves complete Unicode escapes for characters
+sent using that form.
 
 ## Receiving text
 

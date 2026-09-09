@@ -72,6 +72,7 @@ var (
 	statsCacheTotal        statsMetric
 	statsGPUMemory         statsMetric
 	statsMemoryText        *eui.ItemData
+	statsGPUInfoText       *eui.ItemData
 	statsNetworkGraph      *eui.ItemData
 	statsRateGraph         *eui.ItemData
 	statsCacheGraph        *eui.ItemData
@@ -364,6 +365,8 @@ func makeStatsWindow() {
 	}
 	memoryControls.AddItem(clearCachesButton)
 	cacheSection.AddItem(memoryControls)
+	statsGPUInfoText = newStatsDetail(width, 20, 10)
+	cacheSection.AddItem(statsGPUInfoText)
 	cacheBtn, cacheEvents := eui.NewButton()
 	cacheBtn.Text = "Cache Statistics"
 	cacheBtn.Size = eui.Point{X: 140, Y: 24}
@@ -681,6 +684,13 @@ func updateStatsWindow(now time.Time) {
 	if statsMemoryText != nil {
 		statsMemoryText.Text = fmt.Sprintf("Cache entries: %d artwork, %d sounds", imageCount, sounds)
 		statsMemoryText.Dirty = true
+	}
+	if statsGPUInfoText != nil {
+		statsGPUInfoText.Text = gpuInfo.GraphicsLibrary.String()
+		if limit := ebiten.MaxImageSize(); limit > 0 {
+			statsGPUInfoText.Text += fmt.Sprintf(" | Maximum image: %d × %d px", limit, limit)
+		}
+		statsGPUInfoText.Dirty = true
 	}
 	cacheUpperScale := statsGraphScale{minimumMaximum: 2048, unit: "MiB"}
 	cacheLowerScale := statsGraphScale{minimumMaximum: 2048, unit: "MiB"}

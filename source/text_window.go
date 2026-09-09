@@ -67,10 +67,24 @@ func updateTextWindow(win *eui.WindowData, list, input *eui.ItemData, msgs []str
 
 // updateTextWindowFrom supplies client input and spellchecking policy to EUI.
 func updateTextWindowFrom(win *eui.WindowData, list, input *eui.ItemData, msgs []string, fontSize float64, inputMsg string, faceSrc *text.GoTextFaceSource, alternateRows bool, wrapCache *textWindowWrapCache, firstChanged int) {
+	var face text.Face
+	if win != nil && (win == chatWin || win == consoleWin) {
+		source := faceSrc
+		if source == nil {
+			source = eui.FontSource()
+		}
+		scale := eui.UIScale()
+		if scale <= 0 {
+			scale = 1
+		}
+		face = withEmojiFace(&text.GoTextFace{Source: source, Size: float64(float32(fontSize)*scale) + 2})
+	}
 	eui.UpdateTextWindow(win, list, input, msgs, eui.TextWindowOptions{
 		FontSize: fontSize, FontSource: faceSrc, AlternateRows: alternateRows, FirstChanged: firstChanged,
+		Face:       face,
 		OnURLClick: func(url string) { _ = browser.OpenURL(url) },
 		InputText:  inputMsg, InputEditable: inputActive,
+		InputAction: messageEmojiButton(input),
 		InputUnderlines: func(wrapped string) []eui.TextSpan {
 			if !gs.InputSpellcheck || inputMsg == "" || strings.HasPrefix(inputMsg, "[") {
 				return nil

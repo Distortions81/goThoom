@@ -1,6 +1,35 @@
 package eui
 
-import "testing"
+import (
+	text "github.com/hajimehoshi/ebiten/v2/text/v2"
+	"math"
+	"testing"
+)
+
+func TestTextWindowComposedFaceLayoutAndInvalidation(t *testing.T) {
+	if err := Init(); err != nil {
+		t.Fatal(err)
+	}
+	win, list, input := NewTextWindow("Composed", HZoneLeft, VZoneTop, true)
+	defer win.RemoveWindow()
+	var cache TextWindowWrapCache
+	for _, size := range []float64{14, 34} {
+		face, err := text.NewMultiFace(&text.GoTextFace{Source: FontSource(), Size: size})
+		if err != nil {
+			t.Fatal(err)
+		}
+		options := TextWindowOptions{FontSize: 12, Face: face, FirstChanged: 1, InputText: "draft"}
+		UpdateTextWindow(win, list, input, []string{"message"}, options, &cache)
+		if list.Contents[0].Face != face || input.Contents[0].Face != face {
+			t.Fatal("composed face did not reach both rows and input")
+		}
+		metrics := face.Metrics()
+		want := float32(math.Ceil(metrics.HAscent+metrics.HDescent+2)) / UIScale()
+		if list.Contents[0].Size.Y != want {
+			t.Fatalf("row height = %v, want %v", list.Contents[0].Size.Y, want)
+		}
+	}
+}
 
 func findCompositeItem(items []*ItemData, match func(*ItemData) bool) *ItemData {
 	for _, item := range items {

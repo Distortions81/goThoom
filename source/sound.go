@@ -192,7 +192,7 @@ func pruneStoppedSoundPlayersLocked() {
 		}
 		delete(soundPlayers, player)
 		if _, cached := cachedSoundPlayers[player]; !cached {
-			_ = player.Close()
+			player.PauseAndStopReading()
 		}
 	}
 }
@@ -223,7 +223,7 @@ func evictOldestSoundPlaybackLocked() bool {
 		}
 		delete(soundPlayers, player)
 		delete(reservedSoundPlayers, player)
-		_ = player.Close()
+		player.PauseAndStopReading()
 	}
 	delete(soundPlayerCache, oldestKey)
 	return true
@@ -266,7 +266,7 @@ func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte, generation, so
 		if err := player.Rewind(); err != nil {
 			delete(cachedSoundPlayers, player)
 			delete(soundPlayers, player)
-			_ = player.Close()
+			player.PauseAndStopReading()
 			soundPlayerCacheCount--
 			copy(entry.players[i:], entry.players[i+1:])
 			entry.players[len(entry.players)-1] = nil
@@ -308,7 +308,7 @@ func playGameSoundPlayer(player *audio.Player, generation, sourceGeneration uint
 		delete(reservedSoundPlayers, player)
 		delete(soundPlayers, player)
 		if _, cached := cachedSoundPlayers[player]; !cached {
-			_ = player.Close()
+			player.PauseAndStopReading()
 		}
 		soundMu.Unlock()
 		return
@@ -319,18 +319,18 @@ func playGameSoundPlayer(player *audio.Player, generation, sourceGeneration uint
 	soundMu.Unlock()
 }
 
-// stopAllSounds halts and disposes all currently playing audio players.
+// stopAllSounds halts all sound players and releases the playback cache.
 func stopAllSounds() {
 	soundMu.Lock()
 	soundPlaybackGeneration++
-	closed := make(map[*audio.Player]struct{}, len(cachedSoundPlayers))
+	stopped := make(map[*audio.Player]struct{}, len(cachedSoundPlayers))
 	for player := range cachedSoundPlayers {
-		_ = player.Close()
-		closed[player] = struct{}{}
+		player.PauseAndStopReading()
+		stopped[player] = struct{}{}
 	}
 	for player := range soundPlayers {
-		if _, ok := closed[player]; !ok {
-			_ = player.Close()
+		if _, ok := stopped[player]; !ok {
+			player.PauseAndStopReading()
 		}
 	}
 	soundPlayers = make(map[*audio.Player]struct{})
@@ -657,7 +657,7 @@ func updateSoundVolume() {
 			}
 			delete(soundPlayers, sp)
 			if _, cached := cachedSoundPlayers[sp]; !cached {
-				_ = sp.Close()
+				sp.PauseAndStopReading()
 			}
 		}
 		soundMu.Unlock()

@@ -151,27 +151,38 @@ func TestSetupWizardDoesNotOfferClientModePreset(t *testing.T) {
 }
 
 func TestSetupWizardThemeAndStyleSelectorsUseCurrentChoices(t *testing.T) {
+	isolateSystemTheme(t)
 	initFont()
-	root := setupWizardThemeStyleSelectors()
-	want := map[string]string{
-		"Color theme": eui.CurrentThemeName(),
-		"Style theme": eui.CurrentStyleName(),
-	}
-	for _, item := range root.Contents {
-		current, ok := want[item.Label]
-		if !ok {
-			continue
+	for _, choice := range []string{followSystemTheme, "", "AccentDark", "NeonNight", "CorporateBlue"} {
+		gs.Theme = choice
+		if err := loadThemeChoice(choice); err != nil {
+			t.Fatal(err)
 		}
-		if item.Selected < 0 || item.Selected >= len(item.Options) {
-			t.Fatalf("%s selection %d is outside %d options", item.Label, item.Selected, len(item.Options))
+		root := setupWizardThemeStyleSelectors()
+		wantTheme := themeChoiceName(choice)
+		if choice == "CorporateBlue" {
+			wantTheme = "AccentLight"
 		}
-		if got := item.Options[item.Selected]; got != current {
-			t.Fatalf("%s selection = %q, want %q", item.Label, got, current)
+		want := map[string]string{
+			"Color theme": wantTheme,
+			"Style theme": eui.CurrentStyleName(),
 		}
-		delete(want, item.Label)
-	}
-	for label := range want {
-		t.Errorf("wizard is missing %q", label)
+		for _, item := range root.Contents {
+			current, ok := want[item.Label]
+			if !ok {
+				continue
+			}
+			if item.Selected < 0 || item.Selected >= len(item.Options) {
+				t.Fatalf("%s selection %d is outside %d options", item.Label, item.Selected, len(item.Options))
+			}
+			if got := item.Options[item.Selected]; got != current {
+				t.Fatalf("%s selection = %q, want %q", item.Label, got, current)
+			}
+			delete(want, item.Label)
+		}
+		for label := range want {
+			t.Errorf("wizard is missing %q", label)
+		}
 	}
 }
 

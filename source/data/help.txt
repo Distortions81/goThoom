@@ -5,6 +5,8 @@ Movement
 Communication
 -------------
 - The input bar is open by default. Type a message and press Enter to send it.
+- Use :smile:, :thumbs_up:, or pasted emoji. Emoji travel as readable names and appear in color in chat and speech bubbles. Unknown names stay unchanged.
+- With "Show :smile: as emoji" enabled, the emoji button on the right of the input bar opens a picker. Choose a group on the left or search by name; selecting an emoji inserts its shortcode into your draft.
 - Press Esc to close the input bar; press Enter to open it again. If "Input bar always open" is disabled, press Enter before typing and Enter again to send.
 - Up/Down browse previous messages.
 - While typing: Ctrl-V pastes, Ctrl-C copies the whole line, Ctrl-Left/Right moves one word, and Ctrl-Backspace deletes the previous word.

@@ -7,20 +7,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sqweek/dialog"
+	"github.com/ncruces/zenity"
 )
 
 var errStorageDirectoryDialogCancelled = errors.New("storage directory dialog cancelled")
 
 func pickStorageDirectory(title, start string) (string, error) {
 	start = existingDirectory(start)
-	builder := dialog.Directory().Title(title)
+	options := []zenity.Option{zenity.Directory(), zenity.Title(title)}
 	if start != "" {
-		builder.SetStartDir(start)
+		options = append(options, zenity.Filename(start+string(os.PathSeparator)))
 	}
-	directory, err := builder.Browse()
+	directory, err := zenity.SelectFile(options...)
 	if err != nil {
-		if errors.Is(err, dialog.Cancelled) {
+		if errors.Is(err, zenity.ErrCanceled) {
 			return "", errStorageDirectoryDialogCancelled
 		}
 		return "", err

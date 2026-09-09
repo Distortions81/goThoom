@@ -1308,7 +1308,7 @@ func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, 
 		musicPlayersMu.Lock()
 		delete(musicPlayers, player)
 		musicPlayersMu.Unlock()
-		_ = player.Close()
+		player.PauseAndStopReading()
 	}()
 
 	if prepared != nil {

@@ -66,6 +66,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "InputBarAlwaysOpen", category: settingsControls, name: "keep_input_bar_open"},
 	{field: "InputAutocomplete", category: settingsControls, name: "autocomplete"},
 	{field: "InputSpellcheck", category: settingsChat, name: "spellcheck"},
+	{field: "ExpandEmojiNames", category: settingsChat, name: "expand_emoji_names"},
 	{field: "KBWalkSpeed", category: settingsControls, name: "keyboard_walk_speed"},
 
 	{field: "MainFontSize", category: settingsInterface, name: "main_font_size"},
@@ -89,6 +90,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "NameHealthBarAbove", category: settingsInterface, name: "name_health_bar_above"},
 	{field: "NameHealthBarThickness", category: settingsInterface, name: "name_health_bar_thickness"},
 	{field: "NameTagLabelColors", category: settingsInterface, name: "colored_name_labels"},
+	{field: "SmoothNameTagMotion", category: settingsInterface, name: "smooth_nametag_motion"},
 	{field: "HideSelfNameTag", category: settingsInterface, name: "hide_own_name"},
 	{field: "NameTagsOnHoverOnly", category: settingsInterface, name: "names_only_on_hover"},
 	{field: "BarOpacity", category: settingsInterface, name: "status_bar_opacity"},

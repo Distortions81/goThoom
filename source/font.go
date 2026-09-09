@@ -22,6 +22,43 @@ var notoSansItalic []byte
 //go:embed data/font/NotoSans-BoldItalic.ttf
 var notoSansBoldItalic []byte
 
+//go:embed data/font/NotoColorEmoji.ttf
+var notoColorEmoji []byte
+
+var emojiFaceSource *text.GoTextFaceSource
+
+type emojiFaceKey struct {
+	source *text.GoTextFaceSource
+	size   float64
+}
+
+var emojiFaces = make(map[emojiFaceKey]text.Face)
+
+// withEmojiFace keeps ordinary text in its chosen font and gives emoji glyphs
+// priority over monochrome symbols. Reuse the composed faces for layout caches.
+func withEmojiFace(face text.Face) text.Face {
+	base, ok := face.(*text.GoTextFace)
+	if !ok || base.Source == nil || emojiFaceSource == nil {
+		return face
+	}
+	key := emojiFaceKey{base.Source, base.Size}
+	if cached := emojiFaces[key]; cached != nil {
+		return cached
+	}
+	emoji := text.NewLimitedFace(&text.GoTextFace{Source: emojiFaceSource, Size: base.Size})
+	// Keep spaces, punctuation, and ordinary digits in the text font.
+	emoji.AddUnicodeRange(0x80, 0x10ffff)
+	mixed, err := text.NewMultiFace(emoji, base)
+	if err != nil {
+		return face
+	}
+	if len(emojiFaces) >= 256 {
+		clear(emojiFaces)
+	}
+	emojiFaces[key] = mixed
+	return mixed
+}
+
 var mainFont, mainFontBold, mainFontItalic, mainFontBoldItalic, bubbleFont, bubbleFontRegular text.Face
 var monoFaceSource *text.GoTextFaceSource
 var fontGen uint32
@@ -29,11 +66,18 @@ var mainFontRasterScale = 1.0
 
 func initFont() {
 	fontGen++
+	clear(emojiFaces)
 	clearBubbleTextCaches()
 	clearSharedNameTagCache()
 	regular, err := text.NewGoTextFaceSource(bytes.NewReader(notoSansRegular))
 	if err != nil {
 		log.Fatalf("failed to parse font: %v", err)
+	}
+	if emojiFaceSource == nil {
+		emojiFaceSource, err = text.NewGoTextFaceSource(bytes.NewReader(notoColorEmoji))
+		if err != nil {
+			log.Fatalf("failed to parse emoji font: %v", err)
+		}
 	}
 	eui.SetFontSource(regular)
 	mainFontRasterScale = gs.GameScale

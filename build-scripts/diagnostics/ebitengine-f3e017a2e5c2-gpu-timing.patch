@@ -11,7 +11,7 @@
  	"unsafe"
  
  	"github.com/ebitengine/purego"
-@@ -138,6 +141,7 @@
+@@ -139,6 +142,7 @@
  }
  
  func (c *defaultContext) BindFramebuffer(target uint32, framebuffer uint32) {
@@ -19,7 +19,7 @@
  	purego.SyscallN(c.gpBindFramebuffer, uintptr(target), uintptr(framebuffer))
  }
  
-@@ -264,6 +268,7 @@
+@@ -269,6 +273,7 @@
  }
  
  func (c *defaultContext) DrawElements(mode uint32, count int32, xtype uint32, offset int) {
@@ -27,7 +27,7 @@
  	purego.SyscallN(c.gpDrawElements, uintptr(mode), uintptr(count), uintptr(xtype), uintptr(offset))
  }
  
-@@ -276,6 +281,7 @@
+@@ -285,6 +290,7 @@
  }
  
  func (c *defaultContext) Flush() {
@@ -35,7 +35,7 @@
  	purego.SyscallN(c.gpFlush)
  }
  
-@@ -563,3 +569,126 @@
+@@ -574,3 +580,126 @@
  		bs = nil
  	}
  }
@@ -171,8 +171,8 @@
 +	"time"
  	"unsafe"
  
- 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
-@@ -70,11 +71,14 @@
+	"github.com/hajimehoshi/ebiten/v2/internal/color"
+@@ -85,11 +86,14 @@
  }
  
  func (g *Graphics) Begin() error {
@@ -181,15 +181,15 @@
  	return nil
  }
  
- func (g *Graphics) End(present bool) error {
+ func (g *Graphics) End(mode graphicsdriver.FlushMode) error {
 +	var swapDuration time.Duration
 +	defer func() { gl.DiagnosticEnd(gl.DiagnosticElapsed()-swapDuration, swapDuration) }()
  	// Call glFlush to prevent black flicking (especially on Android (#226) and iOS).
  	// TODO: examples/sprites worked without this. Is this really needed?
  	g.context.ctx.Flush()
-@@ -82,7 +86,10 @@
+@@ -97,7 +101,10 @@
  	// The last uniforms must be reset before swapping the buffer (#2517).
- 	if present {
+	if mode == graphicsdriver.FlushModePresent {
  		g.state.resetLastUniforms()
 -		if err := g.swapBuffers(); err != nil {
 +		swapStarted := time.Now()

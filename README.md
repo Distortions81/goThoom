@@ -56,6 +56,10 @@ and verifies that a new folder is readable and writable before saving it.
 - **Movement:** Left-click in the game view to walk toward the cursor.
 - **Chat:** The input bar is open by default: type and press Enter to send.
   Escape closes it; Enter reopens it. Up and Down browse message history.
+  Use `:smile:`, `:thumbs_up:`, or pasted emoji. Emoji travel as readable names
+  and appear in color in chat and speech bubbles.
+  The emoji button at the right of the input bar opens a searchable picker
+  with groups on the left. Choosing an emoji inserts its name into your draft.
 - **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
   Players, Inventory, Chat, and Console panes. The **Actions** toolbar menu opens
   Hotkeys, Shortcuts, scripts, macros, and saved data.
@@ -104,6 +108,12 @@ composition. Enable Dictation in **System Settings → Keyboard → Dictation**,
 open the game input with Enter, and use the Dictation shortcut configured there.
 Finish dictation, review the text, then press Enter to send it.
 See [Apple's Dictation guide](https://support.apple.com/guide/mac-help/use-dictation-mh40584/mac).
+
+### Linux file dialogs
+
+Opening movie files and choosing storage folders requires Zenity or Qarma.
+On Debian or Ubuntu, install Zenity with `sudo apt install zenity`.
+Windows and macOS use native dialogs without an extra installation.
 This connection currently covers the game input bar; other settings and login
 fields still use ordinary keyboard input. Native dictation requires verification
 on a Mac; the automated tests and cross-builds cannot exercise the microphone or

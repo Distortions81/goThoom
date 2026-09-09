@@ -347,7 +347,10 @@ func TestSendPlayerInputEncodesCommandAndChatAsMacRoman(t *testing.T) {
 		want []byte
 	}{
 		{name: "chat", text: "café ☺", want: append([]byte{'c', 'a', 'f', 0x8e, ' '}, []byte(`\u263A`)...)},
-		{name: "command", text: "/think Méme 🚀 \\u263A", want: append([]byte{'/', 't', 'h', 'i', 'n', 'k', ' ', 'M', 0x8e, 'm', 'e', ' '}, []byte(`\U0001F680 \u263A`)...)},
+		{name: "command", text: "/think Méme 🚀 \\u263A", want: append([]byte{'/', 't', 'h', 'i', 'n', 'k', ' ', 'M', 0x8e, 'm', 'e', ' '}, []byte(`:rocket: \u263A`)...)},
+		{name: "pasted emoji", text: "Hi 😄 🚀", want: []byte(`Hi :smile: :rocket:`)},
+		{name: "emoji chat", text: "Hi :smile: :thumbs_up:", want: []byte(`Hi :smile: :thumbs_up:`)},
+		{name: "emoji command", text: "/think :woman_technologist::heart: :unknown:", want: []byte(`/think :woman_technologist::heart: :unknown:`)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -381,6 +384,27 @@ func TestSendPlayerInputTruncatesCommandToClassicLimit(t *testing.T) {
 	}
 	if got := len(extractCommandText(t, conn)); got != maxPlayerCommandBytes {
 		t.Fatalf("encoded command length = %d, want %d", got, maxPlayerCommandBytes)
+	}
+}
+
+func TestSendPlayerInputTruncatesAtUnicodeRuneBoundary(t *testing.T) {
+	for _, remaining := range []int{0, 1, 5, 9, 10, 11} {
+		t.Run(fmt.Sprint(remaining), func(t *testing.T) {
+			resetCommandStateForTest(t, 1)
+			prefix := strings.Repeat("x", maxPlayerCommandBytes-remaining)
+			pendingCommand = prefix + "𐀀" + strings.Repeat("y", 20)
+			conn := &bufConn{}
+			if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
+				t.Fatal(err)
+			}
+			want := prefix
+			if remaining >= 10 {
+				want += `\U00010000` + strings.Repeat("y", remaining-10)
+			}
+			if got := extractCommandText(t, conn); got != want {
+				t.Fatalf("command = %q, want %q", got, want)
+			}
+		})
 	}
 }
 

@@ -16,49 +16,43 @@ var (
 	CurrentPaletteA [PaletteSize]float
 )
 
-func previousPaletteDelta(slot float) vec4 {
+func previousPaletteDelta(slot int) vec4 {
 	if slot < 1 {
 		return vec4(0)
 	}
-	index := int(slot) - 1
+	index := slot - 1
 	return vec4(PreviousPaletteR[index], PreviousPaletteG[index], PreviousPaletteB[index], PreviousPaletteA[index])
 }
 
-func currentPaletteDelta(slot float) vec4 {
+func currentPaletteDelta(slot int) vec4 {
 	if slot < 1 {
 		return vec4(0)
 	}
-	index := int(slot) - 1
+	index := slot - 1
 	return vec4(CurrentPaletteR[index], CurrentPaletteG[index], CurrentPaletteB[index], CurrentPaletteA[index])
 }
 
 func recolorPreviousAt(pos vec2) vec4 {
 	base := imageSrc0At(pos)
-	encoded := floor(imageSrc1At(pos).rgb*255 + vec3(0.5))
-	packed := encoded.x + encoded.y*256 + encoded.z*65536
-	weightByte := floor(packed / 32768)
-	low := packed - weightByte*32768
-	center := low - floor(low/32)*32
-	firstValue := floor(low / 32)
-	first := firstValue - floor(firstValue/32)*32
-	second := floor(low / 1024)
-	weight := weightByte / 255
+	// Influence bytes store three 5-bit palette slots and an 8-bit weight.
+	encoded := ivec3(imageSrc1AtFromSrc0Pos(pos).rgb*255 + vec3(0.5))
+	center := encoded.x & 31
+	first := ((encoded.x >> 5) | (encoded.y << 3)) & 31
+	second := (encoded.y >> 2) & 31
+	weight := float((encoded.y >> 7) | (encoded.z << 1)) / 255
 	result := base + previousPaletteDelta(center)*(1-weight) +
 		(previousPaletteDelta(first)+previousPaletteDelta(second))*(weight/2)
 	return clamp(result, vec4(0), vec4(1))
 }
 
 func recolorCurrentAt(pos vec2) vec4 {
-	base := imageSrc2At(pos)
-	encoded := floor(imageSrc3At(pos).rgb*255 + vec3(0.5))
-	packed := encoded.x + encoded.y*256 + encoded.z*65536
-	weightByte := floor(packed / 32768)
-	low := packed - weightByte*32768
-	center := low - floor(low/32)*32
-	firstValue := floor(low / 32)
-	first := firstValue - floor(firstValue/32)*32
-	second := floor(low / 1024)
-	weight := weightByte / 255
+	base := imageSrc2AtFromSrc0Pos(pos)
+	// Influence bytes store three 5-bit palette slots and an 8-bit weight.
+	encoded := ivec3(imageSrc3AtFromSrc0Pos(pos).rgb*255 + vec3(0.5))
+	center := encoded.x & 31
+	first := ((encoded.x >> 5) | (encoded.y << 3)) & 31
+	second := (encoded.y >> 2) & 31
+	weight := float((encoded.y >> 7) | (encoded.z << 1)) / 255
 	result := base + currentPaletteDelta(center)*(1-weight) +
 		(currentPaletteDelta(first)+currentPaletteDelta(second))*(weight/2)
 	return clamp(result, vec4(0), vec4(1))

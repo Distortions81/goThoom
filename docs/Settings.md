@@ -70,6 +70,26 @@ The **Performance** tab contains the quality preset and five subtabs:
 | Caching | Batch room artwork loading, sprite cache, sound precaching, activity dots, and GPU compatibility |
 | Power Saving | Background/focused power saving, FPS limit, and VSync |
 
+### Color theme
+
+**Display → Appearance → Color Theme** defaults to **Follow system**, using
+AccentLight for light mode and AccentDark for dark mode. The client checks at
+startup and every 10 seconds, updating the palette only when the system
+appearance changes. Automatic switches keep your style and accent color.
+Choose a named palette to keep it fixed. If system appearance is unavailable,
+Follow system uses AccentDark.
+
+### Smooth nametag motion
+
+**World → Character Names → Smooth nametag motion** defaults off for crisp,
+pixel-aligned labels. Enable it to let names and their health bars use fractional
+positions and smooth edges as characters move. Text may look slightly softer. The option
+uses the existing movement interpolation and does not enable Motion Smoothing
+if that setting is off.
+
+The preference is saved as `interface.smooth_nametag_motion` and can be kept
+separately for each character through character profiles.
+
 ### Alternating row colors
 
 **Display → Appearance → Alternating row colors** has independent Inventory,
@@ -82,11 +102,24 @@ The four preferences are saved under `interface` as
 Older `alternate_row_backgrounds` preferences migrate to Inventory only; the
 other windows use their new defaults until explicitly changed.
 
+### Emoji names
+
+**Text → Chat & Messages → Show :smile: as emoji** defaults on. Turn it off to
+keep names such as `:smile:` and `:thumbs_up:` visible in chat and speech bubbles.
+The choice updates displayed messages immediately. Literal emoji still display
+as emoji, and outgoing messages continue to use readable names on the wire.
+The preference is saved as `chat.expand_emoji_names`.
+
+When enabled, an emoji button appears at the right of each chat input bar.
+The picker keeps group names on the left while emoji scroll on the right.
+Search finds emoji across groups. Choosing one inserts its shortcode at the
+cursor; press Enter in the input bar when you are ready to send the message.
+
 ## Audit summary
 
-The current internal `settings` structure contains 189 exported fields:
+The current internal `settings` structure contains 191 exported fields:
 
-- 183 are mapped directly by the v4 JSON schema.
+- 185 are mapped directly by the v4 JSON schema.
 - `BarPlacement`, `BarStyle`, and `SpriteUpscaleMode` are persisted separately
   as readable string values.
 - `SpriteUpscale` and `SpriteUpscaleFilter` are derived rather than persisted.

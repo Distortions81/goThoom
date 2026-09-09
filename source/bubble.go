@@ -132,6 +132,8 @@ func bubbleBodySizeLimit(screenWidth, screenHeight int) image.Point {
 }
 
 func measureBubble(txt string, typ int, bubbleScale, fontScale float64, maxBodySize image.Point) bubbleMetrics {
+	txt = displayEmojiText(txt)
+	hasEmoji := containsEmoji(txt)
 	if bubbleScale <= 0 {
 		bubbleScale = 0.1
 	}
@@ -162,6 +164,9 @@ func measureBubble(txt string, typ int, bubbleScale, fontScale float64, maxBodyS
 		candidate.face = scaledBubbleFace(baseFace, scale)
 		if candidate.face == nil {
 			candidate.face = baseFace
+		}
+		if hasEmoji {
+			candidate.face = withEmojiFace(candidate.face)
 		}
 		metrics := candidate.face.Metrics()
 		candidate.lineHeight = max(1, int(math.Ceil(math.Ceil(metrics.HAscent)+math.Ceil(metrics.HDescent)+math.Ceil(metrics.HLineGap))))
@@ -555,6 +560,7 @@ func evictOldestBubbleTextImage() bool {
 }
 
 func cachedBubbleTextImage(txt string, face text.Face, maxWidth, width, lineHeight int, lines []string, textCol color.Color) *ebiten.Image {
+	txt = displayEmojiText(txt)
 	r, g, b, a := textCol.RGBA()
 	key := bubbleTextImageCacheKey{
 		text: txt, face: face, maxWidth: maxWidth, lineHeight: lineHeight,
@@ -849,7 +855,9 @@ func bubbleBackgroundTarget(screen *ebiten.Image, bubbleType int, fillColor colo
 		backgroundTarget = thoughtBubbleMask(screen)
 		region = region.Intersect(backgroundTarget.Bounds())
 		if !region.Empty() {
-			backgroundTarget.SubImage(region).(*ebiten.Image).Clear()
+			clearTarget := backgroundTarget.RecyclableSubImage(region)
+			clearTarget.Clear()
+			clearTarget.Recycle()
 		}
 		fillColor = color.RGBA64{R: 0xffff, G: 0xffff, B: 0xffff, A: 0xffff}
 		backgroundBlend = thoughtBubbleMaskBlend
@@ -1360,7 +1368,9 @@ func compositeThoughtBubbleBackground(screen, mask *ebiten.Image, background col
 	op := &ebiten.DrawImageOptions{}
 	op.ColorScale.ScaleWithColor(background)
 	op.GeoM.Translate(float64(region.Min.X), float64(region.Min.Y))
-	screen.DrawImage(mask.SubImage(region).(*ebiten.Image), op)
+	source := mask.RecyclableSubImage(region)
+	screen.DrawImage(source, op)
+	source.Recycle()
 }
 
 func clearThoughtBubbleMask() {

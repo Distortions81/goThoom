@@ -277,10 +277,11 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	commandMu.Unlock()
 	var cmdBytes []byte
 	if cmd != "" {
-		cmdBytes = encodeMacRoman(cmd)
+		wireText := encodeEmojiShortcodes(cmd)
+		cmdBytes = encodeMacRoman(wireText)
 		if len(cmdBytes) > maxPlayerCommandBytes {
 			logWarn("player command is %d bytes; truncating to classic %d-byte limit", len(cmdBytes), maxPlayerCommandBytes)
-			cmdBytes = cmdBytes[:maxPlayerCommandBytes]
+			cmdBytes = encodeMacRomanEscapedPrefix(wireText, maxPlayerCommandBytes)
 		}
 	}
 	packetLen := 20 + len(cmdBytes) + 1

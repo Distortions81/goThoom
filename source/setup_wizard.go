@@ -133,6 +133,9 @@ func stopSetupWizardPreview() {
 }
 
 func rebuildSetupWizard() {
+	if restoreThemePreview != nil {
+		restoreThemePreview()
+	}
 	wizardKeepGameLargeCB = nil
 	if setupWizardWin == nil {
 		return
@@ -423,23 +426,21 @@ func setupWizardThemeStyleSelectors() *eui.ItemData {
 
 	theme, themeEvents := eui.NewDropdown()
 	theme.Label = "Color theme"
-	if options, err := eui.ListThemes(); err == nil {
-		theme.Options = options
-		for i, name := range options {
-			if name == eui.CurrentThemeName() {
-				theme.Selected = i
-				break
-			}
+	theme.Options = themeChoices()
+	for i, name := range theme.Options {
+		if name == currentThemeChoice() {
+			theme.Selected = i
+			break
 		}
 	}
 	theme.Size = eui.Point{X: setupWizardPanelWidth, Y: 24}
-	theme.SetTooltip("Changes the interface palette; a theme may also recommend a matching style.")
+	theme.SetTooltip("Follow system switches between AccentLight and AccentDark with your system appearance. Choose a palette to keep it fixed.")
 	themeEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type != eui.EventDropdownSelected || ev.Index < 0 || ev.Index >= len(theme.Options) {
 			return
 		}
 		name := theme.Options[ev.Index]
-		if err := eui.LoadTheme(name); err != nil {
+		if err := loadThemeChoice(name); err != nil {
 			return
 		}
 		gs.Theme = name

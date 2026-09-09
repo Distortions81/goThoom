@@ -74,7 +74,7 @@ func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
 		pixelPos.x >= CharacterShadowMin.x && pixelPos.y >= CharacterShadowMin.y &&
 		pixelPos.x < CharacterShadowMax.x && pixelPos.y < CharacterShadowMax.y {
 		shadowPos := imageSrc0Origin() + pixelPos - CharacterShadowMin
-		shadowAlpha := imageSrc1At(shadowPos).a
+		shadowAlpha := imageSrc1AtFromSrc0Pos(shadowPos).a
 		base.rgb *= 1.0-shadowAlpha
 	}
 

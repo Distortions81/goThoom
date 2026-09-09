@@ -1,6 +1,6 @@
 # EUI
 
-EUI is a retained-mode UI toolkit for Ebitengine 2.9: create widgets once,
+EUI is a retained-mode UI toolkit for Ebitengine 2.10: create widgets once,
 update their state in your game loop, and draw the UI over your game. It provides
 movable/resizable windows, automatic row/column layout, tabs, scrolling, text
 inputs and selection, buttons, sliders, checkboxes, dropdowns, context menus,
@@ -97,8 +97,8 @@ From the repository root:
 ```
 
 This copies **only this directory** into a temporary Go module, resolves its own
-dependencies, runs its tests, and builds the example. Use Go 1.26.6 and the usual
-Ebitengine platform development dependencies. Tests need a display; on headless
+dependencies, runs its tests, and builds the example. Use Go 1.26.6; desktop
+builds disable Cgo. Tests need a display; on headless
 Linux run the command with `xvfb-run -a`.
 
 To publish a separate repository, copy this directory and the root MIT `LICENSE`,

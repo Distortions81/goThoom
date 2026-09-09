@@ -61,3 +61,27 @@ func TestSoundPlaybackCacheKeyBufferSizesAndInputOwnership(t *testing.T) {
 		}
 	}
 }
+
+func TestStaleSoundPlaybackStopsWithoutRestarting(t *testing.T) {
+	player := audioContext.NewPlayerFromBytes(make([]byte, 44100*4))
+	t.Cleanup(func() {
+		player.PauseAndStopReading()
+		soundMu.Lock()
+		delete(soundPlayers, player)
+		delete(reservedSoundPlayers, player)
+		soundMu.Unlock()
+	})
+	generation, sourceGeneration := soundPlaybackGeneration, soundCacheGeneration
+	playGameSoundPlayer(player, generation, sourceGeneration, 0)
+	if !player.IsPlaying() {
+		t.Fatal("current playback request did not start")
+	}
+	// A worker from a discarded playback generation must stop its player and
+	// must not restart it when it eventually returns another stale result.
+	for range 2 {
+		playGameSoundPlayer(player, generation-1, sourceGeneration, 0)
+		if player.IsPlaying() {
+			t.Fatal("stale playback request restarted a stopped player")
+		}
+	}
+}

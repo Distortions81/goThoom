@@ -356,7 +356,9 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 		return
 	}
 	shadowTarget := characterShadowMask(activeBounds.Size())
-	shadowTarget.SubImage(image.Rectangle{Max: activeBounds.Size()}).(*ebiten.Image).Clear()
+	clearTarget := shadowTarget.RecyclableSubImage(image.Rectangle{Max: activeBounds.Size()})
+	clearTarget.Clear()
+	clearTarget.Recycle()
 	for _, command := range frameCharacterShadowDraws {
 		drawCharacterShadow(
 			shadowTarget,
@@ -388,7 +390,9 @@ func beginLayeredCharacterShadowComposite(bounds image.Rectangle) {
 	}
 	layeredShadowOrigin = bounds.Min
 	layeredShadowCoverage = ensureCharacterShadowImage(layeredShadowCoverage, bounds.Size())
-	layeredShadowCoverage.SubImage(image.Rectangle{Max: bounds.Size()}).(*ebiten.Image).Clear()
+	clearTarget := layeredShadowCoverage.RecyclableSubImage(image.Rectangle{Max: bounds.Size()})
+	clearTarget.Clear()
+	clearTarget.Recycle()
 	frameLayeredShadowCoverageBounds = image.Rectangle{}
 	frameLayeredShadowCoverageRects = frameLayeredShadowCoverageRects[:0]
 	frameLayeredShadowCompositeActive = true
@@ -494,15 +498,20 @@ func compositeLayeredCharacterShadow(screen *ebiten.Image, command characterShad
 	size := bounds.Size()
 	layeredShadowIncoming = ensureCharacterShadowImage(layeredShadowIncoming, size)
 	layeredShadowScene = ensureCharacterShadowImage(layeredShadowScene, size)
-	incoming := layeredShadowIncoming.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
-	scene := layeredShadowScene.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
+	incoming := layeredShadowIncoming.RecyclableSubImage(image.Rectangle{Max: size})
+	defer incoming.Recycle()
+	scene := layeredShadowScene.RecyclableSubImage(image.Rectangle{Max: size})
+	defer scene.Recycle()
 	incoming.Clear()
 
 	drawCharacterShadow(incoming, command.texture, command.size, command.x-bounds.Min.X, command.y-bounds.Min.Y, command.alpha, command.projection, command.upright, shadowMaskBlend)
 	sceneCopyOp := &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy}
-	scene.DrawImage(screen.SubImage(bounds).(*ebiten.Image), sceneCopyOp)
+	screenSource := screen.RecyclableSubImage(bounds)
+	defer screenSource.Recycle()
+	scene.DrawImage(screenSource, sceneCopyOp)
 	coverageRect := bounds.Sub(layeredShadowOrigin)
-	coverageSource := layeredShadowCoverage.SubImage(coverageRect).(*ebiten.Image)
+	coverageSource := layeredShadowCoverage.RecyclableSubImage(coverageRect)
+	defer coverageSource.Recycle()
 
 	shaderOp := &ebiten.DrawRectShaderOptions{}
 	shaderOp.Images[0] = scene
@@ -547,17 +556,22 @@ func compositeLayeredShadowImage(screen, source *ebiten.Image, drawOp *ebiten.Dr
 	size := bounds.Size()
 	layeredShadowIncoming = ensureCharacterShadowImage(layeredShadowIncoming, size)
 	layeredShadowScene = ensureCharacterShadowImage(layeredShadowScene, size)
-	incoming := layeredShadowIncoming.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
-	scene := layeredShadowScene.SubImage(image.Rectangle{Max: size}).(*ebiten.Image)
+	incoming := layeredShadowIncoming.RecyclableSubImage(image.Rectangle{Max: size})
+	defer incoming.Recycle()
+	scene := layeredShadowScene.RecyclableSubImage(image.Rectangle{Max: size})
+	defer scene.Recycle()
 	incoming.Clear()
 
 	incomingOp := *drawOp
 	incomingOp.Blend = shadowMaskBlend
 	incomingOp.GeoM.Translate(float64(-bounds.Min.X), float64(-bounds.Min.Y))
 	incoming.DrawImage(source, &incomingOp)
-	scene.DrawImage(screen.SubImage(bounds).(*ebiten.Image), &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
+	screenSource := screen.RecyclableSubImage(bounds)
+	defer screenSource.Recycle()
+	scene.DrawImage(screenSource, &ebiten.DrawImageOptions{Blend: ebiten.BlendCopy})
 	coverageRect := bounds.Sub(layeredShadowOrigin)
-	coverageSource := layeredShadowCoverage.SubImage(coverageRect).(*ebiten.Image)
+	coverageSource := layeredShadowCoverage.RecyclableSubImage(coverageRect)
+	defer coverageSource.Recycle()
 
 	shaderOp := &ebiten.DrawRectShaderOptions{}
 	shaderOp.Images[0] = scene
@@ -637,7 +651,8 @@ func applyDetailedCharacterShadow(dst *ebiten.Image) {
 		return
 	}
 	sourceRect := image.Rectangle{Max: bounds.Size()}
-	source := frameDetailedShadowMask.SubImage(sourceRect).(*ebiten.Image)
+	source := frameDetailedShadowMask.RecyclableSubImage(sourceRect)
+	defer source.Recycle()
 	op := &ebiten.DrawImageOptions{Blend: shadowDarkenBlend}
 	op.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
 	dst.DrawImage(source, op)

@@ -186,6 +186,7 @@ func normalizeGamma(v, fallback float64) float64 {
 var gsdef settings = settings{
 	Version:            SETTINGS_VERSION,
 	SetupWizardVersion: 0,
+	Theme:              followSystemTheme,
 
 	LastCharacter:                 "",
 	ClickToToggle:                 false,
@@ -193,6 +194,7 @@ var gsdef settings = settings{
 	InputBarAlwaysOpen:            true,
 	InputAutocomplete:             true,
 	InputSpellcheck:               true,
+	ExpandEmojiNames:              true,
 	KBWalkSpeed:                   0.25,
 	MainFontSize:                  8,
 	BubbleFontSize:                20,
@@ -218,6 +220,7 @@ var gsdef settings = settings{
 	NameHealthBarAbove:            true,
 	NameHealthBarThickness:        3,
 	NameTagLabelColors:            true,
+	SmoothNameTagMotion:           false,
 	HideSelfNameTag:               false,
 	NameTagsOnHoverOnly:           false,
 	BarOpacity:                    0.66,
@@ -429,6 +432,7 @@ type settings struct {
 	InputBarAlwaysOpen            bool
 	InputAutocomplete             bool
 	InputSpellcheck               bool
+	ExpandEmojiNames              bool
 	KBWalkSpeed                   float64
 	MainFontSize                  float64
 	BubbleFontSize                float64
@@ -457,6 +461,7 @@ type settings struct {
 	NameHealthBarAbove     bool
 	NameHealthBarThickness int
 	NameTagLabelColors     bool
+	SmoothNameTagMotion    bool
 	HideSelfNameTag        bool
 	// NameTagsOnHoverOnly hides name tags unless the cursor is over a mobile.
 	NameTagsOnHoverOnly     bool
@@ -902,6 +907,9 @@ func applyVSyncSetting() {
 }
 
 func applySettings() {
+	if !gs.ExpandEmojiNames {
+		closeEmojiPicker()
+	}
 	setClientActivityIndicatorsEnabled(gs.AssetActivityIndicators)
 	eui.SetWindowSnapping(gs.WindowSnapping)
 	eui.SetMiddleClickMove(gs.MiddleClickMoveWindow)

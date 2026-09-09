@@ -101,7 +101,7 @@ func (p *Pool) Acquire(width, height int, unmanaged bool) *ebiten.Image {
 		slot = &allocation{parent: parent, size: size, unmanaged: unmanaged, bytes: wanted}
 		p.stats.Allocations++
 	}
-	view := slot.parent.SubImage(image.Rect(0, 0, max(1, width), max(1, height))).(*ebiten.Image)
+	view := slot.parent.RecyclableSubImage(image.Rect(0, 0, max(1, width), max(1, height)))
 	if p.active == nil {
 		p.active = make(map[*ebiten.Image]*allocation)
 	}
@@ -130,6 +130,7 @@ func (p *Pool) Release(view *ebiten.Image) bool {
 		return false
 	}
 	delete(p.active, view)
+	view.Recycle()
 	p.stats.ActiveBytes -= slot.bytes
 	p.free = append(p.free, slot)
 	p.stats.FreeBytes += slot.bytes

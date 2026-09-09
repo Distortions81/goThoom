@@ -73,3 +73,16 @@ func TestSizeClassesIncludeManagedBorder(t *testing.T) {
 		t.Fatalf("standalone size limit exceeded by padding: %v", got)
 	}
 }
+
+func BenchmarkAcquireResizedTarget(b *testing.B) {
+	p := Pool{MaxFreeBytes: 1 << 20}
+	defer p.Clear()
+	// Scroll and resize clips vary even when the same backing texture fits.
+	p.Release(p.Acquire(255, 255, false))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		view := p.Acquire(225+i%30, 225+(i/30)%30, false)
+		p.Release(view)
+	}
+}

@@ -5,15 +5,17 @@ package main
 import (
 	"errors"
 
-	"github.com/sqweek/dialog"
+	"github.com/ncruces/zenity"
 )
 
 var errMovieDialogCancelled = errors.New("movie dialog cancelled")
 
 func pickMovieFile() (string, error) {
-	filename, err := dialog.File().Filter("clMov files", "clMov", "clmov", "zip", "ZIP").Load()
+	filename, err := zenity.SelectFile(zenity.FileFilter{
+		Name: "clMov files", Patterns: []string{"*.clMov", "*.clmov", "*.zip", "*.ZIP"},
+	})
 	if err != nil {
-		if err == dialog.Cancelled {
+		if errors.Is(err, zenity.ErrCanceled) {
 			return "", errMovieDialogCancelled
 		}
 		return "", err

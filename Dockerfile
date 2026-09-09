@@ -3,14 +3,9 @@
 FROM ubuntu:24.04 AS builder
 ARG DEBIAN_FRONTEND=noninteractive
 
-# ---- Core toolchain & libs ----
+# ---- Build and packaging tools ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential g++-12 libstdc++-12-dev libc6-dev \
-    git cmake ninja-build clang llvm lldb pkg-config \
-    libgl1-mesa-dev libglu1-mesa-dev xorg-dev libxrandr-dev \
-    libasound2-dev alsa-utils libgtk-3-dev xdg-utils \
-    libxml2-dev uuid-dev libssl-dev libbz2-dev zlib1g-dev \
-    cpio unzip zip xz-utils curl ca-certificates jq \
+    git unzip zip xz-utils curl ca-certificates jq \
     osslsigncode imagemagick \
  && rm -rf /var/lib/apt/lists/*
 
@@ -25,12 +20,7 @@ ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 WORKDIR /app
 
 # ---- Cross-platform release tools ----
-# Install these before copying the project so ordinary source changes can reuse
-# the expensive toolchain layers in CI.
-COPY build-scripts/install_osxcross.sh ./build-scripts/
-RUN ./build-scripts/install_osxcross.sh --root /osxcross --sdk-version 13.3 --no-deps
-ENV OSXCROSS_ROOT=/osxcross
-ENV PATH="$OSXCROSS_ROOT/target/bin:${PATH}"
+# Desktop builds use CGO_ENABLED=0 and do not need a macOS SDK or C compiler.
 
 # Use the official static release instead of compiling apple-codesign and its
 # Rust dependency tree for every clean build.
@@ -69,7 +59,7 @@ COPY . .
 
 # ---- Build now (optional) to verify toolchain & seed caches) ----
 # Comment this out if you want the image to ship without prebuilt artifacts.
-RUN GOTHOOM_SKIP_SYSTEM_DEPS=1 bash ./build-scripts/build_binaries.sh
+RUN bash ./build-scripts/build_binaries.sh
 
 # Keep a predictable artifacts dir inside the image
 RUN mkdir -p /binaries \

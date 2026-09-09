@@ -19,6 +19,7 @@ const maxUITextEntries = 256
 type uiTextKey struct {
 	value          string
 	source         *text.GoTextFaceSource
+	composedFace   text.Face
 	size           float64
 	layout         text.LayoutOptions
 	phaseX, phaseY float64
@@ -52,14 +53,19 @@ func drawCachedUIText(dst *ebiten.Image, value string, face text.Face, op *text.
 		return
 	}
 	plain, ok := face.(*text.GoTextFace)
-	if len(value) > 4096 || !ok {
+	if len(value) > 4096 {
 		text.Draw(dst, value, face, op)
 		return
 	}
 	x, y := op.GeoM.Apply(0, 0)
 	ix, iy := math.Floor(x), math.Floor(y)
-	key := uiTextKey{value: value, source: plain.Source, size: plain.Size, layout: op.LayoutOptions,
+	key := uiTextKey{value: value, layout: op.LayoutOptions,
 		phaseX: x - ix, phaseY: y - iy, tint: op.ColorScale}
+	if ok {
+		key.source, key.size = plain.Source, plain.Size
+	} else {
+		key.composedFace = face
+	}
 	cache := &plainUIText
 	cache.clock++
 	entry, cached := cache.entries[key]
@@ -88,6 +94,7 @@ func drawCachedUIText(dst *ebiten.Image, value string, face text.Face, op *text.
 				if glyph.Image == nil {
 					continue
 				}
+				setGlyphColorScale(&drawOp, op.ColorScale, glyph.Colored)
 				drawOp.GeoM.Reset()
 				drawOp.GeoM.Translate(glyph.X, glyph.Y)
 				drawOp.GeoM.Concat(op.GeoM)
@@ -115,6 +122,7 @@ func drawCachedUIText(dst *ebiten.Image, value string, face text.Face, op *text.
 			if glyph.Image == nil {
 				continue
 			}
+			setGlyphColorScale(&drawOp, op.ColorScale, glyph.Colored)
 			drawOp.GeoM.Reset()
 			drawOp.GeoM.Translate(glyph.X+key.phaseX-float64(bounds.Min.X), glyph.Y+key.phaseY-float64(bounds.Min.Y))
 			entry.image.DrawImage(glyph.Image, &drawOp)
@@ -129,4 +137,12 @@ func drawCachedUIText(dst *ebiten.Image, value string, face text.Face, op *text.
 	drawOp := ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 	drawOp.GeoM.Translate(ix+float64(entry.bounds.Min.X), iy+float64(entry.bounds.Min.Y))
 	dst.DrawImage(entry.image, &drawOp)
+}
+
+func setGlyphColorScale(op *ebiten.DrawImageOptions, tint ebiten.ColorScale, colored bool) {
+	op.ColorScale = tint
+	if colored {
+		op.ColorScale.Reset()
+		op.ColorScale.ScaleAlpha(tint.A())
+	}
 }

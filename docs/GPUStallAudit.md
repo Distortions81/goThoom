@@ -199,7 +199,7 @@ build-scripts/render_stall_study.sh /tmp/gothoom-gpu-diagnostic
 ```
 
 Use a unique timeline path per process; the probe creates/truncates it. The
-helper copies Ebitengine v2.9.10, applies the version-specific patch there, and
+helper copies Ebitengine commit `f3e017a2e5c2`, applies the diagnostic patch there, and
 builds with a temporary modfile. It leaves the checkout's dependencies and Go
 module cache untouched. The patch is diagnostic-only and requires the tested
 Linux/GLX OpenGL ES timer-query support.

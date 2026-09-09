@@ -1,0 +1,15 @@
+goThoom 57 changes since test56.
+
+Emoji:
+- Chat and speech bubbles render emoji sent as Unicode characters or readable names such as `:smile:`.
+- Pasting a supported emoji sends its readable name, so other clients can display it too.
+- Open the new emoji picker at the right of the message input to browse or search emoji by group. It inserts the readable name into your draft.
+- Settings > Text > Chat & Messages now includes Show `:smile:` as emoji. Turn it off to keep emoji names visible in chat and speech bubbles.
+
+Appearance and graphics:
+- Follow system is now the default theme choice and follows the system light or dark appearance after startup.
+- Added an optional Smooth nametag motion setting in Display for fluid name movement.
+- Improved rendering efficiency for sprites, shadows, text, and color effects.
+
+Desktop:
+- Desktop builds no longer require Cgo. File and folder dialogs remain native; Linux uses Zenity or Qarma when available.

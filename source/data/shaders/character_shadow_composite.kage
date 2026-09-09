@@ -8,8 +8,8 @@ package main
 // be submitted at its caster's painter-order position.
 func Fragment(dstPos vec4, texCoord vec2, color vec4) vec4 {
 	base := imageSrc0At(texCoord)
-	previous := imageSrc1At(texCoord).a
-	incoming := imageSrc2At(texCoord).a
+	previous := imageSrc1AtFromSrc0Pos(texCoord).a
+	incoming := imageSrc2AtFromSrc0Pos(texCoord).a
 	combined := max(previous, incoming)
 	remaining := 1.0 - previous
 	factor := 1.0

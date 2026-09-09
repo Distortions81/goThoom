@@ -37,15 +37,25 @@ func simpleEncrypt(data []byte) {
 // format without losing Unicode. Runes outside MacRoman become ASCII Unicode
 // escapes. Literal backslashes are sent unchanged.
 func EncodeMacRomanEscaped(s string) ([]byte, error) {
+	return encodeMacRomanEscapedPrefix(s, -1), nil
+}
+
+// encodeMacRomanEscapedPrefix limits wire bytes without splitting an encoded
+// rune. A negative limit includes the entire string.
+func encodeMacRomanEscapedPrefix(s string, limit int) []byte {
 	encoded := make([]byte, 0, len(s))
 	for _, char := range s {
+		start := len(encoded)
 		if b, ok := charmap.Macintosh.EncodeRune(char); ok {
 			encoded = append(encoded, b)
-			continue
+		} else {
+			encoded = appendUnicodeEscape(encoded, char)
 		}
-		encoded = appendUnicodeEscape(encoded, char)
+		if limit >= 0 && len(encoded) > limit {
+			return encoded[:start]
+		}
 	}
-	return encoded, nil
+	return encoded
 }
 
 func appendUnicodeEscape(dst []byte, char rune) []byte {

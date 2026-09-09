@@ -44,6 +44,7 @@
 - The Go module and client are under `source/` (`module gothoom`).
 - Use Go 1.26.6 from the official Go distribution. Do not use the system
   `golang-go` package.
+- Desktop builds use `CGO_ENABLED=0`; no C compiler or macOS SDK is required.
 - Running the desktop client requires a display. Use Xvfb in a headless
   environment.
 
@@ -74,10 +75,10 @@ otherwise higher-risk changes, or when the user asks for it:
 
 ```sh
 cd source
-go test ./...
+CGO_ENABLED=0 go test ./...
 ```
 
-Use `go build` for a normal client compile. Also run `git diff --check` before
+Use `CGO_ENABLED=0 go build` for a normal client compile. Also run `git diff --check` before
 handoff. Validate release or cross-platform changes with the relevant build
 script rather than assuming a normal Linux build covers them.
 
@@ -147,9 +148,11 @@ Run helpers from the repository root:
 
 ## Ebitengine
 
-- Target Ebitengine 2.9.x and do not introduce APIs deprecated in that release.
+- Target Ebitengine 2.10.x and do not introduce APIs deprecated in that release.
+- Keep Ebitengine pinned to commit `f3e017a2e5c23725b185cb2373182bfa96a8405e`
+  for the redraw fix when window presentation resumes.
 - Prefer `vector.Fill*`, `vector.StrokePath`, and `vector.Path.Add*` helpers.
 - Use `audio.ResampleReader` or `audio.ResampleReaderF32`, not the deprecated
   `audio.Resample` helpers.
-- Consult the [Ebitengine 2.9 release notes](https://ebitengine.org/en/documents/2.9.html)
+- Consult the [Ebitengine 2.10 release notes](https://ebitengine.org/en/documents/2.10.html)
   when touching rendering, input, window, gamepad, text, or audio APIs.

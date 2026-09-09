@@ -266,24 +266,21 @@ func makeSettingsWindow() {
 
 	themeDD, themeEvents := eui.NewDropdown()
 	themeDD.Label = "Color Theme"
-	if opts, err := eui.ListThemes(); err == nil {
-		themeDD.Options = opts
-		cur := eui.CurrentThemeName()
-		for i, n := range opts {
-			if n == cur {
-				themeDD.Selected = i
-				break
-			}
+	themeDD.Options = themeChoices()
+	for i, name := range themeDD.Options {
+		if name == currentThemeChoice() {
+			themeDD.Selected = i
+			break
 		}
 	}
 	themeDD.Size = eui.Point{X: displayColumnWidth, Y: settingsControlHeight}
 	themeEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventDropdownSelected {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(themeDD.Options) {
 			SettingsLock.Lock()
 			defer SettingsLock.Unlock()
 
 			name := themeDD.Options[ev.Index]
-			if err := eui.LoadTheme(name); err == nil {
+			if err := loadThemeChoice(name); err == nil {
 				gs.Theme = name
 				gs.Style = eui.CurrentStyleName()
 				for i, n := range styleDD.Options {
@@ -328,7 +325,7 @@ func makeSettingsWindow() {
 		settingsWin.Refresh()
 	})
 	bindThemePreview(styleDD, false, func() { settingsWin.Refresh() })
-	themeDD.SetTooltip("Hover to preview a palette. Click to keep it; move away or press Escape to restore your choice.")
+	themeDD.SetTooltip("Follow system switches between AccentLight and AccentDark with your system appearance. Hover to preview; click to keep a choice.")
 	styleDD.SetTooltip("Hover to preview control shapes and spacing. Click to keep the style.")
 
 	themeRow := eui.NewRow()
@@ -679,6 +676,21 @@ func makeSettingsWindow() {
 		}
 	}
 	nameSection.AddItem(nameBorderCB)
+
+	smoothNamesCB, smoothNamesEvents := eui.NewCheckbox()
+	smoothNamesCB.Text = "Smooth nametag motion"
+	smoothNamesCB.Size = eui.Point{X: worldColumnWidth - 10, Y: settingsControlHeight}
+	smoothNamesCB.Checked = gs.SmoothNameTagMotion
+	smoothNamesCB.SetTooltip("Move names and their health bars between pixels for smoother motion. Text may look slightly softer; turn off for crisp, pixel-aligned labels.")
+	smoothNamesEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			defer SettingsLock.Unlock()
+			gs.SmoothNameTagMotion = ev.Checked
+			settingsDirty = true
+		}
+	}
+	nameSection.AddItem(smoothNamesCB)
 
 	healthBarStyleDD, healthBarStyleEvents := eui.NewDropdown()
 	healthBarStyleDD.Label = "Player Health Display"
@@ -1268,6 +1280,26 @@ func addControlSettings(controlsSection *eui.ItemData, columnWidth float32) {
 }
 
 func addTextSettings(chatSection, inputSection *eui.ItemData, columnWidth float32) {
+	emoji, emojiEvents := eui.NewCheckbox()
+	emoji.Text = "Show :smile: as emoji"
+	emoji.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}
+	emoji.Checked = gs.ExpandEmojiNames
+	emoji.SetTooltip("Display names such as :smile: and :thumbs_up: as emoji in chat and speech bubbles. Turn off to show the names as written.")
+	emojiEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			SettingsLock.Lock()
+			gs.ExpandEmojiNames = ev.Checked
+			SettingsLock.Unlock()
+			if !ev.Checked {
+				closeEmojiPicker()
+			}
+			settingsDirty = true
+			updateChatWindow()
+			updateConsoleWindow()
+		}
+	}
+	chatSection.AddItem(emoji)
+
 	autocomplete, autocompleteEvents := eui.NewCheckbox()
 	autocomplete.Text = "Autocomplete"
 	autocomplete.Size = eui.Point{X: columnWidth, Y: settingsControlHeight}

@@ -12,13 +12,18 @@ import (
 // FirstChanged may skip unchanged rows; pass zero when styling or callbacks
 // change. Width and font changes always invalidate that optimization.
 type TextWindowOptions struct {
-	FontSize      float64
-	FontSource    *text.GoTextFaceSource
+	FontSize   float64
+	FontSource *text.GoTextFaceSource
+	// Face optionally supplies a composed face, already sized in pixels.
+	// It overrides FontSource for both layout and rendering.
+	Face          text.Face
 	AlternateRows bool
 	FirstChanged  int
 	OnURLClick    func(string)
 	InputText     string
 	InputEditable bool
+	// InputAction is an optional fixed control to the right of the input.
+	InputAction *ItemData
 	// InputUnderlines receives wrapped input and returns rune-indexed spans.
 	// A nil callback leaves the input without annotations.
 	InputUnderlines func(string) []TextSpan
@@ -28,6 +33,7 @@ type textWindowWrapConfig struct {
 	width    float64
 	faceSize float64
 	source   *text.GoTextFaceSource
+	face     text.Face
 }
 
 type textWindowWrapEntry struct {
@@ -124,7 +130,9 @@ func NewTextWindow(title string, hz HZone, vz VZone, withInput bool) (*WindowDat
 	var input *ItemData
 	if withInput {
 		input = &ItemData{ItemType: ITEM_FLOW, FlowType: FLOW_VERTICAL, Fixed: true, Scrollable: true}
-		flow.AddItem(input)
+		row := &ItemData{ItemType: ITEM_FLOW, FlowType: FLOW_HORIZONTAL, Fixed: true}
+		row.AddItem(input)
+		flow.AddItem(row)
 	}
 
 	win.AddWindow(false)
@@ -207,12 +215,15 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 		resolvedFaceSrc = FontSource()
 	}
 	goFace := &text.GoTextFace{Source: resolvedFaceSrc, Size: facePx}
-	metrics := goFace.Metrics()
+	var face text.Face = goFace
+	if options.Face != nil {
+		face = options.Face
+	}
+	metrics := face.Metrics()
 	linePx := math.Ceil(metrics.HAscent + metrics.HDescent + 2) // +2 px padding
 	rowUnits := float32(linePx) / ui
 
 	// Prepare wrapping parameters: use the same face for measurement.
-	var face text.Face = goFace
 	// Reserve a gutter for the vertical scrollbar so wrapped text and
 	// hitboxes never encroach beneath it. This applies broadly to chat,
 	// console, help, and about windows using this helper.
@@ -230,6 +241,7 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 		width:    wrapWidthPx,
 		faceSize: facePx,
 		source:   resolvedFaceSrc,
+		face:     options.Face,
 	}) {
 		firstChanged = 0
 	}
@@ -275,10 +287,35 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 	}
 
 	var scrollInput bool
+	inputRow := input
 	if input != nil {
+		if input.Parent != nil && input.Parent != list.Parent {
+			inputRow = input.Parent
+		}
+		actionWidth, actionHeight := float32(0), float32(0)
+		if inputRow != input {
+			if action := options.InputAction; action != nil {
+				actionSize := action.GetSize()
+				actionWidth = min(contentWUnits, actionSize.X/ui+action.Position.X)
+				actionHeight = actionSize.Y/ui + action.Position.Y
+				if len(inputRow.Contents) != 2 || inputRow.Contents[1] != action {
+					inputRow.SetItems([]*ItemData{input, action})
+				}
+			} else if len(inputRow.Contents) != 1 {
+				inputRow.SetItems([]*ItemData{input})
+			}
+		}
+		inputWidth := max(0, contentWUnits-actionWidth)
+		if len(input.Contents) == 0 {
+			t, _ := NewText()
+			t.Filled = true
+			input.AddItem(t)
+		}
+		textItem := input.Contents[0]
+		textWidth := max(1, inputWidth-textItem.Position.X)
 		scrollInput = input.ScrollAtBottom()
 		// Soft-wrap the input message to the available width and grow the input area.
-		_, inLines := WrapText(inputMsg, face, wrapWidthPx)
+		_, inLines := WrapText(inputMsg, face, max(1, min(wrapWidthPx-float64(actionWidth*ui), float64(textWidth*ui))))
 		wrappedIn := strings.Join(inLines, "\n")
 		var miss []TextSpan
 		if options.InputUnderlines != nil {
@@ -288,7 +325,7 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 		if inLinesN < 1 {
 			inLinesN = 1
 		}
-		inputContentH := rowUnits * float32(inLinesN)
+		inputContentH := max(rowUnits*float32(inLinesN)+textItem.Position.Y, actionHeight)
 		maxInputH := clientHUnits / 2
 		if inputContentH > maxInputH {
 			input.Size.Y = maxInputH
@@ -297,30 +334,17 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 			input.Size.Y = inputContentH
 			input.Scrollable = false
 		}
-		input.Size.X = contentWUnits
-		if len(input.Contents) == 0 {
-			t, _ := NewText()
-			t.Text = wrappedIn
-			t.FontSize = float32(fontSize)
-			t.Face = face
-			t.Size = Point{X: contentWUnits, Y: inputContentH}
-			t.Filled = true
-			t.SelectableText = options.InputEditable
-			t.EditableText = options.InputEditable
-			t.Underlines = miss
-			input.AddItem(t)
-		} else {
-			if input.Contents[0].Text != wrappedIn || input.Contents[0].FontSize != float32(fontSize) {
-				input.Contents[0].Text = wrappedIn
-				input.Contents[0].FontSize = float32(fontSize)
-			}
-			input.Contents[0].Face = face
-			input.Contents[0].Size.X = contentWUnits
-			input.Contents[0].Size.Y = inputContentH
-			input.Contents[0].SelectableText = options.InputEditable
-			input.Contents[0].EditableText = options.InputEditable
-			input.Contents[0].Underlines = miss
+		input.Size.X = inputWidth
+		if inputRow != input {
+			inputRow.Size = Point{X: contentWUnits, Y: max(input.Size.Y, actionHeight)}
 		}
+		textItem.Text = wrappedIn
+		textItem.FontSize = float32(fontSize)
+		textItem.Face = face
+		textItem.Size = Point{X: textWidth, Y: inputContentH - textItem.Position.Y}
+		textItem.SelectableText = options.InputEditable
+		textItem.EditableText = options.InputEditable
+		textItem.Underlines = miss
 		if scrollInput {
 			input.Scroll.Y = 1e9
 		}
@@ -332,7 +356,7 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 		list.Parent.Size.X = clientWUnits
 		list.Parent.Size.Y = clientHUnits
 		for _, c := range list.Parent.Contents {
-			if c != list && c != input {
+			if c != list && c != inputRow {
 				c.Size.X = clientWUnits
 				extraH += c.Size.Y
 			}
@@ -340,7 +364,7 @@ func UpdateTextWindow(win *WindowData, list, input *ItemData, msgs []string, opt
 	}
 	list.Size.X = clientWUnits
 	if input != nil {
-		list.Size.Y = max(0, clientHUnits-input.Size.Y-extraH)
+		list.Size.Y = max(0, clientHUnits-inputRow.Size.Y-extraH)
 	} else {
 		list.Size.Y = max(0, clientHUnits-extraH)
 	}

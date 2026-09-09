@@ -760,7 +760,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 		item.DrawRect = rectAdd(drawRect, base)
 		return
 	}
-	subImg := screen.SubImage(drawRect.getRectangle()).(*ebiten.Image)
+	subImg := screen.RecyclableSubImage(drawRect.getRectangle())
+	defer subImg.Recycle()
 	style := item.themeStyle()
 	if item.Disabled {
 		style = disabledStyle(style)
@@ -1044,7 +1045,8 @@ func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point,
 // drawItemInternal uses the size and clip already resolved by drawItem.
 func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rect, screen *ebiten.Image) {
 	item.DrawRect = drawRect
-	subImg := screen.SubImage(drawRect.getRectangle()).(*ebiten.Image)
+	subImg := screen.RecyclableSubImage(drawRect.getRectangle())
+	defer subImg.Recycle()
 	style := item.themeStyle()
 	if item.Disabled {
 		style = disabledStyle(style)
@@ -1061,7 +1063,8 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 	if info.X1 > info.X0 {
 		clip := subImg.Bounds()
 		clip.Max.X = min(clip.Max.X, int(info.X0-3*uiScale))
-		textTarget = subImg.SubImage(clip).(*ebiten.Image)
+		textTarget = subImg.RecyclableSubImage(clip)
+		defer textTarget.Recycle()
 		defer func() { drawTooltipIndicator(subImg, info, infoTextColor) }()
 	}
 
@@ -1298,7 +1301,8 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 			info.X1 = info.X0 + 12*uiScale
 			clip := subImg.Bounds()
 			clip.Max.X = min(clip.Max.X, int(info.X0-3*uiScale))
-			textTarget = subImg.SubImage(clip).(*ebiten.Image)
+			textTarget = subImg.RecyclableSubImage(clip)
+			defer textTarget.Recycle()
 		}
 
 		loo := text.LayoutOptions{
@@ -1755,7 +1759,9 @@ func (item *itemData) drawItemInternal(offset, base, maxSize point, drawRect rec
 						selectedOptions := *top
 						selectedOptions.ColorScale.Reset()
 						selectedOptions.ColorScale.ScaleWithColor(item.surfaceTextColor(tcolor, selectionColor, true))
-						text.Draw(subImg.SubImage(selectionClip.getRectangle()).(*ebiten.Image), item.Text, face, &selectedOptions)
+						selectionTarget := subImg.RecyclableSubImage(selectionClip.getRectangle())
+						text.Draw(selectionTarget, item.Text, face, &selectedOptions)
+						selectionTarget.Recycle()
 					}
 				}
 			}
@@ -1963,10 +1969,11 @@ func (item *itemData) drawItem(parent *itemData, offset point, base point, clip 
 			int(drawRect.X1-offset.X),
 			int(drawRect.Y1-offset.Y),
 		)
-		sub := item.Render.SubImage(src).(*ebiten.Image)
+		sub := item.Render.RecyclableSubImage(src)
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest, DisableMipmaps: true}
 		op.GeoM.Translate(float64(drawRect.X0), float64(drawRect.Y0))
 		screen.DrawImage(sub, op)
+		sub.Recycle()
 	} else {
 		item.drawItemInternal(offset, base, maxSize, drawRect, screen)
 	}
@@ -2013,7 +2020,8 @@ func drawDropdownOptions(item *itemData, offset point, clip rect, screen *ebiten
 	if visibleRect.X1 <= visibleRect.X0 || visibleRect.Y1 <= visibleRect.Y0 {
 		return
 	}
-	subImg := screen.SubImage(visibleRect.getRectangle()).(*ebiten.Image)
+	subImg := screen.RecyclableSubImage(visibleRect.getRectangle())
+	defer subImg.Recycle()
 	style := item.themeStyle()
 	if item.Disabled {
 		style = disabledStyle(style)

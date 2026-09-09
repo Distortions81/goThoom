@@ -32,8 +32,16 @@ Copyright (c) 2025 Carl Frank Otto III.
 - **x/time** — BSD-3-Clause — The Go Authors  
   https://github.com/golang/time
 
+## Emoji names
+
+- [**Unicode emoji data**](https://www.unicode.org/emoji/) — Unicode License V3 — Unicode, Inc.
+  [License](source/licenses/Unicode.txt).
+  Picker groups and ordering: [Emoji 17.0 test data](https://www.unicode.org/Public/17.0.0/emoji/emoji-test.txt).
+
 ## Fonts
 
+- [**Noto Color Emoji**](https://github.com/googlefonts/noto-emoji) — SIL Open Font License 1.1 — The Noto Project Authors.
+  [License](source/data/font/NotoColorEmoji-LICENSE.txt).
 - **Noto Sans (Regular, Bold, Italic, BoldItalic)** — SIL Open Font License 1.1 — The Noto Project Authors  
   https://github.com/googlefonts/noto-fonts
 

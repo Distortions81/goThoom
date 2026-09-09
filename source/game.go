@@ -27,7 +27,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	dark "github.com/thiagokokada/dark-mode-go"
 	clipboard "golang.design/x/clipboard"
 )
 
@@ -79,7 +78,9 @@ func fillOutsideWorldView(target *ebiten.Image, worldView image.Rectangle, fill 
 	}
 	for _, region := range regions {
 		if !region.Empty() {
-			target.SubImage(region).(*ebiten.Image).Fill(fill)
+			part := target.RecyclableSubImage(region)
+			part.Fill(fill)
+			part.Recycle()
 		}
 	}
 }
@@ -933,6 +934,7 @@ type worldRenderKey struct {
 	fadeObscuringPictures                      bool
 	obscuringPictureOpacity                    float64
 	speechBubbles, animatedChatBubbles         bool
+	expandEmojiNames                           bool
 	avoidBubbleOverlap                         bool
 	bubbleNormal, bubbleWhisper, bubbleYell    bool
 	bubbleThought, bubbleRealAction            bool
@@ -948,6 +950,7 @@ type worldRenderKey struct {
 	nameHealthBarThickness                     int
 	nameTagLabelColors, hideSelfNameTag        bool
 	nameTagsOnHoverOnly                        bool
+	smoothNameTagMotion                        bool
 	snapshotHideNameTags                       bool
 	barOpacity                                 float64
 	barPlacement                               BarPlacement
@@ -1008,6 +1011,7 @@ func currentWorldRenderKey(width, height int) worldRenderKey {
 		bubbleMonsters:            gs.BubbleMonsters,
 		bubbleNarration:           gs.BubbleNarration,
 		bubbleOpacity:             gs.BubbleOpacity,
+		expandEmojiNames:          gs.ExpandEmojiNames,
 		bubbleScale:               gs.BubbleScale,
 		bubbleFontSize:            gs.BubbleFontSize,
 		mainFontSize:              gs.MainFontSize,
@@ -1019,6 +1023,7 @@ func currentWorldRenderKey(width, height int) worldRenderKey {
 		nameTagLabelColors:        gs.NameTagLabelColors,
 		hideSelfNameTag:           gs.HideSelfNameTag,
 		nameTagsOnHoverOnly:       gs.NameTagsOnHoverOnly,
+		smoothNameTagMotion:       gs.SmoothNameTagMotion,
 		snapshotHideNameTags:      snapshotHidesNameTags(),
 		barOpacity:                gs.BarOpacity,
 		barPlacement:              gs.BarPlacement,
@@ -1029,7 +1034,7 @@ func currentWorldRenderKey(width, height int) worldRenderKey {
 		assetActivityIndicators:   gs.AssetActivityIndicators,
 		recording:                 recorder != nil || recordingMovie,
 		playing:                   playingMovie && !setupWizardPreviewActive,
-		theme:                     gs.Theme,
+		theme:                     eui.CurrentThemeName(),
 		style:                     gs.Style,
 	}
 }
@@ -1123,6 +1128,9 @@ func (g *Game) Update() error {
 	}
 	drainScriptDispatcher()
 	processMusicRequests()
+	if updateSystemTheme(now) {
+		refreshThemePreview()
+	}
 
 	if classicSplashFilterPending && gs.ShowClanLordSplashImage {
 		prepareClassicSplash()
@@ -2067,7 +2075,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	viewRect, renderScale := fittedWorldView(bufW, bufH)
 	assetTrace.setWorldContext(bufW, bufH, renderScale)
 	worldViewRect = viewRect
-	worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
+	worldView := gameImage.RecyclableSubImage(viewRect)
+	defer worldView.Recycle()
 	worldKey := currentWorldRenderKey(bufW, bufH)
 	if worldRenderCanBeReused(g, worldKey) {
 		snapshotReady = true
@@ -2178,7 +2187,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		windowScale := speechBubbleWindowScale(finalScale)
 		gs.GameScale = finalScale
 		if !viewRect.Empty() {
-			worldView := gameImage.SubImage(viewRect).(*ebiten.Image)
 			drawSpeechBubbles(worldView, snap, alpha, windowScale)
 			// Draw script overlays on top of the world view.
 			drawScriptOverlays(worldView, finalScale)
@@ -3500,7 +3508,8 @@ func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[
 
 // drawMobileNameTag renders the name tag and color bar for a single mobile.
 // It respects motion smoothing and rasterizes name tags at the final display
-// scale so cached text is drawn 1:1 rather than resampled with the artwork.
+// scale. Smooth motion filters the cached image at fractional positions; the
+// pixel-aligned mode preserves nearest-filtered, integer placement.
 func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, alpha float64) {
 	if wasmPrivacyActive() || snapshotHidesNameTags() {
 		return
@@ -3518,8 +3527,13 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 			}
 		}
 	}
-	x := screen.Bounds().Min.X + roundToInt((h+float64(fieldCenterX))*gs.GameScale)
-	y := screen.Bounds().Min.Y + roundToInt((v+float64(fieldCenterY))*gs.GameScale)
+	x := (h + float64(fieldCenterX)) * gs.GameScale
+	y := (v + float64(fieldCenterY)) * gs.GameScale
+	if !gs.SmoothNameTagMotion {
+		x, y = float64(roundToInt(x)), float64(roundToInt(y))
+	}
+	x += float64(screen.Bounds().Min.X)
+	y += float64(screen.Bounds().Min.Y)
 	if d, ok := snap.descriptors[m.Index]; ok {
 		if gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName) {
 			return
@@ -3547,8 +3561,12 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				}
 				barClr := nameBackColors[back]
 				barClr.A = nameAlpha
-				top := y + int(offset+2*gs.GameScale)
-				left := x - int(6*gs.GameScale)
+				if gs.SmoothNameTagMotion {
+					vector.FillRect(screen, float32(x-6*gs.GameScale), float32(y+offset+2*gs.GameScale), float32(12*gs.GameScale), float32(2*gs.GameScale), barClr, true)
+					return
+				}
+				top := y + float64(int(offset+2*gs.GameScale))
+				left := x - float64(int(6*gs.GameScale))
 				op := acquireDrawOpts()
 				op.Filter = ebiten.FilterNearest
 				op.DisableMipmaps = true
@@ -3574,8 +3592,12 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				img, iw, ih := entry.image, entry.width, entry.height
 				scaledWidth := max(1, iw)
 				scaledHeight := max(1, ih)
-				top := y + int(offset)
-				left := x - scaledWidth/2
+				top := y + offset
+				left := x - float64(scaledWidth)/2
+				if !gs.SmoothNameTagMotion {
+					top = y + float64(int(offset))
+					left = x - float64(scaledWidth/2)
+				}
 				barHeight := 0
 				barClr, showHealthBar := mobileHealthBarColor(m.Colors, d.Type)
 				if gs.NameHealthBarModern && showHealthBar {
@@ -3584,15 +3606,17 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 				nameY, barY := nameHealthBarOffsets(scaledHeight, barHeight, gs.NameHealthBarAbove)
 				if barHeight > 0 {
 					barClr.A = uint8(float32(barClr.A) * nameRevealAlpha)
-					vector.FillRect(screen, float32(left+1), float32(top+barY), float32(max(1, scaledWidth-2)), float32(barHeight), barClr, false)
+					vector.FillRect(screen, float32(left+1), float32(top+float64(barY)), float32(max(1, scaledWidth-2)), float32(barHeight), barClr, gs.SmoothNameTagMotion)
 				}
-				op := acquireDrawOpts()
-				op.Filter = ebiten.FilterNearest
-				op.DisableMipmaps = true
-				op.ColorScale.ScaleAlpha(nameRevealAlpha)
-				op.GeoM.Translate(float64(left), float64(top+nameY))
-				screen.DrawImage(img, op)
-				releaseDrawOpts(op)
+				if gs.SmoothNameTagMotion {
+					drawSmoothNameTag(screen, img, left, top+float64(nameY), nameRevealAlpha)
+				} else {
+					op := acquireDrawOpts()
+					op.ColorScale.ScaleAlpha(nameRevealAlpha)
+					op.GeoM.Translate(left, top+float64(nameY))
+					screen.DrawImage(img, op)
+					releaseDrawOpts(op)
+				}
 				releaseSharedNameTag(entry)
 			}
 		} else {
@@ -4812,20 +4836,7 @@ func initGame() {
 	resetInventory()
 
 	loadSettings()
-	theme := gs.Theme
-	if theme == "" {
-		darkMode, err := dark.IsDarkMode()
-		if err == nil {
-			if darkMode {
-				theme = "AccentDark"
-			} else {
-				theme = "AccentLight"
-			}
-		} else {
-			theme = "AccentDark"
-		}
-	}
-	eui.LoadTheme(theme)
+	_ = loadThemeChoice(gs.Theme)
 	if gs.Style != "" {
 		eui.LoadStyle(gs.Style)
 	}

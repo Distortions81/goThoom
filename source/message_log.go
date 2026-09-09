@@ -27,21 +27,23 @@ type messageLogDelta struct {
 }
 
 type messageWindowState struct {
-	messages      []string
-	types         []string
-	firstSequence uint64
-	lastSequence  uint64
-	format        string
-	timestamps    bool
-	dropped       int
-	reset         bool
+	messages         []string
+	types            []string
+	firstSequence    uint64
+	lastSequence     uint64
+	format           string
+	timestamps       bool
+	expandEmojiNames bool
+	dropped          int
+	reset            bool
 }
 
 func formatTimedMessage(msg timedMessage, format string, timestamps bool) string {
+	displayed := displayEmojiText(msg.Text)
 	if timestamps {
-		return "[" + msg.Time.Format(format) + "] " + msg.Text
+		return "[" + msg.Time.Format(format) + "] " + displayed
 	}
-	return msg.Text
+	return displayed
 }
 
 // Sync advances a window model using only newly retained log entries. The
@@ -55,7 +57,7 @@ func (state *messageWindowState) Sync(log *messageLog, format string, timestamps
 	if format == "" {
 		format = "3:04PM"
 	}
-	configChanged := state.format != format || state.timestamps != timestamps
+	configChanged := state.format != format || state.timestamps != timestamps || state.expandEmojiNames != gs.ExpandEmojiNames
 	after := state.lastSequence
 	if force || configChanged {
 		after = 0
@@ -72,6 +74,7 @@ func (state *messageWindowState) Sync(log *messageLog, format string, timestamps
 		state.lastSequence = 0
 		state.format = format
 		state.timestamps = timestamps
+		state.expandEmojiNames = gs.ExpandEmojiNames
 		state.reset = true
 		return state.messages, state.types, 0
 	}
@@ -103,6 +106,7 @@ func (state *messageWindowState) Sync(log *messageLog, format string, timestamps
 	state.lastSequence = delta.lastSequence
 	state.format = format
 	state.timestamps = timestamps
+	state.expandEmojiNames = gs.ExpandEmojiNames
 	if firstChanged > len(state.messages) {
 		firstChanged = len(state.messages)
 	}

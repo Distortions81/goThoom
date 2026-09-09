@@ -591,7 +591,7 @@ func parseSettingValue(field reflect.Value, raw string) (reflect.Value, error) {
 
 func applySettingCommandSideEffects(entry settingsSchemaEntry, value reflect.Value) error {
 	if entry.field == "Theme" {
-		if err := eui.LoadTheme(value.String()); err != nil {
+		if err := loadThemeChoice(value.String()); err != nil {
 			return err
 		}
 	}
@@ -682,6 +682,9 @@ func setSettingFromText(entry settingsSchemaEntry, raw string) (string, error) {
 // cannot reflect a change made through a slash command. Rebuild the small
 // configuration windows and preserve which ones were open.
 func rebuildConfigurationWindows() {
+	if restoreThemePreview != nil {
+		restoreThemePreview()
+	}
 	rebuild := func(win **eui.WindowData, makeWindow func()) {
 		if *win == nil {
 			return

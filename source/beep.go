@@ -146,14 +146,14 @@ func processNotificationSound(request notificationSoundRequest) {
 	soundMu.Lock()
 	if request.context != audioContext || request.generation != soundPlaybackGeneration {
 		soundMu.Unlock()
-		_ = p.Close()
+		p.PauseAndStopReading()
 		return
 	}
 	pruneStoppedSoundPlayersLocked()
 	if maxSounds > 0 && len(soundPlayers) >= maxSounds {
 		soundMu.Unlock()
 		logDebug("notification sound skipped: too many sound players")
-		_ = p.Close()
+		p.PauseAndStopReading()
 		return
 	}
 	soundPlayers[p] = struct{}{}

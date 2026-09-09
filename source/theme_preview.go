@@ -2,6 +2,8 @@ package main
 
 import "gothoom/eui"
 
+var restoreThemePreview func()
+
 // bindThemePreview previews without changing persisted settings. Restore before
 // selection so the normal handler remains the only path that commits a choice.
 func bindThemePreview(dropdown *eui.ItemData, palette bool, changed func()) {
@@ -14,6 +16,7 @@ func bindThemePreview(dropdown *eui.ItemData, palette bool, changed func()) {
 			return
 		}
 		active = false
+		restoreThemePreview = nil
 		if palette {
 			_ = eui.LoadTheme(theme)
 			eui.SetAccentSaturation(saturation)
@@ -30,6 +33,10 @@ func bindThemePreview(dropdown *eui.ItemData, palette bool, changed func()) {
 			return
 		}
 		if !active {
+			if restoreThemePreview != nil {
+				restoreThemePreview()
+			}
+			restoreThemePreview = restore
 			theme, style = eui.CurrentThemeName(), eui.CurrentStyleName()
 			accent, saturation = eui.AccentColor(), eui.AccentSaturation()
 			active = true
@@ -38,7 +45,7 @@ func bindThemePreview(dropdown *eui.ItemData, palette bool, changed func()) {
 		if palette {
 			// A custom palette without a recommendation keeps the chosen style.
 			_ = eui.LoadStyle(style)
-			err = eui.LoadTheme(dropdown.Options[index])
+			err = eui.LoadTheme(resolveThemeChoice(dropdown.Options[index]))
 		} else {
 			err = eui.LoadStyle(dropdown.Options[index])
 		}

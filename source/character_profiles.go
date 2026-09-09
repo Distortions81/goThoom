@@ -112,6 +112,8 @@ func characterProfileSetting(entry settingsSchemaEntry) bool {
 		return true
 	}
 	switch entry.field {
+	case "ExpandEmojiNames":
+		return true
 	case "MessagesToConsole", "MessageTextColors", "MessageTextColorsLight", "OverrideThemeTextColor", "ClassicMessageColors", "ChatTTS", "ChatTTSVolume", "ChatTTSSpeed", "ChatTTSVoice":
 		return true
 	default:
@@ -465,10 +467,8 @@ func setCharacterProfileEnabled(character string, enabled bool) {
 }
 
 func applyCharacterProfileRuntime() {
-	if gs.Theme != "" {
-		if err := eui.LoadTheme(gs.Theme); err != nil {
-			log.Printf("load profile theme %q: %v", gs.Theme, err)
-		}
+	if err := loadThemeChoice(gs.Theme); err != nil {
+		log.Printf("load profile theme %q: %v", gs.Theme, err)
 	}
 	if gs.Style != "" {
 		if err := eui.LoadStyle(gs.Style); err != nil {
