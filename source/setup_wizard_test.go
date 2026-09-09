@@ -252,8 +252,8 @@ func TestSetupWizardAlwaysShowsLayoutPreviews(t *testing.T) {
 	t.Cleanup(func() { gs = originalSettings })
 	gs.MessagesToConsole = false
 
-	wantLabels := []string{"Window Layout"}
-	wantChecks := []string{"Auto-size side panels", "Swap inventory / players list", "Swap console and chat", "Swap game side"}
+	var wantLabels []string
+	wantChecks := []string{"Auto-size side panels", "Combine chat + console", "Swap inventory / players list", "Swap console and chat", "Swap game side"}
 	contains := func(root *eui.ItemData, label string) bool {
 		var visit func(*eui.ItemData) bool
 		visit = func(item *eui.ItemData) bool {
@@ -273,8 +273,8 @@ func TestSetupWizardAlwaysShowsLayoutPreviews(t *testing.T) {
 	gs.TiledWindows = true
 	enabled := eui.NewColumn()
 	buildSetupLayoutPage(enabled)
-	if contains(enabled, "Tiled window mode") || contains(enabled, "Combine chat + console") || contains(enabled, "Layout") {
-		t.Fatal("wizard retained a redundant mode, combine, or layout selector")
+	if contains(enabled, "Tiled window mode") || contains(enabled, "Layout") {
+		t.Fatal("wizard retained a redundant mode or layout selector")
 	}
 	for _, name := range append(wantLabels, wantChecks...) {
 		if !contains(enabled, name) {

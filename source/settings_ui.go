@@ -1126,8 +1126,10 @@ func refreshWindowSettingsControls() {
 			item.Dirty = true
 		}
 	}
-	if tileCombineMessagesCB != nil {
-		tileCombineMessagesCB.Checked, tileCombineMessagesCB.Dirty = gs.MessagesToConsole, true
+	for _, item := range []*eui.ItemData{tileCombineMessagesCB, wizardCombineMessagesCB} {
+		if item != nil {
+			item.Checked, item.Dirty = gs.MessagesToConsole, true
+		}
 	}
 	if settingsWin != nil {
 		settingsWin.Refresh()

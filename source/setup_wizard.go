@@ -388,12 +388,6 @@ func buildSetupLayoutPage(root *eui.ItemData) {
 		applyTiledWorkspaceLayout()
 		rebuildSetupWizard()
 	}, 2))
-	layoutButton := eui.NewActionButton("Window Layout", func() {
-		makeTileLayoutWindow()
-		tileLayoutWin.MarkOpen()
-	})
-	layoutButton.SetTooltip("Open all layout controls, including Combine chat + console.")
-	windowPanel.AddItem(layoutButton)
 	root.AddItem(panels)
 }
 
@@ -532,6 +526,9 @@ func buildSetupTiledWindowSettings(options, root *eui.ItemData, width float32) {
 	wizardKeepGameLargeCB = keepGameLarge.Contents[0]
 	wizardKeepGameLargeCB.Disabled = gs.TiledLayout == TiledLayoutSide
 	options.AddItem(keepGameLarge)
+
+	wizardCombineMessagesCB = newCombineMessagesCheckbox(width)
+	options.AddItem(wizardCombineMessagesCB)
 
 	root.AddItem(newTiledArrangementControls(width-10, rebuildSetupWizard))
 }

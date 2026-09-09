@@ -47,7 +47,7 @@ var downloadWin *eui.WindowData
 var charactersList *eui.ItemData
 var tileLayoutWin *eui.WindowData
 var settingsToolbarPlacementDD *eui.ItemData
-var tileCombineMessagesCB, tileTiledModeCB *eui.ItemData
+var tileCombineMessagesCB, wizardCombineMessagesCB, tileTiledModeCB *eui.ItemData
 var tileKeepGameLargeCB, wizardKeepGameLargeCB *eui.ItemData
 var connectWin *eui.WindowData
 var connectStatusText *eui.ItemData
