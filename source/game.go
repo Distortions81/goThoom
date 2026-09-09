@@ -3090,7 +3090,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 	top, bottom := filteredSpriteSpan(fy, h, gs.GameScale, filter)
 	lightX := (left + right) / 2
 	lightY := (top + bottom) / 2
-	addPictureLightSource(uint32(p.PictID), p.H, p.V, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
+	addPictureLightSource(p, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
 	fadeAlpha := float32(1.0)
 	if gs.FadeObscuringPictures {
 		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
@@ -4457,7 +4457,7 @@ func drawStatusBars(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha f
 		dy = barHeight + spacing
 	default: // BarPlacementBottom
 		if gs.BarStyle == BarStyleCompact {
-			gap := max(2, int(3*gs.GameScale))
+			gap := max(4, int(12*gs.GameScale))
 			framedWidth := barWidth + 2*framePad
 			x = (fieldWidth-3*framedWidth-2*gap)/2 + framePad
 			dx = framedWidth + gap

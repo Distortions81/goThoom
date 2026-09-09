@@ -1528,6 +1528,8 @@ func scriptAddHotkeyFn(owner, combo string, handler func(InputEvent)) scriptRegi
 		return scriptRegistrationHandle{}
 	}
 	combo = strings.TrimSpace(combo)
+	original := combo
+	combo = scriptControlValue(owner, "binding", original)
 	if combo == "" {
 		return scriptRegistrationHandle{}
 	}
@@ -1537,10 +1539,10 @@ func scriptAddHotkeyFn(owner, combo string, handler func(InputEvent)) scriptRegi
 	}
 	// Ensure a visible toggleable hotkey entry exists for this script+combo.
 	// Function-based hotkeys default to enabled on first add.
-	hk := Hotkey{Name: "", Combo: combo, Script: owner, Disabled: false}
+	hk := Hotkey{Name: "", Combo: combo, Script: owner, Disabled: false, defaultCombo: original}
 	scriptHotkeyMu.RLock()
 	if m := scriptHotkeyEnabled[owner]; m != nil {
-		if enabled, known := m[combo]; known {
+		if enabled, known := m[original]; known {
 			hk.Disabled = !enabled
 		}
 	}
@@ -1583,7 +1585,7 @@ func scriptAddHotkeyFn(owner, combo string, handler func(InputEvent)) scriptRegi
 		stateMap = map[string]bool{}
 		scriptHotkeyEnabled[owner] = stateMap
 	}
-	stateMap[combo] = !hk.Disabled
+	stateMap[original] = !hk.Disabled
 	scriptHotkeyMu.Unlock()
 	refreshHotkeysList()
 	saveHotkeys()
@@ -1924,7 +1926,8 @@ func scriptRegisterCommand(owner, name string, handler scriptCommandHandler) scr
 	if scriptIsDisabled(owner) {
 		return scriptRegistrationHandle{}
 	}
-	key := normalizeScriptCommand(name)
+	original := normalizeScriptCommand(name)
+	key := scriptControlValue(owner, "command", original)
 	if key == "" {
 		return scriptRegistrationHandle{}
 	}
@@ -1941,12 +1944,15 @@ func scriptRegisterCommand(owner, name string, handler scriptCommandHandler) scr
 		queueScriptCallbackOn(eventQueue, owner, "Command", func() { handler(args) })
 	}
 	scriptCommandOwners[key] = owner
+	entry := &scriptCommandSetting{Owner: owner, Default: original, Value: key}
+	scriptCommandSettings[key] = entry
 	scriptMu.Unlock()
 	registration := registerScriptResource(owner, func() {
 		scriptMu.Lock()
-		if scriptCommandOwners[key] == owner {
-			delete(scriptCommands, key)
-			delete(scriptCommandOwners, key)
+		if scriptCommandSettings[entry.Value] == entry {
+			delete(scriptCommands, entry.Value)
+			delete(scriptCommandOwners, entry.Value)
+			delete(scriptCommandSettings, entry.Value)
 		}
 		scriptMu.Unlock()
 	})
@@ -2232,8 +2238,20 @@ func scriptCandidateConflict(owner string, candidate *scriptCandidate) error {
 		return fmt.Errorf("%s", conflicts[0])
 	}
 
+	for index, command := range commands {
+		commands[index] = scriptControlValue(owner, "command", command)
+	}
+	for index, combo := range bindings {
+		bindings[index] = scriptControlValue(owner, "binding", combo)
+	}
 	scriptMu.RLock()
+	seenCommands := map[string]bool{}
 	for _, command := range commands {
+		if seenCommands[command] {
+			scriptMu.RUnlock()
+			return fmt.Errorf("duplicate command /%s in script settings", command)
+		}
+		seenCommands[command] = true
 		if existingOwner, exists := scriptCommandOwners[command]; exists && existingOwner != owner {
 			scriptMu.RUnlock()
 			return fmt.Errorf("duplicate command /%s already owned by %s", command, existingOwner)
@@ -2241,7 +2259,12 @@ func scriptCandidateConflict(owner string, candidate *scriptCandidate) error {
 	}
 	scriptMu.RUnlock()
 
-	for _, combo := range bindings {
+	for index, combo := range bindings {
+		for _, previous := range bindings[:index] {
+			if sameCombo(previous, combo) {
+				return fmt.Errorf("duplicate binding %s in script settings", combo)
+			}
+		}
 		if bindingOwner, exists := scriptBindingConflict(owner, combo); exists {
 			return fmt.Errorf("duplicate binding %s already owned by %s", combo, bindingOwner)
 		}

@@ -240,6 +240,7 @@ type itemData struct {
 	OnColorChange func(Color)
 	WheelColor    Color
 	TextPtr       *string
+	wrappedLabel  *wrappedLabelLayout
 	Underlines    []TextSpan
 	// Prediction is rendered after Text in the disabled text color. It is
 	// display-only and is not included in selection or cursor positions.

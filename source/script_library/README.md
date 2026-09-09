@@ -109,6 +109,56 @@ bytes, encoding/json, errors, fmt, math, math/big, math/rand,
 regexp, sort, strconv, strings, time, unicode/utf8
 ```
 
+## Preferences and controls
+
+Open **Actions → Scripts → Info → Settings** while the script is running.
+**Preferences** contains the fields supplied by the script. Each field shows
+whether it applies to all characters or the current character; changes save
+immediately.
+
+**Key bindings** and **Commands** list the script's registered controls, even
+when it has no preferences. Change a binding by typing it or using **Record**,
+then choose **Apply**. Command names can be changed without changing their
+arguments or actions. **Reset** restores a control's script-defined default.
+These control overrides apply across characters and survive reloads and client
+restarts. Conflicting assignments are rejected. Renaming a command changes the
+name you type; update any personal macros or hotkeys that call the old name.
+
+### Add preferences to a script
+
+Register typed options in `Init`. Each call returns the saved value, or its
+`Default` on first use. Use `OnChange` to update the running script:
+
+```go
+var enabled bool
+var interval int
+
+func Init() {
+    enabled = gt2.Bool(gt2.BoolOption{
+        Key: "enabled", Label: "Show reminders", Default: true,
+        OnChange: func(value bool) { enabled = value },
+    })
+    interval = gt2.Integer(gt2.IntegerOption{
+        Key: "interval", Label: "Reminder interval", Help: "Minutes between reminders.",
+        Scope: gt2.ScopeCharacter, Default: 10, Min: 1, Max: 60, Step: 1,
+        OnChange: func(value int) { interval = value },
+    })
+}
+```
+
+Keep `Key` stable and unique within the script. Omitted `Scope` means
+`gt2.ScopeGlobal`; use `gt2.ScopeCharacter` for a separate value per character.
+Options are private to the script. They are saved automatically, so there is
+no need to call `gt2.Store` for them. `OnChange` runs when an accepted value
+changes; assign the registration's return value for initialization.
+
+The available types are `Bool`, `Integer`, `Decimal`, `Text`, `Choice`,
+`KeyBinding`, and `ItemSelector`. Use `Help` to explain a useful tradeoff,
+`Min`/`Max`/`Step` for numeric controls, and `Choices` for a dropdown.
+`Bool`, `Integer`, `Decimal`, and `Text` also accept a `Validate` function.
+A `KeyBinding` preference supplies a string to your script; bindings registered
+with `gt2.Bind` appear automatically in the **Key bindings** tab.
+
 ## Hotkeys
 
 Combine modifiers and keys with hyphens. Names are case-insensitive:

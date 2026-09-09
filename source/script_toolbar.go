@@ -233,7 +233,7 @@ func buildScriptToolbarRows() []*eui.ItemData {
 				tooltip = registeredButton.label
 			}
 			if registeredButton.key != "" {
-				tooltip += " [" + registeredButton.key + "]"
+				tooltip += " [" + scriptControlValue(registration.owner, "binding", registeredButton.key) + "]"
 			}
 			button.SetTooltip(tooltip)
 			events.Handle = func(event eui.UIEvent) {

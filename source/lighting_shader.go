@@ -886,10 +886,20 @@ func addMobileLightSource(pictID uint32, state, index uint8, player bool, x, y f
 	addLightSource(pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
 }
 
-func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+func pictureLightInstanceKey(p framePicture) uint64 {
+	if p.lightKey != 0 {
+		return p.lightKey
+	}
+	// Zero denotes an untracked picture. Preview scenes can also use this
+	// deterministic initial key without maintaining a separate light registry.
+	return (uint64(uint16(p.H))<<16 | uint64(uint16(p.V))) + 1
+}
+
+func addPictureLightSource(p framePicture, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
+	pictID := uint32(p.PictID)
 	flags := clImages.Flags(pictID)
 	if flags&climg.PictDefFlagEmitsLight == 0 {
 		return
@@ -898,9 +908,8 @@ func addPictureLightSource(pictID uint32, h, v int16, x, y float64, width, heigh
 	if !ok {
 		return
 	}
-	instanceKey := uint64(uint16(h))<<16 | uint64(uint16(v))
 	geometry := pictureLightGeometry(li.Radius, flags, width, height)
-	addLightSource(pictID, flags, li, geometry, instanceKey, x, y, logicalFrame, interpolation, bounds)
+	addLightSource(pictID, flags, li, geometry, pictureLightInstanceKey(p), x, y, logicalFrame, interpolation, bounds)
 }
 
 func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeometry, instanceKey uint64, x, y float64, logicalFrame int, interpolation float64, bounds image.Rectangle) {

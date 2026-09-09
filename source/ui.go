@@ -983,14 +983,11 @@ func refreshscriptsWindow() {
 				}
 				row.AddItem(scriptListCell(reloadBtn, 36, scriptsManagerRowHeight, true))
 
-				scriptConfigMu.RLock()
-				cfg := scriptConfigEntries[owner]
-				scriptConfigMu.RUnlock()
-				if len(cfg) > 0 {
+				if !e.disabled {
 					cfgBtn, ch := eui.NewButton()
-					cfgBtn.Text = "Configure"
-					setMaterialIconOnly(cfgBtn, "settings", "Configure")
-					cfgBtn.SetTooltip("Configure this script")
+					cfgBtn.Text = "Settings"
+					setMaterialIconOnly(cfgBtn, "settings", "Settings")
+					cfgBtn.SetTooltip("Edit script preferences, key bindings, and commands")
 					cfgBtn.Size = eui.Point{X: 28, Y: 28}
 					ch.Handle = func(ev eui.UIEvent) {
 						if ev.Type == eui.EventClick {
@@ -1229,7 +1226,7 @@ func refreshscriptDetails() {
 	var actions *eui.ItemData
 	group := func() { actions = eui.NewRow(); scriptInfoActionGroups = append(scriptInfoActionGroups, actions) }
 	group()
-	button := func(label string, disabled bool, action func()) {
+	button := func(label string, disabled bool, action func()) *eui.ItemData {
 		item, events := eui.NewButton()
 		item.Text = label
 		item.Size = eui.Point{X: 96, Y: 28}
@@ -1241,6 +1238,7 @@ func refreshscriptDetails() {
 			}
 		}
 		actions.AddItem(item)
+		return item
 	}
 	button("Open File", openPath == "", func() {
 		if err := open.Run(openPath); err != nil {
@@ -1270,6 +1268,13 @@ func refreshscriptDetails() {
 		refreshscriptDetails()
 	})
 	button("Permissions", path == "", func() { openScriptPermissionsWindow(owner) })
+	settingsButton := button("Settings", disabled, func() { openscriptConfigWindow(owner) })
+	setMaterialButtonIcon(settingsButton, "settings")
+	if disabled {
+		settingsButton.SetTooltip("Enable this script and log in to edit its preferences, key bindings, and commands.")
+	} else {
+		settingsButton.SetTooltip("Edit preferences, key bindings, and local command names.")
+	}
 	group()
 	button("Reload", disabled || invalid, func() { enablescript(owner) })
 	button("Stop", disabled, func() { clearscriptScope(owner) })
@@ -1397,40 +1402,21 @@ func refreshscriptDebug() {
 	}
 }
 
-func openscriptConfigWindow(owner string) {
-	scriptConfigMu.RLock()
-	entries := append([]scriptConfigEntry(nil), scriptConfigEntries[owner]...)
-	scriptConfigMu.RUnlock()
-	if len(entries) == 0 {
-		return
-	}
-	if scriptConfigWin != nil {
-		scriptConfigWin.Close()
-	}
-	scriptMu.RLock()
-	name := scriptDisplayNames[owner]
-	scriptMu.RUnlock()
-	scriptConfigWin = eui.NewWindow()
-	scriptConfigWin.ShowTooltipIndicators = true
-	scriptConfigWin.Title = "Configure: " + name
-	scriptConfigWin.Closable = true
-	scriptConfigWin.Resizable = false
-	scriptConfigWin.AutoSize = true
-	scriptConfigWin.Movable = true
-	scriptConfigWin.SetZone(eui.HZoneCenterLeft, eui.VZoneMiddleTop)
-
-	root := eui.NewColumn()
-	scriptConfigWin.AddItem(root)
-
+func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scriptConfigEntry) {
 	for _, ce := range entries {
-		row := eui.NewRow()
+		row := eui.NewColumn()
 		lbl, _ := eui.NewText()
 		lbl.Text = ce.Label
 		if ce.Help != "" {
 			lbl.SetTooltip(ce.Help)
 		}
 		lbl.FontSize = 12
-		lbl.Size = eui.Point{X: 120, Y: 24}
+		lbl.Size = eui.Point{X: scriptSettingsContentWidth, Y: 0}
+		scope := "All characters"
+		if ce.Scope == "character" {
+			scope = "Character: " + playerName
+		}
+		lbl.SetWrappedText(lbl.Text + " (" + scope + ")")
 		row.AddItem(lbl)
 
 		switch ce.Type {
@@ -1451,7 +1437,7 @@ func openscriptConfigWindow(owner string) {
 			} else if value, ok := ce.Value.(float64); ok {
 				s.Value = float32(value)
 			}
-			s.Size = eui.Point{X: 120, Y: 24}
+			s.Size = eui.Point{X: 280, Y: 28}
 			key := ce.Key
 			typ := ce.Type
 			events.Handle = func(ev eui.UIEvent) {
@@ -1483,7 +1469,7 @@ func openscriptConfigWindow(owner string) {
 		case "text", "key":
 			inp, events := eui.NewInput()
 			inp.Text, _ = ce.Value.(string)
-			inp.Size = eui.Point{X: 120, Y: 24}
+			inp.Size = eui.Point{X: 280, Y: 28}
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventInputChanged {
@@ -1501,7 +1487,7 @@ func openscriptConfigWindow(owner string) {
 					break
 				}
 			}
-			dd.Size = eui.Point{X: 120, Y: 24}
+			dd.Size = eui.Point{X: 280, Y: 28}
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(ev.Item.Options) {
@@ -1530,7 +1516,7 @@ func openscriptConfigWindow(owner string) {
 					break
 				}
 			}
-			dd.Size = eui.Point{X: 120, Y: 24}
+			dd.Size = eui.Point{X: 280, Y: 28}
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(ev.Item.Options) {
@@ -1542,7 +1528,7 @@ func openscriptConfigWindow(owner string) {
 			t, _ := eui.NewText()
 			t.Text = ce.Type
 			t.FontSize = 12
-			t.Size = eui.Point{X: 120, Y: 24}
+			t.Size = eui.Point{X: 280, Y: 28}
 			row.AddItem(t)
 		}
 		root.AddItem(row)
@@ -1550,13 +1536,12 @@ func openscriptConfigWindow(owner string) {
 			help, _ := eui.NewText()
 			help.Text = ce.Help
 			help.FontSize = 10
-			help.Size = eui.Point{X: 240, Y: 18}
+			help.Size = eui.Point{X: scriptSettingsContentWidth, Y: 0}
+			help.SetWrappedText(ce.Help)
 			root.AddItem(help)
 		}
 	}
 
-	scriptConfigWin.AddWindow(false)
-	scriptConfigOwner = owner
 }
 
 // refreshMixerEnhancementControls keeps the mixer in sync when an audio

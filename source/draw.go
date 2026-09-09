@@ -53,6 +53,9 @@ type framePicture struct {
 	Background   bool
 	Owned        bool
 	Again        bool
+	// Keep a light's flicker phase attached to the matched picture as its
+	// player-relative position changes, including retained edge pictures.
+	lightKey     uint64
 	obscuredPrev bool
 	obscuredNow  bool
 }
@@ -255,15 +258,23 @@ func releasePicturePositionScratch(scratch *picturePositionScratch) {
 // another's previous location.
 func matchPicturePositions(prev, cur []framePicture, shiftX, shiftY, max int, again int) *picturePositionScratch {
 	scratch := acquirePicturePositionScratch(len(cur), len(prev))
+	for i := 0; i < again; i++ {
+		scratch.used[i] = true
+	}
 	maxDistance := max * max
 	for current := again; current < len(cur); current++ {
 		for previous := range prev {
-			if prev[previous].Again || prev[previous].PictID != cur[current].PictID {
+			if prev[previous].PictID != cur[current].PictID {
 				continue
 			}
 			dh := int(cur[current].H) - int(prev[previous].H) - shiftX
 			dv := int(cur[current].V) - int(prev[previous].V) - shiftY
 			distance := dh*dh + dv*dv
+			// A retained picture can become fresh again at its camera-adjusted
+			// position. Do not attach a different nearby sprite to stale data.
+			if prev[previous].Again && distance != 0 {
+				continue
+			}
 			if distance <= maxDistance {
 				scratch.candidates = append(scratch.candidates, picturePositionMatch{current, previous, distance})
 			}
@@ -1629,9 +1640,17 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	for i := range prevPics {
 		prevPics[i].Owned = false
 	}
-	positionScratch := matchPicturePositions(prevPics, newPics, state.picShiftX, state.picShiftY, maxInterp, again)
+	// Match identities using the detected camera motion even when positional
+	// smoothing is disabled. Disabling smoothing must not reseed flame lights.
+	positionScratch := matchPicturePositions(prevPics, newPics, dx, dy, maxInterp, again)
 	positionMatches := positionScratch.matches
 	for i := range newPics {
+		newPics[i].lightKey = pictureLightInstanceKey(newPics[i])
+		if i < again {
+			newPics[i].lightKey = pictureLightInstanceKey(prevPics[i])
+		} else if j := positionMatches[i]; j >= 0 {
+			newPics[i].lightKey = pictureLightInstanceKey(prevPics[j])
+		}
 		cloudMotion := pictureCloudMotionEnabled(newPics[i])
 		if _, skip := skipPictShift[newPics[i].PictID]; skip {
 			newPics[i].PrevH = newPics[i].H

@@ -31,6 +31,7 @@ type Hotkey struct {
 	Commands     []HotkeyCommand `json:"commands"`
 	Script       string          `json:"script,omitempty"`
 	Disabled     bool            `json:"disabled,omitempty"`
+	defaultCombo string
 	registration scriptRegistrationHandle
 }
 
@@ -172,7 +173,7 @@ func saveHotkeys() {
 				m = map[string]bool{}
 				scriptHotkeyEnabled[hk.Script] = m
 			}
-			m[hk.Combo] = !hk.Disabled
+			m[scriptHotkeyDefault(hk)] = !hk.Disabled
 			continue
 		}
 		out = append(out, hk)
@@ -402,7 +403,7 @@ func refreshHotkeysList() {
 						m = map[string]bool{}
 						scriptHotkeyEnabled[hk.Script] = m
 					}
-					m[hk.Combo] = !hk.Disabled
+					m[scriptHotkeyDefault(hk)] = !hk.Disabled
 					scriptHotkeyMu.Unlock()
 				}
 				saveHotkeys()

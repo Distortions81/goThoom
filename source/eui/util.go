@@ -1120,6 +1120,7 @@ func (item *itemData) GetSize() Point {
 	if item.Invisible {
 		return Point{}
 	}
+	item.layoutWrappedLabel()
 	// Start with the explicitly set size (scaled to pixels).
 	sz := Point{X: item.Size.X * uiScale, Y: item.Size.Y * uiScale}
 

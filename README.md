@@ -160,6 +160,9 @@ or **Block all** to deny it and disable the script. Commands, key bindings,
 server commands, data/events, movement, UI, input, notifications, storage, and
 background timers have separate controls. Use **Info → Permissions** to change
 these later. Decisions are saved separately in `Scripts/permissions.json`.
+Use **Info → Settings** for a script’s preferences, key bindings, and local
+command names. Key bindings and command names apply across characters; use
+**Apply** to save an edit or **Reset** to restore the script’s default.
 Use **Player** to enable a script for the character named in the Scripts window,
 or **All** to enable it for every character. Scripts run during a logged-in
 session. For setup, permission choices, and examples, see the

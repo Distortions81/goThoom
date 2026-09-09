@@ -47,7 +47,8 @@ func TestScriptConfigWindowUsesCurrentValuesAndCallbacks(t *testing.T) {
 			scriptConfigOwner = ""
 		}
 	})
-	root := scriptConfigWin.Contents[0]
+	root := scriptConfigWin.Contents[0].Tabs[0]
+	root.Contents = root.Contents[1:]
 	if len(root.Contents) != 7 {
 		t.Fatalf("config row count = %d, want 7", len(root.Contents))
 	}

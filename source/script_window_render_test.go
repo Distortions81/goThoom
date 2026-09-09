@@ -14,10 +14,11 @@ import (
 
 // Run alone: this starts Ebitengine's game loop and exports visual QA images.
 func TestRenderScriptWindow(t *testing.T) {
+	settings := os.Getenv("GOTHOOM_RENDER_SCRIPT_SETTINGS")
 	manager := os.Getenv("GOTHOOM_RENDER_SCRIPTS_LIST") != ""
 	permissions := os.Getenv("GOTHOOM_RENDER_SCRIPT_PERMISSIONS") != ""
 	info := os.Getenv("GOTHOOM_RENDER_SCRIPT_INFO") != ""
-	if os.Getenv("GOTHOOM_RENDER_SCRIPT_WINDOW") == "" && !permissions && !info && !manager {
+	if os.Getenv("GOTHOOM_RENDER_SCRIPT_WINDOW") == "" && !permissions && !info && !manager && settings == "" {
 		t.Skip("set GOTHOOM_RENDER_SCRIPT_WINDOW=1")
 	}
 	initFont()
@@ -31,7 +32,20 @@ func TestRenderScriptWindow(t *testing.T) {
 	var panel Window
 	var native *eui.WindowData
 	prefix := "follow"
-	if manager {
+	if settings != "" {
+		prefix = "settings-" + settings
+		activateBundledProofScript(t, owner, "follow_player.go")
+		scriptDisplayNames[owner] = "Follow Player"
+		scriptAddHotkeyFn(owner, "Ctrl-F3", func(InputEvent) {})
+		openscriptConfigWindow(owner)
+		native = scriptConfigWin
+		for index, tab := range native.Contents[0].Tabs {
+			if tab.Name == settings {
+				native.Contents[0].ActiveTab = index
+			}
+		}
+		t.Cleanup(func() { native.Close() })
+	} else if manager {
 		prefix = "list"
 		isolateScriptScopeSelection(t)
 		name = "Alpha"
