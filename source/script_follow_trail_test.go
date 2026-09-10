@@ -266,6 +266,71 @@ func TestFollowTrailSceneryRegistration(t *testing.T) {
 	}
 }
 
+func TestFollowBreadcrumbOverlayPreference(t *testing.T) {
+	initFont()
+	isolateScriptWorld(t)
+	const owner = "follow_breadcrumb_overlay"
+	sim := activateBundledProofScript(t, owner, "follow_player.go")
+	sim.login(t, "Hero")
+	base := time.Now()
+	pictures := []framePicture{{PictID: 100, H: -200, Background: true}, {PictID: 101, H: -100}}
+	update := func(frame int, leaderH int16) {
+		stateMu.Lock()
+		state.descriptors = map[uint8]frameDescriptor{
+			1: {Index: 1, Name: "Hero", Type: kDescPlayer},
+			2: {Index: 2, Name: "Leader", Type: kDescPlayer},
+		}
+		state.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: leaderH}}
+		state.pictures = append([]framePicture(nil), pictures...)
+		state.logicalFrame, state.receivedAt = frame, base.Add(time.Duration(frame)*200*time.Millisecond)
+		markWorldStateChanged()
+		stateMu.Unlock()
+		dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
+		sim.barrier(t)
+	}
+	overlay := func() []overlayOp {
+		overlayMu.RLock()
+		defer overlayMu.RUnlock()
+		return append([]overlayOp(nil), scriptOverlayOps[owner]...)
+	}
+
+	update(1, 80)
+	sim.command(t, "follow", "Leader")
+	if ops := overlay(); len(ops) != 0 {
+		t.Fatalf("breadcrumbs drawn by default: %+v", ops)
+	}
+	if !scriptSetConfigValue(owner, "draw-breadcrumbs", true) {
+		t.Fatal("draw-breadcrumbs preference was not registered")
+	}
+	sim.barrier(t)
+	if ops := overlay(); len(ops) != 1 || ops[0].x != gameAreaSizeX/2+80-3 || ops[0].y != gameAreaSizeY/2-3 || ops[0].w != 7 || ops[0].h != 7 {
+		t.Fatalf("breadcrumb overlay = %+v", ops)
+	}
+
+	for i := range pictures {
+		pictures[i].H -= 20
+	}
+	update(2, 60)
+	if ops := overlay(); len(ops) != 1 || ops[0].x != gameAreaSizeX/2+60-3 {
+		t.Fatalf("breadcrumb did not remain anchored to scenery: %+v", ops)
+	}
+	if !scriptSetConfigValue(owner, "draw-breadcrumbs", false) {
+		t.Fatal("could not disable breadcrumb drawing")
+	}
+	sim.barrier(t)
+	if ops := overlay(); len(ops) != 0 {
+		t.Fatalf("disabling breadcrumbs left overlay ops: %+v", ops)
+	}
+	if !scriptSetConfigValue(owner, "draw-breadcrumbs", true) {
+		t.Fatal("could not re-enable breadcrumb drawing")
+	}
+	sim.barrier(t)
+	sim.command(t, "follow", "off")
+	if ops := overlay(); len(ops) != 0 {
+		t.Fatalf("stopping follow left breadcrumb overlay ops: %+v", ops)
+	}
+}
+
 func TestFollowPlayerAltRightClick(t *testing.T) {
 	initFont()
 	isolateScriptWorld(t)

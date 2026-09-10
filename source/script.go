@@ -1259,11 +1259,23 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["OverlayRect"] = reflect.ValueOf(func(x, y, w, h int, r, g, b, a uint8) {
 			stage(func() { scriptOverlayRect(owner, x, y, w, h, r, g, b, a) })
 		})
+		m["OverlayCircle"] = reflect.ValueOf(func(x, y, radius int, r, g, b, a uint8) {
+			stage(func() { scriptOverlayCircle(owner, x, y, radius, r, g, b, a) })
+		})
 		m["OverlayText"] = reflect.ValueOf(func(x, y int, txt string, r, g, b, a uint8) {
 			stage(func() { scriptOverlayText(owner, x, y, txt, r, g, b, a) })
 		})
 		m["OverlayImage"] = reflect.ValueOf(func(id uint16, x, y int) {
 			stage(func() { scriptOverlayImage(owner, id, x, y) })
+		})
+		m["OverlayFollowPlayer"] = reflect.ValueOf(func(name string, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
+			stage(func() { scriptOverlayFollowPlayer(owner, name, x, y, radius, r, g, b, a, maxLife) })
+		})
+		m["OverlayFollowMobile"] = reflect.ValueOf(func(index uint8, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
+			stage(func() { scriptOverlayFollowMobile(owner, index, x, y, radius, r, g, b, a, maxLife) })
+		})
+		m["OverlayFollowBackground"] = reflect.ValueOf(func(pictID uint16, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
+			stage(func() { scriptOverlayFollowBackground(owner, pictID, x, y, radius, r, g, b, a, maxLife) })
 		})
 		m["SetNamedMobileTint"] = reflect.ValueOf(func(name string, r, g, b, a uint8) {
 			stage(func() { scriptSetNamedMobileEffect(owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, false) })
@@ -1747,14 +1759,46 @@ var (
 	scriptDebugMu    sync.Mutex
 )
 
+const (
+	overlayRectKind = iota
+	overlayTextKind
+	overlayImageKind
+	overlayCircleKind
+	overlayFollowCircleKind
+)
+
+const (
+	overlayFollowKindPlayer = iota
+	overlayFollowKindMobile
+	overlayFollowKindBackground
+)
+
+const (
+	overlayFollowDefaultLife = 5 * time.Second
+	overlayFollowMaxLife     = 30 * time.Second
+)
+
+// overlayFollowOp describes a target that follows world state.
+type overlayFollowOp struct {
+	kind       int // overlayFollowKind*.
+	name       string
+	pictID     uint16 // for background follows.
+	mobileID   uint8  // for mobile follows.
+	offsetX    int    // world units from the followed target.
+	offsetY    int
+}
+
 // overlayOp describes a simple draw command for the world overlay.
 type overlayOp struct {
-	kind       int // 0=rect, 1=text, 2=image
-	x, y       int // world coordinates (top-left origin)
+	kind       int // overlayRectKind, overlayTextKind, etc.
+	x, y       int // world coordinates (top-left origin) for static overlay ops.
 	w, h       int // for rect
 	r, g, b, a uint8
 	text       string // for text
 	id         uint16 // for image (CL_Images pict ID)
+	radius     int    // for circles
+	follow     overlayFollowOp
+	expiresAt  time.Time // for follower overlays
 }
 
 type scriptMobileTint struct{ r, g, b, a uint8 }
@@ -3519,7 +3563,17 @@ func scriptOverlayRect(owner string, x, y, w, h int, r, g, b, a uint8) {
 		return
 	}
 	overlayMu.Lock()
-	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 0, x: x, y: y, w: w, h: h, r: r, g: g, b: b, a: a})
+	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: overlayRectKind, x: x, y: y, w: w, h: h, r: r, g: g, b: b, a: a})
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptOverlayCircle(owner string, x, y, radius int, r, g, b, a uint8) {
+	if radius <= 0 {
+		return
+	}
+	overlayMu.Lock()
+	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: overlayCircleKind, x: x, y: y, radius: radius, r: r, g: g, b: b, a: a})
 	overlayMu.Unlock()
 	markWorldRenderChanged()
 }
@@ -3529,7 +3583,7 @@ func scriptOverlayText(owner string, x, y int, txt string, r, g, b, a uint8) {
 		return
 	}
 	overlayMu.Lock()
-	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 1, x: x, y: y, text: txt, r: r, g: g, b: b, a: a})
+	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: overlayTextKind, x: x, y: y, text: txt, r: r, g: g, b: b, a: a})
 	overlayMu.Unlock()
 	markWorldRenderChanged()
 }
@@ -3539,9 +3593,80 @@ func scriptOverlayImage(owner string, id uint16, x, y int) {
 		return
 	}
 	overlayMu.Lock()
-	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: 2, x: x, y: y, id: id, a: 255, r: 255, g: 255, b: 255})
+	scriptOverlayOps[owner] = append(scriptOverlayOps[owner], overlayOp{kind: overlayImageKind, x: x, y: y, id: id, a: 255, r: 255, g: 255, b: 255})
 	overlayMu.Unlock()
 	markWorldRenderChanged()
+}
+
+func scriptOverlayFollowPlayer(owner, name string, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
+	if radius <= 0 || strings.TrimSpace(name) == "" {
+		return
+	}
+	scriptOverlayUpsertFollow(owner, overlayOp{
+		kind: overlayFollowCircleKind,
+		follow: overlayFollowOp{kind: overlayFollowKindPlayer, name: name, offsetX: x, offsetY: y},
+		radius: radius,
+		r: r, g: g, b: b, a: a,
+		expiresAt: scriptFollowExpireAt(maxLife),
+	})
+}
+
+func scriptOverlayFollowMobile(owner string, index uint8, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
+	if radius <= 0 {
+		return
+	}
+	scriptOverlayUpsertFollow(owner, overlayOp{
+		kind: overlayFollowCircleKind,
+		follow: overlayFollowOp{kind: overlayFollowKindMobile, mobileID: index, offsetX: x, offsetY: y},
+		radius: radius,
+		r: r, g: g, b: b, a: a,
+		expiresAt: scriptFollowExpireAt(maxLife),
+	})
+}
+
+func scriptOverlayFollowBackground(owner string, pictID uint16, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
+	if pictID == 0 || radius <= 0 {
+		return
+	}
+	scriptOverlayUpsertFollow(owner, overlayOp{
+		kind: overlayFollowCircleKind,
+		follow: overlayFollowOp{kind: overlayFollowKindBackground, pictID: pictID, offsetX: x, offsetY: y},
+		radius: radius,
+		r: r, g: g, b: b, a: a,
+		expiresAt: scriptFollowExpireAt(maxLife),
+	})
+}
+
+func scriptOverlayUpsertFollow(owner string, op overlayOp) {
+	if op.expiresAt.IsZero() {
+		return
+	}
+	overlayMu.Lock()
+	list := scriptOverlayOps[owner]
+	for i := range list {
+		existing := &list[i]
+		if existing.kind == overlayFollowCircleKind && existing.follow.kind == op.follow.kind &&
+			existing.follow.pictID == op.follow.pictID && existing.follow.mobileID == op.follow.mobileID &&
+			strings.EqualFold(existing.follow.name, op.follow.name) {
+			list[i] = op
+			overlayMu.Unlock()
+			markWorldRenderChanged()
+			return
+		}
+	}
+	scriptOverlayOps[owner] = append(list, op)
+	overlayMu.Unlock()
+	markWorldRenderChanged()
+}
+
+func scriptFollowExpireAt(maxLife time.Duration) time.Time {
+	if maxLife <= 0 {
+		maxLife = overlayFollowDefaultLife
+	}
+	if maxLife > overlayFollowMaxLife {
+		maxLife = overlayFollowMaxLife
+	}
+	return time.Now().Add(maxLife)
 }
 
 func scriptSetMobileTint(owner string, id uint16, r, g, b, a uint8) {

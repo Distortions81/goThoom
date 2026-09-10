@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	scriptapi "gt2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
@@ -480,10 +481,10 @@ func picturesSummary(pics []framePicture) string {
 	return buf.String()
 }
 
-// drawScriptOverlays renders per-script overlay operations onto the provided
-// world view image. Coordinates are in world units with a top-left origin
-// matching the base game area (0..gameAreaSizeX, 0..gameAreaSizeY). The
-// provided scale converts world units to worldView pixels.
+	// drawScriptOverlays renders per-script overlay operations onto the provided
+	// world view image. Coordinates are in world units with a top-left origin
+	// matching the base game area (0..gameAreaSizeX, 0..gameAreaSizeY). The
+	// provided scale converts world units to worldView pixels.
 func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	if worldView == nil || scale <= 0 {
 		return
@@ -498,14 +499,28 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	if len(snap) == 0 {
 		return
 	}
+	hasFollower := false
+	for _, op := range snap {
+		if op.kind == overlayFollowCircleKind {
+			hasFollower = true
+			break
+		}
+	}
+	var worldState scriptapi.World
+	if hasFollower {
+		worldState = scriptCurrentWorld()
+	}
+	now := time.Now()
 	origin := worldView.Bounds().Min
+	originX := float64(origin.X)
+	originY := float64(origin.Y)
 
 	// Sort to help Ebiten batch identical draw operations.
 	slices.SortFunc(snap, func(a, b overlayOp) int {
 		if a.kind != b.kind {
 			return cmpInt(a.kind, b.kind)
 		}
-		if a.kind == 2 {
+		if a.kind == overlayImageKind {
 			return cmpInt(int(a.id), int(b.id))
 		}
 		return 0
@@ -514,36 +529,94 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	var rects rectBatch
 	for _, op := range snap {
 		switch op.kind {
-		case 0: // rect
+		case overlayRectKind:
 			if op.w > 0 && op.h > 0 {
 				rects.Add(
-					float32(float64(origin.X)+float64(op.x)*scale),
-					float32(float64(origin.Y)+float64(op.y)*scale),
+					float32(originX+float64(op.x)*scale),
+					float32(originY+float64(op.y)*scale),
 					float32(float64(op.w)*scale),
 					float32(float64(op.h)*scale),
 					color.RGBA{op.r, op.g, op.b, op.a},
 				)
 			}
-		case 1: // text
+		case overlayTextKind:
 			if op.text != "" {
 				opts := &text.DrawOptions{}
-				opts.GeoM.Translate(float64(origin.X)+float64(op.x)*scale, float64(origin.Y)+float64(op.y)*scale)
+				opts.GeoM.Translate(originX+float64(op.x)*scale, originY+float64(op.y)*scale)
 				// Use mainFont (native scale), color with RGBA
 				opts.ColorScale.ScaleWithColor(color.RGBA{op.r, op.g, op.b, op.a})
 				text.Draw(worldView, op.text, mainFont, opts)
 			}
-		case 2: // image by ID
+		case overlayImageKind:
 			if img := loadImage(op.id); img != nil {
 				di := acquireDrawOpts()
 				di.Filter = ebiten.FilterLinear
 				di.GeoM.Scale(scale, scale)
-				di.GeoM.Translate(float64(origin.X)+float64(op.x)*scale, float64(origin.Y)+float64(op.y)*scale)
+				di.GeoM.Translate(originX+float64(op.x)*scale, originY+float64(op.y)*scale)
 				worldView.DrawImage(img, di)
 				releaseDrawOpts(di)
+			}
+		case overlayCircleKind:
+			if op.radius > 0 {
+				vector.FillCircle(
+					worldView,
+					float32(originX+float64(op.x)*scale),
+					float32(originY+float64(op.y)*scale),
+					float32(float64(op.radius)*scale),
+					color.RGBA{op.r, op.g, op.b, op.a},
+					true,
+				)
+			}
+		case overlayFollowCircleKind:
+			if op.expiresAt.IsZero() || now.After(op.expiresAt) {
+				continue
+			}
+			if targetX, targetY, ok := overlayFollowLocation(op.follow, worldState); ok {
+				vector.FillCircle(
+					worldView,
+					float32(originX+float64(targetX+op.follow.offsetX)*scale),
+					float32(originY+float64(targetY+op.follow.offsetY)*scale),
+					float32(float64(op.radius)*scale),
+					color.RGBA{op.r, op.g, op.b, op.a},
+					true,
+				)
 			}
 		}
 	}
 	rects.Draw(worldView)
+}
+
+func overlayFollowLocation(target overlayFollowOp, world scriptapi.World) (int, int, bool) {
+	switch target.kind {
+	case overlayFollowKindPlayer:
+		targetName := strings.TrimSpace(strings.ToLower(target.name))
+		if targetName == "" {
+			return 0, 0, false
+		}
+		for _, candidate := range world.Mobiles {
+			if !candidate.Player || !strings.EqualFold(strings.TrimSpace(candidate.Name), targetName) {
+				continue
+			}
+			return int(candidate.H), int(candidate.V), true
+		}
+	case overlayFollowKindMobile:
+		for _, candidate := range world.Mobiles {
+			if candidate.Index == target.mobileID {
+				return int(candidate.H), int(candidate.V), true
+			}
+		}
+	case overlayFollowKindBackground:
+		for _, picture := range world.Pictures {
+			if picture.PictID != target.pictID || !picture.Background {
+				continue
+			}
+			if picture.Width == 0 || picture.Height == 0 {
+				continue
+			}
+			return int(picture.H) + picture.Width/2, int(picture.V) + picture.Height/2, true
+		}
+	}
+	return 0, 0, false
 }
 
 var (

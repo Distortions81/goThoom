@@ -97,6 +97,16 @@ understand.
 - `gt2.CurrentWorld()` and `gt2.OnWorld(handler)` expose mobiles, scenery,
   sprite planes and sizes, your on-screen character, frame timing, lighting,
   and estimated camera motion.
+- `gt2.OverlayCircle(x, y, radius, r, g, b, a)` draws a filled vector circle in
+  world space. `x,y` is the center.
+- `gt2.OverlayFollowPlayer(name, x, y, radius, r, g, b, a, maxLife)` draws a circle
+  over a matching player and refreshes it every time the script calls it.
+- `gt2.OverlayFollowMobile(index, x, y, radius, r, g, b, a, maxLife)` draws a circle
+  over a mobile index and refreshes it every time the script calls it.
+- `gt2.OverlayFollowBackground(pictID, x, y, radius, r, g, b, a, maxLife)` draws a
+  circle on a background picture and refreshes it every time the script calls it.
+
+If a follow overlay is not refreshed, it expires after `maxLife` (capped at 30 seconds).
 - `gt2.SetMobileTint(id, r, g, b, a)` tints visible mobiles with that sprite ID.
 - `gt2.FlashMobile(index, r, g, b, a, duration)` briefly replaces a visible mobile's colors with a flash color.
 - `gt2.Move(x, y)`, `gt2.StopMoving()`, and `gt2.Movement()` steer through the
@@ -407,6 +417,9 @@ playfield; picture `H,V` positions are their top-left corners in that same
 coordinate system. Overlay drawing instead uses a top-left origin: add half
 `World.Width` and half `World.Height` when drawing these positions on an overlay.
 
+Use `OverlayCircle` for vector markers. Follow API offsets are applied from the
+target center.
+
 Use `World.Self` only when `HasSelf` is true. `Mobile.Index` is a reusable
 server descriptor slot, not a permanent player ID. Track a player by name and
 ignore `Stale` mobiles retained briefly for rendering. `State` is the raw
@@ -495,7 +508,10 @@ Normally the script just aims the movement mouse 24 pixels behind the visible
 target, on the side nearest you. Normal mouse-distance speed control handles
 catch-up. It starts following beyond 72 pixels and rests within 44 pixels;
 these separate thresholds prevent repeated starts and stops near one distance.
-Both distances are configurable in the Scripts window.
+Both distances are configurable in the Scripts window. **Draw breadcrumbs** is
+off by default; enable it in the script's Settings to show the recorded trail
+as blue markers in the game view. The brighter, larger marker is the next point
+the script will follow after the target leaves view.
 
 Every fresh scene update checks the direct path against other standing mobiles.
 The script prefers 34 pixels of clearance (configurable), but treats that as a

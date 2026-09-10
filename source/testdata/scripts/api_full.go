@@ -47,8 +47,12 @@ func Init() {
 
 	gt2.OverlayClear()
 	gt2.OverlayRect(1, 2, 3, 4, 5, 6, 7, 8)
+	gt2.OverlayCircle(120, 130, 7, 9, 10, 11, 255)
 	gt2.OverlayText(2, 3, "txt", 10, 11, 12, 13)
 	gt2.OverlayImage(1, 4, 5)
+	gt2.OverlayFollowPlayer("Hero", 1, 1, 5, 255, 0, 0, 255, time.Second)
+	gt2.OverlayFollowMobile(1, 2, 2, 4, 0, 255, 0, 255, 2*time.Second)
+	gt2.OverlayFollowBackground(100, 3, 3, 6, 0, 0, 255, 255, 3*time.Second)
 	gt2.SetMobileTint(123, 255, 128, 128, 255)
 	gt2.ClearMobileTint(123)
 	gt2.SetMobileTint(456, 128, 255, 128, 192)

@@ -52,6 +52,7 @@ var targetLost bool
 var leaderDirection followPoint
 var leaderMovedAt time.Time
 var sceneryHints = true
+var drawBreadcrumbs bool
 var mobileClearance = 34.0
 
 func Init() {
@@ -59,6 +60,10 @@ func Init() {
 	stopDistance = gt2.Decimal(gt2.DecimalOption{Key: "stop", Label: "Stop following distance", Default: 44, Min: 24, Max: 56, Step: 4, OnChange: func(v float64) { stopDistance = v }})
 	mobileClearance = gt2.Decimal(gt2.DecimalOption{Key: "clearance", Label: "Preferred mobile clearance", Help: "A soft spacing preference; tight passages may require less room.", Default: 34, Min: 24, Max: 60, Step: 2, OnChange: func(v float64) { mobileClearance = v }})
 	sceneryHints = gt2.Bool(gt2.BoolOption{Key: "scenery", Label: "Use scenery hints for detours", Help: "Artwork planes are draw order, not collision geometry. Disable if scenery causes unnecessary detours.", Default: true, OnChange: func(v bool) { sceneryHints = v }})
+	drawBreadcrumbs = gt2.Bool(gt2.BoolOption{Key: "draw-breadcrumbs", Label: "Draw breadcrumbs", Help: "Show the recorded trail used to find the player when they leave view.", Default: false, OnChange: func(v bool) {
+		drawBreadcrumbs = v
+		drawFollowBreadcrumbs(gt2.CurrentWorld())
+	}})
 	followWindow = gt2.CreateWindow(gt2.WindowOptions{
 		Title: "Follow Player", Width: 360,
 		Text: "Following: None\nStatus: Stopped\nAlt-right-click a player in the game view to follow.",
@@ -202,6 +207,7 @@ func findLeader(world gt2.World, name string) (gt2.Mobile, bool) {
 
 func followWorld(world gt2.World) {
 	defer refreshFollowWindow()
+	defer drawFollowBreadcrumbs(world)
 	if targetName == "" {
 		return
 	}
@@ -349,12 +355,29 @@ func followName(name string) string {
 }
 
 func resetTrail() {
+	gt2.OverlayClear()
 	trail = nil
 	haveLeader = false
 	targetLost = false
 	leaderDirection = followPoint{}
 	leaderMovedAt = time.Time{}
 	resetRouting()
+}
+
+func drawFollowBreadcrumbs(world gt2.World) {
+	gt2.OverlayClear()
+	if !drawBreadcrumbs || targetName == "" || world.Width <= 0 || world.Height <= 0 {
+		return
+	}
+	for i, point := range trail {
+		size, alpha := 5, uint8(150)
+		if i == 0 {
+			size, alpha = 7, 220
+		}
+		x := int(math.Round(point.x)) + world.Width/2 - size/2
+		y := int(math.Round(point.y)) + world.Height/2 - size/2
+		gt2.OverlayRect(x, y, size, size, 80, 210, 255, alpha)
+	}
 }
 
 // Unavailable movement or coordinates suspend pursuit, not the chosen target.

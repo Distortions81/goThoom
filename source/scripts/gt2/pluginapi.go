@@ -403,8 +403,12 @@ func WorldSize() (int, int)                              { return 0, 0 }
 func ImageSize(id uint16) (int, int)                     { return 0, 0 }
 func OverlayClear()                                      {}
 func OverlayRect(x, y, w, h int, r, g, b, a uint8)       {}
+func OverlayCircle(x, y, radius int, r, g, b, a uint8)    {}
 func OverlayText(x, y int, txt string, r, g, b, a uint8) {}
 func OverlayImage(id uint16, x, y int)                   {}
+func OverlayFollowPlayer(name string, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {}
+func OverlayFollowMobile(index uint8, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {}
+func OverlayFollowBackground(pictID uint16, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {}
 
 // SetMobileTint applies a multiplicative RGBA tint to every visible mobile
 // using id. The tint belongs to the calling script and is released when it
