@@ -136,7 +136,7 @@ func TestScriptMovementLease(t *testing.T) {
 
 func TestFollowPlayerProof(t *testing.T) {
 	initFont()
-	for _, scenario := range []string{"hysteresis", "blocked", "camera", "manual", "yield", "lost", "stale", "wiggle", "avoid-mobile"} {
+	for _, scenario := range []string{"hysteresis", "blocked", "camera", "manual", "yield", "lost", "stale", "wiggle", "wiggle-lateral-release", "near-still", "camera-only-stuck", "lateral", "retreat", "scenery", "avoid-mobile"} {
 		t.Run(scenario, func(t *testing.T) {
 			isolateScriptWorld(t)
 			const owner = "follow_proof"
@@ -145,11 +145,13 @@ func TestFollowPlayerProof(t *testing.T) {
 			base := time.Now()
 			frame := 0
 			var blockers []frameMobile
+			cameraY := 0
+			var selfH int16
 			update := func(distance int16, camera int, visible bool) {
 				frame++
 				stateMu.Lock()
 				state.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
-				state.liveMobs = []frameMobile{{Index: 1}}
+				state.liveMobs = []frameMobile{{Index: 1, H: selfH}}
 				if visible {
 					state.liveMobs = append(state.liveMobs, frameMobile{Index: 2, H: distance})
 				}
@@ -158,6 +160,7 @@ func TestFollowPlayerProof(t *testing.T) {
 					state.liveMobs = append(state.liveMobs, blocker)
 				}
 				state.logicalFrame, state.receivedAt, state.picShiftX = frame, base.Add(time.Duration(frame)*250*time.Millisecond), camera
+				state.picShiftY = cameraY
 				markWorldStateChanged()
 				stateMu.Unlock()
 				dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
@@ -196,8 +199,32 @@ func TestFollowPlayerProof(t *testing.T) {
 				for i := 0; i < 30; i++ {
 					update(100, 0, true)
 				}
-				if moving().mouseDown {
-					t.Fatal("blocked follower exceeded retry budget")
+				if !moving().mouseDown {
+					t.Fatal("blocked follower gave up instead of retrying its route")
+				}
+				update(-100, 0, true)
+				if !moving().mouseDown || moving().mouseX >= 0 {
+					t.Fatal("blocked follower forgot target after route changed")
+				}
+			case "scenery":
+				// Deliver a world snapshot with explicit artwork dimensions, as the
+				// client supplies after looking up its image metadata.
+				world := scriptCurrentWorld()
+				world.Frame++
+				world.ReceivedAt = world.ReceivedAt.Add(250 * time.Millisecond)
+				world.Pictures = []scriptapi.Picture{{PictID: 100, H: 20, V: -64, Width: 40, Height: 64}}
+				queue := currentScriptEventQueue(owner)
+				value, err := queue.interpreter.Eval("followWorld")
+				if err != nil {
+					t.Fatal(err)
+				}
+				handler := value.Interface().(func(scriptapi.World))
+				if !queueScriptCallbackWaitOn(queue, owner, "Test scenery", func() { handler(world) }) {
+					t.Fatal("scenery callback did not run")
+				}
+				sim.barrier(t)
+				if !moving().mouseDown || moving().mouseX <= 0 || moving().mouseY == 0 {
+					t.Fatalf("did not route around nearby scenery before becoming stuck: %+v", moving())
 				}
 			case "avoid-mobile":
 				blockers = []frameMobile{{Index: 3, H: 40}}
@@ -215,29 +242,65 @@ func TestFollowPlayerProof(t *testing.T) {
 				if moving().mouseY != 0 {
 					t.Fatal("did not resume direct following after path cleared")
 				}
-			case "wiggle":
+			case "lateral", "retreat":
+				cameraX := 0
+				if scenario == "lateral" {
+					cameraY = -6
+				} else {
+					cameraX = 6
+				}
+				for i := 0; i < 3; i++ {
+					update(100, cameraX, true)
+				}
+				if !moving().mouseDown || moving().mouseY == 0 {
+					t.Fatalf("failed progress along attempted heading did not trigger a detour: %+v", moving())
+				}
+			case "camera-only-stuck":
+				for i := 0; i < 4; i++ {
+					selfH += 6 // Self shifts with the background: no actual travel.
+					update(100, 6, true)
+				}
+				if !moving().mouseDown || moving().mouseY == 0 {
+					t.Fatalf("background scrolling concealed a stationary character: %+v", moving())
+				}
+			case "near-still":
+				for i := 0; i < 4; i++ {
+					cameraY = 1 - 2*(i%2)
+					update(100, 0, true)
+				}
+				if !moving().mouseDown || moving().mouseY == 0 {
+					t.Fatalf("near-zero motion did not trigger an obstacle detour: %+v", moving())
+				}
+			case "wiggle", "wiggle-lateral-release":
+				activity := func() string {
+					value, err := currentScriptEventQueue(owner).interpreter.Eval("followActivity")
+					if err != nil {
+						t.Fatal(err)
+					}
+					return value.Interface().(string)
+				}
 				for i := 0; i < 4; i++ {
 					update(100, 0, true)
 				}
-				first := moving()
-				if first.mouseX >= 0 || first.mouseY == 0 {
-					t.Fatalf("wiggle did not pull backward and sideways: %+v", first)
+				if activity() != "Routing" {
+					t.Fatalf("did not try routing before wiggle: %s", activity())
 				}
-				update(100, 0, true)
-				if moving().mouseY*first.mouseY <= 0 {
-					t.Fatal("wiggle flipped before its timed phase ended")
-				}
-				update(100, 0, true)
-				if moving().mouseX >= 0 || moving().mouseY*first.mouseY >= 0 {
-					t.Fatal("wiggle did not rock to the opposite side")
-				}
-				for i := 0; i < 4; i++ {
+				for i := 0; i < 5; i++ {
 					update(100, 0, true)
 				}
-				update(100, -8, true)
-				if moving().mouseX != 76 || moving().mouseY != 0 {
-					t.Fatalf("did not resume direct following after recovery: %+v", moving())
+				if activity() != "Wiggling" {
+					t.Fatalf("failed detours with no movement did not permit recovery: %s", activity())
 				}
+				if scenario == "wiggle-lateral-release" {
+					cameraY = -6
+					update(100, 0, true)
+				} else {
+					update(100, -8, true)
+				}
+				if activity() == "Wiggling" {
+					t.Fatal("wiggle continued after movement resumed")
+				}
+
 			case "camera":
 				for i := 0; i < 12; i++ {
 					update(100, -6, true)
@@ -263,12 +326,12 @@ func TestFollowPlayerProof(t *testing.T) {
 				}
 			case "lost":
 				update(100, 0, false)
-				if moving().mouseDown {
-					t.Fatal("continued toward absent target")
+				if !moving().mouseDown || moving().mouseX != 100 {
+					t.Fatalf("did not pursue last known position: %+v", moving())
 				}
 				update(100, 0, true)
-				if moving().mouseDown {
-					t.Fatal("automatically resumed after losing target")
+				if !moving().mouseDown || moving().mouseX != 76 {
+					t.Fatal("did not resume visible following after reacquiring target")
 				}
 			case "stale":
 				stateMu.Lock()
@@ -277,6 +340,10 @@ func TestFollowPlayerProof(t *testing.T) {
 				sim.timers(t)
 				if moving().mouseDown {
 					t.Fatal("watchdog left stale movement active")
+				}
+				update(100, 0, true)
+				if !moving().mouseDown {
+					t.Fatal("did not resume after world updates returned")
 				}
 			}
 		})

@@ -41,7 +41,7 @@ var scriptFunctionPermissions = map[string]string{
 	"CharacterStore": "storage", "HasPermission": "", "StartTask": "timers", "After": "timers", "QueueCommand": "send", "OnPlayerChange": "data",
 	"Command": "commands", "Bind": "hotkeys", "Send": "send", "Print": "", "AddShortcut": "commands",
 	"Equip": "send", "Unequip": "send", "Wait": "", "WaitTicks": "", "OnStop": "session", "StopMoving": "", "OverlayClear": "",
-	"Bool": "", "Integer": "", "Decimal": "", "Text": "", "Choice": "", "KeyBinding": "",
+	"Bool": "", "Color": "", "Integer": "", "Decimal": "", "Text": "", "Choice": "", "KeyBinding": "",
 	"Self": "data", "Players": "data", "Inventory": "data", "EquippedItems": "data",
 	"FindItemExact": "data", "FindItem": "data", "FindItems": "data", "SearchItems": "data",
 	"Equipped": "data", "HasItem": "data", "IsEquipped": "data", "WithEquipment": "data",
@@ -49,7 +49,7 @@ var scriptFunctionPermissions = map[string]string{
 	"WorldSize": "data", "ImageSize": "data", "WaitForInventory": "data", "WaitForEquipment": "data", "ItemSelector": "data",
 	"OnChat": "messages", "OnServerMessage": "messages", "LatestServerMessage": "messages",
 	"Move": "movement", "Movement": "movement",
-	"CreateWindow": "windows", "AddToolbar": "windows", "OverlayRect": "windows", "OverlayText": "windows", "OverlayImage": "windows",
+	"CreateWindow": "windows", "OpenSettings": "windows", "AddToolbar": "windows", "OverlayRect": "windows", "OverlayText": "windows", "OverlayImage": "windows",
 	"SetMobileTint": "windows", "ClearMobileTint": "windows", "ClearMobileTints": "windows",
 	"SetMobileOutline": "windows", "ClearMobileOutline": "windows", "ClearMobileOutlines": "windows",
 	"SetNamedMobileTint": "windows", "ClearNamedMobileTint": "windows",
@@ -270,6 +270,21 @@ func saveScriptPermissions(grants, reviews map[string]map[string]bool) error {
 
 func setScriptPermissions(owner string, selected map[string]bool) error {
 	return applyScriptPermissions(owner, selected, false)
+}
+
+// Only in-memory scripts have no container. Disk-backed permission dialogs
+// must not reuse source cached by an earlier folder scan or enable attempt.
+func scriptPackageForPermissionReview(owner string) (scriptInfo, error) {
+	scriptMu.RLock()
+	info, exists := scriptPackages[owner]
+	scriptMu.RUnlock()
+	if !exists {
+		return scriptInfo{}, fmt.Errorf("script no longer exists")
+	}
+	if info.container == "" {
+		return info, nil
+	}
+	return refreshScriptPackage(owner)
 }
 
 // Called by the client UI only. Persist before changing live grants. An empty

@@ -60,6 +60,16 @@ func TestScriptConfigDefaultsCallbacksAndPersistence(t *testing.T) {
 		t.Fatalf("integer value = %v, want 12", got)
 	}
 
+	colorChanged := uint32(0)
+	if value := registerScriptConfigTestOption(t, "plug", "color", "Color", "", scriptapi.ScopeGlobal, "color", uint32(0x11223344), func(v uint32) {
+		colorChanged = v
+	}, nil, nil, 0, 0, 0); value != uint32(0x11223344) {
+		t.Fatalf("color default = %#v", value)
+	}
+	if !scriptSetConfigValue("plug", "color", float64(0xaabbccdd)) || colorChanged != 0xaabbccdd {
+		t.Fatalf("color setting/callback = %#x", colorChanged)
+	}
+
 	scriptConfigEntries = map[string][]scriptConfigEntry{}
 	scriptStores = map[string]*scriptStore{}
 	value = registerScriptConfigTestOption(t, "plug", "enabled", "Enabled", "", scriptapi.ScopeGlobal, "bool", true, nil, nil, nil, 0, 0, 0)

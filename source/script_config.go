@@ -136,6 +136,23 @@ func coerceScriptConfigValue(typ string, value any) (any, bool) {
 		case int64:
 			return float64(v), true
 		}
+	case "color":
+		switch v := value.(type) {
+		case uint32:
+			return v, true
+		case int:
+			if v >= 0 {
+				return uint32(v), true
+			}
+		case int64:
+			if v >= 0 && uint64(v) <= uint64(^uint32(0)) {
+				return uint32(v), true
+			}
+		case float64:
+			if v >= 0 && v <= float64(^uint32(0)) && v == float64(uint32(v)) {
+				return uint32(v), true
+			}
+		}
 	case "text", "choice", "key", "item":
 		v, ok := value.(string)
 		return v, ok
@@ -173,6 +190,10 @@ func scriptConfigValueValid(entry scriptConfigEntry, value any) bool {
 	case "key":
 		v, ok := value.(string)
 		if !ok || !validScriptBindingText(v) {
+			return false
+		}
+	case "color":
+		if _, ok := value.(uint32); !ok {
 			return false
 		}
 	}

@@ -71,6 +71,14 @@ func TestMarkBeastsNamedEntry(t *testing.T) {
 	if panel.state.controls["entry-1-name"].option.Text != "Sam" || panel.state.controls["entry-1-id"].option.Text != "22" {
 		t.Fatal("Alt-click did not populate the name and preview ID")
 	}
+	if _, ok := scriptMobileEffectForMobile(71, "sam", false); ok {
+		t.Fatal("new named mark should not tint")
+	}
+	if _, ok := scriptMobileEffectForMobile(71, "sam", true); !ok {
+		t.Fatal("new named mark should outline")
+	}
+	panel.state.controls["entry-1-tint-enabled"].item.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: true})
+	sim.barrier(t)
 	for _, outline := range []bool{false, true} {
 		if _, ok := scriptMobileEffectForMobile(71, "sam", outline); !ok {
 			t.Fatal("named player lost their mark after a sprite change")

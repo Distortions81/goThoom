@@ -87,9 +87,12 @@ func TestMarkLastiesAltClickProof(t *testing.T) {
 	}
 	sim.barrier(t)
 	overlayMu.RLock()
-	tint, marked := scriptMobileTints[owner][777]
+	tint, marked := scriptMobileOutlines[owner][777]
 	overlayMu.RUnlock()
-	if !marked || tint != (scriptMobileTint{r: 255, g: 255, b: 128, a: 255}) {
+	if len(scriptMobileTints[owner]) != 0 {
+		t.Fatal("new marks should use outline only")
+	}
+	if !marked || tint != (scriptMobileTint{r: 255, g: 255, b: 0, a: 255}) {
 		t.Fatalf("Alt-click mark = %+v, %v", tint, marked)
 	}
 	if sim.input(t, click) {
@@ -97,7 +100,7 @@ func TestMarkLastiesAltClickProof(t *testing.T) {
 	}
 	sim.barrier(t)
 	overlayMu.RLock()
-	_, marked = scriptMobileTints[owner][777]
+	_, marked = scriptMobileOutlines[owner][777]
 	overlayMu.RUnlock()
 	if marked {
 		t.Fatal("second Alt-click did not remove mark")
@@ -136,9 +139,11 @@ func TestMarkLastiesInlineEditsAutosave(t *testing.T) {
 	}
 	edit("entry-1-id", "22")
 	edit("entry-1-note", "Leave for Sam — needs last hits")
-	if _, ok := scriptMobileTints[owner][22]; !ok || panel.state.controls["entry-1-image"].option.Image != 22 {
+	if _, ok := scriptMobileOutlines[owner][22]; !ok || panel.state.controls["entry-1-image"].option.Image != 22 {
 		t.Fatal("inline ID edit did not mark sprite 22 and update its preview")
 	}
+	panel.state.controls["entry-1-tint-enabled"].item.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: true})
+	sim.barrier(t)
 	for id, value := range map[string]uint32{"entry-1-tint": 0x80ff80ff, "entry-1-outline": 0x4080ffff} {
 		control := panel.state.controls[id]
 		panel.state.colorPicked(control, value, control.revision)
@@ -213,5 +218,129 @@ func TestMarkLastiesMigratesExistingMarks(t *testing.T) {
 	scriptEventSimulator{owner: owner}.barrier(t)
 	if scriptStorageGet(owner, "entries") == nil || scriptMobileTints[owner][22].r != 120 || scriptMobileOutlines[owner][22].g != 240 {
 		t.Fatal("existing marked sprite and colors did not migrate to inline entries")
+	}
+}
+
+func TestMarkBeastsPerEntryEffectsAndDefaults(t *testing.T) {
+	initFont()
+	const owner = "mark_beasts_defaults"
+	sim := activateBundledProofScript(t, owner, "mark_beasts.go")
+	window := func(name string) Window {
+		t.Helper()
+		value, err := currentScriptEventQueue(owner).interpreter.Eval(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value.Interface().(Window)
+	}
+	check := func(panel Window, id string, enabled bool) {
+		t.Helper()
+		control := panel.state.controls[id]
+		if control == nil {
+			t.Fatalf("missing checkbox %s", id)
+		}
+		control.item.Handler.Emit(eui.UIEvent{Type: eui.EventCheckboxChanged, Checked: enabled})
+		sim.barrier(t)
+	}
+	mark := func(id uint16) {
+		click := makeScriptInputEvent("Alt-LeftClick")
+		click.OnMobile, click.Mobile.PictID = true, id
+		sim.input(t, click)
+		sim.barrier(t)
+	}
+	mark(22)
+	panel := window("lastiesWindow")
+	panel.state.buttons["settings"].Handler.Emit(eui.UIEvent{Type: eui.EventClick})
+	sim.barrier(t)
+	if scriptConfigWin == nil || scriptConfigOwner != owner || !scriptConfigWin.Open {
+		t.Fatal("settings gear did not open native script settings")
+	}
+	if scriptConfigEntries[owner][0].Value.(bool) || !scriptConfigEntries[owner][2].Value.(bool) {
+		t.Fatal("fresh defaults should enable only outlines")
+	}
+	if !scriptSetConfigValue(owner, "default-tint", true) ||
+		!scriptSetConfigValue(owner, "default-outline", false) ||
+		!scriptSetConfigValue(owner, "default-tint-color", uint32(0x90b0d0ff)) {
+		t.Fatal("could not update native Mark Beasts preferences")
+	}
+	if len(scriptMobileTints[owner]) != 0 || len(scriptMobileOutlines[owner]) != 1 {
+		t.Fatal("editing defaults changed an existing entry")
+	}
+	mark(71)
+	if scriptMobileTints[owner][71] != (scriptMobileTint{r: 144, g: 176, b: 208, a: 255}) {
+		t.Fatal("new entry did not inherit tint default and color")
+	}
+	if _, ok := scriptMobileOutlines[owner][71]; ok {
+		t.Fatal("new entry ignored outline default")
+	}
+	check(panel, "entry-2-outline-enabled", true)
+	if len(scriptMobileTints[owner]) != 1 || len(scriptMobileOutlines[owner]) != 2 {
+		t.Fatal("could not enable tint and outline together")
+	}
+	check(panel, "entry-2-tint-enabled", false)
+	check(panel, "entry-2-outline-enabled", false)
+	if len(scriptMobileTints[owner]) != 0 || len(scriptMobileOutlines[owner]) != 1 {
+		t.Fatal("disabling both effects did not clear just that entry")
+	}
+	src, err := scriptScripts.ReadFile(bundledScriptDir + "/mark_beasts.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loadscriptSource(owner, "Mark Beasts", "mark_beasts.go", src, restrictedStdlib()) {
+		t.Fatal("reload failed")
+	}
+	sim.barrier(t)
+	panel = window("lastiesWindow")
+	if panel.state.controls["entry-2-tint-enabled"].option.Checked || panel.state.controls["entry-2-outline-enabled"].option.Checked || panel.state.controls["entry-2-tint"].option.Color != 0x90b0d0ff {
+		t.Fatal("disabled flags or saved color did not survive reload")
+	}
+	mark(82)
+	if _, ok := scriptMobileOutlines[owner][82]; ok || scriptMobileTints[owner][82].b != 208 {
+		t.Fatal("new-entry defaults did not survive reload")
+	}
+	check(panel, "entry-2-tint-enabled", true)
+	if scriptMobileTints[owner][71].b != 208 {
+		t.Fatal("reenabling tint did not restore its saved color")
+	}
+}
+
+func TestMarkBeastsMigratesInlineEntriesAndDisabledOutlines(t *testing.T) {
+	initFont()
+	const owner = "mark_beasts_entry_migration"
+	resetScriptCallbackTestState(t, owner)
+	t.Cleanup(func() { disablescript(owner, "test cleanup"); drainScriptDispatcher() })
+	scriptStorageSet(owner, "entries", []map[string]any{
+		{"ID": "22", "Name": "Sam", "Note": "Save last hit", "Mark": map[string]uint8{"R": 120, "G": 200, "B": 255, "A": 255, "OutlineR": 20, "OutlineG": 240, "OutlineB": 60, "OutlineA": 255}},
+		{"ID": "", "Note": "Blank row note"},
+	})
+	scriptStorageSet(owner, "show-outline", false)
+	scriptStorageSet(owner, "hit-flash", map[string]any{"Enabled": false, "AllMobiles": true, "Color": map[string]uint8{"R": 12, "G": 34, "B": 56, "A": 78}})
+	src, err := scriptScripts.ReadFile(bundledScriptDir + "/mark_beasts.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if !loadscriptSource(owner, "Mark Beasts", "mark_beasts.go", src, restrictedStdlib()) {
+			t.Fatal("load failed")
+		}
+		scriptEventSimulator{owner: owner}.barrier(t)
+		if scriptNamedMobileTints[owner]["sam"].r != 120 || len(scriptNamedMobileOutlines[owner]) != 0 {
+			t.Fatal("migration lost tint or reenabled disabled outline")
+		}
+		value, err := currentScriptEventQueue(owner).interpreter.Eval("lastiesWindow")
+		if err != nil {
+			t.Fatal(err)
+		}
+		panel := value.Interface().(Window)
+		if panel.state.controls["entry-1-note"].option.Text != "Save last hit" || panel.state.controls["entry-2-note"].option.Text != "Blank row note" || panel.state.controls["entry-1-outline"].option.Color != 0x14f03cff {
+			t.Fatal("migration lost notes, blank row, or disabled outline color")
+		}
+		config := map[string]any{}
+		for _, entry := range scriptConfigEntries[owner] {
+			config[entry.Key] = entry.Value
+		}
+		if config["flash-hits"] != false || config["flash-all"] != true || config["flash-color"] != uint32(0x0c22384e) {
+			t.Fatal("migration changed hit-flash settings")
+		}
 	}
 }

@@ -149,19 +149,7 @@ func TestFollowWindowControlsAndStatus(t *testing.T) {
 	initFont()
 	isolateScriptWorld(t)
 	const owner = "follow_window"
-	oldSelected := selectedPlayerName
-	playersMu.Lock()
-	oldPlayers := players
-	players = map[string]*Player{"Leader": {Name: "Leader"}}
-	playersMu.Unlock()
-	selectedPlayerName = "Leader"
-	t.Cleanup(func() {
-		selectedPlayerName = oldSelected
-		playersMu.Lock()
-		players = oldPlayers
-		playersMu.Unlock()
-		drainScriptDispatcher()
-	})
+	t.Cleanup(drainScriptDispatcher)
 	sim := activateBundledProofScript(t, owner, "follow_player.go")
 	sim.login(t, "Hero")
 	stateMu.Lock()
@@ -177,10 +165,15 @@ func TestFollowWindowControlsAndStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	panel := value.Interface().(Window)
-	if !panel.Active() || panel.state.buttons["follow"].Disabled || !panel.state.buttons["stop"].Disabled {
+	if !panel.Active() || panel.state.buttons["follow"] != nil || !panel.state.buttons["stop"].Disabled || strings.Contains(panel.state.text, "Selected:") {
 		t.Fatal("initial window button state incorrect")
 	}
-	panel.state.buttons["follow"].Handler.Handle(eui.UIEvent{Type: eui.EventClick})
+	click := makeScriptInputEvent("Alt-RightClick")
+	click.OnMobile = true
+	click.Mobile = Mobile{Index: 2, Name: "Leader", Player: true, H: 100}
+	if sim.input(t, click) {
+		t.Fatal("following click should consume normal right-click behavior")
+	}
 	sim.barrier(t)
 	if !strings.Contains(panel.state.text, "Following: Leader") || !strings.Contains(panel.state.text, "Status: Following") || panel.state.buttons["stop"].Disabled {
 		t.Fatalf("follow control/status failed: %q", panel.state.text)

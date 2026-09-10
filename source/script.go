@@ -113,6 +113,7 @@ var basescriptExports = interp.Exports{
 		"Subscription":        reflect.ValueOf((*Subscription)(nil)),
 		"Timer":               reflect.ValueOf((*Timer)(nil)),
 		"BoolOption":          reflect.ValueOf((*scriptapi.BoolOption)(nil)),
+		"ColorOption":         reflect.ValueOf((*scriptapi.ColorOption)(nil)),
 		"IntegerOption":       reflect.ValueOf((*scriptapi.IntegerOption)(nil)),
 		"DecimalOption":       reflect.ValueOf((*scriptapi.DecimalOption)(nil)),
 		"TextOption":          reflect.ValueOf((*scriptapi.TextOption)(nil)),
@@ -1135,6 +1136,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			stage(func() { window.create(options) })
 			return window
 		})
+		m["OpenSettings"] = reflect.ValueOf(func() {
+			if candidate.runtimeEventQueue(owner) == nil {
+				return
+			}
+			stage(func() { openscriptConfigWindow(owner) })
+		})
 		m["AddToolbar"] = reflect.ValueOf(func(options scriptapi.ToolbarOptions) Subscription {
 			if !scriptHasPermission(owner, "hotkeys") {
 				options.Buttons = append([]scriptapi.ToolbarButton(nil), options.Buttons...)
@@ -1306,6 +1313,14 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			}
 			stage(func() { scriptRegisterConfig(owner, entry) })
 			return entry.Value.(bool)
+		})
+		m["Color"] = reflect.ValueOf(func(option scriptapi.ColorOption) uint32 {
+			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "color", option.Default, option.OnChange, option.Validate, nil, 0, 0, 0)
+			if !ok {
+				return option.Default
+			}
+			stage(func() { scriptRegisterConfig(owner, entry) })
+			return entry.Value.(uint32)
 		})
 		m["Integer"] = reflect.ValueOf(func(option scriptapi.IntegerOption) int {
 			entry, ok := makeTypedScriptConfigEntry(owner, option.Key, option.Label, option.Help, option.Scope, "int", option.Default, option.OnChange, option.Validate, nil, float64(option.Min), float64(option.Max), float64(option.Step))
@@ -2443,22 +2458,43 @@ func stripGoBuildDirectives(src []byte) []byte {
 	return src
 }
 
-// reloadscript refreshes the selected package before restarting it. Enabling
-// from the cached list alone would rerun the source from the last folder scan.
+// reloadscript always refreshes the selected package from disk. A running
+// script restarts; a disabled script remains disabled with fresh source and
+// metadata ready for its next enable.
 func reloadscript(owner string) {
+	wasRunning := scriptIsRunning(owner)
+	if _, err := refreshScriptPackage(owner); err != nil {
+		recordScriptError(owner, err.Error(), wasRunning)
+		consoleMessage("[script] reload error: " + err.Error())
+		refreshscriptsWindow()
+		return
+	}
+	if !wasRunning {
+		scriptMu.Lock()
+		delete(scriptErrors, owner)
+		delete(scriptReloadFailed, owner)
+		scriptMu.Unlock()
+		consoleMessage("[script] refreshed: " + scriptDisplayName(owner))
+		refreshscriptsWindow()
+		refreshscriptDetails()
+		return
+	}
 	if scriptExecutionCharacter() == "" {
 		return
 	}
+	enablescript(owner)
+}
+
+// Publish the disk snapshot together with its metadata. Permission review and
+// explicit reload must agree about which source enablescript will activate.
+func refreshScriptPackage(owner string) (scriptInfo, error) {
 	info, ok := scanscripts(scriptSearchDirs(), nil)[owner]
 	if !ok || info.invalid {
 		message := "Could not read this script from disk. Refresh the Scripts list if it was moved or its ID changed."
 		if ok && info.err != "" {
 			message = formatScriptError(info.path, fmt.Errorf("%s", info.err))
 		}
-		recordScriptError(owner, message, scriptIsRunning(owner))
-		consoleMessage("[script] reload error: " + message)
-		refreshscriptsWindow()
-		return
+		return scriptInfo{}, fmt.Errorf("%s", message)
 	}
 	scriptMu.Lock()
 	scriptPackages[owner] = info
@@ -2470,7 +2506,7 @@ func reloadscript(owner string) {
 	scriptDescriptions[owner] = info.description
 	scriptAPIVersions[owner] = info.apiVer
 	scriptMu.Unlock()
-	enablescript(owner)
+	return info, nil
 }
 
 func enablescript(owner string) {

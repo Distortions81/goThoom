@@ -58,8 +58,8 @@ func validateScriptWindowGroup(controls []scriptapi.WindowControl, buttons []scr
 		if strings.TrimSpace(b.ID) == "" || ids[b.ID] {
 			return fmt.Errorf("script window button IDs must be nonempty and unique")
 		}
-		if strings.TrimSpace(b.Label) == "" || b.OnClick == nil {
-			return fmt.Errorf("script window button %q needs a label and OnClick", b.ID)
+		if (strings.TrimSpace(b.Label) == "" && strings.TrimSpace(b.Icon) == "") || b.OnClick == nil {
+			return fmt.Errorf("script window button %q needs a label or icon and OnClick", b.ID)
 		}
 		ids[b.ID] = true
 	}
@@ -132,6 +132,9 @@ func (s *scriptWindowState) addButtons(column *eui.ItemData, options []scriptapi
 		}
 		button, events := eui.NewButton()
 		button.Text = option.Label
+		if option.Icon != "" {
+			setMaterialButtonIcon(button, option.Icon)
+		}
 		button.Size = eui.Point{X: (width - 16) / 2, Y: 34}
 		if inline {
 			button.Size.X = width

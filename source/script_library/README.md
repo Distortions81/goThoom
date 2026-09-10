@@ -161,8 +161,8 @@ Options are private to the script. They are saved automatically, so there is
 no need to call `gt2.Store` for them. `OnChange` runs when an accepted value
 changes; assign the registration's return value for initialization.
 
-The available types are `Bool`, `Integer`, `Decimal`, `Text`, `Choice`,
-`KeyBinding`, and `ItemSelector`. Use `Help` to explain a useful tradeoff,
+The available types are `Bool`, `Color`, `Integer`, `Decimal`, `Text`, `Choice`,
+`KeyBinding`, and `ItemSelector`. Colors are packed as `0xRRGGBBAA`. Use `Help` to explain a useful tradeoff,
 `Min`/`Max`/`Step` for numeric controls, and `Choices` for a dropdown.
 `Bool`, `Integer`, `Decimal`, and `Text` also accept a `Validate` function.
 A `KeyBinding` preference supplies a string to your script; bindings registered
@@ -476,16 +476,18 @@ changes. Script movement uses the ordinary server input cadence.
 ## Follow Player example
 
 Install **Follow Player** from **Actions -> Scripts -> Examples**. In
-**Info -> Permissions**, grant Register commands and shortcuts, Game data and events, Automatic movement,
-Windows/toolbars/overlays, Background timers, and Session events. Enable it
-and its **Follow Player** window opens. Select a visible player in Players and
-press **Follow**. The window shows the selected player, current target, and
-activity: Following, Staying, Routing, Giving space, Wiggling, Waiting for space,
-or Stopped. **Stop Follow** or manual movement cancels following. Closing the
-window also stops following; `/followui` reopens it.
+**Info -> Permissions**, grant Register commands and shortcuts, Bind keys and
+mouse buttons, Game data and events, Automatic movement, Windows/toolbars/overlays,
+Background timers, and Session events. Enable it, then **Alt-right-click a
+player in the game view** to follow them. Alt-right-click another player to
+switch targets. The **Follow Player** window shows the current target and
+activity, including Following breadcrumbs and Waiting for target. **Stop Follow**
+or manual movement cancels following. Closing the window also stops following;
+`/followui` reopens it.
 
-`/follow Player Name`, `/follow` for the selected player, `/follow off`, and
-`/stopfollow` remain available. Following is session-only and never starts
+`/follow Player Name`, `/follow off`, and `/stopfollow` remain available. A
+partial name works when it matches exactly one visible player; a full name
+takes precedence. Following is session-only and never starts
 automatically after a reload or login. The window, button callbacks, and status
 logic are defined entirely in `follow_player.go`.
 
@@ -504,39 +506,68 @@ reduce weaving, while reconsidering routes as mobiles move. When resting, it
 also gives nearby mobiles space. If surrounded with no local exit, it waits
 for an opening instead of pushing farther into a mobile.
 
-When forward progress stalls for about 750 milliseconds, it tries a short
-wiggle: backward to one side, backward to the other, then forward on each side.
-Each pulse lasts about 350 milliseconds, followed by a return to normal
-steering before another attempt. Recovery paths use the same mobile checks.
-Lateral wiggle motion does not reset the retry budget; eight seconds of failed
-recovery stops following. Camera-shift estimates keep a centered character
-sprite from looking stationary during normal travel.
+While the target is visible, the script considers estimated bases of plane-zero
+scenery on every update to steer around objects. Those hints are optional in
+the script settings.
 
-During a stall or when well behind, the script also considers estimated bases
-of plane-zero scenery. Those hints are optional in the script settings.
+When an attempted move makes little progress along its commanded direction for
+about 750 milliseconds, the script records an approximate blocked spot ahead.
+It routes around that spot toward the same player or breadcrumb, favoring a
+consistent passing side. This works even when scenery artwork gives no useful
+collision hint. Following the detour counts as progress, even if it temporarily
+takes you farther from the destination. Temporary blocked spots expire and are
+cleared when the scene changes.
 
-This is a local steering example, not a complete pathfinder. Artwork hints can
-be wrong, and complex walls, doorways, or moving crowds may require manual
-repositioning. It stops when the target leaves view, your character falls, the
-reported location changes, or world updates go stale; it does not chase across
-unseen areas. The steering tests use synthetic scenes; real-world obstacle
-clearance still needs in-game tuning.
+If detours still produce almost no movement for two seconds while the target is
+visible, the script permits a short wiggle to get unstuck. Movement ends the
+wiggle and returns to routing. The stuck check subtracts measured background
+movement before judging the response to a movement command.
+
+When the target leaves view, the script follows their recorded breadcrumbs,
+then continues up to 96 pixels beyond the last sighting along their recent
+travel direction to cross an area edge or doorway. It preserves turns in the
+recorded track. If a mobile or an inferred blockage obstructs a breadcrumb,
+it detours around the obstruction and continues along the remaining trail.
+The window shows **Routing to breadcrumb** during that detour.
+
+Breadcrumbs and blocked spots stay anchored to the scenery as the background
+moves. With no recent travel direction, or after reaching the end of the
+continuation, it waits for the target to reappear.
+
+After a location or scenery change, it discards the old area's coordinates and
+looks for the target by name. It resumes following when they reappear, even if
+their mobile index changes. There is no target-loss timeout: the target stays
+selected until you cancel following or the session ends. Falling or missing
+world updates pauses movement; following resumes when both players are standing
+and fresh positions are available.
+
+This is approximate local steering. Artwork does not expose doorways or server
+collision boundaries, so complex walls, entrances, or moving crowds may require
+manual repositioning. The steering tests use synthetic scenes; area transitions
+and obstacle clearance still need in-game verification.
 
 ## Script-owned windows
 
-The **Mark Beasts** example shows a sprite preview, editable ID, tint and outline
-swatches, notes, and a delete button on each row. Use it for last-hit reminders,
-creature identification, or other notes about a sprite type. **Add** creates a
-blank row. Notes and colors save automatically, including on blank rows.
-**Effects** controls outlines and hit flashes; Alt-click a creature to add or
-remove its sprite type. Open it from **Mark Beasts** on the toolbar or `/marks`.
-The `/lasties` command also opens it.
+The **Mark Beasts** example shows a sprite preview, editable ID and name, tint
+and outline checkboxes with color swatches, notes, and a delete button on each
+row. Use it for last-hit reminders, creature identification, or other notes.
+New entries use an outline by default. Each row can use tint, outline, both,
+or neither; turning an effect off keeps its color and notes.
+
+**Add** creates a blank row. The gear-shaped **Settings** button opens the
+script's native Settings page. Its preferences set the effect and color defaults
+for new entries and control hit flashes. Changing defaults leaves existing rows
+as configured. All edits save automatically, including notes on blank rows.
+Alt-click a creature or player to add or remove its mark. Open the window from
+**Mark Beasts** on the toolbar or `/marks`. The `/lasties` command also opens it.
 
 `gt2.CreateWindow` creates an independent, movable client window with wrapped
 status text, up to eight buttons, and up to 32 controls. It returns a `gt2.Window` handle. Use
 `SetText`, `SetButtonEnabled`, `Show`, `Hide`, and `Remove` on that handle; updates
 are sent to the client UI thread and do not recreate the window. Button IDs
-must be nonempty and unique within the window.
+must be nonempty and unique within the window. Set a button's `Icon` to a
+bundled Material icon name such as `"settings"`; `gt2.OpenSettings()` opens the
+calling script's native preferences, key bindings, and commands page.
 
 ```go
 var panel gt2.Window

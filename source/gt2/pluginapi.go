@@ -106,6 +106,7 @@ func AddToolbar(options ToolbarOptions) Subscription { return Subscription{} }
 // serialized event queue. Windows are removed when their script stops/reloads.
 type WindowButton struct {
 	ID, Label, Tooltip string
+	Icon               string // Optional bundled Material icon name, such as "settings".
 	Disabled           bool
 	Width              int // Optional width in logical pixels for inline rows.
 	OnClick            func()
@@ -202,6 +203,14 @@ type BoolOption struct {
 	OnChange                func(bool)
 }
 
+// ColorOption stores RGBA as 0xRRGGBBAA and uses the client's color picker.
+type ColorOption struct {
+	Key, Label, Help, Scope string
+	Default                 uint32
+	Validate                func(uint32) bool
+	OnChange                func(uint32)
+}
+
 type IntegerOption struct {
 	Key, Label, Help, Scope string
 	Default, Min, Max, Step int
@@ -243,12 +252,17 @@ type ItemOption struct {
 }
 
 func Bool(option BoolOption) bool               { return option.Default }
+func Color(option ColorOption) uint32           { return option.Default }
 func Integer(option IntegerOption) int          { return option.Default }
 func Decimal(option DecimalOption) float64      { return option.Default }
 func Text(option TextOption) string             { return option.Default }
 func Choice(option ChoiceOption) string         { return option.Default }
 func KeyBinding(option KeyBindingOption) string { return option.Default }
 func ItemSelector(option ItemOption) string     { return option.Default }
+
+// OpenSettings opens this script's native preferences, key bindings, and
+// commands page. Calls made before Init completes are ignored.
+func OpenSettings() {}
 
 // Storage is private to the script that calls it, but shared by every
 // character using that script. Include the current character in the key when

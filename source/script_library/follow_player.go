@@ -13,24 +13,44 @@ const scriptID = "example-follow-player"
 const scriptName = "Follow Player"
 const scriptAuthor = "goThoom"
 const scriptCategory = "Movement"
-const scriptDescription = "Follow a visible player with mobile clearance, local routing and wiggle recovery. /follow name; /follow off."
+const scriptDescription = "Alt-right-click a player to follow their trail across area edges and doorways. Move manually or /follow off to stop."
 const scriptAPIVersion = 2
 
 var targetName string
 var followWindow gt2.Window
 var followActivity = "Stopped"
-var followNote = "Select a visible player in Players, then press Follow."
+var followNote = "Alt-right-click a player in the game view to follow."
 var manualAt time.Time
 var following bool
 var previous gt2.World
-var previousDistance float64
 var stalled time.Duration
+var noProgress time.Duration
+var attemptingMove bool
+var attemptedDirection followPoint
+
+type blockedSpot struct {
+	point   followPoint
+	expires time.Time
+}
+
+var blockedSpots []blockedSpot
 var wiggleStarted time.Time
 var wiggleNext time.Time
 var wiggleSide = 1.0
 var detourSide = 1.0
 var startDistance = 72.0
 var stopDistance = 44.0
+
+// Breadcrumbs use the current scene's coordinates, shifted with its scenery.
+// Never carry these coordinates into a different area.
+type followPoint struct{ x, y float64 }
+
+var trail []followPoint
+var lastLeader followPoint
+var haveLeader bool
+var targetLost bool
+var leaderDirection followPoint
+var leaderMovedAt time.Time
 var sceneryHints = true
 var mobileClearance = 34.0
 
@@ -41,17 +61,16 @@ func Init() {
 	sceneryHints = gt2.Bool(gt2.BoolOption{Key: "scenery", Label: "Use scenery hints for detours", Help: "Artwork planes are draw order, not collision geometry. Disable if scenery causes unnecessary detours.", Default: true, OnChange: func(v bool) { sceneryHints = v }})
 	followWindow = gt2.CreateWindow(gt2.WindowOptions{
 		Title: "Follow Player", Width: 360,
-		Text: "Selected: None\nFollowing: None\nStatus: Stopped\nSelect a visible player in Players, then press Follow.",
+		Text: "Following: None\nStatus: Stopped\nAlt-right-click a player in the game view to follow.",
 		Buttons: []gt2.WindowButton{
-			{ID: "follow", Label: "Follow", Tooltip: "Follow the player selected in Players", Disabled: true, OnClick: func() { startFollow("") }},
 			{ID: "stop", Label: "Stop Follow", Tooltip: "Stop following immediately", Disabled: true, OnClick: func() { stopFollow("Follow stopped.") }},
 		},
 		OnClose: func() { stopFollow("Follow stopped: window closed.") },
 	})
 	gt2.Command("follow", startFollow)
+	gt2.Bind("Alt-RightClick", followClickedPlayer)
 	gt2.Command("stopfollow", func(args string) { stopFollow("Follow stopped.") })
 	gt2.Command("followui", func(args string) { followWindow.Show(); refreshFollowWindow() })
-	gt2.OnChange(gt2.ChangeSelectedPlayer, func(event gt2.ChangeEvent) { refreshFollowWindow() })
 
 	gt2.OnWorld(followWorld)
 	gt2.Repeat(200*time.Millisecond, func() {
@@ -61,11 +80,27 @@ func Init() {
 			return
 		}
 		if targetName != "" && time.Since(gt2.CurrentWorld().ReceivedAt) > time.Second {
-			stopFollow("Follow stopped: world updates lost.")
+			pauseFollow("Waiting for world updates")
 		}
 	})
 	gt2.OnLogout(func(event gt2.LifecycleEvent) { stopFollow("") })
 	gt2.OnCharacterChange(func(event gt2.LifecycleEvent) { stopFollow("") })
+}
+
+func followClickedPlayer(event gt2.InputEvent) {
+	if !event.OnMobile || !event.Mobile.Player || event.Mobile.Self || event.Mobile.Dead || event.Mobile.Stale || strings.TrimSpace(event.Mobile.Name) == "" {
+		return
+	}
+	// The hit test already identified a mobile. Use its current descriptor name
+	// for subsequent scene tracking instead of sending click text to /follow.
+	world := gt2.CurrentWorld()
+	for _, mobile := range world.Mobiles {
+		if mobile.Index == event.Mobile.Index && mobile.Player && !mobile.Self && !mobile.Dead && !mobile.Stale && strings.TrimSpace(mobile.Name) != "" {
+			event.Consume()
+			beginFollow(world, mobile)
+			return
+		}
+	}
 }
 
 func startFollow(args string) {
@@ -76,60 +111,66 @@ func startFollow(args string) {
 		return
 	}
 	if name == "" {
-		p, ok := gt2.SelectedPlayer()
-		if ok {
-			name = p.Name
-		}
-	}
-	if name == "" {
-		followNote = "Select a player in Players or use /follow Player Name."
+		followNote = "Alt-right-click a player in the game view or use /follow Player Name."
 		gt2.Print(followNote)
 		return
 	}
 	world := gt2.CurrentWorld()
-	_, ok := findLeader(world, name)
+	leader, ok := findLeader(world, name)
 	if !ok {
-		followNote = "Choose another player who is visible and standing."
+		for _, mobile := range world.Mobiles {
+			if !mobile.Player || mobile.Self || mobile.Dead || mobile.Stale || !strings.HasPrefix(followName(mobile.Name), followName(name)) {
+				continue
+			}
+			if ok {
+				followNote = "More than one visible player matches. Type more of the name or Alt-right-click the player."
+				gt2.Print(followNote)
+				return
+			}
+			leader, ok = mobile, true
+		}
+	}
+	if !ok {
+		followNote = "No visible, standing player matches that name. Alt-right-click the player in the game view."
 		gt2.Print(followNote)
 		return
 	}
-	gt2.StopMoving()
-	targetName = name
+	beginFollow(world, leader)
+}
+
+func beginFollow(world gt2.World, leader gt2.Mobile) {
+	defer refreshFollowWindow()
+	releaseFollowMovement()
+	targetName = leader.Name
 	followActivity = "Following"
 	followNote = ""
 	followWindow.Show()
 	following = false
 	previous = gt2.World{}
+	resetTrail()
 	manualAt = gt2.Movement().LastManualInput
 	detourSide = 1
 	wiggleSide = -1
 	stalled = 0
 	wiggleStarted = time.Time{}
 	wiggleNext = time.Time{}
-	gt2.Print("Following " + name + ". Move manually or use /follow off to stop.")
+	gt2.Print("Following " + targetName + ". Move manually or use /follow off to stop.")
 	followWorld(world)
 }
 
 // The window and every status/control decision live entirely in this script.
 func refreshFollowWindow() {
-	selected := "None"
-	canFollow := false
-	world := gt2.CurrentWorld()
-	if p, ok := gt2.SelectedPlayer(); ok {
-		selected = p.Name
-		_, visible := findLeader(world, p.Name)
-		canFollow = visible && world.HasSelf && !world.Self.Dead && time.Since(world.ReceivedAt) < time.Second
-	}
 	target := targetName
 	if target == "" {
 		target = "None"
 	}
-	status := "Selected: " + selected + "\nFollowing: " + target + "\nStatus: " + followActivity
+	status := "Following: " + target + "\nStatus: " + followActivity
 	if followNote != "" {
 		status += "\n" + followNote
+	} else {
+		status += "\nAlt-right-click a player to follow. Move manually to stop."
 	}
 	followWindow.SetText(status)
-	followWindow.SetButtonEnabled("follow", canFollow)
 	followWindow.SetButtonEnabled("stop", targetName != "")
 }
 
@@ -140,10 +181,11 @@ func stopFollow(message string) {
 	targetName = ""
 	following = false
 	previous = gt2.World{}
+	resetTrail()
 	stalled = 0
 	wiggleStarted = time.Time{}
 	wiggleNext = time.Time{}
-	gt2.StopMoving()
+	releaseFollowMovement()
 	if message != "" {
 		gt2.Print(message)
 	}
@@ -151,7 +193,7 @@ func stopFollow(message string) {
 
 func findLeader(world gt2.World, name string) (gt2.Mobile, bool) {
 	for _, m := range world.Mobiles {
-		if m.Player && !m.Self && !m.Dead && !m.Stale && strings.EqualFold(strings.ReplaceAll(m.Name, " ", ""), strings.ReplaceAll(name, " ", "")) {
+		if m.Player && !m.Self && !m.Dead && !m.Stale && samePlayer(m.Name, name) {
 			return m, true
 		}
 	}
@@ -167,24 +209,43 @@ func followWorld(world gt2.World) {
 		stopFollow("Follow stopped: manual movement.")
 		return
 	}
-	if !world.HasSelf || world.Self.Dead || time.Since(world.ReceivedAt) > time.Second {
-		stopFollow("Follow stopped: character or world unavailable.")
+	if world.Self.Dead || time.Since(world.ReceivedAt) > time.Second {
+		pauseFollow("Waiting for character and world")
 		return
 	}
-	leader, ok := findLeader(world, targetName)
-	if !ok {
-		stopFollow("Follow stopped: target left view.")
+	if !previous.ReceivedAt.IsZero() && world.Frame < previous.Frame {
+		pauseFollow("Waiting for world updates")
 		return
 	}
-	if previous.Frame != 0 && (world.Frame < previous.Frame || world.Location != previous.Location) {
-		stopFollow("Follow stopped: scene changed.")
+	// A transition can briefly omit self. Release movement until coordinates
+	// are available again, and reacquire rather than steering in the old area.
+	if !world.HasSelf {
+		pauseFollow("Waiting for character and world")
 		return
 	}
 	if world.Frame == previous.Frame && !previous.ReceivedAt.IsZero() {
 		return
 	}
-	dx, dy := float64(leader.H-world.Self.H), float64(leader.V-world.Self.V)
+	leader, visible := findLeader(world, targetName)
+	for _, m := range world.Mobiles {
+		if m.Player && !m.Self && !m.Stale && m.Dead && samePlayer(m.Name, targetName) {
+			pauseFollow("Waiting for target to stand")
+			return
+		}
+	}
+	goal, ready := followTrail(&world, leader, visible)
+	if !ready {
+		waitForLeader()
+		previous = world
+		return
+	}
+	observeFollowProgress(world)
+	dx, dy := goal.x-float64(world.Self.H), goal.y-float64(world.Self.V)
 	distance := math.Hypot(dx, dy)
+	if !visible {
+		followBreadcrumb(world, goal)
+		return
+	}
 	if following {
 		following = distance > stopDistance
 	} else {
@@ -215,50 +276,21 @@ func followWorld(world gt2.World) {
 	yielding := math.Hypot(yieldX, yieldY) > 1
 	if !following && !yielding {
 		followActivity = "Staying"
-		gt2.StopMoving()
+		releaseFollowMovement()
 		stalled = 0
 		wiggleStarted = time.Time{}
 		wiggleNext = time.Time{}
 		previous = world
-		previousDistance = distance
 		return
 	}
 	now := world.ReceivedAt
 	wiggling := !wiggleStarted.IsZero() && now.Sub(wiggleStarted) < 1400*time.Millisecond
-	// Subtract camera motion and measure forward progress. Lateral motion during
-	// a wiggle must not reset the retry budget while still caught on an object.
-	if previous.HasSelf && world.Frame == previous.Frame+1 {
-		elapsed := now.Sub(previous.ReceivedAt)
-		travelX := float64(int(world.Self.H) - int(previous.Self.H) - world.CameraShiftX)
-		travelY := float64(int(world.Self.V) - int(previous.Self.V) - world.CameraShiftY)
-		forward := (travelX*dx + travelY*dy) / math.Max(1, distance)
-		if yielding {
-			forward = (travelX*yieldX + travelY*yieldY) / math.Max(1, math.Hypot(yieldX, yieldY))
-		}
-		if elapsed > 0 && elapsed < time.Second {
-			if wiggling || (forward < 2 && distance >= previousDistance-2) {
-				stalled += elapsed
-			} else {
-				stalled = 0
-				wiggleStarted = time.Time{}
-			}
-		}
-	} else {
-		// CameraShift describes only the preceding frame. Never infer progress
-		// across skipped frames; cancel an incomplete recovery on a gap.
-		stalled = 0
-		wiggleStarted = time.Time{}
-		wiggling = false
-	}
-	if stalled > 8*time.Second {
-		stopFollow("Follow stopped: blocked. Reposition and /follow again.")
-		return
-	}
+
 	direction := math.Atan2(dy, dx)
 	if yielding {
 		direction = math.Atan2(yieldY, yieldX)
 	}
-	if stalled > 750*time.Millisecond && !wiggling && !now.Before(wiggleNext) {
+	if stalled > 2*time.Second && !wiggling && !now.Before(wiggleNext) {
 		wiggleStarted = now
 		wiggleNext = now.Add(2 * time.Second)
 		wiggleSide = -wiggleSide
@@ -274,15 +306,15 @@ func followWorld(world gt2.World) {
 		direction += wiggleOffset(now.Sub(wiggleStarted), wiggleSide)
 		reach = 65
 	}
-	checkScenery := stalled > 750*time.Millisecond || distance > startDistance+40
-	heading, clear := routeDirection(world, leader, direction, reach, checkScenery)
+	// Route around scenery during ordinary travel, before a collision causes
+	// a stall. Lost-target breadcrumbs keep their separate doorway handling.
+	heading, clear := routeDirection(world, leader, direction, reach, true)
 	if !clear {
 		followActivity = "Waiting for space"
 		// Wait when every local exit would move closer to a mobile already inside
 		// the minimum spacing. Keep observing so an opening can be used next frame.
-		gt2.StopMoving()
+		releaseFollowMovement()
 		previous = world
-		previousDistance = distance
 		return
 	}
 	if math.Abs(heading-direction) > 0.01 {
@@ -301,12 +333,344 @@ func followWorld(world gt2.World) {
 	direction = heading
 	x := float64(world.Self.H) + math.Cos(direction)*reach
 	y := float64(world.Self.V) + math.Sin(direction)*reach
-	if !gt2.Move(int16(x), int16(y)) {
-		stopFollow("Follow stopped: movement overridden or unavailable.")
+	if !moveFollow(world, x, y) {
+		pauseFollow("Waiting for movement")
 		return
 	}
 	previous = world
-	previousDistance = distance
+}
+
+func samePlayer(a, b string) bool {
+	return strings.EqualFold(followName(a), followName(b))
+}
+
+func followName(name string) string {
+	return strings.ToLower(strings.Join(strings.Fields(name), ""))
+}
+
+func resetTrail() {
+	trail = nil
+	haveLeader = false
+	targetLost = false
+	leaderDirection = followPoint{}
+	leaderMovedAt = time.Time{}
+	resetRouting()
+}
+
+// Unavailable movement or coordinates suspend pursuit, not the chosen target.
+func pauseFollow(activity string) {
+	releaseFollowMovement()
+	followActivity = activity
+	following = false
+	previous = gt2.World{}
+	resetTrail()
+	stalled = 0
+	wiggleStarted = time.Time{}
+	wiggleNext = time.Time{}
+}
+
+func waitForLeader() {
+	releaseFollowMovement()
+	stalled = 0
+	wiggleStarted = time.Time{}
+	wiggleNext = time.Time{}
+	followActivity = "Waiting for target"
+}
+
+// Keep the breadcrumb as the destination while routing around known mobiles
+// and places where attempted movement failed. Artwork alone cannot close a door.
+func followBreadcrumb(world gt2.World, goal followPoint) {
+	following = true
+	wiggleStarted = time.Time{}
+	wiggleNext = time.Time{}
+	dx, dy := goal.x-float64(world.Self.H), goal.y-float64(world.Self.V)
+	desired, reach := math.Atan2(dy, dx), math.Hypot(dx, dy)
+	heading, clear := routeDirection(world, gt2.Mobile{}, desired, reach, false)
+	followActivity = "Following breadcrumbs"
+	if !clear {
+		releaseFollowMovement()
+		followActivity = "Waiting for space on trail"
+	} else {
+		if math.Abs(heading-desired) > 0.01 {
+			reach = math.Min(80, math.Max(45, reach))
+			followActivity = "Routing to breadcrumb"
+		}
+		if !moveFollow(world, float64(world.Self.H)+math.Cos(heading)*reach, float64(world.Self.V)+math.Sin(heading)*reach) {
+			releaseFollowMovement()
+			followActivity = "Waiting for movement"
+		}
+	}
+	previous = world
+}
+
+func releaseFollowMovement() {
+	gt2.StopMoving()
+	attemptingMove = false
+}
+
+func moveFollow(world gt2.World, x, y float64) bool {
+	attemptingMove = gt2.Move(int16(math.Round(x)), int16(math.Round(y)))
+	// Track the clamped mouse command, rather than an off-screen requested aim.
+	movement := gt2.Movement()
+	dx, dy := float64(movement.H)-float64(world.Self.H), float64(movement.V)-float64(world.Self.V)
+	distance := math.Max(1, math.Hypot(dx, dy))
+	attemptedDirection = followPoint{dx / distance, dy / distance}
+	return attemptingMove
+}
+
+func resetRouting() {
+	blockedSpots = nil
+	noProgress = 0
+	stalled = 0
+	attemptingMove = false
+	wiggleStarted = time.Time{}
+	wiggleNext = time.Time{}
+}
+
+// Failed movement supplies local collision evidence even when artwork does not.
+// Measure progress along the command we actually sent, including detours, so
+// walking around an obstacle need not shorten the distance to the final target.
+func observeFollowProgress(world gt2.World) {
+	kept := blockedSpots[:0]
+	for _, spot := range blockedSpots {
+		if world.ReceivedAt.Before(spot.expires) {
+			kept = append(kept, spot)
+		}
+	}
+	blockedSpots = kept
+	elapsed := world.ReceivedAt.Sub(previous.ReceivedAt)
+	if !attemptingMove || !previous.HasSelf || world.Frame != previous.Frame+1 || elapsed <= 0 || elapsed >= time.Second {
+		noProgress, stalled = 0, 0
+		wiggleStarted = time.Time{}
+		return
+	}
+	dx := float64(int(world.Self.H) - int(previous.Self.H) - world.CameraShiftX)
+	dy := float64(int(world.Self.V) - int(previous.Self.V) - world.CameraShiftY)
+	if math.Hypot(dx, dy) <= 4*elapsed.Seconds() {
+		stalled += elapsed
+	} else {
+		stalled = 0
+		wiggleStarted = time.Time{}
+	}
+	if dx*attemptedDirection.x+dy*attemptedDirection.y <= 4*elapsed.Seconds() {
+		noProgress += elapsed
+	} else {
+		noProgress = 0
+	}
+	if noProgress < 750*time.Millisecond || (!wiggleStarted.IsZero() && world.ReceivedAt.Sub(wiggleStarted) < 1400*time.Millisecond) {
+		return
+	}
+	point := followPoint{float64(world.Self.H) + attemptedDirection.x*24, float64(world.Self.V) + attemptedDirection.y*24}
+	for i := range blockedSpots {
+		if math.Hypot(point.x-blockedSpots[i].point.x, point.y-blockedSpots[i].point.y) < 16 {
+			blockedSpots[i].expires = world.ReceivedAt.Add(10 * time.Second)
+			noProgress = 0
+			return
+		}
+	}
+	blockedSpots = append(blockedSpots, blockedSpot{point, world.ReceivedAt.Add(10 * time.Second)})
+	if len(blockedSpots) > 8 {
+		blockedSpots = blockedSpots[len(blockedSpots)-8:]
+	}
+	noProgress = 0
+}
+
+func blockedPathPenalty(world gt2.World, angle, reach float64) float64 {
+	penalty := 0.0
+	ux, uy := math.Cos(angle), math.Sin(angle)
+	for _, spot := range blockedSpots {
+		x, y := spot.point.x-float64(world.Self.H), spot.point.y-float64(world.Self.V)
+		along := math.Max(0, math.Min(reach, x*ux+y*uy))
+		nearest := math.Hypot(x-ux*along, y-uy*along)
+		// Permit escape if an approximate footprint already contains us.
+		radius := math.Min(20, math.Hypot(x, y))
+		if nearest < radius {
+			penalty += 200 * (radius - nearest) / math.Max(1, radius)
+		}
+	}
+	return penalty
+}
+
+// Unique stationary artwork supplies landmarks even with motion smoothing off
+// or skipped callbacks. Repeated tiles are ambiguous; moving sprites and shadows
+// are not landmarks. Reused artwork can still be part of the current scene.
+func sceneAnchors(world gt2.World) map[uint16]gt2.Picture {
+	anchors := map[uint16]gt2.Picture{}
+	counts := map[uint16]int{}
+	for _, p := range world.Pictures {
+		if p.Moving || p.Shadow {
+			continue
+		}
+		counts[p.PictID]++
+		if counts[p.PictID] == 1 {
+			anchors[p.PictID] = p
+		} else {
+			delete(anchors, p.PictID)
+		}
+	}
+	return anchors
+}
+
+// Returns a translation between these snapshots and whether the old trail is
+// still usable. A location change, replaced scenery, or coordinate jump starts
+// a new scene. CameraShift alone describes only the immediately preceding frame.
+func trailShift(before, world gt2.World) (float64, float64, bool) {
+	if before.Location != world.Location {
+		return 0, 0, false
+	}
+	a, b := sceneAnchors(before), sceneAnchors(world)
+	votes := map[[2]int]int{}
+	best := [2]int{}
+	bestCount := 0
+	background := false
+	for id, p := range a {
+		q, ok := b[id]
+		if !ok {
+			continue
+		}
+		shift := [2]int{int(q.H) - int(p.H), int(q.V) - int(p.V)}
+		votes[shift]++
+		if votes[shift] > bestCount {
+			best, bestCount = shift, votes[shift]
+			background = p.Background && q.Background
+		}
+	}
+	count := math.Min(float64(len(a)), float64(len(b)))
+	matched := float64(bestCount)*2 > count && (bestCount >= 2 || (count == 1 && background))
+	if bestCount == 0 && len(a) > 0 && len(b) > 0 {
+		for _, p := range a {
+			for _, q := range b {
+				if p.Background && q.Background {
+					return 0, 0, false
+				}
+			}
+		}
+	}
+	dx, dy := float64(world.CameraShiftX), float64(world.CameraShiftY)
+	if matched {
+		dx, dy = float64(best[0]), float64(best[1])
+	} else if (len(a) >= 2 && len(b) >= 2) || world.Frame != before.Frame+1 {
+		return 0, 0, false
+	}
+	gap := math.Max(1, float64(world.Frame-before.Frame))
+	travel := math.Hypot(float64(world.Self.H)-float64(before.Self.H)-dx, float64(world.Self.V)-float64(before.Self.V)-dy)
+	if math.Hypot(dx, dy) > 160*gap || travel > 96*gap {
+		return 0, 0, false
+	}
+	return dx, dy, true
+}
+
+func followTrail(snapshot *gt2.World, leader gt2.Mobile, visible bool) (followPoint, bool) {
+	world := *snapshot
+	fromX, fromY := float64(world.Self.H), float64(world.Self.V)
+	if previous.HasSelf {
+		sx, sy, sameScene := trailShift(previous, world)
+		if !sameScene {
+			// No reliable coordinate mapping remains for the recorded trail.
+			resetRouting()
+			trail = nil
+			haveLeader = false
+			leaderDirection = followPoint{}
+			leaderMovedAt = time.Time{}
+			stalled = 0
+			wiggleStarted = time.Time{}
+			wiggleNext = time.Time{}
+			previous = gt2.World{}
+		} else {
+			fromX, fromY = float64(previous.Self.H)+sx, float64(previous.Self.V)+sy
+			snapshot.CameraShiftX, snapshot.CameraShiftY = int(sx), int(sy)
+			for i := range trail {
+				trail[i].x += sx
+				trail[i].y += sy
+			}
+			for i := range blockedSpots {
+				blockedSpots[i].point.x += sx
+				blockedSpots[i].point.y += sy
+			}
+			lastLeader.x += sx
+			lastLeader.y += sy
+		}
+	}
+	if visible {
+		point := followPoint{float64(leader.H), float64(leader.V)}
+		if targetLost {
+			stalled = 0
+			wiggleStarted = time.Time{}
+			wiggleNext = time.Time{}
+			trail = nil
+			leaderDirection = followPoint{}
+			leaderMovedAt = time.Time{}
+		} else if haveLeader {
+			dx, dy := point.x-lastLeader.x, point.y-lastLeader.y
+			distance := math.Hypot(dx, dy)
+			// lastLeader has already been aligned with stationary scenery, so
+			// scrolling cannot supply a false exit direction. Ignore teleports.
+			if distance > 80 {
+				leaderDirection = followPoint{}
+				leaderMovedAt = time.Time{}
+			} else if distance >= 2 {
+				leaderDirection = followPoint{dx / distance, dy / distance}
+				leaderMovedAt = world.ReceivedAt
+			}
+		}
+		targetLost = false
+		lastLeader, haveLeader = point, true
+		if len(trail) == 0 || math.Hypot(point.x-trail[len(trail)-1].x, point.y-trail[len(trail)-1].y) >= 6 {
+			trail = append(trail, point)
+			if len(trail) > 64 {
+				trail = trail[len(trail)-64:]
+			}
+		}
+	} else {
+		if !targetLost && haveLeader {
+			trail = append(trail, lastLeader)
+			joinTrail(world)
+			// The final visible sample can fall just short of an area boundary.
+			// Continue once along recent observed travel to cross it, keeping the
+			// corner samples before this endpoint. A new scene discards it.
+			if !leaderMovedAt.IsZero() && world.ReceivedAt.Sub(leaderMovedAt) <= 1500*time.Millisecond {
+				trail = append(trail, followPoint{lastLeader.x + leaderDirection.x*96, lastLeader.y + leaderDirection.y*96})
+			}
+		}
+		targetLost = true
+	}
+	// Drop breadcrumbs we reached or passed on the latest movement segment.
+	// Keeping the newest reached point avoids walking back around an old bend.
+	sx, sy := float64(world.Self.H), float64(world.Self.V)
+	vx, vy := sx-fromX, sy-fromY
+	for i := len(trail) - 1; i >= 0; i-- {
+		along := math.Max(0, math.Min(1, ((trail[i].x-fromX)*vx+(trail[i].y-fromY)*vy)/math.Max(1, vx*vx+vy*vy)))
+		if math.Hypot(trail[i].x-fromX-vx*along, trail[i].y-fromY-vy*along) <= 14 {
+			trail = trail[i+1:]
+			break
+		}
+	}
+	if visible {
+		return lastLeader, true
+	}
+	if len(trail) == 0 {
+		return followPoint{}, false
+	}
+	return trail[0], true
+}
+
+// Visible following can cut a corner without stepping on its breadcrumbs.
+// Rejoin the nearest observed segment rather than walking back to old samples.
+func joinTrail(world gt2.World) {
+	nearest := math.Inf(1)
+	index := 0
+	point := trail[0]
+	for i := 0; i < len(trail)-1; i++ {
+		a, b := trail[i], trail[i+1]
+		dx, dy := b.x-a.x, b.y-a.y
+		along := math.Max(0, math.Min(1, ((float64(world.Self.H)-a.x)*dx+(float64(world.Self.V)-a.y)*dy)/math.Max(1, dx*dx+dy*dy)))
+		p := followPoint{a.x + along*dx, a.y + along*dy}
+		d := math.Hypot(p.x-float64(world.Self.H), p.y-float64(world.Self.V))
+		if d <= nearest {
+			nearest, index, point = d, i, p
+		}
+	}
+	trail = append([]followPoint{point}, trail[index+1:]...)
 }
 
 // Four short pulses pull away, rock to the other side, then try forward again.
@@ -325,7 +689,7 @@ func wiggleOffset(elapsed time.Duration, side float64) float64 {
 	return -side * 0.9
 }
 
-// Route on every fresh frame, including normal following and recovery. Clearance
+// Route visible following and recovery on every fresh frame. Clearance
 // is a preference outside an 18-pixel minimum; sprite size is not collision size.
 func routeDirection(world gt2.World, leader gt2.Mobile, desired, reach float64, scenery bool) (float64, bool) {
 	lookahead := math.Min(96, math.Max(16, reach))
@@ -340,7 +704,7 @@ func routeDirection(world gt2.World, leader gt2.Mobile, desired, reach float64, 
 		if !clear {
 			continue
 		}
-		score := penalty + math.Abs(offset)*12
+		score := penalty + blockedPathPenalty(world, angle, lookahead) + math.Abs(offset)*12
 		if offset*detourSide < 0 {
 			score += 5
 		}

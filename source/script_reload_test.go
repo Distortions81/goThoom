@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -353,6 +354,18 @@ func Init() { for {} }
 		sim.command(t, "refresh_cmd", "")
 		if got := scriptStorageGet(owner, "command_version"); got != "three" {
 			t.Fatalf("missing source replaced the working callback: %v", got)
+		}
+		writeVersion("four")
+		disablescript(owner, "disabled for this character")
+		reloadscript(owner)
+		if scriptIsRunning(owner) {
+			t.Fatal("reloading a disabled script enabled it")
+		}
+		scriptMu.RLock()
+		refreshed := string(scriptPackages[owner].src)
+		scriptMu.RUnlock()
+		if !strings.Contains(refreshed, `"four"`) || scriptStorageGet(owner, "loaded_version") != "three" {
+			t.Fatal("disabled reload did not refresh disk source while leaving it stopped")
 		}
 	}
 	shutdownScripts()

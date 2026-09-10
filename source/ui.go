@@ -967,15 +967,9 @@ func refreshscriptsWindow() {
 				setMaterialIconOnly(reloadBtn, "restart_alt", "Reload")
 				reloadBtn.SetTooltip("Reload this script from disk")
 				reloadBtn.Size = eui.Point{X: 28, Y: 28}
-				reloadBtn.Disabled = e.disabled
 				rh.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventClick {
-						scriptMu.RLock()
-						enabled := !scriptDisabled[owner]
-						scriptMu.RUnlock()
-						if enabled {
-							reloadscript(owner)
-						}
+						reloadscript(owner)
 					}
 				}
 				row.AddItem(scriptListCell(reloadBtn, 36, scriptsManagerRowHeight, true))
@@ -1298,7 +1292,7 @@ func refreshscriptDetails() {
 		settingsButton.SetTooltip("Edit preferences, key bindings, and local command names.")
 	}
 	group()
-	button("Reload", disabled || invalid, func() { reloadscript(owner) })
+	button("Reload", invalid, func() { reloadscript(owner) })
 	button("Stop", disabled, func() { clearscriptScope(owner) })
 	group()
 	button("Close", false, func() {
@@ -1480,6 +1474,16 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 				}
 			}
 			row.AddItem(cb)
+		case "color":
+			value, _ := ce.Value.(uint32)
+			color := eui.Color{R: uint8(value >> 24), G: uint8(value >> 16), B: uint8(value >> 8), A: uint8(value)}
+			key := ce.Key
+			swatch := newColorSwatch(ce.Label, color, func(value eui.Color) {
+				packed := uint32(value.R)<<24 | uint32(value.G)<<16 | uint32(value.B)<<8 | uint32(value.A)
+				scriptSetConfigValue(owner, key, packed)
+			})
+			swatch.Size = eui.Point{X: 48, Y: 28}
+			row.AddItem(swatch)
 		case "text", "key":
 			inp, events := eui.NewInput()
 			inp.Text, _ = ce.Value.(string)

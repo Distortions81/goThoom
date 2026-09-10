@@ -16,7 +16,8 @@ import (
 
 // Run alone: this starts Ebitengine's game loop and exports visual QA images.
 func TestRenderScriptWindow(t *testing.T) {
-	lasties := os.Getenv("GOTHOOM_RENDER_LASTIES") != ""
+	beastSettings := os.Getenv("GOTHOOM_RENDER_BEAST_SETTINGS") != ""
+	lasties := os.Getenv("GOTHOOM_RENDER_LASTIES") != "" || beastSettings
 	controls := os.Getenv("GOTHOOM_RENDER_SCRIPT_CONTROLS") != ""
 	settings := os.Getenv("GOTHOOM_RENDER_SCRIPT_SETTINGS")
 	manager := os.Getenv("GOTHOOM_RENDER_SCRIPTS_LIST") != ""
@@ -66,7 +67,18 @@ func TestRenderScriptWindow(t *testing.T) {
 		sim.barrier(t)
 		panel.state.buttons["add"].Handler.Emit(eui.UIEvent{Type: eui.EventClick})
 		sim.barrier(t)
-		native = panel.state.ui
+		if beastSettings {
+			panel.state.buttons["settings"].Handler.Emit(eui.UIEvent{Type: eui.EventClick})
+			sim.barrier(t)
+			if scriptConfigWin == nil {
+				t.Fatal("Mark Beasts settings gear did not open native settings")
+			}
+			native = scriptConfigWin
+			prefix = "beast-settings"
+		}
+		if native == nil {
+			native = panel.state.ui
+		}
 	} else if controls {
 		prefix = "controls"
 		resetScriptCallbackTestState(t, owner)
@@ -184,8 +196,7 @@ func (g *scriptWindowRenderGame) Draw(screen *ebiten.Image) {
 	for index, scale := range []float32{1, 1.5, 2} {
 		eui.SetUIScale(scale)
 		if index > 0 && g.panel.state != nil && g.prefix == "follow" {
-			g.panel.SetText("Selected: A Player With A Long Character Name\nFollowing: A Player With A Long Character Name\nStatus: Routing")
-			g.panel.SetButtonEnabled("follow", true)
+			g.panel.SetText("Following: A Player With A Long Character Name\nStatus: Routing")
 			g.panel.SetButtonEnabled("stop", true)
 		}
 		if g.prefix == "chat" {

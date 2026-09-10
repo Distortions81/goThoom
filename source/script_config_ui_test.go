@@ -35,6 +35,7 @@ func TestScriptConfigWindowUsesCurrentValuesAndCallbacks(t *testing.T) {
 	registerScriptConfigTestOption(t, "plug", "mode", "Mode", "", scriptapi.ScopeGlobal, "choice", "one", nil, nil, []string{"one", "two"}, 0, 0, 0)
 	registerScriptConfigTestOption(t, "plug", "binding", "Binding", "", scriptapi.ScopeGlobal, "key", "Ctrl-K", nil, nil, nil, 0, 0, 0)
 	registerScriptConfigTestOption(t, "plug", "item", "Item", "", scriptapi.ScopeGlobal, "item", "Sword", nil, nil, nil, 0, 0, 0)
+	registerScriptConfigTestOption(t, "plug", "color", "Color", "", scriptapi.ScopeGlobal, "color", uint32(0x123456ff), nil, nil, nil, 0, 0, 0)
 
 	openscriptConfigWindow("plug")
 	if scriptConfigWin == nil || len(scriptConfigWin.Contents) != 1 {
@@ -49,8 +50,8 @@ func TestScriptConfigWindowUsesCurrentValuesAndCallbacks(t *testing.T) {
 	})
 	root := scriptConfigWin.Contents[0].Tabs[0]
 	root.Contents = root.Contents[1:]
-	if len(root.Contents) != 7 {
-		t.Fatalf("config row count = %d, want 7", len(root.Contents))
+	if len(root.Contents) != 8 {
+		t.Fatalf("config row count = %d, want 8", len(root.Contents))
 	}
 
 	checkbox := root.Contents[0].Contents[1]
@@ -85,5 +86,8 @@ func TestScriptConfigWindowUsesCurrentValuesAndCallbacks(t *testing.T) {
 	dropdown := root.Contents[6].Contents[1]
 	if len(dropdown.Options) == 0 || dropdown.Options[dropdown.Selected] != "Sword" {
 		t.Fatalf("item selector value/options = %d/%v", dropdown.Selected, dropdown.Options)
+	}
+	if swatch := root.Contents[7].Contents[1]; !swatch.ColorSwatch {
+		t.Fatal("color preference did not use the native color picker")
 	}
 }

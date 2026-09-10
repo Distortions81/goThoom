@@ -43,14 +43,17 @@ func showNextScriptPermissionReview() {
 }
 
 func openScriptPermissionsWindow(owner string) {
+	info, err := scriptPackageForPermissionReview(owner)
+	if err != nil {
+		recordScriptError(owner, err.Error(), scriptIsRunning(owner))
+		consoleMessage("[script] permissions: " + err.Error())
+		refreshscriptsWindow()
+		return
+	}
 	scriptMu.RLock()
-	info, exists := scriptPackages[owner]
 	name := scriptDisplayNames[owner]
 	scope := scriptEnabledFor[owner]
 	scriptMu.RUnlock()
-	if !exists {
-		return
-	}
 	if name == "" {
 		name = owner
 	}
@@ -123,10 +126,14 @@ func openScriptPermissionsWindow(owner string) {
 		if apply.Disabled {
 			return
 		}
-		scriptMu.RLock()
-		current, ok := scriptPackages[owner]
-		scriptMu.RUnlock()
-		if !ok || sha256.Sum256(current.src) != sha256.Sum256(info.src) {
+		current, err := scriptPackageForPermissionReview(owner)
+		if err != nil {
+			status.Text = "Could not read the current script. See the tooltip for details."
+			status.SetTooltip(err.Error())
+			win.Refresh()
+			return
+		}
+		if sha256.Sum256(current.src) != sha256.Sum256(info.src) {
 			status.Text = "Script changed. Reopen Permissions to review its current access."
 			win.Refresh()
 			return
