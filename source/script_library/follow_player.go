@@ -313,15 +313,10 @@ func followWorld(world gt2.World) {
 		reach = 65
 	}
 	// Route around scenery during ordinary travel, before a collision causes
-	// a stall. Lost-target breadcrumbs keep their separate doorway handling.
+	// a stall.
 	heading, clear := routeDirection(world, leader, direction, reach, true)
 	if !clear {
-		followActivity = "Waiting for space"
-		// Wait when every local exit would move closer to a mobile already inside
-		// the minimum spacing. Keep observing so an opening can be used next frame.
-		releaseFollowMovement()
-		previous = world
-		return
+		followActivity = "Routing around obstacle"
 	}
 	if math.Abs(heading-direction) > 0.01 {
 		reach = math.Min(100, math.Max(65, reach))
@@ -408,20 +403,18 @@ func followBreadcrumb(world gt2.World, goal followPoint) {
 	wiggleNext = time.Time{}
 	dx, dy := goal.x-float64(world.Self.H), goal.y-float64(world.Self.V)
 	desired, reach := math.Atan2(dy, dx), math.Hypot(dx, dy)
-	heading, clear := routeDirection(world, gt2.Mobile{}, desired, reach, false)
+	heading, clear := routeDirection(world, gt2.Mobile{}, desired, reach, true)
 	followActivity = "Following breadcrumbs"
 	if !clear {
+		followActivity = "Routing around breadcrumb"
+	}
+	if math.Abs(heading-desired) > 0.01 {
+		reach = math.Min(80, math.Max(45, reach))
+		followActivity = "Routing to breadcrumb"
+	}
+	if !moveFollow(world, float64(world.Self.H)+math.Cos(heading)*reach, float64(world.Self.V)+math.Sin(heading)*reach) {
 		releaseFollowMovement()
-		followActivity = "Waiting for space on trail"
-	} else {
-		if math.Abs(heading-desired) > 0.01 {
-			reach = math.Min(80, math.Max(45, reach))
-			followActivity = "Routing to breadcrumb"
-		}
-		if !moveFollow(world, float64(world.Self.H)+math.Cos(heading)*reach, float64(world.Self.V)+math.Sin(heading)*reach) {
-			releaseFollowMovement()
-			followActivity = "Waiting for movement"
-		}
+		followActivity = "Waiting for movement"
 	}
 	previous = world
 }
@@ -718,21 +711,38 @@ func routeDirection(world gt2.World, leader gt2.Mobile, desired, reach float64, 
 	lookahead := math.Min(96, math.Max(16, reach))
 	best := desired
 	bestOffset := 0.0
+	chosenOffset := 0.0
 	bestScore := math.Inf(1)
 	found := false
-	angles := []float64{0, detourSide * 0.4, detourSide * 0.8, detourSide * 1.2, detourSide * 1.6, -detourSide * 0.4, -detourSide * 0.8, -detourSide * 1.2, -detourSide * 1.6, detourSide * 2.2, -detourSide * 2.2, math.Pi}
-	for _, offset := range angles {
+	fallback := false
+	fallbackScore := math.Inf(1)
+	fallbackOffset := 0.0
+	fallbackNonZero := false
+	fallbackNonZeroScore := math.Inf(1)
+	fallbackNonZeroOffset := 0.0
+	offsets := []float64{0, detourSide * 0.4, detourSide * 0.8, detourSide * 1.2, detourSide * 1.6, detourSide * 2.0, detourSide * 2.4, detourSide * 2.8, -detourSide * 0.4, -detourSide * 0.8, -detourSide * 1.2, -detourSide * 1.6, -detourSide * 2.0, -detourSide * 2.4, -detourSide * 2.8, math.Pi}
+	for _, offset := range offsets {
 		angle := desired + offset
 		penalty, clear := mobilePathPenalty(world, leader, angle, lookahead)
-		if !clear {
-			continue
-		}
 		score := penalty + blockedPathPenalty(world, angle, lookahead) + math.Abs(offset)*12
 		if offset*detourSide < 0 {
 			score += 5
 		}
 		if scenery && sceneryHints {
 			score += sceneryPathPenalty(world, angle, lookahead)
+		}
+		if !clear {
+			if score < fallbackScore {
+				fallbackScore = score
+				fallbackOffset = offset
+				fallback = true
+			}
+			if offset != 0 && score < fallbackNonZeroScore {
+				fallbackNonZero = true
+				fallbackNonZeroScore = score
+				fallbackNonZeroOffset = offset
+			}
+			continue
 		}
 		if score < bestScore {
 			best = angle
@@ -741,8 +751,28 @@ func routeDirection(world gt2.World, leader gt2.Mobile, desired, reach float64, 
 			found = true
 		}
 	}
-	if found && bestOffset != 0 {
-		detourSide = math.Copysign(1, bestOffset)
+	if !found && fallback {
+		if fallbackNonZero {
+			best = desired + fallbackNonZeroOffset
+			bestOffset = fallbackNonZeroOffset
+			bestScore = fallbackNonZeroScore
+		} else {
+			best = desired + fallbackOffset
+			bestOffset = fallbackOffset
+			bestScore = fallbackScore
+		}
+	}
+	if found {
+		chosenOffset = bestOffset
+	} else if fallback {
+		if fallbackNonZero {
+			chosenOffset = fallbackNonZeroOffset
+		} else {
+			chosenOffset = fallbackOffset
+		}
+	}
+	if (found || fallback) && chosenOffset != 0 {
+		detourSide = math.Copysign(1, chosenOffset)
 	}
 	return best, found
 }
