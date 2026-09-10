@@ -437,6 +437,175 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	}
 }
 
+func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
+	originalEnabled := gs.AltNetMode
+	frameMu.Lock()
+	originalJitter := serverFrameJitter
+	frameMu.Unlock()
+	frameStatsMu.Lock()
+	originalFrameBuckets, originalLostBuckets, originalBucketTimes := frameBuckets, lostBuckets, bucketTimes
+	frameBuckets, lostBuckets, bucketTimes = [5]int{}, [5]int{}, [5]int64{}
+	frameStatsMu.Unlock()
+	pnaControllerMu.Lock()
+	originalController := pnaController
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	originalFallback := pnaFallback
+	pnaFallbackMu.Unlock()
+	t.Cleanup(func() {
+		gs.AltNetMode = originalEnabled
+		frameMu.Lock()
+		serverFrameJitter = originalJitter
+		frameMu.Unlock()
+		frameStatsMu.Lock()
+		frameBuckets, lostBuckets, bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
+		frameStatsMu.Unlock()
+		pnaControllerMu.Lock()
+		pnaController = originalController
+		pnaControllerMu.Unlock()
+		pnaFallbackMu.Lock()
+		pnaFallback = originalFallback
+		pnaFallbackMu.Unlock()
+	})
+
+	// Each scenario supplies fixed socket-arrival times. The simulation has no
+	// timer, goroutine, or network dependency: it exercises the same phase,
+	// cadence, and acknowledgement controller decisions as the live path.
+	scenarios := []struct {
+		name    string
+		rate    int
+		jitter  time.Duration
+		replies []time.Duration
+	}{
+		{name: "two_hz_stable", rate: 2, replies: []time.Duration{120 * time.Millisecond, 120 * time.Millisecond, 120 * time.Millisecond}},
+		{name: "five_hz_variation", rate: 5, jitter: 8 * time.Millisecond, replies: []time.Duration{120 * time.Millisecond, 132 * time.Millisecond, 113 * time.Millisecond}},
+		{name: "ten_hz_variation", rate: 10, jitter: 5 * time.Millisecond, replies: []time.Duration{105 * time.Millisecond, 118 * time.Millisecond, 96 * time.Millisecond}},
+		{name: "twenty_hz_stable_latency_spans_frames", rate: 20, jitter: 3 * time.Millisecond, replies: []time.Duration{100 * time.Millisecond, 100 * time.Millisecond, 100 * time.Millisecond}},
+		{name: "sixty_hz_variation_spans_frames", rate: 60, jitter: 2 * time.Millisecond, replies: []time.Duration{82 * time.Millisecond, 95 * time.Millisecond, 88 * time.Millisecond}},
+	}
+
+	start := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			interval := time.Second / time.Duration(scenario.rate)
+			gs.AltNetMode = true
+			frameMu.Lock()
+			serverFrameJitter = scenario.jitter
+			frameMu.Unlock()
+			pnaControllerMu.Lock()
+			pnaController = pnaControllerState{}
+			pnaControllerMu.Unlock()
+			pnaFallbackMu.Lock()
+			pnaFallback = pnaFallbackState{}
+			pnaFallbackMu.Unlock()
+
+			lead := pnaLeadSnapshot(interval, scenario.jitter)
+			if lead <= 0 || lead >= interval {
+				t.Fatalf("initial lead %s is outside one %s frame", lead, interval)
+			}
+
+			// Simulate one second of unchanged predictive input. High-rate
+			// servers must not turn this into a proportional packet flood.
+			var lastSend time.Time
+			sends := 0
+			for at := start; at.Before(start.Add(time.Second)); at = at.Add(interval) {
+				if pnaInputSendAllowed(lastSend, at, false, false) {
+					lastSend = at
+					sends++
+				}
+			}
+			wantMax := scenario.rate
+			if wantMax > 5 {
+				wantMax = 5
+			}
+			if sends > wantMax {
+				t.Fatalf("unchanged predictive sends = %d at %d Hz, want at most %d", sends, scenario.rate, wantMax)
+			}
+			if !pnaInputSendAllowed(lastSend, start.Add(time.Millisecond), true, false) ||
+				!pnaInputSendAllowed(lastSend, start.Add(time.Millisecond), false, true) {
+				t.Fatal("changed input or a queued command was delayed by the predictive rate limit")
+			}
+
+			// At high server rates these ordinary round trips cover several frame
+			// IDs. They are not evidence that a send missed an observable phase
+			// boundary, so they must not create a learned early floor.
+			for i, reply := range scenario.replies {
+				ackFrames := int32((reply + interval - 1) / interval)
+				if ackFrames < 1 {
+					ackFrames = 1
+				}
+				recordPNACommandFeedback(reply, interval-lead, interval, 100, 100+ackFrames, start.Add(time.Duration(i)*time.Second))
+			}
+			pnaControllerMu.Lock()
+			controller := pnaController
+			pnaControllerMu.Unlock()
+			if controller.lead <= 0 || controller.lead >= interval {
+				t.Fatalf("controller lead %s ran outside %s frame", controller.lead, interval)
+			}
+			if controller.learnedLeadFloor != 0 {
+				t.Fatalf("ordinary replies learned an early boundary: floor=%s rate=%dHz", controller.learnedLeadFloor, scenario.rate)
+			}
+		})
+	}
+}
+
+func TestPNAHighRateDelayedAcknowledgementDoesNotStick(t *testing.T) {
+	originalEnabled := gs.AltNetMode
+	frameMu.Lock()
+	originalJitter := serverFrameJitter
+	frameMu.Unlock()
+	frameStatsMu.Lock()
+	originalFrameBuckets, originalLostBuckets, originalBucketTimes := frameBuckets, lostBuckets, bucketTimes
+	frameBuckets, lostBuckets, bucketTimes = [5]int{}, [5]int{}, [5]int64{}
+	frameStatsMu.Unlock()
+	pnaControllerMu.Lock()
+	originalController := pnaController
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	originalFallback := pnaFallback
+	pnaFallbackMu.Unlock()
+	t.Cleanup(func() {
+		gs.AltNetMode = originalEnabled
+		frameMu.Lock()
+		serverFrameJitter = originalJitter
+		frameMu.Unlock()
+		frameStatsMu.Lock()
+		frameBuckets, lostBuckets, bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
+		frameStatsMu.Unlock()
+		pnaControllerMu.Lock()
+		pnaController = originalController
+		pnaControllerMu.Unlock()
+		pnaFallbackMu.Lock()
+		pnaFallback = originalFallback
+		pnaFallbackMu.Unlock()
+	})
+
+	const interval = time.Second / 60
+	now := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
+	gs.AltNetMode = true
+	frameMu.Lock()
+	serverFrameJitter = 0
+	frameMu.Unlock()
+	pnaControllerMu.Lock()
+	pnaController = pnaControllerState{}
+	pnaControllerMu.Unlock()
+	pnaFallbackMu.Lock()
+	pnaFallback = pnaFallbackState{}
+	pnaFallbackMu.Unlock()
+
+	lead := pnaLeadSnapshot(interval, 0)
+	// A 20 ms acknowledgement spans two 60 Hz frame IDs. At this cadence the
+	// delta cannot distinguish a delayed path from a missed phase, so it must
+	// not create a persistent learned floor.
+	recordPNACommandFeedback(20*time.Millisecond, interval-lead, interval, 10, 12, now)
+	pnaControllerMu.Lock()
+	learned := pnaController.learnedLeadFloor
+	pnaControllerMu.Unlock()
+	if learned != 0 {
+		t.Fatalf("high-rate acknowledgement created a stuck learned floor: %s", learned)
+	}
+}
+
 func TestPNAFallbackReason(t *testing.T) {
 	tests := []struct {
 		name string

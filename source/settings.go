@@ -293,6 +293,7 @@ var gsdef settings = settings{
 	StreamResolution:          1080,
 	StreamFPS:                 60,
 	StreamIdleBlack:           false,
+	StreamShowCursor:          true,
 	MuteWhenUnfocused:         false,
 	NotifyFallen:              true,
 	NotifyNotFallen:           true,
@@ -334,11 +335,12 @@ var gsdef settings = settings{
 	ToolbarPlacement:          ToolbarInInventory,
 	ToolbarInfoBar:            false,
 
-	JoystickEnabled:        false,
-	JoystickWalkStick:      0,
-	JoystickCursorStick:    1,
-	JoystickWalkDeadzone:   0.1,
-	JoystickCursorDeadzone: 0.1,
+	JoystickEnabled:           false,
+	JoystickUseStandardLayout: true,
+	JoystickWalkStick:         0,
+	JoystickCursorStick:       1,
+	JoystickWalkDeadzone:      0.1,
+	JoystickCursorDeadzone:    0.1,
 
 	WindowWidth:  1920,
 	WindowHeight: 1080,
@@ -550,7 +552,10 @@ type settings struct {
 	StreamFPS        int
 	// StreamIdleBlack selects a plain black frame instead of the splash screen
 	// before the game render is available.
-	StreamIdleBlack       bool
+	StreamIdleBlack bool
+	// StreamShowCursor draws the in-client pointer into encoded stream frames.
+	// The operating system cursor is not part of Ebitengine's readback.
+	StreamShowCursor      bool
 	MuteWhenUnfocused     bool
 	NotifyFallen          bool
 	NotifyNotFallen       bool
@@ -597,12 +602,13 @@ type settings struct {
 	ToolbarPlacement          ToolbarPlacement
 	ToolbarInfoBar            bool
 
-	JoystickEnabled        bool
-	JoystickBindings       map[string]ebiten.GamepadButton
-	JoystickWalkStick      int
-	JoystickCursorStick    int
-	JoystickWalkDeadzone   float64
-	JoystickCursorDeadzone float64
+	JoystickEnabled           bool
+	JoystickUseStandardLayout bool
+	JoystickBindings          map[string]ebiten.GamepadButton
+	JoystickWalkStick         int
+	JoystickCursorStick       int
+	JoystickWalkDeadzone      float64
+	JoystickCursorDeadzone    float64
 
 	WindowWidth  int
 	WindowHeight int

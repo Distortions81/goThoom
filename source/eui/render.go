@@ -739,6 +739,24 @@ func (win *windowData) drawItems(screen *ebiten.Image, base point, dropdowns *[]
 	}
 }
 
+// DrawItemAt draws an existing item at a pixel position on screen. It is for
+// clients that render an EUI-styled transient item into their own framebuffer
+// instead of an EUI window.
+func DrawItemAt(screen *ebiten.Image, item *ItemData, position Point) {
+	if screen == nil || item == nil {
+		return
+	}
+	previousRenderNow := renderNow
+	if previousRenderNow.IsZero() {
+		renderNow = time.Now()
+		defer func() { renderNow = previousRenderNow }()
+	}
+	bounds := screen.Bounds()
+	clip := rect{X0: float32(bounds.Min.X), Y0: float32(bounds.Min.Y), X1: float32(bounds.Max.X), Y1: float32(bounds.Max.Y)}
+	dropdowns := []openDropdown(nil)
+	item.drawItem(nil, position, point{}, clip, screen, &dropdowns)
+}
+
 func (item *itemData) drawFlows(win *windowData, parent *itemData, offset point, base point, clip rect, screen *ebiten.Image, dropdowns *[]openDropdown) {
 	if item.Invisible {
 		item.clearHiddenState()

@@ -217,8 +217,10 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "StreamResolution", category: settingsRecording, name: "local_stream_resolution"},
 	{field: "StreamFPS", category: settingsRecording, name: "local_stream_fps"},
 	{field: "StreamIdleBlack", category: settingsRecording, name: "local_stream_idle_black"},
+	{field: "StreamShowCursor", category: settingsRecording, name: "local_stream_show_cursor"},
 
 	{field: "JoystickEnabled", category: settingsController, name: "enabled"},
+	{field: "JoystickUseStandardLayout", category: settingsController, name: "use_standard_layout"},
 	{field: "JoystickBindings", category: settingsController, name: "button_bindings"},
 	{field: "JoystickWalkStick", category: settingsController, name: "walk_stick"},
 	{field: "JoystickCursorStick", category: settingsController, name: "cursor_stick"},

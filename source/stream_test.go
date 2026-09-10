@@ -26,7 +26,7 @@ func TestStreamFrameRatePanelUpdatesSettings(t *testing.T) {
 	}
 	originalSettings, originalDirty := gs, settingsDirty
 	originalWindow := streamWin
-	originalControls := []*eui.ItemData{streamSource, streamResolution, streamFrameRate, streamHint, streamIdle, streamStatus, streamLight, streamStartButton, streamStopButton}
+	originalControls := []*eui.ItemData{streamSource, streamResolution, streamFrameRate, streamHint, streamIdle, streamCursor, streamStatus, streamLight, streamStartButton, streamStopButton}
 	gs = gsdef
 	streamWin = nil
 	t.Cleanup(func() {
@@ -35,8 +35,8 @@ func TestStreamFrameRatePanelUpdatesSettings(t *testing.T) {
 		}
 		gs, settingsDirty, streamWin = originalSettings, originalDirty, originalWindow
 		streamSource, streamResolution, streamFrameRate = originalControls[0], originalControls[1], originalControls[2]
-		streamHint, streamIdle, streamStatus, streamLight = originalControls[3], originalControls[4], originalControls[5], originalControls[6]
-		streamStartButton, streamStopButton = originalControls[7], originalControls[8]
+		streamHint, streamIdle, streamCursor, streamStatus, streamLight = originalControls[3], originalControls[4], originalControls[5], originalControls[6], originalControls[7]
+		streamStartButton, streamStopButton = originalControls[8], originalControls[9]
 	})
 	makeStreamWindow()
 	if got := streamResolution.Options; len(got) != 4 || got[1] != "1920 × 1080 (1080p)" || streamResolution.Selected != 1 {
@@ -162,6 +162,29 @@ func TestStreamFitRectPreservesAspectRatio(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := streamFitRect(tc.sourceW, tc.sourceH, tc.targetW, tc.targetH); got != tc.want {
 				t.Fatalf("streamFitRect() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestStreamCursorTarget(t *testing.T) {
+	target := image.Rect(320, 0, 1600, 720)
+	tests := []struct {
+		name       string
+		cursor     image.Point
+		sourceSize image.Point
+		want       image.Point
+		visible    bool
+	}{
+		{name: "top left", cursor: image.Pt(0, 0), sourceSize: image.Pt(800, 450), want: image.Pt(320, 0), visible: true},
+		{name: "center", cursor: image.Pt(400, 225), sourceSize: image.Pt(800, 450), want: image.Pt(960, 360), visible: true},
+		{name: "outside", cursor: image.Pt(800, 225), sourceSize: image.Pt(800, 450), visible: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, visible := streamCursorTarget(test.cursor, test.sourceSize, target)
+			if visible != test.visible || visible && got != test.want {
+				t.Fatalf("streamCursorTarget(%v, %v) = %v, %t; want %v, %t", test.cursor, test.sourceSize, got, visible, test.want, test.visible)
 			}
 		})
 	}

@@ -23,6 +23,7 @@ var (
 	streamFrameRate   *eui.ItemData
 	streamHint        *eui.ItemData
 	streamIdle        *eui.ItemData
+	streamCursor      *eui.ItemData
 	streamStatus      *eui.ItemData
 	streamLight       *eui.ItemData
 	streamGameBadge   *eui.ItemData
@@ -86,6 +87,9 @@ func refreshStreamWindow() {
 			streamIdle.Selected = 1
 		}
 		streamIdle.Disabled = running
+	}
+	if streamCursor != nil {
+		streamCursor.Checked = gs.StreamShowCursor
 	}
 	if streamStatus != nil {
 		if running {
@@ -163,6 +167,14 @@ func makeStreamWindow() {
 	streamIdle = idle
 	root.AddItem(idle)
 
+	cursor, cursorEvents := eui.NewCheckbox()
+	cursor.Text = "Show cursor in stream"
+	cursor.Size = eui.Point{X: 400, Y: 24}
+	cursor.Checked = gs.StreamShowCursor
+	cursor.SetTooltip("Draws a small cursor indicator into the stream before it is encoded. The desktop cursor is not captured automatically.")
+	streamCursor = cursor
+	root.AddItem(cursor)
+
 	statusRow, light, status := newStreamIndicator()
 	statusRow.Size.X = 400
 	status.Size.X = 380
@@ -190,8 +202,16 @@ func makeStreamWindow() {
 		gs.StreamResolution = streamResolutionValues[resolution.Selected]
 		gs.StreamFPS = []int{15, 30, 60}[frameRate.Selected]
 		gs.StreamIdleBlack = idle.Selected == 1
+		gs.StreamShowCursor = cursor.Checked
 		settingsDirty = true
-		return streamConfig{wholeClient: gs.StreamSource == 1, resolution: gs.StreamResolution, fps: gs.StreamFPS, idleBlack: gs.StreamIdleBlack}
+		return streamConfig{wholeClient: gs.StreamSource == 1, resolution: gs.StreamResolution, fps: gs.StreamFPS, idleBlack: gs.StreamIdleBlack, showCursor: gs.StreamShowCursor}
+	}
+	cursorEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			updateSettings()
+			setStreamOutputShowCursor(gs.StreamShowCursor)
+			win.Refresh()
+		}
 	}
 	for _, handler := range []*eui.EventHandler{sourceEvents, resolutionEvents, frameRateEvents, idleEvents} {
 		handler.Handle = func(ev eui.UIEvent) {

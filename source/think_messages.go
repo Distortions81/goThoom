@@ -27,7 +27,7 @@ func showThinkMessage(msg string) {
 		return
 	}
 	playSound([]uint16{sndThinkTo})
-	btn, events := eui.NewButton()
+	btn, _ := eui.NewButton()
 	btn.Text = msg
 	btn.FontSize = float32(gs.ChatFontSize)
 	btn.Filled = true
@@ -56,18 +56,11 @@ func showThinkMessage(msg string) {
 		Y: float32(lineHeight*float64(len(lines)))/eui.UIScale() + btn.Padding*2 + btn.BorderPad*2,
 	}
 
-	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			removeThinkMessage(btn)
-		}
-	}
-
 	dur := time.Duration(gs.NotificationDuration * float64(time.Second))
 	if dur <= 0 {
 		dur = 6 * time.Second
 	}
 	thinkMessages = append(thinkMessages, &thinkMessage{item: btn, expiry: time.Now().Add(dur)})
-	gameWin.AddItem(btn)
 	layoutThinkMessages()
 }
 
@@ -77,15 +70,6 @@ func removeThinkMessage(item *eui.ItemData) {
 			thinkMessages = append(thinkMessages[:i], thinkMessages[i+1:]...)
 			break
 		}
-	}
-	if gameWin != nil {
-		for i, it := range gameWin.Contents {
-			if it == item {
-				gameWin.Contents = append(gameWin.Contents[:i], gameWin.Contents[i+1:]...)
-				break
-			}
-		}
-		gameWin.Refresh()
 	}
 }
 
@@ -118,7 +102,7 @@ func layoutThinkMessages() {
 		}
 		it.Dirty = true
 	}
-	gameWin.Refresh()
+	markWorldRenderChanged()
 }
 
 func updateThinkMessages() {

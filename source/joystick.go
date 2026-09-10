@@ -61,12 +61,11 @@ func makeJoystickWindow() {
 	root.Size = eui.Point{X: 350, Y: 200}
 	joystickWin.AddItem(root)
 
-	// Prominent notice that this feature is WIP
-	wipLabel, _ := eui.NewText()
-	wipLabel.Text = "Work in progress, does not function"
-	wipLabel.FontSize = 18
-	wipLabel.Size = eui.Point{X: 350, Y: 28}
-	root.AddItem(wipLabel)
+	helpLabel, _ := eui.NewText()
+	helpLabel.Text = "Standard controllers use South / East / West for primary / secondary / middle click. Unmapped controllers keep the raw bindings below."
+	helpLabel.FontSize = 14
+	helpLabel.Size = eui.Point{X: 350, Y: 42}
+	root.AddItem(helpLabel)
 
 	joystickIDs = ebiten.AppendGamepadIDs(joystickIDs[:0])
 	joystickNames = joystickNames[:0]
@@ -137,6 +136,17 @@ func makeJoystickWindow() {
 		}
 	}
 	root.AddItem(enableCB)
+
+	standardLayoutCB, standardLayoutEvents := eui.NewCheckbox()
+	standardLayoutCB.Text = "Use standard controller layout when available"
+	standardLayoutCB.Checked = gs.JoystickUseStandardLayout
+	standardLayoutEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventCheckboxChanged {
+			gs.JoystickUseStandardLayout = ev.Checked
+			settingsDirty = true
+		}
+	}
+	root.AddItem(standardLayoutCB)
 
 	walkStickDD, walkEvents = eui.NewDropdown()
 	walkStickDD.Label = "Walk Stick"
@@ -270,18 +280,14 @@ func drawJoystickDisplay(id ebiten.GamepadID) {
 	}
 	inputImg.Clear()
 
+	standard := joystickUsesStandardLayout(id)
 	drawStick := func(cx, cy float32, stick int, label string, dz float64) {
 		vector.FillCircle(inputImg, cx, cy, 40, color.NRGBA{64, 64, 64, 255}, true)
 		if dz > 0 {
 			vector.FillCircle(inputImg, cx, cy, float32(dz)*40, color.NRGBA{32, 32, 32, 255}, true)
 		}
-		if stick >= 0 {
-			axisIndex := stick * 2
-			if axisIndex+1 < ebiten.GamepadAxisCount(id) {
-				ax := ebiten.GamepadAxisValue(id, axisIndex)
-				ay := ebiten.GamepadAxisValue(id, axisIndex+1)
-				vector.FillCircle(inputImg, cx+float32(ax)*40, cy+float32(ay)*40, 5, color.NRGBA{0, 255, 0, 255}, true)
-			}
+		if ax, ay, ok := joystickStickValues(id, stick); ok {
+			vector.FillCircle(inputImg, cx+float32(ax)*40, cy+float32(ay)*40, 5, color.NRGBA{0, 255, 0, 255}, true)
 		}
 		metrics := mainFont.Metrics()
 		txtW, _ := text.Measure(label, mainFont, 0)
@@ -295,9 +301,13 @@ func drawJoystickDisplay(id ebiten.GamepadID) {
 	drawStick(60, 60, gs.JoystickWalkStick, "Walk", gs.JoystickWalkDeadzone)
 	drawStick(190, 90, gs.JoystickCursorStick, "Cursor", gs.JoystickCursorDeadzone)
 
-	drawBtn := func(cx, cy, r float32, btn ebiten.GamepadButton, lbl string) {
+	drawBtn := func(cx, cy, r float32, raw ebiten.GamepadButton, standardButton ebiten.StandardGamepadButton, lbl string) {
 		col := color.NRGBA{128, 128, 128, 255}
-		if ebiten.IsGamepadButtonPressed(id, btn) {
+		pressed := ebiten.IsGamepadButtonPressed(id, raw)
+		if standard {
+			pressed = ebiten.IsStandardGamepadButtonPressed(id, standardButton)
+		}
+		if pressed {
 			col = color.NRGBA{0, 255, 0, 255}
 		}
 		vector.FillCircle(inputImg, cx, cy, r, col, true)
@@ -311,29 +321,30 @@ func drawJoystickDisplay(id ebiten.GamepadID) {
 	}
 
 	btns := []struct {
-		btn     ebiten.GamepadButton
-		x, y, r float32
-		lbl     string
+		raw      ebiten.GamepadButton
+		standard ebiten.StandardGamepadButton
+		x, y, r  float32
+		lbl      string
 	}{
-		{ebiten.GamepadButton0, 230, 80, 10, "A"},
-		{ebiten.GamepadButton1, 250, 60, 10, "B"},
-		{ebiten.GamepadButton2, 210, 60, 10, "X"},
-		{ebiten.GamepadButton3, 230, 40, 10, "Y"},
-		{ebiten.GamepadButton4, 80, 30, 10, "LB"},
-		{ebiten.GamepadButton5, 180, 30, 10, "RB"},
-		{ebiten.GamepadButton6, 80, 10, 10, "LT"},
-		{ebiten.GamepadButton7, 180, 10, 10, "RT"},
-		{ebiten.GamepadButton8, 120, 60, 10, "Back"},
-		{ebiten.GamepadButton9, 150, 60, 10, "Start"},
-		{ebiten.GamepadButton10, 60, 60, 6, "L3"},
-		{ebiten.GamepadButton11, 190, 90, 6, "R3"},
-		{ebiten.GamepadButton12, 80, 100, 8, "Up"},
-		{ebiten.GamepadButton13, 90, 110, 8, "Right"},
-		{ebiten.GamepadButton14, 80, 120, 8, "Down"},
-		{ebiten.GamepadButton15, 70, 110, 8, "Left"},
+		{ebiten.GamepadButton0, ebiten.StandardGamepadButtonRightBottom, 230, 80, 10, "South"},
+		{ebiten.GamepadButton1, ebiten.StandardGamepadButtonRightRight, 250, 60, 10, "East"},
+		{ebiten.GamepadButton2, ebiten.StandardGamepadButtonRightLeft, 210, 60, 10, "West"},
+		{ebiten.GamepadButton3, ebiten.StandardGamepadButtonRightTop, 230, 40, 10, "North"},
+		{ebiten.GamepadButton4, ebiten.StandardGamepadButtonFrontTopLeft, 80, 30, 10, "L1"},
+		{ebiten.GamepadButton5, ebiten.StandardGamepadButtonFrontTopRight, 180, 30, 10, "R1"},
+		{ebiten.GamepadButton6, ebiten.StandardGamepadButtonFrontBottomLeft, 80, 10, 10, "L2"},
+		{ebiten.GamepadButton7, ebiten.StandardGamepadButtonFrontBottomRight, 180, 10, 10, "R2"},
+		{ebiten.GamepadButton8, ebiten.StandardGamepadButtonCenterLeft, 120, 60, 10, "Back"},
+		{ebiten.GamepadButton9, ebiten.StandardGamepadButtonCenterRight, 150, 60, 10, "Start"},
+		{ebiten.GamepadButton10, ebiten.StandardGamepadButtonLeftStick, 60, 60, 6, "L3"},
+		{ebiten.GamepadButton11, ebiten.StandardGamepadButtonRightStick, 190, 90, 6, "R3"},
+		{ebiten.GamepadButton12, ebiten.StandardGamepadButtonLeftTop, 80, 100, 8, "Up"},
+		{ebiten.GamepadButton13, ebiten.StandardGamepadButtonLeftRight, 90, 110, 8, "Right"},
+		{ebiten.GamepadButton14, ebiten.StandardGamepadButtonLeftBottom, 80, 120, 8, "Down"},
+		{ebiten.GamepadButton15, ebiten.StandardGamepadButtonLeftLeft, 70, 110, 8, "Left"},
 	}
 	for _, b := range btns {
-		drawBtn(b.x, b.y, b.r, b.btn, b.lbl)
+		drawBtn(b.x, b.y, b.r, b.raw, b.standard, b.lbl)
 	}
 
 	inputImgItem.Dirty = true
@@ -391,11 +402,19 @@ func updateJoystickWindow() {
 	if axisCount != lastAxisCount {
 		updateStickOptions(axisCount)
 	}
-	axes := make([]string, axisCount)
-	for a := 0; a < axisCount; a++ {
-		axes[a] = fmt.Sprintf("%d:%.2f", a, ebiten.GamepadAxisValue(id, a))
+	if joystickUsesStandardLayout(id) {
+		axesText.Text = fmt.Sprintf("Standard layout: left %.2f,%.2f   right %.2f,%.2f",
+			ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal),
+			ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical),
+			ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickHorizontal),
+			ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickVertical))
+	} else {
+		axes := make([]string, axisCount)
+		for a := 0; a < axisCount; a++ {
+			axes[a] = fmt.Sprintf("%d:%.2f", a, ebiten.GamepadAxisValue(id, a))
+		}
+		axesText.Text = "Raw axes: " + strings.Join(axes, " ")
 	}
-	axesText.Text = "Axes: " + strings.Join(axes, " ")
 	axesText.Dirty = true
 
 	buttonCount := ebiten.GamepadButtonCount(id)

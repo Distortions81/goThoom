@@ -1,0 +1,5 @@
+goThoom 58 changes since test57.
+
+Local streaming:
+- Choose whether to show a cursor indicator in a local Browser Source stream.
+- Game-render streams now include transient think messages and notifications.

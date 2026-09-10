@@ -21,6 +21,7 @@ import (
 	"gothoom/eui"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	imagedraw "golang.org/x/image/draw"
 )
 
@@ -35,6 +36,7 @@ type streamConfig struct {
 	resolution  int
 	fps         int
 	idleBlack   bool
+	showCursor  bool
 	outputSize  image.Point // Fixed for the session, shared by standby and live frames.
 }
 
@@ -369,6 +371,16 @@ func setStreamOutputSource(wholeClient bool) bool {
 	return true
 }
 
+func setStreamOutputShowCursor(show bool) bool {
+	streamOutput.mu.Lock()
+	defer streamOutput.mu.Unlock()
+	if streamOutput.server == nil {
+		return false
+	}
+	streamOutput.config.showCursor = show
+	return true
+}
+
 // This staging image belongs to the render thread. Read last draw's capture
 // before issuing this draw's graphics commands, then reuse it for the next one.
 // ReadPixels is still synchronous; staging avoids flushing the new world/UI
@@ -510,6 +522,12 @@ func captureStreamOutput(screen *ebiten.Image, gameChanged bool) {
 		destination.Fill(color.Black)
 	} else {
 		destination.DrawImage(source, &options)
+		if config.showCursor {
+			cursor, ok := streamCursorPosition(config, bounds, target)
+			if ok {
+				drawStreamCursor(destination, cursor)
+			}
+		}
 	}
 	streamCapture.pending = true
 	streamCapture.captured = true
@@ -519,6 +537,40 @@ func captureStreamOutput(screen *ebiten.Image, gameChanged bool) {
 		streamOutput.nextCapture = advanceStreamCapture(now, streamOutput.nextCapture, config.fps)
 	}
 	streamOutput.mu.Unlock()
+}
+
+// streamCursorPosition translates the client cursor into the scaled capture
+// canvas. The operating system cursor is not included in Ebitengine's pixel
+// readback, so streams need their own lightweight visual indicator.
+func streamCursorPosition(config streamConfig, sourceBounds, target image.Rectangle) (image.Point, bool) {
+	mx, my := eui.PointerPosition()
+	if !config.wholeClient {
+		mx -= worldOriginX
+		my -= worldOriginY
+	} else {
+		mx -= sourceBounds.Min.X
+		my -= sourceBounds.Min.Y
+	}
+	return streamCursorTarget(image.Pt(mx, my), sourceBounds.Size(), target)
+}
+
+func streamCursorTarget(cursor, sourceSize image.Point, target image.Rectangle) (image.Point, bool) {
+	if sourceSize.X <= 0 || sourceSize.Y <= 0 || cursor.X < 0 || cursor.Y < 0 || cursor.X >= sourceSize.X || cursor.Y >= sourceSize.Y {
+		return image.Point{}, false
+	}
+	return image.Pt(
+		target.Min.X+cursor.X*target.Dx()/sourceSize.X,
+		target.Min.Y+cursor.Y*target.Dy()/sourceSize.Y,
+	), true
+}
+
+// drawStreamCursor uses a dark outline, light body, and blue center so it
+// remains visible on both bright game art and dark stream letterboxing.
+func drawStreamCursor(dst *ebiten.Image, point image.Point) {
+	x, y := float32(point.X)+0.5, float32(point.Y)+0.5
+	vector.FillCircle(dst, x, y, 7, color.NRGBA{0, 0, 0, 220}, true)
+	vector.FillCircle(dst, x, y, 5, color.NRGBA{245, 248, 255, 245}, true)
+	vector.FillCircle(dst, x, y, 2, color.NRGBA{48, 150, 255, 255}, true)
 }
 
 func encodeStreamFrames(frames <-chan streamFrame, done <-chan struct{}, pool *mjpegPool, resolution int) {

@@ -302,6 +302,11 @@ const framems = 200
 const defaultNetworkAdjustmentSafetyPercent = 10
 const pnaTimingWindow = time.Minute
 
+// pnaRedundantInputInterval keeps predictive networking from multiplying
+// identical player-input packets when a server publishes frames faster than
+// the classic 5 Hz cadence. Changed input and queued commands bypass it.
+const pnaRedundantInputInterval = framems * time.Millisecond
+
 const (
 	pnaMaxRecentPacketLossPercent = 0.5
 	pnaRecoveryPacketLossPercent  = 0.1
@@ -1203,15 +1208,9 @@ func (g *Game) Update() error {
 	joyClick1, joyClick2, joyClick3 := false, false, false
 	if gs.JoystickEnabled && selectedJoystick >= 0 && selectedJoystick < len(joystickIDs) {
 		id := joystickIDs[selectedJoystick]
-		if b, ok := gs.JoystickBindings["click1"]; ok {
-			joyClick1 = inpututil.IsGamepadButtonJustPressed(id, b)
-		}
-		if b, ok := gs.JoystickBindings["click2"]; ok {
-			joyClick2 = inpututil.IsGamepadButtonJustPressed(id, b)
-		}
-		if b, ok := gs.JoystickBindings["click3"]; ok {
-			joyClick3 = inpututil.IsGamepadButtonJustPressed(id, b)
-		}
+		joyClick1 = joystickClickJustPressed(id, "click1")
+		joyClick2 = joystickClickJustPressed(id, "click2")
+		joyClick3 = joystickClickJustPressed(id, "click3")
 	}
 
 	if !bindingInputCaptured() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || joyClick2) &&
@@ -1575,10 +1574,7 @@ func (g *Game) Update() error {
 	}
 	if focused && !inputActive && !typingElsewhere && gs.JoystickEnabled && selectedJoystick >= 0 && selectedJoystick < len(joystickIDs) && gs.JoystickWalkStick >= 0 {
 		id := joystickIDs[selectedJoystick]
-		axis := gs.JoystickWalkStick * 2
-		if axis+1 < ebiten.GamepadAxisCount(id) {
-			ax := ebiten.GamepadAxisValue(id, axis)
-			ay := ebiten.GamepadAxisValue(id, axis+1)
+		if ax, ay, ok := joystickStickValues(id, gs.JoystickWalkStick); ok {
 			if math.Abs(ax) > gs.JoystickWalkDeadzone || math.Abs(ay) > gs.JoystickWalkDeadzone {
 				keyWalk = true
 				keyX = int16(ax * float64(fieldCenterX))
@@ -1594,10 +1590,7 @@ func (g *Game) Update() error {
 	mx, my = eui.PointerPosition()
 	if gs.JoystickEnabled && selectedJoystick >= 0 && selectedJoystick < len(joystickIDs) && gs.JoystickCursorStick >= 0 {
 		id := joystickIDs[selectedJoystick]
-		axis := gs.JoystickCursorStick * 2
-		if axis+1 < ebiten.GamepadAxisCount(id) {
-			ax := ebiten.GamepadAxisValue(id, axis)
-			ay := ebiten.GamepadAxisValue(id, axis+1)
+		if ax, ay, ok := joystickStickValues(id, gs.JoystickCursorStick); ok {
 			if math.Abs(ax) > gs.JoystickCursorDeadzone || math.Abs(ay) > gs.JoystickCursorDeadzone {
 				if joyCursorX == 0 && joyCursorY == 0 {
 					joyCursorX, joyCursorY = float64(mx), float64(my)
@@ -1663,7 +1656,8 @@ func (g *Game) Update() error {
 	inputMu.Lock()
 	prev := latestInput
 	inputMu.Unlock()
-	uiOwnsClick := pointInUI(mx, my)
+	overMessageOverlay := mouseClick && dismissGameMessageOverlayAt(mx, my)
+	uiOwnsClick := overMessageOverlay || pointInUI(mx, my)
 	if mouseClick {
 		uiOwnsClick = uiOwnsPointerPress(uiOwnsClick, eui.PointerPressWindow(), eui.PointerPressHandled())
 	}
@@ -2197,6 +2191,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	drawFPSOverlay(gameImage)
 	drawClientActivityIndicators(worldView, takeClientActivity())
+	drawGameMessageOverlays(gameImage)
 	if assetTrace != nil {
 		assetTrace.addWorldDuration(time.Since(worldStarted))
 	}
@@ -5144,6 +5139,28 @@ func pnaCommandSendTiming(now time.Time) (phase, interval time.Duration, predict
 	return phase, interval, predictive
 }
 
+// pnaInputSendAllowed rate-limits only unchanged predictive input. Returning
+// true for changed input and commands keeps NLSPT from delaying a player's
+// action merely because the server has a high update rate.
+func pnaInputSendAllowed(lastSent, now time.Time, inputChanged, commandPending bool) bool {
+	if inputChanged || commandPending || lastSent.IsZero() {
+		return true
+	}
+	return !now.Before(lastSent.Add(pnaRedundantInputInterval))
+}
+
+// pnaCanIdentifyLateBoundary reports whether an acknowledgement is close
+// enough to one server interval for its frame delta to identify a phase miss.
+// At high update rates, ordinary network latency can span several frame IDs;
+// using that delta alone would incorrectly teach the controller an earlier
+// boundary that cannot be reached by phase adjustment.
+func pnaCanIdentifyLateBoundary(reply, interval time.Duration) bool {
+	if reply <= 0 || interval < pnaRedundantInputInterval {
+		return false
+	}
+	return reply <= interval+interval/4
+}
+
 func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sentFrame, acknowledgedFrame int32, now time.Time) {
 	if !gs.AltNetMode || reply <= 0 || sentInterval <= 0 || sentPhase < 0 || sentPhase > sentInterval || acknowledgedFrame <= sentFrame {
 		return
@@ -5169,6 +5186,9 @@ func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sent
 		pnaController.lead = max(minimum, sentInterval/4)
 	}
 	if ackFrames > 1 {
+		if !pnaCanIdentifyLateBoundary(reply, sentInterval) {
+			return
+		}
 		// Missing the next server frame costs a full update. Move earlier and
 		// remember that correction as a session floor: repeatedly probing back
 		// across a known-late boundary creates a rhythmic full-frame latency
@@ -5347,6 +5367,9 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 	// nextReliable determines when to send the next keep-alive packet via
 	// the reliable channel to preserve NAT mappings.
 	var nextReliable time.Time
+	var lastPNASend time.Time
+	var lastPNASentInput inputState
+	var haveLastPNASentInput bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -5385,6 +5408,11 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 
 		reliable := false
 		now := time.Now()
+		_, _, predictive := pnaCommandSendTiming(now)
+		commandPending := !commandQueueIsIdle()
+		if predictive && haveLastPNASentInput && !pnaInputSendAllowed(lastPNASend, now, s != lastPNASentInput, commandPending) {
+			continue
+		}
 		if now.After(nextReliable) && commandQueueIsIdle() && tcpConn != nil {
 			reliable = true
 			// next packet will be 3 to 5 minutes from now
@@ -5399,6 +5427,11 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 		}
 		if err != nil {
 			// ignore errors from dead connections
+		}
+		if predictive {
+			lastPNASend = now
+			lastPNASentInput = s
+			haveLastPNASentInput = true
 		}
 	}
 }

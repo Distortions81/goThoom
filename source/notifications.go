@@ -39,7 +39,7 @@ func showNotification(msg string, keys ...int) {
 		notifyDesktop("goThoom", msg)
 	}
 
-	btn, events := eui.NewButton()
+	btn, _ := eui.NewButton()
 	btn.Text = msg
 	btn.FontSize = float32(gs.ChatFontSize)
 	btn.Filled = true
@@ -61,18 +61,11 @@ func showNotification(msg string, keys ...int) {
 		Y: float32(h)/eui.UIScale() + btn.Padding*2 + btn.BorderPad*2,
 	}
 
-	events.Handle = func(ev eui.UIEvent) {
-		if ev.Type == eui.EventClick {
-			removeNotification(btn)
-		}
-	}
-
 	dur := time.Duration(gs.NotificationDuration * float64(time.Second))
 	if dur <= 0 {
 		dur = 6 * time.Second
 	}
 	notifications = append(notifications, &notification{item: btn, expiry: time.Now().Add(dur)})
-	gameWin.AddItem(btn)
 	layoutNotifications()
 }
 
@@ -83,32 +76,11 @@ func removeNotification(item *eui.ItemData) {
 			break
 		}
 	}
-	if gameWin != nil {
-		for i, it := range gameWin.Contents {
-			if it == item {
-				gameWin.Contents = append(gameWin.Contents[:i], gameWin.Contents[i+1:]...)
-				break
-			}
-		}
-		gameWin.Refresh()
-	}
 }
 
 func clearNotifications() {
-	for _, n := range notifications {
-		if gameWin != nil {
-			for i, it := range gameWin.Contents {
-				if it == n.item {
-					gameWin.Contents = append(gameWin.Contents[:i], gameWin.Contents[i+1:]...)
-					break
-				}
-			}
-		}
-	}
 	notifications = nil
-	if gameWin != nil {
-		gameWin.Refresh()
-	}
+	markWorldRenderChanged()
 }
 
 func layoutNotifications() {
@@ -132,7 +104,7 @@ func layoutNotifications() {
 		y -= spacer
 		it.Dirty = true
 	}
-	gameWin.Refresh()
+	markWorldRenderChanged()
 }
 
 func updateNotifications() {
