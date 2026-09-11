@@ -96,13 +96,14 @@ From the repository root:
 ./build-scripts/check_eui_standalone.sh
 ```
 
-This copies **only this directory** into a temporary Go module, resolves its own
-dependencies, runs its tests, and builds the example. Use Go 1.26.6; desktop
+This copies this directory and the shared `internal/inputkeys` package into a
+temporary Go module, resolves dependencies, runs tests, and builds the example. Use Go 1.27.1; desktop
 builds disable Cgo. Tests need a display; on headless
 Linux run the command with `xvfb-run -a`.
 
-To publish a separate repository, copy this directory and the root MIT `LICENSE`,
-create `go.mod` with the chosen repository module path, and update the import
-prefix in `potato.go` and `examples/basic/main.go`. Run `go mod tidy`, tests,
+To publish a separate repository, copy this directory, the shared
+`internal/inputkeys` package, and the root MIT `LICENSE`. Create `go.mod` with
+the chosen repository module path, and update the import prefixes in `input.go`,
+`potato.go`, and `examples/basic/main.go`. Run `go mod tidy`, tests,
 and the example. The extraction script records the currently tested dependency
 versions. No separate repository, branch, tag, or release is created here.

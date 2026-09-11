@@ -10,8 +10,8 @@ probe_output="${1:?Usage: build_gpu_frame_probe.sh /absolute/new-output-director
 }
 cd "$probe_root/source"
 [[ "$(go env GOOS)" = linux ]] || { echo 'This probe requires Linux/GLX.' >&2; exit 1; }
-[[ "$(go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)" = v2.10.1-0.20260909104753-f3e017a2e5c2 ]] || {
-    echo 'The diagnostic patch requires Ebitengine commit f3e017a2e5c2.' >&2
+[[ "$(go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)" = v2.10.1 ]] || {
+    echo 'The diagnostic patch requires Ebitengine v2.10.1.' >&2
     exit 1
 }
 probe_module="$(go list -m -f '{{.Dir}}' github.com/hajimehoshi/ebiten/v2)"

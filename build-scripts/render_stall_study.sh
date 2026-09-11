@@ -57,8 +57,8 @@ fi
 
 study_binary="${GOTHOOM_RENDER_BINARY:-}"
 if [[ -z "$study_binary" ]]; then
-    command -v go >/dev/null || { echo 'Go 1.26.6 is required to build the benchmark.' >&2; exit 1; }
-    [[ "$(cd "$study_root/source" && go env GOVERSION)" == go1.26.6 ]] || { echo 'Use the project Go 1.26.6 toolchain.' >&2; exit 1; }
+    command -v go >/dev/null || { echo 'Go 1.27.1 is required to build the benchmark.' >&2; exit 1; }
+    [[ "$(cd "$study_root/source" && go env GOVERSION)" == go1.27.1 ]] || { echo 'Use the project Go 1.27.1 toolchain.' >&2; exit 1; }
     study_binary="$study_output/render-study.test"
     (cd "$study_root/source" && go test -c -o "$study_binary" .)
 fi

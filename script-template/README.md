@@ -10,7 +10,7 @@ The stubs do not perform game actions. Run scripts through goThoom, not with
 ## Set up VS Code
 
 1. Extract this ZIP to a normal working folder.
-2. Install Go 1.26.6 from [go.dev](https://go.dev/dl/) if it is not installed.
+2. Install Go 1.27.1 from [go.dev](https://go.dev/dl/) if it is not installed.
 3. Open the extracted `goThoom-Script-Template` folder in VS Code.
 4. Accept the recommendation to install the official **Go** extension. If
    prompted, allow it to install `gopls` and the other Go tools.

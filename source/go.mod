@@ -1,10 +1,6 @@
 module gothoom
 
-go 1.26.6
-
-require github.com/hajimehoshi/ebiten/v2 v2.10.1-0.20260909104753-f3e017a2e5c2
-
-require gt2 v0.0.0
+go 1.27.1
 
 replace gt2 => ./gt2
 
@@ -14,19 +10,21 @@ require (
 	github.com/f1monkey/spellchecker v1.3.0
 	github.com/gen2brain/beeep v0.11.2
 	github.com/google/gopacket v1.1.19
+	github.com/hajimehoshi/ebiten/v2 v2.10.1
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b
 	github.com/hugolgst/rich-go v0.0.0-20240715122152-74618cc1ace2
 	github.com/ncruces/zenity v0.10.15
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/sinshu/go-meltysynth v0.0.0-20230205031334-05d311382fc4
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/tphakala/simd v1.9.0
+	github.com/tphakala/simd v1.10.0
 	github.com/traefik/yaegi v0.16.1
 	golang.design/x/clipboard v0.9.0
-	golang.org/x/image v0.45.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/text v0.41.0
-	golang.org/x/time v0.15.0
+	golang.org/x/image v0.46.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.42.0
+	golang.org/x/time v0.16.0
+	gt2 v0.0.0
 )
 
 require (
@@ -53,9 +51,9 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af // indirect
 	golang.design/x/x11 v0.2.0 // indirect
-	golang.org/x/exp/shiny v0.0.0-20260820142414-ca536658362e // indirect
-	golang.org/x/mobile v0.0.0-20260821160754-b994778512bb // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/exp/shiny v0.0.0-20260908205506-85c1c2202aba // indirect
+	golang.org/x/mobile v0.0.0-20260908204917-8b95e45f8d3e // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )

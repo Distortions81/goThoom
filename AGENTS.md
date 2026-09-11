@@ -42,7 +42,7 @@
 ## Project layout
 
 - The Go module and client are under `source/` (`module gothoom`).
-- Use Go 1.26.6 from the official Go distribution. Do not use the system
+- Use Go 1.27.1 from the official Go distribution. Do not use the system
   `golang-go` package.
 - Desktop builds use `CGO_ENABLED=0`; no C compiler or macOS SDK is required.
 - Running the desktop client requires a display. Use Xvfb in a headless
@@ -149,8 +149,8 @@ Run helpers from the repository root:
 ## Ebitengine
 
 - Target Ebitengine 2.10.x and do not introduce APIs deprecated in that release.
-- Keep Ebitengine pinned to commit `f3e017a2e5c23725b185cb2373182bfa96a8405e`
-  for the redraw fix when window presentation resumes.
+- Keep Ebitengine at v2.10.1 or newer, preserving the redraw fix when window
+  presentation resumes.
 - Prefer `vector.Fill*`, `vector.StrokePath`, and `vector.Path.Add*` helpers.
 - Use `audio.ResampleReader` or `audio.ResampleReaderF32`, not the deprecated
   `audio.Resample` helpers.

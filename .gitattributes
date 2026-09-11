@@ -1,1 +1,3 @@
 old_mac_client/* linguist-vendored
+# Unified diff context lines include a space before Go indentation.
+*.patch whitespace=-space-before-tab

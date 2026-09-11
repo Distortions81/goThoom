@@ -72,7 +72,7 @@ Original measurements and limitations are in [RenderStallStudy.md](RenderStallSt
 3. Use the same `CL_Images` file and bundled
    `source/clmovFiles/tour-2025.08.02.clMov.zip` for both variants. The runner
    records asset and executable hashes.
-4. The source build requires the project resources and official Go 1.26.6.
+4. The source build requires the project resources and official Go 1.27.1.
    Follow the repository setup instructions for a clean checkout. A supplied
    Linux benchmark binary can run without installing Go on the laptop.
 5. `glxinfo` must be available (the Debian/Ubuntu `mesa-utils` package), along
