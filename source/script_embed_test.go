@@ -95,9 +95,9 @@ func TestBundledScriptsTypeCheckWithEditorStub(t *testing.T) {
 	}
 }
 
-func TestPopulateBundledScriptsOnlySeedsEmptyFolder(t *testing.T) {
+func TestSyncBundledScriptsAddsMissingInPopulatedFolder(t *testing.T) {
 	dir := t.TempDir()
-	if err := populateBundledScriptsIfEmpty(dir); err != nil {
+	if err := syncBundledScripts(dir); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := scriptLibraryEntries()
@@ -114,10 +114,10 @@ func TestPopulateBundledScriptsOnlySeedsEmptyFolder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(customDir, "mine.go"), []byte("package main\nfunc Init() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := populateBundledScriptsIfEmpty(customDir); err != nil {
+	if err := syncBundledScripts(customDir); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(customDir, entries[0].Filename)); !os.IsNotExist(err) {
-		t.Fatalf("non-empty folder was seeded: %v", err)
+	if _, err := os.Stat(filepath.Join(customDir, entries[0].Filename)); err != nil {
+		t.Fatalf("included script missing from non-empty folder: %v", err)
 	}
 }

@@ -833,12 +833,14 @@ func refreshscriptsWindow() {
 		disabled     bool
 		errorText    string
 		reloadFailed bool
+		path         string
 	}
 	scriptMu.RLock()
 	cats := make(map[string][]entry)
 	for o, n := range scriptDisplayNames {
 		cats[scriptCategories[o]] = append(cats[scriptCategories[o]], entry{
 			owner:        o,
+			path:         scriptPaths[o],
 			name:         n,
 			cat:          scriptCategories[o],
 			sub:          scriptSubCategories[o],
@@ -898,6 +900,9 @@ func refreshscriptsWindow() {
 			scope := scriptEnabledFor[owner]
 			scriptMu.RUnlock()
 			status := scriptScopedStatus(scope, effChar, e.disabled, e.invalid, e.errorText, e.reloadFailed)
+			if included := includedScriptLabel(e.path); included != "" {
+				status = included + " — " + status
+			}
 			charCB.Checked = effChar != "" && scope.Chars != nil && scope.Chars[effChar]
 			charCB.Disabled = e.invalid || effChar == ""
 			allCB.Checked = scope.All
@@ -1181,6 +1186,9 @@ func refreshscriptDetails() {
 	}
 
 	line(name)
+	if included := includedScriptLabel(path); included != "" {
+		line(included + ". Missing included scripts are restored; unmodified copies update automatically.")
+	}
 	if description != "" {
 		line(description)
 	}

@@ -1425,8 +1425,7 @@ func scriptSearchDirs() []string {
 }
 
 // ensureScriptsDir creates the user-owned scripts directory, installs the
-// managed gt2 editor workspace, and seeds embedded examples when no script
-// package exists yet.
+// managed gt2 editor workspace, and synchronizes included scripts.
 func ensureScriptsDir() {
 	if isWASM {
 		return
@@ -1439,8 +1438,8 @@ func ensureScriptsDir() {
 	if err := installScriptEditorSupport(dir); err != nil {
 		log.Printf("install script editor support: %v", err)
 	}
-	if err := populateBundledScriptsIfEmpty(dir); err != nil {
-		log.Printf("populate example scripts: %v", err)
+	if err := syncBundledScripts(dir); err != nil {
+		log.Printf("sync included scripts: %v", err)
 	}
 }
 
@@ -3973,6 +3972,7 @@ func rescanscripts() {
 	if isWASM {
 		return
 	}
+	ensureScriptsDir()
 	rescanScripts(scriptSearchDirs())
 }
 

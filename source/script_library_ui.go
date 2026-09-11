@@ -21,7 +21,7 @@ func openScriptLibraryWindow() {
 		return
 	}
 	scriptLibraryWin = eui.NewWindow()
-	scriptLibraryWin.Title = "Example Scripts"
+	scriptLibraryWin.Title = "Scripts Included with goThoom"
 	scriptLibraryWin.Size = eui.Point{X: 680, Y: 480}
 	scriptLibraryWin.Closable = true
 	scriptLibraryWin.Movable = true
@@ -34,7 +34,7 @@ func openScriptLibraryWindow() {
 	root := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Fixed: true}
 	scriptLibraryWin.AddItem(root)
 	intro, _ := eui.NewText()
-	intro.Text = "Examples stay read-only here until you install one. Existing files are never replaced."
+	intro.Text = "Missing included scripts are added automatically. Unmodified copies update; your edits are preserved."
 	intro.FontSize = 12
 	intro.Size = eui.Point{X: 640, Y: 28}
 	root.AddItem(intro)

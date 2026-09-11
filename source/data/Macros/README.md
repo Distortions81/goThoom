@@ -37,8 +37,9 @@ without imposing an instruction cap.
 3. Return to goThoom and choose **Refresh List**.
 4. Enable the new entry globally or for one character.
 
-goThoom never overwrites files you add or edit. Bundled files are refreshed
-only while they are still unchanged from the bundled copy.
+Macros supplied with the client are labeled **Included with goThoom**. Missing
+included macros are added automatically; unchanged copies update automatically.
+Your edits and enable selections are preserved.
 
 Only use macros from people you trust. A macro can send game commands and act
 as your character.

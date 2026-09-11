@@ -26,7 +26,7 @@ const (
 	legacyMacroPlayerWidth     = 150
 	legacyMacroListWidth       = 940
 	legacyMacroPaneHeight      = 420
-	legacyMacroRowHeight       = 28
+	legacyMacroRowHeight       = 44
 	legacyMacroContinuousLabel = "Allow continuous macros"
 )
 
@@ -257,8 +257,18 @@ func refreshLegacyMacroLibraryWindow() {
 		details, _ := eui.NewText()
 		details.Text = legacyMacroLibraryRowLabel(entry.Name, entry.Description, legacyMacroNameWidth)
 		details.FontSize = 12
-		details.Size = nameSize
-		row.AddItem(details)
+		details.Size = eui.Point{X: nameSize.X, Y: 22}
+		label := ""
+		if entry.Bundled {
+			label = "Included with goThoom"
+		}
+		included := eui.NewLabel(label)
+		included.FontSize = 10
+		included.Size = eui.Point{X: nameSize.X, Y: 18}
+		if entry.Bundled {
+			included.SetTooltip("Missing included macros are restored; unmodified copies update automatically. Your edits are preserved.")
+		}
+		row.AddItem(eui.NewColumn(details, included))
 
 		globalCheckbox, globalEvents := eui.NewCheckbox()
 		globalCheckbox.Text = "On"
@@ -479,6 +489,9 @@ func collectLegacyMacroLibraryInfo(entry legacyMacroLibraryEntry) (legacyMacroLi
 	}
 	sort.Strings(info.Commands)
 	sort.Strings(info.Keybindings)
+	if entry.Bundled {
+		info.Metadata = append(info.Metadata, "Included with goThoom. Missing included macros are restored; unmodified copies update automatically. Your edits are preserved.")
+	}
 	if entry.Description != "" {
 		info.Metadata = append(info.Metadata, "Description: "+entry.Description)
 	}

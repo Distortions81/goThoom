@@ -19,9 +19,10 @@ engine; you do not need to compile the client.
    automatically. **Reload** reads the selected script from disk and restarts it.
    **Refresh** rescans the folder.
 
-The first time `Scripts` in the user data folder has no script packages,
-goThoom copies its embedded examples there. Your existing scripts are never
-replaced.
+Scripts supplied with the client are labeled **Included with goThoom**.
+On startup or **Refresh**, goThoom adds missing included scripts and updates
+unchanged copies. Your edits are preserved. Adding or updating a script does
+not enable it.
 
 The Scripts window shows load and runtime errors. If a reload fails, the last
 working copy keeps running when possible.

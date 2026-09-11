@@ -287,8 +287,8 @@ func legacyMacroGuideReference() ([]byte, error) {
 
 // legacyMacroLibraryEntries returns every .mac and .txt source in
 // Macros/Library. The
-// bundled corpus is first copied there if missing, never overwriting a user
-// file, so the directory is the one editable source of truth.
+// bundled corpus is restored if missing and updated while unchanged, so the
+// directory is the one editable source of truth.
 func legacyMacroLibraryEntries() ([]legacyMacroLibraryEntry, error) {
 	if isWASM {
 		return legacyMacroLibraryEmbeddedEntries()
@@ -516,7 +516,7 @@ func legacyMacroLibraryReadManifest() (map[string]string, error) {
 		return nil, fmt.Errorf("read bundled macro manifest: %w", err)
 	}
 	manifest := make(map[string]string)
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	if err := json.Unmarshal(data, &manifest); err != nil || manifest == nil {
 		// The manifest only tracks goThoom's last installed copies. Recovering
 		// from a damaged file is safe: unmatched macro files remain untouched.
 		return make(map[string]string), nil

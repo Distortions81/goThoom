@@ -147,8 +147,10 @@ selections.
 
 ### Legacy macros
 
-Open **Actions → Legacy Macros** to browse the bundled macro library. Enable a
-macro globally or for a selected character. Use **Refresh List** after adding,
+Open **Actions → Legacy Macros** to browse the macro library. Macros supplied
+with the client are labeled **Included with goThoom**. Missing included macros
+are added automatically, and unchanged copies update automatically. Your edits
+are preserved. Enable a macro globally or for a selected character. Use **Refresh List** after adding,
 removing, or renaming files, and **Reload Macros** after editing an enabled
 macro. Your own `.mac` or `.txt` files can be added to `Macros/Library/`. Enable
 **Allow continuous macros** for classic macros that intentionally loop without
@@ -177,9 +179,11 @@ Use **Player** to enable a script for the character named in the Scripts window,
 or **All** to enable it for every character. Scripts run during a logged-in
 session. For setup, permission choices, and examples, see the
 [automation manual](https://gothoom.m45sci.xyz/help/automation.html).
-Scripts may be a single `.go` file, a folder with assets, or a ZIP package. The
-embedded examples are copied to an empty `Scripts` folder in the user data
-directory and never replace existing scripts.
+Scripts may be a single `.go` file, a folder with assets, or a ZIP package.
+Scripts supplied with the client are labeled **Included with goThoom**.
+On startup or **Refresh**, missing included scripts are added to `Scripts` in
+the user data directory, and unchanged copies update automatically. Your edits
+are preserved. Adding or updating a script does not enable it.
 
 Script-author documentation lives in
 [source/script_library/README.md](source/script_library/README.md), with the complete API in
