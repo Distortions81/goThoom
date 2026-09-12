@@ -44,11 +44,11 @@ func TestCustomGroupsSettingsRoundTrip(t *testing.T) {
 }
 
 func TestNearbyVisiblePlayerGroupKeysUsesRangeAndCurrentMobiles(t *testing.T) {
-	stateMu.Lock()
-	originalState := state
+	primarySession.draw.mu.Lock()
+	originalState := primarySession.draw.current
 	originalPlayerIndex := playerIndex
 	playerIndex = 1
-	state = drawState{
+	primarySession.draw.current = drawState{
 		mobiles: map[uint8]frameMobile{
 			1: {Index: 1, H: 10, V: 10},
 			2: {Index: 2, H: 40, V: 30},
@@ -62,12 +62,12 @@ func TestNearbyVisiblePlayerGroupKeysUsesRangeAndCurrentMobiles(t *testing.T) {
 			4: {Index: 4, Type: kDescPlayer, Name: "Carried Edge"},
 		},
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	t.Cleanup(func() {
-		stateMu.Lock()
-		state = originalState
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current = originalState
 		playerIndex = originalPlayerIndex
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 	})
 
 	got := nearbyVisiblePlayerGroupKeys()

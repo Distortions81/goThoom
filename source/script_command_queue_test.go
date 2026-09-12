@@ -34,17 +34,17 @@ func TestScriptCommandTickets(t *testing.T) {
 	if first.Status().State != scriptapi.CommandSent || first.Cancel() {
 		t.Fatal("sent ticket can be cancelled")
 	}
-	acknowledgeCommand(pendingCommandID+1, 0)
+	acknowledgeCommand(primarySession.commands.pendingID+1, 0)
 	if first.Cancel() {
 		t.Fatal("retransmission can be cancelled after sending")
 	}
-	acknowledgeCommand(pendingCommandID, 0)
-	if pendingCommand != "/manual" {
-		t.Fatalf("manual command order: %q", pendingCommand)
+	acknowledgeCommand(primarySession.commands.pendingID, 0)
+	if primarySession.commands.pending != "/manual" {
+		t.Fatalf("manual command order: %q", primarySession.commands.pending)
 	}
 	third := queue("/pose stand")
 	cancelScriptCommands(owner, nil)
-	if third.Status().State != scriptapi.CommandCancelled || pendingCommand != "/manual" {
+	if third.Status().State != scriptapi.CommandCancelled || primarySession.commands.pending != "/manual" {
 		t.Fatal("script cleanup affected manual command")
 	}
 	clearCommands()
@@ -84,7 +84,7 @@ func TestScriptTaskCancellationKeepsOtherCommands(t *testing.T) {
 	if first.Status().State != scriptapi.CommandCancelled || second.Status().State != scriptapi.CommandCancelled || other.Status().State != scriptapi.CommandQueued {
 		t.Fatal("task ownership lost")
 	}
-	if pendingCommand != "/other" || len(commandQueue) != 1 || commandQueue[0].text != "/manual" {
+	if primarySession.commands.pending != "/other" || len(primarySession.commands.queue) != 1 || primarySession.commands.queue[0].text != "/manual" {
 		t.Fatal("cancellation reordered other commands")
 	}
 }
@@ -115,7 +115,7 @@ func TestScriptCommandCancellationDuringNetworkWrite(t *testing.T) {
 			ticket := newScriptCommandTicket(owner, currentScriptEventQueue(owner))
 			queueTrackedScriptCommand(ticket, "/pose sit")
 			conn := &cancellingCommandConn{fail: fail, duringWrite: func() {
-				acknowledgeCommand(pendingCommandID+1, 0)
+				acknowledgeCommand(primarySession.commands.pendingID+1, 0)
 				if ticket.Cancel() {
 					t.Fatal("cancel recalled an in-flight write")
 				}

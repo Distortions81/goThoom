@@ -132,40 +132,40 @@ func extractCommandText(t *testing.T, buf *bufConn) string {
 
 func resetCommandStateForTest(t testing.TB, number uint32) {
 	t.Helper()
-	oldCommandNum := commandNum
-	oldTicket := pendingCommandTicket
-	oldPending := pendingCommand
-	oldPendingID := pendingCommandID
-	oldPendingSent := pendingCommandSent
-	oldPendingSentAt := pendingCommandSentAt
-	oldPendingSentFrame := pendingCommandSentFrame
-	oldPendingSentPhase := pendingCommandSentPhase
-	oldPendingSentInterval := pendingCommandSentInterval
-	oldPendingSentPredictively := pendingCommandSentPredictively
-	oldQueue := commandQueue
-	oldWhoLastCommandFrame := whoLastCommandFrame
+	oldCommandNum := primarySession.commands.number
+	oldTicket := primarySession.commands.pendingTicket
+	oldPending := primarySession.commands.pending
+	oldPendingID := primarySession.commands.pendingID
+	oldPendingSent := primarySession.commands.pendingSent
+	oldPendingSentAt := primarySession.commands.pendingSentAt
+	oldPendingSentFrame := primarySession.commands.pendingSentFrame
+	oldPendingSentPhase := primarySession.commands.pendingSentPhase
+	oldPendingSentInterval := primarySession.commands.pendingSentInterval
+	oldPendingSentPredictively := primarySession.commands.pendingSentPredictively
+	oldQueue := primarySession.commands.queue
+	oldWhoLastCommandFrame := primarySession.commands.lastCommandFrame
 	t.Cleanup(func() {
-		commandNum = oldCommandNum
-		pendingCommandTicket = oldTicket
-		pendingCommand = oldPending
-		pendingCommandID = oldPendingID
-		pendingCommandSent = oldPendingSent
-		pendingCommandSentAt = oldPendingSentAt
-		pendingCommandSentFrame = oldPendingSentFrame
-		pendingCommandSentPhase = oldPendingSentPhase
-		pendingCommandSentInterval = oldPendingSentInterval
-		pendingCommandSentPredictively = oldPendingSentPredictively
-		commandQueue = oldQueue
-		whoLastCommandFrame = oldWhoLastCommandFrame
+		primarySession.commands.number = oldCommandNum
+		primarySession.commands.pendingTicket = oldTicket
+		primarySession.commands.pending = oldPending
+		primarySession.commands.pendingID = oldPendingID
+		primarySession.commands.pendingSent = oldPendingSent
+		primarySession.commands.pendingSentAt = oldPendingSentAt
+		primarySession.commands.pendingSentFrame = oldPendingSentFrame
+		primarySession.commands.pendingSentPhase = oldPendingSentPhase
+		primarySession.commands.pendingSentInterval = oldPendingSentInterval
+		primarySession.commands.pendingSentPredictively = oldPendingSentPredictively
+		primarySession.commands.queue = oldQueue
+		primarySession.commands.lastCommandFrame = oldWhoLastCommandFrame
 	})
-	commandNum = number
-	pendingCommandTicket = nil
-	pendingCommand = ""
-	pendingCommandID = 0
-	pendingCommandSent = false
-	resetPendingCommandTimingLocked()
-	commandQueue = nil
-	whoLastCommandFrame = -1
+	primarySession.commands.number = number
+	primarySession.commands.pendingTicket = nil
+	primarySession.commands.pending = ""
+	primarySession.commands.pendingID = 0
+	primarySession.commands.pendingSent = false
+	primarySession.commands.resetPendingTimingLocked()
+	primarySession.commands.queue = nil
+	primarySession.commands.lastCommandFrame = -1
 }
 
 func TestSendPlayerInputEmptyFramesKeepCommandNum(t *testing.T) {
@@ -175,7 +175,7 @@ func TestSendPlayerInputEmptyFramesKeepCommandNum(t *testing.T) {
 	if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
 		t.Fatalf("sendPlayerInput: %v", err)
 	}
-	if got, want := commandNum, uint32(1); got != want {
+	if got, want := primarySession.commands.number, uint32(1); got != want {
 		t.Fatalf("commandNum=%d, want %d", got, want)
 	}
 	if cmd := extractCommand(t, conn); cmd != 1 {
@@ -186,7 +186,7 @@ func TestSendPlayerInputEmptyFramesKeepCommandNum(t *testing.T) {
 	if err := sendPlayerInput(conn2, 0, 0, false, false); err != nil {
 		t.Fatalf("sendPlayerInput: %v", err)
 	}
-	if got, want := commandNum, uint32(1); got != want {
+	if got, want := primarySession.commands.number, uint32(1); got != want {
 		t.Fatalf("commandNum=%d, want %d", got, want)
 	}
 	if cmd := extractCommand(t, conn2); cmd != 1 {
@@ -196,13 +196,13 @@ func TestSendPlayerInputEmptyFramesKeepCommandNum(t *testing.T) {
 
 func TestSendPlayerInputCommandWaitsForAcknowledgement(t *testing.T) {
 	resetCommandStateForTest(t, 10)
-	pendingCommand = "/test"
+	primarySession.commands.pending = "/test"
 
 	conn := &bufConn{}
 	if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
 		t.Fatalf("sendPlayerInput: %v", err)
 	}
-	if got, want := commandNum, uint32(11); got != want {
+	if got, want := primarySession.commands.number, uint32(11); got != want {
 		t.Fatalf("commandNum=%d, want %d", got, want)
 	}
 	if cmd := extractCommand(t, conn); cmd != 11 {
@@ -211,8 +211,8 @@ func TestSendPlayerInputCommandWaitsForAcknowledgement(t *testing.T) {
 	if cmd := extractCommandText(t, conn); cmd != "/test" {
 		t.Fatalf("packet command text=%q, want /test", cmd)
 	}
-	if pendingCommand != "/test" || pendingCommandID != 11 || !pendingCommandSent {
-		t.Fatalf("pending state = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "/test" || primarySession.commands.pendingID != 11 || !primarySession.commands.pendingSent {
+		t.Fatalf("pending state = %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
 
 	conn.Reset()
@@ -229,8 +229,8 @@ func TestSendPlayerInputCommandWaitsForAcknowledgement(t *testing.T) {
 
 func TestSendPlayerInputAcknowledgementAdvancesFIFO(t *testing.T) {
 	resetCommandStateForTest(t, 1)
-	pendingCommand = "/say"
-	commandQueue = []queuedCommand{{text: "/wave"}}
+	primarySession.commands.pending = "/say"
+	primarySession.commands.queue = []queuedCommand{{text: "/wave"}}
 
 	conn := &bufConn{}
 	if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
@@ -240,19 +240,19 @@ func TestSendPlayerInputAcknowledgementAdvancesFIFO(t *testing.T) {
 	if gotCmd != "/say" {
 		t.Fatalf("sent %q want %q", gotCmd, "/say")
 	}
-	if pendingCommand != "/say" {
-		t.Fatalf("pendingCommand %q want %q before ack", pendingCommand, "/say")
+	if primarySession.commands.pending != "/say" {
+		t.Fatalf("pendingCommand %q want %q before ack", primarySession.commands.pending, "/say")
 	}
-	if len(commandQueue) != 1 || commandQueue[0].text != "/wave" {
-		t.Fatalf("commandQueue before ack: %v", commandQueue)
+	if len(primarySession.commands.queue) != 1 || primarySession.commands.queue[0].text != "/wave" {
+		t.Fatalf("commandQueue before ack: %v", primarySession.commands.queue)
 	}
 
 	acknowledgeCommand(2, 1)
-	if pendingCommand != "/wave" || pendingCommandID != 0 || pendingCommandSent {
-		t.Fatalf("pending after ack = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "/wave" || primarySession.commands.pendingID != 0 || primarySession.commands.pendingSent {
+		t.Fatalf("pending after ack = %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
-	if len(commandQueue) != 0 {
-		t.Fatalf("commandQueue after ack: %v", commandQueue)
+	if len(primarySession.commands.queue) != 0 {
+		t.Fatalf("commandQueue after ack: %v", primarySession.commands.queue)
 	}
 	conn.Reset()
 	if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
@@ -297,12 +297,12 @@ func TestDelayedMatchingAckCompletesCommandBeforeRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	acknowledgeCommand(41, 1)
-	if pendingCommandSent {
+	if primarySession.commands.pendingSent {
 		t.Fatal("negative acknowledgement did not enable retry")
 	}
 	acknowledgeCommand(42, 1)
-	if pendingCommand != "" || pendingCommandID != 0 || pendingCommandSent {
-		t.Fatalf("delayed matching ack left pending state %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "" || primarySession.commands.pendingID != 0 || primarySession.commands.pendingSent {
+		t.Fatalf("delayed matching ack left pending state %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
 }
 
@@ -324,8 +324,8 @@ func TestSendPlayerInputWriteErrorKeepsCommandForRetry(t *testing.T) {
 	if err := sendPlayerInput(&writeErrorConn{}, 0, 0, false, false); err == nil {
 		t.Fatal("sendPlayerInput succeeded with a failing connection")
 	}
-	if pendingCommand != "/equip 123" || pendingCommandID != 10 || pendingCommandSent {
-		t.Fatalf("failed send state = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "/equip 123" || primarySession.commands.pendingID != 10 || primarySession.commands.pendingSent {
+		t.Fatalf("failed send state = %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
 
 	retry := &bufConn{}
@@ -355,7 +355,7 @@ func TestSendPlayerInputEncodesCommandAndChatAsMacRoman(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resetCommandStateForTest(t, 1)
-			pendingCommand = test.text
+			primarySession.commands.pending = test.text
 			conn := &bufConn{}
 			if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
 				t.Fatalf("sendPlayerInput: %v", err)
@@ -377,7 +377,7 @@ func TestSendPlayerInputEncodesCommandAndChatAsMacRoman(t *testing.T) {
 
 func TestSendPlayerInputTruncatesCommandToClassicLimit(t *testing.T) {
 	resetCommandStateForTest(t, 1)
-	pendingCommand = strings.Repeat("x", maxPlayerCommandBytes+100)
+	primarySession.commands.pending = strings.Repeat("x", maxPlayerCommandBytes+100)
 	conn := &bufConn{}
 	if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
 		t.Fatalf("sendPlayerInput: %v", err)
@@ -392,7 +392,7 @@ func TestSendPlayerInputTruncatesAtUnicodeRuneBoundary(t *testing.T) {
 		t.Run(fmt.Sprint(remaining), func(t *testing.T) {
 			resetCommandStateForTest(t, 1)
 			prefix := strings.Repeat("x", maxPlayerCommandBytes-remaining)
-			pendingCommand = prefix + "𐀀" + strings.Repeat("y", 20)
+			primarySession.commands.pending = prefix + "𐀀" + strings.Repeat("y", 20)
 			conn := &bufConn{}
 			if err := sendPlayerInput(conn, 0, 0, false, false); err != nil {
 				t.Fatal(err)
@@ -410,31 +410,31 @@ func TestSendPlayerInputTruncatesAtUnicodeRuneBoundary(t *testing.T) {
 
 func TestCommandReplyRequiresMatchingAcknowledgement(t *testing.T) {
 	resetCommandStateForTest(t, 10)
-	commandReplyMu.Lock()
-	oldReply := commandReplyTime
-	commandReplyTime = 0
-	commandReplyMu.Unlock()
-	frameMu.Lock()
-	oldFrameJitter := serverFrameJitter
-	serverFrameJitter = 0
-	frameMu.Unlock()
+	primarySession.timing.replyMu.Lock()
+	oldReply := primarySession.timing.reply
+	primarySession.timing.reply = 0
+	primarySession.timing.replyMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	oldFrameJitter := primarySession.timing.jitter
+	primarySession.timing.jitter = 0
+	primarySession.timing.cadenceMu.Unlock()
 	t.Cleanup(func() {
-		commandReplyMu.Lock()
-		commandReplyTime = oldReply
-		commandReplyMu.Unlock()
-		frameMu.Lock()
-		serverFrameJitter = oldFrameJitter
-		frameMu.Unlock()
+		primarySession.timing.replyMu.Lock()
+		primarySession.timing.reply = oldReply
+		primarySession.timing.replyMu.Unlock()
+		primarySession.timing.cadenceMu.Lock()
+		primarySession.timing.jitter = oldFrameJitter
+		primarySession.timing.cadenceMu.Unlock()
 	})
 
-	pendingCommand = "/test"
+	primarySession.commands.pending = "/test"
 	if err := sendPlayerInput(&bufConn{}, 0, 0, false, false); err != nil {
 		t.Fatal(err)
 	}
-	commandMu.Lock()
+	primarySession.commands.mu.Lock()
 	originalSentAt := time.Now().Add(-80 * time.Millisecond)
-	pendingCommandSentAt = originalSentAt
-	commandMu.Unlock()
+	primarySession.commands.pendingSentAt = originalSentAt
+	primarySession.commands.mu.Unlock()
 
 	acknowledgeCommand(10, 1)
 	if reply, jitter := networkTimingSnapshot(); reply != 0 || jitter != 0 {
@@ -443,9 +443,9 @@ func TestCommandReplyRequiresMatchingAcknowledgement(t *testing.T) {
 	if err := sendPlayerInput(&bufConn{}, 0, 0, false, false); err != nil {
 		t.Fatal(err)
 	}
-	commandMu.Lock()
-	retrySentAt := pendingCommandSentAt
-	commandMu.Unlock()
+	primarySession.commands.mu.Lock()
+	retrySentAt := primarySession.commands.pendingSentAt
+	primarySession.commands.mu.Unlock()
 	if !retrySentAt.Equal(originalSentAt) {
 		t.Fatalf("retry replaced first-send timestamp: %v != %v", retrySentAt, originalSentAt)
 	}
@@ -461,137 +461,137 @@ func TestWarmupCommandReplyDoesNotTunePNA(t *testing.T) {
 	resetCommandStateForTest(t, 10)
 	originalEnabled := gs.AltNetMode
 	gs.AltNetMode = true
-	commandReplyMu.Lock()
-	originalReply := commandReplyTime
-	commandReplyTime = 0
-	commandReplyMu.Unlock()
-	pnaControllerMu.Lock()
-	originalController := pnaController
-	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond, consecutiveHits: 2}
-	pnaControllerMu.Unlock()
+	primarySession.timing.replyMu.Lock()
+	originalReply := primarySession.timing.reply
+	primarySession.timing.reply = 0
+	primarySession.timing.replyMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	originalController := primarySession.timing.controller
+	primarySession.timing.controller = pnaControllerState{initialized: true, lead: 50 * time.Millisecond, consecutiveHits: 2}
+	primarySession.timing.controllerMu.Unlock()
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
-		commandReplyMu.Lock()
-		commandReplyTime = originalReply
-		commandReplyMu.Unlock()
-		pnaControllerMu.Lock()
-		pnaController = originalController
-		pnaControllerMu.Unlock()
+		primarySession.timing.replyMu.Lock()
+		primarySession.timing.reply = originalReply
+		primarySession.timing.replyMu.Unlock()
+		primarySession.timing.controllerMu.Lock()
+		primarySession.timing.controller = originalController
+		primarySession.timing.controllerMu.Unlock()
 	})
 
 	sentAt := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
-	pendingCommand = "/test"
-	pendingCommandID = 11
-	pendingCommandSent = true
-	pendingCommandSentAt = sentAt
-	pendingCommandSentFrame = 10
-	pendingCommandSentPhase = 0
-	pendingCommandSentInterval = 200 * time.Millisecond
-	pendingCommandSentPredictively = false
+	primarySession.commands.pending = "/test"
+	primarySession.commands.pendingID = 11
+	primarySession.commands.pendingSent = true
+	primarySession.commands.pendingSentAt = sentAt
+	primarySession.commands.pendingSentFrame = 10
+	primarySession.commands.pendingSentPhase = 0
+	primarySession.commands.pendingSentInterval = 200 * time.Millisecond
+	primarySession.commands.pendingSentPredictively = false
 	acknowledgeCommandAt(11, 11, sentAt.Add(200*time.Millisecond))
 
 	reply, _ := networkTimingSnapshot()
 	if reply != 200*time.Millisecond {
 		t.Fatalf("warmup command reply = %v, want 200ms", reply)
 	}
-	pnaControllerMu.Lock()
-	controller := pnaController
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	controller := primarySession.timing.controller
+	primarySession.timing.controllerMu.Unlock()
 	if controller.lead != 50*time.Millisecond || controller.consecutiveHits != 2 {
 		t.Fatalf("warmup command changed PNA controller: %+v", controller)
 	}
 }
 
 func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
-	resetCommandStateForTest(t, commandNum)
-	oldAck, oldResend := ackFrame, resendFrame
-	oldLastAck, oldNumFrames, oldLostFrames := lastAckFrame, numFrames, lostFrames
-	oldFrameBuckets, oldLostBuckets, oldBucketTimes := frameBuckets, lostBuckets, bucketTimes
+	resetCommandStateForTest(t, primarySession.commands.number)
+	oldAck, oldResend := primarySession.frames.ack, primarySession.frames.resend
+	oldLastAck, oldNumFrames, oldLostFrames := primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost
+	oldFrameBuckets, oldLostBuckets, oldBucketTimes := primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes
 	inputMu.Lock()
 	oldInputQueue := append([]inputState(nil), inputQueue...)
 	oldKeyStopFrames := keyStopFrames
 	inputMu.Unlock()
-	commandReplyMu.Lock()
-	oldReply := commandReplyTime
-	commandReplyMu.Unlock()
-	frameMu.Lock()
-	oldLastFrameTime, oldFrameInterval, oldFrameJitter := lastFrameTime, frameInterval, serverFrameJitter
-	oldLastTimingFrame := lastTimingFrame
-	oldTimingSamples := append([]timedDurationSample(nil), frameTimingSamples...)
-	oldUpdatesPerSecond := serverUpdatesPerSecond
-	frameMu.Unlock()
-	pnaControllerMu.Lock()
-	oldPNAController := pnaController
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	oldPNAFallback := pnaFallback
-	pnaFallbackMu.Unlock()
+	primarySession.timing.replyMu.Lock()
+	oldReply := primarySession.timing.reply
+	primarySession.timing.replyMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	oldLastFrameTime, oldFrameInterval, oldFrameJitter := primarySession.timing.lastFrameAt, primarySession.timing.interval, primarySession.timing.jitter
+	oldLastTimingFrame := primarySession.timing.lastFrame
+	oldTimingSamples := append([]timedDurationSample(nil), primarySession.timing.samples...)
+	oldUpdatesPerSecond := primarySession.timing.updatesPerSecond
+	primarySession.timing.cadenceMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	oldPNAController := primarySession.timing.controller
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	oldPNAFallback := primarySession.timing.fallback
+	primarySession.timing.fallbackMu.Unlock()
 	t.Cleanup(func() {
-		ackFrame, resendFrame = oldAck, oldResend
-		lastAckFrame, numFrames, lostFrames = oldLastAck, oldNumFrames, oldLostFrames
-		frameBuckets, lostBuckets, bucketTimes = oldFrameBuckets, oldLostBuckets, oldBucketTimes
+		primarySession.frames.ack, primarySession.frames.resend = oldAck, oldResend
+		primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost = oldLastAck, oldNumFrames, oldLostFrames
+		primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = oldFrameBuckets, oldLostBuckets, oldBucketTimes
 		inputMu.Lock()
 		inputQueue = oldInputQueue
 		keyStopFrames = oldKeyStopFrames
 		inputMu.Unlock()
-		commandReplyMu.Lock()
-		commandReplyTime = oldReply
-		commandReplyMu.Unlock()
-		frameMu.Lock()
-		lastFrameTime, frameInterval, serverFrameJitter = oldLastFrameTime, oldFrameInterval, oldFrameJitter
-		lastTimingFrame = oldLastTimingFrame
-		frameTimingSamples = oldTimingSamples
-		serverUpdatesPerSecond = oldUpdatesPerSecond
-		frameMu.Unlock()
-		pnaControllerMu.Lock()
-		pnaController = oldPNAController
-		pnaControllerMu.Unlock()
-		pnaFallbackMu.Lock()
-		pnaFallback = oldPNAFallback
-		pnaFallbackMu.Unlock()
+		primarySession.timing.replyMu.Lock()
+		primarySession.timing.reply = oldReply
+		primarySession.timing.replyMu.Unlock()
+		primarySession.timing.cadenceMu.Lock()
+		primarySession.timing.lastFrameAt, primarySession.timing.interval, primarySession.timing.jitter = oldLastFrameTime, oldFrameInterval, oldFrameJitter
+		primarySession.timing.lastFrame = oldLastTimingFrame
+		primarySession.timing.samples = oldTimingSamples
+		primarySession.timing.updatesPerSecond = oldUpdatesPerSecond
+		primarySession.timing.cadenceMu.Unlock()
+		primarySession.timing.controllerMu.Lock()
+		primarySession.timing.controller = oldPNAController
+		primarySession.timing.controllerMu.Unlock()
+		primarySession.timing.fallbackMu.Lock()
+		primarySession.timing.fallback = oldPNAFallback
+		primarySession.timing.fallbackMu.Unlock()
 	})
 
-	ackFrame, resendFrame = 42, 43
-	lastAckFrame, numFrames, lostFrames = 42, 20, 5
+	primarySession.frames.ack, primarySession.frames.resend = 42, 43
+	primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost = 42, 20, 5
 	inputMu.Lock()
 	inputQueue = []inputState{{mouseX: 1}}
 	keyStopFrames = 2
 	inputMu.Unlock()
-	commandReplyMu.Lock()
-	commandReplyTime = 50 * time.Millisecond
-	commandReplyMu.Unlock()
-	frameMu.Lock()
-	lastFrameTime = time.Now()
-	lastTimingFrame = 42
-	frameInterval = 200 * time.Millisecond
-	frameTimingSamples = []timedDurationSample{{at: time.Now(), value: 200 * time.Millisecond}}
-	serverFrameJitter = 10 * time.Millisecond
-	serverUpdatesPerSecond = 5
-	frameMu.Unlock()
-	pnaControllerMu.Lock()
-	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	pnaFallback = pnaFallbackState{activeUntil: time.Now().Add(time.Minute), reason: "recent packet loss"}
-	pnaFallbackMu.Unlock()
-	commandMu.Lock()
-	pendingCommand = "/test"
-	pendingCommandID = 9
-	pendingCommandSent = true
-	pendingCommandSentAt = time.Now()
-	pendingCommandSentFrame = 42
-	pendingCommandSentPhase = 150 * time.Millisecond
-	pendingCommandSentInterval = 200 * time.Millisecond
-	pendingCommandSentPredictively = true
-	commandMu.Unlock()
+	primarySession.timing.replyMu.Lock()
+	primarySession.timing.reply = 50 * time.Millisecond
+	primarySession.timing.replyMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	primarySession.timing.lastFrameAt = time.Now()
+	primarySession.timing.lastFrame = 42
+	primarySession.timing.interval = 200 * time.Millisecond
+	primarySession.timing.samples = []timedDurationSample{{at: time.Now(), value: 200 * time.Millisecond}}
+	primarySession.timing.jitter = 10 * time.Millisecond
+	primarySession.timing.updatesPerSecond = 5
+	primarySession.timing.cadenceMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	primarySession.timing.controller = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	primarySession.timing.fallback = pnaFallbackState{activeUntil: time.Now().Add(time.Minute), reason: "recent packet loss"}
+	primarySession.timing.fallbackMu.Unlock()
+	primarySession.commands.mu.Lock()
+	primarySession.commands.pending = "/test"
+	primarySession.commands.pendingID = 9
+	primarySession.commands.pendingSent = true
+	primarySession.commands.pendingSentAt = time.Now()
+	primarySession.commands.pendingSentFrame = 42
+	primarySession.commands.pendingSentPhase = 150 * time.Millisecond
+	primarySession.commands.pendingSentInterval = 200 * time.Millisecond
+	primarySession.commands.pendingSentPredictively = true
+	primarySession.commands.mu.Unlock()
 	select {
-	case frameCh <- struct{}{}:
+	case primarySession.timing.wake <- struct{}{}:
 	default:
 	}
 
 	resetLiveNetworkSession()
-	if ackFrame != 0 || resendFrame != -1 {
-		t.Fatalf("bootstrap ack/resend = %d/%d, want 0/-1", ackFrame, resendFrame)
+	if primarySession.frames.ack != 0 || primarySession.frames.resend != -1 {
+		t.Fatalf("bootstrap ack/resend = %d/%d, want 0/-1", primarySession.frames.ack, primarySession.frames.resend)
 	}
 	firstInput := &bufConn{}
 	if err := sendPlayerInput(firstInput, 0, 0, false, false); err != nil {
@@ -603,8 +603,8 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	if got := int32(binary.BigEndian.Uint32(payload[12:16])); got != -1 {
 		t.Fatalf("first input resend marker = %d, want -1", got)
 	}
-	if lastAckFrame != 0 || numFrames != 0 || lostFrames != 0 {
-		t.Fatalf("frame statistics not reset: last=%d total=%d lost=%d", lastAckFrame, numFrames, lostFrames)
+	if primarySession.frames.lastAck != 0 || primarySession.frames.received != 0 || primarySession.frames.lost != 0 {
+		t.Fatalf("frame statistics not reset: last=%d total=%d lost=%d", primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost)
 	}
 	if !commandQueueIsIdle() {
 		t.Fatal("command queue survived session reset")
@@ -618,17 +618,17 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	if reply, jitter := networkTimingSnapshot(); reply != 0 || jitter != 0 {
 		t.Fatalf("network timing state not reset: %v/%v", reply, jitter)
 	}
-	frameMu.Lock()
-	newLastFrameTime, newUpdatesPerSecond := lastFrameTime, serverUpdatesPerSecond
-	timingSamples := len(frameTimingSamples)
-	newLastTimingFrame := lastTimingFrame
-	frameMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	newLastFrameTime, newUpdatesPerSecond := primarySession.timing.lastFrameAt, primarySession.timing.updatesPerSecond
+	timingSamples := len(primarySession.timing.samples)
+	newLastTimingFrame := primarySession.timing.lastFrame
+	primarySession.timing.cadenceMu.Unlock()
 	if !newLastFrameTime.IsZero() || newUpdatesPerSecond != 0 || timingSamples != 0 || newLastTimingFrame != 0 {
 		t.Fatalf("PNA measurements survived session reset: frame=%v id=%d rate=%v timingSamples=%d", newLastFrameTime, newLastTimingFrame, newUpdatesPerSecond, timingSamples)
 	}
-	pnaControllerMu.Lock()
-	controllerReset := pnaController == (pnaControllerState{})
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	controllerReset := primarySession.timing.controller == (pnaControllerState{})
+	primarySession.timing.controllerMu.Unlock()
 	if !controllerReset {
 		t.Fatal("PNA controller survived session reset")
 	}
@@ -636,7 +636,7 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 		t.Fatalf("new session PNA status = use:%v reason:%q, want immediate-learning mode", usePNA, reason)
 	}
 	select {
-	case <-frameCh:
+	case <-primarySession.timing.wake:
 		t.Fatal("stale frame notification survived session reset")
 	default:
 	}
@@ -805,41 +805,41 @@ func TestServerMessageDispatcherSerializesWithTCPPriority(t *testing.T) {
 }
 
 func BenchmarkSendPlayerInputReliableNoAllocs(b *testing.B) {
-	oldCommandNum := commandNum
-	oldPending := pendingCommand
-	oldPendingID := pendingCommandID
-	oldPendingSent := pendingCommandSent
-	oldQueue := commandQueue
-	oldAck := ackFrame
-	oldResend := resendFrame
-	oldSentAt := pendingCommandSentAt
-	oldSentFrame := pendingCommandSentFrame
-	oldSentPhase := pendingCommandSentPhase
-	oldSentInterval := pendingCommandSentInterval
-	oldSentPredictively := pendingCommandSentPredictively
+	oldCommandNum := primarySession.commands.number
+	oldPending := primarySession.commands.pending
+	oldPendingID := primarySession.commands.pendingID
+	oldPendingSent := primarySession.commands.pendingSent
+	oldQueue := primarySession.commands.queue
+	oldAck := primarySession.frames.ack
+	oldResend := primarySession.frames.resend
+	oldSentAt := primarySession.commands.pendingSentAt
+	oldSentFrame := primarySession.commands.pendingSentFrame
+	oldSentPhase := primarySession.commands.pendingSentPhase
+	oldSentInterval := primarySession.commands.pendingSentInterval
+	oldSentPredictively := primarySession.commands.pendingSentPredictively
 	defer func() {
-		commandNum = oldCommandNum
-		pendingCommand = oldPending
-		pendingCommandID = oldPendingID
-		pendingCommandSent = oldPendingSent
-		commandQueue = oldQueue
-		ackFrame = oldAck
-		resendFrame = oldResend
-		pendingCommandSentAt = oldSentAt
-		pendingCommandSentFrame = oldSentFrame
-		pendingCommandSentPhase = oldSentPhase
-		pendingCommandSentInterval = oldSentInterval
-		pendingCommandSentPredictively = oldSentPredictively
+		primarySession.commands.number = oldCommandNum
+		primarySession.commands.pending = oldPending
+		primarySession.commands.pendingID = oldPendingID
+		primarySession.commands.pendingSent = oldPendingSent
+		primarySession.commands.queue = oldQueue
+		primarySession.frames.ack = oldAck
+		primarySession.frames.resend = oldResend
+		primarySession.commands.pendingSentAt = oldSentAt
+		primarySession.commands.pendingSentFrame = oldSentFrame
+		primarySession.commands.pendingSentPhase = oldSentPhase
+		primarySession.commands.pendingSentInterval = oldSentInterval
+		primarySession.commands.pendingSentPredictively = oldSentPredictively
 	}()
 
-	commandNum = 1
-	pendingCommand = ""
-	pendingCommandID = 0
-	pendingCommandSent = false
-	commandQueue = nil
-	ackFrame = 0
-	resendFrame = 0
-	resetPendingCommandTimingLocked()
+	primarySession.commands.number = 1
+	primarySession.commands.pending = ""
+	primarySession.commands.pendingID = 0
+	primarySession.commands.pendingSent = false
+	primarySession.commands.queue = nil
+	primarySession.frames.ack = 0
+	primarySession.frames.resend = 0
+	primarySession.commands.resetPendingTimingLocked()
 
 	conn := &bufConn{}
 	b.ReportAllocs()
@@ -853,41 +853,41 @@ func BenchmarkSendPlayerInputReliableNoAllocs(b *testing.B) {
 }
 
 func BenchmarkSendPlayerInputUnreliableNoAllocs(b *testing.B) {
-	oldCommandNum := commandNum
-	oldPending := pendingCommand
-	oldPendingID := pendingCommandID
-	oldPendingSent := pendingCommandSent
-	oldQueue := commandQueue
-	oldAck := ackFrame
-	oldResend := resendFrame
-	oldSentAt := pendingCommandSentAt
-	oldSentFrame := pendingCommandSentFrame
-	oldSentPhase := pendingCommandSentPhase
-	oldSentInterval := pendingCommandSentInterval
-	oldSentPredictively := pendingCommandSentPredictively
+	oldCommandNum := primarySession.commands.number
+	oldPending := primarySession.commands.pending
+	oldPendingID := primarySession.commands.pendingID
+	oldPendingSent := primarySession.commands.pendingSent
+	oldQueue := primarySession.commands.queue
+	oldAck := primarySession.frames.ack
+	oldResend := primarySession.frames.resend
+	oldSentAt := primarySession.commands.pendingSentAt
+	oldSentFrame := primarySession.commands.pendingSentFrame
+	oldSentPhase := primarySession.commands.pendingSentPhase
+	oldSentInterval := primarySession.commands.pendingSentInterval
+	oldSentPredictively := primarySession.commands.pendingSentPredictively
 	defer func() {
-		commandNum = oldCommandNum
-		pendingCommand = oldPending
-		pendingCommandID = oldPendingID
-		pendingCommandSent = oldPendingSent
-		commandQueue = oldQueue
-		ackFrame = oldAck
-		resendFrame = oldResend
-		pendingCommandSentAt = oldSentAt
-		pendingCommandSentFrame = oldSentFrame
-		pendingCommandSentPhase = oldSentPhase
-		pendingCommandSentInterval = oldSentInterval
-		pendingCommandSentPredictively = oldSentPredictively
+		primarySession.commands.number = oldCommandNum
+		primarySession.commands.pending = oldPending
+		primarySession.commands.pendingID = oldPendingID
+		primarySession.commands.pendingSent = oldPendingSent
+		primarySession.commands.queue = oldQueue
+		primarySession.frames.ack = oldAck
+		primarySession.frames.resend = oldResend
+		primarySession.commands.pendingSentAt = oldSentAt
+		primarySession.commands.pendingSentFrame = oldSentFrame
+		primarySession.commands.pendingSentPhase = oldSentPhase
+		primarySession.commands.pendingSentInterval = oldSentInterval
+		primarySession.commands.pendingSentPredictively = oldSentPredictively
 	}()
 
-	commandNum = 1
-	pendingCommand = ""
-	pendingCommandID = 0
-	pendingCommandSent = false
-	commandQueue = nil
-	ackFrame = 0
-	resendFrame = 0
-	resetPendingCommandTimingLocked()
+	primarySession.commands.number = 1
+	primarySession.commands.pending = ""
+	primarySession.commands.pendingID = 0
+	primarySession.commands.pendingSent = false
+	primarySession.commands.queue = nil
+	primarySession.frames.ack = 0
+	primarySession.frames.resend = 0
+	primarySession.commands.resetPendingTimingLocked()
 
 	conn := &bufConn{}
 	b.ReportAllocs()

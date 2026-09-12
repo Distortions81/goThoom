@@ -528,10 +528,10 @@ func TestMovieMobileTableRestoresBubbleAndPicturelessFallback(t *testing.T) {
 	pos += 7
 	binary.BigEndian.PutUint32(data[pos:], 0xffffffff)
 	parseMobileTable(data, 0, 142, 0)
-	stateMu.Lock()
-	desc := state.descriptors[1]
-	bubbles := append([]bubble(nil), state.bubbles...)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	desc := primarySession.draw.current.descriptors[1]
+	bubbles := append([]bubble(nil), primarySession.draw.current.bubbles...)
+	primarySession.draw.mu.Unlock()
 	if desc.PictID != picturelessDescriptorFallbackPictID {
 		t.Fatalf("movie fallback picture = %d", desc.PictID)
 	}
@@ -548,9 +548,9 @@ func TestLivePicturelessDescriptorUsesClassicFallback(t *testing.T) {
 	if _, _, err := parseDrawState(data, false); err != nil {
 		t.Fatal(err)
 	}
-	stateMu.Lock()
-	pict := state.descriptors[1].PictID
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	pict := primarySession.draw.current.descriptors[1].PictID
+	primarySession.draw.mu.Unlock()
 	if pict != picturelessDescriptorFallbackPictID {
 		t.Fatalf("live fallback picture = %d", pict)
 	}
@@ -587,12 +587,12 @@ func liveDrawPacketWithStateFragmentForTest(ack, resent uint32, text string, fra
 
 func prepareLiveStateFragmentTest(t *testing.T) {
 	t.Helper()
-	oldAck, oldResend, oldLastAck := ackFrame, resendFrame, lastAckFrame
-	oldFrameCounter, oldMovieMode, oldEncrypted := frameCounter, movieMode, drawStateEncrypted
+	oldAck, oldResend, oldLastAck := primarySession.frames.ack, primarySession.frames.resend, primarySession.frames.lastAck
+	oldFrameCounter, oldMovieMode, oldEncrypted := primarySession.draw.frame, movieMode, drawStateEncrypted
 	oldSettings, oldPlayers := gs, players
 	t.Cleanup(func() {
-		ackFrame, resendFrame, lastAckFrame = oldAck, oldResend, oldLastAck
-		frameCounter, movieMode, drawStateEncrypted = oldFrameCounter, oldMovieMode, oldEncrypted
+		primarySession.frames.ack, primarySession.frames.resend, primarySession.frames.lastAck = oldAck, oldResend, oldLastAck
+		primarySession.draw.frame, movieMode, drawStateEncrypted = oldFrameCounter, oldMovieMode, oldEncrypted
 		gs, players = oldSettings, oldPlayers
 		resetDrawState()
 	})
@@ -602,7 +602,7 @@ func prepareLiveStateFragmentTest(t *testing.T) {
 	gs.BubbleNormal = true
 	gs.BubbleOtherPlayers = true
 	movieMode, drawStateEncrypted = false, false
-	ackFrame, resendFrame, lastAckFrame, frameCounter = 0, 0, 0, 0
+	primarySession.frames.ack, primarySession.frames.resend, primarySession.frames.lastAck, primarySession.draw.frame = 0, 0, 0, 0
 }
 
 func TestLiveStateRecordCanSpanSizeAndPayloadAcrossFrames(t *testing.T) {
@@ -610,25 +610,25 @@ func TestLiveStateRecordCanSpanSizeAndPayloadAcrossFrames(t *testing.T) {
 	record := classicStateRecordForTest("fragmented")
 
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "fragmented", record[:1]), false)
-	if ackFrame != 1 || resendFrame != 0 {
-		t.Fatalf("size-high fragment ack=%d resend=%d, want 1/0", ackFrame, resendFrame)
+	if primarySession.frames.ack != 1 || primarySession.frames.resend != 0 {
+		t.Fatalf("size-high fragment ack=%d resend=%d, want 1/0", primarySession.frames.ack, primarySession.frames.resend)
 	}
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(2, 0, "fragmented", record[1:6]), false)
-	stateMu.Lock()
-	bubblesBeforeCompletion := len(state.bubbles)
-	pendingBeforeCompletion := len(state.stateDataStream)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	bubblesBeforeCompletion := len(primarySession.draw.current.bubbles)
+	pendingBeforeCompletion := len(primarySession.draw.current.stateDataStream)
+	primarySession.draw.mu.Unlock()
 	if bubblesBeforeCompletion != 0 || pendingBeforeCompletion != 6 {
 		t.Fatalf("partial state = bubbles %d pending %d, want 0/6", bubblesBeforeCompletion, pendingBeforeCompletion)
 	}
 
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(3, 0, "fragmented", record[6:]), false)
-	stateMu.Lock()
-	bubbles := append([]bubble(nil), state.bubbles...)
-	pending := len(state.stateDataStream)
-	stateMu.Unlock()
-	if ackFrame != 3 || resendFrame != 0 || pending != 0 {
-		t.Fatalf("completed state ack=%d resend=%d pending=%d, want 3/0/0", ackFrame, resendFrame, pending)
+	primarySession.draw.mu.Lock()
+	bubbles := append([]bubble(nil), primarySession.draw.current.bubbles...)
+	pending := len(primarySession.draw.current.stateDataStream)
+	primarySession.draw.mu.Unlock()
+	if primarySession.frames.ack != 3 || primarySession.frames.resend != 0 || pending != 0 {
+		t.Fatalf("completed state ack=%d resend=%d pending=%d, want 3/0/0", primarySession.frames.ack, primarySession.frames.resend, pending)
 	}
 	if len(bubbles) != 1 || bubbles[0].Text != "fragmented" {
 		t.Fatalf("completed fragmented bubbles = %#v", bubbles)
@@ -642,10 +642,10 @@ func TestLiveStateFragmentProcessesMultipleCompleteRecords(t *testing.T) {
 	fragment := append(append([]byte(nil), first...), second...)
 
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "first", fragment), false)
-	stateMu.Lock()
-	bubbles := append([]bubble(nil), state.bubbles...)
-	pending := len(state.stateDataStream)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	bubbles := append([]bubble(nil), primarySession.draw.current.bubbles...)
+	pending := len(primarySession.draw.current.stateDataStream)
+	primarySession.draw.mu.Unlock()
 	if pending != 0 || len(bubbles) != 2 || bubbles[0].Text != "first" || bubbles[1].Text != "second" {
 		t.Fatalf("multiple state records = pending %d bubbles %#v", pending, bubbles)
 	}
@@ -660,9 +660,9 @@ func TestBadLogicalStateRecordDoesNotBlockFollowingRecord(t *testing.T) {
 	if !handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "after bad record", fragment), false) {
 		t.Fatal("bad logical record rejected its structurally valid frame")
 	}
-	stateMu.Lock()
-	bubbles := append([]bubble(nil), state.bubbles...)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	bubbles := append([]bubble(nil), primarySession.draw.current.bubbles...)
+	primarySession.draw.mu.Unlock()
 	if len(bubbles) != 1 || bubbles[0].Text != "after bad record" {
 		t.Fatalf("following logical record was not decoded: %#v", bubbles)
 	}
@@ -688,17 +688,17 @@ func TestLiveStateFragmentRecoveryMatchesClassicResendFlow(t *testing.T) {
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(1, 0, "recovered split", record[:split]), false)
 	ignored := classicStateRecordForTest("must be ignored")
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(3, 0, "must be ignored", ignored), false)
-	if ackFrame != 3 || resendFrame != 2 {
-		t.Fatalf("gap state ack=%d resend=%d, want 3/2", ackFrame, resendFrame)
+	if primarySession.frames.ack != 3 || primarySession.frames.resend != 2 {
+		t.Fatalf("gap state ack=%d resend=%d, want 3/2", primarySession.frames.ack, primarySession.frames.resend)
 	}
 
 	handleDrawState(liveDrawPacketWithStateFragmentForTest(4, 2, "recovered split", record[split:]), false)
-	stateMu.Lock()
-	bubbles := append([]bubble(nil), state.bubbles...)
-	pending := len(state.stateDataStream)
-	stateMu.Unlock()
-	if ackFrame != 4 || resendFrame != 0 || pending != 0 {
-		t.Fatalf("recovered split ack=%d resend=%d pending=%d, want 4/0/0", ackFrame, resendFrame, pending)
+	primarySession.draw.mu.Lock()
+	bubbles := append([]bubble(nil), primarySession.draw.current.bubbles...)
+	pending := len(primarySession.draw.current.stateDataStream)
+	primarySession.draw.mu.Unlock()
+	if primarySession.frames.ack != 4 || primarySession.frames.resend != 0 || pending != 0 {
+		t.Fatalf("recovered split ack=%d resend=%d pending=%d, want 4/0/0", primarySession.frames.ack, primarySession.frames.resend, pending)
 	}
 	if len(bubbles) != 1 || bubbles[0].Text != "recovered split" {
 		t.Fatalf("recovered split bubbles = %#v", bubbles)
@@ -706,12 +706,12 @@ func TestLiveStateFragmentRecoveryMatchesClassicResendFlow(t *testing.T) {
 }
 
 func TestLiveFrameOrderingAndStateRecovery(t *testing.T) {
-	oldAck, oldResend, oldLastAck := ackFrame, resendFrame, lastAckFrame
-	oldFrameCounter, oldMovieMode, oldEncrypted := frameCounter, movieMode, drawStateEncrypted
+	oldAck, oldResend, oldLastAck := primarySession.frames.ack, primarySession.frames.resend, primarySession.frames.lastAck
+	oldFrameCounter, oldMovieMode, oldEncrypted := primarySession.draw.frame, movieMode, drawStateEncrypted
 	oldSettings, oldPlayers := gs, players
 	t.Cleanup(func() {
-		ackFrame, resendFrame, lastAckFrame = oldAck, oldResend, oldLastAck
-		frameCounter, movieMode, drawStateEncrypted = oldFrameCounter, oldMovieMode, oldEncrypted
+		primarySession.frames.ack, primarySession.frames.resend, primarySession.frames.lastAck = oldAck, oldResend, oldLastAck
+		primarySession.draw.frame, movieMode, drawStateEncrypted = oldFrameCounter, oldMovieMode, oldEncrypted
 		gs, players = oldSettings, oldPlayers
 		resetDrawState()
 	})
@@ -721,45 +721,45 @@ func TestLiveFrameOrderingAndStateRecovery(t *testing.T) {
 	gs.BubbleNormal = true
 	gs.BubbleOtherPlayers = true
 	movieMode, drawStateEncrypted = false, false
-	ackFrame, resendFrame, lastAckFrame, frameCounter = 0, 0, 0, 0
+	primarySession.frames.ack, primarySession.frames.resend, primarySession.frames.lastAck, primarySession.draw.frame = 0, 0, 0, 0
 
 	handleDrawState(liveDrawPacketForTest(1, 0, "first"), false)
-	if ackFrame != 1 || resendFrame != 0 {
-		t.Fatalf("first frame ack=%d resend=%d", ackFrame, resendFrame)
+	if primarySession.frames.ack != 1 || primarySession.frames.resend != 0 {
+		t.Fatalf("first frame ack=%d resend=%d", primarySession.frames.ack, primarySession.frames.resend)
 	}
 
 	handleDrawState(liveDrawPacketForTest(3, 0, "skipped state"), false)
-	if ackFrame != 3 || resendFrame != 2 {
-		t.Fatalf("gap frame ack=%d resend=%d, want 3/2", ackFrame, resendFrame)
+	if primarySession.frames.ack != 3 || primarySession.frames.resend != 2 {
+		t.Fatalf("gap frame ack=%d resend=%d, want 3/2", primarySession.frames.ack, primarySession.frames.resend)
 	}
-	if frameCounter != 3 {
-		t.Fatalf("live frame clock = %d, want server acknowledgement 3", frameCounter)
+	if primarySession.draw.frame != 3 {
+		t.Fatalf("live frame clock = %d, want server acknowledgement 3", primarySession.draw.frame)
 	}
-	stateMu.Lock()
-	if len(state.bubbles) != 1 || state.bubbles[0].Text != "first" {
-		got := append([]bubble(nil), state.bubbles...)
-		stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	if len(primarySession.draw.current.bubbles) != 1 || primarySession.draw.current.bubbles[0].Text != "first" {
+		got := append([]bubble(nil), primarySession.draw.current.bubbles...)
+		primarySession.draw.mu.Unlock()
 		t.Fatalf("gap applied state data: %#v", got)
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 
 	handleDrawState(liveDrawPacketForTest(4, 2, "recovered"), false)
-	if ackFrame != 4 || resendFrame != 0 {
-		t.Fatalf("recovery frame ack=%d resend=%d, want 4/0", ackFrame, resendFrame)
+	if primarySession.frames.ack != 4 || primarySession.frames.resend != 0 {
+		t.Fatalf("recovery frame ack=%d resend=%d, want 4/0", primarySession.frames.ack, primarySession.frames.resend)
 	}
-	if frameCounter != 4 {
-		t.Fatalf("recovered live frame clock = %d, want 4", frameCounter)
+	if primarySession.draw.frame != 4 {
+		t.Fatalf("recovered live frame clock = %d, want 4", primarySession.draw.frame)
 	}
-	stateMu.Lock()
-	lastBubble := state.bubbles[len(state.bubbles)-1]
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	lastBubble := primarySession.draw.current.bubbles[len(primarySession.draw.current.bubbles)-1]
+	primarySession.draw.mu.Unlock()
 	if lastBubble.Text != "recovered" {
 		t.Fatalf("recovered state bubble = %q", lastBubble.Text)
 	}
 
-	beforeFrame := frameCounter
+	beforeFrame := primarySession.draw.frame
 	handleDrawState(liveDrawPacketForTest(4, 0, "duplicate"), false)
-	if ackFrame != 4 || frameCounter != beforeFrame {
-		t.Fatalf("duplicate changed ack/frame counter to %d/%d", ackFrame, frameCounter)
+	if primarySession.frames.ack != 4 || primarySession.draw.frame != beforeFrame {
+		t.Fatalf("duplicate changed ack/frame counter to %d/%d", primarySession.frames.ack, primarySession.draw.frame)
 	}
 }

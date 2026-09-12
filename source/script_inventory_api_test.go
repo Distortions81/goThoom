@@ -8,23 +8,26 @@ import (
 
 func withScriptInventoryTestState(t *testing.T) {
 	t.Helper()
-	inventoryMu.Lock()
-	originalItems := inventoryItems
-	originalNames := inventoryNames
-	originalSequence := inventoryInstanceSequence.Load()
-	inventoryItems = nil
-	inventoryNames = map[inventoryKey]string{}
-	inventoryInstanceSequence.Store(0)
-	inventoryMu.Unlock()
+	originalInventory := primarySession.inventory
+	primarySession.inventory = newInventoryState()
 	originalImages := clImages
 	t.Cleanup(func() {
-		inventoryMu.Lock()
-		inventoryItems = originalItems
-		inventoryNames = originalNames
-		inventoryInstanceSequence.Store(originalSequence)
-		inventoryMu.Unlock()
+		primarySession.inventory = originalInventory
 		clImages = originalImages
 	})
+}
+
+func setScriptInventoryTestItems(items []InventoryItem) {
+	inventory := primarySession.inventory
+	inventory.mu.Lock()
+	inventory.items = append([]InventoryItem(nil), items...)
+	inventory.rebuildIndicesLocked()
+	for _, item := range inventory.items {
+		if item.InstanceID > inventory.instanceSequence.Load() {
+			inventory.instanceSequence.Store(item.InstanceID)
+		}
+	}
+	inventory.mu.Unlock()
 }
 
 func TestInventoryInstanceIDSurvivesIndexChanges(t *testing.T) {

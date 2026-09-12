@@ -34,18 +34,18 @@ func TestFollowRoutesAroundUnmappedObstacle(t *testing.T) {
 					if scrolling {
 						cameraX, cameraY = x, y
 					}
-					stateMu.Lock()
-					state.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
-					state.liveMobs = []frameMobile{{Index: 1, H: x - cameraX, V: y - cameraY}}
+					primarySession.draw.mu.Lock()
+					primarySession.draw.current.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
+					primarySession.draw.current.liveMobs = []frameMobile{{Index: 1, H: x - cameraX, V: y - cameraY}}
 					if showLeader {
-						state.liveMobs = append(state.liveMobs, frameMobile{Index: 2, H: 160 - cameraX, V: -cameraY})
+						primarySession.draw.current.liveMobs = append(primarySession.draw.current.liveMobs, frameMobile{Index: 2, H: 160 - cameraX, V: -cameraY})
 					}
-					state.pictures = []framePicture{{PictID: 100, H: -200 - cameraX, V: -200 - cameraY, Background: true}, {PictID: 101, H: -150 - cameraX, V: -100 - cameraY}}
-					state.logicalFrame, state.receivedAt = frame, base.Add(time.Duration(frame)*250*time.Millisecond)
-					state.picShiftX, state.picShiftY = int(oldCameraX-cameraX), int(oldCameraY-cameraY)
+					primarySession.draw.current.pictures = []framePicture{{PictID: 100, H: -200 - cameraX, V: -200 - cameraY, Background: true}, {PictID: 101, H: -150 - cameraX, V: -100 - cameraY}}
+					primarySession.draw.current.logicalFrame, primarySession.draw.current.receivedAt = frame, base.Add(time.Duration(frame)*250*time.Millisecond)
+					primarySession.draw.current.picShiftX, primarySession.draw.current.picShiftY = int(oldCameraX-cameraX), int(oldCameraY-cameraY)
 					oldCameraX, oldCameraY = cameraX, cameraY
 					markWorldStateChanged()
-					stateMu.Unlock()
+					primarySession.draw.mu.Unlock()
 					dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
 					sim.barrier(t)
 					return applyScriptMovement(inputState{}, time.Now())

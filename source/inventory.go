@@ -23,12 +23,17 @@ type inventoryKey struct {
 	IDIndex int16
 }
 
-var (
-	inventoryMu               sync.RWMutex
-	inventoryItems            []InventoryItem
-	inventoryNames            = make(map[inventoryKey]string)
-	inventoryInstanceSequence atomic.Uint64
-)
+type inventoryState struct {
+	mu               sync.RWMutex
+	items            []InventoryItem
+	names            map[inventoryKey]string
+	instanceSequence atomic.Uint64
+	revision         atomic.Uint64
+}
+
+func newInventoryState() *inventoryState {
+	return &inventoryState{names: make(map[inventoryKey]string)}
+}
 
 var invFoldCaser = cases.Fold()
 
@@ -44,93 +49,108 @@ func normalizeInventoryName(name string) string {
 }
 
 func resetInventory() {
-	inventoryMu.Lock()
-	inventoryItems = inventoryItems[:0]
-	inventoryNames = make(map[inventoryKey]string)
-	inventoryInstanceSequence.Store(0)
-	inventoryMu.Unlock()
+	primarySession.inventory.reset()
 	inventoryDirty = true
 }
 
-// rebuildInventoryIndices recalculates sequential display indices for all
-// inventory items and rebuilds the inventoryNames map based on the current
-// state. inventoryMu must be held by the caller.
-func rebuildInventoryIndices() {
-	inventoryNames = make(map[inventoryKey]string)
-	for i := range inventoryItems {
-		inventoryItems[i].Index = i
+func (s *inventoryState) reset() {
+	s.mu.Lock()
+	s.items = s.items[:0]
+	s.names = make(map[inventoryKey]string)
+	s.instanceSequence.Store(0)
+	s.mu.Unlock()
+	s.revision.Add(1)
+}
+
+// rebuildIndicesLocked recalculates sequential display indices for all
+// inventory items and rebuilds the custom-name map based on the current state.
+// s.mu must be held by the caller.
+func (s *inventoryState) rebuildIndicesLocked() {
+	s.names = make(map[inventoryKey]string)
+	for i := range s.items {
+		s.items[i].Index = i
 		// Persist only the per-instance extra (custom) text, not the full display name.
-		if inventoryItems[i].Extra != "" {
-			key := inventoryKey{ID: inventoryItems[i].ID, IDIndex: int16(inventoryItems[i].IDIndex)}
-			if inventoryItems[i].IDIndex < 0 {
+		if s.items[i].Extra != "" {
+			key := inventoryKey{ID: s.items[i].ID, IDIndex: int16(s.items[i].IDIndex)}
+			if s.items[i].IDIndex < 0 {
 				key.IDIndex = -1
 			}
-			inventoryNames[key] = inventoryItems[i].Extra
+			s.names[key] = s.items[i].Extra
 		}
 	}
 }
 
 func addInventoryItem(id uint16, idx int, name string, equip bool) {
-	inventoryMu.Lock()
+	primarySession.inventory.add(id, idx, name, equip)
+	inventoryDirty = true
+}
+
+func (s *inventoryState) add(id uint16, idx int, name string, equip bool) {
+	s.mu.Lock()
 	target := -1
 	if idx >= 0 {
 		// Template item with explicit per-ID index; insert a new entry and renumber
 		// existing items of the same ID whose IDIndex >= idx.
-		for i := range inventoryItems {
-			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex >= idx {
-				inventoryItems[i].IDIndex++
+		for i := range s.items {
+			if s.items[i].ID == id && s.items[i].IDIndex >= idx {
+				s.items[i].IDIndex++
 			}
 		}
 		// Append as a distinct instance; keep display order by placing at end
 		disp := fmt.Sprintf("%s <#%d>", name, idx+1)
-		target = len(inventoryItems)
-		item := InventoryItem{InstanceID: inventoryInstanceSequence.Add(1), ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
-		inventoryItems = append(inventoryItems, item)
+		target = len(s.items)
+		item := InventoryItem{InstanceID: s.instanceSequence.Add(1), ID: id, Name: disp, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: idx, Quantity: 1}
+		s.items = append(s.items, item)
 	} else {
 		// Legacy/non-template: coalesce by ID only when normalized names match.
 		found := false
 		normName := normalizeInventoryName(name)
-		for i := range inventoryItems {
-			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex < 0 && normalizeInventoryName(inventoryItems[i].Name) == normName {
+		for i := range s.items {
+			if s.items[i].ID == id && s.items[i].IDIndex < 0 && normalizeInventoryName(s.items[i].Name) == normName {
 				target = i
-				inventoryItems[i].Quantity++
+				s.items[i].Quantity++
 				if equip {
-					inventoryItems[i].Equipped = true
+					s.items[i].Equipped = true
 				}
 				found = true
 				break
 			}
 		}
 		if !found {
-			target = len(inventoryItems)
-			item := InventoryItem{InstanceID: inventoryInstanceSequence.Add(1), ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
-			inventoryItems = append(inventoryItems, item)
+			target = len(s.items)
+			item := InventoryItem{InstanceID: s.instanceSequence.Add(1), ID: id, Name: name, Base: name, Extra: "", Equipped: equip, Index: target, IDIndex: -1, Quantity: 1}
+			s.items = append(s.items, item)
 		}
 	}
-	rebuildInventoryIndices()
+	s.rebuildIndicesLocked()
 	// If this item was equipped, clear any other equipped items occupying the
 	// same slot (e.g., hands, head). Mirrors BumpItemsFromSlot in the reference client.
 	if equip && clImages != nil {
 		slot := clImages.ItemSlot(uint32(id))
-		for i := range inventoryItems {
-			if i != target && inventoryItems[i].Equipped {
-				if clImages.ItemSlot(uint32(inventoryItems[i].ID)) == slot {
-					inventoryItems[i].Equipped = false
+		for i := range s.items {
+			if i != target && s.items[i].Equipped {
+				if clImages.ItemSlot(uint32(s.items[i].ID)) == slot {
+					s.items[i].Equipped = false
 				}
 			}
 		}
 	}
-	inventoryMu.Unlock()
-	inventoryDirty = true
+	s.mu.Unlock()
+	s.revision.Add(1)
 }
 
 func removeInventoryItem(id uint16, idx int) {
-	inventoryMu.Lock()
+	primarySession.inventory.remove(id, idx)
+	inventoryDirty = true
+}
+
+func (s *inventoryState) remove(id uint16, idx int) {
+	s.mu.Lock()
 	removed := false
 	if idx >= 0 {
 		// Remove by per-ID index
 		pos := -1
-		for i, it := range inventoryItems {
+		for i, it := range s.items {
 			if it.ID == id && it.IDIndex == idx {
 				pos = i
 				break
@@ -138,21 +158,21 @@ func removeInventoryItem(id uint16, idx int) {
 		}
 		if pos >= 0 {
 			// Remove and renumber subsequent per-ID indices
-			inventoryItems = append(inventoryItems[:pos], inventoryItems[pos+1:]...)
-			for i := range inventoryItems {
-				if inventoryItems[i].ID == id && inventoryItems[i].IDIndex > idx {
-					inventoryItems[i].IDIndex--
+			s.items = append(s.items[:pos], s.items[pos+1:]...)
+			for i := range s.items {
+				if s.items[i].ID == id && s.items[i].IDIndex > idx {
+					s.items[i].IDIndex--
 				}
 			}
 			removed = true
 		}
 	} else {
-		for i, it := range inventoryItems {
+		for i, it := range s.items {
 			if it.ID == id && it.IDIndex < 0 {
 				if it.Quantity > 1 {
-					inventoryItems[i].Quantity--
+					s.items[i].Quantity--
 				} else {
-					inventoryItems = append(inventoryItems[:i], inventoryItems[i+1:]...)
+					s.items = append(s.items[:i], s.items[i+1:]...)
 					removed = true
 				}
 				break
@@ -160,31 +180,36 @@ func removeInventoryItem(id uint16, idx int) {
 		}
 	}
 	if removed {
-		rebuildInventoryIndices()
+		s.rebuildIndicesLocked()
 	}
-	inventoryMu.Unlock()
-	inventoryDirty = true
+	s.mu.Unlock()
+	s.revision.Add(1)
 }
 
 func equipInventoryItem(id uint16, idx int, equip bool) {
-	inventoryMu.Lock()
+	primarySession.inventory.equip(id, idx, equip)
+	inventoryDirty = true
+}
+
+func (s *inventoryState) equip(id uint16, idx int, equip bool) {
+	s.mu.Lock()
 	// Find target by per-ID index when provided. Without an explicit index
 	// choose an item by ID, preferring an already equipped instance when
 	// unequipping.
 	target := -1
 	if idx >= 0 {
-		for i := range inventoryItems {
-			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex == idx {
+		for i := range s.items {
+			if s.items[i].ID == id && s.items[i].IDIndex == idx {
 				target = i
 				break
 			}
 		}
 	} else {
-		for i := range inventoryItems {
-			if inventoryItems[i].ID != id {
+		for i := range s.items {
+			if s.items[i].ID != id {
 				continue
 			}
-			if !equip && inventoryItems[i].Equipped {
+			if !equip && s.items[i].Equipped {
 				target = i
 				break
 			}
@@ -194,22 +219,22 @@ func equipInventoryItem(id uint16, idx int, equip bool) {
 		}
 	}
 	if target >= 0 {
-		inventoryItems[target].Equipped = equip
+		s.items[target].Equipped = equip
 	}
 	// When equipping, make sure other items in the same slot are unequipped.
 	if equip && clImages != nil {
 		slot := clImages.ItemSlot(uint32(id))
-		for i := range inventoryItems {
+		for i := range s.items {
 			if i == target {
 				continue
 			}
-			if inventoryItems[i].Equipped && clImages.ItemSlot(uint32(inventoryItems[i].ID)) == slot {
-				inventoryItems[i].Equipped = false
+			if s.items[i].Equipped && clImages.ItemSlot(uint32(s.items[i].ID)) == slot {
+				s.items[i].Equipped = false
 			}
 		}
 	}
-	inventoryMu.Unlock()
-	inventoryDirty = true
+	s.mu.Unlock()
+	s.revision.Add(1)
 }
 
 // queueEquipCommand enqueues the server command to equip an item. The server
@@ -231,8 +256,8 @@ func formatEquipCommand(id uint16, idx int) string {
 
 // toggleInventoryEquipAt equips or unequips a specific item index. When idx is
 // negative, the first matching item is targeted similar to the legacy
-// behavior. The server is informed via pendingCommand; local inventory state
-// remains authoritative to the server response.
+// behavior. The server is informed through the session command stream; local
+// inventory state remains authoritative to the server response.
 func toggleInventoryEquipAt(id uint16, idx int) {
 	items := getInventory()
 	equip := true
@@ -268,15 +293,20 @@ func toggleInventoryEquipAt(id uint16, idx int) {
 }
 
 func renameInventoryItem(id uint16, idx int, name string) {
-	inventoryMu.Lock()
+	primarySession.inventory.rename(id, idx, name)
+	inventoryDirty = true
+}
+
+func (s *inventoryState) rename(id uint16, idx int, name string) {
+	s.mu.Lock()
 	if idx >= 0 {
 		// Template items are addressed by a per-ID index. Update only the
 		// matching instance so multiple containers of the same type can
 		// retain distinct names.
-		for i := range inventoryItems {
-			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex == idx {
+		for i := range s.items {
+			if s.items[i].ID == id && s.items[i].IDIndex == idx {
 				// Determine base (official) name without any suffix
-				base := inventoryItems[i].Name
+				base := s.items[i].Name
 				if p := strings.Index(base, " <#"); p >= 0 {
 					base = base[:p]
 				}
@@ -290,14 +320,14 @@ func renameInventoryItem(id uint16, idx int, name string) {
 				}
 				if name != "" {
 					// Canonical: include colon for custom template names
-					inventoryItems[i].Name = fmt.Sprintf("%s <#%d: %s>", base, idx+1, name)
-					inventoryItems[i].Base = base
-					inventoryItems[i].Extra = name
-					inventoryNames[inventoryKey{ID: id, IDIndex: int16(idx)}] = name
+					s.items[i].Name = fmt.Sprintf("%s <#%d: %s>", base, idx+1, name)
+					s.items[i].Base = base
+					s.items[i].Extra = name
+					s.names[inventoryKey{ID: id, IDIndex: int16(idx)}] = name
 				} else {
-					inventoryItems[i].Name = fmt.Sprintf("%s <#%d>", base, idx+1)
-					inventoryItems[i].Base = base
-					inventoryItems[i].Extra = ""
+					s.items[i].Name = fmt.Sprintf("%s <#%d>", base, idx+1)
+					s.items[i].Base = base
+					s.items[i].Extra = ""
 				}
 				break
 			}
@@ -305,13 +335,13 @@ func renameInventoryItem(id uint16, idx int, name string) {
 	} else {
 		// Legacy items without a template index: rename all matching IDs.
 		if name != "" {
-			inventoryNames[inventoryKey{ID: id, IDIndex: -1}] = name
+			s.names[inventoryKey{ID: id, IDIndex: -1}] = name
 		}
-		for i := range inventoryItems {
+		for i := range s.items {
 			// Only update legacy instances; do not override template instances.
-			if inventoryItems[i].ID == id && inventoryItems[i].IDIndex < 0 {
+			if s.items[i].ID == id && s.items[i].IDIndex < 0 {
 				// Compose canonical legacy name: Base <custom> when set, otherwise Base
-				base := inventoryItems[i].Name
+				base := s.items[i].Name
 				if p := strings.Index(base, " <"); p >= 0 {
 					base = base[:p]
 				}
@@ -328,26 +358,30 @@ func renameInventoryItem(id uint16, idx int, name string) {
 					}
 				}
 				if name != "" {
-					inventoryItems[i].Name = fmt.Sprintf("%s <%s>", base, name)
-					inventoryItems[i].Base = base
-					inventoryItems[i].Extra = name
+					s.items[i].Name = fmt.Sprintf("%s <%s>", base, name)
+					s.items[i].Base = base
+					s.items[i].Extra = name
 				} else {
-					inventoryItems[i].Name = base
-					inventoryItems[i].Base = base
-					inventoryItems[i].Extra = ""
+					s.items[i].Name = base
+					s.items[i].Base = base
+					s.items[i].Extra = ""
 				}
 			}
 		}
 	}
-	inventoryMu.Unlock()
-	inventoryDirty = true
+	s.mu.Unlock()
+	s.revision.Add(1)
 }
 
 func getInventory() []InventoryItem {
-	inventoryMu.RLock()
-	defer inventoryMu.RUnlock()
-	out := make([]InventoryItem, len(inventoryItems))
-	copy(out, inventoryItems)
+	return primarySession.inventory.snapshot()
+}
+
+func (s *inventoryState) snapshot() []InventoryItem {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]InventoryItem, len(s.items))
+	copy(out, s.items)
 	if clImages != nil {
 		for index := range out {
 			slot := clImages.ItemSlot(uint32(out[index].ID))
@@ -363,6 +397,22 @@ func getInventory() []InventoryItem {
 		return out[i].Index < out[j].Index
 	})
 	return out
+}
+
+func (s *inventoryState) completionNames() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	names := make([]string, 0, len(s.items))
+	for _, item := range s.items {
+		if item.Name != "" {
+			names = append(names, item.Name)
+		}
+	}
+	return names
+}
+
+func getInventoryCompletionNames() []string {
+	return primarySession.inventory.completionNames()
 }
 
 func scriptItemSlotName(slot int) string {
@@ -382,15 +432,24 @@ func scriptItemSlotName(slot int) string {
 
 // inventoryItemByIndex returns the InventoryItem at the given index.
 func inventoryItemByIndex(idx int) (InventoryItem, bool) {
-	inventoryMu.RLock()
-	defer inventoryMu.RUnlock()
-	if idx < 0 || idx >= len(inventoryItems) {
+	return primarySession.inventory.itemByIndex(idx)
+}
+
+func (s *inventoryState) itemByIndex(idx int) (InventoryItem, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if idx < 0 || idx >= len(s.items) {
 		return InventoryItem{}, false
 	}
-	return inventoryItems[idx], true
+	return s.items[idx], true
 }
 
 func setFullInventory(ids []uint16, equipped []bool) {
+	primarySession.inventory.setFull(ids, equipped)
+	inventoryDirty = true
+}
+
+func (s *inventoryState) setFull(ids []uint16, equipped []bool) {
 	type groupKey struct {
 		id   uint16
 		name string
@@ -398,18 +457,18 @@ func setFullInventory(ids []uint16, equipped []bool) {
 	oldNames := make(map[inventoryKey]string)
 	oldTemplateIDs := make(map[inventoryKey]uint64)
 	oldGroupIDs := make(map[groupKey]uint64)
-	inventoryMu.RLock()
-	for k, v := range inventoryNames {
+	s.mu.RLock()
+	for k, v := range s.names {
 		oldNames[k] = v
 	}
-	for _, item := range inventoryItems {
+	for _, item := range s.items {
 		if item.IDIndex >= 0 {
 			oldTemplateIDs[inventoryKey{ID: item.ID, IDIndex: int16(item.IDIndex)}] = item.InstanceID
 		} else {
 			oldGroupIDs[groupKey{id: item.ID, name: normalizeInventoryName(item.Name)}] = item.InstanceID
 		}
 	}
-	inventoryMu.RUnlock()
+	s.mu.RUnlock()
 
 	grouped := make([]InventoryItem, 0, len(ids))
 	groupPos := make(map[groupKey]int)
@@ -464,7 +523,7 @@ func setFullInventory(ids []uint16, equipped []bool) {
 			}
 			instanceID := oldTemplateIDs[inventoryKey{ID: id, IDIndex: int16(idx)}]
 			if instanceID == 0 {
-				instanceID = inventoryInstanceSequence.Add(1)
+				instanceID = s.instanceSequence.Add(1)
 			}
 			item := InventoryItem{InstanceID: instanceID, ID: id, Name: disp, Base: base, Extra: strings.TrimSpace(name), Equipped: equip, Index: len(grouped), IDIndex: idx, Quantity: 1}
 			grouped = append(grouped, item)
@@ -494,7 +553,7 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		}
 		instanceID := oldGroupIDs[gk]
 		if instanceID == 0 {
-			instanceID = inventoryInstanceSequence.Add(1)
+			instanceID = s.instanceSequence.Add(1)
 		}
 		item := InventoryItem{InstanceID: instanceID, ID: id, Name: disp, Base: base, Extra: legacyExtra, Equipped: equip, Index: len(grouped), IDIndex: -1, Quantity: 1}
 		grouped = append(grouped, item)
@@ -504,9 +563,9 @@ func setFullInventory(ids []uint16, equipped []bool) {
 		}
 	}
 
-	inventoryMu.Lock()
-	inventoryItems = grouped
-	inventoryNames = newNames
-	inventoryMu.Unlock()
-	inventoryDirty = true
+	s.mu.Lock()
+	s.items = grouped
+	s.names = newNames
+	s.mu.Unlock()
+	s.revision.Add(1)
 }

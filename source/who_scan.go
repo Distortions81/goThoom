@@ -6,11 +6,10 @@ import (
 
 // Simple manager to coordinate multi-batch /be-who scans and throttle requests.
 var (
-	whoActive           bool
-	whoScanStarted      time.Time
-	whoLastRequest      time.Time
-	whoCooldown               = 1 * time.Second
-	whoLastCommandFrame int32 = -1
+	whoActive      bool
+	whoScanStarted time.Time
+	whoLastRequest time.Time
+	whoCooldown    = 1 * time.Second
 )
 
 // considerNextWhoBatch decides if we should ask for another page.

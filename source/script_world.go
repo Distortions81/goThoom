@@ -9,16 +9,16 @@ import (
 )
 
 func scriptCurrentWorld() scriptapi.World {
-	stateMu.Lock()
+	primarySession.draw.mu.Lock()
 	world := scriptapi.World{
-		Width: gameAreaSizeX, Height: gameAreaSizeY, Generation: worldStateGeneration.Load(),
-		Frame: state.logicalFrame, ReceivedAt: state.receivedAt,
-		CameraShiftX: state.picShiftX, CameraShiftY: state.picShiftY, Lighting: state.lightingFlags,
-		Mobiles:  make([]scriptapi.Mobile, 0, len(state.liveMobs)),
-		Pictures: make([]scriptapi.Picture, 0, len(state.pictures)),
+		Width: gameAreaSizeX, Height: gameAreaSizeY, Generation: primarySession.draw.generation.Load(),
+		Frame: primarySession.draw.current.logicalFrame, ReceivedAt: primarySession.draw.current.receivedAt,
+		CameraShiftX: primarySession.draw.current.picShiftX, CameraShiftY: primarySession.draw.current.picShiftY, Lighting: primarySession.draw.current.lightingFlags,
+		Mobiles:  make([]scriptapi.Mobile, 0, len(primarySession.draw.current.liveMobs)),
+		Pictures: make([]scriptapi.Picture, 0, len(primarySession.draw.current.pictures)),
 	}
-	for _, m := range state.liveMobs {
-		d, ok := state.descriptors[m.Index]
+	for _, m := range primarySession.draw.current.liveMobs {
+		d, ok := primarySession.draw.current.descriptors[m.Index]
 		if !ok {
 			continue
 		}
@@ -29,14 +29,15 @@ func scriptCurrentWorld() scriptapi.World {
 		}
 		world.Mobiles = append(world.Mobiles, mobile)
 	}
-	for _, p := range state.pictures {
+	for _, p := range primarySession.draw.current.pictures {
 		world.Pictures = append(world.Pictures, scriptapi.Picture{
 			PictID: p.PictID, H: p.H, V: p.V, Plane: p.Plane,
 			Moving: p.Moving, Background: p.Background, Reused: p.Again,
 		})
 	}
-	stateMu.Unlock()
-	// Metadata lookup requires no GPU image allocation and need not hold stateMu.
+	primarySession.draw.mu.Unlock()
+	// Metadata lookup requires no GPU image allocation and need not hold the
+	// session draw lock.
 	for i := range world.Mobiles {
 		m := &world.Mobiles[i]
 		m.Size = mobileSize(m.PictID)
@@ -85,9 +86,9 @@ func scriptMove(owner string, x, y int16, now time.Time) bool {
 	if !scriptSessionActive {
 		return false
 	}
-	stateMu.Lock()
-	fresh := !state.receivedAt.IsZero() && now.Sub(state.receivedAt) < time.Second
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	fresh := !primarySession.draw.current.receivedAt.IsZero() && now.Sub(primarySession.draw.current.receivedAt) < time.Second
+	primarySession.draw.mu.Unlock()
 	if !fresh {
 		return false
 	}

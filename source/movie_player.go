@@ -254,7 +254,7 @@ func (p *moviePlayer) addCheckpoint(cp movieCheckpoint) {
 
 func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *moviePlayer {
 	setInterpFPS(fps)
-	frameInterval = time.Second / time.Duration(fps)
+	primarySession.timing.setInterval(time.Second / time.Duration(fps))
 	playingMovie = true
 	movieMode = true
 	movieMusicPaused.Store(false)
@@ -273,7 +273,7 @@ func newMoviePlayer(frames []movieFrame, fps int, cancel context.CancelFunc) *mo
 		ticker:          time.NewTicker(time.Second / time.Duration(fps)),
 		cancel:          cancel,
 		looped:          make(chan struct{}, 1),
-		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(initialState), night: captureMovieNightState()}},
+		checkpoints:     []movieCheckpoint{{idx: 0, state: cloneDrawState(primarySession.draw.initial), night: captureMovieNightState()}},
 		music:           indexMovieMusic(frames),
 	}
 }
@@ -659,15 +659,15 @@ func (p *moviePlayer) step() {
 		// Advance the logical frame counter even when this movie frame
 		// does not contain a draw-state update so time-based effects
 		// (e.g., bubble expiration) progress correctly during playback.
-		frameCounter++
+		primarySession.draw.frame++
 	}
 	maybeDecodeMessage(m.data)
 	p.cur++
 	if p.cur%checkpointInterval == 0 {
 		night := captureMovieNightState()
-		stateMu.Lock()
-		cp := movieCheckpoint{idx: p.cur, state: cloneDrawState(state), night: night}
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		cp := movieCheckpoint{idx: p.cur, state: cloneDrawState(primarySession.draw.current), night: night}
+		primarySession.draw.mu.Unlock()
 		p.addCheckpoint(cp)
 	}
 	if p.cur >= len(p.frames) {
@@ -835,7 +835,7 @@ func (p *moviePlayer) setFPS(fps int) {
 	}
 	p.fps = fps
 	p.ticker.Reset(time.Second / time.Duration(p.fps))
-	frameInterval = time.Second / time.Duration(p.fps)
+	primarySession.timing.setInterval(time.Second / time.Duration(p.fps))
 	setInterpFPS(p.fps)
 	setMovieMusicTempoRate(float64(p.fps) / float64(p.baseFPS))
 	if p.playing {
@@ -1106,16 +1106,16 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 
 	cp := p.checkpointAtOrBefore(idx)
 
-	stateMu.Lock()
-	state = cloneDrawState(cp.state)
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current = cloneDrawState(cp.state)
 	// Ensure render caches reflect the restored checkpoint state. The cache
 	// will be rebuilt again if additional frames are parsed.
 	prepareRenderCacheLocked()
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	restoreMovieNightState(cp.night)
 	firstRender := publishMovieSeekRender()
 	waitForMovieSeekRender(firstRender)
-	frameCounter = cp.idx
+	primarySession.draw.frame = cp.idx
 	lastFullRender := time.Now()
 
 	for i := cp.idx; i < idx; i++ {
@@ -1136,25 +1136,25 @@ func (p *moviePlayer) seekWithCancel(idx int, cancelled func() bool) {
 		} else {
 			// Keep timeline consistent during scrubbing when frames
 			// without draw-state are encountered.
-			frameCounter++
+			primarySession.draw.frame++
 		}
 		maybeDecodeMessage(m.data)
-		if frameCounter%checkpointInterval == 0 {
+		if primarySession.draw.frame%checkpointInterval == 0 {
 			night := captureMovieNightState()
-			stateMu.Lock()
-			snap := movieCheckpoint{idx: frameCounter, state: cloneDrawState(state), night: night}
-			stateMu.Unlock()
+			primarySession.draw.mu.Lock()
+			snap := movieCheckpoint{idx: primarySession.draw.frame, state: cloneDrawState(primarySession.draw.current), night: night}
+			primarySession.draw.mu.Unlock()
 			p.addCheckpoint(snap)
 		}
 	}
 	night := captureMovieNightState()
-	stateMu.Lock()
+	primarySession.draw.mu.Lock()
 	// Cancellation or a run of non-draw frames may end between periodic
 	// publishes. Always leave a complete final cache for the first post-seek
 	// frame rather than exposing the partially rebuilt state.
 	prepareRenderCacheLocked()
-	snap := movieCheckpoint{idx: idx, state: cloneDrawState(state), night: night}
-	stateMu.Unlock()
+	snap := movieCheckpoint{idx: idx, state: cloneDrawState(primarySession.draw.current), night: night}
+	primarySession.draw.mu.Unlock()
 	publishMovieSeekRender()
 	p.addCheckpoint(snap)
 	p.cur = idx
@@ -1193,26 +1193,26 @@ func maybeDecodeMessage(m []byte) {
 }
 
 func resetInterpolation() {
-	stateMu.Lock()
-	state.prevMobiles = make(map[uint8]frameMobile)
-	state.prevDescs = make(map[uint8]frameDescriptor)
-	state.prevPictures = nil
-	state.picShiftX = 0
-	state.picShiftY = 0
-	for i := range state.pictures {
-		state.pictures[i].PrevH = state.pictures[i].H
-		state.pictures[i].PrevV = state.pictures[i].V
-		state.pictures[i].Moving = false
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.prevMobiles = make(map[uint8]frameMobile)
+	primarySession.draw.current.prevDescs = make(map[uint8]frameDescriptor)
+	primarySession.draw.current.prevPictures = nil
+	primarySession.draw.current.picShiftX = 0
+	primarySession.draw.current.picShiftY = 0
+	for i := range primarySession.draw.current.pictures {
+		primarySession.draw.current.pictures[i].PrevH = primarySession.draw.current.pictures[i].H
+		primarySession.draw.current.pictures[i].PrevV = primarySession.draw.current.pictures[i].V
+		primarySession.draw.current.pictures[i].Moving = false
 	}
-	state.prevTime = state.curTime
-	state.prevHP = state.hp
-	state.prevHPMax = state.hpMax
-	state.prevSP = state.sp
-	state.prevSPMax = state.spMax
-	state.prevBalance = state.balance
-	state.prevBalanceMax = state.balanceMax
+	primarySession.draw.current.prevTime = primarySession.draw.current.curTime
+	primarySession.draw.current.prevHP = primarySession.draw.current.hp
+	primarySession.draw.current.prevHPMax = primarySession.draw.current.hpMax
+	primarySession.draw.current.prevSP = primarySession.draw.current.sp
+	primarySession.draw.current.prevSPMax = primarySession.draw.current.spMax
+	primarySession.draw.current.prevBalance = primarySession.draw.current.balance
+	primarySession.draw.current.prevBalanceMax = primarySession.draw.current.balanceMax
 	prepareRenderCacheLocked()
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 }
 
 func setInterpFPS(fps int) {
@@ -1220,10 +1220,10 @@ func setInterpFPS(fps int) {
 		fps = 1
 	}
 	d := time.Second / time.Duration(fps)
-	stateMu.Lock()
-	if state.prevTime.IsZero() {
-		state.prevTime = time.Now()
+	primarySession.draw.mu.Lock()
+	if primarySession.draw.current.prevTime.IsZero() {
+		primarySession.draw.current.prevTime = time.Now()
 	}
-	state.curTime = state.prevTime.Add(d)
-	stateMu.Unlock()
+	primarySession.draw.current.curTime = primarySession.draw.current.prevTime.Add(d)
+	primarySession.draw.mu.Unlock()
 }

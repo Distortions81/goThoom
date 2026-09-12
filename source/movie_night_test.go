@@ -89,12 +89,12 @@ func assertStockMovieNightUpdates(t *testing.T, path string, wantUpdates int) {
 }
 
 func TestMovieSeekRestoresNightProjection(t *testing.T) {
-	originalState := cloneDrawState(state)
+	originalState := cloneDrawState(primarySession.draw.current)
 	t.Cleanup(func() {
 		gNight = NightInfo{}
-		stateMu.Lock()
-		state = originalState
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current = originalState
+		primarySession.draw.mu.Unlock()
 	})
 
 	emptyState := drawState{

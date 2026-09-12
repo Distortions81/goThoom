@@ -49,9 +49,9 @@ func TestBubbleDroppedForBlockedPlayer(t *testing.T) {
 	if _, _, err := parseDrawState(data, false); err != nil {
 		t.Fatalf("parseDrawState: %v", err)
 	}
-	stateMu.Lock()
-	got := len(state.bubbles)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	got := len(primarySession.draw.current.bubbles)
+	primarySession.draw.mu.Unlock()
 	if got != 0 {
 		t.Fatalf("expected no bubbles, got %d", got)
 	}

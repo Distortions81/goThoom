@@ -272,25 +272,25 @@ func TestPNAInitialLeadUsesFrameRateJitterAndSafety(t *testing.T) {
 }
 
 func TestRecordServerFrameTimingTracksCadenceAndIgnoresDuplicates(t *testing.T) {
-	frameMu.Lock()
-	oldLastFrameTime, oldFrameInterval := lastFrameTime, frameInterval
-	oldLastTimingFrame := lastTimingFrame
-	oldTimingSamples := append([]timedDurationSample(nil), frameTimingSamples...)
-	oldJitter, oldRate := serverFrameJitter, serverUpdatesPerSecond
-	lastFrameTime = time.Time{}
-	frameInterval = framems * time.Millisecond
-	lastTimingFrame = 0
-	frameTimingSamples = nil
-	serverFrameJitter = 0
-	serverUpdatesPerSecond = 0
-	frameMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	oldLastFrameTime, oldFrameInterval := primarySession.timing.lastFrameAt, primarySession.timing.interval
+	oldLastTimingFrame := primarySession.timing.lastFrame
+	oldTimingSamples := append([]timedDurationSample(nil), primarySession.timing.samples...)
+	oldJitter, oldRate := primarySession.timing.jitter, primarySession.timing.updatesPerSecond
+	primarySession.timing.lastFrameAt = time.Time{}
+	primarySession.timing.interval = framems * time.Millisecond
+	primarySession.timing.lastFrame = 0
+	primarySession.timing.samples = nil
+	primarySession.timing.jitter = 0
+	primarySession.timing.updatesPerSecond = 0
+	primarySession.timing.cadenceMu.Unlock()
 	t.Cleanup(func() {
-		frameMu.Lock()
-		lastFrameTime, frameInterval = oldLastFrameTime, oldFrameInterval
-		lastTimingFrame = oldLastTimingFrame
-		frameTimingSamples = oldTimingSamples
-		serverFrameJitter, serverUpdatesPerSecond = oldJitter, oldRate
-		frameMu.Unlock()
+		primarySession.timing.cadenceMu.Lock()
+		primarySession.timing.lastFrameAt, primarySession.timing.interval = oldLastFrameTime, oldFrameInterval
+		primarySession.timing.lastFrame = oldLastTimingFrame
+		primarySession.timing.samples = oldTimingSamples
+		primarySession.timing.jitter, primarySession.timing.updatesPerSecond = oldJitter, oldRate
+		primarySession.timing.cadenceMu.Unlock()
 	})
 
 	start := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
@@ -314,11 +314,11 @@ func TestRecordServerFrameTimingTracksCadenceAndIgnoresDuplicates(t *testing.T) 
 		t.Fatal("newer cross-channel frame was not accepted")
 	}
 
-	frameMu.Lock()
-	gotInterval, gotJitter, gotRate := frameInterval, serverFrameJitter, serverUpdatesPerSecond
-	gotLastTime, gotLastFrame := lastFrameTime, lastTimingFrame
-	gotSamples := len(frameTimingSamples)
-	frameMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	gotInterval, gotJitter, gotRate := primarySession.timing.interval, primarySession.timing.jitter, primarySession.timing.updatesPerSecond
+	gotLastTime, gotLastFrame := primarySession.timing.lastFrameAt, primarySession.timing.lastFrame
+	gotSamples := len(primarySession.timing.samples)
+	primarySession.timing.cadenceMu.Unlock()
 	if gotInterval != 200*time.Millisecond || gotJitter != 0 || gotRate != 5 {
 		t.Fatalf("timing estimate = interval %v jitter %v rate %v, want 200ms/0/5", gotInterval, gotJitter, gotRate)
 	}
@@ -330,57 +330,57 @@ func TestRecordServerFrameTimingTracksCadenceAndIgnoresDuplicates(t *testing.T) 
 func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	originalEnabled := gs.AltNetMode
 	originalSafety := networkAdjustmentSafetyPercent.Load()
-	frameMu.Lock()
-	originalJitter := serverFrameJitter
-	serverFrameJitter = 0
-	frameMu.Unlock()
-	frameStatsMu.Lock()
-	originalFrameBuckets, originalLostBuckets, originalBucketTimes := frameBuckets, lostBuckets, bucketTimes
-	frameBuckets, lostBuckets, bucketTimes = [5]int{}, [5]int{}, [5]int64{}
-	frameStatsMu.Unlock()
-	pnaControllerMu.Lock()
-	originalController := pnaController
-	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	originalFallback := pnaFallback
-	pnaFallback = pnaFallbackState{}
-	pnaFallbackMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	originalJitter := primarySession.timing.jitter
+	primarySession.timing.jitter = 0
+	primarySession.timing.cadenceMu.Unlock()
+	primarySession.frames.statsMu.Lock()
+	originalFrameBuckets, originalLostBuckets, originalBucketTimes := primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes
+	primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = [5]int{}, [5]int{}, [5]int64{}
+	primarySession.frames.statsMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	originalController := primarySession.timing.controller
+	primarySession.timing.controller = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	originalFallback := primarySession.timing.fallback
+	primarySession.timing.fallback = pnaFallbackState{}
+	primarySession.timing.fallbackMu.Unlock()
 	gs.AltNetMode = true
 	networkAdjustmentSafetyPercent.Store(10)
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
 		networkAdjustmentSafetyPercent.Store(originalSafety)
-		frameMu.Lock()
-		serverFrameJitter = originalJitter
-		frameMu.Unlock()
-		frameStatsMu.Lock()
-		frameBuckets, lostBuckets, bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
-		frameStatsMu.Unlock()
-		pnaControllerMu.Lock()
-		pnaController = originalController
-		pnaControllerMu.Unlock()
-		pnaFallbackMu.Lock()
-		pnaFallback = originalFallback
-		pnaFallbackMu.Unlock()
+		primarySession.timing.cadenceMu.Lock()
+		primarySession.timing.jitter = originalJitter
+		primarySession.timing.cadenceMu.Unlock()
+		primarySession.frames.statsMu.Lock()
+		primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
+		primarySession.frames.statsMu.Unlock()
+		primarySession.timing.controllerMu.Lock()
+		primarySession.timing.controller = originalController
+		primarySession.timing.controllerMu.Unlock()
+		primarySession.timing.fallbackMu.Lock()
+		primarySession.timing.fallback = originalFallback
+		primarySession.timing.fallbackMu.Unlock()
 	})
 
 	now := time.Date(2026, time.August, 29, 12, 0, 0, 0, time.UTC)
 	for i := 0; i < pnaSuccessesBeforeLater; i++ {
 		recordPNACommandFeedback(50*time.Millisecond, 150*time.Millisecond, 200*time.Millisecond, 10, 11, now.Add(time.Duration(i)*time.Second))
 	}
-	pnaControllerMu.Lock()
-	laterLead := pnaController.lead
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	laterLead := primarySession.timing.controller.lead
+	primarySession.timing.controllerMu.Unlock()
 	if laterLead != 42500*time.Microsecond {
 		t.Fatalf("lead after stable next-frame replies = %v, want 42.5ms", laterLead)
 	}
 
 	missTime := now.Add(5 * time.Second)
 	recordPNACommandFeedback(242500*time.Microsecond, 157500*time.Microsecond, 200*time.Millisecond, 11, 13, missTime)
-	pnaControllerMu.Lock()
-	missLead, learnedFloor, holdUntil := pnaController.lead, pnaController.learnedLeadFloor, pnaController.holdUntil
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	missLead, learnedFloor, holdUntil := primarySession.timing.controller.lead, primarySession.timing.controller.learnedLeadFloor, primarySession.timing.controller.holdUntil
+	primarySession.timing.controllerMu.Unlock()
 	if missLead != 67500*time.Microsecond || learnedFloor != missLead || holdUntil != missTime.Add(pnaFeedbackHold) {
 		t.Fatalf("miss recovery = lead %v floor %v hold %v, want 67.5ms floor and %v", missLead, learnedFloor, holdUntil, missTime.Add(pnaFeedbackHold))
 	}
@@ -388,9 +388,9 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	// Successful replies during the hold cannot immediately undo the safer
 	// correction, which prevents the controller from amplifying its own probe.
 	recordPNACommandFeedback(67500*time.Microsecond, 132500*time.Microsecond, 200*time.Millisecond, 13, 14, missTime.Add(time.Second))
-	pnaControllerMu.Lock()
-	heldLead, heldHits := pnaController.lead, pnaController.consecutiveHits
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	heldLead, heldHits := primarySession.timing.controller.lead, primarySession.timing.controller.consecutiveHits
+	primarySession.timing.controllerMu.Unlock()
 	if heldLead != missLead || heldHits != 0 {
 		t.Fatalf("feedback hold changed controller = lead %v hits %d", heldLead, heldHits)
 	}
@@ -401,9 +401,9 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 		recordPNACommandFeedback(100*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 13, 14,
 			holdUntil.Add(time.Duration(i+1)*time.Second))
 	}
-	pnaControllerMu.Lock()
-	afterHoldLead, afterHoldFloor := pnaController.lead, pnaController.learnedLeadFloor
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	afterHoldLead, afterHoldFloor := primarySession.timing.controller.lead, primarySession.timing.controller.learnedLeadFloor
+	primarySession.timing.controllerMu.Unlock()
 	if afterHoldLead != missLead || afterHoldFloor != missLead {
 		t.Fatalf("post-hold feedback re-crossed learned boundary: lead %v floor %v, want %v", afterHoldLead, afterHoldFloor, missLead)
 	}
@@ -412,16 +412,16 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	// server boundary can eventually be discovered without a short limit cycle.
 	probeTime := missTime.Add(pnaBoundaryProbeInterval)
 	recordPNACommandFeedback(100*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 15, probeTime)
-	pnaControllerMu.Lock()
-	probeLead, probeFloor, nextProbe := pnaController.lead, pnaController.learnedLeadFloor, pnaController.nextBoundaryProbe
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	probeLead, probeFloor, nextProbe := primarySession.timing.controller.lead, primarySession.timing.controller.learnedLeadFloor, primarySession.timing.controller.nextBoundaryProbe
+	primarySession.timing.controllerMu.Unlock()
 	if probeLead != 62500*time.Microsecond || probeFloor != probeLead || nextProbe != probeTime.Add(pnaBoundaryProbeInterval) {
 		t.Fatalf("rare boundary probe = lead %v floor %v next %v", probeLead, probeFloor, nextProbe)
 	}
 	recordPNACommandFeedback(100*time.Millisecond, 137500*time.Microsecond, 200*time.Millisecond, 15, 16, probeTime.Add(time.Second))
-	pnaControllerMu.Lock()
-	heldProbeLead := pnaController.lead
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	heldProbeLead := primarySession.timing.controller.lead
+	primarySession.timing.controllerMu.Unlock()
 	if heldProbeLead != probeLead {
 		t.Fatalf("boundary probed again before cooldown: lead %v, want %v", heldProbeLead, probeLead)
 	}
@@ -429,9 +429,9 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 	// A miss following a probe moves the floor earlier and restarts cooldown.
 	secondMiss := probeTime.Add(2 * time.Second)
 	recordPNACommandFeedback(250*time.Millisecond, 132500*time.Microsecond, 200*time.Millisecond, 14, 16, secondMiss)
-	pnaControllerMu.Lock()
-	secondLead, secondFloor, secondProbe := pnaController.lead, pnaController.learnedLeadFloor, pnaController.nextBoundaryProbe
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	secondLead, secondFloor, secondProbe := primarySession.timing.controller.lead, primarySession.timing.controller.learnedLeadFloor, primarySession.timing.controller.nextBoundaryProbe
+	primarySession.timing.controllerMu.Unlock()
 	if secondLead != 87500*time.Microsecond || secondFloor != secondLead || secondProbe != secondMiss.Add(pnaBoundaryProbeInterval) {
 		t.Fatalf("second miss did not move learned boundary earlier: lead %v floor %v next %v", secondLead, secondFloor, secondProbe)
 	}
@@ -439,33 +439,33 @@ func TestPNAFeedbackMovesLaterSlowlyAndEarlierAfterMiss(t *testing.T) {
 
 func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 	originalEnabled := gs.AltNetMode
-	frameMu.Lock()
-	originalJitter := serverFrameJitter
-	frameMu.Unlock()
-	frameStatsMu.Lock()
-	originalFrameBuckets, originalLostBuckets, originalBucketTimes := frameBuckets, lostBuckets, bucketTimes
-	frameBuckets, lostBuckets, bucketTimes = [5]int{}, [5]int{}, [5]int64{}
-	frameStatsMu.Unlock()
-	pnaControllerMu.Lock()
-	originalController := pnaController
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	originalFallback := pnaFallback
-	pnaFallbackMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	originalJitter := primarySession.timing.jitter
+	primarySession.timing.cadenceMu.Unlock()
+	primarySession.frames.statsMu.Lock()
+	originalFrameBuckets, originalLostBuckets, originalBucketTimes := primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes
+	primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = [5]int{}, [5]int{}, [5]int64{}
+	primarySession.frames.statsMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	originalController := primarySession.timing.controller
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	originalFallback := primarySession.timing.fallback
+	primarySession.timing.fallbackMu.Unlock()
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
-		frameMu.Lock()
-		serverFrameJitter = originalJitter
-		frameMu.Unlock()
-		frameStatsMu.Lock()
-		frameBuckets, lostBuckets, bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
-		frameStatsMu.Unlock()
-		pnaControllerMu.Lock()
-		pnaController = originalController
-		pnaControllerMu.Unlock()
-		pnaFallbackMu.Lock()
-		pnaFallback = originalFallback
-		pnaFallbackMu.Unlock()
+		primarySession.timing.cadenceMu.Lock()
+		primarySession.timing.jitter = originalJitter
+		primarySession.timing.cadenceMu.Unlock()
+		primarySession.frames.statsMu.Lock()
+		primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
+		primarySession.frames.statsMu.Unlock()
+		primarySession.timing.controllerMu.Lock()
+		primarySession.timing.controller = originalController
+		primarySession.timing.controllerMu.Unlock()
+		primarySession.timing.fallbackMu.Lock()
+		primarySession.timing.fallback = originalFallback
+		primarySession.timing.fallbackMu.Unlock()
 	})
 
 	// Each scenario supplies fixed socket-arrival times. The simulation has no
@@ -489,15 +489,15 @@ func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			interval := time.Second / time.Duration(scenario.rate)
 			gs.AltNetMode = true
-			frameMu.Lock()
-			serverFrameJitter = scenario.jitter
-			frameMu.Unlock()
-			pnaControllerMu.Lock()
-			pnaController = pnaControllerState{}
-			pnaControllerMu.Unlock()
-			pnaFallbackMu.Lock()
-			pnaFallback = pnaFallbackState{}
-			pnaFallbackMu.Unlock()
+			primarySession.timing.cadenceMu.Lock()
+			primarySession.timing.jitter = scenario.jitter
+			primarySession.timing.cadenceMu.Unlock()
+			primarySession.timing.controllerMu.Lock()
+			primarySession.timing.controller = pnaControllerState{}
+			primarySession.timing.controllerMu.Unlock()
+			primarySession.timing.fallbackMu.Lock()
+			primarySession.timing.fallback = pnaFallbackState{}
+			primarySession.timing.fallbackMu.Unlock()
 
 			lead := pnaLeadSnapshot(interval, scenario.jitter)
 			if lead <= 0 || lead >= interval {
@@ -536,9 +536,9 @@ func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 				}
 				recordPNACommandFeedback(reply, interval-lead, interval, 100, 100+ackFrames, start.Add(time.Duration(i)*time.Second))
 			}
-			pnaControllerMu.Lock()
-			controller := pnaController
-			pnaControllerMu.Unlock()
+			primarySession.timing.controllerMu.Lock()
+			controller := primarySession.timing.controller
+			primarySession.timing.controllerMu.Unlock()
 			if controller.lead <= 0 || controller.lead >= interval {
 				t.Fatalf("controller lead %s ran outside %s frame", controller.lead, interval)
 			}
@@ -551,56 +551,56 @@ func TestPNASimulationAcrossCadencesAndLatency(t *testing.T) {
 
 func TestPNAHighRateDelayedAcknowledgementDoesNotStick(t *testing.T) {
 	originalEnabled := gs.AltNetMode
-	frameMu.Lock()
-	originalJitter := serverFrameJitter
-	frameMu.Unlock()
-	frameStatsMu.Lock()
-	originalFrameBuckets, originalLostBuckets, originalBucketTimes := frameBuckets, lostBuckets, bucketTimes
-	frameBuckets, lostBuckets, bucketTimes = [5]int{}, [5]int{}, [5]int64{}
-	frameStatsMu.Unlock()
-	pnaControllerMu.Lock()
-	originalController := pnaController
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	originalFallback := pnaFallback
-	pnaFallbackMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	originalJitter := primarySession.timing.jitter
+	primarySession.timing.cadenceMu.Unlock()
+	primarySession.frames.statsMu.Lock()
+	originalFrameBuckets, originalLostBuckets, originalBucketTimes := primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes
+	primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = [5]int{}, [5]int{}, [5]int64{}
+	primarySession.frames.statsMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	originalController := primarySession.timing.controller
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	originalFallback := primarySession.timing.fallback
+	primarySession.timing.fallbackMu.Unlock()
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
-		frameMu.Lock()
-		serverFrameJitter = originalJitter
-		frameMu.Unlock()
-		frameStatsMu.Lock()
-		frameBuckets, lostBuckets, bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
-		frameStatsMu.Unlock()
-		pnaControllerMu.Lock()
-		pnaController = originalController
-		pnaControllerMu.Unlock()
-		pnaFallbackMu.Lock()
-		pnaFallback = originalFallback
-		pnaFallbackMu.Unlock()
+		primarySession.timing.cadenceMu.Lock()
+		primarySession.timing.jitter = originalJitter
+		primarySession.timing.cadenceMu.Unlock()
+		primarySession.frames.statsMu.Lock()
+		primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = originalFrameBuckets, originalLostBuckets, originalBucketTimes
+		primarySession.frames.statsMu.Unlock()
+		primarySession.timing.controllerMu.Lock()
+		primarySession.timing.controller = originalController
+		primarySession.timing.controllerMu.Unlock()
+		primarySession.timing.fallbackMu.Lock()
+		primarySession.timing.fallback = originalFallback
+		primarySession.timing.fallbackMu.Unlock()
 	})
 
 	const interval = time.Second / 60
 	now := time.Date(2026, time.September, 10, 12, 0, 0, 0, time.UTC)
 	gs.AltNetMode = true
-	frameMu.Lock()
-	serverFrameJitter = 0
-	frameMu.Unlock()
-	pnaControllerMu.Lock()
-	pnaController = pnaControllerState{}
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	pnaFallback = pnaFallbackState{}
-	pnaFallbackMu.Unlock()
+	primarySession.timing.cadenceMu.Lock()
+	primarySession.timing.jitter = 0
+	primarySession.timing.cadenceMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	primarySession.timing.controller = pnaControllerState{}
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	primarySession.timing.fallback = pnaFallbackState{}
+	primarySession.timing.fallbackMu.Unlock()
 
 	lead := pnaLeadSnapshot(interval, 0)
 	// A 20 ms acknowledgement spans two 60 Hz frame IDs. At this cadence the
 	// delta cannot distinguish a delayed path from a missed phase, so it must
 	// not create a persistent learned floor.
 	recordPNACommandFeedback(20*time.Millisecond, interval-lead, interval, 10, 12, now)
-	pnaControllerMu.Lock()
-	learned := pnaController.learnedLeadFloor
-	pnaControllerMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	learned := primarySession.timing.controller.learnedLeadFloor
+	primarySession.timing.controllerMu.Unlock()
 	if learned != 0 {
 		t.Fatalf("high-rate acknowledgement created a stuck learned floor: %s", learned)
 	}

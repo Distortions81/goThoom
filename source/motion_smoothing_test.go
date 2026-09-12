@@ -31,7 +31,7 @@ func TestMotionSmoothingFailure(t *testing.T) {
 	if parsed < 2 {
 		t.Fatalf("parsed %d frames", parsed)
 	}
-	if dx, dy, _, ok := pictureShift(state.prevPictures, state.pictures, maxInterpPixels); ok {
+	if dx, dy, _, ok := pictureShift(primarySession.draw.current.prevPictures, primarySession.draw.current.pictures, maxInterpPixels); ok {
 		t.Fatalf("pictureShift succeeded unexpectedly: (%d,%d)", dx, dy)
 	}
 }

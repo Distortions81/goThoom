@@ -79,11 +79,11 @@ func scriptSelectedItem() (scriptapi.Item, bool) {
 }
 
 func scriptSelf() scriptapi.Character {
-	stateMu.Lock()
-	health, healthMax := state.hp, state.hpMax
-	spirit, spiritMax := state.sp, state.spMax
-	balance, balanceMax := state.balance, state.balanceMax
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	health, healthMax := primarySession.draw.current.hp, primarySession.draw.current.hpMax
+	spirit, spiritMax := primarySession.draw.current.sp, primarySession.draw.current.spMax
+	balance, balanceMax := primarySession.draw.current.balance, primarySession.draw.current.balanceMax
+	primarySession.draw.mu.Unlock()
 	scriptLocationMu.RLock()
 	location := scriptLocation
 	scriptLocationMu.RUnlock()

@@ -173,7 +173,7 @@ func TestSpriteCacheMovieReloadPressure(t *testing.T) {
 	}
 	for _, path := range paths {
 		resetDrawState()
-		frameCounter, lastAckFrame, movieDropped = 0, 0, 0
+		primarySession.draw.frame, primarySession.frames.lastAck, movieDropped = 0, 0, 0
 		spriteUsage.frame = 0
 		clear(spriteUsage.ids[:])
 		frames, err := parseMovie(path, clVersion)
@@ -181,7 +181,7 @@ func TestSpriteCacheMovieReloadPressure(t *testing.T) {
 			t.Fatal(err)
 		}
 		playerName = extractMoviePlayerName(frames)
-		restoreDrawState(initialState)
+		restoreDrawState(primarySession.draw.initial)
 		var caches []*spriteMovieCache
 		for _, scale := range []int{2, 4} {
 			for _, reserve := range []int{128, 256, 512, 1024, 2048} {
@@ -194,7 +194,7 @@ func TestSpriteCacheMovieReloadPressure(t *testing.T) {
 		for _, frame := range frames {
 			movieDropped = updateFrameCounters(frame.index)
 			if len(frame.data) < 2 || binary.BigEndian.Uint16(frame.data[:2]) != 2 {
-				frameCounter++
+				primarySession.draw.frame++
 				continue
 			}
 			if !handleDrawState(frame.data, true) {

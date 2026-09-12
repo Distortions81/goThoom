@@ -173,9 +173,9 @@ func parseMovieData(data []byte, clVersion int) ([]movieFrame, error) {
 					if pos+4 <= len(data) {
 						pos += 4
 					}
-					stateMu.Lock()
-					state.pictures = pics
-					stateMu.Unlock()
+					primarySession.draw.mu.Lock()
+					primarySession.draw.current.pictures = pics
+					primarySession.draw.mu.Unlock()
 				}
 			}
 		}
@@ -195,9 +195,9 @@ func parseMovieData(data []byte, clVersion int) ([]movieFrame, error) {
 			pos += idx
 		}
 	}
-	stateMu.Lock()
-	initialState = cloneDrawState(state)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.initial = cloneDrawState(primarySession.draw.current)
+	primarySession.draw.mu.Unlock()
 	return frames, nil
 }
 
@@ -237,10 +237,10 @@ func parseGameState(gs []byte, version, revision uint16) {
 			if pos+4 <= len(gs) {
 				pos += 4
 			}
-			stateMu.Lock()
+			primarySession.draw.mu.Lock()
 			// Preserve on-disk ordering for pictAgain semantics.
-			state.pictures = pics
-			stateMu.Unlock()
+			primarySession.draw.current.pictures = pics
+			primarySession.draw.mu.Unlock()
 			gs = gs[pos:]
 		}
 	}
@@ -293,9 +293,9 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 		logDebug("unsupported mobile table version %d", version)
 		return pos
 	}
-	stateMu.Lock()
-	state.bubbles = state.bubbles[:0]
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.bubbles = primarySession.draw.current.bubbles[:0]
+	primarySession.draw.mu.Unlock()
 
 	for pos+4 <= len(data) {
 		idx := int32(binary.BigEndian.Uint32(data[pos : pos+4]))
@@ -371,7 +371,7 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 			pos += lgt
 			if text != "" && bubbleCounter > 0 {
 				typ := int(int32(binary.BigEndian.Uint32(buf[l.bubbleTypeOffset : l.bubbleTypeOffset+4])))
-				b := bubble{Index: uint8(idx), OwnerName: d.Name, Text: text, Type: typ, CreatedFrame: frameCounter, LifeFrames: int(bubbleCounter)}
+				b := bubble{Index: uint8(idx), OwnerName: d.Name, Text: text, Type: typ, CreatedFrame: primarySession.draw.frame, LifeFrames: int(bubbleCounter)}
 				switch typ & kBubbleTypeMask {
 				case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 					b.NoArrow = true
@@ -390,24 +390,24 @@ func parseMobileTable(data []byte, pos int, version, revision uint16) int {
 			}
 		}
 
-		stateMu.Lock()
+		primarySession.draw.mu.Lock()
 		if hasMobile {
-			if state.mobiles == nil {
-				state.mobiles = make(map[uint8]frameMobile)
+			if primarySession.draw.current.mobiles == nil {
+				primarySession.draw.current.mobiles = make(map[uint8]frameMobile)
 			}
-			state.mobiles[mob.Index] = mob
+			primarySession.draw.current.mobiles[mob.Index] = mob
 		}
 		if idx < 256 {
-			if state.descriptors == nil {
-				state.descriptors = make(map[uint8]frameDescriptor)
+			if primarySession.draw.current.descriptors == nil {
+				primarySession.draw.current.descriptors = make(map[uint8]frameDescriptor)
 			}
-			state.descriptors[d.Index] = d
+			primarySession.draw.current.descriptors[d.Index] = d
 		}
 		if restoredBubble != nil {
-			state.bubbles = append(state.bubbles, *restoredBubble)
+			primarySession.draw.current.bubbles = append(primarySession.draw.current.bubbles, *restoredBubble)
 			markWorldStateChanged()
 		}
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 
 		// Update the Players list appearance immediately from descriptor data,
 		// mirroring live behavior so movies show avatars right away.

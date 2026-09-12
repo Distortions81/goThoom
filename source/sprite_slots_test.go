@@ -57,13 +57,13 @@ func insertTestSpriteSlot(key spriteSlotKey, pixels *image.RGBA, budget int64) *
 
 func TestSpriteUsageCountsGameFramesOncePerID(t *testing.T) {
 	isolateSpriteSlots(t)
-	originalState := state
-	t.Cleanup(func() { state = originalState })
-	state.pictures = []framePicture{{PictID: 10}, {PictID: 10}, {PictID: 0xffff}}
-	state.descriptors = map[uint8]frameDescriptor{1: {PictID: 10}, 2: {PictID: 20}, 3: {PictID: 30}}
-	state.mobiles = map[uint8]frameMobile{1: {Index: 1}, 2: {Index: 2}}
+	originalState := primarySession.draw.current
+	t.Cleanup(func() { primarySession.draw.current = originalState })
+	primarySession.draw.current.pictures = []framePicture{{PictID: 10}, {PictID: 10}, {PictID: 0xffff}}
+	primarySession.draw.current.descriptors = map[uint8]frameDescriptor{1: {PictID: 10}, 2: {PictID: 20}, 3: {PictID: 30}}
+	primarySession.draw.current.mobiles = map[uint8]frameMobile{1: {Index: 1}, 2: {Index: 2}}
 	recordSpriteGameFrameLocked()
-	snap := drawSnapshot{picsZero: state.pictures, descriptors: state.descriptors, mobiles: []frameMobile{{Index: 1}, {Index: 2}}}
+	snap := drawSnapshot{picsZero: primarySession.draw.current.pictures, descriptors: primarySession.draw.current.descriptors, mobiles: []frameMobile{{Index: 1}, {Index: 2}}}
 	for range 60 {
 		pinSceneSpriteSlots(snap)
 	}
@@ -73,9 +73,9 @@ func TestSpriteUsageCountsGameFramesOncePerID(t *testing.T) {
 	if spriteUsage.ids[20].framesSeen != 1 || spriteUsage.ids[30].framesSeen != 0 || spriteUsage.ids[0xffff].framesSeen != 0 {
 		t.Fatal("usage must count visible IDs, not stale descriptors or missing IDs")
 	}
-	state.logicalFrame = -100 // movie seeks must not move LRU time backwards
-	state.pictures = nil
-	delete(state.mobiles, 1)
+	primarySession.draw.current.logicalFrame = -100 // movie seeks must not move LRU time backwards
+	primarySession.draw.current.pictures = nil
+	delete(primarySession.draw.current.mobiles, 1)
 	recordSpriteGameFrameLocked()
 	if spriteUsage.ids[10].lastFrame != 1 || spriteUsage.ids[20] != (spriteIDUsage{lastFrame: 2, framesSeen: 2}) {
 		t.Fatal("game frame recency did not advance independently of movie position")

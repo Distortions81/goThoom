@@ -301,23 +301,23 @@ func TestPictureShiftBackgroundCap(t *testing.T) {
 
 func TestHandleDrawStateParseErrorDoesNotAdvance(t *testing.T) {
 	resetDrawState()
-	ackFrame = 5
-	resendFrame = 0
-	lastAckFrame = 5
+	primarySession.frames.ack = 5
+	primarySession.frames.resend = 0
+	primarySession.frames.lastAck = 5
 	m := make([]byte, 11)
 	binary.BigEndian.PutUint16(m[0:2], 2)
 	m[2] = 0
 	binary.BigEndian.PutUint32(m[3:7], uint32(10))
 	binary.BigEndian.PutUint32(m[7:11], 0)
 	handleDrawState(m, false)
-	if ackFrame != 5 {
-		t.Fatalf("ackFrame = %d, want 5", ackFrame)
+	if primarySession.frames.ack != 5 {
+		t.Fatalf("ackFrame = %d, want 5", primarySession.frames.ack)
 	}
-	if resendFrame != 6 {
-		t.Fatalf("resendFrame = %d, want 6", resendFrame)
+	if primarySession.frames.resend != 6 {
+		t.Fatalf("resendFrame = %d, want 6", primarySession.frames.resend)
 	}
-	if lastAckFrame != 5 {
-		t.Fatalf("loss counter advanced to malformed frame %d, want 5", lastAckFrame)
+	if primarySession.frames.lastAck != 5 {
+		t.Fatalf("loss counter advanced to malformed frame %d, want 5", primarySession.frames.lastAck)
 	}
 }
 
@@ -350,22 +350,22 @@ func TestHandleDrawStateDrivesCommandRetryAndCompletion(t *testing.T) {
 	resetCommandStateForTest(t, 5)
 	origEncrypted := drawStateEncrypted
 	origMovieMode := movieMode
-	origAckFrame := ackFrame
-	origResendFrame := resendFrame
-	origLastAckFrame := lastAckFrame
+	origAckFrame := primarySession.frames.ack
+	origResendFrame := primarySession.frames.resend
+	origLastAckFrame := primarySession.frames.lastAck
 	t.Cleanup(func() {
 		drawStateEncrypted = origEncrypted
 		movieMode = origMovieMode
-		ackFrame = origAckFrame
-		resendFrame = origResendFrame
-		lastAckFrame = origLastAckFrame
+		primarySession.frames.ack = origAckFrame
+		primarySession.frames.resend = origResendFrame
+		primarySession.frames.lastAck = origLastAckFrame
 		resetDrawState()
 	})
 	drawStateEncrypted = false
 	movieMode = false
-	ackFrame = 0
-	resendFrame = 0
-	lastAckFrame = 0
+	primarySession.frames.ack = 0
+	primarySession.frames.resend = 0
+	primarySession.frames.lastAck = 0
 	resetDrawState()
 
 	enqueueCommand("/equip 123")
@@ -380,8 +380,8 @@ func TestHandleDrawStateDrivesCommandRetryAndCompletion(t *testing.T) {
 	negativeAck := minimalDrawStatePacket()
 	negativeAck[2] = 5
 	handleDrawState(negativeAck, false)
-	if pendingCommand != "/equip 123" || pendingCommandID != 6 || pendingCommandSent {
-		t.Fatalf("negative ack state = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "/equip 123" || primarySession.commands.pendingID != 6 || primarySession.commands.pendingSent {
+		t.Fatalf("negative ack state = %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
 
 	retry := &bufConn{}
@@ -397,8 +397,8 @@ func TestHandleDrawStateDrivesCommandRetryAndCompletion(t *testing.T) {
 	binary.BigEndian.PutUint32(positiveAck[3:7], 2)
 	binary.BigEndian.PutUint32(positiveAck[7:11], 2)
 	handleDrawState(positiveAck, false)
-	if pendingCommand != "" || pendingCommandID != 0 || pendingCommandSent {
-		t.Fatalf("positive ack state = %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "" || primarySession.commands.pendingID != 0 || primarySession.commands.pendingSent {
+		t.Fatalf("positive ack state = %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
 }
 
@@ -407,10 +407,10 @@ func BenchmarkHandleDrawStateNoEncryption(b *testing.B) {
 	drawStateEncrypted = false
 	defer func() { drawStateEncrypted = origEncrypted }()
 
-	ackFrame = 0
-	resendFrame = 0
-	lastAckFrame = 0
-	frameCounter = 0
+	primarySession.frames.ack = 0
+	primarySession.frames.resend = 0
+	primarySession.frames.lastAck = 0
+	primarySession.draw.frame = 0
 
 	resetDrawState()
 	packet := minimalDrawStatePacket()

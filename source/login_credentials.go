@@ -16,10 +16,9 @@ type stagedPasswordUpdate struct {
 	remember  bool
 }
 
-var (
-	stagedPasswordMu sync.Mutex
-	stagedPassword   *stagedPasswordUpdate
-)
+// Accepted/rejected logins can finish on different network goroutines. Keep
+// updates to the shared saved-character list and file serialized.
+var sessionCredentialCommitMu sync.Mutex
 
 func hashPassword(password string) string {
 	digest := md5.Sum([]byte(password))
@@ -27,51 +26,30 @@ func hashPassword(password string) string {
 }
 
 func stagePasswordUpdate(character, password string, remember bool) string {
-	hash := hashPassword(password)
-	stagedPasswordMu.Lock()
-	stagedPassword = &stagedPasswordUpdate{
-		character: character,
-		hash:      hash,
-		remember:  remember,
+	return stageSessionPasswordUpdate(primarySession, character, password, remember)
+}
+
+func stageSessionPasswordUpdate(session *Session, character, password string, remember bool) string {
+	if session == nil {
+		return ""
 	}
-	stagedPasswordMu.Unlock()
-	return hash
+	return session.login.stagePassword(character, password, remember)
 }
 
 func stagedPasswordHash(character string) (string, bool) {
-	stagedPasswordMu.Lock()
-	defer stagedPasswordMu.Unlock()
-	if stagedPassword == nil || !strings.EqualFold(stagedPassword.character, character) {
-		return "", false
-	}
-	return stagedPassword.hash, true
+	return primarySession.login.stagedPasswordHash(character)
 }
 
 func stagedPasswordSettings(character string) (hash string, remember bool, ok bool) {
-	stagedPasswordMu.Lock()
-	defer stagedPasswordMu.Unlock()
-	if stagedPassword == nil || !strings.EqualFold(stagedPassword.character, character) {
-		return "", false, false
-	}
-	return stagedPassword.hash, stagedPassword.remember, true
+	return primarySession.login.stagedPasswordSettings(character)
 }
 
 func updateStagedPasswordRemember(character string, remember bool) (hash string, ok bool) {
-	stagedPasswordMu.Lock()
-	defer stagedPasswordMu.Unlock()
-	if stagedPassword == nil || !strings.EqualFold(stagedPassword.character, character) {
-		return "", false
-	}
-	stagedPassword.remember = remember
-	return stagedPassword.hash, true
+	return primarySession.login.updateStagedPasswordRemember(character, remember)
 }
 
 func discardStagedPasswordFor(character string) {
-	stagedPasswordMu.Lock()
-	if stagedPassword != nil && strings.EqualFold(stagedPassword.character, character) {
-		stagedPassword = nil
-	}
-	stagedPasswordMu.Unlock()
+	primarySession.login.discardStagedPasswordFor(character)
 }
 
 // applyCharacterCredentialEdit updates the credential selected in the Edit
@@ -120,24 +98,25 @@ func applyCharacterCredentialEdit(character, password string, remember bool) (st
 }
 
 func takeStagedPassword(character string) (stagedPasswordUpdate, bool) {
-	stagedPasswordMu.Lock()
-	defer stagedPasswordMu.Unlock()
-	if stagedPassword == nil || !strings.EqualFold(stagedPassword.character, character) {
-		return stagedPasswordUpdate{}, false
-	}
-	update := *stagedPassword
-	stagedPassword = nil
-	return update, true
+	return primarySession.login.takeStagedPassword(character)
 }
 
 func discardStagedPassword() {
-	stagedPasswordMu.Lock()
-	stagedPassword = nil
-	stagedPasswordMu.Unlock()
+	primarySession.login.discardStagedPassword()
 }
 
 func commitStagedPassword(character string) {
-	update, ok := takeStagedPassword(character)
+	commitSessionStagedPassword(primarySession, character)
+	pass = ""
+	passHash = ""
+}
+
+func commitSessionStagedPassword(session *Session, character string) {
+	if session == nil {
+		return
+	}
+	update, ok := session.login.takeStagedPassword(character)
+	sessionCredentialCommitMu.Lock()
 	if ok {
 		if update.remember {
 			setCharacterPassHash(character, update.hash, true)
@@ -145,10 +124,10 @@ func commitStagedPassword(character string) {
 			setCharacterPassHash(character, "", false)
 		}
 	} else {
-		discardStagedPassword()
+		session.login.discardStagedPassword()
 	}
-	pass = ""
-	passHash = ""
+	sessionCredentialCommitMu.Unlock()
+	session.login.clearCredentials()
 }
 
 func forgetSavedPassword(character string) {
@@ -186,11 +165,21 @@ func passwordRememberPreference(character string) bool {
 }
 
 func rejectPassword(character string) {
-	_, staged := takeStagedPassword(character)
+	rejectSessionPassword(primarySession, character)
 	pass = ""
 	passHash = ""
+}
+
+func rejectSessionPassword(session *Session, character string) {
+	if session == nil {
+		return
+	}
+	_, staged := session.login.takeStagedPassword(character)
+	session.login.clearCredentials()
 	if !staged {
+		sessionCredentialCommitMu.Lock()
 		setCharacterPassHash(character, "", false)
+		sessionCredentialCommitMu.Unlock()
 	}
 }
 

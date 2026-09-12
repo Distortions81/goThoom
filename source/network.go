@@ -13,7 +13,10 @@ import (
 	scriptapi "gt2"
 )
 
-// tcpConn is the active TCP connection to the game server.
+// tcpConn is the primary UI compatibility view of primarySession.transport.
+// Network ownership and secondary-session connection checks use the transport
+// object directly; this alias is removed when the remaining primary-only UI
+// controls bind through the session manager.
 var tcpConn net.Conn
 
 // messageBufferSize is large enough to hold the most common payloads such as
@@ -241,40 +244,48 @@ func readUDPMessageAt(connection net.Conn) ([]byte, time.Time, error) {
 // reliable is true the packet is written to the TCP connection; otherwise
 // it is sent via UDP.
 func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, reliable bool) error {
+	return sendSessionPlayerInput(primarySession, connection, mouseX, mouseY, mouseDown, reliable)
+}
+
+func sendSessionPlayerInput(session *Session, connection net.Conn, mouseX, mouseY int16, mouseDown bool, reliable bool) error {
+	if session == nil {
+		return errors.New("player input session is nil")
+	}
 	const kMsgPlayerInput = 3
 	flags := uint16(0)
 
 	if mouseDown {
 		flags = kPIMDownField
 	}
-	inputAck, inputResend := networkFrameStateSnapshot()
+	inputAck, inputResend := session.frames.snapshot()
+	commands := session.commands
 
-	commandMu.Lock()
-	nextCommandLocked()
-	packetCommand := commandNum
+	commands.mu.Lock()
+	commands.nextLocked()
+	packetCommand := commands.number
 	cmd := ""
 	commandID := uint8(0)
 	recordCommandTiming := false
 	var sentTicket *scriptCommandState
-	if pendingCommand != "" {
-		if pendingCommandID == 0 {
-			pendingCommandID = nextCommandNumberLocked()
+	if commands.pending != "" {
+		if commands.pendingID == 0 {
+			commands.pendingID = commands.nextNumberLocked()
 		}
-		packetCommand = uint32(pendingCommandID)
-		commandID = pendingCommandID
+		packetCommand = uint32(commands.pendingID)
+		commandID = commands.pendingID
 	}
-	if pendingCommand != "" && !pendingCommandSent {
-		cmd = pendingCommand
-		sentTicket = pendingCommandTicket
+	if commands.pending != "" && !commands.pendingSent {
+		cmd = commands.pending
+		sentTicket = commands.pendingTicket
 		if sentTicket != nil {
 			sentTicket.inFlight = true
 		}
 		// Record last-command frame for who throttling.
-		whoLastCommandFrame = inputAck
-		pendingCommandSent = true
-		recordCommandTiming = pendingCommandSentAt.IsZero()
+		commands.lastCommandFrame = inputAck
+		commands.pendingSent = true
+		recordCommandTiming = commands.pendingSentAt.IsZero()
 	}
-	commandMu.Unlock()
+	commands.mu.Unlock()
 	var cmdBytes []byte
 	if cmd != "" {
 		wireText := encodeEmojiShortcodes(cmd)
@@ -311,16 +322,16 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 	logDebug("player input ack=%d resend=%d cmd=%d mouse=%d,%d flags=%#x", inputAck, inputResend, packetCommand, mouseX, mouseY, flags)
 	if recordCommandTiming {
 		sentAt := time.Now()
-		sentPhase, sentInterval, sentPredictively := pnaCommandSendTiming(sentAt)
-		commandMu.Lock()
-		if pendingCommandID == commandID && pendingCommand == cmd && pendingCommandSent && pendingCommandSentAt.IsZero() {
-			pendingCommandSentAt = sentAt
-			pendingCommandSentFrame = inputAck
-			pendingCommandSentPhase = sentPhase
-			pendingCommandSentInterval = sentInterval
-			pendingCommandSentPredictively = sentPredictively
+		sentPhase, sentInterval, sentPredictively := session.pnaCommandTiming(sentAt)
+		commands.mu.Lock()
+		if commands.pendingID == commandID && commands.pending == cmd && commands.pendingSent && commands.pendingSentAt.IsZero() {
+			commands.pendingSentAt = sentAt
+			commands.pendingSentFrame = inputAck
+			commands.pendingSentPhase = sentPhase
+			commands.pendingSentInterval = sentInterval
+			commands.pendingSentPredictively = sentPredictively
 		}
-		commandMu.Unlock()
+		commands.mu.Unlock()
 	}
 	var err error
 	if reliable {
@@ -329,24 +340,24 @@ func sendPlayerInput(connection net.Conn, mouseX, mouseY int16, mouseDown bool, 
 		err = sendUDPMessage(connection, packet)
 	}
 	if err != nil && cmd != "" {
-		commandMu.Lock()
+		commands.mu.Lock()
 		if sentTicket != nil {
 			sentTicket.inFlight = false
 		}
-		if pendingCommandID == commandID && pendingCommand == cmd && pendingCommandTicket == sentTicket {
-			pendingCommandSent = false
-			resetPendingCommandTimingLocked()
+		if commands.pendingID == commandID && commands.pending == cmd && commands.pendingTicket == sentTicket {
+			commands.pendingSent = false
+			commands.resetPendingTimingLocked()
 			if sentTicket != nil && sentTicket.cancelRequested {
-				cancelCommandTicketLocked(sentTicket)
+				commands.cancelTicketLocked(sentTicket)
 			}
 		}
-		commandMu.Unlock()
+		commands.mu.Unlock()
 	}
 	if err == nil && sentTicket != nil {
-		commandMu.Lock()
+		commands.mu.Lock()
 		sentTicket.inFlight = false
 		sentTicket.status = scriptapi.CommandStatus{State: scriptapi.CommandSent}
-		commandMu.Unlock()
+		commands.mu.Unlock()
 	}
 	return err
 }
@@ -381,12 +392,19 @@ func readTCPMessageAt(connection net.Conn) ([]byte, time.Time, error) {
 // processServerMessage handles messages without a captured socket-arrival
 // timestamp, including playback and tests.
 func processServerMessage(msg []byte) {
-	processServerMessageAt(msg, time.Now())
+	processSessionServerMessageAt(primarySession, msg, time.Now())
 }
 
 // processServerMessageAt keeps live draw-state phase measurements anchored to
 // socket arrival rather than to the end of client-side decoding and cache work.
 func processServerMessageAt(msg []byte, receivedAt time.Time) {
+	processSessionServerMessageAt(primarySession, msg, receivedAt)
+}
+
+func processSessionServerMessageAt(session *Session, msg []byte, receivedAt time.Time) {
+	if session == nil {
+		return
+	}
 	if len(msg) < 2 {
 		return
 	}
@@ -395,12 +413,17 @@ func processServerMessageAt(msg []byte, receivedAt time.Time) {
 	}
 	tag := binary.BigEndian.Uint16(msg[:2])
 	if tag == 2 {
-		if handleDrawStateAt(msg, true, receivedAt) {
-			noteFrameAt(acknowledgedFrameSnapshot(), receivedAt)
+		if handleSessionDrawStateAt(session, msg, true, receivedAt) {
+			session.noteFrameAt(session.frames.acknowledged(), receivedAt)
 		}
 		return
 	}
+	if session != primarySession {
+		session.publishInfoCommand(decodeServerText(msg[2:]))
+		return
+	}
 	if txt := decodeMessage(msg); txt != "" {
+		session.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: txt, MessageType: messageTextTypeSystem})
 		consoleMessage(txt)
 	} else {
 		logDebug("msg tag %d len %d", tag, len(msg))

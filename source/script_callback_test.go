@@ -74,22 +74,22 @@ func TestScriptChangeEvents(t *testing.T) {
 	resetScriptCallbackTestState(t, owner)
 
 	originalSelectedPlayer, originalSelectedID, originalSelectedIdx := selectedPlayerName, selectedInvID, selectedInvIdx
-	originalGeneration := worldStateGeneration.Load()
+	originalGeneration := primarySession.draw.generation.Load()
 	scriptLocationMu.RLock()
 	originalLocation := scriptLocation
 	scriptLocationMu.RUnlock()
-	stateMu.Lock()
-	originalVitals := [6]int{state.hp, state.hpMax, state.sp, state.spMax, state.balance, state.balanceMax}
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	originalVitals := [6]int{primarySession.draw.current.hp, primarySession.draw.current.hpMax, primarySession.draw.current.sp, primarySession.draw.current.spMax, primarySession.draw.current.balance, primarySession.draw.current.balanceMax}
+	primarySession.draw.mu.Unlock()
 	t.Cleanup(func() {
 		resetInventory()
 		selectedPlayerName, selectedInvID, selectedInvIdx = originalSelectedPlayer, originalSelectedID, originalSelectedIdx
-		worldStateGeneration.Store(originalGeneration)
+		primarySession.draw.generation.Store(originalGeneration)
 		setScriptLocation(originalLocation)
-		stateMu.Lock()
-		state.hp, state.hpMax, state.sp, state.spMax, state.balance, state.balanceMax =
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current.hp, primarySession.draw.current.hpMax, primarySession.draw.current.sp, primarySession.draw.current.spMax, primarySession.draw.current.balance, primarySession.draw.current.balanceMax =
 			originalVitals[0], originalVitals[1], originalVitals[2], originalVitals[3], originalVitals[4], originalVitals[5]
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 	})
 
 	resetInventory()
@@ -106,9 +106,9 @@ func TestScriptChangeEvents(t *testing.T) {
 	})
 	addInventoryItem(42, 0, "Test Blade", true)
 	selectedPlayerName, selectedInvID, selectedInvIdx = "Other", 42, 0
-	stateMu.Lock()
-	state.hp, state.hpMax, state.sp, state.spMax, state.balance, state.balanceMax = 7, 10, 8, 11, 9, 12
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.hp, primarySession.draw.current.hpMax, primarySession.draw.current.sp, primarySession.draw.current.spMax, primarySession.draw.current.balance, primarySession.draw.current.balanceMax = 7, 10, 8, 11, 9, 12
+	primarySession.draw.mu.Unlock()
 	markWorldStateChanged()
 	setScriptLocation("Town Square")
 	pollScriptChangeEvents()

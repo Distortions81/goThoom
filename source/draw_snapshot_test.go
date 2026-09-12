@@ -3,9 +3,9 @@ package main
 import "testing"
 
 func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
-	stateMu.Lock()
-	origState := state
-	state = drawState{
+	primarySession.draw.mu.Lock()
+	origState := primarySession.draw.current
+	primarySession.draw.current = drawState{
 		descriptors: map[uint8]frameDescriptor{
 			1: {Index: 1, Name: "Bob", PictID: 100, Colors: []byte{1, 2, 3}},
 		},
@@ -28,24 +28,24 @@ func TestCaptureDrawSnapshotReusesStorage(t *testing.T) {
 		nameMobs:     []frameMobile{{Index: 1, H: 4, V: 5}},
 		logicalFrame: 77,
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 
 	origMotionSmoothing := gs.MotionSmoothing
 	origBlendMobiles := gs.BlendMobiles
 	origObjectPinning := gs.ObjectPinning
-	origFrameCounter := frameCounter
+	origFrameCounter := primarySession.draw.frame
 	gs.MotionSmoothing = true
 	gs.BlendMobiles = true
 	gs.ObjectPinning = true
-	frameCounter = 1
+	primarySession.draw.frame = 1
 	defer func() {
-		stateMu.Lock()
-		state = origState
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current = origState
+		primarySession.draw.mu.Unlock()
 		gs.MotionSmoothing = origMotionSmoothing
 		gs.BlendMobiles = origBlendMobiles
 		gs.ObjectPinning = origObjectPinning
-		frameCounter = origFrameCounter
+		primarySession.draw.frame = origFrameCounter
 	}()
 
 	var snap drawSnapshot

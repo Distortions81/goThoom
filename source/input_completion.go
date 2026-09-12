@@ -173,15 +173,7 @@ func currentInputCompletionCandidates() inputCompletionCandidates {
 	}
 	legacyMacrosMu.RUnlock()
 
-	inventoryMu.RLock()
-	itemNames := make([]string, 0, len(inventoryItems))
-	for _, item := range inventoryItems {
-		if item.Name != "" {
-			itemNames = append(itemNames, item.Name)
-		}
-	}
-
-	inventoryMu.RUnlock()
+	itemNames := getInventoryCompletionNames()
 	chat := append([]string(nil), itemNames...)
 	playersMu.RLock()
 	for _, player := range players {

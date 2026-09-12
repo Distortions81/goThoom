@@ -12,10 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
-
-	scriptapi "gt2"
 
 	"golang.org/x/text/encoding/charmap"
 	"gothoom/internal/twofish"
@@ -242,96 +239,31 @@ func describeKError(code int16) (desc, name string, ok bool) {
 
 var doDebug bool
 var silent bool
-var ackFrame int32
-var resendFrame int32
-var frameStateMu sync.RWMutex
-var lastAckFrame int32
-var numFrames int
-var lostFrames int
-var frameBuckets [5]int
-var lostBuckets [5]int
-var bucketTimes [5]int64
-var frameStatsMu sync.Mutex
-var commandNum uint32 = 1
-var pendingCommand string
-var pendingCommandID uint8
-var pendingCommandSent bool
-var pendingCommandSentAt time.Time
-var pendingCommandSentFrame int32
-var pendingCommandSentPhase time.Duration
-var pendingCommandSentInterval time.Duration
-var pendingCommandSentPredictively bool
-var commandQueue []queuedCommand
-var commandMu sync.Mutex
 var playerName string
 var playerIndex uint8 = 0xff
 
 func networkFrameStateSnapshot() (int32, int32) {
-	frameStateMu.RLock()
-	defer frameStateMu.RUnlock()
-	return ackFrame, resendFrame
+	return primarySession.frames.snapshot()
 }
 
 func acknowledgedFrameSnapshot() int32 {
-	frameStateMu.RLock()
-	defer frameStateMu.RUnlock()
-	return ackFrame
+	return primarySession.frames.acknowledged()
 }
 
 func setNetworkFrameState(ack, resend int32) {
-	frameStateMu.Lock()
-	ackFrame = ack
-	resendFrame = resend
-	frameStateMu.Unlock()
+	primarySession.frames.set(ack, resend)
 }
 
 func setRequestedResendFrame(resend int32) {
-	frameStateMu.Lock()
-	resendFrame = resend
-	frameStateMu.Unlock()
+	primarySession.frames.requestResend(resend)
 }
 
 func enqueueCommand(cmd string) {
-	if cmd == "" {
-		return
-	}
-	commandMu.Lock()
-	commandQueue = append(commandQueue, queuedCommand{text: cmd})
-	nextCommandLocked()
-	commandMu.Unlock()
+	primarySession.commands.enqueue(cmd)
 }
 
 func nextCommand() {
-	commandMu.Lock()
-	nextCommandLocked()
-	commandMu.Unlock()
-}
-
-func nextCommandLocked() {
-	if pendingCommand == "" && len(commandQueue) > 0 {
-		pendingCommand = commandQueue[0].text
-		pendingCommandTicket = commandQueue[0].ticket
-		commandQueue = commandQueue[1:]
-		pendingCommandID = 0
-		pendingCommandSent = false
-		resetPendingCommandTimingLocked()
-	}
-}
-
-func resetPendingCommandTimingLocked() {
-	pendingCommandSentAt = time.Time{}
-	pendingCommandSentFrame = 0
-	pendingCommandSentPhase = 0
-	pendingCommandSentInterval = 0
-	pendingCommandSentPredictively = false
-}
-
-func nextCommandNumberLocked() uint8 {
-	commandNum = (commandNum + 1) & 0xff
-	if commandNum == 0 {
-		commandNum = 1
-	}
-	return uint8(commandNum)
+	primarySession.commands.next()
 }
 
 // acknowledgeCommand completes the in-flight command when the server echoes
@@ -342,176 +274,62 @@ func acknowledgeCommand(ack uint8, acknowledgedFrame int32) {
 }
 
 func acknowledgeCommandAt(ack uint8, acknowledgedFrame int32, acknowledgedAt time.Time) {
-	commandMu.Lock()
-	if pendingCommand == "" || pendingCommandID == 0 {
-		commandMu.Unlock()
+	primarySession.acknowledgeCommandAt(ack, acknowledgedFrame, acknowledgedAt)
+}
+
+func (s *Session) acknowledgeCommandAt(ack uint8, acknowledgedFrame int32, acknowledgedAt time.Time) {
+	if s == nil {
 		return
 	}
-	if pendingCommandID != ack {
-		pendingCommandSent = false
-		commandMu.Unlock()
-		return
-	}
-	sentAt := pendingCommandSentAt
-	sentFrame := pendingCommandSentFrame
-	sentPhase := pendingCommandSentPhase
-	sentInterval := pendingCommandSentInterval
-	sentPredictively := pendingCommandSentPredictively
-	pendingCommand = ""
-	pendingCommandTicket = nil
-	pendingCommandID = 0
-	pendingCommandSent = false
-	resetPendingCommandTimingLocked()
-	nextCommandLocked()
-	commandMu.Unlock()
-	if !sentAt.IsZero() {
+	result, acknowledged := s.commands.acknowledgeAt(ack)
+	if acknowledged && !result.sentAt.IsZero() {
 		if acknowledgedAt.IsZero() {
 			acknowledgedAt = time.Now()
 		}
-		reply := acknowledgedAt.Sub(sentAt)
-		recordCommandReplySample(reply)
-		if sentPredictively {
-			recordPNACommandFeedback(reply, sentPhase, sentInterval, sentFrame, acknowledgedFrame, acknowledgedAt)
+		reply := acknowledgedAt.Sub(result.sentAt)
+		s.timing.recordReply(reply)
+		if result.predictive {
+			s.recordPNACommandFeedback(reply, result.sentPhase, result.sentInterval, result.sentFrame, acknowledgedFrame, acknowledgedAt)
 		}
 	}
 }
 
 func commandQueueIsIdle() bool {
-	commandMu.Lock()
-	defer commandMu.Unlock()
-	return pendingCommand == "" && len(commandQueue) == 0
+	return primarySession.commands.idle()
 }
 
 func enqueueCommandIfIdle(cmd string) bool {
-	if cmd == "" {
-		return false
-	}
-	commandMu.Lock()
-	defer commandMu.Unlock()
-	if pendingCommand != "" || len(commandQueue) != 0 {
-		return false
-	}
-	pendingCommand = cmd
-	pendingCommandTicket = nil
-	pendingCommandID = 0
-	pendingCommandSent = false
-	resetPendingCommandTimingLocked()
-	return true
+	return primarySession.commands.enqueueIfIdle(cmd)
 }
 
 func clearCommands() {
-	commandMu.Lock()
-	if pendingCommandTicket != nil && pendingCommandTicket.status.State == scriptapi.CommandQueued {
-		pendingCommandTicket.status.State = scriptapi.CommandCancelled
-	}
-	for _, cmd := range commandQueue {
-		if cmd.ticket != nil && cmd.ticket.status.State == scriptapi.CommandQueued {
-			cmd.ticket.status.State = scriptapi.CommandCancelled
-		}
-	}
-	pendingCommand = ""
-	pendingCommandTicket = nil
-	pendingCommandID = 0
-	pendingCommandSent = false
-	resetPendingCommandTimingLocked()
-	commandQueue = nil
-	whoLastCommandFrame = -1
-	commandMu.Unlock()
+	primarySession.commands.clear()
 }
 
 func resetFrameStatistics() {
-	frameStatsMu.Lock()
-	defer frameStatsMu.Unlock()
-	lastAckFrame = 0
-	numFrames = 0
-	lostFrames = 0
-	for i := range frameBuckets {
-		frameBuckets[i] = 0
-		lostBuckets[i] = 0
-		bucketTimes[i] = 0
-	}
+	primarySession.frames.resetStatistics()
 }
 
 func lastCommandFrameSnapshot() int32 {
-	commandMu.Lock()
-	defer commandMu.Unlock()
-	return whoLastCommandFrame
+	return primarySession.commands.lastFrameSnapshot()
 }
 
 // updateFrameCounters tracks frame statistics and detects dropped frames.
 // It returns the number of frames missing between the previous and
 // current acknowledgement numbers.
 func updateFrameCounters(newFrame int32) int {
-	frameStatsMu.Lock()
-	defer frameStatsMu.Unlock()
-	now := time.Now().Unix()
-	idx := int(now % 5)
-	if bucketTimes[idx] != now {
-		frameBuckets[idx] = 0
-		lostBuckets[idx] = 0
-		bucketTimes[idx] = now
-	}
-	// Ignore out-of-order or duplicate frames which can occur on UDP.
-	if lastAckFrame != 0 && newFrame <= lastAckFrame {
-		return 0
-	}
-
-	frameBuckets[idx]++
-	numFrames++
-	dropped := 0
-	if lastAckFrame != 0 {
-		lost := int(newFrame - lastAckFrame - 1)
-		if lost > 0 {
-			lostFrames += lost
-			dropped = lost
-			frameBuckets[idx] += lost
-			lostBuckets[idx] += lost
-		}
-	}
-	lastAckFrame = newFrame
-	return dropped
+	return primarySession.frames.updateCounters(newFrame)
 }
 
 func droppedPercent() float64 {
-	frameStatsMu.Lock()
-	defer frameStatsMu.Unlock()
-	now := time.Now().Unix()
-	total := 0
-	lost := 0
-	for i := 0; i < 5; i++ {
-		if now-bucketTimes[i] < 5 {
-			total += frameBuckets[i]
-			lost += lostBuckets[i]
-		}
-	}
-	if total == 0 {
-		return 0
-	}
-	return float64(lost) * 100 / float64(total)
+	return primarySession.frames.droppedPercent()
 }
 
 // packetLossSnapshot reports the recent rolling loss percentage alongside the
 // whole-session loss percentage and counts. The recent value covers the same
 // five-second window used by the toolbar.
 func packetLossSnapshot() (recent, session float64, received, lost int) {
-	frameStatsMu.Lock()
-	defer frameStatsMu.Unlock()
-	now := time.Now().Unix()
-	recentTotal, recentLost := 0, 0
-	for i := range frameBuckets {
-		if now-bucketTimes[i] < 5 {
-			recentTotal += frameBuckets[i]
-			recentLost += lostBuckets[i]
-		}
-	}
-	if recentTotal > 0 {
-		recent = float64(recentLost) * 100 / float64(recentTotal)
-	}
-	received, lost = numFrames, lostFrames
-	if total := received + lost; total > 0 {
-		session = float64(lost) * 100 / float64(total)
-	}
-	return recent, session, received, lost
+	return primarySession.frames.packetLoss()
 }
 
 const (

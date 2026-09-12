@@ -294,7 +294,6 @@ var (
 
 // Deprecated: sound settings window removed; kept other windows.
 var gameCtx context.Context
-var frameCounter int
 var gameStarted = make(chan struct{})
 
 const framems = 200
@@ -337,21 +336,7 @@ type pnaControllerState struct {
 }
 
 var (
-	frameCh                        = make(chan struct{}, 1)
-	lastFrameTime                  time.Time
-	frameInterval                  = framems * time.Millisecond
-	lastTimingFrame                int32
-	frameTimingSamples             []timedDurationSample
-	serverFrameJitter              time.Duration
-	serverUpdatesPerSecond         float64
-	frameMu                        sync.Mutex
-	commandReplyTime               time.Duration
-	commandReplyMu                 sync.Mutex
 	networkAdjustmentSafetyPercent atomic.Int64
-	pnaControllerMu                sync.Mutex
-	pnaController                  pnaControllerState
-	pnaFallbackMu                  sync.Mutex
-	pnaFallback                    pnaFallbackState
 	lowFPSSince                    time.Time
 	shaderWarnShown                bool
 )
@@ -409,48 +394,17 @@ type drawState struct {
 	nameMobs   []frameMobile
 }
 
-var (
-	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
-	}
-	initialState drawState
-	stateMu      sync.Mutex
-)
-
 // resetDrawState clears all game state and interpolation data.
 // It also resets timing counters so new sessions start from a clean slate.
 func resetDrawState() {
-	stateMu.Lock()
-	state = drawState{
-		descriptors: make(map[uint8]frameDescriptor),
-		mobiles:     make(map[uint8]frameMobile),
-		prevMobiles: make(map[uint8]frameMobile),
-		prevDescs:   make(map[uint8]frameDescriptor),
-	}
-	markWorldStateChanged()
-	stateMu.Unlock()
+	primarySession.draw.reset()
+	markWorldRenderChanged()
 
 	resetInterpolation()
 
-	frameCounter = 0
-
 	// Clear frame timing history so new sessions start fresh without
 	// inherited intervals from previous connections.
-	frameMu.Lock()
-	lastFrameTime = time.Time{}
-	frameInterval = framems * time.Millisecond
-	lastTimingFrame = 0
-	frameTimingSamples = nil
-	serverFrameJitter = 0
-	serverUpdatesPerSecond = 0
-	frameMu.Unlock()
-
-	stateMu.Lock()
-	initialState = cloneDrawState(state)
-	stateMu.Unlock()
+	primarySession.timing.resetCadence()
 }
 
 // resetLiveNetworkSession clears state that must never cross a successful
@@ -468,18 +422,8 @@ func resetLiveNetworkSession() {
 	keyStopFrames = 0
 	inputMu.Unlock()
 
-	for {
-		select {
-		case <-frameCh:
-		default:
-			goto frameChannelDrained
-		}
-	}
-
-frameChannelDrained:
-	commandReplyMu.Lock()
-	commandReplyTime = 0
-	commandReplyMu.Unlock()
+	primarySession.timing.drainWake()
+	primarySession.timing.resetReply()
 	resetPNAController()
 	resetPNAFallback()
 }
@@ -514,64 +458,61 @@ func retainRecentTimingSamples(samples []timedDurationSample, now time.Time) []t
 }
 
 func recordCommandReplySample(reply time.Duration) {
-	if reply < 0 {
-		return
-	}
-	commandReplyMu.Lock()
-	commandReplyTime = reply
-	commandReplyMu.Unlock()
+	primarySession.timing.recordReply(reply)
 }
 
 // networkTimingSnapshot returns the latest command acknowledgement time and
 // independent p95 server-frame jitter. The command value is not a ping/RTT.
 func networkTimingSnapshot() (time.Duration, time.Duration) {
-	commandReplyMu.Lock()
-	reply := commandReplyTime
-	commandReplyMu.Unlock()
-	frameMu.Lock()
-	jitter := serverFrameJitter
-	frameMu.Unlock()
-	return reply, jitter
+	return primarySession.timing.snapshot()
 }
 
 // prepareRenderCacheLocked populates render-ready, sorted/partitioned slices.
-// Call with stateMu held and only when a new game state is applied.
+// Call with the session draw lock held and only when a new game state is applied.
 func prepareRenderCacheLocked() {
+	prepareSessionRenderCacheLocked(primarySession)
+}
+
+func prepareSessionRenderCacheLocked(session *Session) {
+	if session == nil || session.draw == nil {
+		return
+	}
+	current := &session.draw.current
 	// Mobiles: split into live and dead, sort by V then H, and prepare
 	// a separate slice sorted right-to-left/top-to-bottom for name tags.
-	state.liveMobs = state.liveMobs[:0]
-	state.deadMobs = state.deadMobs[:0]
-	for _, m := range state.mobiles {
+	current.liveMobs = current.liveMobs[:0]
+	current.deadMobs = current.deadMobs[:0]
+	for _, m := range current.mobiles {
 		if m.State == poseDead {
-			state.deadMobs = append(state.deadMobs, m)
+			current.deadMobs = append(current.deadMobs, m)
 		}
-		state.liveMobs = append(state.liveMobs, m)
+		current.liveMobs = append(current.liveMobs, m)
 	}
-	sortMobiles(state.deadMobs)
-	sortMobiles(state.liveMobs)
+	sortMobiles(current.deadMobs)
+	sortMobiles(current.liveMobs)
 
-	state.nameMobs = append(state.nameMobs[:0], state.liveMobs...)
-	sortMobilesNameTags(state.nameMobs)
+	current.nameMobs = append(current.nameMobs[:0], current.liveMobs...)
+	sortMobilesNameTags(current.nameMobs)
 
 	// Pictures: sort once, then partition by plane while preserving order.
 	// Work on a copy to avoid reordering the canonical state.pictures slice
 	// used by picture-shift and interpolation processing.
-	state.sortedPics = append(state.sortedPics[:0], state.pictures...)
-	sortPictures(state.sortedPics)
-	state.picsNeg = state.picsNeg[:0]
-	state.picsZero = state.picsZero[:0]
-	state.picsPos = state.picsPos[:0]
-	for _, p := range state.sortedPics {
+	current.sortedPics = append(current.sortedPics[:0], current.pictures...)
+	sortPictures(current.sortedPics)
+	current.picsNeg = current.picsNeg[:0]
+	current.picsZero = current.picsZero[:0]
+	current.picsPos = current.picsPos[:0]
+	for _, p := range current.sortedPics {
 		switch {
 		case p.Plane < 0:
-			state.picsNeg = append(state.picsNeg, p)
+			current.picsNeg = append(current.picsNeg, p)
 		case p.Plane == 0:
-			state.picsZero = append(state.picsZero, p)
+			current.picsZero = append(current.picsZero, p)
 		default:
-			state.picsPos = append(state.picsPos, p)
+			current.picsPos = append(current.picsPos, p)
 		}
 	}
-	markWorldStateChanged()
+	markSessionWorldStateChanged(session)
 }
 
 // bubble stores temporary chat bubble information. Bubbles expire after a
@@ -656,22 +597,31 @@ type drawSnapshot struct {
 // Draw calls this serially with the same destination so maps and slices can be
 // reused without sharing mutable storage with the network goroutine.
 func captureDrawSnapshot(snap *drawSnapshot) {
+	captureSessionDrawSnapshot(primarySession, snap)
+}
+
+func captureSessionDrawSnapshot(session *Session, snap *drawSnapshot) {
+	if session == nil || session.draw == nil || snap == nil {
+		return
+	}
+	draw := session.draw
 	lockStarted := time.Time{}
 	if framePacingTraceThreshold > 0 {
 		lockStarted = time.Now()
 	}
-	stateMu.Lock()
+	draw.mu.Lock()
 	if !lockStarted.IsZero() {
 		traceFramePacingSnapshotLockWait(time.Since(lockStarted))
 	}
-	defer stateMu.Unlock()
+	defer draw.mu.Unlock()
+	current := &draw.current
 
 	if snap.descriptors == nil {
-		snap.descriptors = make(map[uint8]frameDescriptor, len(state.descriptors))
+		snap.descriptors = make(map[uint8]frameDescriptor, len(current.descriptors))
 	} else {
 		clear(snap.descriptors)
 	}
-	generation := worldStateGeneration.Load()
+	generation := draw.generation.Load()
 	snap.worldGeneration = generation
 	snap.motionSmoothing = gs.MotionSmoothing
 	snap.objectPinning = gs.ObjectPinning
@@ -679,11 +629,11 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	if gs.ObjectPinning && gs.MotionSmoothing {
 		if !snap.prevPictureIndexValid || snap.prevPictureIndexGeneration != generation {
 			if snap.prevPicturePositions == nil {
-				snap.prevPicturePositions = make(map[picturePositionKey]struct{}, len(state.prevPictures))
+				snap.prevPicturePositions = make(map[picturePositionKey]struct{}, len(current.prevPictures))
 			} else {
 				clear(snap.prevPicturePositions)
 			}
-			for _, p := range state.prevPictures {
+			for _, p := range current.prevPictures {
 				snap.prevPicturePositions[picturePositionKey{pictID: p.PictID, h: p.H, v: p.V}] = struct{}{}
 			}
 			snap.prevPictureIndexGeneration = generation
@@ -692,44 +642,44 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	} else {
 		snap.prevPictureIndexValid = false
 	}
-	snap.picShiftX = state.picShiftX
-	snap.picShiftY = state.picShiftY
-	snap.mobiles = append(snap.mobiles[:0], state.nameMobs...)
-	snap.prevTime = state.prevTime
-	snap.curTime = state.curTime
-	snap.hp = state.hp
-	snap.hpMax = state.hpMax
-	snap.sp = state.sp
-	snap.spMax = state.spMax
-	snap.balance = state.balance
-	snap.balanceMax = state.balanceMax
-	snap.prevHP = state.prevHP
-	snap.prevHPMax = state.prevHPMax
-	snap.prevSP = state.prevSP
-	snap.prevSPMax = state.prevSPMax
-	snap.prevBalance = state.prevBalance
-	snap.prevBalanceMax = state.prevBalanceMax
-	snap.ackCmd = state.ackCmd
-	snap.lightingFlags = state.lightingFlags
-	snap.dropped = state.dropped
-	snap.logicalFrame = state.logicalFrame
-	snap.picsNeg = append(snap.picsNeg[:0], state.picsNeg...)
-	snap.picsZero = append(snap.picsZero[:0], state.picsZero...)
-	snap.picsPos = append(snap.picsPos[:0], state.picsPos...)
-	snap.liveMobs = append(snap.liveMobs[:0], state.liveMobs...)
-	snap.deadMobs = append(snap.deadMobs[:0], state.deadMobs...)
+	snap.picShiftX = current.picShiftX
+	snap.picShiftY = current.picShiftY
+	snap.mobiles = append(snap.mobiles[:0], current.nameMobs...)
+	snap.prevTime = current.prevTime
+	snap.curTime = current.curTime
+	snap.hp = current.hp
+	snap.hpMax = current.hpMax
+	snap.sp = current.sp
+	snap.spMax = current.spMax
+	snap.balance = current.balance
+	snap.balanceMax = current.balanceMax
+	snap.prevHP = current.prevHP
+	snap.prevHPMax = current.prevHPMax
+	snap.prevSP = current.prevSP
+	snap.prevSPMax = current.prevSPMax
+	snap.prevBalance = current.prevBalance
+	snap.prevBalanceMax = current.prevBalanceMax
+	snap.ackCmd = current.ackCmd
+	snap.lightingFlags = current.lightingFlags
+	snap.dropped = current.dropped
+	snap.logicalFrame = current.logicalFrame
+	snap.picsNeg = append(snap.picsNeg[:0], current.picsNeg...)
+	snap.picsZero = append(snap.picsZero[:0], current.picsZero...)
+	snap.picsPos = append(snap.picsPos[:0], current.picsPos...)
+	snap.liveMobs = append(snap.liveMobs[:0], current.liveMobs...)
+	snap.deadMobs = append(snap.deadMobs[:0], current.deadMobs...)
 	snap.bubbles = snap.bubbles[:0]
 
-	for idx, d := range state.descriptors {
+	for idx, d := range current.descriptors {
 		snap.descriptors[idx] = d
 	}
-	if len(state.bubbles) > 0 {
-		curFrame := frameCounter
-		kept := state.bubbles[:0]
-		for _, b := range state.bubbles {
+	if len(current.bubbles) > 0 {
+		curFrame := draw.frame
+		kept := current.bubbles[:0]
+		for _, b := range current.bubbles {
 			if (curFrame - b.CreatedFrame) < b.LifeFrames {
 				if !b.Far {
-					if m, ok := relinkBubbleMobileByName(&b, state.descriptors, state.mobiles); ok {
+					if m, ok := relinkBubbleMobileByName(&b, current.descriptors, current.mobiles); ok {
 						b.H, b.V = m.H, m.V
 					}
 				}
@@ -754,16 +704,16 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 				dedup = append(dedup, b)
 			}
 		}
-		state.bubbles = dedup
-		snap.bubbles = append(snap.bubbles, state.bubbles...)
+		current.bubbles = dedup
+		snap.bubbles = append(snap.bubbles, current.bubbles...)
 	}
 	if gs.MotionSmoothing {
 		if snap.prevMobiles == nil {
-			snap.prevMobiles = make(map[uint8]frameMobile, len(state.prevMobiles))
+			snap.prevMobiles = make(map[uint8]frameMobile, len(current.prevMobiles))
 		} else {
 			clear(snap.prevMobiles)
 		}
-		for idx, m := range state.prevMobiles {
+		for idx, m := range current.prevMobiles {
 			snap.prevMobiles[idx] = m
 		}
 	} else if snap.prevMobiles != nil {
@@ -771,11 +721,11 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 	}
 	if snap.mobileFrameBlending {
 		if snap.prevDescs == nil {
-			snap.prevDescs = make(map[uint8]frameDescriptor, len(state.prevDescs))
+			snap.prevDescs = make(map[uint8]frameDescriptor, len(current.prevDescs))
 		} else {
 			clear(snap.prevDescs)
 		}
-		for idx, d := range state.prevDescs {
+		for idx, d := range current.prevDescs {
 			snap.prevDescs[idx] = d
 		}
 	} else if snap.prevDescs != nil {
@@ -787,13 +737,20 @@ func captureDrawSnapshot(snap *drawSnapshot) {
 // captureDrawSnapshotIfChanged avoids repeatedly locking and copying the
 // network-owned draw state when the renderer runs faster than server updates.
 func captureDrawSnapshotIfChanged(snap *drawSnapshot) bool {
-	if snap.valid && snap.worldGeneration == worldStateGeneration.Load() &&
+	return captureSessionDrawSnapshotIfChanged(primarySession, snap)
+}
+
+func captureSessionDrawSnapshotIfChanged(session *Session, snap *drawSnapshot) bool {
+	if session == nil || session.draw == nil || snap == nil {
+		return false
+	}
+	if snap.valid && snap.worldGeneration == session.draw.generation.Load() &&
 		snap.motionSmoothing == gs.MotionSmoothing &&
 		snap.objectPinning == gs.ObjectPinning &&
 		snap.mobileFrameBlending == mobileFrameBlendingEnabled() {
 		return false
 	}
-	captureDrawSnapshot(snap)
+	captureSessionDrawSnapshot(session, snap)
 	return true
 }
 
@@ -968,7 +925,7 @@ type worldRenderKey struct {
 
 func currentWorldRenderKey(width, height int) worldRenderKey {
 	return worldRenderKey{
-		worldGeneration:           worldStateGeneration.Load(),
+		worldGeneration:           primarySession.draw.generation.Load(),
 		renderGeneration:          worldRenderGeneration.Load(),
 		artworkGeneration:         artworkCacheGeneration.Load(),
 		width:                     width,
@@ -4980,26 +4937,30 @@ func onGameWindowResize() {
 // It returns true only when frame advances, so duplicate or reordered draw
 // states cannot move the phase origin or wake the input scheduler.
 func recordServerFrameTiming(frame int32, now time.Time) bool {
-	frameMu.Lock()
-	defer frameMu.Unlock()
+	return primarySession.timing.recordServerFrame(frame, now)
+}
 
-	if !lastFrameTime.IsZero() && frame <= lastTimingFrame {
+func (s *networkTimingState) recordServerFrame(frame int32, now time.Time) bool {
+	s.cadenceMu.Lock()
+	defer s.cadenceMu.Unlock()
+
+	if !s.lastFrameAt.IsZero() && frame <= s.lastFrame {
 		return false
 	}
-	if !lastFrameTime.IsZero() {
-		if now.Before(lastFrameTime) {
+	if !s.lastFrameAt.IsZero() {
+		if now.Before(s.lastFrameAt) {
 			// TCP is deliberately dispatched before UDP. Preserve a monotonic
 			// phase origin if that cross-channel priority exposes an older
 			// socket timestamp for a newer acknowledged frame.
-			now = lastFrameTime
+			now = s.lastFrameAt
 		}
-		gap := frame - lastTimingFrame
-		sample := now.Sub(lastFrameTime) / time.Duration(gap)
+		gap := frame - s.lastFrame
+		sample := now.Sub(s.lastFrameAt) / time.Duration(gap)
 		if sample > 0 {
-			frameTimingSamples = append(frameTimingSamples, timedDurationSample{at: now, value: sample})
-			frameTimingSamples = retainRecentTimingSamples(frameTimingSamples, now)
-			intervals := make([]time.Duration, len(frameTimingSamples))
-			for i, timingSample := range frameTimingSamples {
+			s.samples = append(s.samples, timedDurationSample{at: now, value: sample})
+			s.samples = retainRecentTimingSamples(s.samples, now)
+			intervals := make([]time.Duration, len(s.samples))
+			for i, timingSample := range s.samples {
 				intervals[i] = timingSample.value
 			}
 			slices.Sort(intervals)
@@ -5012,52 +4973,59 @@ func recordServerFrameTiming(frame int32, now time.Time) bool {
 				}
 				deviations[i] = deviation
 			}
-			frameInterval = median
-			serverFrameJitter = p95Duration(deviations)
-			serverUpdatesPerSecond = float64(time.Second) / float64(frameInterval)
+			s.interval = median
+			s.jitter = p95Duration(deviations)
+			s.updatesPerSecond = float64(time.Second) / float64(s.interval)
 		}
 	}
-	lastFrameTime = now
-	lastTimingFrame = frame
+	s.lastFrameAt = now
+	s.lastFrame = frame
 	return true
 }
 
 func noteFrameAt(frame int32, now time.Time) {
+	primarySession.noteFrameAt(frame, now)
+}
+
+func (s *Session) noteFrameAt(frame int32, now time.Time) {
+	if s == nil || s.timing == nil {
+		return
+	}
 	if playingMovie {
 		return
 	}
-	if !recordServerFrameTiming(frame, now) {
+	if !s.timing.recordServerFrame(frame, now) {
 		return
 	}
 	select {
-	case frameCh <- struct{}{}:
+	case s.timing.wake <- struct{}{}:
 	default:
 	}
 }
 
-func networkAdjustmentSafetyMargin(frameInterval time.Duration) time.Duration {
-	if frameInterval <= 0 {
+func networkAdjustmentSafetyMargin(interval time.Duration) time.Duration {
+	if interval <= 0 {
 		return 0
 	}
-	return (frameInterval * time.Duration(networkAdjustmentSafetyPercent.Load())) / 100
+	return (interval * time.Duration(networkAdjustmentSafetyPercent.Load())) / 100
 }
 
-func pnaBaseLead(frameInterval, jitter time.Duration) time.Duration {
-	lead := networkAdjustmentSafetyMargin(frameInterval) + jitter
+func pnaBaseLead(interval, jitter time.Duration) time.Duration {
+	lead := networkAdjustmentSafetyMargin(interval) + jitter
 	if lead < time.Millisecond {
 		lead = time.Millisecond
 	}
-	if lead >= frameInterval {
-		lead = frameInterval
+	if lead >= interval {
+		lead = interval
 	}
 	return lead
 }
 
-func clampPNALead(lead, minimum, frameInterval time.Duration) time.Duration {
+func clampPNALead(lead, minimum, interval time.Duration) time.Duration {
 	if lead < minimum {
 		lead = minimum
 	}
-	maximum := frameInterval - time.Millisecond
+	maximum := interval - time.Millisecond
 	if maximum < minimum {
 		maximum = minimum
 	}
@@ -5074,33 +5042,37 @@ func minDuration(a, b time.Duration) time.Duration {
 	return b
 }
 
-func pnaLeadSnapshot(frameInterval, jitter time.Duration) time.Duration {
-	minimum := pnaBaseLead(frameInterval, jitter)
-	pnaControllerMu.Lock()
-	defer pnaControllerMu.Unlock()
-	if pnaController.learnedLeadFloor > 0 {
-		pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, minimum, frameInterval)
+func pnaLeadSnapshot(interval, jitter time.Duration) time.Duration {
+	return primarySession.timing.pnaLead(interval, jitter)
+}
+
+func (s *networkTimingState) pnaLead(interval, jitter time.Duration) time.Duration {
+	minimum := pnaBaseLead(interval, jitter)
+	s.controllerMu.Lock()
+	defer s.controllerMu.Unlock()
+	if s.controller.learnedLeadFloor > 0 {
+		s.controller.learnedLeadFloor = clampPNALead(s.controller.learnedLeadFloor, minimum, interval)
 	}
-	minimum = max(minimum, pnaController.learnedLeadFloor)
-	if !pnaController.initialized {
-		pnaController.initialized = true
-		pnaController.lead = max(minimum, frameInterval/4)
+	minimum = max(minimum, s.controller.learnedLeadFloor)
+	if !s.controller.initialized {
+		s.controller.initialized = true
+		s.controller.lead = max(minimum, interval/4)
 	}
-	pnaController.lead = clampPNALead(pnaController.lead, minimum, frameInterval)
-	return pnaController.lead
+	s.controller.lead = clampPNALead(s.controller.lead, minimum, interval)
+	return s.controller.lead
 }
 
 func pnaScheduleSnapshot() (frameTime time.Time, interval, jitter, phase, lead time.Duration, ready bool) {
-	frameMu.Lock()
-	frameTime = lastFrameTime
-	interval = frameInterval
-	jitter = serverFrameJitter
-	ready = len(frameTimingSamples) >= pnaTimingWarmupSamples
-	frameMu.Unlock()
+	return primarySession.timing.pnaSchedule()
+}
+
+func (s *networkTimingState) pnaSchedule() (frameTime time.Time, interval, jitter, phase, lead time.Duration, ready bool) {
+	frameTime, interval, jitter, _, sampleCount := s.cadenceSnapshot()
+	ready = sampleCount >= pnaTimingWarmupSamples
 	if !ready || frameTime.IsZero() || interval <= 0 {
 		return frameTime, interval, jitter, 0, 0, false
 	}
-	lead = pnaLeadSnapshot(interval, jitter)
+	lead = s.pnaLead(interval, jitter)
 	phase = interval - lead
 	if phase < 0 {
 		phase = 0
@@ -5109,17 +5081,16 @@ func pnaScheduleSnapshot() (frameTime time.Time, interval, jitter, phase, lead t
 }
 
 func resetPNAController() {
-	pnaControllerMu.Lock()
-	pnaController = pnaControllerState{}
-	pnaControllerMu.Unlock()
+	primarySession.timing.resetController()
 }
 
 func pnaCommandSendTiming(now time.Time) (phase, interval time.Duration, predictive bool) {
-	frameMu.Lock()
-	last := lastFrameTime
-	interval = frameInterval
-	ready := len(frameTimingSamples) >= pnaTimingWarmupSamples
-	frameMu.Unlock()
+	return primarySession.pnaCommandTiming(now)
+}
+
+func (s *Session) pnaCommandTiming(now time.Time) (phase, interval time.Duration, predictive bool) {
+	last, interval, _, _, sampleCount := s.timing.cadenceSnapshot()
+	ready := sampleCount >= pnaTimingWarmupSamples
 	if last.IsZero() || now.Before(last) {
 		return 0, interval, false
 	}
@@ -5130,8 +5101,8 @@ func pnaCommandSendTiming(now time.Time) (phase, interval time.Duration, predict
 	if !gs.AltNetMode || !ready {
 		return phase, interval, false
 	}
-	recentLoss, _, _, _ := packetLossSnapshot()
-	predictive, _ = pnaTimingStatus(recentLoss, now)
+	recentLoss, _, _, _ := s.frames.packetLoss()
+	predictive, _ = s.timing.pnaStatus(recentLoss, now)
 	return phase, interval, predictive
 }
 
@@ -5158,28 +5129,31 @@ func pnaCanIdentifyLateBoundary(reply, interval time.Duration) bool {
 }
 
 func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sentFrame, acknowledgedFrame int32, now time.Time) {
+	primarySession.recordPNACommandFeedback(reply, sentPhase, sentInterval, sentFrame, acknowledgedFrame, now)
+}
+
+func (s *Session) recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sentFrame, acknowledgedFrame int32, now time.Time) {
 	if !gs.AltNetMode || reply <= 0 || sentInterval <= 0 || sentPhase < 0 || sentPhase > sentInterval || acknowledgedFrame <= sentFrame {
 		return
 	}
-	recentLoss, _, _, _ := packetLossSnapshot()
-	if usePNA, _ := pnaTimingStatus(recentLoss, now); !usePNA {
+	recentLoss, _, _, _ := s.frames.packetLoss()
+	if usePNA, _ := s.timing.pnaStatus(recentLoss, now); !usePNA {
 		return
 	}
-	frameMu.Lock()
-	jitter := serverFrameJitter
-	frameMu.Unlock()
+	_, _, jitter, _, _ := s.timing.cadenceSnapshot()
 	baseMinimum := pnaBaseLead(sentInterval, jitter)
 	ackFrames := acknowledgedFrame - sentFrame
 
-	pnaControllerMu.Lock()
-	defer pnaControllerMu.Unlock()
-	if pnaController.learnedLeadFloor > 0 {
-		pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, baseMinimum, sentInterval)
+	s.timing.controllerMu.Lock()
+	defer s.timing.controllerMu.Unlock()
+	controller := &s.timing.controller
+	if controller.learnedLeadFloor > 0 {
+		controller.learnedLeadFloor = clampPNALead(controller.learnedLeadFloor, baseMinimum, sentInterval)
 	}
-	minimum := max(baseMinimum, pnaController.learnedLeadFloor)
-	if !pnaController.initialized {
-		pnaController.initialized = true
-		pnaController.lead = max(minimum, sentInterval/4)
+	minimum := max(baseMinimum, controller.learnedLeadFloor)
+	if !controller.initialized {
+		controller.initialized = true
+		controller.lead = max(minimum, sentInterval/4)
 	}
 	if ackFrames > 1 {
 		if !pnaCanIdentifyLateBoundary(reply, sentInterval) {
@@ -5190,66 +5164,66 @@ func recordPNACommandFeedback(reply, sentPhase, sentInterval time.Duration, sent
 		// across a known-late boundary creates a rhythmic full-frame latency
 		// spike.
 		step := max(sentInterval/8, jitter)
-		pnaController.lead += step
-		pnaController.lead = clampPNALead(pnaController.lead, baseMinimum, sentInterval)
-		pnaController.learnedLeadFloor = max(pnaController.learnedLeadFloor, pnaController.lead)
-		pnaController.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
-		pnaController.holdUntil = now.Add(pnaFeedbackHold)
-		pnaController.consecutiveHits = 0
+		controller.lead += step
+		controller.lead = clampPNALead(controller.lead, baseMinimum, sentInterval)
+		controller.learnedLeadFloor = max(controller.learnedLeadFloor, controller.lead)
+		controller.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
+		controller.holdUntil = now.Add(pnaFeedbackHold)
+		controller.consecutiveHits = 0
 		log.Printf("NLSPT learned late boundary: reply=%s skipped_frames=%d lead_floor=%s interval=%s",
-			reply.Round(time.Millisecond), ackFrames-1, pnaController.learnedLeadFloor.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
+			reply.Round(time.Millisecond), ackFrames-1, controller.learnedLeadFloor.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
 	} else if reply < baseMinimum {
 		// The acknowledgement arrived with less than the requested headroom.
 		// Increase the lead without waiting for a full missed frame.
 		step := minDuration(baseMinimum-reply, sentInterval/10)
-		pnaController.lead += step
-		pnaController.holdUntil = now.Add(pnaFeedbackHold)
-		pnaController.consecutiveHits = 0
+		controller.lead += step
+		controller.holdUntil = now.Add(pnaFeedbackHold)
+		controller.consecutiveHits = 0
 	} else {
-		if now.Before(pnaController.holdUntil) {
-			pnaController.consecutiveHits = 0
-			pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+		if now.Before(controller.holdUntil) {
+			controller.consecutiveHits = 0
+			controller.lead = clampPNALead(controller.lead, minimum, sentInterval)
 			return
 		}
-		if pnaController.learnedLeadFloor > 0 {
+		if controller.learnedLeadFloor > 0 {
 			// The latest full-frame miss established a boundary for this session.
 			// Re-test it only occasionally and by a much smaller step than normal
 			// convergence, so a changed floor can be discovered without restoring
 			// the old rhythmic missed-frame spike.
-			pnaController.consecutiveHits = 0
-			if now.Before(pnaController.nextBoundaryProbe) {
-				pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+			controller.consecutiveHits = 0
+			if now.Before(controller.nextBoundaryProbe) {
+				controller.lead = clampPNALead(controller.lead, minimum, sentInterval)
 				return
 			}
-			pnaController.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
+			controller.nextBoundaryProbe = now.Add(pnaBoundaryProbeInterval)
 			deadband := max(2*time.Millisecond, jitter/4)
 			if reply > baseMinimum+deadband {
 				step := minDuration((reply-baseMinimum)/8, sentInterval/40)
 				if step > 0 {
-					pnaController.learnedLeadFloor -= step
-					pnaController.learnedLeadFloor = clampPNALead(pnaController.learnedLeadFloor, baseMinimum, sentInterval)
-					pnaController.lead = pnaController.learnedLeadFloor
+					controller.learnedLeadFloor -= step
+					controller.learnedLeadFloor = clampPNALead(controller.learnedLeadFloor, baseMinimum, sentInterval)
+					controller.lead = controller.learnedLeadFloor
 					log.Printf("NLSPT cautiously probing learned boundary: step=%s lead=%s interval=%s",
-						step.Round(time.Millisecond), pnaController.lead.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
+						step.Round(time.Millisecond), controller.lead.Round(time.Millisecond), sentInterval.Round(time.Millisecond))
 				}
 				return
 			}
-			pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+			controller.lead = clampPNALead(controller.lead, minimum, sentInterval)
 			return
 		}
-		pnaController.consecutiveHits++
+		controller.consecutiveHits++
 		deadband := max(2*time.Millisecond, jitter/4)
-		if pnaController.consecutiveHits >= pnaSuccessesBeforeLater &&
+		if controller.consecutiveHits >= pnaSuccessesBeforeLater &&
 			reply > minimum+deadband {
 			// Move later by only a fraction of the measured excess. Reply time
 			// changes as a consequence of this control output, so bounded steps
 			// keep the loop from amplifying its own feedback.
 			step := minDuration((reply-minimum)/4, sentInterval/20)
-			pnaController.lead -= step
-			pnaController.consecutiveHits = 0
+			controller.lead -= step
+			controller.consecutiveHits = 0
 		}
 	}
-	pnaController.lead = clampPNALead(pnaController.lead, minimum, sentInterval)
+	controller.lead = clampPNALead(controller.lead, minimum, sentInterval)
 }
 
 // pnaFallbackReason pauses NLSPT only for meaningful recent packet loss. Reply
@@ -5268,24 +5242,28 @@ func pnaRecoveryReady(recentLoss float64) bool {
 // pnaTimingStatus applies a cooldown and lower recovery thresholds to prevent
 // NLSPT from flapping between predictive and immediate networking near a limit.
 func pnaTimingStatus(recentLoss float64, now time.Time) (usePNA bool, reason string) {
-	pnaFallbackMu.Lock()
-	defer pnaFallbackMu.Unlock()
+	return primarySession.timing.pnaStatus(recentLoss, now)
+}
+
+func (s *networkTimingState) pnaStatus(recentLoss float64, now time.Time) (usePNA bool, reason string) {
+	s.fallbackMu.Lock()
+	defer s.fallbackMu.Unlock()
 
 	if reason := pnaFallbackReason(recentLoss); reason != "" {
-		pnaFallback.activeUntil = now.Add(pnaFallbackCooldown)
-		pnaFallback.reason = reason
+		s.fallback.activeUntil = now.Add(pnaFallbackCooldown)
+		s.fallback.reason = reason
 		return false, reason
 	}
-	if pnaFallback.activeUntil.IsZero() {
+	if s.fallback.activeUntil.IsZero() {
 		return true, ""
 	}
-	if now.Before(pnaFallback.activeUntil) {
-		return false, "cooldown after " + pnaFallback.reason
+	if now.Before(s.fallback.activeUntil) {
+		return false, "cooldown after " + s.fallback.reason
 	}
 	if !pnaRecoveryReady(recentLoss) {
 		return false, "waiting for packet loss to clear"
 	}
-	pnaFallback = pnaFallbackState{}
+	s.fallback = pnaFallbackState{}
 	return true, ""
 }
 
@@ -5303,21 +5281,23 @@ func pnaFallbackExplanation(reason string, recentLoss float64) string {
 }
 
 func resetPNAFallback() {
-	pnaFallbackMu.Lock()
-	pnaFallback = pnaFallbackState{}
-	pnaFallbackMu.Unlock()
+	primarySession.timing.resetFallback()
 }
 
 func waitForPNASend(ctx context.Context) bool {
+	return primarySession.waitForPNASend(ctx)
+}
+
+func (s *Session) waitForPNASend(ctx context.Context) bool {
 	for {
 		if !gs.AltNetMode {
 			return true
 		}
-		recentLoss, _, _, _ := packetLossSnapshot()
-		if usePNA, _ := pnaTimingStatus(recentLoss, time.Now()); !usePNA {
+		recentLoss, _, _, _ := s.frames.packetLoss()
+		if usePNA, _ := s.timing.pnaStatus(recentLoss, time.Now()); !usePNA {
 			return true
 		}
-		frameTime, _, _, phase, _, ready := pnaScheduleSnapshot()
+		frameTime, _, _, phase, _, ready := s.timing.pnaSchedule()
 		if !ready || phase <= 0 {
 			return true
 		}
@@ -5328,16 +5308,14 @@ func waitForPNASend(ctx context.Context) bool {
 		timer := time.NewTimer(wait)
 		select {
 		case <-timer.C:
-			frameMu.Lock()
-			latestFrameTime := lastFrameTime
-			frameMu.Unlock()
+			latestFrameTime, _, _, _, _ := s.timing.cadenceSnapshot()
 			if latestFrameTime.After(frameTime) {
 				// A new frame raced the timer. Its phase is now authoritative;
 				// do not emit an extra input at the old frame boundary.
 				continue
 			}
 			return true
-		case <-frameCh:
+		case <-s.timing.wake:
 			if !timer.Stop() {
 				select {
 				case <-timer.C:
@@ -5360,6 +5338,12 @@ func waitForPNASend(ctx context.Context) bool {
 }
 
 func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
+	sendSessionInputLoop(primarySession, ctx, udpConn, tcpConn)
+}
+
+// sendSessionInputLoop is parameterized now so transport, input, and command
+// ownership can move behind the same session boundary in subsequent slices.
+func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpConn net.Conn) {
 	// nextReliable determines when to send the next keep-alive packet via
 	// the reliable channel to preserve NAT mappings.
 	var nextReliable time.Time
@@ -5370,46 +5354,47 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-frameCh:
+		case <-session.timing.wake:
 		}
-		if !waitForPNASend(ctx) {
+		if !session.waitForPNASend(ctx) {
 			return
 		}
-		frameMu.Lock()
-		last := lastFrameTime
-		frameMu.Unlock()
+		last, _, _, _, _ := session.timing.cadenceSnapshot()
 		if time.Since(last) > 2*time.Second || udpConn == nil {
 			continue
 		}
-		inputMu.Lock()
 		var s inputState
-		if len(inputQueue) > 0 {
-			s = inputQueue[0]
-			latestInput = s
-			inputQueue = inputQueue[1:]
-			if keyStopFrames > 0 && len(inputQueue) == 0 && !s.mouseDown {
-				s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
-				keyStopFrames--
+		if session == primarySession {
+			inputMu.Lock()
+			if len(inputQueue) > 0 {
+				s = inputQueue[0]
+				latestInput = s
+				inputQueue = inputQueue[1:]
+				if keyStopFrames > 0 && len(inputQueue) == 0 && !s.mouseDown {
+					s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
+					keyStopFrames--
+				}
+			} else {
+				s = latestInput
+				if keyStopFrames > 0 {
+					s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
+					keyStopFrames--
+				}
 			}
+			inputMu.Unlock()
+			s = applyScriptMovement(s, time.Now())
 		} else {
-			s = latestInput
-			if keyStopFrames > 0 {
-				s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
-				keyStopFrames--
-			}
+			s = session.input.next()
 		}
-		inputMu.Unlock()
-
-		s = applyScriptMovement(s, time.Now())
 
 		reliable := false
 		now := time.Now()
-		_, _, predictive := pnaCommandSendTiming(now)
-		commandPending := !commandQueueIsIdle()
+		_, _, predictive := session.pnaCommandTiming(now)
+		commandPending := !session.commands.idle()
 		if predictive && haveLastPNASentInput && !pnaInputSendAllowed(lastPNASend, now, s != lastPNASentInput, commandPending) {
 			continue
 		}
-		if now.After(nextReliable) && commandQueueIsIdle() && tcpConn != nil {
+		if now.After(nextReliable) && session.commands.idle() && tcpConn != nil {
 			reliable = true
 			// next packet will be 3 to 5 minutes from now
 			nextReliable = now.Add(3*time.Minute + time.Duration(rand.Intn(120))*time.Second)
@@ -5417,9 +5402,9 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 
 		var err error
 		if reliable {
-			err = sendPlayerInput(tcpConn, s.mouseX, s.mouseY, s.mouseDown, true)
+			err = sendSessionPlayerInput(session, tcpConn, s.mouseX, s.mouseY, s.mouseDown, true)
 		} else {
-			err = sendPlayerInput(udpConn, s.mouseX, s.mouseY, s.mouseDown, false)
+			err = sendSessionPlayerInput(session, udpConn, s.mouseX, s.mouseY, s.mouseDown, false)
 		}
 		if err != nil {
 			// ignore errors from dead connections
@@ -5438,6 +5423,10 @@ type incomingServerMessage struct {
 }
 
 func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingServerMessage) {
+	sessionUDPReadLoop(primarySession, ctx, conn, messages)
+}
+
+func sessionUDPReadLoop(session *Session, ctx context.Context, conn net.Conn, messages chan<- incomingServerMessage) {
 	for {
 		m, receivedAt, err := readUDPMessageAt(conn)
 		if err != nil {
@@ -5450,7 +5439,7 @@ func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingSer
 				return
 			default:
 			}
-			handleDisconnect()
+			session.transport.disconnect()
 			return
 		}
 		select {
@@ -5462,6 +5451,10 @@ func udpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingSer
 }
 
 func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingServerMessage) {
+	sessionTCPReadLoop(primarySession, ctx, conn, messages)
+}
+
+func sessionTCPReadLoop(session *Session, ctx context.Context, conn net.Conn, messages chan<- incomingServerMessage) {
 	for {
 		m, receivedAt, err := readTCPMessageAt(conn)
 		if err != nil {
@@ -5470,7 +5463,7 @@ func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingSer
 				return
 			default:
 			}
-			handleDisconnect()
+			session.transport.disconnect()
 			return
 		}
 		select {
@@ -5482,10 +5475,15 @@ func tcpReadLoop(ctx context.Context, conn net.Conn, messages chan<- incomingSer
 }
 
 func dispatchIncomingServerMessage(m incomingServerMessage, reliable bool) {
-	if !recordIncomingMovieMessageAt(m.data, m.receivedAt) {
-		processServerMessageAt(m.data, m.receivedAt)
+	dispatchSessionIncomingServerMessage(primarySession, m, reliable)
+}
+
+func dispatchSessionIncomingServerMessage(session *Session, m incomingServerMessage, reliable bool) {
+	recorded := session == primarySession && recordIncomingMovieMessageAt(m.data, m.receivedAt)
+	if !recorded {
+		processSessionServerMessageAt(session, m.data, m.receivedAt)
 	}
-	if reliable && commandQueueIsIdle() {
+	if session == primarySession && reliable && session.commands.idle() {
 		// Allow maintenance queues to issue commands even when the player is
 		// not moving; this keeps /be-info and /be-who flowing during idle
 		// periods on live connections.
@@ -5499,7 +5497,13 @@ func dispatchIncomingServerMessage(m incomingServerMessage, reliable bool) {
 // The classic client drains TCP before UDP, so check the reliable queue first
 // whenever both transports have pending data.
 func serverMessageDispatchLoop(ctx context.Context, tcpMessages, udpMessages <-chan incomingServerMessage) {
-	serverMessageDispatchLoopWithHandler(ctx, tcpMessages, udpMessages, dispatchIncomingServerMessage)
+	serverSessionMessageDispatchLoop(primarySession, ctx, tcpMessages, udpMessages)
+}
+
+func serverSessionMessageDispatchLoop(session *Session, ctx context.Context, tcpMessages, udpMessages <-chan incomingServerMessage) {
+	serverMessageDispatchLoopWithHandler(ctx, tcpMessages, udpMessages, func(message incomingServerMessage, reliable bool) {
+		dispatchSessionIncomingServerMessage(session, message, reliable)
+	})
 }
 
 func serverMessageDispatchLoopWithHandler(

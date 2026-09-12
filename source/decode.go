@@ -432,22 +432,41 @@ func decodeMessage(m []byte) string {
 }
 
 func handleInfoText(data []byte) {
+	handleSessionInfoText(primarySession, data)
+}
+
+func handleSessionInfoText(session *Session, data []byte) {
+	if session == nil {
+		return
+	}
 	for _, line := range bytes.Split(data, []byte{'\r'}) {
 		if len(line) == 0 {
 			continue
 		}
 		if line[0] == 0xC2 {
-			if txt := decodeBEPP(line); txt != "" {
-				serverConsoleMessage(txt)
+			if session == primarySession {
+				if txt := decodeBEPP(line); txt != "" {
+					session.publishConsole(txt, messageTextTypeSystem)
+				}
+			} else {
+				// BEPP handlers still update the primary script/player/music
+				// adapters. Preserve the source-tagged command for this session
+				// until those backends move behind Session as well.
+				if len(line) < 3 {
+					continue
+				}
+				raw := line[3:]
+				cleaned := stripBEPPTags(append([]byte(nil), raw...))
+				session.publishInfoCommand(strings.TrimSpace(decodeServerText(cleaned)))
 			}
 			continue
 		}
 		if _, txt, _, _, _, bubbleType, _ := decodeBubble(line); txt != "" {
 			messageType := messageTextTypeForBubble(bubbleType)
 			if isChatBubble(bubbleType) {
-				displayChatMessageTyped(txt, messageType)
+				session.publishChat(txt, messageType)
 			} else {
-				serverConsoleMessageTyped(txt, messageType)
+				session.publishConsole(txt, messageType)
 			}
 			continue
 		}
@@ -455,25 +474,30 @@ func handleInfoText(data []byte) {
 		if s == "" {
 			continue
 		}
-		if parseNightCommand(s) {
-			continue
-		}
-		if parseInterruptCommand(s) {
-			continue
-		}
-		// Empirical: classic client handles server-sent info-text music commands.
-		// Be permissive here as servers can vary:
-		// - Accept explicit "/music/..." payloads anywhere in the line
-		// - Accept leading "play ..." or "play/..." forms
-		if strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
-			if parseMusicCommand(s, line) {
+		if session == primarySession {
+			if parseNightCommand(s) {
 				continue
 			}
+			if parseInterruptCommand(s) {
+				continue
+			}
+			// Empirical: classic client handles server-sent info-text music commands.
+			// Be permissive here as servers can vary:
+			// - Accept explicit "/music/..." payloads anywhere in the line
+			// - Accept leading "play ..." or "play/..." forms
+			if strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
+				if parseMusicCommand(s, line) {
+					continue
+				}
+			}
+		} else if strings.HasPrefix(s, "/") || strings.Contains(s, "/music/") || strings.HasPrefix(s, "play ") || strings.HasPrefix(s, "play/") {
+			session.publishInfoCommand(s)
+			continue
 		}
 		// Ignore other command-like lines.
 		if strings.HasPrefix(s, "/") {
 			continue
 		}
-		serverConsoleMessage(s)
+		session.publishConsole(s, messageTextTypeSystem)
 	}
 }

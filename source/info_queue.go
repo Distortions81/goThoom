@@ -33,8 +33,8 @@ func queueInfoRequest(name string) {
 	infoQueueMu.Unlock()
 }
 
-// maybeEnqueueInfo sets pendingCommand to "/be-info <name>" when throttled and
-// a name is queued. Returns true if it queued a command.
+// maybeEnqueueInfo adds "/be-info <name>" to the session command stream when
+// throttled and a name is queued. Returns true if it queued a command.
 func maybeEnqueueInfo() bool {
 	if !commandQueueIsIdle() {
 		return false

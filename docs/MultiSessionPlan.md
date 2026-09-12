@@ -92,6 +92,56 @@ App
 - A non-movable, view-centered login/connecting/reconnecting overlay for
   an empty or disconnected slot.
 
+## Phase 0 state inventory
+
+This table is the extraction checklist for mutable runtime state. Package-level
+constants, immutable lookup tables, shared decode scratch pools, and test-only
+dependency hooks are not session state.
+
+| Current area | Representative state | Target owner | Extraction notes |
+| --- | --- | --- | --- |
+| Settings and persistence | `gs`, settings/profile files, theme and keybinding definitions | App | Character profiles remain login metadata; they must not replace app settings when session selection changes. |
+| Assets and rendering resources | CL archives, decoded images/sounds, shaders, fonts, sprite/name-tag caches, render pools | App | Shared by every viewport; cache keys must not contain implicit current-character state. |
+| Audio output | audio context, mixer levels, sound/TTS players | App | Decoded sound requests now carry a source session ID and use per-session deduplication before entering the shared mixer. Notifications and music-source routing remain to move. |
+| Game view | `gameWin`, `gameImage*`, `worldViewRect`, hover/render caches | Viewport | One copy per session slot; pointer coordinates resolve the viewport before dispatch. |
+| Draw model | decoded state, initial snapshot, bubbles, vitals, lighting flags, logical frame and world generation | Session | The canonical model is extracted behind a session lock. Protocol decode, render-cache preparation, snapshot capture, bubbles, sounds, inventory commands, and visible-player observations accept an explicit session. Interpolation settings and viewport caches remain to move. |
+| Transport and login | TCP/UDP connections, login cancellation/progress, reconnect state | Session | Socket pairs, connection status, cancellation, generation-safe cleanup, network loops, immutable per-attempt login requests, and pending password updates are session-owned. The existing login-window fields remain a primary-session UI adapter; per-slot login surfaces, protocol encryption state, and reconnect policy remain to move. |
+| Network timing | ack/resend values, frame statistics/timing, PNA controller/fallback, command reply samples | Session | Extracted behind session-owned locks and wake channels so one connection cannot tune or wake another. Existing live call sites still target the primary session. |
+| Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, and background-session input queues are isolated. The visible UI still feeds the primary input adapter; viewport routing and who/info scheduling remain to move. |
+| Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory and decoder-observed player presence are session-owned. The full Players backend, identity, selection, `/be-who`, and info scheduling remain primary-session adapters. |
+| Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained as source-tagged session events and copied to an app aggregate. The visible combined window, persistence, unread state, and script dispatch still use the primary adapter. |
+| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Stores remain script-private, but interpreters, callbacks, timers, movement leases, and lifecycle generations are independent. |
+| Music data | parsed tune queue/timeline and current tune metadata | Session | The synthesizer/player stays app-owned and follows the explicit music-source selection. |
+| UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Shared panels bind to one session snapshot atomically; callbacks capture their originating session ID. |
+| Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Live session recordings cannot share mutable buffers. Fake mode stays single-session and PCAP may remain unsupported. |
+
+The first implemented boundaries are `SessionID`, the app-owned session
+registry, Inventory, and the ordered command stream. IDs map permanently to the
+four slots and do not depend on character names. The registry starts with the
+primary session and materializes all four login-ready slots when multi-session
+mode is enabled. Inventory contents, command numbering, pending sends,
+acknowledgement/resend state, packet-loss and cadence measurements, command
+reply timing, PNA learning/fallback, and script command-ticket cancellation are
+independently locked and owned by each session. The decoded draw model, initial
+snapshot, logical frame, world generation, draw packet frame tables, and render
+snapshots are isolated as well. State-data parsing now routes inventory,
+bubbles, sound deduplication, visible-player observations, and tagged
+chat/console/audio events through the originating session. The app retains a
+bounded combined event model, and sound events from every session enter the
+shared mixer with their source ID. Existing entry points retain primary-session
+wrappers so the visible one-client application remains unchanged during
+extraction. Secondary BEPP/backend commands are retained as tagged events until
+the player, automation, music, and notification backends become session-aware.
+Each session now also owns its TCP/UDP socket pair, connection status,
+cancellation boundary, transport generation, network dispatch loops, command
+packet construction, a background-safe input queue, selected server and
+credentials, and its pending password update. Login attempts capture immutable
+request snapshots, demo-character retries update only their owning session,
+and simultaneous session logins cannot exchange hosts, character names, or
+passwords. Disconnect and stale-loop cleanup operate only on the owning
+session. The existing login-window fields now copy into the primary session at
+connect time and remain only a UI adapter pending per-slot login surfaces.
+
 ## UI behavior
 
 ### Select and route

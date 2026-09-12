@@ -22,7 +22,8 @@ var spriteUsage struct {
 	ids   [1 << 16]spriteIDUsage
 }
 
-// Called with stateMu held, after the new picture and mobile lists are installed.
+// Called with the session draw lock held after the new picture and mobile lists
+// are installed.
 func recordSpriteGameFrameLocked() {
 	spriteUsage.Lock()
 	defer spriteUsage.Unlock()
@@ -37,11 +38,11 @@ func recordSpriteGameFrameLocked() {
 			u.framesSeen++
 		}
 	}
-	for _, p := range state.pictures {
+	for _, p := range primarySession.draw.current.pictures {
 		record(p.PictID)
 	}
-	for index := range state.mobiles {
-		if d, ok := state.descriptors[index]; ok {
+	for index := range primarySession.draw.current.mobiles {
+		if d, ok := primarySession.draw.current.descriptors[index]; ok {
 			record(d.PictID)
 		}
 	}

@@ -95,10 +95,10 @@ func TestRenderStallStudy(t *testing.T) {
 	playerName = fixture.playerName
 	dataDirPath = t.TempDir()
 	restoreDrawState(fixture.busyScene)
-	stateMu.Lock()
+	primarySession.draw.mu.Lock()
 	prepareRenderCacheLocked()
-	stateMu.Unlock()
-	worldStateGeneration.Add(1)
+	primarySession.draw.mu.Unlock()
+	primarySession.draw.generation.Add(1)
 	initFont()
 	if err := ReloadLightingShader(); err != nil {
 		t.Fatal(err)

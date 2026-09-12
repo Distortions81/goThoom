@@ -101,7 +101,7 @@ func (n *NightInfo) calcRedshift() {
 
 	if n.oldAzimuth != n.Azimuth {
 		if (n.oldAzimuth == -2 && n.Azimuth == -1) || (n.oldAzimuth == 179 && n.Azimuth == 180) {
-			n.startOfTwilight = frameCounter
+			n.startOfTwilight = primarySession.draw.frame
 		} else {
 			n.startOfTwilight = 0
 		}
@@ -113,7 +113,7 @@ func (n *NightInfo) calcRedshift() {
 	}
 
 	if n.startOfTwilight != 0 {
-		shift := float64(frameCounter-n.startOfTwilight) / twilightLength
+		shift := float64(primarySession.draw.frame-n.startOfTwilight) / twilightLength
 		if shift < 0 {
 			shift = 0
 		} else if shift > 1 {

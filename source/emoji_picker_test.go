@@ -61,7 +61,7 @@ func TestEmojiPickerInsertsIntoDraftWithoutSending(t *testing.T) {
 	if string(inputText) != "café :smile:! " || inputPos != 12 || !inputActive || selectedMessageInput != flow {
 		t.Fatalf("draft %q cursor %d", string(inputText), inputPos)
 	}
-	if pendingCommand != "" || len(commandQueue) != 0 {
+	if primarySession.commands.pending != "" || len(primarySession.commands.queue) != 0 {
 		t.Fatal("picker sent the draft")
 	}
 	gs.ExpandEmojiNames = false

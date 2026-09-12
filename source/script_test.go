@@ -63,14 +63,14 @@ func TestScriptEquipAlreadyEquipped(t *testing.T) {
 	resetInventory()
 	addInventoryItem(200, -1, "Shield", true)
 	consoleLog = messageLog{max: maxMessages}
-	pendingCommand = ""
+	primarySession.commands.pending = ""
 	scriptEquipByName("tester", "Shield")
 	msgs := getConsoleMessages()
 	if len(msgs) == 0 || msgs[len(msgs)-1] != "Shield already equipped, skipping" {
 		t.Fatalf("unexpected console messages %v", msgs)
 	}
-	if pendingCommand != "" {
-		t.Fatalf("pending command queued: %q", pendingCommand)
+	if primarySession.commands.pending != "" {
+		t.Fatalf("pending command queued: %q", primarySession.commands.pending)
 	}
 }
 
@@ -94,12 +94,12 @@ func TestScriptEquipWaitsForServerInventoryUpdate(t *testing.T) {
 
 // getQueuedCommands returns the pending command followed by any queued commands.
 func getQueuedCommands() []string {
-	cmds := make([]string, len(commandQueue))
-	for i, command := range commandQueue {
+	cmds := make([]string, len(primarySession.commands.queue))
+	for i, command := range primarySession.commands.queue {
 		cmds[i] = command.text
 	}
-	if pendingCommand != "" {
-		cmds = append([]string{pendingCommand}, cmds...)
+	if primarySession.commands.pending != "" {
+		cmds = append([]string{primarySession.commands.pending}, cmds...)
 	}
 	return cmds
 }
@@ -248,8 +248,8 @@ func TestScriptRegisterAndDisableCommand(t *testing.T) {
 	scriptEnabledFor = map[string]scriptScope{}
 	scriptSendHistory = map[string][]time.Time{}
 	consoleLog = messageLog{max: maxMessages}
-	commandQueue = nil
-	pendingCommand = ""
+	primarySession.commands.queue = nil
+	primarySession.commands.pending = ""
 
 	owner := "tester"
 	scriptRegisterCommand(owner, "MiXeD", func(args string) {
@@ -271,8 +271,8 @@ func TestScriptRegisterAndDisableCommand(t *testing.T) {
 	// Disable script and ensure Send does nothing.
 	scriptDisabled[owner] = true
 	consoleLog = messageLog{max: maxMessages}
-	commandQueue = nil
-	pendingCommand = ""
+	primarySession.commands.queue = nil
+	primarySession.commands.pending = ""
 
 	scriptCommand(owner, "/wave")
 
@@ -291,7 +291,7 @@ func TestDisabledscriptCommandFallsThrough(t *testing.T) {
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptDisabled = map[string]bool{}
-	pendingCommand = ""
+	primarySession.commands.pending = ""
 
 	owner := "tester"
 	scriptRegisterCommand(owner, "sleep", func(args string) {})
@@ -311,15 +311,15 @@ func TestDisabledscriptCommandFallsThrough(t *testing.T) {
 				consoleMessage("> " + txt)
 				go handler(args)
 			} else {
-				pendingCommand = txt
+				primarySession.commands.pending = txt
 			}
 		} else {
-			pendingCommand = txt
+			primarySession.commands.pending = txt
 		}
 	}
 
-	if pendingCommand != "/sleep" {
-		t.Fatalf("pending command %q, want %q", pendingCommand, "/sleep")
+	if primarySession.commands.pending != "/sleep" {
+		t.Fatalf("pending command %q, want %q", primarySession.commands.pending, "/sleep")
 	}
 }
 

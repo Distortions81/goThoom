@@ -40,28 +40,28 @@ func runFakeMode(ctx context.Context) {
 		// connection.
 		updatePlayerAppearance(p1, 447, nil, false)
 		updatePlayerAppearance(p2, 447, nil, false)
-		stateMu.Lock()
+		primarySession.draw.mu.Lock()
 		playerIndex = 0
-		state.descriptors[0] = frameDescriptor{Index: 0, Type: kDescPlayer, PictID: 447, Name: p1}
-		state.descriptors[1] = frameDescriptor{Index: 1, Type: kDescPlayer, PictID: 447, Name: p2}
-		state.mobiles[0] = frameMobile{Index: 0, H: 0, V: 0}
-		state.mobiles[1] = frameMobile{Index: 1, H: 32, V: 0}
+		primarySession.draw.current.descriptors[0] = frameDescriptor{Index: 0, Type: kDescPlayer, PictID: 447, Name: p1}
+		primarySession.draw.current.descriptors[1] = frameDescriptor{Index: 1, Type: kDescPlayer, PictID: 447, Name: p2}
+		primarySession.draw.current.mobiles[0] = frameMobile{Index: 0, H: 0, V: 0}
+		primarySession.draw.current.mobiles[1] = frameMobile{Index: 1, H: 32, V: 0}
 		prepareRenderCacheLocked()
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 		playersDirty = true
 
 		// Helper to append a bubble and show corresponding chat message.
 		emitBubble := func(idx uint8, typ int, name, verb, txt string) {
 			life := configuredBubbleLifeFrames(txt)
-			b := bubble{Index: idx, OwnerName: name, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
+			b := bubble{Index: idx, OwnerName: name, Text: txt, Type: typ, CreatedFrame: primarySession.draw.frame, LifeFrames: life}
 			switch typ & kBubbleTypeMask {
 			case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 				b.NoArrow = true
 			}
-			stateMu.Lock()
-			state.bubbles = append(state.bubbles, b)
+			primarySession.draw.mu.Lock()
+			primarySession.draw.current.bubbles = append(primarySession.draw.current.bubbles, b)
 			markWorldStateChanged()
-			stateMu.Unlock()
+			primarySession.draw.mu.Unlock()
 			switch verb {
 			case "", bubbleVerbVerbatim:
 				chatMessage(txt)
@@ -111,11 +111,11 @@ func runFakeMode(ctx context.Context) {
 				emitBubble(1, kBubbleMonster, p2, "growls", "Grrr!")
 			case 12: // Off-screen bubble
 				life := configuredBubbleLifeFrames("Over here!")
-				b := bubble{Index: 1, H: int16(fieldCenterX + 10), V: 0, Far: true, Text: "Over here!", Type: kBubbleNormal, CreatedFrame: frameCounter, LifeFrames: life}
-				stateMu.Lock()
-				state.bubbles = append(state.bubbles, b)
+				b := bubble{Index: 1, H: int16(fieldCenterX + 10), V: 0, Far: true, Text: "Over here!", Type: kBubbleNormal, CreatedFrame: primarySession.draw.frame, LifeFrames: life}
+				primarySession.draw.mu.Lock()
+				primarySession.draw.current.bubbles = append(primarySession.draw.current.bubbles, b)
 				markWorldStateChanged()
-				stateMu.Unlock()
+				primarySession.draw.mu.Unlock()
 				chatMessage(p2 + " says, Over here!")
 			case 13: // Bob falls
 				msg := append(pnTag(p2), []byte(" has fallen")...)

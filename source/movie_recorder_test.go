@@ -209,9 +209,9 @@ func TestStateSnapshotRoundTrip(t *testing.T) {
 		t.Fatalf("frame payload changed: %v", frames[0].data)
 	}
 
-	stateMu.Lock()
-	got := cloneDrawState(state)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	got := cloneDrawState(primarySession.draw.current)
+	primarySession.draw.mu.Unlock()
 	if len(got.pictures) != 2 || got.pictures[0].PictID != 100 || got.pictures[1].PictID != 200 {
 		t.Fatalf("pictures not restored: %+v", got.pictures)
 	}
@@ -300,9 +300,9 @@ func TestWriteNetworkMessageQueuesExistingStateBlock(t *testing.T) {
 	if frames[0].flags&flagMobileData == 0 {
 		t.Fatalf("mobile state flag missing: %#x", frames[0].flags)
 	}
-	stateMu.Lock()
-	desc := state.descriptors[1]
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	desc := primarySession.draw.current.descriptors[1]
+	primarySession.draw.mu.Unlock()
 	if desc.Name != "Changed Clothes" || !bytes.Equal(desc.Colors, []byte{9, 8, 7}) {
 		t.Fatalf("mobile update not restored: %+v", desc)
 	}
@@ -332,10 +332,10 @@ func TestCloseFlushesSnapshotWithoutAnotherFrame(t *testing.T) {
 	if len(frames) != 1 || len(frames[0].data) != 0 {
 		t.Fatalf("snapshot-only frames: %+v", frames)
 	}
-	stateMu.Lock()
-	desc := state.descriptors[2]
-	mob := state.mobiles[2]
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	desc := primarySession.draw.current.descriptors[2]
+	mob := primarySession.draw.current.mobiles[2]
+	primarySession.draw.mu.Unlock()
 	if desc.Name != "Already Playing" || mob.H != 25 || mob.V != 50 {
 		t.Fatalf("snapshot not restored: desc=%+v mob=%+v", desc, mob)
 	}

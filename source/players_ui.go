@@ -111,19 +111,19 @@ func shouldCheckRecentPlayerExpiry(now time.Time) bool {
 }
 
 func nearbyVisiblePlayerGroupKeys() []string {
-	stateMu.Lock()
-	defer stateMu.Unlock()
-	self, ok := state.mobiles[playerIndex]
+	primarySession.draw.mu.Lock()
+	defer primarySession.draw.mu.Unlock()
+	self, ok := primarySession.draw.current.mobiles[playerIndex]
 	if !ok {
 		return nil
 	}
 	radiusSquared := visiblePlayerGroupRadius * visiblePlayerGroupRadius
 	keys := make([]string, 0)
-	for index, mobile := range state.mobiles {
+	for index, mobile := range primarySession.draw.current.mobiles {
 		if index == playerIndex || mobile.Persist {
 			continue
 		}
-		desc, ok := state.descriptors[index]
+		desc, ok := primarySession.draw.current.descriptors[index]
 		if !ok || desc.Type == kDescNPC || desc.Name == "" || !mobileActuallyVisible(mobile, desc) {
 			continue
 		}

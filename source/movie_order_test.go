@@ -8,14 +8,14 @@ import (
 
 // helper to reset global state
 func resetState() {
-	stateMu.Lock()
-	state = drawState{
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current = drawState{
 		descriptors: make(map[uint8]frameDescriptor),
 		mobiles:     make(map[uint8]frameMobile),
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 }
 
 func TestParseGameStatePictureTableOrder(t *testing.T) {
@@ -39,9 +39,9 @@ func TestParseGameStatePictureTableOrder(t *testing.T) {
 	data := append([]byte("x\x00"), pt...)
 
 	parseGameState(data, 200, 0)
-	stateMu.Lock()
-	pics := append([]framePicture(nil), state.pictures...)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	pics := append([]framePicture(nil), primarySession.draw.current.pictures...)
+	primarySession.draw.mu.Unlock()
 	if len(pics) != 3 {
 		t.Fatalf("expected 3 pictures, got %d", len(pics))
 	}
@@ -97,9 +97,9 @@ func TestParseMoviePictureTableOrder(t *testing.T) {
 	if _, err := parseMovie(tmp.Name(), 200); err != nil {
 		t.Fatalf("parseMovie: %v", err)
 	}
-	stateMu.Lock()
-	pics := append([]framePicture(nil), state.pictures...)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	pics := append([]framePicture(nil), primarySession.draw.current.pictures...)
+	primarySession.draw.mu.Unlock()
 	if len(pics) != 3 {
 		t.Fatalf("expected 3 pictures, got %d", len(pics))
 	}

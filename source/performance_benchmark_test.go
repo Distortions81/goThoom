@@ -60,7 +60,7 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 	originalMovieVersion := movieVersion
 	originalMovieRevision := movieRevision
 	originalPlayerName := playerName
-	originalFrameCounter := frameCounter
+	originalFrameCounter := primarySession.draw.frame
 	originalMovieDropped := movieDropped
 	defer func() {
 		gs = originalSettings
@@ -76,7 +76,7 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 		movieVersion = originalMovieVersion
 		movieRevision = originalMovieRevision
 		playerName = originalPlayerName
-		frameCounter = originalFrameCounter
+		primarySession.draw.frame = originalFrameCounter
 		movieDropped = originalMovieDropped
 		initFont()
 	}()
@@ -115,7 +115,7 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 
 	fixture := tourPerformanceFixture{
 		images:        images,
-		initialScene:  cloneDrawState(initialState),
+		initialScene:  cloneDrawState(primarySession.draw.initial),
 		frameData:     make([][]byte, 0, len(frames)),
 		movieVersion:  movieVersion,
 		movieRevision: movieRevision,
@@ -126,29 +126,29 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 	for _, frame := range frames {
 		fixture.frameData = append(fixture.frameData, frame.data)
 		if len(frame.data) < 2 || binary.BigEndian.Uint16(frame.data[:2]) != 2 {
-			frameCounter++
+			primarySession.draw.frame++
 			continue
 		}
 		fixture.drawPacketCount++
 		handleDrawState(frame.data, true)
 
-		stateMu.Lock()
-		sceneScore := len(state.pictures) + len(state.mobiles)
+		primarySession.draw.mu.Lock()
+		sceneScore := len(primarySession.draw.current.pictures) + len(primarySession.draw.current.mobiles)
 		if sceneScore > bestSceneScore {
 			bestSceneScore = sceneScore
-			fixture.busyScene = cloneDrawState(state)
+			fixture.busyScene = cloneDrawState(primarySession.draw.current)
 		}
-		obscuringScore := len(state.pictures) * len(state.mobiles)
+		obscuringScore := len(primarySession.draw.current.pictures) * len(primarySession.draw.current.mobiles)
 		if obscuringScore > bestObscuringScore {
 			bestObscuringScore = obscuringScore
-			fixture.obscuringScene = cloneDrawState(state)
+			fixture.obscuringScene = cloneDrawState(primarySession.draw.current)
 		}
-		for _, bubble := range state.bubbles {
+		for _, bubble := range primarySession.draw.current.bubbles {
 			if len(bubble.Text) > len(fixture.longestBubble) {
 				fixture.longestBubble = bubble.Text
 			}
 		}
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 	}
 	if fixture.drawPacketCount == 0 {
 		return tourPerformanceFixture{}, fmt.Errorf("movie contains no draw-state packets")
@@ -160,27 +160,27 @@ func buildTourPerformanceFixture(t testing.TB) (tourPerformanceFixture, error) {
 }
 
 func cloneCurrentDrawState() drawState {
-	stateMu.Lock()
-	defer stateMu.Unlock()
-	return cloneDrawState(state)
+	primarySession.draw.mu.Lock()
+	defer primarySession.draw.mu.Unlock()
+	return cloneDrawState(primarySession.draw.current)
 }
 
 func cloneInitialDrawState() drawState {
-	stateMu.Lock()
-	defer stateMu.Unlock()
-	return cloneDrawState(initialState)
+	primarySession.draw.mu.Lock()
+	defer primarySession.draw.mu.Unlock()
+	return cloneDrawState(primarySession.draw.initial)
 }
 
 func restoreDrawState(restored drawState) {
-	stateMu.Lock()
-	state = cloneDrawState(restored)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current = cloneDrawState(restored)
+	primarySession.draw.mu.Unlock()
 }
 
 func restoreInitialDrawState(restored drawState) {
-	stateMu.Lock()
-	initialState = cloneDrawState(restored)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.initial = cloneDrawState(restored)
+	primarySession.draw.mu.Unlock()
 }
 
 func installTourBenchmarkGlobals(b *testing.B, fixture *tourPerformanceFixture) {
@@ -197,7 +197,7 @@ func installTourBenchmarkGlobals(b *testing.B, fixture *tourPerformanceFixture) 
 	originalMovieRevision := movieRevision
 	originalPlayerName := playerName
 	originalState := cloneCurrentDrawState()
-	originalFrameCounter := frameCounter
+	originalFrameCounter := primarySession.draw.frame
 	originalMovieDropped := movieDropped
 
 	gs = gsdef
@@ -225,7 +225,7 @@ func installTourBenchmarkGlobals(b *testing.B, fixture *tourPerformanceFixture) 
 		movieRevision = originalMovieRevision
 		playerName = originalPlayerName
 		restoreDrawState(originalState)
-		frameCounter = originalFrameCounter
+		primarySession.draw.frame = originalFrameCounter
 		movieDropped = originalMovieDropped
 		initFont()
 	})
@@ -233,12 +233,12 @@ func installTourBenchmarkGlobals(b *testing.B, fixture *tourPerformanceFixture) 
 
 func replayTourDrawState(fixture *tourPerformanceFixture, buildRenderCaches bool) {
 	restoreDrawState(fixture.initialScene)
-	frameCounter = 0
+	primarySession.draw.frame = 0
 	for _, data := range fixture.frameData {
 		if len(data) >= 2 && binary.BigEndian.Uint16(data[:2]) == 2 {
 			handleDrawState(data, buildRenderCaches)
 		} else {
-			frameCounter++
+			primarySession.draw.frame++
 		}
 	}
 }
@@ -271,15 +271,15 @@ func BenchmarkPrepareBusySceneRenderCache(b *testing.B) {
 	fixture := loadTourPerformanceFixture(b)
 	installTourBenchmarkGlobals(b, fixture)
 	restoreDrawState(fixture.busyScene)
-	stateMu.Lock()
+	primarySession.draw.mu.Lock()
 	prepareRenderCacheLocked()
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 
 	b.ReportAllocs()
 	for b.Loop() {
-		stateMu.Lock()
+		primarySession.draw.mu.Lock()
 		prepareRenderCacheLocked()
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 	}
 	b.ReportMetric(float64(len(fixture.busyScene.pictures)), "pictures/op")
 	b.ReportMetric(float64(len(fixture.busyScene.mobiles)), "mobiles/op")

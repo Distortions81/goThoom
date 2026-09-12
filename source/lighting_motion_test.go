@@ -29,13 +29,13 @@ func lightingMotionPacket(pictures []framePicture, again int) []byte {
 }
 
 func TestPictureLightFlickerFollowsCameraAndPictureMotion(t *testing.T) {
-	oldState, oldSettings, oldImages := state, gs, clImages
-	oldMovie, oldVersion, oldSeeking, oldFrame := movieMode, movieVersion, seekingMov, frameCounter
+	oldState, oldSettings, oldImages := primarySession.draw.current, gs, clImages
+	oldMovie, oldVersion, oldSeeking, oldFrame := movieMode, movieVersion, seekingMov, primarySession.draw.frame
 	oldNight := gNight
 	oldCounts := pixelCountCache
 	t.Cleanup(func() {
-		state, gs, clImages = oldState, oldSettings, oldImages
-		movieMode, movieVersion, seekingMov, frameCounter = oldMovie, oldVersion, oldSeeking, oldFrame
+		primarySession.draw.current, gs, clImages = oldState, oldSettings, oldImages
+		movieMode, movieVersion, seekingMov, primarySession.draw.frame = oldMovie, oldVersion, oldSeeking, oldFrame
 		gNight = oldNight
 		pixelCountCache = oldCounts
 	})
@@ -48,14 +48,14 @@ func TestPictureLightFlickerFollowsCameraAndPictureMotion(t *testing.T) {
 	for _, smoothing := range []bool{true, false} {
 		gs.MotionSmoothing = smoothing
 		resetState()
-		frameCounter = 0
+		primarySession.draw.frame = 0
 		previous := []framePicture{{PictID: 1, H: -80, V: 10}, {PictID: 1, H: 80, V: 20}, {PictID: 2, H: -120, V: 100}, {PictID: 3, H: 120, V: 100}}
 		parse := func(pictures []framePicture, again int) []framePicture {
 			t.Helper()
 			if _, _, err := parseDrawStateWithStateData(lightingMotionPacket(pictures, again), false, false); err != nil {
 				t.Fatal(err)
 			}
-			return append([]framePicture(nil), state.pictures...)
+			return append([]framePicture(nil), primarySession.draw.current.pictures...)
 		}
 		previous = parse(previous, 0)
 		if previous[0].lightKey == 0 || previous[0].lightKey == previous[1].lightKey {
@@ -80,8 +80,8 @@ func TestPictureLightFlickerFollowsCameraAndPictureMotion(t *testing.T) {
 				if current[i].lightKey != old.lightKey {
 					t.Fatalf("smoothing=%t step=%d: light %d lost its phase", smoothing, step, i)
 				}
-				end := flameLightFlicker(climg.PictDefFlagLightFlicker, uint32(old.PictID), pictureLightInstanceKey(old), state.logicalFrame-1, 1, 1)
-				start := flameLightFlicker(climg.PictDefFlagLightFlicker, uint32(current[i].PictID), pictureLightInstanceKey(current[i]), state.logicalFrame, 0, 1)
+				end := flameLightFlicker(climg.PictDefFlagLightFlicker, uint32(old.PictID), pictureLightInstanceKey(old), primarySession.draw.current.logicalFrame-1, 1, 1)
+				start := flameLightFlicker(climg.PictDefFlagLightFlicker, uint32(current[i].PictID), pictureLightInstanceKey(current[i]), primarySession.draw.current.logicalFrame, 0, 1)
 				if end != start {
 					t.Fatalf("flicker jumped at moving frame boundary: %+v -> %+v", end, start)
 				}

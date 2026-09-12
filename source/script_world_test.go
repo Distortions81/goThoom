@@ -10,40 +10,40 @@ import (
 
 func isolateScriptWorld(t *testing.T) {
 	t.Helper()
-	stateMu.Lock()
-	oldState, oldIndex := state, playerIndex
-	state = drawState{}
+	primarySession.draw.mu.Lock()
+	oldState, oldIndex := primarySession.draw.current, playerIndex
+	primarySession.draw.current = drawState{}
 	playerIndex = 1
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	oldImages := clImages
 	clImages = nil
-	oldGeneration := worldStateGeneration.Load()
+	oldGeneration := primarySession.draw.generation.Load()
 	stopScriptMovement("")
 	scriptMovement.Lock()
 	scriptMovement.manualUntil, scriptMovement.manualAt = time.Time{}, time.Time{}
 	scriptMovement.Unlock()
 	t.Cleanup(func() {
 		stopScriptMovement("")
-		stateMu.Lock()
-		state, playerIndex = oldState, oldIndex
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current, playerIndex = oldState, oldIndex
+		primarySession.draw.mu.Unlock()
 		clImages = oldImages
-		worldStateGeneration.Store(oldGeneration)
+		primarySession.draw.generation.Store(oldGeneration)
 	})
 }
 
 func TestScriptWorldSnapshots(t *testing.T) {
 	isolateScriptWorld(t)
 	now := time.Now()
-	stateMu.Lock()
-	state = drawState{
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current = drawState{
 		descriptors:  map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer, Plane: 2}, 2: {Index: 2, Name: "Friend", Type: kDescPlayer}},
 		liveMobs:     []frameMobile{{Index: 1, H: 3, V: 4}, {Index: 2, State: poseDead, Persist: true}},
 		pictures:     []framePicture{{PictID: 123, H: -40, V: -50, Plane: -1, Again: true}},
 		logicalFrame: 17, receivedAt: now, picShiftX: -6, picShiftY: 2, lightingFlags: 3,
 	}
 	markWorldStateChanged()
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	world := scriptCurrentWorld()
 	if !world.HasSelf || world.Self.Name != "Hero" || world.Self.Plane != 2 || world.Frame != 17 || world.ReceivedAt != now || world.CameraShiftX != -6 || world.Lighting != 3 {
 		t.Fatalf("world snapshot = %+v", world)
@@ -57,9 +57,9 @@ func TestScriptWorldSnapshots(t *testing.T) {
 	if next.Self.Name != "Hero" || next.Pictures[0].H != -40 {
 		t.Fatal("snapshot aliases client state")
 	}
-	stateMu.Lock()
-	state.liveMobs[0].Persist = true
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.liveMobs[0].Persist = true
+	primarySession.draw.mu.Unlock()
 	if scriptCurrentWorld().HasSelf {
 		t.Fatal("retained self reported as fresh")
 	}
@@ -71,9 +71,9 @@ func TestScriptMovementLease(t *testing.T) {
 	resetScriptCallbackTestState(t, owner)
 	t.Cleanup(func() { disablescript(owner, "test cleanup") })
 	now := time.Now()
-	stateMu.Lock()
-	state.receivedAt = now
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.receivedAt = now
+	primarySession.draw.mu.Unlock()
 	if scriptMove(owner, 100, 0, now) {
 		t.Fatal("movement accepted without session")
 	}
@@ -106,9 +106,9 @@ func TestScriptMovementLease(t *testing.T) {
 		t.Fatal("manual input not observable")
 	}
 	now = now.Add(2 * time.Second)
-	stateMu.Lock()
-	state.receivedAt = now
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.receivedAt = now
+	primarySession.draw.mu.Unlock()
 	if !scriptMove(owner, 80, 0, now) {
 		t.Fatal("movement did not recover after manual grace period")
 	}
@@ -126,9 +126,9 @@ func TestScriptMovementLease(t *testing.T) {
 	if applyScriptMovement(inputState{}, now).mouseDown {
 		t.Fatal("old queue retained movement after reload")
 	}
-	stateMu.Lock()
-	state.receivedAt = now.Add(-2 * time.Second)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.receivedAt = now.Add(-2 * time.Second)
+	primarySession.draw.mu.Unlock()
 	if scriptMove(owner, 80, 0, now) {
 		t.Fatal("stale frame permitted movement")
 	}
@@ -149,20 +149,20 @@ func TestFollowPlayerProof(t *testing.T) {
 			var selfH int16
 			update := func(distance int16, camera int, visible bool) {
 				frame++
-				stateMu.Lock()
-				state.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
-				state.liveMobs = []frameMobile{{Index: 1, H: selfH}}
+				primarySession.draw.mu.Lock()
+				primarySession.draw.current.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
+				primarySession.draw.current.liveMobs = []frameMobile{{Index: 1, H: selfH}}
 				if visible {
-					state.liveMobs = append(state.liveMobs, frameMobile{Index: 2, H: distance})
+					primarySession.draw.current.liveMobs = append(primarySession.draw.current.liveMobs, frameMobile{Index: 2, H: distance})
 				}
 				for _, blocker := range blockers {
-					state.descriptors[blocker.Index] = frameDescriptor{Index: blocker.Index, Name: "Bystander", Type: kDescPlayer}
-					state.liveMobs = append(state.liveMobs, blocker)
+					primarySession.draw.current.descriptors[blocker.Index] = frameDescriptor{Index: blocker.Index, Name: "Bystander", Type: kDescPlayer}
+					primarySession.draw.current.liveMobs = append(primarySession.draw.current.liveMobs, blocker)
 				}
-				state.logicalFrame, state.receivedAt, state.picShiftX = frame, base.Add(time.Duration(frame)*250*time.Millisecond), camera
-				state.picShiftY = cameraY
+				primarySession.draw.current.logicalFrame, primarySession.draw.current.receivedAt, primarySession.draw.current.picShiftX = frame, base.Add(time.Duration(frame)*250*time.Millisecond), camera
+				primarySession.draw.current.picShiftY = cameraY
 				markWorldStateChanged()
-				stateMu.Unlock()
+				primarySession.draw.mu.Unlock()
 				dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
 				sim.barrier(t)
 			}
@@ -334,9 +334,9 @@ func TestFollowPlayerProof(t *testing.T) {
 					t.Fatal("did not resume visible following after reacquiring target")
 				}
 			case "stale":
-				stateMu.Lock()
-				state.receivedAt = time.Now().Add(-2 * time.Second)
-				stateMu.Unlock()
+				primarySession.draw.mu.Lock()
+				primarySession.draw.current.receivedAt = time.Now().Add(-2 * time.Second)
+				primarySession.draw.mu.Unlock()
 				sim.timers(t)
 				if moving().mouseDown {
 					t.Fatal("watchdog left stale movement active")

@@ -2338,9 +2338,9 @@ func startRecording() {
 		recordPath = ""
 		return
 	}
-	stateMu.Lock()
-	snapshot := cloneDrawState(state)
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	snapshot := cloneDrawState(primarySession.draw.current)
+	primarySession.draw.mu.Unlock()
 	mr.AddStateSnapshot(snapshot, uint16(clVersion), captureMovieNightState())
 	recorder = mr
 	consoleMessage(fmt.Sprintf("recording to %s", filepath.Base(recordPath)))
@@ -3574,7 +3574,7 @@ func makePasswordWindow() {
 func reserveMoviePlayback(filename string) bool {
 	loginMu.Lock()
 	defer loginMu.Unlock()
-	if tcpConn != nil || loginInProgress || clmov != "" || playingMovie {
+	if tcpConn != nil || primarySession.transport.busy() || clmov != "" || playingMovie {
 		return false
 	}
 	clmov = filename
@@ -3587,30 +3587,29 @@ func startLogin() {
 
 func startLoginWithDemoCandidates(demoCandidates []string) {
 	loginMu.Lock()
-	if loginInProgress || tcpConn != nil || clmov != "" || playingMovie {
+	if primarySession.transport.busy() || tcpConn != nil || clmov != "" || playingMovie {
 		loginMu.Unlock()
 		return
 	}
-	loginInProgress = true
+	request := stagePrimarySessionLoginRequest()
+	ctx, cancel := context.WithCancel(gameCtx)
+	if !primarySession.transport.begin(cancel) {
+		loginMu.Unlock()
+		cancel()
+		return
+	}
 	loginMu.Unlock()
 	if status.Version > clVersion {
 		clVersion = status.Version
 	}
 
 	loginWin.Close()
-	showConnectDialog(fmt.Sprintf("Connecting to %s...", host))
-	rememberPassword := passwordRememberPreference(name)
+	showConnectDialog(fmt.Sprintf("Connecting to %s...", request.host))
+	rememberPassword := passwordRememberPreference(request.character)
 	go func() {
-		ctx, cancel := context.WithCancel(gameCtx)
-		loginMu.Lock()
-		loginCancel = cancel
-		loginMu.Unlock()
-		err := loginWithDemoCandidates(ctx, clVersion, demoCandidates)
-		loginMu.Lock()
-		loginCancel = nil
-		loginInProgress = false
-		connected := tcpConn != nil
-		loginMu.Unlock()
+		err := loginSessionWithDemoCandidates(primarySession, ctx, clVersion, demoCandidates)
+		primarySession.transport.failConnect()
+		connected := primarySession.transport.connected()
 		if err != nil {
 			logError("login: %v", err)
 			if len(demoCandidates) > 0 {
@@ -3803,7 +3802,7 @@ func showDemoCharacterDialog(candidates []string) {
 
 func startDemoLogin() {
 	loginMu.Lock()
-	if demoLookupInProgress || loginInProgress || tcpConn != nil {
+	if demoLookupInProgress || primarySession.transport.busy() || tcpConn != nil {
 		loginMu.Unlock()
 		return
 	}
@@ -3816,7 +3815,7 @@ func startDemoLogin() {
 		if err != nil {
 			loginMu.Lock()
 			demoLookupInProgress = false
-			connected := tcpConn != nil || loginInProgress
+			connected := tcpConn != nil || primarySession.transport.busy()
 			loginMu.Unlock()
 			logError("demo: %v", err)
 			dispatchMainThread(func() {

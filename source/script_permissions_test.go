@@ -170,9 +170,9 @@ func TestScriptPermissionDialogAndRevocation(t *testing.T) {
 	panel := value.Interface().(Window)
 	// Give the script a live movement lease; revoking must release it immediately.
 	scriptSessionLogin("Hero")
-	stateMu.Lock()
-	state.receivedAt = time.Now()
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.receivedAt = time.Now()
+	primarySession.draw.mu.Unlock()
 	if !scriptMove(owner, 100, 0, time.Now()) {
 		t.Fatal("movement setup failed")
 	}

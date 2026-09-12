@@ -202,7 +202,7 @@ func saveShortcuts() {
 
 // effectiveCharacterName returns the current player name or last used character.
 func effectiveCharacterName() string {
-	if tcpConn == nil && !loginInProgress && gs.LastCharacter != "" {
+	if tcpConn == nil && !primarySession.transport.busy() && gs.LastCharacter != "" {
 		return gs.LastCharacter
 	}
 	if playerName != "" {

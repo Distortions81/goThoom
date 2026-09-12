@@ -1779,12 +1779,12 @@ const (
 
 // overlayFollowOp describes a target that follows world state.
 type overlayFollowOp struct {
-	kind       int // overlayFollowKind*.
-	name       string
-	pictID     uint16 // for background follows.
-	mobileID   uint8  // for mobile follows.
-	offsetX    int    // world units from the followed target.
-	offsetY    int
+	kind     int // overlayFollowKind*.
+	name     string
+	pictID   uint16 // for background follows.
+	mobileID uint8  // for mobile follows.
+	offsetX  int    // world units from the followed target.
+	offsetY  int
 }
 
 // overlayOp describes a simple draw command for the world overlay.
@@ -3323,11 +3323,11 @@ func captureScriptChangeSnapshot() scriptChangeSnapshot {
 			break
 		}
 	}
-	stateMu.Lock()
-	health, healthMax := state.hp, state.hpMax
-	spirit, spiritMax := state.sp, state.spMax
-	balanceValue, balanceMaxValue := state.balance, state.balanceMax
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	health, healthMax := primarySession.draw.current.hp, primarySession.draw.current.hpMax
+	spirit, spiritMax := primarySession.draw.current.sp, primarySession.draw.current.spMax
+	balanceValue, balanceMaxValue := primarySession.draw.current.balance, primarySession.draw.current.balanceMax
+	primarySession.draw.mu.Unlock()
 	scriptLocationMu.RLock()
 	location := scriptLocation
 	scriptLocationMu.RUnlock()
@@ -3335,7 +3335,7 @@ func captureScriptChangeSnapshot() scriptChangeSnapshot {
 		initialized: true, players: playerSnapshot, playersObserved: playersObserved, inventory: inventory, equipment: equipment, selectedPlayer: selectedPlayerName,
 		selectedItem: selectedItem, hasSelectedItem: hasSelectedItem, health: health, healthMax: healthMax,
 		spirit: spirit, spiritMax: spiritMax, balance: balanceValue, balanceMax: balanceMaxValue,
-		location: location, worldGeneration: worldStateGeneration.Load(),
+		location: location, worldGeneration: primarySession.draw.generation.Load(),
 	}
 }
 
@@ -3533,15 +3533,15 @@ func isNPCDescriptor(name string) bool {
 	if name == "" {
 		return false
 	}
-	stateMu.Lock()
-	for _, d := range state.descriptors {
+	primarySession.draw.mu.Lock()
+	for _, d := range primarySession.draw.current.descriptors {
 		if d.Name == name {
 			isNPC := d.Type == kDescNPC
-			stateMu.Unlock()
+			primarySession.draw.mu.Unlock()
 			return isNPC
 		}
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	return false
 }
 
@@ -3602,10 +3602,10 @@ func scriptOverlayFollowPlayer(owner, name string, x, y, radius int, r, g, b, a 
 		return
 	}
 	scriptOverlayUpsertFollow(owner, overlayOp{
-		kind: overlayFollowCircleKind,
+		kind:   overlayFollowCircleKind,
 		follow: overlayFollowOp{kind: overlayFollowKindPlayer, name: name, offsetX: x, offsetY: y},
 		radius: radius,
-		r: r, g: g, b: b, a: a,
+		r:      r, g: g, b: b, a: a,
 		expiresAt: scriptFollowExpireAt(maxLife),
 	})
 }
@@ -3615,10 +3615,10 @@ func scriptOverlayFollowMobile(owner string, index uint8, x, y, radius int, r, g
 		return
 	}
 	scriptOverlayUpsertFollow(owner, overlayOp{
-		kind: overlayFollowCircleKind,
+		kind:   overlayFollowCircleKind,
 		follow: overlayFollowOp{kind: overlayFollowKindMobile, mobileID: index, offsetX: x, offsetY: y},
 		radius: radius,
-		r: r, g: g, b: b, a: a,
+		r:      r, g: g, b: b, a: a,
 		expiresAt: scriptFollowExpireAt(maxLife),
 	})
 }
@@ -3628,10 +3628,10 @@ func scriptOverlayFollowBackground(owner string, pictID uint16, x, y, radius int
 		return
 	}
 	scriptOverlayUpsertFollow(owner, overlayOp{
-		kind: overlayFollowCircleKind,
+		kind:   overlayFollowCircleKind,
 		follow: overlayFollowOp{kind: overlayFollowKindBackground, pictID: pictID, offsetX: x, offsetY: y},
 		radius: radius,
-		r: r, g: g, b: b, a: a,
+		r:      r, g: g, b: b, a: a,
 		expiresAt: scriptFollowExpireAt(maxLife),
 	})
 }

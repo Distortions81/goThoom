@@ -152,12 +152,12 @@ func TestFollowWindowControlsAndStatus(t *testing.T) {
 	t.Cleanup(drainScriptDispatcher)
 	sim := activateBundledProofScript(t, owner, "follow_player.go")
 	sim.login(t, "Hero")
-	stateMu.Lock()
-	state.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
-	state.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: 100}}
-	state.logicalFrame = 1
-	state.receivedAt = time.Now()
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}}
+	primarySession.draw.current.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: 100}}
+	primarySession.draw.current.logicalFrame = 1
+	primarySession.draw.current.receivedAt = time.Now()
+	primarySession.draw.mu.Unlock()
 	dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
 	sim.barrier(t)
 	value, err := currentScriptEventQueue(owner).interpreter.Eval("followWindow")
@@ -178,11 +178,11 @@ func TestFollowWindowControlsAndStatus(t *testing.T) {
 	if !strings.Contains(panel.state.text, "Following: Leader") || !strings.Contains(panel.state.text, "Status: Following") || panel.state.buttons["stop"].Disabled {
 		t.Fatalf("follow control/status failed: %q", panel.state.text)
 	}
-	stateMu.Lock()
-	state.liveMobs[1].H = 40
-	state.logicalFrame++
-	state.receivedAt = time.Now()
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.liveMobs[1].H = 40
+	primarySession.draw.current.logicalFrame++
+	primarySession.draw.current.receivedAt = time.Now()
+	primarySession.draw.mu.Unlock()
 	dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
 	sim.barrier(t)
 	if !strings.Contains(panel.state.text, "Status: Staying") {

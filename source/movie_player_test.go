@@ -12,8 +12,8 @@ import (
 )
 
 func TestResetInterpolationClearsPositionHistory(t *testing.T) {
-	stateMu.Lock()
-	state = drawState{
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current = drawState{
 		descriptors: make(map[uint8]frameDescriptor),
 		mobiles:     make(map[uint8]frameMobile),
 		prevMobiles: map[uint8]frameMobile{1: {Index: 1, H: 10, V: 20}},
@@ -38,29 +38,29 @@ func TestResetInterpolationClearsPositionHistory(t *testing.T) {
 		balance:      25,
 		balanceMax:   30,
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	t.Cleanup(resetDrawState)
 
 	resetInterpolation()
 
-	stateMu.Lock()
-	defer stateMu.Unlock()
-	if len(state.prevMobiles) != 0 || len(state.prevDescs) != 0 || len(state.prevPictures) != 0 {
+	primarySession.draw.mu.Lock()
+	defer primarySession.draw.mu.Unlock()
+	if len(primarySession.draw.current.prevMobiles) != 0 || len(primarySession.draw.current.prevDescs) != 0 || len(primarySession.draw.current.prevPictures) != 0 {
 		t.Fatal("interpolation history was not cleared")
 	}
-	if state.picShiftX != 0 || state.picShiftY != 0 {
-		t.Fatalf("picture shift = (%d, %d), want (0, 0)", state.picShiftX, state.picShiftY)
+	if primarySession.draw.current.picShiftX != 0 || primarySession.draw.current.picShiftY != 0 {
+		t.Fatalf("picture shift = (%d, %d), want (0, 0)", primarySession.draw.current.picShiftX, primarySession.draw.current.picShiftY)
 	}
-	picture := state.pictures[0]
+	picture := primarySession.draw.current.pictures[0]
 	if picture.PrevH != picture.H || picture.PrevV != picture.V || picture.Moving {
 		t.Fatalf("picture interpolation was not reset: %+v", picture)
 	}
-	if !state.prevTime.Equal(state.curTime) {
-		t.Fatalf("prevTime = %v, want curTime %v", state.prevTime, state.curTime)
+	if !primarySession.draw.current.prevTime.Equal(primarySession.draw.current.curTime) {
+		t.Fatalf("prevTime = %v, want curTime %v", primarySession.draw.current.prevTime, primarySession.draw.current.curTime)
 	}
-	if state.prevHP != state.hp || state.prevHPMax != state.hpMax ||
-		state.prevSP != state.sp || state.prevSPMax != state.spMax ||
-		state.prevBalance != state.balance || state.prevBalanceMax != state.balanceMax {
+	if primarySession.draw.current.prevHP != primarySession.draw.current.hp || primarySession.draw.current.prevHPMax != primarySession.draw.current.hpMax ||
+		primarySession.draw.current.prevSP != primarySession.draw.current.sp || primarySession.draw.current.prevSPMax != primarySession.draw.current.spMax ||
+		primarySession.draw.current.prevBalance != primarySession.draw.current.balance || primarySession.draw.current.prevBalanceMax != primarySession.draw.current.balanceMax {
 		t.Fatal("status interpolation history was not reset to current values")
 	}
 }
@@ -385,18 +385,15 @@ func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
 
 	originalConn := tcpConn
 	originalCLMov := clmov
-	originalLoginInProgress := loginInProgress
 	originalPlayingMovie := playingMovie
 	t.Cleanup(func() {
 		tcpConn = originalConn
 		clmov = originalCLMov
-		loginInProgress = originalLoginInProgress
 		playingMovie = originalPlayingMovie
 	})
 
 	tcpConn = client
 	clmov = ""
-	loginInProgress = false
 	playingMovie = false
 	if reserveMoviePlayback("connected.clMov") {
 		t.Fatal("movie playback was reserved while connected to the server")

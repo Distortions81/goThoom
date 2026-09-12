@@ -19,7 +19,9 @@ func TestAddCharacterRejectsExistingName(t *testing.T) {
 	originalWarn, originalProfileCB := addCharPassWarn, addCharProfileCB
 	originalName, originalPass, originalPrev := addCharName, addCharPass, addCharPassPrev
 	originalRemember, originalProfile := addCharRemember, addCharProfile
-	originalStaged := stagedPassword
+	primarySession.login.mu.Lock()
+	originalStaged := primarySession.login.staged
+	primarySession.login.mu.Unlock()
 	originalWindows := append([]*eui.WindowData(nil), eui.Windows()...)
 	t.Cleanup(func() {
 		for _, win := range append([]*eui.WindowData(nil), eui.Windows()...) {
@@ -38,7 +40,9 @@ func TestAddCharacterRejectsExistingName(t *testing.T) {
 		addCharPassWarn, addCharProfileCB = originalWarn, originalProfileCB
 		addCharName, addCharPass, addCharPassPrev = originalName, originalPass, originalPrev
 		addCharRemember, addCharProfile = originalRemember, originalProfile
-		stagedPassword = originalStaged
+		primarySession.login.mu.Lock()
+		primarySession.login.staged = originalStaged
+		primarySession.login.mu.Unlock()
 	})
 	dataDirPath = t.TempDir()
 	characters = []Character{{Name: "Hero", passHash: hashPassword("saved"), PictID: 123, Profession: "fighter"}}

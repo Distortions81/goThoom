@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	scriptapi "gt2"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	scriptapi "gt2"
 )
 
 // frameDescriptor describes an on-screen descriptor.
@@ -481,10 +481,10 @@ func picturesSummary(pics []framePicture) string {
 	return buf.String()
 }
 
-	// drawScriptOverlays renders per-script overlay operations onto the provided
-	// world view image. Coordinates are in world units with a top-left origin
-	// matching the base game area (0..gameAreaSizeX, 0..gameAreaSizeY). The
-	// provided scale converts world units to worldView pixels.
+// drawScriptOverlays renders per-script overlay operations onto the provided
+// world view image. Coordinates are in world units with a top-left origin
+// matching the base game area (0..gameAreaSizeX, 0..gameAreaSizeY). The
+// provided scale converts world units to worldView pixels.
 func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	if worldView == nil || scale <= 0 {
 		return
@@ -1077,10 +1077,21 @@ var drawStateScratch = struct {
 // render cache. This is useful for fast-forward operations where intermediate
 // frames do not need a fully prepared cache.
 func handleDrawState(m []byte, buildCache bool) bool {
-	return handleDrawStateAt(m, buildCache, time.Now())
+	return handleSessionDrawState(primarySession, m, buildCache)
 }
 
 func handleDrawStateAt(m []byte, buildCache bool, receivedAt time.Time) bool {
+	return handleSessionDrawStateAt(primarySession, m, buildCache, receivedAt)
+}
+
+func handleSessionDrawState(session *Session, m []byte, buildCache bool) bool {
+	return handleSessionDrawStateAt(session, m, buildCache, time.Now())
+}
+
+func handleSessionDrawStateAt(session *Session, m []byte, buildCache bool, receivedAt time.Time) bool {
+	if session == nil {
+		return false
+	}
 	if len(m) < 11 { // 2 byte tag + 9 bytes minimum
 		return false
 	}
@@ -1112,7 +1123,7 @@ func handleDrawStateAt(m []byte, buildCache bool, receivedAt time.Time) bool {
 	}
 
 	ackCmd := data[0]
-	previousAck, currentResend := networkFrameStateSnapshot()
+	previousAck, currentResend := session.frames.snapshot()
 	incomingAck := int32(binary.BigEndian.Uint32(data[1:5]))
 	incomingResent := int32(binary.BigEndian.Uint32(data[5:9]))
 	if !movieMode && previousAck != 0 && incomingAck <= previousAck {
@@ -1132,22 +1143,22 @@ func handleDrawStateAt(m []byte, buildCache bool, receivedAt time.Time) bool {
 			nextResend = previousAck + 1
 		}
 	}
-	ack, _, err := parseDrawStateWithStateData(data, buildCache, processStateData)
+	ack, _, err := parseSessionDrawStateWithStateData(session, data, buildCache, processStateData)
 	if err != nil {
 		logWarn("parseDrawState failed: %v", err)
 		logDebugPacket(fmt.Sprintf("parseDrawState error: %v", err), data)
 		if previousAck > 0 {
-			setRequestedResendFrame(previousAck + 1)
+			session.frames.requestResend(previousAck + 1)
 		} else {
-			setRequestedResendFrame(0)
+			session.frames.requestResend(0)
 		}
 		return false
 	}
 	if !movieMode && ack > previousAck {
-		acknowledgeCommandAt(ackCmd, ack, receivedAt)
+		session.acknowledgeCommandAt(ackCmd, ack, receivedAt)
 	}
-	setNetworkFrameState(ack, nextResend)
-	if !seekingMov {
+	session.frames.set(ack, nextResend)
+	if session == primarySession && !seekingMov {
 		scriptAdvanceTick()
 	}
 	return true
@@ -1155,6 +1166,13 @@ func handleDrawStateAt(m []byte, buildCache bool, receivedAt time.Time) bool {
 
 // handleInvCmdFull resets and rebuilds the inventory from a full list command.
 func handleInvCmdFull(data []byte) ([]byte, bool) {
+	return handleSessionInvCmdFull(primarySession, data)
+}
+
+func handleSessionInvCmdFull(session *Session, data []byte) ([]byte, bool) {
+	if session == nil || session.inventory == nil {
+		return nil, false
+	}
 	if len(data) < 1 {
 		logError("inventory: full cmd missing count")
 		return nil, false
@@ -1181,12 +1199,22 @@ func handleInvCmdFull(data []byte) ([]byte, bool) {
 			eq[i] = true
 		}
 	}
-	setFullInventory(ids, eq)
+	session.inventory.setFull(ids, eq)
+	if session == primarySession {
+		inventoryDirty = true
+	}
 	return data[bytesNeeded:], true
 }
 
 // handleInvCmdOther interprets add/delete/equip/name inventory commands.
 func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
+	return handleSessionInvCmdOther(primarySession, cmd, data)
+}
+
+func handleSessionInvCmdOther(session *Session, cmd int, data []byte) ([]byte, bool) {
+	if session == nil || session.inventory == nil {
+		return nil, false
+	}
 	logDebug("inventory cmd=%v data=%v", cmd, data)
 
 	base := cmd &^ kInvCmdIndex
@@ -1226,19 +1254,22 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 	}
 	switch base {
 	case kInvCmdAdd:
-		addInventoryItem(id, idx, name, false)
+		session.inventory.add(id, idx, name, false)
 	case kInvCmdAddEquip:
-		addInventoryItem(id, idx, name, true)
+		session.inventory.add(id, idx, name, true)
 	case kInvCmdDelete:
-		removeInventoryItem(id, idx)
+		session.inventory.remove(id, idx)
 	case kInvCmdEquip:
-		equipInventoryItem(id, idx, true)
+		session.inventory.equip(id, idx, true)
 	case kInvCmdUnequip:
-		equipInventoryItem(id, idx, false)
+		session.inventory.equip(id, idx, false)
 	case kInvCmdName:
-		renameInventoryItem(id, idx, name)
+		session.inventory.rename(id, idx, name)
 	default:
 		logError("inventory: unknown command %v", cmd)
+	}
+	if session == primarySession {
+		inventoryDirty = true
 	}
 	return data, true
 }
@@ -1246,6 +1277,13 @@ func handleInvCmdOther(cmd int, data []byte) ([]byte, bool) {
 // parseInventory walks the inventory command stream and returns the remaining
 // slice and success flag.
 func parseInventory(data []byte) ([]byte, bool) {
+	return parseSessionInventory(primarySession, data)
+}
+
+func parseSessionInventory(session *Session, data []byte) ([]byte, bool) {
+	if session == nil || session.inventory == nil {
+		return nil, false
+	}
 	if len(data) == 0 {
 		return data, true
 	}
@@ -1271,7 +1309,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 		case kInvCmdFull:
 			var ok bool
 			before := data
-			data, ok = handleInvCmdFull(data)
+			data, ok = handleSessionInvCmdFull(session, data)
 			if !ok {
 				logDebug("inventory: cmd %#x failed at %d/%d rem=% x", cmd, i+1, cmdCount, before)
 				return nil, false
@@ -1287,7 +1325,7 @@ func parseInventory(data []byte) ([]byte, bool) {
 		default:
 			var ok bool
 			before := data
-			data, ok = handleInvCmdOther(cmd, data)
+			data, ok = handleSessionInvCmdOther(session, cmd, data)
 			if !ok {
 				logDebug("inventory: cmd %#x failed at %d/%d rem=% x", cmd, i+1, cmdCount, before)
 				return nil, false
@@ -1323,7 +1361,9 @@ func parseInventory(data []byte) ([]byte, bool) {
 	for len(data) > 0 && (data[0] == 0 || data[0] == kInvCmdLegacyPadding) {
 		data = data[1:]
 	}
-	inventoryDirty = true
+	if session == primarySession {
+		inventoryDirty = true
+	}
 	return data, true
 }
 
@@ -1333,7 +1373,11 @@ func parseInventory(data []byte) ([]byte, bool) {
 // When buildCache is false, state is updated without rebuilding the render
 // cache.
 func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
-	return parseDrawStateWithStateData(data, buildCache, true)
+	return parseSessionDrawState(primarySession, data, buildCache)
+}
+
+func parseSessionDrawState(session *Session, data []byte, buildCache bool) (int32, int32, error) {
+	return parseSessionDrawStateWithStateData(session, data, buildCache, true)
 }
 
 // appendDrawStateDataFragment adds the trailing state bytes from one accepted
@@ -1342,13 +1386,21 @@ func parseDrawState(data []byte, buildCache bool) (int32, int32, error) {
 // Return copies so decoding can safely take other state locks while the pending
 // stream remains checkpointable as part of drawState.
 func appendDrawStateDataFragment(fragment []byte) [][]byte {
+	return appendSessionDrawStateDataFragment(primarySession, fragment)
+}
+
+func appendSessionDrawStateDataFragment(session *Session, fragment []byte) [][]byte {
 	if len(fragment) == 0 {
 		return nil
 	}
+	if session == nil || session.draw == nil {
+		return nil
+	}
 
-	stateMu.Lock()
-	state.stateDataStream = append(state.stateDataStream, fragment...)
-	stream := state.stateDataStream
+	draw := session.draw
+	draw.mu.Lock()
+	draw.current.stateDataStream = append(draw.current.stateDataStream, fragment...)
+	stream := draw.current.stateDataStream
 	consumed := 0
 	var records [][]byte
 	for len(stream)-consumed >= 2 {
@@ -1363,13 +1415,21 @@ func appendDrawStateDataFragment(fragment []byte) [][]byte {
 	}
 	if consumed > 0 {
 		remaining := copy(stream, stream[consumed:])
-		state.stateDataStream = stream[:remaining]
+		draw.current.stateDataStream = stream[:remaining]
 	}
-	stateMu.Unlock()
+	draw.mu.Unlock()
 	return records
 }
 
 func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool) (int32, int32, error) {
+	return parseSessionDrawStateWithStateData(primarySession, data, buildCache, processStateData)
+}
+
+func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCache, processStateData bool) (int32, int32, error) {
+	if session == nil || session.draw == nil {
+		return 0, 0, errors.New("session")
+	}
+	draw := session.draw
 	stage := "header"
 	if len(data) < 9 {
 		return 0, 0, errors.New(stage)
@@ -1431,7 +1491,7 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		if idx := bytes.IndexByte(data[p:], 0); idx >= 0 {
 			d.Name = utfFold(decodeServerText(data[p : p+idx]))
 			p += idx + 1
-			if d.Name == playerName {
+			if session == primarySession && d.Name == playerName {
 				playerIndex = d.Index
 			}
 			if wasmPrivacyActive() {
@@ -1457,7 +1517,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		// appearance and queue info requests when not in movie mode to
 		// avoid side effects during playback.
 		if d.Type != kDescNPC && d.Name != "" {
-			if !movieMode {
+			session.players.observeAppearance(d.Name, d.PictID, d.Colors, false)
+			if session == primarySession && !movieMode {
 				updatePlayerAppearance(d.Name, d.PictID, d.Colors, false)
 				// Opportunistically request full info for visible players.
 				queueInfoRequest(d.Name)
@@ -1573,11 +1634,11 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	// either the two-byte record size or its payload.
 	stateFragment := data[p:]
 	if movieMode {
-		frameCounter++
+		draw.frame++
 	} else {
 		// The accepted server acknowledgement is the classic client's live
 		// logical clock. Render FPS and missing packets must not skew it.
-		frameCounter = int(ack)
+		draw.frame = int(ack)
 	}
 
 	// Count only structurally valid draw-state frames. Advancing loss statistics
@@ -1587,66 +1648,68 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	if movieMode {
 		dropped = movieDropped
 	} else {
-		dropped = updateFrameCounters(ack)
+		dropped = session.frames.updateCounters(ack)
 	}
 	extra := dropped
 	if extra > 2 {
 		extra = 2
 	}
-	gNight.SetFlags(uint(lighting))
+	if session == primarySession {
+		gNight.SetFlags(uint(lighting))
+	}
 
-	stateMu.Lock()
-	state.receivedAt = time.Now()
-	state.logicalFrame = frameCounter
-	state.ackCmd = ackCmd
-	state.dropped = extra
-	state.lightingFlags = lighting
-	state.prevHP = state.hp
-	state.prevHPMax = state.hpMax
-	state.prevSP = state.sp
-	state.prevSPMax = state.spMax
-	state.prevBalance = state.balance
-	state.prevBalanceMax = state.balanceMax
-	state.hp = hp
-	state.hpMax = hpMax
-	state.sp = sp
-	state.spMax = spMax
-	state.balance = bal
-	state.balanceMax = balMax
+	draw.mu.Lock()
+	draw.current.receivedAt = time.Now()
+	draw.current.logicalFrame = draw.frame
+	draw.current.ackCmd = ackCmd
+	draw.current.dropped = extra
+	draw.current.lightingFlags = lighting
+	draw.current.prevHP = draw.current.hp
+	draw.current.prevHPMax = draw.current.hpMax
+	draw.current.prevSP = draw.current.sp
+	draw.current.prevSPMax = draw.current.spMax
+	draw.current.prevBalance = draw.current.balance
+	draw.current.prevBalanceMax = draw.current.balanceMax
+	draw.current.hp = hp
+	draw.current.hpMax = hpMax
+	draw.current.sp = sp
+	draw.current.spMax = spMax
+	draw.current.balance = bal
+	draw.current.balanceMax = balMax
 	changed := false
 	if mobileFrameBlendingEnabled() && !seekingMov {
 		if len(descs) > 0 {
 			changed = true
 		}
-		if len(mobiles) != len(state.mobiles) {
+		if len(mobiles) != len(draw.current.mobiles) {
 			changed = true
 		} else {
 			for _, m := range mobiles {
-				if pm, ok := state.mobiles[m.Index]; !ok || pm.State != m.State {
+				if pm, ok := draw.current.mobiles[m.Index]; !ok || pm.State != m.State {
 					changed = true
 					break
 				}
 			}
 		}
 		if changed {
-			if state.prevDescs == nil {
-				state.prevDescs = make(map[uint8]frameDescriptor, len(state.descriptors))
+			if draw.current.prevDescs == nil {
+				draw.current.prevDescs = make(map[uint8]frameDescriptor, len(draw.current.descriptors))
 			} else {
-				clearMap(state.prevDescs)
+				clearMap(draw.current.prevDescs)
 			}
-			for idx, d := range state.descriptors {
-				state.prevDescs[idx] = d
+			for idx, d := range draw.current.descriptors {
+				draw.current.prevDescs[idx] = d
 			}
 		}
 	}
 	// retain previously drawn pictures when the packet specifies pictAgain
-	prevPics := state.pictures
+	prevPics := draw.current.pictures
 	again := pictAgain
 	if again > len(prevPics) {
 		again = len(prevPics)
 	}
 	newPicCount := again + pictCount
-	newPics := state.prevPictures
+	newPics := draw.current.prevPictures
 	if cap(newPics) < newPicCount {
 		newPics = make([]framePicture, newPicCount)
 	} else {
@@ -1672,15 +1735,15 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 			}
 		}
 		if ok {
-			state.picShiftX = dx
-			state.picShiftY = dy
+			draw.current.picShiftX = dx
+			draw.current.picShiftY = dy
 		} else {
-			state.picShiftX = 0
-			state.picShiftY = 0
+			draw.current.picShiftX = 0
+			draw.current.picShiftY = 0
 		}
 	} else {
-		state.picShiftX = 0
-		state.picShiftY = 0
+		draw.current.picShiftX = 0
+		draw.current.picShiftY = 0
 	}
 	if !ok {
 		prevPics = nil
@@ -1691,24 +1754,24 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 			newPics = newPics[:len(pics)]
 		}
 		copy(newPics, pics)
-		clearMap(state.prevDescs)
-		clearMap(state.prevMobiles)
-		state.prevPictures = nil
-		state.prevTime = time.Time{}
-		state.curTime = time.Time{}
+		clearMap(draw.current.prevDescs)
+		clearMap(draw.current.prevMobiles)
+		draw.current.prevPictures = nil
+		draw.current.prevTime = time.Time{}
+		draw.current.curTime = time.Time{}
 		logDebug("pictureShift failed; bypassing interpolation")
 	}
-	if state.descriptors == nil {
-		state.descriptors = make(map[uint8]frameDescriptor)
+	if draw.current.descriptors == nil {
+		draw.current.descriptors = make(map[uint8]frameDescriptor)
 	}
 	for _, d := range descs {
-		if previous, ok := state.descriptors[d.Index]; ok && !sameBubbleOwnerDescriptor(previous, d) {
+		if previous, ok := draw.current.descriptors[d.Index]; ok && !sameBubbleOwnerDescriptor(previous, d) {
 			// Named bubbles can relink if their owner moves to another descriptor
 			// index. Unnamed bubbles cannot be identified safely, so discard them
 			// rather than allowing them to jump to the replacement mobile.
-			state.bubbles = discardUnnamedBubblesForDescriptorIndex(state.bubbles, d.Index)
+			draw.current.bubbles = discardUnnamedBubblesForDescriptorIndex(draw.current.bubbles, d.Index)
 		}
-		state.descriptors[d.Index] = d
+		draw.current.descriptors[d.Index] = d
 	}
 	for i := range prevPics {
 		prevPics[i].Owned = false
@@ -1734,8 +1797,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 			newPics[i].PrevH = newPics[i].H
 			newPics[i].PrevV = newPics[i].V
 		} else {
-			newPics[i].PrevH = int16(int(newPics[i].H) - state.picShiftX)
-			newPics[i].PrevV = int16(int(newPics[i].V) - state.picShiftY)
+			newPics[i].PrevH = int16(int(newPics[i].H) - draw.current.picShiftX)
+			newPics[i].PrevV = int16(int(newPics[i].V) - draw.current.picShiftY)
 		}
 		moving := true
 		var owner *framePicture
@@ -1744,8 +1807,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 			owner = &prevPics[i]
 		} else if j := positionMatches[i]; j >= 0 {
 			pp := &prevPics[j]
-			if int(pp.H)+state.picShiftX == int(newPics[i].H) &&
-				int(pp.V)+state.picShiftY == int(newPics[i].V) {
+			if int(pp.H)+draw.current.picShiftX == int(newPics[i].H) &&
+				int(pp.V)+draw.current.picShiftY == int(newPics[i].V) {
 				moving = false
 				owner = pp
 			}
@@ -1767,7 +1830,7 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 				// independent jump is too large to smooth. Mark it consumed so
 				// the old position is not also carried forward as a stale sprite.
 				previous.Owned = true
-				if cloudMotion || smallPictureMotionWithinInterpolationLimit(newPics[i], *previous, state.picShiftX, state.picShiftY) {
+				if cloudMotion || smallPictureMotionWithinInterpolationLimit(newPics[i], *previous, draw.current.picShiftX, draw.current.picShiftY) {
 					newPics[i].PrevH = previous.H
 					newPics[i].PrevV = previous.V
 				}
@@ -1795,7 +1858,7 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	// legitimate ground tiles. Now we carry if the previous sprite was
 	// marked Background and still visible, or fall back to the stricter
 	// edge test for unclassified cases.
-	if (state.picShiftX != 0 || state.picShiftY != 0) && len(prevPics) > 0 {
+	if (draw.current.picShiftX != 0 || draw.current.picShiftY != 0) && len(prevPics) > 0 {
 		for _, pp := range prevPics {
 			if pp.Owned {
 				continue // already matched/present
@@ -1826,8 +1889,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 			}
 			oldH, oldV := pp.H, pp.V
 			// Advance by detected picture shift for this frame.
-			pp.H = int16(int(pp.H) + state.picShiftX)
-			pp.V = int16(int(pp.V) + state.picShiftY)
+			pp.H = int16(int(pp.H) + draw.current.picShiftX)
+			pp.V = int16(int(pp.V) + draw.current.picShiftY)
 			pp.PrevH = oldH
 			pp.PrevV = oldV
 			pp.Moving = false
@@ -1838,8 +1901,8 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 	}
 
 	// Save previous pictures for pinning/interpolation decisions
-	state.prevPictures = prevPics
-	state.pictures = newPics
+	draw.current.prevPictures = prevPics
+	draw.current.pictures = newPics
 
 	needPrev := gs.MotionSmoothing && !seekingMov && ok
 	needAnimUpdate := gs.MotionSmoothing && ok && !seekingMov
@@ -1847,57 +1910,67 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		// Use the latest measured server interval; do not reuse the previous
 		// cur-prev duration as that can get stuck until a hard reset (e.g.,
 		// background change) occurs.
-		frameMu.Lock()
-		interval := frameInterval
-		frameMu.Unlock()
+		_, interval, _, _, _ := session.timing.cadenceSnapshot()
 		if interval <= 0 {
 			interval = time.Second / 5
 		}
 		interval *= time.Duration(extra + 1)
-		state.prevTime = time.Now()
-		state.curTime = state.prevTime.Add(interval)
+		draw.current.prevTime = time.Now()
+		draw.current.curTime = draw.current.prevTime.Add(interval)
 	}
 
 	// Carry over previous-frame mobiles that disappear at the edge to avoid
 	// premature culling from interpolation.
-	if len(state.mobiles) > 0 {
+	if len(draw.current.mobiles) > 0 {
 		clearMap(present)
 		for _, m := range mobiles {
 			present[m.Index] = struct{}{}
 		}
-		for idx, pm := range state.mobiles {
+		for idx, pm := range draw.current.mobiles {
 			if pm.Persist {
 				continue
 			}
 			if _, ok := present[idx]; ok {
 				continue
 			}
-			if d, ok := state.descriptors[idx]; ok && mobileOnEdge(pm, d) {
-				pm.H = int16(int(pm.H) + state.picShiftX)
-				pm.V = int16(int(pm.V) + state.picShiftY)
+			if d, ok := draw.current.descriptors[idx]; ok && mobileOnEdge(pm, d) {
+				pm.H = int16(int(pm.H) + draw.current.picShiftX)
+				pm.V = int16(int(pm.V) + draw.current.picShiftY)
 				pm.Persist = true
 				mobiles = append(mobiles, pm)
 			}
 		}
 	}
-	markPlayersOnScreen(mobiles, state.descriptors, time.Now())
+	playerStateNow := time.Now()
+	selfName := ""
+	if session == primarySession {
+		selfName = playerName
+	}
+	session.players.markOnScreen(mobiles, draw.current.descriptors, playerStateNow, selfName)
+	if session == primarySession {
+		markPlayersOnScreen(mobiles, draw.current.descriptors, playerStateNow)
+	}
 
-	previousMobiles := state.mobiles
-	nextMobiles := state.mobileScratch
+	previousMobiles := draw.current.mobiles
+	nextMobiles := draw.current.mobileScratch
 	if nextMobiles == nil {
 		nextMobiles = make(map[uint8]frameMobile, len(mobiles))
 	} else {
 		clearMap(nextMobiles)
 	}
 	for _, m := range mobiles {
-		if d, ok := state.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
+		if d, ok := draw.current.descriptors[m.Index]; ok && d.Name != "" && !(session == primarySession && gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
 			sharee := false
 			dead := m.State == poseDead
-			playersMu.RLock()
-			if p, ok := players[d.Name]; ok {
+			if session == primarySession {
+				playersMu.RLock()
+				if p, ok := players[d.Name]; ok {
+					sharee = p.Sharee
+				}
+				playersMu.RUnlock()
+			} else if p, ok := session.players.player(d.Name); ok {
 				sharee = p.Sharee
 			}
-			playersMu.RUnlock()
 			style := mobileNameStyle(m.Colors, sharee)
 			opacity := uint8(gs.NameBgOpacity*255 + 0.5)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, opacity, style, dead, mainFontRasterScale)
@@ -1911,30 +1984,32 @@ func parseDrawStateWithStateData(data []byte, buildCache, processStateData bool)
 		}
 		nextMobiles[m.Index] = m
 	}
-	state.mobiles = nextMobiles
+	draw.current.mobiles = nextMobiles
 	if needPrev {
-		state.mobileScratch = state.prevMobiles
-		state.prevMobiles = previousMobiles
+		draw.current.mobileScratch = draw.current.prevMobiles
+		draw.current.prevMobiles = previousMobiles
 	} else {
-		state.mobileScratch = previousMobiles
+		draw.current.mobileScratch = previousMobiles
 	}
 	if gs.FadeObscuringPictures {
-		cachePictureObscuring(state.pictures, mobiles, state.descriptors, state.prevMobiles, state.logicalFrame)
+		cachePictureObscuring(draw.current.pictures, mobiles, draw.current.descriptors, draw.current.prevMobiles, draw.current.logicalFrame)
 	}
 	// Populate prevMobiles only when pictureShift succeeds so interpolation of
 	// mobiles and pinned effects is skipped on failure.
 	// Prepare render caches now that state has been updated when requested.
 	if buildCache {
-		prepareRenderCacheLocked()
+		prepareSessionRenderCacheLocked(session)
 	}
-	recordSpriteGameFrameLocked()
+	if session == primarySession {
+		recordSpriteGameFrameLocked()
+	}
 	//ack := state.ackCmd
 	//light := state.lightingFlags
-	stateMu.Unlock()
+	draw.mu.Unlock()
 	if !processStateData {
 		return ack, resend, nil
 	}
-	stateRecords := appendDrawStateDataFragment(stateFragment)
+	stateRecords := appendSessionDrawStateDataFragment(session, stateFragment)
 stateRecordLoop:
 	for recordIndex, stateData := range stateRecords {
 		rawStateData := stateData
@@ -1957,7 +2032,7 @@ stateRecordLoop:
 		}
 		if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
 			if idx > 0 {
-				handleInfoText(stateData[:idx])
+				handleSessionInfoText(session, stateData[:idx])
 			}
 			stateData = stateData[idx+1:]
 		} else {
@@ -1971,7 +2046,7 @@ stateRecordLoop:
 			// Treat preceding bytes as another info text C string.
 			if idx := bytes.IndexByte(stateData, 0); idx >= 0 {
 				if idx > 0 {
-					handleInfoText(stateData[:idx])
+					handleSessionInfoText(session, stateData[:idx])
 				}
 				stateData = stateData[idx+1:]
 				continue
@@ -2035,8 +2110,8 @@ stateRecordLoop:
 					if bubbleName == ThinkUnknownName {
 						name = "Someone"
 					} else {
-						stateMu.Lock()
-						if d, ok := state.descriptors[idx]; ok {
+						draw.mu.Lock()
+						if d, ok := draw.current.descriptors[idx]; ok {
 							if bubbleName != "" {
 								if d.Name != "" {
 									name = d.Name
@@ -2048,36 +2123,40 @@ stateRecordLoop:
 								name = d.Name
 							}
 						}
-						stateMu.Unlock()
+						draw.mu.Unlock()
 					}
 				} else if bubbleName == ThinkUnknownName {
 					name = "Someone"
 				}
-				if verb == "thinks" && idx == playerIndex && bubbleName != "" {
-					stateMu.Lock()
-					for i, d := range state.descriptors {
+				if session == primarySession && verb == "thinks" && idx == playerIndex && bubbleName != "" {
+					draw.mu.Lock()
+					for i, d := range draw.current.descriptors {
 						if d.Name == bubbleName {
 							idx = i
 							break
 						}
 					}
-					stateMu.Unlock()
+					draw.mu.Unlock()
 				}
 				filterName := name
 				if bubbleName == ThinkUnknownName {
-					stateMu.Lock()
-					if d, ok := state.descriptors[idx]; ok && d.Name != "" {
+					draw.mu.Lock()
+					if d, ok := draw.current.descriptors[idx]; ok && d.Name != "" {
 						filterName = d.Name
 					}
-					stateMu.Unlock()
+					draw.mu.Unlock()
 				}
 				skipRender := false
 				if filterName != "" {
-					playersMu.RLock()
-					if p, ok := players[filterName]; ok && (p.Blocked || p.Ignored) {
-						skipRender = true
+					if session == primarySession {
+						playersMu.RLock()
+						if p, ok := players[filterName]; ok && (p.Blocked || p.Ignored) {
+							skipRender = true
+						}
+						playersMu.RUnlock()
+					} else if p, ok := session.players.player(filterName); ok {
+						skipRender = p.Blocked || p.Ignored
 					}
-					playersMu.RUnlock()
 				}
 				showBubble := gs.SpeechBubbles && txt != "" && !blockBubbles && verb != "thinks"
 				if showBubble && !skipRender {
@@ -2104,7 +2183,7 @@ stateRecordLoop:
 					}
 					originOK := true
 					switch {
-					case idx == playerIndex:
+					case session == primarySession && idx == playerIndex:
 						originOK = gs.BubbleSelf
 					case bubbleType == kBubbleMonster:
 						originOK = gs.BubbleMonsters
@@ -2117,7 +2196,7 @@ stateRecordLoop:
 				}
 				if showBubble && !skipRender {
 					life := configuredBubbleLifeFrames(txt)
-					b := bubble{Index: idx, OwnerName: name, Text: txt, Type: typ, CreatedFrame: frameCounter, LifeFrames: life}
+					b := bubble{Index: idx, OwnerName: name, Text: txt, Type: typ, CreatedFrame: draw.frame, LifeFrames: life}
 					switch bubbleType {
 					case kBubbleRealAction, kBubblePlayerAction, kBubbleNarrate:
 						b.NoArrow = true
@@ -2154,7 +2233,7 @@ stateRecordLoop:
 								msg = fmt.Sprintf("%v thinks, %v", bubbleName, txt)
 							}
 							if !skipRender {
-								showThinkMessage(msg)
+								session.publishThink(msg)
 							}
 						} else if typ&kBubbleNotCommon != 0 {
 							langWord := lang
@@ -2204,19 +2283,19 @@ stateRecordLoop:
 				}
 				messageType := messageTextTypeForBubble(bubbleType)
 				if isChatBubble(bubbleType) {
-					displayChatMessageTyped(msg, messageType)
+					session.publishChat(msg, messageType)
 				} else {
-					serverConsoleMessageTyped(msg, messageType)
+					session.publishConsole(msg, messageType)
 				}
 			}
 			stateData = stateData[p+end+1:]
 		}
 
 		if len(bubbles) > 0 {
-			stateMu.Lock()
-			state.bubbles = append(state.bubbles, bubbles...)
-			markWorldStateChanged()
-			stateMu.Unlock()
+			draw.mu.Lock()
+			draw.current.bubbles = append(draw.current.bubbles, bubbles...)
+			markSessionWorldStateChanged(session)
+			draw.mu.Unlock()
 		}
 
 		stage = "sound count"
@@ -2231,43 +2310,18 @@ stateRecordLoop:
 			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
 			continue stateRecordLoop
 		}
-		var newSounds []uint16
+		sounds := make([]uint16, 0, min(soundCount, maxSounds))
 
 		for i := 0; i < soundCount && i < maxSounds; i++ {
 			id := binary.BigEndian.Uint16(stateData[:2])
 			stateData = stateData[2:]
-
-			if gs.ThrottleSounds {
-				var found bool
-				for _, item := range prevSounds {
-					if item == id {
-						found = true
-						break
-					}
-				}
-				if found {
-					continue
-				}
-
-				for _, item := range prev2Sounds {
-					if item == id {
-						found = true
-						break
-					}
-				}
-				if found {
-					continue
-				}
-			}
-
-			newSounds = appendUniqueSound(newSounds, id)
+			sounds = append(sounds, id)
 		}
-		playSound(newSounds)
-		prev2Sounds = prevSounds
-		prevSounds = newSounds
+		newSounds := session.filterSounds(sounds, gs.ThrottleSounds)
+		session.publishSounds(newSounds)
 
 		stage = "inventory"
-		rest, ok := parseInventory(stateData)
+		rest, ok := parseSessionInventory(session, stateData)
 		if !ok || len(rest) > 0 {
 			logIgnoredDrawStateRecord(recordIndex, errors.New(stage), rawStateData)
 			continue stateRecordLoop
@@ -2281,9 +2335,6 @@ func logIgnoredDrawStateRecord(index int, err error, data []byte) {
 	logWarn("draw state record %d ignored: %v", index+1, err)
 	logDebugPacket(fmt.Sprintf("draw state record %d error: %v", index+1, err), data)
 }
-
-var prevSounds []uint16
-var prev2Sounds []uint16
 
 func appendUniqueSound(sounds []uint16, id uint16) []uint16 {
 	for _, existing := range sounds {

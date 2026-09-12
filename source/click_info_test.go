@@ -13,13 +13,13 @@ func TestMobileSizeUsesImageMetadata(t *testing.T) {
 }
 
 func TestUpdateWorldHoverCachesUnchangedQuery(t *testing.T) {
-	stateMu.Lock()
-	origState := state
-	state = drawState{
+	primarySession.draw.mu.Lock()
+	origState := primarySession.draw.current
+	primarySession.draw.current = drawState{
 		descriptors: map[uint8]frameDescriptor{1: {Index: 1, Name: "Bob", PictID: 100}},
 		liveMobs:    []frameMobile{{Index: 1, H: 0, V: 0}},
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 
 	origMobileSizeFunc := mobileSizeFunc
 	sizeCalls := 0
@@ -28,7 +28,7 @@ func TestUpdateWorldHoverCachesUnchangedQuery(t *testing.T) {
 		return 10
 	}
 
-	origGeneration := worldStateGeneration.Load()
+	origGeneration := primarySession.draw.generation.Load()
 	lastHoverMu.Lock()
 	origHover := lastHover
 	origHoverGeneration := lastHoverGeneration
@@ -36,11 +36,11 @@ func TestUpdateWorldHoverCachesUnchangedQuery(t *testing.T) {
 	lastHoverQueryValid = false
 	lastHoverMu.Unlock()
 	defer func() {
-		stateMu.Lock()
-		state = origState
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current = origState
+		primarySession.draw.mu.Unlock()
 		mobileSizeFunc = origMobileSizeFunc
-		worldStateGeneration.Store(origGeneration)
+		primarySession.draw.generation.Store(origGeneration)
 		lastHoverMu.Lock()
 		lastHover = origHover
 		lastHoverGeneration = origHoverGeneration
@@ -54,9 +54,9 @@ func TestUpdateWorldHoverCachesUnchangedQuery(t *testing.T) {
 		t.Fatalf("unchanged hover query performed %d size lookups, want 1", sizeCalls)
 	}
 
-	stateMu.Lock()
+	primarySession.draw.mu.Lock()
 	markWorldStateChanged()
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	updateWorldHover(0, 0)
 	if sizeCalls != 2 {
 		t.Fatalf("state change did not invalidate hover query; calls = %d", sizeCalls)

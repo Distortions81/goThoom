@@ -20,9 +20,9 @@ func TestParseDrawStateBadInventoryDoesNotRejectFrame(t *testing.T) {
 func TestHandleDrawStateBadInventoryStillAdvancesAck(t *testing.T) {
 	prepareLiveStateFragmentTest(t)
 	resetCommandStateForTest(t, 5)
-	pendingCommand = "/equip 123"
-	pendingCommandID = 6
-	pendingCommandSent = true
+	primarySession.commands.pending = "/equip 123"
+	primarySession.commands.pendingID = 6
+	primarySession.commands.pendingSent = true
 
 	body := buildDrawData("Bob", kBubbleNormal, "hi")
 	body[0] = 6
@@ -35,10 +35,10 @@ func TestHandleDrawStateBadInventoryStillAdvancesAck(t *testing.T) {
 	if !handleDrawState(packet, false) {
 		t.Fatal("handleDrawState rejected structurally valid frame")
 	}
-	if ackFrame != 1 || resendFrame != 0 {
-		t.Fatalf("frame state = ack %d resend %d, want 1/0", ackFrame, resendFrame)
+	if primarySession.frames.ack != 1 || primarySession.frames.resend != 0 {
+		t.Fatalf("frame state = ack %d resend %d, want 1/0", primarySession.frames.ack, primarySession.frames.resend)
 	}
-	if pendingCommand != "" || pendingCommandID != 0 || pendingCommandSent {
-		t.Fatalf("command was not acknowledged: %q id=%d sent=%v", pendingCommand, pendingCommandID, pendingCommandSent)
+	if primarySession.commands.pending != "" || primarySession.commands.pendingID != 0 || primarySession.commands.pendingSent {
+		t.Fatalf("command was not acknowledged: %q id=%d sent=%v", primarySession.commands.pending, primarySession.commands.pendingID, primarySession.commands.pendingSent)
 	}
 }

@@ -45,6 +45,7 @@ type soundPlaybackCacheEntry struct {
 
 type soundPlaybackRequest struct {
 	ids               []uint16
+	sourceSession     SessionID
 	context           *audio.Context
 	generation        uint64
 	sourceGeneration  uint64
@@ -387,12 +388,20 @@ func soundEffectWorkerCount(numCPU int) int {
 // playback. A full queue drops the effect rather than delaying networking or
 // rendering.
 func playSound(ids []uint16) {
-	playSoundWithSettings(ids, gs.SoundEnhancement, gs.SoundEnhancementAmount, highQualityResamplingEnabled())
+	playSessionSound(primarySession, ids)
+}
+
+func playSessionSound(session *Session, ids []uint16) {
+	playSessionSoundWithSettings(session, ids, gs.SoundEnhancement, gs.SoundEnhancementAmount, highQualityResamplingEnabled())
 }
 
 // playSoundWithSettings queues a sound using explicit processing choices. It
 // is used by audio previews so an A/B test does not alter saved settings.
 func playSoundWithSettings(ids []uint16, enhanced bool, enhancementAmount float64, highQuality bool) {
+	playSessionSoundWithSettings(primarySession, ids, enhanced, enhancementAmount, highQuality)
+}
+
+func playSessionSoundWithSettings(session *Session, ids []uint16, enhanced bool, enhancementAmount float64, highQuality bool) {
 	if len(ids) == 0 || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
@@ -410,7 +419,7 @@ func playSoundWithSettings(ids []uint16, enhanced bool, enhancementAmount float6
 		amount = 0
 	}
 	request := soundPlaybackRequest{
-		ids: append([]uint16(nil), ids...), context: context, generation: generation,
+		ids: append([]uint16(nil), ids...), sourceSession: session.ID(), context: context, generation: generation,
 		sourceGeneration: sourceGeneration, enhanced: enhanced, enhancementAmount: amount,
 		highQuality: highQuality, volume: effectiveAudioVolume(gs.MasterVolume * gs.GameVolume),
 		restartActive: enhanced && gs.ThrottleSounds,

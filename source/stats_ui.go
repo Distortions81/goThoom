@@ -554,10 +554,7 @@ func updateStatsWindow(now time.Time) {
 	if !sampleDue && !renderDue {
 		return
 	}
-	frameMu.Lock()
-	interval := frameInterval
-	updatesPerSecond := serverUpdatesPerSecond
-	frameMu.Unlock()
+	_, interval, _, updatesPerSecond, _ := primarySession.timing.cadenceSnapshot()
 	if interval <= 0 {
 		interval = framems * time.Millisecond
 	}

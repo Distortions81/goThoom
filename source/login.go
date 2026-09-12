@@ -16,8 +16,6 @@ import (
 )
 
 var (
-	loginCancel          context.CancelFunc
-	loginInProgress      bool
 	demoLookupInProgress bool
 	demoLoginActive      bool
 	loginMu              sync.Mutex
@@ -119,6 +117,12 @@ func connectStatusMessage(target serverTarget) string {
 	return fmt.Sprintf("%s Using fallback IP.", base)
 }
 
+func updateSessionConnectStatus(session *Session, status string) {
+	if session == primarySession {
+		dispatchMainThread(func() { updateConnectDialog(status) })
+	}
+}
+
 func retryConnectStatusMessage(current, next serverTarget, err error) string {
 	base := fmt.Sprintf("Unable to reach %s (%v);", current.display, err)
 	if next.fallback {
@@ -143,18 +147,29 @@ func fallbackAddress(addr string) (string, bool) {
 }
 
 func handleDisconnect() {
-	loginMu.Lock()
-	if loginCancel == nil {
-		loginMu.Unlock()
+	handleSessionDisconnect(primarySession)
+}
+
+func handleSessionDisconnect(session *Session) {
+	if session == nil {
 		return
 	}
-	cancel := loginCancel
-	loginCancel = nil
+	session.transport.disconnect()
+}
+
+func completeSessionDisconnect(session *Session) {
+	if session != primarySession {
+		session.resetConnectionModels()
+		session.login.clearCredentials()
+		session.setCharacterName("")
+		return
+	}
+	loginMu.Lock()
+	tcpConn = nil
 	wasDemo := demoLoginActive
 	demoLoginActive = false
 	loginMu.Unlock()
 
-	cancel()
 	endSessionScripts(scriptSessionGeneration.Load())
 	stopAllMusic()
 	if recorder != nil {
@@ -167,12 +182,15 @@ func handleDisconnect() {
 	pcapPath = ""
 	pass = ""
 	passHash = ""
+	primarySession.login.clearCredentials()
 	if wasDemo {
 		name = freeDemoSelection
 	}
 	discardStagedPassword()
 	consoleMessage("Disconnected from server.")
-	loginWin.MarkOpen()
+	if loginWin != nil {
+		loginWin.MarkOpen()
+	}
 	updateCharacterButtons()
 }
 
@@ -182,8 +200,23 @@ const CL_SoundsFile = "CL_Sounds"
 // fetchDemoCharacters retrieves the server's available demo characters for
 // the player to choose from.
 func fetchDemoCharacters(clVersion int) ([]string, error) {
+	return fetchDemoCharactersAtHost(clVersion, host)
+}
+
+func fetchSessionDemoCharacters(session *Session, clVersion int) ([]string, error) {
+	if session == nil {
+		return nil, errors.New("login session is nil")
+	}
+	return fetchDemoCharactersAtHost(clVersion, session.login.requestSnapshot().host)
+}
+
+func fetchDemoCharactersAtHost(clVersion int, serverAddress string) ([]string, error) {
+	serverAddress = strings.TrimSpace(serverAddress)
+	if serverAddress == "" {
+		return nil, errors.New("server address is empty")
+	}
 	for {
-		names, err := fetchDemoCharactersOnce(clVersion)
+		names, err := fetchDemoCharactersOnceAtHost(clVersion, serverAddress)
 		if errors.Is(err, errRetryLogin) {
 			continue
 		}
@@ -192,9 +225,20 @@ func fetchDemoCharacters(clVersion int) ([]string, error) {
 }
 
 func setDemoLoginCandidate(candidate string) {
-	name = candidate
-	passHash = ""
-	pass = "demo"
+	setSessionDemoLoginCandidate(primarySession, candidate)
+}
+
+func setSessionDemoLoginCandidate(session *Session, candidate string) sessionLoginRequest {
+	if session == nil {
+		return sessionLoginRequest{}
+	}
+	request := session.login.setDemoCandidate(candidate)
+	if session == primarySession {
+		name = request.character
+		passHash = ""
+		pass = "demo"
+	}
+	return request
 }
 
 func nextDemoCandidateIndex(err error, current, count int) (int, bool) {
@@ -232,6 +276,10 @@ func parseDemoCharacterNames(data []byte) []string {
 }
 
 func fetchDemoCharactersOnce(clVersion int) ([]string, error) {
+	return fetchDemoCharactersOnceAtHost(clVersion, host)
+}
+
+func fetchDemoCharactersOnceAtHost(clVersion int, serverAddress string) ([]string, error) {
 	imagesVersion, err := readKeyFileVersion(assetFilePath(CL_ImagesFile))
 	imagesMissing := false
 	if err != nil {
@@ -268,7 +316,7 @@ func fetchDemoCharactersOnce(clVersion int) ([]string, error) {
 		sendVersion = clVersion - 1
 	}
 
-	targets := serverTargets(host)
+	targets := serverTargets(serverAddress)
 	var lastErr error
 	for i, target := range targets {
 		names, err := fetchDemoFromTarget(target, sendVersion, imagesVersion, soundsVersion)
@@ -406,19 +454,59 @@ func fetchDemoFromTarget(target serverTarget, sendVersion int, imagesVersion, so
 // login connects to the server and performs the login handshake.
 // It runs the network loops and blocks until the context is canceled.
 func login(ctx context.Context, clVersion int) error {
-	return loginWithDemoCandidates(ctx, clVersion, nil)
+	stagePrimarySessionLoginRequest()
+	return loginSessionWithDemoCandidates(primarySession, ctx, clVersion, nil)
 }
 
 func loginWithDemoCandidates(ctx context.Context, clVersion int, demoCandidates []string) error {
-	resetLiveNetworkSession()
-	if gs.AutoRecord {
+	stagePrimarySessionLoginRequest()
+	return loginSessionWithDemoCandidates(primarySession, ctx, clVersion, demoCandidates)
+}
+
+func stagePrimarySessionLoginRequest() sessionLoginRequest {
+	request := sessionLoginRequest{
+		host:         host,
+		character:    name,
+		password:     pass,
+		passwordHash: passHash,
+	}.normalized()
+	primarySession.login.setRequest(request)
+	return request
+}
+
+func loginSessionWithDemoCandidates(session *Session, ctx context.Context, clVersion int, demoCandidates []string) error {
+	if session == nil {
+		return errors.New("login session is nil")
+	}
+	request := session.login.requestSnapshot()
+	if len(demoCandidates) > 0 {
+		request = setSessionDemoLoginCandidate(session, demoCandidates[0])
+	}
+	if err := request.validate(); err != nil {
+		return err
+	}
+	_, _, transportStatus := session.transport.connections()
+	if transportStatus == sessionDisconnected {
+		sessionCtx, cancel := context.WithCancel(ctx)
+		if !session.transport.begin(cancel) {
+			cancel()
+			return errors.New("session transport is busy")
+		}
+		ctx = sessionCtx
+	} else if transportStatus != sessionConnecting {
+		return errors.New("session transport is busy")
+	}
+	defer session.transport.failConnect()
+	if session == primarySession {
+		resetLiveNetworkSession()
+	} else {
+		session.resetConnectionModels()
+	}
+	if session == primarySession && gs.AutoRecord {
 		recordingMovie = true
 	}
 	go setupSynthOnce.Do(setupSynth)
 	demoCandidateIndex := 0
-	if len(demoCandidates) > 0 {
-		setDemoLoginCandidate(demoCandidates[0])
-	}
 outer:
 	for {
 		imagesVersion, err := readKeyFileVersion(assetFilePath(CL_ImagesFile))
@@ -458,11 +546,11 @@ outer:
 			sendVersion = clVersion - 1
 		}
 
-		targets := serverTargets(host)
+		targets := serverTargets(request.host)
 		var lastErr error
 		for i, target := range targets {
-			dispatchMainThread(func() { updateConnectDialog(connectStatusMessage(target)) })
-			err := runLoginAttempt(ctx, target, sendVersion, imagesVersion, soundsVersion)
+			updateSessionConnectStatus(session, connectStatusMessage(target))
+			err := runSessionLoginAttempt(session, ctx, request, target, sendVersion, imagesVersion, soundsVersion)
 			if err == nil {
 				return nil
 			}
@@ -472,12 +560,12 @@ outer:
 			var resultErr *loginResultError
 			if errors.As(err, &resultErr) {
 				if next, ok := nextDemoCandidateIndex(err, demoCandidateIndex, len(demoCandidates)); ok {
-					previous := name
+					previous := request.character
 					demoCandidateIndex = next
-					setDemoLoginCandidate(demoCandidates[demoCandidateIndex])
-					status := fmt.Sprintf("%s is in use; trying %s...", previous, name)
-					dispatchMainThread(func() { updateConnectDialog(status) })
-					logDebug("demo character %s is online; trying %s", previous, name)
+					request = setSessionDemoLoginCandidate(session, demoCandidates[demoCandidateIndex])
+					status := fmt.Sprintf("%s is in use; trying %s...", previous, request.character)
+					updateSessionConnectStatus(session, status)
+					logDebug("demo character %s is online; trying %s", previous, request.character)
 					continue outer
 				}
 				if resultErr.result == loginResultCharacterAlreadyOnline && len(demoCandidates) > 1 {
@@ -489,7 +577,7 @@ outer:
 			if i < len(targets)-1 {
 				next := targets[i+1]
 				status := retryConnectStatusMessage(target, next, err)
-				dispatchMainThread(func() { updateConnectDialog(status) })
+				updateSessionConnectStatus(session, status)
 				logWarn("login via %s failed (%v); trying %s", target.display, err, next.display)
 				continue
 			}
@@ -502,6 +590,18 @@ outer:
 }
 
 func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, imagesVersion, soundsVersion uint32) (err error) {
+	request := stagePrimarySessionLoginRequest()
+	return runSessionLoginAttempt(primarySession, ctx, request, target, sendVersion, imagesVersion, soundsVersion)
+}
+
+func runSessionLoginAttempt(session *Session, ctx context.Context, request sessionLoginRequest, target serverTarget, sendVersion int, imagesVersion, soundsVersion uint32) (err error) {
+	if session == nil {
+		return errors.New("login session is nil")
+	}
+	request = request.normalized()
+	if err := request.validate(); err != nil {
+		return err
+	}
 	var tcp net.Conn
 	var udp net.Conn
 	defer func() {
@@ -526,7 +626,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("set tcp deadline %s: %w", target.addr, err)
 	}
 
-	dispatchMainThread(func() { updateConnectDialog("TCP connected; opening UDP channel...") })
+	updateSessionConnectStatus(session, "TCP connected; opening UDP channel...")
 	udp, err = dialServer("udp", target)
 	if err != nil {
 		tcp.Close()
@@ -540,7 +640,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		return fmt.Errorf("set udp deadline %s: %w", target.addr, err)
 	}
 
-	dispatchMainThread(func() { updateConnectDialog("Waiting for server handshake...") })
+	updateSessionConnectStatus(session, "Waiting for server handshake...")
 	var idBuf [4]byte
 	if _, err := io.ReadFull(tcp, idBuf[:]); err != nil {
 		tcp.Close()
@@ -551,7 +651,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	handshake := append([]byte{0xff, 0xff}, idBuf[:]...)
-	dispatchMainThread(func() { updateConnectDialog("Sending handshake...") })
+	updateSessionConnectStatus(session, "Sending handshake...")
 	if _, err := udp.Write(handshake); err != nil {
 		tcp.Close()
 		tcp = nil
@@ -561,7 +661,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	var confirm [2]byte
-	dispatchMainThread(func() { updateConnectDialog("Confirming handshake...") })
+	updateSessionConnectStatus(session, "Confirming handshake...")
 	if _, err := io.ReadFull(tcp, confirm[:]); err != nil {
 		tcp.Close()
 		tcp = nil
@@ -569,7 +669,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		udp = nil
 		return fmt.Errorf("confirm handshake via %s: %w", target.addr, err)
 	}
-	dispatchMainThread(func() { updateConnectDialog("Identifying client...") })
+	updateSessionConnectStatus(session, "Identifying client...")
 	sendVersionLocal := sendVersion
 	if err := sendClientIdentifiers(tcp, encodeFullVersion(sendVersionLocal), imagesVersion, soundsVersion); err != nil {
 		tcp.Close()
@@ -580,7 +680,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 	logDebug("connected to %v", target.addr)
 
-	dispatchMainThread(func() { updateConnectDialog("Waiting for server challenge...") })
+	updateSessionConnectStatus(session, "Waiting for server challenge...")
 	msg, err := readTCPMessage(tcp)
 	if err != nil {
 		tcp.Close()
@@ -611,27 +711,24 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 	challenge := msg[16 : 16+16]
 
-	if pass == "" && passHash == "" {
-		tcp.Close()
-		tcp = nil
-		udp.Close()
-		udp = nil
-		return fmt.Errorf("character password required")
+	profileCharacter := utfFold(request.character)
+	session.setCharacterName(profileCharacter)
+	if session == primarySession {
+		playerName = profileCharacter
+		dispatchMainThread(updateGameWindowTitle)
+		applyLocalLabels()
+		loadShortcuts()
 	}
-	playerName = utfFold(name)
-	dispatchMainThread(updateGameWindowTitle)
-	applyLocalLabels()
-	loadShortcuts()
 
 	var resp []byte
 	var result int16
-	dispatchMainThread(func() { updateConnectDialog("Authenticating...") })
+	updateSessionConnectStatus(session, "Authenticating...")
 	for {
 		var answer []byte
-		if pass != "" {
-			answer, err = answerChallenge(pass, challenge)
+		if request.password != "" {
+			answer, err = answerChallenge(request.password, challenge)
 		} else {
-			answer, err = answerChallengeHash(passHash, challenge)
+			answer, err = answerChallengeHash(request.passwordHash, challenge)
 		}
 		if err != nil {
 			tcp.Close()
@@ -642,7 +739,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		}
 
 		const kMsgLogOn = 13
-		nameBytes := encodeMacRoman(name)
+		nameBytes := encodeMacRoman(request.character)
 		buf := make([]byte, 16+len(nameBytes)+1+len(answer))
 		binary.BigEndian.PutUint16(buf[0:2], kMsgLogOn)
 		binary.BigEndian.PutUint16(buf[2:4], 0)
@@ -654,7 +751,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		copy(buf[17+len(nameBytes):], answer)
 		simpleEncrypt(buf[16:])
 
-		dispatchMainThread(func() { updateConnectDialog("Sending credentials...") })
+		updateSessionConnectStatus(session, "Sending credentials...")
 		if err := sendTCPMessage(tcp, buf); err != nil {
 			tcp.Close()
 			tcp = nil
@@ -663,7 +760,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 			return fmt.Errorf("send login via %s: %w", target.addr, err)
 		}
 
-		dispatchMainThread(func() { updateConnectDialog("Waiting for login response...") })
+		updateSessionConnectStatus(session, "Waiting for login response...")
 		resp, err = readTCPMessage(tcp)
 		if err != nil {
 			tcp.Close()
@@ -709,7 +806,7 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 
 	if result == -30972 || result == -30973 {
-		dispatchMainThread(func() { updateConnectDialog("Server requested update; retrying...") })
+		updateSessionConnectStatus(session, "Server requested update; retrying...")
 		_, _ = autoUpdate(resp, assetsDirPath())
 		tcp.Close()
 		tcp = nil
@@ -720,7 +817,11 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 
 	if result != 0 {
 		if isBadPasswordResult(result) {
-			rejectPassword(name)
+			rejectSessionPassword(session, request.character)
+			if session == primarySession {
+				pass = ""
+				passHash = ""
+			}
 		}
 		tcp.Close()
 		tcp = nil
@@ -728,46 +829,49 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		udp = nil
 		return &loginResultError{result: result}
 	}
-	commitStagedPassword(name)
+	commitSessionStagedPassword(session, request.character)
+	if session == primarySession {
+		pass = ""
+		passHash = ""
+	}
 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
-	profileCharacter := playerName
 	var scriptSession uint64
-	defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
-	dispatchMainThread(func() {
-		scriptSession = startSessionScripts(profileCharacter)
-	})
-	dispatchMainThread(func() { updateConnectDialog("Loading macros...") })
-	if err := loadLegacyMacrosForCharacter(playerName); err != nil {
-		log.Printf("legacy macros: %v", err)
+	if session == primarySession {
+		defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
+		dispatchMainThread(func() {
+			scriptSession = startSessionScripts(profileCharacter)
+		})
+		dispatchMainThread(func() { updateConnectDialog("Loading macros...") })
+		if err := loadLegacyMacrosForCharacter(profileCharacter); err != nil {
+			log.Printf("legacy macros: %v", err)
+		}
+		dispatchMainThread(func() {
+			updateConnectDialog("Login successful!")
+			closeConnectDialog()
+			shaderWarnShown = false
+			lowFPSSince = time.Time{}
+			shaderWarnWin = nil
+		})
 	}
-	dispatchMainThread(func() {
-		updateConnectDialog("Login successful!")
-		closeConnectDialog()
-		shaderWarnShown = false
-		lowFPSSince = time.Time{}
-		shaderWarnWin = nil
-	})
 
-	inputMu.Lock()
-	s := latestInput
-	inputMu.Unlock()
-	if err := sendPlayerInput(udp, s.mouseX, s.mouseY, s.mouseDown, false); err != nil {
+	var s inputState
+	if session == primarySession {
+		inputMu.Lock()
+		s = latestInput
+		inputMu.Unlock()
+	} else {
+		s = session.input.next()
+	}
+	if err := sendSessionPlayerInput(session, udp, s.mouseX, s.mouseY, s.mouseDown, false); err != nil {
 		logError("send player input: %v", err)
 	}
-
-	loginMu.Lock()
-	tcpConn = tcp
-	loginMu.Unlock()
 
 	if err := tcp.SetDeadline(time.Time{}); err != nil {
 		tcp.Close()
 		tcp = nil
 		udp.Close()
 		udp = nil
-		loginMu.Lock()
-		tcpConn = nil
-		loginMu.Unlock()
 		return fmt.Errorf("clear tcp deadline %s: %w", target.addr, err)
 	}
 	if err := udp.SetDeadline(time.Time{}); err != nil {
@@ -775,10 +879,16 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 		tcp = nil
 		udp.Close()
 		udp = nil
-		loginMu.Lock()
-		tcpConn = nil
-		loginMu.Unlock()
 		return fmt.Errorf("clear udp deadline %s: %w", target.addr, err)
+	}
+	transportGeneration, attached := session.transport.attach(tcp, udp)
+	if !attached {
+		return errors.New("session transport already active")
+	}
+	if session == primarySession {
+		loginMu.Lock()
+		tcpConn = tcp
+		loginMu.Unlock()
 	}
 
 	tcpMessages := make(chan incomingServerMessage, 16)
@@ -786,29 +896,26 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	dispatchDone := make(chan struct{})
 	var networkLoops sync.WaitGroup
 	go func() {
-		serverMessageDispatchLoop(ctx, tcpMessages, udpMessages)
+		serverSessionMessageDispatchLoop(session, ctx, tcpMessages, udpMessages)
 		close(dispatchDone)
 	}()
 	networkLoops.Add(3)
 	go func(udpConn, tcpConn net.Conn) {
 		defer networkLoops.Done()
-		sendInputLoop(ctx, udpConn, tcpConn)
+		sendSessionInputLoop(session, ctx, udpConn, tcpConn)
 	}(udp, tcp)
 	go func(udpConn net.Conn) {
 		defer networkLoops.Done()
-		udpReadLoop(ctx, udpConn, udpMessages)
+		sessionUDPReadLoop(session, ctx, udpConn, udpMessages)
 	}(udp)
 	go func(tcpConn net.Conn) {
 		defer networkLoops.Done()
-		tcpReadLoop(ctx, tcpConn, tcpMessages)
+		sessionTCPReadLoop(session, ctx, tcpConn, tcpMessages)
 	}(tcp)
 
 	<-ctx.Done()
 	if tcp != nil {
 		tcp.Close()
-		loginMu.Lock()
-		tcpConn = nil
-		loginMu.Unlock()
 		tcp = nil
 	}
 	if udp != nil {
@@ -816,5 +923,13 @@ func runLoginAttempt(ctx context.Context, target serverTarget, sendVersion int, 
 	}
 	<-dispatchDone
 	networkLoops.Wait()
+	if session.transport.finish(transportGeneration) {
+		completeSessionDisconnect(session)
+	}
+	if session == primarySession {
+		loginMu.Lock()
+		tcpConn = nil
+		loginMu.Unlock()
+	}
 	return nil
 }

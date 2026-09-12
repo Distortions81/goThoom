@@ -181,16 +181,16 @@ func TestRangeryProof(t *testing.T) {
 	t.Cleanup(func() { gs.ScriptSpamKill = originalSpamKill })
 	resetInventory()
 	clearCommands()
-	stateMu.Lock()
-	originalSpirit, originalSpiritMax := state.sp, state.spMax
-	state.sp, state.spMax = 0, 20
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	originalSpirit, originalSpiritMax := primarySession.draw.current.sp, primarySession.draw.current.spMax
+	primarySession.draw.current.sp, primarySession.draw.current.spMax = 0, 20
+	primarySession.draw.mu.Unlock()
 	t.Cleanup(func() {
 		resetInventory()
 		clearCommands()
-		stateMu.Lock()
-		state.sp, state.spMax = originalSpirit, originalSpiritMax
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current.sp, primarySession.draw.current.spMax = originalSpirit, originalSpiritMax
+		primarySession.draw.mu.Unlock()
 	})
 	addInventoryItem(30, -1, "Heartwood Charm", false)
 	addInventoryItem(31, -1, "Shieldstone", false)
@@ -203,9 +203,9 @@ func TestRangeryProof(t *testing.T) {
 		t.Fatalf("no-spirit wheel input sent commands: %v", commands)
 	}
 
-	stateMu.Lock()
-	state.sp = 10
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.sp = 10
+	primarySession.draw.mu.Unlock()
 	if sim.input(t, makeScriptInputEvent("WheelUp")) {
 		t.Fatal("handled Heartwood wheel input was passed through")
 	}

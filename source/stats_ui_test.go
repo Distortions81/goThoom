@@ -101,34 +101,34 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 	originalDirty := settingsDirty
 	originalStatsCheckbox := statsPNACheckbox
 	originalSettingsCheckbox := settingsPNACheckbox
-	pnaControllerMu.Lock()
-	originalController := pnaController
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	originalFallback := pnaFallback
-	pnaFallbackMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	originalController := primarySession.timing.controller
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	originalFallback := primarySession.timing.fallback
+	primarySession.timing.fallbackMu.Unlock()
 	t.Cleanup(func() {
 		gs.AltNetMode = originalEnabled
 		settingsDirty = originalDirty
 		statsPNACheckbox = originalStatsCheckbox
 		settingsPNACheckbox = originalSettingsCheckbox
-		pnaControllerMu.Lock()
-		pnaController = originalController
-		pnaControllerMu.Unlock()
-		pnaFallbackMu.Lock()
-		pnaFallback = originalFallback
-		pnaFallbackMu.Unlock()
+		primarySession.timing.controllerMu.Lock()
+		primarySession.timing.controller = originalController
+		primarySession.timing.controllerMu.Unlock()
+		primarySession.timing.fallbackMu.Lock()
+		primarySession.timing.fallback = originalFallback
+		primarySession.timing.fallbackMu.Unlock()
 	})
 
 	gs.AltNetMode = false
 	statsPNACheckbox = &eui.ItemData{}
 	settingsPNACheckbox = &eui.ItemData{}
-	pnaControllerMu.Lock()
-	pnaController = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	pnaFallback = pnaFallbackState{activeUntil: time.Now().Add(time.Minute), reason: "recent packet loss"}
-	pnaFallbackMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	primarySession.timing.controller = pnaControllerState{initialized: true, lead: 50 * time.Millisecond}
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	primarySession.timing.fallback = pnaFallbackState{activeUntil: time.Now().Add(time.Minute), reason: "recent packet loss"}
+	primarySession.timing.fallbackMu.Unlock()
 	settingsDirty = false
 	setPNAEnabled(true)
 
@@ -139,12 +139,12 @@ func TestSetPNAEnabledSynchronizesCheckboxes(t *testing.T) {
 	if !settingsDirty {
 		t.Fatal("enabling PNA did not mark settings dirty")
 	}
-	pnaControllerMu.Lock()
-	controllerReset := pnaController == (pnaControllerState{})
-	pnaControllerMu.Unlock()
-	pnaFallbackMu.Lock()
-	fallbackReset := pnaFallback == (pnaFallbackState{})
-	pnaFallbackMu.Unlock()
+	primarySession.timing.controllerMu.Lock()
+	controllerReset := primarySession.timing.controller == (pnaControllerState{})
+	primarySession.timing.controllerMu.Unlock()
+	primarySession.timing.fallbackMu.Lock()
+	fallbackReset := primarySession.timing.fallback == (pnaFallbackState{})
+	primarySession.timing.fallbackMu.Unlock()
 	if !controllerReset || !fallbackReset {
 		t.Fatalf("enabling PNA kept stale state: controllerReset=%v fallbackReset=%v", controllerReset, fallbackReset)
 	}

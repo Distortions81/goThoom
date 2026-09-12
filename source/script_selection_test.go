@@ -12,29 +12,36 @@ func TestEffectiveCharacterUsesSelectedProfileWhileOffline(t *testing.T) {
 	originalPlayer := playerName
 	originalLast := gs.LastCharacter
 	originalConn := tcpConn
-	originalLogin := loginInProgress
+	primarySession.transport.mu.Lock()
+	originalTransportStatus := primarySession.transport.status
+	primarySession.transport.status = sessionDisconnected
+	primarySession.transport.mu.Unlock()
 	t.Cleanup(func() {
 		playerName = originalPlayer
 		gs.LastCharacter = originalLast
 		tcpConn = originalConn
-		loginInProgress = originalLogin
+		primarySession.transport.mu.Lock()
+		primarySession.transport.status = originalTransportStatus
+		primarySession.transport.mu.Unlock()
 	})
 
 	playerName = "Previous"
 	gs.LastCharacter = "Selected"
 	tcpConn = nil
-	loginInProgress = false
 	if got := effectiveCharacterName(); got != "Selected" {
 		t.Fatalf("offline effective character = %q, want Selected", got)
 	}
 
-	loginInProgress = true
+	primarySession.transport.mu.Lock()
+	primarySession.transport.status = sessionConnecting
+	primarySession.transport.mu.Unlock()
 	if got := effectiveCharacterName(); got != "Previous" {
 		t.Fatalf("connecting effective character = %q, want Previous", got)
 	}
 }
 
 func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
+	withScriptInventoryTestState(t)
 	playersMu.Lock()
 	originalPlayers := players
 	players = map[string]*Player{
@@ -42,10 +49,7 @@ func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
 	}
 	playersMu.Unlock()
 
-	inventoryMu.Lock()
-	originalInventory := inventoryItems
-	inventoryItems = []InventoryItem{{ID: 42, IDIndex: 3, Name: "Test Blade", Base: "Test Blade", Quantity: 1}}
-	inventoryMu.Unlock()
+	setScriptInventoryTestItems([]InventoryItem{{ID: 42, IDIndex: 3, Name: "Test Blade", Base: "Test Blade", Quantity: 1}})
 
 	lastHoverMu.Lock()
 	originalHover := lastHover
@@ -58,9 +62,6 @@ func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
 		playersMu.Lock()
 		players = originalPlayers
 		playersMu.Unlock()
-		inventoryMu.Lock()
-		inventoryItems = originalInventory
-		inventoryMu.Unlock()
 		lastHoverMu.Lock()
 		lastHover = originalHover
 		lastHoverMu.Unlock()
@@ -106,34 +107,29 @@ func TestScriptLastClickUsesReadableButtonName(t *testing.T) {
 }
 
 func TestScriptSelfSnapshot(t *testing.T) {
+	withScriptInventoryTestState(t)
 	originalName := playerName
 	playerName = "Hero"
-	stateMu.Lock()
-	originalVitals := [6]int{state.hp, state.hpMax, state.sp, state.spMax, state.balance, state.balanceMax}
-	state.hp, state.hpMax, state.sp, state.spMax, state.balance, state.balanceMax = 7, 10, 8, 11, 9, 12
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	originalVitals := [6]int{primarySession.draw.current.hp, primarySession.draw.current.hpMax, primarySession.draw.current.sp, primarySession.draw.current.spMax, primarySession.draw.current.balance, primarySession.draw.current.balanceMax}
+	primarySession.draw.current.hp, primarySession.draw.current.hpMax, primarySession.draw.current.sp, primarySession.draw.current.spMax, primarySession.draw.current.balance, primarySession.draw.current.balanceMax = 7, 10, 8, 11, 9, 12
+	primarySession.draw.mu.Unlock()
 	scriptLocationMu.Lock()
 	originalLocation := scriptLocation
 	scriptLocation = "Town Square"
 	scriptLocationMu.Unlock()
-	inventoryMu.Lock()
-	originalInventory := inventoryItems
-	inventoryItems = []InventoryItem{{ID: 100, Name: "Shadow Bell", Base: "Shadow Bell", Equipped: true, Quantity: 1}}
-	inventoryMu.Unlock()
+	setScriptInventoryTestItems([]InventoryItem{{ID: 100, Name: "Shadow Bell", Base: "Shadow Bell", Equipped: true, Quantity: 1}})
 	originalImages := clImages
 	clImages = testCLImages(map[uint32]*climg.ClientItem{100: {Name: "Shadow Bell", Slot: kItemSlotRightHand}})
 	t.Cleanup(func() {
 		playerName = originalName
-		stateMu.Lock()
-		state.hp, state.hpMax, state.sp, state.spMax, state.balance, state.balanceMax =
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current.hp, primarySession.draw.current.hpMax, primarySession.draw.current.sp, primarySession.draw.current.spMax, primarySession.draw.current.balance, primarySession.draw.current.balanceMax =
 			originalVitals[0], originalVitals[1], originalVitals[2], originalVitals[3], originalVitals[4], originalVitals[5]
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 		scriptLocationMu.Lock()
 		scriptLocation = originalLocation
 		scriptLocationMu.Unlock()
-		inventoryMu.Lock()
-		inventoryItems = originalInventory
-		inventoryMu.Unlock()
 		clImages = originalImages
 	})
 
@@ -148,20 +144,20 @@ func TestScriptSelfSnapshot(t *testing.T) {
 }
 
 func TestScriptWorldSnapshot(t *testing.T) {
-	stateMu.Lock()
-	originalMobiles, originalDescriptors := state.liveMobs, state.descriptors
-	state.liveMobs = []frameMobile{{Index: 7, H: 14, V: -3, Colors: 2}}
-	state.descriptors = map[uint8]frameDescriptor{7: {Index: 7, Type: kDescPlayer, Name: "Traveler", PictID: 99}}
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	originalMobiles, originalDescriptors := primarySession.draw.current.liveMobs, primarySession.draw.current.descriptors
+	primarySession.draw.current.liveMobs = []frameMobile{{Index: 7, H: 14, V: -3, Colors: 2}}
+	primarySession.draw.current.descriptors = map[uint8]frameDescriptor{7: {Index: 7, Type: kDescPlayer, Name: "Traveler", PictID: 99}}
+	primarySession.draw.mu.Unlock()
 	scriptLocationMu.Lock()
 	originalLocation := scriptLocation
 	scriptLocation = "Forest"
 	scriptLocationMu.Unlock()
 	markWorldStateChanged()
 	t.Cleanup(func() {
-		stateMu.Lock()
-		state.liveMobs, state.descriptors = originalMobiles, originalDescriptors
-		stateMu.Unlock()
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current.liveMobs, primarySession.draw.current.descriptors = originalMobiles, originalDescriptors
+		primarySession.draw.mu.Unlock()
 		scriptLocationMu.Lock()
 		scriptLocation = originalLocation
 		scriptLocationMu.Unlock()
@@ -175,9 +171,9 @@ func TestScriptWorldSnapshot(t *testing.T) {
 		t.Fatalf("world mobiles = %+v", world.Mobiles)
 	}
 	world.Mobiles[0].Name = "Changed"
-	stateMu.Lock()
-	internalName := state.descriptors[7].Name
-	stateMu.Unlock()
+	primarySession.draw.mu.Lock()
+	internalName := primarySession.draw.current.descriptors[7].Name
+	primarySession.draw.mu.Unlock()
 	if internalName != "Traveler" {
 		t.Fatal("mutating a world snapshot changed client-owned state")
 	}

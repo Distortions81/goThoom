@@ -211,28 +211,28 @@ func clearSharedNameTagCacheFor(name string) {
 
 // killNameTagCache clears all cached mobile name tag images.
 func killNameTagCache() {
-	stateMu.Lock()
-	for idx, m := range state.mobiles {
+	primarySession.draw.mu.Lock()
+	for idx, m := range primarySession.draw.current.mobiles {
 		m.nameTag = nil
 		m.nameTagKey = nameTagKey{}
-		state.mobiles[idx] = m
+		primarySession.draw.current.mobiles[idx] = m
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	clearSharedNameTagCache()
 }
 
 // killNameTagCacheFor clears the cached name tag for the mobile with the given name.
 func killNameTagCacheFor(name string) {
-	stateMu.Lock()
-	for idx, d := range state.descriptors {
+	primarySession.draw.mu.Lock()
+	for idx, d := range primarySession.draw.current.descriptors {
 		if d.Name == name {
-			if m, ok := state.mobiles[idx]; ok {
+			if m, ok := primarySession.draw.current.mobiles[idx]; ok {
 				m.nameTag = nil
 				m.nameTagKey = nameTagKey{}
-				state.mobiles[idx] = m
+				primarySession.draw.current.mobiles[idx] = m
 			}
 		}
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	clearSharedNameTagCacheFor(name)
 }

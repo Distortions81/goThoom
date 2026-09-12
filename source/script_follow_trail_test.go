@@ -30,21 +30,21 @@ func TestFollowBreadcrumbTransitions(t *testing.T) {
 			pictures := []framePicture{{PictID: 100, H: -200, V: -200, Background: true}, {PictID: 101, H: -100, V: -100}}
 			update := func(self, leader *frameMobile) inputState {
 				frame++
-				stateMu.Lock()
-				state.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}, 3: {Index: 3, Name: "Rat", Type: kDescMonster}, 7: {Index: 7, Name: "Le ader", Type: kDescPlayer}}
-				state.liveMobs = nil
+				primarySession.draw.mu.Lock()
+				primarySession.draw.current.descriptors = map[uint8]frameDescriptor{1: {Index: 1, Name: "Hero", Type: kDescPlayer}, 2: {Index: 2, Name: "Leader", Type: kDescPlayer}, 3: {Index: 3, Name: "Rat", Type: kDescMonster}, 7: {Index: 7, Name: "Le ader", Type: kDescPlayer}}
+				primarySession.draw.current.liveMobs = nil
 				if self != nil {
-					state.liveMobs = append(state.liveMobs, *self)
+					primarySession.draw.current.liveMobs = append(primarySession.draw.current.liveMobs, *self)
 				}
 				if leader != nil {
-					state.liveMobs = append(state.liveMobs, *leader)
+					primarySession.draw.current.liveMobs = append(primarySession.draw.current.liveMobs, *leader)
 				}
-				state.liveMobs = append(state.liveMobs, blockers...)
-				state.pictures = append([]framePicture(nil), pictures...)
-				state.logicalFrame, state.receivedAt = frame, base.Add(time.Duration(frame)*200*time.Millisecond)
+				primarySession.draw.current.liveMobs = append(primarySession.draw.current.liveMobs, blockers...)
+				primarySession.draw.current.pictures = append([]framePicture(nil), pictures...)
+				primarySession.draw.current.logicalFrame, primarySession.draw.current.receivedAt = frame, base.Add(time.Duration(frame)*200*time.Millisecond)
 				// Deliberately leave CameraShift at zero, as with smoothing off.
 				markWorldStateChanged()
-				stateMu.Unlock()
+				primarySession.draw.mu.Unlock()
 				dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
 				sim.barrier(t)
 				return applyScriptMovement(inputState{}, time.Now())
@@ -275,16 +275,16 @@ func TestFollowBreadcrumbOverlayPreference(t *testing.T) {
 	base := time.Now()
 	pictures := []framePicture{{PictID: 100, H: -200, Background: true}, {PictID: 101, H: -100}}
 	update := func(frame int, leaderH int16) {
-		stateMu.Lock()
-		state.descriptors = map[uint8]frameDescriptor{
+		primarySession.draw.mu.Lock()
+		primarySession.draw.current.descriptors = map[uint8]frameDescriptor{
 			1: {Index: 1, Name: "Hero", Type: kDescPlayer},
 			2: {Index: 2, Name: "Leader", Type: kDescPlayer},
 		}
-		state.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: leaderH}}
-		state.pictures = append([]framePicture(nil), pictures...)
-		state.logicalFrame, state.receivedAt = frame, base.Add(time.Duration(frame)*200*time.Millisecond)
+		primarySession.draw.current.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: leaderH}}
+		primarySession.draw.current.pictures = append([]framePicture(nil), pictures...)
+		primarySession.draw.current.logicalFrame, primarySession.draw.current.receivedAt = frame, base.Add(time.Duration(frame)*200*time.Millisecond)
 		markWorldStateChanged()
-		stateMu.Unlock()
+		primarySession.draw.mu.Unlock()
 		dispatchScriptChange(ChangeEvent{Type: ChangeWorld})
 		sim.barrier(t)
 	}
@@ -340,8 +340,8 @@ func TestFollowPlayerAltRightClick(t *testing.T) {
 	oldSelected := selectedPlayerName
 	selectedPlayerName = ""
 	t.Cleanup(func() { selectedPlayerName = oldSelected })
-	stateMu.Lock()
-	state.descriptors = map[uint8]frameDescriptor{
+	primarySession.draw.mu.Lock()
+	primarySession.draw.current.descriptors = map[uint8]frameDescriptor{
 		1: {Index: 1, Name: "Hero", Type: kDescPlayer},
 		2: {Index: 2, Name: "Leader", Type: kDescPlayer},
 		3: {Index: 3, Name: "Other", Type: kDescPlayer},
@@ -349,9 +349,9 @@ func TestFollowPlayerAltRightClick(t *testing.T) {
 		5: {Index: 5, Name: "Fallen", Type: kDescPlayer},
 		6: {Index: 6, Name: "Gone", Type: kDescPlayer},
 	}
-	state.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: 100}, {Index: 3, H: -100}, {Index: 4, V: 100}, {Index: 5, V: -100, State: poseDead}, {Index: 6, H: 100, Persist: true}}
-	state.logicalFrame, state.receivedAt = 1, time.Now()
-	stateMu.Unlock()
+	primarySession.draw.current.liveMobs = []frameMobile{{Index: 1}, {Index: 2, H: 100}, {Index: 3, H: -100}, {Index: 4, V: 100}, {Index: 5, V: -100, State: poseDead}, {Index: 6, H: 100, Persist: true}}
+	primarySession.draw.current.logicalFrame, primarySession.draw.current.receivedAt = 1, time.Now()
+	primarySession.draw.mu.Unlock()
 	click := func(mobile Mobile, onMobile bool) bool {
 		t.Helper()
 		event := makeScriptInputEvent("Alt-RightClick")
@@ -394,12 +394,12 @@ func TestFollowPlayerAltRightClick(t *testing.T) {
 		t.Fatalf("unique partial name did not start following: %+v", moving)
 	}
 	sim.command(t, "follow", "off")
-	stateMu.Lock()
-	descriptor := state.descriptors[3]
+	primarySession.draw.mu.Lock()
+	descriptor := primarySession.draw.current.descriptors[3]
 	descriptor.Name = "Leader Two"
-	state.descriptors[3] = descriptor
-	state.receivedAt = time.Now()
-	stateMu.Unlock()
+	primarySession.draw.current.descriptors[3] = descriptor
+	primarySession.draw.current.receivedAt = time.Now()
+	primarySession.draw.mu.Unlock()
 	sim.command(t, "follow", "lea")
 	if scriptMovementSnapshot(owner, time.Now()).Active {
 		t.Fatal("ambiguous partial name chose a player")

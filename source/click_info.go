@@ -36,14 +36,20 @@ var (
 	lastHover   ClickInfo
 	lastHoverMu sync.Mutex
 
-	worldStateGeneration  atomic.Uint64
 	worldRenderGeneration atomic.Uint64
 	lastHoverGeneration   uint64
 	lastHoverQueryValid   bool
 )
 
 func markWorldStateChanged() {
-	worldStateGeneration.Add(1)
+	markSessionWorldStateChanged(primarySession)
+}
+
+func markSessionWorldStateChanged(session *Session) {
+	if session == nil || session.draw == nil {
+		return
+	}
+	session.draw.markChanged()
 	markWorldRenderChanged()
 }
 
@@ -62,10 +68,10 @@ func worldInfoAt(x, y int16) ClickInfo {
 
 func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 	info := ClickInfo{X: x, Y: y}
-	stateMu.Lock()
-	generation := worldStateGeneration.Load()
-	for _, m := range state.liveMobs {
-		if d, ok := state.descriptors[m.Index]; ok {
+	primarySession.draw.mu.Lock()
+	generation := primarySession.draw.generation.Load()
+	for _, m := range primarySession.draw.current.liveMobs {
+		if d, ok := primarySession.draw.current.descriptors[m.Index]; ok {
 			size := mobileSizeFunc(d.PictID)
 			half := int16(size / 2)
 			if x >= m.H-half && x < m.H+half && y >= m.V-half && y < m.V+half {
@@ -86,7 +92,7 @@ func worldInfoAtGeneration(x, y int16) (ClickInfo, uint64) {
 			}
 		}
 	}
-	stateMu.Unlock()
+	primarySession.draw.mu.Unlock()
 	return info, generation
 }
 
@@ -123,7 +129,7 @@ func handleWorldClick(x, y int16, b ebiten.MouseButton) ClickInfo {
 
 // updateWorldHover updates the last hovered world location and mobile.
 func updateWorldHover(x, y int16) {
-	generation := worldStateGeneration.Load()
+	generation := primarySession.draw.generation.Load()
 	lastHoverMu.Lock()
 	if lastHoverQueryValid && lastHoverGeneration == generation && lastHover.X == x && lastHover.Y == y {
 		lastHoverMu.Unlock()
