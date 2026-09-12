@@ -151,6 +151,40 @@ func commitStagedPassword(character string) {
 	passHash = ""
 }
 
+func forgetSavedPassword(character string) {
+	setCharacterPassHash(character, "", false)
+	updateStagedPasswordRemember(character, false)
+	if strings.EqualFold(name, character) {
+		passHash = ""
+	}
+}
+
+func setEditCharacterRemember(remember bool) {
+	editCharRemember = remember
+	if !remember {
+		forgetSavedPassword(editCharName)
+	}
+}
+
+func setPasswordPromptRemember(remember bool) {
+	passRemember = remember
+	if !remember {
+		forgetSavedPassword(name)
+	}
+}
+
+func passwordRememberPreference(character string) bool {
+	if _, remember, ok := stagedPasswordSettings(character); ok {
+		return remember
+	}
+	for _, saved := range characters {
+		if strings.EqualFold(saved.Name, character) {
+			return !saved.DontRemember
+		}
+	}
+	return true
+}
+
 func rejectPassword(character string) {
 	_, staged := takeStagedPassword(character)
 	pass = ""

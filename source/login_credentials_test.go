@@ -225,3 +225,117 @@ func TestCharacterCredentialEditRequiresPasswordToEnableSaving(t *testing.T) {
 		t.Fatal("enabled Save Password without a password")
 	}
 }
+
+func TestPasswordRetryPreservesSavingChoice(t *testing.T) {
+	initFont()
+	oldLogin, oldPassWin := loginWin, passWin
+	oldInput, oldMessage, oldWarn, oldCheckbox := passInput, passMessage, passWarn, passRememberCB
+	oldName, oldPass, oldHash, oldPrev := name, pass, passHash, passPrev
+	oldRemember, oldCharacters, oldDir := passRemember, characters, dataDirPath
+	loginWin = eui.NewWindow()
+	loginWin.AddWindow(false)
+	passWin = nil
+	name = "Hero"
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() {
+		loginWin.RemoveWindow()
+		if passWin != nil {
+			passWin.RemoveWindow()
+		}
+		loginWin, passWin = oldLogin, oldPassWin
+		passInput, passMessage, passWarn, passRememberCB = oldInput, oldMessage, oldWarn, oldCheckbox
+		name, pass, passHash, passPrev = oldName, oldPass, oldHash, oldPrev
+		passRemember, characters, dataDirPath = oldRemember, oldCharacters, oldDir
+		discardStagedPassword()
+	})
+	for _, remember := range []bool{true, false} {
+		for _, result := range []int16{-30998, -30987} {
+			characters = []Character{{Name: name, DontRemember: !remember}}
+			stagePasswordUpdate(name, "wrong", remember)
+			choice := passwordRememberPreference(name)
+			rejectPassword(name)
+			showLoginFailure(&loginResultError{result: result}, false, choice)
+			if !passWin.IsOpen() || loginWin.IsOpen() {
+				t.Fatal("password rejection did not open the retry prompt")
+			}
+			if passMessage.Text != "Incorrect password. Please try again." || passWin.Title != "Password for Hero" {
+				t.Fatal("retry prompt does not explain the rejected password and character")
+			}
+			if passRemember != remember || passRememberCB.Checked != remember {
+				t.Fatalf("retry changed password saving choice %v", remember)
+			}
+			if pass != "" || passInput.SecretText != "" || !passInput.HideText {
+				t.Fatal("retry input must be empty and masked")
+			}
+			stagePasswordUpdate(name, "correct", passRemember)
+			commitStagedPassword(name)
+			characters = nil
+			loadCharacters()
+			if len(characters) != 1 || characters[0].DontRemember == remember {
+				t.Fatal("successful retry did not preserve saving choice")
+			}
+			want := ""
+			if remember {
+				want = hashPassword("correct")
+			}
+			if characters[0].passHash != want {
+				t.Fatal("replacement password persistence does not match saving choice")
+			}
+		}
+	}
+	showPasswordPrompt(false, false, nil)
+	if passMessage.Text != "Enter your password to connect." || passRememberCB.Checked {
+		t.Fatal("ordinary prompt retained retry state")
+	}
+}
+
+func TestPasswordPromptDisablingSavingForgetsImmediately(t *testing.T) {
+	oldDir, oldCharacters := dataDirPath, characters
+	oldName, oldRemember, oldHash := name, passRemember, passHash
+	dataDirPath = t.TempDir()
+	name = "Hero"
+	characters = []Character{{Name: name, passHash: hashPassword("saved")}}
+	t.Cleanup(func() {
+		dataDirPath, characters = oldDir, oldCharacters
+		name, passRemember, passHash = oldName, oldRemember, oldHash
+		discardStagedPassword()
+	})
+	stagePasswordUpdate(name, "replacement", true)
+	setPasswordPromptRemember(false)
+	if passRemember {
+		t.Fatal("saving remains enabled")
+	}
+	if _, remember, ok := stagedPasswordSettings(name); !ok || remember {
+		t.Fatal("staged password would restore saving")
+	}
+	characters = nil
+	loadCharacters()
+	if len(characters) != 1 || characters[0].passHash != "" || characters[0].Key != "" || !characters[0].DontRemember {
+		t.Fatal("disabling saving did not immediately remove persisted credentials")
+	}
+}
+
+func TestEditCharacterDisablingSavingForgetsImmediately(t *testing.T) {
+	oldDir, oldCharacters := dataDirPath, characters
+	oldName, oldHash := name, passHash
+	oldEditName, oldRemember := editCharName, editCharRemember
+	dataDirPath = t.TempDir()
+	name, editCharName = "Hero", "Hero"
+	passHash = hashPassword("saved")
+	characters = []Character{{Name: name, passHash: passHash}}
+	t.Cleanup(func() {
+		dataDirPath, characters = oldDir, oldCharacters
+		name, passHash = oldName, oldHash
+		editCharName, editCharRemember = oldEditName, oldRemember
+		discardStagedPassword()
+	})
+	setEditCharacterRemember(false)
+	if editCharRemember || passHash != "" {
+		t.Fatal("edit retained saved credential for next login")
+	}
+	characters = nil
+	loadCharacters()
+	if len(characters) != 1 || characters[0].passHash != "" || characters[0].Key != "" || !characters[0].DontRemember {
+		t.Fatal("edit did not immediately remove persisted credentials")
+	}
+}

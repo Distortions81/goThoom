@@ -78,6 +78,7 @@ var editCharProfileCB *eui.ItemData
 var editCharBtn *eui.ItemData
 var deleteCharBtn *eui.ItemData
 var passWin *eui.WindowData
+var passMessage *eui.ItemData
 var passInput *eui.ItemData
 var passWarn *eui.ItemData
 var passPrev string
@@ -3377,10 +3378,11 @@ func makeEditCharacterWindow() {
 	rememberCB, rememberEvents := eui.NewCheckbox()
 	editCharRememberCB = rememberCB
 	rememberCB.Text = "Save Password"
+	rememberCB.SetTooltip("Turning this off immediately removes the saved password, even if you cancel.")
 	rememberCB.Size = eui.Point{X: 280, Y: 24}
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			editCharRemember = ev.Checked
+			setEditCharacterRemember(ev.Checked)
 		}
 	}
 	flow.AddItem(rememberCB)
@@ -3446,6 +3448,35 @@ func makeEditCharacterWindow() {
 	editCharWin.AddWindow(false)
 }
 
+// showPasswordPrompt reuses the login prompt for missing and rejected passwords.
+func showPasswordPrompt(incorrect, remember bool, anchor *eui.ItemData) {
+	makePasswordWindow()
+	passRemember = remember
+	passWin.Title = "Password for " + name
+	passMessage.Text = "Enter your password to connect."
+	if incorrect {
+		passMessage.Text = "Incorrect password. Please try again."
+	}
+	passMessage.Dirty = true
+	passRememberCB.Checked = passRemember
+	passRememberCB.Dirty = true
+	clearPasswordInput(passInput, &pass)
+	passPrev = ""
+	clearCapsWarnings()
+	loginWin.Close()
+	passWin.MarkOpenNear(anchor)
+	eui.Focus(passInput)
+}
+
+func showLoginFailure(err error, demo, remember bool) {
+	var resultErr *loginResultError
+	if !demo && errors.As(err, &resultErr) && isBadPasswordResult(resultErr.result) {
+		showPasswordPrompt(true, remember, loginConnectButton)
+		return
+	}
+	makeErrorWindow("Error: Login: " + err.Error())
+}
+
 func makePasswordWindow() {
 	if passWin != nil {
 		return
@@ -3458,6 +3489,10 @@ func makePasswordWindow() {
 	passWin.Movable = true
 
 	flow := eui.NewColumn()
+
+	passMessage, _ = eui.NewText()
+	passMessage.Text = "Enter your password to connect."
+	flow.AddItem(passMessage)
 
 	input, passEvents := eui.NewInput()
 	input.Label = "Password"
@@ -3479,13 +3514,15 @@ func makePasswordWindow() {
 	passWarn.FontSize = 12
 	flow.AddItem(passWarn)
 
-	passRememberCB, rememberEvents := eui.NewCheckbox()
+	rememberCheckbox, rememberEvents := eui.NewCheckbox()
+	passRememberCB = rememberCheckbox
 	passRememberCB.Text = "Remember Password"
+	passRememberCB.SetTooltip("Turning this off immediately removes the saved password, even if you cancel.")
 	passRememberCB.Size = eui.Point{X: 200, Y: 24}
 	passRememberCB.Checked = passRemember
 	rememberEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
-			passRemember = ev.Checked
+			setPasswordPromptRemember(ev.Checked)
 		}
 	}
 	flow.AddItem(passRememberCB)
@@ -3501,12 +3538,14 @@ func makePasswordWindow() {
 			passPrev = ""
 			clearCapsWarnings()
 			passWin.Close()
+			loginWin.MarkOpen()
 		}
 	}
 	btnFlow.AddItem(cancelBtn)
 
 	okBtn, okEvents := eui.NewButton()
 	okBtn.Text = "Connect"
+	passWin.DefaultButton = okBtn
 	setMaterialButtonIcon(okBtn, "login")
 	okBtn.Size = eui.Point{X: 96, Y: 24}
 	okEvents.Handle = func(ev eui.UIEvent) {
@@ -3560,6 +3599,7 @@ func startLoginWithDemoCandidates(demoCandidates []string) {
 
 	loginWin.Close()
 	showConnectDialog(fmt.Sprintf("Connecting to %s...", host))
+	rememberPassword := passwordRememberPreference(name)
 	go func() {
 		ctx, cancel := context.WithCancel(gameCtx)
 		loginMu.Lock()
@@ -3592,7 +3632,7 @@ func startLoginWithDemoCandidates(demoCandidates []string) {
 				// Bring login forward first so the popup stays on top.
 				loginWin.MarkOpen()
 				updateCharacterButtons()
-				makeErrorWindow("Error: Login: " + err.Error())
+				showLoginFailure(err, len(demoCandidates) > 0, rememberPassword)
 			})
 			return
 		}
@@ -4015,23 +4055,7 @@ func makeLoginWindow() {
 				return
 			}
 			if passHash == "" && pass == "" {
-				passRemember = true
-				for i := range characters {
-					if characters[i].Name == name {
-						passRemember = !characters[i].DontRemember
-						break
-					}
-				}
-				if passWin == nil {
-					makePasswordWindow()
-				}
-				if passRememberCB != nil {
-					passRememberCB.Checked = passRemember
-					passRememberCB.Dirty = true
-				}
-				clearPasswordInput(passInput, &pass)
-				passPrev = ""
-				passWin.MarkOpenNear(ev.Item)
+				showPasswordPrompt(false, passwordRememberPreference(name), ev.Item)
 				return
 			}
 			switchCharacterProfile(name)
