@@ -52,6 +52,7 @@ type soundPlaybackRequest struct {
 	volume            float64
 	enhanced          bool
 	highQuality       bool
+	restartActive     bool
 }
 
 type soundRenderCall struct {
@@ -229,10 +230,10 @@ func evictOldestSoundPlaybackLocked() bool {
 	return true
 }
 
-// acquireSoundPlaybackPlayer reuses an idle player for the same rendered PCM,
-// or creates another player when the sound overlaps itself. When pcm is nil,
-// found reports whether the rendered sound was already cached.
-func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte, generation, sourceGeneration uint64) (player *audio.Player, found bool) {
+// acquireSoundPlaybackPlayer reuses a player for the same rendered PCM. An
+// active player is restarted when requested; otherwise overlaps get a separate
+// player. When pcm is nil, found reports whether the sound was already cached.
+func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte, generation, sourceGeneration uint64, restartActive bool) (player *audio.Player, found bool) {
 	soundMu.Lock()
 	defer soundMu.Unlock()
 	if generation != soundPlaybackGeneration || sourceGeneration != soundCacheGeneration {
@@ -259,9 +260,18 @@ func acquireSoundPlaybackPlayer(key soundPlaybackKey, pcm []byte, generation, so
 	}
 	for i := 0; i < len(entry.players); {
 		player := entry.players[i]
-		if player.IsPlaying() {
+		if _, reserved := reservedSoundPlayers[player]; reserved {
 			i++
 			continue
+		}
+		if player.IsPlaying() {
+			if !restartActive {
+				i++
+				continue
+			}
+			// Reusing the active player prevents identical enhanced delay tails
+			// from stacking into a much stronger echo on rapid retriggers.
+			player.Pause()
 		}
 		if err := player.Rewind(); err != nil {
 			delete(cachedSoundPlayers, player)
@@ -403,6 +413,7 @@ func playSoundWithSettings(ids []uint16, enhanced bool, enhancementAmount float6
 		ids: append([]uint16(nil), ids...), context: context, generation: generation,
 		sourceGeneration: sourceGeneration, enhanced: enhanced, enhancementAmount: amount,
 		highQuality: highQuality, volume: effectiveAudioVolume(gs.MasterVolume * gs.GameVolume),
+		restartActive: enhanced && gs.ThrottleSounds,
 	}
 	startSoundEffectWorkers()
 	if !tryQueueSoundEffect(soundEffectJobs, request) {
@@ -425,7 +436,7 @@ func processSoundPlayback(request soundPlaybackRequest) {
 	}
 	key := soundPlaybackCacheKey(request.ids, request.context, request.enhanced, request.enhancementAmount, request.highQuality)
 	key.sourceGeneration = request.sourceGeneration
-	if player, found := acquireSoundPlaybackPlayer(key, nil, request.generation, request.sourceGeneration); found {
+	if player, found := acquireSoundPlaybackPlayer(key, nil, request.generation, request.sourceGeneration, request.restartActive); found {
 		playGameSoundPlayer(player, request.generation, request.sourceGeneration, request.volume)
 		return
 	}
@@ -433,7 +444,7 @@ func processSoundPlayback(request soundPlaybackRequest) {
 	if len(pcm) == 0 || !soundPlaybackRequestCurrent(request) {
 		return
 	}
-	player, _ := acquireSoundPlaybackPlayer(key, pcm, request.generation, request.sourceGeneration)
+	player, _ := acquireSoundPlaybackPlayer(key, pcm, request.generation, request.sourceGeneration, request.restartActive)
 	playGameSoundPlayer(player, request.generation, request.sourceGeneration, request.volume)
 }
 

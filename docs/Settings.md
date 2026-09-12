@@ -37,7 +37,13 @@ notification sound and audio enhancement, **Tools** for Stats, command
 search, Help, and snapshots, and **Record** for session recording. Stats also contains NLSPT enablement
 and live network timing.
 TTS has its own **Settings → TTS** tab with enablement, file downloads, voice
-and speed controls, a test phrase, and pronunciation corrections. Settings omits other duplicate launchers
+and speed controls, a test phrase, and pronunciation corrections. **Open Voices
+Folder** creates and opens the active `piper/voices` directory. **Browse More
+Voices** opens the Piper voice catalog; install both the `.onnx` model and its
+matching `.onnx.json` configuration file. The **Spoken
+Messages** section separately controls speech, whispers, yells, thoughts,
+actions, ponders, monster speech, and whether the current character's own
+messages or in-game notifications are read aloud. Settings omits other duplicate launchers
 and controls. The command palette continues
 to provide searchable access to settings and actions.
 

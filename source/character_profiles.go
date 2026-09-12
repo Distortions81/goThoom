@@ -114,7 +114,9 @@ func characterProfileSetting(entry settingsSchemaEntry) bool {
 	switch entry.field {
 	case "ExpandEmojiNames":
 		return true
-	case "MessagesToConsole", "MessageTextColors", "MessageTextColorsLight", "OverrideThemeTextColor", "ClassicMessageColors", "ChatTTS", "ChatTTSVolume", "ChatTTSSpeed", "ChatTTSVoice":
+	case "MessagesToConsole", "MessageTextColors", "MessageTextColorsLight", "OverrideThemeTextColor", "ClassicMessageColors",
+		"ChatTTS", "ChatTTSVolume", "ChatTTSSpeed", "ChatTTSVoice", "ChatTTSSay", "ChatTTSWhisper", "ChatTTSYell",
+		"ChatTTSThink", "ChatTTSAction", "ChatTTSPonder", "ChatTTSMonster", "ChatTTSSelf", "ChatTTSNotifications":
 		return true
 	default:
 		return false

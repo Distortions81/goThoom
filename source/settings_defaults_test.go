@@ -43,6 +43,21 @@ func TestEnhancedRenderingDefaultsEnabled(t *testing.T) {
 	}
 }
 
+func TestAudioDefaults(t *testing.T) {
+	if gsdef.MasterVolume != 1 || gsdef.GameVolume != 0.5 || gsdef.MusicVolume != 1 {
+		t.Fatalf("default mixer volumes = master %v, game %v, music %v; want 1, 0.5, 1", gsdef.MasterVolume, gsdef.GameVolume, gsdef.MusicVolume)
+	}
+	if gsdef.NotificationVolume != 0.33 || gsdef.ChatTTSVolume != 0.33 {
+		t.Fatalf("default secondary volumes = notifications %v, TTS %v; want 0.33, 0.33", gsdef.NotificationVolume, gsdef.ChatTTSVolume)
+	}
+	if gsdef.ChatTTS {
+		t.Fatal("TTS should be disabled by default")
+	}
+	if !gsdef.SoundEnhancement || gsdef.SoundEnhancementAmount != 2 {
+		t.Fatalf("sound enhancement defaults = enabled %v, amount %v; want true, 2", gsdef.SoundEnhancement, gsdef.SoundEnhancementAmount)
+	}
+}
+
 func TestArtworkUpscaleDefaults(t *testing.T) {
 	if gsdef.GameScale != 2 || gsdef.SpriteUpscale != 2 || gsdef.SpriteUpscaleMode != artworkUpscaleBalanced {
 		t.Fatalf("default artwork upscale = (%v, %d, %d), want 2x Balanced", gsdef.GameScale, gsdef.SpriteUpscale, gsdef.SpriteUpscaleMode)

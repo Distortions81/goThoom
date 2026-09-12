@@ -1,6 +1,16 @@
 package main
 
-import "gothoom/eui"
+import (
+	"os"
+	"path/filepath"
+
+	"gothoom/eui"
+
+	"github.com/pkg/browser"
+	open "github.com/skratchdot/open-golang/open"
+)
+
+const piperVoicesBrowseURL = "https://rhasspy.github.io/piper-samples/"
 
 func ttsFilesMissing() bool {
 	return status.NeedPiper || status.NeedPiperFem || status.NeedPiperMale
@@ -11,6 +21,26 @@ func openTTSDownloads() {
 	if downloadWin != nil {
 		downloadWin.MarkOpen()
 	}
+}
+
+func ttsVoicesDirPath() string {
+	return filepath.Join(piperDirPath(), "voices")
+}
+
+func ensureTTSVoicesFolder() (string, error) {
+	path := ttsVoicesDirPath()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func openTTSVoicesFolder() error {
+	path, err := ensureTTSVoicesFolder()
+	if err != nil {
+		return err
+	}
+	return open.Run(path)
 }
 
 // Share enablement between Settings, the Mixer, and the test-phrase button.
@@ -38,10 +68,10 @@ func setTTSEnabled(enabled bool) bool {
 	return true
 }
 
-func addTTSEnablementControls(section *eui.ItemData, width float32) {
+func addTTSEnablementControls(section *eui.ItemData, panelWidth float32) {
 	enabled, events := eui.NewCheckbox()
 	enabled.Text = "Enable Text to Speech"
-	enabled.Size = eui.Point{X: width, Y: 24}
+	enabled.Size = eui.Point{X: 240, Y: 24}
 	enabled.Checked = gs.ChatTTS
 	enabled.Disabled = isWASM
 	enabled.Action = func() {
@@ -58,8 +88,13 @@ func addTTSEnablementControls(section *eui.ItemData, width float32) {
 	}
 	section.AddItem(enabled)
 
+	actions := eui.NewRow()
+	const actionColumns = 3
+	actionWidth := (panelWidth - 8*(actionColumns-1)) / actionColumns
+
 	download, downloadEvents := eui.NewButton()
-	download.Size = eui.Point{X: width, Y: 24}
+	download.Size = eui.Point{X: actionWidth, Y: 24}
+	setMaterialButtonIcon(download, "download")
 	refresh := func() {
 		label := "TTS files installed"
 		if isWASM {
@@ -81,5 +116,38 @@ func addTTSEnablementControls(section *eui.ItemData, width float32) {
 			openTTSDownloads()
 		}
 	}
-	section.AddItem(download)
+	actions.AddItem(download)
+
+	folder, folderEvents := eui.NewButton()
+	folder.Text = "Open Voices Folder"
+	folder.Size = eui.Point{X: actionWidth, Y: 24}
+	folder.Disabled = isWASM
+	setMaterialButtonIcon(folder, "folder_open")
+	folder.SetTooltip("Open the piper/voices folder used for additional voice models.")
+	folderEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		if err := openTTSVoicesFolder(); err != nil {
+			consoleMessage("open TTS voices folder: " + err.Error())
+		}
+	}
+	actions.AddItem(folder)
+
+	browse, browseEvents := eui.NewButton()
+	browse.Text = "Browse More Voices"
+	browse.Size = eui.Point{X: actionWidth, Y: 24}
+	setMaterialButtonIcon(browse, "language")
+	browse.SetTooltip("Preview and download Piper voices. Install both the .onnx model and its matching .onnx.json configuration file.")
+	browseEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type != eui.EventClick {
+			return
+		}
+		if err := browser.OpenURL(piperVoicesBrowseURL); err != nil {
+			consoleMessage("open Piper voices page: " + err.Error())
+		}
+	}
+	actions.AddItem(browse)
+
+	section.AddItem(actions)
 }

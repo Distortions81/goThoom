@@ -24,6 +24,9 @@ func chatMessage(msg string) {
 func displayChatMessageTyped(msg, messageType string) {
 	if gs.MessagesToConsole {
 		serverConsoleMessageTyped(msg, messageType)
+		if gs.ChatTTS {
+			handleChatTTS(msg, messageType, chatSpeaker(msg))
+		}
 		dispatchScriptChat(msg)
 		return
 	}
@@ -65,17 +68,61 @@ func chatMessageTyped(msg, messageType string) {
 		}
 	}
 
-	if gs.ChatTTS && !blockTTS && !isSelfChatMessage(msg) {
-		if speaker == "" || !isTTSBlocked(speaker) {
-			speakChatMessage(msg)
-		}
-	} else if !gs.ChatTTS {
+	handleChatTTS(msg, messageType, speaker)
+
+	dispatchScriptChat(msg)
+}
+
+func handleChatTTS(msg, messageType, speaker string) {
+	if msg == "" || wasmPrivacyActive() {
+		return
+	}
+	if !gs.ChatTTS {
 		chatTTSDisabledOnce.Do(func() {
 			consoleMessage("Chat TTS is disabled. Enable it in settings to hear messages.")
 		})
+		return
 	}
+	if blockTTS || !chatTTSMessageSelected(msg, messageType) {
+		return
+	}
+	if speaker != "" {
+		playersMu.RLock()
+		player := players[speaker]
+		blocked := player != nil && (player.Blocked || player.Ignored)
+		playersMu.RUnlock()
+		if blocked || isTTSBlocked(speaker) {
+			return
+		}
+	}
+	speakChatMessage(msg)
+}
 
-	dispatchScriptChat(msg)
+func chatTTSMessageSelected(msg, messageType string) bool {
+	return chatTTSMessageTypeEnabled(messageType) && (gs.ChatTTSSelf || !isSelfChatMessage(msg))
+}
+
+func chatTTSMessageTypeEnabled(messageType string) bool {
+	switch messageType {
+	case messageTextTypeSay:
+		return gs.ChatTTSSay
+	case messageTextTypeWhisper:
+		return gs.ChatTTSWhisper
+	case messageTextTypeYell:
+		return gs.ChatTTSYell
+	case messageTextTypeThink:
+		return gs.ChatTTSThink
+	case messageTextTypeAction:
+		return gs.ChatTTSAction
+	case messageTextTypePonder:
+		return gs.ChatTTSPonder
+	case messageTextTypeMonster:
+		return gs.ChatTTSMonster
+	default:
+		// Preserve TTS for direct client chat messages that predate typed
+		// server bubbles and do not have one of the configurable categories.
+		return true
+	}
 }
 
 func getChatMessages() []string {
@@ -111,7 +158,10 @@ func isSelfChatMessage(msg string) bool {
 		if strings.HasPrefix(rest, "says,") ||
 			strings.HasPrefix(rest, "yells,") ||
 			strings.HasPrefix(rest, "whispers,") ||
-			strings.HasPrefix(rest, "exclaims,") {
+			strings.HasPrefix(rest, "exclaims,") ||
+			strings.HasPrefix(rest, "asks,") ||
+			strings.HasPrefix(rest, "thinks,") ||
+			strings.HasPrefix(rest, "ponders,") {
 			return true
 		}
 	}

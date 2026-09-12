@@ -218,6 +218,14 @@ func playChatTTS(ctx context.Context, text string) {
 }
 
 func speakChatMessage(msg string) {
+	queueTTSMessage(msg, true)
+}
+
+func speakTTSMessage(msg string) {
+	queueTTSMessage(msg, false)
+}
+
+func queueTTSMessage(msg string, condenseSpeaker bool) {
 	if audioContext == nil || blockTTS || gs.Mute || focusMuted || !gs.ChatTTS {
 		if audioContext == nil {
 			logError("chat tts: audio context is nil")
@@ -234,9 +242,9 @@ func speakChatMessage(msg string) {
 		return
 	}
 
-	speaker := chatSpeaker(msg)
 	ttsMsg := msg
-	if speaker != "" {
+	speaker := chatSpeaker(msg)
+	if condenseSpeaker && speaker != "" {
 		now := time.Now()
 		if speaker == lastTTSSpeaker && now.Sub(lastTTSTime) <= 10*time.Second {
 			content := msg

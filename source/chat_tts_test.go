@@ -206,3 +206,125 @@ func TestChatTTSSameSpeakerCondenses(t *testing.T) {
 		t.Fatalf("second = %q, want %q", got[1], "and then said how are you?")
 	}
 }
+
+func TestChatTTSMessageTypeOptions(t *testing.T) {
+	original := gs
+	t.Cleanup(func() { gs = original })
+	gs.ChatTTSSay = false
+	gs.ChatTTSWhisper = false
+	gs.ChatTTSYell = false
+	gs.ChatTTSThink = false
+	gs.ChatTTSAction = false
+	gs.ChatTTSPonder = false
+	gs.ChatTTSMonster = false
+
+	tests := []struct {
+		messageType string
+		enable      func()
+	}{
+		{messageTextTypeSay, func() { gs.ChatTTSSay = true }},
+		{messageTextTypeWhisper, func() { gs.ChatTTSWhisper = true }},
+		{messageTextTypeYell, func() { gs.ChatTTSYell = true }},
+		{messageTextTypeThink, func() { gs.ChatTTSThink = true }},
+		{messageTextTypeAction, func() { gs.ChatTTSAction = true }},
+		{messageTextTypePonder, func() { gs.ChatTTSPonder = true }},
+		{messageTextTypeMonster, func() { gs.ChatTTSMonster = true }},
+	}
+	for _, test := range tests {
+		if chatTTSMessageTypeEnabled(test.messageType) {
+			t.Errorf("%s enabled before its option", test.messageType)
+		}
+		test.enable()
+		if !chatTTSMessageTypeEnabled(test.messageType) {
+			t.Errorf("%s remains disabled after its option", test.messageType)
+		}
+	}
+	if !chatTTSMessageTypeEnabled(messageTextTypeSystem) {
+		t.Fatal("unclassified direct chat messages lost compatibility TTS")
+	}
+}
+
+func TestChatTTSMessageDefaults(t *testing.T) {
+	if !gsdef.ChatTTSSay || !gsdef.ChatTTSWhisper || !gsdef.ChatTTSYell ||
+		!gsdef.ChatTTSThink || !gsdef.ChatTTSAction || !gsdef.ChatTTSPonder ||
+		!gsdef.ChatTTSMonster || gsdef.ChatTTSSelf || gsdef.ChatTTSNotifications {
+		t.Fatal("incoming chat TTS should default on while own messages and notifications default off")
+	}
+}
+
+func TestCombinedChatRoutesThroughTTSOptions(t *testing.T) {
+	originalSettings := gs
+	originalFocusMuted, originalBlockTTS := focusMuted, blockTTS
+	originalPlayerName := playerName
+	originalSpeaker, originalSpeakerTime := lastTTSSpeaker, lastTTSTime
+	originalFunc := playChatTTSFunc
+	gs = gsdef
+	gs.MessagesToConsole = true
+	gs.ChatTTS = true
+	gs.Mute = false
+	focusMuted = false
+	blockTTS = false
+	playerName = "Hero"
+	lastTTSSpeaker, lastTTSTime = "", time.Time{}
+	stopAllTTS()
+	spoken := make(chan string, 2)
+	playChatTTSFunc = func(_ context.Context, text string) { spoken <- text }
+	t.Cleanup(func() {
+		stopAllTTS()
+		playChatTTSFunc = originalFunc
+		gs = originalSettings
+		focusMuted, blockTTS = originalFocusMuted, originalBlockTTS
+		playerName = originalPlayerName
+		lastTTSSpeaker, lastTTSTime = originalSpeaker, originalSpeakerTime
+	})
+
+	displayChatMessageTyped("Alice says, hello", messageTextTypeSay)
+	select {
+	case got := <-spoken:
+		if got != "Alice says, hello" {
+			t.Fatalf("combined chat spoke %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("combined chat did not reach TTS")
+	}
+
+	gs.ChatTTSSay = false
+	displayChatMessageTyped("Alice says, this should stay quiet", messageTextTypeSay)
+	select {
+	case got := <-spoken:
+		t.Fatalf("disabled speech option spoke %q", got)
+	case <-time.After(350 * time.Millisecond):
+	}
+}
+
+func TestChatTTSSelfOption(t *testing.T) {
+	originalSettings, originalPlayerName := gs, playerName
+	t.Cleanup(func() { gs, playerName = originalSettings, originalPlayerName })
+	gs = gsdef
+	gs.ChatTTS = true
+	playerName = "Hero"
+
+	if gs.ChatTTSSelf {
+		t.Fatal("own-message TTS should default off")
+	}
+	selfMessages := []struct {
+		message     string
+		messageType string
+	}{
+		{"Hero says, hello", messageTextTypeSay},
+		{"Hero thinks, hmm", messageTextTypeThink},
+		{"Hero ponders, perhaps", messageTextTypePonder},
+		{"(Hero waves)", messageTextTypeAction},
+	}
+	for _, selfMessage := range selfMessages {
+		if chatTTSMessageSelected(selfMessage.message, selfMessage.messageType) {
+			t.Fatalf("own message %q selected while own-message TTS is disabled", selfMessage.message)
+		}
+	}
+	gs.ChatTTSSelf = true
+	for _, selfMessage := range selfMessages {
+		if !chatTTSMessageSelected(selfMessage.message, selfMessage.messageType) {
+			t.Fatalf("own message %q remains unselected after enabling own-message TTS", selfMessage.message)
+		}
+	}
+}

@@ -331,18 +331,13 @@ func updateStreamIndicators(now time.Time) {
 	if streamGameBadge == nil {
 		return
 	}
-	position := eui.Point{
-		X: gameImageItem.Position.X + max(0, gameImageItem.Size.X-streamGameBadge.Size.X-8),
-		Y: gameImageItem.Position.Y + 8,
-	}
 	changed := created || streamGameBadge.TextColor != lightColor
 	if changed {
 		streamGameBadge.TextColor = lightColor
 		drawStreamBadge(streamGameBadge.Image, color.RGBA(lightColor))
 	}
-	if streamGameBadge.Invisible != !running || streamGameBadge.Position != position {
+	if streamGameBadge.Invisible != !running {
 		streamGameBadge.Invisible = !running
-		streamGameBadge.Position = position
 		changed = true
 	}
 	if changed {

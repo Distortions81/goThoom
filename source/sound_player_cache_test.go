@@ -85,3 +85,79 @@ func TestStaleSoundPlaybackStopsWithoutRestarting(t *testing.T) {
 		}
 	}
 }
+
+func TestLimitedEnhancedSoundRestartsActivePlayer(t *testing.T) {
+	soundMu.Lock()
+	generation, sourceGeneration := soundPlaybackGeneration, soundCacheGeneration
+	soundMu.Unlock()
+	key := soundPlaybackCacheKey([]uint16{65001}, audioContext, true, 1, true)
+	key.sourceGeneration = sourceGeneration
+	pcm := make([]byte, sampleRate*4)
+
+	first, found := acquireSoundPlaybackPlayer(key, pcm, generation, sourceGeneration, true)
+	if !found || first == nil {
+		t.Fatal("failed to acquire initial enhanced sound player")
+	}
+	t.Cleanup(stopAllSounds)
+	playGameSoundPlayer(first, generation, sourceGeneration, 0)
+	if !first.IsPlaying() {
+		t.Fatal("initial enhanced sound did not start")
+	}
+
+	second, found := acquireSoundPlaybackPlayer(key, nil, generation, sourceGeneration, true)
+	if !found || second == nil {
+		t.Fatal("failed to reacquire enhanced sound player")
+	}
+	if second != first {
+		t.Fatal("limited enhanced retrigger created an overlapping player")
+	}
+	if second.IsPlaying() {
+		t.Fatal("retriggered enhanced sound was not paused for restart")
+	}
+}
+
+func TestUnlimitedEnhancedSoundCanOverlap(t *testing.T) {
+	soundMu.Lock()
+	generation, sourceGeneration := soundPlaybackGeneration, soundCacheGeneration
+	soundMu.Unlock()
+	key := soundPlaybackCacheKey([]uint16{65003}, audioContext, true, 1, true)
+	key.sourceGeneration = sourceGeneration
+	pcm := make([]byte, sampleRate*4)
+
+	first, found := acquireSoundPlaybackPlayer(key, pcm, generation, sourceGeneration, false)
+	if !found || first == nil {
+		t.Fatal("failed to acquire initial enhanced sound player")
+	}
+	t.Cleanup(stopAllSounds)
+	playGameSoundPlayer(first, generation, sourceGeneration, 0)
+
+	second, found := acquireSoundPlaybackPlayer(key, nil, generation, sourceGeneration, false)
+	if !found || second == nil {
+		t.Fatal("failed to acquire overlapping enhanced sound player")
+	}
+	if second == first {
+		t.Fatal("unlimited enhanced retrigger unexpectedly reused the active player")
+	}
+}
+
+func TestSoundPlaybackDoesNotShareReservedPlayer(t *testing.T) {
+	soundMu.Lock()
+	generation, sourceGeneration := soundPlaybackGeneration, soundCacheGeneration
+	soundMu.Unlock()
+	key := soundPlaybackCacheKey([]uint16{65002}, audioContext, true, 1, true)
+	key.sourceGeneration = sourceGeneration
+	pcm := make([]byte, sampleRate*4)
+
+	first, found := acquireSoundPlaybackPlayer(key, pcm, generation, sourceGeneration, true)
+	if !found || first == nil {
+		t.Fatal("failed to reserve initial sound player")
+	}
+	t.Cleanup(stopAllSounds)
+	second, found := acquireSoundPlaybackPlayer(key, nil, generation, sourceGeneration, true)
+	if !found || second == nil {
+		t.Fatal("failed to reserve concurrent sound player")
+	}
+	if second == first {
+		t.Fatal("concurrent requests shared a player before playback began")
+	}
+}

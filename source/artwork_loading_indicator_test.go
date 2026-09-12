@@ -8,14 +8,14 @@ import (
 	"gothoom/climg"
 )
 
-func TestClientActivityIndicatorsUseFixedBottomRightSlots(t *testing.T) {
+func TestClientActivityIndicatorsUseFixedReservedSlots(t *testing.T) {
 	x, y := clientActivityIndicatorPosition(image.Rect(10, 12, 74, 76), 0)
-	if x != 63 || y != 65 {
-		t.Fatalf("indicator position = (%.0f, %.0f), want (63, 65)", x, y)
+	if x != 67 || y != 19 {
+		t.Fatalf("indicator position = (%.0f, %.0f), want (67, 19)", x, y)
 	}
 	x, y = clientActivityIndicatorPosition(image.Rect(10, 12, 74, 76), 2)
-	if x != 35 || y != 65 {
-		t.Fatalf("left indicator position = (%.0f, %.0f), want (35, 65)", x, y)
+	if x != 39 || y != 19 {
+		t.Fatalf("left indicator position = (%.0f, %.0f), want (39, 19)", x, y)
 	}
 	wants := map[clientActivity]color.RGBA{
 		clientActivityData:  {R: 52, G: 211, B: 104, A: 255},

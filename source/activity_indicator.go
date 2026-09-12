@@ -19,7 +19,6 @@ const (
 )
 
 const clientActivityIndicatorRadius = float32(5)
-const clientActivityIndicatorInset = float32(11)
 const clientActivityIndicatorSpacing = float32(14)
 
 var (
@@ -54,12 +53,12 @@ func takeClientActivity() clientActivity {
 }
 
 func clientActivityIndicatorPosition(bounds image.Rectangle, slot int) (float32, float32) {
-	return float32(bounds.Max.X) - clientActivityIndicatorInset - float32(slot)*clientActivityIndicatorSpacing,
-		float32(bounds.Max.Y) - clientActivityIndicatorInset
+	return float32(bounds.Max.X) - clientActivityIndicatorRadius - 2 - float32(slot)*clientActivityIndicatorSpacing,
+		float32(bounds.Min.Y) + clientActivityIndicatorRadius + 2
 }
 
-func drawClientActivityIndicators(screen *ebiten.Image, activity clientActivity) {
-	if screen == nil || screen.Bounds().Empty() || activity == clientActivityNone {
+func drawClientActivityIndicators(screen *ebiten.Image, activity clientActivity, bounds image.Rectangle) {
+	if screen == nil || bounds.Empty() || activity == clientActivityNone {
 		return
 	}
 	// Fixed left-to-right slots: artwork processing, audio decoding, GPU upload.

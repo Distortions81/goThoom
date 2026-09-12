@@ -212,12 +212,12 @@
   {
     "title": "Mixer",
     "url": "./#mixer",
-    "text": "Game sounds and music start enabled, while chat text-to-speech starts disabled. The Audio toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. Mute when unfocused is optional and off by default. Throttle Repeated Sounds suppresses the same effect when it repeats in adjacent server updates. High quality resampling produces cleaner conversion at a higher CPU cost. Sound-effect and music enhancement add width, ambience, and tonal processing to newly started audio. A downloaded SoundFont improves MIDI-style music playback."
+    "text": "Game sounds and music start enabled, while chat text-to-speech starts disabled. The Audio toolbar button opens independent controls for master, game sounds, music, text-to-speech, notifications, and audio enhancements. Muting the master output preserves the channel levels. Mute when unfocused is optional and off by default. Throttle Repeated Sounds suppresses the same effect in adjacent server updates and prevents active enhanced copies from layering echoes. High quality resampling produces cleaner conversion at a higher CPU cost. Sound-effect and music enhancement add width, ambience, and tonal processing to newly started audio. A downloaded SoundFont improves MIDI-style music playback."
   },
   {
     "title": "Text to speech",
     "url": "./#text-to-speech",
-    "text": "Enable chat TTS, pick an installed Piper voice, and adjust voice speed and volume. Use Test TTS before relying on it. Download Files installs available Piper components and voices. The client combines nearby messages from the same speaker and limits its pending speech queue. Edit TTS corrections opens the data folder containing the generated substitution file. Add replacements there when a name or game term is consistently pronounced incorrectly."
+    "text": "Enable chat TTS, pick an installed Piper voice, and adjust voice speed and volume. Open Voices Folder creates and opens the active piper/voices folder. Browse More Voices opens the Piper voice catalog; install both the .onnx model and its matching .onnx.json configuration file. Use Spoken Messages to choose whether speech, whispers, yells, thoughts, actions, ponders, monster speech, your own messages, and in-game notifications are read aloud. These choices work whether chat has its own pane or is combined with Console. Use Test TTS before relying on it. Download TTS files installs the bundled Piper components and voices. The client combines nearby messages from the same speaker and limits its pending speech queue. Edit TTS corrections opens the data folder containing the generated substitution file. Add replacements there when a name or game term is consistently pronounced incorrectly."
   },
   {
     "title": "Set up text to speech",

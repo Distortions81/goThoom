@@ -77,31 +77,8 @@ func layoutThinkMessages() {
 	if gameWin == nil {
 		return
 	}
-	margin := float32(8)
-	spacer := float32(4)
-	x := margin
-	y := margin
-	rowHeight := float32(0)
-	scale := eui.UIScale()
-	if gameWin.NoScale {
-		scale = 1
-	}
-	winSize := gameWin.GetSize()
-	for _, m := range thinkMessages {
-		it := m.item
-		sz := it.GetSize()
-		if x+sz.X > winSize.X-margin {
-			x = margin
-			y += rowHeight + spacer
-			rowHeight = 0
-		}
-		it.Position = eui.Point{X: x / scale, Y: y / scale}
-		x += sz.X + spacer
-		if sz.Y > rowHeight {
-			rowHeight = sz.Y
-		}
-		it.Dirty = true
-	}
+	// Positions are assigned with every other game overlay in Draw, after the
+	// current world-view bounds and all active reservations are known.
 	markWorldRenderChanged()
 }
 

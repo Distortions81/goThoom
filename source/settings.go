@@ -259,7 +259,7 @@ var gsdef settings = settings{
 	Fullscreen:                     false,
 	AlwaysOnTop:                    false,
 	MasterVolume:                   1.0,
-	GameVolume:                     0.28260868787765503,
+	GameVolume:                     0.5,
 	MusicVolume:                    1.0,
 	SoundFontFile:                  soundFontFile,
 	MusicBufferSeconds:             2,
@@ -280,9 +280,18 @@ var gsdef settings = settings{
 	MaxNightLevel:                  100,
 	MessagesToConsole:              true,
 	ChatTTS:                        false,
-	ChatTTSVolume:                  0.20652173459529877,
+	ChatTTSVolume:                  0.33,
 	ChatTTSSpeed:                   1.25,
 	ChatTTSVoice:                   "en_US-hfc_female-medium",
+	ChatTTSSay:                     true,
+	ChatTTSWhisper:                 true,
+	ChatTTSYell:                    true,
+	ChatTTSThink:                   true,
+	ChatTTSAction:                  true,
+	ChatTTSPonder:                  true,
+	ChatTTSMonster:                 true,
+	ChatTTSSelf:                    false,
+	ChatTTSNotifications:           false,
 	Notifications:                  true,
 	NotifyWhenBackground:           false,
 	// Power saving defaults: limit FPS in background
@@ -300,7 +309,7 @@ var gsdef settings = settings{
 	NotifyShares:              true,
 	NotifyFriendOnline:        true,
 	NotifyCopyText:            false,
-	NotificationVolume:        0.20652173459529877,
+	NotificationVolume:        0.33,
 	NotificationBeep:          true,
 	NotificationDuration:      6,
 	ScriptSpamKill:            true,
@@ -388,7 +397,7 @@ var gsdef settings = settings{
 	BarColorByValue:         false,
 	ThrottleSounds:          true,
 	SoundEnhancement:        true,
-	SoundEnhancementAmount:  1.5,
+	SoundEnhancementAmount:  2.0,
 	MusicEnhancement:        true,
 	MusicEnhancementAmount:  1.0,
 	HighQualityResampling:   true,
@@ -537,6 +546,15 @@ type settings struct {
 	ChatTTSSpeed                   float64
 	ChatTTSVoice                   string
 	ChatTTSBlocklist               []string
+	ChatTTSSay                     bool
+	ChatTTSWhisper                 bool
+	ChatTTSYell                    bool
+	ChatTTSThink                   bool
+	ChatTTSAction                  bool
+	ChatTTSPonder                  bool
+	ChatTTSMonster                 bool
+	ChatTTSSelf                    bool
+	ChatTTSNotifications           bool
 	Notifications                  bool
 	NotifyWhenBackground           bool
 	// PowerSaveBackground reduces FPS when window is unfocused.

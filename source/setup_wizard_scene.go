@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"image"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -232,19 +232,13 @@ func prepareSetupWizardSceneSnapshot(snap *drawSnapshot, now time.Time) {
 	snap.prevBalance, snap.prevBalanceMax = snap.balance, snap.balanceMax
 }
 
-// drawFPSOverlay renders the same frame-rate readout used by the setup wizard.
-func drawFPSOverlay(dst *ebiten.Image) {
-	wizardOpen := setupWizardWin != nil && setupWizardWin.IsOpen()
-	if dst == nil || mainFontBold == nil || (!gs.ShowFPS && !wizardOpen) {
+// drawFPSOverlay renders the frame-rate readout in its reserved overlay bounds.
+func drawFPSOverlay(dst *ebiten.Image, bounds image.Rectangle, label string) {
+	if dst == nil || mainFontBold == nil || bounds.Empty() || label == "" {
 		return
 	}
-	label := fmt.Sprintf("%.0f FPS", ebiten.ActualFPS())
-	w, _ := text.Measure(label, mainFontBold, 0)
-	x := float64(dst.Bounds().Dx()) - w - 8
-	if x < 4 {
-		x = 4
-	}
-	const y = 6
+	x := float64(bounds.Min.X)
+	y := float64(bounds.Min.Y)
 
 	shadow := acquireTextDrawOpts()
 	shadow.GeoM.Translate(x+1, y+1)

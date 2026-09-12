@@ -38,6 +38,9 @@ func showNotification(msg string, keys ...int) {
 	if gs.NotifyWhenBackground && !windowIsFocused() {
 		notifyDesktop("goThoom", msg)
 	}
+	if gs.ChatTTSNotifications {
+		speakTTSMessage(msg)
+	}
 
 	btn, _ := eui.NewButton()
 	btn.Text = msg
@@ -87,23 +90,8 @@ func layoutNotifications() {
 	if gameWin == nil {
 		return
 	}
-	margin := float32(8)
-	spacer := float32(4)
-	winSz := gameWin.GetSize()
-	y := winSz.Y - margin - 100
-	scale := eui.UIScale()
-	if gameWin.NoScale {
-		scale = 1
-	}
-	for i := len(notifications) - 1; i >= 0; i-- {
-		it := notifications[i].item
-		sz := it.GetSize()
-		y -= sz.Y
-		x := winSz.X - sz.X - margin
-		it.Position = eui.Point{X: x / scale, Y: y / scale}
-		y -= spacer
-		it.Dirty = true
-	}
+	// Positions are assigned with every other game overlay in Draw, after the
+	// current world-view bounds and all active reservations are known.
 	markWorldRenderChanged()
 }
 

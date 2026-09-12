@@ -124,6 +124,7 @@ func makeSettingsWindow() {
 	bubbleSection := addSettingsSection(bubblesPage, "Speech Bubbles", panelWidth)
 	audioSection := addSettingsSection(audioPage, "Sound & Music", panelWidth)
 	ttsSection := addSettingsSection(ttsPage, "Text to Speech", panelWidth)
+	ttsMessagesSection := addSettingsSection(ttsPage, "Spoken Messages", panelWidth)
 	ttsTestSection := addSettingsSection(ttsPage, "Test & Corrections", panelWidth)
 	notificationsSection := addSettingsSection(audioPage, "Notifications", panelWidth)
 	controlsSection := addSettingsSection(controlsPage, "Movement & Input", panelWidth)
@@ -1097,7 +1098,7 @@ func makeSettingsWindow() {
 	addTextSettings(chatSection, inputSection, displayColumnWidth)
 	addBubbleSettings(bubbleSection, panelWidth)
 	addAudioSettings(audioSection, panelWidth)
-	addTTSSettings(ttsSection, ttsTestSection)
+	addTTSSettings(ttsSection, ttsMessagesSection, ttsTestSection)
 	addFileSettings(filesSection, recordingSection, panelWidth)
 	addToolSettings(diagnosticsSection, resetSection, panelWidth)
 	addNetworkSettings(networkSection, panelWidth)
@@ -1544,8 +1545,8 @@ func addAudioSettings(audioSection *eui.ItemData, columnWidth float32) {
 
 }
 
-func addTTSSettings(ttsSection, testSection *eui.ItemData) {
-	addTTSEnablementControls(ttsSection, 240)
+func addTTSSettings(ttsSection, messagesSection, testSection *eui.ItemData) {
+	addTTSEnablementControls(ttsSection, settingsPanelWidth)
 
 	ttsSpeedSlider, ttsSpeedEvents := eui.NewSlider()
 	ttsSpeedSlider.Label = "TTS Speed"
@@ -1609,6 +1610,45 @@ func addTTSSettings(ttsSection, testSection *eui.ItemData) {
 		}
 	}
 	ttsSection.AddItem(voiceDD)
+
+	messageOptions := []struct {
+		label, tooltip string
+		value          *bool
+	}{
+		{"Speech", "Speak ordinary player and NPC speech.", &gs.ChatTTSSay},
+		{"Whispers", "Speak whispered messages.", &gs.ChatTTSWhisper},
+		{"Yells", "Speak yelled and exclaimed messages.", &gs.ChatTTSYell},
+		{"Thoughts", "Speak thought messages.", &gs.ChatTTSThink},
+		{"Actions", "Speak player and world action messages.", &gs.ChatTTSAction},
+		{"Ponders", "Speak ponder messages.", &gs.ChatTTSPonder},
+		{"Monster speech", "Speak monster messages.", &gs.ChatTTSMonster},
+		{"Your messages", "Speak messages sent by your current character.", &gs.ChatTTSSelf},
+		{"Notifications", "Speak in-game notification text when TTS is enabled.", &gs.ChatTTSNotifications},
+	}
+	var row *eui.ItemData
+	const messageOptionColumns = 3
+	for index, option := range messageOptions {
+		if index%messageOptionColumns == 0 {
+			row = eui.NewRow()
+			messagesSection.AddItem(row)
+		}
+		checkbox, events := eui.NewCheckbox()
+		checkbox.Text = option.label
+		checkbox.Size = eui.Point{X: (settingsPanelWidth - 8*(messageOptionColumns-1)) / messageOptionColumns, Y: settingsControlHeight}
+		checkbox.Checked = *option.value
+		checkbox.SetTooltip(option.tooltip)
+		value := option.value
+		events.Handle = func(ev eui.UIEvent) {
+			if ev.Type != eui.EventCheckboxChanged {
+				return
+			}
+			SettingsLock.Lock()
+			*value = ev.Checked
+			SettingsLock.Unlock()
+			settingsDirty = true
+		}
+		row.AddItem(checkbox)
+	}
 
 	ttsTestInput, ttsTestEvents := eui.NewInput()
 	ttsTestInput.Label = "TTS test phrase"

@@ -2073,6 +2073,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	defer worldView.Recycle()
 	worldKey := currentWorldRenderKey(bufW, bufH)
 	if worldRenderCanBeReused(g, worldKey) {
+		// Floating EUI overlays still need current positions when the cached world
+		// image can be reused and the rest of this draw returns early.
+		layoutActiveGameOverlays(viewRect, clientActivityNone)
 		snapshotReady = true
 		// gameImage already contains the last completed server update. Continue
 		// drawing EUI so text windows, controls, notifications, and other UI can
@@ -2184,13 +2187,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			drawSpeechBubbles(worldView, snap, alpha, windowScale)
 			// Draw script overlays on top of the world view.
 			drawScriptOverlays(worldView, finalScale)
-			// Recording/Playback badge in top-left of world view
-			drawRecPlayBadge(worldView)
 		}
 		gs.GameScale = prev
 	}
-	drawFPSOverlay(gameImage)
-	drawClientActivityIndicators(worldView, takeClientActivity())
+	activity := takeClientActivity()
+	overlays := layoutActiveGameOverlays(viewRect, activity)
+	if haveSnap {
+		drawRecPlayBadge(gameImage, overlays.recPlay, overlays.recPlayLabel)
+	}
+	drawFPSOverlay(gameImage, overlays.fps, overlays.fpsLabel)
+	drawClientActivityIndicators(gameImage, activity, overlays.activity)
 	drawGameMessageOverlays(gameImage)
 	if assetTrace != nil {
 		assetTrace.addWorldDuration(time.Since(worldStarted))
@@ -2248,11 +2254,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 var lastSeekRenderGeneration uint64
 var drawFrameNow time.Time
 
-func drawRecPlayBadge(dst *ebiten.Image) {
-	// Only show when actively recording/armed or playing back.
-	showRec := recorder != nil || recordingMovie
-	showPlay := !showRec && playingMovie && !setupWizardPreviewActive
-	if !showRec && !showPlay {
+func drawRecPlayBadge(dst *ebiten.Image, bounds image.Rectangle, label string) {
+	if dst == nil || bounds.Empty() || label == "" {
 		return
 	}
 	// Pulse alpha between ~0.5 and 1.0
@@ -2260,25 +2263,18 @@ func drawRecPlayBadge(dst *ebiten.Image) {
 	s := 0.5 + 0.5*math.Sin(t*2*math.Pi/1.6)
 	alpha := 0.6 + 0.4*s
 	var base color.RGBA
-	var label string
-	if showRec {
+	if label == "REC" {
 		base = color.RGBA{R: 203, G: 67, B: 53, A: 255} // red
-		label = "REC"
 	} else {
 		base = color.RGBA{R: 40, G: 180, B: 99, A: 255} // green
-		label = "PLAY"
 	}
 	col := color.RGBA{R: base.R, G: base.G, B: base.B, A: uint8(alpha * 255)}
-	// Position near top-left
-	origin := dst.Bounds().Min
-	pad := float32(6)
-	cx := float32(origin.X + 10)
-	cy := float32(origin.Y + 10)
-	r := float32(6)
-	vector.FillCircle(dst, cx+pad, cy+pad, r, col, false)
+	cx := float32(bounds.Min.X + 12)
+	cy := float32(bounds.Min.Y + 12)
+	vector.FillCircle(dst, cx, cy, 6, col, false)
 	// Text to the right
 	op := acquireTextDrawOpts()
-	op.GeoM.Translate(float64(origin.X)+float64(2*pad+r*2), float64(origin.Y)+float64(4+pad))
+	op.GeoM.Translate(float64(bounds.Min.X+25), float64(bounds.Min.Y+5))
 	op.ColorScale.Scale(1, 1, 1, float32(alpha))
 	text.Draw(dst, label, mainFontBold, op)
 	releaseTextDrawOpts(op)
