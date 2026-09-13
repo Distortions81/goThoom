@@ -103,6 +103,33 @@ func TestPointInAppScreenUsesEUIScreenSize(t *testing.T) {
 	}
 }
 
+func TestViewportSelectionSurfaceRespectsWindowOrder(t *testing.T) {
+	viewports := newViewportManager()
+	viewports.enableMulti(viewportLayoutFreeform)
+	state := viewports.renderStateForViewport(2)
+	playfield := eui.NewWindow()
+	playfield.Open = true
+	playfield.NoScale = true
+	playfield.Position = eui.Point{X: 10, Y: 10}
+	playfield.Size = eui.Point{X: 200, Y: 150}
+	state.window = playfield
+
+	views := viewports.snapshot()
+	view, ok := viewportAtScreenPointInWindows(50, 50, []*eui.WindowData{playfield}, views)
+	if !ok || view.SessionID != 2 {
+		t.Fatalf("playfield hit = %+v, %v", view, ok)
+	}
+
+	utility := eui.NewWindow()
+	utility.Open = true
+	utility.NoScale = true
+	utility.Position = playfield.Position
+	utility.Size = playfield.Size
+	if _, ok := viewportAtScreenPointInWindows(50, 50, []*eui.WindowData{playfield, utility}, views); ok {
+		t.Fatal("selected a viewport through a front-most utility window")
+	}
+}
+
 func TestTypingInUI(t *testing.T) {
 	for _, w := range eui.Windows() {
 		w.Close()

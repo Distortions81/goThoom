@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"strings"
 	"sync/atomic"
 
 	"gothoom/eui"
@@ -10,7 +8,6 @@ import (
 
 var (
 	sessionsWin                  *eui.WindowData
-	sessionLoginWindows          = map[SessionID]*eui.WindowData{}
 	sessionsToolbarButton        *eui.ItemData
 	sessionWorkspaceUpdateQueued atomic.Bool
 )
@@ -122,7 +119,8 @@ func refreshSessionsWindow() {
 				actionButton.Text = "Connect"
 				actionEvents.Handle = func(event eui.UIEvent) {
 					if event.Type == eui.EventClick {
-						openSessionLoginWindow(sessionID, event.Item)
+						appSessions.selectSession(sessionID)
+						focusViewportLogin(sessionID)
 					}
 				}
 			}
@@ -170,84 +168,4 @@ func refreshSessionsWindow() {
 		sessionsWin.ReplaceItem(0, root)
 	}
 	sessionsWin.Refresh()
-}
-
-func openSessionLoginWindow(id SessionID, anchor *eui.ItemData) {
-	session, ok := appSessions.session(id)
-	if !ok {
-		return
-	}
-	if existing := sessionLoginWindows[id]; existing != nil {
-		existing.MarkOpenNear(anchor)
-		return
-	}
-	window := eui.NewWindow()
-	window.Title = fmt.Sprintf("Connect Session %d", id)
-	window.Closable = true
-	window.Resizable = false
-	window.AutoSize = true
-	window.Movable = true
-	window.OnClose = func() { delete(sessionLoginWindows, id) }
-	root := eui.NewColumn()
-
-	request := session.login.requestSnapshot()
-	server := request.host
-	if server == "" {
-		server = strings.TrimSpace(gs.ServerAddress)
-	}
-	serverChoice, serverEvents := eui.NewDropdown()
-	serverChoice.Label = "Server"
-	serverChoice.Options = serverAddresses()
-	serverChoice.Size = eui.Point{X: 360, Y: 28}
-	for index, option := range serverChoice.Options {
-		if sameServerAddress(option, server) {
-			serverChoice.Selected = index
-			server = option
-			break
-		}
-	}
-	serverEvents.Handle = func(event eui.UIEvent) {
-		if event.Type == eui.EventDropdownSelected && event.Index >= 0 && event.Index < len(serverChoice.Options) {
-			server = serverChoice.Options[event.Index]
-		}
-	}
-	root.AddItem(serverChoice)
-
-	character := request.character
-	characterInput, _ := eui.NewInput()
-	characterInput.Label = "Character"
-	characterInput.TextPtr = &character
-	characterInput.Size = eui.Point{X: 360, Y: 28}
-	root.AddItem(characterInput)
-	password := ""
-	passwordInput, _ := eui.NewInput()
-	passwordInput.Label = "Password"
-	passwordInput.TextPtr = &password
-	passwordInput.HideText = true
-	passwordInput.Size = eui.Point{X: 360, Y: 28}
-	root.AddItem(passwordInput)
-
-	connect, connectEvents := eui.NewButton()
-	connect.Text = "Connect"
-	connect.Size = eui.Point{X: 120, Y: 28}
-	connectEvents.Handle = func(event eui.UIEvent) {
-		if event.Type != eui.EventClick {
-			return
-		}
-		_, err := appSessions.startLogin(gameCtx, id, sessionLoginRequest{
-			host: server, character: character, password: password,
-		}, clVersion)
-		if err != nil {
-			session.login.setStatus("Disconnected", err)
-			refreshSessionsWindow()
-			return
-		}
-		password = ""
-		window.Close()
-	}
-	root.AddItem(connect)
-	window.AddItem(root)
-	sessionLoginWindows[id] = window
-	window.AddWindow(true)
-	window.MarkOpenNear(anchor)
 }

@@ -68,7 +68,7 @@ func (m *sessionManager) startLogin(ctx context.Context, id SessionID, request s
 	result := make(chan error, 1)
 	go func() {
 		err := loginSessionWithDemoCandidates(session, sessionCtx, version, nil)
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			session.login.setStatus("Disconnected", err)
 		} else {
 			session.login.setStatus("Disconnected", nil)

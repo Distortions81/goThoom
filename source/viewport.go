@@ -41,6 +41,18 @@ type viewportRenderState struct {
 	inAspectResize     bool
 	bubbleHistory      map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
 	bubbleLayout       bubbleLayoutContext
+	loginOverlay       *eui.ItemData
+	loginForm          *eui.ItemData
+	loginStatus        *eui.ItemData
+	loginServerChoice  *eui.ItemData
+	loginCharacterItem *eui.ItemData
+	loginPasswordItem  *eui.ItemData
+	loginRememberItem  *eui.ItemData
+	loginAction        *eui.ItemData
+	loginServer        string
+	loginCharacter     string
+	loginPassword      string
+	loginRemember      bool
 }
 
 func (v Viewport) worldAt(point image.Point) (int16, int16, bool) {

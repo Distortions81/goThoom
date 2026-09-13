@@ -1090,8 +1090,8 @@ func (g *Game) Update() error {
 	if appSessions.multiEnabled() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
 		inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)) {
 		pressX, pressY := eui.PointerPosition()
-		if !pointInUI(pressX, pressY) {
-			appViewports.selectAt(image.Pt(pressX, pressY), appSessions)
+		if view, hit := viewportAtScreenPoint(pressX, pressY); hit {
+			appSessions.selectSession(view.SessionID)
 			inputSession = selectedAppSession()
 			worldOriginX, worldOriginY, worldScale = worldDrawInfoForSession(inputSession)
 		}

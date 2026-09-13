@@ -5,7 +5,7 @@ Multi-session:
 - Click a session view to select it and direct movement, commands, hotkeys, scripts, Inventory, Players, Chat, and Console to that character.
 - Keep every session's network activity, automation, notifications, sound effects, and visual script effects isolated while background sessions continue running.
 - Choose one session as the shared music source and switch it without mixing or resuming another character's tune.
-- Connect or disconnect individual slots, quit all sessions together, and return to single-session mode after every session disconnects.
+- Connect directly inside each session view, follow connection progress and errors there, or disconnect individual slots. Quit all sessions together and return to single-session mode after every session disconnects.
 
 Bard music:
 - Match the classic client instrument program and percussion behavior, including the supported instrument aliases and octave handling.

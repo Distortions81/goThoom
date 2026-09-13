@@ -59,6 +59,40 @@ func pointInUI(x, y int) bool {
 	return false
 }
 
+func viewportAtScreenPoint(x, y int) (Viewport, bool) {
+	return viewportAtScreenPointInWindows(x, y, eui.Windows(), appViewports.snapshot())
+}
+
+func viewportAtScreenPointInWindows(x, y int, windows []*eui.WindowData, views [maxSessions]Viewport) (Viewport, bool) {
+	fx, fy := float32(x), float32(y)
+	for index := len(windows) - 1; index >= 0; index-- {
+		win := windows[index]
+		if !win.IsOpen() || !pointInWindowBounds(win, fx, fy) {
+			continue
+		}
+		for _, view := range views {
+			if view.Active && view.render != nil && view.render.window == win {
+				return view, true
+			}
+		}
+		return Viewport{}, false
+	}
+	return Viewport{}, false
+}
+
+func pointInWindowBounds(win *eui.WindowData, fx, fy float32) bool {
+	if win == nil || !win.IsOpen() {
+		return false
+	}
+	pos := win.GetPos()
+	size := win.GetSize()
+	s := windowInputScale(win)
+	frame := (win.Margin + win.Border + win.BorderPad + win.Padding) * s
+	title := win.GetTitleSize()
+	x0, y0 := pos.X+1, pos.Y+1
+	return fx >= x0 && fx < x0+size.X+frame*2 && fy >= y0 && fy < y0+size.Y+frame*2+title
+}
+
 func pointInAppScreen(x, y int) bool {
 	w, h := eui.ScreenSize()
 	return x >= 0 && y >= 0 && x < w && y < h
