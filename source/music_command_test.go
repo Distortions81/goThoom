@@ -341,7 +341,7 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 		t.Fatalf("parseMovie: %v", err)
 	}
 	oldSettings, oldBlock := gs, blockMusic
-	oldFont, oldFallback, oldSynthSettings := sfntCached, sfntFallback, synthSettings
+	oldFont, oldSynthSettings := sfntCached, synthSettings
 	setupSynthOnce = sync.Once{}
 	sfntCached, synthSettings = nil, nil
 	gs = gsdef
@@ -356,7 +356,7 @@ func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
 		gs, blockMusic = oldSettings, oldBlock
 		storagePathsActivated = originalStorageActive
 		setupSynthOnce = sync.Once{}
-		sfntCached, sfntFallback, synthSettings = oldFont, oldFallback, oldSynthSettings
+		sfntCached, synthSettings = oldFont, oldSynthSettings
 		primarySession.music.reset()
 	})
 

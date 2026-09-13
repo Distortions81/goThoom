@@ -200,16 +200,14 @@ func refreshAllViewportLoginServerChoices() {
 	}
 }
 
-func viewportLoginRememberPreference(session *Session, characterName string) bool {
+func viewportLoginRememberPreference(session *Session, serverSlot int, characterName string) bool {
 	if session != nil {
-		if _, remember, staged := session.login.stagedPasswordSettings(characterName); staged {
+		if _, remember, staged := session.login.stagedPasswordSettings(serverSlot, characterName); staged {
 			return remember
 		}
 	}
-	for _, character := range characters {
-		if strings.EqualFold(character.Name, strings.TrimSpace(characterName)) {
-			return !character.DontRemember
-		}
+	if character, ok := characterForServerSlot(serverSlot, characterName); ok {
+		return !character.DontRemember
 	}
 	return true
 }
@@ -218,7 +216,7 @@ func selectViewportLoginSavedCharacter(state *viewportRenderState, session *Sess
 	if state == nil || session == nil {
 		return false
 	}
-	character, ok := selectedCharacter(characterName)
+	character, ok := characterForServerSlot(serverSlotForAddress(state.loginServer), characterName)
 	if !ok {
 		return false
 	}
@@ -232,21 +230,23 @@ func refreshViewportLoginCharacterList(state *viewportRenderState, session *Sess
 	if state == nil || session == nil || state.loginCharacters == nil {
 		return
 	}
-	if state.loginCharacter != "" && !validLoginCharacterSelection(state.loginCharacter) {
+	serverSlot := serverSlotForAddress(state.loginServer)
+	savedCharacters := charactersForServerSlot(serverSlot)
+	if state.loginCharacter != "" && !validLoginCharacterSelection(serverSlot, state.loginCharacter) {
 		state.loginCharacter = ""
 	}
 	if state.loginCharacter == "" {
-		if session == primarySession && validLoginCharacterSelection(name) {
+		if session == primarySession && validLoginCharacterSelection(serverSlot, name) {
 			state.loginCharacter = name
 		} else if gs.LastCharacter != "" {
-			if saved, ok := selectedCharacter(gs.LastCharacter); ok {
+			if saved, ok := characterForServerSlot(serverSlot, gs.LastCharacter); ok {
 				state.loginCharacter = saved.Name
 			}
 		}
-		if state.loginCharacter == "" && len(characters) == 1 {
-			state.loginCharacter = characters[0].Name
+		if state.loginCharacter == "" && len(savedCharacters) == 1 {
+			state.loginCharacter = savedCharacters[0].Name
 		}
-		if state.loginCharacter == "" && len(characters) == 0 {
+		if state.loginCharacter == "" && len(savedCharacters) == 0 {
 			state.loginCharacter = freeDemoSelection
 		}
 	}
@@ -254,6 +254,7 @@ func refreshViewportLoginCharacterList(state *viewportRenderState, session *Sess
 		list:       state.loginCharacters,
 		width:      viewportLoginPanelWidth,
 		radioGroup: fmt.Sprintf("characters-session-%d", session.ID()),
+		server:     state.loginServer,
 		selection:  state.loginCharacter,
 		onSelect: func(choice loginCharacterChoice) {
 			state.loginCharacter = choice.selection
@@ -295,18 +296,19 @@ func startViewportLogin(state *viewportRenderState, session *Session) {
 		startViewportDemoLogin(state, session)
 		return
 	}
-	character, ok := selectedCharacter(state.loginCharacter)
+	serverSlot := serverSlotForAddress(state.loginServer)
+	character, ok := characterForServerSlot(serverSlot, state.loginCharacter)
 	if !ok {
 		session.login.setStatus("Disconnected", errors.New("select a saved character before connecting"))
 		refreshViewportLoginOverlay(state, session, true)
 		return
 	}
 	passwordHash := character.passHash
-	if staged, ok := session.login.stagedPasswordHash(character.Name); ok {
+	if staged, ok := session.login.stagedPasswordHash(serverSlot, character.Name); ok {
 		passwordHash = staged
 	}
 	if passwordHash == "" {
-		showPasswordPromptForSession(session, state, false, viewportLoginRememberPreference(session, character.Name), state.loginAction)
+		showPasswordPromptForSession(session, state, false, viewportLoginRememberPreference(session, serverSlot, character.Name), state.loginAction)
 		return
 	}
 	startViewportLoginRequest(state, session, passwordHash)
@@ -392,7 +394,10 @@ func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 		server:       func() string { return state.loginServer },
 		onServer: func(address string) {
 			state.loginServer = address
+			state.loginCharacter = ""
 			appSessions.selectSession(session.ID())
+			refreshViewportLoginCharacterList(state, session)
+			refreshViewportLoginOverlay(state, session, true)
 		},
 		onConnect: func(_ *eui.ItemData) {
 			appSessions.selectSession(session.ID())

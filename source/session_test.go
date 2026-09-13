@@ -65,13 +65,13 @@ func TestSessionsOwnIndependentLoginRequestsAndStagedPasswords(t *testing.T) {
 	if got := second.login.requestSnapshot(); !reflect.DeepEqual(got, secondSnapshot) {
 		t.Fatalf("changing first login request changed second: got %+v want %+v", got, secondSnapshot)
 	}
-	if _, ok := first.login.takeStagedPassword("Second Hero"); ok {
+	if _, ok := first.login.takeStagedPassword(1, "Second Hero"); ok {
 		t.Fatal("first session consumed second session's staged password")
 	}
-	if update, ok := first.login.takeStagedPassword("First Hero"); !ok || !update.remember {
+	if update, ok := first.login.takeStagedPassword(1, "First Hero"); !ok || !update.remember {
 		t.Fatalf("first staged password = %+v, %v", update, ok)
 	}
-	if update, ok := second.login.takeStagedPassword("Second Hero"); !ok || update.remember {
+	if update, ok := second.login.takeStagedPassword(1, "Second Hero"); !ok || update.remember {
 		t.Fatalf("second staged password = %+v, %v", update, ok)
 	}
 }

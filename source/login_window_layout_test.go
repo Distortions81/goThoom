@@ -132,7 +132,7 @@ func TestLoginCharacterChoicesIncludeFreeDemo(t *testing.T) {
 	characters = []Character{{Name: "Alice", Profession: "Fighter", PictID: 123}}
 	t.Cleanup(func() { characters = originalCharacters })
 
-	choices := loginCharacterChoices()
+	choices := loginCharacterChoices(selectedServerSlot())
 	if len(choices) != 2 {
 		t.Fatalf("login choices = %d, want 2", len(choices))
 	}
@@ -153,6 +153,20 @@ func TestLoginCharacterChoicesIncludeFreeDemo(t *testing.T) {
 		if demo.character.Colors[i] != newbieBrownColors[i] {
 			t.Fatalf("demo clothing color %d = %d, want %d", i, demo.character.Colors[i], newbieBrownColors[i])
 		}
+	}
+}
+
+func TestLoginCharacterChoicesAreScopedByServerSlot(t *testing.T) {
+	originalCharacters := characters
+	characters = []Character{
+		{Name: "First", ServerSlot: 1},
+		{Name: "Second", ServerSlot: 2},
+	}
+	t.Cleanup(func() { characters = originalCharacters })
+
+	choices := loginCharacterChoices(2)
+	if len(choices) != 2 || choices[0].character.Name != "Second" || !choices[1].demo {
+		t.Fatalf("slot 2 login choices = %+v", choices)
 	}
 }
 

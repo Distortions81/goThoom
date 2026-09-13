@@ -1,13 +1,14 @@
 goThoom 59 changes since test58.
 
 Multi-session:
-- Open up to ten independent character tabs above one shared game view. Use + to add a tab and its X, with confirmation, to disconnect and close it.
+- Open up to ten independent character tabs above one shared game view. Tabs resize to fit the game window, with each tab's close X inside it and a separate + button for adding sessions.
 - Connect from each tab with saved characters or the built-in demo character, and use the game view's logout button to disconnect without closing the tab.
 - Switch tabs with the mouse or customizable Ctrl-1 through Ctrl-9 and Ctrl-0 hotkeys. Rendering, input, shared windows, scripts, and audio follow the selected character.
 - Keep background sessions connected and processing network updates, macros, Go scripts, recordings, reconnects, and separate Text Logs without rendering their scenes.
 - Resume a still-active bard performance at its current time when its tab is selected.
 - Restore open tabs and the selected tab on the next launch without reconnecting automatically.
-- Share one settings configuration across every character and session tab.
+- Keep saved login characters in permanent numbered server slots. Every server address can be edited without detaching its characters, and Edit Character can move a login between slots.
 
 Bard music:
 - Match the classic client instrument program and percussion behavior, including the supported instrument aliases and octave handling.
+- Render synchronized /with instruments together through one multi-channel synthesizer, reducing music rendering and buffering overhead.

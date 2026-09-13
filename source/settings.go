@@ -402,7 +402,7 @@ var gsdef settings = settings{
 	MusicEnhancementAmount:  1.0,
 	HighQualityResampling:   true,
 	ServerAddress:           defaultServerHostName + ":5010",
-	ServerAddresses:         nil,
+	ServerAddresses:         append([]string(nil), builtInServerAddresses...),
 	AssetsPath:              "",
 	LogsPath:                "",
 	MacrosPath:              "",

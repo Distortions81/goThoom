@@ -28,21 +28,20 @@ func TestConfiguredSoundFontFileFallsBackToDefault(t *testing.T) {
 	}
 }
 
-func TestMusicSoundFontFallsBackForMissingBankZeroProgram(t *testing.T) {
+func TestMusicSoundFontRequiresSelectedBankZeroProgram(t *testing.T) {
 	selected := &meltysynth.SoundFont{Presets: []*meltysynth.Preset{
 		{BankNumber: 0, PatchNumber: 47},
 		{BankNumber: 128, PatchNumber: 73},
 	}}
-	fallback := &meltysynth.SoundFont{Presets: []*meltysynth.Preset{{BankNumber: 0, PatchNumber: 73}}}
 
-	if got := musicSoundFontForProgram(selected, fallback, 47); got != selected {
-		t.Fatal("available custom program did not use the selected SoundFont")
+	if !soundFontSupportsProgram(selected, 47) {
+		t.Fatal("available custom program was rejected")
 	}
-	if got := musicSoundFontForProgram(selected, fallback, 73); got != fallback {
-		t.Fatal("program present only outside Bank 0 did not use the fallback SoundFont")
+	if soundFontSupportsProgram(selected, 73) {
+		t.Fatal("program present only outside Bank 0 was accepted")
 	}
-	if got := musicSoundFontForProgram(selected, fallback, 106); got != nil {
-		t.Fatal("missing custom program with no default preset unexpectedly found a SoundFont")
+	if soundFontSupportsProgram(selected, 106) {
+		t.Fatal("missing custom program was accepted")
 	}
 }
 
@@ -59,7 +58,7 @@ func TestDefaultSoundFontPathIgnoresCustomSelection(t *testing.T) {
 	}
 }
 
-func TestMissingFallbackProgramReportsConsoleErrorOnce(t *testing.T) {
+func TestMissingSoundFontProgramReportsConsoleErrorOnce(t *testing.T) {
 	originalSettings := gs
 	originalEntries := consoleLog.entries
 	const generation = 987654321
@@ -74,13 +73,13 @@ func TestMissingFallbackProgramReportsConsoleErrorOnce(t *testing.T) {
 	gs.SoundFontFile = "custom.sf2"
 	consoleLog.entries = nil
 
-	want := `Music SoundFont "custom.sf2" is missing Bank 0 preset 106, and "soundfont.sf2" cannot provide a fallback.`
+	want := `Music SoundFont "custom.sf2" is missing Bank 0 preset 106.`
 	if got := reportMissingSoundFontProgram(generation, 106); got != want {
-		t.Fatalf("fallback error = %q, want %q", got, want)
+		t.Fatalf("missing-program error = %q, want %q", got, want)
 	}
 	reportMissingSoundFontProgram(generation, 106)
 	if len(consoleLog.entries) != 1 || consoleLog.entries[0].Text != want {
-		t.Fatalf("console errors = %#v, want one fallback error", consoleLog.entries)
+		t.Fatalf("console errors = %#v, want one missing-program error", consoleLog.entries)
 	}
 }
 

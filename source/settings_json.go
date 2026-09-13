@@ -58,7 +58,7 @@ var settingsSchema = []settingsSchemaEntry{
 	{field: "SetupWizardVersion", category: settingsGeneral, name: "setup_wizard_version"},
 	{field: "LastCharacter", category: settingsGeneral, name: "last_character"},
 	{field: "ServerAddress", category: settingsGeneral, name: "server_address"},
-	{field: "ServerAddresses", category: settingsGeneral, name: "server_addresses"},
+	{field: "ServerAddresses", category: settingsGeneral, name: "servers"},
 	{field: "AltNetMode", category: settingsGeneral, name: "nlspt_enabled"},
 
 	{field: "ClickToToggle", category: settingsControls, name: "click_to_toggle"},
@@ -399,6 +399,17 @@ func unmarshalSettingsDocument(data []byte, defaults settings) (settings, error)
 			switch entry.field {
 			case "AltNetMode":
 				raw, ok = doc.General["alternate_network_enabled"]
+			case "ServerAddresses":
+				// Before server rows became fully editable, this setting held
+				// custom addresses only and the built-in rows were implicit.
+				if legacy, exists := doc.General["server_addresses"]; exists {
+					var custom []string
+					if err := json.Unmarshal(legacy, &custom); err != nil {
+						return settings{}, fmt.Errorf("read legacy server list: %w", err)
+					}
+					result.ServerAddresses = append(append([]string(nil), builtInServerAddresses...), custom...)
+					continue
+				}
 			}
 		}
 		if !ok && entry.field == "InventoryAlternatingRowColors" {

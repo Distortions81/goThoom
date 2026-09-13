@@ -196,3 +196,99 @@ func TestBackfillCharactersFromPlayers(t *testing.T) {
 
 	characters = origChars
 }
+
+func TestLoadLegacyCharactersAssignsFirstServerSlot(t *testing.T) {
+	dir := t.TempDir()
+	originalDir, originalCharacters, originalSettings := dataDirPath, characters, gs
+	dataDirPath = dir
+	gs = gsdef
+	gs.ServerAddresses = []string{"first.example:5010", "second.example:5010"}
+	gs.ServerAddress = gs.ServerAddresses[1]
+	t.Cleanup(func() {
+		dataDirPath, characters, gs = originalDir, originalCharacters, originalSettings
+	})
+
+	data := []byte(`{"version":2,"characters":[{"name":"Legacy Hero"}]}`)
+	if err := os.WriteFile(filepath.Join(dir, charsFilePath), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loadCharacters()
+	if len(characters) != 1 || characters[0].ServerSlot != 1 {
+		t.Fatalf("legacy character slots = %+v, want slot 1", characters)
+	}
+
+	savedData, err := os.ReadFile(filepath.Join(dir, charsFilePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved charactersFile
+	if err := json.Unmarshal(savedData, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if len(saved.Characters) != 1 || saved.Characters[0].ServerSlot != 1 {
+		t.Fatalf("migrated character file = %+v, want slot 1", saved.Characters)
+	}
+}
+
+func TestCharactersAreScopedAndMovableByServerSlot(t *testing.T) {
+	originalCharacters, originalSettings, originalDir := characters, gs, dataDirPath
+	dataDirPath = t.TempDir()
+	gs = gsdef
+	gs.ServerAddresses = []string{"first.example:5010", "second.example:5010"}
+	characters = []Character{
+		{Name: "Hero", ServerSlot: 1, passHash: "first"},
+		{Name: "Hero", ServerSlot: 2, passHash: "second"},
+	}
+	t.Cleanup(func() {
+		characters, gs, dataDirPath = originalCharacters, originalSettings, originalDir
+	})
+
+	first, ok := characterForServerSlot(1, "hero")
+	if !ok || first.passHash != "first" {
+		t.Fatalf("slot 1 character = %+v, %v", first, ok)
+	}
+	second, ok := characterForServerSlot(2, "HERO")
+	if !ok || second.passHash != "second" {
+		t.Fatalf("slot 2 character = %+v, %v", second, ok)
+	}
+	if err := moveCharacterToServerSlot(1, 2, "Hero"); err == nil {
+		t.Fatal("moved a duplicate character name into slot 2")
+	}
+
+	characters = characters[:1]
+	if err := moveCharacterToServerSlot(1, 2, "Hero"); err != nil {
+		t.Fatalf("move character: %v", err)
+	}
+	if _, ok := characterForServerSlot(1, "Hero"); ok {
+		t.Fatal("moved character remained in slot 1")
+	}
+	if moved, ok := characterForServerSlot(2, "Hero"); !ok || moved.ServerSlot != 2 {
+		t.Fatalf("moved character = %+v, %v", moved, ok)
+	}
+}
+
+func TestPrepareEditCharacterSelectsItsServerSlot(t *testing.T) {
+	originalCharacters, originalSettings := characters, gs
+	originalName, originalPass, originalPassPrev := editCharName, editCharPass, editCharPassPrev
+	originalRemember := editCharRemember
+	originalSlot, originalSourceSlot := editCharServerSlot, editCharOriginalServerSlot
+	originalDropdown := editCharServerDropdown
+	gs = gsdef
+	gs.ServerAddresses = []string{"first.example:5010", "second.example:5010"}
+	characters = []Character{{Name: "Hero", ServerSlot: 2, DontRemember: true}}
+	editCharServerDropdown = nil
+	t.Cleanup(func() {
+		characters, gs = originalCharacters, originalSettings
+		editCharName, editCharPass, editCharPassPrev = originalName, originalPass, originalPassPrev
+		editCharRemember = originalRemember
+		editCharServerSlot, editCharOriginalServerSlot = originalSlot, originalSourceSlot
+		editCharServerDropdown = originalDropdown
+	})
+
+	if err := prepareEditCharacterForServerSlotAndSession(nil, 2, "Hero"); err != nil {
+		t.Fatalf("prepare edit character: %v", err)
+	}
+	if editCharServerSlot != 2 || editCharOriginalServerSlot != 2 {
+		t.Fatalf("edit slots = destination %d, source %d; want 2, 2", editCharServerSlot, editCharOriginalServerSlot)
+	}
+}

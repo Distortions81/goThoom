@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 // on disk using a reversible scrambling to avoid exposing the raw hash.
 type Character struct {
 	Name         string         `json:"name"`
+	ServerSlot   int            `json:"server_slot,omitempty"`
 	passHash     string         `json:"-"`
 	Key          string         `json:"key"`
 	DontRemember bool           `json:"-"`
@@ -48,6 +51,7 @@ func loadCharacters() {
 	}
 	if charList.Version >= 1 {
 		var filtered []Character
+		migrated := false
 		for _, c := range charList.Characters {
 			if strings.HasPrefix(c.Name, agratisPrefix) {
 				continue
@@ -58,6 +62,10 @@ func loadCharacters() {
 				c.Key = ""
 			}
 			c.DontRemember = c.passHash == ""
+			if c.ServerSlot < 1 || c.ServerSlot > len(serverAddresses()) {
+				c.ServerSlot = 1
+				migrated = true
+			}
 			if charList.Version >= 2 && c.ColorsHex != "" {
 				if b, ok := decodeHex(c.ColorsHex); ok && len(b) > 0 {
 					cnt := int(b[0])
@@ -71,6 +79,9 @@ func loadCharacters() {
 			filtered = append(filtered, c)
 		}
 		characters = filtered
+		if migrated {
+			saveCharacters()
+		}
 	}
 }
 
@@ -89,6 +100,9 @@ func saveCharacters() {
 			characters[i].Key = ""
 		} else {
 			characters[i].Key = scrambleHash(characters[i].Name, characters[i].passHash)
+		}
+		if characters[i].ServerSlot < 1 || characters[i].ServerSlot > len(serverAddresses()) {
+			characters[i].ServerSlot = 1
 		}
 		if len(characters[i].Colors) > 0 {
 			buf := make([]byte, 1+len(characters[i].Colors))
@@ -127,6 +141,9 @@ func backfillCharactersFromPlayers() {
 	playersMu.RLock()
 	changed := false
 	for i := range characters {
+		if savedCharacterServerSlot(characters[i]) != selectedServerSlot() {
+			continue
+		}
 		p, ok := players[characters[i].Name]
 		if !ok || p == nil {
 			continue
@@ -167,13 +184,61 @@ func scrambleHash(name, h string) string {
 // unscrambleHash reverses the operation of scrambleHash.
 func unscrambleHash(name, h string) string { return scrambleHash(name, h) }
 
-// removeCharacter deletes a stored character by name.
-func removeCharacter(name string) {
+func charactersForServerSlot(slot int) []Character {
+	result := make([]Character, 0, len(characters))
+	for _, character := range characters {
+		if savedCharacterServerSlot(character) == slot {
+			result = append(result, character)
+		}
+	}
+	return result
+}
+
+func characterForServerSlot(slot int, name string) (Character, bool) {
+	name = strings.TrimSpace(name)
+	for _, character := range characters {
+		if savedCharacterServerSlot(character) == slot && strings.EqualFold(character.Name, name) {
+			return character, true
+		}
+	}
+	return Character{}, false
+}
+
+func moveCharacterToServerSlot(fromSlot, toSlot int, name string) error {
+	if toSlot < 1 || toSlot > len(serverAddresses()) {
+		return fmt.Errorf("server slot %d is not available", toSlot)
+	}
+	if fromSlot == toSlot {
+		return nil
+	}
+	if _, exists := characterForServerSlot(toSlot, name); exists {
+		return fmt.Errorf("%s already exists in server slot %d", strings.TrimSpace(name), toSlot)
+	}
+	for index := range characters {
+		if savedCharacterServerSlot(characters[index]) != fromSlot || !strings.EqualFold(characters[index].Name, strings.TrimSpace(name)) {
+			continue
+		}
+		characters[index].ServerSlot = toSlot
+		saveCharacters()
+		return nil
+	}
+	return errors.New("character is no longer available")
+}
+
+func savedCharacterServerSlot(character Character) int {
+	if character.ServerSlot > 0 {
+		return character.ServerSlot
+	}
+	return 1
+}
+
+// removeCharacterFromServerSlot deletes a stored character from one server slot.
+func removeCharacterFromServerSlot(slot int, name string) {
 	for i, c := range characters {
-		if c.Name == name {
+		if savedCharacterServerSlot(c) == slot && strings.EqualFold(c.Name, strings.TrimSpace(name)) {
 			characters = append(characters[:i], characters[i+1:]...)
 			saveCharacters()
-			if gs.LastCharacter == name {
+			if selectedServerSlot() == slot && strings.EqualFold(gs.LastCharacter, name) {
 				rememberLastCharacter("")
 			}
 			return
@@ -181,14 +246,16 @@ func removeCharacter(name string) {
 	}
 }
 
+func removeCharacter(name string) { removeCharacterFromServerSlot(selectedServerSlot(), name) }
+
 // setCharacterPassHash updates the stored password hash and remember flag for the
 // given character name and persists the change to disk.
-func setCharacterPassHash(charName, hash string, remember bool) {
+func setCharacterPassHashForServerSlot(slot int, charName, hash string, remember bool) {
 	if charName == "" {
 		return
 	}
 	for i := range characters {
-		if characters[i].Name != charName {
+		if savedCharacterServerSlot(characters[i]) != slot || !strings.EqualFold(characters[i].Name, charName) {
 			continue
 		}
 		characters[i].passHash = hash
@@ -199,4 +266,8 @@ func setCharacterPassHash(charName, hash string, remember bool) {
 		saveCharacters()
 		return
 	}
+}
+
+func setCharacterPassHash(charName, hash string, remember bool) {
+	setCharacterPassHashForServerSlot(selectedServerSlot(), charName, hash, remember)
 }

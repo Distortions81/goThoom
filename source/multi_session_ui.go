@@ -150,9 +150,12 @@ func refreshSessionTabs() {
 		segment.Fixed = true
 		segment.ConstrainToSize = true
 		segment.Size = eui.Point{X: tabWidth, Y: sessionTabBarHeight / scale}
-		selectWidth := tabWidth - closeWidth
+		// The close button overlaps the right edge of the full-width tab
+		// button. This keeps the X visibly inside the tab it closes while the
+		// reverse-order hit testing still gives the X its own click target.
+		selectWidth := tabWidth
 		selectButton, selectEvents := eui.NewButton()
-		selectButton.Text = sessionTabLabel(session, selectWidth)
+		selectButton.Text = sessionTabLabel(session, tabWidth-closeWidth)
 		selectButton.Size = eui.Point{X: selectWidth, Y: sessionTabBarHeight / scale}
 		selectButton.Position = eui.Point{}
 		selectButton.SetTooltip(fmt.Sprintf("Show Session %d. The shortcut can be changed in Hotkeys.", session.ID()))
@@ -169,7 +172,7 @@ func refreshSessionTabs() {
 		closeButton, closeEvents := eui.NewButton()
 		setMaterialIconOnly(closeButton, "close", "X")
 		closeButton.Size = eui.Point{X: closeWidth, Y: sessionTabBarHeight / scale}
-		closeButton.Position = eui.Point{}
+		closeButton.Position = eui.Point{X: -closeWidth}
 		closeButton.Disabled = count <= 1
 		if closeButton.Disabled {
 			closeButton.SetTooltip("At least one session tab must remain open.")
@@ -205,4 +208,10 @@ func refreshSessionTabs() {
 	sessionTabBar.Size = eui.Point{X: width, Y: sessionTabBarHeight / scale}
 	sessionTabBar.SetItems(items)
 	gameWin.Refresh()
+}
+
+func resizeSessionTabs() {
+	if sessionTabBar != nil {
+		refreshSessionTabs()
+	}
 }

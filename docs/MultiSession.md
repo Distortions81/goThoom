@@ -6,6 +6,11 @@ disconnected tab shows the saved-character list, Add/Edit/Delete actions,
 server list, password prompt, connection status, and errors inside the game
 view.
 
+Saved characters belong to numbered server slots. Selecting a server shows
+only that slot's characters. Server addresses can be edited without affecting
+the characters assigned to the slot, and new servers are added as permanent
+new slots. Use **Edit Character** to move a character to another slot.
+
 Select a tab to make it active. Movement, keyboard input, chat, commands,
 hotkeys, toolbar actions, Inventory, Players, Scripts, Chat, and Console all
 target the active session. Use the logout icon in the lower-right of the game

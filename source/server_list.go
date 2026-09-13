@@ -31,53 +31,53 @@ func sameServerAddress(a, b string) bool {
 	return okA && okB && strings.EqualFold(a, b)
 }
 
-func isBuiltInServerAddress(address string) bool {
-	for _, builtIn := range builtInServerAddresses {
-		if sameServerAddress(address, builtIn) {
-			return true
-		}
-	}
-	return false
+func serverAddresses() []string {
+	return append([]string(nil), gs.ServerAddresses...)
 }
 
-func serverAddresses() []string {
-	addresses := make([]string, 0, len(builtInServerAddresses)+len(gs.ServerAddresses)+1)
-	appendAddress := func(address string) {
-		address, ok := normalizeServerAddress(address)
-		if !ok {
-			return
+// Server slots are one-based positions in the saved server list. Characters
+// refer to the slot so editing an address does not change their association.
+func serverSlotForAddress(address string) int {
+	for index, candidate := range serverAddresses() {
+		if sameServerAddress(candidate, address) {
+			return index + 1
 		}
-		for _, existing := range addresses {
-			if sameServerAddress(existing, address) {
-				return
-			}
-		}
-		addresses = append(addresses, address)
 	}
-	for _, address := range builtInServerAddresses {
-		appendAddress(address)
+	return 0
+}
+
+func selectedServerSlot() int {
+	if slot := serverSlotForAddress(gs.ServerAddress); slot > 0 {
+		return slot
 	}
-	for _, address := range gs.ServerAddresses {
-		appendAddress(address)
-	}
-	appendAddress(gs.ServerAddress)
-	return addresses
+	return 1
 }
 
 func normalizeServerListSettings() {
 	addresses := serverAddresses()
-	var custom []string
-	for _, address := range addresses {
-		if !isBuiltInServerAddress(address) {
-			custom = append(custom, address)
+	if len(addresses) == 0 {
+		addresses = append([]string(nil), builtInServerAddresses...)
+	}
+	for index, address := range addresses {
+		if normalized, ok := normalizeServerAddress(address); ok {
+			addresses[index] = normalized
+		} else {
+			addresses[index] = strings.TrimSpace(address)
 		}
 	}
-	gs.ServerAddresses = custom
 	if address, ok := normalizeServerAddress(gs.ServerAddress); ok {
 		gs.ServerAddress = address
 	} else {
-		gs.ServerAddress = gsdef.ServerAddress
+		gs.ServerAddress = addresses[0]
 	}
+	found := false
+	for _, address := range addresses {
+		found = found || sameServerAddress(address, gs.ServerAddress)
+	}
+	if !found {
+		addresses = append(addresses, gs.ServerAddress)
+	}
+	gs.ServerAddresses = addresses
 }
 
 func addServerAddress(address string) bool {
@@ -85,27 +85,35 @@ func addServerAddress(address string) bool {
 	if !ok {
 		return false
 	}
-	for _, existing := range serverAddresses() {
+	for _, existing := range gs.ServerAddresses {
 		if sameServerAddress(existing, address) {
-			return true
+			return false
 		}
 	}
 	gs.ServerAddresses = append(gs.ServerAddresses, address)
 	return true
 }
 
-func removeServerAddress(address string) bool {
-	if isBuiltInServerAddress(address) {
+func editServerSlot(slot int, replacement string) bool {
+	replacement, ok := normalizeServerAddress(replacement)
+	if !ok || slot < 1 || slot > len(gs.ServerAddresses) {
 		return false
 	}
-	for i, existing := range gs.ServerAddresses {
-		if sameServerAddress(existing, address) {
-			gs.ServerAddresses = append(gs.ServerAddresses[:i], gs.ServerAddresses[i+1:]...)
-			if sameServerAddress(gs.ServerAddress, address) {
-				gs.ServerAddress = gsdef.ServerAddress
-			}
-			return true
+	index := slot - 1
+	for i, address := range gs.ServerAddresses {
+		if i == index {
+			continue
+		}
+		if sameServerAddress(address, replacement) {
+			return false
 		}
 	}
-	return false
+	selected := selectedServerSlot() == slot
+	updated := append([]string(nil), gs.ServerAddresses...)
+	updated[index] = replacement
+	gs.ServerAddresses = updated
+	if selected {
+		gs.ServerAddress = replacement
+	}
+	return true
 }

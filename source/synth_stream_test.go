@@ -100,6 +100,118 @@ func (s *constantStreamSynth) Render(left, right []float32) {
 	}
 }
 
+type recordedMIDIMessage struct {
+	channel, command, data1, data2 int32
+}
+
+type multiChannelStreamSynth struct {
+	messages    []recordedMIDIMessage
+	noteOn      []int32
+	renderCalls int
+}
+
+func (s *multiChannelStreamSynth) ProcessMidiMessage(channel, command, data1, data2 int32) {
+	s.messages = append(s.messages, recordedMIDIMessage{channel, command, data1, data2})
+}
+func (s *multiChannelStreamSynth) NoteOn(channel, _, _ int32) {
+	s.noteOn = append(s.noteOn, channel)
+}
+func (*multiChannelStreamSynth) NoteOff(int32, int32) {}
+func (s *multiChannelStreamSynth) Render(left, right []float32) {
+	s.renderCalls++
+	for i := range left {
+		left[i], right[i] = 0.1, 0.1
+	}
+}
+
+func TestMusicGroupUsesOneSynthWithSeparateInstrumentChannels(t *testing.T) {
+	originalSynth := newSynthesizer
+	originalFont, originalSettings := sfntCached, synthSettings
+	originalMeasure := measureProgramGainForCache
+	programGainMu.Lock()
+	originalGainCache := programGainCache
+	programGainCache = make(map[programGainKey]*programGainCacheEntry)
+	programGainMu.Unlock()
+	t.Cleanup(func() {
+		newSynthesizer = originalSynth
+		measureProgramGainForCache = originalMeasure
+		setupSynthOnce = sync.Once{}
+		sfntCached, synthSettings = originalFont, originalSettings
+		programGainMu.Lock()
+		programGainCache = originalGainCache
+		programGainMu.Unlock()
+	})
+
+	setupSynthOnce = sync.Once{}
+	setupSynthOnce.Do(func() {})
+	sfntCached = &meltysynth.SoundFont{}
+	synthSettings = meltysynth.NewSynthesizerSettings(sampleRate)
+	measureProgramGainForCache = func(_ *meltysynth.SoundFont, program int) float32 {
+		if program == 24 {
+			return 0.5
+		}
+		return 2
+	}
+
+	syn := &multiChannelStreamSynth{}
+	created := 0
+	var maximumPolyphony int32
+	newSynthesizer = func(_ *meltysynth.SoundFont, settings *meltysynth.SynthesizerSettings) (synthesizer, error) {
+		created++
+		maximumPolyphony = settings.MaximumPolyphony
+		return syn, nil
+	}
+	renderer, err := newMusicGroupRenderer([]musicPart{
+		{program: 24, notes: []Note{{Key: 60, Velocity: 100, Duration: time.Second}}},
+		{program: 46, notes: []Note{{Key: 64, Velocity: 100, Duration: time.Second}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created != 1 {
+		t.Fatalf("created %d synthesizers, want 1", created)
+	}
+	if maximumPolyphony != 128 {
+		t.Fatalf("maximum polyphony = %d, want 128", maximumPolyphony)
+	}
+	wantMessages := []recordedMIDIMessage{
+		{0, 0xC0, 24, 0},
+		{0, 0xB0, 0x0B, 64},
+		{0, 0xB0, 0x2B, 0},
+		{1, 0xC0, 46, 0},
+		{1, 0xB0, 0x0B, 127},
+		{1, 0xB0, 0x2B, 127},
+	}
+	if !slices.Equal(syn.messages, wantMessages) {
+		t.Fatalf("MIDI setup = %#v, want %#v", syn.messages, wantMessages)
+	}
+	left, right, err := renderer.render(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if syn.renderCalls != 1 {
+		t.Fatalf("render calls = %d, want one shared render", syn.renderCalls)
+	}
+	if !slices.Equal(syn.noteOn, []int32{0, 1}) {
+		t.Fatalf("note-on channels = %v, want [0 1]", syn.noteOn)
+	}
+	if math.Abs(float64(left[0]-0.2)) > 1e-6 || math.Abs(float64(right[0]-0.2)) > 1e-6 {
+		t.Fatalf("normalized group samples = %v, %v; want 0.2", left[0], right[0])
+	}
+}
+
+func TestMusicGroupSkipsPercussionChannel(t *testing.T) {
+	if got := melodicMusicChannel(8); got != 8 {
+		t.Fatalf("part 9 channel = %d, want 8", got)
+	}
+	if got := melodicMusicChannel(9); got != 10 {
+		t.Fatalf("part 10 channel = %d, want 10", got)
+	}
+	if got := melodicMusicChannel(14); got != 15 {
+		t.Fatalf("part 15 channel = %d, want 15", got)
+	}
+}
+
 func TestProgramNormalizationGainUsesRMSAndPeakLimits(t *testing.T) {
 	if got := programNormalizationGain(0.04, 0.1); got != 2 {
 		t.Fatalf("normalization gain = %v, want 2", got)
@@ -432,11 +544,11 @@ func TestMusicStreamRefillsConsumedChunk(t *testing.T) {
 func TestMusicStreamProducesAudiblePCM(t *testing.T) {
 	fontPath := soundFontForTest(t)
 	originalStorageActive := storagePathsActivated
-	origFont, origFallback, origSettings := sfntCached, sfntFallback, synthSettings
+	origFont, origSettings := sfntCached, synthSettings
 	origSettingsState := gs
 	t.Cleanup(func() {
 		setupSynthOnce = sync.Once{}
-		sfntCached, sfntFallback, synthSettings = origFont, origFallback, origSettings
+		sfntCached, synthSettings = origFont, origSettings
 		gs = origSettingsState
 		storagePathsActivated = originalStorageActive
 	})

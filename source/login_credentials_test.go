@@ -31,10 +31,10 @@ func TestCharacterCredentialEditStagesForTargetSession(t *testing.T) {
 	originalCharacters := characters
 	characters = []Character{{Name: "Hero", DontRemember: true}}
 	secondary := mustNewSession(2)
-	primarySession.login.discardStagedPasswordFor("Hero")
+	primarySession.login.discardStagedPasswordFor(1, "Hero")
 	t.Cleanup(func() {
-		secondary.login.discardStagedPasswordFor("Hero")
-		primarySession.login.discardStagedPasswordFor("Hero")
+		secondary.login.discardStagedPasswordFor(1, "Hero")
+		primarySession.login.discardStagedPasswordFor(1, "Hero")
 		characters = originalCharacters
 	})
 
@@ -46,11 +46,26 @@ func TestCharacterCredentialEditStagesForTargetSession(t *testing.T) {
 	if got != want {
 		t.Fatalf("staged hash = %q, want %q", got, want)
 	}
-	if hash, _, ok := secondary.login.stagedPasswordSettings("Hero"); !ok || hash != want {
+	if hash, _, ok := secondary.login.stagedPasswordSettings(1, "Hero"); !ok || hash != want {
 		t.Fatalf("secondary staged credentials = %q, %v", hash, ok)
 	}
-	if _, _, ok := primarySession.login.stagedPasswordSettings("Hero"); ok {
+	if _, _, ok := primarySession.login.stagedPasswordSettings(1, "Hero"); ok {
 		t.Fatal("secondary credential edit leaked into the primary session")
+	}
+}
+
+func TestStagedPasswordFollowsCharacterServerSlot(t *testing.T) {
+	session := mustNewSession(8)
+	session.login.discardStagedPassword()
+	t.Cleanup(session.login.discardStagedPassword)
+
+	stageSessionPasswordUpdateForServerSlot(session, 1, "Hero", "secret", true)
+	if _, ok := session.login.stagedPasswordHash(2, "Hero"); ok {
+		t.Fatal("slot 1 password was visible in slot 2")
+	}
+	session.login.moveStagedPassword(1, 2, "Hero")
+	if hash, ok := session.login.stagedPasswordHash(2, "Hero"); !ok || hash != hashPassword("secret") {
+		t.Fatalf("moved staged password = %q, %v", hash, ok)
 	}
 }
 

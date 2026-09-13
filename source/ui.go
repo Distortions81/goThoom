@@ -71,6 +71,9 @@ var editCharPassWarn *eui.ItemData
 var editCharPassPrev string
 var editCharRemember bool
 var editCharRememberCB *eui.ItemData
+var editCharServerSlot int
+var editCharOriginalServerSlot int
+var editCharServerDropdown *eui.ItemData
 var editCharBtn *eui.ItemData
 var deleteCharBtn *eui.ItemData
 
@@ -2917,6 +2920,7 @@ type loginCharacterListConfig struct {
 	list       *eui.ItemData
 	width      float32
 	radioGroup string
+	server     string
 	selection  string
 	onCurrent  func(loginCharacterChoice)
 	onSelect   func(loginCharacterChoice)
@@ -2988,7 +2992,7 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 		if event.Type != eui.EventClick {
 			return
 		}
-		character, ok := selectedCharacter(config.selection())
+		character, ok := characterForServerSlot(serverSlotForAddress(config.server()), config.selection())
 		if !ok {
 			makeErrorWindow("Select a saved character to delete.")
 			return
@@ -3038,9 +3042,11 @@ func newSessionLoginControls(config sessionLoginControlsConfig) sessionLoginCont
 	return controls
 }
 
-func loginCharacterChoices() []loginCharacterChoice {
-	choices := make([]loginCharacterChoice, 0, len(characters)+1)
-	for _, character := range characters {
+func loginCharacterChoices(serverSlot int) []loginCharacterChoice {
+	saved := charactersForServerSlot(serverSlot)
+	choices := make([]loginCharacterChoice, 0, len(saved)+1)
+	for _, character := range saved {
+		character.ServerSlot = savedCharacterServerSlot(character)
 		choices = append(choices, loginCharacterChoice{
 			character: character,
 			selection: character.Name,
@@ -3058,16 +3064,12 @@ func loginCharacterChoices() []loginCharacterChoice {
 	return choices
 }
 
-func validLoginCharacterSelection(selection string) bool {
+func validLoginCharacterSelection(serverSlot int, selection string) bool {
 	if selection == freeDemoSelection {
 		return true
 	}
-	for _, character := range characters {
-		if character.Name == selection {
-			return true
-		}
-	}
-	return false
+	_, ok := characterForServerSlot(serverSlot, selection)
+	return ok
 }
 
 // refreshLoginCharacterList is the shared saved-character UI used by the
@@ -3081,7 +3083,7 @@ func refreshLoginCharacterList(config loginCharacterListConfig) {
 		config.list.Contents[index] = nil
 	}
 	config.list.Contents = config.list.Contents[:0]
-	for _, choice := range loginCharacterChoices() {
+	for _, choice := range loginCharacterChoices(serverSlotForAddress(config.server)) {
 		character := choice.character
 		row := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_HORIZONTAL, Position: eui.Point{Y: 4}}
 
@@ -3170,14 +3172,16 @@ func updateCharacterButtons() {
 	if charactersList == nil {
 		return
 	}
-	if name != "" && !validLoginCharacterSelection(name) {
+	serverSlot := selectedServerSlot()
+	savedCharacters := charactersForServerSlot(serverSlot)
+	if name != "" && !validLoginCharacterSelection(serverSlot, name) {
 		name = ""
 		passHash = ""
 		pass = ""
 	}
 	if name == "" {
 		if gs.LastCharacter != "" {
-			for _, c := range characters {
+			for _, c := range savedCharacters {
 				if c.Name == gs.LastCharacter {
 					name = c.Name
 					passHash = c.passHash
@@ -3189,15 +3193,15 @@ func updateCharacterButtons() {
 				}
 			}
 		}
-		if name == "" && len(characters) == 1 {
-			name = characters[0].Name
-			passHash = characters[0].passHash
-			if stagedHash, ok := stagedPasswordHash(characters[0].Name); ok {
+		if name == "" && len(savedCharacters) == 1 {
+			name = savedCharacters[0].Name
+			passHash = savedCharacters[0].passHash
+			if stagedHash, ok := stagedPasswordHash(savedCharacters[0].Name); ok {
 				passHash = stagedHash
 			}
 			pass = ""
 		}
-		if name == "" && len(characters) == 0 {
+		if name == "" && len(savedCharacters) == 0 {
 			name = freeDemoSelection
 			passHash = ""
 			pass = ""
@@ -3207,6 +3211,7 @@ func updateCharacterButtons() {
 		list:       charactersList,
 		width:      charWinWidth,
 		radioGroup: "characters-primary",
+		server:     gs.ServerAddress,
 		selection:  name,
 		onCurrent: func(choice loginCharacterChoice) {
 			hash := choice.character.passHash
@@ -3270,6 +3275,22 @@ func sessionForLoginTarget(id SessionID) *Session {
 	return nil
 }
 
+func serverForLoginTarget(target loginSurfaceTarget) string {
+	if !target.viewport {
+		return gs.ServerAddress
+	}
+	if appViewports != nil {
+		if state := appViewports.renderStateForSession(target.sessionID); state != nil {
+			return state.loginServer
+		}
+	}
+	return gs.ServerAddress
+}
+
+func serverSlotForLoginTarget(target loginSurfaceTarget) int {
+	return serverSlotForAddress(serverForLoginTarget(target))
+}
+
 func restoreLoginTarget(target loginSurfaceTarget) {
 	if !target.viewport {
 		if loginWin != nil {
@@ -3325,7 +3346,8 @@ func openAddCharacterForLogin(target loginSurfaceTarget, anchor *eui.ItemData) {
 }
 
 func openEditCharacterForLogin(target loginSurfaceTarget, characterName string, anchor *eui.ItemData) {
-	if _, ok := selectedCharacter(characterName); !ok {
+	serverSlot := serverSlotForLoginTarget(target)
+	if _, ok := characterForServerSlot(serverSlot, characterName); !ok {
 		makeErrorWindow("Select a saved character to edit.")
 		return
 	}
@@ -3336,7 +3358,7 @@ func openEditCharacterForLogin(target loginSurfaceTarget, characterName string, 
 		return
 	}
 	characterEditorTarget = target
-	if err := prepareEditCharacterForSession(sessionForLoginTarget(target.sessionID), characterName); err != nil {
+	if err := prepareEditCharacterForServerSlotAndSession(sessionForLoginTarget(target.sessionID), serverSlot, characterName); err != nil {
 		makeErrorWindow("Error: Edit Character: " + err.Error())
 		return
 	}
@@ -3406,18 +3428,19 @@ func makeAddCharacterWindow() {
 	addEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventClick {
 			characterName := strings.TrimSpace(addCharName)
+			target := characterEditorTarget
+			serverSlot := serverSlotForLoginTarget(target)
 			if characterName == "" {
 				makeErrorWindow("Error: Add Character: character name is empty")
 				return
 			}
-			if _, exists := selectedCharacter(characterName); exists {
+			if _, exists := characterForServerSlot(serverSlot, characterName); exists {
 				makeErrorWindow("Error: Add Character: character already exists. Use Edit Character to change it.")
 				return
 			}
-			characters = append(characters, Character{Name: characterName, DontRemember: true})
+			characters = append(characters, Character{Name: characterName, ServerSlot: serverSlot, DontRemember: true})
 			saveCharacters()
-			target := characterEditorTarget
-			hash := stageAddedCharacterPasswordForSession(sessionForLoginTarget(target.sessionID), characterName, addCharPass, addCharRemember)
+			hash := stageAddedCharacterPasswordForServerSlotAndSession(sessionForLoginTarget(target.sessionID), serverSlot, characterName, addCharPass, addCharRemember)
 			selectCharacterForLoginTarget(target, characterName, hash)
 			refreshLoginCharacterPanels()
 			// Clear the add-character inputs for good UX on repeat adds
@@ -3452,35 +3475,30 @@ func makeAddCharacterWindow() {
 }
 
 func stageAddedCharacterPassword(characterName, password string, remember bool) string {
-	return stageAddedCharacterPasswordForSession(primarySession, characterName, password, remember)
+	return stageAddedCharacterPasswordForServerSlotAndSession(primarySession, selectedServerSlot(), characterName, password, remember)
 }
 
 func stageAddedCharacterPasswordForSession(session *Session, characterName, password string, remember bool) string {
+	return stageAddedCharacterPasswordForServerSlotAndSession(session, selectedServerSlot(), characterName, password, remember)
+}
+
+func stageAddedCharacterPasswordForServerSlotAndSession(session *Session, serverSlot int, characterName, password string, remember bool) string {
 	if password != "" {
-		return stageSessionPasswordUpdate(session, characterName, password, remember)
+		return stageSessionPasswordUpdateForServerSlot(session, serverSlot, characterName, password, remember)
 	}
 	if session != nil {
-		if hash, staged := session.login.stagedPasswordHash(characterName); staged {
+		if hash, staged := session.login.stagedPasswordHash(serverSlot, characterName); staged {
 			return hash
 		}
 	}
-	if hash, staged := stagedPasswordHash(characterName); staged {
-		return hash
-	}
-	if character, exists := selectedCharacter(characterName); exists {
+	if character, exists := characterForServerSlot(serverSlot, characterName); exists {
 		return character.passHash
 	}
 	return ""
 }
 
 func selectedCharacter(characterName string) (Character, bool) {
-	characterName = strings.TrimSpace(characterName)
-	for i := range characters {
-		if strings.EqualFold(characters[i].Name, characterName) {
-			return characters[i], true
-		}
-	}
-	return Character{}, false
+	return characterForServerSlot(selectedServerSlot(), characterName)
 }
 
 func prepareEditCharacter(characterName string) error {
@@ -3488,18 +3506,24 @@ func prepareEditCharacter(characterName string) error {
 }
 
 func prepareEditCharacterForSession(session *Session, characterName string) error {
-	character, ok := selectedCharacter(characterName)
+	return prepareEditCharacterForServerSlotAndSession(session, selectedServerSlot(), characterName)
+}
+
+func prepareEditCharacterForServerSlotAndSession(session *Session, serverSlot int, characterName string) error {
+	character, ok := characterForServerSlot(serverSlot, characterName)
 	if !ok {
 		return errors.New("select a character to edit first")
 	}
 
 	editCharName = character.Name
+	editCharOriginalServerSlot = serverSlot
+	editCharServerSlot = serverSlot
 	editCharRemember = !character.DontRemember && character.passHash != ""
 	if session != nil {
-		if _, remember, staged := session.login.stagedPasswordSettings(character.Name); staged {
+		if _, remember, staged := session.login.stagedPasswordSettings(serverSlot, character.Name); staged {
 			editCharRemember = remember
 		}
-	} else if _, remember, staged := stagedPasswordSettings(character.Name); staged {
+	} else if _, remember, staged := primarySession.login.stagedPasswordSettings(serverSlot, character.Name); staged {
 		editCharRemember = remember
 	}
 	editCharPass = ""
@@ -3514,7 +3538,21 @@ func prepareEditCharacterForSession(session *Session, characterName string) erro
 		editCharRememberCB.Checked = editCharRemember
 		editCharRememberCB.Dirty = true
 	}
+	if editCharServerDropdown != nil {
+		editCharServerDropdown.Options = serverSlotOptions()
+		editCharServerDropdown.Selected = max(0, serverSlot-1)
+		editCharServerDropdown.Dirty = true
+	}
 	return nil
+}
+
+func serverSlotOptions() []string {
+	addresses := serverAddresses()
+	options := make([]string, len(addresses))
+	for index, address := range addresses {
+		options[index] = fmt.Sprintf("%d — %s", index+1, address)
+	}
+	return options
 }
 
 func makeEditCharacterWindow() {
@@ -3530,6 +3568,19 @@ func makeEditCharacterWindow() {
 	editCharWin.Movable = true
 
 	flow := eui.NewColumn()
+
+	server, serverEvents := eui.NewDropdown()
+	editCharServerDropdown = server
+	server.Label = "Server Slot"
+	server.Options = serverSlotOptions()
+	server.Size = eui.Point{X: 280, Y: 24}
+	server.SetTooltip("Move this character to another numbered server slot.")
+	serverEvents.Handle = func(ev eui.UIEvent) {
+		if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(server.Options) {
+			editCharServerSlot = ev.Index + 1
+		}
+	}
+	flow.AddItem(server)
 
 	input, inputEvents := eui.NewInput()
 	input.Label = "New Password"
@@ -3588,17 +3639,39 @@ func makeEditCharacterWindow() {
 			return
 		}
 		target := characterEditorTarget
-		hash, err := applyCharacterCredentialEditForSession(sessionForLoginTarget(target.sessionID), editCharName, editCharPass, editCharRemember)
+		session := sessionForLoginTarget(target.sessionID)
+		if editCharServerSlot != editCharOriginalServerSlot {
+			if _, exists := characterForServerSlot(editCharServerSlot, editCharName); exists {
+				makeErrorWindow(fmt.Sprintf("Error: Edit Character: %s already exists in server slot %d.", editCharName, editCharServerSlot))
+				return
+			}
+		}
+		hash, err := applyCharacterCredentialEditForServerSlotAndSession(session, editCharOriginalServerSlot, editCharName, editCharPass, editCharRemember)
 		if err != nil {
 			makeErrorWindow("Error: Edit Character: " + err.Error())
 			return
 		}
-		if !target.viewport && strings.EqualFold(name, editCharName) {
+		if err := moveCharacterToServerSlot(editCharOriginalServerSlot, editCharServerSlot, editCharName); err != nil {
+			makeErrorWindow("Error: Edit Character: " + err.Error())
+			return
+		}
+		if session != nil {
+			session.login.moveStagedPassword(editCharOriginalServerSlot, editCharServerSlot, editCharName)
+		}
+		movedAway := editCharServerSlot != serverSlotForLoginTarget(target)
+		if !target.viewport && strings.EqualFold(name, editCharName) && !movedAway {
 			rememberLastCharacter(editCharName)
 			passHash = hash
 			pass = ""
-		} else if target.viewport {
+		} else if target.viewport && !movedAway {
 			selectCharacterForLoginTarget(target, editCharName, hash)
+		} else if !target.viewport {
+			name, passHash, pass = "", "", ""
+			rememberLastCharacter("")
+		} else if appViewports != nil {
+			if state := appViewports.renderStateForSession(target.sessionID); state != nil {
+				state.loginCharacter = ""
+			}
 		}
 		clearPasswordInput(editCharPassInput, &editCharPass)
 		editCharPassPrev = ""
@@ -3714,7 +3787,7 @@ func makePasswordWindow() {
 					characterName = state.loginCharacter
 				}
 			}
-			setPasswordPromptRememberForSession(sessionForLoginTarget(target.sessionID), characterName, ev.Checked)
+			setPasswordPromptRememberForServerSlotAndSession(sessionForLoginTarget(target.sessionID), serverSlotForLoginTarget(target), characterName, ev.Checked)
 		}
 	}
 	flow.AddItem(passRememberCB)
@@ -4065,6 +4138,7 @@ func selectLoginServer(address string) {
 		applyServerAddressSetting()
 		settingsDirty = true
 		refreshLoginServerDropdown()
+		refreshLoginCharacterPanels()
 	}
 }
 
@@ -4076,35 +4150,67 @@ func refreshServerListEditor() {
 		serverListContents.Contents[i] = nil
 	}
 	serverListContents.Contents = serverListContents.Contents[:0]
-	for _, address := range serverAddresses() {
+	addresses := serverAddresses()
+	for index, address := range addresses {
 		row := eui.NewRow()
-		label := eui.NewLabel(address)
-		label.Size = eui.Point{X: 300, Y: 24}
-		row.AddItem(label)
-		if isBuiltInServerAddress(address) {
-			builtIn := eui.NewLabel("Built-in")
-			builtIn.Size = eui.Point{X: 80, Y: 24}
-			row.AddItem(builtIn)
-		} else {
-			remove, events := eui.NewButton()
-			remove.Text = "Remove"
-			remove.Size = eui.Point{X: 80, Y: 24}
-			addressCopy := address
-			events.Handle = func(ev eui.UIEvent) {
-				if ev.Type != eui.EventClick || !removeServerAddress(addressCopy) {
-					return
-				}
-				applyServerAddressSetting()
-				settingsDirty = true
-				refreshLoginServerDropdown()
-				refreshServerListEditor()
+		slot := eui.NewLabel(fmt.Sprintf("%d", index+1))
+		slot.Size = eui.Point{X: 28, Y: 24}
+		row.AddItem(slot)
+		slotNumber := index + 1
+		addressCopy := address
+		editedAddress := address
+		input, _ := eui.NewInput()
+		input.TextPtr = &editedAddress
+		input.Size = eui.Point{X: 260, Y: 24}
+		row.AddItem(input)
+
+		save, saveEvents := eui.NewButton()
+		save.Text = "Save"
+		save.Size = eui.Point{X: 64, Y: 24}
+		saveEvents.Handle = func(ev eui.UIEvent) {
+			if ev.Type != eui.EventClick {
+				return
 			}
-			row.AddItem(remove)
+			if !editServerSlot(slotNumber, editedAddress) {
+				makeErrorWindow("Error: Server: enter a unique host and port, such as server.example:5010.")
+				return
+			}
+			replacement, _ := normalizeServerAddress(editedAddress)
+			replaceLoginServerAddressReferences(addressCopy, replacement)
+			applyServerAddressSetting()
+			settingsDirty = true
+			refreshLoginServerDropdown()
+			refreshLoginCharacterPanels()
+			refreshServerListEditor()
 		}
+		row.AddItem(save)
+
 		serverListContents.AddItem(row)
 	}
 	if serverListWin != nil {
 		serverListWin.Refresh()
+	}
+}
+
+func replaceLoginServerAddressReferences(current, replacement string) {
+	if appViewports != nil {
+		for _, view := range appViewports.snapshot() {
+			if view.render != nil && sameServerAddress(view.render.loginServer, current) {
+				view.render.loginServer = replacement
+			}
+		}
+	}
+	if appSessions != nil {
+		for _, session := range appSessions.snapshot() {
+			if session == nil {
+				continue
+			}
+			request := session.login.requestSnapshot()
+			if sameServerAddress(request.host, current) {
+				request.host = replacement
+				session.login.setRequest(request)
+			}
+		}
 	}
 }
 
@@ -4127,7 +4233,7 @@ func openServerListWindow() {
 
 	flow := eui.NewColumn()
 	instructions, _ := eui.NewText()
-	instructions.Text = "Built-in servers are always available and cannot be removed."
+	instructions.Text = "Each numbered server slot can be edited but is never deleted."
 	instructions.FontSize = 14
 	instructions.Size = eui.Point{X: 420, Y: 28}
 	flow.AddItem(instructions)
@@ -4153,7 +4259,7 @@ func openServerListWindow() {
 			return
 		}
 		if !addServerAddress(serverListAddress) {
-			makeErrorWindow("Error: Server: enter a host and port, such as server.example:5010.")
+			makeErrorWindow("Error: Server: enter a unique host and port, such as server.example:5010.")
 			return
 		}
 		selectLoginServer(serverListAddress)
@@ -4786,17 +4892,17 @@ func confirmRemoveCharacter(c Character, target SessionID) {
 			{Text: "Cancel"},
 			{Text: "Delete Character", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
 				if session := sessionForLoginTarget(target); session != nil {
-					session.login.discardStagedPasswordFor(c.Name)
+					session.login.discardStagedPasswordFor(c.ServerSlot, c.Name)
 				}
-				removeCharacter(c.Name)
-				if strings.EqualFold(name, c.Name) {
+				removeCharacterFromServerSlot(c.ServerSlot, c.Name)
+				if selectedServerSlot() == c.ServerSlot && strings.EqualFold(name, c.Name) {
 					name = ""
 					passHash = ""
 					pass = ""
 				}
 				if appViewports != nil {
 					for _, view := range appViewports.snapshot() {
-						if view.render != nil && strings.EqualFold(view.render.loginCharacter, c.Name) {
+						if view.render != nil && serverSlotForAddress(view.render.loginServer) == c.ServerSlot && strings.EqualFold(view.render.loginCharacter, c.Name) {
 							view.render.loginCharacter = ""
 						}
 					}

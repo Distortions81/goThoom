@@ -48,6 +48,8 @@ func TestViewportLoginPanelAndLogoutTrackConnectionState(t *testing.T) {
 	state.window.Size = eui.Point{X: 640, Y: 420}
 	oldCharacters := characters
 	oldSettings := gs
+	gs.ServerAddress = "example.test:5010"
+	gs.ServerAddresses = []string{gs.ServerAddress}
 	gs.LastCharacter = ""
 	characters = []Character{
 		{Name: "Alice", passHash: "0123456789abcdef0123456789abcdef"},

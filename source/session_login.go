@@ -208,76 +208,88 @@ func (s *sessionLoginState) clearCredentials() {
 	s.mu.Unlock()
 }
 
-func (s *sessionLoginState) stagePassword(character, password string, remember bool) string {
+func (s *sessionLoginState) stagePassword(serverSlot int, character, password string, remember bool) string {
 	if s == nil {
 		return ""
 	}
 	hash := hashPassword(password)
 	s.mu.Lock()
 	s.staged = &stagedPasswordUpdate{
-		character: character,
-		hash:      hash,
-		remember:  remember,
+		serverSlot: serverSlot,
+		character:  character,
+		hash:       hash,
+		remember:   remember,
 	}
 	s.mu.Unlock()
 	return hash
 }
 
-func (s *sessionLoginState) stagedPasswordHash(character string) (string, bool) {
+func (s *sessionLoginState) stagedPasswordHash(serverSlot int, character string) (string, bool) {
 	if s == nil {
 		return "", false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.staged == nil || !strings.EqualFold(s.staged.character, character) {
+	if s.staged == nil || s.staged.serverSlot != serverSlot || !strings.EqualFold(s.staged.character, character) {
 		return "", false
 	}
 	return s.staged.hash, true
 }
 
-func (s *sessionLoginState) stagedPasswordSettings(character string) (hash string, remember bool, ok bool) {
+func (s *sessionLoginState) stagedPasswordSettings(serverSlot int, character string) (hash string, remember bool, ok bool) {
 	if s == nil {
 		return "", false, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.staged == nil || !strings.EqualFold(s.staged.character, character) {
+	if s.staged == nil || s.staged.serverSlot != serverSlot || !strings.EqualFold(s.staged.character, character) {
 		return "", false, false
 	}
 	return s.staged.hash, s.staged.remember, true
 }
 
-func (s *sessionLoginState) updateStagedPasswordRemember(character string, remember bool) (hash string, ok bool) {
+func (s *sessionLoginState) updateStagedPasswordRemember(serverSlot int, character string, remember bool) (hash string, ok bool) {
 	if s == nil {
 		return "", false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.staged == nil || !strings.EqualFold(s.staged.character, character) {
+	if s.staged == nil || s.staged.serverSlot != serverSlot || !strings.EqualFold(s.staged.character, character) {
 		return "", false
 	}
 	s.staged.remember = remember
 	return s.staged.hash, true
 }
 
-func (s *sessionLoginState) discardStagedPasswordFor(character string) {
+func (s *sessionLoginState) discardStagedPasswordFor(serverSlot int, character string) {
 	if s == nil {
 		return
 	}
 	s.mu.Lock()
-	if s.staged != nil && strings.EqualFold(s.staged.character, character) {
+	if s.staged != nil && s.staged.serverSlot == serverSlot && strings.EqualFold(s.staged.character, character) {
 		s.staged = nil
 	}
 	s.mu.Unlock()
 }
 
-func (s *sessionLoginState) takeStagedPassword(character string) (stagedPasswordUpdate, bool) {
+func (s *sessionLoginState) moveStagedPassword(fromSlot, toSlot int, character string) {
+	if s == nil || fromSlot == toSlot {
+		return
+	}
+	s.mu.Lock()
+	if s.staged != nil && s.staged.serverSlot == fromSlot && strings.EqualFold(s.staged.character, character) {
+		s.staged.serverSlot = toSlot
+	}
+	s.mu.Unlock()
+}
+
+func (s *sessionLoginState) takeStagedPassword(serverSlot int, character string) (stagedPasswordUpdate, bool) {
 	if s == nil {
 		return stagedPasswordUpdate{}, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.staged == nil || !strings.EqualFold(s.staged.character, character) {
+	if s.staged == nil || s.staged.serverSlot != serverSlot || !strings.EqualFold(s.staged.character, character) {
 		return stagedPasswordUpdate{}, false
 	}
 	update := *s.staged

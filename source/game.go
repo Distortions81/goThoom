@@ -4841,6 +4841,7 @@ func onGameWindowResize() {
 	}
 	if inAspectResize {
 		updateGameImageSize()
+		resizeSessionTabs()
 		return
 	}
 	// The tiled layout owns the outer window geometry. Constraining that
@@ -4849,6 +4850,7 @@ func onGameWindowResize() {
 	// Keep the assigned tile intact and fit the rendered game within it.
 	if gs.TiledWindows {
 		updateGameImageSize()
+		resizeSessionTabs()
 		layoutNotifications()
 		return
 	}
@@ -4865,6 +4867,7 @@ func onGameWindowResize() {
 	availH := float64(int(size.Y)&^1) - pad - title - float64(sessionTabBarPixelHeight())
 	if availW <= 0 || availH <= 0 {
 		updateGameImageSize()
+		resizeSessionTabs()
 		return
 	}
 
@@ -4886,6 +4889,7 @@ func onGameWindowResize() {
 		inAspectResize = false
 	}
 	updateGameImageSize()
+	resizeSessionTabs()
 	layoutNotifications()
 }
 

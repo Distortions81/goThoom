@@ -89,6 +89,25 @@ func TestSessionTabBarAddsUpToTenSessions(t *testing.T) {
 	if math.Abs(float64(childWidth-wantWidth)) > 0.01 {
 		t.Fatalf("tab and add widths = %.2f, want %.2f", childWidth, wantWidth)
 	}
+	firstTab := sessionTabBar.Contents[0]
+	selectButton, closeButton := firstTab.Contents[0], firstTab.Contents[1]
+	if got, want := selectButton.GetSize().X, firstTab.GetSize().X; math.Abs(float64(got-want)) > 0.01 {
+		t.Fatalf("tab button width = %.2f, want enclosing tab width %.2f", got, want)
+	}
+	if got, want := closeButton.Position.X, -closeButton.Size.X; math.Abs(float64(got-want)) > 0.01 {
+		t.Fatalf("close button x offset = %.2f, want %.2f so it sits inside its tab", got, want)
+	}
+
+	originalTabWidth := firstTab.GetSize().X
+	gameWin.Size.X /= 2
+	refreshSessionTabs()
+	wantWidth = gameWin.GetSize().X - 2*(gameWin.Padding+gameWin.BorderPad)
+	if got := sessionTabBar.GetSize().X; math.Abs(float64(got-wantWidth)) > 0.01 {
+		t.Fatalf("resized tab strip width = %.2f, want available %.2f", got, wantWidth)
+	}
+	if got := sessionTabBar.Contents[0].GetSize().X; got >= originalTabWidth {
+		t.Fatalf("tab width did not shrink with available space: %.2f >= %.2f", got, originalTabWidth)
+	}
 }
 
 func TestSessionTabPositionUsesOpenTabOrder(t *testing.T) {

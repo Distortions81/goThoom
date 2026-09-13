@@ -57,7 +57,6 @@ type synthesizer interface {
 var (
 	setupSynthOnce  sync.Once
 	sfntCached      *meltysynth.SoundFont
-	sfntFallback    *meltysynth.SoundFont
 	synthSettings   *meltysynth.SynthesizerSettings
 	synthCacheMu    sync.RWMutex
 	synthGeneration uint64
@@ -122,18 +121,6 @@ func loadSoundFont(path string) (*meltysynth.SoundFont, error) {
 	return meltysynth.NewSoundFont(bytes.NewReader(sfData))
 }
 
-func loadFallbackSoundFont(selectedName string, selected *meltysynth.SoundFont) *meltysynth.SoundFont {
-	if strings.EqualFold(selectedName, soundFontFile) {
-		return selected
-	}
-	fallback, err := loadSoundFont(defaultSoundFontPath())
-	if err != nil {
-		log.Printf("default soundfont unavailable for missing-instrument fallback: %v", err)
-		return nil
-	}
-	return fallback
-}
-
 func soundFontHasProgram(font *meltysynth.SoundFont, program int) bool {
 	if font == nil {
 		return false
@@ -146,30 +133,19 @@ func soundFontHasProgram(font *meltysynth.SoundFont, program int) bool {
 	return false
 }
 
-// musicSoundFontForProgram keeps partial custom SoundFonts useful. MeltySynth
-// otherwise substitutes the first preset in a font when a requested program
-// is absent, which can turn every missing Clan Lord instrument into an
-// unrelated sound.
-func musicSoundFontForProgram(selected, fallback *meltysynth.SoundFont, program int) *meltysynth.SoundFont {
+// soundFontSupportsProgram prevents MeltySynth from silently substituting the
+// first preset when the selected SoundFont lacks a requested instrument.
+func soundFontSupportsProgram(selected *meltysynth.SoundFont, program int) bool {
 	if selected == nil {
-		if soundFontHasProgram(fallback, program) {
-			return fallback
-		}
-		return nil
+		return false
 	}
 	// Unit tests use an empty SoundFont with an injected synthesizer. A parsed
 	// production SoundFont always contains at least one preset.
-	if len(selected.Presets) == 0 || soundFontHasProgram(selected, program) {
-		return selected
-	}
-	if soundFontHasProgram(fallback, program) {
-		return fallback
-	}
-	return nil
+	return len(selected.Presets) == 0 || soundFontHasProgram(selected, program)
 }
 
 func reportMissingSoundFontProgram(generation uint64, program int) string {
-	message := fmt.Sprintf("Music SoundFont %q is missing Bank 0 preset %d, and %q cannot provide a fallback.", configuredSoundFontFile(), program, soundFontFile)
+	message := fmt.Sprintf("Music SoundFont %q is missing Bank 0 preset %d.", configuredSoundFontFile(), program)
 	key := programGainKey{generation: generation, program: program}
 	missingProgramMu.Lock()
 	_, reported := missingProgramReported[key]
@@ -224,10 +200,8 @@ func selectSoundFont(name string) error {
 	if err != nil {
 		return fmt.Errorf("load soundfont %q: %w", name, err)
 	}
-	fallback := loadFallbackSoundFont(name, font)
 	synthCacheMu.Lock()
 	sfntCached = font
-	sfntFallback = fallback
 	synthSettings = newSynthSettings()
 	synthGeneration++
 	synthCacheMu.Unlock()
@@ -351,10 +325,8 @@ func setupSynth() {
 		log.Printf("soundfont missing: %v", err)
 		return
 	}
-	fallback := loadFallbackSoundFont(selectedName, sfnt)
 	synthCacheMu.Lock()
 	sfntCached = sfnt
-	sfntFallback = fallback
 	synthSettings = newSynthSettings()
 	synthGeneration++
 	synthCacheMu.Unlock()
@@ -482,24 +454,34 @@ type songEvent struct {
 func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	setupSynthOnce.Do(setupSynth)
 	synthCacheMu.RLock()
-	selected, fallback, settings, generation := sfntCached, sfntFallback, synthSettings, synthGeneration
+	selected, settings, generation := sfntCached, synthSettings, synthGeneration
 	synthCacheMu.RUnlock()
-	font := musicSoundFontForProgram(selected, fallback, program)
-	if selected != nil && font == nil {
+	if selected != nil && !soundFontSupportsProgram(selected, program) {
 		return nil, errors.New(reportMissingSoundFontProgram(generation, program))
 	}
-	if font == nil || settings == nil {
+	if selected == nil || settings == nil {
 		return nil, errors.New("synth not initialized")
 	}
 
 	const ch = 0
 	// Build a fresh synth per song to avoid concurrent use of internal state.
-	syn, err := newSynthesizer(font, settings)
+	syn, err := newSynthesizer(selected, settings)
 	if err != nil {
 		return nil, err
 	}
 	syn.ProcessMidiMessage(ch, 0xC0, int32(program), 0)
 
+	events, maxEnd := buildSongEvents(program, notes)
+	return &songRenderer{
+		syn:          syn,
+		gain:         soundFontProgramGain(selected, generation, program),
+		events:       events,
+		active:       make(map[int]bool),
+		totalSamples: maxEnd + tailSamples,
+	}, nil
+}
+
+func buildSongEvents(program int, notes []Note) ([]songEvent, int) {
 	var events []songEvent
 	for _, n := range notes {
 		durSamples := int((n.Duration.Nanoseconds()*int64(sampleRate) + int64(time.Second/2)) / int64(time.Second))
@@ -571,13 +553,7 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 		}
 	}
 
-	return &songRenderer{
-		syn:          syn,
-		gain:         soundFontProgramGain(font, generation, program),
-		events:       events,
-		active:       make(map[int]bool),
-		totalSamples: maxEnd + tailSamples,
-	}, nil
+	return events, maxEnd
 }
 
 func (r *songRenderer) remaining() int { return r.totalSamples - r.pos }
@@ -859,6 +835,155 @@ type musicPart struct {
 	notes   []Note
 }
 
+const musicMelodicChannelCount = 15
+
+type musicGroupPartRenderer struct {
+	channel int32
+	events  []songEvent
+	active  map[int]bool
+}
+
+// musicGroupRenderer assigns each bard part to a MIDI channel on one
+// synthesizer. MeltySynth then mixes all voices directly into one stereo
+// buffer instead of requiring a separate stereo buffer and synth per part.
+type musicGroupRenderer struct {
+	syn          synthesizer
+	gain         float32
+	parts        []musicGroupPartRenderer
+	pos          int
+	totalSamples int
+}
+
+func melodicMusicChannel(index int) int32 {
+	channel := int32(index)
+	if channel >= 9 {
+		channel++ // General MIDI channel 10 is reserved for percussion.
+	}
+	return channel
+}
+
+func newMusicGroupRenderer(parts []musicPart) (*musicGroupRenderer, error) {
+	if len(parts) == 0 {
+		return nil, errors.New("empty music group")
+	}
+	if len(parts) > musicMelodicChannelCount {
+		return nil, fmt.Errorf("music group has %d parts; at most %d melodic parts are supported", len(parts), musicMelodicChannelCount)
+	}
+
+	setupSynthOnce.Do(setupSynth)
+	synthCacheMu.RLock()
+	font, settings, generation := sfntCached, synthSettings, synthGeneration
+	synthCacheMu.RUnlock()
+	if font == nil || settings == nil {
+		return nil, errors.New("synth not initialized")
+	}
+
+	gains := make([]float32, len(parts))
+	var groupGain float32
+	for index, part := range parts {
+		if !soundFontSupportsProgram(font, part.program) {
+			return nil, errors.New(reportMissingSoundFontProgram(generation, part.program))
+		}
+		gains[index] = soundFontProgramGain(font, generation, part.program)
+		groupGain = max(groupGain, gains[index])
+	}
+	if groupGain <= 0 {
+		groupGain = 1
+	}
+
+	groupSettings := *settings
+	groupSettings.MaximumPolyphony = settings.MaximumPolyphony * int32(len(parts))
+	if groupSettings.MaximumPolyphony > 256 {
+		groupSettings.MaximumPolyphony = 256
+	}
+	syn, err := newSynthesizer(font, &groupSettings)
+	if err != nil {
+		return nil, err
+	}
+	renderer := &musicGroupRenderer{
+		syn:   syn,
+		gain:  groupGain,
+		parts: make([]musicGroupPartRenderer, len(parts)),
+	}
+	for index, part := range parts {
+		channel := melodicMusicChannel(index)
+		syn.ProcessMidiMessage(channel, 0xC0, int32(part.program), 0)
+
+		// MeltySynth squares channel volume multiplied by expression. Express
+		// each program's relative normalization here, then apply the group's
+		// largest gain once to the completed stereo buffer.
+		ratio := max(float64(gains[index]/groupGain), 0)
+		expression := int32(math.Round(math.Sqrt(ratio) * 16383))
+		if expression > 16383 {
+			expression = 16383
+		}
+		syn.ProcessMidiMessage(channel, 0xB0, 0x0B, expression>>7)
+		syn.ProcessMidiMessage(channel, 0xB0, 0x2B, expression&0x7F)
+
+		events, maxEnd := buildSongEvents(part.program, part.notes)
+		renderer.parts[index] = musicGroupPartRenderer{
+			channel: channel,
+			events:  events,
+			active:  make(map[int]bool),
+		}
+		renderer.totalSamples = max(renderer.totalSamples, maxEnd+tailSamples)
+	}
+	return renderer, nil
+}
+
+func (r *musicGroupRenderer) remaining() int { return r.totalSamples - r.pos }
+
+func (r *musicGroupRenderer) render(count int) ([]float32, []float32, error) {
+	count = min(count, r.remaining())
+	leftAll := make([]float32, count)
+	rightAll := make([]float32, count)
+	for offset := 0; offset < count; {
+		n := min(block, count-offset)
+		start, end := r.pos, r.pos+n
+		for partIndex := range r.parts {
+			part := &r.parts[partIndex]
+			for _, event := range part.events {
+				if event.end >= start && event.end < end && part.active[event.key] {
+					r.syn.NoteOff(part.channel, int32(event.key))
+					part.active[event.key] = false
+				}
+			}
+		}
+		for partIndex := range r.parts {
+			part := &r.parts[partIndex]
+			for _, event := range part.events {
+				if event.start >= start && event.start < end && !part.active[event.key] {
+					r.syn.NoteOn(part.channel, int32(event.key), int32(event.vel))
+					part.active[event.key] = true
+				}
+			}
+		}
+
+		left, right := leftAll[offset:offset+n], rightAll[offset:offset+n]
+		if n == block {
+			if err := safeRender(r.syn, left, right); err != nil {
+				return nil, nil, fmt.Errorf("synth render: %v", err)
+			}
+		} else {
+			blockLeft, blockRight := make([]float32, block), make([]float32, block)
+			if err := safeRender(r.syn, blockLeft, blockRight); err != nil {
+				return nil, nil, fmt.Errorf("synth render: %v", err)
+			}
+			copy(left, blockLeft[:n])
+			copy(right, blockRight[:n])
+		}
+		if r.gain != 0 && r.gain != 1 {
+			for index := range left {
+				left[index] *= r.gain
+				right[index] *= r.gain
+			}
+		}
+		r.pos += n
+		offset += n
+	}
+	return leftAll, rightAll, nil
+}
+
 // scaleMusicParts changes note timing without resampling the synthesized PCM,
 // preserving instrument pitch when movie playback UPS changes.
 func scaleMusicParts(parts []musicPart, rate float64) []musicPart {
@@ -917,28 +1042,15 @@ func newMixedMusicStreamWithSettingsAtFrame(parts []musicPart, settings musicPla
 		bufferSeconds = gsdef.MusicBufferSeconds
 	}
 	bufferSeconds = clampMusicBufferSeconds(bufferSeconds)
-	renderers := make([]*songRenderer, 0, len(parts))
-	maxFrames := 0
-	for _, part := range parts {
-		renderer, err := newSongRenderer(part.program, part.notes)
-		if err != nil {
-			return nil, err
-		}
-		renderers = append(renderers, renderer)
-		if renderer.totalSamples > maxFrames {
-			maxFrames = renderer.totalSamples
-		}
+	renderer, err := newMusicGroupRenderer(parts)
+	if err != nil {
+		return nil, err
 	}
-	startFrame = min(max(startFrame, 0), maxFrames)
+	startFrame = min(max(startFrame, 0), renderer.totalSamples)
 	for remaining := startFrame; remaining > 0; {
-		frames := min(block, remaining)
-		for _, renderer := range renderers {
-			if renderer.remaining() == 0 {
-				continue
-			}
-			if _, _, err := renderer.render(min(frames, renderer.remaining())); err != nil {
-				return nil, fmt.Errorf("seek music: %w", err)
-			}
+		frames := min(musicChunkFrames, remaining)
+		if _, _, err := renderer.render(frames); err != nil {
+			return nil, fmt.Errorf("seek music: %w", err)
 		}
 		remaining -= frames
 	}
@@ -948,10 +1060,10 @@ func newMixedMusicStreamWithSettingsAtFrame(parts []musicPart, settings musicPla
 		ready:        make(chan struct{}),
 		exhausted:    make(chan struct{}),
 		producerDone: make(chan struct{}),
-		totalFrames:  maxFrames - startFrame,
+		totalFrames:  renderer.totalSamples - startFrame,
 		bufferChunks: bufferSeconds,
 	}
-	go s.produceMixed(renderers, settings.enhancement, settings.enhancementAmount)
+	go s.produceMixed(renderer, settings.enhancement, settings.enhancementAmount)
 	<-s.ready // render the configured buffer before the caller starts the player
 	if err := s.renderError(); err != nil {
 		_ = s.Close()
@@ -961,7 +1073,7 @@ func newMixedMusicStreamWithSettingsAtFrame(parts []musicPart, settings musicPla
 	return s, nil
 }
 
-func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool, enhancementAmount float64) {
+func (s *musicStream) produceMixed(renderer *musicGroupRenderer, enhancement bool, enhancementAmount float64) {
 	defer close(s.producerDone)
 	defer close(s.chunks)
 	defer s.signalReady()
@@ -971,20 +1083,10 @@ func (s *musicStream) produceMixed(renderers []*songRenderer, enhancement bool, 
 	var reverb *musicReverb
 	for pos := 0; pos < s.totalFrames; {
 		frames := min(chunkFrames, s.totalFrames-pos)
-		left, right := make([]float32, frames), make([]float32, frames)
-		for _, renderer := range renderers {
-			if renderer.remaining() == 0 {
-				continue
-			}
-			partLeft, partRight, err := renderer.render(min(frames, renderer.remaining()))
-			if err != nil {
-				s.setRenderError(err)
-				return
-			}
-			for i := range partLeft {
-				left[i] += partLeft[i]
-				right[i] += partRight[i]
-			}
+		left, right, err := renderer.render(frames)
+		if err != nil {
+			s.setRenderError(err)
+			return
 		}
 		if enhancement {
 			if reverb == nil {

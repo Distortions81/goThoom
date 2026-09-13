@@ -11,9 +11,10 @@ import (
 )
 
 type stagedPasswordUpdate struct {
-	character string
-	hash      string
-	remember  bool
+	serverSlot int
+	character  string
+	hash       string
+	remember   bool
 }
 
 // Accepted/rejected logins can finish on different network goroutines. Keep
@@ -26,30 +27,46 @@ func hashPassword(password string) string {
 }
 
 func stagePasswordUpdate(character, password string, remember bool) string {
-	return stageSessionPasswordUpdate(primarySession, character, password, remember)
+	return stageSessionPasswordUpdateForServerSlot(primarySession, selectedServerSlot(), character, password, remember)
 }
 
 func stageSessionPasswordUpdate(session *Session, character, password string, remember bool) string {
+	return stageSessionPasswordUpdateForServerSlot(session, sessionCharacterServerSlot(session), character, password, remember)
+}
+
+func stageSessionPasswordUpdateForServerSlot(session *Session, serverSlot int, character, password string, remember bool) string {
 	if session == nil {
 		return ""
 	}
-	return session.login.stagePassword(character, password, remember)
+	return session.login.stagePassword(serverSlot, character, password, remember)
 }
 
 func stagedPasswordHash(character string) (string, bool) {
-	return primarySession.login.stagedPasswordHash(character)
+	return primarySession.login.stagedPasswordHash(selectedServerSlot(), character)
 }
 
 func stagedPasswordSettings(character string) (hash string, remember bool, ok bool) {
-	return primarySession.login.stagedPasswordSettings(character)
+	return primarySession.login.stagedPasswordSettings(selectedServerSlot(), character)
 }
 
 func updateStagedPasswordRemember(character string, remember bool) (hash string, ok bool) {
-	return primarySession.login.updateStagedPasswordRemember(character, remember)
+	return primarySession.login.updateStagedPasswordRemember(selectedServerSlot(), character, remember)
 }
 
 func discardStagedPasswordFor(character string) {
-	primarySession.login.discardStagedPasswordFor(character)
+	primarySession.login.discardStagedPasswordFor(selectedServerSlot(), character)
+}
+
+func sessionCharacterServerSlot(session *Session) int {
+	if session == nil || (session == primarySession && serverAddressOverride != "") {
+		return selectedServerSlot()
+	}
+	if server := session.login.requestSnapshot().host; server != "" {
+		if slot := serverSlotForAddress(server); slot > 0 {
+			return slot
+		}
+	}
+	return selectedServerSlot()
 }
 
 // applyCharacterCredentialEdit updates the credential selected in the Edit
@@ -60,13 +77,17 @@ func applyCharacterCredentialEdit(character, password string, remember bool) (st
 }
 
 func applyCharacterCredentialEditForSession(session *Session, character, password string, remember bool) (string, error) {
+	return applyCharacterCredentialEditForServerSlotAndSession(session, selectedServerSlot(), character, password, remember)
+}
+
+func applyCharacterCredentialEditForServerSlotAndSession(session *Session, serverSlot int, character, password string, remember bool) (string, error) {
 	if session == nil {
 		return "", errors.New("login session is unavailable")
 	}
 	character = strings.TrimSpace(character)
 	characterIndex := -1
 	for i := range characters {
-		if strings.EqualFold(characters[i].Name, character) {
+		if savedCharacterServerSlot(characters[i]) == serverSlot && strings.EqualFold(characters[i].Name, character) {
 			characterIndex = i
 			character = characters[i].Name
 			break
@@ -80,14 +101,14 @@ func applyCharacterCredentialEditForSession(session *Session, character, passwor
 		if !remember {
 			// Turning saving off is immediate even though the replacement
 			// password remains available for this session's next login.
-			setCharacterPassHash(character, "", false)
+			setCharacterPassHashForServerSlot(serverSlot, character, "", false)
 		}
-		return stageSessionPasswordUpdate(session, character, password, remember), nil
+		return stageSessionPasswordUpdateForServerSlot(session, serverSlot, character, password, remember), nil
 	}
 
-	if hash, staged := session.login.updateStagedPasswordRemember(character, remember); staged {
+	if hash, staged := session.login.updateStagedPasswordRemember(serverSlot, character, remember); staged {
 		if !remember {
-			setCharacterPassHash(character, "", false)
+			setCharacterPassHashForServerSlot(serverSlot, character, "", false)
 		}
 		return hash, nil
 	}
@@ -99,13 +120,13 @@ func applyCharacterCredentialEditForSession(session *Session, character, passwor
 		return characters[characterIndex].passHash, nil
 	}
 
-	session.login.discardStagedPasswordFor(character)
-	setCharacterPassHash(character, "", false)
+	session.login.discardStagedPasswordFor(serverSlot, character)
+	setCharacterPassHashForServerSlot(serverSlot, character, "", false)
 	return "", nil
 }
 
 func takeStagedPassword(character string) (stagedPasswordUpdate, bool) {
-	return primarySession.login.takeStagedPassword(character)
+	return primarySession.login.takeStagedPassword(selectedServerSlot(), character)
 }
 
 func discardStagedPassword() {
@@ -122,13 +143,14 @@ func commitSessionStagedPassword(session *Session, character string) {
 	if session == nil {
 		return
 	}
-	update, ok := session.login.takeStagedPassword(character)
+	serverSlot := sessionCharacterServerSlot(session)
+	update, ok := session.login.takeStagedPassword(serverSlot, character)
 	sessionCredentialCommitMu.Lock()
 	if ok {
 		if update.remember {
-			setCharacterPassHash(character, update.hash, true)
+			setCharacterPassHashForServerSlot(serverSlot, character, update.hash, true)
 		} else {
-			setCharacterPassHash(character, "", false)
+			setCharacterPassHashForServerSlot(serverSlot, character, "", false)
 		}
 	} else {
 		session.login.discardStagedPassword()
@@ -142,9 +164,13 @@ func forgetSavedPassword(character string) {
 }
 
 func forgetSavedPasswordForSession(session *Session, character string) {
-	setCharacterPassHash(character, "", false)
+	forgetSavedPasswordForServerSlotAndSession(session, selectedServerSlot(), character)
+}
+
+func forgetSavedPasswordForServerSlotAndSession(session *Session, serverSlot int, character string) {
+	setCharacterPassHashForServerSlot(serverSlot, character, "", false)
 	if session != nil {
-		session.login.updateStagedPasswordRemember(character, false)
+		session.login.updateStagedPasswordRemember(serverSlot, character, false)
 	}
 	if session == primarySession && strings.EqualFold(name, character) {
 		passHash = ""
@@ -158,7 +184,7 @@ func setEditCharacterRemember(remember bool) {
 func setEditCharacterRememberForSession(session *Session, remember bool) {
 	editCharRemember = remember
 	if !remember {
-		forgetSavedPasswordForSession(session, editCharName)
+		forgetSavedPasswordForServerSlotAndSession(session, serverSlotForLoginTarget(characterEditorTarget), editCharName)
 	}
 }
 
@@ -167,20 +193,26 @@ func setPasswordPromptRemember(remember bool) {
 }
 
 func setPasswordPromptRememberForSession(session *Session, character string, remember bool) {
+	setPasswordPromptRememberForServerSlotAndSession(session, selectedServerSlot(), character, remember)
+}
+
+func setPasswordPromptRememberForServerSlotAndSession(session *Session, serverSlot int, character string, remember bool) {
 	passRemember = remember
 	if !remember {
-		forgetSavedPasswordForSession(session, character)
+		forgetSavedPasswordForServerSlotAndSession(session, serverSlot, character)
 	}
 }
 
 func passwordRememberPreference(character string) bool {
-	if _, remember, ok := stagedPasswordSettings(character); ok {
+	return passwordRememberPreferenceForServerSlot(selectedServerSlot(), character)
+}
+
+func passwordRememberPreferenceForServerSlot(serverSlot int, character string) bool {
+	if _, remember, ok := primarySession.login.stagedPasswordSettings(serverSlot, character); ok {
 		return remember
 	}
-	for _, saved := range characters {
-		if strings.EqualFold(saved.Name, character) {
-			return !saved.DontRemember
-		}
+	if saved, ok := characterForServerSlot(serverSlot, character); ok {
+		return !saved.DontRemember
 	}
 	return true
 }
@@ -195,11 +227,12 @@ func rejectSessionPassword(session *Session, character string) {
 	if session == nil {
 		return
 	}
-	_, staged := session.login.takeStagedPassword(character)
+	serverSlot := sessionCharacterServerSlot(session)
+	_, staged := session.login.takeStagedPassword(serverSlot, character)
 	session.login.clearCredentials()
 	if !staged {
 		sessionCredentialCommitMu.Lock()
-		setCharacterPassHash(character, "", false)
+		setCharacterPassHashForServerSlot(serverSlot, character, "", false)
 		sessionCredentialCommitMu.Unlock()
 	}
 }
