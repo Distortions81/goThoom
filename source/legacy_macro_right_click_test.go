@@ -76,7 +76,7 @@ func TestPlayersRightClickMacroRunsBeforeContextMenu(t *testing.T) {
 	playersWin.AddItem(playersList)
 	playersWin.MarkOpen()
 	row.DrawRect = eui.Rect{X0: 10, Y0: 10, X1: 150, Y1: 40}
-	playersRowRefs = map[*eui.ItemData]string{row: "Bob Jones"}
+	playersRowRefs = map[*eui.ItemData]playerRef{row: {session: primarySessionID, name: "Bob Jones"}}
 	selectedPlayerName = "Previous selection"
 	program := parseLegacyMacroSources([]legacyMacroSource{{Path: filepath.Join(t.TempDir(), "right.mac"), Text: "control-click message @click.name\n"}})
 	var messages []string

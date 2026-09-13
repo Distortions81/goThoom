@@ -167,9 +167,11 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 			return "think: " + text
 		}
 	case "in":
-		if session == primarySession {
-			if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
+		if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
+			if session == primarySession {
 				queueInfoRequest(name)
+			} else if session != nil {
+				session.players.queueInfoRequest(name)
 			}
 		}
 		if text != "" {
@@ -178,6 +180,8 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 	case "sh", "su":
 		if session == primarySession {
 			parseShareText(raw, text)
+		} else if session != nil {
+			session.players.parseShareText(raw, text, session.characterName())
 		}
 		if text != "" {
 			return text
@@ -186,6 +190,8 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 		// Fallen or not-fallen notices
 		if session == primarySession {
 			parseFallenText(raw, text)
+		} else if session != nil {
+			session.players.parseFallenText(raw, text, session.characterName())
 		}
 		if text != "" {
 			return text
@@ -193,7 +199,12 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 	case "ba", "mu":
 		// Bard guild messages or tunes
 		if session != primarySession {
-			session.publishInfoCommand(text)
+			if session != nil {
+				if prefix == "ba" {
+					session.players.parseBardText(text)
+				}
+				session.publishInfoCommand(text)
+			}
 			if prefix == "ba" && text != "" {
 				return text
 			}
@@ -208,17 +219,15 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 		// "<name> is not in the lands." which imply logoff
 		if session == primarySession {
 			parsePresenceText(raw, text)
+		} else if session != nil {
+			session.players.parsePresenceText(raw, text)
 		}
 		if text != "" {
 			return text
 		}
 	case "be":
 		// Back-end command: handle internally using raw (unstripped) data.
-		if session == primarySession {
-			parseBackend(raw)
-		} else {
-			session.publishInfoCommand(text)
-		}
+		parseSessionBackend(session, raw)
 		return ""
 	case "kr":
 		// Karma received: suppress notifications from blocked or ignored players.

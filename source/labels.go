@@ -63,14 +63,27 @@ func applyPlayerLabel(p *Player) {
 }
 
 func setPlayerLabel(name string, label int, global bool) {
+	setPlayerLabelForSession(primarySession, name, label, global)
+}
+
+func setPlayerLabelForSession(session *Session, name string, label int, global bool) {
+	if session == nil {
+		session = primarySession
+	}
 	p := getPlayer(name)
 	playersMu.Lock()
 	if global {
 		p.GlobalLabel = label
-	} else {
+	} else if session == primarySession {
 		p.LocalLabel = label
+	}
+	applyPlayerLabel(p)
+	playerCopy := *p
+	playersMu.Unlock()
+	if !global {
+		character := session.characterName()
 		for i := range characters {
-			if strings.EqualFold(characters[i].Name, playerName) {
+			if strings.EqualFold(characters[i].Name, character) {
 				if characters[i].Labels == nil {
 					characters[i].Labels = make(map[string]int)
 				}
@@ -84,18 +97,21 @@ func setPlayerLabel(name string, label int, global bool) {
 			}
 		}
 	}
-	applyPlayerLabel(p)
-	playerCopy := *p
-	playersMu.Unlock()
 	playersDirty = true
 	if global {
 		playersPersistDirty = true
 	}
 	killNameTagCacheFor(name)
-	notifyPlayerHandlers(playerCopy)
+	if global || session == primarySession {
+		notifyPlayerHandlers(playerCopy)
+	}
 }
 
 func showLabelMenu(name string, pos eui.Point, global bool) {
+	showLabelMenuForSession(primarySession, name, pos, global)
+}
+
+func showLabelMenuForSession(session *Session, name string, pos eui.Point, global bool) {
 	opts := []string{"None"}
 	for i := range labelColors {
 		opts = append(opts, labelName(i+1))
@@ -104,11 +120,11 @@ func showLabelMenu(name string, pos eui.Point, global bool) {
 	time.AfterFunc(0, func() {
 		eui.ShowContextMenu(opts, pos.X, pos.Y, func(i int) {
 			if i == 0 {
-				setPlayerLabel(name, 0, global)
+				setPlayerLabelForSession(session, name, 0, global)
 			} else if i == len(opts)-1 {
 				openLabelEditWindow()
 			} else {
-				setPlayerLabel(name, i, global)
+				setPlayerLabelForSession(session, name, i, global)
 			}
 		})
 	})

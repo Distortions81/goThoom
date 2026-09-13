@@ -194,15 +194,18 @@ func (s *Session) legacyMacroStateValue(name string) (string, bool) {
 		return s.characterName(), true
 	case "@my.simple_name":
 		return legacyMacroSimplePlayerName(s.characterName()), true
-	case "@selplayer.name", "@selplayer.simple_name":
-		// A background session has no shared-panel selection. It gains one when
-		// Players.BindSession is introduced.
-		return "", true
+	case "@selplayer.name":
+		return s.selectedPlayerSnapshot(), true
+	case "@selplayer.simple_name":
+		return legacyMacroSimplePlayerName(s.selectedPlayerSnapshot()), true
 	case "@my.shares_in":
 		return s.legacyMacroShares(false), true
 	case "@my.shares_out":
 		return s.legacyMacroShares(true), true
 	case "@my.selected_item":
+		if item, ok := scriptSelectedItemForSession(s); ok {
+			return item.Name, true
+		}
 		return "Nothing", true
 	}
 	if slot, ok := legacyMacroItemSlots[strings.ToLower(name)]; ok {

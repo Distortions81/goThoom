@@ -190,7 +190,7 @@ func TestInventoryWindowCountsStackedSlotsAndUnderlinesEquippedItems(t *testing.
 	addInventoryItem(200, -1, "shirt", true)
 	updateInventoryWindow()
 
-	if got, want := inventoryWin.Title, "Inventory   Slots: 3/32"; got != want {
+	if got, want := inventoryWin.Title, sessionPanelTitle(primarySession, "Inventory   Slots: 3/32"); got != want {
 		t.Fatalf("inventory title = %q, want %q", got, want)
 	}
 	shirt := findInventoryTestRow(t, "Shirt")

@@ -72,7 +72,9 @@ func (l *sessionEventLog) snapshot() []sessionEvent {
 }
 
 type sessionEventState struct {
-	log *sessionEventLog
+	log        *sessionEventLog
+	chatLog    *messageLog
+	consoleLog *messageLog
 
 	soundMu     sync.Mutex
 	prevSounds  []uint16
@@ -80,10 +82,19 @@ type sessionEventState struct {
 }
 
 func newSessionEventState() *sessionEventState {
-	return &sessionEventState{log: newSessionEventLog(maxSessionEvents)}
+	return &sessionEventState{
+		log:        newSessionEventLog(maxSessionEvents),
+		chatLog:    &messageLog{max: maxChatMessages},
+		consoleLog: &messageLog{max: maxMessages},
+	}
 }
 
 var combinedSessionEvents = newSessionEventLog(maxSessionEvents)
+
+var (
+	queueSessionChatUIUpdate    = func() {}
+	queueSessionConsoleUIUpdate = func() {}
+)
 
 func (s *Session) publishEvent(event sessionEvent) {
 	if s == nil || s.events == nil {
@@ -102,7 +113,9 @@ func (s *Session) publishChat(text, messageType string) {
 		return
 	}
 	s.publishEvent(sessionEvent{Kind: sessionEventChat, Text: text, MessageType: messageType})
+	s.events.chatLog.AddTyped(text, messageType)
 	s.dispatchSessionScriptChat(text)
+	queueSessionChatUIUpdate()
 	if s == primarySession {
 		displayChatMessageTyped(text, messageType)
 	}
@@ -113,6 +126,8 @@ func (s *Session) publishConsole(text, messageType string) {
 		return
 	}
 	s.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: text, MessageType: messageType})
+	s.events.consoleLog.AddTyped(text, messageType)
+	queueSessionConsoleUIUpdate()
 	if s == primarySession {
 		serverConsoleMessageTyped(text, messageType)
 	} else {

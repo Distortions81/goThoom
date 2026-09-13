@@ -57,20 +57,15 @@ func scriptSelectedPlayer() (scriptapi.Player, bool) {
 }
 
 func scriptSelectedPlayerForSession(session *Session) (scriptapi.Player, bool) {
-	if session == nil || session.players == nil {
+	if session == nil {
 		return scriptapi.Player{}, false
 	}
 	name := strings.TrimSpace(session.selectedPlayerSnapshot())
 	if name == "" {
 		return scriptapi.Player{}, false
 	}
-	if player, ok := session.players.player(name); ok {
+	if player, ok := playerSnapshotForSession(session, name); ok {
 		return scriptPlayerSnapshot(player), true
-	}
-	for _, player := range session.players.snapshot() {
-		if strings.EqualFold(player.Name, name) {
-			return scriptPlayerSnapshot(player), true
-		}
 	}
 	return scriptapi.Player{}, false
 }
@@ -178,7 +173,7 @@ func scriptPlayersForSession(session *Session) []scriptapi.Player {
 	if session == nil || session.players == nil {
 		return nil
 	}
-	players := session.players.snapshot()
+	players := playersSnapshotForSession(session)
 	out := make([]scriptapi.Player, len(players))
 	for index, player := range players {
 		out[index] = scriptPlayerSnapshot(player)

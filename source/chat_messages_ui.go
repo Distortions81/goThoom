@@ -19,6 +19,16 @@ var chatHighlighted *eui.ItemData
 var chatWindowUpdateQueued atomic.Bool
 var chatWindowMessages messageWindowState
 var chatWindowForceFull bool
+var chatRenderSession SessionID
+
+func init() {
+	queueSessionChatUIUpdate = queueChatWindowUpdate
+	previous := queueSelectedSessionUIUpdate
+	queueSelectedSessionUIUpdate = func() {
+		previous()
+		queueChatWindowUpdate()
+	}
+}
 
 // queueChatWindowUpdate coalesces message-driven refreshes and keeps EUI tree
 // mutations on the game loop. Chat can arrive on a network goroutine while the
@@ -40,8 +50,19 @@ func updateChatWindow() {
 
 	scrollit := chatList.ScrollAtBottom()
 
+	session := selectedAppSession()
+	log := &chatLog
+	if session != primarySession {
+		log = session.events.chatLog
+	}
+	if chatRenderSession != session.ID() {
+		chatRenderSession = session.ID()
+		chatWindowMessages = messageWindowState{}
+		chatWindowForceFull = true
+	}
+	chatWin.Title = sessionPanelTitle(session, "Chat")
 	format := gs.TimestampFormat
-	msgs, types, firstChanged := chatWindowMessages.Sync(&chatLog, format, gs.ChatTimestamps, chatWindowForceFull)
+	msgs, types, firstChanged := chatWindowMessages.Sync(log, format, gs.ChatTimestamps, chatWindowForceFull)
 	chatWindowForceFull = false
 	if chatWindowMessages.dropped > 0 && !chatWindowMessages.reset && chatWindowMessages.dropped <= len(chatList.Contents) {
 		chatList.SetItems(chatList.Contents[chatWindowMessages.dropped:])

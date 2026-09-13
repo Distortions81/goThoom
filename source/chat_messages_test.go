@@ -52,6 +52,85 @@ func TestChatWindowDefersClosedUpdatesUntilOpen(t *testing.T) {
 	}
 }
 
+func TestMessageWindowsBindToSelectedSession(t *testing.T) {
+	initFont()
+	originalSessions := appSessions
+	originalSettings := gs
+	originalChat, originalChatList, originalChatInput := chatWin, chatList, chatInputFlow
+	originalConsole, originalMessages, originalInput := consoleWin, messagesFlow, inputFlow
+	originalChatModel, originalConsoleModel := chatWindowMessages, consoleWindowMessages
+	originalChatRender, originalConsoleRender := chatRenderSession, consoleRenderSession
+	originalChatCache, originalConsoleCache := chatTextWrapCache, consoleTextWrapCache
+	consoleLog.mu.Lock()
+	originalConsoleEntries := append([]timedMessage(nil), consoleLog.entries...)
+	originalConsoleSequence := consoleLog.nextSeq
+	consoleLog.mu.Unlock()
+	t.Cleanup(func() {
+		if chatWin != nil && chatWin != originalChat {
+			chatWin.RemoveWindow()
+		}
+		if consoleWin != nil && consoleWin != originalConsole {
+			consoleWin.RemoveWindow()
+		}
+		appSessions = originalSessions
+		gs = originalSettings
+		chatWin, chatList, chatInputFlow = originalChat, originalChatList, originalChatInput
+		consoleWin, messagesFlow, inputFlow = originalConsole, originalMessages, originalInput
+		chatWindowMessages, consoleWindowMessages = originalChatModel, originalConsoleModel
+		chatRenderSession, consoleRenderSession = originalChatRender, originalConsoleRender
+		chatTextWrapCache, consoleTextWrapCache = originalChatCache, originalConsoleCache
+		consoleLog.mu.Lock()
+		consoleLog.entries, consoleLog.nextSeq = originalConsoleEntries, originalConsoleSequence
+		consoleLog.mu.Unlock()
+	})
+
+	gs.MessagesToConsole = false
+	manager := newSessionManager(primarySession)
+	slots := manager.enableMulti()
+	second, third := slots[1], slots[2]
+	second.setCharacterName("Second Hero")
+	third.setCharacterName("Third Hero")
+	second.publishChat("Second says, hello", messageTextTypeSay)
+	second.publishConsole("Second server line", messageTextTypeSystem)
+	third.publishChat("Third says, hello", messageTextTypeSay)
+	third.publishConsole("Third server line", messageTextTypeSystem)
+	appSessions = manager
+	if !manager.selectSession(second.ID()) {
+		t.Fatal("select second session")
+	}
+
+	chatWin, chatList, chatInputFlow = nil, nil, nil
+	consoleWin, messagesFlow, inputFlow = nil, nil, nil
+	chatWindowMessages, consoleWindowMessages = messageWindowState{}, messageWindowState{}
+	chatRenderSession, consoleRenderSession = 0, 0
+	if err := makeChatWindow(); err != nil {
+		t.Fatalf("make chat window: %v", err)
+	}
+	makeConsoleWindow()
+	chatWin.MarkOpen()
+	consoleWin.MarkOpen()
+	updateChatWindow()
+	updateConsoleWindow()
+	if chatWin.Title != "Second Hero - Chat" || len(chatList.Contents) != 1 || !strings.Contains(chatList.Contents[0].Text, "Second says, hello") {
+		t.Fatalf("second Chat binding = title %q rows %#v", chatWin.Title, chatList.Contents)
+	}
+	if consoleWin.Title != "Second Hero - Console" || len(messagesFlow.Contents) != 1 || !strings.Contains(messagesFlow.Contents[0].Text, "Second server line") {
+		t.Fatalf("second Console binding = title %q rows %#v", consoleWin.Title, messagesFlow.Contents)
+	}
+
+	if !manager.selectSession(third.ID()) {
+		t.Fatal("select third session")
+	}
+	updateChatWindow()
+	updateConsoleWindow()
+	if chatWin.Title != "Third Hero - Chat" || len(chatList.Contents) != 1 || !strings.Contains(chatList.Contents[0].Text, "Third says, hello") {
+		t.Fatalf("third Chat binding = title %q rows %#v", chatWin.Title, chatList.Contents)
+	}
+	if consoleWin.Title != "Third Hero - Console" || len(messagesFlow.Contents) != 1 || !strings.Contains(messagesFlow.Contents[0].Text, "Third server line") {
+		t.Fatalf("third Console binding = title %q rows %#v", consoleWin.Title, messagesFlow.Contents)
+	}
+}
+
 func TestChatWindowAfterCombinedMode(t *testing.T) {
 	initFont()
 	originalSettings, originalDirty := gs, settingsDirty

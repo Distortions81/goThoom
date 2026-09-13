@@ -1414,8 +1414,10 @@ func (g *Game) Update() error {
 				}
 			}
 		}
-		if !nativeOwnsKeys && !nativeEdit.handled && !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-			if !ctrl {
+		inputSession := selectedAppSession()
+		primaryInput := inputSession == primarySession
+		if !nativeOwnsKeys && !nativeEdit.handled && (!primaryInput || !legacyMacroKeyConsumed(ebiten.KeyEnter) && !scriptInputConsumesKey(consumedScriptInput, ebiten.KeyEnter)) && inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			if primaryInput && !ctrl {
 				if updated, pos, handled := legacyMacroTriggerReplacement(string(inputText), inputPos); handled {
 					inputText = []rune(updated)
 					inputPos = pos
@@ -1424,7 +1426,7 @@ func (g *Game) Update() error {
 				}
 			}
 			orig := string(inputText)
-			if legacyMacroHasExpression(orig) {
+			if primaryInput && legacyMacroHasExpression(orig) {
 				if entry := strings.TrimSpace(orig); entry != "" {
 					inputHistory = append(inputHistory, entry)
 				}
@@ -1446,9 +1448,7 @@ func (g *Game) Update() error {
 					txt = strings.TrimSpace(orig)
 				}
 				if txt != "" {
-					if !dispatchLocalCommand(txt) {
-						enqueueCommand(txt)
-					}
+					dispatchSubmittedCommand(inputSession, txt)
 					inputHistory = append(inputHistory, txt)
 				}
 				if gs.InputBarAlwaysOpen {
@@ -1748,6 +1748,18 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+// dispatchSubmittedCommand routes shared message-bar input through the owning
+// session. Client-only commands remain a primary-session compatibility path.
+func dispatchSubmittedCommand(session *Session, text string) {
+	if session == nil || text == "" {
+		return
+	}
+	if session == primarySession && dispatchLocalCommand(text) {
+		return
+	}
+	session.commands.enqueue(text)
 }
 
 // dispatchLocalCommand runs commands owned by the client. It is shared by
@@ -5488,12 +5500,18 @@ func dispatchSessionIncomingServerMessage(session *Session, m incomingServerMess
 	if !recorded {
 		processSessionServerMessageAt(session, m.data, m.receivedAt)
 	}
-	if session == primarySession && reliable && session.commands.idle() {
+	if reliable && session.commands.idle() {
 		// Allow maintenance queues to issue commands even when the player is
 		// not moving; this keeps /be-info and /be-who flowing during idle
 		// periods on live connections.
-		if !maybeEnqueueInfo() {
-			_ = maybeEnqueueWho()
+		if session == primarySession {
+			if !maybeEnqueueInfo() {
+				_ = maybeEnqueueWho()
+			}
+		} else {
+			if !session.players.maybeEnqueueInfo(session.commands) {
+				_ = session.players.maybeEnqueueWho(session.commands)
+			}
 		}
 	}
 }

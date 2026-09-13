@@ -9,6 +9,10 @@ import (
 
 // parseBackend handles back-end BEP commands following the "be" prefix.
 func parseBackend(data []byte) {
+	parseSessionBackend(primarySession, data)
+}
+
+func parseSessionBackend(session *Session, data []byte) {
 	// Expect a BEPP tag for the backend subcommand (e.g., -wh, -in, -sh)
 	// immediately following the initial -be.
 	if len(data) < 3 || data[0] != 0xC2 {
@@ -18,11 +22,23 @@ func parseBackend(data []byte) {
 	payload := data[3:]
 	switch cmd {
 	case "in":
-		parseBackendInfo(payload)
+		if session == primarySession {
+			parseBackendInfo(payload)
+		} else if session != nil {
+			session.players.parseBackendInfo(payload)
+		}
 	case "sh":
-		parseBackendShare(payload)
+		if session == primarySession {
+			parseBackendShare(payload)
+		} else if session != nil {
+			session.players.parseBackendShare(payload, session.characterName())
+		}
 	case "wh":
-		parseBackendWho(payload)
+		if session == primarySession {
+			parseBackendWho(payload)
+		} else if session != nil {
+			session.players.parseBackendWho(payload)
+		}
 	}
 }
 

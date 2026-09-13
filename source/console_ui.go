@@ -19,6 +19,16 @@ var consoleHighlighted *eui.ItemData
 var consoleWindowUpdateQueued atomic.Bool
 var consoleWindowMessages messageWindowState
 var consoleWindowForceFull bool
+var consoleRenderSession SessionID
+
+func init() {
+	queueSessionConsoleUIUpdate = queueConsoleWindowUpdate
+	previous := queueSelectedSessionUIUpdate
+	queueSelectedSessionUIUpdate = func() {
+		previous()
+		queueConsoleWindowUpdate()
+	}
+}
 
 // queueConsoleWindowUpdate coalesces message-driven refreshes and keeps EUI
 // tree mutations on the game loop. Console messages may originate outside it.
@@ -38,8 +48,19 @@ func updateConsoleWindow() {
 	}
 	scrollit := messagesFlow.ScrollAtBottom()
 
+	session := selectedAppSession()
+	log := &consoleLog
+	if session != primarySession {
+		log = session.events.consoleLog
+	}
+	if consoleRenderSession != session.ID() {
+		consoleRenderSession = session.ID()
+		consoleWindowMessages = messageWindowState{}
+		consoleWindowForceFull = true
+	}
+	consoleWin.Title = sessionPanelTitle(session, "Console")
 	format := gs.TimestampFormat
-	msgs, types, firstChanged := consoleWindowMessages.Sync(&consoleLog, format, gs.ConsoleTimestamps, consoleWindowForceFull)
+	msgs, types, firstChanged := consoleWindowMessages.Sync(log, format, gs.ConsoleTimestamps, consoleWindowForceFull)
 	consoleWindowForceFull = false
 	if consoleWindowMessages.dropped > 0 && !consoleWindowMessages.reset && consoleWindowMessages.dropped <= len(messagesFlow.Contents) {
 		messagesFlow.SetItems(messagesFlow.Contents[consoleWindowMessages.dropped:])

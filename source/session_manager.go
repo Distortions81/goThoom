@@ -2,6 +2,8 @@ package main
 
 import "sync"
 
+var queueSelectedSessionUIUpdate = func() {}
+
 // sessionManager is the app-owned registry for the four stable session slots.
 // It starts with only the primary session; enabling the multi-session workspace
 // materializes the remaining login-ready sessions without replacing slot one.
@@ -77,11 +79,18 @@ func (m *sessionManager) selectSession(id SessionID) bool {
 		return false
 	}
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if m.slots[slot] == nil {
+		m.mu.Unlock()
 		return false
 	}
+	changed := m.selected != id
 	m.selected = id
+	m.mu.Unlock()
+	if changed {
+		inventoryDirty = true
+		playersDirty = true
+		queueSelectedSessionUIUpdate()
+	}
 	return true
 }
 

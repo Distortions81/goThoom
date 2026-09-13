@@ -233,7 +233,7 @@ func updateInventoryWindow() {
 		row.rowIndex = rowIndex
 		rows = append(rows, row)
 	}
-	inventoryWin.Title = inventoryWindowTitle(usedSlots)
+	inventoryWin.Title = sessionPanelTitle(session, inventoryWindowTitle(usedSlots))
 
 	if geometryChanged {
 		invRender.rebuild(rows)

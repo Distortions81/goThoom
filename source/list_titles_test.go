@@ -41,6 +41,11 @@ func TestListTitles(t *testing.T) {
 	if got, want := inventoryWindowTitle(32), "Inventory   Slots: 32/32 (pack full)"; got != want {
 		t.Fatalf("inventoryWindowTitle() = %q, want %q", got, want)
 	}
+	session := mustNewSession(2)
+	session.setCharacterName("Hardia")
+	if got, want := sessionPanelTitle(session, "Players"), "Hardia - Players"; got != want {
+		t.Fatalf("sessionPanelTitle() = %q, want %q", got, want)
+	}
 }
 
 func TestPlayerShareIndicatorIncludesRightMargin(t *testing.T) {

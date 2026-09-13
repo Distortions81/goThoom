@@ -22,12 +22,20 @@ import (
 var playersWin *eui.WindowData
 var playersList *eui.ItemData
 var playersDirty bool
-var playersRowRefs = map[*eui.ItemData]string{}
+
+type playerRef struct {
+	session SessionID
+	name    string
+}
+
+var playersRowRefs = map[*eui.ItemData]playerRef{}
 var playersGroupHeaders = map[*eui.ItemData]bool{}
 var nextRecentPlayersExpiry time.Time
 var selectedPlayerName string
 var renderedPlayerSelection string
+var playersRenderSession SessionID
 var lastPlayerClickName string
+var lastPlayerClickSession SessionID
 var lastPlayerClickTime time.Time
 
 type playerRowSignature struct {
@@ -277,7 +285,7 @@ func applyPlayersSearch(query string) {
 		alternate := playerIndex%2 == 1
 		playerIndex++
 		row.Focused = false
-		name := playersRowRefs[row]
+		name := playersRowRefs[row].name
 		if q != "" && strings.Contains(strings.ToLower(name), q) {
 			row.Filled = true
 			row.Color = accent
@@ -373,7 +381,7 @@ func playerRowFace(p Player) text.Face {
 	}
 }
 
-func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float32, fontSize float64, ui float32) playerRowSignature {
+func makePlayerRowSignature(p Player, selfName, myClan string, clientWidth, rowUnits float32, fontSize float64, ui float32) playerRowSignature {
 	displayName := p.Name
 	if sameRealClan(p.clan, myClan) {
 		displayName += " *"
@@ -393,7 +401,7 @@ func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float
 		friendLabel:     p.FriendLabel,
 		offline:         p.Offline,
 		dead:            p.Dead,
-		local:           strings.EqualFold(p.Name, playerName),
+		local:           strings.EqualFold(p.Name, selfName),
 		sharee:          p.Sharee,
 		sharing:         p.Sharing,
 		sameClan:        p.SameClan,
@@ -411,7 +419,7 @@ func makePlayerRowSignature(p Player, myClan string, clientWidth, rowUnits float
 	return signature
 }
 
-func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
+func makePlayerRow(p Player, signature playerRowSignature, sessionID SessionID) cachedPlayerRow {
 	row := &eui.ItemData{
 		ItemType: eui.ITEM_FLOW,
 		FlowType: eui.FLOW_HORIZONTAL,
@@ -429,8 +437,8 @@ func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 	profItem.Border = 0
 	profItem.Filled = false
 	profItem.Disabled = signature.offline
-	name := signature.name
-	profItem.Action = func() { handlePlayersClick(name) }
+	ref := playerRef{session: sessionID, name: signature.name}
+	profItem.Action = func() { handlePlayersClick(ref) }
 	row.AddItem(profItem)
 
 	avItem := eui.NewImageReferenceItem(iconSize, iconSize)
@@ -438,7 +446,7 @@ func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 	avItem.Border = 0
 	avItem.Filled = false
 	avItem.Disabled = signature.offline
-	avItem.Action = func() { handlePlayersClick(name) }
+	avItem.Action = func() { handlePlayersClick(ref) }
 	row.AddItem(avItem)
 
 	nameItem, _ := eui.NewText()
@@ -474,7 +482,7 @@ func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 		X: signature.clientWidth - float32(iconSize*2) - 8 - indicatorWidth,
 		Y: signature.rowUnits,
 	}
-	nameItem.Action = func() { handlePlayersClick(name) }
+	nameItem.Action = func() { handlePlayersClick(ref) }
 	row.AddItem(nameItem)
 
 	if shareContentWidth > 0 {
@@ -486,7 +494,7 @@ func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 			shareItem.Border = 0
 			shareItem.Disabled = signature.offline
 			shareItem.SetTooltip(playerSharingTooltip(p))
-			shareItem.Action = func() { handlePlayersClick(name) }
+			shareItem.Action = func() { handlePlayersClick(ref) }
 			row.AddItem(shareItem)
 		} else {
 			shareItem, _ := eui.NewText()
@@ -495,7 +503,7 @@ func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 			shareItem.Face = signature.face
 			shareItem.Size = eui.Point{X: shareContentWidth, Y: signature.rowUnits}
 			shareItem.SetTooltip(playerSharingTooltip(p))
-			shareItem.Action = func() { handlePlayersClick(name) }
+			shareItem.Action = func() { handlePlayersClick(ref) }
 			row.AddItem(shareItem)
 		}
 		spacer, _ := eui.NewText()
@@ -504,7 +512,7 @@ func makePlayerRow(p Player, signature playerRowSignature) cachedPlayerRow {
 		row.AddItem(spacer)
 	}
 
-	row.Action = func() { handlePlayersClick(name) }
+	row.Action = func() { handlePlayersClick(ref) }
 	row.Size.Y = signature.rowUnits
 	return cachedPlayerRow{row: row, profession: profItem, avatar: avItem, signature: signature}
 }
@@ -584,12 +592,12 @@ func loadVisiblePlayerArtwork(force bool) bool {
 		top := y + item.Position.Y
 		bottom := top + item.GetSize().Y
 		if bottom >= viewTop && top <= viewBottom {
-			if name := playersRowRefs[item]; name != "" {
-				cached, ok := cachedPlayerRows[name]
+			if ref := playersRowRefs[item]; ref.name != "" {
+				cached, ok := cachedPlayerRows[ref.name]
 				if ok {
 					var loaded bool
 					cached, loaded = loadPlayerRowArtwork(cached)
-					cachedPlayerRows[name] = cached
+					cachedPlayerRows[ref.name] = cached
 					changed = changed || loaded
 				}
 			}
@@ -619,13 +627,27 @@ func updatePlayersWindow() {
 		return
 	}
 
+	session := selectedAppSession()
+	if playersRenderSession != session.ID() {
+		playersRenderSession = session.ID()
+		cachedPlayerRows = map[string]cachedPlayerRow{}
+		cachedPlayerHeaders = map[string]cachedPlayerHeader{}
+		playerArtworkViewport.valid = false
+		renderedPlayerSelection = ""
+	}
+	selfName := session.characterName()
+	selectedName := session.selectedPlayerSnapshot()
+	if session == primarySession {
+		selfName = playerName
+		selectedName = selectedPlayerName
+	}
 	accent := eui.AccentColor()
 
 	prevScroll := playersList.Scroll
 	previousListSize := playersList.GetSize()
 
 	// Gather current players and filter to non-NPCs with names.
-	ps := getPlayers()
+	ps := playersSnapshotForSession(session)
 	now := time.Now()
 	// Sort by section, then by label/color group and name.
 	sort.Slice(ps, func(i, j int) bool {
@@ -660,7 +682,7 @@ func updatePlayersWindow() {
 		}
 		// Sharing is a relationship with another player. Never display or count
 		// stale/transient sharing flags on the local player's own record.
-		if isLocalPlayerName(p.Name) {
+		if selfName != "" && strings.EqualFold(p.Name, selfName) {
 			p.Sharee = false
 			p.Sharing = false
 		}
@@ -678,15 +700,14 @@ func updatePlayersWindow() {
 	}
 	nextTitle := playersWindowTitle(onlineCount, shareeCount, shareCount)
 	titleChanged := playersWin.Title != nextTitle
-	playersWin.Title = nextTitle
+	playersWin.Title = sessionPanelTitle(session, nextTitle)
 
 	myClan := ""
-	if playerName != "" {
-		playersMu.RLock()
-		if me, ok := players[playerName]; ok {
-			myClan = me.clan
+	for _, player := range ps {
+		if selfName != "" && strings.EqualFold(player.Name, selfName) {
+			myClan = player.clan
+			break
 		}
-		playersMu.RUnlock()
 	}
 
 	// Compute client area for sizing children similar to updateTextWindow.
@@ -726,7 +747,7 @@ func updatePlayersWindow() {
 	// Rebuild ordering while retaining rows whose appearance and layout did not
 	// change. This avoids allocating image placeholders and looking up the same
 	// profession/mobile artwork on every player-data refresh.
-	playersRowRefs = map[*eui.ItemData]string{}
+	playersRowRefs = map[*eui.ItemData]playerRef{}
 	playersGroupHeaders = map[*eui.ItemData]bool{}
 	nextRows := make(map[string]cachedPlayerRow, len(exiles))
 	nextHeaders := make(map[string]cachedPlayerHeader, len(groupCounts)+len(gs.PlayerGroups.Names))
@@ -777,18 +798,18 @@ func updatePlayersWindow() {
 				nextRecentPlayersExpiry = expires
 			}
 		}
-		signature := makePlayerRowSignature(p, myClan, clientWAvail, rowUnits, fontSize, ui)
+		signature := makePlayerRowSignature(p, selfName, myClan, clientWAvail, rowUnits, fontSize, ui)
 		cached, ok := cachedPlayerRows[p.Name]
 		if !ok || cached.signature != signature {
-			cached = makePlayerRow(p, signature)
+			cached = makePlayerRow(p, signature, session.ID())
 		}
 		row := cached.row
 		nextRows[p.Name] = cached
 		nextContents = append(nextContents, row)
-		playersRowRefs[row] = p.Name
+		playersRowRefs[row] = playerRef{session: session.ID(), name: p.Name}
 
 		// Track selected row for highlight after search.
-		if p.Name == selectedPlayerName {
+		if p.Name == selectedName {
 			selectedRow = row
 		}
 	}
@@ -811,7 +832,7 @@ func updatePlayersWindow() {
 	eui.SizeTextWindowList(playersList, clientWAvail, clientHAvail)
 	layoutChanged := playersList.GetSize() != previousListSize
 	playersList.Scroll = prevScroll
-	selectionChanged := renderedPlayerSelection != selectedPlayerName
+	selectionChanged := renderedPlayerSelection != selectedName
 	if playersWin.SearchText != "" || contentsChanged || selectionChanged {
 		applyPlayersSearch(playersWin.SearchText)
 	}
@@ -819,7 +840,7 @@ func updatePlayersWindow() {
 		selectedRow.Filled = true
 		selectedRow.Color = accent
 	}
-	renderedPlayerSelection = selectedPlayerName
+	renderedPlayerSelection = selectedName
 	artworkChanged := loadVisiblePlayerArtwork(contentsChanged || layoutChanged)
 	if contentsChanged || layoutChanged || titleChanged || selectionChanged || artworkChanged {
 		playersWin.RefreshWithReason("player list")
@@ -866,15 +887,21 @@ func handlePlayersContextClick(mx, my int) bool {
 	for _, row := range playersList.Contents {
 		r := row.DrawRect
 		if pos.X >= r.X0 && pos.X <= r.X1 && pos.Y >= r.Y0 && pos.Y <= r.Y1 {
-			if name, ok := playersRowRefs[row]; ok {
-				event := legacyMacroPlayerClickEvent(name)
-				if started, allowDefault := legacyMacroTriggerRightClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
-					legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
-					return true
+			if ref, ok := playersRowRefs[row]; ok {
+				session, exists := appSessions.session(ref.session)
+				if !exists {
+					return false
+				}
+				if session == primarySession {
+					event := legacyMacroPlayerClickEvent(ref.name)
+					if started, allowDefault := legacyMacroTriggerRightClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+						legacyMacroMarkMouseConsumed(ebiten.MouseButtonRight, "click2")
+						return true
+					}
 				}
 				// Select the player before opening the context menu
-				selectPlayer(name)
-				openPlayersContextMenu(name, pos)
+				selectPlayerForSession(session, ref.name)
+				openPlayersContextMenu(ref, pos)
 				return true
 			}
 		}
@@ -884,39 +911,62 @@ func handlePlayersContextClick(mx, my int) bool {
 
 // handlePlayersClick selects a player on single-click. If we later add
 // double-click behavior, we can use lastPlayerClick* similar to inventory.
-func handlePlayersClick(name string) {
-	event := legacyMacroPlayerClickEvent(name)
-	if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
-		legacyMacroMarkInputConsumed("click")
+func handlePlayersClick(ref playerRef) {
+	session, ok := appSessions.session(ref.session)
+	if !ok {
 		return
 	}
-	if legacyMacroHandlePlayerModifierClick(name, event.Modifiers) {
-		return
+	if session == primarySession {
+		event := legacyMacroPlayerClickEvent(ref.name)
+		if started, allowDefault := legacyMacroTriggerClick(event, int64(acknowledgedFrameSnapshot())); started && !allowDefault {
+			legacyMacroMarkInputConsumed("click")
+			return
+		}
+		if legacyMacroHandlePlayerModifierClick(ref.name, event.Modifiers) {
+			return
+		}
 	}
 	now := time.Now()
-	if name == lastPlayerClickName && now.Sub(lastPlayerClickTime) < 500*time.Millisecond {
+	if ref.session == lastPlayerClickSession && ref.name == lastPlayerClickName && now.Sub(lastPlayerClickTime) < 500*time.Millisecond {
 		// Reserved for double-click behavior in the future.
 		lastPlayerClickTime = time.Time{}
 		return
 	}
-	selectPlayer(name)
-	lastPlayerClickName = name
+	selectPlayerForSession(session, ref.name)
+	lastPlayerClickSession = ref.session
+	lastPlayerClickName = ref.name
 	lastPlayerClickTime = now
 }
 
 func selectPlayer(name string) {
-	if selectedPlayerName == name {
+	selectPlayerForSession(selectedAppSession(), name)
+}
+
+func selectPlayerForSession(session *Session, name string) {
+	if session == nil {
 		return
 	}
-	selectedPlayerName = name
+	if session == primarySession {
+		if selectedPlayerName == name && session.selectedPlayerSnapshot() == name {
+			return
+		}
+		selectedPlayerName = name
+	} else if session.selectedPlayerSnapshot() == name {
+		return
+	}
+	session.setSelectedPlayer(name)
 	updatePlayersWindow()
 }
 
-func openPlayersContextMenu(name string, pos eui.Point) {
+func openPlayersContextMenu(ref playerRef, pos eui.Point) *eui.ItemData {
+	session, ok := appSessions.session(ref.session)
+	if !ok {
+		return nil
+	}
 	// Close any existing context menus.
 	eui.CloseContextMenus()
 
-	displayName := name
+	displayName := ref.name
 	options := []string{}
 	actions := []func(){}
 
@@ -925,7 +975,7 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	// player's name as the header.
 	headerCount := 0
 	if displayName != "" {
-		if p := getPlayer(displayName); p != nil && p.FriendLabel > 0 {
+		if p, ok := playerSnapshotForSession(session, displayName); ok && p.FriendLabel > 0 {
 			idx := p.FriendLabel
 			colorName := ""
 			if idx > 0 && idx <= len(defaultLabelNames) {
@@ -956,8 +1006,7 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 		options = append(options, "Thank")
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/thank %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/thank %s", maybeQuoteName(n)))
 		})
 	}
 
@@ -966,8 +1015,7 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 		options = append(options, "Curse")
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/curse %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/curse %s", maybeQuoteName(n)))
 		})
 	}
 
@@ -976,16 +1024,14 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	actions = append(actions, func() {
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/anonthank %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/anonthank %s", maybeQuoteName(n)))
 		})
 	})
 	options = append(options, "Anon Curse…")
 	actions = append(actions, func() {
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/anoncurse %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/anoncurse %s", maybeQuoteName(n)))
 		})
 	})
 
@@ -994,13 +1040,11 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 		options = append(options, "Share")
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/share %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/share %s", maybeQuoteName(n)))
 		})
 		options = append(options, "Unshare")
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/unshare %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/unshare %s", maybeQuoteName(n)))
 		})
 	}
 
@@ -1009,8 +1053,7 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 		options = append(options, "Info")
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/info %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/info %s", maybeQuoteName(n)))
 		})
 	}
 
@@ -1019,13 +1062,11 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 		options = append(options, "Pull")
 		n := displayName
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/pull %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/pull %s", maybeQuoteName(n)))
 		})
 		options = append(options, "Push")
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/push %s", maybeQuoteName(n)))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/push %s", maybeQuoteName(n)))
 		})
 	}
 
@@ -1036,13 +1077,13 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 			showCustomGroupPicker(&gs.PlayerGroups, playerCustomGroupKey(n), "Player", pos, func() { playersDirty = true })
 		})
 		options = append(options, "Label")
-		actions = append(actions, func() { showLabelMenu(n, pos, false) })
+		actions = append(actions, func() { showLabelMenuForSession(session, n, pos, false) })
 		options = append(options, "Label (Global)")
-		actions = append(actions, func() { showLabelMenu(n, pos, true) })
+		actions = append(actions, func() { showLabelMenuForSession(session, n, pos, true) })
 	}
 
 	if len(options) == 0 {
-		return
+		return nil
 	}
 	menu := eui.ShowContextMenu(options, pos.X, pos.Y, func(i int) {
 		adj := i - headerCount
@@ -1053,4 +1094,5 @@ func openPlayersContextMenu(name string, pos eui.Point) {
 	if menu != nil && headerCount > 0 {
 		menu.HeaderCount = headerCount
 	}
+	return menu
 }

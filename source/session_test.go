@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -694,6 +695,181 @@ func Init(){gt2.OnPlayerChange(func(event gt2.PlayerChangeEvent){count++;last=ev
 	}
 }
 
+func TestSessionBEPPUpdatesOwningPlayerDirectory(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.setCharacterName("First Hero")
+	second.setCharacterName("Second Hero")
+
+	decodeSessionBEPP(first, append([]byte{0xc2, 'i', 'n'}, pnTag("Alice")...))
+	first.players.mu.RLock()
+	_, firstQueued := first.players.infoQueue["Alice"]
+	first.players.mu.RUnlock()
+	second.players.mu.RLock()
+	_, secondQueued := second.players.infoQueue["Alice"]
+	second.players.mu.RUnlock()
+	if !firstQueued || secondQueued {
+		t.Fatalf("info request crossed sessions: first %v, second %v", firstQueued, secondQueued)
+	}
+
+	info := append(pnTag("Alice"), []byte("\tHuman\tFemale\tFighter\tSun Dragon Clan")...)
+	decodeSessionBEPP(first, append(append([]byte{0xc2, 'b', 'e', 0xc2, 'i', 'n'}, info...), 0))
+	alice, ok := first.players.player("Alice")
+	if !ok || alice.Race != "Human" || alice.Gender != "Female" || alice.Class != "Fighter" || alice.clan != "Sun Dragon Clan" {
+		t.Fatalf("first session info = %+v, %v", alice, ok)
+	}
+	if _, ok := second.players.player("Alice"); ok {
+		t.Fatal("first session info created a player in second session")
+	}
+
+	share := append(pnTag("Alice"), '\t')
+	share = append(share, pnTag("Carol")...)
+	decodeSessionBEPP(first, append(append([]byte{0xc2, 'b', 'e', 0xc2, 's', 'h'}, share...), 0))
+	alice, _ = first.players.player("Alice")
+	carol, ok := first.players.player("Carol")
+	if !alice.Sharee || !ok || !carol.Sharing {
+		t.Fatalf("first session sharing = Alice %+v, Carol %+v", alice, carol)
+	}
+
+	who := append(pnTag("Bob"), []byte(",Bob,0\t")...)
+	decodeSessionBEPP(second, append(append([]byte{0xc2, 'b', 'e', 0xc2, 'w', 'h'}, who...), 0))
+	bob, ok := second.players.player("Bob")
+	if !ok || bob.Offline || !bob.Seen || !bob.beWho {
+		t.Fatalf("second session who player = %+v, %v", bob, ok)
+	}
+	if _, ok := first.players.player("Bob"); ok {
+		t.Fatal("second session who result crossed into first session")
+	}
+
+	login := append(pnTag("Dora"), []byte(" has logged on.")...)
+	decodeSessionBEPP(first, append([]byte{0xc2, 'l', 'g'}, login...))
+	dora, ok := first.players.player("Dora")
+	if !ok || dora.Offline || !dora.Seen {
+		t.Fatalf("first session login player = %+v, %v", dora, ok)
+	}
+	fallen := append(pnTag("Dora"), []byte(" has fallen")...)
+	decodeSessionBEPP(first, append([]byte{0xc2, 'h', 'f'}, fallen...))
+	dora, _ = first.players.player("Dora")
+	if !dora.Dead || dora.FellTime.IsZero() {
+		t.Fatalf("first session fallen player = %+v", dora)
+	}
+	recovered := append(pnTag("Dora"), []byte(" is no longer fallen")...)
+	decodeSessionBEPP(first, append([]byte{0xc2, 'n', 'f'}, recovered...))
+	dora, _ = first.players.player("Dora")
+	if dora.Dead || !dora.FellTime.IsZero() {
+		t.Fatalf("first session recovered player = %+v", dora)
+	}
+	logout := append(pnTag("Dora"), []byte(" has logged off.")...)
+	decodeSessionBEPP(first, append([]byte{0xc2, 'l', 'f'}, logout...))
+	dora, _ = first.players.player("Dora")
+	if !dora.Offline {
+		t.Fatalf("first session logout player = %+v", dora)
+	}
+	if _, ok := second.players.player("Dora"); ok {
+		t.Fatal("first session transitions crossed into second session")
+	}
+}
+
+func TestSessionBeWhoPaginationCompletesInOwningSession(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	oldSeen := time.Now().Add(-time.Minute)
+	first.players.mu.Lock()
+	first.players.players["Stale"] = &Player{Name: "Stale", Seen: true, LastSeen: oldSeen}
+	first.players.players["Active"] = &Player{Name: "Active", Seen: true, LastSeen: oldSeen}
+	first.players.mu.Unlock()
+
+	fullPage := make([]byte, 0)
+	for i := 0; i < 20; i++ {
+		name := "Player" + strconv.Itoa(i)
+		fullPage = append(fullPage, pnTag(name)...)
+		fullPage = append(fullPage, []byte(","+name+",0\t")...)
+	}
+	first.players.parseBackendWho(fullPage)
+
+	first.players.mu.Lock()
+	if !first.players.whoActive {
+		first.players.mu.Unlock()
+		t.Fatal("full /be-who page ended the owning session scan")
+	}
+	if first.players.players["Stale"].Offline {
+		first.players.mu.Unlock()
+		t.Fatal("full /be-who page committed an omitted player offline")
+	}
+	first.players.players["Active"].LastSeen = first.players.whoScanStarted.Add(time.Millisecond)
+	first.players.mu.Unlock()
+
+	if !first.players.maybeEnqueueWho(first.commands) {
+		t.Fatal("owning session did not enqueue the next /be-who page")
+	}
+	first.commands.mu.Lock()
+	firstPending := first.commands.pending
+	first.commands.mu.Unlock()
+	second.commands.mu.Lock()
+	secondPending := second.commands.pending
+	second.commands.mu.Unlock()
+	if firstPending != "/be-who" || secondPending != "" {
+		t.Fatalf("paginated /be-who crossed sessions: first=%q second=%q", firstPending, secondPending)
+	}
+	first.commands.clear()
+
+	finalPage := append(pnTag("Final Player"), []byte(",Final Player,0\t")...)
+	first.players.parseBackendWho(finalPage)
+	stale, _ := first.players.player("Stale")
+	active, _ := first.players.player("Active")
+	first.players.mu.RLock()
+	whoActive := first.players.whoActive
+	first.players.mu.RUnlock()
+	if !stale.Offline || active.Offline || whoActive {
+		t.Fatalf("completed scan state = stale offline %v, active offline %v, active %v", stale.Offline, active.Offline, whoActive)
+	}
+	if len(second.players.snapshot()) != 0 {
+		t.Fatal("owning session /be-who results changed another player directory")
+	}
+}
+
+func TestSessionPlayerTextParsersCoverClassicForms(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.setCharacterName("First Hero")
+
+	decodeSessionBEPP(first, append([]byte{0xc2, 's', 'h'}, []byte("First Hero begins sharing experiences with Alice and Bob.")...))
+	alice, aliceOK := first.players.player("Alice")
+	bob, bobOK := first.players.player("Bob")
+	if !aliceOK || !bobOK || !alice.Sharee || !bob.Sharee {
+		t.Fatalf("third-person share = Alice %+v, Bob %+v", alice, bob)
+	}
+	decodeSessionBEPP(first, append([]byte{0xc2, 's', 'u'}, []byte("First Hero is no longer sharing experiences with Alice.")...))
+	alice, _ = first.players.player("Alice")
+	bob, _ = first.players.player("Bob")
+	if alice.Sharee || !bob.Sharee {
+		t.Fatalf("third-person unshare = Alice %+v, Bob %+v", alice, bob)
+	}
+
+	sharers := append([]byte("Currently sharing their experiences with you: "), pnTag("Carol")...)
+	sharers = append(sharers, pnTag("Dora")...)
+	decodeSessionBEPP(first, append([]byte{0xc2, 's', 'h'}, sharers...))
+	carol, carolOK := first.players.player("Carol")
+	dora, doraOK := first.players.player("Dora")
+	if !carolOK || !doraOK || !carol.Sharing || !dora.Sharing {
+		t.Fatalf("sharer list = Carol %+v, Dora %+v", carol, dora)
+	}
+
+	decodeSessionBEPP(first, append([]byte{0xc2, 'b', 'a'}, []byte("Eve is a Bard Master")...))
+	eve, eveOK := first.players.player("Eve")
+	if !eveOK || !eve.Bard || eve.Offline {
+		t.Fatalf("bard status = %+v, %v", eve, eveOK)
+	}
+	decodeSessionBEPP(first, append([]byte{0xc2, 'b', 'a'}, []byte("Eve is not a Bard")...))
+	eve, _ = first.players.player("Eve")
+	if eve.Bard {
+		t.Fatalf("bard removal = %+v", eve)
+	}
+	if len(second.players.snapshot()) != 0 {
+		t.Fatal("classic text forms changed another session's player directory")
+	}
+}
+
 func TestSessionScriptSelectionsUseOwningRows(t *testing.T) {
 	const owner = "shared-session-selections"
 	grantScriptPermissionsForTest(t, owner)
@@ -768,6 +944,51 @@ func Init(){
 	}
 	if got, want := readStrings(second), [4]string{"Bob", "Sunstone", "", ""}; got != want {
 		t.Fatalf("first selection changes crossed into second = %v, want %v", got, want)
+	}
+}
+
+func TestSessionLegacyMacroSelectionsUseOwningRows(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.setSelectedPlayer("Alice Smith")
+	second.setSelectedPlayer("Bob Jones")
+	first.inventory.add(101, -1, "Moonstone", false)
+	second.inventory.add(201, -1, "Sunstone", false)
+	first.setSelectedInventory(101, -1)
+	second.setSelectedInventory(201, -1)
+
+	for _, test := range []struct {
+		session          *Session
+		name, simpleName string
+		item             string
+	}{
+		{session: first, name: "Alice Smith", simpleName: "AliceSmith", item: "Moonstone"},
+		{session: second, name: "Bob Jones", simpleName: "BobJones", item: "Sunstone"},
+	} {
+		if got, _ := test.session.legacyMacroStateValue("@selplayer.name"); got != test.name {
+			t.Fatalf("session %d selected player = %q, want %q", test.session.ID(), got, test.name)
+		}
+		if got, _ := test.session.legacyMacroStateValue("@selplayer.simple_name"); got != test.simpleName {
+			t.Fatalf("session %d simple selected player = %q, want %q", test.session.ID(), got, test.simpleName)
+		}
+		if got, _ := test.session.legacyMacroStateValue("@my.selected_item"); got != test.item {
+			t.Fatalf("session %d selected item = %q, want %q", test.session.ID(), got, test.item)
+		}
+	}
+}
+
+func TestSubmittedMessageTargetsSelectedSessionCommandStream(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	dispatchSubmittedCommand(second, "/pose stand")
+	first.commands.mu.Lock()
+	firstPending := first.commands.pending
+	first.commands.mu.Unlock()
+	second.commands.mu.Lock()
+	secondPending := second.commands.pending
+	second.commands.mu.Unlock()
+	if firstPending != "" || secondPending != "/pose stand" {
+		t.Fatalf("submitted command crossed sessions: first=%q second=%q", firstPending, secondPending)
 	}
 }
 
