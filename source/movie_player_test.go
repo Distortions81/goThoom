@@ -318,7 +318,7 @@ func TestConcertSeekAtTwentyNineFortySevenUsesOneMusicKeyframe(t *testing.T) {
 	if len(active[0].jobs) != 2 {
 		t.Fatalf("active concert group has %d jobs, want synchronized duo", len(active[0].jobs))
 	}
-	wantPrograms := []int{25, 73}
+	wantPrograms := []int{instruments[5].program, instruments[1].program}
 	for i, job := range active[0].jobs {
 		if job.program != wantPrograms[i] {
 			t.Errorf("duo job %d program = %d, want %d", i, job.program, wantPrograms[i])

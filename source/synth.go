@@ -520,7 +520,7 @@ func newSongRenderer(program int, notes []Note) (*songRenderer, error) {
 	// Tune values conservatively to preserve rhythmic gaps.
 	extraRelease := 0
 	switch program {
-	case 25: // Acoustic Guitar (steel) – Gitor
+	case 24: // Acoustic Guitar (nylon) - Gitor
 		extraRelease = int(0.800 * sampleRate) // ~800ms
 	case 46: // Harp
 		extraRelease = int(0.300 * sampleRate) // ~300ms
@@ -1339,12 +1339,18 @@ func playMusicGroupWithSettingsAtFrameIf(ctx *audio.Context, parts []musicPart, 
 func dumpPCMAsWAV(pcm []byte) {
 	ts := time.Now().Format("20060102_150405")
 	name := "music_" + ts + ".wav"
-	f, err := os.Create(name)
-	if err != nil {
+	if err := writePCMAsWAV(name, pcm); err != nil {
 		log.Printf("dump music: %v", err)
 		return
 	}
-	defer f.Close()
+	log.Printf("wrote %s", name)
+}
+
+func writePCMAsWAV(path string, pcm []byte) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
 
 	dataLen := uint32(len(pcm))
 	var header [44]byte
@@ -1363,12 +1369,12 @@ func dumpPCMAsWAV(pcm []byte) {
 	binary.LittleEndian.PutUint32(header[40:], dataLen)
 
 	if _, err := f.Write(header[:]); err != nil {
-		log.Printf("dump music header: %v", err)
-		return
+		_ = f.Close()
+		return err
 	}
 	if _, err := f.Write(pcm); err != nil {
-		log.Printf("dump music data: %v", err)
-		return
+		_ = f.Close()
+		return err
 	}
-	log.Printf("wrote %s", name)
+	return f.Close()
 }

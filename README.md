@@ -126,6 +126,15 @@ Open **Download Files** in the client to install optional extras:
 - A SoundFont for higher-quality music.
 - Piper voices for local text-to-speech.
 
+For bard-instrument comparison, the repository includes a
+[23-instrument MIDI audition](bard-instrument-audition.mid) and the matching
+[goThoom SoundFont render](bard-instrument-audition.wav). A
+[QuickTime Musical Instruments render](bard-instrument-audition-quicktime.wav)
+of the same MIDI provides a classic-client reference. The
+[side-by-side stereo comparison](bard-instrument-compare-LR.wav) makes the two
+renders easy to compare directly. Each instrument has the same four-second
+slot in all files, in instrument-index order from 0 through 22.
+
 You can also customize goThoom without modifying the program:
 
 - Place `background.png` in the user data folder to use a custom background.

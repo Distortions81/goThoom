@@ -7,8 +7,8 @@ package main
 //   starts and durations are computed in ticks and converted to time at the end.
 // - Chords are scheduled at the current melody cursor without advancing it.
 //   Only rests/notes advance time. Chords require a melody timeline to exist
-//   (gating), but may ring across melody rests (they’re only clipped to the end
-//   of the melody timeline or at the next chord boundary for long‑chords).
+//   (gating), but may ring across melody rests. Long-chord notes occupy voices
+//   until the same pitch toggles them off or the melody timeline ends.
 // - Instrument rules are enforced (melody/chord capability, 3‑octave ranges,
 //   Orga drum G/B restriction, polyphony), and volume uses linear 0–10 steps.
 
@@ -17,6 +17,38 @@ import (
 	"time"
 	"unicode"
 )
+
+type tuneParseErrorCode string
+
+const (
+	tuneErrorInvalidChord          tuneParseErrorCode = "invalid_chord"
+	tuneErrorPolyphonyOverflow     tuneParseErrorCode = "polyphony_overflow"
+	tuneErrorUnsupportedInstrument tuneParseErrorCode = "unsupported_instrument"
+)
+
+type tuneParseError struct {
+	Code     tuneParseErrorCode
+	Position int
+}
+
+func (e *tuneParseError) Error() string {
+	switch e.Code {
+	case tuneErrorInvalidChord:
+		return "too many chord notes are playing for this instrument"
+	case tuneErrorPolyphonyOverflow:
+		return "too many chord notes are playing for this instrument"
+	case tuneErrorUnsupportedInstrument:
+		return "long chords are not supported on this instrument"
+	default:
+		return "invalid tune"
+	}
+}
+
+type activeChordNote struct {
+	noteIndex  int
+	logicalEnd int
+	long       bool
+}
 
 // classicNotesFromTune parses a Clan Lord tune using logic modeled after the
 // classic client's CTuneBuilder. It returns absolute-scheduled notes with
@@ -35,6 +67,11 @@ import (
 var strictCLTF = true
 
 func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int) []Note {
+	notes, _ := parseClassicTune(tune, inst, tempo, velocity)
+	return notes
+}
+
+func parseClassicTune(tune string, inst instrument, tempo int, velocity int) ([]Note, *tuneParseError) {
 	if tempo <= 0 {
 		tempo = 120
 	}
@@ -57,8 +94,8 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 
 	// Output notes and helpers for long-chord sustain and chord gating
 	var notes []Note
-	chordIdx := []int{}   // indices of notes that came from chord line (for gating)
-	activeLong := []int{} // indices of active long-chord notes
+	chordIdx := []int{}                      // indices of notes that came from chord line (for gating)
+	activeChord := map[int]activeChordNote{} // MIDI key to occupied chord voice
 	// Tie-merge state for single-note melodies
 	lastMelIdx := -1
 	lastMelKey := -1
@@ -194,27 +231,27 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 		}
 		// chord
 		if c == '[' {
+			chordStart := i
 			i++
 			ks := []int{}
-			innerOct := octave
 			// chord-local: allow volume controls to set chord-line volume (persistent)
 			for i < len(s) && s[i] != ']' {
 				if s[i] == '+' || s[i] == '-' || s[i] == '=' || s[i] == '/' || s[i] == '\\' {
 					switch s[i] {
 					case '+':
-						if innerOct < 1 {
-							innerOct++
+						if octave < 1 {
+							octave++
 						}
 					case '-':
-						if innerOct > -1 {
-							innerOct--
+						if octave > -1 {
+							octave--
 						}
 					case '=':
-						innerOct = 0
+						octave = 0
 					case '/':
-						innerOct = 1
+						octave = 1
 					case '\\':
-						innerOct = -1
+						octave = -1
 					}
 					i++
 					continue
@@ -257,7 +294,7 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 					continue
 				}
 				if isNoteLetter(s[i]) {
-					key, _ := parseNotePitch(s, &i, innerOct)
+					key, _ := parseNotePitch(s, &i, octave)
 					if key >= 0 {
 						ks = append(ks, key)
 					}
@@ -276,21 +313,20 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 				i++
 			}
 			if len(ks) > 0 {
-				// Enforce instrument chord capability
-				if strictCLTF && !inst.hasChords {
-					// instrument cannot play chords; ignore chord event entirely
-					continue
+				if strictCLTF && (!inst.hasChords || len(ks) > inst.polyphony) {
+					return notes, &tuneParseError{Code: tuneErrorInvalidChord, Position: chordStart}
 				}
-				// finalize any previously active long-chord notes at this chord boundary
-				if len(activeLong) > 0 {
-					for _, idx := range activeLong {
-						end := curMelTicks
-						if end < int(notes[idx].Start.Milliseconds()) {
-							end = int(notes[idx].Start.Milliseconds())
-						}
-						notes[idx].Duration = ticksToDur(end) - notes[idx].Start
+				if strictCLTF && long && !inst.longChord {
+					return notes, &tuneParseError{Code: tuneErrorUnsupportedInstrument, Position: i - 1}
+				}
+
+				// Finite chord voices become reusable after their logical duration,
+				// while long-chord voices remain occupied until the same note toggles
+				// them off or the song ends.
+				for key, active := range activeChord {
+					if !active.long && active.logicalEnd <= curMelTicks {
+						delete(activeChord, key)
 					}
-					activeLong = activeLong[:0]
 				}
 				// schedule chord notes at current melody time without advancing melody timeline
 				u := unitTicks()
@@ -309,48 +345,52 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 				} else if v > 127 {
 					v = 127
 				}
-				// Enforce polyphony limit (considering currently sustained long-chord notes)
-				remaining := inst.polyphony
-				if !strictCLTF || remaining <= 0 {
-					remaining = len(ks)
-				} else {
-					if remaining > len(ks) { /* ok */
+				// Preflight the voice allocation. A chord can replace an active note;
+				// repeating a long note in another long chord toggles it off.
+				if strictCLTF {
+					occupied := make(map[int]bool, len(activeChord))
+					for key, active := range activeChord {
+						occupied[key] = active.long
 					}
-					if remaining > 0 {
-						// reduce by active long-chord notes
-						if len(activeLong) < remaining {
-							remaining = remaining - len(activeLong)
-						} else {
-							remaining = 0
-						}
-					}
-				}
-				count := 0
-				for _, k := range ks {
-					if strictCLTF {
+					for _, k := range ks {
 						key := k + inst.octave*12
 						if !allowedNoteForInst(inst, key) {
 							continue
 						}
-						// reassign key after filter
-						if remaining > 0 && count >= remaining {
-							break
+						if wasLong, exists := occupied[key]; exists {
+							delete(occupied, key)
+							if wasLong && long {
+								continue
+							}
 						}
-						n := Note{Key: key, Velocity: v, Start: ticksToDur(curMelTicks), Duration: ticksToDur(noteTicks)}
-						notes = append(notes, n)
-						chordIdx = append(chordIdx, len(notes)-1)
-						if long && inst.longChord {
-							activeLong = append(activeLong, len(notes)-1)
+						if len(occupied) >= inst.polyphony {
+							return notes, &tuneParseError{Code: tuneErrorPolyphonyOverflow, Position: chordStart}
 						}
-						count++
-					} else {
-						key := k + inst.octave*12
-						n := Note{Key: key, Velocity: v, Start: ticksToDur(curMelTicks), Duration: ticksToDur(noteTicks)}
-						notes = append(notes, n)
-						chordIdx = append(chordIdx, len(notes)-1)
-						if long && inst.longChord {
-							activeLong = append(activeLong, len(notes)-1)
+						occupied[key] = long
+					}
+				}
+
+				for _, k := range ks {
+					key := k + inst.octave*12
+					if strictCLTF && !allowedNoteForInst(inst, key) {
+						continue
+					}
+					if active, exists := activeChord[key]; exists {
+						if elapsed := ticksToDur(curMelTicks) - notes[active.noteIndex].Start; elapsed < notes[active.noteIndex].Duration {
+							notes[active.noteIndex].Duration = max(elapsed, 0)
 						}
+						delete(activeChord, key)
+						if active.long && long {
+							continue
+						}
+					}
+					n := Note{Key: key, Velocity: v, Start: ticksToDur(curMelTicks), Duration: ticksToDur(noteTicks)}
+					notes = append(notes, n)
+					chordIdx = append(chordIdx, len(notes)-1)
+					activeChord[key] = activeChordNote{
+						noteIndex:  len(notes) - 1,
+						logicalEnd: curMelTicks + int(b)*u,
+						long:       long && inst.longChord,
 					}
 				}
 			}
@@ -423,8 +463,12 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 		i++
 	}
 	// finalize any active long-chord notes at end-of-song (melody end)
-	if len(activeLong) > 0 {
-		for _, idx := range activeLong {
+	if len(activeChord) > 0 {
+		for _, active := range activeChord {
+			if !active.long {
+				continue
+			}
+			idx := active.noteIndex
 			end := curMelTicks
 			if end < int(notes[idx].Start.Milliseconds()) {
 				end = int(notes[idx].Start.Milliseconds())
@@ -438,7 +482,7 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 	if curMelTicks == 0 {
 		// filter out chord-originated notes
 		if len(chordIdx) == 0 {
-			return notes
+			return notes, nil
 		}
 		keep := make([]bool, len(notes))
 		for i := range keep {
@@ -455,7 +499,7 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 				out = append(out, n)
 			}
 		}
-		return out
+		return out, nil
 	}
 	// Otherwise clip chord notes that exceed melody end
 	for _, idx := range chordIdx {
@@ -481,14 +525,14 @@ func classicNotesFromTune(tune string, inst instrument, tempo int, velocity int)
 		}
 		out = append(out, n)
 	}
-	return out
+	return out, nil
 }
 
 func ms(x int) time.Duration { return time.Duration(int64(x)) * time.Millisecond }
 
 // allowedNoteForInst enforces classic instrument note-range and special-case
 // restrictions. Range: 3 octaves centered at instrument.octave offset.
-// Orga drum (program 117) allows only G and B across the range.
+// Instrument-specific pitch-class restrictions are stored in the definition.
 func allowedNoteForInst(inst instrument, midi int) bool {
 	if !strictCLTF {
 		return true
@@ -499,10 +543,9 @@ func allowedNoteForInst(inst instrument, midi int) bool {
 	if midi < min || midi > max {
 		return false
 	}
-	// Orga drum: only G (7) and B (11) permitted
-	if inst.program == 117 {
+	if inst.allowedNoteClass != 0 {
 		off := ((midi % 12) + 12) % 12
-		return off == 7 || off == 11
+		return inst.allowedNoteClass&(1<<off) != 0
 	}
 	return true
 }

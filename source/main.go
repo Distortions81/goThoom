@@ -97,6 +97,8 @@ func main() {
 	dumpTune := flag.String("dumpTune", "", "dump parsed note timings for the given tune string and exit")
 	dumpTempo := flag.Int("dumpTempo", 120, "tempo for -dumpTune (BPM)")
 	dumpInst := flag.Int("dumpInst", defaultInstrument, "instrument index for -dumpTune")
+	instrumentAuditionOutput := flag.String("exportInstrumentAudition", "", "write a 23-instrument audition to this .mid/.wav path prefix and exit")
+	instrumentAuditionSoundFont := flag.String("auditionSoundFont", "", "SoundFont filename used by -exportInstrumentAudition (default: current selection)")
 	flag.StringVar(&clmov, "clmov", "", "play back a .clMov file")
 	flag.StringVar(&pcapPath, "pcap", "", "replay network frames from a .pcap/.pcapng file")
 	flag.BoolVar(&fake, "fake", false, "simulate server messages without connecting")
@@ -196,6 +198,14 @@ func main() {
 	}
 	if migrated {
 		log.Printf("copied portable user data to %s; original files were left in place", dataDirPath)
+	}
+	if *instrumentAuditionOutput != "" {
+		outputBase := instrumentAuditionOutputBase(*instrumentAuditionOutput)
+		if err := exportInstrumentAudition(outputBase, *instrumentAuditionSoundFont); err != nil {
+			log.Fatalf("export instrument audition: %v", err)
+		}
+		log.Printf("wrote %s.mid and %s.wav", outputBase, outputBase)
+		return
 	}
 	eui.SetUserDataRoot(dataDirPath)
 	loadTTSSubstitutions()

@@ -10,67 +10,81 @@ import (
 )
 
 const (
-	defaultInstrument    = 0
-	durationBlack        = 2.0
-	durationWhite        = 4.0
-	defaultChordDuration = 2.0
+	defaultInstrument      = 0
+	durationBlack          = 2.0
+	durationWhite          = 4.0
+	defaultChordDuration   = 2.0
+	classicInstrumentCount = 23
+	orgaDrumNoteClasses    = 1<<7 | 1<<11 // G and B in every allowed octave.
 )
 
 // instruments holds the instrument table extracted from the classic client.
-// Each instrument defines the General MIDI program number, octave offset, and
-// velocity scaling factors for chord and melody notes.
+// Each entry keeps the resource's one-based General MIDI number separate from
+// the zero-based program sent to the synthesizer.
 var instruments = []instrument{
-	// program, octave, chord%, melody%, longChord, hasChords, hasMelody, polyphony
-	{47, 1, 100, 100, false, true, true, 6},    // 0 Lucky Lyra
-	{73, 1, 100, 100, false, false, true, 0},   // 1 Bone Flute (melody only)
-	{46, 0, 100, 100, false, true, true, 6},    // 2 Starbuck Harp
-	{106, 0, 100, 100, false, true, true, 6},   // 3 Torjo
-	{13, 0, 100, 100, false, true, true, 6},    // 4 Xylo
-	{25, 0, 100, 100, false, true, true, 6},    // 5 Gitor
-	{76, 1, 100, 100, false, false, true, 0},   // 6 Reed Flute (melody only)
-	{17, -1, 100, 100, true, true, true, 6},    // 7 Temple Organ (longChord)
-	{94, -1, 100, 100, true, true, true, 6},    // 8 Conch (longChord)
-	{79, 1, 100, 100, false, false, true, 0},   // 9 Ocarina (melody only)
-	{19, 1, 100, 100, true, true, true, 6},     // 10 Centaur Organ (longChord)
-	{11, 0, 100, 100, false, true, true, 6},    // 11 Vibra
-	{59, -1, 100, 100, false, false, true, 0},  // 12 Tuborn (melody only)
-	{109, 0, 100, 100, true, true, true, 6},    // 13 Bagpipe (longChord)
-	{117, -1, 100, 100, false, false, true, 0}, // 14 Orga Drum (melody only; G/B only)
-	{115, 0, 100, 100, false, true, true, 6},   // 15 Casserole
-	{41, 1, 100, 100, false, true, true, 6},    // 16 Violène
-	{78, 1, 100, 100, false, false, true, 0},   // 17 Pine Flute (melody only)
-	{22, -1, 100, 100, true, true, true, 6},    // 18 Groanbox (longChord)
-	{108, -1, 100, 100, false, true, true, 6},  // 19 Gho-To
-	{44, -2, 100, 100, false, true, true, 6},   // 20 Mammoth Violène
-	{33, -2, 100, 100, false, false, true, 0},  // 21 Gutbucket Bass (melody only)
-	{76, 0, 100, 100, false, false, true, 0},   // 22 Glass Jug (melody only)
-	{17, -1, 100, 100, true, true, true, 6},    // 23 Vibra Sustained (Temple Organ substitute) (longChord)
-	{19, -1, 100, 100, true, true, true, 6},    // 24 Church Organ (strong sustain) (longChord)
-	{48, 0, 100, 100, false, true, true, 6},    // 25 String Ensemble 1 (soft sustain)
-	{49, 0, 100, 100, false, true, true, 6},    // 26 String Ensemble 2 (brighter sustain)
-	{52, 0, 100, 100, false, true, true, 6},    // 27 Choir Aahs (vocal sustain)
-	{89, 0, 100, 100, true, true, true, 6},     // 28 Warm Pad (synth pad sustain) (allow long)
+	// resource program, octave, chord%, melody%, longChord, hasChords, hasMelody, polyphony, allowed note classes
+	classicInstrument(47, 1, 100, 100, false, true, true, 6, 0),                      // 0 Lucky Lyra
+	classicInstrument(73, 1, 100, 100, false, false, true, 0, 0),                     // 1 Bone Flute (melody only)
+	classicInstrument(47, 0, 100, 100, false, true, true, 10, 0),                     // 2 Starbuck Harp
+	classicInstrument(106, 0, 100, 100, false, true, true, 6, 0),                     // 3 Torjo
+	classicInstrument(13, 0, 100, 100, false, true, true, 6, 0),                      // 4 Xylo
+	classicInstrument(25, 0, 100, 100, false, true, true, 6, 0),                      // 5 Gitor
+	classicInstrument(76, 1, 100, 100, false, false, true, 0, 0),                     // 6 Reed Flute (melody only)
+	classicInstrument(17, -1, 100, 100, true, true, true, 10, 0),                     // 7 Temple Organ (longChord)
+	classicInstrument(94, -1, 100, 100, true, true, true, 1, 0),                      // 8 Conch (longChord)
+	classicInstrument(80, 1, 100, 100, false, false, true, 0, 0),                     // 9 Ocarina (melody only)
+	classicInstrument(77, 1, 100, 100, true, true, true, 6, 0),                       // 10 Centaur Organ (Bottle Blow, matching classic)
+	classicInstrument(12, 0, 100, 100, false, true, true, 6, 0),                      // 11 Vibra
+	classicInstrument(59, -1, 100, 100, false, false, true, 0, 0),                    // 12 Tuborn (melody only)
+	classicInstrument(110, 0, 100, 100, true, true, true, 3, 0),                      // 13 Bagpipe (longChord)
+	classicInstrument(117, -1, 100, 100, false, false, true, 0, orgaDrumNoteClasses), // 14 Orga Drum (melody only; G/B only)
+	classicInstrument(115, 0, 100, 100, false, true, true, 4, 0),                     // 15 Casserole
+	classicInstrument(41, 1, 100, 100, false, true, true, 2, 0),                      // 16 Violène
+	classicInstrument(78, 1, 100, 100, false, false, true, 0, 0),                     // 17 Pine Flute (melody only)
+	classicInstrument(22, -1, 100, 100, true, true, true, 6, 0),                      // 18 Groanbox (longChord)
+	classicInstrument(108, -1, 100, 100, false, true, true, 3, 0),                    // 19 Gho-To
+	classicInstrument(44, -2, 100, 100, false, true, true, 2, 0),                     // 20 Mammoth Violène
+	classicInstrument(33, -2, 100, 100, false, false, true, 0, 0),                    // 21 Gutbucket Bass (melody only)
+	classicInstrument(77, 0, 100, 100, false, false, true, 1, 0),                     // 22 Glass Jug (melody only)
 }
 
 // instrument describes a playable instrument mapping Clan Lord's instrument
 // index to a General MIDI program number, octave offset, and velocity scaling
 // factors for chords and melodies.
 type instrument struct {
-	program   int
-	octave    int
-	chord     int  // chord velocity factor (0-100)
-	melody    int  // melody velocity factor (0-100)
-	longChord bool // supports long-chord sustain ('$')
-	hasChords bool // instrument can play chords
-	hasMelody bool // instrument can play melody
-	polyphony int  // maximum simultaneous chord notes (classic default 6)
+	classicProgram   int // one-based General MIDI number from the classic resource
+	program          int // zero-based General MIDI program sent to the synthesizer
+	octave           int
+	chord            int    // chord velocity factor (0-100)
+	melody           int    // melody velocity factor (0-100)
+	longChord        bool   // supports long-chord sustain ('$')
+	hasChords        bool   // instrument can play chords
+	hasMelody        bool   // instrument can play melody
+	polyphony        int    // resource polyphony; effective polyphony is zero without chords
+	allowedNoteClass uint16 // MIDI pitch-class bitset; zero permits every class
+}
+
+func classicInstrument(program, octave, chord, melody int, longChord, hasChords, hasMelody bool, polyphony int, allowedNoteClass uint16) instrument {
+	return instrument{
+		classicProgram:   program,
+		program:          program - 1,
+		octave:           octave,
+		chord:            chord,
+		melody:           melody,
+		longChord:        longChord,
+		hasChords:        hasChords,
+		hasMelody:        hasMelody,
+		polyphony:        polyphony,
+		allowedNoteClass: allowedNoteClass,
+	}
 }
 
 type tuneJob struct {
-	program int
-	notes   []Note
-	who     int
-	debug   bool
+	program  int
+	notes    []Note
+	who      int
+	debug    bool
+	parseErr *tuneParseError
 }
 
 // processMusicRequests remains a main-loop hook. Playback failures and song
@@ -116,7 +130,10 @@ func playClanLordTune(tune string) error {
 	}
 
 	// Use classic parser/timing exclusively for playback parity
-	ns := classicNotesFromTune(tune, instruments[inst], 120, 100)
+	ns, parseErr := parseClassicTune(tune, instruments[inst], 120, 100)
+	if parseErr != nil {
+		return parseErr
+	}
 	if len(ns) == 0 {
 		return fmt.Errorf("empty tune")
 	}
@@ -374,8 +391,8 @@ func makeTuneJob(who, inst, tempo, vol int, notes string, debug bool) tuneJob {
 	} else if vel > 127 {
 		vel = 127
 	}
-	notesOut := classicNotesFromTune(notes, instData, tempo, vel)
-	return tuneJob{program: prog, notes: notesOut, who: who, debug: debug}
+	notesOut, parseErr := parseClassicTune(notes, instData, tempo, vel)
+	return tuneJob{program: prog, notes: notesOut, who: who, debug: debug, parseErr: parseErr}
 }
 
 func enqueueTune(job tuneJob) {
@@ -388,6 +405,12 @@ func enqueueTune(job tuneJob) {
 func enqueueTunes(jobs []tuneJob) {
 	if len(jobs) == 0 {
 		return
+	}
+	for _, job := range jobs {
+		if job.parseErr != nil {
+			reportTuneParseError(job.who, job.parseErr)
+			return
+		}
 	}
 	if movieMusicIndexCapture != nil {
 		captured := append([]tuneJob(nil), jobs...)
@@ -422,6 +445,16 @@ func enqueueTunes(jobs []tuneJob) {
 			}
 		}
 	}()
+}
+
+func reportTuneParseError(who int, parseErr *tuneParseError) {
+	if parseErr == nil {
+		return
+	}
+	message := "* " + parseErr.Error() + "."
+	log.Printf("play tune for %d at byte %d: %s", who, parseErr.Position, parseErr.Error())
+	consoleMessage(message)
+	chatMessage(message)
 }
 
 // clearTuneQueue remains for message compatibility. Tunes start independently,
