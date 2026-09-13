@@ -383,16 +383,20 @@ func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
 	defer client.Close()
 	defer server.Close()
 
-	originalConn := tcpConn
 	originalCLMov := clmov
 	originalPlayingMovie := playingMovie
+	primarySession.transport.mu.Lock()
+	originalTCP, originalStatus := primarySession.transport.tcp, primarySession.transport.status
+	primarySession.transport.tcp, primarySession.transport.status = client, sessionConnected
+	primarySession.transport.mu.Unlock()
 	t.Cleanup(func() {
-		tcpConn = originalConn
+		primarySession.transport.mu.Lock()
+		primarySession.transport.tcp, primarySession.transport.status = originalTCP, originalStatus
+		primarySession.transport.mu.Unlock()
 		clmov = originalCLMov
 		playingMovie = originalPlayingMovie
 	})
 
-	tcpConn = client
 	clmov = ""
 	playingMovie = false
 	if reserveMoviePlayback("connected.clMov") {
@@ -402,7 +406,9 @@ func TestReserveMoviePlaybackRejectsServerConnection(t *testing.T) {
 		t.Fatalf("movie path changed while connected: %q", clmov)
 	}
 
-	tcpConn = nil
+	primarySession.transport.mu.Lock()
+	primarySession.transport.tcp, primarySession.transport.status = nil, sessionDisconnected
+	primarySession.transport.mu.Unlock()
 	if !reserveMoviePlayback("offline.clMov") {
 		t.Fatal("movie playback was rejected while disconnected")
 	}

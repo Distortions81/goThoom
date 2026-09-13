@@ -12,8 +12,13 @@ import (
 
 func TestGameWindowTitle(t *testing.T) {
 	originalPlayerName := playerName
-	t.Cleanup(func() { playerName = originalPlayerName })
+	originalCharacter := primarySession.characterName()
+	t.Cleanup(func() {
+		playerName = originalPlayerName
+		primarySession.setCharacterName(originalCharacter)
+	})
 
+	primarySession.setCharacterName("")
 	playerName = ""
 	if got, want := gameWindowTitle(), "goThoom"; got != want {
 		t.Fatalf("gameWindowTitle() = %q, want %q", got, want)

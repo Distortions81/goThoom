@@ -87,8 +87,8 @@ func TestRenderStallStudy(t *testing.T) {
 	gs.TiledWindows = docked
 	gs.MessagesToConsole = false
 	gs.forceNightLevel = 50
-	gNight.Shadows = 50
-	gNight.Azimuth = 135
+	primarySession.night.Shadows = 50
+	primarySession.night.Azimuth = 135
 	clImages = fixture.images
 	movieMode, playingMovie = true, true
 	blockSound, blockMusic, blockTTS = true, true, true
@@ -258,7 +258,16 @@ func (g *renderStallStudy) Draw(screen *ebiten.Image) {
 			stats[i].Pixels -= before.Pixels
 			stats[i].DeferredFrames -= before.DeferredFrames
 		}
-		g.results = append(g.results, renderStallResult{Samples: len(g.cpu), GraphicsLibrary: info.GraphicsLibrary.String(), UIRepaints: stats, Name: name, Submission: renderStallQuantiles(g.cpu), FrameInterval: renderStallQuantiles(g.intervals), Lights: len(frameLights), Darks: len(frameDarks), LightShadows: len(frameLightShadows), GPUBytes: info.TotalGPUImageMemoryUsageInBytes})
+		lights, darks, lightShadows := 0, 0, 0
+		for _, view := range appViewports.snapshot() {
+			if !view.Active || view.render == nil {
+				continue
+			}
+			lights += len(view.render.lighting.lights)
+			darks += len(view.render.lighting.darks)
+			lightShadows += len(view.render.lighting.shadows)
+		}
+		g.results = append(g.results, renderStallResult{Samples: len(g.cpu), GraphicsLibrary: info.GraphicsLibrary.String(), UIRepaints: stats, Name: name, Submission: renderStallQuantiles(g.cpu), FrameInterval: renderStallQuantiles(g.intervals), Lights: lights, Darks: darks, LightShadows: lightShadows, GPUBytes: info.TotalGPUImageMemoryUsageInBytes})
 		if g.index == 0 {
 			pixels := image.NewRGBA(screen.Bounds())
 			screen.ReadPixels(pixels.Pix)

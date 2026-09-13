@@ -15,42 +15,40 @@ func presenceLine(prefix string, msg []byte) []byte {
 }
 
 func TestDecodeLoginBEPP(t *testing.T) {
-	players = make(map[string]*Player)
-	players["Bob"] = &Player{Name: "Bob", Offline: true}
+	primarySession.players.reset()
+	primarySession.players.players["Bob"] = &Player{Name: "Bob", Offline: true}
 	msg := append(pnTag("Bob"), []byte(" has logged on")...)
 	raw := presenceLine("lg", msg)
 	if got := decodeBEPP(raw); got != "Bob has logged on" {
 		t.Fatalf("decodeBEPP returned %q", got)
 	}
-	playersMu.RLock()
-	offline := players["Bob"].Offline
-	playersMu.RUnlock()
+	player, _ := primarySession.players.player("Bob")
+	offline := player.Offline
 	if offline {
 		t.Errorf("player still offline")
 	}
 }
 
 func TestDecodeLoginBEPPAddsOnlinePlayer(t *testing.T) {
-	players = make(map[string]*Player)
+	primarySession.players.reset()
 	msg := append(pnTag("Newcomer"), []byte(" has logged on")...)
 	decodeBEPP(presenceLine("lg", msg))
-	p, ok := players["Newcomer"]
+	p, ok := primarySession.players.player("Newcomer")
 	if !ok || p.Offline {
 		t.Fatal("explicit login did not add an online player")
 	}
 }
 
 func TestDecodeLogoutBEPP(t *testing.T) {
-	players = make(map[string]*Player)
-	players["Bob"] = &Player{Name: "Bob", Offline: false}
+	primarySession.players.reset()
+	primarySession.players.players["Bob"] = &Player{Name: "Bob", Offline: false}
 	msg := append(pnTag("Bob"), []byte(" has left the lands")...)
 	raw := presenceLine("lf", msg)
 	if got := decodeBEPP(raw); got != "Bob has left the lands" {
 		t.Fatalf("decodeBEPP returned %q", got)
 	}
-	playersMu.RLock()
-	offline := players["Bob"].Offline
-	playersMu.RUnlock()
+	player, _ := primarySession.players.player("Bob")
+	offline := player.Offline
 	if !offline {
 		t.Errorf("player not marked offline")
 	}

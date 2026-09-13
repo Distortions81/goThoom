@@ -287,13 +287,7 @@ func refreshScriptToolbars() {
 func buildScriptToolbarRows() []*eui.ItemData {
 	var registrations []*scriptToolbarRegistration
 	session := selectedAppSession()
-	if session == primarySession {
-		scriptToolbarMu.RLock()
-		for _, ownerToolbars := range scriptToolbars {
-			registrations = append(registrations, ownerToolbars...)
-		}
-		scriptToolbarMu.RUnlock()
-	} else if session != nil && session.automation != nil {
+	if session != nil && session.automation != nil {
 		session.automation.scriptMu.RLock()
 		for _, ownerToolbars := range session.automation.localToolbars {
 			registrations = append(registrations, ownerToolbars...)

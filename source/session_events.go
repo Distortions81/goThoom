@@ -119,6 +119,8 @@ func (s *Session) publishChat(text, messageType string) {
 	queueSessionChatUIUpdate()
 	if s == primarySession {
 		displayChatMessageTyped(text, messageType)
+	} else {
+		appendTextLogForSession(s, text)
 	}
 }
 
@@ -127,10 +129,11 @@ func (s *Session) publishConsole(text, messageType string) {
 		return
 	}
 	s.recordConsoleEvent(text, messageType)
+	s.dispatchSessionScriptServerMessage(scriptapi.ServerMessage{Message: text, Type: messageType})
 	if s == primarySession {
 		serverConsoleMessageTyped(text, messageType)
 	} else {
-		s.dispatchSessionScriptServerMessage(scriptapi.ServerMessage{Message: text, Type: messageType})
+		appendTextLogForSession(s, text)
 	}
 }
 
@@ -143,6 +146,8 @@ func (s *Session) publishClientConsole(text, messageType string) {
 	s.recordConsoleEvent(text, messageType)
 	if s == primarySession {
 		consoleMessageTyped(text, messageType)
+	} else {
+		appendTextLogForSession(s, text)
 	}
 }
 

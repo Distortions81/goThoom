@@ -149,6 +149,7 @@ func sortedUniqueCandidates(values []string) []string {
 }
 
 func currentInputCompletionCandidates() inputCompletionCandidates {
+	session := selectedAppSession()
 	commands := make([]string, 0, len(serverCommandNames)+len(localCommandNames))
 	for _, name := range serverCommandNames {
 		commands = append(commands, "/"+name)
@@ -157,31 +158,27 @@ func currentInputCompletionCandidates() inputCompletionCandidates {
 		commands = append(commands, "/"+name)
 	}
 
-	scriptMu.RLock()
-	for name, owner := range scriptCommandOwners {
-		if !scriptDisabled[owner] {
-			commands = append(commands, "/"+name)
-		}
+	scriptSession := session
+	if session == primarySession && !session.transport.connected() {
+		scriptSession = nil
 	}
-	scriptMu.RUnlock()
+	for _, name := range scriptCommandNamesForSession(scriptSession) {
+		commands = append(commands, "/"+name)
+	}
 
-	legacyMacrosMu.RLock()
-	for _, declaration := range legacyMacrosProgram.Macros {
+	for _, declaration := range session.legacyMacroProgramSnapshot().Macros {
 		if declaration.Kind == legacyMacroExpression {
 			commands = append(commands, declaration.Trigger)
 		}
 	}
-	legacyMacrosMu.RUnlock()
 
-	itemNames := getInventoryCompletionNames()
+	itemNames := getInventoryCompletionNamesForSession(session)
 	chat := append([]string(nil), itemNames...)
-	playersMu.RLock()
-	for _, player := range players {
+	for _, player := range playersSnapshotForSession(session) {
 		if player.Name != "" && !player.IsNPC {
 			chat = append(chat, player.Name)
 		}
 	}
-	playersMu.RUnlock()
 	return inputCompletionCandidates{commands: commands, items: itemNames, chat: chat}
 }
 

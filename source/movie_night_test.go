@@ -18,7 +18,7 @@ func TestStockMoviesUpdateNightState(t *testing.T) {
 	originalMovieRevision := movieRevision
 	clImages = testCLImages(nil)
 	t.Cleanup(func() {
-		gNight = NightInfo{}
+		*primarySession.night = NightInfo{}
 		movieMode = originalMovieMode
 		movieVersion = originalMovieVersion
 		movieRevision = originalMovieRevision
@@ -53,7 +53,7 @@ func assertStockMovieNightUpdates(t *testing.T, path string, wantUpdates int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gNight = NightInfo{}
+	*primarySession.night = NightInfo{}
 	movieMode = true
 	updates := 0
 	for _, frame := range frames {
@@ -73,11 +73,11 @@ func assertStockMovieNightUpdates(t *testing.T, path string, wantUpdates int) {
 		wantCloudy := match[3] != "0"
 
 		handleDrawState(frame.data, false)
-		gNight.mu.Lock()
-		level := gNight.BaseLevel
-		azimuth := gNight.Azimuth
-		cloudy := gNight.Cloudy
-		gNight.mu.Unlock()
+		primarySession.night.mu.Lock()
+		level := primarySession.night.BaseLevel
+		azimuth := primarySession.night.Azimuth
+		cloudy := primarySession.night.Cloudy
+		primarySession.night.mu.Unlock()
 		if level != wantLevel || azimuth != wantAzimuth || cloudy != wantCloudy {
 			t.Fatalf("frame %d night state = (%d, %d, %v), want (%d, %d, %v)", frame.index, level, azimuth, cloudy, wantLevel, wantAzimuth, wantCloudy)
 		}
@@ -91,7 +91,7 @@ func assertStockMovieNightUpdates(t *testing.T, path string, wantUpdates int) {
 func TestMovieSeekRestoresNightProjection(t *testing.T) {
 	originalState := cloneDrawState(primarySession.draw.current)
 	t.Cleanup(func() {
-		gNight = NightInfo{}
+		*primarySession.night = NightInfo{}
 		primarySession.draw.mu.Lock()
 		primarySession.draw.current = originalState
 		primarySession.draw.mu.Unlock()
@@ -103,9 +103,9 @@ func TestMovieSeekRestoresNightProjection(t *testing.T) {
 		prevMobiles: make(map[uint8]frameMobile),
 		prevDescs:   make(map[uint8]frameDescriptor),
 	}
-	gNight = NightInfo{Azimuth: 0, Shadows: 50}
+	*primarySession.night = NightInfo{Azimuth: 0, Shadows: 50}
 	firstNight := captureMovieNightState()
-	gNight = NightInfo{Azimuth: 90, Shadows: 50}
+	*primarySession.night = NightInfo{Azimuth: 90, Shadows: 50}
 	secondNight := captureMovieNightState()
 
 	player := &moviePlayer{
@@ -118,9 +118,9 @@ func TestMovieSeekRestoresNightProjection(t *testing.T) {
 		},
 	}
 	player.seek(100)
-	second := newCharacterShadowProjection(gNight.Azimuth)
+	second := newCharacterShadowProjection(primarySession.night.Azimuth)
 	player.seek(0)
-	first := newCharacterShadowProjection(gNight.Azimuth)
+	first := newCharacterShadowProjection(primarySession.night.Azimuth)
 	if first.angle == second.angle || first.length == second.length {
 		t.Fatalf("movie seek retained projection: first=%+v second=%+v", first, second)
 	}

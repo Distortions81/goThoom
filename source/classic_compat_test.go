@@ -162,23 +162,23 @@ func TestBEPPClassicDisplayRouting(t *testing.T) {
 }
 
 func TestBEPPInfoQueuesNamedPlayer(t *testing.T) {
-	infoQueueMu.Lock()
-	oldQueue := infoQueue
-	infoQueue = map[string]struct{}{}
-	infoQueueMu.Unlock()
-	oldPlayers := players
-	players = map[string]*Player{}
+	primarySession.players.mu.Lock()
+	oldQueue := primarySession.players.infoQueue
+	oldPlayers := primarySession.players.players
+	primarySession.players.infoQueue = map[string]struct{}{}
+	primarySession.players.players = map[string]*Player{}
+	primarySession.players.mu.Unlock()
 	t.Cleanup(func() {
-		infoQueueMu.Lock()
-		infoQueue = oldQueue
-		infoQueueMu.Unlock()
-		players = oldPlayers
+		primarySession.players.mu.Lock()
+		primarySession.players.infoQueue = oldQueue
+		primarySession.players.players = oldPlayers
+		primarySession.players.mu.Unlock()
 	})
 	raw := append([]byte{0xc2, 'i', 'n'}, pnTag("Bob")...)
 	decodeBEPP(raw)
-	infoQueueMu.Lock()
-	_, ok := infoQueue["Bob"]
-	infoQueueMu.Unlock()
+	primarySession.players.mu.RLock()
+	_, ok := primarySession.players.infoQueue["Bob"]
+	primarySession.players.mu.RUnlock()
 	if !ok {
 		t.Fatal("BEPP in did not queue Bob for be-info")
 	}
@@ -199,22 +199,22 @@ func TestMobileNameStyleUsesWireBitsAndShareeUnderline(t *testing.T) {
 
 func TestExplicitShadowPictureRules(t *testing.T) {
 	oldSettings := gs
-	gNight.mu.Lock()
-	oldLevel, oldShadows, oldFlags := gNight.Level, gNight.Shadows, gNight.Flags
-	gNight.Level, gNight.Shadows, gNight.Flags = 20, 0, 0
-	gNight.mu.Unlock()
+	primarySession.night.mu.Lock()
+	oldLevel, oldShadows, oldFlags := primarySession.night.Level, primarySession.night.Shadows, primarySession.night.Flags
+	primarySession.night.Level, primarySession.night.Shadows, primarySession.night.Flags = 20, 0, 0
+	primarySession.night.mu.Unlock()
 	t.Cleanup(func() {
 		gs = oldSettings
-		gNight.mu.Lock()
-		gNight.Level, gNight.Shadows, gNight.Flags = oldLevel, oldShadows, oldFlags
-		gNight.mu.Unlock()
+		primarySession.night.mu.Lock()
+		primarySession.night.Level, primarySession.night.Shadows, primarySession.night.Flags = oldLevel, oldShadows, oldFlags
+		primarySession.night.mu.Unlock()
 	})
 	if draw, _ := explicitShadowPictureAlpha(climg.PictDefIsShadow); draw {
 		t.Fatal("explicit shadow drew with shadow level zero")
 	}
-	gNight.mu.Lock()
-	gNight.Shadows, gNight.Level = 25, 34
-	gNight.mu.Unlock()
+	primarySession.night.mu.Lock()
+	primarySession.night.Shadows, primarySession.night.Level = 25, 34
+	primarySession.night.mu.Unlock()
 	gs.MaxNightLevel = 100
 	if draw, alpha := explicitShadowPictureAlpha(climg.PictDefIsShadow); !draw || alpha != 0.25 {
 		t.Fatalf("dark explicit shadow = draw %v alpha %v", draw, alpha)

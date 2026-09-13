@@ -40,6 +40,22 @@ func scriptHotkeyDefault(hk Hotkey) string {
 }
 
 func scriptCommandSettingsFor(owner string) []scriptCommandSetting {
+	return scriptCommandSettingsForSession(nil, owner)
+}
+
+func scriptCommandSettingsForSession(session *Session, owner string) []scriptCommandSetting {
+	if session != nil {
+		session.automation.scriptMu.RLock()
+		var entries []scriptCommandSetting
+		for value, entry := range session.automation.localCommands {
+			if entry.owner == owner {
+				entries = append(entries, scriptCommandSetting{Owner: owner, Default: entry.original, Value: value})
+			}
+		}
+		session.automation.scriptMu.RUnlock()
+		sort.Slice(entries, func(i, j int) bool { return entries[i].Default < entries[j].Default })
+		return entries
+	}
 	scriptMu.RLock()
 	defer scriptMu.RUnlock()
 	var entries []scriptCommandSetting
@@ -52,7 +68,57 @@ func scriptCommandSettingsFor(owner string) []scriptCommandSetting {
 	return entries
 }
 
+func scriptHotkeysForSession(session *Session, owner string) []Hotkey {
+	if session == nil {
+		return scriptHotkeys(owner)
+	}
+	session.automation.scriptMu.RLock()
+	bindings := session.automation.localHotkeys[owner]
+	keys := make([]Hotkey, 0, len(bindings))
+	for combo, binding := range bindings {
+		keys = append(keys, Hotkey{Combo: combo, Script: owner, defaultCombo: binding.original})
+	}
+	session.automation.scriptMu.RUnlock()
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Combo < keys[j].Combo })
+	return keys
+}
+
 func setScriptCommandName(owner, original, value string) error {
+	return setScriptCommandNameForSession(nil, owner, original, value)
+}
+
+func setScriptCommandNameForSession(session *Session, owner, original, value string) error {
+	if session != nil {
+		value = normalizeScriptCommand(strings.TrimSpace(value))
+		if value == "" || strings.ContainsAny(value, "/\\") || strings.ContainsFunc(value, unicode.IsSpace) {
+			return fmt.Errorf("Enter one command name, without spaces or arguments.")
+		}
+		if value == "play" || value == "palette" || value == "setting" || strings.HasPrefix(value, "testhooks") {
+			return fmt.Errorf("/%s is a built-in client command.", value)
+		}
+		session.automation.scriptMu.Lock()
+		current := ""
+		var entry sessionScriptCommand
+		for command, candidate := range session.automation.localCommands {
+			if candidate.owner == owner && candidate.original == original {
+				current, entry = command, candidate
+				break
+			}
+		}
+		if current == "" {
+			session.automation.scriptMu.Unlock()
+			return fmt.Errorf("This command is no longer registered. Reopen Settings.")
+		}
+		if existing, exists := session.automation.localCommands[value]; exists && (value != current || existing.owner != owner) {
+			session.automation.scriptMu.Unlock()
+			return fmt.Errorf("/%s is already registered.", value)
+		}
+		delete(session.automation.localCommands, current)
+		session.automation.localCommands[value] = entry
+		session.automation.scriptMu.Unlock()
+		saveScriptControl(owner, "command", original, value)
+		return nil
+	}
 	value = normalizeScriptCommand(strings.TrimSpace(value))
 	if value == "" || strings.ContainsAny(value, "/\\") || strings.ContainsFunc(value, unicode.IsSpace) {
 		return fmt.Errorf("Enter one command name, without spaces or arguments.")
@@ -90,6 +156,41 @@ func setScriptCommandName(owner, original, value string) error {
 }
 
 func setScriptBinding(owner, original, value string) error {
+	return setScriptBindingForSession(nil, owner, original, value)
+}
+
+func setScriptBindingForSession(session *Session, owner, original, value string) error {
+	if session != nil {
+		value = strings.TrimSpace(value)
+		if !validScriptControlBinding(value) {
+			return fmt.Errorf("Enter a key combination or use Record.")
+		}
+		session.automation.scriptMu.Lock()
+		bindings := session.automation.localHotkeys[owner]
+		current := ""
+		var entry sessionScriptHotkey
+		for combo, candidate := range bindings {
+			if candidate.original == original {
+				current, entry = combo, candidate
+				break
+			}
+		}
+		if current == "" {
+			session.automation.scriptMu.Unlock()
+			return fmt.Errorf("This binding is no longer registered. Reopen Settings.")
+		}
+		for registered := range bindings {
+			if registered != current && sameCombo(registered, value) {
+				session.automation.scriptMu.Unlock()
+				return fmt.Errorf("%s is already registered.", value)
+			}
+		}
+		delete(bindings, current)
+		bindings[value] = entry
+		session.automation.scriptMu.Unlock()
+		saveScriptControl(owner, "binding", original, value)
+		return nil
+	}
 	value = strings.TrimSpace(value)
 	if !validScriptControlBinding(value) {
 		return fmt.Errorf("Enter a key combination or use Record.")

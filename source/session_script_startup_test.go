@@ -219,6 +219,96 @@ func Init(){
 	}
 }
 
+func TestPrimaryLiveScriptRegistrationsUseSessionRuntime(t *testing.T) {
+	const owner = "primary-session-registrations"
+	grantScriptPermissionsForTest(t, owner)
+	scriptMu.Lock()
+	oldDisabled, hadDisabled := scriptDisabled[owner]
+	oldCommand, hadCommand := scriptCommands["primary-local-session"]
+	oldCommandOwner, hadCommandOwner := scriptCommandOwners["primary-local-session"]
+	scriptDisabled[owner] = true
+	delete(scriptCommands, "primary-local-session")
+	delete(scriptCommandOwners, "primary-local-session")
+	scriptMu.Unlock()
+	t.Cleanup(func() {
+		primarySession.stopSessionScript(owner, "test cleanup")
+		scriptMu.Lock()
+		if hadDisabled {
+			scriptDisabled[owner] = oldDisabled
+		} else {
+			delete(scriptDisabled, owner)
+		}
+		if hadCommand {
+			scriptCommands["primary-local-session"] = oldCommand
+		} else {
+			delete(scriptCommands, "primary-local-session")
+		}
+		if hadCommandOwner {
+			scriptCommandOwners["primary-local-session"] = oldCommandOwner
+		} else {
+			delete(scriptCommandOwners, "primary-local-session")
+		}
+		scriptMu.Unlock()
+	})
+
+	source := []byte(`package main
+import "gt2"
+func Init(){gt2.Command("primary-local-session",func(string){})}
+`)
+	if err := primarySession.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start primary session script: %v", err)
+	}
+	if currentSessionScriptEventQueue(primarySession, owner) == nil {
+		t.Fatal("primary script did not start on its session queue")
+	}
+	if currentScriptEventQueue(owner) != nil {
+		t.Fatal("primary live script also started on the compatibility queue")
+	}
+	if _, ok := primarySession.sessionScriptCommand("primary-local-session"); !ok {
+		t.Fatal("primary command was not registered on its session")
+	}
+	scriptMu.RLock()
+	globalHandler := scriptCommands["primary-local-session"]
+	scriptMu.RUnlock()
+	if globalHandler != nil {
+		t.Fatal("primary live command leaked into the compatibility registry")
+	}
+}
+
+func TestApplyEnabledScriptsUsesConnectedSecondaryWithoutCompatibilityRuntime(t *testing.T) {
+	const owner = "secondary-only-live-runtime"
+	installSessionScriptPackageForTest(t, owner, "", "secondary-only")
+	if primarySession.transport.connected() {
+		t.Fatal("test requires a disconnected primary session")
+	}
+	originalSessions := appSessions
+	manager := newSessionManager(primarySession)
+	slots := manager.enableMulti()
+	secondary := slots[1]
+	secondary.setCharacterName("Second")
+	appSessions = manager
+	tcp, tcpPeer := net.Pipe()
+	udp, udpPeer := net.Pipe()
+	if _, ok := secondary.transport.attach(tcp, udp); !ok {
+		t.Fatal("attach secondary transport")
+	}
+	t.Cleanup(func() {
+		secondary.automation.stopSessionScripts("test cleanup")
+		secondary.transport.disconnect()
+		_ = tcpPeer.Close()
+		_ = udpPeer.Close()
+		appSessions = originalSessions
+	})
+
+	applyEnabledScripts()
+	if currentSessionScriptEventQueue(secondary, owner) == nil {
+		t.Fatal("connected secondary session did not start its enabled script")
+	}
+	if currentScriptEventQueue(owner) != nil {
+		t.Fatal("secondary-only live state started the compatibility runtime")
+	}
+}
+
 func TestSecondarySessionScriptWindowAndPrintUseOwningSession(t *testing.T) {
 	initFont()
 	const owner = "secondary-session-window-print"

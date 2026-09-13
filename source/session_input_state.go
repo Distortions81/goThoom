@@ -6,9 +6,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// sessionInputState is the direct-input queue for a non-primary session. The
-// current UI continues to use its primary compatibility globals until viewport
-// selection can route input into the selected session.
+// sessionInputState owns direct input and the saved message draft for one
+// session, including the primary session.
 type sessionInputState struct {
 	mu         sync.Mutex
 	latest     inputState
@@ -196,12 +195,32 @@ func (s *sessionInputState) latestSnapshot() inputState {
 	return input
 }
 
+func (s *sessionInputState) appliedSnapshot() inputState {
+	if s == nil {
+		return inputState{}
+	}
+	s.mu.Lock()
+	input := s.latest
+	s.mu.Unlock()
+	return input
+}
+
 func (s *sessionInputState) setStopFrames(frames int) {
 	if s == nil {
 		return
 	}
 	s.mu.Lock()
 	s.stopFrames = frames
+	s.mu.Unlock()
+}
+
+func (s *sessionInputState) resetDirectQueue() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.queue = nil
+	s.stopFrames = 0
 	s.mu.Unlock()
 }
 
@@ -299,7 +318,7 @@ func bindMessageInputSession(session *Session) {
 	selectedMessageInput = nil
 	walkToggled = false
 	keyWalkPrev = false
-	keyStopFrames = 0
+	session.input.setStopFrames(0)
 	boundMessageInputSession = session.ID()
 	spellDirty = true
 	updateMessageInputWindows()
@@ -319,24 +338,11 @@ func currentSessionInput(session *Session) inputState {
 	if session == nil {
 		return inputState{}
 	}
-	if session == primarySession {
-		inputMu.Lock()
-		input := latestInput
-		if len(inputQueue) > 0 {
-			input = inputQueue[len(inputQueue)-1]
-		}
-		inputMu.Unlock()
-		return input
-	}
 	return session.input.latestSnapshot()
 }
 
 func queueSessionInput(session *Session, input inputState) {
 	if session == nil {
-		return
-	}
-	if session == primarySession {
-		queueInput(input)
 		return
 	}
 	session.input.enqueue(input)

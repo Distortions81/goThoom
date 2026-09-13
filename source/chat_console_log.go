@@ -9,37 +9,44 @@ import (
 	"time"
 )
 
-var (
-	textLogPath string
-	textLogChar string
-	textLogMu   sync.Mutex
-)
+type sessionTextLogState struct {
+	mu        sync.Mutex
+	path      string
+	character string
+}
 
-// appendChatLog appends a chat line to the legacy-style Text Logs file.
-func appendChatLog(msg string) { appendTextLog(msg) }
+func newSessionTextLogState() *sessionTextLogState {
+	return &sessionTextLogState{}
+}
 
-// appendConsoleLog appends a console line to the legacy-style Text Logs file.
-func appendConsoleLog(msg string) { appendTextLog(msg) }
+func textLogSuppressedForSession(session *Session) bool {
+	return session == primarySession && (clmov != "" || movieMode || playingMovie)
+}
 
-func appendTextLog(msg string) {
-	if msg == "" {
+func textLogCharacter(session *Session) string {
+	if session == nil {
+		return ""
+	}
+	character := strings.TrimSpace(session.characterName())
+	if character == "" {
+		character = strings.TrimSpace(session.login.requestSnapshot().character)
+	}
+	return character
+}
+
+func appendTextLogForSession(session *Session, message string) {
+	if session == nil || session.textLog == nil || message == "" || isWASM {
 		return
 	}
-	if isWASM {
+	ensureTextLogForSession(session)
+	state := session.textLog
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.path == "" || textLogSuppressedForSession(session) {
 		return
 	}
 
-	// The selected path covers loading; movieMode remains set at end of playback.
-	if clmov != "" || movieMode || playingMovie {
-		return
-	}
-
-	ensureTextLog()
-	if textLogPath == "" {
-		return
-	}
-
-	// Old client timestamp format: M/D/YY H:MM:SSa (no leading zeros for M/D/H)
+	// Old client timestamp format: M/D/YY H:MM:SSa (no leading zeros for M/D/H).
 	now := time.Now()
 	hour := now.Hour()
 	ampm := byte('a')
@@ -50,82 +57,65 @@ func appendTextLog(msg string) {
 	if hour12 == 0 {
 		hour12 = 12
 	}
-	ts := fmt.Sprintf("%d/%d/%.2d %d:%.2d:%.2d%c ",
+	timestamp := fmt.Sprintf("%d/%d/%.2d %d:%.2d:%.2d%c ",
 		int(now.Month()), now.Day(), now.Year()%100,
 		hour12, now.Minute(), now.Second(), ampm,
 	)
-
-	// Convert any CR to LF similar to SwapLineEndings before writing.
-	line := strings.ReplaceAll(msg, "\r", "\n")
-	line = strings.TrimRight(line, "\n")
-	// One entry per line
-	out := ts + line + "\n"
-
-	// Append
-	f, err := os.OpenFile(textLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	line := strings.TrimRight(strings.ReplaceAll(message, "\r", "\n"), "\n")
+	file, err := os.OpenFile(state.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return
 	}
-	_, _ = f.WriteString(out)
-	_ = f.Close()
+	_, _ = file.WriteString(timestamp + line + "\n")
+	_ = file.Close()
 }
 
-// ensureTextLog initializes the Text Log path matching the classic Windows client.
-// Path: "Text Logs/<CharName>/CL Log YYYY-MM-DD HH.MM.SS.txt"
-func ensureTextLog() {
-	if isWASM {
-		textLogPath = ""
-		textLogChar = ""
+// ensureTextLogForSession initializes one persistent log per live session.
+// Primary logs retain the classic filename; additional slots include their
+// stable session ID so duplicate character sessions never share a writer.
+func ensureTextLogForSession(session *Session) {
+	if session == nil || session.textLog == nil {
 		return
 	}
-	textLogMu.Lock()
-	defer textLogMu.Unlock()
-
-	if clmov != "" || movieMode || playingMovie {
-		textLogPath = ""
-		textLogChar = ""
+	state := session.textLog
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if isWASM || textLogSuppressedForSession(session) {
+		state.path = ""
+		state.character = ""
 		return
 	}
-
-	// Determine the preferred character name for logging.
-	desired := strings.TrimSpace(playerName)
+	desired := textLogCharacter(session)
+	if state.path != "" && (desired == "" || desired == state.character) {
+		return
+	}
 	if desired == "" {
-		desired = strings.TrimSpace(gs.LastCharacter)
-	}
-
-	// If we already have a log file and either no desired name yet or the same
-	// character, keep using the current file.
-	if textLogPath != "" && (desired == "" || desired == textLogChar) {
 		return
 	}
-
-	// If we don't have a desired character yet and no file exists, defer until later.
-	if textLogPath == "" && desired == "" {
-		return
-	}
-
-	// Rotate or initialize the log file for the new character.
-	if desired == "" {
-		// No new character yet; keep existing file.
-		return
-	}
-
-	base := textLogsDirPath()
-	charDir := filepath.Join(base, desired)
-
+	characterDir := filepath.Join(textLogsDirPath(), desired)
 	now := time.Now()
-	timeName := now.Format("CL Log 2006-01-02 15.04.05.txt")
-
-	if err := os.MkdirAll(charDir, 0o755); err != nil {
+	filename := now.Format("CL Log 2006-01-02 15.04.05")
+	if session.ID() != primarySessionID {
+		filename += fmt.Sprintf(" Session %d", session.ID())
+	}
+	if err := os.MkdirAll(characterDir, 0o755); err != nil {
 		return
 	}
-	textLogPath = filepath.Join(charDir, timeName)
-	textLogChar = desired
-
-	// Optional session marker at rotation
-	f, err := os.OpenFile(textLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	state.path = filepath.Join(characterDir, filename+".txt")
+	state.character = desired
+	file, err := os.OpenFile(state.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err == nil {
-		_, _ = f.WriteString(fmt.Sprintf("=== Session started %s as %s ===\n", now.Format(time.RFC3339), textLogChar))
-		_ = f.Close()
+		_, _ = file.WriteString(fmt.Sprintf("=== Session started %s as %s ===\n", now.Format(time.RFC3339), state.character))
+		_ = file.Close()
 	}
+}
+
+func sessionTextLogSnapshot(session *Session) (path, character string) {
+	if session == nil || session.textLog == nil {
+		return "", ""
+	}
+	session.textLog.mu.Lock()
+	path, character = session.textLog.path, session.textLog.character
+	session.textLog.mu.Unlock()
+	return
 }

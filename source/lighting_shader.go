@@ -30,10 +30,6 @@ var (
 	lightingShader           *ebiten.Shader
 	lightingShaderVariants   []lightingShaderVariant
 	lightingTmp              *ebiten.Image
-	frameLights              []lightSource
-	frameDarks               []darkSource
-	frameLightCasters        []lightCaster
-	frameLightShadows        []lightShadow
 	mobileSpriteMetricsCache = make(map[mobileKey]mobileSpriteMetrics)
 	// Reused shader data to avoid per-frame allocations
 	leqR, leqG, leqB                                  [maxLights]float32
@@ -48,6 +44,30 @@ var (
 	lightingIndices                                   = []uint32{0, 1, 2, 1, 2, 3}
 )
 
+// viewportLightingFrame retains the output of one viewport's scene pass until
+// its lighting pass runs. Keeping this data with the viewport lets all visible
+// sessions advance through shared render stages without one scene overwriting
+// another scene's light and shadow inputs.
+type viewportLightingFrame struct {
+	lights                []lightSource
+	darks                 []darkSource
+	casters               []lightCaster
+	shadows               []lightShadow
+	detailedShadowBacking *ebiten.Image
+	detailedShadowMask    *ebiten.Image
+	detailedShadowBounds  image.Rectangle
+}
+
+func lightingFrameForViewport(state *viewportRenderState) *viewportLightingFrame {
+	if state == nil && appViewports != nil {
+		state = appViewports.renderStateForViewport(1)
+	}
+	if state == nil {
+		return nil
+	}
+	return &state.lighting
+}
+
 type lightingShaderVariant struct {
 	maxLights  int
 	maxShadows int
@@ -56,11 +76,20 @@ type lightingShaderVariant struct {
 	op         ebiten.DrawTrianglesShaderOptions
 }
 
-var sceneLightingScan struct {
+type sceneLightingScanState struct {
 	worldGeneration uint64
 	archive         *climg.CLImages
 	hasEmitters     bool
 	valid           bool
+}
+
+var sceneLightingScans [maxSessions + 1]sceneLightingScanState
+
+func sceneLightingScanForSession(id SessionID) *sceneLightingScanState {
+	if !id.Valid() {
+		return &sceneLightingScans[0]
+	}
+	return &sceneLightingScans[id]
 }
 
 // Global multipliers to make lights/darks reach farther on screen.
@@ -152,13 +181,14 @@ func sceneMayNeedLighting(snap drawSnapshot) bool {
 	if clImages == nil || !shaderLightingEnabled() {
 		return false
 	}
-	if currentNightLevel() > 0 {
+	if effectiveNightLevel(snap.night) > 0 {
 		return true
 	}
-	if snap.worldGeneration != 0 && sceneLightingScan.valid &&
-		sceneLightingScan.worldGeneration == snap.worldGeneration &&
-		sceneLightingScan.archive == clImages {
-		return sceneLightingScan.hasEmitters
+	scan := sceneLightingScanForSession(snap.source)
+	if snap.worldGeneration != 0 && scan.valid &&
+		scan.worldGeneration == snap.worldGeneration &&
+		scan.archive == clImages {
+		return scan.hasEmitters
 	}
 	hasEmitters := false
 	for _, pictures := range [...][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
@@ -186,10 +216,10 @@ func sceneMayNeedLighting(snap drawSnapshot) bool {
 		}
 	}
 	if snap.worldGeneration != 0 {
-		sceneLightingScan.worldGeneration = snap.worldGeneration
-		sceneLightingScan.archive = clImages
-		sceneLightingScan.hasEmitters = hasEmitters
-		sceneLightingScan.valid = true
+		scan.worldGeneration = snap.worldGeneration
+		scan.archive = clImages
+		scan.hasEmitters = hasEmitters
+		scan.valid = true
 	}
 	return hasEmitters
 }
@@ -283,13 +313,24 @@ type lightShadow struct {
 }
 
 func ensureLightingTmp(bounds image.Rectangle) *ebiten.Image {
-	if lightingTmp == nil || lightingTmp.Bounds() != bounds {
-		if lightingTmp != nil {
-			lightingTmp.Deallocate()
-		}
-		lightingTmp = ebiten.NewImageWithOptions(bounds, &ebiten.NewImageOptions{Unmanaged: true})
+	return ensureLightingScratch(&lightingTmp, bounds)
+}
+
+func ensureViewportLightingTmp(state *viewportRenderState, bounds image.Rectangle) *ebiten.Image {
+	if state == nil {
+		return ensureLightingTmp(bounds)
 	}
-	return lightingTmp
+	return ensureLightingScratch(&state.lightingTmp, bounds)
+}
+
+func ensureLightingScratch(scratch **ebiten.Image, bounds image.Rectangle) *ebiten.Image {
+	if *scratch == nil || (*scratch).Bounds() != bounds {
+		if *scratch != nil {
+			(*scratch).Deallocate()
+		}
+		*scratch = ebiten.NewImageWithOptions(bounds, &ebiten.NewImageOptions{Unmanaged: true})
+	}
+	return *scratch
 }
 
 func localLightingPosition(x, y float32, bounds image.Rectangle) (float32, float32) {
@@ -297,16 +338,32 @@ func localLightingPosition(x, y float32, bounds image.Rectangle) (float32, float
 }
 
 func applyLightingShader(dst *ebiten.Image, lights []lightSource, darks []darkSource, t float32) {
+	applyLightingShaderForViewport(nil, dst, lights, darks, t)
+}
+
+func applyLightingShaderForViewport(state *viewportRenderState, dst *ebiten.Image, lights []lightSource, darks []darkSource, t float32) {
+	applyLightingShaderForViewportNight(state, primarySession.night.snapshot(), dst, lights, darks, t)
+}
+
+func applyLightingShaderForViewportNight(state *viewportRenderState, night nightRenderState, dst *ebiten.Image, lights []lightSource, darks []darkSource, t float32) {
 	if lightingShader == nil {
 		return
 	}
-	ensureLightingTmp(dst.Bounds())
-	lightingTmp.DrawImage(dst, nil)
-	applyWorldComposite(dst, lightingTmp, lights, darks, t, true)
+	scratch := ensureViewportLightingTmp(state, dst.Bounds())
+	scratch.DrawImage(dst, nil)
+	applyWorldCompositeForViewport(state, night, dst, scratch, lights, darks, t, true)
 }
 
 func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks []darkSource, t float32, useLighting bool) {
+	applyWorldCompositeForViewport(nil, primarySession.night.snapshot(), dst, source, lights, darks, t, useLighting)
+}
+
+func applyWorldCompositeForViewport(state *viewportRenderState, night nightRenderState, dst, source *ebiten.Image, lights []lightSource, darks []darkSource, t float32, useLighting bool) {
 	if lightingShader == nil || dst == nil || source == nil {
+		return
+	}
+	frame := lightingFrameForViewport(state)
+	if frame == nil {
 		return
 	}
 	w, h := dst.Bounds().Dx(), dst.Bounds().Dy()
@@ -319,8 +376,8 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	}
 	il := lights[:min(len(lights), maxLights)]
 	id := darks[:min(len(darks), maxLights)]
-	frameLightShadows = buildLightShadows(il, frameLightCasters, frameLightShadows[:0])
-	variant := selectLightingShaderVariant(len(il), len(id), len(frameLightShadows))
+	frame.shadows = buildLightShadows(il, frame.casters, frame.shadows[:0])
+	variant := selectLightingShaderVariant(len(il), len(id), len(frame.shadows))
 	if variant == nil {
 		return
 	}
@@ -330,7 +387,7 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	// Update counts
 	uniforms["LightCount"] = len(il)
 	uniforms["DarkCount"] = len(id)
-	uniforms["ShadowCount"] = len(frameLightShadows)
+	uniforms["ShadowCount"] = len(frame.shadows)
 
 	// Shader distance calculations use source-pixel coordinates, which are local
 	// to the temporary image. Sources are stored in destination-image coordinates.
@@ -368,8 +425,8 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 			dint[i] = ds.Intensity
 		}
 	}
-	for i := 0; i < len(frameLightShadows); i++ {
-		shadow := frameLightShadows[i]
+	for i := 0; i < len(frame.shadows); i++ {
+		shadow := frame.shadows[i]
 		slightX[i], slightY[i] = localLightingPosition(shadow.LightX, shadow.LightY, dstBounds)
 		slightInvRadiusSquared[i] = 1 / (shadow.LightRadius * shadow.LightRadius)
 		slightR[i] = shadow.LightR
@@ -399,8 +456,8 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 	nightFactor := float32(0)
 	if !useLighting {
 		nightFactor = 0
-	} else if nightAlphaInited {
-		nf := lerpf(nightPrevTarget, nightCurTarget, ease(t)) / float32(shaderNightStrength)
+	} else if state != nil && state.nightTransition.inited {
+		nf := state.nightTransition.alpha(t) / float32(shaderNightStrength)
 		if nf < 0 {
 			nf = 0
 		} else if nf > 1 {
@@ -408,19 +465,19 @@ func applyWorldComposite(dst, source *ebiten.Image, lights []lightSource, darks 
 		}
 		nightFactor = nf
 	} else {
-		lvl := currentNightLevel()
+		lvl := effectiveNightLevel(night)
 		nightFactor = float32(lvl) / 100
 	}
 	uniforms["NightFactor"] = nightFactor
 	uniforms["HasCharacterShadowMask"] = float32(0)
 	op.Images[1] = whiteImage
-	if frameDetailedShadowMask != nil && !frameDetailedShadowBounds.Empty() {
-		characterShadowMin[0] = float32(frameDetailedShadowBounds.Min.X - dstBounds.Min.X)
-		characterShadowMin[1] = float32(frameDetailedShadowBounds.Min.Y - dstBounds.Min.Y)
-		characterShadowMax[0] = float32(frameDetailedShadowBounds.Max.X - dstBounds.Min.X)
-		characterShadowMax[1] = float32(frameDetailedShadowBounds.Max.Y - dstBounds.Min.Y)
+	if frame.detailedShadowMask != nil && !frame.detailedShadowBounds.Empty() {
+		characterShadowMin[0] = float32(frame.detailedShadowBounds.Min.X - dstBounds.Min.X)
+		characterShadowMin[1] = float32(frame.detailedShadowBounds.Min.Y - dstBounds.Min.Y)
+		characterShadowMax[0] = float32(frame.detailedShadowBounds.Max.X - dstBounds.Min.X)
+		characterShadowMax[1] = float32(frame.detailedShadowBounds.Max.Y - dstBounds.Min.Y)
 		uniforms["HasCharacterShadowMask"] = float32(1)
-		op.Images[1] = frameDetailedShadowMask
+		op.Images[1] = frame.detailedShadowMask
 	}
 
 	// Bind the full scene and the grow-only cropped shadow target. Pixel-unit
@@ -470,16 +527,41 @@ func min(a, b int) int {
 // addNightDarkSources appends dark sources to produce a smooth inverse-square
 // vignette-like darkening using the shader path. The overall strength scales
 // with the current/effective night level and ambientNightStrength.
-// Night smoothing state
-var (
-	nightAlphaInited bool
-	nightLastT       float32
-	nightPrevTarget  float32
-	nightCurTarget   float32
-)
+type nightTransitionState struct {
+	inited            bool
+	lastT             float32
+	previous, current float32
+}
+
+func (n *nightTransitionState) update(target, t float32) float32 {
+	if n.inited {
+		if t < n.lastT {
+			n.previous = n.current
+		}
+		n.current = target
+	} else {
+		n.inited = true
+		n.previous = target
+		n.current = target
+	}
+	n.lastT = t
+	return n.alpha(t)
+}
+
+func (n nightTransitionState) alpha(t float32) float32 {
+	return lerpf(n.previous, n.current, ease(t))
+}
 
 func addNightDarkSources(bounds image.Rectangle, t float32) {
-	lvl := currentNightLevel()
+	addNightDarkSourcesForViewport(nil, bounds, t, primarySession.night.snapshot())
+}
+
+func addNightDarkSourcesForViewport(state *viewportRenderState, bounds image.Rectangle, t float32, night nightRenderState) {
+	frame := lightingFrameForViewport(state)
+	if frame == nil {
+		return
+	}
+	lvl := effectiveNightLevel(night)
 	// Convert to [0..1] strength; reuse ambientNightStrength as baseline.
 	// Use a higher strength specifically for shader night so 100% looks dark.
 	// Apply a gamma curve so low night levels are much gentler than high.
@@ -488,20 +570,10 @@ func addNightDarkSources(bounds image.Rectangle, t float32) {
 	// Photometric-like response; tweak exponent if needed (2.2 is typical)
 	gamma := 2.2
 	target := float32(math.Pow(frac, gamma) * float64(shaderNightStrength))
-	if nightAlphaInited {
-		if t < nightLastT { // new frame
-			nightPrevTarget = nightCurTarget
-			nightCurTarget = target
-		} else {
-			nightCurTarget = target
-		}
-	} else {
-		nightAlphaInited = true
-		nightPrevTarget = target
-		nightCurTarget = target
+	alpha := target
+	if state != nil {
+		alpha = state.nightTransition.update(target, t)
 	}
-	nightLastT = t
-	alpha := lerpf(nightPrevTarget, nightCurTarget, ease(t))
 	if alpha <= 0 {
 		return
 	}
@@ -512,7 +584,7 @@ func addNightDarkSources(bounds image.Rectangle, t float32) {
 	// Center dark: provide near-total ambient darkening across the scene.
 	centerRadius := diag * 1.5
 	centerAlpha := alpha * 1.0
-	frameDarks = append(frameDarks, darkSource{
+	frame.darks = append(frame.darks, darkSource{
 		X:         float32(bounds.Min.X+bounds.Max.X) / 2,
 		Y:         float32(bounds.Min.Y+bounds.Max.Y) / 2,
 		Radius:    centerRadius,
@@ -530,7 +602,7 @@ func addNightDarkSources(bounds image.Rectangle, t float32) {
 		{float32(bounds.Max.X), float32(bounds.Max.Y)},
 	}
 	for _, c := range corners {
-		frameDarks = append(frameDarks, darkSource{X: c[0], Y: c[1], Radius: cornerRadius, Alpha: cornerAlpha, Intensity: 1})
+		frame.darks = append(frame.darks, darkSource{X: c[0], Y: c[1], Radius: cornerRadius, Alpha: cornerAlpha, Intensity: 1})
 	}
 }
 
@@ -628,8 +700,16 @@ type mobileSpriteMetrics struct {
 }
 
 func addMobileLightCaster(x, y float64, size int, metrics mobileSpriteMetrics) {
+	addMobileLightCasterForViewport(nil, x, y, size, metrics)
+}
+
+func addMobileLightCasterForViewport(state *viewportRenderState, x, y float64, size int, metrics mobileSpriteMetrics) {
 	widthFraction := metrics.widthFraction
 	if !shaderLightingEnabled() || !gs.MobileLightConeShadows || size <= 0 || widthFraction <= 0 {
+		return
+	}
+	frame := lightingFrameForViewport(state)
+	if frame == nil {
 		return
 	}
 	scaledSize := float32(float64(size) * gs.GameScale)
@@ -641,7 +721,7 @@ func addMobileLightCaster(x, y float64, size int, metrics mobileSpriteMetrics) {
 	} else if radius > maximumRadius {
 		radius = maximumRadius
 	}
-	frameLightCasters = append(frameLightCasters, lightCaster{
+	frame.casters = append(frame.casters, lightCaster{
 		X:                    float32(x),
 		Y:                    float32(y) - scaledSize/2 + scaledSize*metrics.footFraction,
 		Radius:               radius,
@@ -863,6 +943,10 @@ func flameLightFlicker(flags uint32, pictID uint32, instanceKey uint64, logicalF
 }
 
 func addMobileLightSource(pictID uint32, state, index uint8, player bool, x, y float64, size, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+	addMobileLightSourceForViewport(nil, pictID, state, index, player, x, y, size, logicalFrame, interpolation, bounds)
+}
+
+func addMobileLightSourceForViewport(viewport *viewportRenderState, pictID uint32, state, index uint8, player bool, x, y float64, size, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
@@ -883,7 +967,7 @@ func addMobileLightSource(pictID uint32, state, index uint8, player bool, x, y f
 	// together with its night ambience, fully lights the exile at the source.
 	// Our darker ambient curve needs a stronger reveal from that same light.
 	geometry.strength = mobileLightStrength(player, flags)
-	addLightSource(pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
+	addLightSourceForViewport(viewport, pictID, flags, li, geometry, mobileKeyTag|uint64(index), x, y, logicalFrame, interpolation, bounds)
 }
 
 func pictureLightInstanceKey(p framePicture) uint64 {
@@ -896,6 +980,10 @@ func pictureLightInstanceKey(p framePicture) uint64 {
 }
 
 func addPictureLightSource(p framePicture, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+	addPictureLightSourceForViewport(nil, p, x, y, width, height, logicalFrame, interpolation, bounds)
+}
+
+func addPictureLightSourceForViewport(viewport *viewportRenderState, p framePicture, x, y float64, width, height, logicalFrame int, interpolation float64, bounds image.Rectangle) {
 	if !shaderLightingEnabled() || clImages == nil {
 		return
 	}
@@ -909,10 +997,18 @@ func addPictureLightSource(p framePicture, x, y float64, width, height, logicalF
 		return
 	}
 	geometry := pictureLightGeometry(li.Radius, flags, width, height)
-	addLightSource(pictID, flags, li, geometry, pictureLightInstanceKey(p), x, y, logicalFrame, interpolation, bounds)
+	addLightSourceForViewport(viewport, pictID, flags, li, geometry, pictureLightInstanceKey(p), x, y, logicalFrame, interpolation, bounds)
 }
 
 func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeometry, instanceKey uint64, x, y float64, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+	addLightSourceForViewport(nil, pictID, flags, li, geometry, instanceKey, x, y, logicalFrame, interpolation, bounds)
+}
+
+func addLightSourceForViewport(viewport *viewportRenderState, pictID, flags uint32, li climg.LightInfo, geometry lightGeometry, instanceKey uint64, x, y float64, logicalFrame int, interpolation float64, bounds image.Rectangle) {
+	frame := lightingFrameForViewport(viewport)
+	if frame == nil {
+		return
+	}
 	radius := geometry.radius
 	radius *= float32(gs.GameScale)
 	strength := gs.FlameFlickerStrength
@@ -928,21 +1024,21 @@ func addLightSource(pictID, flags uint32, li climg.LightInfo, geometry lightGeom
 		if !lightIntersectsViewport(cx, cy, radius, bounds) {
 			return
 		}
-		if len(frameDarks) < maxLights {
+		if len(frame.darks) < maxLights {
 			alpha := float32(li.Color[3]) / 255 * geometry.intensity
-			frameDarks = append(frameDarks, darkSource{X: cx, Y: cy, Radius: radius, Alpha: alpha, Plane: li.Plane, Intensity: 1})
+			frame.darks = append(frame.darks, darkSource{X: cx, Y: cy, Radius: radius, Alpha: alpha, Plane: li.Plane, Intensity: 1})
 		}
 	} else {
 		radius *= flame.radius
 		if !lightIntersectsViewport(cx, cy, lightInfluenceRadius(radius), bounds) {
 			return
 		}
-		if len(frameLights) < maxLights {
+		if len(frame.lights) < maxLights {
 			brightness := flame.brightness * geometry.intensity
 			r := float32(li.Color[0]) / 255 * brightness
 			g := float32(li.Color[1]) / 255 * brightness
 			b := float32(li.Color[2]) / 255 * brightness
-			frameLights = append(frameLights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: geometry.strength})
+			frame.lights = append(frame.lights, lightSource{X: cx, Y: cy, Radius: radius, R: r, G: g, B: b, Plane: li.Plane, Intensity: geometry.strength})
 		}
 	}
 }

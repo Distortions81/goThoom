@@ -104,16 +104,16 @@ dependency hooks are not session state.
 | Assets and rendering resources | CL archives, decoded images/sounds, shaders, fonts, sprite/name-tag caches, render pools | App | Decoded artwork remains shared, while each session tracks its own scene preparation request. Cache keys must not contain implicit current-character state. |
 | Audio output | audio context, mixer levels, sound/TTS players | App | Effect requests carry a source session ID and use per-session deduplication before entering the shared mixer. Notifications are source-labeled, music parsing is session-owned, and exactly one app-selected session feeds the shared music player. |
 | Game view | `gameWin`, `gameImage*`, `worldViewRect`, hover/render caches | Viewport | Stable view IDs, session assignment, independent windows, image/backing targets, snapshots/render caches, hit testing, coordinate conversion, and content-sized login overlays are implemented. Four freeform views or one fixed tiled 2x2 workspace render simultaneously. |
-| Draw model | decoded state, initial snapshot, bubbles, vitals, lighting flags, logical frame and world generation | Session | The canonical model is extracted behind a session lock. Protocol decode, render preparation, snapshot capture, bubbles, sounds, inventory commands, and visible-player observations accept an explicit session. Snapshot identity includes its source session and render caches are viewport-owned. |
-| Transport and login | TCP/UDP connections, login cancellation/progress, reconnect state | Session | Socket pairs, connection status, cancellation, generation-safe cleanup, network loops, immutable per-attempt login requests, and pending password updates are session-owned. Each disconnected viewport owns the normal login controls and shows connection progress or errors in place. An automatic reconnect policy remains future work. |
+| Draw model | decoded state, initial snapshot, bubbles, vitals, time of day, area lighting flags, logical frame and world generation | Session | The canonical model is extracted behind a session lock. Protocol decode, render preparation, snapshot capture, bubbles, sounds, inventory commands, and visible-player observations accept an explicit session. Night level, sun angle, cloud cover, indoor/outdoor modifiers, redshift, and shadow state are session-owned. Snapshot identity includes its source session; scene lighting scans are session-owned, while night transitions, frame lighting/shadow collections, fallback lighting scratch textures, and render caches are viewport-owned. Changed multi-session scenes use shared scene and lighting atlases so scene passes finish across the visible sessions before the lighting stage. |
+| Transport and login | TCP/UDP connections, login cancellation/progress, reconnect state | Session | Socket pairs, connection status, cancellation, generation-safe cleanup, network loops, immutable per-attempt login requests, pending password updates, and exponential reconnect supervisors are session-owned. Each disconnected viewport owns the normal login controls and shows connection progress or errors in place. Disconnect and shutdown cancel and join the owning supervisor. |
 | Network timing | ack/resend values, frame statistics/timing, PNA controller/fallback, command reply samples | Session | Live network loops use session-owned locks and wake channels, so one connection cannot tune or wake another. Package-level primary wrappers remain for single-session compatibility. |
 | Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, input queues, walking, message drafts/history, clicks/hover, hotkeys, script input APIs, and legacy-macro direct triggers route to the selected session. A playfield press selects its viewport before live pointer and macro dispatch, using that view's fitted world coordinates. |
-| Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory, player directories, selections, BEP info/share/presence/fallen/bard state, paginated `/be-who`, and maintenance queues are session-owned. The package-level primary identity and player map remain compatibility adapters while login and older call sites move behind `Session`. |
-| Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained in typed per-session logs and a source-tagged app aggregate. Shared Chat/Console windows bind to the selected log and submit to its command stream, and drafts/history are session-owned. Text Log persistence and primary-only client messages still use legacy adapters. |
-| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Every connected session starts independent interpreters for globally enabled and matching character-enabled scripts. Secondary sessions own their queues, timers, tasks, subscriptions, commands, hotkeys, toolbar and shortcut registrations, movement, input APIs, output, outgoing work, windows, world overlays, and mobile tint/outline/flash effects. Selected-session keyboard, expression, wheel, and click macro triggers use the owning runtime. Script-window presentation and the Scripts management UI remain app-owned. |
+| Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory, live player directories, selections, BEP info/share/presence/fallen/bard state, paginated `/be-who`, and maintenance queues are session-owned. Persisted player profiles and labels remain app-owned; package-level entry points are limited to replay and single-session compatibility. |
+| Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained in typed per-session logs and a source-tagged app aggregate. Shared Chat/Console windows bind to the selected log and submit to its command stream, drafts/history are session-owned, and each live session writes a distinct persistent Text Log. |
+| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Every connected session starts independent interpreters for globally enabled and matching character-enabled scripts. Sessions own their queues, timers, tasks, subscriptions, commands, hotkeys, toolbar and shortcut registrations, movement, input APIs, output, outgoing work, windows, world overlays, and mobile tint/outline/flash effects. Selected-session keyboard, expression, wheel, and click macro triggers use the owning runtime. The shared Scripts manager shows the selected session's character, runtime status, registrations, errors, configuration callbacks, and controls. |
 | Music data | parsed tune queue/timeline and current tune metadata | Session | Implemented. The synthesizer/player stays app-owned and follows the explicit music-source selection; changing source stops playback and waits for that session's next tune event. |
 | UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Chat, Console, Inventory, Players, script toolbars, native title, notifications, and command targets follow the selected session. The selected view uses the theme accent in its title bar, plus an accent outline in tiled mode. The Sessions toolbar control enters multi-session mode and returns to single-session mode once every slot is disconnected. Four titled freeform playfields bind permanently to their slots; tiled mode fixes the same views in a 2x2 workspace. Connected views own their logout actions, and disconnected slots show embedded login states. |
-| Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Live session recordings cannot share mutable buffers. Fake mode stays single-session and PCAP may remain unsupported. |
+| Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Every live session owns its recorder, armed state, initial draw/night snapshot, and collision-safe filename. The selected session controls the toolbar and REC badge. Playback remains a dedicated primary replay source; fake mode stays single-session and PCAP may remain unsupported. |
 
 The first implemented boundaries are `SessionID`, the app-owned session
 registry, Inventory, Players, and the ordered command stream. IDs map permanently to the
@@ -140,13 +140,13 @@ credentials, and its pending password update. Login attempts capture immutable
 request snapshots, demo-character retries update only their owning session,
 and simultaneous session logins cannot exchange hosts, character names, or
 passwords. Disconnect and stale-loop cleanup operate only on the owning
-session. Secondary-session login now also loads a private legacy macro runtime;
-its `@login` work advances with that session's server frames, queues only that
-session's commands and movement, and is cancelled when the session resets.
+session. Every login loads a private legacy macro runtime; its `@login` work
+advances with that session's server frames, queues only that session's commands
+and movement, and is cancelled when the session resets.
 Script data snapshots are now parameterized by session and candidate exports
 bind to that session before source evaluation. Each session also owns a
 serialized script-event-queue registry, so queues can run and be torn down
-without crossing a second connection. Secondary sessions start the saved global
+without crossing a second connection. All live sessions start the saved global
 and matching character-scoped scripts after login, reconcile them after scope,
 source, or permission changes, and independently stop and reset each
 interpreter. Chat and lifecycle subscriptions, callback failures, output,
@@ -326,21 +326,18 @@ of the shared login controls. The application Window Layout setting switches
 between restored freeform geometry
 and a fixed 2x2 grid in the existing game area. The selected tile uses the
 theme accent, and `multi_session.json` preserves freeform positions, selected
-session, and music source after multi-session has been used.
+session, and music source after multi-session has been used. Changed world
+views are packed into grow-only shared render atlases: every scene pass runs
+before the lighting-composite stage, then each completed region is published
+to its session window. All visible scenes are pinned together in the shared
+sprite cache for that frame.
 
 ### Remaining implementation work
 
-- Make the existing Scripts management UI session-aware for runtime status,
-  configuration callbacks, and runtime-specific controls. Script discovery,
-  enablement, and permission choices remain shared application settings.
-- Define and implement an automatic reconnect policy for each session without
-  allowing a stale connection to replace or tear down a newer one.
-- Give live recording and Text Log persistence explicit per-session ownership;
-  recording currently follows only the primary session.
-- Retire remaining primary-session compatibility wrappers after their legacy
-  single-session call sites have explicit owners.
-- Exercise multiple live accounts, independent disconnect/reconnect, rapid
-  selection changes, and shutdown on the supported desktop platforms.
+- Complete the live test matrix in [Multi-session stress testing](MultiSessionStressTest.md)
+  with real accounts on Windows, macOS, and Linux. Automated supervisor,
+  disconnect, selection, recording/log, and joined-shutdown stress coverage is
+  implemented, and all supported desktop targets cross-compile.
 
 ### Phase 5: harden and document
 
@@ -392,14 +389,15 @@ The following are deliberately non-blocking for the first implementation:
   small view object where needed, but UI labels and documentation should say
   session.
 
-## Existing-code implications
+## Compatibility adapter boundary
 
-The current renderer has a useful `drawState` boundary and snapshot mechanism,
-but it is package-global.  Login assigns the global character, switches the
-global character profile, starts global automation, installs one `tcpConn`,
-and starts loops that feed global protocol handling.  Those must become
-session methods before a second connection can be correct.
+Package-level player, legacy-macro, and Go-script entry points remain for
+single-session replay and focused compatibility tests. Every live connection,
+including the primary slot, uses its session-owned player directory, macro
+runtime, interpreter queues, registrations, movement, and configuration.
+Compatibility entry points must not be used as an implicit "current
+character" from a live goroutine.
 
-Similarly, the current tiled workspace explicitly manages one `gameWin` plus
-Inventory, Players, Console, and Chat.  Multi-session tiled mode needs an
-intentional workspace redesign, not only a second render image.
+Application settings, decoded assets, graphics resources, audio output, and
+the shared management windows remain intentionally app-owned. Their callbacks
+must capture a `SessionID` whenever an action targets character state.

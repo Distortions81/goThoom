@@ -144,7 +144,7 @@ func checkForNewVersion() {
 	}
 	if latest.Version > appVersion {
 		consoleMessage(fmt.Sprintf("New goThoom version %d available", latest.Version))
-		if tcpConn != nil {
+		if primarySession.transport.connected() {
 			if gs.NotifiedVersion >= latest.Version {
 				return
 			}

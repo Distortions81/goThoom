@@ -8,6 +8,11 @@ Multi-session:
 - Connect directly inside each session view with the normal saved-character list, character editor, server list, and password prompt, follow connection progress and errors there, or use the small bottom-right logout icon in each connected view. Return to single-session mode from the toolbar after every session disconnects.
 - Use movable session views with the normal freeform Window Layout setting, or a fixed 2×2 grid inside the existing game area with tiled Window Layout. The selected session has the theme accent title bar and, when tiled, an accent outline. The client restores freeform positions, selected session, and music source the next time multi-session opens.
 - Prepare newly encountered area artwork independently for each session, so matching frame counters in other views cannot force slow one-at-a-time asset loading.
+- Keep each session's time of day, indoor/outdoor lighting, shadows, lighting preparation, transitions, and render targets independent, while avoiding unnecessary lighting passes and repeated GPU texture creation when view sizes differ.
+- Render changed session scenes and lighting in shared staged atlases, reducing render-target switching while keeping each viewport's painter order and lighting data independent.
+- Inspect and control the selected character's actual Go-script runtime in the shared Scripts window, including its status, errors, registrations, settings, commands, and key bindings.
+- Reconnect each unexpectedly disconnected session independently with cancellable backoff, while cleanly joining every connection supervisor during logout and shutdown.
+- Record sessions independently and keep a separate persistent Text Log for each slot, including when more than one session uses the same character name.
 
 Bard music:
 - Match the classic client instrument program and percussion behavior, including the supported instrument aliases and octave handling.

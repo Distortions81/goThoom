@@ -14,8 +14,7 @@ import (
 )
 
 // sessionScriptInstance is one interpreter that belongs to exactly one
-// connection. The shared Scripts window continues to manage the primary
-// runtime; this type gives background sessions an independent lifecycle.
+// connection. The shared Scripts window displays the selected runtime.
 type sessionScriptInstance struct {
 	owner       string
 	prepared    *preparedScript
@@ -45,6 +44,7 @@ func (s *Session) startSessionScriptVersion(owner string, src []byte, restricted
 	prepared.candidate.activate(queue)
 	s.automation.scriptMu.Lock()
 	s.automation.scripts[owner] = &sessionScriptInstance{owner: owner, prepared: prepared, queue: queue, fingerprint: fingerprint}
+	delete(s.automation.scriptErrors, owner)
 	s.automation.scriptMu.Unlock()
 	s.dispatchSessionScriptLifecycleForOwner(LifecycleEvent{Type: lifecycleLogin, Character: s.characterName()}, owner, true)
 	return nil
@@ -57,9 +57,17 @@ func (s *Session) stopSessionScript(owner, reason string) {
 	s.automation.scriptMu.Lock()
 	instance := s.automation.scripts[owner]
 	delete(s.automation.scripts, owner)
+	delete(s.automation.scriptConfigs, owner)
 	s.automation.scriptMu.Unlock()
 	if instance == nil {
 		return
+	}
+	if scriptConfigWin != nil && scriptConfigOwner == owner && scriptConfigSession == s.ID() {
+		dispatchMainThread(func() {
+			if scriptConfigWin != nil && scriptConfigOwner == owner && scriptConfigSession == s.ID() {
+				scriptConfigWin.Close()
+			}
+		})
 	}
 	s.dispatchSessionScriptLifecycleForOwner(LifecycleEvent{Type: lifecycleStop, Character: s.characterName(), Reason: reason}, owner, true)
 	if instance.prepared.terminate != nil {
@@ -95,11 +103,10 @@ func enabledSessionScripts(character string) []enabledSessionScript {
 	return scripts
 }
 
-// syncEnabledSessionScripts makes one non-primary session match the saved
-// global and per-character script selections without consulting the primary
-// runtime's enabled/running flags.
+// syncEnabledSessionScripts makes one session match the saved global and
+// per-character script selections.
 func (s *Session) syncEnabledSessionScripts(character string) []error {
-	if s == nil || s == primarySession || s.automation == nil {
+	if s == nil || s.automation == nil {
 		return nil
 	}
 	expectedList := enabledSessionScripts(character)
@@ -142,30 +149,171 @@ func (s *Session) syncEnabledSessionScripts(character string) []error {
 
 func reportSessionScriptSyncErrors(session *Session, errs []error) {
 	for _, err := range errs {
+		owner := strings.TrimSpace(strings.SplitN(err.Error(), ":", 2)[0])
+		if session != nil && session.automation != nil && owner != "" {
+			session.automation.scriptMu.Lock()
+			session.automation.scriptErrors[owner] = err.Error()
+			session.automation.scriptMu.Unlock()
+		}
 		message := fmt.Sprintf("[script] Session %d: %v", session.ID(), err)
 		log.Print(message)
 		session.publishClientConsole(message, messageTextTypeSystem)
 	}
 }
 
-func syncConnectedSecondarySessionScripts() {
+func (s *Session) scriptRuntimeSnapshot(owner string) (running bool, errorText string) {
+	if s == nil {
+		scriptMu.RLock()
+		disabled, known := scriptDisabled[owner]
+		errorText = scriptErrors[owner]
+		scriptMu.RUnlock()
+		return known && !disabled, errorText
+	}
+	if s.automation == nil {
+		return false, ""
+	}
+	s.automation.scriptMu.RLock()
+	_, running = s.automation.scripts[owner]
+	errorText = s.automation.scriptErrors[owner]
+	s.automation.scriptMu.RUnlock()
+	return running, errorText
+}
+
+func (s *Session) scriptConfigEntriesSnapshot(owner string) []scriptConfigEntry {
+	if s == nil {
+		scriptConfigMu.RLock()
+		entries := append([]scriptConfigEntry(nil), scriptConfigEntries[owner]...)
+		scriptConfigMu.RUnlock()
+		return entries
+	}
+	if s.automation == nil {
+		return nil
+	}
+	s.automation.scriptMu.RLock()
+	entries := append([]scriptConfigEntry(nil), s.automation.scriptConfigs[owner]...)
+	s.automation.scriptMu.RUnlock()
+	return entries
+}
+
+func scriptManagerSession() *Session {
+	if appSessions == nil {
+		return primarySession
+	}
+	return selectedAppSession()
+}
+
+func scriptManagerCharacter(session *Session) string {
+	if session == nil {
+		return effectiveCharacterName()
+	}
+	if character := strings.TrimSpace(session.characterName()); character != "" {
+		return character
+	}
+	if session.login != nil {
+		return strings.TrimSpace(session.login.requestSnapshot().character)
+	}
+	return ""
+}
+
+func scriptRuntimeStatusForSession(session *Session, owner string, scope scriptScope, invalid bool, packageError string, reloadFailed bool) string {
+	if invalid {
+		return scriptStatusLabel(true, true, packageError, reloadFailed)
+	}
+	running, runtimeError := session.scriptRuntimeSnapshot(owner)
+	if runtimeError != "" {
+		if running {
+			return "Reload Failed (old version still running)"
+		}
+		return "Stopped After Error"
+	}
+	if running {
+		return "Running"
+	}
+	character := scriptManagerCharacter(session)
+	if !scope.enablesFor(character) {
+		if character == "" {
+			return "Waiting for player selection"
+		}
+		return "Enabled for another player"
+	}
+	if session == nil || !session.transport.connected() {
+		return "Waiting for login"
+	}
+	return "Stopped"
+}
+
+func reloadScriptForSession(session *Session, owner string) {
+	if session == nil {
+		return
+	}
+	info, err := refreshScriptPackage(owner)
+	if err != nil {
+		session.automation.scriptMu.Lock()
+		session.automation.scriptErrors[owner] = err.Error()
+		session.automation.scriptMu.Unlock()
+		session.publishClientConsole("[script] reload error: "+err.Error(), messageTextTypeSystem)
+		refreshscriptsWindow()
+		refreshscriptDetails()
+		return
+	}
+	running, _ := session.scriptRuntimeSnapshot(owner)
+	if !running {
+		deleteSessionScriptError(session, owner)
+		refreshscriptsWindow()
+		refreshscriptDetails()
+		return
+	}
+	if err := session.startSessionScriptVersion(owner, info.src, restrictedStdlib(), info.assets, info.fingerprint); err != nil {
+		session.automation.scriptMu.Lock()
+		session.automation.scriptErrors[owner] = err.Error()
+		session.automation.scriptMu.Unlock()
+		session.publishClientConsole("[script] reload error: "+err.Error(), messageTextTypeSystem)
+	}
+	refreshscriptsWindow()
+	refreshscriptDetails()
+}
+
+func deleteSessionScriptError(session *Session, owner string) {
+	if session == nil || session.automation == nil {
+		return
+	}
+	session.automation.scriptMu.Lock()
+	delete(session.automation.scriptErrors, owner)
+	session.automation.scriptMu.Unlock()
+}
+
+func init() {
+	previous := queueSelectedSessionUIUpdate
+	queueSelectedSessionUIUpdate = func() {
+		previous()
+		dispatchMainThread(func() {
+			refreshscriptsWindow()
+			refreshscriptDetails()
+			if scriptConfigWin != nil && scriptConfigSession != selectedAppSession().ID() {
+				scriptConfigWin.Close()
+			}
+		})
+	}
+}
+
+func syncConnectedSessionScripts() {
 	if appSessions == nil {
 		return
 	}
 	for _, session := range appSessions.snapshot() {
-		if session == nil || session == primarySession || !session.transport.connected() {
+		if session == nil || !session.transport.connected() {
 			continue
 		}
 		reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(session.characterName()))
 	}
 }
 
-func restartConnectedSecondarySessionScript(owner, reason string) {
+func restartConnectedSessionScript(owner, reason string) {
 	if appSessions == nil {
 		return
 	}
 	for _, session := range appSessions.snapshot() {
-		if session == nil || session == primarySession || !session.transport.connected() {
+		if session == nil || !session.transport.connected() {
 			continue
 		}
 		session.stopSessionScript(owner, reason)

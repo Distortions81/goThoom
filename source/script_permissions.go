@@ -350,6 +350,6 @@ func applyScriptPermissions(owner string, selected map[string]bool, blockAll boo
 	saveScriptEnablement()
 	refreshscriptsWindow()
 	refreshscriptDetails()
-	restartConnectedSecondarySessionScript(owner, "permissions changed")
+	restartConnectedSessionScript(owner, "permissions changed")
 	return nil
 }

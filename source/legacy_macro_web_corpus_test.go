@@ -761,20 +761,20 @@ func TestLegacyMacroMovePlayerQueuesReferenceInput(t *testing.T) {
 	originalMoved := legacyMacroInputState.moved
 	legacyMacroInputState.moved = false
 	legacyMacroInputState.Unlock()
-	inputMu.Lock()
-	originalLatest := latestInput
-	originalQueue := append([]inputState(nil), inputQueue...)
-	latestInput = inputState{mouseX: 12, mouseY: -7, mouseDown: true}
-	inputQueue = nil
-	inputMu.Unlock()
+	primarySession.input.mu.Lock()
+	originalLatest := primarySession.input.latest
+	originalQueue := append([]inputState(nil), primarySession.input.queue...)
+	primarySession.input.latest = inputState{mouseX: 12, mouseY: -7, mouseDown: true}
+	primarySession.input.queue = nil
+	primarySession.input.mu.Unlock()
 	originalWalkSpeed := gs.KBWalkSpeed
 	gs.KBWalkSpeed = 0.25
 	walkSpeed := gs.KBWalkSpeed
 	t.Cleanup(func() {
-		inputMu.Lock()
-		latestInput = originalLatest
-		inputQueue = originalQueue
-		inputMu.Unlock()
+		primarySession.input.mu.Lock()
+		primarySession.input.latest = originalLatest
+		primarySession.input.queue = originalQueue
+		primarySession.input.mu.Unlock()
 		gs.KBWalkSpeed = originalWalkSpeed
 		legacyMacroInputState.Lock()
 		legacyMacroInputState.moved = originalMoved
@@ -787,9 +787,9 @@ func TestLegacyMacroMovePlayerQueuesReferenceInput(t *testing.T) {
 		t.Fatal("macro movement was not marked for the current input frame")
 	}
 
-	inputMu.Lock()
-	got := append([]inputState(nil), inputQueue...)
-	inputMu.Unlock()
+	primarySession.input.mu.Lock()
+	got := append([]inputState(nil), primarySession.input.queue...)
+	primarySession.input.mu.Unlock()
 	want := []inputState{
 		{mouseX: int16(-float64(fieldCenterX) * walkSpeed), mouseY: int16(float64(fieldCenterY) * walkSpeed), mouseDown: true},
 		{mouseX: 12, mouseY: -7},

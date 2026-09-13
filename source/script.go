@@ -1226,7 +1226,8 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		}
 		stage := func(action func()) { candidate.dispatch(owner, action) }
 		runtimeSession := primarySession
-		if candidate != nil && candidate.session != nil {
+		sessionBound := candidate != nil && candidate.session != nil
+		if sessionBound {
 			runtimeSession = candidate.session
 		}
 		subscribe := func(register func() scriptRegistrationHandle) Subscription {
@@ -1235,20 +1236,36 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			return subscription
 		}
 		m["Movement"] = reflect.ValueOf(func() scriptapi.MovementState {
+			if !sessionBound {
+				return scriptMovementSnapshot(owner, time.Now())
+			}
 			return scriptMovementSnapshotForSession(runtimeSession, owner, time.Now())
 		})
 		m["Move"] = reflect.ValueOf(func(x, y int16) bool {
 			if queue := candidate.runtimeEventQueue(owner); queue == nil || !scriptEventQueueIsCurrent(owner, queue) {
 				return false
 			}
-			return scriptMoveForSession(runtimeSession, owner, x, y, time.Now())
+			if sessionBound {
+				return scriptMoveForSession(runtimeSession, owner, x, y, time.Now())
+			}
+			return scriptMove(owner, x, y, time.Now())
 		})
 		m["StopMoving"] = reflect.ValueOf(func() {
 			if queue := candidate.runtimeEventQueue(owner); queue != nil && scriptEventQueueIsCurrent(owner, queue) {
-				stopScriptMovementForSession(runtimeSession, owner)
+				if sessionBound {
+					stopScriptMovementForSession(runtimeSession, owner)
+				} else {
+					stopScriptMovement(owner)
+				}
 				return
 			}
-			stage(func() { stopScriptMovementForSession(runtimeSession, owner) })
+			stage(func() {
+				if sessionBound {
+					stopScriptMovementForSession(runtimeSession, owner)
+				} else {
+					stopScriptMovement(owner)
+				}
+			})
 		})
 		m["OnWorld"] = reflect.ValueOf(func(handler func(scriptapi.World)) Subscription {
 			if handler == nil {
@@ -1303,7 +1320,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["Bind"] = reflect.ValueOf(func(combo string, handler func(InputEvent)) Subscription {
 			if candidate.claimBinding(combo, handler) {
 				return subscribe(func() scriptRegistrationHandle {
-					if candidate != nil && candidate.session != nil && candidate.session != primarySession {
+					if candidate != nil && candidate.session != nil {
 						queue := candidate.runtimeEventQueue(owner)
 						return candidate.session.registerSessionScriptHotkey(owner, combo, handler, queue)
 					}
@@ -1322,10 +1339,16 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			return window
 		})
 		m["OpenSettings"] = reflect.ValueOf(func() {
-			if runtimeSession != primarySession || candidate.runtimeEventQueue(owner) == nil {
+			if candidate == nil || candidate.runtimeEventQueue(owner) == nil {
 				return
 			}
-			stage(func() { openscriptConfigWindow(owner) })
+			stage(func() {
+				if sessionBound {
+					openScriptConfigWindowForSession(runtimeSession, owner)
+				} else {
+					openscriptConfigWindow(owner)
+				}
+			})
 		})
 		m["AddToolbar"] = reflect.ValueOf(func(options scriptapi.ToolbarOptions) Subscription {
 			if !scriptHasPermission(owner, "hotkeys") {
@@ -1336,7 +1359,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			}
 			if candidate.claimToolbar(options) {
 				return subscribe(func() scriptRegistrationHandle {
-					if candidate != nil && candidate.session != nil && candidate.session != primarySession {
+					if candidate != nil && candidate.session != nil {
 						queue := candidate.runtimeEventQueue(owner)
 						return candidate.session.registerSessionScriptToolbar(owner, options, candidate.assets, queue)
 					}
@@ -1348,7 +1371,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m["Command"] = reflect.ValueOf(func(name string, handler func(string)) Subscription {
 			if candidate.claimCommand(name, handler) {
 				return subscribe(func() scriptRegistrationHandle {
-					if candidate != nil && candidate.session != nil && candidate.session != primarySession {
+					if candidate != nil && candidate.session != nil {
 						queue := candidate.runtimeEventQueue(owner)
 						return candidate.session.registerSessionScriptCommand(owner, name, handler, queue)
 					}
@@ -1359,7 +1382,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["AddShortcut"] = reflect.ValueOf(func(short, full string) {
 			stage(func() {
-				if runtimeSession != primarySession {
+				if candidate != nil && candidate.session != nil {
 					scriptAddSessionShortcut(owner, short, full, candidate.runtimeEventQueue(owner))
 					return
 				}
@@ -1427,11 +1450,19 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			migrate(storedVersion)
 			candidate.setStorage(owner, scriptStorageVersionKey, version)
 		})
-		inputSession := primarySession
-		if candidate != nil && candidate.session != nil {
+		var inputSession *Session
+		if sessionBound {
 			inputSession = candidate.session
 		}
-		m["SetInputText"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputTextForSession(inputSession, text) }) })
+		m["SetInputText"] = reflect.ValueOf(func(text string) {
+			stage(func() {
+				if sessionBound {
+					scriptSetInputTextForSession(inputSession, text)
+				} else {
+					scriptSetInputText(text)
+				}
+			})
+		})
 		m["OnChat"] = reflect.ValueOf(func(filter ChatFilter, handler func(ChatEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle {
 				if candidate != nil && candidate.session != nil {
@@ -1505,8 +1536,8 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			return waitForScriptInventory(owner, candidate.runtimeEventQueue(owner), name, equipped, true, timeout)
 		})
 		// Simple world overlay drawing (top-left origin, world units)
-		visualSession := primarySession
-		if candidate != nil && candidate.session != nil {
+		var visualSession *Session
+		if sessionBound {
 			visualSession = candidate.session
 		}
 		m["OverlayClear"] = reflect.ValueOf(func() { stage(func() { scriptOverlayClearForSession(visualSession, owner) }) })
@@ -1587,12 +1618,20 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			return w, h
 		})
 		makeConfigEntry := func(key, label, help, scope, typ string, defaultValue, callback, validate any, choices []string, min, max, step float64) (scriptConfigEntry, bool) {
-			return makeTypedScriptConfigEntryForCharacter(owner, runtimeSession.characterName(), key, label, help, scope, typ, defaultValue, callback, validate, choices, min, max, step)
+			character := playerName
+			if sessionBound {
+				character = runtimeSession.characterName()
+			}
+			return makeTypedScriptConfigEntryForCharacter(owner, character, key, label, help, scope, typ, defaultValue, callback, validate, choices, min, max, step)
 		}
 		registerConfig := func(entry scriptConfigEntry) {
-			if runtimeSession == primarySession {
-				stage(func() { scriptRegisterConfig(owner, entry) })
-			}
+			stage(func() {
+				if sessionBound {
+					scriptRegisterConfigForSession(runtimeSession, owner, entry)
+				} else {
+					scriptRegisterConfig(owner, entry)
+				}
+			})
 		}
 		m["Bool"] = reflect.ValueOf(func(option scriptapi.BoolOption) bool {
 			entry, ok := makeConfigEntry(option.Key, option.Label, option.Help, option.Scope, "bool", option.Default, option.OnChange, option.Validate, nil, 0, 0, 0)
@@ -2752,7 +2791,7 @@ func handleScriptCallbackPanicOnQueue(queue *scriptEventQueue, owner, event stri
 		where = " at " + location
 	}
 	msg := fmt.Sprintf("[script:%s] %s callback panic%s: %v", name, event, where, recovered)
-	if queue != nil && queue.session != nil && queue.session != primarySession {
+	if queue != nil && queue.session != nil {
 		log.Print(msg)
 		session := queue.session
 		dispatchScriptControl(func() {
@@ -2809,7 +2848,7 @@ func handleScriptExecutionLimitOnQueue(queue *scriptEventQueue, owner, event str
 		reason = "execution budget"
 	}
 	msg := fmt.Sprintf("[script:%s] %s callback exceeded the %s", owner, event, limitName)
-	if queue != nil && queue.session != nil && queue.session != primarySession {
+	if queue != nil && queue.session != nil {
 		log.Print(msg)
 		session := queue.session
 		dispatchScriptControl(func() {
@@ -3154,6 +3193,7 @@ func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) 
 		scriptConfigWin.Close()
 		scriptConfigWin = nil
 		scriptConfigOwner = ""
+		scriptConfigSession = 0
 	}
 	// Clear overlay ops
 	overlayMu.Lock()
@@ -3198,6 +3238,13 @@ func disablescript(owner, reason string) {
 }
 
 func stopAllscripts() {
+	if appSessions != nil {
+		for _, session := range appSessions.snapshot() {
+			if session != nil && session.automation != nil {
+				session.automation.stopSessionScripts("stopped by user")
+			}
+		}
+	}
 	stopScripts("stopped by user")
 }
 
@@ -3224,6 +3271,24 @@ func stopScripts(reason string) {
 }
 
 func applyEnabledScripts() {
+	if appSessions.anyConnected() {
+		scriptMu.RLock()
+		owners := make([]string, 0, len(scriptDisplayNames))
+		for owner := range scriptDisplayNames {
+			owners = append(owners, owner)
+		}
+		scriptMu.RUnlock()
+		for _, owner := range owners {
+			scriptMu.RLock()
+			scope, invalid := scriptEnabledFor[owner], scriptInvalid[owner]
+			scriptMu.RUnlock()
+			if !scope.empty() && !invalid {
+				queueScriptPermissionReview(owner)
+			}
+		}
+		syncConnectedSessionScripts()
+		return
+	}
 	scriptMu.RLock()
 	owners := make([]string, 0, len(scriptDisplayNames))
 	for o := range scriptDisplayNames {
@@ -3260,7 +3325,7 @@ func applyEnabledScripts() {
 			scriptMu.Unlock()
 		}
 	}
-	syncConnectedSecondarySessionScripts()
+	syncConnectedSessionScripts()
 }
 
 func setscriptEnabled(owner string, char, all bool) {
@@ -3352,15 +3417,14 @@ func scriptSetInputText(text string) {
 }
 
 func scriptInputTextForSession(session *Session) string {
-	if session == nil || session == primarySession {
-		return scriptInputText()
+	if session == nil {
+		return ""
 	}
 	return string(session.input.messageSnapshot().draft)
 }
 
 func scriptSetInputTextForSession(session *Session, text string) {
-	if session == nil || session == primarySession {
-		scriptSetInputText(text)
+	if session == nil {
 		return
 	}
 	session.input.setInputText(text)
@@ -3912,16 +3976,16 @@ func dispatchScriptChat(msg string) {
 }
 
 func classifyScriptChat(msg string) ChatEvent {
-	return classifyScriptChatForSession(primarySession, msg)
+	return classifyScriptChatForSession(nil, msg)
 }
 
 func classifyScriptChatForSession(session *Session, msg string) ChatEvent {
 	speaker := chatSpeaker(msg)
 	event := ChatEvent{Speaker: speaker, Message: scriptChatMessage(msg, speaker), Raw: msg, Kinds: ChatAny, Type: scriptChatType(msg)}
 	character := ""
-	if session == primarySession {
+	if session == nil {
 		character = playerName
-	} else if session != nil {
+	} else {
 		character = session.characterName()
 	}
 	if strings.EqualFold(speaker, character) && character != "" {
@@ -4027,12 +4091,15 @@ func runServerMessageHandlers(event scriptapi.ServerMessage) {
 }
 
 func isNPCDescriptor(name string) bool {
-	return isNPCDescriptorForSession(primarySession, name)
+	return isNPCDescriptorForSession(nil, name)
 }
 
 func isNPCDescriptorForSession(session *Session, name string) bool {
-	if session == nil || name == "" {
+	if name == "" {
 		return false
+	}
+	if session == nil {
+		session = primarySession
 	}
 	session.draw.mu.Lock()
 	for _, d := range session.draw.current.descriptors {

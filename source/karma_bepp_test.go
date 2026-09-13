@@ -15,8 +15,8 @@ func TestDecodeKarmaBlockedIgnored(t *testing.T) {
 		name string
 		p    *Player
 	}{
-		{"blocked", &Player{Name: "Bob", Blocked: true}},
-		{"ignored", &Player{Name: "Bob", Ignored: true}},
+		{"blocked", &Player{Name: "Bob", GlobalLabel: 6}},
+		{"ignored", &Player{Name: "Bob", GlobalLabel: 7}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

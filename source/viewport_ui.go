@@ -329,7 +329,7 @@ func startViewportLogin(state *viewportRenderState, session *Session) {
 	if state == nil || session == nil {
 		return
 	}
-	if session.transport.busy() {
+	if session.connectionBusy() {
 		appSessions.disconnectSession(session.ID())
 		return
 	}
@@ -371,7 +371,7 @@ func startViewportLoginRequest(state *viewportRenderState, session *Session, pas
 }
 
 func startViewportDemoLogin(state *viewportRenderState, session *Session) {
-	if state == nil || session == nil || session.transport.busy() || state.loginDemoLookup {
+	if state == nil || session == nil || session.connectionBusy() || state.loginDemoLookup {
 		return
 	}
 	state.loginDemoLookup = true
@@ -557,11 +557,15 @@ func refreshViewportLoginOverlay(state *viewportRenderState, session *Session, m
 		statusText = "Disconnected"
 	}
 	if lastErr != "" {
-		statusText = "Error: " + lastErr
+		if strings.HasPrefix(statusText, "Reconnecting") {
+			statusText += "\n" + lastErr
+		} else {
+			statusText = "Error: " + lastErr
+		}
 	}
 	state.loginStatus.Text = statusText
 	state.loginStatus.Dirty = true
-	busy := session.transport.busy() || state.loginDemoLookup
+	busy := session.connectionBusy() || state.loginDemoLookup
 	state.loginServerChoice.Disabled = busy
 	state.loginCharacters.Disabled = busy
 	state.loginCharacters.Dirty = true
@@ -896,10 +900,15 @@ func refreshViewportWorkspace() {
 			if state.imageBacking != nil {
 				state.imageBacking.Deallocate()
 			}
+			if state.lightingTmp != nil {
+				state.lightingTmp.Deallocate()
+			}
 			state.window = nil
 			state.imageItem = nil
 			state.image = nil
 			state.imageBacking = nil
+			state.lightingTmp = nil
+			state.nightTransition = nightTransitionState{}
 			state.worldRenderValid = false
 			clearViewportLoginUI(state)
 		}

@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
+	"time"
 )
 
 var queueSelectedSessionUIUpdate = func() {}
@@ -17,7 +19,26 @@ type sessionManager struct {
 	slots    [maxSessions]*Session
 	selected SessionID
 	multi    bool
+	login    func(*Session, context.Context, int, []string) error
+	wait     func(context.Context, time.Duration) error
 }
+
+func (m *sessionManager) anyConnected() bool {
+	if m == nil {
+		return false
+	}
+	for _, session := range m.snapshot() {
+		if session != nil && session.transport.connected() {
+			return true
+		}
+	}
+	return false
+}
+
+const (
+	sessionReconnectInitialDelay = time.Second
+	sessionReconnectMaximumDelay = 30 * time.Second
+)
 
 func newSessionManager(primary *Session) *sessionManager {
 	if primary == nil || primary.ID() != primarySessionID {
@@ -50,6 +71,10 @@ func (m *sessionManager) snapshot() [maxSessions]*Session {
 }
 
 func (m *sessionManager) startLogin(ctx context.Context, id SessionID, request sessionLoginRequest, version int) (<-chan error, error) {
+	return m.startLoginWithCandidates(ctx, id, request, version, nil)
+}
+
+func (m *sessionManager) startLoginWithCandidates(ctx context.Context, id SessionID, request sessionLoginRequest, version int, demoCandidates []string) (<-chan error, error) {
 	session, ok := m.session(id)
 	if !ok {
 		return nil, errors.New("session slot is unavailable")
@@ -58,27 +83,122 @@ func (m *sessionManager) startLogin(ctx context.Context, id SessionID, request s
 	if err := request.validate(); err != nil {
 		return nil, err
 	}
-	sessionCtx, cancel := context.WithCancel(ctx)
-	if !session.transport.begin(cancel) {
-		cancel()
+	if session.connectionBusy() {
 		return nil, errors.New("session transport is busy")
+	}
+	supervisorCtx, cancel := context.WithCancel(ctx)
+	generation, ok := session.login.beginSupervisor(cancel)
+	if !ok {
+		cancel()
+		return nil, errors.New("session login is already active")
 	}
 	session.login.setRequest(request)
 	session.login.setStatus("Connecting...", nil)
 	result := make(chan error, 1)
 	go func() {
-		err := loginSessionWithDemoCandidates(session, sessionCtx, version, nil)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			session.login.setStatus("Disconnected", err)
-		} else {
-			session.login.setStatus("Disconnected", nil)
+		defer func() {
+			session.login.finishSupervisor(generation)
+			queueSessionWorkspaceUIUpdate()
+		}()
+		defer close(result)
+		login := m.login
+		if login == nil {
+			login = loginSessionWithDemoCandidates
 		}
-		queueSessionWorkspaceUIUpdate()
-		result <- err
-		close(result)
+		wait := m.wait
+		if wait == nil {
+			wait = waitForSessionReconnect
+		}
+		delay := sessionReconnectInitialDelay
+		candidates := append([]string(nil), demoCandidates...)
+		var finalErr error
+		for {
+			err := login(session, supervisorCtx, version, candidates)
+			candidates = nil
+			if supervisorCtx.Err() != nil {
+				finalErr = supervisorCtx.Err()
+				break
+			}
+			if err != nil && !sessionLoginErrorIsTransient(err) {
+				finalErr = err
+				break
+			}
+			if err == nil {
+				delay = sessionReconnectInitialDelay
+			}
+			reconnectStatus := fmt.Sprintf("Reconnecting in %s...", delay)
+			session.login.setStatus(reconnectStatus, err)
+			if session == primarySession {
+				dispatchMainThread(func() {
+					if appSessions != nil && !appSessions.multiEnabled() {
+						if connectWin == nil {
+							showConnectDialog(reconnectStatus)
+						} else {
+							updateConnectDialog(reconnectStatus)
+						}
+					}
+				})
+			}
+			queueSessionWorkspaceUIUpdate()
+			if err := wait(supervisorCtx, delay); err != nil {
+				finalErr = err
+				break
+			}
+			if delay < sessionReconnectMaximumDelay {
+				delay *= 2
+				if delay > sessionReconnectMaximumDelay {
+					delay = sessionReconnectMaximumDelay
+				}
+			}
+		}
+		if session.login.supervisorCurrent(generation) {
+			if finalErr != nil && !errors.Is(finalErr, context.Canceled) {
+				session.login.setStatus("Disconnected", finalErr)
+			} else {
+				session.login.setStatus("Disconnected", nil)
+			}
+			session.login.clearCredentials()
+			if session != primarySession && !session.transport.connected() {
+				session.setCharacterName("")
+			}
+		}
+		result <- finalErr
 	}()
 	queueSessionWorkspaceUIUpdate()
 	return result, nil
+}
+
+func waitForSessionReconnect(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (s *Session) connectionBusy() bool {
+	return s != nil && (s.transport.busy() || s.login.supervisorActive())
+}
+
+func sessionLoginErrorIsTransient(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, errDemoSlotsUsed) {
+		return false
+	}
+	var resultErr *loginResultError
+	return !errors.As(err, &resultErr)
 }
 
 func (m *sessionManager) disconnectSession(id SessionID) bool {
@@ -87,11 +207,12 @@ func (m *sessionManager) disconnectSession(id SessionID) bool {
 		return false
 	}
 	disconnected := session.transport.disconnect()
-	if disconnected {
+	cancelled := session.login.cancelSupervisor()
+	if disconnected || cancelled {
 		session.login.setStatus("Disconnecting...", nil)
 		queueSessionWorkspaceUIUpdate()
 	}
-	return disconnected
+	return disconnected || cancelled
 }
 
 func (m *sessionManager) disconnectAll() int {
@@ -100,7 +221,11 @@ func (m *sessionManager) disconnectAll() int {
 	}
 	count := 0
 	for _, session := range m.snapshot() {
-		if session != nil && session.transport.disconnect() {
+		if session != nil {
+			cancelled := session.login.cancelSupervisor()
+			if !session.transport.disconnect() && !cancelled {
+				continue
+			}
 			session.login.setStatus("Disconnecting...", nil)
 			count++
 		}
@@ -121,13 +246,18 @@ func (m *sessionManager) disconnectAllAndWait(ctx context.Context) (int, error) 
 		if session == nil {
 			continue
 		}
-		done := session.transport.doneSnapshot()
-		if session.transport.disconnect() {
+		transportDone := session.transport.doneSnapshot()
+		supervisorDone := session.login.supervisorDoneSnapshot()
+		cancelled := session.login.cancelSupervisor()
+		if session.transport.disconnect() || cancelled {
 			session.login.setStatus("Disconnecting...", nil)
 			count++
 		}
-		if done != nil {
-			pending = append(pending, done)
+		if transportDone != nil {
+			pending = append(pending, transportDone)
+		}
+		if supervisorDone != nil {
+			pending = append(pending, supervisorDone)
 		}
 	}
 	if count > 0 {
@@ -145,7 +275,7 @@ func (m *sessionManager) disconnectAllAndWait(ctx context.Context) (int, error) 
 
 func (m *sessionManager) anyBusy() bool {
 	for _, session := range m.snapshot() {
-		if session != nil && session.transport.busy() {
+		if session != nil && session.connectionBusy() {
 			return true
 		}
 	}
@@ -251,14 +381,16 @@ func (m *sessionManager) selectSession(id SessionID) bool {
 	m.selected = id
 	m.mu.Unlock()
 	if changed {
-		inventoryDirty = true
-		playersDirty = true
-		if m == appSessions && m.multiEnabled() {
-			markMultiSessionWorkspaceUsed()
-			multiSessionWorkspace.Selected = id
-			multiSessionWorkspaceDirty = true
+		if m == appSessions {
+			inventoryDirty = true
+			playersDirty = true
+			if m.multiEnabled() {
+				markMultiSessionWorkspaceUsed()
+				multiSessionWorkspace.Selected = id
+				multiSessionWorkspaceDirty = true
+			}
+			queueSelectedSessionUIUpdate()
 		}
-		queueSelectedSessionUIUpdate()
 	}
 	return true
 }

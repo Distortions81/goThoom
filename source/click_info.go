@@ -1,7 +1,6 @@
 package main
 
 import (
-	"sync"
 	"sync/atomic"
 
 	scriptapi "gt2"
@@ -25,21 +24,7 @@ type ClickInfo struct {
 	Meta   bool
 }
 
-var (
-	lastClick   ClickInfo
-	lastClickMu sync.Mutex
-
-	// lastClickByButton keeps the most recent click info per mouse button.
-	lastClickByButton   = map[ebiten.MouseButton]ClickInfo{}
-	lastClickByButtonMu sync.Mutex
-
-	lastHover   ClickInfo
-	lastHoverMu sync.Mutex
-
-	worldRenderGeneration atomic.Uint64
-	lastHoverGeneration   uint64
-	lastHoverQueryValid   bool
-)
+var worldRenderGeneration atomic.Uint64
 
 func markWorldStateChanged() {
 	markSessionWorldStateChanged(primarySession)
@@ -139,15 +124,6 @@ func handleSessionWorldClick(session *Session, x, y int16, b ebiten.MouseButton)
 	}
 	info.Button = b
 
-	if session == primarySession {
-		lastClickMu.Lock()
-		lastClick = info
-		lastClickMu.Unlock()
-
-		lastClickByButtonMu.Lock()
-		lastClickByButton[b] = info
-		lastClickByButtonMu.Unlock()
-	}
 	session.input.storeClick(info)
 
 	return info
@@ -162,44 +138,20 @@ func updateSessionWorldHover(session *Session, x, y int16) {
 	if session == nil {
 		session = primarySession
 	}
-	if session != primarySession {
-		generation := session.draw.generation.Load()
-		if _, ok := session.input.cachedHover(generation, x, y); ok {
-			return
-		}
-		info, generation := worldInfoAtSessionGeneration(session, x, y)
-		if gs.NameTagsOnHoverOnly && session.input.storeHover(info, generation) {
-			markWorldRenderChanged()
-		}
+	generation := session.draw.generation.Load()
+	if _, ok := session.input.cachedHover(generation, x, y); ok {
 		return
 	}
-	generation := primarySession.draw.generation.Load()
-	lastHoverMu.Lock()
-	if lastHoverQueryValid && lastHoverGeneration == generation && lastHover.X == x && lastHover.Y == y {
-		lastHoverMu.Unlock()
-		return
-	}
-	lastHoverMu.Unlock()
-
-	info, generation := worldInfoAtGeneration(x, y)
-	lastHoverMu.Lock()
-	hoveredMobileChanged := lastHover.OnMobile != info.OnMobile ||
-		(lastHover.OnMobile && info.OnMobile && lastHover.Mobile.Index != info.Mobile.Index)
-	lastHover = info
-	lastHoverGeneration = generation
-	lastHoverQueryValid = true
-	lastHoverMu.Unlock()
+	info, generation := worldInfoAtSessionGeneration(session, x, y)
+	hoveredMobileChanged := session.input.storeHover(info, generation)
 	if gs.NameTagsOnHoverOnly && hoveredMobileChanged {
 		markWorldRenderChanged()
 	}
 }
 
 func sessionHoverSnapshot(session *Session) ClickInfo {
-	if session == nil || session == primarySession {
-		lastHoverMu.Lock()
-		info := lastHover
-		lastHoverMu.Unlock()
-		return info
+	if session == nil {
+		return ClickInfo{}
 	}
 	return session.input.hoverSnapshot()
 }

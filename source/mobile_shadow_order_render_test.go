@@ -110,16 +110,14 @@ func verifyBatchedShadowStaysBelowOpaqueCaster() error {
 	mask := ebiten.NewImage(16, 8)
 	mask.Fill(color.RGBA{A: 128})
 
-	previousMask, previousBounds := frameDetailedShadowMask, frameDetailedShadowBounds
+	state := &viewportRenderState{}
 	defer func() {
-		frameDetailedShadowMask = previousMask
-		frameDetailedShadowBounds = previousBounds
 		mask.Deallocate()
 	}()
-	frameDetailedShadowMask = mask
-	frameDetailedShadowBounds = canvas.Bounds()
-	applyBatchedCharacterShadowsBelowMobiles(canvas)
-	if frameDetailedShadowMask != nil || !frameDetailedShadowBounds.Empty() {
+	state.lighting.detailedShadowMask = mask
+	state.lighting.detailedShadowBounds = canvas.Bounds()
+	applyBatchedCharacterShadowsBelowMobilesForViewport(state, canvas)
+	if state.lighting.detailedShadowMask != nil || !state.lighting.detailedShadowBounds.Empty() {
 		return fmt.Errorf("batched shadow mask was not consumed below mobiles")
 	}
 

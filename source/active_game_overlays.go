@@ -28,7 +28,7 @@ type itemOverlayReservation struct {
 // hug an edge of the rendered game view. Each participant reserves its actual
 // pixel size, so unrelated features can share an anchor without knowing about
 // one another.
-func layoutActiveGameOverlays(bounds image.Rectangle, activity clientActivity) activeGameOverlayPositions {
+func layoutActiveGameOverlays(bounds image.Rectangle, activity clientActivity, session *Session) activeGameOverlayPositions {
 	positions := activeGameOverlayPositions{}
 	if bounds.Empty() {
 		return positions
@@ -41,7 +41,7 @@ func layoutActiveGameOverlays(bounds image.Rectangle, activity clientActivity) a
 	streamHandle := -1
 	var itemReservations []itemOverlayReservation
 
-	positions.recPlayLabel = activeRecPlayLabel()
+	positions.recPlayLabel = activeRecPlayLabel(session)
 	if positions.recPlayLabel != "" && mainFontBold != nil {
 		recPlayHandle = layout.Add(gameOverlayTopLeft, badgeOverlaySize(positions.recPlayLabel))
 	}
@@ -93,8 +93,8 @@ func layoutActiveGameOverlays(bounds image.Rectangle, activity clientActivity) a
 	return positions
 }
 
-func activeRecPlayLabel() string {
-	if recorder != nil || recordingMovie {
+func activeRecPlayLabel(session *Session) string {
+	if sessionRecordingRequested(session) {
 		return "REC"
 	}
 	if playingMovie && !setupWizardPreviewActive {

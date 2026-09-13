@@ -26,7 +26,7 @@ func consoleMessageTyped(msg, messageType string) {
 		playSound([]uint16{sndTink})
 	}
 	consoleLog.AddTyped(msg, messageType)
-	appendConsoleLog(msg)
+	appendTextLogForSession(primarySession, msg)
 
 	queueConsoleWindowUpdate()
 }

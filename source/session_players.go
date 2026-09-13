@@ -9,8 +9,6 @@ import (
 )
 
 // sessionPlayerState is the decoder-owned player directory for one session.
-// The existing primary Players UI remains as an adapter until that window can
-// bind directly to the selected session.
 type sessionPlayerState struct {
 	mu             sync.RWMutex
 	players        map[string]*Player
@@ -19,6 +17,9 @@ type sessionPlayerState struct {
 	whoActive      bool
 	whoScanStarted time.Time
 	whoLastRequest time.Time
+	phase          int
+	lastCommand    time.Time
+	whoRequested   bool
 }
 
 func (s *sessionPlayerState) maybeEnqueueInfo(commands *commandState) bool {
@@ -55,6 +56,65 @@ func (s *sessionPlayerState) maybeEnqueueWho(commands *commandState) bool {
 	}
 	s.whoLastRequest = time.Now()
 	return true
+}
+
+func (s *sessionPlayerState) requestData(commands *commandState) {
+	if s == nil || commands == nil || !commands.idle() {
+		return
+	}
+	now := time.Now()
+	s.mu.Lock()
+	if now.Sub(s.lastCommand) < time.Second {
+		s.mu.Unlock()
+		return
+	}
+	phase, active, requested := s.phase, s.whoActive, s.whoRequested
+	s.mu.Unlock()
+
+	switch phase {
+	case phaseWho:
+		if active {
+			if s.maybeEnqueueWho(commands) {
+				s.mu.Lock()
+				s.lastCommand = now
+				s.mu.Unlock()
+			}
+			return
+		}
+		if !requested {
+			if !commands.enqueueIfIdle("/be-who") {
+				return
+			}
+			s.mu.Lock()
+			s.whoLastRequest = now
+			s.lastCommand = now
+			s.whoRequested = true
+			s.mu.Unlock()
+			return
+		}
+		s.mu.Lock()
+		s.phase = phaseShare
+		s.whoRequested = false
+		s.mu.Unlock()
+	case phaseShare:
+		if !commands.enqueueIfIdle("/be-share") {
+			return
+		}
+		s.mu.Lock()
+		s.lastCommand = now
+		s.phase = phaseInfo
+		s.mu.Unlock()
+	case phaseInfo:
+		if s.maybeEnqueueInfo(commands) {
+			s.mu.Lock()
+			s.lastCommand = now
+			s.mu.Unlock()
+		} else if !active {
+			s.mu.Lock()
+			s.phase = phaseWho
+			s.mu.Unlock()
+		}
+	}
 }
 
 func newSessionPlayerState() *sessionPlayerState {
@@ -269,16 +329,13 @@ func (session *Session) parsePresenceText(raw []byte, text string) bool {
 	if session == nil {
 		return false
 	}
-	if session == primarySession {
-		return parsePresenceText(raw, text)
-	}
 	if !session.players.parsePresenceText(raw, text) {
 		return false
 	}
 	lower := strings.ToLower(text)
 	online := strings.Contains(lower, "has logged on") || strings.Contains(lower, "has entered the lands") || strings.Contains(lower, "has joined the world") || strings.Contains(lower, "has arrived")
 	name := utfFold(firstTagContent(raw, 'p', 'n'))
-	if player, ok := session.players.playerSnapshot(name); online && ok && player.Friend && gs.NotifyFriendOnline {
+	if player, ok := playerSnapshotForSession(session, name); online && ok && player.Friend && gs.NotifyFriendOnline {
 		showSessionNotification(session, name+" is online", 84, 84)
 	}
 	return true
@@ -327,9 +384,6 @@ func (s *sessionPlayerState) parseFallenText(raw []byte, text, self string) bool
 func (session *Session) parseFallenText(raw []byte, text string) bool {
 	if session == nil {
 		return false
-	}
-	if session == primarySession {
-		return parseFallenText(raw, text)
 	}
 	if !session.players.parseFallenText(raw, text, session.characterName()) {
 		return false
@@ -476,9 +530,6 @@ func (session *Session) parseShareText(raw []byte, text string) bool {
 	if session == nil {
 		return false
 	}
-	if session == primarySession {
-		return parseShareText(raw, text)
-	}
 	if !session.players.parseShareText(raw, text, session.characterName()) {
 		return false
 	}
@@ -619,30 +670,53 @@ func (s *sessionPlayerState) snapshot() []Player {
 	return out
 }
 
-// playersSnapshotForSession returns the selected session's live player state
-// with app-wide player metadata and character-local labels applied. The
-// primary session retains the established player map as its compatibility
-// adapter while secondary sessions keep presence and sharing independent.
+// playersSnapshotForSession returns one session's live player state with
+// app-wide player metadata and character-local labels applied.
 func playersSnapshotForSession(session *Session) []Player {
 	if session == nil {
 		return nil
 	}
-	if session == primarySession {
-		return getPlayers()
+	profiles := getPlayers()
+	result := make([]Player, len(profiles))
+	copy(result, profiles)
+	resultIndex := make(map[string]int, len(result))
+	for index := range result {
+		resultIndex[strings.ToLower(result[index].Name)] = index
 	}
+	for _, live := range session.players.snapshot() {
+		key := strings.ToLower(live.Name)
+		if index, ok := resultIndex[key]; ok {
+			mergePlayerProfile(&live, result[index])
+			result[index] = live
+			continue
+		}
+		resultIndex[key] = len(result)
+		result = append(result, live)
+	}
+	for i := range result {
+		applySessionPlayerLabel(&result[i], session.characterName())
+	}
+	return result
+}
 
+// livePlayersSnapshotForSession returns only players observed by this
+// connection. Persisted profile metadata is merged into matching live rows,
+// but profiles from other sessions are not added.
+func livePlayersSnapshotForSession(session *Session) []Player {
+	if session == nil || session.players == nil {
+		return nil
+	}
 	profiles := getPlayers()
 	profileByName := make(map[string]Player, len(profiles))
 	for _, profile := range profiles {
 		profileByName[strings.ToLower(profile.Name)] = profile
 	}
 	result := session.players.snapshot()
-	for i := range result {
-		key := strings.ToLower(result[i].Name)
-		if profile, ok := profileByName[key]; ok {
-			mergePlayerProfile(&result[i], profile)
+	for index := range result {
+		if profile, ok := profileByName[strings.ToLower(result[index].Name)]; ok {
+			mergePlayerProfile(&result[index], profile)
 		}
-		applySessionPlayerLabel(&result[i], session.characterName())
+		applySessionPlayerLabel(&result[index], session.characterName())
 	}
 	return result
 }
@@ -670,6 +744,9 @@ func mergePlayerProfile(player *Player, profile Player) {
 		player.gmLevel = profile.gmLevel
 	}
 	player.GlobalLabel = profile.GlobalLabel
+	player.Friend = profile.Friend
+	player.Blocked = profile.Blocked
+	player.Ignored = profile.Ignored
 	player.Bard = profile.Bard
 }
 
@@ -694,9 +771,17 @@ func characterPlayerLabel(character, name string) int {
 }
 
 func playerSnapshotForSession(session *Session, name string) (Player, bool) {
-	for _, player := range playersSnapshotForSession(session) {
+	for _, player := range livePlayersSnapshotForSession(session) {
 		if strings.EqualFold(player.Name, name) {
 			return player, true
+		}
+	}
+	// App-wide labels and block state can apply before a player has appeared in
+	// this session's live directory (for example, the first bubble in an area).
+	for _, profile := range getPlayers() {
+		if strings.EqualFold(profile.Name, name) {
+			applySessionPlayerLabel(&profile, session.characterName())
+			return profile, true
 		}
 	}
 	return Player{}, false
@@ -713,6 +798,9 @@ func (s *sessionPlayerState) reset() {
 	s.whoActive = false
 	s.whoScanStarted = time.Time{}
 	s.whoLastRequest = time.Time{}
+	s.phase = phaseWho
+	s.lastCommand = time.Time{}
+	s.whoRequested = false
 	s.mu.Unlock()
 	playersDirty = true
 }

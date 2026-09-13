@@ -168,9 +168,7 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 		}
 	case "in":
 		if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
-			if session == primarySession {
-				queueInfoRequest(name)
-			} else if session != nil {
+			if session != nil {
 				session.players.queueInfoRequest(name)
 			}
 		}
@@ -207,17 +205,9 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 		return ""
 	case "kr":
 		// Karma received: suppress notifications from blocked or ignored players.
-		if session == primarySession {
-			name := utfFold(firstTagContent(raw, 'p', 'n'))
-			if name != "" {
-				playersMu.RLock()
-				p, ok := players[name]
-				blocked := ok && (p.Blocked || p.Ignored)
-				playersMu.RUnlock()
-				if blocked {
-					return ""
-				}
-			}
+		name := utfFold(firstTagContent(raw, 'p', 'n'))
+		if player, ok := playerSnapshotForSession(session, name); ok && (player.Blocked || player.Ignored) {
+			return ""
 		}
 		if text != "" {
 			return text
@@ -308,6 +298,10 @@ func parseThinkText(raw []byte, text string) (name string, target thinkTarget, m
 }
 
 func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, bubbleType int, target thinkTarget) {
+	return decodeSessionBubble(primarySession, data)
+}
+
+func decodeSessionBubble(session *Session, data []byte) (verb, text, name, lang string, code uint8, bubbleType int, target thinkTarget) {
 	if len(data) < 2 {
 		return "", "", "", "", kBubbleCodeKnown, kBubbleNormal, thinkNone
 	}
@@ -351,10 +345,10 @@ func decodeBubble(data []byte) (verb, text, name, lang string, code uint8, bubbl
 		if s == "" {
 			continue
 		}
-		if parseNightCommand(s) {
+		if parseNightCommandForSession(session, s) {
 			continue
 		}
-		if parseInterruptCommand(s) {
+		if parseInterruptCommandForSession(session, s) {
 			continue
 		}
 		if text == "" {
@@ -431,7 +425,7 @@ func decodeSessionMessage(session *Session, m []byte) string {
 			}
 			return ""
 		}
-		if _, s, _, _, _, _, _ := decodeBubble(data); s != "" {
+		if _, s, _, _, _, _, _ := decodeSessionBubble(session, data); s != "" {
 			return s
 		}
 		if i := bytes.IndexByte(data, 0); i >= 0 {
@@ -468,7 +462,7 @@ func handleSessionInfoText(session *Session, data []byte) {
 			}
 			continue
 		}
-		if _, txt, _, _, _, bubbleType, _ := decodeBubble(line); txt != "" {
+		if _, txt, _, _, _, bubbleType, _ := decodeSessionBubble(session, line); txt != "" {
 			messageType := messageTextTypeForBubble(bubbleType)
 			if isChatBubble(bubbleType) {
 				session.publishChat(txt, messageType)
@@ -481,13 +475,13 @@ func handleSessionInfoText(session *Session, data []byte) {
 		if s == "" {
 			continue
 		}
+		if parseNightCommandForSession(session, s) {
+			continue
+		}
+		if parseInterruptCommandForSession(session, s) {
+			continue
+		}
 		if session == primarySession {
-			if parseNightCommand(s) {
-				continue
-			}
-			if parseInterruptCommand(s) {
-				continue
-			}
 			// Empirical: classic client handles server-sent info-text music commands.
 			// Be permissive here as servers can vary:
 			// - Accept explicit "/music/..." payloads anywhere in the line

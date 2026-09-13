@@ -76,13 +76,11 @@ func compareLightingColors() error {
 		}
 	}()
 	gs.ShaderLightStrength, gs.ShaderGlowStrength = 1, 1
-	nightAlphaInited = true
 	source := ebiten.NewImage(96, 96)
 	defer source.Deallocate()
 	source.Fill(color.RGBA{R: 110, G: 85, B: 60, A: 255})
 	// Include transparency and color variation as well as the opaque background.
 	source.SubImage(image.Rect(0, 0, 32, 32)).(*ebiten.Image).Fill(color.RGBA{R: 30, G: 60, B: 80, A: 128})
-	frameLightCasters = []lightCaster{{X: 48, Y: 48, Radius: 5}, {X: 60, Y: 32, Radius: 4}}
 	colors := [][3]float32{{1, 1, 1}, {1, 0, 0}, {0, 0, 1}, {0, 0, 0}, {0.0001, 0.0002, 0.0003}, {0.7, 0.3, 0.1}}
 	for _, count := range []int{0, 1, 9, 33, 65} {
 		lights := make([]lightSource, count)
@@ -91,14 +89,17 @@ func compareLightingColors() error {
 			lights[i] = lightSource{X: float32(8 + i%8*10), Y: float32(8 + i/8*10), Radius: 25, R: c[0], G: c[1], B: c[2], Intensity: 0.7, Plane: int16(i % 3)}
 		}
 		for _, night := range []float32{0, 0.5, 1} {
-			nightPrevTarget, nightCurTarget = night*shaderNightStrength, night*shaderNightStrength
+			state := &viewportRenderState{nightTransition: nightTransitionState{
+				inited: true, previous: night * shaderNightStrength, current: night * shaderNightStrength,
+			}}
+			state.lighting.casters = []lightCaster{{X: 48, Y: 48, Radius: 5}, {X: 60, Y: 32, Radius: 4}}
 			darks := []darkSource{{X: 48, Y: 48, Radius: 100, Alpha: night, Intensity: 1, Plane: 0}, {X: 75, Y: 20, Radius: 30, Alpha: 0.2, Intensity: 1, Plane: 5}}
 			var pixels [2][]byte
 			for i, variants := range [][]lightingShaderVariant{old, current} {
 				lightingShaderVariants = variants
 				lightingShader = variants[0].shader
 				dst := ebiten.NewImage(96, 96)
-				applyWorldComposite(dst, source, lights, darks, 1, true)
+				applyWorldCompositeForViewport(state, nightRenderState{level: int(night * 100)}, dst, source, lights, darks, 1, true)
 				pixels[i] = make([]byte, 96*96*4)
 				dst.ReadPixels(pixels[i])
 				dst.Deallocate()

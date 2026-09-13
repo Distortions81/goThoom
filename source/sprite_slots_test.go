@@ -82,6 +82,26 @@ func TestSpriteUsageCountsGameFramesOncePerID(t *testing.T) {
 	}
 }
 
+func TestPinSceneSpriteSlotsKeepsEveryViewportScene(t *testing.T) {
+	isolateSpriteSlots(t)
+	first := drawSnapshot{
+		picsZero:    []framePicture{{PictID: 10}},
+		descriptors: map[uint8]frameDescriptor{1: {PictID: 20}},
+		mobiles:     []frameMobile{{Index: 1}},
+	}
+	second := drawSnapshot{
+		picsPos:     []framePicture{{PictID: 30}},
+		descriptors: map[uint8]frameDescriptor{2: {PictID: 40}},
+		prevMobiles: map[uint8]frameMobile{2: {Index: 2}},
+	}
+	pinSceneSpriteSlotsForSnapshots([]drawSnapshot{first, second})
+	for _, id := range []uint16{10, 20, 30, 40} {
+		if !spriteSlots.pinned[id] {
+			t.Fatalf("sprite %d from a visible viewport was not pinned", id)
+		}
+	}
+}
+
 func TestSpriteSlotsEvictAllPosesAndMasksTogether(t *testing.T) {
 	isolateSpriteSlots(t)
 	pixels := image.NewRGBA(image.Rect(0, 0, 8, 8))

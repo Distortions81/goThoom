@@ -102,7 +102,7 @@ func openSetupWizard(force bool) {
 }
 
 func startSetupWizardPreview() {
-	if setupWizardPreviewActive || tcpConn != nil || clmov != "" || playingMovie || pcapPath != "" || fake || clImages == nil {
+	if setupWizardPreviewActive || primarySession.transport.connected() || clmov != "" || playingMovie || pcapPath != "" || fake || clImages == nil {
 		return
 	}
 	setupWizardPreviewLogin = loginWin != nil && loginWin.IsOpen()

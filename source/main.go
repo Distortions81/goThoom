@@ -86,12 +86,8 @@ func main() {
 	defer closeDiagnosticsLog()
 	defer shutdownScripts()
 	defer stopStreamOutput()
-	// Ensure any active recording is finalized on exit.
-	defer func() {
-		if recorder != nil {
-			stopRecording()
-		}
-	}()
+	// Ensure every active session recording is finalized on exit.
+	defer stopAllSessionRecordings()
 	defer logMainPanic()
 	flag.Func("server", "override the game server for this run (host:port; saved settings are unchanged)", setServerAddressOverride)
 	dumpTune := flag.String("dumpTune", "", "dump parsed note timings for the given tune string and exit")
@@ -427,9 +423,17 @@ func main() {
 	requestApplicationShutdown(cancel, "game loop ended")
 
 	<-ctx.Done()
+	joinSessionShutdown()
 }
 
 func shutdownScripts() {
+	if appSessions != nil {
+		for _, session := range appSessions.snapshot() {
+			if session != nil && session.automation != nil {
+				session.automation.stopSessionScripts("application shutdown")
+			}
+		}
+	}
 	stopScripts("application shutdown")
 	savescriptStores()
 }
@@ -441,8 +445,18 @@ func requestApplicationShutdown(cancel context.CancelFunc, reason string) {
 	}
 }
 
+func joinSessionShutdown() {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := appSessions.disconnectAllAndWait(shutdownCtx); err != nil {
+		log.Printf("session shutdown: %v", err)
+	}
+}
+
 func exitApplication(code int, reason string) {
 	recordShutdownReason(reason)
+	joinSessionShutdown()
+	stopAllSessionRecordings()
 	shutdownScripts()
 	closeDiagnosticsLog()
 	os.Exit(code)

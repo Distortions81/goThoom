@@ -9,18 +9,25 @@ import (
 const scriptSettingsContentWidth float32 = 540
 
 func openscriptConfigWindow(owner string) {
-	if scriptIsDisabled(owner) {
+	openScriptConfigWindowForSession(nil, owner)
+}
+
+func openScriptConfigWindowForSession(session *Session, owner string) {
+	running, _ := session.scriptRuntimeSnapshot(owner)
+	if !running {
 		return
 	}
 	if scriptConfigWin != nil {
 		scriptConfigWin.Close()
 	}
-	scriptConfigMu.RLock()
-	entries := append([]scriptConfigEntry(nil), scriptConfigEntries[owner]...)
-	scriptConfigMu.RUnlock()
+	entries := session.scriptConfigEntriesSnapshot(owner)
 	win := eui.NewWindow()
-	scriptConfigWin, scriptConfigOwner = win, owner
-	win.Title = "Settings: " + scriptDisplayName(owner)
+	sessionID := SessionID(0)
+	if session != nil {
+		sessionID = session.ID()
+	}
+	scriptConfigWin, scriptConfigOwner, scriptConfigSession = win, owner, sessionID
+	win.Title = "Settings: " + scriptDisplayName(owner) + " — " + scriptManagerCharacter(session)
 	win.ShowTooltipIndicators = true
 	win.Size = eui.Point{X: 600, Y: 500}
 	win.Closable, win.Movable = true, true
@@ -35,7 +42,7 @@ func openscriptConfigWindow(owner string) {
 		}
 		win.RemoveWindow()
 		if scriptConfigWin == win {
-			scriptConfigWin, scriptConfigOwner = nil, ""
+			scriptConfigWin, scriptConfigOwner, scriptConfigSession = nil, "", 0
 		}
 	}
 	outer := eui.NewColumn()
@@ -45,32 +52,32 @@ func openscriptConfigWindow(owner string) {
 		preferences.AddItem(scriptSettingsText("This script has no preferences."))
 	} else {
 		preferences.AddItem(scriptSettingsText("Preferences save as you change them. Each field shows which characters it affects."))
-		addScriptPreferenceControls(preferences, owner, entries)
+		addScriptPreferenceControlsForSession(preferences, session, owner, entries)
 	}
 	bindings := eui.NewColumn()
 	bindings.Name = "Key bindings"
 	bindings.AddItem(scriptSettingsText("Key bindings apply to all characters using this script. Apply saves each edit; Reset restores the script's default."))
-	keys := scriptHotkeys(owner)
+	keys := scriptHotkeysForSession(session, owner)
 	if len(keys) == 0 {
 		bindings.AddItem(scriptSettingsText("This script has no key bindings."))
 	}
 	for _, hk := range keys {
 		original := scriptHotkeyDefault(hk)
 		input := addScriptControlEditor(bindings, "Default: "+original, hk.Combo, original, true, func(value string) error {
-			return setScriptBinding(owner, original, value)
+			return setScriptBindingForSession(session, owner, original, value)
 		})
 		recordingInputs = append(recordingInputs, input)
 	}
 	commands := eui.NewColumn()
 	commands.Name = "Commands"
 	commands.AddItem(scriptSettingsText("Local command names apply to all characters using this script. Arguments and actions stay the same. Apply saves each edit; Reset restores the default name."))
-	registered := scriptCommandSettingsFor(owner)
+	registered := scriptCommandSettingsForSession(session, owner)
 	if len(registered) == 0 {
 		commands.AddItem(scriptSettingsText("This script has no local commands."))
 	}
 	for _, entry := range registered {
 		addScriptControlEditor(commands, "Default: /"+entry.Default, entry.Value, entry.Default, false, func(value string) error {
-			return setScriptCommandName(owner, entry.Default, value)
+			return setScriptCommandNameForSession(session, owner, entry.Default, value)
 		})
 	}
 	outer.Tabs = []*eui.ItemData{preferences, bindings, commands}

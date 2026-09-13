@@ -103,6 +103,7 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		now := setupWizardSceneStarted.Add(650 * time.Millisecond)
 		var snap drawSnapshot
 		prepareSetupWizardSceneSnapshot(&snap, now)
+		viewportState := &viewportRenderState{}
 		if mode == setupWizardSceneDay && !setupWizardSceneHasObscuringPicture(snap) {
 			g.err = fmt.Errorf("daylight scene has no foreground picture obscuring the moving traveler")
 			break
@@ -113,14 +114,14 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 			// Exercise the opt-in batched path separately. The production draw
 			// below keeps the default draw-order-correct layered path.
 			gs.FasterCharacterShadows = true
-			drawMobileShadows(probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels, nil)
-			if frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
+			drawMobileShadowsForViewportNight(viewportState, probe, 0, 0, snap.mobiles, snap.descriptors, snap.prevMobiles, snap.picShiftX, snap.picShiftY, 1, maxMobileInterpPixels, nil, snap.night)
+			if viewportState.lighting.detailedShadowMask == nil || viewportState.lighting.detailedShadowBounds.Empty() {
 				g.err = fmt.Errorf("daylight scene did not produce a detailed shadow mask")
 				break
 			}
 			before := make([]byte, 4*gameAreaSizeX*gameAreaSizeY)
 			probe.ReadPixels(before)
-			applyDetailedCharacterShadow(probe)
+			applyDetailedCharacterShadowForViewport(viewportState, probe)
 			after := make([]byte, len(before))
 			probe.ReadPixels(after)
 			if bytes.Equal(before, after) {
@@ -135,14 +136,13 @@ func (g *setupWizardSceneRenderGame) Draw(_ *ebiten.Image) {
 		backing := ebiten.NewImage(gameAreaSizeX+offsetX, gameAreaSizeY+offsetY)
 		canvas := backing.SubImage(image.Rect(offsetX, offsetY, offsetX+gameAreaSizeX, offsetY+gameAreaSizeY)).(*ebiten.Image)
 		canvas.Fill(color.RGBA{R: 28, G: 32, B: 38, A: 255})
-		nightAlphaInited = false
-		drawScene(canvas, 0, 0, snap, alpha, mobileFade, pictFade)
+		drawScene(canvas, 0, 0, snap, alpha, mobileFade, pictFade, viewportState)
 		if shaderLightingEnabled() {
 			if sceneMayNeedLighting(snap) {
-				addNightDarkSources(canvas.Bounds(), float32(alpha))
-				applyLightingShader(canvas, frameLights, frameDarks, float32(alpha))
+				addNightDarkSourcesForViewport(viewportState, canvas.Bounds(), float32(alpha), snap.night)
+				applyLightingShaderForViewportNight(viewportState, snap.night, canvas, viewportState.lighting.lights, viewportState.lighting.darks, float32(alpha))
 			} else {
-				applyDetailedCharacterShadow(canvas)
+				applyDetailedCharacterShadowForViewport(viewportState, canvas)
 			}
 		}
 		drawSpeechBubbles(canvas, snap, alpha, 1)
@@ -174,8 +174,8 @@ func verifyLightingCoordinates() error {
 		canvas := backing.SubImage(bounds).(*ebiten.Image)
 		canvas.Fill(color.RGBA{R: 32, G: 40, B: 48, A: 255})
 
-		frameLightCasters = frameLightCasters[:0]
-		applyLightingShader(canvas, []lightSource{{
+		viewportState := &viewportRenderState{}
+		applyLightingShaderForViewport(viewportState, canvas, []lightSource{{
 			X:         float32(bounds.Min.X + lightX),
 			Y:         float32(bounds.Min.Y + lightY),
 			Radius:    36,

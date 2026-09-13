@@ -33,23 +33,23 @@ func TestUpdateWorldHoverCachesUnchangedQuery(t *testing.T) {
 	}
 
 	origGeneration := primarySession.draw.generation.Load()
-	lastHoverMu.Lock()
-	origHover := lastHover
-	origHoverGeneration := lastHoverGeneration
-	origHoverQueryValid := lastHoverQueryValid
-	lastHoverQueryValid = false
-	lastHoverMu.Unlock()
+	primarySession.input.mu.Lock()
+	origHover := primarySession.input.lastHover
+	origHoverGeneration := primarySession.input.hoverGen
+	origHoverQueryValid := primarySession.input.hoverValid
+	primarySession.input.hoverValid = false
+	primarySession.input.mu.Unlock()
 	defer func() {
 		primarySession.draw.mu.Lock()
 		primarySession.draw.current = origState
 		primarySession.draw.mu.Unlock()
 		mobileSizeFunc = origMobileSizeFunc
 		primarySession.draw.generation.Store(origGeneration)
-		lastHoverMu.Lock()
-		lastHover = origHover
-		lastHoverGeneration = origHoverGeneration
-		lastHoverQueryValid = origHoverQueryValid
-		lastHoverMu.Unlock()
+		primarySession.input.mu.Lock()
+		primarySession.input.lastHover = origHover
+		primarySession.input.hoverGen = origHoverGeneration
+		primarySession.input.hoverValid = origHoverQueryValid
+		primarySession.input.mu.Unlock()
 	}()
 
 	updateWorldHover(0, 0)

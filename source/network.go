@@ -13,12 +13,6 @@ import (
 	scriptapi "gt2"
 )
 
-// tcpConn is the primary UI compatibility view of primarySession.transport.
-// Network ownership and secondary-session connection checks use the transport
-// object directly; this alias is removed when the remaining primary-only UI
-// controls bind through the session manager.
-var tcpConn net.Conn
-
 // messageBufferSize is large enough to hold the most common payloads such as
 // identifiers and player input packets.
 const messageBufferSize = 512

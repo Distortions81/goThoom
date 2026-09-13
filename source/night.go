@@ -31,24 +31,63 @@ type NightInfo struct {
 	oldAzimuth      int
 	redshift        float64
 	startOfTwilight int
+	generation      uint64
 }
 
-var gNight NightInfo
+type nightRenderState struct {
+	baseLevel, azimuth, level, shadows int
+	cloudy                             bool
+	flags                              uint
+	redshift                           float64
+	generation                         uint64
+}
 
 // resetNightState discards time-of-day information owned by the current live
 // session or movie. A subsequent source must establish its own lighting state.
 func resetNightState() {
-	gNight.mu.Lock()
-	gNight.BaseLevel = 0
-	gNight.Azimuth = 0
-	gNight.Cloudy = false
-	gNight.Flags = 0
-	gNight.Level = 0
-	gNight.Shadows = 0
-	gNight.oldAzimuth = 0
-	gNight.redshift = 0
-	gNight.startOfTwilight = 0
-	gNight.mu.Unlock()
+	primarySession.night.reset()
+}
+
+func (n *NightInfo) reset() {
+	if n == nil {
+		return
+	}
+	n.mu.Lock()
+	n.BaseLevel = 0
+	n.Azimuth = 0
+	n.Cloudy = false
+	n.Flags = 0
+	n.Level = 0
+	n.Shadows = 0
+	n.oldAzimuth = 0
+	n.redshift = 0
+	n.startOfTwilight = 0
+	n.generation++
+	n.mu.Unlock()
+}
+
+func (n *NightInfo) snapshot() nightRenderState {
+	if n == nil {
+		return nightRenderState{}
+	}
+	n.mu.Lock()
+	state := nightRenderState{
+		baseLevel: n.BaseLevel, azimuth: n.Azimuth, cloudy: n.Cloudy,
+		flags: n.Flags, level: n.Level, shadows: n.Shadows,
+		redshift: n.redshift, generation: n.generation,
+	}
+	n.mu.Unlock()
+	return state
+}
+
+func (n *NightInfo) generationSnapshot() uint64 {
+	if n == nil {
+		return 0
+	}
+	n.mu.Lock()
+	generation := n.generation
+	n.mu.Unlock()
+	return generation
 }
 
 var (
@@ -94,14 +133,14 @@ func (n *NightInfo) calcCurLevel() {
 	}
 }
 
-func (n *NightInfo) calcRedshift() {
+func (n *NightInfo) calcRedshift(frame int) {
 	const ticksPerGameSecond = 60.0 / 4.09
 	const twilightLength = 30 * 60 * ticksPerGameSecond
 	const maxRedshift = 1.25
 
 	if n.oldAzimuth != n.Azimuth {
 		if (n.oldAzimuth == -2 && n.Azimuth == -1) || (n.oldAzimuth == 179 && n.Azimuth == 180) {
-			n.startOfTwilight = primarySession.draw.frame
+			n.startOfTwilight = frame
 		} else {
 			n.startOfTwilight = 0
 		}
@@ -113,7 +152,7 @@ func (n *NightInfo) calcRedshift() {
 	}
 
 	if n.startOfTwilight != 0 {
-		shift := float64(primarySession.draw.frame-n.startOfTwilight) / twilightLength
+		shift := float64(frame-n.startOfTwilight) / twilightLength
 		if shift < 0 {
 			shift = 0
 		} else if shift > 1 {
@@ -130,20 +169,27 @@ func (n *NightInfo) calcRedshift() {
 }
 
 func (n *NightInfo) SetFlags(f uint) {
+	n.setFlags(f, 0)
+}
+
+func (n *NightInfo) setFlags(f uint, frame int) {
 	n.mu.Lock()
 	n.Flags = f
 	n.calcCurLevel()
-	n.calcRedshift()
+	n.calcRedshift(frame)
+	n.generation++
 	n.mu.Unlock()
 }
 
 // currentNightLevel computes the effective night percentage (0..100) after
 // applying client preferences and server flags.
 func currentNightLevel() int {
-	gNight.mu.Lock()
-	lvl := gNight.Level
-	flags := gNight.Flags
-	gNight.mu.Unlock()
+	return effectiveNightLevel(primarySession.night.snapshot())
+}
+
+func effectiveNightLevel(night nightRenderState) int {
+	lvl := night.level
+	flags := night.flags
 	limit := gs.MaxNightLevel
 	if flags&kLightForce100Pct != 0 {
 		limit = 100
@@ -161,14 +207,16 @@ func currentNightLevel() int {
 }
 
 func explicitShadowPictureAlpha(flags uint32) (bool, float32) {
+	return explicitShadowPictureAlphaForNight(flags, primarySession.night.snapshot())
+}
+
+func explicitShadowPictureAlphaForNight(flags uint32, night nightRenderState) (bool, float32) {
 	if flags&climg.PictDefIsShadow == 0 {
 		return true, 1
 	}
-	gNight.mu.Lock()
-	shadows := gNight.Shadows
-	rawLevel := gNight.Level
-	lightFlags := gNight.Flags
-	gNight.mu.Unlock()
+	shadows := night.shadows
+	rawLevel := night.level
+	lightFlags := night.flags
 	if shadows == 0 {
 		return false, 0
 	}
@@ -183,18 +231,33 @@ func explicitShadowPictureAlpha(flags uint32) (bool, float32) {
 }
 
 func parseNightCommand(s string) bool {
+	return parseNightCommandForSession(primarySession, s)
+}
+
+func parseNightCommandForSession(session *Session, s string) bool {
+	if session == nil || session.night == nil {
+		return false
+	}
+	frame := 0
+	if session.draw != nil {
+		session.draw.mu.Lock()
+		frame = session.draw.frame
+		session.draw.mu.Unlock()
+	}
+	night := session.night
 	if m := nightRE.FindStringSubmatch(s); m != nil {
 		lvl, _ := strconv.Atoi(m[1])
 		sa, _ := strconv.Atoi(m[2])
 		cloudy := m[3] != "0"
-		gNight.mu.Lock()
-		gNight.BaseLevel = lvl
-		gNight.Level = lvl
-		gNight.Azimuth = sa
-		gNight.Cloudy = cloudy
-		gNight.calcCurLevel()
-		gNight.calcRedshift()
-		gNight.mu.Unlock()
+		night.mu.Lock()
+		night.BaseLevel = lvl
+		night.Level = lvl
+		night.Azimuth = sa
+		night.Cloudy = cloudy
+		night.calcCurLevel()
+		night.calcRedshift(frame)
+		night.generation++
+		night.mu.Unlock()
 		return true
 	}
 	const prefix = "/nt "
@@ -204,22 +267,24 @@ func parseNightCommand(s string) bool {
 	rest := s[len(prefix):]
 	var nightLevel, shadowLevel, sunAngle, declination int
 	if n, err := fmt.Sscanf(rest, "%d %d %d %d", &nightLevel, &shadowLevel, &sunAngle, &declination); err == nil && n >= 3 {
-		gNight.mu.Lock()
-		gNight.BaseLevel = nightLevel
-		gNight.Level = nightLevel
-		gNight.Shadows = shadowLevel
-		gNight.Azimuth = sunAngle
-		gNight.calcRedshift()
-		gNight.mu.Unlock()
+		night.mu.Lock()
+		night.BaseLevel = nightLevel
+		night.Level = nightLevel
+		night.Shadows = shadowLevel
+		night.Azimuth = sunAngle
+		night.calcRedshift(frame)
+		night.generation++
+		night.mu.Unlock()
 		return true
 	}
 	if n, err := fmt.Sscanf(rest, "%d", &nightLevel); err == nil && n == 1 {
-		gNight.mu.Lock()
-		gNight.BaseLevel = nightLevel
-		gNight.Level = nightLevel
-		gNight.calcCurLevel()
-		gNight.calcRedshift()
-		gNight.mu.Unlock()
+		night.mu.Lock()
+		night.BaseLevel = nightLevel
+		night.Level = nightLevel
+		night.calcCurLevel()
+		night.calcRedshift(frame)
+		night.generation++
+		night.mu.Unlock()
 		return true
 	}
 	return false
@@ -242,23 +307,13 @@ func init() {
 }
 
 func drawNightOverlay(screen *ebiten.Image, ox, oy int) {
+	drawNightOverlayForNight(screen, ox, oy, primarySession.night.snapshot())
+}
+
+func drawNightOverlayForNight(screen *ebiten.Image, ox, oy int, night nightRenderState) {
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
-	gNight.mu.Lock()
-	lvl := gNight.Level
-	flags := gNight.Flags
-	gNight.mu.Unlock()
-
-	limit := gs.MaxNightLevel
-	if flags&kLightForce100Pct != 0 {
-		limit = 100
-	}
-	if gs.forceNightLevel >= 0 {
-		lvl = gs.forceNightLevel
-	}
-	if lvl > limit {
-		lvl = limit
-	}
+	lvl := effectiveNightLevel(night)
 	if lvl <= 0 {
 		return
 	}

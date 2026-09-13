@@ -31,12 +31,12 @@ func lightingMotionPacket(pictures []framePicture, again int) []byte {
 func TestPictureLightFlickerFollowsCameraAndPictureMotion(t *testing.T) {
 	oldState, oldSettings, oldImages := primarySession.draw.current, gs, clImages
 	oldMovie, oldVersion, oldSeeking, oldFrame := movieMode, movieVersion, seekingMov, primarySession.draw.frame
-	oldNight := gNight
+	oldNight := *primarySession.night
 	oldCounts := pixelCountCache
 	t.Cleanup(func() {
 		primarySession.draw.current, gs, clImages = oldState, oldSettings, oldImages
 		movieMode, movieVersion, seekingMov, primarySession.draw.frame = oldMovie, oldVersion, oldSeeking, oldFrame
-		gNight = oldNight
+		*primarySession.night = oldNight
 		pixelCountCache = oldCounts
 	})
 	clImages = nil

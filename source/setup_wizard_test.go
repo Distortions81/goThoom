@@ -937,14 +937,18 @@ func TestSetupWizardPreviewDoesNotStartOrStopOnlinePlayback(t *testing.T) {
 	defer client.Close()
 	defer server.Close()
 
-	previousConn := tcpConn
 	previousActive := setupWizardPreviewActive
 	previousPlaying := playingMovie
-	tcpConn = client
+	primarySession.transport.mu.Lock()
+	previousTCP, previousStatus := primarySession.transport.tcp, primarySession.transport.status
+	primarySession.transport.tcp, primarySession.transport.status = client, sessionConnected
+	primarySession.transport.mu.Unlock()
 	setupWizardPreviewActive = false
 	playingMovie = false
 	t.Cleanup(func() {
-		tcpConn = previousConn
+		primarySession.transport.mu.Lock()
+		primarySession.transport.tcp, primarySession.transport.status = previousTCP, previousStatus
+		primarySession.transport.mu.Unlock()
 		setupWizardPreviewActive = previousActive
 		playingMovie = previousPlaying
 	})
@@ -1011,7 +1015,6 @@ func TestRefreshLoginAfterAssetsAvailableRebuildsSelectedCharacterRows(t *testin
 	originalPassHash := passHash
 	originalPass := pass
 	originalLastCharacter := gs.LastCharacter
-	originalConn := tcpConn
 	originalMovie := playingMovie
 	originalCLMov := clmov
 	originalPCAP := pcapPath
@@ -1025,7 +1028,10 @@ func TestRefreshLoginAfterAssetsAvailableRebuildsSelectedCharacterRows(t *testin
 	passHash = ""
 	pass = ""
 	gs.LastCharacter = ""
-	tcpConn = nil
+	primarySession.transport.mu.Lock()
+	originalTCP, originalStatus := primarySession.transport.tcp, primarySession.transport.status
+	primarySession.transport.tcp, primarySession.transport.status = nil, sessionDisconnected
+	primarySession.transport.mu.Unlock()
 	playingMovie = false
 	clmov = ""
 	pcapPath = ""
@@ -1041,7 +1047,9 @@ func TestRefreshLoginAfterAssetsAvailableRebuildsSelectedCharacterRows(t *testin
 		passHash = originalPassHash
 		pass = originalPass
 		gs.LastCharacter = originalLastCharacter
-		tcpConn = originalConn
+		primarySession.transport.mu.Lock()
+		primarySession.transport.tcp, primarySession.transport.status = originalTCP, originalStatus
+		primarySession.transport.mu.Unlock()
 		playingMovie = originalMovie
 		clmov = originalCLMov
 		pcapPath = originalPCAP

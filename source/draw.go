@@ -1533,10 +1533,9 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 		// avoid side effects during playback.
 		if d.Type != kDescNPC && d.Name != "" {
 			session.players.observeAppearance(d.Name, d.PictID, d.Colors, false)
-			if session == primarySession && !movieMode {
-				updatePlayerAppearance(d.Name, d.PictID, d.Colors, false)
+			if !movieMode {
 				// Opportunistically request full info for visible players.
-				queueInfoRequest(d.Name)
+				session.players.queueInfoRequest(d.Name)
 			}
 		}
 		descs = append(descs, d)
@@ -1669,9 +1668,7 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 	if extra > 2 {
 		extra = 2
 	}
-	if session == primarySession {
-		gNight.SetFlags(uint(lighting))
-	}
+	session.night.setFlags(uint(lighting), draw.frame)
 
 	draw.mu.Lock()
 	draw.current.receivedAt = time.Now()
@@ -1957,14 +1954,8 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 		}
 	}
 	playerStateNow := time.Now()
-	selfName := ""
-	if session == primarySession {
-		selfName = playerName
-	}
+	selfName := session.characterName()
 	session.players.markOnScreen(mobiles, draw.current.descriptors, playerStateNow, selfName)
-	if session == primarySession {
-		markPlayersOnScreen(mobiles, draw.current.descriptors, playerStateNow)
-	}
 
 	previousMobiles := draw.current.mobiles
 	nextMobiles := draw.current.mobileScratch
@@ -1974,16 +1965,10 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 		clearMap(nextMobiles)
 	}
 	for _, m := range mobiles {
-		if d, ok := draw.current.descriptors[m.Index]; ok && d.Name != "" && !(session == primarySession && gs.HideSelfNameTag && strings.EqualFold(d.Name, playerName)) {
+		if d, ok := draw.current.descriptors[m.Index]; ok && d.Name != "" && !(gs.HideSelfNameTag && strings.EqualFold(d.Name, selfName)) {
 			sharee := false
 			dead := m.State == poseDead
-			if session == primarySession {
-				playersMu.RLock()
-				if p, ok := players[d.Name]; ok {
-					sharee = p.Sharee
-				}
-				playersMu.RUnlock()
-			} else if p, ok := session.players.player(d.Name); ok {
+			if p, ok := session.players.player(d.Name); ok {
 				sharee = p.Sharee
 			}
 			style := mobileNameStyle(m.Colors, sharee)
@@ -2119,7 +2104,7 @@ stateRecordLoop:
 				continue stateRecordLoop
 			}
 			bubbleData := stateData[:p+end+1]
-			if verb, txt, bubbleName, lang, code, bubbleType, target := decodeBubble(bubbleData); txt != "" || code != kBubbleCodeKnown {
+			if verb, txt, bubbleName, lang, code, bubbleType, target := decodeSessionBubble(session, bubbleData); txt != "" || code != kBubbleCodeKnown {
 				name := bubbleName
 				if target == thinkNone {
 					if bubbleName == ThinkUnknownName {
@@ -2143,7 +2128,7 @@ stateRecordLoop:
 				} else if bubbleName == ThinkUnknownName {
 					name = "Someone"
 				}
-				if session == primarySession && verb == "thinks" && idx == playerIndex && bubbleName != "" {
+				if verb == "thinks" && idx == session.playerIndexSnapshot() && bubbleName != "" {
 					draw.mu.Lock()
 					for i, d := range draw.current.descriptors {
 						if d.Name == bubbleName {
@@ -2163,13 +2148,7 @@ stateRecordLoop:
 				}
 				skipRender := false
 				if filterName != "" {
-					if session == primarySession {
-						playersMu.RLock()
-						if p, ok := players[filterName]; ok && (p.Blocked || p.Ignored) {
-							skipRender = true
-						}
-						playersMu.RUnlock()
-					} else if p, ok := session.players.player(filterName); ok {
+					if p, ok := playerSnapshotForSession(session, filterName); ok {
 						skipRender = p.Blocked || p.Ignored
 					}
 				}
@@ -2198,7 +2177,7 @@ stateRecordLoop:
 					}
 					originOK := true
 					switch {
-					case session == primarySession && idx == playerIndex:
+					case idx == session.playerIndexSnapshot():
 						originOK = gs.BubbleSelf
 					case bubbleType == kBubbleMonster:
 						originOK = gs.BubbleMonsters

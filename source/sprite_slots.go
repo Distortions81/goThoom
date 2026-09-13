@@ -304,33 +304,43 @@ func cachedSpriteSlotLocked(key spriteSlotKey, src *image.RGBA) *ebiten.Image {
 }
 
 func pinSceneSpriteSlots(snap drawSnapshot) {
+	pinSceneSpriteSlotsForSnapshots([]drawSnapshot{snap})
+}
+
+func pinSceneSpriteSlotsForSnapshots(snapshots []drawSnapshot) {
 	imageMu.Lock()
 	defer imageMu.Unlock()
-	spriteSlots.pinScene(snap)
+	spriteSlots.pinScenes(snapshots)
 }
 
 func (p *spriteSlotPool) pinScene(snap drawSnapshot) {
+	p.pinScenes([]drawSnapshot{snap})
+}
+
+func (p *spriteSlotPool) pinScenes(snapshots []drawSnapshot) {
 	if p.pinned == nil {
 		p.pinned = make(map[uint16]bool)
 	}
 	clear(p.pinned)
-	for _, pictures := range [][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
-		for _, picture := range pictures {
-			p.pinned[picture.PictID] = true
+	for _, snap := range snapshots {
+		for _, pictures := range [][]framePicture{snap.picsNeg, snap.picsZero, snap.picsPos} {
+			for _, picture := range pictures {
+				p.pinned[picture.PictID] = true
+			}
 		}
-	}
-	for _, mobile := range snap.mobiles {
-		if d, ok := snap.descriptors[mobile.Index]; ok {
-			p.pinned[d.PictID] = true
+		for _, mobile := range snap.mobiles {
+			if d, ok := snap.descriptors[mobile.Index]; ok {
+				p.pinned[d.PictID] = true
+			}
 		}
-	}
-	for index := range snap.prevMobiles {
-		d, ok := snap.prevDescs[index]
-		if !ok {
-			d, ok = snap.descriptors[index]
-		}
-		if ok {
-			p.pinned[d.PictID] = true
+		for index := range snap.prevMobiles {
+			d, ok := snap.prevDescs[index]
+			if !ok {
+				d, ok = snap.descriptors[index]
+			}
+			if ok {
+				p.pinned[d.PictID] = true
+			}
 		}
 	}
 }

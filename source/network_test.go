@@ -507,10 +507,10 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	oldAck, oldResend := primarySession.frames.ack, primarySession.frames.resend
 	oldLastAck, oldNumFrames, oldLostFrames := primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost
 	oldFrameBuckets, oldLostBuckets, oldBucketTimes := primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes
-	inputMu.Lock()
-	oldInputQueue := append([]inputState(nil), inputQueue...)
-	oldKeyStopFrames := keyStopFrames
-	inputMu.Unlock()
+	primarySession.input.mu.Lock()
+	oldInputQueue := append([]inputState(nil), primarySession.input.queue...)
+	oldKeyStopFrames := primarySession.input.stopFrames
+	primarySession.input.mu.Unlock()
 	primarySession.timing.replyMu.Lock()
 	oldReply := primarySession.timing.reply
 	primarySession.timing.replyMu.Unlock()
@@ -530,10 +530,10 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 		primarySession.frames.ack, primarySession.frames.resend = oldAck, oldResend
 		primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost = oldLastAck, oldNumFrames, oldLostFrames
 		primarySession.frames.frames, primarySession.frames.lostFrames, primarySession.frames.bucketTimes = oldFrameBuckets, oldLostBuckets, oldBucketTimes
-		inputMu.Lock()
-		inputQueue = oldInputQueue
-		keyStopFrames = oldKeyStopFrames
-		inputMu.Unlock()
+		primarySession.input.mu.Lock()
+		primarySession.input.queue = oldInputQueue
+		primarySession.input.stopFrames = oldKeyStopFrames
+		primarySession.input.mu.Unlock()
 		primarySession.timing.replyMu.Lock()
 		primarySession.timing.reply = oldReply
 		primarySession.timing.replyMu.Unlock()
@@ -553,10 +553,10 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 
 	primarySession.frames.ack, primarySession.frames.resend = 42, 43
 	primarySession.frames.lastAck, primarySession.frames.received, primarySession.frames.lost = 42, 20, 5
-	inputMu.Lock()
-	inputQueue = []inputState{{mouseX: 1}}
-	keyStopFrames = 2
-	inputMu.Unlock()
+	primarySession.input.mu.Lock()
+	primarySession.input.queue = []inputState{{mouseX: 1}}
+	primarySession.input.stopFrames = 2
+	primarySession.input.mu.Unlock()
 	primarySession.timing.replyMu.Lock()
 	primarySession.timing.reply = 50 * time.Millisecond
 	primarySession.timing.replyMu.Unlock()
@@ -609,9 +609,9 @@ func TestResetLiveNetworkSessionUsesClassicBootstrap(t *testing.T) {
 	if !commandQueueIsIdle() {
 		t.Fatal("command queue survived session reset")
 	}
-	inputMu.Lock()
-	queued, stops := len(inputQueue), keyStopFrames
-	inputMu.Unlock()
+	primarySession.input.mu.Lock()
+	queued, stops := len(primarySession.input.queue), primarySession.input.stopFrames
+	primarySession.input.mu.Unlock()
 	if queued != 0 || stops != 0 {
 		t.Fatalf("input state not reset: queued=%d stops=%d", queued, stops)
 	}

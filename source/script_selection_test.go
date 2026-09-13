@@ -11,7 +11,6 @@ import (
 func TestEffectiveCharacterUsesSelectedProfileWhileOffline(t *testing.T) {
 	originalPlayer := playerName
 	originalLast := gs.LastCharacter
-	originalConn := tcpConn
 	primarySession.transport.mu.Lock()
 	originalTransportStatus := primarySession.transport.status
 	primarySession.transport.status = sessionDisconnected
@@ -19,7 +18,6 @@ func TestEffectiveCharacterUsesSelectedProfileWhileOffline(t *testing.T) {
 	t.Cleanup(func() {
 		playerName = originalPlayer
 		gs.LastCharacter = originalLast
-		tcpConn = originalConn
 		primarySession.transport.mu.Lock()
 		primarySession.transport.status = originalTransportStatus
 		primarySession.transport.mu.Unlock()
@@ -27,7 +25,6 @@ func TestEffectiveCharacterUsesSelectedProfileWhileOffline(t *testing.T) {
 
 	playerName = "Previous"
 	gs.LastCharacter = "Selected"
-	tcpConn = nil
 	if got := effectiveCharacterName(); got != "Selected" {
 		t.Fatalf("offline effective character = %q, want Selected", got)
 	}
@@ -51,10 +48,10 @@ func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
 
 	setScriptInventoryTestItems([]InventoryItem{{ID: 42, IDIndex: 3, Name: "Test Blade", Base: "Test Blade", Quantity: 1}})
 
-	lastHoverMu.Lock()
-	originalHover := lastHover
-	lastHover = ClickInfo{X: 12, Y: -8, OnMobile: true, OnPlayer: true, Mobile: Mobile{Name: "Example"}}
-	lastHoverMu.Unlock()
+	primarySession.input.mu.Lock()
+	originalHover := primarySession.input.lastHover
+	primarySession.input.lastHover = ClickInfo{X: 12, Y: -8, OnMobile: true, OnPlayer: true, Mobile: Mobile{Name: "Example"}}
+	primarySession.input.mu.Unlock()
 
 	originalSelectedPlayer, originalSelectedID, originalSelectedIndex := selectedPlayerName, selectedInvID, selectedInvIdx
 	selectedPlayerName, selectedInvID, selectedInvIdx = "example", 42, 3
@@ -62,9 +59,9 @@ func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
 		playersMu.Lock()
 		players = originalPlayers
 		playersMu.Unlock()
-		lastHoverMu.Lock()
-		lastHover = originalHover
-		lastHoverMu.Unlock()
+		primarySession.input.mu.Lock()
+		primarySession.input.lastHover = originalHover
+		primarySession.input.mu.Unlock()
 		selectedPlayerName, selectedInvID, selectedInvIdx = originalSelectedPlayer, originalSelectedID, originalSelectedIndex
 	})
 
@@ -90,14 +87,14 @@ func TestScriptHoverAndSelectionSnapshots(t *testing.T) {
 }
 
 func TestScriptLastClickUsesReadableButtonName(t *testing.T) {
-	lastClickMu.Lock()
-	original := lastClick
-	lastClick = ClickInfo{X: 1, Y: 2, Button: ebiten.MouseButtonRight, Ctrl: true, Meta: true}
-	lastClickMu.Unlock()
+	primarySession.input.mu.Lock()
+	original := primarySession.input.lastClick
+	primarySession.input.lastClick = ClickInfo{X: 1, Y: 2, Button: ebiten.MouseButtonRight, Ctrl: true, Meta: true}
+	primarySession.input.mu.Unlock()
 	t.Cleanup(func() {
-		lastClickMu.Lock()
-		lastClick = original
-		lastClickMu.Unlock()
+		primarySession.input.mu.Lock()
+		primarySession.input.lastClick = original
+		primarySession.input.mu.Unlock()
 	})
 
 	click := scriptLastClick()

@@ -34,10 +34,13 @@ type viewportRenderState struct {
 	drawSnapshot       drawSnapshot
 	lastWorldRenderKey worldRenderKey
 	worldRenderValid   bool
+	lighting           viewportLightingFrame
 	window             *eui.WindowData
 	imageItem          *eui.ItemData
 	image              *ebiten.Image
 	imageBacking       *ebiten.Image
+	lightingTmp        *ebiten.Image
+	nightTransition    nightTransitionState
 	inAspectResize     bool
 	freeformChromeSet  bool
 	freeformTitle      float32

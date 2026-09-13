@@ -304,16 +304,16 @@ func TestServerMacroInterruptCancelsActiveLegacyMacros(t *testing.T) {
 	}
 	runtime.advance(0)
 
-	legacyMacrosMu.Lock()
-	originalRuntime := legacyMacrosRuntime
-	legacyMacrosRuntime = runtime
-	legacyMacrosMu.Unlock()
+	primarySession.automation.legacyMu.Lock()
+	originalRuntime := primarySession.automation.legacyRuntime
+	primarySession.automation.legacyRuntime = runtime
+	primarySession.automation.legacyMu.Unlock()
 	originalBlockMusic := blockMusic
 	blockMusic = false
 	t.Cleanup(func() {
-		legacyMacrosMu.Lock()
-		legacyMacrosRuntime = originalRuntime
-		legacyMacrosMu.Unlock()
+		primarySession.automation.legacyMu.Lock()
+		primarySession.automation.legacyRuntime = originalRuntime
+		primarySession.automation.legacyMu.Unlock()
 		blockMusic = originalBlockMusic
 	})
 

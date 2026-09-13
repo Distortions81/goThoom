@@ -519,43 +519,7 @@ func parseSessionBardText(session *Session, raw []byte, s string) bool {
 			return true
 		}
 	}
-	if session != primarySession {
-		session.players.parseBardText(s)
-		return false
-	}
-
-	phrases := []struct {
-		suffix string
-		bard   bool
-	}{
-		{" is a Bard Crafter", true},
-		{" is a Bard Master", true},
-		{" is a Bard Trustee", true},
-		{" is a Bard Quester", true},
-		{" is a Bard Guest", true},
-		{" is a Bard", true},
-		{" is not in the Bards' Guild", false},
-		{" is not a Bard", false},
-	}
-	for _, ph := range phrases {
-		if strings.HasSuffix(s, ph.suffix) {
-			name := strings.TrimSpace(strings.TrimSuffix(s, ph.suffix))
-			if name == "" {
-				return false
-			}
-			p := getPlayer(name)
-			playersMu.Lock()
-			p.Bard = ph.bard
-			p.LastSeen = time.Now()
-			p.Offline = false
-			playerCopy := *p
-			playersMu.Unlock()
-			playersDirty = true
-			playersPersistDirty = true
-			notifyPlayerHandlers(playerCopy)
-			return false
-		}
-	}
+	session.players.parseBardText(s)
 	return false
 }
 
@@ -811,6 +775,10 @@ func parseSessionMusicCommand(session *Session, s string, raw []byte) bool {
 // client lets that song continue.
 // Returns true if handled and output should be suppressed.
 func parseInterruptCommand(s string) bool {
+	return parseInterruptCommandForSession(primarySession, s)
+}
+
+func parseInterruptCommandForSession(session *Session, s string) bool {
 	ss := strings.TrimSpace(s)
 	if ss == "" {
 		return false
@@ -829,7 +797,9 @@ func parseInterruptCommand(s string) bool {
 		if blockMusic {
 			return true
 		}
-		cancelLegacyMacros()
+		if session != nil {
+			session.cancelLegacyMacros()
+		}
 		return true
 	}
 	return false

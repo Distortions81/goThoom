@@ -945,8 +945,12 @@ func applySettings() {
 		clImages.SetGammaCorrection(gs.SpriteGammaCorrection, gs.SpriteGamma, gs.MonitorGamma)
 	}
 	applyVSyncSetting()
-	if runtime := legacyMacroRuntimeSnapshot(); runtime != nil {
-		runtime.setAllowContinuous(gs.LegacyMacroContinuous)
+	if appSessions != nil {
+		for _, session := range appSessions.snapshot() {
+			session.setLegacyMacroContinuous(gs.LegacyMacroContinuous)
+		}
+	} else {
+		primarySession.setLegacyMacroContinuous(gs.LegacyMacroContinuous)
 	}
 	ebiten.SetFullscreen(gs.Fullscreen)
 	ebiten.SetWindowFloating(gs.Fullscreen || gs.AlwaysOnTop)

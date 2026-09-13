@@ -163,9 +163,7 @@ func TestScriptAPIFull(t *testing.T) {
 
 	// Enable console output from scripts for Print()
 	// Preload some environment: last click, player name/players, inventory
-	lastClickMu.Lock()
-	lastClick = ClickInfo{X: 10, Y: 20, Button: 2, OnMobile: false}
-	lastClickMu.Unlock()
+	primarySession.input.storeClick(ClickInfo{X: 10, Y: 20, Button: 2, OnMobile: false})
 	playerName = "Hero"
 	playersMu.Lock()
 	players = map[string]*Player{

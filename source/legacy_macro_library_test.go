@@ -369,23 +369,23 @@ func TestLegacyMacroLibraryInfoUsesThreeColumns(t *testing.T) {
 }
 
 func TestLegacyMacroLibraryDiagnosticsIncludesParseAndRuntimeErrors(t *testing.T) {
-	legacyMacrosMu.Lock()
-	originalProgram := legacyMacrosProgram
-	originalRuntime := legacyMacrosRuntime
-	legacyMacrosProgram = legacyMacroProgram{Diagnostics: []legacyMacroDiagnostic{{
+	primarySession.automation.legacyMu.Lock()
+	originalProgram := primarySession.automation.legacyProgram
+	originalRuntime := primarySession.automation.legacyRuntime
+	primarySession.automation.legacyProgram = legacyMacroProgram{Diagnostics: []legacyMacroDiagnostic{{
 		Location: legacyMacroLocation{Path: "parse.mac", Line: 2, Column: 3},
 		Message:  "parse error",
 	}}}
-	legacyMacrosRuntime = &legacyMacroRuntime{diagnostics: []legacyMacroDiagnostic{{
+	primarySession.automation.legacyRuntime = &legacyMacroRuntime{diagnostics: []legacyMacroDiagnostic{{
 		Location: legacyMacroLocation{Path: "run.mac", Line: 4, Column: 5},
 		Message:  "runtime error",
 	}}}
-	legacyMacrosMu.Unlock()
+	primarySession.automation.legacyMu.Unlock()
 	t.Cleanup(func() {
-		legacyMacrosMu.Lock()
-		legacyMacrosProgram = originalProgram
-		legacyMacrosRuntime = originalRuntime
-		legacyMacrosMu.Unlock()
+		primarySession.automation.legacyMu.Lock()
+		primarySession.automation.legacyProgram = originalProgram
+		primarySession.automation.legacyRuntime = originalRuntime
+		primarySession.automation.legacyMu.Unlock()
 	})
 
 	diagnostics := legacyMacroLibraryDiagnostics()

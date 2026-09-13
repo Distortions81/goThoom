@@ -74,33 +74,43 @@ type movieNightState struct {
 }
 
 func captureMovieNightState() movieNightState {
-	gNight.mu.Lock()
-	defer gNight.mu.Unlock()
+	return captureMovieNightStateForSession(primarySession)
+}
+
+func captureMovieNightStateForSession(session *Session) movieNightState {
+	if session == nil {
+		return movieNightState{}
+	}
+	night := session.night
+	night.mu.Lock()
+	defer night.mu.Unlock()
 	return movieNightState{
-		baseLevel:       gNight.BaseLevel,
-		azimuth:         gNight.Azimuth,
-		cloudy:          gNight.Cloudy,
-		flags:           gNight.Flags,
-		level:           gNight.Level,
-		shadows:         gNight.Shadows,
-		oldAzimuth:      gNight.oldAzimuth,
-		redshift:        gNight.redshift,
-		startOfTwilight: gNight.startOfTwilight,
+		baseLevel:       night.BaseLevel,
+		azimuth:         night.Azimuth,
+		cloudy:          night.Cloudy,
+		flags:           night.Flags,
+		level:           night.Level,
+		shadows:         night.Shadows,
+		oldAzimuth:      night.oldAzimuth,
+		redshift:        night.redshift,
+		startOfTwilight: night.startOfTwilight,
 	}
 }
 
 func restoreMovieNightState(n movieNightState) {
-	gNight.mu.Lock()
-	gNight.BaseLevel = n.baseLevel
-	gNight.Azimuth = n.azimuth
-	gNight.Cloudy = n.cloudy
-	gNight.Flags = n.flags
-	gNight.Level = n.level
-	gNight.Shadows = n.shadows
-	gNight.oldAzimuth = n.oldAzimuth
-	gNight.redshift = n.redshift
-	gNight.startOfTwilight = n.startOfTwilight
-	gNight.mu.Unlock()
+	night := primarySession.night
+	night.mu.Lock()
+	night.BaseLevel = n.baseLevel
+	night.Azimuth = n.azimuth
+	night.Cloudy = n.cloudy
+	night.Flags = n.flags
+	night.Level = n.level
+	night.Shadows = n.shadows
+	night.oldAzimuth = n.oldAzimuth
+	night.redshift = n.redshift
+	night.startOfTwilight = n.startOfTwilight
+	night.generation++
+	night.mu.Unlock()
 }
 
 // checkpointInterval determines how often checkpoints are recorded during

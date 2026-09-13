@@ -7,22 +7,16 @@ import (
 )
 
 func scriptLastClick() scriptapi.Click {
-	lastClickMu.Lock()
-	click := lastClick
-	lastClickMu.Unlock()
-	return scriptClickSnapshot(click, true)
+	return scriptLastClickForSession(primarySession)
 }
 
 func scriptHover() scriptapi.Click {
-	lastHoverMu.Lock()
-	hover := lastHover
-	lastHoverMu.Unlock()
-	return scriptClickSnapshot(hover, false)
+	return scriptHoverForSession(primarySession)
 }
 
 func scriptLastClickForSession(session *Session) scriptapi.Click {
-	if session == nil || session == primarySession {
-		return scriptLastClick()
+	if session == nil {
+		return scriptapi.Click{}
 	}
 	return scriptClickSnapshot(session.input.clickSnapshot(), true)
 }
@@ -181,10 +175,13 @@ func scriptEquippedItemsForSession(session *Session) []InventoryItem {
 }
 
 func scriptPlayersForSession(session *Session) []scriptapi.Player {
-	if session == nil || session.players == nil {
+	if session == nil {
+		return scriptPlayers()
+	}
+	if session.players == nil {
 		return nil
 	}
-	players := playersSnapshotForSession(session)
+	players := livePlayersSnapshotForSession(session)
 	out := make([]scriptapi.Player, len(players))
 	for index, player := range players {
 		out[index] = scriptPlayerSnapshot(player)

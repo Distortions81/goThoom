@@ -180,10 +180,7 @@ func legacyMacroInputName(name string) string {
 }
 
 func legacyMacroRuntimeSnapshot() *legacyMacroRuntime {
-	legacyMacrosMu.RLock()
-	runtime := legacyMacrosRuntime
-	legacyMacrosMu.RUnlock()
-	return runtime
+	return primarySession.legacyMacroRuntimeSnapshot()
 }
 
 func legacyMacroFirstInputWord(text string) string {
@@ -522,8 +519,8 @@ func legacyMacroTriggerWheelForSession(session *Session, name string, modifiers 
 }
 
 func legacyMacroRuntimeForSession(session *Session) *legacyMacroRuntime {
-	if session == nil || session == primarySession {
-		return legacyMacroRuntimeSnapshot()
+	if session == nil {
+		return nil
 	}
 	return session.legacyMacroRuntimeSnapshot()
 }
@@ -825,9 +822,7 @@ func legacyMacroMovePlayer(move legacyMacroMove) {
 	legacyMacroInputState.moved = true
 	legacyMacroInputState.Unlock()
 	if move.Direction == legacyMacroMoveStop {
-		inputMu.Lock()
-		previous := latestInput
-		inputMu.Unlock()
+		previous := primarySession.input.appliedSnapshot()
 		queueInput(inputState{mouseX: previous.mouseX, mouseY: previous.mouseY})
 		return
 	}

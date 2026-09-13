@@ -309,10 +309,7 @@ func TestHotkeyCommandInputChangeDoesNotRefreshEditorLayout(t *testing.T) {
 
 // Test that @right.clicked in commands expands to the last right-clicked mobile name.
 func TestApplyHotkeyVars(t *testing.T) {
-	// Populate lastClickByButton for right-click
-	lastClickByButtonMu.Lock()
-	lastClickByButton[ebiten.MouseButtonRight] = ClickInfo{OnMobile: true, Mobile: Mobile{Name: "Target"}}
-	lastClickByButtonMu.Unlock()
+	primarySession.input.storeClick(ClickInfo{Button: ebiten.MouseButtonRight, OnMobile: true, Mobile: Mobile{Name: "Target"}})
 	got, ok := applyHotkeyVars("/use @right.clicked")
 	if !ok || got != "/use Target" {
 		t.Fatalf("got %q, ok %v", got, ok)
@@ -321,9 +318,7 @@ func TestApplyHotkeyVars(t *testing.T) {
 
 // Test that @hovered in commands expands to the currently hovered mobile name.
 func TestApplyHotkeyVarsHovered(t *testing.T) {
-	lastHoverMu.Lock()
-	lastHover = ClickInfo{OnMobile: true, Mobile: Mobile{Name: "Hover"}}
-	lastHoverMu.Unlock()
+	primarySession.input.storeHover(ClickInfo{OnMobile: true, Mobile: Mobile{Name: "Hover"}}, primarySession.draw.generation.Load())
 	got, ok := applyHotkeyVars("/inspect @hovered")
 	if !ok || got != "/inspect Hover" {
 		t.Fatalf("got %q, ok %v", got, ok)
@@ -360,9 +355,9 @@ func TestMakeScriptInputEvent(t *testing.T) {
 
 // Test that commands referencing @right.clicked don't fire without a target.
 func TestApplyHotkeyVarsNoClicked(t *testing.T) {
-	lastClickByButtonMu.Lock()
-	delete(lastClickByButton, ebiten.MouseButtonRight)
-	lastClickByButtonMu.Unlock()
+	primarySession.input.mu.Lock()
+	delete(primarySession.input.clicks, ebiten.MouseButtonRight)
+	primarySession.input.mu.Unlock()
 	if got, ok := applyHotkeyVars("/use @right.clicked"); ok || got != "" {
 		t.Fatalf("got %q, ok %v", got, ok)
 	}
@@ -370,9 +365,7 @@ func TestApplyHotkeyVarsNoClicked(t *testing.T) {
 
 // Test that commands referencing @hovered don't fire without a target.
 func TestApplyHotkeyVarsNoHovered(t *testing.T) {
-	lastHoverMu.Lock()
-	lastHover = ClickInfo{}
-	lastHoverMu.Unlock()
+	primarySession.input.storeHover(ClickInfo{}, primarySession.draw.generation.Load())
 	if got, ok := applyHotkeyVars("/inspect @hovered"); ok || got != "" {
 		t.Fatalf("got %q, ok %v", got, ok)
 	}

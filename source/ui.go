@@ -173,6 +173,7 @@ var scriptInfoActionGroups []*eui.ItemData
 var selectedscript string
 var scriptConfigWin *eui.WindowData
 var scriptConfigOwner string
+var scriptConfigSession SessionID
 var scriptDebugList *eui.ItemData
 
 var hudWin *eui.WindowData
@@ -217,7 +218,6 @@ var (
 	totalCacheLabel        *eui.ItemData
 
 	recordBtn                *eui.ItemData
-	recordPath               string
 	qualityPresetDD          *eui.ItemData
 	qualityRenderScaleSlider *eui.ItemData
 	fadeObscuringCB          *eui.ItemData
@@ -831,7 +831,8 @@ func refreshscriptsWindow() {
 	if scriptsList == nil || scriptsWin == nil {
 		return
 	}
-	character := scriptScopeCharacter()
+	session := scriptManagerSession()
+	character := scriptManagerCharacter(session)
 	if character == "" {
 		scriptsWin.Title = "Scripts — select a player on Login"
 	} else {
@@ -920,7 +921,7 @@ func refreshscriptsWindow() {
 			allCB.Size = charCB.Size
 			allCB.AuxSize = allCB.Size
 			// Bind this checkbox to the character named when the row was built.
-			effChar := scriptScopeCharacter()
+			effChar := character
 			label := e.name
 			if e.sub != "" {
 				label += " [" + e.sub + "]"
@@ -929,7 +930,7 @@ func refreshscriptsWindow() {
 			scriptMu.RLock()
 			scope := scriptEnabledFor[owner]
 			scriptMu.RUnlock()
-			status := scriptScopedStatus(scope, effChar, e.disabled, e.invalid, e.errorText, e.reloadFailed)
+			status := scriptRuntimeStatusForSession(session, owner, scope, e.invalid, e.errorText, e.reloadFailed)
 			if included := includedScriptLabel(e.path); included != "" {
 				status = included + " — " + status
 			}
@@ -1004,7 +1005,7 @@ func refreshscriptsWindow() {
 				reloadBtn.Size = eui.Point{X: 28, Y: 28}
 				rh.Handle = func(ev eui.UIEvent) {
 					if ev.Type == eui.EventClick {
-						reloadscript(owner)
+						reloadScriptForSession(session, owner)
 					}
 				}
 				row.AddItem(scriptListCell(reloadBtn, 36, scriptsManagerRowHeight, true))
@@ -1017,7 +1018,7 @@ func refreshscriptsWindow() {
 					cfgBtn.Size = eui.Point{X: 28, Y: 28}
 					ch.Handle = func(ev eui.UIEvent) {
 						if ev.Type == eui.EventClick {
-							openscriptConfigWindow(owner)
+							openScriptConfigWindowForSession(session, owner)
 						}
 					}
 					row.AddItem(scriptListCell(cfgBtn, 36, scriptsManagerRowHeight, true))
@@ -1200,14 +1201,14 @@ func refreshscriptDetails() {
 		openPath = info.container
 	}
 	scope := scriptEnabledFor[owner]
-	disabled := scriptDisabled[owner]
 	invalid := scriptInvalid[owner]
 	errorText := scriptErrors[owner]
 	validationResult := scriptValidationResults[owner]
 	reloadFailed := scriptReloadFailed[owner]
 	scriptMu.RUnlock()
 
-	status := scriptScopedStatus(scope, scriptScopeCharacter(), disabled, invalid, errorText, reloadFailed)
+	session := scriptManagerSession()
+	status := scriptRuntimeStatusForSession(session, owner, scope, invalid, errorText, reloadFailed)
 
 	column := header
 	line := func(s string) {
@@ -1235,7 +1236,7 @@ func refreshscriptDetails() {
 		line("Validation: " + validationResult)
 	}
 
-	commands, bindings, events, timers, settings := scriptRegistrationSummary(owner)
+	commands, bindings, events, timers, settings := scriptRegistrationSummaryForSession(session, owner)
 	addScriptDetailList(line, "Commands", commands)
 	addScriptDetailList(line, "Key bindings", bindings)
 
@@ -1322,16 +1323,17 @@ func refreshscriptDetails() {
 		refreshscriptDetails()
 	})
 	button("Permissions", path == "", func() { openScriptPermissionsWindow(owner) })
-	settingsButton := button("Settings", disabled, func() { openscriptConfigWindow(owner) })
+	running, _ := session.scriptRuntimeSnapshot(owner)
+	settingsButton := button("Settings", !running, func() { openScriptConfigWindowForSession(session, owner) })
 	setMaterialButtonIcon(settingsButton, "settings")
-	if disabled {
+	if !running {
 		settingsButton.SetTooltip("Enable this script and log in to edit its preferences, key bindings, and commands.")
 	} else {
 		settingsButton.SetTooltip("Edit preferences, key bindings, and local command names.")
 	}
 	group()
-	button("Reload", invalid, func() { reloadscript(owner) })
-	button("Stop", disabled, func() { clearscriptScope(owner) })
+	button("Reload", invalid, func() { reloadScriptForSession(session, owner) })
+	button("Disable", scope.empty(), func() { clearscriptScope(owner) })
 	group()
 	button("Close", false, func() {
 		if scriptInfoWin != nil {
@@ -1376,6 +1378,51 @@ func addScriptDetailList(line func(string), label string, values []string) {
 }
 
 func scriptRegistrationSummary(owner string) (commands, bindings, events []string, timers int, settings []string) {
+	return scriptRegistrationSummaryForSession(nil, owner)
+}
+
+func scriptRegistrationSummaryForSession(session *Session, owner string) (commands, bindings, events []string, timers int, settings []string) {
+	if session != nil {
+		session.automation.scriptMu.RLock()
+		for command, entry := range session.automation.localCommands {
+			if entry.owner == owner {
+				commands = append(commands, "/"+command)
+			}
+		}
+		for _, hotkey := range session.automation.localHotkeys[owner] {
+			bindings = append(bindings, scriptControlValue(owner, "binding", hotkey.original))
+		}
+		for _, handler := range session.automation.scriptChats {
+			if handler.owner == owner {
+				events = append(events, "chat")
+			}
+		}
+		for _, handler := range session.automation.scriptServers {
+			if handler.owner == owner {
+				events = append(events, "server message")
+			}
+		}
+		for _, handler := range session.automation.scriptEvents {
+			if handler.owner == owner {
+				events = append(events, handler.kind)
+			}
+		}
+		for _, handler := range session.automation.scriptChanges {
+			if handler.owner == owner {
+				events = append(events, "change: "+handler.kind)
+			}
+		}
+		session.automation.scriptMu.RUnlock()
+		timers = len(session.automation.scriptTimers.repeatsSnapshot(owner))
+		for _, entry := range session.scriptConfigEntriesSnapshot(owner) {
+			settings = append(settings, entry.Label+" ("+entry.Key+")")
+		}
+		sort.Strings(commands)
+		sort.Strings(bindings)
+		sort.Strings(events)
+		sort.Strings(settings)
+		return commands, bindings, events, timers, settings
+	}
 	scriptMu.RLock()
 	for command, commandOwner := range scriptCommandOwners {
 		if commandOwner == owner {
@@ -1449,6 +1496,10 @@ func refreshscriptDebug() {
 }
 
 func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scriptConfigEntry) {
+	addScriptPreferenceControlsForSession(root, nil, owner, entries)
+}
+
+func addScriptPreferenceControlsForSession(root *eui.ItemData, session *Session, owner string, entries []scriptConfigEntry) {
 	for _, ce := range entries {
 		row := eui.NewColumn()
 		lbl, _ := eui.NewText()
@@ -1460,7 +1511,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 		lbl.Size = eui.Point{X: scriptSettingsContentWidth, Y: 0}
 		scope := "All characters"
 		if ce.Scope == "character" {
-			scope = "Character: " + playerName
+			scope = "Character: " + ce.Character
 		}
 		lbl.SetWrappedText(lbl.Text + " (" + scope + ")")
 		row.AddItem(lbl)
@@ -1495,9 +1546,9 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 					value = math.Round(value/ce.Step) * ce.Step
 				}
 				if typ == "int" {
-					scriptSetConfigValue(owner, key, int(value))
+					scriptSetConfigValueForSession(session, owner, key, int(value))
 				} else {
-					scriptSetConfigValue(owner, key, value)
+					scriptSetConfigValueForSession(session, owner, key, value)
 				}
 			}
 			row.AddItem(s)
@@ -1508,7 +1559,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventCheckboxChanged {
-					scriptSetConfigValue(owner, key, ev.Checked)
+					scriptSetConfigValueForSession(session, owner, key, ev.Checked)
 				}
 			}
 			row.AddItem(cb)
@@ -1518,7 +1569,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 			key := ce.Key
 			swatch := newColorSwatch(ce.Label, color, func(value eui.Color) {
 				packed := uint32(value.R)<<24 | uint32(value.G)<<16 | uint32(value.B)<<8 | uint32(value.A)
-				scriptSetConfigValue(owner, key, packed)
+				scriptSetConfigValueForSession(session, owner, key, packed)
 			})
 			swatch.Size = eui.Point{X: 48, Y: 28}
 			row.AddItem(swatch)
@@ -1529,7 +1580,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventInputChanged {
-					scriptSetConfigValue(owner, key, ev.Text)
+					scriptSetConfigValueForSession(session, owner, key, ev.Text)
 				}
 			}
 			row.AddItem(inp)
@@ -1547,7 +1598,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(ev.Item.Options) {
-					scriptSetConfigValue(owner, key, ev.Item.Options[ev.Index])
+					scriptSetConfigValueForSession(session, owner, key, ev.Item.Options[ev.Index])
 				}
 			}
 			row.AddItem(dd)
@@ -1559,7 +1610,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 				dd.Options = append(dd.Options, current)
 				seen[current] = true
 			}
-			for _, item := range getInventory() {
+			for _, item := range scriptInventoryForSession(session) {
 				if item.Name != "" && !seen[item.Name] {
 					dd.Options = append(dd.Options, item.Name)
 					seen[item.Name] = true
@@ -1576,7 +1627,7 @@ func addScriptPreferenceControls(root *eui.ItemData, owner string, entries []scr
 			key := ce.Key
 			events.Handle = func(ev eui.UIEvent) {
 				if ev.Type == eui.EventDropdownSelected && ev.Index >= 0 && ev.Index < len(ev.Item.Options) {
-					scriptSetConfigValue(owner, key, ev.Item.Options[ev.Index])
+					scriptSetConfigValueForSession(session, owner, key, ev.Item.Options[ev.Index])
 				}
 			}
 			row.AddItem(dd)
@@ -2318,7 +2369,7 @@ func confirmExitSession() {
 		})
 		return
 	}
-	if tcpConn != nil { // Connected to server
+	if primarySession.transport.connected() {
 		eui.ShowPopup("Exit Session", "Disconnect and return to login?", []eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Disconnect", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
@@ -2345,94 +2396,15 @@ func handleToolbarRecording() {
 		updateRecordButton()
 		return
 	}
-	if recorder == nil && recordingMovie && tcpConn == nil {
-		recordingMovie = false
-		consoleMessage("recording canceled; will not start on connect")
+	session := selectedAppSession()
+	active, armed, _ := sessionRecordingSnapshot(session)
+	if !active && armed && !session.transport.connected() {
+		session.recording.setArmed(false)
+		session.publishClientConsole("recording canceled; will not start on connect", messageTextTypeSystem)
 		updateRecordButton()
 		return
 	}
-	toggleRecording()
-}
-
-func startRecording() {
-	if isWASM {
-		consoleMessage("movie recording unavailable in browser build")
-		return
-	}
-	dir := filepath.Join(dataDirPath, "Movies")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		logError("record movie: %v", err)
-		return
-	}
-	ts := time.Now().Format("2006-01-02-15-04-05")
-	base := gs.LastCharacter
-	if base == "" {
-		base = "movie"
-	}
-	recordPath = filepath.Join(dir, fmt.Sprintf("%s__%s.clMov", base, ts))
-	// Use clVersion for the .clMov header version field as requested.
-	mr, err := newMovieRecorder(recordPath, clVersion, int(movieRevision))
-	if err != nil {
-		logError("record movie: %v", err)
-		recordPath = ""
-		return
-	}
-	primarySession.draw.mu.Lock()
-	snapshot := cloneDrawState(primarySession.draw.current)
-	primarySession.draw.mu.Unlock()
-	mr.AddStateSnapshot(snapshot, uint16(clVersion), captureMovieNightState())
-	recorder = mr
-	consoleMessage(fmt.Sprintf("recording to %s", filepath.Base(recordPath)))
-	updateRecordButton()
-}
-
-func stopRecording() {
-	if recorder == nil {
-		return
-	}
-	if err := recorder.Close(); err != nil {
-		logError("record movie: %v", err)
-	}
-	recorder = nil
-	if recordPath != "" {
-		saved := recordPath
-		consoleMessage(fmt.Sprintf("saved movie: %s", filepath.Base(saved)))
-		if gs.AutoRecord {
-			go func(src string) {
-				outName := filepath.Base(src) + ".zip"
-				dst := filepath.Join(filepath.Dir(src), outName)
-				if err := compressZip(src, dst); err != nil {
-					logError("zip compress: %v", err)
-					consoleMessage("compress failed: " + err.Error())
-				} else {
-					consoleMessage("compressed: " + outName)
-					os.Remove(src)
-				}
-			}(saved)
-		} else if gs.PromptOnSaveRecording {
-			showRecordingSaveDialog(saved)
-		}
-		recordPath = ""
-	}
-	updateRecordButton()
-}
-
-func toggleRecording() {
-	if recorder != nil {
-		stopRecording()
-		return
-	}
-	if clmov != "" || playingMovie || pcapPath != "" || fake {
-		consoleMessage("cannot record during playback or replay")
-		return
-	}
-	if tcpConn == nil { // not connected yet: arm and start on connect
-		recordingMovie = true
-		consoleMessage("recording will start on connect")
-		updateRecordButton()
-		return
-	}
-	startRecording()
+	toggleRecordingForSession(session)
 }
 
 var dlMutex sync.Mutex
@@ -3222,7 +3194,7 @@ func refreshLoginAfterAssetsAvailable() {
 	// character was already selected.
 	updateCharacterButtons()
 	loginWin.Refresh()
-	if tcpConn == nil && clmov == "" && !playingMovie && pcapPath == "" && !fake {
+	if !primarySession.transport.connected() && clmov == "" && !playingMovie && pcapPath == "" && !fake {
 		loginWin.MarkOpen()
 	}
 }
@@ -3886,7 +3858,7 @@ func makePasswordWindow() {
 func reserveMoviePlayback(filename string) bool {
 	loginMu.Lock()
 	defer loginMu.Unlock()
-	if tcpConn != nil || primarySession.transport.busy() || clmov != "" || playingMovie {
+	if primarySession.connectionBusy() || clmov != "" || playingMovie {
 		return false
 	}
 	clmov = filename
@@ -3899,17 +3871,11 @@ func startLogin() {
 
 func startLoginWithDemoCandidates(demoCandidates []string) {
 	loginMu.Lock()
-	if primarySession.transport.busy() || tcpConn != nil || clmov != "" || playingMovie {
+	if primarySession.connectionBusy() || clmov != "" || playingMovie {
 		loginMu.Unlock()
 		return
 	}
 	request := stagePrimarySessionLoginRequest()
-	ctx, cancel := context.WithCancel(gameCtx)
-	if !primarySession.transport.begin(cancel) {
-		loginMu.Unlock()
-		cancel()
-		return
-	}
 	loginMu.Unlock()
 	if status.Version > clVersion {
 		clVersion = status.Version
@@ -3918,11 +3884,21 @@ func startLoginWithDemoCandidates(demoCandidates []string) {
 	loginWin.Close()
 	showConnectDialog(fmt.Sprintf("Connecting to %s...", request.host))
 	rememberPassword := passwordRememberPreference(request.character)
+	result, err := appSessions.startLoginWithCandidates(gameCtx, primarySessionID, request, clVersion, demoCandidates)
+	if err != nil {
+		closeConnectDialog()
+		primarySession.login.setStatus("Disconnected", err)
+		showLoginFailure(err, len(demoCandidates) > 0, rememberPassword)
+		return
+	}
 	go func() {
-		err := loginSessionWithDemoCandidates(primarySession, ctx, clVersion, demoCandidates)
-		primarySession.transport.failConnect()
+		err := <-result
 		connected := primarySession.transport.connected()
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				dispatchMainThread(closeConnectDialog)
+				return
+			}
 			logError("login: %v", err)
 			if len(demoCandidates) > 0 {
 				loginMu.Lock()
@@ -4114,7 +4090,7 @@ func showDemoCharacterDialog(candidates []string) {
 
 func startDemoLogin() {
 	loginMu.Lock()
-	if demoLookupInProgress || primarySession.transport.busy() || tcpConn != nil {
+	if demoLookupInProgress || primarySession.connectionBusy() {
 		loginMu.Unlock()
 		return
 	}
@@ -4127,7 +4103,7 @@ func startDemoLogin() {
 		if err != nil {
 			loginMu.Lock()
 			demoLookupInProgress = false
-			connected := tcpConn != nil || primarySession.transport.busy()
+			connected := primarySession.connectionBusy()
 			loginMu.Unlock()
 			logError("demo: %v", err)
 			dispatchMainThread(func() {

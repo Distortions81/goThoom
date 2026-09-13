@@ -315,8 +315,10 @@ func legacyMacroLibraryLayout() {
 }
 
 func legacyMacroLibraryCurrentCharacter() string {
-	return strings.TrimSpace(utfFold(effectiveCharacterName()))
+	return strings.TrimSpace(utfFold(scriptManagerCharacter(selectedAppSession())))
 }
+
+func legacyMacroLibrarySession() *Session { return selectedAppSession() }
 
 func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMacroLibraryScope, character string, enabled bool, checkbox *eui.ItemData) {
 	result, err := setLegacyMacroLibraryEntryEnabled(entry.ID, scope, character, enabled)
@@ -342,7 +344,7 @@ func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMac
 	if enabled {
 		message = entry.Name + " enabled; selection: " + result.SelectionPath
 	}
-	if err := loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+	if err := legacyMacroLibrarySession().loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
 		message += "; reload failed: " + err.Error()
 	} else {
 		message += "; macros reloaded"
@@ -352,7 +354,7 @@ func legacyMacroLibrarySetEnabled(entry legacyMacroLibraryEntry, scope legacyMac
 }
 
 func legacyMacroLibraryReload() {
-	if err := loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+	if err := legacyMacroLibrarySession().loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
 		legacyMacroLibraryReport("reload macros: " + err.Error())
 	} else {
 		legacyMacroLibraryReport("macros reloaded")
@@ -370,7 +372,7 @@ func legacyMacroLibrarySetAllowContinuous(enabled bool) {
 	if enabled {
 		message = "continuous macros enabled; classic time-slicing active"
 	}
-	if err := loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
+	if err := legacyMacroLibrarySession().loadLegacyMacrosForCharacter(legacyMacroLibraryCurrentCharacter()); err != nil {
 		message += "; reload failed: " + err.Error()
 	} else {
 		message += "; macros reloaded"
@@ -380,9 +382,10 @@ func legacyMacroLibrarySetAllowContinuous(enabled bool) {
 }
 
 func legacyMacroLibraryDiagnostics() []legacyMacroDiagnostic {
-	program := legacyMacroProgramSnapshot()
+	session := legacyMacroLibrarySession()
+	program := session.legacyMacroProgramSnapshot()
 	diagnostics := append([]legacyMacroDiagnostic(nil), program.Diagnostics...)
-	if runtime := legacyMacroRuntimeSnapshot(); runtime != nil {
+	if runtime := session.legacyMacroRuntimeSnapshot(); runtime != nil {
 		diagnostics = append(diagnostics, runtime.diagnosticsSnapshot()...)
 	}
 	return diagnostics

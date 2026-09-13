@@ -114,11 +114,8 @@ func scriptCurrentWorldForSession(session *Session) scriptapi.World {
 }
 
 func scriptLocationForSession(session *Session) string {
-	if session == primarySession {
-		scriptLocationMu.RLock()
-		location := scriptLocation
-		scriptLocationMu.RUnlock()
-		return location
+	if session == nil {
+		return ""
 	}
 	return session.scriptLocationSnapshot()
 }
@@ -138,33 +135,29 @@ type scriptMovementState struct {
 var scriptMovement scriptMovementState
 
 func scriptMovementStateForSession(session *Session) *scriptMovementState {
-	if session == nil || session == primarySession || session.automation == nil {
+	if session == nil || session.automation == nil {
 		return &scriptMovement
 	}
 	return &session.automation.movement
 }
 
 func scriptMovementQueueCurrent(session *Session, owner string, queue *scriptEventQueue) bool {
-	if session == nil || session == primarySession {
+	if session == nil {
 		return scriptEventQueueIsCurrent(owner, queue)
 	}
 	return queue != nil && currentSessionScriptEventQueue(session, owner) == queue
 }
 
 func scriptMove(owner string, x, y int16, now time.Time) bool {
-	return scriptMoveForSession(primarySession, owner, x, y, now)
+	return scriptMoveForSession(nil, owner, x, y, now)
 }
 
 func scriptMoveForSession(session *Session, owner string, x, y int16, now time.Time) bool {
-	if session == nil {
-		return false
-	}
-	if session == primarySession && scriptIsDisabled(owner) {
-		return false
-	}
 	var queue *scriptEventQueue
-	if session == primarySession {
+	drawSession := session
+	if session == nil {
 		queue = currentScriptEventQueue(owner)
+		drawSession = primarySession
 		scriptSessionMu.Lock()
 		active := scriptSessionActive
 		scriptSessionMu.Unlock()
@@ -180,9 +173,9 @@ func scriptMoveForSession(session *Session, owner string, x, y int16, now time.T
 	if queue == nil {
 		return false
 	}
-	session.draw.mu.Lock()
-	fresh := !session.draw.current.receivedAt.IsZero() && now.Sub(session.draw.current.receivedAt) < time.Second
-	session.draw.mu.Unlock()
+	drawSession.draw.mu.Lock()
+	fresh := !drawSession.draw.current.receivedAt.IsZero() && now.Sub(drawSession.draw.current.receivedAt) < time.Second
+	drawSession.draw.mu.Unlock()
 	if !fresh {
 		return false
 	}
@@ -200,7 +193,7 @@ func scriptMoveForSession(session *Session, owner string, x, y int16, now time.T
 }
 
 func stopScriptMovement(owner string) {
-	stopScriptMovementForSession(primarySession, owner)
+	stopScriptMovementForSession(nil, owner)
 }
 
 func stopScriptMovementForSession(session *Session, owner string) {
@@ -214,9 +207,9 @@ func stopScriptMovementForSession(session *Session, owner string) {
 }
 
 // Called from ordinary input handling, including legacy macros. Never inject
-// script requests into inputQueue: an expired/reloaded request must not linger.
+// script requests into a session input queue: an expired/reloaded request must not linger.
 func interruptScriptMovement(now time.Time) {
-	interruptScriptMovementForSession(primarySession, now)
+	interruptScriptMovementForSession(nil, now)
 }
 
 func interruptScriptMovementForSession(session *Session, now time.Time) {
@@ -230,7 +223,7 @@ func interruptScriptMovementForSession(session *Session, now time.Time) {
 }
 
 func applyScriptMovement(input inputState, now time.Time) inputState {
-	return applyScriptMovementForSession(primarySession, input, now)
+	return applyScriptMovementForSession(nil, input, now)
 }
 
 func applyScriptMovementForSession(session *Session, input inputState, now time.Time) inputState {
@@ -249,7 +242,7 @@ func applyScriptMovementForSession(session *Session, input inputState, now time.
 }
 
 func scriptMovementSnapshot(owner string, now time.Time) scriptapi.MovementState {
-	return scriptMovementSnapshotForSession(primarySession, owner, now)
+	return scriptMovementSnapshotForSession(nil, owner, now)
 }
 
 func scriptMovementSnapshotForSession(session *Session, owner string, now time.Time) scriptapi.MovementState {

@@ -933,11 +933,8 @@ func applyHotkeyVarsForSession(session *Session, cmd string) (string, bool) {
 }
 
 func sessionButtonClickSnapshot(session *Session, button ebiten.MouseButton) (ClickInfo, bool) {
-	if session == nil || session == primarySession {
-		lastClickByButtonMu.Lock()
-		info, ok := lastClickByButton[button]
-		lastClickByButtonMu.Unlock()
-		return info, ok
+	if session == nil {
+		return ClickInfo{}, false
 	}
 	return session.input.buttonClickSnapshot(button)
 }
@@ -1003,7 +1000,7 @@ func checkHotkeys(session *Session) InputEvent {
 				return InputEvent{}
 			}
 		}
-		if session != nil && session != primarySession {
+		if session != nil {
 			if hotkey, matched, enabled := session.sessionScriptHotkey(combo); matched {
 				if enabled && hotkey.handler != nil {
 					scriptLogEvent(hotkey.owner, "Hotkey", combo)

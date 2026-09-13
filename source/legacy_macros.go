@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"unicode/utf8"
 )
 
@@ -127,14 +126,6 @@ func (p legacyMacroProgram) err() error {
 	return fmt.Errorf("legacy macro parse failed: %s", p.Diagnostics[0])
 }
 
-var (
-	legacyMacrosMu        sync.RWMutex
-	legacyMacrosCharacter string
-	legacyMacroSources    []legacyMacroSource
-	legacyMacrosProgram   legacyMacroProgram
-	legacyMacrosRuntime   *legacyMacroRuntime
-)
-
 func legacyMacrosDir() string {
 	return macrosDirPath()
 }
@@ -145,26 +136,9 @@ func legacyMacrosDir() string {
 // replaced even when diagnostics exist, so a future Reload Macros action can
 // show the current errors without executing stale macros.
 func loadLegacyMacrosForCharacter(character string) error {
-	program, err := loadLegacyMacroProgramForCharacter(character)
-	if err != nil {
-		return err
-	}
-	runtime := newLegacyMacroRuntime(program)
-	runtime.startFunctionIfDefined("@login")
-	legacyMacrosMu.Lock()
-	legacyMacrosCharacter = strings.TrimSpace(character)
-	legacyMacroSources = append([]legacyMacroSource(nil), program.Files...)
-	legacyMacrosProgram = program
-	legacyMacrosRuntime = runtime
-	legacyMacrosMu.Unlock()
+	err := primarySession.loadLegacyMacrosForCharacter(character)
 	refreshKeybindingsList()
-	if err := program.err(); err != nil {
-		return err
-	}
-	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) > 0 {
-		return fmt.Errorf("legacy macro setup failed: %s", diagnostics[0])
-	}
-	return nil
+	return err
 }
 
 // loadLegacyMacroProgramForCharacter reads and parses one character's macro
@@ -219,16 +193,15 @@ func decodeLegacyMacroSourceText(text []byte) string {
 }
 
 func legacyMacroSourcesSnapshot() []legacyMacroSource {
-	legacyMacrosMu.RLock()
-	defer legacyMacrosMu.RUnlock()
-	return append([]legacyMacroSource(nil), legacyMacroSources...)
+	return primarySession.legacyMacroSourcesSnapshot()
 }
 
 func legacyMacroProgramSnapshot() legacyMacroProgram {
-	legacyMacrosMu.RLock()
-	defer legacyMacrosMu.RUnlock()
+	return primarySession.legacyMacroProgramSnapshot()
+}
 
-	p := legacyMacrosProgram
+func cloneLegacyMacroProgram(program legacyMacroProgram) legacyMacroProgram {
+	p := program
 	p.Files = append([]legacyMacroSource(nil), p.Files...)
 	p.Comments = append([]legacyMacroComment(nil), p.Comments...)
 	p.Diagnostics = append([]legacyMacroDiagnostic(nil), p.Diagnostics...)

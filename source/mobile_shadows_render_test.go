@@ -165,14 +165,13 @@ func (g *shadowRenderGame) renderPointLightShadow() error {
 	op.GeoM.Translate(400-shadowTestDrawSize/2, 420-shadowTestDrawSize/2)
 	canvas.DrawImage(visibleSprite, op)
 
-	gNight = NightInfo{Level: 75}
-	nightAlphaInited = false
-	frameLightCasters = frameLightCasters[:0]
+	*primarySession.night = NightInfo{Level: 75}
+	state := &viewportRenderState{}
 	metrics := mobileSpriteMetricsFor(makeMobileKey(447, 0, nil), visibleSprite)
-	addMobileLightCaster(400, 420, shadowTestDrawSize, metrics)
+	addMobileLightCasterForViewport(state, 400, 420, shadowTestDrawSize, metrics)
 	lights := []lightSource{{X: 260, Y: 420, Radius: 230, R: 1, G: 0.62, B: 0.25, Intensity: 1}}
 	darks := []darkSource{{X: 400, Y: 400, Radius: 1000, Alpha: 0.75, Intensity: 1}}
-	applyLightingShader(canvas, lights, darks, 1)
+	applyLightingShaderForViewport(state, canvas, lights, darks, 1)
 	return writeShadowTestPNG(filepath.Join(g.outputDir, "shadow_point_light.png"), canvas)
 }
 

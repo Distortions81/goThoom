@@ -11,9 +11,8 @@ import (
 )
 
 // sessionAutomationState contains mutable automation data that belongs to one
-// connection. The primary-session macro globals remain a UI compatibility
-// adapter while shared macro-management windows are converted in a later UI
-// slice.
+// connection. Shared automation-management windows bind to the selected
+// session, but every live runtime and its mutable state live here.
 type sessionAutomationState struct {
 	legacyMu       sync.RWMutex
 	legacySources  []legacyMacroSource
@@ -23,6 +22,8 @@ type sessionAutomationState struct {
 	scriptTimers   *scriptTimerRegistry
 	scriptMu       sync.RWMutex
 	scripts        map[string]*sessionScriptInstance
+	scriptErrors   map[string]string
+	scriptConfigs  map[string][]scriptConfigEntry
 	scriptChats    []structuredChatHandler
 	scriptServers  []serverMessageHandler
 	scriptEvents   []scriptLifecycleHandler
@@ -47,8 +48,9 @@ type sessionAutomationState struct {
 }
 
 type sessionScriptCommand struct {
-	owner   string
-	handler scriptCommandHandler
+	owner    string
+	original string
+	handler  scriptCommandHandler
 }
 
 type sessionScriptHotkey struct {
@@ -161,7 +163,7 @@ func (s *Session) registerSessionScriptCommand(owner, name string, handler scrip
 		s.publishConsole(fmt.Sprintf("[script] command conflict: /%s already registered", key), messageTextTypeSystem)
 		return scriptRegistrationHandle{}
 	}
-	entry := sessionScriptCommand{owner: owner, handler: func(args string) {
+	entry := sessionScriptCommand{owner: owner, original: original, handler: func(args string) {
 		queueScriptCallbackOn(queue, owner, "Command", func() { handler(args) })
 	}}
 	s.automation.localCommands[key] = entry
@@ -189,6 +191,30 @@ func (s *Session) sessionScriptCommand(name string) (sessionScriptCommand, bool)
 	return command, ok
 }
 
+func scriptCommandNamesForSession(session *Session) []string {
+	if session == nil {
+		scriptMu.RLock()
+		names := make([]string, 0, len(scriptCommands))
+		for name, owner := range scriptCommandOwners {
+			if scriptCommands[name] != nil && !scriptDisabled[owner] {
+				names = append(names, name)
+			}
+		}
+		scriptMu.RUnlock()
+		return names
+	}
+	if session.automation == nil {
+		return nil
+	}
+	session.automation.scriptMu.RLock()
+	names := make([]string, 0, len(session.automation.localCommands))
+	for name := range session.automation.localCommands {
+		names = append(names, name)
+	}
+	session.automation.scriptMu.RUnlock()
+	return names
+}
+
 func (s *Session) setScriptLocation(location string) {
 	if s == nil || s.automation == nil {
 		return
@@ -213,6 +239,8 @@ func newSessionAutomationState() *sessionAutomationState {
 		scriptQueues:  newScriptQueueRegistry(),
 		scriptTimers:  newScriptTimerRegistry(),
 		scripts:       make(map[string]*sessionScriptInstance),
+		scriptErrors:  make(map[string]string),
+		scriptConfigs: make(map[string][]scriptConfigEntry),
 		localCommands: make(map[string]sessionScriptCommand),
 		localHotkeys:  make(map[string]map[string]sessionScriptHotkey),
 		localToolbars: make(map[string][]*scriptToolbarRegistration),
@@ -270,6 +298,9 @@ func (s *Session) loadLegacyMacrosForCharacter(character string) error {
 	s.automation.legacyMu.Unlock()
 	if previous != nil {
 		previous.cancelAll()
+	}
+	if err := program.err(); err != nil {
+		return err
 	}
 	if diagnostics := runtime.diagnosticsSnapshot(); len(diagnostics) > 0 {
 		return fmt.Errorf("legacy macro setup failed: %s", diagnostics[0])
@@ -439,6 +470,40 @@ func (s *Session) legacyMacroRuntimeSnapshot() *legacyMacroRuntime {
 	runtime := s.automation.legacyRuntime
 	s.automation.legacyMu.RUnlock()
 	return runtime
+}
+
+func (s *Session) legacyMacroSourcesSnapshot() []legacyMacroSource {
+	if s == nil || s.automation == nil {
+		return nil
+	}
+	s.automation.legacyMu.RLock()
+	sources := append([]legacyMacroSource(nil), s.automation.legacySources...)
+	s.automation.legacyMu.RUnlock()
+	return sources
+}
+
+func (s *Session) legacyMacroProgramSnapshot() legacyMacroProgram {
+	if s == nil || s.automation == nil {
+		return legacyMacroProgram{}
+	}
+	s.automation.legacyMu.RLock()
+	program := cloneLegacyMacroProgram(s.automation.legacyProgram)
+	s.automation.legacyMu.RUnlock()
+	return program
+}
+
+func (s *Session) cancelLegacyMacros() int {
+	runtime := s.legacyMacroRuntimeSnapshot()
+	if runtime == nil {
+		return 0
+	}
+	return runtime.cancelAll()
+}
+
+func (s *Session) setLegacyMacroContinuous(enabled bool) {
+	if runtime := s.legacyMacroRuntimeSnapshot(); runtime != nil {
+		runtime.setAllowContinuous(enabled)
+	}
 }
 
 func (s *sessionAutomationState) reset() {

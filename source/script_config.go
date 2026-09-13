@@ -238,6 +238,50 @@ func validScriptBindingText(combo string) bool {
 }
 
 func scriptRegisterConfig(owner string, entry scriptConfigEntry) {
+	scriptRegisterPrimaryConfig(owner, entry)
+}
+
+func scriptRegisterConfigForSession(session *Session, owner string, entry scriptConfigEntry) {
+	if session == nil {
+		scriptRegisterPrimaryConfig(owner, entry)
+		return
+	}
+	entry.queue = currentSessionScriptEventQueue(session, owner)
+	session.automation.scriptMu.Lock()
+	var oldRegistration scriptRegistrationHandle
+	for _, existing := range session.automation.scriptConfigs[owner] {
+		if existing.Key == entry.Key {
+			oldRegistration = existing.registration
+			break
+		}
+	}
+	session.automation.scriptMu.Unlock()
+	oldRegistration.release()
+	var registration scriptRegistrationHandle
+	registration = registerSessionScriptResource(entry.queue, func() {
+		session.automation.scriptMu.Lock()
+		entries := session.automation.scriptConfigs[owner]
+		for i := len(entries) - 1; i >= 0; i-- {
+			if entries[i].registration == registration {
+				entries = append(entries[:i], entries[i+1:]...)
+			}
+		}
+		if len(entries) == 0 {
+			delete(session.automation.scriptConfigs, owner)
+		} else {
+			session.automation.scriptConfigs[owner] = entries
+		}
+		session.automation.scriptMu.Unlock()
+		refreshscriptsWindow()
+	})
+	entry.registration = registration
+	session.automation.scriptMu.Lock()
+	session.automation.scriptConfigs[owner] = append(session.automation.scriptConfigs[owner], entry)
+	session.automation.scriptMu.Unlock()
+	refreshscriptsWindow()
+}
+
+func scriptRegisterPrimaryConfig(owner string, entry scriptConfigEntry) {
 	entry.queue = currentScriptEventQueue(owner)
 	scriptConfigMu.Lock()
 	var oldRegistration scriptRegistrationHandle
@@ -275,6 +319,46 @@ func scriptRegisterConfig(owner string, entry scriptConfigEntry) {
 }
 
 func scriptSetConfigValue(owner, key string, value any) bool {
+	return scriptSetPrimaryConfigValue(owner, key, value)
+}
+
+func scriptSetConfigValueForSession(session *Session, owner, key string, value any) bool {
+	if session == nil {
+		return scriptSetPrimaryConfigValue(owner, key, value)
+	}
+	entries := session.scriptConfigEntriesSnapshot(owner)
+	var entry scriptConfigEntry
+	found := false
+	for _, candidate := range entries {
+		if candidate.Key == key {
+			entry, found = candidate, true
+			break
+		}
+	}
+	if !found {
+		return false
+	}
+	converted, ok := coerceScriptConfigValue(entry.Type, value)
+	if !ok {
+		return false
+	}
+	valid := false
+	if !queueScriptCallbackWaitOn(entry.queue, owner, "Validate setting "+key, func() {
+		valid = scriptConfigValueValid(entry, converted)
+	}) || !valid {
+		return false
+	}
+	if reflect.DeepEqual(entry.Value, converted) {
+		return true
+	}
+	storageKey := scriptConfigStorageKey(entry)
+	scriptStorageSet(owner, storageKey, converted)
+	savescriptStores()
+	propagateScriptConfigValue(owner, storageKey, converted)
+	return true
+}
+
+func scriptSetPrimaryConfigValue(owner, key string, value any) bool {
 	scriptConfigMu.RLock()
 	var entry scriptConfigEntry
 	found := false
@@ -301,20 +385,57 @@ func scriptSetConfigValue(owner, key string, value any) bool {
 	if reflect.DeepEqual(entry.Value, converted) {
 		return true
 	}
+	storageKey := scriptConfigStorageKey(entry)
+	scriptStorageSet(owner, storageKey, converted)
+	savescriptStores()
+	propagateScriptConfigValue(owner, storageKey, converted)
+	return true
+}
+
+type scriptConfigCallback struct {
+	key      string
+	queue    *scriptEventQueue
+	callback any
+}
+
+// propagateScriptConfigValue keeps every live interpreter that registered the
+// same global or character-scoped storage key in sync. Each callback remains
+// serialized on its owning session's event queue.
+func propagateScriptConfigValue(owner, storageKey string, value any) {
+	var callbacks []scriptConfigCallback
 	scriptConfigMu.Lock()
-	entries := scriptConfigEntries[owner]
-	for index := range entries {
-		if entries[index].Key == key {
-			entries[index].Value = converted
-			scriptConfigEntries[owner] = entries
-			break
+	primaryEntries := scriptConfigEntries[owner]
+	for index := range primaryEntries {
+		if scriptConfigStorageKey(primaryEntries[index]) != storageKey || reflect.DeepEqual(primaryEntries[index].Value, value) {
+			continue
+		}
+		primaryEntries[index].Value = value
+		callbacks = append(callbacks, scriptConfigCallback{key: primaryEntries[index].Key, queue: primaryEntries[index].queue, callback: primaryEntries[index].Callback})
+	}
+	scriptConfigEntries[owner] = primaryEntries
+	scriptConfigMu.Unlock()
+
+	if appSessions != nil {
+		for _, session := range appSessions.snapshot() {
+			if session == nil || session.automation == nil {
+				continue
+			}
+			session.automation.scriptMu.Lock()
+			entries := session.automation.scriptConfigs[owner]
+			for index := range entries {
+				if scriptConfigStorageKey(entries[index]) != storageKey || reflect.DeepEqual(entries[index].Value, value) {
+					continue
+				}
+				entries[index].Value = value
+				callbacks = append(callbacks, scriptConfigCallback{key: entries[index].Key, queue: entries[index].queue, callback: entries[index].Callback})
+			}
+			session.automation.scriptConfigs[owner] = entries
+			session.automation.scriptMu.Unlock()
 		}
 	}
-	scriptConfigMu.Unlock()
-	scriptStorageSet(owner, scriptConfigStorageKey(entry), converted)
-	savescriptStores()
-	invokeScriptConfigCallback(owner, key, entry.queue, entry.Callback, converted)
-	return true
+	for _, callback := range callbacks {
+		invokeScriptConfigCallback(owner, callback.key, callback.queue, callback.callback, value)
+	}
 }
 
 func invokeScriptConfigCallback(owner, key string, eventQueue *scriptEventQueue, callback, value any) {

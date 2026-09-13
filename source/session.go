@@ -43,6 +43,7 @@ type Session struct {
 	frames     *frameState
 	timing     *networkTimingState
 	draw       *sessionDrawState
+	night      *NightInfo
 	events     *sessionEventState
 	players    *sessionPlayerState
 	music      *sessionMusicState
@@ -50,6 +51,8 @@ type Session struct {
 	transport  *sessionTransportState
 	input      *sessionInputState
 	login      *sessionLoginState
+	recording  *sessionRecordingState
+	textLog    *sessionTextLogState
 
 	identityMu     sync.RWMutex
 	character      string
@@ -71,6 +74,7 @@ func newSession(id SessionID) (*Session, error) {
 		frames:         newFrameState(),
 		timing:         newNetworkTimingState(),
 		draw:           newSessionDrawState(),
+		night:          &NightInfo{},
 		events:         newSessionEventState(),
 		players:        newSessionPlayerState(),
 		music:          newSessionMusicState(),
@@ -78,6 +82,8 @@ func newSession(id SessionID) (*Session, error) {
 		transport:      newSessionTransportState(),
 		input:          newSessionInputState(),
 		login:          newSessionLoginState(),
+		recording:      newSessionRecordingState(),
+		textLog:        newSessionTextLogState(),
 		playerIndex:    0xff,
 		selectedInvIdx: -1,
 	}, nil
@@ -172,6 +178,7 @@ func (s *Session) resetConnectionModels() {
 		return
 	}
 	s.draw.reset()
+	s.night.reset()
 	s.commands.clear()
 	s.frames.set(0, -1)
 	s.frames.resetStatistics()

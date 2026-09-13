@@ -1172,18 +1172,9 @@ func (runtime *legacyMacroRuntime) diagnosticsSnapshot() []legacyMacroDiagnostic
 }
 
 func advanceLegacyMacros(frame int64) {
-	legacyMacrosMu.RLock()
-	runtime := legacyMacrosRuntime
-	legacyMacrosMu.RUnlock()
-	if runtime != nil {
-		runtime.advance(frame)
-	}
+	primarySession.advanceLegacyMacros(frame)
 }
 
 func cancelLegacyMacros() int {
-	runtime := legacyMacroRuntimeSnapshot()
-	if runtime == nil {
-		return 0
-	}
-	return runtime.cancelAll()
+	return primarySession.cancelLegacyMacros()
 }

@@ -44,7 +44,7 @@ func resetTestState() {
 
 func TestBubbleDroppedForBlockedPlayer(t *testing.T) {
 	resetTestState()
-	players["Bob"] = &Player{Name: "Bob", Blocked: true}
+	players["Bob"] = &Player{Name: "Bob", GlobalLabel: 6}
 	data := buildDrawData("Bob", kBubbleNormal, "hello")
 	if _, _, err := parseDrawState(data, false); err != nil {
 		t.Fatalf("parseDrawState: %v", err)
@@ -62,7 +62,7 @@ func TestThinkMessageDroppedForIgnoredPlayer(t *testing.T) {
 	origGameWin := gameWin
 	gameWin = eui.NewWindow()
 	t.Cleanup(func() { gameWin = origGameWin })
-	players["Bob"] = &Player{Name: "Bob", Ignored: true}
+	players["Bob"] = &Player{Name: "Bob", GlobalLabel: 7}
 	data := buildDrawData("Bob", kBubbleThought, "hmm")
 	if _, _, err := parseDrawState(data, false); err != nil {
 		t.Fatalf("parseDrawState: %v", err)

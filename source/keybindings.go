@@ -112,8 +112,9 @@ func keybindingEntriesSnapshot() []keybindingEntry {
 	registered := append([]Hotkey(nil), hotkeys...)
 	hotkeysMu.RUnlock()
 	program := legacyMacroProgram{}
-	if legacyMacroRuntimeSnapshot() != nil {
-		program = legacyMacroProgramSnapshot()
+	session := selectedAppSession()
+	if session.legacyMacroRuntimeSnapshot() != nil {
+		program = session.legacyMacroProgramSnapshot()
 	}
 	return collectKeybindingEntries(registered, program, getscriptDisplayName, func(hotkey Hotkey) bool {
 		if hotkey.Disabled || !scriptIsRunning(hotkey.Script) {

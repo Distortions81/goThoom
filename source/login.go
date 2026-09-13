@@ -67,8 +67,12 @@ func serverTargets(addr string) []serverTarget {
 const connectAttemptTimeout = 15 * time.Second
 
 func dialServer(network string, target serverTarget) (net.Conn, error) {
+	return dialServerContext(context.Background(), network, target)
+}
+
+func dialServerContext(ctx context.Context, network string, target serverTarget) (net.Conn, error) {
 	dialer := &net.Dialer{Timeout: connectAttemptTimeout}
-	conn, err := dialer.Dial(network, target.addr)
+	conn, err := dialer.DialContext(ctx, network, target.addr)
 	if err != nil {
 		recordFallbackFailure(target, err)
 		return nil, err
@@ -158,30 +162,38 @@ func handleSessionDisconnect(session *Session) {
 	if session == nil {
 		return
 	}
+	if appSessions != nil {
+		if managed, ok := appSessions.session(session.ID()); ok && managed == session {
+			appSessions.disconnectSession(session.ID())
+			return
+		}
+	}
+	session.login.cancelSupervisor()
 	session.transport.disconnect()
 }
 
 func completeSessionDisconnect(session *Session) {
+	reconnectActive := session != nil && session.login.reconnectExpected()
 	if session != nil {
 		session.login.setStatus("Disconnected", nil)
 		queueSessionWorkspaceUIUpdate()
+		stopRecordingForSession(session)
 	}
+	session.resetConnectionModels()
 	if session != primarySession {
-		session.resetConnectionModels()
-		session.login.clearCredentials()
-		session.setCharacterName("")
+		if !reconnectActive {
+			session.login.clearCredentials()
+			session.setCharacterName("")
+		}
 		return
 	}
 	loginMu.Lock()
-	tcpConn = nil
 	wasDemo := demoLoginActive
 	demoLoginActive = false
 	loginMu.Unlock()
 
-	endSessionScripts(scriptSessionGeneration.Load())
-	stopAllMusic()
-	if recorder != nil {
-		stopRecording()
+	if sessionIsMusicSource(session) {
+		stopAllMusic()
 	}
 	resetFrameStatistics()
 	resetNightState()
@@ -190,13 +202,15 @@ func completeSessionDisconnect(session *Session) {
 	pcapPath = ""
 	pass = ""
 	passHash = ""
-	primarySession.login.clearCredentials()
+	if !reconnectActive {
+		primarySession.login.clearCredentials()
+	}
 	if wasDemo {
 		name = freeDemoSelection
 	}
 	discardStagedPassword()
 	consoleMessage("Disconnected from server.")
-	if loginWin != nil && !appSessions.multiEnabled() {
+	if loginWin != nil && !appSessions.multiEnabled() && !reconnectActive {
 		loginWin.MarkOpen()
 	}
 	updateCharacterButtons()
@@ -505,13 +519,13 @@ func loginSessionWithDemoCandidates(session *Session, ctx context.Context, clVer
 		return errors.New("session transport is busy")
 	}
 	defer session.transport.failConnect()
+	session.resetConnectionModels()
 	if session == primarySession {
-		resetLiveNetworkSession()
-	} else {
-		session.resetConnectionModels()
+		markWorldRenderChanged()
+		resetInterpolation()
 	}
-	if session == primarySession && gs.AutoRecord {
-		recordingMovie = true
+	if gs.AutoRecord {
+		session.recording.setArmed(true)
 	}
 	go setupSynthOnce.Do(setupSynth)
 	demoCandidateIndex := 0
@@ -624,7 +638,7 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 		}
 	}()
 
-	tcp, err = dialServer("tcp", target)
+	tcp, err = dialServerContext(ctx, "tcp", target)
 	if err != nil {
 		return fmt.Errorf("tcp connect %s: %w", target.addr, err)
 	}
@@ -635,7 +649,7 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 	}
 
 	updateSessionConnectStatus(session, "TCP connected; opening UDP channel...")
-	udp, err = dialServer("udp", target)
+	udp, err = dialServerContext(ctx, "udp", target)
 	if err != nil {
 		tcp.Close()
 		return fmt.Errorf("udp connect %s: %w", target.addr, err)
@@ -844,14 +858,12 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 	}
 
 	logDebug("login succeeded, reading messages (Ctrl-C to quit)...")
-	var scriptSession uint64
 	if session == primarySession {
-		defer func() { dispatchMainThread(func() { endSessionScripts(scriptSession) }) }()
 		dispatchMainThread(func() {
-			scriptSession = startSessionScripts(profileCharacter)
+			switchCharacterProfile(profileCharacter)
 		})
 		dispatchMainThread(func() { updateConnectDialog("Loading macros...") })
-		if err := loadLegacyMacrosForCharacter(profileCharacter); err != nil {
+		if err := session.loadLegacyMacrosForCharacter(profileCharacter); err != nil {
 			log.Printf("legacy macros: %v", err)
 		}
 		dispatchMainThread(func() {
@@ -865,14 +877,7 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 		log.Printf("legacy macros for session %d: %v", session.ID(), err)
 	}
 
-	var s inputState
-	if session == primarySession {
-		inputMu.Lock()
-		s = latestInput
-		inputMu.Unlock()
-	} else {
-		s = session.input.next()
-	}
+	s := session.input.next()
 	if err := sendSessionPlayerInput(session, udp, s.mouseX, s.mouseY, s.mouseDown, false); err != nil {
 		logError("send player input: %v", err)
 	}
@@ -896,18 +901,12 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 		return errors.New("session transport already active")
 	}
 	updateSessionConnectStatus(session, "Connected")
-	if session == primarySession {
-		loginMu.Lock()
-		tcpConn = tcp
-		loginMu.Unlock()
-	} else {
-		character := profileCharacter
-		dispatchMainThread(func() {
-			if session.transport.connectedGeneration(transportGeneration) {
-				reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(character))
-			}
-		})
-	}
+	character := profileCharacter
+	dispatchMainThread(func() {
+		if session.transport.connectedGeneration(transportGeneration) {
+			reportSessionScriptSyncErrors(session, session.syncEnabledSessionScripts(character))
+		}
+	})
 
 	tcpMessages := make(chan incomingServerMessage, 16)
 	udpMessages := make(chan incomingServerMessage, 16)
@@ -943,11 +942,6 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 	networkLoops.Wait()
 	if session.transport.finish(transportGeneration) {
 		completeSessionDisconnect(session)
-	}
-	if session == primarySession {
-		loginMu.Lock()
-		tcpConn = nil
-		loginMu.Unlock()
 	}
 	return nil
 }

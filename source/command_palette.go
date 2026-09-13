@@ -391,11 +391,12 @@ func buildCommandPaletteActions() []commandPaletteAction {
 	}
 	SettingsLock.Unlock()
 
-	scriptMu.RLock()
-	commands := make([]string, 0, len(scriptCommands))
-	for name := range scriptCommands {
-		commands = append(commands, name)
+	scriptSession := selectedAppSession()
+	if scriptSession == primarySession && !scriptSession.transport.connected() {
+		scriptSession = nil
 	}
+	commands := scriptCommandNamesForSession(scriptSession)
+	scriptMu.RLock()
 	scripts := make([]string, 0, len(scriptDisplayNames))
 	for _, name := range scriptDisplayNames {
 		scripts = append(scripts, name)

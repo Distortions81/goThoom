@@ -65,9 +65,6 @@ var (
 		DisableMipmaps: true,
 		Blend:          shadowDarkenBlend,
 	}
-	detailedCharacterShadowMask       *ebiten.Image
-	frameDetailedShadowMask           *ebiten.Image
-	frameDetailedShadowBounds         image.Rectangle
 	contactShadowTexture              *ebiten.Image
 	frameCharacterShadowDraws         []characterShadowDraw
 	frameLayeredShadowDraws           [256]characterShadowDraw
@@ -218,15 +215,17 @@ func currentCharacterShadowState() (float32, int, bool) {
 }
 
 func currentCharacterShadowRenderState() (float32, int, characterShadowKind) {
+	return currentCharacterShadowRenderStateForNight(primarySession.night.snapshot())
+}
+
+func currentCharacterShadowRenderStateForNight(night nightRenderState) (float32, int, characterShadowKind) {
 	if !gs.CharacterShadows || gs.MaxNightLevel == 0 {
 		return 0, 0, characterShadowNone
 	}
-	gNight.mu.Lock()
-	level := gNight.Shadows
-	azimuth := gNight.Azimuth
-	cloudy := gNight.Cloudy
-	flags := gNight.Flags
-	gNight.mu.Unlock()
+	level := night.shadows
+	azimuth := night.azimuth
+	cloudy := night.cloudy
+	flags := night.flags
 	if cloudy || flags&kLightNoShadows != 0 {
 		return contactShadowOpacity, normalizeShadowAzimuth(azimuth), characterShadowContact
 	}
@@ -240,8 +239,20 @@ func currentCharacterShadowRenderState() (float32, int, characterShadowKind) {
 }
 
 func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, mobileShade *[256]float32) {
-	frameDetailedShadowMask = nil
-	frameDetailedShadowBounds = image.Rectangle{}
+	drawMobileShadowsForNight(screen, ox, oy, mobiles, descMap, prevMobiles, shiftX, shiftY, alpha, maxDist, mobileShade, primarySession.night.snapshot())
+}
+
+func drawMobileShadowsForNight(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, mobileShade *[256]float32, night nightRenderState) {
+	drawMobileShadowsForViewportNight(nil, screen, ox, oy, mobiles, descMap, prevMobiles, shiftX, shiftY, alpha, maxDist, mobileShade, night)
+}
+
+func drawMobileShadowsForViewportNight(viewport *viewportRenderState, screen *ebiten.Image, ox, oy int, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, shiftX, shiftY int, alpha float64, maxDist int, mobileShade *[256]float32, night nightRenderState) {
+	frame := lightingFrameForViewport(viewport)
+	if frame == nil {
+		return
+	}
+	frame.detailedShadowMask = nil
+	frame.detailedShadowBounds = image.Rectangle{}
 	frameCharacterShadowDraws = frameCharacterShadowDraws[:0]
 	// drawScene can start the layered compositor before negative-plane shadow
 	// pictures are drawn. Preserve that coverage so character shadows share the
@@ -249,7 +260,7 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	if !frameLayeredShadowCompositeActive {
 		resetLayeredCharacterShadows()
 	}
-	shadowAlpha, azimuth, kind := currentCharacterShadowRenderState()
+	shadowAlpha, azimuth, kind := currentCharacterShadowRenderStateForNight(night)
 	if kind != characterShadowDirectional || clImages == nil {
 		return
 	}
@@ -355,7 +366,13 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 	if activeBounds.Empty() {
 		return
 	}
-	shadowTarget := characterShadowMask(activeBounds.Size())
+	shadowTarget := characterShadowMaskForViewport(viewport, activeBounds.Size())
+	if shadowTarget == nil {
+		return
+	}
+	if shadowTarget == nil {
+		return
+	}
 	clearTarget := shadowTarget.RecyclableSubImage(image.Rectangle{Max: activeBounds.Size()})
 	clearTarget.Clear()
 	clearTarget.Recycle()
@@ -372,8 +389,8 @@ func drawMobileShadows(screen *ebiten.Image, ox, oy int, mobiles []frameMobile, 
 			shadowMaskBlend,
 		)
 	}
-	frameDetailedShadowMask = shadowTarget
-	frameDetailedShadowBounds = activeBounds
+	frame.detailedShadowMask = shadowTarget
+	frame.detailedShadowBounds = activeBounds
 }
 
 func resetLayeredCharacterShadows() {
@@ -643,15 +660,20 @@ func clearLayeredShadowCoverageRect(x, y, width, height float64) {
 }
 
 func applyDetailedCharacterShadow(dst *ebiten.Image) {
-	if dst == nil || frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
+	applyDetailedCharacterShadowForViewport(nil, dst)
+}
+
+func applyDetailedCharacterShadowForViewport(viewport *viewportRenderState, dst *ebiten.Image) {
+	frame := lightingFrameForViewport(viewport)
+	if frame == nil || dst == nil || frame.detailedShadowMask == nil || frame.detailedShadowBounds.Empty() {
 		return
 	}
-	bounds := frameDetailedShadowBounds.Intersect(dst.Bounds())
+	bounds := frame.detailedShadowBounds.Intersect(dst.Bounds())
 	if bounds.Empty() {
 		return
 	}
 	sourceRect := image.Rectangle{Max: bounds.Size()}
-	source := frameDetailedShadowMask.RecyclableSubImage(sourceRect)
+	source := frame.detailedShadowMask.RecyclableSubImage(sourceRect)
 	defer source.Recycle()
 	op := &ebiten.DrawImageOptions{Blend: shadowDarkenBlend}
 	op.GeoM.Translate(float64(bounds.Min.X), float64(bounds.Min.Y))
@@ -661,12 +683,17 @@ func applyDetailedCharacterShadow(dst *ebiten.Image) {
 // applyBatchedCharacterShadowsBelowMobiles consumes the faster combined mask
 // before mobiles and foreground pictures are painted over it.
 func applyBatchedCharacterShadowsBelowMobiles(dst *ebiten.Image) {
-	if dst == nil || frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
+	applyBatchedCharacterShadowsBelowMobilesForViewport(nil, dst)
+}
+
+func applyBatchedCharacterShadowsBelowMobilesForViewport(viewport *viewportRenderState, dst *ebiten.Image) {
+	frame := lightingFrameForViewport(viewport)
+	if frame == nil || dst == nil || frame.detailedShadowMask == nil || frame.detailedShadowBounds.Empty() {
 		return
 	}
-	applyDetailedCharacterShadow(dst)
-	frameDetailedShadowMask = nil
-	frameDetailedShadowBounds = image.Rectangle{}
+	applyDetailedCharacterShadowForViewport(viewport, dst)
+	frame.detailedShadowMask = nil
+	frame.detailedShadowBounds = image.Rectangle{}
 }
 
 func shadowQuadBounds(quad [4]shadowPoint) image.Rectangle {
@@ -961,18 +988,26 @@ func drawContactShadow(screen *ebiten.Image, size, x, y int, footFraction, alpha
 }
 
 func characterShadowMask(size image.Point) *ebiten.Image {
-	if detailedCharacterShadowMask == nil || detailedCharacterShadowMask.Bounds().Dx() < size.X || detailedCharacterShadowMask.Bounds().Dy() < size.Y {
-		width, height := size.X, size.Y
-		if detailedCharacterShadowMask != nil {
-			width = max(width, detailedCharacterShadowMask.Bounds().Dx())
-			height = max(height, detailedCharacterShadowMask.Bounds().Dy())
-		}
-		if detailedCharacterShadowMask != nil {
-			detailedCharacterShadowMask.Deallocate()
-		}
-		detailedCharacterShadowMask = newUnmanagedImage(width, height)
+	return characterShadowMaskForViewport(nil, size)
+}
+
+func characterShadowMaskForViewport(viewport *viewportRenderState, size image.Point) *ebiten.Image {
+	frame := lightingFrameForViewport(viewport)
+	if frame == nil {
+		return nil
 	}
-	return detailedCharacterShadowMask
+	if frame.detailedShadowBacking == nil || frame.detailedShadowBacking.Bounds().Dx() < size.X || frame.detailedShadowBacking.Bounds().Dy() < size.Y {
+		width, height := size.X, size.Y
+		if frame.detailedShadowBacking != nil {
+			width = max(width, frame.detailedShadowBacking.Bounds().Dx())
+			height = max(height, frame.detailedShadowBacking.Bounds().Dy())
+		}
+		if frame.detailedShadowBacking != nil {
+			frame.detailedShadowBacking.Deallocate()
+		}
+		frame.detailedShadowBacking = newUnmanagedImage(width, height)
+	}
+	return frame.detailedShadowBacking
 }
 
 func characterShadowTextureFor(img *ebiten.Image) characterShadowTexture {
@@ -1000,9 +1035,16 @@ func characterShadowTextureForMobile(key mobileKey, img *ebiten.Image) character
 
 func clearCharacterShadowCache() {
 	resetLayeredCharacterShadows()
-	if detailedCharacterShadowMask != nil {
-		detailedCharacterShadowMask.Deallocate()
-		detailedCharacterShadowMask = nil
+	if appViewports != nil {
+		for _, view := range appViewports.snapshot() {
+			if view.render == nil || view.render.lighting.detailedShadowBacking == nil {
+				continue
+			}
+			view.render.lighting.detailedShadowBacking.Deallocate()
+			view.render.lighting.detailedShadowBacking = nil
+			view.render.lighting.detailedShadowMask = nil
+			view.render.lighting.detailedShadowBounds = image.Rectangle{}
+		}
 	}
 	if contactShadowTexture != nil {
 		deallocateImage(contactShadowTexture)

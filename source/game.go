@@ -203,16 +203,9 @@ type inputState struct {
 	mouseDown      bool
 }
 
-var (
-	latestInput inputState
-	inputQueue  []inputState
-	inputMu     sync.Mutex
-)
-
 var keyX, keyY int16
 var walkToggled bool
 var keyWalkPrev bool
-var keyStopFrames int
 var joyCursorX, joyCursorY float64
 
 var inputActive bool
@@ -220,11 +213,7 @@ var inputText []rune
 var inputPos int
 var inputHistory []string
 var historyPos int
-
-var (
-	recorder            *movieRecorder
-	gPlayersListIsStale bool
-)
+var inputMu sync.Mutex
 
 // gameWin represents the main playfield window. Its size corresponds to the
 // classic client field box (547×540) defined in old_mac_client/client/source/
@@ -370,10 +359,7 @@ func resetLiveNetworkSession() {
 	setNetworkFrameState(0, -1)
 	resetFrameStatistics()
 
-	inputMu.Lock()
-	inputQueue = nil
-	keyStopFrames = 0
-	inputMu.Unlock()
+	primarySession.input.resetDirectQueue()
 
 	primarySession.timing.drainWake()
 	primarySession.timing.resetReply()
@@ -512,10 +498,12 @@ func relinkBubbleMobileByName(b *bubble, descriptors map[uint8]frameDescriptor, 
 type drawSnapshot struct {
 	valid                       bool
 	source                      SessionID
+	selfIndex                   uint8
 	motionSmoothing             bool
 	objectPinning               bool
 	mobileFrameBlending         bool
 	worldGeneration             uint64
+	night                       nightRenderState
 	descriptors                 map[uint8]frameDescriptor
 	prevPicturePositions        map[picturePositionKey]struct{}
 	prevPictureIndexGeneration  uint64
@@ -577,7 +565,9 @@ func captureSessionDrawSnapshot(session *Session, snap *drawSnapshot) {
 	}
 	generation := draw.generation.Load()
 	snap.source = session.ID()
+	snap.selfIndex = session.playerIndexSnapshot()
 	snap.worldGeneration = generation
+	snap.night = session.night.snapshot()
 	snap.motionSmoothing = gs.MotionSmoothing
 	snap.objectPinning = gs.ObjectPinning
 	snap.mobileFrameBlending = mobileFrameBlendingEnabled()
@@ -700,6 +690,7 @@ func captureSessionDrawSnapshotIfChanged(session *Session, snap *drawSnapshot) b
 		return false
 	}
 	if snap.valid && snap.source == session.ID() && snap.worldGeneration == session.draw.generation.Load() &&
+		snap.night.generation == session.night.generationSnapshot() &&
 		snap.motionSmoothing == gs.MotionSmoothing &&
 		snap.objectPinning == gs.ObjectPinning &&
 		snap.mobileFrameBlending == mobileFrameBlendingEnabled() {
@@ -819,6 +810,7 @@ type Game struct {
 	drawSnapshot       drawSnapshot
 	lastWorldRenderKey worldRenderKey
 	worldRenderValid   bool
+	viewportAtlas      viewportRenderAtlas
 }
 
 func init() {
@@ -839,6 +831,7 @@ func init() {
 type worldRenderKey struct {
 	source            SessionID
 	worldGeneration   uint64
+	nightGeneration   uint64
 	renderGeneration  uint64
 	artworkGeneration uint64
 	width, height     int
@@ -901,6 +894,7 @@ func currentSessionWorldRenderKey(session *Session, width, height int) worldRend
 	return worldRenderKey{
 		source:                    session.ID(),
 		worldGeneration:           session.draw.generation.Load(),
+		nightGeneration:           session.night.generationSnapshot(),
 		renderGeneration:          worldRenderGeneration.Load(),
 		artworkGeneration:         artworkCacheGeneration.Load(),
 		width:                     width,
@@ -969,7 +963,7 @@ func currentSessionWorldRenderKey(session *Session, width, height int) worldRend
 		hideMoving:                gs.hideMoving,
 		showFPS:                   gs.ShowFPS,
 		assetActivityIndicators:   gs.AssetActivityIndicators,
-		recording:                 recorder != nil || recordingMovie,
+		recording:                 sessionRecordingRequested(session),
 		playing:                   playingMovie && !setupWizardPreviewActive,
 		theme:                     eui.CurrentThemeName(),
 		style:                     gs.Style,
@@ -1125,8 +1119,15 @@ func (g *Game) Update() error {
 	}
 	ensureToolbarAccessible()
 	updateSetupWizardGraphicsDetection()
-	pollScriptChangeEvents()
-	advanceLegacyMacros(int64(acknowledgedFrameSnapshot()))
+	if appSessions.anyConnected() {
+		for _, session := range appSessions.snapshot() {
+			if session != nil && session.transport.connected() {
+				session.pollSessionScriptChangeEvents()
+			}
+		}
+	} else {
+		pollScriptChangeEvents()
+	}
 	if legacyMacroLibraryWin != nil && legacyMacroLibraryWin.IsOpen() {
 		legacyMacroLibraryRefreshErrorsButton()
 	}
@@ -1146,7 +1147,11 @@ func (g *Game) Update() error {
 	updateThinkMessages()
 	// Throttle player maintenance to reduce idle CPU (every ~250ms)
 	if now.Sub(lastPlayersRefreshTick) >= 250*time.Millisecond {
-		requestPlayersData()
+		for _, session := range appSessions.snapshot() {
+			if session != nil && session.transport.connected() {
+				session.players.requestData(session.commands)
+			}
+		}
 		lastPlayersRefreshTick = now
 	}
 
@@ -1538,11 +1543,7 @@ func (g *Game) Update() error {
 		}
 	}
 	if !keyWalk && keyWalkPrev {
-		if inputSession == primarySession {
-			keyStopFrames = 3
-		} else {
-			inputSession.input.setStopFrames(3)
-		}
+		inputSession.input.setStopFrames(3)
 	}
 	keyWalkPrev = keyWalk
 
@@ -1731,7 +1732,7 @@ func (g *Game) Update() error {
 	// Warn about poor performance and suggest disabling shaders.
 	// Suppress this while intentionally lowering FPS due to power saving
 	// (background/unfocused or always-on power save).
-	if tcpConn != nil && perFrameShaderEffectsEnabled() && gs.PromptDisableShaders && !shaderWarnShown {
+	if primarySession.transport.connected() && perFrameShaderEffectsEnabled() && gs.PromptDisableShaders && !shaderWarnShown {
 		powerSaving := gs.PowerSaveAlways || (!focused && gs.PowerSaveBackground)
 		if !powerSaving && ebiten.ActualFPS() < 50 {
 			if lowFPSSince.IsZero() {
@@ -1749,7 +1750,7 @@ func (g *Game) Update() error {
 }
 
 // dispatchSubmittedCommand routes shared message-bar input through the owning
-// session. Client-only commands remain a primary-session compatibility path.
+// session, including app-level commands whose output is source-tagged.
 func dispatchSubmittedCommand(session *Session, text string) {
 	if session == nil || text == "" {
 		return
@@ -1772,16 +1773,16 @@ func dispatchSessionLocalCommand(session *Session, txt string) bool {
 		tune := strings.TrimSpace(txt[len("/play "):])
 		if musicDebug {
 			msg := "/play " + tune
-			consoleMessage(msg)
-			chatMessage(msg)
+			session.publishClientConsole(msg, messageTextTypeSystem)
+			session.publishChat(msg, messageTextTypeSystem)
 			log.Print(msg)
 		}
 		go func() {
 			if err := playSessionClanLordTune(session, tune); err != nil {
 				log.Printf("play tune: %v", err)
 				if musicDebug {
-					consoleMessage("play tune: " + err.Error())
-					chatMessage("play tune: " + err.Error())
+					session.publishClientConsole("play tune: "+err.Error(), messageTextTypeSystem)
+					session.publishChat("play tune: "+err.Error(), messageTextTypeSystem)
 				}
 			}
 		}()
@@ -1793,17 +1794,17 @@ func dispatchSessionLocalCommand(session *Session, txt string) bool {
 
 	lower := strings.ToLower(txt)
 	if strings.TrimSpace(lower) == "/palette" {
-		consoleMessage("> " + txt)
+		session.publishClientConsole("> "+txt, messageTextTypeSystem)
 		toggleCommandPalette()
 		return true
 	}
 	if strings.HasPrefix(lower, "/setting ") || strings.TrimSpace(lower) == "/setting" {
-		consoleMessage("> " + txt)
+		session.publishClientConsole("> "+txt, messageTextTypeSystem)
 		executeSettingCommand(strings.TrimSpace(txt[len("/setting"):]))
 		return true
 	}
 	if strings.HasPrefix(lower, "/testhooks") {
-		consoleMessage("> " + txt)
+		session.publishClientConsole("> "+txt, messageTextTypeSystem)
 		arg := strings.TrimSpace(txt[len("/testhooks"):])
 		testScriptHooks(arg)
 		return true
@@ -1817,23 +1818,16 @@ func dispatchSessionLocalCommand(session *Session, txt string) bool {
 	}
 	var handler scriptCommandHandler
 	var owner string
-	if session == primarySession {
+	if command, ok := session.sessionScriptCommand(name); ok {
+		handler, owner = command.handler, command.owner
+	} else if session == primarySession && !session.transport.connected() {
 		handler = scriptCommands[name]
 		owner = scriptCommandOwners[name]
-	} else if command, ok := session.sessionScriptCommand(name); ok {
-		handler, owner = command.handler, command.owner
 	}
 	if handler == nil {
 		return false
 	}
-	if scriptIsDisabled(owner) {
-		return false
-	}
-	if session == primarySession {
-		consoleMessage("> " + txt)
-	} else {
-		session.publishConsole("> "+txt, messageTextTypeSystem)
-	}
+	session.publishClientConsole("> "+txt, messageTextTypeSystem)
 	scriptLogEvent(owner, "Command", args)
 	handler(args)
 	return true
@@ -1850,22 +1844,7 @@ func continueHeldWalk(prev inputState, inGame, buttonPressed bool, heldTime int,
 }
 
 func queueInput(s inputState) {
-	inputMu.Lock()
-	switch len(inputQueue) {
-	case 0:
-		if latestInput != s {
-			inputQueue = append(inputQueue, s)
-		}
-	case 1:
-		if inputQueue[0] != s {
-			inputQueue = append(inputQueue, s)
-		}
-	default:
-		if inputQueue[len(inputQueue)-1] != s {
-			inputQueue[len(inputQueue)-1] = s
-		}
-	}
-	inputMu.Unlock()
+	primarySession.input.enqueue(s)
 }
 
 func updateGameWindowSize() {
@@ -1949,7 +1928,7 @@ func fittedWorldView(bufW, bufH int) (image.Rectangle, float64) {
 }
 
 func showingGameSplash() bool {
-	return !setupWizardPreviewActive && clmov == "" && !playingMovie && tcpConn == nil && pcapPath == "" && !fake
+	return !setupWizardPreviewActive && clmov == "" && !playingMovie && !primarySession.transport.connected() && pcapPath == "" && !fake
 }
 
 func showingSessionGameSplash(session *Session) bool {
@@ -1967,122 +1946,13 @@ type viewportRenderResult struct {
 }
 
 func renderSessionViewport(target *ebiten.Image, session *Session, state *viewportRenderState, now time.Time, selected bool, assetTrace *assetLoadFrameTrace) viewportRenderResult {
-	if target == nil || session == nil || state == nil {
+	results := renderSessionViewports(nil, []viewportRenderRequest{{
+		target: target, session: session, state: state, selected: selected,
+	}}, now, assetTrace)
+	if len(results) == 0 {
 		return viewportRenderResult{}
 	}
-	bufW := target.Bounds().Dx()
-	bufH := target.Bounds().Dy()
-	viewRect, renderScale := fittedWorldView(bufW, bufH)
-	if selected && assetTrace != nil {
-		assetTrace.setWorldContext(bufW, bufH, renderScale)
-	}
-	worldView := target.RecyclableSubImage(viewRect)
-	defer worldView.Recycle()
-	worldKey := currentSessionWorldRenderKey(session, bufW, bufH)
-	if viewportWorldRenderCanBeReused(state, worldKey) {
-		if selected {
-			layoutActiveGameOverlays(viewRect, clientActivityNone)
-		}
-		return viewportRenderResult{viewRect: viewRect, ready: true}
-	}
-
-	var worldStarted time.Time
-	if selected && assetTrace != nil {
-		worldStarted = time.Now()
-	}
-	var snap drawSnapshot
-	var alpha float64
-	var haveSnap bool
-	worldRendered := false
-	if showingSessionGameSplash(session) {
-		target.Fill(playfieldBackgroundColor())
-		previousScale := gs.GameScale
-		gs.GameScale = renderScale
-		drawSplash(worldView, 0, 0)
-		gs.GameScale = previousScale
-		worldRendered = true
-	} else {
-		captureSessionDrawSnapshotIfChanged(session, &state.drawSnapshot)
-		if selected && bubbleTorture {
-			prepareBubbleTortureSnapshot(&state.drawSnapshot, now)
-		} else if selected && setupWizardPreviewActive {
-			prepareSetupWizardSceneSnapshot(&state.drawSnapshot, now)
-		}
-		snap = state.drawSnapshot
-		var mobileFade, pictFade float32
-		alpha, mobileFade, pictFade = computeInterpolation(now, snap.prevTime, snap.curTime, gs.MobileBlendAmount, gs.BlendAmount)
-		previousScale := gs.GameScale
-		gs.GameScale = renderScale
-		pinSceneSpriteSlots(snap)
-		if prepareSceneArtworkFrame(snap) {
-			noteClientActivity(clientActivityGPU)
-		} else {
-			useLighting := shaderLightingEnabled() && lightingShader != nil
-			useComposite := useLighting && sceneMayNeedLighting(snap)
-			sceneTarget := worldView
-			if useComposite {
-				fillOutsideWorldView(target, viewRect, playfieldBackgroundColor())
-				sceneTarget = ensureLightingTmp(worldView.Bounds())
-				sceneTarget.Fill(playfieldBackgroundColor())
-			} else {
-				target.Fill(playfieldBackgroundColor())
-			}
-			drawScene(sceneTarget, 0, 0, snap, alpha, mobileFade, pictFade)
-			drawReplacementEffects(sceneTarget, sceneTarget.Bounds().Min.X, sceneTarget.Bounds().Min.Y, snap.mobiles, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha)
-			if useLighting {
-				addNightDarkSources(sceneTarget.Bounds(), float32(alpha))
-			} else {
-				drawNightOverlay(sceneTarget, 0, 0)
-			}
-			if useComposite {
-				applyWorldComposite(worldView, sceneTarget, frameLights, frameDarks, float32(alpha), useLighting)
-			} else if useLighting && (len(frameLights) != 0 || len(frameDarks) != 0) {
-				applyLightingShader(worldView, frameLights, frameDarks, float32(alpha))
-			} else {
-				applyDetailedCharacterShadow(worldView)
-			}
-			if selected || !gs.ToolbarStatusBars {
-				drawStatusBars(worldView, 0, 0, snap, alpha)
-			}
-			haveSnap = true
-			worldRendered = true
-		}
-		gs.GameScale = previousScale
-	}
-	if selected && replacementEffectsPreview {
-		drawReplacementEffectsPreview(worldView)
-	}
-	if haveSnap {
-		previousScale := gs.GameScale
-		finalScale := renderScale
-		if finalScale <= 0 {
-			finalScale = 1
-		}
-		gs.GameScale = finalScale
-		if !viewRect.Empty() {
-			drawSpeechBubblesForViewport(worldView, snap, alpha, speechBubbleWindowScale(finalScale), state)
-			drawScriptOverlaysForSession(session, worldView, finalScale)
-		}
-		gs.GameScale = previousScale
-	}
-	if selected {
-		activity := takeClientActivity()
-		overlays := layoutActiveGameOverlays(viewRect, activity)
-		if haveSnap {
-			drawRecPlayBadge(target, overlays.recPlay, overlays.recPlayLabel)
-		}
-		drawFPSOverlay(target, overlays.fps, overlays.fpsLabel)
-		drawClientActivityIndicators(target, activity, overlays.activity)
-		drawGameMessageOverlays(target)
-		if assetTrace != nil {
-			assetTrace.addWorldDuration(time.Since(worldStarted))
-		}
-	}
-	if worldRendered {
-		state.lastWorldRenderKey = worldKey
-		state.worldRenderValid = true
-	}
-	return viewportRenderResult{viewRect: viewRect, ready: worldRendered, rendered: worldRendered}
+	return results[0]
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -2187,13 +2057,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	selectedResult := viewportRenderResult{}
 	views := appViewports.snapshot()
 	sessions := appSessions.snapshot()
+	requests := make([]viewportRenderRequest, 0, maxSessions)
+	requestSlots := make([]int, 0, maxSessions)
 	for slot, view := range views {
 		if !view.Active || view.render == nil || view.render.image == nil || sessions[slot] == nil {
 			continue
 		}
-		selected := sessions[slot] == selectedSession
-		result := renderSessionViewport(view.render.image, sessions[slot], view.render, now, selected, assetTrace)
-		if selected {
+		requests = append(requests, viewportRenderRequest{
+			target: view.render.image, session: sessions[slot], state: view.render,
+			selected: sessions[slot] == selectedSession,
+		})
+		requestSlots = append(requestSlots, slot)
+	}
+	results := renderSessionViewports(&g.viewportAtlas, requests, now, assetTrace)
+	for index, result := range results {
+		if sessions[requestSlots[index]] == selectedSession {
 			selectedResult = result
 			worldViewRect = result.viewRect
 		}
@@ -2274,7 +2152,7 @@ func drawRecPlayBadge(dst *ebiten.Image, bounds image.Rectangle, label string) {
 	releaseTextDrawOpts(op)
 }
 
-func prepareSceneArtworkFrame(snap drawSnapshot) bool {
+func prepareSceneArtworkFrame(session *Session, snap drawSnapshot) bool {
 	if !gs.BatchArtworkLoading {
 		return false
 	}
@@ -2282,7 +2160,7 @@ func prepareSceneArtworkFrame(snap drawSnapshot) bool {
 	if preparedSheets <= 1 {
 		return false
 	}
-	return tcpConn != nil && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive
+	return session != nil && session.transport.connected() && clmov == "" && !playingMovie && pcapPath == "" && !fake && !setupWizardPreviewActive
 }
 
 func sceneHasExplicitShadowPictures(snap drawSnapshot) bool {
@@ -2298,7 +2176,7 @@ func sceneHasExplicitShadowPictures(snap drawSnapshot) bool {
 			if flags&climg.PictDefIsShadow == 0 {
 				continue
 			}
-			if draw, _ := explicitShadowPictureAlpha(flags); draw {
+			if draw, _ := explicitShadowPictureAlphaForNight(flags, snap.night); draw {
 				return true
 			}
 		}
@@ -2307,9 +2185,15 @@ func sceneHasExplicitShadowPictures(snap drawSnapshot) bool {
 }
 
 // drawScene renders all world objects for the current frame.
-func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32) {
-	frameDetailedShadowMask = nil
-	frameDetailedShadowBounds = image.Rectangle{}
+func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float64, mobileFade, pictFade float32, viewport *viewportRenderState) {
+	lighting := lightingFrameForViewport(viewport)
+	if lighting != nil {
+		lighting.detailedShadowMask = nil
+		lighting.detailedShadowBounds = image.Rectangle{}
+		lighting.lights = lighting.lights[:0]
+		lighting.darks = lighting.darks[:0]
+		lighting.casters = lighting.casters[:0]
+	}
 	resetLayeredCharacterShadows()
 	// Explicit shadow pictures can be on negative planes, before character
 	// shadows are prepared. Start one shared coverage mask at the beginning of
@@ -2320,11 +2204,6 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	// Ebitengine subimages retain their parent-space bounds.
 	ox += screen.Bounds().Min.X
 	oy += screen.Bounds().Min.Y
-	if shaderLightingEnabled() {
-		frameLights = frameLights[:0]
-		frameDarks = frameDarks[:0]
-		frameLightCasters = frameLightCasters[:0]
-	}
 	beginReplacementEffects()
 
 	// Use cached descriptor map directly; no need to rebuild/sort it per frame.
@@ -2338,28 +2217,28 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	live := snap.liveMobs
 	dead := snap.deadMobs
 	var mobileSunShade [256]float32
-	shadowAlpha, _, shadowKind := currentCharacterShadowRenderState()
+	shadowAlpha, _, shadowKind := currentCharacterShadowRenderStateForNight(snap.night)
 
 	for _, p := range negPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 	}
 
 	if gs.hideMobiles {
 		for _, p := range zeroPics {
-			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
+			drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 		}
 	} else {
 		if shadowKind == characterShadowDirectional {
-			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, &mobileSunShade)
+			drawMobileShadowsForViewportNight(viewport, screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, &mobileSunShade, snap.night)
 			// The faster path prepares one combined mask. Apply it while only
 			// below-mobile scenery has been drawn so an opaque caster always
 			// covers its own shadow.
-			applyBatchedCharacterShadowsBelowMobiles(screen)
+			applyBatchedCharacterShadowsBelowMobilesForViewport(viewport, screen)
 		}
 		for _, m := range dead {
 			drawLayeredCharacterShadow(screen, m.Index)
 			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index], snap.source)
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index], snap.source, viewport)
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
 		i, j := 0, 0
@@ -2379,19 +2258,19 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 				if live[i].State != poseDead {
 					drawLayeredCharacterShadow(screen, live[i].Index)
 					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index], snap.source)
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index], snap.source, viewport)
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
 				i++
 			} else {
-				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
+				drawPicture(screen, ox, oy, zeroPics[j], alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 				j++
 			}
 		}
 	}
 
 	for _, p := range posPics {
-		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame)
+		drawPicture(screen, ox, oy, p, alpha, pictFade, snap.mobiles, descMap, snap.prevMobiles, snap.prevPicturePositions, snap.picShiftX, snap.picShiftY, snap.logicalFrame, snap.night, snap.selfIndex, viewport)
 	}
 }
 
@@ -2562,7 +2441,7 @@ func mobileScreenPositionFloat(ox, oy int, m frameMobile, prevMobiles map[uint8]
 // When a mobile lacks history but the world shifts, a pseudo-previous position
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32, source SessionID) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32, source SessionID, viewport *viewportRenderState) {
 	x, y := mobileScreenPositionFloat(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
@@ -2646,8 +2525,8 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if size == 0 {
 			size = img.Bounds().Dx()
 		}
-		addMobileLightCaster(x, y, size, mobileSpriteMetricsFor(metricsKey, img))
-		addMobileLightSource(uint32(d.PictID), m.State, m.Index, d.Type == kDescPlayer, x, y, size, logicalFrame, alpha, screen.Bounds())
+		addMobileLightCasterForViewport(viewport, x, y, size, mobileSpriteMetricsFor(metricsKey, img))
+		addMobileLightSourceForViewport(viewport, uint32(d.PictID), m.State, m.Index, d.Type == kDescPlayer, x, y, size, logicalFrame, alpha, screen.Bounds())
 		blend := mobileFrameBlendingEnabled() && prevImg != nil && fade > 0 && fade < 1
 		var src *ebiten.Image
 		var srcInfluence *ebiten.Image
@@ -3123,7 +3002,7 @@ func pictureCanPinToMobile(p framePicture, width, height int) bool {
 }
 
 // drawPicture renders a single picture sprite.
-func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, logicalFrame int) {
+func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64, fade float32, mobiles []frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, logicalFrame int, night nightRenderState, selfIndex uint8, viewport *viewportRenderState) {
 	if gs.hideMoving && p.Moving {
 		return
 	}
@@ -3134,7 +3013,7 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		flags := clImages.Flags(uint32(p.PictID))
 		explicitShadow = flags&climg.PictDefIsShadow != 0
 		var draw bool
-		draw, shadowAlpha = explicitShadowPictureAlpha(flags)
+		draw, shadowAlpha = explicitShadowPictureAlphaForNight(flags, night)
 		if !draw {
 			return
 		}
@@ -3148,14 +3027,14 @@ func drawPicture(screen *ebiten.Image, ox, oy int, p framePicture, alpha float64
 		}
 	}
 
-	fx, fy := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h)
+	fx, fy := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, w, h, selfIndex)
 	x, y := roundToInt(fx), roundToInt(fy)
 	filter := worldArtworkFilter()
 	left, right := filteredSpriteSpan(fx, w, gs.GameScale, filter)
 	top, bottom := filteredSpriteSpan(fy, h, gs.GameScale, filter)
 	lightX := (left + right) / 2
 	lightY := (top + bottom) / 2
-	addPictureLightSource(p, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
+	addPictureLightSourceForViewport(viewport, p, lightX, lightY, w, h, logicalFrame, alpha, screen.Bounds())
 	fadeAlpha := float32(1.0)
 	if gs.FadeObscuringPictures {
 		fadeAlpha = pictureObscuringFadeAlpha(p.obscuredPrev, p.obscuredNow, float32(gs.ObscuringPictureOpacity), fade)
@@ -3363,12 +3242,12 @@ func replacementEffectPlayerMask(ox, oy int, p framePicture, mobiles []frameMobi
 	return img, x, y, scaledSize, instanceKey
 }
 
-func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (int, int) {
-	x, y := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, width, height)
+func pictureScreenPosition(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int, selfIndexes ...uint8) (int, int) {
+	x, y := pictureScreenPositionFloat(ox, oy, p, alpha, mobiles, prevMobiles, prevPicturePositions, shiftX, shiftY, width, height, selfIndexes...)
 	return roundToInt(x), roundToInt(y)
 }
 
-func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int) (float64, float64) {
+func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, shiftX, shiftY, width, height int, selfIndexes ...uint8) (float64, float64) {
 	offX := float64(int(p.PrevH)-int(p.H)) * (1 - alpha)
 	offY := float64(int(p.PrevV)-int(p.V)) * (1 - alpha)
 	if p.Moving && !pictureMotionInterpolationEnabled(p) {
@@ -3382,7 +3261,7 @@ func pictureScreenPositionFloat(ox, oy int, p framePicture, alpha float64, mobil
 	// Only independently moving, non-background pictures can be attached to a
 	// mobile. Ground sprites may not always be explicitly marked Background.
 	if pictureCanPinToMobile(p, width, height) {
-		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPicturePositions, alpha); ok {
+		if dx, dy, ok := pictureMobileOffset(p, mobiles, prevMobiles, prevPicturePositions, alpha, selfIndexes...); ok {
 			mobileX, mobileY = dx, dy
 			offX = 0
 			offY = 0
@@ -3440,12 +3319,16 @@ func hasPreviousPicture(positions map[picturePositionKey]struct{}, pictID uint16
 	return ok
 }
 
-func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, alpha float64) (float64, float64, bool) {
+func pictureMobileOffset(p framePicture, mobiles []frameMobile, prevMobiles map[uint8]frameMobile, prevPicturePositions map[picturePositionKey]struct{}, alpha float64, selfIndexes ...uint8) (float64, float64, bool) {
 	// Use exact previous picture position for the same PictID to verify the
 	// picture-to-mobile offset stayed identical across frames.
-	// Try the hero (playerIndex) first to ensure centered player effects pin.
+	selfIndex := playerIndex
+	if len(selfIndexes) > 0 {
+		selfIndex = selfIndexes[0]
+	}
+	// Try the hero first to ensure centered player effects pin.
 	for i := range mobiles {
-		if mobiles[i].Index != playerIndex {
+		if mobiles[i].Index != selfIndex {
 			continue
 		}
 		m := mobiles[i]
@@ -3542,8 +3425,9 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 	x += float64(screen.Bounds().Min.X)
 	y += float64(screen.Bounds().Min.Y)
 	if d, ok := snap.descriptors[m.Index]; ok {
-		selfName := playerName
-		if session := scriptSessionForID(snap.source); session != nil && session != primarySession {
+		session := scriptSessionForID(snap.source)
+		selfName := ""
+		if session != nil {
 			selfName = session.characterName()
 		}
 		if gs.HideSelfNameTag && strings.EqualFold(d.Name, selfName) {
@@ -3590,11 +3474,9 @@ func drawMobileNameTag(screen *ebiten.Image, snap drawSnapshot, m frameMobile, a
 		if showName {
 			sharee := false
 			dead := m.State == poseDead
-			playersMu.RLock()
-			if p, ok := players[d.Name]; ok {
+			if p, ok := playerSnapshotForSession(session, d.Name); ok {
 				sharee = p.Sharee
 			}
-			playersMu.RUnlock()
 			style := mobileNameStyle(m.Colors, sharee)
 			key := makeNameTagKey(d.Name, m.Colors, d.Type, nameAlpha, style, dead, gs.GameScale)
 			entry := borrowSharedNameTag(key)
@@ -4956,9 +4838,9 @@ func updateGameWindowTitle() {
 
 func gameWindowTitle() string {
 	session := selectedAppSession()
-	name := playerName
-	if session != primarySession {
-		name = session.characterName()
+	name := session.characterName()
+	if name == "" && session == primarySession {
+		name = playerName
 	}
 	if name == "" {
 		if session != primarySession && appSessions.multiEnabled() {
@@ -5433,8 +5315,7 @@ func sendInputLoop(ctx context.Context, udpConn, tcpConn net.Conn) {
 	sendSessionInputLoop(primarySession, ctx, udpConn, tcpConn)
 }
 
-// sendSessionInputLoop is parameterized now so transport, input, and command
-// ownership can move behind the same session boundary in subsequent slices.
+// sendSessionInputLoop sends the owning session's queued movement and commands.
 func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpConn net.Conn) {
 	// nextReliable determines when to send the next keep-alive packet via
 	// the reliable channel to preserve NAT mappings.
@@ -5455,31 +5336,9 @@ func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpCon
 		if time.Since(last) > 2*time.Second || udpConn == nil {
 			continue
 		}
-		var s inputState
-		if session == primarySession {
-			inputMu.Lock()
-			if len(inputQueue) > 0 {
-				s = inputQueue[0]
-				latestInput = s
-				inputQueue = inputQueue[1:]
-				if keyStopFrames > 0 && len(inputQueue) == 0 && !s.mouseDown {
-					s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
-					keyStopFrames--
-				}
-			} else {
-				s = latestInput
-				if keyStopFrames > 0 {
-					s = inputState{mouseX: 0, mouseY: 0, mouseDown: true}
-					keyStopFrames--
-				}
-			}
-			inputMu.Unlock()
-			s = applyScriptMovement(s, time.Now())
-		} else {
-			session.advanceLegacyMacros(int64(session.frames.acknowledged()))
-			s = session.input.next()
-			s = applyScriptMovementForSession(session, s, time.Now())
-		}
+		session.advanceLegacyMacros(int64(session.frames.acknowledged()))
+		s := session.input.next()
+		s = applyScriptMovementForSession(session, s, time.Now())
 
 		reliable := false
 		now := time.Now()
@@ -5573,7 +5432,7 @@ func dispatchIncomingServerMessage(m incomingServerMessage, reliable bool) {
 }
 
 func dispatchSessionIncomingServerMessage(session *Session, m incomingServerMessage, reliable bool) {
-	recorded := session == primarySession && recordIncomingMovieMessageAt(m.data, m.receivedAt)
+	recorded := recordSessionIncomingMovieMessageAt(session, m.data, m.receivedAt)
 	if !recorded {
 		processSessionServerMessageAt(session, m.data, m.receivedAt)
 	}
@@ -5581,14 +5440,8 @@ func dispatchSessionIncomingServerMessage(session *Session, m incomingServerMess
 		// Allow maintenance queues to issue commands even when the player is
 		// not moving; this keeps /be-info and /be-who flowing during idle
 		// periods on live connections.
-		if session == primarySession {
-			if !maybeEnqueueInfo() {
-				_ = maybeEnqueueWho()
-			}
-		} else {
-			if !session.players.maybeEnqueueInfo(session.commands) {
-				_ = session.players.maybeEnqueueWho(session.commands)
-			}
+		if !session.players.maybeEnqueueInfo(session.commands) {
+			_ = session.players.maybeEnqueueWho(session.commands)
 		}
 	}
 }
@@ -5634,9 +5487,6 @@ func serverMessageDispatchLoopWithHandler(
 
 func frameFlags(m []byte) uint16 {
 	flags := uint16(0)
-	if gPlayersListIsStale {
-		flags |= flagStale
-	}
 	// Inspect the 2-byte message tag; only non-draw-state (tag != 2) messages
 	// contribute pre-frame block flags. For draw-state frames, the movie file
 	// flags should only reflect blocks we explicitly attach via AddBlock/WriteBlock.
@@ -5658,36 +5508,6 @@ func frameFlags(m []byte) uint16 {
 		}
 	}
 	return flags
-}
-
-// recordIncomingMovieMessage is shared by TCP and UDP so both transports use
-// the same existing clMov state-block encoding.
-func recordIncomingMovieMessage(m []byte) bool {
-	return recordIncomingMovieMessageAt(m, time.Now())
-}
-
-func recordIncomingMovieMessageAt(m []byte, receivedAt time.Time) bool {
-	if len(m) < 2 {
-		return false
-	}
-	tag := binary.BigEndian.Uint16(m[:2])
-	if recorder == nil && recordingMovie && tag == 2 {
-		// Apply the first complete draw before taking the initial snapshot.
-		// This avoids an empty baseline when recording was armed pre-login.
-		processServerMessageAt(m, receivedAt)
-		startRecording()
-		if recorder != nil {
-			recordingMovie = false
-		}
-		return true
-	}
-	if recorder == nil {
-		return false
-	}
-	if err := recorder.WriteNetworkMessage(m, frameFlags(m)); err != nil {
-		logError("record frame: %v", err)
-	}
-	return false
 }
 
 func looksLikeGameState(m []byte) bool {

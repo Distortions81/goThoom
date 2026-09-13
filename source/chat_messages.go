@@ -56,7 +56,7 @@ func chatMessageTyped(msg, messageType string) {
 	tagged := chatHasPlayerTag(msg)
 
 	chatLog.AddTyped(msg, messageType)
-	appendChatLog(msg)
+	appendTextLogForSession(primarySession, msg)
 
 	queueChatWindowUpdate()
 

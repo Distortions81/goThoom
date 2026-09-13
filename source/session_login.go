@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"sync"
@@ -36,11 +37,15 @@ func (r sessionLoginRequest) validate() error {
 }
 
 type sessionLoginState struct {
-	mu      sync.Mutex
-	request sessionLoginRequest
-	staged  *stagedPasswordUpdate
-	status  string
-	lastErr string
+	mu                   sync.Mutex
+	request              sessionLoginRequest
+	staged               *stagedPasswordUpdate
+	status               string
+	lastErr              string
+	supervisorCancel     context.CancelFunc
+	supervisorDone       chan struct{}
+	supervisorGeneration uint64
+	supervisorCanceled   bool
 }
 
 func (s *sessionLoginState) setStatus(status string, err error) {
@@ -68,6 +73,97 @@ func (s *sessionLoginState) statusSnapshot() (string, string) {
 
 func newSessionLoginState() *sessionLoginState {
 	return &sessionLoginState{}
+}
+
+func (s *sessionLoginState) beginSupervisor(cancel context.CancelFunc) (uint64, bool) {
+	if s == nil || cancel == nil {
+		return 0, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.supervisorCancel != nil {
+		return 0, false
+	}
+	s.supervisorGeneration++
+	s.supervisorCancel = cancel
+	s.supervisorDone = make(chan struct{})
+	s.supervisorCanceled = false
+	return s.supervisorGeneration, true
+}
+
+func (s *sessionLoginState) finishSupervisor(generation uint64) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	current := s.supervisorGeneration == generation
+	if current {
+		s.supervisorCancel = nil
+		s.supervisorCanceled = false
+		if s.supervisorDone != nil {
+			close(s.supervisorDone)
+			s.supervisorDone = nil
+		}
+	}
+	s.mu.Unlock()
+	return current
+}
+
+func (s *sessionLoginState) cancelSupervisor() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	cancel := s.supervisorCancel
+	if cancel != nil {
+		s.supervisorCanceled = true
+	}
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		return true
+	}
+	return false
+}
+
+func (s *sessionLoginState) supervisorActive() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	active := s.supervisorCancel != nil
+	s.mu.Unlock()
+	return active
+}
+
+func (s *sessionLoginState) supervisorCurrent(generation uint64) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	current := s.supervisorCancel != nil && s.supervisorGeneration == generation
+	s.mu.Unlock()
+	return current
+}
+
+func (s *sessionLoginState) reconnectExpected() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	expected := s.supervisorCancel != nil && !s.supervisorCanceled
+	s.mu.Unlock()
+	return expected
+}
+
+func (s *sessionLoginState) supervisorDoneSnapshot() <-chan struct{} {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	done := s.supervisorDone
+	s.mu.Unlock()
+	return done
 }
 
 func (s *sessionLoginState) setRequest(request sessionLoginRequest) {

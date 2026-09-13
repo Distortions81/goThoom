@@ -109,13 +109,16 @@ func TestLowSunShadowsHaveSofterContrast(t *testing.T) {
 }
 
 func TestClearCharacterShadowCache(t *testing.T) {
-	detailedCharacterShadowMask = ebiten.NewImage(8, 8)
+	state := appViewports.renderStateForViewport(1)
+	state.lighting.detailedShadowBacking = ebiten.NewImage(8, 8)
+	state.lighting.detailedShadowMask = state.lighting.detailedShadowBacking
+	state.lighting.detailedShadowBounds = state.lighting.detailedShadowMask.Bounds()
 	layeredShadowCoverage = ebiten.NewImage(8, 8)
 	layeredShadowIncoming = ebiten.NewImage(8, 8)
 	layeredShadowScene = ebiten.NewImage(8, 8)
 	frameLayeredShadowCompositeActive = true
 	clearCharacterShadowCache()
-	if detailedCharacterShadowMask != nil {
+	if state.lighting.detailedShadowBacking != nil || state.lighting.detailedShadowMask != nil || !state.lighting.detailedShadowBounds.Empty() {
 		t.Fatal("character shadow mask was not cleared")
 	}
 	if layeredShadowCoverage != nil || layeredShadowIncoming != nil || layeredShadowScene != nil || frameLayeredShadowCompositeActive {
@@ -325,12 +328,12 @@ func TestCurrentCharacterShadowState(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() {
 		gs = originalSettings
-		gNight = NightInfo{}
+		*primarySession.night = NightInfo{}
 	})
 
 	gs.CharacterShadows = true
 	gs.MaxNightLevel = 100
-	gNight = NightInfo{Shadows: 50, Azimuth: -1}
+	*primarySession.night = NightInfo{Shadows: 50, Azimuth: -1}
 	alpha, azimuth, ok := currentCharacterShadowState()
 	if !ok || alpha != 0.5 || azimuth != 359 {
 		t.Fatalf("currentCharacterShadowState() = (%v, %d, %v)", alpha, azimuth, ok)
@@ -346,7 +349,7 @@ func TestCurrentCharacterShadowState(t *testing.T) {
 		t.Error("zero max night level should disable shadows")
 	}
 	gs.MaxNightLevel = 100
-	gNight = NightInfo{}
+	*primarySession.night = NightInfo{}
 	if _, _, ok := currentCharacterShadowState(); ok {
 		t.Error("zero area shadow level should disable shadows")
 	}
@@ -356,25 +359,25 @@ func TestCharacterShadowRenderStateUsesContactShadowsWithoutSun(t *testing.T) {
 	originalSettings := gs
 	t.Cleanup(func() {
 		gs = originalSettings
-		gNight = NightInfo{}
+		*primarySession.night = NightInfo{}
 	})
 
 	gs.CharacterShadows = true
 	gs.MaxNightLevel = 100
 
-	gNight = NightInfo{Shadows: 25, Azimuth: 90, Cloudy: true}
+	*primarySession.night = NightInfo{Shadows: 25, Azimuth: 90, Cloudy: true}
 	alpha, _, kind := currentCharacterShadowRenderState()
 	if kind != characterShadowContact || alpha != contactShadowOpacity {
 		t.Fatalf("cloudy shadow state = (%v, %v), want contact opacity %v", alpha, kind, contactShadowOpacity)
 	}
 
-	gNight = NightInfo{Shadows: 0, Azimuth: 90, Flags: kLightNoShadows}
+	*primarySession.night = NightInfo{Shadows: 0, Azimuth: 90, Flags: kLightNoShadows}
 	alpha, _, kind = currentCharacterShadowRenderState()
 	if kind != characterShadowContact || alpha != contactShadowOpacity {
 		t.Fatalf("indoor shadow state = (%v, %v), want contact opacity %v", alpha, kind, contactShadowOpacity)
 	}
 
-	gNight = NightInfo{Shadows: 50, Azimuth: 90}
+	*primarySession.night = NightInfo{Shadows: 50, Azimuth: 90}
 	alpha, _, kind = currentCharacterShadowRenderState()
 	if kind != characterShadowDirectional || alpha != 0.5 {
 		t.Fatalf("clear shadow state = (%v, %v), want directional opacity 0.5", alpha, kind)

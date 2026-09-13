@@ -22,21 +22,15 @@ func parseSessionBackend(session *Session, data []byte) {
 	payload := data[3:]
 	switch cmd {
 	case "in":
-		if session == primarySession {
-			parseBackendInfo(payload)
-		} else if session != nil {
+		if session != nil {
 			session.players.parseBackendInfo(payload)
 		}
 	case "sh":
-		if session == primarySession {
-			parseBackendShare(payload)
-		} else if session != nil {
+		if session != nil {
 			session.players.parseBackendShare(payload, session.characterName())
 		}
 	case "wh":
-		if session == primarySession {
-			parseBackendWho(payload)
-		} else if session != nil {
+		if session != nil {
 			session.players.parseBackendWho(payload)
 		}
 	}

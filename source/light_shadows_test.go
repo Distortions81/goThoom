@@ -48,27 +48,25 @@ func TestBuildLightShadowsUsesNearbyCasters(t *testing.T) {
 
 func TestMobileLightConeShadowSettingGatesCasters(t *testing.T) {
 	originalSettings := gs
-	originalCasters := frameLightCasters
 	t.Cleanup(func() {
 		gs = originalSettings
-		frameLightCasters = originalCasters
 	})
 
 	gs.ShaderLighting = true
 	gs.GameScale = 2
-	frameLightCasters = nil
+	state := &viewportRenderState{}
 	metrics := mobileSpriteMetrics{widthFraction: 0.5, footFraction: 0.9}
 
 	gs.MobileLightConeShadows = false
-	addMobileLightCaster(100, 100, 40, metrics)
-	if len(frameLightCasters) != 0 {
+	addMobileLightCasterForViewport(state, 100, 100, 40, metrics)
+	if len(state.lighting.casters) != 0 {
 		t.Fatal("disabled mobile light-cone shadows registered a caster")
 	}
 
 	gs.MobileLightConeShadows = true
-	addMobileLightCaster(100, 100, 40, metrics)
-	if len(frameLightCasters) != 1 {
-		t.Fatalf("enabled mobile light-cone shadows registered %d casters, want 1", len(frameLightCasters))
+	addMobileLightCasterForViewport(state, 100, 100, 40, metrics)
+	if len(state.lighting.casters) != 1 {
+		t.Fatalf("enabled mobile light-cone shadows registered %d casters, want 1", len(state.lighting.casters))
 	}
 }
 

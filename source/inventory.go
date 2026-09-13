@@ -427,6 +427,13 @@ func getInventoryCompletionNames() []string {
 	return primarySession.inventory.completionNames()
 }
 
+func getInventoryCompletionNamesForSession(session *Session) []string {
+	if session == nil || session.inventory == nil {
+		return nil
+	}
+	return session.inventory.completionNames()
+}
+
 func scriptItemSlotName(slot int) string {
 	names := [...]string{
 		kItemSlotForehead: "forehead", kItemSlotNeck: "neck", kItemSlotShoulder: "shoulder",

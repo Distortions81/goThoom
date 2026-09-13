@@ -55,7 +55,10 @@ func TestLegacyMacroRightClickClassicDispatch(t *testing.T) {
 func TestPlayersRightClickMacroRunsBeforeContextMenu(t *testing.T) {
 	initFont()
 	oldWin, oldList, oldRefs := playersWin, playersList, playersRowRefs
-	oldRuntime, oldSelected := legacyMacrosRuntime, selectedPlayerName
+	primarySession.automation.legacyMu.Lock()
+	oldRuntime := primarySession.automation.legacyRuntime
+	primarySession.automation.legacyMu.Unlock()
+	oldSelected := selectedPlayerName
 	legacyMacroInputState.Lock()
 	oldMouse, oldConsumed := legacyMacroInputState.consumedMouse, legacyMacroInputState.consumed
 	legacyMacroInputState.consumedMouse, legacyMacroInputState.consumed = nil, nil
@@ -63,7 +66,10 @@ func TestPlayersRightClickMacroRunsBeforeContextMenu(t *testing.T) {
 	t.Cleanup(func() {
 		playersWin.RemoveWindow()
 		playersWin, playersList, playersRowRefs = oldWin, oldList, oldRefs
-		legacyMacrosRuntime, selectedPlayerName = oldRuntime, oldSelected
+		primarySession.automation.legacyMu.Lock()
+		primarySession.automation.legacyRuntime = oldRuntime
+		primarySession.automation.legacyMu.Unlock()
+		selectedPlayerName = oldSelected
 		legacyMacroInputState.Lock()
 		legacyMacroInputState.consumedMouse, legacyMacroInputState.consumed = oldMouse, oldConsumed
 		legacyMacroInputState.Unlock()
@@ -80,7 +86,9 @@ func TestPlayersRightClickMacroRunsBeforeContextMenu(t *testing.T) {
 	selectedPlayerName = "Previous selection"
 	program := parseLegacyMacroSources([]legacyMacroSource{{Path: filepath.Join(t.TempDir(), "right.mac"), Text: "control-click message @click.name\n"}})
 	var messages []string
-	legacyMacrosRuntime = newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{Message: func(s string) { messages = append(messages, s) }})
+	primarySession.automation.legacyMu.Lock()
+	primarySession.automation.legacyRuntime = newLegacyMacroRuntimeWithHooks(program, legacyMacroRuntimeHooks{Message: func(s string) { messages = append(messages, s) }})
+	primarySession.automation.legacyMu.Unlock()
 	eui.CloseContextMenus()
 	if !handlePlayersContextClick(20, 20) || !equalStrings(messages, []string{"Bob Jones"}) {
 		t.Fatalf("player-row right click did not reach the macro: %v", messages)

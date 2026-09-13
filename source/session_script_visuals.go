@@ -7,8 +7,7 @@ import (
 )
 
 // sessionScriptVisualState keeps script-drawn world state out of the shared
-// renderer. The primary session retains the established globals as a
-// compatibility adapter; secondary runtimes use one of these stores.
+// renderer for every session.
 type sessionScriptVisualState struct {
 	mu            sync.RWMutex
 	overlays      map[string][]overlayOp
@@ -31,7 +30,7 @@ func newSessionScriptVisualState() *sessionScriptVisualState {
 }
 
 func sessionScriptVisuals(session *Session) *sessionScriptVisualState {
-	if session == nil || session == primarySession || session.automation == nil {
+	if session == nil || session.automation == nil {
 		return nil
 	}
 	return session.automation.visuals
