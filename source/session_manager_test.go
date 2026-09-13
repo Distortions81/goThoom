@@ -99,6 +99,34 @@ func TestSessionManagerRejectsInvalidLoginBeforeStarting(t *testing.T) {
 	}
 }
 
+func TestSessionManagerMaterializesDemoLoginBeforeValidation(t *testing.T) {
+	primary := mustNewSession(primarySessionID)
+	manager := newSessionManager(primary)
+	attempted := make(chan sessionLoginRequest, 1)
+	manager.login = func(session *Session, _ context.Context, _ int, candidates []string) error {
+		attempted <- session.login.requestSnapshot()
+		if len(candidates) != 2 || candidates[0] != " Demo One " || candidates[1] != "Demo Two" {
+			t.Errorf("demo candidates = %v", candidates)
+		}
+		return &loginResultError{result: -1}
+	}
+
+	result, err := manager.startLoginWithCandidates(context.Background(), primarySessionID, sessionLoginRequest{
+		host:      "example.invalid:5010",
+		character: freeDemoSelection,
+	}, 1, []string{" Demo One ", "Demo Two"})
+	if err != nil {
+		t.Fatalf("start demo login: %v", err)
+	}
+	request := <-attempted
+	if request.host != "example.invalid:5010" || request.character != "Demo One" || request.password != "demo" || request.passwordHash != "" {
+		t.Fatalf("materialized demo request = %+v", request)
+	}
+	if err := <-result; err == nil {
+		t.Fatal("test login unexpectedly succeeded")
+	}
+}
+
 func TestSessionTransportCannotReconnectUntilDisconnectJoins(t *testing.T) {
 	session := mustNewSession(2)
 	if !session.transport.begin(func() {}) {

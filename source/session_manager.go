@@ -80,6 +80,16 @@ func (m *sessionManager) startLoginWithCandidates(ctx context.Context, id Sessio
 		return nil, errors.New("session slot is unavailable")
 	}
 	request = request.normalized()
+	// The standalone login surface starts a demo login with its built-in
+	// placeholder selected. Materialize the first server-provided demo identity
+	// before validating and storing the supervisor request. Subsequent candidates
+	// are still selected by loginSessionWithDemoCandidates when a slot is busy.
+	if len(demoCandidates) > 0 {
+		request.character = demoCandidates[0]
+		request.password = "demo"
+		request.passwordHash = ""
+		request = request.normalized()
+	}
 	if err := request.validate(); err != nil {
 		return nil, err
 	}
