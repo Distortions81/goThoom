@@ -1204,6 +1204,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			m["Inventory"] = reflect.ValueOf(func() []InventoryItem { return scriptInventoryForSession(session) })
 			m["EquippedItems"] = reflect.ValueOf(func() []InventoryItem { return scriptEquippedItemsForSession(session) })
 			m["CurrentWorld"] = reflect.ValueOf(func() scriptapi.World { return scriptCurrentWorldForSession(session) })
+			m["LatestServerMessage"] = reflect.ValueOf(session.latestSessionScriptServerMessage)
 		}
 		stage := func(action func()) { candidate.dispatch(owner, action) }
 		subscribe := func(register func() scriptRegistrationHandle) Subscription {
@@ -1230,6 +1231,11 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 				return Subscription{}
 			}
 			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptChange(owner, ChangeWorld, func(ChangeEvent) {
+						handler(scriptCurrentWorldForSession(candidate.session))
+					})
+				}
 				return scriptRegisterChange(owner, ChangeWorld, func(ChangeEvent) { handler(scriptCurrentWorld()) })
 			})
 		})
@@ -1364,7 +1370,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			})
 		})
 		m["OnServerMessage"] = reflect.ValueOf(func(filter ServerMessageFilter, handler func(scriptapi.ServerMessage)) Subscription {
-			return subscribe(func() scriptRegistrationHandle { return scriptRegisterServerMessage(owner, filter, handler) })
+			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptServerMessage(owner, filter, handler)
+				}
+				return scriptRegisterServerMessage(owner, filter, handler)
+			})
 		})
 		m["OnLogin"] = reflect.ValueOf(func(handler func(LifecycleEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle {
@@ -1399,7 +1410,12 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			})
 		})
 		m["OnChange"] = reflect.ValueOf(func(kind string, handler func(ChangeEvent)) Subscription {
-			return subscribe(func() scriptRegistrationHandle { return scriptRegisterChange(owner, kind, handler) })
+			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptChange(owner, kind, handler)
+				}
+				return scriptRegisterChange(owner, kind, handler)
+			})
 		})
 		m["WaitTicks"] = reflect.ValueOf(func(ticks int) {
 			if eventQueue := candidate.runtimeEventQueue(owner); eventQueue != nil {
@@ -3550,48 +3566,7 @@ func pollScriptChangeEvents() {
 	if previous.playersObserved && current.playersObserved {
 		dispatchScriptPlayerChanges(previous.players, current.players)
 	}
-	base := ChangeEvent{
-		Inventory: append([]InventoryItem(nil), current.inventory...), Equipment: append([]InventoryItem(nil), current.equipment...),
-		SelectedPlayer: current.selectedPlayer, SelectedItem: current.selectedItem, HasSelectedItem: current.hasSelectedItem,
-		Health: current.health, HealthMax: current.healthMax, Spirit: current.spirit, SpiritMax: current.spiritMax,
-		Balance: current.balance, BalanceMax: current.balanceMax, Location: current.location, WorldGeneration: current.worldGeneration,
-	}
-	if !reflect.DeepEqual(previous.inventory, current.inventory) {
-		event := base
-		event.Type = ChangeInventory
-		dispatchScriptChange(event)
-	}
-	if !reflect.DeepEqual(previous.equipment, current.equipment) {
-		event := base
-		event.Type = ChangeEquipment
-		dispatchScriptChange(event)
-	}
-	if previous.selectedPlayer != current.selectedPlayer {
-		event := base
-		event.Type = ChangeSelectedPlayer
-		dispatchScriptChange(event)
-	}
-	if previous.hasSelectedItem != current.hasSelectedItem || previous.selectedItem != current.selectedItem {
-		event := base
-		event.Type = ChangeSelectedItem
-		dispatchScriptChange(event)
-	}
-	if previous.health != current.health || previous.healthMax != current.healthMax || previous.spirit != current.spirit ||
-		previous.spiritMax != current.spiritMax || previous.balance != current.balance || previous.balanceMax != current.balanceMax {
-		event := base
-		event.Type = ChangeVitals
-		dispatchScriptChange(event)
-	}
-	if previous.worldGeneration != current.worldGeneration {
-		event := base
-		event.Type = ChangeWorld
-		dispatchScriptChange(event)
-	}
-	if previous.location != current.location {
-		event := base
-		event.Type = ChangeLocation
-		dispatchScriptChange(event)
-	}
+	dispatchScriptSnapshotChanges(previous, current, dispatchScriptChange)
 }
 
 func captureScriptChangeSnapshot() scriptChangeSnapshot {

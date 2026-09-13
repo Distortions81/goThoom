@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	scriptapi "gt2"
 )
 
 // sessionAutomationState contains mutable automation data that belongs to one
@@ -12,16 +14,22 @@ import (
 // adapter while shared macro-management windows are converted in a later UI
 // slice.
 type sessionAutomationState struct {
-	legacyMu      sync.RWMutex
-	legacySources []legacyMacroSource
-	legacyProgram legacyMacroProgram
-	legacyRuntime *legacyMacroRuntime
-	scriptQueues  *scriptQueueRegistry
-	scriptTimers  *scriptTimerRegistry
-	scriptMu      sync.RWMutex
-	scripts       map[string]*sessionScriptInstance
-	scriptChats   []structuredChatHandler
-	scriptEvents  []scriptLifecycleHandler
+	legacyMu       sync.RWMutex
+	legacySources  []legacyMacroSource
+	legacyProgram  legacyMacroProgram
+	legacyRuntime  *legacyMacroRuntime
+	scriptQueues   *scriptQueueRegistry
+	scriptTimers   *scriptTimerRegistry
+	scriptMu       sync.RWMutex
+	scripts        map[string]*sessionScriptInstance
+	scriptChats    []structuredChatHandler
+	scriptServers  []serverMessageHandler
+	scriptEvents   []scriptLifecycleHandler
+	scriptChanges  []scriptChangeHandler
+	changeSnapshot scriptChangeSnapshot
+	latestServer   scriptapi.ServerMessage
+	serverSequence uint64
+	hasServer      bool
 
 	locationMu sync.RWMutex
 	location   string
@@ -256,4 +264,10 @@ func (s *sessionAutomationState) reset() {
 		runtime.cancelAll()
 	}
 	s.stopSessionScripts("session reset")
+	s.scriptMu.Lock()
+	s.changeSnapshot = scriptChangeSnapshot{}
+	s.latestServer = scriptapi.ServerMessage{}
+	s.serverSequence = 0
+	s.hasServer = false
+	s.scriptMu.Unlock()
 }

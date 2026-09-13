@@ -167,25 +167,38 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 			return "think: " + text
 		}
 	case "in":
-		if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
-			queueInfoRequest(name)
+		if session == primarySession {
+			if name := utfFold(firstTagContent(raw, 'p', 'n')); name != "" {
+				queueInfoRequest(name)
+			}
 		}
 		if text != "" {
 			return "info: " + text
 		}
 	case "sh", "su":
-		parseShareText(raw, text)
+		if session == primarySession {
+			parseShareText(raw, text)
+		}
 		if text != "" {
 			return text
 		}
 	case "hf", "nf":
 		// Fallen or not-fallen notices
-		parseFallenText(raw, text)
+		if session == primarySession {
+			parseFallenText(raw, text)
+		}
 		if text != "" {
 			return text
 		}
 	case "ba", "mu":
 		// Bard guild messages or tunes
+		if session != primarySession {
+			session.publishInfoCommand(text)
+			if prefix == "ba" && text != "" {
+				return text
+			}
+			return ""
+		}
 		handled := parseBardText(raw, text)
 		if !handled && text != "" {
 			return text
@@ -193,24 +206,32 @@ func decodeSessionBEPP(session *Session, data []byte) string {
 	case "lg", "lf", "er":
 		// Login/logout presence notices and error messages like
 		// "<name> is not in the lands." which imply logoff
-		parsePresenceText(raw, text)
+		if session == primarySession {
+			parsePresenceText(raw, text)
+		}
 		if text != "" {
 			return text
 		}
 	case "be":
 		// Back-end command: handle internally using raw (unstripped) data.
-		parseBackend(raw)
+		if session == primarySession {
+			parseBackend(raw)
+		} else {
+			session.publishInfoCommand(text)
+		}
 		return ""
 	case "kr":
 		// Karma received: suppress notifications from blocked or ignored players.
-		name := utfFold(firstTagContent(raw, 'p', 'n'))
-		if name != "" {
-			playersMu.RLock()
-			p, ok := players[name]
-			blocked := ok && (p.Blocked || p.Ignored)
-			playersMu.RUnlock()
-			if blocked {
-				return ""
+		if session == primarySession {
+			name := utfFold(firstTagContent(raw, 'p', 'n'))
+			if name != "" {
+				playersMu.RLock()
+				p, ok := players[name]
+				blocked := ok && (p.Blocked || p.Ignored)
+				playersMu.RUnlock()
+				if blocked {
+					return ""
+				}
 			}
 		}
 		if text != "" {
@@ -410,13 +431,17 @@ func normalBubbleVerb(text string) string {
 // directly on m[16:], which may be modified during decoding (e.g., when
 // decrypting).
 func decodeMessage(m []byte) string {
+	return decodeSessionMessage(primarySession, m)
+}
+
+func decodeSessionMessage(session *Session, m []byte) string {
 	if len(m) <= 16 {
 		return ""
 	}
 	data := m[16:]
 	for attempt := 0; attempt < 2; attempt++ {
 		if len(data) > 0 && data[0] == 0xC2 {
-			if s := decodeBEPP(data); s != "" {
+			if s := decodeSessionBEPP(session, data); s != "" {
 				return s
 			}
 			return ""
@@ -453,20 +478,8 @@ func handleSessionInfoText(session *Session, data []byte) {
 			continue
 		}
 		if line[0] == 0xC2 {
-			if session == primarySession {
-				if txt := decodeBEPP(line); txt != "" {
-					session.publishConsole(txt, messageTextTypeSystem)
-				}
-			} else {
-				// BEPP handlers still update the primary script/player/music
-				// adapters. Preserve the source-tagged command for this session
-				// until those backends move behind Session as well.
-				if len(line) < 3 {
-					continue
-				}
-				raw := line[3:]
-				cleaned := stripBEPPTags(append([]byte(nil), raw...))
-				session.publishInfoCommand(strings.TrimSpace(decodeServerText(cleaned)))
+			if txt := decodeSessionBEPP(session, line); txt != "" {
+				session.publishConsole(txt, messageTextTypeSystem)
 			}
 			continue
 		}

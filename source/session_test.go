@@ -479,6 +479,118 @@ func Init() {
 	}
 }
 
+func TestSessionScriptsOwnServerAndChangeSubscriptions(t *testing.T) {
+	const firstOwner = "first-session-events"
+	const secondOwner = "second-session-events"
+	grantScriptPermissionsForTest(t, firstOwner)
+	grantScriptPermissionsForTest(t, secondOwner)
+
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	source := []byte(`package main
+import "gt2"
+func Init() {
+	gt2.OnServerMessage(gt2.ServerMessageFilter{}, func(event gt2.ServerMessage) {
+		gt2.Store("message", event.Message)
+		if latest, ok := gt2.LatestServerMessage(); ok {
+			gt2.Store("latest", latest.Message)
+		}
+	})
+	gt2.OnChange(gt2.ChangeInventory, func(event gt2.ChangeEvent) {
+		if len(event.Inventory) > 0 {
+			gt2.Store("inventory", event.Inventory[0].Name)
+		}
+	})
+	gt2.OnChange(gt2.ChangeLocation, func(event gt2.ChangeEvent) {
+		gt2.Store("location", event.Location)
+	})
+	gt2.OnWorld(func(world gt2.World) {
+		gt2.Store("world", world.Location)
+	})
+}
+`)
+	if err := first.startSessionScript(firstOwner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session events script: %v", err)
+	}
+	if err := second.startSessionScript(secondOwner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session events script: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(firstOwner, "test cleanup")
+		second.stopSessionScript(secondOwner, "test cleanup")
+	})
+
+	first.pollSessionScriptChangeEvents()
+	second.pollSessionScriptChangeEvents()
+	firstMessage := make([]byte, 16, 32)
+	binary.BigEndian.PutUint16(firstMessage[:2], 3)
+	firstMessage = append(firstMessage, 0xc2, 'e', 'r')
+	firstMessage = append(firstMessage, "first notice"...)
+	processSessionServerMessageAt(first, firstMessage, time.Now())
+	deadline := time.Now().Add(time.Second)
+	for scriptStorageGet(firstOwner, "latest") != "first notice" && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := scriptStorageGet(firstOwner, "latest"); got != "first notice" {
+		t.Fatalf("first latest server message = %#v", got)
+	}
+	handleSessionInfoText(first, append([]byte{0xc2, 'l', 'o'}, []byte("First Shore")...))
+	first.inventory.add(100, -1, "Moonstone", false)
+	first.draw.generation.Store(3)
+	first.pollSessionScriptChangeEvents()
+
+	deadline = time.Now().Add(time.Second)
+	for (scriptStorageGet(firstOwner, "message") != "First Shore" ||
+		scriptStorageGet(firstOwner, "inventory") != "Moonstone" ||
+		scriptStorageGet(firstOwner, "location") != "First Shore" ||
+		scriptStorageGet(firstOwner, "world") != "First Shore") && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := scriptStorageGet(firstOwner, "latest"); got != "First Shore" {
+		t.Fatalf("first latest server message = %#v", got)
+	}
+	if got := scriptStorageGet(firstOwner, "inventory"); got != "Moonstone" {
+		t.Fatalf("first inventory change = %#v", got)
+	}
+	if got := scriptStorageGet(firstOwner, "location"); got != "First Shore" {
+		t.Fatalf("first location change = %#v", got)
+	}
+	if got := scriptStorageGet(firstOwner, "world"); got != "First Shore" {
+		t.Fatalf("first world change = %#v", got)
+	}
+	for _, key := range []string{"message", "latest", "inventory", "location", "world"} {
+		if got := scriptStorageGet(secondOwner, key); got != nil {
+			t.Fatalf("first session %s event crossed into second script: %#v", key, got)
+		}
+	}
+
+	second.publishConsole("second notice", messageTextTypeSystem)
+	deadline = time.Now().Add(time.Second)
+	for scriptStorageGet(secondOwner, "latest") != "second notice" && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	handleSessionInfoText(second, append([]byte{0xc2, 'l', 'o'}, []byte("Second Shore")...))
+	second.inventory.add(200, -1, "Sunstone", false)
+	second.draw.generation.Store(7)
+	second.pollSessionScriptChangeEvents()
+	deadline = time.Now().Add(time.Second)
+	for (scriptStorageGet(secondOwner, "message") != "Second Shore" ||
+		scriptStorageGet(secondOwner, "inventory") != "Sunstone" ||
+		scriptStorageGet(secondOwner, "location") != "Second Shore" ||
+		scriptStorageGet(secondOwner, "world") != "Second Shore") && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := scriptStorageGet(secondOwner, "latest"); got != "Second Shore" {
+		t.Fatalf("second latest server message = %#v", got)
+	}
+	if got := scriptStorageGet(secondOwner, "inventory"); got != "Sunstone" {
+		t.Fatalf("second inventory change = %#v", got)
+	}
+	if got := scriptStorageGet(firstOwner, "message"); got != "First Shore" {
+		t.Fatalf("second server message changed first script: %#v", got)
+	}
+}
+
 func TestSessionsOwnIndependentScriptTimersAndTickWaiters(t *testing.T) {
 	const owner = "shared-session-timers"
 	grantScriptPermissionsForTest(t, owner)

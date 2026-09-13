@@ -3,6 +3,8 @@ package main
 import (
 	"sync"
 	"time"
+
+	scriptapi "gt2"
 )
 
 const maxSessionEvents = 1000
@@ -113,6 +115,8 @@ func (s *Session) publishConsole(text, messageType string) {
 	s.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: text, MessageType: messageType})
 	if s == primarySession {
 		serverConsoleMessageTyped(text, messageType)
+	} else {
+		s.dispatchSessionScriptServerMessage(scriptapi.ServerMessage{Message: text, Type: messageType})
 	}
 }
 

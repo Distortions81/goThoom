@@ -1161,6 +1161,9 @@ func handleSessionDrawStateAt(session *Session, m []byte, buildCache bool, recei
 	if session != primarySession || !seekingMov {
 		session.advanceScriptTick()
 	}
+	if session != primarySession {
+		session.pollSessionScriptChangeEvents()
+	}
 	return true
 }
 

@@ -418,13 +418,13 @@ func processSessionServerMessageAt(session *Session, msg []byte, receivedAt time
 		}
 		return
 	}
-	if session != primarySession {
-		session.publishInfoCommand(decodeServerText(msg[2:]))
-		return
-	}
-	if txt := decodeMessage(msg); txt != "" {
-		session.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: txt, MessageType: messageTextTypeSystem})
-		consoleMessage(txt)
+	if txt := decodeSessionMessage(session, msg); txt != "" {
+		if session == primarySession {
+			session.publishEvent(sessionEvent{Kind: sessionEventConsole, Text: txt, MessageType: messageTextTypeSystem})
+			consoleMessage(txt)
+		} else {
+			session.publishConsole(txt, messageTextTypeSystem)
+		}
 	} else {
 		logDebug("msg tag %d len %d", tag, len(msg))
 	}
