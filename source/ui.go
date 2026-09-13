@@ -526,6 +526,7 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 	row2.AddItem(exitBtn)
 
 	sessionsToolbarButton, sessionsEvents := eui.NewButton()
+	setMaterialButtonIcon(sessionsToolbarButton, "dashboard_customize")
 	sessionsToolbarButton.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
 	sessionsToolbarButton.FontSize = toolFontSize
 	sessionsToolbarButton.Action = func() {

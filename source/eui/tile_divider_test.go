@@ -50,6 +50,13 @@ func TestDockedWindowDoesNotDrawStandaloneOutline(t *testing.T) {
 	if win.drawsStandaloneOutline() {
 		t.Fatal("docked pane requested an outer window outline")
 	}
+	win.BorderColor = ColorBlue
+	if !win.drawsStandaloneOutline() {
+		t.Fatal("explicitly highlighted docked pane did not request its outline")
+	}
+	if got := win.borderColor(); got != ColorBlue {
+		t.Fatalf("explicit border color = %v, want %v", got, ColorBlue)
+	}
 }
 
 func TestFixedNonMovableWindowCornerDoesNotBecomeMoveHandle(t *testing.T) {

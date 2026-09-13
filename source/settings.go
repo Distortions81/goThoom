@@ -1020,7 +1020,7 @@ func writeSettingsFile(value settings) error {
 
 func syncWindowSettings() bool {
 	changed := false
-	if syncWindow(gameWin, &gs.GameWindow) {
+	if !appSessions.multiEnabled() && syncWindow(gameWin, &gs.GameWindow) {
 		changed = true
 	}
 	if syncWindow(inventoryWin, &gs.InventoryWindow) {

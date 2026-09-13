@@ -93,11 +93,12 @@ func NewWindow() *windowData {
 		currentTheme = baseTheme
 	}
 	newWindow := currentTheme.Window
-	// Window background colors are theme values unless the caller explicitly
-	// overrides them. Leaving the copied values here freezes the palette that
-	// was active when the window was created.
+	// Window colors are theme values unless the caller explicitly overrides
+	// them. Leaving the copied values here freezes the palette that was active
+	// when the window was created.
 	newWindow.BGColor = Color{}
 	newWindow.TitleBGColor = Color{}
+	newWindow.BorderColor = Color{}
 	// Default: windows can be maximized if desired by the app
 	newWindow.Maximizable = false
 	newWindow.Theme = currentTheme

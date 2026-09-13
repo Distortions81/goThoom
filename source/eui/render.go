@@ -548,10 +548,10 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 	// each docked pane would also stroke the outside edge of the screen and
 	// double-draw shared pane edges.
 	if win.drawsStandaloneOutline() {
-		FrameColor := win.Theme.Window.BorderColor
-		if activeWindow == win {
+		FrameColor := win.borderColor()
+		if win.BorderColor == (Color{}) && activeWindow == win {
 			FrameColor = win.Theme.Window.ActiveColor
-		} else if win.Hovered {
+		} else if win.BorderColor == (Color{}) && win.Hovered {
 			FrameColor = win.Theme.Window.HoverColor
 		}
 		drawWindowOutline(screen, win.getPosition(), win.GetSize(), win.Fillet, win.Border, FrameColor)
@@ -562,7 +562,14 @@ func (win *windowData) drawBorder(screen *ebiten.Image) {
 }
 
 func (win *windowData) drawsStandaloneOutline() bool {
-	return !win.Docked && win.Outlined && win.Border > 0
+	return win.Outlined && win.Border > 0 && (!win.Docked || win.BorderColor != (Color{}))
+}
+
+func (win *windowData) borderColor() Color {
+	if win.BorderColor != (Color{}) {
+		return win.BorderColor
+	}
+	return win.Theme.Window.BorderColor
 }
 
 func drawWindowOutline(screen *ebiten.Image, pos, size point, fillet, border float32, col Color) {
@@ -653,10 +660,10 @@ func (win *windowData) drawResizeThumb(screen *ebiten.Image) {
 	x1 := pos.X + win.GetSize().X - pad
 	y1 := pos.Y + win.GetSize().Y - pad
 
-	col := win.Theme.Window.BorderColor
-	if activeWindow == win {
+	col := win.borderColor()
+	if win.BorderColor == (Color{}) && activeWindow == win {
 		col = win.Theme.Window.ActiveColor
-	} else if win.Hovered {
+	} else if win.BorderColor == (Color{}) && win.Hovered {
 		col = win.Theme.Window.HoverColor
 	}
 

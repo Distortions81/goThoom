@@ -63,6 +63,10 @@ and verifies that a new folder is readable and writable before saving it.
 - **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
   Players, Inventory, Chat, and Console panes. The **Actions** toolbar menu opens
   Hotkeys, Shortcuts, scripts, macros, and saved data.
+- **Multiple sessions:** Use **Multi-session** on the toolbar after startup to
+  open four independent session views. The Sessions window switches between
+  movable Freeform views and a 2×2 grid; click a view to make it the target for
+  input and shared panels. See the [multi-session guide](docs/MultiSession.md).
 - **Inventory:** Click to select, double-click to equip or unequip, and
   Shift-double-click to use. Right-click for more actions.
 - **Players:** Right-click a player for common actions such as Thank, Share,

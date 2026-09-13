@@ -39,12 +39,19 @@ type viewportRenderState struct {
 	image              *ebiten.Image
 	imageBacking       *ebiten.Image
 	inAspectResize     bool
+	freeformChromeSet  bool
+	freeformTitle      float32
+	freeformPadding    float32
+	freeformMargin     float32
+	freeformBorder     float32
+	freeformOutlined   bool
 	bubbleHistory      map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
 	bubbleLayout       bubbleLayoutContext
 	loginOverlay       *eui.ItemData
 	loginForm          *eui.ItemData
 	loginStatus        *eui.ItemData
 	loginServerChoice  *eui.ItemData
+	loginSavedChoice   *eui.ItemData
 	loginCharacterItem *eui.ItemData
 	loginPasswordItem  *eui.ItemData
 	loginRememberItem  *eui.ItemData
@@ -117,6 +124,30 @@ func (m *viewportManager) snapshot() [maxSessions]Viewport {
 	views := m.views
 	m.mu.RUnlock()
 	return views
+}
+
+func (m *viewportManager) layoutSnapshot() viewportLayout {
+	if m == nil {
+		return viewportLayoutSingle
+	}
+	m.mu.RLock()
+	layout := m.layout
+	m.mu.RUnlock()
+	return layout
+}
+
+func (m *viewportManager) setLayout(layout viewportLayout) bool {
+	if m == nil || layout == viewportLayoutSingle {
+		return false
+	}
+	m.mu.Lock()
+	changed := m.layout != layout
+	m.layout = layout
+	for slot := range m.views {
+		m.views[slot].Active = true
+	}
+	m.mu.Unlock()
+	return changed
 }
 
 func (m *viewportManager) enableMulti(layout viewportLayout) {

@@ -11,6 +11,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var (
+	viewportWorkspaceAppliedLayout viewportLayout
+	viewportWorkspaceScreenWidth   int
+	viewportWorkspaceScreenHeight  int
+)
+
 func viewportTitle(session *Session) string {
 	if session == nil {
 		return "Session"
@@ -28,16 +34,21 @@ func viewportTitle(session *Session) string {
 func refreshViewportTitles() {
 	views := appViewports.snapshot()
 	sessions := appSessions.snapshot()
+	multi := appSessions.multiEnabled()
 	for slot, view := range views {
 		if view.render != nil && view.render.window != nil && sessions[slot] != nil {
 			title := viewportTitle(sessions[slot])
-			if appSessions.multiEnabled() && appSessions.selectedID() == sessions[slot].ID() {
+			if !multi && slot == 0 {
+				title = gameWindowTitle()
+			}
+			if multi && appSessions.selectedID() == sessions[slot].ID() {
 				title += " [Selected]"
 			}
 			view.render.window.Title = title
 			view.render.window.Dirty = true
 		}
 	}
+	refreshViewportSelectionTreatment()
 }
 
 func bindPrimaryViewportWindow() {
@@ -49,6 +60,45 @@ func bindPrimaryViewportWindow() {
 	state.imageItem = gameImageItem
 	state.image = gameImage
 	state.imageBacking = gameImageBacking
+	captureViewportFreeformChrome(state)
+}
+
+func captureViewportFreeformChrome(state *viewportRenderState) {
+	if state == nil || state.window == nil || state.freeformChromeSet {
+		return
+	}
+	win := state.window
+	state.freeformTitle = win.GetRawTitleSize()
+	state.freeformPadding = win.Padding
+	state.freeformMargin = win.Margin
+	state.freeformBorder = win.Border
+	state.freeformOutlined = win.Outlined
+	if win == gameWin {
+		if gameWindowFreeformTitleHeight > 0 {
+			state.freeformTitle = gameWindowFreeformTitleHeight
+		}
+		if gameWindowFreeformPadding > 0 {
+			state.freeformPadding = gameWindowFreeformPadding
+		}
+		if gameWindowFreeformMargin > 0 {
+			state.freeformMargin = gameWindowFreeformMargin
+		}
+	}
+	state.freeformChromeSet = true
+}
+
+func primaryViewportUsesTiledSizing() bool {
+	if appSessions != nil && appSessions.multiEnabled() {
+		return appViewports.layoutSnapshot() == viewportLayoutTiled
+	}
+	return gs.TiledWindows
+}
+
+func viewportUsesTiledSizing(id ViewportID) bool {
+	if appSessions != nil && appSessions.multiEnabled() {
+		return appViewports.layoutSnapshot() == viewportLayoutTiled
+	}
+	return id == 1 && gs.TiledWindows
 }
 
 func syncPrimaryViewportAliases(state *viewportRenderState) {
@@ -169,6 +219,65 @@ func viewportLoginServerOptions(server string) ([]string, int) {
 	return options, selected
 }
 
+const viewportLoginSavedCharacterPrompt = "Choose a saved character..."
+
+func viewportLoginSavedCharacterOptions(characterName string) ([]string, int) {
+	options := make([]string, 1, len(characters)+1)
+	options[0] = viewportLoginSavedCharacterPrompt
+	selected := 0
+	for _, character := range characters {
+		options = append(options, character.Name)
+		if strings.EqualFold(character.Name, strings.TrimSpace(characterName)) {
+			selected = len(options) - 1
+		}
+	}
+	return options, selected
+}
+
+func viewportLoginRememberPreference(session *Session, characterName string) bool {
+	if session != nil {
+		if _, remember, staged := session.login.stagedPasswordSettings(characterName); staged {
+			return remember
+		}
+	}
+	for _, character := range characters {
+		if strings.EqualFold(character.Name, strings.TrimSpace(characterName)) {
+			return !character.DontRemember
+		}
+	}
+	return true
+}
+
+func selectViewportLoginSavedCharacter(state *viewportRenderState, session *Session, characterName string) bool {
+	if state == nil || session == nil {
+		return false
+	}
+	character, ok := selectedCharacter(characterName)
+	if !ok {
+		return false
+	}
+	state.loginCharacter = character.Name
+	state.loginPassword = ""
+	state.loginRemember = viewportLoginRememberPreference(session, character.Name)
+	if state.loginCharacterItem != nil {
+		state.loginCharacterItem.Text = state.loginCharacter
+		state.loginCharacterItem.Dirty = true
+	}
+	if state.loginPasswordItem != nil {
+		clearPasswordInput(state.loginPasswordItem, &state.loginPassword)
+	}
+	if state.loginRememberItem != nil {
+		state.loginRememberItem.Checked = state.loginRemember
+		state.loginRememberItem.Dirty = true
+	}
+	if state.loginSavedChoice != nil {
+		state.loginSavedChoice.Options, state.loginSavedChoice.Selected = viewportLoginSavedCharacterOptions(state.loginCharacter)
+		state.loginSavedChoice.Dirty = true
+	}
+	appSessions.selectSession(session.ID())
+	return true
+}
+
 func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 	if state == nil || state.window == nil || session == nil || state.loginOverlay != nil {
 		return
@@ -182,7 +291,7 @@ func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 	if session == primarySession && state.loginCharacter == "" {
 		state.loginCharacter = strings.TrimSpace(name)
 	}
-	state.loginRemember = passwordRememberPreference(state.loginCharacter)
+	state.loginRemember = viewportLoginRememberPreference(session, state.loginCharacter)
 
 	heading, _ := eui.NewText()
 	heading.Text = fmt.Sprintf("Connect Session %d", session.ID())
@@ -202,6 +311,20 @@ func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 	}
 	state.loginServerChoice = serverChoice
 
+	savedChoice, savedEvents := eui.NewDropdown()
+	savedChoice.Label = "Saved Character"
+	savedChoice.Size = eui.Point{X: 360, Y: 32}
+	savedChoice.Options, savedChoice.Selected = viewportLoginSavedCharacterOptions(state.loginCharacter)
+	savedChoice.Disabled = len(characters) == 0
+	savedChoice.SetTooltip("Choose a character saved on this computer, or type another name below.")
+	savedEvents.Handle = func(event eui.UIEvent) {
+		if event.Type != eui.EventDropdownSelected || event.Index <= 0 || event.Index >= len(savedChoice.Options) {
+			return
+		}
+		selectViewportLoginSavedCharacter(state, session, savedChoice.Options[event.Index])
+	}
+	state.loginSavedChoice = savedChoice
+
 	characterInput, characterEvents := eui.NewInput()
 	characterInput.Label = "Character"
 	characterInput.TextPtr = &state.loginCharacter
@@ -209,7 +332,11 @@ func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 	characterInput.Size = eui.Point{X: 360, Y: 32}
 	characterEvents.Handle = func(event eui.UIEvent) {
 		if event.Type == eui.EventInputChanged {
-			state.loginRemember = passwordRememberPreference(state.loginCharacter)
+			state.loginRemember = viewportLoginRememberPreference(session, state.loginCharacter)
+			if state.loginSavedChoice != nil {
+				state.loginSavedChoice.Options, state.loginSavedChoice.Selected = viewportLoginSavedCharacterOptions(state.loginCharacter)
+				state.loginSavedChoice.Dirty = true
+			}
 			if state.loginRememberItem != nil {
 				state.loginRememberItem.Checked = state.loginRemember
 				state.loginRememberItem.Dirty = true
@@ -305,7 +432,7 @@ func makeViewportLoginOverlay(state *viewportRenderState, session *Session) {
 	state.loginAction = action
 
 	actions := eui.NewRow(action)
-	form := eui.NewColumn(heading, serverChoice, characterInput, passwordInput, remember, statusItem, actions)
+	form := eui.NewColumn(heading, serverChoice, savedChoice, characterInput, passwordInput, remember, statusItem, actions)
 	state.loginForm = form
 	overlay := eui.NewColumn(form)
 	overlay.Fixed = true
@@ -329,7 +456,7 @@ func layoutViewportLoginOverlay(state *viewportRenderState) {
 	}
 	controlWidth := float32(math.Min(360, float64(float32(max(120, bounds.Dx()-24))/scale)))
 	for index, item := range state.loginForm.Contents {
-		if index >= 6 {
+		if index >= len(state.loginForm.Contents)-1 {
 			break
 		}
 		item.Size.X = controlWidth
@@ -373,6 +500,9 @@ func refreshViewportLoginOverlay(state *viewportRenderState, session *Session, m
 	state.loginStatus.Dirty = true
 	busy := session.transport.busy()
 	state.loginServerChoice.Disabled = busy
+	state.loginSavedChoice.Options, state.loginSavedChoice.Selected = viewportLoginSavedCharacterOptions(state.loginCharacter)
+	state.loginSavedChoice.Disabled = busy || len(characters) == 0
+	state.loginSavedChoice.Dirty = true
 	state.loginCharacterItem.Disabled = busy
 	state.loginPasswordItem.Disabled = busy
 	state.loginRememberItem.Disabled = busy
@@ -406,6 +536,10 @@ func resizeViewportWindow(state *viewportRenderState) {
 		return
 	}
 	win := state.window
+	if appViewports.layoutSnapshot() == viewportLayoutTiled {
+		updateViewportImageSize(state, true)
+		return
+	}
 	if state.inAspectResize {
 		updateViewportImageSize(state, false)
 		return
@@ -450,6 +584,7 @@ func configureSecondaryViewportWindow(view Viewport, session *Session) {
 	win.Movable = true
 	win.Maximizable = false
 	state.window = win
+	captureViewportFreeformChrome(state)
 	win.OnResize = func() { resizeViewportWindow(state) }
 
 	screenW, screenH := eui.ScreenSize()
@@ -461,6 +596,196 @@ func configureSecondaryViewportWindow(view Viewport, session *Session) {
 	_ = win.SetPos(eui.Point{X: float32(12 + col*(width+12)), Y: float32(12 + row*(height+12))})
 	updateViewportImageSize(state, false)
 	win.MarkOpen()
+}
+
+func setMultiSessionViewportLayout(layout viewportLayout) bool {
+	if appSessions == nil || !appSessions.multiEnabled() || (layout != viewportLayoutFreeform && layout != viewportLayoutTiled) {
+		return false
+	}
+	if appViewports.layoutSnapshot() == layout {
+		return true
+	}
+	if appViewports.layoutSnapshot() == viewportLayoutFreeform {
+		syncMultiSessionWorkspace()
+	}
+	appViewports.setLayout(layout)
+	markMultiSessionWorkspaceUsed()
+	multiSessionWorkspace.Layout = viewportLayoutName(layout)
+	multiSessionWorkspaceDirty = true
+	applyMultiSessionViewportLayout(true)
+	refreshViewportTitles()
+	refreshSessionsWindow()
+	return true
+}
+
+func viewportLayoutName(layout viewportLayout) string {
+	if layout == viewportLayoutTiled {
+		return "tiled"
+	}
+	return "freeform"
+}
+
+func applyMultiSessionViewportLayoutIfNeeded() {
+	if appSessions == nil || !appSessions.multiEnabled() {
+		return
+	}
+	screenWidth, screenHeight := eui.ScreenSize()
+	layout := appViewports.layoutSnapshot()
+	if viewportWorkspaceAppliedLayout == layout && viewportWorkspaceScreenWidth == screenWidth && viewportWorkspaceScreenHeight == screenHeight {
+		return
+	}
+	applyMultiSessionViewportLayout(false)
+}
+
+func applyMultiSessionViewportLayout(force bool) {
+	if appSessions == nil || !appSessions.multiEnabled() {
+		return
+	}
+	layout := appViewports.layoutSnapshot()
+	screenWidth, screenHeight := eui.ScreenSize()
+	if !force && viewportWorkspaceAppliedLayout == layout && viewportWorkspaceScreenWidth == screenWidth && viewportWorkspaceScreenHeight == screenHeight {
+		return
+	}
+	if layout == viewportLayoutTiled {
+		applyTiledSessionViewports()
+	} else {
+		applyFreeformSessionViewports()
+	}
+	viewportWorkspaceAppliedLayout = layout
+	viewportWorkspaceScreenWidth = screenWidth
+	viewportWorkspaceScreenHeight = screenHeight
+	refreshViewportSelectionTreatment()
+}
+
+func applyFreeformSessionViewports() {
+	screenWidth, screenHeight := eui.ScreenSize()
+	for slot, view := range appViewports.snapshot() {
+		state := view.render
+		if !view.Active || state == nil || state.window == nil {
+			continue
+		}
+		configureFreeformViewportChrome(state)
+		placement := multiSessionWorkspace.ViewportSlots[slot]
+		if multiSessionViewportPlacementValid(placement) && screenWidth > 0 && screenHeight > 0 {
+			state.inAspectResize = true
+			_ = state.window.SetSize(eui.Point{X: float32(placement.Size.X * float64(screenWidth)), Y: float32(placement.Size.Y * float64(screenHeight))})
+			state.inAspectResize = false
+			_ = state.window.SetPos(eui.Point{X: float32(placement.Position.X * float64(screenWidth)), Y: float32(placement.Position.Y * float64(screenHeight))})
+		}
+		resizeViewportWindow(state)
+		state.window.MarkOpen()
+	}
+}
+
+func configureFreeformViewportChrome(state *viewportRenderState) {
+	if state == nil || state.window == nil {
+		return
+	}
+	captureViewportFreeformChrome(state)
+	win := state.window
+	win.SetDocked(false)
+	win.TitleHeight = state.freeformTitle
+	win.Padding = state.freeformPadding
+	win.Margin = state.freeformMargin
+	win.Border = state.freeformBorder
+	win.Outlined = state.freeformOutlined
+	win.BorderColor = eui.Color{}
+	win.Closable = false
+	win.Movable = true
+	win.Resizable = true
+	win.Maximizable = false
+	win.Dirty = true
+}
+
+func applyTiledSessionViewports() {
+	area := multiSessionGameArea()
+	if area.Empty() {
+		return
+	}
+	appViewports.tile(area)
+	rects := tiledViewportRects(area)
+	for slot, view := range appViewports.snapshot() {
+		state := view.render
+		if !view.Active || state == nil || state.window == nil {
+			continue
+		}
+		configureTiledViewportChrome(state)
+		state.inAspectResize = true
+		state.window.Resizable = true
+		_ = state.window.SetPos(eui.Point{X: float32(rects[slot].Min.X), Y: float32(rects[slot].Min.Y)})
+		_ = state.window.SetSize(eui.Point{X: float32(rects[slot].Dx()), Y: float32(rects[slot].Dy())})
+		state.window.Resizable = false
+		state.inAspectResize = false
+		updateViewportImageSize(state, true)
+		state.window.MarkOpen()
+	}
+}
+
+func configureTiledViewportChrome(state *viewportRenderState) {
+	if state == nil || state.window == nil {
+		return
+	}
+	captureViewportFreeformChrome(state)
+	win := state.window
+	win.SetDocked(true)
+	win.TitleHeight = state.freeformTitle
+	win.Padding = 0
+	win.Margin = 0
+	win.Closable = false
+	win.Movable = false
+	win.Maximizable = false
+	win.Dirty = true
+}
+
+func multiSessionGameArea() image.Rectangle {
+	screenWidth, screenHeight := eui.ScreenSize()
+	if screenWidth <= 0 || screenHeight <= 0 {
+		return image.Rectangle{}
+	}
+	state := gs.GameWindow
+	if normalizedWindowStateValid(state, true) {
+		x0 := int(math.Round(state.Position.X * float64(screenWidth)))
+		y0 := int(math.Round(state.Position.Y * float64(screenHeight)))
+		x1 := x0 + int(math.Round(state.Size.X*float64(screenWidth)))
+		y1 := y0 + int(math.Round(state.Size.Y*float64(screenHeight)))
+		area := image.Rect(max(0, x0), max(0, y0), min(screenWidth, x1), min(screenHeight, y1))
+		if !area.Empty() {
+			return area
+		}
+	}
+	if gameWin == nil {
+		return image.Rectangle{}
+	}
+	pos, size := gameWin.GetPos(), gameWin.GetSize()
+	return image.Rect(int(pos.X), int(pos.Y), int(pos.X+size.X), int(pos.Y+size.Y))
+}
+
+func refreshViewportSelectionTreatment() {
+	selected := SessionID(0)
+	if appSessions != nil {
+		selected = appSessions.selectedID()
+	}
+	tiled := appSessions != nil && appSessions.multiEnabled() && appViewports.layoutSnapshot() == viewportLayoutTiled
+	for _, view := range appViewports.snapshot() {
+		state := view.render
+		if state == nil || state.window == nil {
+			continue
+		}
+		if tiled && view.SessionID == selected {
+			state.window.Outlined = true
+			state.window.Border = 3
+			state.window.BorderColor = eui.AccentColor()
+		} else if tiled {
+			state.window.Outlined = false
+			state.window.Border = state.freeformBorder
+			state.window.BorderColor = eui.Color{}
+		} else {
+			state.window.Outlined = state.freeformOutlined
+			state.window.Border = state.freeformBorder
+			state.window.BorderColor = eui.Color{}
+		}
+		state.window.Dirty = true
+	}
 }
 
 func refreshViewportWorkspace() {
@@ -501,6 +826,13 @@ func refreshViewportWorkspace() {
 			clearViewportLoginUI(state)
 		}
 	}
+	if multi {
+		applyMultiSessionViewportLayoutIfNeeded()
+	} else if viewportWorkspaceAppliedLayout != viewportLayoutSingle {
+		viewportWorkspaceAppliedLayout = viewportLayoutSingle
+		viewportWorkspaceScreenWidth, viewportWorkspaceScreenHeight = eui.ScreenSize()
+		applyManagedWindowLayout()
+	}
 	if !multi && primarySession != nil && !primarySession.transport.connected() && !primarySession.transport.busy() && loginWin != nil && !loginWin.IsOpen() {
 		loginWin.MarkOpen()
 	}
@@ -515,6 +847,7 @@ func clearViewportLoginUI(state *viewportRenderState) {
 	state.loginForm = nil
 	state.loginStatus = nil
 	state.loginServerChoice = nil
+	state.loginSavedChoice = nil
 	state.loginCharacterItem = nil
 	state.loginPasswordItem = nil
 	state.loginRememberItem = nil

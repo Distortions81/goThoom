@@ -153,6 +153,10 @@ func (m *sessionManager) anyBusy() bool {
 }
 
 func (m *sessionManager) enableMulti() [maxSessions]*Session {
+	firstAppEnable := m == appSessions && !m.multiEnabled()
+	if firstAppEnable && gameWin != nil && syncWindow(gameWin, &gs.GameWindow) {
+		settingsDirty = true
+	}
 	m.mu.Lock()
 	m.multi = true
 	for slot := range m.slots {
@@ -165,7 +169,10 @@ func (m *sessionManager) enableMulti() [maxSessions]*Session {
 	slots := m.slots
 	m.mu.Unlock()
 	if m == appSessions {
-		appViewports.enableMulti(viewportLayoutFreeform)
+		markMultiSessionWorkspaceUsed()
+		appViewports.enableMulti(preferredMultiSessionLayout())
+		m.selectSession(multiSessionWorkspace.Selected)
+		selectMusicSource(multiSessionWorkspace.MusicSource)
 		queueMusicSourceUIUpdate()
 		queueSessionWorkspaceUIUpdate()
 	}
@@ -186,12 +193,17 @@ func (m *sessionManager) disableMulti() bool {
 	if m == nil || m.anyBusy() {
 		return false
 	}
+	if m == appSessions {
+		syncMultiSessionWorkspace()
+		saveMultiSessionWorkspace()
+	}
 	m.mu.Lock()
 	m.multi = false
 	m.selected = primarySessionID
 	m.mu.Unlock()
 	if m == appSessions {
 		appViewports.disableMulti()
+		selectMusicSource(primarySessionID)
 	}
 	queueSelectedSessionUIUpdate()
 	queueSessionWorkspaceUIUpdate()
@@ -241,6 +253,11 @@ func (m *sessionManager) selectSession(id SessionID) bool {
 	if changed {
 		inventoryDirty = true
 		playersDirty = true
+		if m == appSessions && m.multiEnabled() {
+			markMultiSessionWorkspaceUsed()
+			multiSessionWorkspace.Selected = id
+			multiSessionWorkspaceDirty = true
+		}
 		queueSelectedSessionUIUpdate()
 	}
 	return true

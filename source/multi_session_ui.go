@@ -38,12 +38,11 @@ func refreshSessionsToolbarButton() {
 		return
 	}
 	sessionsToolbarButton.Disabled = !sessionsReady()
+	sessionsToolbarButton.Text = "Sessions"
 	if appSessions.multiEnabled() {
-		sessionsToolbarButton.Text = "Sessions"
 		sessionsToolbarButton.SetTooltip("Open session controls and switch the selected character.")
 	} else {
-		sessionsToolbarButton.Text = "Multi-session"
-		sessionsToolbarButton.SetTooltip("Open four independent character session slots.")
+		sessionsToolbarButton.SetTooltip("Start multi-session mode with four independent character slots.")
 	}
 	sessionsToolbarButton.Dirty = true
 }
@@ -69,6 +68,34 @@ func refreshSessionsWindow() {
 		return
 	}
 	root := eui.NewColumn()
+	layoutRow := eui.NewRow()
+	layoutLabel, _ := eui.NewText()
+	layoutLabel.Text = "Session layout"
+	layoutLabel.Size = eui.Point{X: 180, Y: 28}
+	layoutRow.AddItem(layoutLabel)
+	freeform, freeformEvents := eui.NewButton()
+	freeform.Text = "Freeform"
+	freeform.Size = eui.Point{X: 120, Y: 28}
+	freeform.Disabled = appViewports.layoutSnapshot() == viewportLayoutFreeform
+	freeform.SetTooltip("Move and resize the four session views independently.")
+	freeformEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			setMultiSessionViewportLayout(viewportLayoutFreeform)
+		}
+	}
+	layoutRow.AddItem(freeform)
+	tiled, tiledEvents := eui.NewButton()
+	tiled.Text = "Tiled 2×2"
+	tiled.Size = eui.Point{X: 120, Y: 28}
+	tiled.Disabled = appViewports.layoutSnapshot() == viewportLayoutTiled
+	tiled.SetTooltip("Fit all four session views into the current game-window area.")
+	tiledEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick {
+			setMultiSessionViewportLayout(viewportLayoutTiled)
+		}
+	}
+	layoutRow.AddItem(tiled)
+	root.AddItem(layoutRow)
 	for _, session := range appSessions.snapshot() {
 		if session == nil {
 			continue

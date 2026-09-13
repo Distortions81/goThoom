@@ -55,6 +55,11 @@ func selectMusicSource(id SessionID) bool {
 	appMusicSource.source = id
 	stopMusicSourcePlayback()
 	appMusicSource.mu.Unlock()
+	if appSessions != nil && appSessions.multiEnabled() {
+		markMultiSessionWorkspaceUsed()
+		multiSessionWorkspace.MusicSource = id
+		multiSessionWorkspaceDirty = true
+	}
 	queueMusicSourceUIUpdate()
 	return true
 }

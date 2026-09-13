@@ -5,6 +5,11 @@ goThoom stores persistent settings in the categorized version 4
 control in Settings, Mixer, Notifications, Speech
 Bubbles, Controller, or Window Layout. This document lists the exceptions.
 
+After multi-session is used, `multi_session.json` separately stores its
+Freeform/Tiled choice, four freeform view rectangles, selected session, and
+bard-music source. Keeping this workspace metadata separate leaves the normal
+single-session window layout unchanged.
+
 ## Settings navigation
 
 Settings and configuration controls with hover help display a small circled

@@ -23,7 +23,7 @@ of the other sessions.
 | Input target | The selected session view is the sole target for keyboard input, chat submission, movement, commands, hotkeys, toolbar actions, and shared panels. |
 | Shared panels | Chat/console, Players, and Inventory remain one set of UI windows and rebind to the selected session.  Their title/input border visibly show the selected character. |
 | Freeform workspace | Multi-session mode opens four movable/resizable game windows, one session slot per window. |
-| Tiled workspace | Subdivide the existing game-window area into a 2x2 grid of session slots.  Occupied slots show sessions; unused slots show an add-character/login surface. |
+| Tiled workspace | Subdivide the existing game-window area into a 2x2 grid of session slots.  Every disconnected slot shows its embedded login surface. |
 | Session activation | Start every application in single-session mode.  Additional sessions become available only after the client is ready for sessions. |
 | Mode control | A toolbar control switches between single-session and multi-session workspaces.  Entering multi-session mode creates four login-ready session slots. |
 | Leaving multi-session | The workspace cannot return to single-session while any session is logged in.  The user must log out of every session or quit the application. |
@@ -315,11 +315,12 @@ quitting the application.
    add layout persistence.  The four slots already provide the explicit
    initial maximum.
 
-Freeform rendering, pointer routing, and full-area login/connection states are
-implemented through step 3. Each viewport owns its EUI window, visible image,
+Phase 4 is implemented. Each viewport owns its EUI window, visible image,
 grow-only backing image, draw snapshot, reuse key, and login controls. The
-remaining Phase 4 work is tiled composition, selected-tile treatment, and
-layout persistence.
+Sessions window switches between restored freeform geometry and a fixed 2x2
+grid in the existing game area. The selected tile uses the theme accent, and
+`multi_session.json` preserves the preferred layout, freeform positions,
+selected session, and music source after multi-session has been used.
 
 ### Phase 5: harden and document
 

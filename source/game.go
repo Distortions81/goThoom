@@ -155,13 +155,14 @@ func updateDimmedScreenBG() {
 		B: uint8(uint16(c.B) / 2),
 		A: 255,
 	}
+	refreshViewportSelectionTreatment()
 }
 
 // updateGameImageSize ensures the game image item exists and matches the
 // current inner content size of the game window.
 func updateGameImageSize() {
 	bindPrimaryViewportWindow()
-	updateViewportImageSize(appViewports.renderStateForViewport(1), gs.TiledWindows)
+	updateViewportImageSize(appViewports.renderStateForViewport(1), primaryViewportUsesTiledSizing())
 }
 
 func worldArtworkFilter() ebiten.Filter {
@@ -1217,6 +1218,7 @@ func (g *Game) Update() error {
 	if syncWindowSettings() {
 		settingsDirty = true
 	}
+	syncMultiSessionWorkspace()
 
 	if now.Sub(lastQualityPresetCheck) >= time.Second {
 		if settingsDirty && qualityPresetDD != nil {
@@ -1230,6 +1232,7 @@ func (g *Game) Update() error {
 			saveSettings()
 			settingsDirty = false
 		}
+		saveMultiSessionWorkspace()
 		lastSettingsSave = now
 	}
 
@@ -2160,7 +2163,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// Ensure every active viewport has a current image buffer.
 	for _, view := range appViewports.snapshot() {
 		if view.Active && view.render != nil {
-			updateViewportImageSize(view.render, view.ID == 1 && gs.TiledWindows)
+			updateViewportImageSize(view.render, viewportUsesTiledSizing(view.ID))
 		}
 	}
 	updateStreamIndicators(now)
@@ -4790,6 +4793,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 		} else if managedWindowLayoutChanged() {
 			applyManagedWindowLayout()
 		}
+		applyMultiSessionViewportLayoutIfNeeded()
 	}
 
 	if outsideWidth > 512 && outsideHeight > 384 {
@@ -4832,6 +4836,7 @@ func runGame(ctx context.Context) {
 		recordShutdownReason("game window closed")
 	}
 	saveSettings()
+	saveMultiSessionWorkspace()
 }
 
 func initGame() {
@@ -4843,6 +4848,7 @@ func initGame() {
 	resetInventory()
 
 	loadSettings()
+	loadMultiSessionWorkspace()
 	_ = loadThemeChoice(gs.Theme)
 	if gs.Style != "" {
 		eui.LoadStyle(gs.Style)
@@ -4960,7 +4966,7 @@ func onGameWindowResize() {
 	// rectangle to the playfield aspect ratio shrinks the managed tile and
 	// leaves an unused strip (most noticeably with the titlebar hidden).
 	// Keep the assigned tile intact and fit the rendered game within it.
-	if gs.TiledWindows {
+	if primaryViewportUsesTiledSizing() {
 		updateGameImageSize()
 		layoutNotifications()
 		return
