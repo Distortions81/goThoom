@@ -17,7 +17,8 @@ func characterShadowCompositeEnabled() bool {
 
 // layeredCharacterShadowsEnabled keeps each projected shadow at its caster's
 // painter-order position. The faster mode batches every directional shadow
-// into one final mask and therefore cannot preserve foreground occlusion.
+// into one below-mobile mask and therefore cannot shade later foreground
+// layers.
 func layeredCharacterShadowsEnabled() bool {
 	return characterShadowCompositeEnabled() && !gs.FasterCharacterShadows
 }

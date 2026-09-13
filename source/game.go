@@ -2314,6 +2314,10 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 	} else {
 		if shadowKind == characterShadowDirectional {
 			drawMobileShadows(screen, ox, oy, snap.mobiles, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, &mobileSunShade)
+			// The faster path prepares one combined mask. Apply it while only
+			// below-mobile scenery has been drawn so an opaque caster always
+			// covers its own shadow.
+			applyBatchedCharacterShadowsBelowMobiles(screen)
 		}
 		for _, m := range dead {
 			drawLayeredCharacterShadow(screen, m.Index)

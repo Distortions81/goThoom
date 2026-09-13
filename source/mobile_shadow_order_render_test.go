@@ -98,7 +98,49 @@ func (g *shadowOrderRenderGame) Draw(_ *ebiten.Image) {
 	if g.err == nil {
 		g.err = verifySparseLayeredShadowCoverage(g.t, texture, projection)
 	}
+	if g.err == nil {
+		g.err = verifyBatchedShadowStaysBelowOpaqueCaster()
+	}
 	g.rendered = true
+}
+
+func verifyBatchedShadowStaysBelowOpaqueCaster() error {
+	canvas := ebiten.NewImage(16, 8)
+	canvas.Fill(color.RGBA{R: 200, G: 200, B: 200, A: 255})
+	mask := ebiten.NewImage(16, 8)
+	mask.Fill(color.RGBA{A: 128})
+
+	previousMask, previousBounds := frameDetailedShadowMask, frameDetailedShadowBounds
+	defer func() {
+		frameDetailedShadowMask = previousMask
+		frameDetailedShadowBounds = previousBounds
+		mask.Deallocate()
+	}()
+	frameDetailedShadowMask = mask
+	frameDetailedShadowBounds = canvas.Bounds()
+	applyBatchedCharacterShadowsBelowMobiles(canvas)
+	if frameDetailedShadowMask != nil || !frameDetailedShadowBounds.Empty() {
+		return fmt.Errorf("batched shadow mask was not consumed below mobiles")
+	}
+
+	caster := ebiten.NewImage(4, 8)
+	defer caster.Deallocate()
+	casterColor := color.RGBA{R: 240, G: 40, B: 20, A: 255}
+	caster.Fill(casterColor)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(8, 0)
+	canvas.DrawImage(caster, op)
+
+	pixels := make([]byte, 16*8*4)
+	canvas.ReadPixels(pixels)
+	ground := shadowOrderPixel(pixels, 16, 4, 4)
+	if ground.R >= 200 || ground.G >= 200 || ground.B >= 200 {
+		return fmt.Errorf("batched shadow did not darken ground: %#v", ground)
+	}
+	if got := shadowOrderPixel(pixels, 16, 10, 4); got != casterColor {
+		return fmt.Errorf("batched shadow was drawn over its opaque caster: %#v", got)
+	}
+	return nil
 }
 
 func verifyLayeredShadowMaximum(command characterShadowDraw) error {

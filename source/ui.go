@@ -4931,7 +4931,7 @@ func newGraphicsPerformanceOptions() *eui.ItemData {
 	fasterShadowCB.Size = eui.Point{X: width, Y: 24}
 	fasterShadowCB.Checked = gs.FasterCharacterShadows
 	fasterShadowCB.Disabled = !gs.CharacterShadows
-	fasterShadowCB.SetTooltip("Uses one cheaper shadow pass, but may shade foreground artwork that should cover a shadow.")
+	fasterShadowCB.SetTooltip("Combines directional shadows into one cheaper layer beneath characters and foreground artwork.")
 	fasterShadowEvents.Handle = func(ev eui.UIEvent) {
 		if ev.Type == eui.EventCheckboxChanged {
 			gs.FasterCharacterShadows = ev.Checked

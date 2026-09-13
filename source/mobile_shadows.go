@@ -658,6 +658,17 @@ func applyDetailedCharacterShadow(dst *ebiten.Image) {
 	dst.DrawImage(source, op)
 }
 
+// applyBatchedCharacterShadowsBelowMobiles consumes the faster combined mask
+// before mobiles and foreground pictures are painted over it.
+func applyBatchedCharacterShadowsBelowMobiles(dst *ebiten.Image) {
+	if dst == nil || frameDetailedShadowMask == nil || frameDetailedShadowBounds.Empty() {
+		return
+	}
+	applyDetailedCharacterShadow(dst)
+	frameDetailedShadowMask = nil
+	frameDetailedShadowBounds = image.Rectangle{}
+}
+
 func shadowQuadBounds(quad [4]shadowPoint) image.Rectangle {
 	minX, maxX := quad[0].x, quad[0].x
 	minY, maxY := quad[0].y, quad[0].y
