@@ -479,6 +479,167 @@ func Init() {
 	}
 }
 
+func TestSessionsOwnIndependentScriptTimersAndTickWaiters(t *testing.T) {
+	const owner = "shared-session-timers"
+	grantScriptPermissionsForTest(t, owner)
+
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	source := []byte(`package main
+import("gt2";"time")
+var repeat gt2.Timer
+var after gt2.Timer
+var waiter gt2.Task
+func Init(){
+	repeat=gt2.Repeat(time.Hour,func(){})
+	after=gt2.After(time.Hour,func(){})
+	waiter=gt2.StartTask(func(){gt2.WaitTicks(2)})
+}
+`)
+	if err := first.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session script: %v", err)
+	}
+	if err := second.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session script: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(owner, "test cleanup")
+		second.stopSessionScript(owner, "test cleanup")
+	})
+
+	waitForWaiter := func(session *Session) {
+		t.Helper()
+		deadline := time.Now().Add(time.Second)
+		for session.automation.scriptTimers.tickWaiterCount(owner) != 1 {
+			if time.Now().After(deadline) {
+				t.Fatalf("session %d did not register its tick waiter", session.ID())
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
+	waitForWaiter(first)
+	waitForWaiter(second)
+	if len(first.automation.scriptTimers.repeatsSnapshot(owner)) != 1 || len(second.automation.scriptTimers.repeatsSnapshot(owner)) != 1 {
+		t.Fatal("session repeat timers were not registered with their owners")
+	}
+
+	var firstRepeat, firstAfter, secondRepeat, secondAfter Timer
+	var firstWaiter, secondWaiter Task
+	readTimers := func(session *Session, repeat, after *Timer, waiter *Task) {
+		t.Helper()
+		queue := currentSessionScriptEventQueue(session, owner)
+		if !queueScriptCallbackWaitOn(queue, owner, "inspect timers", func() {
+			value, _ := queue.interpreter.Eval("repeat")
+			*repeat = value.Interface().(Timer)
+			value, _ = queue.interpreter.Eval("after")
+			*after = value.Interface().(Timer)
+			value, _ = queue.interpreter.Eval("waiter")
+			*waiter = value.Interface().(Task)
+		}) {
+			t.Fatalf("session %d timer inspection failed", session.ID())
+		}
+	}
+	readTimers(first, &firstRepeat, &firstAfter, &firstWaiter)
+	readTimers(second, &secondRepeat, &secondAfter, &secondWaiter)
+	if !firstRepeat.Active() || !firstAfter.Active() || !firstWaiter.Active() || !secondRepeat.Active() || !secondAfter.Active() || !secondWaiter.Active() {
+		t.Fatal("session timers and waiters were not active before advancement")
+	}
+
+	first.advanceScriptTick()
+	first.advanceScriptTick()
+	deadline := time.Now().Add(time.Second)
+	for firstWaiter.Active() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if firstWaiter.Active() {
+		t.Fatal("first session tick waiter did not resume")
+	}
+	if !secondWaiter.Active() {
+		t.Fatal("first session ticks resumed second session waiter")
+	}
+
+	first.stopSessionScript(owner, "test stop")
+	if firstRepeat.Active() || firstAfter.Active() {
+		t.Fatal("stopping first session retained its timers")
+	}
+	if !secondRepeat.Active() || !secondAfter.Active() || second.automation.scriptTimers.tickWaiterCount(owner) != 1 {
+		t.Fatal("stopping first session changed second session timer state")
+	}
+	second.advanceScriptTick()
+	second.advanceScriptTick()
+	deadline = time.Now().Add(time.Second)
+	for secondWaiter.Active() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if secondWaiter.Active() {
+		t.Fatal("second session tick waiter did not resume on its own ticks")
+	}
+}
+
+func TestSessionTaskCancellationUsesOwningCommandStream(t *testing.T) {
+	const owner = "shared-session-task"
+	grantScriptPermissionsForTest(t, owner)
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	source := []byte(`package main
+import "gt2"
+var job gt2.Task
+var ticket gt2.CommandTicket
+func Init(){job=gt2.StartTask(func(){ticket=gt2.QueueCommand("/pose sit");gt2.WaitTicks(100)})}
+`)
+	if err := first.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session task: %v", err)
+	}
+	if err := second.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session task: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(owner, "test cleanup")
+		second.stopSessionScript(owner, "test cleanup")
+	})
+	deadline := time.Now().Add(time.Second)
+	for (first.automation.scriptTimers.tickWaiterCount(owner) != 1 || second.automation.scriptTimers.tickWaiterCount(owner) != 1) && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if first.automation.scriptTimers.tickWaiterCount(owner) != 1 || second.automation.scriptTimers.tickWaiterCount(owner) != 1 {
+		t.Fatal("session tasks did not reach their waits")
+	}
+
+	var firstJob, secondJob Task
+	var firstTicket, secondTicket CommandTicket
+	readTask := func(session *Session, job *Task, ticket *CommandTicket) {
+		t.Helper()
+		queue := currentSessionScriptEventQueue(session, owner)
+		if !queueScriptCallbackWaitOn(queue, owner, "inspect task", func() {
+			value, _ := queue.interpreter.Eval("job")
+			*job = value.Interface().(Task)
+			value, _ = queue.interpreter.Eval("ticket")
+			*ticket = value.Interface().(CommandTicket)
+		}) {
+			t.Fatalf("session %d task inspection failed", session.ID())
+		}
+	}
+	readTask(first, &firstJob, &firstTicket)
+	readTask(second, &secondJob, &secondTicket)
+	if !firstJob.Active() || !secondJob.Active() || firstTicket.Status().State != scriptapi.CommandQueued || secondTicket.Status().State != scriptapi.CommandQueued {
+		t.Fatal("session tasks or their commands were not active")
+	}
+
+	first.stopSessionScript(owner, "test stop")
+	if firstJob.Active() || firstTicket.Status().State != scriptapi.CommandCancelled {
+		t.Fatalf("first task cleanup = active %v ticket %+v", firstJob.Active(), firstTicket.Status())
+	}
+	if !secondJob.Active() || secondTicket.Status().State != scriptapi.CommandQueued {
+		t.Fatalf("first task cleanup changed second task = active %v ticket %+v", secondJob.Active(), secondTicket.Status())
+	}
+	second.commands.mu.Lock()
+	secondPending := second.commands.pending
+	second.commands.mu.Unlock()
+	if secondPending != "/pose sit" {
+		t.Fatalf("first task cleanup removed second session command %q", secondPending)
+	}
+}
+
 func TestSessionsOwnIndependentCommandQueues(t *testing.T) {
 	first, err := newSession(1)
 	if err != nil {

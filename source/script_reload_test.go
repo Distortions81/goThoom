@@ -52,8 +52,7 @@ func testScriptReload(t *testing.T, kind string) {
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
 	scriptActiveSourceHashes = map[string][32]byte{}
-	scriptRepeats = map[string][]*scriptRepeatRegistration{}
-	scriptTickWaiters = map[string][]*tickWaiter{}
+	primarySession.automation.scriptTimers = newScriptTimerRegistry()
 	scriptStateWaiters = map[string][]*scriptStateWaiter{}
 	scriptStopping = map[string]bool{}
 	scriptDispatchMu = sync.Mutex{}
@@ -143,7 +142,7 @@ func Terminate() {
 	assertSingleRegistrationSet := func() {
 		t.Helper()
 		scriptMu.RLock()
-		commands, repeats := len(scriptCommands), len(scriptRepeats[owner])
+		commands, repeats := len(scriptCommands), len(primarySession.automation.scriptTimers.repeatsSnapshot(owner))
 		scriptMu.RUnlock()
 		hotkeysMu.RLock()
 		bindingCount := len(hotkeys)

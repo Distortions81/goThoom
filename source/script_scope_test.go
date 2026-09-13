@@ -143,7 +143,7 @@ func Terminate(){gt2.Store("terminated",true)}
 	endSessionScripts(first)
 	drainScriptDispatcher()
 	for _, id := range []string{owner, global} {
-		if scriptIsRunning(id) || panels[id].Active() || len(scriptRepeats[id]) != 0 || currentScriptEventQueue(id) != nil {
+		if scriptIsRunning(id) || panels[id].Active() || len(primarySession.automation.scriptTimers.repeatsSnapshot(id)) != 0 || currentScriptEventQueue(id) != nil {
 			t.Fatalf("%s left live resources at logout", id)
 		}
 		if scriptStorageGet(id, "logout") != "Alpha" || scriptStorageGet(id, "terminated") != true {

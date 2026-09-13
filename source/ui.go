@@ -1353,8 +1353,8 @@ func scriptRegistrationSummary(owner string) (commands, bindings, events []strin
 			commands = append(commands, "/"+command)
 		}
 	}
-	timers = len(scriptRepeats[owner])
 	scriptMu.RUnlock()
+	timers = len(primarySession.automation.scriptTimers.repeatsSnapshot(owner))
 
 	hotkeysMu.RLock()
 	for _, hotkey := range hotkeys {

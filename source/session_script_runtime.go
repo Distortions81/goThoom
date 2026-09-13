@@ -53,6 +53,7 @@ func (s *Session) stopSessionScript(owner, reason string) {
 	if instance.prepared.terminate != nil {
 		instance.prepared.candidate.callTerminate(instance.prepared.terminate)
 	}
+	s.commands.cancelScriptCommands(owner, nil)
 	stopSessionScriptEventQueue(s, owner)
 	releaseScriptRegistrations(instance.queue)
 	instance.prepared.candidate.discard()
@@ -84,21 +85,7 @@ func (s *sessionAutomationState) stopSessionScripts(reason string) {
 }
 
 func registerSessionScriptResource(queue *scriptEventQueue, cleanup func()) scriptRegistrationHandle {
-	if queue == nil || cleanup == nil || !scriptEventQueueIsCurrent(queue.owner, queue) {
-		return scriptRegistrationHandle{}
-	}
-	queue.mu.Lock()
-	defer queue.mu.Unlock()
-	if queue.stopped {
-		return scriptRegistrationHandle{}
-	}
-	queue.nextRegistration++
-	handle := scriptRegistrationHandle{queue: queue, id: queue.nextRegistration}
-	if queue.registrations == nil {
-		queue.registrations = make(map[uint64]func())
-	}
-	queue.registrations[handle.id] = cleanup
-	return handle
+	return registerScriptResourceOn(queue, cleanup)
 }
 
 func (s *Session) registerSessionScriptChat(owner string, filter ChatFilter, fn func(ChatEvent)) scriptRegistrationHandle {

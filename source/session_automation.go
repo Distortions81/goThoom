@@ -17,6 +17,7 @@ type sessionAutomationState struct {
 	legacyProgram legacyMacroProgram
 	legacyRuntime *legacyMacroRuntime
 	scriptQueues  *scriptQueueRegistry
+	scriptTimers  *scriptTimerRegistry
 	scriptMu      sync.RWMutex
 	scripts       map[string]*sessionScriptInstance
 	scriptChats   []structuredChatHandler
@@ -48,6 +49,7 @@ func (s *Session) scriptLocationSnapshot() string {
 func newSessionAutomationState() *sessionAutomationState {
 	return &sessionAutomationState{
 		scriptQueues: newScriptQueueRegistry(),
+		scriptTimers: newScriptTimerRegistry(),
 		scripts:      make(map[string]*sessionScriptInstance),
 	}
 }
@@ -218,6 +220,13 @@ func (s *Session) advanceLegacyMacros(frame int64) {
 	if runtime != nil {
 		runtime.advance(frame)
 	}
+}
+
+func (s *Session) advanceScriptTick() {
+	if s == nil || s.automation == nil || s.automation.scriptTimers == nil {
+		return
+	}
+	s.automation.scriptTimers.advanceTick()
 }
 
 func (s *Session) legacyMacroRuntimeSnapshot() *legacyMacroRuntime {

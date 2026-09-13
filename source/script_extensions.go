@@ -92,7 +92,8 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 		return Storage{owner: owner, character: normalizeScriptCharacter(character), candidate: candidate}
 	})
 	m["QueueCommand"] = reflect.ValueOf(func(cmd string) CommandTicket {
-		ticket := newScriptCommandTicket(owner, candidate.runtimeEventQueue(owner))
+		eventQueue := candidate.runtimeEventQueue(owner)
+		ticket := newScriptCommandTicket(owner, eventQueue)
 		ticket.state.candidate = candidate
 		cmd = strings.TrimSpace(cmd)
 		if candidate.runtimeEventQueue(owner) != nil {
@@ -110,7 +111,7 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 		if queue := candidate.runtimeEventQueue(owner); queue != nil {
 			task.start(queue, fn)
 		} else {
-			candidate.dispatch(owner, func() { task.start(currentScriptEventQueue(owner), fn) })
+			candidate.dispatch(owner, func() { task.start(candidate.runtimeEventQueue(owner), fn) })
 		}
 		return task
 	})
@@ -120,10 +121,10 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 			timer.Stop()
 			return timer
 		}
-		if candidate.runtimeEventQueue(owner) != nil {
-			startScriptAfter(owner, delay, fn, timer)
+		if eventQueue := candidate.runtimeEventQueue(owner); eventQueue != nil {
+			startScriptAfter(owner, eventQueue, delay, fn, timer)
 		} else {
-			candidate.dispatch(owner, func() { startScriptAfter(owner, delay, fn, timer) })
+			candidate.dispatch(owner, func() { startScriptAfter(owner, candidate.runtimeEventQueue(owner), delay, fn, timer) })
 		}
 		return timer
 	})
@@ -137,14 +138,13 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 	})
 }
 
-func startScriptAfter(owner string, delay time.Duration, fn func(), timer Timer) {
-	queue := currentScriptEventQueue(owner)
+func startScriptAfter(owner string, queue *scriptEventQueue, delay time.Duration, fn func(), timer Timer) {
 	if queue == nil {
 		timer.Stop()
 		return
 	}
 	stop := make(chan struct{})
-	handle := registerScriptResource(owner, timer.Stop)
+	handle := registerScriptResourceOn(queue, timer.Stop)
 	timer.attach(func() { close(stop); handle.release() })
 	go func() {
 		clock := time.NewTimer(delay)

@@ -26,8 +26,7 @@ func resetScriptCallbackTestState(t *testing.T, owner string) {
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
-	scriptRepeats = map[string][]*scriptRepeatRegistration{}
-	scriptTickWaiters = map[string][]*tickWaiter{}
+	primarySession.automation.scriptTimers = newScriptTimerRegistry()
 	scriptStateWaiters = map[string][]*scriptStateWaiter{}
 	scriptStopping = map[string]bool{}
 
@@ -238,7 +237,7 @@ func TestScriptCallbackPanicDisablesAndCleansOwner(t *testing.T) {
 	scriptRegisterServerMessage(owner, ServerMessageFilter{Contains: "owned"}, func(scriptapi.ServerMessage) {})
 	scriptRegisterChange(owner, ChangeSelectedPlayer, func(ChangeEvent) {})
 	stop := make(chan struct{})
-	scriptRepeats[owner] = []*scriptRepeatRegistration{{stop: stop}}
+	primarySession.automation.scriptTimers.repeats[owner] = []*scriptRepeatRegistration{{stop: stop, eventQueue: currentScriptEventQueue(owner)}}
 	scriptOverlayOps[owner] = []overlayOp{{kind: 0}}
 	scriptRegisterConfig(owner, scriptConfigEntry{Key: "owned", Type: "bool", Value: true})
 
@@ -264,7 +263,7 @@ func TestScriptCallbackPanicDisablesAndCleansOwner(t *testing.T) {
 	if len(scriptStructuredChatHandlers) != 0 || len(scriptServerMessageHandlers) != 0 || len(scriptChangeHandlers) != 0 {
 		t.Fatal("owned event handlers were not removed")
 	}
-	if _, ok := scriptRepeats[owner]; ok {
+	if len(primarySession.automation.scriptTimers.repeatsSnapshot(owner)) != 0 {
 		t.Fatal("owned repeating timers were not removed")
 	}
 	select {
@@ -442,9 +441,7 @@ func TestDisableCancelsScriptWaitsTimersAndRepeatingWork(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
-		scriptMu.RLock()
-		waiting := len(scriptTickWaiters[owner]) > 0
-		scriptMu.RUnlock()
+		waiting := primarySession.automation.scriptTimers.tickWaiterCount(owner) > 0
 		if waiting {
 			break
 		}
@@ -554,9 +551,7 @@ func TestSleepTicksPausesScriptExecutionLimit(t *testing.T) {
 	}
 	deadline := time.Now().Add(time.Second)
 	for {
-		scriptMu.RLock()
-		waiting := len(scriptTickWaiters[owner]) > 0
-		scriptMu.RUnlock()
+		waiting := primarySession.automation.scriptTimers.tickWaiterCount(owner) > 0
 		if waiting {
 			break
 		}

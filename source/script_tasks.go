@@ -9,6 +9,7 @@ type Task struct{ state *scriptTaskState }
 type scriptTaskState struct {
 	mu                           sync.Mutex
 	owner                        string
+	commands                     *commandState
 	done                         chan struct{}
 	cancelled, finished, started bool
 }
@@ -35,8 +36,12 @@ func (t Task) Cancel() {
 		s.cancelled = true
 		close(s.done)
 	}
+	commands := s.commands
 	s.mu.Unlock()
-	cancelScriptCommands(s.owner, s)
+	if commands == nil {
+		commands = primarySession.commands
+	}
+	commands.cancelScriptCommands(s.owner, s)
 }
 func (t Task) start(queue *scriptEventQueue, fn func()) {
 	s := t.state
@@ -50,8 +55,13 @@ func (t Task) start(queue *scriptEventQueue, fn func()) {
 		return
 	}
 	s.started = true
+	if queue.session != nil {
+		s.commands = queue.session.commands
+	} else {
+		s.commands = primarySession.commands
+	}
 	s.mu.Unlock()
-	handle := registerScriptResource(s.owner, func() {
+	handle := registerScriptResourceOn(queue, func() {
 		if t.Active() {
 			t.Cancel()
 		}

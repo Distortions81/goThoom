@@ -25,7 +25,11 @@ type queuedCommand struct {
 }
 
 func newScriptCommandTicket(owner string, queue *scriptEventQueue) CommandTicket {
-	return newSessionScriptCommandTicket(primarySession.commands, owner, queue)
+	commands := primarySession.commands
+	if queue != nil && queue.session != nil {
+		commands = queue.session.commands
+	}
+	return newSessionScriptCommandTicket(commands, owner, queue)
 }
 func newSessionScriptCommandTicket(commands *commandState, owner string, queue *scriptEventQueue) CommandTicket {
 	return CommandTicket{&scriptCommandState{commands: commands, owner: owner, queue: queue, task: queue.task(), status: scriptapi.CommandStatus{State: scriptapi.CommandQueued}}}
@@ -113,7 +117,7 @@ func (s *commandState) queueTrackedScriptCommand(ticket CommandTicket, cmd strin
 		ticket.state.queue = currentScriptEventQueue(ticket.state.owner)
 	}
 	reason := ""
-	if scriptIsDisabled(ticket.state.owner) {
+	if scriptRuntimeDisabled(ticket.state.owner, ticket.state.queue) {
 		reason = "script stopped"
 	} else if cmd == "" {
 		reason = "empty command"

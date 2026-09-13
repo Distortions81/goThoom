@@ -209,8 +209,7 @@ func TestScriptAPIFull(t *testing.T) {
 	scriptMobileTints = map[string]map[uint16]scriptMobileTint{}
 	scriptMobileOutlines = map[string]map[uint16]scriptMobileTint{}
 	scriptMobileFlashes = map[string]map[uint8]scriptMobileFlash{}
-	scriptRepeats = map[string][]*scriptRepeatRegistration{}
-	scriptTickWaiters = map[string][]*tickWaiter{}
+	primarySession.automation.scriptTimers = newScriptTimerRegistry()
 
 	// Owner and metadata
 	const owner = "apifull_owner"

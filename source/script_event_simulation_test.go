@@ -56,9 +56,7 @@ func (sim scriptEventSimulator) commandAndAdvanceTicks(t *testing.T, name, args 
 	for tick := 0; tick < ticks; tick++ {
 		waiting := false
 		for attempt := 0; attempt < 100_000; attempt++ {
-			scriptMu.RLock()
-			waiting = len(scriptTickWaiters[sim.owner]) > 0
-			scriptMu.RUnlock()
+			waiting = primarySession.automation.scriptTimers.tickWaiterCount(sim.owner) > 0
 			if waiting {
 				break
 			}
@@ -107,9 +105,7 @@ func (sim scriptEventSimulator) login(t *testing.T, character string) {
 
 func (sim scriptEventSimulator) timers(t *testing.T) {
 	t.Helper()
-	scriptMu.RLock()
-	repeats := append([]*scriptRepeatRegistration(nil), scriptRepeats[sim.owner]...)
-	scriptMu.RUnlock()
+	repeats := primarySession.automation.scriptTimers.repeatsSnapshot(sim.owner)
 	if len(repeats) == 0 {
 		t.Fatalf("script %q has no repeating timers", sim.owner)
 	}

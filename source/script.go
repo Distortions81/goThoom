@@ -199,6 +199,7 @@ type scriptEventQueue struct {
 	owner             string
 	registry          *scriptQueueRegistry
 	session           *Session
+	timers            *scriptTimerRegistry
 	interpreter       *interp.Interpreter
 	diagnostics       *scriptDiagnostics
 	mu                sync.Mutex
@@ -352,7 +353,11 @@ func (h scriptRegistrationHandle) release() {
 
 func registerScriptResource(owner string, cleanup func()) scriptRegistrationHandle {
 	queue := currentScriptEventQueue(owner)
-	if queue == nil || cleanup == nil {
+	return registerScriptResourceOn(queue, cleanup)
+}
+
+func registerScriptResourceOn(queue *scriptEventQueue, cleanup func()) scriptRegistrationHandle {
+	if queue == nil || cleanup == nil || !scriptEventQueueIsCurrent(queue.owner, queue) {
 		return scriptRegistrationHandle{}
 	}
 	queue.mu.Lock()
@@ -561,6 +566,7 @@ func startSessionScriptEventQueue(session *Session, owner string, interpreters .
 	queue := session.automation.scriptQueues.start(owner, interpreters...)
 	if queue != nil {
 		queue.session = session
+		queue.timers = session.automation.scriptTimers
 	}
 	return queue
 }
@@ -584,7 +590,7 @@ func startScriptEventQueue(owner string, interpreters ...*interp.Interpreter) *s
 	if len(interpreters) > 0 {
 		interpreter = interpreters[0]
 	}
-	queue := &scriptEventQueue{owner: owner, interpreter: interpreter, done: make(chan struct{}), wake: make(chan struct{}, 1)}
+	queue := &scriptEventQueue{owner: owner, timers: primarySession.automation.scriptTimers, interpreter: interpreter, done: make(chan struct{}), wake: make(chan struct{}, 1)}
 	scriptEventMu.Lock()
 	old := scriptEventQueues[owner]
 	scriptEventQueues[owner] = queue
@@ -854,6 +860,9 @@ func (q *scriptEventQueue) stop() {
 	pending := q.events
 	q.events = nil
 	q.mu.Unlock()
+	if q.timers != nil {
+		q.timers.cancelQueue(q)
+	}
 	for _, event := range pending {
 		if event.done != nil {
 			event.done <- false
@@ -1544,7 +1553,7 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 				return timer
 			}
 			stage(func() {
-				timer.attach(startScriptRepeat(owner, currentScriptEventQueue(owner), interval, "Repeat", fn))
+				startScriptRepeatTimer(owner, candidate.runtimeEventQueue(owner), interval, "Repeat", fn, timer)
 			})
 			return timer
 		})
@@ -1905,8 +1914,6 @@ var (
 	chatHandlersMu               sync.RWMutex
 	scriptCommandOwners          = map[string]string{}
 	scriptSendHistory            = map[string][]time.Time{}
-	scriptRepeats                = map[string][]*scriptRepeatRegistration{}
-	scriptTickWaiters            = map[string][]*tickWaiter{}
 	scriptStopping               = map[string]bool{}
 
 	// Per-script world overlay draw operations, mobile pict-ID effects, and flashes.
@@ -1974,6 +1981,7 @@ type scriptMobileFlash struct {
 type tickWaiter struct {
 	remain int
 	done   chan struct{}
+	queue  *scriptEventQueue
 }
 
 type scriptRepeatRegistration struct {
@@ -1981,6 +1989,29 @@ type scriptRepeatRegistration struct {
 	eventQueue *scriptEventQueue
 	event      string
 	callback   func()
+}
+
+// scriptTimerRegistry owns all clock- and server-tick-based work for one
+// session. Owners can have the same script ID in different sessions without
+// sharing cancellation or tick advancement.
+type scriptTimerRegistry struct {
+	mu          sync.Mutex
+	repeats     map[string][]*scriptRepeatRegistration
+	tickWaiters map[string][]*tickWaiter
+}
+
+func newScriptTimerRegistry() *scriptTimerRegistry {
+	return &scriptTimerRegistry{
+		repeats:     make(map[string][]*scriptRepeatRegistration),
+		tickWaiters: make(map[string][]*tickWaiter),
+	}
+}
+
+func scriptTimersForQueue(queue *scriptEventQueue) *scriptTimerRegistry {
+	if queue == nil {
+		return nil
+	}
+	return queue.timers
 }
 
 type scriptStateWaiter struct {
@@ -1994,20 +2025,17 @@ func scriptSleepTicks(owner string, eventQueue *scriptEventQueue, ticks int) {
 	if ticks <= 0 {
 		return
 	}
-	w := &tickWaiter{remain: ticks, done: make(chan struct{}, 1)}
-	if !scriptEventQueueIsCurrent(owner, eventQueue) {
+	timers := scriptTimersForQueue(eventQueue)
+	w := &tickWaiter{remain: ticks, done: make(chan struct{}, 1), queue: eventQueue}
+	if timers == nil || !scriptEventQueueIsCurrent(owner, eventQueue) || scriptRuntimeDisabled(owner, eventQueue) {
 		return
 	}
-	scriptMu.Lock()
-	if scriptDisabled[owner] {
-		scriptMu.Unlock()
-		return
-	}
-	scriptTickWaiters[owner] = append(scriptTickWaiters[owner], w)
-	scriptMu.Unlock()
+	timers.mu.Lock()
+	timers.tickWaiters[owner] = append(timers.tickWaiters[owner], w)
+	timers.mu.Unlock()
 	defer func() {
-		scriptMu.Lock()
-		list := scriptTickWaiters[owner]
+		timers.mu.Lock()
+		list := timers.tickWaiters[owner]
 		for i, waiter := range list {
 			if waiter == w {
 				list = append(list[:i], list[i+1:]...)
@@ -2015,11 +2043,11 @@ func scriptSleepTicks(owner string, eventQueue *scriptEventQueue, ticks int) {
 			}
 		}
 		if len(list) == 0 {
-			delete(scriptTickWaiters, owner)
+			delete(timers.tickWaiters, owner)
 		} else {
-			scriptTickWaiters[owner] = list
+			timers.tickWaiters[owner] = list
 		}
-		scriptMu.Unlock()
+		timers.mu.Unlock()
 	}()
 	eventQueue.pauseExecution()
 	defer eventQueue.resumeExecution()
@@ -2106,17 +2134,14 @@ func notifyScriptStateWaiters() {
 }
 
 func startScriptRepeat(owner string, eventQueue *scriptEventQueue, interval time.Duration, event string, fn func()) func() {
-	if eventQueue == nil || interval <= 0 || fn == nil {
+	timers := scriptTimersForQueue(eventQueue)
+	if timers == nil || interval <= 0 || fn == nil || !scriptEventQueueIsCurrent(owner, eventQueue) || scriptRuntimeDisabled(owner, eventQueue) {
 		return nil
 	}
 	repeat := &scriptRepeatRegistration{stop: make(chan struct{}), eventQueue: eventQueue, event: event, callback: fn}
-	scriptMu.Lock()
-	if scriptDisabled[owner] {
-		scriptMu.Unlock()
-		return nil
-	}
-	scriptRepeats[owner] = append(scriptRepeats[owner], repeat)
-	scriptMu.Unlock()
+	timers.mu.Lock()
+	timers.repeats[owner] = append(timers.repeats[owner], repeat)
+	timers.mu.Unlock()
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -2129,15 +2154,33 @@ func startScriptRepeat(owner string, eventQueue *scriptEventQueue, interval time
 			}
 		}
 	}()
-	return func() { stopScriptRepeat(owner, repeat) }
+	return func() { timers.stopRepeat(owner, repeat) }
 }
 
-func stopScriptRepeat(owner string, repeat *scriptRepeatRegistration) {
-	if repeat == nil {
+func startScriptRepeatTimer(owner string, eventQueue *scriptEventQueue, interval time.Duration, event string, fn func(), timer Timer) {
+	stop := startScriptRepeat(owner, eventQueue, interval, event, fn)
+	if stop == nil {
+		timer.Stop()
 		return
 	}
-	scriptMu.Lock()
-	list := scriptRepeats[owner]
+	handle := registerScriptResourceOn(eventQueue, timer.Stop)
+	if !handle.valid() {
+		stop()
+		timer.Stop()
+		return
+	}
+	timer.attach(func() {
+		stop()
+		handle.release()
+	})
+}
+
+func (r *scriptTimerRegistry) stopRepeat(owner string, repeat *scriptRepeatRegistration) {
+	if r == nil || repeat == nil {
+		return
+	}
+	r.mu.Lock()
+	list := r.repeats[owner]
 	for i, candidate := range list {
 		if candidate != repeat {
 			continue
@@ -2145,18 +2188,25 @@ func stopScriptRepeat(owner string, repeat *scriptRepeatRegistration) {
 		close(repeat.stop)
 		list = append(list[:i], list[i+1:]...)
 		if len(list) == 0 {
-			delete(scriptRepeats, owner)
+			delete(r.repeats, owner)
 		} else {
-			scriptRepeats[owner] = list
+			r.repeats[owner] = list
 		}
 		break
 	}
-	scriptMu.Unlock()
+	r.mu.Unlock()
 }
 
 func scriptAdvanceTick() {
-	scriptMu.Lock()
-	for owner, list := range scriptTickWaiters {
+	primarySession.advanceScriptTick()
+}
+
+func (r *scriptTimerRegistry) advanceTick() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	for owner, list := range r.tickWaiters {
 		n := 0
 		for _, w := range list {
 			if w == nil {
@@ -2174,12 +2224,96 @@ func scriptAdvanceTick() {
 			}
 		}
 		if n == 0 {
-			delete(scriptTickWaiters, owner)
+			delete(r.tickWaiters, owner)
 		} else {
-			scriptTickWaiters[owner] = list[:n]
+			r.tickWaiters[owner] = list[:n]
 		}
 	}
-	scriptMu.Unlock()
+	r.mu.Unlock()
+}
+
+func (r *scriptTimerRegistry) cancelQueue(queue *scriptEventQueue) {
+	if r == nil || queue == nil {
+		return
+	}
+	r.mu.Lock()
+	for owner, list := range r.repeats {
+		n := 0
+		for _, repeat := range list {
+			if repeat != nil && repeat.eventQueue == queue {
+				close(repeat.stop)
+				continue
+			}
+			list[n] = repeat
+			n++
+		}
+		if n == 0 {
+			delete(r.repeats, owner)
+		} else {
+			r.repeats[owner] = list[:n]
+		}
+	}
+	for owner, list := range r.tickWaiters {
+		n := 0
+		for _, waiter := range list {
+			if waiter != nil && waiter.queue == queue {
+				continue
+			}
+			list[n] = waiter
+			n++
+		}
+		if n == 0 {
+			delete(r.tickWaiters, owner)
+		} else {
+			r.tickWaiters[owner] = list[:n]
+		}
+	}
+	r.mu.Unlock()
+}
+
+func (r *scriptTimerRegistry) cancelOwner(owner string) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	repeats := r.repeats[owner]
+	delete(r.repeats, owner)
+	waits := r.tickWaiters[owner]
+	delete(r.tickWaiters, owner)
+	for _, repeat := range repeats {
+		if repeat != nil {
+			close(repeat.stop)
+		}
+	}
+	for _, waiter := range waits {
+		if waiter != nil {
+			select {
+			case waiter.done <- struct{}{}:
+			default:
+			}
+		}
+	}
+	r.mu.Unlock()
+}
+
+func (r *scriptTimerRegistry) repeatsSnapshot(owner string) []*scriptRepeatRegistration {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	repeats := append([]*scriptRepeatRegistration(nil), r.repeats[owner]...)
+	r.mu.Unlock()
+	return repeats
+}
+
+func (r *scriptTimerRegistry) tickWaiterCount(owner string) int {
+	if r == nil {
+		return 0
+	}
+	r.mu.Lock()
+	count := len(r.tickWaiters[owner])
+	r.mu.Unlock()
+	return count
 }
 
 const (
@@ -2841,28 +2975,6 @@ func disposeScriptResources(owner, reason string, eventQueue *scriptEventQueue) 
 	delete(scriptMobileFlashes, owner)
 	overlayMu.Unlock()
 	markWorldRenderChanged()
-	// Stop repeating timers and tick waiters for this script.
-	scriptMu.Lock()
-	if repeats := scriptRepeats[owner]; len(repeats) > 0 {
-		for _, repeat := range repeats {
-			if repeat != nil && repeat.stop != nil {
-				close(repeat.stop)
-			}
-		}
-		delete(scriptRepeats, owner)
-	}
-	if waits := scriptTickWaiters[owner]; len(waits) > 0 {
-		for _, w := range waits {
-			if w != nil {
-				select {
-				case w.done <- struct{}{}:
-				default:
-				}
-			}
-		}
-		delete(scriptTickWaiters, owner)
-	}
-	scriptMu.Unlock()
 	scriptMu.Lock()
 	delete(scriptSendHistory, owner)
 	disp := scriptDisplayNames[owner]
@@ -3012,16 +3124,8 @@ func setScriptEnabledForCharacter(owner, character string, char, all bool) {
 func clearscriptScope(owner string) {
 	scriptMu.Lock()
 	delete(scriptEnabledFor, owner)
-	// Stop repeating timers for this script.
-	if repeats := scriptRepeats[owner]; len(repeats) > 0 {
-		for _, repeat := range repeats {
-			if repeat != nil && repeat.stop != nil {
-				close(repeat.stop)
-			}
-		}
-		delete(scriptRepeats, owner)
-	}
 	scriptMu.Unlock()
+	primarySession.automation.scriptTimers.cancelOwner(owner)
 	saveScriptEnablement()
 	applyEnabledScripts()
 	saveSettings()

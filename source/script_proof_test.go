@@ -346,9 +346,7 @@ func TestLongRunningTimerReloadProof(t *testing.T) {
 	}
 	sim.login(t, "Hero")
 
-	scriptMu.RLock()
-	oldRepeats := append([]*scriptRepeatRegistration(nil), scriptRepeats[owner]...)
-	scriptMu.RUnlock()
+	oldRepeats := primarySession.automation.scriptTimers.repeatsSnapshot(owner)
 	if len(oldRepeats) != 1 {
 		t.Fatalf("initial timer registrations = %d, want 1", len(oldRepeats))
 	}
@@ -368,9 +366,7 @@ func TestLongRunningTimerReloadProof(t *testing.T) {
 	default:
 		t.Fatal("reload did not cancel the old long-running timer")
 	}
-	scriptMu.RLock()
-	newRepeats := append([]*scriptRepeatRegistration(nil), scriptRepeats[owner]...)
-	scriptMu.RUnlock()
+	newRepeats := primarySession.automation.scriptTimers.repeatsSnapshot(owner)
 	if len(newRepeats) != 1 || newRepeats[0] == oldRepeats[0] {
 		t.Fatalf("timer registrations after reload = %+v", newRepeats)
 	}
@@ -395,9 +391,7 @@ func TestLongRunningTimerReloadProof(t *testing.T) {
 	default:
 		t.Fatal("disable did not cancel the replacement timer")
 	}
-	scriptMu.RLock()
-	remaining := len(scriptRepeats[owner])
-	scriptMu.RUnlock()
+	remaining := len(primarySession.automation.scriptTimers.repeatsSnapshot(owner))
 	if remaining != 0 {
 		t.Fatalf("timer registrations survived disable: %d", remaining)
 	}

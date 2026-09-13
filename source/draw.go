@@ -1158,8 +1158,8 @@ func handleSessionDrawStateAt(session *Session, m []byte, buildCache bool, recei
 		session.acknowledgeCommandAt(ackCmd, ack, receivedAt)
 	}
 	session.frames.set(ack, nextResend)
-	if session == primarySession && !seekingMov {
-		scriptAdvanceTick()
+	if session != primarySession || !seekingMov {
+		session.advanceScriptTick()
 	}
 	return true
 }

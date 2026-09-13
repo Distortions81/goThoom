@@ -38,8 +38,7 @@ func TestDuplicateCommandsAndBindingsAreRejectedBeforeActivation(t *testing.T) {
 	scriptCommands = map[string]scriptCommandHandler{}
 	scriptCommandOwners = map[string]string{}
 	scriptSendHistory = map[string][]time.Time{}
-	scriptRepeats = map[string][]*scriptRepeatRegistration{}
-	scriptTickWaiters = map[string][]*tickWaiter{}
+	primarySession.automation.scriptTimers = newScriptTimerRegistry()
 	hotkeysMu = sync.RWMutex{}
 	hotkeys = nil
 	scriptHotkeyMu = sync.RWMutex{}
