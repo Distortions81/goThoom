@@ -145,32 +145,14 @@ func legacyMacrosDir() string {
 // replaced even when diagnostics exist, so a future Reload Macros action can
 // show the current errors without executing stale macros.
 func loadLegacyMacrosForCharacter(character string) error {
-	character = strings.TrimSpace(character)
-	if character != "" && filepath.Base(character) != character {
-		return fmt.Errorf("invalid legacy macro character name %q", character)
+	program, err := loadLegacyMacroProgramForCharacter(character)
+	if err != nil {
+		return err
 	}
-
-	var roots []legacyMacroSource
-	if character != "" {
-		path := filepath.Join(legacyMacrosDir(), character)
-		source, exists, err := readLegacyMacroSource(path)
-		if err != nil {
-			return err
-		}
-		if exists {
-			source.Name = character
-			roots = append(roots, source)
-		}
-	}
-
-	libraryRoots, libraryDiagnostics := legacyMacroLibrarySelectedSources(character)
-	roots = append(roots, libraryRoots...)
-	program := parseLegacyMacroSources(roots)
-	program.Diagnostics = append(program.Diagnostics, libraryDiagnostics...)
 	runtime := newLegacyMacroRuntime(program)
 	runtime.startFunctionIfDefined("@login")
 	legacyMacrosMu.Lock()
-	legacyMacrosCharacter = character
+	legacyMacrosCharacter = strings.TrimSpace(character)
 	legacyMacroSources = append([]legacyMacroSource(nil), program.Files...)
 	legacyMacrosProgram = program
 	legacyMacrosRuntime = runtime
@@ -183,6 +165,36 @@ func loadLegacyMacrosForCharacter(character string) error {
 		return fmt.Errorf("legacy macro setup failed: %s", diagnostics[0])
 	}
 	return nil
+}
+
+// loadLegacyMacroProgramForCharacter reads and parses one character's macro
+// sources without installing them into the primary-session UI adapter. Session
+// runtimes use this shared loader so each connection receives an independent
+// program and variable store.
+func loadLegacyMacroProgramForCharacter(character string) (legacyMacroProgram, error) {
+	character = strings.TrimSpace(character)
+	if character != "" && filepath.Base(character) != character {
+		return legacyMacroProgram{}, fmt.Errorf("invalid legacy macro character name %q", character)
+	}
+
+	var roots []legacyMacroSource
+	if character != "" {
+		path := filepath.Join(legacyMacrosDir(), character)
+		source, exists, err := readLegacyMacroSource(path)
+		if err != nil {
+			return legacyMacroProgram{}, err
+		}
+		if exists {
+			source.Name = character
+			roots = append(roots, source)
+		}
+	}
+
+	libraryRoots, libraryDiagnostics := legacyMacroLibrarySelectedSources(character)
+	roots = append(roots, libraryRoots...)
+	program := parseLegacyMacroSources(roots)
+	program.Diagnostics = append(program.Diagnostics, libraryDiagnostics...)
+	return program, nil
 }
 
 func readLegacyMacroSource(path string) (legacyMacroSource, bool, error) {

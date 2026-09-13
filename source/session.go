@@ -37,20 +37,22 @@ func (id SessionID) Slot() (int, bool) {
 // subsystems move here incrementally while the primary session preserves the
 // current one-client UI and call sites.
 type Session struct {
-	id        SessionID
-	inventory *inventoryState
-	commands  *commandState
-	frames    *frameState
-	timing    *networkTimingState
-	draw      *sessionDrawState
-	events    *sessionEventState
-	players   *sessionPlayerState
-	transport *sessionTransportState
-	input     *sessionInputState
-	login     *sessionLoginState
+	id         SessionID
+	inventory  *inventoryState
+	commands   *commandState
+	frames     *frameState
+	timing     *networkTimingState
+	draw       *sessionDrawState
+	events     *sessionEventState
+	players    *sessionPlayerState
+	automation *sessionAutomationState
+	transport  *sessionTransportState
+	input      *sessionInputState
+	login      *sessionLoginState
 
-	identityMu sync.RWMutex
-	character  string
+	identityMu  sync.RWMutex
+	character   string
+	playerIndex uint8
 }
 
 func newSession(id SessionID) (*Session, error) {
@@ -58,18 +60,39 @@ func newSession(id SessionID) (*Session, error) {
 		return nil, fmt.Errorf("invalid session ID %d", id)
 	}
 	return &Session{
-		id:        id,
-		inventory: newInventoryState(),
-		commands:  newCommandState(),
-		frames:    newFrameState(),
-		timing:    newNetworkTimingState(),
-		draw:      newSessionDrawState(),
-		events:    newSessionEventState(),
-		players:   newSessionPlayerState(),
-		transport: newSessionTransportState(),
-		input:     newSessionInputState(),
-		login:     newSessionLoginState(),
+		id:          id,
+		inventory:   newInventoryState(),
+		commands:    newCommandState(),
+		frames:      newFrameState(),
+		timing:      newNetworkTimingState(),
+		draw:        newSessionDrawState(),
+		events:      newSessionEventState(),
+		players:     newSessionPlayerState(),
+		automation:  newSessionAutomationState(),
+		transport:   newSessionTransportState(),
+		input:       newSessionInputState(),
+		login:       newSessionLoginState(),
+		playerIndex: 0xff,
 	}, nil
+}
+
+func (s *Session) setPlayerIndex(index uint8) {
+	if s == nil {
+		return
+	}
+	s.identityMu.Lock()
+	s.playerIndex = index
+	s.identityMu.Unlock()
+}
+
+func (s *Session) playerIndexSnapshot() uint8 {
+	if s == nil {
+		return 0xff
+	}
+	s.identityMu.RLock()
+	index := s.playerIndex
+	s.identityMu.RUnlock()
+	return index
 }
 
 func (s *Session) ID() SessionID {
@@ -113,6 +136,11 @@ func (s *Session) resetConnectionModels() {
 	s.timing.resetFallback()
 	s.inventory.reset()
 	s.players.reset()
+	// Secondary script instances are independent of the primary Scripts UI,
+	// but they still receive their logout lifecycle before connection teardown.
+	s.dispatchSessionScriptLifecycle(LifecycleEvent{Type: lifecycleLogout, Character: s.characterName()}, true)
+	s.automation.reset()
+	s.setPlayerIndex(0xff)
 	s.input.reset()
 }
 

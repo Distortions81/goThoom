@@ -140,11 +140,17 @@ func (c *scriptCandidate) apiCallAllowed(owner, permission string) bool {
 	c.mu.Lock()
 	active, failed, terminating, queue := c.active, c.failed, c.terminating, c.eventQueue
 	c.mu.Unlock()
-	if failed || c.generation != scriptSessionGeneration.Load() {
+	if failed {
 		return false
 	}
 	if !active {
 		return true
+	}
+	if c.session != nil {
+		return scriptEventQueueIsCurrent(owner, queue) || (terminating && permission == "storage")
+	}
+	if c.generation != scriptSessionGeneration.Load() {
+		return false
 	}
 	return scriptEventQueueIsCurrent(owner, queue) || (terminating && permission == "storage")
 }

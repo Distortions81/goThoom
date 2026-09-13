@@ -22,22 +22,16 @@ func scriptCurrentWorld() scriptapi.World {
 		if !ok {
 			continue
 		}
-		mobile := scriptapi.Mobile{
+		world.Mobiles = append(world.Mobiles, scriptapi.Mobile{
 			Index: m.Index, Name: d.Name, H: m.H, V: m.V, PictID: d.PictID,
 			Colors: m.Colors, Player: d.Type == kDescPlayer, State: m.State,
 			Plane: d.Plane, Self: m.Index == playerIndex, Dead: m.State == poseDead, Stale: m.Persist,
-		}
-		world.Mobiles = append(world.Mobiles, mobile)
-	}
-	for _, p := range primarySession.draw.current.pictures {
-		world.Pictures = append(world.Pictures, scriptapi.Picture{
-			PictID: p.PictID, H: p.H, V: p.V, Plane: p.Plane,
-			Moving: p.Moving, Background: p.Background, Reused: p.Again,
 		})
 	}
+	for _, p := range primarySession.draw.current.pictures {
+		world.Pictures = append(world.Pictures, scriptapi.Picture{PictID: p.PictID, H: p.H, V: p.V, Plane: p.Plane, Moving: p.Moving, Background: p.Background, Reused: p.Again})
+	}
 	primarySession.draw.mu.Unlock()
-	// Metadata lookup requires no GPU image allocation and need not hold the
-	// session draw lock.
 	for i := range world.Mobiles {
 		m := &world.Mobiles[i]
 		m.Size = mobileSize(m.PictID)
@@ -59,6 +53,74 @@ func scriptCurrentWorld() scriptapi.World {
 	world.Location = scriptLocation
 	scriptLocationMu.RUnlock()
 	return world
+}
+
+// scriptCurrentWorldForSession returns a detached snapshot for exactly one
+// connection. Script candidates bind this function at compile time, so a
+// secondary session can never observe the primary world's mutable state.
+func scriptCurrentWorldForSession(session *Session) scriptapi.World {
+	if session == nil {
+		return scriptapi.World{Width: gameAreaSizeX, Height: gameAreaSizeY}
+	}
+	selfIndex := session.playerIndexSnapshot()
+	session.draw.mu.Lock()
+	world := scriptapi.World{
+		Width: gameAreaSizeX, Height: gameAreaSizeY, Generation: session.draw.generation.Load(),
+		Frame: session.draw.current.logicalFrame, ReceivedAt: session.draw.current.receivedAt,
+		CameraShiftX: session.draw.current.picShiftX, CameraShiftY: session.draw.current.picShiftY, Lighting: session.draw.current.lightingFlags,
+		Mobiles:  make([]scriptapi.Mobile, 0, len(session.draw.current.liveMobs)),
+		Pictures: make([]scriptapi.Picture, 0, len(session.draw.current.pictures)),
+	}
+	for _, m := range session.draw.current.liveMobs {
+		d, ok := session.draw.current.descriptors[m.Index]
+		if !ok {
+			continue
+		}
+		mobile := scriptapi.Mobile{
+			Index: m.Index, Name: d.Name, H: m.H, V: m.V, PictID: d.PictID,
+			Colors: m.Colors, Player: d.Type == kDescPlayer, State: m.State,
+			Plane: d.Plane, Self: m.Index == selfIndex, Dead: m.State == poseDead, Stale: m.Persist,
+		}
+		world.Mobiles = append(world.Mobiles, mobile)
+	}
+	for _, p := range session.draw.current.pictures {
+		world.Pictures = append(world.Pictures, scriptapi.Picture{
+			PictID: p.PictID, H: p.H, V: p.V, Plane: p.Plane,
+			Moving: p.Moving, Background: p.Background, Reused: p.Again,
+		})
+	}
+	session.draw.mu.Unlock()
+	// Metadata lookup requires no GPU image allocation and need not hold the
+	// session draw lock.
+	for i := range world.Mobiles {
+		m := &world.Mobiles[i]
+		m.Size = mobileSize(m.PictID)
+		if m.Self && !m.Stale {
+			world.Self, world.HasSelf = *m, true
+		}
+	}
+	if clImages != nil {
+		for i := range world.Pictures {
+			p := &world.Pictures[i]
+			p.Width, p.Height = clImages.Size(uint32(p.PictID))
+			if frames := clImages.NumFrames(uint32(p.PictID)); frames > 1 {
+				p.Height /= frames
+			}
+			p.Shadow = clImages.Flags(uint32(p.PictID))&climg.PictDefIsShadow != 0
+		}
+	}
+	world.Location = scriptLocationForSession(session)
+	return world
+}
+
+func scriptLocationForSession(session *Session) string {
+	if session == primarySession {
+		scriptLocationMu.RLock()
+		location := scriptLocation
+		scriptLocationMu.RUnlock()
+		return location
+	}
+	return session.scriptLocationSnapshot()
 }
 
 const scriptMovementLease = 500 * time.Millisecond

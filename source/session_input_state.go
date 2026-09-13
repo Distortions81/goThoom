@@ -40,6 +40,31 @@ func (s *sessionInputState) next() inputState {
 	return input
 }
 
+// enqueue adds direct input for this session without consulting the
+// primary-session UI queue. Background macro movement uses the same bounded
+// coalescing behavior as ordinary player input.
+func (s *sessionInputState) enqueue(input inputState) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	switch len(s.queue) {
+	case 0:
+		if s.latest != input {
+			s.queue = append(s.queue, input)
+		}
+	case 1:
+		if s.queue[0] != input {
+			s.queue = append(s.queue, input)
+		}
+	default:
+		if s.queue[len(s.queue)-1] != input {
+			s.queue[len(s.queue)-1] = input
+		}
+	}
+	s.mu.Unlock()
+}
+
 func (s *sessionInputState) reset() {
 	if s == nil {
 		return

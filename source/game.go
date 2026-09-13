@@ -5384,6 +5384,7 @@ func sendSessionInputLoop(session *Session, ctx context.Context, udpConn, tcpCon
 			inputMu.Unlock()
 			s = applyScriptMovement(s, time.Now())
 		} else {
+			session.advanceLegacyMacros(int64(session.frames.acknowledged()))
 			s = session.input.next()
 		}
 

@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/binary"
 	"net"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -145,6 +148,334 @@ func TestSessionsOwnIndependentInventory(t *testing.T) {
 	first.inventory.reset()
 	if len(first.inventory.snapshot()) != 0 || len(second.inventory.snapshot()) != 1 {
 		t.Fatal("resetting one session changed another session's inventory")
+	}
+}
+
+func TestSessionsOwnIndependentLegacyMacroRuntimes(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.setCharacterName("First Hero")
+	second.setCharacterName("Second Hero")
+	first.publishChat("first session text", messageTextTypeSystem)
+	second.publishChat("second session text", messageTextTypeSystem)
+
+	program := parseLegacyMacroSources([]legacyMacroSource{{
+		Path: "session-test.mac",
+		Text: strings.Join([]string{
+			"setglobal owner @my.name",
+			"setglobal textlog @env.textlog",
+			"\"first\" \"/pose first\\r\"",
+			"\"second\" \"/pose second\\r\"",
+		}, "\n"),
+	}})
+	if err := program.err(); err != nil {
+		t.Fatalf("parse macro program: %v", err)
+	}
+	firstRuntime := newSessionLegacyMacroRuntime(first, program)
+	secondRuntime := newSessionLegacyMacroRuntime(second, program)
+	first.automation.legacyRuntime = firstRuntime
+	second.automation.legacyRuntime = secondRuntime
+
+	if got := firstRuntime.globalsSnapshot()["owner"]; got != "First Hero" {
+		t.Fatalf("first macro owner = %q, want First Hero", got)
+	}
+	if got := secondRuntime.globalsSnapshot()["owner"]; got != "Second Hero" {
+		t.Fatalf("second macro owner = %q, want Second Hero", got)
+	}
+	if got := firstRuntime.globalsSnapshot()["textlog"]; got != "first session text" {
+		t.Fatalf("first macro text log = %q", got)
+	}
+	if got := secondRuntime.globalsSnapshot()["textlog"]; got != "second session text" {
+		t.Fatalf("second macro text log = %q", got)
+	}
+	if !firstRuntime.triggerExpression("first", 1) {
+		t.Fatal("first runtime did not trigger its expression")
+	}
+	if !secondRuntime.triggerExpression("second", 1) {
+		t.Fatal("second runtime did not trigger its expression")
+	}
+	first.commands.mu.Lock()
+	firstCommand := first.commands.pending
+	first.commands.mu.Unlock()
+	second.commands.mu.Lock()
+	secondCommand := second.commands.pending
+	second.commands.mu.Unlock()
+	if firstCommand != "/pose first" || secondCommand != "/pose second" {
+		t.Fatalf("macro commands crossed sessions: first=%q second=%q", firstCommand, secondCommand)
+	}
+
+	first.queueLegacyMacroMove(legacyMacroMove{Direction: legacyMacroMoveEast})
+	firstInput := first.input.next()
+	secondInput := second.input.next()
+	if !firstInput.mouseDown || firstInput.mouseX <= 0 || firstInput.mouseY != 0 {
+		t.Fatalf("first macro movement = %+v", firstInput)
+	}
+	if secondInput != (inputState{}) {
+		t.Fatalf("first macro movement changed second session input: %+v", secondInput)
+	}
+
+	first.resetConnectionModels()
+	if first.legacyMacroRuntimeSnapshot() != nil {
+		t.Fatal("reset retained the first session macro runtime")
+	}
+	if second.legacyMacroRuntimeSnapshot() != secondRuntime {
+		t.Fatal("resetting first session removed the second macro runtime")
+	}
+}
+
+func TestSessionsOwnIndependentScriptEventQueues(t *testing.T) {
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	const owner = "session-queue-isolation"
+
+	firstQueue := startSessionScriptEventQueue(first, owner)
+	secondQueue := startSessionScriptEventQueue(second, owner)
+	if firstQueue == nil || secondQueue == nil || firstQueue == secondQueue {
+		t.Fatal("sessions did not create independent script event queues")
+	}
+	if currentSessionScriptEventQueue(first, owner) != firstQueue {
+		t.Fatal("first session did not retain its queue")
+	}
+	if currentSessionScriptEventQueue(second, owner) != secondQueue {
+		t.Fatal("second session did not retain its queue")
+	}
+
+	firstRan := make(chan struct{}, 1)
+	secondRan := make(chan struct{}, 1)
+	if !queueScriptCallbackOn(firstQueue, owner, "first", func() { firstRan <- struct{}{} }) {
+		t.Fatal("first session did not accept its callback")
+	}
+	if !queueScriptCallbackOn(secondQueue, owner, "second", func() { secondRan <- struct{}{} }) {
+		t.Fatal("second session did not accept its callback")
+	}
+	for name, ran := range map[string]<-chan struct{}{"first": firstRan, "second": secondRan} {
+		select {
+		case <-ran:
+		case <-time.After(time.Second):
+			t.Fatalf("%s session callback did not run", name)
+		}
+	}
+
+	if stopped := stopSessionScriptEventQueue(first, owner); stopped != firstQueue {
+		t.Fatalf("first session stopped queue = %p, want %p", stopped, firstQueue)
+	}
+	if currentSessionScriptEventQueue(first, owner) != nil {
+		t.Fatal("stopping first queue retained it")
+	}
+	if currentSessionScriptEventQueue(second, owner) != secondQueue || !scriptEventQueueIsCurrent(owner, secondQueue) {
+		t.Fatal("stopping first queue changed the second session queue")
+	}
+
+	second.resetConnectionModels()
+	if currentSessionScriptEventQueue(second, owner) != nil {
+		t.Fatal("resetting a session retained its script queues")
+	}
+}
+
+func TestSecondarySessionLoadsAndStopsLegacyMacros(t *testing.T) {
+	originalDataDir := dataDirPath
+	dataDirPath = t.TempDir()
+	t.Cleanup(func() { dataDirPath = originalDataDir })
+	if err := os.MkdirAll(legacyMacrosDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	macro := strings.Join([]string{
+		"@login",
+		"{",
+		"\t\"/pose entered\\r\"",
+		"}",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(legacyMacrosDir(), "Second Hero"), []byte(macro), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	session := mustNewSession(2)
+	session.setCharacterName("Second Hero")
+	if err := session.loadLegacyMacrosForCharacter("Second Hero"); err != nil {
+		t.Fatalf("load secondary macros: %v", err)
+	}
+	if session.legacyMacroRuntimeSnapshot() == nil {
+		t.Fatal("secondary macro runtime was not installed")
+	}
+	session.advanceLegacyMacros(1)
+	session.commands.mu.Lock()
+	command := session.commands.pending
+	session.commands.mu.Unlock()
+	if command != "/pose entered" {
+		t.Fatalf("secondary @login command = %q", command)
+	}
+
+	session.resetConnectionModels()
+	if session.legacyMacroRuntimeSnapshot() != nil {
+		t.Fatal("secondary macro runtime survived session reset")
+	}
+}
+
+func TestSessionScriptDataExportsUseOwningSession(t *testing.T) {
+	scriptPermissionMu.Lock()
+	originalPermissions := scriptPermissionGrants["shared-script"]
+	scriptPermissionGrants["shared-script"] = map[string]bool{"data": true}
+	scriptPermissionMu.Unlock()
+	t.Cleanup(func() {
+		scriptPermissionMu.Lock()
+		if originalPermissions == nil {
+			delete(scriptPermissionGrants, "shared-script")
+		} else {
+			scriptPermissionGrants["shared-script"] = originalPermissions
+		}
+		scriptPermissionMu.Unlock()
+	})
+
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.setCharacterName("First Hero")
+	second.setCharacterName("Second Hero")
+	first.setScriptLocation("First Shore")
+	second.setScriptLocation("Second Shore")
+	first.inventory.add(100, -1, "Moonstone", true)
+	second.inventory.add(200, -1, "Sunstone", false)
+	first.players.observeAppearance("First Friend", 10, nil, false)
+	second.players.observeAppearance("Second Friend", 20, nil, false)
+	first.setPlayerIndex(3)
+	second.setPlayerIndex(7)
+	first.draw.mu.Lock()
+	first.draw.current.hp, first.draw.current.hpMax = 3, 10
+	first.draw.current.liveMobs = []frameMobile{{Index: 3, H: 10}}
+	first.draw.current.descriptors = map[uint8]frameDescriptor{3: {Index: 3, Name: "First Hero", Type: kDescPlayer}}
+	first.draw.mu.Unlock()
+	second.draw.mu.Lock()
+	second.draw.current.hp, second.draw.current.hpMax = 8, 12
+	second.draw.current.liveMobs = []frameMobile{{Index: 7, H: 20}}
+	second.draw.current.descriptors = map[uint8]frameDescriptor{7: {Index: 7, Name: "Second Hero", Type: kDescPlayer}}
+	second.draw.mu.Unlock()
+
+	firstExports := exportsForScriptCandidate("shared-script", &scriptCandidate{session: first})["gt2/gt2"]
+	secondExports := exportsForScriptCandidate("shared-script", &scriptCandidate{session: second})["gt2/gt2"]
+	firstSelf := firstExports["Self"].Interface().(func() scriptapi.Character)()
+	secondSelf := secondExports["Self"].Interface().(func() scriptapi.Character)()
+	if firstSelf.Name != "First Hero" || firstSelf.Health != 3 || firstSelf.Location != "First Shore" {
+		t.Fatalf("first script self = %+v", firstSelf)
+	}
+	if secondSelf.Name != "Second Hero" || secondSelf.Health != 8 || secondSelf.Location != "Second Shore" {
+		t.Fatalf("second script self = %+v", secondSelf)
+	}
+	firstInventory := firstExports["Inventory"].Interface().(func() []InventoryItem)()
+	secondInventory := secondExports["Inventory"].Interface().(func() []InventoryItem)()
+	if len(firstInventory) != 1 || firstInventory[0].Name != "Moonstone" || len(secondInventory) != 1 || secondInventory[0].Name != "Sunstone" {
+		t.Fatalf("script inventories crossed sessions: first=%+v second=%+v", firstInventory, secondInventory)
+	}
+	firstPlayers := firstExports["Players"].Interface().(func() []scriptapi.Player)()
+	secondPlayers := secondExports["Players"].Interface().(func() []scriptapi.Player)()
+	if len(firstPlayers) != 1 || firstPlayers[0].Name != "First Friend" || len(secondPlayers) != 1 || secondPlayers[0].Name != "Second Friend" {
+		t.Fatalf("script players crossed sessions: first=%+v second=%+v", firstPlayers, secondPlayers)
+	}
+	secondWorld := secondExports["CurrentWorld"].Interface().(func() scriptapi.World)()
+	if !secondWorld.HasSelf || secondWorld.Self.Name != "Second Hero" || secondWorld.Self.H != 20 {
+		t.Fatalf("second script world = %+v", secondWorld)
+	}
+}
+
+func TestSessionScriptsOwnInterpreterAndChatLifecycle(t *testing.T) {
+	const firstOwner = "first-session-runtime"
+	const secondOwner = "second-session-runtime"
+	scriptPermissionMu.Lock()
+	originalFirst := scriptPermissionGrants[firstOwner]
+	originalSecond := scriptPermissionGrants[secondOwner]
+	originalFirstReview := scriptPermissionReviews[firstOwner]
+	originalSecondReview := scriptPermissionReviews[secondOwner]
+	scriptPermissionGrants[firstOwner] = map[string]bool{"messages": true, "session": true, "storage": true}
+	scriptPermissionGrants[secondOwner] = map[string]bool{"messages": true, "session": true, "storage": true}
+	scriptPermissionReviews[firstOwner] = map[string]bool{"messages": true, "session": true, "storage": true}
+	scriptPermissionReviews[secondOwner] = map[string]bool{"messages": true, "session": true, "storage": true}
+	scriptPermissionMu.Unlock()
+	t.Cleanup(func() {
+		scriptPermissionMu.Lock()
+		if originalFirst == nil {
+			delete(scriptPermissionGrants, firstOwner)
+		} else {
+			scriptPermissionGrants[firstOwner] = originalFirst
+		}
+		if originalSecond == nil {
+			delete(scriptPermissionGrants, secondOwner)
+		} else {
+			scriptPermissionGrants[secondOwner] = originalSecond
+		}
+		if originalFirstReview == nil {
+			delete(scriptPermissionReviews, firstOwner)
+		} else {
+			scriptPermissionReviews[firstOwner] = originalFirstReview
+		}
+		if originalSecondReview == nil {
+			delete(scriptPermissionReviews, secondOwner)
+		} else {
+			scriptPermissionReviews[secondOwner] = originalSecondReview
+		}
+		scriptPermissionMu.Unlock()
+	})
+
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.setCharacterName("First Hero")
+	second.setCharacterName("Second Hero")
+	src := []byte(`package main
+import "gt2"
+func Init() {
+	gt2.OnLogin(func(event gt2.LifecycleEvent) { gt2.Store("login", event.Character) })
+	gt2.OnLogout(func(event gt2.LifecycleEvent) { gt2.Store("logout", event.Character) })
+	gt2.OnStop(func(event gt2.LifecycleEvent) { gt2.Store("stopped", event.Character) })
+	gt2.OnChat(gt2.ChatFilter{}, func(event gt2.ChatEvent) { gt2.Store("chat", event.Raw) })
+}
+`)
+	if err := first.startSessionScript(firstOwner, src, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session script: %v", err)
+	}
+	if err := second.startSessionScript(secondOwner, src, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session script: %v", err)
+	}
+	first.automation.scriptMu.RLock()
+	firstRuntime := first.automation.scripts[firstOwner]
+	first.automation.scriptMu.RUnlock()
+	second.automation.scriptMu.RLock()
+	secondRuntime := second.automation.scripts[secondOwner]
+	second.automation.scriptMu.RUnlock()
+	if firstRuntime == nil || secondRuntime == nil || firstRuntime.queue == secondRuntime.queue || firstRuntime.prepared.interpreter == secondRuntime.prepared.interpreter {
+		t.Fatal("sessions did not receive independent script interpreters and queues")
+	}
+	if got := scriptStorageGet(firstOwner, "login"); got != "First Hero" {
+		t.Fatalf("first login lifecycle = %#v", got)
+	}
+	if got := scriptStorageGet(secondOwner, "login"); got != "Second Hero" {
+		t.Fatalf("second login lifecycle = %#v", got)
+	}
+
+	first.publishChat("first session chat", messageTextTypeSystem)
+	deadline := time.Now().Add(time.Second)
+	for scriptStorageGet(firstOwner, "chat") != "first session chat" && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := scriptStorageGet(firstOwner, "chat"); got != "first session chat" {
+		t.Fatalf("first chat callback = %#v", got)
+	}
+	if got := scriptStorageGet(secondOwner, "chat"); got != nil {
+		t.Fatalf("first chat crossed into second session script: %#v", got)
+	}
+
+	first.stopSessionScript(firstOwner, "test stop")
+	if got := scriptStorageGet(firstOwner, "stopped"); got != "First Hero" {
+		t.Fatalf("first stop lifecycle = %#v", got)
+	}
+	if currentSessionScriptEventQueue(first, firstOwner) != nil {
+		t.Fatal("stopping first script retained its queue")
+	}
+	if currentSessionScriptEventQueue(second, secondOwner) != secondRuntime.queue {
+		t.Fatal("stopping first script changed second session queue")
+	}
+	second.resetConnectionModels()
+	if got := scriptStorageGet(secondOwner, "logout"); got != "Second Hero" {
+		t.Fatalf("second logout lifecycle = %#v", got)
+	}
+	if currentSessionScriptEventQueue(second, secondOwner) != nil {
+		t.Fatal("resetting second session retained its script queue")
 	}
 }
 

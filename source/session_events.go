@@ -100,6 +100,7 @@ func (s *Session) publishChat(text, messageType string) {
 		return
 	}
 	s.publishEvent(sessionEvent{Kind: sessionEventChat, Text: text, MessageType: messageType})
+	s.dispatchSessionScriptChat(text)
 	if s == primarySession {
 		displayChatMessageTyped(text, messageType)
 	}

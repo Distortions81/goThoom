@@ -79,6 +79,9 @@ func scriptSelectedItem() (scriptapi.Item, bool) {
 }
 
 func scriptSelf() scriptapi.Character {
+	// The primary client still has compatibility adapters backed by the
+	// established global model. Keep this public wrapper on that model until
+	// Phase 3 redirects all primary UI paths through Session.
 	primarySession.draw.mu.Lock()
 	health, healthMax := primarySession.draw.current.hp, primarySession.draw.current.hpMax
 	spirit, spiritMax := primarySession.draw.current.sp, primarySession.draw.current.spMax
@@ -87,13 +90,29 @@ func scriptSelf() scriptapi.Character {
 	scriptLocationMu.RLock()
 	location := scriptLocation
 	scriptLocationMu.RUnlock()
-	equipment := scriptEquippedItems()
 	return scriptapi.Character{
-		Name:   playerName,
+		Name: playerName, Health: health, HealthMax: healthMax,
+		Spirit: spirit, SpiritMax: spiritMax, Balance: balance, BalanceMax: balanceMax,
+		Location: location, Equipment: scriptEquippedItems(),
+	}
+}
+
+func scriptSelfForSession(session *Session) scriptapi.Character {
+	if session == nil {
+		return scriptapi.Character{}
+	}
+	session.draw.mu.Lock()
+	health, healthMax := session.draw.current.hp, session.draw.current.hpMax
+	spirit, spiritMax := session.draw.current.sp, session.draw.current.spMax
+	balance, balanceMax := session.draw.current.balance, session.draw.current.balanceMax
+	session.draw.mu.Unlock()
+	equipment := scriptEquippedItemsForSession(session)
+	return scriptapi.Character{
+		Name:   session.characterName(),
 		Health: health, HealthMax: healthMax,
 		Spirit: spirit, SpiritMax: spiritMax,
 		Balance: balance, BalanceMax: balanceMax,
-		Location:  location,
+		Location:  scriptLocationForSession(session),
 		Equipment: equipment,
 	}
 }
@@ -107,6 +126,39 @@ func scriptEquippedItems() []InventoryItem {
 		}
 	}
 	return res
+}
+
+func scriptEquippedItemsForSession(session *Session) []InventoryItem {
+	if session == nil || session.inventory == nil {
+		return nil
+	}
+	items := session.inventory.snapshot()
+	res := make([]InventoryItem, 0, len(items))
+	for _, it := range items {
+		if it.Equipped {
+			res = append(res, it)
+		}
+	}
+	return res
+}
+
+func scriptPlayersForSession(session *Session) []scriptapi.Player {
+	if session == nil || session.players == nil {
+		return nil
+	}
+	players := session.players.snapshot()
+	out := make([]scriptapi.Player, len(players))
+	for index, player := range players {
+		out[index] = scriptPlayerSnapshot(player)
+	}
+	return out
+}
+
+func scriptInventoryForSession(session *Session) []InventoryItem {
+	if session == nil || session.inventory == nil {
+		return nil
+	}
+	return session.inventory.snapshot()
 }
 
 func scriptFindItemExact(name string) (scriptapi.Item, bool) {

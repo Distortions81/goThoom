@@ -16,9 +16,14 @@ type Storage struct {
 }
 
 func (s Storage) Active() bool {
-	scriptSessionMu.Lock()
-	character := normalizeScriptCharacter(scriptSessionCharacter)
-	scriptSessionMu.Unlock()
+	character := ""
+	if s.candidate != nil && s.candidate.session != nil {
+		character = normalizeScriptCharacter(s.candidate.session.characterName())
+	} else {
+		scriptSessionMu.Lock()
+		character = normalizeScriptCharacter(scriptSessionCharacter)
+		scriptSessionMu.Unlock()
+	}
 	// The character name remains known during logout and Terminate; the candidate
 	// still enforces interpreter lifetime and session generation.
 	return s.character != "" && s.character == character &&
@@ -80,7 +85,11 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 	}
 	m["HasPermission"] = reflect.ValueOf(func(permission string) bool { return scriptHasPermission(owner, permission) })
 	m["CharacterStore"] = reflect.ValueOf(func() Storage {
-		return Storage{owner: owner, character: normalizeScriptCharacter(scriptExecutionCharacter()), candidate: candidate}
+		character := scriptExecutionCharacter()
+		if candidate != nil && candidate.session != nil {
+			character = candidate.session.characterName()
+		}
+		return Storage{owner: owner, character: normalizeScriptCharacter(character), candidate: candidate}
 	})
 	m["QueueCommand"] = reflect.ValueOf(func(cmd string) CommandTicket {
 		ticket := newScriptCommandTicket(owner, candidate.runtimeEventQueue(owner))

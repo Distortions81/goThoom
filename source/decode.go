@@ -122,6 +122,10 @@ BEPP tag reference (two-letter codes following the 0xC2 prefix):
 | yk  | you killed          |
 */
 func decodeBEPP(data []byte) string {
+	return decodeSessionBEPP(primarySession, data)
+}
+
+func decodeSessionBEPP(session *Session, data []byte) string {
 	if len(data) < 3 || data[0] != 0xC2 {
 		return ""
 	}
@@ -149,7 +153,12 @@ func decodeBEPP(data []byte) string {
 
 	switch prefix {
 	case "lo":
-		setScriptLocation(text)
+		if session != nil {
+			session.setScriptLocation(text)
+		}
+		if session == primarySession {
+			setScriptLocation(text)
+		}
 		if text != "" {
 			return text
 		}

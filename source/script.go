@@ -162,6 +162,7 @@ var basescriptExports = interp.Exports{
 
 type scriptCandidate struct {
 	generation  uint64
+	session     *Session
 	mu          sync.Mutex
 	active      bool
 	failed      bool
@@ -196,6 +197,8 @@ type scriptEventQueue struct {
 	activeTask        *scriptTaskState
 	wake              chan struct{}
 	owner             string
+	registry          *scriptQueueRegistry
+	session           *Session
 	interpreter       *interp.Interpreter
 	diagnostics       *scriptDiagnostics
 	mu                sync.Mutex
@@ -464,6 +467,118 @@ var (
 	scriptEventQueues   = map[string]*scriptEventQueue{}
 )
 
+// scriptQueueRegistry owns the serialized callback queues for one script
+// runtime. The primary runtime continues to use scriptEventQueues while a
+// secondary Session keeps its queues in its automation state.
+type scriptQueueRegistry struct {
+	mu     sync.Mutex
+	queues map[string]*scriptEventQueue
+}
+
+func newScriptQueueRegistry() *scriptQueueRegistry {
+	return &scriptQueueRegistry{queues: make(map[string]*scriptEventQueue)}
+}
+
+func (r *scriptQueueRegistry) start(owner string, interpreters ...*interp.Interpreter) *scriptEventQueue {
+	if r == nil {
+		return nil
+	}
+	var interpreter *interp.Interpreter
+	if len(interpreters) > 0 {
+		interpreter = interpreters[0]
+	}
+	queue := &scriptEventQueue{
+		owner:       owner,
+		registry:    r,
+		interpreter: interpreter,
+		done:        make(chan struct{}),
+		wake:        make(chan struct{}, 1),
+	}
+	r.mu.Lock()
+	old := r.queues[owner]
+	r.queues[owner] = queue
+	r.mu.Unlock()
+	if old != nil {
+		old.stop()
+	}
+	return queue
+}
+
+func (r *scriptQueueRegistry) current(owner string) *scriptEventQueue {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	queue := r.queues[owner]
+	r.mu.Unlock()
+	return queue
+}
+
+func (r *scriptQueueRegistry) isCurrent(owner string, queue *scriptEventQueue) bool {
+	if r == nil || queue == nil {
+		return false
+	}
+	r.mu.Lock()
+	current := r.queues[owner] == queue
+	r.mu.Unlock()
+	return current
+}
+
+func (r *scriptQueueRegistry) stop(owner string) *scriptEventQueue {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	queue := r.queues[owner]
+	delete(r.queues, owner)
+	r.mu.Unlock()
+	if queue != nil {
+		queue.stop()
+	}
+	return queue
+}
+
+func (r *scriptQueueRegistry) stopAll() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	queues := make([]*scriptEventQueue, 0, len(r.queues))
+	for _, queue := range r.queues {
+		queues = append(queues, queue)
+	}
+	clear(r.queues)
+	r.mu.Unlock()
+	for _, queue := range queues {
+		queue.stop()
+	}
+}
+
+func startSessionScriptEventQueue(session *Session, owner string, interpreters ...*interp.Interpreter) *scriptEventQueue {
+	if session == nil || session.automation == nil {
+		return nil
+	}
+	queue := session.automation.scriptQueues.start(owner, interpreters...)
+	if queue != nil {
+		queue.session = session
+	}
+	return queue
+}
+
+func currentSessionScriptEventQueue(session *Session, owner string) *scriptEventQueue {
+	if session == nil || session.automation == nil {
+		return nil
+	}
+	return session.automation.scriptQueues.current(owner)
+}
+
+func stopSessionScriptEventQueue(session *Session, owner string) *scriptEventQueue {
+	if session == nil || session.automation == nil {
+		return nil
+	}
+	return session.automation.scriptQueues.stop(owner)
+}
+
 func startScriptEventQueue(owner string, interpreters ...*interp.Interpreter) *scriptEventQueue {
 	var interpreter *interp.Interpreter
 	if len(interpreters) > 0 {
@@ -490,6 +605,9 @@ func currentScriptEventQueue(owner string) *scriptEventQueue {
 func scriptEventQueueIsCurrent(owner string, queue *scriptEventQueue) bool {
 	if queue == nil {
 		return false
+	}
+	if queue.registry != nil {
+		return queue.registry.isCurrent(owner, queue)
 	}
 	scriptEventMu.Lock()
 	current := scriptEventQueues[owner] == queue
@@ -907,8 +1025,13 @@ func (c *scriptCandidate) dispatch(owner string, action func()) {
 		return
 	}
 	eventQueue := c.eventQueue
+	session := c.session
 	c.mu.Unlock()
 	if !scriptEventQueueIsCurrent(owner, eventQueue) {
+		return
+	}
+	if session != nil {
+		queueScriptCallbackOn(eventQueue, owner, "Dispatch", action)
 		return
 	}
 	dispatchScript(owner, func() {
@@ -950,7 +1073,7 @@ func (c *scriptCandidate) setStorage(owner, key string, value any) {
 		eventQueue := c.eventQueue
 		terminating := c.terminating
 		c.mu.Unlock()
-		if !terminating && (scriptIsDisabled(owner) || !scriptEventQueueIsCurrent(owner, eventQueue)) {
+		if !terminating && (scriptRuntimeDisabled(owner, eventQueue) || !scriptEventQueueIsCurrent(owner, eventQueue)) {
 			return
 		}
 		setScriptStorageValue(owner, key, value)
@@ -996,7 +1119,7 @@ func (c *scriptCandidate) deleteStorage(owner, key string) {
 		eventQueue := c.eventQueue
 		terminating := c.terminating
 		c.mu.Unlock()
-		if !terminating && (scriptIsDisabled(owner) || !scriptEventQueueIsCurrent(owner, eventQueue)) {
+		if !terminating && (scriptRuntimeDisabled(owner, eventQueue) || !scriptEventQueueIsCurrent(owner, eventQueue)) {
 			return
 		}
 		scriptStorageDelete(owner, key)
@@ -1064,6 +1187,14 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		m := map[string]reflect.Value{}
 		for k, v := range symbols {
 			m[k] = v
+		}
+		if candidate != nil && candidate.session != nil {
+			session := candidate.session
+			m["Self"] = reflect.ValueOf(func() scriptapi.Character { return scriptSelfForSession(session) })
+			m["Players"] = reflect.ValueOf(func() []scriptapi.Player { return scriptPlayersForSession(session) })
+			m["Inventory"] = reflect.ValueOf(func() []InventoryItem { return scriptInventoryForSession(session) })
+			m["EquippedItems"] = reflect.ValueOf(func() []InventoryItem { return scriptEquippedItemsForSession(session) })
+			m["CurrentWorld"] = reflect.ValueOf(func() scriptapi.World { return scriptCurrentWorldForSession(session) })
 		}
 		stage := func(action func()) { candidate.dispatch(owner, action) }
 		subscribe := func(register func() scriptRegistrationHandle) Subscription {
@@ -1216,24 +1347,47 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 		})
 		m["SetInputText"] = reflect.ValueOf(func(text string) { stage(func() { scriptSetInputText(text) }) })
 		m["OnChat"] = reflect.ValueOf(func(filter ChatFilter, handler func(ChatEvent)) Subscription {
-			return subscribe(func() scriptRegistrationHandle { return scriptRegisterStructuredChat(owner, filter, handler) })
+			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptChat(owner, filter, handler)
+				}
+				return scriptRegisterStructuredChat(owner, filter, handler)
+			})
 		})
 		m["OnServerMessage"] = reflect.ValueOf(func(filter ServerMessageFilter, handler func(scriptapi.ServerMessage)) Subscription {
 			return subscribe(func() scriptRegistrationHandle { return scriptRegisterServerMessage(owner, filter, handler) })
 		})
 		m["OnLogin"] = reflect.ValueOf(func(handler func(LifecycleEvent)) Subscription {
-			return subscribe(func() scriptRegistrationHandle { return scriptRegisterLifecycle(owner, lifecycleLogin, handler) })
+			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptLifecycle(owner, lifecycleLogin, handler)
+				}
+				return scriptRegisterLifecycle(owner, lifecycleLogin, handler)
+			})
 		})
 		m["OnLogout"] = reflect.ValueOf(func(handler func(LifecycleEvent)) Subscription {
-			return subscribe(func() scriptRegistrationHandle { return scriptRegisterLifecycle(owner, lifecycleLogout, handler) })
+			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptLifecycle(owner, lifecycleLogout, handler)
+				}
+				return scriptRegisterLifecycle(owner, lifecycleLogout, handler)
+			})
 		})
 		m["OnCharacterChange"] = reflect.ValueOf(func(handler func(LifecycleEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptLifecycle(owner, lifecycleCharacterChange, handler)
+				}
 				return scriptRegisterLifecycle(owner, lifecycleCharacterChange, handler)
 			})
 		})
 		m["OnStop"] = reflect.ValueOf(func(handler func(LifecycleEvent)) Subscription {
-			return subscribe(func() scriptRegistrationHandle { return scriptRegisterLifecycle(owner, lifecycleStop, handler) })
+			return subscribe(func() scriptRegistrationHandle {
+				if candidate != nil && candidate.session != nil {
+					return candidate.session.registerSessionScriptLifecycle(owner, lifecycleStop, handler)
+				}
+				return scriptRegisterLifecycle(owner, lifecycleStop, handler)
+			})
 		})
 		m["OnChange"] = reflect.ValueOf(func(kind string, handler func(ChangeEvent)) Subscription {
 			return subscribe(func() scriptRegistrationHandle { return scriptRegisterChange(owner, kind, handler) })
@@ -1523,6 +1677,16 @@ func scriptIsDisabled(owner string) bool {
 	disabled := scriptDisabled[owner]
 	scriptMu.RUnlock()
 	return disabled
+}
+
+// A secondary runtime keeps its enabled state with its owning connection. Its
+// ID may also be disabled in the primary Scripts window without suppressing a
+// background interpreter that uses the same script package.
+func scriptRuntimeDisabled(owner string, queue *scriptEventQueue) bool {
+	if queue != nil && queue.session != nil {
+		return false
+	}
+	return scriptIsDisabled(owner)
 }
 
 // InputEvent describes a triggered key, mouse, modifier, chord, or wheel binding.
@@ -1831,20 +1995,16 @@ func scriptSleepTicks(owner string, eventQueue *scriptEventQueue, ticks int) {
 		return
 	}
 	w := &tickWaiter{remain: ticks, done: make(chan struct{}, 1)}
-	scriptEventMu.Lock()
-	if scriptEventQueues[owner] != eventQueue {
-		scriptEventMu.Unlock()
+	if !scriptEventQueueIsCurrent(owner, eventQueue) {
 		return
 	}
 	scriptMu.Lock()
 	if scriptDisabled[owner] {
 		scriptMu.Unlock()
-		scriptEventMu.Unlock()
 		return
 	}
 	scriptTickWaiters[owner] = append(scriptTickWaiters[owner], w)
 	scriptMu.Unlock()
-	scriptEventMu.Unlock()
 	defer func() {
 		scriptMu.Lock()
 		list := scriptTickWaiters[owner]
@@ -2108,13 +2268,21 @@ func compileScriptSource(owner string, src []byte, restricted interp.Exports) (*
 }
 
 func compileScriptSourceWithAssets(owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource) (*preparedScript, error) {
+	return compileScriptSourceWithAssetsForSession(nil, owner, src, restricted, assets)
+}
+
+// compileScriptSourceWithAssetsForSession binds a candidate's data APIs to
+// one session before its source is evaluated. Existing primary scripts pass a
+// nil session through the compatibility wrapper above until runtime registries
+// are moved out of their package globals.
+func compileScriptSourceWithAssetsForSession(session *Session, owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource) (*preparedScript, error) {
 	if err := checkScriptSourceRequirements(src); err != nil {
 		return nil, err
 	}
 	if err := checkScriptPermissions(owner, src); err != nil {
 		return nil, err
 	}
-	candidate := &scriptCandidate{assets: assets, generation: scriptSessionGeneration.Load()}
+	candidate := &scriptCandidate{assets: assets, generation: scriptSessionGeneration.Load(), session: session}
 	diagnostics := &scriptDiagnostics{}
 	i := interp.New(interp.Options{Stderr: diagnostics})
 	if len(restricted) > 0 {
@@ -2185,6 +2353,18 @@ func prepareScriptSourceWithAssets(owner string, src []byte, restricted interp.E
 	return prepared, nil
 }
 
+func prepareScriptSourceWithAssetsForSession(session *Session, owner string, src []byte, restricted interp.Exports, assets *scriptAssetSource) (*preparedScript, error) {
+	prepared, err := compileScriptSourceWithAssetsForSession(session, owner, src, restricted, assets)
+	if err != nil {
+		return nil, err
+	}
+	if err := initializePreparedScript(prepared); err != nil {
+		disposePreparedScript(prepared)
+		return nil, err
+	}
+	return prepared, nil
+}
+
 func callScriptLifecycle(event string, fn func(), interpreters ...*interp.Interpreter) error {
 	result := make(chan error, 1)
 	go func() {
@@ -2215,7 +2395,10 @@ func runScriptCallback(owner, event string, fn func()) bool {
 }
 
 func runScriptCallbackOnQueue(queue *scriptEventQueue, owner, event string, fn func()) (ok bool) {
-	if fn == nil || scriptIsDisabled(owner) || currentScriptEventQueue(owner) != queue {
+	// Some direct registrations deliberately run before an interpreter queue is
+	// installed (for example, the hotkey and command compatibility helpers).
+	// A non-nil queue must still be current; nil retains the pre-queue behavior.
+	if fn == nil || scriptRuntimeDisabled(owner, queue) || (queue != nil && !scriptEventQueueIsCurrent(owner, queue)) {
 		return false
 	}
 	ok = true
@@ -2225,7 +2408,7 @@ func runScriptCallbackOnQueue(queue *scriptEventQueue, owner, event string, fn f
 				return
 			}
 			ok = false
-			if scriptCallbackPanicHandler != nil && currentScriptEventQueue(owner) == queue {
+			if scriptCallbackPanicHandler != nil && scriptEventQueueIsCurrent(owner, queue) {
 				scriptCallbackPanicHandler(owner, event, recovered, scriptCallbackSourceLocation(owner))
 			}
 		}

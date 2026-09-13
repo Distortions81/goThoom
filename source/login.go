@@ -853,6 +853,8 @@ func runSessionLoginAttempt(session *Session, ctx context.Context, request sessi
 			lowFPSSince = time.Time{}
 			shaderWarnWin = nil
 		})
+	} else if err := session.loadLegacyMacrosForCharacter(profileCharacter); err != nil {
+		log.Printf("legacy macros for session %d: %v", session.ID(), err)
 	}
 
 	var s inputState

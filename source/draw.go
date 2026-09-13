@@ -1491,8 +1491,11 @@ func parseSessionDrawStateWithStateData(session *Session, data []byte, buildCach
 		if idx := bytes.IndexByte(data[p:], 0); idx >= 0 {
 			d.Name = utfFold(decodeServerText(data[p : p+idx]))
 			p += idx + 1
-			if session == primarySession && d.Name == playerName {
-				playerIndex = d.Index
+			if d.Name == session.characterName() {
+				session.setPlayerIndex(d.Index)
+				if session == primarySession {
+					playerIndex = d.Index
+				}
 			}
 			if wasmPrivacyActive() {
 				d.Name = ""
