@@ -36,9 +36,10 @@ func inventoryWindowTitle(used int) string {
 }
 
 type invRef struct {
-	id     uint16
-	idx    int
-	global int
+	session SessionID
+	id      uint16
+	idx     int
+	global  int
 }
 
 var inventoryRowRefs = map[*eui.ItemData]invRef{}
@@ -56,6 +57,7 @@ type inventoryRow struct {
 }
 
 type inventoryRenderState struct {
+	session      SessionID
 	rows         map[invGroupKey]*inventoryRow
 	headers      map[string]*eui.ItemData
 	order        []invGroupKey
@@ -157,7 +159,9 @@ func updateInventoryWindow() {
 
 	prevScroll := inventoryList.Scroll
 
-	items := getInventory()
+	session := selectedAppSession()
+	invRender.session = session.ID()
+	items := session.inventory.snapshot()
 	usedSlots := 0
 	counts := make(map[invGroupKey]int)
 	first := make(map[invGroupKey]InventoryItem)
@@ -537,7 +541,7 @@ func (s *inventoryRenderState) rebuild(data []inventoryRowData) {
 		s.rows[d.key] = row
 		s.order = append(s.order, d.key)
 		rowItems = append(rowItems, row)
-		inventoryRowRefs[row.row] = invRef{id: row.id, idx: row.idx, global: row.global}
+		inventoryRowRefs[row.row] = invRef{session: s.session, id: row.id, idx: row.idx, global: row.global}
 	}
 	s.ensureSpacer()
 	for _, item := range s.groupedContents(data, rowItems) {
@@ -572,7 +576,7 @@ func (s *inventoryRenderState) update(data []inventoryRowData) {
 
 	inventoryRowRefs = make(map[*eui.ItemData]invRef, len(rowItems))
 	for _, row := range rowItems {
-		inventoryRowRefs[row.row] = invRef{id: row.id, idx: row.idx, global: row.global}
+		inventoryRowRefs[row.row] = invRef{session: s.session, id: row.id, idx: row.idx, global: row.global}
 	}
 }
 
@@ -715,6 +719,13 @@ func (s *inventoryRenderState) reconcileContents(desired []*eui.ItemData) {
 }
 
 func (s *inventoryRenderState) applySelection(accent eui.Color) {
+	selectedID, selectedIndex := uint16(0), -1
+	if session, ok := appSessions.session(s.session); ok {
+		selectedID, selectedIndex = session.selectedInventorySnapshot()
+		if session == primarySession {
+			selectedID, selectedIndex = selectedInvID, selectedInvIdx
+		}
+	}
 	query := ""
 	if inventoryWin != nil {
 		query = strings.ToLower(inventoryWin.SearchText)
@@ -725,7 +736,7 @@ func (s *inventoryRenderState) applySelection(accent eui.Color) {
 			continue
 		}
 		matchesSearch := query != "" && row.label != nil && strings.Contains(strings.ToLower(row.label.Text), query)
-		if row.id == selectedInvID && row.idx == selectedInvIdx || matchesSearch {
+		if row.id == selectedID && row.idx == selectedIndex || matchesSearch {
 			row.row.Filled = true
 			row.row.Color = accent
 		} else {
@@ -740,17 +751,17 @@ func (s *inventoryRenderState) applySelection(accent eui.Color) {
 }
 
 func handleInventoryClick(id uint16, idx int) {
+	session := selectedAppSession()
 	now := time.Now()
 	if id == lastInvClickID && idx == lastInvClickIdx && now.Sub(lastInvClickTime) < 500*time.Millisecond {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) || ebiten.IsKeyPressed(ebiten.KeyShiftLeft) || ebiten.IsKeyPressed(ebiten.KeyShiftRight) {
-			enqueueCommand(fmt.Sprintf("/useitem %d", id))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/useitem %d", id))
 		} else {
-			toggleInventoryEquipAt(id, idx)
+			toggleSessionInventoryEquipAt(session, id, idx)
 		}
 		lastInvClickTime = time.Time{}
 	} else {
-		selectInventoryItem(id, idx)
+		selectInventoryItemForSession(session, id, idx)
 		lastInvClickID = id
 		lastInvClickIdx = idx
 		lastInvClickTime = now
@@ -758,17 +769,26 @@ func handleInventoryClick(id uint16, idx int) {
 }
 
 func selectInventoryItem(id uint16, idx int) {
-	if id == selectedInvID && idx == selectedInvIdx {
+	selectInventoryItemForSession(selectedAppSession(), id, idx)
+}
+
+func selectInventoryItemForSession(session *Session, id uint16, idx int) {
+	if session == nil {
 		return
 	}
-	selectedInvID = id
-	selectedInvIdx = idx
+	selectedID, selectedIndex := session.selectedInventorySnapshot()
+	if id == selectedID && idx == selectedIndex {
+		return
+	}
+	session.setSelectedInventory(id, idx)
+	if session == primarySession {
+		selectedInvID, selectedInvIdx = id, idx
+	}
 	serverIdx := idx
 	if serverIdx < 0 {
 		serverIdx = 0
 	}
-	enqueueCommand(fmt.Sprintf("\\BE-SELECT %d %d", id, serverIdx))
-	nextCommand()
+	session.commands.enqueue(fmt.Sprintf("\\BE-SELECT %d %d", id, serverIdx))
 	updateInventoryWindow()
 }
 
@@ -785,7 +805,9 @@ func handleInventoryContextClick(mx, my int) bool {
 			if ref, ok := inventoryRowRefs[row]; ok {
 				// Also select the item to provide a visual cue and
 				// ensure subsequent actions can rely on current selection.
-				selectInventoryItem(ref.id, ref.idx)
+				if session, exists := appSessions.session(ref.session); exists {
+					selectInventoryItemForSession(session, ref.id, ref.idx)
+				}
 				openInventoryContextMenu(ref, pos)
 				return true
 			}
@@ -795,6 +817,10 @@ func handleInventoryContextClick(mx, my int) bool {
 }
 
 func openInventoryContextMenu(ref invRef, pos eui.Point) {
+	session, ok := appSessions.session(ref.session)
+	if !ok {
+		return
+	}
 	// Close any existing context menus so only one is visible at a time.
 	eui.CloseContextMenus()
 	// Minimal overlay menu using the new EUI context menus: Equip/Unequip
@@ -803,7 +829,7 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 	slotVal := -1
 	displayName := ""
 	examineName := ""
-	if it, ok := inventoryItemByIndex(ref.global); ok {
+	if it, ok := sessionInventoryItemByIndex(session, ref.global); ok {
 		equipped = it.Equipped
 		if clImages != nil {
 			slot := clImages.ItemSlot(uint32(it.ID))
@@ -842,37 +868,33 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 	if wearable && !equipped {
 		options = append(options, "Equip")
 		actions = append(actions, func() {
-			queueEquipCommand(ref.id, ref.idx)
+			queueSessionEquipCommand(session, ref.id, ref.idx)
 		})
 	}
 	if wearable && equipped {
 		options = append(options, "Unequip")
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/unequip %d", ref.id))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/unequip %d", ref.id))
 		})
 	}
 	// Always offer Examine when we know the item's name.
 	if examineName != "" {
 		options = append(options, "Use")
 		actions = append(actions, func() {
-			enqueueCommand(fmt.Sprintf("/useitem %d", ref.id))
-			nextCommand()
+			session.commands.enqueue(fmt.Sprintf("/useitem %d", ref.id))
 		})
 		options = append(options, "Examine")
 		actions = append(actions, func() {
 			// Ensure the item is selected before examining
-			selectInventoryItem(ref.id, ref.idx)
-			enqueueCommand("/examine")
-			nextCommand()
+			selectInventoryItemForSession(session, ref.id, ref.idx)
+			session.commands.enqueue("/examine")
 		})
 	}
 	// Offer Show (announce item name).
 	if examineName != "" {
 		options = append(options, "Show")
 		actions = append(actions, func() {
-			enqueueCommand("/show")
-			nextCommand()
+			session.commands.enqueue("/show")
 		})
 	}
 	// Offer Drop options: plain and Mine-protected.
@@ -885,13 +907,11 @@ func openInventoryContextMenu(ref invRef, pos eui.Point) {
 	})
 	options = append(options, "Drop")
 	actions = append(actions, func() {
-		enqueueCommand("/drop")
-		nextCommand()
+		session.commands.enqueue("/drop")
 	})
 	options = append(options, "Drop (Mine)")
 	actions = append(actions, func() {
-		enqueueCommand("/drop /mine")
-		nextCommand()
+		session.commands.enqueue("/drop /mine")
 	})
 	if len(options) == 0 {
 		return

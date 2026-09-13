@@ -243,8 +243,14 @@ func (s *inventoryState) equip(id uint16, idx int, equip bool) {
 // template items or -1 otherwise. Local state changes only when the server's
 // inventory update arrives.
 func queueEquipCommand(id uint16, idx int) {
-	enqueueCommand(formatEquipCommand(id, idx))
-	nextCommand()
+	queueSessionEquipCommand(primarySession, id, idx)
+}
+
+func queueSessionEquipCommand(session *Session, id uint16, idx int) {
+	if session == nil {
+		return
+	}
+	session.commands.enqueue(formatEquipCommand(id, idx))
 }
 
 func formatEquipCommand(id uint16, idx int) string {
@@ -259,7 +265,14 @@ func formatEquipCommand(id uint16, idx int) string {
 // behavior. The server is informed through the session command stream; local
 // inventory state remains authoritative to the server response.
 func toggleInventoryEquipAt(id uint16, idx int) {
-	items := getInventory()
+	toggleSessionInventoryEquipAt(primarySession, id, idx)
+}
+
+func toggleSessionInventoryEquipAt(session *Session, id uint16, idx int) {
+	if session == nil || session.inventory == nil {
+		return
+	}
+	items := session.inventory.snapshot()
 	equip := true
 	if idx >= 0 {
 		for _, it := range items {
@@ -285,10 +298,9 @@ func toggleInventoryEquipAt(id uint16, idx int) {
 		}
 	}
 	if equip {
-		queueEquipCommand(id, idx)
+		queueSessionEquipCommand(session, id, idx)
 	} else {
-		enqueueCommand(fmt.Sprintf("/unequip %d", id))
-		nextCommand()
+		session.commands.enqueue(fmt.Sprintf("/unequip %d", id))
 	}
 }
 
@@ -432,7 +444,14 @@ func scriptItemSlotName(slot int) string {
 
 // inventoryItemByIndex returns the InventoryItem at the given index.
 func inventoryItemByIndex(idx int) (InventoryItem, bool) {
-	return primarySession.inventory.itemByIndex(idx)
+	return sessionInventoryItemByIndex(primarySession, idx)
+}
+
+func sessionInventoryItemByIndex(session *Session, idx int) (InventoryItem, bool) {
+	if session == nil || session.inventory == nil {
+		return InventoryItem{}, false
+	}
+	return session.inventory.itemByIndex(idx)
 }
 
 func (s *inventoryState) itemByIndex(idx int) (InventoryItem, bool) {

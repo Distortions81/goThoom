@@ -591,6 +591,186 @@ func Init() {
 	}
 }
 
+func TestSessionScriptsOwnPlayerChangeSubscriptions(t *testing.T) {
+	const owner = "shared-session-player-changes"
+	grantScriptPermissionsForTest(t, owner)
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	source := []byte(`package main
+import "gt2"
+var count int
+var last string
+func Init(){gt2.OnPlayerChange(func(event gt2.PlayerChangeEvent){count++;last=event.Player.Name})}
+`)
+	if err := first.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session player-change script: %v", err)
+	}
+	if err := second.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session player-change script: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(owner, "test cleanup")
+		second.stopSessionScript(owner, "test cleanup")
+	})
+
+	first.pollSessionScriptChangeEvents()
+	second.pollSessionScriptChangeEvents()
+	first.automation.scriptMu.RLock()
+	firstHandlers := len(first.automation.scriptPlayers)
+	first.automation.scriptMu.RUnlock()
+	second.automation.scriptMu.RLock()
+	secondHandlers := len(second.automation.scriptPlayers)
+	second.automation.scriptMu.RUnlock()
+	if firstHandlers != 1 || secondHandlers != 1 {
+		t.Fatalf("player-change handlers were not session-owned: first %d, second %d", firstHandlers, secondHandlers)
+	}
+	chatHandlersMu.RLock()
+	globalHandlers := 0
+	for _, handler := range scriptPlayerChangeHandlers {
+		if handler.owner == owner {
+			globalHandlers++
+		}
+	}
+	chatHandlersMu.RUnlock()
+	if globalHandlers != 0 {
+		t.Fatalf("session player-change handlers entered primary registry: %d", globalHandlers)
+	}
+
+	readState := func(session *Session) (int, string) {
+		t.Helper()
+		queue := currentSessionScriptEventQueue(session, owner)
+		count, last := 0, ""
+		if !queueScriptCallbackWaitOn(queue, owner, "inspect player changes", func() {
+			value, _ := queue.interpreter.Eval("count")
+			count = int(value.Int())
+			value, _ = queue.interpreter.Eval("last")
+			last = value.String()
+		}) {
+			t.Fatalf("session %d player-change inspection failed", session.ID())
+		}
+		return count, last
+	}
+
+	first.players.observeAppearance("Alice", 100, []byte{1, 2, 3}, false)
+	first.pollSessionScriptChangeEvents()
+	deadline := time.Now().Add(time.Second)
+	firstCount, firstLast := 0, ""
+	for time.Now().Before(deadline) {
+		firstCount, firstLast = readState(first)
+		if firstCount == 1 {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	secondCount, secondLast := readState(second)
+	if firstCount != 1 || firstLast != "Alice" || secondCount != 0 || secondLast != "" {
+		t.Fatalf("first player change crossed sessions: first %d %q, second %d %q", firstCount, firstLast, secondCount, secondLast)
+	}
+
+	second.players.observeAppearance("Bob", 200, []byte{4, 5, 6}, false)
+	second.pollSessionScriptChangeEvents()
+	deadline = time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		secondCount, secondLast = readState(second)
+		if secondCount == 1 {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	firstCount, firstLast = readState(first)
+	if secondCount != 1 || secondLast != "Bob" || firstCount != 1 || firstLast != "Alice" {
+		t.Fatalf("second player change crossed sessions: first %d %q, second %d %q", firstCount, firstLast, secondCount, secondLast)
+	}
+
+	first.stopSessionScript(owner, "test stop")
+	first.automation.scriptMu.RLock()
+	firstHandlers = len(first.automation.scriptPlayers)
+	first.automation.scriptMu.RUnlock()
+	second.automation.scriptMu.RLock()
+	secondHandlers = len(second.automation.scriptPlayers)
+	second.automation.scriptMu.RUnlock()
+	if firstHandlers != 0 || secondHandlers != 1 {
+		t.Fatalf("stopping first script changed player handlers: first %d, second %d", firstHandlers, secondHandlers)
+	}
+}
+
+func TestSessionScriptSelectionsUseOwningRows(t *testing.T) {
+	const owner = "shared-session-selections"
+	grantScriptPermissionsForTest(t, owner)
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	first.players.observeAppearance("Alice", 100, nil, false)
+	second.players.observeAppearance("Bob", 200, nil, false)
+	first.inventory.add(101, -1, "Moonstone", false)
+	second.inventory.add(201, -1, "Sunstone", false)
+	first.setSelectedPlayer("Alice")
+	second.setSelectedPlayer("Bob")
+	first.setSelectedInventory(101, -1)
+	second.setSelectedInventory(201, -1)
+	source := []byte(`package main
+import "gt2"
+var initialPlayer,initialItem,changedPlayer,changedItem string
+func Init(){
+	if player,ok:=gt2.SelectedPlayer();ok{initialPlayer=player.Name}
+	if item,ok:=gt2.SelectedItem();ok{initialItem=item.Name}
+	gt2.OnChange(gt2.ChangeSelectedPlayer,func(event gt2.ChangeEvent){changedPlayer=event.SelectedPlayer})
+	gt2.OnChange(gt2.ChangeSelectedItem,func(event gt2.ChangeEvent){if event.HasSelectedItem{changedItem=event.SelectedItem.Name}})
+}
+`)
+	if err := first.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first selection script: %v", err)
+	}
+	if err := second.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second selection script: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(owner, "test cleanup")
+		second.stopSessionScript(owner, "test cleanup")
+	})
+	first.pollSessionScriptChangeEvents()
+	second.pollSessionScriptChangeEvents()
+
+	readStrings := func(session *Session) [4]string {
+		t.Helper()
+		queue := currentSessionScriptEventQueue(session, owner)
+		var result [4]string
+		if !queueScriptCallbackWaitOn(queue, owner, "inspect selections", func() {
+			for index, name := range []string{"initialPlayer", "initialItem", "changedPlayer", "changedItem"} {
+				value, _ := queue.interpreter.Eval(name)
+				result[index] = value.String()
+			}
+		}) {
+			t.Fatalf("session %d selection inspection failed", session.ID())
+		}
+		return result
+	}
+	if got, want := readStrings(first), [4]string{"Alice", "Moonstone", "", ""}; got != want {
+		t.Fatalf("first initial selections = %v, want %v", got, want)
+	}
+	if got, want := readStrings(second), [4]string{"Bob", "Sunstone", "", ""}; got != want {
+		t.Fatalf("second initial selections = %v, want %v", got, want)
+	}
+
+	first.players.observeAppearance("Carol", 300, nil, false)
+	first.inventory.add(301, -1, "Starstone", false)
+	first.setSelectedPlayer("Carol")
+	first.setSelectedInventory(301, -1)
+	first.pollSessionScriptChangeEvents()
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if state := readStrings(first); state[2] == "Carol" && state[3] == "Starstone" {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if got, want := readStrings(first), [4]string{"Alice", "Moonstone", "Carol", "Starstone"}; got != want {
+		t.Fatalf("first changed selections = %v, want %v", got, want)
+	}
+	if got, want := readStrings(second), [4]string{"Bob", "Sunstone", "", ""}; got != want {
+		t.Fatalf("first selection changes crossed into second = %v, want %v", got, want)
+	}
+}
+
 func TestSessionsOwnIndependentScriptTimersAndTickWaiters(t *testing.T) {
 	const owner = "shared-session-timers"
 	grantScriptPermissionsForTest(t, owner)
@@ -685,6 +865,84 @@ func Init(){
 	}
 	if secondWaiter.Active() {
 		t.Fatal("second session tick waiter did not resume on its own ticks")
+	}
+}
+
+func TestSessionInventoryWaitersUseOwningInventory(t *testing.T) {
+	const owner = "shared-session-inventory-wait"
+	grantScriptPermissionsForTest(t, owner)
+	first := mustNewSession(1)
+	second := mustNewSession(2)
+	source := []byte(`package main
+import("gt2";"time")
+var found bool
+func Init(){gt2.StartTask(func(){found=gt2.WaitForInventory("Signal",true,5*time.Second)})}
+`)
+	if err := first.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start first session inventory waiter: %v", err)
+	}
+	if err := second.startSessionScript(owner, source, restrictedStdlib(), nil); err != nil {
+		t.Fatalf("start second session inventory waiter: %v", err)
+	}
+	t.Cleanup(func() {
+		first.stopSessionScript(owner, "test cleanup")
+		second.stopSessionScript(owner, "test cleanup")
+	})
+
+	waiterCount := func(session *Session) int {
+		session.automation.scriptMu.RLock()
+		count := len(session.automation.stateWaiters[owner])
+		session.automation.scriptMu.RUnlock()
+		return count
+	}
+	deadline := time.Now().Add(time.Second)
+	for (waiterCount(first) != 1 || waiterCount(second) != 1) && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if waiterCount(first) != 1 || waiterCount(second) != 1 {
+		t.Fatalf("inventory waiters were not session-owned: first %d, second %d", waiterCount(first), waiterCount(second))
+	}
+	scriptMu.RLock()
+	globalWaiters := len(scriptStateWaiters[owner])
+	scriptMu.RUnlock()
+	if globalWaiters != 0 {
+		t.Fatalf("session waiters entered primary registry: %d", globalWaiters)
+	}
+
+	first.inventory.add(100, -1, "Signal", false)
+	first.pollSessionScriptChangeEvents()
+	deadline = time.Now().Add(time.Second)
+	for waiterCount(first) != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if waiterCount(first) != 0 || waiterCount(second) != 1 {
+		t.Fatalf("first inventory update changed wrong waiters: first %d, second %d", waiterCount(first), waiterCount(second))
+	}
+
+	readFound := func(session *Session) bool {
+		t.Helper()
+		queue := currentSessionScriptEventQueue(session, owner)
+		found := false
+		if !queueScriptCallbackWaitOn(queue, owner, "inspect inventory waiter", func() {
+			value, _ := queue.interpreter.Eval("found")
+			found = value.Bool()
+		}) {
+			t.Fatalf("session %d waiter inspection failed", session.ID())
+		}
+		return found
+	}
+	if !readFound(first) || readFound(second) {
+		t.Fatal("first inventory result crossed into second session")
+	}
+
+	second.inventory.add(200, -1, "Signal", false)
+	second.pollSessionScriptChangeEvents()
+	deadline = time.Now().Add(time.Second)
+	for waiterCount(second) != 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if waiterCount(second) != 0 || !readFound(second) {
+		t.Fatal("second inventory waiter did not resume on its own update")
 	}
 }
 

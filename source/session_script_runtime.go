@@ -194,6 +194,32 @@ func (s *Session) registerSessionScriptChange(owner, kind string, fn func(Change
 	return registration
 }
 
+func (s *Session) registerSessionScriptPlayerChange(owner string, fn func(scriptapi.PlayerChangeEvent)) scriptRegistrationHandle {
+	queue := currentSessionScriptEventQueue(s, owner)
+	if fn == nil || queue == nil {
+		return scriptRegistrationHandle{}
+	}
+	var registration scriptRegistrationHandle
+	registration = registerSessionScriptResource(queue, func() {
+		s.automation.scriptMu.Lock()
+		for i := len(s.automation.scriptPlayers) - 1; i >= 0; i-- {
+			if s.automation.scriptPlayers[i].handle == registration {
+				s.automation.scriptPlayers = append(s.automation.scriptPlayers[:i], s.automation.scriptPlayers[i+1:]...)
+			}
+		}
+		s.automation.scriptMu.Unlock()
+	})
+	if !registration.valid() {
+		return registration
+	}
+	s.automation.scriptMu.Lock()
+	s.automation.scriptPlayers = append(s.automation.scriptPlayers, scriptPlayerChangeHandler{
+		owner: owner, queue: queue, handle: registration, fn: fn,
+	})
+	s.automation.scriptMu.Unlock()
+	return registration
+}
+
 func (s *Session) dispatchSessionScriptChat(msg string) {
 	if s == nil || s.automation == nil {
 		return
@@ -290,10 +316,35 @@ func (s *Session) pollSessionScriptChangeEvents() {
 	previous := s.automation.changeSnapshot
 	s.automation.changeSnapshot = current
 	s.automation.scriptMu.Unlock()
+	s.notifySessionScriptStateWaiters()
 	if !previous.initialized {
 		return
 	}
+	if previous.playersObserved && current.playersObserved {
+		s.dispatchSessionScriptPlayerChanges(previous.players, current.players)
+	}
 	dispatchScriptSnapshotChanges(previous, current, s.dispatchSessionScriptChange)
+}
+
+func (s *Session) dispatchSessionScriptPlayerChanges(previous, current []scriptapi.Player) {
+	if s == nil || s.automation == nil {
+		return
+	}
+	s.automation.scriptMu.RLock()
+	handlers := append([]scriptPlayerChangeHandler(nil), s.automation.scriptPlayers...)
+	s.automation.scriptMu.RUnlock()
+	dispatchScriptPlayerChangeEvents(scriptPlayerChangeEvents(previous, current), handlers)
+}
+
+func (s *Session) notifySessionScriptStateWaiters() {
+	if s == nil || s.automation == nil {
+		return
+	}
+	s.automation.scriptMu.Lock()
+	for _, waiters := range s.automation.stateWaiters {
+		notifyScriptStateWaiterList(waiters)
+	}
+	s.automation.scriptMu.Unlock()
 }
 
 func captureSessionScriptChangeSnapshot(session *Session) scriptChangeSnapshot {
@@ -301,6 +352,15 @@ func captureSessionScriptChangeSnapshot(session *Session) scriptChangeSnapshot {
 		return scriptChangeSnapshot{}
 	}
 	inventory := scriptInventoryForSession(session)
+	session.automation.scriptMu.RLock()
+	playersObserved := len(session.automation.scriptPlayers) > 0
+	session.automation.scriptMu.RUnlock()
+	var players []scriptapi.Player
+	if playersObserved {
+		players = scriptPlayersForSession(session)
+	}
+	selectedPlayer := session.selectedPlayerSnapshot()
+	selectedItem, hasSelectedItem := scriptSelectedItemForSession(session)
 	equipment := make([]InventoryItem, 0, len(inventory))
 	for _, item := range inventory {
 		if item.Equipped {
@@ -313,7 +373,8 @@ func captureSessionScriptChangeSnapshot(session *Session) scriptChangeSnapshot {
 	balanceValue, balanceMaxValue := session.draw.current.balance, session.draw.current.balanceMax
 	session.draw.mu.Unlock()
 	return scriptChangeSnapshot{
-		initialized: true, inventory: inventory, equipment: equipment,
+		initialized: true, players: players, playersObserved: playersObserved, inventory: inventory, equipment: equipment,
+		selectedPlayer: selectedPlayer, selectedItem: selectedItem, hasSelectedItem: hasSelectedItem,
 		health: health, healthMax: healthMax, spirit: spirit, spiritMax: spiritMax,
 		balance: balanceValue, balanceMax: balanceMaxValue,
 		location: session.scriptLocationSnapshot(), worldGeneration: session.draw.generation.Load(),

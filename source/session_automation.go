@@ -27,6 +27,8 @@ type sessionAutomationState struct {
 	scriptServers  []serverMessageHandler
 	scriptEvents   []scriptLifecycleHandler
 	scriptChanges  []scriptChangeHandler
+	scriptPlayers  []scriptPlayerChangeHandler
+	stateWaiters   map[string][]*scriptStateWaiter
 	changeSnapshot scriptChangeSnapshot
 	latestServer   scriptapi.ServerMessage
 	serverSequence uint64
@@ -302,6 +304,7 @@ func (s *sessionAutomationState) reset() {
 	clear(s.sendHistory)
 	s.sendMu.Unlock()
 	s.scriptMu.Lock()
+	clear(s.stateWaiters)
 	s.changeSnapshot = scriptChangeSnapshot{}
 	s.latestServer = scriptapi.ServerMessage{}
 	s.serverSequence = 0

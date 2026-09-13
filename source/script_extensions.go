@@ -133,7 +133,13 @@ func addScriptExtendedExports(m map[string]reflect.Value, owner string, candidat
 			return Subscription{}
 		}
 		sub := newScriptSubscription()
-		candidate.dispatch(owner, func() { sub.attach(registerScriptPlayerChange(owner, fn)) })
+		candidate.dispatch(owner, func() {
+			if candidate != nil && candidate.session != nil {
+				sub.attach(candidate.session.registerSessionScriptPlayerChange(owner, fn))
+				return
+			}
+			sub.attach(registerScriptPlayerChange(owner, fn))
+		})
 		return sub
 	})
 }
@@ -209,6 +215,14 @@ func captureScriptPlayerChanges() ([]scriptapi.Player, bool) {
 }
 
 func dispatchScriptPlayerChanges(previous, current []scriptapi.Player) {
+	events := scriptPlayerChangeEvents(previous, current)
+	chatHandlersMu.RLock()
+	handlers := append([]scriptPlayerChangeHandler(nil), scriptPlayerChangeHandlers...)
+	chatHandlersMu.RUnlock()
+	dispatchScriptPlayerChangeEvents(events, handlers)
+}
+
+func scriptPlayerChangeEvents(previous, current []scriptapi.Player) []scriptapi.PlayerChangeEvent {
 	old := make(map[string]scriptapi.Player, len(previous))
 	for _, p := range previous {
 		old[normalizeScriptCharacter(p.Name)] = p
@@ -249,9 +263,10 @@ func dispatchScriptPlayerChanges(previous, current []scriptapi.Player) {
 			events = append(events, scriptapi.PlayerChangeEvent{Type: scriptapi.PlayerRemoved, Previous: p})
 		}
 	}
-	chatHandlersMu.RLock()
-	handlers := append([]scriptPlayerChangeHandler(nil), scriptPlayerChangeHandlers...)
-	chatHandlersMu.RUnlock()
+	return events
+}
+
+func dispatchScriptPlayerChangeEvents(events []scriptapi.PlayerChangeEvent, handlers []scriptPlayerChangeHandler) {
 	for _, event := range events {
 		for _, h := range handlers {
 			snapshot := event

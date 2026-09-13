@@ -1203,6 +1203,17 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			m["Players"] = reflect.ValueOf(func() []scriptapi.Player { return scriptPlayersForSession(session) })
 			m["Inventory"] = reflect.ValueOf(func() []InventoryItem { return scriptInventoryForSession(session) })
 			m["EquippedItems"] = reflect.ValueOf(func() []InventoryItem { return scriptEquippedItemsForSession(session) })
+			m["FindItemExact"] = reflect.ValueOf(func(name string) (scriptapi.Item, bool) {
+				return scriptFindItemExactIn(session.inventory.snapshot(), name)
+			})
+			m["FindItem"] = reflect.ValueOf(func(name string) (scriptapi.Item, bool) { return scriptFindItemIn(session.inventory.snapshot(), name) })
+			m["FindItems"] = reflect.ValueOf(func(name string) []scriptapi.Item { return scriptFindItemsIn(session.inventory.snapshot(), name) })
+			m["SearchItems"] = reflect.ValueOf(func(text string) []scriptapi.Item { return scriptSearchItemsIn(session.inventory.snapshot(), text) })
+			m["Equipped"] = reflect.ValueOf(func(slot string) (scriptapi.Item, bool) { return scriptEquippedIn(session.inventory.snapshot(), slot) })
+			m["HasItem"] = reflect.ValueOf(func(name string) bool { return scriptHasItemIn(session.inventory.snapshot(), name) })
+			m["IsEquipped"] = reflect.ValueOf(func(name string) bool { return scriptIsEquippedIn(session.inventory.snapshot(), name) })
+			m["SelectedPlayer"] = reflect.ValueOf(func() (scriptapi.Player, bool) { return scriptSelectedPlayerForSession(session) })
+			m["SelectedItem"] = reflect.ValueOf(func() (scriptapi.Item, bool) { return scriptSelectedItemForSession(session) })
 			m["CurrentWorld"] = reflect.ValueOf(func() scriptapi.World { return scriptCurrentWorldForSession(session) })
 			m["LatestServerMessage"] = reflect.ValueOf(session.latestSessionScriptServerMessage)
 		}
@@ -2084,7 +2095,7 @@ func scriptSleepTicks(owner string, eventQueue *scriptEventQueue, ticks int) {
 }
 
 func scriptWait(owner string, eventQueue *scriptEventQueue, duration time.Duration) {
-	if duration <= 0 || eventQueue == nil || !scriptEventQueueIsCurrent(owner, eventQueue) || scriptIsDisabled(owner) {
+	if duration <= 0 || eventQueue == nil || !scriptEventQueueIsCurrent(owner, eventQueue) || scriptRuntimeDisabled(owner, eventQueue) {
 		return
 	}
 	timer := time.NewTimer(duration)
@@ -2096,12 +2107,12 @@ func scriptWait(owner string, eventQueue *scriptEventQueue, duration time.Durati
 
 func waitForScriptInventory(owner string, eventQueue *scriptEventQueue, name string, want, equipmentOnly bool, timeout time.Duration) bool {
 	name = strings.TrimSpace(name)
-	if name == "" || timeout <= 0 || eventQueue == nil || !scriptEventQueueIsCurrent(owner, eventQueue) || scriptIsDisabled(owner) {
+	if name == "" || timeout <= 0 || eventQueue == nil || !scriptEventQueueIsCurrent(owner, eventQueue) || scriptRuntimeDisabled(owner, eventQueue) {
 		return false
 	}
 	matches := func() bool {
 		found := false
-		for _, item := range getInventory() {
+		for _, item := range scriptInventoryForQueue(eventQueue) {
 			if strings.EqualFold(item.Name, name) || strings.EqualFold(item.Base, name) {
 				found = !equipmentOnly || item.Equipped
 				if found {
@@ -2115,25 +2126,8 @@ func waitForScriptInventory(owner string, eventQueue *scriptEventQueue, name str
 		return true
 	}
 	waiter := &scriptStateWaiter{queue: eventQueue, signal: make(chan struct{}, 1)}
-	scriptMu.Lock()
-	scriptStateWaiters[owner] = append(scriptStateWaiters[owner], waiter)
-	scriptMu.Unlock()
-	defer func() {
-		scriptMu.Lock()
-		list := scriptStateWaiters[owner]
-		for i, candidate := range list {
-			if candidate == waiter {
-				list = append(list[:i], list[i+1:]...)
-				break
-			}
-		}
-		if len(list) == 0 {
-			delete(scriptStateWaiters, owner)
-		} else {
-			scriptStateWaiters[owner] = list
-		}
-		scriptMu.Unlock()
-	}()
+	addScriptStateWaiter(owner, eventQueue, waiter)
+	defer removeScriptStateWaiter(owner, eventQueue, waiter)
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	eventQueue.pauseExecution()
@@ -2146,18 +2140,65 @@ func waitForScriptInventory(owner string, eventQueue *scriptEventQueue, name str
 	return false
 }
 
+func addScriptStateWaiter(owner string, queue *scriptEventQueue, waiter *scriptStateWaiter) {
+	if queue != nil && queue.session != nil && queue.session.automation != nil {
+		automation := queue.session.automation
+		automation.scriptMu.Lock()
+		if automation.stateWaiters == nil {
+			automation.stateWaiters = make(map[string][]*scriptStateWaiter)
+		}
+		automation.stateWaiters[owner] = append(automation.stateWaiters[owner], waiter)
+		automation.scriptMu.Unlock()
+		return
+	}
+	scriptMu.Lock()
+	scriptStateWaiters[owner] = append(scriptStateWaiters[owner], waiter)
+	scriptMu.Unlock()
+}
+
+func removeScriptStateWaiter(owner string, queue *scriptEventQueue, waiter *scriptStateWaiter) {
+	remove := func(waiters map[string][]*scriptStateWaiter) {
+		list := waiters[owner]
+		for i, candidate := range list {
+			if candidate == waiter {
+				list = append(list[:i], list[i+1:]...)
+				break
+			}
+		}
+		if len(list) == 0 {
+			delete(waiters, owner)
+		} else {
+			waiters[owner] = list
+		}
+	}
+	if queue != nil && queue.session != nil && queue.session.automation != nil {
+		automation := queue.session.automation
+		automation.scriptMu.Lock()
+		remove(automation.stateWaiters)
+		automation.scriptMu.Unlock()
+		return
+	}
+	scriptMu.Lock()
+	remove(scriptStateWaiters)
+	scriptMu.Unlock()
+}
+
+func notifyScriptStateWaiterList(waiters []*scriptStateWaiter) {
+	for _, waiter := range waiters {
+		if waiter == nil {
+			continue
+		}
+		select {
+		case waiter.signal <- struct{}{}:
+		default:
+		}
+	}
+}
+
 func notifyScriptStateWaiters() {
 	scriptMu.Lock()
 	for _, waiters := range scriptStateWaiters {
-		for _, waiter := range waiters {
-			if waiter == nil {
-				continue
-			}
-			select {
-			case waiter.signal <- struct{}{}:
-			default:
-			}
-		}
+		notifyScriptStateWaiterList(waiters)
 	}
 	scriptMu.Unlock()
 }

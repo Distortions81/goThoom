@@ -50,9 +50,13 @@ type Session struct {
 	input      *sessionInputState
 	login      *sessionLoginState
 
-	identityMu  sync.RWMutex
-	character   string
-	playerIndex uint8
+	identityMu     sync.RWMutex
+	character      string
+	playerIndex    uint8
+	selectionMu    sync.RWMutex
+	selectedPlayer string
+	selectedInvID  uint16
+	selectedInvIdx int
 }
 
 func newSession(id SessionID) (*Session, error) {
@@ -60,20 +64,59 @@ func newSession(id SessionID) (*Session, error) {
 		return nil, fmt.Errorf("invalid session ID %d", id)
 	}
 	return &Session{
-		id:          id,
-		inventory:   newInventoryState(),
-		commands:    newCommandState(),
-		frames:      newFrameState(),
-		timing:      newNetworkTimingState(),
-		draw:        newSessionDrawState(),
-		events:      newSessionEventState(),
-		players:     newSessionPlayerState(),
-		automation:  newSessionAutomationState(),
-		transport:   newSessionTransportState(),
-		input:       newSessionInputState(),
-		login:       newSessionLoginState(),
-		playerIndex: 0xff,
+		id:             id,
+		inventory:      newInventoryState(),
+		commands:       newCommandState(),
+		frames:         newFrameState(),
+		timing:         newNetworkTimingState(),
+		draw:           newSessionDrawState(),
+		events:         newSessionEventState(),
+		players:        newSessionPlayerState(),
+		automation:     newSessionAutomationState(),
+		transport:      newSessionTransportState(),
+		input:          newSessionInputState(),
+		login:          newSessionLoginState(),
+		playerIndex:    0xff,
+		selectedInvIdx: -1,
 	}, nil
+}
+
+func (s *Session) setSelectedPlayer(name string) {
+	if s == nil {
+		return
+	}
+	s.selectionMu.Lock()
+	s.selectedPlayer = name
+	s.selectionMu.Unlock()
+}
+
+func (s *Session) selectedPlayerSnapshot() string {
+	if s == nil {
+		return ""
+	}
+	s.selectionMu.RLock()
+	name := s.selectedPlayer
+	s.selectionMu.RUnlock()
+	return name
+}
+
+func (s *Session) setSelectedInventory(id uint16, index int) {
+	if s == nil {
+		return
+	}
+	s.selectionMu.Lock()
+	s.selectedInvID, s.selectedInvIdx = id, index
+	s.selectionMu.Unlock()
+}
+
+func (s *Session) selectedInventorySnapshot() (uint16, int) {
+	if s == nil {
+		return 0, -1
+	}
+	s.selectionMu.RLock()
+	id, index := s.selectedInvID, s.selectedInvIdx
+	s.selectionMu.RUnlock()
+	return id, index
 }
 
 func (s *Session) setPlayerIndex(index uint8) {
@@ -136,6 +179,8 @@ func (s *Session) resetConnectionModels() {
 	s.timing.resetFallback()
 	s.inventory.reset()
 	s.players.reset()
+	s.setSelectedPlayer("")
+	s.setSelectedInventory(0, -1)
 	// Secondary script instances are independent of the primary Scripts UI,
 	// but they still receive their logout lifecycle before connection teardown.
 	s.dispatchSessionScriptLifecycle(LifecycleEvent{Type: lifecycleLogout, Character: s.characterName()}, true)

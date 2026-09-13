@@ -110,7 +110,7 @@ dependency hooks are not session state.
 | Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, and background-session input queues are isolated. The visible UI still feeds the primary input adapter; viewport routing and who/info scheduling remain to move. |
 | Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory and decoder-observed player presence are session-owned. The full Players backend, identity, selection, `/be-who`, and info scheduling remain primary-session adapters. |
 | Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained as source-tagged session events and copied to an app aggregate. The visible combined window, persistence, unread state, and script dispatch still use the primary adapter. |
-| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions now load, advance, and tear down independent legacy macro runtimes. Their macro variables, text log, commands, and movement resolve through the owning session. Script candidates bind their Self, Players, Inventory, CurrentWorld, and LatestServerMessage APIs to one session before evaluation. Each secondary runtime owns its interpreter, serialized callback queue, chat/server/change/login/logout/stop subscriptions, change/message snapshots, outgoing command stream, equipment helpers, and send throttle history. Every runtime queue uses its session-owned `Repeat`/`After` timers, tick waiters, and tasks, so disconnecting one session cancels only that runtime. Local command registrations and input bindings, UI registrations, player-change subscriptions, inventory waiters, selected-row change sources, and the primary macro UI remain to move. |
+| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions now load, advance, and tear down independent legacy macro runtimes. Their macro variables, text log, commands, and movement resolve through the owning session. Script candidates bind their Self, Players, Inventory, selected rows, CurrentWorld, and LatestServerMessage APIs to one session before evaluation. Each secondary runtime owns its interpreter, serialized callback queue, chat/server/change/login/logout/stop/player-change subscriptions, change/message snapshots, inventory waiters, outgoing command stream, equipment helpers, and send throttle history. Every runtime queue uses its session-owned `Repeat`/`After` timers, tick waiters, and tasks, so disconnecting one session cancels only that runtime. Local command registrations and input bindings, UI registrations, and the primary macro UI remain to move. |
 | Music data | parsed tune queue/timeline and current tune metadata | Session | The synthesizer/player stays app-owned and follows the explicit music-source selection. |
 | UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Shared panels bind to one session snapshot atomically; callbacks capture their originating session ID. |
 | Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Live session recordings cannot share mutable buffers. Fake mode stays single-session and PCAP may remain unsupported. |
@@ -151,10 +151,11 @@ subscriptions. Timer registries are also session-owned: wall-clock callbacks,
 server-tick waits, task cleanup, and task command cancellation remain isolated
 when another session disconnects. Script `Send`, `Equip`, `Unequip`, and
 `WithEquipment` calls now use the runtime's command stream and inventory, with
-rate-limit accounting isolated per session. Local command registrations and
-input bindings, UI registrations, player-change subscriptions, inventory
-waiters, selected-row change sources, and the primary Scripts UI remain to
-move.
+rate-limit accounting isolated per session. Inventory waits and player-change
+subscriptions also observe and wake from only their runtime's session state.
+Selected player/item APIs and change sources now read the owning session's row
+selection. Local command registrations and input bindings, UI registrations,
+and the primary Scripts UI remain to move.
 The existing login-window fields now copy into the primary session at
 connect time and remain only a UI adapter pending per-slot login surfaces.
 

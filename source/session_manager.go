@@ -54,6 +54,23 @@ func (m *sessionManager) selectedSession() *Session {
 	return m.slots[slot]
 }
 
+func (m *sessionManager) selectedID() SessionID {
+	if m == nil {
+		return 0
+	}
+	m.mu.RLock()
+	id := m.selected
+	m.mu.RUnlock()
+	return id
+}
+
+func selectedAppSession() *Session {
+	if session := appSessions.selectedSession(); session != nil {
+		return session
+	}
+	return primarySession
+}
+
 func (m *sessionManager) selectSession(id SessionID) bool {
 	slot, ok := id.Slot()
 	if !ok {

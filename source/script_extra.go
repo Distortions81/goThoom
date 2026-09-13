@@ -56,6 +56,25 @@ func scriptSelectedPlayer() (scriptapi.Player, bool) {
 	return snapshot, true
 }
 
+func scriptSelectedPlayerForSession(session *Session) (scriptapi.Player, bool) {
+	if session == nil || session.players == nil {
+		return scriptapi.Player{}, false
+	}
+	name := strings.TrimSpace(session.selectedPlayerSnapshot())
+	if name == "" {
+		return scriptapi.Player{}, false
+	}
+	if player, ok := session.players.player(name); ok {
+		return scriptPlayerSnapshot(player), true
+	}
+	for _, player := range session.players.snapshot() {
+		if strings.EqualFold(player.Name, name) {
+			return scriptPlayerSnapshot(player), true
+		}
+	}
+	return scriptapi.Player{}, false
+}
+
 func scriptPlayerSnapshot(player Player) scriptapi.Player {
 	return scriptapi.Player{
 		Name: player.Name, Race: player.Race, Gender: player.Gender, Class: player.Class,
@@ -72,6 +91,19 @@ func scriptPlayerSnapshot(player Player) scriptapi.Player {
 func scriptSelectedItem() (scriptapi.Item, bool) {
 	for _, item := range getInventory() {
 		if item.ID == selectedInvID && item.IDIndex == selectedInvIdx {
+			return item, true
+		}
+	}
+	return scriptapi.Item{}, false
+}
+
+func scriptSelectedItemForSession(session *Session) (scriptapi.Item, bool) {
+	if session == nil || session.inventory == nil {
+		return scriptapi.Item{}, false
+	}
+	id, index := session.selectedInventorySnapshot()
+	for _, item := range session.inventory.snapshot() {
+		if item.ID == id && item.IDIndex == index {
 			return item, true
 		}
 	}
@@ -162,8 +194,12 @@ func scriptInventoryForSession(session *Session) []InventoryItem {
 }
 
 func scriptFindItemExact(name string) (scriptapi.Item, bool) {
+	return scriptFindItemExactIn(getInventory(), name)
+}
+
+func scriptFindItemExactIn(items []InventoryItem, name string) (scriptapi.Item, bool) {
 	name = strings.TrimSpace(name)
-	for _, item := range getInventory() {
+	for _, item := range items {
 		if item.Name == name || item.Base == name {
 			return item, true
 		}
@@ -172,20 +208,28 @@ func scriptFindItemExact(name string) (scriptapi.Item, bool) {
 }
 
 func scriptFindItem(name string) (scriptapi.Item, bool) {
-	items := scriptFindItems(name)
-	if len(items) == 0 {
+	return scriptFindItemIn(getInventory(), name)
+}
+
+func scriptFindItemIn(items []InventoryItem, name string) (scriptapi.Item, bool) {
+	matches := scriptFindItemsIn(items, name)
+	if len(matches) == 0 {
 		return scriptapi.Item{}, false
 	}
-	return items[0], true
+	return matches[0], true
 }
 
 func scriptFindItems(name string) []scriptapi.Item {
+	return scriptFindItemsIn(getInventory(), name)
+}
+
+func scriptFindItemsIn(items []InventoryItem, name string) []scriptapi.Item {
 	name = normalizeInventoryName(name)
 	if name == "" {
 		return nil
 	}
 	var matches []scriptapi.Item
-	for _, item := range getInventory() {
+	for _, item := range items {
 		if normalizeInventoryName(item.Name) == name || normalizeInventoryName(item.Base) == name {
 			matches = append(matches, item)
 		}
@@ -194,12 +238,16 @@ func scriptFindItems(name string) []scriptapi.Item {
 }
 
 func scriptSearchItems(text string) []scriptapi.Item {
+	return scriptSearchItemsIn(getInventory(), text)
+}
+
+func scriptSearchItemsIn(items []InventoryItem, text string) []scriptapi.Item {
 	text = normalizeInventoryName(text)
 	if text == "" {
 		return nil
 	}
 	var matches []scriptapi.Item
-	for _, item := range getInventory() {
+	for _, item := range items {
 		if strings.Contains(normalizeInventoryName(item.Name), text) ||
 			strings.Contains(normalizeInventoryName(item.Base), text) ||
 			strings.Contains(normalizeInventoryName(item.Extra), text) {
@@ -210,8 +258,12 @@ func scriptSearchItems(text string) []scriptapi.Item {
 }
 
 func scriptEquipped(slot string) (scriptapi.Item, bool) {
+	return scriptEquippedIn(getInventory(), slot)
+}
+
+func scriptEquippedIn(items []InventoryItem, slot string) (scriptapi.Item, bool) {
 	slot = strings.ToLower(strings.TrimSpace(slot))
-	for _, item := range getInventory() {
+	for _, item := range items {
 		if item.Equipped && item.Slot == slot {
 			return item, true
 		}
@@ -220,8 +272,12 @@ func scriptEquipped(slot string) (scriptapi.Item, bool) {
 }
 
 func scriptHasItem(name string) bool {
+	return scriptHasItemIn(getInventory(), name)
+}
+
+func scriptHasItemIn(items []InventoryItem, name string) bool {
 	n := strings.ToLower(name)
-	for _, it := range getInventory() {
+	for _, it := range items {
 		if strings.ToLower(it.Name) == n {
 			return true
 		}
@@ -231,8 +287,12 @@ func scriptHasItem(name string) bool {
 
 // scriptIsEquipped reports whether any equipped item matches the given name.
 func scriptIsEquipped(name string) bool {
+	return scriptIsEquippedIn(getInventory(), name)
+}
+
+func scriptIsEquippedIn(items []InventoryItem, name string) bool {
 	n := strings.ToLower(name)
-	for _, it := range getInventory() {
+	for _, it := range items {
 		if it.Equipped && strings.ToLower(it.Name) == n {
 			return true
 		}
