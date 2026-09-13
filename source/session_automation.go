@@ -39,6 +39,7 @@ type sessionAutomationState struct {
 	hasServer      bool
 	sendMu         sync.Mutex
 	sendHistory    map[string][]time.Time
+	visuals        *sessionScriptVisualState
 
 	locationMu sync.RWMutex
 	location   string
@@ -216,6 +217,7 @@ func newSessionAutomationState() *sessionAutomationState {
 		localToolbars: make(map[string][]*scriptToolbarRegistration),
 		toolbarNext:   make(map[string]int),
 		sendHistory:   make(map[string][]time.Time),
+		visuals:       newSessionScriptVisualState(),
 	}
 }
 
@@ -455,6 +457,7 @@ func (s *sessionAutomationState) reset() {
 		runtime.cancelAll()
 	}
 	s.stopSessionScripts("session reset")
+	s.visuals.clearAll()
 	s.sendMu.Lock()
 	clear(s.sendHistory)
 	s.sendMu.Unlock()

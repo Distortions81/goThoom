@@ -1487,60 +1487,78 @@ func exportsForScriptCandidate(owner string, candidate *scriptCandidate) interp.
 			return waitForScriptInventory(owner, candidate.runtimeEventQueue(owner), name, equipped, true, timeout)
 		})
 		// Simple world overlay drawing (top-left origin, world units)
-		m["OverlayClear"] = reflect.ValueOf(func() { stage(func() { scriptOverlayClear(owner) }) })
+		visualSession := primarySession
+		if candidate != nil && candidate.session != nil {
+			visualSession = candidate.session
+		}
+		m["OverlayClear"] = reflect.ValueOf(func() { stage(func() { scriptOverlayClearForSession(visualSession, owner) }) })
 		m["OverlayRect"] = reflect.ValueOf(func(x, y, w, h int, r, g, b, a uint8) {
-			stage(func() { scriptOverlayRect(owner, x, y, w, h, r, g, b, a) })
+			stage(func() { scriptOverlayRectForSession(visualSession, owner, x, y, w, h, r, g, b, a) })
 		})
 		m["OverlayCircle"] = reflect.ValueOf(func(x, y, radius int, r, g, b, a uint8) {
-			stage(func() { scriptOverlayCircle(owner, x, y, radius, r, g, b, a) })
+			stage(func() { scriptOverlayCircleForSession(visualSession, owner, x, y, radius, r, g, b, a) })
 		})
 		m["OverlayText"] = reflect.ValueOf(func(x, y int, txt string, r, g, b, a uint8) {
-			stage(func() { scriptOverlayText(owner, x, y, txt, r, g, b, a) })
+			stage(func() { scriptOverlayTextForSession(visualSession, owner, x, y, txt, r, g, b, a) })
 		})
 		m["OverlayImage"] = reflect.ValueOf(func(id uint16, x, y int) {
-			stage(func() { scriptOverlayImage(owner, id, x, y) })
+			stage(func() { scriptOverlayImageForSession(visualSession, owner, id, x, y) })
 		})
 		m["OverlayFollowPlayer"] = reflect.ValueOf(func(name string, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
-			stage(func() { scriptOverlayFollowPlayer(owner, name, x, y, radius, r, g, b, a, maxLife) })
+			stage(func() {
+				scriptOverlayFollowPlayerForSession(visualSession, owner, name, x, y, radius, r, g, b, a, maxLife)
+			})
 		})
 		m["OverlayFollowMobile"] = reflect.ValueOf(func(index uint8, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
-			stage(func() { scriptOverlayFollowMobile(owner, index, x, y, radius, r, g, b, a, maxLife) })
+			stage(func() {
+				scriptOverlayFollowMobileForSession(visualSession, owner, index, x, y, radius, r, g, b, a, maxLife)
+			})
 		})
 		m["OverlayFollowBackground"] = reflect.ValueOf(func(pictID uint16, x, y, radius int, r, g, b, a uint8, maxLife time.Duration) {
-			stage(func() { scriptOverlayFollowBackground(owner, pictID, x, y, radius, r, g, b, a, maxLife) })
+			stage(func() {
+				scriptOverlayFollowBackgroundForSession(visualSession, owner, pictID, x, y, radius, r, g, b, a, maxLife)
+			})
 		})
 		m["SetNamedMobileTint"] = reflect.ValueOf(func(name string, r, g, b, a uint8) {
-			stage(func() { scriptSetNamedMobileEffect(owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, false) })
+			stage(func() {
+				scriptSetNamedMobileEffectForSession(visualSession, owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, false)
+			})
 		})
 		m["ClearNamedMobileTint"] = reflect.ValueOf(func(name string) {
-			stage(func() { scriptClearNamedMobileEffect(owner, name, false) })
+			stage(func() { scriptClearNamedMobileEffectForSession(visualSession, owner, name, false) })
 		})
 		m["SetMobileTint"] = reflect.ValueOf(func(id uint16, r, g, b, a uint8) {
-			stage(func() { scriptSetMobileTint(owner, id, r, g, b, a) })
+			stage(func() {
+				scriptSetMobileEffectForSession(visualSession, owner, id, scriptMobileTint{r: r, g: g, b: b, a: a}, false)
+			})
 		})
 		m["ClearMobileTint"] = reflect.ValueOf(func(id uint16) {
-			stage(func() { scriptClearMobileTint(owner, id) })
+			stage(func() { scriptClearMobileEffectForSession(visualSession, owner, id, false) })
 		})
 		m["ClearMobileTints"] = reflect.ValueOf(func() {
-			stage(func() { scriptClearMobileTints(owner) })
+			stage(func() { scriptClearMobileEffectsForSession(visualSession, owner, false) })
 		})
 		m["SetNamedMobileOutline"] = reflect.ValueOf(func(name string, r, g, b, a uint8) {
-			stage(func() { scriptSetNamedMobileEffect(owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, true) })
+			stage(func() {
+				scriptSetNamedMobileEffectForSession(visualSession, owner, name, scriptMobileTint{r: r, g: g, b: b, a: a}, true)
+			})
 		})
 		m["ClearNamedMobileOutline"] = reflect.ValueOf(func(name string) {
-			stage(func() { scriptClearNamedMobileEffect(owner, name, true) })
+			stage(func() { scriptClearNamedMobileEffectForSession(visualSession, owner, name, true) })
 		})
 		m["SetMobileOutline"] = reflect.ValueOf(func(id uint16, r, g, b, a uint8) {
-			stage(func() { scriptSetMobileOutline(owner, id, r, g, b, a) })
+			stage(func() {
+				scriptSetMobileEffectForSession(visualSession, owner, id, scriptMobileTint{r: r, g: g, b: b, a: a}, true)
+			})
 		})
 		m["ClearMobileOutline"] = reflect.ValueOf(func(id uint16) {
-			stage(func() { scriptClearMobileOutline(owner, id) })
+			stage(func() { scriptClearMobileEffectForSession(visualSession, owner, id, true) })
 		})
 		m["ClearMobileOutlines"] = reflect.ValueOf(func() {
-			stage(func() { scriptClearMobileOutlines(owner) })
+			stage(func() { scriptClearMobileEffectsForSession(visualSession, owner, true) })
 		})
 		m["FlashMobile"] = reflect.ValueOf(func(index uint8, r, g, b, a uint8, duration time.Duration) {
-			stage(func() { scriptFlashMobile(owner, index, r, g, b, a, duration) })
+			stage(func() { scriptFlashMobileForSession(visualSession, owner, index, r, g, b, a, duration) })
 		})
 		m["WorldSize"] = reflect.ValueOf(func() (int, int) { return gameAreaSizeX, gameAreaSizeY })
 		m["ImageSize"] = reflect.ValueOf(func(id uint16) (int, int) {

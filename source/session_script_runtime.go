@@ -61,6 +61,7 @@ func (s *Session) stopSessionScript(owner, reason string) {
 	stopSessionScriptEventQueue(s, owner)
 	releaseScriptRegistrations(instance.queue)
 	s.automation.clearScriptSendHistory(owner)
+	s.automation.visuals.clearOwner(owner)
 	instance.prepared.candidate.discard()
 	interruptScriptInterpreter(instance.prepared.interpreter)
 }

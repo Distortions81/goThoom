@@ -110,7 +110,7 @@ dependency hooks are not session state.
 | Direct input and commands | mouse/key walking state, input queue, command number/pending command/queue/tickets, who/info queues | Session | Command streams, tickets, input queues, walking, message drafts/history, clicks/hover, hotkeys, script input APIs, and legacy-macro direct triggers route to the selected session. Viewport hit testing and coordinate conversion exist; the live pointer path still needs to resolve among four simultaneous view windows. |
 | Character data | `playerName`, player index/directory, inventory model, selections and presence scans | Session | Inventory, player directories, selections, BEP info/share/presence/fallen/bard state, paginated `/be-who`, and maintenance queues are session-owned. The package-level primary identity and player map remain compatibility adapters while login and older call sites move behind `Session`. |
 | Chat and logs | chat/console models, text-log path, local history and unread state | Session plus App aggregate | Decoded chat and console output is retained in typed per-session logs and a source-tagged app aggregate. Shared Chat/Console windows bind to the selected log and submit to its command stream. Persistence, drafts/history, unread state, and primary client-only messages still use legacy adapters. |
-| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions own legacy macro and script runtimes, queues, timers, tasks, subscriptions, commands, hotkeys, toolbar registrations, input APIs, and outgoing work. Selected-session keyboard, expression, wheel, and click macro triggers use the owning runtime. Session ownership for script world overlays/mobile effects and the primary macro-management UI remains. |
+| Automation | script engine/session snapshots/resources and legacy macro program/runtime | Session | Secondary sessions own legacy macro and script runtimes, queues, timers, tasks, subscriptions, commands, hotkeys, toolbar registrations, input APIs, outgoing work, world overlays, and mobile tint/outline/flash effects. Selected-session keyboard, expression, wheel, and click macro triggers use the owning runtime. General script-window presentation and the primary macro-management UI remain shared. |
 | Music data | parsed tune queue/timeline and current tune metadata | Session | Implemented. The synthesizer/player stays app-owned and follows the explicit music-source selection; changing source stops playback and waits for that session's next tune event. |
 | UI windows | Settings, shared Chat/Console, Players, Inventory, toolbar and dialogs | App | Chat, Console, Inventory, Players, script toolbars, native title, notifications, and command targets follow the selected session. A Sessions toolbar control and four-slot manager provide connect/disconnect/select/quit-all operations. Four freeform/tiled playfields and their embedded login states remain. |
 | Recording/replay | recorder, movie state, seek/timeline state | Session or dedicated replay source | Live session recordings cannot share mutable buffers. Fake mode stays single-session and PCAP may remain unsupported. |
@@ -155,9 +155,9 @@ when another session disconnects. Script `Send`, `Equip`, `Unequip`, and
 rate-limit accounting isolated per session. Inventory waits and player-change
 subscriptions also observe and wake from only their runtime's session state.
 Selected player/item/input APIs and change sources now read the owning session.
-Local commands, hotkeys, and toolbar registrations are session-owned. Script
-world overlays/mobile effects, general script-window presentation, and the
-primary Scripts UI remain to move. The existing login-window fields now copy
+Local commands, hotkeys, toolbar registrations, world overlays, and mobile
+effects are session-owned. General script-window presentation and the primary
+Scripts UI remain to move. The existing login-window fields now copy
 into the primary session at connect time; a four-slot manager provides login
 controls until the same flow is embedded in each viewport.
 

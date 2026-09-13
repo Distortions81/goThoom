@@ -1031,7 +1031,7 @@ func worldRenderCanBeReused(g *Game, key worldRenderKey) bool {
 
 func viewportWorldRenderCanBeReused(state *viewportRenderState, key worldRenderKey) bool {
 	return state != nil && !gs.MotionSmoothing && !setupWizardPreviewActive &&
-		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActive() &&
+		!bubbleTorture && !replacementEffectsPreview && !scriptMobileFlashesActiveForSession(scriptSessionForID(key.source)) &&
 		state.worldRenderValid && state.lastWorldRenderKey == key
 }
 
@@ -2217,7 +2217,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if !viewRect.Empty() {
 			drawSpeechBubbles(worldView, snap, alpha, windowScale)
 			// Draw script overlays on top of the world view.
-			drawScriptOverlays(worldView, finalScale)
+			drawScriptOverlaysForSession(renderSession, worldView, finalScale)
 		}
 		gs.GameScale = prev
 	}
@@ -2396,7 +2396,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 		for _, m := range dead {
 			drawLayeredCharacterShadow(screen, m.Index)
 			drawMobileImmediateShadow(screen, ox, oy, m, descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index])
+			drawMobile(screen, ox, oy, m, descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[m.Index], snap.source)
 			drawMobileNameTag(screen, snap, m, alpha)
 		}
 		i, j := 0, 0
@@ -2416,7 +2416,7 @@ func drawScene(screen *ebiten.Image, ox, oy int, snap drawSnapshot, alpha float6
 				if live[i].State != poseDead {
 					drawLayeredCharacterShadow(screen, live[i].Index)
 					drawMobileImmediateShadow(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.picShiftX, snap.picShiftY, alpha, mobileLimit, shadowAlpha, shadowKind)
-					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index])
+					drawMobile(screen, ox, oy, live[i], descMap, snap.prevMobiles, snap.prevDescs, snap.picShiftX, snap.picShiftY, alpha, mobileFade, mobileLimit, snap.logicalFrame, mobileSunShade[live[i].Index], snap.source)
 					drawMobileNameTag(screen, snap, live[i], alpha)
 				}
 				i++
@@ -2582,7 +2582,7 @@ func mobileScreenPositionFloat(ox, oy int, m frameMobile, prevMobiles map[uint8]
 // When a mobile lacks history but the world shifts, a pseudo-previous position
 // derived from picShift provides a one-frame interpolation. maxDist sets the
 // maximum allowed pixel delta for interpolation.
-func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32) {
+func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uint8]frameDescriptor, prevMobiles map[uint8]frameMobile, prevDescs map[uint8]frameDescriptor, shiftX, shiftY int, alpha float64, fade float32, maxDist, logicalFrame int, sunShade float32, source SessionID) {
 	x, y := mobileScreenPositionFloat(ox, oy, m, prevMobiles, shiftX, shiftY, alpha, maxDist)
 	var img *ebiten.Image
 	plane := 0
@@ -2603,14 +2603,15 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		plane = d.Plane
 	}
 	tintRed, tintGreen, tintBlue, tintAlpha := float32(1), float32(1), float32(1), float32(1)
-	if tint, ok := scriptMobileEffectForMobile(d.PictID, d.Name, false); ok {
+	visualSession := scriptSessionForID(source)
+	if tint, ok := scriptMobileEffectForSession(visualSession, d.PictID, d.Name, false); ok {
 		tintRed = float32(tint.r) / 255
 		tintGreen = float32(tint.g) / 255
 		tintBlue = float32(tint.b) / 255
 		tintAlpha = float32(tint.a) / 255
 	}
 	var flashColor [4]float32
-	if flash, ok := scriptMobileFlashForIndex(m.Index); ok {
+	if flash, ok := scriptMobileFlashForSession(visualSession, m.Index); ok {
 		flashColor = [4]float32{float32(flash.r) / 255, float32(flash.g) / 255, float32(flash.b) / 255, float32(flash.a) / 255}
 	}
 	curKey := makeMobileKey(d.PictID, state, colors)
@@ -2701,7 +2702,7 @@ func drawMobile(screen *ebiten.Image, ox, oy int, m frameMobile, descMap map[uin
 		if sunShade > 0 {
 			brightness = 1 - sunShade
 		}
-		if outline, ok := scriptMobileEffectForMobile(d.PictID, d.Name, true); ok {
+		if outline, ok := scriptMobileEffectForSession(visualSession, d.PictID, d.Name, true); ok {
 			drawMobileSpriteOutline(screen, img, tx, ty, scale, outline)
 		}
 		drawn := false

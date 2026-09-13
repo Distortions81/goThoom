@@ -486,16 +486,25 @@ func picturesSummary(pics []framePicture) string {
 // matching the base game area (0..gameAreaSizeX, 0..gameAreaSizeY). The
 // provided scale converts world units to worldView pixels.
 func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
+	drawScriptOverlaysForSession(primarySession, worldView, scale)
+}
+
+func drawScriptOverlaysForSession(session *Session, worldView *ebiten.Image, scale float64) {
 	if worldView == nil || scale <= 0 {
 		return
 	}
-	overlayMu.RLock()
-	// Snapshot to avoid holding the lock while drawing
-	snap := make([]overlayOp, 0, 64)
-	for _, ops := range scriptOverlayOps {
-		snap = append(snap, ops...)
+	var snap []overlayOp
+	if visuals := sessionScriptVisuals(session); visuals != nil {
+		snap = visuals.overlaySnapshot()
+	} else {
+		overlayMu.RLock()
+		// Snapshot to avoid holding the lock while drawing.
+		snap = make([]overlayOp, 0, 64)
+		for _, ops := range scriptOverlayOps {
+			snap = append(snap, ops...)
+		}
+		overlayMu.RUnlock()
 	}
-	overlayMu.RUnlock()
 	if len(snap) == 0 {
 		return
 	}
@@ -508,7 +517,7 @@ func drawScriptOverlays(worldView *ebiten.Image, scale float64) {
 	}
 	var worldState scriptapi.World
 	if hasFollower {
-		worldState = scriptCurrentWorld()
+		worldState = scriptCurrentWorldForSession(session)
 	}
 	now := time.Now()
 	origin := worldView.Bounds().Min
