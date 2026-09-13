@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestMultiSessionWorkspaceIsLazyAndRoundTrips(t *testing.T) {
+func TestMultiSessionWorkspaceIsLazyAndRoundTripsTabs(t *testing.T) {
 	oldDataDir := dataDirPath
 	oldSessions := appSessions
 	oldWorkspace := multiSessionWorkspace
@@ -33,36 +32,50 @@ func TestMultiSessionWorkspaceIsLazyAndRoundTrips(t *testing.T) {
 		t.Fatalf("unused workspace file exists: %v", err)
 	}
 
-	multiSessionWorkspace = multiSessionWorkspaceDocument{
-		Version:     multiSessionWorkspaceVersion,
-		Selected:    3,
-		MusicSource: 4,
-	}
-	multiSessionWorkspace.ViewportSlots[0] = multiSessionViewportPlacement{
-		Position: WindowPoint{X: 0.1, Y: 0.2},
-		Size:     WindowPoint{X: 0.4, Y: 0.5},
-	}
+	open := [maxSessions]bool{}
+	open[0], open[2], open[9] = true, true, true
+	appSessions.restoreTabs(open, 3)
+	multiSessionWorkspace.TabHotkeysInitialized = true
 	multiSessionWorkspaceUsed = true
 	multiSessionWorkspaceDirty = true
 	saveMultiSessionWorkspace()
-	saved, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read workspace: %v", err)
-	}
-	if bytes.Contains(saved, []byte(`"layout"`)) {
-		t.Fatalf("workspace retained an independent layout preference: %s", saved)
-	}
 
 	multiSessionWorkspace = defaultMultiSessionWorkspaceDocument()
 	multiSessionWorkspaceUsed = false
 	if !loadMultiSessionWorkspace() {
 		t.Fatal("saved workspace did not load")
 	}
-	if multiSessionWorkspace.Selected != 3 || multiSessionWorkspace.MusicSource != 4 {
+	if multiSessionWorkspace.Selected != 3 || multiSessionWorkspace.OpenTabs != open {
 		t.Fatalf("loaded workspace = %+v", multiSessionWorkspace)
 	}
-	want := multiSessionViewportPlacement{Position: WindowPoint{X: 0.1, Y: 0.2}, Size: WindowPoint{X: 0.4, Y: 0.5}}
-	if got := multiSessionWorkspace.ViewportSlots[0]; got != want {
-		t.Fatalf("loaded viewport = %+v, want %+v", got, want)
+	if !multiSessionWorkspace.TabHotkeysInitialized {
+		t.Fatal("tab hotkey migration marker was not restored")
+	}
+}
+
+func TestMultiSessionWorkspaceV1MigratesFourPanesToTabs(t *testing.T) {
+	oldDataDir := dataDirPath
+	oldWorkspace := multiSessionWorkspace
+	oldUsed, oldDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
+	t.Cleanup(func() {
+		dataDirPath = oldDataDir
+		multiSessionWorkspace = oldWorkspace
+		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = oldUsed, oldDirty
+	})
+	dataDirPath = t.TempDir()
+	data := []byte(`{"version":1,"selected_session":4,"music_source_session":2}`)
+	if err := os.WriteFile(filepath.Join(dataDirPath, multiSessionWorkspaceFile), data, 0o644); err != nil {
+		t.Fatalf("write v1 workspace: %v", err)
+	}
+	if !loadMultiSessionWorkspace() {
+		t.Fatal("v1 workspace did not load")
+	}
+	for slot, open := range multiSessionWorkspace.OpenTabs {
+		if open != (slot < 4) {
+			t.Fatalf("migrated open tab %d = %v", slot+1, open)
+		}
+	}
+	if multiSessionWorkspace.Selected != 4 || !multiSessionWorkspaceDirty {
+		t.Fatalf("migration result = %+v dirty=%v", multiSessionWorkspace, multiSessionWorkspaceDirty)
 	}
 }

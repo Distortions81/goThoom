@@ -10,7 +10,7 @@ import (
 func TestScriptsManagerUsesSelectedSessionRuntime(t *testing.T) {
 	originalSessions := appSessions
 	manager := newSessionManager(primarySession)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	appSessions = manager
 	t.Cleanup(func() { appSessions = originalSessions })
 	selected := slots[1]
@@ -42,7 +42,7 @@ func TestGlobalScriptConfigChangeReachesEverySessionRuntime(t *testing.T) {
 	originalConfigMu := scriptConfigMu
 	originalStoreMu := scriptStoreMu
 	manager := newSessionManager(primarySession)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	appSessions = manager
 	scriptConfigMu = sync.RWMutex{}
 	scriptStoreMu = sync.Mutex{}

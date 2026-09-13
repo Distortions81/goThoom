@@ -121,6 +121,7 @@ func (s *Session) publishChat(text, messageType string) {
 		displayChatMessageTyped(text, messageType)
 	} else {
 		appendTextLogForSession(s, text)
+		handleSessionChatTTS(s, text, messageType, chatSpeaker(text))
 	}
 }
 

@@ -6,25 +6,18 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"gothoom/eui"
 )
 
 const (
 	multiSessionWorkspaceFile    = "multi_session.json"
-	multiSessionWorkspaceVersion = 1
+	multiSessionWorkspaceVersion = 2
 )
 
-type multiSessionViewportPlacement struct {
-	Position WindowPoint `json:"position"`
-	Size     WindowPoint `json:"size"`
-}
-
 type multiSessionWorkspaceDocument struct {
-	Version       int                                        `json:"version"`
-	Selected      SessionID                                  `json:"selected_session"`
-	MusicSource   SessionID                                  `json:"music_source_session"`
-	ViewportSlots [maxSessions]multiSessionViewportPlacement `json:"viewports"`
+	Version               int               `json:"version"`
+	Selected              SessionID         `json:"selected_session"`
+	OpenTabs              [maxSessions]bool `json:"open_tabs"`
+	TabHotkeysInitialized bool              `json:"tab_hotkeys_initialized,omitempty"`
 }
 
 var (
@@ -34,11 +27,12 @@ var (
 )
 
 func defaultMultiSessionWorkspaceDocument() multiSessionWorkspaceDocument {
-	return multiSessionWorkspaceDocument{
-		Version:     multiSessionWorkspaceVersion,
-		Selected:    primarySessionID,
-		MusicSource: primarySessionID,
+	document := multiSessionWorkspaceDocument{
+		Version:  multiSessionWorkspaceVersion,
+		Selected: primarySessionID,
 	}
+	document.OpenTabs[0] = true
+	return document
 }
 
 func loadMultiSessionWorkspace() bool {
@@ -58,15 +52,23 @@ func loadMultiSessionWorkspace() bool {
 		log.Printf("load multi-session workspace: %v", err)
 		return false
 	}
-	if loaded.Version != multiSessionWorkspaceVersion {
+	if loaded.Version != 1 && loaded.Version != multiSessionWorkspaceVersion {
 		log.Printf("load multi-session workspace: unsupported version %d", loaded.Version)
 		return false
 	}
+	if loaded.Version == 1 {
+		// The previous workspace always materialized four panes at once.
+		for slot := 0; slot < 4 && slot < maxSessions; slot++ {
+			loaded.OpenTabs[slot] = true
+		}
+		loaded.Version = multiSessionWorkspaceVersion
+		multiSessionWorkspaceDirty = true
+	}
+	if !anyOpenSessionTabs(loaded.OpenTabs) {
+		loaded.OpenTabs[0] = true
+	}
 	if !loaded.Selected.Valid() {
 		loaded.Selected = primarySessionID
-	}
-	if !loaded.MusicSource.Valid() {
-		loaded.MusicSource = primarySessionID
 	}
 	multiSessionWorkspace = loaded
 	multiSessionWorkspaceUsed = true
@@ -81,38 +83,20 @@ func markMultiSessionWorkspaceUsed() {
 }
 
 func syncMultiSessionWorkspace() bool {
-	if !multiSessionWorkspaceUsed || appSessions == nil || !appSessions.multiEnabled() {
+	if !multiSessionWorkspaceUsed || appSessions == nil {
 		return false
 	}
 	changed := false
+	sessions := appSessions.snapshot()
 	if selected := appSessions.selectedID(); selected.Valid() && multiSessionWorkspace.Selected != selected {
 		multiSessionWorkspace.Selected = selected
 		changed = true
 	}
-	if source := musicSourceSessionID(); source.Valid() && multiSessionWorkspace.MusicSource != source {
-		multiSessionWorkspace.MusicSource = source
-		changed = true
-	}
-	if appViewports.layoutSnapshot() == viewportLayoutFreeform {
-		screenWidth, screenHeight := eui.ScreenSize()
-		if screenWidth > 0 && screenHeight > 0 {
-			for slot, view := range appViewports.snapshot() {
-				state := view.render
-				if !view.Active || state == nil || state.window == nil || !state.window.IsOpen() {
-					continue
-				}
-				pos := state.window.GetPos()
-				size := state.window.GetSize()
-				placement := multiSessionViewportPlacement{
-					Position: WindowPoint{X: float64(pos.X) / float64(screenWidth), Y: float64(pos.Y) / float64(screenHeight)},
-					Size:     WindowPoint{X: float64(size.X) / float64(screenWidth), Y: float64(size.Y) / float64(screenHeight)},
-				}
-				clampMultiSessionViewportPlacement(&placement)
-				if multiSessionWorkspace.ViewportSlots[slot] != placement {
-					multiSessionWorkspace.ViewportSlots[slot] = placement
-					changed = true
-				}
-			}
+	for slot, session := range sessions {
+		open := session != nil
+		if multiSessionWorkspace.OpenTabs[slot] != open {
+			multiSessionWorkspace.OpenTabs[slot] = open
+			changed = true
 		}
 	}
 	if changed {
@@ -148,19 +132,11 @@ func saveMultiSessionWorkspace() {
 	multiSessionWorkspaceDirty = false
 }
 
-func multiSessionViewportPlacementValid(placement multiSessionViewportPlacement) bool {
-	return placement.Position.X >= 0 && placement.Position.X <= 1 &&
-		placement.Position.Y >= 0 && placement.Position.Y <= 1 &&
-		placement.Size.X > 0 && placement.Size.X <= 1 &&
-		placement.Size.Y > 0 && placement.Size.Y <= 1
-}
-
-func clampMultiSessionViewportPlacement(placement *multiSessionViewportPlacement) {
-	if placement == nil {
-		return
+func anyOpenSessionTabs(open [maxSessions]bool) bool {
+	for _, value := range open {
+		if value {
+			return true
+		}
 	}
-	state := WindowState{Position: placement.Position, Size: placement.Size}
-	clampWindowState(&state)
-	placement.Position = state.Position
-	placement.Size = state.Size
+	return false
 }

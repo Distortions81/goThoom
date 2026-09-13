@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestSessionMusicMultipartStateDoesNotCrossSessions(t *testing.T) {
 	first := mustNewSession(1)
@@ -32,7 +35,7 @@ func TestSessionMusicMultipartStateDoesNotCrossSessions(t *testing.T) {
 func TestMusicSourceRoutesOnlySelectedSessionAndStopsOnChange(t *testing.T) {
 	originalStop := stopMusicSourcePlayback
 	appMusicSource.mu.Lock()
-	originalSource := appMusicSource.source
+	originalSource, originalGeneration := appMusicSource.source, appMusicSource.generation
 	appMusicSource.source = 1
 	appMusicSource.mu.Unlock()
 	stops := 0
@@ -40,7 +43,7 @@ func TestMusicSourceRoutesOnlySelectedSessionAndStopsOnChange(t *testing.T) {
 	t.Cleanup(func() {
 		stopMusicSourcePlayback = originalStop
 		appMusicSource.mu.Lock()
-		appMusicSource.source = originalSource
+		appMusicSource.source, appMusicSource.generation = originalSource, originalGeneration
 		appMusicSource.mu.Unlock()
 	})
 
@@ -67,5 +70,73 @@ func TestMusicSourceRoutesOnlySelectedSessionAndStopsOnChange(t *testing.T) {
 	}
 	if !selectMusicSource(2) || stops != 1 {
 		t.Fatalf("reselecting source stops = %d, want 1", stops)
+	}
+}
+
+func TestSessionMusicTracksAdvanceByWallTime(t *testing.T) {
+	state := newSessionMusicState()
+	started := time.Unix(100, 0)
+	jobs := []tuneJob{{who: 7, notes: []Note{{Start: 0, Duration: 10 * time.Second}}}}
+	state.startTracks(jobs, started)
+
+	tracks := state.activeTracks(started.Add(2500 * time.Millisecond))
+	if len(tracks) != 1 || !tracks[0].started.Equal(started) {
+		t.Fatalf("active tracks = %+v", tracks)
+	}
+	wantFrame := int(2.5 * sampleRate)
+	gotFrame := sessionMusicStartFrame(tracks[0].started, started.Add(2500*time.Millisecond))
+	if gotFrame != wantFrame {
+		t.Fatalf("resume frame = %d, want %d", gotFrame, wantFrame)
+	}
+	if tracks := state.activeTracks(started.Add(10 * time.Second)); len(tracks) != 0 {
+		t.Fatalf("expired track remained active: %+v", tracks)
+	}
+}
+
+func TestSessionMusicTrackStopsAreSessionLocal(t *testing.T) {
+	first := newSessionMusicState()
+	second := newSessionMusicState()
+	started := time.Unix(100, 0)
+	job := tuneJob{who: 7, notes: []Note{{Duration: 10 * time.Second}}}
+	first.startTracks([]tuneJob{job}, started)
+	second.startTracks([]tuneJob{job}, started)
+	first.stopTracks(7)
+	if tracks := first.activeTracks(started.Add(time.Second)); len(tracks) != 0 {
+		t.Fatalf("stopped session retained tracks: %+v", tracks)
+	}
+	if tracks := second.activeTracks(started.Add(time.Second)); len(tracks) != 1 {
+		t.Fatalf("other session lost its track: %+v", tracks)
+	}
+}
+
+func TestSoundPlaybackRequestRejectsInactiveSession(t *testing.T) {
+	oldSessions := appSessions
+	manager := newSessionManager(mustNewSession(primarySessionID))
+	open := [maxSessions]bool{}
+	open[0], open[1] = true, true
+	manager.restoreTabs(open, primarySessionID)
+	appSessions = manager
+	t.Cleanup(func() { appSessions = oldSessions })
+
+	soundMu.Lock()
+	request := soundPlaybackRequest{
+		context:          audioContext,
+		generation:       soundPlaybackGeneration,
+		sourceGeneration: soundCacheGeneration,
+		sourceSession:    primarySessionID,
+	}
+	soundMu.Unlock()
+	if !soundPlaybackRequestCurrent(request) {
+		t.Fatal("selected session sound request was rejected")
+	}
+	manager.mu.Lock()
+	manager.selected = 2
+	manager.mu.Unlock()
+	if soundPlaybackRequestCurrent(request) {
+		t.Fatal("inactive session sound request remained current")
+	}
+	request.sourceSession = 0
+	if !soundPlaybackRequestCurrent(request) {
+		t.Fatal("app-owned audio preview was tied to a session tab")
 	}
 }

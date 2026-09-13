@@ -86,7 +86,7 @@ func TestMessageWindowsBindToSelectedSession(t *testing.T) {
 
 	gs.MessagesToConsole = false
 	manager := newSessionManager(primarySession)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	second, third := slots[1], slots[2]
 	second.setCharacterName("Second Hero")
 	third.setCharacterName("Third Hero")

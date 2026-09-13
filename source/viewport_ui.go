@@ -19,94 +19,48 @@ const (
 	viewportControlInset      float32 = 6
 )
 
-var (
-	viewportWorkspaceAppliedLayout viewportLayout
-	viewportWorkspaceScreenWidth   int
-	viewportWorkspaceScreenHeight  int
-)
-
-func viewportTitle(session *Session) string {
-	if session == nil {
-		return "Session"
-	}
-	name := session.characterName()
-	if session == primarySession {
-		name = playerName
-	}
-	if name == "" {
-		return fmt.Sprintf("Session %d", session.ID())
-	}
-	return fmt.Sprintf("Session %d -- %s", session.ID(), name)
-}
-
 func refreshViewportTitles() {
 	views := appViewports.snapshot()
 	sessions := appSessions.snapshot()
-	multi := appSessions.multiEnabled()
 	for slot, view := range views {
 		if view.render != nil && view.render.window != nil && sessions[slot] != nil {
-			title := viewportTitle(sessions[slot])
-			if !multi && slot == 0 {
-				title = gameWindowTitle()
-			}
-			if multi && appSessions.selectedID() == sessions[slot].ID() {
-				title += " [Selected]"
-			}
-			view.render.window.Title = title
+			view.render.window.Title = gameWindowTitle()
 			view.render.window.Dirty = true
 		}
 	}
 	refreshViewportSelectionTreatment()
 }
 
-func bindPrimaryViewportWindow() {
-	state := appViewports.renderStateForViewport(1)
+func bindSelectedViewportWindow() {
+	state := appViewports.renderStateForSession(appSessions.selectedID())
 	if state == nil {
 		return
+	}
+	sharedLightingTmp := state.lightingTmp
+	for _, view := range appViewports.snapshot() {
+		other := view.render
+		if other == nil || other == state {
+			continue
+		}
+		if other.window == gameWin {
+			if other.lightingTmp != nil {
+				if sharedLightingTmp != nil && sharedLightingTmp != other.lightingTmp {
+					sharedLightingTmp.Deallocate()
+				}
+				sharedLightingTmp = other.lightingTmp
+				other.lightingTmp = nil
+			}
+			other.window = nil
+			other.imageItem = nil
+			other.image = nil
+			other.imageBacking = nil
+		}
 	}
 	state.window = gameWin
 	state.imageItem = gameImageItem
 	state.image = gameImage
 	state.imageBacking = gameImageBacking
-	captureViewportFreeformChrome(state)
-}
-
-func captureViewportFreeformChrome(state *viewportRenderState) {
-	if state == nil || state.window == nil || state.freeformChromeSet {
-		return
-	}
-	win := state.window
-	state.freeformTitle = win.GetRawTitleSize()
-	state.freeformPadding = win.Padding
-	state.freeformMargin = win.Margin
-	state.freeformBorder = win.Border
-	state.freeformOutlined = win.Outlined
-	if win == gameWin {
-		if gameWindowFreeformTitleHeight > 0 {
-			state.freeformTitle = gameWindowFreeformTitleHeight
-		}
-		if gameWindowFreeformPadding > 0 {
-			state.freeformPadding = gameWindowFreeformPadding
-		}
-		if gameWindowFreeformMargin > 0 {
-			state.freeformMargin = gameWindowFreeformMargin
-		}
-	}
-	state.freeformChromeSet = true
-}
-
-func primaryViewportUsesTiledSizing() bool {
-	if appSessions != nil && appSessions.multiEnabled() {
-		return appViewports.layoutSnapshot() == viewportLayoutTiled
-	}
-	return gs.TiledWindows
-}
-
-func viewportUsesTiledSizing(id ViewportID) bool {
-	if appSessions != nil && appSessions.multiEnabled() {
-		return appViewports.layoutSnapshot() == viewportLayoutTiled
-	}
-	return id == 1 && gs.TiledWindows
+	state.lightingTmp = sharedLightingTmp
 }
 
 func syncPrimaryViewportAliases(state *viewportRenderState) {
@@ -166,7 +120,11 @@ func updateViewportImageSize(state *viewportRenderState, tiled bool) {
 		edgeInset = 0
 	}
 	w := int(float64(pixelW)-pad) - 2*edgeInset
-	h := int(float64(pixelH)-pad-title) - 2*edgeInset
+	tabHeight := 0
+	if win == gameWin {
+		tabHeight = sessionTabBarPixelHeight()
+	}
+	h := int(float64(pixelH)-pad-title) - 2*edgeInset - tabHeight
 	if w <= 0 || h <= 0 {
 		return
 	}
@@ -178,7 +136,7 @@ func updateViewportImageSize(state *viewportRenderState, tiled bool) {
 		state.image = backing
 		item.Image = state.image
 		item.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
-		item.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset) / s}
+		item.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset+tabHeight) / s}
 		if state.loginOverlay != nil {
 			win.PrependItem(item)
 		} else {
@@ -204,7 +162,7 @@ func updateViewportImageSize(state *viewportRenderState, tiled bool) {
 	state.image = state.imageBacking.SubImage(image.Rect(0, 0, w, h)).(*ebiten.Image)
 	state.imageItem.Image = state.image
 	state.imageItem.Size = eui.Point{X: float32(w) / s, Y: float32(h) / s}
-	state.imageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset) / s}
+	state.imageItem.Position = eui.Point{X: float32(edgeInset) / s, Y: float32(edgeInset+tabHeight) / s}
 	syncPrimaryViewportAliases(state)
 	layoutViewportLoginOverlay(state)
 }
@@ -605,277 +563,21 @@ func focusViewportLogin(id SessionID) {
 	state.window.BringForward()
 }
 
-func resizeViewportWindow(state *viewportRenderState) {
-	if state == nil || state.window == nil {
-		return
-	}
-	win := state.window
-	if appViewports.layoutSnapshot() == viewportLayoutTiled {
-		updateViewportImageSize(state, true)
-		return
-	}
-	if state.inAspectResize {
-		updateViewportImageSize(state, false)
-		return
-	}
-	size := win.GetSize()
-	if size.X <= 0 || size.Y <= 0 {
-		return
-	}
-	pad := float64(2 * win.Padding)
-	title := float64(win.GetTitleSize())
-	availW := float64(int(size.X)&^1) - pad
-	availH := float64(int(size.Y)&^1) - pad - title
-	if availW <= 0 || availH <= 0 {
-		updateViewportImageSize(state, false)
-		return
-	}
-	scale := math.Min(availW/float64(gameAreaSizeX), availH/float64(gameAreaSizeY))
-	if scale < 0.25 {
-		scale = 0.25
-	}
-	newSize := eui.Point{
-		X: float32(math.Round(float64(gameAreaSizeX)*scale + pad)),
-		Y: float32(math.Round(float64(gameAreaSizeY)*scale + pad + title)),
-	}
-	if math.Abs(float64(size.X-newSize.X)) > 0.5 || math.Abs(float64(size.Y-newSize.Y)) > 0.5 {
-		state.inAspectResize = true
-		_ = win.SetSize(newSize)
-		state.inAspectResize = false
-	}
-	updateViewportImageSize(state, false)
-}
-
-func configureSecondaryViewportWindow(view Viewport, session *Session) {
-	state := view.render
-	if state == nil || state.window != nil {
-		return
-	}
-	win := newGameRenderWindow()
-	win.Title = viewportTitle(session)
-	win.Closable = false
-	win.Resizable = true
-	win.Movable = true
-	win.Maximizable = false
-	state.window = win
-	captureViewportFreeformChrome(state)
-	win.OnResize = func() { resizeViewportWindow(state) }
-
-	screenW, screenH := eui.ScreenSize()
-	width := max(320, min(640, screenW/2-24))
-	height := max(220, min(420, screenH/2-24))
-	win.Size = eui.Point{X: float32(width), Y: float32(height)}
-	col := (int(view.ID) - 1) % 2
-	row := (int(view.ID) - 1) / 2
-	_ = win.SetPos(eui.Point{X: float32(12 + col*(width+12)), Y: float32(12 + row*(height+12))})
-	updateViewportImageSize(state, false)
-	win.MarkOpen()
-}
-
-func desiredMultiSessionViewportLayout() viewportLayout {
-	if gs.TiledWindows {
-		return viewportLayoutTiled
-	}
-	return viewportLayoutFreeform
-}
-
-func multiSessionViewportWindowsReady() bool {
-	if appViewports == nil {
-		return false
-	}
-	for _, view := range appViewports.snapshot() {
-		if !view.Active {
-			continue
-		}
-		if view.render == nil || view.render.window == nil {
-			return false
-		}
-	}
-	return true
-}
-
-func applyMultiSessionViewportLayoutIfNeeded() {
-	if appSessions == nil || !appSessions.multiEnabled() || !multiSessionViewportWindowsReady() {
-		return
-	}
-	screenWidth, screenHeight := eui.ScreenSize()
-	layout := desiredMultiSessionViewportLayout()
-	if current := appViewports.layoutSnapshot(); current != layout {
-		if current == viewportLayoutFreeform {
-			syncMultiSessionWorkspace()
-		}
-		appViewports.setLayout(layout)
-	}
-	if viewportWorkspaceAppliedLayout == layout && viewportWorkspaceScreenWidth == screenWidth && viewportWorkspaceScreenHeight == screenHeight {
-		return
-	}
-	applyMultiSessionViewportLayout(false)
-}
-
-func applyMultiSessionViewportLayout(force bool) {
-	if appSessions == nil || !appSessions.multiEnabled() || !multiSessionViewportWindowsReady() {
-		return
-	}
-	layout := appViewports.layoutSnapshot()
-	screenWidth, screenHeight := eui.ScreenSize()
-	if !force && viewportWorkspaceAppliedLayout == layout && viewportWorkspaceScreenWidth == screenWidth && viewportWorkspaceScreenHeight == screenHeight {
-		return
-	}
-	if layout == viewportLayoutTiled {
-		applyTiledSessionViewports()
-	} else {
-		applyFreeformSessionViewports()
-	}
-	viewportWorkspaceAppliedLayout = layout
-	viewportWorkspaceScreenWidth = screenWidth
-	viewportWorkspaceScreenHeight = screenHeight
-	refreshViewportSelectionTreatment()
-}
-
-func applyFreeformSessionViewports() {
-	screenWidth, screenHeight := eui.ScreenSize()
-	for slot, view := range appViewports.snapshot() {
-		state := view.render
-		if !view.Active || state == nil || state.window == nil {
-			continue
-		}
-		configureFreeformViewportChrome(state)
-		placement := multiSessionWorkspace.ViewportSlots[slot]
-		if multiSessionViewportPlacementValid(placement) && screenWidth > 0 && screenHeight > 0 {
-			state.inAspectResize = true
-			_ = state.window.SetSize(eui.Point{X: float32(placement.Size.X * float64(screenWidth)), Y: float32(placement.Size.Y * float64(screenHeight))})
-			state.inAspectResize = false
-			_ = state.window.SetPos(eui.Point{X: float32(placement.Position.X * float64(screenWidth)), Y: float32(placement.Position.Y * float64(screenHeight))})
-		}
-		resizeViewportWindow(state)
-		state.window.MarkOpen()
-	}
-}
-
-func configureFreeformViewportChrome(state *viewportRenderState) {
-	if state == nil || state.window == nil {
-		return
-	}
-	captureViewportFreeformChrome(state)
-	win := state.window
-	win.SetDocked(false)
-	win.TitleHeight = state.freeformTitle
-	win.Padding = state.freeformPadding
-	win.Margin = state.freeformMargin
-	win.Border = state.freeformBorder
-	win.Outlined = state.freeformOutlined
-	win.BorderColor = eui.Color{}
-	win.Closable = false
-	win.Movable = true
-	win.Resizable = true
-	win.Maximizable = false
-	win.Dirty = true
-}
-
-func applyTiledSessionViewports() {
-	area := multiSessionGameArea()
-	if area.Empty() {
-		return
-	}
-	appViewports.tile(area)
-	rects := tiledViewportRects(area)
-	for slot, view := range appViewports.snapshot() {
-		state := view.render
-		if !view.Active || state == nil || state.window == nil {
-			continue
-		}
-		configureTiledViewportChrome(state)
-		state.inAspectResize = true
-		state.window.Resizable = true
-		_ = state.window.SetPos(eui.Point{X: float32(rects[slot].Min.X), Y: float32(rects[slot].Min.Y)})
-		_ = state.window.SetSize(eui.Point{X: float32(rects[slot].Dx()), Y: float32(rects[slot].Dy())})
-		state.window.Resizable = false
-		state.inAspectResize = false
-		updateViewportImageSize(state, true)
-		state.window.MarkOpen()
-	}
-}
-
-func configureTiledViewportChrome(state *viewportRenderState) {
-	if state == nil || state.window == nil {
-		return
-	}
-	captureViewportFreeformChrome(state)
-	win := state.window
-	win.SetDocked(true)
-	win.TitleHeight = state.freeformTitle
-	win.Padding = 0
-	win.Margin = 0
-	win.Closable = false
-	win.Movable = false
-	win.Maximizable = false
-	win.Dirty = true
-}
-
-func multiSessionGameArea() image.Rectangle {
-	screenWidth, screenHeight := eui.ScreenSize()
-	if screenWidth <= 0 || screenHeight <= 0 {
-		return image.Rectangle{}
-	}
-	state := gs.GameWindow
-	if normalizedWindowStateValid(state, true) {
-		x0 := int(math.Round(state.Position.X * float64(screenWidth)))
-		y0 := int(math.Round(state.Position.Y * float64(screenHeight)))
-		x1 := x0 + int(math.Round(state.Size.X*float64(screenWidth)))
-		y1 := y0 + int(math.Round(state.Size.Y*float64(screenHeight)))
-		area := image.Rect(max(0, x0), max(0, y0), min(screenWidth, x1), min(screenHeight, y1))
-		if !area.Empty() {
-			return area
-		}
-	}
-	if gameWin == nil {
-		return image.Rectangle{}
-	}
-	pos, size := gameWin.GetPos(), gameWin.GetSize()
-	return image.Rect(int(pos.X), int(pos.Y), int(pos.X+size.X), int(pos.Y+size.Y))
-}
-
 func refreshViewportSelectionTreatment() {
-	selected := SessionID(0)
-	if appSessions != nil {
-		selected = appSessions.selectedID()
-	}
-	multi := appSessions != nil && appSessions.multiEnabled()
-	tiled := multi && appViewports.layoutSnapshot() == viewportLayoutTiled
-	for _, view := range appViewports.snapshot() {
-		state := view.render
-		if state == nil || state.window == nil {
-			continue
-		}
-		focused := multi && view.SessionID == selected
-		if focused {
-			state.window.TitleBGColor = eui.AccentColor()
-		} else {
-			state.window.TitleBGColor = eui.Color{}
-		}
-		if tiled && focused {
-			state.window.Outlined = true
-			state.window.Border = 3
-			state.window.BorderColor = eui.AccentColor()
-		} else if tiled {
-			state.window.Outlined = false
-			state.window.Border = state.freeformBorder
-			state.window.BorderColor = eui.Color{}
-		} else {
-			state.window.Outlined = state.freeformOutlined
-			state.window.Border = state.freeformBorder
-			state.window.BorderColor = eui.Color{}
-		}
-		state.window.Dirty = true
-	}
+	refreshSessionTabs()
 }
 
 func refreshViewportWorkspace() {
-	bindPrimaryViewportWindow()
+	if appSessions == nil || appViewports == nil || gameWin == nil {
+		return
+	}
+	ensureSessionTabBar()
+	selected := appSessions.selectedID()
+	appViewports.showSession(selected)
+	bindSelectedViewportWindow()
 	views := appViewports.snapshot()
 	sessions := appSessions.snapshot()
-	multi := appSessions.multiEnabled()
-	if multi && loginWin != nil && loginWin.IsOpen() {
+	if loginWin != nil && loginWin.IsOpen() {
 		loginWin.Close()
 	}
 	for slot, view := range views {
@@ -883,21 +585,25 @@ func refreshViewportWorkspace() {
 		if state == nil {
 			continue
 		}
-		if slot == 0 {
-			refreshViewportLoginOverlay(state, sessions[slot], multi)
-			continue
+		if state.loginOverlay != nil {
+			state.loginOverlay.Invisible = true
 		}
-		if view.Active && multi {
-			configureSecondaryViewportWindow(view, sessions[slot])
-			refreshViewportLoginOverlay(state, sessions[slot], true)
-			if state.window != nil && !state.window.IsOpen() {
-				state.window.MarkOpen()
+		if state.sessionLogout != nil {
+			state.sessionLogout.Invisible = true
+		}
+		if sessions[slot] == nil {
+			if state.window != nil && state.window != gameWin {
+				state.window.RemoveWindow()
 			}
-			continue
-		}
-		if state.window != nil {
-			state.window.RemoveWindow()
-			if state.imageBacking != nil {
+			if gameWin != nil {
+				if state.loginOverlay != nil {
+					gameWin.RemoveItem(state.loginOverlay)
+				}
+				if state.sessionLogout != nil {
+					gameWin.RemoveItem(state.sessionLogout)
+				}
+			}
+			if state.imageBacking != nil && state.imageBacking != gameImageBacking {
 				state.imageBacking.Deallocate()
 			}
 			if state.lightingTmp != nil {
@@ -911,17 +617,29 @@ func refreshViewportWorkspace() {
 			state.nightTransition = nightTransitionState{}
 			state.worldRenderValid = false
 			clearViewportLoginUI(state)
+			continue
 		}
+		if view.SessionID != selected {
+			if state.window != nil && state.window != gameWin {
+				state.window.RemoveWindow()
+			}
+			state.window = nil
+			state.imageItem = nil
+			state.image = nil
+			state.imageBacking = nil
+			continue
+		}
+		state.window = gameWin
+		state.imageItem = gameImageItem
+		state.image = gameImage
+		state.imageBacking = gameImageBacking
+		state.worldRenderValid = false
+		updateViewportImageSize(state, gs.TiledWindows)
+		refreshViewportLoginOverlay(state, sessions[slot], sessionTabsVisible())
 	}
-	if multi {
-		applyMultiSessionViewportLayoutIfNeeded()
-	} else if viewportWorkspaceAppliedLayout != viewportLayoutSingle {
-		viewportWorkspaceAppliedLayout = viewportLayoutSingle
-		viewportWorkspaceScreenWidth, viewportWorkspaceScreenHeight = eui.ScreenSize()
-		applyManagedWindowLayout()
-	}
-	if !multi && primarySession != nil && !primarySession.transport.connected() && !primarySession.transport.busy() && loginWin != nil && !loginWin.IsOpen() {
-		loginWin.MarkOpen()
+	refreshSessionTabs()
+	if !gameWin.IsOpen() {
+		gameWin.MarkOpen()
 	}
 	refreshViewportTitles()
 }

@@ -1,59 +1,49 @@
 # Multi-session guide
 
-Use **Multi-session** on the toolbar after startup and asset checks finish.
-goThoom opens four session views. A disconnected view uses the same saved
-character list, Add/Edit/Delete actions, server list, password prompt, and
-connection controls as the normal Login window, bound to that session slot.
-Each slot can therefore connect or disconnect independently.
+goThoom always uses session tabs above one game view. The first tab is ready at
+startup. Select **+** to open another independent login, up to ten tabs. A
+disconnected tab shows the saved-character list, Add/Edit/Delete actions,
+server list, password prompt, connection status, and errors inside the game
+view.
 
-Click a view to make that session active. Keyboard input, chat submission,
-movement, commands, hotkeys, toolbar actions, Inventory, and Players target the
-selected session. Its title includes **Selected** and its title bar uses the
-current theme accent; in the tiled layout its border uses the accent as well.
+Select a tab to make it active. Movement, keyboard input, chat, commands,
+hotkeys, toolbar actions, Inventory, Players, Scripts, Chat, and Console all
+target the active session. Use the logout icon in the lower-right of the game
+view to disconnect that tab without closing it.
 
-## Layout
+The default tab shortcuts are **Ctrl-1** through **Ctrl-9**, with **Ctrl-0** for
+the tenth open tab. They select tabs by visible order, so gaps left by closed
+sessions do not affect the shortcut number. Edit their keys or modifiers from
+**Actions → Hotkeys**.
 
-The existing **Settings → Display → Window Layout** choice also controls the
-session views:
+## Adding and closing tabs
 
-- **Freeform** keeps four titled views that can be moved and resized
-  independently.
-- **Tiled 2×2** fits all four views inside the area normally occupied by the
-  game window. Shared Inventory, Players, Chat, and Console panes keep their
-  existing placement.
+The **+** button opens and selects the first available session slot. It is
+disabled when ten tabs are open.
 
-Turning off **Use tiled window layout** restores the four saved Freeform view
-rectangles. After multi-session has been used, `multi_session.json` in the user
-data folder saves those rectangles, the selected session, and the music source.
-The normal single-session window layout remains in `settings.json` and is
-restored when multi-session closes.
+Each tab has an **X**. Closing a tab asks for confirmation and disconnects its
+connection. At least one tab must remain open. Open tabs and the active tab are
+restored on the next launch; connections still begin logged out.
 
-## Background sessions and messages
+## Background sessions
 
-Every connected session continues receiving network updates and running its
-own macros and Go scripts while another session is selected. A globally enabled
-Go script gets an independent interpreter in every connected session;
-character-enabled scripts run only for matching characters. Script callbacks,
-commands, movement, windows, output, and cleanup stay with the session that
-started them. Sound effects and notifications from all sessions can play
-through the shared mixer. Direct user input always has one target: the selected
-session.
+Only the active tab is rendered. Other sessions continue receiving network
+updates and running their own macros, Go scripts, reconnect supervisors,
+recordings, and text logs. A globally enabled Go script has an independent
+runtime in every connected session; character-enabled scripts run only for
+matching characters.
 
-Chat and Console combine session messages in their shared transcripts and
-identify the originating character. Inventory and Players show only the
-selected session and rebind together when selection changes.
+Chat and Console combine session messages in shared transcripts and identify
+their source. Inventory, Players, and Scripts display the active session.
 
-## Bard music
+Only the active tab plays sound effects. Every session still tracks assembled
+bard performances against wall time. When a different tab becomes active,
+goThoom stops the previous audio and resumes any still-running performance from
+the new tab at its current point.
 
-Only one session supplies bard music to the shared player. Choose it in Mixer
-or **Settings → Audio**. Changing the source stops the current tune; playback
-waits for the next normal music event from the newly selected source rather
-than resuming or synchronizing an earlier tune.
+## Window layout
 
-## Leaving multi-session
-
-Use the small logout icon in the bottom-right corner of a connected session
-view to disconnect that character. After every session is fully disconnected,
-use **Sessions** on the toolbar to return to single-session mode. This restores
-the ordinary game-window layout; opening multi-session later restores the saved
-workspace.
+There is one game window regardless of the number of sessions. **Settings →
+Display → Window Layout** positions that game window together with Inventory,
+Players, Chat, and Console. Changing tabs does not create, resize, or switch GPU
+render targets for additional game windows.

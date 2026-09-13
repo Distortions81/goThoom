@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -161,8 +162,8 @@ func updateDimmedScreenBG() {
 // updateGameImageSize ensures the game image item exists and matches the
 // current inner content size of the game window.
 func updateGameImageSize() {
-	bindPrimaryViewportWindow()
-	updateViewportImageSize(appViewports.renderStateForViewport(1), primaryViewportUsesTiledSizing())
+	bindSelectedViewportWindow()
+	updateViewportImageSize(appViewports.renderStateForSession(appSessions.selectedID()), gs.TiledWindows)
 }
 
 func worldArtworkFilter() ebiten.Filter {
@@ -810,7 +811,6 @@ type Game struct {
 	drawSnapshot       drawSnapshot
 	lastWorldRenderKey worldRenderKey
 	worldRenderValid   bool
-	viewportAtlas      viewportRenderAtlas
 }
 
 func init() {
@@ -1082,15 +1082,6 @@ func (g *Game) Update() error {
 		}
 	}
 	inputSession := selectedAppSession()
-	if appSessions.multiEnabled() && (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) ||
-		inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)) {
-		pressX, pressY := eui.PointerPosition()
-		if view, hit := viewportAtScreenPoint(pressX, pressY); hit {
-			appSessions.selectSession(view.SessionID)
-			inputSession = selectedAppSession()
-			worldOriginX, worldOriginY, worldScale = worldDrawInfoForSession(inputSession)
-		}
-	}
 	legacyMacroBeginInputFrame()
 	if inputSession != primarySession {
 		inputSession.input.beginMacroInputFrame()
@@ -1803,6 +1794,18 @@ func dispatchSessionLocalCommand(session *Session, txt string) bool {
 		executeSettingCommand(strings.TrimSpace(txt[len("/setting"):]))
 		return true
 	}
+	if strings.HasPrefix(lower, "/tab ") || strings.TrimSpace(lower) == "/tab" {
+		argument := strings.TrimSpace(txt[len("/tab"):])
+		position, err := strconv.Atoi(argument)
+		if err != nil || position < 1 || position > maxSessions {
+			session.publishClientConsole(fmt.Sprintf("Usage: /tab 1-%d", maxSessions), messageTextTypeSystem)
+			return true
+		}
+		if !selectSessionTabPosition(position) {
+			session.publishClientConsole(fmt.Sprintf("Session tab %d is not open.", position), messageTextTypeSystem)
+		}
+		return true
+	}
 	if strings.HasPrefix(lower, "/testhooks") {
 		session.publishClientConsole("> "+txt, messageTextTypeSystem)
 		arg := strings.TrimSpace(txt[len("/testhooks"):])
@@ -1894,8 +1897,8 @@ func worldDrawInfo() (int, int, float64) {
 		pixelH = int(math.Round(float64(size.Y)))
 		edgeInset = 0
 	}
-	cw := int(float64(pixelW) - pad)         // content width
-	ch := int(float64(pixelH) - pad - title) // content height
+	cw := int(float64(pixelW) - pad)                                               // content width
+	ch := int(float64(pixelH) - pad - title - float64(sessionTabBarPixelHeight())) // content height
 	bufW := cw - 2*edgeInset
 	bufH := ch - 2*edgeInset
 	if bufW <= 0 || bufH <= 0 {
@@ -1908,7 +1911,7 @@ func worldDrawInfo() (int, int, float64) {
 	viewRect, scale := fittedWorldView(bufW, bufH)
 
 	originX := gx + edgeInset + viewRect.Min.X
-	originY := gy + edgeInset + viewRect.Min.Y
+	originY := gy + edgeInset + sessionTabBarPixelHeight() + viewRect.Min.Y
 	return originX, originY, scale
 }
 
@@ -1946,13 +1949,13 @@ type viewportRenderResult struct {
 }
 
 func renderSessionViewport(target *ebiten.Image, session *Session, state *viewportRenderState, now time.Time, selected bool, assetTrace *assetLoadFrameTrace) viewportRenderResult {
-	results := renderSessionViewports(nil, []viewportRenderRequest{{
+	frame := prepareViewportRenderFrame(viewportRenderRequest{
 		target: target, session: session, state: state, selected: selected,
-	}}, now, assetTrace)
-	if len(results) == 0 {
-		return viewportRenderResult{}
-	}
-	return results[0]
+	}, now, assetTrace)
+	renderViewportSceneStage(&frame)
+	renderViewportLightingStage(&frame)
+	publishViewportRenderFrame(&frame, assetTrace)
+	return frame.result
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -2030,15 +2033,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.Fill(dimmedScreenBG)
 	}
 
-	// Ensure every active viewport has a current image buffer.
-	for _, view := range appViewports.snapshot() {
-		if view.Active && view.render != nil {
-			updateViewportImageSize(view.render, viewportUsesTiledSizing(view.ID))
-		}
-	}
-	updateStreamIndicators(now)
 	selectedSession := selectedAppSession()
 	selectedState := appViewports.renderStateForSession(selectedSession.ID())
+	if selectedState != nil {
+		updateViewportImageSize(selectedState, gs.TiledWindows)
+	}
+	updateStreamIndicators(now)
 	if selectedState == nil || selectedState.image == nil {
 		// UI not ready yet
 		snapshotReady = true
@@ -2054,28 +2054,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	selectedResult := viewportRenderResult{}
-	views := appViewports.snapshot()
-	sessions := appSessions.snapshot()
-	requests := make([]viewportRenderRequest, 0, maxSessions)
-	requestSlots := make([]int, 0, maxSessions)
-	for slot, view := range views {
-		if !view.Active || view.render == nil || view.render.image == nil || sessions[slot] == nil {
-			continue
-		}
-		requests = append(requests, viewportRenderRequest{
-			target: view.render.image, session: sessions[slot], state: view.render,
-			selected: sessions[slot] == selectedSession,
-		})
-		requestSlots = append(requestSlots, slot)
-	}
-	results := renderSessionViewports(&g.viewportAtlas, requests, now, assetTrace)
-	for index, result := range results {
-		if sessions[requestSlots[index]] == selectedSession {
-			selectedResult = result
-			worldViewRect = result.viewRect
-		}
-	}
+	selectedResult := renderSessionViewport(selectedState.image, selectedSession, selectedState, now, true, assetTrace)
+	worldViewRect = selectedResult.viewRect
 	// Artwork uploads can defer the selected world draw; keep the request queued
 	// rather than capturing the previous frame with different name-tag visibility.
 	snapshotReady = selectedResult.ready
@@ -4692,7 +4672,6 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 		} else if managedWindowLayoutChanged() {
 			applyManagedWindowLayout()
 		}
-		applyMultiSessionViewportLayoutIfNeeded()
 	}
 
 	if outsideWidth > 512 && outsideHeight > 384 {
@@ -4747,7 +4726,10 @@ func initGame() {
 	resetInventory()
 
 	loadSettings()
-	loadMultiSessionWorkspace()
+	if loadMultiSessionWorkspace() {
+		appSessions.restoreTabs(multiSessionWorkspace.OpenTabs, multiSessionWorkspace.Selected)
+		selectSessionAudioSource(appSessions.selectedID())
+	}
 	_ = loadThemeChoice(gs.Theme)
 	if gs.Style != "" {
 		eui.LoadStyle(gs.Style)
@@ -4777,7 +4759,7 @@ func makeGameWindow() {
 		return
 	}
 	gameWin = newGameRenderWindow()
-	bindPrimaryViewportWindow()
+	bindSelectedViewportWindow()
 	gameWindowFreeformTitleHeight = gameWin.GetRawTitleSize()
 	gameWindowFreeformPadding = gameWin.Padding
 	gameWindowFreeformMargin = gameWin.Margin
@@ -4830,7 +4812,7 @@ func makeGameWindow() {
 func updateGameWindowTitle() {
 	title := gameWindowTitle()
 	ebiten.SetWindowTitle(title)
-	if gameWin != nil && !appSessions.multiEnabled() {
+	if gameWin != nil {
 		gameWin.Title = title
 	}
 	refreshViewportTitles()
@@ -4843,7 +4825,7 @@ func gameWindowTitle() string {
 		name = playerName
 	}
 	if name == "" {
-		if session != primarySession && appSessions.multiEnabled() {
+		if session != primarySession {
 			return fmt.Sprintf("goThoom -- Session %d", session.ID())
 		}
 		return "goThoom"
@@ -4865,7 +4847,7 @@ func onGameWindowResize() {
 	// rectangle to the playfield aspect ratio shrinks the managed tile and
 	// leaves an unused strip (most noticeably with the titlebar hidden).
 	// Keep the assigned tile intact and fit the rendered game within it.
-	if primaryViewportUsesTiledSizing() {
+	if gs.TiledWindows {
 		updateGameImageSize()
 		layoutNotifications()
 		return
@@ -4880,7 +4862,7 @@ func onGameWindowResize() {
 	pad := float64(2 * gameWin.Padding)
 	title := float64(gameWin.GetTitleSize())
 	availW := float64(int(size.X)&^1) - pad
-	availH := float64(int(size.Y)&^1) - pad - title
+	availH := float64(int(size.Y)&^1) - pad - title - float64(sessionTabBarPixelHeight())
 	if availW <= 0 || availH <= 0 {
 		updateGameImageSize()
 		return
@@ -4896,7 +4878,7 @@ func onGameWindowResize() {
 	fitW := targetW * scale
 	fitH := targetH * scale
 	newW := float32(math.Round(fitW + pad))
-	newH := float32(math.Round(fitH + pad + title))
+	newH := float32(math.Round(fitH + pad + title + float64(sessionTabBarPixelHeight())))
 
 	if math.Abs(float64(size.X)-float64(newW)) > 0.5 || math.Abs(float64(size.Y)-float64(newH)) > 0.5 {
 		inAspectResize = true

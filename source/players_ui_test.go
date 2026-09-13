@@ -183,7 +183,7 @@ func TestPlayersWindowBindsRowsAndLabelsToSelectedSession(t *testing.T) {
 	})
 
 	manager := newSessionManager(primarySession)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	secondary := slots[1]
 	secondary.setCharacterName("Second Hero")
 	secondary.players.observeAppearance("Alice", 101, nil, false)

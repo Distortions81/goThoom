@@ -141,11 +141,54 @@ func loadHotkeys() {
 			newList = append(newList, fs)
 		}
 	}
+	addedSessionDefaults := false
+	if !multiSessionWorkspace.TabHotkeysInitialized {
+		newList, addedSessionDefaults = addDefaultSessionTabHotkeys(newList)
+		multiSessionWorkspace.TabHotkeysInitialized = true
+		markMultiSessionWorkspaceUsed()
+		multiSessionWorkspaceDirty = true
+	}
 
 	hotkeysMu.Lock()
 	hotkeys = newList
 	hotkeysMu.Unlock()
 	refreshHotkeysList()
+	if addedSessionDefaults {
+		saveHotkeys()
+	}
+}
+
+func addDefaultSessionTabHotkeys(list []Hotkey) ([]Hotkey, bool) {
+	added := false
+	for position := 1; position <= maxSessions; position++ {
+		command := fmt.Sprintf("/tab %d", position)
+		found := false
+		for _, hotkey := range list {
+			for _, entry := range hotkey.Commands {
+				if strings.EqualFold(strings.TrimSpace(entry.Command), command) {
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		key := position
+		if position == 10 {
+			key = 0
+		}
+		list = append(list, Hotkey{
+			Name:     fmt.Sprintf("Select Session Tab %d", position),
+			Combo:    fmt.Sprintf("Ctrl-%d", key),
+			Commands: []HotkeyCommand{{Command: command}},
+		})
+		added = true
+	}
+	return list, added
 }
 
 func saveHotkeys() {

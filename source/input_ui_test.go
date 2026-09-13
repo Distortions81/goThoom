@@ -105,7 +105,7 @@ func TestPointInAppScreenUsesEUIScreenSize(t *testing.T) {
 
 func TestViewportSelectionSurfaceRespectsWindowOrder(t *testing.T) {
 	viewports := newViewportManager()
-	viewports.enableMulti(viewportLayoutFreeform)
+	viewports.showSession(2)
 	state := viewports.renderStateForViewport(2)
 	playfield := eui.NewWindow()
 	playfield.Open = true

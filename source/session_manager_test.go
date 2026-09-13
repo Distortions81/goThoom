@@ -31,10 +31,10 @@ func TestSessionManagerStartsWithOnlyPrimarySession(t *testing.T) {
 	}
 }
 
-func TestSessionManagerEnablesFourStableSlots(t *testing.T) {
+func TestSessionManagerMaterializesTenStableSlots(t *testing.T) {
 	primary := mustNewSession(primarySessionID)
 	manager := newSessionManager(primary)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 
 	if slots[0] != primary {
 		t.Fatal("enabling multi-session replaced the primary session")
@@ -52,7 +52,7 @@ func TestSessionManagerEnablesFourStableSlots(t *testing.T) {
 	if !manager.selectSession(3) || manager.selectedSession() != slots[2] {
 		t.Fatal("selection did not switch to session three")
 	}
-	again := manager.enableMulti()
+	again := manager.materializeAllSessions()
 	for slot := range slots {
 		if again[slot] != slots[slot] {
 			t.Fatalf("enabling multi-session twice replaced slot %d", slot)
@@ -60,10 +60,59 @@ func TestSessionManagerEnablesFourStableSlots(t *testing.T) {
 	}
 }
 
+func TestSessionManagerAddsClosesAndCapsTabs(t *testing.T) {
+	primary := mustNewSession(primarySessionID)
+	manager := newSessionManager(primary)
+	for want := 2; want <= maxSessions; want++ {
+		session, ok := manager.addSession()
+		if !ok || session.ID() != SessionID(want) {
+			t.Fatalf("add %d = session %v, ok %v", want, session, ok)
+		}
+	}
+	if _, ok := manager.addSession(); ok {
+		t.Fatal("added a session past the ten-session limit")
+	}
+	if !manager.closeSession(5) {
+		t.Fatal("could not close session 5")
+	}
+	if _, open := manager.session(5); open {
+		t.Fatal("closed session remained registered")
+	}
+	reopened, ok := manager.addSession()
+	if !ok || reopened.ID() != 5 {
+		t.Fatalf("reopened session = %v, ok %v", reopened, ok)
+	}
+
+	for id := SessionID(2); id <= maxSessions; id++ {
+		if !manager.closeSession(id) {
+			t.Fatalf("could not close session %d", id)
+		}
+	}
+	if manager.count() != 1 || manager.closeSession(primarySessionID) {
+		t.Fatal("manager allowed its final tab to close")
+	}
+}
+
+func TestSessionManagerRestoresSparseTabsAndSelection(t *testing.T) {
+	manager := newSessionManager(mustNewSession(primarySessionID))
+	open := [maxSessions]bool{}
+	open[3], open[9] = true, true
+	manager.restoreTabs(open, 10)
+	if manager.count() != 2 || manager.selectedID() != 10 {
+		t.Fatalf("restored count/selection = %d/%d", manager.count(), manager.selectedID())
+	}
+	if _, exists := manager.session(1); exists {
+		t.Fatal("restore forced the primary tab open")
+	}
+	if _, exists := manager.session(4); !exists {
+		t.Fatal("restore omitted session 4")
+	}
+}
+
 func TestSessionManagerDisconnectAllTargetsEveryActiveSlot(t *testing.T) {
 	primary := mustNewSession(primarySessionID)
 	manager := newSessionManager(primary)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	var peers []net.Conn
 	for _, session := range slots[:2] {
 		tcp, tcpPeer := net.Pipe()
@@ -158,7 +207,7 @@ func TestSessionTransportCannotReconnectUntilDisconnectJoins(t *testing.T) {
 
 func TestSessionManagerReconnectSupervisorsAreIndependent(t *testing.T) {
 	manager := newSessionManager(mustNewSession(primarySessionID))
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	var attempts [maxSessions]atomic.Int32
 	manager.login = func(session *Session, ctx context.Context, _ int, _ []string) error {
 		attempt := attempts[session.ID()-1].Add(1)
@@ -324,7 +373,7 @@ func TestSessionManagerDisconnectCancelsReconnectBackoff(t *testing.T) {
 
 func TestMultiSessionSelectionAndShutdownStress(t *testing.T) {
 	manager := newSessionManager(mustNewSession(primarySessionID))
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	started := make(chan SessionID, maxSessions)
 	manager.login = func(session *Session, ctx context.Context, _ int, _ []string) error {
 		started <- session.ID()

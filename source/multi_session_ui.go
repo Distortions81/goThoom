@@ -1,17 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"gothoom/eui"
 )
 
 var (
-	sessionsToolbarButton        *eui.ItemData
+	sessionTabBar                *eui.ItemData
 	sessionWorkspaceUpdateQueued atomic.Bool
 )
 
+const sessionTabBarHeight = 30
+
 func init() {
+	previousSelected := queueSelectedSessionUIUpdate
+	queueSelectedSessionUIUpdate = func() {
+		previousSelected()
+		queueSessionWorkspaceUIUpdate()
+	}
 	queueSessionWorkspaceUIUpdate = func() {
 		if !sessionWorkspaceUpdateQueued.CompareAndSwap(false, true) {
 			return
@@ -19,34 +27,171 @@ func init() {
 		dispatchMainThread(func() {
 			sessionWorkspaceUpdateQueued.Store(false)
 			refreshViewportWorkspace()
-			refreshSessionsToolbarButton()
-			refreshMusicSourceControls()
 		})
 	}
 }
 
-func sessionsReady() bool {
-	return uiReady && !fake && clmov == "" && pcapPath == "" &&
-		!status.NeedImages && !status.NeedSounds &&
-		(setupWizardWin == nil || !setupWizardWin.IsOpen())
+func sessionTabsVisible() bool {
+	return !fake && clmov == "" && pcapPath == "" && !setupWizardPreviewActive
 }
 
-func refreshSessionsToolbarButton() {
-	if sessionsToolbarButton == nil {
+func sessionTabBarPixelHeight() int {
+	if sessionTabBar == nil || sessionTabBar.Invisible || !sessionTabsVisible() {
+		return 0
+	}
+	return sessionTabBarHeight
+}
+
+func ensureSessionTabBar() {
+	if sessionTabBar != nil || gameWin == nil {
 		return
 	}
-	sessionsToolbarButton.Text = "Sessions"
-	ready := sessionsReady()
-	multi := appSessions != nil && appSessions.multiEnabled()
-	busy := multi && appSessions.anyBusy()
-	sessionsToolbarButton.Disabled = !ready || busy
-	switch {
-	case !multi:
-		sessionsToolbarButton.SetTooltip("Start multi-session mode with four independent character slots.")
-	case busy:
-		sessionsToolbarButton.SetTooltip("Log out of every session before returning to single-session mode.")
-	default:
-		sessionsToolbarButton.SetTooltip("Return to single-session mode.")
+	sessionTabBar = eui.NewRow()
+	sessionTabBar.Fixed = true
+	gameWin.PrependItem(sessionTabBar)
+}
+
+func sessionTabLabel(session *Session, available float32) string {
+	if session == nil {
+		return ""
 	}
-	sessionsToolbarButton.Dirty = true
+	if available < 56 {
+		return fmt.Sprintf("%d", session.ID())
+	}
+	name := session.characterName()
+	if name == "" {
+		return fmt.Sprintf("Session %d", session.ID())
+	}
+	if available < 100 {
+		runes := []rune(name)
+		if len(runes) > 8 {
+			runes = runes[:8]
+		}
+		return fmt.Sprintf("%d: %s", session.ID(), string(runes))
+	}
+	return fmt.Sprintf("%d: %s", session.ID(), name)
+}
+
+func selectSessionTabPosition(position int) bool {
+	if appSessions == nil || position < 1 {
+		return false
+	}
+	seen := 0
+	for _, session := range appSessions.snapshot() {
+		if session == nil {
+			continue
+		}
+		seen++
+		if seen == position {
+			return appSessions.selectSession(session.ID())
+		}
+	}
+	return false
+}
+
+func confirmCloseSessionTab(session *Session) {
+	if session == nil || appSessions == nil {
+		return
+	}
+	name := session.characterName()
+	if name == "" {
+		name = fmt.Sprintf("Session %d", session.ID())
+	}
+	eui.ShowPopup(
+		"Close Session Tab",
+		fmt.Sprintf("Close %s? Any active connection will be disconnected.", name),
+		[]eui.PopupButton{
+			{Text: "Cancel"},
+			{Text: "Close", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
+				appSessions.closeSession(session.ID())
+			}},
+		},
+	)
+}
+
+func refreshSessionTabs() {
+	ensureSessionTabBar()
+	if sessionTabBar == nil || gameWin == nil {
+		return
+	}
+	visible := sessionTabsVisible()
+	sessionTabBar.Invisible = !visible
+	if !visible {
+		return
+	}
+	scale := eui.UIScale()
+	if scale <= 0 {
+		scale = 1
+	}
+	sessions := appSessions.snapshot()
+	count := appSessions.count()
+	width := float32(max(1, int(gameWin.GetSize().X)-2*int(gameWin.Padding))) / scale
+	plusWidth := float32(28)
+	tabWidth := (width - plusWidth) / float32(max(1, count))
+	if tabWidth < 34 {
+		tabWidth = 34
+	}
+	items := make([]*eui.ItemData, 0, count+1)
+	selected := appSessions.selectedID()
+	for _, session := range sessions {
+		if session == nil {
+			continue
+		}
+		session := session
+		segment := eui.NewRow()
+		segment.Fixed = true
+		segment.Size = eui.Point{X: tabWidth, Y: sessionTabBarHeight / scale}
+		closeWidth := float32(22)
+		selectWidth := max(float32(12), tabWidth-closeWidth)
+		selectButton, selectEvents := eui.NewButton()
+		selectButton.Text = sessionTabLabel(session, selectWidth)
+		selectButton.Size = eui.Point{X: selectWidth, Y: sessionTabBarHeight / scale}
+		selectButton.SetTooltip(fmt.Sprintf("Show Session %d. The shortcut can be changed in Hotkeys.", session.ID()))
+		if session.ID() == selected {
+			selectButton.Color = eui.AccentColor()
+		}
+		selectEvents.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventClick {
+				appSessions.selectSession(session.ID())
+			}
+		}
+		segment.AddItem(selectButton)
+
+		closeButton, closeEvents := eui.NewButton()
+		setMaterialIconOnly(closeButton, "close", "X")
+		closeButton.Size = eui.Point{X: closeWidth, Y: sessionTabBarHeight / scale}
+		closeButton.Disabled = count <= 1
+		if closeButton.Disabled {
+			closeButton.SetTooltip("At least one session tab must remain open.")
+		} else {
+			closeButton.SetTooltip(fmt.Sprintf("Close Session %d.", session.ID()))
+		}
+		closeEvents.Handle = func(event eui.UIEvent) {
+			if event.Type == eui.EventClick && !closeButton.Disabled {
+				confirmCloseSessionTab(session)
+			}
+		}
+		segment.AddItem(closeButton)
+		items = append(items, segment)
+	}
+
+	addButton, addEvents := eui.NewButton()
+	setMaterialIconOnly(addButton, "add", "+")
+	addButton.Size = eui.Point{X: plusWidth, Y: sessionTabBarHeight / scale}
+	addButton.Disabled = count >= maxSessions
+	if addButton.Disabled {
+		addButton.SetTooltip(fmt.Sprintf("The %d-session limit is reached.", maxSessions))
+	} else {
+		addButton.SetTooltip("Open another session tab.")
+	}
+	addEvents.Handle = func(event eui.UIEvent) {
+		if event.Type == eui.EventClick && !addButton.Disabled {
+			appSessions.addSession()
+		}
+	}
+	items = append(items, addButton)
+	sessionTabBar.Position = eui.Point{}
+	sessionTabBar.Size = eui.Point{X: width, Y: sessionTabBarHeight / scale}
+	sessionTabBar.SetItems(items)
+	gameWin.Refresh()
 }

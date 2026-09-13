@@ -1,16 +1,16 @@
 goThoom 59 changes since test58.
 
 Multi-session:
-- Open four independent session views from the toolbar.
-- Click a session view to select it and direct movement, commands, hotkeys, scripts, Inventory, Players, Chat, and Console to that character.
-- Keep every session's network activity, macros, enabled Go scripts, notifications, sound effects, and visual script effects isolated while background sessions continue running. Global scripts receive an independent runtime for every connected character, and character-scoped scripts run only in matching sessions.
-- Choose one session as the shared music source and switch it without mixing or resuming another character's tune.
-- Connect directly inside each session view with the normal saved-character list, character editor, server list, and password prompt, follow connection progress and errors there, or use the small bottom-right logout icon in each connected view. Return to single-session mode from the toolbar after every session disconnects.
-- Use movable session views with the normal freeform Window Layout setting, or a fixed 2×2 grid inside the existing game area with tiled Window Layout. The selected session has the theme accent title bar and, when tiled, an accent outline. The client restores freeform positions, selected session, and music source the next time multi-session opens.
+- Open up to ten independent character tabs above one shared game view. Use + to add a tab and its X, with confirmation, to disconnect and close it.
+- Switch tabs with the mouse or the customizable Ctrl-1 through Ctrl-9 and Ctrl-0 hotkeys. Movement, commands, hotkeys, scripts, Inventory, Players, Chat, and Console follow the selected character.
+- Render only the selected tab while every background session continues network processing, macros, enabled Go scripts, recording, and other session-owned work.
+- Play sound effects only from the selected tab. Track complete bard performances in every session and resume a still-active performance at its current time when its tab is selected.
+- Connect directly inside the shared game view with the normal saved-character list, character editor, server list, and password prompt, and use the small bottom-right logout icon for the selected connection.
+- Restore open tabs and the selected session on the next launch.
+- Keep every session's network activity, macros, enabled Go scripts, notifications, and visual script effects isolated. Global scripts receive an independent runtime for every connected character, and character-scoped scripts run only in matching sessions.
 - Prepare newly encountered area artwork independently for each session, so matching frame counters in other views cannot force slow one-at-a-time asset loading.
-- Keep each session's time of day, indoor/outdoor lighting, shadows, lighting preparation, transitions, and render targets independent, while avoiding unnecessary lighting passes and repeated GPU texture creation when view sizes differ.
-- Render changed session scenes and lighting in shared staged atlases, reducing render-target switching while keeping each viewport's painter order and lighting data independent.
-- Connect with the built-in demo character from the standalone single-session Login window.
+- Keep each session's time of day, indoor/outdoor lighting, shadows, lighting preparation, and transitions independent.
+- Connect with the built-in demo character from any disconnected session tab.
 - Inspect and control the selected character's actual Go-script runtime in the shared Scripts window, including its status, errors, registrations, settings, commands, and key bindings.
 - Reconnect each unexpectedly disconnected session independently with cancellable backoff, while cleanly joining every connection supervisor during logout and shutdown.
 - Record sessions independently and keep a separate persistent Text Log for each slot, including when more than one session uses the same character name.

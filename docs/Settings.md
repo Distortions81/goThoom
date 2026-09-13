@@ -5,10 +5,9 @@ goThoom stores persistent settings in the categorized version 4
 control in Settings, Mixer, Notifications, Speech
 Bubbles, Controller, or Window Layout. This document lists the exceptions.
 
-After multi-session is used, `multi_session.json` separately stores four
-freeform view rectangles, the selected session, and the bard-music source. The
-normal Window Layout preference controls both single- and multi-session layout,
-while the workspace metadata leaves the single-session window positions unchanged.
+`multi_session.json` stores the open session tabs and the selected tab. The
+normal Window Layout preference positions the single shared game view and the
+other application windows.
 
 ## Settings navigation
 

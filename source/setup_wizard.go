@@ -116,6 +116,7 @@ func startSetupWizardPreview() {
 	if loginWin != nil {
 		loginWin.Close()
 	}
+	queueSessionWorkspaceUIUpdate()
 }
 
 func stopSetupWizardPreview() {
@@ -130,6 +131,7 @@ func stopSetupWizardPreview() {
 	if setupWizardPreviewLogin && loginWin != nil {
 		loginWin.MarkOpen()
 	}
+	queueSessionWorkspaceUIUpdate()
 }
 
 func rebuildSetupWizard() {

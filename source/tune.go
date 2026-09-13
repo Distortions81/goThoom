@@ -172,11 +172,17 @@ type pendingSong struct {
 	touched time.Time
 }
 
+type sessionMusicTrack struct {
+	started time.Time
+	jobs    []tuneJob
+}
+
 const musicPartTimeout = 20 * time.Second
 
 type sessionMusicState struct {
 	mu          sync.Mutex
 	pendingByID map[int]*pendingSong
+	active      []sessionMusicTrack
 }
 
 func newSessionMusicState() *sessionMusicState {
@@ -189,7 +195,81 @@ func (s *sessionMusicState) reset() {
 	}
 	s.mu.Lock()
 	s.pendingByID = make(map[int]*pendingSong)
+	s.active = nil
 	s.mu.Unlock()
+}
+
+func (s *sessionMusicState) startTracks(jobs []tuneJob, now time.Time) {
+	if s == nil || len(jobs) == 0 {
+		return
+	}
+	whos := make(map[int]struct{}, len(jobs))
+	for _, job := range jobs {
+		whos[job.who] = struct{}{}
+	}
+	s.mu.Lock()
+	kept := s.active[:0]
+	for _, track := range s.active {
+		replaced := false
+		for _, job := range track.jobs {
+			if _, found := whos[job.who]; found {
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			kept = append(kept, track)
+		}
+	}
+	s.active = append(kept, sessionMusicTrack{started: now, jobs: append([]tuneJob(nil), jobs...)})
+	s.mu.Unlock()
+}
+
+func (s *sessionMusicState) stopTracks(who int) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	if who == 0 {
+		s.active = nil
+		s.mu.Unlock()
+		return
+	}
+	kept := s.active[:0]
+	for _, track := range s.active {
+		stopped := false
+		for _, job := range track.jobs {
+			if job.who == who {
+				stopped = true
+				break
+			}
+		}
+		if !stopped {
+			kept = append(kept, track)
+		}
+	}
+	s.active = kept
+	s.mu.Unlock()
+}
+
+func (s *sessionMusicState) activeTracks(now time.Time) []sessionMusicTrack {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := s.active[:0]
+	result := make([]sessionMusicTrack, 0, len(s.active))
+	for _, track := range s.active {
+		elapsed := now.Sub(track.started)
+		if elapsed < 0 || !movieMusicJobsActiveAt(track.jobs, elapsed) {
+			continue
+		}
+		kept = append(kept, track)
+		result = append(result, sessionMusicTrack{started: track.started, jobs: append([]tuneJob(nil), track.jobs...)})
+	}
+	s.active = kept
+	return result
 }
 
 var (
@@ -227,6 +307,8 @@ func handleSessionMusicParams(session *Session, mp MusicParams) {
 	state.mu.Unlock()
 
 	if mp.Stop {
+		state.stopTracks(mp.Who)
+		invalidateSessionMusicRestore(session)
 		// Scoped stop: if who provided, clear that pending and stop if playing.
 		if mp.Who != 0 {
 			state.mu.Lock()
@@ -455,13 +537,17 @@ func enqueueSessionTunes(session *Session, jobs []tuneJob) {
 		movieMusicIndexCapture(captured)
 		return
 	}
-	routeSessionMusic(session, func() {
-		for _, job := range jobs {
-			if job.parseErr != nil {
-				reportTuneParseError(job.who, job.parseErr)
-				return
-			}
+	for _, job := range jobs {
+		if job.parseErr != nil {
+			reportTuneParseError(job.who, job.parseErr)
+			return
 		}
+	}
+	if session != nil && session.music != nil {
+		session.music.startTracks(jobs, musicCommandNow())
+		invalidateSessionMusicRestore(session)
+	}
+	routeSessionMusic(session, func() {
 		soundMu.Lock()
 		context := audioContext
 		soundMu.Unlock()

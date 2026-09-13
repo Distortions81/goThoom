@@ -12,14 +12,6 @@ import (
 // separate from SessionID even though the first workspace maps them one-to-one.
 type ViewportID uint8
 
-type viewportLayout uint8
-
-const (
-	viewportLayoutSingle viewportLayout = iota
-	viewportLayoutFreeform
-	viewportLayoutTiled
-)
-
 // Viewport owns only presentation and pointer-mapping state. Protocol and
 // character state remain on its assigned Session.
 type Viewport struct {
@@ -41,13 +33,6 @@ type viewportRenderState struct {
 	imageBacking       *ebiten.Image
 	lightingTmp        *ebiten.Image
 	nightTransition    nightTransitionState
-	inAspectResize     bool
-	freeformChromeSet  bool
-	freeformTitle      float32
-	freeformPadding    float32
-	freeformMargin     float32
-	freeformBorder     float32
-	freeformOutlined   bool
 	bubbleHistory      map[bubblePlacementHistoryKey]bubblePlacementHistoryEntry
 	bubbleLayout       bubbleLayoutContext
 	loginOverlay       *eui.ItemData
@@ -80,13 +65,12 @@ func (v Viewport) worldAt(point image.Point) (int16, int16, bool) {
 }
 
 type viewportManager struct {
-	mu     sync.RWMutex
-	views  [maxSessions]Viewport
-	layout viewportLayout
+	mu    sync.RWMutex
+	views [maxSessions]Viewport
 }
 
 func newViewportManager() *viewportManager {
-	m := &viewportManager{layout: viewportLayoutSingle}
+	m := &viewportManager{}
 	for slot := range m.views {
 		id, _ := sessionIDForSlot(slot)
 		m.views[slot] = Viewport{
@@ -129,54 +113,14 @@ func (m *viewportManager) snapshot() [maxSessions]Viewport {
 	return views
 }
 
-func (m *viewportManager) layoutSnapshot() viewportLayout {
-	if m == nil {
-		return viewportLayoutSingle
-	}
-	m.mu.RLock()
-	layout := m.layout
-	m.mu.RUnlock()
-	return layout
-}
-
-func (m *viewportManager) setLayout(layout viewportLayout) bool {
-	if m == nil || layout == viewportLayoutSingle {
-		return false
-	}
-	m.mu.Lock()
-	changed := m.layout != layout
-	m.layout = layout
-	for slot := range m.views {
-		m.views[slot].Active = true
-	}
-	m.mu.Unlock()
-	return changed
-}
-
-func (m *viewportManager) enableMulti(layout viewportLayout) {
-	if m == nil {
-		return
-	}
-	if layout == viewportLayoutSingle {
-		layout = viewportLayoutFreeform
-	}
-	m.mu.Lock()
-	m.layout = layout
-	for slot := range m.views {
-		m.views[slot].Active = true
-	}
-	m.mu.Unlock()
-}
-
-func (m *viewportManager) disableMulti() {
+func (m *viewportManager) showSession(id SessionID) {
 	if m == nil {
 		return
 	}
 	m.mu.Lock()
-	m.layout = viewportLayoutSingle
 	for slot := range m.views {
-		m.views[slot].Active = slot == 0
-		if slot != 0 {
+		m.views[slot].Active = m.views[slot].SessionID == id
+		if !m.views[slot].Active {
 			m.views[slot].Rect = image.Rectangle{}
 		}
 	}
@@ -227,31 +171,6 @@ func (m *viewportManager) selectAt(point image.Point, sessions *sessionManager) 
 	}
 	x, y, inWorld := view.worldAt(point)
 	return view, x, y, inWorld, true
-}
-
-func tiledViewportRects(area image.Rectangle) [maxSessions]image.Rectangle {
-	var rects [maxSessions]image.Rectangle
-	midX := area.Min.X + area.Dx()/2
-	midY := area.Min.Y + area.Dy()/2
-	rects[0] = image.Rect(area.Min.X, area.Min.Y, midX, midY)
-	rects[1] = image.Rect(midX, area.Min.Y, area.Max.X, midY)
-	rects[2] = image.Rect(area.Min.X, midY, midX, area.Max.Y)
-	rects[3] = image.Rect(midX, midY, area.Max.X, area.Max.Y)
-	return rects
-}
-
-func (m *viewportManager) tile(area image.Rectangle) {
-	if m == nil {
-		return
-	}
-	rects := tiledViewportRects(area)
-	m.mu.Lock()
-	m.layout = viewportLayoutTiled
-	for slot := range m.views {
-		m.views[slot].Active = true
-		m.views[slot].Rect = rects[slot]
-	}
-	m.mu.Unlock()
 }
 
 var appViewports = newViewportManager()

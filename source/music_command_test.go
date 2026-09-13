@@ -12,6 +12,20 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
+func usePrimaryMusicSourceForTest(t *testing.T) {
+	t.Helper()
+	appMusicSource.mu.Lock()
+	oldSource, oldGeneration := appMusicSource.source, appMusicSource.generation
+	appMusicSource.source = primarySessionID
+	appMusicSource.generation++
+	appMusicSource.mu.Unlock()
+	t.Cleanup(func() {
+		appMusicSource.mu.Lock()
+		appMusicSource.source, appMusicSource.generation = oldSource, oldGeneration
+		appMusicSource.mu.Unlock()
+	})
+}
+
 func TestParseMusicCommandWithWho(t *testing.T) {
 	// Ensure /music commands with a leading /who segment are parsed.
 	if !parseMusicCommand("/music/who123/play/inst2/notesabc", nil) {
@@ -74,6 +88,7 @@ func TestMusicCommandWho(t *testing.T) {
 }
 
 func TestScopedMusicStopOnlySignalsMatchingBard(t *testing.T) {
+	usePrimaryMusicSourceForTest(t)
 	first, err := audioContext.NewPlayer(bytes.NewReader([]byte{0, 0, 0, 0}))
 	if err != nil {
 		t.Fatalf("first player: %v", err)
@@ -318,6 +333,7 @@ func TestConcertTrioAtThirteenThirty(t *testing.T) {
 }
 
 func TestConcertTrioCommandsAssembleInMovieOrder(t *testing.T) {
+	usePrimaryMusicSourceForTest(t)
 	fontPath := soundFontForTest(t)
 	originalStorageActive := storagePathsActivated
 	frames, err := parseMovie(movieFixturePath(t, "concert1.clMov"), baseVersion)

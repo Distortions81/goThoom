@@ -74,7 +74,14 @@ func chatMessageTyped(msg, messageType string) {
 }
 
 func handleChatTTS(msg, messageType, speaker string) {
+	handleSessionChatTTS(primarySession, msg, messageType, speaker)
+}
+
+func handleSessionChatTTS(session *Session, msg, messageType, speaker string) {
 	if msg == "" || wasmPrivacyActive() {
+		return
+	}
+	if session == nil || appSessions != nil && selectedAppSession() != session {
 		return
 	}
 	if !gs.ChatTTS {

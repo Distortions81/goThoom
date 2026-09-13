@@ -210,9 +210,6 @@ func completeSessionDisconnect(session *Session) {
 	}
 	discardStagedPassword()
 	consoleMessage("Disconnected from server.")
-	if loginWin != nil && !appSessions.multiEnabled() && !reconnectActive {
-		loginWin.MarkOpen()
-	}
 	updateCharacterButtons()
 }
 

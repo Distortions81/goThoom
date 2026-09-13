@@ -283,7 +283,7 @@ func TestApplyEnabledScriptsUsesConnectedSecondaryWithoutCompatibilityRuntime(t 
 	}
 	originalSessions := appSessions
 	manager := newSessionManager(primarySession)
-	slots := manager.enableMulti()
+	slots := manager.materializeAllSessions()
 	secondary := slots[1]
 	secondary.setCharacterName("Second")
 	appSessions = manager

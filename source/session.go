@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-const maxSessions = 4
+const maxSessions = 10
 
 // SessionID is the stable internal identity of one live or login-ready game
 // session. Character names are presentation data and must never be used as the
@@ -160,7 +160,7 @@ func (s *Session) setCharacterName(name string) {
 	s.identityMu.Lock()
 	s.character = name
 	s.identityMu.Unlock()
-	queueMusicSourceUIUpdate()
+	queueSessionWorkspaceUIUpdate()
 }
 
 func (s *Session) characterName() string {

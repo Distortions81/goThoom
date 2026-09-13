@@ -372,11 +372,9 @@ func initUI() {
 
 	if status.NeedImages || status.NeedSounds {
 		downloadWin.MarkOpen()
-	} else if clmov == "" && pcapPath == "" && !fake {
-		loginWin.MarkOpen()
 	}
 	uiReady = true
-	refreshSessionsToolbarButton()
+	refreshViewportWorkspace()
 	if !windowsRestored {
 		restoreWindowSettings()
 	}
@@ -532,26 +530,6 @@ func buildToolbar(toolFontSize, buttonWidth, buttonHeight float32) *eui.ItemData
 		}
 	}
 	row2.AddItem(exitBtn)
-
-	sessionsToolbarButton, sessionsEvents := eui.NewButton()
-	setMaterialButtonIcon(sessionsToolbarButton, "dashboard_customize")
-	sessionsToolbarButton.Size = eui.Point{X: buttonWidth, Y: buttonHeight}
-	sessionsToolbarButton.FontSize = toolFontSize
-	sessionsToolbarButton.Action = func() {
-		refreshSessionsToolbarButton()
-	}
-	refreshSessionsToolbarButton()
-	sessionsEvents.Handle = func(ev eui.UIEvent) {
-		if ev.Type != eui.EventClick || sessionsToolbarButton.Disabled {
-			return
-		}
-		if appSessions.multiEnabled() {
-			appSessions.disableMulti()
-			return
-		}
-		appSessions.enableMulti()
-	}
-	row2.AddItem(sessionsToolbarButton)
 
 	/*
 	   stopBtn, stopEvents := eui.NewButton()
@@ -1934,16 +1912,6 @@ func makeMixerWindow() {
 
 	addBigSpacer()
 
-	musicSourceCol := &eui.ItemData{ItemType: eui.ITEM_FLOW, FlowType: eui.FLOW_VERTICAL, Size: eui.Point{X: 112, Y: 140}}
-	musicSourceTitle, _ := eui.NewText()
-	musicSourceTitle.Text = "Music source"
-	musicSourceTitle.Size = eui.Point{X: 112, Y: 24}
-	musicSourceCol.AddItem(musicSourceTitle)
-	addMusicSourceControls(musicSourceCol, 112, "mixer-music-source")
-	flow.AddItem(musicSourceCol)
-
-	addBigSpacer()
-
 	var mixMuteEvents *eui.EventHandler
 	mixMuteBtn, mixMuteEvents = eui.NewButton()
 	setAudioMuteButtonState(mixMuteBtn, gs.Mute)
@@ -2369,17 +2337,17 @@ func confirmExitSession() {
 		})
 		return
 	}
-	if primarySession.transport.connected() {
+	session := selectedAppSession()
+	if session.transport.connected() || session.connectionBusy() {
 		eui.ShowPopup("Exit Session", "Disconnect and return to login?", []eui.PopupButton{
 			{Text: "Cancel"},
 			{Text: "Disconnect", Color: &eui.ColorDarkRed, HoverColor: &eui.ColorRed, Action: func() {
-				handleDisconnect()
+				handleSessionDisconnect(session)
 			}},
 		})
 		return
 	}
-	// No active session; just go to login
-	loginWin.MarkOpen()
+	focusViewportLogin(session.ID())
 }
 
 func handleToolbarRecording() {
@@ -5525,7 +5493,6 @@ func applyTiledWorkspaceLayout() {
 		restoreSeparateMessageWindows()
 	}
 	applyManagedWindowLayout()
-	applyMultiSessionViewportLayoutIfNeeded()
 	if inventoryWin != nil {
 		updateInventoryWindow()
 	}

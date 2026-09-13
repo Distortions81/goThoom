@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"image"
-	"math"
 	"net"
 	"testing"
 
@@ -67,7 +65,6 @@ func TestViewportLoginPanelAndLogoutTrackConnectionState(t *testing.T) {
 	oldSessions, oldWorkspaceUpdate := appSessions, queueSessionWorkspaceUIUpdate
 	appSessions = newSessionManager(mustNewSession(primarySessionID))
 	appSessions.mu.Lock()
-	appSessions.multi = true
 	appSessions.slots[1] = session
 	appSessions.mu.Unlock()
 	queueSessionWorkspaceUIUpdate = func() {}
@@ -191,7 +188,7 @@ func TestSecondaryViewportWindowIsTransparentToWorldInput(t *testing.T) {
 	})
 
 	appViewports = newViewportManager()
-	appViewports.enableMulti(viewportLayoutFreeform)
+	appViewports.showSession(2)
 	state := appViewports.renderStateForViewport(2)
 	state.window = eui.NewWindow()
 
@@ -244,135 +241,70 @@ func TestPrimaryViewportLoginTargetDoesNotReopenStandaloneLogin(t *testing.T) {
 	}
 }
 
-func TestMultiSessionTiledLayoutAndFreeformRestore(t *testing.T) {
+func TestTabSwitchRebindsOneSharedGameSurface(t *testing.T) {
 	if err := eui.Init(); err != nil {
 		t.Fatalf("initialize EUI: %v", err)
 	}
-	oldScreenWidth, oldScreenHeight := eui.ScreenSize()
-	oldSessions := appSessions
-	oldViewports := appViewports
-	oldGameWindow := gameWin
-	oldGameImageItem, oldGameImage, oldGameImageBacking := gameImageItem, gameImage, gameImageBacking
-	oldSettings := gs
+	oldSessions, oldViewports := appSessions, appViewports
+	oldGameWindow, oldLoginWindow := gameWin, loginWin
+	oldImageItem, oldImage, oldBacking := gameImageItem, gameImage, gameImageBacking
+	oldTabBar := sessionTabBar
+	oldFake, oldMovie, oldPCAP := fake, clmov, pcapPath
 	oldWorkspace := multiSessionWorkspace
-	oldUsed, oldDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
-	oldApplied := viewportWorkspaceAppliedLayout
-	oldAppliedWidth, oldAppliedHeight := viewportWorkspaceScreenWidth, viewportWorkspaceScreenHeight
+	oldWorkspaceUsed, oldWorkspaceDirty := multiSessionWorkspaceUsed, multiSessionWorkspaceDirty
+	appMusicSource.mu.RLock()
+	oldMusicSource, oldMusicGeneration := appMusicSource.source, appMusicSource.generation
+	appMusicSource.mu.RUnlock()
 	t.Cleanup(func() {
-		for _, view := range appViewports.snapshot() {
-			if view.render == nil {
-				continue
-			}
-			if view.render.window != nil {
-				view.render.window.RemoveWindow()
-			}
-			if view.render.imageBacking != nil {
-				view.render.imageBacking.Deallocate()
-			}
+		if gameWin != nil && gameWin != oldGameWindow {
+			gameWin.RemoveWindow()
 		}
-		eui.SetScreenSize(oldScreenWidth, oldScreenHeight)
-		appSessions = oldSessions
-		appViewports = oldViewports
-		gameWin = oldGameWindow
-		gameImageItem, gameImage, gameImageBacking = oldGameImageItem, oldGameImage, oldGameImageBacking
-		gs = oldSettings
+		if gameImageBacking != nil && gameImageBacking != oldBacking {
+			gameImageBacking.Deallocate()
+		}
+		appSessions, appViewports = oldSessions, oldViewports
+		gameWin, loginWin = oldGameWindow, oldLoginWindow
+		gameImageItem, gameImage, gameImageBacking = oldImageItem, oldImage, oldBacking
+		sessionTabBar = oldTabBar
+		fake, clmov, pcapPath = oldFake, oldMovie, oldPCAP
 		multiSessionWorkspace = oldWorkspace
-		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = oldUsed, oldDirty
-		viewportWorkspaceAppliedLayout = oldApplied
-		viewportWorkspaceScreenWidth, viewportWorkspaceScreenHeight = oldAppliedWidth, oldAppliedHeight
+		multiSessionWorkspaceUsed, multiSessionWorkspaceDirty = oldWorkspaceUsed, oldWorkspaceDirty
+		appMusicSource.mu.Lock()
+		appMusicSource.source, appMusicSource.generation = oldMusicSource, oldMusicGeneration
+		appMusicSource.mu.Unlock()
 	})
 
-	eui.SetScreenSize(1000, 800)
-	primary := mustNewSession(primarySessionID)
-	appSessions = newSessionManager(primary)
-	appSessions.mu.Lock()
-	appSessions.multi = true
-	appSessions.selected = 2
-	for slot := 1; slot < maxSessions; slot++ {
-		id, _ := sessionIDForSlot(slot)
-		appSessions.slots[slot] = mustNewSession(id)
-	}
-	appSessions.mu.Unlock()
+	fake, clmov, pcapPath = false, "", ""
+	loginWin = nil
+	appSessions = newSessionManager(mustNewSession(primarySessionID))
+	open := [maxSessions]bool{}
+	open[0], open[1] = true, true
+	appSessions.restoreTabs(open, 2)
 	appViewports = newViewportManager()
-	gs.TiledWindows = true
-	appViewports.enableMulti(viewportLayoutTiled)
-	gs.GameWindow = WindowState{Open: true, Position: WindowPoint{X: 0.1, Y: 0.1}, Size: WindowPoint{X: 0.8, Y: 0.8}}
-	multiSessionWorkspace = defaultMultiSessionWorkspaceDocument()
-	multiSessionWorkspaceUsed = true
-	for slot := range multiSessionWorkspace.ViewportSlots {
-		multiSessionWorkspace.ViewportSlots[slot] = multiSessionViewportPlacement{
-			Position: WindowPoint{X: 0.05 + float64(slot)*0.1, Y: 0.05 + float64(slot)*0.08},
-			Size:     WindowPoint{X: 0.32, Y: 0.265},
-		}
-	}
-
 	gameWin = newGameRenderWindow()
-	gameWin.Size = eui.Point{X: 640, Y: 392}
-	gameWin.MarkOpen()
-	bindPrimaryViewportWindow()
-	applyMultiSessionViewportLayoutIfNeeded()
-	if viewportWorkspaceAppliedLayout == viewportLayoutTiled {
-		t.Fatal("tiled layout was marked applied before all session windows existed")
-	}
-	views := appViewports.snapshot()
-	for slot := 1; slot < maxSessions; slot++ {
-		configureSecondaryViewportWindow(views[slot], appSessions.slots[slot])
-	}
-	applyMultiSessionViewportLayoutIfNeeded()
+	gameWin.Size = eui.Point{X: 640, Y: 420}
+	gameImageItem, gameImageBacking = eui.NewImageFastItem(640, 360)
+	gameImage = gameImageBacking
+	gameImageItem.Image = gameImage
+	gameWin.AddItem(gameImageItem)
+	gameWin.AddWindow(false)
+	sessionTabBar = nil
 
-	wantRects := tiledViewportRects(image.Rect(100, 80, 900, 720))
-	for slot, view := range appViewports.snapshot() {
-		win := view.render.window
-		pos, size := win.GetPos(), win.GetSize()
-		want := wantRects[slot]
-		if int(pos.X) != want.Min.X || int(pos.Y) != want.Min.Y || int(size.X) != want.Dx() || int(size.Y) != want.Dy() {
-			t.Fatalf("tile %d = %.0f,%.0f %.0fx%.0f, want %v", slot, pos.X, pos.Y, size.X, size.Y, want)
-		}
-		if !win.Docked || win.Movable || win.Resizable {
-			t.Fatalf("tile %d chrome is not fixed and docked", slot)
-		}
+	refreshViewportWorkspace()
+	first := appViewports.renderStateForSession(1)
+	second := appViewports.renderStateForSession(2)
+	if second.window != gameWin || second.imageBacking != gameImageBacking || first.window != nil {
+		t.Fatalf("session 2 binding = first window %p, second window %p backing %p", first.window, second.window, second.imageBacking)
 	}
-	selectedWindow := appViewports.renderStateForSession(2).window
-	if !selectedWindow.Outlined || selectedWindow.BorderColor != eui.AccentColor() {
-		t.Fatal("selected tile does not have the accent outline")
-	}
-	if selectedWindow.TitleBGColor != eui.AccentColor() {
-		t.Fatal("selected tile does not have the accent title bar")
-	}
-	if appViewports.renderStateForSession(1).window.TitleBGColor != (eui.Color{}) {
-		t.Fatal("unselected tile retained a title-bar override")
+	if !appViewports.snapshot()[1].Active || appViewports.snapshot()[0].Active {
+		t.Fatal("more than the selected viewport is active")
 	}
 
-	gs.TiledWindows = false
-	applyMultiSessionViewportLayoutIfNeeded()
-	for slot, view := range appViewports.snapshot() {
-		win := view.render.window
-		pos := win.GetPos()
-		want := multiSessionWorkspace.ViewportSlots[slot]
-		if int(pos.X) != int(math.Round(want.Position.X*1000)) || int(pos.Y) != int(math.Round(want.Position.Y*800)) {
-			t.Fatalf("freeform slot %d position = %.0f,%.0f, want %+v", slot, pos.X, pos.Y, want.Position)
-		}
-		if win.Docked || !win.Movable || !win.Resizable {
-			t.Fatalf("freeform slot %d chrome was not restored", slot)
-		}
+	if !appSessions.selectSession(1) {
+		t.Fatal("could not select session 1")
 	}
-	if selectedWindow.TitleBGColor != eui.AccentColor() {
-		t.Fatal("selected freeform session does not have the accent title bar")
-	}
-	if !appSessions.selectSession(3) {
-		t.Fatal("select session 3")
-	}
-	drainMainThreadDispatcher()
-	if selectedWindow.TitleBGColor != (eui.Color{}) || appViewports.renderStateForSession(3).window.TitleBGColor != eui.AccentColor() {
-		t.Fatal("accent title bar did not follow the selected session")
-	}
-	appSessions.mu.Lock()
-	appSessions.multi = false
-	appSessions.mu.Unlock()
-	refreshViewportSelectionTreatment()
-	for slot, view := range appViewports.snapshot() {
-		if view.render.window.TitleBGColor != (eui.Color{}) {
-			t.Fatalf("slot %d retained its accent title bar outside multi-session", slot)
-		}
+	refreshViewportWorkspace()
+	if first.window != gameWin || first.imageBacking != gameImageBacking || second.window != nil || second.imageBacking != nil {
+		t.Fatalf("session 1 binding = first window %p backing %p, second window %p backing %p", first.window, first.imageBacking, second.window, second.imageBacking)
 	}
 }

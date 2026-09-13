@@ -63,10 +63,10 @@ and verifies that a new folder is readable and writable before saving it.
 - **Windows:** Use **Settings → Display → Window Layout** to arrange the game,
   Players, Inventory, Chat, and Console panes. The **Actions** toolbar menu opens
   Hotkeys, Shortcuts, scripts, macros, and saved data.
-- **Multiple sessions:** Use **Multi-session** on the toolbar after startup to
-  open four independent session views. The existing Window Layout choice uses
-  movable views in freeform mode and a 2×2 grid in tiled mode; click a view to
-  make it the target for input and shared panels. See the
+- **Multiple sessions:** Each character connection has a tab above the one game
+  view. Use **+** to open another tab, up to ten, and the tab's **X** to close it.
+  The selected tab owns rendering, input, shared panels, and audio while every
+  other session stays connected and keeps processing updates. See the
   [multi-session guide](docs/MultiSession.md).
 - **Inventory:** Click to select, double-click to equip or unequip, and
   Shift-double-click to use. Right-click for more actions.

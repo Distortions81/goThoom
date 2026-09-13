@@ -392,16 +392,33 @@ func playSound(ids []uint16) {
 }
 
 func playSessionSound(session *Session, ids []uint16) {
-	playSessionSoundWithSettings(session, ids, gs.SoundEnhancement, gs.SoundEnhancementAmount, highQualityResamplingEnabled())
+	if session == nil || appSessions != nil && selectedAppSession() != session {
+		return
+	}
+	queueSound(ids, session.ID(), gs.SoundEnhancement, gs.SoundEnhancementAmount, highQualityResamplingEnabled())
 }
 
 // playSoundWithSettings queues a sound using explicit processing choices. It
 // is used by audio previews so an A/B test does not alter saved settings.
 func playSoundWithSettings(ids []uint16, enhanced bool, enhancementAmount float64, highQuality bool) {
-	playSessionSoundWithSettings(primarySession, ids, enhanced, enhancementAmount, highQuality)
+	queueSound(ids, 0, enhanced, enhancementAmount, highQuality)
 }
 
 func playSessionSoundWithSettings(session *Session, ids []uint16, enhanced bool, enhancementAmount float64, highQuality bool) {
+	if session == nil || appSessions != nil && selectedAppSession() != session {
+		return
+	}
+	queueSound(ids, session.ID(), enhanced, enhancementAmount, highQuality)
+}
+
+func queueSessionSound(session *Session, ids []uint16, enhanced bool, enhancementAmount float64, highQuality bool) {
+	if session == nil {
+		return
+	}
+	queueSound(ids, session.ID(), enhanced, enhancementAmount, highQuality)
+}
+
+func queueSound(ids []uint16, sourceSession SessionID, enhanced bool, enhancementAmount float64, highQuality bool) {
 	if len(ids) == 0 || gs.Mute || focusMuted || !gs.GameSound {
 		return
 	}
@@ -419,7 +436,7 @@ func playSessionSoundWithSettings(session *Session, ids []uint16, enhanced bool,
 		amount = 0
 	}
 	request := soundPlaybackRequest{
-		ids: append([]uint16(nil), ids...), sourceSession: session.ID(), context: context, generation: generation,
+		ids: append([]uint16(nil), ids...), sourceSession: sourceSession, context: context, generation: generation,
 		sourceGeneration: sourceGeneration, enhanced: enhanced, enhancementAmount: amount,
 		highQuality: highQuality, volume: effectiveAudioVolume(gs.MasterVolume * gs.GameVolume),
 		restartActive: enhanced && gs.ThrottleSounds,
@@ -461,6 +478,9 @@ func soundPlaybackRequestCurrent(request soundPlaybackRequest) bool {
 	soundMu.Lock()
 	current := request.context == audioContext && request.generation == soundPlaybackGeneration && request.sourceGeneration == soundCacheGeneration
 	soundMu.Unlock()
+	if current && request.sourceSession.Valid() && appSessions != nil {
+		current = appSessions.selectedID() == request.sourceSession
+	}
 	return current
 }
 

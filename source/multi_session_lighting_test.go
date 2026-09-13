@@ -135,31 +135,3 @@ func TestViewportLightingFramesAreIndependent(t *testing.T) {
 		t.Fatal("viewport lighting slices share backing state")
 	}
 }
-
-func TestPackViewportRenderRectsChoosesTiledAtlas(t *testing.T) {
-	sizes := []image.Point{{X: 320, Y: 240}, {X: 320, Y: 240}, {X: 320, Y: 240}, {X: 320, Y: 240}}
-	rects, size, ok := packViewportRenderRects(sizes, 4096)
-	if !ok {
-		t.Fatal("four ordinary viewports did not fit in the render atlas")
-	}
-	wantSize := image.Pt(320*2+viewportRenderAtlasGap, 240*2+viewportRenderAtlasGap)
-	if size != wantSize {
-		t.Fatalf("atlas size = %v, want %v", size, wantSize)
-	}
-	for index, rect := range rects {
-		if rect.Size() != sizes[index] {
-			t.Fatalf("atlas rect %d size = %v, want %v", index, rect.Size(), sizes[index])
-		}
-		for other := range rects[:index] {
-			if rect.Overlaps(rects[other]) {
-				t.Fatalf("atlas rects %d and %d overlap: %v and %v", index, other, rect, rects[other])
-			}
-		}
-	}
-}
-
-func TestPackViewportRenderRectsRejectsDeviceLimit(t *testing.T) {
-	if _, _, ok := packViewportRenderRects([]image.Point{{X: 500, Y: 300}, {X: 500, Y: 300}}, 512); ok {
-		t.Fatal("render atlas exceeded the device image limit")
-	}
-}
